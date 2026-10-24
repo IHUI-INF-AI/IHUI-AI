@@ -93,8 +93,8 @@ const processedIds = new Set<string>()
  * 重放水位(2026-09-30,吸收 zcode-protocol-v4 settledByRoute):键 = 本实例身份,
  * 墓碑 {lastOrdinal, lastId} O(1) —— 判序早于判体:低于水位静默丢、同序号同 id 幂等
  * 忽略、同序号不同 id 记 typed fault,水位只升不降。治「有界 id 集合淘汰后重放复活」。
- * 协议尚未下发单调序号,以端内到达计数作 provisional ordinal(恒 fresh,去重仍由
- * processedIds 承担);协议序号下发后只需替换 observe 的取值来源,判定语义已就位。
+ * G-86(拍板@2026-10-09)接线后取值来源 = 服务端派发盖写的协议序号 req.ordinal;
+ * 仅旧服务端(无该字段)回退端内到达计数作 provisional(恒 fresh,去重仍由 processedIds 承担)。
  */
 const replayWatermark = createReplayWatermark()
 let arrivalOrdinal = 0
@@ -343,8 +343,14 @@ function handleWsMessage(msg: WSNotification): void {
     )
     return
   }
-  // 重放水位判定(2026-09-30):判序早于判体,四条处置路径见 createReplayWatermark 注释
-  const replayVerdict = replayWatermark.observe(getInstanceId(), ++arrivalOrdinal, req.requestId)
+  // 重放水位判定(2026-09-30):判序早于判体,四条处置路径见 createReplayWatermark 注释。
+  // G-86:序号取服务端派发的协议 ordinal(同 requestId 重投 = 同序号 ⇒ duplicate);
+  // 字段缺失(旧服务端)才回退端内到达计数。
+  const replayVerdict = replayWatermark.observe(
+    getInstanceId(),
+    typeof req.ordinal === 'number' ? req.ordinal : ++arrivalOrdinal,
+    req.requestId,
+  )
   if (replayVerdict.kind === 'stale' || replayVerdict.kind === 'duplicate') return
   if (replayVerdict.kind === 'conflict') {
     console.warn('[desktop] agent-control:', replayVerdict.message)

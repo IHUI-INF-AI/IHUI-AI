@@ -169,7 +169,9 @@ export function CommandPalette({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl gap-0 p-0">
+      {/* data-testid 为 Esc 无层栈协议真机逐层断言的把手(见 e2e/overlay-stack-esc.spec.ts):
+          把尺子钉死在本面板,不受页面上其它 Radix Dialog 实例(如后端抖动时弹出的登录守卫)干扰 */}
+      <DialogContent data-testid="command-palette" className="max-w-xl gap-0 p-0">
         <div className="flex items-center bg-muted/30 px-2 py-1.5">
           <SearchInput
             ref={inputRef}

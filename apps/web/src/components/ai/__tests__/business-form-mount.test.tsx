@@ -63,15 +63,23 @@ function fillEmailForm(container: HTMLElement): void {
   typeField(container, 'body', 'hello')
 }
 
+/** 所有 POST 腿的调用(挂载后 D77 收口格会先向 GET 读口对账一次,计数只认上行 POST) */
+function postCalls(): Array<{ url: string; body: Record<string, unknown> }> {
+  const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>
+  return fetchMock.mock.calls
+    .filter((call) => (call[1] as RequestInit | undefined)?.method === 'POST')
+    .map((call) => ({
+      url: String(call[0]),
+      body: JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>,
+    }))
+}
+
 /** 最后一次 POST 的 [url, init] */
 function lastPost(): { url: string; body: Record<string, unknown> } {
-  const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>
-  const calls = fetchMock.mock.calls
-  const call = calls[calls.length - 1] as [string, RequestInit]
-  return {
-    url: String(call[0]),
-    body: JSON.parse(String(call[1].body)) as Record<string, unknown>,
-  }
+  const posts = postCalls()
+  const call = posts[posts.length - 1]
+  if (!call) throw new Error('no POST call recorded')
+  return call
 }
 
 describe('D77 BusinessFormSection 装车 + 成对动作', () => {
@@ -111,8 +119,7 @@ describe('D77 BusinessFormSection 装车 + 成对动作', () => {
     fillEmailForm(container)
     clickAction(container, 'approve')
 
-    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(postCalls()).toHaveLength(1))
     const post = lastPost()
     expect(post.url).toContain('/llm/complete/stream/sess-d77/form-response')
     expect(post.body.request_id).toBe(REQUEST_ID)
@@ -132,8 +139,7 @@ describe('D77 BusinessFormSection 装车 + 成对动作', () => {
     fireEvent.change(reasonInput!, { target: { value: '时间不合适' } })
     clickAction(container, 'reject')
 
-    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(postCalls()).toHaveLength(1))
     const post = lastPost()
     expect(post.body.action).toBe('reject')
     expect(post.body.reject_reason).toBe('时间不合适')
@@ -154,9 +160,7 @@ describe('D77 BusinessFormSection 装车 + 成对动作', () => {
     const { container } = render(section())
     clickAction(container, 'reject')
     await vi.waitFor(() =>
-      expect(
-        container.querySelector('[data-form-send-failed="frm-no-session"]'),
-      ).not.toBeNull(),
+      expect(container.querySelector('[data-form-send-failed="frm-no-session"]')).not.toBeNull(),
     )
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })

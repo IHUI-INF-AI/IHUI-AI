@@ -27,6 +27,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Input, Label } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
+import type { FormResponseStatus } from '@/stores/business-forms'
 import {
   BUSINESS_FORM_FIELDS,
   applyFormAction,
@@ -52,7 +53,10 @@ function splitAttendees(raw: string): string[] {
 }
 
 /** 输入串值 → 判定层表单值(attendees 拆数组,其余原样) */
-function toFormValues(kind: BusinessFormKind, raw: Readonly<Record<string, string>>): Record<string, BusinessFormValue> {
+function toFormValues(
+  kind: BusinessFormKind,
+  raw: Readonly<Record<string, string>>,
+): Record<string, BusinessFormValue> {
   const values: Record<string, BusinessFormValue> = { ...raw }
   if (kind === 'calendarEvent') {
     values.attendees = splitAttendees(raw.attendees ?? '')
@@ -69,6 +73,13 @@ export interface BusinessFormCardProps {
   requestId?: string
   /** 动作回调。**数据面在调用方**;reject 时收到的应答 `values` 恒为 null(reject-only) */
   onAction?: (payload: BusinessFormActionPayload) => void
+  /**
+   * D77 收口格(2026-10-23):读口回显的持久裁决态,由宿主(business-form-section)
+   * 拉取后注入 —— 卡片本身仍不取数(数据面纪律不变)。approved/rejected 直接落终态
+   * 渲染(字段禁用、无动作按钮、状态徽标);pending/undefined 维持可填表单。
+   * 本地已答(乐观终态)不会被滞后的 pending 读回降级 —— 只允许向上收敛到终态。
+   */
+  responseState?: FormResponseStatus
   className?: string
   'data-testid'?: string
 }
@@ -81,14 +92,29 @@ export function BusinessFormCard({
   mode = 'create',
   requestId,
   onAction,
+  responseState,
   className,
   'data-testid': testId,
 }: BusinessFormCardProps) {
   const t = useTranslations('ai.pane.businessForms')
 
-  const [phase, setPhase] = React.useState<FormStatePhase>(() => applyFormAction('idle', { type: 'beginFill' }))
+  // 初始相位即认读口终态:刷新/重进会话后挂载的卡直接显示"已批准/已拒绝",不闪可填态。
+  const [phase, setPhase] = React.useState<FormStatePhase>(() =>
+    responseState === 'approved' || responseState === 'rejected'
+      ? responseState
+      : applyFormAction('idle', { type: 'beginFill' }),
+  )
+
+  // 读口晚到(挂载后才查回裁决)→ 向上收敛到终态;滞后的 pending 读回**不降级**
+  // 本地已答的乐观终态(用户刚点过批准,库里那一行必然随后到齐)。
+  React.useEffect(() => {
+    if (responseState !== 'approved' && responseState !== 'rejected') return
+    setPhase((p) => (p === 'filling' ? responseState : p))
+  }, [responseState])
   const [raw, setRaw] = React.useState<Readonly<Record<string, string>>>({})
-  const [errors, setErrors] = React.useState<Readonly<Record<string, BusinessFormFieldError>> | null>(null)
+  const [errors, setErrors] = React.useState<Readonly<
+    Record<string, BusinessFormFieldError>
+  > | null>(null)
   const [attendeesExpanded, setAttendeesExpanded] = React.useState(false)
 
   const fields = BUSINESS_FORM_FIELDS[kind]
@@ -117,7 +143,9 @@ export function BusinessFormCard({
       return
     }
     setErrors(null)
-    setPhase((p) => applyFormAction(applyFormAction(p, { type: 'submit' }), { type: 'commitSuccess' }))
+    setPhase((p) =>
+      applyFormAction(applyFormAction(p, { type: 'submit' }), { type: 'commitSuccess' }),
+    )
     onAction?.({ action: 'approve', kind, values })
   }
 
@@ -130,9 +158,10 @@ export function BusinessFormCard({
 
   const attendeesList = kind === 'calendarEvent' ? splitAttendees(raw.attendees ?? '') : []
   const fold = attendeesFoldNeeded(attendeesList.length)
-  const visibleAttendees = fold.foldNeeded && !attendeesExpanded
-    ? attendeesList.slice(0, fold.visibleCount)
-    : attendeesList
+  const visibleAttendees =
+    fold.foldNeeded && !attendeesExpanded
+      ? attendeesList.slice(0, fold.visibleCount)
+      : attendeesList
 
   const approveLabel = kind === 'calendarEvent' ? t(`action.${submitIntent}`) : t('action.approve')
 
@@ -145,13 +174,16 @@ export function BusinessFormCard({
       data-form-kind={kind}
       data-form-phase={phase}
       data-form-request-id={requestId}
+      data-form-response-state={responseState}
     >
       <span className="text-xs font-medium text-muted-foreground">{t(`aria.${kind}`)}</span>
 
       <div className="flex flex-col gap-2">
         {fields.map((field) => (
           <div key={field.key} className="flex flex-col gap-1" data-form-field={field.key}>
-            <Label className="text-xs text-muted-foreground">{t(formFieldLabelKey(kind, field.key))}</Label>
+            <Label className="text-xs text-muted-foreground">
+              {t(formFieldLabelKey(kind, field.key))}
+            </Label>
             {field.type === 'multiline' ? (
               <textarea
                 className={cn(INPUT_CLASS, 'h-20 py-2')}
@@ -162,7 +194,13 @@ export function BusinessFormCard({
               />
             ) : (
               <Input
-                type={field.type === 'datetime' ? 'datetime-local' : field.type === 'email' ? 'email' : 'text'}
+                type={
+                  field.type === 'datetime'
+                    ? 'datetime-local'
+                    : field.type === 'email'
+                      ? 'email'
+                      : 'text'
+                }
                 className="h-9"
                 value={raw[field.key] ?? ''}
                 placeholder={t(formFieldLabelKey(kind, field.key))}
@@ -184,7 +222,10 @@ export function BusinessFormCard({
       </div>
 
       {kind === 'calendarEvent' && attendeesList.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1" data-form-attendees-count={attendeesList.length}>
+        <div
+          className="flex flex-wrap items-center gap-1"
+          data-form-attendees-count={attendeesList.length}
+        >
           {visibleAttendees.map((addr) => (
             <span
               key={addr}
@@ -242,7 +283,10 @@ export function BusinessFormCard({
       ) : null}
 
       {phase === 'approved' ? (
-        <span className="text-[11px] text-emerald-600 dark:text-emerald-500" data-form-status="approved">
+        <span
+          className="text-[11px] text-emerald-600 dark:text-emerald-500"
+          data-form-status="approved"
+        >
           {t('status.approved')}
         </span>
       ) : null}
