@@ -25,9 +25,6 @@ export function createUserFansStyles(tk: AppThemeTokens) {
     },
     headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
     body: { padding: 12, gap: 8, paddingBottom: 32 },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
     muted: { fontSize: 12, color: tk.text.secondary },
     total: { fontSize: 12, color: tk.text.tertiary, paddingHorizontal: 4 },
     row: {

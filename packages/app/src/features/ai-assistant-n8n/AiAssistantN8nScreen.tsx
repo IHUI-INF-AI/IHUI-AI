@@ -338,10 +338,6 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
-    modelConfigBtnText: {
-      fontSize: 14,
-      color: tk.text.secondary,
-    } as TextStyle,
     modelConfigBtnLabel: {
       fontSize: 14,
       color: tk.text.secondary,
@@ -394,12 +390,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 14,
       color: tk.text.tertiary,
     } as TextStyle,
-    // 空态/加载态
-    loadingText: {
-      fontSize: 16,
-      color: tk.text.secondary,
-      marginTop: 8,
-    } as TextStyle,
     footerWrap: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -407,10 +397,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 6,
     } as ViewStyle,
-    footerText: {
-      fontSize: 14,
-      color: tk.text.tertiary,
-    } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
