@@ -29070,3 +29070,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-871 腾讯云短信第二通道已接线、处于未配置态:待控制台建应用取 SmsSdkAppId 并报签名与四枚场景模板后,填 apps/api/.env 的 TENCENT_SMS_* 并把 SMS_PROVIDER 改成 tencent(在等什么:国内短信运营商签名报备通常 7~10 个工作日;2026-10-22 现读 DescribeSmsSignList / DescribeSmsTemplateList 均空集,签名类型只认 公司/App/商标/政府机构)
 - [ ] G-873 小程序登录页接微信手机号一键验证:后端已入库(带 10 例锁),缺 login.tsx 挂载 LoginPopUp 时补传 onOneClickLogin + api/index.ts 加 oneTapLogin 方法(前端逻辑 LoginPopUp.tsx 那套取 phoneCode→Taro.login 取 loginCode 本就正确,参数形状与端点逐字一致)—— 必须在微信开发者工具真机验一次才算完成,本机无小程序运行时
 
+
