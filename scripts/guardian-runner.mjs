@@ -5438,6 +5438,36 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 额度守卫写入的影响行 / 回调吞失败(2026-10-25 立;积分兑换超卖 + 提现黑洞)(1 项,blocking)---
+  {
+    id: '243',
+    label:
+      '💸 额度扣减必须读回影响行 + 资金回调不得用 SUCCESS 吞失败(blocking;G1 扣额度型守卫写入无 .returning 且结果被丢 / G3 相对扣减完全没有额度守卫 / G2 回调 catch 里回 code:SUCCESS)',
+    script: 'check-guarded-write-affected.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/api/src/'],
+    skipEnv: 'HUSKY_SKIP_GUARDED_WRITE_AFFECTED',
+    onFailHint: [
+      '',
+      '  💡 立因(两处均本枚实测):',
+      '     G1 points-mall-user 兑换把库存写成 `await db.update().set(stock-1).where(stock>0)`,',
+      '        守卫对、影响行数不取 ⇒ 并发抢空时扣减静默 no-op,而积分照扣、订单照插、仍回 200 = 超卖不退款。',
+      '     G2 payment-extended 提现回调 catch 里回 SUCCESS("防止微信重复回调")⇒ 上游不再重投,',
+      '        流水永停 pending、frozen_quantity 永不释放,而 withdrawalFlows 全仓无对账兜底。',
+      '        防重投本由上面那句 status 守卫负责;本仓 payment-gateway.ts:729 已给出正确口径。',
+      '     G3 现读存量 3 处(userMargins 余额扣减只带 eq(userId) 不带 gte(balance,amount))⇒ 只拦新增。',
+      '     修法:G1/G3 给扣减加 `gte(余额列, 数额)` 守卫并 .returning(...) 取回影响行,空集即回绝;',
+      '           G2 失败改 reply.code(500).send({code:\'FAIL\', message:\'副作用处理失败,待重试\'})。',
+      '     合法形态不收:单调推进(lt(lastMessageAt))与范围删除(gt(createdAt))的 0 行本就是正解。',
+      '     单独复验:node scripts/check-guarded-write-affected.mjs --staged',
+      '     自检:node scripts/check-guarded-write-affected.mjs --self-test(13 例,G1/G2/G3 各有成对反向锁)',
+      '     镜像:node scripts/tests/check-guarded-write-affected.test.mjs(判据 import 门体 __test__)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_GUARDED_WRITE_AFFECTED=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 身份主体单一真相源(2026-10-25 立;crew/knowledge 匿名越权族根治)(1 项,blocking)---
   {
     id: '242',
