@@ -41,14 +41,24 @@
  *  号位一路涨到七位数(G-1122550)。根治不是"忘了收号",而是"取号前沿只会单调向前"这一条:
  *  本日改池式 —— 每族号池 = 1..LEASE_POOL_MAX(硬上限 999,三位数);新占段不再越过 max,
  *  而是在池内找"连续 segmentSize 个全空闲"的窗,从最小空闲窗起排(多个候选窗时按机器指纹
- *  取模错开,两机同刻新占大概率落不同窗,CAS 兜底不变)。段满续占池内下一窗;整池再装不下
- *  一段 ⇒ 池满,拒绝发号(fail-loud)—— 宁可停下来逼人归档已完成任务腾号,绝不发 1000+。
+ *  取模错开,两机同刻新占大概率落不同窗,CAS 兜底不变)。段满续占池内下一窗;装不下一段 ⇒
+ *  拒绝发号(fail-loud),绝不发 1000+。**"装不下一段"有两种完全不同的成因,不得混成一句
+ *  "池已满"**(2026-10-23 收口,机读字段 `reason` 单源在本文件 `POOL_EXHAUST_REASON`):
+ *    ① 池内可发号 = 0 ⇒ `POOL_FULL` —— 这一型的出路才是"归档已完成条目腾号";
+ *    ② 池内仍有空闲号,却没有任何"连续 segmentSize 个可落窗位"(散点占用 + 租约保留位把空闲切成
+ *      碎游程)⇒ `NO_CONTIGUOUS_LEASE_WINDOW` —— **散点归档腾不出连续窗**(2026-10-23 实测 G 族:
+ *      池内已占 815 / 空闲 184,最长可落窗游程 32 < 段容量 50,发号仍拒),要动的是"让出一段连续
+ *      号段"(同段集中归档,或经人复核调 `IHUI_LEASE_SEGMENT_SIZE`),继续散点清号是无效出路。
+ *  旧措辞把 ② 也念成"号池已满 ⇒ 归档腾号",已污染台账(≥6 行票头照抄该归因)。⇒ 结论文本必须
+ *  与判据同形(AGENTS §0.3/§10):读数由 `leaseCursor` 一并交出,可读行由 `describePoolExhaustion`
+ *  一处渲染,调用方按 `reason` 分档给出路,不得按 `mode` 一言以蔽之。
  *  占用面口径:池内只认 ≤999 的号;归档件里 >999 的大号是存量债,不占池、不挡新号、
  *  也因此**不参与 floor** —— collectIdFace 的宽面(台账⊕归档件)照旧同面同轮,只是
  *  "什么号能发"由池这一层裁决。租约续占只认**完全落在池内**的段:池外的旧段是历史定格,
  *  续发就会突破上限 ⇒ 结构上不可续(失效方向 = 走池内新占段,安全侧)。
  *  归档回收咬合:archive-completed-tasks 归档 [x] 条目后台账只剩 HTML 注释占位,不占池;
- *  池的占用只随"新登记"增长、随"归档"从台账面让位 —— 池满即真实水位,不是误报。
+ *  池的占用只随"新登记"增长、随"归档"从台账面让位 —— **空闲枚数**是真实水位;但"发不出号"
+ *  不等于"池已满":无连续窗那一型(成因 ②)靠散点让位不会好转,必须看 `reason` 分档。
  */
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
@@ -76,6 +86,19 @@ export const LEASE_SEGMENT_SIZE = (() => {
 
 /** 号池硬上限:每族取号池 = 1..LEASE_POOL_MAX(三位数,2026-10-14 拍板,env 不得覆写)。 */
 export const LEASE_POOL_MAX = 999
+
+/**
+ * `mode:'pool-exhausted'` 的两种**真成因**(机读字段 `reason` 的取值,2026-10-23 立)。
+ * 取值只住这一份:出口渲染、镜像测试、调用方分档都 import 它,不得在别处再写字符串字面量
+ * (AGENTS §0.6/§22c —— 第二份必然漂移,而漂掉的正好是"能区分两种成因"这一维)。
+ *  - `poolFull`:池内一个空闲号都没有(1..poolMax 全被占用面 + 远端避让覆盖)⇒ 出路 = 让位腾号;
+ *  - `noContiguousWindow`:池内**仍有空闲号**,却没有连续 segmentSize 个可落窗位 ⇒ 让位腾不出窗,
+ *    要动的是"让出一段连续号段";把它念成"池已满"会把人引到无效出路上(本票立因)。
+ */
+export const POOL_EXHAUST_REASON = Object.freeze({
+  poolFull: 'POOL_FULL',
+  noContiguousWindow: 'NO_CONTIGUOUS_LEASE_WINDOW',
+})
 
 /**
  * 编号头形状,与 usedIdsOfPrefix 的判据同形(族名 + 可选分隔符 + 数字段)。
@@ -245,8 +268,10 @@ export function parseLeases(content, family) {
  *  - 没有 / 段满 ⇒ 池内新占段:在 1..poolMax 里找"连续 segmentSize 个全空闲"的窗
  *    (避开已占号、避开一切租约段的保留位、避开 baseMax 代表的远端盲区段),
  *    多个候选窗时按下标 `hash(machineId|family|窗数) % 窗数` 错开(同面同轮确定性,
- *    两机大概率不同窗);**不再越过全局 max 单调爬升**。占不了窗 ⇒ mode:'pool-exhausted',
- *    调用方必须拒绝发号 —— 绝不发 poolMax 之外的号。
+ *    两机大概率不同窗);**不再越过全局 max 单调爬升**。占不了窗 ⇒ `mode:'pool-exhausted'`,
+ *    调用方必须拒绝发号 —— 绝不发 poolMax 之外的号。**同时交出 `reason`/`freeInPool`/
+ *    `largestRun` 三个读数**:池已满(POOL_FULL)与"有闲号却无连续窗"(NO_CONTIGUOUS_LEASE_WINDOW)
+ *    是两件事,结论文本由 `describePoolExhaustion` 按成因渲染,谁念成"号池已满"都是把 ② 说错。
  *  baseMax 由调用方给"max(本地, 远端)":≤poolMax 时参与避让(远端只抬高),>poolMax 时
  *  说明对面还在旧口径发大号 ⇒ 池式不理它(双方号域不相交,结构性不撞)。
  */
@@ -287,21 +312,80 @@ export function leaseCursor({
     for (const [a, b] of reserved) if (n >= a && n <= b) return true
     return false
   }
+  // "落得了窗的位置"只有一个谓词:候选窗扫描与游程测量共用它,不在两处各写一份(§0.6 同型)。
+  const windowEligible = (n) => !blocked.has(n) && !inReserved(n)
   const candidates = []
   for (let s = 1; s + segmentSize - 1 <= poolMax; s += 1) {
     let free = true
     for (let n = s; n < s + segmentSize; n += 1) {
-      if (blocked.has(n) || inReserved(n)) {
+      if (!windowEligible(n)) {
         free = false
         break
       }
     }
     if (free) candidates.push(s)
   }
-  if (candidates.length === 0) return { mode: 'pool-exhausted', poolMax, segmentSize }
+  if (candidates.length === 0) {
+    // 结论必须与判据同形(§0.3/§10):"装不下一段"有两种成因,现场量出来再念,不得一律念"池已满"。
+    // freeInPool 的算术成立条件 = poolBlocked 把 blocked 收窄在 [1,poolMax](used 过滤 + baseMax 夹取),
+    // 故 池内空闲枚数 = poolMax - blocked.size;不另数一遍,数两遍就有第二份口径。
+    const freeInPool = poolMax - blocked.size
+    let run = 0
+    let largestRun = 0
+    for (let n = 1; n <= poolMax; n += 1) {
+      if (!windowEligible(n)) {
+        run = 0
+        continue
+      }
+      run += 1
+      if (run > largestRun) largestRun = run
+    }
+    return {
+      mode: 'pool-exhausted',
+      reason: freeInPool > 0 ? POOL_EXHAUST_REASON.noContiguousWindow : POOL_EXHAUST_REASON.poolFull,
+      freeInPool,
+      largestRun,
+      poolMax,
+      segmentSize,
+    }
+  }
   const off = claimOffset({ machineId, family, floor: candidates.length, segmentSize: candidates.length })
   const start = candidates[off]
   return { mode: 'claim', start, end: start + segmentSize - 1, poolMax }
+}
+
+/**
+ * `pool-exhausted` 结论的**唯一人类可读行**(2026-10-23 立)。入参 = `leaseCursor` 交出的那个游标
+ * 对象(逐字段取用,本函数一个判据都不重算 —— 在出口再数一遍空闲位就是第二份口径,§0.6)。
+ * 为什么要有这一份:旧写法在每个出口各自硬拼"号池已满 ⇒ 归档腾号",而 `NO_CONTIGUOUS_LEASE_WINDOW`
+ * 那一型散点归档腾不出连续窗(实测池内空闲 184 枚仍拒发),归因错了就是把人引向无效出路(§0.8)。
+ * `reason` 缺失 ⇒ 显式落"未判定",绝不回落成"池已满"(§0.3:没判绝不写成判过)。
+ */
+export function describePoolExhaustion(cur = {}) {
+  const poolMax = Number.isFinite(cur.poolMax) ? cur.poolMax : LEASE_POOL_MAX
+  const segmentSize = Number.isFinite(cur.segmentSize) ? cur.segmentSize : LEASE_SEGMENT_SIZE
+  const freeInPool = Number.isFinite(cur.freeInPool) ? cur.freeInPool : null
+  const largestRun = Number.isFinite(cur.largestRun) ? cur.largestRun : null
+  const freeText = freeInPool === null ? '未量到' : `${freeInPool} 枚`
+  const runText = largestRun === null ? '未量到' : `${largestRun} 号`
+  const readings =
+    `池 1..${poolMax} 内空闲 ${freeText} / 最长可落窗连续游程 ${runText}(段容量 ${segmentSize})`
+  if (cur.reason === POOL_EXHAUST_REASON.poolFull)
+    return (
+      `${readings} ⇒ 真成因 reason=${POOL_EXHAUST_REASON.poolFull}:池内一个空闲号都没有 ⇒ 拒绝发号。` +
+      `出路:让已完成条目从占用面让位(号随让位回池),绝不发 >${poolMax} 的号。`
+    )
+  if (cur.reason === POOL_EXHAUST_REASON.noContiguousWindow)
+    return (
+      `${readings} ⇒ 真成因 reason=${POOL_EXHAUST_REASON.noContiguousWindow}:` +
+      `池内空闲 ${freeInPool} 枚,但无连续 ${segmentSize} 号租约窗 ⇒ 拒绝发号。` +
+      `出路不是散点让位(它只会把空洞切得更碎、照样腾不出连续窗);要动的是让出一段连续号段` +
+      `(同段集中让位,或经人复核调 IHUI_LEASE_SEGMENT_SIZE),绝不发 >${poolMax} 的号。`
+    )
+  return (
+    `${readings} ⇒ 拒绝发号,但成因未判定(游标没带 reason ⇒ 只报未判定,不断言池的状态): ` +
+    'reason=UNDETERMINED'
+  )
 }
 
 /** resolveIdTokens 的族级胶水:解析 + 判定一次给全(调用方只传 usedIdsOfPrefix 的结果)。 */
