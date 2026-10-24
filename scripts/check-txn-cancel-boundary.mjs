@@ -67,6 +67,7 @@ import { dirname, extname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { maskCommentsAndStrings, maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import {
   Undetermined,
   assertRepoRoot,
@@ -655,16 +656,13 @@ function selfTest() {
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   const strict = argv.includes('--strict')
-  const f = argv.indexOf('--root')
-  let root = ROOT
-  if (f >= 0) {
-    const token = argv[f + 1]
-    if (typeof token !== 'string' || token === '' || token.startsWith('-')) {
-      console.error(`❌ 无法判定(exit 2): --root 没收到有效目录 —— 紧邻 token 实得:${token === undefined ? '(其后没有任何参数)' : JSON.stringify(token)}`)
-      return 2
-    }
-    root = resolve(token)
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ 无法判定(exit 2): ${rootFlag.error}`)
+    return 2
   }
+  let root = ROOT
+  if (rootFlag.present) root = resolve(rootFlag.value)
   const { face, error } = selectFace({
     staged: argv.includes('--staged'),
     worktree: argv.includes('--worktree'),

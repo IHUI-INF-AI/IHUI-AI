@@ -25,6 +25,7 @@ import { createDecipheriv } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { normalizeModelId } from './lib/model-names.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 // §22d:postgres 仅在 apps/api / packages/database 声明,从 scripts/ 锚定解析不到 ⇒ 改锚 database 包清单,import 面与根目录直跑面均可解析,直跑行为不变
 const require = createRequire(new URL('../packages/database/package.json', import.meta.url))
@@ -33,10 +34,12 @@ const postgres = require('postgres')
 // ===== CLI 参数解析 =====
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
-const providerFilter = (() => {
-  const i = args.indexOf('--provider')
-  return i >= 0 ? args[i + 1] : null
-})()
+const providerFlag = requireFlagValue(args, '--provider', { noun: 'provider 代号' })
+if (providerFlag.error) {
+  console.error(`❌ ${providerFlag.error}`)
+  process.exit(2)
+}
+const providerFilter = providerFlag.value
 
 // ===== 加载加密密钥(优先 env,其次 .env 文件) =====
 function loadEncryptionKey() {
