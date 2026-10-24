@@ -77,6 +77,8 @@ import { RetryNotice } from '@/components/ai/progress-sections/retry-notice'
 import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
 // Steer(中途引导,2026-09-19 立):消息级「已引导」提示条(store 旁路 steerNoticesByMessageId)
 import { SteerNoticeBar } from '@/components/ai/progress-sections/steer-notice-bar'
+// D115(G-229,2026-10-24 立):review 结论卡(store 旁路 reviewFindingsByMessageId)
+import { ReviewFindingsCard } from '@/components/chat/message-list/review-findings-card'
 // 2026-09-19 立:上下文压缩分隔线(compaction 命名帧 → onCompaction → store setMessageCompaction)
 import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
 // P3 #36(2026-09-16 立):消息流内 best-of 并排对比卡(按 meta.bestOfRunId 关联)
@@ -250,6 +252,10 @@ const MessageItem = React.memo(function MessageItem({
   // 与 memoryNoticeItems 同款模式,避免无关 store 变更触发重渲染。
   const steerNotices = chatStore(
     React.useCallback((s) => s.steerNoticesByMessageId[m.id] ?? null, [m.id]),
+  )
+  // D115:按 messageId 取本轮审查结论;数组引用仅在 appendReviewFinding 时变更。
+  const reviewFindings = chatStore(
+    React.useCallback((s) => s.reviewFindingsByMessageId[m.id] ?? null, [m.id]),
   )
   // D64 ⑤(2026-09-26 接线):右键点踩(use-message-list-context-menu)派发的展开事件。
   // 票已在点踩瞬间落库(D49① 语义不变),问卷只是点踩的结构化细化,故只监听不重放。
@@ -1359,6 +1365,13 @@ const MessageItem = React.memo(function MessageItem({
                 数据来自 SSE steer 事件回执(tool loop 边界已生效确认,store 旁路,
                 不落 ChatMessage 字段),展开可回看每条引导文本预览。 */}
             {steerNotices && steerNotices.length > 0 && <SteerNoticeBar notices={steerNotices} />}
+            {/* D115 review 结论卡:一 finding 一帧累积在 store,按 P1/P2/Nit 分组;
+                点击落点由卡片自己走 IDE 出口(只开文件,行级揭示仍未接)。 */}
+            {!isUser && reviewFindings && reviewFindings.length > 0 && (
+              <div data-testid={`message-review-findings-${m.id}`}>
+                <ReviewFindingsCard findings={reviewFindings} />
+              </div>
+            )}
             {/* P3 #36 多模型并排对比(2026-09-16 立):/bestof 的 assistant 消息按
                 meta.bestOfRunId 关联结果,消息流内直接渲染并排对比卡(可改选/落盘),
                 不再只能切到工具面板查看;刷新后 store 映射仍在,历史消息可回看。 */}

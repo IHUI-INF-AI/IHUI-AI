@@ -14,7 +14,10 @@ import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 // 本包入口是显式命名清单,ReasoningEffortNotice 尚未递出(两侧结构逐字同形,赋值安全),
 // 引一个入口里没有的名字就是守门 149 记过的那一型运行时 undefined。
 import type { ReasoningEffortFallbackNotice as ReasoningEffortNotice } from '@/components/chat/reasoning-effort-axis'
+// D115(2026-10-24):review 结论帧的端内投影,store 只持引用不复制 schema。
+import type { ReviewFinding } from '@/components/chat/message-list/review-findings-card'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+import type { ExpertAutoRouteMode } from '@ihui/api-client'
 import type {
   SubagentSpawnEvent,
   SubagentEndEvent,
@@ -300,8 +303,7 @@ export interface TerminalInteractionState {
  * (契约管的是"同一会话内的幂等与判序"),混进去会让内核的裁定表多一档没人能测的形状。
  */
 export type ChatSyncStoreOutcome =
-  | ChatSyncApplyResult
-  | { applied: false; reason: 'room-mismatch'; messageId: string }
+  ChatSyncApplyResult | { applied: false; reason: 'room-mismatch'; messageId: string }
 
 /** 票60 第一切片:状态形状导出,供 chat-panes 注册表与多实例消费面取型 */
 export interface ChatState {
@@ -418,6 +420,11 @@ export interface ChatState {
    * MessageItem 按 message.id 订阅渲染「⚡ 引导已生效」badge。
    * 单消息上限对齐后端 _STEER_QUEUE_LIMIT(8 条);不持久化(执行期瞬时态)。 */
   steerNoticesByMessageId: Record<string, SteerNotice[]>
+  /** D115(G-229,2026-10-24 立):按 messageId 索引的 review 结论帧。
+   *  `onReviewFinding` 回调经 appendReviewFinding 累积写入,MessageItem 按 message.id
+   *  订阅渲染 ReviewFindingsCard(按 P1/P2/Nit 分组)。不持久化(执行期瞬时态);
+   *  新一轮审查首帧(index=1)会覆盖旧列表,避免两轮 finding 混在同一张卡上。 */
+  reviewFindingsByMessageId: Record<string, ReviewFinding[]>
   /** Steer(中途引导):当前流式 assistant 消息 ID(steer 端点凭 conversationId+messageId
    *  在网关定位 upstream 会话)。流开始由 send-message/send-answer 写入,收尾清空。 */
   streamingAssistantId: string | null
@@ -432,6 +439,12 @@ export interface ChatState {
    *  web_search 最小工具集,mergeAgentTools() 消费;与 selectedTools 互不替代。
    *  持久化(用户偏好,跨刷新保留)。 */
   webSearchEnabled: boolean
+
+  /** D09(2026-10-24 立)专家包自动路由档位(设置页三档选择项)。
+   *  null = 用户未表态:界面显示默认档 hint,请求不带 `expert_auto_route`,
+   *  部署方 env(IHUI_EXPERT_AUTO_ROUTE)与后端默认档照常生效 —— 不把"没选过"
+   *  写成一个用户覆盖。持久化(用户偏好,跨刷新保留)。 */
+  expertAutoRoute: ExpertAutoRouteMode | null
 
   /** D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列。
    *  流式期间输入的 /side 问题入队当前会话桶,流结束后由 message-input.tsx
@@ -460,6 +473,8 @@ export interface ChatState {
   setQuotedMessage: (q: { id: string; role: ChatMessage['role']; content: string } | null) => void
   /** 设置网页搜索开关(同步 localStorage 'ihui_web_search_enabled' 供 SSR 前恢复) */
   setWebSearchEnabled: (v: boolean) => void
+  /** 设置专家包自动路由档位(写 localStorage 'ihui_expert_auto_route' 供 SSR 前恢复) */
+  setExpertAutoRoute: (v: ExpertAutoRouteMode) => void
 
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
@@ -652,6 +667,9 @@ export interface ChatState {
   /** Steer(中途引导,2026-09-19 立):追加某条助手消息的引导注入确认(SSE steer 事件触发)。
    * 单消息上限 8 条(对齐后端 _STEER_QUEUE_LIMIT),超出静默丢弃。 */
   appendSteerNotice: (messageId: string, notice: SteerNotice) => void
+  /** D115:追加某条助手消息的审查结论(SSE review-finding 事件触发)。
+   *  index=1 是新一轮审查的首帧 ⇒ 先清旧列表;同 findingId 重放幂等丢弃。 */
+  appendReviewFinding: (messageId: string, finding: ReviewFinding) => void
   /** Steer(中途引导):登记/清空当前流式 assistant 消息 ID(流开始写入,收尾清空) */
   setStreamingAssistantId: (id: string | null) => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
@@ -811,6 +829,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   usageByMessageId: {},
   // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
   steerNoticesByMessageId: {},
+  // D115(2026-10-24):review 结论帧(执行期瞬时态,不持久化)
+  reviewFindingsByMessageId: {},
   streamingAssistantId: null,
   // D22 引用回复(执行期瞬时态,不持久化)
   quotedMessage: null,
@@ -818,6 +838,13 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 首渲染即恢复用户偏好,与 partialize 持久化路径互为双保险)
   webSearchEnabled:
     typeof window !== 'undefined' && localStorage.getItem('ihui_web_search_enabled') === '1',
+  // D09 专家包自动路由:SSR 安全惰性读取(服务端恒 null = 未表态),只接受三档字面量,
+  // 历史脏值一律按"未表态"处理(宁可回到后端默认档,也不发一个后端不认的档位)。
+  expertAutoRoute: (() => {
+    if (typeof window === 'undefined') return null
+    const raw = localStorage.getItem('ihui_expert_auto_route')
+    return raw === 'off' || raw === 'hint' || raw === 'auto' ? raw : null
+  })(),
   // #21 中断后追加指令继续(2026-09-13 立)
   interruptedMessageId: null,
   // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
@@ -1034,6 +1061,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       usageByMessageId: {},
       // Steer(中途引导):提示条一并清空;流式目标消息 ID 已随上面 RUN_SCOPED_RESET 失效
       steerNoticesByMessageId: {},
+      // D115:审查结论卡随消息消失,新建对话一并清空
+      reviewFindingsByMessageId: {},
       // 票59 2/3:版本切换态是会话局部坐标(消息 id),新建对话必须一起清
       activeVersionByRoot: {},
     }),
@@ -1168,6 +1197,14 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       localStorage.setItem('ihui_web_search_enabled', v ? '1' : '0')
     }
     set({ webSearchEnabled: v })
+  },
+
+  // D09 专家包自动路由:同步 localStorage(初始 state 惰性读取的回写路径)
+  setExpertAutoRoute: (v) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ihui_expert_auto_route', v)
+    }
+    set({ expertAutoRoute: v })
   },
 
   setPendingQuestion: (q) => set({ pendingQuestion: q }),
@@ -1823,6 +1860,21 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       }
     }),
 
+  // D115:审查结论累积。index=1 是生产端(1-based)新一轮审查的首帧 ——
+  // 重连重放与"再审查一次"都从这里重来,先清旧表再落首条;同 findingId 幂等丢弃。
+  appendReviewFinding: (messageId, finding) =>
+    set((s) => {
+      if (!messageId || !finding?.findingId) return s
+      const existing = finding.index === 1 ? [] : (s.reviewFindingsByMessageId[messageId] ?? [])
+      if (existing.some((f) => f.findingId === finding.findingId)) return s
+      return {
+        reviewFindingsByMessageId: {
+          ...s.reviewFindingsByMessageId,
+          [messageId]: [...existing, finding],
+        },
+      }
+    }),
+
   // Steer:登记/清空当前流式 assistant 消息 ID(闪电按钮 steer 端点的定位键)
   setStreamingAssistantId: (id) => set({ streamingAssistantId: id }),
 
@@ -1924,6 +1976,8 @@ export function createChatStore(persistName: string = 'ihui-chat') {
         failedDraftStatus: s.failedDraftStatus,
         // D22(2026-09-19):网页搜索开关用户偏好持久化(初始 state 已有 localStorage 双保险)
         webSearchEnabled: s.webSearchEnabled,
+        // D09(2026-10-24):专家包自动路由档位(同上,初始 state 已有 localStorage 双保险)
+        expertAutoRoute: s.expertAutoRoute,
         // D38(2026-09-24):队列模式偏好(steer/queue)用户设置持久化
         followUpQueueMode: s.followUpQueueMode,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
