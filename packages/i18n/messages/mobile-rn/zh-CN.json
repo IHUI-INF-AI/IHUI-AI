@@ -885,7 +885,22 @@
       "loadFailShort": "加载失败",
       "recordNew": "新建录音"
     },
-    "thinkingShort": "思考中"
+    "thinkingShort": "思考中",
+    "msg": {
+      "thinkingA11y": "收起/展开思考过程",
+      "collapse": "收起",
+      "expand": "展开",
+      "imgA11y": "消息图片，点击预览",
+      "copied": "已复制",
+      "copyCode": "复制代码",
+      "collapseCode": "收起代码",
+      "expandCode": "展开代码",
+      "thinkingNow": "正在思考…",
+      "copy": "复制",
+      "share2": "分享",
+      "agree": "赞同",
+      "disagree": "反对"
+    }
   },
   "settings": {
     "title": "设置",
@@ -5319,7 +5334,15 @@
     "btnDetail": "详情"
   },
   "topup": {
-    "failDefault": "充值未完成，请稍后重试"
+    "failDefault": "充值未完成，请稍后重试",
+    "faqTitle": "常见问题",
+    "faqContent": "关于充值到账与订单的常见问题",
+    "faqOk": "我知道了",
+    "tip1": "充值成功后智汇值一般实时到账，如余额未更新，可在「我的智汇值」页下拉刷新",
+    "tip2": "微信扣款成功但停留在结果页时，请先到订单列表查看订单状态，请勿重复充值",
+    "tip3": "订单编号是查询与售后的重要凭证，请妥善保留",
+    "tip4": "如长时间未到账，请联系客服并提供订单编号与充值时间",
+    "tip5": "充值金额不支持退款与转让"
   },
   "devEnterCover": {
     "priceAbnormal": "套餐价格异常，请稍后重试"
@@ -5790,5 +5813,139 @@
     "exam": "考试",
     "score": "分数",
     "date": "日期"
+  },
+  "toolbar": {
+    "svcTraffic": "流量运营陪跑",
+    "svcDevice": "一站式设备应用",
+    "svcOther": "AI 其他技术服务",
+    "aiImage": "AI 图片创作",
+    "aiImageD": "轻松创作图片",
+    "aiVideo": "AI 视频创作",
+    "aiVideoD": "轻松创作视频",
+    "aiCopy": "AI 文案创作",
+    "aiCopyD": "轻松创作文案",
+    "aiClip": "AI 自动剪辑",
+    "aiClipD": "轻松创作剪辑",
+    "aiLive": "AI 直播",
+    "aiLiveD": "AI 直播服务",
+    "aiAvatar": "AI 数字人",
+    "aiAvatarD": "制作数字人",
+    "more2": "更多",
+    "viewMoreA11y": "查看更多 AI Agent 应用",
+    "oneClickA11y": "独家一键生成运营内容",
+    "customA11y": "AI 定制服务"
+  },
+  "confirm": {
+    "defaultCancel": "取消",
+    "defaultOk": "确认",
+    "payFmt": "立即支付 ¥{v}"
+  },
+  "sr": {
+    "closeA11y": "点击关闭",
+    "firstBonus": "首次分享成功，获得 {n} 智汇值奖励",
+    "inviteNote": "邀请好友加入智汇AI社区，注册成功后双方均可再获智汇值",
+    "claimA11y": "领取 {n} 智汇值",
+    "rewardUnit": " 智汇值",
+    "footnote": "智汇值可用于兑换模型算力、会员权益等",
+    "claimBtn": "领取 {n} 智汇值"
+  },
+  "dist": {
+    "noInviteCode": "暂无邀请码",
+    "linkCopied": "已复制邀请链接",
+    "inviteTitle": "邀请你加入 AI 智汇社",
+    "shared": "已分享",
+    "shareFail": "分享失败，请重试",
+    "qrNotReady": "二维码未就绪，请稍后重试",
+    "needAlbum": "未获得相册权限，无法保存",
+    "savedAlbum": "已保存到相册",
+    "saveFail": "保存失败，请稍后重试",
+    "teamCompany": "公司团队",
+    "teamCompanyD": "查看我的公司团队",
+    "teamAi": "AI 团队",
+    "teamAiD": "查看智能体团队",
+    "card": "我的名片",
+    "cardD": "查看我的个人信息",
+    "qr": "我的二维码",
+    "qrD": "推广专属二维码",
+    "orders": "分销订单",
+    "ordersD": "查看我的分销订单",
+    "devSoon": "功能开发中",
+    "dealer": "分销商",
+    "earningsLabel": "分销收益概览",
+    "shareQrA11y": "分享二维码",
+    "withdrawDetail": "提现详情",
+    "copyLinkA11y": "复制邀请链接",
+    "saveQrA11y": "保存到相册",
+    "saving": "保存中...",
+    "shareFriendA11y": "分享给好友"
+  },
+  "eduParent": {
+    "title": "家长端",
+    "child": "孩子",
+    "relationship": "关系",
+    "statusTitle": "状态",
+    "status": {
+      "pending": "待确认",
+      "confirmed": "已确认",
+      "active": "生效",
+      "rejected": "已拒绝",
+      "cancelled": "已解除"
+    },
+    "chooseView": "选择查看内容"
+  },
+  "eduParentBind": {
+    "title": "绑定管理",
+    "student": "学生",
+    "created": "申请时间",
+    "confirm": "确认绑定",
+    "reject": "拒绝",
+    "delete": "删除",
+    "actionTitle": "绑定操作"
+  },
+  "eduEnrollment": {
+    "title": "班级",
+    "className": "班级",
+    "grade": "年级"
+  },
+  "eduSchedule": {
+    "title": "孩子课表",
+    "weekdayTitle": "星期",
+    "course": "课程",
+    "teacher": "教师",
+    "time": "时段",
+    "classroom": "教室",
+    "weekday": {
+      "mon": "周一",
+      "tue": "周二",
+      "wed": "周三",
+      "thu": "周四",
+      "fri": "周五",
+      "sat": "周六",
+      "sun": "周日"
+    }
+  },
+  "eduChildAttendance": {
+    "title": "孩子考勤",
+    "date": "日期"
+  },
+  "eduChildGrades": {
+    "title": "孩子成绩"
+  },
+  "eduChildMeals": {
+    "title": "孩子餐食",
+    "date": "日期",
+    "mealType": "餐类",
+    "dish": "菜品",
+    "ingredients": "食材",
+    "nutrition": "营养"
+  },
+  "eduChildBills": {
+    "title": "孩子账单",
+    "className": "班级",
+    "term": "学期",
+    "total": "总额",
+    "paid": "已付",
+    "arrears": "欠费",
+    "nextDue": "下次到期"
   }
 }
