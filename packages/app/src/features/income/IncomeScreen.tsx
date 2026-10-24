@@ -245,9 +245,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     summaryRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       marginBottom: 12,
     },
-    summaryItem: { flex: 1, alignItems: 'center' },
+    /* 读数不得被切成两行(AGENTS §4 / docs/UI_GUIDELINES.md §13):
+       等分 flex:1 会把格子压到任意窄 ⇒ 「¥999999.99」在 375 屏 3 等分下只剩 117px。
+       minWidth = 最坏读数的单行宽(10 字符 × 20px 数字宽 ≈ 0.55em ⇒ 110 + 余量),
+       配合父级 flexWrap ⇒ 放不下就整格换行,而不是把数字切断。 */
+    summaryItem: { flex: 1, minWidth: 112, alignItems: 'center' },
     summaryLabel: { fontSize: 11, color: tk.text.secondary },
     summaryValue: {
       marginTop: 8,

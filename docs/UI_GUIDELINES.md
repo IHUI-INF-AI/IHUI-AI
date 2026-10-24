@@ -538,6 +538,23 @@ node scripts/verify-wallboard-readout.mjs --worktree --widths 1280,1440,1600,192
 
 **本条无行内豁免。** 需要更窄的格子请改用纯数字读数(先格式化,如 `365天23小时` → `365d`),而不是放宽下限——格式化是数据表达决策,断行不是。
 
+### 13.4 端侧(RN / 共享源)是同一条约束
+
+RN 没有 `white-space`,但等分 `flex: 1` 同样会把读数压到断行。正解同构:**父行 `flexWrap: 'wrap'` + 每格 `minWidth = 最坏读数的单行宽`** ⇒ 放不下就整格换行,数字始终完整。
+
+已收口三处(均在 `packages/app` 共享源,改一次 RN 全端愈):
+
+| 位置 | 最坏读数 | minWidth |
+| --- | --- | --- |
+| `features/income/IncomeScreen.tsx` 汇总行 | `¥999999.99`(10 字符 @20px) | 112 |
+| `features/usage/UsageScreen.tsx` 配额行 / 统计行 | `123.4万` / `$0.0000` | 96 |
+| `features/dashboard/DashboardScreen.tsx` 读数卡 | 22px 整数 | 150 |
+
+第三处原先靠 `numberOfLines={1}` 防断行 = **把断行换成省略号**,同样违反本条 ⇒ 已摘掉,改由 minWidth 兜。
+锁:`scripts/tests/rn-readout-cell-guard.test.mjs`(8 例,含"摘掉 minWidth / 摘掉 flexWrap / 加回 numberOfLines"三条反向锁)。
+
+**未收口处如实登记,不装作已覆盖**:端侧没有可靠的静态判据。实测扫 `packages/app` + `apps/mobile-rn` + `apps/miniapp-taro` 的扁平 StyleSheet,得到 638 处「fontSize≥16 且 fontWeight 600/700 无 minWidth」——其中**绝大多数是标题不是读数**,而"这个 style 是否住在等分读数格里"只有 JSX 父子关系才知道。硬照 web 那套造门 = 一次造 638 枚假红(§12e)。端侧全量收口要 RN 真机逐屏渲染量,不是一道正则能替的。
+
 ---
 
 ## 14. 新增页面 / 组件 checklist
