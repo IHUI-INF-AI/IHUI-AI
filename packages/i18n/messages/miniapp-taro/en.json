@@ -4763,5 +4763,19 @@
     "verifySuccess": "Verified",
     "verifyFailed": "Verification failed",
     "doneDesc": "Provider created and revenue share activated"
+  },
+  "eduParent": {
+    "title": "Parent Center",
+    "child": "Child",
+    "relationship": "Relationship",
+    "statusTitle": "Status",
+    "empty": "No children bound yet",
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "active": "Active",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    }
   }
 }

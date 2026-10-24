@@ -4763,5 +4763,19 @@
     "verifySuccess": "驗證通過",
     "verifyFailed": "驗證未通過",
     "doneDesc": "服務商已建立,平台分潤已啟用"
+  },
+  "eduParent": {
+    "title": "家長端",
+    "child": "孩子",
+    "relationship": "關係",
+    "statusTitle": "狀態",
+    "empty": "還沒有綁定的孩子",
+    "status": {
+      "pending": "待確認",
+      "confirmed": "已確認",
+      "active": "生效",
+      "rejected": "已拒絕",
+      "cancelled": "已解除"
+    }
   }
 }
