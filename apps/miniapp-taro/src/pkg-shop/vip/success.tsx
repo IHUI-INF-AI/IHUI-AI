@@ -25,11 +25,13 @@ const resolvePayMethod = (raw: string | undefined, tt: (k: string, fb: string) =
 }
 
 /** 根据套餐类型推算会员时长 */
-const resolveDuration = (plan: string, days?: string): string => {
-  if (days) return `${days} 天`
-  if (plan === 'yearly') return '365 天'
-  if (plan === 'quarterly') return '90 天'
-  return '30 天'
+const resolveDuration = (
+  tt: (k: string, fb: string, v?: Record<string, string | number>) => string,
+  plan: string,
+  days?: string,
+): string => {
+  const n = days || (plan === 'yearly' ? '365' : plan === 'quarterly' ? '90' : '30')
+  return tt('vip.success.daysUnit', `${n} 天`, { n })
 }
 
 export default function VipSuccessPage() {
@@ -50,7 +52,7 @@ export default function VipSuccessPage() {
     ? formatDateByTemplate(payTimeParam, 'YYYY-MM-DD HH:mm:ss')
     : formatDateByTemplate(new Date().toISOString(), 'YYYY-MM-DD HH:mm:ss')
   const payMethod = resolvePayMethod(payMethodRaw, tt)
-  const duration = resolveDuration(planType, daysParam)
+  const duration = resolveDuration(tt, planType, daysParam)
   const displayPlanName =
     planName ||
     (planType === 'yearly'
