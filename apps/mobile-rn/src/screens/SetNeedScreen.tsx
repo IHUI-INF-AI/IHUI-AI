@@ -30,31 +30,32 @@ interface FormState {
   imgs: string
 }
 
-const INITIAL_FORM: FormState = {
+/** 初始表单:cycleUnit 取 i18n 文案 ⇒ 必须由组件内 t 现算(顶层常量求值早于 I18nProvider 挂载) */
+const makeInitialForm = (tr: (key: string) => string): FormState => ({
   title: '',
   description: '',
   lowestPrice: '',
   peakPrice: '',
   contact: '',
   cycle: '1',
-  cycleUnit: t('need.cycleUnitWeek'),
+  cycleUnit: tr('need.cycleUnitWeek'),
   types: '',
   categories: '',
   closingTime: '',
   imgs: '',
-}
+})
 
 const DESC_MIN = 10
 
-function showAlert(message: string): void {
-  appAlert(t('home.pubTip'), message, [{ text: t('common.known') }])
+function showAlert(tr: (key: string) => string, message: string): void {
+  appAlert(tr('home.pubTip'), message, [{ text: tr('common.known') }])
 }
 
 export function SetNeedScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
-  const [form, setForm] = useState<FormState>(INITIAL_FORM)
+  const [form, setForm] = useState<FormState>(() => makeInitialForm(t))
   const [submitting, setSubmitting] = useState(false)
 
   const updateField = (key: keyof FormState, value: string): void => {
@@ -84,7 +85,7 @@ export function SetNeedScreen() {
   const onSubmit = async (): Promise<void> => {
     const err = validate()
     if (err) {
-      showAlert(err)
+      showAlert(t, err)
       return
     }
     setSubmitting(true)
@@ -110,11 +111,11 @@ export function SetNeedScreen() {
           { text: t('need.okBtn'), onPress: () => navigation.goBack() },
         ])
       } else {
-        showAlert(res.error || t('need.submitFail'))
+        showAlert(t, res.error || t('need.submitFail'))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      showAlert(detail.trim() ? toUserFriendlyMessage(e) : t('need.netFail'))
+      showAlert(t, detail.trim() ? toUserFriendlyMessage(e) : t('need.netFail'))
     } finally {
       setSubmitting(false)
     }

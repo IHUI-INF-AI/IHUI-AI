@@ -141,14 +141,15 @@ function filterNickname(raw: string): string {
   return out
 }
 
-function roleLabel(role: LoginPopUpRole): string {
+/** 角色标签:返回 i18n 键(顶层函数不调 t——模块求值早于 Provider 挂载;消费处 t() 解析) */
+function roleLabelKey(role: LoginPopUpRole): string {
   switch (role) {
     case 'vip':
-      return t('lp.member')
+      return 'lp.member'
     case 'trader':
-      return t('lp.trader')
+      return 'lp.trader'
     default:
-      return t('lp.normal')
+      return 'lp.normal'
   }
 }
 
@@ -307,6 +308,7 @@ function ProfileForm({
   onUpgrade,
   onUpgradeTrader,
 }: ProfileFormProps) {
+  const { t } = useI18n()
   const [nickname, setNickname] = useState(initialNickname ?? '')
   const [phone, setPhone] = useState(initialPhone ?? '')
   const [nicknameError, setNicknameError] = useState('')
@@ -423,7 +425,7 @@ function ProfileForm({
         <View style={styles.iconBadge}>
           <BadgeCheck size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
         </View>
-        <Text style={[styles.roleText, { color: roleColor }]}>{roleLabel(role)}</Text>
+        <Text style={[styles.roleText, { color: roleColor }]}>{t(roleLabelKey(role))}</Text>
         {showUpgrade ? (
           <Pressable
             style={styles.upgradeButton}

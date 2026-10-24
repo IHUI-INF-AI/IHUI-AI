@@ -23,7 +23,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface FeatureEntry {
   icon: AppIcon | string
+  /** i18n 键(顶层表不得调 t()——模块求值先于 I18nProvider,运行时必 ReferenceError;消费处 t() 解析) */
   title: string
+  /** i18n 键 */
   desc: string
   onPress: (navigation: NavigationProp) => void
 }
@@ -31,50 +33,50 @@ interface FeatureEntry {
 const ENTRIES: readonly FeatureEntry[] = [
   {
     icon: BookOpen,
-    title: t('course.moreTitle'),
-    desc: t('subPkg.courseDesc'),
+    title: 'course.moreTitle',
+    desc: 'subPkg.courseDesc',
     onPress: (nav) => nav.navigate('MoreCourse'),
   },
   {
     icon: Rocket,
-    title: t('subPkg.devTitle'),
-    desc: t('subPkg.devDesc'),
+    title: 'subPkg.devTitle',
+    desc: 'subPkg.devDesc',
     onPress: (nav) => nav.navigate('DevEnterCover'),
   },
   {
     icon: Globe,
-    title: t('subPkg.plazaTitle'),
-    desc: t('subPkg.plazaDesc'),
+    title: 'subPkg.plazaTitle',
+    desc: 'subPkg.plazaDesc',
     onPress: (nav) => nav.navigate('PlazaCover'),
   },
   {
     icon: CreditCard,
-    title: t('subPkg.topupTitle'),
-    desc: t('subPkg.topupDesc'),
+    title: 'subPkg.topupTitle',
+    desc: 'subPkg.topupDesc',
     onPress: (nav) => nav.navigate('AppTopup'),
   },
   {
     icon: GraduationCap,
-    title: t('learnDevelop.centerTitle'),
-    desc: t('learnDevelop.centerDesc'),
+    title: 'learnDevelop.centerTitle',
+    desc: 'learnDevelop.centerDesc',
     onPress: (nav) => nav.navigate('Learn'),
   },
   {
     icon: BookOpen,
-    title: t('subPkg.homeTitle'),
-    desc: t('subPkg.homeDesc'),
+    title: 'subPkg.homeTitle',
+    desc: 'subPkg.homeDesc',
     onPress: (nav) => nav.navigate('StudyIndex'),
   },
   {
     icon: Bot,
-    title: t('subPkg.groupTitle'),
-    desc: t('subPkg.groupDesc'),
+    title: 'subPkg.groupTitle',
+    desc: 'subPkg.groupDesc',
     onPress: (nav) => nav.navigate('AiGroup'),
   },
   {
     icon: Palette,
-    title: t('subPkg.aigcTitle'),
-    desc: t('subPkg.aigcDesc'),
+    title: 'subPkg.aigcTitle',
+    desc: 'subPkg.aigcDesc',
     onPress: (nav) => nav.navigate('AigcList'),
   },
 ]
@@ -86,8 +88,8 @@ export function SubPackageIndexScreen() {
 
   const entries = ENTRIES.map((entry) => ({
     icon: entry.icon,
-    title: entry.title,
-    desc: entry.desc,
+    title: t(entry.title),
+    desc: t(entry.desc),
     onPress: () => entry.onPress(navigation),
   }))
 

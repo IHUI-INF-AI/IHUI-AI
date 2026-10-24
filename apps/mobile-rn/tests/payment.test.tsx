@@ -83,7 +83,45 @@ vi.mock('react-native', async () => {
       ),
     )
   }
+  /**
+   * 屏幕状态四件套(ScreenStates,枚 d723f8bc9b37 起为共享屏的 Shimmer/按压动画)在渲染期
+   * 使用 Animated.loop/sequence/timing/spring/Value/View + Easing。内联 mock 缺这组导出
+   * ⇒ 整文件加载/渲染期抛「No "Animated" export is defined on the "react-native" mock」。
+   * 与真实 RN 的 Animated 面同形的 no-op 桩(start 回调带 finished:true,保证 useEffect 清理可达)。
+   */
+  const anim = {
+    start: (cb?: (r: { finished: boolean }) => void) => {
+      cb?.({ finished: true })
+      return anim
+    },
+    stop: () => {},
+  }
+  const mkAnimValue = () => ({
+    setValue: () => {},
+    interpolate: (cfg: { outputRange?: number[] }) => cfg.outputRange?.[0] ?? 1,
+  })
+  function AnimatedValue() {
+    return mkAnimValue()
+  }
+  const Animated = {
+    View: mk('div'),
+    Value: AnimatedValue,
+    timing: () => anim,
+    spring: () => anim,
+    loop: () => anim,
+    sequence: () => anim,
+    parallel: () => anim,
+  }
+  const Easing = {
+    ease: (t: number) => t,
+    linear: (t: number) => t,
+    in: (f: (t: number) => number) => f,
+    out: (f: (t: number) => number) => f,
+    inOut: (f: (t: number) => number) => f,
+  }
   return {
+    Animated,
+    Easing,
     // 本套件自建 react-native 替身,而共享替身里的 PixelRatio 不会自动带过来 —— MoreLink 经
     // PixelRatio.getFontScale() 换算字号倍率,缺它则渲染即抛 "No PixelRatio export"。
     PixelRatio: {
@@ -301,10 +339,10 @@ describe('PaymentScreen 支付流程', () => {
     fireEvent.click(getByText('payment.payNow'))
     // ConfirmPurchasePopUp 弹窗,"确认支付"同时出现在 title 和 button 上,点击第二个(button)
     await waitFor(() => {
-      const confirmBtns = getAllByText('确认支付')
+      const confirmBtns = getAllByText('payment.confirm')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('确认支付')[1]!)
+    fireEvent.click(getAllByText('payment.confirm')[1]!)
     await waitFor(() =>
       expect(apiMocks.createWechatAppPayment).toHaveBeenCalledWith({
         amount: 9950,
@@ -343,10 +381,10 @@ describe('PaymentScreen 支付流程', () => {
     fireEvent.click(getByText('payment.payNow'))
     // ConfirmPurchasePopUp 弹窗,点击"确认支付"按钮后用户取消微信支付
     await waitFor(() => {
-      const confirmBtns = getAllByText('确认支付')
+      const confirmBtns = getAllByText('payment.confirm')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('确认支付')[1]!)
+    fireEvent.click(getAllByText('payment.confirm')[1]!)
     await waitFor(() => expect(wechatPayMock.openWeChatPayment).toHaveBeenCalled())
     await waitFor(() => expect(getByText('payment.payCancelled')).toBeTruthy())
   })
@@ -379,10 +417,10 @@ describe('PaymentScreen 支付流程', () => {
     fireEvent.click(getByText('payment.payNow'))
     // 先弹出 ConfirmPurchasePopUp,点击确认按钮后再触发微信支付
     await waitFor(() => {
-      const confirmBtns = getAllByText('确认支付')
+      const confirmBtns = getAllByText('payment.confirm')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('确认支付')[1]!)
+    fireEvent.click(getAllByText('payment.confirm')[1]!)
     await waitFor(() => expect(getByText('payment.wechatNotInstalled')).toBeTruthy())
   })
 })

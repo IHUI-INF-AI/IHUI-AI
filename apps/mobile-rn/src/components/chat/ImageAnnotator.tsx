@@ -626,27 +626,30 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
           </View>
 
           <View style={styles.toolRow}>
-            {PEN_WIDTHS.map((penWidth, i) => (
-              <Pressable
-                key={`width-${i}`}
-                onPress={() => setWidthIndex(i)}
-                style={[styles.toolBtn, widthIndex === i && styles.toolBtnActive]}
-                accessibilityRole="button"
-                accessibilityLabel={t('annot.penLabel', { v: t(PEN_WIDTH_LABELS[i]) })}
-              >
-                <Text style={[styles.toolBtnText, widthIndex === i && styles.toolBtnActiveText]}>
-                  {t(PEN_WIDTH_LABELS[i])}
-                </Text>
-                <View
-                  style={{
-                    width: rpx(48),
-                    height: penWidth,
-                    borderRadius: rnRadius.xs,
-                    backgroundColor: widthIndex === i ? tokens.brand.ctaForeground : color,
-                  }}
-                />
-              </Pressable>
-            ))}
+            {PEN_WIDTHS.map((penWidth, i) => {
+              const widthLabelKey = PEN_WIDTH_LABELS[i] ?? ''
+              return (
+                <Pressable
+                  key={`width-${i}`}
+                  onPress={() => setWidthIndex(i)}
+                  style={[styles.toolBtn, widthIndex === i && styles.toolBtnActive]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('annot.penLabel', { v: t(widthLabelKey) })}
+                >
+                  <Text style={[styles.toolBtnText, widthIndex === i && styles.toolBtnActiveText]}>
+                    {t(widthLabelKey)}
+                  </Text>
+                  <View
+                    style={{
+                      width: rpx(48),
+                      height: penWidth,
+                      borderRadius: rnRadius.xs,
+                      backgroundColor: widthIndex === i ? tokens.brand.ctaForeground : color,
+                    }}
+                  />
+                </Pressable>
+              )
+            })}
           </View>
 
           {pendingText ? (

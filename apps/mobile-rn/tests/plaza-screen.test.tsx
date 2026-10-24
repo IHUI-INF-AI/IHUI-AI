@@ -176,7 +176,9 @@ describe('PlazaScreen 需求广场', () => {
       expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
     })
     const props = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
-    expect(props.error).toContain('加载失败')
+    // 产品已 token 化:回退文案由 t('plaza.index.loadFailedRefresh') 提供。本套件 i18n mock 取键透传,
+    // 断言键本身 = 「无任何可用信息时才落这条通用兜底」的同一判据(旧中文形为 token 化前遗留)。
+    expect(props.error).toContain('plaza.index.loadFailedRefresh')
   })
 
   it('赛道分类 API 成功时覆盖 fallback 列表', async () => {

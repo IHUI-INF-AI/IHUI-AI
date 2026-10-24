@@ -54,7 +54,45 @@ vi.mock('react-native', () => {
       slot(ListFooterComponent),
     )
   }
+  /**
+   * 屏幕状态四件套(ScreenStates,枚 d723f8bc9b37 起为共享屏的 Shimmer/按压动画)在渲染期
+   * 使用 Animated.loop/sequence/timing/spring/Value/View + Easing。内联 mock 缺这组导出
+   * ⇒ 整文件加载/渲染期抛「No "Animated" export is defined on the "react-native" mock」。
+   * 与真实 RN 的 Animated 面同形的 no-op 桩(start 回调带 finished:true,保证 useEffect 清理可达)。
+   */
+  const anim = {
+    start: (cb?: (r: { finished: boolean }) => void) => {
+      cb?.({ finished: true })
+      return anim
+    },
+    stop: () => {},
+  }
+  const mkAnimValue = () => ({
+    setValue: () => {},
+    interpolate: (cfg: { outputRange?: number[] }) => cfg.outputRange?.[0] ?? 1,
+  })
+  function AnimatedValue() {
+    return mkAnimValue()
+  }
+  const Animated = {
+    View: mk('div'),
+    Value: AnimatedValue,
+    timing: () => anim,
+    spring: () => anim,
+    loop: () => anim,
+    sequence: () => anim,
+    parallel: () => anim,
+  }
+  const Easing = {
+    ease: (t: number) => t,
+    linear: (t: number) => t,
+    in: (f: (t: number) => number) => f,
+    out: (f: (t: number) => number) => f,
+    inOut: (f: (t: number) => number) => f,
+  }
   return {
+    Animated,
+    Easing,
     // 共享返回键核心按字体缩放取档(packages/shared back-chevron-core → useFontMultiplier)
     PixelRatio: {
       getFontScale: () => 1,

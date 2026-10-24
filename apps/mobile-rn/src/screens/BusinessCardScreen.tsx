@@ -34,11 +34,12 @@ interface BusinessCardListItem {
   intro: string | null
 }
 
-/** 从 AuthUser 构造默认名片(用户尚未创建名片时的兜底) */
-function buildDefaultCard(profile: AuthUser): BusinessCardItem {
+/** 从 AuthUser 构造默认名片(用户尚未创建名片时的兜底)
+ *  tr 由调用方注入:模块顶层不调 t()(求值早于 I18nProvider 挂载,运行必炸) */
+function buildDefaultCard(profile: AuthUser, tr: (key: string) => string): BusinessCardItem {
   return {
     id: '',
-    name: profile.nickname || profile.username || t('businesscard.unnamed'),
+    name: profile.nickname || profile.username || tr('businesscard.unnamed'),
     position: '',
     company: '',
     phone: profile.phone ?? '',
@@ -89,7 +90,7 @@ export default function BusinessCardScreen() {
             bio: mine.intro ?? '',
           })
         } else {
-          setCard(buildDefaultCard(profile))
+          setCard(buildDefaultCard(profile, t))
         }
       })
       .catch(() => {

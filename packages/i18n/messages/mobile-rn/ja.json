@@ -2232,6 +2232,7 @@
     "loadFailed": "QR コードの読み込みに失敗"
   },
   "ranking": {
+    "attention": "注目度",
     "subtitle": "学習ランキング。自分の順位をチェック!!",
     "retry": "再試行",
     "anonymous": "匿名ユーザー",

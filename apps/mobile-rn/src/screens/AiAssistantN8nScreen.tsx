@@ -1252,12 +1252,14 @@ export default function AiAssistantN8nScreen() {
   const loadDrawerConversations = useCallback(async (): Promise<void> => {
     const res = await listConversations({ page: 1, pageSize: 50 })
     if (res.success) {
-      setDrawerConversations(res.data.conversations.map(mapConversationToDrawer))
+      setDrawerConversations(
+        res.data.conversations.map((c) => mapConversationToDrawer(c, t('chat.untitledChat'))),
+      )
     } else {
       setDrawerConversations([])
     }
     setDrawerConversationsLoaded(true)
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (drawerVisible && !drawerConversationsLoaded && authUser) {

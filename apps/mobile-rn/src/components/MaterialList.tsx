@@ -159,6 +159,7 @@ function MaterialRow({
   onDelete?: (item: MaterialItem) => void
   onDetail?: (item: MaterialItem) => void
 }): React.JSX.Element {
+  const { t } = useI18n()
   const title = item.title || defaultTitleForType(item.type, t)
   const time = item.createdAt ? formatDate(item.createdAt) : ''
 

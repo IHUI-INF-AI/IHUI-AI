@@ -2232,6 +2232,7 @@
     "loadFailed": "Failed to load QR code"
   },
   "ranking": {
+    "attention": "Attention",
     "subtitle": "See where you rank this week",
     "retry": "Retry",
     "anonymous": "Anonymous",
