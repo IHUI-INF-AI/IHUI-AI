@@ -5342,7 +5342,7 @@
     "tip1": "포인트는 즉시 적립, 미갱신 시 새로고침",
     "tip2": "결제 완료 후 화면 멈춤 시 주문 내역 확인, 중복 결제 금지",
     "tip3": "주문번호를 보관하세요",
-    "tip4": "미적립 시 주문번호를客服에게",
+    "tip4": "미적립 시 주문번호를 고객센터에 문의",
     "tip5": "충전은 환불·양도 불가"
   },
   "devEnterCover": {
@@ -5480,7 +5480,7 @@
   },
   "agentShop": {
     "use": "사용 {n}",
-    "collect": "收藏 {n}",
+    "collect": "즐겨찾기 {n}",
     "like": "좋아요 {n}",
     "likeA11y": "{name} 좋아요",
     "collectA11y": "{name} 저장",
@@ -5537,7 +5537,7 @@
   },
   "uiCard": {
     "inviteCodeBody": "초대 코드: {code}\n(길게 눌러 복사)",
-    "userGreet": "AI IHUI丨{name}",
+    "userGreet": "AI IHUI·{name}",
     "growthA11y": "성장치 바. 탭하면 등급 정보",
     "vipBenefitBody": "현재 VIP 회원입니다. 성장치를 모아 상위 등급으로 upgrades 가능",
     "normalBenefitBody": "일반 회원입니다. VIP 업그레이드로 추가 혜택"
@@ -5640,7 +5640,7 @@
     "tMonth": "월정액",
     "btnWarn": "경고",
     "btnDislike": "비추천",
-    "btnFav": "收藏",
+    "btnFav": "즐겨찾기",
     "btnInfo": "정보",
     "btnShare": "공유",
     "officialFallback": "IHUI 커뮤니티-공식",
@@ -5659,7 +5659,7 @@
     "frozenTrend": "동결 {v}",
     "myInviteCode": "내 초대 코드",
     "invitedTrend": "초대 {n}명",
-    "distLevel": "分销 등급",
+    "distLevel": "총판 등급",
     "rateTrend": "수수료 {n}%"
   },
   "contact": {
@@ -5739,7 +5739,7 @@
     "priceLowRequired": "유효한 최소가 입력",
     "priceHighRequired": "유효한 최대가 입력",
     "priceOrder": "최소가가 최대가 초과",
-    "priceMin100": "최소가 100元以上",
+    "priceMin100": "최소 100위안",
     "contactRequired": "연락처 입력",
     "timeRequired": "마감 설정",
     "timeInvalid": "마감 형식 오류",
@@ -5868,11 +5868,11 @@
     "cardD": "내 정보 보기",
     "qr": "내 QR",
     "qrD": "전용 QR 홍보",
-    "orders": "分销 주문",
-    "ordersD": "分销 주문 보기",
+    "orders": "총판 주문",
+    "ordersD": "총판 주문 보기",
     "devSoon": "기능 준비 중",
-    "dealer": "分销상",
-    "earningsLabel": "分销 수익 요약",
+    "dealer": "총판",
+    "earningsLabel": "총판 수익 요약",
     "shareQrA11y": "QR 공유",
     "withdrawDetail": "출금 상세",
     "copyLinkA11y": "초대 링크 복사",

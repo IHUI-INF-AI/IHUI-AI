@@ -133,7 +133,7 @@
     "navShare": "分享",
     "closeDrawer": "關閉抽屜",
     "closeBtn": "關閉",
-    "qrHint": "掃描二维码加入社區",
+    "qrHint": "掃描二維碼加入社區",
     "shareRewardLater": "稍後再說",
     "shareDefaultTitle": "智匯AI社區 - 智匯 AI 助手",
     "shareDefaultDesc": "智能問答 / 課程推薦，用AI.找AI.學AI就到智匯AI社區",
@@ -145,7 +145,7 @@
     "voiceUploadRetry": "語音上傳失敗，請重試",
     "micPermHint": "無法使用麥克風，請檢查權限設定",
     "recordStartRetry": "錄音啟動失敗，請重試",
-    "matApiPending": "素材库介面未開通",
+    "matApiPending": "素材庫介面未開通",
     "matContentFallback": "素材內容",
     "matDelTitle": "刪除素材",
     "matDelBody": "確定刪除「{name}」？",
@@ -312,14 +312,14 @@
     "wechatNotInstalled": "未安裝微信 App,請先安裝微信",
     "appleNotConfigured": "Apple 登入未配置，請在 .env 設定 EXPO_PUBLIC_APPLE_CLIENT_ID，或安裝 expo-apple-authentication（iOS）。",
     "googleNotConfigured": "Google 登入未配置，請在 .env 設定 EXPO_PUBLIC_GOOGLE_CLIENT_ID。",
-    "sdkPending": "{name} 登入請使用網頁端,移動端暂未集成原生 SDK。\n您也可以使用\"智匯AI網頁授權登入\"按鈕跳轉網頁端授權。",
+    "sdkPending": "{name} 登入請使用網頁端,移動端暫未集成原生 SDK。\n您也可以使用\"智匯AI網頁授權登入\"按鈕跳轉網頁端授權。",
     "agree": "同意",
     "agreeTermsTitle": "確認同意服務條款"
   },
   "loginCountry": {
     "cn": "中國",
     "us": "美國",
-    "tw": "中國台灣",
+    "tw": "中國臺灣",
     "hk": "中國香港",
     "mo": "中國澳門",
     "kr": "韓國",
@@ -436,7 +436,7 @@
     "levelRegularDesc": "註冊即享基礎功能",
     "levelProDesc": "付費升級,解鎖進階能力",
     "levelTrader": "操盤手",
-    "levelTraderDesc": "頂級會員,享受平台全部權益",
+    "levelTraderDesc": "頂級會員,享受平臺全部權益",
     "deleteBtn": "刪除",
     "n8nHideAnswer": "隱藏回答",
     "n8nShowAnswer": "顯示回答",
@@ -455,7 +455,7 @@
     "benefitListAiMore": "AI 助手免費次數大幅增加",
     "benefitListKb": "建立專屬知識庫",
     "benefitSupport": "專屬客服支持",
-    "benefitTraderAll": "享受平台全部權益",
+    "benefitTraderAll": "享受平臺全部權益",
     "levelVip": "VIP 會員",
     "dlgDelConvTitle": "刪除對話",
     "dlgDelConvBody": "確認刪除此對話?",
@@ -864,10 +864,10 @@
     "imagePreviewA11y": "圖片預覽",
     "menuAnnotateImage": "標註此圖",
     "chatDeleteFailed2": "刪除失敗",
-    "qrSaveFail": "保存失败，请重试",
+    "qrSaveFail": "保存失敗，請重試",
     "favOn": "已收藏",
     "favOff": "已取消收藏",
-    "annotHint": "标注图已插入输入框",
+    "annotHint": "標註圖已插入輸入框",
     "terminal": {
       "waitingInput": "等待輸入",
       "mobileUnsupported": "終端功能暫不支持行動端"
@@ -880,7 +880,7 @@
     "toolFail": "失敗",
     "diffCollapse": "收起流中 diff 預覽",
     "diffExpand": "展開流中 diff 預覽",
-    "imagePreview": "预览圖片",
+    "imagePreview": "預覽圖片",
     "notes": {
       "loadFailShort": "載入失敗",
       "recordNew": "新建錄音"
@@ -1544,7 +1544,7 @@
     "toMomentsA11y": "分享到朋友圈",
     "copyLinkA11y": "複製分享連結",
     "cancelA11y": "取消分享",
-    "defaultDesc": "來智匯AI社群，一起玩转 AI",
+    "defaultDesc": "來智匯AI社群，一起玩轉 AI",
     "contentDefault": "來看看這個 AI 內容",
     "okSent": "分享成功",
     "cancelled": "已取消分享",
@@ -3960,7 +3960,7 @@
     "product": "商品",
     "status": "訂單狀態",
     "title": "訂單詳情",
-    "contactSeller": "联系卖家",
+    "contactSeller": "聯繫賣家",
     "contactBody": "如有問題請聯繫客服微信：aizhs_kefu",
     "payNow": "立即支付",
     "buyAgain": "再次購買",
@@ -5272,7 +5272,7 @@
     "title": "個人號池",
     "subtitle": "你自己的第三方 AI 帳號池：與簽到助手同一批帳號，支援每日自動簽到，並優先服務你自己的轉發請求。",
     "add": "新增帳號",
-    "provider": "平台",
+    "provider": "平臺",
     "name": "名稱",
     "namePlaceholder": "給帳號起個名字",
     "token": "Token（存取憑證）",
@@ -5340,7 +5340,7 @@
     "faqContent": "關於充值到賬與訂單的常見問題",
     "faqOk": "我知道了",
     "tip1": "充值成功後智匯值一般即時到賬，如餘額未更新，可在「我的智匯值」頁下拉刷新",
-    "tip2": "微信支付成功但結果頁に留まる場合、注文一覧で状態を確認し、二重チャージを避けてください",
+    "tip2": "微信支付成功但停留在結果頁時,請在訂單列表中確認狀態,避免重複充值",
     "tip3": "訂單編號是查詢與售後的重要憑證，請妥善保留",
     "tip4": "如長時間未到賬，請聯繫客服並提供訂單編號與充值時間",
     "tip5": "充值金額不支持退款與轉讓"
@@ -5406,10 +5406,10 @@
     "verifySuccess": "驗證通過",
     "verifyFailed": "驗證未通過",
     "doneTitle": "配置完成",
-    "doneDesc": "服務商已建立,平台分潤已啟用"
+    "doneDesc": "服務商已建立,平臺分潤已啟用"
   },
   "pay": {
-    "alipayNotOpen": "支付寶 payment 暂未開通，請選擇微信支付"
+    "alipayNotOpen": "支付寶支付暫未開通,請選擇微信支付"
   },
   "popularCourses": {
     "tabHotIntro": "爆款入門",
@@ -5608,7 +5608,7 @@
   },
   "comment": {
     "send": "發表評論",
-    "empty": "暫無評論,快來搶沙发",
+    "empty": "暫無評論,快來搶沙發",
     "close": "關閉評論"
   },
   "businesscard": {
@@ -5668,7 +5668,7 @@
   },
   "account": {
     "phoneRequired": "請輸入手機號",
-    "phoneInvalid": "請輸入正確的手机号",
+    "phoneInvalid": "請輸入正確的手機號",
     "smsSent": "驗證碼已發送",
     "smsFailRetry": "驗證碼發送失敗，請稍後重試",
     "smsRequired": "請輸入簡訊驗證碼",
@@ -5682,7 +5682,7 @@
     "devTitle": "開發者進駐",
     "devDesc": "發布模型與應用",
     "plazaTitle": "AI 需求廣場",
-    "plazaDesc": "需求對接平台",
+    "plazaDesc": "需求對接平臺",
     "topupTitle": "充值中心",
     "topupDesc": "智匯值充值",
     "homeTitle": "學習首頁",
@@ -5833,7 +5833,7 @@
     "aiAvatarD": "製作數碼人",
     "more2": "更多",
     "viewMoreA11y": "查看更多 AI Agent 應用",
-    "oneClickA11y": "獨家一鍵生成运营內容",
+    "oneClickA11y": "獨家一鍵生成運營內容",
     "customA11y": "AI 定製服務"
   },
   "confirm": {
