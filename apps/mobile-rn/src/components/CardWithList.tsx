@@ -31,6 +31,7 @@ import type { AppIcon } from '@ihui/types'
 import { Tag } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 export interface CardWithListItem {
   id: string
@@ -59,11 +60,11 @@ const ICON_FONT_SIZE = 24
 const ITEM_TITLE_FONT_SIZE = 12
 const ITEM_SUBTITLE_FONT_SIZE = 10
 const TITLE_FONT_SIZE = 16
-const DEFAULT_MORE_TEXT = '更多'
 
 const DEFAULT_ICON = Tag
 
 export function CardWithList({ title, items, onItemClick, onMore, moreText }: CardWithListProps) {
+  const { t } = useI18n()
   return (
     <View style={styles.card}>
       {title || onMore ? (
@@ -75,7 +76,7 @@ export function CardWithList({ title, items, onItemClick, onMore, moreText }: Ca
           ) : null}
           {onMore ? (
             <MoreLink
-              label={moreText ?? DEFAULT_MORE_TEXT}
+              label={moreText ?? t('common.more')}
               onPress={onMore}
               colorScheme={currentRnTheme()}
               style={styles.more}

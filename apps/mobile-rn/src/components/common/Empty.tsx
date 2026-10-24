@@ -17,6 +17,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { PackageOpen, type LucideIcon } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../../i18n'
 
 export interface EmptyProps {
   text?: string
@@ -27,18 +28,19 @@ export interface EmptyProps {
 }
 
 const DEFAULT_ICON = PackageOpen
-const DEFAULT_TEXT = '暂无数据'
 
 function isUrl(value: string): boolean {
   return value.startsWith('http://') || value.startsWith('https://')
 }
 
 export default function Empty({
-  text = DEFAULT_TEXT,
+  text: textProp,
   icon = DEFAULT_ICON,
   actionText,
   onAction,
 }: EmptyProps): React.JSX.Element {
+  const { t } = useI18n()
+  const text = textProp ?? t('common.empty')
   const showAction = Boolean(actionText && onAction)
   const IconNode = typeof icon === 'string' ? null : icon
   return (

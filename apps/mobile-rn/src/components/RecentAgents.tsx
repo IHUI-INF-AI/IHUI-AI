@@ -18,6 +18,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { tokens } from '../theme/active-tokens'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 export interface RecentAgentItem {
   id: string
@@ -39,11 +40,12 @@ export interface RecentAgentsProps {
 }
 
 export default function RecentAgents({ items, onItemClick, defaultAvatar }: RecentAgentsProps) {
+  const { t } = useI18n()
   if (!items || items.length === 0) return null
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{'最近使用'}</Text>
+      <Text style={styles.title}>{t('home.recentUsed')}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

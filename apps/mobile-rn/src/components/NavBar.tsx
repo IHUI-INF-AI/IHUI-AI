@@ -34,6 +34,7 @@ import {
   NAVBAR_TITLE_MAX_WIDTH_PX,
   navbarActionBoxStyle,
 } from '@ihui/shared/ui/navbar-spec'
+import { useI18n } from '../i18n'
 
 export interface NavBarAction {
   /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
@@ -84,6 +85,7 @@ export function NavBar({
   rightAction,
   sticky = false,
 }: NavBarProps) {
+  const { t } = useI18n()
   const contentHeight = subtitle ? NAVBAR_ROW_HEIGHT_SUBTITLE_PX : NAVBAR_ROW_HEIGHT_PX
   const hasLeftContent =
     onBack !== undefined || (leftActions !== undefined && leftActions.length > 0)
@@ -102,7 +104,7 @@ export function NavBar({
               style={styles.backBtn}
               activeOpacity={0.6}
               accessibilityRole="button"
-              accessibilityLabel="返回"
+              accessibilityLabel={t('common.back')}
             >
               <ChevronLeft size={backChevronGlyphPx()} color={tokens.text.primary} />
             </TouchableOpacity>
