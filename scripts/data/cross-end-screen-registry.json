@@ -332,6 +332,11 @@
       "miniapp": "pkg-content/topic/detail"
     },
     {
+      "shared": "packages/app/src/features/user-fans/UserFansScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/UserFansScreen.tsx",
+      "miniapp": "pkg-user/fans/index"
+    },
+    {
       "shared": "packages/app/src/features/vip-benefit/VipBenefitScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/VipBenefitScreen.tsx",
       "miniapp": "pages/member/benefits"

@@ -1387,6 +1387,19 @@
     "tabAigc": "AI作品",
     "tabNews": "ニュース"
   },
+  "userFans": {
+    "title": "フォロワー",
+    "anonymous": "匿名ユーザー",
+    "empty": "フォロワーはまだいません",
+    "follow": "フォローを返す",
+    "followed": "フォロー中",
+    "followedAt": "フォロー日",
+    "followSuccess": "フォローしました",
+    "actionFailed": "操作に失敗しました。後でもう一度お試しください",
+    "loadFailed": "フォロワーの読み込みに失敗しました",
+    "total": "フォロワー {total} 人",
+    "loadMore": "さらに読み込む（{loaded}/{total}）"
+  },
   "distribution": {
     "withdraw": {
       "methodWechat": "WeChat",
@@ -2430,7 +2443,7 @@
       "save": "保存"
     },
     "index": {
-      "title": "モデル広場",
+      "title": "AIニーズ広場",
       "untitled": "無題",
       "anonymous": "匿名",
       "emptyMain": "コンテンツなし",
