@@ -3308,7 +3308,8 @@
       "duration": "Membership Duration",
       "monthlyPlan": "Monthly Membership",
       "payMethod": "Payment Method",
-      "yearlyPlan": "Yearly Membership"
+      "yearlyPlan": "Yearly Membership",
+      "daysUnit": "{n} days"
     },
     "benefitsTitle": "VIP Benefits",
     "upgradeNow": "Upgrade Now",

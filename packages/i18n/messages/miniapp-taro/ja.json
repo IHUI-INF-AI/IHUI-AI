@@ -3308,7 +3308,8 @@
       "duration": "会員期間",
       "monthlyPlan": "月額会員",
       "payMethod": "支払い方法",
-      "yearlyPlan": "年間会員"
+      "yearlyPlan": "年間会員",
+      "daysUnit": "{n}日間"
     },
     "benefitsTitle": "会員特典",
     "upgradeNow": "今すぐアップグレード",

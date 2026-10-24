@@ -3308,7 +3308,8 @@
       "duration": "會員時長",
       "monthlyPlan": "月度會員",
       "payMethod": "支付方式",
-      "yearlyPlan": "年度會員"
+      "yearlyPlan": "年度會員",
+      "daysUnit": "{n} 天"
     },
     "benefitsTitle": "會員權益",
     "upgradeNow": "立即升級",
