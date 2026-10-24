@@ -107,6 +107,9 @@ const requireEduView: (request: FastifyRequest, reply: FastifyReply) => Promise<
 // =============================================================================
 
 const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+// 路由参数名与 schema 键名必须逐字相同:uuidParamSchema 的键是 `id`,只适用于 `/:id` 形参数;
+// 家长端子路由的参数是 `:childId`,用 uuidParamSchema 去 parse 必然缺键判 400(2026-10-24 修)。
+const childIdParamSchema = z.object({ childId: z.string().uuid('无效的孩子ID') })
 
 // =============================================================================
 // 1. 学期管理 (edu_term)
@@ -2959,19 +2962,25 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
    * 等于把一条通知丢进没有落点的通道。
    *
    * 三条口径:
-   * 1. 鉴权与同族家长端点同形:childId 必须在**调用者自己**的 confirmed 绑定集里。
+   * 1. 资格分两跳:先由承载层(checkAuthOrInternalService)注入 userId,再判归属 ——
+   *    childId 必须在**调用者自己**的 confirmed 绑定集里(与同族家长端点的归属判据同形)。
    *    绑定不存在一律 403,不回 404 —— "这个孩子不存在"与"不是你的孩子"必须同形,
    *    否则端点自己变成存在性预言机(与 §5"认证不等于授权"那条同族)。
    * 2. 欠费额只由账目出口 loadEnrollmentLedger 给,这里不重算(守门 AR1 也会拦)。
    * 3. 只读:家长侧不得经本端点写缴费(缴费是机构动作,走 POST /payment-record 且需 edu:manage)。
    */
   server.get('/parent/children/:childId/bills', async (request, reply) => {
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
-    const idParsed = uuidParamSchema.safeParse(request.params)
+    // 鉴权走承载层显式注入:与同文件 /my-bills(同为「非管理端权限」的自查端点)同形的混合闸。
+    // 本路由不在 /api 面 openCapabilityGateway 的射程内(该闸只放行登记表里的机器凭据,
+    // 人凭据一律 no-op),而 requireEduView 判的是 edu:view/edu:manage,家长不持有 ⇒ 会误 403;
+    // 所以只能由端点自己拉鉴权,不自造第三种守卫。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
+    const userId = request.userId!
+    const idParsed = childIdParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const childId = idParsed.data.id
+    const childId = idParsed.data.childId
 
     const [bound] = await db
       .select({ id: eduParentStudentBinding.id })

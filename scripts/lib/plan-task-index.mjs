@@ -836,13 +836,21 @@ export function findReopenedFlipCandidates(content, flippedRows) {
     if (g.done !== 0) continue // 仍有已勾份 ⇒ F1 射程,本维不重复判债
     if (!g.open.length) continue // 没有未勾行 ⇒ 不是"翻勾被顶回未勾"
     const openBodies = new Set(g.open.map((r) => bodyOfRow(r.raw) ?? ''))
+    // 逐行精确化(2026-10-24,清扫器消费前置):verdict='rewrite' 只说"组内**有**一行与史证逐字等值",
+    // 但同组可能还挂着别的未勾行(正文已漂)—— 自动摘除必须精确到"回捞副本"那一行,多摘一行
+    // 就是替别人删掉有意重开的票。故这里由判据本身给出等值行号;消费方**禁止**自己再抄一份
+    // body 比对(§0.6/§22c)。undetermined 组恒为空(措辞已变,交人工)。
+    const isRewrite = openBodies.has(ev.body)
     candidates.push({
       key,
       id: key.split('#')[0],
       firstSha: ev.sha,
       firstDay: ev.day,
       openLines: g.open.map((r) => r.line),
-      verdict: openBodies.has(ev.body) ? 'rewrite' : 'undetermined',
+      rewriteLines: isRewrite
+        ? g.open.filter((r) => (bodyOfRow(r.raw) ?? '') === ev.body).map((r) => r.line)
+        : [],
+      verdict: isRewrite ? 'rewrite' : 'undetermined',
     })
   }
   candidates.sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0))
@@ -1520,7 +1528,7 @@ export const DISPOSITIONS = ['actionable', 'waiting-human', 'waiting-env', 'owne
  * 静默改掉派单判定,而守恒断言看不见它(它比的是桶,不是词表)。
  */
 const OWNED_ELSEWHERE_RE =
-  /归属[:：]|本票不认领|本线不认领|本线只登记|不代做|不代改|不代裁|他人账|不归本机|不归本线|归.{0,10}持有者|由.{0,12}持有者|留给.{0,10}(持有人|人)/
+  /归属[:：]|归属会话\s*[=＝]|本票不认领|本线不认领|本线只登记|不代做|不代改|不代裁|他人账|不归本机|不归本线|归[:：][^〕\n｜]{1,60}持有[者人][^〕\n｜]{0,4}(?=[〕｜])|归[:：]\s*(?![—–-]|未派|待认领|无主|无人)[^〕\n｜]{1,40}｜|归[^。\n｜]{0,10}持有者|由.{0,12}持有者|持有[者人][:：]|留给.{0,10}(持有人|人)/
 export function ownedElsewhereRe() {
   return OWNED_ELSEWHERE_RE
 }
@@ -2560,6 +2568,7 @@ export function usedIdsOfPrefix(content, prefix) {
   const re = /^([A-Za-z]+)([-_ ]?)(\d+)/
   const nums = new Set()
   const sepOf = new Map()
+  const rawOf = new Map()
   for (const r of parseTaskRows(content)) {
     const key = keyOfRow(r.raw)
     if (!key) continue
@@ -2570,6 +2579,10 @@ export function usedIdsOfPrefix(content, prefix) {
     // 书写形状由**该族自己现读**决定:本仓 `G-265` 带连字符、`O4`/`D35` 不带,而 `O13b` 的字母
     // 后缀不算号段的一部分。印错形状等于给使用者一个判据认不出来的号(与"族取不到 ⇒ 判不出"同一条理由)。
     if (!sepOf.has(Number(m[3]))) sepOf.set(Number(m[3]), m[2])
+    // 数字的**书写宽度**同样是形状的一部分:重排后两位号写作 `G-01`,而用 Number 重建会印成
+    // `G-1` ⇒ 同一份台账里"行首的号"与"取号集合里的号"逐字不等,M26 逐行不变量把整族判红
+    // (2026-10-24 现读 28 行)。保留首次见到的原样拼写,与分隔符同一条理由。
+    if (!rawOf.has(Number(m[3]))) rawOf.set(Number(m[3]), m[0])
   }
   if (nums.size === 0) return null
   const sorted = [...nums].sort((a, b) => a - b)
@@ -2578,7 +2591,7 @@ export function usedIdsOfPrefix(content, prefix) {
   return {
     max,
     used: sorted.length,
-    ids: sorted.map((n) => `${want}${sepOf.get(n) ?? sep}${n}`),
+    ids: sorted.map((n) => rawOf.get(n) ?? `${want}${sepOf.get(n) ?? sep}${n}`),
     template: `${want}${sep}%d`,
   }
 }
@@ -2589,7 +2602,7 @@ export function nextTaskIdLabel(content, prefix) {
   return u === null ? null : u.template.replace('%d', String(u.max + 1))
 }
 
-export function auditPlan(content, { archivedKeys = null } = {}) {
+export function auditPlan(content, { archivedKeys = null, fields = null } = {}) {
   const rows = parseTaskRows(content)
   const { groups, forks, dupOpen, dupDone } = findForks(content)
   const voidRows = findVoidRows(content)
@@ -2655,6 +2668,15 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     'owned-elsewhere': [],
   }
   for (const r of unclaimedRows) dispBuckets[dispositionOf(r.raw)].push(r)
+  /**
+   * F11 名单(2026-10-23 机主强制令:等人拍板条目一律禁止):全部未勾选行里被 **v2 尺**
+   * (侧车优先、散文回落)判为 waiting-human 的行,带租约与否都算——禁令没有"已认领"豁免档。
+   * 刻意不复用 dispBuckets:那一把是 v1 散文尺 + 未认领基数,挪动任何一格都会移动既有 F7
+   * 报数锚点(§12f:修红不得顺手移动别人的锚点)。两把尺同文件同遍 parseTaskRows,不另解析。
+   */
+  const waitingHumanRows = openRows.filter(
+    (r) => dispositionOfV2({ line: r.raw, fields }).bucket === 'waiting-human',
+  )
   const undisposed = findUndisposedOpenRows(content)
   const staleRows = findStaleOpenRows(content, new Date().toISOString().slice(0, 10))
   // 已写明"重复登记副本、不再单独派单"的行**也不进派单口径** —— 它由同题的幸存者代表。
@@ -2712,6 +2734,8 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     f9MalformedMasquerade: f9.malformed,
     malformedRows,
     dispBuckets,
+    /** F11 名单(v2 尺,全体未勾选行):见上方 waitingHumanRows 头注。 */
+    waitingHumanRows,
     undisposed,
     staleRows,
     /** 派单口径 = 未勾选 ∧ **未带租约** ∧ 不是"与已完成同题的分叉副本" ∧ 不是"同一件事的第二条待办"(F4)∧ 不自带作废声明。
@@ -2800,6 +2824,8 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
       dispWaitingHuman: dispBuckets['waiting-human'].length,
       dispWaitingEnv: dispBuckets['waiting-env'].length,
       dispOwnedElsewhere: dispBuckets['owned-elsewhere'].length,
+      /** F11 存量读数(v2 尺全体未勾行)—— 差值档的 newWaitingHuman 由调用方(plan-tasks)算。 */
+      waitingHuman: waitingHumanRows.length,
       // ── F7b 同一分层在派单口径上的读数(基数 = claimable,已扣副本/作废/分叉)──
       // 四桶相加必须等于 claimable,与上面四条"相加等于 unclaimed"是两条独立的闭合判据。
       dispClaimActionable: dispClaimBuckets.actionable.length,
