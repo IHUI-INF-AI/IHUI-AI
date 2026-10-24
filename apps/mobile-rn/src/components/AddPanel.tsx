@@ -50,6 +50,7 @@ export function PlusButton({
   size = rnGeometry.controlGlyph,
   label,
 }: PlusButtonProps) {
+  const { t } = useI18n()
   return (
     <Pressable
       style={[styles.plusButton, active ? styles.plusButtonActive : null]}
