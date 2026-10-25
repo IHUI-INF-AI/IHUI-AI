@@ -81,7 +81,14 @@ function docNumbers(md) {
     const m = new RegExp(`-\\s*${esc}:\\s*\\*\\*(\\d+)\\*\\*`).exec(md || '')
     return m ? Number(m[1]) : null
   }
-  return { sharedTotal: pick('共享屏(真相源)'), mirrored: pick('已被小程序显式镜像'), gaps: pick('缺口(未判定镜像)') }
+  // 缺口行标签以**生产方**(report-rn-miniapp-gaps.mjs 第 137 行)现写为准:它发的是
+  // `缺口合计`,而本解析曾读 `缺口(未判定镜像)` —— 消费方读一个生产者从不发射的标签,
+  // 结果是 gaps 恒 null、C9 阳性对照恒红(2026-10-26 实测)。旧标签保留为兜底,防历史文档。
+  return {
+    sharedTotal: pick('共享屏(真相源)'),
+    mirrored: pick('已被小程序显式镜像'),
+    gaps: pick('缺口合计') ?? pick('缺口(未判定镜像)'),
+  }
 }
 
 /**
