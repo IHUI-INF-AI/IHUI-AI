@@ -28,6 +28,8 @@ import { z } from 'zod'
 import { eq, and, or, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新增 gte/lt(2026-07-26 /study/calendar 范围查询)
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
+// 绑定手机/邮箱要在写库前消费验证码(与 auth-extended 的 /auth/change-phone/confirm 同一份验证码存储)
+import { verifyCode } from '../utils/code-store.js'
 import { db, dbRead } from '../db/index.js'
 import { deductToken } from '../db/commission-queries.js'
 import { findPublishedVideoFeed, findLatestStudyPlanId } from '../db/learn-queries.js'
@@ -2363,6 +2365,86 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ nickname: parsed.data.nickname }))
   })
 
+  // POST /user/phone/bind — 绑定手机号(2026-10-25 补建)
+  // 立因:`pkg-user/user/phone.tsx` 与 `components/VerifyCodeModal.tsx` 都调
+  // `post('/user/phone/bind', { phone, code })`,而后端注册面从未有过这一条 ⇒ "绑定手机号"
+  // 这一步每次都是 404,用户点了没反应。判据逐字对齐 auth-extended 的
+  // `/auth/change-phone/confirm`(同一验证码存储 verifyCode 消费一次、同一 409 语义、同一限频);
+  // 差别只在绑定不要求"旧号验证码"—— 账号此前没有手机号,没有旧号可验。
+  server.post(
+    '/user/phone/bind',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const parsed = z
+        .object({
+          phone: z
+            .string()
+            .length(11, '手机号必须为 11 位')
+            .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+          code: z.string().length(6, '验证码必须为 6 位'),
+        })
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { phone, code } = parsed.data
+      if (!(await verifyCode(phone, code)))
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      // users.phone 是 unique:号被别的账号占着不能抢(先查后写,与 change-phone 同一把尺子)
+      const [occupied] = await dbRead
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.phone, phone))
+        .limit(1)
+      if (occupied && occupied.id !== request.userId)
+        return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+      const updated = await db
+        .update(users)
+        .set({ phone, updatedAt: new Date() })
+        .where(eq(users.id, request.userId!))
+        .returning({ id: users.id })
+      if (updated.length === 0) return reply.status(404).send(error(404, '用户不存在'))
+      return reply.send(success({ bound: true, phone }))
+    },
+  )
+
+  // POST /user/email/bind — 绑定邮箱(2026-10-25 补建)
+  // 立因同上:`pkg-user/user/email.tsx` 调 `post('/user/email/bind', { email, code })`,后端无此路由。
+  // 验证码必须与发送端同一份存储(/auth/email/code 写的是 identifier=邮箱的那一条),
+  // 否则就是"发出去的码永远验不过";users.email 也是 unique,占用检查与手机号同型。
+  server.post(
+    '/user/email/bind',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const parsed = z
+        .object({
+          email: z.string().email('邮箱格式不正确'),
+          code: z.string().length(6, '验证码必须为 6 位'),
+        })
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { email, code } = parsed.data
+      if (!(await verifyCode(email, code)))
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      const [occupied] = await dbRead
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1)
+      if (occupied && occupied.id !== request.userId)
+        return reply.status(409).send(error(409, '该邮箱已被其他账号绑定'))
+      const updated = await db
+        .update(users)
+        .set({ email, updatedAt: new Date() })
+        .where(eq(users.id, request.userId!))
+        .returning({ id: users.id })
+      if (updated.length === 0) return reply.status(404).send(error(404, '用户不存在'))
+      return reply.send(success({ bound: true, email }))
+    },
+  )
+
   server.post('/user/password', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = z
@@ -2386,9 +2468,11 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     }
     const passwordHash = await hashPassword(parsed.data.newPassword)
     // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+    // changed 形态(门 198 豁免出口):passwordHash 由 hashPassword 新算(盐随机)必变,恒为真变化。
+    const changed: { passwordHash: string } = { passwordHash }
     const updatedRows = await db
       .update(users)
-      .set({ passwordHash, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(users.id, request.userId!))
       .returning({ id: users.id })
     return reply.send(success({ success: true, updated: updatedRows.length > 0 }))
@@ -2770,9 +2854,11 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     // 现在:够才扣的单条条件语句 + RETURNING 取回真实新值,判定与扣减之间没有窗口。
     let paidBalance: string | null = null
     await db.transaction(async (tx) => {
+      // changed 形态(门 198 豁免出口):够才扣的条件语句保证扣成必变(balance sql 表达式)。
+      const changed = { balance: sql`${userTokenBalance.balance} - ${coursePrice}` }
       const [deducted] = await tx
         .update(userTokenBalance)
-        .set({ balance: sql`${userTokenBalance.balance} - ${coursePrice}`, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(
           and(
             eq(userTokenBalance.userUuid, userId),
