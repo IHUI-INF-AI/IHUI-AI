@@ -41,6 +41,12 @@ export const SECURITY_SENSITIVE_SETTINGS_KEYS = [
   'apiSecret',
   'credentialKind',
   'serve',
+  // 79 号票双轴与 config profiles:同属沙箱/批准面 —— 项目层(仓库内容)不得提权,
+  // 只允许用户全局层 / session / CLI 参数(与本表既有 12 键同一条语义)。
+  'sandboxMode',
+  'approvalPolicy',
+  'profile',
+  'profiles',
 ] as const satisfies readonly (keyof Settings)[];
 
 /** 项目层允许写入的封闭白名单 = Settings 顶层键 − 安全键。Settings 新增顶层键时本表必须同笔扩列。 */

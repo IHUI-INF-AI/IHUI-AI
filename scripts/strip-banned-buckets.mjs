@@ -22,10 +22,12 @@
  * 结论行:`SWEEP-RESULT state=clean|stripped|undetermined stripped=N` —— 三态纪律:
  * "没判"绝不写成"判过"(§0.3)。已勾行不进射程(禁令只禁未勾挂账;翻勾是有主票的处置权)。
  */
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { readFileSync, appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
@@ -67,12 +69,9 @@ export async function sweep({ apply = false, logger = console.log } = {}) {
   const { readFieldsFace } = await loadJudges()
   let text
   try {
-    text = execFileSync('git', ['-C', ROOT, 'show', `HEAD:${PLAN_REL}`], {
-      encoding: 'utf8',
-      maxBuffer: 1 << 26,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 派生 git 走层(lib/face-reader 的 gitRaw):裸起 git 会被 face-reader.test.mjs 的
+    // 「裸 git 派生生产文件只减不增」棘轮记为新增者;取数语义(HEAD 面 blob + 64MB 预算)不变。
+    text = gitRaw(['show', `HEAD:${PLAN_REL}`], ROOT, { maxBuffer: 1 << 26 })
   } catch (e) {
     logger(`⚠️ 未判定 —— HEAD 台账取不到:${String(e?.message ?? e).split('\n')[0]}`)
     console.log('SWEEP-RESULT state=undetermined stripped=0')
