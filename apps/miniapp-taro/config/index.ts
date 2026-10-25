@@ -194,6 +194,9 @@ export default defineConfig(async (merge) => {
       ),
       'expo-image-picker$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
       'expo-media-library$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+      'react-native-restart$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      'expo-file-system$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      'nativewind$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
     },
     mini: {
       es5: true,
@@ -267,6 +270,9 @@ export default defineConfig(async (merge) => {
         ),
         'expo-image-picker$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
         'expo-media-library$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+        'react-native-restart$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        'expo-file-system$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        'nativewind$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
         'react-native-safe-area-context$': path.resolve(
           __dirname,
           '..',
