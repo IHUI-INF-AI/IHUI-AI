@@ -43,9 +43,9 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const SELF_DIR = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(SELF_DIR, '..')
@@ -245,15 +245,8 @@ function main() {
   if (isStaged) {
     let stagedFiles
     try {
-      // execFileSync + 参数数组:不经 cmd.exe(既避开 shell 元字符,也少一层派生窗口)
-      const staged = execFileSync('git', ['diff', '--cached', '--name-only'], {
-        encoding: 'utf8',
-        cwd: root,
-        windowsHide: true,
-        timeout: 15000,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      // 枚举走取材层:绝对 git + 参数数组(不经 cmd.exe)+ 显式 stdio + timeout 由 gitRaw 统一提供
+      const staged = gitRaw(['diff', '--cached', '--name-only'], root, { timeout: 15000 })
       stagedFiles = staged.split('\n').filter(Boolean)
     } catch {
       console.error(
