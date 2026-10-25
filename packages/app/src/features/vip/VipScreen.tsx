@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipLevelItem2, VipMembershipInfo, VipScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -175,7 +175,7 @@ function createStyles(tk: AppThemeTokens) {
       // 对齐 uniapp vip/index.vue .vip-page 深色渐变(#0F1623→#1F2937),用纯色 #1F2937 近似
       backgroundColor: VIP_GOLD_TEXT,
     },
-    membershipLabel: { fontSize: rnType.body.size, color: 'rgba(255,255,255,0.8)' },
+    membershipLabel: { fontSize: rnType.body.size, color: rnCssLight.white80 },
     membershipLevel: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.heading.size,
@@ -187,7 +187,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: rnSpacing.sm,
     },
-    membershipMetaText: { fontSize: rnType.label.size, color: 'rgba(255,255,255,0.7)' },
+    membershipMetaText: { fontSize: rnType.label.size, color: rnCssLight.white70 },
     levelsSection: {
       paddingHorizontal: 10,
       marginTop: rnSpacing.lg,

@@ -17,7 +17,7 @@ import { TextField } from '../../components/TextField'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteItem, NoteScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -241,7 +241,7 @@ function createStyles(tk: AppThemeTokens) {
     deleteBtnText: { color: tk.danger.DEFAULT, fontSize: 14 },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: rnCssLight.black50,
       justifyContent: 'center',
       alignItems: 'center',
       padding: 16,

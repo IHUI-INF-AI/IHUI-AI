@@ -116,6 +116,7 @@ import {
   rnRadiusFor,
   rnSpacing,
   rnType,
+  rnCssLight,
 } from '@ihui/design-tokens'
 import {
   CitationList,
@@ -2444,7 +2445,7 @@ const pickerStyles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: rnCssLight.black45,
   },
   sheet: {
     backgroundColor: tokens.surface.card,

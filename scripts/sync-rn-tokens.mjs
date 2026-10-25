@@ -940,7 +940,8 @@ export const rnDarkTokens: RnThemeTokens = {
       return (
         p.stale &&
         !again.stale &&
-        after.includes('export const rnCssLight: Record<string, string> = {') &&
+        after.includes('export const rnCssLight = {') &&
+        after.includes('} satisfies Record<string, string>') &&
         after.includes("black50: 'rgba(0,0,0,0.5)',") &&
         again.entries.length === p.entries.length
       )
@@ -1117,22 +1118,25 @@ export function renderPaletteBlock(entries) {
   return [
     `${PALETTE_BEGIN} */`,
     '',
-    '/** 源侧全量色档·亮档(RN 表里没有同名档的那些;键 = `--color-x-y` 去前缀后 camel 化) */',
-    'export const rnCssLight: Record<string, string> = {',
+    '/** 源侧全量色档·亮档(RN 表里没有同名档的那些;键 = `--color-x-y` 去前缀后 camel 化)',
+    ' *  刻意用 `satisfies` 而不是 `: Record<string,string>`:后者在 noUncheckedIndexedAccess 下会把每次取用',
+    ' *  变成 `string | undefined`(实测把 apps/mobile-rn 的一枚测试顶成 TS2345),而字面量推导既保住',
+    ' *  精确键类型,又让写错的档名在编译期就红。 */',
+    'export const rnCssLight = {',
     rows('light'),
-    '}',
+    '} satisfies Record<string, string>',
     '',
     '/** 源侧全量色档·暗档(.dark 未覆盖的档按 cascade 落回亮值,与守门 93 同一口径) */',
-    'export const rnCssDark: Record<string, string> = {',
+    'export const rnCssDark = {',
     rows('dark'),
-    '}',
+    '} satisfies Record<string, string>',
     '',
     '/**',
     ' * 按主题取源档。屏内取色的正确写法是 `rnCssColor(themeMode, \'black50\')`,不是 `\'rgba(0,0,0,0.5)\'` ——',
     ' * 后者在 tokens.css 改值后**不会**跟着变,而前者会(且明暗自动翻面)。',
     ' */',
-    'export function rnCssColor(theme: RnThemeMode, key: string): string {',
-    '  const table = theme === \'dark\' ? rnCssDark : rnCssLight',
+    'export function rnCssColor(theme: RnThemeMode, key: keyof typeof rnCssLight): string {',
+    '  const table = (theme === \'dark\' ? rnCssDark : rnCssLight) as Record<string, string>',
     '  const value = table[key]',
     '  if (value === undefined)',
     "    throw new Error(`rnCssColor:源里没有 ${key} 档(派生块落后?跑 sync-rn-tokens)`)",

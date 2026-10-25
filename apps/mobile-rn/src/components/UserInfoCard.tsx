@@ -46,7 +46,7 @@ import {
   userInfoCardAvatarStyle,
 } from '@ihui/shared/ui/user-info-card-spec'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 
 /**
  * 头像盒子结构只在 spec 出口里摆一次(方档 + overflow + 居中),端内三个头像位
@@ -576,7 +576,7 @@ const newStyles = StyleSheet.create({
   // 等级弹窗
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: rnCssLight.black50,
     justifyContent: 'center',
     alignItems: 'center',
   },

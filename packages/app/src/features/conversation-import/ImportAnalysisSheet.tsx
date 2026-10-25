@@ -16,7 +16,7 @@ import { TextField } from '../../components/TextField'
 import { AlertTriangle, Sparkles } from 'lucide-react-native'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { buildAnalysisPrompt, type ImportSource } from '@ihui/shared/import-analysis'
 import type {
   ImportAnalysisCategory,
@@ -362,7 +362,7 @@ function CategoryChip({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+    backdrop: { flex: 1, backgroundColor: rnCssLight.black45, justifyContent: 'flex-end' },
     sheet: {
       maxHeight: '88%',
       padding: rnSpacing.lg,

@@ -74,7 +74,7 @@ import {
   X,
 } from 'lucide-react-native'
 
-import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 // 放大钮内缩 / 命中外扩 / 计数浮层距底 / 语音钮间距 —— 唯一源在
 // @ihui/shared/ui/input-area-spec(与小程序端同档;上一轮只搬小程序侧的 6 造成台账 23→24,
@@ -1062,7 +1062,7 @@ const styles = StyleSheet.create({
   videoBadgeIcon: {
     fontSize: rnType.heading.size,
     color: tokens.surface.light,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: rnCssLight.black50,
     // 绘制细节(文字阴影偏移),小程序端同类角标是实底色块、无阴影通道 —— 单端档,非取值分叉
     textShadowOffset: { width: 0, height: INPUT_AREA_LEGACY_SHADOW_OFFSET_PX },
     textShadowRadius: 2,
