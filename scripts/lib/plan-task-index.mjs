@@ -836,13 +836,21 @@ export function findReopenedFlipCandidates(content, flippedRows) {
     if (g.done !== 0) continue // 仍有已勾份 ⇒ F1 射程,本维不重复判债
     if (!g.open.length) continue // 没有未勾行 ⇒ 不是"翻勾被顶回未勾"
     const openBodies = new Set(g.open.map((r) => bodyOfRow(r.raw) ?? ''))
+    // 逐行精确化(2026-10-24,清扫器消费前置):verdict='rewrite' 只说"组内**有**一行与史证逐字等值",
+    // 但同组可能还挂着别的未勾行(正文已漂)—— 自动摘除必须精确到"回捞副本"那一行,多摘一行
+    // 就是替别人删掉有意重开的票。故这里由判据本身给出等值行号;消费方**禁止**自己再抄一份
+    // body 比对(§0.6/§22c)。undetermined 组恒为空(措辞已变,交人工)。
+    const isRewrite = openBodies.has(ev.body)
     candidates.push({
       key,
       id: key.split('#')[0],
       firstSha: ev.sha,
       firstDay: ev.day,
       openLines: g.open.map((r) => r.line),
-      verdict: openBodies.has(ev.body) ? 'rewrite' : 'undetermined',
+      rewriteLines: isRewrite
+        ? g.open.filter((r) => (bodyOfRow(r.raw) ?? '') === ev.body).map((r) => r.line)
+        : [],
+      verdict: isRewrite ? 'rewrite' : 'undetermined',
     })
   }
   candidates.sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0))
@@ -957,12 +965,49 @@ export const COPY_POINTER_ROW_RE =
   /^- \[[ x]\](?:（[^）\n]{0,40}）|\([^)\n]{0,40}\)|\s|　|\*|（进行中|\*\*){0,3}副本指针\s*[（(]编号\s*[^）)\n]{1,24}[）)]/m
 
 /**
- * 派单口径认的「这一行已被标注为副本」全集 —— `DUP_POINTER_RE`(原族) ∪ `COPY_POINTER_ROW_RE`
- * (`副本指针(编号 …)` 行首族,见上条头注)。刻意**只有一个**判据出口:两个正则并列导出但判据本身
- * 只在这里合成一次,避免"同一件事两处各判"(那正是 `DUP_POINTER_RE` 当初被立成单一来源的原因)。
+ * 派单口径认的第三种"本行自述为副本"形态(2026-10-25 立,机主令"不允许不同 agent 抢同一件任务重复做")。
+ *
+ * 病:`DUP_POINTER_RE` 只认「【归并】重复登记副本」(归并器自产形),`COPY_POINTER_ROW_RE` 只认
+ * 「副本指针(编号 …」行首族,而台账里还有第三族 —— 行首逐字写 `重复登记副本:`(裸形或带【归并】)、
+ * 行内又**逐字自述**「本行不进派单口径」/「活账以主行为准」的行。2026-10-25 HEAD 面现读 1 枚
+ * (`- [ ] 重复登记副本:本行与同标题登记 L6880(枚 290a26bc1)…本行不进派单口径,活账以主行为准。 **G-351…`),
+ * 它自述不进派单口径却仍被当活待办派出去 ⇒ 同一件事在派单清单里出现两行、两个会话各领一张票,
+ * 这正是"抢同一件任务重复做"的机器成因。
+ *
+ * 判据是**双锚,缺一不认**(原则:扩识别形态、不扩推断能力):
+ *  ① 行首锚:复选框后只容状态装饰(装饰集与 `COPY_POINTER_ROW_RE` 逐字同形),`【归并】` 可选,
+ *    随后必须是字面量 `重复登记副本` 且紧跟 `:` / `：` / `(` / `（` —— 正文里**出现**"重复登记"
+ *    字样而开头不是这一族的行,永不命中(锚在行首标记,不是关键词命中)。
+ *  ② 自述锚:同一行内必须含「本行不进派单口径」或「活账以主行为准」的逐字声明 —— 只写行首
+ *    「重复登记副本:」而没有行内自述的行可能是**正要修这一病型的真活票**(G-1058653 即此形),
+ *    不得吞。两锚都是行内显式声明,**绝不引入相似度/长度/语气猜副本**(§1:复合主键是逐字等值
+ *    而不是相似度;把别人没做完的活猜成副本,代价比原病更响)。
+ *
+ * **为什么不并进 `DUP_POINTER_RE`**(与 `COPY_POINTER_ROW_RE` 立项时的取舍同形):那个正则在全仓
+ * 有 30+ 消费点,renumber/折叠/清偿链按它决定"改不改号、折不折行"——扩它=30 处行为同时变;
+ * 且 `measure-plan-block-migration.test.mjs` D4 用 `assert.equal(source, '【归并】重复登记副本')`
+ * 钉死了它的字面形状。本判据**只在 `isClaimExcludedPointer` 这一个出口合成消费**,
+ * 影响面 = 少派 N 行 + `dupPointerRows` 诊断桶多收 N 行(该桶不在 probe 棘轮维),F1/F4 判据一字不动。
+ * `SELF_DEDISPATCH_RE` 也没并(它措辞互不含:「本行不再单独派单/走持有行」是另一族的逐字声明,
+ * 且 `check-plan-dup-pointer-ratchet` 的 hitsNote 吃它,并字面会把注记存量棘轮的基线读数顶挪)。
+ */
+export const BARE_COPY_SELFDECL_ROW_RE =
+  /^- \[[ x]\](?:（[^）\n]{0,40}）|\([^)\n]{0,40}\)|\s|　|\*|（进行中|\*\*){0,3}(?:【归并】)?重复登记副本\s*[：:（(]/
+export const COPY_SELF_EXEMPT_RE = /本行不进派单口径|活账以主行为准/
+/** 行首「重复登记副本」标记 ∧ 行内"不进派单/以主行为准"自述 —— 两者齐备才算自述副本行。 */
+export function isSelfDeclaredCopyRow(raw) {
+  return BARE_COPY_SELFDECL_ROW_RE.test(raw) && COPY_SELF_EXEMPT_RE.test(raw)
+}
+
+/**
+ * 派单口径认的「这一行已被标注/自述为副本」全集 —— `DUP_POINTER_RE`(【归并】原族) ∪
+ * `COPY_POINTER_ROW_RE`(`副本指针(编号 …)` 行首族,见其头注)∪ `isSelfDeclaredCopyRow`
+ * (裸「重复登记副本:」行首 ∧ 行内自述,2026-10-25 立,见其头注)。刻意**只有一个**判据出口:
+ * 各正则并列导出但判据本身只在这里合成一次,避免"同一件事两处各判"(那正是 `DUP_POINTER_RE`
+ * 当初被立成单一来源的原因)。
  */
 export function isClaimExcludedPointer(raw) {
-  return DUP_POINTER_RE.test(raw) || COPY_POINTER_ROW_RE.test(raw)
+  return DUP_POINTER_RE.test(raw) || COPY_POINTER_ROW_RE.test(raw) || isSelfDeclaredCopyRow(raw)
 }
 
 /**
@@ -1520,7 +1565,7 @@ export const DISPOSITIONS = ['actionable', 'waiting-human', 'waiting-env', 'owne
  * 静默改掉派单判定,而守恒断言看不见它(它比的是桶,不是词表)。
  */
 const OWNED_ELSEWHERE_RE =
-  /归属[:：]|本票不认领|本线不认领|本线只登记|不代做|不代改|不代裁|他人账|不归本机|不归本线|归.{0,10}持有者|由.{0,12}持有者|留给.{0,10}(持有人|人)/
+  /归属[:：]|归属会话\s*[=＝]|本票不认领|本线不认领|本线只登记|不代做|不代改|不代裁|他人账|不归本机|不归本线|归[:：][^〕\n｜]{1,60}持有[者人][^〕\n｜]{0,4}(?=[〕｜])|归[:：]\s*(?![—–-]|未派|待认领|无主|无人)[^〕\n｜]{1,40}｜|归[^。\n｜]{0,10}持有者|由.{0,12}持有者|持有[者人][:：]|留给.{0,10}(持有人|人)/
 export function ownedElsewhereRe() {
   return OWNED_ELSEWHERE_RE
 }
@@ -1587,7 +1632,7 @@ const DISPOSITION_RULES = [
  * 与 `DISPOSITION_RULES` 共享同一份正则,所以"搬进侧车"这一步不可能因为词表分家而静默改判(§0.6)。
  */
 const WAITING_ENV_BARE_RE =
-  /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)|不可执行|排后/
+  /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)|不可执行|排后|等(?:机主|用户|持有人)(?!\s*(?:拍|裁决|定夺|确认|决策))|待用户(?!\s*(?:拍|裁决|定夺|确认|决策))/
 /** 作者自述槽:`在等什么:` / `在等:` 后面跟着他写明的等待对象。 */
 const WAITING_ENV_SLOT_RE = /在等(?:什么)?[:：]\s*([^,，。;：:（）()\n]{1,40})/
 export function waitingEnvRe() {
@@ -1705,6 +1750,47 @@ export function waitingEnvVerdict(line) {
 /** 槽内「等的是人」:`等` 与身份词之间只许夹虚词/指示词。 */
 const WAITING_HUMAN_SLOT_HUMAN_RE =
   /等[^。；;]{0,4}?(?:人|用户|机主|产品|持有人|人工|对方|各方|上面|领导|owner)/
+/**
+ * 侧车投影标头的语法(唯一实现;`lib/plan-field-line.mjs` 的 stripHeader 从这里取,§0.6 只此一份)。
+ * 2026-10-25 下移到本文件,因为**判定层也必须剥它**:投影不是正文。
+ * 立因(现读实测):`〔归:—｜等:机主真机窗口〕` 这类标头被 waiting-human 的措辞判据当成
+ * "等机主"命中 ⇒ F11 把 19 条条件等待判成"等人拍板",而它的语义来自侧车 `waiting: env`,
+ * 标头只是投影。判定层与渲染层必须同一份剥法,否则同一行在两个面上是两个归属。
+ * 2026-10-25 二修(与 parseHeader 同尺):位置约束曾写死"标头紧跟复选框",而票号/租约
+ * (`- [ ]G-11〔归:…〕`、`- [ ]（进行中@…）〔归:…〕`)挡在中间时 strip 剥不出、parseHeader
+ * (复选框后**第一个** `〔〕`)却认得出 ⇒ headerOf 返回空 ⇒ 门 234 A2 把侧车一致的行误判成
+ * "标头不一致"(实测 HEAD 面 L28655)。两把尺子各写一份位置约束必然漂(§0.6),现同一把尺:
+ * 标头 = 复选框后第一个 codeSpan 外的 `〔归:…〕` 段;紧跟形态逐字节不变。
+ * 定位单源 = `locateSidecarHeader`,strip/parseHeader/门的 headerOf 都从它取,不再各推导一遍。
+ */
+export function locateSidecarHeader(line) {
+  const text = String(line ?? '')
+  const head = /^\s*-\s*\[[ xX]\]\s*/.exec(text)
+  if (!head) return null
+  const rest = text.slice(head[0].length)
+  const m = /^([^〔\n]*)〔(归[:：][^〕]*)〕/.exec(rest)
+  if (!m) return null
+  const start = head[0].length + m[1].length
+  const { spans, undetermined } = codeSpanRangesOf(text)
+  if (!undetermined && insideCodeSpan(spans, start, m[2].length + 2)) return null
+  return { start, end: start + m[2].length + 2 }
+}
+export function stripSidecarHeader(line) {
+  const text = String(line ?? '')
+  const span = locateSidecarHeader(text)
+  if (!span) return text
+  return text.slice(0, span.start) + text.slice(span.end).replace(/^[ \t]+/, '')
+}
+/** 标头两段原文(归 / 等);无标头 ⇒ null。`等` 段文案是**归属桶的唯一投影证据**(见 dispositionOf)。 */
+export function sidecarHeaderParts(line) {
+  const m = /^\s*-\s*\[[ xX]\]\s*〔归[:：]([^〕]*)〕/.exec(String(line ?? ''))
+  if (!m) return null
+  const body = m[1]
+  const mm = /[｜|]等[:：]([\s\S]*)$/.exec(body)
+  const owner = (mm ? body.slice(0, mm.index) : body).trim()
+  const wait = mm ? mm[1].trim() : ''
+  return { owner, wait }
+}
 /** 通道 B 的自述槽(`在等什么` / `在等:` / `它在等什么`)—— **导出是因为它是验收面**:
  *  镜像测试要按它逐条核"槽内确实点明了等的是人",而判据面之外的读者(人)也要能 grep 到它。
  *  ⚠️ 它在 2026-10-07 一度只剩**使用**没有**定义**(判据直接 ReferenceError,自测与 CLI 全挂),
@@ -1714,9 +1800,17 @@ const WAITING_HUMAN_SLOT_HUMAN_RE =
  *  ⇒ 这条与"证据入口自己读 0"(`prefixNestedCopies` 那次)是同一个病:**入口读 0 极易被读成"通过"。** */
 export const WAITING_HUMAN_SLOT_RE = /(?:在等什么|它在等什么|在等|等什么\*\*|它在哪等)/
 
-/** 通道 A 的候选点(词形只用于**定位**,真假由护栏定)。 */
+/** 通道 A 的候选点(词形只用于**定位**,真假由护栏定)。
+ *
+ *  ⚠️ 2026-10-25 收窄:只认"等人的**决断**",不再把裸 `等机主`/`等用户`/`等机主给值` 算进来。
+ *  立因(现读):F11 存量 24 条里 19 条是**条件等待**(等机主供值/真实账号/真机窗口/授权装 docker/
+ *  微信开放平台/核隧道/素材交付/双端在线)——它们既不是机主 2026-10-23 强制令点名的
+ *  「待拍板/等人拍板/需拍板/待用户确认」,也不该被派单(agent 拿不到凭据/账号/真机)。
+ *  旧词表把两者混成一桶 ⇒ 合并带进远端台账后 F11 恒红(§12e),而条件等待的归宿应是
+ *  `waiting-env`(等外部资源,判据在 WAITING_ENV_BARE_RE 的同族负向前瞻里)。
+ *  `等机主拍"…"`(K1 形态)仍命中的原因:`拍(?!板)` 覆盖"等 X 拍 + 引号/普通宾语"。 */
 export const WAITING_HUMAN_PHRASE_RE =
-  /等人拍板|等用户拍板|等产品拍板|等持有人拍板|等人工拍板|等机主拍板|等任何人拍板|等拍板|等机主给值|等机主|等用户|等尺子持有人裁决/
+  /等人拍板|等用户拍板|等产品拍板|等持有人拍板|等人工拍板|等机主拍板|等任何人拍板|等拍板|等尺子持有人裁决|等(?:机主|用户|持有人|产品|人工)(?:拍(?!板)|裁决|定夺|确认|决策)/
 
 /**
  * 第一把尺子的候选点(`需/待 + 人 + 决断动词` 措辞族)。
@@ -1727,7 +1821,7 @@ export const WAITING_HUMAN_PHRASE_RE =
  * **别再把它改回裸 `.test()`** —— 那会把四道护栏静默退回「见措辞就算」。
  */
 const WAITING_HUMAN_DIRECT_RE =
-  /需\s?[A-Za-z\u4e00-\u9fa5]{0,6}\s?拍板|需(产品|业务|运营)决策|待(产品|业务)决策|等待.{0,4}决策|需人定|需用户|待用户|待拍板|需用户确认|属 §24|请重新决定|未决决策|交人定|人来定|需人(定|拍板)/
+  /需\s?[A-Za-z\u4e00-\u9fa5]{0,6}\s?拍板|需(产品|业务|运营)决策|待(产品|业务)决策|等待.{0,4}决策|需人定|(?:需|待)用户(?:拍板|确认|决策|定夺)|待拍板|需用户确认|属 §24|请重新决定|未决决策|交人定|人来定|需人(定|拍板)/
 
 /**
  * 护栏①否定紧邻:negator **直接管辖**被否谓语 —— negator 与被否谓语之间只可夹虚词/功能词,
@@ -1909,12 +2003,28 @@ export function waitingHumanSelfVerdict(line) {
  *  ("台账明写「属 §24 需拍板」"),把它们一起遮掉就等于给判据摘牙(§12f:修红不得顺手削判据)。
  *  等长替换:列位不变,后续任何按列取窗的逻辑不受影响。 */
 export function dispositionFace(line) {
-  return String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
+  // 先剥侧车投影标头(2026-10-25):标头是投影,不参与正文措辞判定 —— 否则
+  // `〔归:—｜等:机主真机窗口〕` 会被"等机主"词形命中,把 env 等待读成"等人拍板"(F11 误判 19 条)。
+  const body = stripSidecarHeader(line)
+  return body.replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
 }
 export function dispositionOf(line) {
   const face = dispositionFace(line)
   for (const [kind, re] of DISPOSITION_RULES) {
     if (typeof re === 'function' ? re(line) : re.test(face)) return kind
+  }
+  // 正文判不出时按标头字段补一档(标头是侧车的投影,信息同源):
+  //   归属判据与正文用**同一份词表**,只是在含标头的遮码面上跑(口径不分家;`〔归:未派〕` 这类
+  //   占位读数由词表自己的负向前瞻排除);等 段含决断动词 ⇒ 等人拍板,否则有 等 段 ⇒ 等环境。
+  const h = sidecarHeaderParts(line)
+  if (h) {
+    const fullFace = String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
+    if (ownedElsewhereRe().test(fullFace)) return 'owned-elsewhere'
+    // 等段 '—' 是投影占位(= 无等待),不是等待对象(2026-10-25 修:实测三行双标头叠加
+    // 形态〔归:—|等:—〕…〔归:—|等:—〕在正文无词时被 '—' 顶成 waiting-env,而它们的
+    // 语义是 actionable+租约)。占位当等待 = 判据把"没有等待"读成"在等"。
+    if (h.wait && h.wait !== '—')
+      return /拍|裁决|定夺|确认|决策/.test(h.wait) ? 'waiting-human' : 'waiting-env'
   }
   return 'actionable'
 }
@@ -2560,6 +2670,7 @@ export function usedIdsOfPrefix(content, prefix) {
   const re = /^([A-Za-z]+)([-_ ]?)(\d+)/
   const nums = new Set()
   const sepOf = new Map()
+  const rawOf = new Map()
   for (const r of parseTaskRows(content)) {
     const key = keyOfRow(r.raw)
     if (!key) continue
@@ -2570,6 +2681,10 @@ export function usedIdsOfPrefix(content, prefix) {
     // 书写形状由**该族自己现读**决定:本仓 `G-265` 带连字符、`O4`/`D35` 不带,而 `O13b` 的字母
     // 后缀不算号段的一部分。印错形状等于给使用者一个判据认不出来的号(与"族取不到 ⇒ 判不出"同一条理由)。
     if (!sepOf.has(Number(m[3]))) sepOf.set(Number(m[3]), m[2])
+    // 数字的**书写宽度**同样是形状的一部分:重排后两位号写作 `G-01`,而用 Number 重建会印成
+    // `G-1` ⇒ 同一份台账里"行首的号"与"取号集合里的号"逐字不等,M26 逐行不变量把整族判红
+    // (2026-10-24 现读 28 行)。保留首次见到的原样拼写,与分隔符同一条理由。
+    if (!rawOf.has(Number(m[3]))) rawOf.set(Number(m[3]), m[0])
   }
   if (nums.size === 0) return null
   const sorted = [...nums].sort((a, b) => a - b)
@@ -2578,7 +2693,7 @@ export function usedIdsOfPrefix(content, prefix) {
   return {
     max,
     used: sorted.length,
-    ids: sorted.map((n) => `${want}${sepOf.get(n) ?? sep}${n}`),
+    ids: sorted.map((n) => rawOf.get(n) ?? `${want}${sepOf.get(n) ?? sep}${n}`),
     template: `${want}${sep}%d`,
   }
 }
@@ -2589,7 +2704,7 @@ export function nextTaskIdLabel(content, prefix) {
   return u === null ? null : u.template.replace('%d', String(u.max + 1))
 }
 
-export function auditPlan(content, { archivedKeys = null } = {}) {
+export function auditPlan(content, { archivedKeys = null, fields = null } = {}) {
   const rows = parseTaskRows(content)
   const { groups, forks, dupOpen, dupDone } = findForks(content)
   const voidRows = findVoidRows(content)
@@ -2655,6 +2770,23 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     'owned-elsewhere': [],
   }
   for (const r of unclaimedRows) dispBuckets[dispositionOf(r.raw)].push(r)
+  /**
+   * F11 名单(2026-10-23 机主强制令:等人拍板条目一律禁止):全部未勾选行里被 **v2 尺**
+   * (侧车优先、散文回落)判为 waiting-human 的行,带租约与否都算——禁令没有"已认领"豁免档。
+   * 刻意不复用 dispBuckets:那一把是 v1 散文尺 + 未认领基数,挪动任何一格都会移动既有 F7
+   * 报数锚点(§12f:修红不得顺手移动别人的锚点)。两把尺同文件同遍 parseTaskRows,不另解析。
+   */
+  const waitingHumanRows = openRows.filter(
+    (r) => dispositionOfV2({ line: r.raw, fields }).bucket === 'waiting-human',
+  )
+  /**
+   * F12 名单(2026-10-25 机主令:等条件条目与待拍板同型禁止):全部未勾选行里被 **v2 尺**
+   * 判为 waiting-env 的行。与 waitingHumanRows 同一把尺同一个基数,禁令同样没有"已认领"豁免档。
+   * 存量由清偿批逐行出桶(翻勾/改归属),出桶后基线 F12=[] 即永久地板。
+   */
+  const waitingEnvRows = openRows.filter(
+    (r) => dispositionOfV2({ line: r.raw, fields }).bucket === 'waiting-env',
+  )
   const undisposed = findUndisposedOpenRows(content)
   const staleRows = findStaleOpenRows(content, new Date().toISOString().slice(0, 10))
   // 已写明"重复登记副本、不再单独派单"的行**也不进派单口径** —— 它由同题的幸存者代表。
@@ -2712,6 +2844,10 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     f9MalformedMasquerade: f9.malformed,
     malformedRows,
     dispBuckets,
+    /** F11 名单(v2 尺,全体未勾选行):见上方 waitingHumanRows 头注。 */
+    waitingHumanRows,
+    /** F12 名单(v2 尺,全体未勾选行):见上方 waitingEnvRows 头注。 */
+    waitingEnvRows,
     undisposed,
     staleRows,
     /** 派单口径 = 未勾选 ∧ **未带租约** ∧ 不是"与已完成同题的分叉副本" ∧ 不是"同一件事的第二条待办"(F4)∧ 不自带作废声明。
@@ -2761,7 +2897,13 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
       prefixNestedPairs: prefixNested.pairs.length,
       // 已写明"重复登记副本"的未勾选行:它们与 dupOpenCopies 是两件事 —— 副本是**当次**算出来的,
       // 标过指针的是历史上已归并过的。派单口径两条都扣,所以报告里必须分列,否则读者对不上账。
-      dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw)).length,
+      // 2026-10-25 起本栏同时收**裸自述族**(`重复登记副本:` 行首 ∧ 行内"不进派单/以主行为准",
+      // 见 isSelfDeclaredCopyRow 头注):凡是被派单出口(`isClaimExcludedPointer`)新逐出的行必须
+      // 在这一栏点名可见 —— 桶不收它,读数就会把"这一维在逐行"读成"这一维不存在"(§12f 沉默失效)。
+      // `副本指针(编号 …)` 行首族照旧不并入本栏(两族措辞互不含、出处不同,并栏者按【归并】grep
+      // 会判"这一族不存在"—— 与 selfDedispatchRows 分列是同一条纪律)。
+      dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw) || isSelfDeclaredCopyRow(r.raw))
+        .length,
       // 行内自述"不再单独派单/走持有行"的未勾选行(派单口径已扣,勾选未动)。与 `dupPointerRows`
       // 分列是因为两族措辞互不含(见 SELF_DEDISPATCH_RE 头注),并成一栏就会有人按【归并】字面
       // 去 grep 而判"这一族不存在"。真活票不受影响:`勿照本行…数字` 一族刻意不认,亦计入本行。
@@ -2800,6 +2942,9 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
       dispWaitingHuman: dispBuckets['waiting-human'].length,
       dispWaitingEnv: dispBuckets['waiting-env'].length,
       dispOwnedElsewhere: dispBuckets['owned-elsewhere'].length,
+      /** F11 存量读数(v2 尺全体未勾行)—— 差值档的 newWaitingHuman 由调用方(plan-tasks)算。 */
+      waitingHuman: waitingHumanRows.length,
+      waitingEnv: waitingEnvRows.length,
       // ── F7b 同一分层在派单口径上的读数(基数 = claimable,已扣副本/作废/分叉)──
       // 四桶相加必须等于 claimable,与上面四条"相加等于 unclaimed"是两条独立的闭合判据。
       dispClaimActionable: dispClaimBuckets.actionable.length,
