@@ -21,6 +21,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { richAnchorRenderer } from '@/components/chat/rich-anchor-text'
 import {
   discountCountdown,
   formatDurationHuman,
@@ -40,7 +41,11 @@ export interface QuotaOwnershipCardProps {
   /** 免费档仍可用 ⇒ 判定层剔除付费动作,本卡渲染降级建议 */
   freeTierAvailable?: boolean
   /** 低峰折扣窗口(epoch ms);不传则不渲染折扣行 */
-  discountWindow?: { readonly windowStart: number; readonly windowEnd: number; readonly now?: number }
+  discountWindow?: {
+    readonly windowStart: number
+    readonly windowEnd: number
+    readonly now?: number
+  }
   /** 动作回调。**数据面在调用方**,本卡只负责触发;不传则不渲染动作行 */
   onAction?: (action: QuotaOwnershipAction) => void
   className?: string
@@ -64,7 +69,11 @@ export function QuotaOwnershipCard({
 
   const view = quotaOwnershipView(ownershipKind, { freeTierAvailable })
   const discount = discountWindow
-    ? discountCountdown(discountWindow.now ?? Date.now(), discountWindow.windowStart, discountWindow.windowEnd)
+    ? discountCountdown(
+        discountWindow.now ?? Date.now(),
+        discountWindow.windowStart,
+        discountWindow.windowEnd,
+      )
     : null
   const units: DurationUnitLabels = { hour: t('duration.hour'), minute: t('duration.minute') }
   const actionLabel: Record<QuotaOwnershipAction, string> = {
@@ -93,7 +102,9 @@ export function QuotaOwnershipCard({
             data-discount-remaining-ms={discount.remainingMs}
           >
             {discount.phase === 'upcoming'
-              ? t('discount.upcoming', { time: formatDurationHuman(discount.remainingMs ?? 0, units) })
+              ? t('discount.upcoming', {
+                  time: formatDurationHuman(discount.remainingMs ?? 0, units),
+                })
               : t('discount.active')}
           </span>
         ) : null}
@@ -104,7 +115,10 @@ export function QuotaOwnershipCard({
           className="text-[11px] text-emerald-600 dark:text-emerald-400"
           data-quota-degrade-hint={view.kind}
         >
-          {t('degradeHint')}
+          {/* D04③ 词包腿规模化载位:degradeHint 内嵌 <link> 锚点,走 chat 侧唯一渲染表
+              (richAnchorRenderer('link'))—— 与模型输出腿(RichAnchorText)同一张表,
+              两腿 DOM 签名等值;URL 由词包串自带,渲染表 SAFE_HREF 白名单把关。 */}
+          {t.rich('degradeHint', { link: richAnchorRenderer('link') })}
         </p>
       ) : null}
 

@@ -7814,7 +7814,7 @@
           "hour": "小时",
           "minute": "分"
         },
-        "degradeHint": "免费额度仍可使用,可切换免费模型继续,无需充值",
+        "degradeHint": "免费额度仍可使用,可切换免费模型继续,无需充值,用量明细见 <link>/models/usage</link>",
         "ariaLabel": "额度归属与处理建议"
       },
       "moveToWorktree": {
