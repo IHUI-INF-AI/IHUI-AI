@@ -177,3 +177,44 @@
 {"web":"agent-step-recorder","status":"excluded","reason":"run 级步骤回放器(分页 step/回放/聚合指标),纯开发者调试工具","at":"2026-10-25"}
 {"web":"agent-timeline","status":"excluded","reason":"会话活动时间线回放,调试向只读工具;非用户日常链路","at":"2026-10-25"}
 {"web":"exam/wrong-questions","rn":"packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx","status":"aligned","note":"自动登记@2026-10-25: 端点交集 4 条(/api/exam/wrong-questions/stats, /api/exam/wrong-questions, /api/exam/wrong-questions/:x/resolve) + 名称 token wrong+question","at":"2026-10-25"}
+{"web":"models","rn":"apps/mobile-rn/src/screens/ModelPlazaScreen.tsx","status":"aligned","note":"模型广场:web 取 /api/llm/models+relay/models/public,RN 经 api-client getAiModels 取 /api/ai/models;导航在册;小程序 pkg-ai/model-plaza 镜像链完整","at":"2026-10-25"}
+{"web":"models/prompts","rn":"apps/mobile-rn/src/screens/ModelsPromptsScreen.tsx","status":"aligned","note":"双侧同打 /api/prompts;RN 导航在册;键空间 web models.prompts ↔ RN modelsPrompts 非直配同源;web 编辑器/回滚重交互 RN 仅列表(残余另记)","at":"2026-10-25"}
+{"web":"models/usage","rn":"apps/mobile-rn/src/screens/UsageScreen.tsx","status":"aligned","note":"用量统计双侧同端点 /api/v1/ai/usage/stats;web 另有 global 维、RN 另有 quota 维,覆盖不对称已注明","at":"2026-10-25"}
+{"web":"edu-ai/map","rn":"apps/mobile-rn/src/screens/LearnMapScreen.tsx","status":"aligned","note":"学习地图同屏双承载;web edu-ai/map 与 learn/map 同指一屏;导航 LearnMap 已接线;i18n eduAi.map ↔ learnMap 非直配同源","at":"2026-10-25"}
+{"web":"learn","rn":"packages/app/src/features/learn/LearnScreen.tsx","status":"aligned","note":"学习首页共享屏:RN wrapper 取 /api/learn/hot|recommend|statistics;web 首页 lessons 轴由 CourseFilterScreen 承同族端点;i18n learn.* ↔ studyIndex.* 非直配同源","at":"2026-10-25"}
+{"web":"learn/topic","rn":"apps/mobile-rn/src/screens/TopicListScreen.tsx","status":"aligned","note":"专题列表 /api/topics 双侧精确匹配;小程序 pages/topic/list 在册;web premium 源 /api/learn/topics RN 未承载(残余另记)","at":"2026-10-25"}
+{"web":"learn/topic/[id]","rn":"apps/mobile-rn/src/screens/TopicDetailScreen.tsx","status":"aligned","note":"专题详情:端内 wrapper TopicDetailScreen 取 /topics/:id ↔ web helpers.ts:42 /api/topics/:id(共享屏 props 注入,真端点在 wrapper);小程序 pkg-content/topic/detail 镜像在册","at":"2026-10-25"}
+{"web":"settings/authorizations","rn":"apps/mobile-rn/src/screens/SecurityCenterScreen.tsx","status":"aligned","note":"会话撤销同口;RN 为 SecurityCenter 屏内面板而非独立路由(形态平台化);i18n settings ↔ securityCenter 非直配同源","at":"2026-10-25"}
+{"web":"settings/security-log","rn":"apps/mobile-rn/src/screens/SecurityCenterScreen.tsx","status":"aligned","note":"安全日志同口,RN 同屏 Drawer 面板承载","at":"2026-10-25"}
+{"web":"settings/login-security","rn":"apps/mobile-rn/src/screens/SecurityCenterScreen.tsx","status":"aligned","note":"2FA 四口双侧在;passkey(WebAuthn)属浏览器能力仅 web,残余已注明不冒充整屏对齐","at":"2026-10-25"}
+{"web":"settings/import","rn":"apps/mobile-rn/src/screens/ConversationImportScreen.tsx","status":"aligned","note":"web 双 tab 中的对话导入腿双侧同名端点;/api/user/cli-import 腿 RN 缺(残余另记)","at":"2026-10-25"}
+{"web":"settings/billing","rn":"apps/mobile-rn/src/screens/OrderScreen.tsx","status":"aligned","note":"web 账单=订单+发票合一,RN 由 OrderScreen 与 InvoicesScreen 两屏分别承载;积分热力图 CreditsHeatmapCard 缺(残余另记)","at":"2026-10-25"}
+{"web":"user/realname","rn":"packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx","status":"aligned","note":"实名 my+submit 端点同名直配,realNameAuth 键空间双侧在","at":"2026-10-25"}
+{"web":"certificate/[id]","rn":"apps/mobile-rn/src/screens/CertDetailScreen.tsx","status":"aligned","note":"证书详情同口,certDetail 键空间双侧;页内下载(html2canvas/print 属浏览器能力)另记","at":"2026-10-25"}
+{"web":"certificate/verify","rn":"apps/mobile-rn/src/screens/CertVerifyScreen.tsx","status":"aligned","note":"证书核验同口,certVerify 键空间双侧","at":"2026-10-25"}
+{"web":"chat/history","rn":"packages/app/src/features/chat/ChatScreen.tsx","status":"aligned","note":"会话历史:web 独立路由 ↔ RN 抽屉列表,同 GET /api/chat/conversations,形态按平台化","at":"2026-10-25"}
+{"web":"chat/favorites","rn":"packages/app/src/features/chat/ChatScreen.tsx","status":"aligned","note":"收藏读写双侧在(RN Drawer favoriteConversation + 列表 favorited 字段);缺「只看收藏」筛选视图,残余另记","at":"2026-10-25"}
+{"web":"context/compression","rn":"packages/app/src/features/context/ContextScreen.tsx","status":"aligned","note":"上下文压缩统计:RN 经 api-client getContextCompressionStats 出口,context 键空间双侧在(非直配同源)","at":"2026-10-25"}
+{"web":"context/mentions","rn":"packages/app/src/features/context/ContextScreen.tsx","status":"aligned","note":"@提及检索同口 searchContextMentions;符号级检索属 web 腿,残余另记","at":"2026-10-25"}
+{"web":"memory/new","rn":"apps/mobile-rn/src/screens/MemoryNewScreen.tsx","status":"aligned","note":"新建记忆同口 POST /api/memory,memory/memoryNew 键空间双侧","at":"2026-10-25"}
+{"web":"memory/scope/[scope]","rn":"packages/app/src/features/memory/MemoryScreen.tsx","status":"aligned","note":"scope 走服务端查询参数同口,RN 为屏内筛选器而非独立路由(形态平台化)","at":"2026-10-25"}
+{"web":"models/api-docs","status":"excluded","reason":"静态 curl 文档页(148 行),文档阅读走 web/H5,与已豁免 docs/** 段同口径","at":"2026-10-25"}
+{"web":"models/channels","status":"excluded","reason":"/api/admin/relay/key-pool 密钥池 CRUD,运营后台能力 App 不承载","at":"2026-10-25"}
+{"web":"models/eval","status":"excluded","reason":"1010 行评测数据集/run 控制台,开发者工具","at":"2026-10-25"}
+{"web":"models/trajectory","status":"excluded","reason":"463 行 agent trace(/api/agent/traces)调试查看器,开发者工具","at":"2026-10-25"}
+{"web":"models/openclaw","status":"excluded","reason":"OpenClaw 安装配置指南页,桌面开发者工具文档","at":"2026-10-25"}
+{"web":"models/overview","status":"excluded","reason":"网关总览首屏,数值硬编码模拟(page.tsx:32-36),桌面控制台形态","at":"2026-10-25"}
+{"web":"models/users","status":"excluded","reason":"139 行用户管理静态页,运营后台能力","at":"2026-10-25"}
+{"web":"models/logs","status":"excluded","reason":"162 行网关调用日志静态列表,桌面运维控制台","at":"2026-10-25"}
+{"web":"models/billing","status":"excluded","reason":"价格单展示页无 API;App 充值由 AppTopupScreen 承载,非本路由","at":"2026-10-25"}
+{"web":"models/contact","status":"excluded","reason":"联系方式静态页;App 内由 AboutScreen 承载","at":"2026-10-25"}
+{"web":"models/chats","status":"excluded","reason":"93 行网关会话日志预览,静态,桌面控制台","at":"2026-10-25"}
+{"web":"edu/courses","status":"excluded","reason":"redirect 壳(page 现读 router.replace('/learn'),注释载明已并入 learn canonical)","at":"2026-10-25"}
+{"web":"edu-ai/marking","status":"excluded","reason":"教师端 AI 批改,fetchAiServiceJson 直连 AI_SERVICE /api/ai-marking/grade,绕过统一网关,App 不承载","at":"2026-10-25"}
+{"web":"edu-ai/outbound","status":"excluded","reason":"外呼营销活动编排(运营侧 /api/outbound/campaign),App 不承载","at":"2026-10-25"}
+{"web":"edu-ai/tbox","status":"excluded","reason":"IoT 车载 TBox 设备管理(注册/指令下发 /api/tbox/devices),侧栏 nav-data.ts 标 adminOnly","at":"2026-10-25"}
+{"web":"edu-ai/voice","status":"excluded","reason":"WebRTC P2P 通话依赖浏览器 RTCPeerConnection/getUserMedia;RN 与小程序无 webrtc 基建(api-client 无 realtime 封装)","at":"2026-10-25"}
+{"web":"edu/edu-management/procurement","status":"excluded","reason":"机构端食堂供应链后台(供应商入驻/比价/采购单,单页 2348 行 /api/edu-canteen/procurement|supplier),App 不承载","at":"2026-10-25"}
+{"web":"settings/dashboard","status":"excluded","reason":"68 行纯 Link 卡片枢纽页,零数据层零 API;目标页各自在册","at":"2026-10-25"}
+{"web":"settings/gateway","status":"excluded","reason":"LLM 网关运维台(模型同步/组合 CRUD/压缩演示),RN 与小程序对这批端点零消费","at":"2026-10-25"}
+{"web":"context/visualization","status":"excluded","reason":"packages/api-client/src/endpoints/context-mentions.ts 注释已判:visualization/track、enrich 属 Web 编辑场景,移动端不做","at":"2026-10-25"}
