@@ -45,7 +45,7 @@ function tagMultiset(value: string): string[] {
   const out: string[] = []
   for (const m of value.matchAll(TAG_RE)) {
     const tag = m[1]
-    if ((RICH_ANCHOR_TAGS as readonly string[]).includes(tag)) out.push(tag)
+    if (tag !== undefined && (RICH_ANCHOR_TAGS as readonly string[]).includes(tag)) out.push(tag)
   }
   return out.sort()
 }
@@ -134,7 +134,10 @@ function listSourceFiles(dir: string, acc: string[] = []): string[] {
  *
  * 合法载体:`t.rich('<同一后缀>')` 或 `<RichAnchorText>`;`t(...)` / `tStream(...)` 为裸消费。
  */
-export function findPlainConsumers(carrierKey: string, sources: { file: string; text: string }[]): string[] {
+export function findPlainConsumers(
+  carrierKey: string,
+  sources: { file: string; text: string }[],
+): string[] {
   const segs = carrierKey.split('.')
   // 由长到短的所有可能命名空间前缀(useTranslations('wallet.autoTopUp') → 键 target.equivalent.text)
   const prefixes = segs.slice(0, -1).map((_, i) => segs.slice(0, i + 1).join('.'))
@@ -147,9 +150,11 @@ export function findPlainConsumers(carrierKey: string, sources: { file: string; 
     if (!nsRe.test(s.text)) continue
     for (const m of s.text.matchAll(/\bt(?:[A-Z][A-Za-z]*)?\(\s*['"`]([^'"`]+)['"`]/g)) {
       const called = m[1]
-      if (!suffixes.includes(called)) continue
+      if (!called || !suffixes.includes(called)) continue
       // 同一后缀已有 t.rich 载体 ⇒ 不是外露
-      const rich = new RegExp(`t\\.rich\\(\\s*['"\`]${called.replace(/\./g, '\\.')}['"\`]`).test(s.text)
+      const rich = new RegExp(`t\\.rich\\(\\s*['"\`]${called.replace(/\./g, '\\.')}['"\`]`).test(
+        s.text,
+      )
       if (rich || /RichAnchorText/.test(s.text)) continue
       const line = s.text.slice(0, m.index).split('\n').length
       hits.push(`${s.file}:${line} ${m[0]}`)
@@ -171,9 +176,10 @@ describe('D04 富文本载体', () => {
       const seen = Object.entries(carrier.locales)
       // 只出现在部分语言 ⇒ 也是不一致(某语言会把标记原样吐给用户或少一层样式)
       expect(seen.map(([l]) => l).sort()).toEqual([...LOCALES].sort())
-      const [first, firstTags] = seen[0]
+      const first = seen[0]
+      if (!first) throw new Error(`${carrier.pack}::${carrier.key}: 语言读数为空 ⇒ 标签集无从比对`)
       for (const [locale, tags] of seen) {
-        expect(tags, `${first} 与 ${locale} 标签集不同`).toEqual(firstTags)
+        expect(tags, `${first[0]} 与 ${locale} 标签集不同`).toEqual(first[1])
       }
     },
   )
