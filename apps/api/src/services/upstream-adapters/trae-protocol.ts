@@ -558,6 +558,22 @@ export function extractErrorInfo(
 /** Trae OAuth ExchangeToken 固定 ClientID(web 渠道公开常量) */
 export const TRAE_OAUTH_CLIENT_ID = 'ono9krqynydwx5'
 
+/** SOLO 线客户端 ClientID(桌面 SOLO 客户端签发的票用它续;开源实现同源常量) */
+export const TRAE_OAUTH_CLIENT_ID_SOLO = 'en1oxy7wnw8j9n'
+
+/**
+ * 设备证明通道的「ClientID × 产品线」组合链(2026-10-25,对表开源实现):
+ * 票由哪条产品线签发就只能用哪条线续 —— TRAE 线签发的票用 SOLO 组合会被 10101/20403 拒,
+ * 反之亦然。按顺序试到成功为止;失败不消耗 rt(只有 2xx 才轮换)。
+ */
+export const TRAE_EXCHANGE_TOKEN_COMBOS: ReadonlyArray<{
+  clientId: string
+  platformCode: 'IDE_PC' | 'SOLO_PC'
+}> = [
+  { clientId: TRAE_OAUTH_CLIENT_ID, platformCode: 'IDE_PC' },
+  { clientId: TRAE_OAUTH_CLIENT_ID_SOLO, platformCode: 'SOLO_PC' },
+]
+
 /** ExchangeToken 请求体固定形状(ClientSecret/UserID 为占位常量) */
 export function buildExchangeTokenBody(refreshToken: string): Record<string, string> {
   return {
@@ -595,6 +611,10 @@ export interface TraeDeviceMaterial {
   machineId?: string
   privateKeyPem: string
   publicKeyPem: string
+  /** 可选展示字段(与客户端真实 DeviceInfo 对齐用;缺省 'PC'/空) */
+  deviceName?: string
+  deviceModel?: string
+  deviceBrand?: string
 }
 
 export interface TraeDeviceProof extends TraeDeviceMaterial {
@@ -604,7 +624,6 @@ export interface TraeDeviceProof extends TraeDeviceMaterial {
   /** 注入点(单测固定时刻/随机数用;生产不传) */
   timestamp?: number
   nonce?: string
-  deviceName?: string
 }
 
 function derEncodeInt(raw: Buffer): Buffer {
@@ -684,10 +703,10 @@ export function buildTraeDeviceProof(i: TraeDeviceProof): TraeDeviceProofPayload
       PlatformCode: i.platformCode ?? 'IDE_PC',
       DeviceType: 'PC',
       DeviceName: i.deviceName ?? 'PC',
-      DeviceModel: '',
+      DeviceModel: i.deviceModel ?? '',
       ClientVersion: TRAE_IDE_VERSION,
       DevicePublicKey: i.publicKeyPem,
-      DeviceBrand: '',
+      DeviceBrand: i.deviceBrand ?? '',
       DeviceCPU: '',
       OSInfo: 'Windows',
       OSVersion: '',
@@ -718,11 +737,20 @@ export function deviceMaterialFromSecrets(
   const pub = typeof secrets?.['devicePubPem'] === 'string' ? secrets['devicePubPem'].trim() : ''
   const did = typeof deviceId === 'string' ? deviceId.trim() : ''
   if (!priv || !pub || !did) return null
+  const str = (k: string): string | undefined => {
+    const v = secrets?.[k]
+    return typeof v === 'string' && v.trim() ? v.trim() : undefined
+  }
+  // 设备展示字段可选覆盖(secrets.deviceName/deviceModel/deviceBrand):
+  // 默认不传 → 'PC' / 空串;要与客户端真实 DeviceInfo 对齐时才填。
   return {
     deviceId: did,
     machineId: machineId ?? undefined,
     privateKeyPem: priv,
     publicKeyPem: pub,
+    deviceName: str('deviceName'),
+    deviceModel: str('deviceModel'),
+    deviceBrand: str('deviceBrand'),
   }
 }
 

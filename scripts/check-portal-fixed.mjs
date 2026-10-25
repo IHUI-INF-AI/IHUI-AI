@@ -25,11 +25,11 @@
  *   node scripts/check-portal-fixed.mjs --staged   (pre-commit, 新增违规则 exit 1)
  *   node scripts/check-portal-fixed.mjs             (全量扫描报告, exit 0)
  */
-import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -52,12 +52,8 @@ function walk(dir, out = []) {
 
 function listStagedFiles() {
   try {
-    const out = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    })
+    // 枚举走取材层:绝对 git / 显式 stdio(§12g,EBUSY 病窗)/ windowsHide / timeout 由 gitRaw 统一提供。
+    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
     return out.split('\n').filter((f) => f && SCAN_EXTS.some((e) => f.endsWith(e)))
   } catch {
     return []
