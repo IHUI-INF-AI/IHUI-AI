@@ -424,7 +424,10 @@ describe('Registry DB Queries', () => {
         version: string | null
       }>
       const ids = valuesArg.map((v) => v.sourceId)
-      expect(new Set(ids).size).toBe(ids.length, 'ON CONFLICT 语料里同键出现两次 = 整批宕的复刻形态')
+      expect(new Set(ids).size).toBe(
+        ids.length,
+        'ON CONFLICT 语料里同键出现两次 = 整批宕的复刻形态',
+      )
       const a = valuesArg.find((v) => v.sourceId === 'a')
       expect(a?.name).toBe('A-new')
       expect(a?.version).toBe('v2')

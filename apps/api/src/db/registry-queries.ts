@@ -336,7 +336,15 @@ export async function batchUpsertRegistryItems(
   options?: { force?: boolean },
 ): Promise<BatchUpsertResult> {
   if (items.length === 0) {
-    return { inserted: 0, updated: 0, skipped: 0, failed: 0, oldVersions: [], hashList: [], deduped: 0 }
+    return {
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      failed: 0,
+      oldVersions: [],
+      hashList: [],
+      deduped: 0,
+    }
   }
 
   // 0. 批内去重(见头注宕因);Map 保留每个复合键的**最后一次**出现
@@ -550,7 +558,7 @@ export async function markWebhookTriggerProcessed(
   await db
     .update(registryWebhookTriggers)
     .set({ status, resultMessage, processedAt: new Date() })
-  // status-guard-exempt: webhook 触发一次性结果回写(processed/failed/ignored),非出向
+    // status-guard-exempt: webhook 触发一次性结果回写(processed/failed/ignored),非出向
     .where(eq(registryWebhookTriggers.id, id))
 }
 
