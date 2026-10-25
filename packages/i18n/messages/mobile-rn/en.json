@@ -4527,7 +4527,7 @@
       "loadingMore": "Loading…"
     },
     "detail": {
-      "loading": "Loading...",
+      "loading": "Loading…",
       "pageTitle": "Topic Detail",
       "loadFailed": "Failed to load",
       "followers": "{n} followers",
@@ -4542,7 +4542,6 @@
       "loadingMore": "Loading…",
       "noMore": "No more items",
       "anonymous": "Anonymous",
-      "loading": "Loading…",
       "justNow": "Just now",
       "minutesAgo": "{n} min ago",
       "hoursAgo": "{n} hr ago"
@@ -5982,5 +5981,33 @@
     "availability": "Availability",
     "available": "Available",
     "busy": "Busy"
+  },
+  "statusPage": {
+    "title": "System Status",
+    "autoRefreshHint": "Auto-refresh every 60s",
+    "overallOperational": "All systems operational",
+    "overallDegraded": "Partial degradation",
+    "overallOutage": "Partial outage",
+    "uptimeLabel": "Uptime",
+    "updatedAtLabel": "Updated",
+    "services": "Services",
+    "serviceApi": "API",
+    "serviceDatabase": "Database",
+    "serviceRedis": "Cache",
+    "serviceOperational": "Operational",
+    "serviceDegraded": "Degraded",
+    "serviceOutage": "Outage",
+    "models": "Model availability",
+    "modelLatency": "P95 latency",
+    "modelErrorRate": "Error rate",
+    "incidents": "Recent incidents",
+    "incidentSeverityMinor": "Minor",
+    "incidentSeverityMajor": "Major",
+    "incidentSeverityCritical": "Critical",
+    "noIncidents": "No incidents in the last 30 days",
+    "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable",
+    "refresh": "Refresh",
+    "fetchFailed": "Failed to load status, please retry later",
+    "willAutoRetry": "Will auto-retry"
   }
 }

@@ -4542,7 +4542,6 @@
       "loadingMore": "加载中…",
       "noMore": "没有更多了",
       "anonymous": "匿名用户",
-      "loading": "加载中…",
       "justNow": "刚刚",
       "minutesAgo": "{n} 分钟前",
       "hoursAgo": "{n} 小时前"
@@ -5982,5 +5981,33 @@
     "availability": "可用性",
     "available": "可用",
     "busy": "已占"
+  },
+  "statusPage": {
+    "title": "系统状态",
+    "autoRefreshHint": "每 60 秒自动刷新",
+    "overallOperational": "所有系统运行正常",
+    "overallDegraded": "部分服务性能降级",
+    "overallOutage": "部分服务中断",
+    "uptimeLabel": "运行时长",
+    "updatedAtLabel": "更新时间",
+    "services": "服务状态",
+    "serviceApi": "API 服务",
+    "serviceDatabase": "数据库",
+    "serviceRedis": "缓存",
+    "serviceOperational": "正常运行",
+    "serviceDegraded": "性能降级",
+    "serviceOutage": "服务中断",
+    "models": "模型可用性",
+    "modelLatency": "P95 延迟",
+    "modelErrorRate": "错误率",
+    "incidents": "最近事件",
+    "incidentSeverityMinor": "轻微",
+    "incidentSeverityMajor": "严重",
+    "incidentSeverityCritical": "严重故障",
+    "noIncidents": "最近 30 天暂无事件记录",
+    "incidentsUnavailable": "最近 30 天的事件数据暂时取不到",
+    "refresh": "刷新",
+    "fetchFailed": "状态获取失败,请稍后重试",
+    "willAutoRetry": "将自动重试"
   }
 }
