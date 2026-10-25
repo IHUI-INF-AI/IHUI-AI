@@ -447,6 +447,10 @@ export interface PageUsageLiveSnapshot {
   scopes: ScopeUsageLiveRow[]
   /** 近 24h 各端 PV/UV(web / RN / 小程序);分桶靠 url 前缀,与各端埋点约定一致 */
   platforms: PlatformUsageLiveRow[]
+  /** 近 5 分钟去重会话数(实时在线近似) */
+  online5m: number
+  /** 近 5 分钟浏览量 */
+  pv5m: number
   /** 近 24h 同口径总 PV(前端算占比) */
   totalPv: number
   computedAtMs: number
@@ -470,7 +474,7 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
     when ${pathCol} like '/mp/%' then 'mp'
     when ${pathCol} like '/rn/%' then 'rn'
     else 'web' end`
-  const [topRows, scopeRows, platformRows] = await Promise.all([
+  const [topRows, scopeRows, platformRows, onlineRows] = await Promise.all([
     db
       .select({ url: visitLogs.url, pv: pvExpr, uv: uvExpr })
       .from(visitLogs)
@@ -490,6 +494,14 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
       .where(inWindow)
       .groupBy(platformExpr)
       .orderBy(sql`count(*) desc`),
+    // 实时在线:近 5 分钟的去重会话(UV 口径)与浏览量 —— 大屏"此刻多少人在用"
+    db
+      .select({
+        online: sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`,
+        pv: sql<number>`count(*)::int`,
+      })
+      .from(visitLogs)
+      .where(sql`${visitLogs.createdAt} >= now() - make_interval(mins => 5)`),
   ])
   return {
     top: topRows.map((r) => ({
@@ -508,6 +520,8 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
       pv: Number(r.pv ?? 0),
       uv: Number(r.uv ?? 0),
     })),
+    online5m: Number(onlineRows[0]?.online ?? 0),
+    pv5m: Number(onlineRows[0]?.pv ?? 0),
     totalPv: scopeRows.reduce((sum, r) => sum + Number(r.pv ?? 0), 0),
     computedAtMs: Date.now(),
   }

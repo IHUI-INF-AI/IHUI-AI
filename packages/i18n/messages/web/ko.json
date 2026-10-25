@@ -867,6 +867,7 @@
       "level3": "다이아",
       "panelTrafficRobot": "방문자 및 봇",
       "panelPageUsage": "페이지 사용 현황",
+      "onlineNow": "온라인 {count}",
       "panelPlatforms": "플랫폼별 사용량",
       "platformWeb": "웹",
       "platformRn": "모바일 앱",
