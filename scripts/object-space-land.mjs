@@ -37,6 +37,10 @@
  *    同档接线已闭环(2026-10-23 续席):`scripts/union-converge.mjs` 已在落地+对齐之后接同一
  *    出口(声明面 = 活文档 ∪ 取对侧版本的路径,与它 recordBypassLanding 的 declaredFiles 同集);
  *    形状锁见 scripts/tests/land-gate-rerun.test.mjs T12。
+ *  - ⑤ [G-04 新建路径注入格 · 2026-10-25] 父提交里不存在的声明路径,
+ *    正文先过 `watermark.mjs` 的 `injectText`(横幅/L2 载荷/L3 尾行的唯一构造处)再 `hash-object`,
+ *    工作树副本一个字节都不写。已存在路径不进这一档(横幅保持/祖先对账/行级复活照旧)。
+ *    blob 模式的新建路径另由水印预检在对象库面上判"载荷可解码"(取不到 ⇒ exit 2)。
  *
  * CLI 契约(env 驱动,无参数):
  *  LAND_PATHS  必填,以 `;` 分隔的仓库相对路径清单
@@ -120,6 +124,10 @@
  */
 
 import { hasAnyWatermarkTrace, hasExactCanonicalBanner, dropZeroWidth } from './lib/watermark-lines.mjs'
+// G-04 第二格(2026-10-25):新建路径的注入必须复用 watermark.mjs 的**文本级唯一构造处**
+// (`injectText`)。在这里再拼一份横幅/零宽载荷 = §0.6 禁止的第二份真相 —— 编码只有
+// `encodePayload` 一份,拼第二次必然漂移;而漂移的形态是"落地器造的载荷 verify 解不出"。
+import { injectText } from './watermark.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { basename, dirname, join, normalize, relative, resolve } from 'node:path'
@@ -140,6 +148,7 @@ import {
   git,
   headBlobOf,
   resolveHeadRef,
+  writeBlob,
   writeBlobOfWorktree,
   rerunLedgerHeal,
   ABSENT,
@@ -1071,8 +1080,15 @@ function appendSamples(lines, entry) {
  * 换面真正要堵的是判据与提交内容之间的时间窗:`mine` 先把 blob 写进对象库,旧写法 verify
  * 再重新读一次盘,两次读之间别人改盘 ⇒ 验的就不是要交的那一份。`main` 因此传 `mine`。
  *
+ * **新建路径载荷维(G-04 第三格,2026-10-25 补)**:`paths` 只传**父提交里不存在**的路径时,
+ * 本预检回答的是票面那句"新建路径 blob 必须带可解码载荷" —— blob 模式此前整段不跑本闸
+ * (只由 `blobBannerPreserved` 打一句"新增件按定义无从保持"的 note),于是新建文件的水印
+ * 覆盖率在旁路通道上**没有任何判据**。三态:`ok:true` = 载荷完好或落在豁免面;
+ * `ok:false`(+ `undetermined:true`)= **取不到**判定面(blob 问不到 / 台账算不出 / verify 自己
+ * 报未判定)⇒ 调用方必须 exit 2,既不记绿也不冒红;`ok:false`(无该标记)= 判出缺口 ⇒ exit 1。
+ *
  * @param {{ root: string, paths: string[], blobs?: Map<string,string>|null, run?: Function, node?: string }} a
- * @returns {{ ok: true } | { ok: false, why: string }}
+ * @returns {{ ok: true } | { ok: false, why: string, undetermined?: boolean }}
  */
 export function watermarkPreflight({
   root,
@@ -1111,6 +1127,7 @@ export function watermarkPreflight({
       } catch (e) {
         return {
           ok: false,
+          undetermined: true,
           why: `第三方排除面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 无法判断哪些声明路径本来就不该带横幅,拒绝落地(宁停不猜)`,
         }
       }
@@ -1120,6 +1137,7 @@ export function watermarkPreflight({
       } catch (e) {
         return {
           ok: false,
+          undetermined: true,
           why: `工具生成物豁免面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 拒绝落地(宁停不猜)`,
         }
       }
@@ -1148,6 +1166,8 @@ export function watermarkPreflight({
       if (refusals.length > 0) {
         return {
           ok: false,
+          // 取不到判定面 ≠ 判出缺口:这一支必须由调用方折成 exit 2(§0.3 未判定不记绿也不冒红)。
+          undetermined: true,
           why:
             '判定面=构造提交的 blob(对象库),非工作树;这些声明路径没有可判定的版本:\n  ' +
             refusals.join('\n  '),
@@ -1175,11 +1195,19 @@ export function watermarkPreflight({
     })
   } catch (e) {
     if (e && e.code === 'ENOENT') {
-      return { ok: false, why: '取不到 node 执行体 ⇒ 无法判断水印是否完整,拒绝落地(宁停不猜)' }
+      return {
+        ok: false,
+        undetermined: true,
+        why: '取不到 node 执行体 ⇒ 无法判断水印是否完整,拒绝落地(宁停不猜)',
+      }
     }
     const uncovered = uncoveredOf(String(e?.stdout ?? '') + String(e?.stderr ?? ''), nameOf)
+    // 三档:verify 自己报「未判定」(rc 2)/ 派生失败到连退出码都拿不到 ⇒ undetermined;
+    // rc 1 = 判出缺口(业务红)。§5c 的退出码约定就是 0 通过 / 1 判出缺口 / 2 未判定。
+    const undetermined = e?.status === 2 || typeof e?.status !== 'number'
     return {
       ok: false,
+      undetermined,
       why:
         `水印校验派生失败(${String(e?.message ?? e).split('\n')[0]})。\n` +
         (uncovered ? `  未覆盖清单(前 10):\n  ${uncovered}\n` : '') +
@@ -1196,6 +1224,8 @@ export function watermarkPreflight({
     const uncovered = uncoveredOf(String(res?.stdout ?? '') + String(res?.stderr ?? ''), nameOf)
     return {
       ok: false,
+      // 2 = 判据自己说"未判定"(取不到被审面),不代表内容有缺口 ⇒ 调用方 exit 2。
+      undetermined: status === 2,
       why:
         `verify 退出码 ${status},拒绝落地无有效横幅的内容。\n` +
         (uncovered ? `  未覆盖清单(前 10):\n  ${uncovered}\n` : '') +
@@ -1208,6 +1238,76 @@ export function watermarkPreflight({
 function defaultRun(cmd, args, opts) {
   execFileSync(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] })
   return { status: 0 }
+}
+
+/**
+ * G-04 第三格(2026-10-25 立):**新建路径**在对象空间内补齐溯源水印。
+ *
+ * 票面事实(现读 HEAD 可复现):本器按「HEAD blob → 内存改写 → commit-tree → CAS」产出,
+ * 刻意**从不写工作树**(§1/§12 要求,这条本身是对的),于是 §5c 的
+ * 「writeFileSync 后必须紧随注入」在它身上结构上不可能触发 —— 新建的归档台账曾以
+ * "无水印"形态直接进 HEAD(2026-10-15 实测 `.ihui-agent/archive/plan-pointer-purge-2026-10-14-5.md`,
+ * 门 47 换面后才在本地看得见,换面之前只有 CI 会红)。
+ *
+ * 本函数只动**父提交里不存在**的路径(调用方用 `headBlobOf(baseRef, p) === ABSENT` 选出):
+ *  - 正文 → `injectText`(watermark.mjs 的文本级唯一构造处,横幅/L2 载荷/L3 尾行只在那一处算)
+ *  - 注入后的文本 → `hashText` 回写对象库拿新 oid
+ *  - **工作树副本一个字节都不写**(盘上那份可能是别人的在飞现场;blob 模式更是根本不读它)
+ * 已存在路径一律不进来 —— 它们的语义(横幅保持 `blobBannerPreserved` / 祖先对账 /
+ * 行级复活)一字未动。
+ *
+ * 政策档由调用方的 `skip(p, text)` 给(第三方台账 / 上游工具生成物 —— 各自只有一份判据,
+ * 本函数不另立第二份"哪些路径不用带横幅"的表)。`hashText` 返回空 ⇒ 拒绝(§0.3)。
+ *
+ * @param {{newPaths?: string[], blobs: Map<string,string>, readText: (p:string)=>{text?:string,why?:string}, hashText: (text:string,p:string)=>string|null, skip?: (p:string,text:string)=>string|null}} a
+ * @returns {{blobs: Map<string,string>, injected: string[], already: string[], skipped: {path:string,why:string}[], refused: {path:string,why:string}[]}}
+ *   返回新 Map(不改入参);`refused` 非空 ⇒ 调用方必须 exit 2:取不到正文与"无需注入"是两件事。
+ */
+export function injectNewPathBlobs({ newPaths = [], blobs, readText, hashText, skip = () => null }) {
+  const out = new Map(blobs)
+  const injected = []
+  const already = []
+  const skipped = []
+  const refused = []
+  for (const p of newPaths) {
+    const got = readText(p)
+    if (!got || typeof got.text !== 'string') {
+      refused.push({ path: p, why: got?.why ?? '取不到正文 ⇒ 无从注入,也未判定' })
+      continue
+    }
+    const text = got.text
+    // NUL ⇒ 二进制正文。水印口径(watermark.mjs 的 isBinary)按定义不含它,不是"漏判"。
+    if (text.includes('\u0000')) {
+      skipped.push({ path: p, why: '二进制正文 ⇒ 水印口径不含(与 watermark.mjs isBinary 同义)' })
+      continue
+    }
+    const policySkip = skip(p, text)
+    if (policySkip) {
+      skipped.push({ path: p, why: policySkip })
+      continue
+    }
+    const r = injectText(text, { rel: p })
+    if (r.action === 'skip-type') {
+      skipped.push({ path: p, why: '类型不在水印口径(watermark.mjs styleFor 对该扩展名返回 null)' })
+      continue
+    }
+    if (r.action === 'skip-done') {
+      already.push(p)
+      continue
+    }
+    if (r.action === 'reseat-refused') {
+      refused.push({ path: p, why: '归位自证不过(多枚隐写行);不猜哪行该删' })
+      continue
+    }
+    const oid = hashText(r.text, p)
+    if (!oid || typeof oid !== 'string') {
+      refused.push({ path: p, why: '注入后的正文没能写成 blob(对象库问不到新 oid)⇒ 未判定' })
+      continue
+    }
+    out.set(p, oid)
+    injected.push(p)
+  }
+  return { blobs: out, injected, already, skipped, refused }
 }
 
 /**
@@ -1415,7 +1515,10 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
      * 水印守门(它有"新增必须注入"的权威判据),本器只守"别把已入库的横幅改掉/放进无横幅内容"。
      */
     if (baseOid === ABSENT) {
-      notes.push({ path: p, why: '基线里没有该路径(新增文件)⇒ 无横幅可保持,新增覆盖交水印守门判' })
+      notes.push({
+        path: p,
+        why: '基线里没有该路径(新增文件)⇒ 无横幅可保持,新增覆盖由本器的新建路径载荷维判(G-04)',
+      })
       continue
     }
     if (baseOid === UNKNOWN) {
@@ -1739,9 +1842,96 @@ async function main() {
 
   const head0 = git(['rev-parse', 'HEAD'], { root })
   const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
-  const mine = new Map(
+  let mine = new Map(
     paths.map((p) => [p, blobOf ? blobOf.get(p) : writeBlobOfWorktree(p, { root })]),
   )
+  /**
+   * ── G-04 第二格(2026-10-25):**新建路径**在建 blob 之前先注入水印 ────────────────
+   *
+   * 判据面 = 父提交(`baseRef`,缺省 HEAD)里**不存在**的路径。这类路径没有"横幅保持"
+   * 可判(`blobBannerPreserved` 对它们只能打一句 note),而旁路通道不跑钩子、又不写工作树
+   * ⇒ 它们是"无水印内容进 HEAD"的唯一缺口(2026-10-15 实测一枚归档台账即此型)。
+   *
+   * 三条不许动的边界:
+   *  ① **已存在路径的语义一字不改** —— 不进 `newPaths`,不重算 blob,横幅保持/祖先对账/
+   *     行级复活三道判据照旧读 `blobOf` 里那份构造内容;
+   *  ② 工作树副本**一个字节都不写**(注入只发生在对象空间:文本 → injectText → hash-object);
+   *  ③ 豁免面(第三方台账 / 上游工具生成物)复用各自的唯一判据,不在这里另立第二张表。
+   * `refused` 非空 ⇒ exit 2:取不到正文 ≠ 无需注入(§0.3)。
+   */
+  const newPaths = paths.filter((p) => base.get(p) === ABSENT)
+  let newPathWatermark = { injected: [], already: [], skipped: [], refused: [] }
+  if (!skipWatermark && newPaths.length > 0) {
+    let excl
+    let entries
+    try {
+      excl = createExclusionPredicate(REPO_ROOT)
+      entries = loadToolGeneratedEntries(REPO_ROOT)
+    } catch (e) {
+      console.error(
+        `❌ 新建路径水印注入的豁免面无法判定(${String(e?.message ?? e).split('\n')[0]}):` +
+          '第三方台账 / 工具生成物台账取不到 ⇒ 无法判断这些新文件该不该带横幅',
+      )
+      console.error('   方向:宁停不猜(§0.3);修好台账,或显式给 IHUI_LAND_SKIP_WATERMARK=1 并留痕。')
+      process.exit(2)
+    }
+    const readText = blobOf
+      ? (p) => {
+          const oid = blobOf.get(p)
+          if (!isOidLike(oid))
+            return { why: `LAND_BLOBS 的值不是 oid(看着像正文)⇒ 取不到正文,也就无从注入` }
+          const t = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+          return t === null
+            ? { why: `构造 blob ${oid} 的正文取不到(对象库问不到)⇒ 未判定` }
+            : { text: t }
+        }
+      : (p) => {
+          try {
+            return { text: readFileSync(join(root, p), 'utf8') }
+          } catch (e) {
+            return { why: `盘上正文读不到:${String(e?.message ?? e).split('\n')[0]}` }
+          }
+        }
+    // 工作树通道保留 writeBlobOfWorktree 的冲突标记闸(meta.path),blob 通道不加新闸
+    // —— 那条内容本来就是调用方自己 hash 进来的,本器只在注入时重算一次。
+    const hashText = blobOf
+      ? (t) => writeBlob(t, { root })
+      : (t, p) => writeBlob(t, { root }, { path: p })
+    newPathWatermark = injectNewPathBlobs({
+      newPaths,
+      blobs: mine,
+      readText,
+      hashText,
+      skip: (p, text) => {
+        const rel = relative(REPO_ROOT, resolve(root, p)).replaceAll('\\', '/')
+        if (excl.isExcluded(rel)) return '台账登记的第三方内容 ⇒ 不注入(§5c:横幅是归属主张)'
+        if (judgeToolGenerated({ rel, text, entries }).exempt)
+          return '上游工具生成物 ⇒ 不注入(§5c 豁免档)'
+        return null
+      },
+    })
+    mine = newPathWatermark.blobs
+    // 注入改写了"将要进树的字节" ⇒ 必须逐条点名,静默改写比不注入更糟(§0.3 可见性)。
+    if (newPathWatermark.injected.length > 0) {
+      console.log(
+        `ℹ️ 新建路径已按 §5c 注入溯源水印后再取 blob(${newPathWatermark.injected.length} 个;工作树副本一个字节都没写):`,
+      )
+      for (const p of newPathWatermark.injected) console.log(`   · ${p}`)
+      console.log(
+        '   盘上副本滞后是预期的(本器绝不写工作树);要把它补齐 ⇒ node scripts/watermark.mjs inject <上面每个路径>',
+      )
+    }
+    if (newPathWatermark.already.length > 0)
+      console.log(`✅ 新建路径 ${newPathWatermark.already.length} 个已自带可解码载荷 ⇒ 不重复注入`)
+    for (const s of newPathWatermark.skipped) console.log(`   ℹ️ 新建路径 ${s.path}:${s.why}`)
+    if (newPathWatermark.refused.length > 0) {
+      console.error(
+        `❌ 新建路径的水印注入未能判定(${newPathWatermark.refused.length} 个):取不到正文 ≠ 无需注入`,
+      )
+      for (const r of newPathWatermark.refused) console.error(`   ${r.path}:${r.why}`)
+      process.exit(2)
+    }
+  }
   if (blobOf) {
     const proof = String(process.env.LAND_BLOB_PROOF ?? '').trim()
     if (proof === '') {
@@ -1865,16 +2055,34 @@ async function main() {
   // 不再在 verify 里重读一次盘(两次读之间别人改盘 = 给未验证的字节发通行证)。
   // blob 模式仍由 blobBannerPreserved 判(上面已跑):那份内容的来源是调用方构造的 oid,
   // 盘上那份属于别人,拿它做证就是替别人的内容签字。
-  if (!skipWatermark && !blobOf) {
-    const preflight = watermarkPreflight({ root, paths, blobs: mine })
-    if (!preflight.ok) {
-      console.error(`❌ 水印预检不通过,拒绝落地:${preflight.why}`)
-      console.error('   应急跳过(仅限确属台账第三方内容):IHUI_LAND_SKIP_WATERMARK=1')
-      process.exit(1)
+  // G-04 第三格(2026-10-25):blob 模式的**新建路径**此前整段不跑本闸(只有一句 note),
+  // 于是"新增文件必须带可解码载荷"在那里没有任何判据。现在补上,取材面仍是对象库 blob
+  // (cat-file → 临时副本 → verify),不读盘;取不到判定面 ⇒ exit 2,不冒绿。
+  const refusePreflight = (pf) => {
+    console.error(`❌ 水印预检不通过,拒绝落地:${pf.why}`)
+    if (pf.undetermined) {
+      console.error(
+        '   这一支是「未判定」(取不到判定面),不是判出缺口 —— §0.3:修好取材再跑,不得按"通过"重跑。',
+      )
+      process.exit(2)
     }
-    console.log(
-      `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
-    )
+    console.error('   应急跳过(仅限确属台账第三方内容):IHUI_LAND_SKIP_WATERMARK=1')
+    process.exit(1)
+  }
+  if (!skipWatermark) {
+    if (!blobOf) {
+      const preflight = watermarkPreflight({ root, paths, blobs: mine })
+      if (!preflight.ok) refusePreflight(preflight)
+      console.log(
+        `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
+      )
+    } else if (newPaths.length > 0) {
+      const preflight = watermarkPreflight({ root, paths: newPaths, blobs: mine })
+      if (!preflight.ok) refusePreflight(preflight)
+      console.log(
+        `✅ 水印预检通过(新建路径 ${newPaths.length}/${newPaths.length};判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
+      )
+    }
   } else if (skipWatermark) {
     // 上一版把这条写成 `else`,于是 **blob 模式**(它有自己的横幅判据,已在上面跑过)也走进这一支,
     // 打印出一句"本次跳过水印预检"—— 那是**凭空声称一个没发生的放行**:环境变量根本没设,
@@ -2423,6 +2631,9 @@ export const __test__ = {
   jsonKeyPathAudit,
   staleReport,
   commitFacePresence,
+  // G-04:新建路径注入(文本级构造住在 watermark.mjs 的 injectText,本处只做对象空间编排)
+  injectNewPathBlobs,
+  watermarkPreflight,
   SELF_TEST_PLAN,
   runSelfTest,
 }
