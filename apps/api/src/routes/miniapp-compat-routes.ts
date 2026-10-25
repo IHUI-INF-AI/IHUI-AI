@@ -2468,9 +2468,11 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     }
     const passwordHash = await hashPassword(parsed.data.newPassword)
     // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+    // changed 形态(门 198 豁免出口):passwordHash 由 hashPassword 新算(盐随机)必变,恒为真变化。
+    const changed: { passwordHash: string } = { passwordHash }
     const updatedRows = await db
       .update(users)
-      .set({ passwordHash, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(users.id, request.userId!))
       .returning({ id: users.id })
     return reply.send(success({ success: true, updated: updatedRows.length > 0 }))
@@ -2852,9 +2854,11 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     // 现在:够才扣的单条条件语句 + RETURNING 取回真实新值,判定与扣减之间没有窗口。
     let paidBalance: string | null = null
     await db.transaction(async (tx) => {
+      // changed 形态(门 198 豁免出口):够才扣的条件语句保证扣成必变(balance sql 表达式)。
+      const changed = { balance: sql`${userTokenBalance.balance} - ${coursePrice}` }
       const [deducted] = await tx
         .update(userTokenBalance)
-        .set({ balance: sql`${userTokenBalance.balance} - ${coursePrice}`, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(
           and(
             eq(userTokenBalance.userUuid, userId),
