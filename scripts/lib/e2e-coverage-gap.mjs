@@ -235,15 +235,14 @@ export function classifyFile(entry) {
     if (KNOWN_NON_SOURCE_EXTS.includes(ext)) return out('skipped', `非源码资源(${ext})`)
     return out('undetermined', `未知扩展名(${ext})`, true)
   }
+  if (nameMarker) return out('undetermined', `生成物(${nameMarker.label})`, false)
   if (typeof text !== 'string') return out('undetermined', '取不到文件内容', true)
   if (text.includes('\u0000')) return out('undetermined', '二进制内容', true)
-  if (nameMarker) return out('undetermined', `生成物(${nameMarker.label})`, false)
   const src = String(text)
+  // 生成物自述只认文件头(前 10 行):正文里"讨论 auto-generated"的注释不该把真模块放过。
+  const head = src.split(/\r?\n/, 10).join('\n')
   for (const m of GENERATED_MARKERS) {
-    if (m.re.test(src)) {
-      const line = src.split(/\r?\n/).find((l) => m.re.test(l)) ?? ''
-      if (line.trim().length <= 200) return out('undetermined', `生成物(${m.label})`, false)
-    }
+    if (m.re.test(head)) return out('undetermined', `生成物(${m.label})`, false)
   }
   const ex = analyzeExports(src)
   if (!ex.anyExport) return out('skipped', '无导出(空模块)')
