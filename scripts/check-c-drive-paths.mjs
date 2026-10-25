@@ -51,10 +51,11 @@
  *   node scripts/check-c-drive-paths.mjs --json
  *   node scripts/check-c-drive-paths.mjs --quiet
  */
-import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 // ROOT 取自 process.cwd() (而非脚本所在目录),使测试能通过 spawnSync 的
 // cwd 选项切换 git 上下文。pre-commit 钩子天然从项目根调用,行为一致。
@@ -194,13 +195,8 @@ function collectFiles() {
     return []
   }
   try {
-    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-    const out = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
-      cwd: ROOT,
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
+    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
     return out
       .split('\n')
       .map((f) => f.trim())
