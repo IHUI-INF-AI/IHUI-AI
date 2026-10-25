@@ -113,7 +113,7 @@ IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimiz
 
 > **「长春零下 25 度。一个人。一台电脑。一年时间。**
 >
-> **9 端代码 · 340 张数据库表 · 4393 个 API 路由。**
+> **9 端代码 · 340 张数据库表 · 4561 个 API 路由。**
 >
 > **资本始终没来。但代码,还在生长。」**
 
@@ -247,7 +247,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 那段时间,没有 PR 稿,没有发布会,只有:
 
 - 一张张数据库表从 0 长到 340
-- 一行行 API 路由从 0 长到 4393
+- 一行行 API 路由从 0 长到 4561
 - 一个个 pre-commit 守门钩子从 0 加到 17
 - 一次次推翻重构,一次次为某个 schema 是否合理争论到凌晨
 - 越来越紧的预算,越来越沉的肩
@@ -279,8 +279,8 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 | **9 端代码**        | Web / API / AI 服务 / CLI / 桌面 / 浏览器扩展 / 移动 RN / 移动 Capacitor(mobile-cap) / 微信小程序                                   | 通常 4-6 个端各 1 个团队,30+ 人 |
 | **100+ 大模型接入** | LiteLLM 网关统一 + 5 个 provider 适配                                                                  | 通常 1 个模型团队 3-5 人        |
 | **AI 编排三栈**     | LangGraph + MCP + A2A 协同 + Persona + Agent Runtime + 向量记忆                                        | 通常 1 个 AI 平台团队 5-10 人   |
-| **数据库**          | 542 表 + 205 schema 文件 + drizzle-kit push + RLS + 多租户路由 + pgvector + 知识图谱                   | 通常 1 个 DBA + 2-3 个后端      |
-| **API 规模**        | 4393 路由 + 12 WebSocket + 288 路由文件                                                                | 通常 5-8 个后端工程师           |
+| **数据库**          | 608 表 + 235 schema 文件 + drizzle-kit push + RLS + 多租户路由 + pgvector + 知识图谱                   | 通常 1 个 DBA + 2-3 个后端      |
+| **API 规模**        | 4561 路由 + 12 WebSocket + 627 路由文件                                                                | 通常 5-8 个后端工程师           |
 | **前端规模**        | 200+ 页面 + 5 语言 i18n parity + 暗黑模式 + PWA + SEO                                                  | 通常 4-6 个前端工程师           |
 | **工程守门**        | 56+10 pre-commit + post-commit 自动 push + drizzle-kit push 模式 + 9 PowerShell 启动                   | 通常 1-2 个 DevOps 工程师       |
 | **可观测性**        | Prometheus + Grafana(3 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                | 通常 1-2 个 SRE 工程师          |
@@ -343,7 +343,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 在被资本反复"再等等"的一年里,代码并没有停下生长。
 
 - 数据库表从 0 涨到 340
-- API 路由从 0 涨到 4393
+- API 路由从 0 涨到 4561
 - 8 端框架逐一成型
 - 100+ 大模型通过 LiteLLM 统一接入
 - LangGraph + MCP + A2A 三栈协同跑通
@@ -650,7 +650,7 @@ A: Yes. 9 platforms from one monorepo(Web / API / AI-service / Desktop / Extensi
 A: Yes. MCP + LangGraph + A2A triple stack(三栈协同),工具协议 + 工作流编排 + Agent 互通一体化。
 
 **Q: Is it production-ready? / 生产环境可用吗?**
-A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4561 API 路由 / 542 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 
 ---
 

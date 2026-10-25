@@ -360,7 +360,7 @@ _AI_TOP_SKILLS: list[Skill] = [
     ),
     Skill(
         name="social-auto-upload",
-        description="多平台内容自动上传(已集成 14 平台适配器,见 publish 路由)",
+        description="多平台内容自动上传(已集成 38 平台适配器,见 publish 路由)",
         prompt_template=(
             "你是一名多平台发布运营专家。请基于内容生成多平台发布计划"
             "(本工具只生成规划,不执行真实发布)。\n\n"

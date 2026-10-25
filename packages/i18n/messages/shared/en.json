@@ -190,6 +190,7 @@
     "toolVendorVoiceClone": "Clone a voice",
     "toolRequestBusinessForm": "Request a business form",
     "toolInitAgentsMd": "Initialize AGENTS.md",
+    "toolTeamTask": "Team shared task",
     "fileActivity": "{state, select, running {Processing file} completed {Processed file} other {Process file}}",
     "imageActivity": "{state, select, running {Processing image} completed {Processed image} other {Process image}}",
     "searchActivity": "{state, select, running {Searching} completed {Searched} other {Search}}",
@@ -231,7 +232,8 @@
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {Getting the file \"{name}\"} completed {Got the file \"{name}\"} other {Get the file \"{name}\"}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {Searching documents} completed {Searched documents} other {Search documents}}",
     "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {Searching documents for \"{name}\"} completed {Searched documents for \"{name}\"} other {Search documents for \"{name}\"}}",
-    "toolInitAgentsMdActivity": "{state, select, running {Initializing AGENTS.md} completed {Initialized AGENTS.md} other {Initialize AGENTS.md}}"
+    "toolInitAgentsMdActivity": "{state, select, running {Initializing AGENTS.md} completed {Initialized AGENTS.md} other {Initialize AGENTS.md}}",
+    "toolTeamTaskActivity": "{state, select, running {Updating the team task board} completed {Updated the team task board} other {Update the team task board}}"
   },
   "a11y": {
     "addAttachment": "Add attachment (image/video/file)",

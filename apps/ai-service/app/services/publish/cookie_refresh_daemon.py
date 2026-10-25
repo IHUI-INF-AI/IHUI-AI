@@ -47,6 +47,10 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# 端点里 fire-and-forget 的协程任务必须被强引用持有到完成(事件循环只握弱引用,
+# 丢弃返回值 = 任务可能被 GC 半路收走且无报错)。屋内模式同 audit_service.py。
+_background_tasks: set[asyncio.Task[Any]] = set()
+
 router = APIRouter(prefix="/publish/cookie-refresh", tags=["publish-cookie-refresh"])
 
 # 轮询间隔(小时),默认 6 小时
@@ -406,7 +410,13 @@ async def trigger_refresh(request: Request) -> dict[str, Any]:
     """手动触发全量保活(异步执行,立即返回)。"""
     _get_user_id(request)  # 鉴权
     cookie_daemon.ensure_started()
-    # 后台触发,不阻塞响应
-    asyncio.create_task(cookie_daemon.refresh_all_accounts())
+    # 后台触发,不阻塞响应。
+    # 2026-10-25 收口:原写法把 create_task 返回值直接丢弃 —— 事件循环对任务只握弱引用,
+    # 全量保活可能在跑到一半时被 GC,而接口照样回"已触发"(正是"看起来发生了其实没有"那一型)。
+    # 持强引用到完成(屋内模式同 audit_service/memory_graph);daemon 自身的循环任务不受影响,
+    # 它一直把 self._task 持有在实例上。
+    task = asyncio.create_task(cookie_daemon.refresh_all_accounts())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
     return _ok({"triggered": True}, "保活任务已触发,后台执行中")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

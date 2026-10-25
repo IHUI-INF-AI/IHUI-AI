@@ -80,6 +80,8 @@ export interface RelayPoolRows {
     isEnabled: boolean | null
     tempUnschedulable: boolean | null
     healthCheckedAt: Date | null
+    /** 余额(分;-1 = 无限)。仅实时快照的余额预警用,gauge 侧不需要 */
+    balanceCents: number | null
   }>
   accountRows: Array<{
     providerCode: string
@@ -110,6 +112,7 @@ export async function loadRelayPoolRows(): Promise<RelayPoolRows> {
         isEnabled: aiRelayKeyPool.isEnabled,
         tempUnschedulable: aiRelayKeyPool.tempUnschedulable,
         healthCheckedAt: aiRelayKeyPool.healthCheckedAt,
+        balanceCents: aiRelayKeyPool.balanceCents,
       })
       .from(aiRelayKeyPool)
       .orderBy(aiRelayKeyPool.providerCode, aiRelayKeyPool.priority, aiRelayKeyPool.name),
@@ -145,6 +148,16 @@ export interface RelayPoolLiveSnapshot {
   maxRefreshAgeSeconds: number | null
   /** 健康态不在封闭词表内、因而无法折叠的行数(非 0 必须看得见) */
   rowsUnclassified: number
+  /** Key 健康四态计数(unknown/healthy/degraded/down;不含 rowsUnclassified 的脏值行) */
+  keyHealth: { unknown: number; healthy: number; degraded: number; down: number }
+  /** 按 provider 分组的 Key 分布(可调度/异常口径与汇总字段同一把尺子) */
+  keyByProvider: Array<{ provider: string; total: number; schedulable: number; abnormal: number }>
+  /** 按 provider 分组的账号池分布 */
+  accountByProvider: Array<{ provider: string; total: number; schedulable: number }>
+  /** 余额低于 5 元(500 分)且非"无限"(-1)的 Key 条数 —— 余额预警,0 = 无需动作 */
+  keyBalanceLow: number
+  /** access token 将在 24 小时内过期的账号条数(含已过期) */
+  accountExpiring24h: number
   computedAtMs: number
 }
 
@@ -160,19 +173,38 @@ export async function computeRelayPoolLiveSnapshot(
   let keySchedulable = 0
   let keyAbnormal = 0
   let rowsUnclassified = 0
+  // 以下全部在**已加载的这两份行**上累加 ⇒ 相对现状零新增查询(5 秒轮询不变)
+  const keyHealth = { unknown: 0, healthy: 0, degraded: 0, down: 0 }
+  const keyByProvider = new Map<string, { total: number; schedulable: number; abnormal: number }>()
+  /** 余额预警阈值:5 元(500 分)。-1 = 无限,不参与预警 */
+  const KEY_BALANCE_LOW_CENTS = 500
+  let keyBalanceLow = 0
   for (const row of keyRows) {
     if (!isRelayPoolHealthState(row.healthStatus)) {
       rowsUnclassified++
       continue
     }
     if (isRelayPoolRowSchedulable(row)) keySchedulable++
-    if (RELAY_POOL_HEALTH_STATE_VALUE[row.healthStatus] >= RELAY_POOL_ABNORMAL_MIN_VALUE) {
-      keyAbnormal++
+    const isAbnormal =
+      RELAY_POOL_HEALTH_STATE_VALUE[row.healthStatus] >= RELAY_POOL_ABNORMAL_MIN_VALUE
+    if (isAbnormal) keyAbnormal++
+    keyHealth[row.healthStatus]++
+    const bucket = keyByProvider.get(row.providerCode) ?? { total: 0, schedulable: 0, abnormal: 0 }
+    bucket.total++
+    if (isRelayPoolRowSchedulable(row)) bucket.schedulable++
+    if (isAbnormal) bucket.abnormal++
+    keyByProvider.set(row.providerCode, bucket)
+    if (row.balanceCents !== null && row.balanceCents >= 0 && row.balanceCents < KEY_BALANCE_LOW_CENTS) {
+      keyBalanceLow++
     }
   }
   let accountsSchedulable = 0
   let minTokenExpiresInSeconds: number | null = null
   let maxRefreshAgeSeconds: number | null = null
+  const accountByProvider = new Map<string, { total: number; schedulable: number }>()
+  /** token 临期预警窗口:24 小时(含已过期的负值) */
+  const ACCOUNT_EXPIRING_WINDOW_SEC = 24 * 3600
+  let accountExpiring24h = 0
   for (const row of accountRows) {
     if (!isRelayPoolHealthState(row.healthStatus)) {
       rowsUnclassified++
@@ -183,10 +215,15 @@ export async function computeRelayPoolLiveSnapshot(
     if (exp !== null && (minTokenExpiresInSeconds === null || exp < minTokenExpiresInSeconds)) {
       minTokenExpiresInSeconds = exp
     }
+    if (exp !== null && exp <= ACCOUNT_EXPIRING_WINDOW_SEC) accountExpiring24h++
     const age = ageSeconds(row.lastRefreshAt, nowMs)
     if (age !== null && (maxRefreshAgeSeconds === null || age > maxRefreshAgeSeconds)) {
       maxRefreshAgeSeconds = age
     }
+    const bucket = accountByProvider.get(row.providerCode) ?? { total: 0, schedulable: 0 }
+    bucket.total++
+    if (isRelayPoolRowSchedulable(row)) bucket.schedulable++
+    accountByProvider.set(row.providerCode, bucket)
   }
   return {
     keyTotal: keyRows.length,
@@ -197,6 +234,15 @@ export async function computeRelayPoolLiveSnapshot(
     minTokenExpiresInSeconds,
     maxRefreshAgeSeconds,
     rowsUnclassified,
+    keyHealth,
+    keyByProvider: [...keyByProvider.entries()]
+      .map(([provider, v]) => ({ provider, ...v }))
+      .sort((a, b) => a.provider.localeCompare(b.provider)),
+    accountByProvider: [...accountByProvider.entries()]
+      .map(([provider, v]) => ({ provider, ...v }))
+      .sort((a, b) => a.provider.localeCompare(b.provider)),
+    keyBalanceLow,
+    accountExpiring24h,
     computedAtMs: nowMs,
   }
 }

@@ -2223,8 +2223,7 @@
       "addParam": "Add parameter",
       "deleteParam": "Delete",
       "create": "New",
-      "createSuccess": "Agent created successfully",
-      "mockSuccess": "API not yet available. Mock creation completed",
+      "mockSuccess": "n8n agent API is not open yet; this creation was not saved",
       "submitting": "Creating…",
       "submit": "Create Agent",
       "fileSizeExceeded": "File cannot exceed 10MB",
@@ -2260,8 +2259,7 @@
       "discountFull": "Fully eligible",
       "submitting": "Submitting…",
       "submit": "Submit for review",
-      "submitSuccess": "Submitted successfully",
-      "mockSuccess": "API not yet available. Mock submission completed"
+      "mockSuccess": "Pricing API is not open yet; this submission was not saved"
     }
   },
   "devSpace": {
@@ -2749,7 +2747,6 @@
     "missingParams": "Missing payment params",
     "useWechatScan": "Use WeChat to scan and pay",
     "configNotReady": "Payment config not ready. Contact admin.",
-    "balanceInsufficient": "Insufficient balance, please recharge",
     "noCoupon": "No coupons available",
     "couponNone": "No coupon",
     "orderExpired": "Order expired, please place a new order",
@@ -2757,8 +2754,6 @@
     "couponSaved": "Saved ¥{n}",
     "goodsName": "Product name",
     "vipSubscription": "VIP subscription",
-    "balanceAmount": "Balance ¥{n}",
-    "recharge": "Recharge",
     "couponAvailable": "{n} available",
     "limitedFree": "Limited Free",
     "memberFree": "VIP Free",
@@ -2768,7 +2763,6 @@
     "paymentMethod": "Payment Method",
     "confirmPay": "Confirm Pay ¥{price}",
     "alipay": "Alipay",
-    "balance": "Balance",
     "cancel": "Payment cancelled",
     "wxNotInstalled": "WeChat app not detected. Please install WeChat first",
     "aliNotInstalled": "Alipay app not detected. Please install Alipay first",

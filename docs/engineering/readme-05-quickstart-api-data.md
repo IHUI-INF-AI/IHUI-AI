@@ -126,11 +126,11 @@ pnpm turbo build typecheck lint test
 
 ## API 与协议
 
-### REST API(4393 路由)
+### REST API(4561 路由)
 
 | 服务                | 端点数 | 前缀                  | 路由文件数 | 覆盖域                                                                                                                                                                                                                                                             |
 | ------------------- | ------ | --------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **apps/api**        | 4393   | `/api` + `/api/admin` | 267        | 30+ 业务域(auth/users/billing/content/chat/teams/workspace/agents/coze/oss/order/vip/exam/learn/live/news/topic/search/drama/stock/gdpr/rbac/tenant/community/edu/payment/wallet/point/ranking/distribution/developer/workflows/business-card/customer-service 等) |
+| **apps/api**        | 4561   | `/api` + `/api/admin` | 267        | 30+ 业务域(auth/users/billing/content/chat/teams/workspace/agents/coze/oss/order/vip/exam/learn/live/news/topic/search/drama/stock/gdpr/rbac/tenant/community/edu/payment/wallet/point/ranking/distribution/developer/workflows/business-card/customer-service 等) |
 | **apps/ai-service** | ~55    | `/api`                | 12 routers | a2a(5)/ agents(9)/ health(4)/ llm(2)/ mcp(10)/ tools(3)/ personas(4)/ voice_stt(3)/ self_media(6)/ publish(8)/ agent_runtime(6)/ legacy                                                                                                                            |
 
 **统一响应格式:**
@@ -284,7 +284,7 @@ PostgreSQL 2 张表(`packages/database/src/schema/im-adapters.ts`):
 ## 数据库
 
 - **单库设计**:PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域
-- **542 表**:205 个 schema 模块文件,覆盖 30+ 业务域
+- **608 表**:205 个 schema 模块文件,覆盖 30+ 业务域
 - **drizzle-kit push**:`packages/database/drizzle/`,drizzle-kit generate 生成 + 手动增量(实际 drizzle-kit push文件,含 pgvector / 知识图谱 / RLS 多租户隔离等关键迁移)
 - **7 步幂等 seed**:`packages/database/seed/`,模式化 + 容错隔离
 - **行级安全**:RLS(Row Level Security)在关键字段启用,多租户隔离
