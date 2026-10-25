@@ -7,7 +7,7 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PromotionCouponStatus, PromotionCoupon, PromotionScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -109,13 +109,13 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    listBody: { padding: 14, paddingBottom: 32 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    errorBar: { paddingHorizontal: 10, paddingVertical: rnSpacing.sm },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
     card: {
       padding: 14,
@@ -126,15 +126,15 @@ function createStyles(tk: AppThemeTokens) {
     },
     row: { flexDirection: 'row', alignItems: 'center' },
     amountBox: { width: 80, alignItems: 'center' },
-    amountText: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
-    minSpend: { marginTop: 8, fontSize: 10, color: tk.text.tertiary },
-    body: { flex: 1, marginLeft: 12 },
-    itemName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    expire: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    amountText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
+    minSpend: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.text.tertiary },
+    body: { flex: 1, marginLeft: rnSpacing.md },
+    itemName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    expire: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     badge: {
       alignSelf: 'flex-start',
-      marginTop: 8,
-      paddingHorizontal: 8,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
     },
@@ -145,7 +145,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    useText: { fontSize: 14, color: tk.surface.light },
+    useText: { fontSize: rnType.body.size, color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

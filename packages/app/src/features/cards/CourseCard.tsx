@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { Fragment, useMemo } from 'react'
 import type { ReactNode } from 'react'
@@ -169,38 +169,38 @@ function createStyles(tk: AppThemeTokens) {
     },
     pressed: { opacity: 0.85 },
     cover: { width: '100%', height: 128, backgroundColor: tk.surface.card },
-    body: { padding: 14, gap: 8 },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    description: { fontSize: 14, color: tk.text.secondary },
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-    lecturer: { fontSize: 14, color: tk.text.secondary },
+    body: { padding: 14, gap: rnSpacing.sm },
+    title: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
+    description: { fontSize: rnType.body.size, color: tk.text.secondary },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm, flexWrap: 'wrap' },
+    lecturer: { fontSize: rnType.body.size, color: tk.text.secondary },
     levelBadge: {
       backgroundColor: LEVEL_TINT,
       borderRadius: rnRadius.md,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
     },
-    levelText: { fontSize: 11, fontWeight: '600', color: tk.brandAccent.deep },
-    ratingText: { fontSize: 11, color: tk.warning.DEFAULT, fontWeight: '600' },
+    levelText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.brandAccent.deep },
+    ratingText: { fontSize: rnType.caption.size, color: tk.warning.DEFAULT, fontWeight: '600' },
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tag: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadius.md,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
     },
-    tagText: { fontSize: 11, color: tk.text.secondary },
+    tagText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    price: { fontSize: 18, fontWeight: '700', color: tk.danger.bright },
+    price: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.danger.bright },
     freeTag: {
       backgroundColor: FREE_TINT,
       borderRadius: rnRadius.md,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
     },
-    freeTagText: { fontSize: 14, fontWeight: '700', color: tk.success.DEFAULT },
-    enroll: { fontSize: 11, color: tk.text.tertiary },
-    footer: { marginTop: 8 },
+    freeTagText: { fontSize: rnType.body.size, fontWeight: '700', color: tk.success.DEFAULT },
+    enroll: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    footer: { marginTop: rnSpacing.sm },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

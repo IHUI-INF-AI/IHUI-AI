@@ -20,7 +20,7 @@ import type { CategoryItem } from '../../components/category/types'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 
 export interface SetNeedScreenProps {
@@ -278,32 +278,40 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    scrollContent: { paddingHorizontal: 10, paddingVertical: 12, gap: 8 } as ViewStyle,
-    fieldGroup: { gap: 8 } as ViewStyle,
-    label: { fontSize: 16, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    required: { fontSize: 16, color: tk.danger.DEFAULT } as TextStyle,
+    title: {
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    scrollContent: {
+      paddingHorizontal: 10,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.sm,
+    } as ViewStyle,
+    fieldGroup: { gap: rnSpacing.sm } as ViewStyle,
+    label: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    required: { fontSize: rnType.title.size, color: tk.danger.DEFAULT } as TextStyle,
     input: {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 14,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     } as TextStyle,
-    textarea: { minHeight: 96, paddingTop: 12 } as TextStyle,
-    priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 } as ViewStyle,
+    textarea: { minHeight: 96, paddingTop: rnSpacing.md } as TextStyle,
+    priceRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm } as ViewStyle,
     priceInput: { flex: 1 } as TextStyle,
-    priceDash: { fontSize: 16, color: tk.text.tertiary } as TextStyle,
-    imageRow: { gap: 8, paddingVertical: 4 } as ViewStyle,
+    priceDash: { fontSize: rnType.title.size, color: tk.text.tertiary } as TextStyle,
+    imageRow: { gap: rnSpacing.sm, paddingVertical: rnSpacing.xs } as ViewStyle,
     imagePreview: { width: 72, height: 72, borderRadius: rnRadius.lg } as ImageStyle,
     // 外层 = 在 scrollContent 里排下一块的布局档;面档(底色/圆角/内边距/居中)在 submitBtn,
     // 由内层 View 承载。拆层是为了把按压态从 Pressable 的 style 上摘下来(守门 131 那一型),
     // 数值逐字搬移、未新增任何尺寸。
-    submitBtnBox: { marginTop: 16 } as ViewStyle,
+    submitBtnBox: { marginTop: rnSpacing.lg } as ViewStyle,
     submitBtn: {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.sm,
@@ -311,7 +319,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     } as ViewStyle,
     submitBtnPressed: { opacity: 0.85 } as ViewStyle,
-    submitBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light } as TextStyle,
+    submitBtnText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.surface.light,
+    } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

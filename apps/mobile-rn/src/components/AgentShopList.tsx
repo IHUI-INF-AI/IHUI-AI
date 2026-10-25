@@ -26,7 +26,7 @@ import {
   type ListRenderItem,
 } from 'react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 /** 单个 Agent 条目(与 AgentList 弹出选择列表共用契约) */
@@ -238,8 +238,8 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   listBody: {
-    padding: 12,
-    gap: 12,
+    padding: rnSpacing.md,
+    gap: rnSpacing.md,
   },
   card: {
     flexDirection: 'row',
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    padding: 12,
+    padding: rnSpacing.md,
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -268,26 +268,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarFallbackText: {
-    fontSize: 20,
+    fontSize: rnType.heading.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   cardBody: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: rnSpacing.md,
   },
   name: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   newBadge: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.danger.DEFAULT,
   },
   description: {
-    marginTop: 4,
-    fontSize: 12,
+    marginTop: rnSpacing.xs,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     lineHeight: 18,
   },
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   tag: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.secondary,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
@@ -308,23 +308,23 @@ const styles = StyleSheet.create({
   },
   meta: {
     marginTop: 6,
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
   reactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
+    gap: rnSpacing.sm,
+    marginTop: rnSpacing.sm,
   },
   reactionBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   reactionText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   reactionTextActive: {
@@ -332,11 +332,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   empty: {
-    paddingVertical: 48,
+    paddingVertical: rnSpacing['5xl'],
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
 })
