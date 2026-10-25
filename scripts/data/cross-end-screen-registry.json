@@ -400,6 +400,11 @@
       "shared": "packages/app/src/features/api-settings/ApiSettingsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ApiSettingsScreen.tsx",
       "miniapp": "pkg-about/about/api-settings/index"
+    },
+    {
+      "shared": "packages/app/src/features/coupon/CouponScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CouponScreen.tsx",
+      "miniapp": "pages/member/coupon"
     }
   ]
 }
