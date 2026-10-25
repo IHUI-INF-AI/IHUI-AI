@@ -103,6 +103,7 @@ export default defineAppConfig({
         'learn-develop/index',
         'course-planet/index',
         'subscription/contracts/index',
+        'more-course/index',
       ],
     },
     {
@@ -148,7 +149,6 @@ export default defineAppConfig({
       root: 'pkg-content',
       pages: [
         'news/list',
-        'activity-detail-shared/index',
         'news/detail',
         'topic/list',
         'topic/detail',
