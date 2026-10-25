@@ -5517,10 +5517,52 @@ const checks = [
       '     「今日签到(UTC 日)」并排,每天上海 00:00–08:00 签到格读成 0、连续天数断裂。',
       '     出口:apps/api/src/utils/biz-day.ts(bizDayStartUtc/bizDayKey/shiftBizDayKey);委托转发合法,自己再算不合法。',
       '     --staged 复验 / --self-test(9 例)/ 镜像 scripts/tests/check-biz-day-single-source.test.mjs。',
-      '     紧急跳过(不推荐):HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE=1 git commit ...',
+       '     紧急跳过(不推荐):HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE=1 git commit ...',
+       '',
+     ].join('\n'),
+   },
+
+  // --- asyncio 后台任务强引用(2026-10-26 立;create_task 弱引用被 GC 族根治)---
+  {
+    id: '247',
+    label:
+      '🧵 ai-service asyncio 后台任务强引用(blocking;W1 裸 create_task/ensure_future ⇒ 绝对零容忍 / W3 唯一出口无人 import ⇒ 造好未装车;赋值/列表持有型只报数,见门体 W2)',
+    script: 'check-ai-task-background-reference.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/ai-service/'],
+    skipEnv: 'HUSKY_SKIP_AI_TASK_BG_REF',
+    onFailHint: [
+      '',
+      '  💡 事件循环对 create_task 返回值只握弱引用,丢弃 ⇒ 任务半路被 GC 且零报错(workflow 实例永逝/存活监控断线同型)。',
+      '     出口:from app.core.background_tasks import spawn;合法豁免登记 scripts/data/ai-task-bare-exemptions.json(marker=调用行子串+reason+until,marker 消失=腐烂判红)。',
+      '     --self-test 12 例 / 镜像 scripts/tests/check-ai-task-background-reference.test.mjs。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_AI_TASK_BG_REF=1 git commit ...',
       '',
     ].join('\n'),
   },
+
+  // --- 显示层分→元格式化单一出口(2026-10-26 立;20 份 fmtYuan 型副本收口后防复活)---
+  {
+    id: '248',
+    label:
+      '💴 显示层分→元格式化只许一个出口(blocking;M1 本地自算定义 ⇒ 绝对零容忍(存量本波清零)/ M2 行内定长格式化 ⇒ 差值棘轮只拦新增 / M3 唯一出口无人 import ⇒ 造好未装车)',
+    script: 'check-money-display-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/'],
+    skipEnv: 'HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE',
+    onFailHint: [
+      '',
+      '  💡 `¥${(n/100).toFixed(2)}` 同形曾被逐字复制 20 份(改单位口径要 20 处手改,漏一处=该页 100 倍显示事故;',
+      '     分销族 46758b5b2b8 的"分当元"批修即同型受害者)。出口:import { formatPrice } from @ihui/shared/utils;',
+      '     委托转发(¥${formatPrice(n)})合法,数字换算(返回 number)出射程;行内定长存量走 ratchet 只报数。',
+      '     --self-test 10 例 / 镜像 scripts/tests/check-money-display-single-source.test.mjs。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
 
   // --- 身份主体单一真相源(2026-10-25 立;crew/knowledge 匿名越权族根治)(1 项,blocking)---
   {
