@@ -27,6 +27,19 @@
 
 import React from 'react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+// 静态取,不放 beforeEach 里 `await import`:那条钩子的超时预算(vitest 默认 hookTimeout 10s)
+// 量的是"冷 transform 一整张 api-client 图"这件事,而这件事与被测逻辑无关,只与那台机当时有多忙有关。
+// 实测 2026-10-25 端内全量两份日志各在此钩子报 `Hook timed out in 10000ms`(指向下方 beforeEach)。
+// 挪到静态导入后,该图落在收集期(无钩子预算);钩子只剩同步动作,饿不着。
+// 具名 import 而非 `import * as`:tests/api-client-alias-fidelity.test.ts A4 明令 namespace 形态直接红
+// (它会让"每个具名取用必须在真实导出集里"这条判据整体失明)—— 这条改动同时把两个名字交给 A4 核。
+import { setDeviceFingerprintProvider, setTransport } from '@ihui/api-client'
+// 同一根因的第二张脸(2026-10-25 全量实测):七枚用例各自 `await import('../src/screens/CourseFilterScreen')`,
+// 于是"冷 transform 整棵屏 + 共享屏 + 分页 hook + api-client 图"落在**第一条用例的 60s 预算**里 ——
+// 本机负载峰值(transform 1653s / import 1937s 那一轮)直接把第一条用例顶成 `Test timed out in 60000ms`。
+// 上提成静态导入后,该图落在收集期(不受 testTimeout/hookTimeout 约束),而它本来就是屏的依赖树,
+// 后续各枚用例里的 `await import(...)` 全部命中模块缓存(≈0ms),判据一字未动。
+import { CourseFilterScreen } from '../src/screens/CourseFilterScreen'
 
 // 五个端到端用例是整屏渲染 + waitFor 异步收束,CI 高负载下超 10s 默认上限(实测全部超时)。
 // 本条只管**整条用例的墙上时间**,一分也不加给 waitFor 每段的等待预算 —— 那一份自 2026-10-24 起
@@ -219,13 +232,12 @@ async function pressChip(container: HTMLElement, text: string) {
 }
 
 describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端到端', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     outboundUrls.length = 0
     transport.mockClear()
-    const api = await import('@ihui/api-client')
-    api.setTransport(transport as unknown as Parameters<typeof api.setTransport>[0])
+    setTransport(transport as unknown as Parameters<typeof setTransport>[0])
     // 设备指纹采集是端侧注入项,与本票无关;给一个恒空的 provider 免得真去摸 AsyncStorage
-    api.setDeviceFingerprintProvider({ get: async () => null } as never)
+    setDeviceFingerprintProvider({ get: async () => null } as never)
   })
 
   afterEach(() => {
@@ -249,7 +261,6 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   })
 
   it('未选任何轴时首屏不下传 price / difficulty(反向对照的基线)', async () => {
-    const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
     await waitFor(() => expect(renderedTitles(container)).toHaveLength(5))
     // 真渲染的证据:档位文案来自真实共享屏的 i18n 键(端内静态替身只会打 data-testid)
@@ -262,7 +273,6 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   })
 
   it('选「付费」并应用:请求真的带 price=paid,渲染的行只剩付费的 3 行', async () => {
-    const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
     // 链 A(首屏取数)的终点 = 全量 5 行在屏。这份 DOM 状态在链 B 之后就不存在了,链 B 的终点
     // 证不到它 ⇒ 它自己那一段等待不能省,只把预算显式化(8s;本文件墙上时间 60s,两段吃得下)。
@@ -295,7 +305,6 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   })
 
   it('反向对照一:改点「免费」是另一组行,与付费结果集不同(不是恒渲染 N 行)', async () => {
-    const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
     // 三段各是一条独立链的终点(首屏全量 / 应用付费 / 应用免费),不是同一条链的中间态:
     // paidSet 要作为后面 `freeSet !== paidSet` 与并集=全量的**输入**,而 DOM 状态是瞬时的,
@@ -321,7 +330,6 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   })
 
   it('反向对照二:难度轴换 beginner → advanced,两次结果集逐 id 不同', async () => {
-    const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
     // 同「反向对照一」:三段是三条独立链的终点(全量 / beginner 收窄 / advanced 收窄),
     // beginnerSet 既是本轮的判据又是末行 `advancedSet !== beginnerSet` 的输入,DOM 瞬时状态
@@ -350,7 +358,6 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   })
 
   it('两根轴能同时生效:URL 里 price 与 difficulty 都在,渲染只剩交集那 1 行', async () => {
-    const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
     await waitFor(() => expect(renderedTitles(container)).toHaveLength(5), { timeout: 8_000 })
 
@@ -371,7 +378,6 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   })
 
   it('草稿档不触发请求:只点轴不点应用时,不发新请求、行也不变', async () => {
-    const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
     await waitFor(() => expect(renderedTitles(container)).toHaveLength(5))
     const before = outboundUrls.length
@@ -385,7 +391,6 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   })
 
   it('reset 之后回到全量,且请求不再带任何轴(证明"收窄"是可逆的)', async () => {
-    const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
     await waitFor(() => expect(renderedTitles(container)).toHaveLength(5), { timeout: 8_000 })
 

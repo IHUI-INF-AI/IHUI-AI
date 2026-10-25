@@ -17,7 +17,7 @@
  * - API 失败时错误状态设置
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 // 相对路径导入 mock 专有导出：vitest alias '@ihui/rn-app' 与此相对路径解析到
 // 同一文件（tests/__mocks__/ihui-rn-app.ts），运行时为同一模块实例；
 // 而 tsc 类型检查不受影响（主 tsconfig 无 mock alias）。
@@ -243,19 +243,43 @@ describe('PlazaScreen 需求广场', () => {
 
   it('submitSearch 触发重新加载且 search 参数生效', async () => {
     render(<PlazaScreen />)
-    // 首帧的 props 捕获是渲染期事实 ⇒ 降级为同步断言,本枚只留一次等待。
+    // 首帧的 props 捕获是渲染期事实 ⇒ 降级为同步断言,本枚只留链终点那一次等待。
     expect(
       plazaScreenPropsCaptured.length,
       '首帧没把 props 交给共享替身 = 委托链断在渲染之前,提交回调无从取得',
     ).toBeGreaterThan(0)
-    const props = plazaScreenPropsCaptured[0]!
-    await (props.onSubmitSearch as () => void)()
-    // 搜索提交后，下一次 load 应该带 search 参数
-    // 注(按"发现写报告、不悄悄改判据"登记):`toHaveBeenCalled()` 自首屏起即为真(首屏已 load
-    // 一次),这一格并没有检查票面标题里的"search 参数"——本枚只把它的预算显式化,不改判据。
+    const callsBefore = apiMocks.getPlazaList.mock.calls.length
+    // 牙在这里补上(2026-10-25):原断言 `toHaveBeenCalled()` 自首屏起恒真(首屏已 load 一次),
+    // 提交什么都不做也绿,票面标题里的「search 参数生效」从来没被量过。
+    // searchInput 是薄壳的内部态,只能经它自己委托出去的 onSearchChange 进去;而
+    // onSubmitSearch 每次渲染都是新闭包 ⇒ 必须取**输入落位之后最新那帧**的回调,
+    // 用首帧闭包提交带上的是空 searchInput,量到的就是"什么都没输入"。
+    // 两次 act 保证状态在读取之前已经 flush(否则"最新那帧"是竞态)。
+    act(() => {
+      ;(
+        plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!.onSearchChange as (
+          v: string,
+        ) => void
+      )('AI开发')
+    })
+    act(() => {
+      ;(
+        plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!.onSubmitSearch as () => void
+      )()
+    })
     await waitFor(
       () => {
-        expect(apiMocks.getPlazaList).toHaveBeenCalled()
+        const after = apiMocks.getPlazaList.mock.calls.slice(callsBefore)
+        expect(
+          after.length,
+          '提交后一次数都没再取 = 提交按钮是假的(或 search 变更没能触发下一次 load)',
+        ).toBeGreaterThan(0)
+        expect(
+          after.some((c) => (c[0] as { search?: string } | undefined)?.search === 'AI开发'),
+          `提交后的 ${after.length} 次取数没有任何一次带 search=AI开发(实参 search:${after
+            .map((c) => String((c[0] as { search?: string } | undefined)?.search))
+            .join(', ')})`,
+        ).toBe(true)
       },
       { timeout: 8_000 },
     )

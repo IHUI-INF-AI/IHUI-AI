@@ -1712,7 +1712,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         type="button"
                         aria-label={`${target.job} ${word}`}
                         className={cn(
-                          'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
+                          'flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
                           tone === 'ok'
                             ? 'border-success/25 bg-success/10 text-success-text/90'
                             : tone === 'bad'

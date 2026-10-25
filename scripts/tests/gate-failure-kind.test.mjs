@@ -312,4 +312,43 @@ test('F7 汇总分型报数:兜底型不会被劝去装依赖,依赖型仍给出
   assert.match(legacy, /缺依赖型 3 道/)
   assert.match(legacy, /pnpm install/)
 })
+
+test('F8 末行后果锁:crash 一支必须自己把批量顶成非零(2026-10-25 实测它曾不成立)', () => {
+  // 立因(不是假想,是量出来的):`IHUI_GATE_FAST=1 GUARDIAN_GATE_TIMEOUT_MS=1 node scripts/guardian-runner.mjs --staged`
+  // ⇒ 汇总打印"111 道门跑不起来(未判定)",而**批量 exit 0** —— 末尾只有判红支会 exit(1),
+  // crash 支只 failed++。于是"改归因"当场演变成"改后果"(还顺带让 push-gate 那侧按 failed 判通过)。
+  // 本次把兜底码接进 crash 档后,这一格的射程变大(门 30c 那型不再进判红名单,拦不住),故同批补牙。
+  // 这里用结构锁(整批再跑一遍要几分钟,不适合钉在提交链上);现读 RC 的取证见交付报告与 F8 反例。
+  const here = resolve(fileURLToPath(import.meta.url), '../../..')
+  const src = readFileSync(resolve(here, 'scripts/lib/guardian-executor.mjs'), 'utf-8')
+  const attest = src.indexOf('attestGateBatchRun(true)')
+  const crashPrint = src.indexOf('if (crashedGates.length > 0) {', attest)
+  const failedPrint = src.indexOf('if (failedGates.length > 0) {', crashPrint)
+  const stopHint = src.indexOf('GUARDIAN_STOP_ON_FIRST=1)', failedPrint)
+  const failedExit = src.indexOf('process.exit(1)', stopHint)
+  const cacheWrite = src.indexOf('writePushGateCache(', failedPrint)
+  assert.ok(
+    attest > 0 && crashPrint > attest && failedPrint > crashPrint && stopHint > failedPrint && cacheWrite > stopHint,
+    '汇总三段结构变了?(先查 attest/crash-print/failed-print/cache 的次序)',
+  )
+  // 正向牙:判红支仍 exit(1)(不得被这次补牙反向削掉)
+  assert.ok(
+    failedExit > stopHint && failedExit - stopHint < 160,
+    '判红支的 exit(1) 不见了或挪了地方 = 真红也放行(反向牙:摘掉它这条必须红)',
+  )
+  // 反向牙:**判红支之后**必须另有一道 crash 兜底出口 —— 排在两段点名之后,两份名单都能打印完;
+  // 排在缓存写入之前,免得"没结论"这一轮被写进 push-gate 缓存当成通过。
+  const crashGuard = src.indexOf('if (crashedGates.length > 0) {', failedExit)
+  assert.ok(
+    crashGuard > failedExit && crashGuard < cacheWrite,
+    '未判定没有独立的非零出口(或出口位置不对)⇒ "没判"被读成"通过"(§0.3),本次改动即此型回归',
+  )
+  assert.match(
+    src.slice(crashGuard, cacheWrite),
+    /process\.exit\(1\)/,
+    'crash 兜底支只剩打印没有退出 ⇒ 汇总喊"不清偿不放行"却照样 exit 0',
+  )
+  // 措辞锁:这条出口的文案必须明说"未判定不等于通过",免得后人把它当普通告警删掉
+  assert.match(src.slice(crashGuard, cacheWrite), /未判定/, '兜底出口的文案没点名"未判定"')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
