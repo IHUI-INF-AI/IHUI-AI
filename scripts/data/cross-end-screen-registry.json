@@ -435,6 +435,21 @@
       "shared": "packages/app/src/features/point-history/PointHistoryScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PointHistoryScreen.tsx",
       "miniapp": "pages/member/integral"
+    },
+    {
+      "shared": "packages/app/src/features/conversation-import/ConversationImportScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ConversationImportScreen.tsx",
+      "miniapp": "pkg-ai/ai/conversation-import"
+    },
+    {
+      "shared": "packages/app/src/features/exam/ExamScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ExamScreen.tsx",
+      "miniapp": "pages/exam/list"
+    },
+    {
+      "shared": "packages/app/src/features/feedback/FeedbackScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FeedbackScreen.tsx",
+      "miniapp": "pkg-user/user/feedback"
     }
   ]
 }
