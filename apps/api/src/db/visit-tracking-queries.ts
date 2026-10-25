@@ -37,30 +37,62 @@ export interface SaveVisitLogInput {
 }
 
 /**
+ * `visit_logs.user_id` 外键违约(23503)判定。
+ *
+ * 2026-10-26 生产实测:`/admin/*` 页面访问带了一个**已不存在**的用户 id(跨环境签发的旧 token /
+ * 用户被删),insert 直接撞 `visit_logs_user_id_fkey` ⇒ 500 ⇒ 整条访问丢失且前端静默。
+ * 埋点是计数面,身份失效不该把「有人用了」这条事实一起丢掉;降级为匿名(user_id=null)。
+ *
+ * drizzle 把 PG 错误裹进 cause(postgres-js 的 code/constraint 在 cause 上),两层都读。
+ */
+function isVisitUserIdFkViolation(err: unknown): boolean {
+  const e = err as {
+    code?: string
+    constraint?: string
+    cause?: { code?: string; constraint?: string }
+  } | null
+  const code = e?.code ?? e?.cause?.code
+  const constraint = e?.constraint ?? e?.cause?.constraint
+  if (code !== '23503') return false
+  return constraint === null || constraint === undefined || constraint === 'visit_logs_user_id_fkey'
+}
+
+/**
  * 保存访问记录。visitDate 由服务端按业务日界算出(不再有入参通道:
  * 2026-10-25 摘掉 `visitDate?` 字段 —— 路由层 schema 已不收客户端自报日期,留这个字段
  * 就是给下一个"照着类型写"的人留一条把日键交回客户端的路)。
  * ip / user_agent 一律取 `observed`(服务端观测面),客户端自报值不进这一层。
+ *
+ * 带用户 id 时若撞外键(用户已不存在),**降级为匿名重插一次**;其它错误照抛 ——
+ * 降级只覆盖"身份失效"这一型,不掩盖真正的写库故障。
  */
 export async function saveVisitLog(input: SaveVisitLogInput): Promise<VisitLog> {
   // 访客日键一律服务端算,且必须是业务日界(上海);以前是 UTC ⇒ 早八点前 PV/UV 落错一天
   const visitDate = bizDayKey()
-  const rows = await db
-    .insert(visitLogs)
-    .values({
-      userId: input.userId,
-      ip: input.observed.ip,
-      city: input.city,
-      url: input.url,
-      referer: input.referer,
-      userAgent: input.observed.userAgent,
-      sessionId: input.sessionId,
-      visitDate,
-    })
-    .returning()
-  const row = rows[0]
-  if (!row) throw new Error('保存访问记录失败')
-  return row
+  const base = {
+    ip: input.observed.ip,
+    city: input.city,
+    url: input.url,
+    referer: input.referer,
+    userAgent: input.observed.userAgent,
+    sessionId: input.sessionId,
+    visitDate,
+  }
+  const insert = async (userId: string | null | undefined) => {
+    const rows = await db
+      .insert(visitLogs)
+      .values({ ...base, userId })
+      .returning()
+    const row = rows[0]
+    if (!row) throw new Error('保存访问记录失败')
+    return row
+  }
+  try {
+    return await insert(input.userId)
+  } catch (err) {
+    if (!input.userId || !isVisitUserIdFkViolation(err)) throw err
+    return insert(null)
+  }
 }
 
 // =============================================================================
