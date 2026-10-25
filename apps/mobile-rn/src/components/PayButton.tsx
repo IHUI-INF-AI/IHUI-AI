@@ -25,7 +25,7 @@ import {
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 
-import { rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadiusFor, rnType } from '@ihui/design-tokens'
 
 /** 购买图标形态(对齐 Uniapp pay_btn itemData.type) */
 export type PayButtonType = 'freeuse' | 'freetime' | 'hasbuy' | 'monthly'
@@ -155,12 +155,12 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.85 } as ViewStyle,
   disabled: { opacity: 0.5 } as ViewStyle,
   text: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   } as TextStyle,
   typeText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '700',
   } as TextStyle,
 })

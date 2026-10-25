@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * PersonalInformationCard 个人信息卡片 (mobile-rn 端)
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   nickname: {
     flex: 1,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: MEDIA_TEXT,
   } as TextStyle,
@@ -213,21 +213,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   avatarFallbackText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.brandAccent.foreground,
   } as TextStyle,
   incomeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: rnSpacing['2xl'],
   } as ViewStyle,
   incomeLabel: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: MEDIA_TEXT,
   } as TextStyle,
   incomeValue: {
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
     fontSize: 22,
     fontWeight: '700',
     color: MEDIA_TEXT,
@@ -243,11 +243,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
   withdrawLabel: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: MEDIA_TEXT,
   } as TextStyle,
   withdrawValue: {
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
     fontSize: 22,
     fontWeight: '700',
     color: MEDIA_TEXT,
@@ -269,10 +269,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginTop: 12,
+    marginTop: rnSpacing.md,
   } as ViewStyle,
   legacyText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: 'rgba(255,255,255,0.85)',
   } as TextStyle,
 })

@@ -24,7 +24,7 @@ import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native
 import type { TextStyle, ViewStyle } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { Link2 } from 'lucide-react-native'
-import { OAUTH_BRAND_COLORS, rnRadius } from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { shareWebPageToSession, shareWebPageToTimeline } from '../lib/wechat'
 import { tokens } from '../theme/active-tokens'
 import { WechatFriendIcon, WechatMomentsIcon } from './WechatBrandIcons'
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: 0,
     borderColor: tokens.border.light,
-    paddingHorizontal: 20,
+    paddingHorizontal: rnSpacing.xl,
     paddingTop: 18,
     paddingBottom: 30,
   } as ViewStyle,
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   /** 面层(守门 131:外框拿盒,面层拿 pressed) */
   optionFace: {
     alignItems: 'center',
-    gap: 8,
+    gap: rnSpacing.sm,
   } as ViewStyle,
   pressed: { opacity: 0.6 } as ViewStyle,
   /** 微信好友位:官方绿实底(品牌身份色豁免,同 oauth-colors.ts;盖在通用 iconTile 之上) */
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm, // 与外盒同档
   } as ViewStyle,
   cancelText: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     lineHeight: 20,
     fontWeight: '500',
     color: tokens.text.primary,

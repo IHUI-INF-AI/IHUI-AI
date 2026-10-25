@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { useTheme } from '../context/ThemeContext'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, ScrollView, Share, Text, View } from 'react-native'
@@ -465,7 +465,7 @@ const shellStyles = {
   statsWrap: { paddingTop: rpx(24), paddingBottom: rpx(8) } as const,
   functionBlocksWrap: { paddingHorizontal: rpx(32), paddingVertical: rpx(16) } as const,
   withdrawDetailContent: { gap: rpx(20), paddingVertical: rpx(16) } as const,
-  withdrawDetailText: { fontSize: 14, color: tokens.text.medium } as const,
+  withdrawDetailText: { fontSize: rnType.body.size, color: tokens.text.medium } as const,
   shareBtnWrap: { paddingHorizontal: rpx(32), paddingBottom: rpx(8) } as const,
   shareBtn: {
     height: 44,
@@ -475,7 +475,7 @@ const shellStyles = {
     justifyContent: 'center',
   } as const,
   shareBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   } as const,
@@ -495,7 +495,7 @@ const shellStyles = {
     justifyContent: 'center',
   } as const,
   qrPlaceholder: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.tertiary,
   } as const,
@@ -505,7 +505,7 @@ const shellStyles = {
     maxWidth: 260,
   } as const,
   qrLinkText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     textAlign: 'center',
   } as const,
@@ -518,7 +518,7 @@ const shellStyles = {
     alignSelf: 'stretch',
   } as const,
   saveBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   } as const,
@@ -535,17 +535,17 @@ const shellStyles = {
     alignSelf: 'stretch',
   } as const,
   copyBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brand.DEFAULT,
   } as const,
   qrTip: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
     textAlign: 'center',
   } as const,
   qrTipSub: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     textAlign: 'center',
   } as const,

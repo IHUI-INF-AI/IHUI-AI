@@ -13,7 +13,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Eraser, MessageSquarePlus, X } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import {
   removeAllAnnotations,
@@ -85,16 +85,16 @@ const styles = StyleSheet.create({
     gap: rpx(4),
   },
   label: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   textMuted: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
   textFg: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.primary,
   },
   commentRow: {
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.bg,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.primary,
   },
   addBtn: {
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   addBtnText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   removeOne: {

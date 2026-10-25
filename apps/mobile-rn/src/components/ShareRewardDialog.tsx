@@ -33,7 +33,7 @@ import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'reac
 import type { TextStyle, ViewStyle } from 'react-native'
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg'
 import { Gift, Sparkles, UserPlus, X } from 'lucide-react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
 
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     height: COIN_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   } as ViewStyle,
   /** 图标盖在 Svg 币面上:inset 0 + 双向居中,保证与币面严格同心 */
   coinIcon: {
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   rewardUnit: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     lineHeight: REWARD_FONT_SIZE + 8,
     fontWeight: '500',
     color: tokens.text.secondary,
@@ -357,16 +357,16 @@ const styles = StyleSheet.create({
   } as TextStyle,
   benefits: {
     alignSelf: 'stretch',
-    gap: 8,
+    gap: rnSpacing.sm,
     marginBottom: 10,
   } as ViewStyle,
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: rnSpacing.sm,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
-    paddingHorizontal: 12,
+    paddingHorizontal: rnSpacing.md,
     paddingVertical: 10,
   } as ViewStyle,
   benefitText: {
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     lineHeight: FOOTNOTE_FONT_SIZE + 4,
     color: tokens.text.tertiary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: rnSpacing.lg,
   } as TextStyle,
   primaryButton: {
     alignSelf: 'stretch',
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginTop: 2,
     paddingVertical: 9,
-    paddingHorizontal: 20,
+    paddingHorizontal: rnSpacing.xl,
     alignItems: 'center',
   } as ViewStyle,
   /** 文字钮面层(守门 131:外框拿盒,面层拿 pressed) */
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   secondaryButtonText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     lineHeight: 20,
     color: tokens.text.secondary,
     fontWeight: '500',

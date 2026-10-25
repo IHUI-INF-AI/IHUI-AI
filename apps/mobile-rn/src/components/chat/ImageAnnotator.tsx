@@ -26,7 +26,7 @@ import { captureRef } from 'react-native-view-shot'
 import { Check, PenLine, Trash2, Type, Undo2, X } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 
 /** 画布内相邻采样点的最小位移(px):小于此位移不记点,抑制手抖产生密集垃圾点 */
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(20),
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   },
   canvasText: {
     position: 'absolute',
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     maxWidth: '80%',
   },
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(14),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
   },
   textInputBtn: {
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   footerBtnText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
