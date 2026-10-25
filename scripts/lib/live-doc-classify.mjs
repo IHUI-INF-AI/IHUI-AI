@@ -21,6 +21,18 @@
  *                未勾旧态**(HEAD 已勾/工作树未勾同正文;2026-10-01 D209 补,D203 实证整文件
  *                提交会把翻勾静默退回)⇒ 不判红、不插回,但必须喊出来:提交会把这一行退回
  *                旧形态,处置动作是人工取 HEAD 形态。
+ *   archived   = 第四态(2026-10-25 立,守门 207 第二刀①):该行**已被本侧按"整区逐字移入
+ *                archive + 原位留指针"这条合法出路移出**,且归档凭据可核(原文在已入库归档件里
+ *                逐字找到,归属与该文档对应)⇒ 不判红、绝不插回。
+ *                立因:AGENTS 的重复登记副本搬走后,归并侧没有这一档 ⇒ `merge-live-doc --apply`
+ *                把有意移出的 34 行整段插回(实测 407 → 442 行),20 KB 清偿成果一轮被吞回。
+ *                凭据判据不自写:由调用方把 `lib/live-doc-archive-drops.mjs`(唯一实现)的
+ *                命中结果传进来 —— 本函数零 git、零磁盘的既有承诺一字不动。
+ *                (早一版注释写的是 `check-plan-line-loss.archivedCopy`,那一把的射程只有
+ *                 `PROJECT_PLAN_*` / `plan-pointer-purge-*`,结构上给不出 AGENTS 的凭据;
+ *                 照它接出来的接线是"看着接好、实际一条也不生效"的那种,2026-10-25 当场改掉。)
+ *                取不到凭据函数 / 名录为空 ⇒ **一律退回 lost**(宁可多插回一份让人复核,
+ *                绝不把真吃掉洗成"已归档";与 §0.10 失效方向同禁令)。
  * `classifyMissing` 只吃两侧的行数组,不碰 git、不碰磁盘 —— 取哪一面是调用方的事(见 face-reader)。
  */
 import {
@@ -62,12 +74,44 @@ export function anchorKey(line) {
 }
 
 /**
- * 给每个「HEAD 有而候选面无」的行定性 lost / superseded / stale。
+ * 文档 ↔ 归档件族的归属对应(唯一实现,消费点不得各写一份正则 —— §0.6)。
+ * 返回 null 表示"这份文档没有归档豁免通道" ⇒ 调用方一律按 lost 处置(最严方向)。
+ *   PROJECT_PLAN.md ← PROJECT_PLAN_* / plan-pointer-purge-*(2026-10-16 立族)
+ *   AGENTS.md / README*.md ← AGENTS_*(2026-10-25 补,守门 207 清偿族的落点)
+ * 未登记的文档名 ⇒ null(不猜;宁可让归并器多插回一份交人工)。
+ */
+export function archiveOwnerFor(docPath) {
+  const base = String(docPath ?? '')
+    .split('/')
+    .pop()
+  if (!base) return null
+  if (base === 'PROJECT_PLAN.md') return /^(?:PROJECT_PLAN_|plan-pointer-purge-)/
+  if (base === 'AGENTS.md' || /^README(\.[a-z-]+)?\.md$/.test(base)) return /^AGENTS_/
+  return null
+}
+
+/**
+ * 给每个「HEAD 有而候选面无」的行定性 lost / superseded / stale / archived。
  * @param headLines 基准面(HEAD blob)的行
  * @param candidateLines 要被提交/被审的那一份的行
- * @returns {Map<string,'lost'|'superseded'|'stale'>} 键 = trim 后的 HEAD 行
+ * @param threshold Jaccard 阈值
+ * @param {{archived?:Set<string>|((trimmedHeadLine:string)=>boolean)}} opts
+ *   `archived` = 归档凭据的裁决(Set 为 trim 后行集;函数则自行调 archivedCopy)。缺省/取不到 ⇒ 无第四态。
+ * @returns {Map<string,'lost'|'superseded'|'stale'|'archived'>} 键 = trim 后的 HEAD 行
  */
-export function classifyMissing(headLines, candidateLines, threshold = SIM_THRESHOLD) {
+export function classifyMissing(headLines, candidateLines, threshold = SIM_THRESHOLD, opts = {}) {
+  const isArchived =
+    opts.archived instanceof Set
+      ? (t) => opts.archived.has(t)
+      : typeof opts.archived === 'function'
+        ? (t) => {
+            try {
+              return opts.archived(t) === true
+            } catch {
+              return false // 凭据取不到 ⇒ 不豁免(退回 lost),不冒充
+            }
+          }
+        : () => false
   const wtLines = candidateLines
   const wtSet = new Set(wtLines.map(trim).filter(Boolean))
   const headSet = new Set(headLines.map(trim).filter(Boolean))
@@ -91,6 +135,15 @@ export function classifyMissing(headLines, candidateLines, threshold = SIM_THRES
   for (const raw of headLines) {
     const t = trim(raw)
     if (!t.length || wtSet.has(t)) continue
+    /**
+     * 第四态优先判(它比"容器短路/翻勾/锚点"都更具决定性:行不在候选面**且**归档凭据可核 ⇒
+     * 这是本侧行使过的处置权,与"谁改写了这行"无关)。本侧还留着该行的情况已被上一行 continue
+     * 挡掉 ⇒「处置权未行使绝不豁免」这条纪律不需要在这里另写一遍(与 declaredDropCaps 同形)。
+     */
+    if (isArchived(t)) {
+      verdict.set(t, 'archived')
+      continue
+    }
     const tt = tokenize(t)
     const sq = squash(t)
     const bare = squash(stripState(t))

@@ -23,6 +23,8 @@
 // 正确接缝——本票判的是端内 LoginScreen 的引导决策,不判共享 UI 渲染。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createElement } from 'react'
 import { Platform } from 'react-native'
 
@@ -229,7 +231,26 @@ describe('G-958 web(H5)登录引导不得指向被自己拒绝的死路', () => 
     })
     expect(appAlertCalls).toHaveLength(1)
     const message = appAlertCalls.at(-1)?.message ?? ''
-    expect(message).toMatch(/验证码|账号密码|账密/)
+    // 文案已 token 化(2026-10-24 对齐):本套件 i18n mock 取键透传,上屏即键 ⇒ 键形断言;
+    // 「必须给出 H5 真实可行出路」的内容判据锚到词包真值(缺键或词里没出路 = 当场红)。
+    expect(message).toBe('login.webPreviewHint')
+    const zhPack = JSON.parse(
+      readFileSync(
+        join(
+          __dirname,
+          '..',
+          '..',
+          '..',
+          'packages',
+          'i18n',
+          'messages',
+          'mobile-rn',
+          'zh-CN.json',
+        ),
+        'utf8',
+      ),
+    ) as { login?: { webPreviewHint?: string } }
+    expect(zhPack.login?.webPreviewHint ?? '').toMatch(/验证码|账号密码|账密/)
   })
 })
 

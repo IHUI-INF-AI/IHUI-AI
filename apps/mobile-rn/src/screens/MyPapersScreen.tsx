@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { FileText, Plus } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -256,8 +256,8 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     form: {
-      margin: 12,
-      padding: 16,
+      margin: rnSpacing.md,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
@@ -267,12 +267,12 @@ function makeStyles() {
     label: { fontSize: 13, color: tokens.text.secondary },
     input: {
       height: 44,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       backgroundColor: tokens.surface.bg,
     },
     submit: {
@@ -284,23 +284,32 @@ function makeStyles() {
       justifyContent: 'center',
     },
     submitDisabled: { opacity: 0.5 },
-    submitText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
-    listBody: { padding: 12, gap: 12, paddingBottom: 32 },
+    submitText: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
+    listBody: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
       gap: 6,
     },
-    cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+    cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    cardTitle: {
+      flex: 1,
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.text.primary,
+    },
     badge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       fontWeight: '600',
     },
     badgeOk: {
@@ -309,26 +318,26 @@ function makeStyles() {
     },
     badgeBad: { backgroundColor: tokens.surface.muted, color: tokens.danger.DEFAULT },
     badgePending: { backgroundColor: tokens.surface.muted, color: tokens.text.secondary },
-    meta: { fontSize: 12, color: tokens.text.tertiary },
-    reason: { fontSize: 12, color: tokens.danger.DEFAULT },
-    actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
+    meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    reason: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
+    actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: rnSpacing.xs },
     dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48, gap: 12 },
+    center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'], gap: rnSpacing.md },
     centerText: {
       textAlign: 'center',
-      paddingVertical: 48,
-      fontSize: 14,
+      paddingVertical: rnSpacing['5xl'],
+      fontSize: rnType.body.size,
       color: tokens.text.secondary,
     },
-    errorText: { fontSize: 14, color: tokens.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tokens.danger.DEFAULT },
     retry: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
     },
-    retryText: { fontSize: 14, color: tokens.text.primary },
+    retryText: { fontSize: rnType.body.size, color: tokens.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

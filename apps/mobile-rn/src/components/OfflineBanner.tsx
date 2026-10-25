@@ -6,7 +6,7 @@
 
 import { StyleSheet, Text, View } from 'react-native'
 import { WifiOff, Wifi, HelpCircle } from 'lucide-react-native'
-import { rnTokens } from '@ihui/design-tokens'
+import { rnTokens, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { ConnectivityBannerKind, ConnectivityReason } from '@ihui/shared/utils/connectivity'
 import { useI18n } from '../i18n'
 
@@ -74,16 +74,16 @@ export function OfflineBanner({ banner = 'none', reason }: OfflineBannerProps) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: { alignItems: 'center', paddingVertical: 8 },
+  wrapper: { alignItems: 'center', paddingVertical: rnSpacing.sm },
   // 2026-10-07 用户定稿:不要胶囊底色/描边,直接在页面主背景上排图标 + 文字
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: rnSpacing.sm,
+    paddingHorizontal: rnSpacing.lg,
   },
-  text: { color: rnTokens.error.text, fontSize: 14, fontWeight: '500' },
-  slowText: { color: rnTokens.warning.amberText, fontSize: 14, fontWeight: '500' },
-  mutedText: { color: rnTokens.text.secondary, fontSize: 14, fontWeight: '500' },
+  text: { color: rnTokens.error.text, fontSize: rnType.body.size, fontWeight: '500' },
+  slowText: { color: rnTokens.warning.amberText, fontSize: rnType.body.size, fontWeight: '500' },
+  mutedText: { color: rnTokens.text.secondary, fontSize: rnType.body.size, fontWeight: '500' },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

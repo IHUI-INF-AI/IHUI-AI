@@ -110,6 +110,9 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   AiMain: (t) => t.surface.chrome,
   Agent: (t) => t.surface.chrome,
   Settings: (t) => t.surface.chrome,
+  // CheckinAssistant(2026-10-24 补录):签到助手屏入库时注册了路由、屏内渲染 <NavBar> 却漏登记本表
+  // ⇒ 状态栏 inset 带与导航行两截色(nav-chrome-route-parity 测试当场判红,信号真实)。按表判据补 chrome 档。
+  CheckinAssistant: (t) => t.surface.chrome,
   AiAssistantN8n: (t) => t.surface.chrome,
   Cart: (t) => t.surface.chrome,
   Chat: (t) => t.surface.chrome,

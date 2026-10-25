@@ -29,6 +29,9 @@ import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const GUARDIAN = resolve(import.meta.dirname, '..', 'git-guardian.mjs')
 const SRC = readFileSync(GUARDIAN, 'utf8')
+// 2026-10-25:auditTempLanding 原样搬进 lib/git-guardian-temp-sweepers.mjs(守门 103 C1 行数上限),
+// 契约锁读实现所在的那一份(§22c);挂点锁仍读主文件(调度点仍在 git-guardian.mjs)。
+const SWEEPERS = readFileSync(resolve(import.meta.dirname, '..', 'lib', 'git-guardian-temp-sweepers.mjs'), 'utf8')
 
 const fixture = () => {
   const dir = mkScratch('temp-landing-')
@@ -70,7 +73,7 @@ test('T1b 契约锁:消费方读的 counts 键必须真存在于生产方的出�
   const report = T.buildReport({ tiers: [] }, { exists: () => false, readdir: () => [], lstat: () => null, now: 0 })
   const keys = Object.keys(report.counts)
   assert.ok(keys.length >= 6, `生产方 counts 出口键至少 6 个(实测 ${keys.length} ⇒ 夹具没走到真出口):${keys.join(',')}`)
-  const body = SRC.slice(SRC.indexOf('export function auditTempLanding'))
+  const body = SWEEPERS.slice(SWEEPERS.indexOf('export function auditTempLanding'))
   const scoped = body.slice(0, body.indexOf('\nexport ', 20) > 0 ? body.indexOf('\nexport ', 20) : body.length)
   const read = [...new Set([...scoped.matchAll(/\bc\.([A-Za-z][A-Za-z0-9]*)/g)].map((m) => m[1]))]
   assert.ok(read.length >= 2, `从 auditTempLanding 里至少应解析出 2 个 c.* 读键(实测 ${read.length} ⇒ 锁自己瞎了):${read.join(',')}`)
@@ -167,7 +170,7 @@ test('T5 装车锁:挂点带 !CHECK_ONLY,节流默认 24h 且可 env 覆盖', ()
     `挂点必须写成 if (!CHECK_ONLY) auditTempLanding(),实为:${callLine.trim()}`,
   )
   assert.match(
-    SRC,
+    SWEEPERS,
     /IHUI_TEMP_LANDING_INTERVAL_MS\s*\|\|\s*24\s*\*\s*60\s*\*\s*60\s*\*\s*1000/,
     '节流默认应为 24h 且可由 env 覆盖',
   )

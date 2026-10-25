@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -50,7 +51,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /** 旧版工具按钮项(保留契约,供既有调用方使用) */
 export interface ToolbarItem {
@@ -102,19 +103,19 @@ export interface ToolbarProps {
 
 /** 顶部 3 服务项(对齐 headerMenu) */
 const HOME_SERVICES: ToolbarService[] = [
-  { id: 'traffic', title: '流量运营陪跑', icon: Rocket },
-  { id: 'device', title: '一站式设备应用', icon: Smartphone },
-  { id: 'other', title: 'AI其他技术服务', icon: Wrench },
+  { id: 'traffic', title: 'toolbar.svcTraffic', icon: Rocket },
+  { id: 'device', title: 'toolbar.svcDevice', icon: Smartphone },
+  { id: 'other', title: 'toolbar.svcOther', icon: Wrench },
 ]
 
 /** 6 工具格(对齐 secondRowList) */
 const HOME_TOOLS: ToolbarTool[] = [
-  { key: 'ai_image', title: 'AI图片创作', description: '轻松创作图片', icon: ImageIcon },
-  { key: 'ai_video', title: 'AI视频创作', description: '轻松创作视频', icon: Film },
-  { key: 'ai_wenan', title: 'AI文案创作', description: '轻松创作文案', icon: PenLine },
-  { key: 'ai_clip', title: 'AI自动剪辑', description: '轻松创作剪辑', icon: Scissors },
-  { key: 'ai_live', title: 'AI直播', description: 'AI直播服务', icon: Radio },
-  { key: 'ai_avatar', title: 'AI数字人', description: '制作数字人', icon: User },
+  { key: 'ai_image', title: 'toolbar.aiImage', description: 'toolbar.aiImageD', icon: ImageIcon },
+  { key: 'ai_video', title: 'toolbar.aiVideo', description: 'toolbar.aiVideoD', icon: Film },
+  { key: 'ai_wenan', title: 'toolbar.aiCopy', description: 'toolbar.aiCopyD', icon: PenLine },
+  { key: 'ai_clip', title: 'toolbar.aiClip', description: 'toolbar.aiClipD', icon: Scissors },
+  { key: 'ai_live', title: 'toolbar.aiLive', description: 'toolbar.aiLiveD', icon: Radio },
+  { key: 'ai_avatar', title: 'toolbar.aiAvatar', description: 'toolbar.aiAvatarD', icon: User },
 ]
 
 /** 判断 icon 是否为图片路径(URL / 绝对路径) */
@@ -133,6 +134,7 @@ export function Toolbar({
   onToolPress,
   onCustomServicePress,
 }: ToolbarProps) {
+  const { t } = useI18n()
   const separatorSet = useMemo<Set<string>>(() => new Set(separators ?? []), [separators])
 
   // 营销 banner 浮动动画(原 @keyframes float:translateY 0 → -20rpx,3s ease-in-out 无限)
@@ -214,13 +216,13 @@ export function Toolbar({
             key={service.id}
             onPress={() => onServicePress?.(service)}
             accessibilityRole="button"
-            accessibilityLabel={service.title}
+            accessibilityLabel={t(service.title)}
             style={styles.serviceItem}
           >
             {({ pressed }) => (
               <View style={[styles.serviceItemFace, pressed ? styles.pressed : null]}>
                 <Text style={styles.serviceTitle} numberOfLines={1}>
-                  {service.title}
+                  {t(service.title)}
                 </Text>
                 <service.icon size={24} color={tokens.text.secondary} />
               </View>
@@ -233,9 +235,9 @@ export function Toolbar({
       <View style={styles.sectionTitleRow}>
         <Text style={styles.sectionTitle}>独家开发 AI Agent应用</Text>
         <MoreLink
-          label="更多"
+          label={t('toolbar.more2')}
           onPress={onMorePress}
-          accessibilityLabel="查看更多 AI Agent 应用"
+          accessibilityLabel={t('toolbar.viewMoreA11y')}
           colorScheme={currentRnTheme()}
         />
       </View>
@@ -244,7 +246,7 @@ export function Toolbar({
       <Pressable
         onPress={onBannerPress}
         accessibilityRole="button"
-        accessibilityLabel="独家一键生成运营内容"
+        accessibilityLabel={t('toolbar.oneClickA11y')}
         style={styles.bannerWrap}
       >
         {({ pressed }) => (
@@ -267,7 +269,7 @@ export function Toolbar({
             key={tool.key}
             onPress={() => onToolPress?.(tool.key)}
             accessibilityRole="button"
-            accessibilityLabel={tool.title}
+            accessibilityLabel={t(tool.title)}
             style={styles.toolCell}
           >
             {({ pressed }) => (
@@ -277,10 +279,10 @@ export function Toolbar({
                 </View>
                 <View style={styles.toolTextWrap}>
                   <Text style={styles.toolTitle} numberOfLines={1}>
-                    {tool.title}
+                    {t(tool.title)}
                   </Text>
                   <Text style={styles.toolDesc} numberOfLines={2}>
-                    {tool.description}
+                    {t(tool.description)}
                   </Text>
                 </View>
               </View>
@@ -293,7 +295,7 @@ export function Toolbar({
       <Pressable
         onPress={onCustomServicePress}
         accessibilityRole="button"
-        accessibilityLabel="AI定制服务"
+        accessibilityLabel={t('toolbar.customA11y')}
         style={styles.customWrap}
       >
         {({ pressed }) => (
@@ -322,11 +324,11 @@ const styles = StyleSheet.create({
   legacyStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xl,
-    gap: 4,
+    gap: rnSpacing.xs,
     marginBottom: 10,
   },
   rowItem: {
@@ -370,14 +372,14 @@ const styles = StyleSheet.create({
     height: 18,
   },
   iconEmoji: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 20,
     color: tokens.text.primary,
   },
   separator: {
     // 旧版契约分隔条:§4 禁分割线,已清线只留间距(marginHorizontal 维持原排布几何)
     height: 20,
-    marginHorizontal: 4,
+    marginHorizontal: rnSpacing.xs,
   },
 
   // ── 1. 3 服务项 ──
@@ -404,13 +406,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   } as ViewStyle,
   serviceTitle: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
   },
   serviceIcon: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     lineHeight: 28,
   },
 
@@ -423,7 +425,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
@@ -446,7 +448,7 @@ const styles = StyleSheet.create({
   bannerFloat: {
     width: 90,
     height: 90,
-    marginLeft: 16,
+    marginLeft: rnSpacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -461,18 +463,18 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     flexDirection: 'column',
     justifyContent: 'center',
-    paddingLeft: 12,
-    paddingRight: 16,
+    paddingLeft: rnSpacing.md,
+    paddingRight: rnSpacing.lg,
   },
   bannerTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
   bannerSub: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
   },
 
   // ── 4. 6 工具格 ──
@@ -495,30 +497,30 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: rnRadius['2xl'],
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.success.light,
   },
   toolIcon: {
-    fontSize: 20,
+    fontSize: rnType.heading.size,
     lineHeight: 24,
   },
   toolTextWrap: {
-    marginLeft: 12,
-    paddingRight: 12,
+    marginLeft: rnSpacing.md,
+    paddingRight: rnSpacing.md,
     flex: 1,
     minWidth: 0,
     flexDirection: 'column',
     justifyContent: 'center',
   },
   toolTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
   toolDesc: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     marginTop: 1,
   },
@@ -531,7 +533,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.success.light,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: rnSpacing.xl,
   },
   // 横排面层:toolCell 与 customWrap 共用(两者的排布声明同形,按压态只落在这一层)。
   rowFace: {
@@ -551,7 +553,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   customText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.success.deepText,
   },

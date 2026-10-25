@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export interface UserInfoCardProps {
   /** 头像 URL */
@@ -159,12 +159,12 @@ function createStyles(tk: AppThemeTokens) {
       // 这一份写 2xl(16) 会让同一个 UserInfoCard 在两个屏上长成两张脸。
       borderRadius: rnRadius.lg,
       padding: 14,
-      gap: 12,
+      gap: rnSpacing.md,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
     pressed: { opacity: 0.85 },
-    userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    userRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
     avatar: {
       width: 48,
       height: 48,
@@ -175,18 +175,18 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     avatarImg: { width: 48, height: 48, borderRadius: rnRadius['2xl'] },
-    avatarText: { fontSize: 20, fontWeight: '700', color: tk.surface.light },
-    userMeta: { flex: 1, gap: 4 },
-    nickname: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    bio: { fontSize: 14, color: tk.text.secondary },
-    contactRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-    contactItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    contactLabel: { fontSize: 14, color: tk.text.secondary },
-    contactValue: { fontSize: 14, color: tk.text.primary },
-    statsRow: { flexDirection: 'row', alignItems: 'center', gap: 24 },
-    statCell: { gap: 4 },
-    statValue: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
-    statLabel: { fontSize: 11, color: tk.text.secondary },
+    avatarText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.surface.light },
+    userMeta: { flex: 1, gap: rnSpacing.xs },
+    nickname: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
+    bio: { fontSize: rnType.body.size, color: tk.text.secondary },
+    contactRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.lg },
+    contactItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
+    contactLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
+    contactValue: { fontSize: rnType.body.size, color: tk.text.primary },
+    statsRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['2xl'] },
+    statCell: { gap: rnSpacing.xs },
+    statValue: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
+    statLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
     statSpacer: { flex: 1 },
     followBtn: {
       backgroundColor: tk.brand.cta,
@@ -204,9 +204,9 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 14,
       paddingVertical: 6,
     },
-    followBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
-    followBtnOutlineText: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    footer: { marginTop: 8 },
+    followBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    followBtnOutlineText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    footer: { marginTop: rnSpacing.sm },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

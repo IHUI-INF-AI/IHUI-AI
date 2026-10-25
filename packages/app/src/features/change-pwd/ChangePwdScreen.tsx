@@ -7,7 +7,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ChangePwdScreenProps, TFunction } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -153,31 +153,31 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14, gap: 12 },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    body: { padding: 14, gap: rnSpacing.md },
     field: { gap: 6 },
-    label: { fontSize: 16, color: tk.text.secondary },
+    label: { fontSize: rnType.title.size, color: tk.text.secondary },
     inputBox: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.xl,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
     },
     input: {
       flex: 1,
       height: 50,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    eyeBtn: { paddingVertical: 8, paddingHorizontal: 4 },
-    eyeText: { fontSize: 14, color: tk.text.secondary },
+    eyeBtn: { paddingVertical: rnSpacing.sm, paddingHorizontal: rnSpacing.xs },
+    eyeText: { fontSize: rnType.body.size, color: tk.text.secondary },
     submitBtn: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.sm,
       height: 50,
@@ -185,7 +185,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     submitDisabled: { opacity: 0.6 },
-    submitText: { fontSize: 16, fontWeight: '600', color: tk.brand.ctaForeground },
+    submitText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -37,7 +37,7 @@
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
 import { tokens } from '../theme/active-tokens'
-import { rnGeometry, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
@@ -1035,7 +1035,6 @@ export function Drawer(props: DrawerProps) {
                     />
                   )
                 })}
-
               </View>
             </ScrollView>
 
@@ -1177,7 +1176,7 @@ const styles = StyleSheet.create({
     // 下拉菜单容器:角色档 card(§3.1"下拉"定在 card,2026-09-27 用户定档卡片一律此档)
     borderRadius: rnRadiusFor.card,
     backgroundColor: tokens.surface.card,
-    paddingVertical: 4,
+    paddingVertical: rnSpacing.xs,
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.15,
     shadowRadius: 12,

@@ -7,7 +7,7 @@ import { Text, TouchableOpacity, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { WithdrawScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -96,49 +96,50 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 10 },
+    title: { ...rnType.heading, color: tk.text.primary },
+    body: { padding: rnSpacing.lg },
     balanceCard: {
-      padding: 14,
-      marginBottom: 12,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.md,
+      marginBottom: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
-    balanceLabel: { fontSize: 14, color: tk.text.secondary },
+    balanceLabel: { ...rnType.body, color: tk.text.secondary },
     balanceValue: {
-      marginTop: 8,
-      fontSize: 28,
-      fontWeight: '700',
+      marginTop: rnSpacing.xs,
+      ...rnType.display,
       color: tk.text.primary,
     },
     card: {
-      padding: 12,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    label: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    label: { ...rnType.body, color: tk.text.secondary, marginTop: rnSpacing.sm },
     input: {
-      marginTop: 8,
-      paddingHorizontal: 14,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      // 高度 50 是移动端触控目标(iOS HIG ≥44);web 输入框 36-40 属桌面指针形态,平台差异保留
       height: 50,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
-    successText: { fontSize: 14, color: tk.success.DEFAULT, marginTop: 8 },
+    errorText: { ...rnType.body, color: tk.danger.DEFAULT, marginTop: rnSpacing.xs },
+    successText: { ...rnType.body, color: tk.success.DEFAULT, marginTop: rnSpacing.xs },
     submitBtn: {
-      // 对齐原项目 withdrawal/index.vue 提交按钮 margin-top: 40rpx(=20px)
-      marginTop: 20,
+      marginTop: rnSpacing.xl,
+      // 高度 50 是移动端触控目标;web Button 档 lg=40 属桌面形态,平台差异保留
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -146,8 +147,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     btnDisabled: { backgroundColor: tk.text.tertiary },
-    submitText: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
-    hint: { fontSize: 11, color: tk.text.tertiary, marginTop: 8 },
+    submitText: { ...rnType.title, color: tk.brand.ctaForeground },
+    hint: { ...rnType.caption, color: tk.text.tertiary, marginTop: rnSpacing.sm },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

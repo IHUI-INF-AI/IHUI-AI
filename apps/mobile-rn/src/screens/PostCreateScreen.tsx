@@ -15,7 +15,7 @@ import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 type Route = RouteProp<RootStackParamList, 'PostCreate'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -106,14 +106,14 @@ const styles = StyleSheet.create({
   // 守门 131 改型:槽位档(数值逐字从 pickBtn 搬来,未新增未改动任何数字)。
   pickBtnSlot: {
     alignSelf: 'flex-start',
-    marginTop: 8,
-    marginHorizontal: 12,
+    marginTop: rnSpacing.sm,
+    marginHorizontal: rnSpacing.md,
   },
   pickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: rnSpacing.md,
     paddingVertical: 6,
     borderRadius: rnRadius.sm,
     borderWidth: StyleSheet.hairlineWidth,
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   pickBtnText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.brand.DEFAULT,
   },
 })

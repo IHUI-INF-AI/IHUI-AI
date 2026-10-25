@@ -18,7 +18,7 @@ import { SearchInput } from '../../components/SearchInput'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionOrderListScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -175,27 +175,27 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    searchWrap: { padding: 14, paddingBottom: 8 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    searchWrap: { padding: 14, paddingBottom: rnSpacing.sm },
     searchInputWrap: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.xl,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
     },
-    searchInput: { flex: 1, fontSize: 16, color: tk.text.primary },
+    searchInput: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },
     tabsBar: {
-      paddingHorizontal: 12,
-      paddingBottom: 12,
+      paddingHorizontal: rnSpacing.md,
+      paddingBottom: rnSpacing.md,
     },
     tabsRow: {
       flexDirection: 'row',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     tab: {
       flex: 1,
@@ -208,53 +208,53 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     tabText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     tabTextActive: {
       color: tk.surface.light,
       fontWeight: '600',
     },
-    listContent: { paddingHorizontal: 10, paddingBottom: 24, gap: 12 },
+    listContent: { paddingHorizontal: 10, paddingBottom: rnSpacing['2xl'], gap: rnSpacing.md },
     orderCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       padding: 14,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     orderHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    orderLabel: { flex: 1, fontSize: 14, color: tk.text.primary },
+    orderLabel: { flex: 1, fontSize: rnType.body.size, color: tk.text.primary },
     statusTag: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
     },
-    statusText: { fontSize: 11, color: tk.surface.light, fontWeight: '500' },
-    buyerText: { fontSize: 14, color: tk.text.secondary },
+    statusText: { fontSize: rnType.caption.size, color: tk.surface.light, fontWeight: '500' },
+    buyerText: { fontSize: rnType.body.size, color: tk.text.secondary },
     orderFooter: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    amountText: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    footerLeft: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    amountText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     rateTag: {
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    rateText: { fontSize: 11, color: tk.text.secondary },
+    rateText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     footerRight: { alignItems: 'flex-end' },
-    commissionLabel: { fontSize: 11, color: tk.text.secondary },
-    commissionValue: { fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
-    timeText: { fontSize: 14, color: tk.text.tertiary },
-    footerLoading: { paddingVertical: 12, alignItems: 'center' },
+    commissionLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    commissionValue: { fontSize: rnType.title.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    timeText: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    footerLoading: { paddingVertical: rnSpacing.md, alignItems: 'center' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

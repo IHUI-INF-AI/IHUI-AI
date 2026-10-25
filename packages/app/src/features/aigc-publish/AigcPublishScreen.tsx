@@ -16,7 +16,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcPublishFile, AigcPublishScreenProps, AigcPublishWorkType } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 
 /** AIGC 发布作品共享屏 — 表单型 props 注入式跨端组件(纯 UI,不依赖平台 API) */
@@ -223,13 +223,18 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.light,
       paddingHorizontal: 10,
-      paddingBottom: 16,
+      paddingBottom: rnSpacing.lg,
     },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary, marginBottom: 12 },
-    label: { marginTop: 14, fontSize: 14, color: tk.text.secondary, marginBottom: 6 },
-    errorText: { fontSize: 14, color: tk.error.text, marginTop: 8 },
-    typeRow: { flexDirection: 'row', gap: 8 },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    subtitle: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.md,
+    },
+    label: { marginTop: 14, fontSize: rnType.body.size, color: tk.text.secondary, marginBottom: 6 },
+    errorText: { fontSize: rnType.body.size, color: tk.error.text, marginTop: rnSpacing.sm },
+    typeRow: { flexDirection: 'row', gap: rnSpacing.sm },
     typeChip: {
       flex: 1,
       paddingVertical: 10,
@@ -238,30 +243,35 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     typeChipActive: { backgroundColor: primary },
-    typeChipText: { fontSize: 14, color: tk.text.medium, fontWeight: '600' },
+    typeChipText: { fontSize: rnType.body.size, color: tk.text.medium, fontWeight: '600' },
     typeChipTextActive: { color: tk.surface.light },
-    typeChipDesc: { marginTop: 8, fontSize: 10, color: tk.text.tertiary },
+    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.text.tertiary },
     typeChipDescActive: { color: tk.surface.light },
     input: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 10,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
     textarea: { minHeight: 88, maxHeight: 180, textAlignVertical: 'top' },
-    urlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    urlRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
+    },
     urlInput: {
       flex: 1,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 10,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
@@ -271,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
     },
-    urlAddText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
+    urlAddText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
     pickerBtn: {
       paddingVertical: 11,
       borderRadius: rnRadius.sm,
@@ -288,8 +298,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.text.tertiary,
     },
     pickerBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    pickerBtnText: { color: primary, fontSize: 14, fontWeight: '600' },
-    pickerBtnTextUploading: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
+    pickerBtnText: { color: primary, fontSize: rnType.body.size, fontWeight: '600' },
+    pickerBtnTextUploading: {
+      color: tk.surface.light,
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+    },
     fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     fileItem: {
       width: 76,
@@ -310,7 +324,12 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    fileRemoveText: { color: tk.surface.light, fontSize: 14, fontWeight: '700', lineHeight: 14 },
+    fileRemoveText: {
+      color: tk.surface.light,
+      fontSize: rnType.body.size,
+      fontWeight: '700',
+      lineHeight: 14,
+    },
     fileAdd: {
       width: 76,
       height: 76,
@@ -322,10 +341,14 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
     },
-    fileAddIcon: { fontSize: 24, color: tk.text.tertiary, lineHeight: 26 },
-    fileAddText: { fontSize: 11, color: tk.text.tertiary, marginTop: 8 },
+    fileAddIcon: { fontSize: rnType.display.size, color: tk.text.tertiary, lineHeight: 26 },
+    fileAddText: {
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+      marginTop: rnSpacing.sm,
+    },
     submitBtn: {
-      marginTop: 24,
+      marginTop: rnSpacing['2xl'],
       paddingVertical: 14,
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
@@ -333,7 +356,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     submitDisabled: { backgroundColor: tk.text.tertiary },
-    submitText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

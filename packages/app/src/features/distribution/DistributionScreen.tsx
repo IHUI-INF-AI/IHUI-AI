@@ -8,7 +8,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionProduct, DistributionInfo, DistributionScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -154,10 +154,15 @@ export function DistributionScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center', marginTop: 8 },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    errorText: {
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+      textAlign: 'center',
+      marginTop: rnSpacing.sm,
+    },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    title: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     levelCard: {
       marginHorizontal: 10,
       padding: 14,
@@ -165,14 +170,24 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.light,
     },
     levelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    levelLabel: { fontSize: 11, color: tk.success.deepText },
-    levelValue: { marginTop: 8, fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
+    levelLabel: { fontSize: rnType.caption.size, color: tk.success.deepText },
+    levelValue: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.success.DEFAULT,
+    },
     commissionBox: { alignItems: 'flex-end' },
-    commissionLabel: { fontSize: 11, color: tk.success.deepText },
-    commissionValue: { marginTop: 8, fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
+    commissionLabel: { fontSize: rnType.caption.size, color: tk.success.deepText },
+    commissionValue: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.success.DEFAULT,
+    },
     earningsCard: {
       marginHorizontal: 10,
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       padding: 14,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -184,7 +199,11 @@ function createStyles(tk: AppThemeTokens) {
     earningsItem: { alignItems: 'center', flex: 1, minWidth: 128 },
     earningsValue: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     pendingValue: { color: tk.success.DEFAULT },
-    earningsLabel: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    earningsLabel: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+    },
     withdrawBtn: {
       marginTop: 14,
       height: 50,
@@ -194,36 +213,41 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     withdrawBtnDisabled: { backgroundColor: tk.border.light },
-    withdrawBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
-    withdrawHint: { marginTop: 8, fontSize: 11, color: tk.text.tertiary, textAlign: 'center' },
+    withdrawBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    withdrawHint: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+      textAlign: 'center',
+    },
     sectionTitle: {
       paddingHorizontal: 10,
-      paddingTop: 16,
-      paddingBottom: 8,
-      fontSize: 16,
+      paddingTop: rnSpacing.lg,
+      paddingBottom: rnSpacing.sm,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
-    productsList: { marginHorizontal: 10, marginBottom: 24 },
+    productsList: { marginHorizontal: 10, marginBottom: rnSpacing['2xl'] },
     productCard: {
       padding: 14,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
       backgroundColor: tk.surface.bg,
     },
-    productTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    productTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     productMeta: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 8,
-      gap: 8,
+      marginTop: rnSpacing.sm,
+      gap: rnSpacing.sm,
       flexWrap: 'wrap',
     },
-    productPrice: { fontSize: 14, fontWeight: '600', color: tk.success.DEFAULT },
-    productCommission: { fontSize: 11, color: tk.text.secondary },
-    productSales: { fontSize: 11, color: tk.text.tertiary },
+    productPrice: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.DEFAULT },
+    productCommission: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    productSales: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

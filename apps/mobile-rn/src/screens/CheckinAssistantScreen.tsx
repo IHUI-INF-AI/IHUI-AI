@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { CalendarCheck, Plus, Trash2 } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -291,22 +291,32 @@ export default function CheckinAssistantScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: 16, gap: 12, paddingBottom: 40 },
+  body: { padding: rnSpacing.lg, gap: rnSpacing.md, paddingBottom: rnSpacing['4xl'] },
   card: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,
     padding: 14,
-    gap: 8,
+    gap: rnSpacing.sm,
   },
-  rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary, flexShrink: 1 },
-  summary: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-  muted: { fontSize: 12, color: tokens.text.secondary, lineHeight: 18 },
+  rowHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: rnSpacing.sm,
+  },
+  cardTitle: {
+    fontSize: rnType.strong.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    flexShrink: 1,
+  },
+  summary: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
+  muted: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 18 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   badge: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.secondary,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
@@ -316,18 +326,18 @@ const styles = StyleSheet.create({
   badgeOn: { color: tokens.brand.DEFAULT ?? tokens.text.primary },
   badgeOff: { color: tokens.text.secondary },
   badgePool: { color: tokens.text.primary },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 2 },
+  actions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: 2 },
   action: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
-  actionText: { fontSize: 12, color: tokens.text.primary },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  actionText: { fontSize: rnType.label.size, color: tokens.text.primary },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
   chip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -335,18 +345,18 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   chipOn: { backgroundColor: tokens.brand.cta },
-  chipText: { fontSize: 12, color: tokens.text.secondary },
+  chipText: { fontSize: rnType.label.size, color: tokens.text.secondary },
   chipOnText: { color: tokens.brand.ctaForeground ?? tokens.surface.bg },
   input: { marginTop: 2 },
-  label: { fontSize: 12, color: tokens.text.secondary, marginTop: 4 },
+  label: { fontSize: rnType.label.size, color: tokens.text.secondary, marginTop: rnSpacing.xs },
   submit: {
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
     alignItems: 'center',
     paddingVertical: 10,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   },
   submitOff: { opacity: 0.5 },
-  submitText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
+  submitText: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.brand.ctaForeground },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

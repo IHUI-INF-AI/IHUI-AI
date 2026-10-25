@@ -56,6 +56,9 @@ export * from './object'
 // output_cleaning.py + cli/redact.ts 既有正则的并集,端内不得再建第二套)
 export * from './redact'
 export * from './role'
+// URI 百分号解码的唯一容错出口(2026-10-25 移动端逻辑级扫描立:框架已自动解码一次的
+// router params 二次 decodeURIComponent 会因孤立 % 抛 URIError 崩页;端内不得再包第二份 try/catch)
+export * from './safe-decode-uri'
 export * from './sanitize-url'
 export * from './search-suggestions'
 export * from './select-class'

@@ -5,11 +5,15 @@
 /**
  * Tailwind CSS 配置 — 与 web 端共享语义命名 (2026-07-27 重构)
  *
- * 注意:本项目使用 Tailwind v3(而非 v4),原因:
- * Taro 4.0.9 官方文档支持 Tailwind v3 的 postcss 插件格式(tailwindcss: {})。
- * Tailwind v4 使用 @tailwindcss/postcss 替代,配置方式改为 CSS-based,
- * 与 Taro 的 postcss 配置体系不兼容,升级风险高。
- * web 端使用 Next.js + Turbopack,原生支持 v4。
+ * 版本事实(2026-10-25 现读复核,AGENTS §4 版本口径):
+ * - package.json 仍声明 tailwindcss ^3.4.17(解析到 3.4.19)——该 v3 包只服务本文件的
+ *   content/theme 工具链,**不再是被编译期实际注入产物 CSS 的引擎**;
+ * - 真正的产物引擎是 weapp-tailwindcss@5.2.9 vendored 的 Tailwind v4(config/index.ts 的
+ *   WeappTailwindcss 插件,处理 WXSS 任意值转义/类名匹配)。
+ * 后果面:端内 bg-primary/10 这类 `/alpha` 是 v4 原生语法、正常生效(mobile-rn 那侧才是 v3,
+ * 靠 scripts/tailwind-alpha-plugin.js 兜 `/alpha` —— 新增颜色档两侧都要登记,见 AGENTS §4)。
+ * 曾几何时本注释写作"本项目使用 v3 而非 v4" —— 与两枚守门(miniapp-css-landing、cross-end
+ * tokens)的实测面矛盾,漂移注释按机主 2026-10-25 定档清理,不再误导按注释改档的后手。
  *
  * 语义色 + 圆角映射已抽取到 @ihui/design-tokens/tailwind-preset 共享 preset,
  * 与 mobile-rn 端共用,消除重复定义 + 统一 borderRadius.sm = 0.25rem。

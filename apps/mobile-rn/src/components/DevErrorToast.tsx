@@ -22,7 +22,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { X } from 'lucide-react-native'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 interface DevErrorEntry {
   id: number
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: rnSpacing.sm,
     backgroundColor: BG_COLOR,
     borderRadius: rnRadius.lg,
     paddingHorizontal: BAR_PADDING_H,
@@ -186,8 +186,8 @@ const styles = StyleSheet.create({
   },
   stackBox: {
     maxHeight: STACK_MAX_HEIGHT,
-    marginTop: 8,
-    padding: 8,
+    marginTop: rnSpacing.sm,
+    padding: rnSpacing.sm,
     borderRadius: rnRadius.md,
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
@@ -203,10 +203,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: rnSpacing.xs,
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     lineHeight: 13,
     color: TEXT_COLOR,
   },

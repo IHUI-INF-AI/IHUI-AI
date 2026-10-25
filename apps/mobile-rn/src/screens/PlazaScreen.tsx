@@ -68,7 +68,7 @@ import { rpx } from '../utils/rpx'
 import { Search, User, FolderOpen, X } from 'lucide-react-native'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   } as ViewStyle,
   navIcon: {
-    fontSize: 20,
+    fontSize: rnType.heading.size,
     color: tokens.gray.black,
   } as TextStyle,
   // 需求赛道筛选弹层样式(圆角守门:仅 8/12)
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
   identityTitle: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     fontWeight: '700',
     color: tokens.gray[900],
     marginBottom: rpx(12),
@@ -728,7 +728,7 @@ const styles = StyleSheet.create({
     flex: 1,
   } as ViewStyle,
   identityNickname: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.gray[900],
     marginBottom: rpx(8),
@@ -748,16 +748,24 @@ const styles = StyleSheet.create({
     borderColor: tokens.brandAccent.deep,
     backgroundColor: tokens.brandAccent.DEFAULT,
   },
-  identityBtnTextOutline: { fontSize: 15, color: tokens.gray[900], fontWeight: '600' },
-  identityBtnTextPrimary: { fontSize: 15, color: tokens.brandAccent.foreground, fontWeight: '600' },
+  identityBtnTextOutline: {
+    fontSize: rnType.strong.size,
+    color: tokens.gray[900],
+    fontWeight: '600',
+  },
+  identityBtnTextPrimary: {
+    fontSize: rnType.strong.size,
+    color: tokens.brandAccent.foreground,
+    fontWeight: '600',
+  },
   identityFooter: { marginTop: rpx(36), alignItems: 'center' },
   identityFooterTitle: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.brandAccent.deep,
     fontWeight: '600',
     marginBottom: rpx(4),
   },
-  identityFooterText: { fontSize: 12, color: tokens.text.tertiary },
+  identityFooterText: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   noticeList: { width: '100%', marginTop: rpx(24), gap: rpx(24) },
   noticeItem: { fontSize: 13, color: tokens.text.medium, lineHeight: 20 },
   noticeBold: { fontWeight: '700', color: tokens.gray[900] },

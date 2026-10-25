@@ -56,6 +56,7 @@ export function ActivityScreen() {
       error={error}
       onRefresh={onRefresh}
       onBack={() => navigation.goBack()}
+      onItemPress={(item) => navigation.navigate('ActivityDetail', { id: item.id })}
       colorScheme={resolvedTheme}
     />
   )

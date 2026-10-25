@@ -111,7 +111,8 @@
     "uploading": "アップロード中…",
     "user": "ユーザー",
     "more": "もっと見る",
-    "discountAmount": "割引"
+    "discountAmount": "割引",
+    "loadFailed": "読み込みに失敗しました"
   },
   "login": {
     "loginSuccess": "ログイン成功",
@@ -229,7 +230,8 @@
       "ended": "ライブ終了",
       "connecting": "ライブルームに接続中…",
       "enter": "ライブルームに入る",
-      "anchor": "配信者: {name}"
+      "anchor": "配信者: {name}",
+      "loading": "ライブ読み込み中…"
     },
     "subscribe": {
       "subscribe": "通知を購読",
@@ -302,7 +304,10 @@
     "titleRequired": "配信タイトルを入力してください",
     "startFailed": "配信開始に失敗しました",
     "endFailed": "配信終了に失敗しました",
-    "copySuccess": "クリップボードにコピーしました"
+    "copySuccess": "クリップボードにコピーしました",
+    "d1": "AIコースパック",
+    "d2": "会員年間カード",
+    "d3": "グッズ"
   },
   "order": {
     "title": "注文",
@@ -1312,7 +1317,8 @@
       "unanswered": "未回答",
       "unansweredValue": "{n} 問",
       "wrong": "不正解",
-      "wrongValue": "{n} 問"
+      "wrongValue": "{n} 問",
+      "loading": "読み込み中…"
     },
     "detail": {
       "loadFailed": "試験の読み込み失敗",
@@ -2939,7 +2945,10 @@
       "loading": "読み込み中…",
       "loadingMore": "読み込み中…",
       "noMore": "これ以上はありません",
-      "publish": "投稿する"
+      "publish": "投稿する",
+      "hoursAgo": "{n} 時間前",
+      "justNow": "たった今",
+      "minutesAgo": "{n} 分前"
     },
     "list": {
       "pageTitle": "トピック",
@@ -3293,7 +3302,8 @@
       "duration": "会員期間",
       "monthlyPlan": "月額会員",
       "payMethod": "支払い方法",
-      "yearlyPlan": "年間会員"
+      "yearlyPlan": "年間会員",
+      "daysUnit": "{n}日間"
     },
     "benefitsTitle": "会員特典",
     "upgradeNow": "今すぐアップグレード",
@@ -3496,7 +3506,11 @@
   },
   "index": {
     "mock": {
-      "yesterday": "昨日"
+      "yesterday": "昨日",
+      "post1Title": "React Hooksの使い方は?",
+      "today": "今日",
+      "post2Title": "TypeScript型推論",
+      "post3Title": "デザインパターン討論"
     },
     "feature": {
       "superAgent": "深思考",
@@ -3589,7 +3603,51 @@
     "p1": "画像コンテンツ",
     "p2": "動画コンテンツ",
     "p3": "音声コンテンツ",
-    "r1": "アルバムに保存"
+    "r1": "アルバムに保存",
+    "d1": "AI文章作成アシスタント",
+    "d2": "高品質な文章・レポート・コピー作成を支援",
+    "d3": "プログラミングアシスタント",
+    "d4": "コード作成・デバッグ・最適化アドバイス",
+    "d6": "データアナリスト",
+    "d7": "データ可視化と分析インサイト",
+    "d8": "分析",
+    "d9": "デザインクリエイター",
+    "d10": "クリエイティブデザインとビジュアルソリューション",
+    "d12": "翻訳マスター",
+    "d13": "多言語翻訳とローカライゼーション",
+    "d14": "ツール",
+    "d15": "テキスト生成",
+    "d16": "高品質テキストコンテンツ生成",
+    "d17": "画像生成",
+    "d18": "AI絵画と画像創作",
+    "d19": "動画制作",
+    "d20": "AI動画生成と編集",
+    "d21": "音声処理",
+    "d22": "音声合成と音声編集",
+    "d23": "コード生成",
+    "d24": "多言語コード自動生成",
+    "d25": "データ分析",
+    "d26": "データ分析と可視化",
+    "d27": "AI絵画",
+    "d28": "テキスト生成画像と画像生成画像",
+    "d29": "動画編集",
+    "d30": "スマート動画編集とエフェクト",
+    "d31": "AI絵画入門ガイド",
+    "d32": "本記事ではAI絵画の基礎知識とよく使うツールを詳しく紹介...",
+    "d33": "深層学習モデル最適化テクニック",
+    "d34": "深層学習モデルの学習速度と精度を最適化する方法...",
+    "d35": "プロンプトエンジニアリングベストプラクティス",
+    "d36": "プロンプトエンジニアリングの核心テクニックを習得し、AI出力品質を向上...",
+    "d37": "マルチモーダルAI応用シーン",
+    "d38": "医療・教育・金融などにおけるマルチモーダルAI応用を探索...",
+    "d39": "山水風景画",
+    "d40": "都市の夜景",
+    "d41": "抽象芸術作品",
+    "d42": "AI動画生成チュートリアル",
+    "d43": "デジタル人ライブデモ",
+    "d44": "AI音声合成デモ",
+    "d45": "TTS音色比較",
+    "d46": "音声クローン効果"
   },
   "aiassistant": {
     "text1": "深く思考中...",
@@ -4126,7 +4184,9 @@
     "13": "{m}に参加",
     "14": "興味のあるトラックを選択してパーソナライズされたおすすめを取得",
     "15": "デフォルトモデル",
+    "16": "「データ洪水」をイメージに、デジタル時代の創作についての散文詩を生成。",
     "17": "有料 ¥{m}",
+    "18": "機械が思考し始めたとき、人類は準備ができているだろうか?これは意識、自由、共存についての物語である。シリコン生命と炭素生命の交差点で、私たちは「存在」の意味を見つめ直す。",
     "20": "選択を確定{count}",
     "21": "AIアシスタント無料利用回数が増加",
     "22": "一部コースを無料学習",
@@ -4565,7 +4625,11 @@
     "checkinSuccess": "チェックインしました",
     "addSuccess": "アカウントを追加しました",
     "actionFailed": "操作に失敗しました",
-    "adding": "追加中…"
+    "adding": "追加中…",
+    "loginRequired": "ログインしてアカウントプールを管理",
+    "addTitle": "アカウントを追加",
+    "deleteConfirm": "{name} を削除しますか？",
+    "summary": "アカウント {total} 件 · 有効 {enabled}"
   },
   "checkinAssistant": {
     "title": "チェックインアシスタント",
@@ -4588,6 +4652,175 @@
     "poolSynced": "プール登録済み",
     "lastOk": "前回のチェックイン成功 +{credits}",
     "lastFailed": "前回のチェックイン失敗",
-    "actionFailed": "操作に失敗しました"
+    "actionFailed": "操作に失敗しました",
+    "summary": "全 {total} 件 · 有効 {enabled} · プール登録 {synced}",
+    "tokenLabel": "トークン",
+    "optional": "任意"
+  },
+  "aigcList": {
+    "d1": "サイバー都市の夜景",
+    "d2": "智匯小方",
+    "d3": "オーロラ幻想",
+    "d4": "AI創作家",
+    "d5": "メカ少女コンセプト",
+    "d6": "未来派",
+    "d7": "量子詩篇",
+    "d10": "データ洪水 デジタル時代 詩",
+    "d11": "ネオンパルス",
+    "d12": "サウンドアーティスト",
+    "d13": "未来都市",
+    "d14": "デジタル画家",
+    "d15": "AI覚醒録",
+    "d17": "AI覚醒後の人類の状況を探り、短い哲学的エッセイを生成。",
+    "d18": "AI覚醒 意識 共存",
+    "d19": "深空のこだま",
+    "r1": "データの奔流の中で、コードを筆に、アルゴリズムをインクにして、デジタル時代の詩と遠い地平を描く。すべての文章は思考の延長であり、すべての生成は創造の始まりである。"
+  },
+  "courseplanet": {
+    "d1": "AI絵画入門:ゼロからマスターへ",
+    "d2": "AI教研グループ",
+    "d3": "ショート動画制作フル実践",
+    "d4": "実践メンター",
+    "d5": "ChatGPT プロンプトエンジニアリング",
+    "d6": "AI教研グループ",
+    "d7": "AIオフィス効率向上ガイド",
+    "d8": "効率エキスパート",
+    "d9": "大規模モデルアプリ開発実践",
+    "d10": "技術エキスパート"
+  },
+  "developerInfo": {
+    "title": "開発者情報",
+    "nameLabel": "名前",
+    "descLabel": "紹介",
+    "statusLabel": "申請ステータス",
+    "statusApproved": "承認済み",
+    "statusRejected": "却下されました",
+    "statusPending": "審査待ち",
+    "accountLabel": "アカウント",
+    "apiKeyLabel": "API キー",
+    "apiKeyCount": "{count} 件作成済み",
+    "apiKeyNone": "まだ作成していません",
+    "urlLabel": "URL",
+    "expiryLabel": "有効期限"
+  },
+  "userPublic": {
+    "title": "ユーザープロフィール",
+    "notFound": "ユーザーが見つかりません",
+    "follow": "フォロー",
+    "following": "フォロー中",
+    "message": "メッセージ",
+    "followingCount": "フォロー",
+    "followersCount": "フォロワー",
+    "favoritesCount": "お気に入り",
+    "joined": "登録日"
+  },
+  "eduShop": {
+    "title": "教育ストア",
+    "courses": "コース商品",
+    "orders": "注文履歴",
+    "free": "無料",
+    "buy": "購入",
+    "lessons": "{n} レッスン",
+    "loadMore": "さらに読み込む",
+    "emptyCourses": "販売中のコースなし",
+    "emptyOrders": "注文なし",
+    "cancelOrder": "注文をキャンセル",
+    "orderCreated": "注文を作成しました",
+    "status": {
+      "pending": "未払い",
+      "paid": "支払済み",
+      "cancelled": "キャンセル済み",
+      "completed": "完了",
+      "refunded": "返金済み"
+    }
+  },
+  "llmSettings": {
+    "title": "モデルプロバイダー",
+    "empty": "プロバイダー未設定",
+    "emptyDesc": "右上のウィザードで 4 ステップ設定",
+    "enabled": "有効",
+    "disabled": "無効"
+  },
+  "byok": {
+    "fab": "クイック設定",
+    "title": "セットアップウィザード",
+    "step1Title": "プロバイダーを選択",
+    "step2Title": "API キーを入力",
+    "step3Title": "キーを検証",
+    "step4Title": "完了",
+    "keyPlaceholder": "API キーを貼り付け(sk-…)",
+    "verify": "検証",
+    "next": "次へ",
+    "activate": "有効化",
+    "verifying": "検証中…",
+    "verifySuccess": "検証成功",
+    "verifyFailed": "検証失敗",
+    "doneDesc": "プロバイダーを作成し、収益分配を有効化しました"
+  },
+  "eduParent": {
+    "title": "保護者センター",
+    "child": "子ども",
+    "relationship": "続柄",
+    "statusTitle": "状態",
+    "empty": "紐付けた子どもがいません",
+    "status": {
+      "pending": "確認待ち",
+      "confirmed": "確認済み",
+      "active": "有効",
+      "rejected": "拒否済み",
+      "cancelled": "解除済み"
+    }
+  },
+  "eduChildAttendance": {
+    "title": "子どもの出席",
+    "date": "日付"
+  },
+  "eduChildGrades": {
+    "title": "子どもの成績"
+  },
+  "eduGrades": {
+    "student": "生徒",
+    "subject": "科目",
+    "exam": "試験",
+    "score": "点数",
+    "date": "日付"
+  },
+  "eduAttendance": {
+    "statusTitle": "状態",
+    "checkIn": "登校",
+    "checkOut": "下校",
+    "status": {
+      "present": "出席",
+      "late": "遅刻",
+      "absent": "欠席",
+      "leave": "休み"
+    }
+  },
+  "eduMgmt": {
+    "attendanceTitle": "出席管理",
+    "gradesTitle": "成績管理",
+    "financeTitle": "支払い記録"
+  },
+  "eduFinance": {
+    "student": "生徒",
+    "className": "クラス",
+    "fee": "費用",
+    "amount": "金額(元)",
+    "date": "支払日",
+    "status": {
+      "paid": "支払済み",
+      "success": "成功",
+      "refunded": "返金済み",
+      "pending": "確認待ち"
+    }
+  },
+  "agreement": {"subtitle":"本契約をよくお読みください","title":"利用規約"},
+  "agreementSections": {
+    "sectionObligations": "ユーザーの義務",
+    "sectionObligationsBody": "関連法令・規制を遵守し、違法・規約違反・有害な情報を公開せず、他者の合法的権利を侵害してはなりません。",
+    "sectionRights": "ユーザーの権利",
+    "sectionRightsBody": "法律に基づきサービスを利用する権利、個人情報を管理する権利、規約違反コンテンツを報告する権利を有します。",
+    "sectionTerms": "利用規約",
+    "sectionTermsBody": "本規約は、本プラットフォームサービスの利用に関してお客様と生慧 AI との間に締結されるものです。利用前に注意深くお読みください。利用した時点で、本規約の全条項に同意し承諾したものとみなされます。"
   }
 }

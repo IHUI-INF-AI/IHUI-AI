@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Check, HelpCircle } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -269,19 +269,19 @@ export default function AskEditScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: 12, paddingBottom: 32, gap: 10 },
-  subtitle: { fontSize: 12, color: tokens.text.tertiary },
-  stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rnSpacing.sm },
   muted: { fontSize: 13, color: tokens.text.secondary },
   errorBox: {
-    padding: 12,
-    gap: 8,
+    padding: rnSpacing.md,
+    gap: rnSpacing.sm,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
     backgroundColor: tokens.surface.card,
   },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
@@ -290,9 +290,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.medium,
   },
-  retryText: { fontSize: 12, fontWeight: '600', color: tokens.text.primary },
+  retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
   card: {
-    gap: 12,
+    gap: rnSpacing.md,
     padding: 14,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -300,19 +300,19 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   field: { gap: 5 },
-  label: { fontSize: 12, color: tokens.text.secondary },
-  hint: { fontSize: 11, color: tokens.text.tertiary },
+  label: { fontSize: rnType.label.size, color: tokens.text.secondary },
+  hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   input: {
     minHeight: 42,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     color: tokens.text.primary,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     backgroundColor: tokens.surface.bg,
   },
   textarea: { minHeight: 180, lineHeight: 21 },
@@ -325,7 +325,11 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
-  primaryBtnText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
+  primaryBtnText: {
+    fontSize: rnType.strong.size,
+    fontWeight: '600',
+    color: tokens.brand.ctaForeground,
+  },
   disabled: { opacity: 0.5 },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

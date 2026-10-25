@@ -22,7 +22,7 @@ import {
   ScreenSkeleton,
 } from '../../components/ScreenStates'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { CategoryDetailScreenProps } from '@ihui/types'
 export type { CategoryDetailScreenProps }
 
@@ -119,15 +119,15 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     tabsRow: {
       flexDirection: 'row',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 8,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.sm,
     },
     tab: {
       paddingHorizontal: 10,
@@ -139,30 +139,30 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brandAccent.DEFAULT,
     },
     tabText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     tabTextActive: {
       color: tk.brandAccent.foreground,
       fontWeight: '600',
     },
-    listContent: { paddingHorizontal: 10, paddingBottom: 24 },
+    listContent: { paddingHorizontal: 10, paddingBottom: rnSpacing['2xl'] },
     itemCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 12,
-      gap: 12,
+      marginBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     itemBody: { flex: 1, minWidth: 0 },
-    itemName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    itemDesc: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    footerLoading: { paddingVertical: 12, alignItems: 'center' },
-    footerText: { fontSize: 14, color: tk.text.secondary },
+    itemName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    itemDesc: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
+    footerLoading: { paddingVertical: rnSpacing.md, alignItems: 'center' },
+    footerText: { fontSize: rnType.body.size, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

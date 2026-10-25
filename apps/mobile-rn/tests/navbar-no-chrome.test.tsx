@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 顶栏 NavBar 不得自绘背景色与底边线 —— 与共享核 navbar-core 同一条口径。
+// 顶栏 NavBar 不得自绘背景色与底边线 —— 与共享层 packages/app/components/NavBar.tsx 同一条口径。
 //
 // 起因(用户实拍 2026-09-26):智能体页顶部栏读起来像"贴在页面上的一条卡片",因为它默认
 // 铺 `tokens.surface.card` 底色 + 1px `borderBottom`。要求去掉,透出所在屏的 shell 底色。
@@ -12,10 +12,13 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 
-// NavBar 接入 useI18n(文案国际化)后,不包 Provider/mock ⇒ 渲染即炸(fenlei 同款形态)
+/**
+ * NavBar(i18n 扫尾批起)内吃 useI18n(返回键的无障碍标签等)——本套件判据只是
+ * **根元素样式**(无底色/无底边线),不判文案;缺 mock ⇒ 裸 render 抛
+ * 「useI18n must be used within I18nProvider」整文件红(与 fenlei-overlay-statusbar 同治)。
+ */
 vi.mock('../src/i18n', () => ({
-  I18nProvider: ({ children }: { children: unknown }) => children,
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: (key: string) => key, locale: 'zh-CN' }),
 }))
 
 import NavBar from '../src/components/NavBar'

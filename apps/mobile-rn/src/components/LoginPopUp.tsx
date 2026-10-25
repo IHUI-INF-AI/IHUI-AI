@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -140,14 +141,15 @@ function filterNickname(raw: string): string {
   return out
 }
 
-function roleLabel(role: LoginPopUpRole): string {
+/** 角色标签:返回 i18n 键(顶层函数不调 t——模块求值早于 Provider 挂载;消费处 t() 解析) */
+function roleLabelKey(role: LoginPopUpRole): string {
   switch (role) {
     case 'vip':
-      return '会员'
+      return 'lp.member'
     case 'trader':
-      return '操盘手'
+      return 'lp.trader'
     default:
-      return '普通用户'
+      return 'lp.normal'
   }
 }
 
@@ -174,6 +176,7 @@ export function LoginPopUp({
   onUpgrade,
   onUpgradeTrader,
 }: LoginPopUpProps) {
+  const { t } = useI18n()
   const handleAgreeToggle = () => {
     onAgreeChange?.(!agreeChecked)
   }
@@ -203,14 +206,18 @@ export function LoginPopUp({
       statusBarTranslucent
     >
       <View style={styles.root}>
-        <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="关闭登录弹窗" />
+        <Pressable
+          style={styles.overlay}
+          onPress={onClose}
+          accessibilityLabel={t('lp.closeA11y')}
+        />
         <View style={styles.card}>
           <View style={styles.dragBar} />
           <Pressable
             style={styles.closeButton}
             onPress={onClose}
             hitSlop={8}
-            accessibilityLabel="关闭"
+            accessibilityLabel={t('common.close')}
           >
             <Text style={styles.closeIcon}>×</Text>
           </Pressable>
@@ -301,6 +308,7 @@ function ProfileForm({
   onUpgrade,
   onUpgradeTrader,
 }: ProfileFormProps) {
+  const { t } = useI18n()
   const [nickname, setNickname] = useState(initialNickname ?? '')
   const [phone, setPhone] = useState(initialPhone ?? '')
   const [nicknameError, setNicknameError] = useState('')
@@ -330,7 +338,7 @@ function ProfileForm({
       onBindPhone?.()
     } catch (err) {
       if (!(err instanceof CarrierOneClickError)) {
-        setPhoneError('运营商一键登录失败,请手动输入手机号')
+        setPhoneError(t('lp.oneLoginFail'))
       } else {
         // 未配置 / 通道失败 → 免费回填最近手机号
         const recent = getRecentPhone()
@@ -345,14 +353,14 @@ function ProfileForm({
   const handleSave = () => {
     let hasError = false
     if (!nickname) {
-      setNicknameError('请输入昵称')
+      setNicknameError(t('lp.nickRequired'))
       hasError = true
     } else if (nickname.length > 8) {
-      setNicknameError('昵称过长 不能超过8个字符')
+      setNicknameError(t('lp.nickTooLong'))
       hasError = true
     }
     if (!phone || phone.length !== 11) {
-      setPhoneError('请输入正确的手机号码')
+      setPhoneError(t('lp.phoneInvalid'))
       hasError = true
     }
     if (hasError) return
@@ -373,7 +381,11 @@ function ProfileForm({
     <View>
       {/* 头像 */}
       <View style={styles.avatarWrap}>
-        <Pressable style={styles.avatar} onPress={onChooseAvatar} accessibilityLabel="更换头像">
+        <Pressable
+          style={styles.avatar}
+          onPress={onChooseAvatar}
+          accessibilityLabel={t('lp.changeAvatarA11y')}
+        >
           {({ pressed }) => (
             <View style={[styles.face, pressed ? styles.avatarPressed : null]}>
               {avatarUrl ? (
@@ -397,7 +409,7 @@ function ProfileForm({
           style={styles.input}
           value={nickname}
           onChangeText={handleNicknameChange}
-          placeholder="请输入用户名"
+          placeholder={t('lp.usernamePh')}
           placeholderTextColor={tokens.text.tertiary}
           maxLength={20}
         />
@@ -413,12 +425,12 @@ function ProfileForm({
         <View style={styles.iconBadge}>
           <BadgeCheck size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
         </View>
-        <Text style={[styles.roleText, { color: roleColor }]}>{roleLabel(role)}</Text>
+        <Text style={[styles.roleText, { color: roleColor }]}>{t(roleLabelKey(role))}</Text>
         {showUpgrade ? (
           <Pressable
             style={styles.upgradeButton}
             onPress={role === 'normal' ? onUpgrade : onUpgradeTrader}
-            accessibilityLabel="立即升级"
+            accessibilityLabel={t('lp.upgradeA11y')}
           >
             {({ pressed }) => (
               <View style={[styles.face, pressed ? styles.upgradeButtonPressed : null]}>
@@ -439,7 +451,7 @@ function ProfileForm({
           style={styles.input}
           value={phone}
           onChangeText={handlePhoneChange}
-          placeholder="请输入电话号码"
+          placeholder={t('lp.phonePh')}
           placeholderTextColor={tokens.text.tertiary}
           maxLength={11}
           keyboardType="phone-pad"
@@ -450,14 +462,14 @@ function ProfileForm({
             style={styles.bindButton}
             onPress={() => void handleBindPhone()}
             disabled={bindPhoneLoading}
-            accessibilityLabel="绑定手机号"
+            accessibilityLabel={t('lp.bindA11y')}
           >
             {({ pressed }) => (
               <View style={[styles.face, pressed ? styles.bindButtonPressed : null]}>
                 {bindPhoneLoading ? (
                   <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
                 ) : (
-                  <Text style={styles.bindLabel}>{phone ? '重绑' : '绑定'}</Text>
+                  <Text style={styles.bindLabel}>{phone ? t('lp.rebind') : t('lp.bind')}</Text>
                 )}
               </View>
             )}
@@ -469,7 +481,11 @@ function ProfileForm({
       {/* 保存 / 登出 */}
       <View style={styles.footer}>
         {onSave ? (
-          <Pressable style={styles.footerButton} onPress={handleSave} accessibilityLabel="保存信息">
+          <Pressable
+            style={styles.footerButton}
+            onPress={handleSave}
+            accessibilityLabel={t('lp.saveA11y')}
+          >
             {({ pressed }) => (
               <View style={[styles.face, pressed ? styles.footerButtonPressed : null]}>
                 <Text style={styles.footerLabel}>保存信息</Text>
@@ -481,7 +497,7 @@ function ProfileForm({
           <Pressable
             style={[styles.footerButton, styles.footerButtonLogout]}
             onPress={onLogout}
-            accessibilityLabel="登出"
+            accessibilityLabel={t('lp.logoutA11y')}
           >
             {({ pressed }) => (
               <View style={[styles.face, pressed ? styles.footerButtonPressed : null]}>

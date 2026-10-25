@@ -21,7 +21,7 @@ import {
 import { appAlert } from '../components/BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnType } from '@ihui/design-tokens'
 // 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const SHARE_FALLBACK_IMAGE: ImageSourcePropType = require('../../assets/images/common/default/vip_message.jpg')
@@ -1118,6 +1118,7 @@ function UnsubscribeModal({
 
 // ============ 4 Tab 内容区(对齐 Uniapp 行 59-191) ============
 
+// 模块顶层无法取 t(键存表内,消费组件内解析)
 const TAB_BAR_ITEMS: CategoryItem[] = PROFILE_TAB_LIST.map((tab) => ({
   id: String(tab.id),
   label: tab.name,
@@ -1295,7 +1296,7 @@ function ProfileContentSection(): React.JSX.Element {
     <View style={styles.contentSection}>
       <View style={styles.tabBarWrap}>
         <CategoryInlineBar
-          items={TAB_BAR_ITEMS}
+          items={TAB_BAR_ITEMS.map((it) => ({ ...it, label: t(it.label) }))}
           selectedId={String(activeTab)}
           onSelect={onTabChange}
           colorScheme={resolvedTheme}
@@ -1978,7 +1979,7 @@ const styles = StyleSheet.create({
     marginTop: rpx(16),
   },
   membershipHeaderText: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -2026,7 +2027,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   copyLinkText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   contentHeader: {
@@ -2039,12 +2040,12 @@ const styles = StyleSheet.create({
   contentTitle: {
     flex: 1,
     // 对齐 Uniapp font-size:32rpx(≈16px)
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   contentTime: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
   contentBody: {
@@ -2052,7 +2053,7 @@ const styles = StyleSheet.create({
   },
   textContent: {
     // 对齐 Uniapp font-size:28rpx(≈14px) line-height:1.8(≈25)
-    fontSize: 14,
+    fontSize: rnType.body.size,
     lineHeight: 25,
     color: tokens.text.secondary,
   },
@@ -2092,7 +2093,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   videoPlayIconText: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     color: tokens.surface.light,
     marginLeft: rpx(8),
   },
@@ -2110,7 +2111,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   audioPlayIcon: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     color: tokens.brand.foreground,
     marginLeft: rpx(4),
   },
@@ -2128,7 +2129,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.DEFAULT,
   },
   audioTime: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
     minWidth: 38,
     textAlign: 'right',
@@ -2142,7 +2143,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   audioDownloadIcon: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     color: tokens.text.secondary,
   },
   previewOverlay: {
@@ -2164,7 +2165,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   previewShareText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.surface.light,
   },
   previewCloseBtn: {
@@ -2180,7 +2181,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   previewCloseText: {
-    fontSize: 30,
+    fontSize: rnType.displayLg.size,
     color: tokens.surface.light,
     lineHeight: 30,
   },
@@ -2214,7 +2215,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   videoModalCloseText: {
-    fontSize: 30,
+    fontSize: rnType.displayLg.size,
     color: tokens.surface.light,
     lineHeight: 30,
   },
@@ -2227,7 +2228,7 @@ const styles = StyleSheet.create({
     padding: rpx(32),
   },
   videoEmptyText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
     textAlign: 'center',
   },
@@ -2264,7 +2265,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   sharePopupTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
     marginBottom: rpx(28),
@@ -2294,7 +2295,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   sharePopupSaveBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
@@ -2308,7 +2309,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.gray.black,
   },
   sharePopupShareBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.surface.light,
   },
@@ -2326,7 +2327,7 @@ const styles = StyleSheet.create({
     gap: rpx(24),
   },
   tabErrorText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
     textAlign: 'center',
   },
@@ -2337,7 +2338,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.DEFAULT,
   },
   tabRetryText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '500',
     color: tokens.brand.foreground,
   },
@@ -2351,7 +2352,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   levelIntroBtnText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.medium,
   },
   // ── 编辑资料 Modal(对齐 Uniapp 编辑资料弹层) ──
@@ -2369,7 +2370,7 @@ const styles = StyleSheet.create({
   },
   editProfileTitle: {
     // 对齐 Uniapp 32rpx(≈16px)标题字号
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
@@ -2417,13 +2418,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   editProfileAvatarBadgeText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.brand.foreground,
     fontWeight: '700',
     lineHeight: 14,
   },
   editProfileAvatarHint: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
   editProfileField: {
@@ -2441,7 +2442,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(20),
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
     backgroundColor: tokens.surface.card,
   },
@@ -2465,7 +2466,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   editProfileCancelBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
@@ -2478,7 +2479,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   editProfileSaveBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brand.foreground,
   },
@@ -2486,7 +2487,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   editProfileError: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.danger.DEFAULT,
     marginBottom: rpx(16),
   },
@@ -2505,7 +2506,7 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   levelIntroTitle: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
@@ -2531,12 +2532,12 @@ const styles = StyleSheet.create({
     gap: rpx(8),
   },
   levelIntroItemLevel: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   levelIntroItemDesc: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
   levelIntroBenefitList: {
@@ -2544,7 +2545,7 @@ const styles = StyleSheet.create({
   },
   levelIntroBenefitItem: {
     // 对齐 Uniapp 28rpx(≈14px)benefit-item 字号
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
     lineHeight: 20,
   },
@@ -2558,7 +2559,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   levelIntroCloseBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brand.foreground,
   },
@@ -2620,7 +2621,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   unsubscribeCancelBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
@@ -2633,7 +2634,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   unsubscribeConfirmBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.surface.light,
   },

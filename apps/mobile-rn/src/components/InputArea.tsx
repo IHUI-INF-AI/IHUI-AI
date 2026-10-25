@@ -74,7 +74,7 @@ import {
   X,
 } from 'lucide-react-native'
 
-import { rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 // 放大钮内缩 / 命中外扩 / 计数浮层距底 / 语音钮间距 —— 唯一源在
 // @ihui/shared/ui/input-area-spec(与小程序端同档;上一轮只搬小程序侧的 6 造成台账 23→24,
@@ -476,7 +476,7 @@ export function InputArea({
           }}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={collapsedFabLabel ?? '展开提问输入'}
+          accessibilityLabel={collapsedFabLabel ?? t('iaa.expandFab')}
           accessibilityState={{ expanded: false }}
         >
           <Plus size={INPUT_AREA_GLYPH_LG_PX} color={tokens.brand.ctaForeground} />
@@ -527,7 +527,7 @@ export function InputArea({
             right: INPUT_AREA_CLOSE_HIT_SLOP_PX,
           }}
           accessibilityRole="button"
-          accessibilityLabel="删除附件"
+          accessibilityLabel={t('iaa.removeAttach')}
         >
           <X size={INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX} color={tokens.text.secondary} />
         </TouchableOpacity>
@@ -545,7 +545,7 @@ export function InputArea({
         accessibilityRole="button"
         accessibilityLabel={stopLabel ?? 'stop'}
       >
-        <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
+        <Text style={styles.sendIcon}>{stopLabel ?? t('iaa.stop')}</Text>
       </TouchableOpacity>
     ) : (
       <TouchableOpacity
@@ -582,7 +582,7 @@ export function InputArea({
           activeOpacity={0.7}
           hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
           accessibilityRole="button"
-          accessibilityLabel={collapseButtonLabel ?? '收起输入区'}
+          accessibilityLabel={collapseButtonLabel ?? t('iaa.collapseArea')}
         >
           <X size={14} color={tokens.text.secondary} />
         </TouchableOpacity>
@@ -618,7 +618,7 @@ export function InputArea({
               disabled={disabled || voiceTranscribing}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="按住说出你的问题"
+              accessibilityLabel={t('iaa.holdAsk')}
             >
               {voiceTranscribing ? (
                 <ActivityIndicator size="small" color={tokens.text.secondary} />
@@ -644,7 +644,7 @@ export function InputArea({
                 if (voiceRecording || voiceTranscribing) onVoiceEnd?.()
               }}
               onPress={() => inputRef.current?.focus()}
-              accessibilityLabel={placeholder ?? '请输入您的问题,或长按说话'}
+              accessibilityLabel={placeholder ?? t('home.inputPlaceholder')}
             >
               {voiceRecording || voiceTranscribing ? (
                 <View style={styles.voiceAreaInShell}>
@@ -707,7 +707,7 @@ export function InputArea({
                   right: INPUT_AREA_CONTROL_HIT_SLOP_PX,
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={isExpanded ? '缩小输入框' : '放大输入框'}
+                accessibilityLabel={isExpanded ? t('iaa.zoomOut') : t('iaa.zoomIn')}
               >
                 <Text style={styles.expandBtnIcon}>{isExpanded ? '⤡' : '⤢'}</Text>
               </TouchableOpacity>
@@ -788,7 +788,9 @@ export function InputArea({
                 onPress={onVoiceToggle}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel={voiceActive || voiceInput ? '切换到键盘' : '切换到语音'}
+                accessibilityLabel={
+                  voiceActive || voiceInput ? t('iaa.switchKeyboard') : t('iaa.switchVoice')
+                }
               >
                 {voiceActive || voiceInput ? (
                   <Keyboard size={INPUT_AREA_GLYPH_MD_PX} color={tokens.text.secondary} />
@@ -804,7 +806,7 @@ export function InputArea({
                   style={styles.voiceWaveWrap}
                   onPressIn={onVoiceAnimationStart}
                   onPressOut={onVoiceAnimationStop}
-                  accessibilityLabel="按住说话,松开结束"
+                  accessibilityLabel={t('iaa.holdEnd')}
                 >
                   <VoiceWave />
                 </Pressable>
@@ -813,9 +815,9 @@ export function InputArea({
                   style={styles.voiceWaveWrap}
                   onPressIn={onVoiceAnimationStart}
                   onPressOut={onVoiceAnimationStop}
-                  accessibilityLabel="按住说话,松开结束"
+                  accessibilityLabel={t('iaa.holdEnd')}
                 >
-                  <Text style={styles.voiceHint}>按住说话</Text>
+                  <Text style={styles.voiceHint}>{t('voice.holdToTalk')}</Text>
                 </Pressable>
               ) : (
                 <TextField
@@ -858,7 +860,7 @@ export function InputArea({
                     right: INPUT_AREA_CONTROL_HIT_SLOP_PX,
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={isExpanded ? '缩小输入框' : '放大输入框'}
+                  accessibilityLabel={isExpanded ? t('iaa.zoomOut') : t('iaa.zoomIn')}
                 >
                   <Text style={styles.expandBtnIcon}>{isExpanded ? '⤡' : '⤢'}</Text>
                 </TouchableOpacity>
@@ -867,7 +869,7 @@ export function InputArea({
 
             {/* 添加文件按钮(search-box2,functionHandle;视觉统一走共享 PlusButton,
               点击回调 onImageAdd 由调用方注入——弹统一 AddPanel 或直接选图) */}
-            {showAddBtn ? <PlusButton onPress={onImageAdd} label="添加图片或文件" /> : null}
+            {showAddBtn ? <PlusButton onPress={onImageAdd} label={t('iaa.addFile')} /> : null}
           </View>
         )}
 
@@ -890,7 +892,7 @@ export function InputArea({
                         style={styles.paramAddBtn}
                         onPress={() => onParamImageAdd?.(gi, ci)}
                         accessibilityRole="button"
-                        accessibilityLabel="添加参数图片"
+                        accessibilityLabel={t('iaa.addParam')}
                       >
                         <Plus size={16} color={tokens.text.secondary} />
                       </TouchableOpacity>
@@ -922,7 +924,7 @@ export function InputArea({
             accessibilityRole="button"
             accessibilityLabel={stopLabel ?? 'stop'}
           >
-            <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
+            <Text style={styles.sendIcon}>{stopLabel ?? t('iaa.stop')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -1004,7 +1006,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   thumbPlaceholderIcon: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
   },
   docIcon: {
     // 遗留样式条目(未被渲染引用):与折叠 FAB 加号同墨迹档,数值入表以免端内抄裸数字
@@ -1058,7 +1060,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   videoBadgeIcon: {
-    fontSize: 20,
+    fontSize: rnType.heading.size,
     color: tokens.surface.light,
     textShadowColor: 'rgba(0,0,0,0.5)',
     // 绘制细节(文字阴影偏移),小程序端同类角标是实底色块、无阴影通道 —— 单端档,非取值分叉
@@ -1096,10 +1098,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inputBare: {
-    paddingHorizontal: 4,
+    paddingHorizontal: rnSpacing.xs,
     paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
     // 24 = 多行态给右下角字数统计预留的底带(单行态由 inputBareSingle 覆盖为对称值)
-    paddingBottom: 24,
+    paddingBottom: rnSpacing['2xl'],
     fontSize: INPUT_AREA_INPUT_FONT_PX,
     color: tokens.text.primary,
   },
@@ -1117,7 +1119,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
-    paddingVertical: 4,
+    paddingVertical: rnSpacing.xs,
   },
   transcribingRow: {
     flexDirection: 'row',
@@ -1149,15 +1151,15 @@ const styles = StyleSheet.create({
   modelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     flexShrink: 1,
   },
   catChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     // 单端档·RN:左距 4 与 sendInShell marginLeft 同档
-    marginLeft: 4,
+    marginLeft: rnSpacing.xs,
     maxWidth: 96,
     flexShrink: 1,
     paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
@@ -1179,7 +1181,7 @@ const styles = StyleSheet.create({
   },
   // 配置入口:幽灵图标钮(32×32 透明,与 web 参数入口一致),原品牌色描边盒实拍「配色不搭」
   configBtnInShell: {
-    marginLeft: 4,
+    marginLeft: rnSpacing.xs,
     width: INPUT_AREA_IN_SHELL_BTN_PX,
     height: INPUT_AREA_IN_SHELL_BTN_PX,
     alignItems: 'center',
@@ -1188,7 +1190,7 @@ const styles = StyleSheet.create({
   // 框内「+」左距(与模型钮/配置钮/发送的 marginLeft 4 同档;共享 PlusButton 本体不留距,
   // 由本层在单排内补齐,不动共享组件)
   plusInShellGap: {
-    marginLeft: 4,
+    marginLeft: rnSpacing.xs,
   },
   voiceTouchArea: {
     flex: 1,
@@ -1209,7 +1211,7 @@ const styles = StyleSheet.create({
     width: INPUT_AREA_IN_SHELL_BTN_PX,
     height: INPUT_AREA_IN_SHELL_BTN_PX,
     borderRadius: rnRadiusFor.control, // 角色档 control(按钮)→ sm;原写「R1 吸附至 lg(8)」只是把裸 10 就近落档,未问过角色
-    marginLeft: 4,
+    marginLeft: rnSpacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
     // 主 CTA 实底走 brand.cta(明暗同值 #4A7A96,AGENTS §4);
@@ -1228,7 +1230,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   voiceBtnIcon: {
-    fontSize: 20,
+    fontSize: rnType.heading.size,
   },
   inputColumn: {
     flex: 1,
@@ -1238,7 +1240,7 @@ const styles = StyleSheet.create({
     minHeight: MIN_INPUT_HEIGHT,
     paddingHorizontal: INPUT_AREA_INPUT_PADDING_X_PX,
     paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
-    paddingBottom: 24,
+    paddingBottom: rnSpacing['2xl'],
     // 角色档 control(输入框)→ sm(4)。此前写 xl(12),而小程序端同位输入框写 rounded-2xl(16)
     // ⇒ 两端都越出了 control 档且互不相同;卡片本体在别处,这一格不是 card/panel/hero。
     borderRadius: rnRadiusFor.control,
@@ -1286,7 +1288,7 @@ const styles = StyleSheet.create({
     // 收编前是 11 —— 不在 design-tokens 字号档上,按裁决规则 4 就近吸附到 12
     fontSize: INPUT_AREA_SECONDARY_FONT_PX,
     color: tokens.text.tertiary,
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
     textAlign: 'right',
   },
   counterWarning: {
@@ -1316,7 +1318,7 @@ const styles = StyleSheet.create({
   },
   paramItem: {
     flexDirection: 'column',
-    gap: 4,
+    gap: rnSpacing.xs,
     minWidth: 100,
   },
   paramTitle: {
@@ -1347,7 +1349,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   paramAddIcon: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     color: tokens.text.secondary,
   },
   // 发送按钮
@@ -1370,7 +1372,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   sendIcon: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     // stopButton 红底配白色文字;原 brand.foreground 深色=#000000(黑)红底黑字不可读
     color: tokens.surface.light,
     fontWeight: '600',

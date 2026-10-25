@@ -17,7 +17,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
@@ -473,57 +473,57 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.sm,
     },
     headerTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
       flexShrink: 1,
-      marginHorizontal: 8,
+      marginHorizontal: rnSpacing.sm,
     },
     headerActions: {
       flexDirection: 'row',
-      gap: 12,
+      gap: rnSpacing.md,
     },
     headerActionText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.brand.DEFAULT,
     },
     /* Tab 行 */
     tabRow: {
       flexDirection: 'row',
-      gap: 8,
-      paddingHorizontal: 16,
-      paddingBottom: 8,
+      gap: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.lg,
+      paddingBottom: rnSpacing.sm,
     },
     tabChip: {
       borderRadius: rnRadius.md,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
     },
     tabChipActive: {
       backgroundColor: tk.brand.cta,
     },
     tabText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     tabTextActive: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.brand.ctaForeground,
     },
     /* 过滤区(搜索/分类/榜单 chips) */
     filterSection: {
-      paddingHorizontal: 16,
-      paddingBottom: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingBottom: rnSpacing.sm,
     },
     searchRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: rnSpacing.md,
     },
     searchInput: {
       height: 36,
@@ -531,12 +531,12 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      paddingHorizontal: 12,
-      fontSize: 14,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     cancelText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     chipList: {
@@ -544,16 +544,16 @@ function createStyles(tk: AppThemeTokens) {
     },
     chipListSpaced: {
       flexGrow: 0,
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
     chipRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     chip: {
       borderRadius: rnRadius.md,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
       backgroundColor: tk.surface.muted,
     },
@@ -561,25 +561,25 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     chipText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
     chipTextActive: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.brand.ctaForeground,
     },
     /* 列表 */
     listContent: {
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     /* 条目卡片 */
     entryCard: {
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      padding: 12,
+      padding: rnSpacing.md,
     },
     entryRow: {
       flexDirection: 'row',
@@ -601,43 +601,43 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     coverFallbackText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
     entryBody: {
-      marginLeft: 12,
+      marginLeft: rnSpacing.md,
       flex: 1,
     },
     entryTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     entrySummary: {
-      marginTop: 4,
-      fontSize: 12,
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
     entryMetaRow: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: rnSpacing.md,
     },
     entryMeta: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
     /* 榜单行 */
     rankCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 10,
     },
     rankBadge: {
@@ -654,41 +654,41 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     rankTextTop3: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.warning.amber,
     },
     rankTextNormal: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.secondary,
     },
     rankBody: {
-      marginLeft: 12,
+      marginLeft: rnSpacing.md,
       flex: 1,
     },
     rankModel: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     rankProvider: {
       marginTop: 2,
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
     rankScoreCol: {
-      marginLeft: 8,
+      marginLeft: rnSpacing.sm,
       alignItems: 'flex-end',
     },
     rankScore: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.warning.DEFAULT,
     },
     rankVotes: {
       marginTop: 2,
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)

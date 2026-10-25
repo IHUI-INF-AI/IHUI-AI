@@ -68,13 +68,13 @@ const FLOAT_BOX_DEFAULT: FloatBoxState = { visible: false, type: 'info', message
 const PAGE_SIZE = 20
 
 const CATEGORIES: readonly { id: string; label: string; code: string }[] = [
-  { id: 'all', label: '全部', code: 'ARTF_INTG' },
-  { id: 'ai', label: '人工智能', code: 'AI' },
-  { id: 'ml', label: '机器学习', code: 'ML' },
-  { id: 'cv', label: '计算机视觉', code: 'CV' },
-  { id: 'nlp', label: '自然语言', code: 'NLP' },
-  { id: 'chip', label: 'AI芯片', code: 'CHIP' },
-  { id: 'rec', label: '智能推荐', code: 'REC' },
+  { id: 'all', label: 'home.matAll', code: 'ARTF_INTG' },
+  { id: 'ai', label: 'news.catAi', code: 'AI' },
+  { id: 'ml', label: 'news.catMl', code: 'ML' },
+  { id: 'cv', label: 'news.catCv', code: 'CV' },
+  { id: 'nlp', label: 'news.catNlp', code: 'NLP' },
+  { id: 'chip', label: 'news.catChip', code: 'CHIP' },
+  { id: 'rec', label: 'news.catRec', code: 'REC' },
 ] as const
 
 const navigateRoot = (nav: RootNav | undefined, route: keyof RootStackParamList | string) => {
@@ -144,7 +144,9 @@ export default function NewsScreenWrapper() {
     try {
       const res = await listConversations({ page: 1, pageSize: 20 })
       if (res.success) {
-        const list: DrawerConversationItem[] = res.data.conversations.map(mapConversationToDrawer)
+        const list: DrawerConversationItem[] = res.data.conversations.map((c) =>
+          mapConversationToDrawer(c, t),
+        )
         setDrawerConversations(list)
       } else {
         setDrawerConversations([])
@@ -154,7 +156,7 @@ export default function NewsScreenWrapper() {
     } finally {
       setDrawerConversationsLoaded(true)
     }
-  }, [user])
+  }, [user, t])
 
   useEffect(() => {
     if (drawerVisible && !drawerConversationsLoaded && user) {
@@ -184,11 +186,11 @@ export default function NewsScreenWrapper() {
     setDrawerVisible(false)
     try {
       Clipboard.setString(FREE_RESOURCE_URL)
-      showFloat('链接已复制', 'success')
+      showFloat(t('aiAssistant.copyOkToast'), 'success')
     } catch {
-      showFloat('复制失败,请重试', 'warning')
+      showFloat(t('profile.copyFailRetry'), 'warning')
     }
-  }, [showFloat])
+  }, [showFloat, t])
 
   const handleDrawerCreateNewChat = useCallback(() => {
     setDrawerVisible(false)
@@ -216,13 +218,13 @@ export default function NewsScreenWrapper() {
         const res = await deleteConversation(id)
         if (!res.success) {
           setDrawerConversations(snapshot)
-          showFloat('删除失败,请重试', 'warning')
+          showFloat(t('profile.delFailedRetry'), 'warning')
         } else {
-          showFloat('删除成功', 'success')
+          showFloat(t('plaza.index.delOk'), 'success')
         }
       })()
     },
-    [drawerConversations, showFloat],
+    [drawerConversations, showFloat, t],
   )
 
   const handleDrawerOpenSettings = useCallback(() => {
@@ -278,15 +280,21 @@ export default function NewsScreenWrapper() {
   const drawerUser = useMemo(
     () => ({
       avatar: user?.avatar,
-      nickname: user?.nickname ?? user?.username ?? '未登录',
+      nickname: user?.nickname ?? user?.username ?? t('profile.notLoggedIn'),
       level: ((user as { isVip?: boolean } | null)?.isVip ? 'vip' : 'normal') as 'vip' | 'normal',
     }),
-    [user],
+    [user, t],
   )
 
   const leftActions = useMemo<ReadonlyArray<NavBarAction>>(
-    () => [{ icon: PanelLeftRounded, a11yLabel: '菜单', onPress: () => setDrawerVisible(true) }],
-    [],
+    () => [
+      {
+        icon: PanelLeftRounded,
+        a11yLabel: t('common.menu'),
+        onPress: () => setDrawerVisible(true),
+      },
+    ],
+    [t],
   )
 
   // 分享入口(孤儿路由修复:Share 注册无入口,资讯/动态页补挂)
@@ -294,14 +302,14 @@ export default function NewsScreenWrapper() {
     () => [
       {
         icon: ExternalLink,
-        label: '分享',
+        label: t('share.title'),
         onPress: () => {
           const nav = navigation.getParent<RootNav>() ?? navigation
           nav.navigate('Share')
         },
       },
     ],
-    [navigation],
+    [navigation, t],
   )
 
   const load = useCallback(
@@ -322,7 +330,7 @@ export default function NewsScreenWrapper() {
             id: k.id,
             title: k.title,
             summary: k.summary,
-            authorName: k.authorName || '佚名',
+            authorName: k.authorName || t('news.anonAuthor'),
             createdAt: k.createdAt,
             viewCount: k.viewCount ?? 0,
             category: k.category,
@@ -335,14 +343,14 @@ export default function NewsScreenWrapper() {
         } else {
           if (!append) {
             setItems([])
-            setError(apiFailureToText(res, '加载失败'))
+            setError(apiFailureToText(res, t('chat.notes.loadFailShort')))
           }
         }
       } catch (e: unknown) {
         const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
         if (!append) {
           setItems([])
-          setError(detail.trim() ? toUserFriendlyMessage(e) : '网络异常')
+          setError(detail.trim() ? toUserFriendlyMessage(e) : t('news.netFail'))
         }
       } finally {
         if (!append) setLoading(false)
@@ -350,7 +358,7 @@ export default function NewsScreenWrapper() {
         setLoadingMore(false)
       }
     },
-    [selectedCategory],
+    [selectedCategory, t],
   )
 
   useEffect(() => {
@@ -386,8 +394,8 @@ export default function NewsScreenWrapper() {
   )
 
   const categoriesForShared = useMemo<CategoryItem[]>(
-    () => CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
-    [],
+    () => CATEGORIES.map((c) => ({ id: c.id, label: t(c.label) })),
+    [t],
   )
 
   const handleBack = useCallback(() => {
@@ -403,7 +411,7 @@ export default function NewsScreenWrapper() {
     <View style={styles.container}>
       <NavChrome>
         <NavBar
-          title="AI资讯"
+          title={t('news.title')}
           leftActions={leftActions}
           rightActions={rightActions}
           onBack={handleBack}
@@ -465,14 +473,18 @@ const styles = StyleSheet.create({
   } as ViewStyle,
 })
 
-/** ConversationDetail → DrawerConversationItem 映射(对齐 PlazaScreen/ProfileScreen 写法) */
-function mapConversationToDrawer(item: ConversationDetail): DrawerConversationItem {
+/** ConversationDetail → DrawerConversationItem 映射(对齐 PlazaScreen/ProfileScreen 写法)
+ *  tr 由调用方注入:模块顶层不调 t()(求值早于 I18nProvider 挂载,运行必炸) */
+function mapConversationToDrawer(
+  item: ConversationDetail,
+  tr: (key: string) => string,
+): DrawerConversationItem {
   const tsStr = item.lastMessageAt ?? item.updatedAt ?? item.createdAt
   const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
   const model = item.model ?? ''
   return {
     id: item.id,
-    title: item.title?.trim() || '未命名对话',
+    title: item.title?.trim() || tr('plaza.index.untitledConv'),
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: item.favorite === true,
