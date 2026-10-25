@@ -74,6 +74,8 @@ class PoolAccountIn(BaseModel):
     machineId: str | None = Field(default=None, max_length=128)
     cosy: dict[str, str] | None = None
     expiresAt: str | None = Field(default=None, max_length=64)
+    deviceKeyPem: str | None = Field(default=None, max_length=4096)
+    devicePubPem: str | None = Field(default=None, max_length=4096)
 
 
 class PoolSyncIn(BaseModel):
@@ -132,6 +134,12 @@ def _build_device_map(acc: PoolAccountIn) -> dict[str, Any]:
         dm["pool_device_id"] = acc.deviceId
     if acc.machineId:
         dm["pool_machine_id"] = acc.machineId
+    # Trae 设备证明密钥对(2026-10-26 补链):桌面渠道签发的票只能由签发它的设备身份续;
+    # 不过桥 ⇒ 号池里的 Trae 号永远刷不动(10101)。反向 bridge 回灌时按同两键读回。
+    if acc.deviceKeyPem:
+        dm["pool_device_key_pem"] = acc.deviceKeyPem
+    if acc.devicePubPem:
+        dm["pool_device_pub_pem"] = acc.devicePubPem
     return dm
 
 

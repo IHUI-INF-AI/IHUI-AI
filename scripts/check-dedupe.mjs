@@ -18,10 +18,12 @@
  * 用法：pnpm check:dedupe
  *       pnpm check:dedupe --staged  (pre-commit 模式，仅当 pnpm-lock.yaml 变更时检查)
  */
-import { spawnSync, execSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -33,13 +35,8 @@ const isStaged = process.argv.includes('--staged')
 if (isStaged) {
   let staged = ''
   try {
-    staged = execSync('git diff --cached --name-only', {
-      cwd: ROOT,
-      encoding: 'utf8',
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
+    staged = gitRaw(['diff', '--cached', '--name-only'], ROOT)
   } catch {
     // 非 git 环境或无暂存文件，跳过
     process.exit(0)

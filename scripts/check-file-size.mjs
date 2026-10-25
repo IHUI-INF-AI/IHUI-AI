@@ -36,10 +36,10 @@
  *
  * 跳过方法(紧急):HUSKY_SKIP_FILE_SIZE=1 git commit ...
  */
-import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -137,13 +137,8 @@ function scanRoots() {
 
 function getStagedAddedFiles() {
   try {
-    const output = execSync('git diff --cached --diff-filter=A --name-only', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
+    const output = gitRaw(['diff', '--cached', '--diff-filter=A', '--name-only'], ROOT)
     return output
       .split('\n')
       .filter(Boolean)

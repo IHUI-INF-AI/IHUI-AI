@@ -139,6 +139,8 @@ vi.mock('../../services/relay-account-pool-checkin-sync.js', () => ({
   markCheckinSyncPending: vi.fn(async () => {}),
   clearCheckinSyncPending: vi.fn(async () => {}),
   extractCosy: vi.fn(() => null),
+  // 设备密钥投影:本测不关心其判据(真实现由 tests/relay-account-device-key-bridge.test.ts 锁)
+  pemFromSecrets: vi.fn(() => null),
   fetchPoolStatus: vi.fn(
     async (_p: string, target: { poolAccountId: string; uid: string }) =>
       hoisted.statusViews[target.uid] ?? { ok: true, found: false },
