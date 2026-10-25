@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "dailyRegistrationQuota": 3,
+  "sources": ["mail-failure", "index-unmerged"]
+}
