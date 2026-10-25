@@ -39,13 +39,21 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
   const dialogRef = React.useRef<HTMLDivElement>(null)
   const closeButtonRef = React.useRef<HTMLButtonElement>(null)
   const titleId = React.useId()
+  // 在途请求序号(2026-10-26):开→换 itemId→再切窗口 连发多次时,慢的旧窗口响应曾按到达顺序
+  // 覆盖新窗口数据(曲线与标题错位)、旧 finally 还会提前熄灭 loading。规则:最后一发才算数。
+  const requestSeqRef = React.useRef(0)
 
   React.useEffect(() => {
     if (!open || !itemId) return
+    const mine = ++requestSeqRef.current
     setLoading(true)
     fetchAiTrendChart(itemId, window)
-      .then(setData)
-      .finally(() => setLoading(false))
+      .then((d) => {
+        if (requestSeqRef.current === mine) setData(d)
+      })
+      .finally(() => {
+        if (requestSeqRef.current === mine) setLoading(false)
+      })
   }, [open, itemId, window])
 
   // 无障碍:ESC 关闭 + focus trap + 焦点还原
