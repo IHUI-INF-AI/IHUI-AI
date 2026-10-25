@@ -82,6 +82,9 @@ fn main() {
             "set_tray_always_visible",
             "get_desktop_prefs",
             "set_desktop_prefs",
+            // 2026-10-25 立:浏览器内存策略设置(标签上限 / 空闲休眠阈值)。
+            "get_browser_settings",
+            "set_browser_settings",
             "resolve_close_choice",
             "set_desktop_badge",
             "take_pending_deep_links",

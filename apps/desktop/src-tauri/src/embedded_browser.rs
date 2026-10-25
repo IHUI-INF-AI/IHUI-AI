@@ -97,8 +97,11 @@ const SENTINEL_HOST: &str = "browser.ihui.invalid";
 #[allow(dead_code)]
 const BAR_HEIGHT: u32 = 72;
 
-/// 单窗最多标签数(防御性上限,避免无限建 webview)。
-const MAX_TABS: usize = 12;
+/// 独立窗口同时存在的标签数上限。取自设置项 `browser-settings.json` 的 `max_tabs`
+/// (默认 12,允许 4..=16);每次判定现读,改完立即生效。防御性上限,避免无限建 webview。
+fn max_tabs() -> usize {
+    crate::browser_settings::current().max_tabs as usize
+}
 
 /// `wb-checkin-login` 看护轮询的防重入闸(2026-10-17):进行中再触发直接忽略,
 /// 用户在签到页狂点按钮不叠加看护任务。所有退出路径(ok/超时/关窗)都复位。
@@ -740,15 +743,23 @@ pub fn active_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
 
 /// 隐藏标签「安静」满这么久就休眠丢弃(销毁 webview,切回按 url 重载)。
 ///
-/// 停靠档与独立窗口**共用**同一阈值:`IHUI_TAB_IDLE_DISCARD_SECS` 覆盖(最小 5s),
-/// 默认 15 分钟 —— 比 Chrome 的 Memory Saver 保守,但足够把"开一堆标签忘了关"
+/// 停靠档与独立窗口**共用**同一阈值,三层优先级(高 → 低):
+/// ①环境变量 `IHUI_TAB_IDLE_DISCARD_SECS`(验收脚本用,最小 5s;`0` = 关闭);
+/// ②设置项 `browser-settings.json` 的 `idle_discard_secs`(`0` = 关闭空闲休眠);
+/// ③默认 15 分钟 —— 比 Chrome 的 Memory Saver 保守,但足够把"开一堆标签忘了关"
 /// 的内存还回去。
-pub(crate) fn idle_discard_threshold() -> Duration {
-    let secs = std::env::var("IHUI_TAB_IDLE_DISCARD_SECS")
+///
+/// `None` = 用户关了空闲休眠:调用方只冻结不销毁。每次判定都现读设置,
+/// 改完下一轮维护即生效(不必重启)。
+pub(crate) fn idle_discard_threshold() -> Option<Duration> {
+    if let Some(secs) = std::env::var("IHUI_TAB_IDLE_DISCARD_SECS")
         .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(900);
-    Duration::from_secs(secs.max(5))
+        .and_then(|v| v.trim().parse::<u64>().ok())
+    {
+        return if secs == 0 { None } else { Some(Duration::from_secs(secs.max(5))) };
+    }
+    let secs = crate::browser_settings::current().idle_discard_secs;
+    if secs == 0 { None } else { Some(Duration::from_secs(u64::from(secs))) }
 }
 
 /// 把某个 webview 的内存目标档位切到 Low / Normal(Windows / WebView2)。
@@ -983,6 +994,8 @@ async fn maintain_hidden_tab(app: AppHandle, id: u64, label: String, token: u64)
         }
     }
 
+    // `None` = 用户在设置里关了空闲休眠:仍然每 30s 补一次挂起(冻结),
+    // 但永不走 discard 分支 —— 内存还一半,页面状态不丢。
     let threshold = idle_discard_threshold();
     // "安静"从隐藏那一刻算起;检测到出声就重置(正在放歌/通话的标签不休眠)。
     let mut silent_since = Instant::now();
@@ -998,9 +1011,11 @@ async fn maintain_hidden_tab(app: AppHandle, id: u64, label: String, token: u64)
             silent_since = Instant::now();
             continue;
         }
-        if silent_since.elapsed() >= threshold {
-            discard_tab(&app, id);
-            return;
+        if let Some(t) = threshold {
+            if silent_since.elapsed() >= t {
+                discard_tab(&app, id);
+                return;
+            }
         }
         // 补挂起:切走时页面可能还在导航,那一次 `TrySuspend` 没生效且不会自动重试。
         set_memory_low(&wv, true);
@@ -1655,7 +1670,7 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction, source_tab: Opt
                 None
             } else {
                 let count = app.state::<BrowserManager>().with(|s| s.tabs.len());
-                if count >= MAX_TABS {
+                if count >= max_tabs() {
                     if let Some(wv) = active_wv() {
                         let _ = wv.navigate(login_url.clone());
                     }
@@ -1711,7 +1726,7 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction, source_tab: Opt
                 return;
             }
             let count = app.state::<BrowserManager>().with(|s| s.tabs.len());
-            if count >= MAX_TABS {
+            if count >= max_tabs() {
                 return;
             }
             let target = match u {
