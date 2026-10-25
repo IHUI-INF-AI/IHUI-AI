@@ -319,6 +319,8 @@ export interface FindPageUsageOpts {
   endTime?: string
   scope?: VisitScopeQuery
   platform?: VisitPlatformQuery
+  /** 排序键:'pv'=打开次数(默认),'uv'=去重访客数 */
+  sort?: 'pv' | 'uv'
   page: number
   pageSize: number
 }
@@ -344,6 +346,11 @@ export async function getPageUsageList(opts: FindPageUsageOpts): Promise<PageUsa
     isNotNull(visitLogs.url),
   )
   const uvExpr = sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`
+  // 排序键与聚合口径同源:按 PV 排 = count(*);按 UV 排 = 同一个 distinct 表达式
+  const orderExpr =
+    opts.sort === 'uv'
+      ? sql`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip})) desc`
+      : sql`count(${visitLogs.id}) desc`
   const [rows, totalRows, totalPvRows] = await Promise.all([
     db
       .select({
@@ -354,7 +361,7 @@ export async function getPageUsageList(opts: FindPageUsageOpts): Promise<PageUsa
       .from(visitLogs)
       .where(where)
       .groupBy(visitLogs.url)
-      .orderBy(desc(sql`count(${visitLogs.id})`))
+      .orderBy(orderExpr)
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
