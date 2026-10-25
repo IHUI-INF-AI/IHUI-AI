@@ -158,3 +158,9 @@
 {"web":"user/[id]","rn":"apps/mobile-rn/src/screens/UserPublicScreen.tsx","status":"aligned","note":"他人主页(轮14 四件套,落地后补登);开发即登记","at":"2026-10-24"}
 {"web":"settings/llm","rn":"apps/mobile-rn/src/screens/LlmSettingsScreen.tsx","status":"aligned","note":"BYOK 供应商管理 MVP(轮17,落地后补登);开发即登记","at":"2026-10-24"}
 {"web":"edu/shop","rn":"apps/mobile-rn/src/screens/EduShopScreen.tsx","status":"aligned","note":"教育商城双 Tab(轮19,落地后补登);开发即登记","at":"2026-10-24"}
+{"web":"docs/**","status":"excluded","reason":"产品文档站(agent/api/manual/mcp/models/quickstart 六段,首页 DocsIndexPage),文档阅读走 web/H5,App 不承载文档站","at":"2026-10-25"}
+{"web":"use-cases/**","status":"excluded","reason":"SEO 场景落地页(ai-design/ai-edu/ai-marketing/ai-research/ai-translation/code-assistant 等,首页 UseCasesIndexPage),营销物料不是 App 功能","at":"2026-10-25"}
+{"web":"developer/**","status":"excluded","reason":"开发者控制台(api-docs/billing/capabilities/conversations/enterprise/error-codes),面向 Web 开发者账号体系,App 不承载","at":"2026-10-25"}
+{"web":"feature-center/**","status":"excluded","reason":"功能中心目录页(agents/apis/documents/models/sdks 均为展示型索引),App 用首页/底部 Tab 承载同一批入口","at":"2026-10-25"}
+{"web":"spec/**","status":"excluded","reason":"规范生成器([id]/generate/templates),开发者工具,App 不承载","at":"2026-10-25"}
+{"web":"domains/**","status":"excluded","reason":"领域聚合 Hub 页(ai/content/edu/personal/trade 五页均为 AiHubPage 型导航聚合),App 用底部 Tab 承载同一入口","at":"2026-10-25"}

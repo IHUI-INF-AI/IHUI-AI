@@ -35,6 +35,8 @@ const stagedMode = argv.includes('--staged')
 const worktreeMode = argv.includes('--worktree')
 const topArg = argv.find((a) => a.startsWith('--top='))
 const topN = topArg ? Number.parseInt(topArg.split('=')[1], 10) : 3
+// 全量清单档:默认只给前 40 条候选建议(报告可读),--full 给全部未映射(分诊/批量登记用)
+const fullMode = argv.includes('--full')
 
 if (stagedMode && worktreeMode) {
   console.error('❌ 未判定:--staged 与 --worktree 同给,取材面不明(§0.4 不允许回落另一个面)')
@@ -241,10 +243,12 @@ function run() {
     rnOnly: rnOnly.length,
     rot,
     unmappedBySegment: segRows,
-    suggestions: unmapped.slice(0, Math.min(unmapped.length, 40)).map((r) => ({
-      web: r.route,
-      candidates: suggestCandidates(r.route, rnScreens, topN),
-    })),
+    suggestions: unmapped
+      .slice(0, fullMode ? unmapped.length : Math.min(unmapped.length, 40))
+      .map((r) => ({
+        web: r.route,
+        candidates: suggestCandidates(r.route, rnScreens, topN),
+      })),
   }
   if (jsonMode) {
     console.log(JSON.stringify(json, null, 2))

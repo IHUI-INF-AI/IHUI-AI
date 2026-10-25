@@ -35,6 +35,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { catBatch } from './lib/face-reader.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(HERE, '..')
@@ -96,6 +97,28 @@ function faceList(face, dirPrefix) {
   }
 }
 
+/** 同面批量预取缓存:逐文件 `git show` 在 Windows 上每次约 0.2~0.4s,~500 个屏要跑 2~3 分钟,
+ * 尺子慢到没人愿意日常跑就等于没有。catBatch 一次取完;取不到(抛)就**不填缓存**,
+ * 回落到原逐文件路径 —— 宁可慢,也不把"没取到"记成 null 冒充"该面没有这份件"。
+ * key 带面前缀(staged/head 同路径不同 blob,绝不能串)。 */
+const FACE_CACHE = new Map()
+function prefetchFace(face, rels) {
+  if (face === 'worktree' || rels.length === 0) return
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const keys = [...new Set(rels.map((r) => r.replace(/\\/g, '/')))]
+  const missing = keys.filter((k) => !FACE_CACHE.has(`${face}:${k}`))
+  if (missing.length === 0) return
+  let got
+  try {
+    got = catBatch(ROOT, missing.map((k) => prefix + k), { maxBuffer: 1 << 28 })
+  } catch {
+    return
+  }
+  for (const k of missing) {
+    if (got.has(prefix + k)) FACE_CACHE.set(`${face}:${k}`, got.get(prefix + k))
+  }
+}
+
 /** 当前面上的文件内容;读不到 = null(该面没有这份件,不回落另一个面) */
 function faceRead(face, rel) {
   const key = rel.replace(/\\/g, '/')
@@ -106,6 +129,7 @@ function faceRead(face, rel) {
       return null
     }
   }
+  if (FACE_CACHE.has(`${face}:${key}`)) return FACE_CACHE.get(`${face}:${key}`)
   const spec = face === 'staged' ? `:${key}` : `HEAD:${key}`
   try {
     return execFileSync('git', ['-C', ROOT, 'show', spec], {
@@ -144,13 +168,13 @@ function collectShared(face = FACE) {
 
 /** RN 屏:apps/mobile-rn/src/screens/*.tsx(按面读正文) */
 function collectRn(face = FACE) {
-  return faceList(face, RN_SCREENS)
-    .filter((rel) => rel.endsWith('.tsx'))
-    .map((rel) => ({
-      file: rel,
-      name: rel.split('/').pop().replace(/\.tsx$/, ''),
-      text: faceRead(face, rel),
-    }))
+  const files = faceList(face, RN_SCREENS).filter((rel) => rel.endsWith('.tsx'))
+  prefetchFace(face, files)
+  return files.map((rel) => ({
+    file: rel,
+    name: rel.split('/').pop().replace(/\.tsx$/, ''),
+    text: faceRead(face, rel),
+  }))
 }
 
 /** 同目录伴生样式表也算镜像标记载体(项目既有惯例:.css 头部写「对齐 RN 端 packages/app/...」) */
@@ -176,6 +200,11 @@ function collectMiniapp(face = FACE) {
     for (const p of m[2].matchAll(/'([^']+)'/g)) pages.push(`${root}/${p[1]}`)
   }
   const out = []
+  const candsAll = pages.flatMap((p) => [`${MP_SRC}/${p}.tsx`, `${MP_SRC}/${p}/index.tsx`, `${MP_SRC}/${p}/index.jsx`])
+  prefetchFace(face, [
+    ...candsAll,
+    ...candsAll.flatMap((c) => [c.replace(/\.tsx$/, '.css'), c.replace(/[^/]*$/, 'index.css')]),
+  ])
   for (const p of pages) {
     const cands = [`${MP_SRC}/${p}.tsx`, `${MP_SRC}/${p}/index.tsx`, `${MP_SRC}/${p}/index.jsx`]
     const hit = cands.find((c) => faceRead(face, c) !== null)
