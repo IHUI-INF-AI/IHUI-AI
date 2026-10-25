@@ -338,4 +338,23 @@ test('S11 analyze util 棘轮:HEAD 面 util 命中只报数不进阻断集,stage
   }
 })
 
+test('S12 面纪律反向:HEAD 干净而盘上新增重复 ⇒ head 档仍判绿(不读工作树),worktree 档才红', () => {
+  const dir = createRepo({ [SHARED_SRC]: SHARED_TEXT, [APP_BAD_REL]: 'export const webOnly = 1\n' })
+  try {
+    const head1 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head1.violations.length, 0, `HEAD 面干净的基线都不绿 ⇒ 判据失准(${JSON.stringify(head1.violations)})`)
+
+    // 只在盘上加重复(不 add、不 commit):HEAD 档必须照旧报 0,只有 worktree 档才看见
+    writeRepoFile(dir, APP_BAD_REL, APP_BAD_TEXT)
+    assert.equal(
+      gate.analyze({ root: dir, face: 'head' }).violations.length,
+      0,
+      '未提交的脏改动进了 HEAD 面 ⇒ 门对已入库代码给出假红',
+    )
+    assert.equal(gate.analyze({ root: dir, face: 'worktree' }).violations.length, 1, 'worktree 档没看见盘上的重复')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
