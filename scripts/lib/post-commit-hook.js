@@ -342,4 +342,150 @@ if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEA
     })
   }
 }
+
+// ─── 10. 跨端登记自动链路 —— web↔RN↔小程序 登记表自动追加(2026-10-25 立)─────────
+// (任务口径把这条叫"第 7 段";本文件 7 号已被上面「快档延后守门补跑」占,0 号更有两处,
+//  故按末尾续号登记为 10,不再添第三处重号。)
+// 立因(AGENTS.md §0.9「判据必须在真跑它的那一刻才成立:造好没装车 = 没有」):
+//   scripts/auto-register-cross-end.mjs 造完即**无人调用**—— 2026-10-25 现读:该名字在
+//   .husky/、scripts/guardian-runner.mjs、scripts/lib/pre-commit-hook.js、根 package.json
+//   四处零命中,只有它自己那一行注释。两条跨端登记表(scripts/data/web-rn-screen-map.jsonl
+//   与 scripts/data/cross-end-screen-registry.json)因此只能靠人工逐条登记,追不上屏的增长
+//   (web 路由 / 共享屏 / 小程序页计数一律现读,口径同该脚本头注,本文不复制读数)。
+// 为什么挂 post-commit 而不是 pre-commit:
+//   ① 本腿写的是**工作树**(map/registry 追加 + 给小程序页源码插镜像标记)。pre-commit 里动
+//      工作树,会赶上别人正在 add 的同一批文件被卷进暂存面(§12 多会话同仓禁令);
+//   ② 并发会话 routinely 用 --no-verify 提交,pre-commit 整层被一起跳过,自动登记就永远停在
+//      人工那一档;post-commit 即使 --no-verify 也会跑(与上面第 6 段同一条立因)。
+// 本腿绝不 `git add`、绝不提交:落库交给仓内既有的收编器 scripts/auto-commit-quiet.mjs
+//   (它专收"停留≥3 分钟未提交"的工作树改动,自带活文档行级归并与摘除台账复洁,不归本腿管)。
+//   本腿若自行 add/commit,就是在别人尚未提交的内容上叠提交,且与 O43②「钩子运行期外来件」
+//   护栏结构性冲突 —— 同第 9 段 README 两条腿从 pre-commit 移来的理由,一字不改地沿用。
+// 节流:整轮扫描要枚举全部 web 路由与共享屏并逐枚取 HEAD blob,耗时以分钟计(2026-10-25 现读:
+//   预演档单跑约 4.5 分钟;换机/换仓必重测,不得把本行当事实)。因此不能每次提交都跑:
+//   仓外状态文件 .ihui-agent/state/cross-end-autoreg.json 记 lastRunAt(ISO)+ headSha,
+//   距上次不足 CROSS_END_AUTOREG_WINDOW_MS(现值 30 分钟)直接跳过本腿。
+//   读不到 / 读坏 / 时刻字段形态坏 ⇒ 一律按"该跑"处理:失效方向必须是"多跑一次",
+//   绝不能变成"永不登记"(§0.3、§0.10)。
+// 防递归:IHUI_CROSS_END_AUTOREG_COMMIT=1(本腿不提交;旗子为"将来若接提交"预留,并透给子进程)。
+// 跳过:HUSKY_SKIP_CROSS_END_AUTOREG=1(应急放行,须留痕)。
+// 非阻塞:失败/超时只进 .ihui-agent/state/hook-logs/post-commit-cross-end-autoreg.log,
+//   不影响已落地的 commit 与第 3 段自动推送。
+// 结论行用 console.info 而不是 console.log:本文件 eslint 的 no-console 只放 warn/error/info,
+//   新腿不该认领新增告警(§0.2 差值棘轮:只拦本次带进来的;存量告警数以当次实测为准)。
+const CROSS_END_AUTOREG_STATE_FILE = join(ROOT, '.ihui-agent', 'state', 'cross-end-autoreg.json')
+const CROSS_END_AUTOREG_WINDOW_MS = 30 * 60 * 1000
+const CROSS_END_AUTOREG_SCRIPT = 'scripts/auto-register-cross-end.mjs'
+
+/**
+ * 纯判据(不碰 IO,供本段调用、也供人单独喂文本复算):状态文件文本 + 现在时刻 → 本腿跑不跑。
+ * 一切"取不到输入"的分支都落在 run=true —— 宁可多跑一次,不可不登记。
+ */
+function crossEndThrottleVerdict(stateText, nowMs, windowMs = CROSS_END_AUTOREG_WINDOW_MS) {
+  if (stateText === null || stateText === undefined || String(stateText).trim() === '')
+    return { run: true, reason: '状态文件读不到/为空 ⇒ 按"该跑"处理(失效方向=多跑一次)' }
+  let st
+  try {
+    st = JSON.parse(stateText)
+  } catch (e) {
+    return {
+      run: true,
+      reason: `状态文件不是合法 JSON(${e && e.message ? e.message : e})⇒ 按"该跑"处理`,
+    }
+  }
+  if (!st || typeof st !== 'object' || Array.isArray(st))
+    return { run: true, reason: '状态文件不是对象 ⇒ 按"该跑"处理' }
+  const last = typeof st.lastRunAt === 'string' ? Date.parse(st.lastRunAt) : NaN
+  if (!Number.isFinite(last))
+    return { run: true, reason: 'lastRunAt 缺失或形态坏 ⇒ 按"该跑"处理(绝不因读不懂就永不登记)' }
+  const ageMs = nowMs - last
+  if (ageMs < 0)
+    return { run: true, reason: `lastRunAt 在未来(ageMs=${ageMs})⇒ 时钟跳变,按"该跑"处理` }
+  const minutes = Math.floor(ageMs / 60000)
+  const windowMinutes = Math.round(windowMs / 60000)
+  if (ageMs >= windowMs)
+    return { run: true, reason: `距上次 ${minutes} 分钟 ≥ ${windowMinutes} 分钟窗口 ⇒ 该跑` }
+  return { run: false, reason: `距上次 ${minutes} 分钟 < ${windowMinutes} 分钟窗口 ⇒ 本轮跳过` }
+}
+
+function readCrossEndAutoregState() {
+  try {
+    return readFileSync(CROSS_END_AUTOREG_STATE_FILE, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+/** 状态文件是"节流凭据"不是判据输入:写不进去只回 false,绝不反过来影响本腿结论。 */
+function writeCrossEndAutoregState(patch) {
+  let base = {}
+  try {
+    const prev = JSON.parse(readFileSync(CROSS_END_AUTOREG_STATE_FILE, 'utf8'))
+    if (prev && typeof prev === 'object' && !Array.isArray(prev)) base = prev
+  } catch {
+    /* 读不到/读坏 ⇒ 从空对象重建(重建本身即"上一次不算数",与节流判据同向) */
+  }
+  try {
+    require('fs').writeFileSync(
+      CROSS_END_AUTOREG_STATE_FILE,
+      `${JSON.stringify({ ...base, ...patch }, null, 2)}\n`,
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
+if (
+  process.env.IHUI_CROSS_END_AUTOREG_COMMIT !== '1' &&
+  process.env.HUSKY_SKIP_CROSS_END_AUTOREG !== '1'
+) {
+  if (!existsSync(join(ROOT, CROSS_END_AUTOREG_SCRIPT))) {
+    // 器物不在工作树(未入库/别席 checkout 尚未拿到)⇒ 显式点名并跳过,**不盖 lastRunAt**:
+    // 它一旦入库,下一轮提交就该跑 —— 把"没装车"记成"刚跑过"正是 §0.3 禁的那类假绿。
+    console.info(
+      `⚠️  跨端登记自动器:${CROSS_END_AUTOREG_SCRIPT} 不在位 ⇒ 本腿跳过(未盖节流时刻,器物一到位即恢复)`,
+    )
+  } else {
+    const verdict = crossEndThrottleVerdict(readCrossEndAutoregState(), Date.now())
+    if (!verdict.run) {
+      // 跳过只打一行结论,不写 label 日志:提交频率远高于 30 分钟窗口,写日志等于刷屏。
+      console.info(`⏱  跨端登记自动器:${verdict.reason}(${CROSS_END_AUTOREG_STATE_FILE})`)
+    } else {
+      let headSha = ''
+      try {
+        headSha = gitRaw(['rev-parse', 'HEAD'], ROOT).trim()
+      } catch {
+        /* 取不到 HEAD ⇒ 记 null,供人判读,不影响本腿 */
+      }
+      // 先盖时刻再跑:孩子被 timeout 杀掉、机器断电时窗口仍然成立(下一轮 30 分钟后再来);
+      // 反过来"跑失败就退回窗口"会让一枚慢提交反复触发同一条 5 分钟级重活。
+      writeCrossEndAutoregState({
+        lastRunAt: new Date().toISOString(),
+        headSha: headSha || null,
+        windowMs: CROSS_END_AUTOREG_WINDOW_MS,
+        verdict: verdict.reason,
+      })
+      const ok = runLogged(
+        'post-commit-cross-end-autoreg',
+        `node ${CROSS_END_AUTOREG_SCRIPT} --apply`,
+        {
+          // 上限必须 ≥ 一轮完整扫描:2026-10-25 实测预演档单跑约 4.5 分钟,按任务口径的
+          // 120000 写会**每次都把孩子杀掉**(装了等于没装,§0.9),故取 8 分钟这一档。
+          timeout: 480000,
+          env: { IHUI_CROSS_END_AUTOREG_COMMIT: '1' },
+        },
+      )
+      writeCrossEndAutoregState({
+        lastResult: ok ? 'ok' : 'failed',
+        lastFinishedAt: new Date().toISOString(),
+      })
+      if (!ok) {
+        console.info(
+          '⚠️  跨端登记自动器失败/超时(非阻塞;日志 .ihui-agent/state/hook-logs/post-commit-cross-end-autoreg.log)',
+        )
+      }
+    }
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

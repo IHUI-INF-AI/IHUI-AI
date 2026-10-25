@@ -450,6 +450,11 @@
       "shared": "packages/app/src/features/feedback/FeedbackScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/FeedbackScreen.tsx",
       "miniapp": "pkg-user/user/feedback"
+    },
+    {
+      "shared": "packages/app/src/features/chat/ChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+      "miniapp": "pkg-ai/ai/chat"
     }
   ]
 }
