@@ -10,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native'
 import { Check, Wand2, X } from 'lucide-react-native'
@@ -18,6 +17,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
+import { TextField } from '../../components/TextField'
 
 /**
  * LLM 供应商设置(BYOK)共享屏 —— 渲染真相源(web 基准 = settings/llm:MVP 范围)。
@@ -194,7 +194,10 @@ export function LlmSettingsScreen({
                     {selected.name} · {selected.baseUrl}
                   </Text>
                 ) : null}
-                <TextInput
+                {/* G-978007:裸 TextInput → 共享 TextField(聚焦墨档描边);style 自带常态描边
+                    原样生效,聚焦只换色不改宽(变粗会压缩内容区令文字挪位) */}
+                <TextField
+                  colorScheme={colorScheme}
                   value={apiKey}
                   onChangeText={onApiKeyChange}
                   placeholder={t('byok.keyPlaceholder')}
