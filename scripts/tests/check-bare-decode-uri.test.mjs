@@ -41,8 +41,8 @@ test('T1 真仓双面:同一判据判 HEAD 与工作树,工作树(safe 化后)�
   const headBare = gate.classifyDecodes(maskComments(head), head).bare.length
   const workBare = gate.classifyDecodes(maskComments(work), work).bare.length
   assert.ok(
-    head.includes('decodeURIComponent(') || work.includes('decodeURIComponent('),
-    '两面都不再含任何 decode 调用形态 ⇒ 本例输入前提已消失,该换文件而不是让它假绿',
+    /decodeURIComponent\(/i.test(head) || /decodeURIComponent\(/i.test(work),
+    '两面都不再含任何 decode 调用形态 ⇒ 本例输入前提已消失,该换文件而不是让它假绿(大小写不敏感:safe 版是大写 D)',
   )
   assert.equal(workBare, 0, `工作树面判出 ${workBare} 处裸 decode ⇒ 要么修复被回退,要么 safe 出口被误伤`)
   assert.ok(headBare >= workBare, 'HEAD 面比工作树还干净?两面单调关系破了(棘轮锚会跟着漂移)')
