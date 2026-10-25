@@ -72,6 +72,14 @@ const SCOPE_OPTIONS: Array<{ value: VisitScope; label: string }> = [
   { value: 'auth', label: '登录页' },
   { value: 'all', label: '全部' },
 ]
+/** 端筛选:与 /ops-wallboard 的 platformSplit 同一分桶(web 裸路径 / rn / mp 前缀)。 */
+type VisitPlatform = 'all' | 'web' | 'rn' | 'mp'
+const PLATFORM_OPTIONS: Array<{ value: VisitPlatform; label: string }> = [
+  { value: 'all', label: '全部端' },
+  { value: 'web', label: '网站' },
+  { value: 'rn', label: '移动端' },
+  { value: 'mp', label: '小程序' },
+]
 const SCOPE_LABEL: Record<PageUsageRow['scope'], string> = {
   public: '前台',
   admin: '后台',
@@ -98,6 +106,7 @@ export default function VisitTrackingPage() {
   const [keyword, setKeyword] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [scope, setScope] = React.useState<VisitScope>('public')
+  const [platform, setPlatform] = React.useState<VisitPlatform>('all')
   const pageSize = 15
 
   const qs = buildQs({ startTime: start, endTime: end, scope })
@@ -127,13 +136,14 @@ export default function VisitTrackingPage() {
     queryFn: () => eduApi<PageList<VisitRow>>(`/api/admin/visit-tracking/log/list${listQs}`),
   })
   const { data: pageUsage, isLoading: lp } = useQuery({
-    queryKey: ['visit-tracking', 'pages', start, end, scope],
+    queryKey: ['visit-tracking', 'pages', start, end, scope, platform],
     queryFn: () =>
       eduApi<{ list: PageUsageRow[]; total: number; totalPv: number }>(
         `/api/admin/visit-tracking/stats/page${buildQs({
           startTime: start,
           endTime: end,
           scope,
+          platform,
           page: 1,
           pageSize: 10,
         })}`,
@@ -181,7 +191,8 @@ export default function VisitTrackingPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">访问追踪统计</h1>
         <p className="text-xs text-muted-foreground">
-          日期范围筛选 · 前台/后台/登录页口径切换 · PV/UV 趋势 · 页面使用排行 · 访问明细
+          日期范围筛选 · 前台/后台/登录页口径切换 · 排行可按端(网站/移动端/小程序)筛选 · PV/UV 趋势
+          · 页面使用排行 · 访问明细
         </p>
       </header>
 
@@ -268,6 +279,18 @@ export default function VisitTrackingPage() {
         <CardHeader className="pb-2">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <CardTitle className="text-base">页面使用排行 TOP 10</CardTitle>
+            <div className="flex flex-wrap items-center gap-1">
+              {PLATFORM_OPTIONS.map((o) => (
+                <Button
+                  key={o.value}
+                  size="sm"
+                  variant={platform === o.value ? 'default' : 'outline'}
+                  onClick={() => setPlatform(o.value)}
+                >
+                  {o.label}
+                </Button>
+              ))}
+            </div>
             {pageUsage && (
               <span className="text-xs text-muted-foreground">
                 共 {pageUsage.total} 个页面 · 区间总 PV {pageUsage.totalPv}

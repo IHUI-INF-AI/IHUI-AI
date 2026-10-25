@@ -18,7 +18,9 @@ vi.mock('../src/db/index.js', () => ({ db: {} }))
 import {
   classifyVisitScope,
   visitScopeFilter,
+  visitPlatformFilter,
   VISIT_SCOPE_VALUES,
+  VISIT_PLATFORM_VALUES,
 } from '../src/db/visit-tracking-queries.js'
 
 describe('classifyVisitScope', () => {
@@ -58,6 +60,23 @@ describe('visitScopeFilter', () => {
 
   it('枚举覆盖四档,新增一档必须同步判据', () => {
     expect([...VISIT_SCOPE_VALUES]).toEqual(['public', 'admin', 'auth', 'all'])
+  })
+})
+
+describe('visitPlatformFilter', () => {
+  it("'all'/缺省不产生条件", () => {
+    expect(visitPlatformFilter('all')).toBeUndefined()
+    expect(visitPlatformFilter(undefined)).toBeUndefined()
+  })
+
+  it('三端各自产出条件', () => {
+    expect(visitPlatformFilter('web')).toBeDefined()
+    expect(visitPlatformFilter('rn')).toBeDefined()
+    expect(visitPlatformFilter('mp')).toBeDefined()
+  })
+
+  it('枚举覆盖四档,新增一端必须同步判据', () => {
+    expect([...VISIT_PLATFORM_VALUES]).toEqual(['web', 'rn', 'mp', 'all'])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
