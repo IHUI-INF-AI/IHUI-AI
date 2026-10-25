@@ -39,7 +39,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, X } from 'lucide-react'
 import { useSwarmTopology } from '@/hooks/use-subagent-dispatch'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { formatDateOnly } from '@/lib/date-utils'
 import { PortalPanel } from '@/components/feedback/portal-panel'
@@ -761,9 +761,8 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
     const load = async () => {
       setLoading(true)
       try {
-        const r = await fetchApi<CollaborationRecord>(`/api/subagents/${dispatchId}/collaboration`)
-        if (!cancelled && r.success && r.data) setRecord(r.data)
-        else if (!cancelled) setRecord(null)
+        const r = await api<CollaborationRecord>(`/api/subagents/${dispatchId}/collaboration`)
+        if (!cancelled) setRecord(r)
       } catch {
         if (!cancelled) setRecord(null)
       } finally {
@@ -1045,11 +1044,8 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
     const load = async () => {
       setLoading(true)
       try {
-        const r = await fetchApi<EvolutionHistory>(
-          `/api/subagents/agents/${role}/evolution-history`,
-        )
-        if (!cancelled && r.success && r.data) setHistory(r.data)
-        else if (!cancelled) setHistory(null)
+        const r = await api<EvolutionHistory>(`/api/subagents/agents/${role}/evolution-history`)
+        if (!cancelled) setHistory(r)
       } catch {
         if (!cancelled) setHistory(null)
       } finally {

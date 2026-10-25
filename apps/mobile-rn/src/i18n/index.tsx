@@ -2,7 +2,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { LOCALE_STORAGE_KEY } from '@ihui/shared/constants'
 import { mergeMessages, translate, getValueByPath } from '@ihui/i18n/loader'
 import { DEFAULT_LOCALE, type Locale, type Messages } from '@ihui/i18n/types'
@@ -85,30 +93,39 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     })()
   }, [])
 
-  const setLocale = async (next: Locale) => {
+  // 2026-10-25 定身:以下三个身份都必须只在「真正会变的东西」变化时才换新。
+  // 母型缺陷原形:setLocale / t 是渲染期新建的箭头函数,value 又是渲染期新建的字面量,
+  // 于是 Provider 每渲染一次整个 context 就换一次身份 —— 任何把 `t` 写进 effect 依赖的
+  // 真实页面都会跟着重跑(实测形状 = 钱包页 [load] 重跑、getBalance 被真调第二次)。
+  // 依赖数组里只放会改变行为的量:transport/messages 是模块级,setLocaleState 是 useState
+  // 自带的稳定 setter,都不进依赖;t 唯一会变的原因是 locale。回归锁见
+  // tests/i18n-provider-value-identity.test.tsx(改前后红绿成对钉死)。
+  const setLocale = useCallback(async (next: Locale): Promise<void> => {
     await transport.setItem(LOCALE_STORAGE_KEY, next)
     setLocaleState(next)
-  }
-
-  // setLocale 每次渲染都是新函数,用 ref 兜住最新实现,注册出去的代理保持稳定(只注册一次)
-  const setLocaleRef = useRef(setLocale)
-  setLocaleRef.current = setLocale
-  useEffect(() => {
-    registerLocaleSetter((l) => {
-      void setLocaleRef.current(l)
-    })
-    return () => registerLocaleSetter(null)
   }, [])
 
-  const t = (key: string, params?: Record<string, string | number>): string => {
-    const resolvedKey = key === 'course.pay' ? 'courseDetail.pay' : key
-    return translate(messages[locale], resolvedKey, {
-      fallback: messages[DEFAULT_LOCALE],
-      params,
-    })
-  }
+  // 组件树外的 locale 切换入口按稳定身份注册(成因见 registerLocaleSetter 的头注);
+  // setLocale 自身已稳定,不再需要 useRef 兜一层。
+  useEffect(() => {
+    registerLocaleSetter(setLocale)
+    return () => registerLocaleSetter(null)
+  }, [setLocale])
 
-  return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>
+  const t = useCallback(
+    (key: string, params?: Record<string, string | number>): string => {
+      const resolvedKey = key === 'course.pay' ? 'courseDetail.pay' : key
+      return translate(messages[locale], resolvedKey, {
+        fallback: messages[DEFAULT_LOCALE],
+        params,
+      })
+    },
+    [locale],
+  )
+
+  const value = useMemo<I18nContextValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t])
+
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 
 export function useI18n(): I18nContextValue {
