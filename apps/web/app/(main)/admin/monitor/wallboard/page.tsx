@@ -210,6 +210,10 @@ interface TrafficSnapshot {
   scopeSplit: Array<{ scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
   /** 近 24h 各端 PV/UV(web/RN/小程序);null = 同一条腿取不到 */
   platformSplit: Array<{ platform: 'web' | 'rn' | 'mp'; pv: number; uv: number }> | null
+  /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
+  online5m: number | null
+  /** 近 5 分钟浏览量 */
+  pv5m: number | null
 }
 
 interface RelayPoolSnapshot {
@@ -2625,7 +2629,15 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             title={t('panelPageUsage')}
             icon={<MousePointerClick className="h-3.5 w-3.5" />}
             className="wb-c6 wb-c3-md"
-            right={traffic === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
+            right={
+              traffic === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : isNum(traffic.online5m) ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('onlineNow', { count: fmtInt(traffic.online5m) })}
+                </span>
+              ) : null
+            }
             bodyClassName="wb-split wb-split-c3"
           >
             <div>

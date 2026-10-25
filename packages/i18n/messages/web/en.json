@@ -867,6 +867,7 @@
       "level3": "Diamond",
       "panelTrafficRobot": "Visitors & bots",
       "panelPageUsage": "Page usage",
+      "onlineNow": "Online {count}",
       "panelPlatforms": "Usage by platform",
       "platformWeb": "Web",
       "platformRn": "Mobile app",
