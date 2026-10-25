@@ -54,6 +54,7 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   audio_transcription: 'toolAudioTranscription',
   vision_analyze: 'toolVisionAnalyze',
   dispatch_subagent: 'toolDispatchSubagent',
+  team_task: 'toolTeamTask',
   schedule_task: 'toolScheduleTask',
   configure_automation_task: 'toolScheduleTask',
   bg_task_status: 'toolBgTaskStatus',
@@ -151,9 +152,6 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   // 判定面取索引 blob 时,连纯 HEAD 索引也判红 ⇒ 任何人的提交都会被它挡住(恒红门,§0.2)。
   // 补这一行 + 五语言 `toolInitAgentsMd` / `toolInitAgentsMdActivity` 即归零 89/89。
   init_agents_md: 'toolInitAgentsMd',
-  // 2026-10-25 立:D18 团队协作共享任务板(mcp_server._tool_team_task,add/claim/update/list)。
-  // 守门 55 三方比对 `_TOOLS × 本表 × 五语言 taskStatus` 少这行 ⇒ 界面直显裸码名 team_task。
-  team_task: 'toolTeamTask',
 }
 
 export function toolDisplayKey(toolName: string): string | null {

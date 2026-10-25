@@ -17,6 +17,7 @@
  * 不连任何 DB(db/usercenter-queries/learn-extended-queries 均为 mock)。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import type * as LearnExtendedQueries from '../src/db/learn-extended-queries.js'
 import Fastify, { type FastifyInstance } from 'fastify'
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
@@ -83,7 +84,7 @@ vi.mock('../src/db/index.js', () => {
 
 // 只替换 GET /edu/qa 实际消费的 findAllCommunityPosts,其余导出走真模块(顶层仅 import db,已被 mock)
 vi.mock('../src/db/learn-extended-queries.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/db/learn-extended-queries.js')>()
+  const actual = await importOriginal<typeof LearnExtendedQueries>()
   return { ...actual, findAllCommunityPosts: mockFindAllCommunityPosts }
 })
 

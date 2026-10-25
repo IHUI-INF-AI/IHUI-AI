@@ -17,7 +17,14 @@
  */
 
 /** 剥掉块注释与行注释后的等行文本(行号不变 —— 判红要指得回原文行,删字符会错位)。 */
-import { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx } from './length-units.mjs'
+import {
+  RPX_PER_PX,
+  PX_WRAPPERS,
+  lengthToPx,
+  constantMapOf,
+  constExprPx,
+  pxWrappersOf,
+} from './length-units.mjs'
 /**
  * "这条半径相对它自己那个盒是几何真圆/胶囊还是档位取用"的判定**只有一份实现**,住在
  * `lib/box-geometry.mjs`(守门 77 的 B1/C6 用的就是它)。RD 维要排除真圆/胶囊时必须调它,
@@ -31,6 +38,126 @@ import { classifyRadiusGeometry } from './box-geometry.mjs'
  * 圆角专属逻辑(radiusLookup / 标记识别)—— 那会让每一个按文件清单搭的几何夹具都得复制圆角层。
  */
 export { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx }
+
+/**
+ * 换算器调用式(单参)的两枚正则 —— **全仓只此一份形态识别**。
+ * `length-units` 的 `constExprPx` 在查询侧也认一次调用形态,但那是它自己的求值入口;
+ * 本文件的采集侧只认这两枚,门与 RD 维都从这里取,谁也不许再抄第三份
+ * (两处算同一件事必漂移,§0.6/§22c)。
+ */
+const CONV_CALL_HEAD_RE = /^[ \t]*([A-Za-z_$][\w$]*)\(/
+const CONV_ARG_RE = /^[ \t]*([A-Za-z_$][\w$]*)\(\s*([^()]*?)\s*\)[ \t]*$/
+
+/**
+ * 一条源码文本里**所有**换算器调用 `名字(实参)`(含嵌在三元里的分支、`...spread` 后的样式键)。
+ * 返回 `[{ raw, callee, arg }]`,实参**原文**保留(算术 / 三元留在实参里 ⇒ 由解值那一步判"解不到",
+ * 不在形态识别处顺手放过)。`raw` 是原文切片,未判定点名时逐字回给读者。
+ */
+export function converterCallsInLine(line) {
+  const out = []
+  const text = String(line ?? '')
+  for (const m of text.matchAll(/[A-Za-z_$][\w$]*\(/g)) {
+    const head = CONV_CALL_HEAD_RE.exec(m[0])
+    if (!head) continue
+    const callee = head[1]
+    let depth = 1
+    let end = -1
+    for (let i = m.index + m[0].length; i < text.length; i++) {
+      const c = text[i]
+      if (c === '(') depth++
+      else if (c === ')') {
+        depth--
+        if (depth === 0) {
+          end = i
+          break
+        }
+      }
+    }
+    if (end < 0) continue
+    out.push({
+      raw: text.slice(m.index, end + 1),
+      // `at` = 调用式在文本里的起始下标:调用方要用它找**紧邻在前的那个键名**(`keyed()` 语境筛),
+      // 否则同一行的 `borderRadius: toRpx(RD.sm)` 会被几何维当成盒档收进来(圆角有自己的一维)。
+      at: m.index,
+      callee,
+      arg: text.slice(m.index + m[0].length, end),
+    })
+  }
+  return out
+}
+
+/**
+ * **px 保形换算器表的唯一出口** = `length-units.pxWrappersOf` 的结论 ∪ 模板字面量形态补集。
+ *
+ * 为什么这一支必须由本文件补、而不是让调用方各写一份:`length-units` 的自证识别式明确登记过
+ * 两个盲区(模板字面量式与 `function` 声明式),而小程序镜像件的主流写法恰是
+ * `const toRpx = (px: number): string => \`${px * 2}rpx\``(HEAD 实测 13 枚)—— 盲区不补,
+ * 换算器包字面量在几何维与圆角维**一起**读不到,表现不是"少一个数"而是**凭空造出跨端分叉**
+ * (门 128 的 ScreenStates 族实测因此虚报"仅 RN 档 8/12/16/44/92" + "RD 仅 RN 4")。
+ * 折算算术一位不动:认出的条目仍交回 `constExprPx` 按 `倍率 / RPX_PER_PX` 折,
+ * 认不出倍率就是 null,由调用方按未判定报名,**绝不按名字假定恒等**。
+ */
+export function pxPreservingWrappersOf(src) {
+  const out = pxWrappersOf(src)
+  for (const raw of String(src ?? '').split('\n')) {
+    const t = raw.trim()
+    if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
+    const m = TEMPLATE_WRAPPER_RE.exec(raw)
+    if (!m) continue
+    const name = m[1]
+    if (out.has(name) || name === 'rpx') continue
+    const body = (m[3] || '').replace(/\s+/g, '')
+    const unit = (m[4] || '').toLowerCase()
+    // 收尾单位不是 rpx/px ⇒ 它不是"把逻辑 px 写成该端长度",不认领(猜不得)。
+    if (unit !== 'rpx' && unit !== 'px') continue
+    const mul =
+      new RegExp(`^${m[2]}\\*([A-Za-z_$][\\w$]*|[0-9.]+)$`).exec(body) ||
+      new RegExp(`^([A-Za-z_$][\\w$]*|[0-9.]+)\\*${m[2]}$`).exec(body)
+    if (!mul || !mul[1]) continue
+    // `rpx(n)` 与 `px(n)` 在小程序端折回同一物理量(facePx 的构建链事实),倍率口径同一条。
+    out.set(name, { kind: 'rpx', coef: mul[1] })
+  }
+  return out
+}
+
+const TEMPLATE_WRAPPER_RE =
+  /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*\(\s*([A-Za-z_$][\w$]*)\s*(?:\??\s*:\s*[^()=]*)?\)\s*(?::[^=]*?)?=>\s*`\$\{([^}]*)\}([^`]*)`/
+
+/**
+ * 文件内**对象字面量常量表**摊平成成员档:`const SP = { lg: 16, md: 12 }` → `SP.lg → 16`。
+ * 大括号配平与键值两态识别复用本文件既有的 `objectEntries`(档位表解析那份),不另写第二份;
+ * 值位**只认数字**(成员指向表达式的不认 ⇒ 由解值那一步落未判定)。
+ * 为什么必须有它:成员访问 `toRpx(SP.md)` 既不是单一源档名(`_PX` / `geometry.X` 那一族由门内的
+ * tiers 求交管)、也不是标量 `const X = 数`(`constantMapOf` 不认对象体),两头都不认 ⇒ 整族隐身。
+ */
+export function objectMemberConstants(src) {
+  const masked = maskComments(src || '')
+  const out = new Map()
+  for (const m of masked.matchAll(/(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*\{/g)) {
+    for (const [k, v] of objectEntries(masked.slice(m.index), m[1])) {
+      if (!/^\d+(?:\.\d+)?$/.test(String(v))) continue
+      const key = `${m[1]}.${k}`
+      if (!out.has(key)) out.set(key, Number(v))
+    }
+  }
+  return out
+}
+
+/**
+ * 换算器解值所需的**同一张取源表**(几何维与圆角维共用):
+ * 同文件标量常量 + 文件内对象成员档 + px 保形换算器表,再并上调用方的跨文件具名档。
+ *
+ * 换算器表**覆盖** `constantMapOf` 顺手挂的那份(它是本份的子集,见上条头注),而不是另派生一条
+ * 查询链 —— 半径侧 `radiusOperandPx` 与盒形侧门内 `readGeometry` 因此走的是同一份表、同一个
+ * `constExprPx`;两处各认一半就会漂开成"半径认得 toRpx 而盒形不认"那种**自洽的假结论**。
+ */
+export function lengthConstsOf(src, extra) {
+  const map = new Map(constantMapOf(src))
+  for (const [k, v] of objectMemberConstants(src)) map.set(k, v)
+  map.set(PX_WRAPPERS, pxPreservingWrappersOf(src))
+  if (extra) for (const [k, v] of Object.entries(extra)) if (map.get(k) === undefined) map.set(k, v)
+  return map
+}
 
 function maskComments(src) {
   const out = []
@@ -60,42 +187,51 @@ function maskComments(src) {
   return out.join('\n')
 }
 
-/** 取 `export const <NAME> = { … }` 块里的 `键: 值` 对(键可带引号,值可为数字或标识符)。 */
-function objectEntries(masked, name) {
+/** 取 `export const <NAME> = { … }` 块的**体内文本**(大括号配平;取不到 ⇒ 空串)。 */
+function objectBody(masked, name) {
   const start = masked.indexOf(name)
-  if (start < 0) return []
+  if (start < 0) return ''
   const brace = masked.indexOf('{', start)
-  if (brace < 0) return []
+  if (brace < 0) return ''
   let depth = 0
-  let end = -1
   for (let i = brace; i < masked.length; i++) {
     if (masked[i] === '{') depth++
     else if (masked[i] === '}') {
       depth--
-      if (depth === 0) {
-        end = i
-        break
-      }
+      if (depth === 0) return masked.slice(brace + 1, i)
     }
   }
-  if (end < 0) return []
-  const body = masked.slice(brace + 1, end)
+  return ''
+}
+
+/**
+ * 对象**体内文本** → `[键, 值]` 清单:先按换行切,再按逗号切(单行对象表 `const SP = { lg: 16, md: 12 }`
+ * 与多行档位表走同一条判据 —— 旧实现只按换行切,单行表整条不匹配 ⇒ 成员档一律读不到)。
+ * 键与值两态都要认:档位**值**是数字(`xs: 2`)、角色**值**是档位名标识符(`card: 'lg'`);
+ * 键则可能是数字开头的引号档名(`'2xl': 16`)—— 漏掉它就等于把 16px 这一整档从尺子上抹掉,
+ * 实测 FloatBox 小程序侧因此读成空集。"空表/空集"会被下游读成"没有差异",那是台瞎掉的尺子。
+ * **同一个坑的值侧版本**(2026-09-27 实测):`hero: '2xl'` 的值以数字开头,旧值支只认
+ * "字母开头的标识符"或"纯数字"两态 ⇒ 这一行整体不匹配 ⇒ 表里没有 role:hero,
+ * 于是守门 150 把三个 hero 站点报成 role-not-in-table(读起来像代码问题,其实是解析器丢项),
+ * 而且 hero 这一档从此**永不可判**。值支现在同样认数字开头的档名。
+ * 已知边界(如实登记,不猜):值里含逗号的字符串项会被切碎而后整条不匹配 ⇒ 那一项读不到,
+ * 由调用方按"未判定"报名;档位表/成员表的值都是数字或档名标识符,不落这一格。
+ */
+function entriesFromBody(body) {
   const out = []
-  for (const line of body.split('\n')) {
-    // 键与值两态都要认:档位**值**是数字(`xs: 2`)、角色**值**是档位名标识符(`card: 'lg'`);
-    // 键则可能是数字开头的引号档名(`'2xl': 16`)—— 漏掉它就等于把 16px 这一整档从尺子上抹掉,
-    // 实测 FloatBox 小程序侧因此读成空集。"空表/空集"会被下游读成"没有差异",那是台瞎掉的尺子。
-    // **同一个坑的值侧版本**(2026-09-27 实测):`hero: '2xl'` 的值以数字开头,旧值支只认
-    // "字母开头的标识符"或"纯数字"两态 ⇒ 这一行整体不匹配 ⇒ 表里没有 role:hero,
-    // 于是守门 150 把三个 hero 站点报成 role-not-in-table(读起来像代码问题,其实是解析器丢项),
-    // 而且 hero 这一档从此**永不可判**。值支现在同样认数字开头的档名。
+  for (const piece of body.split(/[\n,]/)) {
     const m =
-      /^\s*'?(?:([A-Za-z_$][\w$]*|\d[\w$]*))'?\s*:\s*'?'?([A-Za-z_$][\w$]*|\d[\w$]*)'?'?\s*,?\s*$/.exec(
-        line,
+      /^\s*'?(?:([A-Za-z_$][\w$]*|\d[\w$]*))'?\s*:\s*'?'?([A-Za-z_$][\w$]*|\d[\w$]*)'?'?\s*$/.exec(
+        piece,
       )
     if (m) out.push([m[1], m[2]])
   }
   return out
+}
+
+/** 取 `export const <NAME> = { … }` 块里的 `键: 值` 对(键可带引号,值可为数字或标识符)。 */
+function objectEntries(masked, name) {
+  return entriesFromBody(objectBody(masked, name))
 }
 
 /**
@@ -124,6 +260,66 @@ export function radiusLookup(radiusSrc) {
  * 单位折算层与档位表层都不该因为一个禁令正则而多一个依赖面。
  */
 
+
+/**
+ * 一段源文本里的**换算器包档取用** → `[{ raw, text, px, why? }]`,px 为 null = 未判定。
+ * 守门 128 的几何维与 RD 维**共用这一把尺**(§0.6 单一真相源):形态识别取 `converterCallsInLine`,
+ * 折算取 `length-units.constExprPx`,本函数只决定"哪些调用式归我管、解不到的怎么如实报名"。
+ *
+ * 让位规则(必须留,否则会**双口径判同一处**:旧 tiers 支按档名求交、这一支按表达式求值,
+ * 两套数同时进账就再也说不清哪一个作数):实参是单一源成员档(`taroGeometry.X` / `rnGeometry.X` /
+ * `GEOMETRY_PX.X`)或就在跨文件档表(`tiers`)里的键名时,这一支一条不采、也不报未判定 ——
+ * 那一型由门内的 tiers 求交判,那里还管着"折好的 rpx 再被换算器包一次 ⇒ 双重换算"的口径。
+ *
+ * 解不到(成员不在表里 / 实参含算术或三元 / 倍率取不到)⇒ `{ px:null, why }` **逐枚留痕**,
+ * 由调用方点名;绝不记 0、绝不记同值、绝不静默跳过("没判"写成"判过"是本仓最贵的失效型)。
+ */
+export function geometryItemsInSrc(text, consts, tiers = {}, opts = {}) {
+  const maxPx = Number.isFinite(opts.maxPx) ? opts.maxPx : Infinity
+  const known = (arg) =>
+    /\b(?:taroGeometry|rnGeometry|GEOMETRY_PX)\s*\./.test(arg) ||
+    (tiers && Object.prototype.hasOwnProperty.call(tiers, arg.replace(/\s+/g, '')))
+  const out = []
+  for (const c of converterCallsInLine(text)) {
+    // 只接**自证为 px 保形换算器**的那些名字:没声明过的函数名一律不归这一支管(按名字猜语义
+    // 等于给任意函数发"它只是换个写法"的合格证)。
+    if (!CONV_CALL_HEAD_RE.test(c.raw)) continue
+    const w = consts.get(PX_WRAPPERS)
+    if (!(w instanceof Map) || !w.has(c.callee)) continue
+    if (known(c.arg)) continue
+    const m = CONV_ARG_RE.exec(c.raw)
+    if (!m || !m[2] || /[?{}]/.test(m[2])) {
+      out.push({
+        raw: c.raw,
+        at: c.at,
+        text: c.arg.trim(),
+        px: null,
+        why: '实参含算术/三元或非单一表达式',
+      })
+      continue
+    }
+    /**
+     * 求值走**整条调用式**交回 `constExprPx` 那一份(不是只解实参):包裹器的倍率必须由它按
+     * `内层 × 倍率 / RPX_PER_PX` 折,倍率取不到就整体 null —— 只解实参等于按名字假定恒等,
+     * 那正是 `pxWrappersOf` 头注点名要防的那一型("有人把系数改成 3,尺子还替它发合格证")。
+     */
+    const px = constExprPx(c.raw, consts)
+    const why =
+      px === null || !Number.isFinite(px) || px <= 0
+        ? '整条换算式解不到(实参成员或换算倍率取不到)'
+        : px > maxPx
+          ? '折算读数超界'
+          : null
+    out.push({
+      raw: c.raw,
+      at: c.at,
+      text: m[2].trim(),
+      px: why === null ? Math.round(px * 100) / 100 : null,
+      ...(why === null ? {} : { why }),
+    })
+  }
+  return out
+}
 
 /**
  * 一行源码里的圆角**取档** → px 数组。逐行调用,好让豁免规则按行生效。
@@ -168,10 +364,11 @@ export function radiusOperandPx(text, table, consts, depth = 0) {
   const direct = lengthToPx(t)
   if (direct !== null) return direct
   /**
-   * 其余形态(成员档 `rnGeometry.tapBox`、指向它们的标识符)交给 `constExprPx` **那一份**求值 ——
-   * 半径侧与盒形侧量的是同一批常量,两边各写一遍必然出现"半径认得、盒形不认"的自洽假结论
-   * (限深与防自引用也在那一份里:上一版注释写着"防环"而实现没有 depth,`const A = A` 直接
-   * 把整门打成 RangeError —— 承诺了防护却没兑现,正是本仓守门 137 判的那一型)。
+   * 其余形态(成员档 `rnGeometry.tapBox`、指向它们的标识符、换算器包字面量 `toRpx(44)`)交给
+   * `constExprPx` **那一份**求值 —— 半径侧与盒形侧量的是同一批常量,两边各写一遍必然出现
+   * "半径认得、盒形不认"的自洽假结论(限深与防自引用也在那一份里:上一版注释写着"防环"而实现
+   * 没有 depth,`const A = A` 直接把整门打成 RangeError —— 承诺了防护却没兑现,正是本仓守门 137
+   * 判的那一型)。
    */
   return constExprPx(t, consts, depth)
 }
@@ -193,7 +390,7 @@ export function radiusOperandPx(text, table, consts, depth = 0) {
 export function radiusAliasMapOf(src, table) {
   const out = new Map()
   if (!src || !table) return out
-  const consts = constantMapOf(src)
+  const consts = lengthConstsOf(src)
   const code = maskComments(src)
   for (const m of code.matchAll(
     /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]+?)\s*(?:\/\/.*)?(?:$|[,)})])/gm,
@@ -275,13 +472,29 @@ export function radiusItemsInLine(line, table, consts, opts = {}) {
   const aliases = opts.aliases
   if (aliases) {
     for (const m of line.matchAll(
-      /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*([A-Za-z_$][\w$]*)((?:\s*\.\s*[A-Za-z_$][\w$]*)?)(?![\w.])(?!\s*\/)/g,
+      /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*([A-Za-z_$][\w$]*)((?:\s*\.\s*[A-Za-z_$][\w$]*)?)(?![\w.])(?!\s*\/)(?!\s*\()/g,
     )) {
       const full = `${m[1]}${m[2] ? `.${m[2].replace(/\s+/g, '')}` : ''}`
       if (/^(?:rnRadiusFor|rnRadius)\b/.test(full)) continue // 档表直取另有专门判据,不得双计
       const px = aliases.get(full) ?? aliases.get(m[1])
       if (px !== undefined) push(px, full)
       else pushUnread(full)
+    }
+  }
+  /**
+   * **换算器包档取用**:`borderRadius: toRpx(RD.sm)` / `borderRadius: toUnit(12)`(2026-10-24 立)。
+   * 形态识别与折算**逐字复用几何维那一份** `geometryItemsInSrc`(§0.6:同类判据全仓只许一份)——
+   * 圆角维单独再写一条 `toRpx` 正则,就会漂成"盒档认得 toRpx 而圆角认不得",而漂开的账面表现是
+   * **凭空多出一条 RD 分叉**(实测 ScreenStates 族的 `RD 仅 RN 4` 正是小程序侧
+   * `borderRadius: toRpx(RD.sm)` 读不到造出来的)。
+   * 只接**自证为 px 保形换算器**的那些调用;解不到的一律不 push(更不拿被换算的那个数冒充半径)。
+   * 收尾仍排 `(?!\s*\/)`:除法形态由下面那一判负责,把 `toRpx(RD.lg) / 2` 的左操作数当半径是错的读数。
+   */
+  if (consts) {
+    for (const m of line.matchAll(
+      /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*((?:[A-Za-z_$][\w$]*\([^()\n]*\))(?:\.[A-Za-z_$][\w$]*)?)(?![\w.])(?!\s*\/)/g,
+    )) {
+      for (const it of geometryItemsInSrc(m[1], consts)) if (it.px !== null) push(it.px, it.raw)
     }
   }
   /**
@@ -409,7 +622,7 @@ export function radiusSetOf(src, table) {
    * (这段说明本身刻意不写出块注释的开符/闭符序列 —— 写进注释就会提前关闭注释,本仓记过两次。)
    */
   const lines = maskComments(src || '').split('\n')
-  const consts = constantMapOf(src)
+  const consts = lengthConstsOf(src)
   const set = new Set()
   for (let i = 0; i < lines.length; i++) {
     const t = lines[i].trim()
@@ -544,7 +757,7 @@ export function radiusEntriesOf(src, table) {
   const stack = [] // { names: string[], indent: number, media: boolean }
   let mediaDepth = 0
   // 除法形态半径(`SIZE / 2`)的被除数常量大多定义在同一份源码里,这里归集一次供逐行使用。
-  const consts = constantMapOf(src)
+  const consts = lengthConstsOf(src)
   const aliases = radiusAliasMapOf(src, table)
   const opts = { aliases, unreadable: true }
   const records = [] // { names, items, key, media, decl }

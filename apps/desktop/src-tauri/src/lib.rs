@@ -12,6 +12,8 @@ mod checkin_capture;
 mod checkin_web_login;
 // 2026-10-24 立:独立浏览器窗口自己的收藏 / 历史(裸 webview 拿不到 web 端 store)。
 mod browser_store;
+// 2026-10-25 立:浏览器内存策略的设置项(标签上限 / 空闲休眠阈值),落盘 browser-settings.json。
+mod browser_settings;
 // 2026-10-24 立:Trae「网页登录自动添加账号」——内嵌窗 cookie → GetUserToken 换真 JWT →
 // 解 uid/手机号,前端自动入库(与 WorkBuddy 同型,窗口仍走 embedded_browser)。
 mod checkin_trae_web_login;
@@ -2204,6 +2206,21 @@ fn get_desktop_prefs(app: tauri::AppHandle) -> DesktopPrefs {
     load_desktop_prefs(&app)
 }
 
+/// 读浏览器内存策略设置(标签上限 / 空闲休眠阈值)。已是归一后的值。
+#[tauri::command]
+fn get_browser_settings() -> browser_settings::BrowserSettings {
+    browser_settings::current()
+}
+
+/// 写浏览器内存策略设置(patch 语义:只覆盖带过来的那几档),立即生效并落盘。
+#[tauri::command]
+fn set_browser_settings(
+    app: tauri::AppHandle,
+    patch: browser_settings::BrowserSettingsPatch,
+) -> Result<browser_settings::BrowserSettings, IpcError> {
+    browser_settings::apply(&app, patch)
+}
+
 /// 写桌面端行为偏好(patch 语义:只覆盖带过来的那几档)。
 #[tauri::command]
 fn set_desktop_prefs(app: tauri::AppHandle, patch: DesktopPrefsPatch) -> DesktopPrefs {
@@ -3642,6 +3659,8 @@ pub fn run() {
             // ∧ 迁前值为 false。手动双击启动不带该参数 ⇒ 不迁(默认仍弹窗)。迁移结果落盘,
             // 因此在设置界面里看得见、可改 —— 不藏成只有代码知道的隐式状态。
             let mut startup_prefs = load_desktop_prefs(app.handle());
+            // 浏览器内存策略要在任何浏览器窗口出现之前就位(标签上限、休眠阈值都要读它)
+            browser_settings::init(app.handle());
             let prefs_absent_before = desktop_prefs_path(app.handle()).map(|p| !p.exists()).unwrap_or(false);
             let argv_has_minimized = std::env::args().any(|a| a == "--minimized");
             if should_migrate_launch_minimized(
@@ -3870,6 +3889,9 @@ pub fn run() {
             set_tray_always_visible,
             get_desktop_prefs,
             set_desktop_prefs,
+            // 2026-10-25 立:浏览器内存策略设置(标签上限 / 空闲休眠阈值),真值在 browser_settings.rs。
+            get_browser_settings,
+            set_browser_settings,
             resolve_close_choice,
             set_desktop_badge,
             take_pending_deep_links,

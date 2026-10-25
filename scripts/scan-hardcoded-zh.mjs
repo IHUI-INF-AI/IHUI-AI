@@ -52,19 +52,13 @@ import { describeFlagToken, flagValue as libFlagValue } from './lib/flag-value.m
 // 于是 14 例断言全在比对真仓数据 → 13 例恒红且无人跑;2026-09-24 实测)。
 // G-322:给了 --root 却没收到合法值 ⇒ 立即非零点名,不得把 `--staged` 当路径吃掉、
 // 也不得静默折回仓库根假装没给过(runner 追加 `--staged` 时这一格必踩)。
-{
-  const _f = libFlagValue(process.argv.slice(2), '--root')
-  if (_f.present && !_f.valid) {
-    const _got = _f.token === null ? '(其后没有任何参数)' : JSON.stringify(_f.token)
-    console.error(`❌ 无法判定:--root 需要一个目录参数 —— 紧邻的 token 实得:${_got}(不得静默退回仓库根)`)
-    process.exit(2)
-  }
+// 取值只此一处:下面的 ROOT 直接吃这里的 valid/value,不再另写一份 indexOf+1(§22c)。
+const rootFlagValue = libFlagValue(process.argv.slice(2), '--root')
+if (rootFlagValue.present && !rootFlagValue.valid) {
+  console.error(`❌ 无法判定:--root 需要一个目录参数 —— 紧邻的 token 实得:${describeFlagToken(rootFlagValue)}(不得静默退回仓库根)`)
+  process.exit(2)
 }
-const rootArgValue = (() => {
-  const i = process.argv.indexOf('--root')
-  const v = i >= 0 ? process.argv[i + 1] : null
-  return v && !v.startsWith('-') ? v : null
-})()
+const rootArgValue = rootFlagValue.valid ? rootFlagValue.value : null
 const ROOT = rootArgValue
   ? path.resolve(rootArgValue)
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -190,7 +184,10 @@ function flagValue(flag) {
 // `--json` 两档:带路径 ⇒ 写文件(既有行为,一字不改);不带路径 / 下一个 token 是别的旗标 ⇒ JSON 打到 stdout
 const JSON_OUT = flagValue('--json')
 const JSON_STDOUT = args.has('--json') && JSON_OUT === null
-const TOP_RAW = args.has('--top') ? argv[argv.indexOf('--top') + 1] : null
+// `--top` 取值走 G-322 单源:invalid(值被紧邻旗标顶掉 / 结尾无值)与旧 indexOf+1 手写取值
+// 在下游 /^\d+$/ 校验下同判无效点名。
+const topF = libFlagValue(argv, '--top')
+const TOP_RAW = topF.valid ? topF.value : null
 const TOP_VALID = typeof TOP_RAW === 'string' && /^\d+$/.test(TOP_RAW)
 const TOP_INVALID = args.has('--top') && !TOP_VALID
 const TOP_N = TOP_VALID ? Number(TOP_RAW) : 30
