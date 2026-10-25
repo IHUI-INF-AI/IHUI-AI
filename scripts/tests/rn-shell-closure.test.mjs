@@ -10,13 +10,16 @@
  * 壳承载页把其中一枚带进图,weapp 构建就 `ModuleParseError` 整轮停摆,而门 251 C1..C9 当时全绿。
  * 本尺把"这一页会间接拖进哪些 RN 原生包"变成落页前算得出的判据。
  *
- * 钉死四件事:
+ * 钉死五件事:
  *   K1 别名表取值认两处块、也认不加引号的键(正则抠会漏 ⇒ 漏读会把"已承载"读成"缺口");
  *   K2 图遍历:相对导入进图、裸包登记、`import type` 擦除不登记;
  *   K3 只有 RN 原生族才算缺口,@ihui/* workspace 包与 react 不算;
- *   K4 同一条 spec 在别名表里/外 ⇒ 判与不判成对(证明这条尺真有牙,不是恒红或恒绿)。
+ *   K4 同一条 spec 在别名表里/外 ⇒ 判与不判成对(证明这条尺真有牙,不是恒红或恒绿);
+ *   K5 装车锁:造页器 form=shell 必须在落页前调用这条尺,判据与拒则相邻、表读不到即未判定。
  */
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import test from 'node:test'
 
 import { __test__ as C } from '../lib/rn-shell-closure.mjs'
@@ -91,5 +94,20 @@ test('K3/K4 只有未别名的 RN 原生族才算缺口(成对:同一条 spec �
   const withoutTable = C.uncoveredNativePackages(externals, ['@'])
   assert.deepEqual(withoutTable.map((g) => g.pkg), ['expo-secure-store', 'react-native-svg'], '摘掉别名表条目即翻红 ⇒ 这条尺判得出东西,不是恒绿')
   assert.ok(!withoutTable.some((g) => g.pkg === '@ihui/shared' || g.pkg === 'react'), 'workspace 包与 react 不是 RN 原生族 ⇒ 永不算缺口')
+})
+
+test('K5 装车锁:造页器 form=shell 真在落页前问这条尺(判据与拒则必须相邻,不许只装判据不装出口)', () => {
+  const src = readFileSync(resolve(import.meta.dirname, '..', 'gen-miniapp-mirror.mjs'), 'utf8')
+  assert.match(src, /from '\.\/lib\/rn-shell-closure\.mjs'/, '造页器没 import 这条尺 ⇒ 判据是第二份真相或根本没接')
+  assert.match(src, /const TARO_CONFIG_REL = 'apps\/miniapp-taro\/config\/index\.ts'/, '别名表所在文件必须显式点名')
+  // 锚在**调用点**(不是定义处):定义在文件前段,拿它当锚会把"读表失败即未判定"那段筛在窗外
+  const at = src.indexOf('const g = shellClosureGaps(')
+  assert.ok(at > 0, '闭包前置未被调用')
+  const gapAt = src.indexOf('g.gaps.length > 0', at)
+  const refuseAt = src.indexOf("kind: 'refuse'", gapAt)
+  assert.ok(gapAt > at && gapAt - at < 1200, `调用后必须立刻按缺口判(间距 ${gapAt - at})`)
+  assert.ok(refuseAt > gapAt, '算了缺口却没有紧随其后的拒则出口 ⇒ 判据白装')
+  // 只读别名表不够:读不到 config 必须落「未判定」,不得当成"没有缺口"
+  assert.match(src.slice(at - 700, at), /kind: 'undetermined'/, '别名表取不到时必须未判定,不能记绿')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
