@@ -136,6 +136,41 @@ export function pickAuthEnvelopeKeys(storeJson) {
   )
 }
 
+/**
+ * 设备证明材料(新版 ExchangeToken 必需,2026-10-25 实测:缺了服务端回 20405/10101)。
+ * 落点:键 `iCubeAuthInfo://icube-dc:<deviceId>` 的信封,解密后是
+ * `{ privateKeyPEM, publicKeyPEM }`(P-256);machineId 在 storage.json 的
+ * `telemetry.machineId`。取不到一律返回 null —— 由调用方退回旧版刷新通道。
+ */
+export function extractDeviceMaterial(storeJson) {
+  if (!storeJson || typeof storeJson !== 'object') return null
+  let deviceId = ''
+  let envelope = ''
+  for (const [key, value] of Object.entries(storeJson)) {
+    const m = /^iCubeAuthInfo:\/\/icube-dc:(.+)$/.exec(key)
+    if (m && /^\d{6,}$/.test(m[1].trim())) {
+      deviceId = m[1].trim()
+      envelope = typeof value === 'string' ? value : ''
+      break
+    }
+  }
+  if (!deviceId || !envelope) return null
+  let dev
+  try {
+    dev = JSON.parse(decryptEnvelope(envelope))
+  } catch {
+    return null
+  }
+  const privateKeyPem = typeof dev?.privateKeyPEM === 'string' ? dev.privateKeyPEM.trim() : ''
+  const publicKeyPem = typeof dev?.publicKeyPEM === 'string' ? dev.publicKeyPEM.trim() : ''
+  if (!privateKeyPem || !publicKeyPem) return null
+  const machineId =
+    typeof storeJson['telemetry.machineId'] === 'string'
+      ? storeJson['telemetry.machineId'].trim()
+      : ''
+  return { deviceId, machineId, privateKeyPem, publicKeyPem }
+}
+
 /** Trae 数据目录候选:`IHUI_TRAE_DIR` 覆盖 > Trae CN > TRAE SOLO CN > Trae */
 export function traeUserDataDirs(env = process.env, homedir = os.homedir()) {
   const appdata = env.APPDATA || path.join(homedir, 'AppData', 'Roaming')
@@ -235,6 +270,20 @@ export function extractTraeAccount(opts = {}) {
       const account = toPoolAccount(userInfo)
       account.meta.storageFile = file
       account.meta.storageKey = key
+      const device = extractDeviceMaterial(store)
+      if (device) {
+        // 设备材料随账号入库(密钥对进 secrets,两个 id 进一等字段):
+        // 服务端据此在新版 ExchangeToken 里签名自续,客户端不必常驻。
+        const target = account.accounts[0]
+        target.deviceId = device.deviceId
+        if (device.machineId) target.machineId = device.machineId
+        target.deviceKeyPem = device.privateKeyPem
+        target.devicePubPem = device.publicKeyPem
+        account.meta.hasDeviceMaterial = true
+        account.meta.deviceId = device.deviceId
+      } else {
+        account.meta.hasDeviceMaterial = false
+      }
       return account
     }
   }
@@ -247,6 +296,7 @@ export function extractTraeAccount(opts = {}) {
 export const __test__ = {
   deriveKeyIv,
   decryptEnvelope,
+  extractDeviceMaterial,
   encryptEnvelope,
   pickAuthEnvelopeKeys,
   traeUserDataDirs,

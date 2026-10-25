@@ -45,6 +45,11 @@ export interface SyncCandidate {
   /** ISO 8601;客户端解析不到时缺省 */
   expiresAt?: string | null
   refreshExpiresAt?: string | null
+  /** 设备材料(2026-10-25):新版 ExchangeToken 换票所需,随会话一并回灌 */
+  deviceId?: string | null
+  machineId?: string | null
+  deviceKeyPem?: string | null
+  devicePubPem?: string | null
 }
 
 export interface SyncInputPayload {
@@ -218,6 +223,23 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         summary.rows.push({ uid, decision: final.reason, applied: false, error: 'dry-run 未写' })
         continue
       }
+      // 设备材料随票回灌(客户端重新登录换机/换密钥时池侧自愈);缺任一项 → 不动原值
+      const deviceId = typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId : null
+      const machineId = typeof acc.machineId === 'string' && acc.machineId ? acc.machineId : null
+      const keyPem =
+        typeof acc.deviceKeyPem === 'string' && acc.deviceKeyPem ? acc.deviceKeyPem : null
+      const pubPem =
+        typeof acc.devicePubPem === 'string' && acc.devicePubPem ? acc.devicePubPem : null
+      const deviceUpdate =
+        keyPem && pubPem
+          ? {
+              secretsEnc: encryptField(
+                JSON.stringify({ deviceKeyPem: keyPem, devicePubPem: pubPem }),
+              ),
+              ...(deviceId ? { deviceId } : {}),
+              ...(machineId ? { machineId } : {}),
+            }
+          : {}
       await db
         .update(aiRelayAccountPool)
         .set({
@@ -227,6 +249,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
             : {}),
           tokenExpiresAt: final.next.tokenExpiresAt,
           refreshExpiresAt: final.next.refreshExpiresAt,
+          ...deviceUpdate,
           // 签到侧按 cred_version 防降级:不涨版本,新票永远推不过去
           credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
           updatedAt: new Date(),
