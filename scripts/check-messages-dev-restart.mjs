@@ -28,6 +28,7 @@ import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const root = process.cwd()
 const MESSAGES_DIR = join(root, 'apps/web/messages')
@@ -36,12 +37,8 @@ const WEB_PORT = 8801
 // 1. 检测 staged 中是否有 messages JSON 改动
 function getStagedMessagesFiles() {
   try {
-    const out = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf-8',
-      windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
+    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], root)
     return out
       .split('\n')
       .filter((p) => p && p.startsWith('apps/web/messages/') && p.endsWith('.json'))
