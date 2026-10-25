@@ -46,7 +46,9 @@ import { gitRaw } from './lib/face-reader.mjs'
 import { bodyOfRow, compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const LEDGERS = ['.ihui-agent/state/stale-claim-strip.jsonl', '.ihui-agent/state/plan-row-drop.jsonl']
+// 顶层 export 供 `union-converge` 的复合主键维(G-34/G-43, 2026-10-25)复用同一份文件清单——
+// 台账路径若有两份,第二份必然漂移(§0.6);既有 `__test__.LEDGERS` 指向同一数组,语义不变。
+export const LEDGERS = ['.ihui-agent/state/stale-claim-strip.jsonl', '.ihui-agent/state/plan-row-drop.jsonl']
 
 /** 勾选态取自单源解析器(非登记行 ⇒ null;本器不判"什么算复选框行")。 */
 export function rowStateOf(line) {
@@ -101,14 +103,20 @@ export function buildDeclared(rowTexts) {
  *    的 `declaredDropCaps` 与门 71 都只读它,新增维度必须是**加字段**而不是改语义);
  *  · `closed` = 台账里**已勾形态**的行按复合主键建好的索引(维二输入;同主键可能多枚,存数组);
  *  · `closedDeclared` = 已勾形态枚数(维二的输入面;0 枚只说明"台账里没有结清行",不是判据坏了)。
- *  解不开的行长跳过并计数。 */
+ *  解不开的行长跳过并计数。
+ *  〔G-34/G-43 补字段@2026-10-25,只加不改语义〕`malformedLines` = 解不开的那些行的**原文清单**
+ *  (`union-converge` 的复合主键维要靠它做"坏行含该候选编号 ⇒ 未判定不回补"的归因;本器自身不读);
+ *  `filesSeen` = 两份台账中**实际在位**的份数(0 = 台账整体缺失,调用方不得当成"没有声明过",§0.3)。 */
 export function declaredRows(root = ROOT, files = LEDGERS) {
   const rows = []
   const dropRows = []
   let malformed = 0
+  const malformedLines = []
+  let filesSeen = 0
   for (const f of files) {
     const p = path.join(root, f)
     if (!existsSync(p)) continue
+    filesSeen++
     for (const line of readFileSync(p, 'utf8').split('\n')) {
       if (line.trim() === '') continue
       let o
@@ -116,6 +124,7 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
         o = JSON.parse(line)
       } catch {
         malformed++
+        malformedLines.push(line)
         continue
       }
       for (const key of ['rowBefore', 'before']) {
@@ -126,7 +135,13 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
       }
     }
   }
-  return { ...buildDeclared(rows), dropTitleFps: new Set(dropRows.map(titleFpOf).filter(Boolean)), malformed }
+  return {
+    ...buildDeclared(rows),
+    dropTitleFps: new Set(dropRows.map(titleFpOf).filter(Boolean)),
+    malformed,
+    malformedLines,
+    filesSeen,
+  }
 }
 
 /** 兼容旧调用方:只给 `Set` 的调用只有逐字维(维二/维三输入为空 ⇒ 不按正文/题面剔)。 */
