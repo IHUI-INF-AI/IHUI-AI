@@ -103,7 +103,6 @@ export default defineAppConfig({
         'learn-develop/index',
         'course-planet/index',
         'subscription/contracts/index',
-        'more-course/index',
       ],
     },
     {
