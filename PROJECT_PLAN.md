@@ -7909,3 +7909,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 〔归:—｜等:等环境〕 **G-55 provider 调用记录表缺 trace 列(承 D147;等环境条件 —— 本机无 PostgreSQL,迁移不可应用)** —— `packages/database/src/schema/llm-call-logs.ts` 现读无 `traceId` 字段,而 D147 已把 trace id 放进内存内的调用记录(`core/tool_call_trace.py::as_dict()` 现取 contextvar),所以**记录带得到、库里查不到**。要做的是:加列 + drizzle 迁移 + `scripts/check-migration-bookkeeping.mjs` 的离线 B1–B5 判据(本机 `--db` 模式不可用,必须明写"未验证"),并在 ai-service 〔压缩@2026-10-22〕〔让号记录(2026-10-02 F9 清偿批②):原号 D172 同号多题,按 G-312「改动面小的一侧让号」本族让出原号改用本号;原号留归同号留驻族,本行正文除编号位与本记录外逐字未动。〕〔改号(2026-10-14):原G-1018222〕〔同题原号 G-1018222〕〔同题原号 G-222〕
 
 
+
