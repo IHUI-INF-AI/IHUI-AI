@@ -24,8 +24,9 @@
  * G-395 出处标签与降档留痕(参照上游 provider resolver 的 source 形状):
  *   - 每个生效字段带 `sources` 出处标签(哪层获胜、哪个覆盖项/配置项/来源文件);
  *   - 请求档(reasoningEffort 最高优先非 undefined 原始值)未被原样采纳时,
- *     结果带 `effortDowngrade` 留痕(requested/effective 两值 + 双方出处 + 原因),
- *     消除静默降档。标签生成只此一处,消费方读同一出口(§0.6)。
+ *     结果带 `effortDowngrade` 留痕(requested/effective 两值 + 双方出处 + 原因:
+ *     'invalid-enum' 非法枚举 / 'rank-lower' 被降低(含落空) / 'rank-higher' 被抬高),
+ *     消除静默改档。标签生成只此一处,消费方读同一出口(§0.6)。
  *   - 快照带 `sourceRevisions`(四层各自的来源文件 + mtime 修订号,取不到显式 null + 原因码),
  *     由本文件的 `formatConfigSnapshot` 单点渲染、默认留痕出口写一行 stderr ⇒ 字段有真实消费者。
  *   - 层名清单与人类可读标签的唯一真相源 = 本文件的 `PRECEDENCE_LAYER_LABELS`
@@ -182,8 +183,10 @@ function firstHit<T>(
 /**
  * G-395 降档判定:请求档(最高优先给出非 undefined 原始值的层)未被原样采纳时生成留痕。
  * - 请求档非法枚举被容错丢弃 → 'invalid-enum'
- * - 请求档合法但实得档档位下标更低 → 'rank-lower'(当前链合法 explicit 必获胜,
- *   此臂为票面判据"请求档高于实得档"的直接实现,防未来钳制层静默)
+ * - 请求档合法但实得档档位下标更低(含实得档彻底落空)→ 'rank-lower'
+ * - 请求档合法但实得档档位被抬更高 → 'rank-higher'(票面「因约束被降/升都不得静默改档」的升档半边)
+ * 当前四层链上合法请求档必然自己获胜 ⇒ 后两臂打不到(见 __test__ 注记):它们是钳制层的哨兵,
+ * 不是冗余分支 —— 少了升档那一臂,一次"被悄悄抬高"的档位就又回到静默传播。
  */
 function buildEffortDowngrade(
   requested: { raw: string; source: ConfigFieldSource } | undefined,
@@ -191,26 +194,20 @@ function buildEffortDowngrade(
 ): EffortDowngradeTrace | undefined {
   if (!requested) return undefined
   if (requested.raw === hit.value) return undefined
+  const trace = (reason: EffortDowngradeTrace['reason']): EffortDowngradeTrace => ({
+    requested: requested.raw,
+    requestedSource: requested.source,
+    effective: hit.value,
+    effectiveSource: hit.source,
+    reason,
+  })
   const rRank = effortRank(requested.raw)
   const eRank = hit.value === undefined ? -1 : effortRank(hit.value)
-  if (rRank === -1) {
-    return {
-      requested: requested.raw,
-      requestedSource: requested.source,
-      effective: hit.value,
-      effectiveSource: hit.source,
-      reason: 'invalid-enum',
-    }
-  }
-  if (eRank < rRank) {
-    return {
-      requested: requested.raw,
-      requestedSource: requested.source,
-      effective: hit.value,
-      effectiveSource: hit.source,
-      reason: 'rank-lower',
-    }
-  }
+  if (rRank === -1) return trace('invalid-enum')
+  if (eRank < rRank) return trace('rank-lower')
+  if (eRank > rRank) return trace('rank-higher')
+  // 只剩同序异值 = 档位表出现重复项(下标即序本应单射)。此时降/升两个方向都无从判定,
+  // 硬贴一个方向是编造 ⇒ 不猜(§0.3);该前置由镜像测试直接钉住(档位表无重复、下标单射)。
   return undefined
 }
 
@@ -501,5 +498,24 @@ export function emitConfigSnapshotTrace(
   } catch {
     /* 诊断出口自身抛错不得把解析带崩 */
   }
+}
+
+/**
+ * G-395 镜像测试出口(§22c):把降档判据本体交给测试,测试不得自带第二份判据。
+ *
+ * 为什么必须开这个口:`buildEffortDowngrade` 的 `rank-lower` 那一臂在**当前四层链上结构性打不到**
+ * (请求档 = 最高优先给出非 undefined 原始值的层;它若合法就是第一个合法值,必然自己获胜 ⇒
+ * effective === requested)。它不是冗余分支,是票面判据「请求档因约束被降/升必须留痕」的直接实现 ——
+ * 未来任何钳制/降档层一旦接进这条链,只有这一臂会响。不开口就只有两种坏结局:
+ * 要么这条臂永无夹具(声明了却没人验,§0.9),要么为凑覆盖率把它删掉(把票面判据删了)。
+ * 因此:该臂由测试直接喂合成入参钉住,同时反向核验「今天的公共入口确实打不到它」(见镜像测试)。
+ */
+export const __test__ = {
+  /** 降档留痕判据本体(公共入口的合法链路上只可能产出 invalid-enum 臂) */
+  buildEffortDowngrade,
+  /** 档位序:下标即序,唯一出处是 REASONING_EFFORTS,别处不得再抄一份 rank 表 */
+  effortRank,
+  /** 档位表本体(镜像测试读它,不得自带第二份档位清单) */
+  REASONING_EFFORTS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
