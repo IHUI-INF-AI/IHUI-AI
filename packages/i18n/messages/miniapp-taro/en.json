@@ -4820,5 +4820,14 @@
       "refunded": "Refunded",
       "pending": "Pending"
     }
+  },
+  "agreement": {"subtitle":"Please read this agreement carefully","title":"User Agreement"},
+  "agreementSections": {
+    "sectionObligations": "User Obligations",
+    "sectionObligationsBody": "You must comply with applicable laws and regulations, and shall not publish illegal, non-compliant, or harmful content, nor infringe upon the legitimate rights and interests of others.",
+    "sectionRights": "User Rights",
+    "sectionRightsBody": "You have the right to access services in accordance with the law, manage your personal information, and report non-compliant content.",
+    "sectionTerms": "Terms of Service",
+    "sectionTermsBody": "This agreement is made between you and ZHIHUI AI regarding your use of the platform services. Please read it carefully before use. By using the platform, you agree to all terms of this agreement."
   }
 }
