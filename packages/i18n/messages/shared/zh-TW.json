@@ -80,6 +80,7 @@
     "toolAudioTranscription": "音訊轉文字",
     "toolVisionAnalyze": "辨識圖片內容",
     "toolDispatchSubagent": "派遣子代理",
+    "toolTeamTask": "管理團隊共享任務",
     "toolScheduleTask": "建立排程任務",
     "toolBgTaskStatus": "查詢背景任務",
     "toolUiDescribe": "讀取頁面控制項",

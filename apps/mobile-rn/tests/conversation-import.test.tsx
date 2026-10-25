@@ -14,6 +14,12 @@
  * - 串行提交:逐会话 commit,单个失败不中断其余,完成后重拉历史
  * - 取消选择:不触发解析请求
  *
+ * 等待口径(2026-10-25 收口,同 e4989cbb9e 先例):每条异步链**只等终点一次**,前序各步降级为
+ * 带理由的同步断言。立因:RTL 的 waitFor 每段默认预算量的是机器负载不是被测件 —— 本机并发
+ * 200+ 道守门时事件循环被同步占死,实测 fireEvent→首跳 1201ms > 默认 1000ms;而 setup 已把
+ * asyncUtilTimeout 抬到 4s,四段串行就是 16s,超出 vitest.config 的 testTimeout 10s(换个死法
+ * 继续假红)。故每枚用例存活的 waitFor 预算显式写死,且合计 < 10s。
+ *
  * 说明:@ihui/rn-app 由 vitest.config.ts alias 到 tests/__mocks__/ihui-rn-app.ts,
  * 该 mock 对 ConversationImportScreen 走真实共享实现(与 SettingsScreen/OrderScreen 同款),
  * 因此本测试同时验证 wrapper 注入与共享 UI 的联动。
@@ -159,7 +165,16 @@ describe('ConversationImportScreen(RN)', () => {
   it('初始只拉导入历史并渲染 5 个来源', async () => {
     render(<ConversationImportScreen />)
 
-    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(1))
+    // 链终点 = 历史行落进 DOM。原先这段等的是"mock 被调用过",而请求在挂载那一刻就已同步发出
+    // (useEffect → loadHistory → onLoadHistory 首个 await 之前就把请求发出去了),所以那段等待
+    // 恒定立刻成立,下面读 DOM 的断言实际判的是"还没轮到水合"—— 负载一高就是假红。
+    await waitFor(() => expect(screen.getByText('export.jsonl')).toBeTruthy(), {
+      timeout: 8_000,
+    })
+    expect(
+      rnMocks.getConversationImportHistory,
+      '历史行画出来了却没调过历史接口 = 数据从别处冒出来',
+    ).toHaveBeenCalledTimes(1)
 
     expect(screen.getByText('conversationImport.sourceClaudeCode')).toBeTruthy()
     expect(screen.getByText('conversationImport.sourceCodex')).toBeTruthy()
@@ -214,12 +229,17 @@ describe('ConversationImportScreen(RN)', () => {
     const appendSpy = vi.spyOn(FormData.prototype, 'append')
 
     render(<ConversationImportScreen />)
-    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
 
     fireEvent.click(screen.getByText('conversationImport.sourceWechat'))
     fireEvent.click(screen.getByText('conversationImport.pickFile'))
 
-    await waitFor(() => expect(rnMocks.fetchApi).toHaveBeenCalledTimes(1))
+    // 链一(选文件 → 解析 → 预览)终点 = 预览标题出现。pickAndParse 里 onPickFile / onParse
+    // 都是 await 的,预览画得出来即证明 picker 调过、multipart 请求已按微信来源发出
+    // ⇒ 原先"等 fetchApi 被调"与"等预览"两段并成一段(4s + 5s = 9s < testTimeout 10s)。
+    await waitFor(() => expect(screen.getByText('张三')).toBeTruthy(), { timeout: 4_000 })
+    expect(rnMocks.getConversationImportHistory, '挂载时必须先拉导入历史').toHaveBeenCalledTimes(1)
+    expect(rnMocks.getDocumentAsync, '没调 picker 就没有文件可解析').toHaveBeenCalledTimes(1)
+    expect(rnMocks.fetchApi, '预览不是从 /parse 端点来的').toHaveBeenCalledTimes(1)
     expect(appendSpy.mock.calls.filter(([field]) => field === 'source')).toEqual([
       ['source', 'wechat'],
     ])
@@ -230,12 +250,19 @@ describe('ConversationImportScreen(RN)', () => {
     })
     appendSpy.mockRestore()
 
-    await waitFor(() => expect(screen.getByText('张三')).toBeTruthy())
     // 隐私口径与其它来源一致:正文不进 DOM
     expect(screen.queryByText(/WECHAT-BODY-ALPHA/)).toBeNull()
 
     fireEvent.click(screen.getByText('conversationImport.commit'))
-    await waitFor(() => expect(rnMocks.commitConversationImport).toHaveBeenCalledTimes(1))
+    // 链二(逐会话落库)终点 = 完成回执出现:commit() 里 await onCommit 之后才 setDoneMessage,
+    // 回执来了即证明落库请求已经发出并按 wechat 带上文件名 ⇒ 中间那段"等 commit 被调"降级同步。
+    await waitFor(() => expect(screen.getByText('conversationImport.commitDone')).toBeTruthy(), {
+      timeout: 5_000,
+    })
+    expect(
+      rnMocks.commitConversationImport,
+      '回执来了却没有落库请求 = 回执是假的',
+    ).toHaveBeenCalledTimes(1)
     expect(commitPayloadAt(0).source).toBe('wechat')
     expect(commitPayloadAt(0).fileName).toBe('chat.zip')
     expect(commitPayloadAt(0).messages).toHaveLength(2)
@@ -247,13 +274,19 @@ describe('ConversationImportScreen(RN)', () => {
     // .txt 属微信白名单 → 允许发出请求
     rnMocks.getDocumentAsync.mockResolvedValue({
       canceled: false,
-      assets: [{ uri: 'file:///cache/chat.txt', name: 'chat.txt', mimeType: 'text/plain', size: 64 }],
+      assets: [
+        { uri: 'file:///cache/chat.txt', name: 'chat.txt', mimeType: 'text/plain', size: 64 },
+      ],
     })
     render(<ConversationImportScreen />)
-    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
     fireEvent.click(screen.getByText('conversationImport.sourceWechat'))
     fireEvent.click(screen.getByText('conversationImport.pickFile'))
-    await waitFor(() => expect(rnMocks.fetchApi).toHaveBeenCalledTimes(1))
+    // 链一(.txt 属微信白名单 → 放行到端点)终点 = 预览出现。等"预览"而不是等"fetchApi 被调"
+    // 还多兜住一格:picking 落回 false 才点得动第二下按钮(原先只等到请求发出就重点击,
+    // 两次链在 fireEvent 无视 disabled 的替身上会叠着跑)。
+    await waitFor(() => expect(screen.getByText('重构计费模块')).toBeTruthy(), { timeout: 4_000 })
+    expect(rnMocks.getConversationImportHistory, '挂载时必须先拉导入历史').toHaveBeenCalledTimes(1)
+    expect(rnMocks.fetchApi, '.txt 被白名单误拦就根本没有这次请求').toHaveBeenCalledTimes(1)
 
     // .jsonl 是别家来源的后缀,对微信必须本地拦下
     rnMocks.fetchApi.mockClear()
@@ -269,7 +302,13 @@ describe('ConversationImportScreen(RN)', () => {
       ],
     })
     fireEvent.click(screen.getByText('conversationImport.pickFile'))
-    await waitFor(() => expect(screen.getByText('conversationImport.errorFileType')).toBeTruthy())
+    // 链二(本地拦截)终点 = 拦截文案出现;它排在 picker 之后,出现即证明这次确实选了文件
+    await waitFor(() => expect(screen.getByText('conversationImport.errorFileType')).toBeTruthy(), {
+      timeout: 5_000,
+    })
+    expect(rnMocks.getDocumentAsync, '拦在本地前没调 picker = 无从判断后缀').toHaveBeenCalledTimes(
+      2,
+    )
     expect(rnMocks.fetchApi).not.toHaveBeenCalled()
   })
 
@@ -280,12 +319,17 @@ describe('ConversationImportScreen(RN)', () => {
     const appendSpy = vi.spyOn(FormData.prototype, 'append')
 
     render(<ConversationImportScreen />)
-    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
 
     fireEvent.click(screen.getByText('conversationImport.sourceClaudeCode'))
     fireEvent.click(screen.getByText('conversationImport.pickFile'))
 
-    await waitFor(() => expect(rnMocks.fetchApi).toHaveBeenCalledTimes(1))
+    // 一条链(挂载拉历史 + 选文件 → 解析 → 预览)只等终点一次:预览标题出现即证明
+    // picker 调过、/parse 请求发过、rows 落进界面 ⇒ 原先三段串行等待收成一段。
+    await waitFor(() => expect(screen.getByText('重构计费模块')).toBeTruthy(), {
+      timeout: 8_000,
+    })
+    expect(rnMocks.getConversationImportHistory, '挂载时必须先拉导入历史').toHaveBeenCalledTimes(1)
+    expect(rnMocks.fetchApi, '预览画出来了却没请求过端点 = 预览是本地幻觉').toHaveBeenCalledTimes(1)
 
     const fetchCall = rnMocks.fetchApi.mock.calls[0]
     if (!fetchCall) throw new Error('fetchApi 未被调用')
@@ -304,8 +348,7 @@ describe('ConversationImportScreen(RN)', () => {
     })
     appendSpy.mockRestore()
 
-    // 元信息可见:标题 / 消息数 / 模型 / 日期
-    await waitFor(() => expect(screen.getByText('重构计费模块')).toBeTruthy())
+    // 元信息可见:消息数 / 模型 / 日期(标题已是上面的等待终点,不重复断)
     expect(screen.getAllByText(/conversationImport\.messagesCount/)).toHaveLength(3)
     expect(screen.getByText(/claude-sonnet-4-5/)).toBeTruthy()
     expect(screen.getByText(/2026-09-20/)).toBeTruthy()
@@ -325,12 +368,18 @@ describe('ConversationImportScreen(RN)', () => {
     rnMocks.fetchApi.mockResolvedValue(PARSE_RESULT)
 
     render(<ConversationImportScreen />)
-    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
 
     fireEvent.click(screen.getByText('conversationImport.sourceClaudeCode'))
     fireEvent.click(screen.getByText('conversationImport.pickFile'))
 
-    await waitFor(() => expect(screen.getByText('conversationImport.errorFileType')).toBeTruthy())
+    // 一条链(选文件 → 白名单本地校验 → 报错)只等终点一次:拦截文案出现。
+    await waitFor(() => expect(screen.getByText('conversationImport.errorFileType')).toBeTruthy(), {
+      timeout: 8_000,
+    })
+    expect(rnMocks.getConversationImportHistory, '挂载时必须先拉导入历史').toHaveBeenCalledTimes(1)
+    expect(rnMocks.getDocumentAsync, '拦在本地前没调 picker = 无从判断后缀').toHaveBeenCalledTimes(
+      1,
+    )
     expect(rnMocks.fetchApi).not.toHaveBeenCalled()
   })
 
@@ -345,16 +394,27 @@ describe('ConversationImportScreen(RN)', () => {
       .mockResolvedValueOnce({ success: false, error: '服务暂不可用' })
 
     render(<ConversationImportScreen />)
-    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(1))
 
     fireEvent.click(screen.getByText('conversationImport.sourceClaudeCode'))
     fireEvent.click(screen.getByText('conversationImport.pickFile'))
-    await waitFor(() => expect(screen.getByText('重构计费模块')).toBeTruthy())
+    // 链一(解析)终点 = 预览出现,它同时是"点得动 commit"的前提(selected 全选取决于 rows)
+    await waitFor(() => expect(screen.getByText('重构计费模块')).toBeTruthy(), { timeout: 4_000 })
+    expect(rnMocks.getConversationImportHistory, '挂载时必须先拉导入历史').toHaveBeenCalledTimes(1)
 
     // 默认全选 3 条(其中 1 条正文空白)
     fireEvent.click(screen.getByText('conversationImport.commit'))
 
-    await waitFor(() => expect(rnMocks.commitConversationImport).toHaveBeenCalledTimes(2))
+    // 链二终点 = 完成后重拉历史 —— 它在 commit() 里排在 `await onCommit` 之后,而 onCommit 的
+    // for 循环对每条会话各自 await 一次落库,所以"历史被重拉"这一件事已经整串地证明了:
+    // 循环走完、单个失败没中断、空白会话没发请求。原先"等 commit 被调 2 次"那一段是链中间的
+    // 一跳,降级为下面的同步断言(计数本身一条没减,见报告)。
+    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(2), {
+      timeout: 5_000,
+    })
+    expect(
+      rnMocks.commitConversationImport,
+      '3 条会话里正文空白那条不该发请求,只许 2 次',
+    ).toHaveBeenCalledTimes(2)
     const firstPayload = commitPayloadAt(0)
     expect(firstPayload.source).toBe('claude_code')
     expect(firstPayload.fileName).toBe('export.jsonl')
@@ -368,19 +428,24 @@ describe('ConversationImportScreen(RN)', () => {
     expect(secondPayload.title).toBe('联调支付回调')
     // t 为恒等 mock,故完成文案只呈现 key(计数已插入)
     expect(screen.getByText('conversationImport.commitDone')).toBeTruthy()
-    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(2))
   })
 
   it('取消文件选择不触发解析', async () => {
     rnMocks.getDocumentAsync.mockResolvedValue({ canceled: true, assets: [] })
 
     render(<ConversationImportScreen />)
-    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
 
     fireEvent.click(screen.getByText('conversationImport.sourceCursor'))
     fireEvent.click(screen.getByText('conversationImport.pickFile'))
 
-    await waitFor(() => expect(rnMocks.getDocumentAsync).toHaveBeenCalledTimes(1))
+    // 取消分支在 `if (!picked) return` 处直接退出,界面上没有任何"结果"可等 ⇒ 这条链唯一的
+    // 可观测终点就是 picking 落回 false(按钮文案从 parsing 回到 pickFile)。
+    // 等它一次就够:文案回来即证明 picker 调过、流程走完了。
+    await waitFor(() => expect(screen.getByText('conversationImport.pickFile')).toBeTruthy(), {
+      timeout: 8_000,
+    })
+    expect(rnMocks.getConversationImportHistory, '挂载时必须先拉导入历史').toHaveBeenCalledTimes(1)
+    expect(rnMocks.getDocumentAsync, '没调 picker 就谈不上"取消选择"').toHaveBeenCalledTimes(1)
     expect(rnMocks.fetchApi).not.toHaveBeenCalled()
     expect(screen.queryByText('conversationImport.previewTitle')).toBeNull()
   })

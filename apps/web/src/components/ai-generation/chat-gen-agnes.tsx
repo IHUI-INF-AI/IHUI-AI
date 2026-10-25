@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Label } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import {
   ChatAdvancedParams,
   CHAT_ADVANCED_DEFAULTS,
@@ -56,12 +56,11 @@ export const ChatGenAgnes = React.memo(function ChatGenAgnes() {
       messages: Array<{ role: string; content: string }>
       model: string
     }) => {
-      const res = await fetchApi<unknown>('/api/ai/agnes/chat', {
+      const res = await api<unknown>('/api/ai/agnes/chat', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res.success) throw new Error(res.error)
-      const text = extractChatText(res.data)
+      const text = extractChatText(res)
       if (!text) throw new Error(t('noResult'))
       return text
     },

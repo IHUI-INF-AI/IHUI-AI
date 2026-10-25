@@ -4483,6 +4483,7 @@
       "loadingMore": "載入中…"
     },
     "detail": {
+      "loading": "載入中…",
       "pageTitle": "話題詳情",
       "loadFailed": "載入失敗",
       "followers": "{n} 人關注",

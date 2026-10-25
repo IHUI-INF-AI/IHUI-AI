@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 
 import type { McpServer } from './mcp-manager'
 import { McpToolCallResult } from './mcp-tool-call-result'
@@ -86,9 +86,7 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
   const { data: servers } = useQuery({
     queryKey: ['mcp', 'servers'],
     queryFn: async () => {
-      const res = await fetchApi<McpServer[]>('/api/ai/mcp/servers')
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      return api<McpServer[]>('/api/ai/mcp/servers')
     },
     enabled: !fixedServerId,
   })
@@ -96,16 +94,14 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
   const { data: tools, isLoading: toolsLoading } = useQuery({
     queryKey: ['mcp', 'servers', serverId, 'tools'],
     queryFn: async () => {
-      const res = await fetchApi<McpTool[]>(`/api/ai/mcp/servers/${serverId}/tools`)
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      return api<McpTool[]>(`/api/ai/mcp/servers/${serverId}/tools`)
     },
     enabled: !!serverId,
   })
 
   const callMutation = useMutation({
     mutationFn: async (input: CallToolInput) => {
-      const res = await fetchApi<CallResult>('/api/ai/mcp/tools/call', {
+      return api<CallResult>('/api/ai/mcp/tools/call', {
         method: 'POST',
         body: JSON.stringify({
           serverId: input.serverId,
@@ -113,8 +109,6 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
           arguments: input.arguments,
         }),
       })
-      if (!res.success) throw new Error(res.error)
-      return res.data
     },
     onError: (err: Error) => toast.error(err.message),
   })

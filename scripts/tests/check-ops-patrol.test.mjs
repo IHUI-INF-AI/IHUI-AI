@@ -769,6 +769,40 @@ test('TP6 P10 三态与出口:挂账红 / 逐条裁过绿且报名 / 台账坏 J
   }
 })
 
+test('TP6b P10 台账成功投递 = 最贴身的"在收信"证据:更晚 true 免账、更早 true 与同刻都不放行', () => {
+  const base = mkdtempSync(join(scratchRoot(), 'ops-p10-ledger-'))
+  try {
+    const now = Date.parse('2026-10-01T12:00:00.000Z')
+    const repo = join(base, 'repo')
+    const wb = join(repo, '.ihui-agent', 'state')
+    mkdirSync(wb, { recursive: true })
+    const st = join(wb, 'git-guardian-notify-state.json')
+    const write = (o) => writeFileSync(st, JSON.stringify(o), 'utf8')
+    // 书写序即测两趟制:欠账在前、成功在后 —— 单趟读到欠账时"还没见过"后面的成功,会漏覆盖。
+    write({
+      挂账: { fp: 'a'.repeat(40), ts: now - 6 * 3600_000, delivered: false },
+      晚到的成功: { fp: 'd'.repeat(40), ts: now - 2 * 3600_000, delivered: true },
+    })
+    const covered = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+    assert.equal(covered.state, 'ok', covered.detail)
+    assert.match(covered.detail, /1 条被台账内更晚的成功投递覆盖/, '覆盖必须报名,"零欠账"才不是无法复核的一句话')
+    // 成功早于欠账 ⇒ 那一次成功证明不了此后的通道状态,不得免账。
+    write({
+      先行的成功: { fp: 'd'.repeat(40), ts: now - 8 * 3600_000, delivered: true },
+      挂账: { fp: 'a'.repeat(40), ts: now - 3 * 3600_000, delivered: false },
+    })
+    assert.equal(checkUndeliveredAlertDebt({ repoRoot: repo, now }).state, 'finding', '成功早于欠账也放行 ⇒ 覆盖认了不该认的证据')
+    // 同刻不算"更晚"(保守向:证不实就继续挂着,绝不悄悄洗绿)。
+    write({
+      挂账: { fp: 'a'.repeat(40), ts: now - 6 * 3600_000, delivered: false },
+      同刻的成功: { fp: 'd'.repeat(40), ts: now - 6 * 3600_000, delivered: true },
+    })
+    assert.equal(checkUndeliveredAlertDebt({ repoRoot: repo, now }).state, 'finding', '同刻被当成覆盖 ⇒ 严格晚的边界丢了')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
 /**
  * P11(2026-10-02 补):promtool 规则单测 —— 判据写完没人跑 = 造好没装车。
  * 与 P1/P2 同族:promtool 是本机工具,取不到一律未判定、绝不判红(机器态)。

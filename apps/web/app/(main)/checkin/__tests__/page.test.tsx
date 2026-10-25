@@ -190,6 +190,13 @@ vi.mock('@/lib/tauri-bridge', () => ({
     status: 'not_logged_in',
     message: 'Cookie 未登录或已过期',
   })),
+  // 2026-10-24 Trae 网页登录(右侧工作区停靠浏览器 + GetUserToken 换真 JWT)
+  TRAE_WEB_LOGIN_URL: 'https://www.trae.cn/login',
+  checkinTraeWebLoginProbe: vi.fn(async () => ({ status: 'no_cookie' })),
+  // 停靠浏览器通道(原生 webview 铺在 work panel 宿位上)
+  openDockedBrowser: vi.fn(async () => null),
+  setDockedBrowserBounds: vi.fn(async () => {}),
+  closeDockedBrowser: vi.fn(async () => {}),
   checkinResetDeviceIds: vi.fn(),
   checkinOneClickResetAll: vi.fn(),
   checkinGetPublicIp: vi.fn(),

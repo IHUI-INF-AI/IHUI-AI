@@ -965,12 +965,49 @@ export const COPY_POINTER_ROW_RE =
   /^- \[[ x]\](?:（[^）\n]{0,40}）|\([^)\n]{0,40}\)|\s|　|\*|（进行中|\*\*){0,3}副本指针\s*[（(]编号\s*[^）)\n]{1,24}[）)]/m
 
 /**
- * 派单口径认的「这一行已被标注为副本」全集 —— `DUP_POINTER_RE`(原族) ∪ `COPY_POINTER_ROW_RE`
- * (`副本指针(编号 …)` 行首族,见上条头注)。刻意**只有一个**判据出口:两个正则并列导出但判据本身
- * 只在这里合成一次,避免"同一件事两处各判"(那正是 `DUP_POINTER_RE` 当初被立成单一来源的原因)。
+ * 派单口径认的第三种"本行自述为副本"形态(2026-10-25 立,机主令"不允许不同 agent 抢同一件任务重复做")。
+ *
+ * 病:`DUP_POINTER_RE` 只认「【归并】重复登记副本」(归并器自产形),`COPY_POINTER_ROW_RE` 只认
+ * 「副本指针(编号 …」行首族,而台账里还有第三族 —— 行首逐字写 `重复登记副本:`(裸形或带【归并】)、
+ * 行内又**逐字自述**「本行不进派单口径」/「活账以主行为准」的行。2026-10-25 HEAD 面现读 1 枚
+ * (`- [ ] 重复登记副本:本行与同标题登记 L6880(枚 290a26bc1)…本行不进派单口径,活账以主行为准。 **G-351…`),
+ * 它自述不进派单口径却仍被当活待办派出去 ⇒ 同一件事在派单清单里出现两行、两个会话各领一张票,
+ * 这正是"抢同一件任务重复做"的机器成因。
+ *
+ * 判据是**双锚,缺一不认**(原则:扩识别形态、不扩推断能力):
+ *  ① 行首锚:复选框后只容状态装饰(装饰集与 `COPY_POINTER_ROW_RE` 逐字同形),`【归并】` 可选,
+ *    随后必须是字面量 `重复登记副本` 且紧跟 `:` / `：` / `(` / `（` —— 正文里**出现**"重复登记"
+ *    字样而开头不是这一族的行,永不命中(锚在行首标记,不是关键词命中)。
+ *  ② 自述锚:同一行内必须含「本行不进派单口径」或「活账以主行为准」的逐字声明 —— 只写行首
+ *    「重复登记副本:」而没有行内自述的行可能是**正要修这一病型的真活票**(G-1058653 即此形),
+ *    不得吞。两锚都是行内显式声明,**绝不引入相似度/长度/语气猜副本**(§1:复合主键是逐字等值
+ *    而不是相似度;把别人没做完的活猜成副本,代价比原病更响)。
+ *
+ * **为什么不并进 `DUP_POINTER_RE`**(与 `COPY_POINTER_ROW_RE` 立项时的取舍同形):那个正则在全仓
+ * 有 30+ 消费点,renumber/折叠/清偿链按它决定"改不改号、折不折行"——扩它=30 处行为同时变;
+ * 且 `measure-plan-block-migration.test.mjs` D4 用 `assert.equal(source, '【归并】重复登记副本')`
+ * 钉死了它的字面形状。本判据**只在 `isClaimExcludedPointer` 这一个出口合成消费**,
+ * 影响面 = 少派 N 行 + `dupPointerRows` 诊断桶多收 N 行(该桶不在 probe 棘轮维),F1/F4 判据一字不动。
+ * `SELF_DEDISPATCH_RE` 也没并(它措辞互不含:「本行不再单独派单/走持有行」是另一族的逐字声明,
+ * 且 `check-plan-dup-pointer-ratchet` 的 hitsNote 吃它,并字面会把注记存量棘轮的基线读数顶挪)。
+ */
+export const BARE_COPY_SELFDECL_ROW_RE =
+  /^- \[[ x]\](?:（[^）\n]{0,40}）|\([^)\n]{0,40}\)|\s|　|\*|（进行中|\*\*){0,3}(?:【归并】)?重复登记副本\s*[：:（(]/
+export const COPY_SELF_EXEMPT_RE = /本行不进派单口径|活账以主行为准/
+/** 行首「重复登记副本」标记 ∧ 行内"不进派单/以主行为准"自述 —— 两者齐备才算自述副本行。 */
+export function isSelfDeclaredCopyRow(raw) {
+  return BARE_COPY_SELFDECL_ROW_RE.test(raw) && COPY_SELF_EXEMPT_RE.test(raw)
+}
+
+/**
+ * 派单口径认的「这一行已被标注/自述为副本」全集 —— `DUP_POINTER_RE`(【归并】原族) ∪
+ * `COPY_POINTER_ROW_RE`(`副本指针(编号 …)` 行首族,见其头注)∪ `isSelfDeclaredCopyRow`
+ * (裸「重复登记副本:」行首 ∧ 行内自述,2026-10-25 立,见其头注)。刻意**只有一个**判据出口:
+ * 各正则并列导出但判据本身只在这里合成一次,避免"同一件事两处各判"(那正是 `DUP_POINTER_RE`
+ * 当初被立成单一来源的原因)。
  */
 export function isClaimExcludedPointer(raw) {
-  return DUP_POINTER_RE.test(raw) || COPY_POINTER_ROW_RE.test(raw)
+  return DUP_POINTER_RE.test(raw) || COPY_POINTER_ROW_RE.test(raw) || isSelfDeclaredCopyRow(raw)
 }
 
 /**
@@ -1963,7 +2000,11 @@ export function dispositionOf(line) {
   if (h) {
     const fullFace = String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
     if (ownedElsewhereRe().test(fullFace)) return 'owned-elsewhere'
-    if (h.wait) return /拍|裁决|定夺|确认|决策/.test(h.wait) ? 'waiting-human' : 'waiting-env'
+    // 等段 '—' 是投影占位(= 无等待),不是等待对象(2026-10-25 修:实测三行双标头叠加
+    // 形态〔归:—|等:—〕…〔归:—|等:—〕在正文无词时被 '—' 顶成 waiting-env,而它们的
+    // 语义是 actionable+租约)。占位当等待 = 判据把"没有等待"读成"在等"。
+    if (h.wait && h.wait !== '—')
+      return /拍|裁决|定夺|确认|决策/.test(h.wait) ? 'waiting-human' : 'waiting-env'
   }
   return 'actionable'
 }
@@ -2718,6 +2759,14 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
   const waitingHumanRows = openRows.filter(
     (r) => dispositionOfV2({ line: r.raw, fields }).bucket === 'waiting-human',
   )
+  /**
+   * F12 名单(2026-10-25 机主令:等条件条目与待拍板同型禁止):全部未勾选行里被 **v2 尺**
+   * 判为 waiting-env 的行。与 waitingHumanRows 同一把尺同一个基数,禁令同样没有"已认领"豁免档。
+   * 存量由清偿批逐行出桶(翻勾/改归属),出桶后基线 F12=[] 即永久地板。
+   */
+  const waitingEnvRows = openRows.filter(
+    (r) => dispositionOfV2({ line: r.raw, fields }).bucket === 'waiting-env',
+  )
   const undisposed = findUndisposedOpenRows(content)
   const staleRows = findStaleOpenRows(content, new Date().toISOString().slice(0, 10))
   // 已写明"重复登记副本、不再单独派单"的行**也不进派单口径** —— 它由同题的幸存者代表。
@@ -2777,6 +2826,8 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
     dispBuckets,
     /** F11 名单(v2 尺,全体未勾选行):见上方 waitingHumanRows 头注。 */
     waitingHumanRows,
+    /** F12 名单(v2 尺,全体未勾选行):见上方 waitingEnvRows 头注。 */
+    waitingEnvRows,
     undisposed,
     staleRows,
     /** 派单口径 = 未勾选 ∧ **未带租约** ∧ 不是"与已完成同题的分叉副本" ∧ 不是"同一件事的第二条待办"(F4)∧ 不自带作废声明。
@@ -2826,7 +2877,13 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
       prefixNestedPairs: prefixNested.pairs.length,
       // 已写明"重复登记副本"的未勾选行:它们与 dupOpenCopies 是两件事 —— 副本是**当次**算出来的,
       // 标过指针的是历史上已归并过的。派单口径两条都扣,所以报告里必须分列,否则读者对不上账。
-      dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw)).length,
+      // 2026-10-25 起本栏同时收**裸自述族**(`重复登记副本:` 行首 ∧ 行内"不进派单/以主行为准",
+      // 见 isSelfDeclaredCopyRow 头注):凡是被派单出口(`isClaimExcludedPointer`)新逐出的行必须
+      // 在这一栏点名可见 —— 桶不收它,读数就会把"这一维在逐行"读成"这一维不存在"(§12f 沉默失效)。
+      // `副本指针(编号 …)` 行首族照旧不并入本栏(两族措辞互不含、出处不同,并栏者按【归并】grep
+      // 会判"这一族不存在"—— 与 selfDedispatchRows 分列是同一条纪律)。
+      dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw) || isSelfDeclaredCopyRow(r.raw))
+        .length,
       // 行内自述"不再单独派单/走持有行"的未勾选行(派单口径已扣,勾选未动)。与 `dupPointerRows`
       // 分列是因为两族措辞互不含(见 SELF_DEDISPATCH_RE 头注),并成一栏就会有人按【归并】字面
       // 去 grep 而判"这一族不存在"。真活票不受影响:`勿照本行…数字` 一族刻意不认,亦计入本行。
@@ -2867,6 +2924,7 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
       dispOwnedElsewhere: dispBuckets['owned-elsewhere'].length,
       /** F11 存量读数(v2 尺全体未勾行)—— 差值档的 newWaitingHuman 由调用方(plan-tasks)算。 */
       waitingHuman: waitingHumanRows.length,
+      waitingEnv: waitingEnvRows.length,
       // ── F7b 同一分层在派单口径上的读数(基数 = claimable,已扣副本/作废/分叉)──
       // 四桶相加必须等于 claimable,与上面四条"相加等于 unclaimed"是两条独立的闭合判据。
       dispClaimActionable: dispClaimBuckets.actionable.length,

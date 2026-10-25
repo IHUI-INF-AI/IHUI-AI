@@ -33,6 +33,7 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { gitBinary, gitRaw, assertRepoRoot } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -530,9 +531,13 @@ function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) process.exit(runSelfTest())
 
-  const getVal = (flag) => {
-    const i = argv.indexOf(flag)
-    return i >= 0 ? argv[i + 1] : undefined
+  const getVal = (flag, noun = '参数') => {
+    const r = requireFlagValue(argv, flag, { noun })
+    if (r.error) {
+      console.error(`❌ 用法错:${r.error}`)
+      process.exit(2)
+    }
+    return r.value
   }
   const asJson = argv.includes('--json')
   const strict = argv.includes('--strict')
