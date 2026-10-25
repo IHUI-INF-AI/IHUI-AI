@@ -10,23 +10,28 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./client": {
       "types": "./dist/client.d.ts",
-      "import": "./dist/client.js"
+      "import": "./dist/client.js",
+      "default": "./dist/client.js"
     },
     "./api-error": {
       "types": "./dist/api-error.d.ts",
-      "import": "./dist/api-error.js"
+      "import": "./dist/api-error.js",
+      "default": "./dist/api-error.js"
     },
     "./utils": {
       "types": "./dist/utils.d.ts",
-      "import": "./dist/utils.js"
+      "import": "./dist/utils.js",
+      "default": "./dist/utils.js"
     },
     "./endpoints/*": {
       "types": "./dist/endpoints/*.d.ts",
-      "import": "./dist/endpoints/*.js"
+      "import": "./dist/endpoints/*.js",
+      "default": "./dist/endpoints/*.js"
     },
     "./package.json": "./package.json"
   },
