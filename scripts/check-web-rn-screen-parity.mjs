@@ -143,23 +143,20 @@ function loadMap(face = FACE) {
   }
 }
 
-function run() {
-  const webRoutes = collectWebRoutes(FACE)
-  const rnScreens = collectRnScreens(FACE)
-  if (webRoutes.length === 0 || rnScreens.length === 0) {
-    console.error(
-      `❌ 未判定:取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length}),不记绿也不冒红`,
-    )
-    process.exit(2)
-  }
+/** 登记表 × web 路由集 → 三桶(aligned/excluded/unmapped)+ 段级豁免命中 + 登记腐烂清单(纯函数)。
+ * 抽出来(2026-10-26)是为了让下游探针 `probe-web-rn-gap.mjs` 复用同一把尺子:「未映射集」的
+ * 定义全仓只能有一处(§0.6 单一真相源)。下游若各自按「web 路由 − 已登记」复算,段级豁免
+ * 与「逐条优先于段级」这两条规则一改,就会出现「对账尺报 229、探针报 231」的两把尺子,
+ * 而那 2 条差额是没有任何一档认领的幽灵缺口。
+ */
+function evaluateMap(webRoutes, map, rnScreens, face) {
   const webByRoute = new Map(webRoutes.map((r) => [r.route, r]))
   // 登记表可以指向共享屏(真相源)或端内薄壳任一层:屏名去重只服务「候选建议」,
   // 不能让同名的端内屏在归属面被判"不存在"(2026-10-25 实测 UserPublic/LlmSettings/EduShop 三屏误报 ——
   // 共享层有同名屏时 byName 记的是共享层 rel,而登记表写的是端内路径)。
   const rnByRel = new Map()
-  for (const s of cov.collectShared(FACE)) rnByRel.set(s.rel, s)
-  for (const r of cov.collectRn(FACE)) rnByRel.set(r.file, { rel: r.file, name: r.name })
-  const map = loadMap()
+  for (const s of cov.collectShared(face)) rnByRel.set(s.rel, s)
+  for (const r of cov.collectRn(face)) rnByRel.set(r.file, { rel: r.file, name: r.name })
 
   const rot = []
   const aligned = []
@@ -217,8 +214,25 @@ function run() {
     }
     if (!prefixHits.has(p.web)) rot.push({ line: p.line, why: `段级豁免命中 0 条路由:${p.web}` })
   }
-  const prefixExcluded = prefixHits.size
   const unmapped = webRoutes.filter((r) => !mappedRoutes.has(r.route) && !prefixExcludedRoutes.has(r.route))
+  return { aligned, excluded, rot, prefixHits, prefixRows, prefixExcludedRoutes, unmapped, rnScreens }
+}
+
+function run() {
+  const webRoutes = collectWebRoutes(FACE)
+  const rnScreens = collectRnScreens(FACE)
+  if (webRoutes.length === 0 || rnScreens.length === 0) {
+    console.error(
+      `❌ 未判定:取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length}),不记绿也不冒红`,
+    )
+    process.exit(2)
+  }
+  const map = loadMap()
+  // 未映射集的判据只有一处(§0.6):抽出来的 evaluateMap 同时供本尺与探针 probe-web-rn-gap 使用,
+  // 保证「对账尺报多少条,探针就分诊多少条」永远相等。
+  const ev = evaluateMap(webRoutes, map, rnScreens, FACE)
+  const { aligned, excluded, rot, prefixHits, prefixRows, unmapped } = ev
+  const prefixExcluded = prefixHits.size
   const usedRn = new Set(aligned.map((r) => r.rn))
   const rnOnly = rnScreens.filter((s) => !usedRn.has(s.rel))
 
@@ -284,5 +298,5 @@ if (isDirectRun) {
   run()
 }
 
-export const __test__ = { collectWebRoutes, collectRnScreens, screenTokens, routeTokens, suggestCandidates, loadMap, LANG_SEGS }
+export const __test__ = { collectWebRoutes, collectRnScreens, screenTokens, routeTokens, suggestCandidates, loadMap, evaluateMap, LANG_SEGS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

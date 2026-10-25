@@ -11,6 +11,7 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
 
 import { formatShortDateTime } from '@/lib/date-utils'
 import { ViewMoreLink } from '@/components/common/view-more-link'
@@ -38,12 +39,7 @@ export default function ConnectorAuthDetailPageClient() {
   const { status, entries } = useConnectors()
 
   const raw = Array.isArray(params.key) ? params.key[0] : params.key
-  let connectorKey = raw ?? ''
-  try {
-    connectorKey = decodeURIComponent(connectorKey)
-  } catch {
-    /* 畸形百分号编码退回原值:坏 URL 不该崩整页 */
-  }
+  const connectorKey = safeDecodeURIComponent(raw ?? '')
   const entry = entries.find((e) => e.key === connectorKey)
 
   if (status === 'pending') {

@@ -51,10 +51,9 @@
  *      唯一正解是 §9b 那句"fetch + prune 是日常"。两条设计约束:**只在本来要判红时才联网问远端**
  *      (happy path 不派进程、不联网 —— 这道门挂在每次提交上);**问不到就一律不豁免**(失效方向是多拦)。
  */
-import { execFileSync, execSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readWorktreeFile } from './lib/face-reader.mjs'
+import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -178,13 +177,7 @@ function isActiveGoalBranch(branch) {
  */
 function getWorktreeBranches() {
   try {
-    const raw = execSync('git worktree list --porcelain', {
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    })
+    const raw = gitRaw(['worktree', 'list', '--porcelain'], ROOT)
     const set = new Set()
     for (const line of raw.split('\n')) {
       const m = line.match(/^branch refs\/heads\/(.+)$/)
@@ -273,13 +266,7 @@ export function staleExempt(name, { remoteHeads, remoteQueryable } = {}) {
  */
 function probeRemoteHeads() {
   try {
-    const raw = execFileSync('git', ['-C', ROOT, 'ls-remote', '--heads', 'origin'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 20000,
-      maxBuffer: 16 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const raw = gitRaw(['ls-remote', '--heads', 'origin'], ROOT, { timeout: 20000 })
     // 一条 refs/heads 都没有 ⇒ 网络半通 / 空仓 / 输出形态解不出,三种都不配当"远端没这些分支"的证据
     if (!/\trefs\/heads\//.test(raw)) {
       return { heads: new Set(), queryable: false, reason: '远端清单里没有任何 refs/heads 行' }
@@ -295,13 +282,8 @@ function unresolvableSet(names) {
   const bad = new Set()
   for (const b of names) {
     try {
-      // execFileSync + argv 而非拼 shell 串:分支名可含元字符,插进字符串即注入面
-      execFileSync('git', ['-C', ROOT, 'rev-parse', '--verify', `refs/remotes/${b}^{commit}`], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'ignore', 'ignore'],
-        windowsHide: true,
-        timeout: 5000,
-      })
+      // argv 式而非拼 shell 串:分支名可含元字符,插进字符串即注入面(gitRaw 只接 argv)
+      gitRaw(['rev-parse', '--verify', `refs/remotes/${b}^{commit}`], ROOT, { timeout: 5000 })
     } catch {
       bad.add(b)
     }
@@ -311,8 +293,7 @@ function unresolvableSet(names) {
 
 function listBranches() {
   try {
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    const raw = execSync('git branch -a', { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+    const raw = gitRaw(['branch', '-a'], ROOT)
     return (
       raw
         .split('\n')
@@ -340,15 +321,7 @@ function main() {
   /** 远端清单取不到时按空集 ⇒ 不豁免任何镜像引用(宁误拦,不静默放行) */
   let mirrorRemotes = new Set()
   try {
-    mirrorRemotes = mirrorRemoteSet(
-      execFileSync('git', ['-C', ROOT, 'remote'], {
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 10000,
-        stdio: ['ignore', 'pipe', 'pipe']
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      }),
-    )
+    mirrorRemotes = mirrorRemoteSet(gitRaw(['remote'], ROOT, { timeout: 10000 }))
   } catch {
     console.error(`${C.yellow}⚠️ git remote 取不到,镜像远端不豁免${C.reset}`)
   }
@@ -366,18 +339,15 @@ function main() {
   let tipTimesOk = true
   try {
     tipTimes = branchTipTimes(
-      execFileSync(
-        'git',
+      gitRaw(
         [
-          '-C',
-          ROOT,
           'for-each-ref',
           '--format=%(refname:short) %(committerdate:unix)',
           'refs/heads',
           'refs/remotes',
         ],
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        { encoding: 'utf8', windowsHide: true, timeout: 10000, maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] },
+        ROOT,
+        { timeout: 10000 },
       ),
     )
   } catch {
