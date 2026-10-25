@@ -2962,6 +2962,36 @@
       ],
       "reason": "同 zh-CN:94 枚死键在本端零独立取词点(动态前缀与命名空间两路均无命中),无契约声明;五语言同批等量删除保持 parity,派生离线载荷由 gen-i18n-compressed 重派。回潮判据同上。",
       "until": "2027-10-24"
+    },
+    {
+      "file": "packages/i18n/messages/miniapp-taro/zh-CN.json",
+      "keys": ["deventerModeledit.q7"],
+      "reason": "`deventerModeledit` 15 键里 q7(「提交收费配置」)是本端唯一无静态消费的一枚:共享屏对应页 `apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx:27-33` 的 DEPARTMENTS 只静态取 q1-q5,q6 由 `:99` 的错误日志消费(`logger.error('model-edit', t('deventerModeledit.q6'), e)`);r1-r8 全部由 `:17-24` CATEGORIES 消费。q7 是\"提交收费配置\"按钮文案的旧位置 —— 该按钮 `:onSubmit` 已改走 `devEnter.modelEdit.mockSuccess` 与 `common.loading`,故 q7 零引用。`git grep deventerModeledit.q7`(含 tests)零命中,无契约测试钉住 ⇒ 直接删除。",
+      "until": "2027-10-25"
+    },
+    {
+      "file": "packages/i18n/messages/miniapp-taro/en.json",
+      "keys": ["deventerModeledit.q7"],
+      "reason": "`deventerModeledit` 15 键里 q7(「提交收费配置」)是本端唯一无静态消费的一枚:共享屏对应页 `apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx:27-33` 的 DEPARTMENTS 只静态取 q1-q5,q6 由 `:99` 的错误日志消费(`logger.error('model-edit', t('deventerModeledit.q6'), e)`);r1-r8 全部由 `:17-24` CATEGORIES 消费。q7 是\"提交收费配置\"按钮文案的旧位置 —— 该按钮 `:onSubmit` 已改走 `devEnter.modelEdit.mockSuccess` 与 `common.loading`,故 q7 零引用。`git grep deventerModeledit.q7`(含 tests)零命中,无契约测试钉住 ⇒ 直接删除。",
+      "until": "2027-10-25"
+    },
+    {
+      "file": "packages/i18n/messages/miniapp-taro/ja.json",
+      "keys": ["deventerModeledit.q7"],
+      "reason": "`deventerModeledit` 15 键里 q7(「提交收费配置」)是本端唯一无静态消费的一枚:共享屏对应页 `apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx:27-33` 的 DEPARTMENTS 只静态取 q1-q5,q6 由 `:99` 的错误日志消费(`logger.error('model-edit', t('deventerModeledit.q6'), e)`);r1-r8 全部由 `:17-24` CATEGORIES 消费。q7 是\"提交收费配置\"按钮文案的旧位置 —— 该按钮 `:onSubmit` 已改走 `devEnter.modelEdit.mockSuccess` 与 `common.loading`,故 q7 零引用。`git grep deventerModeledit.q7`(含 tests)零命中,无契约测试钉住 ⇒ 直接删除。",
+      "until": "2027-10-25"
+    },
+    {
+      "file": "packages/i18n/messages/miniapp-taro/ko.json",
+      "keys": ["deventerModeledit.q7"],
+      "reason": "`deventerModeledit` 15 键里 q7(「提交收费配置」)是本端唯一无静态消费的一枚:共享屏对应页 `apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx:27-33` 的 DEPARTMENTS 只静态取 q1-q5,q6 由 `:99` 的错误日志消费(`logger.error('model-edit', t('deventerModeledit.q6'), e)`);r1-r8 全部由 `:17-24` CATEGORIES 消费。q7 是\"提交收费配置\"按钮文案的旧位置 —— 该按钮 `:onSubmit` 已改走 `devEnter.modelEdit.mockSuccess` 与 `common.loading`,故 q7 零引用。`git grep deventerModeledit.q7`(含 tests)零命中,无契约测试钉住 ⇒ 直接删除。",
+      "until": "2027-10-25"
+    },
+    {
+      "file": "packages/i18n/messages/miniapp-taro/zh-TW.json",
+      "keys": ["deventerModeledit.q7"],
+      "reason": "`deventerModeledit` 15 键里 q7(「提交收费配置」)是本端唯一无静态消费的一枚:共享屏对应页 `apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx:27-33` 的 DEPARTMENTS 只静态取 q1-q5,q6 由 `:99` 的错误日志消费(`logger.error('model-edit', t('deventerModeledit.q6'), e)`);r1-r8 全部由 `:17-24` CATEGORIES 消费。q7 是\"提交收费配置\"按钮文案的旧位置 —— 该按钮 `:onSubmit` 已改走 `devEnter.modelEdit.mockSuccess` 与 `common.loading`,故 q7 零引用。`git grep deventerModeledit.q7`(含 tests)零命中,无契约测试钉住 ⇒ 直接删除。",
+      "until": "2027-10-25"
     }
   ]
 }
