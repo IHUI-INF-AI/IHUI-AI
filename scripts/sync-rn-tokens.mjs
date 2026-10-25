@@ -882,6 +882,91 @@ function selfTest() {
     assertSameLeafSets(twoLine, p.spansByTable)
   })
 
+  // ── J. 覆盖面派生(源档 → RN 可达档) ──
+  const J_RN = `export type RnThemeMode = 'light' | 'dark'
+export const rnTokens = {
+  brand: { DEFAULT: '#000000' },
+}
+export type RnTokens = typeof rnTokens
+export type RnThemeTokens = { brand: { DEFAULT: string } }
+export const rnLightTokens: RnThemeTokens = {
+  brand: { DEFAULT: '#000000' },
+}
+export const rnDarkTokens: RnThemeTokens = {
+  brand: { DEFAULT: '#FFFFFF' },
+}
+`
+  const J_LIGHT = {
+    '--color-brand': '#000000',
+    '--color-black-50': 'rgba(0,0,0,0.5)',
+    '--color-white-15': 'rgba(255,255,255,0.15)',
+    '--color-not-a-color': '15 100% 50%',
+  }
+  const J_DARK = { '--color-black-50': 'rgba(0,0,0,0.7)' }
+  const jPal = () => planPalette({ rnText: J_RN, light: J_LIGHT, dark: J_DARK })
+
+  ok(
+    'J1 档名推导确定性:`--color-black-50`→black50,`--color-primary`→primary,非色档形态→null',
+    camelFromVar('--color-black-50') === 'black50' &&
+      camelFromVar('--color-primary') === 'primary' &&
+      camelFromVar('--spacing-4') === null &&
+      camelFromVar('rgb(0,0,0)') === null,
+  )
+  ok(
+    'J2 覆盖面:源里有而 RN 无同名档的进块 / 顶层已有档名不得被遮蔽 / 非色值形态不进 / 暗档缺项按 cascade 落回亮值',
+    (() => {
+      const p = jPal()
+      const keys = p.entries.map((e) => e.key)
+      const black = p.entries.find((e) => e.key === 'black50')
+      const white = p.entries.find((e) => e.key === 'white15')
+      return (
+        JSON.stringify(keys) === '["black50","white15"]' &&
+        black.dark === 'rgba(0,0,0,0.7)' &&
+        white.dark === 'rgba(255,255,255,0.15)' &&
+        p.skips.some((s) => s.name === '--color-brand' && /遮蔽/.test(s.why))
+      )
+    })(),
+  )
+  ok(
+    'J3 写回幂等:应用一次后 stale=false,且块不进任何表体(表叶子集不受影响)',
+    (() => {
+      const p = jPal()
+      const after = applyPalette(J_RN, p.block)
+      const again = planPalette({ rnText: after, light: J_LIGHT, dark: J_DARK })
+      return (
+        p.stale &&
+        !again.stale &&
+        after.includes('export const rnCssLight: Record<string, string> = {') &&
+        after.includes("black50: 'rgba(0,0,0,0.5)',") &&
+        again.entries.length === p.entries.length
+      )
+    })(),
+  )
+  ok(
+    'J4 源改一处 ⇒ 块当场落后(这才是"web 改值 RN 自动跟上"的可判形态)',
+    (() => {
+      const after = applyPalette(J_RN, jPal().block)
+      const moved = planPalette({
+        rnText: after,
+        light: { ...J_LIGHT, '--color-black-50': 'rgba(0,0,0,0.42)' },
+        dark: J_DARK,
+      })
+      return moved.stale && moved.block.includes('rgba(0,0,0,0.42)')
+    })(),
+  )
+  throws('J5 标记不齐 ⇒ 无法判定,拒绝盲写(不静默追加第二块)', /标记不齐|收尾在开头之前/, () =>
+    extractPaletteBlock(`${J_RN}${PALETTE_BEGIN} */\nx\n`),
+  )
+  ok(
+    'J6 有水印行时块落在水印之前(§5c 载荷必须留在文件末)',
+    (() => {
+      const wm = `${J_RN}\u200b\u200c hidden-payload\n`
+      const next = applyPalette(wm, jPal().block)
+      const lines = next.split('\n').filter(Boolean)
+      return /[\u200b-\u200f]/.test(lines[lines.length - 1]) && next.lastIndexOf('derived-palette:end') < next.lastIndexOf('\u200b')
+    })(),
+  )
+
   // ── I. 台账 ──
   const ledger = renderLedger(p0)
   ok(
@@ -901,6 +986,155 @@ function selfTest() {
 }
 
 // ───────────────────────────────────────────────────────────────── CLI ─────────────────────────────────────────────────────────────────
+
+// ──────────────────────────────────────────────
+// 覆盖面派生(coverage):把 tokens.css 里**RN 尚无同名档**的色档整张搬进来。
+//
+// 为什么不能只做"值同步":rn-tokens.ts 的表是手挑的 194 叶(实测现读:可派生 117 / 不可派生 77),
+// 而源侧有 309 变量 / 150 个可归一色档。端上要用的档不在表里 ⇒ 唯一出路就是写字面量 ——
+// 量到的现场是 apps/mobile-rn + packages/app 里 87 枚色值字面量,其中 59 枚等于源里某档,
+// 但只有 6 枚能走 RN 现有档。这就是"web 改一处 RN 不跟着动"的真成因:不是有人不肯用 token,
+// 而是**想跟随源也无路可走**。补档必须自动化,否则每补一档都要人跑一次派生器再抄一次。
+//
+// 三条口径与值同步同源(§0.6):取块用 collectVars、色值可判性用 COLOR_LITERAL_RE、
+// 明暗回退用与门 93 一致的 cascade 规则(.dark 没覆盖的档落回亮值)。
+// ──────────────────────────────────────────────
+
+export const PALETTE_BEGIN = '/* rn-tokens:derived-palette:begin —— 由 scripts/sync-rn-tokens.mjs 从 tokens.css 全量派生(勿手改;源改一处这里自动跟上)'
+export const PALETTE_END = 'rn-tokens:derived-palette:end */'
+
+/** `--color-black-50` → `black50`;推不出形态的一律返回 null(不猜)。 */
+export function camelFromVar(name) {
+  const m = /^--color-([a-z0-9-]+)$/.exec(String(name).trim())
+  if (!m) return null
+  const parts = m[1].split('-').filter(Boolean)
+  if (parts.length === 0) return null
+  const [first, ...rest] = parts
+  return first + rest.map((p) => p[0].toUpperCase() + p.slice(1)).join('')
+}
+
+/**
+ * @param {{rnText:string, light:Record<string,string>, dark:Record<string,string>}} o
+ * @returns {{entries:Array<{key:string,name:string,light:string,dark:string}>,skips:Array<{name:string,why:string}>,block:string,stale:boolean,existing:boolean}}
+ */
+export function planPalette(o) {
+  const taken = new Set()
+  for (const l of scanLeaves(o.rnText)) taken.add(l.path.split('.')[0])
+  const entries = []
+  const skips = []
+  const seenKey = new Map()
+  for (const [name, lightVal] of Object.entries(o.light)) {
+    if (!COLOR_LITERAL_RE.test(String(lightVal))) continue
+    const key = camelFromVar(name)
+    if (!key) {
+      skips.push({ name, why: '变量名推不出档名(不猜语义)' })
+      continue
+    }
+    if (taken.has(key)) {
+      skips.push({ name, why: `RN 表里已有顶层档 ${key},派生块不得遮蔽它` })
+      continue
+    }
+    if (seenKey.has(key)) {
+      const prev = seenKey.get(key)
+      const darkVal = o.dark[name] ?? lightVal
+      if (prev.light === lightVal && prev.dark === darkVal) continue
+      skips.push({ name, why: `档名 ${key} 已被 ${prev.name} 占用且值不同 ⇒ 两条都不搬,交人工命名` })
+      continue
+    }
+    const darkVal = o.dark[name] ?? lightVal
+    const rec = { key, name, light: String(lightVal).trim(), dark: String(darkVal).trim() }
+    seenKey.set(key, rec)
+    entries.push(rec)
+  }
+  const block = renderPaletteBlock(entries)
+  const cur = extractPaletteBlock(o.rnText)
+  return {
+    entries,
+    skips,
+    block,
+    existing: cur !== null,
+    stale: cur === null || cur !== block,
+  }
+}
+
+function q(v) {
+  // 派生块落在 .ts 里,而 .ts 在格式门的射程内(FORMAT_EXTENSIONS 含 ts)⇒ 写法必须与 prettier
+  // 的 singleQuote 同形,否则每次同步都给下一枚提交造一条新格式违规(§12e 那种"门拦自己产出"的坑)。
+  const s = String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
+  return `'${s}'`
+}
+
+export function renderPaletteBlock(entries) {
+  if (entries.length === 0) return ''
+  const rows = (field) => entries.map((e) => `  ${e.key}: ${q(e[field])},`).join('\n')
+  return [
+    `${PALETTE_BEGIN} */`,
+    '',
+    '/** 源侧全量色档·亮档(RN 表里没有同名档的那些;键 = `--color-x-y` 去前缀后 camel 化) */',
+    'export const rnCssLight: Record<string, string> = {',
+    rows('light'),
+    '}',
+    '',
+    '/** 源侧全量色档·暗档(.dark 未覆盖的档按 cascade 落回亮值,与守门 93 同一口径) */',
+    'export const rnCssDark: Record<string, string> = {',
+    rows('dark'),
+    '}',
+    '',
+    '/**',
+    ' * 按主题取源档。屏内取色的正确写法是 `rnCssColor(themeMode, \'black50\')`,不是 `\'rgba(0,0,0,0.5)\'` ——',
+    ' * 后者在 tokens.css 改值后**不会**跟着变,而前者会(且明暗自动翻面)。',
+    ' */',
+    'export function rnCssColor(theme: RnThemeMode, key: string): string {',
+    '  const table = theme === \'dark\' ? rnCssDark : rnCssLight',
+    '  const value = table[key]',
+    '  if (value === undefined)',
+    "    throw new Error(`rnCssColor:源里没有 ${key} 档(派生块落后?跑 sync-rn-tokens)`)",
+    '  return value',
+    '}',
+    '',
+    `/* ${PALETTE_END}`,
+  ].join('\n')
+}
+
+/** 取现有派生块全文(含首尾标记行);没有则 null。两个标记必须各命中一次,否则判"无法判定"。 */
+export function extractPaletteBlock(rnText) {
+  const beginCount = rnText.split('/* rn-tokens:derived-palette:begin').length - 1
+  const endCount = rnText.split(`/* ${PALETTE_END}`).length - 1
+  if (beginCount === 0 && endCount === 0) return null
+  if (beginCount !== 1 || endCount !== 1)
+    throw new UndeterminedError(`派生块标记不齐(begin ${beginCount} / end ${endCount})⇒ 无法定位,拒绝盲写`)
+  const a = rnText.indexOf('/* rn-tokens:derived-palette:begin')
+  const b = rnText.indexOf(`/* ${PALETTE_END}`)
+  if (b < a) throw new UndeterminedError('派生块收尾在开头之前 ⇒ 标记错位')
+  const tail = rnText.slice(b)
+  const eol = tail.indexOf('\n')
+  return rnText.slice(a, b + (eol < 0 ? tail.length : eol)).replace(/\s+$/, '')
+}
+
+/** 把派生块原位替换或追加到文件末(水印不可见行之前;§5c 的水印注入仍由写回口负责)。 */
+export function applyPalette(rnText, block) {
+  if (!block) return rnText
+  const existing = extractPaletteBlock(rnText)
+  if (existing !== null) return rnText.replace(existing, block)
+  const lines = rnText.split('\n')
+  const wmIdx = lines.length - 2
+  const hasWatermark = wmIdx >= 0 && /[\u200b-\u200f\u2060]/.test(lines[wmIdx])
+  const head = hasWatermark ? lines.slice(0, wmIdx).join('\n').replace(/\s+$/, '') : rnText.replace(/\s+$/, '')
+  return `${head}\n\n${block}\n${hasWatermark ? `\n${lines.slice(wmIdx).join('\n')}` : ''}`
+}
+
+/** 扫 rn-tokens.ts 的顶层档名(用于"不得遮蔽已有手抄档"这条闸)。 */
+function scanLeaves(rnText) {
+  const out = []
+  for (const name of Object.keys(TABLE_MODE)) {
+    const loc = locateTable(maskTs(rnText), name)
+    if (!loc) continue
+    for (const l of collectLeafSpans(maskTs(rnText), rnText, loc.bodyStart, loc.bodyEnd)) out.push(l)
+  }
+  return out
+}
+
+// ──────────────────────────────────────────────
 
 function loadInputs() {
   const srcPath = resolve(ROOT, TOKENS_SOURCE_REL)
@@ -948,18 +1182,30 @@ function main() {
     throw new UndeterminedError('tokens.css 取到 0 个变量 ⇒ 无法判定(不冒绿)')
   const plan = planDerivation({ rnText, light: tables.light, dark: tables.dark })
   assertSameLeafSets(rnText, plan.spansByTable)
+  const pal = planPalette({ rnText, light: tables.light, dark: tables.dark })
 
   console.info(
     `[sync-rn-tokens] 可派生 ${plan.managedCount} 档 / 不可派生 ${plan.unmanaged.length} 档 / ` +
       `拒绝 ${plan.refusals.length} 档 / 待写回 ${plan.changes.length} 档 / 待补标记 ${plan.markerInserts.length} 处`,
   )
+  console.info(
+    `[sync-rn-tokens] 覆盖面派生:源档 ${pal.entries.length} 枚进块 / 跳过 ${pal.skips.length} 枚 / ` +
+      `${pal.stale ? (pal.existing ? '块内容落后于源' : '块尚未生成') : '块与源一致'}`,
+  )
   if (isList) console.info(renderLedger(plan))
-
-  const needsWrite = plan.changes.length > 0 || plan.markerInserts.length > 0
-  if (needsWrite && !readOnly) {
-    writeAndWatermark(dstPath, applyPlan(rnText, plan))
+  if (isList && pal.skips.length > 0)
     console.info(
-      `[sync-rn-tokens] ✅ 已原位写回 ${RN_TOKENS_REL}(值 ${plan.changes.length} 处 + 标记 ${plan.markerInserts.length} 处)`,
+      `跳过台账(前 20):\n${pal.skips.slice(0, 20).map((s) => `  ${s.name} —— ${s.why}`).join('\n')}`,
+    )
+
+  const needsWrite =
+    plan.changes.length > 0 || plan.markerInserts.length > 0 || (pal.stale && pal.block !== '')
+  if (needsWrite && !readOnly) {
+    let next = plan.changes.length > 0 || plan.markerInserts.length > 0 ? applyPlan(rnText, plan) : rnText
+    if (pal.stale && pal.block !== '') next = applyPalette(next, pal.block)
+    writeAndWatermark(dstPath, next)
+    console.info(
+      `[sync-rn-tokens] ✅ 已原位写回 ${RN_TOKENS_REL}(值 ${plan.changes.length} 处 + 标记 ${plan.markerInserts.length} 处 + 覆盖面块 ${pal.entries.length} 档)`,
     )
     // 本脚本只改 src;RN 经包入口(main/exports)消费的是 dist,不重建则 Metro 永远吃旧值
     // (2026-10-20 实测:glass.bg 从 0.66 调到 0.3,设备上四轮毫无变化,dist 仍停在 0.66)。
@@ -975,7 +1221,7 @@ function main() {
     console.error(`[sync-rn-tokens] ❌ 拒绝派生 ${r.table} ${r.path} [${r.kind}] —— ${r.detail}`)
   if (isCheck && needsWrite)
     console.error(
-      `[sync-rn-tokens] ❌ 待写回 ${plan.changes.length} 档、待补标记 ${plan.markerInserts.length} 处,请运行: node scripts/sync-rn-tokens.mjs`,
+      `[sync-rn-tokens] ❌ 待写回 ${plan.changes.length} 档、待补标记 ${plan.markerInserts.length} 处、覆盖面块落后 ${pal.stale ? pal.entries.length : 0} 档,请运行: node scripts/sync-rn-tokens.mjs`,
     )
   // 拒绝项任何档位都要喊(--list 也不放过);纯漂移只在 --check 计失败,那是 --check 的判据而非台账的。
   if (isCheck || plan.refusals.length > 0) process.exit(1)
@@ -1012,6 +1258,13 @@ export const __test__ = {
   assertSameLeafSets,
   applyPlan,
   renderLedger,
+  PALETTE_BEGIN,
+  PALETTE_END,
+  camelFromVar,
+  planPalette,
+  renderPaletteBlock,
+  extractPaletteBlock,
+  applyPalette,
   FIXTURE_CSS,
   FIXTURE_RN,
   FIXTURE_MAPPINGS,
