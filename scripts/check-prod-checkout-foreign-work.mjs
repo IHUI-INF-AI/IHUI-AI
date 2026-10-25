@@ -648,11 +648,39 @@ export function verdictLine(state, c, { surface = 'none', undet = [] } = {}) {
  *    否则任一根整轮判不出(git 侧失败)或有逐项 unjudged ⇒ 整轮 unjudged(不冒绿也不冒红);
  *    只有全部根都判得出且无脏项 ⇒ clean/duplicate。
  *  每根的逐根结论行留在 `roots[].line`,根因点名留在 `causes`。 */
+/**
+ * 根是不是**本项目**签出:两个仓标记同在。
+ *
+ * 立因(2026-10-25 实测):服务枚举会把挂在 IHUI 名下的第三方仓一起收进来(本机
+ * `D:/DevEnv/tools/rsshub/RSSHub`,其 origin 是 DIYgod/RSSHub)——拿它对本仓 origin/main
+ * 跑 `ls-tree` 必然 exit 128(Not a valid object name) ⇒ 整轮 unjudged,守护连续 134 分钟
+ * 报“未判定”并寄信。第三方仓不是“签出证据缺失”,是**不属于本判据的判定面**,应跳过而不是未判定。
+ */
+export function isProjectCheckout(root, { exists = existsSync } = {}) {
+  return exists(join(root, 'apps', 'api', 'package.json')) && exists(join(root, 'packages', 'database', 'package.json'))
+}
+
 export function probeAllRoots(roots, opts = {}) {
   const empty = { foreign: 0, duplicate: 0, staged: 0, unjudged: 0, untracked: 0 }
   const counts = { ...empty }
-  const merged = { state: 'clean', counts, foreign: [], staged: [], duplicates: [], unjudged: [], causes: [], roots: [] }
+  const merged = { state: 'clean', counts, foreign: [], staged: [], duplicates: [], unjudged: [], causes: [], roots: [], notProject: [] }
+  const isProject =
+    typeof opts.isProject === 'function'
+      ? opts.isProject
+      : (root) => isProjectCheckout(root, { exists: opts.exists ?? existsSync })
   for (const r of roots) {
+    if (!isProject(r.value)) {
+      merged.roots.push({
+        root: r.value,
+        via: r.via,
+        state: 'not-project',
+        counts: { ...empty },
+        line: '',
+        why: '不是本项目签出(缺 apps/api + packages/database 仓标记)⇒ 跳过,不参与外来工作对账',
+      })
+      merged.notProject.push(r.value)
+      continue
+    }
     const res = probeProdCheckout(r.value, opts)
     merged.roots.push({ root: r.value, via: r.via, state: res.state, counts: res.counts, line: res.line, why: res.why ?? null })
     for (const k of Object.keys(empty)) counts[k] += Number(res.counts?.[k] || 0)
@@ -669,7 +697,7 @@ export function probeAllRoots(roots, opts = {}) {
   // 逐项判不出(删除型/blob 取不到)时,结论行也必须点名到归因码 —— "未判定却不写为什么"是
   // §0.3 禁止的那种假诚实;明细留在 merged.unjudged[].why。
   if (counts.unjudged > 0) merged.causes.push(`entry-unjudged=${counts.unjudged}`)
-  merged.prodRoot = merged.roots.map((x) => x.root).join(' + ') || null
+  merged.prodRoot = merged.roots.filter((x) => x.state !== 'not-project').map((x) => x.root).join(' + ') || null
   return merged
 }
 
@@ -788,6 +816,7 @@ export const __test__ = {
   rootsFromServiceValues,
   conventionalProdRoots,
   surveyProdCheckouts,
+  isProjectCheckout,
   probeAllRoots,
   verdictLine,
   verdictFromSurvey,

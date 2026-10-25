@@ -74,6 +74,11 @@ function cleanup() {
   for (const d of [prodDir, originDir]) if (d) rmScratch(d, { bestEffort: true })
 }
 
+// 夹具是"最小 git 仓",不是完整项目树 ⇒ 身份判据(isProjectCheckout 的两个仓标记)会把它们读成
+// 第三方仓并跳过。这些用例测的是**判定链本身**(probe/verdict/归因),所以显式声明夹具属于判定面;
+// 身份那一维另有独立用例覆盖,且带反向对照:带标记的根必须入面(判据过紧 = 静默假绿)。
+const FIXTURE_IS_PROJECT = { isProject: () => true }
+
 // —— 四型夹具端到端 ——
 test('四型夹具:duplicate/foreign/staged/unjudged 各归其桶,脏态判 dirty exit 1', () => {
   const r = P.probeProdCheckout(prodDir)
@@ -294,7 +299,7 @@ test('阳性对照①(发现器整链真判红):假注册表把服务指向一�
   assert.equal(survey.state, 'ok', `应经注册表发现独立签出,实际 ${survey.state} / ${JSON.stringify(survey.causes)}`)
   assert.equal(survey.roots.length, 1)
   assert.equal(P.normPath(survey.roots[0].value), P.normPath(prodDir), 'AppDirectory 落在下一层时必须向上折到带 .git 的根')
-  const v = P.verdictFromSurvey(survey)
+  const v = P.verdictFromSurvey(survey, FIXTURE_IS_PROJECT)
   assert.equal(v.state, 'dirty', '四型夹具里有 foreign ⇒ 发现器整链必须判红')
   assert.ok(v.foreign.some((x) => x.path === 'b.txt' && P.normPath(x.root) === P.normPath(prodDir)), 'foreign 条目带所属根(多根不混淆)')
   assert.equal(v.surface, 'judged')
@@ -336,7 +341,7 @@ test('通道 D(人工/复核):指定根成立即判;根不成立当场未判定,
   const ok = P.surveyProdCheckouts({ overrideRoot: prodDir, env: {}, conventionalRoots: { state: 'measured', roots: [] } })
   assert.equal(ok.state, 'ok')
   assert.equal(ok.via, 'override')
-  const v = P.verdictFromSurvey(ok)
+  const v = P.verdictFromSurvey(ok, FIXTURE_IS_PROJECT)
   assert.equal(v.state, 'dirty', '--prod-root 是真通道,不是"只影响发现不影响判定"的装饰')
   assert.ok(v.foreign.length > 0)
 
@@ -430,7 +435,7 @@ test('通道 C 被拒时点名归因(不许静默当"没有");能推导时按实
   })
   assert.equal(revived.state, 'ok', '约定目录命中 ⇒ 进判定面')
   assert.equal(P.normPath(revived.roots[0].value), P.normPath(prodDir))
-  const rv = P.verdictFromSurvey(revived)
+  const rv = P.verdictFromSurvey(revived, FIXTURE_IS_PROJECT)
   assert.equal(rv.state, 'dirty')
   assert.ok(rv.foreign.length > 0 && rv.foreign[0].root, '复活的生产签出里的外来改动必须被点名(带所属根)')
 })
@@ -443,6 +448,51 @@ test('形状锁:多通道判据只有一份 —— 派发侧不再从散文里�
   assert.ok(src.includes("import { devEnvRoot } from './seal-c-root-stray.mjs'"), 'DevEnv 根复用唯一出口(§0.6)')
 })
 
+test('isProjectCheckout:两个仓标记同在才算本项目签出(第三方仓不得冒充生产签出)', () => {
+  const dir = mkScratch('pfw-id-')
+  try {
+    const a = join(dir, 'apps', 'api', 'package.json')
+    const b = join(dir, 'packages', 'database', 'package.json')
+    mkdirSync(join(dir, 'apps', 'api'), { recursive: true })
+    mkdirSync(join(dir, 'packages', 'database'), { recursive: true })
+    writeFileSync(a, '{}')
+    writeFileSync(b, '{}')
+    assert.equal(P.isProjectCheckout(dir), true)
+    rmSync(b)
+    assert.equal(P.isProjectCheckout(dir), false, '只有一个标记不算本项目')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('非本项目根(RSSHub 等)必须**跳过**而不是未判定 ⇒ 不再每轮寄“未判定”信', () => {
+  const dir = mkScratch('pfw-skip-')
+  try {
+    const merged = P.probeAllRoots([{ value: dir, via: 'test' }])
+    assert.equal(merged.roots[0].state, 'not-project')
+    assert.equal(merged.state, 'clean', '第三方仓不是判定面缺失,不得把整轮读成 unjudged')
+    assert.equal(merged.causes.length, 0)
+    assert.deepEqual(merged.notProject, [dir])
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('反向对照:带仓标记的根走默认判据必须入面 —— 判据过紧会把真签出静默跳过 = 假绿', () => {
+  const dir = initRepo('pfw-marker-', { 'apps/api/package.json': '{}\n', 'packages/database/package.json': '{}\n' })
+  try {
+    // 留一处工作区改动:entries 非空 ⇒ 必须真去问 origin/main(夹具没造远端 ref ⇒ 未判定)。
+    // 若根被跳过,整轮会说 clean —— 那正是"判据过紧 ⇒ 静默假绿"的形态。
+    writeFileSync(join(dir, 'apps', 'api', 'package.json'), '{ "changed": true }\n')
+    const merged = P.probeAllRoots([{ value: dir, via: 'test' }])
+    assert.deepEqual(merged.notProject, [], '有仓标记的根不得被判成第三方')
+    assert.equal(merged.roots[0].state, 'unjudged', '入面后问不到 origin/main ⇒ 未判定(不是 clean)')
+    assert.equal(merged.state, 'unjudged')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
 test('逐项判不出也必须点名:只有 unjudged 而无 foreign 时 ⇒ 整轮未判定 + entry-unjudged 归因码', () => {
   // 夹具:一枚 tracked 文件被从工作区删除 ⇒ 工作区 blob 取不到(删除型),两侧都无 foreign。
   // 旧映射会把它折成 dirty ⇒ 派发侧既不寄信也不写日志(沉默的那一型)。
@@ -450,12 +500,12 @@ test('逐项判不出也必须点名:只有 unjudged 而无 foreign 时 ⇒ 整�
   try {
     git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']) // 本地造远端 tip,不打网络
     rmSync(join(dir, 'gone.txt'))
-    const merged = P.probeAllRoots([{ value: dir, via: 'test' }])
+    const merged = P.probeAllRoots([{ value: dir, via: 'test' }], FIXTURE_IS_PROJECT)
     assert.equal(merged.counts.foreign, 0)
     assert.equal(merged.counts.unjudged, 1)
     assert.equal(merged.state, 'unjudged', '判不出的一格不许被读成 dirty(=派发侧沉默)也不许读成 clean')
     assert.ok(merged.causes.some((c) => c.startsWith('entry-unjudged=')), JSON.stringify(merged.causes))
-    const v = P.verdictFromSurvey({ state: 'ok', roots: [{ value: dir, via: 'test' }], evidence: {}, via: 'test' })
+    const v = P.verdictFromSurvey({ state: 'ok', roots: [{ value: dir, via: 'test' }], evidence: {}, via: 'test' }, FIXTURE_IS_PROJECT)
     assert.equal(v.state, 'unjudged')
     assert.equal(v.surface, 'judged-but-unresolved')
     assert.match(v.line, /state=unjudged .* surface=judged-but-unresolved undet=entry-unjudged=1$/)

@@ -11,7 +11,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { __test__ as X } from '../plan-fields-extract.mjs'
@@ -271,12 +271,27 @@ describe('侧车抽取:归属词表补洞(2026-10-24 漂移桶)', () => {
     assert.equal(X.extractFromLine(unassigned), null)
   })
 
+  it('⑥ 行内标头的等段文本必须搬回侧车(否则投影永远少一段 ⇒ 门 234 A2 恒红)', () => {
+    const line = '- [ ] 〔归:—｜等:机主授权装 docker〕 D17 云端沙箱 agent 需用户拍板'
+    const rec = X.extractFromLine(line)
+    assert.equal(rec?.waiting, 'human', '等待档由散文桶推得')
+    assert.equal(rec?.blocking, '机主授权装 docker', '等段文本是侧车必须能渲染的词')
+    assert.equal(
+      X.batchBucketDrift([line], new Map([[rec.key, rec]])).length,
+      0,
+      '补 blocking 不得改变归属桶(桶只看 owner/waiting)',
+    )
+  })
+
   it('⑤ 装车锁:抽取桶闸与漂移 before 共用 `dispositionOf` 那一份词表', () => {
     const re = ownedElsewhereRe()
     assert.match(re.source, /持有\[者人\]/, '词表没有持有人写法 = 漂移桶原样复现')
     assert.match(re.source, /归\[:：\]/, '词表没有 `归:` 标头写法 = 漂移桶原样复现')
     for (const [line] of REAL_POSITIVE) {
-      assert.ok(re.test(dispositionFace(line)), `抽取器问的词表没认出:${line}`)
+      // 面必须与判定层同形:`dispositionFace` 现在剥侧车标头(标头是投影、不参与正文措辞),
+      // 而本断言问的是"词表认不认这种**标头**写法" ⇒ 用含标头的遮码面。
+      const fullFace = String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
+      assert.ok(re.test(fullFace), `抽取器问的词表没认出:${line}`)
       const rec = X.extractFromLine(line)
       assert.deepEqual(
         X.batchBucketDrift([line], new Map([[rec.key, rec]])),
@@ -286,4 +301,120 @@ describe('侧车抽取:归属词表补洞(2026-10-24 漂移桶)', () => {
     }
   })
 })
+
+describe('已有一条记录时只加不减(投影后的行不得被散文降级)', () => {
+  const key = 'G-5#标题某件活'
+  const existing = { key, owner: '门 130 持有人', waiting: 'none', updatedAt: '2026-10-24T00:00:00.000Z' }
+  it('桶不同 ⇒ 不覆盖(owned-elsewhere 不得被散文顶成 waiting-env)', () => {
+    const cand = { key, waiting: 'env', blocking: '等环境', updatedAt: '2026-10-24T01:00:00.000Z' }
+    assert.equal(X.enrichRecord(existing, cand), null)
+  })
+  it('桶相同 ⇒ 只补缺字段 / 现读有变则跟随,但空值不覆盖既有(只加不减)', () => {
+    const owned = { key, owner: '门 130 持有人', waiting: 'none', updatedAt: '2026-10-24T00:00:00.000Z' }
+    const ownerChanged = { key, owner: '换人', waiting: 'none', updatedAt: '2026-10-24T01:00:00.000Z' }
+    assert.equal(X.enrichRecord(owned, ownerChanged)?.owner, '换人', '同桶内现读换了人必须跟随')
+    const ownerGone = { key, waiting: 'env', updatedAt: '2026-10-24T01:00:00.000Z' }
+    assert.equal(X.enrichRecord(owned, ownerGone), null, '散文抽不出 owner(桶变了)⇒ 不得降级覆盖')
+  })
+
+  it('桶相同 ⇒ 只补缺字段(行内标头 `等:X` 的 X 能进侧车)', () => {
+    const human = { key, owner: '', waiting: 'human', updatedAt: '2026-10-24T00:00:00.000Z' }
+    const cand = { key, waiting: 'human', blocking: '机主授权装 docker', updatedAt: '2026-10-24T01:00:00.000Z' }
+    const merged = X.enrichRecord(human, cand)
+    assert.equal(merged?.blocking, '机主授权装 docker')
+    assert.equal(merged?.updatedAt, cand.updatedAt)
+    assert.equal(
+      X.enrichRecord({ ...human, blocking: '旧等段' }, cand)?.blocking,
+      '机主授权装 docker',
+      '同桶内现读的等段应跟随(不保留过期文本)',
+    )
+  })
+})
+
+describe('侧车去重:同键多条只留最新,解析映射零变化(门 234 矛盾组根因)', () => {
+  const rec = (over = {}) => ({
+    key: 'G-1#甲',
+    owner: '甲持有人',
+    waiting: 'none',
+    updatedAt: '2026-10-24T00:00:00.000Z',
+    ...over,
+  })
+  const older = rec({})
+  const fresh = rec({ owner: '乙持有人', updatedAt: '2026-10-24T02:00:00.000Z' })
+  const other = rec({ key: 'G-2#乙', waiting: 'human', updatedAt: '2026-10-24T00:00:00.000Z' })
+
+  it('保留最新(并列取先出现),输出按首次出现位置排序', () => {
+    const r = X.dedupeRecords('.', {
+      lines: [JSON.stringify(older), JSON.stringify(other), JSON.stringify(fresh)],
+      map: new Map([
+        [older.key, fresh],
+        [other.key, other],
+      ]),
+    })
+    assert.equal(r.state, 'changed')
+    assert.equal(r.dropped, 1)
+    assert.deepEqual(
+      r.records.map((x) => x.key),
+      [older.key, other.key],
+    )
+    assert.equal(r.records[0].owner, '乙持有人', '留下的必须是 updatedAt 最新那条')
+  })
+
+  it('键集缺 / 语义不一致 / 畸形行 ⇒ 一律拒绝(绝不顺手删记录)', () => {
+    const missing = X.dedupeRecords('.', {
+      lines: [JSON.stringify(older)],
+      map: new Map([
+        [older.key, older],
+        [other.key, other],
+      ]),
+    })
+    assert.equal(missing.state, 'refused', '解析映射里有、盘上没有的键 ⇒ 拒绝(去重不得抹掉 HEAD 记录)')
+    const semantic = X.dedupeRecords('.', {
+      lines: [JSON.stringify(older)],
+      map: new Map([[older.key, fresh]]),
+    })
+    assert.equal(semantic.state, 'refused', '挑出的记录与解析映射语义不同 ⇒ 拒绝')
+    const broken = X.dedupeRecords('.', { lines: ['{not json'], map: new Map() })
+    assert.equal(broken.state, 'refused', '畸形行不替它做决定')
+  })
+
+  it('写盘原子且回读条数正确(临时件 + rename)', () => {
+    const dir = mkScratch('pf-dedupe')
+    try {
+      const file = path.join(dir, 'scripts/data/plan-fields.jsonl')
+      mkdirSync(path.dirname(file), { recursive: true })
+      writeFileSync(file, [JSON.stringify(older), JSON.stringify(fresh), JSON.stringify(other)].join('\n') + '\n', 'utf8')
+      const w = X.writeDedupedRecords(dir, [fresh, other])
+      assert.equal(w.before, 3)
+      assert.equal(w.after, 2)
+      assert.equal(readFileSync(file, 'utf8').trim().split('\n').length, 2)
+    } finally {
+      rmScratch(dir)
+    }
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('声明式改判(2026-10-25):判据修正后侧车旧桶必须能被逐条改判', () => {
+  const recs = [
+    { key: 'G-1#长会话渲染成本', waiting: 'human', blocking: '', updatedAt: '2026-10-24T00:00:00.000Z', updatedBy: 'x' },
+    { key: 'G-2#USDTTRC20ADDRESS仍空', waiting: 'human', blocking: '', updatedAt: '2026-10-24T00:00:00.000Z', updatedBy: 'x' },
+  ]
+  it('合法声明 ⇒ 只改声明的字段,并留 updatedBy=plan-fields-reclassify', () => {
+    const r = X.applyReclassify(recs, [{ key: 'G-1#长会话渲染成本', waiting: 'none', blocking: '', why: '机主已两次拍板,决策已定只剩实施' }])
+    assert.equal(r.error, undefined)
+    assert.equal(r.changes.length, 1)
+    assert.equal(r.changes[0].rec.waiting, 'none')
+    assert.equal(r.changes[0].rec.updatedBy, 'plan-fields-reclassify')
+  })
+  it('陈旧 key / 理由过短 / waiting 非法 ⇒ 整批拒(不做部分应用)', () => {
+    assert.match(X.applyReclassify(recs, [{ key: 'G-9#不存在', waiting: 'none', why: '理由足够长的定向说明' }]).error, /不在侧车面/)
+    assert.match(X.applyReclassify(recs, [{ key: 'G-1#长会话渲染成本', waiting: 'none', why: '短' }]).error, /少于 10 字/)
+    assert.match(X.applyReclassify(recs, [{ key: 'G-1#长会话渲染成本', waiting: 'maybe', why: '理由足够长的定向说明' }]).error, /只能/)
+  })
+  it('声明与现状同形 ⇒ 不产生 change(不制造"改过"的假账)', () => {
+    const r = X.applyReclassify(recs, [{ key: 'G-1#长会话渲染成本', waiting: 'human', why: '与现状同形的声明应被跳过' }])
+    assert.equal(r.error, undefined)
+    assert.equal(r.changes.length, 0)
+  })
+})

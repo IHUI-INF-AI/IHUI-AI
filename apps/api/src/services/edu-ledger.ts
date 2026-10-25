@@ -34,6 +34,7 @@
  */
 
 import { and, asc, count, eq, inArray, isNull, or, sql } from 'drizzle-orm'
+import { bizDayKey } from '../utils/biz-day.js'
 import { eduEnrollment, eduFeeSchedule, eduPaymentRecord, eduRefundRecord } from '@ihui/database'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
@@ -344,8 +345,9 @@ export function buildSchedulePlan(
   return out
 }
 
-function todayIso(): string {  // 用北京日界,与催费定时任务的"当日幂等"口径一致(那边按北京时间 0 点算)
-  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+function todayIso(): string {
+  // 北京日界,与催费定时任务的"当日幂等"同口径;算法唯一出口 = utils/biz-day.ts
+  return bizDayKey()
 }
 
 /**

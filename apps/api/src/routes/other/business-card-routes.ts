@@ -249,17 +249,18 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
   server.get('/business-card/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    const [card] = await dbRead
-      .select()
-      .from(businessCards)
-      .where(eq(businessCards.id, id))
-      .limit(1)
-    if (!card) return reply.status(404).send(error(404, '名片不存在'))
-    await db
+    // 以前是「从库 dbRead 读一行 → JS 里 +1 → 主库写绝对值」。两笔都是错的:
+    //  · 复制延迟时从库读到的 viewCount 比主库低,写回就把计数**倒退**;
+    //  · 并发浏览时两边各自读到 N、各自写 N+1 ⇒ 吞掉一次浏览。
+    // 改成 UPDATE...RETURNING 让数据库自己加,并把加完的那一行直接回给客户端
+    //  (返回的数与屏幕上显示的数从此同源);空集 = 名片不存在,404 语义不变。
+    const [card] = await db
       .update(businessCards)
-      .set({ viewCount: card.viewCount + 1, updatedAt: new Date() })
+      .set({ viewCount: sql`${businessCards.viewCount} + 1`, updatedAt: new Date() })
       .where(eq(businessCards.id, id))
-    return reply.send(success({ ...card, viewCount: card.viewCount + 1 }))
+      .returning()
+    if (!card) return reply.status(404).send(error(404, '名片不存在'))
+    return reply.send(success(card))
   })
 
   // ===== 原有(深化):GET /business-card/favorites — 当前用户收藏列表(联表 users 作者信息)=====

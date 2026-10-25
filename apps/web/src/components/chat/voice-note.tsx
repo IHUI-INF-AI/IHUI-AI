@@ -254,6 +254,9 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
       startedAtRef.current = Date.now()
       durationSecRef.current = 0
       setDurationSec(0)
+      // 起新之前先停旧(本文件已有 stopTimer,catch 分支就在用它)——否则重开一次录音
+      // 就多一只无人认领的计时器,它会一直改 durationSecRef 并 setState
+      stopTimer()
       timerRef.current = setInterval(() => {
         durationSecRef.current = Math.floor((Date.now() - startedAtRef.current) / 1000)
         setDurationSec(durationSecRef.current)

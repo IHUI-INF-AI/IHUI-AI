@@ -649,13 +649,14 @@ const eduCanteenRoutes: FastifyPluginAsync = async (server) => {
     if (!r2 || !r2.verification)
       return reply.status(502).send(error(502, r2?.error ?? 'AI 服务不可用(交叉核对)'))
 
-    const newVerifications = [...vs, r2.verification]
     const newStatus = r2.verification.ok ? 'ai_verified' : 'ai_conflict'
+    // 轮数与核对数组都必须由数据库自己追加:`existing` 是本次请求进来时读的旧行,
+    // 并发第二轮核对会把上一轮的 verifications/rounds 整体覆盖掉(计数少一轮、核对记录也丢)。
     const [row] = await db
       .update(eduCanteenProcurement)
       .set({
-        aiVerifications: newVerifications,
-        aiRounds: existing.aiRounds + 1,
+        aiVerifications: sql`coalesce(array_append(${eduCanteenProcurement.aiVerifications}, ${JSON.stringify(r2.verification)}::jsonb), ${JSON.stringify([r2.verification])}::jsonb)`,
+        aiRounds: sql`${eduCanteenProcurement.aiRounds} + 1`,
         aiConfidence: r2.verification.confidence,
         status: newStatus,
         updatedAt: new Date(),
@@ -711,7 +712,6 @@ const eduCanteenRoutes: FastifyPluginAsync = async (server) => {
 
     const final = r3.verification.receipt as AiReceiptData
     const totals = receiptTotals(final)
-    const newVerifications = [...vs, r3.verification]
     try {
       const row = await db.transaction(async (tx) => {
         const [updated] = await tx
@@ -722,8 +722,8 @@ const eduCanteenRoutes: FastifyPluginAsync = async (server) => {
             receiptNo: final.receiptNo ?? existing.receiptNo,
             totalAmount: totals.totalAmount,
             itemCount: totals.itemCount,
-            aiVerifications: newVerifications,
-            aiRounds: existing.aiRounds + 1,
+            aiVerifications: sql`coalesce(array_append(${eduCanteenProcurement.aiVerifications}, ${JSON.stringify(r3.verification)}::jsonb), ${JSON.stringify([r3.verification])}::jsonb)`,
+            aiRounds: sql`${eduCanteenProcurement.aiRounds} + 1`,
             aiConfidence: r3.verification!.confidence,
             status: r3.verification!.ok ? 'ai_verified' : 'ai_conflict',
             updatedAt: new Date(),

@@ -78,6 +78,10 @@ function CheckoutContent() {
   useEffect(() => () => stopPoll(), [])
 
   const startPolling = (orderNo: string) => {
+    // 先停旧再起新:`pollRef.current = setInterval(...)` 直接覆盖会把上一个定时器的句柄
+    // 丢掉 —— 此后 stopPoll() 清不到它,它会带着**旧 orderNo** 一直轮询到 MAX,并在别人
+    // 付成功后再弹一次 toast / 再 push 一次 /vip。
+    stopPoll()
     setPolling(true)
     let count = 0
     const MAX = 30
@@ -321,6 +325,8 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
   }, [orderNo, allow])
 
   const startPolling = () => {
+    // 同上:覆盖句柄 = 造出一个谁也清不掉的僵尸轮询(它还会在用户离开页面后 push 路由)
+    stopPoll()
     setPolling(true)
     let count = 0
     const MAX = 60
@@ -355,6 +361,9 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
 
   useEffect(() => {
     if (qrCodeUrl) startPolling()
+    // 清理必须有:重新生成二维码(qrCodeUrl 变化)与卸载都要停掉这一轮,
+    // 否则旧轮询带着旧订单号继续跑,付成功后还会把用户 push 到 /vip。
+    return () => stopPoll()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qrCodeUrl])
 

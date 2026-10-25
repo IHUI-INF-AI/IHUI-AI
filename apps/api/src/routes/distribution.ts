@@ -10,6 +10,7 @@ import { db, dbRead } from '../db/index.js'
 import { commissionFlows, withdrawalFlows, users, systemConfigs } from '@ihui/database'
 import {
   listCommissionFlows,
+  listDistributionOrders,
   listSubordinates,
   listTeamMembers,
   getTeamMember,
@@ -397,6 +398,21 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.query ?? {})
     const result = await listCommissionFlows(request.userId!, page, pageSize)
     return reply.send(success({ list: result.items, total: result.total, page, pageSize }))
+  })
+
+  // GET /distribution/orders — 我的分销订单(补建:小程序 pages/distribution/order-list
+  // 从建页起就在调这个路径,而后端从未注册 ⇒ 页面 catch 把 404 吞成"暂无订单")。
+  // 主体只取 request.userId(不接受客户端传 beneficiaryId);金额单位=分,前端 formatPrice。
+  server.get('/distribution/orders', async (request, reply) => {
+    const q = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        status: z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
+      })
+      .parse(request.query ?? {})
+    const result = await listDistributionOrders(request.userId!, q.page, q.pageSize, q.status)
+    return reply.send(success({ list: result.items, total: result.total, page: q.page, pageSize: q.pageSize }))
   })
 
   // GET /distribution/withdraw-list — 提现记录列表(补建:原 api-client 调用 404)

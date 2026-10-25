@@ -302,6 +302,43 @@ test('违规: dialog.tsx 含 data-[state=open]:animate-in + fade-in-0 → exit 1
   }
 })
 
+// ─── 7b/7c. className 表达式形态(cn(...)):旧正则只认 className="..." ⇒ 对当前 dialog.tsx 失明 ───
+const CN_DIALOG_TSX = `import { DialogPrimitive } from './dialog-primitive'
+import { cn } from './cn'
+export function Dialog({ overlayClassName }) {
+  return (
+    <DialogPrimitive.Overlay
+      className={cn(
+        'fixed inset-0 z-modal bg-black/80 data-[state=closed]:fade-out-0',
+        overlayClassName,
+      )}
+    />
+  )
+}
+`
+
+test('不违规: className={cn(...)} 表达式里只有 closed 态 ⇒ exit 0(必须真被判到)', () => {
+  const dir = createTempProject({ 'packages/ui-react/src/components/dialog.tsx': CN_DIALOG_TSX })
+  try {
+    const r = runScript(dir)
+    assertPass(r)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('违规: className={cn(...)} 表达式里含 data-[state=open]:fade-in-0 ⇒ exit 1(表达式形态同样要抓)', () => {
+  const bad = CN_DIALOG_TSX.replace('data-[state=closed]:fade-out-0', 'data-[state=open]:fade-in-0')
+  const dir = createTempProject({ 'packages/ui-react/src/components/dialog.tsx': bad })
+  try {
+    const r = runScript(dir)
+    assertFail(r)
+    assert.match(r.stdout, /fade-in/, `stdout 应含 fade-in 标记\nstdout: ${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ─── 8. 违规: dialog.tsx 仅含 data-[state=open]:fade-in-0(无 animate-in)→ exit 1 ───
 test('违规: dialog.tsx 仅含 data-[state=open]:fade-in-0 → exit 1', () => {
   const badDialog = VALID_DIALOG_TSX.replace(
