@@ -37,7 +37,12 @@ import { VoiceBubble } from '../../components/VoiceBubble'
 import { parseMessageContent } from '../../utils/message-parse'
 import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import {
+  applyAssistantExecutionFrame,
+  applyPlanUpdate,
+  applyToolCallEvent,
+  applyToolDelta,
   subagentReplayRow,
+  type AssistantExecutionFrame,
   type AssistantExecutionViz,
   type MessageCitation,
   type MessageInjection,
@@ -55,13 +60,42 @@ import type { ChatMessage } from '@ihui/shared'
 import type { ChatScreenMessage } from '@ihui/rn-app'
 import { ToolCallCard } from './ToolCallCard'
 import { SelectionAnnotationBar } from './SelectionAnnotationBar'
-import {
-  ActionAnchorChip,
-  extractActionAnchors,
-  type ActionAnchor,
-} from './action-anchor'
+import { ActionAnchorChip, extractActionAnchors, type ActionAnchor } from './action-anchor'
 import { type FloatBoxType } from '../../components/FloatBox'
 import type { MessageRating } from '@ihui/api-client'
+
+/**
+ * D135(承 G-46):消息列表执行帧的唯一折叠出口。
+ *
+ * tool-call / tool-delta / plan-update 三族沿用各自 reducer(与
+ * `applyAssistantExecutionFrame` 逐字等值,不是第二份折叠规则);terminal 两族委托同一 seam。
+ * 主屏在 ChatScreen 里折、N8n 屏经本函数折 —— 两屏读到的都是同一 `AssistantExecutionViz`
+ * 形状,宿主不再各自直名 reducer。
+ */
+export function foldMessageExecutionFrame(
+  viz: AssistantExecutionViz | undefined,
+  frame: AssistantExecutionFrame,
+  nowMs: number = Date.now(),
+): AssistantExecutionViz {
+  switch (frame.kind) {
+    case 'tool-call':
+      return { ...viz, toolCalls: applyToolCallEvent(viz?.toolCalls, frame.event, nowMs) }
+    case 'tool-delta':
+      return { ...viz, toolCalls: applyToolDelta(viz?.toolCalls, frame.event) }
+    case 'plan-update': {
+      const reduced = applyPlanUpdate(frame.event)
+      return {
+        ...viz,
+        planSteps: reduced.steps,
+        // plan 为权威快照:载荷没给 explanation 就连旧值一并清掉,不沿用
+        planExplanation: reduced.explanation,
+      }
+    }
+    case 'terminal-start':
+    case 'terminal-end':
+      return applyAssistantExecutionFrame(viz, frame, nowMs)
+  }
+}
 
 /**
  * 带推理过程(thinking)的 AI 消息(对齐 Uniapp ai_index2.vue thinking-process)。
@@ -307,10 +341,7 @@ interface ChatMessageItemProps {
   /** 失败轮重试(重发最后一条用户提问) */
   retryLastTurn: () => void
   /** 钉选 / 收藏标记 */
-  toggleMessageFlag: (
-    item: ChatScreenMessage,
-    kind: 'pinned' | 'bookmarked',
-  ) => Promise<void>
+  toggleMessageFlag: (item: ChatScreenMessage, kind: 'pinned' | 'bookmarked') => Promise<void>
   /** i18n 取词(零端内硬编码中文) */
   t: (key: string, params?: Record<string, string | number>) => string
   /**
@@ -379,9 +410,7 @@ export function ChatMessageItem({
         ) : (
           <Pin size={16} color={tokens.text.secondary} />
         )}
-        <Text style={styles.msgActionText}>
-          {item.pinnedAt ? t('chat.unpin') : t('chat.pin')}
-        </Text>
+        <Text style={styles.msgActionText}>{item.pinnedAt ? t('chat.unpin') : t('chat.pin')}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.msgActionBtn}
@@ -475,9 +504,7 @@ export function ChatMessageItem({
                   </Text>
                 </View>
                 {reasoning.trim() !== '' ? (
-                  <Text style={styles.thinkingToggle}>
-                    {thinkingExpanded ? '收起' : '展开'}
-                  </Text>
+                  <Text style={styles.thinkingToggle}>{thinkingExpanded ? '收起' : '展开'}</Text>
                 ) : null}
               </Pressable>
               {thinkingExpanded && reasoning.trim() !== '' ? (
@@ -553,9 +580,7 @@ export function ChatMessageItem({
                           accessibilityRole="button"
                           accessibilityLabel={expanded ? '收起代码' : '展开代码'}
                         >
-                          <Text style={styles.codeBlockBtnText}>
-                            {expanded ? '收起' : '展开'}
-                          </Text>
+                          <Text style={styles.codeBlockBtnText}>{expanded ? '收起' : '展开'}</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -591,7 +616,10 @@ export function ChatMessageItem({
                     part.kind === 'text' ? (
                       <Text
                         key={`${item.id}-text-${segIndex}-${partIndex}`}
-                        style={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}
+                        style={[
+                          styles.msgText,
+                          isUser ? styles.msgBubbleUserText : styles.msgTextAi,
+                        ]}
                       >
                         {part.text}
                       </Text>
@@ -600,7 +628,10 @@ export function ChatMessageItem({
                         key={`${item.id}-anchor-${segIndex}-${partIndex}`}
                         anchor={part.anchor}
                         isUser={isUser}
-                        textStyle={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}
+                        textStyle={[
+                          styles.msgText,
+                          isUser ? styles.msgBubbleUserText : styles.msgTextAi,
+                        ]}
                         onActionAnchor={onActionAnchor}
                       />
                     ),
@@ -675,18 +706,14 @@ export function ChatMessageItem({
         {isUser ? <View style={styles.msgActions}>{flagButtons}</View> : null}
         {/* G-166 交代区:本轮引用来源 + 带了哪些上下文(与 N8n 屏同一共享组件) */}
         {isFailed ? null : (
-          <InjectionDisclosure
-            items={(item as ChatScreenMessageWithReasoning).injections ?? []}
-          />
+          <InjectionDisclosure items={(item as ChatScreenMessageWithReasoning).injections ?? []} />
         )}
         {isFailed ? null : (
           <CitationList items={(item as ChatScreenMessageWithReasoning).citations ?? []} />
         )}
         {/* D106 Steer(中途引导)交代:本轮被注入了哪些引导文本 */}
         {isFailed ? null : (
-          <SteerNoticeList
-            items={(item as ChatScreenMessageWithReasoning).steerNotices ?? []}
-          />
+          <SteerNoticeList items={(item as ChatScreenMessageWithReasoning).steerNotices ?? []} />
         )}
         {/* D64⑤ 历史回放:metadata.elementPack 子代理帧的最小回放行(一行一代理,
             与既有 execRowText 行形态同族;流式侧最小形态是计数+日志行,回放不逐帧重演) */}

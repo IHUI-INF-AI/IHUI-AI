@@ -102,6 +102,10 @@
  *     撞上**本地底稿声明位已用号**的手填行**不改判**:同号不同题归 F9 闸、同主键归登记闸,一律 rc=1
  *     交人工裁归属(票面"清账出口"语义;改判会把这两道闸的拒绝面偷换成自动放行,镜像测试 IC-E2E/DU-7
  *     钉着)。不撞的手填号逐字保留(成对反例由镜像测试钉住)。
+ *     **机器可判面(2026-10-25 补)**:同一**新增行**里既手填了声明位编号、又带取号令牌,且令牌现算的号
+ *     与那个手填号不一致 ⇒ **拒收**(`handfilled-id-conflict`,exit 2)。判据仍取 `keyOfRow` 一份:
+ *     只有"令牌展开后的行首声明位"仍落在手填号上才算冲突;令牌在声明位、行文引用别的号(反引号引述
+ *     或题面里的承接说明)不误伤。只对插入档新增行生效(opts.manualCheck),整行改写档不追溯。
  *  ② **CAS 成功且回读之后**:本次落地的号(令牌 + 改判产出)对**新 HEAD 现读面**再对账一次
  *     (`judgeLandedIdRecheck`,声明位口径同上)—— 同一号既挂着本次行又挂着他人行 ⇒ **自动让号**:
  *     把本次那行的号经同一令牌出口现算成新空闲号,再发一次 CAS 只改自己那行,让号枚经 G-725
@@ -801,7 +805,10 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     }
   }
   const rwAt = new Map(manualRewrites.map((r) => [r.line, r]))
+  // 每行令牌展开出的号(G-313 出路① 机器可判面的输入):与 `got` 同一份产出,不另算一次。
+  const lineAssigned = new Map()
   const out = lines.map((l, i) => {
+    const ids = []
     let text = String(l).replace(ID_TOKEN_RE, (_, raw) => {
       const f = raw.toUpperCase()
       const p = pool.get(f)
@@ -813,8 +820,10 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       p.idx += 1
       const id = template.get(f).replace('%d', String(next))
       got.push(id)
+      ids.push(id)
       return id
     })
+    if (ids.length > 0) lineAssigned.set(i, ids)
     const r = rwAt.get(i)
     if (r)
       text = text.replace(
@@ -839,6 +848,36 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
         basis,
         leaseClaims,
         leaseNotes,
+        dupTitleNotes,
+      }
+  }
+  // G-313 出路① 机器可判面(2026-10-25):**新增行**里既手填声明位编号、又带取号令牌,且令牌现算的号
+  // 与手填号不一致 ⇒ 拒收。判据只取 `keyOfRow` 一份(台账层"什么算声明位编号"),不另写一把尺:
+  //   · 只看令牌展开**之后**的行首声明位 —— 令牌在声明位、行文里引述别的号(反引号引述/承接说明)
+  //     展开后行首仍是令牌号,不误伤;
+  //   · 手填号与令牌族不同的(括注里的他族被引号)不算本行的"手填" ⇒ 跳过;
+  //   · 只对插入档(opts.manualCheck)生效:整行改写档的 after 常常就是该行现有号,追溯那一条
+  //     等于把每次翻勾重编一次号(与①主档同一条射程纪律)。
+  if (opts.manualCheck) {
+    const conflicts = []
+    const famOf = (v) => (/^([A-Za-z]+)/.exec(String(v))?.[1] ?? '').toUpperCase()
+    for (const [i, ids] of lineAssigned) {
+      const key = keyOfRow(out[i])
+      if (!key) continue
+      const keyFam = famOf(key)
+      if (!keyFam || !ids.some((id) => famOf(id) === keyFam)) continue
+      if (ids.includes(key)) continue
+      conflicts.push({ line: i, key, assigned: ids.join(',') })
+    }
+    if (conflicts.length > 0)
+      return {
+        ok: false,
+        reason: 'handfilled-id-conflict',
+        conflicts,
+        basis,
+        leaseClaims,
+        leaseNotes,
+        scanReport,
         dupTitleNotes,
       }
   }
@@ -2317,6 +2356,19 @@ async function main() {
             `下一个接手者按那句去找"新号那一行"找不到,按旧号引用的人以为已经让位。` +
             `出路:把这一步拆成两笔 —— 先落"剥掉声明位编号/只留让位注记"的改写(不带令牌),` +
             `再单独跑一次带令牌的取号;绝不带着同一个号落地。`,
+        )
+        process.exit(2)
+      }
+      if (tok.reason === 'handfilled-id-conflict') {
+        const detail = (tok.conflicts ?? [])
+          .map((c) => `第 ${c.line + 1} 行手填 ${c.key},而同行的令牌现算 ${c.assigned}`)
+          .join(';')
+        console.error(
+          `❌ 新增行既手填编号又带取号令牌(两者不一致)⇒ 拒绝落地(G-313 出路① 机器可判面,2026-10-25):${detail}。\n` +
+            '   成因:一行两路取号 —— 手写的号与令牌现算的号谁作数没有判据,落地后就是同一行两个编号,' +
+            '或"注记写 A、行首是 B"那一型。\n' +
+            '   出路:二选一 —— ① 删掉手填号、只留 `{{NEXT_ID:G}}`(推荐,号由落盘那一刻现算);' +
+            '② 去掉令牌、整行手填(该行随后照 G-313① 的改判/保留档处理)。同一行不得两路并存。',
         )
         process.exit(2)
       }
