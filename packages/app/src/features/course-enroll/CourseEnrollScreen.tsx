@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseEnrollItem, CourseEnrollScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
@@ -138,39 +138,44 @@ export function CourseEnrollScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    searchRow: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    searchRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 10,
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing.sm,
+    },
     searchInput: {
       flex: 1,
       height: 50,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
     searchBtn: {
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    searchBtnText: { color: tk.surface.light, fontSize: 16 },
+    searchBtnText: { color: tk.surface.light, fontSize: rnType.title.size },
     toastText: {
       paddingHorizontal: 10,
-      paddingVertical: 4,
-      fontSize: 14,
+      paddingVertical: rnSpacing.xs,
+      fontSize: rnType.body.size,
       color: tk.success.DEFAULT,
     },
     errorText: {
       paddingHorizontal: 10,
-      paddingVertical: 4,
-      fontSize: 14,
+      paddingVertical: rnSpacing.xs,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
     list: { flex: 1, paddingHorizontal: 10 },
@@ -180,39 +185,45 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     cardHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
     },
-    cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary, marginRight: 8 },
+    cardTitle: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginRight: rnSpacing.sm,
+    },
     badgeEnrolled: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.success.lighter,
     },
-    badgeText: { fontSize: 11, color: tk.success.deepText },
-    cardMeta: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    cardMetaRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
-    cardMetaText: { fontSize: 14, color: tk.text.secondary },
+    badgeText: { fontSize: rnType.caption.size, color: tk.success.deepText },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    cardMetaRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.sm },
+    cardMetaText: { fontSize: rnType.body.size, color: tk.text.secondary },
     cardFooter: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginTop: 10,
     },
-    priceText: { fontSize: 20, fontWeight: '700', color: tk.brand.DEFAULT },
+    priceText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
     enrollBtn: {
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     enrollBtnDisabled: { backgroundColor: tk.text.tertiary },
-    enrollBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
+    enrollBtnText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

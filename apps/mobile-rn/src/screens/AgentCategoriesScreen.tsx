@@ -31,7 +31,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { CreditCard, Sparkles, Tag, X } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -235,9 +235,7 @@ export default function AgentCategoriesScreen() {
                     {t('agentCategories.createdAt')}: {fmtDate(panel.createdAt)}
                   </Text>
                 </View>
-                {panel.description ? (
-                  <Text style={styles.muted}>{panel.description}</Text>
-                ) : null}
+                {panel.description ? <Text style={styles.muted}>{panel.description}</Text> : null}
 
                 <View style={styles.sectionHead}>
                   <Text style={styles.cardTitle}>{t('agentCategories.agentsTitle')}</Text>
@@ -305,15 +303,15 @@ export default function AgentCategoriesScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 10, paddingBottom: 32 },
-    subtitle: { fontSize: 12, color: tokens.text.tertiary },
+    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     iconBox: {
@@ -326,9 +324,9 @@ function makeStyles() {
       overflow: 'hidden',
     },
     iconImage: { width: 40, height: 40 },
-    cardMain: { flex: 1, gap: 4 },
-    itemName: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
-    badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+    cardMain: { flex: 1, gap: rnSpacing.xs },
+    itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
+    badgeRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm, flexWrap: 'wrap' },
     paidBadge: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -339,13 +337,18 @@ function makeStyles() {
       backgroundColor: tokens.warning.amberLight,
     },
     paidText: { fontSize: 10, fontWeight: '600', color: tokens.warning.amberText },
-    desc: { fontSize: 12, color: tokens.text.secondary, lineHeight: 17 },
-    meta: { fontSize: 11, color: tokens.text.tertiary },
+    desc: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 17 },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    hint: { fontSize: 11, color: tokens.text.tertiary, lineHeight: 16 },
-    errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
+    errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['5xl'],
+    },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
       position: 'absolute',
@@ -357,17 +360,22 @@ function makeStyles() {
     },
     sheet: {
       maxHeight: '85%',
-      padding: 16,
-      gap: 8,
+      padding: rnSpacing.lg,
+      gap: rnSpacing.sm,
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tokens.surface.card,
     },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    sheetTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tokens.text.primary },
-    sheetBody: { gap: 8, paddingBottom: 16 },
+    sheetTitle: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tokens.text.primary,
+    },
+    sheetBody: { gap: rnSpacing.sm, paddingBottom: rnSpacing.lg },
     statusBadge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tokens.surface.muted,
@@ -379,13 +387,13 @@ function makeStyles() {
       justifyContent: 'space-between',
       marginTop: 6,
     },
-    cardTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-    agentsEmpty: { alignItems: 'center', gap: 6, paddingVertical: 20 },
+    cardTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
+    agentsEmpty: { alignItems: 'center', gap: 6, paddingVertical: rnSpacing.xl },
     agentRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
     },
     agentAvatar: {
       width: 36,
@@ -398,7 +406,7 @@ function makeStyles() {
     },
     agentMain: { flex: 1, gap: 2 },
     agentName: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    price: { fontSize: 12, fontWeight: '600', color: tokens.text.primary },
+    price: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
     free: { color: tokens.success.deep },
   })
 }

@@ -32,7 +32,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { ChevronRight, Settings } from 'lucide-react-native'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { N8nMessage } from '@ihui/types'
 export type { N8nMessage }
 
@@ -241,13 +241,13 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     listContent: {
       paddingHorizontal: 10,
-      paddingVertical: 8,
-      paddingBottom: 16,
+      paddingVertical: rnSpacing.sm,
+      paddingBottom: rnSpacing.lg,
     } as ViewStyle,
     // 消息气泡
     messageRow: {
       flexDirection: 'row',
-      marginVertical: 8,
+      marginVertical: rnSpacing.sm,
     } as ViewStyle,
     messageRowUser: {
       justifyContent: 'flex-end',
@@ -257,8 +257,8 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     messageBubble: {
       maxWidth: '78%',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadiusFor.bubble,
     } as ViewStyle,
     messageBubbleUser: {
@@ -268,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     messageText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       lineHeight: 20,
     } as TextStyle,
     messageTextUser: {
@@ -282,11 +282,11 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 6,
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     } as ViewStyle,
     imageItem: {
-      marginRight: 8,
-      marginBottom: 8,
+      marginRight: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
     } as ViewStyle,
     chatImage: {
       width: 120,
@@ -299,12 +299,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     quickScrollContent: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      gap: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing.sm,
     } as ViewStyle,
     quickChip: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
@@ -312,7 +312,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     } as ViewStyle,
     quickChipText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     } as TextStyle,
     // 模型选择条
@@ -320,52 +320,52 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     modelBarLabel: {
       flex: 1,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     } as TextStyle,
     modelConfigBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      gap: rnSpacing.xs,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     modelConfigBtnLabel: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     } as TextStyle,
     modelBarArrow: {
       color: tk.text.tertiary,
-      marginLeft: 8,
+      marginLeft: rnSpacing.sm,
     } as TextStyle,
     // 输入区
     inputWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     input: {
       flex: 1,
       height: 50,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       color: tk.text.primary,
-      fontSize: 16,
+      fontSize: rnType.title.size,
     } as ViewStyle,
     sendBtn: {
-      marginLeft: 8,
-      paddingHorizontal: 16,
+      marginLeft: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.lg,
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -374,7 +374,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     sendBtnText: {
       color: tk.brand.ctaForeground,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
     } as TextStyle,
     // 流式状态条
@@ -387,14 +387,14 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     streamingText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.tertiary,
     } as TextStyle,
     footerWrap: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       gap: 6,
     } as ViewStyle,
   })

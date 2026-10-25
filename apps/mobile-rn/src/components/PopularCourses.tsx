@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * PopularCourses 热门课程列表 (mobile-rn 端)
@@ -267,34 +267,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: CONTAINER_PADDING,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: rnSpacing.sm,
+    paddingBottom: rnSpacing.xs,
   } as ViewStyle,
   headerLeft: {
     flex: 1,
   } as ViewStyle,
   headerTitle: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     fontWeight: '600',
     color: tokens.text.primary,
   } as TextStyle,
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
   } as TextStyle,
   moreBtn: {
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
   } as ViewStyle,
   tabBox: {
     flexDirection: 'row',
     paddingHorizontal: CONTAINER_PADDING,
-    gap: 16,
-    paddingTop: 4,
-    paddingBottom: 8,
+    gap: rnSpacing.lg,
+    paddingTop: rnSpacing.xs,
+    paddingBottom: rnSpacing.sm,
   } as ViewStyle,
   tabItem: {
-    paddingVertical: 4,
+    paddingVertical: rnSpacing.xs,
   } as ViewStyle,
   // 面层:撑满外框内容盒(外框的 paddingVertical 逐字未动),只承载按压态。
   tabFace: {
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   } as ViewStyle,
   tabText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
   } as TextStyle,
   tabTextActive: {
     color: tokens.brand.DEFAULT,
@@ -348,19 +348,19 @@ const styles = StyleSheet.create({
     color: tokens.brand.ctaForeground,
   },
   info: {
-    paddingTop: 8,
+    paddingTop: rnSpacing.sm,
     paddingHorizontal: 0,
   },
   title: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   instructorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
+    gap: rnSpacing.xs,
+    marginTop: rnSpacing.xs,
   },
   avatar: {
     width: 16,
@@ -376,31 +376,31 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   instructorName: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   lessonCount: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
   },
   pricePaid: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.success.DEFAULT,
   },
   priceFree: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.secondary,
   },
   studentCount: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
 })

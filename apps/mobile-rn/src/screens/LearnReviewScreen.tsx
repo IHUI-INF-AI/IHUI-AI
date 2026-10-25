@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Calendar, CheckCircle2 } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -337,19 +337,24 @@ export default function LearnReviewScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: 12, paddingBottom: 32, gap: 10 },
-  subtitle: { fontSize: 12, color: tokens.text.tertiary },
-  stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  stateBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rnSpacing.sm,
+    paddingVertical: rnSpacing['5xl'],
+  },
   muted: { fontSize: 13, color: tokens.text.secondary },
   errorBox: {
-    padding: 12,
-    gap: 8,
+    padding: rnSpacing.md,
+    gap: rnSpacing.sm,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
     backgroundColor: tokens.surface.card,
   },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
@@ -361,7 +366,7 @@ const styles = StyleSheet.create({
   retryText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
   statsCard: {
     flexDirection: 'row',
-    padding: 12,
+    padding: rnSpacing.md,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -369,11 +374,11 @@ const styles = StyleSheet.create({
   },
   statCell: { flex: 1, alignItems: 'center', gap: 2 },
   statLabel: { fontSize: 10, color: tokens.text.tertiary, textAlign: 'center' },
-  statValue: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  statValue: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tokens.text.primary },
   finishedCard: {
     alignItems: 'center',
-    gap: 8,
-    padding: 24,
+    gap: rnSpacing.sm,
+    padding: rnSpacing['2xl'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -387,9 +392,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.success.light,
   },
-  finishedTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
+  finishedTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
   card: {
-    gap: 12,
+    gap: rnSpacing.md,
     padding: 14,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -397,31 +402,31 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   questionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  questionProgress: { fontSize: 12, color: tokens.text.tertiary },
+  questionProgress: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   typeBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 2,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
-  typeBadgeText: { fontSize: 11, color: tokens.text.secondary },
+  typeBadgeText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
   questionBox: {
     gap: 6,
-    padding: 12,
+    padding: rnSpacing.md,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.bg,
   },
-  questionLabel: { fontSize: 11, color: tokens.text.tertiary },
-  questionText: { fontSize: 15, lineHeight: 22, color: tokens.text.primary },
-  answerArea: { gap: 8 },
-  answerLabel: { fontSize: 12, color: tokens.text.secondary },
+  questionLabel: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  questionText: { fontSize: rnType.strong.size, lineHeight: 22, color: tokens.text.primary },
+  answerArea: { gap: rnSpacing.sm },
+  answerLabel: { fontSize: rnType.label.size, color: tokens.text.secondary },
   qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   qualityBtn: {
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: rnRadius.sm,
   },
-  qualityText: { fontSize: 12, fontWeight: '600' },
+  qualityText: { fontSize: rnType.label.size, fontWeight: '600' },
   disabled: { opacity: 0.5 },
   inlineLoading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   resultArea: { gap: 10 },
@@ -430,7 +435,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: 3,
-    paddingVertical: 8,
+    paddingVertical: rnSpacing.sm,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.bg,
   },
@@ -443,8 +448,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.brand.cta,
   },
-  primaryBtnText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
+  primaryBtnText: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.brand.ctaForeground,
+  },
   progressLine: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 2 },
-  progressText: { fontSize: 11, color: tokens.text.tertiary },
+  progressText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

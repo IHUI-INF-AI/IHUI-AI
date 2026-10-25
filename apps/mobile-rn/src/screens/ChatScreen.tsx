@@ -222,7 +222,7 @@ import { addAnnotation, rehydrateSelectionAnnotations } from '../lib/selection-a
 import { formatSlashHelp } from '../lib/slash-commands'
 import { rpx } from '../utils/rpx'
 
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { ChatModelType } from '@ihui/types'
 
 // ── 类型定义(强类型,禁用 any) ──
@@ -3705,7 +3705,7 @@ const styles = StyleSheet.create({
     gap: rpx(8),
   },
   msgActionText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   msgBubble: {
@@ -3733,38 +3733,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.danger.light,
   },
   msgErrorTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '500',
     color: tokens.error.text,
   },
   msgErrorBody: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
+    fontSize: rnType.body.size,
     lineHeight: 21,
     color: tokens.error.text,
   },
   msgErrorRetry: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     alignSelf: 'flex-start',
-    marginHorizontal: 8,
-    marginBottom: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    marginHorizontal: rnSpacing.sm,
+    marginBottom: rnSpacing.sm,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
   },
   msgErrorRetryText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.error.text,
   },
   msgText: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     lineHeight: 20,
   },
   msgTextUser: {
@@ -3775,7 +3775,7 @@ const styles = StyleSheet.create({
   },
   // ── 消息富内容:图片(点击全屏预览) ──
   msgImageWrap: {
-    marginVertical: 4,
+    marginVertical: rnSpacing.xs,
     borderRadius: rnRadius.lg,
     overflow: 'hidden',
     alignSelf: 'flex-start',
@@ -3802,30 +3802,30 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.gray[700],
   },
   codeBlockLang: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: '#9cdcfe',
     fontWeight: '600',
     flexShrink: 1,
-    marginRight: 8,
+    marginRight: rnSpacing.sm,
   },
   codeBlockActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: rnSpacing.md,
   },
   codeBlockBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     paddingVertical: 2,
   },
   codeBlockBtnText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.gray['200'],
   },
   codeBlockContent: {
     padding: 10,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     lineHeight: 17,
     color: tokens.gray['200'],
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
@@ -3843,23 +3843,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: rnSpacing.sm,
   },
   thinkingTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.secondary,
     flexShrink: 1,
   },
   thinkingToggle: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
   },
   thinkingContent: {
     paddingHorizontal: 10,
     paddingBottom: 10,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     lineHeight: 17,
     color: tokens.text.secondary,
   },
@@ -3938,12 +3938,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   materialCardTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.primary,
     fontWeight: '500',
   },
   materialCardPreview: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.secondary,
     marginTop: rpx(4),
   },
@@ -3999,7 +3999,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.brandAccent.deep,
   },
   modelTypeLabel: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   modelTypeLabelActive: {
@@ -4040,7 +4040,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(16),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
     textAlignVertical: 'top',
   },
@@ -4080,7 +4080,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(24),
   },
   qrCodeTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: 'bold',
     color: tokens.text.primary,
     marginBottom: rpx(20),
@@ -4235,7 +4235,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   fangdaTitle: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -4244,7 +4244,7 @@ const styles = StyleSheet.create({
   },
   fangdaInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: rnType.title.size,
     color: tokens.text.primary,
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(24),
@@ -4262,7 +4262,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   fangdaSendBtnText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   },

@@ -2,17 +2,21 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/* eslint-disable no-console -- 转写器为 CLI 工具,需 console 输出诊断信息 */
 // RN 屏 StyleSheet 裸数字 → token 档批量转写器(goal「样式全面对齐」的自动化器物)
 //
 // 用法:
-//   node scripts/tokens-migrate.mjs <file.tsx>            # dry-run:报告可对档的命中数(不写盘)
-//   node scripts/tokens-migrate.mjs <file.tsx> --apply    # 写盘(字节级替换,不动其它内容)
+//   node scripts/tokens-migrate.mjs <file.tsx|dir> [...]              # dry-run:报告可对档的命中数(不写盘)
+//   node scripts/tokens-migrate.mjs <file.tsx|dir> [...] --apply      # 写盘(字节级替换,不动其它内容)
+//   默认跳过工作树里被其他会话改过的已入库文件(--include-dirty 才处理);未跟踪文件一律不碰。
 //
 // 映射纪律(goal 轮 11 定档):数字恰在档才换,不在档(10/13/18 等杂值)保留原样不硬凑;
 // fontSize 只换数值保留行结构(fontSize: 14 → fontSize: rnType.body.size);
 // 权重/行高不并 spread(不改变行结构,水印文件字节级安全);
 // 已含 rnSpacing/rnType 的行跳过。转写后必须跑 typecheck/eslint/watermark verify。
-import { readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const SPACING_MAP = { 4: 'rnSpacing.xs', 8: 'rnSpacing.sm', 12: 'rnSpacing.md', 16: 'rnSpacing.lg', 20: 'rnSpacing.xl', 24: "rnSpacing['2xl']", 32: "rnSpacing['3xl']", 40: "rnSpacing['4xl']", 48: "rnSpacing['5xl']", 64: "rnSpacing['6xl']" }
@@ -49,7 +53,9 @@ export function migrateLine(line) {
 export function ensureImport(text, names) {
   // 检测只在 design-tokens 的 import 语句内做:正文里的 rnSpacing 是转写器刚写进去的,不算已导入
   const dtImport = text.match(/import \{[\s\S]*?\} from '@ihui\/design-tokens'/)?.[0] ?? ''
-  const missing = names.filter((x) => !dtImport.includes(x))
+  // 只导真正被用到的名字:转写器只产出 `rnSpacing.xxx` / `rnSpacing['2xl']` / `rnType.xxx`,
+  // 无条件导两个名字会造出 eslint no-unused-vars(实测 ProfileScreen)
+  const missing = names.filter((x) => new RegExp(String.raw`\b${x}[.[]`).test(text) && !dtImport.includes(x))
   if (missing.length === 0) return text
   const single = /import \{([^}]*)\} from '@ihui\/design-tokens'/
   if (single.test(text)) {
@@ -77,23 +83,75 @@ export function migrateText(text) {
   return { text: out.join('\n'), hits: total }
 }
 
+/** 展开目标(文件/目录)为已入库的 .tsx 清单:未跟踪文件不碰,避免把他人草稿卷进本批 */
+function collectTargets(targets) {
+  const tracked = new Set(execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean))
+  const set = new Set()
+  const walk = (p) => {
+    const st = statSync(p)
+    if (st.isDirectory()) {
+      for (const name of readdirSync(p)) walk(join(p, name))
+    } else if (p.endsWith('.tsx')) {
+      const rel = p.replace(/\\/g, '/')
+      if (tracked.has(rel)) set.add(rel)
+    }
+  }
+  for (const t of targets) walk(t)
+  return [...set].sort()
+}
+
+/** 工作树已被其他会话改过的已入库路径(含暂存):默认跳过,避免把别人的未提交工作卷进本批 */
+function dirtyPaths() {
+  const raw = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8' })
+  const out = new Set()
+  for (const line of raw.split('\n')) {
+    if (!line) continue
+    let p = line.slice(3).trim()
+    if (p.includes(' -> ')) p = p.split(' -> ').pop()
+    out.add(p.replace(/^"|"$/g, ''))
+  }
+  return out
+}
+
 function run() {
-  const [, , file, flag] = process.argv
-  if (!file || !file.endsWith('.tsx')) {
-    console.error('用法: node scripts/tokens-migrate.mjs <file.tsx> [--apply]')
+  const args = process.argv.slice(2)
+  const apply = args.includes('--apply')
+  const includeDirty = args.includes('--include-dirty')
+  const json = args.includes('--json')
+  const targets = args.filter((a) => !a.startsWith('--'))
+  if (targets.length === 0) {
+    console.error('用法: node scripts/tokens-migrate.mjs <file.tsx|dir> [...] [--apply] [--include-dirty] [--json]')
     process.exit(2)
   }
-  const apply = flag === '--apply'
-  const text = readFileSync(file, 'utf8')
-  const { text: next, hits } = migrateText(text)
-  console.log(`${file}: ${hits} 处可对档${apply ? ' → 已写盘' : '(dry-run,加 --apply 写盘)'}`)
-  if (hits > 0 && !apply) {
-    const needsImport = !/\brnSpacing\b/.test(text)
-    if (needsImport) console.log('提示:文件尚无 rnSpacing/rnType import,--apply 后需补 import(或本工具下次增强)')
+  const files = collectTargets(targets)
+  const dirty = includeDirty ? new Set() : dirtyPaths()
+  const rows = []
+  let skippedDirty = 0
+  for (const f of files) {
+    if (dirty.has(f)) {
+      skippedDirty++
+      continue
+    }
+    const text = readFileSync(f, 'utf8')
+    const { text: next, hits } = migrateText(text)
+    if (hits === 0) continue
+    if (apply) writeFileSync(f, ensureImport(next, ['rnSpacing', 'rnType']))
+    rows.push({ file: f, hits })
   }
-  let finalText = next
-  if (hits > 0) finalText = ensureImport(next, ['rnSpacing', 'rnType'])
-  if (apply && hits > 0) writeFileSync(file, finalText)
+  const total = rows.reduce((s, r) => s + r.hits, 0)
+  if (json) {
+    console.log(JSON.stringify({ apply, scanned: files.length, skippedDirty, files: rows.length, hits: total, rows }, null, 1))
+    return
+  }
+  if (files.length === 1) {
+    const r = rows[0]
+    console.log(`${files[0]}: ${r ? r.hits : 0} 处可对档${apply ? ' → 已写盘' : '(dry-run,加 --apply 写盘)'}`)
+    if (skippedDirty) console.log('该文件当前被其他会话改动,已跳过(确需处理加 --include-dirty)')
+    return
+  }
+  console.log(`扫描 ${files.length} 个已入库 .tsx;跳过他人改动 ${skippedDirty};可对档 ${rows.length} 文件 / ${total} 处${apply ? ' → 已写盘' : '(dry-run)'}`)
+  for (const r of rows.sort((a, b) => b.hits - a.hits).slice(0, 30)) console.log(String(r.hits).padStart(5), r.file)
+  if (rows.length > 30) console.log(`… 其余 ${rows.length - 30} 个文件见 --json`)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
