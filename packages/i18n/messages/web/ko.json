@@ -13833,7 +13833,7 @@
     "exampleStep2": "output 비용 = 1200 ÷ 1000 × 10 = 12 분",
     "exampleTitle": "청구 예시",
     "examplesSubtitle": "HTTP Bearer Token 인증, POST application/json",
-    "examplesTip": "팁: YOUR_API_KEY를 /developer/keys에서 생성한 키로 교체하고, baseURL을 실제 엔드포인트로 변경하세요.",
+    "examplesTip": "팁: YOUR_API_KEY를 <link>/developer/keys</link>에서 생성한 키로 교체하고, baseURL을 실제 엔드포인트로 변경하세요.",
     "examplesTitle": "호출 예시",
     "formula": "비용 계산식",
     "formulaBody": "총합 = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",

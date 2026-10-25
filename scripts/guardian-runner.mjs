@@ -5522,6 +5522,34 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 富文本动作锚点渲染器单一源头(2026-10-25 立;D99/G-136 账面兑现:MISSING_ANCHOR_RENDERERS"供守门判红"此前全仓 scripts 面 0 命中)(1 项,blocking)---
+  {
+    id: '247',
+    label:
+      '🧩 富文本锚点渲染器单一源头(blocking;A1 渲染表键集==RICH_ANCHOR_TAGS 双向相等+守卫在位(绝对零容忍,非棘轮)/ A2 apps/web 生产面 t.rich 内联渲染器分叉逐条点名(真 AST)/ A3 载体 importer 枚举 0 即死)',
+    script: 'check-rich-anchor-renderer-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/shared/src/chat/'],
+    skipEnv: 'HUSKY_SKIP_RICH_ANCHOR_RENDERER_SINGLE_SOURCE',
+    onFailHint: [
+      '',
+      '  💡 立因:rich-anchor-text.tsx 头注与台账声称 MISSING_ANCHOR_RENDERERS"供守门/自检判红",',
+      '     但备案当刻 git grep HEAD -- scripts 实测 0 个文件 —— 账面无人付费(§0.9"造好没装车"= 没有);',
+      '     同刻 HEAD 实测 1 处 t.rich 调用把白名单标签渲染器内联在调用点(worktree-dialog 的 branch)——',
+      '     表改了、内联副本不跟着改,两条腿静默漂开且无从对账。',
+      '     A1 修法:新增/删标签两翼同批显式同步(packages/shared/src/chat/rich-anchors.ts 白名单 →',
+      '            apps/web/src/components/chat/rich-anchor-text.tsx 同表补键),守卫不许改写;',
+      '     A2 修法:调用点改成 { <tag>: richAnchorRenderer(\'<tag>\') }(或整体传 RICH_ANCHOR_COMPONENTS);',
+      '     A3 修法:恢复任一生产屏面对 RichAnchorText/richAnchorRenderer 的真实挂载,禁止为过门加假 import。',
+      '     单独复验:node scripts/check-rich-anchor-renderer-single-source.mjs --staged',
+      '     自检:node scripts/check-rich-anchor-renderer-single-source.mjs --self-test(14 例,A1/A2/A3 成对正反控)',
+      '     镜像:node --test scripts/tests/check-rich-anchor-renderer-single-source.test.mjs(判据 import 门体 __test__,不复制)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_RICH_ANCHOR_RENDERER_SINGLE_SOURCE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 身份主体单一真相源(2026-10-25 立;crew/knowledge 匿名越权族根治)(1 项,blocking)---
   {
     id: '242',

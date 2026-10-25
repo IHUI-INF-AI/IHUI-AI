@@ -21,6 +21,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 
+import { richAnchorRenderer } from '@/components/chat/rich-anchor-text'
 import { cn } from '@/lib/utils'
 import {
   applyAutoTopupAction,
@@ -387,16 +388,19 @@ function renderThresholdError(t: Translate, errorKey: ThresholdErrorKey): string
 }
 
 /** 价格换算三态 → 文案(text 带 {creditCount} 与 {amount} 富文本插值) */
-function renderEquivalent(t: Translate, info: EquivalentInfo): string {
+function renderEquivalent(t: Translate, info: EquivalentInfo): React.ReactNode {
   switch (info.key) {
     case 'target.equivalent.loading':
       return t('target.equivalent.loading')
     case 'target.equivalent.error':
       return t('target.equivalent.error')
     case 'target.equivalent.text':
-      return t('target.equivalent.text', {
+      // 词包值内嵌 <strong> 锚点 ⇒ 必须走 t.rich + chat 侧唯一渲染表(D99②),
+      // 用 plain t() 会把标记字面量透给用户(实测「<strong>¥12.00</strong>」直接上屏)。
+      return t.rich('target.equivalent.text', {
         creditCount: info.values.creditCount as string | number,
         amount: info.values.amount as string | number,
+        strong: richAnchorRenderer('strong'),
       })
   }
 }

@@ -354,11 +354,35 @@ test('L20 循环已掐死:外围存量 >0 而处置维 0 ⇒ 一个复清进程�
 test('L21 触发集单源锁:派生闸只许问器物那把处置尺,本层不得自写"有活干"判据', () => {
   const code = CODE('lib/post-merge-ledger-sync.mjs')
   assert.match(code, /plan-pointer-purge\.mjs/, '处置判据的家必须在复清器里')
-  assert.match(code, /workResidueCount\(/, '必须真调用(注释里提一句不算装车,§0.9)')
+  assert.match(code, /workResidueCount\(/, '夹具注入面必须真调用器物的判据(注释里提一句不算装车,§0.9)')
   assert.match(code, /purgeWorkResidue\(\{/, '派生闸必须问处置维')
   // 反向锁:本层自己算"渲染前后逐字差"= 第二把尺,必然与器物漂开
   assert.doesNotMatch(code, /renderPurge\(|renderLines\(/, '本层不得自带渲染差判据(§22c)')
 })
+
+/**
+ * L21b(2026-10-25 第二次实测立,差点把修法做成瞎法):
+ * 生产面**不许靠 `require()` 把器物的判据搬进本进程**。真档取证 —— post-commit 的
+ * plan-state-heal 那一步(`node scripts/plan-tasks-merge.mjs --heal --commit`)里,
+ * `loadRatchet()` 与 `loadPurgeTool()` 双双返回 null,于是账面存量读数恒是
+ * 「注记=未判定 / 可折=未判定 / 处置=未判定」而同号组维(走 lib/plan-task-index)读得出 1
+ * (见 .ihui-agent/state/hook-logs/post-commit-plan-state-heal.log 2026-10-25T08:27:27Z 那一段)。
+ * 若触发闸就长这样,循环确实"停"了 —— 靠的是眼睛瞎了:真副本来了也永不再派生(违 §12e)。
+ * 正解 = 子进程问器物 `--work-count`:探针自己就是入口,不依赖父进程模块图走到哪一步。
+ * (注:该 null 的确切抛错机制本席未能在不跑真命令(会写台账)的前提下钉死,故这条锁钉的是
+ *  **可观测的可靠性边界**,不是一个已证成的因果 —— §0.3「没判」不许写成「判过」。)
+ */
+test('L21b 生产面取材形状锁:处置维必须走器物子进程探针,不得要求调用方注入面', () => {
+  const code = CODE('lib/post-merge-ledger-sync.mjs')
+  assert.match(code, /'--work-count'/, '生产面必须派生器物的只读探针档')
+  assert.match(code, /PURGE-WORK/, '必须按器物自己那行机器可读结论取数,不自拼判据')
+  // 派生闸的调用点**不得**带 readFace —— 带了就等于回到"在本进程里搬器物的尺"
+  const gateAt = code.indexOf('purgeWorkResidue({ root, readFace')
+  assert.equal(gateAt, -1, '派生闸调用点不得注入面(注入面只许是测试通道),实测仍在本进程 require 器物')
+  // 探针派生同样吃 §12g:显式 stdio,否则 Windows 上稳定 EBUSY
+  assert.match(code, /stdio:\s*\['ignore',\s*'pipe',\s*'pipe'\]/, '子进程探针必须显式 stdio(§12g)')
+})
+
 
 test('L22 人工出口不得自动派生:同号组维只报数点名交人工,绝不派生恒 rc=2 的那一枚', () => {
   const seen = []
