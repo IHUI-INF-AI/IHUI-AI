@@ -19,7 +19,9 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
-export const REGISTRY_SYNC_INTERVAL_MS = Number(process.env.IHUI_REGISTRY_SYNC_INTERVAL_MS || 30 * 60 * 1000)
+export const REGISTRY_SYNC_INTERVAL_MS = Number(
+  process.env.IHUI_REGISTRY_SYNC_INTERVAL_MS || 30 * 60 * 1000,
+)
 export const REGISTRY_SYNC_TIMEOUT_MS = 95_000 // 尺子内 psql 60s + 进程起停余量(守门 80 同族)
 
 /** 节流纯函数:取不到 tick ⇒ 该跑(与 publicProbeDue 同一条底线)。 */
@@ -61,7 +63,9 @@ export function runRegistrySyncHealth({
   runner = null,
 } = {}) {
   if (!script || !existsSync(script)) {
-    logger('ℹ️ 目录同步哨兵:尺子不在位(scripts/check-registry-sync-health.mjs)⇒ 本轮跳过,不记为已巡检')
+    logger(
+      'ℹ️ 目录同步哨兵:尺子不在位(scripts/check-registry-sync-health.mjs)⇒ 本轮跳过,不记为已巡检',
+    )
     return { ran: false, why: '尺子不在位' }
   }
   let lastTick = NaN
@@ -102,7 +106,11 @@ export function runRegistrySyncHealth({
   const p = parseSyncHealthVerdict(call.stdout)
   if (!p) {
     logger(
-      `ℹ️ 目录同步哨兵:未判定(rc=${call.status})—— ${String(call.stderr || call.stdout || '(无输出)').split(/[\r\n]+/)[0].slice(0, 140)}`,
+      `ℹ️ 目录同步哨兵:未判定(rc=${call.status})—— ${String(
+        call.stderr || call.stdout || '(无输出)',
+      )
+        .split(/[\r\n]+/)[0]
+        .slice(0, 140)}`,
     )
     return { ran: true, judged: false, why: '读数不可解析' }
   }
