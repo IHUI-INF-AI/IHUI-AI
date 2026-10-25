@@ -4,11 +4,16 @@
 
 // 平台适配层(D153b / D154,2026-09-30 立)—— 小程序端接 per-user 广播的最小可用链路。
 //
-// 这一份刻意**不 import Taro / 不 import 端内 store**:跨端判据住在
-// `@ihui/shared/chat/user-broadcast-store`,本文件只做「平台 URL 推导 + 把共享订阅出口
-// 接到账本 + 通过 deps 交回的提示口说话」。React 挂载点在 `hooks/use-user-broadcast-sync.ts`。
+// 这一份**不 import Taro API**、判据不在本文件:跨端判据住在
+// `@ihui/shared/chat/user-broadcast-store` 与 `@ihui/shared/chat/chat-sync-store`,
+// 本文件只做「平台 URL 推导 + 把共享订阅出口接到账本 + 通过 deps 交回的提示口说话」。
+// React 挂载点在 `hooks/use-user-broadcast-sync.ts`。
 // 分成两层的理由不是审美:上一票记录过"模块加载期读 storage 在非小程序环境 import 即崩",
 // 用例必须能在 node 环境下驱动同一条接线,否则测的就不是真链路。
+//
+// 2026-10-26(票 B02 最后一格)追加 chat 消息面:帧经本端 store 的绑定层
+// `../stores/chat-sync` 投进共享 store(它是 zustand/vanilla + react 的纯绑定,**不碰 Taro API**),
+// 所以"node 用例可驱动同一条接线"这条不变量仍然成立。
 //
 // 票面拍板(V4 §11.3 D153 第 6 栏 / D154 第 8 栏③):
 //  - 会话元数据:收到 `conversation:updated` ⇒ 就地改掉本端已知的行值(所以不会出现
@@ -17,6 +22,8 @@
 //    断连期间的帧收不到,而分页与排序也不是一条推送能重算的。
 //  - MCP 状态:收到 `mcp:status` ⇒ 状态行(`chat.mcp.state.*`)+ `chat.mcp.mobileSettingsHint`;
 //    本端没有 MCP 管理面,所以只给话不给按钮。
+//  - chat 消息面(2026-10-26):`message:created` / `message:patched` ⇒ 共享 chat-sync store
+//    (幂等/四态/待 resync 引用契约内核,本端零复算);`message:terminal` 本票不投影,只点名。
 //
 // 三条不可漂的写法:
 //  ① 连接只走共享出口 `subscribeUserBroadcast`(设备级单例 + 引用计数)。端内**不得**
@@ -27,13 +34,21 @@
 
 import { subscribeUserBroadcast, type UserBroadcastSubscription } from '@ihui/api-client'
 import type { WebSocketLike } from '@ihui/api-client'
-import type { ConversationUpdatedEvent, McpStatusEvent } from '@ihui/types'
+import {
+  CHAT_SYNC_EVENT_NAMES,
+  type ChatMessageCreatedEvent,
+  type ChatMessagePatchedEvent,
+  type ConversationUpdatedEvent,
+  type McpStatusEvent,
+} from '@ihui/types'
 import {
   conversationMetaLedger,
   mcpStatusLedger,
   mcpStatusMessage,
   MCP_MOBILE_SETTINGS_HINT_KEY,
 } from '@ihui/shared/chat'
+
+import { chatSyncTaroStoreApi } from '../stores/chat-sync'
 
 /** 已提示过的帧指纹上限:小程序长跑不得无界增长 */
 const NOTICE_SEEN_LIMIT = 200
@@ -96,6 +111,26 @@ export interface UserBroadcastAdapterDeps {
 }
 
 /**
+ * chat 消息面帧 → 共享 store(票 B02 最后一格)。
+ *
+ * 判据零复算:`(messageId, rev)` 幂等、duplicate/stale/gap 四态、待 resync 全在
+ * `@ihui/shared/chat` 的 `chat-sync-store`(它引用 `@ihui/types` 的契约内核)。
+ * 本函数只做一件事:**把未判定帧的原因交回诊断口**(§0.3:认不出的帧必须点名,
+ * 静默丢弃与静默分叉在用户侧是同一个症状)。
+ */
+function applyChatSyncFrame(
+  eventName: string,
+  payload: ChatMessageCreatedEvent | ChatMessagePatchedEvent,
+  onUndetermined: ((raw: unknown) => void) | undefined,
+): void {
+  const outcome = chatSyncTaroStoreApi.getState().applyEvent(payload)
+  if (outcome.undetermined) {
+    // 端点只打事件名与原因,不打载荷(载荷是用户消息内容)
+    onUndetermined?.({ event: eventName, reason: outcome.undetermined })
+  }
+}
+
+/**
  * 挂上广播订阅:帧落到共享账本(列表值就地变,零 HTTP 请求),并按票面给一次性明示。
  *
  * @returns null 的两种情形都必须如实(不得"假装已订阅"):① 没有 token;
@@ -109,7 +144,7 @@ export function attachUserBroadcast(
   if (!token) return null
   if (!buildTaroBroadcastWsUrl(deps.baseUrl, token)) return null
 
-  return subscribeUserBroadcast(
+  const sub = subscribeUserBroadcast(
     {
       baseUrl: deps.baseUrl,
       // 每次现读:续期后不该拿挂载那一刻的值去换票(共享层 updateToken 依赖这个口)
@@ -123,7 +158,8 @@ export function attachUserBroadcast(
         const { changed, known } = conversationMetaLedger.apply(e)
         if (known && changed.length === 0) return
         const message = deps.translate('chat.meta.pullOnly')
-        if (message && rememberNotice(`meta|${e.data.conversationId}|${e.data.at}`)) deps.notify(message)
+        if (message && rememberNotice(`meta|${e.data.conversationId}|${e.data.at}`))
+          deps.notify(message)
       },
       'mcp:status': (evt) => {
         const e = evt as McpStatusEvent
@@ -135,10 +171,30 @@ export function attachUserBroadcast(
         const hint = deps.translate(MCP_MOBILE_SETTINGS_HINT_KEY)
         const message = [text, hint].filter((s) => s.length > 0).join(' · ')
         const attempt = e.data.attempt ?? '-'
-        if (message && rememberNotice(`mcp|${e.data.server}|${e.data.state}|${attempt}`)) deps.notify(message)
+        if (message && rememberNotice(`mcp|${e.data.server}|${e.data.state}|${attempt}`))
+          deps.notify(message)
+      },
+      // 票 B02 最后一格(2026-10-26):chat 消息面房间广播 → 共享 store。
+      // 键位用 @ihui/types 的契约常量做计算属性 ⇒ 端内不出现帧名字面量(§0.6 单一真相源)。
+      [CHAT_SYNC_EVENT_NAMES.MESSAGE_CREATED]: (evt) => {
+        applyChatSyncFrame(evt.event, evt.data, deps.onUndetermined)
+      },
+      [CHAT_SYNC_EVENT_NAMES.MESSAGE_PATCHED]: (evt) => {
+        applyChatSyncFrame(evt.event, evt.data, deps.onUndetermined)
+      },
+      // 终态帧本票**不投影**(票面已按 §24 记录"不做 + 理由":与生产端发终态、web store
+      // 状态投影、WS 载体登记同批)。但未接线的帧必须被点名,不得静默 —— 只计数不写状态。
+      [CHAT_SYNC_EVENT_NAMES.MESSAGE_TERMINAL]: (evt) => {
+        const outcome = chatSyncTaroStoreApi.getState().applyEvent(evt.data)
+        if (outcome.unwired) deps.onUndetermined?.({ event: evt.event, reason: outcome.unwired })
       },
       onUndetermined: (raw) => deps.onUndetermined?.(raw),
     },
   )
+  // 一次订阅 = 一份账本:`use-user-broadcast-sync` 只在 token 变化时重建订阅(重新登录/换账号),
+  // 所以此处清空对齐"身份面重建"。上一位用户的会话消息不得留给下一位 —— store 是设备级的,
+  // 身份不是。清空发生在订阅建立之后:订阅没建成(上面两个 return null)时不动既有账本。
+  chatSyncTaroStoreApi.getState().clear()
+  return sub
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

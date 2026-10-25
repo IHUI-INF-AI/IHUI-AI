@@ -32,7 +32,7 @@ import type {
 import {
   chatSyncStore,
   type ChatSyncStoreCounters,
-  type ChatSyncStoreOutcome,
+  type ChatSyncStoreFrameOutcome,
 } from '@ihui/shared/chat'
 
 import { createTaroZustandHook } from './helpers/create-taro-zustand-hook'
@@ -43,7 +43,7 @@ export interface ChatSyncMiniappState {
   /** 会话消息面(稳定引用;空会话返回同一个冻结空数组) */
   messagesOf: (conversationId: string) => readonly ChatSyncMessageSurface[]
   /** 供非 React 路径(广播适配器/诊断脚本)直接投帧 */
-  applyEvent: (event: ChatSyncEvent) => ChatSyncStoreOutcome
+  applyEvent: (event: ChatSyncEvent) => ChatSyncStoreFrameOutcome
   /** resync 拉回后的并回(判据在契约,本层只转调) */
   mergeResyncSnapshot: (snapshot: ChatSyncMessageSnapshot) => ChatSyncResyncMergeOutcome
   /** 待 resync 请求(诊断/上层拉取用;不进 React 快照) */

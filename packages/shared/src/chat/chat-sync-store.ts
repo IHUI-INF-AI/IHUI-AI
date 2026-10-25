@@ -82,7 +82,7 @@ export type ChatSyncUndeterminedReason =
 export type ChatSyncUnwiredReason = 'terminal'
 
 /** 一帧被 store 处理后的可判结论(调用方据此点名/记日志,不必自己再判一遍)。 */
-export interface ChatSyncStoreOutcome {
+export interface ChatSyncStoreFrameOutcome {
   /** 帧声明的会话;读不到房间键 ⇒ null(该帧不进任何会话桶) */
   conversationId: string | null
   messageId: string | null
@@ -129,7 +129,7 @@ export interface ChatSyncStore {
    * 唯一写入口:把一条广播帧应用到对应会话的消息面。
    * 返回值必须被消费(至少用于点名未判定帧);**不抛异常** —— 线上帧不该让端侧崩。
    */
-  applyEvent(event: ChatSyncEvent): ChatSyncStoreOutcome
+  applyEvent(event: ChatSyncEvent): ChatSyncStoreFrameOutcome
   /** 会话消息面(插入顺序 = 首次到达顺序;无变更时返回同一引用,供 useSyncExternalStore 用) */
   messagesOf(conversationId: string): readonly ChatSyncMessageSurface[]
   /** 该消息已应用的 rev;0 = 只有 created(或未知) */
