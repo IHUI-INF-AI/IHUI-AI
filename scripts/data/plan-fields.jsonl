@@ -88,3 +88,78 @@
 {"key":"G-01#main的CI现读仍红五件事逐条点名","owner":"mobile-rn 3 项","waiting":"none","updatedAt":"2026-10-25T06:20:55.326Z","updatedBy":"plan-fields-extract"}
 {"key":"O02#跨端UI单一源","waiting":"none","blocking":"—","updatedAt":"2026-10-25T07:41:02.020Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-46#D135现读复核","waiting":"env","blocking":"模拟器","updatedAt":"2026-10-25T07:41:02.020Z","updatedBy":"plan-fields-reclassify","owner":"mobile-rn ChatScreen 持有席"}
+{"key":"G-100#把file","owner":"机主微信开放平台","waiting":"none","updatedAt":"2026-10-25T10:35:33.183Z","updatedBy":"plan-fields-extract"}
+{"key":"G-942#生产切流被\"别人滞留在工作树的整份台账副本\"挡住","owner":"那份副本的写者会话","waiting":"none","blocking":"它自己落地或被显式处置 —— 自愈层按设计拒绝代","updatedAt":"2026-10-25T10:35:33.183Z","updatedBy":"plan-fields-extract"}
+{"key":"G-09#活文档行union会把\"本侧已让号删掉的旧形态\"","owner":"union-converge 落地闸持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"G-241#自动化\"结算状态机\"","owner":"api 端持有者","waiting":"none","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"G-242#一次性capabilityticket取代常驻可","owner":"ai-service↔api 两侧持有者）","waiting":"none","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"G-244#后台任务run状态缺append-onlyjou","owner":"ai-service 端）","waiting":"none","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"O87g#守门8的\"前缀假设\"确实是本票假绿的成因","owner":"守门 8 持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"G-395#配置分层的\"出处标签\"与\"请求档vs实得档\"留痕","owner":"cli/子代理线持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"G-397#锁的\"租约认token不认pid\"一格只登记","owner":"`git-lock`/`deploy-lock` 持有人)**","waiting":"none","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"G-681#F9基线层把\"别人跳门塞进HEAD的存量\"记在每","owner":"台账判据线","waiting":"none","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"G-245#事故归档无\"双上限\"回收——与§5b的禁删条款正","owner":"`.git` 存续线） 〔2026-09-27 用户拍板:**双上限 + 保留最近 10 代**","waiting":"none","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"G-424#钩子没有终态事件与outcome分类","waiting":"env","blocking":"生产侧","updatedAt":"2026-10-25T10:35:33.184Z","updatedBy":"plan-fields-extract"}
+{"key":"G-593#api-client的\"上行应答接受性\"守卫测试","owner":"api-client 审批回传那两枚提交的持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-455#守门130的F9把「已完成历史行」与「正文里的交","owner":"门 130 持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-944#USDTTRC20ADDRESS仍空","waiting":"human","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-863#附件容量按\"屏当时快照\"计","owner":"web 聊天附件链)","waiting":"none","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-941#token增量基线还缺一个真判别维度","owner":"ai-service 成本账本)","waiting":"none","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-819#取证代理把兄弟会话的在飞改动当成我方现状——这一","waiting":"env","blocking":"本机没有","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-937#归档器B档","owner":"本席续做","waiting":"none","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-1222553#流式中切换模型→终止后自动带入新模型","waiting":"env","blocking":"条件(§17 真会话留痕,装机包连不上后端)","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-116#Gitee镜像超配额的真凶不是\"历史太长\"","owner":"机主","waiting":"none","blocking":"机主先删那一个 ref、再点服务端 GC —— ","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-1222554#G-1222554归属","owner":"部署环告警去重持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.185Z","updatedBy":"plan-fields-extract"}
+{"key":"G-183#G-18314","waiting":"env","blocking":"等环境","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-858#union-converge的镜像在干净HEAD","owner":"`scripts/union-converge.mjs` 的 R-AR-I 出路文案族 + 「装","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-05#G-05归属","owner":"端口注册表门 + ai-service ruff + 受保护检查 lint-typecheck-","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-5#27行\"别人认领过但已过期72小时\"的进行中标记","owner":"那 6 张票各自的持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-11#对账器L3「宾语落点」清单只点了7个通用动词","owner":"该工具持有人)**:G-802 把 `open/close/copy/delete/send/s","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-08#合并落地闸拦下这一枚合并的真病灶是\"并集少带了本","owner":"`scripts/union-converge.mjs` 落地闸持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-195#生产服务的实际入口","owner":"分叉裁决完成后接下一班运维**","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-17#schemacheck的\"按驱动事实判sqlit","owner":"`app/core/schema_check.py` 持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-1222557#围栏只判\"新代码不得选用已删出口\"","owner":"`apps/ai-service/tests/test_mcp_unscoped_exits_a","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-86#b76-12c票1后续格","waiting":"env","blocking":"等环境","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-115#本地与origin/main又是一轮真分叉","owner":"机主","waiting":"none","blocking":"拍板\"由谁、在哪个窗口收敛\" —— 不拍板则线上","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-1222558#收敛链这一轮量到的四格","owner":"union-converge 落地闸 / git-sync-converge 转述层 / 台账取","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-07#〔副本·待并入L28868正身〕活文档行unio","owner":"union-converge 落地闸持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.186Z","updatedBy":"plan-fields-extract"}
+{"key":"G-8#本批全量终审186项=173通过/5警告/8失败","owner":"一处恒红门已当场修掉","waiting":"none","updatedAt":"2026-10-25T10:35:33.187Z","updatedBy":"plan-fields-extract"}
+{"key":"G-201#P1事件档位由调用方自选","waiting":"human","updatedAt":"2026-10-25T10:35:33.187Z","updatedBy":"plan-fields-extract"}
+{"key":"O46#〔承接mcp-runtimeSSE吞错票的重连取","waiting":"human","blocking":"SSE 流死亡后的重连设计待拍板","updatedAt":"2026-10-25T10:35:33.188Z","updatedBy":"plan-fields-extract"}
+{"key":"G-172#G-172归属","owner":"chat/web 在飞会话 + 小程序端持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.188Z","updatedBy":"plan-fields-extract"}
+{"key":"D77#对话流业务表单卡","waiting":"human","updatedAt":"2026-10-25T10:35:33.188Z","updatedBy":"plan-fields-extract"}
+{"key":"G-1222562#G-1222562D","waiting":"env","blocking":"等环境","updatedAt":"2026-10-25T10:35:33.188Z","updatedBy":"plan-fields-extract"}
+{"key":"G-1222564#pre-commit钩子里lint-staged","owner":"该 fix 的持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.188Z","updatedBy":"plan-fields-extract"}
+{"key":"G-871#腾讯云短信第二通道已接线","waiting":"env","blocking":"国内短信运营商签名报备通常 7~10 个工作日","updatedAt":"2026-10-25T10:35:33.188Z","updatedBy":"plan-fields-extract"}
+{"key":"G-1222565#门94的R4射程对它自己守的那件事的消费者全盲","owner":"门 94 持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.188Z","updatedBy":"plan-fields-extract"}
+{"key":"G-1222566#G-1222566归属","owner":"union-converge 落地闸持有人","waiting":"none","updatedAt":"2026-10-25T10:35:33.189Z","updatedBy":"plan-fields-extract"}
+{"key":"D14#云端沙箱agent","waiting":"env","blocking":"本机没有","updatedAt":"2026-10-25T10:35:33.189Z","updatedBy":"plan-fields-extract"}
+{"key":"D50#多端遥控配对+每会话浏览器Tab状态","waiting":"env","blocking":"本机无","updatedAt":"2026-10-25T10:35:33.189Z","updatedBy":"plan-fields-extract"}
+{"key":"G-329#机主2026-09-28拍板四条","waiting":"env","blocking":"本机无","updatedAt":"2026-10-25T10:35:33.189Z","updatedBy":"plan-fields-extract"}
+{"key":"G-371#给连接器配置落属主——这是把connectors","owner":"③ = 有 PG 与服务端口的机器) 实测形态不是\"忘了加过滤\"","waiting":"none","updatedAt":"2026-10-25T10:35:33.189Z","updatedBy":"plan-fields-extract"}
+{"key":"G-948#活文档整文件回写又吞掉他席已入库登记行","owner":"台账自愈层):一枚 bypass 落地","waiting":"none","updatedAt":"2026-10-25T10:35:33.189Z","updatedBy":"plan-fields-extract"}
+{"key":"G-271#第三十三批标题段","waiting":"env","blocking":"等机主","updatedAt":"2026-10-25T10:35:33.189Z","updatedBy":"plan-fields-extract"}
+{"key":"G-82#VideoPlayerScreen全屏纯黑⇒黑页","waiting":"env","blocking":"模拟器","updatedAt":"2026-10-25T10:35:33.190Z","updatedBy":"plan-fields-extract"}
+{"key":"64#AI消息可编辑+消息级pin/书签","waiting":"env","blocking":"需真机","updatedAt":"2026-10-25T10:35:33.190Z","updatedBy":"plan-fields-extract"}
+{"key":"G-873#小程序登录页接微信手机号一键验证","waiting":"env","blocking":"开发者工具","updatedAt":"2026-10-25T10:35:33.190Z","updatedBy":"plan-fields-extract"}
+{"key":"G-329#机主2026-09-28拍板四条——①工作记忆接","owner":"机主运维面","waiting":"none","updatedAt":"2026-10-25T10:35:33.190Z","updatedBy":"plan-fields-extract"}
+{"key":"G-27#事故归档无\"双上限\"回收——与§5b的禁删条款正","owner":"`.git` 存续线） 〔2026-09-27 用户拍板:**双上限 + 保留最近 10 代**","waiting":"none","updatedAt":"2026-10-25T10:35:33.192Z","updatedBy":"plan-fields-extract"}
+{"key":"G-20#腾讯云短信第二通道已接线","owner":"机主短信资质面","waiting":"none","updatedAt":"2026-10-25T10:35:33.192Z","updatedBy":"plan-fields-extract"}
+{"key":"D19#电脑使用画中画","waiting":"human","blocking":"Computer-Use 会话可视化立项","updatedAt":"2026-10-25T10:35:33.192Z","updatedBy":"plan-fields-extract"}
+{"key":"H01#冷启动抢跑全仓盘点余量","waiting":"human","blocking":"机主真机/扫码会话","updatedAt":"2026-10-25T10:35:33.192Z","updatedBy":"plan-fields-extract"}
+{"key":"H02#承G-427第②步","waiting":"human","updatedAt":"2026-10-25T10:35:33.192Z","updatedBy":"plan-fields-extract"}
+{"key":"G-76#生产备份链日志的写入侧编码要改成UTF-8","owner":"机主处置隧道","waiting":"none","updatedAt":"2026-10-25T10:35:33.194Z","updatedBy":"plan-fields-extract"}
+{"key":"G-65#小程序/Web缺图的来源问题今天有了终判","waiting":"env","blocking":"等用户","updatedAt":"2026-10-25T10:35:33.194Z","updatedBy":"plan-fields-extract"}
+{"key": "自进化#不可变护栏:对 guardian-runner", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#成本熔断:在 IHUI-DEPLOYLOOP", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#影响面隔离与原子回滚", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#人工阀清单:明确 AI 可自决范围", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#需求/异常自动发现器", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#端到端反馈闭环", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#E2E 自动补测", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#金丝雀发布", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#自治决策模型", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#经验自动提炼", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#守门规则自生长", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#可审计决策链", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key": "自进化#安全停机而非硬失败", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
