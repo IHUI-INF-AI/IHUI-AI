@@ -11,6 +11,12 @@
  * 被 `catch {}` 吞掉,现象是"LLM 网关不可达",与凭据毫无字面关联,故两天无人知。
  * 同类形态第二次:我把 git PAT 读错(同步盘冲突副本)也差点被判成"凭据已失效"。
  *
+ * 2026-10-25 修:真登录探针**默认关闭**(显式 `IHUI_CREDENTIAL_LOGIN_PROBE=1` 才跑)。
+ *   权威源 `admin-password.txt` 是**备份口令**,不等于现役口令(用户可随时在 UI 改密);
+ *   拿备份口令去真登录 = 把"备份件≠现役"误报成"凭据失效",且每跑一次就消耗一次
+ *   `account-lockout` 失败预算(5 次/15 分钟,达阈值锁 15 分钟)—— 监控自己制造故障。
+ *   默认落 `unknown` 并点名原因;①仍对账「部署环 env ↔ 权威源」这个自动化真正的输入面。
+ *
  * 本脚本把这两类"凭据过期"从**静默下游失败**变成**独立可告警签名**,并区分
  * `401/不匹配`(凭据本身失效,需处理)与 `429/超时`(被限流或网络,不是凭据问题)——
  * 混为一谈是当天排查最大的干扰源。
@@ -53,6 +59,9 @@ import { redactAlertDetail, redactChildOutput } from './lib/secret-shape-redact.
 import { resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 // .env 解析复用现役实现(该脚本有 §22d isDirectRun 守卫,被 import 时不触发 CLI 副作用)
 import { parseEnvText } from './check-env-drift.mjs'
+// §0.6 单一真相源:PowerShell 解释器择一器复用 check-service-binary-paths 的出口(绝对路径、
+// 按当次存在性择一、不依赖 PATH / process.env.ProgramFiles),本文件不另造第二份候选表。
+import { pickPowerShell, PS_CANDIDATES } from './check-service-binary-paths.mjs'
 // 状态/心跳件的**原子替换**唯一出口(2026-09-29 立,台账 G-653)。裸 `writeFileSync` 覆盖写一个
 // 已存在的文件是"truncate → 再写"两步,而下一轮巡检读 `STATE` 判据恰好落得在这两步之间 ——
 // 本文件对"JSON 读不出"的既有处置是 `unreadable ⇒ 本轮按无记录寄一次`,于是**一次写盘竞态会被
@@ -103,12 +112,65 @@ export function readServiceEnv(service, key) {
   }
 }
 
-/** 服务是否装机(三态:true/false/null=探测本身不可用)。
- *  1060 = ERROR_SERVICE_DOES_NOT_EXIST,是唯一能断定"没有这个服务"的退出码;
- *  其余失败(sc.exe 被策略挡、路径异常)一律返回 null,不得当成"服务不存在"。 */
-export function serviceExists(name, scBin = 'C:/Windows/System32/sc.exe') {
+// ─────────────────────────────────────────────────────────────────────────────
+// 服务存在性探测的通道(2026-10-25 立,治"常跑守护链被安全策略杀进程")。
+//
+// **事故同族**:本函数原先直接 `execFileSync('sc.exe', ['query', name])`。本机装了程序黑名单
+// (台账实证:`reg.exe` / `schtasks.exe` / `sc.exe` 均在列,见 PROJECT_PLAN 编号纪元行注记),
+// spawn 黑名单程序的那一刻**安全策略杀掉的是整个 node 进程**(实测 RC=143 = 128+SIGTERM),
+// 不是抛异常 ⇒ try/catch 完全救不了。而 `IHUI credential-health` 计划任务每 6 小时跑一次
+// `--json`(git-guardian 的 watchdog kick 亦同)⇒ 那一整条凭据巡检腿**每轮静默消失**,
+// 现象是"心跳件不更新",而不是"门判红" —— 比判红严重一档。
+//
+// **修法是换通道,不是跳门**:服务存在性还有一条不 spawn sc.exe 的路 —— `Get-Service`。
+// 同一个 SCM、同一个结论,只是不碰那个被拦的可执行文件。三态契约**一字未改**:
+// true / false / null(探测本身不可用 ⇒ 不误判,由调用方落 `unknown`)。
+// sc.exe 通道不删除,但默认关闭,只在显式 `IHUI_ALLOW_SC_EXE=1` 时启用。
+// ─────────────────────────────────────────────────────────────────────────────
+const DEFAULT_SC_BIN = 'C:/Windows/System32/sc.exe'
+const ALLOW_SC_EXE = process.env.IHUI_ALLOW_SC_EXE === '1'
+
+/** §0.6 单一真相源:解释器候选复用 check-service-binary-paths 的出口,禁抄第二份(本机
+ *  `process.env.ProgramFiles` 为空 ⇒ 靠它拼路径会全部落空、通道静默退化成"未判定")。 */
+function psCandidates() {
+  const picked = pickPowerShell()
+  if (!picked) return []
+  return [picked.bin, ...PS_CANDIDATES.map((c) => c.bin).filter((b) => b !== picked.bin)]
+}
+
+/** PowerShell 通道问服务在不在。返回 '__PRESENT__' / '__ABSENT__' / ''(= 通道本身不可用)。 */
+function psServiceExists(name) {
+  const safe = String(name).replace(/'/g, "''")
+  // 脚本串必须用**换行** join:`].join(' ')` 会把 `try {` / `if …` 挤进同一行 ⇒ ParserError
+  // ⇒ 被空 catch 吞掉 ⇒ 本函数恒返回 ''。表面"已换通道",实际一次都没真读到(换壳没换血)。
+  const script = [
+    `try {`,
+    `  if (@(Get-Service -Name '${safe}' -ErrorAction SilentlyContinue).Count -gt 0) { '__PRESENT__' } else { '__ABSENT__' }`,
+    `} catch { '' }`,
+  ].join('\n')
+  for (const bin of psCandidates()) {
+    try {
+      const out = execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', script], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 20000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      const s = String(out || '').trim()
+      if (s === '__PRESENT__') return true
+      if (s === '__ABSENT__') return false
+    } catch {
+      /* 换下一个候选;全落空 ⇒ 返回 null(探测不可用,不误判) */
+    }
+  }
+  return null
+}
+
+/** sc.exe 兜底通道(默认关,见上方头注)。1060 = ERROR_SERVICE_DOES_NOT_EXIST。 */
+function scExeExists(name, scBin) {
   try {
-    execFileSync(scBin, ['query', name], {
+    execFileSync(scBin || DEFAULT_SC_BIN, ['query', name], {
       stdio: ['ignore', 'ignore', 'pipe'],
       windowsHide: true,
       timeout: 15000,
@@ -117,6 +179,18 @@ export function serviceExists(name, scBin = 'C:/Windows/System32/sc.exe') {
   } catch (e) {
     return e && e.status === 1060 ? false : null
   }
+}
+
+/** 服务是否装机(三态:true/false/null=探测本身不可用)。
+ *  1060 = ERROR_SERVICE_DOES_NOT_EXIST,是唯一能断定"没有这个服务"的退出码;
+ *  其余失败(sc.exe 被策略挡、路径异常)一律返回 null,不得当成"服务不存在"。
+ *  `scBin` 显式传入 ⇒ 离线注入口,测试要的就是"某个可执行文件不可用"这条分支本身,照原样直跑。 */
+export function serviceExists(name, scBin) {
+  if (scBin) return scExeExists(name, scBin)
+  const viaPs = psServiceExists(name)
+  if (viaPs !== null) return viaPs
+  if (!ALLOW_SC_EXE) return null
+  return scExeExists(name, DEFAULT_SC_BIN)
 }
 
 /** 告警标题的环境标签(§5e:开发机【开发环境】/ 生产机【生产环境】)。
@@ -232,6 +306,18 @@ export function readFileSyncOr(path) {
 }
 
 /**
+ * key 读取的三态出口(2026-09-24 立;2026-10-25 补回缺失实现):
+ * 缺失(null)/形状不合 ⇒ ''(不抛错、不拿冲突副本去联网),形状合 ⇒ 去空白原值。
+ * 立因原本就在这里:同步盘会写出"名字相近、内容是几把 key 粘在一起"的冲突副本,
+ * 直接当 token 用会让巡检拿垃圾去撞外部 API。缺了它自检当场 ReferenceError,
+ * 而 --self-test 不在提交链上 ⇒ 腐烂没有任何门会看见(本次即这样被发现)。
+ */
+export function pickKey(raw, shape) {
+  const v = String(raw ?? '').trim()
+  return v !== '' && shape.test(v) ? v : ''
+}
+
+/**
  * ⑥ 应用 .env 关键凭据**齐备性**(2026-09-27 立)。
  *
  * 为什么本门原有各条都看不见它:①②③④判的是"凭据在不在、还有效吗",全部指向**外部**凭据
@@ -344,15 +430,23 @@ export async function runChecks() {
     detail: `${cmp.why};服务在位 ${installed === null ? '?' : installed ? 'Y' : 'N'} / 服务侧 ${fingerprint(adminInSvc)} / 权威源 ${fingerprint(adminAuthority)}`,
   })
 
-  // ② 真登录一次(与门禁同一入口)。127.0.0.1 自有桶,单轮 1 次不撞限流。
-  // **但①已判不一致时必须跳过**:拿必错的口令去撞登录 = 巡检自己消耗"剩余 N 次即锁定"预算,
-  // 那会把"发现故障"变成"制造故障"(本脚本首次自测就真实触发了 401 + 剩余次数递减)。
-  if (adminAuthority && cmp.level !== 'fail') {
+  // ② 真登录探针(**默认关闭**,2026-10-25 改,理由见文件头):权威源是备份口令,
+  // 不等于现役口令;拿它真登录既会误报,又会消耗 account-lockout 的失败预算
+  // (5 次/15 分钟 ⇒ 锁 15 分钟)。历史:①不一致时跳过;现在:只有显式开关才探,
+  // 默认落 unknown 并点名"为什么没探"(§0.3 不把没量到写成量到)。
+  const LOGIN_PROBE_ON = process.env.IHUI_CREDENTIAL_LOGIN_PROBE === '1'
+  if (adminAuthority && cmp.level !== 'fail' && LOGIN_PROBE_ON) {
     const r = await loginProbe('admin', adminAuthority)
     out.push({
       name: '后端登录探针 /api/auth/login/username',
       level: classifyHttpStatus(r.sc),
       detail: `http=${r.sc} ${r.sc >= 400 ? String(r.txt).slice(0, 60).replace(/\s+/g, ' ') : '(成功)'}`,
+    })
+  } else if (adminAuthority && cmp.level !== 'fail') {
+    out.push({
+      name: '后端登录探针 /api/auth/login/username',
+      level: 'unknown',
+      detail: '默认不探:权威源是备份口令,真登录可能误报并消耗账号锁定预算(5 次/15 分钟);确需探测:IHUI_CREDENTIAL_LOGIN_PROBE=1 node scripts/check-credential-health.mjs',
     })
   }
   // ③ GitHub 凭据(同步盘里那把):先看能不能取到仓库权限,再判断"是否被同步盘写成冲突副本"
@@ -382,20 +476,28 @@ export async function runChecks() {
   // ④ Gitee token(代码镜像仓已弃用,但**桌面端安装包资产仍由 Gitee release 直链分发** ——
   //    线上 /desktop-feed.json 的 Windows 包 href 就指向它,实测 HTTP 200 ⇒ 这把 key 仍须有效,
   //    失效会让每次发版的资产补传静默失败。判据只查"这把 token 还能用吗",不再关联任何镜像仓。)
-  const gitee = readFileSyncOr(join(GIT_KEY_DIR, 'gitee apikey.txt'))
-  if (gitee) {
-    const p = await probeHttps('gitee.com', '/api/v5/user?access_token=' + encodeURIComponent(gitee))
-    let login = ''
-    try {
-      login = JSON.parse(p.body).login || ''
-    } catch {
-      login = ''
-    }
+  const giteeRaw = readFileSyncOr(join(GIT_KEY_DIR, 'gitee apikey.txt'))
+  if (giteeRaw) {
+    const gitee = pickKey(giteeRaw, /^[0-9a-f]{32}$/)
     out.push({
-      name: 'Gitee token 有效性',
-      level: p.sc === 200 && login ? 'ok' : classifyHttpStatus(p.sc),
-      detail: `http=${p.sc} login=${login || '-'}`,
+      name: 'Gitee token 形态',
+      level: gitee ? 'ok' : 'fail',
+      detail: gitee ? '形状合法(32 位十六进制)' : '形状不合(疑同步盘冲突副本/含杂散字符)⇒ 已跳过联网校验',
     })
+    if (gitee) {
+      const p = await probeHttps('gitee.com', '/api/v5/user?access_token=' + encodeURIComponent(gitee))
+      let login = ''
+      try {
+        login = JSON.parse(p.body).login || ''
+      } catch {
+        login = ''
+      }
+      out.push({
+        name: 'Gitee token 有效性',
+        level: p.sc === 200 && login ? 'ok' : classifyHttpStatus(p.sc),
+        detail: `http=${p.sc} login=${login || '-'}`,
+      })
+    }
   }
   // ⑤ 部署停摆(测结果,不猜原因):线上构建 sha 落后 origin/main 且超过阈值即红。
   //    为什么测结果而不是查 ff/凭据/构建:今天停摆有两层原因(口令过期 + 脏树挡 ff),

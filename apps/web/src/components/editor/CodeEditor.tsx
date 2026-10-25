@@ -388,6 +388,12 @@ function normPath(p: string): string {
   return p.replace(/\\/g, '/')
 }
 
+/** 落点文件与当前文件是否同一(一侧绝对路径、一侧仓库相对路径时按后缀匹配) */
+function sameRevealTarget(cur: string, target: string): boolean {
+  if (!cur) return false
+  return cur === target || cur.endsWith('/' + target) || target.endsWith('/' + cur)
+}
+
 /** LspLocation(后端 relpath + 1-based)→ Monaco range(同文件跳转) */
 function locToMonacoRange(loc: {
   line: number
@@ -437,9 +443,21 @@ interface FimCompletionData {
   model?: string
 }
 
+/** 命令式入口(ref 暴露):把落点写入 pendingReveal,目标文件内容就绪后揭示到行 */
+export interface CodeEditorHandle {
+  /**
+   * 揭示到 file 的 line/column(1-based)。
+   * file 与当前打开文件同一(允许一侧为绝对路径)且内容已就绪时立即 setPosition + reveal,
+   * 否则留在 pendingReveal,待 value/filePath effect 在内容加载后消费。
+   */
+  revealAt(file: string, line: number, column?: number): void
+}
+
 export interface CodeEditorProps {
   value: string
   language?: string
+  /** 命令式入口(React 19 ref as prop) */
+  ref?: React.Ref<CodeEditorHandle>
   onChange?: (value: string) => void
   onSelectionChange?: (selection: MonacoSelection, selectedText: string) => void
   onMount?: (editor: MonacoEditorInstance, monaco: MonacoNamespace) => void
@@ -485,6 +503,7 @@ const MonacoEditor = dynamic(loadMonacoEditor, {
 export function CodeEditor({
   value,
   language = 'plaintext',
+  ref,
   onChange,
   onSelectionChange,
   onMount,
@@ -539,6 +558,34 @@ export function CodeEditor({
   const markerSeverityRef = React.useRef<
     { Hint: number; Info: number; Warning: number; Error: number } | undefined
   >(undefined)
+
+  /** 消费 pendingReveal:光标与视口移到落点后清空(内容为空/文件不匹配时由调用方再等一轮) */
+  const consumePendingReveal = React.useCallback((e: MonacoEditorInstance) => {
+    const pending = pendingRevealRef.current
+    if (!pending) return
+    const pos = { lineNumber: pending.line, column: pending.column }
+    e.setPosition(pos)
+    e.revealPositionInCenter(pos)
+    pendingRevealRef.current = null
+  }, [])
+
+  /**
+   * 命令式揭示(ref 暴露,与 LSP 跨文件跳转同一条 pendingReveal 通道):
+   * 落点写入 pendingReveal;当前文件已就绪(同文件且内容非空)则立即消费,
+   * 否则等目标 tab 内容加载完成后由 value/filePath effect 消费。
+   */
+  const revealAt = React.useCallback(
+    (file: string, line: number, column = 1) => {
+      pendingRevealRef.current = { file: normPath(file), line, column }
+      const e = editorRef.current
+      if (!e) return
+      if (!sameRevealTarget(normPath(filePathRef.current ?? ''), normPath(file))) return
+      if (!e.getValue()) return
+      consumePendingReveal(e)
+    },
+    [consumePendingReveal],
+  )
+  React.useImperativeHandle(ref, () => ({ revealAt }), [revealAt])
 
   /** LSP 请求失败(503 lsp-unavailable / 网络 / 超时)静默降级:不弹窗不阻塞,仅控制台一次性提示可改用 codegraph */
   const noteLspUnavailable = React.useCallback(
@@ -972,27 +1019,17 @@ export function CodeEditor({
     refreshDiagnostics()
   }, [workspacePath, filePath, refreshDiagnostics])
 
-  // LSP(0-4c):跨文件 definition 跳转揭示 —— onOpenLocation 打开的新 tab 内容异步加载完成后,
-  // value prop 变化触发本 effect,校验落点文件与当前文件一致即 setPosition + reveal
+  // LSP(0-4c)/审查卡揭示:跨文件跳转落点 —— 新 tab 内容异步加载完成后,value prop 变化
+  // 触发本 effect,校验落点文件与当前文件一致即 setPosition + reveal(消费同一 pendingReveal)
   React.useEffect(() => {
     const e = editorRef.current
     const pending = pendingRevealRef.current
     if (!e || !pending) return
-    const cur = normPath(filePath ?? '')
-    if (
-      !cur ||
-      (cur !== pending.file &&
-        !cur.endsWith('/' + pending.file) &&
-        !pending.file.endsWith('/' + cur))
-    )
-      return
+    if (!sameRevealTarget(normPath(filePath ?? ''), pending.file)) return
     // 内容为空 = tab 还在异步加载文件内容,等下一轮 value 变化再试
     if (!e.getValue()) return
-    const pos = { lineNumber: pending.line, column: pending.column }
-    e.setPosition(pos)
-    e.revealPositionInCenter(pos)
-    pendingRevealRef.current = null
-  }, [value, filePath])
+    consumePendingReveal(e)
+  }, [value, filePath, consumePendingReveal])
 
   // 卸载时释放 inline completion provider + 清理 debounce timer(防内存泄漏)
   React.useEffect(() => {

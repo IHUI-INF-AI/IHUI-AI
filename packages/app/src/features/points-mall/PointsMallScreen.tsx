@@ -40,7 +40,12 @@ export function PointsMallScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('pointsMall.title')}</Text>
         <Text style={styles.subtitle}>{t('pointsMall.subtitle')}</Text>
       </View>
@@ -144,6 +149,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 14, paddingBottom: 32 },
     columnWrapper: { justifyContent: 'space-between', marginBottom: 10 },
     card: {
+      minWidth: 96,
       width: '48%',
       padding: 12,
       borderRadius: rnRadius.lg,

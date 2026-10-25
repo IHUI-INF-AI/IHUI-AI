@@ -476,7 +476,7 @@ export function decideExit({ reds, undetermined, strict, mode }) {
 
 /* ------------------------------------------------------------------ 输出 */
 
-function render(res) {
+function render(res, strict = false) {
   const lines = []
   lines.push(
     `判定面=${FACE_LABEL[res.face]}${res.fellBack ? '(暂存集为空/无源码 ⇒ 回退 HEAD 全量,已如实点名)' : ''} ` +
@@ -715,7 +715,7 @@ async function main() {
   if (json) {
     process.stdout.write(JSON.stringify({ ...res, rc, skip: SELF_SKIP }, null, 2) + '\n')
   } else {
-    console.log(render(res))
+    console.log(render(res, strict))
     if (strict && res.undetermined.length) console.log('  (--strict:有未判定 ⇒ 拒绝出具合格证,exit 2)')
   }
   process.exit(rc)
@@ -740,6 +740,7 @@ export const __test__ = {
   readFace,
   analyze,
   decideExit,
+  render,
   SELF_SKIP,
   SCAN_DIRS,
 }

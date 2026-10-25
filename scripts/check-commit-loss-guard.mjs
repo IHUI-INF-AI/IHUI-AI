@@ -32,6 +32,20 @@
  *   立因是当轮实测:本仓未备份悬空 9809 枚 ⇒ 这道门早已恒红,而恒红的实际后果是每次提交
  *   都被逼 HUSKY_SKIP_COMMIT_LOSS_CHECK=1,连它真正该拦的"刚丢的那一枚"也不再有人被拦住
  *   (AGENTS §12f)。判据本身没有放宽"什么算丢失",改的是"哪一档由提交链负责"。
+ *   2026-10-23(G-417②)起,窗内那一档在备份核对链上再叠两维**窄放行**:③ 树+题与可达历史
+ *   逐字同(并发重写滞留的旧对象)、④ patch-id 等价(git cherry 判补丁已在主线 —— union-converge
+ *   重写后树已并入他改,③ 盖不住的那一型)。两维都只在**确证等价**时放行并逐条点名;
+ *   取不到证据(派生失败/超单轮上限)一律照拦 —— 失效方向只许"多要一次定向说明",不许"多放一次跳门"。
+ * 2026-10-23(代裁:守门 30a 对"对象空间落地范式中间 commit"增豁免档)起,④ 之后再叠 ⑤:
+ *   本仓落地走 `scripts/object-space-land.mjs` / `scripts/union-converge.mjs`(临时索引 + commit-tree + CAS),
+ *   该范式**天然**产生中间 commit(CAS 重试滞留的单亲暂存枚、merge 中间态、空枚)—— 2026-10-14 现读窗内
+ *   未备份悬空 14961 枚(merge 中间态 2333 / 空 commit 3269 / 单亲非空 8476),抽样 5/5 内容已在主线。
+ *   这些对象不是"丢失的工作",把它们全数当悬空风险报警是噪声(§12f 恒红→跳门)。判据 = **可归因三件**:
+ *   ① subject 与在册引用(`git log --all`)可达历史里某一枚逐字同题(该枚 = 落地孪生,豁免行点名其 hash);
+ *   ② 候选的全部父枚都在册可达(CAS 重试的父 = 当轮 HEAD,必是落地后的祖先;父不在册 ⇒ 整链无出处,照拦);
+ *   ③ 形态归类仅用于展示(空枚/单亲暂存枚/merge 中间态),不参与放行强度。
+ *   放行**不静默**:逐条点名进读数,`--list-paradigm-exempt` 交完整 oid 清单(不许静默放行整类)。
+ *   真悬空(题无孪生、或父枚不在册、或无父)仍照常判红;可达索引取不到 ⇒ 本维不量、保守照拦(§12f 不削牙)。
  * 远程 tag 完整性:仅远端 tag 缺失或 tag 对象不可达时 → exit 1(必须先 fetch 拉回);
  * 多余的本地 tag(远端没有)→ warn,不阻塞。
  *
@@ -77,6 +91,7 @@
 import { pathToFileURL } from 'node:url'
 import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { flagValue } from './lib/flag-value.mjs'
 import {
   batchExecFileSync,
   catBatchOids,
@@ -108,7 +123,7 @@ const SKIP_ENV = 'HUSKY_SKIP_COMMIT_LOSS_CHECK'
 
 /**
  * 档位旗标的 argv 读取点(**唯一源头**;2026-10-11 起含 `--list-unbacked` 与
- * `--list-out-of-window`,共五项)。
+ * `--list-out-of-window`,2026-10-23 起含 `--list-paradigm-exempt`,共六项)。
  * 镜像测试原先各抄一份 `'--blocking' / '--filter-stash'` 字面量:档位名一旦改,测试传的
  * 就成了没人读的字符串,断言照样绿(§22c 的"镜像常量漂移")。故导出真常量,测试取用。
  */
@@ -118,6 +133,7 @@ const FLAGS = {
   filterStash: '--filter-stash',
   listUnbacked: '--list-unbacked',
   listOutOfWindow: '--list-out-of-window',
+  listParadigmExempt: '--list-paradigm-exempt',
 }
 
 /**
@@ -214,6 +230,7 @@ const isBlocking = process.argv.includes(FLAGS.blocking)
 const isFilterStash = process.argv.includes(FLAGS.filterStash)
 const isListUnbacked = process.argv.includes(FLAGS.listUnbacked)
 const isListOutOfWindow = process.argv.includes(FLAGS.listOutOfWindow)
+const isListParadigmExempt = process.argv.includes(FLAGS.listParadigmExempt)
 /**
  * `--window-days <N>` 的取值(**只认紧跟的那一个 token**)。
  * 刻意不写成"扫到 flag 之后所有数字里挑一个":仓内已有判据因把别处的数字当自己的参数而误判
@@ -221,9 +238,12 @@ const isListOutOfWindow = process.argv.includes(FLAGS.listOutOfWindow)
  * 回落默认,并由它把"给了旗但值无效"标成 invalid ⇒ 打印出来,不静默。
  */
 const WINDOW_DAYS_FLAG = '--window-days'
+// 取值走 G-322 单源:present 时交出紧邻 token(原样,含无效形),由下方 resolveWindowDays
+// 统一判 invalid 并点名 —— 没(present)给是 undefined,给了无效(token=null / 旗标顶掉)
+// 不再靠 indexOf+1 的裸取,三态语义不变。
 const windowDaysFlagValue = (() => {
-  const i = process.argv.indexOf(WINDOW_DAYS_FLAG)
-  return i === -1 ? undefined : process.argv[i + 1]
+  const f = flagValue(process.argv, WINDOW_DAYS_FLAG)
+  return f.present ? f.token : undefined
 })()
 
 /**
@@ -452,7 +472,9 @@ function dropBackedResets(resets, backedHashes, beforeHashOf = () => '') {
 // 本门判的全是**仓库状态**(reset 历史 / 悬空 commit / tag 备份完整性),不是本次提交内容;
 // 而本仓现读悬空 commit 18,448 枚、lost-commit tag 24,404 枚,全量复核实测 2~5 分钟,
 // 期间 CPU 仅 1s —— 时间全花在逐枚 git 派生上,占提交链 40% 以上。
-// 这些集合只由 reset / stash / gc 驱动,分钟级不动 ⇒ 按 (HEAD 未变 + TTL 30min) 复用结论。
+// 这些集合主要由 reset / stash / gc 驱动,分钟级不动 ⇒ 按 (TTL 30min + 判据面旗标指纹 +
+// 备份 tag 枚数指纹) 复用结论(HEAD 刻意不入 key,见 readLossCache;tag 枚数入 key 是为保
+// "tag 处置后转绿"的处置出口,见 localBackupTagFingerprint,G-417②)。
 // 命中即秒回,并**打印复用了几分钟前的结论**,不把"复用"写成"刚判过"。
 // 失效方向:TTL 内新增的悬空 commit 本门看不见 —— 由 IHUI-GIT-GUARD 巡检与 post-commit 的
 // lost-commit tag 同步兜底;要当场重算:IHUI_COMMIT_LOSS_NO_CACHE=1。
@@ -461,12 +483,39 @@ const lossCachePath = () => join(realGitDir(), 'ihui-commit-loss-cache.json')
 function currentHeadSha() {
   return gitText(['rev-parse', 'HEAD'], { allowFail: true })
 }
-function readLossCache() {
-  // 只在 blocking 档(提交链)复用;手动查询档(--list-* / --fetch)一律现算,避免给人旧数。
-  if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return null
+/**
+ * 备份 tag 枚数指纹(G-417②,2026-10-23):缓存 key 必须含"备份链现读 tag 枚数"。
+ * 否则处置出口被缓存吞掉 —— 照 §22 tag 备份之后重跑同一道门必须转绿,但 TTL 内同旗同 HEAD
+ * 会复用旧的 blocking:true 结论,刚做完正确处置的人反而被逼跳门(§12f)。
+ * 三态:读失败 ⇒ null ⇒ 不复用也不落缓存(方向=多算,绝不"多放");真 0 枚是合法值。
+ * 成本现读:真仓 24,707 枚 tag 约 67ms,相对全量复核的 2~5 分钟可忽略。
+ */
+function localBackupTagFingerprint() {
+  try {
+    const out = gitRaw(['tag', '-l', 'lost-commit/*', 'backup/*'], ROOT).trim()
+    return out ? out.split('\n').filter(Boolean).length : 0
+  } catch {
+    return null
+  }
+}
+function readLossCache(winDim) {
+  // 只在 blocking 档(提交链)复用;手动查询档(--list-*)一律现算,避免给人旧数。
+  // G-417②(2026-10-23)补实现:这一句原本**只有注释没有代码** —— --list-unbacked 被缓存短路后
+  // 打的是"复用 N 分钟前的结论",镜像 e2e 的"必须逐枚交出清单"那一格因此红(红的性质是
+  // "没重算",不是"没清单")。
+  // 判据面指纹(窗天数 / strict / filter-stash)也必须同值才复用:--window-days 0 与 --strict 是
+  // 另一把尺子,拿默认档结论套上去 = 把"没判"写成"判过"(§12e),方向上只会多算、不会多放。
+  if (!isBlocking || isListUnbacked || isListOutOfWindow) return null
+  if (process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return null
   try {
     const j = JSON.parse(readFileSync(lossCachePath(), 'utf8'))
     if (!j || typeof j.ts !== 'number' || typeof j.blocking !== 'boolean') return null
+    if (j.windowDays !== winDim.days || j.strict !== isStrict || j.filterStash !== isFilterStash)
+      return null
+    // tag 枚数指纹(G-417②):备份链一变(打 tag / 删 tag)旧结论立即作废 ⇒ "tag 处置后转绿"
+    // 这一处置出口不被 TTL 吞;指纹取不到同样作废(多算,不多放)。
+    const tagFp = localBackupTagFingerprint()
+    if (tagFp === null || j.tagCount !== tagFp) return null
     // 刻意**不**把 HEAD 纳入 key(2026-10-21):提交本身不改变悬空集合,而每枚提交都推进 HEAD
     // ⇒ 拿 HEAD 当 key 等于"缓存永不命中"(第一版就是这么写的,实测首跑 231s 后第二次仍全量)。
     // 悬空集合只由 reset / stash / gc 驱动,用 TTL 控新鲜度即可。
@@ -479,8 +528,10 @@ function readLossCache() {
 }
 function writeLossCache(obj) {
   if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return
+  const tagFp = localBackupTagFingerprint()
+  if (tagFp === null) return // 指纹读不出 ⇒ 不落一条验证不了的缓存,下次直接重算
   try {
-    writeFileSync(lossCachePath(), JSON.stringify(obj))
+    writeFileSync(lossCachePath(), JSON.stringify({ ...obj, tagCount: tagFp }))
   } catch {
     /* 写不进去只是下次重算,不影响本次判定 */
   }
@@ -603,6 +654,130 @@ function parseTreeSubjectIndex(stdout) {
     keys.add(`${tree}\t${subject}`)
   }
   return keys
+}
+
+/**
+ * ④ patch-id 等价放行维(G-417②,2026-10-23)的单轮上限。
+ * `git cherry HEAD <c>` 逐枚派生(真仓现读 ~0.8s/枚),正常进这一维的枚数是 0(前面各维已放行);
+ * 但病态情形(--strict 把数千枚超窗存量压进窗内档)逐枚量会把提交链拖到分钟级 —— 那正是 §12f
+ * 记过的失败型。超上限 ⇒ **整维不量**,黄色点名、保守照拦(失效方向是"多要一次定向说明",
+ * 绝不是"多放一次跳门")。
+ */
+const CHERRY_EQUIV_MAX = 50
+
+/**
+ * `git cherry HEAD <oid>` 读数 → "这一枚的补丁已在主线" 的判据(**纯函数,唯一源头**)。
+ * 命中形态:行首 `- ` 后跟**完整 40 位 oid**(现读:无 subject、非缩写;不同 git 版本可能带
+ * subject,故允许尾随空白段)。`+` 行 = 未合入主线,不算命中;空输出 / 派生失败 / merge 提交
+ * (产不出 `-` 行)⇒ false ⇒ 照拦(fail-safe 朝红,"没量到"永不折成绿)。
+ */
+function parseCherryHit(cherryOut, oid) {
+  if (!cherryOut || !oid) return false
+  const want = String(oid).toLowerCase()
+  for (const line of String(cherryOut).split('\n')) {
+    const m = /^-\s+([0-9a-f]{40})(?:\s|$)/.exec(line.trim())
+    if (m && m[1] === want) return true
+  }
+  return false
+}
+
+/**
+ * `git log --all --format=%H%x09%P%x09%T%x09%s` 的 stdout → 在册可达索引(**纯函数**,不派生 git)。
+ * ⑤ 落地范式豁免档的取材出口(2026-10-23 代裁)。一次读数产出三张表:
+ * - `subjectTwin`: subject → **第一枚**可达 commit hash(同题多枚时留最早入表者,豁免行点名用);
+ *   空 subject 不入表(没题就无从归因);
+ * - `treeByHash`: 可达 commit hash → tree(既当"父枚是否在册"的判定域,也当"空枚"形态比对用);
+ * - `treeSubjectKeys`: 与 ③ 的 (树,题) 键集同形(本题留作 ③ 的备用出口,主链仍用 parseTreeSubjectIndex)。
+ * 行形态与 parseTreeSubjectIndex 同一族纪律:前三个 tab 分帧,题内再含 tab 原样并入 subject;
+ * 根提交 %P 为空(相邻两 tab)⇒ parents = []。**畸形行(不足三帧 / hash 或 tree 为空)跳过**,
+ * 不猜、不补默认。空读数/null ⇒ 三表皆空,由调用方按"索引缺位 ⇒ ⑤ 整维不量"处理(fail-safe 朝红)。
+ */
+function parseReachableCommitIndex(stdout) {
+  const subjectTwin = new Map()
+  const treeByHash = new Map()
+  const treeSubjectKeys = new Set()
+  for (const line of String(stdout ?? '').split('\n')) {
+    const t1 = line.indexOf('\t')
+    if (t1 <= 0) continue
+    const t2 = line.indexOf('\t', t1 + 1)
+    if (t2 <= 0) continue
+    const t3 = line.indexOf('\t', t2 + 1)
+    if (t3 <= 0) continue
+    const hash = line.slice(0, t1)
+    const _parents = line.slice(t1 + 1, t2)
+    const tree = line.slice(t2 + 1, t3)
+    const subject = line.slice(t3 + 1)
+    if (!hash || !tree) continue
+    treeByHash.set(hash, tree)
+    if (subject) {
+      if (!subjectTwin.has(subject)) subjectTwin.set(subject, hash)
+      treeSubjectKeys.add(`${tree}\t${subject}`)
+    }
+  }
+  return { subjectTwin, treeByHash, treeSubjectKeys }
+}
+
+/**
+ * ⑤ 对象空间落地范式中间枚豁免(**纯函数,本档判据的唯一实现**;2026-10-23 代裁票)。
+ * 输入全部由调用方从 git 取好后喂进来,四种情形都能用构造面证明,不依赖仓库此刻的悬空存量。
+ *
+ * 放行条件(三件齐备,缺一即留红):
+ * ① subject 非空且逐字命中 `index.subjectTwin`(在册可达历史里有同题孪生 ⇒ 落地范式重试的
+ *    滞留枚,内容已随孪生枚在主线;豁免行点名孪生 hash,可审计);
+ * ② parents 非空且**每一枚**都在 `index.treeByHash` 里(父在册 ⇒ 候选挂在活历史上;
+ *    父不在册 = 悬空链,整链无出处,绝不因"题眼熟"而放行);
+ * ③ index 在场且非空(取不到索引 ⇒ 整维不量,全部留红,`indexMissing` 大声点名)。
+ * `shape` 只是展示归类(merge 中间态 / 空枚 / 单亲暂存枚),不参与强度。
+ *
+ * @param {object} p
+ * @param {string[]} p.candidates        窗内仍未备份的悬空 commit(④ 之后的剩余)
+ * @param {Map<string,string>} p.subjectByHash    候选 hash → subject(① 批读已有,复用)
+ * @param {Map<string,string[]>} p.parentsByHash  候选 hash → 父 hash 数组(批读)
+ * @param {Map<string,string>} p.treeByCommit     候选 hash → tree(② 批读已有,仅形态归类用)
+ * @param {null|{subjectTwin:Map,treeByHash:Map}} p.index  parseReachableCommitIndex 的产物
+ */
+function pickParadigmIntermediates({
+  candidates = [],
+  subjectByHash = new Map(),
+  parentsByHash = new Map(),
+  treeByCommit = new Map(),
+  index = null,
+} = {}) {
+  if (!index || index.subjectTwin.size === 0 || index.treeByHash.size === 0) {
+    return { exempt: [], rest: [...candidates], indexMissing: candidates.length > 0 }
+  }
+  const exempt = []
+  const rest = []
+  for (const c of candidates) {
+    const subject = subjectByHash.get(c) || ''
+    const twin = subject ? index.subjectTwin.get(subject) : undefined
+    const parents = parentsByHash.get(c)
+    if (!twin || !parents || parents.length === 0) {
+      rest.push(c)
+      continue
+    }
+    let allParentsReachable = true
+    for (const p of parents) {
+      if (!index.treeByHash.has(p)) {
+        allParentsReachable = false
+        break
+      }
+    }
+    if (!allParentsReachable) {
+      rest.push(c)
+      continue
+    }
+    const tree = treeByCommit.get(c)
+    const parentTree = index.treeByHash.get(parents[0])
+    const shape =
+      parents.length >= 2
+        ? 'merge中间态'
+        : tree && parentTree && tree === parentTree
+          ? '空枚'
+          : '单亲暂存枚'
+    exempt.push({ hash: c, subject, twin, shape })
+  }
+  return { exempt, rest, indexMissing: false }
 }
 
 /**
@@ -1107,7 +1282,7 @@ async function main() {
   )
 
   // 缓存命中即秒回(2026-10-21):只在 blocking 档生效,且必须打印"复用了几分钟前的结论"。
-  const cachedLoss = readLossCache()
+  const cachedLoss = readLossCache(winDim)
   if (cachedLoss) {
     const ageMin = Math.round((Date.now() - cachedLoss.ts) / 60000)
     console.log(
@@ -1452,7 +1627,9 @@ async function main() {
     // `git log --all` 的 (树,题) 键集两元同时相等;索引取不到(log 派生失败/空读数)
     // ⇒ 白名单整体失效,维持 blocking(fail-safe 朝红,绝不朝绿)。
     // 白名单放行**不静默**:逐条点名打在 stdout(见下方 whitelistedSameContent 打印)。
-    const { unbacked, whitelistedSameContent, subjectByHash } = (() => {
+    // ③ 盖不住的那一型由 ④ patch-id 等价维补(G-417②,2026-10-23:union-converge 重写后
+    // 树已并入他改,"树+题逐字同"失效;判据与三条不许漂见 splitUnbackedByWindow 调用处注释)。
+    const { unbacked, whitelistedSameContent, subjectByHash, treeByCommit } = (() => {
       const candidates = unreachable.filter((c) => !backedUp.has(c))
       // ① subject 内嵌原 hash 匹配(stash-like 指向已备份 base)
       const BATCH = 50
@@ -1478,7 +1655,12 @@ async function main() {
       }
       const whitelistedSameContent = []
       if (survivors.length === 0)
-        return { unbacked: survivors, whitelistedSameContent, subjectByHash }
+        return {
+          unbacked: survivors,
+          whitelistedSameContent,
+          subjectByHash,
+          treeByCommit: new Map(),
+        }
       // ② tree 等价放行(stash WIP/index commit 树与 base 恒等)
       const treeByCommit = new Map()
       try {
@@ -1518,7 +1700,7 @@ async function main() {
           })
         }
       }
-      return { unbacked: rest, whitelistedSameContent, subjectByHash }
+      return { unbacked: rest, whitelistedSameContent, subjectByHash, treeByCommit }
     })()
     if (whitelistedSameContent.length > 0) {
       console.log(
@@ -1582,6 +1764,116 @@ async function main() {
             `基线 ${DANGLING_STOCK_BASELINE.count} 枚/最老 (${DANGLING_STOCK_BASELINE.oldest || '无'}) ⇒ 本次现读 ${win.outOfWeek.length} 枚,${verdictText}${C.reset}`,
         )
       }
+      // ④ patch-id 等价放行(G-417②,2026-10-23):③ 白名单要"树+题逐字同",而 union-converge
+      // 重写产出的同补丁副本**树不同**(改动已并入别的提交)⇒ ③ 盖不住,票面②点名的 9 枚就是这么红的。
+      // 这一维问补丁等价而非对象等价:`git cherry HEAD <c>` 对 c 打 `-` 行 ⇔ c 的 patch-id 已在主线
+      // (真仓现读:该型 9 枚全部命中,~0.8s/枚)。三条不许漂:① 枚数 > CHERRY_EQUIV_MAX ⇒ 整维不量、
+      // 黄色点名、保守照拦;② 派生失败/空输出/无 `- c` 行(含 merge 提交)⇒ 照拦,"没量到"永不折绿;
+      // ③ 放行不静默:逐条点名 + 综合判定留只报数 issue(见下方 cherryPassed 分支)。
+      const cherryPassed = []
+      if (win.blocking.length > 0 && win.blocking.length <= CHERRY_EQUIV_MAX) {
+        const stillBlocking = []
+        for (const c of win.blocking) {
+          const out = gitText(['cherry', 'HEAD', c], {
+            allowFail: true,
+            timeout: LOCAL_GIT_TIMEOUT_MS,
+          })
+          if (parseCherryHit(out, c)) cherryPassed.push(c)
+          else stillBlocking.push(c)
+        }
+        if (cherryPassed.length > 0) {
+          win.blocking.length = 0
+          for (const c of stillBlocking) win.blocking.push(c)
+          console.log(
+            `  ${C.dim}↳ patch-id 等价放行 ${cherryPassed.length} 个(git cherry 判其补丁已在主线:并发重写留下的同内容副本,树已并入他改故 ③ 盖不住,非丢失风险):${C.reset}`,
+          )
+          for (const c of cherryPassed.slice(0, 10)) {
+            const subj = subjectByHash.get(c) || ''
+            console.log(
+              `  ${C.dim}   ↳ 放行:${C.cyan}${c.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
+            )
+          }
+          if (cherryPassed.length > 10)
+            console.log(`  ${C.dim}   ↳ …另有 ${cherryPassed.length - 10} 个未显示${C.reset}`)
+        }
+      } else if (win.blocking.length > CHERRY_EQUIV_MAX) {
+        console.log(
+          `  ${C.yellow}⚠️  窗内未备份 ${win.blocking.length} 枚 > patch-id 维单轮上限 ${CHERRY_EQUIV_MAX}` +
+            ` ⇒ 本维不量,全部保守照拦(防逐枚量把提交链拖到分钟级)${C.reset}`,
+        )
+      }
+      // ── ⑤ 对象空间落地范式中间枚豁免(2026-10-23 代裁票;判据与不许漂见头注与纯函数注释)──
+      // 刻意排在 ④ 之后:④ 的证据更强(补丁已在主线逐枚可验),⑤ 吃 ④ 的剩余;
+      // 且 ⑤ 无逐枚 git 成本(索引一次建 + 父枚一次批读),能接住"窗内数千枚"这一档
+      // ——那正是 ④ 因 CHERRY_EQUIV_MAX 整维不量、票面 14961 枚恒红的落点。
+      const paradigmExempt = []
+      if (win.blocking.length > 0) {
+        let pIndex = null
+        try {
+          const pOut = gitText(['log', '--all', '--format=%H%x09%P%x09%T%x09%s'], {
+            allowFail: true,
+            timeout: LOCAL_GIT_TIMEOUT_MS,
+          })
+          pIndex = pOut ? parseReachableCommitIndex(pOut) : null
+        } catch {
+          pIndex = null
+        }
+        const parentsByHash = new Map()
+        for (let i = 0; i < win.blocking.length; i += DATE_WALK_BATCH) {
+          const batch = win.blocking.slice(i, i + DATE_WALK_BATCH)
+          const out = gitText(['log', '--no-walk', '--format=%H%x09%P', ...batch], {
+            allowFail: true,
+            timeout: LOCAL_GIT_TIMEOUT_MS,
+          })
+          if (!out) continue
+          for (const line of out.split('\n')) {
+            const t = line.indexOf('\t')
+            if (t <= 0) continue
+            const hash = line.slice(0, t).trim()
+            const ps = line.slice(t + 1).trim()
+            if (hash) parentsByHash.set(hash, ps ? ps.split(/\s+/) : [])
+          }
+        }
+        const picked = pickParadigmIntermediates({
+          candidates: win.blocking,
+          subjectByHash,
+          parentsByHash,
+          treeByCommit,
+          index: pIndex,
+        })
+        if (picked.indexMissing)
+          console.log(
+            `  ${C.yellow}⚠️ ⑤ 落地范式维的可达索引取不到(log --all 派生失败/空读数)` +
+              ` ⇒ 本维不量,全部保守照拦("没量到"不折绿)${C.reset}`,
+          )
+        if (picked.exempt.length > 0) {
+          paradigmExempt.push(...picked.exempt)
+          console.log(
+            `  ${C.dim}↳ 落地范式中间枚豁免 ${picked.exempt.length} 个(subject 与在册引用同题孪生、全部父枚在册:` +
+              `commit-tree+CAS 落地范式重试/中间态滞留,内容已随孪生枚在主线,非丢失风险):${C.reset}`,
+          )
+          for (const e of picked.exempt.slice(0, 10)) {
+            console.log(
+              `  ${C.dim}   ↳ 豁免[${e.shape}]:${C.cyan}${e.hash.slice(0, SHORT_HASH_LEN)}${C.reset}` +
+                ` ${C.dim}${e.subject.slice(0, 60)} ⇒ 孪生 ${e.twin.slice(0, SHORT_HASH_LEN)}${C.reset}`,
+            )
+          }
+          if (picked.exempt.length > 10)
+            console.log(
+              `  ${C.dim}   ↳ …另有 ${picked.exempt.length - 10} 个未显示(完整清单跑 ${FLAGS.listParadigmExempt})${C.reset}`,
+            )
+          win.blocking.length = 0
+          for (const c of picked.rest) win.blocking.push(c)
+        }
+        // 清单出口与 --list-unbacked/--list-out-of-window **同形**(每行一枚完整 oid,调用方一份
+        // 解析器就够):豁免名单不得只存在于人读行里(处置/审计要能逐枚回查;形态与孪生在人读行点名)。
+        if (isListParadigmExempt) {
+          console.log(
+            `  ${C.cyan}${FLAGS.listParadigmExempt}:${paradigmExempt.length} 枚(完整 oid,落地范式豁免清单)${C.reset}`,
+          )
+          for (const e of paradigmExempt) console.log(e.hash)
+        }
+      }
       if (win.blocking.length > 0) {
         issues.push(
           `${win.blocking.length} 个悬空 commit 未 tag 备份(运行 git tag lost-commit/<name> <hash> 备份)` +
@@ -1614,6 +1906,18 @@ async function main() {
         issues.push(
           `${win.outOfWeek.length} 个未 tag 备份的悬空 commit 全部超出 ${winDim.days} 天窗` +
             `(§29 人工 GC 存量,默认档只报数;问责 --strict / 全量 --window-days 0)`,
+        )
+      } else if (cherryPassed.length > 0) {
+        // ④ 放行把窗内清零时,账上必须留"这批被 patch-id 维放过"的可见结论 ——
+        // 落到下面"已全部 tag 备份"那一支会把 cherryPassed 误报成已备份(三态不并桶)。
+        issues.push(
+          `${cherryPassed.length} 个悬空 commit 经 patch-id 等价放行(git cherry 判补丁已在主线,并发重写副本,非丢失;问责仍走 --strict / 全量档)`,
+        )
+      } else if (paradigmExempt.length > 0) {
+        // ⑤ 同理:范式豁免把窗内清零时不得折成"已全部备份"(三态不并桶)。豁免不随 --strict
+        // 关闭(它判的是"这枚不是丢失的工作",不是"这一档不由提交链负责"——后者才是 strict 的射程)。
+        issues.push(
+          `${paradigmExempt.length} 个悬空 commit 经对象空间落地范式豁免(commit-tree+CAS 中间枚,同题孪生+全父在册,逐条已点名;--list-paradigm-exempt 交完整清单)`,
         )
       } else if (unreachable.length > 0) {
         issues.push(`${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`)
@@ -1702,7 +2006,15 @@ async function main() {
     console.log(
       `   2. 紧急跳过(不推荐):${C.cyan}HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...${C.reset}`,
     )
-    writeLossCache({ ts: Date.now(), head: currentHeadSha(), blocking: true, summary: issues.join('; ') })
+    writeLossCache({
+      ts: Date.now(),
+      head: currentHeadSha(),
+      blocking: true,
+      summary: issues.join('; '),
+      windowDays: winDim.days,
+      strict: isStrict,
+      filterStash: isFilterStash,
+    })
     process.exit(1)
   }
 
@@ -1714,7 +2026,10 @@ async function main() {
     ts: Date.now(),
     head: currentHeadSha(),
     blocking: false,
-    summary: `无 reset;悬空 commit ${unreachable.length} 枚均在窗外或已备份;tag 完整`,
+    summary: `无 reset;悬空 commit ${unreachable.length} 枚均在窗外、已备份或经等价放行;tag 完整`,
+    windowDays: winDim.days,
+    strict: isStrict,
+    filterStash: isFilterStash,
   })
   process.exit(0)
 }
@@ -1819,6 +2134,14 @@ export const __test__ = {
   parseCommitterDateLines,
   resolveWindowDays,
   splitUnbackedByWindow,
+  // ④ patch-id 等价放行(G-417②):判据纯函数与上限常量都必须可被测试直接消费,
+  // 镜像侧不得再抄一份 `- <oid>` 行正则(§22c 记过的漂移型)。
+  parseCherryHit,
+  CHERRY_EQUIV_MAX,
+  // ⑤ 落地范式中间枚豁免(2026-10-23 代裁):索引解析与判定两枚纯函数都必须可被测试直接消费,
+  // 镜像侧不得再抄一份"同题+父在册"的判定逻辑(§22c 同一条漂移理由)。
+  parseReachableCommitIndex,
+  pickParadigmIntermediates,
   isStashSubject,
   extractOriginalHashFromStash,
   // tag 可达性 / 集合比对读取

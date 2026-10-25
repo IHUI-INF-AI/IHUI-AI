@@ -53,7 +53,7 @@ function parseDraft(path) {
   const titleMatch = /^##\s+标题\s*\n\s*\n(.+?)$/m.exec(raw)
   // 提取 ## 正文 下的内容作为 body
   const bodyMatch = /^##\s+正文\s*\n\s*\n([\s\S]+?)(?=\n---\n|\n##\s)/m.exec(raw)
-  const title = titleMatch ? titleMatch[1].trim() : 'IHUI AI — 8 端全栈 AI 操作系统'
+  const title = titleMatch ? titleMatch[1].trim() : 'IHUI AI — 9 端全栈 AI 操作系统'
   let body = bodyMatch ? bodyMatch[1].trim() : ''
   // 清理 markdown 注释占位
   body = body.replace(/\[截图占位[^\]]*\]/g, '').trim()

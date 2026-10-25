@@ -14,8 +14,10 @@
  * 三条硬规矩(失效方向一律是"少搬",绝不是"多放"):
  *  1. 抽不出可搬的值 ⇒ 不造记录,该行继续由散文判(派单面会报名"仍靠散文判定 N 枚")。
  *     绝不给"可做"的行造 `waiting:none` 记录:那等于把兜底值伪装成有交代(§0.3)。
- *  2. 抽取前后每行的桶必须**零变化**。桶是判定输入;换个地方说不等于可以说错。
- *     任一漂移 ⇒ 整批 `state=refused` 不落,并逐条点名两侧读数。
+ *  2. 抽取前后每行的桶必须**零变化**(基线 = **旧侧车**跑同一个 `dispositionOfV2`;投影行把归属句
+ *     换成标头后散文面会回落 actionable,那不是漂移 —— 2026-10-25 修)。桶是判定输入;换个地方说
+ *     不等于可以说错。任一漂移 ⇒ 整批 `state=refused` 不落,并逐条点名两侧读数。
+ *     同键已有记录时**只加不减**(见 `enrichRecord`):桶不同一律不覆盖,桶相同只补/跟随非空字段。
  *  3. 词表只 import 不复制(`ownedElsewhereRe`)。造第二把尺子的下场本仓记过最多次:两把尺
  *     各自读出不同命中集,搬动那一步静默改掉派单判定,而守恒断言比的是桶、看不见词表漂。
  *
@@ -23,6 +25,7 @@
  * `readFieldsFace`,全量档读 HEAD blob、`--staged` 读索引 blob、`--worktree` 只作人工逃生舱。
  *
  * 用法:`node scripts/plan-fields-extract.mjs --check | --dry-run | --apply [--staged|--worktree]`
+ *       `node scripts/plan-fields-extract.mjs --dedupe [--apply]`(同键去重;默认只报不写)
  * 结论行:`EXTRACT-RESULT state=ready|changed|refused|undetermined changed=N bucketsDrift=M`
  * 退出码:0 = 无待搬 / 1 = 有待搬且本档只报数 / 2 = 未判定或被拒。
  */
@@ -32,19 +35,24 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { auditFace, readFieldsFace } from './plan-tasks.mjs'
 import { FIELDS_REL, normalizeRecord } from './lib/plan-fields.mjs'
+import { parseHeader, stripHeader } from './lib/plan-field-line.mjs'
 import {
+  bucketFromFields,
   compositeKeyOf,
   dispositionFace,
   dispositionOf,
   dispositionOfV2,
   ownedElsewhereRe,
+  sidecarHeaderParts,
   waitingEnvRe,
   waitingEnvSlotRe,
 } from './lib/plan-task-index.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-/** 只取 `归属:` 后面的**值**;词表(整族判据)在 `plan-task-index`,这里不复制。 */
-const OWNER_VALUE_RE = /归属[:：]\s*([^,，。;；\n]{1,120})/
+/** 只取归属声明后面的**值**;词表(整族判据)在 `plan-task-index`,这里不复制。
+ *  认 `归属:` / `归:` 标头投影、`归属会话=` 与 `持有者:` 三种本仓真实写法。 */
+const OWNER_VALUE_RE =
+  /(?:归属[:：]|归[:：]|归属会话\s*[=＝]|持有[者人][:：])\s*([^,，。;；\n〕｜]{1,120})/
 const MAX_OWNER = 48
 const MAX_BLOCKING = 24
 /** 归属值里这些形态一定是"别的话"混进来:破折号后的叙述、连续空白(台账排版分隔两件事)、括号补充。 */
@@ -52,14 +60,21 @@ const OWNER_CUT_RE = /(?:\s*[—–]{1,2}\s+|\s{2,}|[（(])/
 /** 截完还以虚词开头/结尾的,是被人句子的中段顶出来的假持有人 ⇒ 整条不造。 */
 const OWNER_LEAD_PARTICLE_RE = /^[的与和及是在为把对跟]/
 const OWNER_TAIL_PARTICLE_RE = /[的和与及了]$/
+/** 占位值不是归属:不替"未派/待认领"造一条 owner(侧车记录必须指名一个可寻址的持有人)。 */
+const OWNER_PLACEHOLDER_RE = /^(?:[—–-]+|未派|待认领|无主|无人|未定)$/
 const UPDATED_BY = 'plan-fields-extract'
 
 /** owner 归一(单源出口):投影器要问同一把尺子,否则"等价"判断会与抽取时的截断规则分家。 */
 export function cleanOwner(raw) {
   const cut = String(raw ?? '')
     .split(OWNER_CUT_RE)[0]
+    // `…` 是"原文已被截断"的痕迹,绝不能进侧车:记录 owner 里带它 ⇒ 每次投影都写出含 `…` 的标头,
+    // 而 parseHeader 对 `…` 一律 malformed(截断后的 owner 不能充当权威)⇒ 门 234 A2 永久红
+    // (2026-10-25 实测 G-47/G-48/G-49 三行正是这么来的)。去掉省略号、保留已知前缀。
+    .replace(/…/g, '')
     .trim()
   if (cut.length < 2) return null
+  if (OWNER_PLACEHOLDER_RE.test(cut)) return null
   if (OWNER_LEAD_PARTICLE_RE.test(cut)) return null
   if (OWNER_TAIL_PARTICLE_RE.test(cut)) return null
   return cut.slice(0, MAX_OWNER)
@@ -96,13 +111,37 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
   const bucket = dispositionOf(line)
   if (bucket === 'actionable') return null
   const face = dispositionFace(line)
+  // 含标头的遮码面:face 现在剥侧车标头(判定层不该读投影),而"这条键位只有标头一个证据"时
+  // owner 仍要从它取 —— 取法必须与判定分开,否则标头-only 行会被抽成空记录。
+  const fullFace = String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
   const rec = { key, waiting: 'none', updatedAt: nowIso, updatedBy: UPDATED_BY }
   if (bucket === 'owned-elsewhere') {
     // 命中若只存在于反引号里,那是转述别人的理由(G-1058610 病②),不是本行的归属表态
-    if (!ownedElsewhereRe().test(face)) return null
-    const m = OWNER_VALUE_RE.exec(face)
+    const headerOwner = sidecarHeaderParts(line)?.owner ?? ''
+    if (!ownedElsewhereRe().test(face) && !headerOwner) return null
+    // **散文优先于标头**(2026-10-25 修):标头是投影,它的 owner 可能已被截断/带 `…`;
+    // 而正文里的 `归属:` 句才是现读原文。先剥掉行首标头再取值,取不到才退回整行
+    // (投影行把归属句换成标头时,标头是唯一证据)。
+    const headerless = stripHeader(line)
+    let m = null
+    let src = headerless
+    if (headerless !== line) {
+      const masked = dispositionFace(headerless)
+      if (ownedElsewhereRe().test(masked)) {
+        m = OWNER_VALUE_RE.exec(masked)
+        src = headerless
+      }
+    }
+    if (!m) {
+      src = line
+      m = OWNER_VALUE_RE.exec(fullFace)
+    }
     if (!m) return null
-    const owner = cleanOwner(m[1])
+    // 同一起点改在原行上取第二遍:face 与 line 等长(反引号遮成等长空白),这样带反引号的路径名
+    // 不会被 `\s*` 吃掉;而"命中只在反引号里"仍由上面那次 face 判定挡住。
+    const tail = OWNER_VALUE_RE.exec(src.slice(m.index))
+    if (!tail) return null
+    const owner = cleanOwner(tail[1])
     if (owner === null) return null
     rec.owner = owner
   } else if (bucket === 'waiting-human') {
@@ -112,22 +151,37 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
   }
   const blocking = blockingOf(face, bucket)
   if (blocking !== '') rec.blocking = blocking
+  // 行内标头的 `等:X` 的 X 必须能原样搬回侧车,否则投影永远少一段(门 234 A2 的另一半)。
+  // **只搬等段,不搬归属**:归属的权威在侧车;标头里的 owner 若与侧车不一致,由投影器物
+  // 按侧车重渲染/摘除(改抽取一侧会把桶悄悄改判 —— 那是三维守恒禁止的事)。
+  const h = parseHeader(line)
+  if (h.rec && !h.malformed && rec.waiting !== 'none' && !rec.blocking) {
+    const text = String(h.rec.blocking ?? '').trim()
+    if (text !== '') rec.blocking = text.slice(0, MAX_BLOCKING)
+  }
   return rec
 }
 
 /**
- * 逐行比对「散文判的桶」与「侧车判的桶」,返回漂移点名清单。
- * 空侧车 ⇒ 空清单(v2 回落散文),所以这一档同时也是"侧车还没建"的守恒基线。
+ * 逐行比对「**旧侧车**判的桶」与「**新侧车**判的桶」,返回漂移点名清单。
+ *
+ * 2026-10-25 修(治"投影行被抽取器整体误拒"):旧实现拿 `dispositionOf`(纯散文)当 before,
+ * 而**投影器物会把逐字等价的归属散文句换成行内标头**(规格 §4.3:只加标头会顶破长行档),
+ * 于是投影后的行散文面自然回落 actionable,侧车面仍是 owned-elsewhere ⇒ 每一行都被判"桶漂移",
+ * 抽取整批 refused(G-06/G-15/G-18 实测)。契约本来写的是"搬动说辞不得改变判定":判定 =
+ * `dispositionOfV2`(散文 ⊕ 侧车),所以 before 必须用**旧侧车**跑同一个函数,而不是裸散文。
+ * 不传 `beforeMap`(空侧车)时 v2 回落散文,与改动前逐字同形 —— 自检 S6 的语料仍原样成立。
  */
-export function batchBucketDrift(lines, map) {
+export function batchBucketDrift(lines, map, beforeMap = new Map()) {
+  const beforeFields = { map: beforeMap, undetermined: false }
   const fields = { map, undetermined: false }
   const out = []
   for (const line of lines) {
-    const before = dispositionOf(line)
+    const before = dispositionOfV2({ line, fields: beforeFields })
     const after = dispositionOfV2({ line, fields })
-    if (after.bucket !== before) {
+    if (after.bucket !== before.bucket) {
       out.push(
-        `${compositeKeyOf(line) ?? '(无主键)'} 散文=${before} ⇄ 侧车=${after.bucket}(来源=${after.source})`,
+        `${compositeKeyOf(line) ?? '(无主键)'} 前=${before.bucket}(来源=${before.source}) ⇄ 后=${after.bucket}(来源=${after.source})`,
       )
     }
   }
@@ -204,6 +258,95 @@ export function readBackCount(root) {
   return existingLines(root).length
 }
 
+/**
+ * 同键去重(2026-10-25 立;治「唯一写入口只会追加 ⇒ 同键双记录」:门 234 的 4 组矛盾组)。
+ *
+ * 语义必须**零变化**,三道闸:
+ *  1. **解析映射逐键同签名**:`loadFields` 本来就按 updatedAt 最新胜出(并列取先出现的),
+ *     本器用同一规则挑一条;挑出的记录与原解析映射逐键比 `SEMANTIC_KEYS` 签名,
+ *     任一不等 ⇒ 拒绝(说明盘上副本与判定面已分叉,不是纯去重);
+ *  2. **键集相等**:解析映射里有的键,盘上文件必须都有(反之亦然);缺/多一律拒绝 ——
+ *     拿旧副本去重会把 HEAD 里新写的记录整条抹掉;
+ *  3. **畸形行拒绝**:JSON 坏或值域外的行不替它做决定(§0.3)。
+ * 输出按各键**首次出现**的位置排序(不乱序,便于 diff 与人工复核)。
+ */
+export function dedupeRecords(root = ROOT, { lines = null, map = null } = {}) {
+  const raw = lines ?? existingLines(root)
+  const parsed = []
+  const malformed = []
+  for (const [i, l] of raw.entries()) {
+    let reason = null
+    let rec = null
+    try {
+      const n = normalizeRecord(JSON.parse(l))
+      if (n.ok) rec = n.rec
+      else reason = n.why
+    } catch {
+      reason = 'JSON 解析失败'
+    }
+    if (rec) parsed.push({ i, raw: l, rec })
+    else malformed.push(`#${i + 1}: ${reason}`)
+  }
+  if (malformed.length)
+    return { state: 'refused', why: `畸形行 ${malformed.length} 条(不替看不懂的行做决定):${malformed.slice(0, 3).join('; ')}` }
+
+  // key → { rec: 最新胜出那条, first: 该键首次出现的位置 }。位置只用于**输出排序**,
+  // 不能拿"胜出记录所在行"排序(最新那条常常在文件末尾,会让输出整体倒序)。
+  const chosen = new Map()
+  for (const p of parsed) {
+    const cur = chosen.get(p.rec.key)
+    // 与 loadFields 完全同序:只有**严格更新**才换(并列取先出现的那条)。
+    if (!cur) chosen.set(p.rec.key, { rec: p.rec, first: p.i })
+    else if (Date.parse(p.rec.updatedAt) > Date.parse(cur.rec.updatedAt)) cur.rec = p.rec
+  }
+
+  let reference = map
+  if (!reference) {
+    const f = readFieldsFace(root, 'head')
+    if (f.undetermined) return { state: 'undetermined', why: f.why }
+    reference = f.map
+  }
+  const mismatch = []
+  for (const [k, c] of chosen) {
+    const ref = reference.get(k)
+    if (!ref || sigOf(ref) !== sigOf(c.rec)) mismatch.push(k)
+  }
+  const missing = [...reference.keys()].filter((k) => !chosen.has(k))
+  if (mismatch.length || missing.length)
+    return {
+      state: 'refused',
+      why:
+        `去重后与解析映射不一致(语义变 ${mismatch.length} 键 / 键集缺 ${missing.length} 键)` +
+        `:${[...mismatch, ...missing].slice(0, 3).join(', ')}`,
+    }
+
+  const out = [...chosen.values()].sort((a, b) => a.first - b.first).map((c) => c.rec)
+  return {
+    state: out.length === parsed.length ? 'ready' : 'changed',
+    dropped: parsed.length - out.length,
+    before: raw.length,
+    after: out.length,
+    records: out,
+  }
+}
+
+/** 整份重写(临时件 + rename;失败目标一字节不动)。 */
+export function writeDedupedRecords(root, records) {
+  const abs = recordsFile(root)
+  const before = existingLines(root)
+  mkdirSync(path.dirname(abs), { recursive: true })
+  const tmp = `${abs}.tmp-${process.pid}`
+  writeFileSync(tmp, records.map((r) => JSON.stringify(r)).join('\n') + '\n', 'utf8')
+  try {
+    renameSync(tmp, abs)
+  } catch (e) {
+    throw new Error(
+      `侧车去重写盘失败(${String(e?.code ?? e)}),目标文件保持原样:${abs} —— 临时件留在 ${path.basename(tmp)}`,
+    )
+  }
+  return { path: abs, before: before.length, after: records.length }
+}
+
 /** 语义签名:只有这四个字段参与判定;`updatedAt` / `updatedBy` 是留痕,不参与。 */
 const SEMANTIC_KEYS = ['owner', 'waiting', 'blocking', 'next']
 const sigOf = (rec) => SEMANTIC_KEYS.map((k) => `${k}=${String(rec?.[k] ?? '')}`).join('|')
@@ -214,18 +357,53 @@ const sigOf = (rec) => SEMANTIC_KEYS.map((k) => `${k}=${String(rec?.[k] ?? '')}`
  * 按字节比会让 `--check` 永远报"还有 N 条可搬"、`--apply` 每次叠一条同键旧值 ——
  * 虚增待办与孤儿记录两个病一起犯(账面永远有活是本仓记过最多次的成因)。
  */
+/**
+ * 已有一条记录时的**只加不减**合并(2026-10-25 立):
+ *  · 侧车与散文判出的桶不同 ⇒ **不覆盖**(投影后的行散文面已把归属句换成标头,
+ *    再抽一次只会把 owned-elsewhere 降级成 waiting-env —— 实测 G-03/D03 整批被这条顶成 refused);
+ *  · 桶相同 ⇒ 只补记录里**缺的**字段(典型:行内标头 `等:X` 的 X 还没进侧车),
+ *    并刷新 updatedAt/updatedBy;不删任何既有字段。
+ * 返回 null = 不该动这条记录。
+ */
+export function enrichRecord(existing, candidate) {
+  // 桶不同一律不覆盖(双向):改桶 = 改派单判定,必须由投影器物按侧车权威重写标头,
+  // 不能借"抽取"这一步偷偷完成(三维守恒与门 234 都把这条当红线)。
+  if (bucketFromFields(existing) !== bucketFromFields(candidate)) return null
+  const next = { ...existing }
+  let changed = false
+  // 同桶内以候选(散文/标头的现读)为准,但**空值不覆盖**既有值 —— 只加不减:
+  // 投影行把归属句换成标头后,散文侧的 owner 会暂时抽不出(空),那不代表要抹掉侧车里的 owner。
+  for (const k of ['owner', 'waiting', 'blocking', 'next']) {
+    const cv = candidate[k]
+    if (cv === undefined || String(cv ?? '').trim() === '') continue
+    if (String(cv) !== String(next[k] ?? '')) {
+      next[k] = cv
+      changed = true
+    }
+  }
+  if (!changed) return null
+  next.key = existing.key
+  next.updatedAt = candidate.updatedAt
+  next.updatedBy = candidate.updatedBy
+  return next
+}
+
 export function planFromRows(lines, sideMap) {
   const candidates = []
   for (const line of lines) {
     const rec = extractFromLine(line)
     if (rec) candidates.push(rec)
   }
-  const have = new Map()
-  for (const rec of sideMap.values()) {
-    if (!have.has(rec.key)) have.set(rec.key, new Set())
-    have.get(rec.key).add(sigOf(rec))
+  const pendingList = []
+  for (const c of candidates) {
+    const cur = sideMap.get(c.key)
+    if (!cur) {
+      pendingList.push(c)
+      continue
+    }
+    const merged = enrichRecord(cur, c)
+    if (merged) pendingList.push(merged)
   }
-  const pendingList = candidates.filter((c) => !have.get(c.key)?.has(sigOf(c)))
   return { candidates, extractable: candidates.length, pending: pendingList.length, pendingList }
 }
 
@@ -246,13 +424,16 @@ export function plan({ root = ROOT, face = 'head' } = {}) {
       drift: [],
     }
   const p = planFromRows(lines, side.map)
+  // 只有**真正会写出去的那批**(pendingList)参与漂移判定;候选全集里被 enrich 拒掉的那些
+  // 本来就不会落盘,拿它们算 before/after 只会把"不写"误报成"改判"。
   const merged = new Map(side.map)
-  for (const rec of p.candidates) merged.set(rec.key, rec)
+  for (const rec of p.pendingList) merged.set(rec.key, rec)
   return {
     undetermined: false,
     lines,
     ...p,
-    drift: batchBucketDrift(lines, merged),
+    // before 面 = **旧侧车**(判定语义的基线),不是裸散文(见 batchBucketDrift 头注)。
+    drift: batchBucketDrift(lines, merged, side.map),
     existingCount: readBackCount(root),
   }
 }
@@ -281,7 +462,7 @@ function printVerdict(p, { listLimit = 0 }) {
     console.log(`EXTRACT-RESULT state=refused changed=0 bucketsDrift=${p.drift.length}`)
     return 2
   }
-  console.log('守恒:抽取前后每一行的归属桶零变化(逐行比 dispositionOf ↔ dispositionOfV2)')
+  console.log('守恒:抽取前后每一行的归属桶零变化(逐行比 旧侧车 ↔ 新侧车,同为 dispositionOfV2)')
   // `changed` 只数**待追加**:全搬完时它是 0 ⇒ state=ready。把"已在位"再报成"有活"就是虚增待办。
   const state = p.pending > 0 ? 'changed' : 'ready'
   console.log(
@@ -319,10 +500,107 @@ function selfTest() {
   return fails === 0 ? 0 : 1
 }
 
+/**
+ * 纯函数:声明式改判的**唯一判据**(main 的 `--reclassify` 档只做 I/O 与打印)。
+ * 逐条校验 key 在面 / why ≥10 字 / waiting 合法;与现状同形 ⇒ 跳过(不制造"改过"的假账);
+ * 任一不合格 ⇒ 整批 `{error}`(不做部分应用)。
+ */
+export function applyReclassify(records, items, nowIso = new Date().toISOString()) {
+  const byKey = new Map((records ?? []).map((r) => [r.key, r]))
+  const WAITING = new Set(['none', 'env', 'human'])
+  const changes = []
+  for (const [k, it] of (items ?? []).entries()) {
+    if (!it || typeof it.key !== 'string' || typeof it.why !== 'string' || it.why.trim().length < 10)
+      return { error: `第 ${k + 1} 项缺 key / why 或理由少于 10 字(不说明理由的改判等于替人猜)` }
+    const rec = byKey.get(it.key)
+    if (!rec) return { error: `第 ${k + 1} 项 key 不在侧车面(陈旧声明不记通过):${it.key}` }
+    if (it.waiting !== undefined && !WAITING.has(it.waiting))
+      return { error: `第 ${k + 1} 项 waiting 只能是 none/env/human,实际 ${JSON.stringify(it.waiting)}` }
+    const next = { ...rec }
+    if (it.waiting !== undefined) next.waiting = it.waiting
+    if (it.blocking !== undefined) next.blocking = String(it.blocking)
+    if (sigOf(next) === sigOf(rec)) continue
+    next.updatedAt = nowIso
+    next.updatedBy = 'plan-fields-reclassify'
+    changes.push({ key: it.key, from: sigOf(rec), to: sigOf(next), why: it.why, rec: next })
+  }
+  return { changes }
+}
+
 function main() {
   const argv = process.argv.slice(2)
   const has = (f) => argv.includes(f)
   if (has('--self-test')) return selfTest()
+  // 同键去重(整份重写)是独立档:不和抽取的三种模式混判(它既不读台账面,也不搬说辞)。
+  if (has('--dedupe')) {
+    const apply = has('--apply')
+    const r = dedupeRecords(ROOT)
+    if (r.state === 'undetermined' || r.state === 'refused') {
+      console.log(`⚠️ 未判定/拒绝 —— ${r.why}`)
+      console.log(`DEDUPE-RESULT state=${r.state} dropped=0 before=0 after=0`)
+      return 2
+    }
+    console.log(`DEDUPE-RESULT state=${r.state} dropped=${r.dropped} before=${r.before} after=${r.after}`)
+    if (!apply) {
+      console.log('   (dry-run:零写盘 —— 侧车文件一个字节都不动)')
+      return r.state === 'changed' ? 1 : 0
+    }
+    if (r.state === 'changed') {
+      const w = writeDedupedRecords(ROOT, r.records)
+      console.log(`已去重:${w.before} → ${w.after} 条 → ${path.relative(ROOT, w.path)}`)
+    } else console.log('   无需去重(同键至多一条)')
+    return 0
+  }
+  // 声明式改判(2026-10-25 立):抽取器的桶来自**当时的散文判据**,判据修正后侧车会把旧桶钉住
+  // (v2 尺侧车优先)⇒ 机主令要求代裁结清"待拍板"时,改行也改不动桶。出口 = 逐条声明 key/waiting/
+  // blocking/why,与 live-doc-edit 的 LIVE_BUCKET_RECLASSIFY 同一条纪律(逐条、带原因、陈旧不记通过)。
+  if (has('--reclassify')) {
+    const i = argv.indexOf('--reclassify')
+    const file = argv[i + 1]
+    const apply = has('--apply')
+    if (!file || file.startsWith('--')) {
+      console.log('❌ 用法:--reclassify <声明档 JSON> [--apply](缺省 dry-run)')
+      return 2
+    }
+    const d = dedupeRecords(ROOT)
+    if (d.state === 'refused' || d.state === 'undetermined') {
+      console.log(`⚠️ 未判定/拒绝 —— ${d.why}`)
+      console.log('RECLASSIFY-RESULT state=undetermined changed=0')
+      return 2
+    }
+    let items
+    try {
+      items = JSON.parse(readFileSync(file, 'utf8'))
+    } catch (e) {
+      console.log(`❌ 读不到/解析不了声明档(${file}):${String(e?.message ?? e).split('\n')[0]}`)
+      return 2
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log('❌ 声明档必须是非空数组 [{key, waiting?, blocking?, why}]')
+      return 2
+    }
+    const records = d.records ?? []
+    const byKey = new Map(records.map((r) => [r.key, r]))
+    const res = applyReclassify(records, items)
+    if (res.error) {
+      console.log(`❌ ${res.error}`)
+      return 2
+    }
+    const changes = res.changes
+    for (const c of changes) console.log(`  ⟳ ${c.key}: ${c.from} → ${c.to}(原因:${c.why})`)
+    console.log(`RECLASSIFY-RESULT changed=${changes.length} declared=${items.length}`)
+    if (!apply) {
+      console.log('   (dry-run:零写盘 —— 侧车文件一个字节都不动)')
+      return changes.length ? 1 : 0
+    }
+    if (changes.length) {
+      for (const c of changes) byKey.set(c.key, c.rec)
+      const nextRecords = records.map((r) => byKey.get(r.key) ?? r)
+      const w = writeDedupedRecords(ROOT, nextRecords)
+      console.log(`已改判 ${changes.length} 条 → ${path.relative(ROOT, w.path)}`)
+    }
+    return 0
+  }
   const modes = ['--check', '--dry-run', '--apply'].filter(has)
   if (modes.length !== 1) {
     console.log(
@@ -375,9 +653,13 @@ if (isDirectRun) {
 
 export const __test__ = {
   extractFromLine,
+  enrichRecord,
   batchBucketDrift,
+  applyReclassify,
   writeRecords,
   readBackCount,
+  dedupeRecords,
+  writeDedupedRecords,
   planFromRows,
   plan,
 }

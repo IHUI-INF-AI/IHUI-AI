@@ -40,6 +40,7 @@ import { mkdirSync, appendFileSync, readFileSync, existsSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseTasklistPids, parseMetricsListenPort, parseServerLocations } from './check-tunnel-leg-health.mjs'
+import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 
 const TASKLIST = 'C:/Windows/System32/tasklist.exe'
 const SPAWN_TIMEOUT_MS = 15_000
@@ -251,8 +252,15 @@ async function main() {
     process.exitCode = 2
     return
   }
-  const ledgerArg = argv[argv.indexOf('--ledger') + 1]
-  const ledger = typeof ledgerArg === 'string' && !ledgerArg.startsWith('-') ? ledgerArg : '.ihui-agent/state/tunnel-metrics.jsonl'
+  // --ledger 取值走 G-322 单源:给了旗标却没收到合法值(结尾无值 / 被下一枚旗标顶掉 / 空串)
+  // 不得静默落到默认台账(那会把本轮写进另一本账,而调用方以为已落盘)。判死 exit 2。
+  const ledgerF = flagValue(argv, '--ledger')
+  if (ledgerF.present && !ledgerF.valid) {
+    console.error(`用法错:--ledger 需要一个台账路径 —— 紧邻的 token 实得:${describeFlagToken(ledgerF)}(不得静默回落默认台账)`)
+    process.exitCode = 2
+    return
+  }
+  const ledger = ledgerF.value ?? '.ihui-agent/state/tunnel-metrics.jsonl'
   let c
   try {
     c = await collect()

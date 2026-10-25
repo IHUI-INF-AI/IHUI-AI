@@ -30,17 +30,22 @@
  * 退出码:0=全部通过 / 1=有失败 / 2=脚本异常
  */
 import { argv } from 'node:process'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const args = argv.slice(2)
 const dryRun = args.includes('--dry-run')
-const providerFilter = (() => {
-  const i = args.indexOf('--provider')
-  return i >= 0 ? args[i + 1] : null
-})()
-const timeoutMs = (() => {
-  const i = args.indexOf('--timeout')
-  return i >= 0 ? Number(args[i + 1]) : 20000
-})()
+const providerFlag = requireFlagValue(args, '--provider', { noun: 'provider 代号' })
+if (providerFlag.error) {
+  console.error(`❌ ${providerFlag.error}`)
+  process.exit(2)
+}
+const providerFilter = providerFlag.value
+const timeoutFlag = requireFlagValue(args, '--timeout', { noun: '毫秒数' })
+if (timeoutFlag.error) {
+  console.error(`❌ ${timeoutFlag.error}`)
+  process.exit(2)
+}
+const timeoutMs = timeoutFlag.value ? Number(timeoutFlag.value) : 20000
 
 // ============================================================================
 // 零成本 provider 期望清单(对齐 free_provider_registry.py 的 _ZERO_COST_CODES)

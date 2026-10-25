@@ -33,7 +33,7 @@ export const announcementsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const all = await findAnnouncements()
+      const all = await findAnnouncements('cli')
       const limited = all.slice(0, parsed.data.limit)
       // 精简字段:仅返回 CLI 需要的(id/title/type/isPinned/publishedAt)
       // summary 由 content 前 100 字符截取(避免拉取大段正文)
@@ -89,7 +89,7 @@ export const announcementsRoutes: FastifyPluginAsync = async (server) => {
   // 返回最新公告的 publishedAt 时间戳(客户端用于缓存失效判断)
   server.get('/cli/announcements/version', async (_request, reply) => {
     try {
-      const all = await findAnnouncements()
+      const all = await findAnnouncements('cli')
       if (all.length === 0) {
         return reply.send(success({ latestAt: null, count: 0 }))
       }

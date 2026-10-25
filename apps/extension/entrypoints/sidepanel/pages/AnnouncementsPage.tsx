@@ -34,7 +34,7 @@ export default function AnnouncementsPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await getAnnouncements({ page: 1, pageSize: 20 })
+      const res = await getAnnouncements({ page: 1, pageSize: 20, platform: 'extension' })
       if (res.success) setItems(res.data.list)
       else setError(res.error || t('common.failed'))
     } catch (e) {

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useEffect, useMemo, useRef } from 'react'
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native'
@@ -231,11 +231,11 @@ export function PressableCard({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     // 骨架
-    skeletonWrap: { padding: rnSpacing.lg, gap: rnSpacing.md },
+    skeletonWrap: { padding: 16, gap: 12 },
     skeletonRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: rnSpacing.md,
+      gap: 12,
       padding: 14,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -245,33 +245,27 @@ function createStyles(tk: AppThemeTokens) {
     skeletonCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: rnSpacing.md,
-      padding: rnSpacing.lg,
+      gap: 12,
+      padding: 16,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
     skeletonAvatar: { width: 44, height: 44, borderRadius: rnRadius.md },
-    skeletonLines: { flex: 1, gap: rnSpacing.sm },
+    skeletonLines: { flex: 1, gap: 8 },
     skeletonLineLg: { height: 12, width: '80%' },
     skeletonLineSm: { height: 10, width: '50%' },
-    gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
-    gridCell: { width: '47%', gap: rnSpacing.sm },
+    gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    gridCell: { width: '47%', gap: 8 },
     gridThumb: { height: 92, width: '100%', borderRadius: rnRadius.md },
     gridLine: { height: 10, width: '70%' },
     // 空态 / 错误态
-    stateWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: rnSpacing['3xl'],
-      gap: 10,
-    },
+    stateWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 },
     stateGlyphCircle: {
       width: 64,
       height: 64,
-      borderRadius: '50%', // C6 几何真圆:64×64 正方盒写 50%,不吃字面档
+      borderRadius: rnRadius['2xl'],
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.light,
@@ -279,12 +273,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     stateGlyph: { fontSize: 26, color: tk.text.tertiary },
-    stateTitle: {
-      fontSize: rnType.strong.size,
-      fontWeight: '600',
-      color: tk.text.medium,
-      textAlign: 'center',
-    },
+    stateTitle: { fontSize: 15, fontWeight: '600', color: tk.text.medium, textAlign: 'center' },
     stateDesc: { fontSize: 13, color: tk.text.tertiary, textAlign: 'center', lineHeight: 19 },
     stateBtn: {
       marginTop: 6,
@@ -293,7 +282,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.DEFAULT,
     },
-    stateBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    stateBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.foreground },
     // 按压卡片
     pressCard: {
       padding: 14,

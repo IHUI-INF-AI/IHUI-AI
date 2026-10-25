@@ -42,14 +42,27 @@
  *      (候选 `<DevEnv>/monitor/prometheus/<任意版本目录>/promtool.exe`,目录名带版本、不写死)。三态:
  *      全过=ok / 任一文件失败=finding(点名文件与末行)/ promtool 或用例目录取不到=未判定
  *      (机器态:别的机器没有 promtool 属常态,不判红、也不记绿)。
+ *   P13(2026-10-24 补这一格):**守门 8 前缀假设裁决台账**
+ *      (`scripts/data/api-routes-assumption-adjudications.json`)里 `reviewBy` 的**临期点名**。
+ *      立因:AJ2 的语义是「reviewBy 已过 ⇒ 台账问题判红 + 该站点退回未判定桶」,而 problems 非空
+ *      是门 8 exit 0 的必要条件 —— 到期那一天之前**没有任何一格会提前喊**,于是"多条同日到期"
+ *      这种形状(§12e 恒红门)只能在引爆当天被发现。P13 就是那声提前 ≤7 天的点名:
+ *      逐条报「条目键 + 剩余天数 / 已到期天数 + 出路(错峰或结清)」,**只报数不判红** ——
+ *      到期红归 AJ2 独判,这里再判一次就是同一条债两处计(§5e-1);台账取不到 / 坏 JSON /
+ *      形状变 ⇒ 落**未判定**并点名是哪一份台账,绝不拿 0 冒充「没有临期」(§0.3)。
+ *      到期算式不新造:P13 只 import 守门 108 的 `dayDiff`/`isPast`/`DATE_RE`(那三处的头注
+ *      自述「唯一出口」),本文件不得再抄第二份日期形状或第二个 `< 0` 方向(§0.6/§22c)。
  *
  * 定级与接线:本脚本判的是**机器运行状态**,提交者结构上满足不了,所以它**不进提交链**
  * (挂 blocking 就是每台每次被逼 `--no-verify`、连带全部守门作废,AGENTS §12e 同型)。
  * 它由 `scripts/git-guardian.mjs` 的 `auditOpsPatrol()` 按节流窗口调用,红经守护既有的邮件出口派发。
  *
- * 取材口径(守门 118 需要知道):本脚本**不读任何被 git 跟踪的仓库内容**,读的全是
+ * 取材口径(守门 118 需要知道):除 **P13** 之外,本脚本不读被 git 跟踪的仓库内容,读的全是
  * 机器状态与运行副本(按设计只存在于本机),因此不存在"按磁盘判被审内容"那一型 ——
  * 与 check-c-drive-pollution / check-desktop-cache-plaintext 同族。
+ * P13 是唯一的例外,并且它**按 §0.4 同面同轮**:只取 `HEAD:<台账路径>` 这一份 blob
+ * (`gitRaw(['show', ...])`,取不到即未判定,绝不回落到磁盘副本),因为判的是"已入库的裁决账
+ * 还有几天到期",而磁盘上那份可能是别人正在改的半成品。
  * 体积数字的权威口径是 `scripts/c-disk-breakdown.mjs`;本脚本的量算只是**越阈触发器**,
  * 有界、不跟随重解析点,不得拿来当体积账(§26 junction 穿透事故同族)。
  *
@@ -94,6 +107,13 @@ import { catBatch, gitRaw } from './lib/face-reader.mjs'
 // `ihui_dev_*.dump` 就是第二个真相 —— 两处必然随每一次命名演进漂开,而漂开的表现不是报错,
 // 是"最新文件"被读成"我们的链产出的"(2026-10-01 那次假绿正是这个形态)。
 import { classifyFileName, dumpNameReFor, EXEC_CANDIDATES, resolveDatabases } from './pg-backup-cadence-audit.mjs'
+// P13(2026-10-24 立)的到期算式**只借这一份出口**(§0.6 / §22c 单一真相源):`dayDiff` 是 UTC
+// 日历日差的唯一实现、`isPast` 是"某日期是否已过去"的唯一实现(方向曾在本仓被写反过一次,
+// 表现是 9 条自检一起红 = 一道恒红门)、`DATE_RE` 是到期日形状的唯一出口(其头注原话:"镜像测试
+// 要'整串必须是一个日期'时,不得在本文件之外再抄一遍")。本文件**不得**再自带第二份
+// `\d{4}-\d{2}-\d{2}` 或第二个 `< 0` 方向 —— 两处各写必漂开,而漂开的表现是安静。
+// 只 import `__test__`(该文件按 §22d 有 isDirectRun 守卫,被 import 时零副作用、零 IO)。
+import { __test__ as expiryJudgement } from './check-exemption-expiry.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(SELF_DIR, '..')
@@ -2233,6 +2253,150 @@ export async function checkHeadTypecheckLanded(opts = {}) {
   return { id: 'P12', state, detail }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// P13(2026-10-24 立):守门 8 前缀假设裁决台账的**临期点名**。
+//
+// 立因:AJ2 的语义是「reviewBy 已过 ⇒ 台账问题判红 + 该站点退回未判定桶」,而 `problems.length
+// === 0` 是门 8 exit 0 的必要条件 ⇒ 到期那一天**之前**全仓没有任何一格会提前喊。实测形状就是
+// "多条同日到期"(批8 把 5 条压到同一天)—— 那一天所有提交被同日拦爆,正是 §12e 恒红门。
+// P13 只在那一天之前 ≤ASSUMPTION_DUE_SOON_DAYS 天逐条点名,报数不判红:
+//   ① 判红权归 AJ2 独判。这里再判一次 = 同一条债两处计(§5e-1 去重身份必须稳定)。
+//   ② 取不到输入(HEAD 面读不出 / 坏 JSON / 顶层形状变)⇒ **未判定**并点名是哪一份台账,
+//      不记绿也不冒红,更不拿 0 冒充「没有临期」(§0.3)。
+//   ③ 到期算式一律借守门 108 的那三份出口(dayDiff / isPast / DATE_RE),本文件不复抄(§0.6/§22c)。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 被点名的台账(唯一一份;守门 8 的 AJ1/AJ2/AJ3 判的就是它,本维只提前读它)。 */
+const ASSUMPTION_ADJ_LEDGER_REL = 'scripts/data/api-routes-assumption-adjudications.json'
+
+/**
+ * 提前多少天开始点名。**只此一份**:镜像测试断言的是这个常量本身,不在测试里另立第二个 7
+ * (§22c —— 测试抄一份判据常量就是第二份真相,改一处漏一处)。
+ */
+const ASSUMPTION_DUE_SOON_DAYS = 7
+
+/**
+ * 条目展示键 = 与守门 8 的 AJ2 **同形**(main 腿 `leg|method|path`;bare 腿按 method|path|file
+ * 去重,另带 file)。两处点出的是同一条债,不是各写一套键。
+ */
+function assumptionEntryKey(it) {
+  const leg = String(it?.leg ?? '?').trim() || '?'
+  const method = String(it?.method ?? '?').trim() || '?'
+  const path = String(it?.path ?? '?').trim() || '?'
+  const file = String(it?.file ?? '').trim()
+  return leg === 'bare' && file !== '' ? `${leg}|${method}|${path}|${file}` : `${leg}|${method}|${path}`
+}
+
+/**
+ * 未判定的固定形状:三处输入缺失(读不出 / 解析失败 / 形状变)共用,免得某一臂漏掉
+ * 「不拿 0 冒充」那句 —— 那句话是本维的失效方向锁(§0.10:失效必须是"多要一次定向说明")。
+ */
+function assumptionLedgerUndetermined(why) {
+  return {
+    state: 'undetermined',
+    due: [],
+    invalid: 0,
+    total: 0,
+    detail:
+      `P13 未判定:${why} ⇒ 本轮不点名、也不记绿;取不到输入绝不拿 0 冒充「没有临期」(§0.3)。` +
+      `台账 = ${ASSUMPTION_ADJ_LEDGER_REL}(只取 HEAD 面,不回落磁盘副本)`,
+  }
+}
+
+/**
+ * 纯判据(零 IO、可注入):台账文本 + 时刻 → 临期点名。
+ * 返回 `{ state, due[], invalid, total, detail }`;`state` 只会是 `ok` 或 `undetermined` ——
+ * **没有 finding 这一档**,判红权在守门 8 的 AJ2(同一处到期不得在两格各计一次)。
+ */
+function assumptionLedgerDueSoon({ text, now = Date.now() } = {}) {
+  if (typeof text !== 'string' || text.trim() === '') {
+    return assumptionLedgerUndetermined('HEAD 面读不出内容(该台账 blob 不存在或为空)')
+  }
+  let ledger
+  try {
+    ledger = JSON.parse(text)
+  } catch (e) {
+    return assumptionLedgerUndetermined(`该台账解析失败:${String(e?.message ?? e).slice(0, 120)}`)
+  }
+  if (!ledger || !Array.isArray(ledger.items)) {
+    return assumptionLedgerUndetermined('该台账顶层形状已变(没有 items 数组)')
+  }
+  const today = new Date(now).toISOString().slice(0, 10)
+  const due = []
+  const invalidKeys = []
+  for (const it of ledger.items) {
+    const key = assumptionEntryKey(it)
+    const raw = String(it?.reviewBy ?? '').trim()
+    // 形状判据借 DATE_RE(守门 108 的头注原话:"到期日形状的**唯一**出口"),整串等值才算日期;
+    // 不写第二份 ^\d{4}-\d{2}-\d{2}$。解不出 ⇒ 记账并点名(AJ1 的地盘,但静默跳过就是第二个盲区)。
+    const hit = raw.match(expiryJudgement.DATE_RE)
+    if (!hit || hit[0] !== raw) {
+      invalidKeys.push(`${key}(reviewBy=${JSON.stringify(it?.reviewBy ?? null)})`)
+      continue
+    }
+    const days = expiryJudgement.dayDiff(today, raw)
+    if (days === null) {
+      invalidKeys.push(`${key}(reviewBy=${raw} 解不成 UTC 日)`)
+      continue
+    }
+    if (days > ASSUMPTION_DUE_SOON_DAYS) continue
+    const tag = expiryJudgement.isPast(raw, today)
+      ? `已到期 ${Math.abs(days)} 天`
+      : days === 0
+        ? '今天到期'
+        : `剩 ${days} 天`
+    due.push({ key, reviewBy: raw, days, tag })
+  }
+  const head =
+    `守门 8 前缀假设裁决台账 ${ASSUMPTION_ADJ_LEDGER_REL}(HEAD 面)` +
+    `${ledger.items.length} 条全读,${due.length} 条在 ${ASSUMPTION_DUE_SOON_DAYS} 天内到期(含已到期),` +
+    `${invalidKeys.length} 条到期日形态非法`
+  const lines = due.map((d) => ` · ${d.key}(reviewBy=${d.reviewBy};${d.tag})`)
+  const tail =
+    due.length > 0
+      ? ` —— 本维**只报数不判红**(到期红归守门 8 的 AJ2 独判);出路:到期前逐条复裁、错峰或结清`
+      : ' —— 本轮没有临期条目(读数凭据 = 上面那个"全读"计数,不是沉默)'
+  const invalidText =
+    invalidKeys.length > 0
+      ? ` | ⚠️ 另有 ${invalidKeys.length} 条 reviewBy 形态非法(要 YYYY-MM-DD;归 AJ1 判红地盘,这里只点名不静默跳过):${invalidKeys.join('、')}`
+      : ''
+  return {
+    state: 'ok',
+    due,
+    invalid: invalidKeys.length,
+    total: ledger.items.length,
+    detail: `${head}${lines.length > 0 ? `\n${lines.join('\n')}` : ''}${tail}${invalidText}`,
+  }
+}
+
+/** HEAD 面取材(守门 118 / §0.4 同面同轮):只取 `HEAD:<台账>` 这一份 blob,取不到由调用方兜未判定。 */
+function readAssumptionLedgerFromHead(root = REPO) {
+  return gitRaw(['show', `HEAD:${ASSUMPTION_ADJ_LEDGER_REL}`], root, { timeout: 30_000 })
+}
+
+/**
+ * 装车面:把纯判据接到 HEAD 取材口上。**读取异常与读不到一律落未判定并带上原因** ——
+ * 把异常吞掉等于让这一维从此安静瞎掉(§12f:判据失效的表现永远是安静)。
+ * `readHeadText` 可注入,镜像测试据此喂夹具,不在测试里复制判定。
+ */
+export function checkAssumptionLedgerDueSoon({
+  now = Date.now(),
+  repoRoot = REPO,
+  readHeadText = readAssumptionLedgerFromHead,
+} = {}) {
+  let text
+  try {
+    text = readHeadText(repoRoot)
+  } catch (e) {
+    return {
+      id: 'P13',
+      state: 'undetermined',
+      detail: `P13 未判定:HEAD 面派生 git 取台账时异常:${String(e?.message ?? e).slice(0, 160)} ⇒ 不拿 0 冒充「没有临期」(台账 = ${ASSUMPTION_ADJ_LEDGER_REL})`,
+    }
+  }
+  const r = assumptionLedgerDueSoon({ text, now })
+  return { id: 'P13', state: r.state, detail: r.detail }
+}
 
 export async function patrol({ now = Date.now(), apply = false, strict = false, devEnv = devEnvRoot(REPO), ledgerFile = join(REPO, 'scripts/data/ops-patrol-adjudications.json') } = {}) {
   const amUrl = 'http://127.0.0.1:9093/-/reload'
@@ -2306,6 +2470,10 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   // P12:G-181 的主动出口。放在 P9 之后是刻意的 —— P9 验"邮件通道现在能不能用"，
   // P12 验"已入库代码能不能编译"，两问不同、不得合并（合并后任一侧变绿都会替另一侧作证）。
   add(await checkHeadTypecheckLanded({ now }))
+  // P13(2026-10-24 立):守门 8 裁决台账的临期点名。放在 P12 之后是刻意的 —— P12 验"已入库代码
+  // 能不能编译",P13 验"已入库台账里哪几条快到期",两问不同、不得合并(合并后任一侧变绿都会
+  // 替另一侧作证)。本维**永不判红**(到期红归 AJ2 独判),所以它只可能落 ok / 未判定两档。
+  add(checkAssumptionLedgerDueSoon({ now }))
   // P10:未送达欠账。P8 的标记会被下一次任意成功投递清掉,而"那件事到底有没有到人"
   // 是另一条账 —— 同一条债不得在两个判据各计一次,但**不得把两条合成一条**。
   // 裁决台账在这里读、判据在下面判:读不到/坏 JSON 一律按"零裁决"继续问责,
@@ -3461,6 +3629,116 @@ export async function selfTest() {
     const src = readFileSync(join(SELF_DIR, 'check-ops-patrol.mjs'), 'utf8')
     return src.includes('checkDeployLoopOutcome(makeBuildAttributionDeps())') && src.includes("from './lib/face-reader.mjs'")
   })())
+  // ── P13(2026-10-24 立):守门 8 前缀假设裁决台账的临期点名。以下**全是构造面夹具**,
+  //    不读真台账(真台账此刻没有临期条目 ⇒ 只测"绿"那一臂就是把实现复读一遍;三态必须成对喂)。
+  const P13_NOW = Date.parse('2026-10-24T00:00:00Z')
+  const p13Text = (items) => JSON.stringify({ $schemaNote: '夹具', items })
+  const p13Due = assumptionLedgerDueSoon({
+    text: p13Text([
+      { leg: 'main', method: 'GET', path: '/api/due-soon', reviewBy: '2026-10-29' },
+      { leg: 'main', method: 'ANY', path: '/api/expired', reviewBy: '2026-10-20' },
+      { leg: 'main', method: 'POST', path: '/api/far', reviewBy: '2026-11-01' },
+      { leg: 'main', method: 'GET', path: '/api/bad-shape', reviewBy: '不是日期' },
+    ]),
+    now: P13_NOW,
+  })
+  t('P13 临期点名四臂(≤7 天含已到期逐条点名 / 8 天外不点名 / 形态非法报名 / 只报数永不判红)', (() => {
+    return (
+      p13Due.state === 'ok' &&
+      p13Due.due.length === 2 &&
+      p13Due.invalid === 1 &&
+      p13Due.detail.includes('main|GET|/api/due-soon') &&
+      p13Due.detail.includes('剩 5 天') &&
+      p13Due.detail.includes('已到期') &&
+      p13Due.detail.includes('形态非法') &&
+      p13Due.detail.includes('错峰或结清') &&
+      !p13Due.detail.includes('/api/far')
+    )
+  })())
+  t('P13 边界:第 7 天算临期、第 8 天不算;绿档必须报"全读"计数(否则读不出那个 0 的凭据)', (() => {
+    const edge7 = assumptionLedgerDueSoon({
+      text: p13Text([{ leg: 'main', method: 'GET', path: '/api/e7', reviewBy: '2026-10-31' }]),
+      now: P13_NOW,
+    })
+    const edge8 = assumptionLedgerDueSoon({
+      text: p13Text([{ leg: 'main', method: 'GET', path: '/api/e8', reviewBy: '2026-11-01' }]),
+      now: P13_NOW,
+    })
+    return (
+      edge7.due.length === 1 &&
+      /剩 7 天/.test(edge7.detail) &&
+      edge8.due.length === 0 &&
+      /1 条全读/.test(edge8.detail) &&
+      !edge8.detail.includes('/api/e8')
+    )
+  })())
+  t('P13 取不到输入 ⇒ 未判定并点名是哪一份台账,不拿 0 冒充「没有临期」(§0.3)', (() => {
+    for (const text of [null, '{bad json', JSON.stringify({ entries: [] })]) {
+      const r = assumptionLedgerDueSoon({ text, now: P13_NOW })
+      if (r.state !== 'undetermined') return false
+      if (!/未判定/.test(r.detail)) return false
+      if (!r.detail.includes('不拿 0 冒充')) return false
+      if (!r.detail.includes(ASSUMPTION_ADJ_LEDGER_REL)) return false
+    }
+    return true
+  })())
+  t('P13 取材口:注入可判 / 读不到 / 派生异常三态各自点名原因(吞异常 = 这一维从此安静瞎掉)', (() => {
+    const ok = checkAssumptionLedgerDueSoon({
+      now: P13_NOW,
+      readHeadText: () => p13Text([{ leg: 'main', method: 'GET', path: '/api/due', reviewBy: '2026-10-29' }]),
+    })
+    const miss = checkAssumptionLedgerDueSoon({ now: P13_NOW, readHeadText: () => null })
+    const boom = checkAssumptionLedgerDueSoon({
+      now: P13_NOW,
+      readHeadText: () => {
+        throw new Error('模拟 git 派生失败')
+      },
+    })
+    return (
+      ok.state === 'ok' &&
+      ok.detail.includes('main|GET|/api/due') &&
+      miss.state === 'undetermined' &&
+      /HEAD 面读不出内容/.test(miss.detail) &&
+      boom.state === 'undetermined' &&
+      boom.detail.includes('模拟 git 派生失败')
+    )
+  })())
+  t('装车锁:P13 必须真被 patrol 接上(维在 ⇒ 绿)', (() => {
+    const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    return patrolWiringGaps(patrolAssemblyText(selfSrc), ['P13']).length === 0
+  })())
+  t('装车锁的牙①:装配段里删掉那一行 add ⇒ 必须翻红并点名 P13(锁真有牙,不是恒绿)', (() => {
+    const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const assembly = patrolAssemblyText(selfSrc)
+    if (typeof assembly !== 'string') return false
+    const cut = assembly.replace('add(checkAssumptionLedgerDueSoon({ now }))', '// 摘线对照')
+    const gaps = patrolWiringGaps(cut, ['P13'])
+    return gaps.length === 1 && gaps[0].id === 'P13'
+  })())
+  t('装车锁的牙②:名单里没有这一条(= 整维被洗掉那一型)⇒ 必须红,不得拿空集判假绿', (() => {
+    const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const assembly = patrolAssemblyText(selfSrc)
+    if (typeof assembly !== 'string') return false
+    const ghost = 'P13-假想的未登记维'
+    // 旧写法(PATROL_WIRING.filter(w => ids.includes(w.id)))在这里数出 0 个候选 ⇒ 返回 [] ⇒
+    // 调用方读成"接线没问题"。把那个空集当场量出来做对照,才证新臂改的是**结论**不是措辞。
+    const oldCandidates = PATROL_WIRING.filter((w) => [ghost].includes(w.id)).length
+    const gaps = patrolWiringGaps(assembly, ['P13', ghost])
+    return (
+      oldCandidates === 0 &&
+      gaps.length === 1 &&
+      gaps[0].id === ghost &&
+      /PATROL_WIRING 名单里没有/.test(gaps[0].why)
+    )
+  })())
+  t('P13 单一真相源:阈值与台账路径各只许一份声明(§0.6 —— 第二份必然漂开)', (() => {
+    const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    // 行锚定 `^const ...` 是必需的:这两把尺子本身就写在被扫的源码里,不加锚就会把
+    // 自己的正则字面量数成"第二份声明"(自检当场假红)。
+    const th = [...selfSrc.matchAll(/^const ASSUMPTION_DUE_SOON_DAYS =/gm)].length
+    const rel = [...selfSrc.matchAll(/^const ASSUMPTION_ADJ_LEDGER_REL =/gm)].length
+    return th === 1 && rel === 1 && ASSUMPTION_DUE_SOON_DAYS === 7
+  })())
   let pass = 0
   for (const c of cases) {
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -3489,6 +3767,11 @@ const PATROL_WIRING = [
   { id: 'P8', needle: 'checkUndeliveredAlertMarkers()', why: 'P8 未送达标记没进巡检 ⇒ 投递失败没人知道' },
   { id: 'P9', needle: 'await checkMailChannelLiveness(', why: 'P9 写了没接线 = 没有这台尺子' },
   { id: 'P12', needle: 'await checkHeadTypecheckLanded(', why: 'P12 写了没接线 = HEAD 面类型层仍然没人主动看（G-181 那格）' },
+  {
+    id: 'P13',
+    needle: 'checkAssumptionLedgerDueSoon({ now })',
+    why: 'P13 写了没接线 = 台账到期当天之前没人提前看见"同日引爆"这一型(§12e),而 AJ2 到那天才响',
+  },
   { id: 'P10', needle: 'checkUndeliveredAlertDebt(', why: 'P10 写了没接线 = 没有这台尺子' },
   { id: 'P10-ack-read', needle: 'loadDebtAcks()', why: '裁决台账没人读 ⇒ 这条队列没有死亡机制,会一路红到有人删判据' },
   { id: 'P10-ack-feed', needle: 'acks: debtAcks.entries', why: '读了台账却不喂给判据 ⇒ "已裁"在账面上永远不生效' },
@@ -3508,13 +3791,31 @@ function patrolAssemblyText(sourceText) {
 /**
  * 裁定:装配段里**缺哪些**接线(返回缺项清单,不是布尔 —— 只说"没过"不说哪儿没过的尺子没人能修)。
  * 装配段取不到 ⇒ 全数列为缺项:取不到正文不等于通过(本仓最贵的假绿就是这一型)。
+ *
+ * **2026-10-24 补的第二臂(原实现的真缺陷,P13 那格就是被它蒙过去的)**:请求了名单里**不存在**
+ * 的 id 时,旧写法 `PATROL_WIRING.filter((w) => ids.includes(w.id))` 得到空集 ⇒ 返回 `[]` ⇒
+ * 调用方读成"接线没问题"。而"维被整段删掉/被并发提交洗回 HEAD"恰好就是这一型:锁在**最该红的那
+ * 一刻**判假绿(违 §0.3「枚举到 0 个候选判死不记绿」)。现在未登记的 id 一律列为缺项并点名 ——
+ * 失效方向是"多要一次定向说明"(登记锚点),绝不是"多放一次跳门"(§0.10)。
  */
 function patrolWiringGaps(assemblyText, ids = null) {
-  const want = Array.isArray(ids) ? PATROL_WIRING.filter((w) => ids.includes(w.id)) : PATROL_WIRING
-  if (typeof assemblyText !== 'string' || assemblyText === '') {
-    return want.map((w) => ({ id: w.id, why: `${w.why}(patrol 装配段取不到 ⇒ 无从证明已接线)` }))
-  }
-  return want.filter((w) => !assemblyText.includes(w.needle)).map((w) => ({ id: w.id, why: w.why }))
+  const known = new Map(PATROL_WIRING.map((w) => [w.id, w]))
+  const requested = Array.isArray(ids) ? ids : null
+  const unregistered = requested ? requested.filter((id) => !known.has(id)) : []
+  const want = requested ? requested.map((id) => known.get(id)).filter(Boolean) : PATROL_WIRING
+  const gaps =
+    typeof assemblyText !== 'string' || assemblyText === ''
+      ? want.map((w) => ({ id: w.id, why: `${w.why}(patrol 装配段取不到 ⇒ 无从证明已接线)` }))
+      : want.filter((w) => !assemblyText.includes(w.needle)).map((w) => ({ id: w.id, why: w.why }))
+  return [
+    ...unregistered.map((id) => ({
+      id,
+      why:
+        `PATROL_WIRING 名单里没有 id=${id} 这一条 ⇒ "这一维根本没造(或整段被洗掉)"被空集读成"接线没问题"` +
+        `(§0.3 枚举到 0 个候选判死不记绿)。唯一出路:在 PATROL_WIRING 登记它在 patrol 装配段里的调用锚点`,
+    })),
+    ...gaps,
+  ]
 }
 
 /** §22d 标准形态:只有被直接 node 执行才跑 CLI,被测试 import 时零副作用。 */
@@ -3574,6 +3875,11 @@ export const __test__ = {
   checkUndeliveredAlertDebt,
   // P11 同一条规矩:镜像测试引这里的实现判"三态与不把未判定读成红",不得重抄。
   checkPromtoolRules,
+  // P13 同一条规矩:临期点名的三态与阈值都只住在这里这一份,镜像测试 import 它裁定(§22c)。
+  assumptionLedgerDueSoon,
+  checkAssumptionLedgerDueSoon,
+  ASSUMPTION_ADJ_LEDGER_REL,
+  ASSUMPTION_DUE_SOON_DAYS,
   // 装车锁同一条规矩(§22c):锚点名单与装配段取景只住在这里,门自检与镜像测试都调它裁定。
   PATROL_WIRING,
   patrolAssemblyText,

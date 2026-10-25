@@ -6,6 +6,7 @@ import { toast } from '@/components/common'
 import { useModeStore, type ModeStore } from '@/stores/mode'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
 import { useGoalStore } from '@/stores/goal'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { emitAgentHook } from '@/stores/agent-hooks'
@@ -234,6 +235,144 @@ export function tryHandleChatModeSlash(
   return true
 }
 
+// =============================================================================
+// D06 审查对象选择器:/review uncommitted | branch <ref> | commit <sha>
+// =============================================================================
+// 现状(2026-10-24 核):ChatMode=review 与三档审查 prompt、SSE review-finding 帧
+// 均已在库(D115/G-229,ai-service 侧);web 侧 `/review` 此前只是"切模式后吞掉整行",
+// 用户点名的具体对象(未提交 diff / 指定分支 / 指定 commit)无处可选 —— 本段补的就是
+// 这一格:**前端只读地收集目标变更**,把 diff 内联进本轮消息,格式判定仍归服务端
+// review prompt(不在前端抄第二份三档规则)。
+// 纪律:
+//   ① 只跑只读 git(`mode: 'read-only'`),不写工作区、不提交;
+//   ② 目标识别失败一律**不吞输入** —— 返回 null 让原链路(纯切模式)接管;
+//   ③ 收集失败 / diff 为空要**明说**(交给模型转述),不静默发一轮空审查。
+
+/** 审查目标:未提交改动 / 指定分支对比 HEAD / 指定 commit。 */
+export type ReviewTargetKind = 'uncommitted' | 'branch' | 'commit'
+
+export interface ReviewTargetSpec {
+  kind: ReviewTargetKind
+  /** branch 为分支名,commit 为 SHA;uncommitted 恒为 null */
+  ref: string | null
+}
+
+/** 单轮内联 diff 的字符上限;超出截断并在提示里点名截掉多少(不静默截断)。 */
+export const REVIEW_DIFF_LIMIT = 12000
+
+// 分支名:不允许以 `-` 开头(防被 git 当成选项),也不允许空白/`~`/`^`/`:`。
+const REVIEW_BRANCH_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,200}$/
+const REVIEW_SHA_RE = /^[0-9a-fA-F]{4,40}$/
+
+/** 解析 `/review` 之后的参数;认不出(含纯自由文本)返回 null = 不接管。 */
+export function parseReviewTargetArgs(rest: string): ReviewTargetSpec | null {
+  const arg = rest.trim()
+  if (!arg) return null
+  const head = arg.toLowerCase()
+  if (head === 'uncommitted' || head === 'working' || head === 'worktree') {
+    return { kind: 'uncommitted', ref: null }
+  }
+  const m = /^(branch|commit)\s+(\S+)$/i.exec(arg)
+  if (!m) return null
+  const ref = m[2]!
+  if (m[1]!.toLowerCase() === 'branch') {
+    return REVIEW_BRANCH_RE.test(ref) ? { kind: 'branch', ref } : null
+  }
+  return REVIEW_SHA_RE.test(ref) ? { kind: 'commit', ref } : null
+}
+
+/** 目标 → 只读 git 命令(入参必经 parseReviewTargetArgs 校验)。 */
+export function buildReviewTargetCommand(spec: ReviewTargetSpec): string {
+  if (spec.kind === 'branch' && spec.ref) return `git diff ${spec.ref}...HEAD`
+  if (spec.kind === 'commit' && spec.ref) return `git show --no-color --stat --patch ${spec.ref}`
+  return 'git diff HEAD'
+}
+
+function reviewTargetLabel(spec: ReviewTargetSpec): string {
+  if (spec.kind === 'branch') return `branch ${spec.ref} vs HEAD`
+  if (spec.kind === 'commit') return `commit ${spec.ref}`
+  return 'uncommitted changes'
+}
+
+/** 本轮发给模型的消息:成功收集时内联 diff;失败/为空时把原因写明让模型转述。 */
+export function buildReviewTargetPrompt(
+  spec: ReviewTargetSpec,
+  rawDiff: string,
+  failureReason?: string,
+): string {
+  const label = reviewTargetLabel(spec)
+  if (failureReason) {
+    return (
+      `The user asked to review ${label}, but the change set could not be collected: ${failureReason}. ` +
+      'Tell the user what happened, and list the supported forms: ' +
+      '/review uncommitted, /review branch <name>, /review commit <sha>.'
+    )
+  }
+  const diff = rawDiff.trim()
+  if (!diff) {
+    return (
+      `The user asked to review ${label}, but the diff is empty ` +
+      '(untracked files and unchanged content are not included). ' +
+      'Tell the user that and ask for another target if needed.'
+    )
+  }
+  const clipped = diff.length > REVIEW_DIFF_LIMIT
+  const body = clipped ? diff.slice(0, REVIEW_DIFF_LIMIT) : diff
+  return [
+    `Review the ${label} below. Report findings with path:line anchors.`,
+    ...(clipped
+      ? [
+          `[diff truncated at ${REVIEW_DIFF_LIMIT} characters; ` +
+            `${diff.length - REVIEW_DIFF_LIMIT} characters omitted]`,
+        ]
+      : []),
+    '',
+    '```diff',
+    body,
+    '```',
+  ].join('\n')
+}
+
+/**
+ * `/review <target>` 拦截:命中返回**发给 LLM 的文本**(含 diff),未命中返回 null。
+ * 命中即切到 review 模式(与 tryHandleChatModeSlash 的 toast 同文案,不新增词条)。
+ */
+export async function tryHandleReviewTargetSlash(
+  text: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+  /** 票60 普查批:发送链按窗格传入该窗格的 mode 实例;缺省 = 根单例 */
+  modeStore: ModeStore = useModeStore,
+): Promise<string | null> {
+  const m = /^\/review\s+([\s\S]+)$/.exec(text.trim())
+  if (!m) return null
+  const spec = parseReviewTargetArgs(m[1] ?? '')
+  if (!spec) return null
+  const mode = modeStore.getState()
+  if (mode.currentMode !== 'review') {
+    mode.setMode('review')
+    toast.success(t('modeSwitched', { mode: t('modeReview') }), {
+      description: t('modeReviewDesc'),
+    })
+  }
+  const workspacePath = useIDEWorkspace.getState().workspacePath
+  if (!workspacePath) {
+    return buildReviewTargetPrompt(spec, '', 'no workspace is open')
+  }
+  const res = await runCommand({
+    command: buildReviewTargetCommand(spec),
+    workspacePath,
+    mode: 'read-only',
+  })
+  if (!res.success) {
+    return buildReviewTargetPrompt(spec, '', res.error || 'the git command failed')
+  }
+  const stdout = res.data.stdout ?? ''
+  if (!stdout.trim()) {
+    return buildReviewTargetPrompt(spec, '', (res.data.stderr ?? '').trim() || undefined)
+  }
+  return buildReviewTargetPrompt(spec, stdout)
+}
+
 /** /permission ask|auto|full 动作型斜杠命令(2026-07-25 深化,深度对标 Codex approvalMode CLI)
  * - /permission ask:切换到 default 模式(请求批准,默认)
  * - /permission auto:切换到 accept-edits 模式(自动接受编辑)
@@ -344,6 +483,9 @@ export async function tryHandlePermissionSlash(
 export function tryHandleGoalSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:会话域按 store 实例寻址(默认单例 = 既有行为逐字节等价;
+  // 窗格场景由 send-message 传 pane 实例,`/goal clear` 的上行会话取自该窗格)。
+  chatStore: ChatStore = useChatStore,
 ): boolean {
   const trimmed = text.trim()
   if (trimmed !== '/goal' && !trimmed.startsWith('/goal ') && !trimmed.startsWith('/goal\n')) {
@@ -373,13 +515,13 @@ export function tryHandleGoalSlash(
   }
   if (rest === 'clear') {
     goalStore.clear()
-    pushGoalToServer('clear')
+    pushGoalToServer('clear', undefined, chatStore)
     toast.success(t('goalCleared'))
     return true
   }
   // 设定 / 更新目标文本
   goalStore.setGoal(rest)
-  pushGoalToServer('set', rest)
+  pushGoalToServer('set', rest, chatStore)
   toast.success(t('goalSet'))
   return true
 }
@@ -396,8 +538,13 @@ export function tryHandleGoalSlash(
  * 把它 await 成"发送前的一跳"会让一次网络抖动变成目标设不上;而下行帧会把它追平,
  * 所以写失败的真相面是"日志 + 下一帧没来",不是"界面卡住"。
  */
-function pushGoalToServer(action: 'set' | 'pause' | 'resume' | 'clear', objective?: string): void {
-  const conversationId = useChatStore.getState().conversationId
+function pushGoalToServer(
+  action: 'set' | 'pause' | 'resume' | 'clear',
+  objective?: string,
+  // 票60 步序四:conversationId 取调用方传入的 store 实例(默认单例,零回归)
+  chatStore: ChatStore = useChatStore,
+): void {
+  const conversationId = chatStore.getState().conversationId
   if (!conversationId) {
     logger.info(`[goal] 本轮还没有会话 id,目标只落本机缓存,未上行(action=${action})`)
     return
@@ -430,6 +577,9 @@ function pushGoalToServer(action: 'set' | 'pause' | 'resume' | 'clear', objectiv
 export async function tryHandleBtwSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:侧聊回显写调用方的 store 实例(默认单例,零回归)——
+  // 窗格里 /btw 的回答落在该窗格,不再串到根单例。
+  chatStore: ChatStore = useChatStore,
 ): Promise<boolean> {
   const trimmed = text.trim()
   if (trimmed !== '/btw' && !trimmed.startsWith('/btw ') && !trimmed.startsWith('/btw\n')) {
@@ -445,7 +595,7 @@ export async function tryHandleBtwSlash(
     const d = await runBestOfN(rest, 1)
     const c = d.candidates[0]
     const answer = c?.content || t('btwNoAnswer')
-    const store = useChatStore.getState()
+    const store = chatStore.getState()
     store.addMessage({
       role: 'assistant',
       content: `> 💬 **${t('btwBadge')}** · ${rest}\n\n${answer}`,
@@ -473,12 +623,14 @@ export async function tryHandleBtwSlash(
 export async function answerSideQuestion(
   question: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:侧问回答写调用方的 store 实例(默认单例,零回归)
+  chatStore: ChatStore = useChatStore,
 ): Promise<void> {
   // 单副本直调:不走 LLM chat 流,不写主线历史
   const d = await runBestOfN(question, 1)
   const c = d.candidates[0]
   const answer = c?.content || t('btwNoAnswer')
-  const store = useChatStore.getState()
+  const store = chatStore.getState()
   store.addMessage({
     role: 'assistant',
     content: `> 💬 **${t('sideBadge')}** · ${question}\n\n${answer}`,
@@ -523,6 +675,8 @@ function escapeCommitMessage(msg: string): string {
 export async function tryHandleCommitSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:commit 回显写调用方的 store 实例(默认单例,零回归)
+  chatStore: ChatStore = useChatStore,
 ): Promise<boolean> {
   const trimmed = text.trim()
   if (
@@ -601,7 +755,7 @@ export async function tryHandleCommitSlash(
     // commit.after 钩子
     emitAgentHook('commit.after', { summary: `${ok ? 'ok' : 'failed'}: ${message}` })
     // 侧聊消息回显结果(不污染主线历史,同 /btw 模式)
-    const store = useChatStore.getState()
+    const store = chatStore.getState()
     store.addMessage({
       role: 'assistant',
       content: [
@@ -839,12 +993,16 @@ export function buildSessionStatusReport(
 export async function tryHandleToolSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  // 票60 步序四:diff/status/compact 读写调用方的 store 实例(默认单例,零回归)——
+  // 窗格里 /diff 收集的是该窗格的消息、/status 读的是该窗格的用量、/compact 守卫与
+  // 重拉写回都落在该窗格,不再串到根单例。
+  chatStore: ChatStore = useChatStore,
 ): Promise<boolean> {
   const trimmed = text.trim()
   const m = /^\/(diff|status|model|mcp|compact)\b\s*$/.exec(trimmed)
   if (!m) return false
   const cmd = m[1]!
-  const store = useChatStore.getState()
+  const store = chatStore.getState()
 
   if (cmd === 'diff') {
     const changes = collectSessionFileChanges(store.messages)
@@ -911,7 +1069,7 @@ export async function tryHandleToolSlash(
   }
 
   // cmd === 'compact'
-  await runManualCompact(store.conversationId, t)
+  await runManualCompact(store.conversationId, t, chatStore)
   return true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -744,4 +744,110 @@ test('T-FAM 已废除的圆角豁免族不得留在登记表里', () => {
   assert.equal(gate.isFamilyRegistered('radius-exempt'), false, 'isFamilyRegistered 必须与表同形')
 })
 
+/**
+ * T29 E4「在用族必须已登记」的**清零存续锁**(2026-10-23 整族扫批次的接线锁)。
+ * 三臂缺一即等于没锁:
+ *  ① **真仓现读**:CLI `--json` 的 `unregisteredUsedFamilies`(= E4 的观测面)必须为空 —— 这一格
+ *     一旦回潮(有人先写标记后补档、或把已登记的档从表里删掉)就在这里红,而不是等下一个提交者
+ *     莫名其妙被 E4 顶住。同轮 `unregisteredFamilies`(含工具面)必须**非空**:那是 ① 的阳性对照
+ *     —— 判据若失明(取材层读不到、族集合算成空),"在用集合为空"就只是一枚自洽的假绿,
+ *     而"判据失效的表现永远是安静"是本仓记过最多次的那型。
+ *  ② **旧表代入**:把本批登记的族**临时**从导出的表里摘掉(那正是补表前那份表),同一批条目喂
+ *     `unregisteredUsedFamiliesOf` 必须重新点名该族,再喂 `analyze`(HEAD 锚点=空集合)必须出 E4 红
+ *     —— 证明 ① 的绿来自**登记表**,不是来自判据被削(§22c:判据只引一次真相源,这里连"摘表"这个
+ *     动作都走门体导出的同一张表,测试不持有第二份)。
+ *  ③ **档位成套**:本批登记的族必须仍在表里、值为正整数、且不超过 `DEFAULT_LIFETIME_DAYS`
+ *     (靠默认值兜底不算登记 —— 门 156 的镜像 T10、门 134 的 M15 是同一条锁的三个方向)。
+ */
+const BATCH_2026_10_23 = [
+  'route-declare-exempt',
+  'status-guard-exempt',
+  'presence-exempt',
+  'r9-literal-exempt',
+  'batch-count-exempt',
+  'nonde-purity-exempt',
+  'compaction-denominator-exempt',
+  'subagent-permission-exempt',
+  'contract-confirm-exempt',
+  'doc-num-exempt',
+  'input-focus-exempt',
+  'skip-env-promise-exempt',
+  'thin-shell-exempt',
+]
+
+/** 被豁免侧真形的一条豁免行(远期 until ⇒ E1/E2 都该静默,红只能来自 E4)。 */
+const usedLine = (fam) =>
+  gate.scanFile('apps/api/src/db/probe.ts', `x // ${fam}: 夹具理由 until 2099-12-31\n`).entries
+
+test('T29 E4 清零存续锁:真仓在用族已登记 + 旧表代入即红(阳性对照)', () => {
+  // ① 真仓现读:清零 + 阳性对照(未登记集合不得一起变空)
+  const parsed = JSON.parse(run(['--json']).stdout)
+  assert.equal(parsed.face, 'head')
+  assert.deepEqual(
+    parsed.unregisteredUsedFamilies,
+    [],
+    `被豁免侧仍有用不到的未登记族 ⇒ E4 那一格没清零:${parsed.unregisteredUsedFamilies}`,
+  )
+  assert.ok(
+    parsed.unregisteredFamilies.length > 0,
+    '阳性对照:工具面仍有门在描述自己的族名;若这里也是空,说明取材/判据失明,① 的"清零"不作数',
+  )
+  assert.ok(!parsed.red.some((v) => v.code === 'E4'), '全量档 E4 不得判红(存量档,§12e)')
+
+  // ③ 档位成套:族在表里 ∧ 值为正整数 ∧ 不超过默认档(本批硬约束)
+  for (const fam of BATCH_2026_10_23) {
+    assert.equal(gate.isFamilyRegistered(fam), true, `${fam} 必须已登记(默认档兜底不算登记)`)
+    const days = gate.FAMILY_LIFETIME_DAYS[fam]
+    assert.ok(
+      Number.isInteger(days) && days > 0,
+      `${fam} 的档位必须是正整数,现值 ${JSON.stringify(days)}`,
+    )
+    assert.ok(
+      days <= gate.DEFAULT_LIFETIME_DAYS,
+      `${fam} 取 ${days} 天不得超过 DEFAULT_LIFETIME_DAYS=${gate.DEFAULT_LIFETIME_DAYS}(更长须另裁)`,
+    )
+  }
+
+  // ② 旧表代入:同一批评据输入,把本批的档摘掉(= 补表前那份表)必须立刻点名 + 判红
+  const table = gate.FAMILY_LIFETIME_DAYS
+  const saved = new Map()
+  try {
+    for (const fam of BATCH_2026_10_23) {
+      saved.set(fam, table[fam])
+      delete table[fam]
+    }
+    assert.equal(
+      gate.isFamilyRegistered('status-guard-exempt'),
+      false,
+      '摘表动作本身没生效 ⇒ 本臂等于没测(不得让"假摘"放过 ①)',
+    )
+    for (const fam of BATCH_2026_10_23) {
+      const entries = usedLine(fam)
+      assert.equal(entries.length, 1, `${fam} 的夹具必须真被 scanFile 扫出一条(判据吃得下拼写)`)
+      assert.equal(entries[0].toolFace, false, '夹具必须落在被豁免侧,否则测的是工具面那一格')
+      assert.deepEqual(
+        [...gate.unregisteredUsedFamiliesOf(entries)],
+        [fam],
+        `旧表代入:${fam} 必须重新算成"在用的未登记族"`,
+      )
+      const r = gate.analyze({
+        entries,
+        suppressionsByFile: {},
+        baseline: { grandfatherUntil: '2099-01-01', undatedCounts: {} },
+        today: TODAY,
+        headCounts: {},
+        headUnregisteredFamilies: new Set(),
+      })
+      assert.equal(r.red[0]?.code, 'E4', `旧表代入 ${fam} 必须出 E4 红`)
+      assert.match(r.red[0].msg, new RegExp(fam.replace(/[-]/g, '\\-')), 'E4 必须点名族名')
+    }
+  } finally {
+    for (const [fam, days] of saved) table[fam] = days
+  }
+  // 还原必须成对:污染同进程其余用例(T11/T-FAM 读的就是这张表)本身就是失效
+  for (const fam of BATCH_2026_10_23)
+    assert.equal(gate.isFamilyRegistered(fam), true, `还原失败:${fam} 不在表里了`)
+  assert.deepEqual(usedLine('status-guard-exempt')[0].family, 'status-guard-exempt')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

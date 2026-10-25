@@ -31,6 +31,13 @@ const { fetchApiMock, fetchMemoryMock, deleteMemoryMock } = vi.hoisted(() => ({
   deleteMemoryMock: vi.fn(),
 }))
 
+// 登录态门:页面 useEffect 以 if (!allow) return 挡取数(与 exam 页同型),不 mock 时
+// 真身判 allow=false ⇒ 两个端点都不发 ⇒ 开关停在初始 true,8 例齐红(checkin 同款形态)。
+const authGate = vi.hoisted(() => ({ state: { ready: true, allow: true } }))
+vi.mock('@/hooks/use-auth-gate', () => ({
+  useAuthGate: () => authGate.state,
+}))
+
 vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
 vi.mock('@/lib/memory-api', () => ({
   fetchMemory: fetchMemoryMock,
@@ -67,7 +74,9 @@ vi.mock('lucide-react', () => {
 vi.mock('@ihui/ui-react', () => {
   const Box = ({ children }: { children?: React.ReactNode }) => <>{children}</>
   return {
-    Button: ({ children }: { children?: React.ReactNode }) => <button type="button">{children}</button>,
+    Button: ({ children }: { children?: React.ReactNode }) => (
+      <button type="button">{children}</button>
+    ),
     Card: Box,
     CardHeader: Box,
     CardTitle: Box,
@@ -100,9 +109,8 @@ vi.mock('@/components/memory/MemoryScopeTabs', () => ({ MemoryScopeTabs: () => n
 vi.mock('@/components/memory/MemoryTypeFilter', () => ({ MemoryTypeFilter: () => null }))
 vi.mock('@/components/common', () => ({ BackButton: () => null }))
 
-const { default: MemoryListPage, resolveAutoMemoryEnabled } = await import(
-  '../app/(main)/memory/page'
-)
+const { default: MemoryListPage, resolveAutoMemoryEnabled } =
+  await import('../app/(main)/memory/page')
 
 /** 按 URL 分派 mock:隐私页要两个端点(settings + runtime-flags) */
 function routeApi(settings: Record<string, string>, globalEnabled?: boolean) {
@@ -275,7 +283,7 @@ describe('隐私页那一项:opt-out 极性 ⇒ 合取是 OR', () => {
     'utf8',
   )
 
-  it("源码层面:那一项的合取写成 OR(用户关了 || 部署方全局关了)", () => {
+  it('源码层面:那一项的合取写成 OR(用户关了 || 部署方全局关了)', () => {
     // 这一项是 opt-out(true = 已关闭),全局闸是"是否开启" ⇒ "记忆是关的"
     // = 用户关了 **或** 部署方全局关了。写成 AND 会得到
     // "部署方关了 ⇒ 显示未关闭",与事实相反。
@@ -285,9 +293,7 @@ describe('隐私页那一项:opt-out 极性 ⇒ 合取是 OR', () => {
   })
 
   it('源码层面:没有把这一项写成 AND(那是极性反了)', () => {
-    expect(PRIVACY_SRC).not.toMatch(
-      /autoMemoryOptOut:\s*s\.autoMemoryOptOut === 'true'\s*&&/,
-    )
+    expect(PRIVACY_SRC).not.toMatch(/autoMemoryOptOut:\s*s\.autoMemoryOptOut === 'true'\s*&&/)
   })
 
   it('源码层面:确实读了 runtime-flags 端点', () => {

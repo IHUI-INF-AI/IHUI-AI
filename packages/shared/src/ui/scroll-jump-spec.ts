@@ -53,9 +53,12 @@ export const SCROLL_JUMP_BORDER_WIDTH_PX = 1
 
 /** 圆角档位:`control` 角色(按钮/输入控件)→ sm = 4px,与 web `rounded-sm` 同档。 */
 export const SCROLL_JUMP_RADIUS_STEP = RADIUS_ROLES.control
-/** 上述档位的 px 数值(唯一出口:端内不得自己写 4)。 */
+/** 圆角 px 数值(唯一出口:端内不得自己写 4)。显式具名档取用:守门 150 对
+ *  `rnRadius[变量]` 索引判不出档位(unknown-step 未判定);`sm` 与上方
+ *  SCROLL_JUMP_RADIUS_STEP(= RADIUS_ROLES.control)同值,control 角色若改档
+ *  必须同步本行(CSS_VAR 消费走变量索引自动跟随,px 这一处不会)。 */
 export function scrollJumpRadiusPx(): number {
-  return rnRadius[SCROLL_JUMP_RADIUS_STEP]
+  return rnRadius.sm
 }
 /** CSS 侧引用形式(小程序写 `border-radius: var(--radius-sm)`),值仍来自 radius.js。 */
 export const SCROLL_JUMP_RADIUS_CSS_VAR = `var(${RADIUS_CSS_VAR[SCROLL_JUMP_RADIUS_STEP]})`

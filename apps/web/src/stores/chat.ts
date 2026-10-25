@@ -14,7 +14,10 @@ import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 // 本包入口是显式命名清单,ReasoningEffortNotice 尚未递出(两侧结构逐字同形,赋值安全),
 // 引一个入口里没有的名字就是守门 149 记过的那一型运行时 undefined。
 import type { ReasoningEffortFallbackNotice as ReasoningEffortNotice } from '@/components/chat/reasoning-effort-axis'
+// D115(2026-10-24):review 结论帧的端内投影,store 只持引用不复制 schema。
+import type { ReviewFinding } from '@/components/chat/message-list/review-findings-card'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+import type { ExpertAutoRouteMode } from '@ihui/api-client'
 import type {
   SubagentSpawnEvent,
   SubagentEndEvent,
@@ -32,9 +35,11 @@ import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ih
 // 票71(V2 #23)第二切片(2026-10-24):chat 多端同步 —— 裁定的唯一实现是契约内核,
 // 端内不得再抄一份去重(AGENTS §0.6:第二份必然漂移)。
 import {
+  CHAT_SYNC_PROTOCOL_VERSION,
   EMPTY_CHAT_SYNC_STATE,
   applyChatSyncEvent,
   type ChatSyncApplyResult,
+  type ChatSyncMessageSnapshot,
   type ChatSyncState,
   type MessageCreatedEvent,
   type MessagePatchedEvent,
@@ -300,8 +305,19 @@ export interface TerminalInteractionState {
  * (契约管的是"同一会话内的幂等与判序"),混进去会让内核的裁定表多一档没人能测的形状。
  */
 export type ChatSyncStoreOutcome =
-  | ChatSyncApplyResult
-  | { applied: false; reason: 'room-mismatch'; messageId: string }
+  ChatSyncApplyResult | { applied: false; reason: 'room-mismatch'; messageId: string }
+
+/**
+ * B02 第三切片:gap 坐标表的唯一增口(去重;封顶防无界 —— 同 hook 里 noticeSeen 的 200 档)。
+ * 封顶语义:坐标表爆掉说明 gap 风暴(服务端回退/房间错乱),此时坐标已不可信,
+ * 丢最旧的坐标 + 旗仍在账 ⇒ 宁可少拉一次快照,不让表吃内存。
+ */
+const CHAT_SYNC_GAP_IDS_LIMIT = 200
+function appendGapMessageId(ids: string[], messageId: string): string[] {
+  if (ids.includes(messageId)) return ids
+  const next = [...ids, messageId]
+  return next.length > CHAT_SYNC_GAP_IDS_LIMIT ? next.slice(next.length - CHAT_SYNC_GAP_IDS_LIMIT) : next
+}
 
 /** 票60 第一切片:状态形状导出,供 chat-panes 注册表与多实例消费面取型 */
 export interface ChatState {
@@ -324,10 +340,18 @@ export interface ChatState {
   chatSync: ChatSyncState
   /**
    * 缺口标志:内核裁出 gap(缺 rev / created 未达)时置位,表示"需要一次 resync"。
-   * TODO(下一片):resync 传输 = 拉服务端权威快照(契约 §7 第 3 项),本片只置旗不拉取 ——
-   * 宁可把"还没补"写在账上,也不能让界面装作已经对齐。
+   * B02 第三切片(2026-10-25):resync 传输已接 —— gap 的**精确坐标**记在
+   * `chatSyncGapMessageIds`,消费面(hook)按坐标拉权威快照后走 `applyChatSyncSnapshot`
+   * 喂内核;全部已知缺口补齐后两键一并复位。旗保留作粗粒度账面("还有没对齐的"),
+   * 坐标表才是拉取的输入,两者不可互替。
    */
   chatSyncResyncPending: boolean
+  /**
+   * B02 第三切片:gap 的精确坐标(messageId 去重表)。
+   * 会话局部坐标(与 chatSync 同命),不进 partialize、切会话即清 ——
+   * 旧会话的缺口对当前会话没有意义,带过去只会让 hook 对新会话拉旧消息(404 浪费)。
+   */
+  chatSyncGapMessageIds: string[]
   currentModel: string
   isStreaming: boolean
   error: string | null
@@ -418,6 +442,11 @@ export interface ChatState {
    * MessageItem 按 message.id 订阅渲染「⚡ 引导已生效」badge。
    * 单消息上限对齐后端 _STEER_QUEUE_LIMIT(8 条);不持久化(执行期瞬时态)。 */
   steerNoticesByMessageId: Record<string, SteerNotice[]>
+  /** D115(G-229,2026-10-24 立):按 messageId 索引的 review 结论帧。
+   *  `onReviewFinding` 回调经 appendReviewFinding 累积写入,MessageItem 按 message.id
+   *  订阅渲染 ReviewFindingsCard(按 P1/P2/Nit 分组)。不持久化(执行期瞬时态);
+   *  新一轮审查首帧(index=1)会覆盖旧列表,避免两轮 finding 混在同一张卡上。 */
+  reviewFindingsByMessageId: Record<string, ReviewFinding[]>
   /** Steer(中途引导):当前流式 assistant 消息 ID(steer 端点凭 conversationId+messageId
    *  在网关定位 upstream 会话)。流开始由 send-message/send-answer 写入,收尾清空。 */
   streamingAssistantId: string | null
@@ -432,6 +461,12 @@ export interface ChatState {
    *  web_search 最小工具集,mergeAgentTools() 消费;与 selectedTools 互不替代。
    *  持久化(用户偏好,跨刷新保留)。 */
   webSearchEnabled: boolean
+
+  /** D09(2026-10-24 立)专家包自动路由档位(设置页三档选择项)。
+   *  null = 用户未表态:界面显示默认档 hint,请求不带 `expert_auto_route`,
+   *  部署方 env(IHUI_EXPERT_AUTO_ROUTE)与后端默认档照常生效 —— 不把"没选过"
+   *  写成一个用户覆盖。持久化(用户偏好,跨刷新保留)。 */
+  expertAutoRoute: ExpertAutoRouteMode | null
 
   /** D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列。
    *  流式期间输入的 /side 问题入队当前会话桶,流结束后由 message-input.tsx
@@ -460,6 +495,8 @@ export interface ChatState {
   setQuotedMessage: (q: { id: string; role: ChatMessage['role']; content: string } | null) => void
   /** 设置网页搜索开关(同步 localStorage 'ihui_web_search_enabled' 供 SSR 前恢复) */
   setWebSearchEnabled: (v: boolean) => void
+  /** 设置专家包自动路由档位(写 localStorage 'ihui_expert_auto_route' 供 SSR 前恢复) */
+  setExpertAutoRoute: (v: ExpertAutoRouteMode) => void
 
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
@@ -652,6 +689,9 @@ export interface ChatState {
   /** Steer(中途引导,2026-09-19 立):追加某条助手消息的引导注入确认(SSE steer 事件触发)。
    * 单消息上限 8 条(对齐后端 _STEER_QUEUE_LIMIT),超出静默丢弃。 */
   appendSteerNotice: (messageId: string, notice: SteerNotice) => void
+  /** D115:追加某条助手消息的审查结论(SSE review-finding 事件触发)。
+   *  index=1 是新一轮审查的首帧 ⇒ 先清旧列表;同 findingId 重放幂等丢弃。 */
+  appendReviewFinding: (messageId: string, finding: ReviewFinding) => void
   /** Steer(中途引导):登记/清空当前流式 assistant 消息 ID(流开始写入,收尾清空) */
   setStreamingAssistantId: (id: string | null) => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
@@ -670,8 +710,19 @@ export interface ChatState {
    * 本动作据此不 set,避免"拒绝也触发重渲染"。
    */
   applyChatSync: (evt: MessageCreatedEvent | MessagePatchedEvent) => ChatSyncStoreOutcome
-  /** resync 拉取成功(或确认无缺口)后清旗;本片无 REST 调用方(见 chatSyncResyncPending 的 TODO) */
+  /** resync 拉取成功(或确认无缺口)后清旗;消费面 = use-conversation-broadcast-sync 的 gap 拉取 effect */
   markChatSyncResynced: () => void
+  /**
+   * B02 第三切片(2026-10-25):把 resync 拉回的权威快照(`ChatSyncMessageSnapshot`)
+   * 应用进状态面。**两步全走契约内核,零旁路**(契约 §4:created 补达 → 链恢复,用例⑧):
+   * ① 判据面缺行 ⇒ 先喂 created(已有时内核判 duplicate,不覆盖已收面 —— 用例①);
+   * ② 再喂 patched(kind='snapshot', rev=N):自包含全量,N > lastAppliedRev 应用、
+   *    否则 duplicate/stale 零变化。rev=0(链上无 patch)时 ② 恒被拒,面 = created 初面。
+   * 投影纪律与 applyChatSync 同款:内核面有行而渲染面缺行 ⇒ 按内核面增行(修 m-ghost 型
+   * 两面不一致),不凭快照字段另造;两步全拒且渲染面已有行 ⇒ 零变化。
+   * 无论内核裁了什么,服务端已给出权威回答 ⇒ 本消息的 gap 坐标摘除;全部补齐 ⇒ 清旗。
+   */
+  applyChatSyncSnapshot: (snap: ChatSyncMessageSnapshot) => ChatSyncStoreOutcome
   /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):只改内容不改时间线,配合 truncateMessagesFrom 使用 */
   editMessageContent: (messageId: string, content: string) => void
   /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用,保留该消息之前的历史) */
@@ -811,6 +862,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   usageByMessageId: {},
   // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
   steerNoticesByMessageId: {},
+  // D115(2026-10-24):review 结论帧(执行期瞬时态,不持久化)
+  reviewFindingsByMessageId: {},
   streamingAssistantId: null,
   // D22 引用回复(执行期瞬时态,不持久化)
   quotedMessage: null,
@@ -818,6 +871,13 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 首渲染即恢复用户偏好,与 partialize 持久化路径互为双保险)
   webSearchEnabled:
     typeof window !== 'undefined' && localStorage.getItem('ihui_web_search_enabled') === '1',
+  // D09 专家包自动路由:SSR 安全惰性读取(服务端恒 null = 未表态),只接受三档字面量,
+  // 历史脏值一律按"未表态"处理(宁可回到后端默认档,也不发一个后端不认的档位)。
+  expertAutoRoute: (() => {
+    if (typeof window === 'undefined') return null
+    const raw = localStorage.getItem('ihui_expert_auto_route')
+    return raw === 'off' || raw === 'hint' || raw === 'auto' ? raw : null
+  })(),
   // #21 中断后追加指令继续(2026-09-13 立)
   interruptedMessageId: null,
   // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
@@ -830,6 +890,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 刷新后由服务端快照重建;把旧 rev 带进新会话只会让内核把新事件误判成 stale。
   chatSync: EMPTY_CHAT_SYNC_STATE,
   chatSyncResyncPending: false,
+  // B02 第三切片:gap 坐标表(会话局部,不进 partialize,理由见 ChatState 头注)
+  chatSyncGapMessageIds: [],
   // D38 队列交互模式偏好(2026-09-24 立):默认排队优先;steer 在 Runtime 不支持插话时
   // 由渲染层 effectiveMode 降级为 queue 执行,偏好保留(持久化,见 partialize)
   followUpQueueMode: 'queue',
@@ -1034,6 +1096,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       usageByMessageId: {},
       // Steer(中途引导):提示条一并清空;流式目标消息 ID 已随上面 RUN_SCOPED_RESET 失效
       steerNoticesByMessageId: {},
+      // D115:审查结论卡随消息消失,新建对话一并清空
+      reviewFindingsByMessageId: {},
       // 票59 2/3:版本切换态是会话局部坐标(消息 id),新建对话必须一起清
       activeVersionByRoot: {},
     }),
@@ -1054,7 +1118,13 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     if (!result.applied) {
       // 被拒一律不写 messages(内核返回原 state 引用);只有 gap 需要一次 resync ——
       // duplicate/stale 是正常的幂等与乱序,置旗会让每帧都去拉快照。
-      if (result.reason === 'gap') set({ chatSyncResyncPending: true })
+      // B02 第三切片:gap 同时记下精确坐标(hook 按坐标拉权威快照),旗保留作粗账面。
+      if (result.reason === 'gap') {
+        set({
+          chatSyncResyncPending: true,
+          chatSyncGapMessageIds: appendGapMessageId(get().chatSyncGapMessageIds, result.messageId),
+        })
+      }
       return result
     }
     const surface = state.messages.get(result.messageId)
@@ -1079,7 +1149,12 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     if (idx === -1) {
       // 内核裁"应用"而渲染面没有这一行 ⇒ 两面判据面已经不一致,置旗交给 resync,
       // 绝不在这里凭帧字段造一行(那等于绕开内核另立一份真相)。
-      set({ chatSync: state, chatSyncResyncPending: true })
+      // B02 第三切片:同样记下坐标 —— 快照拉回后 applyChatSyncSnapshot 按内核面补行。
+      set({
+        chatSync: state,
+        chatSyncResyncPending: true,
+        chatSyncGapMessageIds: appendGapMessageId(get().chatSyncGapMessageIds, surface.id),
+      })
       return result
     }
     const next = messages.slice()
@@ -1092,6 +1167,81 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     return result
   },
   markChatSyncResynced: () => set({ chatSyncResyncPending: false }),
+  applyChatSyncSnapshot: (snap) => {
+    const { conversationId, chatSync, messages } = get()
+    if (snap.conversationId !== conversationId) {
+      // 与 applyChatSync 同一款房间过滤:别的会话的快照连判据面都不该碰。
+      return { applied: false, reason: 'room-mismatch', messageId: snap.messageId }
+    }
+    // 两步全走内核(见动作声明处的逐条理由)。channel 是投递元数据、内核刻意不读
+    // (契约 §3);REST resync 借 'ws' 标 —— 换通道重投必须判 duplicate 本就是契约的一部分。
+    const envelope = {
+      protocolVersion: CHAT_SYNC_PROTOCOL_VERSION,
+      channel: 'ws' as const,
+      room: { kind: 'conversation' as const, conversationId: snap.conversationId },
+    }
+    let state = chatSync
+    let createdApplied = false
+    if (!state.messages.has(snap.messageId)) {
+      const created = applyChatSyncEvent(state, {
+        ...envelope,
+        type: 'message:created',
+        messageId: snap.messageId,
+        role: snap.role,
+        content: snap.content,
+        ...(snap.reasoning !== undefined ? { reasoning: snap.reasoning } : {}),
+      })
+      createdApplied = created.result.applied
+      state = created.state
+    }
+    const patched = applyChatSyncEvent(state, {
+      ...envelope,
+      type: 'message:patched',
+      messageId: snap.messageId,
+      rev: snap.rev,
+      kind: 'snapshot',
+      content: snap.content,
+      ...(snap.reasoning !== undefined ? { reasoning: snap.reasoning } : {}),
+    })
+    state = patched.state
+
+    const surface = state.messages.get(snap.messageId)
+    const idx = messages.findIndex((m) => m.id === snap.messageId)
+    let nextMessages = messages
+    if (surface && idx === -1) {
+      // 渲染面缺行而内核面有行(created 补达 / m-ghost 型两面不一致)⇒ 按内核面增行。
+      nextMessages = [
+        ...messages,
+        {
+          id: surface.id,
+          role: surface.role,
+          content: surface.content,
+          ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+          createdAt: Date.now(),
+        },
+      ]
+    } else if (surface && idx !== -1 && (createdApplied || patched.result.applied)) {
+      // 内核真改了面(created 不可能,created 只在缺行时喂;这里实际是 snapshot 应用)⇒ 就地替换。
+      const next = messages.slice()
+      next[idx] = {
+        ...messages[idx]!,
+        content: surface.content,
+        ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+      }
+      nextMessages = next
+    }
+    // 服务端已给出权威回答 ⇒ 本消息的 gap 摘除(即使内核判 duplicate/stale ——
+    // duplicate 说明端侧已在链头,stale 说明服务端权威比端侧旧,都没有"再拉一次"可做);
+    // 全部已知缺口补齐 ⇒ 清旗(与 markChatSyncResynced 同一语义,此处是坐标驱动的自动清)。
+    const remainingGaps = get().chatSyncGapMessageIds.filter((id) => id !== snap.messageId)
+    set({
+      chatSync: state,
+      messages: nextMessages,
+      chatSyncGapMessageIds: remainingGaps,
+      ...(remainingGaps.length === 0 ? { chatSyncResyncPending: false } : {}),
+    })
+    return patched.result
+  },
   /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):
    *  只更新目标消息 content,引用替换配合 React.memo 精准重渲染。 */
   editMessageContent: (messageId, content) =>
@@ -1151,7 +1301,11 @@ const buildChatState: ChatStateCreator = (set, get) => ({
 
   setError: (e) => set({ error: e }),
 
-  setConversationId: (id) => set({ conversationId: id }),
+  // B02 第三切片:gap 坐标随会话切换清空 —— 旧会话的缺口坐标对当前会话没有意义,
+  // 带过去只会让 hook 对新会话拉旧消息(归属校验 404,纯浪费)。旗(resyncPending)
+  // 与 chatSync 判据面的会话切换语义属既有切片,不在本片射程,保持原样。
+  setConversationId: (id) =>
+    set(id === get().conversationId ? { conversationId: id } : { conversationId: id, chatSyncGapMessageIds: [] }),
 
   setUserScrolledUp: (v) => set({ userScrolledUp: v }),
 
@@ -1168,6 +1322,14 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       localStorage.setItem('ihui_web_search_enabled', v ? '1' : '0')
     }
     set({ webSearchEnabled: v })
+  },
+
+  // D09 专家包自动路由:同步 localStorage(初始 state 惰性读取的回写路径)
+  setExpertAutoRoute: (v) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ihui_expert_auto_route', v)
+    }
+    set({ expertAutoRoute: v })
   },
 
   setPendingQuestion: (q) => set({ pendingQuestion: q }),
@@ -1823,6 +1985,21 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       }
     }),
 
+  // D115:审查结论累积。index=1 是生产端(1-based)新一轮审查的首帧 ——
+  // 重连重放与"再审查一次"都从这里重来,先清旧表再落首条;同 findingId 幂等丢弃。
+  appendReviewFinding: (messageId, finding) =>
+    set((s) => {
+      if (!messageId || !finding?.findingId) return s
+      const existing = finding.index === 1 ? [] : (s.reviewFindingsByMessageId[messageId] ?? [])
+      if (existing.some((f) => f.findingId === finding.findingId)) return s
+      return {
+        reviewFindingsByMessageId: {
+          ...s.reviewFindingsByMessageId,
+          [messageId]: [...existing, finding],
+        },
+      }
+    }),
+
   // Steer:登记/清空当前流式 assistant 消息 ID(闪电按钮 steer 端点的定位键)
   setStreamingAssistantId: (id) => set({ streamingAssistantId: id }),
 
@@ -1924,6 +2101,8 @@ export function createChatStore(persistName: string = 'ihui-chat') {
         failedDraftStatus: s.failedDraftStatus,
         // D22(2026-09-19):网页搜索开关用户偏好持久化(初始 state 已有 localStorage 双保险)
         webSearchEnabled: s.webSearchEnabled,
+        // D09(2026-10-24):专家包自动路由档位(同上,初始 state 已有 localStorage 双保险)
+        expertAutoRoute: s.expertAutoRoute,
         // D38(2026-09-24):队列模式偏好(steer/queue)用户设置持久化
         followUpQueueMode: s.followUpQueueMode,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除

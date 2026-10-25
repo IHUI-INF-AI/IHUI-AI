@@ -35,6 +35,15 @@ def _fresh_state() -> Any:
     _reset_circuit()
 
 
+@pytest.fixture(autouse=True)
+def _pgvector_enabled_for_sql_shape(monkeypatch: Any) -> Any:
+    """摘掉全局隔离开关:conftest 的 _isolate_vector_memory(2026-10-22 O65,42fd7dab208)
+    对每个测试设 IHUI_PGVECTOR_DISABLE=1 治 pg 历史条目回流,却把本文件四例纯 mock 的
+    SQL shape 用例一并短路(入口 _is_disabled() 提前降级 ⇒ 清 21 红造 4 新红)。本文件
+    全部用例 patch 掉共享池、不碰真库,测试隔离铁律不因摘开关而破。"""
+    monkeypatch.delenv("IHUI_PGVECTOR_DISABLE", raising=False)
+
+
 class _FakeConn:
     def __init__(self, extension_available: bool = True) -> None:
         self.extension_available = extension_available

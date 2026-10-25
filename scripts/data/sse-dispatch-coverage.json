@@ -1,21 +1,36 @@
 {
   "$comment": "SSE 帧端内 dispatch 覆盖台账(守门 scripts/check-sse-dispatch-parity.mjs 读取,D107)。帧清单**不写在这里** —— 由守门每次从 packages/api-client/src/client.ts 的 onXxx 成员自动提取并减去 toolCallbacks,故本文件不可能与代码脱节。baseline[端] = 该端命中数下限(ratchet,只挡倒退不挡增长;新增接入后请同步上调);missing[端] = 该端**未命中**的帧,键集合必须**精确等于**实测未命中集合,值直接写理由或指向 groups 里的复用分组。口径:帧回调名在该端源码出现即算已处理(不按写法区分,精度靠'精确等于'兜)。",
-  "toolCallbacks": ["onAbort", "onAttemptStart", "onLine"],
+  "toolCallbacks": [
+    "onAbort",
+    "onAttemptStart",
+    "onLine"
+  ],
   "$commentFieldLevel": "字段级台账(b76-05 票1,守门 scripts/check-agent-event-parity.mjs [5/5] 读取)。fieldBaseline[事件名][键] = 该键'生产点写出、前端解析面不读'的豁免理由;键清单本身不写在这里 —— 由守门每次从生产侧(sse_contract.py 声明 / agents.py 与 apps/api/src/services 写出点)与解析侧(agent-events.ts parse*Event 读取点)现读,故本文件不可能与代码脱节。未登记的缺口 = 错误阻断。",
   "fieldBaseline": {},
   "baseline": {
-    "web": 38,
+    "web": 39,
     "extension": 23,
     "miniapp-taro": 30,
     "mobile-rn": 34,
     "cli": 17
   },
   "endpoints": {
-    "web": ["apps/web/src", "apps/web/app"],
-    "extension": ["apps/extension"],
-    "miniapp-taro": ["apps/miniapp-taro/src"],
-    "mobile-rn": ["apps/mobile-rn"],
-    "cli": ["apps/cli"]
+    "web": [
+      "apps/web/src",
+      "apps/web/app"
+    ],
+    "extension": [
+      "apps/extension"
+    ],
+    "miniapp-taro": [
+      "apps/miniapp-taro/src"
+    ],
+    "mobile-rn": [
+      "apps/mobile-rn"
+    ],
+    "cli": [
+      "apps/cli"
+    ]
   },
   "groups": {
     "no-subagent-ui": "该端未实现子代理活动流水(SubAgentActivityFeed 族),故 spawn/progress/end 三帧无渲染位;补齐见 PROJECT_PLAN D40 / D103。",
@@ -57,7 +72,8 @@
       "onSubagentProgress": "no-subagent-ui",
       "onSubagentSpawn": "no-subagent-ui",
       "onFormRequest": "该端**没有对话流通道**:apps/extension/src 对 streamChat / /llm/complete/stream 的 git grep 实测 0 命中(面板只做上下文回传),没有可挂帧的回调表 ⇒ 无可挂点,非\"未接线\"。",
-      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
+      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer",
+      "onReviewFinding": "D06 审查发现卡(review-finding 帧)的呈现位只落在 web 端 IDE(审查链卡片 + 点击跳 CodeEditor):本端没有编辑器/diff 视图,也没有等价的代码落点,接一条只有内存键无人看的回调 = 台账禁止的\"生产了但没人看\";api-client 侧 `onReviewFinding` 是注册才解析的开关(`tryParseReviewFinding`),未注册时该帧在解析层直接跳过,不存在\"帧被静默丢弃\"的运行时损失。解阻判据:本端建出审查发现呈现位(卡片/列表 + 至少一条可点跳的落点)后,同批接 `onReviewFinding`、从本端 missing 删除本项并把该端 baseline 上调;在它落地前本项不得被读成\"该端已接\"。"
     },
     "miniapp-taro": {
       "onConfigWarning": "no-stream-alert-ui",
@@ -69,7 +85,8 @@
       "onDelta": "该端聊天渲染按 tokens 概览驱动,未逐 delta 消费;seed 现状,若后续接入逐字流请删除本项并上调 baseline。",
       "onMemoryUpdates": "no-memory-update-ui",
       "onQuestion": "no-question-ui",
-      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
+      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer",
+      "onReviewFinding": "D06 审查发现卡(review-finding 帧)的呈现位只落在 web 端 IDE(审查链卡片 + 点击跳 CodeEditor):本端没有编辑器/diff 视图,也没有等价的代码落点,接一条只有内存键无人看的回调 = 台账禁止的\"生产了但没人看\";api-client 侧 `onReviewFinding` 是注册才解析的开关(`tryParseReviewFinding`),未注册时该帧在解析层直接跳过,不存在\"帧被静默丢弃\"的运行时损失。解阻判据:本端建出审查发现呈现位(卡片/列表 + 至少一条可点跳的落点)后,同批接 `onReviewFinding`、从本端 missing 删除本项并把该端 baseline 上调;在它落地前本项不得被读成\"该端已接\"。"
     },
     "mobile-rn": {
       "onReasoningEffortNotice": "D130 批准的口径是「web 输入区加第三轴」(用户 2026-09-29 预填确认),本端输入区没有推理强度控件 ⇒ 没有可展示的回落通知位。刻意不退化成\"收到就 console 一下\":那会把一个用户看不见的档位变化写成一条只有开发者能发现的痕迹,而票第 8 栏点名的正是\"选了档而什么都没发生\"这一型静默失效。解阻判据:该端补出档位控件(需自带控件 ×5 语言词表)后,删除本项并接 onReasoningEffortNotice 回调。",
@@ -77,7 +94,8 @@
       "onConfigWarning": "no-stream-alert-producer",
       "onDeprecationNotice": "no-stream-alert-producer",
       "onGuardianWarning": "no-stream-alert-producer",
-      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
+      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer",
+      "onReviewFinding": "D06 审查发现卡(review-finding 帧)的呈现位只落在 web 端 IDE(审查链卡片 + 点击跳 CodeEditor):本端没有编辑器/diff 视图,也没有等价的代码落点,接一条只有内存键无人看的回调 = 台账禁止的\"生产了但没人看\";api-client 侧 `onReviewFinding` 是注册才解析的开关(`tryParseReviewFinding`),未注册时该帧在解析层直接跳过,不存在\"帧被静默丢弃\"的运行时损失。解阻判据:本端建出审查发现呈现位(卡片/列表 + 至少一条可点跳的落点)后,同批接 `onReviewFinding`、从本端 missing 删除本项并把该端 baseline 上调;在它落地前本项不得被读成\"该端已接\"。"
     },
     "cli": {
       "onFinishReason": "no-finish-reason-consumer",
@@ -102,7 +120,8 @@
       "onToolSummary": "no-tool-summary-ui",
       "onFormRequest": "该端的对话走 CLI 自有 stream 出口,不消费 web 侧 streamChat 回调表:apps/cli/src 对 streamChat 的 git grep 实测 0 命中 ⇒ 无 onFormRequest 这一维可挂(要补须先给 CLI 做交互卡渲染,属新能力)。",
       "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。",
-      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
+      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer",
+      "onReviewFinding": "D06 审查发现卡(review-finding 帧)的呈现位只落在 web 端 IDE(审查链卡片 + 点击跳 CodeEditor):本端没有编辑器/diff 视图,也没有等价的代码落点,接一条只有内存键无人看的回调 = 台账禁止的\"生产了但没人看\";api-client 侧 `onReviewFinding` 是注册才解析的开关(`tryParseReviewFinding`),未注册时该帧在解析层直接跳过,不存在\"帧被静默丢弃\"的运行时损失。解阻判据:本端建出审查发现呈现位(卡片/列表 + 至少一条可点跳的落点)后,同批接 `onReviewFinding`、从本端 missing 删除本项并把该端 baseline 上调;在它落地前本项不得被读成\"该端已接\"。"
     }
   },
   "notes": {
@@ -111,6 +130,7 @@
     "cliTerminalInteractionReason": "2026-09-29(onTerminalInteraction 四端收口票):cli 的该行原指向分组 no-terminal-stream-ui,而分组首句「该端无终端流展示位」与 repl.ts:2673(D19 起 terminal_delta 打进 noteLine)实测冲突 —— 按守门 90 口径理由必须能被复核,故改为就地精确理由(含 file:line 证据与解阻判据);分组本体不动,仍只被同端 onTerminalStart/onTerminalEnd 引用(那两帧的「无任务生命周期展示位」对本端为真)。missing 键集合与 baseline 一字未动,③「精确等于」判据不受影响。",
     "extensionToolDelegate": "2026-09-28 票㉑:扩展侧栏接上 workspaceContext 上行 + onToolDelegate 执行回传 + onToolApproval 审批横幅,baseline.extension 18→20;两条 missing 同日删除。组 no-tool-delegate-ui 仍被 mobile-rn 引用,不删。",
     "g248TraceIdTextRefresh": "2026-10-19(G-248 R1 文本纠偏):missing.web.onTraceId 与 groups.no-trace-id-consumer 两条理由随 web 腿(2026-10-17,枚 8de16cb6343,错误上报档)和 RN 腿(2026-10-18,客户端日志档)落地而过期 —— 门只校验键集合与理由非空、不校验理由真伪,账面全绿但文字与事实相反。本次只改理由文字:missing 键集合与 baseline 五端数值(38/23/30/34/17)一字未动,\"精确等于\"判据不受影响;旧\"仍未接\"四端清单收窄为 extension / cli,已接两端形态按 groups 惯例带枚与文件证据登记。",
-    "d152GoalUpdateWired": "2026-09-29 D152 端消费面重落:web 接 send-message.ts 的 onGoalUpdate + stores/goal.ts 主副本化(六态取自 @ihui/types)+ slash-commands.ts 乐观更新+上行 postSessionGoal + goal-card.tsx 两档徽章;miniapp-taro 接 api/index.ts 的 goal_updated dispatch + chat.tsx 胶囊(只呈现不可操作,无输入口)。两端 missing 同笔删除、baseline 31→32 / 24→25(现读命令:node scripts/check-sse-dispatch-parity.mjs --report --worktree)。extension / mobile-rn / cli 三端的 onGoalUpdate 仍留在 missing,理由逐条在那三行里(不是\"没接\",是\"接了会造假 affordance / 属另一域\")。"
+    "d152GoalUpdateWired": "2026-09-29 D152 端消费面重落:web 接 send-message.ts 的 onGoalUpdate + stores/goal.ts 主副本化(六态取自 @ihui/types)+ slash-commands.ts 乐观更新+上行 postSessionGoal + goal-card.tsx 两档徽章;miniapp-taro 接 api/index.ts 的 goal_updated dispatch + chat.tsx 胶囊(只呈现不可操作,无输入口)。两端 missing 同笔删除、baseline 31→32 / 24→25(现读命令:node scripts/check-sse-dispatch-parity.mjs --report --worktree)。extension / mobile-rn / cli 三端的 onGoalUpdate 仍留在 missing,理由逐条在那三行里(不是\"没接\",是\"接了会造假 affordance / 属另一域\")。",
+    "d08AgentHandoffKindField": "D08②(2026-10-24,服务端格子):agent 间换手消息(完成/受阻/求助)复用既有 subagent_* 帧族,**零新帧** —— 帧回调清单、missing 与 baseline 五端数值一字未动(本次只加字段,不新增帧名,故本闸键集合不变)。生产点:apps/ai-service/app/services/mcp_server.py 的 _subagent_handoff_event / _subagent_handoff_kind(唯一三档映射 done|blocked|help)+ dispatch_subagent 的 single_done / parallel_done 进度事件;apps/ai-service/app/routers/llm.py 的 _build_subagent_end_event 把 kind / agent_id / summary / [token_usage] / ts 接到既有 subagent_end 载荷,进度帧经 _progress_cb 透传同组字段并注入本流真实子代理 id。消费方(门 90 口径按端):web 已接 —— apps/web/src/hooks/use-chat/send-message.ts:965-978 与 send-answer.ts:393-405 注册 onSubagentSpawn/onSubagentProgress/onSubagentEnd,落到 stores/chat.ts 的 markSubagentEnd 与 timeline 映射;mobile-rn 已接 —— apps/mobile-rn/src/screens/ChatScreen.tsx:1022-1036 三回调;extension / miniapp-taro / cli 三端仍按 groups.no-subagent-ui 未接(理由键未改动,不删)。字段级如实登记:kind 是既有 status(done/failed) 的超集(done 同义,failed→blocked,help 为新档),status 值域一字不动;web/RN 当前按 status 渲染生命周期,blocked/help 尚无独立文案位 —— 不另立帧、不把 kind 伪装成已渲染。守门 [5/5] 的 fieldBaseline 不涉及本组:该闸只比对 sse_contract.py 声明键与 agent-events.ts parse 键,subagent 三帧不在其生产/解析面。"
   }
 }

@@ -8,7 +8,6 @@
  * 平台无关:负责渲染 header(返回 + 标题)+ levelName + price/duration 行 + benefits,
  * 以及 loading / error 态。平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
  */
-import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useMemo } from 'react'
 import { ScrollView, Text, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -78,11 +77,11 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: rnSpacing.md,
-      gap: rnSpacing.md,
+      paddingVertical: 12,
+      gap: 12,
     },
     body: { padding: 14 },
-    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     levelName: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
     row: {
       flexDirection: 'row',
@@ -90,21 +89,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       paddingVertical: 10,
     },
-    label: { fontSize: rnType.body.size, color: tk.text.secondary },
-    price: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.danger.DEFAULT },
-    value: { fontSize: rnType.body.size, color: tk.text.primary, fontWeight: '500' },
-    benefitsTitle: {
-      marginTop: rnSpacing.lg,
-      fontSize: rnType.title.size,
-      fontWeight: '700',
-      color: tk.text.primary,
-    },
-    benefits: {
-      marginTop: rnSpacing.sm,
-      fontSize: rnType.body.size,
-      color: tk.text.medium,
-      lineHeight: 22,
-    },
+    label: { fontSize: 14, color: tk.text.secondary },
+    price: { flexShrink: 0, fontSize: 20, fontWeight: '600', color: tk.danger.DEFAULT },
+    value: { fontSize: 14, color: tk.text.primary, fontWeight: '500' },
+    benefitsTitle: { marginTop: 16, fontSize: 16, fontWeight: '700', color: tk.text.primary },
+    benefits: { marginTop: 8, fontSize: 14, color: tk.text.medium, lineHeight: 22 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -52,11 +52,29 @@ import { formatDate } from '@/lib/date-utils'
 import { activeDispatchesKey, swarmTopologyKey } from '@/hooks/use-subagent-dispatch'
 import type { SubagentRole, OrchestrationMode, SubagentDispatch } from '@ihui/shared/subagents'
 
+/**
+ * 派发表单预填值(2026-10-25 立,D06/G-229):审查卡「派发修复」直接复用本表单,
+ * 不另造第二套派发实现。字段一律可选,缺省即沿用表单原有默认值。
+ */
+export interface DispatchPreset {
+  goal?: string
+  affectedFiles?: readonly string[]
+  forbidden?: readonly string[]
+  verifyCommands?: readonly string[]
+  constraints?: string
+  deliverables?: string
+  agentRole?: SubagentRole
+  orchestration?: OrchestrationMode
+  priority?: 'low' | 'normal' | 'high' | 'urgent'
+}
+
 interface DispatchSubagentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** 可选:关联 agent 主表 id,派单运行轨迹持久化到 agent_tasks(2026-08-06 新增) */
   agentId?: string
+  /** 可选:打开时预填表单(DialogContent 关闭即卸载,故每次打开都按当次预填重建) */
+  preset?: DispatchPreset
 }
 
 const ROLE_OPTIONS: Array<{ value: SubagentRole; labelKey: string }> = [
@@ -202,6 +220,7 @@ export function DispatchSubagentDialog({
   open,
   onOpenChange,
   agentId,
+  preset,
 }: DispatchSubagentDialogProps) {
   const tchat = useTranslations('aiChat')
   const t = useTranslations('dispatchDialog')
@@ -233,7 +252,7 @@ export function DispatchSubagentDialog({
             </TabsTrigger>
           </TabsList>
           <TabsContent value="dispatch">
-            <DispatchForm onOpenChange={onOpenChange} agentId={agentId} />
+            <DispatchForm onOpenChange={onOpenChange} agentId={agentId} preset={preset} />
           </TabsContent>
           <TabsContent value="auto-plan">
             <AutoPlanPanel />
@@ -257,25 +276,39 @@ export function DispatchSubagentDialog({
 function DispatchForm({
   onOpenChange,
   agentId,
+  preset,
 }: {
   onOpenChange: (open: boolean) => void
   agentId?: string
+  preset?: DispatchPreset
 }) {
   const t = useTranslations('dispatchDialog')
   const tcommon = useTranslations('common')
   const queryClient = useQueryClient()
 
-  const [goal, setGoal] = React.useState('')
-  const [agentRole, setAgentRole] = React.useState<SubagentRole>('coder')
-  const [orchestration, setOrchestration] = React.useState<OrchestrationMode>('parallel')
-  const [affectedFilesText, setAffectedFilesText] = React.useState('')
-  const [forbiddenText, setForbiddenText] = React.useState(() => t('defaultForbidden'))
-  const [verifyCommandsText, setVerifyCommandsText] = React.useState('')
-  const [constraints, setConstraints] = React.useState('')
-  const [deliverables, setDeliverables] = React.useState('')
+  const [goal, setGoal] = React.useState(() => preset?.goal ?? '')
+  const [agentRole, setAgentRole] = React.useState<SubagentRole>(() => preset?.agentRole ?? 'coder')
+  const [orchestration, setOrchestration] = React.useState<OrchestrationMode>(
+    () => preset?.orchestration ?? 'parallel',
+  )
+  const [affectedFilesText, setAffectedFilesText] = React.useState(() =>
+    (preset?.affectedFiles ?? []).join('\n'),
+  )
+  const [forbiddenText, setForbiddenText] = React.useState(() =>
+    preset?.forbidden && preset.forbidden.length > 0
+      ? preset.forbidden.join('\n')
+      : t('defaultForbidden'),
+  )
+  const [verifyCommandsText, setVerifyCommandsText] = React.useState(() =>
+    (preset?.verifyCommands ?? []).join('\n'),
+  )
+  const [constraints, setConstraints] = React.useState(() => preset?.constraints ?? '')
+  const [deliverables, setDeliverables] = React.useState(() => preset?.deliverables ?? '')
   const [maxAttempts, setMaxAttempts] = React.useState(1)
   const [delayMs, setDelayMs] = React.useState(1000)
-  const [priority, setPriority] = React.useState<'low' | 'normal' | 'high' | 'urgent'>('normal')
+  const [priority, setPriority] = React.useState<'low' | 'normal' | 'high' | 'urgent'>(
+    () => preset?.priority ?? 'normal',
+  )
   const [enableQuotas, setEnableQuotas] = React.useState(false)
   const [timeoutMs, setTimeoutMs] = React.useState(300000)
   const [tokenQuota, setTokenQuota] = React.useState(50000)

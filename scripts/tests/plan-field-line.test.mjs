@@ -37,11 +37,18 @@ describe('plan-field-line 投影层', () => {
     assert.equal(H.renderHeader(R({ owner: undefined, waiting: 'none', blocking: '' })), '〔归:—〕')
   })
 
-  it('超预算 ⇒ 截断显示,且 parse 如实报"读不回"(权威在侧车,标头不许假装无损)', () => {
-    const h = H.renderHeader(R({ owner: 'x'.repeat(200) }))
-    assert.ok([...h].length <= H.MAX + 2, `标头长度 ${[...h].length} 超上限 ${H.MAX}`)
-    assert.ok(h.includes('…'), '超预算却没截断')
+  it('长 owner 也必须完整渲染且可往返(投影无损;截断会造出永久 malformed 的台账行)', () => {
+    const owner = '端口注册表门 + ai-service ruff + 受保护检查 lint-typecheck-test 持有人'
+    const h = H.renderHeader(R({ owner }))
+    assert.ok(!h.includes('…'), '渲染不得用省略号截断(parse 对 … 一律 malformed)')
     const p = H.parseHeader('- [ ] ' + h + ' 标题')
+    assert.equal(p.malformed, false)
+    assert.equal(p.rec.owner, owner)
+    assert.equal(H.renderHeader(p.rec), h)
+  })
+
+  it('手写/历史遗留的 … 截断标头仍如实报"读不回"(不猜被截掉的字符)', () => {
+    const p = H.parseHeader('- [ ] 〔归:甲…〕 标题')
     assert.equal(p.malformed, true)
     assert.equal(p.rec, null)
   })

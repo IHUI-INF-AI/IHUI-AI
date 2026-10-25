@@ -37,6 +37,20 @@ const h = vi.hoisted(() => ({
 
 // 别名 '@ihui/api-client' 在 vitest.config.ts 里直指真实源码(给它写替身,测的就是替身),
 // 这里只换掉"上行回传"一个出口:既拿到 payload,又不让用例依赖真实 fetch。
+// 保留文件内 react-native mock(收归例外):本套件对 Modal 有行为定制——恒渲染以断言 visible prop、
+// 暴露 onRequestClose 模拟安卓返回键(全局替身的 Modal 是 visible 才渲染的简化形)。迁移前先改全局替身。
+vi.mock('react-native', async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>()
+  const { createElement: ce } = await import('react')
+  const Modal = (props: Record<string, unknown>) => {
+    h.modal = props
+    return props.visible === true
+      ? ce('div', { 'data-modal-open': '1' }, props.children as ReactNode)
+      : null
+  }
+  return { ...(mod as Record<string, unknown>), Modal }
+})
+
 vi.mock('@ihui/api-client', async (importOriginal) => {
   const mod = await importOriginal<Record<string, unknown>>()
   return {
@@ -51,15 +65,6 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
 
 // react-native 走端内桩(tests/__mocks__/react-native.ts);桩的 Modal 只在 visible 时渲染且
 // 不暴露 onRequestClose,而"关闭 ≠ 决策"这条正好要按返回键来试 ⇒ 保留其余导出,只替 Modal 并留 props。
-vi.mock('react-native', async (importOriginal) => {
-  const mod = await importOriginal<Record<string, unknown>>()
-  const { createElement: ce } = await import('react')
-  const Modal = (props: Record<string, unknown>) => {
-    h.modal = props
-    return props.visible === true ? ce('div', { 'data-modal-open': '1' }, props.children as ReactNode) : null
-  }
-  return { ...(mod as Record<string, unknown>), Modal }
-})
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCREEN_SRC = resolve(HERE, '../src/screens/ChatScreen.tsx')
@@ -228,14 +233,18 @@ describe('D136 ① 接线:ChatScreen 真的把 onToolApproval 接进 streamChat'
     expect(body.length).toBeGreaterThan(0)
     expect(body.some((l) => l.includes('toolApproval.onToolApproval('))).toBe(true)
     // 反向锁:端内自己 parseEnvelope / 挑字段 = 第二份真相(票面规则 1 要根治的那一型)
-    expect(lines.some((l) => /parseToolApprovalEvent\(|parseEnvelope\(/.test(l) && !l.trim().startsWith('import'))).toBe(
-      false,
-    )
+    expect(
+      lines.some(
+        (l) => /parseToolApprovalEvent\(|parseEnvelope\(/.test(l) && !l.trim().startsWith('import'),
+      ),
+    ).toBe(false)
   })
 
   it('组件确实装车:import + hook 调用 + host 渲染三处都是代码行', () => {
     const src = readFileSync(SCREEN_SRC, 'utf8')
-    expect(src).toMatch(/import \{ useToolApprovalQueue \} from '\.\.\/components\/ai\/ToolApprovalSheet'/)
+    expect(src).toMatch(
+      /import \{ useToolApprovalQueue \} from '\.\.\/components\/ai\/ToolApprovalSheet'/,
+    )
     expect(lines.some((l) => /const toolApproval = useToolApprovalQueue\(\)/.test(l))).toBe(true)
     expect(lines.some((l) => l.includes('{toolApproval.host}'))).toBe(true)
   })
@@ -263,14 +272,24 @@ describe('D136 ② 三档与 web 逐档同值(禁止移动端偷偷只给两档)
   it('once / session / always 三档都渲染,且各档文案来自真词包', () => {
     const { send, text, buttonsByText } = mount()
     send(event())
-    for (const key of ['toolApproval.scopeOnce', 'toolApproval.scopeSession', 'toolApproval.scopeAlways']) {
+    for (const key of [
+      'toolApproval.scopeOnce',
+      'toolApproval.scopeSession',
+      'toolApproval.scopeAlways',
+    ]) {
       expect(text(), `缺档 ${key}`).toContain(realText(key))
     }
     // 档位数量精确为 3:多于 3 是加了 web 没有的档,少于 3 就是本票禁掉的降级
-    const tiers = ['toolApproval.scopeOnce', 'toolApproval.scopeSession', 'toolApproval.scopeAlways'].map(
-      (k) => realText(k),
-    )
-    expect(buttonsByText(tiers[0]!).length + buttonsByText(tiers[1]!).length + buttonsByText(tiers[2]!).length).toBe(3)
+    const tiers = [
+      'toolApproval.scopeOnce',
+      'toolApproval.scopeSession',
+      'toolApproval.scopeAlways',
+    ].map((k) => realText(k))
+    expect(
+      buttonsByText(tiers[0]!).length +
+        buttonsByText(tiers[1]!).length +
+        buttonsByText(tiers[2]!).length,
+    ).toBe(3)
   })
 
   it('默认档 = once(最小特权):不动档位直接批准,payload 里 scope 就是 once', () => {
@@ -278,7 +297,12 @@ describe('D136 ② 三档与 web 逐档同值(禁止移动端偷偷只给两档)
     send(event())
     tap(realText('toolApproval.approve'))
     expect(h.calls).toHaveLength(1)
-    expect(h.calls[0]).toMatchObject({ approvalId: 'ap-1', sessionId: 'sess-9', decision: 'approve', scope: 'once' })
+    expect(h.calls[0]).toMatchObject({
+      approvalId: 'ap-1',
+      sessionId: 'sess-9',
+      decision: 'approve',
+      scope: 'once',
+    })
   })
 
   it('选 session / always 后批准 ⇒ 逐档同值送到底(不是只换个高亮)', async () => {
@@ -292,7 +316,10 @@ describe('D136 ② 三档与 web 逐档同值(禁止移动端偷偷只给两档)
       tap(realText(key))
       tap(realText('toolApproval.approve'))
       await act(async () => {})
-      expect(h.calls.map((c) => c.scope), value).toEqual([value])
+      expect(
+        h.calls.map((c) => c.scope),
+        value,
+      ).toEqual([value])
       expect(h.calls[0]).toMatchObject({ approvalId: `ap-${value}`, decision: 'approve' })
     }
   })
@@ -325,7 +352,9 @@ describe('D136 ② 三档与 web 逐档同值(禁止移动端偷偷只给两档)
     expect(rendered).toContain(realText('toolApproval.rejectedBadge'))
     // 期望缺席串取自真词包(端内在用的终态措辞),不在测试里手抄中文
     expect(rendered).not.toContain(realText('aiAssistantN8n.planStatusCompleted'))
-    expect(rendered, '面板已收起,批准按钮不应还挂在屏上').not.toContain(realText('toolApproval.approve'))
+    expect(rendered, '面板已收起,批准按钮不应还挂在屏上').not.toContain(
+      realText('toolApproval.approve'),
+    )
   })
 })
 
@@ -334,7 +363,10 @@ describe('D136 ③ 关闭 ≠ 决策,待决项必须留人工放行入口(AGENTS
     const { send, tap, text } = mount()
     send(event())
     const modal = h.modal as { onRequestClose?: () => void } | null
-    expect(modal?.onRequestClose, '面板没挂 onRequestClose 就等于安卓返回键直接吞掉一次决定').toBeTypeOf('function')
+    expect(
+      modal?.onRequestClose,
+      '面板没挂 onRequestClose 就等于安卓返回键直接吞掉一次决定',
+    ).toBeTypeOf('function')
     act(() => modal!.onRequestClose!())
     expect(h.calls, '关闭从不等于拒绝/批准').toHaveLength(0)
     expect(h.modal!.visible).toBe(false)
@@ -425,7 +457,12 @@ describe('D136 ⑤ 环境事实三态绝不并桶(字段缺席 ≠ 未上报)', 
     const { send, text } = mount()
     send(
       event({
-        execEnvironment: { available: true, inSandbox: false, backend: 'docker', degraded: true } as never,
+        execEnvironment: {
+          available: true,
+          inSandbox: false,
+          backend: 'docker',
+          degraded: true,
+        } as never,
         networkTarget: { protocol: 'https', display: 'api.example.com:443' } as never,
         blockedNetworkTargets: [{ host: '10.0.0.9', port: 22, reason: '内网禁用' }] as never,
       }),
@@ -437,7 +474,11 @@ describe('D136 ⑤ 环境事实三态绝不并桶(字段缺席 ≠ 未上报)', 
     expect(text()).toContain('https://api.example.com:443')
     expect(text()).toContain(realText('toolApproval.envNetworkBlocked'))
     expect(text()).toContain(
-      filled('toolApproval.envNetworkBlockedOne', { host: '10.0.0.9', port: 22, reason: '内网禁用' }),
+      filled('toolApproval.envNetworkBlockedOne', {
+        host: '10.0.0.9',
+        port: 22,
+        reason: '内网禁用',
+      }),
     )
   })
 

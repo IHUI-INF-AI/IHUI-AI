@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * PopularCourses 热门课程列表 (mobile-rn 端)
@@ -41,7 +41,6 @@ import { BookOpen } from 'lucide-react-native'
 // 430,useWindowDimensions 返回整窗 ~586 → 双卡行按 562 算总宽超壳被 #root 裁掉右侧一张;
 // 原生无 #root 回退窗口宽行为不变(与 SearchOverlay/ProfileScreen 同轨)。
 import { useAppFrameWidth } from './Carousel'
-import { useI18n } from '../i18n'
 
 /** 单门课程数据(对齐历史 PopularCourses 关键字段) */
 export interface PopularCourse {
@@ -81,12 +80,10 @@ const GRID_GAP = 8
 const THUMB_HEIGHT = 100
 const VIP_BADGE_PADDING = 4
 const DEFAULT_BOOK_ICON = BookOpen
+const DEFAULT_MORE_TEXT = '更多'
 
 /** 双 Tab(对齐原项目 popular-courses-tab:爆款入门 / 爆款精选) */
-const COURSE_TAB_KEYS: ReadonlyArray<string> = [
-  'popularCourses.tabHotIntro',
-  'popularCourses.tabHotPick',
-]
+const COURSE_TABS: ReadonlyArray<string> = ['爆款入门', '爆款精选']
 
 /** 取字符串首字符(中英文/表情兼容);空串回退 ? */
 function firstChar(text: string): string {
@@ -106,7 +103,6 @@ interface CourseCardProps {
 }
 
 function CourseCard({ item, width, onPress }: CourseCardProps): React.JSX.Element {
-  const { t } = useI18n()
   const showFree = item.isFree
   const showVip = item.isVip
   const instructorInitial = firstChar(item.instructor).toUpperCase()
@@ -142,7 +138,7 @@ function CourseCard({ item, width, onPress }: CourseCardProps): React.JSX.Elemen
             {item.instructor}
           </Text>
           <Text style={styles.lessonCount} numberOfLines={1}>
-            {t('popularCourses.lessonsCount', { n: item.lessons })}
+            {`· ${item.lessons} 课时`}
           </Text>
         </View>
 
@@ -154,7 +150,7 @@ function CourseCard({ item, width, onPress }: CourseCardProps): React.JSX.Elemen
             <Text style={styles.pricePaid}>¥{item.price}</Text>
           )}
           <Text style={styles.studentCount} numberOfLines={1}>
-            {t('popularCourses.enrolled', { n: item.studentCount })}
+            {`${item.studentCount} 人在学`}
           </Text>
         </View>
       </View>
@@ -168,11 +164,10 @@ export default function PopularCourses({
   title,
   subtitle,
   onMore,
-  moreText: moreTextProp,
+  moreText = DEFAULT_MORE_TEXT,
   featuredCourses,
   onTabChange,
 }: PopularCoursesProps): React.JSX.Element {
-  const { t } = useI18n()
   const screenWidth = useAppFrameWidth()
   const cardWidth = (screenWidth - CONTAINER_PADDING * 2 - GRID_GAP) / 2
   const hasHeader = Boolean(title) || Boolean(subtitle) || Boolean(onMore)
@@ -200,7 +195,7 @@ export default function PopularCourses({
           </View>
           {onMore ? (
             <MoreLink
-              label={moreTextProp ?? t('common.more')}
+              label={moreText}
               onPress={onMore}
               colorScheme={currentRnTheme()}
               style={styles.moreBtn}
@@ -211,17 +206,17 @@ export default function PopularCourses({
 
       {/* 双 Tab(对齐原项目 popular-courses-tab-box) */}
       <View style={styles.tabBox}>
-        {COURSE_TAB_KEYS.map((tabKey, idx) => (
+        {COURSE_TABS.map((tab, idx) => (
           // 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
           // interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失(守门 131
           // 那一型)。外框拿 padding 槽位,面层撑满内容盒并只拿 pressed。
           <Pressable
-            key={tabKey}
+            key={tab}
             style={styles.tabItem}
             onPress={() => handleTabPress(idx)}
             accessibilityRole="button"
             accessibilityState={{ selected: selectedTab === idx }}
-            accessibilityLabel={t(tabKey)}
+            accessibilityLabel={tab}
           >
             {({ pressed }) => (
               <View style={[styles.tabFace, pressed ? styles.tabItemPressed : null]}>
@@ -231,7 +226,7 @@ export default function PopularCourses({
                     selectedTab === idx ? styles.tabTextActive : styles.tabTextNormal,
                   ]}
                 >
-                  {t(tabKey)}
+                  {tab}
                 </Text>
               </View>
             )}
@@ -267,34 +262,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: CONTAINER_PADDING,
-    paddingTop: rnSpacing.sm,
-    paddingBottom: rnSpacing.xs,
+    paddingTop: 8,
+    paddingBottom: 4,
   } as ViewStyle,
   headerLeft: {
     flex: 1,
   } as ViewStyle,
   headerTitle: {
-    fontSize: rnType.subtitle.size,
+    fontSize: 18,
     fontWeight: '600',
     color: tokens.text.primary,
   } as TextStyle,
   headerSubtitle: {
-    fontSize: rnType.label.size,
+    fontSize: 12,
     color: tokens.text.secondary,
-    marginTop: rnSpacing.xs,
+    marginTop: 4,
   } as TextStyle,
   moreBtn: {
-    marginLeft: rnSpacing.sm,
+    marginLeft: 8,
   } as ViewStyle,
   tabBox: {
     flexDirection: 'row',
     paddingHorizontal: CONTAINER_PADDING,
-    gap: rnSpacing.lg,
-    paddingTop: rnSpacing.xs,
-    paddingBottom: rnSpacing.sm,
+    gap: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
   } as ViewStyle,
   tabItem: {
-    paddingVertical: rnSpacing.xs,
+    paddingVertical: 4,
   } as ViewStyle,
   // 面层:撑满外框内容盒(外框的 paddingVertical 逐字未动),只承载按压态。
   tabFace: {
@@ -305,7 +300,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   } as ViewStyle,
   tabText: {
-    fontSize: rnType.body.size,
+    fontSize: 14,
   } as TextStyle,
   tabTextActive: {
     color: tokens.brand.DEFAULT,
@@ -348,19 +343,19 @@ const styles = StyleSheet.create({
     color: tokens.brand.ctaForeground,
   },
   info: {
-    paddingTop: rnSpacing.sm,
+    paddingTop: 8,
     paddingHorizontal: 0,
   },
   title: {
-    fontSize: rnType.body.size,
+    fontSize: 14,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   instructorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rnSpacing.xs,
-    marginTop: rnSpacing.xs,
+    gap: 4,
+    marginTop: 4,
   },
   avatar: {
     width: 16,
@@ -376,31 +371,32 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   instructorName: {
-    fontSize: rnType.label.size,
+    fontSize: 12,
     color: tokens.text.secondary,
   },
   lessonCount: {
-    fontSize: rnType.label.size,
+    fontSize: 12,
     color: tokens.text.tertiary,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: rnSpacing.sm,
+    marginTop: 8,
   },
   pricePaid: {
-    fontSize: rnType.title.size,
+    flexShrink: 0,
+    fontSize: 16,
     fontWeight: '700',
     color: tokens.success.DEFAULT,
   },
   priceFree: {
-    fontSize: rnType.body.size,
+    fontSize: 14,
     fontWeight: '600',
     color: tokens.text.secondary,
   },
   studentCount: {
-    fontSize: rnType.caption.size,
+    fontSize: 11,
     color: tokens.text.tertiary,
   },
 })

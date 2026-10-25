@@ -268,6 +268,147 @@ const FAMILY_LIFETIME_DAYS = {
    * 这个形状时按 30 天到期重判,不落"未登记族"红点(E4)—— 两道门分属寿命与合法性,不互顶账。
    */
   'plan-sha-noncommit-exempt': 30,
+  /**
+   * ── 2026-10-23「整族扫」批次(本门 E4「在用族未登记档位」清零)──────────────────────────
+   * 现读口径:门体自己算出的 E4 全集 = `unregisteredUsedFamiliesOf`(被豁免侧 ∧ 未登记)= 两族
+   * (route-declare-exempt 1 处 / status-guard-exempt 26 处);其余 16 个未登记族经逐族核对分成两堆 ——
+   * ①「声明门真的解析该标记」的合法出口 ⇒ 本批一并补档(否则第一处真被写出时会被 E4 顶成"新引入的族",
+   *   即本表反复记过的"一道门自己的合法出口被邻居钉红":radius-role / border-ink / credential-presence
+   *   / csrf / judge-replica 都记过同一课);②「刻意不存在的出口」⇒ **只报不登记**,见下面那段。
+   * 档位上限一律不超过 DEFAULT_LIFETIME_DAYS=90:按 back-label-exempt / nav-chrome-exempt /
+   * icon-bitmap-exempt 的先例,其中四族属**结构性定性**(位置性质不随时间改变,先例取 365),
+   * 本批约束停在建议层不改,交主会话裁 —— 族值只影响"新增不带日期时红字建议几天",
+   * 显式 `until` 仍管每一处自己的到期,90 不会把任何一条既有豁免提前判过期。
+   * 逐条注明「被豁免侧现读命中数」:非 0 的是真在用(必须登记),0 的是门已实现该出口而当下无人使用。
+   */
+  /**
+   * 守门 127(跨语言出站路由声明对账 `check-declared-outbound-routes.mjs:63`)的行内出口:只救本行、须带原因。
+   * 取 **90 天**的依据不是族名,是**站点自证的窗口**:`apps/api/src/services/auto-rollback.ts:93`
+   * (枚 9b84e1b205,2026-09-26 落地)写的是 `… 打的是 Prometheus HTTP API(host=PROMETHEUS_URL),
+   * 非本仓路由 until 2026-12-26` —— 持有者自己就把期限定成一个季度。该处性质偏结构性(第三方 host
+   * 永远不会变成本仓路由),正当出路是门侧认得第三方 host(门自己的夹具 `:564` 就是那一型),
+   * 所以取 90(= 站点窗口 = 本批上限)而不再长。被豁免侧现读 1 处。
+   */
+  'route-declare-exempt': 90,
+  /**
+   * 结算/状态写点守卫(`scripts/guard-status-where.mjs:47` 的 `EXEMPT_RE`,标记写在 set 行当行或其后 3 行内)
+   * 的行内出口。被豁免侧现读 **26 处**,全在 `apps/api/src/db/**`,理由逐条是**结构性定性**而非待偿:
+   * `admin-queries.ts:143`「通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决」、
+   * `customer-service-queries.ts:480`「入向终态(closeSession 置 closed),非终态出向」——
+   * 一个写点是"入向"还是"出向"不随时间改变,按 back-label-exempt 的先例该取 365,本批上限取 **90**,
+   * 建议层交主会话(90 与 365 都只改"新增不带日期时的建议天数",不改这 26 处的当下判定)。
+   * ⚠ 如实登记两格(不归本表管、只报):① 该守卫脚本按 HEAD 现读**不在** guardian-runner / CI /
+   * package.json 任一注册点(§0.9「造好没装车 = 没有」),但它的 26 枚标记确实活在业务代码里并被本门看见;
+   * ② `guard-status-where.mjs:11` 允许"其后 3 行内"的挂靠形态,而本门 scanFile 只认**同行与紧邻上一行**
+   * (头注「挂靠两种」那一格)——那一型漏计的是本门的取材面,不是豁免面的错,另计一票。
+   */
+  'status-guard-exempt': 90,
+  /**
+   * 守门「凭据在场即豁免对账」(`check-gate-presence-exemption.mjs:108` 的 `EXEMPT`,须带原因、只救本行
+   * 或紧邻上一纯注释行)的行内出口。取 **30 天**,与同型的 `credential-presence-exempt` 逐字同档 ——
+   * 这一族遮的是**鉴权路径上的一次跳过**(典型理由见该门夹具 `:613`「机器投递无 CSRF 可带,签名验签
+   * 在路由层」),寿命必须由被豁免的那一侧决定(§5「认证不等于授权」),不给长周期也不走默认档。
+   * **本条就是该门自己许下的那一票**:`check-gate-presence-exemption.mjs:65-66` 原文写"该豁免族尚未进
+   * 守门 108 的 FAMILY_LIFETIME_DAYS(该文件在本票文件清单外),当前落 108 的默认存活期档(90 天);
+   * 给它定一个显式档位另计一票,不得为此顺手改判据"。被豁免侧现读 0 处(门已实现,当下无人使用)。
+   */
+  'presence-exempt': 30,
+  /**
+   * 守门 `check-brand-foreground.mjs` 的 R9 那一支(字面量前景/底色配对)的行内出口:
+   * `const R9_EXEMPT = /r9-literal-exempt:\s*\S/`(:1395),只救前景行与其紧邻上行、须带原因。
+   * 取 **60 天**的依据是同门同族同档:该门的 `r5-cta-exempt` / `r7-nest-exempt` / `r3-cta-exempt`
+   * 在表里都是 60,而豁免的语义是同一件事(该门夹具 `:2902`「文字压在半透明图片上」= r5/r7 的
+   * "压在图上而非该底色上"),拆成两档只会让下一个读表的人以为它们不是一类东西。被豁免侧现读 0 处。
+   */
+  'r9-literal-exempt': 60,
+  /**
+   * 守门 134「批量写计数诚实性」的**计数判据**那一支出口:`export const EXEMPT_TOKEN = 'batch-count-exempt'`
+   * (:357,本行或紧邻上一行)。取 **30 天**,与同门另一支 `delete-ack-exempt`(30)同档 —— 该门
+   * `:1289` 把两族的分工写死了(计数 vs 假 ack),所以两族并存**不是**同一事实两族,而两族同寿命档才对
+   * (并行改造正把批量写逐批改回 `.returning()` / `batchWriteOutcome()`,行内标记只是同批次来不及迁的
+   * 落脚点;典型正当形态见该门 `:3486`「该表有触发器逐行归档,删除数恒等于请求数」)。被豁免侧现读 0 处。
+   */
+  'batch-count-exempt': 30,
+  /**
+   * 守门 126「shared 包非 Node 宿主纯度」的行内出口:`const EXEMPT_RE = /nonde-purity-exempt:\s*(\S.*)$/`
+   * (:160,须带原因)。取 **30 天** —— 该门 `:733` 给出的典型理由是「平台注入前暂留」,
+   * 即**待偿的迁移债**:正当出路只有 adapter 注入或把该模块移出共享面(AGENTS 附加强制条款那条),
+   * 与同型的 `inbound-strict-exempt` / `interop-style-exempt` 同档;给长周期等于把 `node:` 导入登记成惯例。
+   * 被豁免侧现读 0 处。
+   */
+  'nonde-purity-exempt': 30,
+  /**
+   * 守门 `check-compaction-denominator.mjs` 的行内出口:`const EXEMPT_MARK = 'compaction-denominator-exempt'`
+   * (:111,该门 :40 明写"行内豁免标记沿用"、:251 把它与门自身/锁测试路径并列为豁免面)。取 **30 天** ——
+   * 该出口遮的是"这一处分母不是提示词压缩的分母"的**待偿定性**:出路是改用同一个分母出口或让门认得该形态,
+   * 现读唯一站点在锁测试里(`scripts/tests/check-compaction-denominator.test.mjs:57`,自带 until 2099-12-31)
+   * ⇒ 被豁免侧现读 0 处。取 30 与同族判据(`selftest-registrant-exempt` / `judge-replica-exempt`)同档。
+   */
+  'compaction-denominator-exempt': 30,
+  /**
+   * 守门 `check-subagent-permission-inherited.mjs` 的 P2/P3 行内出口:`export const EXEMPT_MARK =
+   * 'subagent-permission-exempt:'`(:74,命中行或紧邻上一行、须带原因)。取 **30 天** ——
+   * 该门自己的用法(`:544`「纯只读夹具,无父会话可继承」)说明它遮的是**待偿的收口债**:
+   * 正当出路是把夹具面纳入门侧射程或补父会话声明,而不是让行内标记长期替"权限没继承"背书;
+   * 与同为收口债的 `judge-replica-exempt` / `api-error-exempt` 同档。被豁免侧现读 0 处。
+   */
+  'subagent-permission-exempt': 30,
+  /**
+   * 守门 `check-tool-contract-declared.mjs` 的行内出口:`const CONFIRM_EXEMPT_MARKER =
+   * 'contract-confirm-exempt:'`(:114,裸标记不生效)。取本批上限 **90** ——
+   * 该出口的典型理由(该门 `:1674`「批准由宿主 danger-gate 统一发起,本处只补契约声明」)是**结构性定性**
+   * (批准发生在哪一层不随时间改变),按先例该取 365,与本表 back-label / nav-chrome / icon-bitmap 同族;
+   * 受本票上限约束取 90 并停在建议层(交主会话裁)。被豁免侧现读 0 处。
+   */
+  'contract-confirm-exempt': 90,
+  /**
+   * 守门 `check-doc-numbers.mjs` 的行内出口:`if (/doc-num-exempt:\s*\S/.test(line)) continue`
+   * (:255,只救本行、裸标记不生效 —— 见该门 `:507` 的 bareExempt 反例)。取本批上限 **90** ——
+   * 该出口遮的是"这一行的数字是**历史时点的量**,不是当前总量"(该门 `:506` 夹具原文:
+   * 「叙述 2026-09-24 事故当时的量,非当前总量」),按 AGENTS §0.1「凡数字一律现读」这是**结构性定性**
+   * (历史叙述行永远不是现值,改不掉),按先例该 365,受本票上限约束取 90 并停在建议层。被豁免侧现读 0 处。
+   */
+  'doc-num-exempt': 90,
+  /**
+   * 守门 212「输入框聚焦反馈对账」的行内出口:`const EXEMPT = /input-focus-exempt:\s*\S/`(:126,
+   * 须带原因,裸标记不生效 —— 该门自检 S9a)。取本批上限 **90** —— 该出口的典型理由
+   * (该门自检 S9b 原文「只读展示框,永不聚焦」)是**结构性定性**:一个元素会不会聚焦由它的角色决定,
+   * 不随排期改变;短周期到期只会逼人删标记、删了又被 212 判红,两道门互咬(§12e 同型)。
+   * 按先例该 365,受本票上限约束取 90 并停在建议层。被豁免侧现读 0 处。
+   */
+  'input-focus-exempt': 90,
+  /**
+   * 守门 `check-skip-env-promise.mjs`「文档写的应急变量必须真在注册表里」的行内出口:
+   * `export const EXEMPT_RE = /skip-env-promise-exempt:[ \t]*([^\r\n]*)/`(:152,原因必写、只救本行)。
+   * 取 **90 天**的依据不是族名,是这条豁免**证的是什么**:该门 `:736` 的正当形态是
+   * 「该出路已由 187 号 runner 注册项兑现」—— 那是"验过才免"(§0.7)的一次性证明,而 runner 注册表会变
+   * (应急变量会被改名或摘掉),所以它必须按季度重核,不能取 365(365 会让"当年验过"变成永久合格证)。
+   * 被豁免侧现读 0 处。
+   */
+  'skip-env-promise-exempt': 90,
+  /**
+   * 桌面端「薄壳 + 直连线上站点」措辞防回潮尺子的行内出口:`scripts/tests/desktop-thin-shell-wording.test.mjs:49`
+   * 的 `const EXEMPT_RE = /thin-shell-exempt:\s*\S/`(该尺子的判据就住在这枚镜像测试里,:154 消费,
+   * 与本表 `table-cell-exempt` 那种"判据在门体"的形状不同 —— 如实登记,不因载体在测试文件而免档)。
+   * 取本批上限 **90** —— 典型理由(同文件 `:263`「仅叙述该命令已被删除」)是**结构性定性**
+   * (承认自己曾经错的句子必须能逐字引述旧措辞,与该文件 :53-54 的 allowHistorical 同一条道理);
+   * 按先例该 365,受本票上限约束取 90 并停在建议层。被豁免侧现读 0 处。
+   */
+  'thin-shell-exempt': 90,
+  /**
+   * **以下 5 族刻意不登记**(登记 = 替一条不存在的出口发寿命,正是本表上面 radius 那一段写的
+   * "纪念馆"之错;它们的共同形状是"字符串出现在 scripts/**",而工具面按 TOOL_FACE_RE 不入 E4 射程,
+   * 所以不登记也不会冒红 —— 若谁把它们写进业务代码,E4 当场点名,那是设计意图不是需要修的红):
+   *   · `radius-exempt` / `radius-role-exempt` —— 2026-09-29 O81 票㊵ 整体废除,写它本身即违规(门 77 B8
+   *     + 本门镜像 T-FAM 反向锁:表里出现即红)。
+   *   · `budget-exempt` —— `scripts/check-tool-exec-budget.mjs:16` 把它列为禁止形态、`:388` 的自检
+   *     断言"写出 budget-exempt ⇒ 红(X-forbidden-marker)":这是**被禁的标记名**,不是出口。
+   *   · `provider-health-exempt` —— `scripts/check-provider-health-vocabulary.mjs:19` 原文
+   *     「【无行内豁免(2026-10-10 复验票 G-1058634 定稿)】本门不提供 `provider-health-exempt`」。
+   *   · `error-error-exempt` —— 唯一出处是 `scripts/check-error-code-not-text-matching.mjs:454` 的
+   *     负例夹具(上一行注释写着「族名写错的标记不算豁免(免得"像豁免"就当放行)」,而真族名是
+   *     `error-code-exempt` 已在表里取 30):它是**故意拼错的靶子**,登记它等于把该门的反向锁拆了。
+   */
 }
 /** 标记词表按**形状**发现而不是白名单:清单会腐烂,新门刚加的族必须当天就被看见。 */
 const MARKER_RE = /(?:[a-z][a-z0-9-]*-exempt(?:-file)?|ihui-allow-important)\s*:/gi

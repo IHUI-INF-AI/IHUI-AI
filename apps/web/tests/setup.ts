@@ -116,7 +116,16 @@ void globalThis.__appsWebVitestPrepare
 // 测试里产生大量 unhandled error,被 vitest 计为失败(典型:theme.test.ts 8 断言全绿仍报 17 错)。
 // 这是"测试环境少提供浏览器 API"的宿主缺口,补上真实的浏览器内存实现并不构成掩盖断言。
 // 均以"已存在则不覆盖"方式安装,仅当当前环境缺失时才注入,避免遮盖真实实现。
+// 本文件此前零 import(setup 只做宿主补齐)。这一条只为拿 configure 这个单点旋钮。
+import { configure } from '@testing-library/react'
+
 const isWindowEnv = typeof window !== 'undefined'
+
+// RTL 的 waitFor/findBy 每段默认只给 1000ms —— 那是库的出厂值,不是本仓的判据。2026-10-24 实测:
+// 事件循环空闲时 fireEvent→链上首跳 3ms,被同步占死 1200ms 后同一跳变 1201ms ⇒ 默认预算必被打穿,
+// "红不红"就取决于机器负载而不是被测件(这台机常年并发 200+ 道守门,web 侧 93 枚用例同型暴露)。
+// 抬到 4000ms(仍低于本端 testTimeout 15s):断言一条不减,真断链照样翻红,只是红得慢一点。
+if (isWindowEnv) configure({ asyncUtilTimeout: 4000 })
 
 if (isWindowEnv && typeof window.localStorage === 'undefined') {
   const storageMap = new Map<string, string>()

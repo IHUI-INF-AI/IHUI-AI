@@ -26,7 +26,10 @@ vi.stubGlobal('fetch', fetchMock)
 vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
 vi.mock('next/navigation', () => ({ usePathname: () => '/chat' }))
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: (sel: (s: { user?: { id: string } }) => unknown) => sel({ user: { id: 'u-1' } }),
+  // isAuthenticated 门(2026-10-14 挂载整改):AnalyticsCapture 以 if (!isAuthenticated) return
+  // 挡偏好拉取,mock 缺该字段 ⇒ undefined ⇒ 门恒关 ⇒ refreshSpy 0 次红。
+  useAuthStore: (sel: (s: { user?: { id: string }; isAuthenticated?: boolean }) => unknown) =>
+    sel({ user: { id: 'u-1' }, isAuthenticated: true }),
 }))
 
 // AnalyticsCapture 复用 use-analytics 的判定链,这里只桩掉「拉偏好」这一个副作用,
@@ -120,7 +123,7 @@ describe('AnalyticsCapture 的 opt-out 闸门', () => {
     vi.useFakeTimers()
     try {
       gateEnabled = true
-      const { container } = render(<AnalyticsCapture /> as never)
+      const { container } = render((<AnalyticsCapture />) as never)
       await fireAllFiveEvents(container as HTMLElement)
 
       // 组件的批量定时器是 8s,快进到点让 queue 真正 flush
@@ -145,7 +148,7 @@ describe('AnalyticsCapture 的 opt-out 闸门', () => {
     vi.useFakeTimers()
     try {
       gateEnabled = false
-      const { container } = render(<AnalyticsCapture /> as never)
+      const { container } = render((<AnalyticsCapture />) as never)
       await fireAllFiveEvents(container as HTMLElement)
       await act(async () => {
         vi.advanceTimersByTime(8000)
@@ -159,7 +162,7 @@ describe('AnalyticsCapture 的 opt-out 闸门', () => {
 
   it('闸门关闭时,连已缓冲的事件在 flush 阶段也不发送', async () => {
     gateEnabled = true
-    const { container } = render(<AnalyticsCapture /> as never)
+    const { container } = render((<AnalyticsCapture />) as never)
     await fireAllFiveEvents(container as HTMLElement)
 
     // 用户随后关闭埋点,再触发 visibilitychange(组件的 flush 入口)
@@ -177,7 +180,7 @@ describe('AnalyticsCapture 的 opt-out 闸门', () => {
   })
 
   it('挂载时拉取一次用户偏好', async () => {
-    render(<AnalyticsCapture /> as never)
+    render((<AnalyticsCapture />) as never)
     expect(refreshSpy).toHaveBeenCalledTimes(1)
   })
 })

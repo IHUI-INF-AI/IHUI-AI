@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "file": "scripts/tests/land-gate-rerun.test.mjs",
+    "reason": "工作树已是删除态(2026-10-24 git status 现读为 D,别席在飞删除):存量 1 处 execSync 无 stdio 随该删除提交消失,不代修以免覆盖他人删除意图;删除落地后应清掉本条",
+    "owner": "并发席(删除持有者,门输出未点名)",
+    "reviewBy": "2026-10-27"
+  }
+]

@@ -81,6 +81,15 @@ function runScript(cwd, extraArgs = []) {
 const plain = (s) => String(s).replace(/\u001b\[[0-9;]*m/g, '')
 const runHead = (cwd) => runScript(cwd)
 const runStaged = (cwd) => runScript(cwd, ['--staged'])
+// H19 两门同场:兄弟门 11d 的 staged 档也在同一个临时仓里跑(互顶只有"两把尺同场"才量得出)
+const DIVIDER_SCRIPT = join(__dirname, '..', 'check-no-divider.mjs')
+const runDividerStaged = (cwd) =>
+  spawnSync(process.execPath, [DIVIDER_SCRIPT, '--staged'], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
 
 // ─────────── 判据直连(走源脚本 `__test__`,不复算) ───────────
 
@@ -166,11 +175,16 @@ test('H04 判据:形状收窄与射程边界(彩色底放过 / 粗于发丝不�
   assert.equal(rn?.kind, 'divider', JSON.stringify(rn))
 })
 
-test('H05 形状锁:解析器 import 自兄弟门 11d,锚点与读数同一把尺(§0.6 / §22c)', () => {
+test('H05 形状锁:解析器与判据本体(2026-10-24 合一后)都 import 自兄弟门 11d,锚点与读数同一把尺(§0.6 / §22c)', () => {
   const src = readFileSync(SCRIPT_PATH, 'utf8')
-  // ① 四件纯解析从 check-no-divider import,不许在本门里长第二份
+  // ① 四件纯解析 + 合一后的判据本体 `scanHairlineFaces` 都从 11d import,不许在本门里长第二份
   assert.match(src, /from '\.\/check-no-divider\.mjs'/)
-  for (const name of ['thinTokensOf', 'enclosingBraceBlock', 'isNeutralColorRef']) {
+  for (const name of [
+    'thinTokensOf',
+    'enclosingBraceBlock',
+    'isNeutralColorRef',
+    'scanHairlineFaces',
+  ]) {
     assert.ok(src.includes(name), `应复用 11d 的 ${name}`)
     assert.equal(
       new RegExp(`(?:export )?function ${name}\\s*\\(`).test(src),
@@ -400,12 +414,12 @@ test('H17 两把尺子合一:同一枚发丝线在 11d 族 7 与本门同一判�
   expectHit('<div className="h-px bg-border" />\n', 'h-px')
   expectHit('<div className="w-px bg-border" />\n', 'w-px')
 
-  expectExempt('<div role="separator" className="h-px bg-border" />\n', 'h-px', 'semantic-separator')
   expectExempt(
-    '<div className="absolute top-0 bottom-0 w-px bg-border" />\n',
-    'w-px',
-    'guide-rail',
+    '<div role="separator" className="h-px bg-border" />\n',
+    'h-px',
+    'semantic-separator',
   )
+  expectExempt('<div className="absolute top-0 bottom-0 w-px bg-border" />\n', 'w-px', 'guide-rail')
   expectExempt(
     '<div className="h-px w-8 cursor-col-resize bg-border" />\n',
     'h-px',
@@ -476,18 +490,22 @@ test('H18 顺序即判据:≥3px 彩色块不落 accent 桶(粗尺寸过滤在�
   }
 
   // ④ 反向锁:真发丝 + 彩色底仍留 accent 桶(收窄不许把这一族一起吞掉)
-  const hairAccent = gate.scanSource('apps/web/a.tsx', '<span className="h-px w-8 bg-primary/60" />')
-    .hits[0]
+  const hairAccent = gate.scanSource(
+    'apps/web/a.tsx',
+    '<span className="h-px w-8 bg-primary/60" />',
+  ).hits[0]
   assert.equal(hairAccent?.type, 'accent-background', JSON.stringify(hairAccent))
   assert.equal(gate.excuseCounts([hairAccent])['accent-background'], 1)
 
   // ⑤ 顺序锁(形状锁):面 A 里 `thinTokensOf(surface)` 必须写在彩色底 push 之前。
   //    行为对照只覆盖夹具这几枚,顺序一旦被换回去、新的粗块形态照样会静默进桶 —— 这一条钉写法。
-  const gateSrc = readFileSync(SCRIPT_PATH, 'utf8')
+  //    2026-10-24 合一:判据本体(面 A/面 B)已上收进 11d 族 7 段的 `scanHairlineFaces`(§0.6 一把尺子),
+  //    本锁随之改钉 check-no-divider.mjs —— 钉"唯一实现"的写法,不钉已退化为适配层的发丝尺。
+  const implSrc = readFileSync(join(__dirname, '..', 'check-no-divider.mjs'), 'utf8')
   // 锚点用**循环体内的分节注释**(与文件顶部的横幅注释不同字,不会命中横幅)
-  const faceA = gateSrc.slice(
-    gateSrc.indexOf('面 A:Tailwind 类名(h-px'),
-    gateSrc.indexOf('面 B:RN / 内联样式对象(height|width'),
+  const faceA = implSrc.slice(
+    implSrc.indexOf('面 A:Tailwind 类名(h-px'),
+    implSrc.indexOf('面 B:RN / 内联样式对象(height|width'),
   )
   assert.ok(faceA.length > 200, `面 A 区段定位失败(分节注释被改字?)\n${faceA.slice(0, 120)}`)
   const thinAt = faceA.indexOf('const thin = thinTokensOf(surface)')
@@ -501,7 +519,7 @@ test('H18 顺序即判据:≥3px 彩色块不落 accent 桶(粗尺寸过滤在�
   // 底色"没写就不归本门"这一格仍须在粗筛之前(射程边界,自检 T04/T17 靠它)
   assert.ok(faceA.indexOf('const bgs = bgTokensOf(surface)') < thinAt, '射程边界不许被挪到粗筛之后')
 
-  // ⑥ 兄弟门 11d 族 7 对同一枚粗块同样不判(它先认发丝 HAIRLINE_AXIS_RE 才看底色)⇒ 两门同口径
+  // ⑥ 兄弟门 11d 族 7 对同一枚粗块同样不判(它先认发丝档才看底色)⇒ 两门同口径
   for (const { cls } of sites) {
     assert.equal(
       dividerGate.classifyHairlineLine(`<View className="${cls}" />`, {
@@ -512,6 +530,168 @@ test('H18 顺序即判据:≥3px 彩色块不落 accent 桶(粗尺寸过滤在�
       null,
       '11d 族 7 也不该把粗块当发丝线',
     )
+  }
+})
+
+// ─────────── 2026-10-24 合一(票 L29015 尾格:两把尺互顶 → 严格指纹单源)───────────
+
+test('H19 两门同场 staged:等积清偿(发丝线→等积单边描边)两把尺都不得判新增(互顶回归锁)', () => {
+  // 立因:旧族 7 自带一把宽松近似,`h-px bg-popover`/`h-[2px]`/RN `height: 2` 这些只有发丝尺
+  // 计数的形状被改成等积单边描边时,发丝尺存量 1→0(变好)、族 6/4 棘轮却按 HEAD 基线 0 判
+  // "新增 1 超棘轮"⇒ 清偿本身被拦、改动被回退(票面原话"单枚硬改=为一尺绿造另一尺红")。
+  // 合一后族 7 与尺子读同一组枚数:动手前基线已含这枚线,清偿后计数只降不升。
+  const cases = [
+    {
+      rel: 'apps/web/app/x/page.tsx',
+      before: 'export function P() {\n  return <div className="h-px bg-popover" />\n}\n',
+      after: 'export function P() {\n  return <div className="border-b border-border" />\n}\n',
+    },
+    {
+      rel: 'apps/web/app/y/page.tsx',
+      before: 'export function P() {\n  return <div className="h-[2px] bg-border" />\n}\n',
+      after: 'export function P() {\n  return <div className="border-b border-border" />\n}\n',
+    },
+    {
+      rel: 'apps/miniapp-taro/src/pages/z/index.tsx',
+      before: 'export function P() {\n  return <View className="h-[2rpx] bg-border" />\n}\n',
+      after: 'export function P() {\n  return <View className="border-b border-border" />\n}\n',
+    },
+    {
+      rel: 'apps/mobile-rn/src/screens/W.tsx',
+      before:
+        'const shellStyles = {\n  hairline: {\n    height: 2,\n    backgroundColor: tokens.border.light,\n  } as const,\n}\n',
+      after:
+        'const shellStyles = {\n  hairline: {\n    borderTopWidth: 2,\n    borderTopColor: tokens.border.light,\n  } as const,\n}\n',
+    },
+    {
+      // 票尾那一枚的原形(HomeScreen.modelModalHairline 形状)
+      rel: 'apps/mobile-rn/src/screens/Home.tsx',
+      before:
+        'const shellStyles = {\n  modelModalHairline: {\n    height: StyleSheet.hairlineWidth,\n    backgroundColor: tokens.border.light,\n  } as const,\n}\n',
+      after:
+        'const shellStyles = {\n  modelModalHairline: {\n    borderTopWidth: StyleSheet.hairlineWidth,\n    borderTopColor: tokens.border.light,\n  } as const,\n}\n',
+    },
+    {
+      // 低透明度发丝(合一后尺子/族 7 同计 blocking)→ 等积低透明描边落族 3 WARN
+      rel: 'apps/web/app/v/page.tsx',
+      before: 'export function P() {\n  return <div className="h-px bg-border/50" />\n}\n',
+      after: 'export function P() {\n  return <div className="border-t border-border/50" />\n}\n',
+    },
+  ]
+  for (const { rel, before, after } of cases) {
+    const dir = createRepo({ [rel]: before })
+    try {
+      stage(dir, rel, after)
+      const h = runStaged(dir)
+      const d = runDividerStaged(dir)
+      assert.equal(h.status, 0, `发丝尺不该拦等积清偿:${rel}\n${plain(h.stdout)}`)
+      assert.equal(
+        d.status,
+        0,
+        `族 7 棘轮不该把等积清偿判成新增(互顶回潮):${rel}\n${plain(d.stdout)}`,
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  }
+  // 反向锁(摘掉合一即翻红):基线无发丝线的干净文件里
+  // ① 裸加 h-px bg-border ⇒ 两把尺都拦(合并不许把真新增放过去)
+  const dir1 = createRepo({ 'apps/web/app/x/page.tsx': 'export const z = 1\n' })
+  try {
+    stage(
+      dir1,
+      'apps/web/app/y/page.tsx',
+      'export function Q() {\n  return <div className="h-px bg-popover" />\n}\n',
+    )
+    assert.equal(runStaged(dir1).status, 1, '新增发丝线发丝尺必须拦')
+    assert.equal(runDividerStaged(dir1).status, 1, '新增发丝线族 7 必须拦(合一后只有更严,不更松)')
+  } finally {
+    rmScratch(dir1)
+  }
+  // ② 凭空新增单边描边(HEAD 无形无)⇒ 族 7 棘轮照拦(清偿出口不许被拿来遮真新增)
+  const dir2 = createRepo({ 'apps/web/app/x/page.tsx': 'export const z = 1\n' })
+  try {
+    stage(
+      dir2,
+      'apps/web/app/y/page.tsx',
+      'export function Q() {\n  return <div className="border-b border-border" />\n}\n',
+    )
+    assert.equal(runDividerStaged(dir2).status, 1, '凭空加描边必须拦')
+  } finally {
+    rmScratch(dir2)
+  }
+})
+
+test('H20 严格指纹同尺对账:无描边形状上两把尺的 blocking/未判定枚数逐枚相等(§22c 一把尺子)', () => {
+  const shapes = [
+    ['apps/web/a.tsx', '<div className="h-px bg-border" />\n', 1, 0],
+    ['apps/web/a.tsx', '<div className="h-px bg-popover" />\n', 1, 0],
+    ['apps/web/a.tsx', '<div className="h-px bg-white" />\n', 1, 0],
+    ['apps/web/a.tsx', '<div className="h-px bg-black" />\n', 1, 0],
+    ['apps/web/a.tsx', '<div className="h-[2px] bg-border" />\n', 1, 0],
+    ['apps/miniapp-taro/src/pages/a/index.tsx', '<View className="h-[2rpx] bg-border" />\n', 1, 0],
+    ['apps/web/a.tsx', '<div className="h-px bg-muted-foreground" />\n', 1, 0],
+    ['apps/web/a.tsx', '<div className="h-px bg-border/50" />\n', 1, 0],
+    ['apps/web/a.tsx', '<span className="h-px w-8 bg-primary/60" />\n', 0, 0],
+    ['apps/web/a.tsx', '<span className="h-[4px] bg-border" />\n', 0, 0],
+    ['apps/web/a.tsx', '<span className="w-[0.125rem] bg-border" />\n', 0, 1],
+    ['apps/web/a.tsx', '<div role="separator" className="h-px bg-border" />\n', 0, 0],
+    ['apps/web/a.tsx', '<div className="absolute top-0 bottom-0 w-px bg-border" />\n', 0, 0],
+    ['apps/web/a.tsx', '<div className="w-full h-px bg-border" />\n', 0, 0],
+    [
+      'apps/mobile-rn/src/a.tsx',
+      'const s = {\n  line: { height: 1, backgroundColor: tk.border.light },\n}\n',
+      1,
+      0,
+    ],
+    [
+      'apps/mobile-rn/src/a.tsx',
+      'const s = {\n  line: { height: 2, backgroundColor: tk.border.light },\n}\n',
+      1,
+      0,
+    ],
+    [
+      'apps/mobile-rn/src/a.tsx',
+      'const s = {\n  line: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },\n}\n',
+      1,
+      0,
+    ],
+    [
+      'apps/mobile-rn/src/a.tsx',
+      'const s = {\n  line: { height: StyleSheet.hairlineWidth * 2, backgroundColor: tk.border.light },\n}\n',
+      1,
+      0,
+    ],
+    [
+      'apps/mobile-rn/src/a.tsx',
+      'const s = {\n  line: { height: StyleSheet.hairlineWidth * SCALE, backgroundColor: tk.border.light },\n}\n',
+      0,
+      1,
+    ],
+    [
+      'apps/mobile-rn/src/a.tsx',
+      'const s = {\n  card: { shadowOffset: { width: 0, height: 1 } },\n}\n',
+      0,
+      0,
+    ],
+    // 面 B 词界假阳锁(合一后族 7 在更大清单面上跑,kebab CSS 串不得冒充 RN 对象键)
+    ['apps/web/a.tsx', 'const html = `<div style="font-size:16px;line-height:2;">x</div>`\n', 0, 0],
+  ]
+  for (const [rel, body, wantDividers, wantUndetermined] of shapes) {
+    const h = gate.scanSource(rel, body)
+    const d = dividerGate.scanSource(rel, body)
+    assert.equal(
+      gate.countDividers(h),
+      dividerGate.countOpaqueSingles(d),
+      `两把尺 blocking 枚数不等:${rel} ${body.trim()}`,
+    )
+    assert.equal(gate.countDividers(h), wantDividers, `尺子读数漂移:${rel} ${body.trim()}`)
+    assert.equal(
+      h.undetermined.length,
+      d.undetermined,
+      `两把尺未判定枚数不等:${rel} ${body.trim()}`,
+    )
+    assert.equal(h.undetermined.length, wantUndetermined, `未判定读数漂移:${rel} ${body.trim()}`)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

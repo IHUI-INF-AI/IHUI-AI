@@ -29,6 +29,7 @@
  */
 
 import { and, asc, eq, gte, inArray, isNull, ne } from 'drizzle-orm'
+import { bizDayStartUtc } from '../utils/biz-day.js'
 import { eduEnrollment, eduFeeReminder, eduParentStudentBinding, users } from '@ihui/database'
 import { db } from '../db/index.js'
 import { createNotification } from '../db/notification-queries.js'
@@ -92,11 +93,9 @@ function buildReminderMessage(
   return `【学费催缴】${studentName} 同学尚有学费 ${dueAmount} 元未缴清,请尽快完成缴费。如有疑问请联系机构老师。`
 }
 
-/** 北京时间当日 0 点（返回 UTC Date） */
+/** 北京时间当日 0 点（返回 UTC Date）——算法唯一出口 = utils/biz-day.ts */
 function beijingMidnightUtc(): Date {
-  const bjNow = new Date(Date.now() + 8 * 3600 * 1000)
-  const bjDate = bjNow.toISOString().slice(0, 10)
-  return new Date(Date.parse(`${bjDate}T00:00:00+08:00`))
+  return bizDayStartUtc(0)
 }
 
 export interface ReminderRecipient {

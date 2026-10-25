@@ -17,8 +17,14 @@ import type { Page } from '@playwright/test'
  *
  * 取材刻意**不 import `./fixtures`**:fixtures 在模块加载期就 `requireEnv('E2E_ADMIN_PASSWORD')`,
  * 缺 env 会让整个 collection 报成 "No tests found"(2026-10-23 实测),而本文件验的是纯前端
- * 键盘协议,结构上不需要登录态、不需要 seed、不需要连库。跑法见仓内 README/交付报告:
- *   cd apps/web && E2E_SKIP_SEED=1 pnpm exec playwright test e2e/esc-overlay-stack.spec.ts --no-deps
+ * 键盘协议,结构上不需要登录态。
+ *
+ * ⚠️ 跑法(2026-10-24 更正,B67):头注旧版写的「E2E_SKIP_SEED=1 + --no-deps、不需要 seed/连库」
+ * **已证不可行**——③ 的生态入口依赖 API 数据(须 8801 web dev + 后端可达),且 SKIP 路径缺
+ * globalSetup 副作用(test 用户被上轮 teardown 清掉后 knowledge/notifications 断链)会让 ①③
+ * 协议弹窗不叠开(采样矩阵:带 seed 三次 3 passed / SKIP 三次 2 failed,零反例)。现行跑法:
+ *   cd apps/web && E2E_ADMIN_PASSWORD=<测试口令> pnpm exec playwright test e2e/esc-overlay-stack.spec.ts
+ * (不带 SKIP、不挂 --no-deps;globalSetup 幂等 seed 后本 spec 三连 3 passed。)
  *
  * 场景选型(2026-10-23 真机实测得出,不是挑出来的):
  *  - 三层"遮罩+弹层+pane"在**免登录面**上结构上叠不开 —— 顶栏生态 Popover 一被 Radix modal

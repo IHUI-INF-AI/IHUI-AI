@@ -98,11 +98,12 @@
         ]
       },
       "roots": [
-        "apps/miniapp-taro/src/static/images/icons/triangle-alert.svg"
+        "apps/miniapp-taro/src/static/images/icons/triangle-alert.svg",
+        "apps/miniapp-taro/src/static/images/icons/minus.svg"
       ],
       "modification": "unmodified-copy",
       "modificationNote": "生成器只做名称/别名解析与 stroke 颜色改写(端内约定 stroke 用 #6366F1 或本文件的 #000 原值),几何路径未手改。",
-      "attributionBoundary": "apps/miniapp-taro/src/static/images/icons/ 目录当前**只有这 1 个跟踪文件**(实测 git ls-files 计数 1);其余图标只存在于本机工作树、未入库,故不构成台账对象。新增该目录的跟踪图标必须由生成器产出并在此登记。",
+      "attributionBoundary": "apps/miniapp-taro/src/static/images/icons/ 目录当前**有这 2 个跟踪文件**(实测 git ls-files 计数 2:triangle-alert.svg、minus.svg;两份产物首行都是同一枚 `<!-- @license lucide-static v1.31.0 - ISC -->`,故版本锚点对两枚同值成立);其余图标只存在于本机工作树、未入库,故不构成台账对象。新增该目录的跟踪图标必须由生成器产出并在此登记。",
       "obligations": "待补登记:① 生成器应在产物注释里落 lucide 版本(否则每条素材的 revision 永远不可考);② 若后续批量入库现有工作树图标,须一并补登记。"
     },
     {

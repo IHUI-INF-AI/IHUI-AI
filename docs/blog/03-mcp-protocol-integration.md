@@ -16,7 +16,7 @@ description: "用 Model Context Protocol 标准化 AI Agent 工具调用,IHUI AI
 
 > 你让 AI 帮你订张机票。AI 说:"我是语言模型,无法访问外部系统。"你换个 Agent 产品,它说自己能订,但要你把密码给它,还得给它管理员权限。你犹豫了。
 
-LLM 的下一个十年战争不是模型本身,而是**工具调用**。Anthropic 在 2024 年底开源了 [Model Context Protocol (MCP)](https://modelcontextprotocol.io),把「AI 调用外部工具」标准化了。本文讲 IHUI AI 如何在 8 端全栈 AI 操作系统里集成 MCP,让 Agent 真正能干活。
+LLM 的下一个十年战争不是模型本身,而是**工具调用**。Anthropic 在 2024 年底开源了 [Model Context Protocol (MCP)](https://modelcontextprotocol.io),把「AI 调用外部工具」标准化了。本文讲 IHUI AI 如何在 9 端全栈 AI 操作系统里集成 MCP,让 Agent 真正能干活。
 
 ---
 
@@ -435,12 +435,12 @@ IHUI AI 已经用 MCP 把 28 个内置工具 + 任意第三方 MCP server 串起
 
 ## 关于 IHUI AI
 
-IHUI AI 是一站式 8 端全栈 AI 操作系统,Apache 2.0 开源。
+IHUI AI 是一站式 9 端全栈 AI 操作系统,Apache 2.0 开源。
 
 - 🌐 官网:https://aizhs.top
 - 💻 GitHub:https://github.com/IHUI-INF-AI/IHUI-AI(Star 支持一下 ⭐)
-- 📦 8 端同源:Web / API / CLI / Desktop / Extension / Mobile / Miniapp
-- 🤖 176 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama
+- 📦 9 端同源:Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 移动 Capacitor(mobile-cap) / 小程序 Taro
+- 🤖 101 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama
 - 💰 定价:Free / Pro ¥49/月 / Team ¥199/人/月 / Enterprise ¥2999/月起
 
 **5 分钟 Fork 到上线,替代 ChatGPT Team + Claude Code + Notion AI,月省 $60+。**

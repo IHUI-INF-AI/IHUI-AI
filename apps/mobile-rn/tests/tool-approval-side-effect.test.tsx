@@ -11,7 +11,6 @@
 // 渲染与 mock 手法与 tool-approval-rn-wiring.test.tsx 同一姿势(react-native 走端内桩)。
 // @vitest-environment jsdom
 import { act, render } from '@testing-library/react'
-import { type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ToolApprovalEvent } from '@ihui/api-client'
 import { I18nProvider, messages, getValueByPath } from '../src/i18n'
@@ -36,18 +35,6 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
       return { ok: true }
     },
   }
-})
-
-vi.mock('react-native', async (importOriginal) => {
-  const mod = await importOriginal<Record<string, unknown>>()
-  const { createElement: ce } = await import('react')
-  const Modal = (props: Record<string, unknown>) => {
-    h.modal = props
-    return props.visible === true
-      ? ce('div', { 'data-modal-open': '1' }, props.children as ReactNode)
-      : null
-  }
-  return { ...(mod as Record<string, unknown>), Modal }
 })
 
 const event = (over: Partial<ToolApprovalEvent> = {}): ToolApprovalEvent =>

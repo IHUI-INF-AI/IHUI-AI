@@ -25,6 +25,7 @@ import { success, error } from '../utils/response.js'
 import { knowledgeRagService } from '../services/knowledge-rag-service.js'
 import { UnsupportedFormatError, FileTooLargeError } from '../services/document-parser.js'
 import { authenticate } from '../plugins/auth.js'
+import { requireAuth } from '../plugins/require-permission.js'
 
 const ingestSchema = z.object({
   ownerUuid: z.string().min(1),
@@ -53,10 +54,16 @@ const batchDeleteSchema = z.object({
   ownerUuid: z.string().min(1),
 })
 
-function resolveOwner(authUserId: string | undefined, paramOwner: string): string {
-  if (authUserId) return authUserId
-  if (!paramOwner) throw new Error('owner_uuid 不能为空 (或未登录)')
-  return paramOwner
+/**
+ * 归属主体的唯一出口:只认承载层注入的令牌主体,客户端自报的 ownerUuid 一律忽略。
+ *
+ * 立因:此前 authUserId 取自 auth 层**从不填充**的 request.user(@fastify/jwt 把该字段
+ * 装饰为 null,本仓 authenticate 走 jose 只写 request.userId)⇒ 恒 undefined,
+ * 于是每个分支都走到 "采信 paramOwner" —— 匿名调用按任意 ownerUuid 即可读/删他人知识库。
+ */
+function resolveOwner(authUserId: string | undefined): string {
+  if (!authUserId) throw new Error('未登录')
+  return authUserId
 }
 
 export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
@@ -66,14 +73,14 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /ingest - 纯文本入库
-  server.post('/ingest', async (req, reply) => {
+  server.post('/ingest', { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = ingestSchema.safeParse(req.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
-    const authUser = (req.user as { userId?: string } | undefined)?.userId
-    const owner = resolveOwner(authUser, b.ownerUuid)
+    const authUser = req.userId
+    const owner = resolveOwner(authUser)
     try {
       const chunkCount = await knowledgeRagService.ingestText({
         ownerUuid: owner,
@@ -89,14 +96,14 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /search - 语义检索
-  server.post('/search', async (req, reply) => {
+  server.post('/search', { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = searchSchema.safeParse(req.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
-    const authUser = (req.user as { userId?: string } | undefined)?.userId
-    const owner = resolveOwner(authUser, b.ownerUuid)
+    const authUser = req.userId
+    const owner = resolveOwner(authUser)
     try {
       const results = await knowledgeRagService.search({
         query: b.query,
@@ -113,14 +120,14 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /rag-context - 生成 RAG 上下文
-  server.post('/rag-context', async (req, reply) => {
+  server.post('/rag-context', { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = ragContextSchema.safeParse(req.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
-    const authUser = (req.user as { userId?: string } | undefined)?.userId
-    const owner = resolveOwner(authUser, b.ownerUuid)
+    const authUser = req.userId
+    const owner = resolveOwner(authUser)
     try {
       const context = await knowledgeRagService.getRagContext({
         query: b.query,
@@ -136,10 +143,9 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /docs - 文档列表
-  server.get('/docs', async (req, reply) => {
-    const q = (req.query as { ownerUuid?: string }) ?? {}
-    const authUser = (req.user as { userId?: string } | undefined)?.userId
-    const owner = resolveOwner(authUser, q.ownerUuid ?? '')
+  server.get('/docs', { preHandler: [requireAuth] }, async (req, reply) => {
+    const authUser = req.userId
+    const owner = resolveOwner(authUser)
     try {
       const docs = await knowledgeRagService.listDocs(owner)
       return reply.send(success(docs))
@@ -150,14 +156,13 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /docs/:id - 文档详情
-  server.get('/docs/:id', async (req, reply) => {
+  server.get('/docs/:id', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = Number((req.params as { id: string }).id)
     if (!Number.isInteger(id) || id <= 0) {
       return reply.status(400).send(error(400, 'doc_id 非法'))
     }
-    const q = (req.query as { ownerUuid?: string }) ?? {}
-    const authUser = (req.user as { userId?: string } | undefined)?.userId
-    const owner = resolveOwner(authUser, q.ownerUuid ?? '')
+    const authUser = req.userId
+    const owner = resolveOwner(authUser)
     try {
       const doc = await knowledgeRagService.getDocDetail(id, owner)
       if (!doc) return reply.status(404).send(error(404, '文档不存在'))
@@ -169,15 +174,15 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /docs/:id/chunks - 文档切片预览
-  server.get('/docs/:id/chunks', async (req, reply) => {
+  server.get('/docs/:id/chunks', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = Number((req.params as { id: string }).id)
     if (!Number.isInteger(id) || id <= 0) {
       return reply.status(400).send(error(400, 'doc_id 非法'))
     }
     const q = (req.query as { ownerUuid?: string; limit?: string }) ?? {}
     const limit = q.limit ? Math.max(1, Math.min(100, Number(q.limit))) : 10
-    const authUser = (req.user as { userId?: string } | undefined)?.userId
-    const owner = resolveOwner(authUser, q.ownerUuid ?? '')
+    const authUser = req.userId
+    const owner = resolveOwner(authUser)
     try {
       const chunks = await knowledgeRagService.getDocChunks(id, owner, limit)
       return reply.send(success(chunks))
@@ -188,14 +193,13 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /docs/:id - 软删除文档
-  server.delete('/docs/:id', async (req, reply) => {
+  server.delete('/docs/:id', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = Number((req.params as { id: string }).id)
     if (!Number.isInteger(id) || id <= 0) {
       return reply.status(400).send(error(400, 'doc_id 非法'))
     }
-    const q = (req.query as { ownerUuid?: string }) ?? {}
-    const authUser = (req.user as { userId?: string } | undefined)?.userId
-    const owner = resolveOwner(authUser, q.ownerUuid ?? '')
+    const authUser = req.userId
+    const owner = resolveOwner(authUser)
     try {
       const ok = await knowledgeRagService.deleteDoc(id, owner)
       if (!ok) return reply.status(404).send(error(404, '文档不存在或已删除'))
@@ -207,14 +211,14 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /docs/batch-delete - 批量删除
-  server.post('/docs/batch-delete', async (req, reply) => {
+  server.post('/docs/batch-delete', { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = batchDeleteSchema.safeParse(req.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
-    const authUser = (req.user as { userId?: string } | undefined)?.userId
-    const owner = resolveOwner(authUser, b.ownerUuid)
+    const authUser = req.userId
+    const owner = resolveOwner(authUser)
     try {
       const result = await knowledgeRagService.batchDeleteDocs(b.docIds, owner)
       return reply.send(success(result))

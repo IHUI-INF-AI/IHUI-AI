@@ -30,6 +30,7 @@
  * - ModelConfigDialog 模型配置弹窗
  */
 import { aizhsUrl } from '@/constants/icon-urls'
+import { localMonthKey } from '@ihui/shared'
 import { TAB_BAR_OCCUPIED_CSS, TAB_BAR_OCCUPIED_PX } from '@/constants/tab-bar-metrics'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Image, Text, ScrollView, Button } from '@tarojs/components'
@@ -704,7 +705,8 @@ export default function Index() {
         >()
         for (const chat of modelChats) {
           // YYYY-MM 分组(与 user 页同语义);无时间字段归入"最近"
-          const dateKey = chat.time ? chat.time.slice(0, 7) : tt('ai.agentList.tabRecent', '最近')
+          // 与 user 页同语义:按本地时区取 YYYY-MM(不再 slice UTC 串)
+          const dateKey = localMonthKey(chat.time) ?? tt('ai.agentList.tabRecent', '最近')
           if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
           dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
         }

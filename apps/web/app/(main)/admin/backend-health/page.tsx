@@ -24,11 +24,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 
+// 对齐 GET /api/admin/monitor/services 的 checkServiceHealth 返回:
+// api/web/ai-service 标 'running'(进程在跑),postgres/redis 真实探活 'healthy'/'unhealthy'。
+// L7334 结清:原读 GET /api/health 按数组读,而该端点回单对象,运行时 .map 必空。
 interface ServiceStatus {
   name: string
-  status: 'healthy' | 'unhealthy'
+  status: 'running' | 'healthy' | 'unhealthy'
   latency: number
-  message?: string
 }
 
 interface HealthEvent {
@@ -40,10 +42,11 @@ interface HealthEvent {
 }
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  API: Server,
-  DB: Database,
-  Redis: Cpu,
-  'AI-Service': Brain,
+  api: Server,
+  web: Activity,
+  'ai-service': Brain,
+  postgres: Database,
+  redis: Cpu,
 }
 
 export default function BackendHealthPage() {
@@ -53,7 +56,10 @@ export default function BackendHealthPage() {
   const { data: services, isLoading } = useQuery({
     queryKey: ['admin', 'backend-health'],
     queryFn: async () => {
-      return await apiOrThrow<ServiceStatus[]>('/api/health')
+      // 多服务健康端点(信封 {list});读法与 admin/monitor/dashboard 页同一口径
+      return await apiOrThrow<{ list: ServiceStatus[] }>('/api/admin/monitor/services').then(
+        (d) => d.list ?? [],
+      )
     },
   })
   const { data: events } = useQuery({
@@ -67,7 +73,7 @@ export default function BackendHealthPage() {
 
   const servicesList = services ?? []
   const eventsList = events ?? []
-  const healthyCount = servicesList.filter((s) => s.status === 'healthy').length
+  const healthyCount = servicesList.filter((s) => s.status !== 'unhealthy').length
 
   return (
     <div className="space-y-4 px-4 py-4">
@@ -101,7 +107,8 @@ export default function BackendHealthPage() {
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {servicesList.map((s) => {
               const Icon = ICONS[s.name] ?? Server
-              const ok = s.status === 'healthy'
+              // 'running' = 探活确认进程在跑,与 'healthy' 同视为正常
+              const ok = s.status !== 'unhealthy'
               return (
                 <Card key={s.name}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -130,7 +137,6 @@ export default function BackendHealthPage() {
                       <Clock className="h-3 w-3" />
                       {s.latency}ms
                     </div>
-                    {s.message && <div className="mt-1 text-xs text-red-600">{s.message}</div>}
                   </CardContent>
                 </Card>
               )

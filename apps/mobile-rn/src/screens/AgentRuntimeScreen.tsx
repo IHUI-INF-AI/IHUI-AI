@@ -252,7 +252,7 @@ export function AgentRuntimeScreen() {
                 <TouchableOpacity
                   key={mode}
                   onPress={() => setProbeMode(mode)}
-                  className={`mb-2 mr-2 rounded-sm px-3 py-1.5 ${
+                  className={`mb-2 mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
                     active
                       ? 'bg-neutral-900 dark:bg-neutral-100'
                       : 'bg-neutral-200 dark:bg-neutral-800'
@@ -282,7 +282,7 @@ export function AgentRuntimeScreen() {
                 <TouchableOpacity
                   key={level}
                   onPress={() => setProbeLevel(level)}
-                  className={`mb-2 mr-2 rounded-sm px-3 py-1.5 ${
+                  className={`mb-2 mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
                     active
                       ? 'bg-neutral-900 dark:bg-neutral-100'
                       : 'bg-neutral-200 dark:bg-neutral-800'
@@ -305,7 +305,7 @@ export function AgentRuntimeScreen() {
           <TouchableOpacity
             disabled={probing || probeTool.trim().length === 0}
             onPress={onProbe}
-            className={`mt-1 self-start rounded-sm px-4 py-2 ${
+            className={`mt-1 self-start rounded-sm px-4 py-2 min-h-[44px] ${
               probing || probeTool.trim().length === 0
                 ? 'bg-neutral-300 dark:bg-neutral-800'
                 : 'bg-neutral-900 dark:bg-neutral-100'
@@ -339,20 +339,20 @@ export function AgentRuntimeScreen() {
               </Text>
             </View>
           ) : (
-            <Text className="mt-2 text-xs text-neutral-500">{t('agentRuntime.probeHint')}</Text>
+            <Text className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{t('agentRuntime.probeHint')}</Text>
           )}
         </View>
 
         {loading ? (
           <View className="items-center py-12">
-            <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
+            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
           </View>
         ) : error ? (
           <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
             <Text className="mb-3 text-xs text-red-700 dark:text-red-300">{error}</Text>
             <TouchableOpacity
               onPress={() => void load()}
-              className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
+              className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100 min-h-[44px]"
             >
               <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                 {t('common.retry')}
@@ -361,7 +361,7 @@ export function AgentRuntimeScreen() {
           </View>
         ) : sessions.length === 0 ? (
           <View className="items-center py-12">
-            <Text className="text-sm text-neutral-500">{t('agentRuntime.empty')}</Text>
+            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('agentRuntime.empty')}</Text>
           </View>
         ) : (
           sessions.map((session) => {
@@ -385,7 +385,7 @@ export function AgentRuntimeScreen() {
                   </View>
                 </View>
 
-                <Text className="mt-1 text-xs text-neutral-500">
+                <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                   {t('agentRuntime.messages', { count: live?.count ?? session.messages.length })}
                   {session.model ? ` · ${t('agentRuntime.model')}: ${session.model}` : ''}
                 </Text>
@@ -396,7 +396,7 @@ export function AgentRuntimeScreen() {
                 ) : null}
 
                 {expanded && live ? (
-                  <Text className="mt-1 text-xs text-neutral-500">
+                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {t('agentRuntime.liveStatus')}: {t(sessionStatusKey(live.status))}
                   </Text>
                 ) : null}
@@ -405,7 +405,7 @@ export function AgentRuntimeScreen() {
                   <TouchableOpacity
                     disabled={busyKey === session.sessionId}
                     onPress={() => onResume(session)}
-                    className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                    className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100 min-h-[44px]"
                   >
                     <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                       {t('agentRuntime.resume')}
@@ -414,7 +414,7 @@ export function AgentRuntimeScreen() {
                   <TouchableOpacity
                     disabled={busyKey === session.sessionId}
                     onPress={() => onCancel(session)}
-                    className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                    className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
                   >
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {t('agentRuntime.cancel')}
