@@ -22,8 +22,11 @@
  * 传进来的对象,零新依赖。
  */
 interface RewriteEntry {
-  /** 精确匹配的相对请求 */
-  request: string
+  /**
+   * 真相源模块的**绝对路径(不含扩展名)**。相对请求解析后去扩展名、去结尾 `/index`,
+   * 与之相等才改写 ⇒ `'../i18n'`、`'../../i18n'`、`'../i18n/index'` 三种写法一律命中。
+   */
+  base: string
   /** 替换目标(绝对路径) */
   to: string
 }
@@ -56,16 +59,50 @@ export class RnShellReplacePlugin {
       }
       factory.hooks.beforeResolve.tap('RnShellReplacePlugin', (data: ResolveDataLike) => {
         if (!data || typeof data.request !== 'string') return
+        if (!data.request.startsWith('.')) return // 只管相对请求(裸包名交给 alias 那一层)
         const issuer = data.context ?? data.contextInfo?.issuer ?? ''
         // 只对 RN 端目录里发起的请求生效(路径分隔符两种都认,Windows 反斜杠是这里的大头)
         const fromRn = issuer.replace(/\\/g, '/').includes(this.rootMarker)
         if (!fromRn) return
-        const hit = this.rules.find((r) => r.request === data.request)
+        const asFile = /\.[mc]?[jt]sx?$/i.test(issuer.replace(/\\/g, '/'))
+        const dir = asFile ? posixDirname(issuer) : issuer
+        // 请求串本身也可能是反斜杠形态(Windows 上手写或经工具插出来的),不归一就会把
+        // `..\..\i18n` 整串当成一个路径段 ⇒ 永远算不出落点。
+        const key = normalizeModuleKey(posixResolve(dir, data.request.replace(/\\/g, '/')))
+        const hit = this.rules.find((r) => key === normalizeModuleKey(r.base))
         if (hit) data.request = hit.to
       })
     })
   }
 }
 
-export const __test__ = { RnShellReplacePlugin }
+/** 归一:反斜杠→正斜杠、去扩展名、去结尾 `/index`(目录形态与显式 index 写法同解)。 */
+export function normalizeModuleKey(p: string): string {
+  const fwd = p.replace(/\\/g, '/')
+  const noExt = fwd.replace(/\.(tsx?|jsx?|mjs|cjs|json)$/i, '')
+  return noExt.replace(/\/index$/i, '')
+}
+
+/** 零依赖路径算子:全程 POSIX 形态比较,不引 path(Windows 反斜杠在上面已归一)。 */
+function posixDirname(p: string): string {
+  const fwd = p.replace(/\\/g, '/')
+  const i = fwd.lastIndexOf('/')
+  return i <= 0 ? '/' : fwd.slice(0, i)
+}
+
+function posixResolve(dir: string, rel: string): string {
+  const joined = (dir.replace(/\\/g, '/') + '/' + rel).replace(/\/{2,}/g, '/')
+  // 根形态要保住:posix 的 `/`、Windows 的 `D:/`、以及相对形态三者比较时不能互相冒充
+  const absRoot = joined.startsWith('/') ? '/' : /^[a-z]:\//i.test(joined) ? joined.slice(0, 3) : ''
+  const rest = absRoot ? joined.slice(absRoot.length) : joined
+  const out: string[] = []
+  for (const seg of rest.split('/')) {
+    if (seg === '' || seg === '.') continue
+    if (seg === '..') out.pop()
+    else out.push(seg)
+  }
+  return absRoot + out.join('/')
+}
+
+export const __test__ = { RnShellReplacePlugin, normalizeModuleKey, posixResolve, posixDirname }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
