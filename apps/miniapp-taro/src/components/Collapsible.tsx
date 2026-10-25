@@ -4,8 +4,9 @@
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Text, View } from '@tarojs/components'
+import { View } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+import LineIcon from '@/components/LineIcon'
 
 /**
  * 折叠/展开组件 —— 与 `packages/ui-native/src/collapsible.tsx` 逐契约对齐(「一模一样」契约)。
@@ -13,7 +14,8 @@ import { cn } from '@ihui/design-tokens'
  * 对齐点(API / 结构 / 视觉):
  * - `CollapsibleProps` 同 RN:`open?: boolean`(默认 false)、`children?: ReactNode`、`className?: string`。
  * - 容器 `View className="w-full ${className}"`,与 RN `<View className={cn('w-full', className)}>` 一致。
- * - 箭头 `›`(`\u203A`)用 `text-base text-foreground`,与 RN `<Text className="text-base text-foreground">›</Text>` 同字形同色。
+ * - 箭头走矢量共享源 `LineIcon name="chevron-right"`(size 32rpx = 原 `text-base` 档,color 原 `text-foreground`)
+ *   —— 守门 102 禁止把字形字符当图标;与 RN 侧 `<Text>` 字形不同,光学尺寸/颜色与改动前同档。
  * - 展开态箭头旋转 90deg(对应 RN Animated 的 `rotate: 0deg → 90deg`)。
  *
  * 与 RN 的分歧(刻意、gate-clean 优先):
@@ -47,12 +49,12 @@ export function Collapsible({ open = false, children, className }: CollapsiblePr
         onClick={() => setExpanded((v) => !v)}
         hoverClass="opacity-60"
       >
-        <Text
-          className="text-base text-foreground"
+        <LineIcon
+          name="chevron-right"
+          size={32}
+          color="var(--color-foreground)"
           style={{ transform: `rotate(${arrowRotation})`, transition: `transform ${ANIM_DURATION}ms ease` }}
-        >
-          {'›'}
-        </Text>
+        />
       </View>
       <View
         style={{
