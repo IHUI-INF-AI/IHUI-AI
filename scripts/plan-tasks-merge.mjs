@@ -480,6 +480,18 @@ export const BYPASS_LANDING_SITES = [
     rollback: 'casUpdateRef(parent,',
     before: 'alignSharedIndex(',
   },
+  {
+    // 第 9 站(2026-10-25 立,--fold-drifted-families 的落地腿):CAS/复验/回退形状同 twinFoldAndLand。
+    // 它是**删行**档,落地成功后还要写 `plan-row-drop.jsonl` 留痕(`appendDropLedger`)并补跑台账
+    // 自愈 —— 这两步与 `attestLanding` 同属"落地已成"的后置动作,次序锁一并由本表把守:
+    // 留痕/自愈都在 `attestLanding` 之后、共享索引对齐之前(与其余站点同一条口径)。
+    fn: 'foldDriftedFamiliesAndLand',
+    source: 'plan-tasks-merge:fold-drifted-families',
+    cas: 'casUpdateRef(landed.commit, parent',
+    guard: 'if (recheck.problems.length) {',
+    rollback: 'casUpdateRef(parent,',
+    before: 'alignSharedIndex(',
+  },
 ]
 
 /** 顶层函数声明的位置清单(名字 + 起点)。列 0 起笔才算,缩进的内部函数不吃这一判据。 */
@@ -3704,7 +3716,8 @@ export function driftedMergeAndLand(anchor, keeperLine, maxAttempts = 8) {
  * 四条硬纪律(与器内其它删行档同形,任一不过即整批不落):
  *  ① **分族键 = 题面指纹**(`extractTaskFingerprint`,门 203 同一实现,§0.6);禁按复合主键分族 ——
  *     同一件事被并发取号登记成几条不同编号正是本档要吃的那一型,按主键分族对它们全盲。
- *  ② **每族只留一行**,且被删行逐字进 `.ihui-agent/state/plan-row-drop.jsonl`(kind 由 `seat` 具名)。
+ *  ② **每族只留一行**,且被删行逐字进 `.ihui-agent/state/plan-row-drop.jsonl`(写面唯一出口 =
+ *     `strip-stale-closed-rows.mjs` 的 `appendDropLedger`,`seat` 区分本档)。
  *     不写留痕 = `union-converge` 的活文档行 union 与 `scrub-declared-removals` 同时看不见这批行
  *     ⇒ 摘一次回一次(本仓 2026-10-23 实测过的形态)。留痕必须排在**落地成功之后**
  *     (凭据是"HEAD 有没有被推进",不是退出码)。
@@ -3934,24 +3947,22 @@ export function verifyDriftedFamilyFold(srcText, outText, plan) {
   // ⑤ 勾选态 / 注记 / 重复计数 三维
   const ap0 = auditPlan(srcText)
   const ap1 = auditPlan(outText)
-  const c0 = ap0.counts
-  const c1 = ap1.counts
+  const before = ap0.counts
+  const after = ap1.counts
   if (ap1.doneRows !== ap0.doneRows)
     problems.push(`已勾选行数 ${ap0.doneRows}→${ap1.doneRows}(本档只折未勾行,勾选态必须一枚不动)`)
-  if (c1.open !== c0.open - deletedCount)
-    problems.push(`未勾选行数 ${c0.open}→${c1.open} 与被删份数 ${deletedCount} 不吻合`)
-  if (c1.mergeNotes > c0.mergeNotes)
-    problems.push(`归并落账注记由 ${c0.mergeNotes} 涨到 ${c1.mergeNotes}(本档不产注记)`)
-  for (const [k, get] of [
-    ['F1', (c) => c.forks],
-    ['F2', (c) => c.voidRows],
-    ['F3', (c) => c.rotatedAuto],
-    ['F4', (c) => c.dupOpenCopies],
-    ['F4b', (c) => c.verbatimDupCopies],
-    ['F6', (c) => c.dupBlocks],
-  ]) {
-    if (get(c1) > get(c0)) problems.push(`${k} 由 ${get(c0)} 涨到 ${get(c1)}`)
-  }
+  if (after.open !== before.open - deletedCount)
+    problems.push(`未勾选行数 ${before.open}→${after.open} 与被删份数 ${deletedCount} 不吻合`)
+  if (after.mergeNotes > before.mergeNotes)
+    problems.push(`归并落账注记由 ${before.mergeNotes} 涨到 ${after.mergeNotes}(本档不产注记)`)
+  // F 维**共用同一份策略表**(`fDimRegressions` / `F_DIM_NO_RISE`):本档同属删行档,
+  // 删行必然挪行号 ⇒ F3 只能读指针总数(读 `rotatedAuto` 就是策略表头注点名的"凭空 +1 恒红门")。
+  // 与 `verifyBlockDedupe` / `verifyRowDedupeCore` 三处同走这一个出口(§0.6:同类判据只许一份)。
+  problems.push(...fDimRegressions(before, after))
+  // F4b(逐字副本行)不在公共表里:另外两档没做同量级对照,不"顺手统一";而本档删的正是
+  // "同题副本" ⇒ 单独守住"折了这一族、别造出另一族的逐字副本"。
+  if (after.verbatimDupCopies > before.verbatimDupCopies)
+    problems.push(`F4b 由 ${before.verbatimDupCopies} 涨到 ${after.verbatimDupCopies}(删除档不得造逐字副本)`)
   // ⑥ 幂等:对产物再跑一遍必须无折(依据 = 每族未勾行数 = 1)
   if (!problems.length) {
     const again = planDriftedFamilyFolds(b)
@@ -3968,7 +3979,7 @@ export function verifyDriftedFamilyFold(srcText, outText, plan) {
   } catch (e) {
     problems.push(`门 71 判据未判定(${String(e?.message ?? e).slice(0, 100)})⇒ 整批不落`)
   }
-  return { problems, before: c0, after: c1 }
+  return { problems, before, after }
 }
 
 /**
