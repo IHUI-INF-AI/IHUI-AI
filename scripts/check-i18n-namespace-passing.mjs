@@ -40,11 +40,11 @@
  *
  * 守门集成:guardian-runner.mjs id=2g-web(warn 模式)
  */
-import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -86,11 +86,8 @@ function collectTsxFiles(dir, result = []) {
 
 function getStagedFiles() {
   try {
-    const out = execSync(
-      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
-    )
+    // 枚举走取材层:绝对 git / 显式 stdio(§12g,EBUSY 病窗)/ windowsHide / quotepath 由 gitRaw 统一提供。
+    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT)
     return out.split('\n').filter(Boolean)
   } catch {
     return []
