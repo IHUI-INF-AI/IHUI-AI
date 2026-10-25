@@ -4820,5 +4820,14 @@
       "refunded": "已退",
       "pending": "待确认"
     }
+  },
+  "agreement": {"subtitle":"请仔细阅读本协议","title":"用户协议"},
+  "agreementSections": {
+    "sectionObligations": "用户义务",
+    "sectionObligationsBody": "您应遵守相关法律法规,不得发布违法、违规、有害信息,不得侵犯他人合法权益。",
+    "sectionRights": "用户权利",
+    "sectionRightsBody": "您享有依法获取服务、对个人信息进行管理、对违规内容举报等权利。",
+    "sectionTerms": "服务条款",
+    "sectionTermsBody": "本协议是您与智汇 AI 之间就使用本平台服务所订立的协议。请在使用前仔细阅读,一旦使用即视为同意并接受本协议所有条款。"
   }
 }
