@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-25T12:52:15.622Z",
+  "sealedAt": "2026-10-25T17:54:26.513Z",
   "sealedBy": "root-guard --seal",
-  "reason": "初始封存(O65 P0 落地)",
+  "reason": "撤出重复实现:git-guardian 派发层已在 HEAD(并行席 2026-10-26 接线);本票仅保留 judgement-libs 腐烂路径修正",
   "targets": [
     {
       "id": "guardian-runner",
@@ -15,7 +15,7 @@
       "id": "judgement-libs",
       "path": "scripts/lib/judgement-libs.json",
       "mode": "file",
-      "sha256": "ba32b8680c403c61bfbd9955ba3171d437e60183d064f73b40448f411872c9c1"
+      "sha256": "265c3669b514884e1f07fa72a7a0e2b9889ead9b490ff51319f4b1e84b45ae5f"
     },
     {
       "id": "agents-ironlaw",
