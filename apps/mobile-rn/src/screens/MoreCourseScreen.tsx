@@ -15,6 +15,7 @@
  *   getCourses 分页加载;知识星球资讯沿用 KnowledgePlanetScreen 同源接口。
  * - 加载态接入 components/common/Loading(对齐原项目 common/Loading 遮罩语义)。
  */
+import { rnType } from '@ihui/design-tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type NativeScrollEvent,
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
     paddingBottom: rpx(40),
   },
   errorText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.danger.DEFAULT,
     textAlign: 'center',
     paddingVertical: rpx(16),

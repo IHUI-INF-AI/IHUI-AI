@@ -6,7 +6,7 @@ import { useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 /**
  * TabBar 底部导航(跨端共享层)。
@@ -86,8 +86,8 @@ const viewStyles = {
     alignItems: 'center',
     justifyContent: 'center',
     height: TAB_BAR_HEIGHT,
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingTop: rnSpacing.xs,
+    paddingBottom: rnSpacing.xs,
     cursor: 'pointer',
   }),
   itemPressed: (): CSSProperties => ({

@@ -18,6 +18,7 @@
  * - Menu 默认 items 即原 Menu/index.vue 内置 8 项(tabbar/coursePlanet 图标),无需扩展 props。
  * - 加载态接入 components/common/Loading;原模板顶部搜索框不在本次对齐范围(原文件已注释)。
  */
+import { rnType } from '@ihui/design-tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type NativeScrollEvent,
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
     padding: rpx(20),
   },
   errorText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.danger.DEFAULT,
     textAlign: 'center',
     paddingVertical: rpx(16),
