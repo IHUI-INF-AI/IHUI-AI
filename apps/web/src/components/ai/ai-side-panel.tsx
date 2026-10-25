@@ -901,12 +901,14 @@ export function AISidePanel() {
       // keyset 模式:cursor 为服务端下发的 base64url 复合游标,direction=older 向前翻更早消息
       const res = await getMessages(convId, { cursor, direction: 'older', pageSize: 50 })
       if (!res.success) return
-      const older = res.data.messages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        createdAt: new Date(m.createdAt).getTime(),
-      }))
+      // await 期间会话可能已切走(切换 effect 会同步写 store.conversationId)⇒ 复验不等即整页作废:
+      // 否则旧会话的一页 prepend 进新会话、resetPager 把旧游标装进新会话、
+      // patchConversationCache 把串会话的列表写进旧会话缓存桶(LRU 持久污染)。
+      if (useChatStore.getState().conversationId !== convId) return
+      // 与首次加载(:676/:732)和非根窗格(chat-pane-body.tsx:222)走**同一水合出口** ——
+      // 原手写 map 只留 id/role/content/createdAt,翻上来的旧消息丢 toolCalls/planSteps/
+      // citations/pinnedAt/parentMessageId+siblingIndex(版本族判不出 ⇒ "点一次编辑出两个气泡")。
+      const older = hydrateHistoryMessages(res.data.messages)
       // G-816010 分页结果双重复核:响应游标 == 请求游标 ⇒ 本次没有任何前进信息,收下它与
       // replay 不可区分(下次上翻发同一个游标、拿回同一页,账面每次加载都成功而更早的历史
       // 永远读不到)⇒ 停止补拉并按可重试失败上报,不当"成功且没有更多",也不静默。
