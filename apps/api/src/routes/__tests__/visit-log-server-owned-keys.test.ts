@@ -16,6 +16,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type * as VisitTrackingQueries from '../../db/visit-tracking-queries.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
@@ -25,7 +26,7 @@ vi.hoisted(() => {
 const { captured } = vi.hoisted(() => ({ captured: [] as Array<Record<string, unknown>> }))
 
 vi.mock('../../db/visit-tracking-queries.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../db/visit-tracking-queries.js')>()
+  const actual = await importOriginal<typeof VisitTrackingQueries>()
   return {
     ...actual,
     saveVisitLog: vi.fn(async (input: Record<string, unknown>) => {
@@ -92,7 +93,11 @@ describe('visit-log:业务时间键与来源字段一律取服务端观测面', 
 
   it('非法 visitDate 不再变成 500:键被忽略后请求按正常语义处理', async () => {
     captured.length = 0
-    const res = await app.inject({ method: 'POST', url: URL, payload: { url: '/y', visitDate: 'abc' } })
+    const res = await app.inject({
+      method: 'POST',
+      url: URL,
+      payload: { url: '/y', visitDate: 'abc' },
+    })
     expect(res.statusCode).toBe(200)
     expect(captured[0]?.visitDate).toBeUndefined()
   })
