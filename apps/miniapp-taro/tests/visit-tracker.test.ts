@@ -5,26 +5,25 @@
 /**
  * 小程序页面埋点取证(2026-10-26 立)。
  *
- * 钉四件:路径前缀 `/mp/`、3 秒去抖、栈顶取法(空栈不报)、轮询启停幂等。
- * 这几条任一被改坏,微信端要么多算、要么整端静默漏报 —— 而漏报在监控面上表现为
- * 「这个端没人在用」,是最难被发现的一型。
+ * 钉四件:路径前缀 `/mp/`、3 秒去抖、栈顶取法(空栈不报)、轮询启停幂等,
+ * 以及「上报必须走共享 api-client 的 recordVisitLog」——端内手拼 baseUrl 直连后端
+ * 会被守门 184 拦,这里也从调用面钉住。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const h = vi.hoisted(() => {
-  const state = { stack: [] as Array<{ route: string }>, requests: [] as unknown[] }
-  const taro = {
-    getCurrentPages: () => state.stack,
-    request: (opts: unknown) => {
-      state.requests.push(opts)
-      return Promise.resolve({ statusCode: 200 })
-    },
+  const state = { stack: [] as Array<{ route: string }> }
+  const taro = { getCurrentPages: () => state.stack }
+  const api = {
+    recordVisitLog: vi.fn((_payload: { url: string; sessionId: string }) =>
+      Promise.resolve({ success: true, data: {} }),
+    ),
   }
-  return { state, taro }
+  return { state, taro, api }
 })
 
 vi.mock('@tarojs/taro', () => ({ default: h.taro }))
-vi.mock('../src/utils/api-config', () => ({ BASE_URL: 'http://api.test/api' }))
+vi.mock('@ihui/api-client', () => ({ recordVisitLog: h.api.recordVisitLog }))
 
 import {
   __resetPageViewTrackingForTest,
@@ -36,16 +35,12 @@ import {
   MP_VISIT_DEBOUNCE_MS,
 } from '../src/utils/visit-tracker'
 
-const lastRequest = () =>
-  h.state.requests[h.state.requests.length - 1] as {
-    url: string
-    method: string
-    data: { url: string; sessionId: string }
-  }
+const callCount = () => h.api.recordVisitLog.mock.calls.length
+const lastPayload = () => h.api.recordVisitLog.mock.calls.at(-1)![0]
 
 beforeEach(() => {
   h.state.stack = []
-  h.state.requests = []
+  h.api.recordVisitLog.mockClear()
   __resetPageViewTrackingForTest()
 })
 
@@ -83,26 +78,24 @@ describe('currentPageRoute', () => {
 })
 
 describe('reportPageView', () => {
-  it('首次上报:POST 到访问端点,带会话 id', () => {
+  it('首次上报走共享 api-client,带页面路径与会话 id', () => {
     expect(reportPageView('pages/index/index', 1_000)).toBe(true)
-    expect(h.state.requests).toHaveLength(1)
-    const req = lastRequest()
-    expect(req.url).toBe('http://api.test/api/visit-tracking/visit-log')
-    expect(req.method).toBe('POST')
-    expect(req.data.url).toBe('/mp/pages/index/index')
-    expect(typeof req.data.sessionId).toBe('string')
+    expect(callCount()).toBe(1)
+    const payload = lastPayload()
+    expect(payload.url).toBe('/mp/pages/index/index')
+    expect(typeof payload.sessionId).toBe('string')
   })
 
   it('同页 3 秒内去抖,换页立即放行', () => {
     expect(reportPageView('pages/index/index', 10_000)).toBe(true)
     expect(reportPageView('pages/index/index', 10_000 + MP_VISIT_DEBOUNCE_MS - 1)).toBe(false)
     expect(reportPageView('pages/chat/index', 10_000 + 1)).toBe(true)
-    expect(h.state.requests).toHaveLength(2)
+    expect(callCount()).toBe(2)
   })
 
-  it('空 route 不发请求', () => {
+  it('空 route 不上报', () => {
     expect(reportPageView(null, 20_000)).toBe(false)
-    expect(h.state.requests).toHaveLength(0)
+    expect(callCount()).toBe(0)
   })
 })
 
@@ -111,22 +104,20 @@ describe('startPageViewTracking', () => {
     vi.useFakeTimers()
     h.state.stack = [{ route: 'pages/index/index' }]
     const stop = startPageViewTracking(2000)
-    expect(h.state.requests).toHaveLength(1)
+    expect(callCount()).toBe(1)
 
-    // 同一页继续轮询:去抖窗口内不重复报
     vi.advanceTimersByTime(2000)
-    expect(h.state.requests).toHaveLength(1)
+    expect(callCount()).toBe(1)
 
-    // 切页后下一次轮询立刻记录
     h.state.stack.push({ route: 'pages/chat/index' })
     vi.advanceTimersByTime(2000)
-    expect(h.state.requests).toHaveLength(2)
-    expect(lastRequest().data.url).toBe('/mp/pages/chat/index')
+    expect(callCount()).toBe(2)
+    expect(lastPayload().url).toBe('/mp/pages/chat/index')
 
     stop()
     h.state.stack.push({ route: 'pages/me/index' })
     vi.advanceTimersByTime(10_000)
-    expect(h.state.requests).toHaveLength(2)
+    expect(callCount()).toBe(2)
   })
 
   it('重复调用不叠加定时器', () => {
@@ -136,7 +127,7 @@ describe('startPageViewTracking', () => {
     startPageViewTracking(2000)
     h.state.stack.push({ route: 'pages/chat/index' })
     vi.advanceTimersByTime(2000)
-    expect(h.state.requests).toHaveLength(2)
+    expect(callCount()).toBe(2)
     stopPageViewTracking()
   })
 })
