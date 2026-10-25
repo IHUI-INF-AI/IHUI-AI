@@ -1419,7 +1419,7 @@ export const HAND_COPY_NEUTRALS = new Set(['#ffffff', '#000000'])
 const HEX_LEAF_RE = /^\s*#[0-9a-f]{3,8}\s*$/i
 
 /** RN 派生面上「与源同值」的颜色 → 出处(表.路径 + 同名 CSS 变量),供报错文案点名该走哪一档。 */
-export function indexDerivedColors({ leavesByConst, cssLight, cssDark }) {
+export function indexDerivedColors({ leavesByConst, cssLight, cssDark, paletteLeaves = null }) {
   const idx = new Map()
   for (const [constName, leaves] of Object.entries(leavesByConst)) {
     const table = constName === 'rnDarkTokens' ? cssDark : cssLight
@@ -1433,6 +1433,16 @@ export function indexDerivedColors({ leavesByConst, cssLight, cssDark }) {
       if (HAND_COPY_NEUTRALS.has(norm)) continue
       if (!idx.has(norm)) idx.set(norm, { rnPath: `${constName}.${lf.path}`, cssVar: varName })
     }
+  }
+  // 覆盖面块(rn-tokens.ts 末端的 rnCssLight):整张表**由源全量派生**,不需要再按名推一遍
+  // 同名变量才算"派生面上的档" —— 它进表的条件就是"源里有这一档"。不收进来,那 174 档
+  // 在端内被写回字面量时 R8 判不出来,门就在自己刚铺好的那一格失明。
+  for (const lf of paletteLeaves ?? []) {
+    if (!HEX_LEAF_RE.test(lf.value)) continue
+    const norm = normalizeColor(lf.value)
+    if (HAND_COPY_NEUTRALS.has(norm)) continue
+    if (!idx.has(norm))
+      idx.set(norm, { rnPath: `rnCssLight.${Array.isArray(lf.path) ? lf.path.join('.') : lf.path}`, cssVar: '(源侧全量派生档)' })
   }
   return idx
 }
@@ -1493,7 +1503,17 @@ export async function runR8({ face, quiet }) {
       throw new UndeterminedError(`R8 在 rn-tokens.ts 里定位不到 export const ${name} ⇒ 无法判定`)
     leavesByConst[name] = objectLeaves(body, [])
   }
-  const valueIndex = indexDerivedColors({ leavesByConst, cssLight, cssDark })
+  const paletteBody = extractTsObjectBody(rnSrc, 'rnCssLight')
+  const valueIndex = indexDerivedColors({
+    leavesByConst,
+    cssLight,
+    cssDark,
+    paletteLeaves: paletteBody === null ? null : objectLeaves(paletteBody, []),
+  })
+  if (!quiet && paletteBody === null)
+    console.warn(
+      '[check-cross-end-tokens] ℹ️ R8 看不到覆盖面块(rnCssLight)⇒ 源全量档那一格不在射程;跑 node scripts/sync-rn-tokens.mjs 生成',
+    )
   if (valueIndex.size === 0)
     throw new UndeterminedError('R8 的禁用值集合取到 0 条(派生面为空)= 判据失明,不记为通过')
 
