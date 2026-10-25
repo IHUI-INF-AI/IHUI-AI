@@ -13,6 +13,28 @@
     "不得登记 desktop:该端无 JS 扫描面,声明永远不会被读到。"
   ],
   "targets": {
+    "mobile-rn": {
+      "topic.detail.loading": {
+        "reason": "c72a93dda9 为「跨端同屏同字」补五语言该键:同一屏 pkg-content/topic 的 loading 文案在小程序端 static 取(apps/miniapp-taro/src/pkg-content/topic/detail.tsx:200),RN 端共享屏改走骨架/loadingMore 故本端无静态引用。该键同时被本端测试钉成形状键:apps/mobile-rn/tests/topic-detail-screen-render.test.tsx 的 USED 清单(:163-179,含 :165)逐语言断言 topic.detail.* 15 键取到非空且不等于键名 —— 删键必须与该测试同批,单删本端词包即判 5 红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "evidence": [
+          {
+            "file": "apps/miniapp-taro/src/pkg-content/topic/detail.tsx",
+            "line": 200,
+            "contains": "topic.detail.loading"
+          },
+          {
+            "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
+            "line": 165,
+            "contains": "'loading'"
+          },
+          {
+            "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
+            "line": 182,
+            "contains": "15 键全部取到非空字符串"
+          }
+        ]
+      }
+    },
     "web": {
       "eduCertificates.certificateNo": {
         "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
