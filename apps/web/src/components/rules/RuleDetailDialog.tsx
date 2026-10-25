@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { Activity, History, Loader2, ThumbsDown, ThumbsUp, TrendingUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { rulesApi } from './rules-api'
+import { apiOrThrow } from '@/lib/api'
 import {
   RECOMMENDATION_DISABLE,
   RECOMMENDATION_ENABLE,
@@ -56,8 +56,8 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
     let cancelled = false
     setLoading(true)
     Promise.all([
-      rulesApi<RuleStats>(`/api/rules/${encodeURIComponent(rule.id)}/stats`),
-      rulesApi<RuleHistoryResponse>(`/api/rules/${encodeURIComponent(rule.id)}/history`),
+      apiOrThrow<RuleStats>(`/api/rules/${encodeURIComponent(rule.id)}/stats`),
+      apiOrThrow<RuleHistoryResponse>(`/api/rules/${encodeURIComponent(rule.id)}/history`),
     ])
       .then(([s, h]) => {
         if (!cancelled) {
@@ -78,7 +78,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
     setDiffPair([from, to])
     setDiff(null)
     try {
-      const res = await rulesApi<RuleDiffResponse>(
+      const res = await apiOrThrow<RuleDiffResponse>(
         `/api/rules/${encodeURIComponent(rule.id)}/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
       )
       setDiff(res.diff || t('diffNone'))
@@ -90,7 +90,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
   const handleRollback = async (version: string) => {
     setRollingBack(version)
     try {
-      await rulesApi<unknown>(
+      await apiOrThrow<unknown>(
         `/api/rules/${encodeURIComponent(rule.id)}/rollback?version=${encodeURIComponent(version)}`,
         { method: 'POST' },
       )
@@ -104,7 +104,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
 
   const handleFeedback = async (feedback: 'thumbs_up' | 'thumbs_down') => {
     try {
-      await rulesApi<{ success: boolean }>(`/api/rules/${encodeURIComponent(rule.id)}/feedback`, {
+      await apiOrThrow<{ success: boolean }>(`/api/rules/${encodeURIComponent(rule.id)}/feedback`, {
         method: 'POST',
         body: JSON.stringify({ feedback }),
       })
@@ -119,7 +119,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
     setPredictLoading(true)
     setPredictResult(null)
     try {
-      const res = await rulesApi<RulePredictEffectResult>(
+      const res = await apiOrThrow<RulePredictEffectResult>(
         `/api/rules/${encodeURIComponent(rule.id)}/predict-effect`,
         {
           method: 'POST',
@@ -145,7 +145,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
 
   const handleLearnFeedback = async (feedback: 'helpful' | 'unhelpful' | 'harmful') => {
     try {
-      await rulesApi<{ success: boolean }>(
+      await apiOrThrow<{ success: boolean }>(
         `/api/rules/${encodeURIComponent(rule.id)}/learn-feedback`,
         {
           method: 'POST',

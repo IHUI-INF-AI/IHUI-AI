@@ -1557,28 +1557,181 @@ export async function editMessageAndTruncateAfter(
 }
 
 /**
- * 分支:基于指定消息(含该消息)之前的所有消息创建新会话(事务)。
- * - 新会话复制源会话的 title/model/systemPrompt
- * - 消息逐条复制到新会话(生成新 UUID 避免主键冲突,保留 createdAt 时间线)
- * - metadata 写入 originalConversationId 供溯源
- * - W17(2026-09-14):metadata 额外写入 forkedFromMessageId(分叉点消息)、
- *   forkedFromMessageCount(复制的历史条数)、forkedAt(分叉时间),
- *   供前端会话列表「分支来源」标注与分支树溯源
- * 返回新创建的会话。
+ * 分叉被拒(源会话/分叉点不存在或不属于该主体)。路由层按类型分流成 404,不回头比对错误文本
+ * (门 206:文本判身份改一个字就静默失效)。
+ */
+export class ForkSourceRejectedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ForkSourceRejectedError'
+  }
+}
+
+/** 幂等键已绑定在另一个分叉点上(客户端 bug 或键复用)。路由层分流成 409。 */
+export class ForkIdempotencyConflictError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ForkIdempotencyConflictError'
+  }
+}
+
+export interface BranchForkInput {
+  userId: string
+  title?: string
+  model?: string
+  systemPrompt?: string
+  /**
+   * 幂等键(客户端生成 UUID)。同一 (userId, 源会话, clientRequestId) 重复提交只建一条分叉,
+   * 重放返回首建那条(replayed = true)且零新行。不传 = 保持旧语义(每次调用都新建)。
+   */
+  clientRequestId?: string
+}
+
+export interface BranchForkResult {
+  conversation: ChatConversation
+  forkedFromMessageId: string
+  /** 分叉点在其源会话里的版本族根 id(普通消息 = 自身)。 */
+  sourceRootId: string
+  /** 分叉点的版本序号(null = 未入族);与票59 sibling 语义同源,不另立第二套。 */
+  sourceSiblingIndex: number | null
+  /** 回库确认的复制条数(不是请求侧 length)。 */
+  copiedMessageCount: number
+  replayed: boolean
+}
+
+/** 分叉历史线性化只读这三列(纯函数入参形状,便于不连库测试)。 */
+export interface ForkHistoryRowShape {
+  id: string
+  parentMessageId: string | null
+  siblingIndex: number | null
+}
+
+/** 版本族键:兄弟行挂在族根上;族根行以自身 id 为键;未入族的普通消息返回 null。 */
+function forkFamilyKey(row: ForkHistoryRowShape): string | null {
+  if (row.parentMessageId) return row.parentMessageId
+  return row.siblingIndex !== null ? row.id : null
+}
+
+/** 同族两版择一:分叉点必胜(它是用户点的那一版);否则 siblingIndex 大者胜。 */
+function pickForkVersion<T extends ForkHistoryRowShape>(prev: T, next: T, targetId: string): T {
+  if (prev.id === targetId) return prev
+  if (next.id === targetId) return next
+  return (next.siblingIndex ?? -1) >= (prev.siblingIndex ?? -1) ? next : prev
+}
+
+/**
+ * 分叉历史线性化(纯函数,无 IO):把"按 createdAt ≤ 分叉点"取出的行裁成**单一线性历史**。
+ *
+ * 为什么必须裁:票59/64 的版本族是"同一轮回复的多版共存",行集是树不是线。按 createdAt
+ * 直接复制会把同族兄弟版本一起搬进新会话 —— 新会话里同一轮出现两三条 AI 回复,
+ * 版本菜单却没跟着搬(复制行不带族标记),读起来就是"分叉把历史说重了"。
+ *
+ * 规则(与 regenerateConversationMessages 的族根判定同口径):
+ *  - 族键 = parentMessageId ?? (siblingIndex !== null ? 自身 id : null);
+ *  - 每族只留一版,占族根原来的位置(顺序仍按 createdAt 单调);
+ *  - 分叉点所在的那一版必胜(用户点哪版分哪版);否则留 siblingIndex 最大的一版(最新);
+ *  - 未入族的普通消息逐行保留。
+ */
+export function linearizeForkHistory<T extends ForkHistoryRowShape>(
+  rows: readonly T[],
+  targetId: string,
+): T[] {
+  const out: T[] = []
+  const slotOf = new Map<string, number>()
+  for (const row of rows) {
+    const key = forkFamilyKey(row)
+    if (key === null) {
+      out.push(row)
+      continue
+    }
+    const slot = slotOf.get(key)
+    if (slot === undefined) {
+      slotOf.set(key, out.length)
+      out.push(row)
+      continue
+    }
+    const kept = out[slot]
+    if (kept) out[slot] = pickForkVersion(kept, row, targetId)
+  }
+  return out
+}
+
+/**
+ * 分支/分叉:基于指定消息(含该消息)之前的内容创建新会话(事务),源会话原样保留。
+ *
+ * 与 W17(2026-09-14)版本相比的四处收口(票 60「服务端分叉」余格):
+ *  ① **族语义**:历史按 `linearizeForkHistory` 只保留分叉点那一条线(见上),不再把
+ *     同族兄弟版本按 createdAt 一起复制;
+ *  ② **幂等**:带 clientRequestId 时,同 (userId, 源会话, 键) 重放返回首建会话,零新行;
+ *     键已绑在别的分叉点 ⇒ ForkIdempotencyConflictError;
+ *  ③ **并发**:先锁源会话行(FOR UPDATE,与 regenerate/createMessage 同锁序),幂等查询与
+ *     "读历史 → 复制"都在锁内 ⇒ 双击/重试不会双插;
+ *  ④ **计数诚实**:复制的消息以 `.returning({id})` 回库确认,条数不符整批回滚;
+ *     metadata 里的 forkedFromMessageCount 写的是回库确认值,不是请求侧 length。
+ *
+ * 归属:userId 由承载层显式入参(路由层从令牌主体取),本函数在锁内再验一次源会话主人
+ * === 入参主体,事务内不写任何东西就抛错 ⇒ 越权零副作用。
  */
 export async function branchConversationFrom(
   conversationId: string,
   messageId: string,
-  input: { userId: string; title?: string; model?: string; systemPrompt?: string },
-): Promise<ChatConversation> {
-  const target = await findMessageById(messageId)
-  if (!target || target.conversationId !== conversationId) {
-    throw new Error('消息不存在或不属于该对话')
-  }
-  const source = await findConversationById(conversationId)
-  if (!source) throw new Error('对话不存在')
-
+  input: BranchForkInput,
+): Promise<BranchForkResult> {
   return db.transaction(async (tx) => {
+    // 源会话行锁:同源分叉/再生/追加消息按会话行粒度串行(锁序与会话内其它写路径一致)
+    const lockedRows = await tx
+      .select()
+      .from(chatConversations)
+      .where(eq(chatConversations.id, conversationId))
+      .for('update')
+    const source = lockedRows[0]
+    if (!source) throw new ForkSourceRejectedError('对话不存在')
+    if (source.userId !== input.userId) throw new ForkSourceRejectedError('无权操作该对话')
+
+    // 事务内重读分叉点(路由预检只作快速拒绝,归属与存在性以锁内这份为准)
+    const targetRows = await tx
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.id, messageId))
+      .limit(1)
+    const target = targetRows[0]
+    if (!target || target.conversationId !== conversationId) {
+      throw new ForkSourceRejectedError('消息不存在或不属于该对话')
+    }
+
+    const sourceRootId = target.parentMessageId ?? target.id
+    const sourceSiblingIndex = target.siblingIndex
+
+    // 幂等:锁内查同一主体在同一源会话下是否已有这个键的分叉
+    if (input.clientRequestId) {
+      const priorRows = await tx
+        .select()
+        .from(chatConversations)
+        .where(
+          and(
+            eq(chatConversations.userId, input.userId),
+            sql`${chatConversations.metadata}->>'forkClientRequestId' = ${input.clientRequestId}`,
+            sql`${chatConversations.metadata}->>'originalConversationId' = ${conversationId}`,
+          ),
+        )
+        .limit(1)
+      const prior = priorRows[0]
+      if (prior) {
+        const priorMeta = (prior.metadata as Record<string, unknown> | null) ?? {}
+        if (priorMeta.forkedFromMessageId !== messageId) {
+          throw new ForkIdempotencyConflictError('同一 clientRequestId 已用于其它分叉点')
+        }
+        return {
+          conversation: prior,
+          forkedFromMessageId: messageId,
+          sourceRootId,
+          sourceSiblingIndex,
+          copiedMessageCount: Number(priorMeta.forkedFromMessageCount ?? 0),
+          replayed: true,
+        }
+      }
+    }
+
     const sourceMeta = (source.metadata as Record<string, unknown> | null) ?? {}
     const created = await tx
       .insert(chatConversations)
@@ -1587,14 +1740,22 @@ export async function branchConversationFrom(
         title: input.title ?? source.title,
         model: input.model ?? source.model,
         systemPrompt: input.systemPrompt !== undefined ? input.systemPrompt : source.systemPrompt,
-        metadata: { ...sourceMeta, originalConversationId: conversationId },
+        metadata: {
+          ...sourceMeta,
+          originalConversationId: conversationId,
+          forkedFromMessageId: messageId,
+          forkedAt: new Date().toISOString(),
+          forkSourceRootId: sourceRootId,
+          forkSourceSiblingIndex: sourceSiblingIndex,
+          ...(input.clientRequestId ? { forkClientRequestId: input.clientRequestId } : {}),
+        },
       })
       .returning()
     const conv = created[0]
     if (!conv) throw new Error('创建分支对话失败')
 
-    // 复制目标消息及之前的所有消息(时间正序)
-    const history = await tx
+    // 取分叉点及之前的行(时间正序 + id 次序,同刻批量行也有确定顺序),再线性化版本族
+    const historyRows = await tx
       .select()
       .from(chatMessages)
       .where(
@@ -1603,37 +1764,60 @@ export async function branchConversationFrom(
           lte(chatMessages.createdAt, target.createdAt),
         ),
       )
-      .orderBy(asc(chatMessages.createdAt))
+      .orderBy(asc(chatMessages.createdAt), asc(chatMessages.id))
+    const history = linearizeForkHistory(historyRows, messageId)
+
+    let copiedMessageCount = 0
     if (history.length > 0) {
-      await tx.insert(chatMessages).values(
-        history.map((m) => ({
-          conversationId: conv.id,
-          role: m.role,
-          content: m.content,
-          reasoning: m.reasoning ?? undefined,
-          tokens: m.tokens,
-          metadata: m.metadata as Record<string, unknown> | null,
-          createdAt: m.createdAt,
-          // D35:分支复制保留源消息的 turn 序号(分叉后的 turn 结构与源一致)
-          turnOrdinal: m.turnOrdinal,
-        })),
-      )
+      const copied = await tx
+        .insert(chatMessages)
+        .values(
+          history.map((m) => ({
+            conversationId: conv.id,
+            role: m.role,
+            content: m.content,
+            reasoning: m.reasoning ?? undefined,
+            tokens: m.tokens,
+            metadata: m.metadata as Record<string, unknown> | null,
+            createdAt: m.createdAt,
+            // D35:分支复制保留源消息的 turn 序号(分叉后的 turn 结构与源一致)
+            turnOrdinal: m.turnOrdinal,
+            // 刻意不复制 parentMessageId/siblingIndex:新会话是线性历史,版本族留在源会话。
+            // 复制族标记会让新会话凭空长出一个"只有 1 版"的族根,版本菜单对不上。
+          })),
+        )
+        .returning({ id: chatMessages.id })
+      copiedMessageCount = copied.length
+      if (copiedMessageCount !== history.length) {
+        // 计数诚实:回库确认不足即整批回滚,绝不留半截分叉
+        throw new Error(
+          `分叉消息复制不完整:期望 ${history.length} 条,回库确认 ${copiedMessageCount} 条`,
+        )
+      }
     }
-    // W17(2026-09-14):补写分叉点元数据(分叉点消息 id / 复制条数 / 分叉时间)
-    await tx
+
+    // W17:分叉来源元数据(条数以回库确认值为准)
+    const updated = await tx
       .update(chatConversations)
       .set({
         metadata: {
-          ...sourceMeta,
-          originalConversationId: conversationId,
-          forkedFromMessageId: messageId,
-          forkedFromMessageCount: history.length,
-          forkedAt: new Date().toISOString(),
+          ...((conv.metadata as Record<string, unknown> | null) ?? {}),
+          forkedFromMessageCount: copiedMessageCount,
         },
         updatedAt: new Date(),
       })
       .where(eq(chatConversations.id, conv.id))
-    return conv
+      .returning()
+    const conversation = updated[0] ?? conv
+
+    return {
+      conversation,
+      forkedFromMessageId: messageId,
+      sourceRootId,
+      sourceSiblingIndex,
+      copiedMessageCount,
+      replayed: false,
+    }
   })
 }
 
