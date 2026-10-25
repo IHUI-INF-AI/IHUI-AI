@@ -141,6 +141,7 @@ export default defineAppConfig({
         'check-in/index',
         'task-center/index',
         'bill/index',
+        'activity-detail/index',
       ],
     },
     {
@@ -168,6 +169,7 @@ export default defineAppConfig({
       root: 'pkg-about',
       pages: [
         'about/index',
+        'about-shared/index',
         'about/help',
         'about/protocol',
         'about/privacy',

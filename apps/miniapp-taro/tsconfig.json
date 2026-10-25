@@ -16,7 +16,17 @@
     "sourceMap": false,
     "isolatedModules": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "react-native": ["./src/rn-compat/index.ts"],
+      "lucide-react-native": ["./src/rn-compat/icons-generated.tsx"],
+      "@react-navigation/native": ["./src/rn-compat/navigation.tsx"],
+      "@react-navigation/native-stack": ["./src/rn-compat/navigation.tsx"],
+      "@react-native-async-storage/async-storage": ["./src/rn-compat/storage.ts"],
+      "@react-native-clipboard/clipboard": ["./src/rn-compat/platform.tsx"],
+      "expo-image-picker": ["./src/rn-compat/platform.tsx"],
+      "expo-media-library": ["./src/rn-compat/platform.tsx"],
+      "react-native-safe-area-context": ["./src/rn-compat/platform.tsx"],
+      "@ihui/rn-app/*": ["../../../packages/app/src/*"]
     },
     "baseUrl": "."
   },

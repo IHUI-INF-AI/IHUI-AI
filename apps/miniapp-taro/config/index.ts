@@ -147,6 +147,53 @@ export default defineConfig(async (merge) => {
     cache: { enable: false },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
+      // 与 mini 段同三条(h5 段不覆盖顶层 alias,但为防"平台段整体替换"的坑在此也备齐)
+      'react-native$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'index.ts'),
+      'lucide-react-native$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'icons-generated.tsx',
+      ),
+      '@ihui/rn-app': path.resolve(__dirname, '..', '..', '..', 'packages', 'app', 'src'),
+      'react-native-safe-area-context$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'platform.tsx',
+      ),
+      '@react-navigation/native$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'navigation.tsx',
+      ),
+      '@react-navigation/native-stack$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'navigation.tsx',
+      ),
+      '@react-native-async-storage/async-storage$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'storage.ts',
+      ),
+      '@react-native-clipboard/clipboard$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'platform.tsx',
+      ),
+      'expo-image-picker$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+      'expo-media-library$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
     },
     mini: {
       es5: true,
@@ -172,8 +219,61 @@ export default defineConfig(async (merge) => {
         // 当成 scoped 包 '@i18n' 解析而编译失败)。
         // react-dom 不能 alias:Taro 渲染器内部把 react-dom 指到 @tarojs/runtime-dom,
         // 强 alias 到物理包会打断这条链(2026-10-01 实测:含 react-dom 时全页白屏)。
+        // 2026-10-26 跨端复用腿(AGENTS §4「一份平台无关组件源 + 平台 adapter」):
+        // 共享屏源 packages/app 是 RN 形态(243 个文件 import react-native),此前小程序端
+        // 0 处真实复用 ⇒ 每一枚要对齐的屏都得手写一份。把 react-native / lucide-react-native
+        // 指到端内 rn-compat 兼容层,小程序页面即可直接 import 共享屏 —— 样式与功能随源头同步。
+        // 端内自有代码不 import 这两个包(现读 0 处),alias 只作用于共享层的解析。
         '@': path.resolve(__dirname, '..', 'src'),
         react: path.resolve(__dirname, '..', 'node_modules', 'react'),
+        'react-native$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'index.ts'),
+        'lucide-react-native$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'icons-generated.tsx',
+        ),
+        '@ihui/rn-app': path.resolve(__dirname, '..', '..', '..', 'packages', 'app', 'src'),
+        // RN 壳/共享层会引用的第三方原生包:一律指到端内 rn-compat 的等价实现(剪贴板/相册/
+        // 选图/安全区共用一个文件,导航与存储各一个)。缺任何一条 = 该屏在 mini 端编译失败。
+        '@react-navigation/native$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'navigation.tsx',
+        ),
+        '@react-navigation/native-stack$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'navigation.tsx',
+        ),
+        '@react-native-async-storage/async-storage$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'storage.ts',
+        ),
+        '@react-native-clipboard/clipboard$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'platform.tsx',
+        ),
+        'expo-image-picker$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+        'expo-media-library$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'platform.tsx'),
+        'react-native-safe-area-context$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'platform.tsx',
+        ),
       },
       // 2026-09-10 主包 2MB 硬上限治理:把仅被分包引用的公共 chunk 自动
       // 下沉到分包,避免 common.js 整体压在主包(webpack5 编译器专属能力)
@@ -209,7 +309,7 @@ export default defineConfig(async (merge) => {
               // interface JWTPayload)。此处取 @ihui/shared 的 realpath 作第二包根,
               // 两根一并入列;主仓单仓时 realpath 即字面同值,Set 去重后逐字等价。
               include: (() => {
-                const pkgs = ['api-client', 'design-tokens', 'i18n', 'shared', 'types']
+                const pkgs = ['api-client', 'design-tokens', 'i18n', 'shared', 'types', 'app']
                 const literalRoot = path.resolve(__dirname, '..', '..', '..', 'packages')
                 let realRoot = literalRoot
                 try {
@@ -294,6 +394,7 @@ export default defineConfig(async (merge) => {
           path.resolve(__dirname, '..', '..', '..', 'packages', 'i18n', 'src'),
           path.resolve(__dirname, '..', '..', '..', 'packages', 'shared', 'src'),
           path.resolve(__dirname, '..', '..', '..', 'packages', 'types', 'src'),
+          path.resolve(__dirname, '..', '..', '..', 'packages', 'app', 'src'),
         ],
       },
       // 项目无 babel.config.js，webpack5 编译器需在 babel-loader 程序化注入 babel-preset-taro
