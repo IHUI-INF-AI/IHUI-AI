@@ -23,7 +23,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface FeatureEntry {
   icon: AppIcon | string
+  /** i18n 键(顶层表不得调 t()——模块求值先于 I18nProvider,运行时必 ReferenceError;消费处 t() 解析) */
   title: string
+  /** i18n 键 */
   desc: string
   onPress: (navigation: NavigationProp) => void
 }
@@ -31,50 +33,50 @@ interface FeatureEntry {
 const ENTRIES: readonly FeatureEntry[] = [
   {
     icon: BookOpen,
-    title: '更多课程',
-    desc: '探索精选课程',
+    title: 'course.moreTitle',
+    desc: 'subPkg.courseDesc',
     onPress: (nav) => nav.navigate('MoreCourse'),
   },
   {
     icon: Rocket,
-    title: '开发者入驻',
-    desc: '发布模型与应用',
+    title: 'subPkg.devTitle',
+    desc: 'subPkg.devDesc',
     onPress: (nav) => nav.navigate('DevEnterCover'),
   },
   {
     icon: Globe,
-    title: 'AI 需求广场',
-    desc: '需求对接平台',
+    title: 'subPkg.plazaTitle',
+    desc: 'subPkg.plazaDesc',
     onPress: (nav) => nav.navigate('PlazaCover'),
   },
   {
     icon: CreditCard,
-    title: '充值中心',
-    desc: '智汇值充值',
+    title: 'subPkg.topupTitle',
+    desc: 'subPkg.topupDesc',
     onPress: (nav) => nav.navigate('AppTopup'),
   },
   {
     icon: GraduationCap,
-    title: '学习中心',
-    desc: '系统化学习路径',
+    title: 'learnDevelop.centerTitle',
+    desc: 'learnDevelop.centerDesc',
     onPress: (nav) => nav.navigate('Learn'),
   },
   {
     icon: BookOpen,
-    title: '学习首页',
-    desc: '学习进度与计划',
+    title: 'subPkg.homeTitle',
+    desc: 'subPkg.homeDesc',
     onPress: (nav) => nav.navigate('StudyIndex'),
   },
   {
     icon: Bot,
-    title: 'AI 群组',
-    desc: '多 Agent 协作',
+    title: 'subPkg.groupTitle',
+    desc: 'subPkg.groupDesc',
     onPress: (nav) => nav.navigate('AiGroup'),
   },
   {
     icon: Palette,
-    title: 'AIGC 创作',
-    desc: 'AI 内容生成',
+    title: 'subPkg.aigcTitle',
+    desc: 'subPkg.aigcDesc',
     onPress: (nav) => nav.navigate('AigcList'),
   },
 ]
@@ -86,11 +88,18 @@ export function SubPackageIndexScreen() {
 
   const entries = ENTRIES.map((entry) => ({
     icon: entry.icon,
-    title: entry.title,
-    desc: entry.desc,
+    title: t(entry.title),
+    desc: t(entry.desc),
     onPress: () => entry.onPress(navigation),
   }))
 
-  return <SharedSubPackageIndexScreen t={t} onBack={() => navigation.goBack()} entries={entries}  colorScheme={resolvedTheme}/>
+  return (
+    <SharedSubPackageIndexScreen
+      t={t}
+      onBack={() => navigation.goBack()}
+      entries={entries}
+      colorScheme={resolvedTheme}
+    />
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

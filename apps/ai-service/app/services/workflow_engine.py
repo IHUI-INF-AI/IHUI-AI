@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from ..core.background_tasks import spawn
+
 # G-916424 配套(2026-09-29):工作流终态词汇的单一出处。上游同课
 # (ZCode contracts/src/workflow/index.ts 由 const 推 zod schema):状态词汇只活在
 # 注释里时,新档位/错档位都不报错。新增终态必须同笔改这里;改注释不改 Literal
@@ -286,8 +288,8 @@ class WorkflowEngine:
         self._cancel_events[inst.id] = asyncio.Event()
         self._running_instances.add(workflow_id)
 
-        # 后台异步执行
-        asyncio.create_task(self._execute_instance(inst, wf))
+        # 后台异步执行(裸 create_task 会被 GC 半路收走 ⇒ 实例静默永逝;走 spawn 登记)
+        spawn(self._execute_instance(inst, wf))
         return inst
 
     def _log(self, instance_id: str, level: str, message: str) -> None:

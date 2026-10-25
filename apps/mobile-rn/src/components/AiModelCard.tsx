@@ -78,25 +78,26 @@ export interface AiModelCardProps {
 }
 
 const USER_TYPE_LABEL: Record<AiModelUserType, string> = {
-  freevip: '会员免费',
-  freeuse: '免费使用',
-  freetime: '限时免费',
-  hasbuy: '已购买',
-  buymonth: '包月',
+  freevip: 'aiCard.tFreeVip',
+  freeuse: 'aiCard.tFreeUse',
+  freetime: 'aiCard.tFreeLimit',
+  hasbuy: 'aiCard.tBought',
+  buymonth: 'aiCard.tMonth',
   none: '',
 }
 
 // group 底部操作栏 5 图标(对齐原版 warning/unlike/unstore/uninfo/unshare)
+// label 存 i18n 键:顶层表调用 t() 在模块求值期执行,I18nProvider 尚未挂载 ⇒ 运行必炸;消费处解析
 const GROUP_ACTIONS: Array<{
   key: 'warning' | 'dislike' | 'favorite' | 'info' | 'share'
   glyph: LucideIcon
   label: string
 }> = [
-  { key: 'warning', glyph: AlertTriangle, label: '警告' },
-  { key: 'dislike', glyph: ThumbsDown, label: '踩' },
-  { key: 'favorite', glyph: Bookmark, label: '收藏' },
-  { key: 'info', glyph: Info, label: '信息' },
-  { key: 'share', glyph: Share2, label: '分享' },
+  { key: 'warning', glyph: AlertTriangle, label: 'aiCard.btnWarn' },
+  { key: 'dislike', glyph: ThumbsDown, label: 'aiCard.btnDislike' },
+  { key: 'favorite', glyph: Bookmark, label: 'aiCard.btnFav' },
+  { key: 'info', glyph: Info, label: 'aiCard.btnInfo' },
+  { key: 'share', glyph: Share2, label: 'aiCard.btnShare' },
 ]
 
 export default function AiModelCard({
@@ -118,7 +119,8 @@ export default function AiModelCard({
   const { t } = useI18n()
   const [details, setDetails] = useState(false)
   const userType = data.userType ?? 'none'
-  const userLabel = USER_TYPE_LABEL[userType]
+  const userLabelKey = USER_TYPE_LABEL[userType]
+  const userLabel = userLabelKey ? t(userLabelKey) : ''
   const hasTags = data.tags && data.tags.length > 0
 
   // 购买详情字段(legacy 动态字段,通过 AiModelData 索引签名读取)
@@ -212,7 +214,7 @@ export default function AiModelCard({
               <Text style={styles.groupLogoText}>{t('modelPlaza.officialBadge')}</Text>
             </View>
             <Text style={styles.groupFooterText} numberOfLines={1}>
-              {(data.authorName as string | undefined) ?? '智汇社区-官方'}
+              {(data.authorName as string | undefined) ?? t('aiCard.officialFallback')}
             </Text>
           </View>
           <View style={styles.groupFooterRight}>
@@ -223,7 +225,7 @@ export default function AiModelCard({
                 style={styles.actionBtn}
                 onPress={stopBubble(() => actionCallbacks[action.key]?.(data))}
                 accessibilityRole="button"
-                accessibilityLabel={action.label}
+                accessibilityLabel={t(action.label)}
               >
                 <action.glyph
                   size={16}
@@ -281,8 +283,8 @@ export default function AiModelCard({
           {payid !== undefined ? <Text style={styles.detailText}>关联订单号：{payid}</Text> : null}
           {startTime || endTime ? (
             <Text style={styles.detailText}>
-              购买时间：{startTime ?? '-'}
-              {endTime ? `　到期时间：${endTime}` : ''}
+              {t('aiCard.buyTime', { t0: startTime ?? '-' })}
+              {endTime ? t('aiCard.expireTime', { t1: endTime }) : ''}
             </Text>
           ) : null}
           {money !== undefined ? (

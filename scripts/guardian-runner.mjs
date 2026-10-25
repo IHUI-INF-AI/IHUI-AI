@@ -5517,14 +5517,34 @@ const checks = [
       '     「今日签到(UTC 日)」并排,每天上海 00:00–08:00 签到格读成 0、连续天数断裂。',
       '     出口:apps/api/src/utils/biz-day.ts(bizDayStartUtc/bizDayKey/shiftBizDayKey);委托转发合法,自己再算不合法。',
       '     --staged 复验 / --self-test(9 例)/ 镜像 scripts/tests/check-biz-day-single-source.test.mjs。',
-      '     紧急跳过(不推荐):HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE=1 git commit ...',
+       '     紧急跳过(不推荐):HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE=1 git commit ...',
+       '',
+     ].join('\n'),
+   },
+
+  // --- asyncio 后台任务强引用(2026-10-26 立;create_task 弱引用被 GC 族根治)---
+  {
+    id: '247',
+    label:
+      '🧵 ai-service asyncio 后台任务强引用(blocking;W1 裸 create_task/ensure_future ⇒ 绝对零容忍 / W3 唯一出口无人 import ⇒ 造好未装车;赋值/列表持有型只报数,见门体 W2)',
+    script: 'check-ai-task-background-reference.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/ai-service/'],
+    skipEnv: 'HUSKY_SKIP_AI_TASK_BG_REF',
+    onFailHint: [
+      '',
+      '  💡 事件循环对 create_task 返回值只握弱引用,丢弃 ⇒ 任务半路被 GC 且零报错(workflow 实例永逝/存活监控断线同型)。',
+      '     出口:from app.core.background_tasks import spawn;合法豁免登记 scripts/data/ai-task-bare-exemptions.json(marker=调用行子串+reason+until,marker 消失=腐烂判红)。',
+      '     --self-test 12 例 / 镜像 scripts/tests/check-ai-task-background-reference.test.mjs。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_AI_TASK_BG_REF=1 git commit ...',
       '',
     ].join('\n'),
   },
 
   // --- 富文本动作锚点渲染器单一源头(2026-10-25 立;D99/G-136 账面兑现:MISSING_ANCHOR_RENDERERS"供守门判红"此前全仓 scripts 面 0 命中)(1 项,blocking)---
   {
-    id: '247',
+    id: '249',
     label:
       '🧩 富文本锚点渲染器单一源头(blocking;A1 渲染表键集==RICH_ANCHOR_TAGS 双向相等+守卫在位(绝对零容忍,非棘轮)/ A2 apps/web 生产面 t.rich 内联渲染器分叉逐条点名(真 AST)/ A3 载体 importer 枚举 0 即死)',
     script: 'check-rich-anchor-renderer-single-source.mjs',
@@ -5546,9 +5566,29 @@ const checks = [
       '     自检:node scripts/check-rich-anchor-renderer-single-source.mjs --self-test(14 例,A1/A2/A3 成对正反控)',
       '     镜像:node --test scripts/tests/check-rich-anchor-renderer-single-source.test.mjs(判据 import 门体 __test__,不复制)',
       '     紧急跳过(不推荐):HUSKY_SKIP_RICH_ANCHOR_RENDERER_SINGLE_SOURCE=1 git commit ...',
+    ].join('\n'),
+  },
+  // --- 显示层分→元格式化单一出口(2026-10-26 立;20 份 fmtYuan 型副本收口后防复活)---
+  {
+    id: '248',
+    label:
+      '💴 显示层分→元格式化只许一个出口(blocking;M1 本地自算定义 ⇒ 绝对零容忍(存量本波清零)/ M2 行内定长格式化 ⇒ 差值棘轮只拦新增 / M3 唯一出口无人 import ⇒ 造好未装车)',
+    script: 'check-money-display-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/'],
+    skipEnv: 'HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE',
+    onFailHint: [
+      '',
+      '  💡 `¥${(n/100).toFixed(2)}` 同形曾被逐字复制 20 份(改单位口径要 20 处手改,漏一处=该页 100 倍显示事故;',
+      '     分销族 46758b5b2b8 的"分当元"批修即同型受害者)。出口:import { formatPrice } from @ihui/shared/utils;',
+      '     委托转发(¥${formatPrice(n)})合法,数字换算(返回 number)出射程;行内定长存量走 ratchet 只报数。',
+      '     --self-test 10 例 / 镜像 scripts/tests/check-money-display-single-source.test.mjs。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE=1 git commit ...',
       '',
     ].join('\n'),
   },
+
 
   // --- 身份主体单一真相源(2026-10-25 立;crew/knowledge 匿名越权族根治)(1 项,blocking)---
   {
@@ -5593,6 +5633,26 @@ const checks = [
     onFailHint: [
       '',
       '  💡 射程内任何一面出现镜像 purge 内容 = 回潮(union 行合并不传播删除,2026-10-23 实测两例:AGENTS.md §5b 旧断言复活、README 徽章回归)。\\n  M1 gitcode.com/IHUI-AI 死仓 URL(该仓已删)/ M2 gitee.com/JLSLSSZWHYXGS_0/IHUI-AI 仓库根链接(/releases/ 资产路径豁免)/\\n  M3 同行含「国内镜像」且含 gitee|gitcode / M4 mirror-to-cn 无弃用标记(弃用|已删除|不再写回|退役|2026-10-23)。\\n  修法:把该行改回 purge 后形态(删徽章 / 删链接 / 补弃用标记),别想着加豁免 —— 射程 10 个文档是机主令永禁清单;\\n  PROJECT_PLAN.md 刻意不在射程(历史台账叙事,收进来即恒红)。\\n  单独复验:node scripts/check-mirror-purge-intact.mjs --staged\\n  自检:node scripts/check-mirror-purge-intact.mjs --self-test(19 例,正反成对);\\n  镜像:node --test scripts/tests/check-mirror-purge-intact.test.mjs(10 例,含 T1 方向锁)。\\n  紧急跳过:HUSKY_SKIP_MIRROR_PURGE_INTACT=1(必须在提交信息里写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 裸decode URI容错(1 项,blocking)---
+  {
+    id: '248',
+    label:
+      '移动端/全端裸 decodeURIComponent 差值棘轮(孤立%抛 URIError 崩渲染;唯一容错出口 safeDecodeURIComponent 在 @ihui/shared/utils/safe-decode-uri;拦新增放存量)',
+    script: 'check-bare-decode-uri.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BARE_DECODE_URI',
+    stagedTriggers: ['apps/miniapp-taro', 'apps/mobile-rn', 'apps/web', 'apps/extension', 'apps/desktop', 'packages/app', 'packages/ui-native', 'packages/shared'],
+    onFailHint: [
+      '',
+      '  💡 判的是「裸 decodeURIComponent 落在渲染求值路径」:框架已自动解码的 router params/深链参数二次解码遇孤立%必抛 URIError 整页崩。',
+      '     出路 1(默认):改 import { safeDecodeURIComponent }(永不抛,失败原样返回);',
+      '     出路 2(确需原生抛语义):行尾加 // bare-decode-uri-exempt: <≥4字原因>;',
+      '     应急跳门:HUSKY_SKIP_BARE_DECODE_URI=1 git commit ...(会留跳门台账)。',
       '',
     ].join('\n'),
   },
@@ -5872,6 +5932,25 @@ const checks = [
     // 移进并行池后与其他门重叠 ⇒ 这 6.6s 等于白得。判据、退出码、跳过开关一字未动。
     // 逃生:HUSKY_SKIP_I18N_DEAD_KEY=1(与原 pre-commit 段同一变量,语义不变)。
     skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY',
+  },
+  {
+    id: '247',
+    label: '🔒 RN 样式裸数字回潮(差值棘轮:只拦本次把可自动对档的裸数字加回来)',
+    script: 'check-token-literal-debt.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    // 2026-10-25 立(goal「样式全面对齐」):tokens-migrate 已把 261 个已入库屏的 3720 处裸数字转成 rnSpacing/rnType,
+    // 但此前没有任何判据管"新增" —— 随手写 padding: 16 就能把成果加回来。差值棘轮(§0.5):
+    // 锚点 = 该文件 HEAD blob 自身的可对档数,只拦本次变大;存量只报数(§12e)。
+    stagedTriggers: ['packages/app/src/', 'apps/mobile-rn/src/'],
+    skipEnv: 'HUSKY_SKIP_TOKEN_LITERAL_DEBT',
+    onFailHint: [
+      '',
+      '  💡 修复(不是跳门):node scripts/tokens-migrate.mjs <file> --apply',
+      '     判据读数:node scripts/check-token-literal-debt.mjs(--staged 判本次 / 无参全量报数)',
+      '     自检:node scripts/check-token-literal-debt.mjs --self-test(12 例,含阳性对照)',
+      '',
+    ].join('\n'),
   },
 ]
 

@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronLeft, ChevronRight, FileText, Plus } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -315,19 +315,28 @@ export default function InvoicesScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 8, paddingBottom: 32 },
-    headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    subtitle: { flex: 1, fontSize: 12, color: tokens.text.secondary, lineHeight: 18 },
+    body: { padding: rnSpacing.md, gap: rnSpacing.sm, paddingBottom: rnSpacing['3xl'] },
+    headerRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    subtitle: {
+      flex: 1,
+      fontSize: rnType.label.size,
+      color: tokens.text.secondary,
+      lineHeight: 18,
+    },
     applyBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: rnSpacing.xs,
       height: 32,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.brand.cta,
     },
-    applyBtnText: { fontSize: 12, fontWeight: '600', color: tokens.brand.ctaForeground },
+    applyBtnText: {
+      fontSize: rnType.label.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -336,9 +345,9 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
       gap: 6,
     },
-    cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
-    label: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
-    typeRow: { flexDirection: 'row', gap: 8 },
+    cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
+    label: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tokens.text.secondary },
+    typeRow: { flexDirection: 'row', gap: rnSpacing.sm },
     typeChip: {
       height: 32,
       paddingHorizontal: 14,
@@ -352,16 +361,16 @@ function makeStyles() {
       borderColor: tokens.brandAccent.deep,
       backgroundColor: tokens.brandAccent.light,
     },
-    typeChipText: { fontSize: 12, color: tokens.text.secondary },
+    typeChipText: { fontSize: rnType.label.size, color: tokens.text.secondary },
     typeChipTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
     input: {
       height: 42,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       backgroundColor: tokens.surface.bg,
     },
     submitBtn: {
@@ -373,22 +382,31 @@ function makeStyles() {
       justifyContent: 'center',
     },
     btnDisabled: { opacity: 0.5 },
-    submitBtnText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
+    submitBtnText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['5xl'],
+    },
     errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    muted: { fontSize: 12, color: tokens.text.secondary },
+    muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
     rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     amount: { flexShrink: 0, fontSize: 17, fontWeight: '700', color: tokens.text.primary },
     statusBadge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
-    statusText: { fontSize: 11, fontWeight: '600', color: tokens.text.secondary },
-    rowMeta: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-    metaText: { fontSize: 11, color: tokens.text.tertiary },
+    statusText: { fontSize: rnType.caption.size, fontWeight: '600', color: tokens.text.secondary },
+    rowMeta: { flexDirection: 'row', justifyContent: 'space-between', gap: rnSpacing.sm },
+    metaText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     pager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     pageBtn: {
       flexDirection: 'row',
@@ -402,8 +420,8 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
     },
     pageBtnDisabled: { opacity: 0.4 },
-    pageBtnText: { fontSize: 12, color: tokens.text.primary },
-    pageInfo: { fontSize: 12, color: tokens.text.secondary },
+    pageBtnText: { fontSize: rnType.label.size, color: tokens.text.primary },
+    pageInfo: { fontSize: rnType.label.size, color: tokens.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

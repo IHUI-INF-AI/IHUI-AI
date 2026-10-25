@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 
 // 对话流交代区(RN 端共享组件):引用来源 + 本轮上下文注入。
 //
@@ -237,13 +237,22 @@ export function ToolApprovalRow({
   }
   return (
     <View style={disclosureStyles.approvalRow}>
-      <Pressable style={disclosureStyles.approvalBtn} onPress={() => respond(APPROVAL_ACTION_WIRE.allowOnce)}>
+      <Pressable
+        style={disclosureStyles.approvalBtn}
+        onPress={() => respond(APPROVAL_ACTION_WIRE.allowOnce)}
+      >
         <Text style={disclosureStyles.approvalText}>{t('toolApproval.scopeOnce')}</Text>
       </Pressable>
-      <Pressable style={disclosureStyles.approvalBtn} onPress={() => respond(APPROVAL_ACTION_WIRE.alwaysAllow)}>
+      <Pressable
+        style={disclosureStyles.approvalBtn}
+        onPress={() => respond(APPROVAL_ACTION_WIRE.alwaysAllow)}
+      >
         <Text style={disclosureStyles.approvalText}>{t('toolApproval.scopeAlways')}</Text>
       </Pressable>
-      <Pressable style={disclosureStyles.approvalBtn} onPress={() => respond(APPROVAL_ACTION_WIRE.reject)}>
+      <Pressable
+        style={disclosureStyles.approvalBtn}
+        onPress={() => respond(APPROVAL_ACTION_WIRE.reject)}
+      >
         <Text style={disclosureStyles.approvalText}>{t('common.cancel')}</Text>
       </Pressable>
     </View>
@@ -256,7 +265,7 @@ const disclosureStyles = StyleSheet.create({
     gap: rpx(6),
   },
   blockTitle: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: '600',
     color: tokens.text.tertiary,
   },
@@ -292,9 +301,9 @@ const disclosureStyles = StyleSheet.create({
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
   },
-  tierLabel: { fontSize: 11, fontWeight: '600', color: tokens.text.tertiary },
-  tierTitle: { fontSize: 11, color: tokens.text.secondary },
-  tierDesc: { fontSize: 11, color: tokens.text.tertiary },
+  tierLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tokens.text.tertiary },
+  tierTitle: { fontSize: rnType.caption.size, color: tokens.text.secondary },
+  tierDesc: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   approvalRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -311,8 +320,8 @@ const disclosureStyles = StyleSheet.create({
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.muted,
   },
-  approvalText: { fontSize: 11, color: tokens.text.primary },
-  text: { flex: 1, fontSize: 12, lineHeight: 18, color: tokens.text.primary },
+  approvalText: { fontSize: rnType.caption.size, color: tokens.text.primary },
+  text: { flex: 1, fontSize: rnType.label.size, lineHeight: 18, color: tokens.text.primary },
   meta: { fontSize: 10, color: tokens.text.tertiary },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

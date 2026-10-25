@@ -330,7 +330,7 @@ async def chat_with_full_fallback(user_id: str, model_id: str, messages: list[di
 
 | 指标 | 数值 |
 | --- | --- |
-| 支持模型数量 | **176 个** |
+| 支持模型数量 | **101 个** |
 | 覆盖厂商 | OpenAI / Anthropic / Google / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama 等 12 家 |
 | 统一接口字段 | OpenAI `ChatCompletion` 格式 |
 | 自动故障转移 | 平均 1.2 秒切到 fallback |
@@ -367,7 +367,7 @@ OpenAI 用 `tool_calls`,Claude 用 `tool_use` block,通义用 `tools`。LiteLLM 
 2. **模型数量 < 5 个**:LiteLLM 收益不明显,自己封装反而更可控。
 3. **不需要多步推理**:LangGraph 是有状态编排,简单 chat 用它有点重,直接 dispatcher.chat() 就够。
 
-我们之所以上这套,是因为 IHUI AI 定位「176 模型统一平台」,从第一天就要支持 10+ 厂商,**统一接口是刚需**。
+我们之所以上这套,是因为 IHUI AI 定位「101 模型统一平台」,从第一天就要支持 10+ 厂商,**统一接口是刚需**。
 
 ---
 
@@ -381,7 +381,7 @@ OpenAI 用 `tool_calls`,Claude 用 `tool_use` block,通义用 `tools`。LiteLLM 
 - **三级降级**:模型级 / 能力级 / 套餐级,保证可用性。
 - **成本控制**:实时记录 token + 价格,超额自动降级。
 
-这套架构让 IHUI AI 在 OpenAI 全球故障时 8 秒切流,用户无感;让 Free 用户也能用上 GPT-4o 级别能力(智能路由到便宜模型);让企业用户一个 API key 切换 176 个模型,不重写一行代码。
+这套架构让 IHUI AI 在 OpenAI 全球故障时 8 秒切流,用户无感;让 Free 用户也能用上 GPT-4o 级别能力(智能路由到便宜模型);让企业用户一个 API key 切换 101 个模型,不重写一行代码。
 
 如果你也在做 LLM 应用,强烈建议从一开始就用 LiteLLM 统一接口——晚了再迁移,业务代码要改 100+ 处。
 
@@ -394,7 +394,7 @@ IHUI AI 是一站式 9 端全栈 AI 操作系统,Apache 2.0 开源。
 - 🌐 官网:https://aizhs.top
 - 💻 GitHub:https://github.com/IHUI-INF-AI/IHUI-AI(Star 支持一下 ⭐)
 - 📦 9 端同源:Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 移动 Capacitor(mobile-cap) / 小程序 Taro
-- 🤖 176 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama
+- 🤖 101 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama
 - 💰 定价:Free / Pro ¥49/月 / Team ¥199/人/月 / Enterprise ¥2999/月起
 
 **5 分钟 Fork 到上线,替代 ChatGPT Team + Claude Code + Notion AI,月省 $60+。**

@@ -8,7 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { RankingItem, RankingRange, RankingScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -154,11 +154,16 @@ export function RankingScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backBtn: { marginBottom: 8 },
-    title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    podiumRow: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 12, gap: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    backBtn: { marginBottom: rnSpacing.sm },
+    title: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    podiumRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 10,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.sm,
+    },
     podiumItem: {
       flex: 1,
       alignItems: 'center',
@@ -179,16 +184,25 @@ function createStyles(tk: AppThemeTokens) {
     },
     avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius.lg },
     avatarInitial: { fontSize: 22, fontWeight: '600', color: tk.text.secondary },
-    podiumName: { marginTop: 8, fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    podiumPoints: { marginTop: 8, fontSize: 14, color: tk.success.DEFAULT },
+    podiumName: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    podiumPoints: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.success.DEFAULT,
+    },
     rankBadge: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
     },
-    rankBadgeText: { fontSize: 11, color: tk.surface.light },
-    listBody: { padding: 14, paddingBottom: 32 },
+    rankBadgeText: { fontSize: rnType.caption.size, color: tk.surface.light },
+    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
       flexDirection: 'row',
@@ -200,7 +214,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     cardMe: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
-    rankText: { width: 36, fontSize: 16, fontWeight: '700' },
+    rankText: { width: 36, fontSize: rnType.title.size, fontWeight: '700' },
     listAvatar: {
       width: 44,
       height: 44,
@@ -211,10 +225,10 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    listInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
-    listName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    listMeta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    listPoints: { fontSize: 16, fontWeight: '700', color: tk.success.DEFAULT },
+    listInfo: { flex: 1, marginLeft: 10, marginRight: rnSpacing.sm },
+    listName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    listMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    listPoints: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

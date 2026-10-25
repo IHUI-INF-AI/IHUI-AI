@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
@@ -82,36 +82,51 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     body: { padding: 14 },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    badgeRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
     typeBadge: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.surface.light,
       backgroundColor: tk.success.DEFAULT,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
     statusBadge: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.secondary,
       backgroundColor: tk.surface.muted,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
     },
-    labelTitle: { marginTop: 12, fontSize: 14, fontWeight: '600', color: tk.text.secondary },
-    content: { marginTop: 8, fontSize: 16, color: tk.text.medium, lineHeight: 22 },
-    createdAt: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    reply: { marginTop: 8, fontSize: 16, color: tk.text.medium, lineHeight: 22 },
+    labelTitle: {
+      marginTop: rnSpacing.md,
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.secondary,
+    },
+    content: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      color: tk.text.medium,
+      lineHeight: 22,
+    },
+    createdAt: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    reply: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      color: tk.text.medium,
+      lineHeight: 22,
+    },
     replyEmpty: {
-      marginTop: 8,
-      fontSize: 16,
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
       color: tk.text.tertiary,
       fontStyle: 'italic',
       lineHeight: 22,

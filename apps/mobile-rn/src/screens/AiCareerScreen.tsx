@@ -64,7 +64,7 @@ export default function AiCareerScreen() {
     // 提交问卷并请求 AI 学业建议；结果当前通过成功提示反馈。
     const missing = AI_CAREER_REQUIRED_FIELDS.find((item) => !formData[item.field])
     if (missing) {
-      const message = `请填写：${missing.name}`
+      const message = t('career.fillField', { name: missing.name })
       setError(message)
       appAlert(t('common.error'), message, [{ text: t('common.ok') }])
       return
@@ -85,17 +85,17 @@ export default function AiCareerScreen() {
         })
         setSubmitting(false)
         if (!res.success) {
-          const message = res.error || '提交失败，请稍后重试'
+          const message = res.error || t('career.submitFail')
           setError(message)
           appAlert(t('common.error'), message, [{ text: t('common.ok') }])
           return
         }
-        appAlert('提交成功', '问卷已提交，AI 学业建议生成后可在本页查看。', [
+        appAlert(t('career.doneTitle'), t('career.doneBody'), [
           { text: t('common.ok'), onPress: () => navigation.goBack() },
         ])
       } catch (err) {
-        setError(err instanceof Error ? err.message : '提交失败，请稍后重试')
-        appAlert(t('common.error'), err instanceof Error ? err.message : '提交失败，请稍后重试', [
+        setError(err instanceof Error ? err.message : t('career.submitFail'))
+        appAlert(t('common.error'), err instanceof Error ? err.message : t('career.submitFail'), [
           { text: t('common.ok') },
         ])
       } finally {

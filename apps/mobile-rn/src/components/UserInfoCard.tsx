@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -45,7 +46,7 @@ import {
   userInfoCardAvatarStyle,
 } from '@ihui/shared/ui/user-info-card-spec'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * 头像盒子结构只在 spec 出口里摆一次(方档 + overflow + 居中),端内三个头像位
@@ -125,6 +126,7 @@ function UserInfoCardNew({
   onCopyInviteCode,
   onLevelIntro,
 }: UserInfoCardProps) {
+  const { t } = useI18n()
   const [levelModalVisible, setLevelModalVisible] = useState(false)
 
   // 未登录态:显示一键登录按钮
@@ -163,7 +165,7 @@ function UserInfoCardNew({
     if (onCopyInviteCode) {
       onCopyInviteCode(inviteCode)
     } else {
-      appAlert('邀请码', `邀请码:${inviteCode}\n(长按复制)`)
+      appAlert(t('invite.inviteCode'), t('uiCard.inviteCodeBody', { code: inviteCode }))
     }
   }
 
@@ -188,7 +190,9 @@ function UserInfoCardNew({
         <View style={newStyles.infoWrap}>
           <TouchableOpacity style={newStyles.nameRow} activeOpacity={0.7} onPress={onEdit}>
             <Text style={newStyles.name} numberOfLines={1} ellipsizeMode="tail">
-              {userInfo.username ? `AI IHUI丨${userInfo.username}` : '用户'}
+              {userInfo.username
+                ? t('uiCard.userGreet', { name: userInfo.username })
+                : t('common.user')}
             </Text>
             {showRechargeBtn ? <Text style={newStyles.editText}>编辑</Text> : null}
           </TouchableOpacity>
@@ -214,7 +218,7 @@ function UserInfoCardNew({
           activeOpacity={0.7}
           onPress={onLevelIntro}
           disabled={!onLevelIntro}
-          accessibilityLabel="成长值进度条,点击查看等级介绍"
+          accessibilityLabel={t('uiCard.growthA11y')}
           accessibilityRole="button"
         >
           <View style={newStyles.growthLabelWrap}>
@@ -282,15 +286,13 @@ function UserInfoCardNew({
         >
           <View style={newStyles.modalCard}>
             <Text style={newStyles.modalTitle}>
-              {vipLevel || (isVip ? 'VIP 会员' : '普通会员')}
+              {vipLevel || (isVip ? t('profile.levelVip') : t('memberBenefits.tnNormal'))}
             </Text>
             {isVip && vipExpireAt ? (
               <Text style={newStyles.modalExpireText}>到期时间:{formatDateTime(vipExpireAt)}</Text>
             ) : null}
             <Text style={newStyles.modalDesc}>
-              {isVip
-                ? '您当前为 VIP 会员,享受专属权益。继续积累成长值可升级至更高等级。'
-                : '您当前为普通会员,升级 VIP 可享受更多权益。'}
+              {isVip ? t('uiCard.vipBenefitBody') : t('uiCard.normalBenefitBody')}
             </Text>
             <View style={newStyles.modalBenefitList}>
               <Text style={newStyles.modalBenefitItem}>· AI 助手免费次数增加</Text>
@@ -313,26 +315,26 @@ function UserInfoCardNew({
 
 /**
  * 本表里**刻意仍写着数字**的档位,逐条给出去向(不是漏改):
- *  - `paddingHorizontal: 32`(登录钮)/ `paddingVertical: 4`(nameRow)/ `paddingHorizontal: 8`
- *    + `paddingVertical: 6`(tokenRow / growthRow / inviteRow 的 muted 面板)/ `marginLeft: 4` × 3
- *    + `marginBottom: 4` × 2 / 弹窗整套(`padding: 20`、`fontSize: 18`、`paddingHorizontal: 24`、
- *    `paddingVertical: 8`、`fontSize: 14`、`marginBottom: 16`、`gap: 6`、`lineHeight: 20`)
+ *  - `paddingHorizontal: rnSpacing['3xl']`(登录钮)/ `paddingVertical: rnSpacing.xs`(nameRow)/ `paddingHorizontal: rnSpacing.sm`
+ *    + `paddingVertical: 6`(tokenRow / growthRow / inviteRow 的 muted 面板)/ `marginLeft: rnSpacing.xs` × 3
+ *    + `marginBottom: rnSpacing.xs` × 2 / 弹窗整套(`padding: rnSpacing.xl`、`fontSize: rnType.subtitle.size`、`paddingHorizontal: rnSpacing['2xl']`、
+ *    `paddingVertical: rnSpacing.sm`、`fontSize: rnType.body.size`、`marginBottom: rnSpacing.lg`、`gap: 6`、`lineHeight: 20`)
  *    / initials(`fontSize: 32`)。
  *  共同锚里没有对应的档,原因只有两种:① **小程序端根本不渲染这一格**(登录钮的胶囊横向档、
  *  等级弹窗、邀请码行、initials 兜底 —— spec 文件末差异登记第 1/3/4 条);
  *  ② **另一端同一属性没有额外一档**(行级面板容器、nameRow 的上下档 —— 小程序端那些行是平的,
  *  差异登记第 5 条)。把它们搬进 spec 只会让守门 128 看不见,屏幕上什么都不会变 ——
  *  那正是这道门(守门 128 跨端 UI 单一源对账)的失效模式,故宁可留着数字并点名。
- *  另:`marginLeft: 4` / `marginBottom: 4` 与小程序端 `gap-1` / `mb-1` **屏幕同值**,
+ *  另:`marginLeft: rnSpacing.xs` / `marginBottom: rnSpacing.xs` 与小程序端 `gap-1` / `mb-1` **屏幕同值**,
  *  只是门的类名正则读不到 `gap-*` / `mb-*`(差异登记第 6 条),属测量残留,不是分叉。
- *  ⚠️ 2026-09-27 起 `paddingHorizontal: 24` 在门账上**新成为"仅 RN 档"**:此前小程序端有一枚
+ *  ⚠️ 2026-09-27 起 `paddingHorizontal: rnSpacing['2xl']` 在门账上**新成为"仅 RN 档"**:此前小程序端有一枚
  *  24×20 的位图充值按钮,数字与弹窗关闭钮的 24 恰好等值而被算成"两端同档";那枚位图已按
  *  「图标择优=矢量/文字优先」换成文字按钮,于是这一格回到它本来的定性 —— RN 单侧弹窗档。
  *  这不是新分叉(屏幕上什么都没变),是**测量残留被清掉后显形的真单侧档**。
  */
 const newStyles = StyleSheet.create({
   loggedOutWrap: {
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
     alignItems: 'center',
   },
   loginBtn: {
@@ -346,7 +348,7 @@ const newStyles = StyleSheet.create({
     // 上下内边距与小程序端同档(原写死 14,小程序 `py-3` 是 12 ⇒ 同一按钮两个数);
     // 左右 32 是本端胶囊形态,按 spec 文件末差异登记保持不动
     paddingVertical: USER_INFO_CARD_LOGIN_PADDING_Y_PX,
-    paddingHorizontal: 32,
+    paddingHorizontal: rnSpacing['3xl'],
   },
   loginBtnText: {
     // 字号唯一源 user-info-card-spec(与小程序端同档)
@@ -355,7 +357,7 @@ const newStyles = StyleSheet.create({
     color: tokens.brand.ctaForeground,
   },
   card: {
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
     padding: USER_INFO_CARD_PADDING_PX,
     // 角色档 card → lg(8):用户定档"卡片类元素一律 lg,不得在任一端单独取 xl"。
     // 小程序端同一张卡的根容器本就是 `rounded-lg`(8) ⇒ 此前是 RN 单端把卡片拧到 12。
@@ -367,7 +369,7 @@ const newStyles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
+    padding: rnSpacing.sm,
   },
   avatarWrap: {
     // 盒子结构(边长 + overflow + 居中)取自 spec 出口,端内不重摆;
@@ -411,7 +413,7 @@ const newStyles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: rnSpacing.xs,
   },
   name: {
     flex: 1,
@@ -422,7 +424,7 @@ const newStyles = StyleSheet.create({
   editText: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.brandAccent.deep,
-    marginLeft: 4,
+    marginLeft: rnSpacing.xs,
   },
   roleRow: {
     flexDirection: 'row',
@@ -453,7 +455,7 @@ const newStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 6,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
@@ -470,7 +472,7 @@ const newStyles = StyleSheet.create({
     fontSize: USER_INFO_CARD_TOKEN_FONT_PX,
     fontWeight: '700',
     color: tokens.brandAccent.deep,
-    marginLeft: 4,
+    marginLeft: rnSpacing.xs,
   },
   rechargeBtn: {
     paddingHorizontal: USER_INFO_CARD_ACTION_PADDING_X_PX,
@@ -503,7 +505,7 @@ const newStyles = StyleSheet.create({
   // 细于 8 的进度条在触屏上几乎看不见,故按规则 2 取较大者;改它只改 spec 一处。
   growthRow: {
     marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 6,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
@@ -512,7 +514,7 @@ const newStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: rnSpacing.xs,
   },
   growthLabel: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
@@ -541,7 +543,7 @@ const newStyles = StyleSheet.create({
     // 与上一行的间距:与 tokenRow / growthRow / unsubscribeBtn 同一属性同一档,那三处早已引用
     // spec 常量,这一处是同一角色漏改的第三个裸数字(值等值 8,渲染字节不变;改档只改 spec 一处)。
     marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 6,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
@@ -555,12 +557,12 @@ const newStyles = StyleSheet.create({
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     fontWeight: '600',
     color: tokens.text.primary,
-    marginLeft: 4,
+    marginLeft: rnSpacing.xs,
   },
   // 复制钮的 8/2 与徽章档同值,但它是单侧结构(小程序端没有邀请码行)⇒ 保持本端数字,
   // 见 spec 文件末差异登记第 3 条
   copyBtn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 2,
     backgroundColor: tokens.brandAccent.light,
     borderRadius: rnRadius.sm,
@@ -584,46 +586,46 @@ const newStyles = StyleSheet.create({
     // 保留 xl(12):这一格是**弹窗**(等级说明 Modal),角色档 panel → xl,不是卡片。
     // 不得为了"卡片一律 8"把它一起收小 —— 那属于按档名误读角色。
     borderRadius: rnRadiusFor.panel,
-    padding: 20,
+    padding: rnSpacing.xl,
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     fontWeight: '700',
     color: tokens.text.primary,
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   },
   modalExpireText: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.tertiary,
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   },
   modalDesc: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.secondary,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: rnSpacing.md,
     lineHeight: 20,
   },
   modalBenefitList: {
     alignSelf: 'stretch',
     gap: 6,
-    marginBottom: 16,
+    marginBottom: rnSpacing.lg,
   },
   modalBenefitItem: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.primary,
   },
   modalCloseBtn: {
-    paddingHorizontal: 24,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing['2xl'],
+    paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.brandAccent.DEFAULT,
     // 角色档 control(按钮)→ sm(4):弹窗本体是 panel(xl),但弹窗里的关闭钮仍是按钮,
     // 不得随容器继承 xl —— 同文件 tokenRow / growthRow 那几档 md 是行容器,不是按钮。
     borderRadius: rnRadius.sm,
   },
   modalCloseBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.brandAccent.foreground,
     fontWeight: '600',
   },

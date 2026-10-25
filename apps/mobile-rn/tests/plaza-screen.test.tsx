@@ -183,7 +183,8 @@ describe('PlazaScreen 需求广场', () => {
       expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
     })
     const props = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
-    // i18n 清扫批后文案经 t() 取,本文件 i18n mock 为键回显 ⇒ 键名即"回退到本页通用文案"的身份
+    // 产品已 token 化:回退文案由 t('plaza.index.loadFailedRefresh') 提供。本套件 i18n mock 取键透传,
+    // 断言键本身 = 「无任何可用信息时才落这条通用兜底」的同一判据(旧中文形为 token 化前遗留)。
     expect(props.error).toContain('plaza.index.loadFailedRefresh')
   })
 

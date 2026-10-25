@@ -7,15 +7,14 @@
  *
  * 2026-10-23 现读:三处现状**并不是同一屏**(RN = 开发者空间页;共享层旧版 = 套餐开通订阅页,
  * 该语义已由 `features/dev-enter-cover` 承接;小程序 `pkg-ai/developer/index.tsx` = 我的智能体列表)。
- * 收敛后本套件钉住四件事:
+ * 收敛后本套件钉住三件事,第四件(迁移门判据)由门体镜像测试对 HEAD 全屏承担:
  *  ① RN 那一屏渲染的**就是**共享层 `packages/app/src/features/developer/DeveloperScreen.tsx`
  *     —— 替身按既有纪律转发真身(同一函数对象),而壳里一个 <Text> 都没有、也没有样式表;
  *  ② 四入口与两张问题卡的构成/顺序 = 跨端单一源 `@ihui/shared/constants/developer-space`;
  *  ③ 上屏的是真文案而不是裸 i18n 键,且 devSpace.* + developerInfo.* 五语言齐备;
- *  ④ 迁移门判据对本壳的断言(零违规 + **白名单那行「无跨端需求」豁免被摘掉后仍判绿** + 抹掉
- *     import 必翻 V1 红)住在 `scripts/tests/check-rn-app-migration.test.mjs` T11 —— 端内 import
- *     门体是一条 rank 40→90 的反向依赖(门 103 判 D1+D2),策略表禁补 requires、禁对 D 用
- *     `arch-exempt`,唯一合规出路是把测判据源的用例放在不反向的那一层。
+ *  ④ 迁移门判据由门体镜像测试 scripts/tests/check-rn-app-migration.test.mjs T3 对 HEAD 全屏
+ *     承担(§22c 同源 import 门体,不复制判据);本文件不再越层 import repo-tooling —— 端内测试
+ *     相对路径穿透 scripts/ 命中架构政策 D1/D2(无豁免通道),按屏断言与 T3 是重复覆盖。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement, type ReactNode } from 'react'

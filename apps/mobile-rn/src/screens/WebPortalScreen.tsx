@@ -11,6 +11,7 @@
  * 现读 13 组 91 条;两端同源,清单只许那一份 —— 本端不得再抄第二份)。
  */
 // 平台特有:依赖 RN react-native 原语(ScrollView/Pressable)与本端 WebView 路由容器,不适合共享。
+import { rnSpacing } from '@ihui/design-tokens'
 import { useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react-native'
@@ -58,7 +59,10 @@ export function WebPortalScreen() {
       <NavChrome>
         <NavBar title={t('webViewPortal.title')} onBack={() => navigation.goBack()} />
       </NavChrome>
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 12, paddingBottom: 32 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'] }}
+      >
         <Text className={`mb-3 text-[13px] ${dark ? 'text-neutral-400' : 'text-gray-500'}`}>
           {t('webViewPortal.hint')}
         </Text>

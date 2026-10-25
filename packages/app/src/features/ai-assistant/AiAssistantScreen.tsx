@@ -15,7 +15,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiAssistantScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
@@ -100,7 +100,7 @@ export function AiAssistantScreen({
       <FlatList
         data={items}
         keyExtractor={(i) => i.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
@@ -157,23 +157,23 @@ export function AiAssistantScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    backBtn: { paddingHorizontal: 10, paddingTop: 12 },
-    header: { paddingHorizontal: 10, paddingTop: 4, paddingBottom: 8 },
+    backBtn: { paddingHorizontal: 10, paddingTop: rnSpacing.md },
+    header: { paddingHorizontal: 10, paddingTop: rnSpacing.xs, paddingBottom: rnSpacing.sm },
     headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    searchRow: { paddingHorizontal: 10, marginTop: 8 },
+    headerSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    searchRow: { paddingHorizontal: 10, marginTop: rnSpacing.sm },
     searchInput: {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
-      fontSize: 14,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
-    catScroll: { marginTop: 12, maxHeight: 40 },
-    catScrollContent: { paddingHorizontal: 10, gap: 8 },
+    catScroll: { marginTop: rnSpacing.md, maxHeight: 40 },
+    catScrollContent: { paddingHorizontal: 10, gap: rnSpacing.sm },
     catItem: {
       paddingHorizontal: 14,
       height: 32,
@@ -183,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     catItemActive: { backgroundColor: tk.brand.cta },
-    catText: { fontSize: 14, color: tk.text.secondary },
+    catText: { fontSize: rnType.body.size, color: tk.text.secondary },
     catTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
     catMore: {
       paddingHorizontal: 14,
@@ -193,9 +193,13 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    catMoreText: { fontSize: 14, color: tk.text.secondary },
-    errorBar: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: tk.danger.light },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    catMoreText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    errorBar: {
+      paddingHorizontal: 10,
+      paddingVertical: rnSpacing.sm,
+      backgroundColor: tk.danger.light,
+    },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -213,20 +217,30 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       marginRight: 10,
     },
-    avatarText: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    avatarText: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     cardMain: { flex: 1 },
-    name: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    desc: { marginTop: 8, fontSize: 14, color: tk.text.secondary, lineHeight: 18 },
+    name: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    desc: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: 18,
+    },
     tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
     tag: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    tagText: { fontSize: 11, color: tk.text.secondary },
-    cardFoot: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 12 },
-    metaText: { fontSize: 11, color: tk.text.tertiary },
+    tagText: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardFoot: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.lg,
+      marginTop: rnSpacing.md,
+    },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     ctaBtn: {
       marginLeft: 'auto',
       paddingHorizontal: 14,
@@ -236,7 +250,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    ctaText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    ctaText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

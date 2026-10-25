@@ -15,7 +15,7 @@ import type {
   ModelEditSaleType,
 } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 
 /** 模型编辑共享屏 — props 注入式表单型跨端组件 */
@@ -269,13 +269,13 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 10,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
     },
-    backText: { fontSize: 16, color: tk.text.secondary },
-    headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    backText: { fontSize: rnType.title.size, color: tk.text.secondary },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     headerSpacer: { width: 40 },
-    body: { padding: 10, paddingBottom: 32 },
-    baseCard: { flexDirection: 'row', marginBottom: 8 },
+    body: { padding: 10, paddingBottom: rnSpacing['3xl'] },
+    baseCard: { flexDirection: 'row', marginBottom: rnSpacing.sm },
     avatar: {
       width: 48,
       height: 48,
@@ -283,18 +283,18 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 12,
+      marginRight: rnSpacing.md,
     },
-    avatarText: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    avatarText: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     baseMain: { flex: 1 },
-    baseName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    baseSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    baseName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    baseSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     label: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.medium,
-      marginTop: 16,
-      marginBottom: 8,
+      marginTop: rnSpacing.lg,
+      marginBottom: rnSpacing.sm,
     },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     chip: {
@@ -308,11 +308,11 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     chipActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
-    chipText: { fontSize: 14, color: tk.text.medium },
+    chipText: { fontSize: rnType.body.size, color: tk.text.medium },
     chipTextActive: { color: tk.text.primary, fontWeight: '600' },
     paidCard: {
-      marginTop: 12,
-      padding: 12,
+      marginTop: rnSpacing.md,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
     },
@@ -322,11 +322,21 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.xl,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       backgroundColor: tk.surface.bg,
     },
-    priceUnit: { fontSize: 18, fontWeight: '600', color: tk.brand.DEFAULT, marginRight: 8 },
-    priceInput: { flex: 1, paddingVertical: 14, fontSize: 16, color: tk.text.primary },
+    priceUnit: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.brand.DEFAULT,
+      marginRight: rnSpacing.sm,
+    },
+    priceInput: {
+      flex: 1,
+      paddingVertical: 14,
+      fontSize: rnType.title.size,
+      color: tk.text.primary,
+    },
     btn: {
       marginTop: 28,
       height: 50,
@@ -336,7 +346,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     btnDisabled: { opacity: 0.6 },
-    btnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    btnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

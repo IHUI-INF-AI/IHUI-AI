@@ -29,7 +29,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as DocumentPicker from 'expo-document-picker'
 import { Check, Paperclip, Send, Upload } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -417,49 +417,54 @@ export default function PublishNewScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 10, paddingBottom: 32 },
-    subtitle: { fontSize: 12, color: tokens.text.tertiary },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
-    hint: { fontSize: 11, color: tokens.text.tertiary, lineHeight: 16 },
-    errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['5xl'],
+    },
+    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
+    errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     notice: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.warning.orangeLight,
-      gap: 4,
+      gap: rnSpacing.xs,
     },
-    noticeText: { fontSize: 12, fontWeight: '600', color: tokens.warning.amberText },
+    noticeText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.warning.amberText },
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    cardTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+    cardTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
     input: {
       height: 40,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       backgroundColor: tokens.surface.bg,
     },
     textArea: {
       minHeight: 140,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 10,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       textAlignVertical: 'top',
       backgroundColor: tokens.surface.bg,
     },
@@ -473,9 +478,9 @@ function makeStyles() {
       borderColor: tokens.border.light,
     },
     chipOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
-    chipText: { fontSize: 11, color: tokens.text.secondary },
+    chipText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
     chipOnText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
-    fileBox: { gap: 8 },
+    fileBox: { gap: rnSpacing.sm },
     outlineBtn: {
       height: 40,
       paddingHorizontal: 14,
@@ -489,13 +494,13 @@ function makeStyles() {
     },
     outlineBtnText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     fileRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    fileName: { flex: 1, fontSize: 12, color: tokens.text.secondary },
-    removeFile: { fontSize: 11, color: tokens.danger.DEFAULT },
+    fileName: { flex: 1, fontSize: rnType.label.size, color: tokens.text.secondary },
+    removeFile: { fontSize: rnType.caption.size, color: tokens.danger.DEFAULT },
     accountRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       paddingHorizontal: 10,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
@@ -518,10 +523,10 @@ function makeStyles() {
     },
     accountMain: { flex: 1, gap: 2 },
     accountName: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    meta: { fontSize: 11, color: tokens.text.tertiary },
-    quickRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
-    scheduleValue: { fontSize: 12, color: tokens.text.secondary },
-    quickText: { fontSize: 11, fontWeight: '600', color: tokens.text.primary },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+    quickRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md, flexWrap: 'wrap' },
+    scheduleValue: { fontSize: rnType.label.size, color: tokens.text.secondary },
+    quickText: { fontSize: rnType.caption.size, fontWeight: '600', color: tokens.text.primary },
     primaryBtn: {
       height: 46,
       borderRadius: rnRadius.sm,
@@ -529,9 +534,13 @@ function makeStyles() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    primaryBtnText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
+    primaryBtnText: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
     disabled: { opacity: 0.5 },
   })
 }

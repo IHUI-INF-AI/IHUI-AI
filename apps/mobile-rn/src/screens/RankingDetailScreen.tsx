@@ -57,7 +57,7 @@ export default function RankingDetailScreenWrapper() {
       }
       const list = (res.data?.conversations ?? []).map((c: ConversationDetail) => ({
         id: c.id,
-        title: c.title || '未命名对话',
+        title: c.title || t('plaza.index.untitledConv'),
         createdAt: c.createdAt ? new Date(c.createdAt).getTime() : Date.now(),
         favorited: c.favorite === true,
       }))
@@ -65,7 +65,7 @@ export default function RankingDetailScreenWrapper() {
     } catch {
       setHistory([])
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void loadHistory()
@@ -85,9 +85,9 @@ export default function RankingDetailScreenWrapper() {
     closeDrawer()
     try {
       Clipboard.setString(FREE_RESOURCE_URL)
-      appAlert('领取免费资料', '链接已复制到剪贴板,请在浏览器打开领取')
+      appAlert(t('drawer.claimFree'), t('studyIndex.receiveFreeBody'))
     } catch {
-      appAlert('领取免费资料', '复制失败,请重试')
+      appAlert(t('drawer.claimFree'), t('profile.copyFailRetry'))
     }
   }
   const onCreateNewChat = () => {
@@ -121,7 +121,10 @@ export default function RankingDetailScreenWrapper() {
   const onSelectConversation = (convId: string) => {
     closeDrawer()
     const conv = history.find((c) => c.id === convId)
-    navigation.navigate('MessageChat', { peerId: convId, name: conv?.title ?? '历史会话' })
+    navigation.navigate('MessageChat', {
+      peerId: convId,
+      name: conv?.title ?? t('ranking.histFallback'),
+    })
   }
   const onDeleteConversation = (convId: string) =>
     setHistory((prev) => prev.filter((c) => c.id !== convId))
@@ -141,7 +144,7 @@ export default function RankingDetailScreenWrapper() {
       }
     : {
         avatar: null,
-        title: '排行榜',
+        title: t('menu.ranking'),
         rank: 0,
         points: 0,
         studyHours: 0,
@@ -156,7 +159,9 @@ export default function RankingDetailScreenWrapper() {
         <NavBar
           title={detail.title}
           onBack={() => navigation.goBack()}
-          rightActions={[{ icon: PanelLeftRounded, label: '历史榜单', onPress: openDrawer }]}
+          rightActions={[
+            { icon: PanelLeftRounded, label: 'ranking.historyBoard', onPress: openDrawer },
+          ]}
         />
       </NavChrome>
       <RankingDetailScreen
@@ -181,7 +186,7 @@ export default function RankingDetailScreenWrapper() {
       <Drawer
         visible={drawerVisible}
         onClose={closeDrawer}
-        user={{ nickname: '排行榜访客' }}
+        user={{ nickname: t('ranking.visitorName') }}
         conversations={history}
         onNavigate={onNavigate}
         onNavigateCompany={onNavigateCompany}

@@ -125,6 +125,7 @@ import {
   listRegistryItems,
   upsertRegistryItem,
   cleanupOldWebhookTriggers,
+  batchUpsertRegistryItems,
 } from '../src/db/registry-queries.js'
 
 // =============================================================================
@@ -374,6 +375,88 @@ describe('Registry DB Queries', () => {
       const expectedCutoffMax = afterTime - 30 * 86400_000 + 1000
       expect(cutoffMs).toBeGreaterThanOrEqual(expectedCutoffMin)
       expect(cutoffMs).toBeLessThanOrEqual(expectedCutoffMax)
+    })
+  })
+
+  // ===========================================================================
+  // batchUpsertRegistryItems — 批内复合键去重(2026-10-25 整批宕因回归臂)
+  // 现读实测:mcp.so offset 分页一轮 760 条里 122 个复合键重复 ⇒ 单条
+  // INSERT..ON CONFLICT DO UPDATE 同行影响两次被 PG 21000 拒绝,整批 synced=0。
+  // ===========================================================================
+  describe('batchUpsertRegistryItems 批内去重', () => {
+    type BatchItem = Parameters<typeof batchUpsertRegistryItems>[0][number]
+    const mk = (sourceId: string, name: string, version: string | null): BatchItem => ({
+      raw: {
+        sourceType: 'mcp',
+        source: 'mcp_marketplace',
+        sourceId,
+        name,
+        description: null,
+        version,
+        author: null,
+        homepage: null,
+        repoUrl: null,
+        downloadUrl: null,
+        categories: [],
+        tags: [],
+        payload: {},
+      },
+      heat: 1,
+      quality: 1,
+      hash: `h-${sourceId}-${version}`,
+    })
+
+    it('同复合键批内出现两次 ⇒ 语句去重后不得翻倍,计数如实,后页覆盖前页', async () => {
+      mockDbReadSelect.mockReturnValue(makeChain([]))
+      const insertChain = makeChain([])
+      mockDbInsert.mockReturnValue(insertChain)
+
+      const res = await batchUpsertRegistryItems([
+        mk('a', 'A-old', 'v1'),
+        mk('b', 'B', 'v1'),
+        mk('a', 'A-new', 'v2'),
+      ])
+
+      expect(res.deduped).toBe(1)
+      const valuesArg = insertChain.values.mock.calls[0][0] as Array<{
+        sourceId: string
+        name: string
+        version: string | null
+      }>
+      const ids = valuesArg.map((v) => v.sourceId)
+      expect(new Set(ids).size).toBe(ids.length, 'ON CONFLICT 语料里同键出现两次 = 整批宕的复刻形态')
+      const a = valuesArg.find((v) => v.sourceId === 'a')
+      expect(a?.name).toBe('A-new')
+      expect(a?.version).toBe('v2')
+      expect(res.inserted).toBe(2)
+      expect(res.updated).toBe(0)
+      expect(res.skipped).toBe(0)
+    })
+
+    it('无重复 ⇒ deduped=0;同版本幂等跳过仍生效(不占 insert 语料)', async () => {
+      mockDbReadSelect.mockReturnValue(
+        makeChain([
+          { id: 'x1', sourceType: 'mcp', source: 'mcp_marketplace', sourceId: 'a', version: 'v1' },
+        ]),
+      )
+      const insertChain = makeChain([])
+      mockDbInsert.mockReturnValue(insertChain)
+
+      const res = await batchUpsertRegistryItems([mk('a', 'A', 'v1'), mk('b', 'B', 'v1')])
+      expect(res.deduped).toBe(0)
+      expect(res.skipped).toBe(1)
+      expect(res.inserted).toBe(1)
+      const valuesArg = insertChain.values.mock.calls[0][0] as Array<{ sourceId: string }>
+      expect(valuesArg.map((v) => v.sourceId)).toEqual(['b'])
+    })
+
+    it('空批 ⇒ 零 DB 往返,计数全零含 deduped', async () => {
+      const res = await batchUpsertRegistryItems([])
+      expect(res).toEqual(
+        expect.objectContaining({ inserted: 0, updated: 0, skipped: 0, failed: 0, deduped: 0 }),
+      )
+      expect(mockDbReadSelect).not.toHaveBeenCalled()
+      expect(mockDbInsert).not.toHaveBeenCalled()
     })
   })
 })

@@ -17,7 +17,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Plus, Trash2, UserPlus, Users, X } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -328,25 +328,25 @@ export default function GroupsScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 10, paddingBottom: 32 },
-    subtitle: { fontSize: 12, color: tokens.text.tertiary },
+    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     card: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+    cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
     input: {
       height: 40,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       backgroundColor: tokens.surface.bg,
     },
     button: {
@@ -359,18 +359,22 @@ function makeStyles() {
       justifyContent: 'center',
     },
     buttonDisabled: { opacity: 0.5 },
-    buttonText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
+    buttonText: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
     dangerBtn: {
       height: 40,
       flexDirection: 'row',
-      gap: 4,
+      gap: rnSpacing.xs,
       alignItems: 'center',
       justifyContent: 'center',
     },
     dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
-    filterRow: { flexDirection: 'row', gap: 8 },
+    filterRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 30,
       justifyContent: 'center',
       borderRadius: rnRadiusFor.chip,
@@ -379,7 +383,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
     },
     chipOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
-    chipText: { fontSize: 12, color: tokens.text.secondary },
+    chipText: { fontSize: rnType.label.size, color: tokens.text.secondary },
     chipOnText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
     itemHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     avatar: {
@@ -390,12 +394,17 @@ function makeStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarText: { fontSize: 16, fontWeight: '700', color: tokens.text.secondary },
+    avatarText: { fontSize: rnType.title.size, fontWeight: '700', color: tokens.text.secondary },
     itemMain: { flex: 1, gap: 2 },
-    itemName: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
-    itemDesc: { fontSize: 12, color: tokens.text.secondary, lineHeight: 17 },
-    meta: { fontSize: 11, color: tokens.text.tertiary },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
+    itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
+    itemDesc: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 17 },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['5xl'],
+    },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
@@ -410,38 +419,43 @@ function makeStyles() {
     },
     sheet: {
       maxHeight: '80%',
-      padding: 16,
+      padding: rnSpacing.lg,
       gap: 10,
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tokens.surface.card,
     },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    sheetTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tokens.text.primary },
-    hint: { fontSize: 11, color: tokens.text.tertiary },
-    memberRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+    sheetTitle: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tokens.text.primary,
+    },
+    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+    memberRow: { flexDirection: 'row', gap: rnSpacing.sm, alignItems: 'center' },
     memberInput: {
       flex: 1,
       height: 40,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       backgroundColor: tokens.surface.bg,
     },
     smallBtn: {
       height: 40,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: rnSpacing.xs,
     },
-    smallBtnText: { fontSize: 12, color: tokens.text.primary },
+    smallBtnText: { fontSize: rnType.label.size, color: tokens.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

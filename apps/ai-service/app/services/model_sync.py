@@ -66,6 +66,7 @@ from typing import Any
 import httpx
 from prometheus_client import Counter, Gauge, Histogram
 
+from ..core.background_tasks import spawn
 from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 from ..core.provider_caps import get_provider_cap
@@ -461,7 +462,7 @@ class ModelSyncService:
         if not dry_run:
             try:
                 from .model_availability import model_availability
-                asyncio.create_task(model_availability._refresh_all_providers())
+                spawn(model_availability._refresh_all_providers())
             except Exception:
                 pass
 
@@ -546,7 +547,7 @@ class ModelSyncService:
             # 触发 ModelAvailabilityService 刷新
             try:
                 from .model_availability import model_availability
-                asyncio.create_task(model_availability._refresh_all_providers())
+                spawn(model_availability._refresh_all_providers())
             except Exception:
                 pass
 

@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -169,53 +169,53 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.sm,
     },
     titleText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     addText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '500',
       color: tk.brandAccent.deep,
     },
     /* 文档列表 */
     listContent: {
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     card: {
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     cardTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     cardMeta: {
-      marginTop: 4,
-      fontSize: 12,
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
     deleteBtn: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       alignSelf: 'flex-start',
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.danger.light,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
     },
     deleteText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.danger.DEFAULT,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)

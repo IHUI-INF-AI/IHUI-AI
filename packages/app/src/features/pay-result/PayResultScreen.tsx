@@ -16,7 +16,7 @@ import { Check, Clock, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 /** 支付结果三态(对齐 miniapp PayStatus) */
@@ -176,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerTitle: {
       flex: 1,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
       textAlign: 'center',
@@ -196,14 +196,14 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     statusText: {
-      marginTop: 16, // rpx(32)
-      fontSize: 18,
+      marginTop: rnSpacing.lg, // rpx(32)
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     amountText: {
-      marginTop: 8, // rpx(16)
-      fontSize: 20,
+      marginTop: rnSpacing.sm, // rpx(16)
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.danger.DEFAULT,
     },
@@ -212,7 +212,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     actions: {
       paddingHorizontal: 30, // rpx(60)
-      gap: 16, // rpx(32)
+      gap: rnSpacing.lg, // rpx(32)
     },
     primaryBtn: {
       height: 44, // rpx(88)
@@ -232,12 +232,12 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.85,
     },
     primaryText: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.surface.light,
     },
     secondaryText: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       color: tk.text.primary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)

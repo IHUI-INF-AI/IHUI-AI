@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -25,7 +26,7 @@ import { captureRef } from 'react-native-view-shot'
 import { Check, PenLine, Trash2, Type, Undo2, X } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 
 /** 画布内相邻采样点的最小位移(px):小于此位移不记点,抑制手抖产生密集垃圾点 */
@@ -45,7 +46,7 @@ const PEN_COLORS = [
 /** 画笔粗细档(px) */
 const PEN_WIDTHS = [rpx(5), rpx(9), rpx(15)] as const
 /** 粗细档措辞(与 PEN_WIDTHS 一一对应) */
-const PEN_WIDTH_LABELS = ['细', '中', '粗'] as const
+const PEN_WIDTH_LABELS = ['annot.penThin', 'annot.penMid', 'annot.penThick'] as const
 
 /** 标注坐标:相对画布左上角(画布 = 底图 resizeMode="contain" 的显示盒)的 px 偏移 */
 export interface AnnotationPoint {
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(20),
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
   },
   canvasText: {
     position: 'absolute',
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     maxWidth: '80%',
   },
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(14),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
   },
   textInputBtn: {
@@ -258,7 +259,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   footerBtnText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
@@ -300,6 +301,7 @@ function renderStrokePaths(strokes: readonly AnnotationStroke[]) {
  * 抬手时点数 < MIN_STROKE_POINTS 的笔画不入 strokes,单点误触不产生垃圾笔画。
  */
 export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnnotatorProps) {
+  const { t } = useI18n()
   const [strokes, setStrokes] = useState<readonly AnnotationStroke[]>([])
   const [texts, setTexts] = useState<readonly AnnotationText[]>([])
   const [opLog, setOpLog] = useState<readonly AnnotationOp[]>([])
@@ -473,7 +475,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             onPress={onCancel}
             style={styles.headerClose}
             accessibilityRole="button"
-            accessibilityLabel="关闭标注"
+            accessibilityLabel={t('annot.closeA11y')}
           >
             <X size={20} color={tokens.text.primary} />
           </Pressable>
@@ -484,7 +486,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             source={{ uri: imageUri }}
             style={styles.canvasImage}
             resizeMode="contain"
-            accessibilityLabel="待标注图片"
+            accessibilityLabel={t('annot.imageA11y')}
           />
           <Svg style={styles.absoluteFill} pointerEvents="none">
             {renderStrokePaths(strokes)}
@@ -532,7 +534,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               source={{ uri: imageUri }}
               style={styles.canvasImage}
               resizeMode="contain"
-              accessibilityLabel="标注合成底图"
+              accessibilityLabel={t('annot.composeA11y')}
             />
             <Svg style={styles.absoluteFill} pointerEvents="none">
               {renderStrokePaths(strokes)}
@@ -554,7 +556,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               onPress={() => setMode('pen')}
               style={[styles.toolBtn, mode === 'pen' && styles.toolBtnActive]}
               accessibilityRole="button"
-              accessibilityLabel="画笔工具"
+              accessibilityLabel={t('annot.penToolA11y')}
             >
               <PenLine
                 size={16}
@@ -568,7 +570,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               onPress={() => setMode('text')}
               style={[styles.toolBtn, mode === 'text' && styles.toolBtnActive]}
               accessibilityRole="button"
-              accessibilityLabel="文字工具"
+              accessibilityLabel={t('annot.textToolA11y')}
             >
               <Type
                 size={16}
@@ -583,7 +585,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               disabled={opLog.length === 0}
               style={[styles.toolBtn, opLog.length === 0 && styles.toolBtnDisabled]}
               accessibilityRole="button"
-              accessibilityLabel="撤销上一步"
+              accessibilityLabel={t('annot.undoA11y')}
             >
               <Undo2 size={16} color={tokens.text.primary} />
               <Text style={styles.toolBtnText}>撤销</Text>
@@ -593,7 +595,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               disabled={!hasContent}
               style={[styles.toolBtn, !hasContent && styles.toolBtnDisabled]}
               accessibilityRole="button"
-              accessibilityLabel="清空标注"
+              accessibilityLabel={t('annot.clearA11y')}
             >
               <Trash2 size={16} color={tokens.text.primary} />
               <Text style={styles.toolBtnText}>清空</Text>
@@ -607,7 +609,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 onPress={() => setColor(swatch)}
                 style={styles.colorSwatch}
                 accessibilityRole="button"
-                accessibilityLabel="切换画笔颜色"
+                accessibilityLabel={t('annot.colorA11y')}
               >
                 {({ pressed }) => (
                   <View
@@ -624,27 +626,30 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
           </View>
 
           <View style={styles.toolRow}>
-            {PEN_WIDTHS.map((penWidth, i) => (
-              <Pressable
-                key={`width-${i}`}
-                onPress={() => setWidthIndex(i)}
-                style={[styles.toolBtn, widthIndex === i && styles.toolBtnActive]}
-                accessibilityRole="button"
-                accessibilityLabel={`画笔${PEN_WIDTH_LABELS[i]}`}
-              >
-                <Text style={[styles.toolBtnText, widthIndex === i && styles.toolBtnActiveText]}>
-                  {PEN_WIDTH_LABELS[i]}
-                </Text>
-                <View
-                  style={{
-                    width: rpx(48),
-                    height: penWidth,
-                    borderRadius: rnRadius.xs,
-                    backgroundColor: widthIndex === i ? tokens.brand.ctaForeground : color,
-                  }}
-                />
-              </Pressable>
-            ))}
+            {PEN_WIDTHS.map((penWidth, i) => {
+              const widthLabelKey = PEN_WIDTH_LABELS[i] ?? ''
+              return (
+                <Pressable
+                  key={`width-${i}`}
+                  onPress={() => setWidthIndex(i)}
+                  style={[styles.toolBtn, widthIndex === i && styles.toolBtnActive]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('annot.penLabel', { v: t(widthLabelKey) })}
+                >
+                  <Text style={[styles.toolBtnText, widthIndex === i && styles.toolBtnActiveText]}>
+                    {t(widthLabelKey)}
+                  </Text>
+                  <View
+                    style={{
+                      width: rpx(48),
+                      height: penWidth,
+                      borderRadius: rnRadius.xs,
+                      backgroundColor: widthIndex === i ? tokens.brand.ctaForeground : color,
+                    }}
+                  />
+                </Pressable>
+              )
+            })}
           </View>
 
           {pendingText ? (
@@ -654,18 +659,18 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 style={styles.textInput}
                 value={textValue}
                 onChangeText={setTextValue}
-                placeholder="输入标记文字"
+                placeholder={t('annot.markPh')}
                 placeholderTextColor={tokens.text.tertiary}
                 maxLength={MAX_TEXT_LENGTH}
                 autoFocus
                 onSubmitEditing={confirmPendingText}
-                accessibilityLabel="标记文字输入"
+                accessibilityLabel={t('annot.markInputA11y')}
               />
               <Pressable
                 onPress={confirmPendingText}
                 style={styles.textInputBtn}
                 accessibilityRole="button"
-                accessibilityLabel="添加标记文字"
+                accessibilityLabel={t('annot.markAddA11y')}
               >
                 <Check size={18} color={tokens.text.primary} />
               </Pressable>
@@ -673,7 +678,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 onPress={cancelPendingText}
                 style={styles.textInputBtn}
                 accessibilityRole="button"
-                accessibilityLabel="放弃标记文字"
+                accessibilityLabel={t('annot.markDropA11y')}
               >
                 <X size={18} color={tokens.text.primary} />
               </Pressable>
@@ -686,7 +691,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             onPress={onCancel}
             style={({ pressed }) => [styles.footerBtn, pressed && styles.panelItemPressed]}
             accessibilityRole="button"
-            accessibilityLabel="取消"
+            accessibilityLabel={t('common.cancel')}
           >
             <Text style={styles.footerBtnText}>取消</Text>
           </Pressable>
@@ -700,7 +705,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               pressed && styles.panelItemPressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="保存标注"
+            accessibilityLabel={t('annot.modelEditSaveA11y')}
           >
             <Text style={[styles.footerBtnText, styles.footerBtnPrimaryText]}>保存</Text>
           </Pressable>

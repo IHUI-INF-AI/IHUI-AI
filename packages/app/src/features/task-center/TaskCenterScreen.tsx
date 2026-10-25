@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TaskCenterItem, TaskCenterScreenProps, TaskCenterTab } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -151,40 +151,40 @@ export function TaskCenterScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     tabs: {
       flexDirection: 'row',
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       gap: 6,
     },
     tab: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.cta },
-    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light },
     errorBar: {
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    retryText: { fontSize: 14, color: tk.text.primary },
-    list: { padding: 14, paddingBottom: 32 },
+    retryText: { fontSize: rnType.body.size, color: tk.text.primary },
+    list: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       backgroundColor: tk.surface.light,
     },
     cardHeader: {
@@ -194,28 +194,28 @@ function createStyles(tk: AppThemeTokens) {
     },
     taskTitle: {
       flex: 1,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     },
     rewardBadge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
       backgroundColor: tk.success.light,
     },
     rewardText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.success.DEFAULT,
     },
-    taskDesc: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    taskDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     progressRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 8,
-      gap: 8,
+      marginTop: rnSpacing.sm,
+      gap: rnSpacing.sm,
     },
     progressBarBg: {
       flex: 1,
@@ -228,7 +228,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.DEFAULT,
     },
-    progressText: { fontSize: 11, color: tk.text.tertiary },
+    progressText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     actionBtn: {
       marginTop: 10,
       height: 44,
@@ -239,8 +239,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     goBtn: { backgroundColor: tk.surface.card },
     claimedBtn: { backgroundColor: tk.surface.card },
-    actionBtnText: { fontSize: 14, color: tk.surface.light },
-    claimedBtnText: { fontSize: 14, color: tk.text.tertiary },
+    actionBtnText: { fontSize: rnType.body.size, color: tk.surface.light },
+    claimedBtnText: { fontSize: rnType.body.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -101,7 +101,7 @@ export default function SettingsScreen() {
     { key: 'ChangePwd', label: t('menu.changePwd') },
     // 安全设置 / 身份认证(孤儿路由修复:原注册无入口,补挂设置菜单)
     { key: 'SecurityCenter', label: t('securityCenter.title') },
-    { key: 'SecuritySettings', label: '安全设置' },
+    { key: 'SecuritySettings', label: t('securitySettings.title') },
     { key: 'ApiKeys', label: t('apiKeys.title') },
     // 签到助手 / 个人号池(2026-10-23 立):与 Web /checkin 同一后端,移动端可管理
     { key: 'CheckinAssistant', label: t('checkinAssistant.title') },
@@ -109,16 +109,16 @@ export default function SettingsScreen() {
     { key: 'Usage', label: t('usage.title') },
     { key: 'ConnectedAccounts', label: t('connectedAccounts.title') },
     { key: 'DataRights', label: t('dataRights.title') },
-    { key: 'IdentityVerify', label: '身份认证' },
+    { key: 'IdentityVerify', label: t('identityVerify.title') },
     { key: 'AccountCancel', label: t('menu.accountCancel') },
     // 通用设置
     { key: 'CheckUpdate', label: t('menu.checkUpdate') },
     // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
     { key: 'ConversationImport', label: t('menu.conversationImport') },
     // 更多功能(子包功能入口集合页,对齐原项目 subpackage index)
-    { key: 'SubPackageIndex', label: '更多功能' },
+    { key: 'SubPackageIndex', label: t('webViewPortal.sections.more') },
     // 帮助与反馈
-    { key: 'Help', label: '帮助中心' },
+    { key: 'Help', label: t('help.title') },
     { key: 'Feedback', label: t('menu.feedback') },
     // 隐私与权限
     { key: 'Agreement', label: t('menu.agreement') },
@@ -129,7 +129,7 @@ export default function SettingsScreen() {
     { key: 'BusinessLicense', label: t('menu.businessLicense') },
     { key: 'IcpRecord', label: t('menu.icpRecord') },
     { key: 'ModelRecord', label: t('menu.modelRecord') },
-    { key: 'Announcement', label: '平台公告' },
+    { key: 'Announcement', label: t('announcement.title') },
     { key: 'About', label: t('menu.about') },
   ]
 
@@ -138,20 +138,20 @@ export default function SettingsScreen() {
     { key: 'ChangePhone', label: t('menu.changePhone'), icon: Smartphone },
     { key: 'ChangePwd', label: t('menu.changePwd'), icon: Key },
     { key: 'SecurityCenter', label: t('securityCenter.title'), icon: ShieldCheck },
-    { key: 'SecuritySettings', label: '安全设置', icon: Shield },
+    { key: 'SecuritySettings', label: t('securitySettings.title'), icon: Shield },
     { key: 'ApiKeys', label: t('apiKeys.title'), icon: Key },
     { key: 'CheckinAssistant', label: t('checkinAssistant.title'), icon: CalendarCheck },
     { key: 'AccountPool', label: t('accountPool.title'), icon: Database },
     { key: 'Usage', label: t('usage.title'), icon: BarChart3 },
     { key: 'ConnectedAccounts', label: t('connectedAccounts.title'), icon: Link2 },
     { key: 'DataRights', label: t('dataRights.title'), icon: ShieldCheck },
-    { key: 'IdentityVerify', label: '身份认证', icon: IdCard },
+    { key: 'IdentityVerify', label: t('identityVerify.title'), icon: IdCard },
     { key: 'AccountCancel', label: t('menu.accountCancel'), icon: AlertTriangle },
     { key: 'CheckUpdate', label: t('menu.checkUpdate'), icon: RefreshCw },
     // D28 多端同步(2026-09-21):外部会话导入
     { key: 'ConversationImport', label: t('menu.conversationImport'), icon: FileUp },
-    { key: 'SubPackageIndex', label: '更多功能', icon: Package },
-    { key: 'Help', label: '帮助中心', icon: HelpCircle },
+    { key: 'SubPackageIndex', label: t('webViewPortal.sections.more'), icon: Package },
+    { key: 'Help', label: t('help.title'), icon: HelpCircle },
     { key: 'Feedback', label: t('menu.feedback'), icon: Pencil },
     { key: 'Agreement', label: t('menu.agreement'), icon: FileText },
     { key: 'Privacy', label: t('menu.privacy'), icon: Lock },
@@ -162,7 +162,7 @@ export default function SettingsScreen() {
     { key: 'ModelRecord', label: t('menu.modelRecord'), icon: Bot },
     // API 设置(对齐原项目 pagesA/settings/api-settings.vue:Coze PAT/Base URL 配置)
     { key: 'ApiSettings', label: t('menu.apiSettings'), icon: Plug },
-    { key: 'Announcement', label: '平台公告', icon: Megaphone },
+    { key: 'Announcement', label: t('announcement.title'), icon: Megaphone },
     { key: 'About', label: t('menu.about'), icon: Info },
   ]
 
@@ -257,7 +257,9 @@ export default function SettingsScreen() {
         onChangePassword={onChangePassword}
         onAlert={onAlert}
         onConfirm={onConfirm}
-        onLogout={() => onConfirm(t('common.logout'), '确认退出当前账号？', () => void logout())}
+        onLogout={() =>
+          onConfirm(t('common.logout'), t('settings.logoutConfirmBody'), () => void logout())
+        }
         menuItems={menuItems}
         onMenuPress={onMenuPress}
         appVersion={APP_VERSION}

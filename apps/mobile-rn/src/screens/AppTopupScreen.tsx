@@ -25,8 +25,8 @@ const AMOUNT_OPTIONS = [
 ]
 
 const PAY_METHODS = [
-  { id: 'wechat', label: '微信支付' },
-  { id: 'alipay', label: '支付宝' },
+  { id: 'wechat', labelKey: 'purchase.wechat' },
+  { id: 'alipay', labelKey: 'login.platformAlipay' },
 ]
 
 export default function AppTopupScreen() {
@@ -41,7 +41,8 @@ export default function AppTopupScreen() {
 
   const [selectedId, setSelectedId] = useState(AMOUNT_OPTIONS[0]?.id ?? '')
   const [customAmount, setCustomAmount] = useState('')
-  const [payMethod, setPayMethod] = useState(PAY_METHODS[0]?.id ?? '')
+  const [payMethod, setPayMethod] = useState<string>(PAY_METHODS[0]?.id ?? '')
+  const payMethodItems = PAY_METHODS.map((m) => ({ id: m.id, label: t(m.labelKey) }))
   const [balance, setBalance] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [introVisible, setIntroVisible] = useState(true)
@@ -87,7 +88,9 @@ export default function AppTopupScreen() {
 
   const onSubmit = useCallback(() => {
     const selected = AMOUNT_OPTIONS.find((o) => o.id === selectedId)
-    const amount = selected ? selected.amount : Number(customAmount) * 100
+    // 浮点钱雷:9.9*100=990.0000000000002(Number 直乘把分算成小数,进 createPayment 的 amount
+    // 语义=分整数)。与 CartScreen L138 同法 Math.round 归分;NaN/0/负由下面判据兜住。
+    const amount = selected ? selected.amount : Math.round(Number(customAmount) * 100)
     if (!amount || amount <= 0) {
       return
     }
@@ -95,12 +98,12 @@ export default function AppTopupScreen() {
       return
     }
     if (payMethod !== 'wechat') {
-      appAlert('提示', '支付宝支付暂未开通，请选择微信支付')
+      appAlert(t('home.pubTip'), t('pay.alipayNotOpen'))
       return
     }
     lastAmountRef.current = amount
     void pay(amount, `充值 ${(amount / 100).toFixed(2)} 元`)
-  }, [selectedId, customAmount, payMethod, paying, pay])
+  }, [selectedId, customAmount, payMethod, paying, pay, t])
 
   const onCloseIntro = useCallback(() => {
     setIntroVisible(false)
@@ -117,7 +120,7 @@ export default function AppTopupScreen() {
       introVisible={introVisible}
       userTier={userTier}
       amountOptions={AMOUNT_OPTIONS}
-      payMethods={PAY_METHODS}
+      payMethods={payMethodItems}
       onSelectAmount={setSelectedId}
       onCustomAmountChange={setCustomAmount}
       onSelectPayMethod={setPayMethod}

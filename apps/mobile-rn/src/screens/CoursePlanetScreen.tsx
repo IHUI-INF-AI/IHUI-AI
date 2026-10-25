@@ -18,6 +18,7 @@
  * - Menu 默认 items 即原 Menu/index.vue 内置 8 项(tabbar/coursePlanet 图标),无需扩展 props。
  * - 加载态接入 components/common/Loading;原模板顶部搜索框不在本次对齐范围(原文件已注释)。
  */
+import { rnType } from '@ihui/design-tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type NativeScrollEvent,
@@ -128,16 +129,16 @@ export function CoursePlanetScreen() {
       if (res.success && res.data) {
         setData(res.data)
       } else {
-        setError('加载失败，请下拉刷新重试')
+        setError(t('common.loadFailPullRetry'))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请下拉刷新重试')
+      setError(detail.trim() ? toUserFriendlyMessage(e) : t('common.loadFailPullRetry'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -173,7 +174,7 @@ export function CoursePlanetScreen() {
 
   return (
     <View style={styles.root}>
-      <NavBar title="课程星球" onBack={() => navigation.goBack()} />
+      <NavBar title={t('coursePlanet.title')} onBack={() => navigation.goBack()} />
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
     padding: rpx(20),
   },
   errorText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.danger.DEFAULT,
     textAlign: 'center',
     paddingVertical: rpx(16),

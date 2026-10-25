@@ -34,11 +34,12 @@ interface BusinessCardListItem {
   intro: string | null
 }
 
-/** 从 AuthUser 构造默认名片(用户尚未创建名片时的兜底) */
-function buildDefaultCard(profile: AuthUser): BusinessCardItem {
+/** 从 AuthUser 构造默认名片(用户尚未创建名片时的兜底)
+ *  tr 由调用方注入:模块顶层不调 t()(求值早于 I18nProvider 挂载,运行必炸) */
+function buildDefaultCard(profile: AuthUser, tr: (key: string) => string): BusinessCardItem {
   return {
     id: '',
-    name: profile.nickname || profile.username || '未命名',
+    name: profile.nickname || profile.username || tr('businesscard.unnamed'),
     position: '',
     company: '',
     phone: profile.phone ?? '',
@@ -70,7 +71,7 @@ export default function BusinessCardScreen() {
       .then(([profileRes, listRes]) => {
         if (cancelled) return
         if (!profileRes.success) {
-          setError('加载失败')
+          setError(t('businesscard.loadFailBody'))
           return
         }
         const profile = profileRes.data
@@ -89,11 +90,11 @@ export default function BusinessCardScreen() {
             bio: mine.intro ?? '',
           })
         } else {
-          setCard(buildDefaultCard(profile))
+          setCard(buildDefaultCard(profile, t))
         }
       })
       .catch(() => {
-        if (!cancelled) setError('加载失败')
+        if (!cancelled) setError(t('businesscard.loadFailBody'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -101,12 +102,12 @@ export default function BusinessCardScreen() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   /** 拼接名片分享文案(微信/朋友圈共用,对齐原项目 business-card-sharing 分享内容) */
   const buildShareMessage = (): string =>
     card
-      ? `${card.name} · ${card.position}\n${card.company}\n电话:${card.phone}  微信:${card.wechat}`
+      ? `${card.name} · ${card.position}\n${card.company}\n${t('contact.phoneLabel')}${card.phone}  ${t('contact.wechatLabel')}${card.wechat}`
       : ''
 
   const onShare = async () => {
@@ -125,7 +126,7 @@ export default function BusinessCardScreen() {
     if (!card) return
     try {
       await Share.share({
-        title: '微信好友',
+        title: t('businesscard.shareWechat'),
         message: buildShareMessage(),
       })
     } catch {
@@ -137,7 +138,7 @@ export default function BusinessCardScreen() {
     if (!card) return
     try {
       await Share.share({
-        title: '朋友圈',
+        title: t('businesscard.shareMoments'),
         message: buildShareMessage(),
       })
     } catch {
@@ -150,7 +151,7 @@ export default function BusinessCardScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (!perm.granted) {
-        appAlert('提示', '需要相册权限才能选择名片图片')
+        appAlert(t('home.pubTip'), t('businesscard.needAlbum'))
         return
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -168,7 +169,7 @@ export default function BusinessCardScreen() {
         name: fileName,
       })
       if (!up.success || !up.data?.path) {
-        appAlert('提示', '名片图片上传失败')
+        appAlert(t('home.pubTip'), t('businesscard.uploadFail'))
         return
       }
       // 2. 提交名片(对齐原 uploadBusinessCard → /remote/business-card/upload)
@@ -181,7 +182,7 @@ export default function BusinessCardScreen() {
         email: card?.email ?? '',
       })
       if (cardRes.success) {
-        appAlert('成功', '名片已更新')
+        appAlert(t('chat.toolOk'), t('businesscard.updated'))
         // 3. 刷新列表
         const listRes = await fetchApi<{ list: BusinessCardListItem[] }>(
           '/api/business-card/list?page=1&pageSize=100',
@@ -206,11 +207,14 @@ export default function BusinessCardScreen() {
           }
         }
       } else {
-        appAlert('提示', '名片提交失败')
+        appAlert(t('home.pubTip'), t('businesscard.submitFail'))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      appAlert('提示', detail.trim() ? toUserFriendlyMessage(e) : '名片定制失败,请重试')
+      appAlert(
+        t('home.pubTip'),
+        detail.trim() ? toUserFriendlyMessage(e) : t('businesscard.customFail'),
+      )
     } finally {
       // 定制完成(同步提示已由 Alert 呈现)
     }

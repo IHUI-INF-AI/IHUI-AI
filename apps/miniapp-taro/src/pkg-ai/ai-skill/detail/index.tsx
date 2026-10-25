@@ -14,6 +14,7 @@ import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import { ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
@@ -140,7 +141,7 @@ export default function AiSkillDetail() {
   // 路由参数:技能 id 与名称(对齐 RN route.params.id / route.params.name)
   const router = Taro.getCurrentInstance().router
   const skillId = router?.params?.id ?? ''
-  const skillName = decodeURIComponent(router?.params?.name ?? '')
+  const skillName = safeDecodeURIComponent(router?.params?.name ?? '')
   const [skill, setSkill] = useState<AiSkillMeta | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
