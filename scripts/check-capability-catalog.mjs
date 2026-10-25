@@ -39,12 +39,12 @@
  *
  * 退出码:0 通过 / 1 检查失败 / 2 脚本自身异常。
  */
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { COLORS as C } from './lib/logger.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(process.env.CAPABILITY_CATALOG_ROOT || resolve(__dirname, '..'))
@@ -767,7 +767,8 @@ function getStagedFiles() {
   const fromEnv = (process.env.CAPABILITY_CATALOG_FILES || '').split(/[,\n]/).map((s) => s.trim().replace(/\\/g, '/')).filter(Boolean)
   if (fromEnv.length > 0) return fromEnv
   try {
-    const out = execFileSync('git', ['-C', ROOT, 'diff', '--cached', '--name-only', '--diff-filter=ACMR'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true })
+    // 派生统一走取材层(G-54):绝对 git / 显式 stdio / windowsHide 由 gitRaw 提供。
+    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT)
     return out.split(/\r?\n/).map((l) => l.trim().replace(/\\/g, '/')).filter(Boolean)
   } catch (e) {
     console.warn(`${C.yellow}⚠️ 无法读取 git 暂存区(${e?.message ?? e}),B/C 端点覆盖检查本轮跳过${C.reset}`)
