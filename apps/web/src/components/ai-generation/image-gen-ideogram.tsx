@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 
 const ASPECT_RATIOS = ['ASPECT_1_1', 'ASPECT_16_9', 'ASPECT_9_16'] as const
@@ -42,11 +42,12 @@ export function ImageGenIdeogram() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; model: string; aspect_ratio: string }) => {
-      const res = await api<unknown>('/api/ai/ideogram/generate', {
+      const res = await fetchApi<unknown>('/api/ai/ideogram/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      const urls = extractMediaUrls(res)
+      if (!res.success) throw new Error(res.error)
+      const urls = extractMediaUrls(res.data)
       if (urls.length === 0) throw new Error(t('noResult'))
       return urls
     },

@@ -3,13 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/course-detail/CourseDetailScreen.tsx
-// ⚠️ 桶文件 `@/components` 必须排在本入口其余 `@/components/*` 直引之前:
-// mini-css-extract 只比 module 次序、不看声明内容。本入口曾把桶写在 LineIcon /
-// ThemeRoot / ScreenStates.taro 之后,而与 pages/share/index、pkg-ai/ranking/detail、
-// pkg-content/news/detail、pages/exam/result 这四个入口(全是"桶在前")的相对次序相反
-// ⇒ chunk `common` 抛 `Error: chunk common [mini-css-extract-plugin] Conflicting order`
-// (票 G-948;同一组判据的完整推理见 pages/index/index.tsx 桶文件上方注释)。
-// import 排序工具不得把这两段换回去。
+import { useI18n } from '@/i18n'
+import { View, Text } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
+import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
+import { useState, useEffect, useCallback } from 'react'
+import { getCourseDetail, post, type Course } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import {
   CourseHeader,
   CourseCatalog,
@@ -27,14 +28,6 @@ import {
   type LessonListItemData,
   type StreakDay,
 } from '@/components'
-import { useI18n } from '@/i18n'
-import { View, Text } from '@tarojs/components'
-import LineIcon from '@/components/LineIcon'
-import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
-import { useState, useEffect, useCallback } from 'react'
-import { getCourseDetail, post, type Course } from '@/api'
-import ThemeRoot from '@/components/ThemeRoot'
-import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 export default function CourseDetail() {
   const router = useRouter()

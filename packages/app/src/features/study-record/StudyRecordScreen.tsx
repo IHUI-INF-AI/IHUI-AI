@@ -12,7 +12,7 @@ import type {
   StudyRecordStatus,
 } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -164,14 +164,14 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     titleBox: { flex: 1 },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    listBody: { padding: 14, paddingBottom: 32 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    errorText: { paddingHorizontal: 10, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     statsCard: {
       padding: 14,
@@ -179,18 +179,20 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
-    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
-    // minWidth 按最坏读数「123小时45分」(≈110px @20px)+ 余量取 112。
     statsRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
-    statItem: { flex: 1, minWidth: 112, alignItems: 'center' },
-    statValue: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    statLabel: { marginTop: 8, fontSize: 11, color: tk.text.secondary, textAlign: 'center' },
+    statItem: { flex: 1, alignItems: 'center' },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    statLabel: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.caption.size,
+      color: tk.text.secondary,
+      textAlign: 'center',
+    },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -205,14 +207,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: {
       flex: 1,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '700',
       color: tk.text.primary,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     },
     statusBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
     },
     statusCompleted: { backgroundColor: tk.success.light },
@@ -223,10 +225,10 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
-    cardMeta: { fontSize: 11, color: tk.text.secondary },
-    cardTime: { fontSize: 11, color: tk.text.tertiary },
+    cardMeta: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

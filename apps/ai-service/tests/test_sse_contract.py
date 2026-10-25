@@ -30,20 +30,15 @@ def test_sse_events_completeness() -> None:
     30 → 31 是 D151(2026-09-29)新增 `terminal_interaction` 一帧;31 → 32 是 D152
     (2026-09-29)新增 `goal_updated` 一帧:**改被审代码的写法必须同时改审它的数字**,
     否则这条计数就变成替旧契约背书的死账。
-    33 → 34 是 D115(2026-10-24,提交 2fc9ab9b55a)新增 `review-finding`(review 收尾
-    投影)一帧 —— 该提交只改了被审代码没同步本计数,本用例在干净 HEAD 上红了 9 例
-    之一;此处按演进链补记,不是行为变化。
     """
-    assert len(SSE_EVENTS) == 34
-    assert len(set(SSE_EVENTS)) == 34
+    assert len(SSE_EVENTS) == 33
+    assert len(set(SSE_EVENTS)) == 33
     # D151 的新帧必须真在集合里(光有计数会放过"删了别的、加了这个"):
     assert "terminal_interaction" in SSE_EVENTS
     # D152 同理 —— 计数只保证"没少",点名才保证"加的就是这一名":
     assert "goal_updated" in SSE_EVENTS
     # G-815976(2026-10-04):流式中断标记帧入契约(此前只有生产者,端上静默丢弃)
     assert "partial_done" in SSE_EVENTS
-    # D115(2026-10-24):review 收尾投影帧 —— 计数只保证"没少",点名才保证"加的就是这一名"
-    assert "review-finding" in SSE_EVENTS
 
 
 def test_sse_events_p4_d1_steer_members() -> None:

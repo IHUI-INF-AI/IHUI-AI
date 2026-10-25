@@ -28,30 +28,10 @@
 import { spawn, spawnSync, execSync } from 'node:child_process'
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 
 const ROOT = process.cwd()
-// --port 取值走 G-322 单源:等号形与空格形都认;给了旗标但值无效(吞掉紧邻 `--clean`
-// 当端口、结尾无值、等号后为空)必须点名非零退出,不得静默回落 8801(§22c 禁复制判据)。
-const portF = (() => {
-  const eq = process.argv.find((a) => a.startsWith('--port='))
-  if (eq !== undefined) {
-    const v = eq.split('=').slice(1).join('=')
-    if (v === '') {
-      console.error('[dev-web] 用法错:--port= 需要一个端口号 —— 等号后为空(不得静默退回默认)')
-      process.exit(2)
-    }
-    return v
-  }
-  const f = flagValue(process.argv, '--port')
-  if (!f.present) return null
-  if (!f.valid) {
-    console.error(`[dev-web] 用法错:--port 需要一个端口号,紧邻的 token 实得:${describeFlagToken(f)}(不得静默退回默认)`)
-    process.exit(2)
-  }
-  return f.value
-})()
-const PORT = portF ?? '8801'
+const PORT = (process.argv.find((a) => a.startsWith('--port='))?.split('=')[1]) ||
+             (process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : '8801')
 const CLEAN = process.argv.includes('--clean')
 
 console.log(`[dev-web] target port: ${PORT}`)

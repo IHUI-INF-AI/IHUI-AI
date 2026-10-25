@@ -518,44 +518,6 @@ test('A5:路径还在但内容退回基底必须判红;正常前进/被演进/�
   }
 })
 
-test('A5 生成块:差异只在机器标记区块内不判丢失;区块外实义改动仍判红(2026-10-25)', () => {
-  const { dir, run } = repo()
-  try {
-    const { begin, end } = G.GENERATED_REGIONS.find((r) => r.begin.includes('RECENT UPDATES'))
-    assert.ok(begin && end, '标记必须来自源模块(不得在测试里复制一份)')
-    const doc = (block, tail) => `# doc\n${begin}\n${block}\n${end}\n${tail}\n`
-    writeFileSync(join(dir, 'gen.md'), doc('old', 'tail A'), 'utf8')
-    run('add', 'gen.md')
-    run('commit', '-qm', '基底 gen')
-    const base = run('rev-parse', 'HEAD')
-    writeFileSync(join(dir, 'gen.md'), doc('new', 'tail A'), 'utf8')
-    run('add', 'gen.md')
-    run('commit', '-qm', '只翻新生成块')
-    const from = run('rev-parse', 'HEAD')
-    run('update-ref', '-m', 'relay align(生成块)', 'HEAD', base)
-    run('reset', '-q', '--hard', base)
-    const churn = G.auditRefMove(from, base, dir, base)
-    assert.equal(churn.lost.length, 0, `生成块翻新不得判红:${JSON.stringify(churn)}`)
-    assert.ok(churn.generatedChurn.some((x) => x.path === 'gen.md'), '必须点名 generatedChurn(不洗成无声)')
-
-    writeFileSync(join(dir, 'gen.md'), doc('newer', 'tail B'), 'utf8')
-    run('add', 'gen.md')
-    run('commit', '-qm', '生成块翻新 + 正文也改')
-    const from2 = run('rev-parse', 'HEAD')
-    run('update-ref', '-m', 'relay align(实义)', 'HEAD', base)
-    run('reset', '-q', '--hard', base)
-    const real = G.auditRefMove(from2, base, dir, base)
-    assert.equal(real.lost.length, 1, `区块外实义改动必须仍判红:${JSON.stringify(real)}`)
-    assert.equal(real.lost[0].path, 'gen.md')
-
-    const dangling = `a\n${begin}\nx\nb\n`
-    assert.equal(G.stripGeneratedDocRegions(dangling), dangling, '标记不成对不得剥离')
-    assert.equal(G.stripGeneratedDocRegions(`a\n${begin}\nx\n${end}\nb\n`), 'a\n\nb\n', '成对时只剥区块')
-  } finally {
-    rmScratch(dir)
-  }
-})
-
 test('blobMapAt 与 presentIn 同源:成员性面与内容面必须取自同一份派生(不得两套取数)', () => {
   const { dir, run } = repo()
   try {

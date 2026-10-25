@@ -3,8 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { apiOrThrow } from '@/lib/api'
-import type { Announcement, AnnouncementForm, AnnouncementPlatform, AnnType } from './types'
-import { ANNOUNCEMENT_PLATFORMS } from './types'
+import type { Announcement, AnnouncementForm, AnnType } from './types'
 
 export const TYPE_BADGE: Record<AnnType, string> = {
   info: 'bg-primary/10 text-primary',
@@ -22,16 +21,14 @@ export const EMPTY_FORM: AnnouncementForm = {
   type: 'info',
   isPinned: false,
   isPublished: false,
-  platforms: [],
 }
 
 export { apiOrThrow as api }
 
 export async function fetchList(): Promise<Announcement[]> {
-  // 统一数据源:读 content 模块的 announcements 表(各端实际消费的同一接口)
   const raw = await apiOrThrow<
     { list?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>
-  >('/api/admin/announcements?includeUnpublished=true')
+  >('/api/admin/messages/announcements?includeUnpublished=true')
   const arr = Array.isArray(raw) ? raw : (raw.list ?? [])
   return arr.map((r) => ({
     id: String(r.id),
@@ -42,11 +39,6 @@ export async function fetchList(): Promise<Announcement[]> {
     isPublished: Boolean(r.isPublished),
     publishedAt: r.publishedAt ? String(r.publishedAt) : undefined,
     updatedAt: r.updatedAt ? String(r.updatedAt) : undefined,
-    platforms: Array.isArray(r.platforms)
-      ? r.platforms.filter((p): p is AnnouncementPlatform =>
-          (ANNOUNCEMENT_PLATFORMS as readonly string[]).includes(p as string),
-        )
-      : [],
   }))
 }
 
@@ -57,7 +49,6 @@ export function announcementToForm(item: Announcement): AnnouncementForm {
     type: item.type,
     isPinned: item.isPinned,
     isPublished: item.isPublished,
-    platforms: item.platforms ?? [],
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

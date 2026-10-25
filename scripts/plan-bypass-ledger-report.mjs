@@ -708,18 +708,13 @@ function localDay(ms) {
  * —— 实测 `--since 2026-09-29` 用 ms 判据得 0 枚,而同一窗口按日字符串判有数百枚。
  */
 function resolveWindow(argv) {
-  // G-322(续):旧 get() 把"被下一枚旗标顶值 / 结尾无值 / 空串"都当普通值交出去 ——
-  // `--until ""` 被 falsy 静默折成"今"、`--since --json` 把旗标当日期、`--days`(漏值)走
-  // Number(null)=0 ⇒ "必须是正整数,实得 null" 的误导文案。接单源;DAY_RE/正整数域校验留在本函数。
-  const sinceFlag = requireFlagValue(argv, '--since', { noun: 'YYYY-MM-DD' })
-  if (sinceFlag.error) return { error: sinceFlag.error }
-  const untilFlag = requireFlagValue(argv, '--until', { noun: 'YYYY-MM-DD' })
-  if (untilFlag.error) return { error: untilFlag.error }
-  const daysFlag = requireFlagValue(argv, '--days', { noun: '正整数' })
-  if (daysFlag.error) return { error: daysFlag.error }
+  const get = (name) => {
+    const i = argv.indexOf(name)
+    return i >= 0 ? argv[i + 1] : null
+  }
   const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
-  const since = sinceFlag.value
-  const until = untilFlag.value
+  const since = get('--since')
+  const until = get('--until')
   const today = localDay(Date.now())
   if (since) {
     if (!DAY_RE.test(since)) return { error: `--since 不是 YYYY-MM-DD:${since}` }
@@ -728,8 +723,8 @@ function resolveWindow(argv) {
     if (untilDay < since) return { error: `--until(${untilDay}) 早于 --since(${since})` }
     return { sinceDay: since, untilDay, label: `${since}..${until ? until : '今'}` }
   }
-  const days = Number(daysFlag.value ?? 1)
-  if (!Number.isFinite(days) || days <= 0) return { error: `--days 必须是正整数,实得 ${daysFlag.value}` }
+  const days = Number(get('--days') ?? 1)
+  if (!Number.isFinite(days) || days <= 0) return { error: `--days 必须是正整数,实得 ${get('--days')}` }
   return { sinceDay: localDay(Date.now() - (days - 1) * DAY_MS), untilDay: today, label: `近 ${days} 天(按本地日,含今天)` }
 }
 

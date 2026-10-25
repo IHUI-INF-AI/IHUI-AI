@@ -9,7 +9,6 @@
  * 企业认证 / 发票申请(对已支付订单)/ 对公结算(登记打款凭证,admin 确认后
  * 订单自动完成并激活订阅)/ 合同列表与签署。
  */
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Loader2 } from 'lucide-react'
@@ -58,7 +57,7 @@ interface Voucher {
   status: string
 }
 
-const yuan = (c: number) => `¥${formatPrice(c)}`
+const yuan = (c: number) => `¥${(c / 100).toFixed(2)}`
 
 const BADGE: Record<string, string> = {
   pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',

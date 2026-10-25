@@ -15,9 +15,8 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { FileText, Music, Video, X } from 'lucide-react-native'
+import { ChevronLeft, FileText, Music, Video, X } from 'lucide-react-native'
 import { SearchInput } from '../../components/SearchInput'
-import { BackChevron } from '../../components/BackChevron'
 import { EmptyState } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
@@ -82,12 +81,6 @@ export interface ChatRoomScreenProps {
   onCloseChat: () => void
   /** 音频/文件/视频打开(wrapper 注入 Linking.openURL,对齐历史 openAudio/openFile) */
   onOpenUrl: (url: string) => void
-  /**
-   * 返回键的无障碍名称(**只用于 accessibilityLabel,不参与渲染**)。
-   * 由 wrapper 注入 i18n 取词结果 —— 共享层无 i18n 通道,写死中文会与
-   * 「界面文案走语言包」的判据冲突(scan-hardcoded-zh),故不能给默认值。
-   */
-  backLabel: string
   colorScheme?: 'light' | 'dark'
 }
 
@@ -137,7 +130,6 @@ export function ChatRoomScreen({
   onOpenRoom,
   onCloseChat,
   onOpenUrl,
-  backLabel,
   colorScheme = 'light',
 }: ChatRoomScreenProps) {
   const tk = getTokens(colorScheme)
@@ -226,7 +218,7 @@ export function ChatRoomScreen({
   if (mode === 'chat' && activeRoom) {
     return (
       <View style={styles.shell}>
-        <Header title={activeRoom.name} onBack={onCloseChat} backLabel={backLabel} colorScheme={colorScheme} styles={styles} />
+        <Header title={activeRoom.name} onBack={onCloseChat} styles={styles} />
         <FlatList
           style={styles.chatList}
           contentContainerStyle={styles.chatListContent}
@@ -268,7 +260,7 @@ export function ChatRoomScreen({
 
   return (
     <View style={styles.shell}>
-      <Header title="消息" onBack={onExit} backLabel={backLabel} colorScheme={colorScheme} styles={styles} />
+      <Header title="消息" onBack={onExit} styles={styles} />
       <View style={styles.searchBar}>
         <SearchInput
           value={searchKeyword}
@@ -319,19 +311,17 @@ export function ChatRoomScreen({
 function Header({
   title,
   onBack,
-  backLabel,
-  colorScheme,
   styles,
 }: {
   title: string
   onBack: () => void
-  backLabel: string
-  colorScheme: 'light' | 'dark'
   styles: ReturnType<typeof createStyles>
 }) {
   return (
     <View style={styles.headerBar}>
-      <BackChevron onPress={onBack} label={backLabel} colorScheme={colorScheme} />
+      <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.7}>
+        <ChevronLeft size={22} color={styles.headerIcon.color} />
+      </TouchableOpacity>
       <Text style={styles.headerTitle} numberOfLines={1}>
         {title}
       </Text>
@@ -388,6 +378,15 @@ function createStyles(tk: AppThemeTokens) {
       height: 44,
       paddingHorizontal: 10,
       backgroundColor: tk.surface.bg,
+    },
+    headerBackBtn: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerIcon: {
+      color: tk.brand.DEFAULT,
     },
     headerTitle: {
       flex: 1,

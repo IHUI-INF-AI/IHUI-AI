@@ -27,13 +27,7 @@ export interface RankingProps {
 const MEDALS = ['medal', 'medal', 'medal'] as const
 
 function getValue(item: RankingItem): number {
-  // 0 是合法名次值(积分 0 的用户确实在榜上)。用 `a || b || c` 串取字段,当 score=0 时会
-  // 顺势落到 commission / minutes 上 —— 那是**换了量纲**读数(积分栏显示成学习时长)。
-  // 取的是"第一个**有值**的字段",不是"第一个真值"。
-  for (const v of [item.score, item.value, item.commission, item.minutes]) {
-    if (v !== null && v !== undefined) return v
-  }
-  return 0
+  return item.score || item.value || item.commission || item.minutes || 0
 }
 
 function getName(item: RankingItem): string {

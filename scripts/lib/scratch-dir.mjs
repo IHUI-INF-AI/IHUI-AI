@@ -18,7 +18,6 @@
 // `post-commit-*` ⇒ 由提交链上的 git-lock 抢占在夹具工作树里跑出来的。
 // 判据(只读、不判红、绝不代删)= `scripts/check-scratch-root-no-nesting.mjs`。
 
-import { spawnSync } from 'node:child_process'
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, parse, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -254,44 +253,6 @@ function isApprovedDevEnvRoot(root) {
 }
 
 /**
- * 落点合法性的**唯一判据**:仓外任意位置,或仓内唯一批准的 `.DevEnv`。
- * `mkScratch` 的拒建闸与两处自检/镜像测试共用这一枚,不得各写一份
- * (2026-10-25:check-service-binary-paths 的 F3 仍在用旧判据"不得在仓库树内",
- * G-158 把批准根搬进仓内之后它就恒红了 —— 判据没跟上设计,红在尺子而不是落点)。
- */
-export function isAllowedScratchRoot(root) {
-  return !isInsideRepo(root) || isApprovedDevEnvRoot(root)
-}
-
-/**
- * 「该落点没有逃逸到真仓 git 面」的唯一判据(自检/镜像测试共用;三态,不把没量到写成通过)。
- * 逃逸的实质 = 夹具里 `git rev-parse --show-toplevel` 问得出真仓库 —— 那会让"非 git 目录"
- * 一类用例恒红。G-158 的仓内落点靠 `.DevEnv` 层的坏 gitfile 边界阻断 discovery,本函数就是
- * 那条性质的行为锁(边界没了它当场翻红,而不是等某条夹具下次跑时才红)。
- *  - `measured` + `escapes:false` ⇒ 边界生效(或本来就在仓外);
- *  - `measured` + `escapes:true`  ⇒ 逃逸到真仓,判红;
- *  - `undetermined`               ⇒ git 不可达/退出码形态不认得,不记绿。
- */
-export function gitFaceEscapesToRepo(dir, { repoRoot = REPO_ROOT, spawn = spawnSync } = {}) {
-  const r = spawn(process.env.IHUI_GIT_BIN || 'git', ['rev-parse', '--show-toplevel'], {
-    cwd: dir,
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 15_000,
-    // §12g:派生 git 必须显式接管 stdio,不留给调用方"顺手删掉"的空间。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  if (r?.error) return { state: 'undetermined', why: `git 派生失败(${r.error.code ?? r.error.message})` }
-  if (r.status === 0) {
-    const top = resolve(String(r.stdout || '').trim())
-    return { state: 'measured', escapes: top === resolve(repoRoot), top }
-  }
-  // `rev-parse --show-toplevel` 在非 git 目录(code 128)是**正常结论**:问不出祖先仓。
-  if (r.status === 128) return { state: 'measured', escapes: false, top: null }
-  return { state: 'undetermined', why: `git rev-parse exit ${r.status}:${String(r.stderr || '').trim().slice(0, 160)}` }
-}
-
-/**
  * 在 `.DevEnv` 层维护一枚**坏 gitfile 边界**(内容 = 指向不存在目录的 gitdir: 指针)。
  * 立因:新址在工作树目录内,`git rev-parse` 会向上逃逸到真仓(实测 toplevel=仓根),
  * "非 git 目录"夹具(check-migration-bookkeeping E5a、scan-hardcoded-zh 13 例等)当场翻红;
@@ -315,7 +276,7 @@ function ensureDevEnvGitBoundary(root) {
 
 export function mkScratch(prefix) {
   const root = scratchRoot()
-  if (!isAllowedScratchRoot(root)) {
+  if (isInsideRepo(root) && !isApprovedDevEnvRoot(root)) {
     throw new Error(`scratch 落点不得在仓库树内: ${root}`)
   }
   // G-286:嵌套守卫必须在 mkdir 之前 —— 抛错本身就是结论,不得先建目录再报。

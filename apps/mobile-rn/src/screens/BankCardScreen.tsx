@@ -25,7 +25,7 @@ export function BankCardScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<BankCardItem[]>('/api/wallet/bank-cards')
+      const res = await fetchApi<BankCardItem[]>('/wallet/bank-cards')
       if (!res.success) throw new Error()
       setItems(res.data ?? [])
     } catch {

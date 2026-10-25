@@ -3,20 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CouponItem, CouponScreenProps, CouponStatus } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 优惠券/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CouponItem, CouponScreenProps, CouponStatus }
@@ -96,21 +89,14 @@ export function CouponScreen({
       ) : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={styles.emptyText}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<CouponItem>
           data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('coupon.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('coupon.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardLeft}>
@@ -164,8 +150,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     retryText: { fontSize: 14, color: tk.success.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 32 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     listBody: { gap: 10, padding: 10, paddingBottom: 32 },
     card: {
       flexDirection: 'row',

@@ -97,7 +97,7 @@ node docs/enterprise-service/quote-generator.mjs --tier=business --customers=150
 
 #### 4.2 朋友圈/微信群
 
-发朋友圈："做了个企业级 AI 平台，支持私有化部署，Agent 市场+知识库+多模型调度+9 端覆盖，有需要的企业朋友私聊"。附上产品截图。
+发朋友圈："做了个企业级 AI 平台，支持私有化部署，Agent 市场+知识库+多模型调度+8 端覆盖，有需要的企业朋友私聊"。附上产品截图。
 
 #### 4.3 直接找企业老板
 

@@ -131,6 +131,7 @@
     "navJoinGroup": "グループ参加",
     "navMenu": "メニュー",
     "navShare": "共有",
+    "closeDrawer": "ドロワーを閉じる",
     "closeBtn": "閉じる",
     "qrHint": "QRコードをスキャンしてコミュニティに参加",
     "shareRewardLater": "あとで",
@@ -250,7 +251,6 @@
     "pubGroup": "コレクションを公開",
     "closePreview": "プレビューを閉じる",
     "recentUsed": "最近使ったもの",
-    "closeDrawer": "ドロワーを閉じる",
     "shareBoardTitle": "智汇AIコミュニティ - {name}"
   },
   "plaza": {
@@ -269,6 +269,7 @@
       "notLoggedInUser": "未ログインユーザー",
       "navCategory": "カテゴリー",
       "identityLabel": "身分",
+      "searchNeedDesc": "ニーズや説明を検索",
       "trackPanelTitle": "ニーズトラックを選択",
       "closeTrackFilter": "トラック絞り込みを閉じる",
       "closeIdentity": "身分切替を閉じる",
@@ -288,8 +289,7 @@
       "n4t": "4. プライバシー保護 ",
       "n4b": "開発者はユーザーのプライバシーを厳格に保護し、個人情報を漏えい・販売・違法利用してはなりません。",
       "n5t": "5. 技術基準 ",
-      "n5b": "開発者は業界基準に適合した技術サービスを提供し、技術方針の実現可能性と信頼性を確保するものとします。",
-      "searchNeedDesc": "ニーズや説明を検索"
+      "n5b": "開発者は業界基準に適合した技術サービスを提供し、技術方針の実現可能性と信頼性を確保するものとします。"
     }
   },
   "login": {
@@ -455,6 +455,7 @@
     "benefitListAiMore": "AIアシスタント無料回数大幅増",
     "benefitListKb": "専用ナレッジベース構築",
     "benefitSupport": "専属カスタマーサポート",
+    "benefitTraderAll": "プラットフォーム全特典を享受",
     "levelVip": "VIP会員",
     "dlgDelConvTitle": "会話を削除",
     "dlgDelConvBody": "この会話を削除しますか？",
@@ -546,9 +547,8 @@
     "myOrders": "マイ注文",
     "editProfile": "プロフィール編集",
     "notLoggedIn": "未ログアウト",
-    "cfgVoiceLongyue": "龍悦 · 女 · 活発",
-    "clickRetry": "タップして再試行",
-    "benefitTraderAll": "プラットフォーム全特典を享受"
+    "cfgVoiceLongyue": "龍月 · 女性 · 明るい",
+    "clickRetry": "タップして再試行"
   },
   "payResult": {
     "title": "支払い結果",
@@ -834,21 +834,21 @@
     "assetCatImage": "画像",
     "assetCatVideo": "動画",
     "assetCatAudio": "音声",
-    "loginToSend": "メッセージを送信するには先にログインしてください",
-    "vipOnlyModel": "このモデルはVIP限定です。登録してご利用いただけます",
-    "openVipBtn": "VIPに登録",
+    "loginToSend": "ログインしてからメッセージを送信してください",
+    "vipOnlyModel": "このモデルは VIP 専用です。会員登録后に利用できます",
+    "openVipBtn": "会員登録",
     "reloginBtn": "再ログイン",
     "connectFailRetry": "接続に失敗しました。再試行してください",
     "noMsgToTts": "変換できるメッセージがありません",
-    "ttsFailRetry": "音声生成に失敗しました。再試行してください",
+    "ttsFailRetry": "音声の生成に失敗しました。再試行してください",
     "noMsgToFav": "お気に入りできるメッセージがありません",
-    "favFailRetry": "お気に入り登録に失敗しました。しばらくしてから再試行してください",
+    "favFailRetry": "お気に入りに失敗しました。少し後に再試行してください",
     "currentChatEmpty": "現在の会話は空です",
-    "clearChatBody": "現在の会話のすべてのメッセージを消去しますか?",
+    "clearChatBody": "現在の会話の全メッセージを削除しますか?",
     "clearGoBtn": "清空",
     "exportMe": "我",
-    "qrNeedPerm": "QRコードを保存するにはアルバムの権限が必要です",
-    "qrNotRendered": "QRコードが未生成です。しばらくしてから再試行してください",
+    "qrNeedPerm": "QRコードを保存にはアルバムへの権限が必要です",
+    "qrNotRendered": "QRコードはまだ描画されていません。少し後に再試行してください",
     "qrSaved": "QRコードをアルバムに保存しました",
     "qrSaveFail": "保存に失敗しました。再試行してください",
     "favOn": "已收藏",
@@ -857,23 +857,23 @@
     "histLoadFailRetry": "履歴の読み込みに失敗しました。再試行してください",
     "annotImgAdded": "注釈画像を入力欄に追加しました",
     "annotAdded": "注釈を入力欄に追加しました",
-    "menuSwitchModel": "モデル切替",
-    "menuClear": "会話を消去",
+    "menuSwitchModel": "モデルを切替",
+    "menuClear": "会話をクリア",
     "menuExport": "会話をエクスポート",
     "menuShare": "会話を共有",
     "menuToVoice": "音声に変換",
     "menuFavorite": "收藏",
     "menuMaterial": "素材ライブラリ",
-    "menuVoiceNote": "ボイスメモ",
-    "menuWebLink": "Webリンク",
+    "menuVoiceNote": "音声ノート",
+    "menuWebLink": "Web リンク",
     "menuFileUpload": "ファイルアップロード",
-    "menuHistory": "会話履歴",
+    "menuHistory": "履歴",
     "terminal": {
       "waitingInput": "入力待ち",
       "mobileUnsupported": "端末ではターミナル未対応"
     },
     "voicePlay": "音声を再生",
-    "voicePause": "音声を一時停止",
+    "voicePause": "音声一時停止",
     "actionRunA11y": "アクション実行：{label}",
     "toolRunning": "実行中…",
     "toolOk": "成功",
@@ -1150,10 +1150,10 @@
     "deleted": "削除しました",
     "loadFailPullRetry": "読み込み失敗。下に引いて再試行",
     "emptyContent": "まだ内容がありません",
+    "closeOverlay": "シートを閉じる",
     "add": "追加",
     "panelCollapse": "パネルを畳む",
     "panelExpand": "パネル展開",
-    "closeOverlay": "シートを閉じる",
     "loadMore": "さらに読み込む",
     "user": "ユーザー",
     "retryShort": "再試行",
@@ -1178,24 +1178,24 @@
     "catCoding": "プログラミング",
     "catOffice": "オフィス",
     "catStudy": "学習",
-    "vendorOther": "その他",
-    "copyOkToast": "リンクをクリップボードにコピーしました",
-    "loadFailed": "読み込み失敗",
-    "chat": {
-      "title": "チャットを開始",
-      "message": "「{name}」とのチャットを開始します"
-    },
     "mainAll": "全て",
     "mainWriting": "文章作成",
     "mainCoding": "プログラミング",
     "mainOffice": "オフィス",
     "mainLearning": "学習",
+    "vendorOther": "その他",
+    "copyOkToast": "リンクをクリップボードにコピーしました",
+    "loadFailed": "読み込み失敗",
     "catLearning": "学習",
     "catDouyin": "抖音運營",
     "catPrivate": "私域運營",
     "catContent": "內容創作",
     "catData": "數據分析",
-    "catAll2": "全部"
+    "catAll2": "全部",
+    "chat": {
+      "title": "チャットを開始",
+      "message": "「{name}」とのチャットを開始します"
+    }
   },
   "aiAssistantN8n": {
     "title": "AIアシスタント",
@@ -1351,8 +1351,8 @@
     "kindAutoContext": "自動取得したコンテキスト"
   },
   "developer": {
-    "becomeDeveloper": "開発者になる",
     "title": "開発者ポータル",
+    "becomeDeveloper": "開発者になる",
     "subtitle": "エージェントを公開して収益を得る",
     "selectService": "サービスプランを選択",
     "processing": "処理中...",
@@ -1380,6 +1380,7 @@
     "productAddBtn": "商品を追加",
     "productEmpty": "商品がありません",
     "productLoadFailed": "商品の読み込みに失敗",
+    "productLoading": "読み込み中...",
     "productManage": "商品管理",
     "pushUrl": "プッシュ URL",
     "startLive": "ライブを開始",
@@ -1392,8 +1393,7 @@
     "streamKey": "ストリームキー",
     "streamTitle": "ライブタイトル",
     "streamTitlePlaceholder": "ライブタイトルを入力",
-    "title": "ライブ配信者",
-    "productLoading": "読み込み中..."
+    "title": "ライブ配信者"
   },
   "modelEdit": {
     "error": {
@@ -1449,8 +1449,8 @@
     "operationFailed": "操作に失敗しました。もう一度お試しください",
     "title": "n8n モデル",
     "vendorName": "n8n ワークフロー",
-    "listView": "リスト表示",
-    "groupBrowse": "グループ表示"
+    "groupBrowse": "グループ表示",
+    "listView": "リスト表示"
   },
   "modelPlaza": {
     "officialBadge": "智",
@@ -1473,8 +1473,8 @@
     "selectProviderLabel": "プロバイダーを選択",
     "title": "モデルプラザ",
     "groupBrowse": "グループ表示",
-    "workflowTab": "ワークフロー",
-    "listView": "リスト表示"
+    "listView": "リスト表示",
+    "workflowTab": "ワークフロー"
   },
   "tokenValue": {
     "recharge": {
@@ -1584,6 +1584,13 @@
     "payFailed": "支払いに失敗しました"
   },
   "about": {
+    "title": "について",
+    "appName": "アプリ名",
+    "version": "バージョン",
+    "description": "アプリ紹介",
+    "officialSite": "公式サイト",
+    "contactEmail": "お問い合わせメールアドレス",
+    "license": "オープンソースライセンス",
     "heroBadge": "智匯 AI について",
     "heroTitle": "1コード6クライアント、1つの AI",
     "heroSubtitle": "IHUI AI はオープンソースのフルスタック AI オペレーティングシステムで、Agent 設計、ナレッジベース、マルチモデルスケジューリング、クロスプラットフォーム協業とチーム運営を1つのプラットフォームに統合します。",
@@ -1625,14 +1632,7 @@
     "ctaDesc": "登録で 1,000 クレジットを獲得、全モデル無料体験、クレジットカート不要。",
     "ctaPrimary": "無料登録",
     "ctaSecondary": "ドキュメントを見る",
-    "complianceTitle": "法務・コンプライアンス",
-    "title": "について",
-    "appName": "アプリ名",
-    "version": "バージョン",
-    "description": "アプリ紹介",
-    "officialSite": "公式サイト",
-    "contactEmail": "お問い合わせメールアドレス",
-    "license": "オープンソースライセンス"
+    "complianceTitle": "法務・コンプライアンス"
   },
   "activityDetail": {
     "title": "イベント詳細",
@@ -2232,6 +2232,7 @@
     "loadFailed": "QR コードの読み込みに失敗"
   },
   "ranking": {
+    "attention": "注目度",
     "subtitle": "学習ランキング。自分の順位をチェック!!",
     "retry": "再試行",
     "anonymous": "匿名ユーザー",
@@ -2240,7 +2241,6 @@
     "empty": "ランキングなし",
     "loadFailed": "ランキングの読み込みに失敗",
     "title": "ランキング",
-    "attention": "注目度",
     "wanSuffix": "{v}万",
     "pointsUnit": "ポイント",
     "anonShort": "匿名",
@@ -4483,8 +4483,8 @@
       "loadingMore": "読み込み中…"
     },
     "detail": {
-      "loading": "読み込み中…",
       "pageTitle": "トピック詳細",
+      "loading": "読み込み中…",
       "loadFailed": "読み込みに失敗しました",
       "followers": "{n} 人がフォロー中",
       "follow": "フォロー",
@@ -4497,11 +4497,10 @@
       "empty": "まだ投稿がありません。最初の投稿をしてみましょう",
       "loadingMore": "読み込み中…",
       "noMore": "これ以上ありません",
-      "anonymous": "匿名ユーザー",
-      "loading": "読み込み中…",
       "justNow": "たった今",
       "minutesAgo": "{n} 分前",
-      "hoursAgo": "{n} 時間前"
+      "hoursAgo": "{n} 時間前",
+      "anonymous": "匿名ユーザー"
     }
   },
   "circle": {
@@ -5272,11 +5271,16 @@
     "calls": "呼び出し回数",
     "title": "マイアカウントプール",
     "subtitle": "あなた専用のサードパーティ AI アカウントプール。チェックインアシスタントと同じアカウントで毎日自動チェックインし、自分のリレーリクエストで優先的に使用されます。",
+    "add": "アカウントを追加",
+    "provider": "プラットフォーム",
+    "name": "名前",
     "namePlaceholder": "アカウントに名前を付ける",
     "token": "トークン（アクセス資格情報）",
     "refreshToken": "リフレッシュトークン",
     "optional": "任意",
     "save": "保存",
+    "cancel": "キャンセル",
+    "loading": "読み込み中…",
     "empty": "アカウントがありません",
     "emptyHint": "チェックインアシスタントで追加したアカウントは自動的にここへ同期されます。",
     "enabled": "有効",
@@ -5285,22 +5289,17 @@
     "disable": "無効化",
     "checkin": "今すぐチェックイン",
     "delete": "削除",
+    "confirmDelete": "削除を確認",
     "syncPending": "同期待ち",
     "uid": "アカウント ID",
     "checkinSuccess": "チェックインしました",
+    "addSuccess": "アカウントを追加しました",
     "actionFailed": "操作に失敗しました",
+    "loginRequired": "ログインしてアカウントプールを管理",
     "addTitle": "アカウントを追加",
     "adding": "追加中…",
     "deleteConfirm": "{name} を削除しますか？",
-    "summary": "アカウント {total} 件 · 有効 {enabled}",
-    "add": "アカウントを追加",
-    "provider": "プラットフォーム",
-    "name": "名前",
-    "cancel": "キャンセル",
-    "loading": "読み込み中…",
-    "confirmDelete": "削除を確認",
-    "addSuccess": "アカウントを追加しました",
-    "loginRequired": "ログインしてアカウントプールを管理"
+    "summary": "アカウント {total} 件 · 有効 {enabled}"
   },
   "checkinAssistant": {
     "title": "チェックインアシスタント",
@@ -5353,20 +5352,6 @@
     "addedCount": "+{n}",
     "removedCount": "-{n}"
   },
-  "commission": {
-    "myLabel": "私のコミッション",
-    "label": "コミッション"
-  },
-  "agentList": {
-    "emptyText": "Agent がいません"
-  },
-  "myAgents": {
-    "title": "我的AIアプリ",
-    "staff": "我的AIスタッフ"
-  },
-  "fenlei": {
-    "closeOverlay": "分類シートを閉じる"
-  },
   "userPublic": {
     "title": "ユーザープロフィール",
     "notFound": "ユーザーが見つかりません",
@@ -5378,9 +5363,23 @@
     "favoritesCount": "お気に入り",
     "joined": "登録日"
   },
+  "commission": {
+    "myLabel": "私のコミッション",
+    "label": "コミッション"
+  },
   "courseSwiper": {
     "tabHotIntro": "人気入門講座",
     "tabHotPick": "人気厳選講座"
+  },
+  "agentList": {
+    "emptyText": "Agent がいません"
+  },
+  "myAgents": {
+    "title": "我的AIアプリ",
+    "staff": "我的AIスタッフ"
+  },
+  "fenlei": {
+    "closeOverlay": "分類シートを閉じる"
   },
   "llmSettings": {
     "title": "モデルプロバイダー",

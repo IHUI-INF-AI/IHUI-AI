@@ -8,7 +8,6 @@ import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { requireFlagValue } from './lib/flag-value.mjs'
 
 import { planArtifactInvariant } from './lib/desktop-artifact-invariant.mjs'
 // 未签名豁免开关的常量与判据单源(§0.6):本文件只 import,不重抄(原本地副本已删)。
@@ -53,13 +52,9 @@ function partitionViolations(files, exeName, allowUnsigned) {
 
 async function main() {
   const argv = process.argv.slice(2)
-  const flag = (name, noun = '参数') => {
-    const r = requireFlagValue(argv, name, { noun })
-    if (r.error) {
-      console.error(`❌ 用法错:${r.error}`)
-      process.exit(2)
-    }
-    return r.value
+  const flag = (name) => {
+    const i = argv.indexOf(name)
+    return i >= 0 ? argv[i + 1] : undefined
   }
   // --dir / --expect 只为把判据放进临时目录做负向对照;默认走真实构建产物目录。
   const nsisDir = flag('--dir') ?? path.join(ROOT, 'apps/desktop/src-tauri/target/release/bundle/nsis')

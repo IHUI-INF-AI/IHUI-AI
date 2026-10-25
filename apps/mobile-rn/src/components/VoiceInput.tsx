@@ -66,9 +66,9 @@ const WAVE_MAX = 28
 const WAVE_SAMPLES = [0, 0.25, 0.5, 0.75, 1]
 
 const IMAGE_SOURCES: ReadonlyArray<{ type: VoiceImageSource; icon: LucideIcon; label: string }> = [
-  { type: 'camera', icon: Camera, label: '相机' },
-  { type: 'album', icon: ImageIcon, label: '相册' },
-  { type: 'file', icon: Folder, label: '文件' },
+  { type: 'camera', icon: Camera, label: 'voice.cam' },
+  { type: 'album', icon: ImageIcon, label: 'voice.album' },
+  { type: 'file', icon: Folder, label: 'voice.file' },
 ]
 
 export function VoiceInput({
@@ -260,7 +260,7 @@ export function VoiceInput({
         <Pressable
           style={styles.mask}
           onPress={() => setShowImagePopup(false)}
-          accessibilityLabel="关闭图片菜单"
+          accessibilityLabel={t('voice.closeImgMenu')}
         />
       ) : null}
 
@@ -271,7 +271,7 @@ export function VoiceInput({
           onPress={() => setShowImagePopup((v) => !v)}
           hitSlop={4}
           accessibilityRole="button"
-          accessibilityLabel="添加图片"
+          accessibilityLabel={t('voice.addImage')}
         >
           <Text style={styles.imageToggleIcon} allowFontScaling={false}>
             {'＋'}
@@ -299,12 +299,15 @@ export function VoiceInput({
             {bars.map((h, i) => (
               <Animated.View key={i} style={[styles.bar, { height: h }]} />
             ))}
-            <Text style={styles.recordingText}>{formatShortDuration(duration)} 松开结束</Text>
+            <Text style={styles.recordingText}>
+              {formatShortDuration(duration)}
+              {t('voice.releaseEnd')}
+            </Text>
           </View>
         ) : transcribing ? (
-          <Text style={styles.transcribingText}>转写中…</Text>
+          <Text style={styles.transcribingText}>{t('voice.transcribing')}</Text>
         ) : (
-          <Text style={styles.idleText}>{placeholder ?? '按住说话'}</Text>
+          <Text style={styles.idleText}>{placeholder ?? t('voice.holdToTalk')}</Text>
         )}
       </Pressable>
 
@@ -315,7 +318,7 @@ export function VoiceInput({
           onPress={handleClear}
           hitSlop={4}
           accessibilityRole="button"
-          accessibilityLabel="清除结果"
+          accessibilityLabel={t('voice.clearResult')}
         >
           <Text style={styles.clearIcon} allowFontScaling={false}>
             {'×'}
@@ -332,11 +335,11 @@ export function VoiceInput({
               style={styles.popupItem}
               onPress={() => handleImagePick(item.type)}
               accessibilityRole="button"
-              accessibilityLabel={item.label}
+              accessibilityLabel={t(item.label)}
             >
               <item.icon size={20} color={tokens.text.secondary} />
               <Text style={styles.popupLabel} numberOfLines={1}>
-                {item.label}
+                {t(item.label)}
               </Text>
             </Pressable>
           ))}

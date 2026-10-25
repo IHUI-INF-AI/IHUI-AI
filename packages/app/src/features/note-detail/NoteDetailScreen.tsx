@@ -3,13 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { ChevronLeft, Heart } from 'lucide-react-native'
+import { Heart } from 'lucide-react-native'
 import type { NoteDetailItem, NoteDetailScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 笔记详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { NoteDetailItem, NoteDetailScreenProps }
@@ -34,19 +35,21 @@ export function NoteDetailScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error || t('noteDetail.loadFailed')}</Text>
-        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <ErrorState
+          message={error || t('noteDetail.loadFailed')}
+          onRetry={onBack}
+          retryLabel={t('common.back')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -89,15 +92,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingBottom: 32,
     },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 16,
-    },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',
@@ -130,13 +124,6 @@ function createStyles(tk: AppThemeTokens) {
     statText: {
       fontSize: 12,
       color: tk.text.medium,
-    },
-    btn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
     },
   })
 }

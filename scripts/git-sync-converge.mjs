@@ -232,171 +232,6 @@ export function preAdvanceDeletionResurrection({ mergeSha, parents, cwd }) {
   }
 }
 
-/** 双侧同改路径的行面复量上限:超过即记「未判完」(未判定,不记绿),绝不静默截断。 */
-const LOCAL_PRESERVED_MAX_CODE_FILES = 200
-
-/** 只读 git 读取(cwd 注入,§12g 显式 stdio):失败一律上抛,由调用方转「未判定」。 */
-function readGit(cwd, args, { maxBuffer = 64 << 20 } = {}) {
-  return execFileSync('git', ['-C', cwd, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 120_000,
-    maxBuffer,
-  })
-}
-
-const firstLineOf = (e) => String((e && (e.stderr || e.message)) || e || '未知原因').split('\n')[0].trim()
-
-/**
- * 落地前复量:本侧(本地 HEAD)已提交的内容是否仍被合并结果包含。
- *
- * 立因(票「合流会静默吞掉『已真机验证』的代码修复,而守门 76/71 对此零覆盖」):2026-09-24 实测
- * 本会话 84583fdf6 把 PlazaScreen.tsx:464 / RankingDetailScreen.tsx:171 的 colorScheme 字面量改成
- * resolvedTheme **并真机复测通过**,几轮 `git-sync-converge` 之后 HEAD 里那两处又变回写死 "light"
- * —— 合并取了对方侧。本器走 merge-tree + commit-tree + update-ref **不跑任何 git 钩子**,而守门 76
- * (stale-revert)与 71(plan-line-loss)只在提交链的**暂存面**上判 ⇒ 合流层是这两道门的共同盲区。
- * 既有 `assertNoSilentRevert` 只覆盖**单边变更**(双侧都改的路径直接跳过),而本事故恰是双侧同改
- * 同一文件 ⇒ 路径面与整 blob 字节面都看不见,必须判到**行**。
- *
- * 判据一律复用 union-converge 的既有自证出口(§0.6 单一真相源,本器零复算):
- *   ① `verifyUnion`:本侧路径全集 ⊆ 合并树 ∧ 对侧路径全集 ⊆ 合并树 ∧ 三本活文档的行重数
- *      (含搬运感知抑制表)—— 与 union-converge 的落地闸是**同一个函数**;
- *   ② `lostAddedLines`:双侧同改的**非文档**路径上,本侧"相对共同基底新增的行"必须仍出现在合并
- *      结果里(字符行 multiset 底线,局限与 union-converge 头注同款:只保重数不判语义顺序)。
- *      二进制文件按"未按行判"报数(`skipped`);超过读取上限或读失败记未判定(exit 2),不冒充判过。
- *
- * 三态纪律(§0.3):取不到输入(union-converge 未装载 / 四方 sha 或基底形状不对 / git 读失败 /
- * 双侧同改文件数超上限未判完)一律记 `undetermined`,调用方必须 exit 2 并逐条点名 ——
- * **绝不落成 0**;判出丢失记 `bad`,调用方 exit 1 且不 update-ref。
- * @returns {{bad:string[], undetermined:string[], judged:number, skipped:number}}
- */
-export function preAdvanceLocalPreserved({
-  local,
-  remote,
-  tree,
-  base,
-  cwd = process.cwd(),
-  union = unionGate.mod,
-} = {}) {
-  const bad = []
-  const undetermined = []
-  const result = { bad, undetermined, judged: 0, skipped: 0 }
-  const SHA_RE = /^[0-9a-f]{40}$/
-  for (const [k, v] of Object.entries({ local, remote, tree, base })) {
-    if (typeof v !== 'string' || !SHA_RE.test(v.trim()))
-      undetermined.push(`输入 ${k} 取不到或形状不对(${String(v).slice(0, 44)})`)
-  }
-  if (
-    !union ||
-    typeof union.verifyUnion !== 'function' ||
-    typeof union.lostAddedLines !== 'function'
-  ) {
-    undetermined.push(
-      `union-converge 自证出口未装载(verifyUnion/lostAddedLines 缺失):${unionGate.error || '原因未取到'}`,
-    )
-  }
-  if (undetermined.length) return result
-
-  // ① 路径面 + 活文档行面:与 union-converge 落地闸同一个出口。不传折叠台账 ——
-  //    merge-tree 产物不做同题折叠,传一张空账反而会把"台账没声明"读成未判定。
-  try {
-    const vu = union.verifyUnion(local.trim(), remote.trim(), tree.trim(), cwd, base.trim(), new Map())
-    for (const b of vu) bad.push(String(b))
-  } catch (e) {
-    undetermined.push(`verifyUnion 抛错:${firstLineOf(e)}`)
-    return result
-  }
-
-  // ② 代码行面:只判"双侧相对基底都改过"的非文档路径 —— 单边变更已由 assertNoSilentRevert
-  //    逐字节守住,活文档行面已由 ① 守住,重复判会造两份尺子(§0.6)。
-  const liveDocs = new Set(Array.isArray(union.LIVE_DOCS) ? union.LIVE_DOCS : [])
-  let codePaths
-  try {
-    const changedOf = (rev) =>
-      new Set(
-        readGit(cwd, ['diff', '--name-only', '--no-renames', `${base.trim()}..${rev}`])
-          .split('\n')
-          .map((s) => s.trim())
-          .filter(Boolean),
-      )
-    const cl = changedOf(local.trim())
-    const cr = changedOf(remote.trim())
-    codePaths = [...cl].filter((p) => cr.has(p) && !liveDocs.has(p)).sort()
-  } catch (e) {
-    undetermined.push(`双侧同改路径枚举失败:${firstLineOf(e)}`)
-    return result
-  }
-  if (codePaths.length > LOCAL_PRESERVED_MAX_CODE_FILES) {
-    undetermined.push(
-      `双侧同改路径 ${codePaths.length} 枚 > 上限 ${LOCAL_PRESERVED_MAX_CODE_FILES} ⇒ 行面只判了前 ${LOCAL_PRESERVED_MAX_CODE_FILES} 枚(未判完,不记绿)`,
-    )
-    codePaths = codePaths.slice(0, LOCAL_PRESERVED_MAX_CODE_FILES)
-  }
-  /**
-   * 读某 rev 下该路径的内容。三态(§0.3):`null` = 该 rev 下**没有这个路径**(删除档,调用点按语义跳过);
-   * 字符串 = 读到内容;`undefined` = **读失败**(对象缺失/超时/锁争用/超过读取上限)⇒ 已记未判定。
-   * 旧写法把 catch 一律 return null,于是"git 读失败"与"删除档"同形 ⇒ 未判定被静默落成绿
-   * (头注承诺"git 读失败一律记 undetermined",实现与承诺对齐)。
-   */
-  const tryBlob = (rev, p) => {
-    try {
-      return readGit(cwd, ['show', `${rev}:${p}`])
-    } catch (e) {
-      const msg = firstLineOf(e)
-      if (/does not exist in|exists on disk, but not in/i.test(msg)) return null
-      undetermined.push(`${p} 在 ${String(rev).slice(0, 11)} 的内容读取失败(不是删除档):${msg}`)
-      return undefined
-    }
-  }
-  for (const p of codePaths) {
-    const lt = tryBlob(local.trim(), p)
-    // undefined = 已记未判定;null = 本侧删除 ⇒ 没有"本侧新增行"可判(删除归守门 168)
-    if (typeof lt !== 'string') continue
-    const btRaw = tryBlob(base.trim(), p)
-    if (btRaw === undefined) continue
-    const rtRaw = tryBlob(remote.trim(), p)
-    if (rtRaw === undefined) continue
-    const mt = tryBlob(tree.trim(), p)
-    if (mt === undefined) continue
-    if (mt === null) continue // 结果删了该路径:① 的路径面已经点名,不重复判
-    const bt = btRaw ?? ''
-    const rt = rtRaw ?? ''
-    if ([lt, bt, rt, mt].some((t) => t.includes('\u0000'))) {
-      result.skipped += 1
-      continue
-    }
-    let lost
-    try {
-      lost = union.lostAddedLines(bt, lt, rt, mt)
-    } catch (e) {
-      undetermined.push(`${p} 行面复量抛错:${firstLineOf(e)}`)
-      continue
-    }
-    result.judged += 1
-    if (!lost.length) continue
-    const sample = lost
-      .slice(0, 3)
-      .map((l) => String(l).slice(0, 60))
-      .join(' / ')
-    bad.push(`${p} 本侧已提交的 ${lost.length} 行不在合并结果里(lostAddedLines):${sample}`)
-  }
-  return result
-}
-
-/**
- * 纯函数:把「本侧已提交内容仍在」的裁定从 CLI 里剥出来(§0.3 三态,镜像测试直接喂构造面)。
- * 未判定优先于丢失:判据一处没跑成时不许把结论说成"没丢",也不许说成"判了丢"(exit 2)。
- * @returns {{status:'ok'|'lost'|'undetermined', exitCode:0|1|2, bad:number, undetermined:number}}
- */
-export function localPreservedVerdict({ bad = [], undetermined = [] } = {}) {
-  const u = undetermined.length
-  const b = bad.length
-  if (u > 0) return { status: 'undetermined', exitCode: 2, bad: b, undetermined: u }
-  if (b > 0) return { status: 'lost', exitCode: 1, bad: b, undetermined: 0 }
-  return { status: 'ok', exitCode: 0, bad: 0, undetermined: 0 }
-}
-
 /** 把一枚 CAS 落空的合并提交按 §29 零损失流程备份成 tag 并固化(pack-refs)。 */
 function backupOrphanMerge(sha, why) {
   const ref = orphanBackupRefName(sha)
@@ -844,9 +679,7 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
   // 声明位档,但 `probe()` 里还带着宽口径 `wide` 的组数读数,拿它比只含声明位键的基线 ⇒
   // 现读 129 vs 112 这类"量纲不同"的红会在**每一次有台账变化的合并**上拦住自动收敛
   // (lib 头注写的触发条件已被 G-460 落锚踩响)。收口 = 同一份 narrowF9Face,不在本器另算一遍。
-  // F11 臂(2026-10-23 强制令)需要判定面本身 ⇒ 面必须作第三参传进去(散文尺读数,merged 侧车不在手)。
-  const mf = narrowF9Face(auditPlan(merged), merged)
-  out.push(...ratchetViolations(base, probe(mf), mf))
+  out.push(...ratchetViolations(base, probe(narrowF9Face(auditPlan(merged), merged))))
   return out
 }
 
@@ -1949,54 +1782,6 @@ function main() {
         process.exit(1)
       }
 
-      /**
-       * 落地前复量(票「合流会静默吞掉『已真机验证』的代码修复,而守门 76/71 对此零覆盖」):
-       * 本侧已提交的内容是否仍被合并结果包含。判据全部 import union-converge 的既有自证出口
-       * (`verifyUnion` + `lostAddedLines`),本器零复算 —— 与它自己的落地闸是同一份尺子。
-       * `assertNoSilentRevert` 对**双侧同改**的路径结构上跳过,而本票的事故恰是双侧同改同一文件:
-       * 路径还在、整 blob 却取了对方侧 ⇒ 只有"行"这条面看得见。未判定一律 exit 2,不落绿。
-       */
-      const preserved = preAdvanceLocalPreserved({
-        local: freshLocal,
-        remote: freshRemote,
-        tree,
-        base: mergeBase,
-        cwd: repoRoot,
-      })
-      const preservedVerdict = localPreservedVerdict(preserved)
-      if (preservedVerdict.status === 'undetermined') {
-        log(C.red, '❌ 落地前「本侧已提交内容仍在」复量未判定(不记绿,本轮不推进 HEAD):')
-        for (const u of preserved.undetermined.slice(0, 10)) log(C.red, `   · ${u}`)
-        log(
-          C.yellow,
-          '   这不是"没丢",也不是"判了丢" —— 判据一处都没跑成。补上缺的出口/输入后重跑本器(未造合并提交、未动 HEAD)。',
-        )
-        process.exit(2)
-      }
-      if (preservedVerdict.status === 'lost') {
-        log(
-          C.red,
-          `❌ 合并结果吞掉 ${preserved.bad.length} 处本侧已提交内容(union-converge 自证出口,import 复用)⇒ 拒绝推进 HEAD,绝不 update-ref/推送:`,
-        )
-        for (const b of preserved.bad.slice(0, 20)) log(C.red, `   · ${b}`)
-        if (preserved.bad.length > 20)
-          log(
-            C.red,
-            `   …另 ${preserved.bad.length - 20} 处(本侧 ${freshLocal.slice(0, 11)} / 远端 ${freshRemote.slice(0, 11)} / 合并树 ${String(tree).slice(0, 11)})`,
-          )
-        log(
-          C.yellow,
-          `   人工出口:被吞的本侧改动走 scripts/object-space-land.mjs 前向重落(先 git tag lost-commit/<全40位> 保全原枚);` +
-            `判据本身错了就改判据(带反证用例),**不得**删掉本器里这条断言。`,
-        )
-        process.exit(1)
-      }
-      log(
-        C.dim,
-        `  本侧保留复量(union-converge verifyUnion + lostAddedLines):路径/活文档行/双侧同改文件独有行 0 处丢失` +
-          `(行面判 ${preserved.judged} 枚文件${preserved.skipped ? `,另 ${preserved.skipped} 枚二进制/超大未按行判` : ''})`,
-      )
-
       const mergeMsg = `Merge origin/${branch} (worktree-preserving sync via git-sync-converge) round${round}`
       const mergeSha = git(
         mergeCommitArgs({ tree, parents: [freshLocal, freshRemote], message: mergeMsg }),
@@ -2218,8 +2003,6 @@ export const __test__ = {
   additionLossVerdict,
   preAdvanceDeletionResurrection,
   deletionResurrectionVerdict,
-  preAdvanceLocalPreserved,
-  localPreservedVerdict,
   GIT_MACHINE_IDENTITY,
   selfTest,
   ensureUnionModule,

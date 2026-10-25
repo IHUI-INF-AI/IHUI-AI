@@ -243,43 +243,6 @@ export function extractTaskFingerprint(line) {
 }
 
 /** 从台账全文找同题多号组(导出供镜像测试复用) */
-/**
- * 票号识别(2026-10-24 扩):两位号全量重排后,各族写法**不统一** —— G/WP 带连字符
- * (`G-74` / `WP-01`),D/O/A/B 族不带(`D01` / `O03` / `B07` / `A01`)。原正则 `\b([A-Z])-(\d{2,})\b`
- * 只认带连字符的单字母号 ⇒ 无连字符族的 `selfId` 恒 null,同号撞车对下面的 same-key 维**整族失明**。
- * 族字母白名单 + 至少两位数字是两个必要的护栏:不收 `F9`/`F10` 这类门名(那不是票号),
- * 也不收 `G7` 这类历史单号(重排后在册表里已不存在)。
- */
-const ID_TOKEN_RE = /\b(WP|V3|G|D|O|B|P|W|A)-?(\d{2,})\b/g
-
-/** 行内票号(规范化成 `族-两位` 形态,两种写法折算到同一个身份上)。 */
-export function idsOf(raw) {
-  return [...String(raw ?? '').matchAll(ID_TOKEN_RE)].map((m) => `${m[1]}-${m[2].padStart(2, '0')}`)
-}
-
-/**
- * 行内**声明号**(2026-10-24 补,只服务同号异题维):票号必须出现在行首区 —— 复选框、
- * 状态括注、行内标头之后的那一个。`idsOf` 那种"全行第一个号"在正文引用极其常见
- * (实测 11 组误报里 10 组是正文提到旧号的),拿它判撞号等于把门关掉。声明号取不出 ⇒ null,
- * 该行不进这一维(无号行归 unnumbered / 撞号维原本就不看它)。
- */
-export function declaredIdOf(raw) {
-  let s = String(raw ?? '')
-  if (!/^-\s*\[[ x]\]/.test(s)) return null
-  for (let k = 0; k < 4; k++) {
-    const before = s
-    s = s
-      .replace(/^-\s*\[[ x]\]\s*/, '')
-      .replace(/^（[^）]*）\s*/, '')
-      .replace(/^\([^)]*\)\s*/, '')
-      .replace(/^〔[^〕]*〕\s*/, '')
-      .replace(/^\*\*\s*/, '')
-    if (s === before) break
-  }
-  const m = /^(WP|V3|G|D|O|B|P|W|A)-?(\d{2,})\b/.exec(s)
-  return m ? `${m[1]}-${m[2].padStart(2, '0')}` : null
-}
-
 export function findDuplicateGroups(content) {
   const byFp = new Map()
   const lines = String(content ?? '').split('\n')
@@ -324,31 +287,6 @@ export function findDuplicateGroups(content) {
     for (const [sid, grp] of bySelfId) {
       if (grp.length > 1) groups.push({ fingerprint: `S:${sid}`, members: grp, distinctIds: [sid], kind: 'same-key' })
     }
-  }
-  // 第五类(2026-10-24 立,两位号时代的头号撞号形态):**同号异题** —— 两行占同一个票号、
-  // 但题面不同。上面 same-key 维只在**同一指纹组内部**看号,所以"另一件事也写了这个号"
-  // 对整道门完全隐形;而并发会话手填号正是这么撞上的(本机 2026-10-24 实测:并行会话两轮
-  // 各回插一次,分别撞 16 行 / 3 行,门 203 全程绿)。号是派单主键,撞号 ⇒ 派单口径错乱,
-  // 故与同题多号同档(差值棘轮里"新增"拦红,存量只报数)。
-  const byIdAcross = new Map()
-  for (const [fp, members] of byFp) {
-    for (const m of members) {
-      const id = declaredIdOf(lines[m.line - 1])
-      if (!id) continue
-      const byTitle = byIdAcross.get(id) ?? new Map()
-      byTitle.set(fp, [...(byTitle.get(fp) ?? []), m])
-      byIdAcross.set(id, byTitle)
-    }
-  }
-  for (const [sid, byTitle] of byIdAcross) {
-    // 同一指纹的多行(同题同号再抄一份)已由 same-key 维认领,这里只收"题面不同"的撞号
-    if (byTitle.size < 2) continue
-    groups.push({
-      fingerprint: `K:${sid}`,
-      members: [...byTitle.values()].flat(),
-      distinctIds: [sid],
-      kind: 'same-id',
-    })
   }
   return groups
 }
@@ -491,9 +429,8 @@ async function main() {
   }
 
   const noNum = groups.filter((g) => g.kind === 'unnumbered').length
-  const sameId = groups.filter((g) => g.kind === 'same-id').length
   console.log(
-    `[plan-dup-title] 同题副本组 ${groups.length} 组(跨号 ${groups.length - noNum - sameId} / **无号同题** ${noNum} / **同号异题** ${sameId}) / 涉及行 ${total} 行(判定面:${FACE_TXT[face]})`,
+    `[plan-dup-title] 同题副本组 ${groups.length} 组(跨号 ${groups.length - noNum} / **无号同题** ${noNum}) / 涉及行 ${total} 行(判定面:${FACE_TXT[face]})`,
   )
   for (const g of groups.slice(0, 40)) {
     console.log(
@@ -662,28 +599,6 @@ function runSelfTest() {
     '棘轮:同题同号再抄一份必判(计数维,集合维对它恒绿)',
     ratchetAdded(gs(G_A), gs(G_A2)).length === 1,
     `实测 ${ratchetAdded(gs(G_A), gs(G_A2)).length}`,
-  )
-
-  // ── 同号异题维(2026-10-24 立:两位号时代的撞号主力;此前"另一件事写了同一个号"整门隐形) ──
-  const K_A = ['- [ ] G-41 **守门 77 的圆角修复在册存量** 甲', '- [ ] G-41 **小程序素材交付终判三路取证** 乙']
-  ok(
-    '同号异题:两件事占同一个号 ⇒ 成 1 组(此前只在同一指纹组内部看号,这类恒绿)',
-    gs(K_A).filter((g) => g.kind === 'same-id').length === 1,
-  )
-  ok(
-    '同号异题:无连字符族照样认(D01 = D-01 ⇒ D-01,原正则整族失明)',
-    gs(['- [ ] D01 **会话内快捷笔记的落地判据** 甲', '- [ ] D01 **备份链重建缺只读角色** 乙']).filter(
-      (g) => g.kind === 'same-id',
-    ).length === 1,
-  )
-  ok(
-    '同号异题:两种写法算同一个号(`B07` 与 `B-07` 撞车必须看见)',
-    gs(['- [ ] B07 **批处理队列的背压判据** 甲', '- [ ] B-07 **批处理队列的背压判据** 甲']).every((g) => g.kind === 'same-key'),
-  )
-  ok('同号异题:锚点已有这个撞号 ⇒ 棘轮不拦(存量只报数,§12e)', ratchetAdded(gs(K_A), gs(K_A)).length === 0)
-  ok(
-    '同号异题:本次新撞一个号 ⇒ 棘轮必判(这正是并发会话回插旧号的那一型)',
-    ratchetAdded(gs(K_A), gs([...K_A, '- [ ] G-41 **又一件不相干的事也写了这个号** 丙'])).length === 1,
   )
 
   // ── 取面维:面选错等于换一把尺子,这里必须钉死 ──

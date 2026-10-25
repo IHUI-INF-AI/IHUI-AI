@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { useConfirm } from '@/hooks/use-confirm'
 import { McpViewFailure } from './mcp-view-failure'
 
@@ -151,16 +151,20 @@ export function McpManager() {
   } = useQuery({
     queryKey: ['mcp', 'servers'],
     queryFn: async () => {
-      return api<McpServer[]>('/api/ai/mcp/servers')
+      const res = await fetchApi<McpServer[]>('/api/ai/mcp/servers')
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
   })
 
   const createMutation = useMutation({
     mutationFn: async (input: CreateServerInput) => {
-      return api<McpServer>('/api/ai/mcp/servers', {
+      const res = await fetchApi<McpServer>('/api/ai/mcp/servers', {
         method: 'POST',
         body: JSON.stringify(input),
       })
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: () => {
       toast.success(t('createSuccess'))
@@ -173,9 +177,11 @@ export function McpManager() {
   const toggleMutation = useMutation({
     mutationFn: async (server: McpServer) => {
       const action = server.status === 'connected' ? 'disconnect' : 'connect'
-      return api<McpServer>(`/api/ai/mcp/servers/${server.id}/${action}`, {
+      const res = await fetchApi<McpServer>(`/api/ai/mcp/servers/${server.id}/${action}`, {
         method: 'POST',
       })
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mcp', 'servers'] }),
     onError: (err: Error) => toast.error(err.message),
@@ -183,9 +189,10 @@ export function McpManager() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api<void>(`/api/ai/mcp/servers/${id}`, {
+      const res = await fetchApi<void>(`/api/ai/mcp/servers/${id}`, {
         method: 'DELETE',
       })
+      if (!res.success) throw new Error(res.error)
     },
     onSuccess: () => {
       toast.success(t('deleteSuccess'))

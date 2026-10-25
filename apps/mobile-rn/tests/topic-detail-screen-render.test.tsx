@@ -229,25 +229,15 @@ describe('TopicDetailScreen 渲染的是共享层那一份', () => {
 
   it('点关注真的打 POST /circles/topic/:id/follow 并翻转为已关注', async () => {
     renderScreen()
-    // 链 A = 首屏取数:共享屏只在 topic.name 存在时渲染头部与关注按钮(`{topic.name ? …}`),
-    // 按钮上屏是这条链的终点,而且**必须在点击之前**成立(后面的链 B 证不到"当时按钮在不在")
-    // ⇒ 这一段不能并入链 B。
-    await waitFor(() => expect(screen.queryByText(val('topic.detail.follow'))).not.toBeNull(), {
-      timeout: 4_000,
-    })
+    await waitFor(() => expect(screen.queryByText(val('topic.detail.follow'))).not.toBeNull())
     fireEvent.click(screen.getByText(val('topic.detail.follow')))
-    // 链 B = 关注:终点是行态翻成「已关注」。共享屏的翻转**不是乐观更新**(onFollow 里
-    // `await fetchApi(...)` 且 `res.success` 之后才 setTopic),所以"POST 打出去了"是链 B 的
-    // 中间态、被终点蕴含 ⇒ 降级为终点之后的同步断言(断言一条不减)。
-    // 预算 4s+5s=9s < vitest.config 的 testTimeout 10s:最坏情况由 waitFor 的断言消息定性,
-    // 而不是被墙上时钟掐死成"看不出红在哪"的那种红。
-    await waitFor(() => expect(screen.queryByText(val('topic.detail.following'))).not.toBeNull(), {
-      timeout: 5_000,
-    })
-    expect(
-      api.fetchApi,
-      '行态翻转了却没打过 /circles/topic/7/follow(POST)⇒ 这个"已关注"不是关注链带来的',
-    ).toHaveBeenCalledWith('/circles/topic/7/follow', expect.objectContaining({ method: 'POST' }))
+    await waitFor(() =>
+      expect(api.fetchApi).toHaveBeenCalledWith(
+        '/circles/topic/7/follow',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
+    await waitFor(() => expect(screen.queryByText(val('topic.detail.following'))).not.toBeNull())
     expect(api.appAlert).toHaveBeenCalledWith(val('common.hint'), val('topic.detail.followSuccess'))
   })
 })

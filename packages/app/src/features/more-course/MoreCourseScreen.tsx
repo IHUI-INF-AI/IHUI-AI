@@ -18,7 +18,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BookOpen } from 'lucide-react-native'
 import type { MoreCourseScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -142,12 +142,24 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    countText: { fontSize: 14, color: tk.text.tertiary, marginLeft: 'auto' } as TextStyle,
-    listContent: { paddingHorizontal: 10, paddingVertical: 12, gap: 12 } as ViewStyle,
+    title: {
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    countText: {
+      fontSize: rnType.body.size,
+      color: tk.text.tertiary,
+      marginLeft: 'auto',
+    } as TextStyle,
+    listContent: {
+      paddingHorizontal: 10,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    } as ViewStyle,
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -159,9 +171,9 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
-    cardBody: { padding: 12, gap: 6 } as ViewStyle,
+    cardBody: { padding: rnSpacing.md, gap: 6 } as ViewStyle,
     cardTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
       lineHeight: 20,
@@ -171,12 +183,16 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
     } as ViewStyle,
-    instructor: { fontSize: 14, color: tk.text.medium, flex: 1 } as TextStyle,
-    lessonCount: { fontSize: 12, color: tk.text.tertiary } as TextStyle,
-    price: { flexShrink: 0, fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT } as TextStyle,
-    studentCount: { fontSize: 12, color: tk.text.tertiary } as TextStyle,
-    footerLoading: { paddingVertical: 12, alignItems: 'center' } as ViewStyle,
-    footerText: { fontSize: 14, color: tk.text.secondary } as TextStyle,
+    instructor: { fontSize: rnType.body.size, color: tk.text.medium, flex: 1 } as TextStyle,
+    lessonCount: { fontSize: rnType.label.size, color: tk.text.tertiary } as TextStyle,
+    price: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.brand.DEFAULT,
+    } as TextStyle,
+    studentCount: { fontSize: rnType.label.size, color: tk.text.tertiary } as TextStyle,
+    footerLoading: { paddingVertical: rnSpacing.md, alignItems: 'center' } as ViewStyle,
+    footerText: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

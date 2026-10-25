@@ -1347,16 +1347,9 @@ export function listCandidates(root, face) {
   // `--cached` 必须在**模式之前**:git grep 把模式之后的参数一律当修订版解析,
   // 写成 `[...,'-E',pattern,'--cached']` 会得到 `fatal: unable to resolve revision: --cached`
   // —— 而 runner 给每道门追加 `--staged`,于是这道门会在每一次提交上 exit 2(恒红门)。
-  //
-  // G-XXX 候选枚举面必须与取材面同源:head 档不传 revision 时,git grep 搜的是**工作树/索引**
-  // 面,而 readCandidates 固定读 `HEAD:<path>` —— 只要有人在飞新增带 hash/digest 命名的文件
-  // (索引有、HEAD 无),本门就在 head 档把"候选"喂成"取不到"⇒ exit 2「无法判定」。
-  // 所以 head 档显式枚举 HEAD 树;git grep 输出会带 `HEAD:` 前缀,这里逐条剥掉。
-  // `HEAD` 必须放在**模式之后**:git grep 的形参序是 `<pattern> [<rev>...] [[--] <pathspec>...]`。
   const args = ['grep', '-I', '-z', '-l']
   if (face === 'staged') args.push('--cached')
   args.push('-E', prefilterPattern())
-  if (face === 'head') args.push('HEAD')
   let out
   try {
     out = gitRaw([...args, '--', ...SCAN_DIRS], root, { timeout: GIT_TIMEOUT })
@@ -1367,7 +1360,6 @@ export function listCandidates(root, face) {
   return String(out)
     .split('\0')
     .filter(Boolean)
-    .map((p) => (face === 'head' && p.startsWith('HEAD:') ? p.slice('HEAD:'.length) : p))
     .filter((p) => FILE_RE.test(p) && !SKIP_RE.test(p))
 }
 

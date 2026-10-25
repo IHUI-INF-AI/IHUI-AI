@@ -416,7 +416,7 @@ test('A4 判据必须真的接在 runCheck 的返回值上(判据在、没挂上
 })
 
 test('A4 真实标题形态:占位与同一条目并存 ⇒ 判本次引入的复活', () => {
-  // 输入逐字取自 HEAD 版计划文档里的真实标题(§22c:判据的对象是文件形态时,
+  // 输入逐字取自 HEAD 版计划文档里的真实占位与真实标题(§22c:判据的对象是文件形态时,
   // 至少一条用例的输入必须来自真实文件,否则夹具只是在复读实现)。
   const head = execFileSync(
     'git',
@@ -424,20 +424,16 @@ test('A4 真实标题形态:占位与同一条目并存 ⇒ 判本次引入的�
     // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true },
   )
-  // 2026-10-24 改写取样尺(历史迁档的正常后果,不是放宽判据):
-  // HEAD 里如今只剩一条"历史票面与旧编号全文"指针占位 —— 它不是已完成条目占位(标题里没有 ✅),
-  // 旧尺子"取 placeholderLines(head)[0]"会把这条指针当任务占位用,于是"占位 + 同一条目"这对
-  // 输入永远配不成一对,introduced 恒 0(门本身没坏,是夹具的前提随文档演进而失效)。
-  // 现改为两件都取生产件:标题 = HEAD 里真实存在的已完成标题(生产提取器),占位 = 归档器生产函数
-  // placeholderLine 现场生成(与归档器真实产出同形)。占位的标题提取仍走门体唯一实现,
-  // 由本用例第 3 条断言证"写入 / 提取同形"。
-  const heading = archiveGate.extractCompletedTaskHeadings(head)[0]
-  assert.ok(heading, 'HEAD 版计划文档里应能找到至少一条已完成条目(找不到说明本用例的尺子失效)')
-  const title = archiveGate.headingTitle(heading)
-  const ph = archiver.placeholderLine('2026-10-24', title, 'PROJECT_PLAN_2026-10-24_renumber-snapshot.md')
-  const phTitle = archiveGate.placeholderTitleOf(ph)
-  assert.equal(phTitle, title.slice(0, 60).trim(), '占位标题提取与归档器写入必须同形(否则复活比对键永远对不上)')
-  const face = `${heading}\n正文一行\n${ph}\n`
+  // 占位行的枚举与"行内标题提取"都走门体生产入口(§22c:提取实现只有一份 —— 见下方
+  // 「提取实现只有一份」用例);测试本地不得再留第二份解析配方。
+  const ph = archiveGate.placeholderLines(head)[0]
+  assert.ok(ph, 'HEAD 版计划文档里应能找到至少一条归档占位(找不到说明本用例的尺子失效)')
+  const title = archiveGate.placeholderTitleOf(ph)
+  assert.ok(
+    title,
+    '占位行不符合归档器现行生成形态(日期:标题,完整内容在)⇒ 本用例与生成器有一边漂了,先对齐再跑',
+  )
+  const face = `### ${title}\n正文一行\n${ph}\n`
 
   const r = resurrectionVerdict('', face)
   assert.equal(r.introduced.length, 1, '真实形态的复活必须被点名')
@@ -453,9 +449,6 @@ test('A4 真实标题形态:占位与同一条目并存 ⇒ 判本次引入的�
 
 // ─── 2026-09-26 粒度对齐 + T3 元判据(归档粒度扩到 ##/###;提取实现收进 lib;T3 守"判据看见现实") ───
 import { __test__ as archiveGate } from '../check-project-plan-archive.mjs'
-// 2026-10-24:A4 真实形态夹具的占位改由归档器生产函数生成(§22c:构造夹具不得另抄一份生成式;
-// 归档器有 §22d 的直跑守卫,import 安全)。
-import { __test__ as archiver } from '../archive-completed-tasks.mjs'
 // A1 的三条分流要按**构造台账**喂:生产台账已随存量清偿清空,那两臂在真仓上不再触发,
 // 只有构造面能证明它们还在 ⇒ 直接取判据函数,不在测试里重抄一份判定。
 import { anchorVerdict } from '../check-project-plan-archive.mjs'

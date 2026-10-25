@@ -34,7 +34,6 @@
  */
 
 import { and, asc, count, eq, inArray, isNull, or, sql } from 'drizzle-orm'
-import { bizDayKey } from '../utils/biz-day.js'
 import { eduEnrollment, eduFeeSchedule, eduPaymentRecord, eduRefundRecord } from '@ihui/database'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
@@ -307,7 +306,7 @@ function addMonthsClamped(iso: string, n: number): string | null {
   if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null
   const total = m - 1 + n
   const ny = y + Math.floor(total / 12)
-  const nm = (total % 12 + 12) % 12 + 1
+  const nm = (((total % 12) + 12) % 12) + 1
   const nd = Math.min(d, daysInMonth(ny, nm))
   return `${String(ny).padStart(4, '0')}-${String(nm).padStart(2, '0')}-${String(nd).padStart(2, '0')}`
 }
@@ -325,8 +324,7 @@ export function buildSchedulePlan(
   // 放任它会产出多条"同一天到期"的账期:到期提醒会对同一报名连发多条,
   // 而摊派看着像系统算错 —— 矛盾输入应当被拒,不是被将就成一个能跑的形状。
   if (cycle === 'once' && periodCount !== 1) return null
-  const stepMonths =
-    cycle === 'once' ? 0 : cycle === 'monthly' ? 1 : (input.monthsPerPeriod ?? 0)
+  const stepMonths = cycle === 'once' ? 0 : cycle === 'monthly' ? 1 : (input.monthsPerPeriod ?? 0)
   if (cycle === 'termly' && (!Number.isInteger(stepMonths) || stepMonths < 1)) return null
 
   // 摊派:基础值 × (n-1) + 末期(带余数) = 总额,逐分不差
@@ -346,8 +344,8 @@ export function buildSchedulePlan(
 }
 
 function todayIso(): string {
-  // 北京日界,与催费定时任务的"当日幂等"同口径;算法唯一出口 = utils/biz-day.ts
-  return bizDayKey()
+  // 用北京日界,与催费定时任务的"当日幂等"口径一致(那边按北京时间 0 点算)
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
 }
 
 /**
@@ -418,9 +416,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
         scheduleId: eduPaymentRecord.scheduleId,
       })
       .from(eduPaymentRecord)
-      .where(
-        and(payOwner, isNull(eduPaymentRecord.deletedAt)),
-      ),
+      .where(and(payOwner, isNull(eduPaymentRecord.deletedAt))),
     db
       .select({
         amount: eduRefundRecord.amount,
@@ -429,9 +425,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
       })
       .from(eduRefundRecord)
       .leftJoin(eduPaymentRecord, eq(eduRefundRecord.paymentId, eduPaymentRecord.id))
-      .where(
-        and(refundOwner, isNull(eduRefundRecord.deletedAt)),
-      ),
+      .where(and(refundOwner, isNull(eduRefundRecord.deletedAt))),
     db
       .select({
         id: eduFeeSchedule.id,
@@ -598,12 +592,7 @@ export async function recordRefund(input: {
     const [pay] = await db
       .select({ enrollmentId: eduPaymentRecord.enrollmentId })
       .from(eduPaymentRecord)
-      .where(
-        and(
-          eq(eduPaymentRecord.id, input.paymentId),
-          isNull(eduPaymentRecord.deletedAt),
-        ),
-      )
+      .where(and(eq(eduPaymentRecord.id, input.paymentId), isNull(eduPaymentRecord.deletedAt)))
       .limit(1)
     ownerEnrollmentId = pay?.enrollmentId ?? null
   }

@@ -18,7 +18,6 @@
  */
 import { sql } from 'drizzle-orm'
 import { dbRead } from './index.js'
-import { bizDayStartUtc, bizDayKey } from '../utils/biz-day.js'
 
 /** 安全提取 db.execute 结果为数组(兼容 postgres.js 数组 / {rows} 两种形态)。 */
 function toRows(raw: unknown): Record<string, unknown>[] {
@@ -38,7 +37,28 @@ function num(v: unknown): number {
   return 0
 }
 
-// 时区工具不在本文件写:业务日界唯一出口 = utils/biz-day.ts(守门 246 拦第四份副本)
+// ===== 时区工具:Asia/Shanghai 日界(UTC 表示)=====
+// Shanghai = UTC+8。Shanghai 当天 00:00 对应的 UTC 时间 = Date.UTC(y,m,d) - 8h。
+function shanghaiDayStartUtc(daysAgo = 0): Date {
+  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
+  return new Date(
+    Date.UTC(
+      shanghaiNow.getUTCFullYear(),
+      shanghaiNow.getUTCMonth(),
+      shanghaiNow.getUTCDate() - daysAgo,
+    ) -
+      8 * 3600 * 1000,
+  )
+}
+
+/** 把 Date 转成 Shanghai 本地 YYYY-MM-DD(供趋势填充使用)。 */
+function shanghaiDateKey(d: Date): string {
+  const local = new Date(d.getTime() + 8 * 3600 * 1000)
+  const y = local.getUTCFullYear()
+  const m = String(local.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(local.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 export interface DauPoint {
   date: string
@@ -90,7 +110,7 @@ export async function getSessions(dayStart: Date, nextDayStart: Date): Promise<n
 
 /** 近 N 日 DAU 趋势(按 Shanghai 日界分组去重,缺日期补 0,保证折线图连续)。 */
 export async function getDauTrend(days: number): Promise<DauPoint[]> {
-  const since = bizDayStartUtc(days - 1)
+  const since = shanghaiDayStartUtc(days - 1)
   const rows = await dbRead.execute(sql`
     SELECT day, COUNT(DISTINCT user_id)::int AS dau FROM (
       SELECT to_char(created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') AS day, user_id
@@ -112,7 +132,7 @@ export async function getDauTrend(days: number): Promise<DauPoint[]> {
 
   const result: DauPoint[] = []
   for (let i = days - 1; i >= 0; i--) {
-    const key = bizDayKey(bizDayStartUtc(i))
+    const key = shanghaiDateKey(shanghaiDayStartUtc(i))
     result.push({ date: key, dau: byDate.get(key) ?? 0 })
   }
   return result

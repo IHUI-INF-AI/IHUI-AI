@@ -254,9 +254,6 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
       startedAtRef.current = Date.now()
       durationSecRef.current = 0
       setDurationSec(0)
-      // 起新之前先停旧(本文件已有 stopTimer,catch 分支就在用它)——否则重开一次录音
-      // 就多一只无人认领的计时器,它会一直改 durationSecRef 并 setState
-      stopTimer()
       timerRef.current = setInterval(() => {
         durationSecRef.current = Math.floor((Date.now() - startedAtRef.current) / 1000)
         setDurationSec(durationSecRef.current)
@@ -412,19 +409,6 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
               >
                 <Square className="h-3.5 w-3.5" />
                 {t('action.stop')}
-              </Button>
-            )}
-            {/* 转写完成即可插入当前输入框:与归档行同一个 draftInput 通道,
-                不经服务端落库(落库失败被回滚时这条路径仍通),这是本切片的主链路 */}
-            {phase === 'completed' && !emptyResult && transcript.trim().length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => insertToInput(transcript)}
-                data-testid="voice-note-insert-current"
-              >
-                <ClipboardPaste className="h-3.5 w-3.5" />
-                {t('action.insertToInput')}
               </Button>
             )}
             {/* 可恢复失败相:retry */}

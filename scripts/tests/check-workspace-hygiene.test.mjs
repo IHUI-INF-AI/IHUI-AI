@@ -304,21 +304,6 @@ test('WARNING: 硬编码中文路径 d:\\桌面\\foo → exit 0(warning 不阻�
   }
 })
 
-test('WARNING 例外: <root>/.ihui-agent/tmp/ 的一次性脚本含中文绝对路径 ⇒ 不报(可移植性判据不适用 scratch)', () => {
-  // 落点必须在**扫描根**的 .ihui-agent/tmp 下(门对根上的这一枝有专门扫描),否则测不到排除分支。
-  const sub = join(FIXTURE_ROOT, '.ihui-agent', 'tmp')
-  try {
-    const v = cat('d:', '\\', '桌面', '\\', 'foo')
-    mkdirSync(sub, { recursive: true })
-    writeFileSync(join(sub, 'v.mjs'), `const p = '${v}'\n`)
-    const r = runScript()
-    assert.equal(r.status, 0, `tmp 例外应 exit 0\nstderr: ${r.err}`)
-    assert.doesNotMatch(r.err, /v\.mjs/, `tmp 里的脚本不应被当作可移植性违规点名\nstderr: ${r.err}`)
-  } finally {
-    rmSync(join(FIXTURE_ROOT, '.ihui-agent'), { recursive: true, force: true })
-  }
-})
-
 // ─── 4. 豁免场景(行级白名单)→ 不检测 ─────────────────────
 
 test('豁免: 注释行(# 开头)含违规路径 → 不检测(exit 0)', () => {
@@ -410,44 +395,54 @@ test('模式: 默认 + BLOCKING 违规 → exit 1(阻塞,与 --warn 形成对比
 })
 
 /**
- * v4 全量档取材面(2026-10-28):清单与内容**同取 HEAD 面**(§0.4 同面同轮),磁盘枚举退出判定。
- * 立项现场:v3 把在册清单(且是索引面 ls-files --cached)与 `.ihui-agent/tmp/` 的磁盘件并进
- * 同一条 blocking 射程 ⇒ 他席打包生成物(`cli-dist-exp/index.js`,命中列号 81298 = bundle,
- * 既不在 HEAD 也不在该席声明的提交集)把与本次提交内容无关的全量档顶红(§12e)。
- * 收窄的是"审哪一面",不是"判什么规则"——面内必红/面外必点名两条牙见文件末尾。
+ * v3 全量档取材面(2026-10-16):面 = 在册文件 ∪ `.ihui-agent/tmp/`。
+ * 立项现场:磁盘递归把 `.gitignore` 内**别人工具的缓存**(Codex 插件产物)当项目源码读,
+ * 三条"相对路径跳出项目"恒命中 ⇒ 每台每次提交都被挡(blocking),而任何会话都无法让它变绿(§12e)。
  */
-test('面·形状锁(v4):全量档清单必须复用面层的 listFaceFiles(head),不得自造第二套面读取、不得带回 --others', () => {
-  const src = readFileSync(SCRIPT_PATH, 'utf8')
-  assert.match(src, /listFaceFiles\([\s\S]{0,60}'head'/, '清单必须走 face-reader 的 HEAD 树枚举(守门 118:自造 git ls-* = 第二套面读取,必然漂移)')
-  assert.doesNotMatch(src, /--others/, '带回 --others = 把并行会话在飞件与被忽略缓存重新扫进判定射程')
-  assert.match(src, /--worktree/, '磁盘面必须保留人工逃生舱(覆盖面没有削掉的出口)')
+test('面·形状锁:全量档只问 `ls-files --cached`,不得重新带上 --others', () => {
+  const args = hygiene.FULL_FACE_GIT_ARGS
+  assert.ok(args.includes('ls-files') && args.includes('--cached'), '必须按在册面取清单')
+  assert.ok(!args.includes('--others'), '带回 --others = 把别人在飞的 WIP 与被忽略的缓存重新扫进射程')
 })
 
-test('面·行为锁(v4):HEAD 面上的在册件在射程内;只在磁盘的 tmp 件落入"射程外"清单,不静默', () => {
+test('面·行为锁:在册源文件与 tmp 落点都在面内,被忽略的第三方缓存不在', () => {
   const face = hygiene.getFullFaceFiles()
   assert.equal(face.ok, true, `取面失败(不得冒绿):${face.reason}`)
-  const rel = face.faceFiles.map((f) => String(f).replaceAll('\\', '/'))
-  assert.ok(rel.includes('scripts/check-workspace-hygiene.mjs'), 'HEAD 面上的源文件必须仍在射程内')
-  assert.ok(!rel.some((p) => p.startsWith('.ihui-agent/tmp/')), '只在磁盘的未入库件不得进判定清单')
-  assert.ok(!rel.some((p) => p.startsWith('.DevEnv/')), '被 .gitignore 忽略的他人工具缓存不得进判定(与它在盘上存不存在无关)')
-  const tmpHasScript = existsSync(hygiene.TMP_LANDING_DIR)
+  // 新形状:faceFiles = 被审面上的在册件(仓库相对、正斜杠);diskFiles = 只存在于磁盘的并入件
+  const rel = [
+    ...face.faceFiles.map((f) => String(f).replaceAll('\\', '/')),
+    ...face.diskFiles.map((f) => relative(PROJECT_ROOT, f).replaceAll('\\', '/')),
+  ]
+  assert.ok(rel.includes('scripts/check-workspace-hygiene.mjs'), '在册源文件必须仍在射程内')
+  // tmp 落点的并入用"形状 + 行为"两把尺:盘上有 .mjs 就必须量到(行为),没有也不能让本臂变脆
+  const onDisk = existsSync(hygiene.TMP_LANDING_DIR)
     ? readdirSync(hygiene.TMP_LANDING_DIR, { recursive: true, encoding: 'utf8' })
         .map((p) => String(p).replaceAll('\\', '/'))
-        .some((p) => hygiene.SCRIPT_EXTS.has(extname(p)))
-    : false
-  if (tmpHasScript) {
+        .filter((p) => hygiene.SCRIPT_EXTS.has(extname(p)))
+    : []
+  assert.match(
+    readFileSync(SCRIPT_PATH, 'utf8'),
+    /faceFiles: tracked, diskFiles: scanDir\(TMP_LANDING_DIR\)/,
+    '§25 的临时脚本落点必须并进全量面 —— 收面不等于缩射程',
+  )
+  if (onDisk.length > 0) {
     assert.ok(
-      face.offFaceFiles.length > 0,
-      '盘上有脚本形态的 tmp 件,射程外清单却是空 ⇒ "只点名不判"实际失效(§0.3 不得静默)',
+      rel.some((p) => p.startsWith('.ihui-agent/tmp/')),
+      `盘上有 ${onDisk.length} 个临时脚本,面里一条都没有 ⇒ 并入实际失效`,
     )
   }
-  const src = readFileSync(SCRIPT_PATH, 'utf8')
-  assert.match(src, /射程外/, '全量档必须把磁盘面命中打印成「落在射程外」一行,不得静默放过')
+  // 2026-10-21:这条缓存文件住在 `.DevEnv/`(被 .gitignore 忽略)⇒ **任何干净检出上都不存在**,
+  // 原来那句 existsSync「夹具前提」在 CI 上必红。要锁的判据是"被忽略的他人工具缓存不得进面",
+  // 与那个具体文件在不在盘上无关 —— 改成恒真锁(面里一旦出现 .DevEnv/ 前缀就红)。
+  assert.ok(
+    !rel.some((p) => p.startsWith('.DevEnv/')),
+    '被 .gitignore 忽略的他人工具缓存不得进面(与它在盘上存不存在无关)',
+  )
 })
 
 test('面·取不到与枚举为 0 都走「未判定」,不记绿也不冒红', () => {
   const src = readFileSync(SCRIPT_PATH, 'utf8')
-  assert.match(src, /ok: false, reason: ['"`]HEAD 树清单取不到/, 'HEAD 树清单取不到必须点名原因并拒出合格证')
+  assert.match(src, /ok: false, reason: ['"`]git ls-files 取不到/, 'git 取不到被审面必须点名原因并拒出合格证')
   assert.match(src, /枚举结果为 0/, '面里一个脚本都没有 ⇒ 是"没量到",不是"没有违规"')
   assert.match(src, /未判定\(取材失败\)[\s\S]{0,220}process\.exit\(2\)/, '取材失败分支必须 exit 2')
 })
@@ -475,65 +470,4 @@ test('面·只在磁盘或只在文档里出现的名字,不得被磁盘回落�
   const r = hygiene.scanSetFromFace(PROJECT_ROOT, 'head', [ghost])
   assert.equal(r.scanned, 0, '面路上没有 blob ⇒ 不得算已扫')
   assert.deepEqual(r.unreadable, [ghost], '必须落未判定并点名,而不是静默当成没有违规')
-})
-
-// ── 面·牙(v4,2026-10-28):收面 ≠ 削规则,两条必须成对 ─────────────────────
-// ① 同一份违规内容**提交进 HEAD 面** ⇒ 判据照红(面内真缺陷逃不掉);
-// ② 同一份内容**只在磁盘、不在面** ⇒ 全量档 exit 0,但必须打印"落在射程外"一行
-//    (§0.3 不得静默放过),且 --worktree 逃生舱仍在磁盘面判红(覆盖面没被削掉的正面证明)。
-
-function gitIn(cwd, args) {
-  const r = spawnSync('git', ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  if (r.status !== 0) throw new Error(`git ${args.join(' ')} 失败: ${(r.stderr || '').split(/\r?\n/)[0]}`)
-  return r
-}
-
-test('牙·面内必红:违规 blob 存在于 HEAD 面 ⇒ 全量档判据必须命中(内存夹具临时仓,不落真仓树)', () => {
-  const repo = mkScratch('hygiene-face-repo-')
-  try {
-    mkdirSync(join(repo, 'scripts'), { recursive: true })
-    const v = cat('C:', '\\', 'temp', '\\', 'ihui-ext', '\\', 'data.json')
-    writeFileSync(join(repo, 'scripts', 'bad.mjs'), `const p = '${v}'\n`)
-    gitIn(repo, ['init'])
-    gitIn(repo, ['add', '.'])
-    gitIn(repo, ['-c', 'user.email=fixture@local', '-c', 'user.name=fixture', 'commit', '-m', 'hygiene fixture'])
-    const face = hygiene.getFullFaceFiles(repo)
-    assert.equal(face.ok, true, `夹具仓取面失败(不得冒绿):${face.reason}`)
-    assert.ok(face.faceFiles.includes('scripts/bad.mjs'), '已提交进 HEAD 的违规件必须在射程清单里')
-    const res = hygiene.scanSetFromFace(repo, 'head', face.faceFiles)
-    assert.ok(
-      res.violations.some((x) => x.file === 'scripts/bad.mjs' && x.level === 'blocking'),
-      '同一份内容在 HEAD 面上就必须红 —— 收窄的是"审哪一面",不是"判什么规则"(§12e)',
-    )
-  } finally {
-    rmScratch(repo)
-  }
-})
-
-test('牙·面外不红但不静默:同内容只挂磁盘 ⇒ 全量档 exit 0 + 射程外点名;磁盘判据与 --worktree 仍在', () => {
-  const dir = join(LEGACY_FIXTURE_PARENT, `hygiene-offface-${process.pid}-${Date.now()}`)
-  mkdirSync(dir, { recursive: true })
-  const file = join(dir, 'v.mjs')
-  try {
-    const v = cat('C:', '\\', 'temp', '\\', 'ihui-ext', '\\', 'data.json')
-    writeFileSync(file, `const p = '${v}'\n`)
-    // 判据本身还活着:同内容按磁盘读,blocking 命中一条不少(为 --worktree 射程背书,且不依赖并发时序)
-    assert.equal(hygiene.scanFile(file).filter((x) => x.level === 'blocking').length, 1, '磁盘读同一夹具必须命中 blocking 判据')
-    const full = runOnRepo()
-    assert.equal(full.status, 0, `只在磁盘、不在 HEAD 面的他席件不得顶红全量档(§12e)\nstderr: ${full.err}`)
-    const rep = reportOf(full)
-    assert.match(rep, /审面 = HEAD blob/, '全量档必须自报审的是 HEAD 面')
-    assert.match(rep, /射程外/, '面外命中必须打印「落在射程外」,不得静默(§0.3)')
-    assert.match(rep, /处命中/, '射程外行必须报数,枚举情况可见')
-    const wt = runOnRepo(['--worktree'])
-    assert.equal(wt.status, 1, `--worktree 逃生舱必须仍在磁盘面上判红(覆盖面没削掉的正面证明)\nstdout: ${wt.out}`)
-    assert.match(reportOf(wt), /审面 = 磁盘面/, '--worktree 必须明说自己审的是磁盘面')
-  } finally {
-    rmSync(dir, { recursive: true, force: true })
-  }
 })

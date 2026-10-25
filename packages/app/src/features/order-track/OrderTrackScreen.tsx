@@ -8,6 +8,7 @@ import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { OrderTrackItem, OrderTrackScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 订单跟踪共享屏 — props 注入式跨端组件 */
 export type { OrderTrackItem, OrderTrackScreenProps }
@@ -35,9 +36,7 @@ export function OrderTrackScreen({
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<OrderTrackItem>
           data={items}
@@ -45,9 +44,7 @@ export function OrderTrackScreen({
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('orderTrack.empty')}</Text>
-            </View>
+            <EmptyState title={t('orderTrack.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -83,8 +80,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     error: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10, gap: 8 }, // §4 禁分割线:卡片整圈描边 + 间距分隔
     card: {
       padding: 12,

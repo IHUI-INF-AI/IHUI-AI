@@ -5,8 +5,9 @@
 /**
  * NavBar 顶部导航栏的结构与几何单一源(小程序端与 RN 端共用),形状照 back-chevron-spec。
  *
- * 两端真实实现:apps/miniapp-taro/src/components/NavBar.tsx ↔ apps/mobile-rn/src/components/NavBar.tsx
- * (曾有一枚 packages/app 的 DOM 副本零消费者,2026-10-25 按 §7 删除)。
+ * 两端真实实现:apps/miniapp-taro/src/components/NavBar.tsx ↔ apps/mobile-rn/src/components/NavBar.tsx。
+ * (packages/app/src/components/NavBar.tsx 是 div/span 形态的 DOM 副本,不在 RN 屏幕上渲染,
+ *  不消费本文件 —— 移动端取景只量这两条腿。)
  *
  * 消费方式只能是子路径 `@ihui/shared/ui/navbar-spec`(禁挂根桶,根桶会把整棵 src/chat 拉进被检程序)。
  * spec 内只存逻辑 px;小程序端换算 `(px) => rpx(px * TARO_RPX_PER_PX)`,RN 端 1:1。

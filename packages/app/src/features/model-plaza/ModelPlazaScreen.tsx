@@ -23,6 +23,7 @@ import type {
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 模型广场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ModelPlazaItem, ModelPlazaProvider, ModelPlazaScreenProps }
@@ -206,23 +207,23 @@ export function ModelPlazaScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>
-              {loading
-                ? t('common.loading')
-                : error
-                  ? t('modelPlaza.loadFailed')
-                  : t('modelPlaza.emptyType')}
-            </Text>
-          </View>
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : error ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>{t('modelPlaza.loadFailed')}</Text>
+            </View>
+          ) : (
+            <EmptyState title={t('modelPlaza.emptyType')} colorScheme={colorScheme} />
+          )
         }
         renderItem={({ item }) => {
           const tb = typeBadge(item.type, tk)
           return (
-            <TouchableOpacity
+            <PressableCard
               style={styles.modelCard}
               onPress={() => onPressItem(item)}
-              activeOpacity={0.85}
+              colorScheme={colorScheme}
             >
               <View style={styles.cardTop}>
                 <Text style={styles.modelName} numberOfLines={1}>
@@ -264,7 +265,7 @@ export function ModelPlazaScreen({
                 ))}
                 {item.payMode ? <Text style={styles.payMode}>{item.payMode}</Text> : null}
               </View>
-            </TouchableOpacity>
+            </PressableCard>
           )
         }}
       />

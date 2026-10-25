@@ -20,7 +20,7 @@
 - **GitHub**: https://github.com/IHUI-INF-AI/IHUI-AI
 - **Live Demo**: https://aizhs.top
 - **License**: Apache-2.0 (commercial-friendly)
-- **One-liner**: One repo to replace 40+ commercial products — 9 platforms / 101 LLMs / LangGraph+MCP+A2A / 340 tables / 1300+ APIs
+- **One-liner**: One repo to replace 40+ commercial products — 8 platforms / 176 LLMs / LangGraph+MCP+A2A / 340 tables / 1300+ APIs
 - **Contact**: WeChat `ok502319984` · Email [REDACTED-EMAIL]
 
 ---
@@ -33,7 +33,7 @@
 
 ### Title
 ```
-[Open Source] IHUI-AI — Full-stack AI platform with 101 LLMs, LangGraph+MCP+A2A, 9-platform support (Apache 2.0)
+[Open Source] IHUI-AI — Full-stack AI platform with 176 LLMs, LangGraph+MCP+A2A, 8-platform support (Apache 2.0)
 ```
 
 ### Body
@@ -47,8 +47,8 @@ I've been building an open-source AI platform for the past 18 months. It's Apach
 
 **What it does**:
 
-- 9 platforms from one monorepo: Web (Next.js 16) / API (Fastify 5) / AI Service (FastAPI + LangGraph + LiteLLM + MCP) / CLI / Desktop (Tauri) / Browser Extension (WXT) / Mobile (React Native + Expo) / Capacitor (mobile-cap) / Mini-program (Taro)
-- 101 LLMs unified routing via LiteLLM (OpenAI, Anthropic, Gemini, Qwen, DeepSeek, Kimi, Doubao, etc.)
+- 8 platforms from one monorepo: Web (Next.js 16) / API (Fastify 5) / AI Service (FastAPI + LangGraph + LiteLLM + MCP) / CLI / Desktop (Tauri) / Browser Extension (WXT) / Mobile (React Native + Expo) / Mini-program (Taro)
+- 176 LLMs unified routing via LiteLLM (OpenAI, Anthropic, Gemini, Qwen, DeepSeek, Kimi, Doubao, etc.)
 - LangGraph + MCP + A2A tri-stack for agents
 - 340 DB tables / 144 migrations / 1300+ API endpoints / 5346 tests / 63 e2e specs
 - 5-language i18n with 100% key parity (zh-CN / zh-TW / en / ko / ja)
@@ -68,7 +68,7 @@ pnpm dev
 
 **Honest tradeoffs** (please roast):
 - It's huge. 340 tables is overkill if you only need AI chat — you'd only use chat/users/billing schemas.
-- The 9-platform ambition means some platforms (mobile/desktop) are less polished than web/api.
+- The 8-platform ambition means some platforms (mobile/desktop) are less polished than web/api.
 - i18n is 100% key parity but translation quality varies (zh-CN is source, others are AI-translated).
 
 Not trying to compete with anyone on precision — Dify/Cursor are more mature in their niches. The pitch is "broadest open-source AI platform, one repo, Apache 2.0, self-hostable".
@@ -101,8 +101,8 @@ I've been working on IHUI-AI — an open-source AI platform that combines what 4
 
 **What's in it**:
 
-- 9 platforms (web, api, ai-service, cli, desktop, extension, mobile, mobile-cap, miniapp) from one monorepo
-- 101 LLMs unified routing
+- 8 platforms (web, api, ai-service, cli, desktop, extension, mobile, miniapp) from one monorepo
+- 176 LLMs unified routing
 - LangGraph + MCP + A2A agent tri-stack
 - Full SaaS stack: payments (Stripe + WeChat), auth, email, analytics, wallet, orders
 - 340 DB tables, 1300+ APIs, 5346 tests
@@ -120,7 +120,7 @@ I've been working on IHUI-AI — an open-source AI platform that combines what 4
 **What I learned**:
 - TypeScript monorepos scale beautifully if you enforce Zod schema as single source of truth — frontend types, backend validation, and DB schema all derive from one place.
 - AI agent coding is amazing for greenfield but terrifying for collaboration — invest in pre-commit guards before you start, not after.
-- 101 LLM routing is a solved problem (LiteLLM), but pricing/cost tracking is not — build a per-call cost dashboard from day one.
+- 176 LLM routing is a solved problem (LiteLLM), but pricing/cost tracking is not — build a per-call cost dashboard from day one.
 - Open source distribution is harder than open source coding. Marketing, SEO, GEO, and community ops are 80% of the work, coding is 20%.
 
 If you want to try it: https://aizhs.top
@@ -165,8 +165,8 @@ pnpm dev
 ```
 
 **What's included**:
-- 9 platforms (web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp)
-- 101 LLMs via LiteLLM (use your own OpenAI/Anthropic/local keys)
+- 8 platforms (web/api/ai-service/cli/desktop/extension/mobile/miniapp)
+- 176 LLMs via LiteLLM (use your own OpenAI/Anthropic/local keys)
 - LangGraph + MCP + A2A agents
 - Full SaaS: payments (Stripe + WeChat), auth, email, analytics
 - 340 tables, 1300+ APIs, 5346 tests
@@ -199,7 +199,7 @@ Star if useful: https://github.com/IHUI-INF-AI/IHUI-AI
 
 ### Title
 ```
-I open-sourced a full-stack AI platform under Apache 2.0 — 9 platforms, 101 LLMs, 340 tables, all grep-able
+I open-sourced a full-stack AI platform under Apache 2.0 — 8 platforms, 176 LLMs, 340 tables, all grep-able
 ```
 
 ### Body
@@ -217,7 +217,7 @@ After 18 months of building, I've open-sourced IHUI-AI under Apache 2.0 (commerc
 
 | Metric | Value | Verify |
 |--------|-------|--------|
-| Platforms | 8 (web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp) | `apps/` |
+| Platforms | 8 (web/api/ai-service/cli/desktop/extension/mobile/miniapp) | `apps/` |
 | Shared packages | 12 | `packages/` |
 | DB tables | 340 / 144 migrations / 100 schema files | `packages/database/src/schema/` |
 | API endpoints | 1300+ | `apps/api/src/routes/` |
@@ -232,7 +232,7 @@ After 18 months of building, I've open-sourced IHUI-AI under Apache 2.0 (commerc
 - Weekly security audit CI
 - Visual regression + Lighthouse CI
 
-**The pitch**: Most open-source AI projects are either frameworks (LangChain, AutoGen) or single-purpose (Dify, FastGPT). IHUI-AI tries to be the broadest — 9 platforms, full SaaS stack, AI education, multi-platform publishing — all Apache 2.0.
+**The pitch**: Most open-source AI projects are either frameworks (LangChain, AutoGen) or single-purpose (Dify, FastGPT). IHUI-AI tries to be the broadest — 8 platforms, full SaaS stack, AI education, multi-platform publishing — all Apache 2.0.
 
 **Honest asks**:
 - 9 stars right now. Help me get to 100 this week.
@@ -253,7 +253,7 @@ Contact: [REDACTED-EMAIL] or WeChat `ok502319984`
 
 ### Title (Show HN format required)
 ```
-Show HN: IHUI-AI – Open-source AI platform, 9 platforms, 101 LLMs, Apache 2.0
+Show HN: IHUI-AI – Open-source AI platform, 8 platforms, 176 LLMs, Apache 2.0
 ```
 
 ### Body (HN-style, terse, technical)
@@ -265,8 +265,8 @@ I open-sourced IHUI-AI [0] — a full-stack AI platform under Apache 2.0. Live d
 The pitch: existing open-source AI projects each cover one slice — Dify/FastGPT do app orchestration, LangChain/AutoGen are frameworks, Cursor/Claude Code do AI coding, Stripe/Auth0 do single SaaS capabilities. IHUI-AI tries to combine them into one repo.
 
 Numbers (all grep-able):
-- 9 platforms from one monorepo (web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp)
-- 101 LLMs via LiteLLM
+- 8 platforms from one monorepo (web/api/ai-service/cli/desktop/extension/mobile/miniapp)
+- 176 LLMs via LiteLLM
 - LangGraph + MCP + A2A tri-stack
 - 340 DB tables, 144 migrations, 1300+ API endpoints
 - 5346 tests, 63 e2e specs
@@ -309,7 +309,7 @@ Happy to answer architecture / engineering questions. Criticism welcome.
 ### Pre-launch checklist (do these before scheduling launch)
 
 1. **Gallery images** (required, 1270x760):
-   - Image 1: Hero — IHUI-AI logo + "9 platforms / 101 LLMs / Apache 2.0" + screenshot
+   - Image 1: Hero — IHUI-AI logo + "8 platforms / 176 LLMs / Apache 2.0" + screenshot
    - Image 2: Architecture diagram (8 monorepo apps + 12 shared packages)
    - Image 3: Live demo screenshot (https://aizhs.top homepage)
    - Image 4: 32+ pre-commit guards screenshot
@@ -317,12 +317,12 @@ Happy to answer architecture / engineering questions. Criticism welcome.
 
 2. **Tagline** (60 chars max):
    ```
-   Open-source AI platform — 9 platforms, 101 LLMs, Apache 2.0
+   Open-source AI platform — 8 platforms, 176 LLMs, Apache 2.0
    ```
 
 3. **Description** (260 chars):
    ```
-   IHUI-AI is an Apache 2.0 open-source AI platform combining 40+ commercial products into one repo: 9 platforms, 101 LLMs, LangGraph+MCP+A2A, full SaaS stack. Self-host in 5 minutes. No vendor lock-in.
+   IHUI-AI is an Apache 2.0 open-source AI platform combining 40+ commercial products into one repo: 8 platforms, 176 LLMs, LangGraph+MCP+A2A, full SaaS stack. Self-host in 5 minutes. No vendor lock-in.
    ```
 
 4. **Maker comment** (post immediately at launch):
@@ -334,8 +334,8 @@ Happy to answer architecture / engineering questions. Criticism welcome.
    **What it is**: A full-stack AI platform that combines what Dify / Coze / LangChain / Cursor / Claude Code / Stripe / Auth0 / Tauri each do — into one repo.
 
    **Numbers** (all grep-able, no PPT):
-   - 9 platforms (web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp)
-   - 101 LLMs via LiteLLM
+   - 8 platforms (web/api/ai-service/cli/desktop/extension/mobile/miniapp)
+   - 176 LLMs via LiteLLM
    - 340 DB tables, 1300+ APIs, 5346 tests
    - 5-language i18n with 100% parity
    - 32+ pre-commit guards
@@ -351,7 +351,7 @@ Happy to answer architecture / engineering questions. Criticism welcome.
    Live demo: https://aizhs.top
    GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 
-   I'm here all day — ask me anything about the architecture, the 32+ pre-commit guards, the 9-platform monorepo, or why I chose Apache 2.0 over MIT/AGPL.
+   I'm here all day — ask me anything about the architecture, the 32+ pre-commit guards, the 8-platform monorepo, or why I chose Apache 2.0 over MIT/AGPL.
 
    Cheers!
 
@@ -400,7 +400,7 @@ Happy to answer architecture / engineering questions. Criticism welcome.
 
 ### "How is this different from Dify/Coze/LangChain?"
 
-> Dify/FastGPT do AI app orchestration only — no payments/auth/multi-platform. Coze is closed-source. LangChain/AutoGen are frameworks, not deployable products. IHUI-AI combines all of these + adds 9 platforms + SaaS stack + AI education. It's broader, not deeper — if you only need AI chat, Dify is more mature. If you want a full SaaS + multi-platform AI business, IHUI-AI is the only open-source option.
+> Dify/FastGPT do AI app orchestration only — no payments/auth/multi-platform. Coze is closed-source. LangChain/AutoGen are frameworks, not deployable products. IHUI-AI combines all of these + adds 8 platforms + SaaS stack + AI education. It's broader, not deeper — if you only need AI chat, Dify is more mature. If you want a full SaaS + multi-platform AI business, IHUI-AI is the only open-source option.
 
 ### "340 tables is overkill"
 

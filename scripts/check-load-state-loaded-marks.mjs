@@ -97,7 +97,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -536,17 +535,18 @@ function main() {
     process.exit(2)
   }
   let root = ROOT
-  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
-  if (rootFlag.error) {
-    console.error(`❌ ${rootFlag.error}`)
-    process.exit(2)
-  }
-  if (rootFlag.present) {
+  const ri = argv.indexOf('--root')
+  if (ri >= 0) {
+    const val = argv[ri + 1]
+    if (!val || val.startsWith('--')) {
+      console.error('❌ --root 需要一个目录参数')
+      process.exit(2)
+    }
     if (sel.face !== 'worktree') {
       console.error('❌ --root 只在 --worktree 档有效(换根却按 HEAD/索引读 = 双根分裂)')
       process.exit(2)
     }
-    root = path.resolve(rootFlag.value)
+    root = path.resolve(val)
   }
   let res
   try {

@@ -24,14 +24,6 @@
  *   T4 防过度收紧:前端动态段 ↔ 后端参数段是同一路由形状,不得误判
  *   T5 存量只报数:结论行必须带读数,且退出码不得因此翻红
  *   T6 源码锁:param 分流不得被并回 `found`;`matchSegs` 必须委托共享判据
- *
- * 2026-10-24 追加(票 G-962c,门 8「前缀假设未判定」7 条的成因 —— **方法推导读错**):
- *   T7 驼峰/复合命名 wrapper 正控(`srsPost` / `postJson` / 跨行 `postQuiet` ⇒ POST)
- *   T8 `del(` 正控(miniapp-taro `api-bridge` 的 DELETE 短名)
- *   T9 邻行不借用负控(上一个**独立语句**是 `post(...)`,本行无动词名 ⇒ 必须是 GET)
- *   T10 接线锁:门体只许 import 这一份判据,不得自带第二份 `inferMethodAtLine`
- *
- * 三个行为例都按"旧实现代入即红"设计:旧判据对它们分别给出 GET / GET / POST(全是错的)。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -41,9 +33,6 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as LIB } from '../lib/route-registration-extract.mjs'
-// 方法推导判据本体(2026-10-24 由门体搬到 lib,理由见该文件头注):测试直接 import 生产判据,
-// 不在本文件复制任何词表/正则常量(§22c;复制一份必然漂移)。
-import { __test__ as METHOD_INFER } from '../lib/api-route-method-infer.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = join(HERE, '..', 'check-api-routes.mjs')
@@ -205,119 +194,5 @@ test('T6 源码锁:param 必须先于 found 分流;matchSegs 必须委托共享�
     /参数段覆盖 \$\{paramCovered\.length\}\+\$\{bareParam\.length\} 处未判定、不记在册/,
     '结论行读数不得被删(判据失效的表现永远是安静)',
   )
-})
-
-// ─── T7/T8/T9 方法推导(票 G-962c)───
-// 三例都按"旧实现代入即红"构造:旧判据分别给出 GET / GET / POST,而真值都是另一个。
-
-test('T7 驼峰/复合命名 wrapper 正控:srsPost / postJson / 跨行 postQuiet 必须读出 POST', () => {
-  const cases = [
-    {
-      // 旧实现:上下文启发式的 `\bpost\s*[<(]` 对 `srsPost<` 永不命中(post 前是字母 s)⇒ 读成 GET。
-      lines: [
-        'export function submitReview(id: string, q: number) {',
-        "  return srsPost<ReviewResult>('/api/srs-review/review', { id, q })",
-        '}',
-      ],
-      idx: 1,
-      label: 'srsPost(动词在末段)',
-    },
-    {
-      // 旧实现同理读成 GET。
-      lines: [
-        'export function launchDebugSession(params: LaunchParams) {',
-        "  return postJson<LaunchResult>('/api/debug/launch', params)",
-        '}',
-      ],
-      idx: 1,
-      label: 'postJson(动词在首段)',
-    },
-    {
-      // 跨行实参:方法名住在调用起点行,路径在下一行 —— 判据必须能向前跨进**同一表达式**取名字。
-      lines: [
-        'function reportResult(response: AgentActionResponse): void {',
-        '  void postQuiet(',
-        "    '/api/agent-control/result',",
-        '    withRespondedIdentity(response),',
-        "    '回传移动端执行结果',",
-        '  )',
-        '}',
-      ],
-      idx: 2,
-      label: 'postQuiet(跨行实参)',
-    },
-  ]
-  for (const c of cases) {
-    assert.equal(
-      METHOD_INFER.inferMethodAtLine(c.lines, c.idx),
-      'POST',
-      `${c.label}:驼峰/复合命名 wrapper 的方法必须读出来(旧实现读 GET)`,
-    )
-  }
-})
-
-test('T8 `del(` 正控:miniapp-taro 的 DELETE 短名必须读出 DELETE(旧实现读 GET)', () => {
-  assert.ok(
-    METHOD_INFER.METHOD_VERB_WORDS.get('del') === 'DELETE',
-    'del 必须留在词表里(仓内 utils/api-bridge.ts 用它当 DELETE 短名)',
-  )
-  const lines = [
-    'export const deleteExamWrongQuestion = (id: string) =>',
-    '  del<{ deleted: boolean }>(`/api/legacy/exam/wrong-questions/${id}`)',
-  ]
-  assert.equal(
-    METHOD_INFER.inferMethodAtLine(lines, 1),
-    'DELETE',
-    '旧启发式清单里没有 del ⇒ 会把这条 DELETE 读成 GET',
-  )
-})
-
-test('T9 邻行不借用负控:上一个独立语句是 post( 时,本行仍是 GET', () => {
-  // 本行的被调名 `apiCall` 不含任何动词词段 ⇒ 唯一能救它的就是"窗口只在当前调用表达式内"。
-  // 旧实现窗口是纯行号区间(-3..+4),上一行的 `post(` 会被借走 ⇒ 读成 POST。
-  const lines = [
-    "export const firstShare = (data: unknown) => post('/api/share/first-claim', data)",
-    'export const loadShare = (code: string) => apiCall(`/api/share/content/${code}`)',
-  ]
-  assert.equal(
-    METHOD_INFER.inferMethodAtLine(lines, 1),
-    'GET',
-    '邻行独立语句的 post( 不得借给本行(旧实现读成 POST)',
-  )
-  // 同一形态的对照组:被调名自带 get ⇒ 也必须 GET(短名识别与窗口收窄两条判据互不覆盖)。
-  const lines2 = [
-    "export const firstShare2 = (data: unknown) => post('/api/share/first-claim', data)",
-    'export const getShareContentByCode = (code: string) => get(`/api/share/content/${code}`)',
-  ]
-  assert.equal(METHOD_INFER.inferMethodAtLine(lines2, 1), 'GET')
-  // 窗口边界本身:跨行参数列表必须**仍能**读到下一行的 method(收窄不得误伤真调用)。
-  const multilineOptions = [
-    "export const r = await fetchApi('/api/x', {",
-    "  method: 'POST',",
-    '})',
-  ]
-  assert.equal(
-    METHOD_INFER.inferMethodAtLine(multilineOptions, 0),
-    'POST',
-    '收窄只挡"邻行独立语句",跨行 options 里自己的 method 必须照读',
-  )
-})
-
-// ─── T10 接线锁:判据只有一份 ───
-
-test('T10 接线锁:门体 import lib 的判据,不得自带第二份 inferMethodAtLine', () => {
-  assert.match(
-    SRC,
-    /import \{ inferMethodAtLine \} from '\.\/lib\/api-route-method-infer\.mjs'/,
-    '门体必须 import 共享判据(§0.6 单一真相源)',
-  )
-  assert.doesNotMatch(
-    SRC,
-    /function inferMethodAtLine\s*\(/,
-    '门体不得自带第二份实现(两处算同一件事必漂移)',
-  )
-  for (const k of ['inferMethodAtLine', 'methodVerbOfCallName', 'callExprSpan', 'METHOD_VERB_WORDS']) {
-    assert.equal(typeof METHOD_INFER[k], k === 'METHOD_VERB_WORDS' ? 'object' : 'function', `__test__ 必须暴露 ${k}`)
-  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

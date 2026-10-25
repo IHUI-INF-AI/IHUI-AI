@@ -9,7 +9,7 @@ import { appAlert } from '../BottomPops'
 import { ShieldAlert, ShieldCheck } from 'lucide-react-native'
 import type { ToolApprovalEvent } from '@ihui/api-client'
 import { postToolApprovalResponse } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 import type { ToolApprovalScope } from '@ihui/types'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
   },
   openPillText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.brand.ctaForeground,
   },
   backdrop: {
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     gap: rpx(16),
   },
   title: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -517,31 +517,31 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   },
   meta: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
   field: {
     gap: rpx(6),
   },
   fieldLabel: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
   toolName: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
   preview: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   envValue: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   error: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.danger.DEFAULT,
   },
   scopeRow: {
@@ -569,11 +569,11 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   scopeText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   scopeTextActive: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
   },
   rejectText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
   },
   // 主实底与其上文字必须成对(brand.cta / brand.ctaForeground),跨档错配即隐形。
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   },
   approveText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '500',
     color: tokens.brand.ctaForeground,
   },
@@ -638,12 +638,12 @@ const styles = StyleSheet.create({
     gap: rpx(6),
   },
   trayTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '500',
     color: tokens.text.secondary,
   },
   trayRow: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
 })

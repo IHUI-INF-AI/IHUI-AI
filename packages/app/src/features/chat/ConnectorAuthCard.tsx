@@ -25,7 +25,7 @@
 import { useMemo } from 'react'
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import type { TFunction } from '@ihui/types'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { getTokens, type AppThemeTokens, type AppThemeMode } from '../../theme/tokens'
 
 /** 连接器授权卡五态(穷尽,组件内不得有 default 分支)—— 与 web 端 CONNECTOR_AUTH_STATES 逐字同 */
@@ -197,39 +197,39 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
     container: {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.md,
-      padding: 12,
+      padding: rnSpacing.md,
       gap: 6,
     },
     labelRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     title: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     connectedLabel: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       fontWeight: '500',
       color: dark ? tk.success.DEFAULT : tk.success.deep,
     },
     mutedLabel: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       fontWeight: '500',
       color: tk.text.tertiary,
     },
     smallMutedLabel: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },
     actionRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       alignItems: 'center',
-      gap: 4,
+      gap: rnSpacing.xs,
     },
     chip: {
       backgroundColor: tk.border.light,
@@ -241,7 +241,7 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
       backgroundColor: tk.border.medium,
     },
     chipText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.primary,
     },
     flatChip: {
@@ -253,7 +253,7 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
       opacity: 0.7,
     },
     declineText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },
     moreInfoBox: {
@@ -265,7 +265,7 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
       paddingVertical: 2,
     },
     moreInfoText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },
   })

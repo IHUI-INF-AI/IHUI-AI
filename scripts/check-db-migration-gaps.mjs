@@ -38,7 +38,6 @@ import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { requireFlagValue } from './lib/flag-value.mjs'
 import { locatePsqlClient } from './lib/psql-client-locate.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -95,7 +94,7 @@ export function readDsn({ envFile = DEFAULT_ENV_FILE, env = process.env } = {}) 
   }
 }
 
-export function psqlArgsFromDsn(dsn) {
+function psqlArgsFromDsn(dsn) {
   let u
   try {
     u = new URL(dsn)
@@ -179,13 +178,9 @@ function selfTest() {
 function main() {
   const argv = process.argv.slice(2)
   const has = (f) => argv.includes(f)
-  const opt = (f, d, noun = '路径') => {
-    const r = requireFlagValue(argv, f, { noun, fallback: d })
-    if (r.error) {
-      console.error(`❌ 用法错:${r.error}`)
-      process.exit(2)
-    }
-    return r.value
+  const opt = (f, d) => {
+    const i = argv.indexOf(f)
+    return i >= 0 && argv[i + 1] ? argv[i + 1] : d
   }
   if (has('--self-test')) return selfTest()
   const journalPath = opt('--journal', DEFAULT_JOURNAL)

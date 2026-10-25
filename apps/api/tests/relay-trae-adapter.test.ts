@@ -450,7 +450,7 @@ describe('refreshToken 宽松解析', () => {
     expect(res).not.toBeNull()
     expect(res!.token).toBe('t1')
     expect(res!.refreshToken).toBe('r1')
-    expect(res!.expiresAt?.getTime()).toBe(1800000000000)
+    expect(res!.expiresAt.getTime()).toBe(1800000000000)
   })
 
   it('result 包裹 + AccessToken + 毫秒', async () => {
@@ -463,7 +463,7 @@ describe('refreshToken 宽松解析', () => {
     const res = await traeAdapter.refreshToken!(makeCtx())
     expect(res!.token).toBe('t2')
     expect(res!.refreshToken).toBeNull()
-    expect(res!.expiresAt?.getTime()).toBe(1800000000000)
+    expect(res!.expiresAt.getTime()).toBe(1800000000000)
   })
 
   it('顶层 + ISO 字符串', async () => {
@@ -473,7 +473,7 @@ describe('refreshToken 宽松解析', () => {
     )
     const res = await traeAdapter.refreshToken!(makeCtx())
     expect(res!.token).toBe('t3')
-    expect(res!.expiresAt?.getTime()).toBe(Date.parse('2027-01-01T00:00:00Z'))
+    expect(res!.expiresAt.getTime()).toBe(Date.parse('2027-01-01T00:00:00Z'))
   })
 
   it('无 refreshToken → null 且不发请求', async () => {

@@ -9,36 +9,25 @@ import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
-import { getCircleDetail, get, post, del, type Circle } from '@/api'
-import { formatDate } from '@/utils/time'
+import { getCircleDetail, get, post, type Circle } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { EmptyState } from '@/components/ScreenStates.taro'
 import './detail.css'
 
-/**
- * 评论行 = 后端 GET /circles/posts/:id/comments 直出的 circle_post_comments 原始列
- * (circles.ts:801 只 select 该表、未 join users ⇒ 作者昵称/头像是服务端从不给出的列,
- * 这里保留为可选只是为兼容后端补投影的那天,界面按"没有作者信息"如实渲染)。
- */
-interface PostComment {
+interface Comment {
   id: string
-  postId: string
   userId: string
-  content: string
-  pid?: string | null
-  replyUserId?: string | null
-  likeCount: number
-  createdAt: string
-  nickname?: string
   avatar?: string
+  nickname: string
+  content: string
+  createdAt: string
+  likes: number
 }
 
-/** 该 handler 回 `{ list, page, pageSize }` —— 没有 total,屏上计数只能如实记已加载条数 */
-interface CommentPage {
-  list: PostComment[]
-  page: number
-  pageSize: number
+interface CommentData {
+  list: Comment[]
+  total: number
 }
 
 interface TopicInfo {
@@ -64,14 +53,13 @@ interface DetailExt extends Circle {
 }
 
 const defaultAvatar = '/static/default-avatar.png'
-/** 后端评论列表不回 total ⇒ 满页是本页能如实给出的唯一"可能还有更多"信号 */
-const COMMENT_PAGE_SIZE = 10
 
 export default function CircleDetailPage() {
   const tt = useTt()
 
   const [data, setData] = useState<DetailExt>({} as DetailExt)
-  const [comments, setComments] = useState<PostComment[]>([])
+  const [comments, setComments] = useState<Comment[]>([])
+  const [commentTotal, setCommentTotal] = useState(0)
   const [liked, setLiked] = useState(false)
   const [favorited, setFavorited] = useState(false)
   const [following, setFollowing] = useState(false)
@@ -93,13 +81,9 @@ export default function CircleDetailPage() {
         Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
       }
       try {
-        // 立因:原路径 /circles/:id/comments 后端从未注册(必 404,被下面的 catch 吞成"暂无评论");
-        // 真形 = GET /circles/posts/:id/comments —— 本页承载的是帖子,不是圈子。
-        const c = await get<CommentPage>(`/circles/posts/${qid}/comments`, {
-          page: 1,
-          pageSize: COMMENT_PAGE_SIZE,
-        })
+        const c = await get<CommentData>(`/circles/${qid}/comments`, { page: 1, pageSize: 10 })
         setComments(c.list || [])
+        setCommentTotal(c.total || 0)
       } catch (e) {
         logger.error('circle/detail', '加载评论', e)
       }
@@ -147,51 +131,28 @@ export default function CircleDetailPage() {
 
   const onLike = useCallback(async () => {
     if (!id) return
-    const prev = liked
-    setLiked(!prev)
-    setData((d) => ({ ...d, likes: (d.likes || 0) + (prev ? -1 : 1) }))
+    const next = !liked
+    setLiked(next)
+    setData((d) => ({ ...d, likes: (d.likes || 0) + (next ? 1 : -1) }))
     try {
-      // 真形 = POST /circles/posts/:id/like(circles.ts:749):请求体不带档位,后端自己 toggle 并回
-      // {liked,likeCount} ⇒ 落库后一律以返回值覆盖乐观值,不让客户端算的数与后端互相打脸。
-      const r = await post<{ liked?: boolean; likeCount?: number }>(`/circles/posts/${id}/like`)
-      setLiked(r.liked ?? !prev)
-      if (typeof r.likeCount === 'number') {
-        const count = r.likeCount
-        setData((d) => ({ ...d, likes: count }))
-      }
+      await post(`/circles/${id}/like`, { liked: next })
     } catch (e) {
       logger.error('circle/detail', '点赞', e)
-      setLiked(prev)
-      setData((d) => ({ ...d, likes: (d.likes || 0) + (prev ? 1 : -1) }))
+      setLiked(!next)
+      setData((d) => ({ ...d, likes: (d.likes || 0) + (next ? -1 : 1) }))
     }
   }, [id, liked])
 
   const onFavorite = useCallback(async () => {
     if (!id) return
-    const prev = favorited
-    const next = !prev
+    const next = !favorited
     setFavorited(next)
     setData((d) => ({ ...d, favorites: (d.favorites || 0) + (next ? 1 : -1) }))
     try {
-      // 立因:收藏帖子没有专用端点,通用族是 POST /favorites(幂等"加收藏",回 {favorited:true})与
-      // DELETE /favorites/:resourceType/:resourceId(回 {favorited:false}) —— 两个动词都不是 toggle,
-      // 所以动词由当前档位决定,回来再以响应的 favorited 覆盖乐观值;resourceType 取 social.ts
-      // FAVORITE_RESOURCE_TYPES 现值 'post'(与收藏列表页「帖子」tab 的跳转同源:那条 tab 就跳本页)。
-      const r = next
-        ? await post<{ favorited?: boolean }>('/favorites', {
-            resourceType: 'post',
-            resourceId: id,
-          })
-        : await del<{ favorited?: boolean }>(`/favorites/post/${id}`)
-      const settled = r.favorited ?? next
-      setFavorited(settled)
-      if (settled !== next) {
-        // 后端给的档位与乐观值相反 ⇒ 把刚才那次 ±1 原样退回
-        setData((d) => ({ ...d, favorites: (d.favorites || 0) + (next ? -1 : 1) }))
-      }
+      await post(`/circles/${id}/favorite`, { favorited: next })
     } catch (e) {
       logger.error('circle/detail', '收藏', e)
-      setFavorited(prev)
+      setFavorited(!next)
       setData((d) => ({ ...d, favorites: (d.favorites || 0) + (next ? -1 : 1) }))
     }
   }, [id, favorited])
@@ -210,15 +171,12 @@ export default function CircleDetailPage() {
     if (!text || !id || submitting) return
     setSubmitting(true)
     try {
-      // 真形 = POST /circles/posts/:id/comment(单数,circles.ts:824,body 只认 content/pid/replyUserId)
-      await post(`/circles/posts/${id}/comment`, { content: text })
+      await post(`/circles/${id}/comments`, { content: text })
       setCommentText('')
       Taro.showToast({ title: tt('circle.detail.commentSent', '评论成功'), icon: 'success' })
-      const c = await get<CommentPage>(`/circles/posts/${id}/comments`, {
-        page: 1,
-        pageSize: COMMENT_PAGE_SIZE,
-      })
+      const c = await get<CommentData>(`/circles/${id}/comments`, { page: 1, pageSize: 10 })
       setComments(c.list || [])
+      setCommentTotal(c.total || 0)
       setData((d) => ({ ...d, comments: (d.comments || 0) + 1 }))
     } catch (e) {
       logger.error('circle/detail', '发送评论', e)
@@ -364,9 +322,9 @@ export default function CircleDetailPage() {
           <View className="cd-comments-section">
             <View className="cd-comments-head">
               <Text className="cd-comments-title">
-                {tt('circle.detail.commentsTitle', '评论')} {comments.length}
+                {tt('circle.detail.commentsTitle', '评论')} {commentTotal}
               </Text>
-              {comments.length >= COMMENT_PAGE_SIZE ? (
+              {commentTotal > comments.length ? (
                 <View className="cd-comments-more" onClick={goCommentList} hoverClass="opacity-60">
                   <Text>{tt('common.more', '更多')}</Text>
                   <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
@@ -383,15 +341,13 @@ export default function CircleDetailPage() {
                       mode="aspectFill"
                     />
                     <View className="cd-comment-body">
-                      <Text className="cd-comment-name">{c.nickname || tt('common.user', '用户')}</Text>
+                      <Text className="cd-comment-name">{c.nickname}</Text>
                       <Text className="cd-comment-content">{c.content}</Text>
                       <View className="cd-comment-foot">
-                        <Text className="cd-comment-time">
-                          {formatDate(c.createdAt, 'YYYY-MM-DD HH:mm')}
-                        </Text>
+                        <Text className="cd-comment-time">{c.createdAt}</Text>
                         <View className="cd-comment-like flex items-center gap-[8rpx]">
                           <LineIcon name="heart" size={24} color="var(--color-muted-foreground)" />
-                          <Text>{c.likeCount || 0}</Text>
+                          <Text>{c.likes || 0}</Text>
                         </View>
                       </View>
                     </View>

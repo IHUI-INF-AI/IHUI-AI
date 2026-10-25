@@ -43,7 +43,6 @@
  *  dup=<n> conflict=<n> blind=<n> stock=<n> face=<head|staged|worktree>`
  * 退出码:0 = clean/warn / 1 = red / 2 = 未判定(取不到台账或侧车面,含 A3 的基准侧车面)。
  */
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -104,13 +103,7 @@ export const sideSig = (g) => JSON.stringify([g.key, g.readings])
  */
 export function judge(
   rows,
-  {
-    baseRowTexts = null,
-    map = new Map(),
-    allRecords = [],
-    baseSideSignatures = null,
-    identity = (s) => s,
-  } = {},
+  { baseRowTexts = null, map = new Map(), allRecords = [], baseSideSignatures = null } = {},
 ) {
   const { conflicts, dup } = conflictGroupsOf(allRecords)
   const conflictKeys = new Map(conflicts.map((g) => [g.key, g]))
@@ -133,7 +126,7 @@ export function judge(
     const key = compositeKeyOf(line)
     const rec = key ? (map.get(key) ?? null) : null
     if (!rec && !hasLease(line)) {
-      if (baseRowTexts && !baseRowTexts.has(identity(line)))
+      if (baseRowTexts && !baseRowTexts.has(line))
         a1List.push(`  L${r.line}  ${key ?? '(无主键)'}  ${titleOf(line) ?? clip(line)}`)
       else stock++
     }
@@ -187,30 +180,6 @@ const clip = (s, n = HEADER_MAX + 8) =>
     .trim()
     .slice(0, n)
 
-/**
- * 编号纪元身份尺(2026-10-24):全量重编号后,同一任务的 raw 行必然逐字不同(号是正文的一部分),
- * A1 若按 raw 比对基准面,会把**每一条在册行**都读成"本次新增缺交代" —— 与提交内容无关的恒红门
- * (§12e)。纪元标记下,身份改按"抹掉任务号"后的正文比对:号可以全退全换,正文变一个字仍判新。
- * 仅在候选面带 `<!-- 编号纪元:YYYY-MM-DD … map=<路径> -->` 时启用;无标记 ⇒ 逐字旧行为。
- */
-const ID_TOKEN_RE = /\b(?:G|WP|V3|D|O|A|B|P|W)-?\d{1,4}\b/g
-
-export function idNorm(line) {
-  return String(line)
-    .replace(/〔旧号[^〕]*〕/g, '')
-    .replace(/(\s*-\s*\[[ xX]\]\s*(?:（[^）]*）\s*)?)\d{1,3}(?=[.、])/, '$1<ID>')
-    .replace(ID_TOKEN_RE, '<ID>')
-}
-
-/** 侧车复合键的前缀(号)按重编号映射换算;标题后缀不动 —— 与重排器只换号不换题同一口径。 */
-export function translateSideKey(key, translate) {
-  if (!translate || translate.size === 0) return key
-  const i = key.indexOf('#')
-  const id = i < 0 ? key : key.slice(0, i)
-  const to = translate.get(id)
-  return to ? to + key.slice(i) : key
-}
-
 /** 取两面(台账 + 侧车)。任一面取不到 ⇒ 未判定,绝不回落另一个面(§0.4)。 */
 export function readFaces(root = ROOT, face = 'head') {
   let content
@@ -222,27 +191,17 @@ export function readFaces(root = ROOT, face = 'head') {
       why: `${LABEL[face] ?? face} 取不到 PROJECT_PLAN.md:${String(e?.message ?? e).split('\n')[0]}`,
     }
   }
-  const epochMark = face === 'head' ? null : (/<!--\s*编号纪元[:：][^>]*-->/.exec(content) || [])[0] || null
-  let translate = null
-  if (epochMark) {
-    const mapRel = (/map=([^\s>)(]+)/.exec(epochMark) || [])[1] || null
-    if (!mapRel) return { ok: false, why: '编号纪元缺 map=<旧号→新号映射路径> ⇒ A1/A3 基准面不可折算' }
-    try {
-      const parsed = JSON.parse(readFileSync(path.join(root, mapRel), 'utf8'))
-      translate = new Map(Object.entries(parsed?.map ?? {}))
-    } catch (e) {
-      return { ok: false, why: `编号纪元映射取不到(${mapRel}):${String(e?.message ?? e).split('\n')[0]}` }
-    }
-  }
   const side = readFieldsFace(root, face)
   if (side.undetermined) return { ok: false, why: `侧车面取不到:${side.why ?? '(未点名原因)'}` }
   let base = null
   let baseSideSigs = null
   if (face !== 'head') {
     try {
-      // 纪元面:基准身份按抹号后的正文比;无纪元 ⇒ 逐字旧行为(镜像测试锁住这一条)
-      const identity = translate ? idNorm : (s) => s
-      base = new Set(parseTaskRows(readPlan(root, 'head')).filter(isOpenRow).map((r) => identity(r.raw)))
+      base = new Set(
+        parseTaskRows(readPlan(root, 'head'))
+          .filter(isOpenRow)
+          .map((r) => r.raw),
+      )
     } catch (e) {
       return {
         ok: false,
@@ -252,19 +211,12 @@ export function readFaces(root = ROOT, face = 'head') {
     const bs = readFieldsFace(root, 'head')
     if (bs.undetermined)
       return { ok: false, why: `基准侧车面(HEAD)取不到 ⇒ A3 未判定:${bs.why ?? '(未点名原因)'}` }
-    // 纪元面:基准矛盾签名里的号按映射折算 —— 重编号只是把这些矛盾搬到新号下,不是新矛盾;
-    // 无纪元 ⇒ 原样(旧行为)。折算后仍不匹配的新签名照旧拦红。
-    baseSideSigs = new Set(
-      conflictGroupsOf([...bs.map.values(), ...(bs.orphans ?? [])]).conflicts.map((g) =>
-        sideSig(translate ? { ...g, key: translateSideKey(g.key, translate) } : g),
-      ),
-    )
+    baseSideSigs = new Set(conflictGroupsOf([...bs.map.values(), ...(bs.orphans ?? [])]).conflicts.map(sideSig))
   }
   return {
     ok: true,
     rows: parseTaskRows(content),
     baseRowTexts: base,
-    identity: translate ? idNorm : (s) => s,
     map: side.map,
     allRecords: [...side.map.values(), ...(side.orphans ?? [])],
     baseSideSignatures: baseSideSigs,
@@ -297,7 +249,6 @@ function run({ root = ROOT, face = 'head' } = {}) {
   }
   const v = judge(f.rows, {
     baseRowTexts: f.baseRowTexts,
-    identity: f.identity,
     map: f.map,
     allRecords: f.allRecords,
     baseSideSignatures: f.baseSideSignatures,

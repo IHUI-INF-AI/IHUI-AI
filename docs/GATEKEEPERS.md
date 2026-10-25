@@ -268,7 +268,7 @@ git commit
 |------|------|
 | 用途 | 迁移完整性守门(M-63 落地,7 大类 29 子项) |
 | 检测 | `--staged` 模式:仅当 `PROJECT_PLAN.md` 被 staged 时强制审计报告存在性 |
-| 失败原因 | oauth_private_keys/agent_billings 表回退 / agents.ts 9 端点回退 / 25 处 100% 声明无证据 |
+| 失败原因 | oauth_private_keys/agent_billings 表回退 / agents.ts 8 端点回退 / 25 处 100% 声明无证据 |
 | 修复 | 补齐迁移证据,或确认无需迁移 |
 
 ### 第 17 项 check-input-border-var.mjs(阻塞)

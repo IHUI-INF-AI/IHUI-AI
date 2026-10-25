@@ -80,7 +80,6 @@
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { readdirSync, statSync } from 'node:fs'
-import { requireFlagValue } from './lib/flag-value.mjs'
 
 import {
   Undetermined,
@@ -888,15 +887,11 @@ function main(argv) {
   const verbose = has('--verbose')
   const flipAudit = has('--flip-audit')
   const trdOn = trdEnabled(argv)
-  const todayFlagReq = requireFlagValue(argv, '--today', { noun: 'ISO 日期(YYYY-MM-DD)' })
-  if (todayFlagReq.error) {
-    console.error(`❌ 无法判定:${todayFlagReq.error}`)
-    return 2
-  }
-  const todayFlag = todayFlagReq.value ?? ''
-  if (todayFlag && !isoDay(todayFlag)) {
+  const todayFlagIdx = argv.indexOf('--today')
+  const todayFlag = todayFlagIdx >= 0 ? argv[todayFlagIdx + 1] : ''
+  if (todayFlagIdx >= 0 && !isoDay(todayFlag)) {
     console.error(
-      `❌ 无法判定:--today 需要一个 ISO 日期(YYYY-MM-DD),收到「${todayFlag}」`,
+      `❌ 无法判定:--today 需要一个 ISO 日期(YYYY-MM-DD),收到「${todayFlag || '(空)'}」`,
     )
     return 2
   }

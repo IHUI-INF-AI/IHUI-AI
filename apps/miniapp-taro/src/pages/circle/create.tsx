@@ -220,9 +220,7 @@ export default function CircleCreatePage() {
   return (
     <ThemeRoot>
       <View className="cc-page">
-        <View
-          className="cc-card cc-main"
-        >
+        <View className="cc-card cc-main">
           <FocusTextarea
             className="cc-content"
             value={form.content}
@@ -312,8 +310,7 @@ export default function CircleCreatePage() {
               onClick={() => setAigcOpen(true)}
               hoverClass="opacity-60"
             >
-              <Text>{tt('circle.create.selectAigc', '选择 AI 作品(可选)')}</Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+              <Text>{tt('circle.create.selectAigc', '选择 AI 作品(可选)')} ›</Text>
             </View>
           )}
         </View>

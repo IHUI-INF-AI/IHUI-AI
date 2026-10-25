@@ -35,7 +35,6 @@ import { logger } from '../utils/logger.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { releaseTaskLockByTaskId, toLockReleaseOutcome } from './workspace-lock-heartbeat.js'
 import { broadcastSSEEvent } from './agent-sse-bus.js'
-import { coerceKnownOr } from '@ihui/types'
 import type {
   SubagentDispatch,
   DispatchInput,
@@ -1504,13 +1503,7 @@ class SubagentDispatchService {
         const key = `${REDIS_KEY_DISPATCH}${id}`
         const raw = await this.redisClient.hgetall(key)
         if (!raw || !raw.id) continue
-        // G-59/门 94 R4a:Redis hash 是外部值 —— 越界/未知状态落 `cancelled`(只读终态),
-        // 与下面只放行 pending/running 的过滤组合后,未知值照旧被跳过,但不再被静态当成合法状态透传。
-        const status = coerceKnownOr(
-          raw.status,
-          ['pending', 'running', 'completed', 'failed', 'cancelled', 'paused'],
-          'cancelled',
-        )
+        const status = raw.status as DispatchStatus
         if (status !== 'pending' && status !== 'running') continue
         const dispatch: SubagentDispatch = {
           id: raw.id,

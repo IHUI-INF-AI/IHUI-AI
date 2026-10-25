@@ -8,7 +8,7 @@ import { Heart } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ArticleDetailItem, ArticleDetailScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -59,12 +59,14 @@ export function ArticleDetailScreen({
             flexDirection: 'row',
             alignItems: 'center',
             backgroundColor: tk.surface.card,
-            paddingHorizontal: 8,
-            gap: 4,
+            paddingHorizontal: rnSpacing.sm,
+            gap: rnSpacing.xs,
           }}
         >
           <Heart size={11} color={tk.text.secondary} />
-          <Text style={{ fontSize: 11, color: tk.text.secondary }}>{item.likes}</Text>
+          <Text style={{ fontSize: rnType.caption.size, color: tk.text.secondary }}>
+            {item.likes}
+          </Text>
         </View>
       </View>
       <Text style={styles.content}>{item.content}</Text>
@@ -78,27 +80,27 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingBottom: rnSpacing['3xl'],
     },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       marginTop: 6,
       marginBottom: 6,
     },
-    author: { fontSize: 14, color: tk.text.secondary, fontWeight: '500' },
-    meta: { fontSize: 11, color: tk.text.tertiary },
-    statRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+    author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    statRow: { flexDirection: 'row', gap: rnSpacing.md, marginBottom: rnSpacing.md },
     stat: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.secondary,
       backgroundColor: tk.surface.card,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.lg,
     },
-    content: { fontSize: 16, lineHeight: 22, color: tk.text.medium },
+    content: { fontSize: rnType.title.size, lineHeight: 22, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

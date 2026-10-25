@@ -2,23 +2,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import {
-  Pressable,
-  StyleSheet,
-  View,
-  type GestureResponderEvent,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native'
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { ArrowDown, ChevronUp } from 'lucide-react-native'
 import {
-  ScrollJumpButtonCore,
   scrollJumpBoxStyle,
+  scrollJumpGlyphPx,
+  scrollJumpIconName,
+  SCROLL_JUMP_PRESSED_OPACITY,
   type ScrollJumpDirection,
-  type ScrollJumpGlyphProps,
-  type ScrollJumpPlatform,
-  type ScrollJumpPressableProps,
-} from '@ihui/shared/ui'
+} from '@ihui/shared/ui/scroll-jump-spec'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 
 /**
@@ -37,7 +29,7 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  * 而各屏的底部停靠区高度是实测出来的 —— 那是载体差异,不是外观分叉。
  */
 
-/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等;结构与方向语义在 @ihui/shared/ui。
+/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等;结构与数字在 @ihui/shared/ui。
 /// 几何走模块级 StyleSheet.create(守门 128 只读这一形态),主题色逐次注入。
 const GEOMETRY = StyleSheet.create({
   box: scrollJumpBoxStyle((px: number) => px, {
@@ -46,48 +38,7 @@ const GEOMETRY = StyleSheet.create({
     hairline: 'transparent',
   }),
 })
-
-/**
- * RN adapter:核心只给盒样式/按压档/方向名,本端注入 Pressable 与 lucide 字形。
- * pressed 落子 View 的**数组**样式(守门 131:函数形态 style 会被 cssInterop 静默吃掉)。
- */
-const RN_PLATFORM: ScrollJumpPlatform<
-  StyleProp<ViewStyle>,
-  StyleProp<ViewStyle>,
-  GestureResponderEvent
-> = {
-  glyphUnit: (px) => px,
-  Pressable: function RnPressable({
-    onActivate,
-    accessibilityLabel,
-    testID,
-    boxStyle,
-    pressedStyle,
-    style,
-    children,
-  }: ScrollJumpPressableProps<StyleProp<ViewStyle>, StyleProp<ViewStyle>, GestureResponderEvent>) {
-    return (
-      <Pressable
-        onPress={onActivate}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        testID={testID}
-        hitSlop={4}
-      >
-        {({ pressed }) => (
-          <View style={[boxStyle, pressed ? pressedStyle : null, style]}>{children}</View>
-        )}
-      </Pressable>
-    )
-  },
-  Glyph: function RnGlyph({ name, size, color }: ScrollJumpGlyphProps) {
-    return name === 'chevron-up' ? (
-      <ChevronUp size={size} color={color} />
-    ) : (
-      <ArrowDown size={size} color={color} />
-    )
-  },
-}
+const GLYPH = scrollJumpGlyphPx()
 
 export interface ScrollJumpButtonProps {
   /** `top` = 回到顶部(chevron-up);`latest` = 跳到最新(arrow-down)。只决定方向,不决定外观。 */
@@ -117,6 +68,7 @@ export function ScrollJumpButton({
   testID,
 }: ScrollJumpButtonProps) {
   const tk = getTokens(colorScheme)
+  const iconName = scrollJumpIconName(direction)
   // 色角色 → 本端 token:surface=页面底(web bg-background)、ink=前景墨(web text-foreground)、
   // hairline=中性描边(web border-input;§4 描边不得取墨档,故不碰 text/brand)。
   const themed = {
@@ -125,17 +77,33 @@ export function ScrollJumpButton({
   }
 
   return (
-    <ScrollJumpButtonCore
-      platform={RN_PLATFORM}
-      direction={direction}
+    // 动态样式**不得写成 `style={({pressed}) => …}`**:Pressable 注册过 cssInterop,
+    // interop 对非数组声明执行 `{ ...declaration }`,而 `{ ...函数 }` === `{}`,
+    // 内联 style 会整份静默消失(守门 131 立项那一型,真机 A/B 定案)。
+    // pressed 走 children render prop + 子 View 数组形态。
+    <Pressable
       onPress={onPress}
-      label={label}
-      boxStyle={[GEOMETRY.box, themed]}
-      glyphColor={tk.text.primary}
-      style={style}
+      accessibilityRole="button"
+      accessibilityLabel={label}
       testID={testID}
-    />
+      hitSlop={4}
+    >
+      {({ pressed }) => (
+        <View style={[GEOMETRY.box, themed, pressed ? styles.pressed : null, style]}>
+          {iconName === 'chevron-up' ? (
+            <ChevronUp size={GLYPH} color={tk.text.primary} />
+          ) : (
+            <ArrowDown size={GLYPH} color={tk.text.primary} />
+          )}
+        </View>
+      )}
+    </Pressable>
   )
 }
 
+const styles = StyleSheet.create({
+  pressed: {
+    opacity: SCROLL_JUMP_PRESSED_OPACITY,
+  },
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

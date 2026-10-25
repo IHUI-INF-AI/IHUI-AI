@@ -43,8 +43,6 @@ export interface Announcement {
   expireTime?: string
   isRead?: boolean
   readTime?: string
-  /** 投放端(空数组 = 全端通用;web/miniapp/desktop/extension/rn/cli/mobile-cap) */
-  platforms?: string[]
   createdAt: string
   updatedAt?: string
   [key: string]: unknown
@@ -98,19 +96,9 @@ export async function getCurrentAgreement(type: AgreementType): Promise<ApiResul
 
 // ===================== announcements（公告） =====================
 
-/**
- * 获取公告列表(公开端点,登录用户自动带 isRead 标记)
- *
- * platform(2026-10-24 按端定向):传入端标识只返回"全端通用或含该端"的公告,
- * 各端传自身标识(web/miniapp/desktop/extension/rn/cli/mobile-cap);不传 = 不过滤。
- */
+/** 获取公告列表(公开端点,登录用户自动带 isRead 标记) */
 export async function getAnnouncements(
-  query: {
-    page?: number
-    pageSize?: number
-    isPinned?: boolean
-    platform?: string
-  } = {},
+  query: { page?: number; pageSize?: number; isPinned?: boolean } = {},
 ): Promise<ApiResult<PageData<Announcement>>> {
   return fetchApi<PageData<Announcement>>(`/api/announcements${buildQs(query)}`)
 }

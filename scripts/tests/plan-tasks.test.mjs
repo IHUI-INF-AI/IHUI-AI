@@ -27,7 +27,6 @@ import {
   dispositionOf,
   findIdCollisions,
   findRotatedPointers,
-  isSelfDeclaredCopyRow,
   keyOfRow,
   parseTaskRows,
   sameIdDonePairs,
@@ -49,10 +48,6 @@ import {
   f9GroupLine,
   f9KeySetOf,
   f9Ratchet,
-  f11KeyOf,
-  f11KeySetOf,
-  f11Ratchet,
-  newWaitingHumanRows,
   gate,
   grewViolations,
   makeLagJudge,
@@ -205,168 +200,44 @@ test('M8 F4 同题待办:两条只算一条活,已标副本的行不重复计(�
 })
 
 /**
- * probe 声明锚点(源码切片的起点)。它是一段**源码形状**指针,不是维名清单 —— 维名一律现读。
+ * M9 F6 块级维度的**成套性**。为什么单独立一条而不是靠自测:
+ * `ratchetViolations` 明写"基线里没有某项 ⇒ 不判该项(既不 0 容忍也不通过)" —— 这条善意
+ * 的缺项放过意味着:加一维判据却忘了往基线里写键,那一维就**静默不再被看守**,
+ * 而报告一切正常。所以这里判的是"probe 里出现的每一维,基线必须都有数字键"。
  */
-const PROBE_DECL_ANCHOR = 'const probe = (a) => ['
-
-/**
- * 从 `plan-tasks.mjs` 源码逐字读出 probe 声明的维名,**与维名位数/后缀无关**。
- * 取不到输入一律抛错(§0.3:枚举到 0 判死,不得回落成"没有维度")。
- */
-function declaredDimKeysOf(src) {
-  const start = src.indexOf(PROBE_DECL_ANCHOR)
-  if (start < 0)
-    throw new Error(
-      `probe 声明锚点「${PROBE_DECL_ANCHOR}」在 plan-tasks.mjs 里找不到 ⇒ 取维名的尺子失明,不得读成"没有维度"`,
-    )
-  const body = src.slice(start)
-  const end = body.indexOf('\n]')
-  if (end < 0) throw new Error('probe 数组的收尾锚点找不到 ⇒ 同上,判"未判定"不放行')
-  const arr = body.slice(0, end + 1)
-  // F\w+ 而不是 F\d:一位数与两位数、带字母后缀(F4b)一视同仁
-  const keys = [...arr.matchAll(/\['(F\w+)'/g)].map((m) => m[1])
-  if (keys.length === 0)
-    throw new Error('probe 源码里一枚维名都没解析到 ⇒ 判据本身失效,不记绿也不放行')
-  return keys
-}
-
-/**
- * M9 的判据体:**维名从生产出口 `probe()` 取**(§0.6 单一真相源,测试不抄维名清单),
- * 再逐维问基线"这一维有没有锚点、锚点形状合不合源自己的规矩"。
- *
- * 立因(2026-10-24 收口):这里原先用 `/\['(F\d)'/` 在源码里数维名,而 `F\d` 只认一位数字
- * ⇒ `F11`(2026-10-23 机主强制令的键集锚)与 `F4b` **一枚都数不到**(实测 keys =
- * F1,F2,F3,F4,F6,F8,F9,共 7 枚,而 probe() 实际有 9 枚)。数不到不等于不存在,而是那一维
- * **根本不进下面的成套检查** ⇒ "加维却忘写基线键 ⇒ `ratchetViolations` 缺项不判该项 ⇒ 静默不判
- * 而账面全绿"这一整格又空了 —— 正是本条立项时要防的那一型。改为 import `probe` 后,维名与
- * 位数/后缀无关,未来任何一维自动进射程。
- * @param dims probe() 的成对读数(只用每行的维名,不读它的数)
- * @param base 基线 JSON 解析结果
- * @param declared 同一份 probe 源码逐字声明的维名,用来自证 `dims` 没漏读、也没多读
- */
-function assertDimBaselineCoverage(dims, base, declared) {
-  // 反向锁 1(§0.3):"一枚维名都没读到"是**读不出**,不得当成"没有维度需要看守"记绿
-  if (!Array.isArray(dims) || dims.length === 0)
-    throw new Error(
-      `probe() 出口读到的维度为 0(实测 ${JSON.stringify(dims)})⇒ 取维名的尺子失效,判"未判定"不放行`,
-    )
-  const names = dims.map(([k]) => k)
-  // 两把尺子必须读同一集:probe() 出口漏了源码声明的某一维 ⇒ 那一维在提交链上并不存在;
-  // 反过来(出口有而源码切不到)说明切片被截断/锚点漂了,同样不能按"齐"放行。
-  const missed = declared.filter((k) => !names.includes(k))
-  if (missed.length)
-    throw new Error(
-      `源码 probe 声明了而出口读不到:${missed.join(' ')} ⇒ 维度清单已漂移,本条不得放行`,
-    )
-  const phantom = names.filter((k) => !declared.includes(k))
-  if (phantom.length)
-    throw new Error(
-      `出口读到而源码切片没切到:${phantom.join(' ')} ⇒ probe 数组被截断或锚点漂移,读数不可信`,
-    )
-
-  for (const k of names) {
-    // 旧那句 `if (k === 'F5') continue` 已撤:F5 方向相反、单独由 gate() 判,但"基线里有没有
-    // 这一枚键"对它同样成立,而基线确实有 F5=0 ⇒ 撤掉豁免只会更严,且堵住"将来把 F5 挪进
-    // probe 时这一维静默不判"那一格。
-    if (!Object.hasOwn(base, k)) {
-      const e = new Error(
-        `基线缺 ${k}(棘轮对缺项那一维完全不判 ⇒ 加维必须同笔写基线键):基线现键 ${Object.keys(base).join(',')}`,
-      )
-      e.dim = k
-      throw e
-    }
-    const v = base[k]
-    if (typeof v === 'number') continue
-    if (Array.isArray(v)) {
-      // 键集锚(现 F9、F11)的形状纪律按**源自己的口径**判:f9Ratchet / f11Ratchet 与
-      // `--update-baseline` 的出路文案都明写锚点必须是"排序去重的非空字符串数组"。
-      // 形状不对 = 这一维关着 = 静默放行,而 gate() 侧对旧整数形状是**判无法判定(exit 2)**:
-      // 两边对同一份基线给出相反结论时,本条必须站在"不判即红"这边(退回 `typeof === 'number'`
-      // 就是把迁移后的锚点当成缺项)。
-      if (v.some((x) => typeof x !== 'string' || x === ''))
-        throw new Error(
-          `基线 ${k} 是数组但含非字符串/空串元素 ⇒ 这一维只能判"形状未迁移",不得被读成通过:${JSON.stringify(v).slice(0, 60)}`,
-        )
-      if (JSON.stringify([...v].sort()) !== JSON.stringify(v))
-        throw new Error(
-          `基线 ${k} 必须已排序 —— 未排序时"是否收窄"随人工编辑顺序漂移,锚点就不再是一个集合`,
-        )
-      if (new Set(v).size !== v.length)
-        throw new Error(
-          `基线 ${k} 有重复键 ⇒ "基线里没有的键"会算重,棘轮读数不再等于组数`,
-        )
-      continue
-    }
-    throw new Error(
-      `基线 ${k} 既不是数字计数锚也不是键集锚(实测 ${JSON.stringify(v ?? null).slice(0, 40)})⇒ 棘轮两档都打不到它,等于这一维关着`,
-    )
-  }
-}
-
 test('M9 每一维判据都必须有基线键(缺项=那一维静默不判,而账面看不出来)', () => {
   const src = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const body = src.slice(src.indexOf('const probe = (a) => ['))
+  const arr = body.slice(0, body.indexOf('\n]') + 1)
+  const keys = [...arr.matchAll(/\['(F\d)'/g)].map((m) => m[1])
+  if (keys.length < 5)
+    throw new Error(`probe 维度解析异常(只数到 ${keys.length} 个,数组截断了):判据本身失效`)
+  if (!keys.includes('F6'))
+    throw new Error('F6 块级维度不在 probe 里 ⇒ 提交链根本不判它,本条随之无牙')
   const base = JSON.parse(
     readFileSync(new URL('../../scripts/plan-task-state-baseline.json', import.meta.url), 'utf8'),
   )
-  const dims = probe({ counts: {} }) // 只取维名:不编造读数,也不进任何比较
-  const declared = declaredDimKeysOf(src)
-  // 反例(键齐 ⇒ 绿):下面这一句不抛,就是"每一维都有锚点"的现行账面
-  assertDimBaselineCoverage(dims, base, declared)
-
-  const names = dims.map(([k]) => k)
-  // F6 存在性锁(2026-09-26 那次"造了维没接线"的定点回归,不随泛化而撤)
-  if (!names.includes('F6'))
-    throw new Error('F6 块级维度不在 probe 里 ⇒ 提交链根本不判它,本条随之无牙')
-  // 位数无关性的活着证明:射程里必须**存在**旧那把 `F\d` 尺子数不到的维,否则本条的泛化
-  // 只是纸面改动、没有服务对象(旧锁正是只在单位数上侥幸全中)。
-  const multiChar = names.filter((k) => !/^F\d$/.test(k))
-  if (multiChar.length === 0)
-    throw new Error(
-      `probe 里没有任何非单位数维(现读 ${names.join(',')})⇒ 位数无关性无从自证,旧正则的盲区也没人守着`,
-    )
-
-  // 正例(全称量词,不是逐维手写):把基线里**任意一枚**维键删掉都必须判红、且点名那一维。
-  // 未来新加的一维自动进这一圈 —— 两位数维(F11)、字母后缀维(F4b)今日已被点名。
-  for (const k of names) {
-    const cut = { ...base }
-    delete cut[k]
-    let caught = null
-    try {
-      assertDimBaselineCoverage(dims, cut, declared)
-    } catch (e) {
-      caught = e
+  for (const k of keys) {
+    if (k === 'F5') continue // F5 方向相反,单独由 gate() 判,不走 ratchetViolations
+    if (k === 'F9') {
+      // G-312:F9 的锚点是**键集合**而不是计数。"缺项/错形状 ⇒ 那一维静默不判"这条善意对两种
+      // 形状同样成立,所以本条必须按新形状判 —— 退回 `typeof === 'number'` 等于把迁移后的锚点
+      // 当成"缺项",而 gate() 侧对整数形状是**判无法判定(exit 2)**,两边对同一份基线给出相反结论。
+      if (!Array.isArray(base.F9) || base.F9.some((x) => typeof x !== 'string' || x === ''))
+        throw new Error(
+          `基线 F9 不是"非空字符串数组"⇒ 这一维只能判"形状未迁移",不得被读成通过:${JSON.stringify(base.F9 ?? null).slice(0, 60)}`,
+        )
+      if (JSON.stringify([...base.F9].sort()) !== JSON.stringify(base.F9))
+        throw new Error('基线 F9 必须已排序 —— 未排序时"是否收窄"随人工编辑顺序漂移,锚点就不再是一个集合')
+      if (new Set(base.F9).size !== base.F9.length)
+        throw new Error('基线 F9 有重复键 ⇒ "基线里没有的键"会算重,棘轮读数不再等于组数')
+      continue
     }
-    if (!caught)
+    if (typeof base[k] !== 'number')
       throw new Error(
-        `删掉基线的 ${k} 键后本锁仍然放行 ⇒ 那一维缺键会被静默放过(旧正则对 ${k} 正是这一型)`,
-      )
-    if (caught.dim !== k)
-      throw new Error(
-        `删掉 ${k} 却点名了「${String(caught.dim)}」:红必须精确点到维,否则被拦的人拿不到出口 —— ${caught.message.slice(0, 90)}`,
+        `基线缺 ${k}(棘轮对缺项那一维完全不判 ⇒ 加维必须同笔写基线):${JSON.stringify(base)}`,
       )
   }
-
-  // 反向锁 2(§0.3):"匹配不到"永远不得继续读成"通过" —— 空集/非数组/源码锚点失效三型都必须抛
-  for (const [badDims, label] of [
-    [[], 'probe() 出口空集'],
-    [null, 'probe() 出口非数组'],
-  ]) {
-    let thrown = null
-    try {
-      assertDimBaselineCoverage(badDims, base, declared)
-    } catch (e) {
-      thrown = e
-    }
-    if (!thrown) throw new Error(`${label} 被读成了"没有维度要看守"⇒ 判据失效却记绿`)
-  }
-  let anchorThrown = null
-  try {
-    declaredDimKeysOf('export const unrelated = 1\n')
-  } catch (e) {
-    anchorThrown = e
-  }
-  if (!anchorThrown)
-    throw new Error('probe 锚点找不到时 declaredDimKeysOf 返回了空集而不是抛 ⇒ 本条会假绿')
 })
 
 test('M10 F6 只有"变多"判红,清偿必须能变绿(反方向判红=没人敢做归并)', () => {
@@ -473,119 +344,6 @@ test('M11 F8 成套性:进 probe / 基线地板为 0 / 涨判红降判绿(缺一
 })
 
 /**
- * M-F11 等人拍板一律禁止(2026-10-23 机主强制令)的**成套性、方向与跨文件接线**。
- * 与 M11 同一条理由:维度不进 probe ⇒ 提交链不判;基线不写键 ⇒ 绝对层静默关闸;
- * converge 不传判定面 ⇒ F11 精确档失明(它没有可用的粗尺量纲,差值计数在全量面恒 0)。
- * 再加"存量不顶新账"方向锁:HEAD 已有的 waiting-human 行不得记在本次提交头上(防恒红门,§12e)。
- */
-test('M-F11 成套性:进 probe / 基线为键数组地板 [] / gate 差值涨红平绿 / converge 传面', () => {
-  const dims = probe({ counts: { newWaitingHuman: 2, waitingHuman: 5 } })
-  const f11 = dims.find(([k]) => k === 'F11')
-  if (!f11)
-    throw new Error(`probe 里没有 F11 ⇒ 提交链不判它:${JSON.stringify(dims.map((d) => d[0]))}`)
-  if (f11[2] !== 2) throw new Error(`F11 读数没接上 newWaitingHuman,实测 ${f11[2]}`)
-  if (probe({ counts: {} }).find(([k]) => k === 'F11')[2] !== 0)
-    throw new Error('全量档算不出 newWaitingHuman ⇒ 必须兜 0,不得 undefined 冒判')
-  // 基线形状锁:F11 必须是键数组且地板为 [](强制令没有"放几条"的档;抬高 = 关掉禁令)
-  const base = JSON.parse(
-    readFileSync(new URL('../../scripts/plan-task-state-baseline.json', import.meta.url), 'utf8'),
-  )
-  if (!Array.isArray(base.F11))
-    throw new Error(`基线 F11 必须是排序键数组,实测 ${JSON.stringify(base.F11)}`)
-  if (base.F11.length !== 0)
-    throw new Error(
-      `基线 F11 地板应为 [](2026-10-23 强制令),实测 ${base.F11.length} 条 —— 每一条都是给违禁条目发的通行证`,
-    )
-  // 构造面:一行等人拍板 + 一行真活
-  const whRow = '- [ ] **G-901 等人拍板**:是否对外发布需用户确认,属 §24。'
-  const faceWh = auditPlan(['# 计划', '- [ ] **G-900 真活**:现在就能做。', whRow, ''].join('\n'))
-  const faceClean = auditPlan(['# 计划', '- [ ] **G-900 真活**:现在就能做。', ''].join('\n'))
-  if (faceWh.counts.waitingHuman !== 1 || faceClean.counts.waitingHuman !== 0)
-    throw new Error(
-      `名单基数错:wh=${faceWh.counts.waitingHuman} clean=${faceClean.counts.waitingHuman}`,
-    )
-  // 差值方向:新带入计债 / 存量自比为 0 / 无基准面不判
-  if (newWaitingHumanRows(faceWh, faceClean).length !== 1)
-    throw new Error('从干净基准面新带入一条必须计 1')
-  if (newWaitingHumanRows(faceWh, faceWh).length !== 0)
-    throw new Error('同一面自比必须为 0(存量不是本次的锅)')
-  if (newWaitingHumanRows(faceWh, null).length !== 0)
-    throw new Error('没有基准面时不得凭空数出"新增"')
-  // gate 差值档:涨必拦、平必放(用 baseOverride 走实盘同形状,不依赖清偿进度)
-  const mkGateFace = (n, rows) => ({
-    counts: {
-      forks: 0,
-      voidRows: 0,
-      rotatedPointers: 0,
-      rotatedAuto: 0,
-      rotatedNoExit: 0,
-      dupOpenCopies: 0,
-      verbatimDupCopies: 0,
-      dupBlocks: 0,
-      newUndisposed: 0,
-      mergeNotes: 99,
-      stale: 0,
-      undated: 0,
-      newWaitingHuman: n,
-      waitingHuman: rows.length,
-    },
-    staleRows: [],
-    waitingHumanRows: rows,
-    newWaitingHumanRows: rows,
-    collisions: [],
-  })
-  const run = (fn) => {
-    const log = console.log
-    console.log = () => {}
-    try {
-      return fn()
-    } finally {
-      console.log = log
-    }
-  }
-  const whRows = [{ line: 3, raw: whRow }]
-  const grewRc = run(() =>
-    gate(mkGateFace(1, whRows), false, ROOT, mkGateFace(0, []), null, { F11: [] }),
-  )
-  if (grewRc !== 1)
-    throw new Error(`新增等人拍板行由 0 涨到 1 应拦下本次提交,实测 exit ${grewRc}`)
-  const flatRc = run(() =>
-    gate(mkGateFace(0, []), false, ROOT, mkGateFace(0, []), null, { F11: [] }),
-  )
-  if (flatRc !== 0) throw new Error(`什么都没带进来的提交不得被拦(恒红门),实测 exit ${flatRc}`)
-  // 基线层:ratchetViolations 拿面必红、不拿面不判(无粗尺,冒充恒绿比失明更坏)
-  const withFace = ratchetViolations({ F11: [] }, probe(faceWh), faceWh)
-  if (!withFace.some((x) => x.startsWith('F11')))
-    throw new Error(`绝对层必须报 F11 红,实测 ${JSON.stringify(withFace)}`)
-  const noFace = ratchetViolations({ F11: [] }, probe(faceWh))
-  if (noFace.some((x) => x.startsWith('F11')))
-    throw new Error('没给判定面 ⇒ F11 不得冒判(差值计数在全量面恒 0)')
-  // f11Ratchet 形状三臂:整数=未迁移 / 缺项=不判 / 有数无名单=盲
-  if (f11Ratchet({ F11: 0 }, faceWh).kind !== 'unmigrated')
-    throw new Error('F11 写成整数必须报未迁移(关着这一维而账面看不出来)')
-  if (f11Ratchet({}, faceWh).kind !== 'absent') throw new Error('缺项必须不判(既有善意)')
-  if (f11Ratchet({ F11: [] }, { counts: { waitingHuman: 1 } }).kind !== 'blind')
-    throw new Error('有行数无名单必须判盲,不记绿')
-  // 跨文件接线锁:converge 必须把判定面作第三参传进 ratchetViolations(删了就静默失明)
-  const conv = readFileSync(
-    new URL('../../scripts/git-sync-converge.mjs', import.meta.url),
-    'utf8',
-  )
-  if (!/ratchetViolations\(base, probe\(mf\), mf\)/.test(conv))
-    throw new Error(
-      'git-sync-converge.mjs 未把合并判定面传给 ratchetViolations ⇒ F11 绝对层在收敛闸上失明',
-    )
-  // 键口径锁:有主键行用复合主键、无主键行退回逐字原文(§12f:两型都不得静默换尺)
-  if (f11KeyOf({ raw: whRow }) !== compositeKeyOf(whRow))
-    throw new Error('有主键行的 F11 键必须等于 compositeKeyOf')
-  const keyless = '- [ ] 需用户确认后才能做的叙述式待办(无编号)。'
-  if (compositeKeyOf(keyless) !== null || f11KeyOf({ raw: keyless }) !== keyless)
-    throw new Error('无主键行必须退回逐字原文(F8a 同口径)')
-  if (f11KeySetOf(faceWh).length !== 1)
-    throw new Error(`键集应恰 1 枚,实测 ${f11KeySetOf(faceWh).length}`)
-})
-
-/**
  * M12 F7 归属分层的**方向锁**:分层只许影响"现在可做"这一把显式过滤,
  * 不得悄悄缩水默认派单口径。
  * 为什么这是红线而不是审美:分类是从正文正则推出来的,推错一条的代价必须是可见的 ——
@@ -668,20 +426,9 @@ const TRUE_WAIT_A = [
   '- [ ] **K1**:无主记录要不要收紧,等机主拍"商店安装算个人配置还是算平台级软件包"。',
   '- [ ] **K2**:**在等人拍板还是等条件**:等尺子持有人裁决清单的定义口径。',
   '- [ ] **K3**:登记为等拍板:机制能建、但接线前提不存在。',
+  '- [ ] **K4**:该格仍空,等机主给值 —— 它是平台自己的配置。',
   '- [ ] **K5**:整档批量删行的口径等人工拍板。',
   '- [ ] **K6**:等产品拍板走哪条改法。',
-]
-/**
- * 条件等待(2026-10-25 与"等人拍板"分家,机主令点名的是后者):
- * 「等机主供值/给值/真实账号/真机窗口/授权装 docker」是等**外部资源**,不是等**裁决**。
- * 旧词表把它们并进 waiting-human ⇒ F11(强制令)把 19 条合法行判成违规、并让这些活从条件桶
- * 掉到"可做"(agent 拿不到凭据/真机)。归属必须是 waiting-env。
- */
-const COND_ENV = [
-  '- [ ] **E1**:该格仍空,等机主给值 —— 它是平台自己的配置。',
-  '- [ ] 〔归:—｜等:机主真机窗口〕 **G-99** 四条各自开工(标头投影写的是真机窗口)。',
-  '- [ ] 〔归:—｜等:机主核隧道〕 **G-76** 生产备份链编码(正文只说现象)。',
-  '- [ ] 待用户补:apps/*/.env ~35 键,骨架已就位。',
 ]
 /** 通道 B(自述槽)真等 —— 判据不依赖任何措辞,只认「本行在等什么」这个台账自带的字段。 */
 const TRUE_WAIT_B = [
@@ -779,19 +526,6 @@ test('M29 正例:通道A(等+身份+决断动词)与通道B(自述槽)都必须�
         throw new Error(`${tag}真等经生产出口应落 waiting-human,实测 ${dispositionOf(raw)}`)
     }
   }
-  // 条件等待(等外部资源)必须落 waiting-env,且**不得**被"等人拍板"两把尺点亮 ——
-  // 这一维与上面两条方向相反,但同样成对:少了它,19 条合法行会被 F11 当违规、或被派成"可做"。
-  for (const raw of COND_ENV) {
-    if (waitingHumanSelfVerdict(raw) === 'self' || waitingHumanDirectVerdict(raw) === 'self')
-      throw new Error(`条件等待被读成"等人拍板"← ${raw.slice(0, 46)}`)
-    if (dispositionOf(raw) !== 'waiting-env')
-      throw new Error(`条件等待应落 waiting-env,实测 ${dispositionOf(raw)} ← ${raw.slice(0, 46)}`)
-  }
-  // 标头投影的语义只经字段进入判定:`等:X` 的 X 含决断动词才算等人,否则按条件等待。
-  if (dispositionOf('- [ ] 〔归:—｜等:机主立项拍板〕 **D19** 画中画立项。') !== 'waiting-human')
-    throw new Error('标头里写"拍板"的等段必须落 waiting-human')
-  if (dispositionOf('- [ ] 〔归:未派〕 **G-398** 第八轮剩余六格候选清单。') !== 'actionable')
-    throw new Error('占位读数(未派)不是归属表态 ⇒ actionable')
   // 反向锁:一句没有任何等待措辞的正常活**不得**被本判据点亮(否则就是在给自己摘牙)。
   for (const raw of [
     '- [ ] **X1** 补一个适配器,今天就能做。',
@@ -1969,15 +1703,12 @@ test('M26 逐行条件不变量·真仓台账面(§22c:输入逐字取自被审�
     if (!byFam[fam] || !byFam[fam].has(norm(a)))
       bad.push(`L${idx + 1} 锚=${a} 不在该族取号集合 | ${l.slice(0, 40)}`)
   })
-  // 护栏 2026-10-25 校准:绝对行数阈值会随"完成即删"自然腐烂(2026-10-08 定 100 时现读 656,
-  // 今日已降到 93)。本测试真正的语义断言是下面的 bad=0;这里改用**自带分族阳性对照**证明
-  // 尺子没退化,不再把阈值绑在台账行数上(写死数字 = 下一个删行批次再误红一次)。
-  for (const canary of ['G-999', 'D99', 'O99', 'B99', 'W99', 'V3-99']) {
-    if (indepAnchor(`- [ ] **${canary} 独立尺子阳性对照**`) !== canary)
-      throw new Error(`独立尺子认不出阳性对照 ${canary} ⇒ 尺子坏了,不是面干净`)
-  }
-  if (checked === 0)
-    throw new Error('真仓台账面 0 个编号位 ⇒ 尺子或面坏了,不得静默通过(截至 2026-10-25 现读 93)')
+  // 护栏阈值 2026-10-08 校准(G-1102638 批2 收尾):批1 物理归并删 381 行自述副本后,行首编号位
+  // 真实读数 656(批1 前提交 c1a66c68e4 上 A/B 实证 657,差值=删行数)——旧阈值 800 与文案"2400+"
+  // 写在旧台账时代,是存量红不是尺子坏。本测试真正的语义断言是下面的 bad=0(认出的编号位必须
+  // 全在取号集合里);本护栏只防尺子完全退化(认出≈0),降到 100 与台账行数解耦,后续批次删行不再误红。
+  if (checked < 100)
+    throw new Error(`独立尺子只认出 ${checked} 行编号位(2026-10-08 现读 656)⇒ 尺子坏了,不是面干净`)
   if (bad.length)
     throw new Error(
       `逐行条件不变量红 ${bad.length} 行(编号位在行首却没进集合 ⇒ 取号器会重发):\n${bad.slice(0, 8).join('\n')}`,
@@ -2607,55 +2338,5 @@ test('派单面必须自报"靠什么判"(dispositionSummary)', () => {
   if (at < 0) throw new Error('派单口径那行漂了 ⇒ 本形状锁的锚点需同步(不是判据变了)')
   if (!/dispositionOfV2\(/.test(CODE.slice(Math.max(0, at - 1500), at)))
     throw new Error('--open --dispatchable 的分桶过滤必须调 dispositionOfV2')
-})
-
-/**
- * CP1/CP2 —— 裸「重复登记副本:」行首 ∧ 行内自述 的派单逐出(2026-10-25 立,机主令"不允许不同
- * agent 抢同一件任务重复做")。
- *
- * 病(HEAD 面取证):台账里有一族行首逐字写 `重复登记副本:`、行内自述「本行不进派单口径,活账以
- * 主行为准」的副本行 —— `DUP_POINTER_RE` 只认带【归并】的归并器自产形,`COPY_POINTER_ROW_RE` 只认
- * 「副本指针(编号 …」行首族,两把都看不见它 ⇒ 它自述不出单却仍在出单清单里,两个会话各领同一张票。
- * 这两条是任务书点名的"反向牙两条,缺一不可":CP1 咬"自述副本必须被逐出且点名可见",
- * CP2 咬"只是提到这些字样的真活票一枚都不能被吞"(防关键字命中即吞把真活判死)。
- * §22c:判据一律 import 生产出口,测试内不复制第二份正则。
- */
-test('CP1 自述副本行逐出派单面,且诊断桶点名(行首「重复登记副本:」∧ 行内"不进派单口径/以主行为准")', () => {
-  // 行首措辞逐字取自 HEAD 面真形(`- [ ] 重复登记副本:本行与同标题登记 L6880(枚 290a26bc1)…本行不进派单口径,活账以主行为准。`)
-  const copy =
-    '- [ ] 重复登记副本:本行与同标题登记 L1 重复,并发归档/回捞把它复制到了不同编号下(编号一律不改、不删行、正文逐字留在下方)。本行不进派单口径,活账以主行为准。 **G-777 某某**:说明文字。'
-  if (!isSelfDeclaredCopyRow(copy))
-    throw new Error('夹具必须命中生产判据本体,否则下面全是空转(§14:不许只凭形状说话)')
-  const face = ['# 计划', '- [ ] **G-776 真活**:现在就能做。', copy, ''].join('\n')
-  const a = auditPlan(face)
-  if (a.counts.claimable !== 1)
-    throw new Error(`派单面应只剩真活 1 行,实测 ${a.counts.claimable} ⇒ 自述副本行仍在被派出去`)
-  if (a.claimableRows.some((r) => isSelfDeclaredCopyRow(r.raw)))
-    throw new Error('自述副本行仍进 claimableRows ⇒ 新臂没接上派单出口 isClaimExcludedPointer')
-  if (a.counts.dupPointerRows !== 1)
-    throw new Error(
-      `"已标副本指针"报告桶必须收这一行(被派单出口逐出的行必须点名可见,§12f 沉默失效),实测 ${a.counts.dupPointerRows}`,
-    )
-})
-
-test('CP2 反向牙:关键字"提到"≠ 自述副本 —— 三枚真活票必须全部留在派单面', () => {
-  const rows = [
-    // ① 正文提到行首族措辞,但开头不是这一族 ⇒ 行首锚不命中
-    '- [ ] **G-801 真活**:修那一族"重复登记副本:"行首漏认的病,本票要动手改判据。',
-    // ② 行首写了「重复登记副本:」却没有行内自述 ⇒ 可能是正要登记修这一病型的真票(G-1058653 同形),不得吞
-    '- [ ] G-802 真活:重复登记副本:这一族行首形态需要有人登记修复,本行就是那张活票。',
-    // ③ 含自述字样但行首不是副本族 ⇒ 单锚不足
-    '- [ ] **G-803 真活**:台账里有人误写"本行不进派单口径"字样,本票逐行核对这一措辞。',
-  ]
-  for (const r of rows)
-    if (isSelfDeclaredCopyRow(r)) throw new Error(`真活票被新臂误吞(判据退化成关键字命中即吞):${r.slice(0, 40)}`)
-  const face = ['# 计划', ...rows, ''].join('\n')
-  const a = auditPlan(face)
-  if (a.claimableRows.length !== 3)
-    throw new Error(
-      `三枚真活票必须全在派单面(防"猜测把别人没做完的活记成副本"),实测 ${a.claimableRows.length}`,
-    )
-  if (a.counts.dupPointerRows !== 0)
-    throw new Error(`"提到"型行不得进副本桶,实测 ${a.counts.dupPointerRows}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

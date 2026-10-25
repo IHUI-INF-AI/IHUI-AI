@@ -16,13 +16,9 @@
  * 懒建语义(第一次消费时创建),预建会让空窗格也 hydrate 一份 persist 快照。
  * 消费侧经 ChatPaneProvider + usePaneChatStore 按叶 id 取实例(见 chat-pane-context.tsx)。
  *
- * **挂载(2026-10-25 解禁)**:本 hook 只做实例生命周期对齐,Provider 挂载点在
- * 宿主(ai-side-panel.tsx 的 PaneSplitContainer renderPaneContent:非根窗格
- * paneConversationId 非空时挂 ChatPaneProvider + ChatPaneBody)。早先的挂载门禁
- * ("发送链路窗格化落地前禁挂,防读写不对称")已随步序四发送链全参数化解除 ——
- * send-message/send-answer/斜杠命令/manual-compact/persistence(失败草稿)/
- * mergeAgentTools(工具选择)均按调用方 store 实例寻址,挂 Provider 不再造成
- * "读窗格写单例"的窗格流式回复消失缺陷。
+ * **挂载门禁**:本 hook 只做实例生命周期对齐,**不**挂 ChatPaneProvider —— 发送链路
+ * 窗格化(票60 步序四)落地前挂 Provider 会造成读写不对称(消费面读窗格实例、
+ * send-message 仍写单例),窗格里的流式回复会"消失"。挂载点:PaneSplitContainer。
  */
 
 import * as React from 'react'

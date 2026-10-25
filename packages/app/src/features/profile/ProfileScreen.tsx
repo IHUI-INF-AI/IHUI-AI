@@ -170,7 +170,6 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     statsCell: {
-      minWidth: 96,
       width: '31%',
       flexGrow: 1,
       padding: 14,

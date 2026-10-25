@@ -17,6 +17,7 @@ import { TextField } from '../../components/TextField'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AIMultimodalScreenProps, AiMultimodalMode } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState } from '../../components/ScreenStates'
 
 /** AI 多模态对话共享屏 — props 注入式跨端组件(纯 UI,wrapper 保留 API 调用) */
 export type { AIMultimodalScreenProps }
@@ -102,9 +103,7 @@ export function AIMultimodalScreen({
         data={messages}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('aiMultimodal.empty')}</Text>
-          </View>
+          <EmptyState title={t('aiMultimodal.empty')} colorScheme={colorScheme} />
         }
         renderItem={({ item }) => (
           <View
@@ -178,8 +177,6 @@ function createStyles(tk: AppThemeTokens) {
     modelChipText: { fontSize: 14, color: tk.text.medium },
     modelChipTextActive: { color: tk.surface.light },
     list: { flex: 1, paddingHorizontal: 10 },
-    empty: { paddingVertical: 40, alignItems: 'center' },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     msgBubble: { padding: 10, borderRadius: rnRadiusFor.bubble, marginBottom: 8, maxWidth: '85%' },
     msgUser: { backgroundColor: tk.success.lighter, alignSelf: 'flex-end' },
     msgAssistant: { backgroundColor: tk.surface.card, alignSelf: 'flex-start' },

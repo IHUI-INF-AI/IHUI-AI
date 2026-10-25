@@ -19,7 +19,6 @@
  * 聚合)与 deploy/saas/admin-api/src/routes/metrics.ts(promQuery 封装 + 超时降级 null)。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { bizDayKey, bizDayStartUtc } from '../utils/biz-day.js'
 import { z } from 'zod'
 import { desc, eq, gte, lte, sql, and } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
@@ -126,12 +125,6 @@ function firstNum(list: PromSample[] | null): number | null {
   return sampleNum(list?.[0])
 }
 
-/** 百分比保留两位;无样本(SQL 聚合出 NULL)一律落 null ——
- *  「今天还没有请求」写成 0.00% 会被大屏读成「零错误率」,那是 §0.3 禁止的顶替。 */
-function pct2(v: number | null | undefined): number | null {
-  return typeof v === 'number' && Number.isFinite(v) ? Number(v.toFixed(2)) : null
-}
-
 /** range 序列 → [[epochMs, value], …],值不合法的点直接丢弃。 */
 function rangeToSeries(list: PromRangeSample[] | null): Array<[number, number]> {
   const s = list?.[0]
@@ -144,13 +137,17 @@ function rangeToSeries(list: PromRangeSample[] | null): Array<[number, number]> 
   return out
 }
 
-// 业务日界唯一出口在 utils/biz-day.ts(守门 246 拦第二份副本)
-
-/** 上海日界的 YYYY-MM-DD 日期串(daysAgo=0 即上海今天)。与 usersTodayNew 同口径:
- *  新增用户按上海日界切分,增长曲线若按 UTC 切日,16:00 后的注册会被算进"明天",
- *  与同一张屏上的「今日新增」读数自相矛盾。算法本体在 utils/biz-day.ts(守门 246 拦第二份)。 */
-function bizDayKeyAgo(daysAgo = 0): string {
-  return bizDayKey(bizDayStartUtc(daysAgo))
+// ===== 时区工具:Asia/Shanghai 日界(UTC 表示,口径与 relay-stats.ts 逐字一致)=====
+function shanghaiDayStartUtc(daysAgo = 0): Date {
+  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
+  return new Date(
+    Date.UTC(
+      shanghaiNow.getUTCFullYear(),
+      shanghaiNow.getUTCMonth(),
+      shanghaiNow.getUTCDate() - daysAgo,
+    ) -
+      8 * 3600 * 1000,
+  )
 }
 
 // ===== 各数据面聚合(每块独立 try/catch ⇒ 失败置 null)=====
@@ -223,7 +220,7 @@ async function buildHost(): Promise<HostSnapshot | null> {
 
 interface ServicesSnapshot {
   windows: Array<{ name: string; state: string; retired: boolean }>
-  targets: Array<{ job: string; instance: string; up: number | null }>
+  targets: Array<{ job: string; instance: string; up: number }>
   windowsTotal: number
   windowsRunning: number
   /** 非退役服务总数(健康度分母;退役服务见 RETIRED_SERVICES) */
@@ -251,9 +248,7 @@ async function buildServices(): Promise<ServicesSnapshot | null> {
       .map((s) => ({
         job: s.metric?.job ?? '',
         instance: s.metric?.instance ?? '',
-        // 取不到样本 ⇒ null(未判定),不得 `?? 0`:0 在大屏上会把「从没上报过的目标」
-        // 画成红色「down」,那是把「没量到」冒充成「量到了坏结论」。
-        up: sampleNum(s),
+        up: sampleNum(s) ?? 0,
       }))
       .filter((t) => t.job)
       .sort((a, b) => a.job.localeCompare(b.job))
@@ -504,16 +499,6 @@ interface RelayPoolSnapshot {
   accountRefreshAgeSec: number | null
   /** 健康态不在封闭词表内、无法折叠的行数(非 0 说明库里有脏值,必须看得见) */
   rowsUnclassified: number | null
-  /** Key 健康四态计数(unknown/healthy/degraded/down;与汇总字段同一把尺子) */
-  keyHealth: { unknown: number; healthy: number; degraded: number; down: number } | null
-  /** 按 provider 分组的 Key 分布(可调度/异常口径与汇总字段同一把尺子) */
-  keyByProvider: Array<{ provider: string; total: number; schedulable: number; abnormal: number }> | null
-  /** 按 provider 分组的账号池分布 */
-  accountByProvider: Array<{ provider: string; total: number; schedulable: number }> | null
-  /** 余额 < 5 元且非"无限"(-1)的 Key 条数 —— 余额预警 */
-  keyBalanceLow: number | null
-  /** access token 将在 24 小时内过期的账号条数(含已过期) */
-  accountExpiring24h: number | null
 }
 
 async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
@@ -530,11 +515,6 @@ async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
       staleAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
       accountRefreshAgeSec: live.maxRefreshAgeSeconds,
       rowsUnclassified: live.rowsUnclassified,
-      keyHealth: live.keyHealth,
-      keyByProvider: live.keyByProvider,
-      accountByProvider: live.accountByProvider,
-      keyBalanceLow: live.keyBalanceLow,
-      accountExpiring24h: live.accountExpiring24h,
     }
   } catch {
     return null
@@ -572,35 +552,23 @@ interface BusinessSnapshot {
   ordersTodayAmountCents: number
   ordersYesterdayPaid: number
   apiCallsToday: number
-  apiErrRate: number | null
-  apiAvgLatencyMs: number | null
+  apiErrRate: number
+  apiAvgLatencyMs: number
   topEndpoints: Array<{ path: string; method: string; calls: number }>
   llmCallsToday: number
   llmTokensToday: number
   llmCostCentsToday: number
-  llmErrRate: number | null
-  llmP95LatencyMs: number | null
+  llmErrRate: number
+  llmP95LatencyMs: number
   llmTopModels: Array<{ model: string; calls: number }>
   signIn: SignInSnapshot | null
-  /** 近 14 日每日新增用户(上海日界,含今天,后端逐日补齐);查询失败为 null */
-  userGrowth: Array<{ date: string; count: number }> | null
-  /** 用户构成(全部即时计数,与 usersTotal 同一次查询):VIP 身份 / 操盘手身份 */
-  usersVip: number
-  usersTrader: number
-  /** 邀请注册用户(累计)与近 7 日邀请注册(parent_id 非空 = 经推荐人链接注册) */
-  usersInvited: number
-  usersInvited7d: number
-  /** 等级分布 [普通, 白银, 黄金, 钻石](users.level 0..3) */
-  usersByLevel: [number, number, number, number]
-  /** 近 7 日签到去重用户数(留存近似);查询失败为 null(不折成 0) */
-  activeUsers7d: number | null
 }
 
 async function buildBusiness(): Promise<BusinessSnapshot | null> {
   try {
-    const todayStart = bizDayStartUtc(0)
-    const yestStart = bizDayStartUtc(1)
-    // 签到口径:与写入口 gamification.ts 同源 —— 两侧都走 utils/biz-day.ts 的业务日界(上海)
+    const todayStart = shanghaiDayStartUtc(0)
+    const yestStart = shanghaiDayStartUtc(1)
+    // 签到口径:与写入口 gamification.ts 同源(UTC 日期,不是上面业务块的上海日界)
     const signInToday = todayString()
     const signInWeekAgo = shiftDate(signInToday, -6)
     const [
@@ -613,24 +581,12 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       llmModels,
       signToday,
       signWeek,
-      userGrowthRows,
-      activeUsers7dRows,
     ] = await Promise.all([
-      // 用户构成:与 usersTotal 同一次扫描上多加几个 filter 计数 ⇒ 零额外查询成本。
-      // is_vip 值域(-1 游客 / 0 普通 / 1 VIP / 2 操盘手)见 users schema 注释。
       dbRead
         .select({
           total: sql<number>`count(*)::int`,
           todayNew: sql<number>`count(*) filter (where ${users.createdAt} >= ${todayStart.toISOString()}::timestamptz)::int`,
           active: sql<number>`count(*) filter (where ${users.status} = 1)::int`,
-          vip: sql<number>`count(*) filter (where ${users.isVip} = 1)::int`,
-          trader: sql<number>`count(*) filter (where ${users.isVip} = 2)::int`,
-          invited: sql<number>`count(*) filter (where ${users.parentId} is not null)::int`,
-          invited7d: sql<number>`count(*) filter (where ${users.parentId} is not null and ${users.createdAt} >= ${bizDayStartUtc(6).toISOString()}::timestamptz)::int`,
-          level0: sql<number>`count(*) filter (where ${users.level} = 0)::int`,
-          level1: sql<number>`count(*) filter (where ${users.level} = 1)::int`,
-          level2: sql<number>`count(*) filter (where ${users.level} = 2)::int`,
-          level3: sql<number>`count(*) filter (where ${users.level} = 3)::int`,
         })
         .from(users),
       dbRead
@@ -653,12 +609,8 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       dbRead
         .select({
           calls: sql<number>`count(*)::int`,
-          // 不得 coalesce 成 0:今天一条请求都没有时,0.00% 会被大屏读成「零错误率」(§0.3)。
-          // 无行 ⇒ avg 为 NULL ⇒ 大屏落「—/未判定」。
-          errRate: sql<
-            number | null
-          >`(avg(case when ${apiLogs.statusCode} >= 500 then 1 else 0 end) * 100)::float8`,
-          avgLatency: sql<number | null>`avg(${apiLogs.duration})::int`,
+          errRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 500 then 1 else 0 end) * 100, 0)::float8`,
+          avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)::int`,
         })
         .from(apiLogs)
         .where(gte(apiLogs.createdAt, todayStart)),
@@ -678,12 +630,8 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
           calls: sql<number>`count(*)::int`,
           tokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
           costCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
-          errRate: sql<
-            number | null
-          >`(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100)::float8`,
-          p95Latency: sql<
-            number | null
-          >`percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int`,
+          errRate: sql<number>`coalesce(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100, 0)::float8`,
+          p95Latency: sql<number>`coalesce(percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int, 0)`,
         })
         .from(llmCallLogs)
         .where(gte(llmCallLogs.createdAt, todayStart)),
@@ -718,27 +666,6 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         .groupBy(signInRecords.signInDate)
         .orderBy(signInRecords.signInDate)
         .catch(() => null),
-      // 近 14 日每日新增用户(上海日界,与 usersTodayNew 同口径:createdAt + 8h 后按日切分)。
-      // 这张表出问题不拖垮整块业务纵深 ⇒ 同样单表独立 catch(null)。
-      dbRead
-        .select({
-          date: sql<string>`to_char(${users.createdAt} + interval '8 hours', 'YYYY-MM-DD')`,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(users)
-        .where(gte(users.createdAt, bizDayStartUtc(13)))
-        .groupBy(sql`1`)
-        .orderBy(sql`1`)
-        .catch(() => null),
-      // 近 7 日签到去重用户数(留存近似:一天都没签到的用户不进分母口径,报"活跃"而非"沉默")。
-      // sign_in_records 有 (user_id, sign_in_date) 唯一索引 ⇒ 这条 count distinct 走索引即可。
-      dbRead
-        .select({
-          users: sql<number>`count(distinct ${signInRecords.userId})::int`,
-        })
-        .from(signInRecords)
-        .where(gte(signInRecords.signInDate, signInWeekAgo))
-        .catch(() => null),
     ])
     const u = userRows[0]
     const o = orderToday[0]
@@ -767,33 +694,16 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         last7d,
       }
     }
-    // 用户增长:查询失败 ⇒ null(整块不渲染,不把"没量到"画成 14 根 0 柱);
-    // 查询成功 ⇒ 按上海日界逐日补齐 14 天 —— 无行的日期是"当天确实 0 注册"这一真实读数。
-    let userGrowth: BusinessSnapshot['userGrowth'] = null
-    if (userGrowthRows !== null) {
-      const byDate = new Map(userGrowthRows.map((r) => [r.date, r.count]))
-      userGrowth = []
-      for (let i = 13; i >= 0; i--) {
-        const date = bizDayKeyAgo(i)
-        userGrowth.push({ date, count: byDate.get(date) ?? 0 })
-      }
-    }
     return {
       usersTotal: u?.total ?? 0,
       usersTodayNew: u?.todayNew ?? 0,
       usersActive: u?.active ?? 0,
-      usersVip: u?.vip ?? 0,
-      usersTrader: u?.trader ?? 0,
-      usersInvited: u?.invited ?? 0,
-      usersInvited7d: u?.invited7d ?? 0,
-      usersByLevel: [u?.level0 ?? 0, u?.level1 ?? 0, u?.level2 ?? 0, u?.level3 ?? 0],
-      activeUsers7d: activeUsers7dRows?.[0]?.users ?? null,
       ordersTodayPaid: o?.paid ?? 0,
       ordersTodayAmountCents: o?.amountCents ?? 0,
       ordersYesterdayPaid: oy?.paid ?? 0,
       apiCallsToday: a?.calls ?? 0,
-      apiErrRate: pct2(a?.errRate),
-      apiAvgLatencyMs: a?.avgLatency ?? null,
+      apiErrRate: Number((a?.errRate ?? 0).toFixed(2)),
+      apiAvgLatencyMs: a?.avgLatency ?? 0,
       topEndpoints: apiTop.map((r) => ({
         path: r.path,
         method: r.method,
@@ -802,11 +712,10 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       llmCallsToday: l?.calls ?? 0,
       llmTokensToday: l?.tokens ?? 0,
       llmCostCentsToday: l?.costCents ?? 0,
-      llmErrRate: pct2(l?.errRate),
-      llmP95LatencyMs: l?.p95Latency ?? null,
+      llmErrRate: Number((l?.errRate ?? 0).toFixed(2)),
+      llmP95LatencyMs: l?.p95Latency ?? 0,
       llmTopModels: llmModels.map((r) => ({ model: r.model, calls: r.calls })),
       signIn,
-      userGrowth,
     }
   } catch (e) {
     console.error('[ops-wallboard] buildBusiness failed:', e)
@@ -988,7 +897,7 @@ async function buildTrend(minutes: number, step: number): Promise<TrendSnapshot>
         calls: sql<number>`count(*)::int`,
       })
       .from(apiLogs)
-      .where(gte(apiLogs.createdAt, bizDayStartUtc(0)))
+      .where(gte(apiLogs.createdAt, shanghaiDayStartUtc(0)))
       .groupBy(sql`1`)
       .orderBy(sql`1`)
       .catch(() => [] as Array<{ hour: string; calls: number }>),

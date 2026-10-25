@@ -13,10 +13,6 @@
     {
       "event": "tool-approval",
       "why": "工具批准需要「挂起等待 + 批准/拒绝卡 + 把回执发回服务端续跑」整条闭环,实测消费面只有 web:apps/web/src/components/ai/tool-approval-dialog.tsx(对话框)+ apps/web/src/components/chat/message-list/MessageList.tsx(挂载)+ packages/api-client/src/client.ts 的 onToolApproval 回调;apps/miniapp-taro/src 全面对 tool-approval / toolApproval **零命中**(无批准卡、无回执通道),小程序只解析帧会出现\"弹出了却无处可点\"的状态,比不显示更糟。与 question/form_request 同一判据口径。"
-    },
-    {
-      "event": "review-finding",
-      "why": "D115(2026-10-23) review 模式的结构化 finding 帧,api-client 走 onReviewFinding 专用通道且本帧无 content/text(packages/api-client/src/client.ts:1893);实测消费面只有 web:apps/web/src/hooks/use-chat/{send-message,send-answer,stream-handlers}.ts → stores/chat.ts → review-findings-card.tsx(发现卡列表),全仓 onReviewFinding 消费点经 grep 零个落在 miniapp-taro;小程序无发现卡组件也没有 review 模式入口,只解析帧会让卡片数据无处展示,比不显示更糟。补齐须先做端内发现卡 UI,与 question/tool-approval 同一判据口径。"
     }
   ]
 }

@@ -20,7 +20,7 @@
 // **禁止** `dangerouslySetInnerHTML`。非白名单标签在解析层(`parseRichAnchors`)已降级为纯文本,
 // 文本节点由 React 自动转义,故 `<script>` / `<img onerror>` 永远不可能被执行。
 
-import { Children, isValidElement, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 import {
   RICH_ANCHOR_TAGS,
@@ -39,48 +39,15 @@ export type RichAnchorComponents = Record<RichAnchorTag, (chunks: ReactNode) => 
 const CODE_CLASS = 'rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.85em]'
 const LINK_CLASS = 'text-primary underline underline-offset-2'
 
-/** 与 MarkdownStream 的 MarkdownLink 同一套协议白名单(不另造一份判据) */
-const SAFE_HREF = /^(https?:|mailto:|\/|#)/
-
-/** 取锚点内文(仅取文本,不求值任何属性 —— 解析层本就不保留属性) */
-function chunksToText(chunks: ReactNode): string {
-  let out = ''
-  Children.forEach(chunks, (child) => {
-    if (typeof child === 'string' || typeof child === 'number') {
-      out += String(child)
-      return
-    }
-    if (isValidElement<{ children?: ReactNode }>(child)) {
-      out += chunksToText(child.props.children)
-    }
-  })
-  return out
-}
-
-/**
- * link 族(`a` / `link` / `learnMore`)。
- * 内文是安全 URL 时才产出**可点击**的 `<a href>`(断言面为 role/href,不是"样式像链接");
- * 其余内文只渲染为文本容器 —— 与解析层"无属性"的形态自洽,也不给 `javascript:` 留口。
- */
-function renderLink(chunks: ReactNode): ReactNode {
-  const text = chunksToText(chunks).trim()
-  if (!SAFE_HREF.test(text)) return <span className={LINK_CLASS}>{chunks}</span>
-  return (
-    <a href={text} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
-      {chunks}
-    </a>
-  )
-}
-
 /** 唯一渲染表(`Record<RichAnchorTag, …>` 保证穷尽:白名单新增标签会在此编译失败) */
 export const RICH_ANCHOR_COMPONENTS: RichAnchorComponents = {
-  a: renderLink,
+  a: (chunks) => <span className={LINK_CLASS}>{chunks}</span>,
   action: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
   branch: (chunks) => <code className={CODE_CLASS}>{chunks}</code>,
   code: (chunks) => <code className={CODE_CLASS}>{chunks}</code>,
   detail: (chunks) => <span className="text-muted-foreground">{chunks}</span>,
-  learnMore: renderLink,
-  link: renderLink,
+  learnMore: (chunks) => <span className={LINK_CLASS}>{chunks}</span>,
+  link: (chunks) => <span className={LINK_CLASS}>{chunks}</span>,
   status: (chunks) => <span className="font-medium">{chunks}</span>,
   strong: (chunks) => <strong className="font-semibold">{chunks}</strong>,
   verb: (chunks) => <span className="font-medium">{chunks}</span>,

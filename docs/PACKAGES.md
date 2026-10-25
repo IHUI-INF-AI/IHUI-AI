@@ -34,13 +34,13 @@
 | `@ihui/types` | `packages/types/` | 全栈类型定义(20 模块) | `user`/`api`/`ai`/`api-key`/`memory`/`plugin`/`agent-control`/`agent-runtime`/`api-contracts`/`cli-config`/`ide-workspace`/`leaderboard`/`legacy-migration`/`message-repair`/`notification-channels`/`notification`/`webhook-trigger`/`work-panel`/`workspace`/`v1-endpoints` | 2 测试文件 |
 | `@ihui/ui-react` | `packages/ui-react/` | shadcn/ui 基础组件(Web) | `button`/`input`/`label`/`card`/`dialog`/`select`/`tabs`/`tooltip`/`badge`/`checkbox`/`table`/`data-table`/`sidebar`/`sheet`/`switch`/`collapsible`/`code-block`/`log-viewer`/`resizable`/`tree-select`/`vip-badge`/`theme-logo`/`webview-frame`/`work-panel`/`Upload` | - |
 | `@ihui/ui-native` | `packages/ui-native/` | React Native 版组件(mobile-rn 用) | `avatar`/`badge`/`button`/`card`/`dialog`/`input`/`loading`/`switch`/`tabs`/`vip-badge`(10 组件) | - |
-| `@ihui/design-tokens` | `packages/design-tokens/` | 设计令牌(9端共享):`cn()` 类名合并 + HSL shadcn tokens + RN HEX tokens + CSS 变量 | `cn`/`tokens`/`rnTokens`/`rnLightTokens`/`rnDarkTokens`/`getRnTokens` | - |
+| `@ihui/design-tokens` | `packages/design-tokens/` | 设计令牌(8端共享):`cn()` 类名合并 + HSL shadcn tokens + RN HEX tokens + CSS 变量 | `cn`/`tokens`/`rnTokens`/`rnLightTokens`/`rnDarkTokens`/`getRnTokens` | - |
 | `@ihui/eslint-config` | `packages/eslint-config/` | ESLint 共享配置 | `base`/`next`/`react` | - |
 | `@ihui/tsconfig` | `packages/tsconfig/` | TSConfig 共享配置 | `base`/`nextjs`/`node`/`react-library` | - |
 | `@ihui/api-client` | `packages/api-client/` | API 客户端:48 endpoint 文件 + client + circuit-breaker + ws-client | `client`/`api-error`/`utils`/`endpoints/*`(48 文件)/`circuit-breaker`/`ws-client`/`model-context-capacity` | 3 测试文件 |
 | `@ihui/context-compaction` | `packages/context-compaction/` | 上下文压缩(对话历史 token 优化) | `index` | - |
 | `@ihui/sdk` | `packages/sdk/` | TS SDK + 4 语言 SDK(Python/Go/Java/.NET) | TS:`agents`/`ai`/`audio`/`files`/`generation`/`images`/`knowledge`/`memory`/`messages`/`streaming`/`threed`/`tools`/`user`/`videos` | - |
-| `@ihui/shared` | `packages/shared/` | 9端共享业务逻辑:auth/sso + context + memory + notifications + plan + skills + spec + subagents + tasks + utils + validation + workflows | `auth`/`context`/`memory`/`notifications`/`plan`/`skills`/`spec`/`subagents`/`tasks`/`utils`/`validation`/`workflows`/`design` | - |
+| `@ihui/shared` | `packages/shared/` | 8端共享业务逻辑:auth/sso + context + memory + notifications + plan + skills + spec + subagents + tasks + utils + validation + workflows | `auth`/`context`/`memory`/`notifications`/`plan`/`skills`/`spec`/`subagents`/`tasks`/`utils`/`validation`/`workflows`/`design` | - |
 | `@ihui/rn-app` | `packages/app/` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + theme/tokens re-export) | `index`/`theme/tokens`/`types`/`features/*` | - |
 
 ### @ihui/auth 源码结构

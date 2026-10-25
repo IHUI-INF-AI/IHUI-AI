@@ -10,6 +10,7 @@ import type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState } 
 import { Eye, EyeOff, Check, X } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { ScreenSkeleton } from '../../components/ScreenStates'
 
 /** API 设置共享屏 — props 注入式跨端组件 */
 export type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState }
@@ -38,8 +39,8 @@ export function ApiSettingsScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -177,13 +178,6 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { padding: 14, paddingBottom: 32 },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 14,
-      backgroundColor: tk.surface.bg,
-    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -274,7 +268,6 @@ function createStyles(tk: AppThemeTokens) {
       textAlign: 'center',
       marginTop: 8,
     },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

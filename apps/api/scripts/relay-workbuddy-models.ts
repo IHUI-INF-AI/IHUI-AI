@@ -23,9 +23,6 @@
 import { config } from 'dotenv'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-// G-322 单源:带值旗标的取值出口(只校验紧邻 token 是不是"值",禁复制判据 §22c)。
-// @ts-expect-error scripts/*.mjs 无类型声明,apps/api tsconfig include 只收 src/**(脚本面不进 typecheck)
-import { isFlagValueToken } from '../../../scripts/lib/flag-value.mjs'
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 config({ path: path.resolve(SCRIPT_DIR, '..', '.env') })
@@ -67,18 +64,8 @@ function parseArgs(argv: string[]): {
     if (a === '--apply') apply = true
     else if (a === '--remove') remove = true
     else if (a === '--json') json = true
-    else if (a === '--uid') {
-      // G-322:值被紧邻旗标顶掉(`--uid --apply`)或结尾无值不得吞,点名 exit 2。
-      const tok = argv[i + 1]
-      if (!isFlagValueToken(tok)) {
-        process.stderr.write(
-          `--uid 需要一个账号 uid —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)\n`,
-        )
-        process.exit(2)
-      }
-      uid = tok
-      i++
-    } else if (a === '--help' || a === '-h') {
+    else if (a === '--uid') uid = argv[++i] ?? null
+    else if (a === '--help' || a === '-h') {
       process.stdout.write(
         '用法: tsx scripts/relay-workbuddy-models.ts [--apply] [--remove] [--uid <uid>] [--json]\n',
       )

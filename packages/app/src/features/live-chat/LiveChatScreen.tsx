@@ -8,7 +8,7 @@ import { TextField } from '../../components/TextField'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -125,42 +125,47 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10 },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     list: { flex: 1 },
     msg: {
       padding: 10,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
-    user: { fontSize: 14, fontWeight: '600', color: tk.success.DEFAULT },
-    content: { marginTop: 8, fontSize: 16, color: tk.text.primary },
-    meta: { marginTop: 8, fontSize: 10, color: tk.text.tertiary },
-    inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+    user: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.DEFAULT },
+    content: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
+    meta: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.text.tertiary },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.sm,
+    },
     input: {
       flex: 1,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 14,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
     sendBtn: {
       paddingHorizontal: 14,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     sendDisabled: { backgroundColor: tk.text.tertiary },
-    sendText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    sendText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

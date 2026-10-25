@@ -80,7 +80,7 @@ Web（Next.js 16）、桌面（Tauri 2）、Android / iOS（React Native + Expo�
 
 **后端 API**：Node 20 + Fastify 5 + TypeScript · Drizzle ORM + PostgreSQL 15（pgvector）· Zod 校验 · 4,451 条路由 · 25 个 WebSocket 端点 · 599 张表
 
-**AI 服务**：Python 3.12 + FastAPI · LangGraph（Agent 编排）· LiteLLM（101 模型统一网关）· MCP（工具协议）· A2A（智能体互联）
+**AI 服务**：Python 3.12 + FastAPI · LangGraph（Agent 编排）· LiteLLM（118 模型统一网关）· MCP（工具协议）· A2A（智能体互联）
 
 **前端**：Next.js 16 + React 19 + Tailwind CSS 4 · Zustand · 5 语言 i18n
 

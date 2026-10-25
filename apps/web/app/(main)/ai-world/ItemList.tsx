@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
 import { Button, SearchInput } from '@ihui/ui-react'
@@ -44,35 +44,29 @@ export function ItemList({
 }: Props) {
   const [search, setSearch] = React.useState('')
   const [order, setOrder] = React.useState<OrderKey>('latest')
+  const [offset, setOffset] = React.useState(0)
 
-  // 「加载更多」此前用的是同一个 useQuery + 把 offset 塞进 queryKey:换页 = 换查询 =
-  // 列表只剩新一页,**前面 12 条整屏消失**(用户点"加载更多"看到的是列表被顶掉)。
-  // 按仓内既有分页形态(sidebar-chat-history 同款)改 useInfiniteQuery:页累加在 pages 里,
-  // queryKey 不含 offset,筛选条件变化由 key 自然回第 0 页,原先那个重置 offset 的 effect 一并删除。
-  const { data, isLoading, error, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery({
-      queryKey: ['ai-world-items', kind, category, search, order, pageSize],
-      queryFn: ({ pageParam }) =>
-        fetchAiWorldItems({
-          kind,
-          category,
-          offset: pageParam,
-          limit: pageSize,
-          search: search.trim() || undefined,
-          order,
-        }),
-      initialPageParam: 0,
-      // 下一页的 offset = 已加载条数;后端给了 total,所以以 total 为准
-      // (不用"本页条数==pageSize"那种猜法:后端按状态过滤后末页不足一页就会提前停)。
-      getNextPageParam: (lastPage, allPages) => {
-        const loaded = allPages.reduce((n, p) => n + p.items.length, 0)
-        const total = lastPage.total ?? loaded
-        return loaded > 0 && loaded < total ? loaded : undefined
-      },
-    })
+  // 切换 kind/category 时重置分页
+  React.useEffect(() => {
+    setOffset(0)
+  }, [kind, category, search, order])
 
-  const items = data?.pages.flatMap((p) => p.items) ?? []
-  const hasMore = hasNextPage
+  const { data, isLoading, error, isFetching } = useQuery({
+    queryKey: ['ai-world-items', kind, category, search, order, offset, pageSize],
+    queryFn: () =>
+      fetchAiWorldItems({
+        kind,
+        category,
+        offset,
+        limit: pageSize,
+        search: search.trim() || undefined,
+        order,
+      }),
+  })
+
+  const items = data?.items ?? []
+  const total = data?.total ?? 0
+  const hasMore = offset + items.length < total
 
   return (
     <div className="space-y-3">
@@ -136,11 +130,11 @@ export function ItemList({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={isFetching || isFetchingNextPage}
-                onClick={() => void fetchNextPage()}
+                disabled={isFetching}
+                onClick={() => setOffset((o) => o + pageSize)}
               >
-                {(isFetching || isFetchingNextPage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isFetching || isFetchingNextPage ? '加载中...' : '加载更多'}
+                {isFetching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isFetching ? '加载中...' : '加载更多'}
               </Button>
             </div>
           )}
