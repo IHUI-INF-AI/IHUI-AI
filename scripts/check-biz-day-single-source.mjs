@@ -141,6 +141,7 @@ function listScope(face) {
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     shell: false,
+    windowsHide: true, // §5f:派生一律不弹窗(nssm/守护会话下漏此参数必弹控制台)
   })
   if (r.status !== 0) return null
   return r.stdout
