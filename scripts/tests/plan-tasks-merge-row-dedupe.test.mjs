@@ -679,7 +679,7 @@ describe('R5 形状锁补:共用核与分块旗标成套性(被摘线不得被�
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-describe('R8 F 维策略表:两份删除档共用一份,且 F3 读的是"指针总数"而不是"可自动收口"', () => {
+describe('R8 F 维策略表:三份删除档共用一份,且 F3 读的是"指针总数"而不是"可自动收口"', () => {
   const base = {
     forks: 0,
     voidRows: 0,
@@ -705,7 +705,7 @@ describe('R8 F 维策略表:两份删除档共用一份,且 F3 读的是"指针�
     assert.deepEqual(fDimRegressions(base, { ...base, forks: 1 }), ['F1 由 0 涨到 1'])
     assert.deepEqual(fDimRegressions(base, { ...base, dupOpenCopies: 2 }), ['F4 由 0 涨到 2'])
   })
-  it('形状锁:F3 的量纲只有一处定义,两份删除档都走同一个出口', () => {
+  it('形状锁:F3 的量纲只有一处定义,三份删除档都走同一个出口', () => {
     assert.equal(
       F_DIM_NO_RISE.find(([k]) => k === 'F3')[1]({ rotatedPointers: 7, rotatedAuto: 3 }),
       7,
@@ -717,7 +717,30 @@ describe('R8 F 维策略表:两份删除档共用一份,且 F3 读的是"指针�
       1,
       '策略表只许一处;复制第二份迟早与它漂开',
     )
-    assert.equal((src.match(/fDimRegressions\(before, after\)/g) ?? []).length, 2, '两份删除档各调一次')
+    // 三条删行档(块级收口 / 单行副本 / 漂开族折叠)各调一次同一出口。2026-10-25 由「两档」
+    // 扩到「三档」时**不是把数字改大就完事**:下面两条把调用点宿主与接线一起钉住 ——
+    // 只在别处多凑一个 `fDimRegressions(before, after)` 也会红(宿主名不在白名单里)。
+    const heads = [...src.matchAll(/^(?:export )?function ([A-Za-z0-9_$]+)\s*\(/gm)]
+    const bodyOf = (name) => {
+      const i = heads.findIndex((h) => h[1] === name)
+      assert.ok(i >= 0, `${name} 必须还在(改名 ⇒ 本锁对它失明)`)
+      return src.slice(heads[i].index, i + 1 < heads.length ? heads[i + 1].index : src.length)
+    }
+    const hosts = heads
+      .map((h) => h[1])
+      .filter((n) => (bodyOf(n).match(/fDimRegressions\(before, after\)/g) ?? []).length)
+    assert.deepEqual(
+      hosts.sort(),
+      ['verifyBlockDedupe', 'verifyDriftedFamilyFold', 'verifyRowDedupeCore'],
+      '三份删除档各调一次,宿主名也钉住(第四档未经同量级对照就并表,这里必须红)',
+    )
+    assert.match(
+      bodyOf('foldDriftedFamiliesAndLand'),
+      /verifyDriftedFamilyFold\(/,
+      '第三个调用点必须长在新删行档的复验核里,而落地腿必须真的调它(只改计数 = 凑数)',
+    )
+    // 另三档(恢复终态 / 折叠孪生 / 人工漂开归并)刻意保持**自写的内联表**,未做同量级对照
+    // 不许"顺手统一":它们的 F3 仍读 rotatedAuto,与删行档的语义不同。
     assert.equal(
       (src.match(/\['F3', \(c\) => c\.rotatedAuto\]/g) ?? []).length,
       3,
