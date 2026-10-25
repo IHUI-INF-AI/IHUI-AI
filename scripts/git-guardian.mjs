@@ -4377,6 +4377,121 @@ export function auditCrossEndParityDrift(opts = {}) {
   return { ran: true, ok: true, state: 'ok', cur }
 }
 
+const CROSS_END_MIRROR_INTERVAL_MS = Number(
+  process.env.IHUI_CROSS_END_MIRROR_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+/**
+ * 跨端镜像声明链自愈(2026-10-26 立):`repair-cross-end-mirror.mjs` 治的是
+ * 「登记表说共享屏 X 已被小程序页 Y 镜像,而代码侧的镜像标记/路由被一次合并削掉了」
+ * ——门 128 R1 当场红,而**没有任何调度器**去把它接回去(与漂移尺同一型:造好没装车)。
+ * 2026-10-25 实测成因是并发提交顺手带走 5 处标记行 + 1 条 app.config 路由。
+ *
+ * 为什么这一格可以自动动手:修复器只做「台账已有 ⇒ 代码缺什么补什么」,**不新增声明**;
+ * 每个动作幂等;遇到工作树上有他席未入库的行一律拒落(不替人提交)。所以无人值守是安全的。
+ * 三态照实登记:补了 N 条 / 一致无需补 / 有拒落(多为他席在飞)或结论不可用 ⇒ 未判定。
+ * 只写日志**不喊人**(§5e-1:拒落属常态,收信人无事可做);真倒退由漂移尺按维到人。
+ * 判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
+ */
+export function healCrossEndMirror(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CROSS_END_MIRROR_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'cross-end-mirror-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'repair-cross-end-mirror.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 跨端镜像自愈:器物不在位(scripts/repair-cross-end-mirror.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '修复器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 跨端镜像自愈:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply', '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b
+              timeout: 5 * 60 * 1000, // 守门 80
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // exit 1 = 判定成立但有拒落(常见:他席在飞);结论整份仍在 stdout。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const stderr = String(r.err ?? r.stderr ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用" */
+  }
+  const summary = parsed?.summary
+  if (!summary || typeof summary !== 'object') {
+    logger(
+      `⚠️ 跨端镜像自愈:结论不可用:未判定 —— ${stderr.slice(0, 120) || '未取到 JSON'}` +
+        ` ⇒ 本轮没判,不等于"声明链一致"`,
+    )
+    return { ran: true, ok: false, state: 'unparsed' }
+  }
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  const findings = num(summary.findings) ?? 0
+  const applied = num(summary.applied) ?? 0
+  const refused = num(summary.refused) ?? 0
+  const registryEntries = num(summary.registryEntries)
+  if (refused > 0) {
+    const names = (Array.isArray(parsed.refused) ? parsed.refused : [])
+      .slice(0, 3)
+      .map((x) => `${x?.shared ?? x?.kind ?? '?'}(${String(x?.why ?? '').slice(0, 60)})`)
+      .join(' / ')
+    logger(
+      `⚠️ 跨端镜像自愈:补回 ${applied} 条、拒落 ${refused} 条(多为他席在飞,不替人提交)` +
+        `${names ? ` ｜ ${names}` : ''} ⇒ 未修完,下轮再试`,
+    )
+    return { ran: true, ok: false, state: 'partial', findings, applied, refused }
+  }
+  if (applied > 0) {
+    logger(
+      `✅ 跨端镜像自愈:补回 ${applied} 条声明链(登记表说有、代码侧标记/路由被合并削掉)`,
+    )
+    return { ran: true, ok: true, state: 'healed', findings, applied, refused, registryEntries }
+  }
+  logger(
+    `✅ 跨端镜像自愈:声明链一致(登记表 ${registryEntries ?? '?'} 条,无缺口可补)`,
+  )
+  return { ran: true, ok: true, state: 'clean', findings, applied, refused, registryEntries }
+}
+
 const INDEX_UNMERGED_INTERVAL_MS = Number(process.env.IHUI_INDEX_UNMERGED_INTERVAL_MS || 15 * 60 * 1000)
 
 /**
@@ -5623,6 +5738,9 @@ function main() {
     // 判据齐全却无人调度。同一挂点语义(健康轮次早退之前 + !CHECK_ONLY),自带 60 分钟节流;
     // 判机器状态绝不进提交链(§12e),只在 regressed 那一档按稳定身份到人。
     if (!CHECK_ONLY) auditCrossEndParityDrift()
+    // 跨端镜像声明链自愈(2026-10-26 立):修复器只补"登记表已有"的缺口、他席在飞一律拒落,
+    // 故可无人值守;30 分钟节流。只写日志不喊人(拒落属常态),真倒退由上一格按维到人。
+    if (!CHECK_ONLY) healCrossEndMirror()
     // index 烂尾哨兵(2026-10-24 立,尺子 = scripts/check-index-unmerged-age.mjs):stash pop
     // 冲突/merge 中断逃逸会让 index 挂 unmerged 条目数小时(实测 12h)。同一挂点语义 ——
     // 判机器状态绝不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。15 分钟节流。
@@ -5783,6 +5901,7 @@ export const __test__ = {
   auditTunnelLegHealth,
   auditSweeperLiveness,
   auditCrossEndParityDrift,
+  healCrossEndMirror,
   auditIndexUnmerged,
   sweepStaleClosedRows,
   sweepBannedBuckets,
