@@ -28839,10 +28839,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 ## O65 AI 自进化调度系统 auto-evolve:四期系列总纲(2026-10-25 立,§24 代裁执行)
 ### 一期 P0 安全护栏(无人化先决,必须最先做)
-- [x] ✅(2026-10-25) **O6501 不可变护栏**:对 `scripts/guardian-runner.mjs` / `AGENTS.md` 铁律段 / `scripts/lib/judgement-libs.json` 建只读 hash 清单(`scripts/data/root-guard-manifest.json`,规范化去 BOM/CRLF/统一尾换行),`IHUI-DEPLOYLOOP` 前置闸 `root-guard --check` 非 0 即 fail-closed 拒推进;改动须 `--unlock` 绑定**新哈希**(带理由与 TTL)后 `--seal`。〔证据@2026-10-25/本席(提交 9caeac97d5e):现盘 `--check` verdict=pass(3/3 目标匹配);`--self-test` 9 组全绿;镜像 5/5;退出码 0 通过/1 判红/2 未判定〕〔归:自进化〕
-- [x] ✅(2026-10-25) **O6502 成本熔断**:`scripts/cost-breaker.mjs` + `scripts/data/cost-caps.json`(deploy 4/时·40/日·240min 日、session 3/时·24/日·720min 日,滚动 1h/24h 窗),部署环前置 `--check --kind deploy` 判 3 即软停机留响声、记账腿按本轮墙钟 ≥1min 入账,调度层 `session` 同尺并超限停派。〔证据@2026-10-25/本席(提交 9caeac97d5e):自验 9 组;镜像 4/4;上限上调归人工阀 budget-cap-change〕〔归:自进化〕
-- [x] ✅(2026-10-25) **O6503 影响面隔离与原子回滚**:隔离腿 `scripts/agent-worktree.mjs`(落点根直属 `.worktrees/wt-<名>`、分支 `wt/<名>`,沿 AGENTS §12h 五步;未并入 main 的检出拒绝静默回收,须 `--tag-lost` 先保活),回滚腿 `scripts/green-state.mjs`(`--mark` 由部署环在「部署完成」后记 green sha,`--rollback --apply` 调既有 `ihui-deploy.ps1 -rollbackOnly` 恢复可运行产物;源码面差距如实报,不做 reset --hard)。〔证据@2026-10-25/本席(提交 9caeac97d5e):自验 7 组;镜像 4+5 条;无记号/已在绿色态两种情形均拒绝回退〕〔归:自进化〕
-- [x] ✅(2026-10-25) **O6504 人工阀清单**:`scripts/data/human-gates.json`(自决 4 条 / 人工阀 7 条:密钥·控制台·真机人验·对外口径·历史改写·生产数据删除·预算上调)+ `scripts/human-gates.mjs` 三档判定(0 自决 / 2 安全停机等人 / 1 未判定),`auto-evolve` 每轮前置现读清单并把越权限动作记为**安全停机**而非硬失败。〔证据@2026-10-25/本席(提交 9caeac97d5e):自验 12 组;镜像 5/5;--list 现读两档非空〕〔归:自进化〕
 
 ### 二期 P1 感知与闭环
 - [ ] O6505 (2026-10-25) 需求/异常自动发现器:消费 `api_logs` / Grafana 告警 / 用户反馈入口,由 agent 自动聚类生成可派单改进项写入台账(复用 `plan-tasks` 入口) 〔归:自进化〕
