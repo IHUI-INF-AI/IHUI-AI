@@ -23,7 +23,7 @@
  *   同键多条但读数逐字相同(抽取器重跑只换 `updatedAt` 的那种同义追加)⇒ 照旧正常投影,不制造噪声;
  *   单条记录 ⇒ 输出与改动前 `renderHeader(rec)` 逐字节相同(阳性对照由镜像测试钉住)。
  */
-import { codeSpanRangesOf, insideCodeSpan, stripSidecarHeader } from './plan-task-index.mjs'
+import { locateSidecarHeader, stripSidecarHeader } from './plan-task-index.mjs'
 
 export const MAX = 48
 const OPEN = '〔'
@@ -93,18 +93,17 @@ export function resolveSidecar(records) {
 /** 行 → 标头语义。`malformed` = 看见了但读不回(要人看),`rec=null ∧ malformed=false` = 没有标头。 */
 export function parseHeader(line) {
   const text = String(line ?? '')
-  const head = /^\s*-\s*\[[ xX]\]\s*/.exec(text)
-  if (!head) return { rec: null, malformed: false }
-  const m = /〔([^〕]*)〕/.exec(text)
-  if (!m) return { rec: null, malformed: false }
-  const { spans, undetermined } = codeSpanRangesOf(text)
-  if (!undetermined && insideCodeSpan(spans, m.index, m[0].length))
-    return { rec: null, malformed: false }
-  const body = m[1]
-  if (!body.startsWith(OWNER_PREFIX)) return { rec: null, malformed: false }
+  // 定位单源 = plan-task-index.locateSidecarHeader(strip 与门的 headerOf 同一把尺,§0.6):
+  // 复选框后第一个 codeSpan 外的 `〔归:…〕` 段。这里不再自写一份 `/〔…〕/` 定位。
+  const span = locateSidecarHeader(text)
+  if (!span) return { rec: null, malformed: false }
+  const body = text.slice(span.start + 1, span.end - 1)
   if (body.includes('…')) return { rec: null, malformed: true }
   const fields = { key: null, owner: '', waiting: 'none', blocking: '' }
-  for (const seg of body.split(SEP)) {
+  // 分隔符只在**下一段真像槽名**时才算分隔符:owner 自带 `｜`(如 `A｜B`)若按裸 `｜` 切,
+  // 会切出一个无冒号的段而误报 malformed —— 而那是合法的 owner,不是坏标头。
+  const segSplit = /\｜(?=[^｜〕]{1,4}:)/
+  for (const seg of body.split(segSplit)) {
     const i = seg.indexOf(':')
     if (i < 0) return { rec: null, malformed: true }
     const k = seg.slice(0, i).trim()
@@ -146,5 +145,6 @@ export const __test__ = {
   MAX,
   UNJUDGED_OWNER,
   UNJUDGED_HEADER,
+  locateSidecarHeader,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
