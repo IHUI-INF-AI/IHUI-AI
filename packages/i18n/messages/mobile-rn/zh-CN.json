@@ -249,7 +249,9 @@
     "pubVideo": "发布视频",
     "pubGroup": "发布课程合集",
     "closePreview": "关闭预览",
-    "recentUsed": "最近使用"
+    "recentUsed": "最近使用",
+    "closeDrawer": "关闭抽屉",
+    "shareBoardTitle": "智汇AI社区 - {name}"
   },
   "plaza": {
     "index": {
@@ -286,7 +288,8 @@
       "n4t": "4. 隐私保护 ",
       "n4b": "开发者应当严格保护用户隐私,不得泄露、出售或非法使用用户个人信息。",
       "n5t": "5. 技术标准 ",
-      "n5b": "开发者应当提供符合行业标准的技术服务,确保技术方案的可行性和可靠性。"
+      "n5b": "开发者应当提供符合行业标准的技术服务,确保技术方案的可行性和可靠性。",
+      "searchNeedDesc": "搜索需求或描述"
     }
   },
   "login": {
@@ -333,7 +336,8 @@
     "progressLessons": "已学 {completed}/{total} 节",
     "free": "免费",
     "loadFailed": "加载课程失败",
-    "playError": "播放出错"
+    "playError": "播放出错",
+    "moreTitle": "更多课程"
   },
   "teacher": {
     "list": {
@@ -543,7 +547,8 @@
     "myOrders": "我的订单",
     "editProfile": "编辑资料",
     "notLoggedIn": "未登录",
-    "clickRetry": "点击重试"
+    "clickRetry": "点击重试",
+    "benefitTraderAll": "享受平台全部权益"
   },
   "payResult": {
     "title": "支付结果",
@@ -591,7 +596,9 @@
       "hasbuy": "已购买",
       "monthly": "每月"
     },
-    "recharge": "去充值"
+    "recharge": "去充值",
+    "confirm": "确认支付",
+    "later": "再看看"
   },
   "order": {
     "title": "订单",
@@ -867,7 +874,33 @@
     },
     "voicePlay": "播放语音",
     "voicePause": "暂停语音",
-    "actionRunA11y": "执行动作：{label}"
+    "actionRunA11y": "执行动作：{label}",
+    "toolRunning": "执行中…",
+    "toolOk": "成功",
+    "toolFail": "失败",
+    "diffCollapse": "收起流中 diff 预览",
+    "diffExpand": "展开流中 diff 预览",
+    "imagePreview": "预览图片",
+    "notes": {
+      "loadFailShort": "加载失败",
+      "recordNew": "新建录音"
+    },
+    "thinkingShort": "思考中",
+    "msg": {
+      "thinkingA11y": "收起/展开思考过程",
+      "collapse": "收起",
+      "expand": "展开",
+      "imgA11y": "消息图片，点击预览",
+      "copied": "已复制",
+      "copyCode": "复制代码",
+      "collapseCode": "收起代码",
+      "expandCode": "展开代码",
+      "thinkingNow": "正在思考…",
+      "copy": "复制",
+      "share2": "分享",
+      "agree": "赞同",
+      "disagree": "反对"
+    }
   },
   "settings": {
     "title": "设置",
@@ -905,7 +938,8 @@
     "account": "账号与安全",
     "version": "版本",
     "language": "语言",
-    "theme": "主题"
+    "theme": "主题",
+    "logoutConfirmBody": "确认退出当前账号？"
   },
   "menu": {
     "about": "关于我们",
@@ -1022,7 +1056,16 @@
     "noteCreate": "新建笔记",
     "sectionSettings": "设置",
     "subscriptions": "我的订阅",
-    "settings": "设置"
+    "settings": "设置",
+    "catImage": "图片",
+    "catVideo": "视频",
+    "catCopy": "文案",
+    "catAgent": "智能体",
+    "catRpa": "RPA",
+    "catCode": "编程",
+    "catMusic": "音乐",
+    "catOther": "其他",
+    "catCopyShort": "文案"
   },
   "drawer": {
     "newChat": "新建任务",
@@ -1109,7 +1152,12 @@
     "emptyContent": "暂无内容",
     "add": "添加",
     "panelCollapse": "收起面板",
-    "panelExpand": "展开面板"
+    "panelExpand": "展开面板",
+    "closeOverlay": "关闭弹出层",
+    "loadMore": "加载更多",
+    "user": "用户",
+    "retryShort": "重试",
+    "known": "知道了"
   },
   "network": {
     "offline": "网络已断开,部分功能不可用",
@@ -1136,7 +1184,18 @@
     "chat": {
       "title": "进入对话",
       "message": "即将与「{name}」开始对话"
-    }
+    },
+    "catLearning": "学习",
+    "mainAll": "全部",
+    "mainWriting": "写作",
+    "mainCoding": "编程",
+    "mainOffice": "办公",
+    "mainLearning": "学习",
+    "catDouyin": "抖音運營",
+    "catPrivate": "私域運營",
+    "catContent": "內容創作",
+    "catData": "數據分析",
+    "catAll2": "全部"
   },
   "aiAssistantN8n": {
     "title": "AI 助手",
@@ -1292,7 +1351,13 @@
     "kindAutoContext": "自动检索上下文"
   },
   "developer": {
-    "becomeDeveloper": "成为开发者"
+    "becomeDeveloper": "成为开发者",
+    "title": "开发者入口",
+    "subtitle": "发布智能体,获取收益",
+    "selectService": "请选择所需要的服务",
+    "processing": "处理中...",
+    "openNow": "一键开通",
+    "agreementHint": "开通即表示同意《开发者服务协议》"
   },
   "liveHost": {
     "error": {
@@ -1327,7 +1392,8 @@
     "streamKey": "推流密钥",
     "streamTitle": "直播标题",
     "streamTitlePlaceholder": "请输入直播标题",
-    "title": "主播中心"
+    "title": "主播中心",
+    "productLoading": "加载中..."
   },
   "modelEdit": {
     "error": {
@@ -1383,7 +1449,8 @@
     "operationFailed": "操作失败，请稍后重试",
     "title": "n8n 模型",
     "vendorName": "n8n 工作流",
-    "listView": "列表视图"
+    "listView": "列表视图",
+    "groupBrowse": "分组浏览"
   },
   "modelPlaza": {
     "officialBadge": "智",
@@ -1406,7 +1473,8 @@
     "selectProviderLabel": "选择供应商",
     "title": "模型广场",
     "groupBrowse": "分组浏览",
-    "workflowTab": "工作流"
+    "workflowTab": "工作流",
+    "listView": "列表视图"
   },
   "tokenValue": {
     "recharge": {
@@ -1433,7 +1501,13 @@
     },
     "title": "智汇值",
     "tokenUnit": "智汇值",
-    "totalCost": "总消费"
+    "totalCost": "总消费",
+    "range7d": "7天",
+    "range1m": "一个月",
+    "range1y": "近一年",
+    "rangeAll": "全部",
+    "unitYi": "{v}亿",
+    "unitWan": "{v}万"
   },
   "messageInput": {
     "document": "文档",
@@ -1458,7 +1532,24 @@
     "remarkPlaceholder": "请输入备注",
     "shareNow": "立即分享",
     "title": "分享",
-    "url": "链接"
+    "url": "链接",
+    "brandCommunity": "智汇AI社区",
+    "copiedWx": "已复制链接,请在微信中粘贴分享",
+    "linkCopied": "链接已复制",
+    "copyFailManual": "复制失败,请手动访问 {url}",
+    "sentFriend": "已分享给微信好友",
+    "sentMoments": "已分享到朋友圈",
+    "sheetCloseA11y": "点击关闭分享面板",
+    "toFriendA11y": "分享到微信好友",
+    "toMomentsA11y": "分享到朋友圈",
+    "copyLinkA11y": "复制分享链接",
+    "cancelA11y": "取消分享",
+    "defaultDesc": "来智汇AI社区，一起玩转 AI",
+    "contentDefault": "来看看这个 AI 内容",
+    "okSent": "分享成功",
+    "cancelled": "已取消分享",
+    "fail": "分享失败",
+    "needAlbum": "需要相册权限才能选择图片"
   },
   "vipScreen": {
     "plans": {
@@ -1534,7 +1625,14 @@
     "ctaDesc": "注册即得 1000 积分,全模型免费试用,无需信用卡。",
     "ctaPrimary": "免费注册",
     "ctaSecondary": "查看文档",
-    "complianceTitle": "法律与合规信息"
+    "complianceTitle": "法律与合规信息",
+    "title": "关于",
+    "appName": "应用名称",
+    "version": "版本",
+    "description": "应用介绍",
+    "officialSite": "官方网站",
+    "contactEmail": "联系邮箱",
+    "license": "开源许可"
   },
   "activityDetail": {
     "title": "活动详情",
@@ -1811,7 +1909,10 @@
     "sales": "已售 {count} 件",
     "loadFailed": "加载分销失败",
     "withdrawFailed": "提现失败",
-    "withdrawSuccess": "提现成功"
+    "withdrawSuccess": "提现成功",
+    "unsettled": "待结算",
+    "refunded": "退单",
+    "unknown": "未知"
   },
   "earnCommission": {
     "title": "分佣计划",
@@ -1856,7 +1957,10 @@
     "tabCourse": "课程",
     "tabLive": "直播",
     "tabArticle": "文章",
-    "empty": "暂无收藏"
+    "empty": "暂无收藏",
+    "loadFailed": "加载收藏失败",
+    "deleteTitle": "删除收藏",
+    "deleteFailed": "删除失败"
   },
   "finance": {
     "title": "财务",
@@ -1932,7 +2036,16 @@
   },
   "learnDevelop": {
     "title": "学习开发",
-    "contactLabel": "直接联系李总"
+    "contactLabel": "直接联系李总",
+    "courseTitle": "课程星球",
+    "courseDesc": "热门/精选课程浏览",
+    "planDesc": "查看我的学习计划",
+    "kTitle": "知识星球",
+    "kDesc": "知识内容浏览",
+    "videoTitle": "学习视频",
+    "videoDesc": "最新课程视频",
+    "centerTitle": "学习中心",
+    "centerDesc": "系统化学习路线"
   },
   "liveChat": {
     "title": "直播间互动",
@@ -2126,7 +2239,14 @@
     "studyHours": "学习 {count} 小时",
     "empty": "暂无排行",
     "loadFailed": "加载排行榜失败",
-    "title": "排行榜"
+    "title": "排行榜",
+    "attention": "关注度",
+    "wanSuffix": "{v}万",
+    "pointsUnit": "分",
+    "anonShort": "匿名",
+    "histFallback": "历史会话",
+    "historyBoard": "历史榜单",
+    "visitorName": "排行榜访客"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -3181,7 +3301,29 @@
     "loading": "加载中..."
   },
   "studyIndex": {
-    "title": "AI 视频"
+    "title": "AI 视频",
+    "catAll": "全部",
+    "catDouyin": "抖音运营",
+    "catPrivate": "私域运营",
+    "catContent": "内容创作",
+    "catData": "数据分析",
+    "tipMarquee": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
+    "myCollection": "我的合集",
+    "searchPh": "搜索视频",
+    "loadMoreHint": "加载更多...",
+    "noMoreText": "没有更多了",
+    "emptyVideos": "暂无学习视频",
+    "emptyModels": "暂无模型",
+    "paidCollection": "推荐课程合集",
+    "latestCourses": "最新课程",
+    "viewMoreModels": "查看更多模型",
+    "viewMoreCourses": "查看更多课程",
+    "tagPaid": "付费",
+    "tagFree": "免费",
+    "publishVidBtn": "发布视频",
+    "authorFallback": "智汇社区-官方",
+    "receiveFreeTitle": "领取免费资料",
+    "receiveFreeBody": "链接已复制到剪贴板,可在浏览器粘贴打开"
   },
   "studyProgress": {
     "title": "学习进度",
@@ -3259,7 +3401,10 @@
     "joinedAt": "加入时间",
     "contact": "联系",
     "viewOrders": "查看订单",
-    "empty": "暂无成员信息"
+    "empty": "暂无成员信息",
+    "loadFail": "加载失败，请重试",
+    "noPhone": "该成员未提供手机号",
+    "callFail": "无法拨号，请检查设备"
   },
   "vip": {
     "benefitList": {
@@ -3282,7 +3427,27 @@
     "orderCreated": "订单已创建",
     "purchase": "开通会员",
     "purchaseFailed": "开通失败",
-    "title": "会员中心"
+    "title": "会员中心",
+    "month": "包月",
+    "quarter": "包季",
+    "halfYear": "半年",
+    "year": "包年",
+    "renewM": "每月自动续费，可随时取消",
+    "renewQ": "每季自动续费，节省 25%",
+    "renewY": "每年自动续费，最划算",
+    "onceN": "一次性购买，{n} 天有效",
+    "continuous": "连续{c}",
+    "discountN": "{n} 折",
+    "trial7": "7 天试用",
+    "lvMonth": "月度会员",
+    "lvQuarter": "季度会员",
+    "lvYear": "年度会员",
+    "benefitsA11y": "会员权益介绍",
+    "traderA11y": "操盘手权益介绍",
+    "advisorA11y": "私人顾问介绍",
+    "popTitle": "VIP 会员权益",
+    "popSub": "解锁全部高级内容与专属服务",
+    "viewNow": "立即查看"
   },
   "vipBenefit": {
     "title": "会员权益",
@@ -3332,7 +3497,23 @@
     "price": "价格",
     "rating": "评分",
     "startChat": "开始对话",
-    "uses": "使用次数"
+    "uses": "使用次数",
+    "catAll": "All",
+    "catDouyin": "Douyin ops",
+    "catPrivate": "Private ops",
+    "catContent": "Content",
+    "catData": "Data",
+    "catWriting": "Writing",
+    "catCoding": "Coding",
+    "catOffice": "Office",
+    "catLearning": "Learning",
+    "mainAll": "All",
+    "mainWriting": "Writing",
+    "mainCoding": "Coding",
+    "mainOffice": "Office",
+    "mainLearning": "Learning",
+    "vendorOther": "Other",
+    "copyOkToast": "Link copied to clipboard"
   },
   "agentMarket": {
     "empty": "暂无智能体",
@@ -3385,7 +3566,8 @@
     "publish": "发布",
     "subtitle": "我的 AIGC 作品",
     "title": "AIGC 作品",
-    "videoBadge": "视频"
+    "videoBadge": "视频",
+    "catDoc": "文档"
   },
   "announcement": {
     "empty": "暂无公告",
@@ -3695,7 +3877,9 @@
       "order": "订单",
       "social": "互动",
       "system": "系统"
-    }
+    },
+    "conversationFallback": "对话",
+    "searchPh": "搜索聊天记录/联系人/服务号"
   },
   "messageDirect": {
     "empty": "暂无私信",
@@ -3775,7 +3959,16 @@
     "paidAt": "支付时间",
     "product": "商品",
     "status": "订单状态",
-    "title": "订单详情"
+    "title": "订单详情",
+    "contactSeller": "联系卖家",
+    "contactBody": "如有问题请联系客服微信：aizhs_kefu",
+    "payNow": "立即支付",
+    "buyAgain": "再次购买",
+    "paidTitle": "购买成功",
+    "paidSub": "请仔细阅读购买须知，享受您的权益",
+    "paidLine1": "订单已支付成功，请妥善保管凭证",
+    "paidLine2": "如需退款请在 7 天内申请",
+    "paidLine3": "专属客服 24 小时在线服务"
   },
   "pointHistory": {
     "balance": "积分余额",
@@ -3813,7 +4006,10 @@
     "sectionThirdParty": "第三方共享",
     "sectionThirdPartyBody": "我们不会出售您的个人信息。在法律要求或为您提供服务所必需的情况下,我们可能与可信合作伙伴共享必要的信息,但我们会确保其遵守同等严格的数据保护标准。",
     "subtitle": "我们重视您的隐私",
-    "title": "隐私政策"
+    "title": "隐私政策",
+    "mustAgree": "需同意隐私政策才能使用本应用",
+    "disagreeA11y": "不同意隐私政策",
+    "agreeA11y": "同意隐私政策"
   },
   "refundDetail": {
     "amount": "退款金额",
@@ -4225,7 +4421,10 @@
     "knowledgePlanet": "知识星球"
   },
   "knowledgePlanet": {
-    "title": "知识星球"
+    "title": "知识星球",
+    "newOfficial": "官方资讯",
+    "newCommunity": "星球社区",
+    "enter": "进入星球"
   },
   "knowledgeRag": {
     "title": "RAG 知识库",
@@ -4341,7 +4540,11 @@
       "empty": "暂无帖子,快来发布第一条吧",
       "loadingMore": "加载中…",
       "noMore": "没有更多了",
-      "anonymous": "匿名用户"
+      "anonymous": "匿名用户",
+      "loading": "加载中…",
+      "justNow": "刚刚",
+      "minutesAgo": "{n} 分钟前",
+      "hoursAgo": "{n} 小时前"
     }
   },
   "circle": {
@@ -4571,7 +4774,12 @@
     "vividTail": "，马上就好"
   },
   "notification": {
-    "pushBannerTitle": "新消息"
+    "pushBannerTitle": "新消息",
+    "justNow": "刚刚",
+    "minAgo": "{n}分钟前",
+    "hourAgo": "{n}小时前",
+    "newTitle": "新消息",
+    "markAllRead": "全部已读"
   },
   "ai": {
     "pane": {
@@ -4721,7 +4929,11 @@
     "resend": "重新发送",
     "confirm": "确定",
     "closeA11y": "关闭验证码弹窗",
-    "inputA11y": "验证码输入"
+    "inputA11y": "验证码输入",
+    "noPhoneBound": "未绑定手机号",
+    "bindFirst": "请先绑定手机号后再验证",
+    "phoneOk": "手机号验证成功",
+    "codeWrong": "验证码错误，请重试"
   },
   "patrol": {
     "title": "主动巡逻",
@@ -5079,7 +5291,15 @@
     "addTitle": "添加账号",
     "adding": "添加中…",
     "deleteConfirm": "确认删除 {name}？",
-    "summary": "共 {total} 个账号 · 已启用 {enabled}"
+    "summary": "共 {total} 个账号 · 已启用 {enabled}",
+    "add": "添加账号",
+    "provider": "平台",
+    "name": "名称",
+    "cancel": "取消",
+    "loading": "加载中…",
+    "confirmDelete": "确认删除",
+    "addSuccess": "账号已添加",
+    "loginRequired": "登录后管理你的个人号池"
   },
   "checkinAssistant": {
     "title": "签到助手",
@@ -5111,10 +5331,19 @@
     "unknown": "未知错误",
     "deleteTitle": "删除素材",
     "deleteBody": "确认删除「{title}」？",
-    "detailLabel": "素材详情"
+    "detailLabel": "素材详情",
+    "btnDetail": "详情"
   },
   "topup": {
-    "failDefault": "充值未完成，请稍后重试"
+    "failDefault": "充值未完成，请稍后重试",
+    "faqTitle": "常见问题",
+    "faqContent": "关于充值到账与订单的常见问题",
+    "faqOk": "我知道了",
+    "tip1": "充值成功后智汇值一般实时到账，如余额未更新，可在「我的智汇值」页下拉刷新",
+    "tip2": "微信扣款成功但停留在结果页时，请先到订单列表查看订单状态，请勿重复充值",
+    "tip3": "订单编号是查询与售后的重要凭证，请妥善保留",
+    "tip4": "如长时间未到账，请联系客服并提供订单编号与充值时间",
+    "tip5": "充值金额不支持退款与转让"
   },
   "devEnterCover": {
     "priceAbnormal": "套餐价格异常，请稍后重试"
@@ -5136,5 +5365,621 @@
   },
   "fenlei": {
     "closeOverlay": "关闭分类弹层"
+  },
+  "userPublic": {
+    "title": "他人主页",
+    "notFound": "用户不存在",
+    "follow": "关注",
+    "following": "已关注",
+    "message": "发消息",
+    "followingCount": "关注",
+    "followersCount": "粉丝",
+    "favoritesCount": "收藏",
+    "joined": "加入于"
+  },
+  "courseSwiper": {
+    "tabHotIntro": "爆款入门课程",
+    "tabHotPick": "爆款精选课程"
+  },
+  "llmSettings": {
+    "title": "模型服务商",
+    "empty": "还没有配置服务商",
+    "emptyDesc": "点击右上角向导,4 步配置 API Key",
+    "enabled": "已启用",
+    "disabled": "已停用"
+  },
+  "byok": {
+    "fab": "快速配置",
+    "title": "一键配置向导",
+    "step1Title": "选择厂商",
+    "step2Title": "填写 API Key",
+    "step3Title": "验证密钥",
+    "step4Title": "完成",
+    "keyPlaceholder": "粘贴 API Key(sk-…)",
+    "showKey": "显示密钥",
+    "hideKey": "隐藏密钥",
+    "verify": "验证",
+    "next": "下一步",
+    "activate": "激活并创建",
+    "verifyIdle": "待验证",
+    "verifying": "正在验证…",
+    "verifySuccess": "验证通过",
+    "verifyFailed": "验证未通过",
+    "doneTitle": "配置完成",
+    "doneDesc": "服务商已创建,平台抽成已按规则激活"
+  },
+  "pay": {
+    "alipayNotOpen": "支付宝支付暂未开通，请选择微信支付"
+  },
+  "popularCourses": {
+    "tabHotIntro": "爆款入门",
+    "tabHotPick": "爆款精选",
+    "lessonsCount": "· {n} 课时",
+    "enrolled": "{n} 人在学"
+  },
+  "modelConfig": {
+    "framesUnit": "{n} 帧",
+    "inputPrefix": "请输入{desc}"
+  },
+  "bottomPopup": {
+    "selectLevel": "选择 {name}",
+    "payA11y": "关闭支付弹窗"
+  },
+  "purchaseNotice": {
+    "title": "赚取佣金",
+    "subtitle": "加入我们的推广计划，获得额外收入",
+    "cta": "前往开启会员",
+    "closeA11y": "关闭弹窗"
+  },
+  "eduShop": {
+    "title": "教育商城",
+    "courses": "课程商品",
+    "orders": "我的订单",
+    "free": "免费",
+    "buy": "购买",
+    "lessons": "{n} 课时",
+    "loadMore": "加载更多",
+    "emptyCourses": "暂无在售课程",
+    "emptyOrders": "暂无订单",
+    "cancelOrder": "取消订单",
+    "cancelConfirmTitle": "取消订单",
+    "cancelConfirmDesc": "确定取消该订单吗?",
+    "orderCreated": "订单已创建",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "refunded": "已退款"
+    }
+  },
+  "developerLimits": {
+    "title": "接口限额",
+    "item": "指标",
+    "usage": "用量"
+  },
+  "developerWebhooks": {
+    "title": "Webhooks",
+    "url": "地址",
+    "status": "状态",
+    "events": "事件",
+    "lastTriggered": "最近触发",
+    "active": "启用",
+    "disabled": "停用",
+    "never": "未触发",
+    "delete": "删除",
+    "deleteConfirmTitle": "删除 Webhook",
+    "deleteConfirmDesc": "确定删除该 Webhook 吗?"
+  },
+  "tabBar": {
+    "market": "AI应用商店",
+    "plaza": "广场",
+    "chat": "智汇AI",
+    "feed": "动态",
+    "me": "我的"
+  },
+  "agentShop": {
+    "use": "使用 {n}",
+    "collect": "收藏 {n}",
+    "like": "点赞 {n}",
+    "likeA11y": "{name} 点赞",
+    "collectA11y": "{name} 收藏",
+    "catEmpty": "该分类下暂无智能体"
+  },
+  "career": {
+    "fillField": "请填写：{name}",
+    "submitFail": "提交失败，请稍后重试",
+    "doneTitle": "提交成功",
+    "doneBody": "问卷已提交，AI 学业建议生成后可在本页查看。"
+  },
+  "pwd": {
+    "oldRequired": "请输入旧密码",
+    "minLen": "新密码至少 {n} 位",
+    "okTitle": "修改成功",
+    "okBody": "密码已更新",
+    "failRetry": "修改失败",
+    "retryLater": "请稍后重试",
+    "netFail": "网络异常，请稍后重试"
+  },
+  "study": {
+    "learnA11y": "学习发展",
+    "careerA11y": "AI 学业规划"
+  },
+  "developerNotifications": {
+    "title": "通知偏好",
+    "apiError": "API 异常通知",
+    "quotaWarning": "配额预警",
+    "webhookFailure": "Webhook 失败通知",
+    "weeklyReport": "每周报告",
+    "versionUpdate": "版本更新",
+    "billingReminder": "账单提醒"
+  },
+  "developerSettings": {
+    "title": "开发者设置",
+    "sandboxAutoRun": "沙箱自动运行",
+    "sandboxAutoRunDesc": "沙箱代码执行完成后自动运行",
+    "errorReport": "错误上报",
+    "errorReportDesc": "自动上报接口错误便于排查"
+  },
+  "globalBox": {
+    "collapse": "收起浮窗",
+    "expand": "展开浮窗",
+    "earn": "赚米",
+    "support": "客服",
+    "feedback": "反馈"
+  },
+  "hand": {
+    "memberPurchase": "会员购买"
+  },
+  "ia": {
+    "remainingPoints": "剩余智汇值",
+    "recharge": "充值"
+  },
+  "uiCard": {
+    "inviteCodeBody": "邀请码:{code}\n(长按复制)",
+    "userGreet": "AI IHUI丨{name}",
+    "growthA11y": "成长值进度条,点击查看等级介绍",
+    "vipBenefitBody": "您当前为 VIP 会员，享受专属权益。继续积累成长值可升级至更高等级。",
+    "normalBenefitBody": "您当前为普通会员，升级 VIP 可享受更多权益。"
+  },
+  "earn": {
+    "tabToday": "今日",
+    "tabMonth": "本月",
+    "tabTotal": "累计",
+    "tabDayShort": "日",
+    "tabMonthShort": "月",
+    "tabTotalShort": "总",
+    "promoOrders": "{tab}推广订单",
+    "teamNew": "{tab}团队新增人数",
+    "withdrawAmount": "{tab}提现金额"
+  },
+  "developerConversations": {
+    "title": "中转会话记录",
+    "title2": "会话",
+    "model": "模型",
+    "messages": "消息",
+    "tokens": "Tokens",
+    "cost": "费用(元)",
+    "lastActive": "最近活跃"
+  },
+  "modelsPrompts": {
+    "title": "提示词库",
+    "name": "名称",
+    "desc": "描述",
+    "version": "版本",
+    "updated": "更新时间"
+  },
+  "voice": {
+    "cam": "相机",
+    "album": "相册",
+    "file": "文件",
+    "closeImgMenu": "关闭图片菜单",
+    "addImage": "添加图片",
+    "holdToTalk": "按住说话",
+    "clearResult": "清除结果",
+    "releaseEnd": " 松开结束",
+    "transcribing": "转写中…",
+    "realStart": "开始实时语音",
+    "realConnecting": "连接中...",
+    "realLive": "实时语音进行中",
+    "reconnect": "重新连接",
+    "realFailDefault": "连接失败,请重试",
+    "inputDone": "语音输入完成"
+  },
+  "material": {
+    "cText": "文本内容",
+    "cImage": "图片内容",
+    "cVideo": "视频内容",
+    "cAudio": "音频内容",
+    "cDefault": "素材内容",
+    "eText": "暂无文本内容",
+    "eImage": "暂无图片内容",
+    "eVideo": "暂无视频内容",
+    "eAudio": "暂无音频素材",
+    "eDefault": "暂无内容",
+    "detailA11y": "查看详情"
+  },
+  "article": {
+    "commentPh": "写下你的评论...",
+    "loadCommentsFail": "评论加载失败",
+    "commentFail": "评论失败",
+    "send": "发送",
+    "commentFailRetry": "评论失败，请重试"
+  },
+  "comment": {
+    "send": "发表评论",
+    "empty": "暂无评论,快来抢沙发",
+    "close": "关闭评论"
+  },
+  "businesscard": {
+    "unnamed": "未命名",
+    "loadFailBody": "加载失败",
+    "shareWechat": "微信好友",
+    "shareMoments": "朋友圈",
+    "needAlbum": "需要相册权限才能选择名片图片",
+    "uploadFail": "名片图片上传失败",
+    "okTitle": "成功",
+    "updated": "名片已更新",
+    "submitFail": "名片提交失败",
+    "customFail": "名片定制失败，请重试"
+  },
+  "model": {
+    "type0": "全能",
+    "type1": "对话",
+    "type2": "图片",
+    "type3": "视频",
+    "type4": "音频",
+    "type5": "数字人",
+    "agentMode": "Agent模式"
+  },
+  "aiCard": {
+    "tFreeVip": "会员免费",
+    "tFreeUse": "免费使用",
+    "tFreeLimit": "限时免费",
+    "tBought": "已购买",
+    "tMonth": "包月",
+    "btnWarn": "警告",
+    "btnDislike": "踩",
+    "btnFav": "收藏",
+    "btnInfo": "信息",
+    "btnShare": "分享",
+    "officialFallback": "智汇社区-官方",
+    "buyTime": "购买时间：{t0}",
+    "expireTime": "　到期时间：{t1}"
+  },
+  "viptrader": {
+    "productName": "VIP 操盘手",
+    "teamCount": "团队人数",
+    "activeTrend": "活跃 {n}",
+    "totalCommission": "累计佣金",
+    "rankTrend": "排名 #{n}",
+    "monthIncome": "本月收益",
+    "withdrawnTrend": "已提现 {v}",
+    "pendingIncome": "待结算",
+    "frozenTrend": "冻结 {v}",
+    "myInviteCode": "我的邀请码",
+    "invitedTrend": "已邀请 {n} 人",
+    "distLevel": "分销等级",
+    "rateTrend": "佣金比例 {n}%"
+  },
+  "contact": {
+    "phoneLabel": "电话：",
+    "wechatLabel": "微信："
+  },
+  "account": {
+    "phoneRequired": "请输入手机号",
+    "phoneInvalid": "请输入正确的手机号",
+    "smsSent": "验证码已发送",
+    "smsFailRetry": "验证码发送失败，请稍后重试",
+    "smsRequired": "请输入短信验证码",
+    "smsMin": "验证码至少 4 位",
+    "confirmHint": "请输入「{s}」确认注销",
+    "failRetry": "提交失败，请稍后重试",
+    "okTitle": "注销成功",
+    "okBody": "您的账号已注销"
+  },
+  "subPkg": {
+    "devTitle": "开发者入驻",
+    "devDesc": "发布模型与应用",
+    "plazaTitle": "AI 需求广场",
+    "plazaDesc": "需求对接平台",
+    "topupTitle": "充值中心",
+    "topupDesc": "智汇值充值",
+    "homeTitle": "学习首页",
+    "homeDesc": "学习进度与计划",
+    "groupTitle": "AI 群组",
+    "groupDesc": "多 Agent 协作",
+    "aigcTitle": "AIGC 创作",
+    "aigcDesc": "AI 内容生成",
+    "courseDesc": "探索精选课程"
+  },
+  "annot": {
+    "penThin": "细",
+    "penMid": "中",
+    "penThick": "粗",
+    "closeA11y": "关闭标注",
+    "imageA11y": "待标注图片",
+    "composeA11y": "标注合成底图",
+    "penToolA11y": "画笔工具",
+    "textToolA11y": "文字工具",
+    "undoA11y": "撤销上一步",
+    "clearA11y": "清空标注",
+    "colorA11y": "切换画笔颜色",
+    "penLabel": "画笔{v}",
+    "markPh": "输入标记文字",
+    "markInputA11y": "标记文字输入",
+    "markAddA11y": "添加标记文字",
+    "markDropA11y": "放弃标记文字",
+    "modelEditSaveA11y": "保存标注"
+  },
+  "lp": {
+    "member": "会员",
+    "trader": "操盘手",
+    "normal": "普通用户",
+    "closeA11y": "关闭登录弹窗",
+    "oneLoginFail": "运营商一键登录失败，请手动输入手机号",
+    "nickRequired": "请输入昵称",
+    "nickTooLong": "昵称过长，不能超过 8 个字符",
+    "phoneInvalid": "请输入正确的手机号码",
+    "changeAvatarA11y": "更换头像",
+    "usernamePh": "请输入用户名",
+    "upgradeA11y": "立即升级",
+    "phonePh": "请输入电话号码",
+    "bindA11y": "绑定手机号",
+    "rebind": "重绑",
+    "bind": "绑定",
+    "saveA11y": "保存信息",
+    "logoutA11y": "登出"
+  },
+  "need": {
+    "titleRequired": "请输入需求标题",
+    "titleMin2": "需求标题至少 2 个字符",
+    "descRequired": "请输入需求描述",
+    "descMin": "需求描述至少 {n} 个字符",
+    "priceLowRequired": "请输入有效的起步价",
+    "priceHighRequired": "请输入有效的最高价",
+    "priceOrder": "起步价不能高于最高价",
+    "priceMin100": "起步价不能低于 100 元",
+    "contactRequired": "请输入联系方式",
+    "timeRequired": "请设置任务截止时间",
+    "timeInvalid": "截止时间格式无效",
+    "timePast": "截止时间必须晚于当前时间",
+    "cycleRequired": "请设置有效的开发周期",
+    "publishedTitle": "提交成功",
+    "publishedBody": "需求已发布，稍后将在广场展示",
+    "okBtn": "好的",
+    "submitFail": "提交失败，请稍后重试",
+    "netFail": "网络异常，请稍后重试",
+    "cycleUnitWeek": "周"
+  },
+  "news": {
+    "catAi": "人工智能",
+    "catMl": "机器学习",
+    "catCv": "计算机视觉",
+    "catNlp": "自然语言",
+    "catChip": "AI 芯片",
+    "catRec": "智能推荐",
+    "title": "AI资讯",
+    "anonAuthor": "佚名",
+    "netFail": "网络异常"
+  },
+  "iaa": {
+    "expandFab": "展开提问输入",
+    "removeAttach": "删除附件",
+    "stop": "停止",
+    "collapseArea": "收起输入区",
+    "holdAsk": "按住说出你的问题",
+    "zoomOut": "缩小输入框",
+    "zoomIn": "放大输入框",
+    "switchKeyboard": "切换到键盘",
+    "switchVoice": "切换到语音",
+    "holdEnd": "按住说话，松开结束",
+    "addFile": "添加图片或文件",
+    "addParam": "添加参数图片"
+  },
+  "bab": {
+    "camera": "相机",
+    "album": "相册",
+    "localFile": "本地文件",
+    "wxFile": "微信文件",
+    "knowledge": "知识库",
+    "memory": "记忆",
+    "pickModel": "选择模型",
+    "modelA11y": "模型：{name}",
+    "modelConfig": "模型配置",
+    "voiceInput": "语音输入",
+    "feature2": "功能",
+    "source": "来源",
+    "enlarge": "放大",
+    "agentAssist": "智能体辅"
+  },
+  "eduAttendance": {
+    "title": "考勤管理",
+    "student": "学生",
+    "statusTitle": "状态",
+    "checkIn": "签到",
+    "checkOut": "签退",
+    "remark": "备注",
+    "status": {
+      "present": "正常",
+      "late": "迟到",
+      "absent": "缺勤",
+      "leave": "请假"
+    }
+  },
+  "eduGrades": {
+    "title": "成绩管理",
+    "student": "学生",
+    "subject": "科目",
+    "exam": "考试",
+    "score": "分数",
+    "date": "日期"
+  },
+  "toolbar": {
+    "svcTraffic": "流量运营陪跑",
+    "svcDevice": "一站式设备应用",
+    "svcOther": "AI 其他技术服务",
+    "aiImage": "AI 图片创作",
+    "aiImageD": "轻松创作图片",
+    "aiVideo": "AI 视频创作",
+    "aiVideoD": "轻松创作视频",
+    "aiCopy": "AI 文案创作",
+    "aiCopyD": "轻松创作文案",
+    "aiClip": "AI 自动剪辑",
+    "aiClipD": "轻松创作剪辑",
+    "aiLive": "AI 直播",
+    "aiLiveD": "AI 直播服务",
+    "aiAvatar": "AI 数字人",
+    "aiAvatarD": "制作数字人",
+    "more2": "更多",
+    "viewMoreA11y": "查看更多 AI Agent 应用",
+    "oneClickA11y": "独家一键生成运营内容",
+    "customA11y": "AI 定制服务"
+  },
+  "confirm": {
+    "defaultCancel": "取消",
+    "defaultOk": "确认",
+    "payFmt": "立即支付 ¥{v}"
+  },
+  "sr": {
+    "closeA11y": "点击关闭",
+    "firstBonus": "首次分享成功，获得 {n} 智汇值奖励",
+    "inviteNote": "邀请好友加入智汇AI社区，注册成功后双方均可再获智汇值",
+    "claimA11y": "领取 {n} 智汇值",
+    "rewardUnit": " 智汇值",
+    "footnote": "智汇值可用于兑换模型算力、会员权益等",
+    "claimBtn": "领取 {n} 智汇值"
+  },
+  "dist": {
+    "noInviteCode": "暂无邀请码",
+    "linkCopied": "已复制邀请链接",
+    "inviteTitle": "邀请你加入 AI 智汇社",
+    "shared": "已分享",
+    "shareFail": "分享失败，请重试",
+    "qrNotReady": "二维码未就绪，请稍后重试",
+    "needAlbum": "未获得相册权限，无法保存",
+    "savedAlbum": "已保存到相册",
+    "saveFail": "保存失败，请稍后重试",
+    "teamCompany": "公司团队",
+    "teamCompanyD": "查看我的公司团队",
+    "teamAi": "AI 团队",
+    "teamAiD": "查看智能体团队",
+    "card": "我的名片",
+    "cardD": "查看我的个人信息",
+    "qr": "我的二维码",
+    "qrD": "推广专属二维码",
+    "orders": "分销订单",
+    "ordersD": "查看我的分销订单",
+    "devSoon": "功能开发中",
+    "dealer": "分销商",
+    "earningsLabel": "分销收益概览",
+    "shareQrA11y": "分享二维码",
+    "withdrawDetail": "提现详情",
+    "copyLinkA11y": "复制邀请链接",
+    "saveQrA11y": "保存到相册",
+    "saving": "保存中...",
+    "shareFriendA11y": "分享给好友"
+  },
+  "eduParent": {
+    "title": "家长端",
+    "child": "孩子",
+    "relationship": "关系",
+    "statusTitle": "状态",
+    "status": {
+      "pending": "待确认",
+      "confirmed": "已确认",
+      "active": "生效",
+      "rejected": "已拒绝",
+      "cancelled": "已解除"
+    },
+    "chooseView": "选择查看内容"
+  },
+  "eduParentBind": {
+    "title": "绑定管理",
+    "student": "学生",
+    "created": "申请时间",
+    "confirm": "确认绑定",
+    "reject": "拒绝",
+    "delete": "删除",
+    "actionTitle": "绑定操作"
+  },
+  "eduEnrollment": {
+    "title": "班级",
+    "className": "班级",
+    "grade": "年级"
+  },
+  "eduSchedule": {
+    "title": "孩子课表",
+    "weekdayTitle": "星期",
+    "course": "课程",
+    "teacher": "教师",
+    "time": "时段",
+    "classroom": "教室",
+    "weekday": {
+      "mon": "周一",
+      "tue": "周二",
+      "wed": "周三",
+      "thu": "周四",
+      "fri": "周五",
+      "sat": "周六",
+      "sun": "周日"
+    },
+    "title2": "校园课表"
+  },
+  "eduChildAttendance": {
+    "title": "孩子考勤",
+    "date": "日期"
+  },
+  "eduChildGrades": {
+    "title": "孩子成绩"
+  },
+  "eduChildMeals": {
+    "title": "孩子餐食",
+    "date": "日期",
+    "mealType": "餐类",
+    "dish": "菜品",
+    "ingredients": "食材",
+    "nutrition": "营养"
+  },
+  "eduChildBills": {
+    "title": "孩子账单",
+    "className": "班级",
+    "term": "学期",
+    "total": "总额",
+    "paid": "已付",
+    "arrears": "欠费",
+    "nextDue": "下次到期"
+  },
+  "eduChildStudyPlans": {
+    "title": "学习计划",
+    "title2": "计划",
+    "planType": "类型",
+    "range": "周期",
+    "desc": "说明"
+  },
+  "eduFinance": {
+    "title": "缴费记录",
+    "student": "学生",
+    "className": "班级",
+    "fee": "费用",
+    "amount": "金额(元)",
+    "date": "缴费日期",
+    "status": {
+      "paid": "已缴",
+      "success": "成功",
+      "refunded": "已退",
+      "pending": "待确认"
+    }
+  },
+  "eduMeal": {
+    "title": "餐次模板",
+    "name": "模板名"
+  },
+  "eduScheduling": {
+    "title": "教师排班时段",
+    "teacher": "教师",
+    "availability": "可用性",
+    "available": "可用",
+    "busy": "已占"
   }
 }
