@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 // 权限双轴唯一真源(79 号票第一刀,2026-10-01 立):sandbox_mode × approval_policy + config profiles。
 //
 // 一手取证(2026-10-01,多源交叉一致,源码级):
@@ -30,23 +29,14 @@
 import type { PermissionModeId } from './permission-mode.js'
 
 /** 沙箱轴(codex SandboxMode,kebab)。默认 read-only:只能读,写文件/联网被 OS 级沙箱拦。 */
-export const SANDBOX_MODES = [
-  'read-only',
-  'workspace-write',
-  'danger-full-access',
-] as const
+export const SANDBOX_MODES = ['read-only', 'workspace-write', 'danger-full-access'] as const
 
 export type SandboxModeId = (typeof SANDBOX_MODES)[number]
 
 export const SANDBOX_MODE_DEFAULT: SandboxModeId = 'read-only'
 
 /** 审批轴(codex AskForApproval)。默认 on-request:由模型决定何时升级询问。 */
-export const APPROVAL_POLICIES = [
-  'untrusted',
-  'on-failure',
-  'on-request',
-  'never',
-] as const
+export const APPROVAL_POLICIES = ['untrusted', 'on-failure', 'on-request', 'never'] as const
 
 export type ApprovalPolicyId = (typeof APPROVAL_POLICIES)[number]
 
@@ -76,9 +66,7 @@ export interface AxisPair {
 }
 
 /** Codex 官方 approval_presets 三档(2026-10-01 取证)。键用 camelCase,值两轴齐发。 */
-export const APPROVAL_PRESETS: Readonly<
-  Record<'readOnly' | 'auto' | 'fullAccess', AxisPair>
-> = {
+export const APPROVAL_PRESETS: Readonly<Record<'readOnly' | 'auto' | 'fullAccess', AxisPair>> = {
   readOnly: { sandboxMode: 'read-only', approvalPolicy: 'on-request' },
   auto: { sandboxMode: 'workspace-write', approvalPolicy: 'on-request' },
   fullAccess: { sandboxMode: 'danger-full-access', approvalPolicy: 'never' },
@@ -102,6 +90,179 @@ export const GRANULAR_APPROVAL_KEYS = [
 ] as const
 
 export type GranularApprovalKey = (typeof GRANULAR_APPROVAL_KEYS)[number]
+
+/**
+ * granular 审批配置的取值形态(2026-10-25 运行时接线补)。
+ *
+ * 语义按 Codex 取证原文:**字段为 false 时自动拒绝而非询问**,故缺省键一律按
+ * `false`(更严一侧)结算 —— 只写 `{ sandbox_approval: true }` 的档案在 rules /
+ * skill / permissions / mcp 四类上自动拒绝,这是"没写 = 不许问"的 fail-closed 方向。
+ */
+export type GranularApprovalConfig = Partial<Record<GranularApprovalKey, boolean>>
+
+/** approval_policy 的完整取值形态:字符串档位,或 granular 对象形态策略(Codex AskForApproval)。 */
+export type ApprovalPolicySpec = ApprovalPolicyId | { granular: GranularApprovalConfig }
+
+/**
+ * 工具侧的粗粒度类别 —— 判定面的**唯一输入维度**(不含任何具体工具名)。
+ *
+ * 为什么需要这一层:双轴是跨语言的权限契约,不能认识 `write_file` / `run_command` 这类
+ * 端内工具名;端内只做"工具名/危险级 → 类别"的映射,判定本身留在本注册表,
+ * 两侧共用一份(§0.6,第二份判定必然漂移)。
+ */
+export const AXIS_TOOL_KINDS = ['read', 'write', 'command', 'skill', 'mcp'] as const
+
+export type AxisToolKind = (typeof AXIS_TOOL_KINDS)[number]
+
+/**
+ * granular 键 → 它管辖的工具类别(granular 语义到运行时的**唯一定义处**)。
+ *
+ * 映射依据(逐条对齐 Codex GranularApprovalConfig 的键名语义,不发明):
+ * - `sandbox_approval`:为"越出沙箱"而发起的审批 ⇒ 命令类;
+ * - `rules`:规则面(execpolicy/权限规则)命中的审批 ⇒ 写入类(规则面覆盖文件与命令,
+ *   但命令另有 sandbox_approval,写入类没有第二道键,取更严使其也受 rules 约束);
+ * - `skill_approval`:技能工具;
+ * - `request_permissions`:通用的"请求权限"审批 ⇒ 写入类(没有更细类别的兜底档);
+ * - `mcp_elicitations`:MCP 侧的 elicit 交互。
+ * 一个类别可被多个键管辖时**取更严**(任一键为 false 即拒绝),不取"任一为 true 即放行"。
+ */
+export const GRANULAR_APPROVAL_TOOL_KIND: Readonly<Record<GranularApprovalKey, AxisToolKind>> = {
+  sandbox_approval: 'command',
+  rules: 'write',
+  skill_approval: 'skill',
+  request_permissions: 'write',
+  mcp_elicitations: 'mcp',
+}
+
+/** granular 对象归一:键必须在 GRANULAR_APPROVAL_KEYS 内、值必须是 boolean;否则 null(不猜)。 */
+export function normalizeGranularApproval(raw: unknown): GranularApprovalConfig | null {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const rec = raw as Record<string, unknown>
+  const out: GranularApprovalConfig = {}
+  for (const [k, v] of Object.entries(rec)) {
+    if (!(GRANULAR_APPROVAL_KEYS as readonly string[]).includes(k)) return null
+    if (typeof v !== 'boolean') return null
+    out[k as GranularApprovalKey] = v
+  }
+  return out
+}
+
+/**
+ * approval_policy 全形态归一:字符串走成员∪别名,对象只认 `{ granular: {...} }`。
+ * 认不出返回 null —— 调用方必须显式处理(不得静默当默认档)。
+ */
+export function normalizeApprovalPolicySpec(raw: unknown): ApprovalPolicySpec | null {
+  if (typeof raw === 'string') return normalizeApprovalPolicy(raw)
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const rec = raw as Record<string, unknown>
+  const granular = normalizeGranularApproval(rec.granular)
+  if (granular === null) return null
+  return { granular }
+}
+
+/** 轴闸的三态裁决(与 CLI 的 permission_denied 分流:deny 直接拒,ask 进人工确认,allow 放行)。 */
+export type AxisGateDecision = 'allow' | 'ask' | 'deny'
+
+export interface AxisGateInput {
+  /** 沙箱轴;非法/缺失值按更严一侧(read-only)结算并在 reason 点名。 */
+  sandboxMode: SandboxModeId | string | null | undefined
+  /** 审批轴;非法/缺失值按更严一侧(untrusted)结算并在 reason 点名。 */
+  approvalPolicy: ApprovalPolicySpec | string | null | undefined
+  toolKind: AxisToolKind
+}
+
+export interface AxisGateResult {
+  decision: AxisGateDecision
+  /** 机器可读的判定依据(ASCII,稳定字面量;测试与审计读它,不读人话)。 */
+  reason: string
+  /** deny/ask 时给用户与模型的下一步出路(可执行的那一条,不空喊"被拒绝")。 */
+  hint?: string
+}
+
+/** read-only 档的出路:直接点名配置键与当前唯一默认源,不让人去翻文档。 */
+const READ_ONLY_HINT =
+  'set sandbox_mode=workspace-write (settings.json sandboxMode) or pick a wider sandbox profile to allow this'
+
+/** approval 闸的出路:按档位给下一步,不空喊"需要批准"。 */
+const APPROVAL_HINT =
+  'run interactively and approve this call, or set approval_policy=never / a wider granular flag in the user-level settings.json'
+
+/**
+ * 双轴 → 单次工具调用的裁决(纯函数,零 IO)。
+ *
+ * 判序与失效方向:
+ *  1. 未知/缺失的沙箱轴按 `read-only`(最严)结算;未知/缺失的审批轴按 `untrusted`(最严)
+ *     结算,两条都在 reason 里点名 —— "拿不准"绝不读成"放宽"(§0.10 的同一方向);
+ *  2. 沙箱面先于审批面:read-only 下写/命令/技能/MCP 一律 deny(再问一次也没有可批准的事);
+ *  3. granular 对象形态按"缺省 false = 自动拒绝"结算,false 即 deny(不问);全 true 时
+ *     只能 ask —— granular 是"哪些可以问"的开关,不是"全部免问"的开关;
+ *  4. 字符串档位:`never` 放行(结构性禁止在更外层,不由本轴压过);`on-request` 只让
+ *     读/写免问、命令/技能/MCP 走询问;`untrusted` 与 `on-failure` 更严(只有读免问)。
+ *     为什么 `on-failure` 取 ask 而不是"先跑再问":CLI 没有"失败后以更高权限重试"的通道,
+ *     把它读成"免问"就是放宽;多要一次定向说明是唯一安全的失效方向。
+ */
+export function evaluateAxisGate(input: AxisGateInput): AxisGateResult {
+  const sandboxKnown = normalizeSandboxMode(input.sandboxMode)
+  const sandbox: SandboxModeId = sandboxKnown ?? 'read-only'
+  const sandboxReason =
+    sandboxKnown === null && input.sandboxMode !== undefined && input.sandboxMode !== null
+      ? `sandbox_mode_unknown:${String(input.sandboxMode)}`
+      : ''
+
+  if (sandbox === 'read-only' && input.toolKind !== 'read') {
+    return {
+      decision: 'deny',
+      reason: `${sandboxReason ? `${sandboxReason}|` : ''}sandbox_mode=read-only blocks ${input.toolKind}`,
+      hint: READ_ONLY_HINT,
+    }
+  }
+
+  const spec = normalizeApprovalPolicySpec(input.approvalPolicy)
+  const approvalUnknown =
+    spec === null && input.approvalPolicy !== undefined && input.approvalPolicy !== null
+  const reasonPrefix = `${sandboxReason ? `${sandboxReason}|` : ''}${approvalUnknown ? `approval_policy_unknown:${JSON.stringify(input.approvalPolicy)}|` : ''}`
+
+  // granular 对象形态:缺省 false = 自动拒绝(不问)
+  if (spec !== null && typeof spec === 'object') {
+    const managedKeys = GRANULAR_APPROVAL_KEYS.filter(
+      (k) => GRANULAR_APPROVAL_TOOL_KIND[k] === input.toolKind,
+    )
+    if (managedKeys.length === 0) {
+      return { decision: 'allow', reason: `${reasonPrefix}granular:no-key-for-${input.toolKind}` }
+    }
+    const deniedKeys = managedKeys.filter((k) => spec.granular[k] !== true)
+    if (deniedKeys.length > 0) {
+      return {
+        decision: 'deny',
+        reason: `${reasonPrefix}granular:${deniedKeys.join('+')}=false`,
+        // 同类多键取更严 ⇒ 必须把**全部** false 键列出来(只报一个,用户开完发现还是拒)
+        hint: `set ${deniedKeys.map((k) => `granular.${k}=true`).join(' and ')} in the user-level settings.json to allow asking for ${input.toolKind}`,
+      }
+    }
+    return {
+      decision: 'ask',
+      reason: `${reasonPrefix}granular:${managedKeys.join('+')}=true`,
+      hint: APPROVAL_HINT,
+    }
+  }
+
+  // 认不出或缺失 ⇒ untrusted(最严的字符串档:只有读免问)
+  const policy: ApprovalPolicyId = spec !== null && typeof spec === 'string' ? spec : 'untrusted'
+  if (input.toolKind === 'read') {
+    return { decision: 'allow', reason: `${reasonPrefix}approval_policy=${policy}:read-only-op` }
+  }
+  if (policy === 'never') {
+    return { decision: 'allow', reason: `${reasonPrefix}approval_policy=never` }
+  }
+  if (policy === 'on-request' && input.toolKind === 'write') {
+    return { decision: 'allow', reason: `${reasonPrefix}approval_policy=on-request:write` }
+  }
+  return {
+    decision: 'ask',
+    reason: `${reasonPrefix}approval_policy=${policy}:${input.toolKind}`,
+    hint: APPROVAL_HINT,
+  }
+}
 
 /** 归一化:双轴值本身已是 kebab 小写,只需 trim+lower 后查 成员∪别名键。 */
 export function normalizeSandboxMode(raw: unknown): SandboxModeId | null {
@@ -129,9 +290,7 @@ export function normalizeApprovalPolicy(raw: unknown): ApprovalPolicyId | null {
  * - manual → null:全人工审批在 Codex 侧无对应档(untrusted 也放行 execpolicy 规则)。
  * 消费方拿到 null 必须显式处理,不得回退到任一预设(同一类静默失效正是 G-161 要根治的)。
  */
-export const PERMISSION_MODE_TO_AXIS: Readonly<
-  Record<PermissionModeId, AxisPair | null>
-> = {
+export const PERMISSION_MODE_TO_AXIS: Readonly<Record<PermissionModeId, AxisPair | null>> = {
   default: { sandboxMode: 'workspace-write', approvalPolicy: 'on-request' },
   plan: { sandboxMode: 'read-only', approvalPolicy: 'on-request' },
   bypassPermissions: { sandboxMode: 'danger-full-access', approvalPolicy: 'never' },
@@ -155,11 +314,7 @@ export const PERMISSION_MODE_TO_AXIS: Readonly<
 //   的档案解析会把"顶层键覆盖"误读成"档案继承",属于跨族顶账。
 // ---------------------------------------------------------------------------
 
-export const CONFIG_PROFILE_VALUE_KEYS = [
-  'approval_policy',
-  'sandbox_mode',
-  'model',
-] as const
+export const CONFIG_PROFILE_VALUE_KEYS = ['approval_policy', 'sandbox_mode', 'model'] as const
 
 /** config profile 的顶层键名(与 Python 侧逐字对账)。 */
 export type ConfigProfileValueKey = (typeof CONFIG_PROFILE_VALUE_KEYS)[number]
@@ -183,14 +338,19 @@ export function resolveConfigProfileAxis(profile: unknown): Partial<AxisPair> | 
   const rec = profile as Record<string, unknown>
   const rawSandbox = rec.sandbox_mode
   const rawApproval = rec.approval_policy
-  const sandbox = rawSandbox === undefined ? undefined : normalizeSandboxMode(rawSandbox) ?? undefined
+  const sandbox =
+    rawSandbox === undefined ? undefined : (normalizeSandboxMode(rawSandbox) ?? undefined)
   const approval =
-    rawApproval === undefined ? undefined : normalizeApprovalPolicy(rawApproval) ?? undefined
+    rawApproval === undefined ? undefined : (normalizeApprovalPolicy(rawApproval) ?? undefined)
   // 给了但认不出 ⇒ 整段失败(绝不当成"没给")
-  if ((rawSandbox !== undefined && sandbox === undefined) || (rawApproval !== undefined && approval === undefined))
+  if (
+    (rawSandbox !== undefined && sandbox === undefined) ||
+    (rawApproval !== undefined && approval === undefined)
+  )
     return null
   const out: Partial<AxisPair> = {}
   if (sandbox !== undefined) out.sandboxMode = sandbox
   if (approval !== undefined) out.approvalPolicy = approval
   return out
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
