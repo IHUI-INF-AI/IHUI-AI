@@ -11,8 +11,10 @@
  *     除提交链守门(check-ops-patrol P8)外**没有任何运行时消费者** —— 门只在有人提交时跑,
  *     "有一件事从来没人知道"这件事本身在两次提交之间依然没人知道;
  *  ② :80 图片 CDN 不在任何一班值守眼里(端口清单只查 8801/8802/8803/8810/8811),
- *     进程死了只能等下次重启被发现。nssm 服务 IHUI-IMAGE-CDN 已接管常驻(run-cdn.bat
- *     头注 STATUS 2026-09-29),但"活着"仍需有人看 —— 本读方就是那一眼。
+ *     进程死了只能等下次重启被发现。常驻载体 = 看门狗任务 IHUI-ImageCDN-Watch
+ *     (开机+每分钟守活,自愈≤60s,2026-10-25 立;nssm 本机缺失、cmd 服务会被 SCM
+ *     就绪窗超时杀宿主,两档均落选,见 deploy/win/cdn-watchdog.ps1 头注),
+ *     但"活着"仍需有人看 —— 本读方就是那一眼。
  *
  * 语义(与 check-ops-patrol P8 同一套三态,但按运行时纪律收窄):
  *  - 有标记 / CDN 无应答 ⇒ finding,经 pushAlert 到人(全渠道并行,哪条活着走哪条) + logger.error;
@@ -342,7 +344,7 @@ export async function runOpsWatchTick(deps: OpsWatchDeps = {}): Promise<WatchFin
       key: cdnKey,
       title: '图片 CDN 无应答',
       identity: 'cdn-probe-fail',
-      detail: `${cdnUrl} 连续 ${rec.failures} 次探测失败/超时(:80 不在传统值守端口清单内,由本读方兜住;进程载体=nssm 服务 IHUI-IMAGE-CDN)`,
+      detail: `${cdnUrl} 连续 ${rec.failures} 次探测失败/超时(:80 不在传统值守端口清单内,由本读方兜住;进程载体=看门狗任务 IHUI-ImageCDN-Watch,自愈≤60s)`,
       severity: 'critical',
     })
   }
