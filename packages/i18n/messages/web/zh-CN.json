@@ -23545,6 +23545,19 @@
     "title": "任务接收",
     "wsConnected": "WS 已连接",
     "wsDisconnected": "WS 断开",
+    "approval": {
+      "title": "待你批准",
+      "origin": "提问设备",
+      "target": "执行设备",
+      "approve": "放行",
+      "deny": "拒绝",
+      "hint": "两端任一台先答即生效(先答者胜),后答不再翻案",
+      "approved": "已放行",
+      "denied": "已拒绝",
+      "expired": "审批超时,已自动取消",
+      "stopped": "已终止",
+      "notEffective": "未生效:{reason}"
+    },
     "status": {
       "cancelled": "已取消",
       "completed": "已完成",

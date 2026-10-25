@@ -23541,6 +23541,19 @@
     "title": "Task Receiver",
     "wsConnected": "WS Connected",
     "wsDisconnected": "WS Disconnected",
+    "approval": {
+      "title": "Awaiting your approval",
+      "origin": "Requested by",
+      "target": "Runs on",
+      "approve": "Approve",
+      "deny": "Deny",
+      "hint": "First answer wins — the other device cannot override it",
+      "approved": "Approved",
+      "denied": "Denied",
+      "expired": "Approval timed out, task cancelled",
+      "stopped": "Stopped",
+      "notEffective": "Not applied: {reason}"
+    },
     "status": {
       "cancelled": "Cancelled",
       "completed": "Completed",

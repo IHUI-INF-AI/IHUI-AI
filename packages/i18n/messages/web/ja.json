@@ -23544,6 +23544,19 @@
     "title": "タスク受信",
     "wsConnected": "WS 接続済み",
     "wsDisconnected": "WS 切断",
+    "approval": {
+      "title": "承認待ち",
+      "origin": "要求元デバイス",
+      "target": "実行デバイス",
+      "approve": "承認",
+      "deny": "拒否",
+      "hint": "どちらかが先に答えた時点で確定(先答優先),後から覆せません",
+      "approved": "承認済み",
+      "denied": "拒否済み",
+      "expired": "承認がタイムアウトし、タスクは取消されました",
+      "stopped": "停止済み",
+      "notEffective": "未適用: {reason}"
+    },
     "status": {
       "cancelled": "キャンセル",
       "completed": "完了",
