@@ -331,5 +331,50 @@ describe('G-921 ① 付费课时签名:签发侧与校验侧', () => {
     expect(res.statusCode).toBe(404)
     expect(res.headers.location).toBeUndefined()
   })
+
+  it('签发→校验闭环:详情端点下发的 videoUrl 原样再走 /play ⇒ 302 到真源', async () => {
+    vi.mocked(findLessonById).mockResolvedValue(makePaidLesson())
+    vi.mocked(findLessonSections).mockResolvedValue([makePaidSection()])
+    vi.mocked(findSignUp).mockResolvedValue(makeSignUp(USER_ID))
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: `/api/learn/lessons/${LESSON_ID}`,
+      headers: { 'x-test-user': USER_ID },
+    })
+    expect(detail.statusCode).toBe(200)
+    const issued = detail.json().data.chapters[0].sections[0].videoUrl as string
+    expect(issued).toContain(`/api/learn/lessons/${LESSON_ID}/sections/${SECTION_ID}/play`)
+
+    await seedPlayChain()
+    vi.mocked(findSignUp).mockResolvedValue(makeSignUp(USER_ID))
+    const { pathname, search } = new URL(issued)
+    const play = await app.inject({ method: 'GET', url: `${pathname}${search}` })
+    expect(play.statusCode).toBe(302)
+    expect(play.headers.location).toBe(VIDEO_URL)
+  })
+
+  it('签名密钥不可用(生产未配置)⇒ 500 且不发 Location(fail-closed)', async () => {
+    await seedPlayChain()
+    vi.mocked(findSignUp).mockResolvedValue(makeSignUp(USER_ID))
+    // 先按开发态密钥签出合法票,再切到"密钥缺失"的配置态
+    const args = signArgs(USER_ID)
+
+    const prevNodeEnv = process.env.NODE_ENV
+    const prevSecret = process.env.VIDEO_SIGN_SECRET
+    process.env.NODE_ENV = 'production'
+    delete process.env.VIDEO_SIGN_SECRET
+    try {
+      const res = await app.inject({ method: 'GET', url: playUrl(args) })
+      expect(res.statusCode).toBe(500)
+      expect(res.headers.location).toBeUndefined()
+      expect(res.body).not.toContain(VIDEO_URL)
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV
+      else process.env.NODE_ENV = prevNodeEnv
+      if (prevSecret === undefined) delete process.env.VIDEO_SIGN_SECRET
+      else process.env.VIDEO_SIGN_SECRET = prevSecret
+    }
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

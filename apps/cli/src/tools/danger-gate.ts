@@ -19,6 +19,7 @@
  *             默认 fail-closed:没有 prompt 且没有 flag 一律拒绝,
  *             绝不允许「没人应答 = 放行」。
  */
+import { t } from '../i18n/index.js'
 import type { Tool } from './index.js'
 // D142(2026-09-29 立):「这次调用必须由人来批准」的判据**只住** `@ihui/types` 的那一份投影
 // (`tool-contract.ts` 的 `humanApprovalMandated`)。本文件是它第一个**生产面**消费者:
@@ -51,6 +52,27 @@ export interface DangerGateDecision {
   args: Record<string, unknown>
   /** 仅 route === 'denied' 时携带 */
   cause?: DangerGateDenyCause
+  /**
+   * 仅 route === 'denied' 时携带:本出口按 cause 生成的可读拒因
+   * (「为什么拒」+「怎么放行」)。文案只住 CLI 语言包,调用方不得自写。
+   */
+  reason?: string
+}
+
+const DENY_REASON_KEY: Record<DangerGateDenyCause, string> = {
+  'no-prompt': 'cli.dangerGate.denyNoPrompt',
+  'prompt-declined': 'cli.dangerGate.denyDeclined',
+  'prompt-empty': 'cli.dangerGate.denyEmpty',
+  'prompt-error': 'cli.dangerGate.denyError',
+  'contract-approval-required': 'cli.dangerGate.denyContract',
+}
+
+/**
+ * 拒绝路径的可读拒因唯一出口:每种 cause 一条「为什么拒 + 怎么放行」。
+ * 原文住 `packages/i18n/messages/cli/*.json` 五语,调用方只消费本函数的结果。
+ */
+export function dangerGateDenialReason(cause: DangerGateDenyCause): string {
+  return t(DENY_REASON_KEY[cause])
 }
 
 /**
@@ -63,8 +85,12 @@ export type DangerGatePrompt = (
 ) => Promise<boolean | null | undefined | void>
 
 export interface DangerGateOptions {
-  /** CLI --allow-dangerous 的布尔语义 */
-  allowDangerous?: boolean
+  /**
+   * 必填事实:CLI `--allow-dangerous` 的原始标志(true = 给了;false = 没给)。
+   * 调用方只透传事实、不得在此改写为放行结论;省略本字段即编译不过
+   * (判定权只住 `createDangerGate` 这一处)。
+   */
+  allowDangerous: boolean
   /** 人工批准通道(inquirer 确认 / IDE permission 弹窗)。缺省则只有 flag 一路可放行 */
   prompt?: DangerGatePrompt
   /**
@@ -90,15 +116,21 @@ export function createDangerGate(opts: DangerGateOptions): DangerGate {
     cause?: DangerGateDenyCause,
   ): boolean => {
     const decision: DangerGateDecision =
-      cause === undefined ? { route, tool, args } : { route, tool, args, cause }
+      cause === undefined
+        ? { route, tool, args }
+        : { route, tool, args, cause, reason: dangerGateDenialReason(cause) }
     opts.onDecision?.(decision)
     if (!opts.silent) {
-      // 非静默档案的默认提示:仅 ASCII(守门 70 拦新增硬编码中文);
+      // 非静默档案的默认提示:ASCII 技术串保留(守门 70 拦新增硬编码中文),
+      // 拒因正文由语言包经 dangerGateDenialReason 给出(为什么拒 + 怎么放行)。
       // approved 路由不提示——人已批准,再打一行只是噪音。
       if (route === 'flag') {
         console.info(`  ! dangerous tool auto-allowed by --allow-dangerous: ${tool.name}`)
       } else if (route === 'denied') {
-        console.error(`  x dangerous tool denied by danger-gate: ${tool.name} (${cause ?? 'denied'})`)
+        console.error(
+          `  x dangerous tool denied by danger-gate: ${tool.name} (${cause ?? 'denied'})` +
+            (decision.reason ? `\n    ${decision.reason}` : ''),
+        )
       }
     }
     return route !== 'denied'

@@ -32,7 +32,8 @@ import { checkAuth } from '../plugins/auth.js'
 import { verifyCode } from '../utils/code-store.js'
 import { db, dbRead } from '../db/index.js'
 import { deductToken } from '../db/commission-queries.js'
-import { findPublishedVideoFeed, findLatestStudyPlanId } from '../db/learn-queries.js'
+import { findPublishedVideoFeed, findLatestStudyPlanId, findSignUp } from '../db/learn-queries.js'
+import { buildSignedVideoUrl } from '../services/video-sign.js'
 import { USER_PREFERENCE_GROUPS } from '../db/user-preferences-queries.js'
 import {
   lessons,
@@ -611,7 +612,20 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /study/groups/:id — 学习分组详情(含小节视频列表)
+  //
+  // P1 收口:本端点此前**无鉴权**且把 lessonChapterSections.videoUrl 桶直链原样下发 ⇒
+  // 任何人按课程 id 即可批量抓走全部云存储直链,绕过 /api/learn/lessons/:id/sections/:sectionId/play
+  // 的签名校验。现在:
+  //  - 需登录(checkAuth,与本文件其它用户端点同一写法);
+  //  - 视频址一律换成指向 /play 的短时签名 URL(buildSignedVideoUrl,payload 与 learn 侧同源,
+  //    resourceId = 小节 id),响应体不再出现桶直链;
+  //  - 付费课的非免费小节按报名记录判(findSignUp,learn 侧既有判据),未报名 ⇒ url 为 null,
+  //    不伪造、不回退直链;
+  //  - 免费课/免费小节:登录即可播,同样只发签名地址(/play 对免费小节只验签名、不查报名);
+  //  - 草稿/未发布课 ⇒ 404(与 /learn/lessons/:id 详情及 /play 同一可见性判据)。
   server.get('/study/groups/:id', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -621,16 +635,20 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       .from(lessons)
       .where(eq(lessons.id, parsed.data.id))
       .limit(1)
-    if (!lessonRows[0]) {
+    if (!lessonRows[0] || !lessonRows[0].isPublished) {
       return reply.status(404).send(error(404, '分组不存在'))
     }
     const lesson = lessonRows[0]
+    // 付费课才查报名;免费课不存在"购买判定"
+    const signedUp = lesson.isFree ? true : Boolean(await findSignUp(lesson.id, userId))
     // 查所有章节的小节作为 videos 列表
     const chapters = await db
       .select()
       .from(lessonChapters)
       .where(eq(lessonChapters.lessonId, parsed.data.id))
       .orderBy(asc(lessonChapters.sortOrder))
+    const host = request.headers.host ?? 'localhost'
+    const origin = `${request.protocol ?? 'http'}://${host}`
     const videos: Array<{
       id: string
       title: string
@@ -646,11 +664,31 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
           url: lessonChapterSections.videoUrl,
           duration: lessonChapterSections.duration,
           chapterId: lessonChapterSections.chapterId,
+          isFree: lessonChapterSections.isFree,
         })
         .from(lessonChapterSections)
         .where(eq(lessonChapterSections.chapterId, ch.id))
         .orderBy(asc(lessonChapterSections.sortOrder))
-      videos.push(...secs)
+      videos.push(
+        ...secs.map((s) => {
+          // 无视频源 ⇒ 保持 null;有源但无权 ⇒ 也置 null(绝不回退桶直链)
+          let url: string | null = null
+          if (s.url && (lesson.isFree || s.isFree || signedUp)) {
+            url = buildSignedVideoUrl({
+              baseUrl: `${origin}/api/learn/lessons/${lesson.id}/sections/${s.id}/play`,
+              userId,
+              resourceId: s.id,
+            }).url
+          }
+          return {
+            id: s.id,
+            title: s.title,
+            url,
+            duration: s.duration,
+            chapterId: s.chapterId,
+          }
+        }),
+      )
     }
     return reply.send(
       success({

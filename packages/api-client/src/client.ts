@@ -1594,6 +1594,14 @@ export interface StreamChatOptions {
   /** 绑定的 agent ID:透传到后端,后端在 SSE chunk 顶层注入 agentId。
    * 前端 onAgentDelta 据此分流到 subagent 卡片;缺失时降级为单 agent 模式。 */
   agentId?: string
+  /** D01(2026-10-25 立):对话内选中的 persona(专家)id。
+   *  传输层复用既有的 `agentId` 请求槽(网关 schema 只声明了这一个标识字段,
+   *  且在网关侧它同时承担"给每条 data 行贴 agentId"的职责 —— 见下条)。
+   *  与 `agentId` 的区别:persona 不是子代理,它的回包正文属于**主对话**,
+   *  不能被当成 subagent delta 分流,故传 personaId 时本函数把"回包 agentId
+   *  恰等于所选 persona"的 chunk 降级为普通 onDelta(不影响真正的 subagent 帧:
+   *  其 id 形如 subagent_*,不会与 persona 名相同)。 */
+  personaId?: string
   /** 多 agent 多路复用回调:chunk 带 agentId 时触发,与 onDelta 互斥(有 agentId 走此回调,无则走 onDelta)。 */
   onAgentDelta?: (agentId: string, delta: string) => void
   /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
@@ -3367,7 +3375,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // P1 #26:仅显式关闭时传 false(undefined/true 走后端默认开,不注入该 key 减小请求体积)
   if (opts.knowledgeContext === false) body.knowledgeContext = false
   if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
-  if (opts.agentId) body.agentId = opts.agentId
+  // D01(2026-10-25 立):已绑 agentId 优先;未绑 agent 而选了对话内 persona 时,
+  // 用同一个传输槽把 persona id 送上行(ai-service 据此并入 system 提示与工具白名单)。
+  const boundAgentId = opts.agentId ?? opts.personaId
+  if (boundAgentId) body.agentId = boundAgentId
   if (opts.agentTools && opts.agentTools.length > 0) body.agentTools = opts.agentTools
   // V3 #58(2026-09-26 立):权限模式档位透传。api-client 仅在字段存在时写入 body;
   // 网关 schema 已声明 permissionMode(否则 zod strip 静默丢弃,链路掐断),
@@ -4988,7 +4999,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
       const delta = parseStreamLine(line)
       if (delta) {
-        const agentId = hasAgentDelta ? extractAgentId(line) : undefined
+        const chunkAgentId = hasAgentDelta ? extractAgentId(line) : undefined
+        // D01(2026-10-25 立):persona 选择走 agentId 上行时,网关会给每条 data 行
+        // 回贴同一个 agentId(= 所选 persona)。那不是子代理,正文归属主对话 ——
+        // 同一 id 的 chunk 降级回 onDelta,避免整轮回复被塞进 subagent 卡片。
+        const echoedByPersona = chunkAgentId !== undefined && chunkAgentId === opts.personaId
+        const agentId = echoedByPersona ? undefined : chunkAgentId
         if (agentId) emitAgentDelta(agentId, delta)
         else emitDelta(delta)
         debugChunkTimer?.mark('delta', delta, line)

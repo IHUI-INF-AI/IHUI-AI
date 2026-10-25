@@ -117,7 +117,6 @@ describe('RecruitmentScreen 渲染的是共享层那一份', () => {
     // 小程序端不出现第二份段名字面量数组(段名只从表里来)
     expect(miniappText).not.toMatch(/=\s*\[\s*'hero',\s*'founder'/)
   })
-
 })
 
 describe('段落顺序与取词键 = 跨端单一源', () => {
@@ -204,9 +203,12 @@ describe('两枚按钮都不是假的:CTA 跳在册屏,二维码长按落相册'
     media.requestPermissionsAsync.mockResolvedValueOnce({ granted: false })
     renderScreen()
     fireEvent.contextMenu(screen.getByLabelText(val(TRADER_PLAN_PROMO_KEYS.qrcodeHint)))
-    await waitFor(() => expect(pops.appAlert).toHaveBeenCalledWith(val('imageGen.needPermission')), {
-      timeout: 8_000,
-    })
+    await waitFor(
+      () => expect(pops.appAlert).toHaveBeenCalledWith(val('imageGen.needPermission')),
+      {
+        timeout: 8_000,
+      },
+    )
     expect(media.saveToLibraryAsync).not.toHaveBeenCalled()
   })
 })

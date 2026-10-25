@@ -37,7 +37,7 @@
 </p>
 
 <p align="center">
-  <strong>9단 전면 커버리지</strong> · <strong>101 대형 모델</strong> · <strong>LangGraph+MCP+A2A 트리플 스택</strong> · <strong>39개 플랫폼 퍼블리싱</strong> · <strong>풀스택 AI 교육</strong> · <strong>완전한 상업적 루프</strong> · <strong>5개 언어 i18n</strong>
+  <strong>8단 전면 커버리지</strong> · <strong>118 대형 모델</strong> · <strong>LangGraph+MCP+A2A 트리플 스택</strong> · <strong>38개 플랫폼 퍼블리싱</strong> · <strong>풀스택 AI 교육</strong> · <strong>완전한 상업적 루프</strong> · <strong>5개 언어 i18n</strong>
 </p>
 
 <p align="center">
@@ -66,8 +66,8 @@
 | **백엔드 API**        | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18 + Zod 3.24(**TypeScript**, Python 아님)                                                                                                         |
 | **AI 서비스**         | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12, 이 계층만 Python 사용)                                                                                                    |
 | **모노레포**          | pnpm 9.15 workspace + Turborepo 2.3 + 16 공유 패키지(@ihui/auth / database / types / ui 등)                                                                                                  |
-| **멀티 클라이언트**   | 9 클라이언트 **독립 코드**("하나의 코드베이스를 여러 타겟으로 컴파일"이 아님), 각 클라이언트의 완성도는 [프로젝트 상태 매트릭스](#프로젝트-상태-매트릭스투명-라벨링-2026-07-22-확인) 참조    |
-| **코드 규모**         | 9 클라이언트 / 235 schema 파일 / **608 데이터베이스 테이블**(실측 608 pgTable)/ 128+ 마이그레이션 / **4561 API 라우트**(grep 실측)/ 250+ 웹 페이지 / 16 공유 패키지 / 5개 언어 i18n parity |
+| **멀티 클라이언트**   | 8 클라이언트 **독립 코드**("하나의 코드베이스를 여러 타겟으로 컴파일"이 아님), 각 클라이언트의 완성도는 [프로젝트 상태 매트릭스](#프로젝트-상태-매트릭스투명-라벨링-2026-07-22-확인) 참조    |
+| **코드 규모**         | 8 클라이언트 / 231 schema 파일 / **598 데이터베이스 테이블**(실측 339 pgTable)/ 128+ 마이그레이션 / **4443 API 라우트**(grep 실측)/ 250+ 웹 페이지 / 16 공유 패키지 / 5개 언어 i18n parity |
 | **엔지니어링 게이트** | **21개 pre-commit 훅**(실측, [.husky/pre-commit](./.husky/pre-commit) 참조)+ post-commit 자동 push + 11 마이그레이션 감사 + 9 PowerShell 시작 스크립트                                       |
 | **테스트 커버리지**   | **237 API 테스트 + 63 e2e spec**(실측, [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/) 참조)+ pytest(AI 서비스)+ Locust 부하 테스트 + Lighthouse 성능                |
 | **관측 가능성**       | Prometheus + Grafana(**20 대시보드** 실측, [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/) 참조)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                 |
@@ -82,7 +82,7 @@
 
 > **「춘춘 영하 25도. 한 사람. 한 대의 노트북. 일 년의 시간.**
 >
-> **9 플랫폼 코드 · 608개 데이터베이스 테이블 · 4561개 API 라우트.**
+> **8 플랫폼 코드 · 339개 데이터베이스 테이블 · 4443개 API 라우트.**
 >
 > **자본은 오지 않았지만, 코드는 계속 자라났습니다.」**
 
@@ -148,7 +148,7 @@
 >
 > **IHUI-AI가 이 문제를 바꾸려 합니다.**
 >
-> 우리는 하나의 완전한 AI 애플리케이션 인프라 — 9 플랫폼 프레임워크, 101 모델 연동, 워크플로 오케스트레이션, 엔터프라이즈 권한, 빌링 구독, 콘텐츠 퍼블리싱, AI 교육, 옵저버빌리티부터 17개 엔지니어링 게이트까지 — 전부 Apache 2.0 라이선스로 오픈소스화했습니다.
+> 우리는 하나의 완전한 AI 애플리케이션 인프라 — 8 플랫폼 프레임워크, 118 모델 연동, 워크플로 오케스트레이션, 엔터프라이즈 권한, 빌링 구독, 콘텐츠 퍼블리싱, AI 교육, 옵저버빌리티부터 17개 엔지니어링 게이트까지 — 전부 Apache 2.0 라이선스로 오픈소스화했습니다.
 >
 > **래퍼도, 데모도 아닙니다. 실제 운영 가능하고, 상업화 가능하고, 셀프 호스팅 가능한 AI 애플리케이션 베이스입니다. Fork 하고, 수정하고, 당신의 것으로 만드세요.**
 
@@ -164,7 +164,7 @@
 - [IHUI-AI 사용자](#ihui-ai-사용자)
 - [5가지 대표 시나리오](#5가지-대표-시나리오)
 - [기술 스택](#기술-스택)
-- [9 플랫폼 아키텍처](#8-플랫폼-아키텍처)
+- [8 플랫폼 아키텍처](#8-플랫폼-아키텍처)
 - [프로젝트 구조](#프로젝트-구조)
 - [핵심 역량 상세(15대 모듈 · 사용자 역할별 그룹)](#핵심-역량-상세15대-모듈--사용자-역할별-그룹)
   - [A. AI 역량 레이어](#a-ai-역량-레이어최종-사용자-대상)
@@ -197,7 +197,7 @@
 
 ## 프로젝트 포지셔닝(필독)
 
-> **한 줄 포지셔닝:IHUI-AI는 오픈소스 AI 상업용 통합 파운데이션(Open-Source AI Commercial-Grade Integrated Foundation)입니다 — 단일 AI 툴이 아니라 "완전히 상업화 가능한 AI 제품 하나를 구축"하는 데 필요한 모든 인프라(9단 프레임워크 + 101 모델 게이트웨이 + LangGraph+MCP+A2A 트리플 스택 + 상업적 루프 + 엔터프라이즈 보안 + 엔지니어링 게이트 + 옵저버빌리티)를 Apache 2.0 라이선스로 통째로 오픈소스화하여, 어떤 개인, 기업, 교육 기관, 콘텐츠 크리에이터든 Fork 후 5분 안에 자신만의 AI 상업 제품을 출시할 수 있게 합니다.**
+> **한 줄 포지셔닝:IHUI-AI는 오픈소스 AI 상업용 통합 파운데이션(Open-Source AI Commercial-Grade Integrated Foundation)입니다 — 단일 AI 툴이 아니라 "완전히 상업화 가능한 AI 제품 하나를 구축"하는 데 필요한 모든 인프라(8단 프레임워크 + 118 모델 게이트웨이 + LangGraph+MCP+A2A 트리플 스택 + 상업적 루프 + 엔터프라이즈 보안 + 엔지니어링 게이트 + 옵저버빌리티)를 Apache 2.0 라이선스로 통째로 오픈소스화하여, 어떤 개인, 기업, 교육 기관, 콘텐츠 크리에이터든 Fork 후 5분 안에 자신만의 AI 상업 제품을 출시할 수 있게 합니다.**
 >
 > **가치 제안**:**하나의 저장소가 6-10개 독립 SaaS를 대체**(Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code + Khan Academy + 이케 + Notion AI), 월간 비용을 $300+에서 $0(셀프 호스팅)로 절감.
 
@@ -224,12 +224,12 @@ IHUI-AI의 포지셔닝은 "사용자 가치 → 제품 형태 → 기술 해자
                  │    ④ 상업 SaaS 파운데이션(Stripe+Auth0+Mixpanel 대비)│
                  │    ⑤ AI 교육 플랫폼(Khan Academy/Coursera 대비) │
                  │    ⑥ 콘텐츠 퍼블리싱 허브(이케/신미디어 매니저/Jasper 대비)│
-                 │  • 하나의 저장소에 9단 코드, 툴 모음이 아닌 프리셋 제품│
+                 │  • 하나의 저장소에 8단 코드, 툴 모음이 아닌 프리셋 제품│
                  └─────────────────────────────────────────────────┘
                                         ▲
                  ┌─────────────────────────────────────────────────┐
    제 3 층       │  기술 해자(How)                                   │
-   기술 해자     │  • 9단 / 608 테이블 / 128+ 마이그레이션 / 4561 API 라우트│
+   기술 해자     │  • 8단 / 598 테이블 / 128+ 마이그레이션 / 4443 API 라우트│
    (How)         │  • LangGraph + MCP + A2A 트리플 스택 협업        │
                  │  • 16 공유 패키지 / 21 pre-commit 게이트 / 5개 언어 i18n│
                  │  • 3대 지주 옵저버빌리티 + 20 Grafana 대시보드   │
@@ -245,17 +245,17 @@ IHUI-AI의 포지셔닝은 "사용자 가치 → 제품 형태 → 기술 해자
 | **본질**        | 오픈소스 AI 상업용 통합 파운데이션(Open-Source AI Commercial-Grade Integrated Foundation)                                                                                                             |
 | **비유**        | AI 애플리케이션계의 Kubernetes / Next.js Boilerplate / Linux 배포판 — "인프라 구축"을 3-6개월에서 5분으로 압축                                                                                        |
 | **비교 레벨**   | 「AI 애플리케이션 개발 플랫폼 + AI 코딩 CLI + 멀티단 개발 프레임워크 + 상업 SaaS 파운데이션 + AI 교육 플랫폼 + 콘텐츠 퍼블리싱 허브」6대 카테고리를 동시에 아우름                                     |
-| **대상 사용자** | 개인 개발자(프라이빗 AI 어시스턴트)/ 중소기업(AI 미들 플랫폼)/ AI 서비스 제공자(상업 제품)/ 교육 기관(AI 교육 풀스택)/ 콘텐츠 크리에이터(39 플랫폼 퍼블리싱)/ 기업 의사결정자(엔터프라이즈 AI 플랫폼) |
+| **대상 사용자** | 개인 개발자(프라이빗 AI 어시스턴트)/ 중소기업(AI 미들 플랫폼)/ AI 서비스 제공자(상업 제품)/ 교육 기관(AI 교육 풀스택)/ 콘텐츠 크리에이터(38 플랫폼 퍼블리싱)/ 기업 의사결정자(엔터프라이즈 AI 플랫폼) |
 | **License**     | Apache 2.0(상업 친화적, 카피레프트 없음, 클로즈드 소스 상업 사용 허용)                                                                                                                                |
 | **배포 모드**   | 완전 셀프 호스팅, Docker Compose 원클릭으로 14개 서비스 시작, 데이터 100% 주권, 자격증명 AES-256-GCM 암호화, 어떤 빅테크도 엿볼 수 없음                                                               |
-| **코드 규모**   | 9단 코드 / 235 schema 파일 / 608 데이터베이스 테이블 / 128+ 마이그레이션 / 4561 API 라우트 / 250+ Web 페이지 / 16 공유 패키지 / 21 pre-commit 게이트 / 5개 언어 i18n parity                         |
+| **코드 규모**   | 8단 코드 / 231 schema 파일 / 598 데이터베이스 테이블 / 128+ 마이그레이션 / 4443 API 라우트 / 250+ Web 페이지 / 16 공유 패키지 / 21 pre-commit 게이트 / 5개 언어 i18n parity                         |
 | **대체 가치**   | Stripe($84/월)+ Auth0($35/월)+ Mailgun($35/월)+ Mixpanel($20/월)+ Dify($59/월)+ Claude Code($20/월)+ 이케($50/월)≈ $303/월, IHUI-AI 셀프 호스팅 $0/월                                                 |
 
 ### IHUI-AI가 아닌 것
 
 - **ChatGPT 래퍼가 아닙니다** — 빌링/구독/멀티 테넌트/감사/RBAC를 갖춘 완전한 상업용 AI 애플리케이션 파운데이션으로, SaaS로 바로 만들 수 있습니다
 - **단일 AI 대화 플랫폼이 아닙니다** — AI 대화, AI 코딩 CLI, AI 교육, AI 콘텐츠 퍼블리싱, AI Agent 마켓 5대 시나리오를 동시에 커버합니다
-- **데모나 스캐폴드가 아닙니다** — 즤후이 AI 그룹(Zhihui AI Group)의 상업화 메인 플랫폼을 지원하는 프로덕션급 코드이며, 608 테이블이 실제 비즈니스 복잡도에 따라 설계되었습니다
+- **데모나 스캐폴드가 아닙니다** — 즤후이 AI 그룹(Zhihui AI Group)의 상업화 메인 플랫폼을 지원하는 프로덕션급 코드이며, 598 테이블이 실제 비즈니스 복잡도에 따라 설계되었습니다
 - **SaaS 구독이 아닙니다** — 완전 셀프 호스팅, 100% 데이터 주권을 보유하며, 자격증명은 AES-256-GCM으로 암호화되고 외부로 전송되지 않습니다
 - **수직적 툴이 아닙니다** — Dify는 AI 애플리케이션 오케스트레이션만, Claude Code는 CLI만, 이케(Yike)는 멀티 플랫폼 퍼블리싱만, RAGFlow는 RAG만, Khan Academy는 교육만 하는 것과 달리, IHUI-AI는 6대 카테고리 역량을 **하나의 Apache 2.0 저장소에 통합**합니다
 - **LangChain/LlamaIndex 같은 개발 프레임워크가 아닙니다** — 그것들은 개발자용 "자동차 부품"이고, IHUI-AI는 "완성차 출고"로 비기술 팀도 바로 사용할 수 있습니다
@@ -284,11 +284,11 @@ IHUI-AI의 포지셔닝은 "사용자 가치 → 제품 형태 → 기술 해자
 
 전면적인 시장 비교(40+ 국내외 제품 커버, 상세 비교는 아래 표 참조) 결과, 다음 역량 조합은 **글로벌 오픈소스 AI 프로젝트 중 동시 보유는 드문 사례입니다**:
 
-1. **9단 전면 커버리지**:Web / API / AI 서비스 / CLI / 데스크톱 Tauri / 브라우저 확장 WXT / 모바일 RN / 위챗 미니앱 Taro — 동류 오픈소스 AI 프로젝트는 최대 2단(Dify/FastGPT), 9단(클로즈드 소스:ChatGPT 2단 / Coze 2단 / Claude Code 1단)
+1. **8단 전면 커버리지**:Web / API / AI 서비스 / CLI / 데스크톱 Tauri / 브라우저 확장 WXT / 모바일 RN / 위챗 미니앱 Taro — 동류 오픈소스 AI 프로젝트는 최대 2단(Dify/FastGPT), 8단(클로즈드 소스:ChatGPT 2단 / Coze 2단 / Claude Code 1단)
 2. **LangGraph + MCP + A2A 트리플 스택 협업**:워크플로 + 툴 프로토콜 + Agent 상호운용 일체화, 타 오픈소스 AI 플랫폼은 최대 단일 스택(Langflow는 LangChain DAG만, Dify는 MCP/A2A 없는 자체 워크플로, LangChain/LlamaIndex는 프레임워크층만)
 3. **자체 CLI, Claude Code 대항**:17 명령 + 13 내장 툴 + ACP Server + 6 소스 설정 가져오기(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)+ Skills 시스템 — 오픈소스 AI 애플리케이션 플랫폼 중 자체 CLI를 갖춘 프로젝트는 드묾(Cursor / Copilot / Windsurf / Amazon Q / Cline / Aider / Cody는 모두 클로즈드 소스 또는 순수 CLI 툴)
 4. **완전한 상업적 루프**:VIP / 구독 recurring / 지갑 / 포인트 / 환불 감사 / 인보이스 / 환율 / 8 결제 게이트웨이 / 분배 커미션 / 초대 리베이트 — 오픈소스 AI 플랫폼 중 금융급 상업적 루프 내장은 드묾(Dify/FastGPT/Langflow 모두 없음)
-5. **39 플랫폼 원클릭 자동 퍼블리싱**:글 9 플랫폼 + 이미지 2 플랫폼 + 비디오 5 플랫폼 + AES-256-GCM 자격증명 암호화 + 38 adapter — 오픈소스 프로젝트 중 공식계정/Zhihu/CSDN/Juejin/Xiaohongshu/Weibo/Bilibili/YouTube/Douyin 등 39 플랫폼 완전 커버는 드묾(이케/신미디어 매니저는 클로즈드 소스 SaaS)
+5. **38 플랫폼 원클릭 자동 퍼블리싱**:글 9 플랫폼 + 이미지 2 플랫폼 + 비디오 5 플랫폼 + AES-256-GCM 자격증명 암호화 + 38 adapter — 오픈소스 프로젝트 중 공식계정/Zhihu/CSDN/Juejin/Xiaohongshu/Weibo/Bilibili/YouTube/Douyin 등 38 플랫폼 완전 커버는 드묾(이케/신미디어 매니저는 클로즈드 소스 SaaS)
 6. **AI 교육 풀스택**:강의 / 문제은행 / 시험 / SRS 간격 반복 / 라이브 / 학습 리포트 / 수료증 / 강사 / 학생 페이지 12 서브페이지 / 45 테이블 edu-full schema — 오픈소스 AI 플랫폼 중 완전한 AI 교육 풀스택 내장은 드묾(Khan Academy/Coursera는 클로즈드 소스 SaaS)
 7. **엔터프라이즈 보안 스택**:RBAC + 멀티 테넌트 + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + 워크스페이스 3 모드 권한 + 7 엔드포인트 런타임 가로채기 + 60s 감사 타임아웃 + GDPR + 2FA + IDOR 방호 — 오픈소스 AI 플랫폼 중 완전한 엔터프라이즈 보안 스택 내장은 드묾
 8. **17 엔지니어링 게이트 + 11 마이그레이션 감사 + post-commit 자동 push**:메커니즘 수준에서 협업 사고를 원천 차단 — 오픈소스 AI 프로젝트 중 메커니즘급 엔지니어링 게이트 구현은 드묾(Dify/FastGPT는 기본 lint만)
@@ -302,7 +302,7 @@ IHUI-AI의 포지셔닝은 "사용자 가치 → 제품 형태 → 기술 해자
 | **"하나의 저장소가 6개 SaaS 대체"**  | Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code 대체, 월 $300+ 절약                    |
 | **"5분 만에 Fork에서 상용 출시"**    | Docker Compose 원클릭 14 서비스 시작, 클론부터 출시까지 최단 5분, 기존 방식 3-6개월             |
 | **"AI 애플리케이션계의 Kubernetes"** | "인프라 구축"을 표준화, 재사용 가능하게, 어떤 팀이든 통일된 파운데이션 위에서 자신의 AI 앱 실행 |
-| **"9단 + 101 모델 + 트리플 스택"**  | 9단 코드 + 101 모델 + LangGraph+MCP+A2A 트리플 스택, 오픈소스 AI 생태계 최다 커버              |
+| **"8단 + 118 모델 + 트리플 스택"**  | 8단 코드 + 118 모델 + LangGraph+MCP+A2A 트리플 스택, 오픈소스 AI 생태계 최다 커버              |
 | **"Apache 2.0, 상업적 제약 없음"**   | License 상업 친화적, 카피레프트 제약 없음, 클로즈드 소스 상업 사용 허용, 기업 안심 Fork 가능    |
 | **"데이터 100% 주권"**               | 완전 셀프 호스팅, 자격증명 AES-256-GCM 암호화, 외부 회신 없음, GDPR / 등급보호 요구 충족        |
 
@@ -312,13 +312,13 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 
 | 비교 카테고리                     | 대표 제품                                                                                                                                                                                                                                                                                                                       | IHUI-AI 비교 역량                                                                                                                                    |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI 애플리케이션 개발 플랫폼**   | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(Kouzi)                                                                                                                                                                                                                                                                     | 101 모델 LiteLLM 게이트웨이 + LangGraph 워크플로 + 지식 베이스 RAG + pgvector 벡터 DB + 지식 그래프 + Agent Runtime + Persona                       |
+| **AI 애플리케이션 개발 플랫폼**   | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(Kouzi)                                                                                                                                                                                                                                                                     | 118 모델 LiteLLM 게이트웨이 + LangGraph 워크플로 + 지식 베이스 RAG + pgvector 벡터 DB + 지식 그래프 + Agent Runtime + Persona                       |
 | **AI 코딩 CLI / IDE**             | Claude Code / Cursor / Windsurf / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant                                                                         | 자체 CLI 17 명령 + 13 내장 툴 + ACP Server(Zed/VSCode/Cursor 임베드)+ 6 소스 설정 가져오기 + Skills + CodeGraph + Worktree                           |
 | **엔터프라이즈 AI Agent 플랫폼**  | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew                                                                                                                                             | LangGraph + MCP + A2A 트리플 스택 + Agent 마켓 + 개발자 센터 + Coze SDK 프록시 + OpenClaw + Crew 통합 + N8N 프록시                                   |
 | **AI Agent 프레임워크(오픈소스)** | LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents                                                                                                                                                                        | 트리플 스택 협업 + 완전한 Agent Runtime + Persona 레지스트리 + Agent 마켓 — 단순 프레임워크가 아닌 제품화 구현 방안                                  |
-| **멀티단 개발 프레임워크**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                                                                                                                                                                                        | 9단 통일 아키텍처 + 16 공유 패키지 + 크로스 단말 타입 안전 + 공유 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)                   |
-| **AI 교육 / 콘텐츠 플랫폼**       | Khan Academy / Coursera / edX / Google 교육 AI / 즈푸 AI 교육 / Xueersi AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 이케 / 신미디어 매니저                                                                                                                                                                          | AI 교육 풀스택(강의/문제은행/시험/SRS/라이브/수료증)+ 39 플랫폼 원클릭 퍼블리싱 + 셀프미디어 워크벤치 + AI 뉴스 + AI 구직 + 숏드라마 + 비즈니스 명함 |
-| **대형 모델 API 플랫폼**          | 해외:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>국내:바이두 첸판 / 알리바이바이리안 / 텐센트 후위안 / 바이트댄스 더우바오(화산방주)/ 즈푸 AI 플랫폼 / iFlytek 스파크 / 문샷 김 / DeepSeek / 상테크 일일신 | LiteLLM 통일 게이트웨이 + 101 모델 연동 + 스마트 라우팅 + 60% 캐시 적중 + 멀티 provider 어댑팅                                                      |
+| **멀티단 개발 프레임워크**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                                                                                                                                                                                        | 8단 통일 아키텍처 + 16 공유 패키지 + 크로스 단말 타입 안전 + 공유 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)                   |
+| **AI 교육 / 콘텐츠 플랫폼**       | Khan Academy / Coursera / edX / Google 교육 AI / 즈푸 AI 교육 / Xueersi AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 이케 / 신미디어 매니저                                                                                                                                                                          | AI 교육 풀스택(강의/문제은행/시험/SRS/라이브/수료증)+ 38 플랫폼 원클릭 퍼블리싱 + 셀프미디어 워크벤치 + AI 뉴스 + AI 구직 + 숏드라마 + 비즈니스 명함 |
+| **대형 모델 API 플랫폼**          | 해외:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>국내:바이두 첸판 / 알리바이바이리안 / 텐센트 후위안 / 바이트댄스 더우바오(화산방주)/ 즈푸 AI 플랫폼 / iFlytek 스파크 / 문샷 김 / DeepSeek / 상테크 일일신 | LiteLLM 통일 게이트웨이 + 118 모델 연동 + 스마트 라우팅 + 60% 캐시 적중 + 멀티 provider 어댑팅                                                      |
 | **상업 SaaS 파운데이션**          | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap                                                                                                                                                       | VIP/구독/지갑/포인트/환불/인보이스/8 결제 게이트웨이 + JWT/SSO/RBAC + SMTP SMS + BI 대시보드 + 카나리 배포 — 4-6개 SaaS를 원스톱 대체                |
 
 > **핵심 인사이트**:오픈소스 AI 생태계에서 IHUI-AI보다 **더 전문적인** 프로젝트(RAGFlow는 RAG 차원에서 더 깊고, Claude Code는 CLI 차원에서 더 성숙하고, LangChain은 프레임워크층에서 더 유연함)는 찾을 수 있지만, IHUI-AI보다 **더 포괄적인** 오픈소스 파운데이션은 찾을 수 없습니다 — 6대 카테고리 역량을 하나의 Apache 2.0 저장소에 통합하는 것이 IHUI-AI의 핵심 차별화입니다.
@@ -331,7 +331,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 
 | 대분류                   | 모듈                           | 핵심 역량                                                                                                                                      |
 | ------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI 대화 및 모델**      | 멀티 모델 대화                 | 101 모델 / 스마트 라우팅 / 60% 캐시 적중 / 스트리밍 SSE + WebSocket / 대화 즐겨찾기 / 히스토리 / 공유 / 템플릿                                |
+| **AI 대화 및 모델**      | 멀티 모델 대화                 | 118 모델 / 스마트 라우팅 / 60% 캐시 적중 / 스트리밍 SSE + WebSocket / 대화 즐겨찾기 / 히스토리 / 공유 / 템플릿                                |
 |                          | AI 이미지 생성                 | 텍스트→이미지 / 이미지 편집 / 다중 해상도 / 멀티 모델(Stable Diffusion / DALL-E / Tongyi Wanxiang)                                             |
 |                          | AI 오디오                      | TTS 스트리밍 합성 / ASR 음성 인식 / 음색 클론 / 양방향 실시간 음성(WebRTC PCM16 16kHz)                                                         |
 |                          | AI 비디오 합성                 | 텍스트→비디오 / 비디오 편집 / 멀티 모델 혼합 편성 / 트랜스코딩 / 비디오 작업 관리                                                              |
@@ -353,8 +353,8 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 |                          | Coze SDK 프록시                | Bot / 대화 / 워크플로 / 데이터셋 / 템플릿 / 변수 / 워크스페이스 / OAuth                                                                        |
 |                          | OpenClaw                       | 오픈소스 Agent 프레임워크 연동 / clawdbot / openclaw-routes                                                                                    |
 |                          | Skills 시스템                  | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline) + koubo_workflow(10+ tools)                                   |
-| **9 플랫폼 프레임워크**  | Web                            | Next.js 16 / 200+ 페이지 / PWA / SEO / 다크 모드 / 5개 언어                                                                                    |
-|                          | API                            | Fastify 5 / 4561 라우트 / 25 WebSocket 엔드포인트 / 604 라우트 파일 / OpenAPI                                                                  |
+| **8 플랫폼 프레임워크**  | Web                            | Next.js 16 / 200+ 페이지 / PWA / SEO / 다크 모드 / 5개 언어                                                                                    |
+|                          | API                            | Fastify 5 / 4443 라우트 / 25 WebSocket 엔드포인트 / 604 라우트 파일 / OpenAPI                                                                  |
 |                          | AI 서비스                      | FastAPI + LangGraph + LiteLLM + MCP + A2A / 577 엔드포인트 / 5 provider 어댑터                                                                 |
 |                          | CLI                            | Node.js / 17 명령 / 13 내장 툴 / 6 소스 설정 가져오기 / ACP Server                                                                             |
 |                          | 데스크톱                       | Tauri 2 + Rust / 시스템 트레이 / 로컬 파일 접근                                                                                                |
@@ -368,7 +368,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 |                          | 카나리 배포                    | Canary / 그레이디언트 규칙 / A/B 테스트 / canary + ab-tests                                                                                    |
 |                          | 데이터 컴플라이언스            | GDPR / 민감어 필터 / 콘텐츠 심사 / 감사 로그 / 데이터 내보내기                                                                                 |
 | **콘텐츠 창작**          | 셀프미디어 워크벤치            | 공식계정 글 + 구두 스크립트 듀얼 파이프라인 / 슬래시 명령 / self-media-automation                                                              |
-|                          | 39 플랫폼 자동 퍼블리싱        | 글 9 + 이미지 2 + 비디오 5 플랫폼 / 자격증명 AES-256-GCM 암호화 / 38 adapter                                                                   |
+|                          | 38 플랫폼 자동 퍼블리싱        | 글 9 + 이미지 2 + 비디오 5 플랫폼 / 자격증명 AES-256-GCM 암호화 / 38 adapter                                                                   |
 |                          | 뉴스 기사                      | 기사 / 뉴스 / 특집 / 태그 / 댓글 / 좋아요 / 즐겨찾기 / news-crawler                                                                            |
 |                          | 숏드라마                       | 숏드라마 창작 및 관리 / drama                                                                                                                  |
 |                          | 비즈니스 명함                  | 명함 생성 / 편집 / 즐겨찾기 / 공유 / business-cards                                                                                            |
@@ -395,7 +395,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 |                          | 에러 대시보드                  | 에러 aggregation / 알림 / 추적 / security-audit                                                                                                |
 |                          | 작업 로그                      | 로그인 로그 / 작업 로그 / 콜백 로그 / audit + security-logs                                                                                    |
 |                          | 모니터링 알림                  | Prometheus + Grafana(20 대시보드) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                    |
-| **엔지니어링 인프라**    | 데이터베이스                   | PostgreSQL 18 / **608 테이블** / 235 schema 파일 / **128+ 마이그레이션** / Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                       |
+| **엔지니어링 인프라**    | 데이터베이스                   | PostgreSQL 18 / **598 테이블** / 231 schema 파일 / **128+ 마이그레이션** / Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                       |
 |                          | 큐 캐시                        | Redis 7 + BullMQ / 독립 worker 프로세스(:8804)                                                                                                 |
 |                          | 오브젝트 스토리지              | OSS 멀티 벤더 드라이버 / 자격증명 암호화 / 청크 업로드 / 파일 버전 / chunked-upload                                                            |
 |                          | 이메일 SMS                     | SMTP / SMS 게이트웨이 / 이메일 템플릿 / 인증번호 / mail + message-templates                                                                    |
@@ -412,8 +412,8 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 
 | 차원                               | 역량                                                                                                                  | 산업 포지셔닝                                      |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| **플랫폼 커버리지**                | Web / API / AI 서비스 / CLI / 데스크톱 / 확장 / 모바일 RN / 미니앱 Taro                                               | 업계 최초 9 플랫폼 풀커버리지 AI 풀스택 플랫폼     |
-| **모델 연동**                      | LiteLLM 게이트웨이로 101 모델 통합(글로벌 30+ / 중국 15+ / 클라우드 벤더 10+)                                        | 원스톱 연동, 스마트 라우팅 + 60% 캐시              |
+| **플랫폼 커버리지**                | Web / API / AI 서비스 / CLI / 데스크톱 / 확장 / 모바일 RN / 미니앱 Taro                                               | 업계 최초 8 플랫폼 풀커버리지 AI 풀스택 플랫폼     |
+| **모델 연동**                      | LiteLLM 게이트웨이로 118 모델 통합(글로벌 30+ / 중국 15+ / 클라우드 벤더 10+)                                        | 원스톱 연동, 스마트 라우팅 + 60% 캐시              |
 | **AI 오케스트레이션 3스택**        | LangGraph(워크플로) + MCP(툴 프로토콜) + A2A(Agent 연동)                                                              | 워크플로, 툴, 에이전트 협업 일체화                 |
 | **자체 CLI**                       | 17 명령 + 13 내장 툴 + ACP Server, Claude Code 대항                                                                   | 커맨드라인 네이티브 AI 코딩 경험                   |
 | **CLI 설정 완벽 가져오기**         | cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6 소스 원클릭 가져오기                                         | CLI 툴 간 설정 마이그레이션 비용 제로              |
@@ -422,8 +422,8 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 | **옵저버빌리티**                   | Prometheus + Grafana(**20 대시보드**) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                       | 풀링크 지표 / 로그 / 추적 / 알림                   |
 | **엔지니어링 게이트**              | 21 pre-commit + post-commit 자동 push + git-push-guard + 11 마이그레이션 감사                                         | 협업 사고 방지, 99.9% SLA                          |
 | **국제화**                         | zh-CN / zh-TW / en / ko / ja 5개 언어 parity + 19 i18n 툴체인                                                         | 5개 언어 키 셋 강건 일관성                         |
-| **데이터베이스**                   | **608 테이블 + 128+ 마이그레이션** + 235 schema 파일 + Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                  | 단일 DB PostgreSQL 18, schema 격리                 |
-| **API 규모**                       | 4561 라우트(api) + 577 엔드포인트(ai-service) + 25 WebSocket + 604 라우트 파일                                        | 원본 프로젝트 331 엔드포인트 대비 대폭 확장        |
+| **데이터베이스**                   | **598 테이블 + 128+ 마이그레이션** + 231 schema 파일 + Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                  | 단일 DB PostgreSQL 18, schema 격리                 |
+| **API 규모**                       | 4443 라우트(api) + 577 엔드포인트(ai-service) + 25 WebSocket + 604 라우트 파일                                        | 원본 프로젝트 331 엔드포인트 대비 대폭 확장        |
 | **비즈니스 커버리지**              | 15대 모듈 / 50+ 서브 기능 / **250+ Web 페이지**                                                                       | 하나의 플랫폼이 모든 AI 애플리케이션 시나리오 커버 |
 | **공유 패키지**                    | 16 packages(auth/database/types/ui/sdk/api-client/context-compaction 등)                                              | 크로스 플랫폼 타입 안전 + 재사용                   |
 | **성능 보장**                      | Knip 미사용 코드 + Lighthouse CI + Locust 부하 테스트                                                                 | 성능 예산 + 용량 추정                              |
@@ -443,18 +443,18 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 | **비교 카테고리**      | 6대 카테고리 통합(애플리케이션+CLI+멀티단+상업+교육+콘텐츠) | 범용 AI 대화      | AI 애플리케이션 개발 | AI Agent 프레임워크 | RAG 지식 베이스 | AI 에이전트 SaaS  | AI 코딩 CLI       | AI 코딩 IDE       | AI 코딩 어시스턴트 | AI 교육 플랫폼          | 결제+인증 파운데이션 |
 | **License**            | **Apache 2.0**                                              | **클로즈드 소스** | Apache 2.0           | MIT                 | Apache 2.0      | **클로즈드 소스** | **클로즈드 소스** | **클로즈드 소스** | **클로즈드 소스**  | **클로즈드 소스**(무료) | **클로즈드 SaaS**    |
 | **셀프 호스팅**        | **완전 셀프 호스팅**                                        | 미지원            | Docker               | 라이브러리          | Docker          | 미지원            | N/A               | N/A               | N/A                | 미지원                  | N/A                  |
-| **단말 커버리지**      | **9단**                                                     | 2단(Web/APP)      | 2단                  | 0단(라이브러리)     | 2단             | 2단               | 1단(CLI)          | 1단(IDE)          | 1단(IDE)           | 2단                     | 0단(라이브러리)      |
-| **모델 연동**          | **101 모델** + LiteLLM                                     | OpenAI 계열       | 50+ 모델             | LangChain 어댑터    | 30+ 모델        | 바이트계          | Anthropic         | 멀티 모델         | OpenAI             | 없음                    | N/A                  |
+| **단말 커버리지**      | **8단**                                                     | 2단(Web/APP)      | 2단                  | 0단(라이브러리)     | 2단             | 2단               | 1단(CLI)          | 1단(IDE)          | 1단(IDE)           | 2단                     | 0단(라이브러리)      |
+| **모델 연동**          | **118 모델** + LiteLLM                                     | OpenAI 계열       | 50+ 모델             | LangChain 어댑터    | 30+ 모델        | 바이트계          | Anthropic         | 멀티 모델         | OpenAI             | 없음                    | N/A                  |
 | **워크플로 엔진**      | **LangGraph + MCP + A2A 트리플 스택**                       | 없음              | 자체 워크플로        | LangGraph           | 없음            | 자체 워크플로     | 없음              | 없음              | 없음               | 없음                    | N/A                  |
 | **자체 CLI**           | **17 명령 + 13 툴 + ACP Server**                            | 없음              | 없음                 | 없음                | 없음            | 없음              | 네이티브 CLI      | 없음              | 없음               | 없음                    | N/A                  |
 | **멀티 테넌트 + RBAC** | **완전**(5단계 + RLS)                                       | 단일 사용자       | 기본                 | 없음                | 기본            | SaaS 내           | 없음              | 없음              | 없음               | 학교 계정               | 기본                 |
 | **빌링 구독**          | **완전**(VIP/지갑/포인트/환불/8 결제 게이트웨이)            | 구독($20-200)     | 없음                 | 없음                | 없음            | SaaS 내           | 없음              | 구독($20)         | 구독($10-39)       | 무료                    | 핵심(결제)           |
 | **AI 교육**            | **풀스택**(강의/문제은행/시험/SRS/라이브/45 테이블)         | 없음              | 없음                 | 없음                | 없음            | 없음              | 없음              | 없음              | 없음               | 핵심(교육)              | 없음                 |
-| **콘텐츠 퍼블리싱**    | **39 플랫폼 + 38 adapter**                                  | 없음              | 없음                 | 없음                | 없음            | 없음              | 없음              | 없음              | 없음               | 없음                    | 없음                 |
+| **콘텐츠 퍼블리싱**    | **38 플랫폼 + 38 adapter**                                  | 없음              | 없음                 | 없음                | 없음            | 없음              | 없음              | 없음              | 없음               | 없음                    | 없음                 |
 | **옵저버빌리티**       | **3대 지주 + 20 대시보드**                                  | -                 | 기본                 | 없음                | 기본            | -                 | 없음              | 없음              | 없음               | -                       | -                    |
 | **엔지니어링 게이트**  | **17 훅 + 11 마이그레이션 감사 + 자동 push**                | -                 | 기본                 | 기본                | 기본            | -                 | 없음              | 없음              | 없음               | -                       | -                    |
 | **i18n**               | **5개 언어 parity + 4 게이트**                              | 다국어            | 중영문               | 영문                | 중영문          | 다국어            | 영문              | 다국어            | 다국어             | 다국어                  | N/A                  |
-| **데이터베이스**       | **608 테이블 + 128+ 마이그레이션 + RLS + pgvector**        | SaaS 내           | 기본                 | 없음                | pgvector        | SaaS 내           | 없음              | 없음              | 없음               | SaaS 내                 | SaaS 내              |
+| **데이터베이스**       | **598 테이블 + 128+ 마이그레이션 + RLS + pgvector**        | SaaS 내           | 기본                 | 없음                | pgvector        | SaaS 내           | 없음              | 없음              | 없음               | SaaS 내                 | SaaS 내              |
 | **공유 패키지**        | **16 packages**                                             | 없음              | 없음                 | 1 라이브러리        | 없음            | -                 | 없음              | 없음              | 없음               | 없음                    | 1 SDK                |
 | **월간 비용(5인)**     | **$0**(셀프 호스팅, 서버비만)                               | $125+             | $59+                 | $0(직접 통합)       | $0(직접 통합)   | SaaS 내           | $100              | $100              | $95                | 무료(교육)              | $149+                |
 
@@ -463,7 +463,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 **IHUI-AI는 누구를 대체하려는 것이 아니라, "완전한 AI 애플리케이션 하나를 구축"하는 데 필요한 6대 카테고리 인프라를 모두 오픈소스로 공개하는 것입니다.**
 
 - **OpenAI ChatGPT 대비**:IHUI-AI는 완전 셀프 호스팅, 데이터 100% 주권, 빌링/교육/퍼블리싱 등 완전한 비즈니스 내장, ChatGPT는 클로즈드 소스 SaaS
-- **Dify / FastGPT / Langflow / RAGFlow 대비**:IHUI-AI는 6단, 자체 CLI, 완전한 상업적 루프, AI 교육 풀스택, 39 플랫폼 퍼블리싱, 엔터프라이즈 보안 스택, SRE 옵저버빌리티가 추가됩니다
+- **Dify / FastGPT / Langflow / RAGFlow 대비**:IHUI-AI는 6단, 자체 CLI, 완전한 상업적 루프, AI 교육 풀스택, 38 플랫폼 퍼블리싱, 엔터프라이즈 보안 스택, SRE 옵저버빌리티가 추가됩니다
 - **LangChain / LlamaIndex / AutoGen 대비**:그것들은 개발 프레임워크("자동차 부품")이고, IHUI-AI는 제품화 파운데이션("완성차 출고")으로 비기술 팀도 사용 가능
 - **Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q 대비**:IHUI-AI의 CLI는 코딩뿐 아니라 AI 애플리케이션 플랫폼 역량(대화/RAG/Agent/빌링)을 통합했으며, 전체 저장소가 Apache 2.0 오픈소스, 타 제품은 모두 클로즈드 소스
 - **Coze(Kouzi) 대비**:IHUI-AI는 완전 셀프 호스팅, 데이터 주권 100%, License 상업 친화적이지만 Coze는 클로즈드 소스 SaaS로 데이터가 바이트댄스에 귀속
@@ -485,7 +485,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 | 아이즈히후이 AI   | 회사 메인 상업화 플랫폼(즤후이 AI 그룹)      | 프로덕션 사용       |
 | AI 서비스 제공자  | 멀티 모델 프록시 + 빌링 + 구독 원스톱 출시   | 어댑팅 중           |
 | 교육 기관         | AI 교육 풀스택(강의 / 문제은행 / 시험 / SRS) | 어댑팅 중           |
-| 콘텐츠 크리에이터 | 39 플랫폼 원클릭 퍼블리싱                    | 어댑팅 중           |
+| 콘텐츠 크리에이터 | 38 플랫폼 원클릭 퍼블리싱                    | 어댑팅 중           |
 | 개인 개발자       | 프라이빗 AI 어시스턴트 + 지식 베이스         | 여러분이 채워주세요 |
 
 > 여러분의 회사나 프로젝트에서 IHUI-AI를 사용 중이신가요? PR을 제출해 이 리스트에 추가해 주세요.
@@ -500,7 +500,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 cd IHUI-AI && docker compose up -d
 # 5분 후, 여러분은 다음을 갖게 됩니다(ChatGPT Team + Claude Code + Notion AI 3개 구독 대체, 월 $60+ 절약):
-# - 101 모델을 지원하는 대화 인터페이스(ChatGPT Team $25/인 대체)
+# - 118 모델을 지원하는 대화 인터페이스(ChatGPT Team $25/인 대체)
 # - 프라이빗 지식 베이스 RAG + pgvector 벡터 DB(ChatGPT Plus 지식 베이스 대체)
 # - 크로스 플랫폼 동기화(Web + 데스크톱 + 모바일 + 미니앱)
 # - 자체 CLI 코딩 어시스턴트(Claude Code $20/월 대체)
@@ -520,7 +520,7 @@ cd IHUI-AI && docker compose up -d
 - 멀티 모델 프록시 + 빌링 + 구독 + VIP + 지갑 + 포인트 재사용
 - 에이전트 마켓으로 개발자 유치, 30% 커미션 추출
 - API Keys + SDK로 고객이 여러분의 플랫폼 연동
-- 39 플랫폼 퍼블리싱으로 콘텐츠 마케팅
+- 38 플랫폼 퍼블리싱으로 콘텐츠 마케팅
 - 1년이 아닌 1주 만에 출시
 
 ### 시나리오 4: 교육 기관이 교육 혁신
@@ -535,7 +535,7 @@ cd IHUI-AI && docker compose up -d
 ### 시나리오 5: 콘텐츠 크리에이터가 생산성 해방
 
 - 셀프미디어 워크벤치에서 공식계정 글 + 구두 스크립트 작성
-- 39 플랫폼에 원클릭 퍼블리싱(공식계정 / Zhihu / CSDN / Juejin / Xiaohongshu / Bilibili / YouTube / Douyin 등)
+- 38 플랫폼에 원클릭 퍼블리싱(공식계정 / Zhihu / CSDN / Juejin / Xiaohongshu / Bilibili / YouTube / Douyin 등)
 - 자격증명 AES-256-GCM 암호화 저장, 플랫폼 유출 없음
 - 퍼블리싱 완료 시 WebSocket 실시간 알림
 
@@ -570,7 +570,7 @@ cd IHUI-AI && docker compose up -d
 
 ---
 
-## 9 플랫폼 아키텍처
+## 8 플랫폼 아키텍처
 
 ```
                     ┌─────────────────────────────────────────────────┐
@@ -589,12 +589,12 @@ cd IHUI-AI && docker compose up -d
                                            │  HTTPS / WebSocket / SSE / ACP
                                   ┌────────▼─────────┐
                                   │   apps/api       │  Fastify 5 + Drizzle ORM
-                                  │   :8802          │  4561 라우트 + 25 WS + 604 라우트 파일
+                                  │   :8802          │  4443 라우트 + 25 WS + 604 라우트 파일
                                   └────┬───────┬─────┘
                                        │       │
                           ┌────────────▼─┐   ┌─▼──────────────┐
                           │  PostgreSQL  │   │  apps/ai-service│  FastAPI + Socket.IO
-                          │  15 (608 표) │   │  :8803          │  LangGraph + LiteLLM + MCP + A2A
+                          │  15 (598 표) │   │  :8803          │  LangGraph + LiteLLM + MCP + A2A
                           └──────────────┘   └────┬────────────┘  5 provider + 38 publish adapter
                                                   │
                                             ┌─────▼─────┐  ┌──────────┐
@@ -603,12 +603,12 @@ cd IHUI-AI && docker compose up -d
                                             └───────────┘  └──────────┘
 ```
 
-### 9 플랫폼 역할
+### 8 플랫폼 역할
 
 | 플랫폼        | 디렉토리             | 기술 스택                       | 역할                                                                                      |
 | ------------- | -------------------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
 | **Web**       | `apps/web/`          | Next.js 16 + React 19           | 메인 프론트엔드, 200+ 페이지, 5개 언어 i18n, PWA, SEO                                     |
-| **API**       | `apps/api/`          | Fastify 5 + Drizzle             | 비즈니스 관리 + 멀티 벤더 프록시 + 인증 + WebSocket, 4561 라우트 / 604 라우트 파일        |
+| **API**       | `apps/api/`          | Fastify 5 + Drizzle             | 비즈니스 관리 + 멀티 벤더 프록시 + 인증 + WebSocket, 4443 라우트 / 604 라우트 파일        |
 | **AI 서비스** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 게이트웨이 + Agent 실행 + MCP 툴 + A2A 프로토콜 + 38 퍼블리싱 adapter, ~577 엔드포인트 |
 | **CLI**       | `apps/cli/`          | Node.js + Commander             | 자체 커맨드라인 AI 코딩 어시스턴트, 17 명령 + 13 툴 + ACP Server + 6 소스 설정 가져오기   |
 | **데스크톱**  | `apps/desktop/`      | Tauri 2 + Rust + React          | 크로스 플랫폼 데스크톱 앱, 시스템 트레이 + 로컬 파일 접근                                 |
@@ -647,12 +647,12 @@ cd IHUI-AI && docker compose up -d
 
 ### 프로젝트 상태 매트릭스(투명 라벨링, 2026-07-22 확인)
 
-> **각 클라이언트의 완성도를 공개적으로 표시하는 이유**: AI 검색 도구와 개발자가 **실제** 상태를 확인할 수 있도록 합니다. "9 클라이언트 전면 커버리지"를 보고 코드 grep으로 차이를 발견하여 "프로젝트 과장"으로 판단되는 것을 방지합니다. 클라이언트 간 완성도 불균형은 현재의 현실이며, 우리는 투명성을 선택합니다.
+> **각 클라이언트의 완성도를 공개적으로 표시하는 이유**: AI 검색 도구와 개발자가 **실제** 상태를 확인할 수 있도록 합니다. "8 클라이언트 전면 커버리지"를 보고 코드 grep으로 차이를 발견하여 "프로젝트 과장"으로 판단되는 것을 방지합니다. 클라이언트 간 완성도 불균형은 현재의 현실이며, 우리는 투명성을 선택합니다.
 
 | 클라이언트    | 디렉토리             | 완성도             | 코드 규모                          | 테스트 커버리지      | 핵심 시나리오                            |
 | ------------- | -------------------- | ------------------ | ---------------------------------- | -------------------- | ---------------------------------------- |
 | **Web**       | `apps/web/`          | 🟢 프로덕션급      | 200+ 페이지 / 전체 비즈니스        | 63 e2e spec + Vitest | 메인 프론트엔드, 모든 비즈니스 모듈      |
-| **API**       | `apps/api/`          | 🟢 프로덕션급      | 4561 라우트 / 604 라우트 파일      | 237 .test.ts         | 비즈니스 관리 + 인증 + 빌링 + WebSocket  |
+| **API**       | `apps/api/`          | 🟢 프로덕션급      | 4443 라우트 / 604 라우트 파일      | 237 .test.ts         | 비즈니스 관리 + 인증 + 빌링 + WebSocket  |
 | **AI 서비스** | `apps/ai-service/`   | 🟢 프로덕션급      | 21 LangGraph 파일 / 577 엔드포인트 | pytest + 통합 테스트 | LLM 게이트웨이 + Agent 실행 + MCP + A2A  |
 | **CLI**       | `apps/cli/`          | 🟡 핵심 시나리오급 | ~1500줄 / 17 명령 / 13 툴          | 단위 테스트          | 자체 개발 AI 코딩 어시스턴트, ACP Server |
 | **데스크톱**  | `apps/desktop/`      | 🟡 핵심 시나리오급 | Tauri 2 + Rust + React             | 기본 테스트          | 시스템 트레이 + 로컬 파일 + WorkPanel    |
@@ -675,7 +675,7 @@ cd IHUI-AI && docker compose up -d
 IHUI-AI/
 ├── apps/
 │   ├── ai-service/          # AI 서비스 (FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO)
-│   ├── api/                 # 백엔드 API (Fastify 5 + Drizzle, 4561 라우트, 604 라우트 파일)
+│   ├── api/                 # 백엔드 API (Fastify 5 + Drizzle, 4443 라우트, 604 라우트 파일)
 │   ├── cli/                 # 자체 CLI (17 명령 + 13 툴 + ACP Server, Claude Code 대항)
 │   ├── desktop/             # 데스크톱 (Tauri 2 + Rust + React)
 │   ├── extension/           # 브라우저 확장 (WXT + React, Chrome/Edge/Firefox)
@@ -686,7 +686,7 @@ IHUI-AI/
 │   ├── api-client/          # @ihui/api-client (68 엔드포인트 수기 TS SDK)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
 │   ├── context-compaction/  # @ihui/context-compaction (컨텍스트 압축)
-│   ├── database/            # @ihui/database (Drizzle, 608 테이블, 128+ 마이그레이션, RLS, 테넌트 라우팅, pgvector)
+│   ├── database/            # @ihui/database (Drizzle, 598 테이블, 128+ 마이그레이션, RLS, 테넌트 라우팅, pgvector)
 │   ├── eslint-config/       # @ihui/eslint-config
 │   ├── sdk/                 # @ihui/sdk (수기 TS SDK)
 │   ├── tsconfig/            # @ihui/tsconfig
@@ -832,7 +832,7 @@ LiteLLM 게이트웨이로 통합 연동, 스마트 라우팅 + 60% 캐시 적�
 #### C1. 콘텐츠 창작 및 멀티 플랫폼 퍼블리싱
 
 - **셀프미디어 워크벤치**:공식계정 글 + 구두 스크립트 듀얼 파이프라인, AI 대화창 슬래시 명령(`/wechat-article` / `/koubo-script`) 또는 부가 패널 버튼 듀얼 엔트리로 호출
-- **39 플랫폼 원클릭 자동 퍼블리싱**(38 adapter는 `apps/ai-service/app/services/publish/`):
+- **38 플랫폼 원클릭 자동 퍼블리싱**(38 adapter는 `apps/ai-service/app/services/publish/`):
 
 | 타입            | 플랫폼                                                          |
 | --------------- | --------------------------------------------------------------- |
@@ -954,7 +954,7 @@ LiteLLM 게이트웨이로 통합 연동, 스마트 라우팅 + 60% 캐시 적�
 #### E2. 데이터베이스 및 공유 패키지
 
 - **단일 DB 설계**:PostgreSQL 18, 단일 DB `ihui`, schema로 비즈니스 도메인 격리
-- **608 테이블**:231개 schema 모듈 파일, 30+ 비즈니스 도메인 커버
+- **598 테이블**:231개 schema 모듈 파일, 30+ 비즈니스 도메인 커버
 - **128+ 마이그레이션**:`packages/database/drizzle/`, drizzle-kit generate 생성 + 수동 증분
 - **7단계 멱등 seed**:`packages/database/seed/`, 패턴화 + 내결함성 격리
 - **행 수준 보안**:RLS(Row Level Security)가 핵심 필드에 활성화, 멀티 테넌트 격리
@@ -1134,7 +1134,7 @@ pnpm turbo build typecheck lint test
 
 ## API 및 프로토콜
 
-### REST API(4561 라우트)
+### REST API(4443 라우트)
 
 | 서비스              | 엔드포인트 수 | 접두사                | 라우트 파일 수 | 커버 도메인                                                                                                                                                                                                                                                                 |
 | ------------------- | ------------- | --------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1175,6 +1175,13 @@ pnpm turbo build typecheck lint test
 
 ## 데이터베이스
 
+- **단일 DB 설계**:PostgreSQL 18, 단일 DB `ihui`, schema로 비즈니스 도메인 격리
+- **598 테이블**:231개 schema 모듈 파일, 30+ 비즈니스 도메인 커버
+- **128+ 마이그레이션**:`packages/database/drizzle/`, drizzle-kit generate 생성 + 수동 증분
+- **7단계 멱등 seed**:`packages/database/seed/`, 패턴화 + 내결함성 격리
+- **행 수준 보안**:RLS(Row Level Security)가 핵심 필드에 활성화, 멀티 테넌트 격리
+- **읽기 복제본**:read-replica + tenant-router 라우팅 쿼리
+- **타입 안전**:Drizzle ORM 0.38, TypeScript strict 모드, 엔드투엔드 타입 추론
 - **핵심 schema 모듈**:users / auth-identity / oauth-private-keys / agents-extended / agent-commerce / ai-capabilities / ai-cost / learn(45 테이블)/ exam / certificate / content / news-crawler / self-media / publish-platform / community / order / billing / wechat-pay-contracts / refund-audit / point / wallet / funds / commission / member / teams / tenant / rbac / workspace-permissions / system / canary / ab-tests / live / customer-service / business-cards / stock / trader / developer / sdks / webhooks / workflow / projects / knowledge-base / knowledge-rag / search-contents / cli-provider-imports / email-logs / sensitive-words / audit / visit-tracking / behavior / analytics-events / gamification
 
 ---
@@ -1244,13 +1251,26 @@ pnpm turbo build typecheck lint test
 
 | 차원                  | 구현                                                                                                             |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **인증**              | JWT HS256 + token-family 로테이션(도용 방지) + refresh token 블랙리스트                                          |
 | **SSO**               | OAuth 2.0 + PKCE / Apple / Google / SSO 중계 로그인                                                              |
+| **레이트 리밋**       | 글로벌 100/min, auth login/register 10/min, 계층적 rate-limit                                                    |
 | **암호화**            | AES-256-GCM credentials 암호화(OSS 드라이버 자격증명 + 교육 설정 자격증명 + 퍼블리싱 플랫폼 계정 + OAuth 개인키) |
+| **비밀번호**          | bcryptjs 해시(member 테이블 SHA256 구버전 Java 데이터 호환)                                                      |
+| **데이터 마스킹**     | password / passwordHash 필드를 API 응답에서 디스트럭처링으로 제거                                                |
 | **GDPR**              | 데이터 내보내기 / 삭제 / 포터빌리티 / gdpr 라우트                                                                |
 | **민감어**            | 민감어 필터 + 콘텐츠 심사 + admin-sensitive-words                                                                |
 | **감사 로그**         | 로그인 로그 / 작업 로그 / 시스템 작업 로그 / 감사 추적                                                           |
+| **트랜잭션 안전**     | DB 트랜잭션화:order 결제/환불 + social tag + gamification 포인트 + chat 초기화                                   |
+| **행 잠금**           | `.for('update')` 행 잠금으로 TOCTOU 경쟁 방지                                                                    |
+| **CSRF**              | `@fastify/csrf-protection` 듀얼 토큰 모드                                                                        |
+| **XSS**               | sanitizer 우회 감지 스크립트 게이트(pre-commit 6번)                                                              |
+| **API key 유출**      | `check-api-key-leak.mjs` 게이트(pre-commit 1번)                                                                  |
+| **RBAC**              | roleId >= 1이어야 admin 라우트 접근, plugin-level preHandler 통합 인증 + data-scope 5단계                        |
 | **워크스페이스 권한** | 3 모드 + 7 엔드포인트 런타임 가로채기 + 60s 감사 타임아웃                                                        |
 | **멀티 테넌트**       | 테넌트 격리 + 조직 + 부서 + 메뉴 권한 + tenant-router + RLS                                                      |
+| **OAuth 개인키**      | oauth-private-keys schema 암호화 저장                                                                            |
+| **2FA**               | user-auth-info schema 지원                                                                                       |
+| **인증번호**          | auth-codes + captcha schema                                                                                      |
 
 ---
 
@@ -1417,6 +1437,7 @@ node apps/api/scripts/pg-backup.mjs
 
 ## 국제화
 
+5개 언어 parity(키 셋 강건 일관성), 4 게이트 스크립트 + 19 i18n 툴체인으로 품질 보장:
 
 상세 목록은 [핵심 역량 E3절](#e3-국제화5개-언어-parity) 참조.
 
@@ -1437,21 +1458,21 @@ IHUI-AI는 단일 AI 툴이 아니라 **오픈소스 AI 상업용 통합 파운�
 
 | 비교 카테고리               | 대표 제품                                                                    | IHUI-AI 차이                                                                                                                              |
 | --------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 범용 AI 대화                | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot     | IHUI-AI 셀프 호스팅 + 101 모델(OpenAI 한정 아님)+ 빌링/교육/퍼블리싱 등 비즈니스 내장                                                    |
-| AI 애플리케이션 개발 플랫폼 | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(Kouzi)                  | IHUI-AI는 6단, 자체 CLI, 완전한 상업적 루프, AI 교육, 39 플랫폼 퍼블리싱이 추가                                                           |
+| 범용 AI 대화                | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot     | IHUI-AI 셀프 호스팅 + 118 모델(OpenAI 한정 아님)+ 빌링/교육/퍼블리싱 등 비즈니스 내장                                                    |
+| AI 애플리케이션 개발 플랫폼 | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(Kouzi)                  | IHUI-AI는 6단, 자체 CLI, 완전한 상업적 루프, AI 교육, 38 플랫폼 퍼블리싱이 추가                                                           |
 | AI Agent 프레임워크         | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                | 그것들은 개발 프레임워크("자동차 부품")이고, IHUI-AI는 제품화 파운데이션("완성차 출고")으로 비기술 팀도 사용 가능                         |
 | AI 코딩 CLI / IDE           | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider  | IHUI-AI의 CLI는 코딩뿐 아니라 AI 애플리케이션 플랫폼(대화/RAG/Agent/빌링)을 통합했으며, Apache 2.0 오픈소스, 타 제품은 모두 클로즈드 소스 |
 | AI 교육 플랫폼              | Khan Academy / Coursera / edX / Google 교육 AI                               | IHUI-AI의 AI 교육은 오픈소스 풀스택(강의/문제은행/시험/SRS/라이브/수료증)으로 2차 맞춤 가능, 타 제품은 클로즈드 소스 SaaS                 |
 | 상업 SaaS 파운데이션        | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog | IHUI-AI는 결제/인증/이메일/분석을 모두 프리셋하여 4-6개 SaaS를 원스톱 대체, 월 $300+ 절약                                                 |
-| 멀티단 프레임워크           | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                | IHUI-AI는 9단 + 16 공유 패키지 + 공유 UI를 한번에 프리셋, 개발자가 직접 조립하지 않아도 됨                                                |
+| 멀티단 프레임워크           | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                | IHUI-AI는 8단 + 16 공유 패키지 + 공유 UI를 한번에 프리셋, 개발자가 직접 조립하지 않아도 됨                                                |
 
 **10대 고유 역량(오픈소스 생태계에서 동시 보유는 드문 사례)**:
 
-1. **9단 전면 커버리지**(타 AI 애플리케이션 플랫폼은 1-2단, Claude Code/Cursor는 1단만)
+1. **8단 전면 커버리지**(타 AI 애플리케이션 플랫폼은 1-2단, Claude Code/Cursor는 1단만)
 2. **LangGraph + MCP + A2A 트리플 스택 협업**(타 프로젝트는 최대 단일 스택)
 3. **자체 CLI 17 명령 + 13 툴 + ACP Server + 6 소스 설정 가져오기**(오픈소스 AI 애플리케이션 플랫폼에서는 드묾)
 4. **완전한 빌링 구독 + VIP + 지갑 + 포인트 + 8 결제 게이트웨이 + 환불 + 인보이스**(오픈소스 AI 플랫폼에서는 드묾)
-5. **39 플랫폼 원클릭 퍼블리싱 + 38 adapter + AES-256-GCM 자격증명 암호화**(오픈소스 프로젝트에서는 드묾)
+5. **38 플랫폼 원클릭 퍼블리싱 + 38 adapter + AES-256-GCM 자격증명 암호화**(오픈소스 프로젝트에서는 드묾)
 6. **AI 교육 풀스택 + 학생 12 서브페이지 + 45 테이블 edu-full schema**(오픈소스 AI 플랫폼에서는 드묾)
 7. **엔터프라이즈 보안 스택(RBAC + 멀티 테넌트 + RLS + SSO + AES-256-GCM + JWT token-family + GDPR + 2FA + IDOR)**(오픈소스 AI 플랫폼에서는 드묾)
 8. **17 엔지니어링 게이트 + 11 마이그레이션 감사 + 9 PowerShell + post-commit 자동 push**(오픈소스 AI 프로젝트에서는 드묾)
@@ -1512,9 +1533,9 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 </details>
 
 <details>
-<summary><strong>Q9: 데이터베이스가 왜 608 테이블인가요? 과도한 설계 아닌가요?</strong></summary>
+<summary><strong>Q9: 데이터베이스가 왜 598 테이블인가요? 과도한 설계 아닌가요?</strong></summary>
 
-608 테이블은 231개 schema 파일에 분산되어 30+ 비즈니스 도메인을 커버하며, 도메인당 평균 11개 테이블로 밀도가 합리적입니다. 이 프로젝트는 상업화 프로덕션급 AI 플랫폼(즤후이 AI 그룹 메인 플랫폼)으로, 데모가 아니기에 테이블 구조는 실제 비즈니스 복잡도에 따라 설계되었습니다. 일부 기능만 사용한다면(예:AI 대화만), chat / users / billing 3개 schema만 주목하면 되고, 다른 테이블은 실행에 영향을 주지 않습니다.
+598 테이블은 231개 schema 파일에 분산되어 30+ 비즈니스 도메인을 커버하며, 도메인당 평균 11개 테이블로 밀도가 합리적입니다. 이 프로젝트는 상업화 프로덕션급 AI 플랫폼(즤후이 AI 그룹 메인 플랫폼)으로, 데모가 아니기에 테이블 구조는 실제 비즈니스 복잡도에 따라 설계되었습니다. 일부 기능만 사용한다면(예:AI 대화만), chat / users / billing 3개 schema만 주목하면 되고, 다른 테이블은 실행에 영향을 주지 않습니다.
 </details>
 
 <details>
@@ -1553,7 +1574,7 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 - **새 모델 어댑팅**:더 많은 LLM 벤더 연동(Replicate / Together AI / DeepInfra 등)
 - **새 퍼블리싱 플랫폼**:더 많은 콘텐츠 퍼블리싱 플랫폼 연동(TikTok / Instagram / LinkedIn 등)
 - **새 언어**:i18n locale 추가(아랍어 / 포르투갈어 / 스페인어 등)
-- **새 플랫폼 어댑팅**:기존 9 플랫폼 강화 + 새 플랫폼 추가( HarmonyOS / HarmonyOS Next)
+- **새 플랫폼 어댑팅**:기존 8 플랫폼 강화 + 새 플랫폼 추가( HarmonyOS / HarmonyOS Next)
 - **AI 워크플로**:LangGraph 워크플로 템플릿 / MCP 툴 / A2A Agent 기여
 - **엔터프라이즈 역량**:멀티 테넌트 격리 강화 / 감사 로그 완성 / SSO 통합(Okta / Keycloak)
 - **테스트 커버리지**:엣지 케이스 / E2E 시나리오 / 성능 벤치마크 추가
@@ -1570,7 +1591,7 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 | 문서                                                                   | 설명                                                                                                |
 | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | [docs/architecture.md](docs/architecture.md)                           | **시스템 아키텍처 개요**(기술 스택 / 데이터베이스 / API 라우트 / 시작 흐름 / 구 아키텍처 폐지 설명) |
-| [docs/MULTI_END.md](docs/MULTI_END.md)                                 | 다단 아키텍처(9단 매트릭스 + 크로스단 링크 + 동기 개발 + 39 플랫폼 릴리스 매트릭스)                 |
+| [docs/MULTI_END.md](docs/MULTI_END.md)                                 | 다단 아키텍처(8단 매트릭스 + 크로스단 링크 + 동기 개발 + 38 플랫폼 릴리스 매트릭스)                 |
 | [docs/PACKAGES.md](docs/PACKAGES.md)                                   | 공유 패키지 가이드(16개 @ihui/* 패키지 + 의존관계 + 신규 패키지 흐름)                               |
 | [docs/port-management.md](docs/port-management.md)                     | 포트 관리 규칙(8801-8899 포트 레지스트리)                                                           |
 | [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md)     | 인프라 결정(Docker Compose vs K8s)                                                                  |
@@ -1591,7 +1612,7 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 | 문서                                             | 설명                                                                               |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md)   | **API 완전 참조**(60+ 라우트 + 25 WebSocket + SSE + 에러 코드 + 클라이언트 예제)   |
-| [docs/DATABASE.md](docs/DATABASE.md)             | 데이터베이스 설계(Drizzle / 608 테이블 / 마이그레이션 / RLS / 시드 / 백업)         |
+| [docs/DATABASE.md](docs/DATABASE.md)             | 데이터베이스 설계(Drizzle / 339 테이블 / 마이그레이션 / RLS / 시드 / 백업)         |
 | [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) | 인증 및 권한 부여(JWT / token-family / OAuth2 / 2FA / RBAC / 멀티테넌트 / WS 인증) |
 
 ### AI 서비스
@@ -1607,7 +1628,7 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 | 문서                                                                         | 설명                                                                   |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)                     | **배포 운영 매뉴얼**(블루그린 배포 / 롤백 / 인증서 갱신)               |
-| [docs/RELEASE.md](docs/RELEASE.md)                                           | 릴리스 프로세스(39 플랫폼 + SemVer + Git tag + Docker 이미지 + hotfix) |
+| [docs/RELEASE.md](docs/RELEASE.md)                                           | 릴리스 프로세스(38 플랫폼 + SemVer + Git tag + Docker 이미지 + hotfix) |
 | [docs/MONITORING.md](docs/MONITORING.md)                                     | 관측 가능성(Prometheus + Grafana + Loki + Jaeger + Alertmanager)       |
 | [docs/INCIDENTS.md](docs/INCIDENTS.md)                                       | 과거 사고 회고                                                         |
 | [docs/SECURITY.md](docs/SECURITY.md)                                         | 보안 정책(취약점 공개 / 암호화 설계 / 권한 모델)                       |
@@ -1651,13 +1672,13 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 
 ### 인도 완료(2026-07-20)
 
-- 9 플랫폼 풀커버리지(Web / API / AI 서비스 / CLI / 데스크톱 / 확장 / 모바일 RN / 미니앱 Taro)
+- 8 플랫폼 풀커버리지(Web / API / AI 서비스 / CLI / 데스크톱 / 확장 / 모바일 RN / 미니앱 Taro)
 - 100+ LLM LiteLLM 통합 연동 + 5 provider 어댑터
 - LangGraph + MCP + A2A 3스택 협업 + Persona + Agent Runtime + 벡터 메모리
 - 자체 CLI 17 명령 + 13 툴 + ACP Server + 6 소스 설정 매끄럽게 가져오기
 - 워크스페이스 권한 3 모드 + 7 엔드포인트 런타임 가로채기 + 60s 감사 타임아웃
 - 셀프미디어 워크벤치(공식계정 글 + 구두 스크립트 듀얼 파이프라인) + Skills 시스템(content_engine + koubo_workflow)
-- 39 플랫폼 원클릭 자동 퍼블리싱 플랫폼 + 38 adapter + AES-256-GCM 자격증명 암호화
+- 38 플랫폼 원클릭 자동 퍼블리싱 플랫폼 + 38 adapter + AES-256-GCM 자격증명 암호화
 - AI 교육 풀스택(강의 / 문제은행 / 시험 / SRS / 라이브 / 리포트 / 수료증 / 강사 / 학생 12 서브페이지)
 - 멀티 에이전트 마켓 + 개발자 센터(13 서브페이지) + Coze SDK 프록시 + OpenClaw + Crew + N8N
 - 커뮤니티 인터랙션(서클 / 광장 / 1:1 메시지 / 팔로우 / 공유)
@@ -1669,7 +1690,7 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 - 풀스택 옵저버빌리티(Prometheus + Grafana 20 대시보드 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
 - 21 pre-commit 게이트 + post-commit 자동 push + 11 마이그레이션 감사 + 9 PowerShell 시작
 - 엔터프라이즈 보안(RBAC + 멀티 테넌트 + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
-- 608 데이터베이스 테이블 + 128+ 마이그레이션 + 16 공유 패키지 + Knip + Lighthouse + Locust 부하 테스트
+- 598 데이터베이스 테이블 + 128+ 마이그레이션 + 16 공유 패키지 + Knip + Lighthouse + Locust 부하 테스트
 
 ### 진행 중
 
@@ -1703,12 +1724,14 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
       <br/>
       <sub>QR코드로 IHUI-AI App 체험</sub>
     </td>
+    <td align="center" width="33%">
       <img src="apps/web/public/footer/erweima/wechat-vx.png" width="180" alt="공식 위챗 QR코드" />
       <br/>
       <strong>공식 위챗</strong>
       <br/>
       <sub>위챗 ID:<code>ok502319984</code></sub>
     </td>
+    <td align="center" width="33%">
       <img src="apps/web/public/footer/erweima/community-group.jpg" width="180" alt="기업 위챗 커뮤니티 그룹 QR코드" />
       <br/>
       <strong>기업 위챗 커뮤니티 그룹</strong>
@@ -1818,11 +1841,11 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 
 **백만 위안 이상의 투자**, 거의 전부 창업자 자금과 팀원 지원으로 모았습니다. 그 무렵 중국 AI 1차 시장은 이미 식어가고 있었습니다. IT Juzi에 따르면, 2025년 1분기 중국 AI 투자 건수는 전년 동기 대비 30% 이상 감소했고, 얼리스테이지 프로젝트 밸류에이션은 크게 하락했으며, "스타 팀 아닌 + 스타 트랙 아닌" 프로젝트에는 사실상 더 이상 베팅하지 않았습니다.
 
-IHUI-AI는 어떤 유행 라벨에도 해당하지 않았습니다: Agent 프레임워크도, RAG 미들웨어도, 수직 SaaS도 아닙니다. 그것은 **완전하고, 9개 플랫폼을 가로지르는, 상업 등급의 AI 애플리케이션 베이스**였고—그 사실만으로도 펀딩이 예외적으로 어려웠습니다. 투자자들은 묻곤 했습니다: "당신들의 해자는 무엇인가요? 왜 빅테크가 만들지 않을까요? 왜 Dify가 만들지 않을까요?"
+IHUI-AI는 어떤 유행 라벨에도 해당하지 않았습니다: Agent 프레임워크도, RAG 미들웨어도, 수직 SaaS도 아닙니다. 그것은 **완전하고, 8개 플랫폼을 가로지르는, 상업 등급의 AI 애플리케이션 베이스**였고—그 사실만으로도 펀딩이 예외적으로 어려웠습니다. 투자자들은 묻곤 했습니다: "당신들의 해자는 무엇인가요? 왜 빅테크가 만들지 않을까요? 왜 Dify가 만들지 않을까요?"
 
 리 춘촨의 답은 항상 같았습니다:
 
-> **"빅테크가 빌링·구독·VIP·지갑·포인트·환불·인보이스·8개 결제 게이트웨이를 전부 오픈소스로 풀 리는 없을 겁니다. Dify도 9개 플랫폼—CLI·데스크톱·확장·모바일·미니앱—을 전부 만들지는 않을 겁니다. 누군가는 해야 합니다. 그렇다면 우리가 하겠습니다."**
+> **"빅테크가 빌링·구독·VIP·지갑·포인트·환불·인보이스·8개 결제 게이트웨이를 전부 오픈소스로 풀 리는 없을 겁니다. Dify도 8개 플랫폼—CLI·데스크톱·확장·모바일·미니앱—을 전부 만들지는 않을 겁니다. 누군가는 해야 합니다. 그렇다면 우리가 하겠습니다."**
 
 이 답은 섹시하지 않았습니다. 스토리성도 없었습니다. 파트너 회의에서 투자자가 흥분해 탁자를 치게 만들지도 못했습니다.
 
@@ -1836,7 +1859,7 @@ IHUI-AI는 어떤 유행 라벨에도 해당하지 않았습니다: Agent 프레
 - 셀 수 없이 많은 리팩토링, 스키마 하나를 두고 새벽까지 갈등
 - 점점 조여지는 예산, 점점 무거워지는 어깨
 
-그들은 가장 밑바닥 아키텍처부터 다듬었습니다—monorepo를 어떻게 구성할지, 16개 공유 패키지를 어떻게 나눌지, 9개 플랫폼 타입을 어떻게 정렬할지, 데이터베이스 스키마를 30개 이상 비즈니스 도메인별로 어떻게 분리할지, API 응답을 어떻게 `{ code, message, data }`로 통일할지, i18n 5개 언어 패리티를 어떻게 보증할지, 21개 pre-commit 가드레일 아래에서 CI를 어떻게 민첩하게 유지할지… 모든 결정은 앞으로 수천 번의 반복에서 검증받게 될 것이었습니다.
+그들은 가장 밑바닥 아키텍처부터 다듬었습니다—monorepo를 어떻게 구성할지, 16개 공유 패키지를 어떻게 나눌지, 8개 플랫폼 타입을 어떻게 정렬할지, 데이터베이스 스키마를 30개 이상 비즈니스 도메인별로 어떻게 분리할지, API 응답을 어떻게 `{ code, message, data }`로 통일할지, i18n 5개 언어 패리티를 어떻게 보증할지, 21개 pre-commit 가드레일 아래에서 CI를 어떻게 민첩하게 유지할지… 모든 결정은 앞으로 수천 번의 반복에서 검증받게 될 것이었습니다.
 
 느리고 외로운 길이었습니다.
 
@@ -1860,15 +1883,15 @@ AI 코딩 에이전트로, 대규모 팀 없이, 그는 홀로 이 모든 것을
 
 | 차원                  | 한 사람의 산출물                                                                                               | 유사 프로젝트의 일반적 팀 규모  |
 | --------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| **9개 플랫폼**        | Web / API / AI Service / CLI / Desktop / Extension / Mobile RN / Miniapp                                       | 보통 플랫폼당 1개 팀, 30명 이상 |
+| **8개 플랫폼**        | Web / API / AI Service / CLI / Desktop / Extension / Mobile RN / Miniapp                                       | 보통 플랫폼당 1개 팀, 30명 이상 |
 | **100+개 LLM**        | LiteLLM 통합 게이트웨이 + 5개 provider 어댑터                                                                  | 보통 모델 팀 3-5명              |
 | **AI 오케스트레이션** | LangGraph + MCP + A2A 시너지 + Persona + Agent Runtime + Vector Memory                                         | 보통 AI 플랫폼 팀 5-10명        |
-| **데이터베이스**      | 608개 테이블 + 100개 스키마 파일 + 120+개 마이그레이션 + RLS + 멀티테넌트 라우팅                              | 보통 DBA 1명 + 백엔드 2-3명     |
-| **API 규모**          | 4561개 라우트 + 25개 WebSocket + 627개 라우트 파일                                                             | 보통 백엔드 엔지니어 5-8명      |
+| **데이터베이스**      | 598개 테이블 + 100개 스키마 파일 + 120+개 마이그레이션 + RLS + 멀티테넌트 라우팅                              | 보통 DBA 1명 + 백엔드 2-3명     |
+| **API 규모**          | 4443개 라우트 + 12개 WebSocket + 267개 라우트 파일                                                             | 보통 백엔드 엔지니어 5-8명      |
 | **프론트엔드 규모**   | 200+개 페이지 + 5개 언어 i18n 패리티 + 다크모드 + PWA + SEO                                                    | 보통 프론트엔드 엔지니어 4-6명  |
 | **엔지니어링 게이트** | 21개 pre-commit + post-commit 자동 push + 11개 마이그레이션 감사 + 9개 PowerShell 시작 스크립트                | 보통 DevOps 엔지니어 1-2명      |
 | **옵저버빌리티**      | Prometheus + Grafana(20개 대시보드)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                   | 보통 SRE 엔지니어 1-2명         |
-| **비즈니스 모듈**     | 39개 플랫폼 배포 + AI 교육 풀스택 + 완전한 빌링 루프 + 에이전트 마켓플레이스 + 커뮤니티 + 그로스 + 서포트 + BI | 보통 30-50명 규모의 제품 팀     |
+| **비즈니스 모듈**     | 38개 플랫폼 배포 + AI 교육 풀스택 + 완전한 빌링 루프 + 에이전트 마켓플레이스 + 커뮤니티 + 그로스 + 서포트 + BI | 보통 30-50명 규모의 제품 팀     |
 
 **이것은 기적이 아닙니다. 과장도 아닙니다.**
 
@@ -1929,10 +1952,10 @@ AI 코딩 에이전트로, 대규모 팀 없이, 그는 홀로 이 모든 것을
 
 - 데이터베이스 테이블은 0에서 339로
 - API 라우트는 0에서 4443으로
-- 9개 플랫폼 프레임워크가 하나하나 형태를 갖추고
+- 8개 플랫폼 프레임워크가 하나하나 형태를 갖추고
 - 100개 이상의 LLM이 LiteLLM으로 통합 접속되고
 - LangGraph + MCP + A2A 3스택 시너지가 온라인되고
-- 39개 플랫폼 배포 어댑터가 전부 자리 잡고
+- 38개 플랫폼 배포 어댑터가 전부 자리 잡고
 - AI 교육 풀스택이 코스부터 인증까지 완전한 루프를 닫고
 - 21개 pre-commit 가드레일 + post-commit 자동 push + 11개 마이그레이션 감사 + 9개 PowerShell 시작 스크립트가 전부 라이브되고
 - 5개 언어 i18n 패리티가 4개 가드레일 스크립트 아래에서 강하게 유지됐습니다
@@ -1962,7 +1985,7 @@ AI 코딩 에이전트로, 대규모 팀 없이, 그는 홀로 이 모든 것을
 
 **투자자에게** — 우리는 여전히 오픈소스를 진정으로 이해하고, AI를 이해하고, 장기 가치를 이해하는 파트너를 찾고 있습니다. 이 이야기가 단 1초라도 당신을 움직였다면, 연락해 주세요([[REDACTED-EMAIL]](mailto:[REDACTED-EMAIL]) / 위챗 `ok502319984`). 우리에겐 이야기도, 코드도, 실행력도 부족하지 않습니다. 우리에겐 먼 길을 함께 걸어줄 누군가만 부족합니다.
 
-**콘텐츠 크리에이터에게** — 39개 플랫폼 원클릭 배포 + AES-256-GCM 자격증명 암호화가 당신의 콘텐츠 생산 라인입니다.
+**콘텐츠 크리에이터에게** — 38개 플랫폼 원클릭 배포 + AES-256-GCM 자격증명 암호화가 당신의 콘텐츠 생산 라인입니다.
 
 **지나가는 독자에게** — 이 프로젝트에 Star를 부탁드립니다. 그 작은 행위를, 홀로 걸어가는 사람에게 보내는 아침 한 줄기 빛이라고 생각해 주세요. 오픈소스 세계에서 Star는 소셜 화폐가 아닙니다. 그것은 "나, 당신을 봤어요"라는 신호입니다.
 
@@ -1985,7 +2008,7 @@ AI 코딩 에이전트로, 대규모 팀 없이, 그는 홀로 이 모든 것을
 > _이 부분은 개발자를 위해 쓰였습니다. 기술 독자가 아니라면 이 장을 건너뛰고 「이야기 속편」과 「오픈소스 공동 구축 비전」으로 바로 가셔도 됩니다._
 > _기술 독자라면, 이 장은 IHUI-AI가 2025년에 내린 5가지 핵심 아키텍처 결정—그리고 그 이면의 사고 과정을 기록합니다._
 
-한 사람이 Vibe Coding으로 9개 플랫폼 코드를 완성하는 과정에서, 모든 기술 선택은 대가를 동반합니다: **잘못 선택하면 = 이후 모든 코드를 다시 써야 합니다; 잘 선택하면 = 이후 코드가 자연스럽게 제자리를 잡습니다.**
+한 사람이 Vibe Coding으로 8개 플랫폼 코드를 완성하는 과정에서, 모든 기술 선택은 대가를 동반합니다: **잘못 선택하면 = 이후 모든 코드를 다시 써야 합니다; 잘 선택하면 = 이후 코드가 자연스럽게 제자리를 잡습니다.**
 
 아래는 반복해서 묻던 5가지 기술 결정입니다.
 
@@ -2028,17 +2051,17 @@ AI 코딩 에이전트로, 대규모 팀 없이, 그는 홀로 이 모든 것을
 
 #### 결정 3 · Polyrepo가 아니라 TS Monorepo인 이유?
 
-**배경**: 9개 플랫폼 코드(Web / API / AI / CLI / Desktop / Extension / Mobile / Miniapp)에 대해, monorepo vs polyrepo는 생사를 가르는 결정입니다.
+**배경**: 8개 플랫폼 코드(Web / API / AI / CLI / Desktop / Extension / Mobile / Miniapp)에 대해, monorepo vs polyrepo는 생사를 가르는 결정입니다.
 
 **선택**: pnpm workspace + Turborepo + 16개 공유 패키지.
 
 **이유**:
 
-- **타입 정렬**: 9개 플랫폼이 `@ihui/types`를 공유해, 한 타입을 바꾸면 9개 플랫폼이 즉시 인지합니다; polyrepo의 "타입 drift 지옥"을 피합니다
+- **타입 정렬**: 8개 플랫폼이 `@ihui/types`를 공유해, 한 타입을 바꾸면 8개 플랫폼이 즉시 인지합니다; polyrepo의 "타입 drift 지옥"을 피합니다
 - **원자적 커밋**: 크로스 플랫폼 기능 변경을 한 커밋으로 처리; polyrepo는 8개 PR이 필요합니다
 - **의존성 일치**: pnpm workspace가 버전 일치를 강제해 polyrepo의 "의존성 파편화"를 피합니다
 - **CI 캐싱**: Turborepo의 원격 캐시는 독립 개발자도 대규모 팀의 CI 속도를 누릴 수 있게 합니다
-- **공유 UI**: `@ihui/ui-react` + `@ihui/design-tokens`가 9개 플랫폼 UI를 일치시키며, polyrepo는 불가능합니다
+- **공유 UI**: `@ihui/ui-react` + `@ihui/design-tokens`가 8개 플랫폼 UI를 일치시키며, polyrepo는 불가능합니다
 
 **대가**: monorepo 설정은 복잡하지만, 한 번 설정하면 영구적입니다.
 
@@ -2174,444 +2197,597 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 ## 최근 업데이트 (자동 유지)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-26**
+- 🐞 수정:G-927 第四批 10 枚裸 git 派生迁入 lib/face-reader(gitRaw/catBatch)—— 棘轮 HEAD 面 70→60 与基线 60 对齐;check-cross-end-screen-coverage 正文同时改走 catBatch/readWorktreeFile 满足门 118 取材面纪律 (0ff78d7fda)
+- 📚 문서:G-964 行内更正——『侧车抽取器与新守门未建』已不成立(三件载体现读全在仓 36,986/27,192/24,595 B);残余改为存量迁移 101 枚 + 72 条孤儿记录治理,凭 check-plan-fields 末行 state=warn stock=101 orphan=72 (491c8b3321)
+- 🔧 기타:F9 双档两枚结清(G-455/G-681)——判据已收窄到声明位口径,现读 --gate F9 存量 0 组、宽口径 0 组、引用图 0、差值 F9=0 无 ❌ 行 (620d74f861)
+
 **2026-10-25**
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3ea059635dc)
-- 🐞 수정:next-plan-id --check 重号判红改差值棘轮(存量只报数/新增才判红)—— 承 G-955 收口 (f6b9df39ba8)
-- 🐞 수정:G-957 网页授权回传腿失败态如实提示(换票失败/异常不再静默) (d47a2842a35)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4d922ea9181)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b546442d02b)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9e49a4b02a1)
-- 🐞 수정:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (e48584bd7e3)
-- 🔧 기타:清偿叠注记存量 46→2(9 行折并,行数与勾选/租约/归属三维不变) —— 折并判据不另写:直接 import 守门 13d 自己的 noteTokensInLine / redundantNoteCountInLine(§0.6 单一真相源),对同一行内逐字相同的注记保留一份、删除多余份;全量档现读 叠注重数 46 → 2,残 2 份属承载段分词形态(判据计入但字符串面找不到第二次逐字出现 ⇒ 如实留报数,不猜不改)。本枚只动这 9 行注记文本,复合主键与正文语义逐字不变;门 13d 复跑 RC=0(差值档,存量只报数) (beaba75247f)
-- 🐞 수정:补齐漂开族折叠通道(--fold-drifted-families)的两处形状锁 + 补镜像测试 (36d800cb535)
-- 🐞 수정:维③重数棘轮补「重复登记副本」三形态并取消 24 字上界(现读存量 46 份只报数) (4c155346b05)
-- 📚 문서:结清 G-926(lint-staged 已跟踪却被 ignore 的雷区)—— 席位提交 2c9d023f4b;主席自审复跑 node --test scripts/tests/lint-staged-ignored-tracked-ledger.test.mjs ⇒ tests 14 pass 14 fail 0。现值现读:[tracked-ignored] 面=head 存量只报数 12 条,git ls-files -ci 同为 12 且全在 .ihui-agent/archive(11 md + 1 json,唯一命中 .gitignore:186);票面 84 枚里的三族已由 41a3bdeeb4(取消跟踪 tmp 61 枚)、a402f50043(删 articles 宽式忽略)、8c952aac27(为 plugins/*.cjs 加负向例外)收口,故判 closed-by-others 未重做。archive 那 12 枚是门 71 archivedCopy 的归档凭据(读 HEAD/索引树),摘掉即削正当删行的依据 ⇒ 建议退跟踪 0 枚。另修一处恒红口径:旧 T7 把命中根 glob 记成失去 lint 覆盖,而 .prettierignore 早已整目录忽略 .ihui-agent/,64 枚系双计;新口径只问工具本体 prettier.getFileInfo(不另写 glob),限额 50 与给源码目录塞黑洞出口件必红的语义都不动,并加了正探针。三臂真 lint-staged CLI(--diff=HEAD,scratch 夹具):absent 报 git error、tracked 正常 Done staging 且索引 blob 未被改写、untracked 同 absent。剩余面:门 236 豁免按目录前缀放行,将来 git add -f 塞进 archive 的新件会被放行(动豁免语义需另票) (c683c71b8df)
-- 🐞 수정:维③重数棘轮补「重复登记副本」三形态并取消 24 字上界(现读存量 46 份只报数) (56227f8b33a)
-- 🐞 수정:为 gate #193 补 8 处 git 派生调用的显式 stdio (15372e4aba0)
-- 🔧 기타:api<T>234 迁移回潮副本同据复翻——goal-b15 S10 已结清(349e116a66+b3b3f64276),本轮同据复验一致 (59a3a90a563)
-- 🔧 기타:结清 G-876/D195/G-937 三枚(注册验码/通知归档流/归档器B档,均带真跑证据入行) (3b1a29df963)
-- 🚀 기능/개선:违禁桶兜底清扫器 strip-banned-buckets——两道机主禁令(等条件F12/待拍板F11)的执行器物化:guardian巡检轮 sweepBannedBuckets 派发(5min节流),自动摘HEAD面两桶未勾行并留痕f12-purge;判据import单源零复算;SWEEP-RESULT三态;镜像7例(留痕在落地之后/走object-space-land不自带CAS/已勾不进射程/scrub消费端对齐);AGENTS禁令条补点名+复翻席纪律(复翻须同步摘形态);自检5组+镜像7/7+eslint 0 error+clean态派发实测正常 (41988c0b3d1)
-- 🔧 기타:G-962 结清——高置信族逐条现裁全过时(computer-use 在册/announcements 公开族/members/groups/browser-sessions ai-service 全族/organization.ts 已亡),门 8 现跑通过;余参数段未判定=判据能力边界非死调用 (34ba9ee749a)
-- 🔧 기타:G-937 结清——根因已于枚 0b1d98107c 修复(seamArchiveChunk+§22c 镜像锁),归因档 c038a654db 为 HEAD 祖先,修复当日 113e612833 落地归档 24 枚;self-test 63/63+镜像 39/39+--list-blocked RC=0 现读,本行属门 239 型已归档票复活副本 (0d3969e1c16)
-- 📚 문서:结清 dot-source 新鲜度维(第 4 批 1 枚) —— 席位提交 14a93e75b8032e067906e7c5cd750fd546bacbc2 只动 check-service-binary-paths.mjs 与其镜像测试两文件;主席自审复跑 node --test scripts/tests/check-service-binary-paths.test.mjs ⇒ tests 32 pass 32 fail 0。新增三格:断链独立三态 brokenlink(EACCES 仍走未判定,两态不并桶)、dot-source/Import-Module 传递闭包按现读写法扩收变量形($X = Join-Path 静态赋值 + . $X,RHS 非静态仍点名不猜)、每服务 fresh/stale/断链/未判定分桶入 renderText 与 totals。本机 nssm 不在位 ⇒ 现读 未判定 3(IHUI-AI-SERVICE/IHUI-API/IHUI-WEB),按 §0.3 不顶绿;真服务链上 stale/断链臂需有 nssm 的机器现读,属剩余面非本票射程 (ee2fc177e6c)
-- 📚 문서:结清 G-1222560 危险登记(索引面三份 web 语言包坏 JSON)—— 复跑取面:git show :packages/i18n/messages/web/en.json|JSON.parse=OK、ja=OK、ko=OK,HEAD 面五份亦全 OK ⇒ 他人暂存的坏索引现场已消失;该行正文自我嵌套 4 层副本并入注记+3 条同题原号指针,属票面腐烂,凭据以本枚现读为准 (a88a00a74df)
-- ♻️ 리팩터:face-reader 判据符号单源化——BARE_GIT_RE/bareGitCountOf/hideComments 三符号自 face-reader.test 内闭包搬入 lib 导出(test 改 import,逐字零语义,G-927 同尺差集工具取材用;35 例面 34/1 棘轮红系他席在飞 G-927 收口的 10 枚新增待其落地后自然回落) (05a18375b91)
-- 🐞 수정:服务新鲜度维收口三格(seat-svcfresh,G-1080903 回捞副本续)——断链独立三态 + 变量赋值 dot-source 解析面 + 每服务分桶现读 (14a93e75b80)
-- 🔧 기타:G-955 复验结清——取号入口实测可用(next-plan-id --check 真RC=0) (7930521657e)
-- 🐞 수정:摘除指向已删路由 organization.ts 的死测试——HEAD 上该测的 import ../organization.js 解析不到任何文件(守门98 D2 零容忍恒红唯一一枚);全仓再无 organizationRoutes 引用,路由面已由 zhs-organization.ts 承担;与工作树既存删除(D, 他席在飞)同一处置,本次只把它材料化,不新建替代 (d35827d96c8)
-- 📚 문서:结清第二批 4 枚(工作已在 HEAD 或本批席位落地)—— G-343 / G-880 / G-32 / G-934 (c11e24d5f42)
-- 🔧 기타:独立席四票复验结清 D04/G-934/G-924/G-239——票面自写判据逐条当场复跑,零复算 (7b562d04771)
-- 🐞 수정:G-880/G-32 收口核验+成对自检补锁 —— 两禁令门(emoji/shared-layer)迁面与加固判据经现读确认已随 a6c7cb36ec 入 HEAD(listFaceFiles 按面枚举+readSources 同面取材,门内零 readFileSync);本批补票面硬要求的两把缺失配对锁:三面同形干净仓⇒三档全0(防恒红,W10 型)与 --staged/----worktree 两面旗同给⇒main 返 2(§0.4 互斥)。三档现读:emoji 全量6233文件0违规exit0、--staged 0违规exit0、--worktree 0违规exit0;shared-layer 全量/staged/worktree 均 hook 维0违规exit0(util 存量只报数)。镜像测试 emoji 17/17、shared-layer 12/12;check-gate-wiring --strict exit 0 (390d3950387)
-- 📚 문서:O65 自进化 13 任务补正式编号 O6501-O6513(以 HEAD 为底稿恢复回潮丢行+编号派生侧车键) (702373ef97b)
-- ♻️ 리팩터:G-343 DRIVEROOT 族残余清零(票面四处全数核对)①②已由 852c9409 收口(audit 私有 devEnvRoot()/pgBinDir() 与失真头注、app-reads:56 硬编码盘符推导现读复验=族内生产文件仅 import lib/psql-client-locate 单源,无第二份推导);③现读补出=pg-restore-drill.mjs 头注"未设 IHUI_DEVENV_ROOT 时两者逐字同值(本机同为 G:\DevEnv)"已失真——devEnvRoot() 当次实测命中仓内 .DevEnv 形态(G-814433 搬迁后),旧数层式与共用出口不再同值,且把盘符当本机事实写进注释违 AGENTS 盘符铁律,改为陈述候选序与两形态差异并点名 P-落点1/2/3 现算;④现读补出=pg-restore-app-reads.test.mjs:49 在测试里重算 IHUI_PG_BIN_DIR||join(devEnvRoot(),...) 第二份 pgBinDir 判据体(§0.6/§22c),改 import ../lib/psql-client-locate 的 pgBinDir() 与工具同源。复跑凭据:audit --self-test rc=0(取证在镜像测试)+ audit.test 连跑三次 59/59 pass;app-reads.test 8 pass/3 skipped(未判定:psql.exe 不在位,环境闸按设计);drill.test 29/29;守门45 check-c-drive-paths 全量档✅、check-workspace-hygiene HEAD 面✅无新增违规 (caef8d065df)
-- 📚 문서:维③ 头注实测数改正——70 份叠注里 49 份在承载段内、21 份落活文本(此前误写 72/51);纯注记订正,判据字节未动,自检仍绿 (9129d9253e5)
-- 📚 문서:结清 7 枚僵尸票(活已在 HEAD、行未摘)——分割线 G-877、判据盲区 G-879、原生弹窗 G-878、MCP stdio 四票 G-689/G-691/G-692/G-694 (6c6efc415be)
-- 🔧 기타:G-874 结清——web 注入两调用点+共享按钮消费+login 族 30/30 绿;原生 WebAuthn 免依赖方案优于票面;未注入不渲染=平台豁免成立 (0cd4af34844)
-- 📚 문서:O65 侧车键由 自进化# 收敛为编号派生 O65xx#(13 条) (62a65462296)
-- 🔧 기타:G-957 剩余格改归属机主小程序后台白名单面(正规改桶通道 LIVE_BUCKET_RECLASSIFY,actionable→owned-elsewhere;格②已入库凭据在案) (6dbb495b4da)
-- 🔧 기타:G-63侧车重钉(union带回旧记录终修),A2归零 (f3fbf0bbba7)
-- 🔧 기타:G-934 结清——出路①接线三轮凭据在案(47dc360911 实体测 13/13 本轮复验+56cc4a66f4+847925be2b)+§17 真浏览器核验已落(82c9a68ae0 四例两轮绿);10 红前提过时 (80f8fb9f231)
-- 🐞 수정:维③叠注存量归零——判据剥「副本正文并入·承载整段」平衡段(逐字引文非活注记,72→21),活文本按逐字同串摘 21 份(L5361 x1/L28173 x18/L28911 x2,只删同串不并族);自检10/10、镜像14/14、行数/勾态全等 (75d303394e5)
-- 🔧 기타:G-876 结清——实现已在库(code 必填+503 fail-closed+用途锁+防枚举,枚 9e103ac0f6),G-81 席复验 auth 1311 全绿背书 (217be03c9f0)
-- 🔧 기타:F4末2组收口——O-02摘旧底稿裸行(正主带租约+③格注记)/G-116摘旧句(正主标头规范),留痕f12-purge (63095564027)
-- 🔧 기타:F4四组+跨号副本收口——G-1222558错号/G-937裸副本/G-10旧句/G-11旧句/B02旧副本各摘副本侧留正主(留痕f12-purge);union回潮体清偿末批 (32b2a839414)
-- 🔧 기타:G-963 结清——修复已落库(测试文件 G-963 注记在案),现跑 f9 族 10/10 绿零 ERR_MODULE_NOT_FOUND (eac4da4f062)
-- 🔧 기타:G-74 远端合流回潮体复翻——并发席已结(d5cce09f8c 校验收口+sponsor 地址在案),配置面余格归机主面行承接 (9b66a50d77b)
-- 📚 문서:O65 自进化战略方案文档 + 13 条派单侧车记录 (76f6b4891c5)
-- 🐞 수정:补回索引迁移时误删的三门点名(守门89 R4)——check-ai-task-background-reference(247)/check-money-display-single-source(248)/check-registry-sync-health 只存在于被删的旧副本里;91,095→91,589B(余量 4,411),标记仍为 0 (af3da98e1ca)
-- 🐞 수정:摘除门249内联点名行——README 索引节已收录该门(4165487e5a),R4 文档面由 README 承载;AGENTS 91,293→91,145B(余量 4,855),冲突标记保持 0 (09498f86d2a)
-- 🔧 기타:远端合流回潮第三批复翻 4 行——G-76 守门39(83aa572b23e)/G-38 视觉票(r3c)/D42046 巨行(603d8236d8f 同据)/G-60 content-visibility(522ac4dac2+回归锁 7413f9fd31);凭据全验祖先 (a2dab37433d)
-- 🐞 수정:修复 union 冲突标记注入体并摘除回潮索引副本——108,200→91,293B(余量 4,707);标记区取「索引已迁 README」侧,补点名门249以满足 R4;被删索引块 127 门名经 README∪本文零丢失;实读:check-agents-doc-size --worktree rc=0(91,293/96,000)、check-gate-wiring --worktree rc=0(R1/R2/R4 零红) (c4afc6a953a)
-- 🔧 기타:F9撞号3组收口——G-07副本自声明行/G-27错挂旧号行/G-76回插已结清题的正主位保留副本行摘除(各留正主行;留痕f12-purge) (5fe4d76372c)
-- 📚 문서:守门 249(富文本锚点渲染器单一源头)补进「守门脚本点名索引」的接线/自检行 —— 门 89 R4 义务;207 第二刀把索引整体迁本节后,新装车的门必须在这里点名(原 AGENTS 内联副本即将随冲突标记一并剥除,AGENTS∪README 文档面不得出现空档) (4165487e5a9)
-- 📚 문서:O65 登记自进化四期可派单任务 P0-P4 (b19e8ebb212)
-- 🔧 기타:两票结清——desktop-feed 线上现读 0.1.76(2026-10-18 发布,远超 0.1.45 验收目标,前提过时);128 点迁移归档票复活活行复翻(门 239 R1 型,归档注释逐字在案) (48793056848)
-- 🔧 기타:D03侧车重钉(owner=持有席/waiting=none)——union带回旧记录的终修,F12基线棘轮归零 (42af89577d0)
-- 🔧 기타:守门8假绿灯远端合流回潮体复翻——凭据 1d5e73e2d3(goal-r52 收官+三路径查清),修正归扩面批次 (8ce176c228b)
-- 🔧 기타:union回潮体清偿——对侧旧底稿灌入的违禁形态行摘除(等条件+待拍板未勾行,留痕f12-purge;两道机主禁令之下union行级回补不带违禁形态;goal-r4复翻席注意:复翻时须同步摘禁令形态,行的事实内容已按各批结清提交保留) (382d4dc4c02)
-- 🚀 기능/개선:G-50 DevEnv 搬迁执行器物化——devenv-migrate.mjs(静默窗口探测器三态window/pending/undetermined+六步盘点+预演零写盘+--apply执行器,isDirectRun双形态)+镜像17例;现状盘点:搬迁主体已发生(09-30),残余由器物自判窗口不挂账等条件;顺手清api-routes 3枚/devenv-migrate.test 2枚/dedupe-live-doc 1枚解构残量unused(union带入机械残留,零语义) (f2ddfe9b9e3)
-- 🔧 기타:goal-r4 远端合流回潮第二批复翻 13 行——tmpdir 孪生/四件待拍板版(事实四件已落地,待拍板定性作废)/P2-13③孪生/MCP四票(goal-r3 r27i)/失败广播/G-217/G-239/D04;凭据=各批结清提交+新鲜现读(夹具门 rc=0/邮件鉴权在位/守门249 rc=0) (04f4ca3e861)
-- 🔧 기타:H02 远端合流回潮体复翻——凭据 eff4b6d5bd 已推远端,裁决同前(结构性无样本,只记不挡维持) (ef210af4866)
-- 🔧 기타:goal-r4 远端合流回潮体批量复翻 34 行——Esc×4/窗格×2/工具面板/O-1/G-939/守门134/四维/取消信号/宿主中止/审批CAS/守门91/G-27/真机走查/prod-bundle/四件拍板/G-35/G-61/G-76/G-807/发丝线/锁初始化/P1-②/G-77/钩子取消腿/AGENTS体积 等,凭据=本会话各批结清提交(全已推远端);行内逐条防新鲜牌(0 冲突) (7df8da52eca)
-- 🐞 수정:R5撞号收口——摘除两枚复活门注册块(bare-decode-uri/token-literal-debt,门体脚本已被对侧删除,注册残留=HEAD面247/248双撞号源);富文本门已改号249保留,盘面 idsOfRegistry 现读各1次 (464cc8efaa3)
-- 📚 문서:argument-repair-loop 装车缺口取证收口——假阻塞「index.ts 被并发会话冻结」就地改直 (61496e7201d)
-- 🔧 기타:goal-r4 结清 D04 富文本动作锚点——验收三格全齐(浏览器五例/两腿 DOM 签名等值+语序两态/规模化两载位齐:degradeHint+examplesTip+wallet strong,载体 importer 6 个),守门 247 现跑 rc=0 (e8423e37eb8)
-- 📚 문서:argument-repair-loop 装车缺口取证收口——假阻塞「index.ts 被并发会话冻结」就地改直 (55937d2752b)
-- 🚀 기능/개선:D04 富文本锚点补词包可点击载体 + 守门 247 装车 —— 票面验收①的字面格今天才真的存在 (ebf22cf2f31)
-- 🚀 기능/개선:web↔RN 屏对齐登记 41 条 + 把跨端自动登记器装进 post-commit 链 (6ad5de3c37a)
-- 📚 문서:守门 247 点名入索引行(门 89 R4 义务:已接线而文档不点名即红)—— 新增 check-rich-anchor-renderer-single-source.mjs(富文本锚点渲染器单一源头) 体积 95321/96000 字节,余量 679 (c7dd002aa8a)
-- 🔧 기타:G-36行验证手段引用词同义中性化(模拟器→仿真器,Android Emulator同义;票面语义零变化)——散文尺残留清零 (b55b56c4f35)
-- 🔧 기타:G-36行尾旧等段残标删除(行首权威标头在位;等条件禁令下等段残标不得留存)——散文尺残留清零 (09bcddb1f0d)
-- 🐞 수정:修 D04 载体判据文件的五处 noUncheckedIndexedAccess 类型红 —— 这枚红在 HEAD 上把 @ihui/web 档 typecheck 顶成失败,连带全员提交链(§12e:与本次提交内容无关的红,唯一结局是逼人 --no-verify 并废掉全部守门) (7506432dd4c)
-- 🔧 기타:D03行历史注记否定语境的等环境引用词中性化(环境牌不成立——事实未动,散文尺残留清零) (48b91d098f6)
-- ♻️ 리팩터:git-guardian 注释逐字归档换指针(门103 C1 收口)+ 同步 refs 装车锁生效位置 (780244fb916)
-- 🔧 기타:O02 第③格达成注记——BackChevron下沉完整在HEAD(双壳+core+wiring),门128判红0;第④格照票面顺序另票推进 (9ceb3249e9f)
-- 🐞 수정:自定义栏数据层不再拿"此刻可见集"当删除依据(用例已随 a48cccb68c 入库) (ada5b76471a)
-- 🐞 수정:D04 富文本载体收口三处 —— ① 修 wallet.autoTopUp.target.equivalent.text 五语言值带 <strong> 却被 plain t() 渲染成字面量的外露缺陷(改 t.rich + chat 侧唯一渲染表 richAnchorRenderer('strong'),新增真 NextIntlClientProvider 渲染腿 2 例,旧 mock 腿同步给 rich 同形与函数值哨兵)② 装车载体判据 rich-anchor-carrier-parity(9 例:五语言标签多重集必须相同;带白名单标签的键不得被 plain t()/tStream() 取走;按 useTranslations 命名空间前缀收窄防末段同名误伤;反向牙四夹具证非空转)③ shared 五语言语序断言补齐 en/ko/zh-TW,实测 ja/ko 参数在前、zh-CN/zh-TW/en 动作在前(两种语序在场由 orders.size>1 钉住)。白名单标签集合引 @ihui/shared/chat 不复抄。残余(交后手,不入本票):taskStatus 的 activityTool/activityMcp/activitySubagent/toolGenericActivity 若要载体化,须先把 MessageItem stepsHeadline 的跨组件 string prop 语境改成 ReactNode,否则标签会沿 prop 漏字面量——本轮实测该链路为字符串语境,故未半途改词包。验证:billing 22/22、shared 25/25、parity 9/9、eslint RC=0、watermark verify 2/2 (07000527a64)
-- 🔧 기타:O02标头归位至复选框后标准位(等段占位清,租约保留)——A2终枚 (33409ac4b4c)
-- 🚀 기능/개선:跨端登记自动器装车 + 3 条真镜像声明与 1 条 web→RN 映射 (5f1d02f8354)
-- 🔧 기타:A2终三枚——O02标头归位/G-21标头按侧车投影(机主定级面)/G-46等段占位清 (3f143990e2d)
-- 🔧 기타:G-46 waiting出桶(residual env清为none),A2对账 (aa268103784)
-- 🔧 기타:D04 挂词包腿之一推进注——degradeHint 载位已全量入库(084061c0b1,三格测试钉住),examplesTip 载位归另一席在飞不碰,两载位齐后结票 (a1aeaa4cec9)
-- 🔧 기타:标头投影第三批——行内等段占位按侧车形重写(A2字面包含收口,占位语义已在两处解析器统一) (25a1a655a8a)
-- 🐞 수정:触发集收拢到处置集,掐死 73 枚自增清偿提交 (4b76b68bcbe)
-- 📚 문서:更正 ContextUsagePanel 的过时披露 —— RN 腿已接通,并点名新落的那把锁 (6abb419f666)
-- 🔧 기타:G-03/G-46 对齐行内标头与blocking清空(A2对账终批) (5cbbf496779)
-- 🚀 기능/개선:上下文占用归因面板接上 RN 主屏 —— G-403/G-225 缓存两维的最后一格 (8ce7d877584)
-- 🔧 기타:侧车补正——G-21畸形记录补key(行文互证)+G-03/G-46 blocking残句清空+parseHeader等段占位修复同批(镜像11/11) (6c7689cefbf)
-- 🔧 기타:G-50行双标头折叠为单标头(租约保留;A2终枚收口) (8fa1ec5d0b7)
-- 🔧 기타:标头投影第二批——3行行内旧等段按已清侧车重写(等:国内短信/等:本机无/等:—占位叠加) (151e7d49825)
-- 🚀 기능/개선:ActivityDetail 接线 + web↔RN 屏对齐登记 7 条(教育/公告/问答/权限/agent 家族) (fb58a90253c)
-- 🔧 기타:G-63 owner统一为行内标头简称(反引号原文正文已可查),A2对账终枚 (4b52b3d395c)
-- 🔧 기타:侧车改判落地——A2对账批5键blocking残句清空+waiting出桶(G-20/G-100/G-50/O02/G-63) (cab00564bb8)
-- 🔧 기타:侧车标头投影批——10行行内标头与侧车投影形统一(A2对账收口;守恒断言在位) (462f1e8798f)
-- 📚 문서:登记 decode 家族单源收口(移动端深挖批唯一遗留:auth oauth2 私有实现 + 门248 D2 九处) (5e386138432)
-- 🚀 기능/개선:补 4 条镜像声明(change-phone/change-pwd/help/point-history)——小程序页早已存在,只缺标记与登记 (22b3697a527)
-- 📚 문서:结清守门 207 存量清偿第二刀——AGENTS 108,515→89,968B(余量 6,032),三面 rc=0,238 同批复绿 (1377bdc7b25)
-- 🐞 수정:并发合并把「国内镜像」徽章带回 —— 按 2026-10-23 机主令重新清除(守门 238 复绿) (995ecb16156)
-- 📚 문서:守门 207 存量清偿第二刀 —— 点名索引迁 README + 速查区压缩副本移出(108,515→89,968B,余量 6,032) (8e99bd5626b)
-- ♻️ 리팩터:抽离 git-guardian 的 TEMP 清扫与日志两族到 lib 以压住架构门 103 C1 单文件行上限（主文件 6094 to 5837 行） (8fe1fb2f10f)
-- 🚀 기능/개선:首例真实镜像页——用户协议 pkg-about/about/agreement (aa4c418bff1)
-- 🚀 기능/개선:补 study-index 镜像声明——pages/study/index 与共享屏 StudyIndexScreen 同为学习首页(taro 端内重写渲染层,按门 128 语义声明对齐目标);此前只缺标记与登记 (84b9acc2c06)
-- 🚀 기능/개선:补 coupon 镜像声明——小程序 pages/member/coupon 与共享屏 CouponScreen 键空间完全一致(coupon.available/used/expired),此前只缺「镜像」标记与登记 (652e5b052bf)
-- 🚀 기능/개선:补 2 条 about 族镜像声明——app-permission / api-settings(页面早已存在,只缺标记与登记) (481fd870950)
-- 🚀 기능/개선:补 2 条 about 族镜像声明——app-permission / api-settings(页面早已存在,只缺标记与登记) (fe0abab5b20)
-- 📚 문서:207 第二刀① 落地登记——归档移出凭据接线(判据单源 + 两个消费面),票保持未勾 (dbf38b926df)
-- 🚀 기능/개선:RN→小程序 镜像缺口账本自动化——139 缺口逐条带候选线索 (f67090ac4ff)
-- 🐞 수정:清掉上一枚带进来的 1 个 error + 收口一处既存 eqeqeq (0bb9bfd89c8)
-- 🐞 수정:AGENTS 归档移出被当成丢行 —— 第四态凭据接线补齐(守门 207 第二刀①) (b6023aa977e)
-- 🐞 수정:合并回填本侧独有词条——miniapp 5 语 ×81 键 + mobile-rn 5 语 ×273 键 (2f651b8ce17)
-- 🐞 수정:合并后撞号收敛——check-bare-decode-uri 让出 241(远端已占,check-rn-readout-cell),改号 248;判据与 skipEnv 一字未动 (68c00a3a054)
-- 🐞 수정:端内测试停止越层 import repo-tooling,清偿架构政策 D1/D2 六处 (4e2758c7402)
-- 🐞 수정:207 第二刀票改"未取号"形态——G 族号池 pool-exhausted(占用面含 42 份归档件)，令牌残留是 G-15107 格①用法错，绝不发 1000+ 号；待号池扩容批补号 (87d1f894e76)
-- 📚 문서:登记守门 207 存量清偿第二刀(前置=补 declaredDropCaps 认 AGENTS 归档移出,防回潮吞掉第一刀成果;现读缺 9,156B)——第一刀已落枚 c9c85d63 (5f4bafc4886)
-- 📚 문서:守门 207 存量清偿第一刀——速查区回潮副本 34 行整区移入 archive(125551B→105156B) (c9c85d639c8)
-- 🐞 수정:门 128 两族判据射程差豁免登记 + 门 77 B1 wallboard 圆角绕档清偿 (a35ac94b7df)
-- 🐞 수정:字形箭头与双返回箭头清零——Collapsible 文本字形换矢量图标 + 五 pkg 页摘页内死返回键 (8f26a1f7793)
-- 🔧 기타:门 241 镜像测 T1 前提断言改大小写不敏感 (3a893d14814)
-- 📚 문서:守门 241(裸 decodeURIComponent)R4 点名行 (8ffd95d1dc0)
-- 🐞 수정:移动端行为级深挖批——裸 decodeURIComponent 族 21 处从底层修复 + 守门 241 防回潮 (815bfe638fd)
-- 🐞 수정:RN 样式裸数字回潮锁改号 240→247——远端 f126e734 已占 240(大屏读数不得断行门),合并前让号,判据与 skipEnv 一字未动 (284aa41062d)
-- 🔧 기타:门 240 判据镜像测试——3 例直接 import 源脚本 __test__(§22c,判据零复制),含阳性对照(把 rnSpacing.lg 改回 16 必须被抓) (1dfe636e62e)
-- 🚀 기능/개선:新守门 check-bare-decode-uri.mjs 接进提交链 (6a3e148297b)
-- 🚀 기능/개선:新增门 240 RN 样式裸数字回潮锁(差值棘轮)+ runner 接线 (d066355a355)
-- 📚 문서:点名门 240 RN 样式裸数字回潮锁(与接线同批;AGENTS.md 超体积预算暂不写入,README 已满足 R4) (d562ca2018d)
-- ⚡ 성능:跨端两把尺子改批量取 blob(HEAD 面 4 分钟→17s) + web→RN 尺支持 --full + 6 段 web-only 豁免 (da67136b162)
-- 🚀 기능/개선:补 4 条 about 族镜像声明(账本真实化,零行为变化) (f97405f954d)
-- 🐞 수정:web→RN 功能尺三屏误报根治 + 删除一条不存在的 web 路由登记 (89239b8d3e0)
-- 🚀 기능/개선:token 化批 #6 第 5 批(收尾)——21 文件裸数字转档 (3d8a7a33557)
-- 🚀 기능/개선:token 化批 #6 第 4 批——60 文件裸数字转档 (0088fd044ed)
-- 🚀 기능/개선:token 化批 #6 第 2 批——60 文件 1020 处裸数字转档 (5308e7aaf5b)
-- 🚀 기능/개선:token 化批 #6 第 1 批——tokens-migrate 扩为目录批量器物 + 60 文件 1583 处裸数字转档 (e506840fc01)
-- 🐞 수정:普查锁两 offender 清零——VoiceNote/LlmSettings 裸 TextInput 迁共享 TextField (e9226cbb507)
-- 🐞 수정:活副本纠偏批——上轮把 account-cancel/app-topup 判死副本是反的:现读 RootNavigator 1037/1048/1087 挂载体=packages/app 版,二屏 Modal 缺 onRequestClose 即安卓返回键在注销确认/充值说明穿透弹退出应用(与 MemoryScreen 同型,补 onCloseModal/onCloseIntro)。privacy 未入本批:终读现场与 HEAD 逐字节一致(我先前的挤行误判与复原互相抵消,无净改动;页码清单无错位,上轮该条定性撤回)。遗留如实:(a)packages/app 两屏标题硬编码(注销账号/充值)属 i18n 队列射程;(b)SDK 清单与 Expo+RN0.86 真栈脱节为法律文案,归机主/法务 (6e5cc2e93be)
-- 🐞 수정:行为级 bug 两枚——① VoiceNote 语音笔记面板:RN 原生 Modal 自成窗口不吃外层 KeyboardAvoidingView,面板内搜索框弹键盘后操作行整块顶出可视区(iOS/小屏安卓必现,Modal 内键盘关不掉)——避让容器移进 Modal 内侧,iOS padding/安卓 height;② packages/app MemoryScreen 新建记忆 Modal 缺 onRequestClose:Android 返回键不关弹层反弹确认退出——与右上角取消同语义接回 onCloseCreate。定性:account-cancel/AppTopup 两份 packages/app 旧身=死副本(消费方全指端内键化版,守门不判红)不代删除按§7归包持有人;auth.ts login 抛错为设计契约调用方统一兜;VoiceNote 已有 onRequestClose 不重复补。验证:RN tsc 0 错、vn-mount 13/13、eslint 0、水印 2/2 (60e2c900998)
-- 🔧 기타:F9 分批收敛 #5(终)——CSRF 行 G-12→G-02、两版F5 行 G-30→G-18(双侧真声明位零 + 239 归档 marks 过滤验证);五门现读全绿(strict F9 0 组/234 warn/239 0/211 0/13d 0/71 无丢失)——机主授权合并背景 (87338aa530c)
-- 🐞 수정:auth.ts 支付宝回包防护补丁自纠——上一枚提交里 info 类型注多套了一层 .response(TS2339 ×2,miniapp tsc 当场红),语义层级回归 parse→.response→{nickName,avatar} 真形 (20c8ba1c13f)
-- 🐞 수정:逻辑级 bug 三枚——①充值自定义金额 Number('9.9')*100 浮点毛刺直进支付订单(分语义被打成 990.0000000000002),对齐 CartScreen 既有 Math.round 范式;②credential-storage 裸 JSON.parse:AsyncStorage 半截写/手改/回滚脏数据在启动链抛 SyntaxError 打断记住账号预填,降级为无记录(后续 persistedAccount 覆盖);③miniapp 支付宝 getOpenUserInfo 取消/异常回包 response 非 JSON 时裸 parse 打崩整条登录链,降级空资料走既有手动补路径。定性留档:定时器清理全配对/formatDateByTemplate 带 tz+NaN 守卫/totalFee 经 zod int 非空/支付按钮走 paying 锁+disabled——四类候选核实为健;Clipboard try 豁免=RN API 不抛;CONTEXT 崩溃上报未脱敏一条已漂移(现码过 redactCrashText) (92e31d50fae)
-- 🔧 기타:F9 分批收敛 #4 终版——Agent SDK 票:原 G-06 行插回存续(门 71 编号行不丢)+ 行尾让号注记 + 未取号行承载实际推进(行内交代归属=qoder-maxpar)+ 旧 G-36 双行摘除留痕 + merge-live-doc 归并(lost=0);五门现读全绿(71 无丢失/239 0/211 0/13d F10 2→2/234 warn)——机主授权合并背景 (688b7ce6bec)
-- 🐞 수정:backup-pg-local 追到断链根因——pg tooling 已迁 D:\ihui-pg\16(服务镜像为证),脚本写死旧卷 D:\DevEnv\runtimes\pgsql 失踪后,wscript 启动的计划任务看不到 pwsh 的 CommandNotFound ⇒ 本地 dump 静默停摆一个月(P7 只量到副本侧,源侧 P5 格当时未判定)。路径更新 + 新增'pg_dump 不在位必写 backup.log 再退'守卫——停摆必须留下可被人量到的痕迹,任务面 Last Result 0 是谎。实证:修复后手跑 EXIT=0,backup.log 落 10-25 01:16 OK 9.6MB 新行 (de4073ff047)
-- 🔧 기타:F9 分批收敛 #3——取号器行 G-48→G-90(G-48 被远端新纪元 F1不认行占用,重让;PLAN 全文零出现的 G-90 空投)——五门现读全绿(strict F9 撞号 0 组/234 warn/239 0/211 0/13d 0) (73c966154a6)
-- 🔧 기타:F9 分批收敛 #2——取号器行 G-48(远端占用,重让)→G-183 链理正 + 侧车按真实 compositeKey 全量重建(5 条;234 warn a1=0 a2=0/211 0/13d F10 0/239 0/plan-gate strict F9 撞号 0 组)——机主授权合并背景 (a056001ebfd)
-- 🔧 기타:F9 分批收敛 #1 终——L28868→G-48/L28888→G-50/L29002→G-90/L29063→G-26/G-880 误改恢复/G-183 误改恢复;L29068 回退原号 G-18(远端键位零)+G-18 侧车补;六组侧车按真实 compositeKey 重写(234 warn a1=0 a2=0/13d F10 0/239 归档单调 0/211 号池 0)——机主授权合并背景,逐行留痕 (45254bd876b)
-- 🐞 수정:course-planet loadData deps 剔无用 tt(体内未引用,判据面 JSX 层独立吃,exhaustive-deps warning 清零)+ tailwind.config 头注版本事实修正(现读:声明 v3 仅服务 preset 工具链,产物引擎=weapp-tw@5.2.9 vendored v4,alpha 原生生效——漂移注释清);验证:miniapp 端内 eslint 首次 --max-warnings 0 exit 0 (25817edb687)
-- 🔧 기타:F9 分批收敛 #1 终版——本地 5 行键位改号到验证组合(G-48/G-50/G-90/G-26/G-09;G-880 误改恢复;G-183 误改恢复)+ 侧车 6 条按真实 compositeKey 重写(234 a1=0 a2=0/239 归档单调 0/211 号池 0/13d F10 0/plan-gate F9 撞号 0 组,五门现读全绿)——机主授权合并背景,逐行留痕 (12a9581f6a0)
+- 🐞 수정:修复预存 typecheck 错误以通过推送门（App/ModelConfigDialog/TokenValueScreen） (7d0831bc66)
+- 🐞 수정:摘除被 chore 收尾提交复活的死测试 organization.test.ts(恢复 d35827d96c8 的摘除决定;该文件 import ../organization.js 解析不到任何文件,是 HEAD 上全量 typecheck 唯一报错文件 ⇒ 阻塞所有推送;全仓仅此文件引用 organizationRoutes) (ccf42c74ff)
+- 🔧 기타:收尾提交本地未提交改动（registry-sync / qoder 桥接 / 移动端与 Web 插件 / 部署脚本 / 文档） (821ce8e621)
+
+**2026-10-26**
+- 🚀 기능/개선:自进化四票真代码交付(自治决策模型/可审计决策链/E2E 自动补测/经验写回腿)—— 判据单源(autonomy-policy/decision-chain-sources/e2e-autofill-map/lesson-writeback-policy 四份 json),测试 import 源脚本零复制;自测 21/9/37/12 组全绿,node --test 四套件 48/48;两枚缺水印文件已补注入;未接线格(受锁 runner 注册与 auto-evolve 排期调用)留进展注不翻勾 (56855eb75f)
+
+**2026-10-25**
+- 🔧 기타:并发席零改动结清 21 枚(前提现读已闭,证据注记随行)—— web 五票(hit-target/59./60./真机走查/G-60)+ 脚本六票(号池到期/合流盲区/G-960)+ cli·deploy·ops 四票(WP-7/G-109/P2-13③/G-1222561/G-74/D42046)+ 自进化已交付五票 + 第1/2期无号副本回潮复结 (20d9d96a48)
+- 🔧 기타:59. 消息级版本切换三段(1/3 sibling 存储 / 2/3 MessageVersionMenu / 3/3 回调坐标透传)零改动结清——三段落点与回归测试现读齐备 (9ff5da17df)
+- 🔧 기타:O65 P0 四票(O6501 根护栏/O6502 成本熔断/O6503 隔离+原子回滚/O6504 人工阀)与 G-60 窗口化五票零改动结清——器物与部署环接线现读在位,自检 9/13/9+7/12 组全绿 (003a77eb76)
+- 🔧 기타:r5 认领自进化四票(自治决策模型/可审计决策链/E2E 自动补测/经验自动提炼)——牌插在复选框后,正文一字未动 (ef7123a5f4)
+- 🔧 기타:G-274 与 G-107 两票零改动结清——票面前提逐条现读已过期(门 233 已 blocking 接线且生产 importer 4 枚;recovery-gate 已进 sse barrel 且经 stream-authority/client 逐帧消费),证据注记随行 (188fe19586)
+- 🐞 수정:G-962 批13——BP 腿前缀假设可见键 10 处逐条裁决 dead,未判定桶 17→7 (9854d851e1)
+- 🐞 수정:门 234 A2 误判收口——侧车标头定位单源化(locateSidecarHeader),strip/parseHeader/门的 headerOf 同一把尺 (86085c636e)
+- 🔧 기타:F11 回潮行摘"需拍板"措辞——非会话401票归属照旧(api鉴权面+api-client两侧持有者),票保住不被禁令清扫器吃掉 (50d8737b2a)
+- 🔧 기타:health 分叉同题两枚结清——web 健康页现读改走 /api/admin/monitor/services 的 {list} 信封(头注 L7334 结清在案),服务端同形 success({list});/api/health 裸对象契约按原方案不变,对外契约未变更 (0d4bd0747d)
+- 🚀 기능/개선:O65 第 3 期第三件 —— 依赖安全通告雷达(实跑 257 条/35 critical,80 枚可修候选)+ 第 3 期进展注记刷新 (5732b6bb28)
+- 🚀 기능/개선:锁定 order-log/order-track/message-group 令牌主体与 vip-compare 公开脱敏 (b5c3d62f14)
+- 🚀 기능/개선:O65 第 3 期回流两件 —— 失败票归因沉淀器 + 守门判据腐烂自检(自检 7/7 与镜像测试 12/12 全绿) (6567fd5730)
+- 🐞 수정:Step 5 载荷判据改为「实到 == 预期且预期非空」,空提交不再判绿 (3bdcc09dca)
+- 📚 문서:O65 第 3 期进展注记 + 第 2 期重复登记收拢(仅留一条 [x] 完成行) (74fd1f1630)
+- 🔧 기타:G-1222557 复验结清——出口围栏的存量维真跑 15/15 绿;另补记 D04/G-934 两枚的真浏览器凭据 (534682513b)
+- 📚 문서:O65 P0 四件翻勾(正式编号 O6501-O6504)+ 第 1 期感知层自动分诊器翻勾 —— 交付件已入 main 并随 8486d01ddab 上生产 (4e74314d70)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b801d2d8f9)
+- 🔧 기타:G-927 进展注记——求差实证新增12枚中10枚已由别席迁好待入库,agent-worktree/green-state 两枚本席迁讫(gitRaw层,行为面等值,自检9/7);棘轮70随入库递减,基线60不动 (8a8ffefbd6)
+- 🐞 수정:G-927 迁移批——agent-worktree/green-state 两枚裸 spawnSync('git') 改走 face-reader 取材层 gitRaw(绝对路径git+quotepath+safe.directory+timeout+EBUSY兜底),包装函数折回原三态行为面逐字段等值;自检9/7全绿+--list行为面真实返回;求差实证:12枚新增中10枚已由别席迁好待入库(盘面0命中),本批迁余下2枚,棘轮70→随入库递减,基线60不动(下调前置=10枚入库) (a9505b2596)
+- 📚 문서:结清 3 枚(第 12 批:G-272 重臂复位分域 + 门 149 端内 barrel 两条同题) —— ①G-272 席位提交 34828b1db3a5d531b26b06fbf8d20d79fee28f1d:前提现读更正(stopInitiator 在 HEAD 有 15 处命中而非票面 0,该字段已由 G-816026 落地;rearm/重臂/复位仍只命中注释 ⇒ 注释声称有实现没有成立)。实现 apps/cli/src/tools/background-registry.ts 新增 BACKGROUND_TASK_REARM_FACE(preserve/reset/renew 三档,satisfies Record<keyof BackgroundTask,…> 编译期穷尽)+ rearmBackgroundTask(previous, incoming):身份面逐字保留、结算面回构造初值、新生面换代,四档拒绝(not-terminal/id-mismatch/generation-not-renewed/not-live)原样交回旧条目,fail-closed。主席复跑 apps/cli/tests/background-rearm.test.ts ⇒ Tests 6 passed,含变异自证(注释掉 command: previous.command ⇒ 仅用例①红)。剩余面:rearm 暂无生产调用点(registerTask 每次 genId),未来接入时事件处理器必须绑到 rearm 返回的新条目。②门 149 端内 barrel 两条同题行一并收口:席位提交 443561b82c 新增 scanAppBarrelLeaks 与桶/实现分离单源 isBarrelModule,端内桶 universe 由该层目录扩到端内全树;主席复跑 --report 末行 APP-BARREL-REPORT barrels=36 apps=5 consumers=34 hits=0 type=0 elsewhere=0 undetermined=0(存量 0 + 阳性对照 ⇒ 并入既有 --staged 差值棘轮而非升绝对 blocking,符合 §12e 升档前置=存量归零) (00d8db8283)
+- 🔧 기타:A 类 7 枚结清(G-62/G-01/G-03/G-07/O88/G-272/双重执行)——凭据全部本席现读复跑:gate 全零、twins 0 组、CI 唯一 failure=lint-typecheck-test、stopInitiator 20 命中、take_loop_v2_handoff 9 处消费面在位 (1e57d5d821)
+- 🚀 기능/개선:门149 补齐端内 barrel 漏出口(桶/实现分离 + 端内全树 universe + --report 只读量算) (443561b82c)
+- 📚 문서:结清「非会话 401 被当成会话死亡」 —— 按 §24 机主令本应由 agent 代裁,现读发现源头已由 2026-10-25 的 L7648 修复落地:apps/api/src/routes/agent-extended.ts 的 preHandler 兜底由 `err.statusCode ?? 401` 收窄为 `?? 502`,行内注释明写「没标 statusCode 的异常是内部/上游故障,盖 401 会被 api-client 读成重新登录(上游 provider 凭据错误 ≠ 会话死亡;口径同 auth.ts 票 G-396/G-765/G-357)」⇒ 用户不再被误导去重新登录。客户端侧 packages/api-client/src/client.ts 仍是 `status===401 && !isAuthEndpoint(url)` 才判会话死亡(两处),由于非会话错误现在以 502 出栈,该启发式不再被误触发;如实登记残余:若将来有上游把第三方 401 原样透传成 401,仍会被读成会话死亡,属纵深防御缺口而非本票未完成 (ba06930d36)
+- 📚 문서:结清票60 真并行多窗格(服务端 fork 腿收口) —— 席位提交 5e72a6df8b 共 5 文件 +942/−50;主席自审复跑 apps/api 三份用例(chat-fork-branch-endpoint + chat-fork-branch-queries + chat-actions)⇒ Test Files 3 passed / Tests 24 passed(席位另报 conversation-archive 11 例,合计 35)。关键事实更正:服务端分叉并非不存在,而是早已以 POST /api/chat/conversations/:id/branch 命名存在(chat.ts,2026-08-30 立;V3 按 fork 关键字 grep 未命中属命名差异)⇒ 按 §0.6 不新开 /fork,改为把既有端点按票面口径收口:响应返回新会话 id + fork{sourceConversationId, forkedFromMessageId, sourceRootId, sourceSiblingIndex, messageCount};复用票59/64 的 parentMessageId+siblingIndex 族根判定并抽出纯函数 linearizeForkHistory(每族只留一版,分叉点必胜);鉴权只取 request.userId(body 自报 attacker 仍以真实主体入 queries,他人会话 403 且 branchConversationFrom 零调用,越权插入/更新计数 0);幂等用 clientRequestId 在源会话 FOR UPDATE 锁内查询,重放返回首建会话 replayed=true 且计数不增,键撞别的分叉点 409;复制以 .returning({id}) 回库确认,不符整批回滚。未判定:真库端到端(.env.test 不存在、PG 仅 5432)⇒ 四格为离线 mock 链。剩余面:客户端(api-client/web/RN)需透传 clientRequestId 才吃幂等 (b55f46c8b5)
+- 🐞 수정:后台任务重臂按结算面/身份面分域复位(G-272) (34828b1db3)
+- ♻️ 리팩터:rules 族本地 api 壳迁至共享出口 apiOrThrow 并摘零消费方壳文件 (ea570fc43f)
+- 📚 문서:结清 2 枚(第 11 批:G-115 真分叉 / 第二个死端点簇) —— ①G-115 按 §24 机主令代裁并执行:不再等"谁在哪个窗口收敛",直接用仓内既定出口 node scripts/git-sync-converge.mjs 走索引层 union 合并(零触碰他人未提交文件),合并枚 f8c25b537b;现读 git ls-remote origin refs/heads/main = f8c25b537b07a68d9daea4d6a231e7d840441b83 = git rev-parse HEAD,git rev-list --left-right --count origin/main...HEAD = 0 0 ⇒ 部署环的"远端 tip 分叉且自动收敛无效"根因已消除。合并后回潮审计:本会话 23 枚结清行零回潮。②第二个死端点簇按席位二段式复量收口:六条(agent-reviews/wallet-bank-cards/messages-chat/course-annex/course-qa/course-resource)全部已有等价端点且在 HEAD——agent-reviews GET /api/agent-reviews、wallet GET /api/wallet/bank-cards(插件级 requireAuth)、messages GET /api/messages/private/list 与 POST /api/messages/private(checkAuth,senderId 取承载层 request.userId)、课程三屏走 GET /api/resources 与 GET /api/edu/qa 且 RN 屏已改指;阳性对照 invited-users 4 文件 7 行证明尺子有牙;零新增端点(重复造会与既有端点漂移)。受影响用例 Test Files 2 passed / Tests 14 passed。剩余面如实点名:order-log/order-track/vip-compare/message-group 四词另计;BankCardScreen 库无 bank_cards 表(无表可取)、三条课程屏缺 courseId 维度 ⇒ 产品语义缺口,非端点缺口 (fb77aa60b8)
+- 🚀 기능/개선:帧名单源收敛到 CHAT_SYNC_EVENT_NAMES,sse 契约只引用不重写值 (54748ccdfb)
+- 🚀 기능/개선:会话分叉端点收口(票60 服务端余格)——复用 sibling 版本族 + 幂等键 + 计数诚实 (5e72a6df8b)
+- 📚 문서:O65 补回正式编号 O6501-O6513 + P0 四件翻勾(O6501-O6504) (4f2f9c8176)
+- 🔧 기타:G-593 上行应答接受性守卫改语义锁 —— 票面前提已腐烂(四条在 2026-10-07 已随实现恢复转绿),本轮只把两条字面锁换成行为锁并留变异自证 (caee7106db)
+- 🚀 기능/개선:O65 P0 安全护栏四件 —— 根护栏/成本熔断/影响面隔离与原子回滚/人工阀清单 (9caeac97d5)
+- 🔧 기타:结清 G-941(成本账本按链别归一,249 passed+ruff+mypy strict) (a34df2bf63)
+- 🔧 기타:G-593 上行应答接受性守卫改语义锁 —— 票面前提已腐烂(四条在 2026-10-07 已随实现恢复转绿),本轮只把两条字面锁换成行为锁并留变异自证 (c8f2750a5c)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ca97133f4f)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (90c0862194)
+- 📚 문서:G-957 行内失真路径就地更正(票面挂点 login.tsx 已随 2026-10-23 定档删除/回传腿已由 webview onMessage 接管/scheme 已登记)+残余两格点名;主键·归属·租约三维守恒由 plan-task-index 当场断言 (3af96ef954)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3ef3c8e667)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c98968e83)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a8b9c604c8)
+- 🔧 기타:L28030 门39票达成完成即删——六屏已由别席下沉(6→0),末条aboutPageSections数据文件豁免与别席同批在库,门现读全绿镜像10/10 (864c743fac)
+- 📚 문서:结清 79/B03 权限双轴化(运行时真接线) —— 席位提交 7f850459839024c3333ee5acb38fa75dc2aef774 共 12 文件 +1247/−53。主席自审复跑:apps/cli 三份新/改用例 permission-axis-runtime + sandbox-strict-default-on-missing-config + sandbox-profile ⇒ Test Files 3 passed / Tests 59 passed。落点:packages/types/src/permission-axis.ts(判定本体 evaluateAxisGate + granular 五布尔 + 归一化)、apps/cli/src/sandbox/permission-axis-runtime.ts(装配优先级:显式 > config profile > 五档映射 > 契约默认)、apps/cli/src/tools/index.ts(ToolContext.permissionAxis + executeToolCall 轴闸,覆盖 hub 分支)。默认值现读:SANDBOX_MODE_DEFAULT=read-only、APPROVAL_POLICY_DEFAULT=on-request、生产装配 DEFAULT_SANDBOX_PROFILE=limited ⇒ workspace-write(绝非 danger-full-access);未知值一律落 read-only/untrusted 并 warning(fail-closed)。单一真相源:三值/四值/五布尔仅存 types 包,CLI 零副本;check-declared-policy-has-consumer 与 check-permission-mode-vocabulary 均通过。剩余面如实记录:交互确认窗未真机走查、CLI 暂无 --sandbox-mode 旗标、loadSettings 不执行 layer-policy 项目层过滤(既有缺口与 sandbox 键同型) (823794e403)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (286ee41245)
+- 🔧 기타:结清 G-863(附件容量改提交式CAS,18/18 绿) (8f39ff5ab8)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (02758036ef)
+- 🔧 기타:L28030 门39票达成完成即删——六屏已由别席下沉(6→0),末条aboutPageSections数据文件豁免与别席同批在库,门现读全绿镜像10/10 (7589a3fa87)
+- 🚀 기능/개선:权限双轴运行时接线(79)+ 沙箱默认严档运行时强制补齐(G-212 第十一批 cli 半) (7f85045983)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8486d01dda)
+- 🔧 기타:tmpdir 族 90 副本同据终清(折并器上限外交人工:票已结清,check-fixture-tmpdir rc=0 同据,全部副本翻勾即终态) (8115eb8c5c)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4f0075f311)
+- 🔧 기타:结清 D22046(通道②③+比对驱动未变化承诺,cli 49/49+tsc0) (477ab648bd)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c248511bdd)
+- 🔧 기타:G-212 结清——两侧齐(cli 半 goal-r57 严档+ai-service 半已自落本轮现跑 15 passed),翻勾条件成立 (c797e033c4)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (af71cd1e10)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (29c73b7469)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6d6da34226)
+- 🔧 기타:G-620 结清——两道 blocking 红(门150/门90)本轮现读全部转绿(桌面事件三层闭环通过阻断 0),跳门前提不复存在 (9b816186f3)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3ea059635d)
+- 🐞 수정:next-plan-id --check 重号判红改差值棘轮(存量只报数/新增才判红)—— 承 G-955 收口 (f6b9df39ba)
+- 🐞 수정:G-957 网页授权回传腿失败态如实提示(换票失败/异常不再静默) (d47a2842a3)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4d922ea918)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b546442d02)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9e49a4b02a)
+- 🐞 수정:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (e48584bd7e)
+- 🔧 기타:清偿叠注记存量 46→2(9 行折并,行数与勾选/租约/归属三维不变) —— 折并判据不另写:直接 import 守门 13d 自己的 noteTokensInLine / redundantNoteCountInLine(§0.6 单一真相源),对同一行内逐字相同的注记保留一份、删除多余份;全量档现读 叠注重数 46 → 2,残 2 份属承载段分词形态(判据计入但字符串面找不到第二次逐字出现 ⇒ 如实留报数,不猜不改)。本枚只动这 9 行注记文本,复合主键与正文语义逐字不变;门 13d 复跑 RC=0(差值档,存量只报数) (beaba75247)
+- 🐞 수정:补齐漂开族折叠通道(--fold-drifted-families)的两处形状锁 + 补镜像测试 (36d800cb53)
+- 🐞 수정:维③重数棘轮补「重复登记副本」三形态并取消 24 字上界(现读存量 46 份只报数) (4c155346b0)
+- 📚 문서:结清 G-926(lint-staged 已跟踪却被 ignore 的雷区)—— 席位提交 2c9d023f4b;主席自审复跑 node --test scripts/tests/lint-staged-ignored-tracked-ledger.test.mjs ⇒ tests 14 pass 14 fail 0。现值现读:[tracked-ignored] 面=head 存量只报数 12 条,git ls-files -ci 同为 12 且全在 .ihui-agent/archive(11 md + 1 json,唯一命中 .gitignore:186);票面 84 枚里的三族已由 41a3bdeeb4(取消跟踪 tmp 61 枚)、a402f50043(删 articles 宽式忽略)、8c952aac27(为 plugins/*.cjs 加负向例外)收口,故判 closed-by-others 未重做。archive 那 12 枚是门 71 archivedCopy 的归档凭据(读 HEAD/索引树),摘掉即削正当删行的依据 ⇒ 建议退跟踪 0 枚。另修一处恒红口径:旧 T7 把命中根 glob 记成失去 lint 覆盖,而 .prettierignore 早已整目录忽略 .ihui-agent/,64 枚系双计;新口径只问工具本体 prettier.getFileInfo(不另写 glob),限额 50 与给源码目录塞黑洞出口件必红的语义都不动,并加了正探针。三臂真 lint-staged CLI(--diff=HEAD,scratch 夹具):absent 报 git error、tracked 正常 Done staging 且索引 blob 未被改写、untracked 同 absent。剩余面:门 236 豁免按目录前缀放行,将来 git add -f 塞进 archive 的新件会被放行(动豁免语义需另票) (c683c71b8d)
+- 🐞 수정:维③重数棘轮补「重复登记副本」三形态并取消 24 字上界(现读存量 46 份只报数) (56227f8b33)
+- 🐞 수정:为 gate #193 补 8 处 git 派生调用的显式 stdio (15372e4aba)
+- 🔧 기타:api<T>234 迁移回潮副本同据复翻——goal-b15 S10 已结清(349e116a66+b3b3f64276),本轮同据复验一致 (59a3a90a56)
+- 🔧 기타:结清 G-876/D195/G-937 三枚(注册验码/通知归档流/归档器B档,均带真跑证据入行) (3b1a29df96)
+- 🚀 기능/개선:违禁桶兜底清扫器 strip-banned-buckets——两道机主禁令(等条件F12/待拍板F11)的执行器物化:guardian巡检轮 sweepBannedBuckets 派发(5min节流),自动摘HEAD面两桶未勾行并留痕f12-purge;判据import单源零复算;SWEEP-RESULT三态;镜像7例(留痕在落地之后/走object-space-land不自带CAS/已勾不进射程/scrub消费端对齐);AGENTS禁令条补点名+复翻席纪律(复翻须同步摘形态);自检5组+镜像7/7+eslint 0 error+clean态派发实测正常 (41988c0b3d)
+- 🔧 기타:G-962 结清——高置信族逐条现裁全过时(computer-use 在册/announcements 公开族/members/groups/browser-sessions ai-service 全族/organization.ts 已亡),门 8 现跑通过;余参数段未判定=判据能力边界非死调用 (34ba9ee749)
+- 🔧 기타:G-937 结清——根因已于枚 0b1d98107c 修复(seamArchiveChunk+§22c 镜像锁),归因档 c038a654db 为 HEAD 祖先,修复当日 113e612833 落地归档 24 枚;self-test 63/63+镜像 39/39+--list-blocked RC=0 现读,本行属门 239 型已归档票复活副本 (0d3969e1c1)
+- 📚 문서:结清 dot-source 新鲜度维(第 4 批 1 枚) —— 席位提交 14a93e75b8032e067906e7c5cd750fd546bacbc2 只动 check-service-binary-paths.mjs 与其镜像测试两文件;主席自审复跑 node --test scripts/tests/check-service-binary-paths.test.mjs ⇒ tests 32 pass 32 fail 0。新增三格:断链独立三态 brokenlink(EACCES 仍走未判定,两态不并桶)、dot-source/Import-Module 传递闭包按现读写法扩收变量形($X = Join-Path 静态赋值 + . $X,RHS 非静态仍点名不猜)、每服务 fresh/stale/断链/未判定分桶入 renderText 与 totals。本机 nssm 不在位 ⇒ 现读 未判定 3(IHUI-AI-SERVICE/IHUI-API/IHUI-WEB),按 §0.3 不顶绿;真服务链上 stale/断链臂需有 nssm 的机器现读,属剩余面非本票射程 (ee2fc177e6)
+- 📚 문서:结清 G-1222560 危险登记(索引面三份 web 语言包坏 JSON)—— 复跑取面:git show :packages/i18n/messages/web/en.json|JSON.parse=OK、ja=OK、ko=OK,HEAD 面五份亦全 OK ⇒ 他人暂存的坏索引现场已消失;该行正文自我嵌套 4 层副本并入注记+3 条同题原号指针,属票面腐烂,凭据以本枚现读为准 (a88a00a74d)
+- ♻️ 리팩터:face-reader 判据符号单源化——BARE_GIT_RE/bareGitCountOf/hideComments 三符号自 face-reader.test 内闭包搬入 lib 导出(test 改 import,逐字零语义,G-927 同尺差集工具取材用;35 例面 34/1 棘轮红系他席在飞 G-927 收口的 10 枚新增待其落地后自然回落) (05a18375b9)
+- 🐞 수정:服务新鲜度维收口三格(seat-svcfresh,G-1080903 回捞副本续)——断链独立三态 + 变量赋值 dot-source 解析面 + 每服务分桶现读 (14a93e75b8)
+- 🔧 기타:G-955 复验结清——取号入口实测可用(next-plan-id --check 真RC=0) (7930521657)
+- 🐞 수정:摘除指向已删路由 organization.ts 的死测试——HEAD 上该测的 import ../organization.js 解析不到任何文件(守门98 D2 零容忍恒红唯一一枚);全仓再无 organizationRoutes 引用,路由面已由 zhs-organization.ts 承担;与工作树既存删除(D, 他席在飞)同一处置,本次只把它材料化,不新建替代 (d35827d96c)
+- 📚 문서:结清第二批 4 枚(工作已在 HEAD 或本批席位落地)—— G-343 / G-880 / G-32 / G-934 (c11e24d5f4)
+- 🔧 기타:独立席四票复验结清 D04/G-934/G-924/G-239——票面自写判据逐条当场复跑,零复算 (7b562d0477)
+- 🐞 수정:G-880/G-32 收口核验+成对自检补锁 —— 两禁令门(emoji/shared-layer)迁面与加固判据经现读确认已随 a6c7cb36ec 入 HEAD(listFaceFiles 按面枚举+readSources 同面取材,门内零 readFileSync);本批补票面硬要求的两把缺失配对锁:三面同形干净仓⇒三档全0(防恒红,W10 型)与 --staged/----worktree 两面旗同给⇒main 返 2(§0.4 互斥)。三档现读:emoji 全量6233文件0违规exit0、--staged 0违规exit0、--worktree 0违规exit0;shared-layer 全量/staged/worktree 均 hook 维0违规exit0(util 存量只报数)。镜像测试 emoji 17/17、shared-layer 12/12;check-gate-wiring --strict exit 0 (390d395038)
+- 📚 문서:O65 自进化 13 任务补正式编号 O6501-O6513(以 HEAD 为底稿恢复回潮丢行+编号派生侧车键) (702373ef97)
+- ♻️ 리팩터:G-343 DRIVEROOT 族残余清零(票面四处全数核对)①②已由 852c9409 收口(audit 私有 devEnvRoot()/pgBinDir() 与失真头注、app-reads:56 硬编码盘符推导现读复验=族内生产文件仅 import lib/psql-client-locate 单源,无第二份推导);③现读补出=pg-restore-drill.mjs 头注"未设 IHUI_DEVENV_ROOT 时两者逐字同值(本机同为 G:\DevEnv)"已失真——devEnvRoot() 当次实测命中仓内 .DevEnv 形态(G-814433 搬迁后),旧数层式与共用出口不再同值,且把盘符当本机事实写进注释违 AGENTS 盘符铁律,改为陈述候选序与两形态差异并点名 P-落点1/2/3 现算;④现读补出=pg-restore-app-reads.test.mjs:49 在测试里重算 IHUI_PG_BIN_DIR||join(devEnvRoot(),...) 第二份 pgBinDir 判据体(§0.6/§22c),改 import ../lib/psql-client-locate 的 pgBinDir() 与工具同源。复跑凭据:audit --self-test rc=0(取证在镜像测试)+ audit.test 连跑三次 59/59 pass;app-reads.test 8 pass/3 skipped(未判定:psql.exe 不在位,环境闸按设计);drill.test 29/29;守门45 check-c-drive-paths 全量档✅、check-workspace-hygiene HEAD 面✅无新增违规 (caef8d065d)
+- 📚 문서:维③ 头注实测数改正——70 份叠注里 49 份在承载段内、21 份落活文本(此前误写 72/51);纯注记订正,判据字节未动,自检仍绿 (9129d9253e)
+- 📚 문서:结清 7 枚僵尸票(活已在 HEAD、行未摘)——分割线 G-877、判据盲区 G-879、原生弹窗 G-878、MCP stdio 四票 G-689/G-691/G-692/G-694 (6c6efc415b)
+- 🔧 기타:G-874 结清——web 注入两调用点+共享按钮消费+login 族 30/30 绿;原生 WebAuthn 免依赖方案优于票面;未注入不渲染=平台豁免成立 (0cd4af3484)
+- 📚 문서:O65 侧车键由 自进化# 收敛为编号派生 O65xx#(13 条) (62a6546229)
+- 🔧 기타:G-957 剩余格改归属机主小程序后台白名单面(正规改桶通道 LIVE_BUCKET_RECLASSIFY,actionable→owned-elsewhere;格②已入库凭据在案) (6dbb495b4d)
+- 🔧 기타:G-63侧车重钉(union带回旧记录终修),A2归零 (f3fbf0bbba)
+- 🔧 기타:G-934 结清——出路①接线三轮凭据在案(47dc360911 实体测 13/13 本轮复验+56cc4a66f4+847925be2b)+§17 真浏览器核验已落(82c9a68ae0 四例两轮绿);10 红前提过时 (80f8fb9f23)
+- 🐞 수정:维③叠注存量归零——判据剥「副本正文并入·承载整段」平衡段(逐字引文非活注记,72→21),活文本按逐字同串摘 21 份(L5361 x1/L28173 x18/L28911 x2,只删同串不并族);自检10/10、镜像14/14、行数/勾态全等 (75d303394e)
+- 🔧 기타:G-876 结清——实现已在库(code 必填+503 fail-closed+用途锁+防枚举,枚 9e103ac0f6),G-81 席复验 auth 1311 全绿背书 (217be03c9f)
+- 🔧 기타:F4末2组收口——O-02摘旧底稿裸行(正主带租约+③格注记)/G-116摘旧句(正主标头规范),留痕f12-purge (6309556402)
+- 🔧 기타:F4四组+跨号副本收口——G-1222558错号/G-937裸副本/G-10旧句/G-11旧句/B02旧副本各摘副本侧留正主(留痕f12-purge);union回潮体清偿末批 (32b2a83941)
+- 🔧 기타:G-963 结清——修复已落库(测试文件 G-963 注记在案),现跑 f9 族 10/10 绿零 ERR_MODULE_NOT_FOUND (eac4da4f06)
+- 🔧 기타:G-74 远端合流回潮体复翻——并发席已结(d5cce09f8c 校验收口+sponsor 地址在案),配置面余格归机主面行承接 (9b66a50d77)
+- 📚 문서:O65 自进化战略方案文档 + 13 条派单侧车记录 (76f6b4891c)
+- 🐞 수정:补回索引迁移时误删的三门点名(守门89 R4)——check-ai-task-background-reference(247)/check-money-display-single-source(248)/check-registry-sync-health 只存在于被删的旧副本里;91,095→91,589B(余量 4,411),标记仍为 0 (af3da98e1c)
+- 🐞 수정:摘除门249内联点名行——README 索引节已收录该门(4165487e5a),R4 文档面由 README 承载;AGENTS 91,293→91,145B(余量 4,855),冲突标记保持 0 (09498f86d2)
+- 🔧 기타:远端合流回潮第三批复翻 4 行——G-76 守门39(83aa572b23e)/G-38 视觉票(r3c)/D42046 巨行(603d8236d8f 同据)/G-60 content-visibility(522ac4dac2+回归锁 7413f9fd31);凭据全验祖先 (a2dab37433)
+- 🐞 수정:修复 union 冲突标记注入体并摘除回潮索引副本——108,200→91,293B(余量 4,707);标记区取「索引已迁 README」侧,补点名门249以满足 R4;被删索引块 127 门名经 README∪本文零丢失;实读:check-agents-doc-size --worktree rc=0(91,293/96,000)、check-gate-wiring --worktree rc=0(R1/R2/R4 零红) (c4afc6a953)
+- 🔧 기타:F9撞号3组收口——G-07副本自声明行/G-27错挂旧号行/G-76回插已结清题的正主位保留副本行摘除(各留正主行;留痕f12-purge) (5fe4d76372)
+- 📚 문서:守门 249(富文本锚点渲染器单一源头)补进「守门脚本点名索引」的接线/自检行 —— 门 89 R4 义务;207 第二刀把索引整体迁本节后,新装车的门必须在这里点名(原 AGENTS 内联副本即将随冲突标记一并剥除,AGENTS∪README 文档面不得出现空档) (4165487e5a)
+- 📚 문서:O65 登记自进化四期可派单任务 P0-P4 (b19e8ebb21)
+- 🔧 기타:两票结清——desktop-feed 线上现读 0.1.76(2026-10-18 发布,远超 0.1.45 验收目标,前提过时);128 点迁移归档票复活活行复翻(门 239 R1 型,归档注释逐字在案) (4879305684)
+- 🔧 기타:D03侧车重钉(owner=持有席/waiting=none)——union带回旧记录的终修,F12基线棘轮归零 (42af89577d)
+- 🔧 기타:守门8假绿灯远端合流回潮体复翻——凭据 1d5e73e2d3(goal-r52 收官+三路径查清),修正归扩面批次 (8ce176c228)
+- 🔧 기타:union回潮体清偿——对侧旧底稿灌入的违禁形态行摘除(等条件+待拍板未勾行,留痕f12-purge;两道机主禁令之下union行级回补不带违禁形态;goal-r4复翻席注意:复翻时须同步摘禁令形态,行的事实内容已按各批结清提交保留) (382d4dc4c0)
+- 🚀 기능/개선:G-50 DevEnv 搬迁执行器物化——devenv-migrate.mjs(静默窗口探测器三态window/pending/undetermined+六步盘点+预演零写盘+--apply执行器,isDirectRun双形态)+镜像17例;现状盘点:搬迁主体已发生(09-30),残余由器物自判窗口不挂账等条件;顺手清api-routes 3枚/devenv-migrate.test 2枚/dedupe-live-doc 1枚解构残量unused(union带入机械残留,零语义) (f2ddfe9b9e)
+- 🔧 기타:goal-r4 远端合流回潮第二批复翻 13 行——tmpdir 孪生/四件待拍板版(事实四件已落地,待拍板定性作废)/P2-13③孪生/MCP四票(goal-r3 r27i)/失败广播/G-217/G-239/D04;凭据=各批结清提交+新鲜现读(夹具门 rc=0/邮件鉴权在位/守门249 rc=0) (04f4ca3e86)
+- 🔧 기타:H02 远端合流回潮体复翻——凭据 eff4b6d5bd 已推远端,裁决同前(结构性无样本,只记不挡维持) (ef210af486)
+- 🔧 기타:goal-r4 远端合流回潮体批量复翻 34 行——Esc×4/窗格×2/工具面板/O-1/G-939/守门134/四维/取消信号/宿主中止/审批CAS/守门91/G-27/真机走查/prod-bundle/四件拍板/G-35/G-61/G-76/G-807/发丝线/锁初始化/P1-②/G-77/钩子取消腿/AGENTS体积 等,凭据=本会话各批结清提交(全已推远端);行内逐条防新鲜牌(0 冲突) (7df8da52ec)
+- 🐞 수정:R5撞号收口——摘除两枚复活门注册块(bare-decode-uri/token-literal-debt,门体脚本已被对侧删除,注册残留=HEAD面247/248双撞号源);富文本门已改号249保留,盘面 idsOfRegistry 现读各1次 (464cc8efaa)
+- 🚀 기능/개선:auto-evolve 起会话通路端到端打通(O65 第 0 期收尾:JWT 现签 + --probe 自检 + 真派验证) (87a7713ccd)
+- 📚 문서:argument-repair-loop 装车缺口取证收口——假阻塞「index.ts 被并发会话冻结」就地改直 (61496e7201)
+- 🔧 기타:goal-r4 结清 D04 富文本动作锚点——验收三格全齐(浏览器五例/两腿 DOM 签名等值+语序两态/规模化两载位齐:degradeHint+examplesTip+wallet strong,载体 importer 6 个),守门 247 现跑 rc=0 (e8423e37eb)
+- 🚀 기능/개선:web↔RN 屏对齐登记 41 条 + 把跨端自动登记器装进 post-commit 链 (6ad5de3c37)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1081dca6e1)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (194de04708)
+- 🚀 기능/개선:跨端登记自动器装车 + 3 条真镜像声明与 1 条 web→RN 映射 (5f1d02f835)
+- 🚀 기능/개선:O65 第 0 期翻勾(调度器+四道闸随批完成,验收证据入注记;代码枚 0e4bd3628db);1-3 期补立档日期交代(三选一:新鲜日期,按依赖序排队) (b1ffbc4b23)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ab3bc7beb4)
+- 🚀 기능/개선:auto-evolve 自进化调度器第 0 期落地(总纲 O65·调度层+四道闸) (0e4bd3628d)
+- 📚 문서:更正 ContextUsagePanel 的过时披露 —— RN 腿已接通,并点名新落的那把锁 (6abb419f66)
+- 🚀 기능/개선:上下文占用归因面板接上 RN 主屏 —— G-403/G-225 缓存两维的最后一格 (8ce7d87758)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0166713afd)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7faaebcc51)
+- 🚀 기능/개선:登记 AI 自进化调度系统 auto-evolve 四期系列总纲(O65;第 0 期调度器+四道闸随批施工,感知/部署/回流三期按依赖序排队) (164b973cfe)
+- 🚀 기능/개선:G-217a 点赞/收藏两表唯一键迁移 —— zhs_agent_thumbs/zhs_agent_collect 加 (uuid,bot_id) UNIQUE,把上一批(22ee752721b)靠事务 FOR UPDATE 父行的防重底线放进库层:2026-10-25 实测该族缺陷正是『一次点赞计数+2、取消只减一次』,应用层锁管住今天的写口,管不住未来绕事务的批量导入/人工修数(无约束=漂移只在计数与明细分叉后暴露,而全仓无 count(*) 对账)。线上两表 0 行,零回填成本。手写迁移口径(sql+journal,idx 343)+水印,同 20261026100000_command_ack_facts 批形制;旧普通索引保留不删(一次提交一件事,删索引是另一票)。验证:check-migration-immutable 绿(存量基线报警为门内只报数项,非本枚引入)、database tsc 0 错、likes-routes 回归 8/8 绿。 (c92836e7e7)
+- 🚀 기능/개선:ActivityDetail 接线 + web↔RN 屏对齐登记 7 条(教育/公告/问答/权限/agent 家族) (fb58a90253)
+- 🔧 기타:refactor(web,mobile-rn,miniapp)+feat(gates): 显示层分→元格式化同形副本 20 处收口 formatPrice 唯一出口 + 装守门 248 —— fmtYuan=¥\.toFixed(2) 一族在 HEAD 逐字复制(web12+app2+enterprise×2+formatYuan+toYuan 共 20 处):改一处单位口径须 20 处手改,漏一处=那端页 100 倍显示事故(分销族 46758b5b2b8 批修的同型受害者)。全量委托 @ihui/shared/utils formatPrice(非有限回 0.00,定长两位,¥ 前缀归调用面维持版式)。刻意出射程(行为不同非复制):ai-pricing maximumFractionDigits:4 定价展示、purchase/helpers 动态位数 formatCents、局部常量行(M2 只报数)、返回 number 的数字换算。守门 248(blocking,stagedTriggers=显示层四端):M1 展示型自算定义绝对零容忍(存量本波清零;委托转发合法,定罪看实现,与日界闸 246 同口径)/M2 行内定长格式化按文件 HEAD 差值棘轮/M3 装车(importer 20);self-test 10 例成对夹具+镜像 3 例(全显示层 0 违规扫),门体先经 eslint 定责一轮(死常量/eqeqeq 两错已修)。AGENTS 点名 248(R4),并顺手为别席在飞的 registry 哨兵闸补 R4 点名行(照 runner/guardian 接线原样,该闸文档隐形会挡所有提交链)。AGENTS 先过 merge-live-doc 归并(lost=0)。验证:eslint 涉改文件预跑 0 问题,gate worktree 三面绿,miniapp 1032+mobile-rn 1185 例全绿,web/miniapp/rn typecheck 我文件 0 错(web 余 openDockedTab 三文件红=别席 work-panel 在飞面)。 (0d2a23f970)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1d8116c1b9)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dd997d68b7)
+- 🐞 수정:收敛预解第二轮 —— G-55 就地翻为对侧结算行(四项已在库,本席==基底旧态由本行承让),删除尾部 dump 区的守门 89 R9 重复块(首份完整保留) —— 为 union-converge 预解 F1 最后一组与 F6 最后一块;两侧独有行零损失由 union 模拟 REG=[] 现证 (07ea442ded)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2f39e473af)
+- 🐞 수정:在途请求覆盖新态四格根治(前端清单收尾批)+形状锁 —— ① TrendChartDialog:弹窗重开/换 itemId/换窗口连发,慢的旧窗口响应覆盖新曲线且旧 finally 提前熄灭 loading;② learn/topic 付费课:切课时旧列表迟到响应串进新页;③ ide/mcp-pane DetailPanel:常驻不重挂载,切换选中项时迟到详情张冠李戴;④ ModelDetailDialog 行过滤 .filter((r)=>r.value) 把合法 0(免费模型 inputPrice/outputPrice=0)当缺失吞整行,读作『无此项』——改判 !=null && !==''。竞态窗口在微任务时序,jsdom 行为锁必 flaky ⇒ 按 race 家族既定口径钉形状:fetch-sequence-guards.node-test.mjs 四真组件逐一体检(序号自增+写前复核+ModelDetail 两向)+成对夹具(摘守卫翻红 6/6 绿);形状搬家 assert fail 报『锁要跟着搬家』防静默失配。验证:apps/web tsc 我文件 0 错(仓内余 3 红=checkin/GlobalTopBar/web-work-panel 属别席 ca6995 收编批残留,非本批),node --test 6/6。 (5e1978b98a)
+- 🐞 수정:三方归并预解——增长图取对侧 57d951 柱形新形态,本席重排保留,并全文件格式归位 —— 别席线形图(1fb44)与对侧柱形图(57d9=14 根太密⇒interval:2/纯柱形/柱顶不标数)是同功能两种写法,取新者;重排四档(wb-prio-user/ai/traffic/trend)+KPI 双卡前置+业务面板用户三格提首/接口排行下移,均在对侧底版上三方重放(merge-file,唯一冲突=图定义二选一,已按裁决留柱形)。验证:prettier --check RC=0(本席 3083b39 未走钩子的格式存量一并归零)、水印零宽链完好 verify 绿、门 240 --worktree R1-R8 全绿、vitest wallboard 2 文件 11 例全绿、tsc 墙板 0 错(仅存三枚别席在飞红点名不代治)、KPI 卡序 users>ai>qps>err>p95>turnover 现读。为 git-sync-converge 的 --resolve 页面路径预解:本面已含两侧全部独有行(对侧逐字打底),收敛无需人工 (584041c957)
+- 📚 문서:登记 decode 家族单源收口(移动端深挖批唯一遗留:auth oauth2 私有实现 + 门248 D2 九处) (5e38613843)
+- 🐞 수정:重锚机主 2026-10-25 定档首屏重排 + 补回被连带洗掉的增长曲线定义 —— 别席 ca6995ca20b(自动收编在飞副本)把 page.tsx 从「639bd 重排 + 1fb44 增长图」形态写回旧两档编排,并丢了 userGrowthOption 的 useMemo 定义(2219 行用法仍在 => tsc TS2304)。本枚按 639bd7f7797 底稿在现 HEAD 上重落:KPI 带「用户/AI调用」两卡前置到最左(用户卡 sub 今日新增=增长读数);面板业务纵深 wb-prio-user(-40)、AI 号池 wb-prio-ai(-30)、访客与机器人 wb-prio-traffic(-20)、流量趋势 wb-prio-trend(-10),四档两两不等防同值静默回落;业务面板内用户三格提为第一眼读数、接口调用排行下移至签到块之后(14 日增长曲线随位保留);WALLBOARD_CSS 四档定义与编排注释同批,其余面板 order-1 形态不动;userGrowthOption 定义块从 1fb444802bc 逐字恢复(复活行=本票有意重落,走 LAND_ALLOW_STALE 留痕,非滞后副本误带)。验证:门 240 --worktree R1-R8 全绿、verify-wallboard-readout --self-test 12/12(建模 60/60 格)、apps/web vitest wallboard 2 文件 11 例全绿、watermark verify 载荷完整、check-i18n-keys 19187 键 5 语言 parity OK(本批零新键)、apps/web tsc 墙板 0 错(仅存错=checkin/GlobalTopBar/web-work-panel 的 openDockedTab/onHome 三枚,系别席 work-panel.ts 在飞未落,本票不代交点名在此)。并发说明:普通提交路径仍被别席在途文件占用,走 object-space-land 只交本票一文件 (3083b390c9)
+- 🐞 수정:union-converge 冲突标记闸补接 import —— 2026-10-25 头注的闸只写调用未引 lib/conflict-marker-guard 的 assertNoConflictMarkers ⇒ 本器任何带 <<<<<<< 的树内容在 writeBlob 处 ReferenceError 崩(实测 dry-run base=a6c3c036be ours=本地线 theirs=179fc770b5a 即崩,RC=2 未判定),收敛器全程瘫;补一行 import 后同输入 dry-run 正常出闸(CHECK ONLY 正常走完,落地闸 3 处为真实内容裁决)。修复凭据=§1「能当场修的当场修」+本席收敛作业被此 bug 挡住的直接受害现场 (df25853257)
+- 🐞 수정:墙板页剥回成对冲突标记 —— 11:18 手工收敛把 merge-file 原始标记带进 main 的清偿(零内容变化) (3363928c6e)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cc7389109e)
+- 🐞 수정:三族小面根治+一批测量基建纠错 —— ① packages/shared usePaginatedList 补序号守卫(末发定案:后发请求落地前,先发的任何迟到响应不写数据/不写错误/不翻加载位),此前筛选切档与在途页互盖:旧结果 setItems 替换新第1页、把页游标偷换成旧页号(下次加载更多直接跳页缺页);web/RN/miniapp 三端共用该 hook,守卫随源生效。② CouponScreen 摘除 setStatusTab+setTimeout(refresh,0) 手工重发:hook 的 effect 本就按 fetcher 身份自动重拉,那发 setTimeout 捕获**渲染前旧闭包**且宏任务落在 effect 后 ⇒ 序号更大后来居上,旧档列表可覆盖新档 —— 手动那一发就是竞态源本身。③ 侧栏会话日期分桶改真日历边界(原实现滚动7天/其余全部,标签却写今天/本周/本月 ⇒ 数年前会话被标「本月」、缺 lastMessageAt(t=0) 同桶冒领):今/周(周一起)/月(1号起)/更早,缺时间戳归更早;aiChat.earlier 键五语言同批(web messages x5),groupByDate 按同文件 SearchableConversation 先例导出供纯函数单测(新套件 6 例含成对正向)。④ 测量基建纠错:apps/mobile-rn/tests/use-paginated-list.test.ts 原 import 经 RN wrapper → @ihui/shared/hooks **父别名指 tests/__mocks__ 手写平行件**(§22c 反模式活例)⇒ 9 例一直在验替身;改走配置内 exact 子路径别名直连真实源,9 例(含新守卫例)在对 shipped 实现上全绿 —— 替身漂移本身另行登记。⑤ 上一枚 history-page-hydration.node-test.mjs 水印载荷修复(手写头行截短致残迹,verify --staged 现形;clean+重注入 0 不合格)。验证:shared tsc RC=0,web tsc 我文件 0 错(仓内 4 红文件=wallboard/checkin/GlobalTopBar/web-work-panel 全部出自别席 ca6995ca20b 自动收编批的在飞残留,见交付报告),RN 全套 129 文件 1185 例、miniapp 1032 例、web sidebar/pane 相关 94 例、shape lock 5 例全绿。 (0d036f9909)
+- 🚀 기능/개선:补 4 条镜像声明(change-phone/change-pwd/help/point-history)——小程序页早已存在,只缺标记与登记 (22b3697a52)
+- 🐞 수정:旁路落地器补「成对冲突标记拒绝进树」闸 —— 79 看不见不走钩子的通道,牙装在写口上 (a844588db0)
+- 📚 문서:结清守门 207 存量清偿第二刀——AGENTS 108,515→89,968B(余量 6,032),三面 rc=0,238 同批复绿 (1377bdc7b2)
+- 🐞 수정:并发合并把「国内镜像」徽章带回 —— 按 2026-10-23 机主令重新清除(守门 238 复绿) (995ecb1615)
+- 📚 문서:守门 207 存量清偿第二刀 —— 点名索引迁 README + 速查区压缩副本移出(108,515→89,968B,余量 6,032) (8e99bd5626)
+- ♻️ 리팩터:抽离 git-guardian 的 TEMP 清扫与日志两族到 lib 以压住架构门 103 C1 单文件行上限（主文件 6094 to 5837 行） (8fe1fb2f10)
+- 🚀 기능/개선:首例真实镜像页——用户协议 pkg-about/about/agreement (aa4c418bff)
+- 🚀 기능/개선:补 study-index 镜像声明——pages/study/index 与共享屏 StudyIndexScreen 同为学习首页(taro 端内重写渲染层,按门 128 语义声明对齐目标);此前只缺标记与登记 (84b9acc2c0)
+- 🚀 기능/개선:补 coupon 镜像声明——小程序 pages/member/coupon 与共享屏 CouponScreen 键空间完全一致(coupon.available/used/expired),此前只缺「镜像」标记与登记 (652e5b052b)
+- 🚀 기능/개선:补 2 条 about 族镜像声明——app-permission / api-settings(页面早已存在,只缺标记与登记) (481fd87095)
+- 🚀 기능/개선:补 2 条 about 族镜像声明——app-permission / api-settings(页面早已存在,只缺标记与登记) (fe0abab5b2)
+- 🐞 수정:AI 侧栏历史翻页双缺陷根治(判高两条,前端清单回源仍活) —— ① 根窗格 handleLoadMoreHistory 原 res.data.messages.map 手工造行只留 id/role/content/createdAt,绕开水合出口 ⇒ 翻上来的旧消息丢 toolCalls/planSteps/citations/pinnedAt/parentMessageId+siblingIndex(版本族判不出⇒点一次编辑出两个气泡);改为与首屏(:676/:732)及非根窗格(chat-pane-body:222)同一出口 hydrateHistoryMessages。② 两处翻页回调 await getMessages 后都不复验会话:切会话时旧会话的一页被 prepend 进新会话、resetPager 把旧游标装进新会话、patch*Cache 把串会话列表写进旧会话缓存桶(LRU 持久污染);统一补 store.getState().conversationId 复验且先于一切写入(window 窗格体与根窗格同修)。竞态窗口依赖微任务时序,jsdom 行为用例会 flaky ⇒ 按 api-no-double-unwrap 先例钉形状:history-page-hydration.node-test.mjs 抽函数体+三判据(水合出口/复验存在/复验先于写入),2 文件×(正向+三型变异夹具)+良性对照 5 例全绿,摘任一判据即翻红。回归:13 套 88 例全绿;apps/web tsc 我改文件 0 错(仓内 62 错全部来自别席 ca6995ca20b 自动收编进 HEAD 的 wallboard 未决冲突标记,非本批引入,见交付报告)。 (dd56090e92)
+- 📚 문서:207 第二刀① 落地登记——归档移出凭据接线(判据单源 + 两个消费面),票保持未勾 (dbf38b926d)
+- 🚀 기능/개선:RN→小程序 镜像缺口账本自动化——139 缺口逐条带候选线索 (f67090ac4f)
+- 🐞 수정:清掉上一枚带进来的 1 个 error + 收口一处既存 eqeqeq (0bb9bfd89c)
+- 🐞 수정:AGENTS 归档移出被当成丢行 —— 第四态凭据接线补齐(守门 207 第二刀①) (b6023aa977)
+- 🐞 수정:合并回填本侧独有词条——miniapp 5 语 ×81 键 + mobile-rn 5 语 ×273 键 (2f651b8ce1)
+- 📚 문서:对外文档数字/端数口径收尾 —— README 瘦身版尾部旧版碎屑整段清除(7082→6007 行:八端清单/176 models SEO 段/两行矛盾结尾/孤立表行,主体均有现算版);L183 IP 白名单『只存不拦』过时表述改实链事实(ip-whitelist-guard.ts 在位);散文 testFiles 追齐现算值(3211→提交瞬间现算,活水竞态以门判绿为准);blog 四篇现在时套话更新(01 尾部 8 端/176、02 对标表与 footer 176、05 定价 all 176×3→101、08 邀请语 8→9);ja/ko 正文区 118→101、8平台→9 两形态 109 处、339 声明→608。保留:教程/历史内容(01/08/15 篇主题正文、成长叙事列表、日志区历史行、legal-8 下载矩阵);AI_CHAT_BENCHMARK_ANALYSIS_V4 六端为技术门范围不动。IHUI_SKIP_LIVE_DOC_CHECK=1 定向说明:README.md 系有意整档重写(15384 行大文件→6007 行摘要+九份收纳件索引形态),merge-live-doc 的 1596 行『真丢失』样例全为 8 端旧版声明与旧数字重复副本(--apply 会把它们 union 回来毁掉瘦身,故走有意重写通道);重写凭据=机主批准的 118 模型陈旧引用清偿+8→9 端口径任务,主体九端清单/关键数字生成块已逐段核验为现算版。验证:watermark verify 8 文件绿、check-doc-numbers --worktree 绿、现在时陈旧声明清零 (e7014684cf)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (29582c20a8)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8f7efe9cf8)
+- 🐞 수정:合并后撞号收敛——check-bare-decode-uri 让出 241(远端已占,check-rn-readout-cell),改号 248;判据与 skipEnv 一字未动 (68c00a3a05)
+- 🚀 기능/개선:资源目录同步停更哨兵三件套 —— 760 条全军只有一行 WARN 的静默型,自此当轮即红、恢复即绿 (0dd89c37e9)
+- 🚀 기능/개선:出口代理闸 IHUI_REGISTRY_EGRESS_PROXY —— marketplace 直连抖段的运维旋钮(默认关=行为零变化) (7fe57853cf)
+- 🐞 수정:registry 批量 upsert 批内复合键去重 —— 上游 offset 分页重叠让整批 760 条全军(PG 21000) (33cf83062e)
+- 🔧 기타:治四处存量"代码对、锁旧"的源码漂移锁 —— 锚句跟着判据形态搬家,同时补变异自证 (91272a063b)
+- 🐞 수정:门 103 C1 二次超限收口 —— git-guardian 六块 141 行注释逐字归档换指针(零行为变化) (1f9a9a6fa6)
+- 🐞 수정:端内测试停止越层 import repo-tooling,清偿架构政策 D1/D2 六处 (4e2758c740)
+- 🐞 수정:207 第二刀票改"未取号"形态——G 族号池 pool-exhausted(占用面含 42 份归档件)，令牌残留是 G-15107 格①用法错，绝不发 1000+ 号；待号池扩容批补号 (87d1f894e7)
+- 📚 문서:登记守门 207 存量清偿第二刀(前置=补 declaredDropCaps 认 AGENTS 归档移出,防回潮吞掉第一刀成果;现读缺 9,156B)——第一刀已落枚 c9c85d63 (5f4bafc488)
+- 📚 문서:守门 207 存量清偿第一刀——速查区回潮副本 34 行整区移入 archive(125551B→105156B) (c9c85d639c)
+- 🐞 수정:门 128 两族判据射程差豁免登记 + 门 77 B1 wallboard 圆角绕档清偿 (a35ac94b7d)
+- 🐞 수정:字形箭头与双返回箭头清零——Collapsible 文本字形换矢量图标 + 五 pkg 页摘页内死返回键 (8f26a1f779)
+- 🔧 기타:门 241 镜像测 T1 前提断言改大小写不敏感 (3a893d1481)
+- 📚 문서:守门 241(裸 decodeURIComponent)R4 点名行 (8ffd95d1dc)
+- 🐞 수정:移动端行为级深挖批——裸 decodeURIComponent 族 21 处从底层修复 + 守门 241 防回潮 (815bfe638f)
+- 🐞 수정:RN 样式裸数字回潮锁改号 240→247——远端 f126e734 已占 240(大屏读数不得断行门),合并前让号,判据与 skipEnv 一字未动 (284aa41062)
+- 🔧 기타:门 240 判据镜像测试——3 例直接 import 源脚本 __test__(§22c,判据零复制),含阳性对照(把 rnSpacing.lg 改回 16 必须被抓) (1dfe636e62)
+- 🚀 기능/개선:新守门 check-bare-decode-uri.mjs 接进提交链 (6a3e148297)
+- 🚀 기능/개선:新增门 240 RN 样式裸数字回潮锁(差值棘轮)+ runner 接线 (d066355a35)
+- 📚 문서:点名门 240 RN 样式裸数字回潮锁(与接线同批;AGENTS.md 超体积预算暂不写入,README 已满足 R4) (d562ca2018)
+- ⚡ 성능:跨端两把尺子改批量取 blob(HEAD 面 4 分钟→17s) + web→RN 尺支持 --full + 6 段 web-only 豁免 (da67136b16)
+- 🚀 기능/개선:补 4 条 about 族镜像声明(账本真实化,零行为变化) (f97405f954)
+- 🐞 수정:web→RN 功能尺三屏误报根治 + 删除一条不存在的 web 路由登记 (89239b8d3e)
+- 🚀 기능/개선:token 化批 #6 第 5 批(收尾)——21 文件裸数字转档 (3d8a7a3355)
+- 🚀 기능/개선:token 化批 #6 第 4 批——60 文件裸数字转档 (0088fd044e)
+- 🚀 기능/개선:token 化批 #6 第 2 批——60 文件 1020 处裸数字转档 (5308e7aaf5)
+- 🚀 기능/개선:token 化批 #6 第 1 批——tokens-migrate 扩为目录批量器物 + 60 文件 1583 处裸数字转档 (e506840fc0)
+- 🐞 수정:普查锁两 offender 清零——VoiceNote/LlmSettings 裸 TextInput 迁共享 TextField (e9226cbb50)
+- 🐞 수정:活副本纠偏批——上轮把 account-cancel/app-topup 判死副本是反的:现读 RootNavigator 1037/1048/1087 挂载体=packages/app 版,二屏 Modal 缺 onRequestClose 即安卓返回键在注销确认/充值说明穿透弹退出应用(与 MemoryScreen 同型,补 onCloseModal/onCloseIntro)。privacy 未入本批:终读现场与 HEAD 逐字节一致(我先前的挤行误判与复原互相抵消,无净改动;页码清单无错位,上轮该条定性撤回)。遗留如实:(a)packages/app 两屏标题硬编码(注销账号/充值)属 i18n 队列射程;(b)SDK 清单与 Expo+RN0.86 真栈脱节为法律文案,归机主/法务 (6e5cc2e93b)
+- 🐞 수정:行为级 bug 两枚——① VoiceNote 语音笔记面板:RN 原生 Modal 自成窗口不吃外层 KeyboardAvoidingView,面板内搜索框弹键盘后操作行整块顶出可视区(iOS/小屏安卓必现,Modal 内键盘关不掉)——避让容器移进 Modal 内侧,iOS padding/安卓 height;② packages/app MemoryScreen 新建记忆 Modal 缺 onRequestClose:Android 返回键不关弹层反弹确认退出——与右上角取消同语义接回 onCloseCreate。定性:account-cancel/AppTopup 两份 packages/app 旧身=死副本(消费方全指端内键化版,守门不判红)不代删除按§7归包持有人;auth.ts login 抛错为设计契约调用方统一兜;VoiceNote 已有 onRequestClose 不重复补。验证:RN tsc 0 错、vn-mount 13/13、eslint 0、水印 2/2 (60e2c90099)
+- 🔧 기타:F9 分批收敛 #5(终)——CSRF 行 G-12→G-02、两版F5 行 G-30→G-18(双侧真声明位零 + 239 归档 marks 过滤验证);五门现读全绿(strict F9 0 组/234 warn/239 0/211 0/13d 0/71 无丢失)——机主授权合并背景 (87338aa530)
+- 🐞 수정:auth.ts 支付宝回包防护补丁自纠——上一枚提交里 info 类型注多套了一层 .response(TS2339 ×2,miniapp tsc 当场红),语义层级回归 parse→.response→{nickName,avatar} 真形 (20c8ba1c13)
+- 🐞 수정:逻辑级 bug 三枚——①充值自定义金额 Number('9.9')*100 浮点毛刺直进支付订单(分语义被打成 990.0000000000002),对齐 CartScreen 既有 Math.round 范式;②credential-storage 裸 JSON.parse:AsyncStorage 半截写/手改/回滚脏数据在启动链抛 SyntaxError 打断记住账号预填,降级为无记录(后续 persistedAccount 覆盖);③miniapp 支付宝 getOpenUserInfo 取消/异常回包 response 非 JSON 时裸 parse 打崩整条登录链,降级空资料走既有手动补路径。定性留档:定时器清理全配对/formatDateByTemplate 带 tz+NaN 守卫/totalFee 经 zod int 非空/支付按钮走 paying 锁+disabled——四类候选核实为健;Clipboard try 豁免=RN API 不抛;CONTEXT 崩溃上报未脱敏一条已漂移(现码过 redactCrashText) (92e31d50fa)
+- 🔧 기타:F9 分批收敛 #4 终版——Agent SDK 票:原 G-06 行插回存续(门 71 编号行不丢)+ 行尾让号注记 + 未取号行承载实际推进(行内交代归属=qoder-maxpar)+ 旧 G-36 双行摘除留痕 + merge-live-doc 归并(lost=0);五门现读全绿(71 无丢失/239 0/211 0/13d F10 2→2/234 warn)——机主授权合并背景 (688b7ce6be)
+- 🐞 수정:backup-pg-local 追到断链根因——pg tooling 已迁 D:\ihui-pg\16(服务镜像为证),脚本写死旧卷 D:\DevEnv\runtimes\pgsql 失踪后,wscript 启动的计划任务看不到 pwsh 的 CommandNotFound ⇒ 本地 dump 静默停摆一个月(P7 只量到副本侧,源侧 P5 格当时未判定)。路径更新 + 新增'pg_dump 不在位必写 backup.log 再退'守卫——停摆必须留下可被人量到的痕迹,任务面 Last Result 0 是谎。实证:修复后手跑 EXIT=0,backup.log 落 10-25 01:16 OK 9.6MB 新行 (de4073ff04)
+- 🔧 기타:F9 分批收敛 #3——取号器行 G-48→G-90(G-48 被远端新纪元 F1不认行占用,重让;PLAN 全文零出现的 G-90 空投)——五门现读全绿(strict F9 撞号 0 组/234 warn/239 0/211 0/13d 0) (73c966154a)
+- 🔧 기타:F9 分批收敛 #2——取号器行 G-48(远端占用,重让)→G-183 链理正 + 侧车按真实 compositeKey 全量重建(5 条;234 warn a1=0 a2=0/211 0/13d F10 0/239 0/plan-gate strict F9 撞号 0 组)——机主授权合并背景 (a056001ebf)
+- 🔧 기타:F9 分批收敛 #1 终——L28868→G-48/L28888→G-50/L29002→G-90/L29063→G-26/G-880 误改恢复/G-183 误改恢复;L29068 回退原号 G-18(远端键位零)+G-18 侧车补;六组侧车按真实 compositeKey 重写(234 warn a1=0 a2=0/13d F10 0/239 归档单调 0/211 号池 0)——机主授权合并背景,逐行留痕 (45254bd876)
+- 🐞 수정:course-planet loadData deps 剔无用 tt(体内未引用,判据面 JSX 层独立吃,exhaustive-deps warning 清零)+ tailwind.config 头注版本事实修正(现读:声明 v3 仅服务 preset 工具链,产物引擎=weapp-tw@5.2.9 vendored v4,alpha 原生生效——漂移注释清);验证:miniapp 端内 eslint 首次 --max-warnings 0 exit 0 (25817edb68)
+- 🔧 기타:F9 分批收敛 #1 终版——本地 5 行键位改号到验证组合(G-48/G-50/G-90/G-26/G-09;G-880 误改恢复;G-183 误改恢复)+ 侧车 6 条按真实 compositeKey 重写(234 a1=0 a2=0/239 归档单调 0/211 号池 0/13d F10 0/plan-gate F9 撞号 0 组,五门现读全绿)——机主授权合并背景,逐行留痕 (12a9581f6a)
 
 **2026-10-24**
-- 🔧 기타:navbar-no-chrome 补 i18n mock——NavBar 在 i18n 扫尾批起吃 useI18n,裸 render 抛「must be used within I18nProvider」整文件稳定红(全量两轮复跑 1/1 坐实,非 flake;与 fenlei-overlay 同治,判据只量根元素样式不涉文案) (e8c502633e8)
-- 🐞 수정:门77 B1 终清+门150 弱证据 web 两站归档(wallboard 条形帽 3px→2 就近档;wb-panel 根容器 lg→xl 跟 panel 角色;PiP card 容器 md→lg)——移动端收官顺手清全仓 UI 档残余 (d5fe70025bf)
-- 🔧 기타:F9 分批收敛 #1——本地 5 行键位改号到远端零键位号(G-08→G-48/G-09→G-50/G-12→G-90/G-12→G-26/G-09→G-37;G-880 误改恢复)+ 侧车 5 条按真实键重写(234 a1=0 a2=0/211 差值 0/13d F10 0/239 归档单调 0/plan-gate F9 撞号 0 组现读)——机主授权合并背景 (58e51c9b2e8)
-- 🐞 수정:移动端第三轮收官——中文/半翻译残留 82 站清零 + D43 首页语音笔记挂载落账 + 门150 弱证据移动端 6 站归档 (dc9667c1607)
-- 🔧 기타:F9 撞号 6 组人工键位裁决改号(G-32/14/53/20/18/D18 → 池内新纪元两位号 G-01..G-07)+ 副本行标记 + 7 行侧车记录补齐(234 a1=0 a2=0;211 号池差值 0)——机主授权合并背景;逐行带原号留痕注记 (2d30287aad1)
-- 🐞 수정:ScreenStates 空态圆章真圆写法改 50%(守门 77 B1 认可的几何真圆形;64/2 表达式被 B9 求值判超上限,同形百分比是门自带出口) (3ffd223f896)
-- 🐞 수정:移动端跨端观感修复批——四件套骨架屏尺寸减半(用户可见)+圆角角色档 43 站收口(守门 77/150 在册红) (a1de25ce244)
-- 🐞 수정:清两处合并连带的死导入(AgentSettingScreen ActivityIndicator / OrderScreen TouchableOpacity,HEAD 面已红即合并 auto-merge 产物,未用导入删除无行为变化)——解锁 push 全量 typecheck 门 (76ab1465061)
-- 🐞 수정:修复合并连带损伤——NotificationPanel formatPushTime 内 Date 变量撞名参数 t(改 dt)+ useI18n import 补位 + 签名对齐 useI18n;原 push 门全量 typecheck 红因;验证:eslint 0/该文件 typecheck 清/水印完好 (1a3295d1de0)
-- 🐞 수정:移动端 typecheck 清零批次——i18n 提取残骸 36 文件/119 错修复 + 测试滞后 12 红 + 顶栏两截带一枚 (fc5925035e5)
-- 🔧 기타:收敛 origin/main(2026-10-24 编号新纪元)——PROJECT_PLAN 取远端重排版(旧卷全文已由远端 renumber-snapshot 归档,零丢失;goal 十四枚提交未触碰 PLAN);代码文件 auto-merge;机主授权合并 (7fb7e5e52fa)
-- 🐞 수정:补落第二枚遗漏的 8 文件——5 共享屏(console-table/switch-prefs/user-public/llm-settings/edu-shop)与 3 小程序镜像页(pkg-user/user-public、pkg-user/llm-settings、pkg-shop/edu-shop);第二枚重跑时目录参数展开失败致漏(index.ts/app.config 已引用它们,干净检出必断,本地工作树假绿掩盖);验证:eslint 0/typecheck 零错/水印 verify 完好 (41d84097bbc)
-- 🔧 기타:screen-registry 三元组补登 3 条——UserPublic/LlmSettings/EduShop(shared/rn/miniapp 三端齐,goal 新屏首批评入镜像登记链);门 screen-coverage HEAD 面现读 71 条全真、镜像 72/213,新 3 条落地后 75/215 (aaad6357153)
-- 🚀 기능/개선:存量 token 化批 #5(长尾)——四屏 69 处(ChangePwd 12/ChatRoom 19/LecturerList 15/Publish 23);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 30 屏 885 处 (45b3c6bc35d)
-- 🚀 기능/개선:存量 token 化批 #4——七屏 218 处(StudyIndex 45/Promote 33/LiveDetail 38/Settings 24/SelfMedia 23/VipTrader 33/EarnCommission 22);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 26 屏 816 处,15+ 裸行档清零 (5a89172e0d9)
-- 📚 문서:D17 生态统一入口结清翻勾(内容锚:「D17 生态统一入口装车」提交=page+hub+nav+五语 ecosystem 37 键 empty0+nav.ecosystemHub×5;现读 check-i18n-keys 19127 键 parity OK+hub 测试 16/16;语言包占写已解除)✅(2026-10-24) (49ef8ccb886)
-- 🚀 기능/개선:存量 token 化批 #3——六屏 203 处(Points 24/Memory 45/AppTopup 27/WrongQuestions 29/AiWorld 45/Plaza 33);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 19 屏 598 处 (89aba90a012)
-- 🚀 기능/개선:存量 token 化批 #2——六屏批量转写(ConversationImport 23/LecturerDetail 27/CourseTab 45/AiGroup 55/ImageGenTemplates 29/ModelIncome 42 共 221 处)+ 转写器 ensureImport 增强(import 检测改在 design-tokens import 语句内做,根治正文已含 token 名时的漏补);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 13 屏 395 处 (f03953d525c)
-- 📚 문서:G-959/G-865 结清翻勾(现读证据:app-login sso 键化+shared 五语+守门测试 16/16 · DEFAULT_AVATAR_URL 死键已摘+两测试同批改净)✅(2026-10-24) (81f16bbaffc)
-- 🚀 기능/개선:存量 token 化批 #1——批量转写器 scripts/tokens-migrate.mjs(裸数字→rnSpacing/rnType 档,恰在档才换不硬凑,自检 6/6)+ LoginScreen 首屏 65 处转写;验证:eslint 0/typecheck 零错/水印完好;工具可复用到全部存量屏 (ccd9fb1624e)
-- 🚀 기능/개선:edu-management 族小程序镜像批——考勤/成绩/缴费三页(pkg-user/edu-mgmt-*,复用 edu-child/records-page 共享渲染件)+ app.config 注册 + miniapp 五语言(eduMgmt 3 + eduFinance 9 含状态枚举 + eduGrades 正名);验证:eslint 0×3/miniapp typecheck 零错/水印完好;镜像累计 14 页 (26fc056da64)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (92f382ef86b)
-- 🚀 기능/개선:children 六子页小程序镜像批——共享渲染件 records-page(列驱动卡片列表,对齐 RN ConsoleTable 模式)+ 六薄壳(课表/考勤/成绩/餐食/账单/学习计划,参数 childId)+ app.config 注册 + miniapp 五语言 edu 族键组(eduChildAttendance/eduGrades/eduAttendance 等 4 组 + statusTitle/empty);家长端小程序闭环(首页→六子页);验证:eslint 0×7/miniapp typecheck 全零/水印完好;镜像累计 11 页 (01bb3b47a8f)
-- 🚀 기능/개선:小程序镜像批 #2——家长端首页(pkg-user/edu-parent,孩子卡片列表+状态徽章,对齐 RN EduParentScreen;children 子页镜像排后续)+ app.config 注册 + miniapp 五语言 eduParent 10 键;验证:eslint 0/typecheck 零错/水印完好;镜像累计 5 页 (2ceb517ea6e)
-- 🔧 기타:对账尺登记批——edu 族 18 条 aligned 入账(edu-management 7 + parent/children 9 + user/[id]/settings/llm/edu/shop 落地补登);worktree 面现读 aligned 142/缺口 355/零腐烂 (4b5234a9081)
-- 🚀 기능/개선:goal 教育域批——edu-management 可列表承载面全落地(考勤/成绩/班级/缴费/餐次模板/校园课表/教师排班 7 页)+ 家长端闭环(首页/绑定 CRUD/children 六子页)+ EduParent 六键导航;全部 ConsoleTable 杠杆薄壳 + 五语言 i18n(edu 族 12 键组);验证:eslint 0×18/typecheck 本轮零错/水印 verify 完好 (c1712deb254)
-- 🔧 기타:vip/success 时长三连裸串接 tt('vip.success.daysUnit') + 词包五语 {n} 天键 (73dae30a4ee)
-- ♻️ 리팩터:批131 · AgentShopList emptyText 默认参拆雷(全仓可接面清零收口枚) (c51ca43ae95)
-- ♻️ 리팩터:批130 尾修 4 处 appAlert 第一参变体(AccountCancel/ChangePwd) (a9d478aa0de)
-- ♻️ 리팩터:批130 硬编码中文清零(6 文件 / 90+ 处) (80ec061080a)
-- 🚀 기능/개선:批130 入典(88 组新键 ×5 · chat.msg/toolbar/topup/confirm/sr/dist 族) (f2673153bd8)
-- ♻️ 리팩터:批129 硬编码中文清零(5 文件 / 90+ 处) (3ff73743771)
-- 🚀 기능/개선:批129 入典(74 组新键 ×5 · need/news/iaa/bab/vip 族+common.known) (a2f2edbfa26)
-- ♻️ 리팩터:批128 硬编码中文清零(6 文件 / 80+ 处) (3694083f708)
-- 🚀 기능/개선:批128 入典(65+ 组新键 ×5 · subPkg/account/share/lp/annot/aigcList 族+补 courseDesc) (fd6316a81a4)
-- ♻️ 리팩터:批127 硬编码中文清零(11 文件 / 90+ 处) (36398ccb1ae)
-- 🚀 기능/개선:批127 入典(110+ 组新键 ×5) (9af71a11bc5)
-- 🚀 기능/개선:批127 W1 入典(23 组新键 ×5) (5926d858a3e)
-- 🚀 기능/개선:goal 应用批——RN 六屏 token 化(109 处 rnSpacing/rnType/rnRadius 档)+ 9 张 RN 屏四件套(他人主页/BYOK/教育商城/控制台六页,ConsoleTable/SwitchPrefs 两杠杆屏)+ 小程序镜像三页(三新屏三端闭合)+ 小程序提现页语义档 + RootNavigator 九路由 + miniapp 五语言键组;验证:eslint 0/typecheck 本轮零错/水印完好/i18n parity OK (47e3b46cc51)
-- ♻️ 리팩터:批 126 硬编码中文清零(Menu 8 项表转键/Notification 时间族/PushBanner 回落/VoiceInput 全组) (3785cb014f6)
-- 🚀 기능/개선:批 126 入典(22 组新键 ×5) (62378825a29)
-- ♻️ 리팩터:批 125 硬编码中文清零(9 文件 / 60+ 处,组件批收官) (593cb4ec619)
-- 🚀 기능/개선:批 125 入典(29 组新键 ×5) (ad22965d3cd)
-- ♻️ 리팩터:批 124 硬编码中文清零(13 文件 / 55 处 · RN 端 UI 串清零收官批) (bd0dfe0c8b7)
-- 🚀 기능/개선:批 124 入典(37 组新键 ×5) (cda81d5afee)
-- ♻️ 리팩터:批 123 硬编码中文清零(13 文件 / 40+ 处,含 3 张顶层表转键) (aecd7c7a30f)
-- 🚀 기능/개선:批 123 入典(35 组新键 ×5,含工具三态状态词五语同批) (a43b9ae9895)
+- 🔧 기타:navbar-no-chrome 补 i18n mock——NavBar 在 i18n 扫尾批起吃 useI18n,裸 render 抛「must be used within I18nProvider」整文件稳定红(全量两轮复跑 1/1 坐实,非 flake;与 fenlei-overlay 同治,判据只量根元素样式不涉文案) (e8c502633e)
+- 🐞 수정:门77 B1 终清+门150 弱证据 web 两站归档(wallboard 条形帽 3px→2 就近档;wb-panel 根容器 lg→xl 跟 panel 角色;PiP card 容器 md→lg)——移动端收官顺手清全仓 UI 档残余 (d5fe70025b)
+- 🔧 기타:F9 分批收敛 #1——本地 5 行键位改号到远端零键位号(G-08→G-48/G-09→G-50/G-12→G-90/G-12→G-26/G-09→G-37;G-880 误改恢复)+ 侧车 5 条按真实键重写(234 a1=0 a2=0/211 差值 0/13d F10 0/239 归档单调 0/plan-gate F9 撞号 0 组现读)——机主授权合并背景 (58e51c9b2e)
+- 🐞 수정:移动端第三轮收官——中文/半翻译残留 82 站清零 + D43 首页语音笔记挂载落账 + 门150 弱证据移动端 6 站归档 (dc9667c160)
+- 🔧 기타:F9 撞号 6 组人工键位裁决改号(G-32/14/53/20/18/D18 → 池内新纪元两位号 G-01..G-07)+ 副本行标记 + 7 行侧车记录补齐(234 a1=0 a2=0;211 号池差值 0)——机主授权合并背景;逐行带原号留痕注记 (2d30287aad)
+- 🐞 수정:ScreenStates 空态圆章真圆写法改 50%(守门 77 B1 认可的几何真圆形;64/2 表达式被 B9 求值判超上限,同形百分比是门自带出口) (3ffd223f89)
+- 🐞 수정:移动端跨端观感修复批——四件套骨架屏尺寸减半(用户可见)+圆角角色档 43 站收口(守门 77/150 在册红) (a1de25ce24)
+- 🐞 수정:清两处合并连带的死导入(AgentSettingScreen ActivityIndicator / OrderScreen TouchableOpacity,HEAD 面已红即合并 auto-merge 产物,未用导入删除无行为变化)——解锁 push 全量 typecheck 门 (76ab146506)
+- 🐞 수정:修复合并连带损伤——NotificationPanel formatPushTime 内 Date 变量撞名参数 t(改 dt)+ useI18n import 补位 + 签名对齐 useI18n;原 push 门全量 typecheck 红因;验证:eslint 0/该文件 typecheck 清/水印完好 (1a3295d1de)
+- 🐞 수정:移动端 typecheck 清零批次——i18n 提取残骸 36 文件/119 错修复 + 测试滞后 12 红 + 顶栏两截带一枚 (fc5925035e)
+- 🔧 기타:收敛 origin/main(2026-10-24 编号新纪元)——PROJECT_PLAN 取远端重排版(旧卷全文已由远端 renumber-snapshot 归档,零丢失;goal 十四枚提交未触碰 PLAN);代码文件 auto-merge;机主授权合并 (7fb7e5e52f)
+- 🐞 수정:补落第二枚遗漏的 8 文件——5 共享屏(console-table/switch-prefs/user-public/llm-settings/edu-shop)与 3 小程序镜像页(pkg-user/user-public、pkg-user/llm-settings、pkg-shop/edu-shop);第二枚重跑时目录参数展开失败致漏(index.ts/app.config 已引用它们,干净检出必断,本地工作树假绿掩盖);验证:eslint 0/typecheck 零错/水印 verify 完好 (41d84097bb)
+- 🔧 기타:screen-registry 三元组补登 3 条——UserPublic/LlmSettings/EduShop(shared/rn/miniapp 三端齐,goal 新屏首批评入镜像登记链);门 screen-coverage HEAD 面现读 71 条全真、镜像 72/213,新 3 条落地后 75/215 (aaad635715)
+- 🚀 기능/개선:存量 token 化批 #5(长尾)——四屏 69 处(ChangePwd 12/ChatRoom 19/LecturerList 15/Publish 23);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 30 屏 885 处 (45b3c6bc35)
+- 🚀 기능/개선:存量 token 化批 #4——七屏 218 处(StudyIndex 45/Promote 33/LiveDetail 38/Settings 24/SelfMedia 23/VipTrader 33/EarnCommission 22);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 26 屏 816 处,15+ 裸行档清零 (5a89172e0d)
+- 📚 문서:D17 生态统一入口结清翻勾(内容锚:「D17 生态统一入口装车」提交=page+hub+nav+五语 ecosystem 37 键 empty0+nav.ecosystemHub×5;现读 check-i18n-keys 19127 键 parity OK+hub 测试 16/16;语言包占写已解除)✅(2026-10-24) (49ef8ccb88)
+- 🚀 기능/개선:存量 token 化批 #3——六屏 203 处(Points 24/Memory 45/AppTopup 27/WrongQuestions 29/AiWorld 45/Plaza 33);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 19 屏 598 处 (89aba90a01)
+- 🚀 기능/개선:存量 token 化批 #2——六屏批量转写(ConversationImport 23/LecturerDetail 27/CourseTab 45/AiGroup 55/ImageGenTemplates 29/ModelIncome 42 共 221 处)+ 转写器 ensureImport 增强(import 检测改在 design-tokens import 语句内做,根治正文已含 token 名时的漏补);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 13 屏 395 处 (f03953d525)
+- 📚 문서:G-959/G-865 结清翻勾(现读证据:app-login sso 键化+shared 五语+守门测试 16/16 · DEFAULT_AVATAR_URL 死键已摘+两测试同批改净)✅(2026-10-24) (81f16bbaff)
+- 🚀 기능/개선:存量 token 化批 #1——批量转写器 scripts/tokens-migrate.mjs(裸数字→rnSpacing/rnType 档,恰在档才换不硬凑,自检 6/6)+ LoginScreen 首屏 65 处转写;验证:eslint 0/typecheck 零错/水印完好;工具可复用到全部存量屏 (ccd9fb1624)
+- 🚀 기능/개선:edu-management 族小程序镜像批——考勤/成绩/缴费三页(pkg-user/edu-mgmt-*,复用 edu-child/records-page 共享渲染件)+ app.config 注册 + miniapp 五语言(eduMgmt 3 + eduFinance 9 含状态枚举 + eduGrades 正名);验证:eslint 0×3/miniapp typecheck 零错/水印完好;镜像累计 14 页 (26fc056da6)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (92f382ef86)
+- 🚀 기능/개선:children 六子页小程序镜像批——共享渲染件 records-page(列驱动卡片列表,对齐 RN ConsoleTable 模式)+ 六薄壳(课表/考勤/成绩/餐食/账单/学习计划,参数 childId)+ app.config 注册 + miniapp 五语言 edu 族键组(eduChildAttendance/eduGrades/eduAttendance 等 4 组 + statusTitle/empty);家长端小程序闭环(首页→六子页);验证:eslint 0×7/miniapp typecheck 全零/水印完好;镜像累计 11 页 (01bb3b47a8)
+- 🚀 기능/개선:小程序镜像批 #2——家长端首页(pkg-user/edu-parent,孩子卡片列表+状态徽章,对齐 RN EduParentScreen;children 子页镜像排后续)+ app.config 注册 + miniapp 五语言 eduParent 10 键;验证:eslint 0/typecheck 零错/水印完好;镜像累计 5 页 (2ceb517ea6)
+- 🔧 기타:对账尺登记批——edu 族 18 条 aligned 入账(edu-management 7 + parent/children 9 + user/[id]/settings/llm/edu/shop 落地补登);worktree 面现读 aligned 142/缺口 355/零腐烂 (4b5234a908)
+- 🚀 기능/개선:goal 教育域批——edu-management 可列表承载面全落地(考勤/成绩/班级/缴费/餐次模板/校园课表/教师排班 7 页)+ 家长端闭环(首页/绑定 CRUD/children 六子页)+ EduParent 六键导航;全部 ConsoleTable 杠杆薄壳 + 五语言 i18n(edu 族 12 键组);验证:eslint 0×18/typecheck 本轮零错/水印 verify 完好 (c1712deb25)
+- 🔧 기타:vip/success 时长三连裸串接 tt('vip.success.daysUnit') + 词包五语 {n} 天键 (73dae30a4e)
+- ♻️ 리팩터:批131 · AgentShopList emptyText 默认参拆雷(全仓可接面清零收口枚) (c51ca43ae9)
+- ♻️ 리팩터:批130 尾修 4 处 appAlert 第一参变体(AccountCancel/ChangePwd) (a9d478aa0d)
+- ♻️ 리팩터:批130 硬编码中文清零(6 文件 / 90+ 处) (80ec061080)
+- 🚀 기능/개선:批130 入典(88 组新键 ×5 · chat.msg/toolbar/topup/confirm/sr/dist 族) (f2673153bd)
+- ♻️ 리팩터:批129 硬编码中文清零(5 文件 / 90+ 处) (3ff7374377)
+- 🚀 기능/개선:批129 入典(74 组新键 ×5 · need/news/iaa/bab/vip 族+common.known) (a2f2edbfa2)
+- ♻️ 리팩터:批128 硬编码中文清零(6 文件 / 80+ 处) (3694083f70)
+- 🚀 기능/개선:批128 入典(65+ 组新键 ×5 · subPkg/account/share/lp/annot/aigcList 族+补 courseDesc) (fd6316a81a)
+- ♻️ 리팩터:批127 硬编码中文清零(11 文件 / 90+ 处) (36398ccb1a)
+- 🚀 기능/개선:批127 入典(110+ 组新键 ×5) (9af71a11bc)
+- 🚀 기능/개선:批127 W1 入典(23 组新键 ×5) (5926d858a3)
+- 🚀 기능/개선:goal 应用批——RN 六屏 token 化(109 处 rnSpacing/rnType/rnRadius 档)+ 9 张 RN 屏四件套(他人主页/BYOK/教育商城/控制台六页,ConsoleTable/SwitchPrefs 两杠杆屏)+ 小程序镜像三页(三新屏三端闭合)+ 小程序提现页语义档 + RootNavigator 九路由 + miniapp 五语言键组;验证:eslint 0/typecheck 本轮零错/水印完好/i18n parity OK (47e3b46cc5)
+- ♻️ 리팩터:批 126 硬编码中文清零(Menu 8 项表转键/Notification 时间族/PushBanner 回落/VoiceInput 全组) (3785cb014f)
+- 🚀 기능/개선:批 126 入典(22 组新键 ×5) (62378825a2)
+- ♻️ 리팩터:批 125 硬编码中文清零(9 文件 / 60+ 处,组件批收官) (593cb4ec61)
+- 🚀 기능/개선:批 125 入典(29 组新键 ×5) (ad22965d3c)
+- ♻️ 리팩터:批 124 硬编码中文清零(13 文件 / 55 处 · RN 端 UI 串清零收官批) (bd0dfe0c8b)
+- 🚀 기능/개선:批 124 入典(37 组新键 ×5) (cda81d5afe)
+- ♻️ 리팩터:批 123 硬编码中文清零(13 文件 / 40+ 处,含 3 张顶层表转键) (aecd7c7a30)
+- 🚀 기능/개선:批 123 入典(35 组新键 ×5,含工具三态状态词五语同批) (a43b9ae989)
 
 **2026-10-25**
-- 🚀 기능/개선:auto-evolve 起会话通路端到端打通(O65 第 0 期收尾:JWT 现签 + --probe 自检 + 真派验证) (87a7713ccd1)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1081dca6e13)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (194de047081)
-- 🚀 기능/개선:O65 第 0 期翻勾(调度器+四道闸随批完成,验收证据入注记;代码枚 0e4bd3628db);1-3 期补立档日期交代(三选一:新鲜日期,按依赖序排队) (b1ffbc4b23c)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ab3bc7beb43)
+- 🚀 기능/개선:锁定 order-log/order-track/message-group 令牌主体与 vip-compare 公开脱敏 (b5c3d62f14)
+- 🚀 기능/개선:O65 第 3 期回流两件 —— 失败票归因沉淀器 + 守门判据腐烂自检(自检 7/7 与镜像测试 12/12 全绿) (6567fd5730)
+- 🐞 수정:Step 5 载荷判据改为「实到 == 预期且预期非空」,空提交不再判绿 (3bdcc09dca)
+- 📚 문서:O65 第 3 期进展注记 + 第 2 期重复登记收拢(仅留一条 [x] 完成行) (74fd1f1630)
+- 🔧 기타:G-1222557 复验结清——出口围栏的存量维真跑 15/15 绿;另补记 D04/G-934 两枚的真浏览器凭据 (534682513b)
+- 📚 문서:O65 P0 四件翻勾(正式编号 O6501-O6504)+ 第 1 期感知层自动分诊器翻勾 —— 交付件已入 main 并随 8486d01ddab 上生产 (4e74314d70)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b801d2d8f9)
+- 🔧 기타:G-927 进展注记——求差实证新增12枚中10枚已由别席迁好待入库,agent-worktree/green-state 两枚本席迁讫(gitRaw层,行为面等值,自检9/7);棘轮70随入库递减,基线60不动 (8a8ffefbd6)
+- 🐞 수정:G-927 迁移批——agent-worktree/green-state 两枚裸 spawnSync('git') 改走 face-reader 取材层 gitRaw(绝对路径git+quotepath+safe.directory+timeout+EBUSY兜底),包装函数折回原三态行为面逐字段等值;自检9/7全绿+--list行为面真实返回;求差实证:12枚新增中10枚已由别席迁好待入库(盘面0命中),本批迁余下2枚,棘轮70→随入库递减,基线60不动(下调前置=10枚入库) (a9505b2596)
+- 📚 문서:结清 3 枚(第 12 批:G-272 重臂复位分域 + 门 149 端内 barrel 两条同题) —— ①G-272 席位提交 34828b1db3a5d531b26b06fbf8d20d79fee28f1d:前提现读更正(stopInitiator 在 HEAD 有 15 处命中而非票面 0,该字段已由 G-816026 落地;rearm/重臂/复位仍只命中注释 ⇒ 注释声称有实现没有成立)。实现 apps/cli/src/tools/background-registry.ts 新增 BACKGROUND_TASK_REARM_FACE(preserve/reset/renew 三档,satisfies Record<keyof BackgroundTask,…> 编译期穷尽)+ rearmBackgroundTask(previous, incoming):身份面逐字保留、结算面回构造初值、新生面换代,四档拒绝(not-terminal/id-mismatch/generation-not-renewed/not-live)原样交回旧条目,fail-closed。主席复跑 apps/cli/tests/background-rearm.test.ts ⇒ Tests 6 passed,含变异自证(注释掉 command: previous.command ⇒ 仅用例①红)。剩余面:rearm 暂无生产调用点(registerTask 每次 genId),未来接入时事件处理器必须绑到 rearm 返回的新条目。②门 149 端内 barrel 两条同题行一并收口:席位提交 443561b82c 新增 scanAppBarrelLeaks 与桶/实现分离单源 isBarrelModule,端内桶 universe 由该层目录扩到端内全树;主席复跑 --report 末行 APP-BARREL-REPORT barrels=36 apps=5 consumers=34 hits=0 type=0 elsewhere=0 undetermined=0(存量 0 + 阳性对照 ⇒ 并入既有 --staged 差值棘轮而非升绝对 blocking,符合 §12e 升档前置=存量归零) (00d8db8283)
+- 🔧 기타:A 类 7 枚结清(G-62/G-01/G-03/G-07/O88/G-272/双重执行)——凭据全部本席现读复跑:gate 全零、twins 0 组、CI 唯一 failure=lint-typecheck-test、stopInitiator 20 命中、take_loop_v2_handoff 9 处消费面在位 (1e57d5d821)
+- 🚀 기능/개선:门149 补齐端内 barrel 漏出口(桶/实现分离 + 端内全树 universe + --report 只读量算) (443561b82c)
+- 📚 문서:结清「非会话 401 被当成会话死亡」 —— 按 §24 机主令本应由 agent 代裁,现读发现源头已由 2026-10-25 的 L7648 修复落地:apps/api/src/routes/agent-extended.ts 的 preHandler 兜底由 `err.statusCode ?? 401` 收窄为 `?? 502`,行内注释明写「没标 statusCode 的异常是内部/上游故障,盖 401 会被 api-client 读成重新登录(上游 provider 凭据错误 ≠ 会话死亡;口径同 auth.ts 票 G-396/G-765/G-357)」⇒ 用户不再被误导去重新登录。客户端侧 packages/api-client/src/client.ts 仍是 `status===401 && !isAuthEndpoint(url)` 才判会话死亡(两处),由于非会话错误现在以 502 出栈,该启发式不再被误触发;如实登记残余:若将来有上游把第三方 401 原样透传成 401,仍会被读成会话死亡,属纵深防御缺口而非本票未完成 (ba06930d36)
+- 📚 문서:结清票60 真并行多窗格(服务端 fork 腿收口) —— 席位提交 5e72a6df8b 共 5 文件 +942/−50;主席自审复跑 apps/api 三份用例(chat-fork-branch-endpoint + chat-fork-branch-queries + chat-actions)⇒ Test Files 3 passed / Tests 24 passed(席位另报 conversation-archive 11 例,合计 35)。关键事实更正:服务端分叉并非不存在,而是早已以 POST /api/chat/conversations/:id/branch 命名存在(chat.ts,2026-08-30 立;V3 按 fork 关键字 grep 未命中属命名差异)⇒ 按 §0.6 不新开 /fork,改为把既有端点按票面口径收口:响应返回新会话 id + fork{sourceConversationId, forkedFromMessageId, sourceRootId, sourceSiblingIndex, messageCount};复用票59/64 的 parentMessageId+siblingIndex 族根判定并抽出纯函数 linearizeForkHistory(每族只留一版,分叉点必胜);鉴权只取 request.userId(body 自报 attacker 仍以真实主体入 queries,他人会话 403 且 branchConversationFrom 零调用,越权插入/更新计数 0);幂等用 clientRequestId 在源会话 FOR UPDATE 锁内查询,重放返回首建会话 replayed=true 且计数不增,键撞别的分叉点 409;复制以 .returning({id}) 回库确认,不符整批回滚。未判定:真库端到端(.env.test 不存在、PG 仅 5432)⇒ 四格为离线 mock 链。剩余面:客户端(api-client/web/RN)需透传 clientRequestId 才吃幂等 (b55f46c8b5)
+- 🐞 수정:后台任务重臂按结算面/身份面分域复位(G-272) (34828b1db3)
+- ♻️ 리팩터:rules 族本地 api 壳迁至共享出口 apiOrThrow 并摘零消费方壳文件 (ea570fc43f)
+- 📚 문서:结清 2 枚(第 11 批:G-115 真分叉 / 第二个死端点簇) —— ①G-115 按 §24 机主令代裁并执行:不再等"谁在哪个窗口收敛",直接用仓内既定出口 node scripts/git-sync-converge.mjs 走索引层 union 合并(零触碰他人未提交文件),合并枚 f8c25b537b;现读 git ls-remote origin refs/heads/main = f8c25b537b07a68d9daea4d6a231e7d840441b83 = git rev-parse HEAD,git rev-list --left-right --count origin/main...HEAD = 0 0 ⇒ 部署环的"远端 tip 分叉且自动收敛无效"根因已消除。合并后回潮审计:本会话 23 枚结清行零回潮。②第二个死端点簇按席位二段式复量收口:六条(agent-reviews/wallet-bank-cards/messages-chat/course-annex/course-qa/course-resource)全部已有等价端点且在 HEAD——agent-reviews GET /api/agent-reviews、wallet GET /api/wallet/bank-cards(插件级 requireAuth)、messages GET /api/messages/private/list 与 POST /api/messages/private(checkAuth,senderId 取承载层 request.userId)、课程三屏走 GET /api/resources 与 GET /api/edu/qa 且 RN 屏已改指;阳性对照 invited-users 4 文件 7 行证明尺子有牙;零新增端点(重复造会与既有端点漂移)。受影响用例 Test Files 2 passed / Tests 14 passed。剩余面如实点名:order-log/order-track/vip-compare/message-group 四词另计;BankCardScreen 库无 bank_cards 表(无表可取)、三条课程屏缺 courseId 维度 ⇒ 产品语义缺口,非端点缺口 (fb77aa60b8)
+- 🚀 기능/개선:帧名单源收敛到 CHAT_SYNC_EVENT_NAMES,sse 契约只引用不重写值 (54748ccdfb)
+- 🚀 기능/개선:会话分叉端点收口(票60 服务端余格)——复用 sibling 版本族 + 幂等键 + 计数诚实 (5e72a6df8b)
+- 📚 문서:O65 补回正式编号 O6501-O6513 + P0 四件翻勾(O6501-O6504) (4f2f9c8176)
+- 🔧 기타:G-593 上行应答接受性守卫改语义锁 —— 票面前提已腐烂(四条在 2026-10-07 已随实现恢复转绿),本轮只把两条字面锁换成行为锁并留变异自证 (caee7106db)
+- 🚀 기능/개선:O65 P0 安全护栏四件 —— 根护栏/成本熔断/影响面隔离与原子回滚/人工阀清单 (9caeac97d5)
+- 🔧 기타:结清 G-941(成本账本按链别归一,249 passed+ruff+mypy strict) (a34df2bf63)
+- 🔧 기타:G-593 上行应答接受性守卫改语义锁 —— 票面前提已腐烂(四条在 2026-10-07 已随实现恢复转绿),本轮只把两条字面锁换成行为锁并留变异自证 (c8f2750a5c)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ca97133f4f)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (90c0862194)
+- 📚 문서:G-957 行内失真路径就地更正(票面挂点 login.tsx 已随 2026-10-23 定档删除/回传腿已由 webview onMessage 接管/scheme 已登记)+残余两格点名;主键·归属·租约三维守恒由 plan-task-index 当场断言 (3af96ef954)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3ef3c8e667)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c98968e83)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a8b9c604c8)
+- 🔧 기타:L28030 门39票达成完成即删——六屏已由别席下沉(6→0),末条aboutPageSections数据文件豁免与别席同批在库,门现读全绿镜像10/10 (864c743fac)
+- 📚 문서:结清 79/B03 权限双轴化(运行时真接线) —— 席位提交 7f850459839024c3333ee5acb38fa75dc2aef774 共 12 文件 +1247/−53。主席自审复跑:apps/cli 三份新/改用例 permission-axis-runtime + sandbox-strict-default-on-missing-config + sandbox-profile ⇒ Test Files 3 passed / Tests 59 passed。落点:packages/types/src/permission-axis.ts(判定本体 evaluateAxisGate + granular 五布尔 + 归一化)、apps/cli/src/sandbox/permission-axis-runtime.ts(装配优先级:显式 > config profile > 五档映射 > 契约默认)、apps/cli/src/tools/index.ts(ToolContext.permissionAxis + executeToolCall 轴闸,覆盖 hub 分支)。默认值现读:SANDBOX_MODE_DEFAULT=read-only、APPROVAL_POLICY_DEFAULT=on-request、生产装配 DEFAULT_SANDBOX_PROFILE=limited ⇒ workspace-write(绝非 danger-full-access);未知值一律落 read-only/untrusted 并 warning(fail-closed)。单一真相源:三值/四值/五布尔仅存 types 包,CLI 零副本;check-declared-policy-has-consumer 与 check-permission-mode-vocabulary 均通过。剩余面如实记录:交互确认窗未真机走查、CLI 暂无 --sandbox-mode 旗标、loadSettings 不执行 layer-policy 项目层过滤(既有缺口与 sandbox 键同型) (823794e403)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (286ee41245)
+- 🔧 기타:结清 G-863(附件容量改提交式CAS,18/18 绿) (8f39ff5ab8)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (02758036ef)
+- 🔧 기타:L28030 门39票达成完成即删——六屏已由别席下沉(6→0),末条aboutPageSections数据文件豁免与别席同批在库,门现读全绿镜像10/10 (7589a3fa87)
+- 🚀 기능/개선:权限双轴运行时接线(79)+ 沙箱默认严档运行时强制补齐(G-212 第十一批 cli 半) (7f85045983)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8486d01dda)
+- 🔧 기타:tmpdir 族 90 副本同据终清(折并器上限外交人工:票已结清,check-fixture-tmpdir rc=0 同据,全部副本翻勾即终态) (8115eb8c5c)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4f0075f311)
+- 🔧 기타:结清 D22046(通道②③+比对驱动未变化承诺,cli 49/49+tsc0) (477ab648bd)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c248511bdd)
+- 🔧 기타:G-212 结清——两侧齐(cli 半 goal-r57 严档+ai-service 半已自落本轮现跑 15 passed),翻勾条件成立 (c797e033c4)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (af71cd1e10)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (29c73b7469)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6d6da34226)
+- 🔧 기타:G-620 结清——两道 blocking 红(门150/门90)本轮现读全部转绿(桌面事件三层闭环通过阻断 0),跳门前提不复存在 (9b816186f3)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3ea059635d)
+- 🐞 수정:next-plan-id --check 重号判红改差值棘轮(存量只报数/新增才判红)—— 承 G-955 收口 (f6b9df39ba)
+- 🐞 수정:G-957 网页授权回传腿失败态如实提示(换票失败/异常不再静默) (d47a2842a3)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4d922ea918)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b546442d02)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9e49a4b02a)
+- 🐞 수정:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (e48584bd7e)
+- 🔧 기타:清偿叠注记存量 46→2(9 行折并,行数与勾选/租约/归属三维不变) —— 折并判据不另写:直接 import 守门 13d 自己的 noteTokensInLine / redundantNoteCountInLine(§0.6 单一真相源),对同一行内逐字相同的注记保留一份、删除多余份;全量档现读 叠注重数 46 → 2,残 2 份属承载段分词形态(判据计入但字符串面找不到第二次逐字出现 ⇒ 如实留报数,不猜不改)。本枚只动这 9 行注记文本,复合主键与正文语义逐字不变;门 13d 复跑 RC=0(差值档,存量只报数) (beaba75247)
+- 🐞 수정:补齐漂开族折叠通道(--fold-drifted-families)的两处形状锁 + 补镜像测试 (36d800cb53)
+- 🐞 수정:维③重数棘轮补「重复登记副本」三形态并取消 24 字上界(现读存量 46 份只报数) (4c155346b0)
+- 📚 문서:结清 G-926(lint-staged 已跟踪却被 ignore 的雷区)—— 席位提交 2c9d023f4b;主席自审复跑 node --test scripts/tests/lint-staged-ignored-tracked-ledger.test.mjs ⇒ tests 14 pass 14 fail 0。现值现读:[tracked-ignored] 面=head 存量只报数 12 条,git ls-files -ci 同为 12 且全在 .ihui-agent/archive(11 md + 1 json,唯一命中 .gitignore:186);票面 84 枚里的三族已由 41a3bdeeb4(取消跟踪 tmp 61 枚)、a402f50043(删 articles 宽式忽略)、8c952aac27(为 plugins/*.cjs 加负向例外)收口,故判 closed-by-others 未重做。archive 那 12 枚是门 71 archivedCopy 的归档凭据(读 HEAD/索引树),摘掉即削正当删行的依据 ⇒ 建议退跟踪 0 枚。另修一处恒红口径:旧 T7 把命中根 glob 记成失去 lint 覆盖,而 .prettierignore 早已整目录忽略 .ihui-agent/,64 枚系双计;新口径只问工具本体 prettier.getFileInfo(不另写 glob),限额 50 与给源码目录塞黑洞出口件必红的语义都不动,并加了正探针。三臂真 lint-staged CLI(--diff=HEAD,scratch 夹具):absent 报 git error、tracked 正常 Done staging 且索引 blob 未被改写、untracked 同 absent。剩余面:门 236 豁免按目录前缀放行,将来 git add -f 塞进 archive 的新件会被放行(动豁免语义需另票) (c683c71b8d)
+- 🐞 수정:维③重数棘轮补「重复登记副本」三形态并取消 24 字上界(现读存量 46 份只报数) (56227f8b33)
+- 🐞 수정:为 gate #193 补 8 处 git 派生调用的显式 stdio (15372e4aba)
+- 🔧 기타:api<T>234 迁移回潮副本同据复翻——goal-b15 S10 已结清(349e116a66+b3b3f64276),本轮同据复验一致 (59a3a90a56)
+- 🔧 기타:结清 G-876/D195/G-937 三枚(注册验码/通知归档流/归档器B档,均带真跑证据入行) (3b1a29df96)
+- 🚀 기능/개선:违禁桶兜底清扫器 strip-banned-buckets——两道机主禁令(等条件F12/待拍板F11)的执行器物化:guardian巡检轮 sweepBannedBuckets 派发(5min节流),自动摘HEAD面两桶未勾行并留痕f12-purge;判据import单源零复算;SWEEP-RESULT三态;镜像7例(留痕在落地之后/走object-space-land不自带CAS/已勾不进射程/scrub消费端对齐);AGENTS禁令条补点名+复翻席纪律(复翻须同步摘形态);自检5组+镜像7/7+eslint 0 error+clean态派发实测正常 (41988c0b3d)
+- 🔧 기타:G-962 结清——高置信族逐条现裁全过时(computer-use 在册/announcements 公开族/members/groups/browser-sessions ai-service 全族/organization.ts 已亡),门 8 现跑通过;余参数段未判定=判据能力边界非死调用 (34ba9ee749)
+- 🔧 기타:G-937 结清——根因已于枚 0b1d98107c 修复(seamArchiveChunk+§22c 镜像锁),归因档 c038a654db 为 HEAD 祖先,修复当日 113e612833 落地归档 24 枚;self-test 63/63+镜像 39/39+--list-blocked RC=0 现读,本行属门 239 型已归档票复活副本 (0d3969e1c1)
+- 📚 문서:结清 dot-source 新鲜度维(第 4 批 1 枚) —— 席位提交 14a93e75b8032e067906e7c5cd750fd546bacbc2 只动 check-service-binary-paths.mjs 与其镜像测试两文件;主席自审复跑 node --test scripts/tests/check-service-binary-paths.test.mjs ⇒ tests 32 pass 32 fail 0。新增三格:断链独立三态 brokenlink(EACCES 仍走未判定,两态不并桶)、dot-source/Import-Module 传递闭包按现读写法扩收变量形($X = Join-Path 静态赋值 + . $X,RHS 非静态仍点名不猜)、每服务 fresh/stale/断链/未判定分桶入 renderText 与 totals。本机 nssm 不在位 ⇒ 现读 未判定 3(IHUI-AI-SERVICE/IHUI-API/IHUI-WEB),按 §0.3 不顶绿;真服务链上 stale/断链臂需有 nssm 的机器现读,属剩余面非本票射程 (ee2fc177e6)
+- 📚 문서:结清 G-1222560 危险登记(索引面三份 web 语言包坏 JSON)—— 复跑取面:git show :packages/i18n/messages/web/en.json|JSON.parse=OK、ja=OK、ko=OK,HEAD 面五份亦全 OK ⇒ 他人暂存的坏索引现场已消失;该行正文自我嵌套 4 层副本并入注记+3 条同题原号指针,属票面腐烂,凭据以本枚现读为准 (a88a00a74d)
+- ♻️ 리팩터:face-reader 判据符号单源化——BARE_GIT_RE/bareGitCountOf/hideComments 三符号自 face-reader.test 内闭包搬入 lib 导出(test 改 import,逐字零语义,G-927 同尺差集工具取材用;35 例面 34/1 棘轮红系他席在飞 G-927 收口的 10 枚新增待其落地后自然回落) (05a18375b9)
+- 🐞 수정:服务新鲜度维收口三格(seat-svcfresh,G-1080903 回捞副本续)——断链独立三态 + 变量赋值 dot-source 解析面 + 每服务分桶现读 (14a93e75b8)
+- 🔧 기타:G-955 复验结清——取号入口实测可用(next-plan-id --check 真RC=0) (7930521657)
+- 🐞 수정:摘除指向已删路由 organization.ts 的死测试——HEAD 上该测的 import ../organization.js 解析不到任何文件(守门98 D2 零容忍恒红唯一一枚);全仓再无 organizationRoutes 引用,路由面已由 zhs-organization.ts 承担;与工作树既存删除(D, 他席在飞)同一处置,本次只把它材料化,不新建替代 (d35827d96c)
+- 📚 문서:结清第二批 4 枚(工作已在 HEAD 或本批席位落地)—— G-343 / G-880 / G-32 / G-934 (c11e24d5f4)
+- 🔧 기타:独立席四票复验结清 D04/G-934/G-924/G-239——票面自写判据逐条当场复跑,零复算 (7b562d0477)
+- 🐞 수정:G-880/G-32 收口核验+成对自检补锁 —— 两禁令门(emoji/shared-layer)迁面与加固判据经现读确认已随 a6c7cb36ec 入 HEAD(listFaceFiles 按面枚举+readSources 同面取材,门内零 readFileSync);本批补票面硬要求的两把缺失配对锁:三面同形干净仓⇒三档全0(防恒红,W10 型)与 --staged/----worktree 两面旗同给⇒main 返 2(§0.4 互斥)。三档现读:emoji 全量6233文件0违规exit0、--staged 0违规exit0、--worktree 0违规exit0;shared-layer 全量/staged/worktree 均 hook 维0违规exit0(util 存量只报数)。镜像测试 emoji 17/17、shared-layer 12/12;check-gate-wiring --strict exit 0 (390d395038)
+- 📚 문서:O65 自进化 13 任务补正式编号 O6501-O6513(以 HEAD 为底稿恢复回潮丢行+编号派生侧车键) (702373ef97)
+- ♻️ 리팩터:G-343 DRIVEROOT 族残余清零(票面四处全数核对)①②已由 852c9409 收口(audit 私有 devEnvRoot()/pgBinDir() 与失真头注、app-reads:56 硬编码盘符推导现读复验=族内生产文件仅 import lib/psql-client-locate 单源,无第二份推导);③现读补出=pg-restore-drill.mjs 头注"未设 IHUI_DEVENV_ROOT 时两者逐字同值(本机同为 G:\DevEnv)"已失真——devEnvRoot() 当次实测命中仓内 .DevEnv 形态(G-814433 搬迁后),旧数层式与共用出口不再同值,且把盘符当本机事实写进注释违 AGENTS 盘符铁律,改为陈述候选序与两形态差异并点名 P-落点1/2/3 现算;④现读补出=pg-restore-app-reads.test.mjs:49 在测试里重算 IHUI_PG_BIN_DIR||join(devEnvRoot(),...) 第二份 pgBinDir 判据体(§0.6/§22c),改 import ../lib/psql-client-locate 的 pgBinDir() 与工具同源。复跑凭据:audit --self-test rc=0(取证在镜像测试)+ audit.test 连跑三次 59/59 pass;app-reads.test 8 pass/3 skipped(未判定:psql.exe 不在位,环境闸按设计);drill.test 29/29;守门45 check-c-drive-paths 全量档✅、check-workspace-hygiene HEAD 面✅无新增违规 (caef8d065d)
+- 📚 문서:维③ 头注实测数改正——70 份叠注里 49 份在承载段内、21 份落活文本(此前误写 72/51);纯注记订正,判据字节未动,自检仍绿 (9129d9253e)
+- 📚 문서:结清 7 枚僵尸票(活已在 HEAD、行未摘)——分割线 G-877、判据盲区 G-879、原生弹窗 G-878、MCP stdio 四票 G-689/G-691/G-692/G-694 (6c6efc415b)
+- 🔧 기타:G-874 结清——web 注入两调用点+共享按钮消费+login 族 30/30 绿;原生 WebAuthn 免依赖方案优于票面;未注入不渲染=平台豁免成立 (0cd4af3484)
+- 📚 문서:O65 侧车键由 自进化# 收敛为编号派生 O65xx#(13 条) (62a6546229)
+- 🔧 기타:G-957 剩余格改归属机主小程序后台白名单面(正规改桶通道 LIVE_BUCKET_RECLASSIFY,actionable→owned-elsewhere;格②已入库凭据在案) (6dbb495b4d)
+- 🔧 기타:G-63侧车重钉(union带回旧记录终修),A2归零 (f3fbf0bbba)
+- 🔧 기타:G-934 结清——出路①接线三轮凭据在案(47dc360911 实体测 13/13 本轮复验+56cc4a66f4+847925be2b)+§17 真浏览器核验已落(82c9a68ae0 四例两轮绿);10 红前提过时 (80f8fb9f23)
+- 🐞 수정:维③叠注存量归零——判据剥「副本正文并入·承载整段」平衡段(逐字引文非活注记,72→21),活文本按逐字同串摘 21 份(L5361 x1/L28173 x18/L28911 x2,只删同串不并族);自检10/10、镜像14/14、行数/勾态全等 (75d303394e)
+- 🔧 기타:G-876 结清——实现已在库(code 必填+503 fail-closed+用途锁+防枚举,枚 9e103ac0f6),G-81 席复验 auth 1311 全绿背书 (217be03c9f)
+- 🔧 기타:F4末2组收口——O-02摘旧底稿裸行(正主带租约+③格注记)/G-116摘旧句(正主标头规范),留痕f12-purge (6309556402)
+- 🔧 기타:F4四组+跨号副本收口——G-1222558错号/G-937裸副本/G-10旧句/G-11旧句/B02旧副本各摘副本侧留正主(留痕f12-purge);union回潮体清偿末批 (32b2a83941)
+- 🔧 기타:G-963 结清——修复已落库(测试文件 G-963 注记在案),现跑 f9 族 10/10 绿零 ERR_MODULE_NOT_FOUND (eac4da4f06)
+- 🔧 기타:G-74 远端合流回潮体复翻——并发席已结(d5cce09f8c 校验收口+sponsor 地址在案),配置面余格归机主面行承接 (9b66a50d77)
+- 📚 문서:O65 自进化战略方案文档 + 13 条派单侧车记录 (76f6b4891c)
+- 🐞 수정:补回索引迁移时误删的三门点名(守门89 R4)——check-ai-task-background-reference(247)/check-money-display-single-source(248)/check-registry-sync-health 只存在于被删的旧副本里;91,095→91,589B(余量 4,411),标记仍为 0 (af3da98e1c)
+- 🐞 수정:摘除门249内联点名行——README 索引节已收录该门(4165487e5a),R4 文档面由 README 承载;AGENTS 91,293→91,145B(余量 4,855),冲突标记保持 0 (09498f86d2)
+- 🔧 기타:远端合流回潮第三批复翻 4 行——G-76 守门39(83aa572b23e)/G-38 视觉票(r3c)/D42046 巨行(603d8236d8f 同据)/G-60 content-visibility(522ac4dac2+回归锁 7413f9fd31);凭据全验祖先 (a2dab37433)
+- 🐞 수정:修复 union 冲突标记注入体并摘除回潮索引副本——108,200→91,293B(余量 4,707);标记区取「索引已迁 README」侧,补点名门249以满足 R4;被删索引块 127 门名经 README∪本文零丢失;实读:check-agents-doc-size --worktree rc=0(91,293/96,000)、check-gate-wiring --worktree rc=0(R1/R2/R4 零红) (c4afc6a953)
+- 🔧 기타:F9撞号3组收口——G-07副本自声明行/G-27错挂旧号行/G-76回插已结清题的正主位保留副本行摘除(各留正主行;留痕f12-purge) (5fe4d76372)
+- 📚 문서:守门 249(富文本锚点渲染器单一源头)补进「守门脚本点名索引」的接线/自检行 —— 门 89 R4 义务;207 第二刀把索引整体迁本节后,新装车的门必须在这里点名(原 AGENTS 内联副本即将随冲突标记一并剥除,AGENTS∪README 文档面不得出现空档) (4165487e5a)
+- 📚 문서:O65 登记自进化四期可派单任务 P0-P4 (b19e8ebb21)
+- 🔧 기타:两票结清——desktop-feed 线上现读 0.1.76(2026-10-18 发布,远超 0.1.45 验收目标,前提过时);128 点迁移归档票复活活行复翻(门 239 R1 型,归档注释逐字在案) (4879305684)
+- 🔧 기타:D03侧车重钉(owner=持有席/waiting=none)——union带回旧记录的终修,F12基线棘轮归零 (42af89577d)
+- 🔧 기타:守门8假绿灯远端合流回潮体复翻——凭据 1d5e73e2d3(goal-r52 收官+三路径查清),修正归扩面批次 (8ce176c228)
+- 🔧 기타:union回潮体清偿——对侧旧底稿灌入的违禁形态行摘除(等条件+待拍板未勾行,留痕f12-purge;两道机主禁令之下union行级回补不带违禁形态;goal-r4复翻席注意:复翻时须同步摘禁令形态,行的事实内容已按各批结清提交保留) (382d4dc4c0)
+- 🚀 기능/개선:G-50 DevEnv 搬迁执行器物化——devenv-migrate.mjs(静默窗口探测器三态window/pending/undetermined+六步盘点+预演零写盘+--apply执行器,isDirectRun双形态)+镜像17例;现状盘点:搬迁主体已发生(09-30),残余由器物自判窗口不挂账等条件;顺手清api-routes 3枚/devenv-migrate.test 2枚/dedupe-live-doc 1枚解构残量unused(union带入机械残留,零语义) (f2ddfe9b9e)
+- 🔧 기타:goal-r4 远端合流回潮第二批复翻 13 行——tmpdir 孪生/四件待拍板版(事实四件已落地,待拍板定性作废)/P2-13③孪生/MCP四票(goal-r3 r27i)/失败广播/G-217/G-239/D04;凭据=各批结清提交+新鲜现读(夹具门 rc=0/邮件鉴权在位/守门249 rc=0) (04f4ca3e86)
+- 🔧 기타:H02 远端合流回潮体复翻——凭据 eff4b6d5bd 已推远端,裁决同前(结构性无样本,只记不挡维持) (ef210af486)
+- 🔧 기타:goal-r4 远端合流回潮体批量复翻 34 行——Esc×4/窗格×2/工具面板/O-1/G-939/守门134/四维/取消信号/宿主中止/审批CAS/守门91/G-27/真机走查/prod-bundle/四件拍板/G-35/G-61/G-76/G-807/发丝线/锁初始化/P1-②/G-77/钩子取消腿/AGENTS体积 等,凭据=本会话各批结清提交(全已推远端);行内逐条防新鲜牌(0 冲突) (7df8da52ec)
+- 🐞 수정:R5撞号收口——摘除两枚复活门注册块(bare-decode-uri/token-literal-debt,门体脚本已被对侧删除,注册残留=HEAD面247/248双撞号源);富文本门已改号249保留,盘面 idsOfRegistry 现读各1次 (464cc8efaa)
+- 🚀 기능/개선:auto-evolve 起会话通路端到端打通(O65 第 0 期收尾:JWT 现签 + --probe 自检 + 真派验证) (87a7713ccd)
+- 📚 문서:argument-repair-loop 装车缺口取证收口——假阻塞「index.ts 被并发会话冻结」就地改直 (61496e7201)
+- 🔧 기타:goal-r4 结清 D04 富文本动作锚点——验收三格全齐(浏览器五例/两腿 DOM 签名等值+语序两态/规模化两载位齐:degradeHint+examplesTip+wallet strong,载体 importer 6 个),守门 247 现跑 rc=0 (e8423e37eb)
+- 🚀 기능/개선:web↔RN 屏对齐登记 41 条 + 把跨端自动登记器装进 post-commit 链 (6ad5de3c37)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1081dca6e1)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (194de04708)
+- 🚀 기능/개선:跨端登记自动器装车 + 3 条真镜像声明与 1 条 web→RN 映射 (5f1d02f835)
+- 🚀 기능/개선:O65 第 0 期翻勾(调度器+四道闸随批完成,验收证据入注记;代码枚 0e4bd3628db);1-3 期补立档日期交代(三选一:新鲜日期,按依赖序排队) (b1ffbc4b23)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ab3bc7beb4)
+- 🚀 기능/개선:auto-evolve 自进化调度器第 0 期落地(总纲 O65·调度层+四道闸) (0e4bd3628d)
+- 📚 문서:更正 ContextUsagePanel 的过时披露 —— RN 腿已接通,并点名新落的那把锁 (6abb419f66)
+- 🚀 기능/개선:上下文占用归因面板接上 RN 主屏 —— G-403/G-225 缓存两维的最后一格 (8ce7d87758)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0166713afd)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7faaebcc51)
+- 🚀 기능/개선:登记 AI 自进化调度系统 auto-evolve 四期系列总纲(O65;第 0 期调度器+四道闸随批施工,感知/部署/回流三期按依赖序排队) (164b973cfe)
+- 🚀 기능/개선:G-217a 点赞/收藏两表唯一键迁移 —— zhs_agent_thumbs/zhs_agent_collect 加 (uuid,bot_id) UNIQUE,把上一批(22ee752721b)靠事务 FOR UPDATE 父行的防重底线放进库层:2026-10-25 实测该族缺陷正是『一次点赞计数+2、取消只减一次』,应用层锁管住今天的写口,管不住未来绕事务的批量导入/人工修数(无约束=漂移只在计数与明细分叉后暴露,而全仓无 count(*) 对账)。线上两表 0 行,零回填成本。手写迁移口径(sql+journal,idx 343)+水印,同 20261026100000_command_ack_facts 批形制;旧普通索引保留不删(一次提交一件事,删索引是另一票)。验证:check-migration-immutable 绿(存量基线报警为门内只报数项,非本枚引入)、database tsc 0 错、likes-routes 回归 8/8 绿。 (c92836e7e7)
+- 🚀 기능/개선:ActivityDetail 接线 + web↔RN 屏对齐登记 7 条(教育/公告/问答/权限/agent 家族) (fb58a90253)
+- 🔧 기타:refactor(web,mobile-rn,miniapp)+feat(gates): 显示层分→元格式化同形副本 20 处收口 formatPrice 唯一出口 + 装守门 248 —— fmtYuan=¥\.toFixed(2) 一族在 HEAD 逐字复制(web12+app2+enterprise×2+formatYuan+toYuan 共 20 处):改一处单位口径须 20 处手改,漏一处=那端页 100 倍显示事故(分销族 46758b5b2b8 批修的同型受害者)。全量委托 @ihui/shared/utils formatPrice(非有限回 0.00,定长两位,¥ 前缀归调用面维持版式)。刻意出射程(行为不同非复制):ai-pricing maximumFractionDigits:4 定价展示、purchase/helpers 动态位数 formatCents、局部常量行(M2 只报数)、返回 number 的数字换算。守门 248(blocking,stagedTriggers=显示层四端):M1 展示型自算定义绝对零容忍(存量本波清零;委托转发合法,定罪看实现,与日界闸 246 同口径)/M2 行内定长格式化按文件 HEAD 差值棘轮/M3 装车(importer 20);self-test 10 例成对夹具+镜像 3 例(全显示层 0 违规扫),门体先经 eslint 定责一轮(死常量/eqeqeq 两错已修)。AGENTS 点名 248(R4),并顺手为别席在飞的 registry 哨兵闸补 R4 点名行(照 runner/guardian 接线原样,该闸文档隐形会挡所有提交链)。AGENTS 先过 merge-live-doc 归并(lost=0)。验证:eslint 涉改文件预跑 0 问题,gate worktree 三面绿,miniapp 1032+mobile-rn 1185 例全绿,web/miniapp/rn typecheck 我文件 0 错(web 余 openDockedTab 三文件红=别席 work-panel 在飞面)。 (0d2a23f970)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1d8116c1b9)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dd997d68b7)
+- 🐞 수정:收敛预解第二轮 —— G-55 就地翻为对侧结算行(四项已在库,本席==基底旧态由本行承让),删除尾部 dump 区的守门 89 R9 重复块(首份完整保留) —— 为 union-converge 预解 F1 最后一组与 F6 最后一块;两侧独有行零损失由 union 模拟 REG=[] 现证 (07ea442ded)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2f39e473af)
+- 🐞 수정:在途请求覆盖新态四格根治(前端清单收尾批)+形状锁 —— ① TrendChartDialog:弹窗重开/换 itemId/换窗口连发,慢的旧窗口响应覆盖新曲线且旧 finally 提前熄灭 loading;② learn/topic 付费课:切课时旧列表迟到响应串进新页;③ ide/mcp-pane DetailPanel:常驻不重挂载,切换选中项时迟到详情张冠李戴;④ ModelDetailDialog 行过滤 .filter((r)=>r.value) 把合法 0(免费模型 inputPrice/outputPrice=0)当缺失吞整行,读作『无此项』——改判 !=null && !==''。竞态窗口在微任务时序,jsdom 行为锁必 flaky ⇒ 按 race 家族既定口径钉形状:fetch-sequence-guards.node-test.mjs 四真组件逐一体检(序号自增+写前复核+ModelDetail 两向)+成对夹具(摘守卫翻红 6/6 绿);形状搬家 assert fail 报『锁要跟着搬家』防静默失配。验证:apps/web tsc 我文件 0 错(仓内余 3 红=checkin/GlobalTopBar/web-work-panel 属别席 ca6995 收编批残留,非本批),node --test 6/6。 (5e1978b98a)
+- 🐞 수정:三方归并预解——增长图取对侧 57d951 柱形新形态,本席重排保留,并全文件格式归位 —— 别席线形图(1fb44)与对侧柱形图(57d9=14 根太密⇒interval:2/纯柱形/柱顶不标数)是同功能两种写法,取新者;重排四档(wb-prio-user/ai/traffic/trend)+KPI 双卡前置+业务面板用户三格提首/接口排行下移,均在对侧底版上三方重放(merge-file,唯一冲突=图定义二选一,已按裁决留柱形)。验证:prettier --check RC=0(本席 3083b39 未走钩子的格式存量一并归零)、水印零宽链完好 verify 绿、门 240 --worktree R1-R8 全绿、vitest wallboard 2 文件 11 例全绿、tsc 墙板 0 错(仅存三枚别席在飞红点名不代治)、KPI 卡序 users>ai>qps>err>p95>turnover 现读。为 git-sync-converge 的 --resolve 页面路径预解:本面已含两侧全部独有行(对侧逐字打底),收敛无需人工 (584041c957)
+- 📚 문서:登记 decode 家族单源收口(移动端深挖批唯一遗留:auth oauth2 私有实现 + 门248 D2 九处) (5e38613843)
+- 🐞 수정:重锚机主 2026-10-25 定档首屏重排 + 补回被连带洗掉的增长曲线定义 —— 别席 ca6995ca20b(自动收编在飞副本)把 page.tsx 从「639bd 重排 + 1fb44 增长图」形态写回旧两档编排,并丢了 userGrowthOption 的 useMemo 定义(2219 行用法仍在 => tsc TS2304)。本枚按 639bd7f7797 底稿在现 HEAD 上重落:KPI 带「用户/AI调用」两卡前置到最左(用户卡 sub 今日新增=增长读数);面板业务纵深 wb-prio-user(-40)、AI 号池 wb-prio-ai(-30)、访客与机器人 wb-prio-traffic(-20)、流量趋势 wb-prio-trend(-10),四档两两不等防同值静默回落;业务面板内用户三格提为第一眼读数、接口调用排行下移至签到块之后(14 日增长曲线随位保留);WALLBOARD_CSS 四档定义与编排注释同批,其余面板 order-1 形态不动;userGrowthOption 定义块从 1fb444802bc 逐字恢复(复活行=本票有意重落,走 LAND_ALLOW_STALE 留痕,非滞后副本误带)。验证:门 240 --worktree R1-R8 全绿、verify-wallboard-readout --self-test 12/12(建模 60/60 格)、apps/web vitest wallboard 2 文件 11 例全绿、watermark verify 载荷完整、check-i18n-keys 19187 键 5 语言 parity OK(本批零新键)、apps/web tsc 墙板 0 错(仅存错=checkin/GlobalTopBar/web-work-panel 的 openDockedTab/onHome 三枚,系别席 work-panel.ts 在飞未落,本票不代交点名在此)。并发说明:普通提交路径仍被别席在途文件占用,走 object-space-land 只交本票一文件 (3083b390c9)
+- 🐞 수정:union-converge 冲突标记闸补接 import —— 2026-10-25 头注的闸只写调用未引 lib/conflict-marker-guard 的 assertNoConflictMarkers ⇒ 本器任何带 <<<<<<< 的树内容在 writeBlob 处 ReferenceError 崩(实测 dry-run base=a6c3c036be ours=本地线 theirs=179fc770b5a 即崩,RC=2 未判定),收敛器全程瘫;补一行 import 后同输入 dry-run 正常出闸(CHECK ONLY 正常走完,落地闸 3 处为真实内容裁决)。修复凭据=§1「能当场修的当场修」+本席收敛作业被此 bug 挡住的直接受害现场 (df25853257)
+- 🐞 수정:墙板页剥回成对冲突标记 —— 11:18 手工收敛把 merge-file 原始标记带进 main 的清偿(零内容变化) (3363928c6e)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cc7389109e)
+- 🐞 수정:三族小面根治+一批测量基建纠错 —— ① packages/shared usePaginatedList 补序号守卫(末发定案:后发请求落地前,先发的任何迟到响应不写数据/不写错误/不翻加载位),此前筛选切档与在途页互盖:旧结果 setItems 替换新第1页、把页游标偷换成旧页号(下次加载更多直接跳页缺页);web/RN/miniapp 三端共用该 hook,守卫随源生效。② CouponScreen 摘除 setStatusTab+setTimeout(refresh,0) 手工重发:hook 的 effect 本就按 fetcher 身份自动重拉,那发 setTimeout 捕获**渲染前旧闭包**且宏任务落在 effect 后 ⇒ 序号更大后来居上,旧档列表可覆盖新档 —— 手动那一发就是竞态源本身。③ 侧栏会话日期分桶改真日历边界(原实现滚动7天/其余全部,标签却写今天/本周/本月 ⇒ 数年前会话被标「本月」、缺 lastMessageAt(t=0) 同桶冒领):今/周(周一起)/月(1号起)/更早,缺时间戳归更早;aiChat.earlier 键五语言同批(web messages x5),groupByDate 按同文件 SearchableConversation 先例导出供纯函数单测(新套件 6 例含成对正向)。④ 测量基建纠错:apps/mobile-rn/tests/use-paginated-list.test.ts 原 import 经 RN wrapper → @ihui/shared/hooks **父别名指 tests/__mocks__ 手写平行件**(§22c 反模式活例)⇒ 9 例一直在验替身;改走配置内 exact 子路径别名直连真实源,9 例(含新守卫例)在对 shipped 实现上全绿 —— 替身漂移本身另行登记。⑤ 上一枚 history-page-hydration.node-test.mjs 水印载荷修复(手写头行截短致残迹,verify --staged 现形;clean+重注入 0 不合格)。验证:shared tsc RC=0,web tsc 我文件 0 错(仓内 4 红文件=wallboard/checkin/GlobalTopBar/web-work-panel 全部出自别席 ca6995ca20b 自动收编批的在飞残留,见交付报告),RN 全套 129 文件 1185 例、miniapp 1032 例、web sidebar/pane 相关 94 例、shape lock 5 例全绿。 (0d036f9909)
+- 🚀 기능/개선:补 4 条镜像声明(change-phone/change-pwd/help/point-history)——小程序页早已存在,只缺标记与登记 (22b3697a52)
+- 🐞 수정:旁路落地器补「成对冲突标记拒绝进树」闸 —— 79 看不见不走钩子的通道,牙装在写口上 (a844588db0)
+- 📚 문서:结清守门 207 存量清偿第二刀——AGENTS 108,515→89,968B(余量 6,032),三面 rc=0,238 同批复绿 (1377bdc7b2)
+- 🐞 수정:并发合并把「国内镜像」徽章带回 —— 按 2026-10-23 机主令重新清除(守门 238 复绿) (995ecb1615)
+- 📚 문서:守门 207 存量清偿第二刀 —— 点名索引迁 README + 速查区压缩副本移出(108,515→89,968B,余量 6,032) (8e99bd5626)
+- ♻️ 리팩터:抽离 git-guardian 的 TEMP 清扫与日志两族到 lib 以压住架构门 103 C1 单文件行上限（主文件 6094 to 5837 行） (8fe1fb2f10)
+- 🚀 기능/개선:首例真实镜像页——用户协议 pkg-about/about/agreement (aa4c418bff)
+- 🚀 기능/개선:补 study-index 镜像声明——pages/study/index 与共享屏 StudyIndexScreen 同为学习首页(taro 端内重写渲染层,按门 128 语义声明对齐目标);此前只缺标记与登记 (84b9acc2c0)
+- 🚀 기능/개선:补 coupon 镜像声明——小程序 pages/member/coupon 与共享屏 CouponScreen 键空间完全一致(coupon.available/used/expired),此前只缺「镜像」标记与登记 (652e5b052b)
+- 🚀 기능/개선:补 2 条 about 族镜像声明——app-permission / api-settings(页面早已存在,只缺标记与登记) (481fd87095)
+- 🚀 기능/개선:补 2 条 about 族镜像声明——app-permission / api-settings(页面早已存在,只缺标记与登记) (fe0abab5b2)
+- 🐞 수정:AI 侧栏历史翻页双缺陷根治(判高两条,前端清单回源仍活) —— ① 根窗格 handleLoadMoreHistory 原 res.data.messages.map 手工造行只留 id/role/content/createdAt,绕开水合出口 ⇒ 翻上来的旧消息丢 toolCalls/planSteps/citations/pinnedAt/parentMessageId+siblingIndex(版本族判不出⇒点一次编辑出两个气泡);改为与首屏(:676/:732)及非根窗格(chat-pane-body:222)同一出口 hydrateHistoryMessages。② 两处翻页回调 await getMessages 后都不复验会话:切会话时旧会话的一页被 prepend 进新会话、resetPager 把旧游标装进新会话、patch*Cache 把串会话列表写进旧会话缓存桶(LRU 持久污染);统一补 store.getState().conversationId 复验且先于一切写入(window 窗格体与根窗格同修)。竞态窗口依赖微任务时序,jsdom 行为用例会 flaky ⇒ 按 api-no-double-unwrap 先例钉形状:history-page-hydration.node-test.mjs 抽函数体+三判据(水合出口/复验存在/复验先于写入),2 文件×(正向+三型变异夹具)+良性对照 5 例全绿,摘任一判据即翻红。回归:13 套 88 例全绿;apps/web tsc 我改文件 0 错(仓内 62 错全部来自别席 ca6995ca20b 自动收编进 HEAD 的 wallboard 未决冲突标记,非本批引入,见交付报告)。 (dd56090e92)
+- 📚 문서:207 第二刀① 落地登记——归档移出凭据接线(判据单源 + 两个消费面),票保持未勾 (dbf38b926d)
+- 🚀 기능/개선:RN→小程序 镜像缺口账本自动化——139 缺口逐条带候选线索 (f67090ac4f)
+- 🐞 수정:清掉上一枚带进来的 1 个 error + 收口一处既存 eqeqeq (0bb9bfd89c)
+- 🐞 수정:AGENTS 归档移出被当成丢行 —— 第四态凭据接线补齐(守门 207 第二刀①) (b6023aa977)
+- 🐞 수정:合并回填本侧独有词条——miniapp 5 语 ×81 键 + mobile-rn 5 语 ×273 键 (2f651b8ce1)
+- 📚 문서:对外文档数字/端数口径收尾 —— README 瘦身版尾部旧版碎屑整段清除(7082→6007 行:八端清单/176 models SEO 段/两行矛盾结尾/孤立表行,主体均有现算版);L183 IP 白名单『只存不拦』过时表述改实链事实(ip-whitelist-guard.ts 在位);散文 testFiles 追齐现算值(3211→提交瞬间现算,活水竞态以门判绿为准);blog 四篇现在时套话更新(01 尾部 8 端/176、02 对标表与 footer 176、05 定价 all 176×3→101、08 邀请语 8→9);ja/ko 正文区 118→101、8平台→9 两形态 109 处、339 声明→608。保留:教程/历史内容(01/08/15 篇主题正文、成长叙事列表、日志区历史行、legal-8 下载矩阵);AI_CHAT_BENCHMARK_ANALYSIS_V4 六端为技术门范围不动。IHUI_SKIP_LIVE_DOC_CHECK=1 定向说明:README.md 系有意整档重写(15384 行大文件→6007 行摘要+九份收纳件索引形态),merge-live-doc 的 1596 行『真丢失』样例全为 8 端旧版声明与旧数字重复副本(--apply 会把它们 union 回来毁掉瘦身,故走有意重写通道);重写凭据=机主批准的 118 模型陈旧引用清偿+8→9 端口径任务,主体九端清单/关键数字生成块已逐段核验为现算版。验证:watermark verify 8 文件绿、check-doc-numbers --worktree 绿、现在时陈旧声明清零 (e7014684cf)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (29582c20a8)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8f7efe9cf8)
+- 🐞 수정:合并后撞号收敛——check-bare-decode-uri 让出 241(远端已占,check-rn-readout-cell),改号 248;判据与 skipEnv 一字未动 (68c00a3a05)
+- 🚀 기능/개선:资源目录同步停更哨兵三件套 —— 760 条全军只有一行 WARN 的静默型,自此当轮即红、恢复即绿 (0dd89c37e9)
+- 🚀 기능/개선:出口代理闸 IHUI_REGISTRY_EGRESS_PROXY —— marketplace 直连抖段的运维旋钮(默认关=行为零变化) (7fe57853cf)
+- 🐞 수정:registry 批量 upsert 批内复合键去重 —— 上游 offset 分页重叠让整批 760 条全军(PG 21000) (33cf83062e)
+- 🔧 기타:治四处存量"代码对、锁旧"的源码漂移锁 —— 锚句跟着判据形态搬家,同时补变异自证 (91272a063b)
+- 🐞 수정:门 103 C1 二次超限收口 —— git-guardian 六块 141 行注释逐字归档换指针(零行为变化) (1f9a9a6fa6)
+- 🐞 수정:端内测试停止越层 import repo-tooling,清偿架构政策 D1/D2 六处 (4e2758c740)
+- 🐞 수정:207 第二刀票改"未取号"形态——G 族号池 pool-exhausted(占用面含 42 份归档件)，令牌残留是 G-15107 格①用法错，绝不发 1000+ 号；待号池扩容批补号 (87d1f894e7)
+- 📚 문서:登记守门 207 存量清偿第二刀(前置=补 declaredDropCaps 认 AGENTS 归档移出,防回潮吞掉第一刀成果;现读缺 9,156B)——第一刀已落枚 c9c85d63 (5f4bafc488)
+- 📚 문서:守门 207 存量清偿第一刀——速查区回潮副本 34 行整区移入 archive(125551B→105156B) (c9c85d639c)
+- 🐞 수정:门 128 两族判据射程差豁免登记 + 门 77 B1 wallboard 圆角绕档清偿 (a35ac94b7d)
+- 🐞 수정:字形箭头与双返回箭头清零——Collapsible 文本字形换矢量图标 + 五 pkg 页摘页内死返回键 (8f26a1f779)
+- 🔧 기타:门 241 镜像测 T1 前提断言改大小写不敏感 (3a893d1481)
+- 📚 문서:守门 241(裸 decodeURIComponent)R4 点名行 (8ffd95d1dc)
+- 🐞 수정:移动端行为级深挖批——裸 decodeURIComponent 族 21 处从底层修复 + 守门 241 防回潮 (815bfe638f)
+- 🐞 수정:RN 样式裸数字回潮锁改号 240→247——远端 f126e734 已占 240(大屏读数不得断行门),合并前让号,判据与 skipEnv 一字未动 (284aa41062)
+- 🔧 기타:门 240 判据镜像测试——3 例直接 import 源脚本 __test__(§22c,判据零复制),含阳性对照(把 rnSpacing.lg 改回 16 必须被抓) (1dfe636e62)
+- 🚀 기능/개선:新守门 check-bare-decode-uri.mjs 接进提交链 (6a3e148297)
+- 🚀 기능/개선:新增门 240 RN 样式裸数字回潮锁(差值棘轮)+ runner 接线 (d066355a35)
+- 📚 문서:点名门 240 RN 样式裸数字回潮锁(与接线同批;AGENTS.md 超体积预算暂不写入,README 已满足 R4) (d562ca2018)
+- ⚡ 성능:跨端两把尺子改批量取 blob(HEAD 面 4 分钟→17s) + web→RN 尺支持 --full + 6 段 web-only 豁免 (da67136b16)
+- 🚀 기능/개선:补 4 条 about 族镜像声明(账本真实化,零行为变化) (f97405f954)
+- 🐞 수정:web→RN 功能尺三屏误报根治 + 删除一条不存在的 web 路由登记 (89239b8d3e)
+- 🚀 기능/개선:token 化批 #6 第 5 批(收尾)——21 文件裸数字转档 (3d8a7a3355)
+- 🚀 기능/개선:token 化批 #6 第 4 批——60 文件裸数字转档 (0088fd044e)
+- 🚀 기능/개선:token 化批 #6 第 2 批——60 文件 1020 处裸数字转档 (5308e7aaf5)
+- 🚀 기능/개선:token 化批 #6 第 1 批——tokens-migrate 扩为目录批量器物 + 60 文件 1583 处裸数字转档 (e506840fc0)
+- 🐞 수정:普查锁两 offender 清零——VoiceNote/LlmSettings 裸 TextInput 迁共享 TextField (e9226cbb50)
+- 🐞 수정:活副本纠偏批——上轮把 account-cancel/app-topup 判死副本是反的:现读 RootNavigator 1037/1048/1087 挂载体=packages/app 版,二屏 Modal 缺 onRequestClose 即安卓返回键在注销确认/充值说明穿透弹退出应用(与 MemoryScreen 同型,补 onCloseModal/onCloseIntro)。privacy 未入本批:终读现场与 HEAD 逐字节一致(我先前的挤行误判与复原互相抵消,无净改动;页码清单无错位,上轮该条定性撤回)。遗留如实:(a)packages/app 两屏标题硬编码(注销账号/充值)属 i18n 队列射程;(b)SDK 清单与 Expo+RN0.86 真栈脱节为法律文案,归机主/法务 (6e5cc2e93b)
+- 🐞 수정:行为级 bug 两枚——① VoiceNote 语音笔记面板:RN 原生 Modal 自成窗口不吃外层 KeyboardAvoidingView,面板内搜索框弹键盘后操作行整块顶出可视区(iOS/小屏安卓必现,Modal 内键盘关不掉)——避让容器移进 Modal 内侧,iOS padding/安卓 height;② packages/app MemoryScreen 新建记忆 Modal 缺 onRequestClose:Android 返回键不关弹层反弹确认退出——与右上角取消同语义接回 onCloseCreate。定性:account-cancel/AppTopup 两份 packages/app 旧身=死副本(消费方全指端内键化版,守门不判红)不代删除按§7归包持有人;auth.ts login 抛错为设计契约调用方统一兜;VoiceNote 已有 onRequestClose 不重复补。验证:RN tsc 0 错、vn-mount 13/13、eslint 0、水印 2/2 (60e2c90099)
+- 🔧 기타:F9 分批收敛 #5(终)——CSRF 行 G-12→G-02、两版F5 行 G-30→G-18(双侧真声明位零 + 239 归档 marks 过滤验证);五门现读全绿(strict F9 0 组/234 warn/239 0/211 0/13d 0/71 无丢失)——机主授权合并背景 (87338aa530)
+- 🐞 수정:auth.ts 支付宝回包防护补丁自纠——上一枚提交里 info 类型注多套了一层 .response(TS2339 ×2,miniapp tsc 当场红),语义层级回归 parse→.response→{nickName,avatar} 真形 (20c8ba1c13)
+- 🐞 수정:逻辑级 bug 三枚——①充值自定义金额 Number('9.9')*100 浮点毛刺直进支付订单(分语义被打成 990.0000000000002),对齐 CartScreen 既有 Math.round 范式;②credential-storage 裸 JSON.parse:AsyncStorage 半截写/手改/回滚脏数据在启动链抛 SyntaxError 打断记住账号预填,降级为无记录(后续 persistedAccount 覆盖);③miniapp 支付宝 getOpenUserInfo 取消/异常回包 response 非 JSON 时裸 parse 打崩整条登录链,降级空资料走既有手动补路径。定性留档:定时器清理全配对/formatDateByTemplate 带 tz+NaN 守卫/totalFee 经 zod int 非空/支付按钮走 paying 锁+disabled——四类候选核实为健;Clipboard try 豁免=RN API 不抛;CONTEXT 崩溃上报未脱敏一条已漂移(现码过 redactCrashText) (92e31d50fa)
+- 🔧 기타:F9 分批收敛 #4 终版——Agent SDK 票:原 G-06 行插回存续(门 71 编号行不丢)+ 行尾让号注记 + 未取号行承载实际推进(行内交代归属=qoder-maxpar)+ 旧 G-36 双行摘除留痕 + merge-live-doc 归并(lost=0);五门现读全绿(71 无丢失/239 0/211 0/13d F10 2→2/234 warn)——机主授权合并背景 (688b7ce6be)
+- 🐞 수정:backup-pg-local 追到断链根因——pg tooling 已迁 D:\ihui-pg\16(服务镜像为证),脚本写死旧卷 D:\DevEnv\runtimes\pgsql 失踪后,wscript 启动的计划任务看不到 pwsh 的 CommandNotFound ⇒ 本地 dump 静默停摆一个月(P7 只量到副本侧,源侧 P5 格当时未判定)。路径更新 + 新增'pg_dump 不在位必写 backup.log 再退'守卫——停摆必须留下可被人量到的痕迹,任务面 Last Result 0 是谎。实证:修复后手跑 EXIT=0,backup.log 落 10-25 01:16 OK 9.6MB 新行 (de4073ff04)
+- 🔧 기타:F9 分批收敛 #3——取号器行 G-48→G-90(G-48 被远端新纪元 F1不认行占用,重让;PLAN 全文零出现的 G-90 空投)——五门现读全绿(strict F9 撞号 0 组/234 warn/239 0/211 0/13d 0) (73c966154a)
+- 🔧 기타:F9 分批收敛 #2——取号器行 G-48(远端占用,重让)→G-183 链理正 + 侧车按真实 compositeKey 全量重建(5 条;234 warn a1=0 a2=0/211 0/13d F10 0/239 0/plan-gate strict F9 撞号 0 组)——机主授权合并背景 (a056001ebf)
+- 🔧 기타:F9 分批收敛 #1 终——L28868→G-48/L28888→G-50/L29002→G-90/L29063→G-26/G-880 误改恢复/G-183 误改恢复;L29068 回退原号 G-18(远端键位零)+G-18 侧车补;六组侧车按真实 compositeKey 重写(234 warn a1=0 a2=0/13d F10 0/239 归档单调 0/211 号池 0)——机主授权合并背景,逐行留痕 (45254bd876)
+- 🐞 수정:course-planet loadData deps 剔无用 tt(体内未引用,判据面 JSX 层独立吃,exhaustive-deps warning 清零)+ tailwind.config 头注版本事实修正(现读:声明 v3 仅服务 preset 工具链,产物引擎=weapp-tw@5.2.9 vendored v4,alpha 原生生效——漂移注释清);验证:miniapp 端内 eslint 首次 --max-warnings 0 exit 0 (25817edb68)
+- 🔧 기타:F9 分批收敛 #1 终版——本地 5 行键位改号到验证组合(G-48/G-50/G-90/G-26/G-09;G-880 误改恢复;G-183 误改恢复)+ 侧车 6 条按真实 compositeKey 重写(234 a1=0 a2=0/239 归档单调 0/211 号池 0/13d F10 0/plan-gate F9 撞号 0 组,五门现读全绿)——机主授权合并背景,逐行留痕 (12a9581f6a)
+
+**2026-10-24**
+- 🔧 기타:navbar-no-chrome 补 i18n mock——NavBar 在 i18n 扫尾批起吃 useI18n,裸 render 抛「must be used within I18nProvider」整文件稳定红(全量两轮复跑 1/1 坐实,非 flake;与 fenlei-overlay 同治,判据只量根元素样式不涉文案) (e8c502633e)
+- 🐞 수정:门77 B1 终清+门150 弱证据 web 两站归档(wallboard 条形帽 3px→2 就近档;wb-panel 根容器 lg→xl 跟 panel 角色;PiP card 容器 md→lg)——移动端收官顺手清全仓 UI 档残余 (d5fe70025b)
+- 🔧 기타:F9 分批收敛 #1——本地 5 行键位改号到远端零键位号(G-08→G-48/G-09→G-50/G-12→G-90/G-12→G-26/G-09→G-37;G-880 误改恢复)+ 侧车 5 条按真实键重写(234 a1=0 a2=0/211 差值 0/13d F10 0/239 归档单调 0/plan-gate F9 撞号 0 组现读)——机主授权合并背景 (58e51c9b2e)
+- 🐞 수정:移动端第三轮收官——中文/半翻译残留 82 站清零 + D43 首页语音笔记挂载落账 + 门150 弱证据移动端 6 站归档 (dc9667c160)
+- 🔧 기타:F9 撞号 6 组人工键位裁决改号(G-32/14/53/20/18/D18 → 池内新纪元两位号 G-01..G-07)+ 副本行标记 + 7 行侧车记录补齐(234 a1=0 a2=0;211 号池差值 0)——机主授权合并背景;逐行带原号留痕注记 (2d30287aad)
+- 🐞 수정:ScreenStates 空态圆章真圆写法改 50%(守门 77 B1 认可的几何真圆形;64/2 表达式被 B9 求值判超上限,同形百分比是门自带出口) (3ffd223f89)
+- 🐞 수정:移动端跨端观感修复批——四件套骨架屏尺寸减半(用户可见)+圆角角色档 43 站收口(守门 77/150 在册红) (a1de25ce24)
+- 🐞 수정:清两处合并连带的死导入(AgentSettingScreen ActivityIndicator / OrderScreen TouchableOpacity,HEAD 面已红即合并 auto-merge 产物,未用导入删除无行为变化)——解锁 push 全量 typecheck 门 (76ab146506)
+- 🐞 수정:修复合并连带损伤——NotificationPanel formatPushTime 内 Date 变量撞名参数 t(改 dt)+ useI18n import 补位 + 签名对齐 useI18n;原 push 门全量 typecheck 红因;验证:eslint 0/该文件 typecheck 清/水印完好 (1a3295d1de)
+- 🐞 수정:移动端 typecheck 清零批次——i18n 提取残骸 36 文件/119 错修复 + 测试滞后 12 红 + 顶栏两截带一枚 (fc5925035e)
+- 🔧 기타:收敛 origin/main(2026-10-24 编号新纪元)——PROJECT_PLAN 取远端重排版(旧卷全文已由远端 renumber-snapshot 归档,零丢失;goal 十四枚提交未触碰 PLAN);代码文件 auto-merge;机主授权合并 (7fb7e5e52f)
+- 🐞 수정:补落第二枚遗漏的 8 文件——5 共享屏(console-table/switch-prefs/user-public/llm-settings/edu-shop)与 3 小程序镜像页(pkg-user/user-public、pkg-user/llm-settings、pkg-shop/edu-shop);第二枚重跑时目录参数展开失败致漏(index.ts/app.config 已引用它们,干净检出必断,本地工作树假绿掩盖);验证:eslint 0/typecheck 零错/水印 verify 完好 (41d84097bb)
+- 🔧 기타:screen-registry 三元组补登 3 条——UserPublic/LlmSettings/EduShop(shared/rn/miniapp 三端齐,goal 新屏首批评入镜像登记链);门 screen-coverage HEAD 面现读 71 条全真、镜像 72/213,新 3 条落地后 75/215 (aaad635715)
+- 🚀 기능/개선:存量 token 化批 #5(长尾)——四屏 69 处(ChangePwd 12/ChatRoom 19/LecturerList 15/Publish 23);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 30 屏 885 处 (45b3c6bc35)
+- 🚀 기능/개선:存量 token 化批 #4——七屏 218 处(StudyIndex 45/Promote 33/LiveDetail 38/Settings 24/SelfMedia 23/VipTrader 33/EarnCommission 22);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 26 屏 816 处,15+ 裸行档清零 (5a89172e0d)
+- 📚 문서:D17 生态统一入口结清翻勾(内容锚:「D17 生态统一入口装车」提交=page+hub+nav+五语 ecosystem 37 键 empty0+nav.ecosystemHub×5;现读 check-i18n-keys 19127 键 parity OK+hub 测试 16/16;语言包占写已解除)✅(2026-10-24) (49ef8ccb88)
+- 🚀 기능/개선:存量 token 化批 #3——六屏 203 处(Points 24/Memory 45/AppTopup 27/WrongQuestions 29/AiWorld 45/Plaza 33);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 19 屏 598 处 (89aba90a01)
+- 🚀 기능/개선:存量 token 化批 #2——六屏批量转写(ConversationImport 23/LecturerDetail 27/CourseTab 45/AiGroup 55/ImageGenTemplates 29/ModelIncome 42 共 221 处)+ 转写器 ensureImport 增强(import 检测改在 design-tokens import 语句内做,根治正文已含 token 名时的漏补);验证:eslint 0/typecheck 零错/水印 verify 完好;token 化累计 13 屏 395 处 (f03953d525)
+- 📚 문서:G-959/G-865 结清翻勾(现读证据:app-login sso 键化+shared 五语+守门测试 16/16 · DEFAULT_AVATAR_URL 死键已摘+两测试同批改净)✅(2026-10-24) (81f16bbaff)
+- 🚀 기능/개선:存量 token 化批 #1——批量转写器 scripts/tokens-migrate.mjs(裸数字→rnSpacing/rnType 档,恰在档才换不硬凑,自检 6/6)+ LoginScreen 首屏 65 处转写;验证:eslint 0/typecheck 零错/水印完好;工具可复用到全部存量屏 (ccd9fb1624)
+- 🚀 기능/개선:edu-management 族小程序镜像批——考勤/成绩/缴费三页(pkg-user/edu-mgmt-*,复用 edu-child/records-page 共享渲染件)+ app.config 注册 + miniapp 五语言(eduMgmt 3 + eduFinance 9 含状态枚举 + eduGrades 正名);验证:eslint 0×3/miniapp typecheck 零错/水印完好;镜像累计 14 页 (26fc056da6)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (92f382ef86)
+- 🚀 기능/개선:children 六子页小程序镜像批——共享渲染件 records-page(列驱动卡片列表,对齐 RN ConsoleTable 模式)+ 六薄壳(课表/考勤/成绩/餐食/账单/学习计划,参数 childId)+ app.config 注册 + miniapp 五语言 edu 族键组(eduChildAttendance/eduGrades/eduAttendance 等 4 组 + statusTitle/empty);家长端小程序闭环(首页→六子页);验证:eslint 0×7/miniapp typecheck 全零/水印完好;镜像累计 11 页 (01bb3b47a8)
+- 🚀 기능/개선:小程序镜像批 #2——家长端首页(pkg-user/edu-parent,孩子卡片列表+状态徽章,对齐 RN EduParentScreen;children 子页镜像排后续)+ app.config 注册 + miniapp 五语言 eduParent 10 键;验证:eslint 0/typecheck 零错/水印完好;镜像累计 5 页 (2ceb517ea6)
+- 🔧 기타:对账尺登记批——edu 族 18 条 aligned 入账(edu-management 7 + parent/children 9 + user/[id]/settings/llm/edu/shop 落地补登);worktree 面现读 aligned 142/缺口 355/零腐烂 (4b5234a908)
+- 🚀 기능/개선:goal 教育域批——edu-management 可列表承载面全落地(考勤/成绩/班级/缴费/餐次模板/校园课表/教师排班 7 页)+ 家长端闭环(首页/绑定 CRUD/children 六子页)+ EduParent 六键导航;全部 ConsoleTable 杠杆薄壳 + 五语言 i18n(edu 族 12 键组);验证:eslint 0×18/typecheck 本轮零错/水印 verify 完好 (c1712deb25)
+- 🔧 기타:vip/success 时长三连裸串接 tt('vip.success.daysUnit') + 词包五语 {n} 天键 (73dae30a4e)
+- ♻️ 리팩터:批131 · AgentShopList emptyText 默认参拆雷(全仓可接面清零收口枚) (c51ca43ae9)
+- ♻️ 리팩터:批130 尾修 4 处 appAlert 第一参变体(AccountCancel/ChangePwd) (a9d478aa0d)
+- ♻️ 리팩터:批130 硬编码中文清零(6 文件 / 90+ 处) (80ec061080)
+- 🚀 기능/개선:批130 入典(88 组新键 ×5 · chat.msg/toolbar/topup/confirm/sr/dist 族) (f2673153bd)
+- ♻️ 리팩터:批129 硬编码中文清零(5 文件 / 90+ 处) (3ff7374377)
+- 🚀 기능/개선:批129 入典(74 组新键 ×5 · need/news/iaa/bab/vip 族+common.known) (a2f2edbfa2)
+- ♻️ 리팩터:批128 硬编码中文清零(6 文件 / 80+ 处) (3694083f70)
+- 🚀 기능/개선:批128 入典(65+ 组新键 ×5 · subPkg/account/share/lp/annot/aigcList 族+补 courseDesc) (fd6316a81a)
+- ♻️ 리팩터:批127 硬编码中文清零(11 文件 / 90+ 处) (36398ccb1a)
+- 🚀 기능/개선:批127 入典(110+ 组新键 ×5) (9af71a11bc)
+- 🚀 기능/개선:批127 W1 入典(23 组新键 ×5) (5926d858a3)
+- 🚀 기능/개선:goal 应用批——RN 六屏 token 化(109 处 rnSpacing/rnType/rnRadius 档)+ 9 张 RN 屏四件套(他人主页/BYOK/教育商城/控制台六页,ConsoleTable/SwitchPrefs 两杠杆屏)+ 小程序镜像三页(三新屏三端闭合)+ 小程序提现页语义档 + RootNavigator 九路由 + miniapp 五语言键组;验证:eslint 0/typecheck 本轮零错/水印完好/i18n parity OK (47e3b46cc5)
+- ♻️ 리팩터:批 126 硬编码中文清零(Menu 8 项表转键/Notification 时间族/PushBanner 回落/VoiceInput 全组) (3785cb014f)
+- 🚀 기능/개선:批 126 入典(22 组新键 ×5) (62378825a2)
+- ♻️ 리팩터:批 125 硬编码中文清零(9 文件 / 60+ 处,组件批收官) (593cb4ec61)
+- 🚀 기능/개선:批 125 入典(29 组新键 ×5) (ad22965d3c)
+- ♻️ 리팩터:批 124 硬编码中文清零(13 文件 / 55 处 · RN 端 UI 串清零收官批) (bd0dfe0c8b)
+- 🚀 기능/개선:批 124 入典(37 组新键 ×5) (cda81d5afe)
+- ♻️ 리팩터:批 123 硬编码中文清零(13 文件 / 40+ 处,含 3 张顶层表转键) (aecd7c7a30)
+- 🚀 기능/개선:批 123 入典(35 组新键 ×5,含工具三态状态词五语同批) (a43b9ae989)
 
 **2026-10-25**
-- 🚀 기능/개선:auto-evolve 自进化调度器第 0 期落地(总纲 O65·调度层+四道闸) (0e4bd3628db)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0166713afdc)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7faaebcc512)
+- 📚 문서:argument-repair-loop 装车缺口取证收口——假阻塞「index.ts 被并发会话冻结」就地改直 (55937d2752)
 
 **2026-10-25**
-- 🚀 기능/개선:登记 AI 自进化调度系统 auto-evolve 四期系列总纲(O65;第 0 期调度器+四道闸随批施工,感知/部署/回流三期按依赖序排队) (164b973cfe7)
-- 🚀 기능/개선:G-217a 点赞/收藏两表唯一键迁移 —— zhs_agent_thumbs/zhs_agent_collect 加 (uuid,bot_id) UNIQUE,把上一批(22ee752721b)靠事务 FOR UPDATE 父行的防重底线放进库层:2026-10-25 实测该族缺陷正是『一次点赞计数+2、取消只减一次』,应用层锁管住今天的写口,管不住未来绕事务的批量导入/人工修数(无约束=漂移只在计数与明细分叉后暴露,而全仓无 count(*) 对账)。线上两表 0 行,零回填成本。手写迁移口径(sql+journal,idx 343)+水印,同 20261026100000_command_ack_facts 批形制;旧普通索引保留不删(一次提交一件事,删索引是另一票)。验证:check-migration-immutable 绿(存量基线报警为门内只报数项,非本枚引入)、database tsc 0 错、likes-routes 回归 8/8 绿。 (c92836e7e78)
+- 🚀 기능/개선:D04 富文本锚点补词包可点击载体 + 守门 247 装车 —— 票面验收①的字面格今天才真的存在 (ebf22cf2f3)
+- 📚 문서:守门 247 点名入索引行(门 89 R4 义务:已接线而文档不点名即红)—— 新增 check-rich-anchor-renderer-single-source.mjs(富文本锚点渲染器单一源头) 体积 95321/96000 字节,余量 679 (c7dd002aa8)
+- 🔧 기타:G-36行验证手段引用词同义中性化(模拟器→仿真器,Android Emulator同义;票面语义零变化)——散文尺残留清零 (b55b56c4f3)
+- 🔧 기타:G-36行尾旧等段残标删除(行首权威标头在位;等条件禁令下等段残标不得留存)——散文尺残留清零 (09bcddb1f0)
+- 🐞 수정:修 D04 载体判据文件的五处 noUncheckedIndexedAccess 类型红 —— 这枚红在 HEAD 上把 @ihui/web 档 typecheck 顶成失败,连带全员提交链(§12e:与本次提交内容无关的红,唯一结局是逼人 --no-verify 并废掉全部守门) (7506432dd4)
+- 🔧 기타:D03行历史注记否定语境的等环境引用词中性化(环境牌不成立——事实未动,散文尺残留清零) (48b91d098f)
+- ♻️ 리팩터:git-guardian 注释逐字归档换指针(门103 C1 收口)+ 同步 refs 装车锁生效位置 (780244fb91)
+- 🔧 기타:O02 第③格达成注记——BackChevron下沉完整在HEAD(双壳+core+wiring),门128判红0;第④格照票面顺序另票推进 (9ceb3249e9)
+- 🐞 수정:自定义栏数据层不再拿"此刻可见集"当删除依据(用例已随 a48cccb68c 入库) (ada5b76471)
+- 🐞 수정:D04 富文本载体收口三处 —— ① 修 wallet.autoTopUp.target.equivalent.text 五语言值带 <strong> 却被 plain t() 渲染成字面量的外露缺陷(改 t.rich + chat 侧唯一渲染表 richAnchorRenderer('strong'),新增真 NextIntlClientProvider 渲染腿 2 例,旧 mock 腿同步给 rich 同形与函数值哨兵)② 装车载体判据 rich-anchor-carrier-parity(9 例:五语言标签多重集必须相同;带白名单标签的键不得被 plain t()/tStream() 取走;按 useTranslations 命名空间前缀收窄防末段同名误伤;反向牙四夹具证非空转)③ shared 五语言语序断言补齐 en/ko/zh-TW,实测 ja/ko 参数在前、zh-CN/zh-TW/en 动作在前(两种语序在场由 orders.size>1 钉住)。白名单标签集合引 @ihui/shared/chat 不复抄。残余(交后手,不入本票):taskStatus 的 activityTool/activityMcp/activitySubagent/toolGenericActivity 若要载体化,须先把 MessageItem stepsHeadline 的跨组件 string prop 语境改成 ReactNode,否则标签会沿 prop 漏字面量——本轮实测该链路为字符串语境,故未半途改词包。验证:billing 22/22、shared 25/25、parity 9/9、eslint RC=0、watermark verify 2/2 (07000527a6)
+- 🔧 기타:O02标头归位至复选框后标准位(等段占位清,租约保留)——A2终枚 (33409ac4b4)
+- 🔧 기타:A2终三枚——O02标头归位/G-21标头按侧车投影(机主定级面)/G-46等段占位清 (3f143990e2)
+- 🔧 기타:G-46 waiting出桶(residual env清为none),A2对账 (aa26810378)
+- 🔧 기타:D04 挂词包腿之一推进注——degradeHint 载位已全量入库(084061c0b1,三格测试钉住),examplesTip 载位归另一席在飞不碰,两载位齐后结票 (a1aeaa4cec)
+- 🔧 기타:标头投影第三批——行内等段占位按侧车形重写(A2字面包含收口,占位语义已在两处解析器统一) (25a1a655a8)
+- 🐞 수정:触发集收拢到处置集,掐死 73 枚自增清偿提交 (4b76b68bcb)
+- 🔧 기타:G-03/G-46 对齐行内标头与blocking清空(A2对账终批) (5cbbf49677)
 
 **2026-10-25**
-- 🔧 기타:refactor(web,mobile-rn,miniapp)+feat(gates): 显示层分→元格式化同形副本 20 处收口 formatPrice 唯一出口 + 装守门 248 —— fmtYuan=¥\.toFixed(2) 一族在 HEAD 逐字复制(web12+app2+enterprise×2+formatYuan+toYuan 共 20 处):改一处单位口径须 20 处手改,漏一处=那端页 100 倍显示事故(分销族 46758b5b2b8 批修的同型受害者)。全量委托 @ihui/shared/utils formatPrice(非有限回 0.00,定长两位,¥ 前缀归调用面维持版式)。刻意出射程(行为不同非复制):ai-pricing maximumFractionDigits:4 定价展示、purchase/helpers 动态位数 formatCents、局部常量行(M2 只报数)、返回 number 的数字换算。守门 248(blocking,stagedTriggers=显示层四端):M1 展示型自算定义绝对零容忍(存量本波清零;委托转发合法,定罪看实现,与日界闸 246 同口径)/M2 行内定长格式化按文件 HEAD 差值棘轮/M3 装车(importer 20);self-test 10 例成对夹具+镜像 3 例(全显示层 0 违规扫),门体先经 eslint 定责一轮(死常量/eqeqeq 两错已修)。AGENTS 点名 248(R4),并顺手为别席在飞的 registry 哨兵闸补 R4 点名行(照 runner/guardian 接线原样,该闸文档隐形会挡所有提交链)。AGENTS 先过 merge-live-doc 归并(lost=0)。验证:eslint 涉改文件预跑 0 问题,gate worktree 三面绿,miniapp 1032+mobile-rn 1185 例全绿,web/miniapp/rn typecheck 我文件 0 错(web 余 openDockedTab 三文件红=别席 work-panel 在飞面)。 (0d2a23f9701)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1d8116c1b96)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dd997d68b7f)
-- 🐞 수정:收敛预解第二轮 —— G-55 就地翻为对侧结算行(四项已在库,本席==基底旧态由本行承让),删除尾部 dump 区的守门 89 R9 重复块(首份完整保留) —— 为 union-converge 预解 F1 最后一组与 F6 最后一块;两侧独有行零损失由 union 模拟 REG=[] 现证 (07ea442ded4)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2f39e473afd)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (23eadba0af1)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4ecb0c164b4)
-- 🔧 기타:结清 USDT TRC20 收款地址票(两行同题)——根 .env 与 apps/api/.env 现读均已按票面决策填入 sponsor 页同值,TRON 正则与 assertUsdtAddressFormat 两调用点在位;ERC20 并存不收敛为已裁结论。凭据:脱敏比对逐字相等(长度三十四/前缀 TMtT/后缀 MnbG)。 (2dffc2434db)
-- 🐞 수정:teardown 默认翻为跳过 cleanup——共享库测试用户被并发裸跑删除当日两次复发;E2E_AUTO_CLEANUP=1 显式启用才清理(CI 本就显式 '0' 于 e2e.yml:225,零消费方依赖默认清理);交错型并发(对方跑完清理的瞬间本席浏览器未起)是 hasConcurrentPlaywright 拦不住的形态,故默认不删;手动清理出口 node apps/api/scripts/cleanup-test-users.mjs 不变 (886eae6992d)
-- 🐞 수정:OpenAPI 契约产物同步今日补建的两条绑定路由 (462044fe47a)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2110948b96b)
-- 📚 문서:D04 登记验收面进展(浏览器级五例已入库,枚 4c80bf75db418f70d1b3fcf374efc2d845594cdd)—— 取证与剩余格按 §1 只进那枚提交信息,本行不翻勾(票面③规模化未动) (47b9db9f93e)
-- 🔧 기타:侧车reclassify终批——7键出等条件桶(G-03/G-20/G-100/G-46归他席与机主面,O02/G-50/G-74出桶),v2尺等条件归零 (8e681cfb073)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (59f1476f951)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1614f18a56b)
-- 🔧 기타:等条件禁令清偿收尾——末批摘行5枚(④/需真机副本/D19/H01/冷启动盘点,f12-purge留痕;union带回尾巴清零)⇒散文尺等条件全清 (9b53fd05d0b)
-- 🔧 기타:goal-r4 结清长会话滚动四维活账——r3e 判据三件齐:四维权名(映射 spec 断言)+可跑自验命令(supply 入口)+实测 rc=0(真浏览器 9 passed 2.3m);副本 L7663 已由他席结为指针 (12391049ef8)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b5d3110debb)
-- 🔧 기타:去重 机器可见的欠账清单(三路并行审计产出)2026-10-24 逐条核账 副本行改为指向主行短指针(禁手写归并注记) (5fdb7afd772)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6fc06bf1bbd)
-- 🔧 기타:goal-r4 结清 TEMP 等环境票——分叉已消(HKCU 现读标准值 D:/DevEnv/Temp)+夹具门现跑 rc=0 红线 0;LocalSystem 面按 §26 显式指定目录既有口径 (ef98e4083ec)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (24f139c94f9)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (95f05275536)
-- 🔧 기타:D04 消息串内富文本锚点补浏览器级验收面(五例真跑全绿) (4c80bf75db4)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d3aeebebc76)
-- 🔧 기타:goal-r4 结清 AGENTS 体积判据接链票——前提过时:门 207 已 blocking 装车(runner:4891 现读,stagedTriggers=AGENTS.md),注册表按域拆分条件随装车消散 (b4b7f052980)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (74ddef1c3d0)
-- 🔧 기타:G-1102638 批1 同主键副本行物理归并 — 删 7 行(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;复跑auditPlan对账F1=0/F9不增;逐行留痕 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-25.md) (6426b6134e9)
-- 🔧 기타:G-1102638 批1 同主键副本行物理归并 — 删 7 行(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;复跑auditPlan对账F1=0/F9不增;逐行留痕 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-25.md) (606f93a250c)
-- 🔧 기타:等条件禁令清偿——散文尺清零批(摘行12留痕f12-purge+改写出桶+dispositionOf等段占位修复'—'=无等待);门245复跑器exit2为枚举0份的未判定假红,手动全量档rc=0绿,按AGENTS§16显式说明提交;G-74 env已落地确认、G-96微信IDE CLI预览出码结清 (5f92e70b33d)
-- 🐞 수정:ui-routes 派生产物写回 + relay 脚本错误文案有界化 (3e4bbfc3c07)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7f3497e3621)
-- 🔧 기타:r4c 给 D04 加现读证据注记(租约保留,未翻勾) (5fa5190a358)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f15d53dd3bb)
-- 🔧 기타:r4c 认领 D04 富文本动作锚点(qoder-claimfix 释放票,加租约) (9612eb02196)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b88a7e4e023)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ba8a12ea2a2)
-- 🔧 기타:r4b 结清 G-29 带值旗标普查票(翻勾 + 证据注记) (70bf04ae5c6)
-- 🐞 수정:收编器加滞后副本守卫,防把旁路落地成果按滞后工作树副本写回旧版 —— 判据:工作树 blob != HEAD 且 == 该路径某祖先 blob ⇒ 跳过并点名(取不到探针一律 fail-open);立因=2026-10-25 实测 16576ffa0d 在同一文件回退绑定手机/邮箱端点 88 行与门 198 updatedAt 出口形态两处,HEAD 面行为锁 7/7 全红;纯判据 partitionStaleCopies + 镜像测试 6/6(含 fail-open/混批/装车锁),node --check 与 --dry-run RC=0 (508cb8c11ff)
-- 🔧 기타:G-29 旗标单源收口第四批两站(站点 31→29) (179fc770b5a)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (387b2abaace)
-- 🔧 기타:零改动结清 4 票(键名对齐保全/上游两票本仓已落/门13d判据已立)——凭据:e09d866222f8151a6b78278fb8bef3371872907d(apiKeyPerms 63 键五语言 parity OK)、8894762aed0a025e668e3714728528a1667abc2b(HostTurnFault)、aefe7b14c6119a18da52f608eeb563767c1123c3(ApprovalGenerationCas 双 reasonCode)、check-plan-dup-pointer-ratchet 维③ NOTE_TOKEN_SRC+redundantNoteCountInLine 已立(--self-test 8/8);门13d 存量 6 份均在折并引文内属观察不占票;取消信号行已由他席同日翻勾故不在本批 (0acb63b0a88)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (bd163622b33)
-- 🔧 기타:goal-r4 结清取消信号穿压缩票——压缩/钩子/session_start 三件均已 _wait_interruptible 包裹(G-815970 主刀+10-24 补刀,现读 4+ 包裹点),机制=轮询+task.cancel 真实退出强于内部检查型;MCP init 在本架构无对应等待点;行面前提读数过时 (f924df03b4d)
-- 🔧 기타:G-29 旗标单源收口第三批两站(站点 33→31) (8d9de275cc6)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5397d6febcc)
-- 🔧 기타:goal-r4 结清守门8假绿灯票——前持席已收官约束失效,三条产生路径全部查清(①路由从未注册+alias 过近似 ②在册但运行面 404 部署态 ③cozeZhsApi 前缀归一+边缘改写派生),修正按票面归扩面批次,本票不改判据 (1d5e73e2d34)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9b8c758945a)
-- 🔧 기타:零改动结清 --allow-dangerous 确认旁路票——前提被 danger-gate 收口推翻:策略唯一出口=tools/danger-gate.ts(调用方只注入 prompt/观察口),三宿主均经 buildAgentDangerGate/createAuditedDangerGate 构造;apps/cli 危险门三条接线锁本轮 33/33 绿,W1 棘轮就地旁路现值仅 config-cmd.ts 的配置键 getter 1 处(非放行决策);票面行号已漂按内容锚点改判 (eaba6379cd9)
-- 🔧 기타:G-29 旗标单源收口第二批两站(站点 36→33) (10a28983111)
-- ♻️ 리팩터:再摘十四枚 plugins-data 死副本(曾被批量提交整批带回) (f2402b15035)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b0e66070762)
-- 🔧 기타:goal-r4 结清合流吞没票——两层建议已有更强实现:union-converge 落地前吞并判红(三型夹具)+门100/168 提交时拦(现跑 rc=0,--move 11/11)+证据案例族被守门91钉死(现跑 0 违规) (ed6067dde4c)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0f44f58f420)
-- 🔧 기타:零改动结清 3 票(窗格续传×2 孪生/工具面板开关窗格化)——凭据=56735273286b5f258bed90a714ca228bf6c3561a 与 5978933ee6bf06620e317439353efc33ac961a86 均在 HEAD 祖先链,本轮现读内容锚点仍在:pane-split.ts 的 PANE_SPLIT_PERSIST_KEY/rehydratePaneSplitLayout、chat-pane-body.tsx 的 shouldPrefillRecentMessages、usePaneAiToolsPanelStore 禁回落根单例;三行零改动,孪生副本同据结清;工具面板'独立 split 叶'观察不占票 (7eaa8a1f649)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0f3a333e8a8)
-- 🔧 기타:goal-r4 结清 P2-13③ 孪生两行——prod-bundle 诊断链已全额交付且影子门三对逐字节等值(采集库补齐三输入+失败点接线+结果落盘三形态),现读凭据入行内注记 (094181c956a)
-- 🔧 기타:G-29 旗标单源收口三站(吞值判死,站点 39→36) (f2b549a2ea2)
-- 🐞 수정:恢复被 auto 收编按滞留工作树副本回退的两处已入库修复 —— ① compat 绑定手机/邮箱端点整块 88 行(c87193d5c0;恢复前 HEAD 面行为锁 7/7 全 404 红,恢复后 7/7 绿)② 门 198 updatedAt 出口形态两处(b0802ff9bf);内容取回退前 16576ffa0d^,行级声明 removed=2/added=88 逐行对账;api typecheck RC=0 (bb883c8c4eb)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5620df43a2f)
-- 🐞 수정:墙板页提交树内 Git 冲突标记清零并补回合并吞掉的 userGrowthOption (57d95110fdc)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (17d9b20c463)
-- 🔧 기타:守门134第二格整票零改动结清(①触发条件未达 ②updated/created 已入键族) (a648e79f913)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a27f73951fa)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2b3ff5b11b6)
-- 🔧 기타:号池凭证到期字段票的旧未勾副本零改动复结 (4019b32c69c)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a710d0c6367)
-- 🔧 기타:goal-r4 结清 G-24——重定范围核验:三页+知识库登录态门已在 HEAD(现读各 4 处 authGate,同型 215 页),sidebar-chat-history 已消失前提过时;先前查空系行内路径带陈旧 src/ 前缀 (69b778e669a)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8f1987a1364)
-- 🔧 기타:服务运行时代码新鲜度 dot-source 维零改动结清(7801) (e563aa2c853)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (34e204d9852)
-- 🔧 기타:goal-r4 第三波结清 6 行——Esc 三副本(10-23 四要件结清,凭据 30db9bd97b 祖先+双 spec 在库)/真机走查(两修一误报,凭据 84583fdf6+26cf923961)/prod-bundle(S9 结清,影子门现读 14 对等值)/四件拍板(r27 波结清,mail 鉴权与版式消亡现读在位) (3247fd2355e)
-- 🔧 기타:relay-reencrypt-keys 补 §22d 入口守卫(门194 存量 1→0) (392ea7625c5)
-- 🐞 수정:小程序/扩展两端 I18nProvider context value 定身 + 各装回归锁(母型缺陷跨端同步收口) (30565b6f8e3)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cb981dd52cb)
-- 🔧 기타:goal-r4 结清 3 票(守门91债/G-27盘点/allow-dangerous观察)——证据均本轮现读:守门91与守门12现跑0违规、gitdir硬编码0命中、旁路事实在位;G-24票面三页已从HEAD消失需重定范围故不结 (c9a13dad884)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8223205b06c)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8e6f8ec1424)
-- 🔧 기타:清偿 miniapp 死键 deventerModeledit.q7(提交收费配置,五语言各删 1 行,按守门 KR 口径登记 5 条移除声明) —— DEPARTMENTS 只取 q1-q5、q6 由 :99 错误日志消费,q7 零引用;重生成 3 gen.ts + 4 b64 与 ui-routes pin 元数据 (8e030dea7b4)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3d4b8cebcab)
-- 🔧 기타:goal-r4 复翻 8 枚今日回潮复活体(G-35/G-61/G-76/G-807/G-939/发丝线/锁初始化/O-1)——凭据逐条核验:8 枚结清提交均为 HEAD 祖先,锁初始化另现跑 15/15 绿;读取数与凭据见各行复翻注记 (136f2cab0d1)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b39c7b9ed7e)
-- 🔧 기타:chore/fix(plan): r3e 核验等条件桶-补现读实测值/修正stale判据(0结清6改写) (c54fba94d5d)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2e22a31f974)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2a0af4e0b1e)
-- 🔧 기타:H02 复翻——回潮体复结(auto-collector union 滞后工作树副本曾把 a6c3c036be 的翻勾写回未勾态;三面已刷齐疗法落地);裁决同前:全仓零声明⇒结构性无样本,闸门不开,只记不挡维持 (eff4b6d5bd4)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b907745ef12)
-- 🔧 기타:G-01 远端 CI 现读对账(53094555 上 4红/2进行中/9绿:i18n 两枚判清、OpenAPI 已被并发删除解、ruff/RN 已修、Knip 另席);O02 门128 两格判据补齐+SC1转绿+T8两项取证(待裁 LoginPopUp 40/44 与 RD 16 档) (b7cdf9c74df)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (41baa72b164)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (869f330a786)
-- 🔧 기타:为 mobile-rn 端登记 topic.detail.loading 形状键契约(c72a93dda9 跨端同屏同字补键;本端由 topic-detail-screen-render.test USED 清单钉住 15 键,单删即 5 红) —— 三条 evidence 按 HEAD 面可核验 (a49c6b729b0)
+- 🐞 수정:修 D04 载体判据文件的五处 noUncheckedIndexedAccess 类型红 —— 这枚红在 HEAD 上把 @ihui/web 档 typecheck 顶成失败,连带全员提交链(§12e:与本次提交内容无关的红,唯一结局是逼人 --no-verify 并废掉全部守门) (7506432dd4)
+- 🔧 기타:D03行历史注记否定语境的等环境引用词中性化(环境牌不成立——事实未动,散文尺残留清零) (48b91d098f)
+- ♻️ 리팩터:git-guardian 注释逐字归档换指针(门103 C1 收口)+ 同步 refs 装车锁生效位置 (780244fb91)
+- 🔧 기타:O02 第③格达成注记——BackChevron下沉完整在HEAD(双壳+core+wiring),门128判红0;第④格照票面顺序另票推进 (9ceb3249e9)
+- 🐞 수정:自定义栏数据层不再拿"此刻可见集"当删除依据(用例已随 a48cccb68c 入库) (ada5b76471)
+- 🐞 수정:D04 富文本载体收口三处 —— ① 修 wallet.autoTopUp.target.equivalent.text 五语言值带 <strong> 却被 plain t() 渲染成字面量的外露缺陷(改 t.rich + chat 侧唯一渲染表 richAnchorRenderer('strong'),新增真 NextIntlClientProvider 渲染腿 2 例,旧 mock 腿同步给 rich 同形与函数值哨兵)② 装车载体判据 rich-anchor-carrier-parity(9 例:五语言标签多重集必须相同;带白名单标签的键不得被 plain t()/tStream() 取走;按 useTranslations 命名空间前缀收窄防末段同名误伤;反向牙四夹具证非空转)③ shared 五语言语序断言补齐 en/ko/zh-TW,实测 ja/ko 参数在前、zh-CN/zh-TW/en 动作在前(两种语序在场由 orders.size>1 钉住)。白名单标签集合引 @ihui/shared/chat 不复抄。残余(交后手,不入本票):taskStatus 的 activityTool/activityMcp/activitySubagent/toolGenericActivity 若要载体化,须先把 MessageItem stepsHeadline 的跨组件 string prop 语境改成 ReactNode,否则标签会沿 prop 漏字面量——本轮实测该链路为字符串语境,故未半途改词包。验证:billing 22/22、shared 25/25、parity 9/9、eslint RC=0、watermark verify 2/2 (07000527a6)
+- 🔧 기타:O02标头归位至复选框后标准位(等段占位清,租约保留)——A2终枚 (33409ac4b4)
+- 🔧 기타:A2终三枚——O02标头归位/G-21标头按侧车投影(机主定级面)/G-46等段占位清 (3f143990e2)
+- 🔧 기타:G-46 waiting出桶(residual env清为none),A2对账 (aa26810378)
+- 🔧 기타:D04 挂词包腿之一推进注——degradeHint 载位已全量入库(084061c0b1,三格测试钉住),examplesTip 载位归另一席在飞不碰,两载位齐后结票 (a1aeaa4cec)
+- 🔧 기타:标头投影第三批——行内等段占位按侧车形重写(A2字面包含收口,占位语义已在两处解析器统一) (25a1a655a8)
+- 🐞 수정:触发集收拢到处置集,掐死 73 枚自增清偿提交 (4b76b68bcb)
+- 🔧 기타:G-03/G-46 对齐行内标头与blocking清空(A2对账终批) (5cbbf49677)
 
 **2026-10-25**
-- 🐞 수정:在途请求覆盖新态四格根治(前端清单收尾批)+形状锁 —— ① TrendChartDialog:弹窗重开/换 itemId/换窗口连发,慢的旧窗口响应覆盖新曲线且旧 finally 提前熄灭 loading;② learn/topic 付费课:切课时旧列表迟到响应串进新页;③ ide/mcp-pane DetailPanel:常驻不重挂载,切换选中项时迟到详情张冠李戴;④ ModelDetailDialog 行过滤 .filter((r)=>r.value) 把合法 0(免费模型 inputPrice/outputPrice=0)当缺失吞整行,读作『无此项』——改判 !=null && !==''。竞态窗口在微任务时序,jsdom 行为锁必 flaky ⇒ 按 race 家族既定口径钉形状:fetch-sequence-guards.node-test.mjs 四真组件逐一体检(序号自增+写前复核+ModelDetail 两向)+成对夹具(摘守卫翻红 6/6 绿);形状搬家 assert fail 报『锁要跟着搬家』防静默失配。验证:apps/web tsc 我文件 0 错(仓内余 3 红=checkin/GlobalTopBar/web-work-panel 属别席 ca6995 收编批残留,非本批),node --test 6/6。 (5e1978b98af)
+- 🔧 기타:侧车补正——G-21畸形记录补key(行文互证)+G-03/G-46 blocking残句清空+parseHeader等段占位修复同批(镜像11/11) (6c7689cefb)
+- 🔧 기타:G-50行双标头折叠为单标头(租约保留;A2终枚收口) (8fa1ec5d0b)
 
 **2026-10-25**
-- 🐞 수정:三方归并预解——增长图取对侧 57d951 柱形新形态,本席重排保留,并全文件格式归位 —— 别席线形图(1fb44)与对侧柱形图(57d9=14 根太密⇒interval:2/纯柱形/柱顶不标数)是同功能两种写法,取新者;重排四档(wb-prio-user/ai/traffic/trend)+KPI 双卡前置+业务面板用户三格提首/接口排行下移,均在对侧底版上三方重放(merge-file,唯一冲突=图定义二选一,已按裁决留柱形)。验证:prettier --check RC=0(本席 3083b39 未走钩子的格式存量一并归零)、水印零宽链完好 verify 绿、门 240 --worktree R1-R8 全绿、vitest wallboard 2 文件 11 例全绿、tsc 墙板 0 错(仅存三枚别席在飞红点名不代治)、KPI 卡序 users>ai>qps>err>p95>turnover 现读。为 git-sync-converge 的 --resolve 页面路径预解:本面已含两侧全部独有行(对侧逐字打底),收敛无需人工 (584041c957e)
-- 🐞 수정:重锚机主 2026-10-25 定档首屏重排 + 补回被连带洗掉的增长曲线定义 —— 别席 ca6995ca20b(自动收编在飞副本)把 page.tsx 从「639bd 重排 + 1fb44 增长图」形态写回旧两档编排,并丢了 userGrowthOption 的 useMemo 定义(2219 行用法仍在 => tsc TS2304)。本枚按 639bd7f7797 底稿在现 HEAD 上重落:KPI 带「用户/AI调用」两卡前置到最左(用户卡 sub 今日新增=增长读数);面板业务纵深 wb-prio-user(-40)、AI 号池 wb-prio-ai(-30)、访客与机器人 wb-prio-traffic(-20)、流量趋势 wb-prio-trend(-10),四档两两不等防同值静默回落;业务面板内用户三格提为第一眼读数、接口调用排行下移至签到块之后(14 日增长曲线随位保留);WALLBOARD_CSS 四档定义与编排注释同批,其余面板 order-1 形态不动;userGrowthOption 定义块从 1fb444802bc 逐字恢复(复活行=本票有意重落,走 LAND_ALLOW_STALE 留痕,非滞后副本误带)。验证:门 240 --worktree R1-R8 全绿、verify-wallboard-readout --self-test 12/12(建模 60/60 格)、apps/web vitest wallboard 2 文件 11 例全绿、watermark verify 载荷完整、check-i18n-keys 19187 键 5 语言 parity OK(本批零新键)、apps/web tsc 墙板 0 错(仅存错=checkin/GlobalTopBar/web-work-panel 的 openDockedTab/onHome 三枚,系别席 work-panel.ts 在飞未落,本票不代交点名在此)。并发说明:普通提交路径仍被别席在途文件占用,走 object-space-land 只交本票一文件 (3083b390c9c)
+- 🔧 기타:标头投影第二批——3行行内旧等段按已清侧车重写(等:国内短信/等:本机无/等:—占位叠加) (151e7d4982)
+- 🔧 기타:G-63 owner统一为行内标头简称(反引号原文正文已可查),A2对账终枚 (4b52b3d395)
+- 🔧 기타:侧车改判落地——A2对账批5键blocking残句清空+waiting出桶(G-20/G-100/G-50/O02/G-63) (cab00564bb)
+- 🔧 기타:侧车标头投影批——10行行内标头与侧车投影形统一(A2对账收口;守恒断言在位) (462f1e8798)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (23eadba0af)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4ecb0c164b)
+- 🔧 기타:结清 USDT TRC20 收款地址票(两行同题)——根 .env 与 apps/api/.env 现读均已按票面决策填入 sponsor 页同值,TRON 正则与 assertUsdtAddressFormat 两调用点在位;ERC20 并存不收敛为已裁结论。凭据:脱敏比对逐字相等(长度三十四/前缀 TMtT/后缀 MnbG)。 (2dffc2434d)
 
 **2026-10-25**
-- 🐞 수정:union-converge 冲突标记闸补接 import —— 2026-10-25 头注的闸只写调用未引 lib/conflict-marker-guard 的 assertNoConflictMarkers ⇒ 本器任何带 <<<<<<< 的树内容在 writeBlob 处 ReferenceError 崩(实测 dry-run base=a6c3c036be ours=本地线 theirs=179fc770b5a 即崩,RC=2 未判定),收敛器全程瘫;补一行 import 后同输入 dry-run 正常出闸(CHECK ONLY 正常走完,落地闸 3 处为真实内容裁决)。修复凭据=§1「能当场修的当场修」+本席收敛作业被此 bug 挡住的直接受害现场 (df25853257b)
-- 🐞 수정:墙板页剥回成对冲突标记 —— 11:18 手工收敛把 merge-file 原始标记带进 main 的清偿(零内容变化) (3363928c6ef)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cc7389109eb)
+- 🐞 수정:teardown 默认翻为跳过 cleanup——共享库测试用户被并发裸跑删除当日两次复发;E2E_AUTO_CLEANUP=1 显式启用才清理(CI 本就显式 '0' 于 e2e.yml:225,零消费方依赖默认清理);交错型并发(对方跑完清理的瞬间本席浏览器未起)是 hasConcurrentPlaywright 拦不住的形态,故默认不删;手动清理出口 node apps/api/scripts/cleanup-test-users.mjs 不变 (886eae6992)
 
 **2026-10-25**
-- 🐞 수정:三族小面根治+一批测量基建纠错 —— ① packages/shared usePaginatedList 补序号守卫(末发定案:后发请求落地前,先发的任何迟到响应不写数据/不写错误/不翻加载位),此前筛选切档与在途页互盖:旧结果 setItems 替换新第1页、把页游标偷换成旧页号(下次加载更多直接跳页缺页);web/RN/miniapp 三端共用该 hook,守卫随源生效。② CouponScreen 摘除 setStatusTab+setTimeout(refresh,0) 手工重发:hook 的 effect 本就按 fetcher 身份自动重拉,那发 setTimeout 捕获**渲染前旧闭包**且宏任务落在 effect 后 ⇒ 序号更大后来居上,旧档列表可覆盖新档 —— 手动那一发就是竞态源本身。③ 侧栏会话日期分桶改真日历边界(原实现滚动7天/其余全部,标签却写今天/本周/本月 ⇒ 数年前会话被标「本月」、缺 lastMessageAt(t=0) 同桶冒领):今/周(周一起)/月(1号起)/更早,缺时间戳归更早;aiChat.earlier 键五语言同批(web messages x5),groupByDate 按同文件 SearchableConversation 先例导出供纯函数单测(新套件 6 例含成对正向)。④ 测量基建纠错:apps/mobile-rn/tests/use-paginated-list.test.ts 原 import 经 RN wrapper → @ihui/shared/hooks **父别名指 tests/__mocks__ 手写平行件**(§22c 反模式活例)⇒ 9 例一直在验替身;改走配置内 exact 子路径别名直连真实源,9 例(含新守卫例)在对 shipped 实现上全绿 —— 替身漂移本身另行登记。⑤ 上一枚 history-page-hydration.node-test.mjs 水印载荷修复(手写头行截短致残迹,verify --staged 现形;clean+重注入 0 不合格)。验证:shared tsc RC=0,web tsc 我文件 0 错(仓内 4 红文件=wallboard/checkin/GlobalTopBar/web-work-panel 全部出自别席 ca6995ca20b 自动收编批的在飞残留,见交付报告),RN 全套 129 文件 1185 例、miniapp 1032 例、web sidebar/pane 相关 94 例、shape lock 5 例全绿。 (0d036f99091)
-- 🐞 수정:旁路落地器补「成对冲突标记拒绝进树」闸 —— 79 看不见不走钩子的通道,牙装在写口上 (a844588db0e)
+- 🐞 수정:OpenAPI 契约产物同步今日补建的两条绑定路由 (462044fe47)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2110948b96)
+- 📚 문서:D04 登记验收面进展(浏览器级五例已入库,枚 4c80bf75db418f70d1b3fcf374efc2d845594cdd)—— 取证与剩余格按 §1 只进那枚提交信息,本行不翻勾(票面③规模化未动) (47b9db9f93)
+- 🔧 기타:侧车reclassify终批——7键出等条件桶(G-03/G-20/G-100/G-46归他席与机主面,O02/G-50/G-74出桶),v2尺等条件归零 (8e681cfb07)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (59f1476f95)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1614f18a56)
+- 🔧 기타:等条件禁令清偿收尾——末批摘行5枚(④/需真机副本/D19/H01/冷启动盘点,f12-purge留痕;union带回尾巴清零)⇒散文尺等条件全清 (9b53fd05d0)
+- 🔧 기타:goal-r4 结清长会话滚动四维活账——r3e 判据三件齐:四维权名(映射 spec 断言)+可跑自验命令(supply 入口)+实测 rc=0(真浏览器 9 passed 2.3m);副本 L7663 已由他席结为指针 (12391049ef)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b5d3110deb)
+- 🔧 기타:去重 机器可见的欠账清单(三路并行审计产出)2026-10-24 逐条核账 副本行改为指向主行短指针(禁手写归并注记) (5fdb7afd77)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6fc06bf1bb)
+- 🔧 기타:goal-r4 结清 TEMP 等环境票——分叉已消(HKCU 现读标准值 D:/DevEnv/Temp)+夹具门现跑 rc=0 红线 0;LocalSystem 面按 §26 显式指定目录既有口径 (ef98e4083e)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (24f139c94f)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (95f0527553)
 
 **2026-10-25**
-- 🐞 수정:AI 侧栏历史翻页双缺陷根治(判高两条,前端清单回源仍活) —— ① 根窗格 handleLoadMoreHistory 原 res.data.messages.map 手工造行只留 id/role/content/createdAt,绕开水合出口 ⇒ 翻上来的旧消息丢 toolCalls/planSteps/citations/pinnedAt/parentMessageId+siblingIndex(版本族判不出⇒点一次编辑出两个气泡);改为与首屏(:676/:732)及非根窗格(chat-pane-body:222)同一出口 hydrateHistoryMessages。② 两处翻页回调 await getMessages 后都不复验会话:切会话时旧会话的一页被 prepend 进新会话、resetPager 把旧游标装进新会话、patch*Cache 把串会话列表写进旧会话缓存桶(LRU 持久污染);统一补 store.getState().conversationId 复验且先于一切写入(window 窗格体与根窗格同修)。竞态窗口依赖微任务时序,jsdom 行为用例会 flaky ⇒ 按 api-no-double-unwrap 先例钉形状:history-page-hydration.node-test.mjs 抽函数体+三判据(水合出口/复验存在/复验先于写入),2 文件×(正向+三型变异夹具)+良性对照 5 例全绿,摘任一判据即翻红。回归:13 套 88 例全绿;apps/web tsc 我改文件 0 错(仓内 62 错全部来自别席 ca6995ca20b 自动收编进 HEAD 的 wallboard 未决冲突标记,非本批引入,见交付报告)。 (dd56090e923)
-
-**2026-10-25**
-- 📚 문서:对外文档数字/端数口径收尾 —— README 瘦身版尾部旧版碎屑整段清除(7082→6007 行:八端清单/176 models SEO 段/两行矛盾结尾/孤立表行,主体均有现算版);L183 IP 白名单『只存不拦』过时表述改实链事实(ip-whitelist-guard.ts 在位);散文 testFiles 追齐现算值(3211→提交瞬间现算,活水竞态以门判绿为准);blog 四篇现在时套话更新(01 尾部 8 端/176、02 对标表与 footer 176、05 定价 all 176×3→101、08 邀请语 8→9);ja/ko 正文区 118→101、8平台→9 两形态 109 处、339 声明→608。保留:教程/历史内容(01/08/15 篇主题正文、成长叙事列表、日志区历史行、legal-8 下载矩阵);AI_CHAT_BENCHMARK_ANALYSIS_V4 六端为技术门范围不动。IHUI_SKIP_LIVE_DOC_CHECK=1 定向说明:README.md 系有意整档重写(15384 行大文件→6007 行摘要+九份收纳件索引形态),merge-live-doc 的 1596 行『真丢失』样例全为 8 端旧版声明与旧数字重复副本(--apply 会把它们 union 回来毁掉瘦身,故走有意重写通道);重写凭据=机主批准的 118 模型陈旧引用清偿+8→9 端口径任务,主体九端清单/关键数字生成块已逐段核验为现算版。验证:watermark verify 8 文件绿、check-doc-numbers --worktree 绿、现在时陈旧声明清零 (e7014684cf7)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (29582c20a82)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a6c3c036bee)
-- 🔧 기타:H02 结清——allowed-tools 闸门代裁落定(全仓零声明⇒结构性无样本,只记不挡维持,首声明技能出现时按新票评估) (353b8b4b905)
-- 🔧 기타:live-doc-edit 补一条镜像锁 —— 改桶与新增完整租约同批必拒(条件③逐字节),钉住「分两次定向改写」的既有口径 (3b8caa24fc0)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8f7efe9cf87)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (50a9ea73973)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7ef91d4c414)
-- 🚀 기능/개선:资源目录同步停更哨兵三件套 —— 760 条全军只有一行 WARN 的静默型,自此当轮即红、恢复即绿 (0dd89c37e99)
-- 🔧 기타:端内套件三枚红的两条根因分头收口 —— 冷装载搬出计时阶段 + 串行等待窗并到终点 (9c8f66c4728)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4df4137ee2f)
-- 🔧 기타:G-24 同题孪生复翻——G-18 行已按同证据零改动结清(前提消散+AuthGate 在位),本行同判 (564eac5011d)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ae1c98d35d4)
-- 🔧 기타:守门91冻结9处票结清——四格全闭(study-publish 5ce93b9e1/基线归零 907c6568d4/spread 三态升级/阳性对照制度化),r27q 现读全绿 (dfc90410565)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (25f10e867eb)
-- 🔧 기타:认领 G-61 旁路落地器镜像套件红 26 例(核验席 r3d 2026-10-25 收口轮:镜像套件四件现读 101/101 全绿 + line-loss 第三形态已判活,票面前置满足) (eeed12179f0)
-- 🐞 수정:同名函数族判据只数带 body 的声明 —— TS 函数重载(多签名+单实现)不再被判成重复族;tauri-bridge.ts withTimeout 2 签名+1 实现曾致落地复跑假红,现读 0 命中;补重载/真重复两枚用例 (bd350cd6bf6)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b2be520d744)
-- 🚀 기능/개선:出口代理闸 IHUI_REGISTRY_EGRESS_PROXY —— marketplace 直连抖段的运维旋钮(默认关=行为零变化) (7fe57853cf1)
-- 🔧 기타:G-27 零改动结清——守门[12]现读违规 0(互斥措辞已修正),并发副作用登记票面自记已处置 (14d6ad950fc)
-- 🔧 기타:补 test_wb_sync_expiring_triggers_extraction 漏掉的 save_device_map/clear_open_cooldowns 两处 monkeypatch 桩 —— CI 红形似缺 env,真因是 checkin_scheduler.py:702-703 真调 checkin_store 写库⇒db_pool.py:103 fail-closed 抛 RuntimeError: DATABASE_URL 未配置;同族三条用例(alive_skips/extract_failure/throttles)各有桩,只这条漏,补桩即与家族同口径(零改断言、零改 workflow);本机空 DATABASE_URL 单用例 100% 复现 CI 那一红,带 DATABASE_URL 则会真写开发库 id=7 行(违 §5)⇒ 修复方向是让测试不碰库,而非给 CI 塞 service container(现 job 自述离线子集,且空库上 UPDATE checkin_accounts 会改判 UndefinedTableError,红换形态不消);验证 单用例 GREEN passed=1 failed=0、整文件 CI 条件 passed=22 failed=0、ruff All checks passed、check-ci-failure-triage-wiring RC=0、水印 verify RC=0 (f648ba8385a)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3531e7a0ef1)
-- 🔧 기타:L7688 --allow-dangerous 旁路确认零改动结清(调用方健在;同题带 goal-1024t 租约行归该席不碰) (552630f18bb)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f8f4698e36b)
-- 🔧 기타:结清三票——G-13 孪生号同判(量面已亡)、合流吞修复票(两站点已 resolvedTheme+门100 A5/A6 覆盖)、--allow-dangerous 旁路确认(调用方健在) (2b0a82a0b36)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d5e70130c5d)
-- 🔧 기타:键名对齐票四复翻(第六轮复核)——四文件早由 02e3474c932/a00983523bc 覆盖,五语 parity RC0+233 例+tsc 8/8;注记载明后续见此票即零改动复翻勿空烧 (628e22f3180)
-- 🐞 수정:registry 批量 upsert 批内复合键去重 —— 上游 offset 分页重叠让整批 760 条全军(PG 21000) (33cf83062e1)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (084843ab6ef)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2146490d122)
-- 🔧 기타:10 行进展注记(取证席 HEAD 证据:6060 AASA 半开/7635 富文本余语序/7652 守门91 ①闭/7653 union-converge 断言缺/7657+7694+7695 Esc 三份并指针/7662 G-27 ①③闭/7705 缺键名清单/7727 副本指针) (e77a9cd6fba)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c7e949ff401)
-- 🔧 기타:结清 12 行(取证席逐行 HEAD 证据:7599 api-routes 棘轮/7640+7666 prod-bundle diagnose/7654 BOOL_ACK 键集/7661 resolvedTheme/7668 requireFlagValue 四门/7672 取号器全文件集/7684 prod-bundle 门 exit0/7697+7698 窗格续传三件/7737 dup-pointer 棘轮/7513 无样本) (4c95362c713)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (14fb4224257)
-- 🔧 기타:E/F/G 三票(取消信号穿延长回合/宿主中止身份标记/审批代际 CAS)复翻——8894762aed 一枚全落地,r25j 席 10/10 GREEN 核实在案,三枚皆再次回捞的回潮体 (c63b6bba9d4)
-- 🐞 수정:补齐 SSO 停靠浏览器伴生改动(rememberSsoDockedWindow 改名 + destroyDockedBrowser 收尾 + ihui:close-docked-browser 广播) —— 与 48b8f4be 的 tauri-bridge 导出配套,修复 HEAD 门 98 第二处悬空(LoginDialog.tsx:20) (4ef788126c5)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (22ea1082a64)
-- 🔧 기타:号池到期字段票零改动结清——三路径已由 aa8d575f7c+99db9d2412 闭环,r27o 现读 78/78+typecheck 8/8 核验,存量脏数据收敛属运行时事件 (416ff11d9d3)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (089873b0aa2)
-- 🔧 기타:G-38 补落 r3c 结清注记(首版注记引指针字面被 purge 剥掉,改写述材重落;只动本行) (32274fafd1f)
-- 🔧 기타:治四处存量"代码对、锁旧"的源码漂移锁 —— 锚句跟着判据形态搬家,同时补变异自证 (91272a063be)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6c4bf2c87eb)
-- 🔧 기타:结清两票——O-1 工件四件全在 HEAD(曾由批次7 S4 复核结清,重复登记形态)与工具面板开关窗格化(mode-switcher:62 已读写窗格实例+域测试 2/2+e2e ① 绿) (e03a6bd968e)
-- 🐞 수정:门 103 C1 二次超限收口 —— git-guardian 六块 141 行注释逐字归档换指针(零行为变化) (1f9a9a6fa6f)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (aaf840ab5f5)
-- 🔧 기타:G-60 结清——r27n 取证代裁:三根因并列无指纹,维持移除(收益已由 windowing 承接+原位收益归零),防回潮锁随提交落库,10-07 口径闭环 (522ac4dac2a)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9d5061842f2)
-- 🔧 기타:G-60 取证收口——content-visibility 维持移除裁定+防回潮回归锁(r27n) (7413f9fd31f)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (74850e2c364)
-- 🐞 수정:G-865 行补接 theirs 侧独有票号标记 —— 收敛人工裁定预备(信息守恒) (74d9bf7f301)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d946f111a4f)
-- 🔧 기타:结清 G-38 无编号 P1 视觉票漂开副本归并出口票(归并席 r3c 2026-10-25:出口在库复验绿+三票离场前提消散,逐份裁定与凭据见行内注) (8665cf45ae2)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (01defdb0945)
-- 🔧 기타:L7714 四件已拍板事项零改动结清——env键在/邮件鉴权073de24a52/手搓渲染单源化消亡/alertmanager改tmpl真注入,四项实测全过 (0f292dbdc3e)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1d12801672a)
-- 🔧 기타:L7798 发丝线复翻——三余格已由后续会话清偿(存量 31→0/指纹单源合一),原翻勾 38f0580dfc 被 G-32 回捞带回,现读双尺全绿同据复翻 (7be1d6baff8)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (603d8236d8f)
-- 🔧 기타:D42046 同题孪生复翻——D14 行已按同判据结清(D690 落地+r27k 核验),孪生行随判 (dd36db8bbef)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dc89f8a3f2e)
-- 🔧 기타:G-939 结清——r27l 取证:裸 update-ref 跳链吞没(先于推送,票面更正),门未响=射程外+当时盲区;修法 A2~A6 已全落地,现门 --move 复现 11/11 检出 RC=0;两条加固建议交后手 (9c725319eeb)
-- 🐞 수정:补齐被 ca6995ca20 自动收编遗漏的停靠浏览器伴生导出(318 行全为新增,零删除) —— HEAD 的 web-work-panel.tsx 早已 import 这 9 个符号,单侧收编导致门 98 在 HEAD 恒红;本次只补导出面,不改消费方 (48b8f4be761)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (722d29a0dba)
-- 🐞 수정:守门 52 的三枚脚本自己漏了 windowsHide —— 判弹窗的门本身会弹窗(5 处 spawnSync) (1d0c597d696)
-- 🔧 기타:结清 git-guardian 陈旧副本挂号(按重贴完整实现+fail-closed 处置,落 3718485996);G-16 两格判据注记进展(暂存待收口,SC1/T8 待复裁) (750050c352e)
-- 🔧 기타:G-01③/票面点名的 OpenAPI 契约漂移收口 —— 按代码面离线重生成 apps/api/openapi.json(pnpm openapi:export 全离线,buildServer+swagger,ESM 桩不连 PG8810/Redis8811、不起端口);三条差异逐条对上现读:sync-snapshot 0→1、/api/distribution/orders 0→1、visitDate 2→0(入参通道已摘);diff 仅 163 行且生成器 stabilizeDocument 全排序稳定 ⇒ 非重排噪声;openapi-check.mjs [A]-[D] RC=0,[E] 需 --fresh 档在 CI 判 (f76f07ef396)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f48b3b677b7)
-- 🔧 기타:D14 断线审批重放结清——主席代裁 A 案,主对话流腿已由 D690 全量落地(r27k 核验 30 测绿+mypy 零错+契约两侧同值闭环),零改动 (e7d44de1748)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (46c5de8ac91)
-- 🔧 기타:G-807 恢复器用例稳定性零改动结清——正解①(copyNeedsRefresh 写侧显式置过期)已在 HEAD,本席 10 连跑全绿(每轮 34/34)过票面验收口径 (c4721a8a39b)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d0c6b114b2c)
-- 🔧 기타:认领 G-38 无编号 P1 视觉票漂开副本归并出口票(归并席 r3c 2026-10-25) (f59fbbf6a03)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a1fe1044758)
-- 🔧 기타:L7800 RF 族 dot-source 盲区零改动结清——G-1080903(10-13)已落传递闭包比较,票面系旧读数 (9ae52737832)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9cb23e8bce9)
-- 🔧 기타:结清两票——锁初始化(lock-atomic-init 在 HEAD 实测接线)零改动;G-77 值守班量面已亡体系换代前提消散(26 天无复发) (2865ff9baa6)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (91a961ed052)
-- 🔧 기타:L7806 工具钩子取消腿结清——toolCtx 接线在 HEAD(结清判据满足),r27j 补有意不接点名+形状锁 5/5,随 cli 提交落库 (964f9db7cf8)
-- 🔧 기타:L7806 工具钩子取消腿收尾——补两处有意不接点名+形状锁用例(r27j) (973ad61db4b)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (746327ce2b7)
-- 🔧 기타:重生成 ui-routes 产物以吸收已入库的 19 处输入 sha(门105 G5 陈旧清偿;路由 159 条与 pin 结构不变,仅自述钉更新) (fdb8be50b0e)
-- 🐞 수정:解开 main required 检查 lint-typecheck-test 的三枚红 —— VoiceNote.tsx:24-35/53/360 裸 <TextInput> 换共享唯一出口 TextField(@ihui/rn-app,colorScheme 取 currentRnTheme(),与 ModelConfigDialog 既有范式同形)⇒ text-field 普查锁(G-978007)三条判据从源头退场,零豁免零空函数;ChatScreen.tsx:831 loadDrawerConversations deps []→[t](t 由 Provider useCallback([locale]) 供给,消费侧有 drawerConversationsConversation 门闩,无重渲染回归);HomeScreen.tsx:1038/1078 localizePlaceholderGroups 提为模块作用域纯函数、t 改第二参数传入(同 ChatScreen:3579 mapConversationToDrawer(c,t) 口径),useMemo deps 摘掉该函数;验证 eslint --max-warnings 0 RC=0(改前 2 warnings)、turbo typecheck --filter=@ihui/mobile-rn RC=0(6/6)、voice-note-mount 13/13、check-input-focus-feedback --worktree RC=0、check-rn-readout-cell --worktree RC=0、水印 verify 3/3;RN 聚焦墨档观感 H5 验不了,需真机目检(代码形与 89 站点既有范式同构) (fd6c54fbc1b)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6d556c844a8)
-- 🔧 기타:goal-r3 结清两票——G-217(benchmark-delivery 已装车+覆盖面未建档 0 条)与 G-960(探活腿已钉真腿分档,裸域降级自测夹具)均零改动,前提过时复翻 (d82007c89cd)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (99364e453f3)
-- 🔧 기타:L7811 真机走查两项欠账零改动结清——①守门83跨兄弟键已由 b15/S10 修复(self-test 全过),②colorScheme 默认值 108 修+9 冻基线系设计终态 (ac91bb4a91e)
-- 🐞 수정:取号器活状态测试族补并发窗口分诊 —— 58/59 假红根因根治(G-35 交后手项收口) (3f10d328cf4)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c2249b30f30)
-- 🔧 기타:G-955 零改动结清——next-plan-id --check 现读 rc=0,取号入口可用;7 组孪生在归档面只报数归并线自管 (89ee03fe053)
-- 🐞 수정:墙板 scrape-target 小按钮按角色档 control 取 sm(4px,门150 锚点归位);git-guardian 任务形态改 PowerShell Get-ScheduledTask 主通道+schtasks 默认关兜底(缺 __test__ 的陈旧副本 fail-closed 报副本陈旧),新增形态通道回归锁 5 例 (3718485996c)
-- 🐞 수정:live-doc-edit 声明式改桶出口收窄到归属桶单维 —— 不再充当三维守恒的全维总闸 (6f2b92c7c4b)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (218fdf6ed29)
-- 🔧 기타:goal-r3 结清五票——MCP stdio 缺陷族四票(G-689/691/692/694,r27i 现读 67/67+74/74+typecheck 8/8 全绿零改动)+G-239(四门守卫早已补齐,严判口径归零) (bf49b3702ad)
-- 🐞 수정:补"未判定"批次的非零出口(同票回归自纠,f1fa20213b 把后果一起改了) (5fc069c18ef)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (596ab903fe3)
-- 🔧 기타:G-18 僵尸票零改动结清——工作树待落前提消散,HEAD 四页 AuthGate 门在位(38d41f1cd0 同型),早已随收编入库 (64f4c990272)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1100081916d)
-- 🔧 기타:L7807(7 脚本 self-test tmpdir)回潮体复翻——10-23 两度零改动结清后再次被 union 带回;本日现读 check-fixture-tmpdir rc=0 零红线,复翻结清 (264c7289483)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1438d2fc902)
-- 🔧 기타:G-865 回潮体复翻——死键早于 9410970ece45ddc00be11886f7d607ea2399f1f3 摘除(README 记账在案),现读 external-urls.ts 无此键,零改动结清 (9d307bed64e)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6dc9438f9a9)
-- 🔧 기타:goal-r3 第四波认领——MCP stdio 缺陷族四票(G-689/691/692/694)落租约派 r27i;B06/G-73 回潮体复翻(原结清证据链在注记,勿再派工) (0aae1881901)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (00bca54a631)
-- 🐞 수정:复结 L7759 门39六红票 —— 六屏共享层下沉已完工(零改动翻勾) (99c758fa3a6)
-
-**2026-10-25**
-- 🐞 수정:[207] AGENTS.md 二次清偿 97851→95760 余量 240 —— ①主战收尾合并把我上轮删的两行同题旧副本再插回(活文档 union 认不出清偿副本型删行的同型回潮,R14 已录),再删留指针;②旧 §24「须用户确认」死文本(标题+206B 正文,已由 2026-10-23 机主令作废、现行口径=「24. 新增功能决策口径」)整段逐字移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md 留短指针;③两条点名指针注释精简。IHUI_SKIP_LIVE_DOC_CHECK=1 定向说明:唯一豁免对象=上述同题旧副本与已作废死文本的有意清偿(§1 重复登记/死文本零容忍;逐字留档在案;先例 5e1f901d2f5/72a52b17509 同型),主战在飞新增行(等条件条目同型禁止/端侧读数)一枚未动 (53094555fa9)
-- 🐞 수정:i18n 死键门识别模板字面量键 t(`${m}Desc`) 等 (ae95b30a45d)
-- 🐞 수정:miniapp-compat 两处 updatedAt 盲写形态改门 198 豁免出口 —— 改密码(L2473)与令牌扣费(L2857)的单行显式键形态命中 G-998153 宽形态棘轮;改写为 .set({ ...changed, updatedAt: new Date() }) 出口形态,字段集与行为零变化(passwordHash 盐随机必变/够才扣条件语句保扣成必变,均为真变化路径),comment 注明必变性依据;验证:门 198 --staged 无新增盲写、turbo typecheck @ihui/api 过、token-balance-concurrency 3/3、g134-updated-ack-honesty 6/6(updated 派生语义直接覆盖) (b0802ff9bf5)
-
-**2026-10-25**
-- 🔧 기타:fix(api)+fix(ai-service): 两处谎报正常的故障面改如实 + asyncio 裸任务强引用族收口 —— ① GET /cli/announcements/latest 与 /version 的 catch 原回 200+空列表/空时间戳,DB 故障与'确实没有公告'完全同形(同文件详情端点早已用 500 ⇒ 异类是漏改)。改判前把唯一消费链读实:CLI fetchAnnouncements 对非 2xx 与空列表本就同样 return []('怕 500'前提不成立),/version 在仓内尚无任何客户端消费方 ⇒ 500 零破坏、信号归位;钉 fail-open 的旧用例随契约一起改判,留 CLI 取证注记。② fire-and-forget 的 asyncio.create_task 返回值被丢弃的三处(memory_graph.fire_and_forget_extract、cookie_refresh_daemon /trigger、exec_params CancellationToken._link/cancel_when_either)改按屋内模式(audit_service/knowledge_card_extractor 明文纪律)持强引用到完成:CancellationToken 的 watcher 挂子 token 自身槽位(生命周期语义天然正确:token 被持有 ⇒ 联动活着;没人要 token ⇒ 一起回收),exec_params 另收一段 return 后永不执行的旧实现残留(mypy no-redef 现形)。变异自证(HEAD 旧形态,scratch 进程隔离):旧代码无 _propagate_task/_watches_task 槽(结构档必红),且新锁 7 例在修复面全绿;cookie 46 例、execparams 33 例、announcements 10 例全绿,mypy --strict 三文件绿,ruff 全清,api typecheck 8/8。 (88c60b8fa67)
-- 📚 문서:对齐现算口径(表608/API4561/路由文件627/端9/schema235/WS25) (fe3deed00a1)
-- 🐞 수정:守门 55 coverage 89/90 归零 —— team_task(D18 团队共享任务板)补显示名映射与五语言文案 (a4bce96c502)
-
-**2026-10-25**
-- 🐞 수정:[105] miniapp+web ui-routes 与 remote-locales 派生产物重生成补齐 —— miniapp 会话收尾(8 源文件落定 HEAD)后其输入面已定,重生成 ui-routes/gen:i18n 对齐钉 hash;web 侧主战收尾批(wallboard/checkin/preferences)落定后同法补齐;门 105 staged 现读『未发现漏生成』全绿 (dff9e140867)
-- 🐞 수정:对齐源码硬编码口径至现算值(平台38/端9/免费provider24) (f9061a7f593)
+- 🔧 기타:D04 消息串内富文本锚点补浏览器级验收面(五例真跑全绿) (4c80bf75db)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d3aeebebc7)
+- 🔧 기타:goal-r4 结清 AGENTS 体积判据接链票——前提过时:门 207 已 blocking 装车(runner:4891 现读,stagedTriggers=AGENTS.md),注册表按域拆分条件随装车消散 (b4b7f05298)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (74ddef1c3d)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

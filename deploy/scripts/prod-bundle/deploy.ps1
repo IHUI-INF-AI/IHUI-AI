@@ -32,7 +32,8 @@ Set-Location $ProjectRoot
 
 # ==================== P2-13 部署诊断采集库(必须在 Write-Step/OK/Warn/Err 定义之前加载:那四个函数会调它)====================
 # 与 compose 链 deploy.sh 的 bash 版同型:库自身所有函数一律不让部署挂掉(见其头注「默认零行为变化」),
-# 诊断不可用(node / IHUI_AI_KEY 不齐)时拒绝运行并留痕,绝不编造诊断;不发任何通知(§5e 邮件单通道)。
+# 诊断不可用(node / IHUI_AI_KEY 不齐)时拒绝运行并留痕,绝不编造诊断;到人只走邮件这一条通道,
+# 且一律经 apps/api/scripts/notify-deploy-failure.ts(§5e,库内 Send-IhuiDiagNotify 已接,不自拼传输层)。
 # 摘线保护:库不在了也要跑得动部署,给一堆空实现 + WARN 而不是 exit。
 $IhuiDiagSelfDir = $ScriptDir
 $diagLib = Join-Path $ScriptDir 'deploy-diagnose.ps1'
@@ -45,7 +46,8 @@ if (Test-Path $diagLib) {
     function Write-IhuiDiagResult { param([string]$Status, [string]$Stage, [string]$Message) }
     function Update-IhuiDiagContainerLogs { param([string]$Note, [string]$ComposeFile) }
     function Update-IhuiDiagHealthJson { param([string]$ScriptPath, [string]$OutFile) }
-    function Invoke-IhuiDiagRun { param([string]$Context) Write-Host "[diag][WARN] 缺 deploy-diagnose.ps1,诊断未执行" -ForegroundColor Yellow }
+    function Invoke-IhuiDiagRun { param([string]$Context, [string]$Category) Write-Host "[diag][WARN] 缺 deploy-diagnose.ps1,诊断未执行" -ForegroundColor Yellow }
+    function Send-IhuiDiagNotify { param([string]$Category, [string]$Context, [string]$DiagState, [string]$DiagWhy) Write-Host "[notify][WARN] 缺 deploy-diagnose.ps1,本轮没有到人通知;出路: 手工经 apps/api/scripts/notify-deploy-failure.ts 补寄(见其 --help)" -ForegroundColor Yellow }
 }
 # 日志与结果落进 bundle 自己的 logs/ —— 不写死盘符,全部由脚本所在目录推导(§15b)。
 Initialize-IhuiDiag $ScriptDir 'compose'
@@ -203,7 +205,7 @@ if ($SkipBuild) {
         Write-Err "         2) 网络问题(pnpm install 超时,设 HTTP_PROXY/HTTPS_PROXY)"
         Write-Err "         3) 磁盘空间不足(docker system prune -a 清理)"
         Write-IhuiDiagResult 'failed' 'build' 'docker compose build 失败'
-        Invoke-IhuiDiagRun 'deploy.ps1(compose 链 Windows)docker compose build 失败,已落部署日志'
+        Invoke-IhuiDiagRun 'deploy.ps1(compose 链 Windows)docker compose build 失败,已落部署日志' 'build'
         exit 1
     }
     Write-OK "Docker 镜像构建完成"
@@ -218,7 +220,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Err "查看日志:docker compose logs"
     Update-IhuiDiagContainerLogs 'compose up 失败后抓取'
     Write-IhuiDiagResult 'failed' 'up' 'docker compose up -d 失败'
-    Invoke-IhuiDiagRun 'deploy.ps1(compose 链 Windows)docker compose up -d 失败,日志已含容器输出'
+    Invoke-IhuiDiagRun 'deploy.ps1(compose 链 Windows)docker compose up -d 失败,日志已含容器输出' 'up'
     exit 1
 }
 Write-OK "docker compose up 命令已发出"
@@ -265,7 +267,7 @@ if (-not $healthy) {
     Update-IhuiDiagContainerLogs "等待 ${maxWait}s 后仍不健康"
     Update-IhuiDiagHealthJson (Join-Path $ScriptDir 'health-check.ps1') (Join-Path (Join-Path $ScriptDir 'logs') 'health-check.json')
     Write-IhuiDiagResult 'failed' 'health' "部分服务未在 ${maxWait}s 内健康"
-    Invoke-IhuiDiagRun "deploy.ps1(compose 链 Windows)等待 ${maxWait}s 后容器仍未全部健康,已附容器日志与健康检查输出"
+    Invoke-IhuiDiagRun "deploy.ps1(compose 链 Windows)等待 ${maxWait}s 后容器仍未全部健康,已附容器日志与健康检查输出" 'health'
 } else {
     Write-OK "所有核心服务已健康"
 }
@@ -289,6 +291,9 @@ if ($SkipCloudflared) {
         if (-not $tunnelToken) {
             Write-Err ".env.production 缺 TUNNEL_TOKEN,无法启动 cloudflared"
             Write-IhuiDiagResult 'failed' 'cloudflared' '.env.production 缺 TUNNEL_TOKEN'
+            # fail-closed:这一格缺的是**配置**而不是日志,不调模型、不编造诊断,
+            # 但必须把"谁来补、补哪一条"随邮件带到人前(§5e-1 可整改性准入)。
+            Send-IhuiDiagNotify 'cloudflared' '.env.production 缺 TUNNEL_TOKEN ⇒ tunnel 未启动(缺配置,非构建失败)' 'skipped' '本分支不调 AI 诊断:输入是缺失的配置项,不是失败日志'
         } else {
             $env:TUNNEL_TOKEN = $tunnelToken
             Invoke-IhuiDiagCapture docker,'compose','-f',$cfCompose,'up','-d'
@@ -297,7 +302,7 @@ if ($SkipCloudflared) {
                 Write-Err "查看日志:docker compose -f $cfCompose logs cloudflared"
                 Update-IhuiDiagContainerLogs 'cloudflared 启动失败后抓取' $cfCompose
                 Write-IhuiDiagResult 'failed' 'cloudflared' "docker compose -f $cfCompose up -d 失败"
-                Invoke-IhuiDiagRun 'deploy.ps1(compose 链 Windows)cloudflared 启动失败(第二 compose 栈),日志含该栈容器输出'
+                Invoke-IhuiDiagRun 'deploy.ps1(compose 链 Windows)cloudflared 启动失败(第二 compose 栈),日志含该栈容器输出' 'cloudflared'
             } else {
                 Write-OK "cloudflared 已启动"
                 Write-Host "等待 10 秒让 tunnel 建立..."

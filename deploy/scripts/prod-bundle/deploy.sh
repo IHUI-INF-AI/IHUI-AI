@@ -32,6 +32,7 @@ else
     ihui_diag_container_logs() { :; }
     ihui_diag_health_json()    { :; }
     ihui_diag_run()     { echo "[diag][WARN] 缺 deploy-diagnose.sh,诊断未执行" >&2; }
+    ihui_diag_notify()  { echo "[notify][WARN] 缺 deploy-diagnose.sh,本轮没有到人通知;出路: 手工经 apps/api/scripts/notify-deploy-failure.ts 补寄(见其 --help)" >&2; }
     ihui_diag_init()    { echo "[diag][WARN] 缺 deploy-diagnose.sh,本轮不落盘" >&2; }
 fi
 # 日志与结果落进 bundle 自己的 logs/ —— 不写死盘符,全部由 SCRIPT_DIR 推导(§15b)。
@@ -192,7 +193,7 @@ else
         err "         2) 网络问题(pnpm install 超时,设 HTTP_PROXY/HTTPS_PROXY)"
         err "         3) 磁盘空间不足(docker system prune -a 清理)"
         ihui_diag_result failed "build" "docker compose build 失败"
-        ihui_diag_run "deploy.sh(compose 链)docker compose build 失败,已落部署日志"
+        ihui_diag_run "deploy.sh(compose 链)docker compose build 失败,已落部署日志" build
         exit 1
     fi
     ok "Docker 镜像构建完成"
@@ -206,7 +207,7 @@ if ! ihui_diag_capture docker compose up -d; then
     err "查看日志:docker compose logs"
     ihui_diag_container_logs "compose up 失败后抓取"
     ihui_diag_result failed "up" "docker compose up -d 失败"
-    ihui_diag_run "deploy.sh(compose 链)docker compose up -d 失败,日志已含容器输出"
+    ihui_diag_run "deploy.sh(compose 链)docker compose up -d 失败,日志已含容器输出" up
     exit 1
 fi
 ok "docker compose up 命令已发出"
@@ -235,7 +236,7 @@ if [[ "$HEALTHY" != "true" ]]; then
     ihui_diag_container_logs "等待 ${MAX_WAIT}s 后仍不健康"
     ihui_diag_health_json "$SCRIPT_DIR/health-check.sh" "$SCRIPT_DIR/logs/health-check.json"
     ihui_diag_result failed "health" "部分服务未在 ${MAX_WAIT}s 内健康"
-    ihui_diag_run "deploy.sh(compose 链)等待 ${MAX_WAIT}s 后容器仍未全部健康,已附容器日志与健康检查输出"
+    ihui_diag_run "deploy.sh(compose 链)等待 ${MAX_WAIT}s 后容器仍未全部健康,已附容器日志与健康检查输出" health
 else
     ok "所有核心服务已健康"
 fi
@@ -252,6 +253,10 @@ else
         if [[ -z "$TUNNEL_TOKEN" ]]; then
             err ".env.production 缺 TUNNEL_TOKEN,无法启动 cloudflared"
             ihui_diag_result failed "cloudflared" ".env.production 缺 TUNNEL_TOKEN"
+            # fail-closed:这一格缺的是**配置**而不是日志,不调模型、不编造诊断,
+            # 但必须把"谁来补、补哪一条"随邮件带到人前(§5e-1 可整改性准入)。
+            ihui_diag_notify "cloudflared" ".env.production 缺 TUNNEL_TOKEN ⇒ tunnel 未启动(缺配置,非构建失败)" \
+                skipped "本分支不调 AI 诊断:输入是缺失的配置项,不是失败日志"
         else
             export TUNNEL_TOKEN
             if ! ihui_diag_capture docker compose -f "$CF_COMPOSE" up -d; then
@@ -259,7 +264,7 @@ else
                 err "查看日志:docker compose -f $CF_COMPOSE logs cloudflared"
                 ihui_diag_container_logs "cloudflared 启动失败后抓取" "$CF_COMPOSE"
                 ihui_diag_result failed "cloudflared" "docker compose -f $CF_COMPOSE up -d 失败"
-                ihui_diag_run "deploy.sh(compose 链)cloudflared 启动失败(第二 compose 栈),日志含该栈容器输出"
+                ihui_diag_run "deploy.sh(compose 链)cloudflared 启动失败(第二 compose 栈),日志含该栈容器输出" cloudflared
             else
                 ok "cloudflared 已启动"
                 echo "等待 10 秒让 tunnel 建立..."
