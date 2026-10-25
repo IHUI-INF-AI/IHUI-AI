@@ -94,46 +94,24 @@ test.describe('全站导航 - 导航元素', () => {
     }
   })
 
-  test('侧边栏“我的学习”聚合菜单可展开并展示子页面链接', async ({ page }) => {
-    // 2026-10-20 前置修正:personalGroup 不在默认展开名单里(NavGroupSection.tsx:80-83 只
-    // 自动展开 hot/ai/admin),且 f5897c9d85 起收起动画跑完后组内 items 整体卸载(:126-133)
-    // ⇒ nav-myLearning 压根不在 DOM。按 icon-text-alignment.spec.ts:159-174 的既定写法,
-    // 在 goto 前预置「侧栏展开 + personalGroup 展开」。
-    // 只预置分组这一层:**不**预置 sidebar-expand-/favorites —— 子项必须由本用例点父项展开才出现,
-    // 否则"展开聚合菜单揭示子链接"这一覆盖点会被预置掉。
-    await page.addInitScript(() => {
-      localStorage.setItem('sidebar-collapsed', 'false')
-      localStorage.setItem('sidebar-group-v3-personalGroup', '1')
-    })
-    await page.goto('/')
+  test('个人域入口页展示“我的学习”子页面链接', async ({ page }) => {
+    // 2026-10-25 锚点修正(CI 40169274264 红):2026-10-23 P2 收敛把“我的学习”整族搬进
+    // /domains/personal 域入口页(PERSONAL_HUB_ITEMS),主侧边栏只留下 nav-user 单入口;
+    // 旧用例依赖的 nav-myLearning 父项与点击展开交互已不存在 ⇒ 恒 0 元素。
+    // 覆盖点不变:收藏/关注/订阅三个子链接仍在且 href 正确,只是承载位置换成域入口页。
+    await page.goto('/domains/personal')
     await page.waitForLoadState('domcontentloaded')
-    const aside = page.locator('aside').first()
-    if (await aside.isVisible({ timeout: 3000 }).catch(() => false)) {
-      const parent = page.getByTestId('nav-myLearning').first()
-      await expect(parent).toBeVisible()
 
-      await expect(page.getByTestId('nav-favorites')).toHaveCount(0)
-      await expect(page.getByTestId('nav-following')).toHaveCount(0)
-      await expect(page.getByTestId('nav-subscriptions')).toHaveCount(0)
+    const favorites = page.locator('main a[href="/favorites"]').first()
+    const following = page.locator('main a[href="/following"]').first()
+    const subscriptions = page.locator('main a[href="/subscriptions"]').first()
+    await expect(favorites).toBeVisible()
+    await expect(following).toBeVisible()
+    await expect(subscriptions).toBeVisible()
 
-      // 2026-08-26 修复:click({ force: true }) 仍无法触发 onClick(子菜单的 useState
-      // 在 React 严格模式下与 force dispatch 兼容性差)。改用 dispatchEvent('click')
-      // 直接派发原生 click 事件,绕开 actionability + pointer event 检查。
-      await parent.dispatchEvent('click')
-      await page.waitForTimeout(300)
-
-      const favorites = page.getByTestId('nav-favorites').first()
-      const following = page.getByTestId('nav-following').first()
-      const subscriptions = page.getByTestId('nav-subscriptions').first()
-      await expect(favorites).toBeVisible()
-      await expect(following).toBeVisible()
-      await expect(subscriptions).toBeVisible()
-
-      // 收藏/关注/订阅是个人页面，需要登录才能访问；这里只验证链接指向正确路径
-      expect(await favorites.getAttribute('href')).toBe('/favorites')
-      expect(await following.getAttribute('href')).toBe('/following')
-      expect(await subscriptions.getAttribute('href')).toBe('/subscriptions')
-    }
+    expect(await favorites.getAttribute('href')).toBe('/favorites')
+    expect(await following.getAttribute('href')).toBe('/following')
+    expect(await subscriptions.getAttribute('href')).toBe('/subscriptions')
   })
 
   /**
