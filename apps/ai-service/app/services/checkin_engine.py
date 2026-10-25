@@ -425,7 +425,10 @@ async def status_check(
     timeout: float = DEFAULT_TIMEOUT,
     client: httpx.AsyncClient | None = None,
 ) -> tuple[bool, bool | None, int | None, int | None, str]:
-    """预检：返回 (ok: bool, checked_in: bool|None, credits: int|None, code: int|None, message: str)。"""
+    """预检：返回 (ok: bool, checked_in: bool|None, credits: int|None, code: int|None, message: str)。
+
+    9074(设备号被记住)与签到口同款自愈:换新设备号重查一次(原位写回 device_map)。
+    """
     user_id = extract_user_id(jwt)
     if not user_id:
         return False, None, None, None, "无法从 JWT 解析 user id"
@@ -437,6 +440,17 @@ async def status_check(
         data = json.loads(body)
     except Exception:
         return False, None, None, status, f"非 JSON 响应: {body[:200]}"
+    if data.get("code") == 9074:
+        dev = _rotate_device(user_id, device_map)
+        status, body = await _http_post(
+            STATUS_URL, jwt, dev, body=b"{}", timeout=timeout, client=client
+        )
+        if status < 0:
+            return False, None, None, None, body or "网络异常"
+        try:
+            data = json.loads(body)
+        except Exception:
+            return False, None, None, status, f"非 JSON 响应: {body[:200]}"
     code = data.get("code")
     checked_in = data.get("checked_in")
     credits = data.get("credits")

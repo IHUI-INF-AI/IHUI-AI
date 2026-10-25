@@ -408,4 +408,26 @@ class TestDeviceRotation9074:
         }
         dev = get_device_for(USER_ID, device_map)
         assert dev["device_id"] == "999999999999999"
+
+    async def test_status_check_9074_rotates_device(self, jwt, device_map):
+        """状态查询口与签到口同款自愈:9074 → 换设备号重查一次。"""
+        seen_devices: list[str | None] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen_devices.append(request.headers.get("x-device-id"))
+            if len(seen_devices) == 1:
+                return httpx.Response(200, json={"code": 9074, "message": "remembered"})
+            return httpx.Response(
+                200, json={"code": 0, "checked_in": False, "credits": 20, "message": ""}
+            )
+
+        async with make_client(handler) as client:
+            ok, checked_in, credits, code, msg = await status_check(
+                "u1", jwt, device_map, client=client
+            )
+
+        assert ok is True and checked_in is False and credits == 20 and code == 0
+        assert len(seen_devices) == 2 and seen_devices[0] != seen_devices[1]
+        assert device_map[USER_ID]["rotated"] is True
+        assert device_map[USER_ID]["device_id"] == seen_devices[1]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
