@@ -1,0 +1,145 @@
+{
+  "$comment": "人工阀清单(自进化 P0,2026-10-25 立)。bucket=self-serve 表示 AI 可自决;bucket=stop-for-human 表示进入受控停机态并通知人工(不是硬失败、不重试、不绕行)。判据唯一实现 = scripts/lib/human-valve.mjs 的 classifyAction:未知动作 / 数据坏 / 自决类 reviewBy 到期 一律落 stop-for-human(fail-closed)。本文件只做「自由文本 → 桶」的分类语料,id 闭集查询仍由 scripts/data/human-gates.json 承担,两边不互相复制判据。",
+  "version": 1,
+  "updatedAt": "2026-10-25",
+  "reviewPolicy": "每条 reviewBy 必填 YYYY-MM-DD;到期后该类不再享有 self-serve(自动降为 stop-for-human),停机等人重新定档。",
+  "rules": [
+    {
+      "id": "code-and-docs",
+      "title": "改代码 / 补测试 / 改文档 / 台账登记 / 本地提交(过门后)",
+      "bucket": "self-serve",
+      "examples": [
+        "给 scripts/lib/human-valve.mjs 补一个纯函数",
+        "改一段注释并补单元测试",
+        "在 PROJECT_PLAN.md 里登记一条待办",
+        "git commit 提交本次改动(守门全绿)"
+      ],
+      "why": "全部可回退、可复现:改动落在本仓、有守门与 git 历史兜底,失败方向是多一次人工复核而不是破坏仓外状态。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "local-verification",
+      "title": "跑守门 / typecheck / 单元测试 / 自检",
+      "bucket": "self-serve",
+      "examples": [
+        "node scripts/check-human-valve.mjs --self-test",
+        "跑 pnpm turbo typecheck --filter=@ihui/api",
+        "node --test scripts/tests/check-human-valve.test.mjs",
+        "跑 guardian-runner 全量档看末行读数"
+      ],
+      "why": "只读判据 + 本机进程,没有任何外部副作用;把它列为自决项才能让 agent 自己把证据凑齐再找人。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "read-only-probe",
+      "title": "只读取证:探针 / 日志 / 指标 / git 读命令",
+      "bucket": "self-serve",
+      "examples": [
+        "只读查询 git log 与 reflog",
+        "读 .ihui-agent/state 下的守护日志",
+        "查看 Prometheus 指标确认端口存活",
+        "grep 全仓找调用方"
+      ],
+      "why": "读操作不改变任何状态;把它交给人等于让每次取证都停机,失效方向反而是逼人凭猜测行动。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "api-key-change",
+      "title": "替换、新增或吊销任何 API key / 模型密钥 / 服务凭据",
+      "bucket": "stop-for-human",
+      "examples": [
+        "把 DEEPSEEK_API_KEY 换成新的密钥",
+        "吊销泄露的 OpenAI API key",
+        "给生产环境补一个 ANTHROPIC_API_KEY"
+      ],
+      "why": "密钥值只能由机主从权威来源交付(§5d),机器侧无可派生来源;自换 key 会静默打断线上通道且无法回读验证。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "credential-rotation",
+      "title": "轮换数据库口令 / 证书 / OAuth 客户端凭据",
+      "bucket": "stop-for-human",
+      "examples": [
+        "轮换 PostgreSQL 的数据库口令",
+        "更换 TLS 证书并重载网关",
+        "重新签发 OAuth client secret"
+      ],
+      "why": "轮换要求旧凭据同时失效且多处消费方同批更新,停机窗口与新旧共存策略属机主拍板面,自动半途轮换会造成部分面鉴权失败。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "console-operation",
+      "title": "云控制台操作(DNS / 隧道路由 / 计费 / 域名 / 证书申请)",
+      "bucket": "stop-for-human",
+      "examples": [
+        "在 Cloudflare 控制台改 DNS 记录",
+        "调整隧道入口的 Hostname 路由",
+        "在阿里云控制台升级带宽套餐"
+      ],
+      "why": "写入路径只有控制台登录态或受限 token,影响面在仓外且不可回滚到仓内副本,只能由持有登录态的人执行。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "device-scan",
+      "title": "真机扫码 / 真机人验(登录、SSO、推送到达)",
+      "bucket": "stop-for-human",
+      "examples": [
+        "用真机扫码完成小程序登录",
+        "在手机上确认推送到达",
+        "用真实账号在真机上验证 15min 静默续期"
+      ],
+      "why": "需要真实账号与实体设备,自动化探针不能替代人证;冒充完成就是 §30 的『钩子无终态不得渲染成完成』那一型。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "public-release-wording",
+      "title": "对外发布口径(公告、商店文案、法务声明、官网对外表述)",
+      "bucket": "stop-for-human",
+      "examples": [
+        "定这次故障的对外发布口径并发布公告",
+        "更新应用商店的版本说明文案",
+        "给客户发一封故障说明邮件"
+      ],
+      "why": "对外表达属机主拍板面,且发布后不可撤回;自动生成的措辞直接对外是不可逆的品牌风险。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "production-deploy",
+      "title": "生产机 / 线上环境的部署、重启、停服与配置变更",
+      "bucket": "stop-for-human",
+      "examples": [
+        "把新构建部署到生产机",
+        "重启线上 api 的 nssm 服务",
+        "在生产环境修改 .env 并重载"
+      ],
+      "why": "生产变更影响在线用户且有服务承载体(nssm / 计划任务 / daemon)副作用;部署环只允许 ff-only 的既定通道,超出通道的手法一律停机等人。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "destructive-git-or-data",
+      "title": "删分支 / 删 worktree / 历史改写 / 删数据(含生产数据与备份)",
+      "bucket": "stop-for-human",
+      "examples": [
+        "删掉已合并的 feature 分支",
+        "reset --hard 回到昨天的提交",
+        "删除生产库里的历史订单数据",
+        "强推覆盖远端 main"
+      ],
+      "why": "会抹掉并行会话或他人的在库工作,且删除生产数据无仓内副本(§7 三问、§12h、§29);决策权归人。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "external-system-write",
+      "title": "向外部系统写入(第三方 API、Webhook、群消息、工单、CDN 刷新)",
+      "bucket": "stop-for-human",
+      "examples": [
+        "往第三方工单系统写入一条缺陷单",
+        "给运维群发机器人消息",
+        "调用 CDN 接口刷新全部缓存",
+        "向 GitHub 仓库提交 PR 并请求评审"
+      ],
+      "why": "写出去就收不回,且对方系统的鉴权身份与配额属机主资产;停机等人才能确定该用哪个身份、写什么口径。",
+      "reviewBy": "2027-01-31"
+    }
+  ]
+}
