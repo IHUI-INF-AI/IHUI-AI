@@ -282,6 +282,40 @@ async def test_pool_sync_creates_account_with_contract(client, fake_store):
     assert dm["pool_name"] == "Qoder 池号 #1"
 
 
+async def test_pool_sync_carries_device_proof_keys_into_device_map(client, fake_store):
+    """Trae 设备证明密钥对必须过桥(2026-10-26 补链)。
+
+    桌面渠道签发的票只能由签发它的设备身份续;密钥不落到 device_map,
+    反向回灌个人池时就永远缺 secrets ⇒ 生产池里的 Trae 号刷不动(10101)。
+    """
+    resp = await client.post(
+        "/internal/checkin/pool-sync",
+        json={
+            "platform": "trae",
+            "accounts": [_account_payload(deviceKeyPem="PEM-PRIV", devicePubPem="PEM-PUB")],
+        },
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 200
+    dm = next(iter(fake_store.accounts.values()))["device_map"]
+    assert dm["pool_device_id"] == "dev-1"
+    assert dm["pool_device_key_pem"] == "PEM-PRIV"
+    assert dm["pool_device_pub_pem"] == "PEM-PUB"
+
+
+async def test_pool_sync_without_device_keys_writes_no_keys(client, fake_store):
+    """不带密钥时不得凭空造键(旧账号行为不变,导入侧按"无材料"退回旧通道)。"""
+    resp = await client.post(
+        "/internal/checkin/pool-sync",
+        json={"platform": "trae", "accounts": [_account_payload()]},
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 200
+    dm = next(iter(fake_store.accounts.values()))["device_map"]
+    assert "pool_device_key_pem" not in dm
+    assert "pool_device_pub_pem" not in dm
+
+
 async def test_pool_sync_skips_unsupported_platform(client, fake_store):
     """codearts 等无签到引擎:逐条 skipped,不假装同步成功。"""
     resp = await client.post(

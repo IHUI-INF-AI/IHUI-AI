@@ -58,6 +58,7 @@ import {
   fetchPoolStatus,
   markCheckinSyncPending,
   postPoolRun,
+  pemFromSecrets,
   pushPoolState,
   pushPoolSync,
   type PoolAccountState,
@@ -629,6 +630,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         deviceId: row.deviceId,
         machineId: row.machineId,
         cosy: extractCosy(row.extraMetadata),
+        deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
+        devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
         tokenExpiresAt: row.tokenExpiresAt,
       })
       const push = await pushPoolSync(platform, [acc])

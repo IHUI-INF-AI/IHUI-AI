@@ -70,6 +70,12 @@ export interface PoolSyncAccount {
   machineId: string | null
   /** Qoder Cosy 设备头族(蛇形键,导入时随 extraMetadata.cosy 落库) */
   cosy: Record<string, string> | null
+  /**
+   * Trae 设备证明密钥对(2026-10-26 补链):桌面渠道票只能由签发它的设备身份续,
+   * 密钥对不过桥 ⇒ 生产池里的 Trae 号永远刷不动(10101)。缺省 = 不带(旧行为)。
+   */
+  deviceKeyPem?: string | null
+  devicePubPem?: string | null
   /** token 到期时刻(ISO);null = 不过期/未知 */
   expiresAt: string | null
 }
@@ -87,7 +93,38 @@ export interface PoolSyncAccountSource {
   deviceId: string | null
   machineId: string | null
   cosy: Record<string, string> | null
+  /** Trae 设备证明密钥对(见 PoolSyncAccount 同名注释) */
+  deviceKeyPem?: string | null
+  devicePubPem?: string | null
   tokenExpiresAt: Date | null
+}
+
+/**
+ * 从 secrets 投影里取设备密钥对(非字符串/空 → null)。
+ * 形状权威 = relay-account-pool-service 的 AccountCredentials.secrets(同一份密文),
+ * 这里只做两把 PEM 的读取,不另立第二种落库形态。
+ */
+export function pemFromSecrets(
+  secrets: Record<string, unknown> | null | undefined,
+  key: 'deviceKeyPem' | 'devicePubPem',
+): string | null {
+  const v = secrets?.[key]
+  return typeof v === 'string' && v.trim() ? v : null
+}
+
+/** 解密 secretsEnc → 投影对象;密文坏/形状不符 → null(不抛,按"不带密钥"处理) */
+export function parseSecretsEnc(
+  secretsEnc: string | null | undefined,
+): Record<string, unknown> | null {
+  if (!secretsEnc) return null
+  try {
+    const parsed = JSON.parse(decryptField(secretsEnc)) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
 }
 
 /** 构造推送载荷(expiresAt 统一序列化为 ISO;无效日期按 null 处理,不抛) */
@@ -109,6 +146,8 @@ export function buildPoolSyncAccount(src: PoolSyncAccountSource): PoolSyncAccoun
     deviceId: src.deviceId,
     machineId: src.machineId,
     cosy: src.cosy,
+    ...(src.deviceKeyPem ? { deviceKeyPem: src.deviceKeyPem } : {}),
+    ...(src.devicePubPem ? { devicePubPem: src.devicePubPem } : {}),
     expiresAt: exp,
   }
 }
@@ -285,6 +324,8 @@ export interface CheckinSyncPendingRow {
   name: string
   tokenEnc: string
   refreshTokenEnc: string | null
+  /** 设备证明密钥对的密文列(补链 2026-10-26;与 tokenEnc 同级,仅推送时解密) */
+  secretsEnc: string | null
   proxyUrl: string | null
   deviceId: string | null
   machineId: string | null
@@ -403,6 +444,7 @@ export async function listCheckinSyncPending(limit: number): Promise<CheckinSync
       name: aiRelayAccountPool.name,
       tokenEnc: aiRelayAccountPool.tokenEnc,
       refreshTokenEnc: aiRelayAccountPool.refreshTokenEnc,
+      secretsEnc: aiRelayAccountPool.secretsEnc,
       proxyUrl: aiRelayAccountPool.proxyUrl,
       deviceId: aiRelayAccountPool.deviceId,
       machineId: aiRelayAccountPool.machineId,
@@ -472,6 +514,7 @@ export async function retryPendingCheckinSyncs(
     }
     // cred 类:解密重建载荷(号池 = 凭证权威,永远以号池现值重推)
     try {
+      const secretsForPem = parseSecretsEnc(row.secretsEnc)
       const acc = buildPoolSyncAccount({
         id: row.id,
         ownerUserId: row.ownerUserId,
@@ -485,6 +528,8 @@ export async function retryPendingCheckinSyncs(
         deviceId: row.deviceId,
         machineId: row.machineId,
         cosy: extractCosy(row.extraMetadata),
+        deviceKeyPem: pemFromSecrets(secretsForPem, 'deviceKeyPem'),
+        devicePubPem: pemFromSecrets(secretsForPem, 'devicePubPem'),
         tokenExpiresAt: row.tokenExpiresAt,
       })
       const r = await pushPoolSync(platform, [acc], fetchImpl)
