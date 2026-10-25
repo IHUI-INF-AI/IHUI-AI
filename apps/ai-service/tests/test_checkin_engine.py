@@ -362,4 +362,50 @@ class TestSigninFlow:
         async with make_client(handler) as client:
             result = await checkin_account("u1", expired, device_map, client=client)
         assert result["warning"] and "已过期" in result["warning"]
+
+
+class TestDeviceRotation9074:
+    """9074(设备号被记住)自愈:换新设备号重签一次,并把 rotated 标记写回 device_map。"""
+
+    async def test_signin_9074_rotates_device_and_retries(self, jwt, device_map):
+        seen_devices: list[str | None] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen_devices.append(request.headers.get("x-device-id"))
+            if len(seen_devices) == 1:
+                return httpx.Response(200, json={"code": 9074, "message": "device remembered"})
+            return httpx.Response(200, json={"code": 0, "message": "签到成功"})
+
+        async with make_client(handler) as client:
+            ok, msg, code, status = await signin("u1", jwt, device_map, client=client)
+
+        assert ok is True and code == 0 and status == 200
+        assert len(seen_devices) == 2
+        assert seen_devices[0] != seen_devices[1]
+        rec = device_map[USER_ID]
+        assert rec["rotated"] is True
+        assert rec["device_id"] == seen_devices[1]
+
+    async def test_signin_9074_retry_failure_surfaces_code(self, jwt, device_map):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"code": 9074, "message": "still remembered"})
+
+        async with make_client(handler) as client:
+            ok, msg, code, status = await signin("u1", jwt, device_map, client=client)
+
+        assert ok is False and code == 9074 and msg == "still remembered"
+
+    def test_get_device_for_keeps_rotated_device_over_pool_fingerprint(self, device_map):
+        """rotated 标记存在时,不再被号池真实指纹拉回(真指纹已被风控记住)。"""
+        device_map["pool_device_id"] = "4355605738307003"
+        device_map[USER_ID] = {
+            "device_id": "999999999999999",
+            "market_user_id": "m",
+            "session_id": "s",
+            "created": "",
+            "gen": DEVICE_GEN,
+            "rotated": True,
+        }
+        dev = get_device_for(USER_ID, device_map)
+        assert dev["device_id"] == "999999999999999"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

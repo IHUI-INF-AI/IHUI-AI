@@ -295,8 +295,11 @@ def get_device_for(user_id: str, device_map: dict[str, dict[str, Any]]) -> dict[
     real_machine = device_map.get("pool_machine_id")
     real_uid = device_map.get("pool_uid")
     stale = rec is None or rec.get("gen", 1) < DEVICE_GEN
-    if real_device and rec is not None and str(rec.get("device_id")) != str(real_device):
-        stale = True
+    # rotated = 该号 9074 后已主动换过新设备号:真实指纹已被风控记住,再拉回去只会
+    # 越记越死,所以有 rotated 标记时不再对齐 pool_device_id(2026-10-25,对表开源实现)。
+    if real_device and rec is not None and not rec.get("rotated"):
+        if str(rec.get("device_id")) != str(real_device):
+            stale = True
     if stale:
         device_map[user_id] = {
             "device_id": str(real_device) if real_device else rand_digits(15, seed=user_id),
@@ -443,6 +446,36 @@ async def status_check(
     return True, bool(checked_in), credits, code, msg
 
 
+def _rotate_device(user_id: str, device_map: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """9074(设备号被上游记住)时换一台"新机器"。
+
+    上游按设备维度风控,同一设备号反复请求会被越记越死;开源实现实测"换全新
+    设备号重签一次"可立即成功。这里把 device_id / market_user_id / session 一起换,
+    并打 rotated 标记 —— get_device_for 不再把它拉回号池里的真实指纹。
+    原位写回 device_map,持久化由调用方负责(与 get_device_for 同契约)。
+    """
+    dev = {
+        "device_id": rand_digits(15),
+        "market_user_id": gen_market_uuid(None),
+        "session_id": rand_hex(64),
+        "created": datetime.datetime.now().isoformat(timespec="seconds"),
+        "gen": DEVICE_GEN,
+        "rotated": True,
+    }
+    device_map[user_id] = dev
+    return dev
+
+
+def _parse_signin_body(
+    status: int, body: str
+) -> tuple[dict[str, Any] | None, tuple[bool, str, int | None, int | None] | None]:
+    """签到响应解析;非 JSON 直接给出失败四元组(返回 (None, failure))。"""
+    try:
+        return json.loads(body), None
+    except Exception:
+        return None, (False, f"HTTP {status}: 非 JSON 响应: {body[:200]}", status if status else None, status)
+
+
 async def signin(
     name: str,
     jwt: str,
@@ -450,7 +483,10 @@ async def signin(
     timeout: float = DEFAULT_TIMEOUT,
     client: httpx.AsyncClient | None = None,
 ) -> tuple[bool, str, int | None, int | None]:
-    """对单个账号执行签到，返回 (success, message, code, http_status)。"""
+    """对单个账号执行签到，返回 (success, message, code, http_status)。
+
+    9074(设备号被记住)⇒ 换新设备号重签一次;只有"记忆被打破后仍失败"才算业务失败。
+    """
     user_id = extract_user_id(jwt)
     if not user_id:
         return False, "无法从 JWT 解析 user id", None, 0
@@ -460,11 +496,22 @@ async def signin(
 
     if status < 0:
         return False, body or "网络异常", None, status
-    try:
-        data = json.loads(body)
-        return data.get("code") == 0, data.get("message", f"HTTP {status}"), data.get("code"), status
-    except Exception:
-        return False, f"HTTP {status}: 非 JSON 响应: {body[:200]}", status if status else None, status
+    data, failure = _parse_signin_body(status, body)
+    if failure is not None:
+        return failure
+    assert data is not None
+    if data.get("code") == 9074:
+        dev = _rotate_device(user_id, device_map)
+        status, body = await _http_post(
+            SIGNIN_URL, jwt, dev, body=b"{}", timeout=timeout, client=client
+        )
+        if status < 0:
+            return False, body or "网络异常", None, status
+        data, failure = _parse_signin_body(status, body)
+        if failure is not None:
+            return failure
+        assert data is not None
+    return data.get("code") == 0, data.get("message", f"HTTP {status}"), data.get("code"), status
 
 
 def classify_error(
