@@ -55,9 +55,6 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   // 刻意**不**改成"默认全给 chrome + 例外表":沉浸式/渐变定档那几屏(VideoPlayer / CoursePlanet / MoreCourse /
   // ChatTools)的顶色是各自定稿,翻默认会把它们推给白档。
   Home: (t) => t.surface.chrome,
-  // CheckinAssistant(2026-10-24 补录):他人落库该屏时注册了路由却漏登记本表,
-  // 屏内渲染 <NavBar>+<NavChrome> ⇒ 按 SecurityCenter 同型判据取 chrome 档
-  CheckinAssistant: (t) => t.surface.chrome,
   HomeMain: (t) => t.surface.chrome,
   // SecurityCenter(2026-10-21 补录):他人落库该屏时注册了路由却漏登记本表,
   // 屏内确实渲染 <NavBar> ⇒ 按上表判据取 chrome 档(与 Home/Settings 同档)。
