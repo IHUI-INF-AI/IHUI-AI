@@ -26,6 +26,20 @@ export interface UseAuthBootstrapReturn {
   error: string | null
 }
 
+export interface UseAuthBootstrapOptions {
+  /**
+   * 强制尝试一次静默刷新,忽略本地"看得见的凭据"准入(2026-10-26)。
+   *
+   * 用于**服务端守卫已经证明 refresh cookie 在场**的场景:`/sso/login` 的 redirect 落在
+   * 受保护路径时,说明用户刚从 307 打回回来。此时 httpOnly cookie 在 JS 里看不见,而
+   * `ihui-session-established` 标记可能已被上一次被动失效(`expireSession`)清掉 ——
+   * 不强制就会被判成匿名、连 `/auth/refresh` 都不发,用户明明有 30 天会话却被要求重登。
+   *
+   * 匿名首访不传它(保持 2026-10-14 的"无凭据即不发请求、控制台零噪声")。
+   */
+  forceAttempt?: boolean
+}
+
 /**
  * 用 httpOnly refresh_token cookie 调 /api/auth/refresh 获取新 accessToken。
  * 成功返回 { accessToken, refreshToken },失败返回 null。
@@ -84,7 +98,8 @@ async function hasUsableRefreshCredential(): Promise<boolean> {
  *  2. 刷新成功 → setToken 恢复登录态
  *  3. 刷新失败(401) → 保持未登录(静默,不弹登录框)
  */
-export function useAuthBootstrap(): UseAuthBootstrapReturn {
+export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBootstrapReturn {
+  const forceAttempt = options?.forceAttempt === true
   const token = useAuthStore((s) => s.token)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const setUser = useAuthStore((s) => s.setUser)
@@ -131,12 +146,14 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
         if (cookieToken) {
           storedToken = cookieToken
           setToken(cookieToken, useAuthStore.getState().refreshToken)
-        } else if (await hasUsableRefreshCredential()) {
+        } else if (forceAttempt || (await hasUsableRefreshCredential())) {
           // 仅当存在可用 refresh 凭据时才发 /auth/refresh:用 httpOnly refresh cookie
           // (或桌面 vault body 模式)静默续期恢复会话。
           // 否则冷启动未登录态(无任何 refresh 凭据)白白 POST /auth/refresh → 后端回 400 →
           // 浏览器打印 "Failed to load resource: 400 (Bad Request)" 控制台噪声
           // (2026-10-14 控制台清零整改:无凭据即不发此请求)。
+          // forceAttempt 是唯一例外:受保护页 307 打回的现场由服务端守卫证明过 refresh cookie
+          // 在场,而本地标记可能已被 expireSession 清掉(2026-10-26)。
           const refreshed = await tryRefresh()
           if (cancelled) return
           if (refreshed) {
