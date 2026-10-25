@@ -391,6 +391,14 @@ if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEA
 const CROSS_END_AUTOREG_STATE_FILE = join(ROOT, '.ihui-agent', 'state', 'cross-end-autoreg.json')
 const CROSS_END_AUTOREG_WINDOW_MS = 30 * 60 * 1000
 const CROSS_END_AUTOREG_SCRIPT = 'scripts/auto-register-cross-end.mjs'
+// 台账→代码 对账修复器(2026-10-25 立):与登记器**同腿**派发。
+// 为什么同腿而不是另起一条:两条腿的输入面同源(都读 HEAD 的两张跨端登记表 + 共享屏/小程序页枚举),
+// 拆成两条就多一份节流状态、多一份日志、多一处"忘了派发"的失明面。
+// 为什么必须有它:登记器只管"**新增**声明"(候选来自启发式或子代理提案),而
+// "台账说有、代码侧的标记行/路由行被别的提交削掉了"是**回归** —— 2026-10-25 实测 9 处,
+// 门 128 R1 判红而全仓无器物负责接回去。修复器补这一格(标记行/路由行),不造页、不裁登记。
+// 旗子:IHUI_CROSS_END_REPAIR_COMMIT=1 防递归;HUSKY_SKIP_CROSS_END_REPAIR=1 应急放行。
+const CROSS_END_REPAIR_SCRIPT = 'scripts/repair-cross-end-mirror.mjs'
 // 在飞上限:后台派发没有超时掐孩子这一档,靠它防"上一轮还没收尾就又派一轮"叠扫描。
 // 取值 = 旧同步档上限(480s)的数倍余量;超上限仍是 dispatched ⇒ 视为孩子已死,允许重派。
 const CROSS_END_AUTOREG_RUNNING_CAP_MS = 60 * 60 * 1000
@@ -402,7 +410,7 @@ const CROSS_END_AUTOREG_RUNNING_CAP_MS = 60 * 60 * 1000
 const CROSS_END_AUTOREG_WRAPPER_SRC = [
   'const { spawnSync } = require("child_process")',
   'const fs = require("fs")',
-  'const [script, stateFile, outLog] = process.argv.slice(1)',
+  'const [script, stateFile, outLog, repairScript] = process.argv.slice(1)',
   'const r = spawnSync(process.execPath, [script, "--apply"], {',
   '  cwd: process.cwd(),',
   '  windowsHide: true,',
@@ -413,7 +421,20 @@ const CROSS_END_AUTOREG_WRAPPER_SRC = [
   '})',
   'const out = `${r.stdout || ""}${r.stderr || ""}${r.error ? r.error.message : ""}`',
   'const ok = !r.error && r.status === 0',
+  // 第二跑:台账→代码 对账修复器(同腿)。它不落库、不提交,只把被削掉的标记行/路由行补回。
+  // 跑不跑得起来都不许改写第一条腿的结论 —— 两腿的结论各自独立回写(§0.3 不许用编造的数冒"量到了")。
+  'const rr = repairScript ? spawnSync(process.execPath, [repairScript, "--apply"], {',
+  '  cwd: process.cwd(),',
+  '  windowsHide: true,',
+  '  encoding: "utf8",',
+  '  maxBuffer: 32 * 1024 * 1024,',
+  "  stdio: ['ignore', 'pipe', 'pipe'],",
+  '  env: process.env,',
+  '}) : { status: null, stdout: "", stderr: "", error: null }',
+  'const rout = `${rr.stdout || ""}${rr.stderr || ""}${rr.error ? rr.error.message : ""}`',
+  'const rok = !rr.error && rr.status === 0',
   'const num = (re) => { const m = re.exec(out); return m ? Number(m[1]) : null }',
+  'const num2 = (re) => { const m = re.exec(rout); return m ? Number(m[1]) : null }',
   'const m3 = /已写盘[：:]map \\+(\\d+) \\/ 标记 \\+(\\d+) \\/ registry \\+(\\d+)/.exec(out)',
   'const hits = {',
   '  webRn: num(/可自动登记 (\\d+) 条/),',
@@ -422,6 +443,10 @@ const CROSS_END_AUTOREG_WRAPPER_SRC = [
   '  appliedMarkers: m3 ? Number(m3[2]) : null,',
   '  appliedRegistry: m3 ? Number(m3[3]) : null,',
   '  notLandedCount: (out.match(/\\[未落\\]/g) || []).length,',
+  '  repairApplied: num2(/已落地 ([0-9]+) 条/),',
+  '  repairRefused: num2(/拒落 ([0-9]+) 条/),',
+  '  repairFindings: num2(/需处理 ([0-9]+)/),',
+  '  repairOk: rok,',
   '}',
   'const finishedAt = new Date().toISOString()',
   'let base = {}',
@@ -450,6 +475,7 @@ const CROSS_END_AUTOREG_WRAPPER_SRC = [
   'const block =',
   '  `\\n===== ${finishedAt} post-commit-cross-end-autoreg ok=${ok}(detached 派发,子侧留痕) =====\\n` +',
   '  out +',
+  '  (repairScript ? "\\n----- 台账→代码 对账修复器(同腿第二跑) -----\\n" + rout : "") +',
   '  `\\n结论回写状态文件=${stateWritten ? "ok" : "FAILED(仅日志留痕)"} lastResult=${ok ? "ok" : "failed"} hits=${JSON.stringify(hits)}\\n`',
   'try {',
   '  fs.appendFileSync(outLog, block)',
@@ -601,6 +627,7 @@ if (
             CROSS_END_AUTOREG_SCRIPT,
             CROSS_END_AUTOREG_STATE_FILE,
             outLog,
+            CROSS_END_REPAIR_SCRIPT,
           ],
           {
             cwd: ROOT,
