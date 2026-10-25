@@ -36,17 +36,18 @@ import { loadCaps, parseLedger, evaluate, chargeLine } from './cost-breaker.mjs'
 import { loadHumanGates, summarize as summarizeHumanGates } from './human-gates.mjs'
 import { loadPolicy, decide, POLICY_PATH } from './autonomy-decision.mjs'
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json')
+export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+/** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
+export const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json')
 /** O6504 人工阀清单 / O6502 成本熔断(调度层读同一份真源,不另写第二份判据) */
 const HUMAN_GATES_JSON = join(ROOT, 'scripts', 'data', 'human-gates.json')
 const COST_CAPS_JSON = join(ROOT, 'scripts', 'data', 'cost-caps.json')
-const COST_LEDGER = join(ROOT, '.ihui-agent', 'state', 'cost-ledger.jsonl')
-const LEDGER = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-ledger.jsonl')
-const LOCK_FILE = join(ROOT, '.ihui-agent', 'state', 'auto-evolve.lock')
+export const COST_LEDGER = join(ROOT, '.ihui-agent', 'state', 'cost-ledger.jsonl')
+export const LEDGER = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-ledger.jsonl')
+export const LOCK_FILE = join(ROOT, '.ihui-agent', 'state', 'auto-evolve.lock')
 const ESCAPE_TICK = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-escape-tick.json')
 const TMP_DIR = join(ROOT, '.ihui-agent', 'tmp', 'auto-evolve')
-const PLAN_TASKS = join(ROOT, 'scripts', 'plan-tasks.mjs')
+export const PLAN_TASKS = join(ROOT, 'scripts', 'plan-tasks.mjs')
 /** 自治决策候选评估(第 2 期接线):id = ticketKey,由 AI 会话写;本器不替 AI 编因子 */
 const AUTONOMY_CANDIDATES = join(ROOT, '.ihui-agent', 'state', 'autonomy-candidates.json')
 const MAIL_SCRIPT = join(ROOT, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
@@ -225,7 +226,7 @@ export function parseSessionUsage(stdout) {
   return { tokens: 0, costUsd: 0, measured: false }
 }
 
-function todayKey(now = new Date()) {
+export function todayKey(now = new Date()) {
   const y = now.getFullYear()
   const m = String(now.getMonth() + 1).padStart(2, '0')
   const d = String(now.getDate()).padStart(2, '0')

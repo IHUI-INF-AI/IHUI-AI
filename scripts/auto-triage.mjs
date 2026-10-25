@@ -44,6 +44,8 @@ import { createHash } from 'node:crypto'
 import { psqlSpawn, resolveDsn } from './check-learn-video-mount.mjs'
 import { locatePsqlClient, psqlLocateMissText } from './lib/psql-client-locate.mjs'
 import { guardDbDsn } from './lib/db-probe-client.mjs'
+// 登记行守卫(与 dep-advisory-radar 共用同一份):hex 串在台账行里会被守门 117 当短 sha 拒落。
+import { sanitizeHexRuns } from './lib/triage-doc-line.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const CONFIG_JSON = join(ROOT, 'scripts', 'data', 'auto-triage-config.json')
@@ -473,14 +475,20 @@ export function recentlyRegistered(ledger, fp, now = Date.now()) {
 
 /**
  * 登记:构造块文件走 live-doc-edit 子进程(唯一登记入口;它自带取号面/CAS/幂等判据)。
- * 登记行带新鲜日期交代(三选一之一),标题带指纹防同题查重误伤(守门 203)。
+ * 登记行带新鲜日期交代(三选一之一);同题查重由「标题逐字」承担(守门 203),指纹只进台账。
+ * 取号**一律**写 `{{NEXT_ID:G}}` 令牌(由 live-doc-edit 在每次 CAS 尝试里按当下 HEAD 现算),
+ * 本器不自己拼号 —— 手填/自算号在并发仓里必然撞号(§1 登记铁律,2026-10-26 接线时补齐)。
+ * 指纹**只留台账**(同源 24h 去重),不写进登记行:实测 12 位十六进制指纹会被守门 117(短 sha)
+ * 判住、整块拒落 —— 身份不进文档,明细走台账/提交信息(§1 证据指针纪律)。
  */
 export function registerToPlan({ source, fingerprint, title, evidence }, spawn = (...a) => spawnSync(...a)) {
   mkdirSync(TMP_DIR, { recursive: true })
   const blockFile = join(TMP_DIR, `reg-${fingerprint}.md`)
   const day = new Date().toISOString().slice(0, 10)
   const block = [
-    `- [ ] [auto-triage] ${title}(登记@${day}/auto-triage;来源:${source} 哨兵;指纹 ${fingerprint};证据:${evidence})`,
+    sanitizeHexRuns(
+      `- [ ] {{NEXT_ID:G}} [auto-triage] ${title}(登记@${day}/auto-triage;来源:${source} 哨兵;证据:${evidence})`,
+    ),
   ].join('\n')
   writeFileSync(blockFile, block, 'utf8')
   const r = spawn(process.execPath, [LIVE_DOC_EDIT], {
@@ -493,7 +501,7 @@ export function registerToPlan({ source, fingerprint, title, evidence }, spawn =
       ...process.env,
       LIVE_DOC: 'PROJECT_PLAN.md',
       LIVE_BLOCK_FILE: blockFile,
-      LIVE_MSG: `docs(plan): auto-triage 自动登记(${source};指纹 ${fingerprint};第 1 期感知层产线动作,O65)`,
+      LIVE_MSG: `docs(plan): auto-triage 自动登记(${source};第 1 期感知层产线动作,O65)`,
     },
   })
   try {
@@ -802,6 +810,7 @@ export const __test__ = {
   registeredToday,
   recentlyRegistered,
   registerToPlan,
+  sanitizeHexRuns,
   CONFIG_JSON,
   TRIAGE_LEDGER,
   MAIL_LEDGER,

@@ -126,6 +126,55 @@ export function parseHeader(line) {
  *  实现已下移到 `plan-task-index.stripSidecarHeader`(判定层也必须剥它,两处各写一份会漂),此处只留出口名。 */
 export const stripHeader = stripSidecarHeader
 
+/**
+ * 行内标头 ⇄ 侧车记录的**投影等式**(唯一实现,门 234 与投影器物共用)。
+ *
+ * 三档,不是两档(2026-10-26 立,治 4 枚 A2 恒红):
+ *  - `exact`   —— 行内那一段与 `renderHeader(rec)` 逐字相同;
+ *  - `midform` —— **语义相同、形态未收敛**:行内标头读回的三字段(owner / 等段文案)与记录逐字相等,
+ *                 只是多写了渲染器从不产出的形态(实测 `〔归:X｜等:—〕` —— 显式空等占位)。
+ *                 它**不构成归属说错**(parseHeader 把 `等:—` 读回 waiting=none,dispositionOf 同判),
+ *                 所以门只点名不判红;收敛出路 = 投影器物重渲染(`plan-fields-project`)。
+ *  - `mismatch` —— 读得回但读数不同(owner 换人 / 等段换事)⇒ 这才是 A2 要拦的"标头说错了"。
+ *
+ * 为什么必须由本层一处给判据:渲染、解析、比对三处各写一份"什么算同一个标头",必然漂成
+ * "一边写得出、另一边读不回"—— 本文件头注记的就是这个病(§0.6)。
+ *
+ * 注意 `midform` 的判据**不是**"随便什么不同都放过":owner 与等段文案必须逐字相等,只允许
+ * "投影没有的槽被显式写成了空占位"这一型;把 `等:—` 换成任何真等待文案都会落 `mismatch`。
+ */
+export const HEADER_KIND = { EXACT: 'exact', MIDFORM: 'midform', MISMATCH: 'mismatch', MALFORMED: 'malformed', NONE: 'none' }
+
+/** 记录侧的投影读数:owner 去空白(空 ⇒ '—' 的语义等价物 ''),等段 = 记录真会渲染出来的那一段。 */
+function recordReading(rec) {
+  const owner = String(rec?.owner ?? '').trim()
+  const blocking = String(rec?.blocking ?? '').trim()
+  const wait = rec?.waiting && rec.waiting !== 'none' && blocking ? blocking : ''
+  return { owner, wait }
+}
+
+/** 行内标头读回后的投影读数:与 `recordReading` 同一口径(owner '—' 已在 parseHeader 归成 '')。 */
+function headerReading(rec) {
+  const owner = String(rec?.owner ?? '').trim()
+  const wait = rec?.waiting && rec.waiting === 'none' ? '' : String(rec?.blocking ?? '').trim()
+  return { owner, wait }
+}
+
+export function headerEquivalence(line, rec) {
+  const want = renderHeader(rec)
+  const p = parseHeader(line)
+  if (p.malformed) return { kind: HEADER_KIND.MALFORMED, want }
+  if (!p.rec) return { kind: HEADER_KIND.NONE, want }
+  if (want === '') return { kind: HEADER_KIND.EXACT, want }
+  const span = locateSidecarHeader(line)
+  const text = String(line).slice(span.start, span.end)
+  if (text === want) return { kind: HEADER_KIND.EXACT, want }
+  const a = headerReading(p.rec)
+  const b = recordReading(rec)
+  const same = a.owner === b.owner && a.wait === b.wait
+  return { kind: same ? HEADER_KIND.MIDFORM : HEADER_KIND.MISMATCH, want, said: text }
+}
+
 /** 投影自检:无标头 = true(不是失败);有标头但读不回 = false。 */
 export function roundTripOk(line) {
   const p = parseHeader(line)
@@ -142,6 +191,8 @@ export const __test__ = {
   roundTripOk,
   projectionReading,
   resolveSidecar,
+  headerEquivalence,
+  HEADER_KIND,
   MAX,
   UNJUDGED_OWNER,
   UNJUDGED_HEADER,

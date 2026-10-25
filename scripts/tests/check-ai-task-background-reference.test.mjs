@@ -9,12 +9,14 @@
 //  ② 未判定语义(取不到、射程 0、W3 装车缺失都必须落非零方向,绝不静默绿);
 //  ③ 形状锁:被迁移文件真无残留裸调 + 出口 importer>0(读源码面,不读口头声称)。
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// 读真仓的派生 git 一律走面读取层(§5b 绝对路径 git + §12g 显式 stdio);棘轮不判 tests,
+// 但本处读的是真仓而不是夹具,没有用裸 'git' 的理由。
+import { gitRaw } from '../lib/face-reader.mjs'
 import { __test__ as G } from '../check-ai-task-background-reference.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -79,7 +81,7 @@ ok('形状锁:被迁移三文件无裸 create_task', () => {
 })
 
 ok('形状锁:出口 importer 数与 gate HEAD 现读一致(装车非声称)', () => {
-  const out = execFileSync('git', ['grep', '-l', 'background_tasks import', '--', 'apps/ai-service/app'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const out = gitRaw(['grep', '-l', 'background_tasks import', '--', 'apps/ai-service/app'], ROOT)
   const importers = out.split(/\r?\n/).filter(Boolean)
   assert.ok(importers.length >= 10, `importer ${importers.length} < 10 —— 迁移波没走完就别说收口`)
 })

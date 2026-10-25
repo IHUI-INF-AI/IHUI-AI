@@ -35,7 +35,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { auditFace, readFieldsFace } from './plan-tasks.mjs'
 import { FIELDS_REL, normalizeRecord } from './lib/plan-fields.mjs'
-import { parseHeader, stripHeader } from './lib/plan-field-line.mjs'
+import { parseHeader, resolveSidecar, stripHeader } from './lib/plan-field-line.mjs'
 import {
   bucketFromFields,
   compositeKeyOf,
@@ -50,9 +50,11 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 /** 只取归属声明后面的**值**;词表(整族判据)在 `plan-task-index`,这里不复制。
- *  认 `归属:` / `归:` 标头投影、`归属会话=` 与 `持有者:` 三种本仓真实写法。 */
-const OWNER_VALUE_RE =
-  /(?:归属[:：]|归[:：]|归属会话\s*[=＝]|持有[者人][:：])\s*([^,，。;；\n〕｜]{1,120})/
+ *  认 `归属:` / `归属会话=` 与 `持有者:` 三种本仓真实写法(2026-10-26 收窄:去掉裸 `归[:：]`)。
+ *  立因(实测 G-76):正文里的**历史注记/副本并入**自带 `〔归:机主处置隧道｜等:—〕` 这样的嵌入标头,
+ *  旧词表把这一处也当成本行归属 ⇒ 侧车 owner 被写成注记里的旧读数,而本行行首投影说"等机主核隧道"。
+ *  行首标头另有 `sidecarHeaderParts` 取值通道(投影是合法证据,注记不是),两条互不串门。 */
+const OWNER_VALUE_RE = /(?:归属[:：]|归属会话\s*[=＝]|持有[者人][:：])\s*([^,，。;；\n〕｜]{1,120})/
 const MAX_OWNER = 48
 const MAX_BLOCKING = 24
 /** 归属值里这些形态一定是"别的话"混进来:破折号后的叙述、连续空白(台账排版分隔两件事)、括号补充。 */
@@ -77,7 +79,16 @@ export function cleanOwner(raw) {
   if (OWNER_PLACEHOLDER_RE.test(cut)) return null
   if (OWNER_LEAD_PARTICLE_RE.test(cut)) return null
   if (OWNER_TAIL_PARTICLE_RE.test(cut)) return null
-  return cut.slice(0, MAX_OWNER)
+  // 孤立右括号 = 括号噪声,不是持有人本字(2026-10-26 实测 G-941 `（可判;归属:ai-service 成本账本)`:
+  // 同句全角 `（` 开、半角 `)` 收,字符类只挡全角)。带反引号的值不在此列 —— 本仓真实标头就是
+  // `` 〔归:`path` 持有人)〕 `` 这种写法(镜像测试 REAL_POSITIVE 钉住),不能一刀切。
+  if (!cut.includes('`') && /[)）]$/.test(cut)) return null
+  // 超长一律**不造**(2026-10-26 立,治 G-63 那型):以前切到 48 字,切点常落在反引号/句子中段,
+  // 产出 `\`scripts/lib/pre-commit-hook.js\` 与 \`scripts/safe` 这种**不能充当归属**的畸形值;
+  // 同键再被另一条完整值补上就是投影互斥(门 234 conflict)。失效方向选"少搬一带",
+  // 改值通道仍是 `--reclassify`(逐条带 why),不是抽取器顺手截。
+  if (cut.length > MAX_OWNER) return null
+  return cut
 }
 
 /**
@@ -136,12 +147,21 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
       src = line
       m = OWNER_VALUE_RE.exec(fullFace)
     }
-    if (!m) return null
+    // 散文一处都没抽到时,唯一合法退路是**行首标头**(标头-only 的投影行;注记里的嵌入标头不算)。
+    if (!m) {
+      const ho = cleanOwner(headerOwner)
+      if (ho === null) return null
+      rec.owner = ho
+      // 归属分支的 waiting 恒 none(词表同序:owner 优先于等待),等段不参与,见下面公共段的条件。
+      return rec
+    }
     // 同一起点改在原行上取第二遍:face 与 line 等长(反引号遮成等长空白),这样带反引号的路径名
     // 不会被 `\s*` 吃掉;而"命中只在反引号里"仍由上面那次 face 判定挡住。
     const tail = OWNER_VALUE_RE.exec(src.slice(m.index))
     if (!tail) return null
-    const owner = cleanOwner(tail[1])
+    // 散文值被拒(超长/占位/虚词)时**退回行首标头**的 owner —— 投影是合法证据,注记不是。
+    // 2026-10-26:退路只认行首那一段(sidecarHeaderParts),正文里嵌入的 `〔归:…〕` 一律不认。
+    const owner = cleanOwner(tail[1]) ?? cleanOwner(headerOwner)
     if (owner === null) return null
     rec.owner = owner
   } else if (bucket === 'waiting-human') {
@@ -190,6 +210,26 @@ export function batchBucketDrift(lines, map, beforeMap = new Map()) {
 
 const recordsFile = (root) => path.join(root, FIELDS_REL)
 
+/**
+ * **同批同键投影互斥**的键集(唯一实现,写入口与规划面共用;§0.6)。
+ *
+ * 侧车是"只增不删"的追加面,同键多条天然会发生;真正的问题是**投影读数互斥**时"取哪一条"
+ * 由 `loadFields` 按 `updatedAt` 隐式裁决 —— 那是写入时刻,不是归属权威(门 234 的 conflict/A3
+ * 就长这样)。抽取器的职责是"搬",不是"改判":同一批候选里同键出现两个不同读数,
+ * 说明抽取面自己就歧义(典型:同一行被抽成两个 owner),此时**一条都不写**并点名,交 `--reclassify`
+ * 逐条裁决(带 why)。读数比较复用 `resolveSidecar`(与门同一把尺,不在这里另写"什么算不同")。
+ */
+export function collisionKeysOf(recs) {
+  const byKey = new Map()
+  for (const raw of recs ?? []) {
+    const n = normalizeRecord(raw)
+    if (!n.ok) continue
+    if (!byKey.has(n.rec.key)) byKey.set(n.rec.key, [])
+    byKey.get(n.rec.key).push(n.rec)
+  }
+  return [...byKey].filter(([, list]) => resolveSidecar(list).conflict).map(([k]) => k)
+}
+
 function existingLines(root) {
   const abs = recordsFile(root)
   if (!existsSync(abs)) return []
@@ -226,9 +266,16 @@ export function writeRecords(root, recs) {
   const toAppend = []
   let dupSkipped = 0
   let rejected = 0
+  // 同批同键读数互斥 ⇒ 这些键**一条都不写**(写哪条都是替人裁决),与规划面共用一把尺。
+  const collisions = collisionKeysOf(recs)
+  const collisionSet = new Set(collisions)
   for (const raw of recs) {
     const n = normalizeRecord(raw)
     if (!n.ok) {
+      rejected++
+      continue
+    }
+    if (collisionSet.has(n.rec.key)) {
       rejected++
       continue
     }
@@ -239,7 +286,7 @@ export function writeRecords(root, recs) {
     addHave(n.rec)
     toAppend.push(JSON.stringify(n.rec))
   }
-  if (toAppend.length === 0) return { appended: 0, dupSkipped, rejected, path: abs }
+  if (toAppend.length === 0) return { appended: 0, dupSkipped, rejected, collisions, path: abs }
   mkdirSync(path.dirname(abs), { recursive: true })
   const tmp = `${abs}.tmp-${process.pid}`
   writeFileSync(tmp, [...before, ...toAppend].join('\n') + '\n', 'utf8')
@@ -250,7 +297,7 @@ export function writeRecords(root, recs) {
       `侧车写盘失败(${String(e?.code ?? e)}),目标文件保持原样:${abs} —— 临时件留在 ${path.basename(tmp)}`,
     )
   }
-  return { appended: toAppend.length, dupSkipped, rejected, path: abs }
+  return { appended: toAppend.length, dupSkipped, rejected, collisions, path: abs }
 }
 
 /** 回读记录条数(物理行数,不是去重后的键数 —— 同键多份正是要能看见的形态)。 */
@@ -290,9 +337,16 @@ export function writePendingRecords(root, recs) {
   let rewrote = 0
   let appended = 0
   let rejected = 0
+  // 同批同键读数互斥 ⇒ 一条都不写(与 `writeRecords` 同一把尺;这两处各写一份必然漂)。
+  const collisions = collisionKeysOf(recs)
+  const collisionSet = new Set(collisions)
   for (const raw of recs) {
     const n = normalizeRecord(raw)
     if (!n.ok) {
+      rejected++
+      continue
+    }
+    if (collisionSet.has(n.rec.key)) {
       rejected++
       continue
     }
@@ -308,7 +362,7 @@ export function writePendingRecords(root, recs) {
       rewrote++
     }
   }
-  if (rewrote + appended === 0) return { rewritten: 0, appended, rejected, path: abs }
+  if (rewrote + appended === 0) return { rewritten: 0, appended, rejected, collisions, path: abs }
   mkdirSync(path.dirname(abs), { recursive: true })
   const tmp = `${abs}.tmp-${process.pid}`
   writeFileSync(tmp, out.join('\n') + '\n', 'utf8')
@@ -319,7 +373,7 @@ export function writePendingRecords(root, recs) {
       `侧车写盘失败(${String(e?.code ?? e)}),目标文件保持原样:${abs} —— 临时件留在 ${path.basename(tmp)}`,
     )
   }
-  return { rewritten: rewrote, appended, rejected, path: abs }
+  return { rewritten: rewrote, appended, rejected, collisions, path: abs }
 }
 
 /**
@@ -468,7 +522,7 @@ export function planFromRows(lines, sideMap) {
     const merged = enrichRecord(cur, c)
     if (merged) pendingList.push(merged)
   }
-  return { candidates, extractable: candidates.length, pending: pendingList.length, pendingList }
+  return { candidates, extractable: candidates.length, pending: pendingList.length, pendingList, collisions: collisionKeysOf(pendingList) }
 }
 
 /** 一次算完:面 → 候选 → 合并侧车 → 漂移。check / dry-run / apply 三处共用同一份,不许两套口径。 */
@@ -524,6 +578,17 @@ function printVerdict(p, { listLimit = 0 }) {
     for (const d of p.drift.slice(0, 20)) console.log(`   · ${d}`)
     if (p.drift.length > 20) console.log(`   …另 ${p.drift.length - 20} 条同型,未逐条打印`)
     console.log(`EXTRACT-RESULT state=refused changed=0 bucketsDrift=${p.drift.length}`)
+    return 2
+  }
+  // 同批同键投影互斥(2026-10-26 立):抽出来两个互斥读数 ⇒ 一条都不写,交 `--reclassify` 逐条裁决。
+  // 放行任何一条都是替人裁决归属,下一轮门 234 会把它变成 conflict(而门只报数,没人会看见)。
+  if ((p.collisions ?? []).length > 0) {
+    console.log(
+      `❌ 整批不落 —— 抽取面同键 ${p.collisions.length} 个键投影读数互斥(写哪一条都是替人裁决):`,
+    )
+    for (const k of p.collisions.slice(0, 20)) console.log(`   · ${k}`)
+    if (p.collisions.length > 20) console.log(`   …另 ${p.collisions.length - 20} 个键未逐条打印`)
+    console.log(`EXTRACT-RESULT state=refused changed=0 conflictKeys=${p.collisions.length}`)
     return 2
   }
   console.log('守恒:抽取前后每一行的归属桶零变化(逐行比 旧侧车 ↔ 新侧车,同为 dispositionOfV2)')
@@ -715,9 +780,15 @@ function main() {
     if (code === 0) console.log('   本轮零条待追加(抽得出的记录已在侧车):侧车无需写入。')
     return code
   }
-  const written = writeRecords(ROOT, p.candidates)
+  // 落盘 = `pendingList`(同键合并后的那一批),**不是** `candidates`:
+  // 后者含"已有键的候选",按只增不删追加会给同键叠出第二读数 ⇒ 门 234 conflict(2026-10-26 收口)。
+  // 同键就地改写胜出那条的实现住在 `writePendingRecords`(它跑起来才不会把 check 钉在 changed)。
+  const written = writePendingRecords(ROOT, p.pendingList)
+  for (const k of written.collisions ?? [])
+    console.log(`   ⚠ 同批同键互斥,整键拒写并点名:${k}(交 --reclassify 逐条裁决)`)
   console.log(
-    `已追加 ${written.appended} 条记录(逐字已在位而跳过 ${written.dupSkipped} 条 / 记录不合法被拒 ${written.rejected} 条)→ ${path.relative(ROOT, written.path)}`,
+    `已写入 ${written.rewritten} 条合并记录 / 追加 ${written.appended} 条记录(记录不合法或同批互斥被拒 ${written.rejected} 条)` +
+      ` → ${path.relative(ROOT, written.path)}`,
   )
   console.log(`回读条数:${readBackCount(ROOT)}`)
   return 0
