@@ -14,6 +14,8 @@
 //    T10 LAND_ALLOW_STALE=1 ⇒ 放行且大声留痕;T11 只复活不删除 ⇒ 只报不拦;
 //    T12 形状锁:判据只能 import 守门 84 那一份,不得在本器里出现第二份祖先判定;
 //    T13 lineDelta 纯函数面:多重集计数 / CRLF 不算删除 / 取不到正文不得折成 0。
+//  + G-04 新建路径载荷(T-WM-NEW-1/2/3):新建件两种取材通道都必须带可解码载荷,
+//    既有路径不得进注入射程(已存在路径语义一字不改)。
 // git 写操作只发生在 scripts/lib/scratch-dir.mjs 的临时仓内(§26/§15b 唯一夹具落点),绝不碰真仓。
 
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -28,6 +30,8 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ } from '../object-space-land.mjs'
 import { decideBanner } from '../object-space-land.mjs'
+// G-04 新建路径载荷维:载荷可解码性只问 watermark.mjs 那一份判据(§0.6,不在测试里重写解码)
+import { __test__ as WM } from '../watermark.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { git, headBlobOf, indexBlobOf, writeBlob } from '../lib/bypass-git.mjs'
 import { landsLedger } from '../lib/bypass-git.mjs'
@@ -893,6 +897,70 @@ test('T-BANNER-TEETH blob 模式把基线横幅抹掉仍必须拒绝(放宽只�
   assert.equal(r.status, 1, `抹横幅必须拦,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.match(r.stderr, /水印横幅未保持|横幅被抹/)
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '被拒时 HEAD 不得前进')
+})
+
+/**
+ * ── G-04 第二/三格(2026-10-25):新建路径必须在对象空间内补上溯源水印 ──────────────
+ *
+ * 票面事实:旁路落地器按「HEAD blob → 内存改写 → commit-tree → CAS」产出,刻意不写工作树
+ * (§1/§12 要求),于是 §5c 的「writeFileSync 后必须紧随注入」在它身上结构上不可能触发 ——
+ * 2026-10-15 实测一枚归档台账(`.ihui-agent/archive/plan-pointer-purge-2026-10-14-5.md`)
+ * 就这样以"无水印"形态进了 HEAD,而它正是 `plan-pointer-purge.mjs` 的产出。
+ *
+ * 三段成对:
+ *  - 新建件(两种取材通道)⇒ 入树内容必须带可解码载荷,且**工作树副本一个字节都不写**;
+ *  - 已存在路径 ⇒ 不进注入射程,入树内容必须与声明 oid 逐字节一致(既有语义不变)。
+ */
+test('T-WM-NEW-1 工作树模式:新建 .ts 落地后必须带可解码载荷,而盘上副本一字未动', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'brand'), { recursive: true })
+  const bare = 'export const fresh = 1\n'
+  writeFileSync(join(dir, 'brand', 'new.ts'), bare)
+  const r = runLand(dir, { paths: 'brand/new.ts', msg: 'feat: 新建件(须带水印)' })
+  assert.equal(r.status, 0, `新建件必须能落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.match(r.stdout, /新建路径已按 §5c 注入溯源水印/, '注入了就必须点名(静默改写比不注入更糟)')
+  const head = git(['rev-parse', 'HEAD'], { root: dir })
+  const landedOid = headBlobOf(head, 'brand/new.ts', { root: dir })
+  const landed = git(['cat-file', 'blob', landedOid], { root: dir, raw: true })
+  assert.ok(WM.payloadIntact(String(landed)), '入树的新建件必须带可解码载荷(§5c)')
+  assert.ok(String(landed).includes(bare.trim()), '正文一行都不能丢')
+  assert.equal(
+    readFileSync(join(dir, 'brand', 'new.ts'), 'utf8'),
+    bare,
+    '工作树副本不得被写(盘上那份可能是别人的在飞现场)',
+  )
+})
+
+test('T-WM-NEW-2 blob 模式新建件:判据面=对象库 blob,盘上根本没有该文件也能注入', (t) => {
+  const dir = makeRepo(t)
+  assert.equal(existsSync(join(dir, 'brand', 'ghost.ts')), false, '夹具前提:盘上无此文件')
+  const bareOid = hashText(dir, 'export const ghost = 1\n')
+  const mf = join(dir, 'mf-new-blob.json')
+  writeFileSync(mf, JSON.stringify({ files: [{ path: 'brand/ghost.ts', blob: bareOid }] }))
+  const r = runLandBlob(dir, { paths: 'brand/ghost.ts', manifest: mf })
+  assert.equal(r.status, 0, `新建件必须能落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  const head = git(['rev-parse', 'HEAD'], { root: dir })
+  const landedOid = headBlobOf(head, 'brand/ghost.ts', { root: dir })
+  assert.notEqual(landedOid, bareOid, '入树内容必须是注入后的新 blob,不是调用方那份无水印的')
+  const landed = git(['cat-file', 'blob', landedOid], { root: dir, raw: true })
+  assert.ok(WM.payloadIntact(String(landed)), 'blob 模式的新建件同样必须带可解码载荷')
+  assert.match(r.stdout, /水印预检通过\(新建路径 1\/1/, '新建路径载荷维必须在报告里可见')
+  assert.equal(existsSync(join(dir, 'brand', 'ghost.ts')), false, 'blob 模式绝不写工作树')
+})
+
+test('T-WM-NEW-3 已存在路径不受注入:入树内容必须与清单 oid 逐字节一致', (t) => {
+  const dir = makeRepo(t)
+  const plain = 'export const keep = 1\n' // 基线无横幅:本器只判"横幅保持",不逼既有文件长出横幅
+  writeFileSync(join(dir, 'keep.ts'), plain)
+  runGit(dir, ['add', '--', 'keep.ts'])
+  runGit(dir, ['commit', '-q', '-m', '基线:无横幅的既有文件'])
+  const want = hashText(dir, 'export const keep = 2\n')
+  const mf = join(dir, 'mf-existing.json')
+  writeFileSync(mf, JSON.stringify({ files: [{ path: 'keep.ts', blob: want }] }))
+  const r = runLandBlob(dir, { paths: 'keep.ts', manifest: mf })
+  assert.equal(r.status, 0, `既有路径的落地语义不得变,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.equal(/新建路径已按 §5c 注入/.test(r.stdout), false, '既有路径不得进注入射程')
+  assert.equal(git(['rev-parse', 'HEAD:keep.ts'], { root: dir }), want, '入树内容必须与清单 oid 逐字节一致')
 })
 
 
