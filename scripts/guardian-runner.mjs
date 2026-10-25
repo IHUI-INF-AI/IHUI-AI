@@ -3513,7 +3513,7 @@ const checks = [
     label:
       '🎨 RN 令牌表派生面 ↔ tokens.css 对账(blocking;值同步 + 覆盖面块落后都算漂移 —— 源改一处 RN 自动跟上,不跟上就拦在提交口)',
     script: 'sync-rn-tokens.mjs',
-    args: ['--check'],
+    args: ['--check', '--staged'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_RN_TOKEN_DERIVATION',
     stagedTriggers: [

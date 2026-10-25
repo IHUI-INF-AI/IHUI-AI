@@ -35,6 +35,9 @@
  *   node scripts/sync-rn-tokens.mjs             原位写回(幂等;实际有改动才落盘并补水印)
  *   node scripts/sync-rn-tokens.mjs --check     只读:有待写回项 / 待补标记 / 拒绝项 ⇒ exit 1
  *   node scripts/sync-rn-tokens.mjs --list      只读:打印派生台账(可派生档 + 不可派生档 + 原因);拒绝项 ⇒ exit 1
+ *   node scripts/sync-rn-tokens.mjs --check --staged
+ *              提交链档:判**索引 blob**(§0.4 同面同轮,绝不回落工作树),零写盘;落后 ⇒ exit 1
+ *              —— 不这么做的话,门判的是"盘上此刻是什么",而提交交的是索引那份,两边可以任意分叉
  *   node scripts/sync-rn-tokens.mjs --self-test 判据自检(全部内存夹具,不碰真仓文件)
  *
  * 退出码:0 = 一致或写回成功;1 = 存在待写回漂移 / 标记缺失 / 拒绝项;2 = 无法判定
@@ -51,6 +54,7 @@ import { execFileSync } from 'node:child_process'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { collectVars } from './lib/design-token-blocks.mjs'
+import { catBatch } from './lib/face-reader.mjs'
 import { __test__ as crossEnd } from './check-cross-end-tokens.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -967,6 +971,49 @@ export const rnDarkTokens: RnThemeTokens = {
     })(),
   )
 
+  // ── K. 桶口对账(生成的表必须真的能被消费方取到) ──
+  const K_BARREL_OK = `export {
+  rnTokens,
+  rnLightTokens,
+  rnDarkTokens,
+  getRnTokens,
+  rnCssLight,
+  rnCssDark,
+  rnCssColor,
+  type RnTokens,
+} from './rn-tokens.js'
+export const other = 1
+`
+  const K_BARREL_MISS = K_BARREL_OK.replace('  rnCssLight,\n  rnCssDark,\n  rnCssColor,\n', '')
+  ok(
+    'K1 桶口缺三个出口 ⇒ stale=true,补齐后三个名字都落进出囗块',
+    (() => {
+      const b = planBarrel({ indexText: K_BARREL_MISS, palettePresent: true })
+      const blk = /export \{[\s\S]*?\} from '\.\/rn-tokens\.js'/.exec(b.next)?.[0] ?? ''
+      return (
+        b.stale &&
+        b.missing.join(',') === 'rnCssLight,rnCssDark,rnCssColor' &&
+        ['rnCssLight', 'rnCssDark', 'rnCssColor'].every((n) => blk.includes(`${n},`)) &&
+        b.next.split("from './rn-tokens.js'").length - 1 === 1
+      )
+    })(),
+  )
+  ok(
+    'K2 幂等:补齐之后再判 ⇒ stale=false(不会每轮都改一遍桶口)',
+    planBarrel({ indexText: planBarrel({ indexText: K_BARREL_MISS, palettePresent: true }).next, palettePresent: true })
+      .stale === false,
+  )
+  ok(
+    'K3 块尚未生成 ⇒ 桶口不预先出口不存在的名字(否则 build 期悬空出口)',
+    planBarrel({ indexText: K_BARREL_MISS, palettePresent: false }).stale === false,
+  )
+  throws('K4 块没有而桶口已出口 ⇒ 无法判定(悬空出口不静默放过)', /悬空出口/, () =>
+    planBarrel({ indexText: K_BARREL_OK, palettePresent: false }),
+  )
+  throws('K5 桶口的 rn-tokens 出口块命中数不是 1 ⇒ 无法判定(不猜哪一块是桶口)', /无法定位桶口/, () =>
+    planBarrel({ indexText: "export { a } from './x.js'\n", palettePresent: true }),
+  )
+
   // ── I. 台账 ──
   const ledger = renderLedger(p0)
   ok(
@@ -1134,17 +1181,77 @@ function scanLeaves(rnText) {
   return out
 }
 
+/**
+ * 桶口对账:派生器把表写进 rn-tokens.ts 之后,消费方走的是包入口 `@ihui/design-tokens` ——
+ * 桶口是**显式具名出口**(不是 export *),所以新表若不加进 index.ts,取回来就是 undefined:
+ * "生成好了但接不上"这一型 2026-10-26 实测过(rnCssLight 174 档进表且 tsc/build 全绿,
+ * 而 `import { rnCssColor } from '@ihui/design-tokens'` 是 undefined)。不靠人记得改 index.ts。
+ */
+export const BARREL_REL = 'packages/design-tokens/src/index.ts'
+export const PALETTE_EXPORT_NAMES = ['rnCssLight', 'rnCssDark', 'rnCssColor']
+
+const barrelBlock = (text) => {
+  const re = /export \{[^}]*\} from '\.\/rn-tokens\.js'/g
+  const hits = text.match(re) ?? []
+  if (hits.length !== 1)
+    throw new UndeterminedError(`index.ts 里指向 ./rn-tokens.js 的具名出口块命中 ${hits.length} 处 ⇒ 无法定位桶口`)
+  return hits[0]
+}
+
+/**
+ * @param {{indexText:string, palettePresent:boolean}} o
+ * @returns {{missing:string[], next:string, stale:boolean}}
+ */
+export function planBarrel({ indexText, palettePresent }) {
+  const block = barrelBlock(indexText)
+  if (!palettePresent) {
+    // 覆盖面块还没生成 ⇒ 桶口不该先出口不存在的名字(那会造出 build 期的悬空出口)
+    const leaking = PALETTE_EXPORT_NAMES.filter((n) => block.includes(`${n},`) || block.includes(`${n}\n`))
+    if (leaking.length > 0)
+      throw new UndeterminedError(`表里没有覆盖面块,桶口却出口了 ${leaking.join(',')} ⇒ 悬空出口,拒绝判定`)
+    return { missing: [], next: indexText, stale: false }
+  }
+  const missing = PALETTE_EXPORT_NAMES.filter((n) => !new RegExp(`(^|[\\s,{])${n}[\\s,}]`, 'm').test(block))
+  if (missing.length === 0) return { missing: [], next: indexText, stale: false }
+  const next = indexText.replace(block, block.replace(/(getRnTokens,)/, `$1\n${missing.map((n) => `  ${n},`).join('\n')}`))
+  if (next === indexText)
+    throw new UndeterminedError('桶口里找不到 getRnTokens 锚点 ⇒ 拒绝盲插,交人工加出口')
+  return { missing, next, stale: true }
+}
+
 // ──────────────────────────────────────────────
 
-function loadInputs() {
+/**
+ * 取材面(§0.4 同面同轮):默认写档读工作树(它就是要改那份);`--staged` 档读**索引 blob**,
+ * 且绝不写盘 —— 提交链判的必须是"这一枚提交到底带了什么",而不是"盘上此刻是什么"。
+ * 门 118 的口径:判据取正文一律走 face-reader,不在本文件里另写一份 git 取法。
+ */
+function loadInputs(staged) {
   const srcPath = resolve(ROOT, TOKENS_SOURCE_REL)
   const dstPath = resolve(ROOT, RN_TOKENS_REL)
-  if (!existsSync(srcPath)) throw new UndeterminedError(`源文件不存在:${srcPath}`)
-  if (!existsSync(dstPath)) throw new UndeterminedError(`目标文件不存在:${dstPath}`)
+  const barrelPath = resolve(ROOT, BARREL_REL)
+  if (!staged) {
+    for (const p of [srcPath, dstPath, barrelPath])
+      if (!existsSync(p)) throw new UndeterminedError(`文件不存在:${p}`)
+    return {
+      dstPath,
+      barrelPath,
+      tokensCss: readFileSync(srcPath, 'utf8'),
+      rnText: readFileSync(dstPath, 'utf8'),
+      indexText: readFileSync(barrelPath, 'utf8'),
+    }
+  }
+  const rels = [TOKENS_SOURCE_REL, RN_TOKENS_REL, BARREL_REL]
+  const got = catBatch(ROOT, rels.map((r) => `:${r}`))
+  const missing = rels.filter((r) => got.get(`:${r}`) == null)
+  if (missing.length > 0)
+    throw new UndeterminedError(`索引面取不到正文:${missing.join(', ')} ⇒ 不回落工作树,不记绿`)
   return {
-    dstPath,
-    tokensCss: readFileSync(srcPath, 'utf8'),
-    rnText: readFileSync(dstPath, 'utf8'),
+    dstPath: null,
+    barrelPath: null,
+    tokensCss: String(got.get(`:${TOKENS_SOURCE_REL}`)),
+    rnText: String(got.get(`:${RN_TOKENS_REL}`)),
+    indexText: String(got.get(`:${BARREL_REL}`)),
   }
 }
 
@@ -1173,16 +1280,20 @@ function main() {
 
   const isCheck = args.includes('--check')
   const isList = args.includes('--list')
+  const isStaged = args.includes('--staged')
   // 只读档:`--list` 是台账巡检工具,不是写回的前奏。第一版把它当"顺带打印",于是它照样落盘 ——
-  // 文档写着"零副作用"而代码在写文件,这种分叉只能由代码侧收口(现在两个只读档都不写)。
-  const readOnly = isCheck || isList
-  const { dstPath, tokensCss, rnText } = loadInputs()
+  // 文档写着"零副作用"而代码在写文件,这种分叉只能由代码侧收口(现在三个只读档都不写)。
+  const readOnly = isCheck || isList || isStaged
+  const { dstPath, barrelPath, tokensCss, rnText, indexText } = loadInputs(isStaged)
   const tables = readTokenTables(tokensCss)
   if (Object.keys(tables.light).length === 0)
     throw new UndeterminedError('tokens.css 取到 0 个变量 ⇒ 无法判定(不冒绿)')
   const plan = planDerivation({ rnText, light: tables.light, dark: tables.dark })
   assertSameLeafSets(rnText, plan.spansByTable)
   const pal = planPalette({ rnText, light: tables.light, dark: tables.dark })
+  // 桶口判的是"那份块在不在源里":--staged 档以被审面(索引 blob)上是否已有块为准;
+  // 写档则按"本轮写完就有"算,免得第一次运行桶口落后要跑两次才对账。
+  const barrel = planBarrel({ indexText, palettePresent: isStaged ? pal.existing : pal.entries.length > 0 })
 
   console.info(
     `[sync-rn-tokens] 可派生 ${plan.managedCount} 档 / 不可派生 ${plan.unmanaged.length} 档 / ` +
@@ -1192,6 +1303,9 @@ function main() {
     `[sync-rn-tokens] 覆盖面派生:源档 ${pal.entries.length} 枚进块 / 跳过 ${pal.skips.length} 枚 / ` +
       `${pal.stale ? (pal.existing ? '块内容落后于源' : '块尚未生成') : '块与源一致'}`,
   )
+  console.info(
+    `[sync-rn-tokens] 桶口对账:${barrel.stale ? `缺 ${barrel.missing.join(',')} 出口` : '覆盖面表的三个名字都在桶口'}`,
+  )
   if (isList) console.info(renderLedger(plan))
   if (isList && pal.skips.length > 0)
     console.info(
@@ -1199,13 +1313,17 @@ function main() {
     )
 
   const needsWrite =
-    plan.changes.length > 0 || plan.markerInserts.length > 0 || (pal.stale && pal.block !== '')
+    plan.changes.length > 0 ||
+    plan.markerInserts.length > 0 ||
+    (pal.stale && pal.block !== '') ||
+    barrel.stale
   if (needsWrite && !readOnly) {
     let next = plan.changes.length > 0 || plan.markerInserts.length > 0 ? applyPlan(rnText, plan) : rnText
     if (pal.stale && pal.block !== '') next = applyPalette(next, pal.block)
-    writeAndWatermark(dstPath, next)
+    if (next !== rnText) writeAndWatermark(dstPath, next)
+    if (barrel.stale) writeAndWatermark(barrelPath, barrel.next)
     console.info(
-      `[sync-rn-tokens] ✅ 已原位写回 ${RN_TOKENS_REL}(值 ${plan.changes.length} 处 + 标记 ${plan.markerInserts.length} 处 + 覆盖面块 ${pal.entries.length} 档)`,
+      `[sync-rn-tokens] ✅ 已原位写回(值 ${plan.changes.length} 处 + 标记 ${plan.markerInserts.length} 处 + 覆盖面块 ${pal.entries.length} 档 + 桶口出口 ${barrel.missing.length} 个)`,
     )
     // 本脚本只改 src;RN 经包入口(main/exports)消费的是 dist,不重建则 Metro 永远吃旧值
     // (2026-10-20 实测:glass.bg 从 0.66 调到 0.3,设备上四轮毫无变化,dist 仍停在 0.66)。
@@ -1219,12 +1337,12 @@ function main() {
 
   for (const r of plan.refusals)
     console.error(`[sync-rn-tokens] ❌ 拒绝派生 ${r.table} ${r.path} [${r.kind}] —— ${r.detail}`)
-  if (isCheck && needsWrite)
+  if ((isCheck || isStaged) && needsWrite)
     console.error(
-      `[sync-rn-tokens] ❌ 待写回 ${plan.changes.length} 档、待补标记 ${plan.markerInserts.length} 处、覆盖面块落后 ${pal.stale ? pal.entries.length : 0} 档,请运行: node scripts/sync-rn-tokens.mjs`,
+      `[sync-rn-tokens] ❌ ${isStaged ? '索引面' : '被检面'}落后于源:待写回 ${plan.changes.length} 档、待补标记 ${plan.markerInserts.length} 处、覆盖面块 ${pal.stale ? `落后 ${pal.entries.length} 档` : '与源一致'}、桶口缺 ${barrel.missing.length} 个出口 ⇒ 跑 node scripts/sync-rn-tokens.mjs 后把所改文件同批提交`,
     )
-  // 拒绝项任何档位都要喊(--list 也不放过);纯漂移只在 --check 计失败,那是 --check 的判据而非台账的。
-  if (isCheck || plan.refusals.length > 0) process.exit(1)
+  // 拒绝项任何档位都要喊(--list 也不放过);纯漂移只在只读档计失败,那是判据而非台账的。
+  if (isCheck || isStaged || plan.refusals.length > 0) process.exit(1)
 }
 
 // §22d:CLI 直接执行才跑主流程;被测试 import 时不得有读盘 / 写盘副作用。
@@ -1265,6 +1383,9 @@ export const __test__ = {
   renderPaletteBlock,
   extractPaletteBlock,
   applyPalette,
+  BARREL_REL,
+  PALETTE_EXPORT_NAMES,
+  planBarrel,
   FIXTURE_CSS,
   FIXTURE_RN,
   FIXTURE_MAPPINGS,
