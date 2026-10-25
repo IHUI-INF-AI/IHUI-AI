@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { FlaskConical } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { rulesApi } from './rules-api'
+import { apiOrThrow } from '@/lib/api'
 import type { RuleAbTestResult } from './types'
 import type { Rule } from '@ihui/types'
 import { Button, CloseButton } from '@ihui/ui-react'
@@ -68,7 +68,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
     setError(null)
     setResult(null)
     try {
-      const res = await rulesApi<RuleAbTestResult>('/api/rules/ab-test', {
+      const res = await apiOrThrow<RuleAbTestResult>('/api/rules/ab-test', {
         method: 'POST',
         body: JSON.stringify({ ruleIdA, ruleIdB, message }),
       })

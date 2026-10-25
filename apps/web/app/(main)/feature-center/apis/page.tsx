@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Input } from '@ihui/ui-react'
 import {
   FeatureCenterHeader,
@@ -28,9 +28,7 @@ interface ApiItem {
 }
 
 async function fetchApis(): Promise<ApiItem[]> {
-  const res = await fetchApi<ApiItem[]>('/api/feature-center/apis')
-  if (!res.success) throw new Error(res.error)
-  return res.data
+  return apiOrThrow<ApiItem[]>('/api/feature-center/apis')
 }
 
 const CATEGORIES = [
