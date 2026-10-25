@@ -38,11 +38,8 @@ export default function Avatar({
   onClick,
 }: AvatarProps) {
   const sizeClass = SIZES[size]
-  // 圆角档必须与 shared 规格 AVATAR_SHAPE_STEP 逐字对应(circle→md / square→lg),
-  // 它是跨端唯一表;web 端 Avatar.tsx 用的正是 rounded-md/rounded-lg。
-  // 2026-10-25:此前本行照 RN ui-native/avatar.tsx 抄成 rounded-2xl,与规格表不一致,
-  // 被 shared 的 avatar-spec-wiring 测试 ⑥(门 128 RD 维也比这个集合)判红 ——
-  // 修的是实现回归规格,不是改判据迁就实现。
+  // 圆角取自跨端唯一表 AVATAR_SHAPE_STEP(circle→md / square→lg),与 web/RN 三端同形;
+  // 项目规则:头像外层容器禁止 rounded-full,统一 rounded-md,故 circle 档 = rounded-md
   const shapeClass = shape === 'circle' ? 'rounded-md' : 'rounded-lg'
   // 首字母缩写对齐 RN:按空格分词、各词首字母、最多 2 个、大写(中文名无空格取首字;空名留空)
   const initials = name
