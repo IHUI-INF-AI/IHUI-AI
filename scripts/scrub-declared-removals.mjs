@@ -79,23 +79,36 @@ export function titleFpOf(line) {
 }
 
 /** 台账整行原文 → 摘除声明索引。这是维二输入的**唯一构造出口**(self-test 与镜像测试都走它,
- *  不得在别处自己拼 `Map` —— 拼法一旦分叉,"测试绿而生产判据瞎"就是本仓记过的那一型)。 */
+ *  不得在别处自己拼 `Map` —— 拼法一旦分叉,"测试绿而生产判据瞎"就是本仓记过的那一型)。
+ *
+ *  〔2026-10-26 补 `keyIndex`,只加字段、`set`/`closed` 的口径一字不动〕`keyIndex` = 复合主键
+ *  (`compositeKeyOf` = 编号 + 标题前缀,与门 203/F1 同一把尺) → 台账原文数组,**open 与 x 两形态都收**。
+ *  立因:`set` 是整行逐字,而"结清"这一步会同时改变勾选态并追加注记(`—— 二次结清…`)⇒ 台账里的
+ *  x 形态与滞后副本里的 open 形态**哪一侧都对不上**(2026-10-25 实测 B03/G-593/G-115/G-272 各回捞
+ *  一次以上)。主键维是"同一件事"的结构证据,与题面措辞/行尾注记无关。
+ *  消费方 = `union-converge` 的 `declaredFamilyCaps`(扣回补候选的**第二把键**)与 `scrub` 维二
+ *  (`closed`),两处共用这一份构造出口(§0.6 单一真相源)。 */
 export function buildDeclared(rowTexts) {
   const set = new Set()
   const closed = new Map()
+  const keyIndex = new Map()
   const seenClosed = new Set()
   for (const s of rowTexts) {
     if (typeof s !== 'string' || !/^\s*- \[[ xX]\]/.test(s)) continue
     set.add(s)
+    const ck = compositeKeyOf(s)
+    if (ck) {
+      if (!keyIndex.has(ck)) keyIndex.set(ck, [])
+      keyIndex.get(ck).push(s)
+    }
     if (rowStateOf(s) !== 'done' || seenClosed.has(s)) continue
     seenClosed.add(s)
-    const ck = compositeKeyOf(s)
     const body = bodyOfRow(s)
     if (!ck || body === null) continue
     if (!closed.has(ck)) closed.set(ck, [])
     closed.get(ck).push({ raw: s, body })
   }
-  return { set, closed, closedDeclared: seenClosed.size }
+  return { set, closed, keyIndex, closedDeclared: seenClosed.size }
 }
 
 /** 摘除声明集合:
@@ -106,7 +119,9 @@ export function buildDeclared(rowTexts) {
  *  解不开的行长跳过并计数。
  *  〔G-34/G-43 补字段@2026-10-25,只加不改语义〕`malformedLines` = 解不开的那些行的**原文清单**
  *  (`union-converge` 的复合主键维要靠它做"坏行含该候选编号 ⇒ 未判定不回补"的归因;本器自身不读);
- *  `filesSeen` = 两份台账中**实际在位**的份数(0 = 台账整体缺失,调用方不得当成"没有声明过",§0.3)。 */
+ *  `filesSeen` = 两份台账中**实际在位**的份数(0 = 台账整体缺失,调用方不得当成"没有声明过",§0.3)。
+ *  〔2026-10-26 再补两字段,同样只加不改语义〕`keyIndex`(见 `buildDeclared`)与
+ *  `dropTitleRows`(题面指纹 → 台账原文,证据面;判据面仍是 `dropTitleFps`)。 */
 export function declaredRows(root = ROOT, files = LEDGERS) {
   const rows = []
   const dropRows = []
@@ -146,6 +161,19 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
   return {
     ...buildDeclared(rows),
     dropTitleFps: new Set(dropRows.map(titleFpOf).filter(Boolean)),
+    // 题面指纹维的**证据面**(2026-10-26):判据仍是上面那个 Set,这里记"哪几条台账原文贡献了这个
+    // 指纹"—— `union-converge` 扣行时必须逐条出示台账凭据(§0.10:删行的判定要能回答"凭哪条")。
+    // 只收与 `dropTitleFps` 同一批(f11/f12 族),两面的射程必须同形,否则证据会说成别的族。
+    dropTitleRows: (() => {
+      const m = new Map()
+      for (const raw of dropRows) {
+        const tf = titleFpOf(raw)
+        if (!tf) continue
+        if (!m.has(tf)) m.set(tf, [])
+        m.get(tf).push(raw)
+      }
+      return m
+    })(),
     malformed,
     malformedLines,
     filesSeen,
@@ -247,7 +275,7 @@ function main(argv, root = ROOT) {
     return 2
   }
   const d = declaredRows(root)
-  const { set: declared, closed, malformed, closedDeclared } = d
+  const { set: declared, closed, malformed, closedDeclared, keyIndex } = d
   if (declared.size === 0) {
     console.log(`SCRUB-RESULT state=undetermined why=摘除声明台账为空或不可解(malformed=${malformed}) ⇒ 不动文档`)
     return 2
@@ -270,7 +298,7 @@ function main(argv, root = ROOT) {
   const vHits = countByVia(r, 'verbatim')
   const bHits = countByVia(r, 'body')
   console.log(
-    `SCRUB-RESULT state=${r.dropped.length ? 'dropped' : 'clean'} dropped=${r.dropped.length} verbatim=${vHits} body=${bHits} held=${r.held.length} declared=${declared.size} closedDeclared=${closedDeclared} ledgerKeys=${closed.size} malformed=${malformed} file=${file}`,
+    `SCRUB-RESULT state=${r.dropped.length ? 'dropped' : 'clean'} dropped=${r.dropped.length} verbatim=${vHits} body=${bHits} held=${r.held.length} declared=${declared.size} closedDeclared=${closedDeclared} ledgerKeys=${closed.size} keyIndex=${keyIndex?.size ?? 0} malformed=${malformed} file=${file}`,
   )
   for (const item of r.dropped.slice(0, 6)) {
     console.log(`  · 剔除[${r.via.get(item) === 'verbatim' ? '逐字' : '正文'}]:${item.trim().slice(0, 78)}`)
