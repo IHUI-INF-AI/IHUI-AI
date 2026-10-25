@@ -107,6 +107,7 @@ export default function VisitTrackingPage() {
   const [page, setPage] = React.useState(1)
   const [scope, setScope] = React.useState<VisitScope>('public')
   const [platform, setPlatform] = React.useState<VisitPlatform>('all')
+  const [sort, setSort] = React.useState<'pv' | 'uv'>('pv')
   const pageSize = 15
 
   const qs = buildQs({ startTime: start, endTime: end, scope })
@@ -136,7 +137,7 @@ export default function VisitTrackingPage() {
     queryFn: () => eduApi<PageList<VisitRow>>(`/api/admin/visit-tracking/log/list${listQs}`),
   })
   const { data: pageUsage, isLoading: lp } = useQuery({
-    queryKey: ['visit-tracking', 'pages', start, end, scope, platform],
+    queryKey: ['visit-tracking', 'pages', start, end, scope, platform, sort],
     queryFn: () =>
       eduApi<{ list: PageUsageRow[]; total: number; totalPv: number }>(
         `/api/admin/visit-tracking/stats/page${buildQs({
@@ -144,6 +145,7 @@ export default function VisitTrackingPage() {
           endTime: end,
           scope,
           platform,
+          sort,
           page: 1,
           pageSize: 10,
         })}`,
@@ -286,6 +288,22 @@ export default function VisitTrackingPage() {
                   size="sm"
                   variant={platform === o.value ? 'default' : 'outline'}
                   onClick={() => setPlatform(o.value)}
+                >
+                  {o.label}
+                </Button>
+              ))}
+              <span className="mx-1 text-xs text-muted-foreground">排序</span>
+              {(
+                [
+                  { value: 'pv' as const, label: '按次数' },
+                  { value: 'uv' as const, label: '按人数' },
+                ] as const
+              ).map((o) => (
+                <Button
+                  key={o.value}
+                  size="sm"
+                  variant={sort === o.value ? 'default' : 'outline'}
+                  onClick={() => setSort(o.value)}
                 >
                   {o.label}
                 </Button>
