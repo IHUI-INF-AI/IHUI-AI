@@ -9,7 +9,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -156,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
     msgMine: { alignSelf: 'flex-end', backgroundColor: tk.brand.cta },
     msgPeer: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
     content: { fontSize: 16, color: tk.surface.light },
-    meta: { marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.7)' },
+    meta: { marginTop: 8, fontSize: 10, color: rnCssLight.white70 },
     inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
     input: {
       flex: 1,

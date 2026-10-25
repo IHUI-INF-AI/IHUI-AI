@@ -20,7 +20,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { CalendarDays, Check, Mail, X } from 'lucide-react-native'
 import { postFormResponse } from '@ihui/api-client'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import {
   BUSINESS_FORM_FIELDS,
@@ -369,7 +369,7 @@ function createStyles() {
     },
     chipText: { flex: 1, fontSize: 13, color: tokens.text.primary },
     chipStatus: { fontSize: rnType.caption.size, color: tokens.text.secondary },
-    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+    backdrop: { flex: 1, backgroundColor: rnCssLight.black45, justifyContent: 'flex-end' },
     // 门 217:sheet 是 bounded 容器 ⇒ 内部唯一弹性块是 body(ScrollView),固定 chrome 显式 flexShrink:0。
     sheet: {
       maxHeight: '78%',

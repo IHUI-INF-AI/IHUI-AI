@@ -21,7 +21,7 @@ import { CategoryInlineBar, type CategoryItem } from '@ihui/rn-app'
 import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 /** 面板自身留白(与状态栏避让无关,单列以免和 `insets.top` 混成一个数) */
@@ -141,7 +141,7 @@ export default FenLeiOverlay
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: rnCssLight.black50,
     justifyContent: 'flex-start',
   },
   // 面板:顶部下拉全宽(对齐 uniapp s_t_b fixed top + 白底 + 底部边框)
