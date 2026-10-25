@@ -42,10 +42,10 @@
  *   1 = 发现反模式(阻塞)
  */
 
-import { execFileSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 // §22d(G-239)双形态入口:此前顶层裸调 process.exit(main()),任何 import 都会当场终结宿主进程。
 // 守卫只决定何时点火,不改判什么;须经 pathToFileURL():Windows 下 argv[1] 带反斜杠,手拼永不相等。
@@ -75,11 +75,11 @@ const FORBIDDEN_EVENT_ACCESS = [
 
 function getStagedFiles() {
   try {
-    const out = execFileSync(
-      'git',
+    // 2026-10-26：裸 git 派生收编进 face-reader.gitRaw(绝对 git + safe.directory + quotepath
+    //   + stdio/EBUSY 兜底都在层内)。取不到面仍按原语义吞成空集(本门没有判定面,只做尽力取材)。
+    const out = gitRaw(
       ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
+      process.cwd(),
     )
     return out
       .split('\n')
@@ -93,11 +93,7 @@ function getStagedFiles() {
 
 function getAllWebFiles() {
   try {
-    const out = execFileSync(
-      'git',
-      ['ls-files', 'apps/web/src'],
-      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
-    )
+    const out = gitRaw(['ls-files', 'apps/web/src'], process.cwd())
     return out
       .split('\n')
       .map((s) => s.trim())
