@@ -164,7 +164,6 @@
 {"web":"feature-center/**","status":"excluded","reason":"功能中心目录页(agents/apis/documents/models/sdks 均为展示型索引),App 用首页/底部 Tab 承载同一批入口","at":"2026-10-25"}
 {"web":"spec/**","status":"excluded","reason":"规范生成器([id]/generate/templates),开发者工具,App 不承载","at":"2026-10-25"}
 {"web":"domains/**","status":"excluded","reason":"领域聚合 Hub 页(ai/content/edu/personal/trade 五页均为 AiHubPage 型导航聚合),App 用底部 Tab 承载同一入口","at":"2026-10-25"}
-
 {"web":"activities","rn":"packages/app/src/features/activity/ActivityScreen.tsx","status":"aligned","note":"activity 键空间双侧确认;端内 wrapper fetchApi(/activities) ↔ web /api/activities;小程序 pkg-content/activity 镜像"}
 {"web":"announcements","rn":"packages/app/src/features/announcement/AnnouncementScreen.tsx","status":"aligned","note":"announcement 键空间直配;API /api/announcements 双侧同;小程序 pkg-content/announcement 镜像"}
 {"web":"announcements/[id]","rn":"packages/app/src/features/announcement-detail/AnnouncementDetailScreen.tsx","status":"aligned","note":"详情+已读回执;小程序 pkg-content/announcement/detail 镜像"}
@@ -177,3 +176,4 @@
 {"web":"agent-kanban","status":"excluded","reason":"6 状态列看板+拖拽流转+工作区锁+SSE 重交互,桌面型;移动端无等价交互承载","at":"2026-10-25"}
 {"web":"agent-step-recorder","status":"excluded","reason":"run 级步骤回放器(分页 step/回放/聚合指标),纯开发者调试工具","at":"2026-10-25"}
 {"web":"agent-timeline","status":"excluded","reason":"会话活动时间线回放,调试向只读工具;非用户日常链路","at":"2026-10-25"}
+{"web":"exam/wrong-questions","rn":"packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx","status":"aligned","note":"自动登记@2026-10-25: 端点交集 4 条(/api/exam/wrong-questions/stats, /api/exam/wrong-questions, /api/exam/wrong-questions/:x/resolve) + 名称 token wrong+question","at":"2026-10-25"}
