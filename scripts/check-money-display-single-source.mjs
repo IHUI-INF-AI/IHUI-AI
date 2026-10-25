@@ -98,6 +98,7 @@ function listScopeFiles(face) {
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 1 << 28,
     })
     if (r.status !== 0) return null
@@ -108,6 +109,7 @@ function listScopeFiles(face) {
   const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 1 << 28,
   })
   if (r.status !== 0) return null
@@ -209,7 +211,7 @@ function main() {
   // 锚点面:HEAD 计数(staged/worktree 档也要 HEAD 锚 ⇒ 一次读齐缺的)
   const anchor = new Map()
   {
-    const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, 'ls-tree', '-r', '--name-only', 'HEAD', '--', ...SURFACES], { encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 28 })
+    const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, 'ls-tree', '-r', '--name-only', 'HEAD', '--', ...SURFACES], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28 })
     if (r.status === 0) {
       const arels = r.stdout.split(/\r?\n/).filter((s) => /\.(ts|tsx)$/.test(s) && !RE_TESTISH.test(s))
       let agot
