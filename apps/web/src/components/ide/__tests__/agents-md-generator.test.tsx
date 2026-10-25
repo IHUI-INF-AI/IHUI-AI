@@ -95,14 +95,10 @@ describe('AgentsMdGenerator', () => {
     expect(textarea.value).toBe(DRAFT)
 
     const [url, init] = mocks.fetch.mock.calls[0] as [string, { body: string }]
-    expect(url).toBe('/mcp/tools/call')
-    const body = JSON.parse(init.body) as {
-      name: string
-      arguments: Record<string, unknown>
-    }
-    expect(body.name).toBe('init_agents_md')
-    expect(body.arguments).toEqual({ workspace_root: '/ws' })
-    expect('output_path' in body.arguments).toBe(false)
+    expect(url).toBe('/api/tools/init-agents-md')
+    const body = JSON.parse(init.body) as Record<string, unknown>
+    expect(body).toEqual({ workspace_root: '/ws' })
+    expect('output_path' in body).toBe(false)
     expect(mocks.save).not.toHaveBeenCalled()
   })
 

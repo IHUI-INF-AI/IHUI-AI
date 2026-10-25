@@ -21,9 +21,11 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+
+import { __test__ as gate } from '../check-mobile-rn-style-parity.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -148,4 +150,36 @@ test('⑤ 源码头注与用法三面齐备(全量/ --staged / --worktree / --se
   }
   assert.match(src, /exit 2/, '退出码 2「无法判定」必须在头注里自述')
 })
+
+test('⑥ import 面通道(G-239):判据从门体 __test__ 调,不在测试里复写一份', () => {
+  for (const k of ['extractHexes', 'diffAgainstBaseline', 'runSelfTest', 'main'])
+    assert.equal(typeof gate[k], 'function', `__test__ 缺导出 ${k}`)
+  // 注释内色值不计、真字面量必收(调生产导出口)
+  assert.deepEqual(gate.extractHexes("const c = '#AbC' // #fff\n/* #00ff00 */"), ['#abc'])
+  // RULE-1 判据:基线外新增必红、基线内必绿
+  const red = gate.diffAgainstBaseline(
+    new Map([['a.tsx', new Set(['#123456'])]]),
+    new Map([['a.tsx', new Set(['#abcdef'])]]),
+  )
+  assert.equal(red.newHits.length, 1, '基线外 hex 必须判红')
+  assert.deepEqual(red.newHits[0].added, ['#123456'])
+  const green = gate.diffAgainstBaseline(
+    new Map([['a.tsx', new Set(['#abcdef'])]]),
+    new Map([['a.tsx', new Set(['#abcdef'])]]),
+  )
+  assert.deepEqual(green.newHits, [], '基线内 hex 必须判绿')
+  assert.equal(gate.runSelfTest(), 0, '门体自检必须仍绿(判据未被守卫改造带偏)')
+})
+
+test('⑥b import 面无 CLI 副作用:独立子进程 import 门体不打印读数、不非零退出', () => {
+  const r = spawnSync(
+    process.execPath,
+    ['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(TOOL).href)});console.log('__IMPORTED__')`],
+    { cwd: REPO, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 120_000 },
+  )
+  assert.equal(r.status, 0, `import 门体不得非零退出:${r.stdout}${r.stderr}`)
+  assert.match(r.stdout, /__IMPORTED__/, '子进程未走到哨兵行,import 可能被判死')
+  assert.doesNotMatch(r.stdout, /\[check-mobile-rn-style-parity\]/, 'import 即打印门读数 ⇒ 顶层裸 main() 回来了')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

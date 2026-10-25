@@ -19,6 +19,7 @@
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { SignJWT, exportJWK, importPKCS8, importSPKI, jwtVerify, type JWK } from 'jose'
 import type IORedis from 'ioredis'
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
 import { ACCESS_TOKEN_TTL_SECONDS, AUDIENCE, getJwtSecret } from './jwt'
 
 // ---------------------------------------------------------------------------
@@ -615,14 +616,6 @@ export function extractClientCredentials(input: {
   return { clientId: null, clientSecret: null, method: 'none' }
 }
 
-function safeDecodeURIComponent(value: string): string {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
-}
-
 // ---------------------------------------------------------------------------
 // client_secret 存储:公开客户端哨兵 + 加盐哈希(零依赖,便于单测)
 // ---------------------------------------------------------------------------
@@ -705,9 +698,10 @@ export function verifyClientSecret(
 }
 
 /** 公开客户端判定:client_secret 为哨兵值(注册时 token_endpoint_auth_method=none)。 */
-export function isPublicClientApp(
-  app: { clientSecret?: string | null; clientSecretHash?: string | null },
-): boolean {
+export function isPublicClientApp(app: {
+  clientSecret?: string | null
+  clientSecretHash?: string | null
+}): boolean {
   return app.clientSecret === PUBLIC_CLIENT_SECRET && !isHashedClientSecret(app.clientSecretHash)
 }
 
@@ -715,9 +709,10 @@ export function isPublicClientApp(
  * 是否为"现代客户端"(注册时即写入摘要,无明文 secret 落库)。
  * 现代客户端强制 PKCE,不给"机密客户端缺 PKCE"的历史豁免空间。
  */
-export function isModernOAuthClientApp(
-  app: { clientSecret?: string | null; clientSecretHash?: string | null },
-): boolean {
+export function isModernOAuthClientApp(app: {
+  clientSecret?: string | null
+  clientSecretHash?: string | null
+}): boolean {
   return isHashedClientSecret(app.clientSecretHash) || isHashedClientSecret(app.clientSecret)
 }
 
@@ -769,8 +764,7 @@ export function pkcePolicyFromEnv(env: NodeJS.ProcessEnv = process.env): PkcePol
 }
 
 export type PkceEvaluation =
-  | { ok: true; enforced: boolean }
-  | { ok: false; error: OAuthErrorCode; description: string }
+  { ok: true; enforced: boolean } | { ok: false; error: OAuthErrorCode; description: string }
 
 /**
  * 授权码换 token 时的 PKCE 判定 —— 唯一真相源,所有 token 端点必须走这里。
@@ -792,7 +786,8 @@ export function evaluatePkce(input: {
   /** 该 client 注册于 DCR(现代客户端)→ 无条件要求 PKCE */
   requirePkceForClient?: boolean
 }): PkceEvaluation {
-  const challenge = typeof input.session.codeChallenge === 'string' ? input.session.codeChallenge : ''
+  const challenge =
+    typeof input.session.codeChallenge === 'string' ? input.session.codeChallenge : ''
   const rawMethod =
     typeof input.session.codeChallengeMethod === 'string' && input.session.codeChallengeMethod
       ? input.session.codeChallengeMethod
@@ -818,8 +813,7 @@ export function evaluatePkce(input: {
     return { ok: true, enforced: true }
   }
 
-  const mustHaveChallenge =
-    input.isPublicClient || input.requirePkceForClient === true
+  const mustHaveChallenge = input.isPublicClient || input.requirePkceForClient === true
   if (mustHaveChallenge || input.policy.requirePkceForConfidentialClients) {
     return {
       ok: false,
@@ -883,7 +877,11 @@ export function validateRegistrationRedirectUris(uris: unknown): string | null {
     if (scheme === 'https') continue
     if (scheme === 'http') {
       const host = url.hostname.toLowerCase()
-      const loopback = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || /^127\.\d+\.\d+\.\d+$/.test(host)
+      const loopback =
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '[::1]' ||
+        /^127\.\d+\.\d+\.\d+$/.test(host)
       if (!loopback) return `http redirect_uri 仅允许 loopback: ${raw}`
       continue
     }
@@ -958,7 +956,10 @@ export function signM2MAccessToken(
 export async function verifyM2MAccessToken(token: string): Promise<M2MAccessTokenClaims> {
   const payload = await verifySignedJwt(token)
   if (payload.type !== M2M_TOKEN_TYPE) {
-    throw new OAuth2RequestError('invalid_request', 'token 不是 client_credentials 签发的 M2M token')
+    throw new OAuth2RequestError(
+      'invalid_request',
+      'token 不是 client_credentials 签发的 M2M token',
+    )
   }
   return {
     sub: String(payload.sub ?? ''),
@@ -1083,7 +1084,11 @@ export interface IdTokenInput {
  * 用 oauth_private_keys 的 RSA 私钥(PKCS8 PEM)签 RS256 ID Token。
  * kid 进 header,与 /oauth/jwks 暴露的公钥 kid 一一对应(轮换时新旧并存即可)。
  */
-export async function signIdToken(input: IdTokenInput, privateKeyPem: string, kid: string): Promise<string> {
+export async function signIdToken(
+  input: IdTokenInput,
+  privateKeyPem: string,
+  kid: string,
+): Promise<string> {
   const key = await importPKCS8(privateKeyPem, 'RS256')
   const now = Math.floor(Date.now() / 1000)
   const payload: Record<string, string | number | undefined> = {
@@ -1265,6 +1270,5 @@ export function resolveOAuthIssuer(envValue: string | undefined, requestOrigin: 
   const raw = (envValue ?? '').trim() || requestOrigin
   return raw.replace(/\/+$/, '')
 }
-
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

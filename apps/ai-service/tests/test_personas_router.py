@@ -114,6 +114,43 @@ class TestListPersonas:
 
 
 # =============================================================================
+# D01(G-228)对话内 Agent 选择器:工具白名单摘要 + /api/llm/personas 同源端点
+# =============================================================================
+
+
+class TestAgentPickerCatalog:
+    """选择器消费的两条目录端点必须**同一份** persona 数据面(D01 禁止第二份定义)。"""
+
+    async def _catalog(self, client, path):
+        resp = await client.get(path)
+        assert resp.status_code == 200
+        return resp.json()
+
+    async def test_personas_items_expose_tools_allowlist(self, client):
+        # 列表项带 tools 数组,供胶囊下拉展示"各自工具白名单摘要"
+        data = await self._catalog(client, "/api/personas")
+        for item in data["personas"]:
+            assert isinstance(item["tools"], list)
+            assert item["tools"] == list(PERSONAS_CONTRACTS[item["name"]].tools)
+
+    async def test_llm_personas_route_matches_personas_route(self, client):
+        # /api/llm/personas(web 反代可达)与 /api/personas 同响应体
+        main = await self._catalog(client, "/api/personas")
+        mirrored = await self._catalog(client, "/api/llm/personas")
+        assert mirrored == main
+
+    async def test_llm_personas_covers_all_registry_names(self, client):
+        data = await self._catalog(client, "/api/llm/personas")
+        names = [item["name"] for item in data["personas"]]
+        assert names == list(PERSONAS_CONTRACTS.keys())
+
+    async def test_persona_detail_also_has_tools(self, client):
+        # 详情/契约端点与列表同一投影口径,避免前端两处读法不一致
+        resp = await client.get("/api/personas/coder")
+        assert resp.json()["tools"] == list(PERSONAS_CONTRACTS["coder"].tools)
+
+
+# =============================================================================
 # GET /api/personas/{name} 详情端点
 # =============================================================================
 

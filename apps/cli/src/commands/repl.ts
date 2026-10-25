@@ -2662,7 +2662,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       // flag 自动放行时原有的中文「自动允许危险操作」提示逐字保留,经 onDecision 挂回
       // 86H:这一站是终端里真人批准的主通路,决策经包装器落审计链(入参原文不上线)。
       confirmDangerous: createAuditedDangerGate({
-        allowDangerous: state.opts.allowDangerous,
+        allowDangerous: state.opts.allowDangerous === true,
         silent: true,
         auditSessionId: state.opts.sessionId,
         prompt: async (tool, args) => {

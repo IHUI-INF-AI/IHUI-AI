@@ -31,10 +31,10 @@
  *   node scripts/check-cross-end-screen-coverage.mjs --self-test
  */
 
-import { readFileSync, existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { gitRaw } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(HERE, '..')
@@ -95,16 +95,18 @@ function faceList(face, dirPrefix) {
 /** 当前面上的文件内容;读不到 = null(该面没有这份件,不回落另一个面) */
 function faceRead(face, rel) {
   const key = rel.replace(/\\/g, '/')
+  // 正文一律经取材层(§0.4 / 门 118):磁盘面走 readWorktreeFile,git 两档走 catBatch ——
+  // 不再自拼 `gitRaw(['show', …])`,否则"引了层却没换判定面"会被判半接线。
   if (face === 'worktree') {
     try {
-      return readFileSync(R(key), 'utf8')
+      return readWorktreeFile(ROOT, key)
     } catch {
       return null
     }
   }
   const spec = face === 'staged' ? `:${key}` : `HEAD:${key}`
   try {
-    return gitRaw(['show', spec], ROOT, { maxBuffer: 64 * 1024 * 1024 })
+    return catBatch(ROOT, [spec], { maxBuffer: 64 * 1024 * 1024 }).get(spec) ?? null
   } catch {
     return null
   }

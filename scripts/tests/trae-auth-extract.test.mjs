@@ -189,4 +189,63 @@ test('⑩ 取不到信封 ⇒ 抛错点名落点,不返回半成品(§0.3 未判
     rmScratch(scratch)
   }
 })
+
+test('⑪ 设备材料:icube-dc 信封解出密钥对与 machineId,缺件一律 null', () => {
+  const store = {
+    'iCubeAuthInfo://icube-dc:4355605738307003': T.encryptEnvelope(
+      JSON.stringify({ privateKeyPEM: 'PEM-PRIV', publicKeyPEM: 'PEM-PUB' }),
+    ),
+    'telemetry.machineId': 'mid-1',
+  }
+  assert.deepEqual(T.extractDeviceMaterial(store), {
+    deviceId: '4355605738307003',
+    machineId: 'mid-1',
+    privateKeyPem: 'PEM-PRIV',
+    publicKeyPem: 'PEM-PUB',
+  })
+  // 缺公钥 → null(不返回半个材料,adapter 据此退回旧通道)
+  const half = {
+    'iCubeAuthInfo://icube-dc:4355605738307003': T.encryptEnvelope(
+      JSON.stringify({ privateKeyPEM: 'PEM-PRIV' }),
+    ),
+  }
+  assert.equal(T.extractDeviceMaterial(half), null)
+  // 设备号不是数字串 → 不认
+  const badId = {
+    'iCubeAuthInfo://icube-dc:not-a-number': T.encryptEnvelope(
+      JSON.stringify({ privateKeyPEM: 'a', publicKeyPEM: 'b' }),
+    ),
+  }
+  assert.equal(T.extractDeviceMaterial(badId), null)
+  assert.equal(T.extractDeviceMaterial(null), null)
+})
+
+test('⑫ 全链取号带设备材料:账号对象带 deviceId/密钥对,meta 只报有无不回显', () => {
+  const scratch = mkScratch('trae-auth-extract-dev')
+  try {
+    const file = path.join(scratch, 'User', 'globalStorage', 'storage.json')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        'iCubeAuthInfo://icube.cloudide': T.encryptEnvelope(JSON.stringify(SESSION)),
+        'iCubeAuthInfo://icube-dc:4355605738307003': T.encryptEnvelope(
+          JSON.stringify({ privateKeyPEM: 'PEM-PRIV', publicKeyPEM: 'PEM-PUB' }),
+        ),
+        'telemetry.machineId': 'mid-1',
+      }),
+    )
+    const out = extractTraeAccount({ dirs: [scratch] })
+    const acc = out.accounts[0]
+    assert.equal(acc.deviceId, '4355605738307003')
+    assert.equal(acc.machineId, 'mid-1')
+    assert.equal(acc.deviceKeyPem, 'PEM-PRIV')
+    assert.equal(acc.devicePubPem, 'PEM-PUB')
+    assert.equal(out.meta.hasDeviceMaterial, true)
+    // 输出面纪律:meta 不带密钥明文
+    assert.equal(JSON.stringify(out.meta).includes('PEM-PRIV'), false)
+  } finally {
+    rmScratch(scratch)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

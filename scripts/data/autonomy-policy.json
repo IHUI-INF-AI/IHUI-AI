@@ -1,0 +1,46 @@
+{
+  "$comment": "自治决策模型(收益/风险/成本/紧急度)的权重与阈值唯一真源(O65 P2,2026-10-25 立)。口径:维度权重先各自合到 1,再按 factors 分到因子;benefit/urgency 的归一分越高越好,risk/cost 的归一分越高越差(计分取 1-x 作余量);scales 只做归一参照,thresholds 只做排期裁决。改权重/阈值只改本文件,scripts/autonomy-decision.mjs 不内置第二份数值。",
+  "version": 1,
+  "issuedAt": "2026-10-25",
+  "dimensions": {
+    "weights": {
+      "benefit": 0.4,
+      "risk": 0.3,
+      "cost": 0.2,
+      "urgency": 0.1
+    },
+    "factors": {
+      "benefit": {
+        "impact": 0.5,
+        "userValue": 0.5
+      },
+      "risk": {
+        "irreversible": 0.4,
+        "externalDependency": 0.3,
+        "ruleTouch": 0.3
+      },
+      "cost": {
+        "changeSurface": 0.5,
+        "verifyMinutes": 0.5
+      },
+      "urgency": {
+        "leaseHours": 0.5,
+        "blockingOthers": 0.5
+      }
+    }
+  },
+  "scales": {
+    "levelMax": 3,
+    "verifyMinutesRef": 60,
+    "leaseHoursRef": 72
+  },
+  "thresholds": {
+    "riskReview": 0.5,
+    "riskBlock": 0.75,
+    "minScore": 0.25,
+    "hardBlock": {
+      "irreversible": 3,
+      "ruleTouch": 3
+    }
+  }
+}

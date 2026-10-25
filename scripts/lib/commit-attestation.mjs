@@ -136,12 +136,14 @@ export function buildCommittedRecord({
   declaredFiles,
   gatesRan,
   hookSkipped = false,
+  ticketKey = '',
+  ticketLine = '',
   nowIso = new Date().toISOString(),
 } = {}) {
   const sha = String(landedSha ?? '')
   if (sha === '') throw new Error('buildCommittedRecord: landedSha 不能为空(正证必须绑到具体提交)')
   if (!Array.isArray(commitFiles)) throw new Error('buildCommittedRecord: commitFiles 必须是数组(空数组是合法形态:纯删除前的空提交)')
-  return {
+  const rec = {
     ts: nowIso,
     kind: COMMITTED_KIND,
     landedSha: sha,
@@ -151,6 +153,15 @@ export function buildCommittedRecord({
     gatesRan: gatesRan === true,
     hookSkipped: hookSkipped === true,
   }
+  // 票→提交环(决策链审计用):只在会话显式给了票键时记,缺席 = 无票提交(如运维/清扫),
+  // 不写空串冒充"票已绑定"(§0.3:没判绝不写成判过)。
+  const key = String(ticketKey ?? '').trim()
+  if (key !== '') {
+    rec.ticketKey = key
+    const face = String(ticketLine ?? '').trim()
+    if (face !== '') rec.ticketLine = face.slice(0, 200)
+  }
+  return rec
 }
 
 /** 落一行 sha 绑定正证。**永不抛**(与 recordBypassLanding 同一条契约:留痕不得影响提交)。 */
@@ -228,6 +239,9 @@ export function readLedgerRecords(root = REPO_ROOT) {
         headBefore: typeof o.headBefore === 'string' ? o.headBefore : '',
         landedSha: typeof o.landedSha === 'string' ? o.landedSha : '',
         source: typeof o.source === 'string' ? o.source : '',
+        // 票→提交环:读侧同样只留显式绑定过的,缺席读成空串(调用方按空串判"无票")。
+        ticketKey: typeof o.ticketKey === 'string' ? o.ticketKey : '',
+        ticketLine: typeof o.ticketLine === 'string' ? o.ticketLine : '',
       })
     })
   return { ok: true, state: 'read', path, records, badLines, why: null }

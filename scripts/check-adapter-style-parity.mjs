@@ -32,7 +32,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码绝对路径) ───
@@ -46,7 +46,12 @@ const quiet = argv.includes('--quiet') || argv.includes('-q')
 const showHelp = argv.includes('--help') || argv.includes('-h')
 const updateBaseline = argv.includes('--update-baseline')
 
-if (showHelp) {
+// §22d(G-239)双形态入口:此前顶层裸调 process.exit(main()),任何 import 都会当场终结宿主进程。
+// 守卫只决定何时点火,不改判什么;须经 pathToFileURL():Windows 下 argv[1] 带反斜杠,手拼永不相等。
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun && showHelp) {
   console.log(`
 check-adapter-style-parity.mjs — miniapp-taro adapter 层硬编码颜色守门(2026-09-03)
 
@@ -204,5 +209,19 @@ function main() {
   return 0
 }
 
-process.exit(main())
+if (isDirectRun) {
+  process.exit(main())
+}
+
+// §22c/§22d(G-239):导出判据单元,镜像测试可走「调生产入口」通道,不必再抄一份材料。
+// 导入本模块(经 isDirectRun 守卫)不触发 CLI、不 process.exit。
+export const __test__ = {
+  ADAPTERS_DIR,
+  BASELINE_PATH,
+  COLOR_RES,
+  stripTsComments,
+  listAdapters,
+  scanFile,
+  main,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

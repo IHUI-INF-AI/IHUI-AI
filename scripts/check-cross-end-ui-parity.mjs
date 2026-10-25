@@ -34,11 +34,9 @@
 // 定级:棘轮 blocking(锚点 = 台账里钉住的 HEAD 读数,只拦"把两端差异加大")。
 // 为什么不是"当场全红 blocking":立项实测同名配对 19 对、其中 17 对有可见几何差异。与本次改动无关的
 // 恒红门,唯一结局是逼人 --no-verify,一次绕过等于当天全部守门作废(§12e 实测型)。
-import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './lib/radius-tokens.mjs'
 // 裸档形状单独一行导:把上面那条 import 折成多行会让"行级复活"判据把成员行读成搬回祖先形态(2026-10-11 实测)
@@ -499,6 +497,61 @@ export function specTiers(sources) {
       // 等于让一次改名把整条具名档判据静默关掉 —— 与本门"判不出即点名"的口径同形,这里如实留空。
     }
   }
+  /**
+   * 第三层:**具名档 → 具名档**的纯投影(`export const A_PX = B_PX`)。
+   *
+   * 为什么要在这一层补:上一层的正只认 `= <数字>` 与 `= GEOMETRY_PX.<step>` 两种右值,于是
+   * "把已收口的档再起一个组件内名字"这一型**整枚从档表里消失** —— 组件引 A 时门读不到 A,
+   * 另一端写同一枚数值(或引 B)就被报成"仅一侧引用/仅一侧档"。这正是票 G-16 第(i)格那族
+   * (「门把没读到写成了没有」)在真仓的现存实例:HEAD 现读 `packages/shared/src/ui/tab-bar-spec.ts`
+   * 的 `TAB_BAR_MARGIN_H_PX = INPUT_AREA_CONTAINER_PADDING_X_PX`(同值纯别名,目标在表内)与
+   * `TAB_BAR_HEIGHT_PX = INPUT_AREA_SHELL_HEIGHT_PX`(目标本身是算术派生、不在表内)。
+   *
+   * 口径三条,缺一不认(与上一层同一条纪律:不做名字相似度匹配):
+   *  1. 右值必须是**整行唯一标识符**(`A_PX = B_PX`);`A_PX = B_PX + 4` 是派生量,不是同一个数;
+   *  2. 链上带环(`A→B→A`)⇒ 两边都**不入档表**(值未判定),也不造等价边 —— 环上的"同值"证明不了;
+   *  3. 终端值可解 ⇒ 别名档**按同一数值进表**(与字面量档同门同判);终端解不出(目标本身是算术式)
+   *     ⇒ **不进表**(§0.3:没判不写判过),但等价关系仍登记,供 SL 的"同值异名"归一使用 ——
+   *     那一条方向是**只划掉假账**的,不会把未判定的档报成单侧。
+   */
+  const namedEdges = {}
+  for (const [rel, src] of Object.entries(sources)) {
+    if (/[\\/]geometry\.[jt]s$/.test(rel) || /\.d\.[jt]s$/.test(rel)) continue
+    const code = stripComments(src)
+    for (const m of code.matchAll(
+      /^export const ([A-Z][A-Z0-9_]*_PX)[ \t]*=[ \t]*([A-Z][A-Z0-9_]*_PX)[ \t]*;?[ \t\r]*$/gm,
+    )) {
+      if (m[1] === m[2]) continue
+      namedEdges[m[1]] = { target: m[2], file: rel }
+    }
+  }
+  const namedTerminalOf = (name) => {
+    let cur = name
+    const seen = new Set()
+    while (namedEdges[cur] && !seen.has(cur) && seen.size < 8) {
+      seen.add(cur)
+      cur = namedEdges[cur].target
+    }
+    return cur
+  }
+  for (const [name, edge] of Object.entries(namedEdges)) {
+    const terminal = namedTerminalOf(name)
+    if (terminal === name) continue // 环形链:证明不了"同值",如实按未判定处理
+    /**
+     * 投影终点:终端若本身投影到某个几何档,别名继承那个 step;否则指向终端具名档本身。
+     * 两种都让 SL 的等价归一能沿同一条链走到同一个键(见 specTierEquivalence)。
+     */
+    if (typeof tiers[terminal] === 'number') {
+      tiers[name] = tiers[terminal]
+      owners[name] = edge.file
+      projections[name] = projections[terminal] ?? terminal
+    } else if (projections[terminal] !== undefined) {
+      projections[name] = projections[terminal]
+    } else {
+      // 值不可解但**等价关系是确定的**:记下终点名,供 SL 判"两端引的是同一个数(名)"。
+      projections[name] = terminal
+    }
+  }
   SPEC_PROJECTIONS.set(tiers, projections)
   SPEC_OWNERS.set(tiers, owners)
   return tiers
@@ -512,6 +565,66 @@ export function specProjectionAliases(tiers) {
 /** 档名 → 声明它的 spec 文件(由 specTiers 同一次解析记下)。 */
 export function specProjectionOwners(tiers) {
   return SPEC_OWNERS.get(tiers) ?? {}
+}
+
+/**
+ * **具名档等价类** —— 判"两端是否同形"而不是"是否同名"的最后一块。
+ *
+ * 一个名字沿投影链走到底,得到两类键:
+ *  - `step:<声明它的 spec>:<几何档>` —— 投影到 `GEOMETRY_PX` 的成员。owner 仍在键里,
+ *    因为**同一个 step 可以被多枚组件各自的常数引用**(真仓实测 `controlBox` 同挂
+ *    INPUT_AREA_IN_SHELL_BTN_PX 与 BOTTOM_ACTION_BAR_CONTROL_BOX_PX),跨 spec 并档就会把
+ *    别处组件的档算到这个组件头上(2026-10-24 实测:双向用成同一键当场多报 3 条)。
+ *  - `named:<终端具名档>` —— 显式 `export const A_PX = B_PX` 声明出来的同值关系(含目标值
+ *    不可解那一型)。这条是**声明式的**,跨 spec 也成立(`A` 就是 `B`,不是"碰巧同一个 step")。
+ *
+ * 返回 `{ keyOf, membersOf }`:`membersOf.get(key)` 是这等价类里**任何一端都可以写**的名字集合
+ * (含几何成员名 / 别名 / 终端名)—— SL 用它做"这条腿已经走单一源"的判定。方向纪律不变:
+ * 等价类只许**划掉**假账,不许据此新报单侧(理由同 specLegAudit 内注)。
+ */
+export function specTierEquivalence(tiers) {
+  const aliases = specProjectionAliases(tiers)
+  const owners = specProjectionOwners(tiers)
+  const keyOf = new Map()
+  const membersOf = new Map()
+  const keyFor = (name) => {
+    let cur = name
+    const seen = new Set()
+    let step = null
+    let stepOwner = owners[name] ?? null
+    while (aliases[cur] !== undefined && !seen.has(cur) && seen.size < 8) {
+      seen.add(cur)
+      const next = aliases[cur]
+      if (tiers[`geometry.${next}`] !== undefined) {
+        step = next
+        if (owners[cur] !== undefined) stepOwner = owners[cur]
+        break
+      }
+      cur = next
+      if (owners[cur] !== undefined) stepOwner = owners[cur]
+    }
+    if (step !== null) return `step:${stepOwner ?? '-'}:${step}`
+    return `named:${cur}`
+  }
+  const add = (name) => {
+    if (keyOf.has(name)) return
+    const k = keyFor(name)
+    keyOf.set(name, k)
+    if (!membersOf.has(k)) membersOf.set(k, new Set())
+    membersOf.get(k).add(name)
+  }
+  // 成员面 = 档表里的 spec 档 + 全部别名声明名 + 具名终端名 + step 名(几何成员)。
+  for (const name of Object.keys(tiers)) if (!name.startsWith('geometry.')) add(name)
+  for (const name of Object.keys(aliases)) add(name)
+  for (const name of [...keyOf.keys()]) {
+    const m = /^named:(.+)$/.exec(keyOf.get(name))
+    if (m) add(m[1])
+  }
+  for (const [k, set] of membersOf) {
+    const m = /^step:.+?:(.+)$/.exec(k)
+    if (m) set.add(m[1])
+  }
+  return { keyOf, membersOf }
 }
 
 const normKey = (file) =>
@@ -999,6 +1112,8 @@ export function iconAudit(pairs, text) {
  * 按配对文件两两求差只会产出噪声。
  * **但认投影别名**(2026-10-19,G-16 那格):`export const X = GEOMETRY_PX.g` 里 X 与 g 是同一个数,
  * 一条腿写 `taroGeometry.g` 就是已经走单一源 —— 不认这层会把已收口的档算成"仅一侧引用"的假账。
+ * **并认具名档别名**(2026-10-25,G-16 第(i)格残留):`export const A_PX = B_PX` 是声明式的同值,
+ * 一端写 A 另一端写 B(或写同一枚数值)属同一档;键由 `specTierEquivalence` 单源算,本函数零复算。
  * 方向是单向的:**别名只许划掉假账,不许新报单侧**(理由与真仓实测见 specLegAudit 内注)。
  */
 export function specLegAudit(pairs, text, tiers) {
@@ -1012,25 +1127,26 @@ export function specLegAudit(pairs, text, tiers) {
    * 与 BOTTOM_ACTION_BAR_CONTROL_BOX_PX),按 step 反向定罪就是把别处组件的档算到这个头上,
    * 与本文件 unresolvedClassNames 头注记过的"归因过宽比漏读更贵"是同一条教训。
    */
-  const aliases = specProjectionAliases(tiers)
-  /** 这条腿虽没引常数名,却引了它投影的那个几何档 ⇒ 它已经走单一源(只用来划掉假账) */
-  const viaStep = (ids, name) => {
-    const step = aliases[name]
-    return step ? ids.has(step) : false
+  const eq = specTierEquivalence(tiers)
+  /**
+   * 这条腿虽没引这个常数名,却引了**同一等价类里的另一个名字**(它投影的几何档、
+   * 它的显式别名、或它别名的终端具名档)⇒ 它已经走单一源(只用来划掉假账)。
+   */
+  const viaEquivalent = (ids, name) => {
+    const ms = eq.membersOf.get(eq.keyOf.get(name) ?? `named:${name}`)
+    if (!ms) return false
+    for (const m of ms) if (m !== name && ids.has(m)) return true
+    return false
   }
   /**
-   * **同档异名的两条具名档**:两端各引一枚不同的常数名,而两枚都是**同一个几何档**的投影
-   * (2026-10-24,G-16 第(i)格剩下的一半)⇒ 它们是一档,不得按档名各算一条单侧。
-   *
-   * 归属边界是**声明它的那份 spec 文件**(owner 由 specTiers 同一次解析记下):
-   * 只认同一份 spec 里的两枚投影。跨 spec 文件不配对 —— 真仓实测 `controlBox` 同挂
-   * INPUT_AREA_IN_SHELL_BTN_PX 与 BOTTOM_ACTION_BAR_CONTROL_BOX_PX,把"同一几何档"当配对键
-   * 会把别处组件的档算到这个组件头上(单向用成双向时当场多报 3 条,已由 T41 单调性锁拦住)。
-   * 这是"同一组件的两端应当消费同一份 spec"这条结构事实,不是名字相似度。
+   * **同档异名**:两端各引一枚不同的常数名,而两枚落在**同一个等价类**里 —— 它是一档,
+   * 不得按档名各算一条单侧。两条来源都只认声明式事实,不做名字相似度:
+   *  ① `export const A_PX = GEOMETRY_PX.g` 且同 spec(真仓 `controlBox` 同挂多枚常数,
+   *     跨 spec 并档会把别处组件的档算到这个组件头上 —— 2026-10-24 实测多报 3 条,已由 T41 拦住);
+   *  ② `export const A_PX = B_PX` 的显式同值声明(G-16 第(i)格残留那一半,2026-10-25):
+   *     `A` 就是 `B`,跨 spec 也成立,键由 `specTierEquivalence` 统一算,本层零复算。
    */
-  const owners = specProjectionOwners(tiers)
-  const sameTier = (x, y) =>
-    Boolean(aliases[x]) && aliases[x] === aliases[y] && Boolean(owners[x]) && owners[x] === owners[y]
+  const sameTier = (x, y) => x !== y && eq.keyOf.get(x) !== undefined && eq.keyOf.get(x) === eq.keyOf.get(y)
   const out = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
@@ -1039,8 +1155,8 @@ export function specLegAudit(pairs, text, tiers) {
     const idsOf = (src) => new Set(src.match(/[A-Za-z_$][\w$]*/g) || [])
     const ia = idsOf(stripComments(a))
     const ib = idsOf(stripComments(b))
-    const onlyMiniapp = specNames.filter((n) => ia.has(n) && !ib.has(n) && !viaStep(ib, n))
-    const onlyRn = specNames.filter((n) => ib.has(n) && !ia.has(n) && !viaStep(ia, n))
+    const onlyMiniapp = specNames.filter((n) => ia.has(n) && !ib.has(n) && !viaEquivalent(ib, n))
+    const onlyRn = specNames.filter((n) => ib.has(n) && !ia.has(n) && !viaEquivalent(ia, n))
     // 同档异名配对:只划掉"其实是同一个几何档"的那两条假账,不新增任何单侧。
     const paired = new Set()
     for (const x of onlyMiniapp) for (const y of onlyRn) if (sameTier(x, y)) paired.add(x).add(y)
@@ -4239,6 +4355,20 @@ export function main(argv, repoRoot = ROOT) {
       )
     }
   }
+  /**
+   * 等价归一的**读数**独立于"有没有单侧"打印:这一层是"两端写同一个数的不同名字"的判据,
+   * 一条单侧都没有时也必须看得见它接过多少条 —— 否则它失效的表现会与"真仓本来就没有别名"同形
+   * (§12f:判据失效永远悄无声息)。两条来源分开报数:几何投影(同 step)与具名档投影(显式同值声明)。
+   */
+  if (!argv.includes('--json')) {
+    const tierMap = collected.tiers ?? {}
+    const aliasMap = specProjectionAliases(tierMap)
+    const namedEdges = Object.values(aliasMap).filter((t) => tierMap[`geometry.${t}`] === undefined)
+    console.log(
+      `  · 具名档等价归一:几何投影 ${Object.keys(aliasMap).length - namedEdges.length} 条 / ` +
+        `具名档投影 ${namedEdges.length} 条(只用于划掉"同值异名"的假账,不新报单侧)`,
+    )
+  }
   /* CS 维的判据与 census 在 json 分支之前算好(见 `const cs = styleFormCensus(...)` 处);
    * 这里只负责打印。三条读数分开打印,零候选也照样打印 —— 不然"这一格没人看"与
    * "这一格干净"在账面上又长得一样了(§0.3)。 */
@@ -4495,6 +4625,7 @@ export const __test__ = {
   readGeometry,
   specTiers,
   specProjectionAliases,
+  specTierEquivalence,
   specLegAudit,
   radiusCount,
   namedConflicts,

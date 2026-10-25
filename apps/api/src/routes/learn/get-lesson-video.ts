@@ -21,13 +21,28 @@ import { success, error, parseOrThrow } from '../../utils/response.js'
  * GET /api/learn/lesson/:id/video
  * GET /api/learn/section/:id/video
  *
- * 返回 lesson(首个含视频的小节)或 section 视频的签名 URL
- * (默认 1 小时过期,HMAC-SHA256 签名)。
+ * 返回 lesson(首个含视频的小节)或 section 的短时播放地址。
  * - 课程(lesson):免费课直接放行;付费课需 isSignedUp,返回该课程首个有视频的小节
  * - 小节(section):需所属课程 isSignedUp,直接返回该小节视频
+ *
+ * G-31 ①:此前这里把 CDN 直链原样返回、只在其后拼 ?uid&rid&exp&sig,而桶侧并不校验这组
+ * 自定义参数 ⇒ 签名形同虚设、直链照样可被转发。现在 url 指向本服务 /play 校验点
+ * (与详情页签发同一套 payload,不另造 token 格式),由 /play 逐项验签后才 302 到真源;
+ * 客户端不合法(过期/篡改/掉权)拿不到可播地址,响应体里也不再出现 CDN 直链。
  */
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
+/** 签发指向 G-31 ① 校验点(/play)的短时地址;resourceId 与路径小节 id 同源。 */
+function signPlayUrl(request: FastifyRequest, lessonId: string, sectionId: string, userId: string) {
+  const host = request.headers.host ?? 'localhost'
+  const origin = `${request.protocol ?? 'http'}://${host}`
+  return buildSignedVideoUrl({
+    baseUrl: `${origin}/api/learn/lessons/${lessonId}/sections/${sectionId}/play`,
+    userId,
+    resourceId: sectionId,
+  })
+}
 
 export const learnVideoRoutes: FastifyPluginAsync = async (server) => {
   server.get<{ Params: { id: string } }>(
@@ -55,12 +70,8 @@ export const learnVideoRoutes: FastifyPluginAsync = async (server) => {
       if (!first?.section.videoUrl) {
         return reply.status(404).send(error(404, '该课程暂无可播放视频'))
       }
-      const resourceId = `section:${first.section.id}`
-      const signed = buildSignedVideoUrl({
-        baseUrl: first.section.videoUrl,
-        userId,
-        resourceId,
-      })
+      const resourceId = first.section.id
+      const signed = signPlayUrl(request, params.id, resourceId, userId)
       return reply.send(
         success({
           url: signed.url,
@@ -88,16 +99,12 @@ export const learnVideoRoutes: FastifyPluginAsync = async (server) => {
       if (!chapter) return reply.status(404).send(error(404, '小节所属章节不存在'))
       const signed = await isSignedUp(chapter.lessonId, userId)
       if (!signed) return reply.status(403).send(error(403, '请先报名该课程'))
-      const signedUrl = buildSignedVideoUrl({
-        baseUrl: section.videoUrl,
-        userId,
-        resourceId: `section:${params.id}`,
-      })
+      const signedUrl = signPlayUrl(request, chapter.lessonId, params.id, userId)
       return reply.send(
         success({
           url: signedUrl.url,
           expiresAt: signedUrl.expiresAt,
-          resourceId: `section:${params.id}`,
+          resourceId: params.id,
           mimeType: 'video/mp4',
         }),
       )

@@ -423,8 +423,12 @@
     "undoSucceeded": "已恢复 {count} 个文件;任务记录仍然保留。",
     "undoPartialWarning": "部分修改不在 CLI 文件检查点中,撤销结果可能不完整。",
     "undoUnavailable": "文件检查点不可用,工作区未发生变化。",
+    "undoFailed": "CLI 文件检查点暂时不可用,工作区未发生变化。",
     "undoFailedChanged": "回退未完成:工作区已发生变化(确切证)。请先查看下方文件清单再决定下一步。",
     "undoFailedUnverifiable": "回退未完成,且无法确认工作区是否发生变化(有文件读不出来)。请人工核对后再试。",
+    "undoFailedFilesTitle": "以下 {count} 个文件回退失败(涉及 {turns} 轮):",
+    "undoFailedFileLine": "  · {file} — {reason}",
+    "undoFailedFilesMore": "…另有 {count} 条",
     "undoDesc": "回滚最近 N 步文件改动(默认 1 步,需在 agent 会话工作区内执行)",
     "sessionOptDesc": "指定会话 ID(默认最近会话)",
     "undoNothing": "无可回滚的改动",
@@ -477,7 +481,14 @@
     "goalCriteriaBadArg": "--goal-criteria 需要一个文件路径",
     "goalCriteriaUnreadable": "读不到 --goal-criteria 文件 {file}:{error}",
     "goalCriteriaNotAnArray": "{file} 的内容必须是非空 JSON 数组",
-    "goalCriteriaBadEntry": "第 {index} 条指标缺少 id 或 statement"
+    "goalCriteriaBadEntry": "第 {index} 条指标缺少 id 或 statement",
+    "dangerGate": {
+      "denyNoPrompt": "危险操作被拒绝:未提供 --allow-dangerous,也没有可用的确认通道,闸门按 fail-closed 拒绝。要放行请在启动时加 --allow-dangerous,或在交互式终端中重新发起并手动确认。",
+      "denyDeclined": "危险操作被拒绝:确认提示处的人明确选择了拒绝。要放行请重新发起并在确认提示处选择允许(无人值守场景没有静默放行通道)。",
+      "denyEmpty": "危险操作被拒绝:确认提示没有返回明确答复(空或未定义),不按允许处理。要放行请在交互式终端中重新发起并明确选择允许。",
+      "denyError": "危险操作被拒绝:确认通道在询问时出错,拒绝优先。要放行请修复确认通道(例如编辑器连接),或在交互式终端中重新发起并手动确认。",
+      "denyContract": "危险操作被拒绝:该工具的契约要求必须由人批准,--allow-dangerous 无权替人回答。要放行请在交互式终端中重新发起并手动确认(此档没有命令行旁路)。"
+    }
   },
   "cliWorkflows": {
     "contextBadJson": "--context 不是有效的 JSON: {message}",

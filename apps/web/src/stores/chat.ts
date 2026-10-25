@@ -316,7 +316,9 @@ const CHAT_SYNC_GAP_IDS_LIMIT = 200
 function appendGapMessageId(ids: string[], messageId: string): string[] {
   if (ids.includes(messageId)) return ids
   const next = [...ids, messageId]
-  return next.length > CHAT_SYNC_GAP_IDS_LIMIT ? next.slice(next.length - CHAT_SYNC_GAP_IDS_LIMIT) : next
+  return next.length > CHAT_SYNC_GAP_IDS_LIMIT
+    ? next.slice(next.length - CHAT_SYNC_GAP_IDS_LIMIT)
+    : next
 }
 
 /** 票60 第一切片:状态形状导出,供 chat-panes 注册表与多实例消费面取型 */
@@ -468,6 +470,13 @@ export interface ChatState {
    *  写成一个用户覆盖。持久化(用户偏好,跨刷新保留)。 */
   expertAutoRoute: ExpertAutoRouteMode | null
 
+  /** D01(2026-10-25 立)对话内 Agent 选择器选中的 persona id。
+   *  null = 未启用专家(默认助手行为);值域由 ai-service 的 PERSONAS_CONTRACTS 决定,
+   *  前端不写死名单(胶囊下拉从 /llm/personas 拉取),避免第三份 persona 定义。
+   *  发送时随请求上行(api-client streamChat personaId),后端并入 system 提示与工具白名单。
+   *  持久化(用户偏好,跨刷新保留)。 */
+  selectedAgentId: string | null
+
   /** D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列。
    *  流式期间输入的 /side 问题入队当前会话桶,流结束后由 message-input.tsx
    *  逐条出队补答;非流式时 /side 直接即答不入队。
@@ -497,6 +506,8 @@ export interface ChatState {
   setWebSearchEnabled: (v: boolean) => void
   /** 设置专家包自动路由档位(写 localStorage 'ihui_expert_auto_route' 供 SSR 前恢复) */
   setExpertAutoRoute: (v: ExpertAutoRouteMode) => void
+  /** D01:设置对话内选中的专家(null = 切回默认;写 localStorage 'ihui_selected_agent_id') */
+  setSelectedAgentId: (id: string | null) => void
 
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
@@ -878,6 +889,10 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     const raw = localStorage.getItem('ihui_expert_auto_route')
     return raw === 'off' || raw === 'hint' || raw === 'auto' ? raw : null
   })(),
+  // D01 对话内 Agent 选择器:SSR 安全惰性读取(服务端恒 null = 未启用专家),
+  // 与 expertAutoRoute 同一双保险姿势(localStorage 首渲染恢复 + partialize 持久化)。
+  selectedAgentId:
+    typeof window !== 'undefined' ? localStorage.getItem('ihui_selected_agent_id') : null,
   // #21 中断后追加指令继续(2026-09-13 立)
   interruptedMessageId: null,
   // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
@@ -1305,7 +1320,11 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 带过去只会让 hook 对新会话拉旧消息(归属校验 404,纯浪费)。旗(resyncPending)
   // 与 chatSync 判据面的会话切换语义属既有切片,不在本片射程,保持原样。
   setConversationId: (id) =>
-    set(id === get().conversationId ? { conversationId: id } : { conversationId: id, chatSyncGapMessageIds: [] }),
+    set(
+      id === get().conversationId
+        ? { conversationId: id }
+        : { conversationId: id, chatSyncGapMessageIds: [] },
+    ),
 
   setUserScrolledUp: (v) => set({ userScrolledUp: v }),
 
@@ -1330,6 +1349,16 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       localStorage.setItem('ihui_expert_auto_route', v)
     }
     set({ expertAutoRoute: v })
+  },
+
+  // D01 对话内 Agent 选择器:同步 localStorage(初始 state 惰性读取的回写路径)。
+  // null = 切回默认专家,显式删除键而不是写 "null" 字符串。
+  setSelectedAgentId: (id) => {
+    if (typeof window !== 'undefined') {
+      if (id) localStorage.setItem('ihui_selected_agent_id', id)
+      else localStorage.removeItem('ihui_selected_agent_id')
+    }
+    set({ selectedAgentId: id })
   },
 
   setPendingQuestion: (q) => set({ pendingQuestion: q }),
@@ -2103,6 +2132,8 @@ export function createChatStore(persistName: string = 'ihui-chat') {
         webSearchEnabled: s.webSearchEnabled,
         // D09(2026-10-24):专家包自动路由档位(同上,初始 state 已有 localStorage 双保险)
         expertAutoRoute: s.expertAutoRoute,
+        // D01(2026-10-25):对话内选中的专家(同上,初始 state 已有 localStorage 双保险)
+        selectedAgentId: s.selectedAgentId,
         // D38(2026-09-24):队列模式偏好(steer/queue)用户设置持久化
         followUpQueueMode: s.followUpQueueMode,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除

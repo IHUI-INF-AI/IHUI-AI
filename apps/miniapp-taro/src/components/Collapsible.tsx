@@ -53,7 +53,10 @@ export function Collapsible({ open = false, children, className }: CollapsiblePr
           name="chevron-right"
           size={32}
           color="var(--color-foreground)"
-          style={{ transform: `rotate(${arrowRotation})`, transition: `transform ${ANIM_DURATION}ms ease` }}
+          style={{
+            transform: `rotate(${arrowRotation})`,
+            transition: `transform ${ANIM_DURATION}ms ease`,
+          }}
         />
       </View>
       <View
