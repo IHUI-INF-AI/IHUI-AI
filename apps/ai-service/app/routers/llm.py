@@ -30,6 +30,11 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..core.approval_replay import (
+    approval_expiry_notice,
+    chat_expired_approval_notices,
+    record_approval_expiry,
+)
 from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.jwt_auth import resolve_request_user_id
@@ -622,6 +627,20 @@ def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str
     )
 
     payloads = chat_pending_approval_replays(_approval_sessions.get(session_id), owner_uuid)
+    # D-07(2026-10-26)重连时刻的"丢过什么"必须量得到:仍待决的走下面的帧重放,而
+    # 随上一条连接一起失效的条目**不再重发弹窗**(无活等待者 = 空头支票 = 僵尸 run,
+    # 判据见本函数头注③),但要在服务端点名 —— 断线丢弹窗此前是彻底的静默。
+    # 纯只读:取名单不删账(幂等,同一重连问 N 次得同一集合),出账只走到期/上界两档。
+    _expired_notices = chat_expired_approval_notices(session_id, owner_uuid)
+    if _expired_notices:
+        logger.warning(
+            "reconnect replay: session=%s found %d approval(s) already expired with the "
+            "disconnected stream (reasons=%s); not re-armed, late answers will be rejected "
+            "by name",
+            session_id,
+            len(_expired_notices),
+            sorted({str(_n.get("reason")) for _n in _expired_notices}),
+        )
     if not payloads:
         return []
     now = datetime.now(UTC)
@@ -5090,6 +5109,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # SSE 注释行(": ...")对所有解析器透明,专治此症。
                                 _decision: str | None = None
                                 _scope = "once"
+                                # D-07(2026-10-26 立,承 D131 取证 / D1047 diff② / D690 方案 A):
+                                # 这一格记的是"条目为什么在无人应答的情况下离开待决表"。三种走法
+                                # 都要区分开(等待方 `finally` 一视同仁地 pop ⇒ 断线丢弹窗这件事
+                                # 此前**完全没有留痕**,运维与用户都只能看到"什么都没发生"):
+                                #   stream_closed = GeneratorExit 从 keep-alive 那个 yield 抛入(客户端断线)
+                                #   cancelled     = 任务被取消(网关 abort 原上游 / 显式 aclose)
+                                #   timeout       = while 条件走完(120s 窗口耗尽)且无人应答
+                                # 判据与落账一律住在 app/core/approval_replay.py(取数侧唯一出口,
+                                # 见 tests/test_d1047_chat_entry_shape_replay_gate.py T6 的"接线不旁落")。
+                                _loss_reason: str | None = None
                                 try:
                                     _waited = 0.0
                                     while _waited < _APPROVAL_TIMEOUT:
@@ -5110,10 +5139,64 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             _decision = str(_entry.get("decision") or "")
                                             _scope = str(_entry.get("scope") or "once")
                                         break
+                                    else:
+                                        # while 未 break 即走完 ⇒ 窗口耗尽、无人应答(break 走不到这里)
+                                        _loss_reason = "timeout"
+                                except GeneratorExit:
+                                    _loss_reason = "stream_closed"
+                                    raise
+                                except asyncio.CancelledError:
+                                    _loss_reason = "cancelled"
+                                    raise
                                 finally:
                                     # 条目清理(决策/超时后都不残留,与 agent_loop_v2
                                     # _approval_registry 同语义,防内存泄漏)
-                                    _approval_sessions.get(session_id, {}).pop(_approval_id, None)
+                                    _popped_entry = _approval_sessions.get(session_id, {}).pop(
+                                        _approval_id, None
+                                    )
+                                    # D-07 过期即失效并留痕:只在"无人应答"那一型落账
+                                    # (decision 已写 或 event 已置 ⇒ 用户答过了,不是丢失)。
+                                    if (
+                                        _loss_reason is not None
+                                        and isinstance(_popped_entry, dict)
+                                        and _popped_entry.get("decision") is None
+                                        and not _approval_ev.is_set()
+                                    ):
+                                        try:
+                                            _expiry_record = record_approval_expiry(
+                                                session_id,
+                                                _approval_id,
+                                                _popped_entry,
+                                                reason=_loss_reason,
+                                            )
+                                            if _expiry_record is None:
+                                                # 判不出 ⇒ 点名为什么判不出,不静默(§0.3)
+                                                logger.warning(
+                                                    "approval expiry ledger refused entry "
+                                                    "(session=%s approval=%s reason=%s): "
+                                                    "字段不齐或原因不在封闭集,未留痕",
+                                                    session_id,
+                                                    _approval_id,
+                                                    _loss_reason,
+                                                )
+                                            else:
+                                                logger.warning(
+                                                    "tool approval lost with the connection "
+                                                    "(session=%s approval=%s tool=%s reason=%s): "
+                                                    "未执行,迟到的应答将被具名拒绝",
+                                                    session_id,
+                                                    _approval_id,
+                                                    _popped_entry.get("tool_name"),
+                                                    _loss_reason,
+                                                )
+                                        except Exception as _expiry_err:  # 记账失败绝不影响收尾
+                                            logger.warning(
+                                                "approval expiry ledger failed (session=%s "
+                                                "approval=%s): %s",
+                                                session_id,
+                                                _approval_id,
+                                                _expiry_err,
+                                            )
                                 if _decision == "approve" and _scope in ("session", "always"):
                                     # 落会话内授权缓存(once 不落,下次同工具仍弹窗)
                                     _grant_record(
@@ -6179,8 +6262,45 @@ async def post_delegated_tool_result(session_id: str, body: dict[str, Any] = Bod
     return {"ok": True}
 
 
+def _approval_settle_rejection(
+    session_id: str,
+    approval_id: str,
+    caller_uuid: str | None,
+    generic_error: str,
+) -> dict[str, Any]:
+    """D-07(2026-10-26 立)审批应答**未能结算**的统一回包 —— 失效方向 = 拒绝并点名。
+
+    两条"结算不了"的路径必须分开,但**只有属主本人**能听到具体那一条:
+
+    - 账里没有该条目 / 属主不精确相等 ⇒ 原样回落通用文本(与改前逐字同形)。
+      "这条审批曾经存在且是你的"与"根本没这条"对第三方长得一模一样 ⇒ 端点不可能
+      被当成存在性探针(与 `_form_settle_rejected` 同一条纪律)。
+    - 属主本人 ∧ 失效账里有留痕 ⇒ 点名"随断线/超时失效、原因、涉及哪个工具"。
+      改前这一格只会吐一句 `approval not found or expired`,用户点了"批准"却没有任何
+      一处说明"为什么没执行"—— 静默丢弃的正身。
+
+    身份只从承载层入参进来(`request` → `_resolve_owner_uuid`,JWT 派生),绝不读
+    请求体里的 userId 之类客户端自报字段(AGENTS §5 认证不等于授权)。**零副作用**:
+    本函数不写条目、不置 Event、不落库;拒绝路径一行状态都不改。
+    """
+    if approval_id:
+        notice = approval_expiry_notice(session_id, approval_id, caller_uuid)
+        if notice is not None:
+            return {
+                "ok": False,
+                "error": (
+                    "approval expired with its stream before your answer "
+                    f"(reason={notice.get('reason')}, tool={notice.get('tool_name')}): "
+                    "not executed"
+                ),
+            }
+    return {"ok": False, "error": generic_error}
+
+
 @router.post("/llm/complete/stream/{session_id}/approval-response", response_model=None)
-async def post_tool_approval_response(session_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+async def post_tool_approval_response(
+    request: Request, session_id: str, body: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
     """V3 #58(2026-09-26 立):主对话流工具审批决策回传端点。
 
     前端弹窗(ToolApprovalDialog,channel='chat-stream')收到 tool-approval SSE 帧
@@ -6188,14 +6308,22 @@ async def post_tool_approval_response(session_id: str, body: dict[str, Any] = Bo
     与 agent 任务流的 /agents/approval-response 注册表互相独立(两套 session 域,
     主对话流审批条目在 _approval_sessions,agent 任务流在 agent_loop_v2 注册表)。
     兼容 camelCase(approvalId,与网关 /agent/approval-response 同款双写法)。
+
+    D-07(2026-10-26):断线窗口里已失效的审批,应答经 `_approval_settle_rejection`
+    **具名拒绝**(仅属主本人能听到具体原因),其余形态仍逐字回落原有两条通用文本;
+    回包键集仍是 `{ok, error}` 一个没加 ⇒ 跨端零改动。live 条目的结算路径一字未动
+    (没有借本票给既有路径新增/放宽任何判定 —— 只可能更严,不可能更松)。
     """
+    caller_uuid = _resolve_owner_uuid(request)
+    approval_id = str(body.get("approval_id") or body.get("approvalId") or "")
     session = _approval_sessions.get(session_id)
     if not session:
-        return {"ok": False, "error": "session not found or expired"}
-    approval_id = str(body.get("approval_id") or body.get("approvalId") or "")
+        return _approval_settle_rejection(session_id, approval_id, caller_uuid, "session not found or expired")
     entry = session.get(approval_id)
     if not entry or not isinstance(entry.get("event"), asyncio.Event):
-        return {"ok": False, "error": "approval not found or expired"}
+        return _approval_settle_rejection(
+            session_id, approval_id, caller_uuid, "approval not found or expired"
+        )
     decision = str(body.get("decision", "")).strip().lower()
     if decision not in ("approve", "reject"):
         return {"ok": False, "error": "decision must be approve/reject"}

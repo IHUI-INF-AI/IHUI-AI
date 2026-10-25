@@ -2198,6 +2198,35 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🚀 機能/改善:message:terminal 终态帧贯通契约层→api-client→web store 投影(票71 切片 1/3,B02) (6a316c8559)
+- 🔧 その他:G-395 挂牌认领(无牌→进行中@2026-10-25/goal-并发席34)——已派子席动 apps/cli/src/subagents 落点,按 §1 认领即租约,防两席领同一张票 (fbd9d7b83d)
+- 🔧 その他:G-965 P2 投影器物加固落地(无记录≠记录为空、owner 括号失配不投影) + 第 3 批 1 条行内标头投影 (d11323e96f)
+- 🚀 機能/改善:设备证明密钥对补全跨服务过桥链路——生产 Trae 号可自续(此前结构性刷不动) (bacf2d4173)
+- 📚 ドキュメント:需求/异常自动发现器记进展(三源+调度已交付,余数据源素材面) (1386e45a48)
+- 📚 ドキュメント:结清第 3 期·进化回流(两条同题副本一并翻勾) —— 席位提交 1f1f9508a7(10 文件 +1069/−18)已入 HEAD;主席自审:五套 59 例 pass 0 fail、四器件 self-test 全绿、git-guardian --check RC=0、受判据 19 臂全绿、水印 10/10。逐格处置:② 守门判据腐烂自检 = check-gate-rot 增差值档(--ratchet/--baseline/--write-baseline),guardian 6h 只喊新增,现读 284+22 项、存量腐烂 1 条(git-lock 路径已登记);③ 依赖升级自动票 = dep-advisory-radar 接 ticketWhitelist,guardian 24h --register,pnpm audit 257 条(35 critical/93 high)、80 可修、已出 3 票;④ token 双闸 = 前席已接并复跑放行;① 自动沉淀 AGENTS.md = 按 §24 代裁不做(门 207 预算 96,000 字节、现读 94,050,余量 1,950;把最高约束文档交给自动写入不可控),落选理由在此留档。两条无编号同题副本同时翻勾(昨次折并后被并集回捞,属 union 无编号行维的已知残余);剩余面:②符号级未覆盖(只判路径存在)、依赖票会派进 AI 会话、EOF 登记无幂等锚点 (59d2499138)
+- 🐞 修正:补 lesson 候选稿合法性尺子,清 HEAD 门 98 悬空导入 (eea073ccd2)
+- 🐞 修正:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (7eb5bc4174)
+- 🚀 機能/改善:页面访问埋点接入(页面栈轮询上报 visit_logs,免改页面壳) (0c0c764393)
+- 📚 ドキュメント:结清金丝雀发布票(观察窗+自动回滚已落地) (10dc45a19c)
+- 🔧 その他:裸 git 派生基线 45→41(G-927 那族在飞迁移入库后按现读收紧) (ca701c4923)
+- 🔧 その他:两张趋势图并排,压缩数据大屏纵向长度 (e30405a000)
+- 🔧 その他:G-965 P2 首批 10 条行内标头投影落账(归属散文→标头,等价搬移) + 投影落地注记 (3ad96dca5a)
+- 🚀 機能/改善:数据大屏新增近 7 日访问趋势(PV/UV 逐日)+ 页面渲染测试 (11fee56c8a)
+- 📚 ドキュメント:G-24 记进展——回收器已落地(archive-gc 双上限+10代地板,镜像 11/11)但调度未接(HEAD 面仅本体与测试两处命中,git-guardian 无调用点);按 §0.9 保持未勾,残余=接线一格 (0e37914c0b)
+- 🐞 修正:用户 id 失效(外键违约)时降级匿名重插,不再丢整条访问 (d365f2fe82)
+- ♻️ リファクタ:G-54 第 5 轮 4 门 git 派生收口 face-reader (af6b584786)
+- 🔧 その他:恢复被并发合并清理误删的访问面分桶测试(内容与原件 sha 一致) (06338cf4a5)
+
+**2026-10-26**
+- 🔧 その他:结清三端 ui-routes/离线包重钉(五钉 HEAD 面全 matched) + O6511 候选器交付与真源结构发现 + B02 terminal/resync 契约第二刀 + G-965 P2 投影器增强 (394e7717f6)
+- 🔧 その他:重钉 web/taro ui-routes 自述钉(随 bi-dashboard 与 taro app/auth 输入变更重算,G-816040 四端现读全 matched) (09a79ced04)
+- 🚀 機能/改善:新增 catBatchTypes 原语(G-54)并让 audit-decision-log 的提交存在性取材走层 —— 清型 C 自拼 batch 债务,判据语义不变 (894943173e)
+- 📚 ドキュメント:结清 G-927(镜像棘轮:裸 git 派生的生产文件只减不增) —— 现读差集 0 枚(判据 headDerivationScan,对基线提交 14a04f013f 逐枚求差)。经过:上席已迁 1 枚(strip-banned-buckets,字节 4,705,595 EQUAL)、第四批 10 枚由 0ff78d7fda 整批迁完(本席复核逐枚裸派生 0 处)、本席再迁 2 枚镜像测试读真仓的裸 execFileSync(对照 512B/1088/53/346/261B 全 EQUAL),棘轮读数 71→70→49→46。逐枚复跑:6 绿(biz-day/guarded-write/identity/live-doc/readout/token-literal),2 红在射程外(ai-task 9/10 的 llm.py 裸 create_task、money 2/3 的 DeveloperConversationsScreen centsToYuan,系门 247/248 存量债,迁移前后同判),10 枚 --self-test 全绿,21 项新旧通道同 blob 对照 17 EQUAL + 4 项仅 core.quotepath 转义差异。如实登记剩余:① 现读 46 vs 基线 45 的 +1 是 scripts/audit-decision-log.mjs(7de326e39b,自进化票,晚于降档 1 分钟入库,型 A 1 处 + 型 C 自拼 batch 1 处)—— 不属本票射程,由该票席位迁移后回调基线;② HEAD 面 45 枚存量债(G-998191 族)按只减不增口径继续逐票收 (90a27b1e8a)
+- 🚀 機能/改善:页面排行每行同时给 PV/UV(多少次/多少人) (95ca2af0fb)
+- 🚀 機能/改善:页面访问埋点接入(React Navigation 切屏上报 visit_logs) (7cf9b2e8ad)
+- 🐞 修正:WS 换票与小程序 SSE 接入 401 续期 (dba8f63d4f)
+
+**2026-10-26**
 - 🚀 機能/改善:三端 ui-routes/离线包重钉 + chat-sync terminal/resync 契约 + gate-grow 候选器 + G-965 P2 投影器增强 (fa9d1ad423)
 - 🔧 その他:侧车 enrich 1 条(G-63 补 blocking),抽取器 --apply 现读 changed=1 bucketsDrift=0、回读 129 条 —— 由 seat-sidecar2 的 --check 点名的唯一一条待办,主席执行;门 234 复跑 state=warn(midform 3→0 / a2=0 / conflict=0 / blind=0),孤儿 80 条只报数 (6b942ede52)
 - 🔧 その他:拆除 31 枚已退役零引用残影(deploy/cf-preferred-ip 2026-10-22 整链退役、qoder 探针退役、plugins-data 已下沉 packages/shared、零引用测试收口) (f80b0bb34e)
@@ -2812,18 +2841,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 **2026-10-25**
 - 🔧 その他:侧车补正——G-21畸形记录补key(行文互证)+G-03/G-46 blocking残句清空+parseHeader等段占位修复同批(镜像11/11) (6c7689cefb)
 - 🔧 その他:G-50行双标头折叠为单标头(租约保留;A2终枚收口) (8fa1ec5d0b)
-
-**2026-10-25**
-- 🔧 その他:标头投影第二批——3行行内旧等段按已清侧车重写(等:国内短信/等:本机无/等:—占位叠加) (151e7d4982)
-- 🔧 その他:G-63 owner统一为行内标头简称(反引号原文正文已可查),A2对账终枚 (4b52b3d395)
-- 🔧 その他:侧车改判落地——A2对账批5键blocking残句清空+waiting出桶(G-20/G-100/G-50/O02/G-63) (cab00564bb)
-- 🔧 その他:侧车标头投影批——10行行内标头与侧车投影形统一(A2对账收口;守恒断言在位) (462f1e8798)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (23eadba0af)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4ecb0c164b)
-- 🔧 その他:结清 USDT TRC20 收款地址票(两行同题)——根 .env 与 apps/api/.env 现读均已按票面决策填入 sponsor 页同值,TRON 正则与 assertUsdtAddressFormat 两调用点在位;ERC20 并存不收敛为已裁结论。凭据:脱敏比对逐字相等(长度三十四/前缀 TMtT/后缀 MnbG)。 (2dffc2434d)
-
-**2026-10-25**
-- 🐞 修正:teardown 默认翻为跳过 cleanup——共享库测试用户被并发裸跑删除当日两次复发;E2E_AUTO_CLEANUP=1 显式启用才清理(CI 本就显式 '0' 于 e2e.yml:225,零消费方依赖默认清理);交错型并发(对方跑完清理的瞬间本席浏览器未起)是 hasConcurrentPlaywright 拦不住的形态,故默认不删;手动清理出口 node apps/api/scripts/cleanup-test-users.mjs 不变 (886eae6992)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

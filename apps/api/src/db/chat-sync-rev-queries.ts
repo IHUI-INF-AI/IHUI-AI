@@ -48,6 +48,27 @@ export async function allocateChatSyncRev(messageId: string): Promise<number> {
   return row.rev
 }
 
+/**
+ * 读该消息当前的修订链头(只读账本,不写不递增)。
+ *
+ * 终态帧的 rev = 终结时已到达的链头、**不新增修订号**(契约 §2/§3),所以这里只读不 allocate。
+ * 账本无行 ⇒ 0(created 哨兵,与 `findChatSyncSnapshot` 的 leftJoin null 同义);
+ * 有行但值非法 ⇒ 抛错(不回落编一个数,与 allocateChatSyncRev 同纪律)。
+ */
+export async function readChatSyncRev(messageId: string): Promise<number> {
+  const rows = await db
+    .select({ rev: chatMessageSyncRevs.rev })
+    .from(chatMessageSyncRevs)
+    .where(eq(chatMessageSyncRevs.messageId, messageId))
+    .limit(1)
+  const row = rows[0]
+  if (!row) return 0
+  if (typeof row.rev !== 'number' || !Number.isInteger(row.rev) || row.rev < 1) {
+    throw new Error(`readChatSyncRev: 账本 rev 非法(messageId=${messageId})`)
+  }
+  return row.rev
+}
+
 /** 快照行:内容与归属来自 chat_messages(权威),rev 来自账本(无行 ⇒ 0 = 链上无 patch)。 */
 export interface ChatSyncSnapshotRow {
   conversationId: string

@@ -35,7 +35,7 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { execSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const NEXT_ENV = join(ROOT, 'apps', 'web', 'next-env.d.ts')
@@ -56,12 +56,8 @@ const POLLUTION = /import\s+['"]\.\/(\.next-[^/'"]+)/
 
 function isStaged() {
   try {
-    const out = execSync('git diff --cached --name-only', {
-      cwd: ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
+    const out = gitRaw(['diff', '--cached', '--name-only'], ROOT)
     return out
       .split('\n')
       .map((s) => s.trim())
