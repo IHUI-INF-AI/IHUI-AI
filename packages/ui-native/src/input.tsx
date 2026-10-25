@@ -6,8 +6,34 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
 import { TextInput, useColorScheme } from 'react-native'
 import { cn } from '@ihui/design-tokens'
+import {
+  INPUT_BORDER_WIDTH_PX,
+  INPUT_HEIGHT_PX,
+  INPUT_PADDING_X_PX,
+  INPUT_RADIUS_TIER,
+  INPUT_TEXT_TIER,
+} from '@ihui/shared/ui/input-spec'
 
 import { registerUiField, type UiFieldHandle } from './field-host'
+
+/**
+ * 平台专属项(不下沉 input-spec,两端允许不同形,逐条登记):
+ *  - `placeholderTextColor` / `secureTextEntry` / `keyboardType` / `multiline` / `maxLength`:
+ *    本端的输入**行为**档,web 端走 HTML input 原生属性另一条通道;
+ *  - focus 边框色走 **style prop**(见下面 2026-07-28 注释):动态 className 会触发 NativeWind 4.x
+ *    + React 19 的样式订阅警告 ⇒ 那是**色**的承载,不是几何;web 端仍严格走类名;
+ *  - **AI 可填注册逻辑**(下面 :38-119 的 register / useEffect):本端独有的行为契约,
+ *    web 端没有 field-host 通道 ⇒ 规则6。本票只沉几何,那一段一行未动;
+ *  - `border-input`:边框色(nativewind 主题)⇒ 色值不下沉,只沉宽度;
+ *  - 无 `py-1` / `shadow-sm` / `w-full`:本端高度已由 INPUT_HEIGHT_PX 单点定档、无控件投影通道;
+ *  - 类名字面量:必须留在本文件 —— nativewind 只扫本包源,spec 文件不在扫描面内,拼串产不出规则。
+ *  ⇒ 取值档一律取自 input-spec,本文件只做"档 → 本端承载类"的映射。
+ */
+const HEIGHT_CLASS: Record<number, string> = { 36: 'h-9' }
+const RADIUS_CLASS: Record<typeof INPUT_RADIUS_TIER, string> = { sm: 'rounded-sm' }
+const PADDING_X_CLASS: Record<number, string> = { 12: 'px-3' }
+const TEXT_CLASS: Record<typeof INPUT_TEXT_TIER, string> = { sm: 'text-sm' }
+const BORDER_WIDTH_CLASS: Record<number, string> = { 1: 'border' }
 
 export type InputProps = ComponentProps<typeof TextInput>
 
@@ -121,7 +147,13 @@ export function Input({
   return (
     <TextInput
       className={cn(
-        'h-10 rounded-sm border border-input bg-transparent px-3 text-sm text-foreground',
+        'bg-transparent text-foreground',
+        HEIGHT_CLASS[INPUT_HEIGHT_PX],
+        RADIUS_CLASS[INPUT_RADIUS_TIER],
+        BORDER_WIDTH_CLASS[INPUT_BORDER_WIDTH_PX],
+        PADDING_X_CLASS[INPUT_PADDING_X_PX],
+        TEXT_CLASS[INPUT_TEXT_TIER],
+        'border-input',
         className,
       )}
       style={[style, focused ? { borderColor: primaryColor } : null]}
