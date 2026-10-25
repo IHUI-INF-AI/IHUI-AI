@@ -41,7 +41,7 @@ import {
   normalizeAt,
   readDecisions,
 } from './lib/decision-log.mjs'
-import { gitBinary } from './lib/face-reader.mjs'
+import { catBatchTypes, gitBinary } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -133,17 +133,21 @@ export function listCommits({ root, sinceIso, untilIso, maxCommits = DEFAULT_MAX
   return { ok: true, why: '', commits, truncated, rawCount: rows.length }
 }
 
-/** 批量判提交存在性(一次 `cat-file --batch-check`,不逐条 spawn)。取不到 ⇒ `ok:false`。 */
+/** 批量判提交存在性(一次 batch 问类型,不逐条 spawn)。取不到 ⇒ `ok:false`。 */
 export function probeCommits(root, shas) {
   const uniq = Array.from(new Set(shas.filter((s) => isFullSha(s))))
   const exists = new Map()
   if (uniq.length === 0) return { ok: true, exists, why: '' }
-  const r = gitRaw(['cat-file', '--batch-check=%(objectname) %(objecttype)'], { cwd: root, input: `${uniq.join('\n')}\n` })
-  if (r.status !== 0) return { ok: false, exists, why: `git cat-file 失败(rc=${r.status}):${clip(r.stderr || r.error?.message || '无输出', 300)}` }
-  for (const line of r.stdout.split(/\r?\n/)) {
-    if (!line.trim()) continue
-    const [sha, type] = line.trim().split(/\s+/)
-    exists.set((sha || '').toLowerCase(), type === 'commit')
+  let types
+  try {
+    // 2026-10-26 G-54:取材走层(catBatchTypes 的 stdio[0]=pipe / maxBuffer / 头解析都在层内);
+    // 仍按 objecttype 判"是不是提交",不把存在但非 commit 的对象当绑定点。
+    types = catBatchTypes(root, uniq)
+  } catch (e) {
+    return { ok: false, exists, why: `git cat-file 失败:${clip(e?.message ?? String(e), 300)}` }
+  }
+  for (const sha of uniq) {
+    exists.set(sha.toLowerCase(), types.get(sha.toLowerCase()) === 'commit')
   }
   return { ok: true, exists, why: '' }
 }

@@ -1,0 +1,70 @@
+{
+  "schema": "incident-signal",
+  "version": 1,
+  "status": "draft",
+  "reviewBy": "2027-01-31",
+  "format": "jsonl",
+  "description": "需求/异常自动发现器的只读取数契约 v1。生产方(api_logs 导出 / Grafana 告警导出 / 用户反馈导出)按本契约逐行写 JSONL;消费方 scripts/triage-incidents.mjs 离线归类。本契约不含任何连接凭据,归类器不连库、不调 Grafana。",
+  "required": ["at", "source", "kind", "severity", "message"],
+  "optional": ["traceId", "route"],
+  "fields": {
+    "at": {
+      "type": "string",
+      "format": "ISO-8601 datetime with offset",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:?\\d{2})$",
+      "note": "必须带时区(Z 或 ±HH:MM)。不带时区的时刻会被当本地时间静默解读,跨机取数即漂移,故判坏行。"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["api_logs", "grafana_alert", "user_feedback"],
+      "note": "票面三个消费入口。新增入口必须先改本契约并提 reviewBy,再改消费方。"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["http_error", "runtime_error", "alert_firing", "user_report", "perf_degradation"],
+      "note": "信号类别。source 与 kind 共同构成聚类身份头两段,跨 source/跨 kind 永不混桶。"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["debug", "info", "warn", "error", "critical"],
+      "note": "枚举顺序即严重度序(左低右高)。dispatch.minSeverity 取其下标作为可派单门槛,不另立数值表。"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "note": "人读原文。归类器只对它做占位归一(URL/UUID/时间戳/长 hex/数字),原始计数与时刻不参与聚类键。"
+    },
+    "traceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "note": "仅作人读证据,禁止进入聚类键(同族纪律见守门 224:身份不得把 trace/时刻/原始计数写进去)。"
+    },
+    "route": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "note": "API 路径或告警对象的稳定定位面。归类前归一:去 query/hash、去主机、数字/UUID/长 hex 段折成 :n/:uuid/:hex。"
+    }
+  },
+  "dispatch": {
+    "minSeverity": "warn",
+    "note": "簇内最高档低于该档 ⇒ 只算观察类,不生成可派单候选(§1 台账只记真工作:没人能据此动手)。"
+  },
+  "owners": {
+    "api_logs": "后端(api)",
+    "grafana_alert": "运维值班",
+    "user_feedback": "产品/体验"
+  },
+  "identity": {
+    "key": "source|kind|route:<归一化 route>[|code:<错误码>],无 route 时退 code:<错误码>,两者皆无则 msg:<归一化消息>",
+    "forbidden": ["traceId", "at", "窗口内原始计数", "主机名/IP"],
+    "note": "稳定语义身份:同一缺陷换时间、换 traceId、换实例、换计数都必须落同一键;不同缺陷不得并桶。"
+  },
+  "producers": {
+    "api_logs": "待后续席位接:packages/database 的 api_logs 只读导出为 JSONL(本器不连库)",
+    "grafana_alert": "待后续席位接:Alertmanager GET /api/v2/alerts 的 alertname/labels 映射为本契约行(本器不调 Grafana)",
+    "user_feedback": "待后续席位接:feedbacks 既有导出落盘的 JSONL"
+  }
+}
