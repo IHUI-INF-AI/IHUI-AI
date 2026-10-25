@@ -1,0 +1,9 @@
+{
+  "enabled": false,
+  "dailyDispatchBudget": 6,
+  "failureStreakLimit": 3,
+  "quarantineHours": 48,
+  "maxSessionMinutes": 45,
+  "sessionCommandTemplate": "",
+  "ticketWhitelist": ["readme", "文档", "i18n", "翻译", "文案", "格式", "依赖升级", "安全通告"]
+}
