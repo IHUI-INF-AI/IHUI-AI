@@ -36,10 +36,10 @@ export type WebViewMode =
   | 'external'
   | 'cdp'
   /**
-   * docked(2026-10-24):内容由**桌面端停靠在右侧工作区里的原生 webview** 渲染,
-   * 本 Tab 只占位(渲染一个宿位 div,由 Rust 按它的矩形铺 webview)。
-   * 走这档的原因:目标站点需要"登录后由本机读 cookie",iframe/代理都拿不到
-   * (代理帧是 opaque origin、跨域 iframe 读不到 cookie),原生 webview 才行。
+   * docked(2026-10-25):停靠内嵌浏览器 —— 页面画在原生 docked webview 里
+   * (Rust `embedded_browser_dock.rs`),前端只持一个占位 Tab 记录 url/title。
+   * 消费方 web-work-panel.tsx / GlobalTopBar.tsx 已在比 `=== 'docked'`,
+   * 此联合里没有它 ⇒ tsc 一律报非穷尽比较(TS2367)。
    */
   | 'docked'
 

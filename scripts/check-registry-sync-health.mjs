@@ -54,7 +54,11 @@ const SETTLED = new Set(['success', 'fail', 'skipped'])
  */
 export function judgeSyncHealth({ rows, nowMs, staleHours = DEFAULT_STALE_HOURS }) {
   if (!Array.isArray(rows) || rows.length === 0) {
-    return { state: 'undetermined', reason: '取不到任何"全量同步"已定局轮次(表空或查询失败)⇒ 未判定,不读成健康', consecutiveBad: 0 }
+    return {
+      state: 'undetermined',
+      reason: '取不到任何"全量同步"已定局轮次(表空或查询失败)⇒ 未判定,不读成健康',
+      consecutiveBad: 0,
+    }
   }
   const staleMs = staleHours * 3600_000
   let consecutiveBad = 0
@@ -121,7 +125,13 @@ export function runPsql(psql, dsn, extra, { timeout = 60_000 } = {}) {
     maxBuffer: 1 << 22,
   })
   if (r.error) return { ok: false, why: String(r.error.code ?? r.error.message) }
-  if (r.status !== 0) return { ok: false, why: `psql exit=${r.status}: ${String(r.stderr ?? '').trim().slice(0, 200)}` }
+  if (r.status !== 0)
+    return {
+      ok: false,
+      why: `psql exit=${r.status}: ${String(r.stderr ?? '')
+        .trim()
+        .slice(0, 200)}`,
+    }
   return { ok: true, stdout: String(r.stdout ?? '') }
 }
 
@@ -139,7 +149,11 @@ export function parseRows(stdout) {
     .filter(Boolean)
     .map((line) => {
       const [status, startedAt, ...rest] = line.split('\t')
-      return { status: (status ?? '').trim(), startedAt: (startedAt ?? '').trim(), err: rest.join('\t').trim() }
+      return {
+        status: (status ?? '').trim(),
+        startedAt: (startedAt ?? '').trim(),
+        err: rest.join('\t').trim(),
+      }
     })
     .filter((r) => r.status !== '')
 }
@@ -153,14 +167,31 @@ function main() {
   const limit = limitIdx >= 0 ? Number(args[limitIdx + 1]) : DEFAULT_LIMIT
   const emit = (obj, code) => {
     if (json) console.log(JSON.stringify(obj))
-    else console.log(`${obj.state.toUpperCase()} registry-sync: ${obj.reason}${obj.lastSuccessAt ? ` | last_success=${obj.lastSuccessAt}` : ''}${obj.consecutiveBad ? ` | 连续fail/skipped=${obj.consecutiveBad}` : ''}`)
+    else
+      console.log(
+        `${obj.state.toUpperCase()} registry-sync: ${obj.reason}${obj.lastSuccessAt ? ` | last_success=${obj.lastSuccessAt}` : ''}${obj.consecutiveBad ? ` | 连续fail/skipped=${obj.consecutiveBad}` : ''}`,
+      )
     process.exit(code)
   }
   const locate = locatePsqlClient()
   const psql = locate.psql
-  if (!psql) return emit({ state: 'undetermined', reason: `psql 客户端取不到(${(locate.tried ?? []).length} 个候选皆不在位)⇒ 未判定` }, 2)
+  if (!psql)
+    return emit(
+      {
+        state: 'undetermined',
+        reason: `psql 客户端取不到(${(locate.tried ?? []).length} 个候选皆不在位)⇒ 未判定`,
+      },
+      2,
+    )
   const dsn = readDsn({ envFile: join(REPO, 'apps', 'api', '.env'), env: process.env })
-  if (!dsn.ok) return emit({ state: 'undetermined', reason: `DSN 取不到(${dsn.why ?? dsn.from ?? 'env 与 .env 皆空'})⇒ 未判定` }, 2)
+  if (!dsn.ok)
+    return emit(
+      {
+        state: 'undetermined',
+        reason: `DSN 取不到(${dsn.why ?? dsn.from ?? 'env 与 .env 皆空'})⇒ 未判定`,
+      },
+      2,
+    )
   const q = runPsql(psql, dsn.dsn, ['-At', '-F', '\t', '-c', buildSql(limit)])
   if (!q.ok) return emit({ state: 'undetermined', reason: `查询失败:${q.why}` }, 2)
   const rows = parseRows(q.stdout)
