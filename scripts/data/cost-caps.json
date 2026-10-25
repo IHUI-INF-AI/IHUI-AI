@@ -1,6 +1,6 @@
 {
-  "$comment": "O6502 成本熔断上限(机读闭集)。窗口为滚动窗口:perHour = 近 60 分钟,perDay / minutesPerDay = 近 24 小时。改上限属于人工阀 budget-cap-change。",
-  "version": 1,
+  "$comment": "O6502 成本熔断上限(机读闭集)。窗口为滚动窗口:perHour = 近 60 分钟,perDay / minutesPerDay = 近 24 小时。tokensPerSession / tokensPerDay 为第 3 期④ token 双闸(单会话闸 + 24 小时累计闸),取数口 = 起会话 CLI --json 终态行 usage.totalTokens。改上限属于人工阀 budget-cap-change(仅上调需人拍板;收紧可由守门侧自主落)。",
+  "version": 2,
   "issuesAt": "2026-10-25",
   "kinds": {
     "deploy": {
@@ -11,7 +11,9 @@
     "session": {
       "perHour": 3,
       "perDay": 24,
-      "minutesPerDay": 720
+      "minutesPerDay": 720,
+      "tokensPerSession": 4000000,
+      "tokensPerDay": 12000000
     }
   }
 }

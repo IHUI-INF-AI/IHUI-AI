@@ -17,8 +17,8 @@
  *    按同一纪律绝不冒充"执行过"。
  *  - 逃生邮件只走 notify-deploy-failure 唯一出口(§5e / 守门 81 硬拦自拼 SMTP),
  *    60 分钟节流;收件人现值 = apps/api/.env 的 ALERT_EMAIL_TO(git-guardian 同源解析)。
- *  - 预算闸第一版量"每日派发轮数"(起会话 token 用量在通路落地前量不到,量不到的不冒充量到;
- *    token 双闸属第 3 期)。
+ *  - 预算闸 = 派发轮数 + token 双闸(第 3 期④接入:起会话 CLI `--json` 终态行 usage 计量后
+ *    记账,单会话闸 + 近 24 小时闸;量不到 token 的轮只记墙钟并如实告警,不冒充量到)。
  *
  * 用法:
  *   node scripts/auto-evolve.mjs --once        # 真单轮(需 enabled=true)
@@ -147,6 +147,36 @@ export function fillTemplate(tpl, { promptFile, ticketLine, ticketKey }) {
     .replaceAll('{promptFile}', promptFile ?? '')
     .replaceAll('{ticketLine}', ticketLine ?? '')
     .replaceAll('{ticketKey}', ticketKey ?? '')
+}
+
+/**
+ * 起会话 token 计量(第 3 期④):唯一可信取数口 = CLI `--json` 事件流的终态行
+ * `{"type":"complete",…,"usage":{promptTokens,completionTokens,totalTokens,estimatedCostUsd}}`
+ * (会话文件不落 usage,文本模式只有人读排版)。
+ * 取最后一个 complete 行;没读到 / 字段坏 ⇒ measured:false —— 不把"量不到"读成 0。
+ */
+export function parseSessionUsage(stdout) {
+  const lines = String(stdout ?? '').split(/\r?\n/)
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const t = lines[i].trim()
+    if (!t.startsWith('{')) continue
+    let e
+    try {
+      e = JSON.parse(t)
+    } catch {
+      continue
+    }
+    if (e?.type !== 'complete') continue
+    const total = Number(e?.usage?.totalTokens)
+    if (!Number.isFinite(total) || total < 0) return { tokens: 0, costUsd: 0, measured: false }
+    const cost = Number(e?.usage?.estimatedCostUsd)
+    return {
+      tokens: Math.floor(total),
+      costUsd: Number.isFinite(cost) && cost > 0 ? cost : 0,
+      measured: true,
+    }
+  }
+  return { tokens: 0, costUsd: 0, measured: false }
 }
 
 function todayKey(now = new Date()) {
@@ -456,14 +486,19 @@ function dispatchSession(gates, ticket, dryRun) {
     /* 用完即删 */
   }
   const durationMs = Date.now() - t0
+  // 第 3 期④:token 计量与成败判定分开取 —— 失败/超时的轮也可能有过 usage,能记就记。
+  const meter = parseSessionUsage(r.stdout)
+  const tokens = meter.measured ? meter.tokens : null
+  const tokensMeasured = meter.measured
+  const costUsd = meter.costUsd
   if (r.error?.killed || (r.signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)) {
-    return { action: 'session-timeout', exitCode: null, durationMs, why: `超过 maxSessionMinutes=${gates.maxSessionMinutes}` }
+    return { action: 'session-timeout', exitCode: null, durationMs, why: `超过 maxSessionMinutes=${gates.maxSessionMinutes}`, tokens, tokensMeasured, costUsd }
   }
-  if (r.error) return { action: 'session-failed', exitCode: null, durationMs, why: r.error.message }
+  if (r.error) return { action: 'session-failed', exitCode: null, durationMs, why: r.error.message, tokens, tokensMeasured, costUsd }
   if (r.status !== 0) {
-    return { action: 'session-failed', exitCode: r.status, durationMs, why: `exit=${r.status} ${String(r.stderr ?? '').slice(-200)}` }
+    return { action: 'session-failed', exitCode: r.status, durationMs, why: `exit=${r.status} ${String(r.stderr ?? '').slice(-200)}`, tokens, tokensMeasured, costUsd }
   }
-  return { action: 'session-ok', exitCode: 0, durationMs, why: '' }
+  return { action: 'session-ok', exitCode: 0, durationMs, why: '', tokens, tokensMeasured, costUsd }
 }
 
 async function runOnce({ dryRun = false } = {}) {
@@ -502,7 +537,7 @@ async function runOnce({ dryRun = false } = {}) {
       return
     }
     if (!cost.allowed) {
-      const summary = `sessions 近1h=${cost.used.hour} 近24h=${cost.used.day} 墙钟=${cost.used.minutesDay.toFixed(1)}min`
+      const summary = `sessions 近1h=${cost.used.hour} 近24h=${cost.used.day} 墙钟=${cost.used.minutesDay.toFixed(1)}min tokens 近1h=${cost.used.tokensHour} 近24h=${cost.used.tokensDay} 单会话峰值=${cost.used.maxTokens}`
       record({ mode: 'dispatch', action: 'budget-exhausted', note: summary })
       console.log(`⏸ 成本熔断:${cost.breaches.join(';')} ⇒ 本轮停转(软停机)`)
       if (!escapeThrottled()) {
@@ -567,14 +602,27 @@ async function runOnce({ dryRun = false } = {}) {
         }
       }
       const res = dispatchSession(gates, ticket, dryRun)
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, durationMs: res.durationMs ?? null, why: res.why ?? '' })
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, why: res.why ?? '' })
       // O6502 记账腿:只有真派(非 dry-run)且拿到墙钟才进账;记不进去就如实告警,不冒充"额度还够"。
+      // 第 3 期④:量到 token 就一并记账(单会话闸 + 24 小时闸的取数口);量不到只记墙钟并留响声。
       if (!dryRun && Number.isFinite(res.durationMs) && res.durationMs > 0) {
         try {
           mkdirSync(dirname(COST_LEDGER), { recursive: true })
-          appendFileSync(COST_LEDGER, chargeLine({ kind: 'session', minutes: Number((res.durationMs / 60000).toFixed(2)), note: `auto-evolve ${res.action}` }), 'utf8')
+          appendFileSync(
+            COST_LEDGER,
+            chargeLine({
+              kind: 'session',
+              minutes: Number((res.durationMs / 60000).toFixed(2)),
+              tokens: res.tokensMeasured === true ? res.tokens : undefined,
+              note: `auto-evolve ${res.action}`,
+            }),
+            'utf8'
+          )
         } catch (e) {
           console.error(`⚠ 成本记账失败(本轮照常收尾,但下一轮判据可能偏松):${e.message}`)
+        }
+        if (res.tokensMeasured !== true) {
+          console.error('⚠ token 计量未判定(终态行无 usage:超时/被杀/非 json 通路)⇒ 本轮只记墙钟,不虚记 token 额度')
         }
       }
       if (res.action === 'template-empty') {
@@ -694,7 +742,7 @@ function printStatus() {
     const caps = loadCaps(readFileSync(COST_CAPS_JSON, 'utf8'))
     const events = existsSync(COST_LEDGER) ? parseLedger(readFileSync(COST_LEDGER, 'utf8')) : []
     const c = evaluate({ caps, events, kind: 'session' })
-    console.log(`成本熔断(session):近1h ${c.used.hour}/${c.caps.perHour ?? '-'} 次 近24h ${c.used.day}/${c.caps.perDay ?? '-'} 次 墙钟 ${c.used.minutesDay.toFixed(1)}/${c.caps.minutesPerDay ?? '-'} 分钟 ⇒ ${c.allowed ? '放行' : '停转'}`)
+    console.log(`成本熔断(session):近1h ${c.used.hour}/${c.caps.perHour ?? '-'} 次 近24h ${c.used.day}/${c.caps.perDay ?? '-'} 次 墙钟 ${c.used.minutesDay.toFixed(1)}/${c.caps.minutesPerDay ?? '-'} 分钟 tokens 近1h ${c.used.tokensHour}/${c.caps.tokensPerHour ?? '-'} 近24h ${c.used.tokensDay}/${c.caps.tokensPerDay ?? '-'} 单会话峰值 ${c.used.maxTokens}/${c.caps.tokensPerSession ?? '-'} ⇒ ${c.allowed ? '放行' : '停转'}`)
   } catch (e) {
     console.log(`成本熔断:❌ 未判定(${e.message})`)
   }
@@ -818,6 +866,12 @@ function selfTest() {
   ok('S6 pid 判活:自身活 / 不存在者死', isPidAlive(process.pid) === true && isPidAlive(999999999) === false)
   // S7 取票唯一入口形状(源码级:第二份拼装即 §22c 反面)
   ok('S7 取票唯一入口 = plan-tasks + 三旗', PLAN_TASKS.endsWith('plan-tasks.mjs') && DISPATCH_ARGS.join(' ') === '--open --dispatchable --exclude-inflight')
+  // S8 token 计量取数(第 3 期④):终态 complete 行的 usage 是唯一取数口,缺失/形状坏一律未判定
+  const complete = '{"type":"complete","stopReason":"end_turn","usage":{"promptTokens":900,"completionTokens":100,"totalTokens":1000,"estimatedCostUsd":0.12}}'
+  const u1 = parseSessionUsage(`{"type":"start","prompt":"x"}\n${complete}\n`)
+  ok('S8a complete 行 usage → tokens/成本', u1.measured === true && u1.tokens === 1000 && u1.costUsd === 0.12)
+  ok('S8b 无 complete 行(超时/被杀)→ 未计量', parseSessionUsage('{"type":"message_delta","text":"x"}').measured === false)
+  ok('S8c usage 形状坏 → 未计量(不读成 0 tokens 放行)', parseSessionUsage('{"type":"complete","usage":{"totalTokens":"NaN"}}').measured === false)
   if (failed > 0) {
     console.error(`self-test: ${failed} 例红`)
     process.exitCode = 1
@@ -876,6 +930,7 @@ export const __test__ = {
   matchWhitelist,
   parseTicketRows,
   fillTemplate,
+  parseSessionUsage,
   failureStreakOf,
   quarantinedUntilOf,
   isPidAlive,
