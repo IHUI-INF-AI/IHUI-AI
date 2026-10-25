@@ -32,9 +32,15 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, ope
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash, createHmac, randomUUID } from 'node:crypto'
+import { loadCaps, parseLedger, evaluate, chargeLine } from './cost-breaker.mjs'
+import { loadHumanGates, summarize as summarizeHumanGates } from './human-gates.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json')
+/** O6504 人工阀清单 / O6502 成本熔断(调度层读同一份真源,不另写第二份判据) */
+const HUMAN_GATES_JSON = join(ROOT, 'scripts', 'data', 'human-gates.json')
+const COST_CAPS_JSON = join(ROOT, 'scripts', 'data', 'cost-caps.json')
+const COST_LEDGER = join(ROOT, '.ihui-agent', 'state', 'cost-ledger.jsonl')
 const LEDGER = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-ledger.jsonl')
 const LOCK_FILE = join(ROOT, '.ihui-agent', 'state', 'auto-evolve.lock')
 const ESCAPE_TICK = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-escape-tick.json')
@@ -473,6 +479,41 @@ async function runOnce({ dryRun = false } = {}) {
     console.log('⏸ 调度未启用(gates.enabled=false);观察期请用 --dry-run 巡检。不派发、不记派发账。')
     return
   }
+  // ---- O6504 人工阀清单前置读 + O6502 成本熔断前置闸(2026-10-25 立,二者均 fail-closed)----
+  // 清单读不到/形状坏 ⇒ exit 2 未判定,绝不回落成"没有人工阀"(§0.3)。
+  let humanGates
+  let costCaps
+  try {
+    humanGates = loadHumanGates(readFileSync(HUMAN_GATES_JSON, 'utf8'))
+    costCaps = loadCaps(readFileSync(COST_CAPS_JSON, 'utf8'))
+  } catch (e) {
+    console.error(`❌ 未判定:人工阀/成本配置读不到或形状坏(${e.message})⇒ 本轮不派发`)
+    process.exitCode = 2
+    return
+  }
+  if (!dryRun) {
+    const costEvents = existsSync(COST_LEDGER) ? parseLedger(readFileSync(COST_LEDGER, 'utf8')) : []
+    let cost
+    try {
+      cost = evaluate({ caps: costCaps, events: costEvents, kind: 'session' })
+    } catch (e) {
+      console.error(`❌ 未判定:成本熔断判不了(${e.message})⇒ 本轮不派发`)
+      process.exitCode = 2
+      return
+    }
+    if (!cost.allowed) {
+      const summary = `sessions 近1h=${cost.used.hour} 近24h=${cost.used.day} 墙钟=${cost.used.minutesDay.toFixed(1)}min`
+      record({ mode: 'dispatch', action: 'budget-exhausted', note: summary })
+      console.log(`⏸ 成本熔断:${cost.breaches.join(';')} ⇒ 本轮停转(软停机)`)
+      if (!escapeThrottled()) {
+        markEscape()
+        sendEscapeMail(gates, 'auto-evolve:cost', '[auto-evolve] 成本熔断停转', `调度层会话额度越限:${cost.breaches.join(';')}(${summary})。停派至窗口回落;放量属人工阀 budget-cap-change,须人改 scripts/data/cost-caps.json。`)
+      }
+      return
+    }
+  }
+  const gateCounts = summarizeHumanGates(humanGates).counts
+  console.log(`🛡 人工阀清单:自决 ${gateCounts.autonomous} 条 / 停机等人 ${gateCounts.gates} 条(命中即安全停机,不重试不绕行)`)
   const lock = acquireLock()
   if (lock.held) {
     console.log(`⏭ 上一轮仍在跑(pid=${lock.pid ?? '?'})⇒ 本轮让路(单实例闸)`)
@@ -527,6 +568,15 @@ async function runOnce({ dryRun = false } = {}) {
       }
       const res = dispatchSession(gates, ticket, dryRun)
       record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, durationMs: res.durationMs ?? null, why: res.why ?? '' })
+      // O6502 记账腿:只有真派(非 dry-run)且拿到墙钟才进账;记不进去就如实告警,不冒充"额度还够"。
+      if (!dryRun && Number.isFinite(res.durationMs) && res.durationMs > 0) {
+        try {
+          mkdirSync(dirname(COST_LEDGER), { recursive: true })
+          appendFileSync(COST_LEDGER, chargeLine({ kind: 'session', minutes: Number((res.durationMs / 60000).toFixed(2)), note: `auto-evolve ${res.action}` }), 'utf8')
+        } catch (e) {
+          console.error(`⚠ 成本记账失败(本轮照常收尾,但下一轮判据可能偏松):${e.message}`)
+        }
+      }
       if (res.action === 'template-empty') {
         console.log(`ℹ ${res.why}`)
         return
@@ -633,6 +683,21 @@ function printStatus() {
   console.log(`闸门:enabled=${gates.enabled} 预算 ${dispatched}/${gates.dailyDispatchBudget} 轮(今日) 连败阈值 ${gates.failureStreakLimit} 封禁 ${gates.quarantineHours}h 会话上限 ${gates.maxSessionMinutes}min`)
   console.log(`起会话通路:${gates.sessionCommandTemplate.trim() ? '已配置' : '未配置(空 ⇒ 只 dry-run,不冒充执行)'}`)
   console.log(`白名单(${gates.ticketWhitelist.length}):${gates.ticketWhitelist.join(' / ')}`)
+  // O6504 / O6502 现读:调度层真的把这两份清单读进来了,而不是只写在文档里。
+  try {
+    const hg = summarizeHumanGates(loadHumanGates(readFileSync(HUMAN_GATES_JSON, 'utf8')))
+    console.log(`人工阀:自决 ${hg.counts.autonomous} 条 / 停机等人 ${hg.counts.gates} 条(${hg.gates.map((g) => g.id).join(' / ')})`)
+  } catch (e) {
+    console.log(`人工阀:❌ 未判定(${e.message})`)
+  }
+  try {
+    const caps = loadCaps(readFileSync(COST_CAPS_JSON, 'utf8'))
+    const events = existsSync(COST_LEDGER) ? parseLedger(readFileSync(COST_LEDGER, 'utf8')) : []
+    const c = evaluate({ caps, events, kind: 'session' })
+    console.log(`成本熔断(session):近1h ${c.used.hour}/${c.caps.perHour ?? '-'} 次 近24h ${c.used.day}/${c.caps.perDay ?? '-'} 次 墙钟 ${c.used.minutesDay.toFixed(1)}/${c.caps.minutesPerDay ?? '-'} 分钟 ⇒ ${c.allowed ? '放行' : '停转'}`)
+  } catch (e) {
+    console.log(`成本熔断:❌ 未判定(${e.message})`)
+  }
   console.log(`当前封票:${quarantined.length === 0 ? '无' : ''}`)
   for (const q of quarantined) console.log(`  - ${q.key} 至 ${q.until} :: ${q.line}`)
   console.log(`台账最近 5 条:`)
