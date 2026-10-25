@@ -34,7 +34,7 @@ import { Shield, Lock, CornerDownLeft } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/privacyPolicy'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 export interface PrivacyPolicyModalProps {
@@ -150,8 +150,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingHorizontal: rnSpacing['2xl'],
+    paddingVertical: rnSpacing.xl,
     backgroundColor: OVERLAY_BG,
   } as ViewStyle,
   overlayPressable: {
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     textAlign: 'center',
     marginTop: 10,
-    marginBottom: 4,
+    marginBottom: rnSpacing.xs,
   },
   subtitle: {
     fontSize: SUBTITLE_FONT_SIZE,
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginTop: 10,
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   } as ViewStyle,
   safeBarText: {
     fontSize: SAFE_BAR_FONT_SIZE,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: BUTTON_GAP,
-    marginTop: 12,
+    marginTop: rnSpacing.md,
   } as ViewStyle,
   disagreeButton: {
     height: BUTTON_HEIGHT,

@@ -12,6 +12,7 @@
  * - 浅色优雅风;颜色走 theme/active-tokens 的主题 token。
  * - 类型零 any,精确标注。
  */
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../../theme/active-tokens'
 import { Image, StyleSheet, Text, View } from 'react-native'
 import { Bot, type LucideIcon } from 'lucide-react-native'
@@ -56,9 +57,9 @@ const styles = StyleSheet.create({
   root: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingVertical: rnSpacing['5xl'],
+    paddingHorizontal: rnSpacing['2xl'],
+    gap: rnSpacing.md,
   },
   emoji: {
     fontSize: 56,
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
     height: 120,
   },
   text: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
   },
 })

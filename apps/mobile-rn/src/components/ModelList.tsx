@@ -42,7 +42,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import {
   MODEL_LIST_AGENT_GLYPH_PX,
   MODEL_LIST_BADGE_FONT_PX,
@@ -377,8 +377,8 @@ const styles = StyleSheet.create({
     paddingBottom: MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
   },
   sectionHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.lg,
+    paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.surface.bg,
   },
   sectionHeaderText: {
@@ -394,9 +394,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    paddingHorizontal: rnSpacing.lg,
+    paddingVertical: rnSpacing.md,
+    gap: rnSpacing.md,
     backgroundColor: tokens.surface.bg,
   },
   rowSelected: {
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   },
   iconEmoji: {
     // 块内字形 20:与小程序 popup 的首字母 10 同属上面那个 logo 块裁决项,一并保留
-    fontSize: 20,
+    fontSize: rnType.heading.size,
     // 首字母颜色与 lucide 分支(item.icon 组件)同 token:主题自适应,
     // 否则暗色模式下继承默认黑字落在 muted 深底上不可读(2026-10-15 用户报)
     color: tokens.text.secondary,
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   description: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     // 2 = 描述行距:该行本端独有(小程序该行装的是"用途分类"标签,不同元素),不经 spec
     marginTop: 2,
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   },
   checkText: {
     color: tokens.brand.ctaForeground,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '700',
     lineHeight: 14,
   },

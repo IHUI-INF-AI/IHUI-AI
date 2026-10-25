@@ -29,7 +29,7 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 // 装饰图(拷贝自原 uniapp static/images,require 内联避免类型声明问题)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   decorLeft: {
     width: 76,
-    marginLeft: 24,
+    marginLeft: rnSpacing['2xl'],
   } as ImageStyle,
   avatarWrapper: {
     alignItems: 'center',
@@ -443,25 +443,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   subtitle: {
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
     fontSize: SUBTITLE_FONT_SIZE,
     lineHeight: SUBTITLE_FONT_SIZE + 6,
     color: tokens.text.secondary,
     textAlign: 'center',
   } as TextStyle,
   levelText: {
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
     fontSize: LEVEL_TEXT_FONT_SIZE,
     lineHeight: LEVEL_TEXT_FONT_SIZE + 6,
     color: tokens.brandAccent.deep,
   } as TextStyle,
   benefitsScroll: {
     flex: 1,
-    marginTop: 12,
+    marginTop: rnSpacing.md,
   } as ViewStyle,
   benefitsContent: {
     gap: BENEFIT_GAP,
-    paddingBottom: 8,
+    paddingBottom: rnSpacing.sm,
   } as ViewStyle,
   benefitItem: {
     flexDirection: 'row',
@@ -491,21 +491,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   copyright: {
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
     fontSize: COPYRIGHT_FONT_SIZE,
     lineHeight: COPYRIGHT_FONT_SIZE + 2,
     color: tokens.text.tertiary,
     textAlign: 'center',
   } as TextStyle,
   footer: {
-    marginTop: 12,
+    marginTop: rnSpacing.md,
   } as ViewStyle,
   levelBadge: {
     alignSelf: 'center',
     backgroundColor: tokens.brandAccent.light,
     borderRadius: rnRadius.md,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: rnSpacing.xs,
     marginBottom: 10,
   } as ViewStyle,
   levelBadgeText: {
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: rnSpacing.md,
   } as ViewStyle,
   // 面层:撑满外框内容盒,承载按压态(见 renderButtons 上方守门 131 说明)。
   buttonFace: {
