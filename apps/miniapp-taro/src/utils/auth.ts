@@ -16,6 +16,7 @@ import {
 import { requestLogin } from '../stores/login-intent'
 import {
   fetchApi,
+  refreshAccessTokenOnce,
   TransientRefreshError,
   type LoginResult as SharedLoginResult,
   type AuthUser,
@@ -33,6 +34,7 @@ import {
   classifyRefreshFailureStatus,
   SESSION_LOGGED_OUT_STORAGE_KEY,
 } from '@ihui/shared/auth/auto-login-policy'
+import { createTokenAutoRefresh, type TokenAutoRefreshHandle } from '@ihui/shared/auth/auto-refresh'
 
 import { ACCOUNT_SCOPED_CONTENT_KEYS } from '@/constants/storage'
 
@@ -217,6 +219,31 @@ export function expireAuth(): void {
 }
 
 /** 是否已登录 */
+/**
+ * 主动续期(2026-10-26)。
+ *
+ * 此前小程序只有 401 兜底:空闲超过 15 分钟后的第一次操作必先失败一次,流式对话与
+ * ai-service 接口连这层兜底都没有。周期检查(默认 60s)在剩余寿命 ≤ 5 分钟时主动换新,
+ * 刷新实现复用 api-client 的全局单飞(与 401 拦截器共享 in-flight),不新增第二个刷新源。
+ * 小程序切后台时定时器会被暂停,回前台后的下一次检查自然补上错过的窗口。
+ */
+let autoRefresh: TokenAutoRefreshHandle | null = null
+
+export function startTokenAutoRefresh(): void {
+  if (autoRefresh) return
+  autoRefresh = createTokenAutoRefresh({
+    getToken,
+    refresh: () => refreshAccessTokenOnce(),
+    isSessionLoggedOut,
+  })
+  autoRefresh.start()
+}
+
+export function stopTokenAutoRefresh(): void {
+  autoRefresh?.stop()
+  autoRefresh = null
+}
+
 export function isLoggedIn(): boolean {
   return !!getToken()
 }

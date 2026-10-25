@@ -12,6 +12,7 @@ import {
   refreshAccessToken,
   onUnrecoverableUnauthorized,
   isSessionLoggedOut,
+  startTokenAutoRefresh,
 } from './utils/auth'
 import { consumeSsoCode } from './utils/sso'
 import { initPrivacyGuard } from './utils/privacy'
@@ -53,6 +54,8 @@ setBaseUrl(BASE_URL.replace(/\/api$/, ''))
 setTransport(createTaroTransport())
 setStreamTransport(createTaroStreamTransport())
 setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
+// 2026-10-26:主动续期(此前只有 401 兜底;空闲 15 分钟后首次操作必先失败一次)
+startTokenAutoRefresh()
 
 // 2026-08-06: 全局崩溃捕获上报(onError + onUnhandledRejection → /api/crash-reports)
 initCrashReport()
