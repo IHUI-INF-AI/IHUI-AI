@@ -150,25 +150,25 @@ export function subsetOf(pack, dottedKeys) {
   return out
 }
 
-function countLeaves(obj) {
-  let n = 0
-  const walk = (node) => {
-    for (const v of Object.values(node)) {
-      if (v && typeof v === 'object' && !Array.isArray(v)) walk(v)
-      else n++
-    }
-  }
-  walk(obj)
-  return n
-}
-
 /**
- * 命名空间成员的按行形态(首例形制③):扁平 ≤2 键 → 单行内联;否则多行(2/4 空格缩进)。
+ * 命名空间成员的按行形态:**一律多行**(2 空格开块 / 4 空格键)。
  * 返回行数组,**不带**尾逗号 —— 逗号由 insertJsonMembers 在成员组之间补。
+ *
+ * ⚠ 为什么不再用"扁平 ≤2 键 → 单行内联"(2026-10-25 改,治本器物自己造的非 canonical 行):
+ *   原实现对 ≤2 键的扁平命名空间写单行内联(首例 aa4c418bff1a 里的
+ *   `"agreement": {"subtitle":"…","title":"…"}` 就是这个形态)。但实测(2026-10-25 现读):
+ *   **五份 miniapp 词包共 204 个顶层命名空间,单行内联形态 0 个、多行形态 204 个**
+ *   —— 首例那两行后来被 prettier 规整成了多行。即"内联"是**本器物自造的形态**,
+ *   不是本仓约定。
+ *   危害有三:
+ *   ① 插出来的行**破坏 canonical 恒等式**(JSON.stringify(obj,null,2)+'\n' ≠ 原文)
+ *      ⇒ 并键档的 canonical 自检会当场拒 ⇒ **批量档里"先插的屏"会让"后并键的屏"全被拒**
+ *      (档间互锁,实测复现);
+ *   ② 与仓内 204/204 的实际形态不一致 ⇒ 每次插入都留下一枚"要等人手规整"的行;
+ *   ③ prettier 会把它改写 ⇒ 提交时多一轮无谓 diff。
+ *   ⇒ 一律多行:既 canonical,又与全仓形态一致。
  */
 export function memberLinesFor(ns, obj) {
-  const flat = Object.values(obj).every((v) => typeof v === 'string')
-  if (flat && countLeaves(obj) <= 2) return [`  "${ns}": ${JSON.stringify(obj)}`]
   const inner = JSON.stringify(obj, null, 2)
     .split('\n')
     .slice(1, -1)
@@ -177,12 +177,138 @@ export function memberLinesFor(ns, obj) {
 }
 
 /**
+ * 词包顶层已存在的命名空间名集合(字符级扫,不依赖 JSON.parse 语义 ——
+ * 重复键会被 JSON.parse 静默去重,解析结果看不出"这个 ns 出现过两次")。
+ * 顶层判据 = 该键前的缩进恰为 2 空格且后面是 `":` —— 与 memberLinesFor 的输出缩进同形。
+ */
+export function topLevelNamespaces(text) {
+  const out = new Set()
+  const lines = String(text || '').split('\n')
+  for (const line of lines) {
+    // 深度判据 = 行首缩进(本仓词包是 prettier 格式化产物,缩进即层级;顶层成员恒为 2 空格)
+    const indent = line.length - line.trimStart().length
+    if (indent !== 2) continue
+    const m = /^"([^"]+)"\s*:/.exec(line.trim())
+    if (m) out.add(m[1])
+  }
+  return out
+}
+
+/**
+ * 词包**并键**(命名空间已存在时,把缺键并进去,而不是拒写)。
+ *
+ * 为什么需要这一档(治"11/101 枚屏因命名空间已存在就整屏落不了"):
+ *   目标词包已存在同名顶层命名空间时,insertJsonMembers 会拒(造重复键 ⇒ JSON.parse 静默
+ *   last-wins ⇒ 原键被遮蔽)。但那 11 枚屏要的键**大多不在既有块里**(实测:9 枚全是扁平缺键,
+ *   2 枚含嵌套缺键)⇒ 整屏拒 = 白丢 11 枚屏的进度,而正确动作是"把缺的键并进既有块"。
+ *
+ * 并键的两条硬约束:
+ *   ① **既有键的值一律不覆盖**(实测 miniapp 与 mobile-rn 同名键有 83 处值不同 ——
+ *      miniapp 侧的值是本端已定的文案,RN 侧的是另一端的;覆盖等于拿别人的文案改本端)。
+ *      只补**目标包里没有的键**,新键的值取自 mobile-rn 词包(零新译)。
+ *   ② **只动顶层命名空间的直接子键**;缺键若落在既有块的**嵌套子对象**里(实测 2 枚屏),
+ *      逐层并键会改到既有嵌套块的内部结构 ⇒ 那 2 枚屏**本档不并,整屏拒**(点名),
+ *      交给人工。失效方向恒为"少并一个键",绝不"改坏既有嵌套结构"。
+ *
+ * 整文件重渲染为什么安全(实测证据,不是推测):
+ *   五份 miniapp 词包**全部**满足 `JSON.stringify(JSON.parse(text), null, 2) + '\n' === text`
+ *   (逐字节相同,2026-10-25 现读)⇒ 重渲染只改"新增键"那几行,其余字节原样保留。
+ *   若某天该恒等式不成立(有人手改了格式),本函数**拒写并点名**(不重排他人文件)。
+ */
+export function mergeJsonMembers(text, members) {
+  if (!members.length) return { ok: false, why: '没有可插入的成员组' }
+  let obj
+  try {
+    obj = JSON.parse(text)
+  } catch (e) {
+    return { ok: false, why: `目标词包 JSON 解析不过,拒写:${e.message}` }
+  }
+  // 恒等式自检:不成立 ⇒ 本档的整文件重渲染会重排他人文件 ⇒ 拒
+  const canonical = JSON.stringify(obj, null, 2) + '\n'
+  if (canonical !== text) {
+    return { ok: false, why: '目标词包不是 canonical 形态(JSON.stringify(obj,null,2)+换行 与原文不逐字节相同)⇒ 整文件重渲染会重排他人文件,拒写' }
+  }
+  const added = []
+  const skipped = []
+  const refusedNested = []
+  for (const m of members) {
+    const ns = m.ns
+    const payload = m.obj
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) { skipped.push(`${ns}(非对象成员,略)`); continue }
+    const cur = obj[ns]
+    if (cur === undefined) {
+      obj[ns] = payload
+      added.push(`${ns}(新建 ${Object.keys(payload).length} 键)`)
+      continue
+    }
+    if (typeof cur !== 'object' || Array.isArray(cur)) {
+      refusedNested.push(`${ns}(既有同名键不是对象,无法并键)`)
+      continue
+    }
+    // 只并"既有块里没有的键";不覆盖任何既有值
+    let merged = 0
+    let nested = 0
+    for (const [k, v] of Object.entries(payload)) {
+      if (k in cur) continue // 既有键:一律不覆盖
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        // 新键的值是嵌套对象 ⇒ 它在既有块里不存在,但本档只并顶层直接子键 ⇒ 不并
+        nested++
+        continue
+      }
+      cur[k] = v
+      merged++
+    }
+    if (nested > 0) refusedNested.push(`${ns}(缺键落在嵌套子对象里 ${nested} 处,本档不并)`)
+    if (merged > 0) added.push(`${ns}(并入 ${merged} 键)`)
+    else if (nested === 0) skipped.push(`${ns}(键已全在册,幂等跳过)`)
+  }
+  if (refusedNested.length) {
+    return {
+      ok: false,
+      why: `并键档不能处理这些命名空间(须人工):${refusedNested.join(' / ')}`,
+      added,
+      skipped,
+    }
+  }
+  const next = JSON.stringify(obj, null, 2) + '\n'
+  try {
+    JSON.parse(next)
+  } catch (e) {
+    return { ok: false, why: `并键后词包 JSON 解析不过(不落盘):${e.message}` }
+  }
+  return { ok: true, text: next, added, skipped }
+}
+
+/**
  * 词包按行插入:groups = 每命名空间一个行组。找到最后一个非空行(必须是 `}`),
  * 给前一个成员闭行补逗号(若它没以 `,`/`{`/`:` 收尾),把各组依次插到末行之前,组间补 `,`。
  * 全文件其余字节原样保留(split/join 保尾换行)。
+ *
+ * ⚠ 重复命名空间守卫(2026-10-25 立,治本器物自己会造的病):
+ *   目标词包**已存在同名顶层命名空间**时,再插一份 ⇒ 同一 JSON 里出现两个 "chat": 键
+ *   ⇒ JSON.parse 静默 last-wins ⇒ 原有那一份的键被整体遮蔽(本仓 2026-09-08 已发生过同型事故:
+ *   automations 命名空间重复 ⇒ 块独占的 delete 键全部丢失)。
+ *   本仓守门 scripts/check-i18n-duplicate-namespaces.mjs 是字符级扫,能判出来,
+ *   但那是**写盘之后、提交时**才红 —— 器物自己应当先拒(§0.3「没判不写成判过」的同源纪律:
+ *   知道自己会造出重复键还照写,是不该有的明知故犯)。
+ *   守卫方向 = **拒写并点名**(失效方向恒为"少写一个命名空间",绝不"写了再说");
+ *   需要"既有命名空间里补缺键"的情形走 mergeJsonMembers(并键档)。
  */
 export function insertJsonMembers(text, groups) {
   if (!groups.length) return { ok: false, why: '没有可插入的成员组' }
+  const existing = topLevelNamespaces(text)
+  const dup = groups
+    .map((g) => {
+      const m = /^\s*"([^"]+)"\s*:/.exec(g[0] || '')
+      return m ? m[1] : null
+    })
+    .filter((n) => n && existing.has(n))
+  if (dup.length) {
+    return {
+      ok: false,
+      why: `目标词包已存在顶层命名空间 ${[...new Set(dup)].join(' / ')};再插一份会让 JSON.parse 静默 last-wins 遮蔽原键(守门 check-i18n-duplicate-namespaces 会判红)⇒ 拒写,须人工把键并进既有命名空间`,
+    }
+  }
   const lines = text.split('\n')
   const real = (i) => lines[i].trim() !== ''
   let endIdx = -1
@@ -270,6 +396,43 @@ export function insertRegistryEntry(text, entry) {
   return { ok: true, text: next }
 }
 
+/**
+ * 壳承载形制(2026-10-26 立)—— 端内不写布局、不写数据,只承载 RN 壳。
+ *
+ * 为什么要有这一档:`scripts/lib/cross-end-screen-props.mjs` 用 TypeScript 编译器现读量出
+ * 98 枚跨端缺口里只有 2 枚的必填 props 落在"平台可注入"集内,其余 96 枚要 error/item/loading
+ * 这类数据与状态 —— 那段请求+状态机胶水 RN 壳里已经写好。若仍按旧档产出"文案骨架页",
+ * 就是把 96 枚屏的用户可见功能写成空壳(声明链全绿、体验全无,正是 check-miniapp-mirror-fidelity
+ * 头注自证的那一型)。壳承载 = 渲染走 packages/app 共享屏(经 src/rn-compat)、数据走壳本体。
+ *
+ * 注入腿(端内不重复实现取词/主题):壳里的相对请求 ../i18n 与 ../context/ThemeContext
+ * 由 apps/miniapp-taro/config/rn-shell-replace-plugin.ts 按"发起上下文在 apps/mobile-rn/src/ 内"
+ * 换到端内真相源(src/i18n、src/rn-compat/theme.tsx)。
+ */
+export function buildShellPage({ spec, base }) {
+  const shellSymbol = `${base}Screen`
+  const L = []
+  L.push(`// 镜像 ${spec}`, '')
+  L.push('/**')
+  L.push(' * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。')
+  L.push(` *   渲染 = ${spec}(经 apps/miniapp-taro/src/rn-compat 兼容层落地),`)
+  L.push(` *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/${shellSymbol}.tsx 本体,`)
+  L.push(' *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。')
+  L.push(' * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。')
+  L.push(' */')
+  L.push("import ThemeRoot from '@/components/ThemeRoot'")
+  L.push(`import ${shellSymbol}Shell from '@rn-shells/${shellSymbol}'`)
+  L.push('')
+  L.push(`export default function ${base}Page() {`)
+  L.push('  return (')
+  L.push('    <ThemeRoot>')
+  L.push(`      <${shellSymbol}Shell />`)
+  L.push('    </ThemeRoot>')
+  L.push('  )')
+  L.push('}')
+  return `${L.join('\n')}\n`
+}
+
 /** 页面骨架(首例形制①②):镜像标记行 + token 化卡片,内容全走 t() 键。 */
 export function buildPage({ spec, fnName, titleKey, subtitleKey, pairs, singles }) {
   const L = []
@@ -282,17 +445,18 @@ export function buildPage({ spec, fnName, titleKey, subtitleKey, pairs, singles 
   L.push('// 由 scripts/gen-miniapp-mirror.mjs 依首例 aa4c418bff1a 形制生成:文案骨架镜像自共享屏的 i18n 键,')
   L.push('// 值逐语取自 mobile-rn 词包(零新译)。交互与数据钩子(列表/请求/跳转)需按共享屏人工补齐 ——')
   L.push('// 本稿先钉死「镜像声明 + 路由在册 + 词包同键」的声明链,页面级还原度由后续人工轮提升。')
-  if (pairs.length === 0) L.push('const PAIR_KEYS = [] as const')
+  // 键表必须显式给元素类型:`[] as const` 推成 readonly [],解构元素为 never ⇒ TS2488。
+  if (pairs.length === 0) L.push('const PAIR_KEYS: readonly (readonly [string, string])[] = []')
   else {
-    L.push('const PAIR_KEYS = [')
+    L.push('const PAIR_KEYS: readonly (readonly [string, string])[] = [')
     for (const [a, b] of pairs) L.push(`  ['${a}', '${b}'],`)
-    L.push('] as const')
+    L.push(']')
   }
-  if (singles.length === 0) L.push('const SINGLE_KEYS = [] as const')
+  if (singles.length === 0) L.push('const SINGLE_KEYS: readonly string[] = []')
   else {
-    L.push('const SINGLE_KEYS = [')
+    L.push('const SINGLE_KEYS: readonly string[] = [')
     for (const k of singles) L.push(`  '${k}',`)
-    L.push('] as const')
+    L.push(']')
   }
   L.push('')
   L.push(`export default function ${fnName}() {`)
@@ -403,21 +567,50 @@ function inferSubpackage(blocks, domain) {
   return { root: null, note: `域 '${domain}' 推不出归属分包,可用 --subpackage 点名(现成: ${roots.join(' / ')})` }
 }
 
-export function planGeneration(rootDir, opts) {
+/**
+ * 共享读取上下文(批量档用)。
+ *
+ * 为什么要有它:planGeneration 逐屏调时,每屏都要重读
+ *   ① 全部小程序页(判定"已被镜像") ② registry ③ 全部 RN 屏(找 RN 腿)
+ *   ④ packages/app/src/index.ts ⑤ 五份 mobile-rn 词包
+ * 共约 460 份文件 ⇒ 218 屏就是 10 万次文件读,批量档跑不动(实测预演档跑了几分钟没出结论)。
+ * 本上下文把上述五组读**一次性**取好,批量档复用 ⇒ 判据逐字不变(仍走同一段 planGeneration),
+ * 只是"取输入"这一步由每屏一次变成全批一次(§0.4 取材面纪律不受影响:仍是 HEAD blob)。
+ *
+ * 缓存键 = rootDir;同一次批量内共用一份(面不变 ⇒ 内容不变,§0.4 同面同轮)。
+ */
+function makeContext(rootDir) {  const miniapp = listMiniappPages(rootDir)
+  const regText = faceReadMap(rootDir, [REGISTRY]).get(REGISTRY)
+  const rnRels = listFaceFiles(rootDir, 'head', { paths: [RN_SCREENS] }).filter((r) => r.endsWith('.tsx'))
+  const rnMap = faceReadMap(rootDir, rnRels)
+  const indexText = faceReadMap(rootDir, [APP_INDEX]).get(APP_INDEX)
+  const rnPacks = faceReadMap(rootDir, LANGS.map((l) => `${RN_PACK_DIR}/${l}.json`))
+  const packObjs = {}
+  let packError = null
+  for (const l of LANGS) {
+    const t = rnPacks.get(`${RN_PACK_DIR}/${l}.json`)
+    if (t === null) { packError = `未判定:HEAD 面取不到 ${RN_PACK_DIR}/${l}.json(mobile-rn 词包是取值唯一源)`; break }
+    try { packObjs[l] = JSON.parse(t) } catch (e) { packError = `未判定:${l} 词包 JSON 解析不过:${e.message}`; break }
+  }
+  return { rootDir, miniapp, regText, rnRels, rnMap, indexText, packObjs, packError }
+}
+
+export function planGeneration(rootDir, opts, ctx = null) {
   const { screenRel, subpackage, page } = opts
   const shape = screenShapeOf(screenRel)
   if (!shape) return { kind: 'undetermined', why: `--screen 不是尺子认得的共享屏形制(${SHARED_DIR}/<domain>/<Name>Screen.tsx)` }
+  const c = ctx || makeContext(rootDir)
   const screenText = faceReadMap(rootDir, [shape.spec]).get(shape.spec)
   if (screenText === null) return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${shape.spec}` }
 
   // 已被镜像?(判据 import cov.mirroredSpecs —— 生成完读数必须涨,这里用同一把尺子闭环)
-  const { pages, cfgText } = listMiniappPages(rootDir)
+  const { pages, cfgText } = c.miniapp
   for (const p of pages) if (cov.mirroredSpecs(p).has(shape.spec)) {
     return { kind: 'skip', why: `该屏已被小程序页镜像:${p.route}(${p.file}),依据=标记行命中 cov.mirroredSpecs;不重复造页` }
   }
 
   // registry 在册配对?
-  const regText = faceReadMap(rootDir, [REGISTRY]).get(REGISTRY)
+  const regText = c.regText
   if (regText === null) return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${REGISTRY}` }
   let reg
   try { reg = JSON.parse(regText) } catch (e) { return { kind: 'undetermined', why: `未判定:registry JSON 解析不过:${e.message}` } }
@@ -426,18 +619,13 @@ export function planGeneration(rootDir, opts) {
   }
 
   // RN 腿:cov.rnConsumes(尺子 import);导出登记 packages/app/src/index.ts
-  let rnRels
-  try {
-    rnRels = listFaceFiles(rootDir, 'head', { paths: [RN_SCREENS] }).filter((r) => r.endsWith('.tsx'))
-  } catch (e) {
-    return { kind: 'undetermined', why: `未判定:RN 屏清单取不到(${e?.message ?? e})` }
-  }
+  const rnRels = c.rnRels
   if (rnRels.length === 0) return { kind: 'undetermined', why: `未判定:HEAD 面枚举到 0 枚 RN 屏(${RN_SCREENS})` }
-  const rnMap = faceReadMap(rootDir, rnRels)
+  const rnMap = c.rnMap
   // cov.collectShared 的 name 形制 = `<Base>Screen`(共享符号同名),rnConsumes 判的也是这个符号
   const rnHits = rnRels.filter((r) => cov.rnConsumes({ text: rnMap.get(r) }, `${shape.base}Screen`)).sort()
   if (rnHits.length === 0) return { kind: 'refuse', why: `HEAD 面无任何 RN 屏 import @ihui/rn-app 使用 ${shape.base}(registry 头注要求 RN 腿),三腿不齐不登记` }
-  const indexText = faceReadMap(rootDir, [APP_INDEX]).get(APP_INDEX)
+  const indexText = c.indexText
   if (indexText === null) return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${APP_INDEX}` }
   if (!new RegExp(`export\\s*(?:\\{[^}]*\\b${shape.base}Screen\\b|\\*\\s*from)`).test(indexText)) {
     return { kind: 'refuse', why: `符号 ${shape.base}Screen 未在 ${APP_INDEX} 导出(登记口径要求同名导出)` }
@@ -461,13 +649,8 @@ export function planGeneration(rootDir, opts) {
   const usedAll = [...new Set([...extractUsedKeys(screenText), ...rnShellKeys])]
   const kept = []
   const dropped = []
-  const rnPacks = faceReadMap(rootDir, LANGS.map((l) => `${RN_PACK_DIR}/${l}.json`))
-  const packObjs = {}
-  for (const l of LANGS) {
-    const t = rnPacks.get(`${RN_PACK_DIR}/${l}.json`)
-    if (t === null) return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${RN_PACK_DIR}/${l}.json(mobile-rn 词包是取值唯一源)` }
-    try { packObjs[l] = JSON.parse(t) } catch (e) { return { kind: 'undetermined', why: `未判定:${l} 词包 JSON 解析不过:${e.message}` } }
-  }
+  if (c.packError) return { kind: 'undetermined', why: c.packError }
+  const packObjs = c.packObjs
   for (const k of usedAll) {
     const ns = k.split('.')[0]
     if (GENERIC_NS.has(ns)) continue
@@ -514,6 +697,9 @@ export function planGeneration(rootDir, opts) {
     packRel: `${MP_PACK_DIR}/${l}.json`,
     // subsetOf 从词包该命名空间节点取(键剥掉 ns 前缀),成员行首键即 ns 名本身,不得二次套叠
     groups: nsKeys.map((g) => memberLinesFor(g.ns, subsetOf(packObjs[l][g.ns], g.keys.map((k) => k.slice(g.ns.length + 1))))),
+    // 并键档用的**对象**形态(键 ns → 成员对象):不从渲染行反解(反解要重解析 JSON,
+    // 扁平 ≤2 键的单行内联形态与多行形态解析路径不同,反解是多余的脆弱面)。
+    members: nsKeys.map((g) => ({ ns: g.ns, obj: subsetOf(packObjs[l][g.ns], g.keys.map((k) => k.slice(g.ns.length + 1))) })),
     paths: nsKeys.flatMap((g) => g.keys),
   }))
 
@@ -534,7 +720,10 @@ export function planGeneration(rootDir, opts) {
     singles,
     nsKeys,
     droppedKeys: dropped,
-    pageText: buildPage({ spec: shape.spec, fnName: shape.base, titleKey, subtitleKey, pairs, singles }),
+    pageText:
+      opts.form === 'shell'
+        ? buildShellPage({ spec: shape.spec, base: shape.base })
+        : buildPage({ spec: shape.spec, fnName: shape.base, titleKey, subtitleKey, pairs, singles }),
     langBlocks,
     registryEntry: { shared: shape.spec, rn: rnHits[0], miniapp: route },
   }
@@ -572,6 +761,42 @@ function applySeamExisting(rootDir, rel, transform) {
   return { state: 'applied', why: r.insertedLine ? `插行 ${r.insertedLine.trim()}` : '已写' }
 }
 
+/**
+ * 词包接缝写入:先试"按行插"(新命名空间,原样保留他人字节),若因命名空间已存在被拒
+ * ⇒ 转"并键档"(mergeJsonMembers:只补既有块里没有的键,既有值一律不覆盖)。
+ *
+ * 为什么要有这一层:命名空间已存在不是错误,是"要往既有块里补键" ——
+ * 直接拒 ⇒ 整屏落不了(实测 11/101 枚);直接并 ⇒ 对新命名空间会重排整文件。
+ * 两档分工:insertJsonMembers 管"全新的命名空间",mergeJsonMembers 管"既有命名空间补键"。
+ *
+ * lb 需带 groups(渲染行,给按行插)与 members(对象,给并键档)两套形态。
+ */
+function writeLangPack(headText, lb) {
+  const r1 = insertJsonMembers(headText, lb.groups)
+  if (r1.ok) return r1
+  if (!/已存在顶层命名空间/.test(r1.why || '')) return r1
+  const r2 = mergeJsonMembers(headText, lb.members)
+  if (r2.ok) return r2
+  return { ok: false, why: `${r1.why};并键档亦未成:${r2.why}` }
+}
+
+/**
+ * 词包接缝落地(单屏档):按行插优先,命名空间已存在时转并键档。
+ */
+function applyLangPack(rootDir, lb) {
+  return applySeamExisting(rootDir, lb.packRel, (headText, workText) => {
+    const headObj = JSON.parse(headText)
+    if (lb.paths.every((p) => pathExists(headObj, p))) return { ok: false, skipped: true, why: `命名空间在册键已齐(${lb.paths.length} 键),幂等跳过` }
+    if (workText !== null) {
+      try {
+        const w = JSON.parse(workText)
+        if (lb.paths.every((p) => pathExists(w, p))) return { ok: false, skipped: true, why: '工作树副本已含(上轮落地未提交)' }
+      } catch { /* 坏 JSON 交给下游他席守卫/写后自证处理 */ }
+    }
+    return writeLangPack(headText, lb)
+  })
+}
+
 export function applyGeneration(rootDir, plan) {
   const results = []
   // ① 新页文件(不存在才写;写后紧随水印)
@@ -607,20 +832,9 @@ export function applyGeneration(rootDir, plan) {
       return insertConfigPage(headText, plan.subRoot, plan.page)
     }),
   })
-  // ③ 五份 miniapp 词包(按行插,禁整文件 stringify;先查在册再查他席)
+  // ③ 五份 miniapp 词包(按行插优先,命名空间已存在时转并键档;先查在册再查他席)
   for (const lb of plan.langBlocks) {
-    const res = applySeamExisting(rootDir, lb.packRel, (headText, workText) => {
-      const headObj = JSON.parse(headText)
-      if (lb.paths.every((p) => pathExists(headObj, p))) return { ok: false, skipped: true, why: `命名空间在册键已齐(${lb.paths.length} 键),幂等跳过` }
-      if (workText !== null) {
-        try {
-          const w = JSON.parse(workText)
-          if (lb.paths.every((p) => pathExists(w, p))) return { ok: false, skipped: true, why: '工作树副本已含(上轮落地未提交)' }
-        } catch { /* 坏 JSON 交给下游他席守卫/写后自证处理 */ }
-      }
-      return insertJsonMembers(headText, lb.groups)
-    })
-    results.push({ seam: lb.packRel, ...res })
+    results.push({ seam: lb.packRel, ...applyLangPack(rootDir, lb) })
   }
   // ④ registry 三元组
   results.push({
@@ -640,23 +854,99 @@ export function applyGeneration(rootDir, plan) {
 
 // ---------- CLI ----------
 
+/**
+ * 批量档 CLI:枚举全部共享屏 → 逐屏计划 → 汇总 → (--apply)合批落地。
+ * 退出码:0 = 无失败(有成功/幂等跳过都算绿);1 = 有屏被拒;2 = 未判定(取不到输入)。
+ */
+async function runBatch(rootDir, { applyMode, subpackage, page }) {
+  console.log(`判定面 HEAD blob | 仓库根 ${rootDir} | 档位 ${applyMode ? '落地(--apply)' : '预演'}`)
+  let batch
+  try {
+    batch = planBatch(rootDir, { subpackage, page })
+  } catch (e) {
+    console.error(`❓ 未判定:${e?.message ?? e}`)
+    return 2
+  }
+  const { planned, skipped, refused, undetermined } = batch
+  console.log(
+    `共享屏判定汇总:可生成 ${planned.length} / 已存在跳过 ${skipped.length} / 拒绝 ${refused.length} / 未判定 ${undetermined.length}`,
+  )
+  for (const s of skipped.slice(0, 20)) console.log(`⏭ 跳过 ${s.spec}  ${s.why}`)
+  if (skipped.length > 20) console.log(`⏭ 跳过(其余 ${skipped.length - 20} 条略)`)
+  for (const r of refused) console.log(`⛔ 拒绝 ${r.spec}  ${r.why}`)
+  for (const u of undetermined) console.log(`❓ 未判定 ${u.spec}  ${u.why}`)
+
+  if (planned.length === 0) {
+    console.log('GEN-MIRROR-BATCH-RESULT planned=0 applied=0 refused=0 undetermined=' + undetermined.length)
+    return refused.length > 0 || undetermined.length > 0 ? 1 : 0
+  }
+  console.log(`\n=== 将新建 ${planned.length} 个页面 ===`)
+  for (const p of planned) {
+    console.log(`  ${p.spec} → ${p.route}(分包 ${p.subRoot})  命名空间 ${p.nsKeys.map((g) => `${g.ns}(${g.keys.length})`).join('/')}${p.droppedKeys.length ? `  弃用键 ${p.droppedKeys.length}` : ''}`)
+  }
+
+  if (!applyMode) {
+    console.log('\n(预演模式,未写盘;加 --apply 落地)')
+    console.log(`GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=0 refused=${refused.length} undetermined=${undetermined.length}`)
+    return refused.length > 0 || undetermined.length > 0 ? 1 : 0
+  }
+
+  const results = applyBatch(rootDir, planned)
+  const applied = results.filter((r) => r.state === 'applied').length
+  const skippedN = results.filter((r) => r.state === 'skipped').length
+  const refusedN = results.filter((r) => r.state === 'refused').length
+  console.log('\n=== 落地结果(按屏汇总)===')
+  const byScreen = new Map()
+  for (const r of results) {
+    const k = r.screen
+    if (!byScreen.has(k)) byScreen.set(k, [])
+    byScreen.get(k).push(r)
+  }
+  for (const [screen, rs] of byScreen) {
+    const bad = rs.filter((r) => r.state === 'refused')
+    if (bad.length) {
+      console.log(`[refused] ${screen}`)
+      for (const b of bad) console.log(`    ${b.seam}  ${b.why}`)
+    } else {
+      console.log(`[ok] ${screen}  ${rs.filter((r) => r.state === 'applied').length} 接缝落地`)
+    }
+  }
+  console.log(`GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=${applied} skipped=${skippedN} refused=${refusedN} undetermined=${undetermined.length}`)
+  return refusedN > 0 || undetermined.length > 0 ? 1 : 0
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   const screenArg = argv.find((a) => a.startsWith('--screen='))
   const repoArg = argv.find((a) => a.startsWith('--repo=') || a.startsWith('--root='))
   const subArg = argv.find((a) => a.startsWith('--subpackage='))
   const pageArg = argv.find((a) => a.startsWith('--page='))
+  // 形制档:skeleton(文案骨架,旧默认) / shell(承载 RN 壳,数据与交互随源头同动)
+  const formArg = argv.find((a) => a.startsWith('--form='))
   const applyMode = argv.includes('--apply')
+  const allMode = argv.includes('--all')
+  const rootDir = repoArg ? resolve(repoArg.slice(repoArg.indexOf('=') + 1)) : resolve(fileURLToPath(new URL('..', import.meta.url)))
+
+  if (allMode)
+    return runBatch(rootDir, {
+      applyMode,
+      subpackage: subArg ? subArg.slice('--subpackage='.length) : null,
+      page: pageArg ? pageArg.slice('--page='.length) : null,
+      form: formArg ? formArg.slice('--form='.length) : 'skeleton',
+    })
+
   if (!screenArg) {
-    console.error('用法:node scripts/gen-miniapp-mirror.mjs --screen=packages/app/src/features/<domain>/<Name>Screen.tsx [--apply] [--subpackage=…] [--page=…]')
+    console.error('用法:node scripts/gen-miniapp-mirror.mjs --screen=packages/app/src/features/<domain>/<Name>Screen.tsx [--apply] [--subpackage=…] [--page=…] [--form=shell]')
+    console.error('  或:node scripts/gen-miniapp-mirror.mjs --all [--apply] [--form=shell]   # 批量:枚举全部共享屏逐屏判定')
+    console.error('  --form=shell = 壳承载形制(端内不写布局与数据);缺省 = 旧文案骨架形制(只作对照,不是收口)')
     console.error('❌ 未判定:缺 --screen 输入')
     return 2
   }
-  const rootDir = repoArg ? resolve(repoArg.slice(repoArg.indexOf('=') + 1)) : resolve(fileURLToPath(new URL('..', import.meta.url)))
   const plan = planGeneration(rootDir, {
     screenRel: screenArg.slice('--screen='.length),
     subpackage: subArg ? subArg.slice('--subpackage='.length) : null,
     page: pageArg ? pageArg.slice('--page='.length) : null,
+    form: formArg ? formArg.slice('--form='.length) : 'skeleton',
   })
 
   if (plan.kind === 'skip') {
@@ -710,6 +1000,181 @@ async function main() {
   return refused > 0 ? 1 : 0
 }
 
+// ---------- 批量(多屏一趟) ----------
+
+/**
+ * 批量计划:枚举全部共享屏,逐屏走同一条 planGeneration(单屏判据零复算),
+ * 把结果按 kind 分桶。**批量不是新判据** —— 每屏的判定与单屏 --screen 档逐字同源。
+ *
+ * 为什么需要批量档(治"人工逐屏跑 111 次"不可持续):
+ *   缺口账本现读 111 条共享屏未被小程序显式镜像;人工逐屏跑本器物 = 111 次
+ *   重复的"选屏 → 预演 → 落地",每屏 4 个接缝,一次跑错就前功尽弃。
+ *   批量档把"枚举 + 逐屏计划 + 汇总"变成一条命令,落地仍走同一套接缝落地器。
+ *
+ * 返回:{planned, skipped, refused, undetermined}
+ *   planned[]      = kind==='plan' 的 plan 对象
+ *   skipped[]      = kind==='skip'(已镜像/页面已存在)
+ *   refused[]      = kind==='refuse'(判定成立但不该造)
+ *   undetermined[] = kind==='undetermined'(取不到输入/形态不符 ⇒ 一次定向说明)
+ */
+export function planBatch(rootDir, opts = {}) {
+  const screens = opts.screens || listSharedScreens(rootDir)
+  // 全批共用一份读取上下文(见 makeContext 头注:批量档不逐屏重读整树)
+  const ctx = makeContext(rootDir)
+  const planned = []
+  const skipped = []
+  const refused = []
+  const undetermined = []
+  for (const spec of screens) {
+    const plan = planGeneration(
+      rootDir,
+      { screenRel: spec, subpackage: opts.subpackage ?? null, page: opts.page ?? null, form: opts.form ?? 'skeleton' },
+      ctx,
+    )
+    if (plan.kind === 'plan') planned.push(plan)
+    else if (plan.kind === 'skip') skipped.push({ spec, why: plan.why })
+    else if (plan.kind === 'refuse') refused.push({ spec, why: plan.why })
+    else undetermined.push({ spec, why: plan.why })
+  }
+  return { planned, skipped, refused, undetermined }
+}
+
+/** 枚举全部共享屏 spec(HEAD 面)。取不到 ⇒ 抛错(上层判未判定,不回落别的面)。 */
+function listSharedScreens(rootDir) {
+  const rels = listFaceFiles(rootDir, 'head', { paths: [SHARED_DIR] }).filter((r) => MP_SHARED_SCREEN_RE.test(r))
+  if (rels.length === 0) throw new Error(`未判定:HEAD 面枚举到 0 枚共享屏(${SHARED_DIR})`)
+  return rels.sort()
+}
+
+/**
+ * 批量落地:逐屏套用单屏接缝落地器(applyGeneration),但**共享接缝的写盘要合批**。
+ *
+ * 为什么必须合批(这是批量档最容易踩的坑):
+ *   接缝②app.config.ts、接缝③五份词包、接缝④registry 是**多屏共享**的。
+ *   逐屏各写一次 ⇒ 第 2 屏写 app.config.ts 时读到的底稿是"第 1 屏写完的工作树",
+ *   而 applySeamExisting 的基底判定是"工作树副本有行不在 HEAD ⇒ 他席在飞 ⇒ 拒" ——
+ *   于是**第 2 屏起全部被自己人挡住**(自己写的那行被当成他席在飞)。
+ *   ⇒ 合批:先把该接缝在本批内的所有插入**在内存里依次应用**(每步都以上一步的结果为底),
+ *   全部成功后写一次盘。落盘前仍做一次"他席在飞"判定(工作树 vs HEAD)。
+ *
+ * 失败方向:某一屏的接缝失败 ⇒ 该屏记 refused,**不阻断其余屏**(屏与屏之间无依赖);
+ * 共享接缝的写盘只在该接缝**本批全部屏都成功**时才发生 ⇒ 不会出现"半截词包"。
+ */
+export function applyBatch(rootDir, plans) {
+  const results = []
+  // ① 页面文件:每屏一份,互不共享 ⇒ 逐屏写
+  for (const plan of plans) {
+    const headHas = faceReadMap(rootDir, [plan.pageRel]).get(plan.pageRel)
+    const onDisk = existsSync(join(rootDir, plan.pageRel))
+    if (headHas !== null || onDisk) {
+      results.push({ screen: plan.spec, seam: plan.pageRel, state: 'skipped', why: '页面文件已存在' })
+      continue
+    }
+    try {
+      mkdirSync(dirname(join(rootDir, plan.pageRel)), { recursive: true })
+      writeFileSync(join(rootDir, plan.pageRel), plan.pageText)
+      let wm = '跳过(夹具仓无 watermark.mjs)'
+      const wmScript = join(rootDir, 'scripts', 'watermark.mjs')
+      if (existsSync(wmScript)) {
+        try {
+          execFileSync(process.execPath, [wmScript, 'inject', join(rootDir, plan.pageRel)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+          execFileSync(process.execPath, [wmScript, 'verify', join(rootDir, plan.pageRel)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+          wm = 'inject+verify 已跑'
+        } catch (e) {
+          wm = `水印步骤失败(页面已写,水印需人工补):${e?.message ?? e}`
+        }
+      }
+      results.push({ screen: plan.spec, seam: plan.pageRel, state: 'applied', why: `新建页面;水印 ${wm}` })
+    } catch (e) {
+      results.push({ screen: plan.spec, seam: plan.pageRel, state: 'refused', why: `写盘失败:${e.message}` })
+    }
+  }
+
+  // ②③④ 共享接缝:内存里逐屏依次应用,末了统一写一次
+  const sharedSeams = []
+  // ② app.config.ts
+  {
+    const headText = faceReadMap(rootDir, [MP_CONFIG]).get(MP_CONFIG)
+    if (headText === null) {
+      for (const p of plans) results.push({ screen: p.spec, seam: MP_CONFIG, state: 'refused', why: 'HEAD 面取不到底稿,拒绝落地' })
+    } else {
+      let text = headText
+      let ok = true
+      const inserts = []
+      for (const p of plans) {
+        const r = insertConfigPage(text, p.subRoot, p.page)
+        if (r.ok) { text = r.text; inserts.push(r.insertedLine.trim()) }
+        else if (r.skipped) { /* 已在册:幂等跳过,不算失败 */ }
+        else { ok = false; results.push({ screen: p.spec, seam: MP_CONFIG, state: 'refused', why: r.why }) }
+      }
+      sharedSeams.push({ rel: MP_CONFIG, text, ok, applied: inserts })
+    }
+  }
+  // ③ 五份 miniapp 词包
+  for (const lang of LANGS) {
+    const packRel = `${MP_PACK_DIR}/${lang}.json`
+    const headText = faceReadMap(rootDir, [packRel]).get(packRel)
+    if (headText === null) {
+      for (const p of plans) results.push({ screen: p.spec, seam: packRel, state: 'refused', why: 'HEAD 面取不到底稿,拒绝落地' })
+      continue
+    }
+    let text = headText
+    let ok = true
+    for (const p of plans) {
+      const lb = p.langBlocks.find((x) => x.lang === lang)
+      if (!lb) continue
+      if (lb.paths.every((q) => pathExists(JSON.parse(text), q))) continue
+      const r = writeLangPack(text, lb)
+      if (r.ok) text = r.text
+      else { ok = false; results.push({ screen: p.spec, seam: packRel, state: 'refused', why: r.why }) }
+    }
+    sharedSeams.push({ rel: packRel, text, ok })
+  }
+  // ④ registry
+  {
+    const headText = faceReadMap(rootDir, [REGISTRY]).get(REGISTRY)
+    if (headText === null) {
+      for (const p of plans) results.push({ screen: p.spec, seam: REGISTRY, state: 'refused', why: 'HEAD 面取不到底稿,拒绝落地' })
+    } else {
+      let text = headText
+      let ok = true
+      for (const p of plans) {
+        const cur = JSON.parse(text)
+        if ((cur.entries || []).some((e) => e.shared === p.spec)) continue
+        const r = insertRegistryEntry(text, p.registryEntry)
+        if (r.ok) text = r.text
+        else { ok = false; results.push({ screen: p.spec, seam: REGISTRY, state: 'refused', why: r.why }) }
+      }
+      sharedSeams.push({ rel: REGISTRY, text, ok })
+    }
+  }
+
+  // 共享接缝统一写盘:写前判"他席在飞"(工作树相对 HEAD 有新行 ⇒ 拒,不覆盖)
+  for (const s of sharedSeams) {
+    if (!s.ok) continue
+    if (s.text === undefined) continue
+    const headText = faceReadMap(rootDir, [s.rel]).get(s.rel)
+    if (headText === null) continue
+    if (headText === s.text) continue // 无变化
+    let workText = null
+    try { workText = readWorktreeFile(rootDir, s.rel) } catch { workText = null }
+    if (workText !== null && workText !== s.text) {
+      const div = workDiverges(headText, workText)
+      if (div > 0) {
+        for (const p of plans) results.push({ screen: p.spec, seam: s.rel, state: 'refused', why: `工作树副本有 ${div} 行不在 HEAD(他席在飞),本接缝不动,留待下轮` })
+        continue
+      }
+    }
+    try {
+      writeFileSync(join(rootDir, s.rel), s.text)
+      for (const p of plans) results.push({ screen: p.spec, seam: s.rel, state: 'applied', why: '合批写入' })
+    } catch (e) {
+      for (const p of plans) results.push({ screen: p.spec, seam: s.rel, state: 'refused', why: `写盘失败:${e.message}` })
+    }
+  }
+  return results
+}
+
 /* §22d:直执行才跑主流程;测试 import __test__ 不得触发 CLI */
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
@@ -723,6 +1188,7 @@ export const __test__ = {
   subsetOf,
   memberLinesFor,
   insertJsonMembers,
+  mergeJsonMembers,
   parseMiniappRoutes,
   insertConfigPage,
   insertRegistryEntry,
@@ -730,6 +1196,9 @@ export const __test__ = {
   workDiverges,
   planGeneration,
   applyGeneration,
+  topLevelNamespaces,
+  planBatch,
+  applyBatch,
   constants: { LANGS, MP_CONFIG, REGISTRY, MP_PACK_DIR, RN_PACK_DIR, MP_SRC, GENERIC_NS },
 }
 

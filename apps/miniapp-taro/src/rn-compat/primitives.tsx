@@ -320,4 +320,84 @@ export const SafeAreaView = View
 export const KeyboardAvoidingView = View
 export const TouchableHighlight = View
 export const TouchableWithoutFeedback = View
+
+/** RN 的分区列表:小程序没有分区原语,按「SectionList 语义」逐段渲染(段头 + 段内行) */
+export function SectionList(props: RNBaseProps) {
+  const sections =
+    (props.sections as Array<{ key?: string; data?: unknown[]; renderItem?: unknown }>) ?? []
+  const renderSection = props.renderSectionItem as
+    ((info: { section: unknown; index: number }) => ReactNode) | undefined
+  const ItemSeparator = props.ItemSeparatorComponent as (() => ReactNode) | undefined
+  return (
+    <ScrollView {...props}>
+      {props.ListHeaderComponent as ReactNode}
+      {sections.map((section, index) => (
+        <View key={section.key ?? String(index)}>
+          {renderSection?.({ section, index })}
+          {((section.data as unknown[]) ?? []).map((item, i) => (
+            <View key={i}>
+              {i > 0 ? ItemSeparator?.() : null}
+              {(
+                section as { renderItem?: (info: { item: unknown; index: number }) => ReactNode }
+              ).renderItem?.({
+                item,
+                index: i,
+              }) ?? null}
+            </View>
+          ))}
+        </View>
+      ))}
+      {props.ListFooterComponent as ReactNode}
+    </ScrollView>
+  )
+}
+
+/** 背景图容器:RN 的 ImageBackground = Image 打底 + 内容浮在上层(absolute 铺满) */
+export function ImageBackground(props: RNBaseProps) {
+  return (
+    <View style={{ ...flattenStyle(props.style), position: 'relative', overflow: 'hidden' }}>
+      <Image
+        {...props}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          height: '100%',
+        }}
+      />
+      <View style={{ position: 'relative' }}>{props.children}</View>
+    </View>
+  )
+}
+
+/**
+ * RN 手势Responder 族:小程序的事件模型是 tap/longpress,没有 MoveResponder。
+ * 这里给"能编译、能点"的最小实现 —— 拖动/滑动类交互在小程序端需按端能力另写,
+ * 本层不假装有(降级在此点名,与 Animated 的"落终值"同一处置纪律)。
+ */
+export const PanResponder = {
+  create: (config: Record<string, unknown>) => {
+    const onStart = config.onStartShouldSetResponder as (() => boolean) | undefined
+    return {
+      get panHandlers() {
+        return {
+          onStartShouldSetResponder: onStart ? () => true : undefined,
+          onResponderGrant: (config.onResponderGrant as unknown) ?? undefined,
+          onResponderMove: (config.onResponderMove as unknown) ?? undefined,
+          onResponderRelease: (config.onResponderRelease as unknown) ?? undefined,
+        }
+      },
+    }
+  },
+}
+
+export const NativeModules: Record<string, unknown> = {}
+export const DevSettings = {
+  addEventListener: () => ({ remove() {} }),
+  reload: () => {},
+  openDevMenu: () => {},
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
