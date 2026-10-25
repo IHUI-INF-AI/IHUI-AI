@@ -21,6 +21,7 @@ import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
 
 import {
   Button,
@@ -137,7 +138,7 @@ export default function UserLlmConfigsPage() {
     if (!encoded || prefilledRef.current) return
     prefilledRef.current = true
     try {
-      const json = decodeURIComponent(atob(encoded))
+      const json = safeDecodeURIComponent(atob(encoded))
       const payload = JSON.parse(json) as Partial<ProviderFormState>
       setPrefill(payload)
       setEditingProvider(null)
