@@ -60,6 +60,12 @@
  *   A4 认领标记 `（进行中…）` 总数不减少(8 条存量全部转移,不许静默丢失)。
  *
  * 用法: node scripts/plan-pointer-purge.mjs [--dry-run|--apply] [--absorb]
+ *
+ * 退出态(2026-10-25 定档,派单侧按这一把尺决定是否落地):
+ *   0 = 清偿了 N 行并落地 / 1 = 断言或同源自校验未过 ⇒ 拒绝落地 / 2 = 取不到被审面 ⇒ **未判定** /
+ *   3 = **无需清偿**(本轮真的会动 0 行 ⇒ 不产 blob、不提交、不推送、不写台账)。
+ * "本轮真的会动几行" = `realWorkRows`(渲染前后逐字差),**不是**分层处置计数:后者会把
+ * 「同号组里没有注记的持有行」记成 L4 空转,而按它派生落地就是那 73 枚只多一行空行的自增提交。
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -543,8 +549,8 @@ export function buildPlan(lines, opts = {}) {
   }
 }
 
-/** 构建清偿后的文档(纯函数)。 */
-export function renderPurge(lines, plan) {
+/** 逐行渲染(唯一实现):返回与 `lines` **等长**的数组,元素 = 该行清偿后的文本,null = 整行删除。 */
+export function renderLines(lines, plan) {
   const out = lines.slice()
   // 先做认领转移(写进保留的持有行;锚定行首勾选框,不重复缩进)
   for (const t of plan.claimTransfers) {
@@ -558,17 +564,107 @@ export function renderPurge(lines, plan) {
     out[t.to] = (out[t.to] ?? '') + t.text
   }
   for (const i of plan.deleteSet) out[i] = null
-  const result = []
-  for (let i = 0; i < out.length; i++) {
-    if (out[i] === null) continue
-    if (plan.stripSet.has(i) && !plan.deleteSet.has(i)) {
-      const line = stripMergeNotes(out[i])
-      // 注记可能嵌在句中:剥掉后若形成"孤零零的勾选框"也一并删
-      result.push(/^\s*-\s*\[[ xX]\]\s*$/.test(line) ? null : line)
-    } else result.push(out[i])
-  }
-  return result.filter((l) => l !== null)
+  return out.map((line, i) => {
+    if (line === null) return null
+    if (!plan.stripSet.has(i)) return line
+    // 注记可能嵌在句中:剥掉后若形成"孤零零的勾选框"也一并删
+    const stripped = stripMergeNotes(line)
+    return /^\s*-\s*\[[ xX]\]\s*$/.test(stripped) ? null : stripped
+  })
 }
+
+/** 构建清偿后的文档(纯函数)= `renderLines` 去掉整行删除的那些行(判据不得有第二份)。 */
+export function renderPurge(lines, plan) {
+  return renderLines(lines, plan).filter((l) => l !== null)
+}
+
+/**
+ * 本轮**真的会动**的行 = 渲染文本与原文不逐字相等的原行下标(与 `renderLines` 同源)。
+ *
+ * 立因(2026-10-25 实测 73 枚自增提交,每枚只多一行空行):分层处置计数会把
+ * 「同号组的持有行」记成 L4 剥注记(该行自己根本没有注记),账面有处置、渲染逐字等值
+ * ⇒ 按 `stats` 派生落地就是在空转。触发集与处置集必须是同一把尺(§0.6),
+ * 而这把尺只能是"渲染前后逐字差",不能是任何一层的计数器。
+ */
+export function realWorkRows(lines, plan) {
+  const rendered = renderLines(lines, plan)
+  const rows = []
+  for (let i = 0; i < lines.length; i++) if (rendered[i] !== lines[i]) rows.push(i)
+  return rows
+}
+
+/**
+ * 被审面文本 → 本轮真的会动的行数(派单侧唯一入口,判据住在本器)。
+ * 面取不到 / 判据装不上 / 判据抛错 ⇒ `null` = **未判定**(§0.3,绝不冒充 0)。
+ */
+export function workResidueCount(text, opts = {}) {
+  if (typeof text !== 'string' || text === '') return null
+  try {
+    const lines = text.split(/\r?\n/)
+    return realWorkRows(lines, buildPlan(lines, opts)).length
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 落地前的**行级铁证**:父面 → 待落面这一枚到底改了几行真内容。
+ *
+ * 返回 `{ ok:false, blankOnly, why }` ⇒ 调用方必须拒落(不产 blob、不提交、不推送)。
+ * 两条独立否决:
+ *  ① `work.length === 0` —— 器物自己那把处置尺(`realWorkRows`)量出渲染前后逐字等值;
+ *  ② 非空行序列逐字相同而整面文本不等 —— 差异**只长在空白行上**。这一条是 ① 的兜底:
+ *     73 枚自增提交的现场正是「处置计数 0 ⇒ 仍落地 ⇒ blob 只比父面多一行空行」,
+ *     而当时的落地闸拿的是 `blob !== 父 blob` 这种整面字符串比较,把灌空行当成了有产出。
+ * 判据只此一份(§0.6),落地臂与镜像测试共用;测试不得复制判据(§22c)。
+ */
+export function landingDiffVerdict({ parentText, nextText, work = [] } = {}) {
+  const p = String(parentText ?? '').split(/\r?\n/).filter((l) => l.trim() !== '')
+  const q = String(nextText ?? '').split(/\r?\n/).filter((l) => l.trim() !== '')
+  const nonEmptyEqual = p.length === q.length && p.every((l, i) => l === q[i])
+  const textsDiffer = String(parentText ?? '') !== String(nextText ?? '')
+  if (work.length === 0) {
+    return {
+      ok: false,
+      blankOnly: nonEmptyEqual && textsDiffer,
+      why: nonEmptyEqual && textsDiffer
+        ? '真实行为 0 而序列化结果与父面不等 ⇒ 差异只在空白行,拒绝落地(器物不得往活文档灌空行)'
+        : '本轮真的会动 0 行 ⇒ 无事可做,拒绝落地(不产 blob / 不提交 / 不推送)',
+    }
+  }
+  if (nonEmptyEqual) {
+    return {
+      ok: false,
+      blankOnly: textsDiffer,
+      why: `处置尺报 ${work.length} 行而非空行序列逐字相同 ⇒ 改动全在空白行,拒绝落地`,
+    }
+  }
+  return { ok: true, blankOnly: false, why: '' }
+}
+
+/**
+ * 「无需清偿」与「清偿了 N 行」的**同一句措辞**(dry-run 与 --apply 共用,不得各写一套)。
+ * 计数有而真实行为 0 的那几枚点名出来 = 分层判据在空转的现场,不是"清干净了"。
+ */
+export function workVerdictLine(work, stats = {}) {
+  const counted = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'].reduce(
+    (s, k) => s + (Number(stats[k]) || 0),
+    0,
+  )
+  return work.length === 0
+    ? `PURGE-RESULT state=无需清偿 本轮真的会动 0 行(分层处置计数合计 ${counted} 行,渲染后逐字等值 ⇒ 空转,不落地不推送)`
+    : `PURGE-RESULT state=将清偿 ${work.length} 行(样例原行号 L${work
+        .slice(0, 5)
+        .map((i) => i + 1)
+        .join('、L')}${work.length > 5 ? ' …' : ''})`
+}
+
+/**
+ * blob 序列化 = `split(/\r?\n/)` 的**逆运算**(不得再补一个行末分隔符)。
+ * 旧写法 `join(eol) + eol` 每轮往文末多灌一枚空行(实测文末连续空行 43 → 44,
+ * 73 枚提交涨 73 行),而那型"blob 与父面不等"曾被落地闸当成"本次清偿有产出"。
+ */
+const serialize = (ls, eol) => ls.join(eol)
 
 /** 守恒断言(返回 error 列表;空 = 通过)。
  *  A4 认领守恒按**族内不变式**断言:任何复合主键/剥注记正文族,清偿后至少保留一条
@@ -897,7 +993,7 @@ function main() {
   }
   if (!headText) {
     console.error('❌ 取不到 HEAD:PROJECT_PLAN.md ⇒ 无法判定,不落')
-    process.exit(1)
+    process.exit(2)
   }
   const eol = headText.includes('\r\n') ? '\r\n' : '\n'
   const lines = headText.split(/\r?\n/)
@@ -920,7 +1016,7 @@ function main() {
     process.exit(1)
   }
   // 门 203 同源自校验:清偿不得自己造出「同题多号」
-  const dups = gate203Delta(headText, next.join(eol) + eol)
+  const dups = gate203Delta(headText, serialize(next, eol))
   if (dups.length) {
     console.error(
       `❌ 门 203 同源自校验失败:清偿后比 HEAD 多出 ${dups.length} 个同题多号成员键,拒绝落地:`,
@@ -930,15 +1026,26 @@ function main() {
     console.error('   ⇒ 分族键仍与门 203 不同源,先修 famKeyOf 的归一化,再重跑(不许为消红放宽判据)')
     process.exit(1)
   }
+  const work = realWorkRows(lines, plan)
   const before = lines.filter((l) => l.trim() !== '').length
   const after = next.filter((l) => l.trim() !== '').length
   console.log(
     `守恒断言 5/5 通过;门 203 同源自校验 0 键;非空行 ${before} → ${after}(-${before - after})`,
   )
+  console.log(workVerdictLine(work, stats))
+  // 首轮与 CAS 重算轮走**同一把尺**(landingDiffVerdict),不得一处严一处松(§0.6)。
+  const verdict = landingDiffVerdict({
+    parentText: headText,
+    nextText: serialize(next, eol),
+    work,
+  })
+  if (!verdict.ok && apply) console.log(`❌ ${verdict.why}`)
   if (!apply) {
-    console.log('--dry-run 模式,未落地。加 --apply 走对象空间落地(从不写工作树)。')
-    return 0
+    if (work.length === 0) console.log('本轮无需清偿 ⇒ 加 --apply 也不会落地、不会推送。')
+    else console.log('--dry-run 模式,未落地。加 --apply 走对象空间落地(从不写工作树)。')
+    return work.length === 0 ? 3 : 0
   }
+  if (!verdict.ok) return 3
 
   const MSG_TAIL =
     '落地前五条守恒断言必须全绿(A1 已勾选不缩水 ∧ A2 未勾选不反增 ∧ A3 登记行注记归零 ∧\n' +
@@ -1020,22 +1127,32 @@ function main() {
       const fEol = freshText.includes('\r\n') ? '\r\n' : '\n'
       const fLines = freshText.split(/\r?\n/)
       const fPlan = buildPlan(fLines, { absorb })
+      const fStats = fPlan.stats
       const fNext = renderPurge(fLines, fPlan)
+      const fWork = realWorkRows(fLines, fPlan)
+      const fNextText = serialize(fNext, fEol)
+      // no-op 拒落闸(2026-10-25 立,治"73 枚自增提交"):行级铁证不成立就不许产 blob、
+      // 不许提交、不许推送 —— 判据唯一实现是 landingDiffVerdict(与镜像测试同一把尺)。
+      const fVerdict = landingDiffVerdict({ parentText: freshText, nextText: fNextText, work: fWork })
+      if (!fVerdict.ok) {
+        console.log(workVerdictLine(fWork, fStats))
+        console.log(`❌ ${fVerdict.why}`)
+        return 3
+      }
       const fErrs = verifyPurge(fLines, fNext, fPlan)
       if (fErrs.length) {
         console.log('❌ 重算后守恒断言未过 ⇒ 拒绝落地:' + fErrs.join(' / '))
         return 1
       }
-      const fNextText = fNext.join(fEol) + fEol
       const fDups = gate203Delta(freshText, fNextText)
       if (fDups.length) {
         console.log(`❌ 重算后门 203 同源自校验失败(${fDups.length} 键)⇒ 拒绝落地`)
         return 1
       }
-      const fStats = fPlan.stats
       const fSkipped = fPlan.skipped || []
       const fMsg =
         `refactor(plan): 清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并)\n\n` +
+        `本轮真的会动 ${fWork.length} 行(渲染前后逐字差,非分层计数)。\n` +
         `L1 外部持有行删除 ${fStats.L1} 行 / L2 族内归并 ${fStats.L2} 行 / L3 纯指针 ${fStats.L3} 行 / ` +
         `L4 剥注记保留 ${fStats.L4} 行 / L5 同题折并 ${fStats.L5} 行 / L6 同主键归并 ${fStats.L6} 行 / ` +
         `已勾剥注记 ${fStats.checkedStripped} 行 / 认领转移 ${fPlan.claimTransfers.length} 条 / ` +
@@ -1115,7 +1232,7 @@ function main() {
       // "索引里有、HEAD 里没有"的脏条目,下一个提交者会把它当成在飞文件)
       const al = alignSharedIndex({ root: ROOT, paths: [PLAN], parentRef: head })
       console.log(
-        `✅ 落地 ${commit.slice(0, 11)}(父 ${head.slice(0, 11)}) 删 ${fPlan.deleteSet.size} 行;台账=${landedLedger};` +
+        `✅ 落地 ${commit.slice(0, 11)}(父 ${head.slice(0, 11)}) PURGE-RESULT state=已清偿 ${fWork.length} 行(删 ${fPlan.deleteSet.size} 行);台账=${landedLedger};` +
           `主索引 moved=${(al.moved || []).length} already=${(al.already || []).length} skipped=${(al.skipped || []).length} 未判定=${(al.undetermined || []).length}`,
       )
       if ((al.skipped || []).length || (al.undetermined || []).length) {
@@ -1169,9 +1286,22 @@ function main() {
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
-  main()
+  // main() 一直在 return 结论却从没人接(旁路落地 CAS 未中 / 守恒断言重算未过时,进程仍按 0 退出)
+  // ⇒ 派单方把"这一枚根本没落"读成"复清完成"。退出态必须等于结论。
+  process.exitCode = main()
 }
 
 /** 供镜像测试直取(§22c:测试 import 源实现,不复制判据)。 */
-export const __test__ = { ledgerWithWatermark }
+export const __test__ = {
+  ledgerWithWatermark,
+  buildPlan,
+  renderLines,
+  renderPurge,
+  verifyPurge,
+  realWorkRows,
+  workResidueCount,
+  workVerdictLine,
+  landingDiffVerdict,
+  serialize,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

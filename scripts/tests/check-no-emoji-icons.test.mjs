@@ -286,4 +286,23 @@ test('E14 analyze 棘轮+面纪律:asset 命中 HEAD 面只报数,盘上偷改�
 test('E15 --self-test 与镜像同尺:判据共用一份实现,自检必须全绿', () => {
   assert.equal(gate.runSelfTest(), 0, '源脚本 --self-test 有失败用例')
 })
+
+test('E16 面纪律反向:HEAD 干净而盘上新增违规 ⇒ head 档仍判绿(不读工作树),worktree 档才红', () => {
+  const BAD = "export const NAV = [{ label: 'x', icon: '🦄' }]\n"
+  const dir = createRepo({ 'apps/web/src/nav.tsx': 'export const NAV = []\n' })
+  try {
+    const head1 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head1.scanned, 1, JSON.stringify(head1))
+    assert.equal(head1.totalViolations, 0, 'HEAD 面干净的基线都不绿 ⇒ 判据本身失准')
+
+    // 只在盘上加违规(不 add、不 commit):HEAD 档必须照旧报 0,只有 worktree 档才看见
+    writeRepoFile(dir, 'apps/web/src/nav.tsx', BAD)
+    const head2 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head2.scanned, 1, 'HEAD 档被盘上脏改动拖走了取材面')
+    assert.equal(head2.totalViolations, 0, '未提交的脏改动进了 HEAD 面 ⇒ 门对已入库代码给出假红')
+    assert.equal(gate.analyze({ root: dir, face: 'worktree' }).totalViolations, 1, 'worktree 档没看见盘上的违规')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

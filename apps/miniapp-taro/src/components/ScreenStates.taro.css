@@ -48,7 +48,7 @@
 .ihui-state-glyph-circle {
   width: 128rpx;
   height: 128rpx;
-  border-radius: 64rpx;
+  border-radius: var(--radius-2xl);
   display: flex;
   align-items: center;
   justify-content: center;
