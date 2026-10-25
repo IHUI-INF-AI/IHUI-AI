@@ -9,6 +9,7 @@ param(
 )
 # C 盘自动维护脚本(计划任务用,每天凌晨 3 点自动执行)
 # 功能:① 清理 Chrome 缓存(路径不存在则只告警) ② 清理 Temp 旧目录(默认只删本项目产物名字)
+#       ②b real TEMP 转移后的顶层陈年滞留项同盘改名让位(≥3 天,只搬不删,见段内立因)
 #       ③ 清理本项目落在 C 盘的产物 ④ 报告 C 盘状态
 #       ⑤ 清系统自产残骸(卡死打印队列 / 内核转储 / 孤儿浏览器构建)
 #       ⑥ 封禁回潮源(Chrome 设备端模型下载策略)—— 让它根本不再长回来,而不是天天删
@@ -248,6 +249,98 @@ if ($tempSkipped -gt 0) {
 }
 Log ("  [OK] Temp 旧目录:{0} {1} 项,释放 {2} MB" -f `
   $(if ($DryRun) { '预演命中' } else { '清理' }), $tempTargets, [math]::Round($tempFreed/1MB,1))
+
+# ===== 2b. 真 TEMP 外置根的顶层陈年滞留项:只让位,不删除(2026-10-25 立) =====
+# 立因:§26 把 TEMP/TMP 改道到 D:\DevEnv\Temp 之后,第 2 段扫的 $env:LOCALAPPDATA\Temp 已不是
+# 主战场 —— 巡检 P4a 量的正是真 TEMP 那一维,于是新地板没人管:2026-10-25 实测 6.64GB/91102 项,
+# 大头是 trae-agent-toolhost(17261 项/闲置 82h)、无主安装器解压(6066+1007+608 项/闲置 11-13 天)
+# 这类"第三方陈年杂物"。P4a 红线文案自己给出的出路就是"按名逐个搬走/删除",但把**删除**交给
+# 无人值守的日任务从来不是本仓立场(§26 删除面按名字白名单),所以本段只做**同盘改名让位**:
+# 目录整体挪进 D:\DevEnv\backups\temp-strays\<日期>\ —— 一条不删、句柄占用即跳过、回滚路径留人。
+# 豁免面(一律不动):本项目名字(有 scrub-temp-fixtures 与第 2 段两条正牌出口,本层不造第二把尺)、
+# 受保护名/凭据字样、重解析点(c-root-tmp 等封口提供器)、异盘目标(跨卷 Move 是复制+删,禁)。
+Log "[2b/6] 真 TEMP 顶层陈年滞留让位(≥3 天,只搬不删)"
+$realTemp = $env:TEMP
+$strayQuarantineRoot = 'D:\DevEnv\backups\temp-strays'
+$straySkipNames = @('c-root-tmp') # 封口提供器:内容属别处,搬运=毁改道
+$NAME_GUARD_RE = 'secret|credential|token|passw|api[-_]?key|private[-_]?key|密钥'
+function Get-MaxWriteMs {
+  # 递归取最大 mtime,但**绝不跟随重解析点**(§26 junction 递归穿透是头号危险)。
+  param([string]$path)
+  $maxMs = 0L
+  $stack = New-Object System.Collections.Generic.Stack[string]
+  $stack.Push($path)
+  while ($stack.Count -gt 0) {
+    $cur = $stack.Pop()
+    try {
+      foreach ($e in [System.IO.DirectoryInfo]::new($cur).EnumerateFileSystemInfos()) {
+        if ($e.Attributes -match 'ReparsePoint') { continue }
+        if ($maxMs -lt $e.LastWriteTimeUtc.Ticks) { $maxMs = $e.LastWriteTimeUtc.Ticks }
+        if ($e.PSIsContainer) { $stack.Push($e.FullName) }
+      }
+    } catch { }
+  }
+  return $maxMs
+}
+[int]$strayMoved = 0
+[int]$straySkipped = 0
+$strayFail = @()
+if (-not (Test-Path -LiteralPath $realTemp)) {
+  Log ("  [SKIP] TEMP 根取不到:{0}(未判定,不猜别的地板)" -f $realTemp) "WARN"
+} else {
+  $strayCutoffMs = (Get-Date).ToUniversalTime().AddDays(-3).Ticks
+  foreach ($d in @(Get-ChildItem $realTemp -Directory -Force -ErrorAction SilentlyContinue)) {
+    if (Test-ProjectTempName $d.Name) { $straySkipped += 1; continue }
+    if ($straySkipNames -contains $d.Name) { $straySkipped += 1; continue }
+    if ($d.Name -match $NAME_GUARD_RE) { $straySkipped += 1; continue }
+    if (Test-ReparsePoint $d.FullName) { $straySkipped += 1; continue }
+    # 目录自身 mtime 会随条目增删刷新,但深层写入不冒泡到顶层 —— 递归最大 mtime 才算"动过"。
+    $maxMs = Get-MaxWriteMs -path $d.FullName
+    if ($maxMs -le 0) { $maxMs = $d.LastWriteTimeUtc.Ticks }
+    if ($maxMs -ge $strayCutoffMs) { $straySkipped += 1; continue }
+    if (Test-Protected $d.FullName) {
+      Log ("  [SKIP] 受保护目录,不让位: {0}" -f $d.FullName) "WARN"
+      $straySkipped += 1
+      continue
+    }
+    $dstDrive = [System.IO.Path]::GetPathRoot($d.FullName)
+    $srcDrive = [System.IO.Path]::GetPathRoot($strayQuarantineRoot)
+    if ($dstDrive -ne $srcDrive) {
+      # 跨卷 Move-Item = 复制 + 删除,不是"改名验句柄"那一档的安全动作。
+      Log ("  [SKIP] 与隔离根不同盘(跨卷搬运即复制+删),不动: {0}" -f $d.FullName) "WARN"
+      $straySkipped += 1
+      continue
+    }
+    $day = (Get-Date).ToString('yyyyMMdd')
+    $target = Join-Path (Join-Path $strayQuarantineRoot $day) $d.Name
+    $n = 1
+    while (Test-Path -LiteralPath $target) {
+      $target = Join-Path (Join-Path $strayQuarantineRoot $day) ($d.Name + "-$n")
+      $n += 1
+      if ($n -gt 50) { break }
+    }
+    if ($n -gt 50) { $strayFail += ("{0}(目标名占满)" -f $d.FullName); continue }
+    if ($DryRun) {
+      Log ("  [MOVE-DRY] {0} -> {1}" -f $d.FullName, $target)
+      $strayMoved += 1
+      continue
+    }
+    try {
+      New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
+      Move-Item -LiteralPath $d.FullName -Destination $target -ErrorAction Stop
+      $strayMoved += 1
+      Log ("  [MOVE] {0} -> {1}" -f $d.FullName, $target)
+    } catch {
+      # 文件被占用时 rename 当场失败 ⇒ 天然"改名验句柄",跳过即安全。
+      $strayFail += ("{0}({1})" -f $d.FullName, $_.Exception.Message)
+    }
+  }
+}
+if ($strayFail.Count -gt 0) {
+  foreach ($x in $strayFail) { Log ("  [FAIL] 让位失败(占用/权限,已跳过): {0}" -f $x) "WARN" }
+}
+Log ("  [OK] 真 TEMP 让位:{0} 项搬入 {1},跳过 {2} 项(在用/本项目名字/受保护/豁免)" -f `
+  $strayMoved, $strayQuarantineRoot, $straySkipped)
 
 # C:\Windows\Temp 旧文件
 # 说明:本子段是本脚本里唯一仍"不按名字"的删除面(系统临时目录,与本项目产物名字无关),
