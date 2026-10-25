@@ -625,6 +625,17 @@ export function planGeneration(rootDir, opts, ctx = null) {
   // cov.collectShared 的 name 形制 = `<Base>Screen`(共享符号同名),rnConsumes 判的也是这个符号
   const rnHits = rnRels.filter((r) => cov.rnConsumes({ text: rnMap.get(r) }, `${shape.base}Screen`)).sort()
   if (rnHits.length === 0) return { kind: 'refuse', why: `HEAD 面无任何 RN 屏 import @ihui/rn-app 使用 ${shape.base}(registry 头注要求 RN 腿),三腿不齐不登记` }
+  // 壳承载形制的硬前置:**同名** RN 壳文件必须存在。`@rn-shells/<Base>Screen` 这条别名是按名字指过去的,
+  // 而 rnHits 判的是"谁 import 了这张共享屏"——两者不是一回事:现读 console-table / switch-prefs 两枚
+  // 是被 DeveloperConversationsScreen 这类"使用者"命中的,于是产出了指向不存在模块的页面,
+  // weapp 构建当场编不过(Taro 解析 @rn-shells/ConsoleTableScreen ⇒ "…ConsoleTableScreen.vue doesn't exist")。
+  const shellRel = `${RN_SCREENS}/${shape.base}Screen.tsx`
+  if (opts.form === 'shell' && !rnRels.includes(shellRel)) {
+    return {
+      kind: 'refuse',
+      why: `壳承载需同名 RN 壳 ${shellRel}(现读消费方 ${rnHits[0]} 只是使用者)⇒ 数据腿无从继承,不产 dangling 页`,
+    }
+  }
   const indexText = c.indexText
   if (indexText === null) return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${APP_INDEX}` }
   if (!new RegExp(`export\\s*(?:\\{[^}]*\\b${shape.base}Screen\\b|\\*\\s*from)`).test(indexText)) {

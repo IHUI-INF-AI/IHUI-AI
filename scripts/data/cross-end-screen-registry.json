@@ -562,11 +562,6 @@
       "miniapp": "pkg-shop/vip/details"
     },
     {
-      "shared": "packages/app/src/features/console-table/ConsoleTableScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/DeveloperConversationsScreen.tsx",
-      "miniapp": "pkg-user/console-table/index"
-    },
-    {
       "shared": "packages/app/src/features/dashboard/DashboardScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/DashboardScreen.tsx",
       "miniapp": "pkg-user/dashboard/index"
@@ -585,11 +580,6 @@
       "shared": "packages/app/src/features/mcp-store/McpStoreScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgentRuntimeScreen.tsx",
       "miniapp": "pkg-user/mcp-store/index"
-    },
-    {
-      "shared": "packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/DeveloperNotificationsScreen.tsx",
-      "miniapp": "pkg-user/switch-prefs/index"
     }
   ]
 }

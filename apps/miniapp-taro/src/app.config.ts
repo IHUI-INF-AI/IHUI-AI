@@ -142,12 +142,10 @@ export default defineAppConfig({
         'task-center/index',
         'bill/index',
         'activity-detail/index',
-        'console-table/index',
         'dashboard/index',
         'domain-hub/index',
         'login/index',
         'mcp-store/index',
-        'switch-prefs/index',
       ],
     },
     {
