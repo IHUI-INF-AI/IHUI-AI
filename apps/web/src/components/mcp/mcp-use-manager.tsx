@@ -25,7 +25,7 @@ import {
   TableRow,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 
 interface ToolUsage {
   server: string
@@ -123,10 +123,12 @@ export function McpUseManager() {
   const { data, isLoading } = useQuery({
     queryKey: ['mcp', 'usage', range],
     queryFn: async () => {
-      const res = await fetchApi<UsageStats>(`/api/ai/mcp/usage?range=${range}`)
-      if (res.success) return res.data
-      // 后端暂无统计端点，回退到 mock 数据
-      return getMockStats(range)
+      try {
+        return await api<UsageStats>(`/api/ai/mcp/usage?range=${range}`)
+      } catch {
+        // 后端暂无统计端点，回退到 mock 数据
+        return getMockStats(range)
+      }
     },
   })
 

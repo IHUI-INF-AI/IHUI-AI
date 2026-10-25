@@ -131,7 +131,6 @@
     "navJoinGroup": "加入群",
     "navMenu": "菜单",
     "navShare": "分享",
-    "closeDrawer": "关闭抽屉",
     "closeBtn": "关闭",
     "qrHint": "扫描二维码加入社区",
     "shareRewardLater": "稍后再说",
@@ -268,7 +267,6 @@
       "notLoggedInUser": "未登录用户",
       "navCategory": "分类",
       "identityLabel": "身份",
-      "searchNeedDesc": "搜索需求或描述",
       "trackPanelTitle": "选择需求赛道",
       "closeTrackFilter": "关闭赛道筛选",
       "closeIdentity": "关闭身份切换",
@@ -453,7 +451,6 @@
     "benefitListAiMore": "AI 助手免费次数大幅增加",
     "benefitListKb": "建立专属知识库",
     "benefitSupport": "专属客服支持",
-    "benefitTraderAll": "享受平台全部权益",
     "levelVip": "VIP 会员",
     "dlgDelConvTitle": "删除对话",
     "dlgDelConvBody": "确认删除此对话?",
@@ -1110,7 +1107,6 @@
     "deleted": "已删除",
     "loadFailPullRetry": "加载失败，请下拉刷新重试",
     "emptyContent": "暂无内容",
-    "closeOverlay": "关闭弹出层",
     "add": "添加",
     "panelCollapse": "收起面板",
     "panelExpand": "展开面板"
@@ -1133,19 +1129,8 @@
     "catWriting": "写作",
     "catCoding": "编程",
     "catOffice": "办公",
-    "catLearning": "学习",
-    "mainAll": "全部",
-    "mainWriting": "写作",
-    "mainCoding": "编程",
-    "mainOffice": "办公",
-    "mainLearning": "学习",
     "vendorOther": "其他",
     "copyOkToast": "链接已复制到剪贴板",
-    "catDouyin": "抖音運營",
-    "catPrivate": "私域運營",
-    "catContent": "內容創作",
-    "catData": "數據分析",
-    "catAll2": "全部",
     "catStudy": "Study",
     "loadFailed": "Load failed",
     "chat": {
@@ -1307,13 +1292,7 @@
     "kindAutoContext": "自动检索上下文"
   },
   "developer": {
-    "title": "开发者入口",
-    "becomeDeveloper": "成为开发者",
-    "subtitle": "发布智能体,获取收益",
-    "selectService": "请选择所需要的服务",
-    "processing": "处理中...",
-    "openNow": "一键开通",
-    "agreementHint": "开通即表示同意《开发者服务协议》"
+    "becomeDeveloper": "成为开发者"
   },
   "liveHost": {
     "error": {
@@ -1336,7 +1315,6 @@
     "productAddBtn": "添加商品",
     "productEmpty": "暂无商品",
     "productLoadFailed": "加载商品失败",
-    "productLoading": "加载中...",
     "productManage": "商品管理",
     "pushUrl": "推流地址",
     "startLive": "开始直播",
@@ -1405,7 +1383,6 @@
     "operationFailed": "操作失败，请稍后重试",
     "title": "n8n 模型",
     "vendorName": "n8n 工作流",
-    "groupBrowse": "分组浏览",
     "listView": "列表视图"
   },
   "modelPlaza": {
@@ -1429,7 +1406,6 @@
     "selectProviderLabel": "选择供应商",
     "title": "模型广场",
     "groupBrowse": "分组浏览",
-    "listView": "列表视图",
     "workflowTab": "工作流"
   },
   "tokenValue": {
@@ -1517,13 +1493,6 @@
     "payFailed": "支付失败"
   },
   "about": {
-    "title": "关于",
-    "appName": "应用名称",
-    "version": "版本",
-    "description": "应用介绍",
-    "officialSite": "官方网站",
-    "contactEmail": "联系邮箱",
-    "license": "开源许可",
     "heroBadge": "关于智汇 AI",
     "heroTitle": "一码九端,一站 AI",
     "heroSubtitle": "智汇 AI(IHUI AI)是开源的全栈 AI 操作系统,把 Agent 设计、知识库、多模型调度、跨端协作和团队运营装进同一个平台。",
@@ -2157,9 +2126,7 @@
     "studyHours": "学习 {count} 小时",
     "empty": "暂无排行",
     "loadFailed": "加载排行榜失败",
-    "title": "排行榜",
-    "wanSuffix": "{v}万",
-    "pointsUnit": "分"
+    "title": "排行榜"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -3214,29 +3181,7 @@
     "loading": "加载中..."
   },
   "studyIndex": {
-    "title": "AI 视频",
-    "catAll": "全部",
-    "catDouyin": "抖音运营",
-    "catPrivate": "私域运营",
-    "catContent": "内容创作",
-    "catData": "数据分析",
-    "tipMarquee": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
-    "myCollection": "我的合集",
-    "searchPh": "搜索视频",
-    "loadMoreHint": "加载更多...",
-    "noMoreText": "没有更多了",
-    "emptyVideos": "暂无学习视频",
-    "emptyModels": "暂无模型",
-    "paidCollection": "推荐课程合集",
-    "latestCourses": "最新课程",
-    "viewMoreModels": "查看更多模型",
-    "viewMoreCourses": "查看更多课程",
-    "tagPaid": "付费",
-    "tagFree": "免费",
-    "publishVidBtn": "发布视频",
-    "authorFallback": "智汇社区-官方",
-    "receiveFreeTitle": "领取免费资料",
-    "receiveFreeBody": "链接已复制到剪贴板,可在浏览器粘贴打开"
+    "title": "AI 视频"
   },
   "studyProgress": {
     "title": "学习进度",
@@ -3387,23 +3332,7 @@
     "price": "价格",
     "rating": "评分",
     "startChat": "开始对话",
-    "uses": "使用次数",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "uses": "使用次数"
   },
   "agentMarket": {
     "empty": "暂无智能体",
@@ -4400,7 +4329,6 @@
     },
     "detail": {
       "pageTitle": "话题详情",
-      "loading": "加载中…",
       "loadFailed": "加载失败",
       "followers": "{n} 人关注",
       "follow": "关注",
@@ -4413,9 +4341,6 @@
       "empty": "暂无帖子,快来发布第一条吧",
       "loadingMore": "加载中…",
       "noMore": "没有更多了",
-      "justNow": "刚刚",
-      "minutesAgo": "{n} 分钟前",
-      "hoursAgo": "{n} 小时前",
       "anonymous": "匿名用户"
     }
   },
@@ -5134,16 +5059,11 @@
     "calls": "调用次数",
     "title": "个人号池",
     "subtitle": "你自己的第三方 AI 账号池：与签到助手同一批账号，支持每日自动签到，并优先用于你自己的转发请求。",
-    "add": "添加账号",
-    "provider": "平台",
-    "name": "名称",
     "namePlaceholder": "给账号起个名字",
     "token": "Token（访问凭证）",
     "refreshToken": "Refresh Token",
     "optional": "可选",
     "save": "保存",
-    "cancel": "取消",
-    "loading": "加载中…",
     "empty": "还没有账号",
     "emptyHint": "在签到助手里录入账号后会自动同步到这里。",
     "enabled": "已启用",
@@ -5152,13 +5072,10 @@
     "disable": "停用",
     "checkin": "立即签到",
     "delete": "删除",
-    "confirmDelete": "确认删除",
     "syncPending": "待同步",
     "uid": "账号标识",
     "checkinSuccess": "签到成功",
-    "addSuccess": "账号已添加",
     "actionFailed": "操作失败",
-    "loginRequired": "登录后管理你的个人号池",
     "addTitle": "添加账号",
     "adding": "添加中…",
     "deleteConfirm": "确认删除 {name}？",
@@ -5206,24 +5123,9 @@
     "addedCount": "+{n}",
     "removedCount": "-{n}"
   },
-  "userPublic": {
-    "title": "他人主页",
-    "notFound": "用户不存在",
-    "follow": "关注",
-    "following": "已关注",
-    "message": "发消息",
-    "followingCount": "关注",
-    "followersCount": "粉丝",
-    "favoritesCount": "收藏",
-    "joined": "加入于"
-  },
   "commission": {
     "myLabel": "我的佣金",
     "label": "佣金"
-  },
-  "courseSwiper": {
-    "tabHotIntro": "爆款入门课程",
-    "tabHotPick": "爆款精选课程"
   },
   "agentList": {
     "emptyText": "暂无 Agent"

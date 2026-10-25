@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 
 /**
  * 成本看板(Cost Ledger)前端 API 客户端(2026-09-03 立)。
@@ -58,9 +58,10 @@ export type CostTimeseries = CostTimeseriesBucket[]
 
 /** 拉取成本聚合总览(含 by_tool / by_model)。失败抛错。 */
 export async function fetchCostSummary(): Promise<CostSummary> {
-  const r = await fetchApi<CostSummary>('/api/cost-ledger/summary')
-  if (!r.success) throw new Error(r.error || '加载成本总览失败')
-  return r.data
+  const r = await api<CostSummary>('/api/cost-ledger/summary', {
+    fallbackError: '加载成本总览失败',
+  })
+  return r
 }
 
 // 预算事件(2026-09-12 新增,成本看板"预算事件"时间线数据源):
@@ -101,17 +102,19 @@ export interface BudgetEventsData {
 
 /** 拉取最近预算事件(最新在前,环形缓冲语义)。失败抛错。 */
 export async function fetchBudgetEvents(limit = 50): Promise<BudgetEventsData> {
-  const r = await fetchApi<BudgetEventsData>(`/api/v1/ai/usage/budget-events?limit=${limit}`)
-  if (!r.success) throw new Error(r.error || '加载预算事件失败')
-  return r.data
+  const r = await api<BudgetEventsData>(`/api/v1/ai/usage/budget-events?limit=${limit}`, {
+    fallbackError: '加载预算事件失败',
+  })
+  return r
 }
 
 /** 拉取成本/token 时间序列走势(granularity: hour | day)。失败抛错。 */
 export async function fetchCostTimeseries(
   granularity: 'hour' | 'day' = 'day',
 ): Promise<CostTimeseries> {
-  const r = await fetchApi<CostTimeseries>(`/api/cost-ledger/timeseries?granularity=${granularity}`)
-  if (!r.success) throw new Error(r.error || '加载成本走势失败')
-  return r.data
+  const r = await api<CostTimeseries>(`/api/cost-ledger/timeseries?granularity=${granularity}`, {
+    fallbackError: '加载成本走势失败',
+  })
+  return r
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

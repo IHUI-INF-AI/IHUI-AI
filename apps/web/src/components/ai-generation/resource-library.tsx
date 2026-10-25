@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
 
 interface AigcRecord {
@@ -60,9 +60,8 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
     queryKey: ['aigc-records', activeType],
     queryFn: async () => {
       const query = activeType !== 'all' ? `?type=${activeType}` : ''
-      const res = await fetchApi<AigcRecord[]>(`/api/ai/aigc/records${query}`)
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      const res = await api<AigcRecord[]>(`/api/ai/aigc/records${query}`)
+      return res
     },
   })
 

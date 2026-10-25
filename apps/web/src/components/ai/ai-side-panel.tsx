@@ -68,7 +68,7 @@ import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 // Runtime 插话能力声明落库口(会话元数据 → store)
 import { noteRuntimeCapabilities } from '@/hooks/use-chat/runtime-capabilities'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { judgePageAdvance } from '@/lib/pagination-stall'
 // P1-6 断点续传(片3,2026-10-21):编排与 ChatPaneBody 共用 useResumeBranch 一份出口
 import { useResumeBranch } from '@/hooks/use-chat/resume-stream'
@@ -398,7 +398,7 @@ export function AISidePanel() {
         toast.error(tc('headerActions.createDraftPullRequestFailed'))
         return
       }
-      const res = await fetchApi<{ html_url?: string }>('/api/workspace/github/prs', {
+      const res = await api<{ html_url?: string }>('/api/workspace/github/prs', {
         method: 'POST',
         body: JSON.stringify({
           owner: gh.owner,
@@ -409,8 +409,7 @@ export function AISidePanel() {
           draft: true,
         }),
       })
-      if (!res.success) throw new Error(res.error ?? 'create draft pull request failed')
-      const prUrl = res.data?.html_url
+      const prUrl = res?.html_url
       toast.success(tc('headerActions.createDraftPullRequestOk'), {
         description: prUrl,
       })
@@ -1883,15 +1882,11 @@ function WorkspaceNameSync({ onNameChange }: { onNameChange: (name: string | nul
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetchApi<{ project: { id: string; name: string } }>(
+        const res = await api<{ project: { id: string; name: string } }>(
           `/api/workspace/projects/${encodeURIComponent(projectId)}`,
         )
         if (cancelled) return
-        if (res.success && res.data?.project?.name) {
-          onNameChange(res.data.project.name)
-        } else {
-          onNameChange(null)
-        }
+        onNameChange(res?.project?.name ?? null)
       } catch {
         if (!cancelled) onNameChange(null)
       }

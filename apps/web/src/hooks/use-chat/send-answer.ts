@@ -482,7 +482,11 @@ export function createSendAnswer(
         // 2026-09-21:文件/代码意图条件携带文件工具族(与 sendMessage 对称),否则模型无法读改文件
         ...(() => {
           const agentTools = [
-            ...new Set([...mergeAgentTools(), ...eduToolsFor(answer), ...fileToolsFor(answer)]),
+            ...new Set([
+              ...mergeAgentTools(chatStore),
+              ...eduToolsFor(answer),
+              ...fileToolsFor(answer),
+            ]),
           ]
           return agentTools.length > 0 ? { agentTools } : {}
         })(),

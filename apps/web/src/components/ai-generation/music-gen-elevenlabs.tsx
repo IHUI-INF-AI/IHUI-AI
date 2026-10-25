@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 
 const LENGTHS = ['30000', '60000', '120000'] as const
 const MODELS = ['music_v1', 'music_v1_5'] as const
@@ -41,13 +41,12 @@ export function MusicGenElevenlabs() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; model?: string; music_length_ms?: number }) => {
-      const res = await fetchApi<{ audio?: string }>('/api/ai/elevenlabs/music', {
+      const res = await api<{ audio?: string }>('/api/ai/elevenlabs/music', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res.success) throw new Error(res.error)
-      if (!res.data?.audio) throw new Error(t('noResult'))
-      return res.data.audio
+      if (!res?.audio) throw new Error(t('noResult'))
+      return res.audio
     },
     onSuccess: (url) => {
       setAudio(url)
