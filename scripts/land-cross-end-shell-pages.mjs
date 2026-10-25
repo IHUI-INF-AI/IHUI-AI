@@ -267,11 +267,27 @@ if (isDirectRun) {
   else {
     const capArg = argv.find((a) => a.startsWith('--cap='))
     const r = run({ apply: argv.includes('--apply'), cap: capArg ? Number(capArg.slice(6)) : DEFAULT_CAP })
-    console.log(
-      `CROSS-END-SHELL-PAGES state=${r.state} planned=${r.planned ?? 0}${r.batch ? ` 本轮=${r.batch.length}` : ''}${r.blobs ? ` blob=${r.blobs}` : ''}${r.refused !== undefined ? ` 拒=${r.refused}` : ''}`,
-    )
-    if (r.note) console.log(`  ${r.note}`)
-    if (r.why) console.log(`  ${r.why}`)
+    const summary = {
+      face: 'head',
+      state: r.state,
+      planned: r.planned ?? 0,
+      batch: r.batch?.length ?? 0,
+      blobs: r.blobs ?? 0,
+      refused: r.refused ?? 0,
+      cap: capArg ? Number(capArg.slice(6)) : DEFAULT_CAP,
+      why: r.why ?? '',
+      note: r.note ?? '',
+    }
+    // 调度器(git-guardian 的 sweepCrossEndShellPages)读的是这份 JSON,不是那行人读行
+    // ——同 repair-cross-end-mirror 的口径:消费方不许手抄生产方的输出形状。
+    if (argv.includes('--json')) console.log(JSON.stringify({ summary }))
+    else {
+      console.log(
+        `CROSS-END-SHELL-PAGES state=${r.state} planned=${r.planned ?? 0}${r.batch ? ` 本轮=${r.batch.length}` : ''}${r.blobs ? ` blob=${r.blobs}` : ''}${r.refused !== undefined ? ` 拒=${r.refused}` : ''}`,
+      )
+      if (r.note) console.log(`  ${r.note}`)
+      if (r.why) console.log(`  ${r.why}`)
+    }
     process.exit(r.state === 'clean' || r.state === 'pending' || r.state === 'landed' ? 0 : r.state === 'blocked' ? 1 : 2)
   }
 }

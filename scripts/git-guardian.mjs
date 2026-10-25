@@ -4393,6 +4393,121 @@ const CROSS_END_MIRROR_INTERVAL_MS = Number(
  * 只写日志**不喊人**(§5e-1:拒落属常态,收信人无事可做);真倒退由漂移尺按维到人。
  * 判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
  */
+const CROSS_END_SHELL_INTERVAL_MS = Number(
+  process.env.IHUI_CROSS_END_SHELL_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+/**
+ * 跨端造页闭环(2026-10-26 立):`land-cross-end-shell-pages.mjs` 治的是「RN 有这一屏、
+ * 小程序没有承载页」——造页器产**壳承载页**(渲染源 = packages/app 共享屏,端内零样式零布局),
+ * 而它此前只能人工敲:在共享工作树里它按 §12 正确拒落他人未提交的接缝 ⇒ 缺口永远等人工推。
+ *
+ * 为什么这一格可以自动动手:落地清单每条 blob = `git show HEAD:<file> ⊕ 本批行`,盘上未提交
+ * 字节一字节不读;每轮上限 cap=2(造页会增大主包,一次灌满会把微信 2MB 硬上限顶穿,那是不可
+ * 回退的一型);幂等靠插入函数**自拒**(同一枚插第二遍 ⇒ 整批不落,不是静默跳过)。
+ *
+ * 失效方向:clean(没有可产的屏)⇒ 零写零推,只留一行读数;pending/blocked/unparsed ⇒
+ * ⚠️ 点名但**不喊人**(§5e-1:拒落属常态,收信人无事可做;真倒退由门 251 与人读台账判)。
+ * 判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
+ */
+export function sweepCrossEndShellPages(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CROSS_END_SHELL_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'cross-end-shell-pages-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'land-cross-end-shell-pages.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 跨端造页闭环:器物不在位(scripts/land-cross-end-shell-pages.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '造页器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 跨端造页闭环:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(
+              process.execPath,
+              [script, '--apply', '--json', '--cap=2'],
+              {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b 派生进程纪律
+                timeout: 4 * 60 * 1000, // 守门 80
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g 显式接管 stdio
+              },
+            )
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // exit 1=blocked、2=undetermined:整份结论仍在 stdout,非零不等于"没判"更不等于"判过"。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const stderr = String(r.err ?? r.stderr ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用" */
+  }
+  const summary = parsed?.summary
+  if (!summary || typeof summary !== 'object' || typeof summary.state !== 'string') {
+    logger(
+      `⚠️ 跨端造页闭环:结论不可用:未判定 —— ${stderr.slice(0, 120) || '未取到 JSON'}` +
+        ` ⇒ 本轮没判,不等于"缺口已清零"`,
+    )
+    return { ran: true, ok: false, state: 'unparsed' }
+  }
+  const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+  const counts =
+    `待产 ${n(summary.planned)} / 本轮 ${n(summary.batch)} / blob ${n(summary.blobs)} / ` +
+    `拒 ${n(summary.refused)}(cap=${n(summary.cap)})`
+  if (summary.state === 'clean') logger(`🧭 跨端造页闭环:clean ${counts} —— 无缺口即零写零推`)
+  else if (summary.state === 'landed')
+    logger(`🧭 跨端造页闭环:landed ${counts} ✅ 已落 HEAD(推送由 post-commit 腿负责)`)
+  else if (summary.state === 'pending')
+    logger(`⚠️ 跨端造页闭环:pending ${counts} —— 有可产页却没落地,下轮重派`)
+  else
+    logger(
+      `⚠️ 跨端造页闭环:${summary.state} ${counts} —— ` +
+        String(summary.why || summary.note || '未附原因').slice(0, 120),
+    )
+  return {
+    ran: true,
+    ok: summary.state === 'clean' || summary.state === 'landed',
+    state: summary.state,
+    planned: n(summary.planned),
+    refused: n(summary.refused),
+  }
+}
+
 export function healCrossEndMirror(opts = {}) {
   const {
     now = Date.now(),
@@ -5771,6 +5886,7 @@ function main() {
     if (!CHECK_ONLY) watchWatchdog()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     if (!CHECK_ONLY) ensureS4u()
+    if (!CHECK_ONLY) sweepCrossEndShellPages()
     if (CHECK_ONLY)
       console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
     return 0
@@ -5902,6 +6018,7 @@ export const __test__ = {
   auditSweeperLiveness,
   auditCrossEndParityDrift,
   healCrossEndMirror,
+  sweepCrossEndShellPages,
   auditIndexUnmerged,
   sweepStaleClosedRows,
   sweepBannedBuckets,
