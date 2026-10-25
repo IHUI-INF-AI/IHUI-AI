@@ -2748,6 +2748,8 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 > 这 48 道门**早就接在提交链 / CI 上,但 AGENTS.md 与 README.md 通篇没点过它们的名字** —— 后果不是"文档不好看",而是下一个人查不到它就又造一道同职责的门(本仓已四次为此补装车),或在守门报错时找不到该找谁。
 > 下表「一句话」一律**取自该门自身头部 docstring 或 runner 的 label 字段**,不转述不美化;「接线点」按 `scripts/check-gate-wiring.mjs` 认定的五处权威口径**实测**得出(`.husky/pre-commit` 自 2026-09-22 起只是薄壳,真实 pre-commit 逻辑在 `scripts/lib/pre-commit-hook.js`)。
 ### 守门补登:已接线但文档从未点名的 48 道(2026-09-24 立,守门 89 的 R4 维度清零票)
+
+- 守门 255 `scripts/fix-rn-color-literals.mjs`(blocking,args=`--check --staged`,stagedTriggers=apps/mobile-rn/src + packages/app/src) —— 端内把"源里已有档"的颜色写回字面量 ⇒ 拦新增。它同时是替换器:`--apply` 做机械改写(每条都先 `colorsAgree` 自证等价),`--report` 出队列(同值多档 = 歧义、明暗异值 = 需主题,两类一律不猜)。判据只按**本枚改动的文件**计数,未改动文件的命中进存量报数,故结构性不可能恒红(§12e)。立因见 b85333994198(一次清掉 34 处/22 枚文件)。
 **该段刻意不计红**:试过把它升成"新增流式调用点却一帧不承接即拦"的真判据,实测在 HEAD 产 13 处假阳
 (`getStreamBaseUrl` 这类同族符号、纯注释、测试文件都会被算成调用点;连被当成线索的
 `AiAssistantScreen.tsx:130` 也只是注释),一道与改动无关的恒红只会逼人 `--no-verify` 连带废掉全部守门。

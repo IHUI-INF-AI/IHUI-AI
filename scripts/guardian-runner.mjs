@@ -3531,6 +3531,27 @@ const checks = [
     ]
   },
   {
+    id: '255',
+    label:
+      '🎨 端内写死源档色值拦新增(blocking;只按本枚改动的文件计数 —— 源里已有档却写回字面量,下一枚提交就拦在这里)',
+    script: 'fix-rn-color-literals.mjs',
+    args: ['--check', '--staged'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_COLOR_LITERAL_RATCHET',
+    stagedTriggers: [
+      'apps/mobile-rn/src/',
+      'packages/app/src/',
+    ],
+    onFailHint: [
+      '  💡 判的是 packages/app 与 apps/mobile-rn 里「对象字面量属性值上写了个等于源档的色字面量」。',
+      '     ① 看清单:node scripts/fix-rn-color-literals.mjs(只读报告,含歧义/需主题两类队列);',
+      '     ② 修:node scripts/fix-rn-color-literals.mjs --apply —— 机械改写 + 逐处 colorsAgree 自证,写完 pnpm --filter @ihui/design-tokens build;',
+      '     ③ 确实要留在端内的(比如与源档只是巧合同值、或语义就是本地常量):在同文件加一行 handcopy-token-exempt: <原因>(门 93 R8 同族豁免,须带原因);',
+      '     ④ 判据本体:node scripts/fix-rn-color-literals.mjs --self-test(11 例,T10 是拦新增的正反控)。',
+      '     禁止为消红放宽判据(§12e);存量只报数,不由本门代裁。',
+    ]
+  },
+  {
     id: '129',
     label:
       '🛡️ 提示注入登记对账(blocking,"以宿主名义进模型提示"的每段必须有登记的 producer 与记账出口;拦 登记没生产 / 生产没消费 / 裸 [系统提醒] 前缀 三型)',
