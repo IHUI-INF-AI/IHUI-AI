@@ -191,7 +191,7 @@ async def test_concurrent_claim_has_exactly_one_winner():
             for a in agents
         ]
     )
-    winners = [a for a, r in zip(agents, results) if r.get("ok")]
+    winners = [a for a, r in zip(agents, results, strict=True) if r.get("ok")]
     losers = [r for r in results if not r.get("ok")]
     assert len(winners) == 1, f"并发认领应恰好一个赢家,实得 {len(winners)}"
     assert all(r["errorCode"] == "ALREADY_CLAIMED" for r in losers)
