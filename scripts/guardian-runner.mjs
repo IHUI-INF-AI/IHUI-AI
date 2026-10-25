@@ -5613,7 +5613,7 @@ const checks = [
 
   // --- 裸decode URI容错(1 项,blocking)---
   {
-    id: '248',
+    id: '250',
     label:
       '移动端/全端裸 decodeURIComponent 差值棘轮(孤立%抛 URIError 崩渲染;唯一容错出口 safeDecodeURIComponent 在 @ihui/shared/utils/safe-decode-uri;拦新增放存量)',
     script: 'check-bare-decode-uri.mjs',
@@ -5908,7 +5908,7 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY',
   },
   {
-    id: '247',
+    id: '249',
     label: '🔒 RN 样式裸数字回潮(差值棘轮:只拦本次把可自动对档的裸数字加回来)',
     script: 'check-token-literal-debt.mjs',
     args: ['--staged'],
