@@ -394,12 +394,12 @@
     {
       "shared": "packages/app/src/features/app-permission/AppPermissionScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AppPermissionScreen.tsx",
-      "miniapp": "pkg-about/about/app-permission"
+      "miniapp": "pkg-about/about/app-permission/index"
     },
     {
       "shared": "packages/app/src/features/api-settings/ApiSettingsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ApiSettingsScreen.tsx",
-      "miniapp": "pkg-about/about/api-settings"
+      "miniapp": "pkg-about/about/api-settings/index"
     }
   ]
 }
