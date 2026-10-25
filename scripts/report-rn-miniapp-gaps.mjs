@@ -21,6 +21,8 @@ import { dirname, resolve } from 'node:path'
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
+// 判定台账(单源 lib):读"这一格验过没有",把已判定与未判定分开(§0.6)。
+import { indexVerdicts, readVerdicts } from './lib/cross-end-verdicts.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
@@ -45,13 +47,19 @@ if (shared.length === 0 || mp.length === 0) {
   process.exit(2)
 }
 
-// 已镜像集合(与门 128 同一判据)
-const MARK_RE = /packages\/app\/src\/features\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_]+)Screen/g
+// 已镜像集合 —— **直接用门 128 的同一把尺子**(cov.mirroredSpecs),本文件零复算(§0.6)。
+// 为什么删掉本文件原先自己抄的那份 MARK_RE:两处正则必然漂移(标记行形态一变,这里就静默失明,
+// 而门 128 仍绿 ⇒ 缺口账本与守门尺对不上账)。单源化之后,标记形态的改动只需改门 128 一处。
 const mirrored = new Set()
 for (const p of mp) {
-  const hay = `${p.text || ''}\n${p.cssText || ''}`
-  for (const m of hay.matchAll(MARK_RE)) mirrored.add(`packages/app/src/features/${m[1]}/${m[2]}Screen.tsx`)
+  for (const spec of cov.mirroredSpecs(p)) mirrored.add(spec)
 }
+
+// 判定台账:把"验过但没落地代码"的两档(missing / not-applicable)从"未判定"里剥出来。
+// 不剥的后果是:缺口账本把已判定为"缺页"的屏继续列成待办,下轮又重判一遍 ——
+// 人力被反复消耗在已结论的格子上,而真正没验过的格子被淹没(§0.3「没判不写成判过」的反面)。
+const verdictRows = readVerdicts(face, ROOT)
+const verdicts = indexVerdicts(verdictRows.rows)
 
 const gaps = shared.filter((s) => !mirrored.has(s.spec))
 const rows = gaps.map((s) => {
@@ -75,10 +83,30 @@ const rows = gaps.map((s) => {
     .filter((c) => c.hit > 0)
     .sort((a, b) => b.hit - a.hit)
     .slice(0, 2)
-  return { shared: s.spec, domain: s.domain, name: s.name, rn: rnCands, mp: mpCands }
+  const v = verdicts.get(s.spec)
+  return {
+    shared: s.spec,
+    domain: s.domain,
+    name: s.name,
+    rn: rnCands,
+    mp: mpCands,
+    verdict: v ? v.verdict : null,
+    evidence: v ? v.evidence || '' : '',
+  }
 })
 
-const stats = { face, sharedTotal: shared.length, mirrored: mirrored.size, gaps: gaps.length }
+const stats = {
+  face,
+  sharedTotal: shared.length,
+  mirrored: mirrored.size,
+  gaps: gaps.length,
+  // 已判定(缺页/不承载)与未判定分列 —— 这两个数必须分开,合在一起就分不清
+  // "没人看过"和"看过且结论是不该有"。前者要派单,后者不必再派。
+  verdicted: rows.filter((r) => r.verdict).length,
+  undetermined: rows.filter((r) => !r.verdict).length,
+  verdictLedgerRows: verdictRows.rows.length,
+  verdictLedgerBad: verdictRows.bad.length,
+}
 
 if (jsonMode) {
   console.log(JSON.stringify({ stats, rows }, null, 1))
@@ -95,19 +123,30 @@ lines.push('')
 lines.push(`- 判定面: **${face === 'head' ? 'HEAD blob' : '工作树(人工)'}**`)
 lines.push(`- 共享屏(真相源): **${stats.sharedTotal}**`)
 lines.push(`- 已被小程序显式镜像: **${stats.mirrored}**`)
-lines.push(`- 缺口(未判定镜像): **${stats.gaps}**`)
+lines.push(`- 缺口合计: **${stats.gaps}**(其中已判定 ${stats.verdicted} / 未判定 ${stats.undetermined})`)
+lines.push(
+  `- 判定台账: **${stats.verdictLedgerRows}** 行` +
+    (stats.verdictLedgerBad ? `(坏行 ${stats.verdictLedgerBad} 行,已单列不静默丢)` : '') +
+    ` — 路径与口径单源 \`scripts/lib/cross-end-verdicts.mjs\``,
+)
 lines.push('')
 lines.push('## 缺口清单')
 lines.push('')
-lines.push('| # | 共享屏(域) | RN 候选屏 | 小程序既有页线索 | 状态 |')
-lines.push('|---|---|---|---|---|')
+lines.push('| # | 共享屏(域) | RN 候选屏 | 小程序既有页线索 | 状态 | 判定依据 |')
+lines.push('|---|---|---|---|---|---|')
 rows.forEach((r, i) => {
   const rnTxt = r.rn.length ? r.rn.map((c) => `${c.exact ? '★' : ''}${c.name}`).join(' / ') : '—'
   const mpTxt = r.mp.length ? r.mp.map((c) => c.route).join(' / ') : '—'
-  lines.push(`| ${i + 1} | \`${r.domain}/${r.name}\` | ${rnTxt} | ${mpTxt} | 🔲 |`)
+  // 状态三态:未判定(没人验过)/ 缺页(验过,确实没有,待造页)/ 不承载(验过,不该由小程序承载)
+  const state =
+    r.verdict === 'missing' ? '🧱 缺页(已判定)' : r.verdict === 'not-applicable' ? '🚫 不承载(已判定)' : '🔲 未判定'
+  lines.push(`| ${i + 1} | \`${r.domain}/${r.name}\` | ${rnTxt} | ${mpTxt} | ${state} | ${r.evidence || '—'} |`)
 })
 lines.push('')
 lines.push(`> 合计 ${rows.length} 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。`)
+lines.push(
+  `> 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页)。`,
+)
 const md = lines.join('\n') + '\n'
 if (writePath) {
   writeFileSync(resolve(ROOT, writePath), md)

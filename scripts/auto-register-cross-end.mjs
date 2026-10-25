@@ -35,6 +35,10 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
+// 判定台账的路径与读写口径归单源 lib(§0.6):本文件只调它,不自己写一遍路径/解析。
+import { VERDICTS_PATH, mergeVerdictRows, readVerdicts, serializeVerdicts } from './lib/cross-end-verdicts.mjs'
+// 镜像标记的形态与插入点归单源 lib(§0.6):本文件不自己拼这行字。
+import { hasMirrorMarker, insertMirrorMarker } from './lib/cross-end-mirror-write.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const R = (...p) => join(ROOT, ...p)
@@ -42,9 +46,7 @@ const MAP_PATH = 'scripts/data/web-rn-screen-map.jsonl'
 const REGISTRY_PATH = 'scripts/data/cross-end-screen-registry.json'
 const INDEX_PATH = 'packages/app/src/index.ts'
 // 判定台账(缺口账本的可持久侧车):键 = 共享屏 spec,一行一屏。
-// 为什么单独一件:门 128 的"未判定"只说明"没人验过",而验过的结论(缺页/不该承载)
-// 若只活在临时提案件里,下轮又要重判 —— 台账让"判过"这件事本身进仓、可被生成器与后续自动建页消费。
-const VERDICTS_PATH = 'scripts/data/miniapp-mirror-verdicts.jsonl'
+// 路径与读写口径的单源在 scripts/lib/cross-end-verdicts.mjs(§0.6),此处不再复制。
 
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
@@ -396,21 +398,18 @@ if (proposalsArg) {
 function insertMarker(rel, spec) {
   const head = cov.faceRead('head', rel)
   if (head === null) return { done: false, why: 'HEAD 面取不到该页' }
-  if (head.includes(spec)) return { done: false, why: 'HEAD 面已有该标记' }
   const work = safeRead(rel)
   if (work !== null) {
-    if (/packages\/app\/src\/features\//.test(work))
-      return { done: false, why: '工作树副本已含镜像标记(他席声明,不覆盖)' }
+    if (hasMirrorMarker(work)) return { done: false, why: '工作树副本已含镜像标记(他席声明,不覆盖)' }
     const headLines = new Set(head.split('\n'))
     const extra = work.split('\n').filter((l) => l.trim() !== '' && !headLines.has(l))
     if (extra.length > 0)
       return { done: false, why: `工作树副本有 ${extra.length} 行不在 HEAD(他席在飞),不替人提交` }
   }
-  const lines = head.split('\n')
-  let at = 0
-  while (at < lines.length && (lines[at].startsWith('//') || lines[at].startsWith('#!'))) at++
-  lines.splice(at, 0, `// 镜像 ${spec}`)
-  writeFileSync(R(rel), lines.join('\n'))
+  // 标记形态与插入点归单源 lib(§0.6):本仓有三处要写这行,抄三份必然分叉。
+  const r = insertMirrorMarker(head, spec)
+  if (!r.done) return { done: false, why: r.why }
+  writeFileSync(R(rel), r.text)
   return { done: true }
 }
 
@@ -482,34 +481,18 @@ function appendRegistry(entries) {
   return added
 }
 
-/** 判定台账落地:HEAD 面为底 ∪ 工作树独有 ∪ 本批(同屏以本批为准),按 shared 键唯一 */
+/**
+ * 判定台账落地:HEAD 面为底 ∪ 工作树独有 ∪ 本批(同屏以本批为准),按 shared 键唯一。
+ * 归并与序列化口径归 scripts/lib/cross-end-verdicts.mjs(§0.6 单源)——本函数只决定"落什么"。
+ * 取不到某一面就少那一面,不拿另一面顶替(§0.4 取材面纪律:回落另一个面 = 把"没落"读成"是空")。
+ */
 function writeVerdicts(items) {
-  if (items.length === 0) return { total: 0, added: 0 }
-  const parse = (text) =>
-    (text || '')
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((l) => {
-        try {
-          return { shared: JSON.parse(l).shared, raw: l }
-        } catch {
-          return null
-        }
-      })
-      .filter(Boolean)
-  const headRows = parse(cov.faceRead('head', VERDICTS_PATH))
-  const workRows = parse(safeRead(VERDICTS_PATH))
-  const byKey = new Map()
-  for (const r of [...headRows, ...workRows]) byKey.set(r.shared, r.raw)
-  let added = 0
-  for (const it of items) {
-    const before = byKey.get(it.shared)
-    byKey.set(it.shared, JSON.stringify(it))
-    if (before === undefined) added++
-  }
-  writeFileSync(R(VERDICTS_PATH), [...byKey.values()].join('\n') + '\n')
-  return { total: byKey.size, added }
+  if (items.length === 0) return { total: 0, added: 0, unreadable: 0 }
+  const head = readVerdicts('head', ROOT)
+  const work = readVerdicts('worktree', ROOT)
+  const merged = mergeVerdictRows([...head.rows, ...work.rows], items)
+  writeFileSync(R(VERDICTS_PATH), serializeVerdicts(merged.rows) + '\n')
+  return { total: merged.total, added: merged.added, unreadable: head.bad.length + work.bad.length }
 }
 
 const summary = {

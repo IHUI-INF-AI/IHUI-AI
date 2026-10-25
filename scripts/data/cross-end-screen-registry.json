@@ -530,6 +530,36 @@
       "shared": "packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/WrongQuestionsScreen.tsx",
       "miniapp": "pages/exam/wrong-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-tab/CourseTabScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseScreen.tsx",
+      "miniapp": "pkg-learn/course/list"
+    },
+    {
+      "shared": "packages/app/src/features/identity-verify/IdentityVerifyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/IdentityVerifyScreen.tsx",
+      "miniapp": "pkg-user/user/realname"
+    },
+    {
+      "shared": "packages/app/src/features/income/IncomeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/IncomeScreen.tsx",
+      "miniapp": "pkg-shop/wallet/commission/index"
+    },
+    {
+      "shared": "packages/app/src/features/refund-history/RefundHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RefundHistoryScreen.tsx",
+      "miniapp": "pkg-shop/order/refund-list"
+    },
+    {
+      "shared": "packages/app/src/features/video-player/VideoPlayerScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VideoPlayerScreen.tsx",
+      "miniapp": "pages/study/video-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/vip-compare/VipCompareScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VipCompareScreen.tsx",
+      "miniapp": "pkg-shop/vip/details"
     }
   ]
 }
