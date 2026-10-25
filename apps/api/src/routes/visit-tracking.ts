@@ -135,6 +135,8 @@ const pageStatsQuery = z.object({
   scope: z.enum(VISIT_SCOPE_VALUES).default('public'),
   // 2026-10-26:端筛选项。分桶判据与 /ops-wallboard 的 platformSplit 同源(visitPlatformFilter)。
   platform: z.enum(VISIT_PLATFORM_VALUES).default('all'),
+  /** 排序键:pv=打开次数(默认) / uv=去重人数 */
+  sort: z.enum(['pv', 'uv']).default('pv'),
 })
 
 // 同上:ip / userAgent 不在客户端可写字段清单里(2026-10-23 真值化)。
@@ -499,6 +501,7 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
               enum: [...VISIT_PLATFORM_VALUES],
               description: '端:all(默认)/web/rn/mp',
             },
+            sort: { type: 'string', enum: ['pv', 'uv'], description: '排序键(默认 pv)' },
           },
         },
         response: {
@@ -515,8 +518,16 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { startTime, endTime, page, pageSize, scope, platform } = parsed.data
-      const result = await getPageUsageList({ startTime, endTime, page, pageSize, scope, platform })
+      const { startTime, endTime, page, pageSize, scope, platform, sort } = parsed.data
+      const result = await getPageUsageList({
+        startTime,
+        endTime,
+        page,
+        pageSize,
+        scope,
+        platform,
+        sort,
+      })
       return reply.send(success(result))
     },
   )
