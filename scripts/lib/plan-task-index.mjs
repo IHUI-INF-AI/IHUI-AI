@@ -2000,7 +2000,11 @@ export function dispositionOf(line) {
   if (h) {
     const fullFace = String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
     if (ownedElsewhereRe().test(fullFace)) return 'owned-elsewhere'
-    if (h.wait) return /拍|裁决|定夺|确认|决策/.test(h.wait) ? 'waiting-human' : 'waiting-env'
+    // 等段 '—' 是投影占位(= 无等待),不是等待对象(2026-10-25 修:实测三行双标头叠加
+    // 形态〔归:—|等:—〕…〔归:—|等:—〕在正文无词时被 '—' 顶成 waiting-env,而它们的
+    // 语义是 actionable+租约)。占位当等待 = 判据把"没有等待"读成"在等"。
+    if (h.wait && h.wait !== '—')
+      return /拍|裁决|定夺|确认|决策/.test(h.wait) ? 'waiting-human' : 'waiting-env'
   }
   return 'actionable'
 }
