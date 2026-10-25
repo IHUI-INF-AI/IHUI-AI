@@ -7,7 +7,7 @@ import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertVerifyScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -87,46 +87,61 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingBottom: rnSpacing['3xl'],
     },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
-    label: { marginTop: 12, fontSize: 14, color: tk.text.secondary },
+    label: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.text.secondary },
     input: {
-      marginTop: 8,
-      paddingHorizontal: 12,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 14,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
     verifyBtn: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       paddingVertical: 15,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
     btnDisabled: { backgroundColor: tk.text.tertiary },
-    verifyText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
-    muted: { marginTop: 12, fontSize: 14, color: tk.text.secondary, textAlign: 'center' },
-    error: { marginTop: 12, fontSize: 14, color: tk.danger.DEFAULT },
-    resultCard: { marginTop: 16, padding: 12, borderRadius: rnRadius.lg, borderWidth: 1 },
+    verifyText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
+    muted: {
+      marginTop: rnSpacing.md,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      textAlign: 'center',
+    },
+    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    resultCard: {
+      marginTop: rnSpacing.lg,
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+    },
     validCard: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
     invalidCard: { borderColor: tk.danger.DEFAULT, backgroundColor: tk.danger.light },
-    resultTitle: { fontSize: 18, fontWeight: '600' },
+    resultTitle: { fontSize: rnType.subtitle.size, fontWeight: '600' },
     validText: { color: tk.success.DEFAULT },
     invalidText: { color: tk.danger.DEFAULT },
-    resultName: { marginTop: 8, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    resultLine: { marginTop: 8, fontSize: 14, color: tk.text.medium },
+    resultName: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    resultLine: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

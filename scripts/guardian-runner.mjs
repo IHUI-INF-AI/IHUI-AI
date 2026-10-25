@@ -5611,6 +5611,26 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 裸decode URI容错(1 项,blocking)---
+  {
+    id: '248',
+    label:
+      '移动端/全端裸 decodeURIComponent 差值棘轮(孤立%抛 URIError 崩渲染;唯一容错出口 safeDecodeURIComponent 在 @ihui/shared/utils/safe-decode-uri;拦新增放存量)',
+    script: 'check-bare-decode-uri.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BARE_DECODE_URI',
+    stagedTriggers: ['apps/miniapp-taro', 'apps/mobile-rn', 'apps/web', 'apps/extension', 'apps/desktop', 'packages/app', 'packages/ui-native', 'packages/shared'],
+    onFailHint: [
+      '',
+      '  💡 判的是「裸 decodeURIComponent 落在渲染求值路径」:框架已自动解码的 router params/深链参数二次解码遇孤立%必抛 URIError 整页崩。',
+      '     出路 1(默认):改 import { safeDecodeURIComponent }(永不抛,失败原样返回);',
+      '     出路 2(确需原生抛语义):行尾加 // bare-decode-uri-exempt: <≥4字原因>;',
+      '     应急跳门:HUSKY_SKIP_BARE_DECODE_URI=1 git commit ...(会留跳门台账)。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
@@ -5886,6 +5906,25 @@ const checks = [
     // 移进并行池后与其他门重叠 ⇒ 这 6.6s 等于白得。判据、退出码、跳过开关一字未动。
     // 逃生:HUSKY_SKIP_I18N_DEAD_KEY=1(与原 pre-commit 段同一变量,语义不变)。
     skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY',
+  },
+  {
+    id: '247',
+    label: '🔒 RN 样式裸数字回潮(差值棘轮:只拦本次把可自动对档的裸数字加回来)',
+    script: 'check-token-literal-debt.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    // 2026-10-25 立(goal「样式全面对齐」):tokens-migrate 已把 261 个已入库屏的 3720 处裸数字转成 rnSpacing/rnType,
+    // 但此前没有任何判据管"新增" —— 随手写 padding: 16 就能把成果加回来。差值棘轮(§0.5):
+    // 锚点 = 该文件 HEAD blob 自身的可对档数,只拦本次变大;存量只报数(§12e)。
+    stagedTriggers: ['packages/app/src/', 'apps/mobile-rn/src/'],
+    skipEnv: 'HUSKY_SKIP_TOKEN_LITERAL_DEBT',
+    onFailHint: [
+      '',
+      '  💡 修复(不是跳门):node scripts/tokens-migrate.mjs <file> --apply',
+      '     判据读数:node scripts/check-token-literal-debt.mjs(--staged 判本次 / 无参全量报数)',
+      '     自检:node scripts/check-token-literal-debt.mjs --self-test(12 例,含阳性对照)',
+      '',
+    ].join('\n'),
   },
 ]
 

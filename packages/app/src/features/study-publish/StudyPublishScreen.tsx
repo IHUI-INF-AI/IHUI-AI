@@ -15,7 +15,7 @@ import {
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 import type { StageOption, StudyCategory, StudyPublishScreenProps } from '@ihui/types'
 export type { StageOption, StudyCategory, StudyPublishScreenProps }
@@ -598,8 +598,8 @@ function createStyles(tk: AppThemeTokens) {
     tabRow: {
       flexDirection: 'row',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 8,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.sm,
     },
     tabItem: {
       flex: 1,
@@ -610,29 +610,29 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     tabItemActive: { backgroundColor: tk.brand.DEFAULT },
-    tabText: { fontSize: 16, color: tk.text.secondary },
-    tabTextActive: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    tabText: { fontSize: rnType.title.size, color: tk.text.secondary },
+    tabTextActive: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
   })
 }
 
 const formStyles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { padding: 14, gap: 14, paddingBottom: 32 },
+  content: { padding: 14, gap: 14, paddingBottom: rnSpacing['3xl'] },
 })
 
 // 以下四个 StyleSheet 均含主题色,不能模块级锁浅色:按当前 colorScheme 的 tokens 动态创建(组件内 useMemo)。
 function createFieldStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     wrap: { gap: 6 },
-    label: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
+    label: { fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
       height: 50,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 10,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
@@ -679,17 +679,17 @@ function createCoverStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     // 蒙层恒为深色半透明,其上的关闭符两主题都用白色(base=不随主题翻转的浅色档,同 SearchInput 先例)
-    clearText: { fontSize: 18, color: baseTokens.surface.light, lineHeight: 18 },
+    clearText: { fontSize: rnType.subtitle.size, color: baseTokens.surface.light, lineHeight: 18 },
     icon: { fontSize: 28, color: tk.text.tertiary },
-    hint: { fontSize: 14, color: tk.text.tertiary },
+    hint: { fontSize: rnType.body.size, color: tk.text.tertiary },
     pressed: { opacity: 0.85 },
   })
 }
 
 function createChipStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    loading: { paddingVertical: 8 },
-    empty: { fontSize: 14, color: tk.text.tertiary, paddingVertical: 4 },
+    loading: { paddingVertical: rnSpacing.sm },
+    empty: { fontSize: rnType.body.size, color: tk.text.tertiary, paddingVertical: rnSpacing.xs },
   })
 }
 
@@ -703,10 +703,10 @@ function createSubmitStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
     // 品牌实底之上的前景必须用配对档 brand.foreground(深色下 brand.DEFAULT 翻白,surface.light 会变成深灰)
-    submitText: { fontSize: 16, fontWeight: '600', color: tk.brand.foreground },
+    submitText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.brand.foreground },
     pressed: { opacity: 0.85 },
   })
 }

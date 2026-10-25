@@ -8,7 +8,7 @@ import { CheckCircle2 } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TopupSuccessScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 /** Props 类型 re-export(单一来源 @ihui/types) */
@@ -94,8 +94,8 @@ function Row({
 
 const rowStyles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rowLabel: { fontSize: 14 },
-  rowValue: { fontSize: 16, maxWidth: '60%' },
+  rowLabel: { fontSize: rnType.body.size },
+  rowValue: { fontSize: rnType.title.size, maxWidth: '60%' },
 })
 
 function createStyles(tk: AppThemeTokens) {
@@ -105,22 +105,22 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    body: { flex: 1, alignItems: 'center', padding: 24, gap: 12 },
-    icon: { fontSize: 64, marginTop: 12 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    body: { flex: 1, alignItems: 'center', padding: rnSpacing['2xl'], gap: rnSpacing.md },
+    icon: { fontSize: 64, marginTop: rnSpacing.md },
     titleText: { fontSize: 22, fontWeight: '700', color: tk.success.deep },
     card: {
       width: '100%',
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      padding: 12,
-      gap: 12,
+      padding: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     ...rowStyles,
-    actions: { width: '100%', gap: 12, marginTop: 8 },
+    actions: { width: '100%', gap: rnSpacing.md, marginTop: rnSpacing.sm },
     secondaryBtn: {
       borderRadius: rnRadius.sm,
       height: 44,
@@ -128,7 +128,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.card,
     },
-    secondaryText: { fontSize: 16, color: tk.text.primary },
+    secondaryText: { fontSize: rnType.title.size, color: tk.text.primary },
     primaryBtn: {
       borderRadius: rnRadius.sm,
       height: 50,
@@ -136,9 +136,9 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
     },
-    primaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    primaryText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
     faqLink: { paddingVertical: 6, alignSelf: 'center' },
-    faqText: { fontSize: 14, color: tk.text.secondary },
+    faqText: { fontSize: rnType.body.size, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

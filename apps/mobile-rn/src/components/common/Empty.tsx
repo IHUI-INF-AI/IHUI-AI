@@ -16,7 +16,7 @@ import { tokens } from '../../theme/active-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { PackageOpen, type LucideIcon } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../../i18n'
 
 export interface EmptyProps {
@@ -73,9 +73,9 @@ const styles = StyleSheet.create({
   root: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingVertical: rnSpacing['5xl'],
+    paddingHorizontal: rnSpacing['2xl'],
+    gap: rnSpacing.md,
   },
   emoji: {
     fontSize: 48,
@@ -85,17 +85,17 @@ const styles = StyleSheet.create({
     height: 100,
   },
   text: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
   },
   actionBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.lg,
+    paddingVertical: rnSpacing.sm,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
   actionText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   },

@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export interface BusinessCardProps {
   /** 头像 URL */
@@ -158,12 +158,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       padding: 14,
-      gap: 12,
+      gap: rnSpacing.md,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
     pressed: { opacity: 0.85 },
-    userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    userRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
     avatar: {
       width: 48,
       height: 48,
@@ -174,12 +174,12 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     avatarImg: { width: 48, height: 48, borderRadius: rnRadius['2xl'] },
-    avatarText: { fontSize: 20, fontWeight: '700', color: tk.surface.light },
-    userMeta: { flex: 1, gap: 4 },
-    name: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    titleText: { fontSize: 14, color: tk.brand.DEFAULT },
-    company: { fontSize: 14, color: tk.text.secondary },
-    location: { fontSize: 11, color: tk.text.tertiary },
+    avatarText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.surface.light },
+    userMeta: { flex: 1, gap: rnSpacing.xs },
+    name: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
+    titleText: { fontSize: rnType.body.size, color: tk.brand.DEFAULT },
+    company: { fontSize: rnType.body.size, color: tk.text.secondary },
+    location: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     qrWrap: {
       width: 48,
       height: 48,
@@ -188,12 +188,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     qrImg: { width: 48, height: 48 },
-    bio: { fontSize: 14, color: tk.text.secondary },
-    contactRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-    contactItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    contactLabel: { fontSize: 14, color: tk.text.secondary },
-    contactValue: { fontSize: 14, color: tk.text.primary },
-    actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    bio: { fontSize: rnType.body.size, color: tk.text.secondary },
+    contactRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.lg },
+    contactItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
+    contactLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
+    contactValue: { fontSize: rnType.body.size, color: tk.text.primary },
+    actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     contactBtnBox: {
       alignSelf: 'flex-start',
     },
@@ -201,9 +201,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.sm,
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
     },
-    contactBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    contactBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

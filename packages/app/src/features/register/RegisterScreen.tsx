@@ -7,7 +7,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RegisterScreenProps } from '../../types'
 
-import { rnRadius, rnGeometry } from '@ihui/design-tokens'
+import { rnRadius, rnGeometry, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Check } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
@@ -225,29 +225,34 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingBottom: rnSpacing['3xl'],
     },
-    header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, marginBottom: 12 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
+    },
     title: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     card: { padding: 14, backgroundColor: tk.surface.light, borderRadius: rnRadius.lg },
     label: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.secondary,
-      marginBottom: 8,
-      marginTop: 12,
+      marginBottom: rnSpacing.sm,
+      marginTop: rnSpacing.md,
     },
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
       backgroundColor: tk.surface.muted,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    codeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    codeRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     codeInput: { flex: 1 },
     codeBtn: {
       height: 50,
@@ -259,17 +264,17 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     codeBtnDisabled: { opacity: 0.5 },
-    codeBtnText: { color: tk.brand.DEFAULT, fontSize: 14, fontWeight: '600' },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 12 },
+    codeBtnText: { color: tk.brand.DEFAULT, fontSize: rnType.body.size, fontWeight: '600' },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.md },
     // ===== 协议同意行(对齐 LoginScreen AgreementRow 样式) =====
-    agreementRow: { marginTop: 16 },
-    agreementRowMain: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    agreementRow: { marginTop: rnSpacing.lg },
+    agreementRowMain: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
     checkbox: {
       width: 16,
       height: 16,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -282,12 +287,21 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     checkboxError: { borderColor: tk.danger.DEFAULT },
-    checkmark: { fontSize: 11, fontWeight: '700', lineHeight: 14 },
-    agreementText: { flex: 1, fontSize: 14, lineHeight: 18, color: tk.text.secondary },
+    checkmark: { fontSize: rnType.caption.size, fontWeight: '700', lineHeight: 14 },
+    agreementText: {
+      flex: 1,
+      fontSize: rnType.body.size,
+      lineHeight: 18,
+      color: tk.text.secondary,
+    },
     agreementLink: { color: tk.brand.DEFAULT },
-    agreementErrorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
+    agreementErrorText: {
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+      marginTop: rnSpacing.sm,
+    },
     submitBtn: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
@@ -295,7 +309,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },
-    submitText: { color: tk.brandAccent.foreground, fontSize: 16, fontWeight: '600' },
+    submitText: {
+      color: tk.brandAccent.foreground,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

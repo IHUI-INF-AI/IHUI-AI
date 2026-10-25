@@ -25,10 +25,10 @@ export interface ProfileTabItem {
 
 /** 4 Tab 清单(对齐 Uniapp tabList,行 318-323) */
 export const PROFILE_TAB_LIST: readonly ProfileTabItem[] = [
-  { id: 1, name: '文本' },
-  { id: 2, name: '图片' },
-  { id: 3, name: '视频' },
-  { id: 4, name: '音频' },
+  { id: 1, name: 'chat.assetCatText' },
+  { id: 2, name: 'chat.assetCatImage' },
+  { id: 3, name: 'chat.assetCatVideo' },
+  { id: 4, name: 'chat.assetCatAudio' },
 ]
 
 /** 文本内容(对齐 Uniapp textContentList 项) */

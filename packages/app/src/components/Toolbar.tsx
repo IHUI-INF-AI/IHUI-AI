@@ -7,7 +7,7 @@ import type { CSSProperties } from 'react'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 import type { AppIcon } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * Toolbar 横向操作按钮组(跨端共享层)。
@@ -51,13 +51,13 @@ const viewStyles = {
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingLeft: rnSpacing.md,
+    paddingRight: rnSpacing.md,
+    paddingTop: rnSpacing.sm,
+    paddingBottom: rnSpacing.sm,
     backgroundColor: tk.surface.muted,
     borderRadius: rnRadius.xl,
-    gap: 4,
+    gap: rnSpacing.xs,
   }),
   rowItem: (): CSSProperties => ({
     display: 'flex',
@@ -94,14 +94,14 @@ const viewStyles = {
   separator: (): CSSProperties => ({
     // 旧版契约分隔条:§4 禁分割线,已清线只留间距(margin 维持原排布几何)
     height: 20,
-    marginLeft: 4,
-    marginRight: 4,
+    marginLeft: rnSpacing.xs,
+    marginRight: rnSpacing.xs,
   }),
 }
 
 const textStyles = {
   iconEmoji: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: '20px',
     color: tk.text.primary,
   }),

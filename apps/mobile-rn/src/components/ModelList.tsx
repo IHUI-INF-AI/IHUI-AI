@@ -25,6 +25,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { tokens } from '../theme/active-tokens'
+import { useI18n } from '../i18n'
 import { Bot, Check as CheckIcon, type LucideIcon } from 'lucide-react-native'
 import { BrandIcon } from './brand-icon'
 import type { ModelTier, ModelUsageCategory } from '@ihui/types'
@@ -41,7 +42,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import {
   MODEL_LIST_AGENT_GLYPH_PX,
   MODEL_LIST_BADGE_FONT_PX,
@@ -66,12 +67,12 @@ const RANK_GOLD_TEXT = tokens.surface.light
 
 /** 模型类型分组标题(对齐 Uniapp ModelList.vue type 0-5) */
 const MODEL_TYPE_TITLES: Readonly<Record<number, string>> = {
-  0: '全能',
-  1: '对话',
-  2: '图片',
-  3: '视频',
-  4: '音频',
-  5: '数字人',
+  0: 'model.type0',
+  1: 'model.type1',
+  2: 'model.type2',
+  3: 'model.type3',
+  4: 'model.type4',
+  5: 'model.type5',
 }
 
 /** 单个模型条目 */
@@ -131,13 +132,16 @@ export interface ModelListProps {
   style?: StyleProp<ViewStyle>
 }
 
-function resolveTitle(group: ModelListGroup): string {
+function resolveTitle(group: ModelListGroup, t: (k: string) => string): string {
   if (group.title) return group.title
   if (group.type !== undefined && group.type !== null) {
-    const typed = MODEL_TYPE_TITLES[group.type]
-    if (typed) return typed
+    const key = MODEL_TYPE_TITLES[group.type]
+    if (key) {
+      const typed = t(key)
+      if (typed) return typed
+    }
   }
-  return group.vendor ?? '其他'
+  return group.vendor ?? 'model.catOther'
 }
 
 function EmptyState(): React.ReactElement {
@@ -251,6 +255,7 @@ function AgentModeRow({
   selected: boolean
   onPress?: () => void
 }): React.ReactElement {
+  const { t } = useI18n()
   return (
     <TouchableOpacity
       style={[styles.row, selected ? styles.rowSelected : null]}
@@ -258,7 +263,7 @@ function AgentModeRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel="Agent模式"
+      accessibilityLabel={t('model.agentMode')}
     >
       <View style={styles.iconWrap}>
         {/* Agent 行 logo 位的字形墨迹档:两端共用同一档(小程序端 LineIcon bot 同取该档 ×
@@ -268,7 +273,7 @@ function AgentModeRow({
         <Bot size={MODEL_LIST_AGENT_GLYPH_PX} color={tokens.text.secondary} />
       </View>
       <View style={styles.body}>
-        <Text style={styles.name}>Agent模式</Text>
+        <Text style={styles.name}>{t('model.agentMode')}</Text>
       </View>
       {selected ? <Check /> : null}
     </TouchableOpacity>
@@ -287,6 +292,7 @@ export default function ModelList({
   animateEntrance = true,
   style,
 }: ModelListProps): React.ReactElement {
+  const { t } = useI18n()
   const selectedSet = new Set(selectedIds)
 
   /** 列表分组 section 数据(组内按 isTop 排序,RN SectionList 要求 data 字段为 ItemT[]) */
@@ -294,7 +300,7 @@ export default function ModelList({
     .filter((g) => g.models.length > 0)
     .map((g) => {
       const models = [...g.models].sort((a, b) => (b.isTop ? 1 : 0) - (a.isTop ? 1 : 0))
-      return { title: resolveTitle(g), data: models }
+      return { title: resolveTitle(g, t), data: models }
     })
 
   const handlePress = (id: string): void => {
@@ -371,8 +377,8 @@ const styles = StyleSheet.create({
     paddingBottom: MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
   },
   sectionHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.lg,
+    paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.surface.bg,
   },
   sectionHeaderText: {
@@ -388,9 +394,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    paddingHorizontal: rnSpacing.lg,
+    paddingVertical: rnSpacing.md,
+    gap: rnSpacing.md,
     backgroundColor: tokens.surface.bg,
   },
   rowSelected: {
@@ -412,7 +418,7 @@ const styles = StyleSheet.create({
   },
   iconEmoji: {
     // 块内字形 20:与小程序 popup 的首字母 10 同属上面那个 logo 块裁决项,一并保留
-    fontSize: 20,
+    fontSize: rnType.heading.size,
     // 首字母颜色与 lucide 分支(item.icon 组件)同 token:主题自适应,
     // 否则暗色模式下继承默认黑字落在 muted 深底上不可读(2026-10-15 用户报)
     color: tokens.text.secondary,
@@ -433,7 +439,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   description: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     // 2 = 描述行距:该行本端独有(小程序该行装的是"用途分类"标签,不同元素),不经 spec
     marginTop: 2,
@@ -497,7 +503,7 @@ const styles = StyleSheet.create({
   },
   checkText: {
     color: tokens.brand.ctaForeground,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '700',
     lineHeight: 14,
   },

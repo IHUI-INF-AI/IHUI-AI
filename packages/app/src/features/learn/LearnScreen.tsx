@@ -20,7 +20,7 @@ import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenS
 import { Smartphone, Users, PenLine, BarChart3, BookOpen } from 'lucide-react-native'
 import type { LearnCategory, LearnScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 /** LearnScreen props re-export(单一来源 @ihui/types) */
@@ -233,57 +233,61 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    title: {
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
     scroll: { flex: 1 } as ViewStyle,
     scrollContent: {
-      paddingBottom: 24,
+      paddingBottom: rnSpacing['2xl'],
     } as ViewStyle,
 
     progressOverview: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-around',
-      paddingVertical: 20,
-      marginBottom: 8,
+      paddingVertical: rnSpacing.xl,
+      marginBottom: rnSpacing.sm,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
     progressItem: {
       alignItems: 'center',
     } as ViewStyle,
     progressNum: {
-      fontSize: 24,
+      fontSize: rnType.display.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     } as TextStyle,
     progressLabel: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     } as TextStyle,
 
     section: {
       padding: 14,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     } as ViewStyle,
     sectionTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.text.primary,
     } as TextStyle,
 
     horizontalList: {
       flexDirection: 'row',
-      gap: 12,
+      gap: rnSpacing.md,
     } as ViewStyle,
     pathCard: {
       width: 140,
@@ -305,32 +309,32 @@ function createStyles(tk: AppThemeTokens) {
     } as ImageStyle,
     pathTitle: {
       padding: 10,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
 
     categoryGrid: {
       flexDirection: 'row',
-      paddingVertical: 4,
-      gap: 12,
+      paddingVertical: rnSpacing.xs,
+      gap: rnSpacing.md,
     } as ViewStyle,
     categoryItem: {
       flex: 1,
       alignItems: 'center',
-      paddingVertical: 12,
-      gap: 8,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.sm,
     } as ViewStyle,
     categoryIcon: {
       fontSize: 32,
     } as TextStyle,
     categoryName: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     } as TextStyle,
 
     courseList: {
-      gap: 12,
+      gap: rnSpacing.md,
     } as ViewStyle,
     courseCard: {
       flexDirection: 'row',
@@ -353,39 +357,39 @@ function createStyles(tk: AppThemeTokens) {
 
     courseInfo: {
       flex: 1,
-      padding: 12,
+      padding: rnSpacing.md,
       justifyContent: 'space-between',
     } as ViewStyle,
     courseTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     courseDesc: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     } as TextStyle,
     courseMeta: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 8,
-      gap: 8,
+      marginTop: rnSpacing.sm,
+      gap: rnSpacing.sm,
     } as ViewStyle,
     levelBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     levelText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       fontWeight: '600',
       color: tk.brand.DEFAULT,
     } as TextStyle,
     durationText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.secondary,
     } as TextStyle,
   })

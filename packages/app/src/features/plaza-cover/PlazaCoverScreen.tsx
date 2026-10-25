@@ -17,7 +17,7 @@ import type { PlazaCoverScreenProps } from '../../types'
 import type { AppIcon } from '@ihui/types'
 import { Banknote, Globe, Shield, Target, Zap } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 /** Props 类型 re-export(单一来源 @ihui/types) */
@@ -97,16 +97,32 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     } as ViewStyle,
-    headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    scrollContent: { paddingHorizontal: 20, paddingBottom: 32, gap: 20 } as ViewStyle,
-    hero: { alignItems: 'center', paddingVertical: 32, gap: 12 } as ViewStyle,
+    headerTitle: {
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    scrollContent: {
+      paddingHorizontal: rnSpacing.xl,
+      paddingBottom: rnSpacing['3xl'],
+      gap: rnSpacing.xl,
+    } as ViewStyle,
+    hero: {
+      alignItems: 'center',
+      paddingVertical: rnSpacing['3xl'],
+      gap: rnSpacing.md,
+    } as ViewStyle,
     heroEmoji: { fontSize: 64 } as TextStyle,
-    heroTitle: { fontSize: 24, fontWeight: '700', color: tk.text.primary } as TextStyle,
+    heroTitle: {
+      fontSize: rnType.display.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    } as TextStyle,
     heroSubtitle: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
       textAlign: 'center',
       lineHeight: 19,
@@ -114,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
     featureGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 12,
+      gap: rnSpacing.md,
     } as ViewStyle,
     featureCard: {
       width: '47%',
@@ -127,8 +143,16 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     } as ViewStyle,
     featureIcon: { fontSize: 32 } as TextStyle,
-    featureLabel: { fontSize: 16, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    featureDesc: { fontSize: 14, color: tk.text.tertiary, textAlign: 'center' } as TextStyle,
+    featureLabel: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    featureDesc: {
+      fontSize: rnType.body.size,
+      color: tk.text.tertiary,
+      textAlign: 'center',
+    } as TextStyle,
     actions: { gap: 10 } as ViewStyle,
     primaryBtn: {
       backgroundColor: tk.brand.cta,
@@ -136,16 +160,24 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 15,
       alignItems: 'center',
     } as ViewStyle,
-    primaryBtnText: { fontSize: 16, fontWeight: '600', color: tk.brand.ctaForeground } as TextStyle,
+    primaryBtnText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    } as TextStyle,
     secondaryBtn: {
       borderRadius: rnRadius.sm,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       alignItems: 'center',
       backgroundColor: tk.surface.card,
     } as ViewStyle,
-    secondaryBtnText: { fontSize: 16, color: tk.text.secondary, fontWeight: '500' } as TextStyle,
+    secondaryBtnText: {
+      fontSize: rnType.title.size,
+      color: tk.text.secondary,
+      fontWeight: '500',
+    } as TextStyle,
     footerNote: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.tertiary,
       textAlign: 'center',
     } as TextStyle,

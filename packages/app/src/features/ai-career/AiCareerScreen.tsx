@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiCareerScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -127,22 +127,27 @@ export function AiCareerScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    content: { padding: 16, paddingBottom: 32 },
-    backBtn: { paddingBottom: 4 },
-    header: { paddingTop: 4, paddingBottom: 16 },
+    content: { padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] },
+    backBtn: { paddingBottom: rnSpacing.xs },
+    header: { paddingTop: rnSpacing.xs, paddingBottom: rnSpacing.lg },
     headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary, lineHeight: 20 },
+    headerSub: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: 20,
+    },
     questionCard: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     personalityCard: { backgroundColor: tk.surface.muted },
     questionTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
       lineHeight: 24,
@@ -151,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
     required: { color: tk.danger.DEFAULT },
     optionsContainer: { gap: 10 },
     optionItem: {
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       paddingHorizontal: 14,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
@@ -163,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.brandAccent.deep,
     },
     optionText: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       color: tk.text.medium,
       lineHeight: 22,
     },
@@ -171,20 +176,20 @@ function createStyles(tk: AppThemeTokens) {
     scoreRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     scoreItem: {
       flex: 1,
       minWidth: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    scoreText: { fontSize: 16, fontWeight: '600', color: tk.text.medium },
+    scoreText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.medium },
     inputField: {
       height: 44,
       paddingHorizontal: 14,
@@ -192,23 +197,23 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       color: tk.text.primary,
     },
     textareaInput: {
       minHeight: 120,
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       color: tk.text.primary,
       lineHeight: 22,
     },
-    errorText: { color: tk.danger.DEFAULT, fontSize: 14, marginBottom: 8 },
+    errorText: { color: tk.danger.DEFAULT, fontSize: rnType.body.size, marginBottom: rnSpacing.sm },
     submitContainer: {
-      paddingVertical: 24,
+      paddingVertical: rnSpacing['2xl'],
       alignItems: 'center',
     },
     submitBtn: {

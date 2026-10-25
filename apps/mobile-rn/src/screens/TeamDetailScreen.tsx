@@ -45,19 +45,19 @@ export default function TeamDetailScreenWrapper() {
     try {
       const res = await getTeamMemberDetail(memberId)
       if (!res.success || !res.data) {
-        setError('加载失败,请重试')
+        setError(t('teamDetail.loadFail'))
         setMember(null)
         return
       }
       setMember(res.data)
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败,请重试')
+      setError(detail.trim() ? toUserFriendlyMessage(e) : t('teamDetail.loadFail'))
       setMember(null)
     } finally {
       setLoading(false)
     }
-  }, [memberId])
+  }, [memberId, t])
 
   useEffect(() => {
     void load()
@@ -65,12 +65,12 @@ export default function TeamDetailScreenWrapper() {
 
   const onContact = (): void => {
     if (!member?.phone) {
-      appAlert('提示', '该成员未提供手机号')
+      appAlert(t('home.pubTip'), t('teamDetail.noPhone'))
       return
     }
     const phone = String(member.phone).replace(/[^\d+]/g, '')
     void Linking.openURL(`tel:${phone}`).catch(() => {
-      appAlert('提示', '无法拨号,请检查设备')
+      appAlert(t('home.pubTip'), t('teamDetail.callFail'))
     })
   }
   const onViewOrders = (): void => {

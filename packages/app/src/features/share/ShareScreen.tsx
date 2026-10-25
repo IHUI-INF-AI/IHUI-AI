@@ -7,7 +7,7 @@ import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ShareScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -107,53 +107,62 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { flexGrow: 1 },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
-    targetTitle: { fontSize: 16, color: tk.text.primary, marginBottom: 12 },
-    label: { marginTop: 12, fontSize: 14, color: tk.text.secondary },
+    targetTitle: {
+      fontSize: rnType.title.size,
+      color: tk.text.primary,
+      marginBottom: rnSpacing.md,
+    },
+    label: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.text.secondary },
     input: {
-      marginTop: 8,
-      paddingHorizontal: 12,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 14,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
     createBtn: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       paddingVertical: 15,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
     btnDisabled: { backgroundColor: tk.text.tertiary },
-    createText: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
-    muted: { marginTop: 12, fontSize: 14, color: tk.text.secondary, textAlign: 'center' },
-    error: { marginTop: 12, fontSize: 14, color: tk.danger.DEFAULT },
+    createText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size, fontWeight: '600' },
+    muted: {
+      marginTop: rnSpacing.md,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      textAlign: 'center',
+    },
+    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     card: {
-      marginTop: 16,
-      padding: 12,
+      marginTop: rnSpacing.lg,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    cardLabel: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    cardValue: { marginTop: 8, fontSize: 16, color: tk.text.primary },
-    shareBtnWrap: { paddingHorizontal: 10, paddingVertical: 12 },
+    cardLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardValue: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
+    shareBtnWrap: { paddingHorizontal: 10, paddingVertical: rnSpacing.md },
     shareBtn: {
       paddingVertical: 15,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    shareText: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
+    shareText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

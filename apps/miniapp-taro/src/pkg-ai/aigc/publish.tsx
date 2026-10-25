@@ -10,6 +10,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { publishAigc, uploadByBase64 } from '@/api'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface UpFile {
@@ -25,12 +26,12 @@ export default function AigcPublish() {
   const params = useMemo(() => {
     const ctxId = (router.params.contextId as string) || ''
     let prompt = ''
-    if (router.params.title) prompt = decodeURIComponent(router.params.title)
-    if (router.params.prompt) prompt = decodeURIComponent(router.params.prompt)
+    if (router.params.title) prompt = safeDecodeURIComponent(router.params.title)
+    if (router.params.prompt) prompt = safeDecodeURIComponent(router.params.prompt)
     const fileList: UpFile[] = []
     if (router.params.imgUrlList) {
       try {
-        const arr = JSON.parse(decodeURIComponent(router.params.imgUrlList)) as string[]
+        const arr = JSON.parse(safeDecodeURIComponent(router.params.imgUrlList)) as string[]
         ;(arr || []).forEach((u) => {
           if (u) fileList.push({ url: u, type: 'image' })
         })

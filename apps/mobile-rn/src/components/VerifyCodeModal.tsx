@@ -23,7 +23,7 @@ import {
   VERIFY_CODE_PHONE_FONT_PX,
   VERIFY_CODE_TITLE_FONT_PX,
 } from '@ihui/shared/ui/verify-code-modal-spec'
-import { rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 
 /**
  * 验证码模态框(mobile-rn 端,受控纯 UI —— 与小程序端共用 @ihui/shared/ui/verify-code-modal-spec 单一源)
@@ -249,20 +249,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
   },
   description: {
     fontSize: VERIFY_CODE_DESC_FONT_PX,
     color: tokens.text.secondary,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
   },
   phone: {
     fontSize: VERIFY_CODE_PHONE_FONT_PX,
     color: tokens.text.primary,
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 20,
+    marginTop: rnSpacing.xs,
+    marginBottom: rnSpacing.xl,
   },
   boxRowContainer: {
     position: 'relative',
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: VERIFY_CODE_BOX_GAP_PX,
-    marginBottom: 16,
+    marginBottom: rnSpacing.lg,
   },
   box: {
     width: VERIFY_CODE_BOX_WIDTH_PX,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: rnSpacing.lg,
   },
   confirmDisabled: {
     opacity: 0.6,

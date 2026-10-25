@@ -8,7 +8,7 @@ import { TextField } from '../../components/TextField'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentMarketScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import {
   EmptyState,
@@ -112,23 +112,28 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
     },
-    btnText: { color: tk.brand.ctaForeground, fontSize: 16 },
+    btnText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size },
     title: {
-      marginTop: 8,
-      marginBottom: 12,
-      fontSize: 24,
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
+      fontSize: rnType.display.size,
       fontWeight: '700',
       color: tk.text.primary,
     },
-    searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
+    },
     input: {
       flex: 1,
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
-      fontSize: 16,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
@@ -146,14 +151,19 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardDesc: { marginTop: 8, fontSize: 14, color: tk.text.primary },
-    metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-    category: { marginRight: 8, fontSize: 11, color: tk.brand.DEFAULT },
-    meta: { fontSize: 11, color: tk.text.tertiary },
-    price: { marginLeft: 'auto', fontSize: 14, fontWeight: '600', color: tk.brand.DEFAULT },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.primary },
+    metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: rnSpacing.sm },
+    category: { marginRight: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    price: {
+      marginLeft: 'auto',
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.brand.DEFAULT,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

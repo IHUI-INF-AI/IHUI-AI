@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -338,11 +338,11 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
     } as ViewStyle,
     scrollContent: {
-      paddingBottom: 24,
+      paddingBottom: rnSpacing['2xl'],
     } as ViewStyle,
     popularWrap: {
-      paddingTop: 4,
-      paddingBottom: 4,
+      paddingTop: rnSpacing.xs,
+      paddingBottom: rnSpacing.xs,
     } as ViewStyle,
 
     // 进度概览
@@ -350,38 +350,38 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-around',
-      paddingVertical: 20,
-      marginBottom: 8,
+      paddingVertical: rnSpacing.xl,
+      marginBottom: rnSpacing.sm,
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     progressItem: {
       alignItems: 'center',
     } as ViewStyle,
     progressNum: {
-      fontSize: 24,
+      fontSize: rnType.display.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
-      marginBottom: 4,
+      marginBottom: rnSpacing.xs,
     } as TextStyle,
     progressLabel: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     } as TextStyle,
 
     // 区块
     section: {
       padding: 14,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     } as ViewStyle,
     sectionTitle: {
-      fontSize: 20,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
@@ -389,7 +389,7 @@ function createStyles(tk: AppThemeTokens) {
     // 学习路径
     horizontalList: {
       flexDirection: 'row',
-      gap: 12,
+      gap: rnSpacing.md,
     } as ViewStyle,
     pathCard: {
       width: 140,
@@ -412,8 +412,8 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 32,
     } as TextStyle,
     pathTitle: {
-      marginTop: 8,
-      fontSize: 14,
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       textAlign: 'center',
     } as TextStyle,
@@ -421,14 +421,14 @@ function createStyles(tk: AppThemeTokens) {
     // 课程分类
     categoryGrid: {
       flexDirection: 'row',
-      paddingVertical: 4,
-      gap: 12,
+      paddingVertical: rnSpacing.xs,
+      gap: rnSpacing.md,
     } as ViewStyle,
     categoryItem: {
       flex: 1,
       alignItems: 'center',
-      paddingVertical: 12,
-      gap: 8,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.sm,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     } as ViewStyle,
@@ -436,7 +436,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 32,
     } as TextStyle,
     categoryName: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     } as TextStyle,
 
@@ -444,7 +444,7 @@ function createStyles(tk: AppThemeTokens) {
     popularGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 12,
+      gap: rnSpacing.md,
     } as ViewStyle,
     popularCard: {
       width: '48%',
@@ -479,30 +479,30 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     popularBody: {
       padding: 10,
-      gap: 4,
+      gap: rnSpacing.xs,
     } as ViewStyle,
     popularTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     popularMeta: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     } as TextStyle,
     popularFooter: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
     } as ViewStyle,
     popularPrice: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.success.DEFAULT,
     } as TextStyle,
     popularStudents: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     } as TextStyle,
 
@@ -512,24 +512,24 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     } as TextStyle,
     errorWrap: {
       alignItems: 'center',
-      gap: 8,
-      paddingVertical: 16,
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.lg,
     } as ViewStyle,
     errorText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
       textAlign: 'center',
     } as TextStyle,
     courseList: {
-      gap: 12,
+      gap: rnSpacing.md,
     } as ViewStyle,
     courseCard: {
       flexDirection: 'row',
@@ -555,25 +555,25 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     courseInfo: {
       flex: 1,
-      padding: 12,
+      padding: rnSpacing.md,
       gap: 6,
     } as ViewStyle,
     courseTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     courseDesc: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     } as TextStyle,
     courseMeta: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
     } as ViewStyle,
     levelBadge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
       backgroundColor: 'transparent',
@@ -581,21 +581,21 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
     } as ViewStyle,
     levelText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     metaText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     } as TextStyle,
     priceFree: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.success.DEFAULT,
     } as TextStyle,
     pricePaid: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
@@ -603,17 +603,17 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     } as ViewStyle,
     pageBtn: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     } as TextStyle,
     pageBtnDisabled: {
       opacity: 0.4,
     } as TextStyle,
     pageIndicator: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     } as TextStyle,
   })

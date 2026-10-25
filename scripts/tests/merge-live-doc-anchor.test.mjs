@@ -44,6 +44,13 @@ function copyClassifyClosure(dir) {
     join(REPO, 'scripts/lib/live-doc-classify.mjs'),
     join(dir, 'scripts/lib/live-doc-classify.mjs'),
   )
+  // 2026-10-25 再补一件(守门 207 第二刀①):归并器新增 `lib/live-doc-archive-drops.mjs` 依赖,
+  // 不拷它 ⇒ 被 spawn 的 CLI 静默不打字 ⇒ `counts()` 读出 -1 ⇒ 红语变成"删行没报丢失",
+  // 与上面那段记的完全同型。闭包每增一件都必须加在这里,不许只改生产文件。
+  copyFileSync(
+    join(REPO, 'scripts/lib/live-doc-archive-drops.mjs'),
+    join(dir, 'scripts/lib/live-doc-archive-drops.mjs'),
+  )
 }
 
 // 两行刻意"中段全换":锚点 `- **闸门甲**(7)` 相同,正文几乎不重叠。

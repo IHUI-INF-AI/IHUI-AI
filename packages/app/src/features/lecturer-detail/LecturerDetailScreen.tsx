@@ -26,7 +26,7 @@ import type {
   LecturerDetailScreenProps,
 } from '../../types'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /** 讲师详情共享屏 — props 注入式跨端组件 */
 export type {
@@ -358,9 +358,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     scrollContent: {
-      padding: 12, // rpx(24)
-      paddingBottom: 24, // rpx(48)
-      gap: 12, // rpx(24)
+      padding: rnSpacing.md, // rpx(24)
+      paddingBottom: rnSpacing['2xl'], // rpx(48)
+      gap: rnSpacing.md, // rpx(24)
     },
     pressed: {
       opacity: 0.85,
@@ -374,7 +374,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerTitle: {
       flex: 1,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
       textAlign: 'center',
@@ -386,7 +386,7 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12, // rpx(24)
+      gap: rnSpacing.md, // rpx(24)
     },
     avatar: {
       width: 64, // rpx(128)
@@ -399,13 +399,13 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     avatarFallbackText: {
-      fontSize: 24,
+      fontSize: rnType.display.size,
       fontWeight: '600',
       color: tk.text.secondary,
     },
     headerBody: {
       flex: 1,
-      gap: 4, // rpx(8)
+      gap: rnSpacing.xs, // rpx(8)
     },
     nameRow: {
       flexDirection: 'row',
@@ -413,7 +413,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6, // rpx(12)
     },
     name: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
       flexShrink: 1,
@@ -425,7 +425,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.vip.gold,
     },
     goldBadgeText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
@@ -455,30 +455,30 @@ function createStyles(tk: AppThemeTokens) {
     /* 统计行 */
     statRow: {
       flexDirection: 'row',
-      paddingVertical: 12, // rpx(24)
+      paddingVertical: rnSpacing.md, // rpx(24)
       borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
     },
     statItem: {
       flex: 1,
       alignItems: 'center',
-      gap: 4, // rpx(8)
+      gap: rnSpacing.xs, // rpx(8)
     },
     statValue: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     statLabel: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
     /* 区块通用 */
     section: {
-      gap: 8, // rpx(16)
+      gap: rnSpacing.sm, // rpx(16)
     },
     sectionTitle: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
@@ -511,27 +511,27 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6, // rpx(12)
     },
     courseTitle: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     courseMetaRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8, // rpx(16)
+      gap: rnSpacing.sm, // rpx(16)
     },
     coursePrice: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.vip.gold,
     },
     courseFree: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.success.deepText,
     },
     courseStudents: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
     /* 学员评价 */
@@ -544,7 +544,7 @@ function createStyles(tk: AppThemeTokens) {
     reviewHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8, // rpx(16)
+      gap: rnSpacing.sm, // rpx(16)
     },
     reviewAvatar: {
       width: 32, // rpx(64)
@@ -553,7 +553,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     reviewAvatarText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
     reviewNickname: {
@@ -572,24 +572,24 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     reviewTime: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },
     /* 底部动作条 */
     footerBar: {
-      paddingHorizontal: 12, // rpx(24)
-      paddingVertical: 8, // rpx(16)
+      paddingHorizontal: rnSpacing.md, // rpx(24)
+      paddingVertical: rnSpacing.sm, // rpx(16)
       backgroundColor: tk.surface.card,
     },
     footerBtn: {
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12, // rpx(24)
+      paddingVertical: rnSpacing.md, // rpx(24)
       borderRadius: rnRadius.sm, // 原 rpx(44)=22,O81 角色档收口 control=sm(4)
       backgroundColor: tk.brand.cta,
     },
     footerBtnText: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.surface.light,
     },

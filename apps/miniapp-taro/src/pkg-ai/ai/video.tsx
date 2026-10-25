@@ -18,6 +18,7 @@ import VideoPlayer from '@/components/VideoPlayer'
 import EmptyState from '@/components/EmptyState'
 import ErrorView from '@/components/ErrorView'
 import { formatDateByTemplate } from '@ihui/shared'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
 type Vendor = 'sora2' | 'kling' | 'doubao' | 'dashscope'
@@ -130,7 +131,7 @@ export default function VideoPage() {
   useDidShow(() => {
     setHistory(loadHistory())
     const incoming = router.params.prompt
-    if (incoming) setPrompt(decodeURIComponent(incoming))
+    if (incoming) setPrompt(safeDecodeURIComponent(incoming))
   })
 
   useShareAppMessage(() => ({

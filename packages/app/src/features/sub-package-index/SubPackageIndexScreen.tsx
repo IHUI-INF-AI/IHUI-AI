@@ -1,10 +1,18 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, ScrollView, Pressable, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SubPackageIndexScreenProps, SubPackageEntry } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -83,12 +91,16 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     } as ViewStyle,
-    headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    scrollContent: { paddingHorizontal: 10, paddingVertical: 12 } as ViewStyle,
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 } as ViewStyle,
+    headerTitle: {
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    scrollContent: { paddingHorizontal: 10, paddingVertical: rnSpacing.md } as ViewStyle,
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md } as ViewStyle,
     // 外框:两列网格里占槽位的宽度档(逐字取自原 entryCard 的 width,未新增数字档)
     entryCardBox: { width: '47%' } as ViewStyle,
     // 面层:把宽度显式还给盒子(按压态下移到内层后,外框按内容收拢会丢整格宽);
@@ -108,9 +120,13 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     entryCardPressed: { backgroundColor: tk.surface.muted } as ViewStyle,
     entryIcon: { fontSize: 32 } as TextStyle,
-    entryTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    entryTitle: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
     entryDesc: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.tertiary,
       textAlign: 'center',
       lineHeight: 16,

@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -46,7 +47,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export interface HandPlatePaymentMethod {
   id: string
@@ -117,7 +118,7 @@ const CHECKBOX_SIZE = 16
 
 /** 默认微信支付单选(会员购买模式) */
 const DEFAULT_PAYMENT_METHODS: HandPlatePaymentMethod[] = [
-  { id: 'wxpay', name: '微信支付', icon: '微' },
+  { id: 'wxpay', name: 'purchase.wechat', icon: '微' },
 ]
 
 function formatYuan(price: number): string {
@@ -133,6 +134,7 @@ export function HandPlatePops({
   purchase,
   onPay,
 }: HandPlatePopsProps) {
+  const { t } = useI18n()
   const insets = useSafeAreaInsets()
   // 屏幕旋转/分屏后窗口高度会变(app.json orientation 已放开为 default),
   // 隐藏位移取当次窗口高度,PanResponder 闭包通过 ref 读最新值。
@@ -262,7 +264,7 @@ export function HandPlatePops({
     onPay?.()
   }
 
-  const effectiveTitle = title ?? (purchase ? '会员购买' : undefined)
+  const effectiveTitle = title ?? (purchase ? t('hand.memberPurchase') : undefined)
   const hasTitle = effectiveTitle !== undefined && effectiveTitle.length > 0
 
   return (
@@ -279,7 +281,7 @@ export function HandPlatePops({
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={handleClose}
-            accessibilityLabel="关闭弹出层"
+            accessibilityLabel={t('common.closeOverlay')}
           />
         </Animated.View>
 
@@ -344,7 +346,7 @@ export function HandPlatePops({
                 ) : null}
 
                 <View style={styles.purchasePayment}>
-                  <Text style={styles.purchasePaymentTitle}>{'支付方式'}</Text>
+                  <Text style={styles.purchasePaymentTitle}>{t('payment.method')}</Text>
                   {payOptions.map((m) => {
                     const active = m.id === selectedPayMethod
                     return (
@@ -401,13 +403,13 @@ export function HandPlatePops({
                   onPress={handlePay}
                   disabled={payDisabled}
                   accessibilityRole="button"
-                  accessibilityLabel={purchase.payText ?? '立即支付'}
+                  accessibilityLabel={purchase.payText ?? t('purchase.payNow')}
                 >
                   {purchase.loading ? (
                     <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
                   ) : (
                     <Text style={styles.purchasePayBtnText}>
-                      {purchase.payText ?? `立即支付 ¥${formatYuan(purchase.price)}`}
+                      {purchase.payText ?? `${t('purchase.payNow')} ¥${formatYuan(purchase.price)}`}
                     </Text>
                   )}
                 </Pressable>
@@ -486,11 +488,11 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   // ---- 会员购买模式 ----
   purchaseWrap: {
-    paddingVertical: 8,
-    gap: 12,
+    paddingVertical: rnSpacing.sm,
+    gap: rnSpacing.md,
   } as ViewStyle,
   purchaseName: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 22,
     fontWeight: '700',
     color: tokens.text.primary,
@@ -500,10 +502,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
   } as ViewStyle,
   purchaseSymbol: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 24,
     fontWeight: '700',
     color: tokens.success.DEFAULT,
@@ -521,15 +523,15 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   } as TextStyle,
   purchaseBenefits: {
-    gap: 4,
+    gap: rnSpacing.xs,
   } as ViewStyle,
   purchaseBenefit: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     lineHeight: 22,
     color: tokens.text.secondary,
   } as TextStyle,
   purchaseBenefitHighlight: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     lineHeight: 22,
     color: tokens.brandAccent.deep,
     fontWeight: '600',
@@ -538,7 +540,7 @@ const styles = StyleSheet.create({
     gap: 6,
   } as ViewStyle,
   purchasePaymentTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   } as TextStyle,
   purchasePaymentOption: {
@@ -546,7 +548,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
-    paddingHorizontal: 12,
+    paddingHorizontal: rnSpacing.md,
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -564,14 +566,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   purchasePaymentIconText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.surface.light,
     fontWeight: '700',
   } as TextStyle,
   purchasePaymentName: {
     flex: 1,
     marginLeft: 10,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
   } as TextStyle,
   radio: {
@@ -612,7 +614,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.success.DEFAULT,
   } as ViewStyle,
   checkboxMark: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     lineHeight: 13,
     color: tokens.surface.light,
     fontWeight: '700',
@@ -621,7 +623,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   } as ViewStyle,
   purchaseAgreementText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     lineHeight: 18,
     color: tokens.text.secondary,
   } as TextStyle,
@@ -631,13 +633,13 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
   } as ViewStyle,
   purchasePayBtnDisabled: {
     opacity: 0.6,
   } as ViewStyle,
   purchasePayBtnText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 20,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,

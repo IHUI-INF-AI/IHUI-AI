@@ -18,7 +18,7 @@ import { TextField } from '../../components/TextField'
 import { Camera, SquarePen } from 'lucide-react-native'
 import type { Gender, ProfileEditScreenProps } from '../../types'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -88,7 +88,7 @@ export function ProfileEditScreen({
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ padding: 14, gap: 12 }}
+      contentContainerStyle={{ padding: 14, gap: rnSpacing.md }}
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
@@ -223,12 +223,12 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 4,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.xs,
+      paddingVertical: rnSpacing.sm,
     },
-    backBtn: { marginRight: 12 },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    avatarWrap: { alignItems: 'center', paddingVertical: 16, gap: 8 },
+    backBtn: { marginRight: rnSpacing.md },
+    title: { ...rnType.heading, color: tk.text.primary },
+    avatarWrap: { alignItems: 'center', paddingVertical: rnSpacing.lg, gap: rnSpacing.sm },
     avatar: {
       width: 48,
       height: 48,
@@ -255,26 +255,40 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarEditBadgeText: { fontSize: 14, color: tk.surface.light },
-    avatarTip: { fontSize: 11, color: tk.text.tertiary },
-    fieldCard: { backgroundColor: tk.surface.light, borderRadius: rnRadius.lg, padding: 12 },
-    fieldLabel: { fontSize: 14, fontWeight: '600', color: tk.text.secondary, marginBottom: 8 },
+    avatarEditBadgeText: { fontSize: rnType.body.size, color: tk.surface.light },
+    avatarTip: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    fieldCard: {
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.lg,
+      padding: rnSpacing.md,
+    },
+    fieldLabel: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.sm,
+    },
     fieldInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
       backgroundColor: tk.surface.muted,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    bioInput: { minHeight: 80, paddingTop: 12 },
-    bioCounter: { fontSize: 10, color: tk.text.tertiary, textAlign: 'right', marginTop: 8 },
-    genderRow: { flexDirection: 'row', gap: 8 },
+    bioInput: { minHeight: 80, paddingTop: rnSpacing.md },
+    bioCounter: {
+      fontSize: rnType.label.size,
+      color: tk.text.tertiary,
+      textAlign: 'right',
+      marginTop: rnSpacing.sm,
+    },
+    genderRow: { flexDirection: 'row', gap: rnSpacing.sm },
     genderItem: {
       flex: 1,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -282,10 +296,14 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     genderItemActive: { backgroundColor: tk.brand.cta },
-    genderText: { fontSize: 14, color: tk.text.secondary },
+    genderText: { fontSize: rnType.body.size, color: tk.text.secondary },
     genderTextActive: { color: tk.surface.light },
-    errorBar: { backgroundColor: tk.danger.light, borderRadius: rnRadius.lg, padding: 8 },
-    errorText: { fontSize: 14, color: tk.error.text },
+    errorBar: {
+      backgroundColor: tk.danger.light,
+      borderRadius: rnRadius.lg,
+      padding: rnSpacing.sm,
+    },
+    errorText: { fontSize: rnType.body.size, color: tk.error.text },
     saveBtn: {
       height: 50,
       justifyContent: 'center',
@@ -294,50 +312,59 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },
-    saveText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    saveText: { color: tk.surface.light, ...rnType.title },
     modalOverlay: {
       flex: 1,
       backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 24,
+      padding: rnSpacing['2xl'],
     },
     modalCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadiusFor.panel,
-      padding: 14,
+      padding: rnSpacing.lg,
       width: '100%',
     },
-    modalTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 12 },
-    modalLabel: { fontSize: 14, color: tk.text.secondary, marginBottom: 8 },
+    modalTitle: { ...rnType.subtitle, color: tk.text.primary, marginBottom: rnSpacing.md },
+    modalLabel: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.sm,
+    },
     modalInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
       backgroundColor: tk.surface.muted,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    modalHint: { fontSize: 11, color: tk.text.tertiary, marginTop: 8 },
-    modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
+    modalHint: { fontSize: rnType.caption.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
+    modalActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.lg,
+    },
     modalCancelBtn: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing.md,
       height: 44,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
     },
-    modalCancelText: { fontSize: 14, color: tk.text.secondary },
+    modalCancelText: { fontSize: rnType.body.size, color: tk.text.secondary },
     modalConfirmBtn: {
-      paddingHorizontal: 10,
+      paddingHorizontal: rnSpacing.md,
       height: 44,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    modalConfirmText: { fontSize: 14, color: tk.surface.light },
+    modalConfirmText: { fontSize: rnType.body.size, color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

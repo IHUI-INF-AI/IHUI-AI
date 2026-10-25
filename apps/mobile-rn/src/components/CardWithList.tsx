@@ -30,7 +30,7 @@ import { MoreLink } from '@ihui/rn-app'
 import type { AppIcon } from '@ihui/types'
 import { Tag } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 export interface CardWithListItem {
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     color: tk.text.primary,
   } as TextStyle,
   more: {
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
   } as ViewStyle,
   itemsContainer: {
     gap: ITEM_GAP,
