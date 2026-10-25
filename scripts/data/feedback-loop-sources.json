@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "ticket": "端到端反馈闭环(台账无编号行,〔归:自进化〕)",
+  "note": "本清单是 scripts/lib/feedback-loop.mjs 的 buildLoopTicket / matchGate / compareMetrics 三把尺子共用的唯一输入源真相源(AGENTS §0.6:同类清单全仓只许一份)。每条 {id, kind, path|command, reviewBy, why}:kind=json|jsonl|command 三档;path 相对仓库根;command 必须是现读跑得通的既有器物(§0.8 文档不得写跑不通的出路);reviewBy(YYYY-MM-DD)到期即由本器点名『清单腐烂』,不得静默续期。任一源取不到/读不出 ⇒ 该源落 undetermined 并点名原因,不得当成『无异常』记绿(AGENTS §0.3)。新增源必须在此登记,不得在脚本里再写第二份路径。「过门」段的门清单不在本文件复制:matchGate 经 import scripts/gate-grow.mjs 的 readRegistry 现读注册表(唯一实现,零副作用,不跑 gate-grow 的任何写盘档)。",
+  "horizonHours": 72,
+  "gateHintsNote": "gateHints 是『这类信号该归哪道门』的检索键(对 scripts/guardian-runner.mjs 注册条目的 script 名做子串匹配,不是自建门清单);命中 0 道 ⇒ no-exit,由本器点名并建议记入 commit message,不得为消红造关键词。",
+  "metricsNote": "metrics 维只从下面这些机器可读读数里取纯数字,不新开采集面;任一侧取不到 ⇒ compareMetrics 返回 undetermined,绝不冒绿(§0.3)。比对只判方向(升/降),阈值来自本文件,判红权归人。",
+  "sources": [
+    {
+      "id": "ops-patrol",
+      "kind": "json",
+      "path": ".ihui-agent/state/ops-patrol-last.json",
+      "reviewBy": "2027-01-31",
+      "why": "元运维巡检轮(看守者本身还活着吗)的 P1-P7 findings = 『监控异常』这一格现成产出面,本器只消费不自造判据",
+      "signalId": ["id"],
+      "signalDetail": ["detail"],
+      "metrics": [
+        { "name": "findings", "pick": ["counts", "findings"] },
+        { "name": "undetermined", "pick": ["counts", "undetermined"] }
+      ],
+      "gateHints": ["ops-patrol", "git-guardian", "service-binary"]
+    },
+    {
+      "id": "auto-triage-ledger",
+      "kind": "jsonl",
+      "path": ".ihui-agent/state/auto-triage-ledger.jsonl",
+      "reviewBy": "2027-01-31",
+      "why": "分诊器台账里 action=register-failed 的行 = 『监控异常→自动建单』这一环真实断点(号池已满/live-doc-edit rc≠0),闭环不闭合的第一手凭据",
+      "signalId": ["fingerprint"],
+      "signalDetail": ["why"],
+      "whereEquals": { "action": "register-failed" },
+      "metrics": [{ "name": "registerFailed", "countMatches": { "action": "register-failed" } }],
+      "gateHints": ["triage", "plan-id-pool", "plan-task"]
+    },
+    {
+      "id": "mail-send-ledger",
+      "kind": "jsonl",
+      "path": ".ihui-agent/state/mail-send-ledger.jsonl",
+      "reviewBy": "2027-01-31",
+      "why": "§5e-3 发信面台账:disposition=failed 的行 = 到人通知这一腿在抖;本器只数不寄(发信唯一出口属他席)",
+      "signalId": ["alertId"],
+      "signalDetail": ["why", "subject"],
+      "whereEquals": { "disposition": "failed" },
+      "metrics": [{ "name": "mailFailed", "countMatches": { "disposition": "failed" } }],
+      "gateHints": ["alert", "mail", "notify"]
+    },
+    {
+      "id": "tunnel-leg-health",
+      "kind": "json",
+      "path": ".ihui-agent/state/tunnel-leg-health-last.json",
+      "reviewBy": "2027-01-31",
+      "why": "隧道腿健康只读哨兵(§5f):dims 三态里 verdict≠ok 的每一维是既有监控异常,现读它落在哪就吃什么",
+      "signalId": ["id"],
+      "signalDetail": ["detail"],
+      "nestedDims": "dims",
+      "verdictNotOk": true,
+      "gateHints": ["tunnel", "cloudflared"]
+    },
+    {
+      "id": "head-typecheck",
+      "kind": "json",
+      "path": ".ihui-agent/state/head-typecheck-last-row",
+      "reviewBy": "2027-01-31",
+      "why": "HEAD 面 typecheck 只读尺末行:state≠ok ⇒ 部署后指标比对的后视基线,也是『过门』段的现成读数",
+      "signalId": ["state"],
+      "signalDetail": ["detail"],
+      "whereNotEquals": { "state": "ok" },
+      "metrics": [{ "name": "stateOk", "pick": ["state"], "numericMap": { "ok": 1 } }],
+      "gateHints": ["typecheck"]
+    },
+    {
+      "id": "gate-registry",
+      "kind": "command",
+      "command": ["node", "scripts/gate-grow.mjs", "--self-test"],
+      "reviewBy": "2027-01-31",
+      "signals": false,
+      "why": "守门注册表自证(只作 matchGate 的可用性对照,不产信号);命令失败 ⇒ 「过门」段落 undetermined 并点名,不猜有几道门",
+      "gateHints": []
+    }
+  ],
+  "deployMetricFaces": {
+    "note": "部署后指标比对的现读采集面:全部来自上面 sources 的 metrics 维 + 台账派生数,本机无 DEPLOYLOOP 服务面 ⇒ 真部署前后各采一轮属他席(§边界:本票不做自动部署/自动回滚)。",
+    "beforeEnv": "IHUI_FEEDBACK_LOOP_METRICS_BEFORE",
+    "afterEnv": "IHUI_FEEDBACK_LOOP_METRICS_AFTER"
+  }
+}
