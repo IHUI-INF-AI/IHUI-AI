@@ -9,7 +9,6 @@ import { useCallback, useState, type ReactNode } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useI18n } from '@/i18n'
-import BackChevron from '@/components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 export interface ChildRecordColumn {
@@ -66,7 +65,6 @@ export function ChildRecordsView(options: {
   return (
     <View className="min-h-screen bg-background p-4">
       <View className="flex items-center gap-3 py-3">
-        <BackChevron />
         <Text className="text-xl font-bold text-foreground">{t(options.titleKey)}</Text>
       </View>
       {loading ? (
