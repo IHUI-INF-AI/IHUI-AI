@@ -179,23 +179,18 @@ test.describe('icon + 文字垂直对齐守门', () => {
   })
 
   test('侧边栏主导航项:icon 与文字视觉对齐 (默认/hover/active 三态)', async ({ page }) => {
-    // 重点验证位点:用户原话"我的学习这个文字怎么偏成这样" = /favorites
-    // 用 data-testid 精准锁定,避免其它 nav 干扰。
-    // 2026-08-28:选择器限定 aside#main-sidebar(桌面端)——移动端抽屉 aside
-    // (fixed + min-[1024px]:hidden)常驻 DOM 且 nav data-testid 与桌面端相同,
-    // 不限定会命中 2 个元素导致 strict mode violation。
-    // 2026-10-21 修正:nav-learn(/learn)与 nav-settings(/settings)在 2026-10-19 P2/P1
-    // 侧边栏收敛中已移出主侧边栏(edu 收进 /domains/edu 域入口、settings 归设置页统一管理),
-    // 不再是 sidebar 顶层 nav 项 ⇒ 旧 testid 命中 0 元素 → "element(s) not found"。
-    // 改用当前仍在主侧边栏的同型项:eduHubTitle(edu 域入口,icon+span)、help(个人组分组的
-    // 顶层项)。重点回归位点 nav-favorites(/favorites)与 nav-myLearning 保持不变。
+    // 2026-10-25 锚点修正(CI 40169274264 红):2026-10-19/10-23 两批 P2 侧边栏收敛把
+    // 原平铺项全部收进域入口 —— /chat/history(nav-chatHistory)、/favorites(nav-favorites)
+    // 与“我的学习”(nav-myLearning)已不在主侧边栏,旧 testid 恒为 0 元素。
+    // 改用当前仍在 sidebar 的顶层项(指向各域入口),仍覆盖 icon+span 同行的全部形态。
     const targetItems = [
       'nav-home',
-      'nav-chatHistory',
-      'nav-eduHubTitle', // 取代已移除的 nav-learn(edu 域入口,同型 icon+span)
-      'nav-myLearning', // ★ 重点回归位点
-      'nav-favorites',
-      'nav-help', // 取代已移除的 nav-settings(个人组顶层项)
+      'nav-ecosystemHub',
+      'nav-aiGroupLabel', // /domains/ai(AI 组入口)
+      'nav-eduHubTitle', // /domains/edu
+      'nav-contentHubTitle', // /domains/content
+      'nav-tradeHubTitle', // /domains/trade
+      'nav-user', // /domains/personal(个人组入口)
     ]
 
     for (const testid of targetItems) {
@@ -228,17 +223,14 @@ test.describe('icon + 文字垂直对齐守门', () => {
       await page.waitForTimeout(100)
     }
 
-    // active 态:点击 /favorites 触发,然后回到其它位置
-    await scrollIntoNavSafeSpot(page, 'aside#main-sidebar [data-testid="nav-myLearning"]')
-    await page.locator('aside#main-sidebar [data-testid="nav-myLearning"]').click()
+    // active 态:点击个人域入口(/domains/personal)触发高亮
+    await scrollIntoNavSafeSpot(page, 'aside#main-sidebar [data-testid="nav-user"]')
+    await page.locator('aside#main-sidebar [data-testid="nav-user"]').click()
     await page.waitForTimeout(200)
-    const activeResult = await measureAlignment(
-      page,
-      'aside#main-sidebar [data-testid="nav-myLearning"]',
-    )
+    const activeResult = await measureAlignment(page, 'aside#main-sidebar [data-testid="nav-user"]')
     expect(
       Math.abs(activeResult.delta - activeResult.expectedOffset),
-      `nav-myLearning active 态: |delta−offset| ${Math.abs(activeResult.delta - activeResult.expectedOffset).toFixed(3)}px 应 ≤ ${DELTA_THRESHOLD_PX}px`,
+      `nav-user active 态: |delta−offset| ${Math.abs(activeResult.delta - activeResult.expectedOffset).toFixed(3)}px 应 ≤ ${DELTA_THRESHOLD_PX}px`,
     ).toBeLessThanOrEqual(DELTA_THRESHOLD_PX)
   })
 
@@ -250,7 +242,12 @@ test.describe('icon + 文字垂直对齐守门', () => {
     })
     await page.waitForTimeout(200)
 
-    const testid = 'nav-myLearning'
+    const testid = 'nav-user'
+    // beforeEach 只等到 aside 可见;个人组(nav-user)是折叠组,展开后的 items 要等
+    // localStorage rehydrate + 分组 mount 才进 DOM(本地实测可达数秒)。先等目标项出现,
+    // 与主用例的 expect(link).toBeVisible() 同语义,不改任何几何判据。
+    const target = page.locator(`aside#main-sidebar [data-testid="${testid}"]`)
+    await expect(target).toBeVisible({ timeout: 15000 })
     const result = await measureAlignment(page, `aside#main-sidebar [data-testid="${testid}"]`)
     expect(
       Math.abs(result.delta - result.expectedOffset),

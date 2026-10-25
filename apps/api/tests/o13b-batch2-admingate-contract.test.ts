@@ -46,7 +46,8 @@ vi.mock('@ihui/database', () => ({
 vi.mock('../src/db/commission-queries.js', () => ({
   getBalance: vi.fn().mockResolvedValue(100),
   rechargeToken: vi.fn(),
-  deductToken: vi.fn().mockResolvedValue(80),
+  // 真实签名返回 { balanceAfter, flowId }(commission-queries.ts:106-111),不是裸数字
+  deductToken: vi.fn().mockResolvedValue({ balanceAfter: 80, flowId: 'flow-test-001' }),
   refundToken: vi.fn(),
   expireToken: vi.fn(),
   listTokenFlows: vi.fn(),
