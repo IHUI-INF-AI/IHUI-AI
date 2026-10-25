@@ -2228,8 +2228,7 @@
       "addParam": "パラメータを追加",
       "deleteParam": "削除",
       "create": "新規作成",
-      "createSuccess": "エージェントが作成されました",
-      "mockSuccess": "APIは未対応です。モック作成が完了しました",
+      "mockSuccess": "n8n エージェントの API は未提供のため、今回の作成は保存されませんでした",
       "submitting": "作成中…",
       "submit": "エージェント作成",
       "fileSizeExceeded": "ファイルは10MBを超えることはできません",
@@ -2265,8 +2264,7 @@
       "discountFull": "全て参加",
       "submitting": "送信中…",
       "submit": "審査に提出",
-      "submitSuccess": "送信完了",
-      "mockSuccess": "APIは未対応です。モック送信が完了しました"
+      "mockSuccess": "課金設定の API は未提供のため、今回の送信は保存されませんでした"
     }
   },
   "devSpace": {
@@ -2754,7 +2752,6 @@
     "missingParams": "支払いパラメータ不足",
     "useWechatScan": "WeChatでスキャンして支払ってください",
     "configNotReady": "支払い設定未準備、管理者にお問い合わせください",
-    "balanceInsufficient": "残高不足です。チャージしてください",
     "noCoupon": "利用可能なクーポンはありません",
     "couponNone": "クーポンを使用しない",
     "orderExpired": "注文がタイムアウトしました。再度注文してください",
@@ -2762,8 +2759,6 @@
     "couponSaved": "¥{n} 割引済み",
     "goodsName": "商品名",
     "vipSubscription": "会員サブスクリプション",
-    "balanceAmount": "残高 ¥{n}",
-    "recharge": "チャージ",
     "couponAvailable": "{n}枚利用可能",
     "limitedFree": "期間限定無料",
     "memberFree": "会員無料",
@@ -2773,7 +2768,6 @@
     "paymentMethod": "支払い方法",
     "confirmPay": "支払い確認 ¥{price}",
     "alipay": "Alipay",
-    "balance": "残高",
     "cancel": "支払いがキャンセルされました",
     "wxNotInstalled": "WeChatアプリが検出されませんでした。先にWeChatをインストールしてください",
     "aliNotInstalled": "Alipayアプリが検出されませんでした。先にAlipayをインストールしてください",

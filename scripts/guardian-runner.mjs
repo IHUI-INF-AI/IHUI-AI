@@ -5492,10 +5492,9 @@ const checks = [
     onFailHint: [
       '',
       '  💡 立因(现读):README.md 曾长到 4,653,356 B / 15,334 行,同一形态行最多 596 份 —— 行级 union 只守恒"不丢行",',
-      '     判不出"同一段落被复制一千份",于是逐次合并单调翻倍(4→51→99→198→296→589→1176 枚 A:Yes 行),而门 173 只逐键比数字。',
-      '     唯一出口(只折副本不折内容,四档守恒自证):node scripts/dedupe-live-doc.mjs <文档路径…> --apply',
-      '     档位:按文档各自差值棘轮(锚点=该文档在锚点面的副本行数),AGENTS/PLAN 存量只报数(§12e)。',
-      '     --staged 复验 / --self-test(6 例)/ 镜像 scripts/tests/check-live-doc-duplicates.test.mjs(18 例)。',
+      '     判不出"同一段落被复制一千份" ⇒ 逐次合并单调翻倍(4→51→99→198→296→589→1176 枚 A:Yes 行),门 173 只逐键比数字。',
+      '     唯一出口(只折副本不折内容,四档守恒):node scripts/dedupe-live-doc.mjs <文档路径…> --apply;' +
+        '按文档差值棘轮,AGENTS/PLAN 存量只报数(§12e)。--self-test 6 例 / 镜像 18 例。',
       '     紧急跳过(不推荐):HUSKY_SKIP_LIVE_DOC_DUPLICATES=1 git commit ...',
       '',
     ].join('\n'),
