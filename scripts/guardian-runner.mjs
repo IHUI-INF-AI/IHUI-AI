@@ -5673,6 +5673,25 @@ const checks = [
     // 逃生:HUSKY_SKIP_I18N_DEAD_KEY=1(与原 pre-commit 段同一变量,语义不变)。
     skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY',
   },
+  {
+    id: '240',
+    label: '🔒 RN 样式裸数字回潮(差值棘轮:只拦本次把可自动对档的裸数字加回来)',
+    script: 'check-token-literal-debt.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    // 2026-10-25 立(goal「样式全面对齐」):tokens-migrate 已把 261 个已入库屏的 3720 处裸数字转成 rnSpacing/rnType,
+    // 但此前没有任何判据管"新增" —— 随手写 padding: 16 就能把成果加回来。差值棘轮(§0.5):
+    // 锚点 = 该文件 HEAD blob 自身的可对档数,只拦本次变大;存量只报数(§12e)。
+    stagedTriggers: ['packages/app/src/', 'apps/mobile-rn/src/'],
+    skipEnv: 'HUSKY_SKIP_TOKEN_LITERAL_DEBT',
+    onFailHint: [
+      '',
+      '  💡 修复(不是跳门):node scripts/tokens-migrate.mjs <file> --apply',
+      '     判据读数:node scripts/check-token-literal-debt.mjs(--staged 判本次 / 无参全量报数)',
+      '     自检:node scripts/check-token-literal-debt.mjs --self-test(12 例,含阳性对照)',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
