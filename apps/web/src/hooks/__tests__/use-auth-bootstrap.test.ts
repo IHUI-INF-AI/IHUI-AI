@@ -277,6 +277,27 @@ describe('E. 无任何 refresh 凭据:不发 /auth/refresh(2026-10-14 控制台�
   })
 })
 
+describe('F. forceAttempt:服务端守卫已证明 refresh cookie 在场的现场(2026-10-26)', () => {
+  it('本地无任何可见凭据 + forceAttempt ⇒ 仍然发一次刷新(否则有 30 天会话也被判匿名)', async () => {
+    // beforeEach 已复位成匿名首访:isAuthenticated=false / 无 auth cookie / 无 established 标记
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(false)
+    mocks.getLastRefreshFailure.mockReturnValue('transient')
+    mocks.refreshAccessTokenOnce.mockResolvedValue(null)
+
+    const { result } = renderHook(() => useAuthBootstrap({ forceAttempt: true }))
+
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(mocks.refreshAccessTokenOnce).toHaveBeenCalledTimes(1)
+  })
+
+  it('不传 forceAttempt ⇒ 保持匿名首访零噪声,不发刷新', async () => {
+    const { result } = renderHook(() => useAuthBootstrap())
+
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(mocks.refreshAccessTokenOnce).not.toHaveBeenCalled()
+  })
+})
+
 describe('B. 冷启动准入:httpOnly cookie 看不见 ≠ 没有(2026-10-20)', () => {
   /**
    * 病灶:两个 token cookie 都是 httpOnly,`document.cookie` 里看不到;`ihui-auth` 只持久化

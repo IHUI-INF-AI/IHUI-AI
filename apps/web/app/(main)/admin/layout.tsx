@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth'
+import { hasSessionEstablished, isSessionLoggedOut } from '@/lib/session-marker'
 
 /**
  * Admin 布局:客户端鉴权守卫(迁移自 D 盘 edu/admin/admin/src/router/guard.js L260-307 addDynamicRoute)。
@@ -29,6 +30,16 @@ import { useAuthStore } from '@/stores/auth'
 const ADMIN_ROLE_THRESHOLD = 1
 /** 等资料落定的宽限:/auth/me 走隧道实测 1–2s,取 10s 留足余量;到点仍无 roleId 才按无权限处理。 */
 const ROLE_SETTLE_GRACE_MS = 10_000
+
+/**
+ * 「未登录」但会话可恢复时的宽限(2026-10-26)。
+ *
+ * `isAuthenticated` 只是持久化的 UI 标志位:上一次被动失效(expireSession)会把它落成 false,
+ * 而 30 天 httpOnly refresh cookie 可能仍然有效。立即 307 会把这类用户直接送回登录页
+ * (实测「隔天打开后台就要重新登录」)。这里先等 bootstrap / 401 拦截器把登录态接回来,
+ * 到点仍为 false 才踢 —— 失效方向是"多等一次",不是"多弹一次"。
+ */
+const RECOVER_GRACE_MS = 3_000
 
 /** 全出血页面:自己要「填满工作区 + 内部滚动」,不能再被 max-w-7xl + 四边 padding 包住。 */
 const FULL_BLEED_PREFIXES = ['/admin/monitor/panels', '/admin/monitor/wallboard'] as const
@@ -59,12 +70,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // Next.js Router 初始化窗口("Router action dispatched before initialization"),
     // 且 dev 下与 middleware/proxy 的 307 形成双重守卫竞态。下一帧 Router 必已就绪;
     // 依赖变化导致 effect 重跑时 cleanup 取消未执行导航,避免重复跳转。
-    // 未登录:middleware 应已拦截,这里作为客户端兜底
+    // 未登录:middleware 应已拦截,这里作为客户端兜底。
+    // 但"曾登录过且未主动登出"时先给一次恢复宽限 —— 详见 RECOVER_GRACE_MS 头注。
     if (!isAuthenticated) {
-      const raf = requestAnimationFrame(() => {
+      const toLogin = () => {
         router.replace('/sso/login?redirect=' + encodeURIComponent(window.location.pathname))
-      })
-      return () => cancelAnimationFrame(raf)
+      }
+      const recoverable = hasSessionEstablished() && !isSessionLoggedOut()
+      if (!recoverable) {
+        const raf = requestAnimationFrame(toLogin)
+        return () => cancelAnimationFrame(raf)
+      }
+      const timer = setTimeout(() => {
+        if (useAuthStore.getState().isAuthenticated) return
+        requestAnimationFrame(toLogin)
+      }, RECOVER_GRACE_MS)
+      return () => clearTimeout(timer)
     }
     // 已登录但非管理员:跳转到 /forbidden
     //
