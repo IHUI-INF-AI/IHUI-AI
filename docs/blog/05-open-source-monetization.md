@@ -92,7 +92,7 @@ plans:
   - name: Pro
     price_monthly: 49  # CNY
     price_yearly: 499
-    models: all 176  # 全模型
+    models: all 101  # 全模型
     messages_per_day: 1000
     rag_kb_count: 10
     rag_docs_per_kb: 500
@@ -104,7 +104,7 @@ plans:
   - name: Team
     price_monthly: 199  # 每人每月
     price_yearly: 1999
-    models: all 176
+    models: all 101
     messages_per_day: unlimited
     rag_kb_count: 100
     rag_docs_per_kb: 5000
@@ -116,7 +116,7 @@ plans:
   - name: Enterprise
     price_monthly: 2999  # 起步价
     price_yearly: 29990
-    models: all 176 + private models
+    models: all 101 + private models
     messages_per_day: unlimited
     rag_kb_count: unlimited
     mcp_tools: unlimited
