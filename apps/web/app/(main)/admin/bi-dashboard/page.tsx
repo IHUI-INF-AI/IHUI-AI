@@ -48,6 +48,8 @@ interface BiDashboardData {
     pv: number
     uv: number
     pages: Array<{ url: string; pv: number; uv: number }>
+    /** 近 7 日逐日 PV/UV(缺失日已由后端补 0) */
+    daily: Array<{ date: string; pv: number; uv: number }>
   }
 }
 
@@ -60,7 +62,7 @@ const EMPTY: BiDashboardData = {
   trend: [],
   categories: [],
   sources: [],
-  visits: { pv: 0, uv: 0, pages: [] },
+  visits: { pv: 0, uv: 0, pages: [], daily: [] },
 }
 
 const STAT_CARDS = [
@@ -87,6 +89,36 @@ export default function BiDashboardPage() {
   const categoryRows = d.categories ?? []
   const sourceRows = d.sources ?? []
   const visitPages = d.visits?.pages ?? []
+  const visitDaily = d.visits?.daily ?? []
+
+  const visitTrendOption: EChartsOption = {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['浏览量 PV', '访客数 UV'], top: 0 },
+    grid: { left: 50, right: 20, top: 40, bottom: 30 },
+    xAxis: {
+      type: 'category',
+      data: visitDaily.map((t) => t.date.slice(5)),
+      boundaryGap: false,
+    },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [
+      {
+        name: '浏览量 PV',
+        type: 'line',
+        smooth: true,
+        data: visitDaily.map((t) => t.pv),
+        itemStyle: { color: CHART_BLUE },
+        areaStyle: { opacity: 0.1 },
+      },
+      {
+        name: '访客数 UV',
+        type: 'line',
+        smooth: true,
+        data: visitDaily.map((t) => t.uv),
+        itemStyle: { color: CHART_GREEN },
+      },
+    ],
+  }
 
   const trendOption: EChartsOption = {
     tooltip: { trigger: 'axis' },
@@ -214,6 +246,16 @@ export default function BiDashboardPage() {
         </CardHeader>
         <CardContent>
           <EChart option={trendOption} loading={isLoading} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">近 7 日访问趋势</CardTitle>
+          <p className="text-xs text-muted-foreground">每天被打开多少次（PV）与多少人到访（UV）</p>
+        </CardHeader>
+        <CardContent>
+          <EChart option={visitTrendOption} loading={isLoading} />
         </CardContent>
       </Card>
 
