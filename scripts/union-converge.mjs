@@ -162,7 +162,9 @@ import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
 // 同一份(§0.6 单一真相源,本器零复算)。
 // G-34/G-43(2026-10-25):补"复合主键/指纹"认账所需的一把既有单源 —— `titleFpOf`(题面 32 字指纹,
 // scrub 维三同一把尺);本器不写第二份台账解析。
-import { declaredRows, titleFpOf } from './scrub-declared-removals.mjs'
+// 2026-10-26:`rowStateOf` 也走同一出口 —— "本侧那份同主键行是活票还是已结清"决定让不让路,
+// 状态位不许在本器里另写一条正则(§0.6/§22c)。
+import { declaredRows, rowStateOf, titleFpOf } from './scrub-declared-removals.mjs'
 // 归档移出凭据(2026-10-25,守门 207 第二刀①):AGENTS 的重复登记副本按 §1 合法出路
 // 「整区逐字移入 archive + 原位留指针」搬走后,对侧旧基线里那份逐字同行会被本表读成
 // 「对侧相对基底新增」⇒ 补回,清偿成果一轮被吞回。判据住 lib(与 merge-live-doc 的第四态同源),
@@ -1039,11 +1041,16 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
   const fam = declaredFamilyCaps(oursText, want, declaredOverride)
   for (const [l, via] of fam.withheld) {
     want.delete(l)
-    if (report) report.push({ line: l, via })
+    // 凭据随报告交回(哪条台账记录 / 哪个主键·指纹):扣行判据必须能自答"凭哪一条"(§0.10)。
+    if (report) report.push({ line: l, via, evidence: fam.evidence?.get(l) ?? null })
   }
   for (const [l, why] of fam.undetermined) {
     want.delete(l)
     if (report) report.push({ line: l, via: 'undetermined', why })
+  }
+  // 让路桶方向与上一桶**相反**:照旧补回(证据不足/本面活票同题),只点名不删。两桶绝不可合并。
+  for (const [l, why] of fam.held || []) {
+    if (report) report.push({ line: l, via: 'held', why })
   }
   return want
 }
@@ -1259,12 +1266,21 @@ function rawMentionsId(raw, id) {
  *
  * 判序(补回候选 = 期望表里**本侧 0 份**的登记行;分族键**指纹优先**,与门 203 同源):
  *   A. 在册让路:候选的复合主键(`compositeKeyOf`)或题面指纹(`extractTaskFingerprint`)在本面
- *      任一登记行上出现 ⇒ 同题仍在册、处置权未行使(或别人真在写同题)⇒ 一条不扣(与 scrub
+ *      还有**活票**(未勾)⇒ 同题仍开着、处置权未行使(或别人真在写同题)⇒ 一条不扣(与 scrub
  *      维二②' 同一条让路纪律)。
+ *      〔2026-10-26 收窄,治"让路让成永久回潮"〕此前这一档是"本面出现同主键**即**不扣",于是
+ *      "本侧已翻勾、清扫器还没摘"的那个窗口里(实测 5 分钟节拍 + 分钟级合并,窗口天天撞上),
+ *      对侧的 open 旧形态被判"同题在册"照常补回;等清扫器把 x 形态摘掉,面上只剩回捞回来的
+ *      open 旧形态 —— **净效果就是"已结清行被回捞成原形态"**。判据改成看**勾选态**:同主键在本面
+ *      **全是已勾**是"这件活已经结清"的证据(不是活票),不构成让路;只要有一枚未勾就照旧让路。
+ *      失效方向仍是"多留一份"(拿不准就不扣),但不再把"已结清"误读成"仍在册"。
  *   B. 台账命中⇒扣(不回补),逐条计数点名:指纹 ∈ 台账行指纹族 ∨ 主键 ∈ 台账行主键族 ∨
  *      题面 32 字指纹 ∈ `dropTitleFps`(f11-purge 族,与 scrub 维三同一把尺)。
  *      所有键/指纹一律取自单源(`plan-task-index` / `check-plan-task-duplicates` /
  *      `scrub-declared-removals` 的既有出口),本器零复算(§0.6/§22c)。
+ *      **每一处扣减都必须能出示台账凭据**(哪条记录、哪个主键/指纹),随 `evidence` 交回并把
+ *      被扣的**整行原文**打进输出留痕(§0.10:删行判据要能回答"凭哪一条")。任一扣减拿不出
+ *      凭据 ⇒ **整批不扣**(见 `held` 桶:照旧补回并点名,绝不清空交差)。
  *   C. 未判定⇒不回补并点名原因(§0.3,不得静默当"没删过"):
  *      · 台账两份文件都不在位 / 现读抛 ⇒ 本面对登记行候选**一律**不回补(对侧面上行还在,
  *        台账修好后下一轮照常;而"照旧补回"是已实测的 100% 回潮通道);
@@ -1279,13 +1295,18 @@ function rawMentionsId(raw, id) {
  * @param {Map<string,number>} want 期望表(补回候选 = 其中本侧 0 份的行;本函数只读不改)
  * @param {object|Set|null} [declared] 注入用(镜像测试传 `declaredRows(tmp, files)` 的返回值);
  *   生产面不传 ⇒ 现读 `declaredRows(ROOT)`。旧 Set 形兼容:无 `filesSeen` ⇒ 不触发"整台账缺失"档。
+ * @returns {{withheld:Map<string,string>, undetermined:Map<string,string>, held:Map<string,string>,
+ *   evidence:Map<string,{via:string,key?:string,fingerprint?:string,titleFp?:string,ledgerRows:string[]}>}}
+ *   `withheld` = 扣掉(不回补);`undetermined` = 未判定(也不回补,§0.3);`held` = 让路(**照旧补回**,
+ *   与 `undetermined` 方向相反,不得合并成一个桶);`evidence` = 每一处扣减的台账凭据。
  */
 export function declaredFamilyCaps(oursText, want, declared = null) {
   const withheld = new Map() // 行 -> 认账通道('fingerprint' | 'key' | 'title')
   const undetermined = new Map() // 行 -> 未判定原因(必须逐条打印,§0.3)
-  if (typeof oursText !== 'string' || oursText === '' || !(want instanceof Map)) {
-    return { withheld, undetermined }
-  }
+  const held = new Map() // 行 -> 让路原因(照旧补回;证据不足/活票在册都在这一桶)
+  const evidence = new Map() // 行 -> 台账凭据 {via, key/fingerprint/titleFp, ledgerRows}
+  const empty = { withheld, undetermined, held, evidence }
+  if (typeof oursText !== 'string' || oursText === '' || !(want instanceof Map)) return empty
   let d = declared
   let readError = null
   if (d === null || d === undefined) {
@@ -1301,24 +1322,40 @@ export function declaredFamilyCaps(oursText, want, declared = null) {
   const malformedLines = d instanceof Set ? [] : Array.isArray(d?.malformedLines) ? d.malformedLines : []
   const filesSeen = d instanceof Set ? null : typeof d?.filesSeen === 'number' ? d.filesSeen : null
   // 台账族:指纹优先;解不开主键与指纹的台账行不参与本维(逐字维照常兜它们)。
-  const ledFps = new Set()
-  const ledKeys = new Set()
+  // 索引存**原文数组**而不是裸 Set:扣行时要逐条出示凭据(哪条记录),只留一个布尔就答不出。
+  const ledFps = new Map()
+  const ledKeys = new Map()
+  const pushTo = (m, k, l) => {
+    if (!m.has(k)) m.set(k, [])
+    m.get(k).push(l)
+  }
   for (const l of set) {
     const fp = extractTaskFingerprint(l)
-    if (fp) ledFps.add(fp)
+    if (fp) pushTo(ledFps, fp, l)
     const ck = compositeKeyOf(l)
-    if (ck) ledKeys.add(ck)
+    if (ck) pushTo(ledKeys, ck, l)
   }
+  // 主键索引优先用台账构造出口带回来的 `keyIndex`(§0.6 单源);旧注入形(裸 Set / 无该字段)
+  // 落回上面从 `set` 现算的那一份 —— 两条路产出的都是"主键 → 台账原文",不是第二份判据。
+  const ledKeyIndex = d?.keyIndex instanceof Map ? d.keyIndex : ledKeys
+  const ledTitleRows = d?.dropTitleRows instanceof Map ? d.dropTitleRows : new Map()
   const co = counter(oursText)
-  // A. 本面在册族(同主键或同题面指纹)⇒ 该族一条不扣。
-  const oursFps = new Set()
-  const oursKeys = new Set()
+  // A. 本面在册族:**活票**(未勾)才让路。已勾 = 这件活已结清,不构成"处置权未行使"。
+  // 同一把尺子问状态:`rowStateOf`(scrub 单源,内部走 `parseTaskRows`),本器不另写勾选态正则。
+  const oursFps = new Map() // fp -> {open:boolean, rows:string[]}
+  const oursKeys = new Map() // ck -> {open:boolean, rows:string[]}
+  const noteOurs = (m, k, l) => {
+    const cur = m.get(k) || { open: false, rows: [] }
+    if (rowStateOf(l) !== 'done') cur.open = true
+    cur.rows.push(l)
+    m.set(k, cur)
+  }
   for (const l of oursText.split('\n')) {
     if (l === '') continue
     const fp = extractTaskFingerprint(l)
-    if (fp) oursFps.add(fp)
+    if (fp) noteOurs(oursFps, fp, l)
     const ck = compositeKeyOf(l)
-    if (ck) oursKeys.add(ck)
+    if (ck) noteOurs(oursKeys, ck, l)
   }
   // C. 整台账读不到的那一档(缺失/抛):只在这一档里把"未判定"铺到全部登记行候选。
   const blind = readError !== null || filesSeen === 0
@@ -1329,22 +1366,28 @@ export function declaredFamilyCaps(oursText, want, declared = null) {
     if (!/^\s*- \[[ xX]\]/.test(l)) continue // 只认登记行(与逐字维同射程)
     const ck = compositeKeyOf(l)
     const fp = extractTaskFingerprint(l)
-    if ((ck && oursKeys.has(ck)) || (fp && oursFps.has(fp))) continue // A. 同题在册 ⇒ 不扣
+    // A. 同题**活票**在册 ⇒ 不扣(已勾形态不构成让路,见头注 2026-10-26 那一段)。
+    const fpLive = fp && oursFps.get(fp)?.open
+    const keyLive = ck && oursKeys.get(ck)?.open
+    if (fpLive || keyLive) continue
     if (blind) {
       undetermined.set(l, `${blindWhy} ⇒ 无法核对主键/指纹,未判定不回补`)
       continue
     }
     if (fp && ledFps.has(fp)) {
       withheld.set(l, 'fingerprint')
+      evidence.set(l, { via: 'fingerprint', fingerprint: fp, ledgerRows: ledFps.get(fp) })
       continue
     }
-    if (ck && ledKeys.has(ck)) {
+    if (ck && ledKeyIndex.has(ck)) {
       withheld.set(l, 'key')
+      evidence.set(l, { via: 'key', key: ck, ledgerRows: ledKeyIndex.get(ck) })
       continue
     }
     const tf = titleFpOf(l)
     if (tf && dropFps.has(tf)) {
       withheld.set(l, 'title')
+      evidence.set(l, { via: 'title', titleFp: tf, ledgerRows: ledTitleRows.get(tf) || [] })
       continue
     }
     if (malformedLines.length > 0 && ck) {
@@ -1354,7 +1397,47 @@ export function declaredFamilyCaps(oursText, want, declared = null) {
       }
     }
   }
-  return { withheld, undetermined }
+  // §0.10 零损失自证:**每一处扣减都要出示台账凭据**。任一扣减拿不出(账本族索引空 / 坏注入形)
+  // ⇒ 整批不扣并逐条落 `held`(照旧补回 + 大声点名),绝不"清空 withheld 就当没事"。
+  const missing = [...withheld.keys()].filter((l) => {
+    const ev = evidence.get(l)
+    return !ev || !Array.isArray(ev.ledgerRows) || ev.ledgerRows.length === 0
+  })
+  if (missing.length > 0) {
+    for (const l of withheld.keys()) {
+      held.set(
+        l,
+        `扣减凭据缺台账原文(缺口 ${missing.length} 处:${missing[0].trim().slice(0, 48)})⇒ 整批不扣,照旧补回`,
+      )
+    }
+    withheld.clear()
+    evidence.clear()
+  }
+  return { withheld, undetermined, held, evidence }
+}
+
+/**
+ * 一处"扣行"的台账凭据人读行(§0.10:删行判据必须能回答"凭哪一条记录、哪个主键")。
+ * `evidence` 由 `declaredFamilyCaps` 随每次扣减一并交回,形状:
+ * `{via:'key'|'fingerprint'|'title', key?/fingerprint?/titleFp?, ledgerRows:string[]}`。
+ * 这里只做排版 —— 不判任何东西;`ledgerRows` 为空是**上游 bug**(那一档已在源头整批回退成
+ * `held`),本函数给一个会自己暴露问题的占位串,便于读账的人当场看见。
+ */
+export function formatLedgerEvidence(evidence) {
+  if (!evidence) return '❌ 缺凭据(上游未交回 evidence)'
+  const rows = Array.isArray(evidence.ledgerRows) ? evidence.ledgerRows : []
+  const id =
+    evidence.via === 'key'
+      ? `复合主键=${evidence.key}`
+      : evidence.via === 'fingerprint'
+        ? `题面指纹=${evidence.fingerprint}`
+        : evidence.via === 'title'
+          ? `题面 32 字指纹=${evidence.titleFp}`
+          : `通道=${evidence.via}`
+  if (rows.length === 0) return `${id} / ❌ 台账原文 0 条(凭据缺口 ⇒ 上游本应整批不扣)`
+  const head = String(rows[0]).trim()
+  // 台账原文可能很长(实测单行 6.5KB):凭据行给前 120 字 + 长度,完整原文就在台账文件里。
+  return `${id} / 台账 ${rows.length} 条,首条(len=${String(rows[0]).length}):${head.slice(0, 120)}${head.length > 120 ? '…' : ''}`
 }
 
 /** union 的行切分出口:产物一律以 `\n` 收尾(与改动前逐字同形,只是把这一步收成一份实现)。 */
@@ -2027,13 +2110,20 @@ export function buildUnion(
       if (withheldReport.length) {
         for (const w of withheldReport) ledgerWithheld.push({ doc: p, ...w })
         const nUnd = withheldReport.filter((w) => w.via === 'undetermined').length
+        const nHeld = withheldReport.filter((w) => w.via === 'held').length
         console.log(
-          `   摘除台账认账:拦下 ${withheldReport.length} 行补回候选(${p};本侧已按台账清掉或无法排除的那一族,对侧/基底的改写形态不回补${nUnd ? `;其中未判定 ${nUnd} 行,原因逐条点名` : ''})`,
+          `   摘除台账认账:拦下 ${withheldReport.length - nHeld} 行补回候选(${p};本侧已按台账清掉或无法排除的那一族,对侧/基底的改写形态不回补${nUnd ? `;其中未判定 ${nUnd} 行,原因逐条点名` : ''}${nHeld ? `;另 ${nHeld} 行让路照旧补回,原因逐条点名` : ''})`,
         )
-        for (const w of withheldReport.slice(0, 8))
-          console.log(`     · [${w.via}] ${(w.why ? `${w.why} —— ` : '') + w.line.trim().slice(0, 60)}`)
-        if (withheldReport.length > 8)
-          console.log(`     · 其余 ${withheldReport.length - 8} 行同批已计数,清单随报告面可查`)
+        // 扣掉的**整行原文**必须进输出留痕(不截断),并逐条出示台账凭据 —— 删行判据的自证面。
+        for (const w of withheldReport) {
+          if (w.via === 'withheld' || w.via === 'held' || w.via === 'undetermined') continue
+          console.log(`     · [${w.via}] 扣行原文:${w.line}`)
+          console.log(`       证据:${formatLedgerEvidence(w.evidence)}`)
+        }
+        for (const w of withheldReport) {
+          if (w.via !== 'undetermined' && w.via !== 'held') continue
+          console.log(`     · [${w.via}] ${(w.why ? `${w.why} —— ` : '') + w.line.trim()}`)
+        }
       }
       if (foldOn) foldLedgers.set(p, built0.ledger)
       if (foldOn && built0.stalePicks?.length) foldStalePicks.set(p, built0.stalePicks)
@@ -5128,6 +5218,8 @@ export const __test__ = {
   // 摘除台账的复合主键/指纹维(G-34/G-43, 2026-10-25):镜像测试直接用它,判序里所有键/指纹
   // 均取自单源,测试同样不得复制第二份(§22c)
   declaredFamilyCaps,
+  // 扣行凭据的排版出口(2026-10-26):测试直接用它验"每一处扣减都出得了台账凭据",不复制一份排版
+  formatLedgerEvidence,
   // 折叠台账这一族(2026-10-16):镜像测试直接用它,不得在测试里再写一份折叠/举证判据(§22c)
   foldLedgerOf,
   foldDedupe,
