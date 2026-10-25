@@ -3062,6 +3062,15 @@ test('T-reclassify 声明式改桶:声明与现算同形才放行,不同形/陈�
   assert.equal(all.ok, true, JSON.stringify(all.violations))
   assert.equal(all.reclassified, 1)
   assert.deepEqual(all.violations, [])
+
+  // 改桶与加完整租约必须分两次:同批既改正文又插牌,条件③(剥牌后逐字节相等)必不成立 ⇒ 拒。
+  const claimTwin = '- [ ] **R8** 该口径等机主拍板'
+  const both = __test__.judgeRowRewriteConservation({
+    pairs: [{ before: claimTwin, after: '- [ ]（进行中@2026-10-25/甲） **R8** 该口径已裁' }],
+    reclassify: declFor(claimTwin),
+  })
+  assert.equal(both.ok, false, '改桶+加约同批必须拒(分两次定向改写)')
+  assert.match(both.violations[0].bad.join('\n'), /条件③/)
 })
 
 test('T-reclassify readInputs 校验:桶名/理由长度/from==to/陈旧 before 全拒', () => {
