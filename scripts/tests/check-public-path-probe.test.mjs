@@ -150,9 +150,12 @@ test('④ 形状锁:这把尺子不得调用任何改状态的命令、不得另
   // RC 标记只能来自 run-evidence 那一份判据(自己拼字符串 = 两套标记必漂移)
   assert.match(src, /from\s+'\.\/run-evidence\.mjs'/, '必须 import run-evidence 的判据')
   assert.equal(/['"]#EVIDENCE-RC=/.test(src), false, '不得在本文件里重新拼 RC 标记字面量')
-  // rmSync 只允许出现在自检夹具一处(清理自己造的临时取证);出现第二处即扩大写删面
-  const rmUses = src.split('\n').filter((l) => /\brmSync\s*\(/.test(l) && !l.trim().startsWith('//') && !l.trim().startsWith('*'))
-  assert.ok(rmUses.length <= 1, `rmSync 至多一处(自检夹具),实为 ${rmUses.length}`)
+  // rmSync 只允许出现在自检夹具里(清理自己造的临时取证/临时台账);出现第三处或落在 selfTest 之外即扩大写删面
+  const rmLines = src.split('\n').map((l, i) => [l, i + 1]).filter(([l]) => /\brmSync\s*\(/.test(l) && !l.trim().startsWith('//') && !l.trim().startsWith('*'))
+  const stStart = src.split('\n').findIndex((l) => /^function selfTest\(\)\s*\{/.test(l))
+  const stEnd = src.split('\n').findIndex((l) => /^async function main\(/.test(l))
+  assert.ok(rmLines.length <= 2, `rmSync 至多两处(均为自检夹具),实为 ${rmLines.length}:${rmLines.map(([, n]) => n).join(',')}`)
+  for (const [, n] of rmLines) assert.ok(stStart >= 0 && stEnd > stStart && n > stStart && n < stEnd, `rmSync 只准在 selfTest 夹具内(第 ${n} 行落在其外)`)
 })
 
 test('④b 形状锁(测试自锁):本测试的写面钉死在 probers 目录,不得改任何仓库内容', () => {
@@ -194,6 +197,22 @@ test('⑥ connect 超时具名落 connStall(它既不是对端坏、也不是尺
   const refused = probe.classifySample({ status: null, ms: 3, causeCode: 'ECONNREFUSED,127.0.0.1:8801' })
   assert.equal(refused.stage, 'conn')
   assert.equal(refused.unavailable, true)
+})
+
+test('⑥b 空闲超时(PROBE_INACTIVITY,握手完成后)⇒ overCeiling/不可归因,不得记成"尺子自己失明"(2026-10-25 现读 E/bsm 那一型)', () => {
+  const real = { status: null, ms: 10_460, errorName: 'Error', errorCode: 'PROBE_INACTIVITY', causeCode: 'PROBE_INACTIVITY,PROBE_INACTIVITY,Error', stageReached: 'tlsDone', stages: { dns: 2, tcp: 260, tls: 520, head: null, body: null } }
+  const c = probe.classifySample(real)
+  assert.equal(c.bucket, 'overCeiling', '摘掉 PROBE_INACTIVITY 那一支即翻红(旧实现落 probeError)')
+  assert.equal(c.indeterminate, true)
+  assert.notEqual(c.probeSideBroken, true, '不得记成"本地探测故障" —— 20% 失明线会把一次真慢洗成"本轮不出结论"')
+  assert.notEqual(c.unavailable, true, '也不得记成对端不可用')
+  // 变异对照:同一条错误形态,坏点停在握手中(没到 TLS 完成)⇒ 必须仍归 tlsStall(本机出口段那一型不许被新支吞掉)
+  const preTls = probe.classifySample({ ...real, stageReached: 'tcp', stages: { dns: 2, tcp: 260, tls: null, head: null, body: null } })
+  assert.equal(preTls.bucket, 'tlsStall')
+  // 腿面落点:空闲超时的腿 ⇒ 未判定(不得顶绿,也不得判红)
+  const j = probe.judgeEndpointSample('bsm', 'https://bsm.aizhs.top/sso/login', real)
+  assert.equal(j.tier, 'undetermined')
+  assert.equal(j.verdict, 'unjudged')
 })
 
 test('⑦ 慢样本按跳分账且总额不丢;旧取证(没有 stage 字段)按 status/bucket 派生', () => {
@@ -454,42 +473,118 @@ test('⑰ G-960 classifyPublicLeg:快速 5xx 断流必须归"入口段",不得�
   assert.equal(probe.classifyPublicLeg(stall, localFast).tag, '本机出口段')
 })
 
-// ───────────── 2026-10-24 新增(票 G-960 判据面):四端各自 hostname + 边缘可达/源站不可达两档 ─────────────
+// ───────────── 2026-10-24 立、2026-10-25 收口(票 G-960 判据面):靶只认台账 + 3xx 跟到终态 + 逐维三态 ─────────────
 
-test('⑱ G-960 四端靶形状锁:默认矩阵是 www/api/sso/ai 四个各自 hostname(只钉裸域或 www 一条腿 = 立案现场)', () => {
-  const eps = probe.PUBLIC_ENDPOINTS
-  assert.equal(eps.length, 4)
-  assert.deepEqual(eps.map((e) => e.id), ['www', 'api', 'sso', 'ai'])
-  assert.deepEqual(eps.map((e) => new URL(e.url).host), ['www.aizhs.top', 'api.aizhs.top', 'sso.aizhs.top', 'ai.aizhs.top'])
-  assert.deepEqual(eps.map((e) => e.host), eps.map((e) => new URL(e.url).host), 'host 字段必须与 url 的 host 逐字一致(防两套靶)')
+const LEGS_SRC = resolve(ROOT, 'scripts', 'data', 'public-path-legs.json')
+
+test('⑱ G-960 靶形状锁:腿清单只认 scripts/data/public-path-legs.json 一处登记面,每行带仓内出处与现读凭据', () => {
+  const load = probe.loadPublicLegs(LEGS_SRC)
+  assert.equal(load.state, 'ok', `靶台账必须现读可用,实为 ${load.state}:${load.reason}`)
+  const hosts = load.legs.map((e) => new URL(e.url).host)
+  // 立案现场:靶只钉裸域(或只钉一条腿)⇒ 真腿结构上量不到。www + api + sso + ai 四条腿必须同时在册
+  for (const h of ['www.aizhs.top', 'api.aizhs.top', 'sso.aizhs.top', 'ai.aizhs.top']) assert.ok(hosts.includes(h), `缺腿:${h}`)
+  assert.equal(new Set(hosts).size, hosts.length, '同一 host 不得在册两次(重复身份)')
+  for (const e of load.legs) {
+    assert.equal(e.host, new URL(e.url).host, `${e.id}:host 字段与 url 的 host 必须逐字一致(两套靶必漂移)`)
+    assert.ok(e.registeredIn.length > 0, `${e.id}:缺 registeredIn ⇒ 路径是凭记忆写的,票面禁止`)
+    assert.match(String(e.measuredOn), /^\d{4}-\d{2}-\d{2}$/, `${e.id}:measuredOn 形态坏 ⇒ 现读凭据不成立`)
+    assert.ok(String(e.measured).trim().length > 0, `${e.id}:缺 measured(现读状态形态)`)
+    assert.match(String(e.rawRoleOrigin || e.origin || ''), /(127\.0\.0\.1|localhost):\d+/, `${e.id}:缺源站(红了收信人要能查到那一段,§5e-1)`)
+  }
+  assert.equal(load.dropped.length, 0, `台账里有不合格行被剔:${JSON.stringify(load.dropped)}`)
+  // 单一真相源(§0.6):代码侧不得再留第二份硬编码靶
+  const src = readFileSync(SRC, 'utf8')
+  assert.equal(/PUBLIC_ENDPOINTS/.test(src), false, '旧硬编码矩阵 PUBLIC_ENDPOINTS 必须已退役')
+  assert.equal(/id:\s*'www',\s*host:/.test(src), false, '代码里不得再抄一份腿清单')
+  assert.ok(/public-path-legs\.json/.test(src), '尺子必须点名唯一登记面')
   assert.equal(new URL(probe.ENTRY_URL_DEFAULT).host, 'www.aizhs.top')
-  assert.equal(probe.ZERO_INFO_LEGACY_URL, 'https://aizhs.top/sso/login', '裸域旧靶只作夹具,不得回到默认矩阵')
+  assert.equal(probe.ZERO_INFO_LEGACY_URL, 'https://aizhs.top/sso/login', '裸域旧靶只作夹具/文档对照,不得回到射程')
 })
 
-test('⑲ G-960 两档判据正反照:522/530→红、301→边缘可达放过、200→绿、超时/DNS→未判定(夹具锁判据,不发网络)', () => {
-  const ep = (status, ms = 300) => probe.judgeEndpointSample('www', 'https://www.aizhs.top/sso/login', { status, ms })
+test('⑱b G-960 台账腐烂 ⇒ 未判定(缺文件/坏 JSON/枚举 0/到期/缺 expires/凭记忆写/host 漂移/撞号/时刻坏),绝不回落成第二份靶', () => {
+  mkdirSync(DIR, { recursive: true })
+  const written = []
+  const wf = (name, text) => {
+    const p = resolve(DIR, name)
+    writeFileSync(p, text, 'utf8')
+    written.push(p)
+    return p
+  }
+  try {
+    const good = { id: 'x', host: 'x.test', url: 'https://x.test/', registeredIn: ['scripts/tests/check-public-path-probe.test.mjs:1'], measuredOn: '2026-10-25', measured: '200', origin: '127.0.0.1:8801' }
+    const cases = [
+      ['legs-missing.json', null, /读不到/],
+      ['legs-broken.json', '{不是 JSON', /不是合法 JSON/],
+      ['legs-zero.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [] }), /枚举为 0/],
+      ['legs-expired.json', JSON.stringify({ schema: 1, expires: '2020-01-01', legs: [good] }), /到期/],
+      ['legs-noexpires.json', JSON.stringify({ schema: 1, legs: [good] }), /expires/],
+      ['legs-nomemory.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [{ ...good, registeredIn: undefined }] }), /registeredIn/],
+      ['legs-hostdrift.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [{ ...good, host: '漂移.host' }] }), /逐字不等/],
+      ['legs-dupid.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [good, { ...good, url: 'https://x.test/other' }] }), /撞号/],
+      ['legs-timerotate.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [{ ...good, measuredOn: '昨天' }] }), /measuredOn/],
+      ['legs-noorigin.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [{ ...good, origin: undefined }] }), /源站/],
+    ]
+    for (const [name, text, re] of cases) {
+      const p = text === null ? resolve(DIR, 'legs-does-not-exist.json') : wf(name, text)
+      const r = probe.loadPublicLegs(p)
+      assert.equal(r.state, 'unjudged', `${name}:台账腐烂必须落未判定,实为 ${r.state}`)
+      assert.match(r.reason, re, `${name}:未判定必须点名原因,实得 ${r.reason}`)
+    }
+    // 混合面:一行坏 + 一行好 ⇒ 好行仍入射程,但该面不得出合格证(缺腿就喊缺腿,不静默少探)
+    const mix = probe.loadPublicLegs(wf('legs-mixed.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [good, { ...good, id: 'y', host: '漂移.host', url: 'https://y.test/' }] })))
+    assert.equal(mix.state, 'unjudged')
+    assert.equal(mix.legs.length, 1, '合格行仍要留下(失效方向 = 多要一次登记,绝不少探一条)')
+    assert.equal(mix.dropped.length, 1)
+    // 形状锁:导出的默认面就是仓内那本台账(派发侧无需再传)
+    assert.equal(probe.PUBLIC_LEGS_FILE, LEGS_SRC)
+    assert.equal(probe.loadPublicLegs().file, probe.PUBLIC_LEGS_FILE)
+    assert.equal(probe.loadPublicLegs().state, 'ok', '默认面必须现读可用 —— 派发层(git-guardian)拿的就是这一枚')
+  } finally {
+    for (const p of written) if (p.startsWith(DIR)) rmSync(p, { force: true })
+  }
+})
+
+test('⑲ G-960 三档判据正反照(夹具锁判据,不发网络):5xx→红、终页 2xx→绿、止步 3xx/4xx/探不到→未判定且点名', () => {
+  const ep = (raw) => probe.judgeEndpointSample('www', 'https://www.aizhs.top/sso/login', raw)
   // 正照:522/530/5xx 是"源站不可达",必须判红 —— 不许并进 3xx 那一档放过
   for (const s of [522, 530, 500, 503]) {
-    const j = ep(s)
+    const j = ep({ status: s, ms: 300 })
     assert.equal(j.tier, 'origin-unreachable', `HTTP ${s} 必须落 origin-unreachable`)
     assert.equal(j.verdict, 'breach', `HTTP ${s} 必须判红`)
     assert.equal(j.stat.unavailable, 1, `HTTP ${s} 必须计入对端可归因失败(派发层的严重度档靠它)`)
+    assert.equal(j.leg, 'entry', '断流的定位必须是访客同经的入口段,不得指到本机出口(§5e-1)')
     assert.match(j.reasons.join(' '), /源站不可达/)
   }
-  // 反照:3xx 只算边缘可达,放过但不冒充源站健康
-  for (const s of [301, 302, 307]) {
-    const j = ep(s, 668)
-    assert.equal(j.tier, 'edge-reachable')
-    assert.equal(j.verdict, 'ok', `HTTP ${s} 只证明边缘可达,不得判红`)
-    assert.equal(j.reasons.length, 0)
-    assert.match(j.numbers, /不证明源站健康/)
+  // 2026-10-25 收紧:3xx **不再顶绿**(旧档 edge-reachable + verdict=ok 就是"断了也没人喊"那一格)
+  for (const s of [301, 302, 307, 308]) {
+    const capped = ep({ status: s, ms: 668, legHops: 3, redirectNote: '跟随已达上限 3 跳' })
+    assert.equal(capped.tier, 'redirect-unresolved', `HTTP ${s} 终读仍是 3xx ⇒ 必须落 redirect-unresolved`)
+    assert.equal(capped.verdict, 'unjudged', `HTTP ${s} 绝不得读成可用`)
+    assert.equal(capped.reasons.length, 1, '未判定必须点名(不得静默放过)')
+    assert.match(capped.numbers, /上限 3 跳/)
+    const broken = ep({ status: s, ms: 668, legHops: 0, redirectNote: 'Location 缺失 ⇒ 终点未知,不猜' })
+    assert.equal(broken.verdict, 'unjudged')
+    assert.match(broken.numbers, /终点未知/)
+    // 变异对照:同样一条 3xx,拿到"跟到终页 200"的读数后必须翻成绿(未判定不是恒红)
+    assert.equal(ep({ status: 200, ms: 668, legHops: 1, legUrl: 'https://www.aizhs.top/x' }).verdict, 'ok')
   }
-  // 200 = 源站可达(绿)
-  const ok = ep(200, 120)
-  assert.equal(ok.tier, 'origin-ok')
-  assert.equal(ok.verdict, 'ok')
-  assert.equal(ok.reasons.length, 0)
-  // 探不到:超时 / DNS / 我方上限 ⇒ 未判定,不得冒充通过
+  // 4xx:边缘或路由语义都能答 ⇒ 未判定(票面"避免把 404 当源站故障"的另一半:也不得把 4xx 当好)
+  for (const s of [403, 404, 429]) {
+    const j = ep({ status: s, ms: 300 })
+    assert.equal(j.tier, 'unverified-answer', `HTTP ${s} 不证明回源 ⇒ 未判定`)
+    assert.equal(j.verdict, 'unjudged')
+    assert.match(j.reasons.join(' '), /核对靶台账/, '出路必须可执行(§5e-1):先核对登记路径')
+  }
+  // 绿只发给终页 2xx,且必须带上"跟了几跳"的凭据
+  const okDirect = ep({ status: 200, ms: 120 })
+  assert.equal(okDirect.tier, 'origin-ok')
+  assert.equal(okDirect.verdict, 'ok')
+  assert.equal(okDirect.reasons.length, 0)
+  assert.doesNotMatch(okDirect.numbers, /跟随/, '未跟跳就不许凭空写出跳数(读数不得编造)')
+  const okVia = ep({ status: 200, ms: 900, legHops: 2, legUrl: 'https://sso.aizhs.top/admin/master/console/', chain: ['https://sso.aizhs.top/', 'https://sso.aizhs.top/admin/', 'https://sso.aizhs.top/admin/master/console/'] })
+  assert.equal(okVia.verdict, 'ok')
+  assert.match(okVia.numbers, /跟随 2 跳至 https:\/\/sso\.aizhs\.top\/admin\/master\/console\//)
+  // 探不到:超时 / DNS / 连接超时 ⇒ 未判定,不得冒充通过
   for (const raw of [
     { status: null, ms: 15_001, aborted: true, causeCode: 'ABORT_ERR' },
     { status: null, ms: 5, causeCode: 'ENOTFOUND' },
@@ -506,5 +601,46 @@ test('⑲ G-960 两档判据正反照:522/530→红、301→边缘可达放过�
     assert.equal(j.tier, 'origin-unreachable', `${code} 是对端可归因失败,必须红`)
     assert.equal(j.verdict, 'breach')
   }
+})
+
+test('⑲b G-960 跟跳决策:Location 解析与三态止步(纯函数,不发网络)—— 跟不完必须报名,不得当成终页', () => {
+  assert.equal(probe.nextHopUrl('https://sso.aizhs.top/', '/admin/'), 'https://sso.aizhs.top/admin/')
+  assert.equal(probe.nextHopUrl('https://x.test/a', 'https://www.aizhs.top/sso/login'), 'https://www.aizhs.top/sso/login')
+  assert.equal(probe.nextHopUrl('https://x.test/a', ''), null, '缺 Location ⇒ 不猜终点')
+  assert.equal(probe.nextHopUrl('https://x.test/a', undefined), null)
+  assert.equal(probe.nextHopUrl('https://x.test/a', 'ftp://x.test/b'), null, '非 http(s) 不得跟')
+  assert.equal(probe.nextHopUrl('https://x.test/a', 'http://'), null, '不可解析 ⇒ null')
+  assert.equal(probe.planLegHop({ status: 200, location: '/x' }, 'https://x.test/a', 0, 3).stop, 'terminal', '2xx 有 Location 也不许多跟')
+  assert.equal(probe.planLegHop({ status: 404, location: '/y' }, 'https://x.test/a', 0, 3).follow, false)
+  assert.equal(probe.planLegHop({ status: null, location: '/y' }, 'https://x.test/a', 0, 3).follow, false)
+  const cap = probe.planLegHop({ status: 302, location: '/y' }, 'https://x.test/a', 3, 3)
+  assert.equal(cap.stop, 'cap')
+  assert.match(cap.note, /上限 3 跳/)
+  const bad = probe.planLegHop({ status: 301 }, 'https://x.test/a', 0, 3)
+  assert.equal(bad.stop, 'broken')
+  assert.match(bad.note, /Location 缺失/)
+  const go = probe.planLegHop({ status: 307, location: '/y' }, 'https://x.test/a', 0, 3)
+  assert.equal(go.follow, true)
+  assert.equal(go.next, 'https://x.test/y')
+  assert.equal(probe.LEG_REDIRECT_MAX_HOPS, 3, '上限本身要钉住:调它必须同时改判据与取证')
+})
+
+test('⑲c G-960 逐维三态报数(照 check-tunnel-leg-health 的形态):不并桶 / 合计不等即未判定 / 枚举 0 判死', () => {
+  const mix = probe.summarizeLegStates([{ verdict: 'ok' }, { verdict: 'breach' }, { verdict: 'unjudged' }], { state: 'ok', legsExpected: 3 })
+  assert.equal(mix.ok, 1)
+  assert.equal(mix.breach, 1)
+  assert.equal(mix.unjudged, 1)
+  assert.equal(mix.total, 3)
+  assert.equal(mix.ledgerState, 'ok')
+  // 三态各自独立:一条红不得把另一条未判定洗成 0,也不得被"多数绿"顶掉
+  const short = probe.summarizeLegStates([{ verdict: 'ok' }], { state: 'ok', legsExpected: 3 })
+  assert.match(short.note, /有腿没探到/, '台账 3 条只量到 1 条 ⇒ 必须点名,不得按"1 条全绿"出证')
+  const none = probe.summarizeLegStates([], { state: 'ok', legsExpected: 0 })
+  assert.match(none.note, /判死/)
+  const dead = probe.summarizeLegStates([], { state: 'unjudged', reason: '靶台账读不到:ENOENT', legsExpected: 0 })
+  assert.equal(dead.ledgerState, 'unjudged')
+  assert.match(dead.note, /不得按"0 个坏点"出合格证/)
+  // 形态不认识的一律算未判定(不得默认成 ok —— 那正是本票要消灭的顶绿)
+  assert.equal(probe.summarizeLegStates([{ verdict: 'green?' }, {}], { state: 'ok', legsExpected: 2 }).unjudged, 2)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
