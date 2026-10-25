@@ -208,6 +208,8 @@ interface TrafficSnapshot {
   pageTop: Array<{ url: string; scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
   /** 近 24h 各访问面 PV/UV(前台/后台/登录页);null = 同一条腿取不到 */
   scopeSplit: Array<{ scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
+  /** 近 24h 各端 PV/UV(web/RN/小程序);null = 同一条腿取不到 */
+  platformSplit: Array<{ platform: 'web' | 'rn' | 'mp'; pv: number; uv: number }> | null
 }
 
 interface RelayPoolSnapshot {
@@ -2688,6 +2690,48 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ) : null}
               </div>
+            </div>
+          </Panel>
+
+          {/* 各端使用量(2026-10-26):web 裸路径 / RN `/rn/*` / 小程序 `/mp/*` 同表分桶。
+              三端埋点都写 visit_logs,这里回答「哪一端在用、用了多少次」。 */}
+          <Panel
+            title={t('panelPlatforms')}
+            icon={<Globe className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={traffic === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
+          >
+            <div className="space-y-1">
+              {(['web', 'rn', 'mp'] as const).map((key) => {
+                const row = (traffic?.platformSplit ?? []).find((p) => p.platform === key)
+                const label =
+                  key === 'web'
+                    ? t('platformWeb')
+                    : key === 'rn'
+                      ? t('platformRn')
+                      : t('platformMp')
+                return (
+                  <div
+                    key={key}
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="text-[10px] text-foreground">{label}</span>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                      {fmtInt(row?.pv)}
+                      <span className="text-muted-foreground"> / {fmtInt(row?.uv)}</span>
+                    </span>
+                  </div>
+                )
+              })}
+              {traffic?.platformSplit === null ? (
+                <div className="flex justify-center px-2 py-2">
+                  <SourceGap text={t('sourceUnreachable')} />
+                </div>
+              ) : traffic && (traffic.platformSplit?.length ?? 0) === 0 ? (
+                <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                  {t('platformNoData')}
+                </div>
+              ) : null}
             </div>
           </Panel>
 
