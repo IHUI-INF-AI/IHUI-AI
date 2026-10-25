@@ -17,8 +17,9 @@
  * 三者分工 = 抽取(本文件)/ 取材(CLI)/ 尺子(检):任何一份判据都只有一处实现(§0.6)。
  */
 
-/** 段落标签 → 条目类别。feedback = 事故/纠正型;project = 决策/约定型。 */
-const LESSON_LABELS = new Map([
+/** 段落标签 → 条目类别。feedback = 事故/纠正型;project = 决策/约定型。
+ *  出口给 `scripts/check-lesson-draft.mjs` 当"合法 kind"的来源 —— 类别枚举只此一处(§0.6)。 */
+export const LESSON_LABELS = new Map([
   ['教训', 'feedback'],
   ['why', 'feedback'],
   ['根因分析', 'feedback'],
