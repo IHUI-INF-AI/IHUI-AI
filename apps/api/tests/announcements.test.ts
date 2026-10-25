@@ -120,14 +120,23 @@ describe('announcements routes (CLI)', () => {
     expect(res.statusCode).toBe(400)
   })
 
-  it('GET /api/cli/announcements/latest 后端抛错时返回空列表(不 500)', async () => {
+  it('GET /api/cli/announcements/latest 后端抛错时如实回 500(不再伪装空列表)', async () => {
+    // 2026-10-25 契约改判:原钉的是"200 + 空列表"—— 把 DB 故障渲染成"确实没有公告",
+    // 任何要区分"读不到/没有"的消费方都被剥夺信号。判据回源实测:CLI 端 fetchAnnouncements
+    // 对 HTTP 非 2xx 与空列表的处理**完全同形**(`if (!resp.ok) return [];`,
+    // apps/cli/src/announcements/index.ts 的 fetchAnnouncements)⇒ 该测试当年的"CLI 怕 500"
+    // 前提不成立,500 不会改变 CLI 行为,只是让服务端不再说谎。契约改为:状态码可区分 + error 信封。
     vi.mocked(findAnnouncements).mockRejectedValueOnce(new Error('db down'))
     const res = await server.inject({ method: 'GET', url: '/api/cli/announcements/latest' })
-    expect(res.statusCode).toBe(200)
+    expect(res.statusCode).toBe(500)
     const body = res.json()
-    expect(body.code).toBe(0)
-    expect(body.data.list).toEqual([])
-    expect(body.data.total).toBe(0)
+    expect(body.code).not.toBe(0)
+  })
+
+  it('GET /api/cli/announcements/version 后端抛回 500(缓存失效信号不得被故障伪造)', async () => {
+    vi.mocked(findAnnouncements).mockRejectedValueOnce(new Error('db down'))
+    const res = await server.inject({ method: 'GET', url: '/api/cli/announcements/version' })
+    expect(res.statusCode).toBe(500)
   })
 
   it('GET /api/cli/announcements/version 空列表返回 latestAt null', async () => {
