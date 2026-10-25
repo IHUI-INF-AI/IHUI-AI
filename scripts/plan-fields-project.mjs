@@ -22,8 +22,9 @@
  *     没有这份声明，别人滞后几个小时的工作树副本会把旧形态整批带回，而账面看起来是我改丢了。
  *
  * 用法：
- *   规划:`node scripts/plan-fields-project.mjs --dry-run [--batch N]`
- *   出件:`node scripts/plan-fields-project.mjs --emit <json路径> [--batch N]`(同时写旧形态声明)
+ *   规划(默认档,零写盘):`node scripts/plan-fields-project.mjs [--dry-run] [--batch N]`
+ *   出件:`node scripts/plan-fields-project.mjs --emit [<json路径>] [--batch N]`
+ *        (未给路径 ⇒ 默认落 `.ihui-agent/state/plan-fields-project-replace.json`;同时写旧形态声明)
  *   落地:`LIVE_DOC=PROJECT_PLAN.md LIVE_REPLACE_FILE=<json> LIVE_MSG=... node scripts/live-doc-edit.mjs`
  *   自证:`node scripts/plan-fields-project.mjs --self-test`
  */
@@ -32,6 +33,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { parseHeader, renderHeader, stripHeader } from './lib/plan-field-line.mjs'
+import { fieldsFor } from './lib/plan-fields.mjs'
 import { cleanOwner } from './plan-fields-extract.mjs'
 import { assertRowRewriteConservation } from './lib/plan-row-conservation.mjs'
 import {
@@ -42,13 +44,15 @@ import {
   parseTaskRows,
 } from './lib/plan-task-index.mjs'
 import { readFieldsFace, readPlan } from './plan-tasks.mjs'
-import { flagValue } from './lib/flag-value.mjs'
+import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const MAX_LEN = 400
 /** 规格 §4.3:每批 ≤40 行(与 `strip-stale-closed-rows` 的批量口径同)。 */
 export const MAX_BATCH = 40
 const DROP_REL = path.join('.ihui-agent', 'state', 'plan-row-drop.jsonl')
+/** `--emit` 不给路径时的默认落点(票面:G-965 的 outFile 默认落 `.ihui-agent/state/`,永不写台账)。 */
+const DEFAULT_EMIT_REL = path.join('.ihui-agent', 'state', 'plan-fields-project-replace.json')
 /** 散文里那段归属话(与抽取器取的是同一个槽位,判定词表一律不在这里复制)。 */
 const OWNER_SPAN_RE = /归属[:：]\s*([^,，。;；\n]{1,120})/
 
@@ -137,9 +141,14 @@ export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
     if (!hp.rec && !hp.malformed)
       return { action: 'skip', reason: '记录里没有可渲染的信息(owner 与 blocking 都空) ⇒ 不造空标头' }
     const bare = stripHeader(line)
-    if (bare === line) return { action: 'skip', reason: '标头形态读不回(非本层生成的形态),不代裁' }
+    if (bare === line)
+      return {
+        action: 'skip',
+        reason: '标头形态读不回(非本层生成的形态),不代裁',
+        undetermined: true,
+      }
     const v = validateRewrite(line, bare, rec)
-    if (!v.ok) return { action: 'skip', reason: v.reason, dims: v.dims }
+    if (!v.ok) return { action: 'skip', reason: v.reason, dims: v.dims, undetermined: true }
     return { action: 'rewrite', line: bare, removedProse: 0, len: bare.length, dims: v.dims }
   }
   if (line.includes(want)) return { action: 'already' }
@@ -190,7 +199,7 @@ export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
       }
     }
   }
-  if (!v.ok) return { action: 'skip', reason: v.reason, dims: v.dims }
+  if (!v.ok) return { action: 'skip', reason: v.reason, dims: v.dims, undetermined: true }
   return {
     action: 'rewrite',
     line: finalLine,
@@ -198,6 +207,63 @@ export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
     len: finalLine.length,
     dims: v.dims,
   }
+}
+
+/**
+ * 侧车记录相对台账面的"未判定三态"(只报数,永不进投影):
+ *  - `orphan` 孤儿键:编号在面上完全没有对应行 ⇒ 记录已无家可归;
+ *  - `superseded` 被顶掉:同编号行仍在但复合主键(标题前缀)已被新版本改写,或同键有更新版本胜出
+ *    (`loadFields.orphans`) ⇒ 旧记录被顶掉;
+ *  - `undetermined` 无法判定:兜底键 `T:<sha1>`(行重写一次就换人)或无 `#` 的畸形键,机器不猜(§0.3)。
+ * 三者都不是投影候选:没有"当前行"就没有可改写的对象,故一律计入未判定、只报数。
+ * `rowKeys` 必须由调用方用 `fieldsFor` 同一口径取(含 `T:` 兜底),本层不另拼一份键。
+ */
+export function leftoverOf({ rowKeys = new Set(), records = [], orphans = [] } = {}) {
+  const idOf = (key) => {
+    const i = String(key ?? '').indexOf('#')
+    return i < 0 ? null : key.slice(0, i)
+  }
+  const rowIds = new Set()
+  for (const k of rowKeys) {
+    const id = idOf(k)
+    if (id) rowIds.add(id)
+  }
+  const out = { orphan: [], superseded: [], undetermined: [] }
+  for (const rec of orphans) out.superseded.push(String(rec?.key ?? '(空键)'))
+  for (const rec of records) {
+    const key = String(rec?.key ?? '')
+    if (key === '') out.undetermined.push('(空键)')
+    else if (rowKeys.has(key)) continue
+    else if (key.startsWith('T:')) out.undetermined.push(key)
+    else {
+      const id = idOf(key)
+      if (id && rowIds.has(id)) out.superseded.push(key)
+      else if (id) out.orphan.push(key)
+      else out.undetermined.push(key)
+    }
+  }
+  // 同键多份(新旧版本)只报一次:读数要的是"有几条无家可归",不是重复计数。
+  for (const k of Object.keys(out)) out[k] = [...new Set(out[k])]
+  return {
+    ...out,
+    counts: {
+      orphan: out.orphan.length,
+      superseded: out.superseded.length,
+      undetermined: out.undetermined.length,
+    },
+  }
+}
+
+/** 候选行长度分布(票面要的"预计长度分布";分档边界就是 200/400/800 三档)。 */
+export function lengthBuckets(list) {
+  const b = { le200: 0, le400: 0, le800: 0, gt800: 0 }
+  for (const r of list ?? []) {
+    if (r.len <= 200) b.le200++
+    else if (r.len <= 400) b.le400++
+    else if (r.len <= 800) b.le800++
+    else b.gt800++
+  }
+  return b
 }
 
 /** 全量规划:台账面 ⊕ 同轮侧车面 ⇒ 三类读数。纯 IO 只在这一个出口里发生。 */
@@ -230,7 +296,8 @@ export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
             removedProse: 0,
             key,
           })
-        else if (p.action !== 'already') skip.push({ key, reason: p.reason ?? '(未点名)' })
+        else if (p.action !== 'already')
+          skip.push({ key, reason: p.reason ?? '(未点名)', undetermined: !!p.undetermined })
       }
       continue
     }
@@ -245,17 +312,30 @@ export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
         key,
       })
     else if (p.action === 'already') already++
-    else skip.push({ key, reason: p.reason ?? '(未点名)' })
+    else skip.push({ key, reason: p.reason ?? '(未点名)', undetermined: !!p.undetermined })
   }
+  // 侧车未判定三态:键口径与门 234 同源(`fieldsFor`,含 `T:` 兜底),不另拼一份键。
+  const rowKeys = new Set(rows.map((r) => fieldsFor({ line: r.raw, map: null }).key))
+  const leftover = leftoverOf({
+    rowKeys,
+    records: [...side.map.values()],
+    orphans: side.orphans ?? [],
+  })
   return {
     undetermined: false,
     face,
     rows: rows.length,
     records: side.map.size,
+    malformedSide: side.malformed ?? 0,
     noRecord,
     already,
     rewrite,
     skip,
+    undeterminedRows: skip.filter((s) => s.undetermined).length,
+    leftover,
+    longBefore: rows.filter((r) => r.raw.length > maxLen).length,
+    over400: rewrite.filter((r) => r.len > maxLen).length,
+    buckets: lengthBuckets(rewrite),
     totalDelta: rewrite.reduce((s, x) => s + x.delta, 0),
     totalRemoved: rewrite.reduce((s, x) => s + x.removedProse, 0),
   }
@@ -268,11 +348,25 @@ function reportPlan(p, { limit, showSkip }) {
     return 2
   }
   console.log(
-    `判定面:${p.face} 台账未勾行 ${p.rows} / 侧车记录 ${p.records}(其中 ${p.noRecord} 行还没有记录)`,
+    `判定面:${p.face} 台账未勾行 ${p.rows} / 侧车记录 ${p.records}(其中 ${p.noRecord} 行还没有记录;侧车畸形行 ${p.malformedSide} 条)`,
   )
   console.log(
-    `可投影 ${p.rewrite.length} 行(加标头并删等价归属句 ${p.totalRemoved} 字,净 ${p.totalDelta >= 0 ? '加' : '减'} ${Math.abs(p.totalDelta)} 字) / 标头已在位 ${p.already} 行 / 不动 ${p.skip.length} 行`,
+    `可投影 ${p.rewrite.length} 行(加标头并删等价归属句 ${p.totalRemoved} 字,净 ${p.totalDelta >= 0 ? '加' : '减'} ${Math.abs(p.totalDelta)} 字) / 标头已在位 ${p.already} 行 / 不动 ${p.skip.length} 行(其中守恒未判定 ${p.undeterminedRows} 行)`,
   )
+  const b = p.buckets
+  console.log(
+    `长度分布(候选):≤200 ${b.le200} / 201–400 ${b.le400} / 401–800 ${b.le800} / >800 ${b.gt800};` +
+      `会超 400 字档 ${p.over400} 行(原行已超档 ${p.longBefore} 行 —— 存量长行改写不新增门 63 违规)`,
+  )
+  console.log(
+    `守恒预检:逐行调用 assertRowRewriteConservation,通过 ${p.rewrite.length} 行 / 未判定 ${p.undeterminedRows} 行(不产出)`,
+  )
+  console.log(
+    `侧车未判定三态:孤儿键 ${p.leftover.counts.orphan} / 被新版本顶掉 ${p.leftover.counts.superseded} / 无法判定 ${p.leftover.counts.undetermined}(只报数,无对应行可投影)`,
+  )
+  for (const k of p.leftover.orphan.slice(0, Math.min(limit, 10))) console.log(`  · 孤儿键 ${k}`)
+  if (p.leftover.orphan.length > Math.min(limit, 10))
+    console.log(`  · 孤儿键 …另 ${p.leftover.orphan.length - Math.min(limit, 10)} 键未逐条打印`)
   const shown = p.rewrite.slice(0, limit)
   for (const r of shown)
     console.log(`  · ${r.key} ${r.before.length}→${r.len} 字(净 ${r.delta >= 0 ? '+' : ''}${r.delta},删句 ${r.removedProse})`)
@@ -282,7 +376,9 @@ function reportPlan(p, { limit, showSkip }) {
   if (p.skip.length > (showSkip ? limit : 0) && showSkip)
     console.log(`  ✗ 另 ${p.skip.length - limit} 行同型未逐条打印`)
   console.log(
-    `PROJECT-RESULT state=${p.rewrite.length > 0 ? 'changed' : 'clean'} rewrite=${p.rewrite.length} already=${p.already} skip=${p.skip.length}`,
+    `PROJECT-RESULT state=${p.rewrite.length > 0 ? 'changed' : 'clean'} face=${p.face} rows=${p.rows} rewrite=${p.rewrite.length} ` +
+      `already=${p.already} skip=${p.skip.length} over400=${p.over400} undetermined=${p.undeterminedRows} ` +
+      `orphan=${p.leftover.counts.orphan} superseded=${p.leftover.counts.superseded} undecided=${p.leftover.counts.undetermined}`,
   )
   return 0
 }
@@ -384,6 +480,51 @@ function selfTest() {
       updatedAt: '2026-10-22T00:00:00.000Z',
     }).action === 'skip',
   )
+  // T7 长度预算:原行本就 >400 ⇒ 候选仍可超档放行(改写存量长行不算新增);反例见 T5。
+  const padTo = (head, n, ch = '细') => head + ch.repeat(Math.max(0, n - head.length))
+  const long = padTo('- [ ] **G-901 甲题说明** 不归本线 ', 500)
+  const pLong = planRow(long, {
+    key: compositeKeyOf(long),
+    owner: '甲',
+    waiting: 'env',
+    blocking: '细'.repeat(34),
+  })
+  ok(
+    'T7 原行已超预算 ⇒ 候选 500+ 字仍放行(存量长行改写不新增长行)',
+    long.length === 500 && pLong.action === 'rewrite' && pLong.line.length > 400,
+  )
+  // T8 守恒断言:删掉"标头是唯一归属证据"的行内标头会让桶 owned-elsewhere → actionable,
+  // 断言必须拒,这一行不产出并计入未判定(不是"默默跳过")。
+  const stale = '- [ ] 〔归:甲持有人〕 没有编号的一行'
+  const pStale = planRow(stale, {
+    key: null,
+    waiting: 'none',
+    updatedAt: '2026-10-22T00:00:00.000Z',
+  })
+  ok(
+    'T8 守恒断言不通过 ⇒ 该行不产出且 undetermined=true',
+    pStale.action === 'skip' &&
+      pStale.undetermined === true &&
+      /守恒|漂/.test(pStale.reason ?? ''),
+  )
+  // T9 侧车未判定三态:孤儿键 / 被新版本顶掉 / 无法判定(兜底键 T:),机器一律不投影。
+  const lo = leftoverOf({
+    rowKeys: new Set(['G-1#甲题细节', 'T:abc']),
+    records: [
+      { key: 'G-1#乙题改过的标题' },
+      { key: 'G-9#台账里已经没有这一行' },
+      { key: 'T:deadbeef' },
+      { key: 'G-1#甲题细节' },
+    ],
+    orphans: [{ key: 'G-1#甲题细节' }],
+  })
+  ok(
+    'T9 未判定三态:被顶掉/孤儿键/无法判定各归各桶,有行的记录不算',
+    lo.counts.superseded === 2 &&
+      lo.counts.orphan === 1 &&
+      lo.counts.undetermined === 1 &&
+      lo.orphan[0] === 'G-9#台账里已经没有这一行',
+  )
   const fails = checks.filter(([, v]) => !v).length
   for (const [n, v] of checks) console.log(`${v ? '✅' : '❌'} ${n}`)
   console.log(`\n自检:${checks.length - fails} 通过 / ${fails} 失败`)
@@ -406,24 +547,29 @@ function main() {
     )
     return 2
   }
-  if (!has('--dry-run') && !has('--emit')) {
+  // 票面(G-965):`--dry-run` 是**默认档**,零写盘;`--emit` 才是出件。不给模式时按默认档跑,
+  // 并明写一句"这是默认档" —— 让读到输出的人知道它不是被显式点名的模式。
+  const dryRun = has('--dry-run')
+  if (!dryRun && !has('--emit')) console.log('(未给模式 ⇒ 默认 --dry-run:零写盘)')
+  const p = planAll({ root: ROOT, face })
+  const code = reportPlan(p, { limit: batch, showSkip: dryRun || !has('--emit') })
+  if (code !== 0 || !has('--emit')) return code
+  // `--emit` 取值走 G-322 单源:紧邻 token 是另一个旗标/空串 ⇒ 点名拒绝(不得静默退回默认);
+  // 只有"结尾无值"才落票面默认落点 `.ihui-agent/state/`。
+  const fv = flagValue(argv, '--emit')
+  let jsonPath
+  if (fv.valid) jsonPath = path.resolve(ROOT, fv.value)
+  else if (fv.token === null) {
+    jsonPath = path.resolve(ROOT, DEFAULT_EMIT_REL)
+    console.log(`(未给 outFile ⇒ 默认落 ${DEFAULT_EMIT_REL})`)
+  } else {
     console.log(
-      '❌ 用法 —— 必须给 --dry-run 或 --emit <json路径>(不给默认模式是刻意的:本器能改台账行文本)',
+      `❌ 用法错 —— --emit 需要一个 json 路径 —— 紧邻的 token 实得:${describeFlagToken(fv)}(不得静默退回默认落点)`,
     )
     return 2
   }
-  const p = planAll({ root: ROOT, face })
-  const code = reportPlan(p, { limit: batch, showSkip: has('--dry-run') })
-  if (code !== 0 || !has('--emit')) return code
-  // --emit 取值走 G-322 单源:紧邻 token 是旗标/结尾无值/空串一律算无效(与旧校验同语义,
-  // 值被旗标顶掉时不再经 startsWith 分支,统一按"没给合法值"点名)。
-  const jsonPath = flagValue(argv, '--emit').valid ? flagValue(argv, '--emit').value : null
-  if (!jsonPath) {
-    console.log('❌ 用法错 —— --emit 需要紧跟一个 json 路径')
-    return 2
-  }
   if (p.undetermined) return code
-  return emit(p, path.resolve(ROOT, jsonPath), batch)
+  return emit(p, jsonPath, batch)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -442,6 +588,8 @@ export const __test__ = {
   dimsOf,
   emit,
   parseBatchArg,
+  leftoverOf,
+  lengthBuckets,
   MAX_LEN,
   MAX_BATCH,
 }
