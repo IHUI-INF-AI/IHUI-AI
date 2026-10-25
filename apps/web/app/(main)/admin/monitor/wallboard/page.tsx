@@ -56,6 +56,7 @@ import {
   chartAxis,
   chartBg,
   chartText,
+  rnRadius,
   withAlpha,
 } from '@ihui/design-tokens'
 import type { EChartsOption } from 'echarts'
@@ -905,7 +906,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     const ordered = [...rows].reverse()
     const data = ordered.map((s) => ({
       value: total > 0 ? Number(((s.rate / total) * 100).toFixed(2)) : 0,
-      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: 2 },
+      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: rnRadius.xs },
     }))
     return {
       grid: { left: 44, right: 56, top: 10, bottom: 20 },
