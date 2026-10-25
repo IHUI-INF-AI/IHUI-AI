@@ -6,7 +6,7 @@ import type { CSSProperties } from 'react'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../theme/tokens'
 import type { UserInfo } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * UserInfoCard 用户信息卡片(跨端共享层)。
@@ -66,7 +66,7 @@ const FALLBACK_RECHARGE_TEXT = '充值'
 
 const viewStyles = {
   loggedOutWrap: (): CSSProperties => ({
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -84,13 +84,13 @@ const viewStyles = {
     borderRadius: rnRadius.sm,
     paddingTop: 14,
     paddingBottom: 14,
-    paddingLeft: 32,
-    paddingRight: 32,
+    paddingLeft: rnSpacing['3xl'],
+    paddingRight: rnSpacing['3xl'],
     cursor: 'pointer',
   }),
   card: (tk: AppThemeTokens): CSSProperties => ({
-    marginTop: 8,
-    padding: 8,
+    marginTop: rnSpacing.sm,
+    padding: rnSpacing.sm,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderStyle: 'solid',
@@ -101,7 +101,7 @@ const viewStyles = {
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
+    padding: rnSpacing.sm,
   }),
   avatarWrap: (tk: AppThemeTokens): CSSProperties => ({
     width: 56,
@@ -124,14 +124,14 @@ const viewStyles = {
   infoWrap: (): CSSProperties => ({
     flex: 1,
     minWidth: 0,
-    marginLeft: 12,
+    marginLeft: rnSpacing.md,
   }),
   nameRow: (): CSSProperties => ({
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingTop: rnSpacing.xs,
+    paddingBottom: rnSpacing.xs,
   }),
   roleRow: (): CSSProperties => ({
     display: 'flex',
@@ -140,8 +140,8 @@ const viewStyles = {
     marginTop: 6,
   }),
   roleBadge: (tk: AppThemeTokens, isVip: boolean): CSSProperties => ({
-    paddingLeft: 8,
-    paddingRight: 8,
+    paddingLeft: rnSpacing.sm,
+    paddingRight: rnSpacing.sm,
     paddingTop: 2,
     paddingBottom: 2,
     backgroundColor: isVip ? tk.warning.light : tk.surface.card,
@@ -152,9 +152,9 @@ const viewStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
-    paddingLeft: 8,
-    paddingRight: 8,
+    marginTop: rnSpacing.sm,
+    paddingLeft: rnSpacing.sm,
+    paddingRight: rnSpacing.sm,
     paddingTop: 6,
     paddingBottom: 6,
     backgroundColor: tk.surface.muted,
@@ -168,8 +168,8 @@ const viewStyles = {
   rechargeBtn: (tk: AppThemeTokens): CSSProperties => ({
     paddingLeft: 10,
     paddingRight: 10,
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingTop: rnSpacing.xs,
+    paddingBottom: rnSpacing.xs,
     backgroundColor: tk.brand.cta,
     borderRadius: rnRadius.sm,
     cursor: 'pointer',
@@ -178,13 +178,13 @@ const viewStyles = {
 
 const textStyles = {
   loginBtnText: (tk: AppThemeTokens): CSSProperties => ({
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: 700,
     color: tk.text.primary,
   }),
   name: (tk: AppThemeTokens): CSSProperties => ({
     flex: 1,
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: 700,
     color: tk.text.primary,
     overflow: 'hidden',
@@ -193,27 +193,27 @@ const textStyles = {
     minWidth: 0,
   }),
   editText: (tk: AppThemeTokens): CSSProperties => ({
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tk.text.primary,
-    marginLeft: 4,
+    marginLeft: rnSpacing.xs,
   }),
   roleText: (tk: AppThemeTokens, isVip: boolean): CSSProperties => ({
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: 500,
     color: isVip ? tk.warning.DEFAULT : tk.gray[600],
   }),
   tokenLabel: (tk: AppThemeTokens): CSSProperties => ({
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tk.text.primary,
   }),
   tokenValue: (tk: AppThemeTokens): CSSProperties => ({
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: 700,
     color: tk.text.primary,
-    marginLeft: 4,
+    marginLeft: rnSpacing.xs,
   }),
   rechargeBtnText: (tk: AppThemeTokens): CSSProperties => ({
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tk.brand.ctaForeground,
     fontWeight: 500,
   }),
@@ -302,7 +302,7 @@ export function UserInfoCard({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: rnType.heading.size,
                 fontWeight: 600,
                 color: tk.text.primary,
               }}

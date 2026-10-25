@@ -9,11 +9,12 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
 import { formatDateByTemplate } from '@ihui/shared'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import './success.css'
 
 /** 安全 decode router 参数 */
-const decodeParam = (v: string | undefined): string => (v ? decodeURIComponent(v) : '')
+const decodeParam = (v: string | undefined): string => (v ? safeDecodeURIComponent(v) : '')
 
 /** 推算支付方式文案(未传时默认微信) */
 const resolvePayMethod = (raw: string | undefined, tt: (k: string, fb: string) => string) => {
@@ -25,11 +26,13 @@ const resolvePayMethod = (raw: string | undefined, tt: (k: string, fb: string) =
 }
 
 /** 根据套餐类型推算会员时长 */
-const resolveDuration = (plan: string, days?: string): string => {
-  if (days) return `${days} 天`
-  if (plan === 'yearly') return '365 天'
-  if (plan === 'quarterly') return '90 天'
-  return '30 天'
+const resolveDuration = (
+  tt: (k: string, fb: string, v?: Record<string, string | number>) => string,
+  plan: string,
+  days?: string,
+): string => {
+  const n = days || (plan === 'yearly' ? '365' : plan === 'quarterly' ? '90' : '30')
+  return tt('vip.success.daysUnit', `${n} 天`, { n })
 }
 
 export default function VipSuccessPage() {
@@ -50,7 +53,7 @@ export default function VipSuccessPage() {
     ? formatDateByTemplate(payTimeParam, 'YYYY-MM-DD HH:mm:ss')
     : formatDateByTemplate(new Date().toISOString(), 'YYYY-MM-DD HH:mm:ss')
   const payMethod = resolvePayMethod(payMethodRaw, tt)
-  const duration = resolveDuration(planType, daysParam)
+  const duration = resolveDuration(tt, planType, daysParam)
   const displayPlanName =
     planName ||
     (planType === 'yearly'

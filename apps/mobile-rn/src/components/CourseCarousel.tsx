@@ -40,7 +40,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { toImageSource, type CarouselSlideImg } from './Carousel'
 
 /** 单门课程数据(对齐原项目 PopularCourses 关键字段的子集) */
@@ -205,12 +205,12 @@ const indexStyles = StyleSheet.create({
   info: {
     width: '100%',
     paddingHorizontal: 10,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: rnSpacing.sm,
+    paddingBottom: rnSpacing.sm,
     justifyContent: 'space-between',
   },
   title: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -219,12 +219,12 @@ const indexStyles = StyleSheet.create({
     alignItems: 'center',
   },
   priceFree: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.success.DEFAULT,
   },
   pricePaid: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -341,7 +341,7 @@ function UpToDateSeparator(): React.JSX.Element {
 const uptodateStyles = StyleSheet.create({
   listContent: {
     paddingHorizontal: GRID_PADDING,
-    paddingBottom: 8,
+    paddingBottom: rnSpacing.sm,
   },
   row: {
     gap: GRID_GAP,
@@ -379,11 +379,11 @@ const uptodateStyles = StyleSheet.create({
     left: 6,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: rnRadius.md,
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 2,
   },
   classificationText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.surface.light,
   },
   classHourTag: {
@@ -392,36 +392,36 @@ const uptodateStyles = StyleSheet.create({
     right: 6,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: rnRadius.md,
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 2,
   },
   classHourText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.surface.light,
   },
   title: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.primary,
-    marginTop: 8,
-    marginHorizontal: 8,
+    marginTop: rnSpacing.sm,
+    marginHorizontal: rnSpacing.sm,
     minHeight: 36,
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 8,
-    marginBottom: 8,
-    marginTop: 4,
+    marginHorizontal: rnSpacing.sm,
+    marginBottom: rnSpacing.sm,
+    marginTop: rnSpacing.xs,
   },
   vipBadge: {
     backgroundColor: tokens.warning.light,
     borderRadius: rnRadius.md,
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 2,
   },
   vipText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: '600',
     color: tokens.warning.DEFAULT,
   },
@@ -432,22 +432,22 @@ const uptodateStyles = StyleSheet.create({
   paidBadge: {
     backgroundColor: tokens.error.bg,
     borderRadius: rnRadius.md,
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 2,
     marginRight: 6,
   },
   paidText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: '600',
     color: tokens.error.text,
   },
   freeText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.success.DEFAULT,
   },
   priceText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -573,12 +573,12 @@ const listStyles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
-    padding: 4,
-    marginBottom: 12,
+    padding: rnSpacing.xs,
+    marginBottom: rnSpacing.md,
   },
   tabItem: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: rnSpacing.sm,
     alignItems: 'center',
     borderRadius: rnRadius.xl,
   },
@@ -586,7 +586,7 @@ const listStyles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   },
   tabText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.tertiary,
   },
@@ -594,7 +594,7 @@ const listStyles = StyleSheet.create({
     color: tokens.brand.ctaForeground,
   },
   listContent: {
-    paddingBottom: 8,
+    paddingBottom: rnSpacing.sm,
   },
   card: {
     flexDirection: 'row',
@@ -624,12 +624,12 @@ const listStyles = StyleSheet.create({
   },
   infoWrap: {
     flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     justifyContent: 'space-between',
   },
   title: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -638,12 +638,12 @@ const listStyles = StyleSheet.create({
     alignItems: 'center',
   },
   priceFree: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.success.DEFAULT,
   },
   pricePaid: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },

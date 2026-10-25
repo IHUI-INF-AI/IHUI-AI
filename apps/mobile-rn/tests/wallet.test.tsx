@@ -50,6 +50,92 @@ vi.mock('../src/lib/config', () => ({
   API_BASE_URL: 'http://localhost:8801',
 }))
 
+vi.mock('react-native', async () => {
+  const { createElement } = await import('react')
+  const mk = (tag: string) =>
+    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
+      const { style, onPress, onChangeText, ...rest } = props
+      // RN Pressable 允许函数式 style(({pressed}) => style);不先求值就交给 React DOM,
+      // 报的是 "The `style` prop expects a mapping ... not a string"(BackChevron 即此形态)。
+      const resolved = typeof style === 'function' ? style({ pressed: false }) : style
+      const mergedStyle = Array.isArray(resolved)
+        ? Object.assign({}, ...resolved.filter(Boolean))
+        : resolved
+      const extra: Record<string, unknown> = {}
+      if (onPress) extra.onClick = onPress
+      if (typeof onChangeText === 'function')
+        extra.onChange = (e: { target: { value: string } }) => {
+          ;(onChangeText as (v: string) => void)(e.target.value)
+        }
+      return createElement(tag, { ...rest, ...extra, style: mergedStyle }, props.children)
+    }
+  /**
+   * 屏幕状态四件套(ScreenStates,枚 d723f8bc9b37 起为共享屏的 Shimmer/按压动画)在渲染期
+   * 使用 Animated.loop/sequence/timing/spring/Value/View + Easing。内联 mock 缺这组导出
+   * ⇒ 整文件加载/渲染期抛「No "Animated" export is defined on the "react-native" mock」。
+   * 与真实 RN 的 Animated 面同形的 no-op 桩(start 回调带 finished:true,保证 useEffect 清理可达)。
+   */
+  const anim = {
+    start: (cb?: (r: { finished: boolean }) => void) => {
+      cb?.({ finished: true })
+      return anim
+    },
+    stop: () => {},
+  }
+  const mkAnimValue = () => ({
+    setValue: () => {},
+    interpolate: (cfg: { outputRange?: number[] }) => cfg.outputRange?.[0] ?? 1,
+  })
+  function AnimatedValue() {
+    return mkAnimValue()
+  }
+  const Animated = {
+    View: mk('div'),
+    Value: AnimatedValue,
+    timing: () => anim,
+    spring: () => anim,
+    loop: () => anim,
+    sequence: () => anim,
+    parallel: () => anim,
+  }
+  const Easing = {
+    ease: (t: number) => t,
+    linear: (t: number) => t,
+    in: (f: (t: number) => number) => f,
+    out: (f: (t: number) => number) => f,
+    inOut: (f: (t: number) => number) => f,
+  }
+  return {
+    Animated,
+    Easing,
+    // 本套件自建 react-native 替身,而共享替身里的 PixelRatio 不会自动带过来 —— MoreLink 经
+    // PixelRatio.getFontScale() 换算字号倍率,缺它则渲染即抛 "No PixelRatio export"。
+    PixelRatio: {
+      get: () => 1,
+      getFontScale: () => 1,
+      getPixelSizeForLayoutSize: (size: number) => size,
+      roundToNearestPixel: (size: number) => size,
+    },
+    // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
+    // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
+    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    DevSettings: { reload: () => {} },
+    View: mk('div'),
+    Text: mk('span'),
+    ScrollView: mk('div'),
+    TouchableOpacity: mk('button'),
+    // BackChevron 等共享组件用 Pressable;本替身是自建对象而非 spread 真身,漏一个导出即
+    // "No 'Pressable' export is defined on the react-native mock" ⇒ 整文件渲染期失败。
+    Pressable: mk('button'),
+    TextInput: mk('input'),
+    RefreshControl: () => null,
+    useColorScheme: () => 'light',
+    // BottomPops(经 WithdrawScreen 的 appAlert 导入拉入)模块求值期读窗口高,缺它则整文件加载即炸。
+    Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
+    StyleSheet: { create: (s: Record<string, unknown>) => s },
+  }
+})
+
 // 提现二次确认弹窗改走共享 appAlert(见 components/BottomPops);用 importOriginal 保底其余导出,
 // 只把 appAlert 替成捕获函数:捕获「确认」(common.confirm)按钮的 onPress 存入 alertCallbacks,
 // 测试中手动触发以走完提现链路。

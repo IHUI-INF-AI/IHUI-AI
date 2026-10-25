@@ -34,8 +34,8 @@ import {
   type ViewStyle,
 } from 'react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
-
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 export interface ConfirmPurchaseProduct {
   name: string
   price: number
@@ -112,7 +112,7 @@ const OVERLAY_COLOR = 'rgba(0,0,0,0.5)'
  * 更贴近原版 highlight 色 #ff5722;如改纯金可替换为 tokens.vip.gold。
  */
 const DEFAULT_PAYMENT_METHODS: ConfirmPaymentMethod[] = [
-  { id: 'wxpay', name: '微信支付', icon: '微' },
+  { id: 'wxpay', name: 'purchase.wechat', icon: '微' },
 ]
 
 function formatPrice(price: number): string {
@@ -133,8 +133,8 @@ export function ConfirmPurchasePopUp({
   onCancel,
   onConfirm,
   loading = false,
-  cancelText = '取消',
-  confirmText = '确认',
+  cancelText,
+  confirmText,
   benefits,
   paymentMethod,
   paymentMethods,
@@ -146,6 +146,9 @@ export function ConfirmPurchasePopUp({
   onAgreementPress,
   onPay,
 }: ConfirmPurchasePopUpProps) {
+  const { t } = useI18n()
+  const cancelLabel = cancelText ?? t('common.cancel')
+  const confirmLabel = confirmText ?? t('common.confirm')
   const [internalPayMethod, setInternalPayMethod] = useState<string | null>(null)
   const [internalAgreed, setInternalAgreed] = useState(false)
 
@@ -166,7 +169,11 @@ export function ConfirmPurchasePopUp({
     (benefits && benefits.length > 0) || hasPaymentOptions || hasAgreement,
   )
   const payDisabled = loading || (hasAgreement && !isAgreed)
-  const payButtonLabel = isMembership ? `立即支付 ¥${formatYuan(product.price)}` : confirmText
+  const payButtonLabel = isMembership
+    ? product.price === 0
+      ? t('purchase.payNow')
+      : t('confirm.payFmt', { v: formatYuan(product.price) })
+    : confirmLabel
 
   const selectPayMethod = (methodId: string) => {
     if (payMethod === undefined) setInternalPayMethod(methodId)
@@ -197,7 +204,7 @@ export function ConfirmPurchasePopUp({
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={loading ? undefined : onCancel}
-          accessibilityLabel="关闭弹窗"
+          accessibilityLabel={t('purchaseNotice.closeA11y')}
         />
         <View style={styles.card}>
           <View style={styles.iconWrap}>
@@ -259,7 +266,7 @@ export function ConfirmPurchasePopUp({
           {/* 支付方式(对齐 Uniapp payment-options,单选 radio,微信支付) */}
           {hasPaymentOptions ? (
             <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>{'支付方式'}</Text>
+              <Text style={styles.paymentLabel}>{t('payment.method')}</Text>
               {payOptions.map((m) => {
                 const active = m.id === selectedPayMethod
                 return (
@@ -295,7 +302,7 @@ export function ConfirmPurchasePopUp({
               onPress={onCancel}
               disabled={loading}
               accessibilityRole="button"
-              accessibilityLabel={cancelText}
+              accessibilityLabel={cancelLabel}
             >
               {({ pressed }) => (
                 <View
@@ -304,7 +311,7 @@ export function ConfirmPurchasePopUp({
                     pressed && !loading ? styles.cancelButtonPressed : null,
                   ]}
                 >
-                  <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                  <Text style={styles.cancelButtonText}>{cancelLabel}</Text>
                 </View>
               )}
             </Pressable>
@@ -368,7 +375,7 @@ const styles = StyleSheet.create({
     backgroundColor: OVERLAY_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: rnSpacing['2xl'],
   } as ViewStyle,
   card: {
     width: '100%',
@@ -393,7 +400,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   title: {
-    marginTop: 16,
+    marginTop: rnSpacing.lg,
     fontSize: TITLE_FONT_SIZE,
     lineHeight: TITLE_FONT_SIZE + 4,
     fontWeight: '600',
@@ -407,7 +414,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
     padding: PRODUCT_ROW_PADDING,
-    marginTop: 16,
+    marginTop: rnSpacing.lg,
   } as ViewStyle,
   productThumb: {
     width: PRODUCT_THUMB_SIZE,
@@ -424,7 +431,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   productInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: rnSpacing.md,
   } as ViewStyle,
   productName: {
     fontSize: PRODUCT_NAME_FONT_SIZE,
@@ -436,7 +443,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     marginTop: 2,
-    gap: 8,
+    gap: rnSpacing.sm,
   } as ViewStyle,
   productPrice: {
     fontSize: PRODUCT_PRICE_FONT_SIZE,
@@ -445,14 +452,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   } as TextStyle,
   productPriceOriginal: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     lineHeight: 15,
     color: tokens.text.tertiary,
     textDecorationLine: 'line-through',
   } as TextStyle,
   message: {
     width: '100%',
-    marginTop: 12,
+    marginTop: rnSpacing.md,
     fontSize: MESSAGE_FONT_SIZE,
     lineHeight: MESSAGE_FONT_SIZE + 6,
     color: tokens.text.secondary,
@@ -460,8 +467,8 @@ const styles = StyleSheet.create({
   } as TextStyle,
   benefitsWrap: {
     width: '100%',
-    marginTop: 12,
-    gap: 4,
+    marginTop: rnSpacing.md,
+    gap: rnSpacing.xs,
     alignItems: 'flex-start',
   } as ViewStyle,
   benefitItem: {
@@ -481,10 +488,10 @@ const styles = StyleSheet.create({
   } as TextStyle,
   paymentRow: {
     width: '100%',
-    marginTop: 12,
+    marginTop: rnSpacing.md,
   } as ViewStyle,
   paymentLabel: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
     marginBottom: 6,
   } as TextStyle,
@@ -493,7 +500,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
-    paddingHorizontal: 12,
+    paddingHorizontal: rnSpacing.md,
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -511,7 +518,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   paymentIconText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.surface.light,
     fontWeight: '700',
   } as TextStyle,
@@ -564,15 +571,15 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   } as ViewStyle,
   agreementText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     lineHeight: 16,
     color: tokens.text.tertiary,
   } as TextStyle,
   buttonRow: {
     flexDirection: 'row',
     width: '100%',
-    marginTop: 20,
-    gap: 12,
+    marginTop: rnSpacing.xl,
+    gap: rnSpacing.md,
   } as ViewStyle,
   // 面层:撑满外框内容盒 + 与两枚按钮同档的圆角(按压态是背景色,必须画在被圆角裁出的盒上)。
   buttonFace: {

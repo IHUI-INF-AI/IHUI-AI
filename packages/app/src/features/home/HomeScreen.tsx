@@ -16,7 +16,7 @@ import type {
 import { MoreLink, useFontMultiplier } from '../../components/MoreLink'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export type { HomeRecommendItem, HomeLiveItem, HomeProgressItem, HomeMenuItem, HomeScreenProps }
 
@@ -75,7 +75,7 @@ export function HomeScreen({
     <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      contentContainerStyle={{ paddingBottom: 32 }}
+      contentContainerStyle={{ paddingBottom: rnSpacing['3xl'] }}
     >
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
@@ -300,23 +300,23 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
+      paddingHorizontal: rnSpacing.lg,
     },
     headerLeft: { flex: 1 },
     headerRight: { flexDirection: 'row', alignItems: 'center' },
-    greeting: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    greeting: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     welcome: { marginTop: 6, fontSize: 13, color: tk.text.secondary },
-    dot: { marginRight: 8, width: 8, height: 8, borderRadius: rnRadius.xs },
+    dot: { marginRight: rnSpacing.sm, width: 8, height: 8, borderRadius: rnRadius.xs },
     dotOn: { backgroundColor: tk.success.DEFAULT },
     dotOff: { backgroundColor: tk.text.tertiary },
-    bellBtn: { position: 'relative', padding: 4 },
+    bellBtn: { position: 'relative', padding: rnSpacing.xs },
     badge: {
       position: 'absolute',
       right: -4,
       top: -4,
       minWidth: 16,
       height: 16,
-      paddingHorizontal: 4,
+      paddingHorizontal: rnSpacing.xs,
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
@@ -326,23 +326,23 @@ function createStyles(tk: AppThemeTokens) {
     errorWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 12,
-      marginHorizontal: 16,
-      paddingHorizontal: 12,
+      marginTop: rnSpacing.md,
+      marginHorizontal: rnSpacing.lg,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 10,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.error.bg,
     },
     errorText: { flex: 1, fontSize: 13, color: tk.danger.DEFAULT },
     errorRetry: {
-      marginLeft: 12,
+      marginLeft: rnSpacing.md,
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.DEFAULT,
     },
-    errorRetryText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
-    section: { paddingHorizontal: 16, marginTop: 24 },
+    errorRetryText: { fontSize: rnType.label.size, fontWeight: '600', color: '#FFFFFF' },
+    section: { paddingHorizontal: rnSpacing.lg, marginTop: rnSpacing['2xl'] },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -357,7 +357,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sectionHeaderTitle: { marginBottom: 0 },
     card: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       // 暗色下 surface.light 是 #262626、页面底 #242424,只差 2 阶卡片融进背景;
       // surface.card 亮色同为白、暗色降到 #1A1A1A(与 web 暗色 --color-card 同值),层次才成立。
@@ -365,8 +365,13 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     emptyCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    emptyText: { flex: 1, marginRight: 12 },
-    emptyCenter: { alignItems: 'center', justifyContent: 'center', paddingVertical: 20, gap: 6 },
+    emptyText: { flex: 1, marginRight: rnSpacing.md },
+    emptyCenter: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: rnSpacing.xl,
+      gap: 6,
+    },
     emptyHint: { fontSize: 13, color: tk.text.secondary },
     cardSpacing: { marginTop: 10 },
     cardHeaderRow: {
@@ -374,15 +379,25 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    tag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.md },
+    cardTitle: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
+    tag: {
+      marginLeft: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: 2,
+      borderRadius: rnRadius.md,
+    },
     tagLive: { backgroundColor: tk.danger.DEFAULT },
     tagUpcoming: { backgroundColor: tk.warning.DEFAULT },
-    tagText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
+    tagText: { fontSize: rnType.label.size, fontWeight: '600', color: '#FFFFFF' },
     tagUpcomingText: { color: '#1A1A1A' },
-    metaText: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
-    metaTertiary: { marginTop: 4, fontSize: 12, color: tk.text.tertiary },
-    priceText: { marginLeft: 8, fontSize: 15, fontWeight: '600', color: tk.success.DEFAULT },
+    metaText: { marginTop: rnSpacing.xs, fontSize: 13, color: tk.text.secondary },
+    metaTertiary: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.tertiary },
+    priceText: {
+      marginLeft: rnSpacing.sm,
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tk.success.DEFAULT,
+    },
     mutedText: { fontSize: 13, lineHeight: 19, color: tk.text.secondary },
     progressBar: {
       marginTop: 10,
@@ -406,7 +421,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       paddingVertical: 14,
       paddingHorizontal: 6,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     menuIcon: { fontSize: 22, lineHeight: 26 },
     menuLabel: { fontSize: 13, color: tk.text.secondary, textAlign: 'center' },

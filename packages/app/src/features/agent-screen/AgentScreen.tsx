@@ -7,7 +7,7 @@ import { FlatList, Image, RefreshControl, StyleSheet, Text, View } from 'react-n
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentScreenProps, AgentScreenItem } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import {
   EmptyState,
@@ -137,7 +137,7 @@ export function AgentScreen({
       <FlatList
         data={items}
         keyExtractor={(item, index) => item.id ?? `idx-${index}`}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={<EmptyState title={t('common.empty')} colorScheme={colorScheme} />}
@@ -151,13 +151,13 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     // nestedInScrollView 模式:对齐 FlatList 模式的 contentContainerStyle
-    // (padding:16/paddingBottom:32)+ ItemSeparator 高度 12(用 gap 实现)
-    nestedList: { gap: 12, padding: 16, paddingBottom: 32 },
-    backBtn: { paddingHorizontal: 10, paddingTop: 12 },
+    // (padding:rnSpacing.lg/paddingBottom:rnSpacing['3xl'])+ ItemSeparator 高度 12(用 gap 实现)
+    nestedList: { gap: rnSpacing.md, padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] },
+    backBtn: { paddingHorizontal: 10, paddingTop: rnSpacing.md },
     title: {
       paddingHorizontal: 10,
-      paddingTop: 8,
-      paddingBottom: 8,
+      paddingTop: rnSpacing.sm,
+      paddingBottom: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '700',
       color: tk.text.primary,
@@ -180,19 +180,24 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarText: { fontSize: 20, fontWeight: '600', color: tk.text.secondary },
-    cardMain: { flex: 1, marginLeft: 12 },
+    avatarText: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.secondary },
+    cardMain: { flex: 1, marginLeft: rnSpacing.md },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    name: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    name: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     vipBadge: {
       paddingHorizontal: 6,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.warning.DEFAULT,
     },
     vipText: { fontSize: 10, fontWeight: '600', color: tk.surface.light },
-    desc: { marginTop: 8, fontSize: 14, color: tk.text.secondary, lineHeight: 18 },
-    meta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    desc: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: 18,
+    },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

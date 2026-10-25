@@ -66,8 +66,11 @@ import { SIM_THRESHOLD, jaccard, squash, tokenize } from './lib/live-doc-similar
  * 反向锁由 `scripts/tests/check-live-doc-pathspec.test.mjs` 的 T2 钉住:本文件里不得再出现
  * `function classifyMissing(` / `function anchorKey(` 的第二份实现。
  */
-import { anchorKey, classifyMissing } from './lib/live-doc-classify.mjs'
+import { anchorKey, archiveOwnerFor, classifyMissing } from './lib/live-doc-classify.mjs'
 export { anchorKey, classifyMissing }
+// 归档移出凭据(2026-10-25,守门 207 第二刀①):§1 的「整区逐字移入 archive + 原位留指针」
+// 是合法处置,不是丢行。判据住 lib(与 union-converge 的期望表同一份),本文件只做取材。
+import { selectMovedOut } from './lib/live-doc-archive-drops.mjs'
 
 /**
  * 把 HEAD 里"连续的 lost 段"(段尾空行一并带上,保排版)插回工作树的锚点之后。
@@ -153,6 +156,48 @@ export function dupLong(lines, min = 60) {
     m.set(t, (m.get(t) || 0) + 1)
   }
   return [...m].filter(([, v]) => v > 1)
+}
+
+/**
+ * 本侧已按 §1 把整区逐字移入 archive 的凭据(2026-10-25,守门 207 第二刀①)。
+ *
+ * 取材面 = HEAD 树(已入库事实),与 `headText` 同面同轮、"清单与内容同轮取"。
+ * 这是本工具唯一会读磁盘以外内容的一步,失败方向固定为 **null = 一条不豁免**:
+ * 宁可多插回一份让人复核,也绝不把真吃掉的正文洗成"已归档"(§0.10)。
+ */
+function readArchivedForDoc(file, oursText) {
+  const owner = archiveOwnerFor(file)
+  if (!owner)
+    return {
+      ok: false,
+      reason: `该文档没有归档豁免通道(${file})`,
+      raw: new Set(),
+      trimmed: new Set(),
+    }
+  let paths
+  try {
+    paths = git(['ls-tree', '-r', '--name-only', 'HEAD', '--', '.ihui-agent/archive'])
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } catch (e) {
+    const why = String(e?.message ?? e)
+      .split(/\r?\n/)[0]
+      .slice(0, 160)
+    return { ok: false, reason: `归档面枚举失败:${why}`, raw: new Set(), trimmed: new Set() }
+  }
+  // 只读同族件:整篇快照(AGENTS_full-pre-compact-*)也在同族里,由 lib 按内容比例剔除 ——
+  // 这里不提前按名字筛,否则"什么算快照"会多出第二份判据。
+  const files = paths.map((p) => {
+    let text = null
+    try {
+      text = git(['show', `HEAD:${p}`])
+    } catch {
+      text = null // 面里有名字却读不到 ⇒ 该份不构成凭据(lib 逐份点名)
+    }
+    return { path: p, text }
+  })
+  return selectMovedOut(file, files, oursText)
 }
 
 function selfTest() {
@@ -464,15 +509,62 @@ function selfTest() {
     const head = [fresh, dup, dup]
     const wt = ['工作树自己的一行,与 HEAD 这几行都不逐字相同 xxxx']
     const v = classifyMissing(head, wt)
-    assert(v.get(trim(head[0])) === 'lost' && v.get(trim(dup)) === 'lost', '对照组失效:三行都必须是 lost')
+    assert(
+      v.get(trim(head[0])) === 'lost' && v.get(trim(dup)) === 'lost',
+      '对照组失效:三行都必须是 lost',
+    )
     const r = mergeByAnchors(head, wt, v)
     const landed = r.out.filter((l) => l === dup).length
     assert(landed === 1, `同一文本落了 ${landed} 份(应只落第一份;尾部堆叠正是这一型)`)
     assert(r.out.includes(fresh), '唯一那份新行被去重逻辑一起吃掉了 ⇒ 归并职责不得被洗掉')
-    assert(r.lines === 2 && r.dupSkipped === 1 && r.unanchored === 1, `计数异常 lines=${r.lines} skip=${r.dupSkipped} un=${r.unanchored}`)
+    assert(
+      r.lines === 2 && r.dupSkipped === 1 && r.unanchored === 1,
+      `计数异常 lines=${r.lines} skip=${r.dupSkipped} un=${r.unanchored}`,
+    )
     // 反向对照:幂等 —— 拿本轮结果当工作树再归并一次,一行都不该再加
     const again = mergeByAnchors(head, r.out, classifyMissing(head, r.out))
-    assert(again.lines === 0 && again.out.length === r.out.length, '第二轮归并仍在往末尾加行(不幂等)')
+    assert(
+      again.lines === 0 && again.out.length === r.out.length,
+      '第二轮归并仍在往末尾加行(不幂等)',
+    )
+  })
+
+  ck('㉑ 已按 §1 整区移入 archive 的行不判红、绝不插回(守门 207 第二刀①)', () => {
+    const moved = '**速查区重复登记副本:这一整行已按 §1 移入 archive,凭据 = 同族归档件逐字命中**'
+    const keep = '本侧仍在册的一行正文,不得被归档这一维连坐'
+    const head = [moved, keep]
+    const wt = [keep]
+    // 对照组:没有凭据时它就是真丢失(否则下面那条断言证明不了任何事)
+    const bare = classifyMissing(head, wt)
+    assert(bare.get(trim(moved)) === 'lost', '对照组失效:无凭据时必须判 lost')
+    assert(mergeByAnchors(head, wt, bare).lines === 1, '对照组失效:无凭据时必须插回')
+    const v = classifyMissing(head, wt, SIM_THRESHOLD, { archived: (t) => t === trim(moved) })
+    assert(v.get(trim(moved)) === 'archived', `应判 archived,实判 ${v.get(trim(moved))}`)
+    assert(!v.has(trim(keep)), '在册行不得进判定表')
+    assert(mergeByAnchors(head, wt, v).lines === 0, '判 archived 却仍插回 = 清偿成果照样被吞')
+  })
+
+  ck('㉑b 归档凭据反向锁:命中另一行 ⇒ 本行照旧判 lost(凭据逐字对上,不按前缀/族)', () => {
+    const moved = '**速查区重复登记副本:这一整行已按 §1 移入 archive,长度足够充当一行正文**'
+    const other = '**另一件完全无关的长行,用来当"凭据命中了别处"的反向对照,不得咬到上面那行**'
+    const head = [moved, other]
+    const wt = ['工作树自己的一行,与 HEAD 这两行都不逐字相同 xxxx']
+    const v = classifyMissing(head, wt, SIM_THRESHOLD, { archived: (t) => t === other })
+    assert(v.get(trim(other)) === 'archived', '对照组失效:other 必须被判 archived')
+    assert(
+      v.get(trim(moved)) === 'lost',
+      '凭据命中别处却把本行也洗成 archived ⇒ 真丢失会被静默吞掉',
+    )
+    // 凭据函数抛错 ⇒ 一律退回 lost(不冒充)
+    const boom = classifyMissing(head, wt, SIM_THRESHOLD, {
+      archived: () => {
+        throw new Error('面取不到')
+      },
+    })
+    assert(
+      boom.get(trim(moved)) === 'lost' && boom.get(trim(other)) === 'lost',
+      '凭据抛错不得豁免任何行',
+    )
   })
 
   for (const [mark, name] of cases) console.log(`${mark} ${name}`)
@@ -507,16 +599,35 @@ try {
 const headLines = headText.split('\n')
 const wtLines = readFileSync(resolve(ROOT, FILE), 'utf8').split('\n')
 const headSet = new Set(headLines.map(trim).filter(Boolean))
-const verdict = classifyMissing(headLines, wtLines)
+// 第四态 `archived` 的凭据(2026-10-25,守门 207 第二刀①):行不在工作树 ∧ 原文逐字在已入库的
+// 同族归档件里 ⇒ 这是本侧行使过的处置权,不判红、绝不插回。取不到 ⇒ 不传凭据(退回 lost)。
+const archived = readArchivedForDoc(FILE, headText)
+const verdict = classifyMissing(
+  headLines,
+  wtLines,
+  SIM_THRESHOLD,
+  archived.ok ? { archived: (t) => archived.trimmed.has(t) } : {},
+)
 const lost = [...verdict.entries()].filter(([, k]) => k === 'lost')
 const superseded = [...verdict.entries()].filter(([, k]) => k === 'superseded')
 const stale = [...verdict.entries()].filter(([, k]) => k === 'stale')
+const archivedRows = [...verdict.entries()].filter(([, k]) => k === 'archived')
 const localOnly = wtLines.map(trim).filter((t) => t.length > 0 && !headSet.has(t))
 
 console.log(`${FILE}:HEAD 行数=${headLines.length} 工作树行数=${wtLines.length}`)
 console.log(
-  `  真丢失(需插回)= ${lost.length}   被就地改写取代(不插回)= ${superseded.length}   工作树滞后旧态(不插回,但提交会把这些行退回旧形态)= ${stale.length}   工作树独有(在途改写)= ${localOnly.length}`,
+  `  真丢失(需插回)= ${lost.length}   被就地改写取代(不插回)= ${superseded.length}   已按 §1 移入 archive(不插回)= ${archivedRows.length}   工作树滞后旧态(不插回,但提交会把这些行退回旧形态)= ${stale.length}   工作树独有(在途改写)= ${localOnly.length}`,
 )
+if (archivedRows.length) {
+  console.log(`  --- 判定为"已按 §1 整区移入 archive"的 HEAD 行(凭据 = 同族归档件逐字命中) ---`)
+  for (const [t] of archivedRows.slice(0, 8)) console.log('   ⌂ ' + t.slice(0, 78))
+  if (archivedRows.length > 8) console.log(`   … 另 ${archivedRows.length - 8} 行`)
+}
+if (!archived.ok && lost.length) {
+  console.log(
+    `  ⚠️  归档凭据未取得(${archived.reason})⇒ 上述缺失行一律按真丢失处置(不假装"已归档")`,
+  )
+}
 for (const [t] of lost.slice(0, 6)) console.log('   ! ' + t.slice(0, 86))
 if (lost.length > 6) console.log(`   … 另 ${lost.length - 6} 行`)
 if (superseded.length) {

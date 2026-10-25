@@ -6,9 +6,24 @@
 // + header + 关闭),纯受控渲染:候选由 props 传入,选中只回调,零副作用。
 
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { BookOpen, CircleHelp, Code, Cpu, Eraser, FileText, Info, Languages, MessageSquarePlus, Mic, Minimize2, Newspaper, PenLine, X } from 'lucide-react-native'
+import {
+  BookOpen,
+  CircleHelp,
+  Code,
+  Cpu,
+  Eraser,
+  FileText,
+  Info,
+  Languages,
+  MessageSquarePlus,
+  Mic,
+  Minimize2,
+  Newspaper,
+  PenLine,
+  X,
+} from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import type { SlashCommand } from '../../lib/slash-commands'
 
@@ -53,7 +68,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   listDialogTitle: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -69,7 +84,7 @@ const styles = StyleSheet.create({
     paddingBottom: rpx(8),
   },
   queryText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
   list: {
@@ -101,15 +116,15 @@ const styles = StyleSheet.create({
     gap: rpx(4),
   },
   itemTitle: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     color: tokens.text.primary,
   },
   itemDesc: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   itemTrigger: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
   emptyWrap: {
@@ -118,7 +133,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
   },
 })

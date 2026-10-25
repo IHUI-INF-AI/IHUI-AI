@@ -281,6 +281,11 @@ export const agentThumbs = pgTable(
   },
   (t) => ({
     uuidBotIdx: index('zhs_agent_thumbs_uuid_bot_idx').on(t.uuid, t.botId),
+    // 唯一键(2026-10-26,G-217a):一个用户对同一 bot 只应一行点赞。此前只有普通索引,
+    // 写口靠「事务内 FOR UPDATE 父行 + 先查再插」防重 —— 锁保证今天对,但库面无约束,
+    // 任何绕过该事务的写入口(未来的批量导入/修复脚本)都能再造重复行(计数 +2 实点一次)。
+    // 线上表实测 0 行 ⇒ 建约束零回填成本。uuid 列即用户身份(旧 zhs 会员号),非 botId 维度。
+    uuidBotUniq: unique('zhs_agent_thumbs_uuid_bot_uniq').on(t.uuid, t.botId),
   }),
 )
 
@@ -294,6 +299,8 @@ export const agentCollects = pgTable(
   },
   (t) => ({
     uuidBotIdx: index('zhs_agent_collect_uuid_bot_idx').on(t.uuid, t.botId),
+    // 同上(收藏):2026-10-26 唯一键护栏。
+    uuidBotUniq: unique('zhs_agent_collect_uuid_bot_uniq').on(t.uuid, t.botId),
   }),
 )
 

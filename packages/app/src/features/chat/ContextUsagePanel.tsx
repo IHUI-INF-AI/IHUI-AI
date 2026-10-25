@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { ChatScreenMessage } from '@ihui/types'
 import type { TFunction } from '@ihui/types'
 import {
@@ -64,7 +64,9 @@ interface ContextUsagePanelProps {
   colorScheme: 'light' | 'dark'
   /** G-403(2026-10-07):prompt 缓存命中读 token —— 数字(含 0)=上游真回报;
    *  null/缺省 = 没采到(未知),面板显示"不可得"而非 0(与 web ring 同一口径)。
-   *  RN 链路当前无 usage 源(宿主不强传)⇒ 恒 null = 如实"不可得"。 */
+   *  2026-10-25 RN 腿接通:RN 主聊天屏自绘导航栏并传 `showModelBar={false}`,走不到本包
+   *  ChatScreen 内部那一处渲染位,故由该屏直接渲染本组件并把 onUsage 帧的两维传进来。
+   *  本包 ChatScreen 内部那一处仍无 usage 源(屏级 props 里没有用量),宿主不传即如实 null。 */
   cacheReadTokens?: number | null
   /** prompt 缓存写入 token(Anthropic 系才有);三态同上 */
   cacheWriteTokens?: number | null
@@ -226,15 +228,24 @@ export function ContextUsagePanel({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    wrap: { paddingHorizontal: 12, paddingTop: 6 },
-    summary: { fontSize: 12, color: tk.text.secondary, fontVariant: ['tabular-nums'] },
+    wrap: { paddingHorizontal: rnSpacing.md, paddingTop: 6 },
+    summary: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      fontVariant: ['tabular-nums'],
+    },
     panel: {
       marginTop: 6,
-      padding: 8,
+      padding: rnSpacing.sm,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
-    panelTitle: { fontSize: 12, fontWeight: '600', color: tk.text.primary, marginBottom: 6 },
+    panelTitle: {
+      fontSize: rnType.label.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: 6,
+    },
     bar: {
       flexDirection: 'row',
       height: 6,
@@ -245,14 +256,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 },
     dot: { width: 8, height: 8, borderRadius: rnRadius.xs },
-    rowLabel: { fontSize: 11, color: tk.text.primary },
+    rowLabel: { fontSize: rnType.caption.size, color: tk.text.primary },
     topDetail: { flex: 1, fontSize: 10 },
-    num: { fontSize: 11, color: tk.text.primary, fontVariant: ['tabular-nums'] },
+    num: { fontSize: rnType.caption.size, color: tk.text.primary, fontVariant: ['tabular-nums'] },
     dim: { color: tk.text.secondary },
     note: { fontSize: 10, paddingLeft: 14, paddingVertical: 2 },
     details: {
       marginLeft: 14,
-      marginBottom: 4,
+      marginBottom: rnSpacing.xs,
       padding: 6,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,

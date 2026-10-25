@@ -21,7 +21,7 @@ import { BackChevron } from '../../components/BackChevron'
 import { EmptyState } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 // ── 类型定义(强类型,禁用 any;内联定义对齐 MessageChatScreen 模式) ──
 
@@ -391,7 +391,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerTitle: {
       flex: 1,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
       textAlign: 'center',
@@ -410,7 +410,7 @@ function createStyles(tk: AppThemeTokens) {
     messageRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
-      marginBottom: 12, // 历史 .message-item margin-bottom 24rpx
+      marginBottom: rnSpacing.md, // 历史 .message-item margin-bottom 24rpx
     },
     rowUser: {
       justifyContent: 'flex-end',
@@ -421,18 +421,18 @@ function createStyles(tk: AppThemeTokens) {
     bubble: {
       maxWidth: 240, // 历史 .message-bubble max-width 480rpx
       paddingVertical: 10, // rpx(20)
-      paddingHorizontal: 12, // rpx(24)
+      paddingHorizontal: rnSpacing.md, // rpx(24)
       borderRadius: rnRadiusFor.bubble,
     },
     bubbleUser: {
       backgroundColor: tk.vip.gold, // 历史 #FFD700
       borderTopRightRadius: rnRadius.xs, // rpx(4)
-      marginHorizontal: 8, // 历史 avatar margin 16rpx
+      marginHorizontal: rnSpacing.sm, // 历史 avatar margin 16rpx
     },
     bubbleSeller: {
       backgroundColor: tk.surface.muted, // 历史 #f0f0f0
       borderTopLeftRadius: rnRadius.xs, // rpx(4)
-      marginHorizontal: 8, // 历史 avatar margin 16rpx
+      marginHorizontal: rnSpacing.sm, // 历史 avatar margin 16rpx
     },
     bubbleMedia: {
       paddingVertical: 0,
@@ -441,14 +441,14 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 0,
     },
     bubbleText: {
-      fontSize: 14, // 历史 28rpx
+      fontSize: rnType.body.size, // 历史 28rpx
       lineHeight: 21, // rpx(42)
       color: tk.text.medium, // 历史 #333
     },
     readStatus: {
       fontSize: 10, // rpx(20)
       color: tk.text.tertiary, // 历史 #999
-      marginTop: 4, // rpx(8)
+      marginTop: rnSpacing.xs, // rpx(8)
       textAlign: 'right',
     },
     messageImage: {
@@ -462,20 +462,20 @@ function createStyles(tk: AppThemeTokens) {
     mediaRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4, // rpx(8)
-      paddingVertical: 4, // rpx(8)
+      gap: rnSpacing.xs, // rpx(8)
+      paddingVertical: rnSpacing.xs, // rpx(8)
     },
     mediaLink: {
-      fontSize: 12, // rpx(24)
+      fontSize: rnType.label.size, // rpx(24)
       color: tk.brandAccent.deep, // 历史链接色(全项目统一强调色 brandAccent)
       textDecorationLine: 'underline',
     },
     systemRow: {
       alignItems: 'center',
-      marginVertical: 12, // rpx(24)
+      marginVertical: rnSpacing.md, // rpx(24)
     },
     systemText: {
-      fontSize: 12, // rpx(24)
+      fontSize: rnType.label.size, // rpx(24)
       color: tk.text.tertiary, // 历史 #999
     },
     avatarFallback: {
@@ -507,14 +507,14 @@ function createStyles(tk: AppThemeTokens) {
     // 列表态
     searchBar: {
       paddingHorizontal: 10, // rpx(20)
-      paddingVertical: 8, // rpx(16)
+      paddingVertical: rnSpacing.sm, // rpx(16)
     },
     searchInput: {
       height: 32, // rpx(64)
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.surface.inputBg,
-      paddingHorizontal: 12, // rpx(24)
-      fontSize: 14, // rpx(28)
+      paddingHorizontal: rnSpacing.md, // rpx(24)
+      fontSize: rnType.body.size, // rpx(28)
       color: tk.text.primary,
     },
     roomList: {
@@ -535,7 +535,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     roomName: {
-      fontSize: 15, // rpx(30)
+      fontSize: rnType.strong.size, // rpx(30)
       fontWeight: '600',
       color: tk.text.primary,
       maxWidth: 150, // rpx(300)
@@ -547,7 +547,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 4, // rpx(8)
+      paddingHorizontal: rnSpacing.xs, // rpx(8)
       marginLeft: 6, // rpx(12)
     },
     unreadText: {
@@ -556,13 +556,13 @@ function createStyles(tk: AppThemeTokens) {
     },
     roomTime: {
       marginLeft: 'auto',
-      fontSize: 11, // rpx(22)
+      fontSize: rnType.caption.size, // rpx(22)
       color: tk.text.tertiary,
     },
     roomPreview: {
       fontSize: 13, // rpx(26)
       color: tk.text.secondary,
-      marginTop: 4, // rpx(8)
+      marginTop: rnSpacing.xs, // rpx(8)
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)
 }

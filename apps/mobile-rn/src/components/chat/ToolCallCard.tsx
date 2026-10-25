@@ -10,6 +10,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
+import { useI18n } from '../../i18n'
 import {
   formatDurationMs,
   type AssistantExecutionViz,
@@ -74,9 +75,9 @@ const styles = StyleSheet.create({
 
 /** 工具三态 → 行内状态措辞(running 的"执行中…"是唯一进行时文案,终态不冒充完成语义) */
 const TOOL_STATUS_LABEL: Record<ToolCallItem['status'], string> = {
-  running: '执行中…',
-  success: '成功',
-  error: '失败',
+  running: 'chat.toolRunning',
+  success: 'chat.toolOk',
+  error: 'chat.toolFail',
 }
 
 /** 工具三态 → 状态文字取色(running 用中性色,不用成功绿;error 用 error.text) */
@@ -118,17 +119,19 @@ function toolSourceLabel(call: ToolCallItem): string | null {
  * 纯展示:本行只有 expanded 一处本地 UI 状态,零副作用。
  */
 function ToolCallRow({ call }: { call: ToolCallItem }) {
+  const { t } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const source = toolSourceLabel(call)
   const durationText = formatDurationMs(call.durationMs)
   // 渲染条件与 web 对齐:仅 running 态 + 非空 partialDiff 才出预览块
-  const partialDiff =
-    call.status === 'running' && call.partialDiff ? call.partialDiff : undefined
+  const partialDiff = call.status === 'running' && call.partialDiff ? call.partialDiff : undefined
   const header = (
     <Text style={styles.toolRowText} numberOfLines={1}>
       {call.name}
       {source ? ` · ${source}` : ''}
-      <Text style={TOOL_STATUS_TEXT_STYLE[call.status]}>{` · ${TOOL_STATUS_LABEL[call.status]}`}</Text>
+      <Text
+        style={TOOL_STATUS_TEXT_STYLE[call.status]}
+      >{` · ${t(TOOL_STATUS_LABEL[call.status])}`}</Text>
       {durationText ? ` · ${durationText}` : ''}
     </Text>
   )
@@ -139,7 +142,7 @@ function ToolCallRow({ call }: { call: ToolCallItem }) {
           style={styles.toolRow}
           onPress={() => setExpanded((v) => !v)}
           accessibilityRole="button"
-          accessibilityLabel={expanded ? '收起流中 diff 预览' : '展开流中 diff 预览'}
+          accessibilityLabel={expanded ? t('chat.diffCollapse') : t('chat.diffExpand')}
         >
           {header}
         </Pressable>
@@ -150,7 +153,9 @@ function ToolCallRow({ call }: { call: ToolCallItem }) {
         <View style={styles.toolDiffBlock}>
           <View style={styles.toolDiffLabelRow}>
             <Text style={styles.toolDiffLabel}>流中 diff 预览</Text>
-            <Text style={styles.toolDiffToggle}>{expanded ? '收起' : '展开'}</Text>
+            <Text style={styles.toolDiffToggle}>
+              {expanded ? t('teacher.detail.collapse') : t('teacher.detail.expand')}
+            </Text>
           </View>
           <Text style={styles.toolDiffContent} selectable>
             {expanded ? partialDiff : clampPartialDiffPreview(partialDiff)}

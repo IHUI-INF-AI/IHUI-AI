@@ -8,7 +8,7 @@ import { getTokens, type AppThemeTokens, type AppThemeMode } from '../theme/toke
 import type { TFunction, AppIcon } from '@ihui/types'
 import { Crown, Gift, Clock, CreditCard, Check, X, Minus, Plus, Bot } from 'lucide-react'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * 支付按钮 — 跨端共享层。
@@ -108,8 +108,8 @@ const viewStyles = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingLeft: 12,
-    paddingRight: 12,
+    paddingLeft: rnSpacing.md,
+    paddingRight: rnSpacing.md,
     paddingTop: 6,
     paddingBottom: 6,
     borderRadius: rnRadius.xl,
@@ -117,7 +117,7 @@ const viewStyles = {
     color: text,
     opacity: disabled ? 0.5 : 1,
     cursor: disabled ? 'not-allowed' : 'pointer',
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: 500,
     border: 'none',
   }),
@@ -133,34 +133,34 @@ const viewStyles = {
   dialog: (tk: AppThemeTokens): CSSProperties => ({
     backgroundColor: tk.surface.light,
     borderRadius: rnRadius.xl,
-    marginLeft: 24,
-    marginRight: 24,
+    marginLeft: rnSpacing['2xl'],
+    marginRight: rnSpacing['2xl'],
     width: '100%',
     maxWidth: 360,
-    padding: 16,
+    padding: rnSpacing.lg,
     boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
   }),
   productRow: (): CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: rnSpacing.md,
   }),
   avatarFallback: (tk: AppThemeTokens): CSSProperties => ({
     width: 42,
     height: 42,
     borderRadius: rnRadius.xl,
-    marginRight: 12,
+    marginRight: rnSpacing.md,
     backgroundColor: tk.gray[200],
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 20,
+    fontSize: rnType.heading.size,
   }),
   productText: (): CSSProperties => ({ flex: 1, minWidth: 0 }),
   countRow: (): CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: rnSpacing.md,
   }),
   countBtn: (tk: AppThemeTokens, disabled: boolean): CSSProperties => ({
     width: 28,
@@ -177,8 +177,8 @@ const viewStyles = {
   }),
   payBtn: (tk: AppThemeTokens): CSSProperties => ({
     width: '100%',
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingTop: rnSpacing.md,
+    paddingBottom: rnSpacing.md,
     borderRadius: rnRadius.sm,
     textAlign: 'center',
     backgroundColor: tk.brand.cta,
@@ -194,40 +194,40 @@ const viewStyles = {
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
   }),
-  priceLine: (): CSSProperties => ({ marginBottom: 8 }),
+  priceLine: (): CSSProperties => ({ marginBottom: rnSpacing.sm }),
 }
 
 const textStyles = {
-  icon: (): CSSProperties => ({ marginRight: 4, fontSize: 12 }),
-  label: (): CSSProperties => ({ fontSize: 12 }),
+  icon: (): CSSProperties => ({ marginRight: rnSpacing.xs, fontSize: rnType.label.size }),
+  label: (): CSSProperties => ({ fontSize: rnType.label.size }),
   productName: (tk: AppThemeTokens): CSSProperties => ({
     display: 'block',
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: 500,
     color: tk.text.primary,
   }),
   productTip: (tk: AppThemeTokens): CSSProperties => ({
     display: 'block',
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tk.text.secondary,
   }),
   priceLabel: (tk: AppThemeTokens): CSSProperties => ({
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tk.text.secondary,
   }),
   countLabel: (tk: AppThemeTokens): CSSProperties => ({
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tk.text.secondary,
-    marginRight: 8,
+    marginRight: rnSpacing.sm,
   }),
   countValue: (): CSSProperties => ({
-    marginLeft: 12,
-    marginRight: 12,
-    fontSize: 14,
+    marginLeft: rnSpacing.md,
+    marginRight: rnSpacing.md,
+    fontSize: rnType.body.size,
   }),
-  payBtnText: (): CSSProperties => ({ fontSize: 14 }),
+  payBtnText: (): CSSProperties => ({ fontSize: rnType.body.size }),
   defaultName: (): string => 'AI 助手',
   subscribeTip: (): string => '订阅后可无限使用',
   priceLabelFallback: (): string => '价格',
@@ -242,7 +242,7 @@ const imageStyles = {
     width: 42,
     height: 42,
     borderRadius: rnRadius.xl,
-    marginRight: 12,
+    marginRight: rnSpacing.md,
     objectFit: 'cover',
   }),
 }

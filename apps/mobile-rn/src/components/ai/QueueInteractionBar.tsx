@@ -20,7 +20,7 @@ import {
   type QueueDeniedAction,
   type QueueDenyReason,
 } from '@ihui/shared/chat/input-notices'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   itemText: {
     flex: 1,
     minWidth: 0,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.primary,
   },
   opBtn: {
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   editInput: {
     flex: 1,
     minWidth: 0,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.primary,
     paddingVertical: rpx(6),
     paddingHorizontal: rpx(12),
@@ -390,12 +390,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   textBtnPrimary: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '500',
     color: tokens.brand.cta,
   },
   textBtnSecondary: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   footerRow: {
@@ -405,20 +405,20 @@ const styles = StyleSheet.create({
     gap: rpx(10),
   },
   modeLabel: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
   modeText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   modeTextActive: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
   degradedNote: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.warning.DEFAULT,
   },
 })

@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 /**
  * PurchaseNoticePopUp 购买通知 / 赚取佣金弹窗组件 (mobile-rn 端)
@@ -16,6 +16,7 @@ import { rnRadius } from '@ihui/design-tokens'
  */
 import { tokens } from '../theme/active-tokens'
 import { Modal, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
+import { useI18n } from '../i18n'
 
 export interface PurchaseNoticePopUpProps {
   visible: boolean
@@ -42,13 +43,17 @@ const SUBTITLE_MARGIN_TOP = 4
 
 export function PurchaseNoticePopUp({
   visible,
-  title = '赚取佣金',
-  subtitle = '加入我们的推广计划，获得额外收入',
+  title: titleProp,
+  subtitle: subtitleProp,
   bullets,
-  primaryLabel = '前往开启会员',
+  primaryLabel: primaryLabelProp,
   onClose,
   onPrimary,
 }: PurchaseNoticePopUpProps) {
+  const { t } = useI18n()
+  const title = titleProp ?? t('purchaseNotice.title')
+  const subtitle = subtitleProp ?? t('purchaseNotice.subtitle')
+  const primaryLabel = primaryLabelProp ?? t('purchaseNotice.cta')
   const hasBullets = bullets !== undefined && bullets.length > 0
 
   return (
@@ -60,7 +65,11 @@ export function PurchaseNoticePopUp({
       statusBarTranslucent
     >
       <View style={styles.root}>
-        <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="关闭弹窗" />
+        <Pressable
+          style={styles.overlay}
+          onPress={onClose}
+          accessibilityLabel={t('purchaseNotice.closeA11y')}
+        />
         {/* 底部弹层(对齐 Uniapp popup-content bottom: 0 + 上滑动画) */}
         <View style={styles.sheet}>
           <View style={styles.handle} />
@@ -120,7 +129,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
-    paddingBottom: 24,
+    paddingBottom: rnSpacing['2xl'],
   } as ViewStyle,
   handle: {
     width: 36,
@@ -128,12 +137,12 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.xs,
     backgroundColor: tokens.border.medium,
     alignSelf: 'center',
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: rnSpacing.sm,
+    marginBottom: rnSpacing.xs,
   } as ViewStyle,
   content: {
     paddingHorizontal: CONTENT_PADDING,
-    paddingTop: 12,
+    paddingTop: rnSpacing.md,
   } as ViewStyle,
   title: {
     fontSize: TITLE_FONT_SIZE,

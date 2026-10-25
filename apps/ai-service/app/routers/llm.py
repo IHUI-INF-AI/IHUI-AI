@@ -30,6 +30,7 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..core.background_tasks import spawn
 from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.jwt_auth import resolve_request_user_id
@@ -3950,7 +3951,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             if _ext_usage and owner_uuid:
                                 _ext_tokens = int(_ext_usage.get("total_tokens", 0) or 0)
                                 if _ext_tokens > 0:
-                                    asyncio.create_task(
+                                    spawn(
                                         user_trial_quota.consume(owner_uuid, _ext_tokens)
                                     )
                             if _ext_error:
@@ -5829,7 +5830,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     if isinstance(_usage_obj, dict) and owner_uuid:
                         _trial_tokens = int(_usage_obj.get("total_tokens", 0) or 0)
                         if _trial_tokens > 0:
-                            asyncio.create_task(
+                            spawn(
                                 user_trial_quota.consume(owner_uuid, _trial_tokens)
                             )
                     accumulated["stub"] = event.get("stub", False)

@@ -21,7 +21,7 @@ import type { TFunction } from '@ihui/types'
 import { BackChevron } from '../../components/BackChevron'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     listContent: {
-      paddingBottom: 20, // rpx(40)
+      paddingBottom: rnSpacing.xl, // rpx(40)
     },
     pressed: {
       opacity: 0.85,
@@ -239,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerTitle: {
       flex: 1,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
       textAlign: 'center',
@@ -251,16 +251,16 @@ function createStyles(tk: AppThemeTokens) {
     searchWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8, // rpx(16)
-      margin: 12, // rpx(24)
-      paddingHorizontal: 12, // rpx(24)
+      gap: rnSpacing.sm, // rpx(16)
+      margin: rnSpacing.md, // rpx(24)
+      paddingHorizontal: rnSpacing.md, // rpx(24)
       height: 36, // rpx(72)
       borderRadius: rnRadius.sm, // 搜索框是控件 ⇒ control 档 sm(项目不允许胶囊)
       backgroundColor: tk.surface.card,
     },
     searchInput: {
       flex: 1,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       padding: 0,
     },
@@ -268,14 +268,14 @@ function createStyles(tk: AppThemeTokens) {
     // 外层 = 卡片在列表里的占位与触区边界(守门 131:按压态不得写在 Pressable 的 style 上);
     // 卡面档在下面的 card,由内层 View 承载。数值逐字搬移、未新增。
     cardBox: {
-      marginHorizontal: 12, // rpx(24)
-      marginBottom: 12, // rpx(24)
+      marginHorizontal: rnSpacing.md, // rpx(24)
+      marginBottom: rnSpacing.md, // rpx(24)
     },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12, // rpx(24)
-      padding: 12, // rpx(24)
+      gap: rnSpacing.md, // rpx(24)
+      padding: rnSpacing.md, // rpx(24)
       borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
     },
@@ -296,7 +296,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardBody: {
       flex: 1,
-      gap: 4, // rpx(8)
+      gap: rnSpacing.xs, // rpx(8)
     },
     nameRow: {
       flexDirection: 'row',
@@ -304,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6, // rpx(12)
     },
     name: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
       flexShrink: 1,
@@ -317,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 1,
     },
     titleBadgeText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.secondary,
     },
     intro: {
@@ -326,12 +326,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     meta: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
     /* 加载更多 */
     footer: {
-      paddingVertical: 12, // rpx(24)
+      paddingVertical: rnSpacing.md, // rpx(24)
       alignItems: 'center',
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)

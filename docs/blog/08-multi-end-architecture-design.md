@@ -210,7 +210,7 @@ IHUI 的做法:`packages/ui` 只放「无副作用」组件,「有副作用」�
 - 官网:<https://aizhs.top>
 - Turborepo 文档:<https://turbo.build/repo/docs>
 
-如果这篇架构文章对你有启发,欢迎到 GitHub 给 IHUI-AI 点个 Star ⭐,也欢迎来官网看 8 端实际跑起来的样子。
+如果这篇架构文章对你有启发,欢迎到 GitHub 给 IHUI-AI 点个 Star ⭐,也欢迎来官网看 9 端实际跑起来的样子。
 
 ---
 

@@ -3,21 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentSettingScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { ScreenSkeleton } from '../../components/ScreenStates'
 
 /** Agent 设置共享屏 — props 注入式跨端组件(表单,状态由 wrapper 管理) */
 export type { AgentSettingScreenProps }
@@ -39,9 +32,8 @@ export function AgentSettingScreen({
 
   if (loading || !setting) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -112,33 +104,33 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     body: { padding: 14 },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    label: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    label: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     input: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      fontSize: 16,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
     switchRow: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    error: { marginTop: 8, fontSize: 14, color: tk.error.text },
-    toast: { marginTop: 8, fontSize: 14, color: tk.brand.DEFAULT },
+    error: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.error.text },
+    toast: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     saveBtn: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -146,15 +138,15 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     saveBtnDisabled: { opacity: 0.5 },
-    saveBtnText: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
+    saveBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size, fontWeight: '600' },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 16,
+      padding: rnSpacing.lg,
       backgroundColor: tk.surface.bg,
     },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 /**
  * BottomPopup 支付弹窗(mobile-rn 端)
@@ -27,6 +27,7 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import type { VipLevelItem2 } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
 
 export interface BottomPopupProps {
   visible: boolean
@@ -60,6 +61,7 @@ const BUTTON_FONT_SIZE = 15
 const EMPTY_TEXT_FONT_SIZE = 13
 
 export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopupProps) {
+  const { t } = useI18n()
   const [selectedId, setSelectedId] = useState<string>('')
 
   const handleConfirm = () => {
@@ -85,7 +87,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={handleClose}
-          accessibilityLabel="关闭支付弹窗"
+          accessibilityLabel={t('bottomPopup.payA11y')}
         />
         <View style={styles.sheet}>
           <View style={styles.header}>
@@ -100,7 +102,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
               onPress={handleClose}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel="关闭"
+              accessibilityLabel={t('common.close')}
             >
               {({ pressed }) => (
                 <View style={pressed ? styles.closeButtonPressed : null}>
@@ -131,7 +133,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
                     key={level.id}
                     onPress={() => setSelectedId(level.id)}
                     accessibilityRole="button"
-                    accessibilityLabel={`选择 ${level.levelName}`}
+                    accessibilityLabel={t('bottomPopup.selectLevel', { name: level.levelName })}
                     accessibilityState={{ selected }}
                   >
                     {({ pressed }) => (
@@ -168,7 +170,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
             onPress={handleConfirm}
             disabled={!selectedId}
             accessibilityRole="button"
-            accessibilityLabel="立即开通"
+            accessibilityLabel={t('vipScreen.subscribe')}
           >
             {({ pressed }) => (
               <View
@@ -239,7 +241,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   subtitle: {
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
     fontSize: SUBTITLE_FONT_SIZE,
     lineHeight: SUBTITLE_FONT_SIZE + 4,
     color: tokens.text.secondary,
@@ -250,14 +252,14 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   levelsContent: {
     gap: LEVEL_ITEM_GAP,
-    paddingBottom: 8,
+    paddingBottom: rnSpacing.sm,
   } as ViewStyle,
   emptyText: {
     fontSize: EMPTY_TEXT_FONT_SIZE,
     lineHeight: EMPTY_TEXT_FONT_SIZE + 4,
     color: tokens.text.tertiary,
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingVertical: rnSpacing.xl,
   } as TextStyle,
   // 下移到子 View 的盒子用这两档取回原来由父级 stretch 给出的整行宽;不是新的尺寸档。
   levelItemFace: { width: '100%' } as ViewStyle,
@@ -280,7 +282,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   levelInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: rnSpacing.md,
   } as ViewStyle,
   levelName: {
     fontSize: LEVEL_NAME_FONT_SIZE,
@@ -289,7 +291,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   } as TextStyle,
   levelMeta: {
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
     fontSize: LEVEL_META_FONT_SIZE,
     lineHeight: LEVEL_META_FONT_SIZE + 2,
     color: tokens.text.secondary,

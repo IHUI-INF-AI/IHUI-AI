@@ -37,7 +37,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
 import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 export type { StudyTrackCategory, StudyVideoItem }
 
 /** 赛道分类 */
@@ -400,7 +400,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
     searchBar: {
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
     searchInput: {
@@ -408,15 +408,15 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      paddingHorizontal: 12,
-      fontSize: 16,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     } as TextStyle,
     // 赛道分类 chip 切换
     scrollTitleWrap: {
       backgroundColor: tk.surface.light,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
     } as ViewStyle,
     // index 预览态容器
     indexScroll: {
@@ -428,24 +428,24 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     // 预览区块
     previewSection: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
     } as ViewStyle,
     previewHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     } as ViewStyle,
     previewTitleRow: {
       flexDirection: 'row',
       alignItems: 'center',
     } as ViewStyle,
     previewIcon: {
-      fontSize: 20,
-      marginRight: 8,
+      fontSize: rnType.heading.size,
+      marginRight: rnSpacing.sm,
     } as TextStyle,
     previewTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.text.primary,
     } as TextStyle,
@@ -454,11 +454,11 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: 10,
-      paddingHorizontal: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing.md,
+      gap: rnSpacing.md,
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.xl,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     } as ViewStyle,
     previewModelIcon: {
       width: 36,
@@ -469,24 +469,24 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     } as ViewStyle,
     previewModelEmoji: {
-      fontSize: 20,
+      fontSize: rnType.heading.size,
     } as TextStyle,
     previewModelBody: {
       flex: 1,
     } as ViewStyle,
     previewModelName: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     previewModelDesc: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     } as TextStyle,
     previewBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
     } as ViewStyle,
     previewBadgeFree: {
@@ -496,7 +496,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.warning.amberLight,
     } as ViewStyle,
     previewBadgeText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
     } as TextStyle,
     previewBadgeFreeText: {
       color: tk.success.DEFAULT,
@@ -505,10 +505,10 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.warning.amberText,
     } as TextStyle,
     previewEmpty: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.tertiary,
       textAlign: 'center',
-      paddingVertical: 16,
+      paddingVertical: rnSpacing.lg,
     } as TextStyle,
     // 课程预览网格
     previewGrid: {
@@ -529,8 +529,8 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     gridCard: {
       flex: 1,
-      marginHorizontal: 8,
-      marginBottom: 8,
+      marginHorizontal: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
     } as ViewStyle,
     gridCardPressed: {
       opacity: 0.8,
@@ -554,7 +554,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     } as ViewStyle,
     gridCoverPlaceholderText: {
-      fontSize: 24,
+      fontSize: rnType.display.size,
       color: tk.text.tertiary,
     } as TextStyle,
     // 标题+日期覆盖层
@@ -577,14 +577,14 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 9,
       fontWeight: '700',
       color: tk.text.primary,
-      marginLeft: 8,
+      marginLeft: rnSpacing.sm,
     } as TextStyle,
     // 下方课程名
     gridTitle: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
-      marginTop: 8,
-      marginBottom: 8,
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
     } as TextStyle,
     gridAuthorRow: {
       flexDirection: 'row',
@@ -594,7 +594,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 12,
       height: 12,
       borderRadius: rnRadius.sm,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     } as ImageStyle,
     gridAuthor: {
       fontSize: 9,
@@ -605,7 +605,7 @@ function createStyles(tk: AppThemeTokens) {
     // Tip 提示横幅
     tipOuter: {
       backgroundColor: tk.brandAccent.light,
-      padding: 4,
+      padding: rnSpacing.xs,
       borderRadius: rnRadius.xl,
       marginBottom: 9,
     } as ViewStyle,
@@ -614,12 +614,12 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.xl,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
       paddingHorizontal: 6,
     } as ViewStyle,
     tipIcon: {
-      fontSize: 20,
-      marginRight: 8,
+      fontSize: rnType.heading.size,
+      marginRight: rnSpacing.sm,
     } as TextStyle,
     tipScrollContainer: {
       flex: 1,
@@ -631,7 +631,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     } as ViewStyle,
     tipText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '700',
       color: tk.text.secondary,
       paddingRight: 10,
@@ -645,10 +645,10 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brandAccent.light,
       alignItems: 'center',
       justifyContent: 'center',
-      marginLeft: 8,
+      marginLeft: rnSpacing.sm,
     } as ViewStyle,
     tipMyModelText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '700',
       color: tk.text.primary,
     } as TextStyle,
@@ -657,40 +657,40 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingTop: 20,
+      paddingTop: rnSpacing.xl,
       marginTop: 10,
     } as ViewStyle,
     noMoreText: {
       marginHorizontal: 10,
       color: tk.text.secondary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
     } as TextStyle,
     centerWrap: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 24,
-      gap: 12,
+      padding: rnSpacing['2xl'],
+      gap: rnSpacing.md,
     } as ViewStyle,
     emptyText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.tertiary,
       textAlign: 'center',
     } as TextStyle,
     loadingText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.secondary,
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     } as TextStyle,
     footerWrap: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       gap: 6,
     } as ViewStyle,
     footerText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.tertiary,
     } as TextStyle,
   })

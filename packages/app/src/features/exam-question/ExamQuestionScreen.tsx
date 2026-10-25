@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamQuestionItem, ExamQuestionPaper, ExamQuestionScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -125,30 +125,40 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingBottom: rnSpacing['3xl'],
     },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    progress: { marginTop: 12, fontSize: 14, color: tk.success.DEFAULT, fontWeight: '600' },
-    qType: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    header: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    progress: {
+      marginTop: rnSpacing.md,
+      fontSize: rnType.body.size,
+      color: tk.success.DEFAULT,
+      fontWeight: '600',
+    },
+    qType: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     qContent: {
-      marginTop: 8,
-      fontSize: 18,
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 16,
+      marginBottom: rnSpacing.lg,
     },
     option: {
       padding: 14,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
     optionSelected: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
-    optionText: { fontSize: 16, color: tk.text.medium },
+    optionText: { fontSize: rnType.title.size, color: tk.text.medium },
     optionTextSelected: { color: tk.success.DEFAULT, fontWeight: '500' },
-    actionRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 16 },
+    actionRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.lg,
+    },
     navBtn: {
       flex: 1,
       height: 50,
@@ -158,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     navDisabled: { opacity: 0.4 },
-    navText: { fontSize: 16, color: tk.text.medium },
+    navText: { fontSize: rnType.title.size, color: tk.text.medium },
     submitBtn: {
       flex: 1,
       height: 50,
@@ -167,7 +177,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    submitText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
