@@ -415,6 +415,26 @@
       "shared": "packages/app/src/features/agreement/AgreementScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgreementScreen.tsx",
       "miniapp": "pkg-about/about/agreement/index"
+    },
+    {
+      "shared": "packages/app/src/features/change-phone/ChangePhoneScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ChangePhoneScreen.tsx",
+      "miniapp": "pkg-user/user/phone"
+    },
+    {
+      "shared": "packages/app/src/features/change-pwd/ChangePwdScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ChangePwdScreen.tsx",
+      "miniapp": "pkg-user/user/password"
+    },
+    {
+      "shared": "packages/app/src/features/help/HelpScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/HelpScreen.tsx",
+      "miniapp": "pkg-about/about/help"
+    },
+    {
+      "shared": "packages/app/src/features/point-history/PointHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointHistoryScreen.tsx",
+      "miniapp": "pages/member/integral"
     }
   ]
 }
