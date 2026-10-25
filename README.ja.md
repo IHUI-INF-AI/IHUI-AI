@@ -2198,6 +2198,10 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 📚 ドキュメント:G-1142551 记进展——mobile-rn 端已重钉入库(b8c6621af5,门105读 matched),taro 端点仍红待其输入删除入库,离线包钉未判定,保留未勾 (748ad3cfa8)
+- 📚 ドキュメント:G-965 余面复核 —— 可投影 0 条(前批已尽),侧车 superseded 20/孤儿 62 的 drop 声明缺出口,保留未勾 (86c96e1c4c)
+
+**2026-10-26**
 - 🐞 修正:门 105 G5 重钉 ui-routes 产物(输入根导航已移到 HEAD b08a0cc3,旧钉 7de3f03ed555 落后) (b8c6621af5)
 - 🔧 その他:号池流式记账诚实性+上游退避镜像测试(16 例) —— 配套 W1 实现件已入库(HEAD 判据 grep=7) (49a4a6f585)
 - 📚 ドキュメント:L28812 记进展——三器入库(intake/feedback/loop-status)+测试 25/25,真实四账本机缺失故端到端仍未判定,保留未勾 (b202d656b2)
@@ -2358,9 +2362,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:修复预存 typecheck 错误以通过推送门（App/ModelConfigDialog/TokenValueScreen） (7d0831bc66)
 - 🐞 修正:摘除被 chore 收尾提交复活的死测试 organization.test.ts(恢复 d35827d96c8 的摘除决定;该文件 import ../organization.js 解析不到任何文件,是 HEAD 上全量 typecheck 唯一报错文件 ⇒ 阻塞所有推送;全仓仅此文件引用 organizationRoutes) (ccf42c74ff)
 - 🔧 その他:收尾提交本地未提交改动（registry-sync / qoder 桥接 / 移动端与 Web 插件 / 部署脚本 / 文档） (821ce8e621)
-
-**2026-10-26**
-- 🚀 機能/改善:自进化四票真代码交付(自治决策模型/可审计决策链/E2E 自动补测/经验写回腿)—— 判据单源(autonomy-policy/decision-chain-sources/e2e-autofill-map/lesson-writeback-policy 四份 json),测试 import 源脚本零复制;自测 21/9/37/12 组全绿,node --test 四套件 48/48;两枚缺水印文件已补注入;未接线格(受锁 runner 注册与 auto-evolve 排期调用)留进展注不翻勾 (56855eb75f)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
