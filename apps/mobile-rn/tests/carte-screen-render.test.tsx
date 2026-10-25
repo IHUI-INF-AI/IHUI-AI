@@ -6,15 +6,14 @@
  * CarteScreen 的「跨端单一真相源」自证(§17:UI 改动不能只凭代码审查)。
  *
  * 这一屏此前有三份实现(RN 端自带一份、共享层一份、小程序端一份)而彼此不同形,
- * 本套件把能机判的两件事钉住,第三件(迁移门判据)由门体镜像测试对 HEAD 全屏承担:
+ * 本套件把能机判的三件事钉住:
  *  ① RN 那一屏渲染的**就是**共享层 packages/app/src/features/carte/CarteScreen.tsx
  *     —— 替身按既有纪律转发真身,卡片的 testID 只住在共享屏,壳里没有;
  *  ② 上屏段落的构成与顺序 = 跨端单一源 `CARTE_SEGMENTS`(RN 与小程序读同一张表),
  *     两端按表出段即同形,漂一段/换一次序当场判红;
- *  ③ 迁移门(守门 check-rn-app-migration)的判据由门体镜像测试
- *     scripts/tests/check-rn-app-migration.test.mjs T3 对 HEAD 全屏承担(§22c 同源 import 门体,
- *     不复制判据);本文件不再越层 import repo-tooling —— 端内测试相对路径穿透 scripts/ 命中
- *     架构政策 D1/D2(原票两禁:不得塞表例外、不得行内 arch-exempt),按屏断言与 T3 是重复覆盖。
+ *  ③ 迁移门(守门 check-rn-app-migration)对本壳的判据断言住在 `scripts/tests/check-rn-app-migration.test.mjs`
+ *     的 T11(零违规 + 摘掉白名单仍零违规 + 抹掉共享层 import 必翻 V1 红)。端内不再 import 门体:
+ *     那是一条 apps/mobile-rn(rank 40)→ repo-tooling(rank 90) 的反向依赖,门 103 当场判 D1+D2。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement } from 'react'
