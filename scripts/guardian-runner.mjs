@@ -34,6 +34,8 @@
 // 2026-10-16 C1 收口:执行段(缓存/计数/attest/汇总/PAR 池/主循环)整体外置到
 // scripts/lib/guardian-executor.mjs 的 runGuardianBatch(ctx);本文件只剩注册表、
 // CLI 解析与 help。执行语义逐字未动,镜像测试同票改取材面(见该 lib 头注)。
+// 2026-10-25(GOAL-合入票):第 5 轮合并 c8fee04806ea 的「人工归并回灌」把本文件的门注册段截断 —— checks 数组里 240-249 十门注册整体消失、bare-decode-uri/token-literal-debt/rn-readout-cell 三条只剩尾巴、pushGateChecks 追加 68 行缺头缺尾的残骸 ⇒ 本文件语法错误 ⇒ push 门编排器(.husky/pre-push → guardian-runner --push-gate)整个跑不起来,本地 ahead 的提交一律推不动。
+// 本次以 origin/main 当前面为基线逐字复原(§0.6 单一真相源下对侧的完整形态);判据面一字未改,只复原被截断的注册段。
 import { execFileSync } from 'node:child_process'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
@@ -2632,7 +2634,7 @@ const checks = [
       '     单独复验:node scripts/check-merge-addition-loss.mjs --move <from>..<to>(G-939 原案 = 72b3a20c50..588a6342d8)',
       '     巡检档另带位移游标(A4):node scripts/check-merge-addition-loss.mjs --all-new —— 每枚新于游标的位移判恰好一次,',
       '     提交链窗口档只看最近 40 条(本仓实测 ≈53 分钟),旁路落地不跑钩子时靠这一档兜住滑出窗口的那一段。',
-      '     自检:node scripts/check-merge-addition-loss.mjs --self-test(33 例,真临时仓)',
+      '     自检:node scripts/check-merge-addition-loss.mjs --self-test(48 例,真临时仓;含生成块剥离正反两臂)',
       '     镜像测试:node --test scripts/tests/check-merge-addition-loss.test.mjs(含装车证明)',
       '     紧急跳过(不推荐):HUSKY_SKIP_MERGE_ADDITION_LOSS=1 git commit ...',
       '',
@@ -4931,11 +4933,11 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 号池对账(G-313 续,2026-10-15 立):机主裁定任务号池 1..999,该硬上限原先只写在发号器里,活面无门拦"声明位号 >999"⇒ 绕开发号器用 usedIdsOfPrefix max+1 发出过两条七位号(已让号)。升 blocking 前置 = HEAD 面存量归零(§12e);2026-10-15 复注:原 209 号注册块被 80bfe30520 覆盖掉,现由正牌插入器重新占号(1 项,blocking;2026-10-22 HEAD 存量归零后升档)---
+  // --- 号池对账(G-313 续,2026-10-15 立):机主裁定任务号池 1..99(2026-10-24 由三位数收紧为两位数),该硬上限原先只写在发号器里,活面无门拦"声明位号 >99"⇒ 绕开发号器用 usedIdsOfPrefix max+1 发出过两条七位号(已让号)。升 blocking 前置 = HEAD 面存量归零(§12e);2026-10-15 复注:原 209 号注册块被 80bfe30520 覆盖掉,现由正牌插入器重新占号(1 项,blocking;2026-10-22 HEAD 存量归零后升档)---
   {
     id: '211',
     label:
-      '🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名)',
+      '🧮 PROJECT_PLAN 号池对账(声明位号 >99 按重数差值棘轮;R2 发号路径点名)',
     script: 'check-plan-id-pool.mjs',
     args: [],
     mode: 'blocking',
@@ -5351,7 +5353,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 237 (2026-10-23 新增,计划归档单调性) ---
+  // --- 239 (2026-10-23 新增,计划归档单调性;原登记 237 与 check-cross-end-screen-coverage 撞号,2026-10-24 改号) ---
   // 立因(当日实测事故):工作区台账被旧快照回插 29+/16- —— 4 条**已归档**(✅ 含日期)的完成票
   //   (D17/G-807/僵尸实例/G-8160 失败共享事实)被展开回"未勾活行",整批已被 git add 进暂存区。
   //   门 71 守"丢行"、门 229 守"跨枚滞留的已勾行",两侧都不覆盖"已完成票复活成待办"。
@@ -5380,6 +5382,246 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 大屏读数不得断行(2026-10-24 立,机主指认号池面板「6天19小时」被切成两半)---
+  {
+    id: '240',
+    label:
+      '📏 大屏「一格一读数」网格的读数不得断行(blocking;R1 大字号读数 nowrap / R2 --wb-cell-min 定义且被消费 / R3 c3 档引用常数 / R4 wb-split-c3 面板内每组同档 / R5 栏阈值按源码常数复算 / R6 时长读数不得停在裸 auto-fit 档)',
+    script: 'check-readout-no-break.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/ui-react/', 'apps/extension/'],
+    skipEnv: 'HUSKY_SKIP_READOUT_NO_BREAK',
+    onFailHint: [
+      '',
+      '  💡 读数被折成两行(如「6天19小 / 时」)的成因是三层常数脱钩。修法只有一条:',
+      '     列宽不足时**减列/减栏**,不得让读数折行、不得截断数字、不得缩字号。',
+      '       1) 长读数组用 .wb-cells.wb-cells-c3(下限 = var(--wb-cell-min),实测 143px);',
+      '          复合读数(两个量并排 / 带 unit 槽)用 .wb-cells-wide(实测 224px,c3 不够);',
+      '       2) 该组住在 wb-split 里时,面板须带 wb-split-c3(两栏阈值由同一批常数复算);',
+      '       3) 改了 --wb-cell-min 必须让 R5 的复算式仍成立(阈值=2×(3×下限+2×列间距)+栏间距)。',
+      '     自检:node scripts/check-readout-no-break.mjs --self-test(9 例,每条判据各有反向锁)',
+      '     像素够不够本门不判(取决于运行时值长度)⇒ 复跑只读尺:',
+      '       node scripts/verify-wallboard-readout.mjs --worktree --widths 1280,1440,1920',
+      '     规范:docs/UI_GUIDELINES.md「读数不得断行」',
+      '     紧急跳过(不推荐):HUSKY_SKIP_READOUT_NO_BREAK=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 端侧等分读数格(2026-10-24 立;§13.4 的端侧分支,存量已归零才升 blocking)---
+  {
+    id: '241',
+    label:
+      '📏 端侧(RN / 共享源)「读数被压缩」形状不变量(blocking;V1 等分格缺 minWidth / V2 行缺 flexWrap / V3 space-between 行内读数缺 flexShrink:0 / V4 absolute 容器内读数缺 flexShrink:0 / V5 定宽格缺 minWidth;AST 判 JSX 父子关系,存量 69 处已归零)',
+    script: 'check-rn-readout-cell.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['packages/app/', 'apps/mobile-rn/', 'apps/miniapp-taro/'],
+    skipEnv: 'HUSKY_SKIP_RN_READOUT_CELL',
+    onFailHint: [
+      '',
+      '  💡 端侧没有 white-space,读数被压缩就折行。修法按宿主形态分五档(docs/UI_GUIDELINES.md §13.4):',
+      '     【等分格】1) 行加 flexWrap: \'wrap\'  —— 放不下就**整格换行**;',
+      '                2) 格加 minWidth = 该格最坏读数的单行宽 —— 没有它 flexWrap 一次都不触发',
+      '                   (flex:1 的 flexBasis 是 0,子项总宽永不超容器,只会等分压缩)。',
+      '     【space-between 行】读数 Text 加 flexShrink: 0 —— 行内两个子项都没有 flex 时,',
+      '                读数默认 flexShrink:1,行宽不够会**先压读数**,标签反而完整。',
+      '     【absolute 容器】同上,加 flexShrink: 0。',
+      '     【定宽格 width%/flexBasis】只能加 minWidth —— flexShrink 是纵向主轴属性,',
+      '                对横向定宽无效,给它加 flexShrink 等于没加。',
+      '     minWidth 取值按字号档(实测):16-18px → 96 / 20-22px → 112 / 24px → 128~136。',
+      '     禁止用 numberOfLines={1} 顶替 —— 那是把断行换成省略号,同样违反本条。',
+      '     自检:node scripts/check-rn-readout-cell.mjs --self-test(8 例,含 V2 与「只加 wrap」两条反向锁)',
+      '     镜像测试:node scripts/tests/check-rn-readout-cell.test.mjs(16 例,V1-V5 各有反向锁)',
+      '     复跑:node scripts/check-rn-readout-cell.mjs --worktree [--json]',
+      '     紧急跳过(不推荐):HUSKY_SKIP_RN_READOUT_CELL=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 读数零分母 / 定时器句柄覆盖(2026-10-25 立;支付轮询僵尸 + 看板 NaN% 上屏)(1 项,blocking)---
+  {
+    id: '244',
+    label:
+      '⏱️ 读数分母与定时器句柄卫生(blocking;D1 `<ref>.current = setInterval(` 前既无字面 clearInterval、也无一跳可验的具名停止函数 ⇒ 绝对零容忍 / D2 `A / B.length` 无 B 的零守卫 ⇒ 差值棘轮,存量现读 0)',
+    script: 'check-readout-and-timer-hygiene.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/'],
+    skipEnv: 'HUSKY_SKIP_READOUT_AND_TIMER_HYGIENE',
+    onFailHint: [
+      '',
+      '  💡 全文住门体头注:node scripts/check-readout-and-timer-hygiene.mjs(D1 句柄被覆盖 ⇒ 僵尸轮询带旧订单号;',
+      '     D2 零分母 ⇒ 首屏明写 NaN%)。修法:起新前先 clearInterval(同一句柄);分母为零如实给 null/"—"。--self-test 20 例。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_READOUT_AND_TIMER_HYGIENE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 额度守卫写入的影响行 / 回调吞失败(2026-10-25 立;积分兑换超卖 + 提现黑洞)(1 项,blocking)---
+  {
+    id: '243',
+    label:
+      '💸 额度扣减必须读回影响行 + 资金回调不得用 SUCCESS 吞失败(blocking;G1 扣额度型守卫写入无 .returning 且结果被丢 / G3 相对扣减完全没有额度守卫 / G4 额度列无锁的绝对值回写(锁内 FOR UPDATE 机器豁免) / G5 计数字段(…Count/aiRounds)读出来±1再写绝对值 / G2 回调 catch 里回 code:SUCCESS)',
+    script: 'check-guarded-write-affected.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/api/src/'],
+    skipEnv: 'HUSKY_SKIP_GUARDED_WRITE_AFFECTED',
+    onFailHint: [
+      '',
+      '  💡 立因/修法全文住门体头注(§22c 不重抄):node scripts/check-guarded-write-affected.mjs',
+      '     G1 扣额度写入不读回影响行(兑换超卖不退款)/ G2 资金回调回 SUCCESS 吞失败(提现永冻)/',
+      '     G3 相对扣减缺 gte(余额,数额)/ G4 无锁绝对值回写=丢失更新(锁内 FOR UPDATE 机器豁免)。',
+      '     不收:单调推进(lt(lastMessageAt))与范围删除(gt(createdAt))的 0 行本就是正解。',
+      '     --staged 复验 / --self-test(24 例)/ 镜像 scripts/tests/check-guarded-write-affected.test.mjs。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_GUARDED_WRITE_AFFECTED=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 活文档同形态副本翻倍(2026-10-25 立;README 4.6MB / 同一行 596 份的 union 病)(1 项,blocking)---
+  {
+    id: '245',
+    label:
+      '📜 活文档副本增生对账(blocking;六份活文档各按自身差值棘轮拦"本次把同形态副本加回来了";折叠判据 import scripts/dedupe-live-doc.mjs,本门不写第二份)',
+    script: 'check-live-doc-duplicates.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md', 'AGENTS.md', 'PROJECT_PLAN.md'],
+    skipEnv: 'HUSKY_SKIP_LIVE_DOC_DUPLICATES',
+    onFailHint: [
+      '',
+      '  💡 立因(现读):README.md 曾长到 4,653,356 B / 15,334 行,同一形态行最多 596 份 —— 行级 union 只守恒"不丢行",',
+      '     判不出"同一段落被复制一千份" ⇒ 逐次合并单调翻倍(4→51→99→198→296→589→1176 枚 A:Yes 行),门 173 只逐键比数字。',
+      '     唯一出口(只折副本不折内容,四档守恒):node scripts/dedupe-live-doc.mjs <文档路径…> --apply;' +
+        '按文档差值棘轮,AGENTS/PLAN 存量只报数(§12e)。--self-test 6 例 / 镜像 18 例。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_LIVE_DOC_DUPLICATES=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 业务日界单一真相源(2026-10-25 立;大屏同屏 UTC 签到日 vs 上海新增日)(1 项,blocking)---
+  {
+    id: '246',
+    label:
+      '🕐 业务日界只许一个出口(blocking;B1 第二份日界算法 ⇒ 绝对零容忍(存量本枚清零)/ B2 日键型 toISOString().slice(0,10) ⇒ 差值棘轮 / B3 唯一出口无人 import ⇒ 造好未装车)',
+    script: 'check-biz-day-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/api/src/'],
+    skipEnv: 'HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE',
+    onFailHint: [
+      '',
+      '  💡 立因:"哪一天算一天"曾有 6 份私有实现(5 份逐字相同的 shanghaiDayStartUtc + 同屏 shanghaiDateString),',
+      '     加上钉成 UTC 的 checkin-helpers.todayString(扇出 6 个签到/积分调用点)与访客日 ⇒ 大屏同屏「今日新增(上海日)」与',
+      '     「今日签到(UTC 日)」并排,每天上海 00:00–08:00 签到格读成 0、连续天数断裂。',
+      '     出口:apps/api/src/utils/biz-day.ts(bizDayStartUtc/bizDayKey/shiftBizDayKey);委托转发合法,自己再算不合法。',
+      '     --staged 复验 / --self-test(9 例)/ 镜像 scripts/tests/check-biz-day-single-source.test.mjs。',
+       '     紧急跳过(不推荐):HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE=1 git commit ...',
+       '',
+     ].join('\n'),
+   },
+
+  // --- asyncio 后台任务强引用(2026-10-26 立;create_task 弱引用被 GC 族根治)---
+  {
+    id: '247',
+    label:
+      '🧵 ai-service asyncio 后台任务强引用(blocking;W1 裸 create_task/ensure_future ⇒ 绝对零容忍 / W3 唯一出口无人 import ⇒ 造好未装车;赋值/列表持有型只报数,见门体 W2)',
+    script: 'check-ai-task-background-reference.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/ai-service/'],
+    skipEnv: 'HUSKY_SKIP_AI_TASK_BG_REF',
+    onFailHint: [
+      '',
+      '  💡 事件循环对 create_task 返回值只握弱引用,丢弃 ⇒ 任务半路被 GC 且零报错(workflow 实例永逝/存活监控断线同型)。',
+      '     出口:from app.core.background_tasks import spawn;合法豁免登记 scripts/data/ai-task-bare-exemptions.json(marker=调用行子串+reason+until,marker 消失=腐烂判红)。',
+      '     --self-test 12 例 / 镜像 scripts/tests/check-ai-task-background-reference.test.mjs。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_AI_TASK_BG_REF=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 富文本动作锚点渲染器单一源头(2026-10-25 立;D99/G-136 账面兑现:MISSING_ANCHOR_RENDERERS"供守门判红"此前全仓 scripts 面 0 命中)(1 项,blocking)---
+  {
+    id: '249',
+    label:
+      '🧩 富文本锚点渲染器单一源头(blocking;A1 渲染表键集==RICH_ANCHOR_TAGS 双向相等+守卫在位(绝对零容忍,非棘轮)/ A2 apps/web 生产面 t.rich 内联渲染器分叉逐条点名(真 AST)/ A3 载体 importer 枚举 0 即死)',
+    script: 'check-rich-anchor-renderer-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/shared/src/chat/'],
+    skipEnv: 'HUSKY_SKIP_RICH_ANCHOR_RENDERER_SINGLE_SOURCE',
+    onFailHint: [
+      '',
+      '  💡 立因:rich-anchor-text.tsx 头注与台账声称 MISSING_ANCHOR_RENDERERS"供守门/自检判红",',
+      '     但备案当刻 git grep HEAD -- scripts 实测 0 个文件 —— 账面无人付费(§0.9"造好没装车"= 没有);',
+      '     同刻 HEAD 实测 1 处 t.rich 调用把白名单标签渲染器内联在调用点(worktree-dialog 的 branch)——',
+      '     表改了、内联副本不跟着改,两条腿静默漂开且无从对账。',
+      '     A1 修法:新增/删标签两翼同批显式同步(packages/shared/src/chat/rich-anchors.ts 白名单 →',
+      '            apps/web/src/components/chat/rich-anchor-text.tsx 同表补键),守卫不许改写;',
+      "     A2 修法:调用点改成 { <tag>: richAnchorRenderer('<tag>') }(或整体传 RICH_ANCHOR_COMPONENTS);",
+      '     A3 修法:恢复任一生产屏面对 RichAnchorText/richAnchorRenderer 的真实挂载,禁止为过门加假 import。',
+      '     单独复验:node scripts/check-rich-anchor-renderer-single-source.mjs --staged',
+      '     自检:node scripts/check-rich-anchor-renderer-single-source.mjs --self-test(14 例,A1/A2/A3 成对正反控)',
+      '     镜像:node --test scripts/tests/check-rich-anchor-renderer-single-source.test.mjs(判据 import 门体 __test__,不复制)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_RICH_ANCHOR_RENDERER_SINGLE_SOURCE=1 git commit ...',
+    ].join('\n'),
+  },
+  // --- 显示层分→元格式化单一出口(2026-10-26 立;20 份 fmtYuan 型副本收口后防复活)---
+  {
+    id: '248',
+    label:
+      '💴 显示层分→元格式化只许一个出口(blocking;M1 本地自算定义 ⇒ 绝对零容忍(存量本波清零)/ M2 行内定长格式化 ⇒ 差值棘轮只拦新增 / M3 唯一出口无人 import ⇒ 造好未装车)',
+    script: 'check-money-display-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/'],
+    skipEnv: 'HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE',
+    onFailHint: [
+      '',
+      '  💡 `¥${(n/100).toFixed(2)}` 同形曾被逐字复制 20 份(改单位口径要 20 处手改,漏一处=该页 100 倍显示事故;',
+      '     分销族 46758b5b2b8 的"分当元"批修即同型受害者)。出口:import { formatPrice } from @ihui/shared/utils;',
+      '     委托转发(¥${formatPrice(n)})合法,数字换算(返回 number)出射程;行内定长存量走 ratchet 只报数。',
+      '     --self-test 10 例 / 镜像 scripts/tests/check-money-display-single-source.test.mjs。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+
+  // --- 身份主体单一真相源(2026-10-25 立;crew/knowledge 匿名越权族根治)(1 项,blocking)---
+  {
+    id: '242',
+    label:
+      '🪪 apps/api 身份主体取值对账(blocking;W1 身份取自 auth 层从不填充的 request.user ⇒ 绝对零容忍 / W2 主体与客户端自报字段同一条 ??·|| 链 ⇒ 差值棘轮 / W3 测试夹具给生产不填的字段赋值(假 oracle)⇒ 绝对零容忍)',
+    script: 'check-identity-principal-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/api/src/'],
+    skipEnv: 'HUSKY_SKIP_IDENTITY_PRINCIPAL_SOURCE',
+    onFailHint: [
+      '',
+      '  💡 本门抓的是"取到的人不是登录主体"这一族(2026-10-25 实测:crew.ts 13 端点 +',
+      '     knowledge-rag.ts 8 处读 req.user,而 @fastify/jwt 把该字段 decorateRequest 成 null、',
+      '     本仓 authenticate 走 jose 只写 request.userId ⇒ 恒 undefined,于是匿名调用即可按',
+      '     客户端自报 userId/ownerUuid 读删他人数据;server.ts:276 的 onRoute 只注入网络分段,',
+      '     **不注入鉴权**,所以此前没有任何门覆盖这一族)。同族 2026-08-06 曾在 openclaw-routes',
+      '     发生过一次并只修了那一个点,没装闸 ⇒ 静默复发 15 个月。',
+      '     【W1】身份只读 request.userId(或经 authenticate() 的返回值),不得再读 req.user/request.user。',
+      '     【W2】归属主体必须只来自令牌;要按 userId 代他人操作,走具名出口',
+      '            isSystemAdmin(req, { includeInternalChannel: false }) 显式特权判定,而不是 ?? 链。',
+      '     【W3】测试夹具要填生产真会填的字段(request.userId / request.jwtPayload)。',
+      '     单独复验:node scripts/check-identity-principal-source.mjs --staged(全量档不带旗)',
+      '     自检:node scripts/check-identity-principal-source.mjs --self-test(19 例,W1/W2/W3 与具名出口各有成对反向锁)',
+      '     镜像:node scripts/tests/check-identity-principal-source.test.mjs(判据 import 门体 __test__,不复制)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_IDENTITY_PRINCIPAL_SOURCE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 镜像 purge 内容完好(2026-10-23 立)(1 项,blocking)---
   {
     id: '238',
@@ -5397,19 +5639,6 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 裸decode URI容错(1 项,blocking)---
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_BARE_DECODE_URI',
-    stagedTriggers: ['apps/miniapp-taro', 'apps/mobile-rn', 'apps/web', 'apps/extension', 'apps/desktop', 'packages/app', 'packages/ui-native', 'packages/shared'],
-    onFailHint: [
-      '',
-      '  💡 判的是「裸 decodeURIComponent 落在渲染求值路径」:框架已自动解码的 router params/深链参数二次解码遇孤立%必抛 URIError 整页崩。',
-      '     出路 1(默认):改 import { safeDecodeURIComponent }(永不抛,失败原样返回);',
-      '     出路 2(确需原生抛语义):行尾加 // bare-decode-uri-exempt: <≥4字原因>;',
-      '     应急跳门:HUSKY_SKIP_BARE_DECODE_URI=1 git commit ...(会留跳门台账)。',
-      '',
-    ].join('\n'),
-  },
 
   // --- info (1 项) ---
   {
@@ -5687,60 +5916,6 @@ const checks = [
     // 逃生:HUSKY_SKIP_I18N_DEAD_KEY=1(与原 pre-commit 段同一变量,语义不变)。
     skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY',
   },
-    mode: 'blocking',
-    // 2026-10-25 立(goal「样式全面对齐」):tokens-migrate 已把 261 个已入库屏的 3720 处裸数字转成 rnSpacing/rnType,
-    // 但此前没有任何判据管"新增" —— 随手写 padding: 16 就能把成果加回来。差值棘轮(§0.5):
-    // 锚点 = 该文件 HEAD blob 自身的可对档数,只拦本次变大;存量只报数(§12e)。
-    stagedTriggers: ['packages/app/src/', 'apps/mobile-rn/src/'],
-    skipEnv: 'HUSKY_SKIP_TOKEN_LITERAL_DEBT',
-    onFailHint: [
-      '',
-      '  💡 修复(不是跳门):node scripts/tokens-migrate.mjs <file> --apply',
-      '     判据读数:node scripts/check-token-literal-debt.mjs(--staged 判本次 / 无参全量报数)',
-      '     自检:node scripts/check-token-literal-debt.mjs --self-test(12 例,含阳性对照)',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '240',
-    label:
-      '📏 大屏「一格一读数」读数不得断行(blocking;R1-R6 判 wallboard 页常数同源,R8 差值棘轮把「大字号+数值排版必 whitespace-nowrap」推广到 apps/web/packages/ui-react/apps/extension —— 只拦净增,存量 75 处升绝对零容忍就是逼 --no-verify 的恒红门)',
-    script: 'check-readout-no-break.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_READOUT_NO_BREAK',
-    stagedTriggers: [
-      'apps/web/app/(main)/admin/monitor/wallboard/',
-      'apps/web/',
-      'packages/ui-react/',
-      'apps/extension/',
-      'scripts/check-readout-no-break.mjs',
-    ],
-    onFailHint: [
-      '',
-      '  💡 判的是「读数折行撑高卡片」这一族形态,不是设计品味:R1 大字号读数缺 nowrap / R2 --wb-cell-min 悬空 / R3 列宽下限没引用 var / R4 wb-split-c3 与 wb-cells-c3 栏列脱钩 / R5 容器阈值没按源码常数复算。',
-      '     写法与量法见 docs/UI_GUIDELINES.md §13;只补 nowrap 会把折行变成溢出压邻格(实测 61px),列宽下限与栏阈值必须同批补。',
-      '     复验:node scripts/check-readout-no-break.mjs(--staged 判本次 / 无参全量判 HEAD);自检:node scripts/check-readout-no-break.mjs --self-test。',
-      '     紧急跳过(不推荐):HUSKY_SKIP_READOUT_NO_BREAK=1 且必须同给 HUSKY_SKIP_READOUT_NO_BREAK_REASON=理由。',
-      '',
-    ],
-  },
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_RN_READOUT_CELL',
-    stagedTriggers: [
-      'packages/app/src/',
-      'apps/mobile-rn/src/',
-      'apps/miniapp-taro/src/',
-      'scripts/check-rn-readout-cell.mjs',
-    ],
-    onFailHint: [
-      '',
-      '  💡 正则扫样式表分不清标题与读数,只有 JSX 父子关系知道 —— 真三元组 View(row:flexDirection:row)>View(cell:flex:1)>Text(val:fontSize≥16 且 600/700)。',
-      '     写法见 docs/UI_GUIDELINES.md §13.4(§13 是 web 侧同源条款);「有 flexWrap 就免疫」是错的:没 minWidth 时 flexBasis=0,wrap 一次都不触发。',
-      '     复验:node scripts/check-rn-readout-cell.mjs --staged;紧急跳过(不推荐):HUSKY_SKIP_RN_READOUT_CELL=1 git commit ...',
-      '',
-    ],
-  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -5784,68 +5959,6 @@ const pushGateChecks = [
       '',
     ].join('\n'),
   },
-  {
-    // 2026-10-25 注册:门体头注与 AGENTS.md 点名称「守门 241」,但 runner 里该号已被
-    // check-bare-decode-uri.mjs(2026-10-25 11:18 装车)占用 —— 撞号即 R5 判红,按
-    // 「后来者改号」先例(同门 239 由撞号的 237 改号)取 max+1=248;判据面一字未动。
-    id: '241',
-    label:
-      '📐 RN/共享源「等分读数格」AST 父子判据(blocking;V1 等分格必 minWidth / V2 等分行必 flexWrap / V3 space-between 与 V4 absolute 容器内读数必 flexShrink:0 / V5 定宽格必 minWidth)',
-    script: 'check-rn-readout-cell.mjs',
-    args: [],
-  {
-    label:
-      '移动端/全端裸 decodeURIComponent 差值棘轮(孤立%抛 URIError 崩渲染;唯一容错出口 safeDecodeURIComponent 在 @ihui/shared/utils/safe-decode-uri;拦新增放存量)',
-    script: 'check-bare-decode-uri.mjs',
-    args: [],
-  {
-    label: '🔒 RN 样式裸数字回潮(差值棘轮:只拦本次把可自动对档的裸数字加回来)',
-    script: 'check-token-literal-debt.mjs',
-    args: ['--staged'],
-  {
-    id: '242',
-    label:
-      '🪪 apps/api 身份主体取值对账(blocking;W1 身份取自 auth 层从不填充的 request.user ⇒ 绝对零容忍 / W2 主体与客户端自报字段同一条 ??·|| 链 ⇒ 差值棘轮 / W3 测试夹具给生产不填的字段赋值(假 oracle)⇒ 绝对零容忍)',
-    script: 'check-identity-principal-source.mjs',
-    args: [],
-  {
-    id: '243',
-    label:
-      '💸 额度扣减必须读回影响行 + 资金回调不得用 SUCCESS 吞失败(blocking;G1 扣额度型守卫写入无 .returning 且结果被丢 / G3 相对扣减完全没有额度守卫 / G4 额度列无锁的绝对值回写(锁内 FOR UPDATE 机器豁免) / G5 计数字段(…Count/aiRounds)读出来±1再写绝对值 / G2 回调 catch 里回 code:SUCCESS)',
-    script: 'check-guarded-write-affected.mjs',
-    args: [],
-  {
-    id: '244',
-    label:
-      '⏱️ 读数分母与定时器句柄卫生(blocking;D1 `<ref>.current = setInterval(` 前既无字面 clearInterval、也无一跳可验的具名停止函数 ⇒ 绝对零容忍 / D2 `A / B.length` 无 B 的零守卫 ⇒ 差值棘轮,存量现读 0)',
-    script: 'check-readout-and-timer-hygiene.mjs',
-    args: [],
-  {
-    id: '245',
-    label:
-      '📜 活文档副本增生对账(blocking;六份活文档各按自身差值棘轮拦"本次把同形态副本加回来了";折叠判据 import scripts/dedupe-live-doc.mjs,本门不写第二份)',
-    script: 'check-live-doc-duplicates.mjs',
-    args: [],
-  {
-    id: '246',
-    label:
-      '🕐 业务日界只许一个出口(blocking;B1 第二份日界算法 ⇒ 绝对零容忍(存量本枚清零)/ B2 日键型 toISOString().slice(0,10) ⇒ 差值棘轮 / B3 唯一出口无人 import ⇒ 造好未装车)',
-    script: 'check-biz-day-single-source.mjs',
-    args: [],
-  {
-    id: '247',
-    label:
-      '🧵 ai-service asyncio 后台任务强引用(blocking;W1 裸 create_task/ensure_future ⇒ 绝对零容忍 / W3 唯一出口无人 import ⇒ 造好未装车;赋值/列表持有型只报数,见门体 W2)',
-    script: 'check-ai-task-background-reference.mjs',
-    args: [],
-    id: '248',
-    label:
-      '💴 显示层分→元格式化只许一个出口(blocking;M1 本地自算定义 ⇒ 绝对零容忍(存量本波清零)/ M2 行内定长格式化 ⇒ 差值棘轮只拦新增 / M3 唯一出口无人 import ⇒ 造好未装车)',
-    script: 'check-money-display-single-source.mjs',
-    args: [],
-    id: '249',
-      '🧩 富文本锚点渲染器单一源头(blocking;A1 渲染表键集==RICH_ANCHOR_TAGS 双向相等+守卫在位(绝对零容忍,非棘轮)/ A2 apps/web 生产面 t.rich 内联渲染器分叉逐条点名(真 AST)/ A3 载体 importer 枚举 0 即死)',
-    script: 'check-rich-anchor-renderer-single-source.mjs',
 ]
 
 // === CLI 解析 ===

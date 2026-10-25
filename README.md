@@ -5214,6 +5214,7 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 - `check-auth-cookie-domain-scope.mjs`(id 230,blocking,skipEnv=HUSKY_SKIP_AUTH_COOKIE_DOMAIN_SCOPE)：会话 Cookie 域作用域对账(blocking):Domain= 只许经 auth-cookies 的 resolveCookieDomain 单源按请求 host 下发,Host 取样必须走代理感知出口 request.hostnam
 - `check-authorization-column-isolation.mjs`(id 188,blocking,skipEnv=HUSKY_SKIP_AUTHZ_COLUMN_ISOLATION)：授权判据列隔离(blocking,拦「归属判据所在的 SELECT 顺带取了展示列」—— 展示字段损坏会把授权查询拖成 500 而不是 403/404;判据本体单份住在 check-authorization-column-isolatio
 - `check-baseline-freshness.mjs`(id —,非blocking,接线点=package.json `check:baseline-freshness` + git-guardian.mjs 现调度)：开工前基线新鲜度自检(三轴:分支落后远端/落后主线/共享工作树滞后 HEAD)
+- `check-biz-day-single-source.mjs`(id 246,blocking,skipEnv=HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE)：「业务日界只许一个出口」对账(2026-10-25 立;6 份私有日界 + UTC 签到日与上海新增日同屏互搏的根治,出口 apps/api/src/utils/biz-day.ts;自检 --self-test 9 例)
 - `check-bpe-encoding-parity.mjs`(id 228,blocking,skipEnv=HUSKY_SKIP_BPE_ENCODING_PARITY)：跨端 BPE 词表对账(blocking;C1 声明 + C2 行为 + C3 反向锁)
 - `check-bypass-landing-scope.mjs`(id 170,blocking,skipEnv=HUSKY_SKIP_BYPASS_LANDING_SCOPE)：旁路落地声明面对账(blocking,留痕声明面 ⊉ 实际面 ∧ 射程外路径写回旧 blob ⇒ 红并点名;增量台账每枚判一次)
 - `check-capability-field-not-client-supplied.mjs`(id 176,blocking,skipEnv=HUSKY_SKIP_CAPABILITY_FIELD_NOT_CLIENT_SUPPLIED)：能力位不得客户端自供守门(b76-08a票2配套):客户端不得自报 capability 字段(connectionId/clientMode/deliveryProfile/subscriberScope/workflowRunDelta
@@ -5224,6 +5225,7 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 - `check-csrf-exemption-shape.mjs`(id 209,blocking,skipEnv=HUSKY_SKIP_CSRF_EXEMPTION_SHAPE)：CSRF 豁免形状对账(blocking,存在性唯一条件放行/验真出口摘线/timingSafeEqual 单源三判据)
 - `check-dangling-local-imports.mjs`(id 98,blocking,skipEnv=HUSKY_SKIP_DANGLING_IMPORTS)：HEAD 悬空具名导入对账(blocking,import 的名字目标必须真导出)
 - `check-db-blind-updatedat-set.mjs`(id 198,blocking,skipEnv=HUSKY_SKIP_DB_BLIND_UPDATEDAT)：⏱️ DB 盲写 updatedAt 棘轮(blocking,拦「.set({ ...data, updatedAt: new Date() })」无条件覆盖形态回潮 —— 它把增量读的 updatedAt 消费源污染成假变化)
+- `check-db-migration-gaps.mjs`(id 未登记,档位未声明,跳过变量无)：DB 迁移账本「中间缺口」审计(只读默认;lateGap = hash 缺 ∧ when ≤ maxApplied ⇒ drizzle 永不应用,判红;补账出口 --repair --yes;自检 --self-test)
 - `check-diagnostic-redaction.mjs`(id 174,blocking,skipEnv=HUSKY_SKIP_DIAGNOSTIC_REDACTION)：诊断面脱敏守门(b76-08a票1配套):诊断/错误上报面不得携带未脱敏的密钥/令牌/邮箱/路径等敏感串,自检 --self-test 内嵌红绿对照
 - `check-digest-name-reality.mjs`(id 137,blocking,skipEnv=HUSKY_SKIP_DIGEST_NAME_REALITY)：名字承诺/实现兑现对账(拦「函数或字段叫 hash/digest/指纹/脱敏,实现却是明文拼接且流向持久化或出网」这一型 —— 本仓 4 处真缺陷同族立门)
 - `check-dockerfile-copy-paths.mjs`(id 72,blocking,skipEnv=HUSKY_SKIP_DOCKERFILE_COPY_GUARD)：Dockerfile 构建上下文对账(blocking,钩子脚本必须 COPY 进镜像 + COPY 源必须在提交里)
@@ -5240,15 +5242,18 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 - `check-git-read-timeout.mjs`(id 80,blocking,skipEnv=HUSKY_SKIP_GIT_READ_TIMEOUT)：⏱ 热路径 git 只读调用必须带 timeout(blocking,拦无界挂起拖死守门链)
 - `check-grafana-datasource-wiring.mjs`(id 222,blocking,skipEnv=HUSKY_SKIP_GRAFANA_DATASOURCE_WIRING)：监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态)
 - `check-grafana-metric-exists.mjs`(id 220,blocking,skipEnv=HUSKY_SKIP_GRAFANA_METRIC_EXISTS)：监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)
+- `check-guarded-write-affected.mjs`(id 243,blocking,skipEnv=HUSKY_SKIP_GUARDED_WRITE_AFFECTED)：「额度扣减不读回影响行 / 资金回调用 SUCCESS 吞掉失败」对账(2026-10-25 立;积分兑换超卖 + 提现冻结黑洞根治;自检 --self-test 24 例)
 - `check-guardian-review-wired.mjs`(id 142,blocking,skipEnv=HUSKY_SKIP_GUARDIAN_REVIEW_WIRED)：Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)
 - `check-husky-hook-form.mjs`(id 226,blocking,skipEnv=HUSKY_SKIP_HOOK_FORM)：钩子装载形态对账(.husky 钩子必须 sh 薄壳,node 正文只能在 scripts/lib)
 - `check-i18n-locale-content-language.mjs`(id 133,blocking,skipEnv=HUSKY_SKIP_I18N_LOCALE_CONTENT_LANGUAGE)：🈶 语言包语种内容对账(blocking,L1 跨族/块级只报数 + L2 同名自套一层按 HEAD 锚点棘轮 —— parity 绿不等于语种对)
+- `check-identity-principal-source.mjs`(id 242,blocking,skipEnv=HUSKY_SKIP_IDENTITY_PRINCIPAL_SOURCE)：「身份主体取自 auth 层从不填充的 request.user」对账(2026-10-25 立;crew/knowledge 匿名越权族根治;W1/W3 绝对零容忍 + W2 差值棘轮;自检 --self-test 19 例)
 - `check-image-placeholders.mjs`(id —,非blocking,接线点=package.json `check:image-placeholders`)：只读量算图片源站 0 字节空文件(灰底占位图)及其代码引用点
 - `check-inbound-schema-strict.mjs`(id 161,blocking,skipEnv=HUSKY_SKIP_INBOUND_SCHEMA_STRICT)：入站契约 .strict() 到达性对账
 - `check-index-unmerged-age.mjs`(id —,非blocking,接线点=git-guardian.mjs index 烂尾哨兵派发)：index 烂尾(unmerged 条目)滞留哨兵(2026-10-24 立)
 - `check-line-split-parity.mjs`(id 210,非blocking(warn),skipEnv=HUSKY_SKIP_LINE_SPLIT_PARITY)：TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格)
 - `check-list-cap-honesty.mjs`(id 178,blocking,skipEnv=HUSKY_SKIP_LIST_CAP_HONESTY)：列表截断诚实守门(b76-13票7配套):UI 列表截断必须如实交代截断帽(不得假装展示全量),三处 UI 命中已清偿;1 处字符串尾截(terminal-section.tsx)属票面不判面(未判定不判红)
 - `check-list-predicate-has-positive-proof.mjs`(id 120,blocking,skipEnv=HUSKY_SKIP_LIST_POSITIVE_PROOF)：名单类判据正向证明对账(blocking,登记名单必须被自己的成员命中过)
+- `check-live-doc-duplicates.mjs`(id 245,blocking,skipEnv=HUSKY_SKIP_LIVE_DOC_DUPLICATES)：「活文档被同形态副本越堆越厚」对账(2026-10-25 立;README 4.6MB / 同一行 596 份的 union 翻倍族根治,出口 node scripts/dedupe-live-doc.mjs <文档> --apply;自检 --self-test 6 例)
 - `check-live-doc-references.mjs`(id 184,blocking,skipEnv=HUSKY_SKIP_LIVE_DOC_REFERENCES)：活文档点名路径存续性对账(blocking,正文反引号点名的仓内路径必须在被审面在位;索引缺而 HEAD 在 ⇒ 红,HEAD 缺席只 warning,2026-09-30 D169 立)
 - `check-load-state-loaded-marks.mjs`(id 187,blocking,skipEnv=HUSKY_SKIP_LOAD_STATE_LOADED_MARKS)：不安全加载标记四形态扫描(finally-set / except-set / tail-set / set-add;判据本体单份住在 _load_lifecycle.py,门内零自行判定;blocking)
 - `check-load-state-projection-parity.mjs`(id 186,非blocking(warn),skipEnv=HUSKY_SKIP_LOAD_STATE_PROJECTION_PARITY)：loadState 四档投影防漂移对账(LV1 四档字面量零散落 + LV2 五族 get_status 的 loadState 键与共享出口来源;warn 起步)
@@ -5271,6 +5276,7 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 - `check-process-exit-attribution.mjs`(id 175,blocking,skipEnv=HUSKY_SKIP_PROCESS_EXIT_ATTRIBUTION)：进程退出码归因守门(b76-08a票1配套):进程 exit 1/非零退出必须可归因到显式 failure kind/错误码,禁止无归因的裸退出,自检 --self-test 内嵌红绿对照
 - `check-push-sync.mjs`(id 29,blocking,skipEnv=无)：Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线)
 - `check-python-import-landed.mjs`(id 189,blocking,skipEnv=HUSKY_SKIP_PYTHON_IMPORT_LANDED)：Python import 入库存续性对账
+- `check-readout-and-timer-hygiene.mjs`(id 244,blocking,skipEnv=HUSKY_SKIP_READOUT_AND_TIMER_HYGIENE)：「定时器句柄被覆盖而未先停旧 / 读数分母可能为零」对账(2026-10-25 立;支付轮询僵尸 + 看板 NaN% 上屏根治;自检 --self-test 20 例)
 - `check-registry-worktree-superset.mjs`(id 192,blocking,skipEnv=HUSKY_SKIP_REGISTRY_WORKTREE_SUPERSET)：注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责)
 - `check-selftest-registrant-evaluates.mjs`(id 156,非blocking(warn),skipEnv=HUSKY_SKIP_SELFTEST_REGISTRANT)：自检用例登记侧的求值配对对账(登记不求值 ∧ 用例传函数 ⇒ 才判红;潜伏档只报数)
 - `check-sequence-lag.mjs`(id —,非blocking,接线点=package.json `check:sequence-lag`(手动问责档,不进提交链))：整数主键序列落后对账(只读探测 + 可选只向前修复,绝不回拨)

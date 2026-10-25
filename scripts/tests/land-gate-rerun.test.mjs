@@ -28,9 +28,12 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(HERE, '..', 'object-space-land.mjs')
 const UNION_TOOL = join(HERE, '..', 'union-converge.mjs')
 const GIT = resolveGitBin() || 'git'
-const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
+// stdio 显式写在调用点(不进 runOpts 底座):门 193 第 3 条只认「该次调用 options 内的 stdio 属性名」,
+// 而 `{ ...runOpts }` 这种 spread 形态读不出属性名 ⇒ 判「options 内无 stdio 属性名」(2026-10-25 实测存量红)。
+// 值只有这一处(底座里已删),不产生第二份真相。
+const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
 const runGit = (dir, args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], { ...runOpts })
+  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] })
 
 function makeRepo(t) {
   const dir = mkScratch('lgr-')
