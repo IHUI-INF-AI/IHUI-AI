@@ -8,7 +8,7 @@ import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VideoPlayerProgress, VideoPlayerScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -126,10 +126,15 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 10,
-      paddingBottom: 12,
+      paddingBottom: rnSpacing.md,
       backgroundColor: tk.gray.black,
     },
-    headerTitle: { flex: 1, fontSize: 16, color: tk.surface.light, marginHorizontal: 12 },
+    headerTitle: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      color: tk.surface.light,
+      marginHorizontal: rnSpacing.md,
+    },
     headerSpacer: { width: 40 },
     noUrlBox: {
       aspectRatio: 16 / 9,
@@ -137,11 +142,11 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.gray[900],
     },
-    noUrlText: { fontSize: 18, color: tk.gray[400] },
-    playerHint: { marginTop: 8, fontSize: 14, color: tk.gray[500] },
+    noUrlText: { fontSize: rnType.subtitle.size, color: tk.gray[400] },
+    playerHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.gray[500] },
     body: { flex: 1, backgroundColor: tk.surface.light, padding: 14 },
-    progressTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    progressWrap: { marginTop: 8 },
+    progressTitle: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    progressWrap: { marginTop: rnSpacing.sm },
     progressTrack: {
       height: 8,
       borderRadius: rnRadius.xl,
@@ -149,15 +154,15 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     progressFill: { height: 8, borderRadius: rnRadius.xl, backgroundColor: tk.success.DEFAULT },
-    progressText: { marginTop: 8, fontSize: 14, color: tk.text.tertiary },
-    errorText: { marginTop: 8, fontSize: 14, color: tk.danger.DEFAULT },
-    completeWrap: { marginTop: 24 },
+    progressText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
+    errorText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    completeWrap: { marginTop: rnSpacing['2xl'] },
     completedBox: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.success.light,
     },
-    completedText: { fontSize: 16, color: tk.success.deepText },
+    completedText: { fontSize: rnType.title.size, color: tk.success.deepText },
     completeBtn: {
       height: 50,
       borderRadius: rnRadius.sm,
@@ -166,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     completeBtnDisabled: { backgroundColor: tk.text.tertiary },
-    completeBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    completeBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

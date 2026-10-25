@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnGeometry, rnRadiusFor } from '@ihui/design-tokens'
+import { rnGeometry, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
@@ -259,9 +259,9 @@ export function McpStoreScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: rnGeometry.textStrong,
       fontWeight: '600',
       color: tk.text.primary,
@@ -272,10 +272,14 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    filterRow: { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 8 },
+    filterRow: {
+      flexDirection: 'row',
+      paddingHorizontal: rnSpacing.md,
+      paddingBottom: rnSpacing.sm,
+    },
     filterChip: {
-      marginRight: 8,
-      paddingHorizontal: 12,
+      marginRight: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
       borderRadius: rnRadiusFor.control,
     },
@@ -284,10 +288,10 @@ function createStyles(tk: AppThemeTokens) {
     filterChipOnText: { fontSize: rnGeometry.textCaption, color: tk.brand.foreground },
     filterChipOffText: { fontSize: rnGeometry.textCaption, color: tk.text.medium },
     body: { flex: 1 },
-    bodyContent: { padding: 12 },
+    bodyContent: { padding: rnSpacing.md },
     card: {
-      marginBottom: 12,
-      padding: 12,
+      marginBottom: rnSpacing.md,
+      padding: rnSpacing.md,
       borderRadius: rnRadiusFor.card,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
@@ -296,26 +300,31 @@ function createStyles(tk: AppThemeTokens) {
     cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     cardName: {
       flex: 1,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
       fontSize: rnGeometry.textBody,
       fontWeight: '600',
       color: tk.text.primary,
     },
     gradeTag: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.muted,
     },
     gradeTagText: { fontSize: rnGeometry.textCaption, color: tk.text.medium },
-    desc: { marginTop: 4, fontSize: rnGeometry.textCaption, color: tk.text.secondary },
-    metaRow: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
-    meta: { marginRight: 12, fontSize: rnGeometry.textCaption, color: tk.text.tertiary },
-    itemError: { marginTop: 8, fontSize: rnGeometry.textCaption, color: tk.error.text },
-    actions: { marginTop: 12, flexDirection: 'row', alignItems: 'center' },
+    desc: { marginTop: rnSpacing.xs, fontSize: rnGeometry.textCaption, color: tk.text.secondary },
+    metaRow: {
+      marginTop: rnSpacing.sm,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+    },
+    meta: { marginRight: rnSpacing.md, fontSize: rnGeometry.textCaption, color: tk.text.tertiary },
+    itemError: { marginTop: rnSpacing.sm, fontSize: rnGeometry.textCaption, color: tk.error.text },
+    actions: { marginTop: rnSpacing.md, flexDirection: 'row', alignItems: 'center' },
     actionBtn: {
-      marginRight: 8,
-      paddingHorizontal: 12,
+      marginRight: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
       borderRadius: rnRadiusFor.control,
     },

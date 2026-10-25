@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native'
 import { ImageOff, Images } from 'lucide-react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
@@ -200,21 +200,26 @@ export function ImageGenGalleryScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    navHeader: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 12, paddingBottom: 32, gap: 10 },
+    navHeader: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.display.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
     column: { gap: 10 },
     header: { gap: 10, paddingBottom: 2 },
     subtitle: { fontSize: 13, color: tk.text.secondary },
-    loading: { paddingVertical: 24 },
+    loading: { paddingVertical: rnSpacing['2xl'] },
     errorBox: {
-      paddingVertical: 16,
-      paddingHorizontal: 12,
+      paddingVertical: rnSpacing.lg,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.danger.DEFAULT,
       backgroundColor: tk.surface.card,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     errorText: { fontSize: 13, color: tk.danger.DEFAULT },
     retryBtn: {
@@ -226,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
     },
     retryText: { fontSize: 13, color: tk.text.primary },
-    emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 8 },
+    emptyBox: { alignItems: 'center', paddingVertical: rnSpacing['4xl'], gap: rnSpacing.sm },
     emptyText: { fontSize: 13, color: tk.text.secondary },
     card: {
       flex: 1,
@@ -244,16 +249,20 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     image: { width: '100%', height: '100%' },
-    placeholder: { alignItems: 'center', gap: 6, paddingHorizontal: 8 },
-    placeholderText: { fontSize: 11, color: tk.text.tertiary, textAlign: 'center' },
-    cardBody: { padding: 16, gap: 4 },
-    prompt: { fontSize: 12, lineHeight: 17, color: tk.text.primary },
-    metaText: { fontSize: 11, color: tk.text.tertiary },
-    footerLoading: { paddingVertical: 16 },
-    footerText: {
-      paddingVertical: 16,
+    placeholder: { alignItems: 'center', gap: 6, paddingHorizontal: rnSpacing.sm },
+    placeholderText: {
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
       textAlign: 'center',
-      fontSize: 12,
+    },
+    cardBody: { padding: rnSpacing.lg, gap: rnSpacing.xs },
+    prompt: { fontSize: rnType.label.size, lineHeight: 17, color: tk.text.primary },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    footerLoading: { paddingVertical: rnSpacing.lg },
+    footerText: {
+      paddingVertical: rnSpacing.lg,
+      textAlign: 'center',
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
   })

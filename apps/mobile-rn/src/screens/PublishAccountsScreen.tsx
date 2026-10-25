@@ -34,7 +34,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { AlertCircle, QrCode, Trash2, X } from 'lucide-react-native'
 import { fetchApi, getToken } from '@ihui/api-client'
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -167,8 +167,7 @@ export default function PublishAccountsScreen() {
     return () => clearInterval(timer)
   }, [scan, t, load])
 
-  const canScan = (platform: string) =>
-    scanPlatforms === null || scanPlatforms.has(platform)
+  const canScan = (platform: string) => scanPlatforms === null || scanPlatforms.has(platform)
 
   const closePanel = () => {
     const task = scanRef.current
@@ -315,12 +314,7 @@ export default function PublishAccountsScreen() {
         )}
       </ScrollView>
 
-      <Modal
-        visible={panel !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={closePanel}
-      >
+      <Modal visible={panel !== null} transparent animationType="slide" onRequestClose={closePanel}>
         <View style={styles.overlay}>
           <Pressable style={styles.mask} onPress={closePanel} />
           <View style={styles.sheet}>
@@ -335,12 +329,13 @@ export default function PublishAccountsScreen() {
 
             {scan ? (
               <View style={styles.scanBox}>
-                <Text style={styles.muted}>
-                  {scan.message || t('publishAccounts.scanWaiting')}
-                </Text>
+                <Text style={styles.muted}>{scan.message || t('publishAccounts.scanWaiting')}</Text>
                 {scan.has_qr && qrUrl ? (
                   <Image
-                    source={{ uri: qrUrl, headers: token ? { Authorization: `Bearer ${token}` } : {} }}
+                    source={{
+                      uri: qrUrl,
+                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    }}
                     style={styles.qr}
                     resizeMode="contain"
                   />
@@ -349,7 +344,11 @@ export default function PublishAccountsScreen() {
                 )}
                 <Text style={styles.hint}>{t('publishAccounts.scanHint')}</Text>
                 {scanError ? <Text style={styles.errorText}>{scanError}</Text> : null}
-                <TouchableOpacity style={styles.outlineBtn} onPress={closePanel} activeOpacity={0.7}>
+                <TouchableOpacity
+                  style={styles.outlineBtn}
+                  onPress={closePanel}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.outlineBtnText}>{t('publishAccounts.scanCancel')}</Text>
                 </TouchableOpacity>
               </View>
@@ -404,38 +403,109 @@ export default function PublishAccountsScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 10, paddingBottom: 32 },
-    subtitle: { fontSize: 12, color: tokens.text.tertiary },
-    card: { padding: 14, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.surface.card, gap: 6 },
+    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    card: {
+      padding: 14,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+      backgroundColor: tokens.surface.card,
+      gap: 6,
+    },
     itemHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    avatar: { width: 36, height: 36, borderRadius: rnRadius.lg, backgroundColor: tokens.surface.muted, alignItems: 'center', justifyContent: 'center' },
-    avatarText: { fontSize: 16, fontWeight: '700', color: tokens.text.secondary },
+    avatar: {
+      width: 36,
+      height: 36,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tokens.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: { fontSize: rnType.title.size, fontWeight: '700', color: tokens.text.secondary },
     itemMain: { flex: 1, gap: 2 },
-    itemName: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
-    itemDesc: { fontSize: 12, color: tokens.text.secondary },
-    meta: { fontSize: 11, color: tokens.text.tertiary },
-    pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadiusFor.chip, backgroundColor: tokens.surface.muted },
+    itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
+    itemDesc: { fontSize: rnType.label.size, color: tokens.text.secondary },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+    pill: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: 2,
+      borderRadius: rnRadiusFor.chip,
+      backgroundColor: tokens.surface.muted,
+    },
     pillOn: { backgroundColor: tokens.success.light },
     pillText: { fontSize: 10, color: tokens.text.secondary },
     pillTextOn: { color: tokens.success.deepText, fontWeight: '600' },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['5xl'],
+    },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    hint: { fontSize: 11, color: tokens.text.tertiary, lineHeight: 16 },
-    errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
+    errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
-    mask: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: tokens.overlay.modal },
-    sheet: { maxHeight: '85%', padding: 16, gap: 10, borderTopLeftRadius: rnRadius.xl, borderTopRightRadius: rnRadius.xl, backgroundColor: tokens.surface.card },
+    mask: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: tokens.overlay.modal,
+    },
+    sheet: {
+      maxHeight: '85%',
+      padding: rnSpacing.lg,
+      gap: 10,
+      borderTopLeftRadius: rnRadius.xl,
+      borderTopRightRadius: rnRadius.xl,
+      backgroundColor: tokens.surface.card,
+    },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    sheetTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tokens.text.primary },
-    panelBody: { gap: 8 },
-    scanBox: { alignItems: 'center', gap: 10, paddingVertical: 8 },
+    sheetTitle: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tokens.text.primary,
+    },
+    panelBody: { gap: rnSpacing.sm },
+    scanBox: { alignItems: 'center', gap: 10, paddingVertical: rnSpacing.sm },
     qr: { width: 200, height: 200, borderRadius: rnRadius.md },
-    outlineBtn: { height: 40, paddingHorizontal: 14, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    outlineBtn: {
+      height: 40,
+      paddingHorizontal: 14,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
     outlineBtnText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    primaryBtn: { height: 44, borderRadius: rnRadius.sm, backgroundColor: tokens.brand.cta, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-    primaryBtnText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
-    dangerBtn: { height: 40, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+    primaryBtn: {
+      height: 44,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.brand.cta,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
+    primaryBtnText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
+    dangerBtn: {
+      height: 40,
+      flexDirection: 'row',
+      gap: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
     disabled: { opacity: 0.5 },
   })
