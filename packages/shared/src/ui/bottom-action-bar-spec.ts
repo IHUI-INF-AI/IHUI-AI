@@ -22,11 +22,11 @@
  *    且"按压态"在两端的载体不同(StyleSheet 变体 vs 类名),取齐属观感定夺项;
  *  - 文字档的 `letterSpacing 0.2`:键名含 spacing 而被守门 128 计入,但它不是尺寸 ——
  *    为让读数好看把它塞进"几何单一源"属于硬凑,登记在交付报告;
- *  - 图标卡组(相机/相册/本地文件/微信文件 + 语音)的盒 80×75 / 标文字号 10 / 图文距 6:
- *    RN 侧同一功能的实现是**共享 AddPanel 面板**(另一枚组件、另一种媒介与布局角色),
- *    不构成同一元素,配对要等 AddPanel 那一票(规则 6);
- *    (其中"墨迹 35"自 O81 票⑤ 起已入表为 `BOTTOM_ACTION_BAR_ICON_GLYPH_PX` ——
- *     那一票把这一族的位图换成矢量,需要一个取数口,其余三枚仍是端内数字。)
+ *  - 条内行衬(0 10 5)与图标卡组(相机/相册/本地文件/微信文件 + 语音)的盒 80×75 /
+ *    标文字号 10 / 图文距 6:RN 侧同一功能的实现是**共享 AddPanel 面板**(另一枚组件、
+ *    另一种媒介与布局角色),不构成同一元素,配对要等 AddPanel 那一票(规则 6)。
+ *    O02 票④(2026-10-25)把它们从端内搬进本表并交给 `bottom-action-bar-core` 渲染:
+ *    结构与取值从此只有一份,端内壳不再持有这些数字(读数与证据见该票交付报告)。
  *  - 图片预览行(48 盒 / 16 角标 / 2 inset)、模型条高与配置按钮(28)、发送胶囊宽 56、
  *    命中块 44:小程序端本文件里没有这些元素(预览行在 InputArea、发送是 32 的图标方块而非
  *    56×44 的文字胶囊),无对照可裁决 —— 保留并写明未决,不得给单端补数字凑平。
@@ -124,5 +124,73 @@ export const BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX = GEOMETRY_PX.controlGlyph
  * RN `lucide-react-native` 的 `ArrowUp`。
  */
 export const BOTTOM_ACTION_BAR_SEND_GLYPH_PX = GEOMETRY_PX.glyphSm
+
+/**
+ * 【B 单端档·小程序】条内行(chip 行 / 图标卡行 / 模型提示行)的行衬 10 与下衬 5。
+ * 收编前是端内 inline 简写串 `padding: '0 20rpx 10rpx'`,三行各抄一遍;三行的值本就相同,
+ * 所以这不是"给单端补数字",而是把同一元素的同一档从三份变一份。
+ * RN 侧对应的行间距由容器 `gap: 8`(columnMode)与 `paddingTop: 4` 表达 —— 机制不同(逐属性
+ * vs CSS 简写串),故不强行配对,写进 baseline 的 waivers 供守门 108 到期复核。
+ */
+export const BOTTOM_ACTION_BAR_INLINE_ROW_PAD_X_PX = 10
+export const BOTTOM_ACTION_BAR_INLINE_ROW_PAD_BOTTOM_PX = 5
+
+/**
+ * 【B 单端档·小程序】图标卡行的卡盒 80×75、标文字号 10、图文距 6。
+ * 为什么仍是单端档:RN 侧同一功能走共享 `AddPanel` 滑出面板(另一枚组件、另一种媒介与
+ * 布局角色),本族没有第二个渲染点可配对(规则 6,与 {@link BOTTOM_ACTION_BAR_ICON_GLYPH_PX}
+ * 同口径)。搬进本表只为让端内壳不再持有卡盒数字 —— 同一个"一份源"原则,
+ * 不是把单端档粉饰成两端同档。
+ */
+export const BOTTOM_ACTION_BAR_ICON_CARD_WIDTH_PX = 80
+export const BOTTOM_ACTION_BAR_ICON_CARD_HEIGHT_PX = 75
+export const BOTTOM_ACTION_BAR_ICON_CARD_LABEL_PX = 10
+export const BOTTOM_ACTION_BAR_ICON_CARD_GLYPH_GAP_PX = 6
+
+/** 逻辑 px → 端内盒子单位(RN 恒等 dp / 小程序 rpx 串)。与 back-chevron-spec 同形,不跨文件复用一个类型。 */
+export type BottomActionBarUnit<U extends string | number> = (px: number) => U
+
+/**
+ * 盒几何的**形状**:只列本族用到的键(RN 收数值、小程序收 CSS 长度串,同一枚类型两端各实例化一次)。
+ * 刻意不收 display/flexDirection/alignItems —— 那些是"这行是横排还是竖排"的结构语义,
+ * 由端内 className / StyleSheet 表达(两端的 flex 通道不同形)。
+ */
+export interface BottomActionBarBox<U extends string | number> {
+  width?: U
+  height?: U
+  paddingTop?: U
+  paddingRight?: U
+  paddingBottom?: U
+  paddingLeft?: U
+  gap?: U
+}
+
+/**
+ * 条内行(chip / 图标卡 / 模型提示三行)的盒几何 —— 唯一源。
+ * 行间距复用 {@link BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX}:三行收编前的 inline 值都是 `rpx(16)` = 8,
+ * 与 chip 行同档,故不新造第二个 8。
+ */
+export function bottomActionBarInlineRowBoxStyle<U extends string | number>(
+  toUnit: BottomActionBarUnit<U>,
+): BottomActionBarBox<U> {
+  return {
+    paddingTop: toUnit(0),
+    paddingRight: toUnit(BOTTOM_ACTION_BAR_INLINE_ROW_PAD_X_PX),
+    paddingBottom: toUnit(BOTTOM_ACTION_BAR_INLINE_ROW_PAD_BOTTOM_PX),
+    paddingLeft: toUnit(BOTTOM_ACTION_BAR_INLINE_ROW_PAD_X_PX),
+    gap: toUnit(BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX),
+  }
+}
+
+/** 图标卡行的卡盒 + 图文距(竖排 flex 的 `gap`,取代收编前字形上的 `marginBottom: rpx(12)`)。 */
+export function bottomActionBarIconCardBoxStyle<U extends string | number>(
+  toUnit: BottomActionBarUnit<U>,
+): BottomActionBarBox<U> {
+  return {
+    width: toUnit(BOTTOM_ACTION_BAR_ICON_CARD_WIDTH_PX),
+    height: toUnit(BOTTOM_ACTION_BAR_ICON_CARD_HEIGHT_PX),
+    gap: toUnit(BOTTOM_ACTION_BAR_ICON_CARD_GLYPH_GAP_PX),
+  }
+}
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠import { GEOMETRY_PX } from '@ihui/design-tokens'

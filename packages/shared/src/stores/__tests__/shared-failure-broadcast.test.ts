@@ -5,10 +5,11 @@
 /**
  * G-816011 成对测试:失败也是共享事实(刷新策略工厂)。
  *
- * 票面三条判据:
+ * 票面判据(④ 是 ③ 的同一身份半场):
  * ① A 处失败后 B 处不得读到旧成功快照;
  * ② 成功后缓存恢复可命中(反向锁,防做成"永远不缓存");
- * ③ 身份变化使全部在途请求失效(不是只失效发起那一个)。
+ * ③ 身份变化使全部在途请求失效(不是只失效发起那一个);
+ * ④ ③ 的同一身份半场:购买换代(invalidate())身份不变,仍使全部在途请求作废。
  */
 import { describe, it, expect, vi } from 'vitest'
 import {
@@ -136,6 +137,48 @@ describe('G-816011 刷新策略工厂:失败广播 + 有失败不供缓存', () 
     await Promise.all([p1, policy2.refresh(), flush()])
     expect(policy2.getFailureCount()).toBe(0) // 迟到失败被换代作废
     expect(policy2.getCachedSnapshot()).toBe('b-snap')
+  })
+
+  it('④ 同一身份购买换代 ⇒ 全部在途请求作废(身份不变,旧请求不得回写缓存)', async () => {
+    // 上游「购买使同一身份全部旧请求失效」:身份字符串不变,但旧权益的在途请求必须失效。
+    // 有牙锁:购买前放**两条**在途(a1/a2)。若实现只在 setIdentity 换代(或只失效发起那一个),
+    // 这两条迟到结果会在购买后落地并广播 ⇒ 本用例翻红。
+    const gates = {
+      a1: createDeferred<string>(),
+      a2: createDeferred<string>(),
+      after: createDeferred<string>(),
+    }
+    let calls = 0
+    const policy = createResourceRefreshPolicy<string>({
+      load: () => {
+        calls += 1
+        if (calls === 1) return Promise.resolve('旧权益快照')
+        if (calls === 2) return gates.a1.promise
+        if (calls === 3) return gates.a2.promise
+        return gates.after.promise
+      },
+    })
+    const listener = vi.fn()
+    policy.subscribe(listener)
+    policy.setIdentity('user-1')
+    await policy.refresh() // 旧权益快照入缓存
+    const before1 = policy.refresh() // 购买前的在途请求 1
+    const before2 = policy.refresh() // 购买前的在途请求 2
+    policy.invalidate() // 同一身份购买换代:身份不变
+    expect(policy.getIdentity()).toBe('user-1')
+    expect(policy.getCachedSnapshot()).toBeNull() // 旧权益快照不再供
+
+    const after = policy.refresh() // 购买后的请求
+    gates.after.resolve('购买后快照')
+    gates.a1.resolve('购买前的迟到快照 1') // 比购买后的请求还晚返回
+    gates.a2.resolve('购买前的迟到快照 2')
+    await Promise.all([before1, before2, after, flush()])
+
+    expect(policy.getCachedSnapshot()).toBe('购买后快照')
+    const snapshots = listener.mock.calls.map((c) => c[0])
+    expect(snapshots).toEqual(['旧权益快照', '购买后快照'])
+    expect(snapshots).not.toContain('购买前的迟到快照 1')
+    expect(snapshots).not.toContain('购买前的迟到快照 2')
   })
 
   it('补充:未设置身份时 refresh 不动(load 不被调)', async () => {

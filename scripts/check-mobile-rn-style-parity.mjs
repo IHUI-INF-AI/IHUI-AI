@@ -39,7 +39,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join, sep } from 'node:path'
 // 取材层的唯一出口(2026-10-16 迁):批次读 blob、口径标签、面枚举、Undetermined→exit 2
 // 全走它,不再散写 git —— 散写按磁盘判正是本门此前两头都错的根子(见头注)。
@@ -73,7 +73,13 @@ const { face, error: faceErr } = selectFace({
   worktree: argv.includes('--worktree'),
 })
 
-if (showHelp) {
+// §22d(G-239)双形态入口:此前顶层裸调 process.exit(main()),且旗标判定块各自 process.exit,
+// 任何 import 都会当场终结宿主进程。守卫只决定何时点火,不改判什么;须经 pathToFileURL():
+// Windows 下 argv[1] 带反斜杠,手拼 'file:///' 永不相等。
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun && showHelp) {
   console.log(`
 check-mobile-rn-style-parity.mjs — mobile-rn 跨端样式一致性守门(2026-09-03)
 
@@ -100,15 +106,15 @@ check-mobile-rn-style-parity.mjs — mobile-rn 跨端样式一致性守门(2026-
   process.exit(0)
 }
 
-if (faceErr) {
+if (isDirectRun && faceErr) {
   console.error(`❌ ${faceErr}`)
   process.exit(2)
 }
-if (updateBaseline && argv.includes('--staged')) {
+if (isDirectRun && updateBaseline && argv.includes('--staged')) {
   console.error('❌ --update-baseline 不得与 --staged 同用(基线须按全量口径收紧)')
   process.exit(1)
 }
-if (process.env[SKIP_ENV] === '1') {
+if (isDirectRun && process.env[SKIP_ENV] === '1') {
   console.log(`⏭ ${SKIP_ENV}=1,跳过 RN 端硬编码 hex 基线守门`)
   process.exit(0)
 }
@@ -379,5 +385,23 @@ function main() {
   return 0
 }
 
-process.exit(main())
+if (isDirectRun) {
+  process.exit(main())
+}
+
+// §22c/§22d(G-239):导出判据单元,镜像测试可走「调生产入口」通道,不必再抄一份材料。
+// 导入本模块(经 isDirectRun 守卫)不触发 CLI、不 process.exit。
+export const __test__ = {
+  SKIP_ENV,
+  stripBom,
+  stripTsComments,
+  extractHexes,
+  listFaceFiles,
+  prefetchFace,
+  faceText,
+  scanFace,
+  diffAgainstBaseline,
+  runSelfTest,
+  main,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
