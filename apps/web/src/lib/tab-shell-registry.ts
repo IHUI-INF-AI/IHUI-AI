@@ -26,6 +26,8 @@
  *  7. ready/show 只激活 origin 工作区+会话一致的 shell:后台工作区的 ready 不抢当前焦点。
  */
 
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
+
 /** tab 类型(中性:工作区工具/浏览/子会话/运行记录/产物)。 */
 export type SidePaneTabType = 'workspace-tools' | 'browser' | 'assistant' | 'run' | 'artifact'
 
@@ -89,7 +91,11 @@ export function buildWorkspaceToolsTabId(workspaceKey: string): string {
 }
 
 export function buildBrowserTabId(params: { workspaceKey: string; sessionId: string }): string {
-  return ['browser', encodeSidePaneTabIdPart(params.workspaceKey), encodeSidePaneTabIdPart(params.sessionId)].join(':')
+  return [
+    'browser',
+    encodeSidePaneTabIdPart(params.workspaceKey),
+    encodeSidePaneTabIdPart(params.sessionId),
+  ].join(':')
 }
 
 export function buildAssistantTabId(params: {
@@ -137,18 +143,15 @@ export function buildArtifactTabId(params: {
   ].join(':')
 }
 
-/** 解析复合 id:首段为 type,其余段逐个 decode;解析失败返回 null(不猜)。 */
-export function parseSidePaneTabId(
-  id: string,
-): { type: string; parts: string[] } | null {
+/** 解析复合 id:首段为 type,其余段逐个 decode(走共享容错出口);段数不足返回 null(不猜)。 */
+export function parseSidePaneTabId(id: string): { type: string; parts: string[] } | null {
   const segments = id.split(':')
   if (segments.length < 2) {
     return null
   }
-  try {
-    return { type: segments[0]!, parts: segments.slice(1).map((part) => decodeURIComponent(part)) }
-  } catch {
-    return null
+  return {
+    type: segments[0]!,
+    parts: segments.slice(1).map((part) => safeDecodeURIComponent(part)),
   }
 }
 
@@ -197,7 +200,12 @@ export function openArtifactSidePaneTab(
 
 /* ------------------------------- tab 构建(中性) ------------------------------- */
 
-function tabBase(params: { type: SidePaneTabType; id: string; workspaceKey: string; title?: string }): SidePaneTabBase {
+function tabBase(params: {
+  type: SidePaneTabType
+  id: string
+  workspaceKey: string
+  title?: string
+}): SidePaneTabBase {
   return {
     id: params.id,
     type: params.type,
@@ -207,13 +215,33 @@ function tabBase(params: { type: SidePaneTabType; id: string; workspaceKey: stri
   }
 }
 
-export function createWorkspaceToolsTab(params: { workspaceKey: string; title?: string }): WorkspaceToolsTab {
-  return { ...tabBase({ type: 'workspace-tools', id: buildWorkspaceToolsTabId(params.workspaceKey), workspaceKey: params.workspaceKey, title: params.title }), type: 'workspace-tools' }
+export function createWorkspaceToolsTab(params: {
+  workspaceKey: string
+  title?: string
+}): WorkspaceToolsTab {
+  return {
+    ...tabBase({
+      type: 'workspace-tools',
+      id: buildWorkspaceToolsTabId(params.workspaceKey),
+      workspaceKey: params.workspaceKey,
+      title: params.title,
+    }),
+    type: 'workspace-tools',
+  }
 }
 
-export function createBrowserTab(params: { workspaceKey: string; sessionId: string; title?: string }): BrowserTab {
+export function createBrowserTab(params: {
+  workspaceKey: string
+  sessionId: string
+  title?: string
+}): BrowserTab {
   return {
-    ...tabBase({ type: 'browser', id: buildBrowserTabId(params), workspaceKey: params.workspaceKey, title: params.title }),
+    ...tabBase({
+      type: 'browser',
+      id: buildBrowserTabId(params),
+      workspaceKey: params.workspaceKey,
+      title: params.title,
+    }),
     type: 'browser',
     sessionId: params.sessionId,
   }
@@ -226,7 +254,12 @@ export function createAssistantTab(params: {
   title?: string
 }): AssistantTab {
   return {
-    ...tabBase({ type: 'assistant', id: buildAssistantTabId(params), workspaceKey: params.workspaceKey, title: params.title }),
+    ...tabBase({
+      type: 'assistant',
+      id: buildAssistantTabId(params),
+      workspaceKey: params.workspaceKey,
+      title: params.title,
+    }),
     type: 'assistant',
     rootSessionId: params.rootSessionId,
     childSessionId: params.childSessionId,
@@ -240,7 +273,12 @@ export function createRunTab(params: {
   title?: string
 }): RunTab {
   return {
-    ...tabBase({ type: 'run', id: buildRunTabId(params), workspaceKey: params.workspaceKey, title: params.title }),
+    ...tabBase({
+      type: 'run',
+      id: buildRunTabId(params),
+      workspaceKey: params.workspaceKey,
+      title: params.title,
+    }),
     type: 'run',
     parentSessionId: params.parentSessionId,
     runId: params.runId,
@@ -256,7 +294,12 @@ export function createArtifactTab(params: {
   title?: string
 }): ArtifactTab {
   return {
-    ...tabBase({ type: 'artifact', id: buildArtifactTabId(params), workspaceKey: params.workspaceKey, title: params.title }),
+    ...tabBase({
+      type: 'artifact',
+      id: buildArtifactTabId(params),
+      workspaceKey: params.workspaceKey,
+      title: params.title,
+    }),
     type: 'artifact',
     parentSessionId: params.parentSessionId,
     runId: params.runId,
@@ -336,7 +379,9 @@ export function stampSidePaneTabsOwnership(
     return {
       ...tab,
       ownerSessionId: ownership.ownerSessionId,
-      ...(ownership.workspaceKey && !tab.workspaceKey ? { workspaceKey: ownership.workspaceKey } : {}),
+      ...(ownership.workspaceKey && !tab.workspaceKey
+        ? { workspaceKey: ownership.workspaceKey }
+        : {}),
     } as SidePaneTab
   })
   return changed ? { ...state, tabs } : state
@@ -383,13 +428,14 @@ function createEmptyShellRegistryState(): TabShellRegistryState {
 
 function shellMatchesOrigin(shell: TabShellRecord, event: TabShellEvent): boolean {
   return (
-    shell.workspaceKey === event.workspaceKey &&
-    (shell.sessionId ?? '') === (event.sessionId ?? '')
+    shell.workspaceKey === event.workspaceKey && (shell.sessionId ?? '') === (event.sessionId ?? '')
   )
 }
 
 function shellOriginMatchesScope(shell: TabShellRecord, scope: TabShellActiveScope): boolean {
-  return shell.workspaceKey === scope.workspaceKey && (shell.sessionId ?? '') === (scope.sessionId ?? '')
+  return (
+    shell.workspaceKey === scope.workspaceKey && (shell.sessionId ?? '') === (scope.sessionId ?? '')
+  )
 }
 
 /**
@@ -453,7 +499,11 @@ export function applyTabShellVisibilityEvent(
   if (!shouldReveal) {
     return { state: currentState, didMatch: true, shouldReveal: false }
   }
-  return { state: { ...currentState, activeTabId: shell.tabId }, didMatch: true, shouldReveal: true }
+  return {
+    state: { ...currentState, activeTabId: shell.tabId },
+    didMatch: true,
+    shouldReveal: true,
+  }
 }
 
 /**
