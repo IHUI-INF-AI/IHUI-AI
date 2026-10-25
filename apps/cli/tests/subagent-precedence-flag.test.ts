@@ -286,4 +286,65 @@ describe('saveSettingsTemplate — subagentPrecedence 默认值', () => {
     }
   });
 });
+
+// ============================================================
+// G-395 消费方留痕端到端:判据在 precedence.ts,出口在 tools/subagent.ts 的 stderr。
+// 这一格是票面「静默降档无法归因」的反向牙 —— 只测 precedence.ts 的返回值不够,
+// 必须证明一次真实的 dispatch_subagent 调用把 requested≠effective + 双方出处送到了日志面。
+// 注:本文件顶层已设 CONFIG_TRACE_ENV='0'(快照行静音),而留痕行仍照写 ⇒ 量到"该开关动不到归因出口"。
+// ============================================================
+describe('G-395 消费方降档留痕端到端(tools/subagent.ts stderr 出口)', () => {
+  /** 跑一次 dispatch_subagent 并收集 stderr 行(不走 mock.calls,避免 restore 后取数) */
+  async function runAndCaptureStderr(
+    opts: SubagentParentOptions,
+    args: Record<string, unknown>,
+  ): Promise<string[]> {
+    const stderrLines: string[] = [];
+    const writeSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: unknown) => {
+      stderrLines.push(String(chunk));
+      return true;
+    });
+    try {
+      const tool = createSubagentTool(opts);
+      await tool.execute(args, { workspacePath: '/test-ws' });
+    } finally {
+      writeSpy.mockRestore();
+    }
+    return stderrLines;
+  }
+
+  it('role 层非法请求档由 persona 接手 ⇒ stderr 出现一行逐字带双方出处的留痕', async () => {
+    const opts: SubagentParentOptions = {
+      ...baseParentOpts,
+      precedenceEnabled: true,
+      customRoles: { coder: { name: 'coder', reasoningEffort: 'mega' as 'high' } },
+      customPersonas: { coder: { name: 'coder', reasoningEffort: 'low' } },
+    };
+    const lines = await runAndCaptureStderr(opts, { task: 'g395', persona: 'coder' });
+    const traceLines = lines.filter((l) => l.includes('降档留痕(G-395)'));
+
+    expect(traceLines).toHaveLength(1);
+    // 请求档(含非法原值)+ 它的出处层
+    expect(traceLines[0]).toContain("请求档 'mega'(role:role[coder].reasoningEffort)");
+    // 实得档 + 接手层
+    expect(traceLines[0]).toContain("实得档 'low'(persona:persona[coder].reasoningEffort)");
+    expect(traceLines[0]).toContain('原因 invalid-enum');
+    // 留痕生效值仍按链走:persona 档被采纳,不是非法值原样传播
+    expect(lines.some((l) => l.includes("'mega'(explicit"))).toBe(false);
+  });
+
+  it('请求档合法且被原样采纳 ⇒ 不写留痕行(留痕不是每次都刷屏)', async () => {
+    const opts: SubagentParentOptions = {
+      ...baseParentOpts,
+      precedenceEnabled: true,
+      customRoles: { coder: { name: 'coder', reasoningEffort: 'high' } },
+      customPersonas: { coder: { name: 'coder', reasoningEffort: 'low' } },
+    };
+    const lines = await runAndCaptureStderr(opts, { task: 'g395', persona: 'coder' });
+
+    expect(lines.filter((l) => l.includes('降档留痕(G-395)'))).toHaveLength(0);
+    // 但链确实跑过了(否则上面那条 0 是"没进 precedence"造成的假绿)
+    expect(setupAgentTools).toHaveBeenCalledTimes(1);
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
