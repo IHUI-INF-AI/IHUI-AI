@@ -6,6 +6,7 @@ import { useTt, useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef } from 'react'
+import { formatPrice } from '@ihui/shared'
 import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
@@ -143,7 +144,7 @@ export default function MemberDetail() {
           </View>
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
             <Text className="text-[length:36rpx] font-semibold text-[var(--color-primary)]">
-              ¥{stats.totalCommission}
+              ¥{formatPrice(stats.totalCommission)}
             </Text>
             <Text className="text-[length:28rpx] text-muted-foreground">
               {tt('distribution.memberDetail.totalCommission', '总佣金')}
@@ -190,7 +191,7 @@ export default function MemberDetail() {
                         {tt('distribution.memberDetail.joinTime', '加入')}:{m.joinTime || '-'}
                       </Text>
                       <Text className="flex-shrink-0 text-[length:28rpx] font-semibold text-[var(--color-success)]">
-                        {tt('distribution.memberDetail.contribution', '贡献')} ¥{m.contribution}
+                        {tt('distribution.memberDetail.contribution', '贡献')} ¥{formatPrice(m.contribution)}
                       </Text>
                     </View>
                   </View>

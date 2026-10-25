@@ -5438,11 +5438,30 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 读数零分母 / 定时器句柄覆盖(2026-10-25 立;支付轮询僵尸 + 看板 NaN% 上屏)(1 项,blocking)---
+  {
+    id: '244',
+    label:
+      '⏱️ 读数分母与定时器句柄卫生(blocking;D1 `<ref>.current = setInterval(` 前既无字面 clearInterval、也无一跳可验的具名停止函数 ⇒ 绝对零容忍 / D2 `A / B.length` 无 B 的零守卫 ⇒ 差值棘轮,存量现读 0)',
+    script: 'check-readout-and-timer-hygiene.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/'],
+    skipEnv: 'HUSKY_SKIP_READOUT_AND_TIMER_HYGIENE',
+    onFailHint: [
+      '',
+      '  💡 全文住门体头注:node scripts/check-readout-and-timer-hygiene.mjs(D1 句柄被覆盖 ⇒ 僵尸轮询带旧订单号;',
+      '     D2 零分母 ⇒ 首屏明写 NaN%)。修法:起新前先 clearInterval(同一句柄);分母为零如实给 null/"—"。--self-test 20 例。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_READOUT_AND_TIMER_HYGIENE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 额度守卫写入的影响行 / 回调吞失败(2026-10-25 立;积分兑换超卖 + 提现黑洞)(1 项,blocking)---
   {
     id: '243',
     label:
-      '💸 额度扣减必须读回影响行 + 资金回调不得用 SUCCESS 吞失败(blocking;G1 扣额度型守卫写入无 .returning 且结果被丢 / G3 相对扣减完全没有额度守卫 / G2 回调 catch 里回 code:SUCCESS)',
+      '💸 额度扣减必须读回影响行 + 资金回调不得用 SUCCESS 吞失败(blocking;G1 扣额度型守卫写入无 .returning 且结果被丢 / G3 相对扣减完全没有额度守卫 / G4 额度列无锁的绝对值回写(锁内 FOR UPDATE 机器豁免) / G5 计数字段(…Count/aiRounds)读出来±1再写绝对值 / G2 回调 catch 里回 code:SUCCESS)',
     script: 'check-guarded-write-affected.mjs',
     args: [],
     mode: 'blocking',
@@ -5450,20 +5469,56 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_GUARDED_WRITE_AFFECTED',
     onFailHint: [
       '',
-      '  💡 立因(两处均本枚实测):',
-      '     G1 points-mall-user 兑换把库存写成 `await db.update().set(stock-1).where(stock>0)`,',
-      '        守卫对、影响行数不取 ⇒ 并发抢空时扣减静默 no-op,而积分照扣、订单照插、仍回 200 = 超卖不退款。',
-      '     G2 payment-extended 提现回调 catch 里回 SUCCESS("防止微信重复回调")⇒ 上游不再重投,',
-      '        流水永停 pending、frozen_quantity 永不释放,而 withdrawalFlows 全仓无对账兜底。',
-      '        防重投本由上面那句 status 守卫负责;本仓 payment-gateway.ts:729 已给出正确口径。',
-      '     G3 现读存量 3 处(userMargins 余额扣减只带 eq(userId) 不带 gte(balance,amount))⇒ 只拦新增。',
-      '     修法:G1/G3 给扣减加 `gte(余额列, 数额)` 守卫并 .returning(...) 取回影响行,空集即回绝;',
-      '           G2 失败改 reply.code(500).send({code:\'FAIL\', message:\'副作用处理失败,待重试\'})。',
-      '     合法形态不收:单调推进(lt(lastMessageAt))与范围删除(gt(createdAt))的 0 行本就是正解。',
-      '     单独复验:node scripts/check-guarded-write-affected.mjs --staged',
-      '     自检:node scripts/check-guarded-write-affected.mjs --self-test(13 例,G1/G2/G3 各有成对反向锁)',
-      '     镜像:node scripts/tests/check-guarded-write-affected.test.mjs(判据 import 门体 __test__)',
+      '  💡 立因/修法全文住门体头注(§22c 不重抄):node scripts/check-guarded-write-affected.mjs',
+      '     G1 扣额度写入不读回影响行(兑换超卖不退款)/ G2 资金回调回 SUCCESS 吞失败(提现永冻)/',
+      '     G3 相对扣减缺 gte(余额,数额)/ G4 无锁绝对值回写=丢失更新(锁内 FOR UPDATE 机器豁免)。',
+      '     不收:单调推进(lt(lastMessageAt))与范围删除(gt(createdAt))的 0 行本就是正解。',
+      '     --staged 复验 / --self-test(24 例)/ 镜像 scripts/tests/check-guarded-write-affected.test.mjs。',
       '     紧急跳过(不推荐):HUSKY_SKIP_GUARDED_WRITE_AFFECTED=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 活文档同形态副本翻倍(2026-10-25 立;README 4.6MB / 同一行 596 份的 union 病)(1 项,blocking)---
+  {
+    id: '245',
+    label:
+      '📜 活文档副本增生对账(blocking;六份活文档各按自身差值棘轮拦"本次把同形态副本加回来了";折叠判据 import scripts/dedupe-live-doc.mjs,本门不写第二份)',
+    script: 'check-live-doc-duplicates.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md', 'AGENTS.md', 'PROJECT_PLAN.md'],
+    skipEnv: 'HUSKY_SKIP_LIVE_DOC_DUPLICATES',
+    onFailHint: [
+      '',
+      '  💡 立因(现读):README.md 曾长到 4,653,356 B / 15,334 行,同一形态行最多 596 份 —— 行级 union 只守恒"不丢行",',
+      '     判不出"同一段落被复制一千份",于是逐次合并单调翻倍(4→51→99→198→296→589→1176 枚 A:Yes 行),而门 173 只逐键比数字。',
+      '     唯一出口(只折副本不折内容,四档守恒自证):node scripts/dedupe-live-doc.mjs <文档路径…> --apply',
+      '     档位:按文档各自差值棘轮(锚点=该文档在锚点面的副本行数),AGENTS/PLAN 存量只报数(§12e)。',
+      '     --staged 复验 / --self-test(6 例)/ 镜像 scripts/tests/check-live-doc-duplicates.test.mjs(18 例)。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_LIVE_DOC_DUPLICATES=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 业务日界单一真相源(2026-10-25 立;大屏同屏 UTC 签到日 vs 上海新增日)(1 项,blocking)---
+  {
+    id: '246',
+    label:
+      '🕐 业务日界只许一个出口(blocking;B1 第二份日界算法 ⇒ 绝对零容忍(存量本枚清零)/ B2 日键型 toISOString().slice(0,10) ⇒ 差值棘轮 / B3 唯一出口无人 import ⇒ 造好未装车)',
+    script: 'check-biz-day-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/api/src/'],
+    skipEnv: 'HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE',
+    onFailHint: [
+      '',
+      '  💡 立因:"哪一天算一天"曾有 6 份私有实现(5 份逐字相同的 shanghaiDayStartUtc + 同屏 shanghaiDateString),',
+      '     加上钉成 UTC 的 checkin-helpers.todayString(扇出 6 个签到/积分调用点)与访客日 ⇒ 大屏同屏「今日新增(上海日)」与',
+      '     「今日签到(UTC 日)」并排,每天上海 00:00–08:00 签到格读成 0、连续天数断裂。',
+      '     出口:apps/api/src/utils/biz-day.ts(bizDayStartUtc/bizDayKey/shiftBizDayKey);委托转发合法,自己再算不合法。',
+      '     --staged 复验 / --self-test(9 例)/ 镜像 scripts/tests/check-biz-day-single-source.test.mjs。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE=1 git commit ...',
       '',
     ].join('\n'),
   },
@@ -5491,7 +5546,7 @@ const checks = [
       '            isSystemAdmin(req, { includeInternalChannel: false }) 显式特权判定,而不是 ?? 链。',
       '     【W3】测试夹具要填生产真会填的字段(request.userId / request.jwtPayload)。',
       '     单独复验:node scripts/check-identity-principal-source.mjs --staged(全量档不带旗)',
-      '     自检:node scripts/check-identity-principal-source.mjs --self-test(15 例,W1/W2/W3 与具名出口各有成对反向锁)',
+      '     自检:node scripts/check-identity-principal-source.mjs --self-test(19 例,W1/W2/W3 与具名出口各有成对反向锁)',
       '     镜像:node scripts/tests/check-identity-principal-source.test.mjs(判据 import 门体 __test__,不复制)',
       '     紧急跳过(不推荐):HUSKY_SKIP_IDENTITY_PRINCIPAL_SOURCE=1 git commit ...',
       '',

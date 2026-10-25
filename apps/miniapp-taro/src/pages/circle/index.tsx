@@ -78,7 +78,12 @@ export default function CircleIndexPage() {
     try {
       const res = await getCircleList({ page: pageRef.current, pageSize: PAGE_SIZE })
       const newList = res.list || []
-      setList((prev) => (reset ? newList : [...prev, ...newList]))
+      setList((prev) => {
+        if (reset) return newList
+        // 上拉拼接必须按 id 去重:列表期间有新内容入队时页边界那条会被两页各带一次
+        const seen = new Set(prev.map((p) => p.id))
+        return [...prev, ...newList.filter((n) => !seen.has(n.id))]
+      })
       const total = res.total ?? 0
       const more = pageRef.current * PAGE_SIZE < total
       hasMoreRef.current = more

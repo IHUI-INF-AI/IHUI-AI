@@ -27,6 +27,8 @@ export const BarChart = React.memo(function BarChart({
   className,
 }: BarChartProps) {
   const t = useTranslations('a11y')
+  // 空数据必须先退:下面竖向分支拿 data.length 当分母,0 会算出 Infinity 写进 SVG 几何
+  if (data.length === 0) return null
   const max = Math.max(...data, 1)
 
   if (horizontal) {

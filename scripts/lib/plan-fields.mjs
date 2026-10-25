@@ -51,6 +51,12 @@ export function normalizeRecord(raw) {
     return { ok: false, why: 'evidence 必须是字符串数组(它是将来跑判据的凭据面)' }
   const rec = { key: raw.key.trim() }
   for (const k of OPTIONAL_KEYS) if (raw[k] !== undefined) rec[k] = raw[k]
+  // 归一:owner/blocking 里的 `…` 是"原文已截断"的痕迹,不得进入判定面 ——
+  // 投影写出含 `…` 的标头后 parseHeader 必判 malformed(门 234 A2 永久红;
+  // 2026-10-25 实测 G-47/G-48/G-49)。去省略号、保留已知前缀(与抽取器 cleanOwner 同口径)。
+  for (const k of ['owner', 'blocking']) {
+    if (typeof rec[k] === 'string' && rec[k].includes('…')) rec[k] = rec[k].replace(/…/g, '').trim()
+  }
   return { ok: true, rec }
 }
 

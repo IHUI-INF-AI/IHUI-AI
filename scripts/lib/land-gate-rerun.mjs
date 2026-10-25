@@ -38,7 +38,7 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
 import { catBatch } from './face-reader.mjs'
-import { maskComments } from './code-mask.mjs'
+import { maskComments, maskCommentsStringsAndRegex } from './code-mask.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
@@ -179,7 +179,11 @@ export function selectAffectedGates(paths, entries) {
  */
 export function scanDuplicateDefinitions(text, ext) {
   const src = String(text ?? '')
-  const lines = src.split(/\r?\n/)
+  // 先把注释/字符串/模板串/正则体遮成等长空白:**字符串里出现的 `export function X` 不是定义**。
+  // 2026-10-25 实测:check-z-index-guard.test.mjs 的 CN_DIALOG_TSX 夹具(模板串)被本臂判成
+  // "同名第二份" ⇒ 落地复跑假红(判据做窄是对的,但"看不见引号"不是窄,是瞎)。
+  // 等长遮罩 ⇒ 行号/缩进不变,"只认第 0 列"的规则逐字照旧。
+  const lines = maskCommentsStringsAndRegex(src).split(/\r?\n/)
   const patterns = PY_EXTS.includes(ext)
     ? [/^def\s+([A-Za-z_]\w*)\s*\(/, /^async\s+def\s+([A-Za-z_]\w*)\s*\(/, /^class\s+([A-Za-z_]\w*)/]
     : [

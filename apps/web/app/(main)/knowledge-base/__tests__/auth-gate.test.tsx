@@ -34,7 +34,7 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('next/link', () => ({
-  default: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
+  default: ({ children }: { children?: React.ReactNode }) => <a href="/mock-link">{children}</a>,
 }))
 
 vi.mock('@/components/common', () => ({

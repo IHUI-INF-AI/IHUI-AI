@@ -10,7 +10,7 @@ import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { formatDateByTemplate } from '@ihui/shared'
+import { formatDateByTemplate, formatPrice } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface TeamMember {
@@ -27,11 +27,7 @@ type SortTab = 'orderNum' | 'date'
 
 const PAGE_SIZE = 20
 
-/** 分 → 元 */
-const formatToYuan = (cents: number) => {
-  if (!cents) return '0.00'
-  return (cents / 100).toFixed(2)
-}
+// 分→元不在此另写一份:唯一出口 = @ihui/shared 的 formatPrice(§0.6)
 
 /** 时间戳(秒/毫秒)或 ISO 字符串 → 毫秒数 */
 const toMs = (v: number | string): number => {
@@ -127,8 +123,8 @@ export default function DistributionTeam() {
         (m) =>
           m.nickname.toLowerCase().includes(kw) ||
           String(m.orderNum).includes(kw) ||
-          formatToYuan(m.transactionVolume).includes(kw) ||
-          formatToYuan(m.commission).includes(kw) ||
+          formatPrice(m.transactionVolume).includes(kw) ||
+          formatPrice(m.commission).includes(kw) ||
           formatDateByTemplate(m.createdAt, 'YYYY-MM-DD').includes(kw),
       )
     }
@@ -261,7 +257,7 @@ export default function DistributionTeam() {
                         {tt('distribution.team.transactionVolume', '成交额')}
                       </Text>
                       <Text className="text-[length:28rpx] font-semibold text-foreground">
-                        ¥{formatToYuan(m.transactionVolume)}
+                        ¥{formatPrice(m.transactionVolume)}
                       </Text>
                     </View>
                     <View className="flex flex-row items-baseline gap-[8rpx]">
@@ -269,7 +265,7 @@ export default function DistributionTeam() {
                         {tt('distribution.team.commission', '获取佣金')}
                       </Text>
                       <Text className="text-[length:28rpx] font-semibold text-foreground">
-                        ¥{formatToYuan(m.commission)}
+                        ¥{formatPrice(m.commission)}
                       </Text>
                     </View>
                   </View>
