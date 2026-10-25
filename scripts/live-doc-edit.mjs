@@ -214,7 +214,7 @@ import { compositeKeyOf, auditPlan, f9GroupLine } from './lib/plan-task-index.mj
 import { narrowF9Face, readFieldsFace } from './plan-tasks.mjs'
 // G-965 写盘闸改造(2026-10-22):改写整行时的三维守恒断言**只有这一份实现**(规格 §2),
 // 本器只做接线;翻勾/删行是活文档编辑器的合法动作,断言刻意拒绝它们(故只在 open→open 时施加)。
-import { assertRowRewriteConservation, bucketOf, leaseTransitionOf } from './lib/plan-row-conservation.mjs'
+import { assertRowRewriteConservation, bucketOf, isOpenRow, leaseTransitionOf } from './lib/plan-row-conservation.mjs'
 import { fieldsFor } from './lib/plan-fields.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
@@ -1055,11 +1055,19 @@ export function readInputs(env = process.env) {
     }
     if (!Array.isArray(pairs) || pairs.length === 0)
       return { error: 'LIVE_REPLACE_FILE 必须是非空数组 [{before, after}]' }
+    const seenBefore = new Set()
     for (const [i, p] of pairs.entries()) {
       if (typeof p?.before !== 'string' || typeof p?.after !== 'string')
         return { error: `第 ${i + 1} 项缺 before/after 或不是字符串 ⇒ 拒绝执行` }
       if (p.before.includes('\n') || p.after.includes('\n'))
         return { error: `第 ${i + 1} 项含换行 ⇒ 本档只作**整行**替换(多行请拆成多项)` }
+      // 同一 before 两条 pair:落库时序号无区分度,第二条必然 replace-not-found ⇒
+      // 判据给"写不进的批"报绿(2026-10-25 探针实证);同文多副本走 all:true,不走第二条 pair。
+      if (seenBefore.has(p.before))
+        return {
+          error: `第 ${i + 1} 项与前面某项 before 重复 ⇒ 同一行文本只能有一个 after(同文多副本一起改请用 all:true)`,
+        }
+      seenBefore.add(p.before)
       if (p.before === p.after)
         return { error: `第 ${i + 1} 项 before == after ⇒ 无事可做,剔除后再跑` }
       if ('all' in p && p.all !== true)
@@ -1101,6 +1109,11 @@ export function readInputs(env = process.env) {
         if (it.from === it.to) return { error: `第 ${i + 1} 项 from == to ⇒ 无事可做` }
         if (it.why.trim().length < 10)
           return { error: `第 ${i + 1} 项 why 少于 10 字 ⇒ 不说明理由的改桶等于替人猜(§0.10)` }
+        // 声明只解释**登记行**的归属桶;拿段落/已勾行来声明,后面必然被误诊成"陈旧/串档"。
+        if (!isOpenRow(it.before))
+          return {
+            error: `第 ${i + 1} 项的 before 不是未勾登记行(- [ ])⇒ 改桶声明只解释登记行,段落/已勾行请走对应器物`,
+          }
         if (!known.has(it.before))
           return {
             error: `第 ${i + 1} 项的 before 不在本次 LIVE_REPLACE_FILE 里 ⇒ 陈旧/串档声明,不记通过`,
@@ -1402,7 +1415,6 @@ export function applyReplacements(baseLines, pairs) {
  * `baseLines` 只用来给违规点名行号;不改动任何判据输入。
  */
 export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields = null, reclassify = null } = {}) {
-  const openRe = /^\s*- \[ \]/
   const doneRe = /^\s*- \[[xX]\]/
   const violations = []
   const notes = []
@@ -1414,8 +1426,8 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
     const oldLine = String(p.before ?? '')
     const newLine = String(p.after ?? '')
     // 旧行不是未勾登记行 ⇒ 本断言射程外(段落改写等),既不断言也不冒"跳过"的名义。
-    if (!openRe.test(oldLine)) continue
-    if (!openRe.test(newLine)) {
+    if (!isOpenRow(oldLine)) continue
+    if (!isOpenRow(newLine)) {
       notes.push(
         `ℹ 三维守恒跳过第 ${i + 1} 项:` +
           (doneRe.test(newLine)
@@ -1479,7 +1491,16 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
     }
     violations.push({ item: i + 1, at, bad })
   }
-  return { ok: violations.length === 0, checked, violations, notes, reclassified, staleReclassify: [...recMap.keys()].filter((k) => !usedReclassify.has(k)) }
+  const staleReclassify = [...recMap.keys()].filter((k) => !usedReclassify.has(k))
+  // 未命中的声明必须让整批判不通过:否则"声明了一条、其实没改到"会被 ok:true 读成"放过了"。
+  return {
+    ok: violations.length === 0 && staleReclassify.length === 0,
+    checked,
+    violations,
+    notes,
+    reclassified,
+    staleReclassify,
+  }
 }
 
 // ---------------------------------------------------------------------------
