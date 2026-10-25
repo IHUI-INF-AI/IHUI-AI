@@ -5,8 +5,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   EMPTY_CHAT_SYNC_STATE,
+  type ChatSyncTerminalReason,
   type MessageCreatedEvent,
   type MessagePatchedEvent,
+  type MessageTerminalEvent,
 } from '@ihui/types'
 import { useChatStore } from '../chat'
 
@@ -628,6 +630,21 @@ describe('useChatStore', () => {
         data: { ...base, type: 'message:patched', messageId, rev, kind: 'snapshot', content },
       }
     }
+    const terminalBase = {
+      protocolVersion: 'chat-sync.v2' as const,
+      channel: 'ws' as const,
+      room: ROOM,
+    }
+    function terminal(
+      messageId: string,
+      rev: number,
+      reason: ChatSyncTerminalReason = 'stop',
+    ): MessageTerminalEvent {
+      return {
+        event: 'message:terminal',
+        data: { ...terminalBase, type: 'message:terminal', messageId, rev, reason },
+      }
+    }
 
     beforeEach(() => {
       useChatStore.setState({
@@ -713,6 +730,64 @@ describe('useChatStore', () => {
       expect(useChatStore.getState().chatSyncResyncPending).toBe(true)
     })
 
+    // 票71 terminal 切片(2026-10-26):终态是 v2 独立帧,不进 rev 链(只打状态位)。
+    it('terminal 落在链头 ⇒ applied:只打终态标记,内容与 appliedRevs 零变化', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      const revsBefore = new Map(useChatStore.getState().chatSync.appliedRevs)
+      const out = useChatStore.getState().applyChatSync(terminal('m-1', 1, 'stop'))
+      expect(out).toEqual({ applied: true, messageId: 'm-1', rev: 1 })
+      const msg = useChatStore.getState().messages.find((m) => m.id === 'm-1')
+      expect(msg?.content).toBe('AB')
+      expect(msg?.terminal).toEqual({ rev: 1, reason: 'stop' })
+      expect(useChatStore.getState().chatSync.appliedRevs).toEqual(revsBefore)
+    })
+
+    it('terminal 乱序超前(rev > 链头)⇒ gap:置 resync 旗,不凭帧造终态', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      const out = useChatStore.getState().applyChatSync(terminal('m-1', 3, 'stop'))
+      expect(out).toEqual(expect.objectContaining({ applied: false, reason: 'gap' }))
+      expect(useChatStore.getState().chatSyncResyncPending).toBe(true)
+      expect(useChatStore.getState().messages.find((m) => m.id === 'm-1')?.terminal).toBeUndefined()
+    })
+
+    it('terminal 同 rev 重投 ⇒ duplicate:数组引用不变', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      useChatStore.getState().applyChatSync(terminal('m-1', 1, 'stop'))
+      const before = useChatStore.getState().messages
+      const out = useChatStore.getState().applyChatSync(terminal('m-1', 1, 'stop'))
+      expect(out).toEqual(expect.objectContaining({ applied: false, reason: 'duplicate' }))
+      expect(useChatStore.getState().messages).toBe(before)
+    })
+
+    it('terminal 低 rev 迟到 ⇒ stale:终态不回退也不覆盖', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      useChatStore.getState().applyChatSync(delta('m-1', 2, 'C'))
+      const out = useChatStore.getState().applyChatSync(terminal('m-1', 1, 'stop'))
+      expect(out).toEqual(expect.objectContaining({ applied: false, reason: 'stale' }))
+      expect(useChatStore.getState().messages.find((m) => m.id === 'm-1')?.terminal).toBeUndefined()
+    })
+
+    it('未知 reason(生产端违约)⇒ unknown-terminal-reason:判据面与渲染面都不动', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      const before = useChatStore.getState().messages
+      const revsBefore = new Map(useChatStore.getState().chatSync.appliedRevs)
+      const out = useChatStore
+        .getState()
+        .applyChatSync(terminal('m-1', 1, 'mystery' as ChatSyncTerminalReason))
+      expect(out).toEqual({
+        applied: false,
+        reason: 'unknown-terminal-reason',
+        messageId: 'm-1',
+      })
+      expect(useChatStore.getState().messages).toBe(before)
+      expect(useChatStore.getState().chatSync.appliedRevs).toEqual(revsBefore)
+    })
+
     it('判据面与附件都随会话重置:不进 partialize(rev 是会话局部坐标)', async () => {
       const mod = await import('../chat')
       const storeApi = mod.useChatStore as unknown as {
@@ -735,7 +810,16 @@ describe('useChatStore', () => {
 
   describe('B02③ resync 快照:applyChatSyncSnapshot 接线', () => {
     const CONV = 'conv-sync'
-    function snapOf(over: Partial<{ messageId: string; rev: number; content: string; role: 'user' | 'assistant' | 'system'; reasoning?: string; conversationId: string }> = {}) {
+    function snapOf(
+      over: Partial<{
+        messageId: string
+        rev: number
+        content: string
+        role: 'user' | 'assistant' | 'system'
+        reasoning?: string
+        conversationId: string
+      }> = {},
+    ) {
       return {
         conversationId: CONV,
         messageId: 'm-1',
@@ -838,7 +922,9 @@ describe('useChatStore', () => {
     it('m-ghost(内核面有行渲染面缺行)⇒ 快照回喂后按内核面补行,不凭快照字段另造', () => {
       useChatStore.setState({
         chatSync: {
-          messages: new Map([['m-ghost', { id: 'm-ghost', role: 'assistant' as const, content: 'AB' }]]),
+          messages: new Map([
+            ['m-ghost', { id: 'm-ghost', role: 'assistant' as const, content: 'AB' }],
+          ]),
           appliedRevs: new Map([['m-ghost', 1]]),
         },
         chatSyncGapMessageIds: ['m-ghost'],
