@@ -25,13 +25,21 @@ vi.mock('@tarojs/taro', () => ({
     removeStorageSync: () => {
       throw new Error('no storage in vitest')
     },
+    getSystemInfoSync: () => ({ model: 'TestPhone', system: 'Android 15' }),
+    getLaunchOptionsSync: () => ({ path: 'pages/x', query: { a: '1', b: '中文' } }),
+    navigateTo: async () => ({ errMsg: 'ok' }),
   },
 }))
 
 import Restart, {
   colorScheme,
+  createURL,
   Directory,
   File,
+  getInitialURL,
+  modelId,
+  openAuthSessionAsync,
+  parse,
   Paths,
 } from '@/rn-compat/native-extras'
 
@@ -94,3 +102,29 @@ describe('react-native-restart', () => {
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('expo-device / linking / web-browser 的降级语义', () => {
+  it('modelId 从系统信息现读', () => {
+    expect(modelId).toBe('TestPhone')
+  })
+
+  it('getInitialURL 由启动参数合成(路径 + query 编码)', async () => {
+    const url = await getInitialURL()
+    expect(url).toBe('ihui-miniapp://pages/x?a=1&b=%E4%B8%AD%E6%96%87')
+  })
+
+  it('createURL / parse 互逆(路径与 query)', () => {
+    expect(createURL('/sso/callback')).toBe('ihui-miniapp://sso/callback')
+    const p = parse('ihui-miniapp://sso/callback?code=abc')
+    expect(p.scheme).toBe('ihui-miniapp')
+    expect(p.path).toBe('sso/callback')
+    expect(p.queryParams).toEqual({ code: 'abc' })
+  })
+
+  it('openAuthSessionAsync 显式按取消返回,绝不假装 success', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const r = await openAuthSessionAsync('https://x', 'ihui-miniapp://cb')
+    expect(r).toEqual({ type: 'cancel' }, '假装成功会让调用方等一个永不到的回跳')
+    expect(warn.mock.calls.some((c) => String(c[0]).includes('认证会话'))).toBe(true)
+  })
+})

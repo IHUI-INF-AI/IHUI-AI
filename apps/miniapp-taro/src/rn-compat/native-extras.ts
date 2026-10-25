@@ -168,3 +168,115 @@ const Restart = {
 
 export default Restart
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/** expo-device:闭包只取 modelId(设备指纹的输入);取不到系统信息时给常量 unknown,绝不抛 */
+function systemInfo(): Record<string, unknown> {
+  try {
+    return Taro.getSystemInfoSync() as unknown as Record<string, unknown>
+  } catch {
+    return {}
+  }
+}
+
+export const modelId: string = String(systemInfo().model ?? 'unknown')
+export const modelName: string = String(systemInfo().model ?? 'unknown')
+export const osName: string = String(systemInfo().system ?? 'unknown')
+export const osVersion: string = String(systemInfo().system ?? '')
+/** expo 的 DeviceType.PHONE = 1;小程序只运行在手机/平板,不做设备类型细分 */
+export async function getDeviceTypeAsync(): Promise<number> {
+  return 1
+}
+
+/**
+ * expo-web-browser:小程序没有"应用内浏览器会话",deep link 回跳这条链在小程序端不可用。
+ *   · openBrowserAsync:打开普通网页 ⇒ 走端内 web-view 页(与「关于我们」的外链同一出口);
+ *   · openAuthSessionAsync:**显式按取消返回**,绝不假装 success —— 假装成功会让调用方
+ *     等一个永远不会到的回跳,卡在 loading(错比慢更难查)。
+ */
+export async function openBrowserAsync(url: string): Promise<{ type: 'opened' | 'cancel' }> {
+  try {
+    await Taro.navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(url)}` })
+    return { type: 'opened' }
+  } catch {
+    return { type: 'cancel' }
+  }
+}
+
+export async function openAuthSessionAsync(
+  _url: string,
+  _redirectUrl?: string,
+): Promise<{ type: 'cancel' }> {
+  warnOnce(
+    'auth-session',
+    '小程序端无应用内认证会话(deep link 回跳不可用)⇒ 本流程按取消处理,请走端内登录',
+  )
+  return { type: 'cancel' }
+}
+
+export function maybeCompleteAuthSession(): void {
+  /* 无弹出窗口需要收尾 */
+}
+
+export async function dismissBrowser(): Promise<void> {
+  /* 无浏览器会话可收尾 */
+}
+
+export async function dismissAuthSession(): Promise<void> {
+  /* 无认证会话可收尾 */
+}
+
+/**
+ * expo-linking:小程序的自定义 scheme 深链由平台托管。
+ * 初始 URL 用启动参数合成(路径 + query),不猜 scheme 的主机段;监听为空实现并返回可 remove 的句柄。
+ */
+export function createURL(path: string): string {
+  return `ihui-miniapp://${String(path ?? '').replace(/^\/+/, '')}`
+}
+
+export async function getInitialURL(): Promise<string | null> {
+  try {
+    const opts = Taro.getLaunchOptionsSync()
+    const query = (opts?.query ?? {}) as Record<string, string>
+    const qs = Object.keys(query)
+      .map((k) => `${k}=${encodeURIComponent(String(query[k]))}`)
+      .join('&')
+    return `ihui-miniapp://${opts?.path ?? ''}${qs ? `?${qs}` : ''}`
+  } catch {
+    return null
+  }
+}
+
+export function addEventListener(
+  _type: 'url',
+  _handler: (event: { url: string }) => void,
+): { remove: () => void } {
+  return {
+    remove(): void {
+      /* 小程序没有运行中深链回调 */
+    },
+  }
+}
+
+export function parse(url: string): {
+  scheme?: string
+  path?: string
+  queryParams: Record<string, string>
+} {
+  const m = /^([a-z][\w+.-]*):\/\/([^?#]*)(?:\?([^#]*))?/i.exec(String(url ?? ''))
+  const queryParams: Record<string, string> = {}
+  if (m?.[3]) {
+    for (const kv of m[3].split('&')) {
+      const [k, v] = kv.split('=')
+      if (k) queryParams[k] = decodeURIComponent(v ?? '')
+    }
+  }
+  return { scheme: m?.[1], path: m?.[2] ?? '', queryParams }
+}
+
+export async function canOpenURL(): Promise<boolean> {
+  return false
+}
+
+export async function openURL(url: string): Promise<void> {
+  await Taro.navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(url)}` })
+}
