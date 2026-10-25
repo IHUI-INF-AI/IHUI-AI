@@ -17,7 +17,7 @@ import {
   FileX2,
 } from 'lucide-react'
 import { getArtifactToken } from '@ihui/api-client'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
@@ -802,12 +802,11 @@ function useMediaTaskPolling(
   const pollOnce = React.useCallback(async () => {
     if (doneRef.current || !taskId) return
     try {
-      const res = await fetchApi<{ ok: boolean; data: MediaTaskRow }>(
+      const res = await api<{ ok: boolean; data: MediaTaskRow }>(
         `/media/tasks/${encodeURIComponent(taskId)}`,
         { timeoutMs: 10_000 },
       )
-      if (!res.success) return
-      const row = res.data?.data
+      const row = res.data
       if (!row) return
       setCheckedAt(Date.now())
       if (row.status === 'succeeded') {

@@ -14,7 +14,16 @@
  * - 状态栏:顶距由 App.tsx 的 SafeAreaView 单点注入,本组件不再自加(否则双份)
  */
 import { type ReactNode } from 'react'
-import { Image, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native'
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { currentRnTheme, tokens } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
 import { BackChevron } from '@ihui/rn-app'
@@ -33,6 +42,7 @@ import {
   NAVBAR_TITLE_MAX_WIDTH_PX,
   navbarActionBoxStyle,
 } from '@ihui/shared/ui/navbar-spec'
+import { NavBarCore, type NavBarCoreBoxProps, type NavBarCoreTextProps } from '@ihui/shared/ui'
 import { useI18n } from '../i18n'
 
 export interface NavBarAction {
@@ -63,6 +73,22 @@ export interface NavBarProps {
 /// 返回键本体走共享 `<BackChevron>`(与小程序端 NavBar 同一个核心),本文件不再自绘箭头与方块。
 const ACTION_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 } as const
 
+/// 骨架唯一源在 @ihui/shared/ui/navbar-core;本端只注入 RN 原语与样式/内容槽。
+/// 行高、左右槽、标题/副标题字号与主题色仍全部住在本文件,核心不重取数。
+function CoreBox({ style, children }: NavBarCoreBoxProps<StyleProp<ViewStyle>, string>) {
+  return <View style={style}>{children}</View>
+}
+
+function CoreText({ style, numberOfLines, children }: NavBarCoreTextProps<StyleProp<TextStyle>, string>) {
+  return (
+    <Text style={style} numberOfLines={numberOfLines}>
+      {children}
+    </Text>
+  )
+}
+
+const NAVBAR_PLATFORM = { Box: CoreBox, Text: CoreText }
+
 /**
  * RN 类型 position 不含 'sticky'(StyleSheetTypes.d.ts 仅声明 'absolute'|'relative'|'static'),
  * 但 RN 0.71+ 运行时原生层支持 position:'sticky'(主要在 ScrollView 上下文生效)。
@@ -90,11 +116,19 @@ export function NavBar({
   const hasRightContent =
     (rightActions !== undefined && rightActions.length > 0) || rightAction !== undefined
 
+  /* 中间:title + subtitle(flex 居中)。
+     2026-09-23 修复 P1:两侧功能图标过多压缩标题空间,"智汇AI" 4 字在 18px 下被截断为"智汇..."。
+     方案 B+C:center 加下限确保标题区至少容纳 4 个中文字 + title 字号 18→16 释放横向空间。
+     下限与截断上限都不再写在本文件:唯一源是 navbar-spec 的
+     NAVBAR_CENTER_MIN_WIDTH_PX / NAVBAR_TITLE_MAX_WIDTH_PX,小程序端取的是同一对档。 */
   return (
-    <View style={[styles.container, sticky ? STICKY_STYLE : null]}>
-      <View style={[styles.row, { height: contentHeight }]}>
-        {/* 左侧:back + leftActions */}
-        <View style={styles.leftSection}>
+    <NavBarCore
+      platform={NAVBAR_PLATFORM}
+      containerStyle={[styles.container, sticky ? STICKY_STYLE : null]}
+      rowStyle={[styles.row, { height: contentHeight }]}
+      leftStyle={styles.leftSection}
+      left={
+        <>
           {onBack ? (
             <BackChevron onPress={onBack} label={t('common.back')} colorScheme={currentRnTheme()} />
           ) : null}
@@ -102,36 +136,24 @@ export function NavBar({
             <NavBarActionButton key={index} action={action} />
           ))}
           {!hasLeftContent ? <View style={styles.sidePlaceholder} /> : null}
-        </View>
-
-        {/* 中间:title + subtitle(flex 居中)。
-            2026-09-23 修复 P1:两侧功能图标过多压缩标题空间,"智汇AI" 4 字在 18px 下被截断为"智汇..."。
-            方案 B+C:center 加下限确保标题区至少容纳 4 个中文字 + title 字号 18→16 释放横向空间。
-            下限与截断上限都不再写在本文件:唯一源是 navbar-spec 的
-            NAVBAR_CENTER_MIN_WIDTH_PX / NAVBAR_TITLE_MAX_WIDTH_PX,小程序端取的是同一对档。 */}
-        <View style={styles.center}>
-          {title ? (
-            <Text style={styles.title} numberOfLines={1}>
-              {title}
-            </Text>
-          ) : null}
-          {subtitle ? (
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* 右侧:rightActions + rightAction(兼容旧 API) */}
-        <View style={styles.rightSection}>
+        </>
+      }
+      centerStyle={styles.center}
+      title={title}
+      titleStyle={styles.title}
+      subtitle={subtitle}
+      subtitleStyle={styles.subtitle}
+      rightStyle={styles.rightSection}
+      right={
+        <>
           {rightActions?.map((action, index) => (
             <NavBarActionButton key={index} action={action} />
           ))}
           {rightAction ? <View style={styles.legacyRight}>{rightAction}</View> : null}
           {!hasRightContent ? <View style={styles.sidePlaceholder} /> : null}
-        </View>
-      </View>
-    </View>
+        </>
+      }
+    />
   )
 }
 

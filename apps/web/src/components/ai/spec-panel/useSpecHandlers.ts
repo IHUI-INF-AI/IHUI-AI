@@ -8,7 +8,7 @@
 
 import * as React from 'react'
 import { toast } from '@/components/common'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import type { SpecGenerateOutput } from '@ihui/types'
 import type { SpecScopeType } from '@ihui/shared/spec'
 import type {
@@ -204,10 +204,8 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
   const refreshHistory = React.useCallback(async () => {
     if (!activeWorkspacePath) return
     try {
-      const r = await fetchApi<{ history: SpecHistoryEntry[] }>(`/api/spec/history?${buildQuery()}`)
-      if (r.success && r.data) {
-        setHistory(r.data.history)
-      }
+      const r = await api<{ history: SpecHistoryEntry[] }>(`/api/spec/history?${buildQuery()}`)
+      setHistory(r.history)
     } catch {
       // 静默降级
     }
@@ -230,21 +228,17 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     setDiffResult(null)
     setTabMode('spec')
     try {
-      const r = await fetchApi<SpecGenerateOutput>('/api/spec/generate', {
+      const r = await api<SpecGenerateOutput>('/api/spec/generate', {
         method: 'POST',
         body: JSON.stringify({ scope: currentScope, workspacePath }),
       })
-      if (!r.success || !r.data) {
-        toast.error('spec 生成失败', { description: r.error || '未知错误' })
-        return
-      }
-      setResult(r.data)
+      setResult(r)
       setApplyResult(null)
       setTasksResult(null)
       setEnhanceResult(null)
       setSelectedVersion('latest')
       toast.success('spec 文档已生成', {
-        description: `扫描 ${r.data.stats.files} 文件 · ${r.data.stats.symbols} 符号 · ${r.data.durationMs}ms`,
+        description: `扫描 ${r.stats.files} 文件 · ${r.stats.symbols} 符号 · ${r.durationMs}ms`,
       })
       void refreshHistory()
     } catch (e) {
@@ -261,11 +255,11 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
       setSelectedVersion(version)
       if (version === 'latest') return
       try {
-        const r = await fetchApi<{ spec: string; filePath: string }>(
+        const r = await api<{ spec: string; filePath: string }>(
           `/api/spec/load?${buildQuery({ version })}`,
         )
-        if (r.success && r.data && r.data.spec) {
-          setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
+        if (r.spec) {
+          setResult((prev) => (prev ? { ...prev, spec: r.spec } : prev))
           setTabMode('spec')
           toast.success('已加载历史版本', { description: version })
         }
@@ -285,21 +279,17 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     }
     setDiffLoading(true)
     try {
-      const r = await fetchApi<SpecDiffResult>('/api/spec/diff', {
+      const r = await api<SpecDiffResult>('/api/spec/diff', {
         method: 'POST',
         body: JSON.stringify({ scope: currentScope, workspacePath }),
       })
-      if (!r.success || !r.data) {
-        toast.error('diff 生成失败', { description: r.error || '未知错误' })
-        return
-      }
-      setDiffResult(r.data)
+      setDiffResult(r)
       setTabMode('diff')
-      if (r.data.newSpec) {
-        setResult((prev) => (prev ? { ...prev, spec: r.data!.newSpec } : prev))
+      if (r.newSpec) {
+        setResult((prev) => (prev ? { ...prev, spec: r.newSpec } : prev))
       }
       toast.success('diff 已生成', {
-        description: `+${r.data.addedLines} 行 / -${r.data.removedLines} 行`,
+        description: `+${r.addedLines} 行 / -${r.removedLines} 行`,
       })
     } catch (e) {
       toast.error('diff 生成失败', { description: e instanceof Error ? e.message : String(e) })
@@ -317,7 +307,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     }
     setApplyLoading(true)
     try {
-      const r = await fetchApi<SpecApplyResult>('/api/spec/apply', {
+      const r = await api<SpecApplyResult>('/api/spec/apply', {
         method: 'POST',
         body: JSON.stringify({
           scope: currentScope,
@@ -325,12 +315,8 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
           newSpec: result.spec,
         }),
       })
-      if (!r.success || !r.data) {
-        toast.error('代码生成失败', { description: r.error || '未知错误' })
-        return
-      }
-      setApplyResult(r.data)
-      toast.success('patch 已生成', { description: r.data.summary })
+      setApplyResult(r)
+      toast.success('patch 已生成', { description: r.summary })
     } catch (e) {
       toast.error('代码生成失败', { description: e instanceof Error ? e.message : String(e) })
     } finally {
@@ -344,7 +330,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     if (!workspacePath || !applyResult?.patch) return
     setConfirmLoading(true)
     try {
-      const r = await fetchApi<SpecApplyConfirmResult>('/api/spec/apply/confirm', {
+      const r = await api<SpecApplyConfirmResult>('/api/spec/apply/confirm', {
         method: 'POST',
         body: JSON.stringify({
           workspacePath,
@@ -352,12 +338,8 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
           affectedFiles: applyResult.affectedFiles,
         }),
       })
-      if (!r.success || !r.data) {
-        toast.error('patch 应用失败', { description: r.error || '未知错误' })
-        return
-      }
       toast.success('patch 已应用', {
-        description: `成功 ${r.data.applied.length} 个,失败 ${r.data.failed.length} 个,备份到 ${r.data.backupDir}`,
+        description: `成功 ${r.applied.length} 个,失败 ${r.failed.length} 个,备份到 ${r.backupDir}`,
       })
     } catch (e) {
       toast.error('patch 应用失败', { description: e instanceof Error ? e.message : String(e) })
@@ -372,19 +354,15 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     if (!workspacePath) return
     setReviewLoading(true)
     try {
-      const r = await fetchApi<SpecReviewResult>('/api/spec/review/submit', {
+      const r = await api<SpecReviewResult>('/api/spec/review/submit', {
         method: 'POST',
         body: JSON.stringify({ scope: currentScope, workspacePath }),
       })
-      if (!r.success || !r.data) {
-        toast.error(t('submitReviewFailed'), { description: r.error || t('unknownError') })
-        return
-      }
-      if (r.data.spec) {
-        setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
+      if (r.spec) {
+        setResult((prev) => (prev ? { ...prev, spec: r.spec } : prev))
       }
       toast.success(t('reviewSubmitted'), {
-        description: `状态: ${t(STATUS_LABEL[r.data.status] ?? r.data.status)}`,
+        description: `状态: ${t(STATUS_LABEL[r.status] ?? r.status)}`,
       })
     } catch (e) {
       toast.error(t('submitReviewFailed'), {
@@ -401,16 +379,12 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     if (!workspacePath) return
     setReviewLoading(true)
     try {
-      const r = await fetchApi<SpecReviewResult>('/api/spec/review/approve', {
+      const r = await api<SpecReviewResult>('/api/spec/review/approve', {
         method: 'POST',
         body: JSON.stringify({ scope: currentScope, workspacePath }),
       })
-      if (!r.success || !r.data) {
-        toast.error('审批失败', { description: r.error || '未知错误' })
-        return
-      }
-      if (r.data.spec) {
-        setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
+      if (r.spec) {
+        setResult((prev) => (prev ? { ...prev, spec: r.spec } : prev))
       }
       toast.success('已通过评审')
     } catch (e) {
@@ -426,7 +400,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     if (!workspacePath) return
     setReviewLoading(true)
     try {
-      const r = await fetchApi<SpecReviewResult>('/api/spec/review/reject', {
+      const r = await api<SpecReviewResult>('/api/spec/review/reject', {
         method: 'POST',
         body: JSON.stringify({
           scope: currentScope,
@@ -434,12 +408,8 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
           comment: reviewComment,
         }),
       })
-      if (!r.success || !r.data) {
-        toast.error('拒绝失败', { description: r.error || '未知错误' })
-        return
-      }
-      if (r.data.spec) {
-        setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
+      if (r.spec) {
+        setResult((prev) => (prev ? { ...prev, spec: r.spec } : prev))
       }
       toast.success('已拒绝')
     } catch (e) {
@@ -455,17 +425,13 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     if (!workspacePath) return
     setTasksLoading(true)
     try {
-      const r = await fetchApi<SpecSplitTasksResult>('/api/spec/split-tasks', {
+      const r = await api<SpecSplitTasksResult>('/api/spec/split-tasks', {
         method: 'POST',
         body: JSON.stringify({ scope: currentScope, workspacePath }),
       })
-      if (!r.success || !r.data) {
-        toast.error('任务拆分失败', { description: r.error || '未知错误' })
-        return
-      }
-      setTasksResult(r.data)
-      toast.success(`已拆分 ${r.data.tasks.length} 个任务`, {
-        description: r.data.fallback ? '降级模式:按章节机械拆分' : 'LLM 智能拆分',
+      setTasksResult(r)
+      toast.success(`已拆分 ${r.tasks.length} 个任务`, {
+        description: r.fallback ? '降级模式:按章节机械拆分' : 'LLM 智能拆分',
       })
     } catch (e) {
       toast.error('任务拆分失败', { description: e instanceof Error ? e.message : String(e) })
@@ -500,17 +466,13 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     if (!workspacePath) return
     setEnhanceLoading(true)
     try {
-      const r = await fetchApi<SpecEnhanceResult>('/api/spec/enhance', {
+      const r = await api<SpecEnhanceResult>('/api/spec/enhance', {
         method: 'POST',
         body: JSON.stringify({ scope: currentScope, workspacePath }),
       })
-      if (!r.success || !r.data) {
-        toast.error('智能分析失败', { description: r.error || '未知错误' })
-        return
-      }
-      setEnhanceResult(r.data)
-      if (r.data.spec) {
-        setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
+      setEnhanceResult(r)
+      if (r.spec) {
+        setResult((prev) => (prev ? { ...prev, spec: r.spec } : prev))
       }
       toast.success('智能分析已生成')
     } catch (e) {
@@ -523,10 +485,8 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
   // Watch:刷新状态
   const refreshWatchStatus = React.useCallback(async () => {
     try {
-      const r = await fetchApi<SpecWatchStatusResult>('/api/spec/watch/status')
-      if (r.success && r.data) {
-        setWatchStatus(r.data)
-      }
+      const r = await api<SpecWatchStatusResult>('/api/spec/watch/status')
+      setWatchStatus(r)
     } catch {
       // 静默
     }
@@ -541,18 +501,14 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     }
     setWatchLoading(true)
     try {
-      const r = await fetchApi<{ watchId: string; status: string; watchPath: string }>(
+      const r = await api<{ watchId: string; status: string; watchPath: string }>(
         '/api/spec/watch/start',
         {
           method: 'POST',
           body: JSON.stringify({ scope: currentScope, workspacePath }),
         },
       )
-      if (!r.success || !r.data) {
-        toast.error('watch 启动失败', { description: r.error || '未知错误' })
-        return
-      }
-      toast.success('监听已启动', { description: r.data.watchPath })
+      toast.success('监听已启动', { description: r.watchPath })
       void refreshWatchStatus()
     } catch (e) {
       toast.error('watch 启动失败', { description: e instanceof Error ? e.message : String(e) })
@@ -566,14 +522,10 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     async (watchId: string) => {
       setWatchLoading(true)
       try {
-        const r = await fetchApi<{ watchId: string; status: string }>('/api/spec/watch/stop', {
+        await api<{ watchId: string; status: string }>('/api/spec/watch/stop', {
           method: 'POST',
           body: JSON.stringify({ watchId }),
         })
-        if (!r.success || !r.data) {
-          toast.error('watch 停止失败', { description: r.error || '未知错误' })
-          return
-        }
         toast.success('监听已停止')
         void refreshWatchStatus()
       } catch (e) {
@@ -600,7 +552,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     setPipelineResult(null)
     setPipelineStatus(null)
     try {
-      const r = await fetchApi<SpecFullPipelineResult>('/api/spec/full-pipeline', {
+      const r = await api<SpecFullPipelineResult>('/api/spec/full-pipeline', {
         method: 'POST',
         body: JSON.stringify({
           scope: currentScope,
@@ -609,14 +561,10 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
           autoCommit,
         }),
       })
-      if (!r.success || !r.data) {
-        toast.error('流水线执行失败', { description: r.error || '未知错误' })
-        return
-      }
-      setPipelineResult(r.data)
-      setPipelineIdInput(r.data.pipelineId)
+      setPipelineResult(r)
+      setPipelineIdInput(r.pipelineId)
       toast.success('流水线执行完成', {
-        description: `状态: ${r.data.overallStatus} · commit: ${r.data.commitSha.slice(0, 8) || '(无)'}`,
+        description: `状态: ${r.overallStatus} · commit: ${r.commitSha.slice(0, 8) || '(无)'}`,
       })
     } catch (e) {
       toast.error('流水线执行失败', { description: e instanceof Error ? e.message : String(e) })
@@ -640,12 +588,8 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
         pipelineId: pid,
       }).toString()
       if (scopePath.trim()) qs.concat(`&scopePath=${encodeURIComponent(scopePath.trim())}`)
-      const r = await fetchApi<SpecPipelineStatusResult>(`/api/spec/pipeline-status?${qs}`)
-      if (!r.success || !r.data) {
-        toast.error('状态查询失败', { description: r.error || '未知错误' })
-        return
-      }
-      setPipelineStatus(r.data)
+      const r = await api<SpecPipelineStatusResult>(`/api/spec/pipeline-status?${qs}`)
+      setPipelineStatus(r)
     } catch (e) {
       toast.error('状态查询失败', { description: e instanceof Error ? e.message : String(e) })
     }
@@ -661,16 +605,12 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     }
     setPipelineLoading(true)
     try {
-      const r = await fetchApi<SpecPipelineRollbackResult>('/api/spec/pipeline-rollback', {
+      const r = await api<SpecPipelineRollbackResult>('/api/spec/pipeline-rollback', {
         method: 'POST',
         body: JSON.stringify({ workspacePath, backupDir }),
       })
-      if (!r.success || !r.data) {
-        toast.error('回滚失败', { description: r.error || '未知错误' })
-        return
-      }
-      toast.success(`已回滚 ${r.data.rolled} 个文件`, {
-        description: r.data.errors.length ? `${r.data.errors.length} 个错误` : '无错误',
+      toast.success(`已回滚 ${r.rolled} 个文件`, {
+        description: r.errors.length ? `${r.errors.length} 个错误` : '无错误',
       })
     } catch (e) {
       toast.error('回滚失败', { description: e instanceof Error ? e.message : String(e) })
@@ -692,7 +632,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     }
     setImpactLoading(true)
     try {
-      const r = await fetchApi<SpecImpactAnalysisResult>('/api/spec/impact-analysis', {
+      const r = await api<SpecImpactAnalysisResult>('/api/spec/impact-analysis', {
         method: 'POST',
         body: JSON.stringify({
           scope: currentScope,
@@ -700,13 +640,9 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
           proposedChanges: impactInput,
         }),
       })
-      if (!r.success || !r.data) {
-        toast.error('影响分析失败', { description: r.error || '未知错误' })
-        return
-      }
-      setImpactResult(r.data)
+      setImpactResult(r)
       toast.success('影响分析完成', {
-        description: `风险: ${t(RISK_LABEL[r.data.riskLevel] ?? r.data.riskLevel)} · 文件 ${r.data.affectedFiles.length}`,
+        description: `风险: ${t(RISK_LABEL[r.riskLevel] ?? r.riskLevel)} · 文件 ${r.affectedFiles.length}`,
       })
     } catch (e) {
       toast.error('影响分析失败', { description: e instanceof Error ? e.message : String(e) })
@@ -720,12 +656,10 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     const workspacePath = activeWorkspacePath
     if (!workspacePath) return
     try {
-      const r = await fetchApi<SpecBranchesResult>(
+      const r = await api<SpecBranchesResult>(
         `/api/spec/branches?workspacePath=${encodeURIComponent(workspacePath)}`,
       )
-      if (r.success && r.data) {
-        setBranchesResult(r.data)
-      }
+      setBranchesResult(r)
     } catch {
       // 静默
     }
@@ -744,7 +678,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     }
     setBranchLoading(true)
     try {
-      const r = await fetchApi<SpecBranch>('/api/spec/branch', {
+      const r = await api<SpecBranch>('/api/spec/branch', {
         method: 'POST',
         body: JSON.stringify({
           scope: currentScope,
@@ -753,11 +687,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
           baseVersion: branchBaseVersion,
         }),
       })
-      if (!r.success || !r.data) {
-        toast.error('分支创建失败', { description: r.error || '未知错误' })
-        return
-      }
-      toast.success('分支已创建', { description: r.data.name })
+      toast.success('分支已创建', { description: r.name })
       setNewBranchName('')
       void refreshBranches()
     } catch (e) {
@@ -775,18 +705,14 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
       setBranchLoading(true)
       setMergeConflicts(null)
       try {
-        const r = await fetchApi<SpecBranchMergeResult>('/api/spec/branch/merge', {
+        const r = await api<SpecBranchMergeResult>('/api/spec/branch/merge', {
           method: 'POST',
           body: JSON.stringify({ scope: currentScope, workspacePath, branchName }),
         })
-        if (!r.success || !r.data) {
-          toast.error('合并失败', { description: r.error || '未知错误' })
-          return
-        }
-        if (r.data.conflicts.length > 0) {
-          setMergeConflicts(r.data.conflicts)
+        if (r.conflicts.length > 0) {
+          setMergeConflicts(r.conflicts)
           toast.warning('合并完成但有冲突', {
-            description: `${r.data.conflicts.length} 处冲突已用 LLM 解决`,
+            description: `${r.conflicts.length} 处冲突已用 LLM 解决`,
           })
         } else {
           toast.success('分支已合并', { description: branchName })
@@ -808,17 +734,10 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
       if (!workspacePath) return
       setBranchLoading(true)
       try {
-        const r = await fetchApi<{ abandoned: boolean; branchName: string }>(
-          '/api/spec/branch/abandon',
-          {
-            method: 'POST',
-            body: JSON.stringify({ scope: currentScope, workspacePath, branchName }),
-          },
-        )
-        if (!r.success || !r.data) {
-          toast.error('废弃失败', { description: r.error || '未知错误' })
-          return
-        }
+        await api<{ abandoned: boolean; branchName: string }>('/api/spec/branch/abandon', {
+          method: 'POST',
+          body: JSON.stringify({ scope: currentScope, workspacePath, branchName }),
+        })
         toast.success('分支已废弃', { description: branchName })
         void refreshBranches()
       } catch (e) {
@@ -844,12 +763,8 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
           branchName,
         }).toString()
         if (scopePath.trim()) qs.concat(`&scopePath=${encodeURIComponent(scopePath.trim())}`)
-        const r = await fetchApi<SpecBranchDiffResult>(`/api/spec/branch/diff?${qs}`)
-        if (!r.success || !r.data) {
-          toast.error('diff 失败', { description: r.error || '未知错误' })
-          return
-        }
-        setBranchDiffResult(r.data)
+        const r = await api<SpecBranchDiffResult>(`/api/spec/branch/diff?${qs}`)
+        setBranchDiffResult(r)
       } catch (e) {
         toast.error('diff 失败', { description: e instanceof Error ? e.message : String(e) })
       } finally {
@@ -872,7 +787,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
     }
     setGenLoading(true)
     try {
-      const r = await fetchApi<SpecGenerateFromRequirementResult>(
+      const r = await api<SpecGenerateFromRequirementResult>(
         '/api/spec/generate-from-requirement',
         {
           method: 'POST',
@@ -883,13 +798,9 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
           }),
         },
       )
-      if (!r.success || !r.data) {
-        toast.error('智能生成失败', { description: r.error || '未知错误' })
-        return
-      }
-      setGenResult(r.data)
+      setGenResult(r)
       toast.success('spec 草稿已生成', {
-        description: `${r.data.sections.length} 个章节`,
+        description: `${r.sections.length} 个章节`,
       })
     } catch (e) {
       toast.error('智能生成失败', { description: e instanceof Error ? e.message : String(e) })

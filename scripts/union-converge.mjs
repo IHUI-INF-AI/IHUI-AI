@@ -134,6 +134,7 @@ import {
   lineNoteCount,
   mergeNoteUnits,
   keyOfRow,
+  compositeKeyOf,
 } from './lib/plan-task-index.mjs'
 import { SIM_THRESHOLD, jaccard, tokenize, stripState } from './lib/live-doc-similarity.mjs'
 // 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
@@ -158,7 +159,9 @@ import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
 // 摘除台账(2026-10-23 接进本器,堵"完成即删"的最后一条回潮通道):只有它认得出
 // "这一行是别人按台账正当摘除过的",而不是"对侧多出来的一行"。判据与 `scrub-declared-removals`
 // 同一份(§0.6 单一真相源,本器零复算)。
-import { declaredRows } from './scrub-declared-removals.mjs'
+// G-34/G-43(2026-10-25):补"复合主键/指纹"认账所需的一把既有单源 —— `titleFpOf`(题面 32 字指纹,
+// scrub 维三同一把尺);本器不写第二份台账解析。
+import { declaredRows, titleFpOf } from './scrub-declared-removals.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -967,7 +970,7 @@ export function formatFoldReport(folded, { maxEntries = 5 } = {}) {
  * 一道与内容无关的红:`PROJECT_PLAN.md 未存活行:`(冒号后面什么都没有)。这一型是被搬运感知照出来的:
  * 拦掉已归档正文之后,补回的最后一批里第一次出现了空行。
  */
-export function liveDocExpectedCounts(oursText, theirsText, baseText = null, suppress = null) {
+export function liveDocExpectedCounts(oursText, theirsText, baseText = null, suppress = null, report = null, declaredOverride = null) {
   const co = counter(oursText)
   const ct = subtractSuppressed(counter(theirsText), suppress)
   const cb = baseText === null ? new Map() : counter(baseText)
@@ -1008,6 +1011,22 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
    * union 不补、落地闸也不按"未存活行"追讨,摘掉的行不再被自己人带回。
    */
   for (const l of declaredDropCaps(oursText)) want.delete(l)
+  /**
+   * 同一族的**改写形态**认账(G-34/G-43, 2026-10-25):逐字维只能认"台账里那一串字节",对侧把
+   * 被摘行改写过一笔(追加注记/剥装饰)就结构上认不出 ⇒ 照旧 100% 带回(昨夜 24 行 f11 存量即此)。
+   * 这里补上"按复合主键/指纹再问一次清偿台账"那一格;命中与未判定都不回补,并随 `report`
+   * 逐条交回调用方计数点名(判序与失效方向见 declaredFamilyCaps 头注)。
+   * `report`(可选数组)与 `declaredOverride`(仅供镜像测试注入)两处新增参,既有调用方逐字不变。
+   */
+  const fam = declaredFamilyCaps(oursText, want, declaredOverride)
+  for (const [l, via] of fam.withheld) {
+    want.delete(l)
+    if (report) report.push({ line: l, via })
+  }
+  for (const [l, why] of fam.undetermined) {
+    want.delete(l)
+    if (report) report.push({ line: l, via: 'undetermined', why })
+  }
   return want
 }
 
@@ -1198,6 +1217,128 @@ export function declaredDropCaps(oursText, declared = null) {
   return caps
 }
 
+/** 坏行归因用的机械包含判断:编号在原文里必须是**独立出现**的(前后不接字母/数字),
+ *  否则 `G-7` 会把 `G-77` 的原文也算命中。这不是判据,只是字符串边界。 */
+function rawMentionsId(raw, id) {
+  let i = raw.indexOf(id)
+  while (i >= 0) {
+    const before = i === 0 ? '' : raw[i - 1]
+    const after = raw[i + id.length] || ''
+    if (!/[\p{L}\p{N}]/u.test(before) && !/[\p{L}\p{N}]/u.test(after)) return true
+    i = raw.indexOf(id, i + 1)
+  }
+  return false
+}
+
+/**
+ * 「本侧已按摘除台账清掉」那一族的**改写形态**,同样不得从对侧/基底被补回(G-34/G-43, 2026-10-25 立)。
+ *
+ * 立因(实测,不是推断):上面的 `declaredDropCaps` 按**整行逐字**对账。2026-10-25 活体证据:
+ * `eb35b31d15` 把 24 行"等人拍板"条目删净而当时没写 `plan-row-drop.jsonl` ⇒ `531adf7e1b` 起
+ * 按整行 union 100% 带回;补写留痕(kind=f11-purge)后清干净,但**对侧那份只要被改写过一笔**
+ * (追加注记/剥装饰),新字符串不在台账逐字集里 ⇒ 整行比对结构上认不出 ⇒ 照旧带回。
+ * AGENTS §1 通道③自认的"归并侧那半格仍未收口"正是这一格。
+ *
+ * 判序(补回候选 = 期望表里**本侧 0 份**的登记行;分族键**指纹优先**,与门 203 同源):
+ *   A. 在册让路:候选的复合主键(`compositeKeyOf`)或题面指纹(`extractTaskFingerprint`)在本面
+ *      任一登记行上出现 ⇒ 同题仍在册、处置权未行使(或别人真在写同题)⇒ 一条不扣(与 scrub
+ *      维二②' 同一条让路纪律)。
+ *   B. 台账命中⇒扣(不回补),逐条计数点名:指纹 ∈ 台账行指纹族 ∨ 主键 ∈ 台账行主键族 ∨
+ *      题面 32 字指纹 ∈ `dropTitleFps`(f11-purge 族,与 scrub 维三同一把尺)。
+ *      所有键/指纹一律取自单源(`plan-task-index` / `check-plan-task-duplicates` /
+ *      `scrub-declared-removals` 的既有出口),本器零复算(§0.6/§22c)。
+ *   C. 未判定⇒不回补并点名原因(§0.3,不得静默当"没删过"):
+ *      · 台账两份文件都不在位 / 现读抛 ⇒ 本面对登记行候选**一律**不回补(对侧面上行还在,
+ *        台账修好后下一轮照常;而"照旧补回"是已实测的 100% 回潮通道);
+ *      · 文件在位但含不可解行 ⇒ 仅当坏行原文**独立含该候选的编号**时不回补(无法排除
+ *        这条摘除声明恰是它;不命中的照常补回)。
+ *   射程外一律照旧:非登记行、无主键且无指纹的行、台账读得好而族不命中的行 ⇒ 补回。
+ *
+ * 与 `declaredDropCaps` 的分工:那道只管**逐字**形态(2026-10-23 立,语义一字不动);本维只吃
+ * "同一族而字符串不同"的形态。两维共用同一张期望表 ⇒ 产出面与自证面天然同形。
+ *
+ * @param {string} oursText 本侧文本
+ * @param {Map<string,number>} want 期望表(补回候选 = 其中本侧 0 份的行;本函数只读不改)
+ * @param {object|Set|null} [declared] 注入用(镜像测试传 `declaredRows(tmp, files)` 的返回值);
+ *   生产面不传 ⇒ 现读 `declaredRows(ROOT)`。旧 Set 形兼容:无 `filesSeen` ⇒ 不触发"整台账缺失"档。
+ */
+export function declaredFamilyCaps(oursText, want, declared = null) {
+  const withheld = new Map() // 行 -> 认账通道('fingerprint' | 'key' | 'title')
+  const undetermined = new Map() // 行 -> 未判定原因(必须逐条打印,§0.3)
+  if (typeof oursText !== 'string' || oursText === '' || !(want instanceof Map)) {
+    return { withheld, undetermined }
+  }
+  let d = declared
+  let readError = null
+  if (d == null) {
+    try {
+      d = declaredRows(ROOT)
+    } catch (e) {
+      readError = String(e?.message ?? e).split('\n')[0].slice(0, 160)
+      d = { set: new Set(), dropTitleFps: new Set(), malformedLines: [], filesSeen: 0 }
+    }
+  }
+  const set = d instanceof Set ? d : d?.set instanceof Set ? d.set : new Set()
+  const dropFps = d instanceof Set ? new Set() : d?.dropTitleFps instanceof Set ? d.dropTitleFps : new Set()
+  const malformedLines = d instanceof Set ? [] : Array.isArray(d?.malformedLines) ? d.malformedLines : []
+  const filesSeen = d instanceof Set ? null : typeof d?.filesSeen === 'number' ? d.filesSeen : null
+  // 台账族:指纹优先;解不开主键与指纹的台账行不参与本维(逐字维照常兜它们)。
+  const ledFps = new Set()
+  const ledKeys = new Set()
+  for (const l of set) {
+    const fp = extractTaskFingerprint(l)
+    if (fp) ledFps.add(fp)
+    const ck = compositeKeyOf(l)
+    if (ck) ledKeys.add(ck)
+  }
+  const co = counter(oursText)
+  // A. 本面在册族(同主键或同题面指纹)⇒ 该族一条不扣。
+  const oursFps = new Set()
+  const oursKeys = new Set()
+  for (const l of oursText.split('\n')) {
+    if (l === '') continue
+    const fp = extractTaskFingerprint(l)
+    if (fp) oursFps.add(fp)
+    const ck = compositeKeyOf(l)
+    if (ck) oursKeys.add(ck)
+  }
+  // C. 整台账读不到的那一档(缺失/抛):只在这一档里把"未判定"铺到全部登记行候选。
+  const blind = readError !== null || filesSeen === 0
+  const blindWhy = readError !== null ? `摘除台账现读失败(${readError})` : '摘除台账两份文件都不在位'
+  for (const [l] of want) {
+    if (l === '') continue // 空行不参与:与 liveDocExpectedCounts 同一条规矩
+    if ((co.get(l) || 0) > 0) continue // 本侧逐字持有 ⇒ 不是补回候选
+    if (!/^\s*- \[[ xX]\]/.test(l)) continue // 只认登记行(与逐字维同射程)
+    const ck = compositeKeyOf(l)
+    const fp = extractTaskFingerprint(l)
+    if ((ck && oursKeys.has(ck)) || (fp && oursFps.has(fp))) continue // A. 同题在册 ⇒ 不扣
+    if (blind) {
+      undetermined.set(l, `${blindWhy} ⇒ 无法核对主键/指纹,未判定不回补`)
+      continue
+    }
+    if (fp && ledFps.has(fp)) {
+      withheld.set(l, 'fingerprint')
+      continue
+    }
+    if (ck && ledKeys.has(ck)) {
+      withheld.set(l, 'key')
+      continue
+    }
+    const tf = titleFpOf(l)
+    if (tf && dropFps.has(tf)) {
+      withheld.set(l, 'title')
+      continue
+    }
+    if (malformedLines.length > 0 && ck) {
+      const id = keyOfRow(l)
+      if (id && malformedLines.some((raw) => rawMentionsId(raw, id))) {
+        undetermined.set(l, `台账含 ${malformedLines.length} 行不可解且原文独立含编号 ${id} ⇒ 无法排除该族的摘除声明,未判定不回补`)
+      }
+    }
+  }
+  return { withheld, undetermined }
+}
+
 /** union 的行切分出口:产物一律以 `\n` 收尾(与改动前逐字同形,只是把这一步收成一份实现)。 */
 function ensureTrailingNewline(text) {
   return String(text ?? '').endsWith('\n') ? String(text) : `${text}\n`
@@ -1380,8 +1521,8 @@ export function foldDedupe(text, baseLines = null, oursLines = null, picks = nul
  *
  * 文本形状与拆分前逐字一致:`pre` 就是"未折叠的行 union 产物",`text` 就是"折叠后的产物"。
  */
-function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks, foldPicks = null) {
-  const want = liveDocExpectedCounts(oursText, theirsText, baseText, suppress)
+function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks, foldPicks = null, report = null, declaredOverride = null) {
+  const want = liveDocExpectedCounts(oursText, theirsText, baseText, suppress, report, declaredOverride)
   // 脊柱裁剪:期望表已按改写折叠下调过的行,这里必须真把多出来的份数从本侧脊柱里去掉,
   // 否则"折叠"只存在于断言侧而产出面仍是双份 —— 那等于 F9 判据看不见、落地闸却对着一个不存在的数红。
   const remove = new Map()
@@ -1445,7 +1586,16 @@ function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks, f
  *   折叠同题行(根治重复再生)。默认 false,保证既有调用方(含全部既有测试)逐字不变。
  */
 export function unionLines(oursText, theirsText, baseText = null, suppress = null, opts = {}) {
-  return unionLinesCore(oursText, theirsText, baseText, suppress, !!(opts && opts.dedupeTasks)).text
+  return unionLinesCore(
+    oursText,
+    theirsText,
+    baseText,
+    suppress,
+    !!(opts && opts.dedupeTasks),
+    null,
+    (opts && opts.report) || null,
+    opts && Object.prototype.hasOwnProperty.call(opts, 'declared') ? opts.declared : null,
+  ).text
 }
 
 /**
@@ -1786,6 +1936,9 @@ export function buildUnion(
     const foldStalePicks = new Map()
     // 行级复活对账记录(G-383 最后一格):每份活文档归并后逐条登记,随返回值交 plan/main 呈报。
     const resurrect = []
+    // 摘除台账拦下的补回候选(G-34/G-43, 2026-10-25):逐字以外按复合主键/指纹认账,
+    // 命中与"未判定"都不回补 —— 但必须逐条计数点名并随返回值交回报告面,不得静默(§0.3/§0.10)。
+    const ledgerWithheld = []
     for (const p of LIVE_DOCS) {
       const a = show(ours, p, cwd)
       const b = show(theirs, p, cwd)
@@ -1798,8 +1951,20 @@ export function buildUnion(
       // 是合法折叠还是真丢失"。未开折叠的两份文档(AGENTS/README)不进这本账 ⇒ 自证侧对它们逐字照旧。
       const foldOn = p.endsWith('PROJECT_PLAN.md')
       const foldPicks = foldOn ? foldKeep?.get?.(p) || null : null
-      const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks)
+      const withheldReport = []
+      const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks, withheldReport)
       const mergedText = built0.text
+      if (withheldReport.length) {
+        for (const w of withheldReport) ledgerWithheld.push({ doc: p, ...w })
+        const nUnd = withheldReport.filter((w) => w.via === 'undetermined').length
+        console.log(
+          `   摘除台账认账:拦下 ${withheldReport.length} 行补回候选(${p};本侧已按台账清掉或无法排除的那一族,对侧/基底的改写形态不回补${nUnd ? `;其中未判定 ${nUnd} 行,原因逐条点名` : ''})`,
+        )
+        for (const w of withheldReport.slice(0, 8))
+          console.log(`     · [${w.via}] ${(w.why ? `${w.why} —— ` : '') + w.line.trim().slice(0, 60)}`)
+        if (withheldReport.length > 8)
+          console.log(`     · 其余 ${withheldReport.length - 8} 行同批已计数,清单随报告面可查`)
+      }
       if (foldOn) foldLedgers.set(p, built0.ledger)
       if (foldOn && built0.stalePicks?.length) foldStalePicks.set(p, built0.stalePicks)
       // 「两侧各写一版、机器无从裁定」的组:一条都没折(产物面两版并存),但必须记下来交给落地闸点名
@@ -2124,6 +2289,8 @@ export function buildUnion(
       humanResolved,
       violations,
       caps,
+      // 摘除台账拦下的补回候选(G-34/G-43):不拦落地,但随报告逐条点名(与 caps 同一条留痕纪律)。
+      ledgerWithheld,
       liveDocs,
       // 折叠台账(逐文档):自证侧 `verifyUnion` 必须拿它把"少掉的份数"问成"合法折叠"还是"真丢失"。
       foldLedgers,
@@ -4615,6 +4782,18 @@ async function main() {
     ...formatPointerCapReport(c.capped),
   ])
   for (const line of capRows) console.log(line)
+  // 摘除台账拦下的补回(G-34/G-43)必须当着落地这一刻报名:与 caps/pointerCaps 同一条纪律 ——
+  // 把它静默折进"0 丢失",下一次的人就会把"台账认账没带回"读成"什么都没少"。
+  const withheld = p.ledgerWithheld || []
+  if (withheld.length) {
+    const nUnd = withheld.filter((w) => w.via === 'undetermined').length
+    console.log(
+      `  · 摘除台账拦下的补回:${withheld.length} 行(按复合主键/指纹认账,不回补;其中未判定 ${nUnd} 行 —— 台账读不到/坏行含其编号,同样不回补但逐条给原因)`,
+    )
+    for (const w of withheld.slice(0, 8))
+      console.log(`      │ [${w.via}] ${w.doc} 「${String(w.line).trim().slice(0, 60)}」`)
+    if (withheld.length > 8) console.log(`      …其余 ${withheld.length - 8} 行同批(计数已含)`)
+  }
   const capDropped = (p.caps || []).reduce((s, c) => s + (c.capped?.reduce((a, e) => a + e.dropped, 0) ?? 0), 0)
   // 折叠的少带必须同样当着落地那一刻打出来并写进提交信息:它放的是"同一件事的多余副本",
   // 不是"这一行没了"—— 分不清这两件事的下一手会把一次零信息损失的合并读成一次丢内容。
@@ -4839,6 +5018,9 @@ export const __test__ = {
   yieldedIdCaps,
   // 完成即删的摘除台账(2026-10-23):镜像测试直接用它,不得在测试里再写一份台账比对判据(§22c)
   declaredDropCaps,
+  // 摘除台账的复合主键/指纹维(G-34/G-43, 2026-10-25):镜像测试直接用它,判序里所有键/指纹
+  // 均取自单源,测试同样不得复制第二份(§22c)
+  declaredFamilyCaps,
   // 折叠台账这一族(2026-10-16):镜像测试直接用它,不得在测试里再写一份折叠/举证判据(§22c)
   foldLedgerOf,
   foldDedupe,
