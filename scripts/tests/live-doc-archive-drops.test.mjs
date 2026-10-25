@@ -12,7 +12,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  ARCHIVE_REL,
   MIN_MOVED_LINE,
   SNAPSHOT_HEADING_HITS,
   SNAPSHOT_OVERLAP,

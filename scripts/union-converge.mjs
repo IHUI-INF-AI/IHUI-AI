@@ -1282,7 +1282,7 @@ export function declaredFamilyCaps(oursText, want, declared = null) {
   }
   let d = declared
   let readError = null
-  if (d == null) {
+  if (d === null || d === undefined) {
     try {
       d = declaredRows(ROOT)
     } catch (e) {
