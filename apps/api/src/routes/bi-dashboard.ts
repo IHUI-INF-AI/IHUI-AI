@@ -27,6 +27,19 @@ function countDistinctSafe() {
 /** 趋势/来源/页面排行的观察窗(天)。 */
 const WINDOW_DAYS = 7
 
+/** 上海日界的 YYYY-MM-DD(与 visit_logs.visit_date 同键)。 */
+function shanghaiDayKey(offsetDays = 0): string {
+  const at = new Date(Date.now() + offsetDays * 86_400_000)
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(at)
+}
+
+/** 最近 N 天(含今天)的日期序列,升序。 */
+function recentDayKeys(days: number): string[] {
+  const keys: string[] = []
+  for (let i = days - 1; i >= 0; i--) keys.push(shanghaiDayKey(-i))
+  return keys
+}
+
 /**
  * BI 仪表板 payload(2026-10-26 重写)。
  *
@@ -54,6 +67,7 @@ async function buildBiPayload() {
     sources,
     [visitTotals],
     pages,
+    dailyVisitRows,
   ] = await Promise.all([
     dbRead.select({ total: count() }).from(users),
     dbRead
@@ -118,6 +132,17 @@ async function buildBiPayload() {
       .groupBy(sql`1`)
       .orderBy(sql`2 desc`)
       .limit(8),
+    // 近 7 日按业务日聚合(visit_date 是服务端写的上海日键,字符串比较即可)
+    dbRead
+      .select({
+        date: visitLogs.visitDate,
+        pv: sql<number>`count(*)::int`,
+        uv: sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`,
+      })
+      .from(visitLogs)
+      .where(sql`${visitLogs.visitDate} >= ${recentDayKeys(WINDOW_DAYS)[0]}`)
+      .groupBy(visitLogs.visitDate)
+      .orderBy(visitLogs.visitDate),
   ])
 
   return {
@@ -141,6 +166,11 @@ async function buildBiPayload() {
         pv: Number(r.pv ?? 0),
         uv: Number(r.uv ?? 0),
       })),
+      // 补齐 7 天:缺数据的日期补 0(图表 x 轴连续,不把"那天没人来"读成"那天没数据")
+      daily: recentDayKeys(WINDOW_DAYS).map((date) => {
+        const row = dailyVisitRows.find((r) => r.date === date)
+        return { date, pv: Number(row?.pv ?? 0), uv: Number(row?.uv ?? 0) }
+      }),
     },
   }
 }
