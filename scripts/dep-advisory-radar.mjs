@@ -29,6 +29,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
+// 登记行守卫(与 auto-triage 共用):hex 串在台账行里会被守门 117 当短 sha 拒落。
+import { sanitizeHexRuns } from './lib/triage-doc-line.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_LEDGER = join(ROOT, '.ihui-agent', 'state', 'dep-advisory-ledger.jsonl')
@@ -234,7 +236,8 @@ export function registerTicket(t, { counts, spawn = (...a) => spawnSync(...a) } 
   const evidence = counts
     ? `pnpm audit critical=${counts.critical}/high=${counts.high}/moderate=${counts.moderate}/low=${counts.low}`
     : 'pnpm audit(无计数)'
-  const line = `- [ ] [dep-advisory] ${t.module} 依赖安全通告(${t.severity}×${t.count}${top?.cwe ? `,${top.cwe}` : ''})可升至 ${t.patched}(登记@${day}/dep-advisory-radar;指纹 ${t.fingerprint};证据:${evidence})`
+  // 取号一律走 live-doc-edit 的 `{{NEXT_ID:G}}` 令牌(每次 CAS 按当下 HEAD 现算),本器不自己拼号。
+  const line = sanitizeHexRuns(`- [ ] {{NEXT_ID:G}} [dep-advisory] ${t.module} 依赖安全通告(${t.severity}×${t.count}${top?.cwe ? `,${top.cwe}` : ''})可升至 ${t.patched}(登记@${day}/dep-advisory-radar;证据:${evidence})`)
   writeFileSync(blockFile, `${line}\n`, 'utf8')
   const r = spawn(process.execPath, [LIVE_DOC_EDIT], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -246,7 +249,7 @@ export function registerTicket(t, { counts, spawn = (...a) => spawnSync(...a) } 
       ...process.env,
       LIVE_DOC: 'PROJECT_PLAN.md',
       LIVE_BLOCK_FILE: blockFile,
-      LIVE_MSG: `docs(plan): dep-advisory-radar 自动登记依赖安全票(${t.module};指纹 ${t.fingerprint};O65 第 3 期)`,
+      LIVE_MSG: `docs(plan): dep-advisory-radar 自动登记依赖安全票(${t.module};O65 第 3 期)`,
     },
   })
   try {
