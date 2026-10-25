@@ -43,6 +43,7 @@ import {
   type PageUsageLiveRow,
   type ScopeUsageLiveRow,
 } from '../db/visit-tracking-queries.js'
+import { getEngagementLiveSnapshot } from '../services/engagement-stats-service.js'
 import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
@@ -1075,20 +1076,34 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
     // 字段名含 "token"(llmTokensToday 等)会被 response-sanitizer 遮蔽为 "***"(同 ai-cost);
     // 大屏为 requireAdmin 管理端点,可信上下文直接跳过整端点脱敏
     request.skipResponseSanitization = true
-    const [host, services, http, redis, pg, bridge, business, alerts, events, traffic, relayPool] =
-      await Promise.all([
-        buildHost(),
-        buildServices(),
-        buildHttp(),
-        buildRedis(),
-        buildPg(),
-        buildBridge(),
-        buildBusiness(),
-        buildAlerts(),
-        buildEvents(),
-        buildTraffic(),
-        buildRelayPool(),
-      ])
+    const [
+      host,
+      services,
+      http,
+      redis,
+      pg,
+      bridge,
+      business,
+      alerts,
+      events,
+      traffic,
+      relayPool,
+      engagement,
+    ] = await Promise.all([
+      buildHost(),
+      buildServices(),
+      buildHttp(),
+      buildRedis(),
+      buildPg(),
+      buildBridge(),
+      buildBusiness(),
+      buildAlerts(),
+      buildEvents(),
+      buildTraffic(),
+      buildRelayPool(),
+      // 事件热度是独立腿:取不到只让这一格 null(渲染"—"),不拖垮整页。
+      getEngagementLiveSnapshot().catch(() => null),
+    ])
     const edge = buildEdge()
     return reply.send(
       success({
@@ -1111,6 +1126,7 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
         events,
         traffic,
         relayPool,
+        engagement,
         edge,
       }),
     )
