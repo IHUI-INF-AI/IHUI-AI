@@ -68,6 +68,85 @@ function git(args, opts = {}) {
   return gitRaw(args, ROOT, opts)
 }
 
+/**
+ * 滞后副本判据(纯函数;镜像测试直接用它,§22c)。
+ *
+ * 立因(2026-10-25 实测,不是推测):旁路落地(`object-space-land`)只推进 HEAD 与索引,**不写工作树**;
+ * 本器 3 分钟后按工作树字节收编,就把那笔已入库的改动整份写回旧版。实测一枚 `chore(auto)` 在同一文件里
+ * 回退了绑定手机/邮箱两端点 88 行与门 198 的 updatedAt 出口形态两处,HEAD 面行为锁 7/7 全红。
+ *
+ * 判据:工作树 blob ≠ HEAD blob,却等于该路径某个**祖先提交**的同路径 blob ⇒ 滞后副本。
+ * 失效方向刻意保持收编(任一探针取不到 ⇒ 当"不是滞后副本"),只有**证实**才跳过并点名,
+ * 让"有意回退"由人显式提交(§0.10:失效方向必须是多要一次定向说明)。
+ */
+export function partitionStaleCopies(paths, probes) {
+  const kept = []
+  const skipped = []
+  for (const p of paths) {
+    const wt = probes.worktree(p)
+    const head = probes.head(p)
+    if (!wt || !head || wt === head) {
+      kept.push(p)
+      continue
+    }
+    const ancestors = probes.ancestors(p) || []
+    if (ancestors.includes(wt)) skipped.push(p)
+    else kept.push(p)
+  }
+  return { kept, skipped }
+}
+
+/** git 探针(取不到一律返回 null ⇒ fail-open,保持原收编行为)。 */
+function staleCopyProbes(p) {
+  const oid = (ref) => {
+    try {
+      return git(['rev-parse', ref]).trim()
+    } catch {
+      return null
+    }
+  }
+  return {
+    worktree: () => {
+      try {
+        return git(['hash-object', '--', p]).trim()
+      } catch {
+        return null
+      }
+    },
+    head: () => oid(`HEAD:${p}`),
+    ancestors: () => {
+      let commits = []
+      try {
+        commits = git(['log', '-n', '6', '--format=%H', '--', p])
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+      } catch {
+        return []
+      }
+      const out = []
+      for (const c of commits) {
+        const b = oid(`${c}:${p}`)
+        if (b) out.push(b)
+      }
+      return out
+    },
+  }
+}
+
+/** 只审"索引与 HEAD 同形"的候选(别人显式暂存过的改动 = 明确意图,不在本守卫射程)。 */
+function dropStaleCopies(stale, changes) {
+  const unstaged = new Set(changes.filter((c) => c.xy[0] === ' ').map((c) => c.path))
+  const guarded = stale.filter((p) => unstaged.has(p))
+  if (!guarded.length) return { kept: stale, skipped: [] }
+  const { skipped } = partitionStaleCopies(guarded, {
+    worktree: (p) => staleCopyProbes(p).worktree(),
+    head: (p) => staleCopyProbes(p).head(),
+    ancestors: (p) => staleCopyProbes(p).ancestors(),
+  })
+  return { kept: stale.filter((p) => !skipped.includes(p)), skipped }
+}
+
 function log(line) {
   mkdirSync(dirname(LOG), { recursive: true })
   appendFileSync(LOG, `[${new Date().toISOString()}] ${line}\n`)
@@ -287,6 +366,20 @@ function main() {
   if (deleted.length) log(`跳过删除(不自动收编,请人工确认后显式声明):${deleted.join(', ')}`)
   if (stale.length === 0) return
 
+  // 滞后副本守卫(2026-10-25):旁路落地只推进 HEAD+索引、不写工作树 ⇒ 直接按工作树收编
+  // 会把那笔已入库的改动整份写回旧版(实测一枚 auto 提交回退两个已入库修复)。
+  {
+    const { kept, skipped } = dropStaleCopies(stale, changes)
+    if (skipped.length) {
+      log(
+        `跳过滞后副本(工作树==该路径某祖先版本,HEAD 才是新内容;旁路落地未回写工作树):${skipped.join(', ')}`,
+      )
+      stale.length = 0
+      stale.push(...kept)
+    }
+    if (stale.length === 0) return
+  }
+
   // 活文档先归并,再把归并达标的收编(2026-10-22:替代"永不收编"——后者会让改动永久悬挂)。
   if (!DRY) {
     for (const f of [...stale].filter((p) => HUMAN_LEDGER_RE.test(p))) {
@@ -433,5 +526,6 @@ export const __test__ = {
   syncReadmeNumbers,
   snapshotLedger,
   rollbackLedger,
+  partitionStaleCopies,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
