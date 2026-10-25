@@ -69,8 +69,8 @@ Headline claims (same source as the table below, all live-computed): **603 table
 | ---- | ---- | ------ |
 | 数据库表 | 607 | `dbTables` |
 | schema 文件 | 235 | `dbSchemaFiles` |
-| API 路由 | 4556 | `apiRoutes` |
-| 路由文件 | 628 | `apiRouteFiles` |
+| API 路由 | 4565 | `apiRoutes` |
+| 路由文件 | 629 | `apiRouteFiles` |
 | AI 服务路由 | 593 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 101 | `llmModels` |
@@ -82,18 +82,16 @@ Headline claims (same source as the table below, all live-computed): **603 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3228 | `testFiles` |
+| 测试文件 | 3216 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 276 | `guardianGates` |
 | — blocking | 253 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 16231 | `trackedFiles` |
+| 跟踪文件 | 16215 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-25。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
-> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 1 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 1 个 .py 取不到内容)
 
 <!-- END GENERATED NUMBERS -->
 
@@ -101,6 +99,12 @@ Headline claims (same source as the table below, all live-computed): **603 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-25**
+- 🚀 Feature/Improvement:补 8 页镜像标记(app-permission/api-settings/coupon/study-index/phone/password/help/integral) (6e3431fcafca)
+
+**2026-10-25**
+- 🔧 Chore/Other:清理功能回退残留 + 跨端同步 + 文档自动更新 (9fdbc207ba2e)
+
 **2026-10-25**
 - 🚀 Feature/Improvement:6 路子代理判定后落地 10 条真镜像声明(小程序页↔RN共享屏) (8cca061cf3aa)
 - 🚀 Feature/Improvement:web↔RN 屏对齐登记 41 条 + 把跨端自动登记器装进 post-commit 链 (6ad5de3c37a6)
@@ -2843,13 +2847,6 @@ Headline claims (same source as the table below, all live-computed): **603 table
 
 **2026-10-25**
 - ⚡ Perf:跨端两把尺子改批量取 blob(HEAD 面 4 分钟→17s) + web→RN 尺支持 --full + 6 段 web-only 豁免 (da67136b1626)
-
-**2026-10-25**
-- 🚀 Feature/Improvement:补 4 条 about 族镜像声明(账本真实化,零行为变化) (f97405f954d1)
-- 🐞 Fix:web→RN 功能尺三屏误报根治 + 删除一条不存在的 web 路由登记 (89239b8d3e0f)
-
-**2026-10-25**
-- 🚀 Feature/Improvement:token 化批 #6 第 5 批(收尾)——21 文件裸数字转档 (3d8a7a33557e)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
