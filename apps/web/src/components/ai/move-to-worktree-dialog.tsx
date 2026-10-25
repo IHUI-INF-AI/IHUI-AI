@@ -36,6 +36,8 @@ import {
 } from '@ihui/shared/chat/move-to-worktree'
 import type { TurnState } from '@ihui/shared/chat/turn-status'
 
+import { richAnchorRenderer } from '@/components/chat/rich-anchor-text'
+
 export interface MoveToWorktreeDialogProps {
   open: boolean
   /** 当前 turn 状态(运行中禁止态判据;缺失不臆断) */
@@ -127,9 +129,10 @@ export function MoveToWorktreeDialog({
           <DialogHeader>
             <DialogTitle data-slot="title">{t('title')}</DialogTitle>
             <DialogDescription data-slot="subtitle" data-branch={branchName}>
+              {/* D99②/守门 247:branch 锚点一律走 chat 侧唯一渲染表,禁止端内另建内联渲染器 */}
               {t.rich('subtitle', {
                 branchName: branchName ?? '',
-                branch: (chunks) => <code className="font-mono text-xs">{chunks}</code>,
+                branch: richAnchorRenderer('branch'),
               })}
             </DialogDescription>
           </DialogHeader>
@@ -176,7 +179,7 @@ export function MoveToWorktreeDialog({
 
           {target === 'createNew' ? (
             <div className="space-y-2" data-slot="create-new-section">
-              { }
+              {}
               <label
                 htmlFor="m2w-branch-input"
                 className="text-xs font-medium"

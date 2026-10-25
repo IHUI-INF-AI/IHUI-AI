@@ -2,8 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SANDBOX_PROFILES, resolveSandboxOptions, type SandboxOptions } from '../src/sandbox/index.js'
+import { DEFAULT_SANDBOX_PROFILE } from '../src/config/sandbox-profile.js'
 
 describe('SANDBOX_PROFILES 5 级预设', () => {
   it('包含 5 个 profile(readonly/limited/trusted/open/full)', () => {
@@ -41,9 +42,15 @@ describe('SANDBOX_PROFILES 5 级预设', () => {
 })
 
 describe('resolveSandboxOptions', () => {
-  it('profile 为 undefined 时返回原 userOpts(同一引用)', () => {
+  it('profile 为 undefined(未配置沙箱)⇒ 按默认严档结算,用户 opts 继续覆盖其上', () => {
+    // 旧形态这里 `return userOpts` ⇒ "没配 sandbox" 就是"没有任何限制",
+    // 与默认档早已是严档的账面相反。G-212 收尾把默认态收进唯一默认源。
     const userOpts: Partial<SandboxOptions> = { timeoutMs: 5000, commandAllowlist: ['node'] }
-    expect(resolveSandboxOptions(undefined, userOpts)).toBe(userOpts)
+    const result = resolveSandboxOptions(undefined, userOpts)
+    expect(result.timeoutMs).toBe(5000)
+    expect(result.commandAllowlist).toEqual(['node'])
+    // 用户没写的键由默认档补齐(凭据 env 屏蔽不得因为"没配置"而消失)
+    expect(result.blockedEnvVars).toEqual(SANDBOX_PROFILES[DEFAULT_SANDBOX_PROFILE].overrides.blockedEnvVars)
   })
 
   it("profile='readonly' 且 opts 为空时返回 readonly 的 overrides", () => {
@@ -61,9 +68,19 @@ describe('resolveSandboxOptions', () => {
     expect(result.commandAllowlist).toEqual(['custom'])
   })
 
-  it("无效 profile 不报错,返回原 opts(同一引用)", () => {
-    const userOpts: Partial<SandboxOptions> = { timeoutMs: 9999 }
-    expect(resolveSandboxOptions('invalid' as any, userOpts)).toBe(userOpts)
+  it('无效 profile 不抛错,按默认严档结算并喊话(绝不返回"无限制")', () => {
+    // 旧形态 `return userOpts` = 拼错的档位静默退化成最宽行为(与 readonly/limited 之外
+    // 任何一档都不等价)。现与缺档同路:引唯一默认源,另打一行 ASCII 喊话。
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const userOpts: Partial<SandboxOptions> = { timeoutMs: 9999 }
+      const result = resolveSandboxOptions('invalid', userOpts)
+      expect(result.timeoutMs).toBe(9999)
+      expect(result).toEqual({ ...SANDBOX_PROFILES[DEFAULT_SANDBOX_PROFILE].overrides, ...userOpts })
+      expect(warn).toHaveBeenCalledTimes(1)
+    } finally {
+      warn.mockRestore()
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

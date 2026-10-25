@@ -147,10 +147,18 @@ describe('chat regenerate / branch / pin 端点', () => {
       request.userId = 'user-1'
     })
     mockFindConversationById.mockResolvedValueOnce(ownedConversation)
+    // 票 60 收口后 branchConversationFrom 返回 { conversation, fork, replayed } 结构
     mockBranch.mockResolvedValueOnce({
-      ...ownedConversation,
-      id: '33333333-3333-4333-8333-333333333333',
-    } as ChatConversation)
+      conversation: {
+        ...ownedConversation,
+        id: '33333333-3333-4333-8333-333333333333',
+      } as ChatConversation,
+      forkedFromMessageId: MSG_ID,
+      sourceRootId: MSG_ID,
+      sourceSiblingIndex: null,
+      copiedMessageCount: 2,
+      replayed: false,
+    })
     const res = await server.inject({
       method: 'POST',
       url: `/api/chat/conversations/${CONV_ID}/branch`,
@@ -158,6 +166,8 @@ describe('chat regenerate / branch / pin 端点', () => {
     })
     expect(res.statusCode).toBe(201)
     expect(res.json().data.conversation.id).toBe('33333333-3333-4333-8333-333333333333')
+    expect(res.json().data.fork.messageCount).toBe(2)
+    expect(res.json().data.replayed).toBe(false)
   })
 
   it('PATCH /conversations/:id 支持 pinned 置顶字段', async () => {

@@ -85,7 +85,7 @@ export function migrateText(text) {
 
 /** 展开目标(文件/目录)为已入库的 .tsx 清单:未跟踪文件不碰,避免把他人草稿卷进本批 */
 function collectTargets(targets) {
-  const tracked = new Set(execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean))
+  const tracked = new Set(execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).split('\0').filter(Boolean))
   const set = new Set()
   const walk = (p) => {
     const st = statSync(p)
@@ -102,7 +102,7 @@ function collectTargets(targets) {
 
 /** 工作树已被其他会话改过的已入库路径(含暂存):默认跳过,避免把别人的未提交工作卷进本批 */
 function dirtyPaths() {
-  const raw = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8' })
+  const raw = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   const out = new Set()
   for (const line of raw.split('\n')) {
     if (!line) continue

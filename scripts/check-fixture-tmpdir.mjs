@@ -107,11 +107,11 @@ const SELF_EXEMPT = ['scripts/tests/check-fixture-tmpdir.test.mjs']
 const MIRROR_EXEMPT = [
   {
     file: 'scripts/tests/scratch-dir.test.mjs',
-    line: 377,
+    line: 421,
     kind: 'F2',
     anchor: 'SCRATCH_DIR_NAME',
     reason:
-      '这一行断言的正是 scratch-dir.mjs:72 `return normalize(join(tmpdir(), SCRATCH_DIR_NAME))` —— 判据自身的落点定义。改断言侧即变成同一实现自证(恒真、什么也测不到),不改则本门对自己的判据判红。',
+      '这一行断言的正是 scratch-dir.mjs:81 `return normalize(join(tmpdir(), SCRATCH_DIR_NAME))` —— 判据自身的落点定义。改断言侧即变成同一实现自证(恒真、什么也测不到),不改则本门对自己的判据判红。',
   },
 ]
 
@@ -824,7 +824,7 @@ function selfTest() {
     mirrorExemptFor({ line: 2, kind: 'F1' }, 'scripts/tests/scratch-dir.test.mjs', mLine, MIRROR_TABLE) === null,
   )
   // M1 豁免命中要报出来(只报数),不得静默消失 —— 静默豁免与漏判在输出里同形。
-  // 这里刻意用**真实的 MIRROR_EXEMPT 表** + 垫到真实行号 377 的构造面:
+  // 这里刻意用**真实的 MIRROR_EXEMPT 表** + 垫到真实行号 421 的构造面:
   // 用构造表验"报得出来"、用真实表验"锚得准",两件事分开才看得出是哪一件坏了。
   const mirrorPad = `${'// pad\n'.repeat(MIRROR_EXEMPT[0].line - 1)}const linux = join(tmpdir(), SCRATCH_DIR_NAME)\n`
   check(
@@ -839,10 +839,10 @@ function selfTest() {
       .hits.some((h) => h.kind === 'F2'),
   )
   check(
-    'MIRROR_EXEMPT 真实条目:有且只有一条,锚在 scratch-dir.test.mjs:377 的镜像断言那一行',
+    'MIRROR_EXEMPT 真实条目:有且只有一条,锚在 scratch-dir.test.mjs:421 的镜像断言那一行',
     MIRROR_EXEMPT.length === 1 &&
       MIRROR_EXEMPT[0].file === 'scripts/tests/scratch-dir.test.mjs' &&
-      MIRROR_EXEMPT[0].line === 377 &&
+      MIRROR_EXEMPT[0].line === 421 &&
       MIRROR_EXEMPT[0].kind === 'F2' &&
       !!MIRROR_EXEMPT[0].reason,
   )

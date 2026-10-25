@@ -35,10 +35,11 @@
 // 退出码:0 无重复 / 1 有重复(--apply 已收敛则为 0) / 2 未判定或守恒不过
 // ─────────────────────────────────────────────────────────────────────────
 /* eslint-disable no-console -- 工具脚本需 console 输出 */
-import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 被审面取材复用面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath + 数字 timeout)
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 /** 形态参与折叠的最小长度:低于它形态信息量不足(表格分隔符、纯符号、空行)。 */
@@ -123,7 +124,7 @@ export function collapse(text) {
     if (s.length < MIN_SHAPE_LEN) return
     outShapes.set(s, (outShapes.get(s) || 0) + 1)
   })
-  for (const [shape, g] of groups) {
+  for (const [shape] of groups) {
     if (shape.startsWith('<!-- BEGIN')) continue
     const n = outShapes.get(shape) || 0
     if (n === 0) violations.push(`A1 形态被整体带走:${shape.slice(0, 60)}`)
@@ -162,14 +163,13 @@ function readFace(relPath, face) {
     }
   }
   const ref = face === 'staged' ? ':./' + relPath : 'HEAD:' + relPath
-  const r = spawnSync('git', ['show', ref], {
-    cwd: ROOT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1 << 28,
-    encoding: 'buffer',
-  })
-  if (r.status !== 0) return null
-  return r.stdout.toString('utf8')
+  // 一律走面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath);活文档可达数 MB,
+  // 缓冲保持 256MB。取不到 ⇒ null 交调用方落「未判定」,绝不回落另一个面。
+  try {
+    return gitRaw(['show', ref], ROOT, { binary: true, maxBuffer: 1 << 28 }).toString('utf8')
+  } catch {
+    return null
+  }
 }
 
 export function selfTest() {

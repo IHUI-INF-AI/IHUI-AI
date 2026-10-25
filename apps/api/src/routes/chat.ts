@@ -8,7 +8,12 @@ import { sql, and, eq, inArray } from 'drizzle-orm'
 // D153(2026-09-29 立):会话元数据变更的 per-user 下行广播。
 // 事件形态与构造的唯一出口在 @ihui/types(三个消费面共用一份描述),
 // 路由内不得手拼 `{event,data}` 字面量,也不得把"哪些字段真的变了"照抄请求体键名。
-import { conversationUpdatedEvent, isChatSyncRole, type ConversationMetaField } from '@ihui/types'
+import {
+  conversationUpdatedEvent,
+  isChatSyncRole,
+  type ConversationMetaField,
+  type ChatSyncMessageSnapshot,
+} from '@ihui/types'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
@@ -66,11 +71,15 @@ import {
   MessageEditRejectedError,
   editMessageAndTruncateAfter,
   branchConversationFrom,
+  ForkIdempotencyConflictError,
+  ForkSourceRejectedError,
   replaceMessages,
   updateConversationTitle,
 } from '../db/chat-queries.js'
 // D125 另批收口(2026-10-23):写锁地板门控判据(纯函数,不触库;锁读写面在 chat-collab 路由)
 import { readCollabLock, resolveFloorGate } from '../db/chat-collab-write-queries.js'
+// B02 第三切片(2026-10-25):resync 权威快照读(内容 + rev 同库同读,契约 §7 第 3 项)
+import { findChatSyncSnapshot } from '../db/chat-sync-rev-queries.js'
 import { success, error } from '../utils/response.js'
 import { generateSemanticSummary, getCachedSemanticSummary } from '../utils/semantic-summary.js'
 import {
@@ -283,6 +292,9 @@ const branchSchema = z.object({
   messageId: z.uuid('messageId 必须是有效的 UUID'),
   title: z.string().max(255).optional(),
   model: z.string().max(64).optional(),
+  // 幂等键(可选,客户端生成 UUID):双击/重试/断网重放只建一条分叉。
+  // 不传 = 保持旧语义(每次调用都新建),旧客户端零感知。
+  clientRequestId: z.uuid('clientRequestId 必须是有效的 UUID').optional(),
 })
 
 // 批量操作 schema(2026-07-31 立,对话历史批量删除/收藏/归档)
@@ -415,11 +427,19 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
   // 正则逐字取 ajv-formats 的 uuid 形态(松散十六进制形状,不校验 version/variant 位)——
   // 用 z.uuid() 会比原 ajv 更严(zod v4 校 variant),把既有合法调用方(如测试里的 1111-…-1111)
   // 从 404/200 改成 400,违反本票"合法参数响应逐字不变"判据。
+  // B02 第三切片:正则提成常量,快照端点的 messageId 参数与它同源(两处抄必然漂)。
+  const UUID_PARAM_RE = /^(?:urn:uuid:)?[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i
   const conversationIdParam = z.object({
-    id: z
-      .string()
-      .regex(/^(?:urn:uuid:)?[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i, '无效的对话 ID'),
+    id: z.string().regex(UUID_PARAM_RE, '无效的对话 ID'),
   })
+  // B02 第三切片:快照端点参数。id 与 conversationIdParam 同源(shape 复用同一正则常量);
+  // messageId 走同一松散 uuid 形态(理由同上,z.uuid() 会把既有合法调用方改判 400)。
+  const syncSnapshotParams = z
+    .object({
+      id: conversationIdParam.shape.id,
+      messageId: z.string().regex(UUID_PARAM_RE, '无效的消息 ID'),
+    })
+    .strict()
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await authenticate(request)
@@ -1098,6 +1118,71 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // GET /conversations/:id/messages/:messageId/sync-snapshot - B02 第三切片(2026-10-25)
+  // resync 传输(契约 docs/chat-sync-contract.md §7 第 3 项):端侧判 gap 后拉权威快照的端点。
+  // "rev=N 全量"语义:rev = 当前修订链头(0 = 链上无 patch,created 初面即权威),
+  // content/reasoning = 链头时刻的全量自包含面 —— findChatSyncSnapshot 内容与 rev 同库同读,
+  // 契约 §2 第 3 条"rev=N 的 snapshot 必须已包含 ≤N 的全部内容变更"由同库同读直接兑现。
+  // 鉴权:requireAuth + 会话归属(ensureOwnedConversation)+ 消息归属(WHERE 谓词一查定案)。
+  server.get(
+    '/conversations/:id/messages/:messageId/sync-snapshot',
+    {
+      schema: {
+        summary: '消息同步快照',
+        description: 'resync 权威快照:返回该消息当前修订链头 rev 与链头时刻的全量内容',
+        tags: ['chat'],
+        params: {
+          type: 'object',
+          required: ['id', 'messageId'],
+          properties: {
+            // G-261:type-only,uuid 由 syncSnapshotParams(Zod)校验;format:'uuid' 走 ajv 先拒会被掩盖成 500
+            id: { type: 'string', description: '对话 ID(UUID,服务端 Zod 校验)' },
+            messageId: { type: 'string', description: '消息 ID(UUID,服务端 Zod 校验)' },
+          },
+        },
+        response: buildResponseSchema(400, 401, 403, 404, 409),
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = syncSnapshotParams.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { id, messageId } = parsed.data
+      const owned = await ensureOwnedConversation(id, userId, reply)
+      if (!owned.conversation) return
+
+      const snap = await findChatSyncSnapshot(id, messageId)
+      if (!snap) return reply.status(404).send(error(404, '消息不存在'))
+
+      // 角色不在契约封闭集 ⇒ 端侧无从把它折成 created/patched 喂内核,照发等于推一帧
+      // 消费端必判"未判定"的载荷。409 显式点名(消息在、但契约面投影失败),不冒 200。
+      const syncRole = isChatSyncRole(snap.role) ? snap.role : null
+      if (!syncRole) {
+        request.log.warn(
+          { conversationId: id, messageId, role: snap.role },
+          'chat 快照端点拒绝:角色不在契约封闭集内(消费端无从应用)',
+        )
+        return reply.status(409).send(error(409, '消息角色不可同步'))
+      }
+
+      const data: ChatSyncMessageSnapshot = {
+        conversationId: snap.conversationId,
+        messageId: snap.messageId,
+        rev: snap.rev,
+        role: syncRole,
+        content: snap.content,
+        // reasoning 空(null/'')= 无信息量,省略(契约:缺省 = 保持原值/无)。
+        ...(snap.reasoning ? { reasoning: snap.reasoning } : {}),
+      }
+      return reply.send(success(data))
+    },
+  )
+
   // GET /conversations/:id/history - D35 turn 分片拉取(2026-09-24,增量回放数据面)
   // 每页 = N 个 turn(一轮 user→assistant 交互);cursor 为 base64url JSON {turnOrdinal}。
   // direction: newest=首屏取最新 N turn;older=断点之前(上翻,追加后旧 cursor 仍有效);
@@ -1463,12 +1548,14 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /conversations/:id/branch - 分支/回退
+  // POST /conversations/:id/branch - 分支/回退(票 60 服务端分叉的现行唯一端点)
   // 2026-08-30 立:基于指定消息(含该消息)之前的内容创建新会话,旧会话原样保留。
-  // 相当于 Git 分支:从历史某条消息处"重新分叉",而非删除旧内容。
+  // 票 60 收口(2026-10-25):响应补 fork 族信息;带 clientRequestId 时幂等(重放 → 200 + replayed);
+  // 分叉点消息级越权/不存在 → 404,幂等键冲突 → 409(按错误类型分流,不比对文本)。
   server.post('/conversations/:id/branch', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    // 身份只来自令牌主体:body 里的任何 userId 字段都不参与分支的归属判定
     const userId = request.userId
 
     const { id } = idParam.parse(request.params)
@@ -1481,13 +1568,34 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
 
     try {
-      const conversation = await branchConversationFrom(id, parsed.data.messageId, {
+      const result = await branchConversationFrom(id, parsed.data.messageId, {
         userId,
         title: parsed.data.title,
         model: parsed.data.model,
+        clientRequestId: parsed.data.clientRequestId,
       })
-      return reply.status(201).send(success({ conversation: serializeConversation(conversation) }))
+      return reply.status(result.replayed ? 200 : 201).send(
+        success({
+          conversation: serializeConversation(result.conversation),
+          // 族信息:分叉点在源会话里的族根与版本号(与票59 sibling 语义同源)
+          fork: {
+            sourceConversationId: id,
+            forkedFromMessageId: result.forkedFromMessageId,
+            sourceRootId: result.sourceRootId,
+            sourceSiblingIndex: result.sourceSiblingIndex,
+            messageCount: result.copiedMessageCount,
+          },
+          replayed: result.replayed,
+        }),
+      )
     } catch (err) {
+      if (err instanceof ForkIdempotencyConflictError) {
+        return reply.status(409).send(error(409, err.message))
+      }
+      if (err instanceof ForkSourceRejectedError) {
+        // 不区分"消息不存在"与"消息不属于该会话":对外一致 404,不泄露他人消息 id 有效性
+        return reply.status(404).send(error(404, err.message))
+      }
       request.log.error({ err }, '创建分支失败')
       const msg = err instanceof Error ? err.message : '创建分支失败'
       return reply.code(500).send(error(500, msg))

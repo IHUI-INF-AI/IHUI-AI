@@ -35,11 +35,9 @@ import {
   GENERIC_ARGS_SRC,
   expandNestedRegisterRoutes,
   expandTemplatedRoutes,
-  findBraceBlockEnd,
   findMatchingBracket,
   normalizePath,
 } from './lib/api-route-registration-expand.mjs'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import {
   Undetermined,
   catBatch,

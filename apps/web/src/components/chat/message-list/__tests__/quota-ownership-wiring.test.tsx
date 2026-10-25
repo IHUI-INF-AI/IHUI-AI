@@ -24,8 +24,13 @@ import type { TFunction } from '@/components/chat/message-list/retry-countdown'
 
 // 分型卡内部走 next-intl 取词;宿主横幅/错误卡则用注入的 t。测试里统一让 useTranslations
 // 回显键名,断言只认"键被取到了没",不认文案(真实文案由 card 用例读词包守住)。
+// rich 同样回显键名:D04③ 起 degradeHint 走 t.rich(真渲染断言在 quota-ownership-rich-link.test.tsx)。
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => {
+    const t = (key: string) => key
+    ;(t as unknown as { rich: typeof t }).rich = t
+    return t
+  },
 }))
 
 // QuotaActionFamily 依赖导航与重登通道:本文件不断言它们的跳转,只断言动作族在位,
