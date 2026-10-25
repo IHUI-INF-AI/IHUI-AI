@@ -427,6 +427,7 @@ export * from './endpoints/patrol.js'
 export * from './endpoints/admin-github-app.js'
 // D43 语音笔记端点(2026-10-18,第②格):各端不得再在端内裸 fetch /api/voice-notes。
 export * from './endpoints/voice-note.js'
+export * from './endpoints/visit-tracking.js'
 
 // D77(2026-09-25 立):FormRequestEvent 对话流业务表单请求帧 —— 入口漏列则
 // @ihui/shared 的 sse-parse.ts 具名 import 悬空(守门 98)。独立行落地:本导出
