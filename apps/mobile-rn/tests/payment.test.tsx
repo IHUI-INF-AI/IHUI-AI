@@ -125,8 +125,12 @@ describe('PaymentScreen 支付流程', () => {
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.syncStatus'))
-    await waitFor(() => expect(apiMocks.syncPaymentStatus).toHaveBeenCalledWith('ORD-001'))
-    await waitFor(() => expect(getByText('payment.syncSuccess')).toBeTruthy())
+    // 链:click → await syncPaymentStatus → setToast。成功 toast 是链终点(每步都 await,
+    // 终点出现即证明调用发生过)⇒ 只等终点一次,前序降级为同步断言(形态同先例 e4989cbb9e)。
+    await waitFor(() => expect(getByText('payment.syncSuccess')).toBeTruthy(), { timeout: 8_000 })
+    expect(apiMocks.syncPaymentStatus, '没调同步接口就出成功 toast = 假阳').toHaveBeenCalledWith(
+      'ORD-001',
+    )
   })
 
   it('同步支付状态失败:显示失败 toast', async () => {
@@ -154,8 +158,11 @@ describe('PaymentScreen 支付流程', () => {
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.cancelOrder'))
-    await waitFor(() => expect(apiMocks.cancelPaymentOrder).toHaveBeenCalledWith('ORD-001'))
-    await waitFor(() => expect(getByText('payment.cancelSuccess')).toBeTruthy())
+    // 链:click → await cancelPaymentOrder → setToast。只等终点 toast 一次,调用断言降级为同步。
+    await waitFor(() => expect(getByText('payment.cancelSuccess')).toBeTruthy(), { timeout: 8_000 })
+    expect(apiMocks.cancelPaymentOrder, '没调取消接口就出成功 toast = 假阳').toHaveBeenCalledWith(
+      'ORD-001',
+    )
   })
 
   it('取消订单失败:显示失败 toast', async () => {
@@ -243,14 +250,22 @@ describe('PaymentScreen 支付流程', () => {
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
     fireEvent.click(getAllByText('确认支付')[1]!)
-    await waitFor(() =>
-      expect(apiMocks.createWechatAppPayment).toHaveBeenCalledWith({
+    // 链:confirm → await createWechatAppPayment → await openWeChatPayment → setToast(paySuccess)。
+    // paySuccess toast 是整条链的唯一终点:每步都 await,终点出现即证明前两跳都发生过 ⇒ 只等一次。
+    // 立因与预算同先例 e4989cbb9e:多段串行 waitFor 各带一份等待预算,在并发跑 200+ 道守门的同机
+    // 上会被事件循环饿死打成假红;8s 仍低于 vitest.config 的 testTimeout 10s。断言一条不减,
+    // 前序各跳降级为同步断言(终点已保证它们发生过)。
+    await waitFor(() => expect(getByText('payment.paySuccess')).toBeTruthy(), { timeout: 8_000 })
+    expect(apiMocks.createWechatAppPayment, '没创建订单就出成功 toast = 假阳').toHaveBeenCalledWith(
+      {
         amount: 9950,
         description: '测试订单',
-      }),
+      },
     )
-    await waitFor(() => expect(wechatPayMock.openWeChatPayment).toHaveBeenCalled())
-    await waitFor(() => expect(getByText('payment.paySuccess')).toBeTruthy())
+    expect(
+      wechatPayMock.openWeChatPayment,
+      '没调起微信支付就出成功 toast = 假阳',
+    ).toHaveBeenCalled()
   })
 
   it('去支付:用户取消支付,显示取消 toast', async () => {
@@ -285,8 +300,10 @@ describe('PaymentScreen 支付流程', () => {
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
     fireEvent.click(getAllByText('确认支付')[1]!)
-    await waitFor(() => expect(wechatPayMock.openWeChatPayment).toHaveBeenCalled())
-    await waitFor(() => expect(getByText('payment.payCancelled')).toBeTruthy())
+    // 链:confirm → create 成功 → await openWeChatPayment(返回 false) → setToast(payCancelled)。
+    // 取消 toast 是终点,只等一次;openWeChatPayment 降级为同步断言。
+    await waitFor(() => expect(getByText('payment.payCancelled')).toBeTruthy(), { timeout: 8_000 })
+    expect(wechatPayMock.openWeChatPayment, '没调起支付就出取消 toast = 假阳').toHaveBeenCalled()
   })
 
   it('去支付:微信未安装,显示未安装 toast', async () => {

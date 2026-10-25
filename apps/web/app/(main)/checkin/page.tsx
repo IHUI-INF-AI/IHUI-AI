@@ -80,6 +80,7 @@ import { EChart } from '@/components/charts/EChart'
 import { TruncatedText } from '@/components/common/TruncatedText'
 import { AuthGatePrompt } from '@/components/common'
 import { Container } from '@/components/layout/Container'
+import { useWorkPanelStore } from '@/stores/work-panel'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -101,6 +102,9 @@ import {
   WB_WEB_LOGIN_URL,
   checkinWorkbuddyWebLoginProbe,
   checkinWorkbuddyWebLoginProbeCookie,
+  checkinTraeWebLoginProbe,
+  TRAE_WEB_LOGIN_URL,
+  closeDockedBrowser,
   checkinDetectTraeDir,
   checkinGetPublicIp,
   checkinOneClickResetAll,
@@ -262,6 +266,13 @@ export default function CheckinPage() {
   const [wbWebLoginMsg, setWbWebLoginMsg] = React.useState('')
   /** 用户粘贴的登录 Cookie(waiting 态展示输入框) */
   const [wbPasteDraft, setWbPasteDraft] = React.useState('')
+
+  // Trae 网页登录(2026-10-24,与 WorkBuddy 内嵌窗流程同型):内嵌浏览器打开
+  // www.trae.cn/login → Rust 读 cookie jar 调 GetUserToken 换真 JWT → 解 uid/手机号
+  // → 自动入库(platform='trae')。嵌入模式无 IPC,入口只在桌面主窗暴露。
+  const [traeWebLoginState, setTraeWebLoginState] = React.useState<
+    'idle' | 'waiting' | 'importing' | 'done'
+  >('idle')
 
   // 取消网页登录(改主意时的出口):清空粘贴草稿 + 复位状态 + 关掉可能开着的
   // 内嵌登录窗(主窗模式;嵌入页无 IPC,close 静默失败不影响复位)。
@@ -946,6 +957,118 @@ export default function CheckinPage() {
     // 进 effect 数组:它是每次渲染的新闭包,会让本 effect 反复重建);hash 即清 ⇒
     // 重复执行空转,其余依赖从宽不致错。
   }, [ready, allow, t, groupFilter, loadAll])
+
+  // ================== Trae 网页登录(2026-10-24 立) ==================
+
+  // 登录成功后的入库:GetUserToken 换出的 token 就是签到引擎要的 JWT;
+  // uid/nickname 落 device_map(JWT 里只有 phone 一个人类可读字段,落这段服务端
+  // 派生展示名时可直接命中,不必退化到 GUID)。
+  // 不写 `login_type:'web'` —— 那个标记在 WorkBuddy 语义里表示「jwt 字段存 Cookie
+  // 串」,而这里的 jwt 是真 JWT;误标会让后续维护者按 WB web 模式解码。
+  const importTraeWebAccount = React.useCallback(
+    async (probe: { token: string; uid: string; nickname: string }) => {
+      setTraeWebLoginState('importing')
+      try {
+        await createCheckinAccount({
+          name: probe.nickname || probe.uid.slice(0, 8) || 'Trae',
+          jwt: probe.token,
+          device_map: {
+            source: 'web_login',
+            ...(probe.uid ? { uid: probe.uid } : {}),
+            ...(probe.nickname ? { nickname: probe.nickname } : {}),
+          },
+          group: groupFilter !== 'all' ? groupFilter : '',
+          platform: 'trae',
+        })
+        setTraeWebLoginState('done')
+        setCaptureError(null)
+        setBatchNotice(t('captureTraeWebDone', { count: 1 }))
+        await loadAll()
+      } catch (e) {
+        setTraeWebLoginState('idle')
+        setActionError((e as Error).message)
+      }
+    },
+    [groupFilter, loadAll, t],
+  )
+
+  // 停靠浏览器(2026-10-24 二次收口):矩形测量/开窗/跟随布局已经统一由
+  // web-work-panel 里那个 docked Tab 的生命周期 effect 负责 —— 签到页只管
+  // 「开 Tab → 轮询换票 → 收尾」,不再自己铺原生层(否则两个所有者互相打架)。
+  const traeDockTabIdRef = React.useRef<string | null>(null)
+  const traeDockSeenRef = React.useRef(false)
+
+  // 收尾共用:关掉登录 Tab(没有别的 Tab 时面板一并收起)+ 确保原生 webview 销毁。
+  const endTraeDock = React.useCallback(() => {
+    const store = useWorkPanelStore.getState()
+    const tabId = traeDockTabIdRef.current
+    traeDockTabIdRef.current = null
+    traeDockSeenRef.current = false
+    if (tabId) store.closeTab(tabId)
+    if (useWorkPanelStore.getState().tabs.length === 0) store.closePanel()
+    void closeDockedBrowser()
+  }, [])
+
+  // 入口:在右侧工作区开一个浏览器 Tab(占位),原生 webview 由面板铺上去;
+  // 主窗侧轮询 probe 接管收尾。
+  const startTraeWebLogin = async () => {
+    if (!desktop || embedBrowser) return
+    setActionError(null)
+    setCaptureError(null)
+    setBatchNotice(t('captureTraeWebWaiting'))
+    setTraeWebLoginState('waiting')
+    traeDockTabIdRef.current = useWorkPanelStore
+      .getState()
+      .openDockedTab(TRAE_WEB_LOGIN_URL, `${t('platformTrae')} ${t('captureWebLogin')}`)
+  }
+
+  // 主窗轮询(2.5s):ok ⇒ 收登录 Tab + 入库;面板被关/切走 ⇒ 复位。
+  // not_logged_in / no_cookie / error 都是「还没登完」,继续等。
+  const importTraeRef = React.useRef(importTraeWebAccount)
+  React.useEffect(() => {
+    importTraeRef.current = importTraeWebAccount
+  })
+  React.useEffect(() => {
+    if (!desktop || embedBrowser || traeWebLoginState !== 'waiting') return
+    let stopped = false
+    const poll = async () => {
+      if (stopped) return
+      try {
+        const probe = await checkinTraeWebLoginProbe()
+        if (stopped) return
+        if (probe.status !== 'no_window') traeDockSeenRef.current = true
+        if (probe.status === 'ok') {
+          stopped = true
+          endTraeDock()
+          await importTraeRef.current(probe)
+        } else if (probe.status === 'no_window' && traeDockSeenRef.current) {
+          // 见到过窗口之后又没了 = 用户关面板/切走(面板负责收窗)
+          stopped = true
+          endTraeDock()
+          setTraeWebLoginState('idle')
+          setBatchNotice(t('captureTraeWebCancelled'))
+        }
+      } catch {
+        // 瞬态(窗口未建好/网络抖动):下一轮再试
+      }
+    }
+    const timer = setInterval(() => void poll(), 2500)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [desktop, embedBrowser, traeWebLoginState, t, endTraeDock])
+
+  // 等待超时(6.5 分钟,比 Rust 侧宽松):复位按钮态,不把用户永久卡在等待态。
+  React.useEffect(() => {
+    if (traeWebLoginState !== 'waiting') return
+    const timer = setTimeout(() => {
+      endTraeDock()
+      setTraeWebLoginState('idle')
+      setBatchNotice(t('captureWbWebSlowHint'))
+    }, 390_000)
+    return () => clearTimeout(timer)
+  }, [traeWebLoginState, t, endTraeDock])
 
   // ================== 本机 TRAE 维护(桌面端专属,WP-C) ==================
 
@@ -1963,16 +2086,12 @@ export default function CheckinPage() {
           </Button>
           {/* 四平台总入口(2026-10-18 李总口径:「网页登录」下拉要能选平台)。
               一个下拉收口全部添加通道,菜单项右侧标注该平台实际走的通道 ——
-              WorkBuddy 走网页登录(系统默认浏览器打开登录页 → 粘 Cookie 导入),
-              TRAE/Qoder/MiniMax Code 走各自的本机捕获。
-              **为什么不给那三家也做网页登录**:它们的签到凭据是客户端本地的
-              设备级 token(TRAE 的 Cloud-IDE-JWT 存在客户端库、Qoder 的 device
-              token 在 auth.v1.dat、MiniMax 的 access_token 在客户端 auth 文件),
-              网页端登录不产生同款凭据 ⇒ 网页登录那条路对它们根本不成立。
-              与其给三个点进去才发现走不通的死按钮,不如在菜单里就把真实
-              通道标出来(失效方向必须是「多要一次定向说明」,不能是「多放一次
-              跳门」)。waiting 态不展开菜单:整条入口收束成一个「取消」按钮,
-              与对话框内的取消同语义(嵌入模式无 IPC 取消通道 ⇒ 禁用)。 */}
+              WorkBuddy / TRAE 各有两条:网页登录(内嵌浏览器自动取授权)与本机捕获;
+              Qoder / MiniMax Code 只有本机捕获。
+              **为什么 TRAE 能网页登录、那两家不能**(2026-10-24 补):TRAE 的 web 端
+              有官方纯 Cookie 换票端点 GetUserToken(换出的就是签到要的 JWT,见
+              checkin_trae_web_login.rs);Qoder/MiniMax 的凭据是客户端本地的设备级
+              token,网页端登录不产生同款凭据 ⇒ 给它们放网页登录只会是死按钮。 */}
           {(desktop || embedBrowser) &&
             (wbWebLoginState === 'waiting' ? (
               <Button
@@ -2007,6 +2126,15 @@ export default function CheckinPage() {
                   {desktop && !embedBrowser && (
                     <>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        disabled={traeWebLoginState !== 'idle'}
+                        onClick={() => void startTraeWebLogin()}
+                      >
+                        <span>TRAE</span>
+                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                          {t('captureMethodWeb')}
+                        </span>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => void openCapture()}>
                         <span>TRAE</span>
                         <span className="ml-auto pl-3 text-xs text-muted-foreground">
@@ -2774,6 +2902,27 @@ export default function CheckinPage() {
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">{t('addSmartDesktopOnly')}</p>
+            )}
+            {/* Trae 网页登录(2026-10-24 李总口径):「添加账号」里直接可见 ——
+                开项目内嵌浏览器登录 → 主窗轮询换票 → 自动入库,零 token 零粘贴。
+                嵌入模式没有 IPC,不给死按钮。 */}
+            {desktop && !embedBrowser && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={traeWebLoginState === 'waiting' || traeWebLoginState === 'importing'}
+                onClick={() => {
+                  setAddOpen(false)
+                  void startTraeWebLogin()
+                }}
+              >
+                {traeWebLoginState === 'importing' ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Globe className="mr-1 h-4 w-4" />
+                )}
+                TRAE {t('captureWebLogin')}
+              </Button>
             )}
             {/* 手动填写(高级):平台/名称/JWT/设备头/分组全部收进折叠区,平时不占版面 */}
             <details className="group">

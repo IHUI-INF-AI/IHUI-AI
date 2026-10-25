@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 
 /**
  * Agent Plan 任务进度(Plan Mode)前端 API 客户端(2026-09-03 立,对标 Claude Code Plan Mode)。
@@ -58,25 +58,27 @@ export interface PlanDetail {
 
 /** 查询某计划的 task 列表与进度摘要 */
 export async function fetchPlanTasks(planId: string): Promise<PlanTasksResult> {
-  const r = await fetchApi<PlanTasksResult>(`/api/agent-plan/${encodeURIComponent(planId)}/tasks`)
-  if (!r.success) throw new Error(r.error || '加载任务进度失败')
-  return r.data
+  const r = await api<PlanTasksResult>(`/api/agent-plan/${encodeURIComponent(planId)}/tasks`, {
+    fallbackError: '加载任务进度失败',
+  })
+  return r
 }
 
 /** 查询某计划的版本历史(含当前版本) */
 export async function fetchPlanVersions(planId: string): Promise<PlanVersionsResult> {
-  const r = await fetchApi<PlanVersionsResult>(
+  const r = await api<PlanVersionsResult>(
     `/api/agent-plan/${encodeURIComponent(planId)}/versions`,
+    { fallbackError: '加载版本历史失败' },
   )
-  if (!r.success) throw new Error(r.error || '加载版本历史失败')
-  return r.data
+  return r
 }
 
 /** 查询计划详情(状态/内容/结果) */
 export async function fetchPlanDetail(planId: string): Promise<PlanDetail> {
-  const r = await fetchApi<PlanDetail>(`/api/agent-plan/${encodeURIComponent(planId)}`)
-  if (!r.success) throw new Error(r.error || '加载计划失败')
-  return r.data
+  const r = await api<PlanDetail>(`/api/agent-plan/${encodeURIComponent(planId)}`, {
+    fallbackError: '加载计划失败',
+  })
+  return r
 }
 
 /** 对比两个版本的 markdown 差异,返回 diff 文本 */
@@ -88,13 +90,14 @@ export async function fetchPlanVersionDiff(
   const qs = new URLSearchParams()
   qs.set('from_version', String(fromVersion))
   qs.set('to_version', String(toVersion))
-  const r = await fetchApi<{
+  const r = await api<{
     plan_id: string
     from_version: number
     to_version: number
     diff: string
-  }>(`/api/agent-plan/${encodeURIComponent(planId)}/versions/diff?${qs.toString()}`)
-  if (!r.success) throw new Error(r.error || '加载版本差异失败')
-  return r.data
+  }>(`/api/agent-plan/${encodeURIComponent(planId)}/versions/diff?${qs.toString()}`, {
+    fallbackError: '加载版本差异失败',
+  })
+  return r
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

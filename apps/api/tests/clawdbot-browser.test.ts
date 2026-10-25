@@ -13,9 +13,9 @@ vi.mock('../src/utils/ssrf-guard.js', () => ({
   ensureSafeFetchUrl: vi.fn().mockResolvedValue(undefined),
   assertSafeFetchUrl: vi.fn().mockResolvedValue({ safe: true }),
   isPrivateOrReservedIp: vi.fn().mockReturnValue(false),
-  // 2026-10-24:9d020274 起出站走 safeFetch(SSRF 逐跳复检),整模块 mock 缺这个导出会让
-  // 被测代码拿到 undefined ⇒ TypeError(26 例齐红的那批同根);转发到 stub 的 globalThis.fetch。
-  safeFetch: (url: string, init?: RequestInit) => fetch(url, init),
+  // 安全出口透传到被 spy 的 global fetch,保持既有 fetch 断言语义
+  safeFetch: (...args: unknown[]) =>
+    (globalThis.fetch as unknown as (...a: unknown[]) => unknown)(...args),
 }))
 
 import { BrowserAutomation, getBrowserAutomation } from '../src/services/clawdbot/browser.js'
