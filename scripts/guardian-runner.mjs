@@ -5712,6 +5712,55 @@ const checks = [
       '',
     ].join('\n'),
   },
+  {
+    id: '240',
+    label:
+      '📏 大屏「一格一读数」读数不得断行(blocking;R1-R6 判 wallboard 页常数同源,R8 差值棘轮把「大字号+数值排版必 whitespace-nowrap」推广到 apps/web/packages/ui-react/apps/extension —— 只拦净增,存量 75 处升绝对零容忍就是逼 --no-verify 的恒红门)',
+    script: 'check-readout-no-break.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_READOUT_NO_BREAK',
+    stagedTriggers: [
+      'apps/web/app/(main)/admin/monitor/wallboard/',
+      'apps/web/',
+      'packages/ui-react/',
+      'apps/extension/',
+      'scripts/check-readout-no-break.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 判的是「读数折行撑高卡片」这一族形态,不是设计品味:R1 大字号读数缺 nowrap / R2 --wb-cell-min 悬空 / R3 列宽下限没引用 var / R4 wb-split-c3 与 wb-cells-c3 栏列脱钩 / R5 容器阈值没按源码常数复算。',
+      '     写法与量法见 docs/UI_GUIDELINES.md §13;只补 nowrap 会把折行变成溢出压邻格(实测 61px),列宽下限与栏阈值必须同批补。',
+      '     复验:node scripts/check-readout-no-break.mjs(--staged 判本次 / 无参全量判 HEAD);自检:node scripts/check-readout-no-break.mjs --self-test。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_READOUT_NO_BREAK=1 且必须同给 HUSKY_SKIP_READOUT_NO_BREAK_REASON=理由。',
+      '',
+    ],
+  },
+  {
+    // 2026-10-25 注册:门体头注与 AGENTS.md 点名称「守门 241」,但 runner 里该号已被
+    // check-bare-decode-uri.mjs(2026-10-25 11:18 装车)占用 —— 撞号即 R5 判红,按
+    // 「后来者改号」先例(同门 239 由撞号的 237 改号)取 max+1=248;判据面一字未动。
+    id: '248',
+    label:
+      '📐 RN/共享源「等分读数格」AST 父子判据(blocking;V1 等分格必 minWidth / V2 等分行必 flexWrap / V3 space-between 与 V4 absolute 容器内读数必 flexShrink:0 / V5 定宽格必 minWidth)',
+    script: 'check-rn-readout-cell.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_READOUT_CELL',
+    stagedTriggers: [
+      'packages/app/src/',
+      'apps/mobile-rn/src/',
+      'apps/miniapp-taro/src/',
+      'scripts/check-rn-readout-cell.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 正则扫样式表分不清标题与读数,只有 JSX 父子关系知道 —— 真三元组 View(row:flexDirection:row)>View(cell:flex:1)>Text(val:fontSize≥16 且 600/700)。',
+      '     写法见 docs/UI_GUIDELINES.md §13.4(§13 是 web 侧同源条款);「有 flexWrap 就免疫」是错的:没 minWidth 时 flexBasis=0,wrap 一次都不触发。',
+      '     复验:node scripts/check-rn-readout-cell.mjs --staged;紧急跳过(不推荐):HUSKY_SKIP_RN_READOUT_CELL=1 git commit ...',
+      '',
+    ],
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
