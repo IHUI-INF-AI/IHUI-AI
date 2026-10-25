@@ -150,6 +150,11 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | [`readme-04-architecture-and-modules`](./docs/engineering/readme-04-architecture-and-modules.md)         | 架构与模块            | 技术栈 · 8 端架构 · 跨端共享架构 · 维护倍数 · 应用层级图 · 项目结构 · 15 大模块能力详解                                                                                     |
 | [`readme-05-quickstart-api-data`](./docs/engineering/readme-05-quickstart-api-data.md)                   | 快速开始 / API / 数据 | 快速开始 · REST/WebSocket API 与能力目录 · 模型自动同步 · IM 多平台远程控制 · 数据库                                                                                        |
 | [`readme-06-security-observability-gates`](./docs/engineering/readme-06-security-observability-gates.md) | 安全 / 可观测 / 守门  | 可观测性 · 安全设计 · 根目录守门服务 · 工程守门全表 · Commit 丢失防护 · 工程质量证据 · AI 编程协作声明 · 测试 · 部署 · CI 工作流 · 国际化 · LLM 字典化 · 守门补登与对账登记 |
+
+**RN 样式裸数字回潮锁** `scripts/check-token-literal-debt.mjs`(门 240,差值棘轮):只拦本次把
+可自动对档的裸数字(`padding: 16` / `fontSize: 14`)加回来,存量只报数;修复出口
+`node scripts/tokens-migrate.mjs <file> --apply`(恰在档才换,杂值不动),目录档可一次扫
+`packages/app/src apps/mobile-rn/src`。
 | [`readme-07-faq-roadmap-commerce`](./docs/engineering/readme-07-faq-roadmap-commerce.md)                 | FAQ / 路线图 / 商业   | FAQ · 贡献 · 文档导航 · 路线图(已交付/最近更新/能力清单) · 盈利模式 · Star 历史 · 多语言 README · 联系我们                                                                  |
 | [`readme-08-seo-keywords-story`](./docs/engineering/readme-08-seo-keywords-story.md)                     | SEO 与品牌故事        | 高密度曝光与 AI 引擎适配 · 我们的故事 · 开源共建愿景 · License · 加入我们 · 致谢 · Quick FAQ · Keywords 全表                                                                |
 | [`readme-09-ops-tools`](./docs/engineering/readme-09-ops-tools.md)                                       | 运维工具与留档        | 发布线收口新增对外能力与运维入口 · 运维与生产监控工具 · 守门补登(服务二进制路径等) · 尾部悬空表行留档                                                                       |
