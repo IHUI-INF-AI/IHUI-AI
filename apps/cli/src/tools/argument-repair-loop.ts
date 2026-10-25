@@ -21,8 +21,16 @@
  *   - 解析后仍不过 ⇒ 上报**解析后对象**上的路径级违规 —— 模型面前已是解码对象,
  *     报"expected object, got string"只会让它反复加引号或退化 `{}`(票面根因注释)。
  *
- * 装车点(守门 115 的对账面):执行器 enforce 判定处(`tools/index.ts` 的
- * `enforceValidateToolArguments` 调用点)—— 该文件当前被并发会话冻结,接线归该持有人;
+ * 装车现状(2026-10-25 现读;取代此前那句"该文件当前被并发会话冻结,接线归该持有人"——
+ * 该说法已失效,apps/cli 工作树现读为净,而它正是本件十天没动的原因):生产面 import 方 0
+ * (仅 `tests/argument-repair.test.ts`)。未接线的真阻塞是**两套 repair 账是否并口**尚未裁决
+ * —— 执行器 enforce 分支(`tools/index.ts` 的 `applyToolArgValidation` → `enforceValidateToolArguments`)
+ * 已按工具名连续窗计数(`noteEnforceRepairRejection` + `TOOL_ARG_REPAIR_MAX_ATTEMPTS`),与本模块
+ * 的会话级双预算同职(§0.6 同类判据全仓只许一份);裁决归 argval 线票面
+ * 「argument-validation 装车后的覆盖面三格缺口」① 持有人。
+ * 另有一条**结构性**障碍:入参在到达 enforce 判定之前已由 `parseToolArguments` 收敛成
+ * `Record<string, unknown>`,故本模块 `normalizeSubmit` 的"原值是 string"一支(票面夹具①)在该
+ * 站点不可达 ⇒ 就地接线只会添上第二份预算,救不回票面要的那条腿。
  * 本模块的判定全部复用第①步出口,不新增第二份校验实现。
  */
 

@@ -177,20 +177,10 @@ const CustomNavSection = React.memo(function CustomNavSection({
   const t = useTranslations('nav')
   const pathname = usePathname()
 
-  // 当前可见项的 href 集合 —— 作为"允许集"交给数据层。
-  // admin 的 80 项后台路由是运行时拉取合并进 visibleGroups 的,不在模块级静态表
-  // (ALL_NAV_HREFS)里;不把它们并进允许集,用户收藏的动态项会在刷新后被当失效项
-  // 剔除 ⇒ "加了之后刷新就没了"。引用由 groups memo 稳定,只在导航结构真变时换。
-  const visibleHrefs = React.useMemo(() => {
-    const set = new Set<string>()
-    for (const group of groups) {
-      for (const item of flattenNavItems(group.items)) set.add(item.href)
-    }
-    return set
-  }, [groups])
-
-  const { userId, hydrated, customHrefs, addHref, removeHref, reorderHref } =
-    useCustomNav(visibleHrefs)
+  // 数据层不按"当前可见项"过滤收藏(2026-10-25):可见集是异步攒出来的(admin 后台路由
+  // 每次挂载现拉),拿它当删除依据会把尚未加载出来的项静默丢掉,还随下一次编辑写回服务端。
+  // 不可见项由下面的 itemMap 挡在渲染之外 —— 死链在视图层就出不了门。
+  const { userId, hydrated, customHrefs, addHref, removeHref, reorderHref } = useCustomNav()
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
   // href -> NavItem 索引:groups 在父级已 memo,导航结构不变则零重建
@@ -221,22 +211,15 @@ const CustomNavSection = React.memo(function CustomNavSection({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  const itemIndex = React.useMemo(() => {
-    const map = new Map<string, number>()
-    customItems.forEach((item, i) => map.set(item.href, i))
-    return map
-  }, [customItems])
-
+  // sortable id 就是 href(见 use-custom-nav.ts)⇒ 排序直接按 href 搬,不经过行下标:
+  // 收藏列表里可以夹着"此刻不可见"的项,行序与数组序并不同形。
   const handleDragEnd = React.useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event
       if (!over || active.id === over.id) return
-      const from = itemIndex.get(String(active.id))
-      const to = itemIndex.get(String(over.id))
-      if (from === undefined || to === undefined) return
-      reorderHref(from, to)
+      reorderHref(String(active.id), String(over.id))
     },
-    [itemIndex, reorderHref],
+    [reorderHref],
   )
 
   // 未登录 / 尚未水合:不渲染(SSR 首帧同样为空,hydration 一致)

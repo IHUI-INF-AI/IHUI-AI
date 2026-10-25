@@ -48,7 +48,9 @@ import { __test__ as G } from '../git-guardian.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GUARDIAN = join(HERE, '..', 'git-guardian.mjs')
+const GITDIR_LIB = join(HERE, '..', 'lib', 'gitdir.mjs')
 const SRC = readFileSync(GUARDIAN, 'utf8')
+const LIB_SRC = readFileSync(GITDIR_LIB, 'utf8')
 
 function git(args, cwd) {
   return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
@@ -140,6 +142,16 @@ function fnBody(name) {
   const rest = SRC.slice(start)
   const end = rest.indexOf('\n}')
   assert.ok(end >= 0, `${name} 的函数体闭合形态解不出`)
+  return rest.slice(0, end + 2)
+}
+
+/** 同一把尺子量 lib 单源(批量档判定自 3c75fceac5 起住在这里)。 */
+function libFnBody(name) {
+  const start = LIB_SRC.indexOf(`function ${name}(`)
+  assert.ok(start >= 0, `lib 里的 ${name} 不见了 —— 单源被搬走却没同步锁,正是本文件要拦的那一型`)
+  const rest = LIB_SRC.slice(start)
+  const end = rest.indexOf('\n}')
+  assert.ok(end >= 0, `lib 里 ${name} 的函数体闭合形态解不出`)
   return rest.slice(0, end + 2)
 }
 
@@ -239,6 +251,9 @@ test('T8 装车锁:取材三处都必须接住 null,溢出型失败不得再被�
     fnBody('missingRefs'),
     /broken === null \? null/,
     '快照层报"问不到"时,missingRefs 必须原样传 null(折成 [] 或全清单都是假告警)',
+    libFnBody('brokenRefsFromSnapshot'),
+    /if \(snapshot === null\) return null/,
+    '三态档必须在 lib 单源里(摘掉它,null 会被 Object.entries 读成"清单全缺")',
   )
   assert.match(fnBody('healRefs'), /cur === null/, 'healRefs 必须挡 null(否则按清单撒数千枚松散 ref)')
   assert.match(fnBody('refsVerdict'), /faceReadable/, 'refsVerdict 必须把未判定信号交给 judgeRefsHealth(判据改了调用点没改 = 生效 0 次)')

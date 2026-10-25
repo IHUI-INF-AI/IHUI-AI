@@ -10,6 +10,7 @@ import { Code2, Copy, Terminal, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Card, CardContent, Button } from '@ihui/ui-react'
+import { richAnchorRenderer } from '@/components/chat/rich-anchor-text'
 import { cn } from '@/lib/utils'
 
 type LangKey = 'curl' | 'node' | 'python'
@@ -100,7 +101,10 @@ export function CodeExamples(): React.JSX.Element {
           </button>
         </div>
 
-        <p className="text-xs text-muted-foreground">{t('examplesTip')}</p>
+        <p className="text-xs text-muted-foreground">
+          {/* D04① 词包腿可点击载体:句中本来就报的站内路由包进 <link>,内文以 "/" 过 SAFE_HREF ⇒ 产出真 <a href> */}
+          {t.rich('examplesTip', { link: richAnchorRenderer('link') })}
+        </p>
       </CardContent>
     </Card>
   )

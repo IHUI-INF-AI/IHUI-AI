@@ -7814,7 +7814,7 @@
           "hour": "시간",
           "minute": "분"
         },
-        "degradeHint": "무료 플랜을 계속 사용할 수 있습니다. 무료 모델로 전환하여 계속할 수 있으며 충전이 필요하지 않습니다",
+        "degradeHint": "무료 플랜을 계속 사용할 수 있습니다. 무료 모델로 전환하여 계속할 수 있으며 충전이 필요하지 않습니다. 사용량 내역은 <link>/models/usage</link>에서 확인하세요",
         "ariaLabel": "할당량 유형 및 조치 안내"
       },
       "moveToWorktree": {
@@ -13834,7 +13834,7 @@
     "exampleStep2": "output 비용 = 1200 ÷ 1000 × 10 = 12 분",
     "exampleTitle": "청구 예시",
     "examplesSubtitle": "HTTP Bearer Token 인증, POST application/json",
-    "examplesTip": "팁: YOUR_API_KEY를 /developer/keys에서 생성한 키로 교체하고, baseURL을 실제 엔드포인트로 변경하세요.",
+    "examplesTip": "팁: YOUR_API_KEY를 <link>/developer/keys</link>에서 생성한 키로 교체하고, baseURL을 실제 엔드포인트로 변경하세요.",
     "examplesTitle": "호출 예시",
     "formula": "비용 계산식",
     "formulaBody": "총합 = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",
