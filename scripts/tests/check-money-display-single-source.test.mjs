@@ -5,12 +5,14 @@
 // 守门 248 镜像测试:判据 import 源,零复制(§22c)。
 // node --test scripts/tests/check-money-display-single-source.test.mjs
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// 读真仓的派生 git 一律走面读取层(§5b 绝对路径 git + §12g 显式 stdio);棘轮不判 tests,
+// 但本处读的是真仓而不是夹具,没有用裸 'git' 的理由。
+import { gitRaw } from '../lib/face-reader.mjs'
 import { __test__ as G } from '../check-money-display-single-source.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -25,11 +27,9 @@ test('__test__ 键齐备(源搬家报错红)', () => {
 
 function grepSurf(surf) {
   try {
-    return execFileSync(
-      'git',
-      ['grep', '-l', '-E', '(const|function) \\w*[Yy]uan\\w*\\s*[=(]', '--', surf],
-      { encoding: 'utf8', maxBuffer: 1024 * 1024 * 32, cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
-    ).toString()
+    return gitRaw(['grep', '-l', '-E', '(const|function) \\w*[Yy]uan\\w*\\s*[=(]', '--', surf], ROOT, {
+      maxBuffer: 1024 * 1024 * 32,
+    })
   } catch {
     return ''
   }
