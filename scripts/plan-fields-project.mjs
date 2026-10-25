@@ -158,6 +158,13 @@ export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
   if (!prefix) return { action: 'skip', reason: '不是登记行形,不动' }
   let rest = bare.slice(prefix[0].length).replace(/^\s+/, '')
   const owner = String(rec.owner ?? '').trim()
+  // 侧车 owner 读数被切歪(括号失配)⇒ 不投影:标头是给人读的,写进一条畸形归属比不写更糟(实测 G-948)。
+  if (owner && unbalancedParens(owner))
+    return {
+      action: 'skip',
+      reason: `侧车 owner 读数括号失配(疑似被截断/切歪:${owner.slice(0, 60)})⇒ 先复算侧车再投影`,
+      undetermined: true,
+    }
   const span = OWNER_SPAN_RE.exec(rest)
   if (span && cleanOwner(span[1]) !== owner)
     return {
@@ -266,6 +273,40 @@ export function lengthBuckets(list) {
   return b
 }
 
+/** 括号失配 = 这段读数被切歪了(实测 G-948:`台账自愈层):一枚 bypass 落地` —— 右括号前没有左括号)。
+ *  这是**结构判据**,不认归属词表(§0.6):配对的 `A(B)C` 照常放行。 */
+function unbalancedParens(s) {
+  let depth = 0
+  for (const ch of String(s ?? '')) {
+    if (ch === '(' || ch === '（') depth++
+    else if (ch === ')' || ch === '）') {
+      if (depth === 0) return true
+      depth--
+    }
+  }
+  return depth !== 0
+}
+
+/**
+ * 没有侧车记录时,行内标头该不该摘(2026-10-26 立,治"无记录的行被当成记录为空 ⇒ 真实归属被删")。
+ *
+ * **"没有记录"与"记录说 owner/blocking 为空"是两件事**,不能同判:
+ *  - 前者是抽取器的缺口(这一行本该有记录却没有),行内标头可能就是全仓唯一的归属证据 ——
+ *    摘掉它是信息损失(实测 O65 族 9 行会丢 `〔归:自进化〕`),而三维守恒因桶不变照样放行,
+ *    所以机器一律不猜(§0.3),报未判定交抽取器补记录;
+ *  - 后者是侧车的权威读数(明确说"这一行没有归属/等待"),陈旧标头必须摘,否则门 234 A2 恒红。
+ *
+ * malformed 标头(`…` 截断形态)是唯一例外:`parseHeader` 刻意拒绝它,它永远渲染不回来,
+ * 留着就是恒红源 ⇒ 允许摘除(走 planRow 的摘除档,同一套守恒断言)。
+ * @returns {'strip'|'hold'|'nothing'} strip=可摘(仅 malformed) / hold=不动并点名 / nothing=无标头可管
+ */
+export function noRecordVerdict(line) {
+  const hp = parseHeader(line)
+  if (hp.malformed) return 'strip'
+  if (hp.rec) return 'hold'
+  return 'nothing'
+}
+
 /** 全量规划:台账面 ⊕ 同轮侧车面 ⇒ 三类读数。纯 IO 只在这一个出口里发生。 */
 export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
   const doc = readPlan(root, face)
@@ -281,10 +322,10 @@ export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
     const rec = key ? (side.map.get(key) ?? null) : null
     if (!rec) {
       noRecord++
-      // 没有侧车记录、却还挂着标头(尤其 malformed `…`)的行也要过一遍:
-      // 空记录渲染不出任何标头 ⇒ 走 planRow 的摘除分支,清掉陈旧投影(门 234 A2 的恒红源)。
-      const hp = parseHeader(r.raw)
-      if (hp.rec || hp.malformed) {
+      // 没有侧车记录 ≠ 记录说 owner 为空(见 noRecordVerdict):只有 malformed `…` 形态才允许摘,
+      // 有效标头一律不动并报未判定 —— 摘掉它就是把全仓唯一的归属证据当"陈旧投影"删了。
+      const verdict = noRecordVerdict(r.raw)
+      if (verdict === 'strip') {
         const synthetic = { key, waiting: 'none', updatedAt: new Date(0).toISOString() }
         const p = planRow(r.raw, synthetic, { maxLen })
         if (p.action === 'rewrite')
@@ -298,6 +339,13 @@ export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
           })
         else if (p.action !== 'already')
           skip.push({ key, reason: p.reason ?? '(未点名)', undetermined: !!p.undetermined })
+      } else if (verdict === 'hold') {
+        skip.push({
+          key,
+          reason:
+            '行内有归属标头但侧车没有该键的记录(无记录 ≠ 记录为空)⇒ 摘标头会丢归属,机器不猜;先补抽取器记录',
+          undetermined: true,
+        })
       }
       continue
     }
@@ -585,6 +633,7 @@ if (isDirectRun) {
 export const __test__ = {
   planRow,
   planAll,
+  noRecordVerdict,
   dimsOf,
   emit,
   parseBatchArg,
