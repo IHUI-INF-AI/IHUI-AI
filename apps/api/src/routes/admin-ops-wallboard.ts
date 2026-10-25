@@ -38,6 +38,11 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import type { EdgeLegKey, EdgeLegSample, EdgeStats } from '../services/edge-access.js'
 import { edgeSeries, latestEdgeSnapshot } from '../services/edge-access.js'
 import { getTrafficLiveSnapshot } from '../services/traffic-stats-service.js'
+import {
+  getPageUsageLiveSnapshot,
+  type PageUsageLiveRow,
+  type ScopeUsageLiveRow,
+} from '../db/visit-tracking-queries.js'
 import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
@@ -461,9 +466,24 @@ interface TrafficSnapshot {
   aggregationAgeSec: number | null
   /** true = 族分解被 UA 种类预算截断,族值只是下界 */
   truncated: boolean | null
+  /**
+   * 近 24h 页面访问排行(visit_logs 口径,最多 8 条);null = 页面热度腿取不到。
+   * 2026-10-26 立:此前大屏只有 api_logs 的 PV/UV 与客户端族,回答不了"哪些页面
+   * 被用了多少次";本格与 `scopeSplit` 同源(同一次 24h 聚合),单腿失败只置 null。
+   */
+  pageTop: PageUsageLiveRow[] | null
+  /** 近 24h 各访问面(前台/后台/登录页)的 PV/UV;null = 同一条腿取不到 */
+  scopeSplit: ScopeUsageLiveRow[] | null
 }
 
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
+  // 页面热度是独立腿:失败只把两格置 null(渲染"—"),不拖垮访客块。
+  let pageUsage: Awaited<ReturnType<typeof getPageUsageLiveSnapshot>> | null = null
+  try {
+    pageUsage = await getPageUsageLiveSnapshot()
+  } catch {
+    pageUsage = null
+  }
   try {
     // 现算(带 5 秒进程内缓存):三条限窗 SQL 走 api_logs_created_at_idx,合计 ≈ 46 ms。
     // 任何一条抛错都会上抛到下面的 catch ⇒ 整块 null ⇒ 大屏渲染"—",绝不折成 0 访客。
@@ -478,6 +498,8 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       families: live.families,
       aggregationAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
       truncated: live.truncated,
+      pageTop: pageUsage?.top ?? null,
+      scopeSplit: pageUsage?.scopes ?? null,
     }
   } catch {
     return null
@@ -507,7 +529,12 @@ interface RelayPoolSnapshot {
   /** Key 健康四态计数(unknown/healthy/degraded/down;与汇总字段同一把尺子) */
   keyHealth: { unknown: number; healthy: number; degraded: number; down: number } | null
   /** 按 provider 分组的 Key 分布(可调度/异常口径与汇总字段同一把尺子) */
-  keyByProvider: Array<{ provider: string; total: number; schedulable: number; abnormal: number }> | null
+  keyByProvider: Array<{
+    provider: string
+    total: number
+    schedulable: number
+    abnormal: number
+  }> | null
   /** 按 provider 分组的账号池分布 */
   accountByProvider: Array<{ provider: string; total: number; schedulable: number }> | null
   /** 余额 < 5 元且非"无限"(-1)的 Key 条数 —— 余额预警 */
