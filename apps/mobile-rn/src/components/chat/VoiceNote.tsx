@@ -85,6 +85,10 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
   const [listError, setListError] = useState(false)
   // 检索与分组都落在服务端(与 web 同形):面板只持有查询条件,不持数据
   const [query, setQuery] = useState('')
+  // 搜索框聚焦态(G-978007 口径):裸 TextInput 必须带聚焦处理,否则输入框这一族
+  // 的聚焦反馈各写各的。描边走输入框级墨档 tokens.brand.DEFAULT(门 83 R8 的唯一例外位),
+  // 且只换色不换宽度 ⇒ 零布局跳动。判据见 packages/app/tests/text-field.test.tsx 普查锁。
+  const [searchFocused, setSearchFocused] = useState(false)
   const [groupKey, setGroupKey] = useState<string | null>(null)
   const [groups, setGroups] = useState<VoiceNoteGroupFacet[]>([])
 
@@ -358,9 +362,14 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
             </View>
 
             <TextInput
-              style={styles.searchInput}
+              style={[
+                styles.searchInput,
+                searchFocused ? { borderColor: tokens.brand.DEFAULT } : null,
+              ]}
               value={query}
               onChangeText={setQuery}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
               placeholder={t('chat.voiceNote.searchPlaceholder')}
               placeholderTextColor={tokens.text.tertiary}
               testID="voice-note-search"
