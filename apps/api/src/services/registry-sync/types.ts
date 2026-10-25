@@ -87,7 +87,9 @@ export const EGRESS_PROXY_ENV = 'IHUI_REGISTRY_EGRESS_PROXY'
 let egressAgentFor: string | null = null
 let egressAgentCache: ProxyAgent | null = null
 
-export function registryEgressDispatcher(env: Record<string, string | undefined> = process.env): ProxyAgent | null {
+export function registryEgressDispatcher(
+  env: Record<string, string | undefined> = process.env,
+): ProxyAgent | null {
   const raw = String(env[EGRESS_PROXY_ENV] ?? '').trim()
   if (raw === '') return null
   if (egressAgentFor === raw) return egressAgentCache

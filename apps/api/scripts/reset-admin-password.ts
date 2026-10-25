@@ -23,9 +23,12 @@
  * 4. 查询目标用户名+邮箱确认,打印结果
  */
 import 'dotenv/config'
-// G-322 单源:带值旗标的取值出口(只校验紧邻 token 是不是"值",禁复制判据 §22c)。
-// @ts-expect-error scripts/*.mjs 无类型声明,apps/api tsconfig include 只收 src/**(脚本面不进 typecheck)
-import { isFlagValueToken } from '../../../scripts/lib/flag-value.mjs'
+// 带值旗标取值口径(G-322):紧邻 token 必须非空且不以 `-` 开头。本地副本与
+// scripts/lib/flag-value.mjs 的 isFlagValueToken 逐字同源 —— apps/api→repo-tooling 被
+// config/architecture-policy.yaml 禁止(D1/D2/D3),消依赖优先;语义变更须两处同改。
+function isFlagValueToken(token: unknown): boolean {
+  return typeof token === 'string' && token !== '' && !token.startsWith('-')
+}
 
 /**
  * CLI 参数解析。
