@@ -57,6 +57,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -235,14 +236,8 @@ if (isSelfTest) {
 // --staged 模式:只在相关文件被 staged 时才检查
 if (isStaged) {
   try {
-    const { execSync } = await import('node:child_process')
-    const staged = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 枚举走取材层:绝对 git / 显式 stdio(§12g,EBUSY 病窗)/ windowsHide / timeout 由 gitRaw 统一提供。
+    const staged = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT)
     const files = staged.split('\n').filter(Boolean)
     const relevant = files.some(
       (f) =>
