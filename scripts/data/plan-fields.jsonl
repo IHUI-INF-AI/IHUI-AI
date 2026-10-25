@@ -18,7 +18,7 @@
 {"key":"G-71#生产备份链日志的写入侧编码要改成UTF-8","owner":"","waiting":"env","blocking":"机主核隧道","updatedAt":"2026-10-24T06:53:26.270Z","updatedBy":"plan-renumber-2026-10-24"}
 {"key":"G-75#小程序/Web缺图的来源问题今天有了终判","owner":"","waiting":"env","blocking":"机主素材交付","updatedAt":"2026-10-24T06:53:26.272Z","updatedBy":"plan-renumber-2026-10-24"}
 {"key":"G-79#备份链重建","owner":"待认领","waiting":"none","blocking":"","updatedAt":"2026-10-24T06:52:10.293Z","updatedBy":"plan-renumber-2026-10-24"}
-{"key":"D03#会话内快捷笔记","waiting":"none","blocking":"","updatedAt":"2026-10-25T10:28:29.763Z","updatedBy":"plan-fields-reclassify","owner":"mobile-rn InputArea 持有席"}
+{"key":"D03#会话内快捷笔记","owner":"mobile-rn InputArea 持有席","waiting":"none","blocking":"","updatedAt":"2026-10-25T10:28:29.763Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-23#事故归档无\"双上限\"回收——与§5b的禁删条款正","owner":"`.git` 存续线） 〔2026-09-27 用户拍板:**双上限 + 保留最近 10 代**","waiting":"none","updatedAt":"2026-10-24T06:58:48.547Z","updatedBy":"plan-fields-extract"}
 {"key":"G-32#G-32归属","owner":"守门 98 D4","waiting":"none","updatedAt":"2026-10-24T06:58:48.552Z","updatedBy":"plan-fields-extract"}
 {"key":"G-36#守门77的一百一十五处dead-class圆角修","owner":"机主的人工窗口动作","waiting":"none","updatedAt":"2026-10-24T06:58:48.553Z","updatedBy":"plan-fields-extract"}
@@ -62,7 +62,7 @@
 {"key":"G-58#git-lock与index","owner":"git 写锁与部署锁同源机制的持有人)**","waiting":"none","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-59#门94的R4射程对它自己守的那件事的消费者全盲","owner":"门 94 持有人","waiting":"none","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-62#G-62归属","owner":"union-converge 落地闸持有人","waiting":"none","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
-{"key":"G-63#本仓每一次走safe-commit的路径提交都在","owner":"`scripts/lib/pre-commit-hook.js` 与 `scripts/safe","waiting":"none","blocking":"拍板走「safe-commit 第④步改普通提交","updatedAt":"2026-10-25T08:41:53.135Z","updatedBy":"plan-fields-extract"}
+{"key":"G-63#本仓每一次走safe-commit的路径提交都在","owner":"safe-commit 两条线持有人","waiting":"none","blocking":"","updatedAt":"2026-10-25T11:07:28.438Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-64#落地闸第②把尺子对F9是永不可满足的","owner":"门 130 / union-converge 判据持有人裁决","waiting":"none","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-66#生产切流被\"别人滞留在工作树的整份台账副本\"挡住","owner":"那份副本的写者会话","waiting":"none","blocking":"它自己落地或被显式处置 —— 自愈层按设计拒绝代","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-68#旁路落地","owner":"union-converge / object-space-land 持有人","waiting":"none","blocking":"把\"落地后复跑受影响判据\"从人的纪律变成工具的出","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
