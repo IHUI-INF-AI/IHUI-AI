@@ -849,6 +849,22 @@ if (failedGates.length > 0) {
   console.error(`  ${C.dim}(紧急只跑首个即停:GUARDIAN_STOP_ON_FIRST=1)${C.reset}`)
   process.exit(1)
 }
+// 未判定 ≠ 通过(2026-10-25 补,§0.3 / 本模块不变量 1"崩溃不洗成通过"):
+// 实测复现 (2026-10-25,现读 RC):`GUARDIAN_GATE_TIMEOUT_MS=1 node scripts/guardian-runner.mjs --staged`
+// 把 111 道门全打成"跑不起来(未判定)",汇总也点了名,**批量却 exit 0** —— 因为末尾只有
+// `failedGates.length > 0` 那一支会 exit(1),而 crash 一支只 failed++ 不退出(写缓存那侧倒有
+// failed===0 守卫,所以"没结论"这批还被缓存成了"通过")。这是崩溃分流(2026-09-29)装车时就漏的
+// 半格,本次把兜底码接进 crash 档后射程变大(门 30c 那型不再进判红名单 ⇒ 单独靠判红支拦不住),
+// 所以必须同批补牙,否则"改归因"就真的演变成"改后果"。位置排在判红支之后:两道名单都要点名完
+// 再退出,不得因为先退而把另一段吞掉。
+if (crashedGates.length > 0) {
+  console.error('')
+  console.error(
+    `${C.bold}${C.red}⛔ 本批有 ${crashedGates.length} 道门**未判定**(没跑出结论)⇒ 批量按失败退出(不清偿不放行;` +
+      `未判定 ≠ 通过,§0.3)${C.reset}`,
+  )
+  process.exit(1)
+}
 
 // push-gate 全部通过 → 写缓存(2026-10-16 外置到 lib/guardian-pushgate-cache.mjs;failed===0 守卫与打印在 lib 内)
 writePushGateCache({ C, failed, pushGate })
