@@ -345,4 +345,120 @@ export async function getPageUsageList(opts: FindPageUsageOpts): Promise<PageUsa
     pageSize: opts.pageSize,
   }
 }
+
+// =============================================================================
+// 大屏实时页面热度(2026-10-26 立)
+// =============================================================================
+
+/** 窗口固定 24h;大屏要"现在有多少人在用哪些页面",不是按业务日切。 */
+const PAGE_USAGE_WINDOW_HOURS = 24
+const PAGE_USAGE_TOP_N = 8
+
+/**
+ * scope 的 SQL 投影:与 `classifyVisitScope` 共用同一组前缀常量。
+ * 前缀词表只在文件顶部定义一次,这里不重抄(§0.6 单一真相源)。
+ */
+function scopeCaseSql() {
+  const path = sql<string>`coalesce(${visitLogs.url}, '')`
+  const admin = sql`${path} like ${`${ADMIN_PATH_PREFIX}%`}`
+  const auth = sql`(${sql.join(
+    AUTH_PATH_PREFIXES.map((prefix) => sql`${path} like ${`${prefix}%`}`),
+    sql` or `,
+  )})`
+  return sql<VisitScope>`case when ${admin} then 'admin' when ${auth} then 'auth' else 'public' end`
+}
+
+export interface PageUsageLiveRow {
+  url: string
+  scope: VisitScope
+  pv: number
+  uv: number
+}
+
+export interface ScopeUsageLiveRow {
+  scope: VisitScope
+  pv: number
+  uv: number
+}
+
+export interface PageUsageLiveSnapshot {
+  /** 近 24h PV 最高的页面(降序,最多 PAGE_USAGE_TOP_N 条) */
+  top: PageUsageLiveRow[]
+  /** 近 24h 各访问面的 PV/UV —— 回答"后台/登录页各被用了多少次" */
+  scopes: ScopeUsageLiveRow[]
+  /** 近 24h 同口径总 PV(前端算占比) */
+  totalPv: number
+  computedAtMs: number
+}
+
+/** 与访客快照同一个 5 秒 TTL:大屏 5s 轮询,多个观众共享一轮聚合。 */
+export const PAGE_USAGE_LIVE_TTL_MS = 5_000
+
+let pageUsageCache: { atMs: number; value: PageUsageLiveSnapshot } | null = null
+let pageUsageInflight: Promise<PageUsageLiveSnapshot> | null = null
+
+/** 现算一份;任一 SQL 抛错就整块上抛,由调用方折成 null(渲染"—"),绝不兜成 0。 */
+export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnapshot> {
+  const start = sql`now() - make_interval(hours => ${PAGE_USAGE_WINDOW_HOURS})`
+  const inWindow = sql`${visitLogs.createdAt} >= ${start}`
+  const pvExpr = sql<number>`count(*)::int`
+  const uvExpr = sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`
+  const scopeExpr = scopeCaseSql()
+  const [topRows, scopeRows] = await Promise.all([
+    db
+      .select({ url: visitLogs.url, pv: pvExpr, uv: uvExpr })
+      .from(visitLogs)
+      .where(and(inWindow, isNotNull(visitLogs.url)))
+      .groupBy(visitLogs.url)
+      .orderBy(sql`count(*) desc`)
+      .limit(PAGE_USAGE_TOP_N),
+    db
+      .select({ scope: scopeExpr, pv: pvExpr, uv: uvExpr })
+      .from(visitLogs)
+      .where(inWindow)
+      .groupBy(scopeExpr)
+      .orderBy(sql`count(*) desc`),
+  ])
+  return {
+    top: topRows.map((r) => ({
+      url: r.url ?? '',
+      scope: classifyVisitScope(r.url),
+      pv: Number(r.pv ?? 0),
+      uv: Number(r.uv ?? 0),
+    })),
+    scopes: scopeRows.map((r) => ({
+      scope: r.scope,
+      pv: Number(r.pv ?? 0),
+      uv: Number(r.uv ?? 0),
+    })),
+    totalPv: scopeRows.reduce((sum, r) => sum + Number(r.pv ?? 0), 0),
+    computedAtMs: Date.now(),
+  }
+}
+
+/** 取一份"最多 TTL 毫秒前"的快照;失败不入缓存,下个请求重试。 */
+export async function getPageUsageLiveSnapshot(
+  ttlMs: number = PAGE_USAGE_LIVE_TTL_MS,
+): Promise<PageUsageLiveSnapshot> {
+  const nowMs = Date.now()
+  if (pageUsageCache && nowMs - pageUsageCache.atMs < ttlMs) return pageUsageCache.value
+  if (pageUsageInflight) return pageUsageInflight
+  const inflight = (async () => {
+    try {
+      const value = await computePageUsageLiveSnapshot()
+      pageUsageCache = { atMs: value.computedAtMs, value }
+      return value
+    } finally {
+      pageUsageInflight = null
+    }
+  })()
+  pageUsageInflight = inflight
+  return inflight
+}
+
+/** 仅测试用:清缓存。 */
+export function __resetPageUsageLiveCacheForTest(): void {
+  pageUsageCache = null
+  pageUsageInflight = null
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
