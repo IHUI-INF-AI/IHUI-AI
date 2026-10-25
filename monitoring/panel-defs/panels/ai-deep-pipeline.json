@@ -15,7 +15,9 @@
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
-      "targets": [{ "expr": "sum(ihui_llm_pool_leg_in_cooldown)", "legendFormat": "冷却中的腿", "refId": "A" }],
+      "targets": [
+        { "expr": "sum(ihui_llm_pool_leg_in_cooldown)", "legendFormat": "冷却中的腿", "refId": "A" }
+      ],
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
@@ -288,12 +290,21 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 5, "w": 3, "x": 0, "y": 62 },
       "targets": [
-        { "expr": "sum(ihui_relay_key_pool_schedulable_keys{job=\"business-metrics\"})", "legendFormat": "可用 key", "refId": "A" }
+        {
+          "expr": "sum(ihui_relay_key_pool_schedulable_keys{job=\"business-metrics\"})",
+          "legendFormat": "可用 key",
+          "refId": "A"
+        }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0.5 } ] }
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.5 }
+            ]
+          }
         },
         "overrides": []
       },
@@ -305,12 +316,21 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 5, "w": 3, "x": 3, "y": 62 },
       "targets": [
-        { "expr": "sum(ihui_relay_key_pool_keys{job=\"business-metrics\",state=~\"degraded|down\"})", "legendFormat": "异常 key", "refId": "A" }
+        {
+          "expr": "sum(ihui_relay_key_pool_keys{job=\"business-metrics\",state=~\"degraded|down\"})",
+          "legendFormat": "异常 key",
+          "refId": "A"
+        }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] }
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
@@ -322,12 +342,21 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 5, "w": 3, "x": 6, "y": 62 },
       "targets": [
-        { "expr": "sum(ihui_relay_account_pool_schedulable{job=\"business-metrics\"})", "legendFormat": "可用账号", "refId": "A" }
+        {
+          "expr": "sum(ihui_relay_account_pool_schedulable{job=\"business-metrics\"})",
+          "legendFormat": "可用账号",
+          "refId": "A"
+        }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0.5 } ] }
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.5 }
+            ]
+          }
         },
         "overrides": []
       },
@@ -339,12 +368,22 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 5, "w": 3, "x": 9, "y": 62 },
       "targets": [
-        { "expr": "time() - ihui_relay_key_pool_refresh_last_success_timestamp_seconds{job=\"business-metrics\"}", "legendFormat": "刷新滞后", "refId": "A" }
+        {
+          "expr": "time() - ihui_relay_key_pool_refresh_last_success_timestamp_seconds{job=\"business-metrics\"}",
+          "legendFormat": "刷新滞后",
+          "refId": "A"
+        }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 600 }, { "color": "red", "value": 1800 } ] }
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 600 },
+              { "color": "red", "value": 1800 }
+            ]
+          }
         },
         "overrides": []
       },
@@ -356,7 +395,11 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 67 },
       "targets": [
-        { "expr": "sum by (provider_code, state) (ihui_relay_key_pool_keys{job=\"business-metrics\"})", "legendFormat": "{{provider_code}}·{{state}}", "refId": "A" }
+        {
+          "expr": "sum by (provider_code, state) (ihui_relay_key_pool_keys{job=\"business-metrics\"})",
+          "legendFormat": "{{provider_code}}·{{state}}",
+          "refId": "A"
+        }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
@@ -367,13 +410,23 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 8, "w": 6, "x": 6, "y": 67 },
       "targets": [
-        { "expr": "ihui_relay_account_pool_consecutive_failures{job=\"business-metrics\"}", "legendFormat": "{{provider_code}}/{{account}}", "refId": "A" }
+        {
+          "expr": "ihui_relay_account_pool_consecutive_failures{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}/{{account}}",
+          "refId": "A"
+        }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
-          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 3 }, { "color": "red", "value": 5 } ] }
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 3 },
+              { "color": "red", "value": 5 }
+            ]
+          }
         },
         "overrides": []
       },
@@ -385,7 +438,11 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 75 },
       "targets": [
-        { "expr": "ihui_relay_account_pool_token_expires_in_seconds{job=\"business-metrics\"}", "legendFormat": "{{provider_code}}/{{account}}", "refId": "A" }
+        {
+          "expr": "ihui_relay_account_pool_token_expires_in_seconds{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}/{{account}}",
+          "refId": "A"
+        }
       ],
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
@@ -396,7 +453,11 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 8, "w": 6, "x": 6, "y": 75 },
       "targets": [
-        { "expr": "topk(10, ihui_relay_key_pool_health_age_seconds{job=\"business-metrics\"})", "legendFormat": "{{provider_code}}/{{key}}", "refId": "A" }
+        {
+          "expr": "topk(10, ihui_relay_key_pool_health_age_seconds{job=\"business-metrics\"})",
+          "legendFormat": "{{provider_code}}/{{key}}",
+          "refId": "A"
+        }
       ],
       "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
@@ -407,7 +468,11 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 83 },
       "targets": [
-        { "expr": "ihui_relay_account_pool_total_calls{job=\"business-metrics\"}", "legendFormat": "{{provider_code}}/{{account}}", "refId": "A" }
+        {
+          "expr": "ihui_relay_account_pool_total_calls{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}/{{account}}",
+          "refId": "A"
+        }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
@@ -418,16 +483,123 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 8, "w": 6, "x": 6, "y": 83 },
       "targets": [
-        { "expr": "sum(increase(ihui_relay_key_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))", "legendFormat": "key 脏行", "refId": "A" },
-        { "expr": "sum(increase(ihui_relay_key_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))", "legendFormat": "key 标签撞车", "refId": "B" },
-        { "expr": "sum(increase(ihui_relay_account_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))", "legendFormat": "账号脏行", "refId": "C" },
-        { "expr": "sum(increase(ihui_relay_account_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))", "legendFormat": "账号标签撞车", "refId": "D" }
+        {
+          "expr": "sum(increase(ihui_relay_key_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "key 脏行",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(ihui_relay_key_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "key 标签撞车",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(ihui_relay_account_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "账号脏行",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(increase(ihui_relay_account_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "账号标签撞车",
+          "refId": "D"
+        }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
-          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号池可调度账号数(按 provider;与 key 族同节拍,5 分钟一轮)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 91 },
+      "targets": [
+        {
+          "expr": "ihui_relay_account_pool_schedulable_accounts{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}·可调度",
+          "refId": "A"
+        },
+        {
+          "expr": "ihui_relay_account_pool_enabled_accounts{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}·启用",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号池容量归零的 provider 数(有启用号但可调度=0 ⇒ 回落正在静默发生)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 3, "x": 6, "y": 91 },
+      "targets": [
+        {
+          "expr": "sum(ihui_relay_account_pool_zero_capacity{job=\"business-metrics\"})",
+          "legendFormat": "容量归零 provider",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "上游静默回落(窗口增量,按原因四档)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 3, "x": 9, "y": 91 },
+      "targets": [
+        {
+          "expr": "sum by (reason) (increase(ihui_relay_upstream_fallback_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
