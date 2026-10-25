@@ -151,10 +151,89 @@ export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, 
   return v
 }
 
+/**
+ * **完整租约**的判据(三要素齐备)= `claimMarkOf` 交出 `form==='lease'` ∧ 有日期 ∧ 有持有者。
+ * 只问 `claimMarkOf` 那一把尺子,不另拼正则(§0.6);裸 `（进行中）`、缺日期、缺持有者一律不算,
+ * 所以守门 109 CL4「新增即拦」不可能被本层旁路。
+ */
+export function completeLeaseOf(line) {
+  const m = claimMarkOf(line)
+  if (!m) return null
+  return m.form === 'lease' && m.date && m.holder ? m : null
+}
+
+/**
+ * 族内租约合并(2026-10-25 立,承「折叠把认领弄丢 / A4 族级认领守恒整批按住」票)。
+ *
+ * 立因(实测,不是推断):折叠一族 N→1 时,被折掉的那几行上的租约随行消失。若整族只有副本带牌、
+ * 保留行不带,折叠之后这一族的认领就**真的没了** —— 认领守恒断言(A4 族级)当场整批拒落,
+ * 于是"漂开副本折叠"这条通道一步也走不通;而若为了过断言把旧牌硬搬回去,又会把已裁决释放的票
+ * 重新算成在飞(比"少一张牌"更坏)。
+ *
+ * 本层给的是**合并**而不是搬运:保留行没有牌时,把族内**唯一**一张完整租约原样插到它复选框之后
+ * (三要素 `（进行中@YYYY-MM-DD/持有者）` 只留一个);下面三种情形一律**不合并、交人裁**
+ * (§0.10 失效方向恒为"多要一次定向说明"):
+ *  ① 族内 ≥2 张**互不相同**的完整租约 —— 多人在飞,机器摘掉任何一张都是代摘他人认领;
+ *  ② 保留行自己有牌,而副本的牌与它不同 —— 那是"换约",不是合并;
+ *  ③ 副本只有裸牌/半牌 —— 插进去等于新增一枚守门 109 CL4 要拦的裸牌(不拿它充数)。
+ *
+ * @param {string} keeperLine 保留行原文
+ * @param {string[]} donorLines 将被折掉的其余行原文
+ * @returns {{ok:true, claim:string|null, marks:string[], undetermined:string[]}
+ *          |{ok:false, conflict:string[], why:string}}
+ */
+export function leaseCarryOf(keeperLine, donorLines) {
+  const keeper = completeLeaseOf(keeperLine)
+  const marks = []
+  const undetermined = []
+  for (const l of Array.isArray(donorLines) ? donorLines : []) {
+    const m = completeLeaseOf(l)
+    if (m) {
+      if (!marks.includes(m.mark)) marks.push(m.mark)
+      continue
+    }
+    // 有"进行中"字样却过不了三要素 ⇒ 裸牌/半牌:不参与合并,但必须点名(不冒绿)。
+    if (claimMarkOf(l)) undetermined.push(String(l).slice(0, 80))
+  }
+  if (keeper) {
+    const others = marks.filter((x) => x !== keeper.mark)
+    if (others.length)
+      return {
+        ok: false,
+        conflict: [keeper.mark, ...others],
+        why: `保留行自带租约 ${keeper.mark},与被折行上的 ${others.join(' / ')} 不同 ⇒ 那是换约不是合并,交人裁`,
+      }
+    return { ok: true, claim: null, marks, undetermined }
+  }
+  if (marks.length > 1)
+    return {
+      ok: false,
+      conflict: marks,
+      why: `族内 ${marks.length} 张互不相同的完整租约(多人在飞)⇒ 机器不代摘任何一张,交人裁`,
+    }
+  return { ok: true, claim: marks[0] ?? null, marks, undetermined }
+}
+
+/**
+ * 把一枚合并来的租约插进保留行(**只此一种改写形态**:复选框与正文之间原样插入,别处一字不动)。
+ * 返回的文本必须再过 `assertRowRewriteConservation`(调用方判),本函数不自证 —— 它只产候选。
+ * 给不出复选框前缀(残行/已勾行)⇒ 原样返回,由调用方按"未合并"处理并点名。
+ */
+export function applyLeaseCarry(keeperLine, claim) {
+  const s = String(keeperLine ?? '')
+  if (!claim) return s
+  const m = /^(\s*(?:[-*]\s*)?\[[ ]\])([\s\S]*)$/.exec(s)
+  if (!m) return s
+  return `${m[1]}${claim}${m[2]}`
+}
+
 export const __test__ = {
   assertRowRewriteConservation,
   addedMarkIsIsolated,
   bucketOf,
   leaseTransitionOf,
+  completeLeaseOf,
+  leaseCarryOf,
+  applyLeaseCarry,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

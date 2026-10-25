@@ -84,8 +84,10 @@ import {
   DUP_POINTER_RE,
   POINTER_FAMILIES,
   POINTER_NO_AUTO_REPAIR,
+  SELF_DEDISPATCH_RE,
   archivedEntryIndex,
   auditPlan,
+  bodyOfRow,
   countMergeNotes,
   compositeKeyOf,
   findPrefixNestedCopies,
@@ -153,9 +155,21 @@ import { recordBypassLanding } from './lib/commit-attestation.mjs'
 // 而回退支写的是 `head, commit]`(后面无逗号)⇒ 天然不匹配。现行实现与本注释的出处见 :362-373。
 // 遮噪只引这一份实现(守门 131/135/148 同规,§22c)。
 import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
+// 漂开族折叠档的**分族键**与门 203 同源(§0.6):同一段"什么算同题"的归一化只许一份实现。
+// 旧扫描档(`findKeylessDriftedFamilies`)已在用 titleOf,而本档要跨"同号/异号/一份有号一份无号"
+// 三种形态 —— 那一层只有指纹能表达,故直接 import 门 203 的导出(不另写相似度,§1)。
+import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
+// 被折行的**逐字留痕**唯一出口(`plan-row-drop.jsonl`):抄一份路径/键名/时序(必须排在落地之后)
+// 就是本仓记过最多次的"摘一次回一次"。判据与清扫器共用一个函数,本档只调它。
+import { appendDropLedger } from './strip-stale-closed-rows.mjs'
 // G-952 收口(2026-10-23):漂开折叠是**整行改写**,必须过 AGENTS §1 那三维守恒(勾选态 ∧ 认领租约 ∧ 归属桶)。
 // 实现单源在 lib,本器不得再抄一份"什么算漂了归属"(§0.6;门 191 拦的是测试侧复制,实现侧自抄没人拦)。
 import { assertRowRewriteConservation } from './lib/plan-row-conservation.mjs'
+import {
+  applyLeaseCarry,
+  completeLeaseOf,
+  leaseCarryOf,
+} from './lib/plan-row-conservation.mjs'
 import { runSelfTest } from './lib/plan-tasks-merge-selftest.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -2844,6 +2858,36 @@ export function twinFoldRejectReason(beforeLine, afterLine) {
 }
 
 /**
+ * 折叠族的**持有行选择**(2026-10-25 改,承「A4 族级认领守恒把整批折叠按住」票)。
+ *
+ * 旧口径 = 候选取位置最靠前那一行。它有一条实测代价:a4 的族级认领守恒要求"折叠后该族仍带租约",
+ * 而**带租约的副本**常排在无牌副本之后(各会话把认领挂在后来追加的那一份上)⇒ 折掉带牌副本、
+ * 留下无牌行,这一族的认领随行消失 ⇒ 认领守恒断言整批拒落,`--fold-twins` 与 purge 的 L5
+ * 同题折并(它直接吃本函数的 `keeperLine`)一起停摆。判据修正只改**选谁**,不改"折不折":
+ *  ① 候选里**恰好一行(或同文本多行)**带完整租约 ⇒ 它就是持有行(正在干的人持有,牌不必搬家);
+ *  ② 候选里 ≥2 张**互不相同**的完整租约 ⇒ 多人在飞,整族拒折并点名(机器不代摘任何一张);
+ *  ③ 其余(无牌 / 只有裸牌半牌)⇒ 位置最靠前,与旧口径逐字同形(幂等依据不变:折叠后副本
+ *     无主键,不再进组,所以第二轮 `edits` 必为空)。
+ * 裸牌/半牌不当"有牌"看 —— 它们不是租约(`completeLeaseOf`),拿它挡持有会让真持有行反而被折掉。
+ *
+ * @param {Array<{line:number,raw:string,key:string}>} candidates 已按行序(parseTaskRows 产物)
+ * @returns {{keeper:object|null, conflict:string[]|null, leasedMarks:string[]}}
+ */
+export function pickTwinKeeper(candidates) {
+  const list = Array.isArray(candidates) ? candidates : []
+  if (!list.length) return { keeper: null, conflict: null, leasedMarks: [] }
+  const leased = []
+  for (const c of list) {
+    const m = completeLeaseOf(c.raw)
+    if (m) leased.push({ c, m })
+  }
+  const marks = [...new Set(leased.map((x) => x.m.mark))]
+  if (marks.length > 1) return { keeper: null, conflict: marks, leasedMarks: marks }
+  // 同文本多枚 ⇒ 取位置最靠前那枚(确定性;折叠后副本无主键,幂等不受影响)
+  return { keeper: leased.length ? leased[0].c : list[0], conflict: null, leasedMarks: marks }
+}
+
+/**
  * 纯函数:输入计划文档的行数组,输出"该折哪些行、留哪一行当持有行、哪些判不出"。
  *
  * 成组判据(刻意与 F1/F4 不同源、也不与它们混进同一个函数):**题面逐字相等而编号互异**。
@@ -2909,9 +2953,18 @@ export function foldTwins(lines, today = new Date().toISOString().slice(0, 10)) 
       })
       continue
     }
-    const keeper = candidates[0]
+    const pick = pickTwinKeeper(candidates)
+    if (pick.conflict) {
+      // 多人在飞:整族不折,点名交人工(不代摘任何一张牌,也不猜谁作数)
+      const reason = `族内 ${pick.conflict.length} 张互不相同的完整租约 ⇒ 多人在飞,不猜持有行,交人工:${pick.conflict.join(' / ')}`
+      undetermined.push(`题面「${t}」${reason}`)
+      refused.push({ line: candidates[0].line, title: t, reason })
+      continue
+    }
+    const keeper = pick.keeper
     const folded = []
-    for (const r of candidates.slice(1)) {
+    for (const r of candidates) {
+      if (r === keeper) continue
       const after = buildTwinFold(r.raw, keeper.raw, today)
       const why = twinFoldRejectReason(r.raw, after)
       if (why) {
@@ -3392,6 +3445,26 @@ export function keylessDriftedNote(scan) {
 }
 
 /**
+ * 漂开族自动折叠档的**一行结论**(报名站点用它;与 `keylessDriftedNote` 同一纪律:
+ * 读数与结论同屏、判不出必须显式写"未判定",不拿 0 冒充)。
+ * @param {object} plan `planDriftedFamilyFolds` 的返回值
+ */
+export function driftedFamilyFoldNote(plan) {
+  if (!plan || typeof plan !== 'object')
+    return '⑤ 漂开族自动折叠(--fold-drifted-families):**未判定** —— 拿不到折叠计划入参'
+  const folds = plan.folds || []
+  const rows = folds.reduce((n, f) => n + (f.deleted?.length ?? 0), 0)
+  const tail = `拒绝 ${(plan.refused ?? []).length} 族 / 跳过 ${(plan.skipped ?? []).length} 族`
+  if (!folds.length)
+    return `⑤ 漂开族自动折叠(--fold-drifted-families):0 族可折(候选 ${plan.candidates ?? 0} 行,${tail})⇒ 本面无"同题而正文已漂开"的重复`
+  return (
+    `⑤ 漂开族自动折叠(--fold-drifted-families):${folds.length} 族 / 拟删 ${rows} 行` +
+    `(每族留 1 行,族内唯一完整租约合并到保留行 + 被删行逐字留痕;${tail})` +
+    ` ⇒ 落地:node scripts/plan-tasks-merge.mjs --fold-drifted-families --commit`
+  )
+}
+
+/**
  * 漂开归并的改写(纯函数):keeperLine 由调用方(人工)点名,**不猜持有行**。
  */
 export function applyDriftedMerge(content, anchor, keeperLine, today) {
@@ -3603,6 +3676,400 @@ export function driftedMergeAndLand(anchor, keeperLine, maxAttempts = 8) {
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     console.log(
       `✅ 漂开归并落地 ${landed.commit.slice(0, 11)}:持有行 L${keeperLine} 保持原样,折副本 ${f.edits.length} 行;` +
+        `共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}`,
+    )
+    return 0
+  }
+  console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  return 1
+}
+
+// ── 漂开族自动折叠档(--fold-drifted-families,2026-10-25 立)────────────────────
+/**
+ * 票面(2026-10-25 主席派单):AGENTS §1 现行口径下,"同题不同号而正文已漂开的副本"**没有任何自动出口**
+ * —— `--fold-identical-open-rows` 只收逐字节相同,`--dedupe-open-rows` 只收带指针的逐字副本,
+ * `--fold-twins` 只收"题面逐字相等且有编号",`--merge-drifted` 要求人工点名持有行。
+ * 于是这些族在派单清单里是两行/三行 ⇒ 两个会话各领同一张票,正是机主要求"不允许其他 agent
+ * 打架重复做同一件任务"的机器成因(实测:tmpdir 四副本 / 权限双轴化 2 份 / 证据级流水 2 份 /
+ * 第八轮六格 2 份 …)。
+ *
+ * 本档是那条**有损面可证**的自动通道。它与三个既有出口的分工**逐条显式**:
+ *  - `--fold-identical-open-rows` 收"逐字节相同"(多重集 N→1);本档**结构上不碰**整族逐字节相同的族
+ *    (族内 unique 份数为 1 ⇒ 整族交回该档,并报名)。
+ *  - `--fold-twins` 收"题面逐字相等 ∧ 编号互异",产物是**摘号 + 指针**(一行不删);本档跨"同号"与
+ *    "一份有号一份无号"两型,产物是**真删行**(N→1),因此必须自带留痕。
+ *  - `--merge-drifted` 是人工裁决出口(挑哪份作数是人的决定);本档只在**机器能证的**形态上自动走:
+ *    保留行按"完整租约 > 正文最全 > 最新〔进展@/结清凭据〕 > 行序靠前"确定性选出,被删行逐字进留痕。
+ *
+ * 四条硬纪律(与器内其它删行档同形,任一不过即整批不落):
+ *  ① **分族键 = 题面指纹**(`extractTaskFingerprint`,门 203 同一实现,§0.6);禁按复合主键分族 ——
+ *     同一件事被并发取号登记成几条不同编号正是本档要吃的那一型,按主键分族对它们全盲。
+ *  ② **每族只留一行**,且被删行逐字进 `.ihui-agent/state/plan-row-drop.jsonl`(kind 由 `seat` 具名)。
+ *     不写留痕 = `union-converge` 的活文档行 union 与 `scrub-declared-removals` 同时看不见这批行
+ *     ⇒ 摘一次回一次(本仓 2026-10-23 实测过的形态)。留痕必须排在**落地成功之后**
+ *     (凭据是"HEAD 有没有被推进",不是退出码)。
+ *  ③ **一条不少**:行数差=删除数 ∧ 输出是输入的顺序子序列 ∧ 无任何值变多 ∧ 每族在产物面仍有 1 行
+ *     ∧ 被删行的 marker 在产物面仍在(门 71 不会按未勾回捞)∧ 勾选态逐行守恒 ∧ 归属桶/主键/租约
+ *     三维守恒(`lib/plan-row-conservation.mjs` 单源)∧ F4/F4b 不增 ∧ 归并注记不增。
+ *  ④ **同一台账连跑两次第二次必须 no-op**:折叠后每族只剩一行 ⇒ 族不再 ≥2 ⇒ `folds` 为空,
+ *     结论行明写"依据 = 每族未勾行数 = 1"。这条是幂等判据,不是"再试一次"。
+ *
+ * 与 A4 族级认领守恒的关系(2026-10-25 实测):purge 的 `--absorb` 承载档会把副本正文整段挂到保留行
+ * 行尾(含嵌套 `（认领已释放@…）`),而 `extractTaskFingerprint` 剥注记后把这枚释放印留进指纹 ⇒
+ * 保留行的族键当场漂开 ⇒ A4 读成"该族丢失认领"整批拒落(现读 8 族复现,样例见
+ * `.ihui-agent/tmp/ledgerfold/` 的诊断)。本档先把这些族折成一行(租约合并到保留行),purge 侧
+ * 就不再面对"同族多行 + 承载移植"这一形态 ⇒ 判据失真的**输入**被消除,而判据本身不被放宽。
+ */
+
+/** 族内行数上限(与 TWIN_GROUP_MAX / DRIFT_GROUP_MAX 同一条纪律:超过它就不猜,交人工)。 */
+export const DRIFT_FAMILY_MAX = 8
+
+/** 留痕里 `seat` 的具名值(身份,不是正文;消费方只认 `rowBefore`)。 */
+export const DRIFT_FAMILY_SEAT = 'drifted-family-fold'
+
+/** 一行的题面指纹(= 门 203 的 `extractTaskFingerprint`,不另写相似度);取不到 ⇒ null。 */
+export function fingerprintOfRow(line) {
+  try {
+    const fp = extractTaskFingerprint(String(line ?? ''))
+    return typeof fp === 'string' && fp !== '' ? fp : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 题面归一化(族键的第二维):小写 + 去空白/标点/符号,与门 203 的归一化同一族规则。
+ * 为什么不只靠指纹(2026-10-25 实测,不是取舍而是硬事实):
+ *  `extractTaskFingerprint` 剥编号用的正则只认"字母+数字"(`/[a-z]{1,3}-?\d{2,}/`),
+ *  **纯数字编号(`71.` / `86.`)不被剥离** ⇒ 同一件事"一份带号、一份不带号"时两条指纹不同
+ *  (`71chat多端…` vs `chat多端…`),本档按指纹分族对这一型整族失明(现读 HEAD 面 8 族全部如此)。
+ *  题面维(`titleOf`,与 foldTwins / purge 的 L5 同源)把它救回来 —— 两行的 `titleOf` 逐字相等。
+ */
+function normalizeTitleOf(line) {
+  let t = ''
+  try {
+    t = String(titleOf(line) ?? '')
+  } catch {
+    t = ''
+  }
+  const n = t.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '')
+  return n.length >= 4 ? n : ''
+}
+
+/**
+ * 漂开族的**分族键**(唯一出口,分组与复验共用这一份,§0.6):
+ *  ① 题面归一化(`T:`)—— 与 `titleOf` / foldTwins / purge L5 同源,能把"一份带号一份不带号"救回来;
+ *  ② 题面缺失时才回落指纹(`F:`)—— 指纹不是主键(纯数字编号不被剥离),所以它只当兜底;
+ *  ③ 两者都取不到 ⇒ null(该行不进本档,不猜)。
+ * 复合主键**永不参与**分族:同一件事被并发取号登记成几条不同编号正是本档要吃的那一型。
+ */
+export function driftFamilyKeyOf(line) {
+  const t = normalizeTitleOf(line)
+  if (t) return `T:${t}`
+  const fp = fingerprintOfRow(line)
+  return fp ? `F:${fp}` : null
+}
+
+/** 行内最新的 `@YYYY-MM-DD`(进展注/结清凭据的日期);没有 ⇒ `''`。 */
+function newestNoteDateOf(line) {
+  const ds = [...String(line ?? '').matchAll(/@(\d{4}-\d{2}-\d{2})/g)].map((m) => m[1])
+  return ds.length ? ds.sort().at(-1) : ''
+}
+
+/** 保留行排序:完整租约 > 正文最全 > 最新注记 > 行序靠前(确定性,幂等的基础)。 */
+function compareDriftKeeper(a, b) {
+  const la = completeLeaseOf(a.raw) ? 1 : 0
+  const lb = completeLeaseOf(b.raw) ? 1 : 0
+  if (la !== lb) return lb - la
+  const ba = bodyOfRow(a.raw)?.length ?? 0
+  const bb = bodyOfRow(b.raw)?.length ?? 0
+  if (ba !== bb) return bb - ba
+  const da = newestNoteDateOf(a.raw)
+  const db = newestNoteDateOf(b.raw)
+  if (da !== db) return db.localeCompare(da)
+  return a.line - b.line
+}
+
+/** 这行是不是"已折过/已标注"的副本(本档结构上不碰的族)。 */
+function isFoldProductRow(raw) {
+  const s = String(raw ?? '')
+  return DUP_POINTER_RE.test(s) || SELF_DEDISPATCH_RE.test(s) || isTwinFolded(s) || isDriftFolded(s)
+}
+
+/**
+ * 纯函数:输入台账行数组,输出漂开族的折叠计划。
+ * @returns {{folds:Array<{fp:string,keeper:{line:number,raw:string},after:string,deleted:Array<{line:number,raw:string}>,carriedClaim:string|null}>,
+ *            refused:Array<{line:number,fp:string,reason:string}>, skipped:Array<{fp:string,lines:number[],why:string}>,
+ *            groups:number, candidates:number}}
+ */
+export function planDriftedFamilyFolds(lines) {
+  const content = Array.isArray(lines) ? lines.join('\n') : String(lines ?? '')
+  const folds = []
+  const refused = []
+  const skipped = []
+  const byFp = new Map()
+  let candidates = 0
+  for (const r of parseTaskRows(content)) {
+    if (r.state !== 'open') continue
+    if (isFoldProductRow(r.raw)) continue
+    const fp = driftFamilyKeyOf(r.raw)
+    if (!fp) continue
+    candidates++
+    if (!byFp.has(fp)) byFp.set(fp, [])
+    byFp.get(fp).push(r)
+  }
+  for (const [fp, grp] of byFp) {
+    if (grp.length < 2) continue
+    const lineNos = grp.map((r) => r.line)
+    if (grp.length > DRIFT_FAMILY_MAX) {
+      skipped.push({ fp, lines: lineNos, why: `族内 ${grp.length} 行 > 上限 ${DRIFT_FAMILY_MAX} ⇒ 不猜保留行,交人工` })
+      continue
+    }
+    if (new Set(grp.map((r) => r.raw)).size === 1) {
+      skipped.push({ fp, lines: lineNos, why: '整族逐字节相同 ⇒ 不归本档(出口 --fold-identical-open-rows)' })
+      continue
+    }
+    const ranked = [...grp].sort(compareDriftKeeper)
+    const keeper = ranked[0]
+    const donors = ranked.slice(1)
+    const carry = leaseCarryOf(keeper.raw, donors.map((d) => d.raw))
+    if (!carry.ok) {
+      refused.push({ line: keeper.line, fp, reason: carry.why })
+      continue
+    }
+    const after = applyLeaseCarry(keeper.raw, carry.claim)
+    if (carry.claim) {
+      // 合并租约是本档唯一的保留行改写形态;它必须过三维守恒(单源),否则整族不折。
+      const cons = assertRowRewriteConservation({ oldLine: keeper.raw, newLine: after })
+      if (cons.length) {
+        refused.push({ line: keeper.line, fp, reason: `合并租约后三维守恒未过:${cons.join(' / ')}` })
+        continue
+      }
+    }
+    folds.push({
+      fp,
+      keeper: { line: keeper.line, raw: keeper.raw },
+      after,
+      deleted: donors.map((d) => ({ line: d.line, raw: d.raw })),
+      carriedClaim: carry.claim,
+      undeterminedLeases: carry.undetermined,
+    })
+  }
+  folds.sort((a, b) => a.keeper.line - b.keeper.line)
+  return { folds, refused, skipped, groups: folds.length, candidates }
+}
+
+/** 把折叠计划落到文本上(行内 splice;删除行整行拿掉)。 */
+export function applyDriftedFamilyFolds(content, plan) {
+  if (typeof content !== 'string')
+    throw new TypeError(`applyDriftedFamilyFolds 需要整档文本,实得 ${typeof content}`)
+  const lines = content.split('\n')
+  const drop = new Set()
+  for (const f of plan.folds || []) {
+    lines[f.keeper.line - 1] = f.after
+    for (const d of f.deleted) drop.add(d.line)
+  }
+  const out = []
+  for (let i = 0; i < lines.length; i++) if (!drop.has(i + 1)) out.push(lines[i])
+  return out.join('\n')
+}
+
+/**
+ * 零损失断言(返回 problems;空 = 通过)。
+ * 判据一律取现成出口(`auditPlan` / `markerOf` / `countMergeNotes` / `assertRowRewriteConservation`),
+ * 本函数只负责"按折叠计划对账",不新增任何"什么算同题/同族"的口径。
+ */
+export function verifyDriftedFamilyFold(srcText, outText, plan) {
+  const problems = []
+  if (typeof srcText !== 'string' || typeof outText !== 'string')
+    return {
+      problems: [`漂开族折叠的零损失断言未判定 —— 入参不是整档文本(src=${typeof srcText} out=${typeof outText})`],
+      before: null,
+      after: null,
+    }
+  const a = srcText.split('\n')
+  const b = outText.split('\n')
+  const folds = plan?.folds || []
+  const deletedCount = folds.reduce((s, f) => s + f.deleted.length, 0)
+  // ① 行数差 = 删除数
+  if (a.length - b.length !== deletedCount)
+    problems.push(`行数差 ${a.length}→${b.length} ≠ 声明删除数 ${deletedCount} ⇒ 有一边在自说自话,整批不落`)
+  // ② 输出是输入的顺序子序列:未参与的行逐字等,保留行等于声明的 after,被删行不出现
+  const drop = new Set(folds.flatMap((f) => f.deleted.map((d) => d.line)))
+  const afterOf = new Map(folds.map((f) => [f.keeper.line, f.after]))
+  let bi = 0
+  for (let i = 0; i < a.length && bi <= b.length; i++) {
+    if (drop.has(i + 1)) continue
+    const expect = afterOf.has(i + 1) ? afterOf.get(i + 1) : a[i]
+    if (b[bi] !== expect) {
+      problems.push(`L${i + 1} 起顺序子序列对不上(期望「${String(expect).slice(0, 60)}」,产物第 ${bi + 1} 行「${String(b[bi] ?? '(缺)').slice(0, 60)}」)`)
+      break
+    }
+    bi++
+  }
+  if (bi !== b.length && !problems.length) problems.push(`顺序子序列只对上 ${bi}/${b.length} 行`)
+  // ③ 无任何值变多(多重集)
+  const countOf = (arr) => {
+    const m = new Map()
+    for (const l of arr) m.set(l, (m.get(l) ?? 0) + 1)
+    return m
+  }
+  const ca = countOf(a)
+  const cb = countOf(b)
+  const grew = [...cb].filter(([l, n]) => n > (ca.get(l) ?? 0))
+  if (grew.length) problems.push(`产物里有 ${grew.length} 种行比输入更多(删除档不得造行)`)
+  // ④ 每族在产物面仍有 **1** 行;被折行的"消失"必须**逐条进本轮声明集**(门 71 的 declared)
+  const declaredRows = new Set(folds.flatMap((f) => f.deleted.map((d) => d.raw)))
+  for (const f of folds) {
+    const left = b.filter((l) => driftFamilyKeyOf(l) === f.fp)
+    if (left.length !== 1)
+      problems.push(`族「${f.fp.slice(0, 40)}」折叠后仍有 ${left.length} 行(必须恰好 1 行)`)
+    // 认领转移:合并的那一枚必须真的落在 after 上
+    if (f.carriedClaim && !String(f.after).includes(f.carriedClaim))
+      problems.push(`族「${f.fp.slice(0, 40)}」声明合并租约 ${f.carriedClaim} 但保留行里没有它`)
+    // 三维守恒(单源):保留行 old→after
+    const cons = assertRowRewriteConservation({ oldLine: f.keeper.raw, newLine: f.after })
+    if (cons.length) problems.push(`保留行 L${f.keeper.line} 三维守恒未过:${cons.join(' / ')}`)
+  }
+  // ⑤ 勾选态 / 注记 / 重复计数 三维
+  const ap0 = auditPlan(srcText)
+  const ap1 = auditPlan(outText)
+  const c0 = ap0.counts
+  const c1 = ap1.counts
+  if (ap1.doneRows !== ap0.doneRows)
+    problems.push(`已勾选行数 ${ap0.doneRows}→${ap1.doneRows}(本档只折未勾行,勾选态必须一枚不动)`)
+  if (c1.open !== c0.open - deletedCount)
+    problems.push(`未勾选行数 ${c0.open}→${c1.open} 与被删份数 ${deletedCount} 不吻合`)
+  if (c1.mergeNotes > c0.mergeNotes)
+    problems.push(`归并落账注记由 ${c0.mergeNotes} 涨到 ${c1.mergeNotes}(本档不产注记)`)
+  for (const [k, get] of [
+    ['F1', (c) => c.forks],
+    ['F2', (c) => c.voidRows],
+    ['F3', (c) => c.rotatedAuto],
+    ['F4', (c) => c.dupOpenCopies],
+    ['F4b', (c) => c.verbatimDupCopies],
+    ['F6', (c) => c.dupBlocks],
+  ]) {
+    if (get(c1) > get(c0)) problems.push(`${k} 由 ${get(c0)} 涨到 ${get(c1)}`)
+  }
+  // ⑥ 幂等:对产物再跑一遍必须无折(依据 = 每族未勾行数 = 1)
+  if (!problems.length) {
+    const again = planDriftedFamilyFolds(b)
+    if (again.folds.length)
+      problems.push(`折完仍有 ${again.folds.length} 族可折 ⇒ 不闭合(幂等判据:每族未勾行数必须 = 1)`)
+  }
+  // ⑦ 守门 71 的总兜底(逐行 marker 在上面单判;这里用同一实现整档对账,防"我漏看了某种形态")
+  try {
+    // `declared` = 本轮被折行的整行原文:门 71 的豁免**只认整行逐字相等**(`declaredExempt`),
+    // 落地面上的同一条判据从 `.ihui-agent/state/plan-row-drop.jsonl` 读同一批行(留痕由落地臂写)。
+    // 这里传声明集,量的是"除我声明的删除外,一行登记都没丢";不传 = 把本档的正当删除读成丢行。
+    const lost = lostMarkers(srcText, outText, declaredRows)
+    if (lost.length) problems.push(`守门 71 会判丢 ${lost.length} 枚**未声明**的登记行(首枚「${String(lost[0].marker).slice(0, 40)}」)⇒ 回捞层会把它们插回来`)
+  } catch (e) {
+    problems.push(`门 71 判据未判定(${String(e?.message ?? e).slice(0, 100)})⇒ 整批不落`)
+  }
+  return { problems, before: c0, after: c1 }
+}
+
+/**
+ * 漂开族折叠的落地:临时索引 + commit-tree + CAS + 落地后复验 + 留痕 + 推送腿。
+ * 与 `driftedMergeAndLand` / `twinFoldAndLand` 同一套 plumbing;差别只在**删行**与**留痕**。
+ */
+export function foldDriftedFamiliesAndLand(maxAttempts = 8, opts = {}) {
+  // root 可注入(镜像/端到端测试跑 scratch 仓);生产面缺省 = 本仓。
+  const root = opts.root || ROOT
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const spec = `HEAD:${PLAN_REL}`
+    const src = catBatch(root, [spec], { maxBuffer: 1 << 28 }).get(spec)
+    if (src === null || src === undefined) {
+      console.log('漂开族折叠档未判定 —— HEAD 取不到 PROJECT_PLAN.md(不记为已修)')
+      return 2
+    }
+    const plan = planDriftedFamilyFolds(src)
+    if (!plan.folds.length) {
+      console.log(
+        `✅ 漂开族折叠档:HEAD 无可折族(判据=题面指纹族内未勾行数 ≥2;本面候选 ${plan.candidates} 行 / ` +
+          `拒绝 ${plan.refused.length} 族 / 跳过 ${plan.skipped.length} 族)⇒ no-op,不动任何东西` +
+          `${attempt > 1 ? ` (第 ${attempt} 轮)` : ''}`,
+      )
+      for (const s of plan.skipped.slice(0, 5)) console.log(`   · 跳过「${s.fp.slice(0, 40)}」:${s.why}`)
+      for (const r of plan.refused.slice(0, 5)) console.log(`   · 拒绝 L${r.line}:${r.reason}`)
+      return 0
+    }
+    const out = applyDriftedFamilyFolds(src, plan)
+    const { problems } = verifyDriftedFamilyFold(src, out, plan)
+    if (problems.length) {
+      console.log(
+        '❌ 漂开族折叠档停手(现场保留,交人工;出口 = --fold-drifted-families 自动档 / --merge-drifted "<题面锚点>" --keeper 人工点名):',
+      )
+      for (const p of problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    const blocked = guardArchiveMonotonic(out, root)
+    if (blocked) {
+      console.error(blocked)
+      return 1
+    }
+    const parent = bypassGit(['rev-parse', 'HEAD'], { root })
+    const deletedRows = plan.folds.flatMap((f) => f.deleted)
+    const msg = [
+      'fix(plan): 折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families)',
+      '',
+      `触发时 HEAD 现读:${plan.folds.length} 族同题而正文已漂开的未勾副本,共折掉 ${deletedRows.length} 行(每族留 1 行)。`,
+      '分族键 = 题面指纹(与门 203 同一实现 `extractTaskFingerprint`);保留行判据 = 完整租约 > 正文最全 > 最新〔进展@〕注记 > 行序靠前。',
+      '认领:族内唯一一张完整租约合并到保留行(三要素只留一个);多张互不相同的租约 ⇒ 整族拒折交人工(不代摘任何人的牌)。',
+      `零损失判据(任一不过即整批不落):行数差=删除数 ∧ 顺序子序列 ∧ 无值变多 ∧ 每族产物仍 1 行 ∧ 被删行 marker 仍在(门 71 不回捞) ∧ 勾选态不动 ∧ 三维守恒(单源 plan-row-conservation) ∧ F1/F2/F3/F4/F4b/F6 不涨 ∧ 注记不增 ∧ 折完复跑无族(幂等)。`,
+      `被删行逐字进 .ihui-agent/state/plan-row-drop.jsonl(seat=${DRIFT_FAMILY_SEAT}):不写留痕 = union 回捞会把它们原样补回。`,
+    ].join('\n')
+    let landed
+    try {
+      landed = commitTreeWithIndex({
+        root,
+        parent,
+        baseRef: parent,
+        message: msg,
+        entries: [{ path: PLAN_REL, text: out }],
+      })
+    } catch (e) {
+      console.log(`❌ 漂开族折叠档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
+      return 1
+    }
+    if (!casUpdateRef(landed.commit, parent, { root })) {
+      console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),按新 HEAD 现取重算再来`)
+      continue
+    }
+    const landedSpec = `${landed.commit}:${PLAN_REL}`
+    const landedText = catBatch(root, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
+    if (landedText === null || landedText === undefined) {
+      console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
+      casUpdateRef(parent, landed.commit, { root, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      return 1
+    }
+    const recheck = verifyDriftedFamilyFold(src, landedText, plan)
+    if (recheck.problems.length) {
+      console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
+      casUpdateRef(parent, landed.commit, { root, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      return 1
+    }
+    // 留痕必须排在**落地成功之后**(凭据是 HEAD 已推进,不是退出码;先写后落会把"面上还在"说成"已删")
+    const led = appendDropLedger(
+      deletedRows.map((d) => d.raw),
+      { file: PLAN_REL, seat: DRIFT_FAMILY_SEAT, commit: landed.commit, baseline: parent },
+      root,
+    )
+    if (!led.ok) console.log(`⚠️ 留痕写入失败(${led.why})⇒ 这批行下次会被 union 回捞,必须人工补录:${deletedRows.length} 行`)
+    attestLanding({
+      source: 'plan-tasks-merge:fold-drifted-families',
+      landedSha: landed.commit,
+      headBefore: parent,
+      root,
+    })
+    rerunLedgerHeal({ root, paths: [PLAN_REL] })
+    const align = alignSharedIndex({ root, paths: [PLAN_REL], parentRef: parent })
+    const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
+    console.log(
+      `✅ 漂开族折叠落地 ${landed.commit.slice(0, 11)}:折 ${plan.folds.length} 族 / ${deletedRows.length} 行` +
+        `(保留行 ${plan.folds.map((f) => `L${f.keeper.line}`).join(',')});留痕 ${led.written} 条 → ${led.file};` +
         `共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}`,
     )
     return 0
@@ -4536,6 +5003,7 @@ export const KNOWN_FLAGS = [
   '--dedupe-open-rows',
   '--fold-identical-open-rows',
   '--fold-twins',
+  '--fold-drifted-families',
   '--merge-drifted',
   '--keeper',
   '--audit-pointers',
@@ -4847,6 +5315,87 @@ function main() {
       return 0
     }
     return twinFoldAndLand()
+  }
+  /**
+   * 漂开族自动折叠档(2026-10-25 立)。显式档,不挂 post-commit 自动跑 —— 它**删行**,
+   * 与 `--fold-identical-open-rows` 同一条"删行只走显式一次人工触发"的纪律;`--heal` 干跑
+   * 会把它的族数报名出来(可发现性,见 healReportDriftFamilies),发现与落地分两步。
+   *
+   * 两面旗同给 ⇒ exit 2:逐字相同那一族归 `--fold-identical-open-rows`(多重集 N→1 的无注记出口),
+   * 本档只吃"正文已漂开"那一格;同一族被两把尺子同时认领必然一边删多了、一边删少了。
+   */
+  if (has('--fold-drifted-families')) {
+    if (has('--dedupe-open-rows') || has('--fold-identical-open-rows') || has('--fold-twins')) {
+      console.log(
+        '❌ --fold-drifted-families 不能与 --dedupe-open-rows / --fold-identical-open-rows / --fold-twins 同给 —— ' +
+          '逐字相同族归前者、题面逐字相等有编号族归 --fold-twins、本档只吃正文已漂开那一格;同轮只能判一个方向。',
+      )
+      return 2
+    }
+    const selF = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
+    if (selF.error) {
+      console.log(`⚠️ 无法判定 —— ${selF.error}`)
+      return 2
+    }
+    let srcF
+    try {
+      srcF = readPlan(ROOT, selF.face)
+    } catch (e) {
+      console.log(
+        `⚠️ 无法判定 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`,
+      )
+      return 2
+    }
+    const pF = planDriftedFamilyFolds(srcF)
+    const vF = verifyDriftedFamilyFold(srcF, applyDriftedFamilyFolds(srcF, pF), pF)
+    if (has('--json')) {
+      console.log(
+        JSON.stringify(
+          {
+            face: LABEL[selF.face],
+            groups: pF.groups,
+            candidates: pF.candidates,
+            folds: pF.folds,
+            refused: pF.refused,
+            skipped: pF.skipped,
+            problems: vF.problems,
+          },
+          null,
+          2,
+        ),
+      )
+      return vF.problems.length ? 1 : 0
+    }
+    console.log(
+      `判定面:${LABEL[selF.face]}  漂开族:可折 ${pF.groups} 族 / 拟删 ${pF.folds.reduce((s, f) => s + f.deleted.length, 0)} 行 / ` +
+        `拒绝 ${pF.refused.length} 族 / 跳过 ${pF.skipped.length} 族(候选 ${pF.candidates} 行;分族键 = 题面指纹)`,
+    )
+    for (const f of pF.folds.slice(0, has('--all') ? 99999 : 12)) {
+      console.log(
+        `  - 族「${f.fp.slice(0, 44)}」保留 L${f.keeper.line}(${f.carriedClaim ? `合并租约 ${f.carriedClaim}` : '无租约可并'}),折 L${f.deleted.map((d) => d.line).join(',L')}`,
+      )
+    }
+    if (pF.folds.length > 12 && !has('--all')) console.log(`    …另 ${pF.folds.length - 12} 族(--all 全列)`)
+    for (const r of pF.refused.slice(0, has('--all') ? 99999 : 10)) console.log(`   ✋ L${r.line}:${r.reason}`)
+    for (const s of pF.skipped.slice(0, has('--all') ? 99999 : 10)) console.log(`   ⏭ L${s.lines.join(',L')}:${s.why}`)
+    if (vF.problems.length) {
+      console.log('❌ 零损失断言未过,拒交付:')
+      for (const p of vF.problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    if (pF.folds.length)
+      console.log(
+        '✅ 零损失断言全过(行数差=删除数 / 顺序子序列 / 无值变多 / 每族产物仍 1 行 / 被删行 marker 仍在 / 勾选态不动 / 三维守恒 / F1-F4b-F6 不涨 / 注记不增 / 复跑无族)',
+      )
+    else
+      console.log(
+        `  ✅ 本面无漂开族(判定依据:题面指纹族内未勾行数 ≥2 且正文互不逐字相等;候选 ${pF.candidates} 行)⇒ no-op`,
+      )
+    if (!has('--commit')) {
+      console.log('ℹ️ 未加 --commit:只出报告,一行未删。确认后再跑 --fold-drifted-families --commit')
+      return 0
+    }
+    return foldDriftedFamiliesAndLand()
   }
   // G-1058524:漂开副本的人工归并出口。两步确认 —— ① 报告档列出族内名单;② --keeper 人工
   // 点名持有行(+--commit 才落地)。挑哪条作数就是裁决哪份差异是正本,这个决定必须是人做的。
@@ -5489,6 +6038,16 @@ function main() {
         (f.overCap
           ? ` —— 超过 ${DRIFT_GROUP_MAX} 份,--merge-drifted 会拒(题面撞车不等于同题),需人工缩小锚点`
           : `;锚点 = --merge-drifted "${f.anchor}"`),
+    )
+  // 漂开族自动折叠档的**可发现性**必须与 F1–F4/F10 同屏(2026-10-25 立):这一族的副本在
+  // composite 键里分成几个身份 ⇒ F4 看不见;题面已漂开 ⇒ F10 也看不见。不报名就等于"没有这一型",
+  // 而派单清单照旧把同一件事发成两行(两个会话各领一张票)。
+  const dfPlan = planDriftedFamilyFolds(src)
+  console.log(driftedFamilyFoldNote(dfPlan))
+  for (const f of dfPlan.folds.slice(0, has('--all') ? 9999 : 5))
+    console.log(
+      `  · 可折族「${f.fp.slice(0, 44)}」保留 L${f.keeper.line} / 折 L${f.deleted.map((d) => d.line).join(',L')}` +
+        `${f.carriedClaim ? ` —— 租约 ${f.carriedClaim} 合并到保留行` : ''}`,
     )
   for (const c of r.changed.slice(0, has('--all') ? 9999 : 8)) {
     console.log(`\n  L${c.line} [${c.kind}]`)
