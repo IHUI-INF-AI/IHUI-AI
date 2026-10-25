@@ -2661,6 +2661,12 @@
           "markdownDescription": "Enables the get_app_info command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_browser_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-browser-settings",
+          "markdownDescription": "Enables the get_browser_settings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_desktop_prefs command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-desktop-prefs",
@@ -2905,6 +2911,12 @@
           "type": "string",
           "const": "allow-screenshot-screen",
           "markdownDescription": "Enables the screenshot_screen command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_browser_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-browser-settings",
+          "markdownDescription": "Enables the set_browser_settings command without any pre-configured scope."
         },
         {
           "description": "Enables the set_desktop_badge command without any pre-configured scope.",
@@ -3339,6 +3351,12 @@
           "markdownDescription": "Denies the get_app_info command without any pre-configured scope."
         },
         {
+          "description": "Denies the get_browser_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-browser-settings",
+          "markdownDescription": "Denies the get_browser_settings command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_desktop_prefs command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-desktop-prefs",
@@ -3583,6 +3601,12 @@
           "type": "string",
           "const": "deny-screenshot-screen",
           "markdownDescription": "Denies the screenshot_screen command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_browser_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-browser-settings",
+          "markdownDescription": "Denies the set_browser_settings command without any pre-configured scope."
         },
         {
           "description": "Denies the set_desktop_badge command without any pre-configured scope.",

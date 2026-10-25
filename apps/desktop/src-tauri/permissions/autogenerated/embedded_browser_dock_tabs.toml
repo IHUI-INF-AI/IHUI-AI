@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-embedded-browser-dock-tabs"
+description = "Enables the embedded_browser_dock_tabs command without any pre-configured scope."
+commands.allow = ["embedded_browser_dock_tabs"]
+
+[[permission]]
+identifier = "deny-embedded-browser-dock-tabs"
+description = "Denies the embedded_browser_dock_tabs command without any pre-configured scope."
+commands.deny = ["embedded_browser_dock_tabs"]

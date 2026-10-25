@@ -1933,7 +1933,7 @@ export function runSelfTest() {
     (() => {
       const src = readFileSync(MAIN_SOURCE_PATH, 'utf8')
       const from = src.indexOf('export function readGeometry')
-      const until = src.indexOf('return { values, named }', from)
+      const until = src.indexOf('return { values, named', from)
       const body = src.slice(from, until > from ? until : from + 6000)
       const has = (s) =>
         /if \(vals\.length < 2\) continue/.test(s) &&
@@ -2540,6 +2540,79 @@ export function runSelfTest() {
       const inLib = (libSrc.match(re) || []).length
       if (inMain !== 0 || inLib !== 1) return `③ 裸档正则出现第二份:门内 ${inMain} 处、lib ${inLib} 处`
       return true
+    })(),
+  )
+  /**
+   * 换算器表达式族(toRpx / toUnit 支,2026-10-24 立)—— 取证件
+   * `.ihui-agent/tmp/goal-concurrency-2026-10-24/gate128-css.md`:小程序镜像件把档写成
+   * `toRpx(44)` / `toRpx(SP.md)` / `borderRadius: toRpx(RD.sm)`,旧采集面对这三型全失明,
+   * 于是 ScreenStates 族被虚报成"仅 RN 档 8/12/16/44/92 + RD 仅 RN 4"(全是假分叉)。
+   * 这四条钉的是**补认之后不得回归的四个方向**:认字面量、认成员、解不到要报名、圆角不得漏进几何集。
+   */
+  const CONV_TBL = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16, DEFAULT: 6 }
+  const CONV_FILE = [
+    'const toRpx = (px: number): string => `${px * 2}rpx`',
+    'const SP = { lg: 16, md: 12, sm: 8 } as const',
+    'const RD = { lg: 8, md: 6, sm: 4 } as const',
+    'export const View = () => <View style={{ width: toRpx(44), gap: toRpx(SP.md), height: toRpx(MYSTERY.md), borderRadius: toRpx(RD.sm), padding: toRpx(SP.md + 2) }} />',
+  ].join('\n')
+  t(
+    'SC1 换算器包字面量与包文件内对象成员都必须进几何集(toRpx(44)=44 / toRpx(SP.md)=12)',
+    (() => {
+      const g = readGeometry(CONV_FILE, 'miniapp', {})
+      return g.values.has(44) && g.values.has(12)
+    })(),
+  )
+  t(
+    'SC2 解不到的那几枚逐枚进未判定点名且不带读数(不记 0、不记 NaN、不静默)',
+    (() => {
+      const g = readGeometry(CONV_FILE, 'miniapp', {})
+      const raws = g.unreadable.map((u) => u.raw).join('|')
+      return (
+        g.unreadable.length === 2 &&
+        raws.includes('toRpx(MYSTERY.md)') &&
+        raws.includes('SP.md + 2') &&
+        g.unreadable.every((u) => u.px === null && typeof u.why === 'string' && !!u.why) &&
+        !g.values.has(0) &&
+        !g.values.has(Number.NaN)
+      )
+    })(),
+  )
+  t(
+    'SC3 圆角有自己的一维:borderRadius 语境下的换算式归 RD(4 读得到),不得漏进几何集(同一处双计)',
+    (() => {
+      const g = readGeometry(CONV_FILE, 'miniapp', {})
+      return !g.values.has(4) && radiusSetOf(CONV_FILE, CONV_TBL).includes(4)
+    })(),
+  )
+  t(
+    'SC4 单位口径:折好的 taroGeometry.X 再被 toUnit 包住仍按双重换算(128 不是 64),新增支不重复认领',
+    (() => {
+      const f = [
+        'const toUnit = (px) => rpx(px * TARO_RPX_PER_PX)',
+        'export const V = () => <V style={{ width: toUnit(taroGeometry.controlBox) }} />',
+      ].join('\n')
+      const g = readGeometry(f, 'miniapp', { 'geometry.controlBox': 64, TARO_RPX_PER_PX: 2 })
+      return g.values.has(128) && !g.values.has(64) && g.unreadable.length === 0
+    })(),
+  )
+  t(
+    'SC5 覆盖面纪律:没自证过的函数名不得按名字当换算器;倍率取不到 ⇒ 未判定而不是按恒等放过',
+    (() => {
+      const a = readGeometry(
+        'export const V = () => <V style={{ width: mysteryFn(44) }} />',
+        'miniapp',
+        {},
+      )
+      const b = readGeometry(
+        [
+          'const toRpx = (px) => `${px * UNKNOWN_COEF}rpx`',
+          'export const V = () => <V style={{ width: toRpx(44) }} />',
+        ].join('\n'),
+        'miniapp',
+        {},
+      )
+      return !a.values.has(44) && !b.values.has(44) && b.unreadable.length === 1
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)

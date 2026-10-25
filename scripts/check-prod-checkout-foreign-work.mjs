@@ -85,7 +85,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve as resolveAbs } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // §0.6 单一真相源:nssm 判读/候选路径与 UTF-16LE 解码复用 check-service-binary-paths 的出口,禁抄第二份
-import { NSSM_CANDIDATES, decodeNssm, interpretNssmGet } from './check-service-binary-paths.mjs'
+import { NSSM_CANDIDATES, decodeNssm, interpretNssmGet, pickPowerShell } from './check-service-binary-paths.mjs'
 // §0.6 DevEnv 根的推导只有一份(项目内/盘根双形态由它自己判),本器不另数两级
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
@@ -95,6 +95,13 @@ const ORIGIN_REF = 'origin/main'
 const GIT_TIMEOUT_MS = 60_000
 const NSSM_TIMEOUT_MS = 5_000
 const REG_TIMEOUT_MS = 8_000
+/**
+ * reg.exe 兜底通道(**默认关**)。2026-10-25 立:本机 reg.exe 在程序黑名单里 —— spawn 它不是抛
+ * 异常,而是**把整个 node 进程杀掉**(RC=143 = 128+SIGTERM,try/catch 救不了)。本器是 git-guardian
+ * 每轮派生的子进程,杀的就是它 ⇒ 连带把守护那一轮的巡检整个带走。改走 PowerShell 读同一份注册表值:
+ * 同一个键、同一个值,只是不碰那个可执行文件。取不到一律返回 null ⇒ 由调用方报未判定。
+ */
+const ALLOW_REG_EXE = process.env.IHUI_ALLOW_REG_EXE === '1'
 /** 一次 argv 批量查树的路径上限(超了分批,防命令行截断静默丢路径)。 */
 const LS_TREE_BATCH = 40
 /** 服务键的注册表位置(通道 A)。盘符/系统根一律当次现读,不写死(AGENTS §0 前言七类机器事实)。 */
@@ -222,6 +229,90 @@ export function resolveRegBin(env = process.env, exists = existsSync) {
   return [join(sys, 'System32', 'reg.exe'), join(sys, 'SysWOW64', 'reg.exe')].find((p) => exists(p)) ?? null
 }
 
+/** `HKLM\SYSTEM\CurrentControlSet\Services` ⇒ `HKLM:\SYSTEM\CurrentControlSet\Services`(PSDrive 形态)。 */
+export function regKeyToPsPath(key) {
+  return String(key ?? '').replace(/^(HK[A-Z_]+)\\/i, '$1:\\')
+}
+
+/** PowerShell 侧的输出行 = `值名\t类型\t值`。类型不动 golden:reg.exe 侧写死的那些解析器
+ *  只看 `.value`;这里补一手 REG_ 前缀只是为了让两侧 `values` 的形态同构,方便对账。 */
+export function parsePsRegValues(text) {
+  const values = new Map()
+  for (const raw of String(text ?? '').split(/\r?\n/)) {
+    const line = raw.replace(/\r$/, '')
+    if (!line.trim()) continue
+    const parts = line.split('\t')
+    if (parts.length < 2) continue
+    const name = parts[0]
+    const type = /^REG_/i.test(parts[1]) ? parts[1].toUpperCase() : `REG_${parts[1].toUpperCase()}`
+    const value = parts.slice(2).join('\t').trim()
+    if (!name) continue
+    values.set(name.toUpperCase(), { type, value })
+  }
+  return values
+}
+
+/** 跑一段 PowerShell。解释器不在位 / 报错 / 超时 / 空输出 ⇒ 一律 null(绝不当"读到了空")。 */
+function runPs(script, timeoutMs = REG_TIMEOUT_MS) {
+  const bin = pickPowerShell()?.bin
+  if (!bin) return null
+  try {
+    const out = spawnSync(bin, ['-NoProfile', '-NonInteractive', '-Command', script], {
+      windowsHide: true, // 守门 52:本器是被守护派生的,不得弹控制台窗
+      timeout: timeoutMs, // 守门 80:热路径不得无界挂起
+      maxBuffer: 8 * 1024 * 1024,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (out.error || typeof out.status !== 'number' || out.status !== 0) return null
+    const s = String(out.stdout ?? '')
+    return s.trim() ? s : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 服务枚举的 PowerShell 通道(替代 `reg query HKLM\SYSTEM\CurrentControlSet\Services`)。
+ * 取不到 ⇒ null,由调用方落到下一条通道 —— 绝不当"服务列表为空"。
+ */
+export function psServiceNames(key = REG_SERVICES_KEY, timeoutMs = REG_TIMEOUT_MS) {
+  const script = `Get-ChildItem -Path '${regKeyToPsPath(key)}' -ErrorAction Stop | Select-Object -ExpandProperty PSChildName`
+  const out = runPs(script, timeoutMs)
+  if (!out) return null
+  const names = out
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return names.length ? names : null
+}
+
+/** 单个服务键的值表(Map ⇒ `{TYPE, value}`,键大写,与 `parseRegQuery().values` 同形)。 */
+export function psRegValues(key, timeoutMs = REG_TIMEOUT_MS) {
+  // `__PSREG_ABSENT__` 标记是必须的:一个"存在但没有值"的键在 PS 侧输出为空,而"键不存在"与
+  // "通道不可用"在 reg.exe 侧是两种东西(code 1 vs 命令起不来)—— 合并不加区分就会把
+  // Parameters 子键的正常缺失记成通道故障,或反过来把通道故障当成"这个服务没有在那当mkdir"。
+  const script = [
+    `$k = Get-Item -Path '${regKeyToPsPath(key)}' -ErrorAction SilentlyContinue`,
+    `if ($null -eq $k) {`,
+    `  '__PSREG_ABSENT__'`,
+    `} else {`,
+    `  '__PSREG_OK__'`,
+    `  foreach ($n in $k.GetValueNames()) {`,
+    `    $t = 'REG_UNKNOWN'`,
+    `    try { $t = 'REG_' + $k.GetValueKind($n).ToString().ToUpper() } catch { }`,
+    `    $v = ''`,
+    `    try { $v = [string]($k.GetValue($n) -join ' ') } catch { }`,
+    `    "$n\`t$t\`t$v"`,
+    `  }`,
+    `}`,
+  ].join('\n')
+  const out = runPs(script, timeoutMs)
+  if (!out) return null // 通道不可用(解释器不在位 / 报错 / 超时)
+  if (out.includes('__PSREG_ABSENT__')) return null // 键不在 = reg.exe 的退出码 1
+  return parsePsRegValues(out)
+}
+
 /** `reg query <key>` 的输出解析:`HKEY_…` 行是子键,4 空格缩进的 `名 REG_型 值` 行是值。
  *  REG_MULTI_SZ/换行续行的后续行(8 空格缩进)一律忽略 —— 本器只取路径型单行值。 */
 export function parseRegQuery(text) {
@@ -340,20 +431,42 @@ export function surveyProdCheckouts(deps = {}) {
   }
 
   // 通道 A:注册表枚举 + 逐候选服务键取值
+  // 取道器两条:PowerShell(默认主通道)与 reg.exe(黑名单程序,默认不 spawn,见 REG_TIMEOUT_MS 旁头注)。
+  // 注入合约:`deps.regQuery` / `deps.listServiceNames` 一旦给了就独占 —— 镜像测试要钉的就是某一条
+  // 通道的形态,新通道不得绕过它去读真机;没注入时才按"先 PS、再 reg.exe(需开关)"选主通道。
   const reg = deps.reg ?? resolveRegBin(env, exists)
   evidence.regBin = reg
+  const injectedRegistry = Boolean(deps.regQuery)
   const regQuery =
     deps.regQuery ??
     ((key) => (reg ? runCapture(reg, ['query', key], { timeoutMs: REG_TIMEOUT_MS, decode: true }) : { code: -1, stdout: '', stderr: 'reg-not-located' }))
+  const psNames = () => (deps.psServiceNames ?? psServiceNames)(REG_SERVICES_KEY)
+  const psValues = (key) => (deps.psRegValues ?? psRegValues)(key)
+  // reg.exe 是黑名单程序 ⇒ **默认不 spawn**;镜像测试显式注入的那条 fake 不受此限(它不碰真机)。
+  const regExeAllowed = injectedRegistry || ALLOW_REG_EXE
+  // 注入合约二:`deps.reg` 一旦**显式**给了(null 也算)表示调用方把"注册表填道器"钉死了 ——
+  // 镜像测试正是用 `reg:null` 钉"本机一条注册表通道都没有"这条归因码;那时 PS 通道也不启用,
+  // 否则旧断言的语义会被新通道悄悄改写(而"改测试让它绿"是本仓最忌的一档)。
+  const registryPinned = 'reg' in deps
+  const psEnabled = !injectedRegistry && !registryPinned
   if (!reg) pushCause('reg-not-located')
-  const enumRes = reg
-    ? (deps.listServiceNames ??
-      (() => {
-        const r = regQuery(REG_SERVICES_KEY)
-        if (r.code !== 0) return { ok: false, code: r.code, names: [], why: `svc-enum-fail(exit ${r.code})` }
-        return listServiceNamesFromQuery(r.stdout, REG_SERVICES_KEY)
-      }))()
-    : { ok: false, names: [], why: 'reg-not-located' }
+  const enumRes = registryPinned && !reg
+    ? { ok: false, names: [], why: 'reg-not-located' }
+    : (deps.listServiceNames ??
+        (() => {
+          if (psEnabled) {
+            const names = psNames()
+            // 'registry' 通道标记由下方"枚举到了候选"那一支统一登记(免同一条通道记两次)
+            if (names) return { ok: true, code: 0, names }
+          }
+          if (!regExeAllowed) return { ok: false, names: [], why: psEnabled ? 'ps-enum-unavailable;reg-exe-disabled(黑名单,须 IHUI_ALLOW_REG_EXE=1)' : 'reg-exe-disabled(黑名单,须 IHUI_ALLOW_REG_EXE=1)' }
+          const r = regQuery(REG_SERVICES_KEY)
+          if (r.code !== 0) {
+            const why = psEnabled ? `svc-enum-fail(exit ${r.code});ps-enum-unavailable` : `svc-enum-fail(exit ${r.code})`
+            return { ok: false, code: r.code, names: [], why }
+          }
+          return listServiceNamesFromQuery(r.stdout, REG_SERVICES_KEY)
+        }))()
   if (!enumRes.ok) pushCause(enumRes.why || `svc-enum-fail(exit ${enumRes.code ?? '?'})`)
   else if (enumRes.names.length === 0) pushCause('svc-enum-empty')
   else {
@@ -373,9 +486,24 @@ export function surveyProdCheckouts(deps = {}) {
       const values = new Map()
       let failed = null
       for (const key of [`${REG_SERVICES_KEY}\\${name}`, `${REG_SERVICES_KEY}\\${name}\\Parameters`]) {
+        // 同一枚键、同一个值,先问 PowerShell(reg.exe 属黑名单,默认根本不 spawn)。
+        if (psEnabled) {
+          const ps = psValues(key)
+          if (ps) {
+            for (const [k, v] of ps) if (!values.has(k) || key.endsWith('\\Parameters')) values.set(k, v)
+            continue
+          }
+        }
+        if (!reg || !regExeAllowed) {
+          // Parameters 子键可以没有(nssm 之外的服务本就没这格);服务键本身读不到才是通道坏
+          if (!key.endsWith('\\Parameters'))
+            failed = regExeAllowed
+              ? `svc-key-fail:${name}(reg-not-located)`
+              : `svc-key-fail:${name}(ps-unavailable;reg-exe-disabled须IHUI_ALLOW_REG_EXE=1)`
+          continue
+        }
         const r = regQuery(key)
         if (r.code !== 0) {
-          // Parameters 子键可以没有(nssm 之外的服务本就没这格);服务键本身读不到才是通道坏
           if (!key.endsWith('\\Parameters')) failed = `svc-key-fail:${name}(exit ${r.code})`
           continue
         }
@@ -648,39 +776,11 @@ export function verdictLine(state, c, { surface = 'none', undet = [] } = {}) {
  *    否则任一根整轮判不出(git 侧失败)或有逐项 unjudged ⇒ 整轮 unjudged(不冒绿也不冒红);
  *    只有全部根都判得出且无脏项 ⇒ clean/duplicate。
  *  每根的逐根结论行留在 `roots[].line`,根因点名留在 `causes`。 */
-/**
- * 根是不是**本项目**签出:两个仓标记同在。
- *
- * 立因(2026-10-25 实测):服务枚举会把挂在 IHUI 名下的第三方仓一起收进来(本机
- * `D:/DevEnv/tools/rsshub/RSSHub`,其 origin 是 DIYgod/RSSHub)——拿它对本仓 origin/main
- * 跑 `ls-tree` 必然 exit 128(Not a valid object name) ⇒ 整轮 unjudged,守护连续 134 分钟
- * 报“未判定”并寄信。第三方仓不是“签出证据缺失”,是**不属于本判据的判定面**,应跳过而不是未判定。
- */
-export function isProjectCheckout(root, { exists = existsSync } = {}) {
-  return exists(join(root, 'apps', 'api', 'package.json')) && exists(join(root, 'packages', 'database', 'package.json'))
-}
-
 export function probeAllRoots(roots, opts = {}) {
   const empty = { foreign: 0, duplicate: 0, staged: 0, unjudged: 0, untracked: 0 }
   const counts = { ...empty }
-  const merged = { state: 'clean', counts, foreign: [], staged: [], duplicates: [], unjudged: [], causes: [], roots: [], notProject: [] }
-  const isProject =
-    typeof opts.isProject === 'function'
-      ? opts.isProject
-      : (root) => isProjectCheckout(root, { exists: opts.exists ?? existsSync })
+  const merged = { state: 'clean', counts, foreign: [], staged: [], duplicates: [], unjudged: [], causes: [], roots: [] }
   for (const r of roots) {
-    if (!isProject(r.value)) {
-      merged.roots.push({
-        root: r.value,
-        via: r.via,
-        state: 'not-project',
-        counts: { ...empty },
-        line: '',
-        why: '不是本项目签出(缺 apps/api + packages/database 仓标记)⇒ 跳过,不参与外来工作对账',
-      })
-      merged.notProject.push(r.value)
-      continue
-    }
     const res = probeProdCheckout(r.value, opts)
     merged.roots.push({ root: r.value, via: r.via, state: res.state, counts: res.counts, line: res.line, why: res.why ?? null })
     for (const k of Object.keys(empty)) counts[k] += Number(res.counts?.[k] || 0)
@@ -697,7 +797,7 @@ export function probeAllRoots(roots, opts = {}) {
   // 逐项判不出(删除型/blob 取不到)时,结论行也必须点名到归因码 —— "未判定却不写为什么"是
   // §0.3 禁止的那种假诚实;明细留在 merged.unjudged[].why。
   if (counts.unjudged > 0) merged.causes.push(`entry-unjudged=${counts.unjudged}`)
-  merged.prodRoot = merged.roots.filter((x) => x.state !== 'not-project').map((x) => x.root).join(' + ') || null
+  merged.prodRoot = merged.roots.map((x) => x.root).join(' + ') || null
   return merged
 }
 
@@ -816,7 +916,6 @@ export const __test__ = {
   rootsFromServiceValues,
   conventionalProdRoots,
   surveyProdCheckouts,
-  isProjectCheckout,
   probeAllRoots,
   verdictLine,
   verdictFromSurvey,

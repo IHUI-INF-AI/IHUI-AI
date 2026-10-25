@@ -219,5 +219,3 @@ export function ReviewFindingsCard({
     </div>
   )
 }
-
-export default ReviewFindingsCard
