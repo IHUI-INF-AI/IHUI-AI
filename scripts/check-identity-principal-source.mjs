@@ -55,13 +55,14 @@
  *       node scripts/check-identity-principal-source.mjs --self-test
  * 退出码:0 = 无判红 / 1 = 判红 / 2 = 未判定(面旗矛盾、取材失败、候选为 0)
  */
-import { spawnSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 // 遮罩只有一台(§横向口径):静态 import,不留"库式调用方拿到未遮罩判据"这条暗道 ——
 // 异步懒加载曾在镜像测试里当场暴露过这一型。
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+// 被审面取材一律走面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath + 数字 timeout)
+import { gitRaw, gitErrText } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPE = 'apps/api/src'
@@ -140,22 +141,31 @@ function snippet(src, idx) {
   return src.slice(start, src.indexOf('\n', idx) < 0 ? undefined : src.indexOf('\n', idx)).trim().slice(0, 120)
 }
 
-/** git 调用一律显式接管 stdio(§12g),并按 input 决定 stdin 档位。 */
+/**
+ * git 调用一律走面读取层(§0.4 取材面纪律 + §5b 绝对路径 git + §12g 显式 stdio)。
+ * 本薄壳只把层的「抛 Undetermined」折回本门既有的 `{status, stdout, stderr}` 形状,
+ * 由调用方落 err ⇒ 未判定;绝不在此回落另一个面。
+ */
 function git(args, opts = {}) {
-  const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  return spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio, timeout: 60_000 })
+  try {
+    const stdout = gitRaw(args, ROOT, opts.input === undefined ? {} : { input: opts.input })
+    return { status: 0, stdout, stderr: '' }
+  } catch (e) {
+    return { status: typeof e.status === 'number' ? e.status : 1, stdout: '', stderr: gitErrText(e) }
+  }
 }
 
 /** 被审面清单与内容同源(§0.4):head → HEAD blob;staged → 索引 blob;worktree → 人工逃生舱。 */
 function faceSpecs(face) {
   if (face === 'head') {
     const r = git(['ls-tree', '-r', '--name-only', 'HEAD', '--', SCOPE])
-    if (r.status !== 0) return { err: `ls-tree 失败: ${r.stderr.trim()}` }
+    // 层内 gitErrText 已自带 `git <子命令> 失败:` 前缀,不再叠第二层(只折文本,不改判定)
+    if (r.status !== 0) return { err: r.stderr.trim() }
     return { files: r.stdout.split('\n').filter((f) => f.endsWith('.ts')) }
   }
   if (face === 'staged') {
     const r = git(['ls-files', '-s', '--', SCOPE])
-    if (r.status !== 0) return { err: `ls-files 失败: ${r.stderr.trim()}` }
+    if (r.status !== 0) return { err: r.stderr.trim() }
     return {
       files: r.stdout
         .split('\n')
