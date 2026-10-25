@@ -3905,6 +3905,77 @@ export function auditTunnelMetrics(opts = {}) {
 }
 
 // 〈原 21 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l4089(门 103 C1 收口)〉首意: 
+/** 违禁桶兜底清扫派发层(2026-10-25,与 sweepStaleClosedRows 同型):5 分钟节流 + 器物不在位
+ *  明报"跳过不记为已探测"(§0.3),三态读数只认器物自己的 SWEEP-RESULT 结论行。 */
+export function sweepBannedBuckets(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 5 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'banned-bucket-sweep-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'strip-banned-buckets.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 违禁桶清扫:器物不在位(scripts/strip-banned-buckets.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '清扫器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 违禁桶清扫:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  const resultLine = rows.map((l) => l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/)).find(Boolean)
+  const state = resultLine ? resultLine[1] : null
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  if (state === 'clean') {
+    logger('ℹ️ 违禁桶清扫:干净(waiting-env/waiting-human 未勾行 0,读数来自器物)')
+    return { ran: true, judged: true, ok: true, state }
+  }
+  if (state === 'stripped' && Number(kv('stripped')) > 0) {
+    logger(`✅ 违禁桶清扫:摘除 ${kv('stripped')} 条(留痕 f12-purge;禁令循环回潮已自动收敛)`)
+    return { ran: true, judged: true, ok: true, state, stripped: Number(kv('stripped')) }
+  }
+  if (state === 'undetermined') {
+    logger('⚠️ 违禁桶清扫:未判定(取材取不到/落地被拒)——不记通过,下轮重试')
+    return { ran: true, judged: true, ok: false, state }
+  }
+  // stripped=0 且非 clean(pending 型 dry-run 语义不应出现在 --apply 档;记一笔不猜)
+  logger(`ℹ️ 违禁桶清扫:结论 state=${state ?? '读不到'}(stripped=${kv('stripped') ?? '?'})`)
+  return { ran: true, judged: state !== null, ok: state !== null, state }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -5368,6 +5439,10 @@ function main() {
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
+    // 违禁桶兜底清扫(2026-10-25,等条件/待拍板两道机主禁令的执行器物化):union 收敛器与
+    // 复翻席不走提交链 ⇒ F11/F12 基线棘轮拦不到"主动写回";本层派发 strip-banned-buckets
+    // 自动摘 HEAD 面违禁未勾行并留痕,循环回潮 5 分钟级自动收敛(判据 import 单源,零复算)。
+    if (!CHECK_ONLY) sweepBannedBuckets()
     // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
     if (!CHECK_ONLY) healRootSeal()
     // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
@@ -5585,6 +5660,7 @@ export const __test__ = {
   auditSweeperLiveness,
   auditIndexUnmerged,
   sweepStaleClosedRows,
+  sweepBannedBuckets,
   sweepStaleClaimMarks,
   auditTunnelMetrics,
   bumpProbeStreak,
