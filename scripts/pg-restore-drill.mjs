@@ -48,8 +48,11 @@ import { keyFile } from './lib/key-dir.mjs'
 // 两条真实差别:① 旧写法头上那句"与 gitdir.mjs gitArchiveDir 同式"自 `971690247` 起已不成立
 //   (那一枚把 gitdir 改成按 `parse(wt).root` 盘根锚定 + 夹具闸),注释与实现不同形比没注释更糟 ——
 //   它会教下一个人照旧写法抄;② 共用出口多认一条 `IHUI_DEVENV_ROOT`(§15b 换机逃生舱,
-//   `deploy/win/ihui-pg-backup.ps1` 的 `$DevEnvRoot` 与之同语义)。未设该环境变量时**两者逐字同值**
-//   (本机同为 `G:\DevEnv`),逐字核对由 scripts/tests/pg-restore-drill.test.mjs 的 P-落点1/2/3 做。
+//   `deploy/win/ihui-pg-backup.ps1` 的 `$DevEnvRoot` 与之同语义)。未设该环境变量时共用出口按当次
+//   实测的候选序返回(带机器标记的仓内 .DevEnv > 盘根 DevEnv > 仓内 legacy 兜底):DevEnv 仍在
+//   盘根的机器上旧数层式与共用出口逐字同值;完成 G-814433 仓内搬迁的机器上返回仓内形态——旧
+//   数层式(仓根上跳两级 + DevEnv)已失真。盘符/落点取值是机器事实,不入注释(AGENTS 盘符铁律),
+//   两形态的逐字核对由 scripts/tests/pg-restore-drill.test.mjs 的 P-落点1/2/3 现算。
 // PG 落点(env 覆盖名 > devEnvRoot)的唯一实现(G-343);本文件不再另抄一份。
 import { pgBinDir, backupPgDir } from './lib/psql-client-locate.mjs'
 
