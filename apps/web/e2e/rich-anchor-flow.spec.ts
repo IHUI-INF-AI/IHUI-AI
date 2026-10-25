@@ -27,14 +27,18 @@ import { parseRichAnchors, richAnchorTagSequence, richAnchorsToPlainText } from 
  * 并成对断"不该出现的锚点确实没出现"。
  *
  * ── ①的取证面边界(如实登记,不写成"全格已闭") ──
- * 全仓现读 `t.rich` 生产点共两处(`self-media/automation` 的 `note5`、`ai/move-to-worktree-dialog`
- * 的 `subtitle`),两处词包值里的锚点族分别是 `<code>` 与 `<branch>` —— **都不是 link 族**,
- * 所以"词包腿直接产出一枚可点击 `<a>`"这一格在**词包面尚不存在载体**,它归 D04③ 规模化
- * (票面自述"与 D83/D81/D54 同批",属归他人桶)。本文件因此把①拆成两半各自钉死:
- *   - link 族的**可点击性**在浏览器里断到 role/href/target/rel/实际命中盒(组 1);
- *   - link 族与 `t.rich` 腿**共用同一张表**在浏览器里断到 DOM 签名逐字等值(组 4)
- *     ——渲染表由 `RICH_ANCHOR_COMPONENTS` 单点产出,`richAnchorRenderer(tag)` 取的就是它,
- *     故"同表"一经 DOM 签名对上,可点击性即随表到达词包腿,不需要为凑用例改产品文案。
+ * 票面验收①字面要求"t.rich 链路真渲染出可点击元素"。全仓现读 t.rich 生产点共三处
+ * (`self-media/automation` 的 `note5` 用 code、`ai/move-to-worktree-dialog` 的 `subtitle`
+ * 用 branch、`developer/pricing` 的 `examplesTip` 用 link),前两处的值不是 link 族,
+ * 第三处(`examplesTip` 把句子里本来就在报的站内路由 `/developer/keys` 包进 `<link>`)
+ * 才是①的字面载体 ⇒ 组 5 专供这一格。
+ * 另把①拆成两半各自钉死,免"半格当整格":
+ *   - link 族的**可点击性**在浏览器里断到 role/href/target/rel/实际命中盒(组 1),
+ *     并对非安全协议内文断"确实不产链接"(组 1 反例);
+ *   - 两条腿**共用同一张表**在浏览器里断到 DOM 签名逐字等值(组 4)——渲染表由
+ *     `RICH_ANCHOR_COMPONENTS` 单点产出,`richAnchorRenderer(tag)` 取的就是它。
+ * 防回潮由守门 247(`scripts/check-rich-anchor-renderer-single-source.mjs`)在提交链上拦:
+ * 表不完备、有人另建内联渲染器、或整条腿被摘线,当场红。
  *
  * ── 判据不复制(§22c / 守门 191)──
  * 期望序列一律 import 共享解析层(`parseRichAnchors` + `richAnchorTagSequence` +
@@ -503,6 +507,52 @@ test.describe('D04 · 消息串内富文本动作锚点(浏览器级验收)', ()
     expect(automationSignature).toEqual(chatSignature)
     // 词包腿也必须是真元素而不是字面量:串里不该再出现尖括号 code
     await expect(page.locator('li').filter({ hasText: '<code>' })).toHaveCount(0)
+  })
+
+  test('⑤ 词包 t.rich 腿自己产出可点击链接:developer/pricing 的 examplesTip 断 role/href', async ({
+    page,
+  }) => {
+    await seedSession(page)
+    await mockBackend(page, [{ id: 'seed', role: 'user', content: 'unused' }])
+    // 这一页吃 ai-pricing 两个查询;空壳会让列表分支抛错,专档给形状
+    await page.route('**/api/ai-pricing/stats**', (route) =>
+      route.fulfill(json({ totalModels: 0, totalTokens: 0, avgPrice: 0 })),
+    )
+    await page.route('**/api/ai-pricing**', (route) =>
+      route.fulfill(json({ models: [], items: [], total: 0, page: 1, pageSize: 20 })),
+    )
+
+    await page.goto(`${baseOrigin()}/developer/pricing`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 180_000,
+    })
+
+    // 词包值:…你在 <link>/developer/keys</link> 创建的密钥…(inner text 就是 URL ⇒ 过 SAFE_HREF)
+    const tip = page.locator('p').filter({ has: page.locator('a[href="/developer/keys"]') }).first()
+    await expect(
+      tip,
+      'examplesTip 的 <link> 锚点没渲染成 <a> ⇒ 词包腿没有可点击载体(验收①的字面要求)',
+    ).toBeVisible({ timeout: 120_000 })
+
+    const link = tip.getByRole('link', { name: '/developer/keys', exact: true })
+    await expect(link).toHaveCount(1)
+    await expect(link).toHaveAttribute('href', '/developer/keys')
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    const box = await link.boundingBox()
+    expect(box, '链接没有可命中盒 ⇒ 端上等于不可点击').not.toBeNull()
+    expect(box?.width ?? 0).toBeGreaterThan(0)
+    expect(box?.height ?? 0).toBeGreaterThan(0)
+
+    // 同一条渲染表的证据:这枚 <a> 的类串就是 link 族渲染器的产物
+    const signature = await link.evaluate((el) => ({ tag: el.tagName, className: el.className }))
+    expect(signature.tag).toBe('A')
+
+    // 不丢字:除锚点外句子里的其余 token 逐字还在
+    await expect(tip).toContainText('YOUR_API_KEY')
+    await expect(tip).toContainText('baseURL')
+    // 标记本身不得出现在界面上(字面量泄漏即 t.rich 没接上)
+    await expect(tip).not.toContainText('<link>')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

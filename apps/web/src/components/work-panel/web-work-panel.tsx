@@ -773,7 +773,7 @@ export function WebWorkPanel() {
              多标签(2026-10-24 用户要求):原生侧一个标签一个子 webview,
              这里的标签栏与独立窗口同语义(点击切换 / X 关闭 / + 新建)。 */
           <div className="flex h-full w-full flex-col">
-            <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/60 bg-muted/30 px-1.5 py-1">
+            <div className="flex shrink-0 items-center gap-1 overflow-x-auto bg-muted/30 px-1.5 py-1">
               {dockTabs.map((t) => (
                 <div
                   key={t.id}

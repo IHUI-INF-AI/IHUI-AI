@@ -33,6 +33,15 @@
 // 会连带把同目录下**没被忽略**的已跟踪源文件一起划出 eslint/prettier 覆盖面。本文件按 OUTLET_LOSS_LIMIT
 // 设上限(T7b):出口件只许压在小面积、非源码主战的目录上 —— 这正是 `apps/api`(1892 枚 root-hit)与
 // `apps/mobile-rn`(571 枚)只能进 C 档交人裁、而不是硬塞 A 档的原因。
+//
+// 〔2026-10-25 校正 T7 口径〕旧口径把"命中根 glob"记成"失去覆盖",这是双计:工具自己的忽略面还挡在
+// 前面。实测(同一份未格式化 md):放进 `.ihui-agent/tmp/` 时 `prettier --check` 报
+// `All matched files use Prettier code style!`(整目录被 `.prettierignore` 忽略,压根没检查),复制到
+// 仓库外立刻报 `[warn] Code style issues found` ⇒ archive 那批文件**本来就不在** prettier 覆盖面内,
+// 旧口径却把它读成"被出口件弄丢 64 枚 > 限额 50"、恒红。新口径只问工具自己:prettier 面用
+// `getFileInfo` 读 `.prettierignore`(不另写一把 glob,§0.6);eslint 面按根 eslint glob 命中即计入
+// (实测 eslint **不**忽略点目录:`.ihui-agent/tmp/probe.cjs` 被真 lint 出 `no-unused-vars`)。
+// 限额 50 与"给源码目录塞黑洞出口件必红"这一型都不动。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
@@ -302,19 +311,62 @@ test('T6 出口件射程不外溢:出口桶恰等于其子树候选集,仓内其
   }
 })
 
-test('T7 出口件代价有上限:同目录里被连带划出 lint/format 覆盖的非忽略已跟踪件不得超过限额', async () => {
-  const entries = readLedger().entries
-  const patterns = Object.keys(rootConfig())
-  const tracked = trackedSet()
-  const ignoredSet = new Set(ignoredTrackedFiles())
-  for (const e of entries.filter((x) => x.tier === 'A')) {
+const { default: prettier } = await import('prettier')
+const PRETTIER_IGNORE = path.join(ROOT, '.prettierignore')
+
+/** prettier 自己会不会处理这枚文件(忽略面与语言支持都问 prettier 本体,不复制判据 —— §0.6)。 */
+async function prettierWouldProcess(rel) {
+  const info = await prettier.getFileInfo(path.join(ROOT, ...rel.split('/')), {
+    ignorePath: [PRETTIER_IGNORE],
+    resolveConfig: false,
+  })
+  return !info.ignored && info.inferredParser !== null
+}
+
+/** 根配置的两面:命令里写了 prettier / eslint 的键(不按扩展名硬编码,根配置换了这里跟着换)。 */
+function taskFaces() {
+  const cfg = rootConfig()
+  return {
+    prettier: Object.keys(cfg).filter((p) => String(cfg[p]).includes('prettier')),
+    eslint: Object.keys(cfg).filter((p) => String(cfg[p]).includes('eslint')),
+  }
+}
+
+const hitsAny = (rel, patterns) =>
+  patterns.some((p) => matchFiles(asCandidates([rel]), p, ROOT_POSIX).length > 0)
+
+test('T7 出口件代价按工具真实覆盖面记账:被划走且工具本来就处理的枚数不得超过限额', async () => {
+  const faces = taskFaces()
+  assert.ok(
+    faces.prettier.length > 0 && faces.eslint.length > 0,
+    '根配置里认不出 eslint / prettier 两面 ⇒ 未判定(§0.3),下面的度量会退化成 0 损失',
+  )
+  // 探针先自证"问 prettier"这条路是活的:面外的普通源码必须被判为"会处理",否则新口径永远报 0。
+  assert.equal(
+    await prettierWouldProcess('scripts/check-tracked-ignored.mjs'),
+    true,
+    '正探针失败:.prettierignore 把普通源码也忽略了?那新口径的 0 损失不可信',
+  )
+  for (const e of readLedger().entries.filter((x) => x.tier === 'A' && outletOnDisk(x.dir))) {
     const rel = outletRelFor(e.dir)
-    if (!outletOnDisk(e.dir)) continue
-    const sub = [...tracked].filter((f) => f.startsWith(`${e.dir}/`))
-    const loss = sub.filter((f) => !ignoredSet.has(f) && hitByRoot(f, patterns))
+    const sub = [...trackedSet()].filter((f) => f.startsWith(`${e.dir}/`))
+    assert.ok(sub.length > 0, `${rel}: 子树里枚举不到已跟踪文件 ⇒ 无输入,不记绿(§0.3)`)
+    const diverted = sub.filter((f) => hitsAny(f, [...faces.prettier, ...faces.eslint]))
+    assert.ok(
+      diverted.length > 0,
+      `${rel}: 一枚都没被根配置命中 ⇒ 出口件已无对象,这条代价判据空转,应连出口件一起撤`,
+    )
+    const loss = []
+    for (const f of diverted) {
+      // eslint 面:根 glob 命中即算损失(eslint 不忽略点目录,实测);prettier 面:还得 prettier 自己不忽略。
+      if (hitsAny(f, faces.eslint) || (await prettierWouldProcess(f))) loss.push(f)
+    }
+    // 被出口件划走、但工具本来就不处理的(如 `.prettierignore` 整目录忽略的 archive)成本为 0,不记损失:
+    // 这条等式一旦被撤掉忽略面打破,loss 立刻涨回全量并顶破限额,所以它不是豁免,是度量。
+    console.info(`[G-926 覆盖面] ${rel} 划走 ${diverted.length} 枚,工具真会处理 ${loss.length} 枚`)
     assert.ok(
       loss.length <= OUTLET_LOSS_LIMIT,
-      `${rel} 会把同目录下 ${loss.length} 枚**未被忽略**的已跟踪源文件一起划出 eslint/prettier 覆盖面,` +
+      `${rel} 会把同目录下 ${loss.length} 枚**本来就会被 lint/format** 的已跟踪文件划出覆盖面,` +
         `已超限额 ${OUTLET_LOSS_LIMIT}(${loss.slice(0, 5).join(', ')}…)。` +
         '就近出口件的代价是整棵子树的覆盖面,不是"补个配置文件"就完事 —— 覆盖面归零比炸一次更糟。' +
         '出路:把出口件挪到只包住炸点的叶子目录,或按 archive 那族的做法改 .gitignore 例外(需人裁)。',
@@ -553,10 +605,7 @@ function makeOutletFixture({ outlet }) {
   }
   gitAt(dir, ['init', '-q'])
   write('.gitignore', '.agent/*\n')
-  write(
-    'package.json',
-    JSON.stringify({ 'lint-staged': { '*.md': 'node mutate.mjs' } }, null, 2),
-  )
+  write('package.json', JSON.stringify({ 'lint-staged': { '*.md': 'node mutate.mjs' } }, null, 2))
   write(
     'mutate.mjs',
     "import { appendFileSync } from 'node:fs'\nfor (const f of process.argv.slice(2)) appendFileSync(f, '\\nmutated\\n')\n",
@@ -564,7 +613,10 @@ function makeOutletFixture({ outlet }) {
   write('root.md', '# root\n')
   write('.agent/tmp/ledger.md', '# ledger\n')
   if (outlet !== 'absent') {
-    write('.agent/tmp/.lintstagedrc.json', JSON.stringify({ '*.archive-noop': 'node -e 0' }, null, 2))
+    write(
+      '.agent/tmp/.lintstagedrc.json',
+      JSON.stringify({ '*.archive-noop': 'node -e 0' }, null, 2),
+    )
   }
   gitAt(dir, ['add', '--', '.gitignore', 'package.json', 'mutate.mjs', 'root.md'])
   gitAt(dir, ['add', '-f', '--', '.agent/tmp/ledger.md'])
@@ -617,16 +669,32 @@ async function runOutletArm(outlet) {
 test('T13 三臂端到端(scratch 夹具):出口件入库 ⇒ 子树整目录跳过且根任务照常;缺出口/未入库 ⇒ 仍复现 Failed to stage', async () => {
   const noOutlet = await runOutletArm('absent')
   assert.equal(noOutlet.ok, false, '无出口件竟然成功 ⇒ 夹具没复现炸点,本测试无牙')
-  assert.match(noOutlet.text, /Failed to stage changes from tasks!/, '无出口件未报出 lint-staged 的 staging 失败')
+  assert.match(
+    noOutlet.text,
+    /Failed to stage changes from tasks!/,
+    '无出口件未报出 lint-staged 的 staging 失败',
+  )
 
   const trackedOutlet = await runOutletArm('tracked')
   assert.equal(trackedOutlet.ok, true, '出口件已入库却仍失败 ⇒ 就近空转机制失效')
-  assert.doesNotMatch(trackedOutlet.text, /Failed to stage changes from tasks!/, '出口件已入库仍报 staging 失败')
-  assert.equal(trackedOutlet.ledger, '# ledger\n', '被忽略子树的文件仍被任务改写/重新 add ⇒ 出口桶没接住它')
+  assert.doesNotMatch(
+    trackedOutlet.text,
+    /Failed to stage changes from tasks!/,
+    '出口件已入库仍报 staging 失败',
+  )
+  assert.equal(
+    trackedOutlet.ledger,
+    '# ledger\n',
+    '被忽略子树的文件仍被任务改写/重新 add ⇒ 出口桶没接住它',
+  )
   assert.match(trackedOutlet.root, /mutated/, '根配置的 *.md 任务没有照常执行 ⇒ 出口射程外溢')
 
   const untrackedOutlet = await runOutletArm('untracked')
-  assert.equal(untrackedOutlet.ok, false, '出口件只在盘上未入库却成功 ⇒ "已跟踪"不再是承重条件,判据要重写')
+  assert.equal(
+    untrackedOutlet.ok,
+    false,
+    '出口件只在盘上未入库却成功 ⇒ "已跟踪"不再是承重条件,判据要重写',
+  )
   assert.match(
     untrackedOutlet.text,
     /Failed to stage changes from tasks!/,

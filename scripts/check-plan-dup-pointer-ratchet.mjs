@@ -37,12 +37,16 @@
  * (这行有没有注记)、维②算整行副本折并,两维都看不见"同一行同一注记叠了几份"。
  * 读数 = Σ(登记行内每种注记的出现次数 − 1);`--staged` 面 vs HEAD 面**只拦变多**,
  * 全量档默认只报数、`--strict` 才问责存量(存量正被并发写带回时当场判红 = §12e 恒红门)。
- * 识别集是本维自带的 `〔…〕`(长度 8–24,另加 2026-10-22 票面修法①点名的 `〔同题原号 …〕` 与
- * `〔改号(…):原…〕` 两字族不限长),**刻意不并入 `DUP_POINTER_RE`**:那个字面一旦扩到
+ * 识别集是本维自带的 `〔…〕`(内文 ≥8 字;**2026-10-25 取消原 24 字上界** —— 上界让
+ * `〔批注@…〕`/`〔进度注记@…〕`/`〔补名单@…〕`/`〔拍板@…〕`/`〔让号记录…〕` 等现读长注记族整族漏网,
+ * 放开后 HEAD 面存量 21 → 46 份且全是真叠注、两个不同注记各一份读数仍为 0),另加
+ * 2026-10-22 票面修法①点名的 `〔同题原号 …〕` 与 `〔改号(…):原…〕` 两字族不限长,再加
+ * 2026-10-25 补入的 `重复登记副本` 族三形态),**刻意不并入 `DUP_POINTER_RE`**:那个字面一旦扩到
  * 通用括注族,维①与 T3 会把台账里合法的改号留痕(`〔改号(…):原…〕` 一族)整体算成存量判红。
- * 取证:`--self-test` 成对反证(叠两份即红 / 只有一份不红)+ 镜像测试 P9(单份⇒0 为阳性对照、
- * 三份⇒2、非登记行不计数、变多判红、折并归零判绿,外加一条形状锁断言 `DUP_POINTER_RE` 未被
- * 扩大)与 P11(两字族超窗形态:叠两份⇒计 1、单份⇒0)。
+ * 取证:`--self-test` 成对反证(叠两份即红 / 只有一份不红,现读 18 例)+ 镜像测试 P9(单份⇒0 为
+ * 阳性对照、三份⇒2、非登记行不计数、变多判红、折并归零判绿,外加一条形状锁断言
+ * `DUP_POINTER_RE` 未被扩大)、P11(两字族超窗形态:叠两份⇒计 1、单份⇒0)与 P12
+ * (重复登记副本族三形态叠两份⇒计 1、两个不同注记各一份⇒0、差值档存量面自比不 grew)。
  *
  * 维④(2026-10-20 立)「严格前缀型副本对」差值棘轮:
  * 两条未勾登记行,短行**逐字**是长行的前缀 ⇒ 短行不承载独有内容,它只是同一件事被抄了一份
@@ -67,7 +71,7 @@
  *   node scripts/check-plan-dup-pointer-ratchet.mjs --self-test [--json]       (维③成对反证夹具,exit 0/1)
  */
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 import { catBatch, selectFace } from './lib/face-reader.mjs'
 // 维②判据单一实现。环形引用说明:plan-tasks-merge → 本门(取 countPointerRows)→ 本门 →
@@ -143,14 +147,91 @@ export function twinRatchetVerdict(headText, newText) {
  * 内文 6 字低于下界(HEAD 面现读:超窗 token 28 个 / 15 行,族内叠重窗漏 12 份)。
  * 两族按票面以**不限长子模式**并入本维自带识别集;这不造恒红 —— 本维只数"逐字相同的注记
  * 多出来的份数",合法单份留痕读数恒为 0,维①与 T3 的 `DUP_POINTER_RE` 一字未动(形状锁在镜像 P9)。
+ *
+ * 2026-10-25 补 `重复登记副本` 族(本票点名):此前识别集只认 `〔〕` 一种括号,而
+ * `DUP_POINTER_RE`(`/【归并】重复登记副本/`)的注记在台账里有三种承载形态 ——
+ * ① `〔【归并】重复登记副本…〕`(超 24 字,通用窗漏)、② `（【归并】重复登记副本…）`、
+ * ③ 无闭合标记的散文形 `【归并】重复登记副本:…`。三种此前**结构上判不到**(维①只判布尔)。
+ * 补法:①② 按括号自闭合整段作 token;③ 按起点 `【归并】重复登记副本` 切到下一起点/行尾作 token。
+ * 仍只数"逐字相同的整段",所以一行里两个**内容不同**的注记各一份读数恒为 0(本维头号误判风险);
+ * 起点落在已切出的括号 token 内则跳过散文切法,同一注记不会被两种切法各数一遍。
  */
-const NOTE_TOKEN_SRC = '〔(?:[^〔〕]{8,24}|同题原号[^〔〕]*|改号\\([^〔〕]*\\):原[^〔〕]*)〕'
+const NOTE_TOKEN_SRC =
+  '〔(?:[^〔〕]{8,}|同题原号[^〔〕]*|改号\\([^〔〕]*\\):原[^〔〕]*|[^〔〕]*重复登记副本[^〔〕]*)〕' +
+  '|【[^【】]*重复登记副本[^【】]*】' +
+  '|（[^（）]*重复登记副本[^（）]*）'
 
-/** 一行内每种注记多出来的份数之和(0 = 该行无重复叠注)。 */
+/** 无闭合括号的归并指针注记(`DUP_POINTER_RE` 字面形态)的起点标记。 */
+const NOTE_PROSE_START = '【归并】重复登记副本'
+
+/**
+ * 逐字承载段的起始标记(2026-10-25 立):`〔副本正文并入·承载整段:…〕` 是折并时把旧行
+ * **正文整段逐字**搬进来的载体,里面必然带着旧行的同一条注记 —— 它与本行的活注记构成
+ * "同 token 两份",但那是折并的**设计形态**,不是并发回灌的叠注。旧读数因此常年非零
+ * (实测 70 份里 49 份在承载段内、仅 21 份落在活文本),而清它就得改写逐字引文,等于毁掉承载凭据。
+ * 判据只数**活文本**:先把承载段按括号平衡摘掉,再数其中的注记。
+ */
+const CARRY_SEGMENT_START = '〔副本正文并入·承载整段:'
+
+/** 摘除 `〔副本正文并入·承载整段:…〕` 平衡段(纯函数;承载段内嵌同形括号,故按深度配平)。 */
+export function stripCarrySegments(line) {
+  const text = String(line || '')
+  let out = ''
+  let i = 0
+  while (i < text.length) {
+    const at = text.indexOf(CARRY_SEGMENT_START, i)
+    if (at < 0) {
+      out += text.slice(i)
+      break
+    }
+    out += text.slice(i, at)
+    let j = at + 1
+    let depth = 1
+    while (j < text.length && depth > 0) {
+      const ch = text[j]
+      if (ch === '〔') depth++
+      else if (ch === '〕') depth--
+      j++
+    }
+    i = j
+  }
+  return out
+}
+
+/**
+ * 一行内的"注记 token"清单(承载段已剥离)。
+ * 同一段文本只会被一种切法计入:散文起点若落在已切出的括号 token 内就跳过散文切法,
+ * 否则 `（【归并】重复登记副本…）` 会被括号与散文各数一遍 ⇒ 单份读成两份(假红)。
+ */
+export function noteTokensInLine(line) {
+  const live = stripCarrySegments(line)
+  const tokens = []
+  const spans = []
+  const re = new RegExp(NOTE_TOKEN_SRC, 'g')
+  let m
+  while ((m = re.exec(live))) {
+    tokens.push(m[0].trim())
+    spans.push([m.index, m.index + m[0].length])
+  }
+  const starts = []
+  for (
+    let at = live.indexOf(NOTE_PROSE_START);
+    at >= 0;
+    at = live.indexOf(NOTE_PROSE_START, at + 1)
+  ) {
+    if (!spans.some(([s, e]) => at >= s && at < e)) starts.push(at)
+  }
+  for (let k = 0; k < starts.length; k++) {
+    const seg = live.slice(starts[k], k + 1 < starts.length ? starts[k + 1] : live.length).trim()
+    if (seg) tokens.push(seg)
+  }
+  return tokens
+}
+
+/** 一行内每种注记多出来的份数之和(0 = 该行无重复叠注;承载段不计)。 */
 export function redundantNoteCountInLine(line) {
   const seen = new Map()
-  for (const m of String(line || '').matchAll(new RegExp(NOTE_TOKEN_SRC, 'g')))
-    seen.set(m[0], (seen.get(m[0]) ?? 0) + 1)
+  for (const tok of noteTokensInLine(line)) seen.set(tok, (seen.get(tok) ?? 0) + 1)
   let total = 0
   for (const n of seen.values()) if (n > 1) total += n - 1
   return total
@@ -249,11 +330,93 @@ export function selfTestRun(asJson) {
   const row = (notes) => `- [ ] G-9 做点啥 ${notes}\n`
   const cases = [
     { name: '单份同题原号 ⇒ 不红(阳性对照)', text: row('〔同题原号 G-191〕'), want: 0 },
-    { name: '同一行叠两份同题原号 ⇒ 计 1(叠两份即红)', text: row('〔同题原号 G-191〕〔同题原号 G-191〕'), want: 1 },
-    { name: '单份改号 7 位原号(25 字超窗形态) ⇒ 不红', text: row('〔改号(2026-10-22):原G-1058619〕'), want: 0 },
-    { name: '同一行叠两份改号 7 位原号 ⇒ 计 1(字族补入后超窗形态可识别)', text: row('〔改号(2026-10-22):原G-1058619〕〔改号(2026-10-22):原G-1058619〕'), want: 1 },
-    { name: '同一行叠两份省略号形同题原号(6 字低于窗形) ⇒ 计 1', text: row('〔同题原号 …〕〔同题原号 …〕'), want: 1 },
-    { name: '非登记行(散文)叠两份 ⇒ 不计', text: '随便一句正文 〔同题原号 G-191〕〔同题原号 G-191〕\n', want: 0 },
+    {
+      name: '同一行叠两份同题原号 ⇒ 计 1(叠两份即红)',
+      text: row('〔同题原号 G-191〕〔同题原号 G-191〕'),
+      want: 1,
+    },
+    {
+      name: '单份 25 字长注记(改号 7 位原号) ⇒ 不红',
+      text: row('〔改号(2026-10-22):原G-1058619〕'),
+      want: 0,
+    },
+    {
+      name: '同一行叠两份 25 字长注记 ⇒ 计 1(2026-10-25 取消上界后归通用切法)',
+      text: row('〔改号(2026-10-22):原G-1058619〕〔改号(2026-10-22):原G-1058619〕'),
+      want: 1,
+    },
+    {
+      name: '同一行叠两份〔拍板@…〕长注记(现读族) ⇒ 计 1',
+      text: row('〔拍板@2026-10-07 机主:授权值守低峰窗口 ff-only 收敛分叉后切流〕'.repeat(2)),
+      want: 1,
+    },
+    {
+      name: '同一行叠两份〔让号记录…〕长注记(现读族) ⇒ 计 1',
+      text: row('〔让号记录(2026-10-03 F9 清偿批④):原号 G-580 同号多题,按 G-312 让号〕'.repeat(2)),
+      want: 1,
+    },
+    {
+      name: '同一行两个**不同**长注记各一份 ⇒ 不计(放开上界后的误判反证)',
+      text: row(
+        '〔拍板@2026-10-07 机主:选③——实证下游确验真+落台账条目〕〔拍板@2026-10-07 机主:接线同枚把 meta_learner.evaluate 挂上〕',
+      ),
+      want: 0,
+    },
+    {
+      name: '同一行叠两份省略号形同题原号(6 字低于窗形) ⇒ 计 1',
+      text: row('〔同题原号 …〕〔同题原号 …〕'),
+      want: 1,
+    },
+    {
+      name: '非登记行(散文)叠两份 ⇒ 不计',
+      text: '随便一句正文 〔同题原号 G-191〕〔同题原号 G-191〕\n',
+      want: 0,
+    },
+    {
+      name: '承载段〔副本正文并入·承载整段:…〕内的同 token ⇒ 不计(逐字引文非活注记)',
+      text: row('〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〔同题原号 G-191〕〕'),
+      want: 0,
+    },
+    {
+      name: '承载段外的真叠注仍计(承载段豁免不吞活文本)',
+      text: row('〔同题原号 G-191〕〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〕'),
+      want: 1,
+    },
+    {
+      name: '同一行叠两份〔…重复登记副本…〕(长注记) ⇒ 计 1',
+      text: row(
+        '〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记,派单以那条为准,本行不再单独派单。〕'.repeat(
+          2,
+        ),
+      ),
+      want: 1,
+    },
+    {
+      name: '同一行叠两份（…重复登记副本…） ⇒ 计 1',
+      text: row(
+        '（【归并】重复登记副本·同题不同编号·本行与同题登记的持有行重复,派单以持有行为准）'.repeat(
+          2,
+        ),
+      ),
+      want: 1,
+    },
+    {
+      name: '同一行叠两份散文形【归并】重复登记副本 ⇒ 计 1',
+      text: row('【归并】重复登记副本:本行与同标题登记重复,以主行为准。'.repeat(2)),
+      want: 1,
+    },
+    {
+      name: '一行里两个**不同**注记各一份 ⇒ 不计(本维头号误判反证)',
+      text: row(
+        '〔同题原号 G-191〕〔同题原号 G-192〕（【归并】重复登记副本·同题不同编号·另一件事）',
+      ),
+      want: 0,
+    },
+    {
+      name: '散文形与括号形各一份(内容不同) ⇒ 不计',
+      text: row('【归并】重复登记副本:甲事以主行为准。（【归并】重复登记副本·乙事以持有行为准）'),
+      want: 0,
+    },
   ]
   let fail = 0
   for (const c of cases) {
@@ -472,7 +635,7 @@ function main(argv) {
 }
 
 const isDirectRun =
-  process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href
+  process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
 if (isDirectRun) {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) {
@@ -486,5 +649,19 @@ if (isDirectRun) {
       process.exitCode = main(argv)
     }
   }
+}
+
+/** §22c:镜像测试从这里取生产判据,禁止在测试里复制一份识别集/计数逻辑。 */
+export const __test__ = {
+  isRow,
+  hitsNote,
+  countPointerRows,
+  pointerRows,
+  stripCarrySegments,
+  noteTokensInLine,
+  redundantNoteCountInLine,
+  redundantNoteCount,
+  noteRedundancyVerdict,
+  NOTE_TOKEN_SRC,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

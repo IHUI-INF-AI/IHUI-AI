@@ -47,14 +47,17 @@
  *   与"第一出口的租约窗尺子挡住"这一对相反读数一起打出来(两出口口径不同,不得混成"池已满")。
  *   **2026-10-23 当次分配语义一字未动**(段容量/池上限/取号算法全沿用),改的只有结论的可读文本与机读字段。
  * `--check` 的重号对账按**归一化后的条目标题 key**(含系列小后缀)判,退出码语义不变(有真重号仍 exit 1)。
+ * 〔2026-10-25 补:那一句里的"真重号"自 G-927/G-955 起只指**登记行声明位同号多行**,且只指
+ *   **新增**那一档 —— 标题口径两档(孪生副本 / 系列小节)只报数;登记行重号按 §0.5 差值棘轮
+ *   与父提交面比:基线同号已多行的存量只报数,行数**增长**的才判红。机制见 `--check` 分支上的"第七条"。〕
  *
  * 用法:
  *   node scripts/next-plan-id.mjs                # 打印下一个可用号 + 现有号分布
  *   node scripts/next-plan-id.mjs --next-only     # 只打印一个号(供脚本串用)
  *   node scripts/next-plan-id.mjs --source origin/main
- *   node scripts/next-plan-id.mjs --check        # 有**登记行**重号即 exit 1(不打印建议号;标题口径只报数)
+ *   node scripts/next-plan-id.mjs --check        # 有**新增**登记行重号即 exit 1(不打印建议号;存量与标题口径只报数)
  *
- * 退出码:0 正常 / 1 --check 发现登记行重号、判据未判定,或取不到权威版本、占用面判不出 / 2 脚本自身异常。
+ * 退出码:0 正常 / 1 --check 发现**新增**登记行重号、判据未判定,或取不到权威版本、占用面判不出 / 2 脚本自身异常。
  * 〔更正@2026-10-21/G-927 第二次,取代上一条"stdout 逐字同改动前"与"重号按台账面自身的条目标题判";
  * 上一条只作改判留痕读,不得当口径引用〕:
  *   key 形状那一档(枚 82ee72dbf1)已认系列后缀,现读它把 7 组收窄成**逐字同键的重复小节**
@@ -109,7 +112,7 @@ import { resolve } from 'node:path'
 
 import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
-import { collectIdFace, scanFamilyIds } from './lib/plan-id-face.mjs'
+import { collectIdFace, scanFamilyIds, ID_FACE_TRANSPORT } from './lib/plan-id-face.mjs'
 // 远端那一维与 live-doc-edit.mjs(第一发号出口)**同一把尺**:transport(含有界自补救 fetch)、
 // 基准读取与硬闸门都只住在那一份实现里 —— 这里只做出口接线,不抄任何判据。
 import { readRemoteIdBasis, idBasisGate } from './live-doc-edit.mjs'
@@ -129,7 +132,7 @@ import {
 // 重号判据(G-927,2026-10-21):**登记行的编号声明位**同号多行才判红;历史小节标题同 id 只报数不判红。
 // 尺同住这一份 lib(它内部用 plan-task-index 的 parseTaskRows),本器不另写"什么算一条登记行"。
 // 标题口径那把尺(带 `附①/续三/补` 子模式)不动 —— 号段 max 吃它,本 lib 也不复制它。
-import { judgeRowIdDuplicates } from './lib/plan-id-duplicates.mjs'
+import { judgeRowIdDuplicates, judgeRowIdDuplicatesDelta } from './lib/plan-id-duplicates.mjs'
 // 同题指纹的唯一实现住在守门 194(文件头明写"导出供取号器与镜像测试复用",§22c)——
 // 本器只 import,不另写一份"什么算同一条登记行 / 什么算同题"。
 import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
@@ -280,18 +283,58 @@ if (flags.has('--check')) {
     console.log('  ⇒ 既不记绿也不冒红;先修占用面取材(见上面 stderr 的 face 读数)再重跑本命令。')
     process.exit(1)
   }
-  if (dup.rowDups.length) {
-    console.log(`❌ ${SOURCE} 上登记行的编号声明位同号多行 ${dup.rowDups.length} 组:`)
-    for (const [id, n] of dup.rowDups) console.log(`   ${id} ×${n}`)
+  // ── 第七条(2026-10-25,差值棘轮;承票 G-955 收口)──────────────────────────────────
+  // 上一条判红是**绝对值**(只要有同号多行就 exit 1)。绝对值与 §0.5 冲突:台账里的历史重号
+  // 与"现在能不能登记新活"无关,而绝对值把它读成恒红门(§12e);反过来把整条判据删掉换成恒 0
+  // 又是削判据(§12f)。⇒ 与父提交面逐号比行数:基线同号已 ≥2 行 = 存量(只报数),
+  // 行数**增长** = 本次把违规带进来(判红)。判据本体住 `lib/plan-id-duplicates.mjs` 的
+  // `judgeRowIdDuplicatesDelta`(本器只接线,不另算)。
+  // 基线面取不到(浅克隆 / 根提交 / --source 指到无父的 rev)⇒ **分不开存量与新增** ⇒ 不判定:
+  // 不记绿也不冒红(§0.3),并按 §0.10 走"多要一次定向说明"—— 出路写在下面对话里。
+  const baselineRev = `${SOURCE}^`
+  let baselineText = null
+  try {
+    // 取材面与台账同一条实现(`ID_FACE_TRANSPORT.show`),本器不自拼 git 派生;
+    // 只要台账那一份 blob(归档件不参与这条判据:判红维一直只审台账面的登记行)。
+    baselineText = ID_FACE_TRANSPORT.show({ root: ROOT, source: baselineRev, path: PLAN_PATH })
+  } catch {
+    baselineText = null
+  }
+  const delta = judgeRowIdDuplicatesDelta({ currentText: text, baselineText, family: FAMILY })
+  if (!delta.ok) {
+    console.log(`❌ 重号判据未判定:${delta.reason}`)
+    console.log(
+      `  ⇒ 基线面取的是 ${baselineRev}(被审面的父提交)。分不开"存量"与"新增"时既不记绿也不冒红;` +
+        `出路:确认 ${SOURCE} 有父提交且本机取得到(浅克隆先 git fetch --unshallow),或用 --source 指到完整可读的面。`,
+    )
     process.exit(1)
   }
+  if (delta.fresh.length) {
+    console.log(
+      `❌ ${SOURCE} 上**新增**登记行的编号声明位同号多行 ${delta.fresh.length} 组` +
+        `(基线 ${baselineRev} 该号不足 2 行 ⇒ 本次把重号带进来):`,
+    )
+    for (const [id, n, b] of delta.fresh) console.log(`   ${id} ×${n}(基线 ×${b})`)
+    console.log(
+      '  ⇒ 存量只报数、新增必拦(§0.5:锚点 = 基线面该号自身的行数);改号由台账持有人走留痕通道,本器不代改。',
+    )
+    process.exit(1)
+  }
+  const legacyNote = delta.legacy.length
+    ? `;存量登记行重号 ${delta.legacy.length} 组(${delta.legacy.map(([i, n]) => `${i}×${n}`).join(' ')})` +
+      ` —— 基线 ${baselineRev} 同号已 ≥2 行,只报数不判红(§0.5 差值棘轮)`
+    : ''
+  const clearedNote = delta.cleared.length
+    ? `;基线 ${baselineRev} 上曾有 ${delta.cleared.length} 组(${delta.cleared.map(([i, n]) => `${i}×${n}`).join(' ')})已不在被审面 ⇒ 已清偿`
+    : ''
   const headingNote = dups.length
     ? `;另有历史小节标题同 id ${dups.length} 组(${dups.map(([i, n]) => `${i}×${n}`).join(' ')})` +
       ` —— 含逐字孪生副本 ${twinDups.length} 组(${twinDups.join(' ') || '无'};该折,归活文档归并线既有折叠出口处置)` +
       ` / 纯系列小节 ${seriesDups.length} 组(${seriesDups.join(' ') || '无'};正当复用)—— 两档只报数不判红`
     : ''
   console.log(
-    `✅ ${SOURCE} 无登记行重号(声明位 ${dup.rowDecls} 处 / 标题口径 ${count.size} 个号,最大 O${Math.max(...nums)})${headingNote}`,
+    `✅ ${SOURCE} 无新增登记行重号(声明位 ${dup.rowDecls} 处 / 标题口径 ${count.size} 个号,最大 O${Math.max(...nums)})` +
+      `${legacyNote}${clearedNote}${headingNote}`,
   )
   // 族射程必须自报:本器 `const FAMILY = 'O'`,上面那句只审 **O 族**登记行。2026-10-24 实测踩到 ——
   // 台账里 G-35 的结清注记与本席别席的注记都拿"`--check` 绿"当**全族无重号**的凭据用了(族错配:

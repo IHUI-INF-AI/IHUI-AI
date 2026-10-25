@@ -29,8 +29,11 @@ import { parseTaskRows, declaredKeyOf } from './plan-task-index.mjs'
 /**
  * @param {string} ledgerText 台账正文(被审面;取哪一面由调用方负责,本器不读盘不读 git)
  * @param {string} family     编号族前缀(缺省 'O')
- * @returns {{ ok:boolean, reason?:string, rowDups:Array<[string, number]>, rowDecls:number }}
+ * @returns {{ ok:boolean, reason?:string, rowDups:Array<[string, number]>, rowDecls:number,
+ *   rowCounts:Array<[string, number]> }}
  * `rowDups` = 同号 ≥2 条登记行的组(按 id 字典序)。
+ * `rowCounts` = **每个**被声明过的号及其行数(含只 1 行的) —— 差值棘轮要拿基线面"该号几行"
+ * 做锚点,只给 `rowDups` 会把"基线 1 行"读成"基线 0 行"(两档结论相同但报数会撒谎)。
  * 输入取不到(空文本 / 非字符串)⇒ `ok:false` + reason —— **未判定不得被读成"无重号"**(§0.3)。
  */
 export function judgeRowIdDuplicates({ ledgerText, family = 'O' }) {
@@ -40,6 +43,7 @@ export function judgeRowIdDuplicates({ ledgerText, family = 'O' }) {
       reason: '台账正文取不到(空 / 非字符串)⇒ 重号无从判起',
       rowDups: [],
       rowDecls: 0,
+      rowCounts: [],
     }
   }
   // 族名精确匹配:family='O' 时 `G-1` 不该记进 O 族 ⇒ 首字母与形状两条都要认。
@@ -53,9 +57,77 @@ export function judgeRowIdDuplicates({ ledgerText, family = 'O' }) {
     decls += 1
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
-  const rowDups = [...counts.entries()]
-    .filter(([, n]) => n > 1)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-  return { ok: true, rowDups, rowDecls: decls }
+  const rowCounts = [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  const rowDups = rowCounts.filter(([, n]) => n > 1)
+  return { ok: true, rowDups, rowDecls: decls, rowCounts }
 }
+
+/**
+ * 差值棘轮(2026-10-25 立,承票 G-955 收口):把"登记行声明位同号多行"拆成**存量 / 新增**两档。
+ *
+ * 为什么不能只判绝对值:同一个判据在两处被读成两种东西 ——
+ *  ① 提交链/取号入口需要拦的是"**本次**把重号带进来"(并发批次带着旧底稿并入、手填号撞车);
+ *  ② 台账里早就存在的历史重号,与"现在能不能登记新活"无关。
+ * 绝对值判红把这两件事并成一格 ⇒ 存量一回来入口就恒红(§12e),而把判据整条删掉换成恒 0 又是削判据(§12f)。
+ * 正解是 §0.5 的棘轮口径:**锚点 = 基线面(被审面的父提交)该号自身的行数**,只拦"本次改动把违规加回来"。
+ *
+ * 三档定义(逐号比,不按键集合差 —— 同一号可以被多行抢,集合差会把"同键再抄两条"整个漏掉):
+ *  · fresh  = 被审面 ≥2 行 ∧ 被审面行数 > 基线行数  ⇒ **新增**,调用方判红;
+ *  · legacy = 被审面 ≥2 行 ∧ 被审面行数 ≤ 基线行数  ⇒ 存量(含"没再增长"),只报数;
+ *  · cleared= 基线 ≥2 行 ∧ 被审面 <2 行            ⇒ 已清偿,只报数(供台账对账读)。
+ *
+ * 两档输入任一取不到 ⇒ `ok:false` + reason:**分不开存量与新增**就是不判定,
+ * 不得把"没基线"读成"全是新增"(会造恒红),更不得读成"全是存量"(那就是放行)。
+ *
+ * @param {{currentText?:string, baselineText?:string, family?:string}} p
+ * @returns {{ ok:boolean, reason?:string,
+ *   fresh:Array<[string, number, number]>, legacy:Array<[string, number, number]>,
+ *   cleared:Array<[string, number]>, rowDecls:number, baselineRowDecls:number|null }}
+ *  `fresh`/`legacy` 每项 = `[编号, 被审面行数, 基线行数]`;`cleared` 每项 = `[编号, 基线行数]`。
+ */
+export function judgeRowIdDuplicatesDelta({ currentText, baselineText, family = 'O' } = {}) {
+  const cur = judgeRowIdDuplicates({ ledgerText: currentText, family })
+  if (!cur.ok)
+    return {
+      ok: false,
+      reason: `被审面:${cur.reason}`,
+      fresh: [],
+      legacy: [],
+      cleared: [],
+      rowDecls: 0,
+      baselineRowDecls: null,
+    }
+  const base = judgeRowIdDuplicates({ ledgerText: baselineText, family })
+  if (!base.ok)
+    return {
+      ok: false,
+      reason: `基线面:${base.reason} ⇒ 分不开存量与新增(取到父提交面再重跑)`,
+      fresh: [],
+      legacy: [],
+      cleared: [],
+      rowDecls: cur.rowDecls,
+      baselineRowDecls: null,
+    }
+  const baseCounts = new Map(base.rowCounts)
+  const curCounts = new Map(cur.rowCounts)
+  const fresh = []
+  const legacy = []
+  for (const [id, n] of cur.rowDups) {
+    const b = baseCounts.get(id) ?? 0
+    if (n > b) fresh.push([id, n, b])
+    else legacy.push([id, n, b])
+  }
+  const cleared = base.rowDups.filter(([id]) => (curCounts.get(id) ?? 0) < 2)
+  return {
+    ok: true,
+    fresh: fresh.sort((a, b) => a[0].localeCompare(b[0])),
+    legacy: legacy.sort((a, b) => a[0].localeCompare(b[0])),
+    cleared: cleared.sort((a, b) => a[0].localeCompare(b[0])),
+    rowDecls: cur.rowDecls,
+    baselineRowDecls: base.rowDecls,
+  }
+}
+
+/** §22c:测试直接吃生产判据,不在测试里复制"什么算存量 / 什么算新增"。 */
+export const __test__ = { judgeRowIdDuplicates, judgeRowIdDuplicatesDelta }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
