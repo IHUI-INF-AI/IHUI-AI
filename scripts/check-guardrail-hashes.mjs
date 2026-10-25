@@ -349,7 +349,7 @@ export function selfTest() {
     const env = { ...process.env, GUARDRAIL_ROOT: fixture }
     delete env.GUARDRAIL_UNLOCK
     if (unlock !== undefined) env.GUARDRAIL_UNLOCK = unlock
-    const r = spawnSync(process.execPath, [SELF, ...args], { env, encoding: 'utf8' })
+    const r = spawnSync(process.execPath, [SELF, ...args], { env, encoding: 'utf8', windowsHide: true })
     return { status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }
   }
 
