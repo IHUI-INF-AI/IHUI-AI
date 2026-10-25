@@ -391,21 +391,9 @@ async def test_wb_sync_expiring_triggers_extraction(monkeypatch):
         extracts.append(1)
         return {"cookie": "session=ok", "user_agent": "UA", "expires_at": 1}
 
-    # 重抽成功后调度器会写库(save_device_map + clear_open_cooldowns);与同族用例
-    # (test_wb_sync_alive_skips_extraction / _extract_failure_writes_nothing)同一口径:
-    # store 打桩、不触 DB。此前漏桩 ⇒ 无 DATABASE_URL 的 CI 里撞 db_pool 的 fail-closed
-    # RuntimeError(§5 测试隔离铁律:测试不得连真库),本机跑则真写开发库 id=7 的行。
-    async def fake_save(account_id: int, dm: dict[str, Any]):
-        return None
-
-    async def fake_clear(account_id: int):
-        return None
-
     monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
     monkeypatch.setattr(cs.checkin_workbuddy, "workbuddy_check_session", fake_session)
     monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_cookie", fake_extract)
-    monkeypatch.setattr(checkin_store, "save_device_map", fake_save)
-    monkeypatch.setattr(checkin_store, "clear_open_cooldowns", fake_clear)
     await sched._sync_workbuddy_local()
     assert extracts == [1]
 

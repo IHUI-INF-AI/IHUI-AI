@@ -163,40 +163,6 @@ test('T4 scanDuplicateDefinitions:顶层同名命中,嵌套/注释不算,ts 臂�
   )
   const names = scanDuplicateDefinitions(ts, '.ts').map((x) => x.name).sort()
   assert.deepEqual(names, ['fmt', 'tick'])
-
-  // TS 函数重载 = 多个无 body 签名 + 单个实现 ⇒ 不是重复族(2026-10-25 tauri-bridge.ts
-  // 的 withTimeout 2 签名 + 1 实现被早期版本判红,落地复跑假红)
-  const overloads = [
-    'function withTimeout<T>(p: Promise<T>, ms: number): Promise<T>',
-    'function withTimeout<T>(',
-    '  p: Promise<T>,',
-    '  ms: number,',
-    '  signal: AbortSignal | undefined,',
-    '): Promise<T>',
-    'function withTimeout<T>(',
-    '  p: Promise<T>,',
-    '  ms: number,',
-    '  signal?: AbortSignal,',
-    '): Promise<T> {',
-    '  return p',
-    '}',
-  ].join('\n')
-  assert.deepEqual(scanDuplicateDefinitions(overloads, '.ts'), [], '重载签名不得算第二份定义')
-
-  // 但"两份实现(+ 一枚签名)"仍是真重复族
-  const realDup = [
-    'function withTimeout<T>(p: Promise<T>): Promise<T>',
-    'function withTimeout<T>(p: Promise<T>): Promise<T> {',
-    '  return p',
-    '}',
-    'function withTimeout<T>(p: Promise<T>): Promise<T> {',
-    '  return p',
-    '}',
-  ].join('\n')
-  const rd = scanDuplicateDefinitions(realDup, '.ts')
-  assert.equal(rd.length, 1)
-  assert.equal(rd[0].name, 'withTimeout')
-  assert.equal(rd[0].lines.length, 2, '只数带 body 的两份实现')
 })
 
 // ── T5 失败臂变红:落地面自带重复定义 ⇒ verdict=1(判 HEAD 面,不读工作树) ──

@@ -6,7 +6,7 @@
 
 # 多端架构与同步开发
 
-> IHUI-AI 9 端独立代码 + 14 共享包的架构总览、跨端调用链路、同步开发规则与多端发布矩阵。同步开发强制规则见 [AGENTS.md §9](../AGENTS.md),本文档聚焦架构与代码组织、链路打通与发布矩阵,不重复规则条款。
+> IHUI-AI 8 端独立代码 + 14 共享包的架构总览、跨端调用链路、同步开发规则与多端发布矩阵。同步开发强制规则见 [AGENTS.md §9](../AGENTS.md),本文档聚焦架构与代码组织、链路打通与发布矩阵,不重复规则条款。
 
 ---
 
@@ -14,7 +14,7 @@
 
 IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织 **8 个独立端** + **14 个共享包**,通过共享层实现跨端类型契约与组件复用。
 
-- **9 端**:`apps/web`、`apps/api`、`apps/ai-service`、`apps/cli`、`apps/desktop`、`apps/extension`、`apps/mobile-rn`、`apps/miniapp-taro`、`apps/mobile-cap`
+- **8 端**:`apps/web`、`apps/api`、`apps/ai-service`、`apps/cli`、`apps/desktop`、`apps/extension`、`apps/mobile-rn`、`apps/miniapp-taro`
 - **14 共享包**:`packages/` 下的 `auth`/`config`/`database`/`types`/`ui-react`/`ui-native`/`design-tokens`/`api-client`/`context-compaction`/`eslint-config`/`tsconfig`/`sdk`/`shared`/`app`(详见 [PACKAGES.md](./PACKAGES.md))
 - **同步规则**:见 [AGENTS.md §9 多端同步开发强制规则](../AGENTS.md),默认每个任务全端连通
 
@@ -22,7 +22,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  端层(9 端独立代码,apps/*)                              │
+│  端层(8 端独立代码,apps/*)                              │
 │  web │ api │ ai-service │ cli │ desktop │ extension │   │
 │  mobile-rn │ miniapp-taro                                │
 ├─────────────────────────────────────────────────────────┤
@@ -40,12 +40,12 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 
 ---
 
-## 2. 9 端架构矩阵
+## 2. 8 端架构矩阵
 
 | 端 | 代码路径 | 技术栈 | 端口 | 主要功能 |
 |----|----------|--------|------|----------|
 | Web | `apps/web/` | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui | 8801 | 200+ 页面,主站 + 管理后台 |
-| API | `apps/api/` | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL | 8802 | 4561 路由,业务管理 + 多厂商代理 + 认证 + WebSocket |
+| API | `apps/api/` | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL | 8802 | 4393 路由,业务管理 + 多厂商代理 + 认证 + WebSocket |
 | AI Service | `apps/ai-service/` | FastAPI + LangGraph + LiteLLM + MCP | 8803 | ~55 端点,LLM 网关 + Agent 执行 + MCP 工具 + A2A |
 | CLI | `apps/cli/` | TS(commander + inquirer + ws) | 终端 | 24 源配置导入 + subagent 并行 + ACP 协议 + TUI |
 | Desktop | `apps/desktop/` | Tauri 2.1(Rust 薄壳,无前端工程) | 桌面 | 系统托盘 + 深链接 + 自动更新 + 文件系统;UI 由运行时直连的线上站点提供 |
@@ -71,7 +71,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 - **ORM**:Drizzle ORM 0.38 + postgres-js,单库 PostgreSQL 18
 - **认证**:`@ihui/auth` 共享包(JWT HS256 + token-family + blacklist + OAuth2)
 - **验证**:Zod 3.24
-- **路由**:627 文件 4561 路由,公共路由(`/api/*`)+ 管理员路由(`/api/admin/*`)
+- **路由**:267 文件 4393 路由,公共路由(`/api/*`)+ 管理员路由(`/api/admin/*`)
 - **WebSocket**:12 端点(详见 [architecture.md §3](./architecture.md))
 - **端口**:8802
 
@@ -146,7 +146,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | `@ihui/design-tokens` | 跨端基础原语(cn + HSL/HEX tokens + CSS 变量) | web / extension / mobile-rn |
 | `@ihui/context-compaction` | 上下文压缩(88% 阈值自动压缩) | cli / api / ai-service |
 | `@ihui/sdk` | 多语言 SDK(TS/Go/Python/Java/.NET) | 外部集成 |
-| `@ihui/shared` | 9端共享业务逻辑(auth/sso + memory + notifications + plan + workflows 等) | 全端 |
+| `@ihui/shared` | 8端共享业务逻辑(auth/sso + memory + notifications + plan + workflows 等) | 全端 |
 | `@ihui/rn-app` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + tokens) | mobile-rn / web |
 | `@ihui/eslint-config` | base/next/react ESLint 配置 | 全端 |
 | `@ihui/tsconfig` | base/nextjs/node/react-library TSConfig | 全端 |

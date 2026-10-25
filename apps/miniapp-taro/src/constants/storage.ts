@@ -44,30 +44,8 @@ export const IHUI_KEY_PREFIX = 'ihui_' as const
 export const IMAGE_HISTORY_KEY = 'ihui_image_history' as const
 export const IMAGE_FAVORITES_KEY = 'ihui_image_favorites' as const
 export const VIDEO_HISTORY_KEY = 'ihui_video_history' as const
-// 对话与收藏内容此前只在 chat.tsx 里各写一份字面量,收进本表(§0.6:同一份清单只许一处)
-export const AI_CHAT_HISTORY_KEY = 'ai_chat_history' as const
-export const AI_FAVORITE_MESSAGES_KEY = 'ai_favorite_messages' as const
-
 export const AI_AGENT_TIP_SHOWN_KEY = 'ai_agent_tip_shown' as const
 export const AGENT_DIALOGUE_DATA_KEY = 'ihui-agent-dialogue-data' as const
-
-/**
- * **属于某个账号的本地内容缓存**(登出必须整体失效的唯一清单)。
- *
- * 立因:这些键都不含 userId,而 `utils/auth.ts` 的登出出口过去只清 token/userInfo ⇒
- * 同一台手机上 A 退出、B 登录,AI 对话页与生图/成片历史里显示的是 **A 的提问与生成结果**
- * (跨账号内容泄漏)。不在键上拼 userId 来根治,是因为那会把存量数据变成孤儿,而设置页的
- * 缓存清理与 app.tsx 的内存回收都按这份字面清单走,一处改全体漂;真正的不变量是
- * **"换身份 ⇒ 上一身份的内容缓存作废"**,它只需要在登出这一个出口上兑现。
- */
-export const ACCOUNT_SCOPED_CONTENT_KEYS = [
-  AI_CHAT_HISTORY_KEY,
-  AI_FAVORITE_MESSAGES_KEY,
-  IMAGE_HISTORY_KEY,
-  IMAGE_FAVORITES_KEY,
-  VIDEO_HISTORY_KEY,
-  AGENT_DIALOGUE_DATA_KEY,
-] as const
 
 // 业务相关
 export const BUSINESS_CARD_DATA_KEY = 'ihui-business-card-data' as const

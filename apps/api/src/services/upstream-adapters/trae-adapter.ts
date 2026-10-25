@@ -760,9 +760,8 @@ export const traeAdapter: RelayUpstreamAdapter = {
     return {
       token: payload.token,
       refreshToken: payload.refreshToken,
-      // 上游未给/给不出可解析的过期时刻 → null(未知),不做 24h 猜测:
-      // 猜出来的未来时刻会被当成"票仍可用"的证据(2026-10-23 票)。
-      expiresAt: payload.expiresAt ?? null,
+      // 上游未给/给不出可解析的过期时刻 → 保守兜底 24h(临期刷新 + 401 自愈双保险)
+      expiresAt: payload.expiresAt ?? new Date(Date.now() + 24 * 3600_000),
     }
   },
 

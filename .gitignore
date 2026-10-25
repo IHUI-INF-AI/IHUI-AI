@@ -186,9 +186,6 @@ deploy/prod-bundle/cloudflared/*.local.txt
 /.ihui-agent/archive/*
 !/.ihui-agent/archive/PROJECT_PLAN_*.md
 !/.ihui-agent/archive/AGENTS_*.md
-# scripts-comment-*.md 是门 103 C1 行数天花板的唯一出路:超限脚本的大块注释逐字归档、
-# 原位换指针 —— 指针指向不入库的文件 = 跑不通的出路(§0.8),同上必须放行。
-!/.ihui-agent/archive/scripts-comment-*.md
 .qoder/
 # 2026-10-19 补(门 44 同上):第三方 AI 工具 CodeArts Doer 在本仓的工作目录,
 # 与上面 .qoder/ .trae/ .superpowers/ 同一口径 —— 工具自有配置/技能/记忆,不是本仓产物。

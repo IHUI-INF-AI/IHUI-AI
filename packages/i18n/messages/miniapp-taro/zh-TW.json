@@ -226,12 +226,12 @@
     "liveNow": "直播中",
     "detail": {
       "loadFailed": "直播載入失敗",
+      "loading": "直播載入中…",
       "notStarted": "直播尚未開始",
       "ended": "直播已結束",
       "connecting": "正在連線直播間…",
       "enter": "進入直播間",
-      "anchor": "主播:{name}",
-      "loading": "直播載入中…"
+      "anchor": "主播:{name}"
     },
     "subscribe": {
       "subscribe": "訂閱提醒",
@@ -1308,6 +1308,7 @@
       "correctValue": "{n} 題",
       "duration": "用時",
       "durationValue": "{n} 分鐘",
+      "loading": "載入中…",
       "questionIdx": "第 {n} 題",
       "retry": "再考一次",
       "reviewScore": "{n} 分",
@@ -1317,8 +1318,7 @@
       "unanswered": "未答",
       "unansweredValue": "{n} 題",
       "wrong": "答錯",
-      "wrongValue": "{n} 題",
-      "loading": "載入中…"
+      "wrongValue": "{n} 題"
     },
     "detail": {
       "loadFailed": "考試載入失敗",
@@ -1545,7 +1545,7 @@
     "ctaTitle": "30 分鐘開始你的 AI 之旅",
     "heroBadge": "關於智匯 AI",
     "heroSubtitle": "智匯 AI(IHUI AI)是開源的全棧 AI 操作系統,把 Agent 設計、知識庫、多模型調度、跨端協作和團隊運營裝進同一個平臺。",
-    "heroTitle": "一碼九端,一站 AI",
+    "heroTitle": "一碼六端,一站 AI",
     "numbersTitle": "數字見證",
     "platformAgentsDesc": "可視化拖拽搭建 AI Agent,200+ 模板,插件/MCP 工具,一鍵發布到任意端。",
     "platformAgentsTitle": "Agent 市場與編排",
@@ -1573,10 +1573,10 @@
     "storyP2": "於是我們做了智匯 AI:開源、統一、跨端、可私有化。把 12-18 個月的自研時間,壓縮到 30 分鐘開通賬號。",
     "storyTitle": "為什麼做智匯 AI?",
     "valueCrossDesc": "Web / 桌面 / 小程序 / 瀏覽器插件 / React Native / CLI,一套代碼,一次發布,全端觸達。",
-    "valueCrossTitle": "九端同源",
+    "valueCrossTitle": "六端同源",
     "valueEnterpriseDesc": "SSO/OAuth、審計日誌、角色權限、私有化部署,服務多家上市公司。",
     "valueEnterpriseTitle": "企業級安全",
-    "valueFreeDesc": "每月 1000 積分,全模型可用,九端同發。Pro 版 ¥49/月起,企業版支持私有化。",
+    "valueFreeDesc": "每月 1000 積分,全模型可用,六端同發。Pro 版 ¥49/月起,企業版支持私有化。",
     "valueFreeTitle": "個人版永久免費",
     "valueOpenDesc": "Apache 2.0 協議,核心代碼公開,商業可用,Self-host 零成本。",
     "valueOpenTitle": "完全開源",
@@ -2229,7 +2229,8 @@
       "addParam": "新增參數",
       "deleteParam": "刪除",
       "create": "新建",
-      "mockSuccess": "n8n 智慧體介面未開放,本次建立未生效",
+      "createSuccess": "智慧體建立成功",
+      "mockSuccess": "介面暫未開放,已模擬建立",
       "submitting": "建立中…",
       "submit": "建立智慧體",
       "fileSizeExceeded": "檔案不能超過10MB",
@@ -2265,7 +2266,8 @@
       "discountFull": "全部參與",
       "submitting": "提交中…",
       "submit": "提交審核",
-      "mockSuccess": "收費設定介面未開放,本次提交未生效"
+      "submitSuccess": "提交成功",
+      "mockSuccess": "介面暫未開放,已模擬提交"
     }
   },
   "devSpace": {
@@ -2753,6 +2755,7 @@
     "missingParams": "支付參數缺失",
     "useWechatScan": "請使用微信掃碼支付",
     "configNotReady": "支付設定未就緒,請聯繫管理員",
+    "balanceInsufficient": "餘額不足,請充值",
     "noCoupon": "暫無可用優惠券",
     "couponNone": "不使用優惠券",
     "orderExpired": "訂單已超時,請重新下單",
@@ -2760,6 +2763,8 @@
     "couponSaved": "已優惠 ¥{n}",
     "goodsName": "商品名稱",
     "vipSubscription": "會員訂閱",
+    "balanceAmount": "餘額 ¥{n}",
+    "recharge": "充值",
     "couponAvailable": "{n} 張可用",
     "limitedFree": "限時免費",
     "memberFree": "會員免費",
@@ -2769,6 +2774,7 @@
     "paymentMethod": "支付方式",
     "confirmPay": "確認支付 ¥{price}",
     "alipay": "支付寶",
+    "balance": "餘額",
     "cancel": "您已取消支付",
     "wxNotInstalled": "未檢測到微信應用,請先安裝微信",
     "aliNotInstalled": "未檢測到支付寶應用,請先安裝支付寶",
@@ -2941,14 +2947,14 @@
       "follow": "關注",
       "followers": "{n} 人關注",
       "following": "已關注",
+      "hoursAgo": "{n} 小時前",
+      "justNow": "剛剛",
       "loadFailed": "載入失敗",
       "loading": "載入中…",
       "loadingMore": "載入中…",
+      "minutesAgo": "{n} 分鐘前",
       "noMore": "沒有更多了",
-      "publish": "發帖",
-      "hoursAgo": "{n} 小時前",
-      "justNow": "剛剛",
-      "minutesAgo": "{n} 分鐘前"
+      "publish": "發帖"
     },
     "list": {
       "pageTitle": "話題",
@@ -3506,11 +3512,11 @@
   },
   "index": {
     "mock": {
-      "yesterday": "昨天",
       "post1Title": "如何使用 React Hooks?",
       "today": "今天",
       "post2Title": "TypeScript 型別推論",
-      "post3Title": "設計模式討論"
+      "post3Title": "設計模式討論",
+      "yesterday": "昨天"
     },
     "feature": {
       "superAgent": "深度思考",
@@ -3598,21 +3604,17 @@
     "register1": "🎉 歡迎使用智匯AI社區,新使用者註冊即贈5000智匯值!",
     "text2": "智慧體助手頁未設定",
     "save3": "圖片已儲存",
-    "d5": "開發",
-    "d11": "設計",
-    "p1": "圖片內容",
-    "p2": "影片內容",
-    "p3": "音訊內容",
-    "r1": "儲存圖片到相簿",
     "d1": "AI 寫作助手",
     "d2": "幫你撰寫高品質文章、報告和文案",
     "d3": "程式設計助手",
     "d4": "程式碼編寫、除錯和最佳化建議",
+    "d5": "開發",
     "d6": "資料分析師",
     "d7": "資料視覺化和分析洞察",
     "d8": "分析",
     "d9": "設計創意師",
     "d10": "創意設計和視覺方案",
+    "d11": "設計",
     "d12": "翻譯達人",
     "d13": "多語言翻譯和本地化",
     "d14": "工具",
@@ -3647,7 +3649,11 @@
     "d43": "數位人直播演示",
     "d44": "AI 語音合成演示",
     "d45": "TTS 音色對比",
-    "d46": "語音克隆效果"
+    "d46": "語音克隆效果",
+    "p1": "圖片內容",
+    "p2": "影片內容",
+    "p3": "音訊內容",
+    "r1": "儲存圖片到相簿"
   },
   "aiassistant": {
     "text1": "深度思考中...",
@@ -3875,6 +3881,25 @@
     "d15": "高端資源對接",
     "d16": "客製化解決方案"
   },
+  "aigcList": {
+    "d1": "賽博城市夜景",
+    "d2": "智匯小方",
+    "d3": "極光幻境",
+    "d4": "AI創作家",
+    "d5": "機械姬 Concept",
+    "d6": "未來派",
+    "d7": "量子詩篇",
+    "d10": "資料洪流 數位時代 詩",
+    "d11": "霓虹脈搏",
+    "d12": "聲音藝術家",
+    "d13": "未來之城",
+    "d14": "數位畫師",
+    "d15": "AI 覺醒錄",
+    "d17": "探討 AI 覺醒後的人類處境,生成一段哲思短文。",
+    "d18": "AI 覺醒 意識 共存",
+    "d19": "深空迴響",
+    "r1": "在資料洪流中,我們以程式碼為筆,以演算法為墨,描繪著數位時代的詩與遠方。每一段文字都是思想的延伸,每一次生成都是創造的開始。"
+  },
   "aiAgentdetail": {
     "q1": "取得Agent詳情",
     "r6": "取得Agent權限失敗"
@@ -3931,6 +3956,18 @@
     "r3": "函數",
     "r4": "前端",
     "r5": "後端"
+  },
+  "courseplanet": {
+    "d1": "AI 繪畫入門:從零到精通",
+    "d2": "AI 教研組",
+    "d3": "短影音製作全流程實戰",
+    "d4": "實戰導師",
+    "d5": "ChatGPT 提示詞工程",
+    "d6": "AI 教研組",
+    "d7": "AI 辦公效率提升指南",
+    "d8": "效率專家",
+    "d9": "大模型應用開發實戰",
+    "d10": "技術大牛"
   },
   "aiHistory": {
     "d1": "AI繪圖",
@@ -4143,7 +4180,8 @@
     "q3": "運營部",
     "q4": "市場部",
     "q5": "銷售部",
-    "q6": "載入智能體"
+    "q6": "載入智能體",
+    "q7": "提交收費配置"
   },
   "modelplaza": {
     "r1": "阿里雲",
@@ -4625,23 +4663,26 @@
     "checkinSuccess": "簽到成功",
     "addSuccess": "帳號已新增",
     "actionFailed": "操作失敗",
-    "adding": "新增中…",
     "loginRequired": "登入後管理你的個人號池",
     "addTitle": "新增帳號",
+    "adding": "新增中…",
     "deleteConfirm": "確認刪除 {name}？",
     "summary": "共 {total} 個帳號 · 已啟用 {enabled}"
   },
   "checkinAssistant": {
     "title": "簽到助手",
     "subtitle": "管理第三方帳號並自動簽到；與個人號池互通，轉發時優先使用你自己的帳號。",
+    "summary": "共 {total} 個帳號 · 已啟用 {enabled} · 已進號池 {synced}",
     "empty": "還沒有帳號",
     "emptyHint": "在下方表單新增第一個帳號。",
     "addTitle": "新增帳號",
     "add": "新增",
     "adding": "新增中…",
     "namePlaceholder": "帳號名稱",
+    "tokenLabel": "Token",
     "tokenPlaceholder": "貼上存取憑證",
     "refreshTokenLabel": "Refresh Token（選填）",
+    "optional": "選填",
     "enabled": "已啟用",
     "disabled": "已停用",
     "enable": "啟用",
@@ -4652,41 +4693,7 @@
     "poolSynced": "已進號池",
     "lastOk": "上次簽到成功 +{credits}",
     "lastFailed": "上次簽到失敗",
-    "actionFailed": "操作失敗",
-    "summary": "共 {total} 個帳號 · 已啟用 {enabled} · 已進號池 {synced}",
-    "tokenLabel": "Token",
-    "optional": "選填"
-  },
-  "aigcList": {
-    "d1": "賽博城市夜景",
-    "d2": "智匯小方",
-    "d3": "極光幻境",
-    "d4": "AI創作家",
-    "d5": "機械姬 Concept",
-    "d6": "未來派",
-    "d7": "量子詩篇",
-    "d10": "資料洪流 數位時代 詩",
-    "d11": "霓虹脈搏",
-    "d12": "聲音藝術家",
-    "d13": "未來之城",
-    "d14": "數位畫師",
-    "d15": "AI 覺醒錄",
-    "d17": "探討 AI 覺醒後的人類處境,生成一段哲思短文。",
-    "d18": "AI 覺醒 意識 共存",
-    "d19": "深空迴響",
-    "r1": "在資料洪流中,我們以程式碼為筆,以演算法為墨,描繪著數位時代的詩與遠方。每一段文字都是思想的延伸,每一次生成都是創造的開始。"
-  },
-  "courseplanet": {
-    "d1": "AI 繪畫入門:從零到精通",
-    "d2": "AI 教研組",
-    "d3": "短影音製作全流程實戰",
-    "d4": "實戰導師",
-    "d5": "ChatGPT 提示詞工程",
-    "d6": "AI 教研組",
-    "d7": "AI 辦公效率提升指南",
-    "d8": "效率專家",
-    "d9": "大模型應用開發實戰",
-    "d10": "技術大牛"
+    "actionFailed": "操作失敗"
   },
   "developerInfo": {
     "title": "開發者資訊",
@@ -4813,14 +4820,5 @@
       "refunded": "已退",
       "pending": "待確認"
     }
-  },
-  "agreement": {"subtitle":"請仔細閱讀本協議","title":"使用者協議"},
-  "agreementSections": {
-    "sectionObligations": "使用者義務",
-    "sectionObligationsBody": "您應遵守相關法律法規,不得發布違法、違規、有害資訊,不得侵犯他人合法權益。",
-    "sectionRights": "使用者權利",
-    "sectionRightsBody": "您享有依法獲取服務、對個人資訊進行管理、對違規內容檢舉等權利。",
-    "sectionTerms": "服務條款",
-    "sectionTermsBody": "本協議是您與智匯 AI 之間就使用本平臺服務所訂立的協議。請在使用前仔細閱讀,一旦使用即視為同意並接受本協議所有條款。"
   }
 }

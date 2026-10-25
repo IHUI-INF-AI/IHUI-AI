@@ -80,7 +80,6 @@
     "toolAudioTranscription": "Transcribe audio",
     "toolVisionAnalyze": "Analyze an image",
     "toolDispatchSubagent": "Dispatch a subagent",
-    "toolTeamTask": "Manage the team task board",
     "toolScheduleTask": "Create a scheduled task",
     "toolBgTaskStatus": "Check background tasks",
     "toolUiDescribe": "Inspect page controls",
@@ -190,7 +189,6 @@
     "toolDebugListSessions": "List debug sessions",
     "toolVendorVoiceClone": "Clone a voice",
     "toolRequestBusinessForm": "Request a business form",
-    "toolInitAgentsMd": "Initialize AGENTS.md",
     "fileActivity": "{state, select, running {Processing file} completed {Processed file} other {Process file}}",
     "imageActivity": "{state, select, running {Processing image} completed {Processed image} other {Process image}}",
     "searchActivity": "{state, select, running {Searching} completed {Searched} other {Search}}",
@@ -231,8 +229,7 @@
     "toolMcpToolGetFileActivity": "{state, select, running {Getting a file} completed {Got a file} other {Get a file}}",
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {Getting the file \"{name}\"} completed {Got the file \"{name}\"} other {Get the file \"{name}\"}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {Searching documents} completed {Searched documents} other {Search documents}}",
-    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {Searching documents for \"{name}\"} completed {Searched documents for \"{name}\"} other {Search documents for \"{name}\"}}",
-    "toolInitAgentsMdActivity": "{state, select, running {Initializing AGENTS.md} completed {Initialized AGENTS.md} other {Initialize AGENTS.md}}"
+    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {Searching documents for \"{name}\"} completed {Searched documents for \"{name}\"} other {Search documents for \"{name}\"}}"
   },
   "a11y": {
     "addAttachment": "Add attachment (image/video/file)",

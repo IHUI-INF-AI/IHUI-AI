@@ -28,20 +28,7 @@ export type WebViewStatus =
  * proxy(2026-09-02):同源嵌入代理 —— 后端剥离 X-Frame-Options/CSP 后以同源响应喂给 iframe,
  * 真实 HTML 渲染(可交互/可选中/矢量清晰),失败降级 CDP 截图流
  */
-export type WebViewMode =
-  | 'iframe'
-  | 'proxy'
-  | 'screenshot'
-  | 'native'
-  | 'external'
-  | 'cdp'
-  /**
-   * docked(2026-10-24):内容由**桌面端停靠在右侧工作区里的原生 webview** 渲染,
-   * 本 Tab 只占位(渲染一个宿位 div,由 Rust 按它的矩形铺 webview)。
-   * 走这档的原因:目标站点需要"登录后由本机读 cookie",iframe/代理都拿不到
-   * (代理帧是 opaque origin、跨域 iframe 读不到 cookie),原生 webview 才行。
-   */
-  | 'docked'
+export type WebViewMode = 'iframe' | 'proxy' | 'screenshot' | 'native' | 'external' | 'cdp'
 
 /** 工作展示区单个 Tab */
 export interface WorkPanelTab {

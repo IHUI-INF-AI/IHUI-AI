@@ -131,6 +131,7 @@
     "navJoinGroup": "Join Group",
     "navMenu": "Menu",
     "navShare": "Share",
+    "closeDrawer": "Close drawer",
     "closeBtn": "Close",
     "qrHint": "Scan the QR code to join the community",
     "shareRewardLater": "Maybe later",
@@ -250,7 +251,6 @@
     "pubGroup": "Publish Collection",
     "closePreview": "Close preview",
     "recentUsed": "Recently used",
-    "closeDrawer": "Close drawer",
     "shareBoardTitle": "IHUI AI community - {name}"
   },
   "plaza": {
@@ -269,6 +269,7 @@
       "notLoggedInUser": "Guest user",
       "navCategory": "Category",
       "identityLabel": "Identity",
+      "searchNeedDesc": "Search needs or descriptions",
       "trackPanelTitle": "Select a demand track",
       "closeTrackFilter": "Close track filter",
       "closeIdentity": "Close identity switch",
@@ -288,8 +289,7 @@
       "n4t": "4. Privacy protection ",
       "n4b": "Developers must strictly protect user privacy and must not disclose, sell or unlawfully use personal information.",
       "n5t": "5. Technical standards ",
-      "n5b": "Developers shall provide services meeting industry standards, ensuring feasibility and reliability of technical solutions.",
-      "searchNeedDesc": "Search needs or descriptions"
+      "n5b": "Developers shall provide services meeting industry standards, ensuring feasibility and reliability of technical solutions."
     }
   },
   "login": {
@@ -455,6 +455,7 @@
     "benefitListAiMore": "Much more free AI assistant quota",
     "benefitListKb": "Private knowledge base",
     "benefitSupport": "Dedicated support",
+    "benefitTraderAll": "All platform benefits included",
     "levelVip": "VIP Member",
     "dlgDelConvTitle": "Delete conversation",
     "dlgDelConvBody": "Delete this conversation?",
@@ -547,8 +548,7 @@
     "myOrders": "My Orders",
     "editProfile": "Edit Profile",
     "notLoggedIn": "Not signed in",
-    "clickRetry": "Tap to retry",
-    "benefitTraderAll": "All platform benefits included"
+    "clickRetry": "Tap to retry"
   },
   "payResult": {
     "title": "Payment Result",
@@ -1150,10 +1150,10 @@
     "deleted": "Deleted",
     "loadFailPullRetry": "Failed to load. Pull down to refresh and retry.",
     "emptyContent": "Nothing here",
+    "closeOverlay": "Close sheet",
     "add": "Add",
     "panelCollapse": "Collapse panel",
     "panelExpand": "Expand panel",
-    "closeOverlay": "Close sheet",
     "loadMore": "Load more",
     "user": "User",
     "retryShort": "Retry",
@@ -1179,23 +1179,23 @@
     "catOffice": "Office",
     "catStudy": "Study",
     "loadFailed": "Load failed",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard",
-    "chat": {
-      "title": "Start Chat",
-      "message": "Starting a chat with \"{name}\""
-    },
     "catLearning": "Learning",
     "mainAll": "All",
     "mainWriting": "Writing",
     "mainCoding": "Coding",
     "mainOffice": "Office",
     "mainLearning": "Learning",
+    "vendorOther": "Other",
+    "copyOkToast": "Link copied to clipboard",
     "catDouyin": "Douyin ops",
     "catPrivate": "Private ops",
     "catContent": "Content",
     "catData": "Analytics",
-    "catAll2": "All"
+    "catAll2": "All",
+    "chat": {
+      "title": "Start Chat",
+      "message": "Starting a chat with \"{name}\""
+    }
   },
   "aiAssistantN8n": {
     "title": "AI Assistant",
@@ -1351,8 +1351,8 @@
     "kindAutoContext": "Auto-retrieved context"
   },
   "developer": {
-    "becomeDeveloper": "Become a Developer",
     "title": "Developer Portal",
+    "becomeDeveloper": "Become a Developer",
     "subtitle": "Publish agents and earn revenue",
     "selectService": "Select a service plan",
     "processing": "Processing...",
@@ -1380,6 +1380,7 @@
     "productAddBtn": "Add product",
     "productEmpty": "No products",
     "productLoadFailed": "Failed to load products",
+    "productLoading": "Loading...",
     "productManage": "Product manager",
     "pushUrl": "Push URL",
     "startLive": "Start live",
@@ -1392,8 +1393,7 @@
     "streamKey": "Stream key",
     "streamTitle": "Live title",
     "streamTitlePlaceholder": "Enter live title",
-    "title": "Live Host",
-    "productLoading": "Loading..."
+    "title": "Live Host"
   },
   "modelEdit": {
     "error": {
@@ -1449,8 +1449,8 @@
     "operationFailed": "Operation failed, please try again",
     "title": "n8n Models",
     "vendorName": "n8n Workflows",
-    "listView": "List view",
-    "groupBrowse": "Grouped"
+    "groupBrowse": "Grouped",
+    "listView": "List view"
   },
   "modelPlaza": {
     "officialBadge": "IH",
@@ -1473,8 +1473,8 @@
     "selectProviderLabel": "Choose provider",
     "title": "Model Plaza",
     "groupBrowse": "Grouped",
-    "workflowTab": "Workflows",
-    "listView": "List view"
+    "listView": "List view",
+    "workflowTab": "Workflows"
   },
   "tokenValue": {
     "recharge": {
@@ -1584,8 +1584,15 @@
     "payFailed": "Payment failed"
   },
   "about": {
+    "title": "About",
+    "appName": "App Name",
+    "version": "Version",
+    "description": "Description",
+    "officialSite": "Official Website",
+    "contactEmail": "Contact Email",
+    "license": "License",
     "heroBadge": "About IHUI AI",
-    "heroTitle": "One codebase, nine ends, one AI",
+    "heroTitle": "One codebase, six clients, one AI",
     "heroSubtitle": "IHUI AI is an open-source full-stack AI operating system that brings Agent design, knowledge base, multi-model dispatch, cross-platform collaboration and team operations into a single platform.",
     "storyBadge": "Our Story",
     "storyTitle": "Why we built IHUI AI?",
@@ -1593,10 +1600,10 @@
     "storyP2": "So we built IHUI AI: open-source, unified, cross-platform, self-hostable. We compressed what would take 12-18 months of in-house development into a 30-minute sign-up.",
     "valueOpenTitle": "Fully Open Source",
     "valueOpenDesc": "Apache 2.0 license, core code public, commercial use allowed, zero self-host cost.",
-    "valueCrossTitle": "nine ends, One Codebase",
+    "valueCrossTitle": "Six Clients, One Codebase",
     "valueCrossDesc": "Web / Desktop / Mini Program / Browser Extension / React Native / CLI, one codebase, one publish, reach every platform.",
     "valueFreeTitle": "Free for Personal Use",
-    "valueFreeDesc": "1,000 credits monthly, all models, all nine ends. Pro from ¥49/month, Enterprise supports self-hosting.",
+    "valueFreeDesc": "1,000 credits monthly, all models, all six clients. Pro from ¥49/month, Enterprise supports self-hosting.",
     "valueEnterpriseTitle": "Enterprise-grade Security",
     "valueEnterpriseDesc": "SSO/OAuth, audit logs, role-based access, self-hosting, serving multiple listed companies.",
     "platformTitle": "Full-stack AI Operating System",
@@ -1625,14 +1632,7 @@
     "ctaDesc": "Sign up and get 1,000 credits, free trial of all models, no credit card required.",
     "ctaPrimary": "Free Sign Up",
     "ctaSecondary": "View Documentation",
-    "complianceTitle": "Legal & Compliance",
-    "title": "About",
-    "appName": "App Name",
-    "version": "Version",
-    "description": "Description",
-    "officialSite": "Official Website",
-    "contactEmail": "Contact Email",
-    "license": "License"
+    "complianceTitle": "Legal & Compliance"
   },
   "activityDetail": {
     "title": "Activity Details",
@@ -2232,6 +2232,7 @@
     "loadFailed": "Failed to load QR code"
   },
   "ranking": {
+    "attention": "Attention",
     "subtitle": "See where you rank this week",
     "retry": "Retry",
     "anonymous": "Anonymous",
@@ -2240,7 +2241,6 @@
     "empty": "No rankings",
     "loadFailed": "Failed to load ranking",
     "title": "Ranking",
-    "attention": "Attention",
     "wanSuffix": "{v}k",
     "pointsUnit": "pts",
     "anonShort": "Anon",
@@ -3497,7 +3497,6 @@
     "price": "Price",
     "rating": "Rating",
     "startChat": "Start chat",
-    "uses": "Uses",
     "catAll": "All",
     "catDouyin": "Douyin ops",
     "catPrivate": "Private ops",
@@ -3513,7 +3512,8 @@
     "mainOffice": "Office",
     "mainLearning": "Learning",
     "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "copyOkToast": "Link copied to clipboard",
+    "uses": "Uses"
   },
   "agentMarket": {
     "empty": "No agents",
@@ -4527,8 +4527,8 @@
       "loadingMore": "Loading…"
     },
     "detail": {
-      "loading": "Loading...",
       "pageTitle": "Topic Detail",
+      "loading": "Loading…",
       "loadFailed": "Failed to load",
       "followers": "{n} followers",
       "follow": "Follow",
@@ -4541,11 +4541,10 @@
       "empty": "No posts yet. Be the first to post!",
       "loadingMore": "Loading…",
       "noMore": "No more items",
-      "anonymous": "Anonymous",
-      "loading": "Loading…",
       "justNow": "Just now",
       "minutesAgo": "{n} min ago",
-      "hoursAgo": "{n} hr ago"
+      "hoursAgo": "{n} hr ago",
+      "anonymous": "Anonymous"
     }
   },
   "circle": {
@@ -5272,11 +5271,16 @@
     "calls": "Calls",
     "title": "My Account Pool",
     "subtitle": "Your own third-party AI account pool — the same accounts as Check-in Assistant, signed in daily, and used first for your own relay requests.",
+    "add": "Add account",
+    "provider": "Platform",
+    "name": "Name",
     "namePlaceholder": "Name this account",
     "token": "Token (access credential)",
     "refreshToken": "Refresh token",
     "optional": "Optional",
     "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading…",
     "empty": "No accounts yet",
     "emptyHint": "Accounts you add in Check-in Assistant will sync here automatically.",
     "enabled": "Enabled",
@@ -5285,22 +5289,17 @@
     "disable": "Disable",
     "checkin": "Check in now",
     "delete": "Delete",
+    "confirmDelete": "Confirm delete",
     "syncPending": "Pending sync",
     "uid": "Account ID",
     "checkinSuccess": "Checked in",
+    "addSuccess": "Account added",
     "actionFailed": "Action failed",
+    "loginRequired": "Sign in to manage your account pool",
     "addTitle": "Add account",
     "adding": "Adding…",
     "deleteConfirm": "Delete {name}?",
-    "summary": "{total} accounts · {enabled} enabled",
-    "add": "Add account",
-    "provider": "Platform",
-    "name": "Name",
-    "cancel": "Cancel",
-    "loading": "Loading…",
-    "confirmDelete": "Confirm delete",
-    "addSuccess": "Account added",
-    "loginRequired": "Sign in to manage your account pool"
+    "summary": "{total} accounts · {enabled} enabled"
   },
   "checkinAssistant": {
     "title": "Check-in Assistant",
@@ -5353,20 +5352,6 @@
     "addedCount": "+{n}",
     "removedCount": "-{n}"
   },
-  "commission": {
-    "myLabel": "My commission",
-    "label": "Commission"
-  },
-  "agentList": {
-    "emptyText": "No agents yet"
-  },
-  "myAgents": {
-    "title": "My AI Apps",
-    "staff": "My AI staff"
-  },
-  "fenlei": {
-    "closeOverlay": "Close category sheet"
-  },
   "userPublic": {
     "title": "User Profile",
     "notFound": "User not found",
@@ -5378,9 +5363,23 @@
     "favoritesCount": "Favorites",
     "joined": "Joined"
   },
+  "commission": {
+    "myLabel": "My commission",
+    "label": "Commission"
+  },
   "courseSwiper": {
     "tabHotIntro": "Popular starter courses",
     "tabHotPick": "Popular featured courses"
+  },
+  "agentList": {
+    "emptyText": "No agents yet"
+  },
+  "myAgents": {
+    "title": "My AI Apps",
+    "staff": "My AI staff"
+  },
+  "fenlei": {
+    "closeOverlay": "Close category sheet"
   },
   "llmSettings": {
     "title": "Model Providers",

@@ -15,7 +15,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LearnDevelopEntry, LearnDevelopScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 export type { LearnDevelopEntry, LearnDevelopScreenProps }
@@ -106,12 +106,20 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     } as ViewStyle,
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    scrollContent: { paddingHorizontal: 10, paddingVertical: 12, paddingBottom: 24 } as ViewStyle,
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 } as ViewStyle,
+    title: {
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    scrollContent: {
+      paddingHorizontal: 10,
+      paddingVertical: rnSpacing.md,
+      paddingBottom: rnSpacing['2xl'],
+    } as ViewStyle,
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md } as ViewStyle,
     // 外层 = "两列一排"的槽位档(守门 131:按压态不得写在 Pressable 的 style 上);
     // 卡面档在下面的 entryCard,由内层 View 撑满外层(47% 宽 + 本排拉伸高)。数值逐字搬移未新增。
     entryCardBox: {
@@ -130,9 +138,13 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     entryCardPressed: { backgroundColor: tk.surface.muted } as ViewStyle,
     entryIcon: { fontSize: 32 } as TextStyle,
-    entryTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    entryTitle: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
     entryDesc: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.tertiary,
       textAlign: 'center',
       lineHeight: 16,
@@ -143,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'center',
       width: 187,
       height: 38,
-      marginTop: 24,
+      marginTop: rnSpacing['2xl'],
     } as ViewStyle,
     detailsButton: {
       width: '100%',
@@ -159,7 +171,11 @@ function createStyles(tk: AppThemeTokens) {
       shadowRadius: 5,
     } as ViewStyle,
     detailsButtonPressed: { opacity: 0.8 } as ViewStyle,
-    detailsButtonText: { fontSize: 16, fontWeight: '700', color: tk.text.primary } as TextStyle,
+    detailsButtonText: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

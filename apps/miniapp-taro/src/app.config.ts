@@ -169,7 +169,6 @@ export default defineAppConfig({
       pages: [
         'about/index',
         'about/help',
-        'about/agreement/index',
         'about/protocol',
         'about/privacy',
         'about/contact',

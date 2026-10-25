@@ -539,8 +539,7 @@ export function dispositionSummary(rows, fields) {
  */
 export function auditFace(root, face) {
   const content = readPlan(root, face)
-  // 侧车与台账**同面同轮**(§0.4):F11 名单吃 v2 尺(侧车优先),必须与这份 content 同一枚面。
-  const a = auditPlan(content, { fields: readFieldsFace(root, face) })
+  const a = auditPlan(content)
   // 宽口径读数必须留在面上(只报数不判红):收窄不是"看不见",报告里必须能说"摘掉了几个标题"
   a.counts.f9WideGroups = (a.collisions ?? []).length
   // 派单面的"F1 看不见的那一型"计数(逐对清单只打人读面,不进 json 以免把整行正文带出去)
@@ -647,21 +646,15 @@ export function orderRowsByTime(rows, ageByLine, mode) {
  * @param since `git log --since` 的窗口起点(YYYY-MM-DD)
  * @param maxCommits 只扫最新的 N 枚(超出截断,读数里报出)
  * @param headSha 钉住的 HEAD sha(扫描面与结论面必须同一枚)
- * @param shas 可选:调用方预筛的提交清单(2026-10-24,清扫器消费前置)。传入时**跳过本函数的
- *   log 枚举**,直接逐枚取 diff 提取 —— 枚举策略(pickaxe 预筛/增量区间)是调用方的事,
- *   "怎么从一枚 diff 里剥出翻勾行"只许这一份实现(§0.6)。空数组 ⇒ 回落默认枚举。
  * @returns {{flipped:Array<{raw:string,sha:string,day:?string}>, commits:number}}
  */
-export function scanReopenedFlipEvidence(root, { since, maxCommits, headSha, shas }) {
-  const list = (
-    Array.isArray(shas) && shas.length
-      ? shas
-      : gitRaw(['log', headSha, `--since=${since}`, '--format=%H', '--', PLAN_REL], root)
-          .split(/\r?\n/)
-          .filter(Boolean)
-  ).slice(0, maxCommits)
+function scanReopenedFlipEvidence(root, { since, maxCommits, headSha }) {
+  const shas = gitRaw(['log', headSha, `--since=${since}`, '--format=%H', '--', PLAN_REL], root)
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .slice(0, maxCommits)
   const flipped = []
-  for (const sha of list) {
+  for (const sha of shas) {
     let diff = ''
     try {
       diff = gitRaw(['show', '--format=', '--unified=0', sha, '--', PLAN_REL], root, {
@@ -679,7 +672,7 @@ export function scanReopenedFlipEvidence(root, { since, maxCommits, headSha, sha
       flipped.push({ raw, sha: sha.slice(0, 11), day: d ? d[1] : null })
     }
   }
-  return { flipped, commits: list.length }
+  return { flipped, commits: shas.length }
 }
 
 function report(a, face) {
@@ -777,14 +770,6 @@ function report(a, face) {
       `现在可做 ${c.dispClaimActionable} / 等人拍板 ${c.dispClaimWaitingHuman} / 等条件 ${c.dispClaimWaitingEnv} / 归他人 ${c.dispClaimOwnedElsewhere}` +
       ` —— 两行不得互相顶结论:上行答"账面有几行挂着",下行答"真有几件事"`,
   )
-  if (c.dispWaitingHuman > 0 || c.dispClaimWaitingHuman > 0)
-    console.log(
-      '  ⚠ 等人拍板桶非空 = 违反 2026-10-23 机主强制令(待拍板条目一律禁止,agent 代裁代执行,见 AGENTS §1;提交链由守门 130 F11 差值棘轮拦新增)',
-    )
-  if (c.dispWaitingEnv > 0 || c.dispClaimWaitingEnv > 0)
-    console.log(
-      '  ⚠ 等条件桶非空 = 违反 2026-10-25 机主令(等条件条目与待拍板同型禁止:当场做 / 改归机主动作面 / 观察类结清,见 AGENTS §1;提交链由守门 130 F12 差值棘轮拦新增)',
-    )
   // ── F8 寿命 ──
   console.log(
     `账的交代:无交代 ${c.undisposed} 行(其中 ${c.undated} 行连日期都没有 = 只看行内日期时判不到龄)` +
@@ -867,11 +852,6 @@ export const probe = (a) => [
   // (见 lib findIdCollisions 头注),所以它**只进差值/基线棘轮**(只拦新增撞号组),
   // gate() 里 --strict 也不判它的红 —— 判存量红就是与任何提交无关的恒红门(§12e)。
   ['F9', '撞号:同编号挂多个不同标题(组)', a.counts.collisionGroups ?? 0],
-  // F11 等人拍板(2026-10-23 机主强制令):与 F8 同理**只在差值档有意义**(全量档 newWaitingHuman
-  // 算不出 ⇒ 兜 0,基线里写 0 就是替人宣称存量已清)。绝对层由 F11 键集基线单独看守,见 f11Ratchet。
-  ['F11', '新增等人拍板未勾行(行)', a.counts.newWaitingHuman ?? 0],
-  // F12 等条件(2026-10-25 机主令,与 F11 同型):只在差值档有意义,绝对层由 F12 键集基线看守。
-  ['F12', '新增等条件未勾行(行)', a.counts.newWaitingEnv ?? 0],
   // 自 2026-09-28 G-312:基线里 F9 存的是**排序后的键集**而不是组数 —— 判红只认"基线里没有的键",
   // 所以"等量换掉一组撞号键"也红(计数锚点在这一型上恒绿),而同键再多挂一行不移动读数。
   // 镜像 M9 要求每一维都必须有基线键:缺项 = 那一维静默不判,而账面看不出来。
@@ -946,103 +926,6 @@ export function f9GroupLine(g) {
     `编号 ${g.key} 被 ${g.titleCount} 个不同标题共用 —— ` +
     `${(g.titles ?? []).map((t) => `「${t.title}」`).join(' / ')}`
   )
-}
-
-/**
- * F11 —— **等人拍板未勾行一律禁止**(2026-10-23 机主强制令,AGENTS §1)。
- *
- * 病型:F8a 把"落在等待桶"当作**正当交代**之一,而强制令之后 waiting-human 不再是交代、
- * 是违禁状态本身 —— 所以必须单独一维,而不是给 F8 的判据加豁免(§12f:不得为消红改判据)。
- * 量纲与 F9 同型:差值档只判"本次新带入"(存量 19 行不随任何提交移动,判存量红=恒红门,§12e);
- * 绝对层由基线**键集**看守"跳门把增长塞进 HEAD"那一型。清偿之后基线 F11=[] 即永久地板
- * ——禁令没有"下一批再放一点"的档。
- * 键 = 复合主键;无主键的行退回**逐字原文**(与 F8a 同口径:行一改写即视为新增,逼作者交代)。
- */
-export function f11KeyOf(r) {
-  return compositeKeyOf(r.raw) ?? r.raw
-}
-export function f11KeySetOf(a) {
-  return [...new Set((a?.waitingHumanRows ?? []).map(f11KeyOf))].sort()
-}
-/** 差值档:相对基准面**新出现**的等人拍板未勾行。没有基准面 ⇒ **不判**(返回空),
- *  与 countNewUndisposed/newCollisionGroups 同一条禁令:把"没判"写成"判过了且有问题"会造恒红门。 */
-export function newWaitingHumanRows(now, before) {
-  if (!before?.waitingHumanRows) return []
-  const prev = new Set(before.waitingHumanRows.map(f11KeyOf))
-  return (now?.waitingHumanRows ?? []).filter((r) => !prev.has(f11KeyOf(r)))
-}
-/** F11 基线层纯函数判据,分态绝不并桶(与 f9Ratchet 同一套形状纪律)。 */
-export function f11Ratchet(base, a) {
-  if (!base || !Object.hasOwn(base, 'F11')) return { kind: 'absent', added: [] }
-  const v = base.F11
-  if (!Array.isArray(v) || v.some((x) => typeof x !== 'string' || x === ''))
-    return {
-      kind: 'unmigrated',
-      added: [],
-      message: `基线 F11 不是"排序后的键数组"形状(实测 ${JSON.stringify(v ?? null).slice(0, 60)})`,
-    }
-  if ((a?.counts?.waitingHuman ?? 0) > 0 && !Array.isArray(a?.waitingHumanRows))
-    return {
-      kind: 'blind',
-      added: [],
-      message: '判定面给了等人拍板行数却没带逐行名单 ⇒ 键集无从对账(不记为通过)',
-    }
-  const prev = new Set(v)
-  const added = f11KeySetOf(a).filter((k) => !prev.has(k))
-  return { kind: added.length ? 'red' : 'ok', added }
-}
-/** F11 逐行点名的唯一文案出口(差值档与基线档共用一份;行号不得进证据文本,§1)。 */
-export function f11RowLine(r) {
-  const key = compositeKeyOf(r.raw)
-  return `等人拍板未勾行 ${key ? `〔${key}〕` : '〔无主键〕'}:${clip(r.raw, 120)}`
-}
-
-/**
- * F12 —— **等条件未勾行一律禁止**(2026-10-25 机主令,AGENTS §1;与 F11 待拍板禁令同型同日族)。
- *
- * 病型:「等条件」桶成了拖延借口桶 —— 与 2026-10-16 机主令「等环境/等他人类发现不进台账」
- * 相抵触的存量挂账。禁令语义:agent 侧能当场做的当场做;真正卡在机主动作面(供值/资质/控制台/
- * 真机会话)的**改归属为"归:机主X面"出桶**(那是 owned-elsewhere,不是 waiting-env);两者
- * 都不是的按观察类结清。**不存在"挂在等条件桶等人送条件"这一档**,也不得改措辞绕 v2 尺(§12f)。
- * 量纲与 F9/F11 同型:差值档只判"本次新带入"(存量随清偿批逐行出桶,判存量红=恒红门,§12e);
- * 绝对层由基线**键集**看守,清偿完成后基线 F12=[] 即永久地板。键 = 复合主键,无主键退逐字原文。
- */
-export function f12KeyOf(r) {
-  return compositeKeyOf(r.raw) ?? r.raw
-}
-export function f12KeySetOf(a) {
-  return [...new Set((a?.waitingEnvRows ?? []).map(f12KeyOf))].sort()
-}
-/** 差值档:相对基准面**新出现**的等条件未勾行。没有基准面 ⇒ **不判**(返回空),与 F11 同一条禁令。 */
-export function newWaitingEnvRows(now, before) {
-  if (!before?.waitingEnvRows) return []
-  const prev = new Set(before.waitingEnvRows.map(f12KeyOf))
-  return (now?.waitingEnvRows ?? []).filter((r) => !prev.has(f12KeyOf(r)))
-}
-/** F12 基线层纯函数判据,分态绝不并桶(与 f9/f11 Ratchet 同一套形状纪律)。 */
-export function f12Ratchet(base, a) {
-  if (!base || !Object.hasOwn(base, 'F12')) return { kind: 'absent', added: [] }
-  const v = base.F12
-  if (!Array.isArray(v) || v.some((x) => typeof x !== 'string' || x === ''))
-    return {
-      kind: 'unmigrated',
-      added: [],
-      message: `基线 F12 不是"排序后的键数组"形状(实测 ${JSON.stringify(v ?? null).slice(0, 60)})`,
-    }
-  if ((a?.counts?.waitingEnv ?? 0) > 0 && !Array.isArray(a?.waitingEnvRows))
-    return {
-      kind: 'blind',
-      added: [],
-      message: '判定面给了等条件行数却没带逐行名单 ⇒ 键集无从对账(不记为通过)',
-    }
-  const prev = new Set(v)
-  const added = f12KeySetOf(a).filter((k) => !prev.has(k))
-  return { kind: added.length ? 'red' : 'ok', added }
-}
-/** F12 逐行点名的唯一文案出口(差值档与基线档共用一份;行号不得进证据文本,§1)。 */
-export function f12RowLine(r) {
-  const key = compositeKeyOf(r.raw)
-  return `等条件未勾行 ${key ? `〔${key}〕` : '〔无主键〕'}:${clip(r.raw, 120)}`
 }
 
 /**
@@ -1351,25 +1234,6 @@ export function ratchetViolations(base, items, a) {
       ([k, , n]) => (k !== 'F9' || !f9IsKeySet) && typeof base[k] === 'number' && n > base[k],
     )
     .map(([k, label, n]) => `${k} ${label} 由基线 ${base[k]} 涨到 ${n}`)
-  // F11 键集臂(2026-10-23 机主强制令):基线 F11 是键数组时不吃通用"比数量"规则(通用规则要求
-  // typeof number,数组天然被滤掉),这里走与 F9 同型的精确档。没给 `a` ⇒ 这一维**无法判**而不是
-  // 判过 —— 调用方(converge)必须传面,否则等于静默关掉禁令的绝对层(与 F9 粗尺不同:F11 没有
-  // 可用的粗尺量纲,差值计数在全量面上恒 0,拿它比基线键数会恒绿)。
-  if (Array.isArray(base.F11) && a) {
-    const f11 = f11Ratchet(base, a)
-    if (f11.kind === 'red')
-      out.push(
-        `F11 等人拍板:出现基线键集里没有的未勾行 ${f11.added.length} 条(强制令禁止该桶存在;名单跑 \`node scripts/plan-tasks.mjs --gate\` 逐条点名)`,
-      )
-  }
-  // F12 键集臂(2026-10-25 机主令,与 F11 同型):数组形状不吃通用"比数量"规则,走精确键集档。
-  if (Array.isArray(base.F12) && a) {
-    const f12 = f12Ratchet(base, a)
-    if (f12.kind === 'red')
-      out.push(
-        `F12 等条件:出现基线键集里没有的未勾行 ${f12.added.length} 条(机主令禁止该桶存在;名单跑 \`node scripts/plan-tasks.mjs --gate\` 逐条点名)`,
-      )
-  }
   if (!f9IsKeySet) return out
   if (a) {
     const f = f9Ratchet(base, a)
@@ -1544,29 +1408,6 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
   // F9 基线锚点必须是键集合(G-312)。旧形状 = 这一维关着 —— 静默放行等于把它写成"判过了且没问题",
   // 而它恰恰是那层"别人跳门把增长塞进 HEAD"唯一的看守者,所以这里按**无法判定**处理(exit 2)。
   const f9b = f9Ratchet(base, a)
-  // F11 基线锚点同样必须是键数组(2026-10-23 强制令)。形状不对 = 这一维关着 = 静默放行等于
-  // 把"没判"写成"判过了且没问题",按无法判定处理(与 f9b 同一条纪律)。
-  const f11b = f11Ratchet(base, a)
-  if (f11b.kind === 'unmigrated' || f11b.kind === 'blind') {
-    console.log(`⚠️ 无法判定 —— F11 基线层:${f11b.message}`)
-    console.log(
-      f11b.kind === 'unmigrated'
-        ? `   出路:人工把 ${BASELINE_REL} 的 F11 写成排序去重的键数组(强制令之下地板应为 \`[]\`)。**禁止**改成整数蒙过去 —— 那等于关掉这一维而账面看不出来。`
-        : `   出路:判定面必须带 waitingHumanRows 明细(auditPlan 的产物本来就有 ⇒ 这一格只会是调用方自己拼了半个面)。`,
-    )
-    return 2
-  }
-  // F12 基线锚点同样必须是键数组(2026-10-25 机主令,与 F11 同一条纪律)。
-  const f12b = f12Ratchet(base, a)
-  if (f12b.kind === 'unmigrated' || f12b.kind === 'blind') {
-    console.log(`⚠️ 无法判定 —— F12 基线层:${f12b.message}`)
-    console.log(
-      f12b.kind === 'unmigrated'
-        ? `   出路:人工把 ${BASELINE_REL} 的 F12 写成排序去重的键数组(禁令之下地板应为 \`[]\`;存量清偿前 = 当次现读键集)。**禁止**改成整数蒙过去。`
-        : `   出路:判定面必须带 waitingEnvRows 明细(auditPlan 的产物本来就有 ⇒ 这一格只会是调用方自己拼了半个面)。`,
-    )
-    return 2
-  }
   if (before) {
     // F5 豁免水位取基线文件(G-1102638 批2):基线 F5=0 ⇒ 差值 F5 退役;缺省/非数字 ⇒ 旧行为。
     const grew = grewViolations(a, before, base?.F5)
@@ -1576,20 +1417,6 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
       // 等于让改的人自己再去跑一遍全量档找差异)。
       for (const g of newCollisionGroups(a, before))
         console.log(`   F9 新增撞号:${f9GroupLine(g)}`)
-      // F11 新增必须**逐行点名**(与 F9 同一条理由:只报数等于让改的人自己再跑一遍全量档)。
-      for (const r of a.newWaitingHumanRows ?? [])
-        console.log(`   F11 ${f11RowLine(r)}`)
-      if ((a.newWaitingHumanRows ?? []).length)
-        console.log(
-          '   2026-10-23 机主强制令:等人拍板条目一律禁止。出路只有两条:agent 深度分析后直接按最优推荐方案执行并结清(决策与依据写进注记/commit message),或摘除本行把事实写进 commit message。不存在"保留待拍板"这一档,也不得改措辞绕过 v2 尺(改判据=§12f 红线)。',
-        )
-      // F12 新增同样逐行点名(2026-10-25 机主令,与 F11 同型)。
-      for (const r of a.newWaitingEnvRows ?? [])
-        console.log(`   F12 ${f12RowLine(r)}`)
-      if ((a.newWaitingEnvRows ?? []).length)
-        console.log(
-          '   2026-10-25 机主令:等条件条目与待拍板同型禁止。出路只有三条:agent 当场做完结清;真卡在机主动作面(供值/资质/控制台/真机会话)的改归属为「归:机主X面」出桶;两者都不是的按观察类结清摘行。不存在"挂着等条件"这一档,也不得改措辞绕 v2 尺(§12f)。',
-        )
       console.log('   归并掉新增的那几条(把副本行翻勾或改成内容锚点),别调基线、别削判据。')
       console.log(f9AvoidGuidance())
       return 1
@@ -1647,15 +1474,6 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
     const addedKeys = f9b.kind === 'red' ? new Set(f9Attributed) : new Set()
     for (const g of a?.collisions ?? [])
       if (addedKeys.has(g.key)) console.log(`   F9 基线新增撞号:${f9GroupLine(g)}`)
-    // F11 基线层点名(跳门塞进 HEAD 那一型):红只可能是基线外的键,名单即出口。
-    if (f11b.kind === 'red') {
-      const f11Added = new Set(f11b.added)
-      for (const r of a?.waitingHumanRows ?? [])
-        if (f11Added.has(f11KeyOf(r))) console.log(`   F11 ${f11RowLine(r)}`)
-      console.log(
-        '   强制令出路同上:代裁代执行结清,或摘行把事实写进 commit message;基线 F11 的地板是 \`[]\`,把它抬高 = 关掉禁令。',
-      )
-    }
     if (addedKeys.size)
       console.log(
         '   (行号只当定位用,每次 append 都会挪位、不得当判据,也不写进本条证据;复核请用"编号 + 标题"逐字对照 `--json` 的 collisions 清单)',
@@ -2730,139 +2548,6 @@ function selfTest() {
     !probe({ counts: {} }).some(([k]) => k === 'F10'),
     'F10 绝不许进 probe 差值棘轮(会变成与任何提交无关的恒红门,§12e/§12f)',
   )
-  // ── F11 等人拍板一律禁止(2026-10-23 机主强制令)──
-  // 名单尺 = v2(侧车优先、散文回落);无 fields 的构造面即散文档。
-  const WH1 = '- [ ] **G-900 等人拍板**:是否对外发布需用户确认,属 §24。'
-  const f11Face = auditPlan(`# 计划\n- [ ] **T1 真活**:现在就能做。\n${WH1}\n`)
-  ok(
-    f11Face.counts.waitingHuman === 1 && f11Face.waitingHumanRows[0].raw === WH1,
-    `F11 名单必须恰好点出 G-900,实测 ${JSON.stringify(f11Face.waitingHumanRows.map((r) => r.raw.slice(0, 20)))}`,
-  )
-  // 差值档:带租约与否都算(禁令没有"已认领"豁免档);同主键改写不算新增,无主键改写算新增。
-  const f11Before = auditPlan('# 计划\n- [ ] **T1 真活**:现在就能做。\n')
-  ok(
-    newWaitingHumanRows(f11Face, f11Before).length === 1,
-    `新带入一条等人拍板必须点名 1 行,实测 ${newWaitingHumanRows(f11Face, f11Before).length}`,
-  )
-  ok(
-    newWaitingHumanRows(f11Face, f11Face).length === 0,
-    '同一行两把面都有 ⇒ 存量不得记在本次提交头上',
-  )
-  ok(
-    newWaitingHumanRows(f11Face, null).length === 0 &&
-      typeof newWaitingHumanRows(f11Face, {})[0] === 'undefined',
-    '没有基准面 ⇒ 不判(返回空),绝不"全部算新增"(与 F8a/F9 同一条禁令)',
-  )
-  const f11EditedSameKey = auditPlan('# 计划\n- [ ] **G-900 等人拍板**:需用户确认(补注@2026-10-23)。\n')
-  ok(
-    f11EditedSameKey.counts.waitingHuman === 1,
-    '改写行必须仍被 v2 尺判为等人拍板(否则"同主键不算新增"一例是空转)',
-  )
-  ok(
-    newWaitingHumanRows(f11EditedSameKey, f11Face).length === 0,
-    '同复合主键的行改写不得算新增(否则没人敢给存量结清追加进展注记)',
-  )
-  const keylessOld = auditPlan('# 计划\n- [ ] 需用户确认后才能做的叙述式待办(无编号)。\n')
-  const keylessNew = auditPlan('# 计划\n- [ ] 需用户确认后才能做的叙述式待办(无编号)(补注)。\n')
-  ok(
-    newWaitingHumanRows(keylessNew, keylessOld).length === 1,
-    '无主键行按逐字原文比(与 F8a 同口径):改写即新增,逼作者交代',
-  )
-  // 基线层四臂:absent(缺项不判)/ unmigrated(形状不对=关着,不得静默)/ blind(有数无名单)/ red-ok。
-  ok(f11Ratchet({}, f11Face).kind === 'absent', '基线缺 F11 键 ⇒ 不判该项(缺项不判的既有善意)')
-  ok(f11Ratchet({ F11: 0 }, f11Face).kind === 'unmigrated', 'F11 写成整数 = 这一维关着,必须报未迁移')
-  ok(
-    f11Ratchet({ F11: [] }, { counts: { waitingHuman: 1 } }).kind === 'blind',
-    '有行数却没名单 ⇒ 判"未判定",不冒红也不记绿',
-  )
-  ok(f11Ratchet({ F11: [] }, f11Face).kind === 'red', '强制令地板 []:任何等人拍板键都是基线外新增')
-  ok(
-    f11Ratchet({ F11: [] }, auditPlan('# 计划\n- [ ] **T1 真活**:现在就能做。\n')).kind === 'ok',
-    '名单为空 ⇒ 绿(清偿后的目标态)',
-  )
-  // 绝对层接线:ratchetViolations 拿到面必须走 F11 精确档;没拿到面 ⇒ 不判(无粗尺可用,头注已明写)。
-  ok(
-    ratchetViolations({ F11: [] }, probe(f11Face), f11Face).some((x) => x.startsWith('F11')),
-    '基线棘轮必须报 F11 红(只靠 gate 点名而 ratchetViolations 失明 = converge 那一型漏看守)',
-  )
-  ok(
-    !ratchetViolations({ F11: [] }, probe(f11Face)).some((x) => x.startsWith('F11')),
-    '没给判定面 ⇒ F11 不判(差值计数在全量面恒 0,冒充粗尺会恒绿)',
-  )
-  // 方向锁:涨必红、清必绿(反方向判红 = 没人敢清存量)。
-  ok(
-    grewViolations({ counts: { newWaitingHuman: 1 } }, { counts: { newWaitingHuman: 0 } }).some(
-      (x) => x.startsWith('F11'),
-    ),
-    'F11 由 0 涨到 1 必须进差值红名单',
-  )
-  ok(
-    !grewViolations({ counts: { newWaitingHuman: 0 } }, { counts: { newWaitingHuman: 1 } }).some(
-      (x) => x.startsWith('F11'),
-    ),
-    'F11 清偿(1 降到 0)不得判红',
-  )
-  // ── F12 等条件一律禁止(2026-10-25 机主令,与 F11 同型;例形状与 F11 逐条对齐)──
-  const WE1 = '- [ ] **G-901 等条件**:等机主提供 XX 后才能做。'
-  const f12Face = auditPlan(`# 计划\n- [ ] **T1 真活**:现在就能做。\n${WE1}\n`)
-  ok(
-    f12Face.counts.waitingEnv === 1 && f12Face.waitingEnvRows[0].raw === WE1,
-    `F12 名单必须恰好点出 G-901,实测 ${JSON.stringify(f12Face.waitingEnvRows.map((r) => r.raw.slice(0, 20)))}`,
-  )
-  const f12Before = auditPlan('# 计划\n- [ ] **T1 真活**:现在就能做。\n')
-  ok(
-    newWaitingEnvRows(f12Face, f12Before).length === 1,
-    `新带入一条等条件必须点名 1 行,实测 ${newWaitingEnvRows(f12Face, f12Before).length}`,
-  )
-  ok(
-    newWaitingEnvRows(f12Face, f12Face).length === 0,
-    'F12 同一行两把面都有 ⇒ 存量不得记在本次提交头上',
-  )
-  ok(
-    newWaitingEnvRows(f12Face, null).length === 0 &&
-      typeof newWaitingEnvRows(f12Face, {})[0] === 'undefined',
-    'F12 没有基准面 ⇒ 不判(返回空),绝不"全部算新增"',
-  )
-  const f12EditedSameKey = auditPlan('# 计划\n- [ ] **G-901 等条件**:等环境条件(补注@2026-10-25)。\n')
-  ok(
-    f12EditedSameKey.counts.waitingEnv === 1,
-    '改写行必须仍被 v2 尺判为等条件(否则"同主键不算新增"一例是空转)',
-  )
-  ok(
-    newWaitingEnvRows(f12EditedSameKey, f12Face).length === 0,
-    'F12 同复合主键的行改写不得算新增',
-  )
-  ok(f12Ratchet({}, f12Face).kind === 'absent', 'F12 基线缺键 ⇒ 不判该项')
-  ok(f12Ratchet({ F12: 0 }, f12Face).kind === 'unmigrated', 'F12 写成整数 = 这一维关着,必须报未迁移')
-  ok(
-    f12Ratchet({ F12: [] }, { counts: { waitingEnv: 1 } }).kind === 'blind',
-    'F12 有行数却没名单 ⇒ 判"未判定"',
-  )
-  ok(f12Ratchet({ F12: [] }, f12Face).kind === 'red', 'F12 禁令地板 []:任何等条件键都是基线外新增')
-  ok(
-    f12Ratchet({ F12: [] }, auditPlan('# 计划\n- [ ] **T1 真活**:现在就能做。\n')).kind === 'ok',
-    'F12 名单为空 ⇒ 绿(清偿后的目标态)',
-  )
-  ok(
-    ratchetViolations({ F12: [] }, probe(f12Face), f12Face).some((x) => x.startsWith('F12')),
-    'F12 基线棘轮必须报红(绝对层接线)',
-  )
-  ok(
-    !ratchetViolations({ F12: [] }, probe(f12Face)).some((x) => x.startsWith('F12')),
-    'F12 没给判定面 ⇒ 不判',
-  )
-  ok(
-    grewViolations({ counts: { newWaitingEnv: 1 } }, { counts: { newWaitingEnv: 0 } }).some((x) =>
-      x.startsWith('F12'),
-    ),
-    'F12 由 0 涨到 1 必须进差值红名单',
-  )
-  ok(
-    !grewViolations({ counts: { newWaitingEnv: 0 } }, { counts: { newWaitingEnv: 1 } }).some((x) =>
-      x.startsWith('F12'),
-    ),
-    'F12 清偿(1 降到 0)不得判红',
-  )
   // ── 时间排序档 --order(2026-10-23 立)──
   // 夹具只用构造面(锚点表由本例注入),不碰 git ⇒ 确定性(§22b 取向:形状判据要用纯函数+构造面证明)。
   const tOld = Date.UTC(2026, 8, 1)
@@ -3049,17 +2734,7 @@ function main() {
       preBeforeErr = `HEAD 基准面取不到(${e instanceof Undetermined ? e.message : String(e?.message ?? e).split('\n')[0]})`
     }
   }
-  if (preBefore) {
-    a.counts.newUndisposed = countNewUndisposed(a, preBefore)
-    // F11 差值名单同基准面同轮(与 F8a 一条纪律:基准面取不到就**不判**,不得冒 0)。
-    const nh = newWaitingHumanRows(a, preBefore)
-    a.newWaitingHumanRows = nh
-    a.counts.newWaitingHuman = nh.length
-    // F12 差值名单同轮同纪律(2026-10-25 机主令)。
-    const ne = newWaitingEnvRows(a, preBefore)
-    a.newWaitingEnvRows = ne
-    a.counts.newWaitingEnv = ne.length
-  }
+  if (preBefore) a.counts.newUndisposed = countNewUndisposed(a, preBefore)
   // ── F10 翻勾回写候选(仅在显式旗标下跑:取证要遍历提交 diff,≈210s/900 枚,绝不压在默认档)──
   if (o.reopenedFlips) {
     if (!o.since) {

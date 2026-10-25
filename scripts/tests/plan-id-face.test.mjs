@@ -317,28 +317,28 @@ function runLiveDocEdit(t, { withArchive }) {
   return { status: r.status, stdout: String(r.stdout || '') + String(r.stderr || ''), headText }
 }
 
-test('T7 端到端·出口二必须真的吃到宽面:有归档件 ⇒ 池式落 O67;无归档件 ⇒ 落 O73(成对)', (t) => {
+test('T7 端到端·出口二必须真的吃到宽面:有归档件 ⇒ 池式落 O267;无归档件 ⇒ 落 O121(成对)', (t) => {
   const wide = runLiveDocEdit(t, { withArchive: true })
   assert.equal(wide.status, 0, `带归档件那一次应落地:\n${wide.stdout.slice(-1200)}`)
   assert.match(
     wide.headText,
-    /O67 本次要登记的新任务/,
-    `落地文本应是宽面(台账 O13 ⊕ 归档件 O90)池式算出的 O67(blocked{13,90} ⇒ 候选 70 窗,` +
-      `e2e-face-probe 下标 56,离线钉死),实得:\n${wide.headText}`,
+    /O267 本次要登记的新任务/,
+    `落地文本应是宽面(台账 O13 ⊕ 归档件 O90)池式算出的 O267(blocked{13,90} ⇒ 候选 887 窗,` +
+      `e2e-face-probe 下标 203 ⇒ 第二区 91+176,离线钉死),实得:\n${wide.headText}`,
   )
   assert.ok(
-    !/O73 本次要登记/.test(wide.headText),
-    '落了 O73(窄面号)⇒ 归档件那一级根本没装车(T1 的文本锁会绿而行为仍错)',
+    !/O121 本次要登记/.test(wide.headText),
+    '落了 O121(窄面号)⇒ 归档件那一级根本没装车(T1 的文本锁会绿而行为仍错)',
   )
 
   const narrow = runLiveDocEdit(t, { withArchive: false })
   assert.equal(narrow.status, 0, `无归档件那一次也应落地:\n${narrow.stdout.slice(-1200)}`)
   assert.match(
     narrow.headText,
-    /O73 本次要登记的新任务/,
-    '零归档件是合法面,必须按台账面(O13)给 O73(blocked{13} ⇒ 候选 80 窗,e2e-face-probe 下标 62,离线钉死;不得凭空抬高也不得拒发)',
+    /O121 本次要登记的新任务/,
+    '零归档件是合法面,必须按台账面(O13)给 O121(blocked{13} ⇒ 候选 937 窗,14+下标 107,离线钉死;不得凭空抬高也不得拒发)',
   )
-  assert.ok(!/O67 本次要登记/.test(narrow.headText), '无归档件却落宽面号 O67 ⇒ 有第二处号源')
+  assert.ok(!/O267 本次要登记/.test(narrow.headText), '无归档件却落宽面号 O267 ⇒ 有第二处号源')
 })
 
 /** 造一把台账里该族**一条都没有**、归档件里有的仓,跑真 live-doc-edit,返回 {status, out, headText}。 */
@@ -394,13 +394,13 @@ function runLiveDocEditArchivedOnlyFamily(t, { withArchive }) {
   }
 }
 
-test('T8 端到端·"族整族被归档"这一格的行为差(成对,如实登记而非散文声称):有归档件 ⇒ 池式落 W65;无 ⇒ 仍 exit 2 拒发', (t) => {
+test('T8 端到端·"族整族被归档"这一格的行为差(成对,如实登记而非散文声称):有归档件 ⇒ 池式落 W332;无 ⇒ 仍 exit 2 拒发', (t) => {
   const wide = runLiveDocEditArchivedOnlyFamily(t, { withArchive: true })
   assert.equal(wide.status, 0, `归档件里有该族 ⇒ 应能取号:\n${wide.out.slice(-1200)}`)
   assert.match(
     wide.headText,
-    /W65 本次登记的 W 族新任务/,
-    `应落 W65(宽面 W1..W5 已占用 ⇒ blocked{1,5},候选窗自 6 起 85 窗,e2e-w-probe 下标 59,离线钉死),实得:\n${wide.headText}`,
+    /W332 本次登记的 W 族新任务/,
+    `应落 W332(宽面 W1..W5 已占用 ⇒ blocked{1,5},候选窗自 6 起 945 窗,e2e-w-probe 下标 326,离线钉死),实得:\n${wide.headText}`,
   )
 
   const narrow = runLiveDocEditArchivedOnlyFamily(t, { withArchive: false })

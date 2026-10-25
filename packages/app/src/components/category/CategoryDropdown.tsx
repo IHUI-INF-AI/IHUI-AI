@@ -19,7 +19,7 @@ import {
 } from 'react-native'
 import { Check, ChevronDown } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { CategoryItem, ColorSchemeName } from './types'
 
 export interface CategoryDropdownProps {
@@ -303,7 +303,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     trigger: {
       height: 36,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -317,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     triggerText: {
       flex: 1,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     triggerTextPlaceholder: {
@@ -326,7 +326,7 @@ function createStyles(tk: AppThemeTokens) {
     countWrap: {
       height: 16,
       minWidth: 16,
-      paddingHorizontal: 4,
+      paddingHorizontal: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       alignItems: 'center',
       justifyContent: 'center',
@@ -356,13 +356,13 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     panelList: {
-      padding: 4,
+      padding: rnSpacing.xs,
       gap: 2,
     },
     panelTitle: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingTop: 6,
-      paddingBottom: 4,
+      paddingBottom: rnSpacing.xs,
       fontSize: 13,
       fontWeight: '600',
       color: tk.text.secondary,
@@ -373,10 +373,10 @@ function createStyles(tk: AppThemeTokens) {
     option: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
       minHeight: 36,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.md,
     },
     optionPressed: {
@@ -387,7 +387,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     optionText: {
       flex: 1,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '400',
       color: tk.text.primary,
     },

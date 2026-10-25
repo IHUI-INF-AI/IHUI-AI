@@ -515,13 +515,7 @@
     "noLogsHint": "(ログなし — ページ上でクリックすると座標情報が表示されます)",
     "runJs": "JavaScript 実行",
     "runJsPlaceholder": "document.title — JS を入力して実行をクリック(例: document.querySelector(\"button\").click())",
-    "run": "実行",
-    "browserTab": "ブラウザ",
-    "home": "ホームへ戻る",
-    "pickElement": "要素を選択",
-    "picking": "選択中:ページ要素をクリックで選択、もう一度押すと解除",
-    "devtools": "開発者ツール",
-    "popout": "別ウィンドウで開く"
+    "run": "実行"
   },
   "a11y": {
     "previewLoadFailed": "プレビューの読み込みに失敗しました。",
@@ -620,8 +614,8 @@
     "ctaTitle": "30分で AI の旅を始めよう",
     "heroBadge": "智匯 AI について",
     "heroSubtitle": "IHUI AI はオープンソースのフルスタック AI オペレーティングシステムで、Agent 設計、ナレッジベース、マルチモデルスケジューリング、クロスプラットフォーム協業とチーム運営を1つのプラットフォームに統合します。",
-    "heroTitle": "1コード9クライアント、1つの AI",
-    "metaDescription": "IHUI AI(智匯 AI)はワンストップのフルスタック AI オペレーティングシステム: Agent マーケット、ナレッジベース RAG、マルチモデル統合スケジューリング、MCP ツールプロトコルを統合し、Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / Capacitor ネイティブシェル / CLI, API と AI サービスを含む9クライアントを1つのコードベースでサポート、Apache 2.0 オープンソース。",
+    "heroTitle": "1コード6クライアント、1つの AI",
+    "metaDescription": "IHUI AI(智匯 AI)はワンストップのフルスタック AI オペレーティングシステム: Agent マーケット、ナレッジベース RAG、マルチモデル統合スケジューリング、MCP ツールプロトコルを統合し、Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI の6クライアントを1つのコードベースでサポート、Apache 2.0 オープンソース。",
     "numbersTitle": "数字で見る実績",
     "platformAgentsDesc": "ビジュアルドラッグ&ドロップで AI Agent を構築、200+ テンプレート、プラグイン/MCP ツール、ワンクリックで全クライアントに公開。",
     "platformAgentsTitle": "Agent マーケット & オーケストレーション",
@@ -648,11 +642,11 @@
     "storyP1": "2024年、私たちは企業が AI を導入する際に普遍的に直面する「4つの難題」を発見しました: モデル選定の難しさ、ナレッジベース連携の難しさ、クロスプラットフォーム配信の難しさ、チーム協業と課金の難しさ。市販の製品は1つだけ解決するか、クローズドソースでロックインされるか、高すぎて使えないかのいずれかです。",
     "storyP2": "そこで私たちは智匯 AI を作りました: オープンソース、統合、クロスプラットフォーム、セルフホスト可能。12〜18ヶ月の自社開発時間を30分のアカウント開設に圧縮しました。",
     "storyTitle": "なぜ智匯 AI を作ったのか?",
-    "valueCrossDesc": "Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / Capacitor ネイティブシェル / CLI、1コードベース、1回リリース、全プラットフォーム対応。",
-    "valueCrossTitle": "9クライアント1コード",
+    "valueCrossDesc": "Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI、1コードベース、1回リリース、全プラットフォーム対応。",
+    "valueCrossTitle": "6クライアント1コード",
     "valueEnterpriseDesc": "SSO/OAuth、監査ログ、ロール権限、セルフホスト展開、複数の上場企業にサービス提供。",
     "valueEnterpriseTitle": "エンタープライズ級セキュリティ",
-    "valueFreeDesc": "毎月1,000クレジット、全モデル利用可能、9クライアント同時リリース。Pro版 ¥49/月〜、Enterprise版はセルフホスト対応。",
+    "valueFreeDesc": "毎月1,000クレジット、全モデル利用可能、6クライアント同時リリース。Pro版 ¥49/月〜、Enterprise版はセルフホスト対応。",
     "valueFreeTitle": "個人版永久無料",
     "valueOpenDesc": "Apache 2.0 ライセンス、コアコード公開、商用利用可、セルフホストコストゼロ。",
     "valueOpenTitle": "完全オープンソース",
@@ -708,7 +702,6 @@
       "aiSessions": "AI アクティブセッション",
       "alertCount": "アラート {count}",
       "alertCountUnknown": "アラート数不明",
-      "alertCountAtLeast": "アラート ≥{count}",
       "alertStateActive": "アクティブ",
       "alertStateSuppressed": "抑制済み",
       "alertStateUnprocessed": "未処理",
@@ -716,8 +709,7 @@
       "alertsReceived": "アラート受信",
       "apiAvgLatency": "API 平均レイテンシ",
       "apiCallsToday": "本日の API 呼び出し",
-      "apiErrRateLabel": "API 失敗率",
-      "apiErrRateHint": "集計範囲:本日の api_logs 全件(ヘッダーの Prometheus 5xx 率とは補完関係)",
+      "apiErrRateLabel": "API 失敗率 (api_logs)",
       "axisPctMs": "ミリ秒",
       "axisReqPerSec": "リクエスト/秒",
       "bridgeMail": "アラートブリッジ送信メール",
@@ -808,9 +800,6 @@
       "rowsPerSec": "行/秒",
       "scrapeTargets": "収集ターゲット ({up}/{total} オンライン)",
       "noScrapeTargets": "スクレイプ対象なし",
-      "stateUp": "正常",
-      "stateDown": "異常",
-      "stateUnknown": "不明",
       "sevCritical": "重大",
       "sevInfo": "情報",
       "sevWarning": "警告",
@@ -820,7 +809,6 @@
       "signInTitle": "チェックイン",
       "signInToday": "本日チェックイン",
       "signInUnsigned": "未チェックイン",
-      "userGrowth14d": "ユーザー成長·14日",
       "sourceUnreachable": "データソースに接続不可",
       "srcAlertmanager": "Alertmanager",
       "srcDatabase": "データベース",
@@ -855,16 +843,6 @@
       "usersActive": "アクティブユーザー",
       "usersNewToday": "本日の新規",
       "usersRegistered": "登録ユーザー",
-      "usersVip": "VIPユーザー",
-      "usersTrader": "トレーダー",
-      "usersInvited": "招待登録",
-      "usersInvited7d": "招待(7日)",
-      "activeUsers7d": "アクティブ(7日)",
-      "levelDistTitle": "等級分布",
-      "level0": "通常",
-      "level1": "シルバー",
-      "level2": "ゴールド",
-      "level3": "ダイヤ",
       "panelTrafficRobot": "訪問者とボット",
       "panelRelayPool": "AI プール",
       "pv24h": "24時間 PV",
@@ -876,15 +854,6 @@
       "noTrafficData": "アクセス集計なし(毎時更新待ち)",
       "trafficTruncated": "種別分解は打ち切り(値は下限)",
       "poolKeySchedulable": "スケジュール可能 Key",
-      "poolHealthHealthy": "正常",
-      "poolHealthDegraded": "劣化",
-      "poolHealthDown": "ダウン",
-      "poolHealthUnknown": "不明",
-      "poolBalanceLow": "残高不足",
-      "poolExpiring24h": "24時間以内に期限",
-      "poolProviderKeyTitle": "キー・プロバイダ別",
-      "poolProviderAccountTitle": "アカウント・プロバイダ別",
-      "noPoolRows": "プール行なし",
       "poolKeyAbnormal": "異常 Key",
       "poolAccountSchedulable": "スケジュール可能アカウント",
       "poolTokenExpiry": "最短 token 期限",
@@ -1346,7 +1315,6 @@
     "announcements": {
       "colActions": "操作",
       "colPinned": "ピンめ",
-      "colPlatforms": "配信先",
       "colPublished": "み",
       "colPublishedAt": "公開日時",
       "colTitle": "タイトル",
@@ -1362,7 +1330,6 @@
       "editTitle": "編集お知らせ",
       "fieldContent": "コンテンツ",
       "fieldPinned": "ピンめ",
-      "fieldPlatforms": "配信先",
       "fieldPublished": "公開済み",
       "fieldTitle": "タイトル",
       "fieldType": "タイプ",
@@ -1388,17 +1355,6 @@
       },
       "no": "いいえ",
       "noData": "なしデータ",
-      "platforms": {
-        "cli": "CLI",
-        "desktop": "デスクトップ",
-        "extension": "拡張機能",
-        "miniapp": "ミニプログラム",
-        "mobile-cap": "モバイル収集",
-        "rn": "モバイルアプリ",
-        "web": "Web"
-      },
-      "platformsAll": "すべての端末",
-      "platformsHint": "未選択の場合は全端末に表示されます。選択した端末のみに表示されます",
       "published": "公開済み",
       "save": "保存",
       "subtitle": "のなドキュメントとAPIリファレンス",
@@ -6857,8 +6813,6 @@
       "namePlaceholder": "名称を入力してください",
       "nameRequired": "ごエージェント",
       "noData": "なしデータ",
-      "permissionHint": "このキーがアクセスできる API 権限を選択",
-      "permissionLabel": "権限",
       "sdkDownloads": "SDKダウンロード",
       "subtitle": "のなドキュメントとAPIリファレンス",
       "title": "センター",
@@ -8452,10 +8406,6 @@
           "title": "アカウントが制限されています",
           "action": "管理者に連絡"
         },
-        "ALREADY_CLAIMED": {
-          "title": "このタスクはすでに他のエージェントに引き受けられています",
-          "action": "別のタスクを引き受けるか、相手が解放するのを待ってから再試行してください"
-        },
         "API_BRIDGE_ERROR": {
           "title": "API ブリッジ呼び出しに失敗しました",
           "action": "しばらくしてから再試行"
@@ -8463,10 +8413,6 @@
         "BAD_PARAMS": {
           "title": "パラメータが不完全または無効です",
           "action": "修正して再試行"
-        },
-        "BOARD_FULL": {
-          "title": "チームのタスク一覧が上限に達しています",
-          "action": "完了済みの項目を整理してから追加してください"
         },
         "BUDGET_EXHAUSTED": {
           "title": "利用枠を使い切りました",
@@ -8608,10 +8554,6 @@
           "title": "ファイルが大きすぎます",
           "action": "ファイルを小さくして再試行"
         },
-        "FORBIDDEN": {
-          "title": "このタスクを更新する権限がありません",
-          "action": "先にタスクを引き受けるか、現在の担当者に連絡してください"
-        },
         "FORM_CHANNEL_UNAVAILABLE": {
           "title": "業務フォームのリクエストはメインの対話フローでのみ利用できます",
           "action": "このツールの再試行は不要です。必要な情報は返信の中でユーザーに直接問いかけてください"
@@ -8679,10 +8621,6 @@
         "INVALID_REPO": {
           "title": "パラメータが不完全または無効です",
           "action": "修正して再試行"
-        },
-        "INVALID_STATUS": {
-          "title": "タスクのステータスが無効です",
-          "action": "pending、claimed、done、blocked のいずれかに変更してください"
         },
         "INVALID_TRIGGER": {
           "title": "スケジュール設定が無効です",
@@ -8844,17 +8782,9 @@
           "title": "サブタスクの実行に失敗しました",
           "action": "再試行"
         },
-        "TASK_CLOSED": {
-          "title": "このタスクはすでに完了またはブロックされています",
-          "action": "別のタスクを選択してください"
-        },
         "TASK_FAILED": {
           "title": "サブタスクの実行に失敗しました",
           "action": "再試行"
-        },
-        "TASK_NOT_FOUND": {
-          "title": "タスクが見つかりません",
-          "action": "タスク一覧を更新して再試行"
         },
         "TEXT_TOO_LONG": {
           "title": "コンテキストが長すぎます",
@@ -9114,8 +9044,7 @@
           "emptyDraft": "下書きが空です。入力してから推敲してください。"
         },
         "restartHint": "再起動後に反映されます。下書きは保持されています。"
-      },
-      "injectionKindExpertPack": "意図に基づいてエキスパートパックを適用しました"
+      }
     },
     "permissionConfirm": {
       "allow": "許可",
@@ -9373,7 +9302,6 @@
     "deleteSuccess": "削除しました",
     "dispatchSubagent": "サブエージェントを派遣",
     "dockPanel": "パネルをドッキング",
-    "earlier": "それ以前",
     "emptyWorkspace": "空のワークスペース",
     "envInfo": {
       "added": "追加",
@@ -12220,17 +12148,7 @@
     "reasoningEffortHigh": "熟考",
     "reasoningEffortUnsupported": "このモデルでは推論の深さを選択できません",
     "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}",
-    "analysisOpen": "シナリオ分析を見る",
-    "reviewTargetGroupLabel": "レビュー対象の選択",
-    "reviewTargetLabel": "レビュー対象",
-    "reviewTargetUncommitted": "未コミットの変更",
-    "reviewTargetFile": "特定ファイル",
-    "reviewTargetFileLabel": "レビューするファイルパス",
-    "reviewTargetFilePlaceholder": "ワークスペース相対パス(例: src/app.ts)",
-    "reviewTargetSnippet": "貼り付けスニペット",
-    "reviewTargetSnippetLabel": "レビューするコードスニペット",
-    "reviewTargetSnippetPlaceholder": "レビューするコードを貼り付け…",
-    "reviewTargetClear": "レビュー対象をクリア"
+    "analysisOpen": "シナリオ分析を見る"
   },
   "chatHistory": {
     "moveToGroup": "グループへ移動",
@@ -15627,19 +15545,19 @@
     "q11Question": "私のデータは安全ですか?",
     "q12Answer": "絶対ありません。当社は自社モデルを学習せず、ユーザーのデータを使って第三者モデルを学習することもありません。OpenAI/Anthropic などの API プロバイダーのデータ保持ポリシーについては、各公式ドキュメントを参照してください(いずれもデフォルトでは学習せず、API モードでは30日後にデータは自動削除されます)。",
     "q12Question": "智匯 AI は私のデータを使ってモデルを学習しますか?",
-    "q1Answer": "IHUI AIはワンストップのフルスタック AI オペレーティングシステムです。Agent 設計、ナレッジベース RAG、マルチモデル統合スケジューリング、クロスプラットフォーム連携とチーム運営を1つのプラットフォームに統合し、Web、デスクトップ、ミニプログラム、ブラウザ拡張、React Native、Capacitor ネイティブシェル、CLI、API と AI サービスを含む9クライアントを1コードベースで配信、Apache 2.0 オープンソースのコアコードとセルフホスト展開をサポートします。",
+    "q1Answer": "IHUI AIはワンストップのフルスタック AI オペレーティングシステムです。Agent 設計、ナレッジベース RAG、マルチモデル統合スケジューリング、クロスプラットフォーム連携とチーム運営を1つのプラットフォームに統合し、Web、デスクトップ、ミニプログラム、ブラウザ拡張、React Native、CLI の6クライアントを1コードベースで配信、Apache 2.0 オープンソースのコアコードとセルフホスト展開をサポートします。",
     "q1Question": "智匯 AI とは何ですか?",
-    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。IHUI AI は現在少数、Agent マーケット + ナレッジベース + 9クライアント配信 + チーム連携 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
+    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。IHUI AI は現在少数、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム連携 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
     "q2Question": "智匯 AI と Dify、Coze、FastGPT の違いは?",
-    "q3Answer": "3タイプのユーザーが最も恩恵を受けます: AI 開発者(Agent の迅速な構築/配信/収益化、9クライアントへのワンクリック配信)、エンタープライズ IT(データ主権のためのセルフホスト展開、統合 AI 機能ハブ)、チームリーダー(マルチユーザー連携、統一ナレッジベース、統一課金)。",
+    "q3Answer": "3タイプのユーザーが最も恩恵を受けます: AI 開発者(Agent の迅速な構築/配信/収益化、6クライアントへのワンクリック配信)、エンタープライズ IT(データ主権のためのセルフホスト展開、統合 AI 機能ハブ)、チームリーダー(マルチユーザー連携、統一ナレッジベース、統一課金)。",
     "q3Question": "智匯 AI は誰向けですか?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1)、Anthropic Claude(Opus 4/Sonnet 4)、Google Gemini、Alibaba Qwen(Qwen-Max/Plus)、DeepSeek(V3/R1)、Zhipu GLM-4、Baidu ERNIE、ByteDance Doubao、Moonshot Kimi、そして Ollama などのローカルモデルおよび任意の OpenAI 互換エンドポイント。統合課金、自動フォールバック、コストベースルーティング。",
     "q4Question": "どの AI モデルに対応していますか?",
-    "q5Answer": "Web、デスクトップ(Tauri 2)、WeChat/Alipay/Douyin ミニプログラム(Taro 4)、ブラウザ拡張(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)、Capacitor ネイティブシェル(iOS/Android)、API と AI サービスの9クライアントが、同じ React コンポーネントライブラリ、同じ API 契約、同じビジネスロジックを共有します。1回書けば9クライアント同時配信、各プラットフォームごとに書き直す必要なし。",
-    "q5Question": "「9クライアント1コード」とはどういう意味ですか?",
+    "q5Answer": "Web、デスクトップ(Tauri 2)、WeChat/Alipay/Douyin ミニプログラム(Taro 4)、ブラウザ拡張(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)の6クライアントが、同じ React コンポーネントライブラリ、同じ API 契約、同じビジネスロジックを共有します。1回書けば6クライアント同時配信、各プラットフォームごとに書き直す必要なし。",
+    "q5Question": "「6クライアント1コード」とはどういう意味ですか?",
     "q6Answer": "3つの方法: ① OpenAPI 3.1 REST API(SDK は TypeScript/Python/Go をカバー); ② Webhook イベント購読; ③ MCP ツールプロトコル(社内システムを MCP Server として公開し、IHUI AI の Agent が呼び出し)。Enterprise 版は SSO/SAML 2.0/OIDC シングルサインオンもサポート。",
     "q6Question": "既存の業務システムとどう統合しますか?",
-    "q7Answer": "はい、個人版は永久無料です: 毎月1,000クレジット、全モデル、9クライアントすべて、API アクセスすべて含む。Pro は ¥49/月(10,000クレジット + 優先キュー)、Team は ¥299/月/ユーザー(共有クレジットプール + 監査ログ)、Enterprise はカスタム(セルフホスト + SLA)。",
+    "q7Answer": "はい、個人版は永久無料です: 毎月1,000クレジット、全モデル、6クライアントすべて、API アクセスすべて含む。Pro は ¥49/月(10,000クレジット + 優先キュー)、Team は ¥299/月/ユーザー(共有クレジットプール + 監査ログ)、Enterprise はカスタム(セルフホスト + SLA)。",
     "q7Question": "個人版は無料ですか?",
     "q8Answer": "クレジットはモデル呼び出しごとに課金され、モデルごとに消費率が異なります(価格ページ参照)。チャージしたクレジット: 未使用なら7日以内に全額返金、使用済み部分は按分返金。サブスクリプションプラン: 未使用月は按分返金。詳細は返金ポリシーページを参照。",
     "q8Question": "クレジットはどのように計算されますか? 返金できますか?",
@@ -16005,7 +15923,7 @@
     "contactWechatHint": "QRコードでカスタマーサービスWeChatを追加、またはID ok502319984を検索",
     "copyFailed": "コピーに失敗しました,手動でコピーしてください",
     "copyRepoUrl": "リポジトリURLをコピー",
-    "copyright": "© 2026 IHUI AI Group · China",
+    "copyright": "© 2025 IHUI AI Group · China",
     "databases": {
       "mongodb": "火山エンジン",
       "mysql": "アリババクラウド",
@@ -16295,27 +16213,6 @@
     "hostLocalAvailable": "ローカル Git チャネルは引き続き利用可能"
   },
   "ide": {
-    "agentsMd": {
-      "title": "AGENTS.md",
-      "hint": "現在のワークスペースをスキャンして協働ルールの下書きを生成します。生成時に書き込みは行わず、書き込み前にもう一度確認します。",
-      "generate": "AGENTS.md の下書きを生成",
-      "generateConfirmTitle": "AGENTS.md の下書きを生成しますか?",
-      "generateConfirmContent": "現在のワークスペースをスキャンして下書きを生成します。下書きはここに表示されるだけで、ディスクには書き込まれません。",
-      "generating": "ワークスペースをスキャン中…",
-      "generateFailed": "下書きの生成に失敗しました",
-      "draftTitle": "AGENTS.md の下書き(編集可能、確認後に書き込み)",
-      "draftNotice": "下書きはまだ書き込まれていません",
-      "write": "AGENTS.md に書き込む",
-      "writeConfirmTitle": "AGENTS.md に書き込みますか?",
-      "writeConfirmContent": "上記の内容をワークスペース直下の AGENTS.md に書き込みます。同名ファイルは上書きされます。",
-      "writing": "書き込み中…",
-      "writeFailed": "書き込みに失敗しました",
-      "written": "AGENTS.md を書き込みました",
-      "discard": "下書きを破棄",
-      "errorEmptyWorkspace": "ワークスペースのパスが空です",
-      "errorRequestFailed": "AI サービスへのリクエストに失敗しました",
-      "errorNoDraft": "ツールが下書きを返しませんでした"
-    },
     "activityBar": {
       "applications": "アプリ",
       "debug": "デバッグ",
@@ -17618,7 +17515,7 @@
         "title": "トリプルスタック · 業界最先端"
       },
       "professional": {
-        "description": "275 の機械ゲート + 8 git フック + 340 migrations + 16 共有 packages、コード品質は同類 95% 超え",
+        "description": "17 項目 pre-commit ガード + 4 husky フック + 122+ migrations + 12 共有 packages、コード品質は同類 95% 超え",
         "evidence": "証拠:17 ガード > 業界平均 3 項目 / 122 migrations > 平均 30 / 12 packages > 平均 4 → 99.9% エラーフリー",
         "title": "エンジニアリング厳格 · 業界標竿"
       },
@@ -17642,12 +17539,12 @@
       "row1Claude": "CLI",
       "row1Cursor": "デスクトップ",
       "row1Feature": "プラットフォーム対応",
-      "row1Us": "9プラットフォーム完全対応",
+      "row1Us": "8プラットフォーム完全対応",
       "row2Chatgpt": "OpenAIモデル",
       "row2Claude": "Claudeモデル",
       "row2Cursor": "マルチモデル選択可",
       "row2Feature": "LLM数",
-      "row2Us": "101 LLM",
+      "row2Us": "100+ LLM",
       "row3Chatgpt": "なし",
       "row3Claude": "MCP単一スタック",
       "row3Cursor": "MCP単一スタック",
@@ -17657,7 +17554,7 @@
       "row4Claude": "なし",
       "row4Cursor": "なし",
       "row4Feature": "APIエンドポイント",
-      "row4Us": "4557+ エンドポイント",
+      "row4Us": "7エンドポイント",
       "row5Chatgpt": "なし",
       "row5Claude": "なし",
       "row5Cursor": "なし",
@@ -17678,7 +17575,7 @@
       "row8Cursor": "なし",
       "row8Feature": "エージェントマーケット",
       "row8Us": "5+職能",
-      "subtitle": "智匯AI vs Claude Code vs Cursor vs ChatGPT · 9 プラットフォーム全面カバー + 101 LLM + トリプルスタック + エージェント広場",
+      "subtitle": "智匯AI vs Claude Code vs Cursor vs ChatGPT · 8 プラットフォーム全面カバー + 100+ LLM + トリプルスタック + エージェント広場",
       "title": "競品対比 · 全次元超越",
       "titleEn": "COMPETITIVE COMPARISON"
     },
@@ -17701,8 +17598,8 @@
       },
       "appStore": {
         "benefit": "総合 ¥18 万/年節約 · Claude Pro + GPT Plus + Cursor + マルチモデル API を代替",
-        "description": "OpenAI / Claude / Gemini / Llama + Tongyi / GLM / DeepSeek + クラウド全域対応 — 101 の登録モデル、1 キーで全域アクセス",
-        "title": "101 LLM 大モデル"
+        "description": "海外 30+ (OpenAI/Claude/Gemini/Llama) + 国産 15+ (Tongyi/GLM/DeepSeek) + クラウド 40+、1 キーで全域アクセス",
+        "title": "100+ LLM 大モデル"
       },
       "contentCreation": {
         "benefit": "Claude Pro ¥17000/年節約 · 開発効率 10× 向上 · 6 ソース設定ワンクリック導入",
@@ -17715,9 +17612,9 @@
         "title": "フルスタック AI 教育"
       },
       "modelIntegration": {
-        "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 9 端汎用 · データゼロ移行",
-        "description": "Web/Desktop/Mobile/ミニプログラム/CLI/Extension/Capacitor 7 + API/AI-Service 2、フルスタック対応、統一アカウントでシームレス切替",
-        "title": "9 プラットフォームフルスタックアーキテクチャ"
+        "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 8 端汎用 · データゼロ移行",
+        "description": "Web/Desktop/Mobile/ミニプログラム/CLI/Extension 6 + API/AI-Service 2、フルスタック対応、統一アカウントでシームレス切替",
+        "title": "8 プラットフォームフルスタックアーキテクチャ"
       },
       "multimodal": {
         "benefit": "¥5 万/年デザイン費節約 · 5 大モダリティ全打通 · コンテンツ生産 10× 加速",
@@ -17729,12 +17626,12 @@
         "description": "3 権限モード + 7 実行時インターセプト端点 + 60s タイムアウト拒否 + RBAC 細粒度アクセス制御 + 99.9% SLA",
         "title": "企業級ワークスペース"
       },
-      "subtitle": "9 プラットフォーム全面カバーの企業級 AI プラットフォーム · 100+ 大モデル · 独自 CLI · 工業級エンジニアリング厳格 · 意思決定者にすべての AI 能力をワンストップで",
+      "subtitle": "8 プラットフォーム全面カバーの企業級 AI プラットフォーム · 100+ 大モデル · 独自 CLI · 工業級エンジニアリング厳格 · 意思決定者にすべての AI 能力をワンストップで",
       "title": "8 大コア能力 · フルスタックカバー",
       "titleEn": "POWERFUL FEATURES",
       "workflow": {
         "benefit": "複雑タスク自動化 · 5+ SaaS ツール代替 · トリプルスタック合一業界でも比較的珍しい",
-        "description": "2 つの LangGraph ワークフロー + 90+ MCP ツール + 5 A2A 端点 + 6 ACP 拡張、三スタック統合は業界でも稀",
+        "description": "2 つの LangGraph ワークフロー + 11 MCP ツール + 5 A2A 端点 + 6 ACP 拡張、三スタック統合は業界でも稀",
         "title": "LangGraph ワークフロー"
       }
     },
@@ -17763,7 +17660,7 @@
     "marquee": {
       "items": [
         "🎉 新 AI 教育モジュール:コース・ライブ・試験を一体化",
-        "🚀 モデル市場 101 モデル: Gemini 3.8 / Step 3.7 / DeepSeek V4 / GLM 4.7 / Qwen Max / Kimi K2 など旗艦が継続投入",
+        "🚀 モデル市場に GPT-5 / Claude 4.5 / Gemini 2.5 Pro 追加",
         "💎 VIP 会員 30% オフ、100+ エージェント無制限",
         "🌍 多言語サポート:5 言語でリアルタイム翻訳",
         "🎨 テーマセンター 50+ テーマ、ワンクリックで切替",
@@ -17824,7 +17721,7 @@
         "description": "成長中のチーム向け、優先サポート",
         "feature1": "月額 50000 クレジット",
         "feature2": "高度なモデル(GPT-4o/Claude Opus)",
-        "feature3": "全 9 クライアント",
+        "feature3": "全 6 クライアント",
         "feature4": "チーム協業(10 席)",
         "feature5": "メールサポート",
         "name": "プロフェッショナル"
@@ -17843,7 +17740,7 @@
         "value": "60%ヒット率"
       },
       "cost": {
-        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥50000 = 年間 ¥70200 節約",
+        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥500",
         "description": "Claude Pro + GPT Plus + Cursor + マルチモデルAPI等の複数サブスクを代替",
         "title": "総合コスト削減",
         "value": "年間18-30万節約"
@@ -17855,14 +17752,14 @@
         "value": "年間10万節約"
       },
       "models": {
-        "calculation": "101 の登録モデル · 国際 + 国産 + クラウド対応,1つのAPIキーでアクセス",
+        "calculation": "国際30+国産15+クラウド40+ = 100+モデル 1つのAPIキーでアクセス",
         "description": "国際+国産+クラウド完全網羅、1つのAPIキーで統一アクセス",
         "title": "LLMカバレッジ",
-        "value": "101 LLM"
+        "value": "100+ LLM"
       },
       "quality": {
-        "calculation": "275 の機械守門 + 3180 テストファイル + 340 migrations = 99.9%エラーフリー",
-        "description": "275 の工学守門 + 8 つの git フック + 340 migrations",
+        "calculation": "17守門 + 4フック + 122 migrations = 99.9%エラーフリー",
+        "description": "17項のpre-commit守門 + 4つのhuskyフック + 122+ migrations",
         "title": "エンジニアリング品質",
         "value": "99.9%エラーフリー"
       },
@@ -17932,11 +17829,11 @@
     "title": "タイトル",
     "typewriter": {
       "brand": "独自 CLI、Claude Code 全次元対抗 · ACP が Zed/VSCode/Cursor に埋め込み",
-      "connect": "LangGraph + MCP + A2A トリプルスタック · 4557+ API ルート · 工業級厳格",
-      "content": "9プラットフォーム全面カバー · 業界でも比較的珍しいフルスタック AI プラットフォーム",
+      "connect": "LangGraph + MCP + A2A トリプルスタック · 1029+ API エンドポイント · 工業級厳格",
+      "content": "8プラットフォーム全面カバー · 業界でも比較的珍しいフルスタック AI プラットフォーム",
       "ctaPrimary": "今すぐ体験",
       "ctaSecondary": "もっと知る",
-      "explore": "101 LLM大モデル · 1つの API キーで全部アクセス · 年間 ¥18万節約",
+      "explore": "100+ LLM大モデル · 1つの API キーで全部アクセス · 年間 ¥18万節約",
       "miniappBtn": "WeChatミニプログラム",
       "qrAlt": "ミニプログラムQRコード",
       "scanTip": "スキャンしてミニプログラムを体験",
@@ -17956,13 +17853,13 @@
         "benefit5": "AIアシスタントの優先体験",
         "benefit6": "不満の場合は全額返金"
       },
-      "brandSubtitle": "9プラットフォーム · 100+ 大モデル · 4557+ API · 年間 ¥18万節約",
-      "description": "Zhihui AI は Agent マーケットプレイス、ナレッジベース RAG、マルチモデル統合ディスパッチ、MCP ツールプロトコルを統合。Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / Capacitor ネイティブシェル / CLI、および API と AI サービスの 9 プラットフォームに対応、Apache 2.0 オープンソース、プライベート展開をサポート。",
+      "brandSubtitle": "8プラットフォーム · 100+ 大モデル · 1029+ API · 年間 ¥18万節約",
+      "description": "Zhihui AI は Agent マーケットプレイス、ナレッジベース RAG、マルチモデル統合ディスパッチ、MCP ツールプロトコルを統合。Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI の 6 プラットフォームに対応、Apache 2.0 オープンソース、プライベート展開をサポート。",
       "earlyBird": "アーリーバード ¥6000/年 · 67%オフ",
-      "multiEnd": "9プラットフォーム全面カバー · 業界でも比較的珍しい",
+      "multiEnd": "8プラットフォーム全面カバー · 業界でも比較的珍しい",
       "perYear": "/年",
       "seats": "18席限定 · 意思決定者専用",
-      "subtitle": "フルスタック AI OS・9 プラットフォーム対応・ワンストップエージェント連携",
+      "subtitle": "フルスタック AI OS・8 プラットフォーム対応・ワンストップエージェント連携",
       "title": "智匯AIコミュニティへようこそ"
     }
   },
@@ -19839,10 +19736,7 @@
     "editDeviceMapTitle": "デバイスフィンガープリントを編集",
     "editDeviceMapDescription": "{platform} アカウントのデバイスフィンガープリントを編集します（JSON オブジェクト。空のまま保存すると自動生成されます）。",
     "checkedInToday": "本日は出席済み",
-    "rename": "名前を変更",
-    "captureTraeWebWaiting": "右側のワークパネルのブラウザで Trae のログインページを開きました。パネル内でログイン(電話番号/QR)してください。ログイン状態を検出すると自動でアカウントを取り込み、チェックインページに戻ります。",
-    "captureTraeWebDone": "Trae Web ログインの取り込みが完了しました(合計 {count} 件)",
-    "captureTraeWebCancelled": "Trae の Web ログインをキャンセルしました。「Web ログイン」を再度クリックするとやり直せます。"
+    "rename": "名前を変更"
   },
   "accountPool": {
     "title": "マイアカウントプール",
@@ -20814,7 +20708,7 @@
         "features": [
           "月額 1000 クレジット",
           "すべての AI モデル",
-          "全 9 クライアント",
+          "全 6 クライアント",
           "API アクセス",
           "コミュニティサポート"
         ],
@@ -21041,7 +20935,7 @@
     "comparison": {
       "agentMarket": "Agent マーケット",
       "apache2": "Apache 2.0",
-      "eightEnds": "9 エンド対応",
+      "eightEnds": "8 エンド対応",
       "feature": "機能",
       "llmCount": "176+ LLM 対応",
       "multiTenant": "マルチテナント分離",
@@ -22265,7 +22159,7 @@
         "desc": "ソースをサーバーにデプロイ",
         "features": [
           "PostgreSQL + Redis 設定",
-          "9 プラットフォーム構築",
+          "8 プラットフォーム構築",
           "2 時間オンライントレーニング",
           "30 日間メールサポート",
           "3-5 営業日で納品"
@@ -22402,18 +22296,6 @@
     "title": "サービス"
   },
   "settings": {
-    "expertRoute": {
-      "title": "エキスパートパックの自動ルーティング",
-      "desc": "今回のユーザー意図からエキスパートパックを判定し、一致時の扱いを選択します。",
-      "default": "デフォルト",
-      "envLockedNotice": "デプロイ側が環境変数でこの機能を無効化しているため、ここでは表示のみで変更できません。",
-      "hint": "ヒントのみ",
-      "hintDesc": "一致時に、どのエキスパートパックに一致したかを返信内で示すだけで、ツールとシステムプロンプトは変更しません",
-      "auto": "自動適用",
-      "autoDesc": "一致時に、エキスパートパックのツール許可リストとシステムプロンプトを今回のリクエストに統合します",
-      "off": "オフ",
-      "offDesc": "意図判定もヒントも行いません"
-    },
     "event2faDisabled": "二段階認証を無効化しました",
     "eventIpBlocked": "IP 許可リストによりログインが遮断されました",
     "accountDeletionCancel": "削除を取り消す",
@@ -23849,7 +23731,7 @@
     "courseWorkload": "学習負荷",
     "description": "説明",
     "endDate": "終了日",
-    "metaDescription": "IHUI AI フルスタック AI OS で構築する AI 教育 Agent:コース構造化設計、自動答疑、添削、パーソナライズ学習パス、学習ダッシュボード、9 エンド同期配信。",
+    "metaDescription": "IHUI AI フルスタック AI OS で構築する AI 教育 Agent:コース構造化設計、自動答疑、添削、パーソナライズ学習パス、学習ダッシュボード、8 エンド同期配信。",
     "metaTitle": "AI 教育 Agent ユースケース — コース設計/自動答疑/学習推薦 | IHUI AI",
     "name": "コース名",
     "provider": "提供元",
@@ -25852,7 +25734,7 @@
     },
     "seats": "18 席限定 · 意思決定者専用",
     "earlyBird": "早割 ¥6000/年 · 3.3 割",
-    "multiEnd": "9 エンド全対応 · 広いカバレッジ"
+    "multiEnd": "8 エンド全対応 · 広いカバレッジ"
   },
   "typewriter": {
     "ctaPrimary": "今すぐ相談",

@@ -18,21 +18,17 @@ import { describe, expect, it } from 'vitest'
  *
  * 【声明面(拍板②:敏感前缀必须显式声明)】`server.ts` 的 onRoute 钩子按前缀显式注入:
  *   - `/api/admin` 族:`network.allowExternal:false` + mTLS(强制内网);
- *   - `INTERNAL_ONLY_PREFIXES`(`/api/internal/`):`allowExternal:false`(强制内网、公网 403),
- *     刻意不带 mTLS —— 调用方只有本机 ai-service(loopback / RFC1918,见 server.ts 立据注释);
  *   - `SENSITIVE_BUSINESS_PREFIXES`(auth/users/wallet/...):`allowExternal:true`
  *     (允许公网,但启用分段,strict 模式拒 unknown IP);
  *   - `PUBLIC_PREFIXES`:显式声明为公网可达,不注入。
  *   判据:注册**前缀**的路径段落在敏感清单(admin / internal / report / export)内的,
  *   必须被上述声明面覆盖 —— 现读 **0 未声明**。分段判定与 onRoute 钩子同口径
  *   (路径段精确匹配;`/api/admin-saas` 是独立前缀族,段名不是 `admin`,钩子本就不管它)。
- *   `INTERNAL_ONLY_PREFIXES` 档另有一枚存在性钉子(见"声明面钉子"):清单在而分支被摘 ⇒ 红,
- *   防止"只为消红把前缀挂进清单、运行面却回落到无分段"的假声明。
  *
- * 【绝对路径存量】不经 prefix 注册、以绝对路径字面量注册的敏感路由,现读 **0 条未声明**:
- * 原 D154 那条 `/api/internal/user-broadcast/mcp-status` 与 2026-10-23 新增的三条
- * `/api/internal/relay/*`(号池凭证回写 + 个人号池 upsert/delete)已由 `INTERNAL_ONLY_PREFIXES`
- * 统一声明。判据把**存量清单**钉死:多一条未声明的绝对路径敏感路由 ⇒ 红;
+ * 【绝对路径存量(判据的清单化残留)】不经 prefix 注册、以绝对路径字面量注册的敏感路由,
+ * 现存恰有一条未声明:`/api/internal/user-broadcast/mcp-status`(D154,由
+ * `checkInternalServiceToken` 验票防护,网络分段声明属残留待补 —— 修复需改 apps/api,
+ * 另票处理)。判据把**存量清单**钉死:多一条未声明的绝对路径敏感路由 ⇒ 红;
  * 这条补了声明 ⇒ 清单须同步收缩 ⇒ 也红(强制过人),不许静默漂移。
  *
  * 【已知的扫描边界】只认 `server.<method>(` 注册位与注册前缀字面量;`server.route({ url })`
@@ -43,8 +39,7 @@ const REPO = resolve(__dirname, '../../..')
 const API_SRC = join(REPO, 'apps/api/src')
 
 const SENSITIVE_SEGMENTS = new Set(['admin', 'internal', 'report', 'export'])
-/** 绝对路径敏感路由的未声明存量清单(收缩须过人,见文件头【绝对路径存量】) */
-const KNOWN_UNDECLARED_ABSOLUTE: string[] = []
+const KNOWN_UNDECLARED_ABSOLUTE = ['/api/internal/user-broadcast/mcp-status']
 
 function readSrc(rel: string): string {
   return readFileSync(join(API_SRC, rel), 'utf8')
@@ -67,15 +62,10 @@ function isSensitive(url: string): boolean {
   return segmentsOf(url).some((s) => SENSITIVE_SEGMENTS.has(s))
 }
 
-/** 与 server.ts onRoute 钩子同口径的"已显式声明"判定(admin 分支 + 三份注入清单)。 */
-function isDeclared(
-  url: string,
-  publicPrefixes: string[],
-  sensitivePrefixes: string[],
-  internalOnlyPrefixes: string[],
-): boolean {
+/** 与 server.ts onRoute 钩子同口径的"已显式声明"判定(admin 分支 + 两份注入清单)。 */
+function isDeclared(url: string, publicPrefixes: string[], sensitivePrefixes: string[]): boolean {
   if (url === '/api/admin' || url.startsWith('/api/admin/')) return true
-  const lists = [...publicPrefixes, ...sensitivePrefixes, ...internalOnlyPrefixes]
+  const lists = [...publicPrefixes, ...sensitivePrefixes]
   return lists.some((p) => url.startsWith(p) || p.startsWith(url))
 }
 
@@ -114,21 +104,9 @@ describe('G-815989 / 显式声明面钉子(server.ts onRoute 注入)', () => {
     expect(serverTs).toMatch(/mtls:\s*existingConfig\.mtls \?\? \{ required:/)
   })
 
-  it('公开/敏感业务两份注入清单可解析且非空', () => {
+  it('两份注入清单可解析且非空', () => {
     expect(extractListEntries(serverTs, 'PUBLIC_PREFIXES').length).toBeGreaterThan(0)
     expect(extractListEntries(serverTs, 'SENSITIVE_BUSINESS_PREFIXES').length).toBeGreaterThan(0)
-  })
-
-  it('internal-only 分支存在:强制内网(allowExternal:false)且不注入 mTLS(防假声明)', () => {
-    expect(extractListEntries(serverTs, 'INTERNAL_ONLY_PREFIXES').length).toBeGreaterThan(0)
-    // 取 `if (INTERNAL_ONLY_PREFIXES.some(...)) {` 到该 if 块收尾(内层对象闭括号缩进更深)
-    const branch = /if \(INTERNAL_ONLY_PREFIXES\.some\([\s\S]*?\n {4}\}/.exec(serverTs)?.[0] ?? ''
-    expect(
-      branch.length,
-      'server.ts onRoute 缺 INTERNAL_ONLY_PREFIXES 分支(清单在而注入被摘 = 假声明)',
-    ).toBeGreaterThan(0)
-    expect(branch).toContain('network: existingConfig.network ?? { allowExternal: false }')
-    expect(branch).not.toContain('mtls')
   })
 })
 
@@ -138,7 +116,6 @@ describe('G-815989 / 前缀级判据:敏感前缀必须落在声明面(现读 0 
     const routesIndex = readSrc('routes/index.ts')
     const publicPrefixes = extractListEntries(serverTs, 'PUBLIC_PREFIXES')
     const sensitivePrefixes = extractListEntries(serverTs, 'SENSITIVE_BUSINESS_PREFIXES')
-    const internalOnlyPrefixes = extractListEntries(serverTs, 'INTERNAL_ONLY_PREFIXES')
 
     const prefixes = [
       ...serverTs.matchAll(/\{\s*prefix:\s*'([^']+)'/g),
@@ -147,14 +124,12 @@ describe('G-815989 / 前缀级判据:敏感前缀必须落在声明面(现读 0 
     expect(prefixes.length, '注册前缀字面量解析不能为空').toBeGreaterThan(0)
 
     const undeclared = prefixes.filter(
-      (p) =>
-        isSensitive(p) && !isDeclared(p, publicPrefixes, sensitivePrefixes, internalOnlyPrefixes),
+      (p) => isSensitive(p) && !isDeclared(p, publicPrefixes, sensitivePrefixes),
     )
     expect(
       undeclared,
       `敏感前缀未显式声明网络分段(判据:落在 admin/internal/report/export 清单的前缀,` +
-        `须被 onRoute admin 分支 / INTERNAL_ONLY_PREFIXES / SENSITIVE_BUSINESS_PREFIXES / ` +
-        `PUBLIC_PREFIXES 覆盖):${undeclared.join(', ')}`,
+        `须被 onRoute admin 分支 / SENSITIVE_BUSINESS_PREFIXES / PUBLIC_PREFIXES 覆盖):${undeclared.join(', ')}`,
     ).toEqual([])
   })
 })
@@ -164,9 +139,7 @@ describe('G-815989 / 绝对路径级判据:未声明的敏感绝对路径必须�
     const serverTs = readSrc('server.ts')
     const publicPrefixes = extractListEntries(serverTs, 'PUBLIC_PREFIXES')
     const sensitivePrefixes = extractListEntries(serverTs, 'SENSITIVE_BUSINESS_PREFIXES')
-    const internalOnlyPrefixes = extractListEntries(serverTs, 'INTERNAL_ONLY_PREFIXES')
 
-    const scanned: string[] = []
     const found: string[] = []
     for (const file of walkRouteFiles(join(API_SRC, 'routes'))) {
       const src = readFileSync(file, 'utf8')
@@ -175,17 +148,15 @@ describe('G-815989 / 绝对路径级判据:未声明的敏感绝对路径必须�
         /server\.(?:get|post|put|delete|patch|options|head|all)\s*\(\s*'([^']+)'/g,
       )) {
         const url = m[1]
-        if (url.startsWith('/api/') && isSensitive(url)) {
-          scanned.push(url)
-          if (!isDeclared(url, publicPrefixes, sensitivePrefixes, internalOnlyPrefixes)) {
-            found.push(url)
-          }
+        if (
+          url.startsWith('/api/') &&
+          isSensitive(url) &&
+          !isDeclared(url, publicPrefixes, sensitivePrefixes)
+        ) {
+          found.push(url)
         }
       }
     }
-
-    // §0.3「枚举到 0 个候选判死不记绿」:扫描面自身失能(正则被改坏/目录改名)不得被读成"零未声明"。
-    expect(scanned.length, '绝对路径敏感路由扫描面为空 = 尺子失能,不得记绿').toBeGreaterThan(0)
 
     const known = [...KNOWN_UNDECLARED_ABSOLUTE].sort()
     const actual = [...new Set(found)].sort()

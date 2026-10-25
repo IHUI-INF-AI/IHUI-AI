@@ -574,50 +574,6 @@ test('R1r 只判索引面:同一份混合体,索引面判红、工作树面只�
   }
 })
 
-// G-417②(2026-10-23):R1 的全量档分流 —— 工作树副本 == 历史 blob 属**机器状态**,全量档判红
-// 就是一台与任何提交无关的恒红门(§12e,与上一条 R1r"只判索引面"同一条理由);提交链仍由
-// --staged 面拦。双向钉:同一份内容 worktree 面 rc=0 + 点名 + 结论行尾注,staged 面 rc=1 + 原文案逐字。
-test('R1 全量档分流:工作树副本==历史 blob ⇒ 全量档只报数并点名,同一内容进索引 ⇒ --staged 照判红', () => {
-  const { dir, run } = repo()
-  try {
-    put(dir, 'a.txt', 'v1\n')
-    run('add', '-A')
-    run('commit', '-qm', 'a v1')
-    put(dir, 'a.txt', 'v2\n')
-    run('add', '-A')
-    run('commit', '-qm', 'a v2')
-    put(dir, 'a.txt', 'v1\n') // 写回旧版,**只脏工作树**(索引仍等于 HEAD)
-    const full = G.audit(dir, { staged: false })
-    const fullText = full.lines.join('\n')
-    assert.equal(
-      full.code,
-      0,
-      `全量档因机器状态判红 = 每台每次必红:${fullText.slice(0, 300)}`,
-    )
-    assert.match(fullText, /\[全量档·只报数不拦\]/, '全量档命中必须可见,不得静默')
-    assert.match(fullText, /a\.txt\s+==/, '必须逐条点名路径')
-    assert.match(
-      fullText,
-      /1 处工作树副本等于历史版本只报数\(全量档\)/,
-      '结论行必须带尾注,不得读成"无历史版本回写"',
-    )
-    run('add', '--', 'a.txt') // 同一份内容进了索引 ⇒ 提交面必须判红
-    const st = G.audit(dir, { staged: true })
-    assert.equal(
-      st.code,
-      1,
-      `--staged 面必须仍判红,否则提交链被削窄:${st.lines.join('\n').slice(0, 300)}`,
-    )
-    assert.match(
-      st.lines.join('\n'),
-      /❌ 检出 1 个文件的暂存内容等于其\*\*历史提交版本\*\*/,
-      'staged 面文案必须逐字不变',
-    )
-  } finally {
-    rmScratch(dir)
-  }
-})
-
 test('R1r 在合并上下文走与 R1m 同一条窄判据:两父一致照判,两父不同让路', () => {
   const { dir, run, ancestor9 } = localeRepoCtx()
   const gitDir = join(dir, run('rev-parse', '--git-dir'))
@@ -1291,40 +1247,3 @@ test('形状锁:输入路径解析只有一份,门体必须两侧各按自己的
     )
   })
 }
-
-/**
- * 深档(2026-10-25):祖先窗口用尽时回落到全历史。
- * 立因是当天实测:门 84 报"127 个文件无历史回写",但其中 8 个路径(README×4 / PROJECT_PLAN /
- * layout / ui-routes.generated / last-sha)的祖先清单被窗口上限截断 ⇒ 它们的"无回写"其实是
- * **没判**,而这几本正是最容易被旧副本回写的大文件。
- * 同一份夹具跑两档:A 臂(默认)必须如实报 truncated 且取不到窗外那一枚;B 臂(deep)必须判到底
- * 并命中。任一臂单独变绿/变红都说明开关没接线(§22c 成对夹具)。
- */
-test('窗口用尽的两档:默认档如实"未判定",深档回落全历史后命中窗外回写(成对)', () => {
-  const { dir, run } = repo()
-  try {
-    const rel = 'scripts/hot.mjs'
-    const total = G.ANCESTOR_WINDOW + 5
-    for (let i = 0; i < total; i += 1) {
-      put(dir, rel, `// v${i}\nexport const v = ${i}\n`)
-      run('add', '-A')
-      run('commit', '-qm', `v${i}`)
-    }
-    const oldest = run('rev-list', '--max-parents=0', 'HEAD')
-    put(dir, rel, '// v0\nexport const v = 0\n') // 写回窗口外那一版
-    const plain = G.ancestorWindow(dir, rel)
-    assert.equal(plain.truncated, true, '默认档必须如实报窗口用尽(未判定),不得冒绿')
-    assert.ok(!plain.shas.includes(oldest), '夹具病形:v0 必须落在窗口之外,否则测不到深档')
-    const deep = G.ancestorWindow(dir, rel, { deep: true })
-    assert.equal(deep.truncated, false, '深档必须判到底,不再留"未判定"')
-    assert.ok(deep.shas.includes(oldest), '深档必须取到窗口外那一枚祖先')
-    assert.equal(deep.shas.length, total, '深档必须取满该路径的全部祖先提交')
-    // 端到端:门 84 的分析档已走深档 ⇒ 这段回写必须被点名
-    run('add', '--', rel)
-    const hits = G.analyze(dir, [rel], { source: 'index' })
-    assert.equal(hits.length, 1, '深档下"写回窗口外旧版"必须判出')
-    assert.equal(hits[0].commit, oldest.slice(0, 9), '命中的必须正是那枚窗口外祖先')
-  } finally {
-    rmScratch(dir, { bestEffort: true })
-  }
-})

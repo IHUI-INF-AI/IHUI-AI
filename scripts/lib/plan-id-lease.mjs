@@ -33,27 +33,26 @@
  *  ② 新占段整体平移:段起点 = floor+1+off,off = hash(machineId|family|floor) % segmentSize,
  *    段尺寸不变(end = start + segmentSize - 1)。残余撞号面 = "两侧同刻/同 floor 新占段"——
  *    旧口径两侧起点/主键(段尾号)必然同值:F9 主键撞号必发生、首实号必撞;平移后两侧起点
- *    大概率分离(hash 熵 99 分之一同偏),主键随之分离,CAS 兜底仍在。无 machineId ⇒ off=0,
+ *    大概率分离(hash 熵 999 分之一同偏),主键随之分离,CAS 兜底仍在。无 machineId ⇒ off=0,
  *    与旧口径逐字同形(镜像 N2/N3 回归锁)。
  *
- * 池式改造(2026-10-14 拍板,"任务编号全量压缩到两位数"枚 A):
+ * 池式改造(2026-10-14 拍板,"任务编号全量压缩到三位数"枚 A):
  *  千段租约落地后暴露了结构性膨胀 —— 每占一段就把全局 max 顶高 1000,floor 单调爬升,
  *  号位一路涨到七位数(G-1122550)。根治不是"忘了收号",而是"取号前沿只会单调向前"这一条:
- *  本日改池式 —— 每族号池 = 1..LEASE_POOL_MAX(硬上限 99,两位数;2026-10-24 机主拍板由三位数
- *  降为两位数,"一个字母就是一个系列",族满后开新字母族、永不升位数);新占段不再越过 max,
+ *  本日改池式 —— 每族号池 = 1..LEASE_POOL_MAX(硬上限 999,三位数);新占段不再越过 max,
  *  而是在池内找"连续 segmentSize 个全空闲"的窗,从最小空闲窗起排(多个候选窗时按机器指纹
  *  取模错开,两机同刻新占大概率落不同窗,CAS 兜底不变)。段满续占池内下一窗;装不下一段 ⇒
- *  拒绝发号(fail-loud),绝不发 poolMax 之外的号。**"装不下一段"有两种完全不同的成因,不得混成一句
+ *  拒绝发号(fail-loud),绝不发 1000+。**"装不下一段"有两种完全不同的成因,不得混成一句
  *  "池已满"**(2026-10-23 收口,机读字段 `reason` 单源在本文件 `POOL_EXHAUST_REASON`):
  *    ① 池内可发号 = 0 ⇒ `POOL_FULL` —— 这一型的出路才是"归档已完成条目腾号";
  *    ② 池内仍有空闲号,却没有任何"连续 segmentSize 个可落窗位"(散点占用 + 租约保留位把空闲切成
  *      碎游程)⇒ `NO_CONTIGUOUS_LEASE_WINDOW` —— **散点归档腾不出连续窗**(2026-10-23 实测 G 族:
- *      池内已占 815 / 空闲 184,最长可落窗游程 32 < 段容量当时 50,发号仍拒),要动的是"让出一段连续
+ *      池内已占 815 / 空闲 184,最长可落窗游程 32 < 段容量 50,发号仍拒),要动的是"让出一段连续
  *      号段"(同段集中归档,或经人复核调 `IHUI_LEASE_SEGMENT_SIZE`),继续散点清号是无效出路。
  *  旧措辞把 ② 也念成"号池已满 ⇒ 归档腾号",已污染台账(≥6 行票头照抄该归因)。⇒ 结论文本必须
  *  与判据同形(AGENTS §0.3/§10):读数由 `leaseCursor` 一并交出,可读行由 `describePoolExhaustion`
  *  一处渲染,调用方按 `reason` 分档给出路,不得按 `mode` 一言以蔽之。
- *  占用面口径:池内只认 ≤LEASE_POOL_MAX 的号;归档件里 >LEASE_POOL_MAX 的大号是存量债,不占池、不挡新号、
+ *  占用面口径:池内只认 ≤999 的号;归档件里 >999 的大号是存量债,不占池、不挡新号、
  *  也因此**不参与 floor** —— collectIdFace 的宽面(台账⊕归档件)照旧同面同轮,只是
  *  "什么号能发"由池这一层裁决。租约续占只认**完全落在池内**的段:池外的旧段是历史定格,
  *  续发就会突破上限 ⇒ 结构上不可续(失效方向 = 走池内新占段,安全侧)。
@@ -66,15 +65,6 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { hostname } from 'node:os'
 import { resolve } from 'node:path'
-// §0.6 单一真相源:PowerShell 解释器候选复用 check-service-binary-paths 的出口,禁抄第二份
-// (2026-10-25:为换掉 reg.exe 通道而引入,理由见下方 readMachineGuid 头注)。
-import { pickPowerShell, PS_CANDIDATES } from '../check-service-binary-paths.mjs'
-
-/** 候选解释器按存在性择一后带其余备选;一把都不在位 ⇒ 空数组(调用方走降级/兜底)。 */
-function psBins() {
-  const picked = pickPowerShell()
-  return picked ? [picked.bin, ...PS_CANDIDATES.map((c) => c.bin).filter((b) => b !== picked.bin)] : []
-}
 
 import { keyOfRow, parseTaskRows } from './plan-task-index.mjs'
 
@@ -85,17 +75,17 @@ export const LEASE_MARK = '〔千段租约〕'
 export const LEASE_SECTION_TITLE = '## 号段租约登记区(取号器专用,千段租约制)'
 
 /**
- * 段容量:一个租约段覆盖的号数。千段口径(1000)在池式下会把整个池一次吃满 ⇒ 改 10
- * (2026-10-24 随池上限降到两位数拍板);`IHUI_LEASE_SEGMENT_SIZE` env 可覆写(1 < n ≤ 99 之外
- * 一律回落 10,覆写不得突破池上限)。测试与运维需要别的段宽时用它,生产缺省不动。
+ * 段容量:一个租约段覆盖的号数。千段口径(1000)在池式下会把 999 的池一次吃满 ⇒ 改 50
+ * (2026-10-14 拍板);`IHUI_LEASE_SEGMENT_SIZE` env 可覆写(1 < n ≤ 999 之外一律回落 50,
+ * 覆写不得突破池上限)。测试与运维需要别的段宽时用它,生产缺省不动。
  */
 export const LEASE_SEGMENT_SIZE = (() => {
   const raw = Number(process.env.IHUI_LEASE_SEGMENT_SIZE)
-  return Number.isInteger(raw) && raw > 1 && raw <= 99 ? raw : 10
+  return Number.isInteger(raw) && raw > 1 && raw <= 999 ? raw : 50
 })()
 
-/** 号池硬上限:每族取号池 = 1..LEASE_POOL_MAX(两位数,2026-10-24 拍板,env 不得覆写)。 */
-export const LEASE_POOL_MAX = 99
+/** 号池硬上限:每族取号池 = 1..LEASE_POOL_MAX(三位数,2026-10-14 拍板,env 不得覆写)。 */
+export const LEASE_POOL_MAX = 999
 
 /**
  * `mode:'pool-exhausted'` 的两种**真成因**(机读字段 `reason` 的取值,2026-10-23 立)。
@@ -125,66 +115,25 @@ let machineGuidCache
 
 /**
  * 机器 GUID:Windows 走注册表 MachineGuid,Linux 走 /etc/machine-id;读不到降级 ''。
- * 为什么模块级缓存:一次子进程数十 ms,批量令牌多次取号不重复付这个钱。
- *
- * ⚠️ 2026-10-25 换通道(lesson 见 scripts/check-c-drive-pollution.mjs 的 pwshRegQuery 头注):
- * 本机 reg.exe 在程序黑名单里 —— spawn 它的那一刻,安全策略杀的是**整个 node 进程**(RC=143
- * = 128+SIGTERM),不是抛异常 ⇒ 这里的 try/catch 根本够不着。而本文件被 `live-doc-edit.mjs`
- * 引入 ⇒ 整条台账落地链断在"取机器指纹"这一格上。改走 PowerShell 读同一枚注册表值;
- * reg.exe 通道保留但默认关闭。
+ * 为什么模块级缓存:reg query 一次子进程数十 ms,批量令牌多次取号不重复付这个钱。
  */
 function readMachineGuid() {
   if (machineGuidCache !== undefined) return machineGuidCache
   let guid = ''
-  const key = 'HKLM\\SOFTWARE\\Microsoft\\Cryptography'
-  if (process.platform === 'win32') {
-    // 通道一:PowerShell(活跃通道,读的是同一枚 MachineGuid)
-    const psScript = [
-      `try {`,
-      `  $v = (Get-ItemProperty -Path '${key.replace(/^HKLM\\/i, 'HKLM:\\')}' -Name 'MachineGuid' -ErrorAction Stop).MachineGuid`,
-      `  if ($null -eq $v) { '' } else { [string]$v }`,
-      `} catch { '' }`,
-    ].join('\n')
-    for (const bin of psBins()) {
-      try {
-        const out = execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', psScript], {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          encoding: 'utf8',
-          windowsHide: true,
-          timeout: 10000,
-        })
-        const hit = /([0-9a-fA-F-]{8,})/.exec(String(out || ''))?.[1] ?? ''
-        if (hit) {
-          guid = hit
-          break
-        }
-      } catch {
-        /* 换下一个候选;全落空则走下面的 reg.exe 兜底(默认关) */
-      }
-    }
-    // 通道二:reg.exe(**默认关** —— 黑名单机器上 spawn 它等于自杀)
-    if (!guid && process.env.IHUI_ALLOW_REG_EXE === '1') {
-      try {
-        const out = execFileSync('reg', ['query', key, '/v', 'MachineGuid'], {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          encoding: 'utf8',
-          windowsHide: true,
-          timeout: 5000,
-        })
-        guid = /MachineGuid\s+REG_SZ\s+(\S+)/.exec(out)?.[1] ?? ''
-      } catch {
-        guid = ''
-      }
-    }
-  } else {
-    try {
+  try {
+    if (process.platform === 'win32') {
+      const out = execFileSync(
+        'reg',
+        ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid'],
+        { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 5000 },
+      )
+      guid = /MachineGuid\s+REG_SZ\s+(\S+)/.exec(out)?.[1] ?? ''
+    } else {
       guid = readFileSync('/etc/machine-id', 'utf8').trim()
-    } catch {
-      guid = ''
     }
+  } catch {
+    guid = '' // 降级:无 GUID 时指纹退回主机名+路径,机制不失效,只是熵变少
   }
-  // 读不到 ⇒ 降级 '':无 GUID 时指纹退回主机名+路径,机制不失效,只是熵变少(刻意不抛 ——
-  // 它只贡献熵,不承载任何"有没有这台机"的判定,因此没有"未判定"这一格的语义负担)。
   machineGuidCache = guid
   return guid
 }
@@ -255,22 +204,6 @@ export function poolFreeList({ usedNumbers = [], baseMax = null, poolMax = LEASE
   return out
 }
 
-/**
- * 远端已用号集的**数字段投影**(G-35,2026-10-25):`readRemoteIdBasis` 交出的 `ids[族]` 是
- * `usedIdsOfPrefix` 形态的标签(`G-05`/`O13b`),发号侧要的是号数。第一出口
- * (`live-doc-edit.mjs` 的 `resolveIdTokens`)自 G-454②(2026-10-16)起把这份号集从空闲清单里
- * 扣掉 —— "池式取号会复用本地已让空的洞,而对侧可能仍占着那个号";第二出口
- * (`next-plan-id.mjs`)当时只吃了 `remote.max`,`poolBlocked` 的远端避让又只盖
- * `lowMax+1..baseMax` 段 ⇒ 远端**低位**独占号(本地面已让空/未并)被当空闲发出,两出口口径漂移。
- * 投影只此一份:两个出口都 import 本函数,不在各自文件里再写一条 `(\d+)$` 提取(§22c)。
- * 输入不是数组 ⇒ 空数组(调用方按"远端那一维缺席"处理,不猜)。
- */
-export function remoteIdNumsOf(ids) {
-  return (Array.isArray(ids) ? ids : [])
-    .map((l) => Number(/(\d+)$/.exec(String(l))?.[1] ?? Number.NaN))
-    .filter(Number.isFinite)
-}
-
 /** 构造一行租约登记。template 取自 usedIdsOfPrefix 的该族形状(如 `G-%d`),不另写编号语法。 */
 export function buildLeaseRow({ family, template, start, end, machineId }) {
   const tmpl = String(template ?? '')
@@ -330,7 +263,7 @@ export function parseLeases(content, family) {
 /**
  * 取号游标的租约判定(纯函数;2026-10-14 起池式)。
  *  - 自有段(按 machine)从最新段起找还有空闲的:**只认完全落在池内的段**(end ≤ poolMax)——
- *    池外旧段是历史定格,续发就突破两位数上限 ⇒ 不可续。段内已用 = usedNumbers ∩ [start,end]
+ *    池外旧段是历史定格,续发就突破三位数上限 ⇒ 不可续。段内已用 = usedNumbers ∩ [start,end]
  *    且**剔除本行主键**(主键是段尾号,不是实号) ⇒ 下一个 = 段内 max+1(空段 = 段首)。
  *  - 没有 / 段满 ⇒ 池内新占段:在 1..poolMax 里找"连续 segmentSize 个全空闲"的窗
  *    (避开已占号、避开一切租约段的保留位、避开 baseMax 代表的远端盲区段),

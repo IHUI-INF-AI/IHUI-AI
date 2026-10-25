@@ -29,9 +29,6 @@ import { escapeHtml, renderSystemAlertEmail } from '../src/services/email-templa
 import { finalizeEmailHtml, missingInlineImageAssets } from '../src/services/email-assets.js'
 import type { InlineImageAttachment } from '../src/services/email-assets.js'
 import { sanitizeAlertMessage } from '../src/utils/alert-text.js'
-// G-322 单源:带值旗标的取值出口(禁复制判据 §22c)。
-// @ts-expect-error scripts/*.mjs 无类型声明,apps/api tsconfig include 只收 src/**(脚本面不进 typecheck)
-import { isFlagValueToken } from '../../../scripts/lib/flag-value.mjs'
 
 type Severity = 'info' | 'warning' | 'critical'
 const SEVERITIES: readonly Severity[] = ['info', 'warning', 'critical']
@@ -119,25 +116,6 @@ const HELP_TEXT = [
  * `--to ''` 必须表达"显式置空收件人"(压过 env),而不是"没传"回落到 env —
  * 否则带 --strict 的空收件人演练会意外命中真实告警邮箱。
  */
-/**
- * 带值旗标的取值出口(G-322):紧邻 token 必须存在且不是另一枚旗标。
- * 空串在本文件是**合法值**(`--to ''` = 显式置空收件人,压过 env,见头注与测试钉死),
- * 单源 isFlagValueToken 对空串判 invalid,故此处仅对空串显式放行 —— 域校验留给调用方
- * 是单源的既定分工;其余两型(其后没有任何参数 / 值被紧邻旗标顶掉,如 `--to --strict`)
- * 旧写法 `argv[++i] ?? ''` 会把旗标吞成值并顺带丢掉那枚旗标,必须点名 exit 2。
- */
-function takeOptValue(argv: readonly string[], i: number, flag: string): string {
-  const tok = argv[i + 1]
-  if (tok === '') return tok
-  if (!isFlagValueToken(tok)) {
-    process.stderr.write(
-      `${flag} 需要一个参数 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)\n`,
-    )
-    process.exit(2)
-  }
-  return tok
-}
-
 function parseCliArgs(argv: readonly string[]): CliArgs {
   const args: CliArgs = {
     plain: false,
@@ -170,56 +148,43 @@ function parseCliArgs(argv: readonly string[]): CliArgs {
         args.help = true
         break
       case '--to':
-        args.to = takeOptValue(argv, i, '--to')
-        i += 1
+        args.to = argv[++i] ?? ''
         break
       case '--title':
-        args.title = takeOptValue(argv, i, '--title')
-        i += 1
+        args.title = argv[++i] ?? ''
         break
       case '--severity':
-        args.severity = takeOptValue(argv, i, '--severity')
-        i += 1
+        args.severity = argv[++i] ?? ''
         break
       case '--source':
-        args.source = takeOptValue(argv, i, '--source')
-        i += 1
+        args.source = argv[++i] ?? ''
         break
       case '--environment':
-        args.environment = takeOptValue(argv, i, '--environment')
-        i += 1
+        args.environment = argv[++i] ?? ''
         break
       case '--stage':
-        args.stage = takeOptValue(argv, i, '--stage')
-        i += 1
+        args.stage = argv[++i] ?? ''
         break
       case '--trigger':
-        args.trigger = takeOptValue(argv, i, '--trigger')
-        i += 1
+        args.trigger = argv[++i] ?? ''
         break
       case '--run-url':
-        args.runUrl = takeOptValue(argv, i, '--run-url')
-        i += 1
+        args.runUrl = argv[++i] ?? ''
         break
       case '--message-file':
-        args.messageFile = takeOptValue(argv, i, '--message-file')
-        i += 1
+        args.messageFile = argv[++i] ?? ''
         break
       case '--message':
-        args.message = takeOptValue(argv, i, '--message')
-        i += 1
+        args.message = argv[++i] ?? ''
         break
       case '--env-file':
-        args.envFile = takeOptValue(argv, i, '--env-file')
-        i += 1
+        args.envFile = argv[++i] ?? ''
         break
       case '--alert-id':
-        args.alertId = takeOptValue(argv, i, '--alert-id')
-        i += 1
+        args.alertId = argv[++i] ?? ''
         break
       case '--dedupe-hours':
-        args.dedupeHours = takeOptValue(argv, i, '--dedupe-hours')
-        i += 1
+        args.dedupeHours = argv[++i] ?? ''
         break
       case '--force-alert':
         args.forceAlert = true

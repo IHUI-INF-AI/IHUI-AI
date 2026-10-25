@@ -43,7 +43,7 @@ description: "开源不是免费。本文系统梳理 7 种被验证过的开源
 ```yaml
 # IHUI-AI 的 Open Core 边界
 open_source:
-  - 9 端代码(Web/API/AI-service/CLI/...)
+  - 8 端代码(Web/API/AI-service/CLI/...)
   - 基础 Agent 编排
   - MCP 客户端/服务端
   - RAG 知识库
@@ -131,7 +131,7 @@ IHUI-AI 不是一个模式,而是组合多个:
 
 | 模式 | IHUI-AI 实现 | 占比预估 |
 | --- | --- | --- |
-| Open Core | 核心 9 端开源,企业 RBAC/SSO 闭源 | 转化入口 |
+| Open Core | 核心 8 端开源,企业 RBAC/SSO 闭源 | 转化入口 |
 | 托管 SaaS | aizhs.top 一键开通,免运维 | 40% |
 | 企业版 | 私有部署 + 审计 + 合规 | 25% |
 | API 计费 | 按调用计费(token + RAG + Agent) | 20% |

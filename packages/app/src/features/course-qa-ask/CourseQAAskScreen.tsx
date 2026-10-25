@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'rea
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseQAAskScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -73,35 +73,35 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
     body: { padding: 10 },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    label: { fontSize: 14, color: tk.text.secondary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    label: { fontSize: rnType.body.size, color: tk.text.secondary },
     textarea: {
       marginTop: 6,
       minHeight: 120,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 10,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
-    toast: { fontSize: 14, color: tk.success.DEFAULT, marginTop: 8 },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
+    toast: { fontSize: rnType.body.size, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
     btn: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       backgroundColor: tk.brand.cta,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       borderRadius: rnRadius.sm,
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },
-    btnText: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
+    btnText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

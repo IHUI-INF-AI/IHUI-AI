@@ -68,18 +68,6 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'ACCOUNT_RESTRICTED.action',
     category: 'authForbidden',
   },
-  // —— D08① 团队任务表六码闭集(2026-10-24 补录;产出点 apps/ai-service/app/services/mcp_server.py
-  // 的 _team_task_* 族)——
-  // 语义分档:BOARD_FULL 是表容量上限(resourceLimitExceeded);TASK_NOT_FOUND 是条目不存在
-  // (resourceNotFound);TASK_CLOSED / ALREADY_CLAIMED / INVALID_STATUS 是**请求对当前状态不适用**
-  // (invalidResponse —— 与 EMPTY_* / DUAL_MODE 那批"参数或状态不匹配"同档;ALREADY_CLAIMED 不是
-  // 文件并发写冲突,故不抄 CONCURRENT_MODIFICATION 的 runtimeException);FORBIDDEN 是非持有者越权
-  // (authForbidden)。三条状态码的建议动作都是**换一条任务**,不是拿同一个 task_id 重试。
-  ALREADY_CLAIMED: {
-    titleKey: 'ALREADY_CLAIMED.title',
-    actionKey: 'ALREADY_CLAIMED.action',
-    category: 'invalidResponse',
-  },
   API_BRIDGE_ERROR: {
     titleKey: 'API_BRIDGE_ERROR.title',
     actionKey: 'API_BRIDGE_ERROR.action',
@@ -89,11 +77,6 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     titleKey: 'BAD_PARAMS.title',
     actionKey: 'BAD_PARAMS.action',
     category: 'invalidResponse',
-  },
-  BOARD_FULL: {
-    titleKey: 'BOARD_FULL.title',
-    actionKey: 'BOARD_FULL.action',
-    category: 'resourceLimitExceeded',
   },
   BUDGET_EXHAUSTED: {
     titleKey: 'BUDGET_EXHAUSTED.title',
@@ -270,11 +253,6 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'FILE_TOO_LARGE.action',
     category: 'resourceLimitExceeded',
   },
-  FORBIDDEN: {
-    titleKey: 'FORBIDDEN.title',
-    actionKey: 'FORBIDDEN.action',
-    category: 'authForbidden',
-  },
   // 该码由 apps/ai-service/app/services/mcp_server.py 的 request_business_form **占位 handler** 产出:
   // 表单需要一条前端可渲染的通道(llm.py 发 form_request 帧 + form-response 端点收应答),
   // 而别的执行路径(agent 任务流 / 后台任务 / 未来的编排器)没有这条通道。它们拿到这个码时必须
@@ -363,11 +341,6 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
   INVALID_REPO: {
     titleKey: 'INVALID_REPO.title',
     actionKey: 'INVALID_REPO.action',
-    category: 'invalidResponse',
-  },
-  INVALID_STATUS: {
-    titleKey: 'INVALID_STATUS.title',
-    actionKey: 'INVALID_STATUS.action',
     category: 'invalidResponse',
   },
   INVALID_TRIGGER: {
@@ -576,20 +549,10 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'SUBAGENT_FAILED.action',
     category: 'runtimeException',
   },
-  TASK_CLOSED: {
-    titleKey: 'TASK_CLOSED.title',
-    actionKey: 'TASK_CLOSED.action',
-    category: 'invalidResponse',
-  },
   TASK_FAILED: {
     titleKey: 'TASK_FAILED.title',
     actionKey: 'TASK_FAILED.action',
     category: 'runtimeException',
-  },
-  TASK_NOT_FOUND: {
-    titleKey: 'TASK_NOT_FOUND.title',
-    actionKey: 'TASK_NOT_FOUND.action',
-    category: 'resourceNotFound',
   },
   TEXT_TOO_LONG: {
     titleKey: 'TEXT_TOO_LONG.title',

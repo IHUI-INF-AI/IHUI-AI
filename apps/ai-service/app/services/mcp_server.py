@@ -402,46 +402,6 @@ def _get_subagent_timeout() -> int:
         return 300
 
 
-# D08②(2026-10-24):agent 间换手消息(完成/受阻/求助)的结构化事件。
-# 票面要求 SSE **复用既有 subagent_* 帧族、禁新帧**,故这里只产出一条消息的**载荷字段**;
-# 帧名仍由 llm.py 的 subagent_progress / subagent_end 承载。字段集:
-#   kind(done|blocked|help) / agent_id / summary / [token_usage] / ts
-# agent_id 由调用层给定(llm.py 持有真正的子代理实例 id);token_usage 仅在真实拿到时写入,
-# 不用 0 冒充"有用量"(与仓内"取不到必须显式缺席"口径一致)。
-_SUBAGENT_HANDOFF_KINDS: Final = ("done", "blocked", "help")
-
-
-def _subagent_handoff_event(
-    kind: str,
-    agent_id: str,
-    summary: str,
-    *,
-    token_usage: dict[str, Any] | None = None,
-    ts: str | None = None,
-) -> dict[str, Any]:
-    """构造一条子 agent 换手消息(纯函数,不写帧、不产生副作用)。"""
-    if kind not in _SUBAGENT_HANDOFF_KINDS:
-        raise ValueError(f"unknown subagent handoff kind: {kind!r}")
-    from datetime import UTC, datetime
-
-    evt: dict[str, Any] = {
-        "kind": kind,
-        "agent_id": agent_id,
-        "summary": str(summary or "")[:200],
-        "ts": ts or datetime.now(UTC).isoformat(),
-    }
-    if token_usage is not None:
-        evt["token_usage"] = token_usage
-    return evt
-
-
-def _subagent_handoff_kind(*, ok: bool, needs_help: bool = False) -> str:
-    """完成/受阻/求助三档的唯一映射:显式求助优先,其次按成败分 done / blocked。"""
-    if needs_help:
-        return "help"
-    return "done" if ok else "blocked"
-
-
 import contextlib
 
 from .skills import skill_registry
@@ -462,15 +422,8 @@ from .skills import skill_registry
 
 
 def _get_workspace_roots() -> list[str]:
-    """工作区根目录白名单(延迟读取 os.environ,确保 main.py 已同步 .env)。
-
-    空值回落 cwd(2026-10-24 根治):settings 未配置该键时 main.py 的 settings→env 同步
-    会写入**空串**(键存在、值为空),旧写法 `get(key, cwd)` 只兜"键不存在"⇒ raw="" ⇒
-    过滤空段后集合为空 ⇒ patch/file_editor 等全部消费方 fail-closed 503(生产配空值即
-    服务不可用;实测污染链:native_fc 系测试惰性导入 app.main 后,同 worker 的
-    patch_root 用例齐 503)。config 头注语义"空=用当前工作目录"在此处兑现。
-    """
-    raw = os.environ.get("MCP_WORKSPACE_ROOTS") or os.getcwd()
+    """工作区根目录白名单(延迟读取 os.environ,确保 main.py 已同步 .env)。"""
+    raw = os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd())
     return [os.path.abspath(r) for r in raw.split(os.pathsep) if r.strip()]
 
 
@@ -5200,29 +5153,11 @@ async def _tool_dispatch_subagent(
                     )
                 finally:
                     _subagent_depth.reset(_dtok)
-            _par_total = result.get("total", 0)
-            _par_succeeded = result.get("succeeded", 0)
-            _par_failed = result.get("failed", 0)
-            _par_results = result.get("results")
-            _par_needs_help = any(
-                bool(r.get("needs_help") or r.get("needsHelp"))
-                for r in (_par_results if isinstance(_par_results, list) else [])
-                if isinstance(r, dict)
-            )
-            # D08②:完成/受阻/求助换手消息 —— 复用既有 subagent_progress 帧的载荷,不新造帧。
             _emit({
                 "phase": "parallel_done",
-                "total": _par_total,
-                "succeeded": _par_succeeded,
-                "failed": _par_failed,
-                **_subagent_handoff_event(
-                    _subagent_handoff_kind(
-                        ok=bool(result.get("ok", False)) and not _par_failed,
-                        needs_help=_par_needs_help,
-                    ),
-                    "",
-                    result.get("message", "") or f"{_par_succeeded}/{_par_total} 成功",
-                ),
+                "total": result.get("total", 0),
+                "succeeded": result.get("succeeded", 0),
+                "failed": result.get("failed", 0),
             })
             _payload = {
                 "tool": "dispatch_subagent", "mode": "parallel",
@@ -5233,9 +5168,6 @@ async def _tool_dispatch_subagent(
                 "results": result.get("results", []),
                 "message": result.get("message", ""),
             }
-            # D08②:任一份子任务显式求助 ⇒ 结束帧 kind 判为 help(与单模式同口)。
-            if _par_needs_help:
-                _payload["needs_help"] = True
             # 0-6 单子代理输出限额:复用 0-2 截断助手
             return _truncate_tool_output(_payload)
         except Exception as e:
@@ -5275,20 +5207,11 @@ async def _tool_dispatch_subagent(
                 )
             finally:
                 _subagent_depth.reset(_dtok)
-        _single_ok = step_result.status == "completed"
-        _single_needs_help = bool(getattr(step_result, "needs_help", False))
-        # D08②:完成/受阻/求助换手消息 —— 复用既有 subagent_progress 帧的载荷,不新造帧。
         _emit({
             "phase": "single_done",
             "agentName": name,
             "iterations": step_result.iterations,
-            "ok": _single_ok,
-            **_subagent_handoff_event(
-                _subagent_handoff_kind(ok=_single_ok, needs_help=_single_needs_help),
-                name,
-                step_result.output if _single_ok else (step_result.error or step_result.output),
-                token_usage=getattr(step_result, "token_usage", None),
-            ),
+            "ok": step_result.status == "completed",
         })
         _payload = {
             "tool": "dispatch_subagent", "mode": "single",
@@ -5301,9 +5224,6 @@ async def _tool_dispatch_subagent(
             "error": step_result.error,
             "ok": step_result.status == "completed",
         }
-        # D08②:子代理显式求助位 —— 仅在置位时加键,供 subagent_end 帧的 kind 判为 help。
-        if _single_needs_help:
-            _payload["needs_help"] = True
         # D145①:未知名回包补 availableAgents —— 撞"Agent 不存在"后调用方(模型)能
         # 自我纠正,而不是照猜再撞第二次。判据与 invoke 的落空同源(registry.get 为空);
         # 对拿不到 registry 的替身(既有测试的 _FakeOrchestrator)不判也不加键 ——
@@ -5324,196 +5244,6 @@ async def _tool_dispatch_subagent(
             "tool": "dispatch_subagent", "ok": False, "mode": "single",
             "error": str(e), "errorCode": "SUBAGENT_FAILED",
         }
-
-
-# ===== D08①(2026-10-25):团队共享任务列表(子 agent 可认领/更新条目)=====
-# 派发面原本是"派发-回收"一次性往返,子 agent 之间没有共同的事实源:谁领了哪条、
-# 做到哪一步,只能靠各自的回包倒推。这里补一张**每队一份**的条目表作为共享事实源,
-# 子 agent 认领/更新都写同一张表,回包即当前条目状态。
-#
-# 边界(照实写,不夸大):表在**进程内**共享 —— 与 dispatch_subagent 同进程的子 agent
-# 派发面天然可见;跨进程/跨节点要照 `artifacts_store` 那份 Redis 化另立一票,
-# 本条不拿进程内实现冒充分布式共享。
-# SSE 口径:票面硬约束「复用既有 subagent_* 帧族、禁新帧族」⇒ 本条**不新造帧**,
-# 看板状态一律走工具回包,不抢 subagent_progress / subagent_end 两个既有帧。
-_TEAM_TASK_STATUS: Final = ("pending", "claimed", "done", "blocked")
-_TEAM_TASK_BOARD_LIMIT: Final = 500
-_TEAM_TASK_BOARD: dict[str, dict[str, dict[str, Any]]] = {}
-_TEAM_TASK_LOCK = asyncio.Lock()
-
-
-def _team_task_now() -> str:
-    """条目时间戳(与 D08② 换手事件同一口径:UTC ISO8601)。"""
-    from datetime import UTC, datetime
-
-    return datetime.now(UTC).isoformat()
-
-
-def _team_task_board(team_id: str) -> dict[str, dict[str, Any]]:
-    return _TEAM_TASK_BOARD.setdefault(team_id, {})
-
-
-def _team_task_add(team_id: str, title: str, *, detail: str = "", created_by: str = "") -> dict[str, Any]:
-    """新增一条待办(进入 pending,谁都可领)。"""
-    board = _team_task_board(team_id)
-    if len(board) >= _TEAM_TASK_BOARD_LIMIT:
-        return {
-            "ok": False, "errorCode": "BOARD_FULL",
-            "error": f"团队 {team_id} 任务表已达上限({_TEAM_TASK_BOARD_LIMIT})",
-        }
-    import uuid
-
-    now = _team_task_now()
-    entry: dict[str, Any] = {
-        "id": uuid.uuid4().hex[:12],
-        "title": str(title),
-        "detail": str(detail or ""),
-        "status": "pending",
-        "claimed_by": "",
-        "created_by": str(created_by or ""),
-        "created_ts": now,
-        "updated_ts": now,
-        "note": "",
-    }
-    board[entry["id"]] = entry
-    return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
-
-
-def _team_task_claim(team_id: str, task_id: str, agent_id: str) -> dict[str, Any]:
-    """独占认领:已被他人领走则拒绝并回带持有者(调用方据此换领别条)。"""
-    if not agent_id:
-        return {
-            "ok": False, "errorCode": "MISSING_PARAMS",
-            "error": "claim 需要 agent_id(认领者身份)",
-        }
-    board = _team_task_board(team_id)
-    entry = board.get(task_id)
-    if entry is None:
-        return {
-            "ok": False, "errorCode": "TASK_NOT_FOUND",
-            "error": f"团队 {team_id} 内没有条目 {task_id}",
-        }
-    holder = entry.get("claimed_by") or ""
-    # 生命周期优先于持有者判定:已完结/已受阻的条目谁都不可再领(领了也没人更新,只会污染看板)。
-    # 先判 closed 再判 holder —— 否则"他人已做完的条目"会被报成"被他人领着",把"已完结"
-    # 这条更要紧的信息盖掉。
-    if entry.get("status") in ("done", "blocked"):
-        return {
-            "ok": False, "errorCode": "TASK_CLOSED",
-            "error": f"条目 {task_id} 已处于 {entry.get('status')},不可再认领",
-            "claimed_by": holder,
-            "task": dict(entry),
-        }
-    if holder and holder != agent_id:
-        return {
-            "ok": False, "errorCode": "ALREADY_CLAIMED",
-            "error": f"条目 {task_id} 已被 {holder} 认领",
-            "claimed_by": holder,
-            "task": dict(entry),
-        }
-    entry["claimed_by"] = agent_id
-    entry["status"] = "claimed"
-    entry["updated_ts"] = _team_task_now()
-    return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
-
-
-def _team_task_update(
-    team_id: str, task_id: str, agent_id: str, *, status: str | None = None, note: str | None = None
-) -> dict[str, Any]:
-    """更新条目:只有持有者可改;status 非法值整条拒绝(不静默吞掉)。"""
-    if not agent_id:
-        return {
-            "ok": False, "errorCode": "MISSING_PARAMS",
-            "error": "update 需要 agent_id(认领者身份)",
-        }
-    if status is not None and status not in _TEAM_TASK_STATUS:
-        return {
-            "ok": False, "errorCode": "INVALID_STATUS",
-            "error": f"status 必须是 {list(_TEAM_TASK_STATUS)} 之一,实得 {status!r}",
-        }
-    board = _team_task_board(team_id)
-    entry = board.get(task_id)
-    if entry is None:
-        return {
-            "ok": False, "errorCode": "TASK_NOT_FOUND",
-            "error": f"团队 {team_id} 内没有条目 {task_id}",
-        }
-    holder = entry.get("claimed_by") or ""
-    if holder != agent_id:
-        return {
-            "ok": False, "errorCode": "FORBIDDEN",
-            "error": f"条目 {task_id} 的持有者是 {holder or '(无人认领)'},非本人不得更新",
-            "claimed_by": holder,
-            "task": dict(entry),
-        }
-    if status is not None:
-        entry["status"] = status
-    if note is not None:
-        entry["note"] = str(note)[:500]
-    entry["updated_ts"] = _team_task_now()
-    return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
-
-
-def _team_task_list(team_id: str) -> dict[str, Any]:
-    """整表快照(按创建序;只读,不改任何条目)。"""
-    board = _team_task_board(team_id)
-    return {
-        "ok": True, "tool": "team_task", "team_id": team_id,
-        "total": len(board),
-        "tasks": [dict(t) for t in board.values()],
-    }
-
-
-async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
-    """team_task:团队共享任务列表(add/claim/update/list)。
-
-    与 dispatch_subagent 的关系:派发是一次性"派发-回收",本表给同一次协作里的多个
-    子 agent 一个共同事实源 —— 领了哪条、做到哪一步写同一张表,谁都能 list 读到。
-    认领是 check-and-set(持锁),并发抢同一条必有一个拿到 ALREADY_CLAIMED。
-    """
-    action = arguments.get("action", "")
-    team_id = str(arguments.get("team_id") or "default")
-    agent_id = str(arguments.get("agent_id") or "")
-    task_id = str(arguments.get("task_id") or "")
-    # 全表操作串行化:claim 的"读-判-写"必须原子,否则并发下两人都能领到同一条。
-    async with _TEAM_TASK_LOCK:
-        if action == "add":
-            title = str(arguments.get("title") or "")
-            if not title:
-                return {
-                    "tool": "team_task", "ok": False, "errorCode": "MISSING_PARAMS",
-                    "error": "add 需要 title",
-                }
-            return _team_task_add(
-                team_id, title,
-                detail=str(arguments.get("detail") or ""),
-                created_by=agent_id,
-            )
-        if action == "claim":
-            if not task_id:
-                return {
-                    "tool": "team_task", "ok": False, "errorCode": "MISSING_PARAMS",
-                    "error": "claim 需要 task_id",
-                }
-            return _team_task_claim(team_id, task_id, agent_id)
-        if action == "update":
-            if not task_id:
-                return {
-                    "tool": "team_task", "ok": False, "errorCode": "MISSING_PARAMS",
-                    "error": "update 需要 task_id",
-                }
-            _status = arguments.get("status")
-            return _team_task_update(
-                team_id, task_id, agent_id,
-                status=str(_status) if _status is not None else None,
-                note=arguments.get("note"),
-            )
-        if action == "list":
-            return _team_task_list(team_id)
-    return {
-        "tool": "team_task", "ok": False, "errorCode": "INVALID_PARAMS",
-        "error": f"不支持的 action: {action}(add/claim/update/list)",
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -5549,39 +5279,9 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     generate_report as _generate_report,
 )
-
-# D07 残余②:「/init 式 AGENTS.md」能力接入(实现已入库,此前未注册 ⇒ 外部不可调用)
-from ..tools import (
-    init_agents_md as _init_agents_md,
-)
 from ..tools import (
     parse_document as _parse_document,
 )
-
-
-async def _init_agents_md_guarded(arguments: dict[str, Any]) -> dict[str, Any]:
-    """MCP 面入口:workspace_root 必须先过写路径白名单(D07 残余②)。
-
-    工具本体只保证 output_path 落在调用方给的 workspace_root 内;workspace_root
-    本身若不受限,普通用户即可指定任意目录写 AGENTS.md。这里复用写路径单一权威源
-    (``_validate_write_path_in_workspace``:白名单根 + symlink 解析 + 敏感目录黑名单),
-    把根收进进程白名单/会话附加根之后才下传。
-    """
-    raw_root = arguments.get("workspace_root")
-    root = str(raw_root).strip() if raw_root is not None else ""
-    if not root:
-        return await _init_agents_md(arguments)
-    ok, info = _validate_write_path_in_workspace(root)
-    if not ok:
-        return {
-            "tool": "init_agents_md",
-            "ok": False,
-            "errorCode": "PERMISSION_DENIED",
-            "message": info,
-        }
-    return await _init_agents_md({**arguments, "workspace_root": info})
-
-
 from ..tools.web_crawl_tools import (
     crawl_site as _crawl_site,
 )
@@ -9478,48 +9178,6 @@ _TOOLS: list[MCPTool] = [
             },
         },
     ),
-    # ===== D08①(2026-10-25):团队共享任务列表(子 agent 可认领/更新条目)=====
-    MCPTool(
-        name="team_task",
-        description=(
-            "团队共享任务列表:同一次协作里的多个子 agent 共用的待办表。"
-            "add 建条目(pending)→ claim 认领(独占,已被他人领走则回 ALREADY_CLAIMED 并带持有者)"
-            "→ update 更新状态/备注(仅持有者可改)→ list 读整表快照。"
-            "与 dispatch_subagent 搭配用:派发是一次性往返,本表补上共同事实源。"
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["add", "claim", "update", "list"],
-                    "description": "操作:add 建条目 / claim 认领 / update 更新 / list 读整表",
-                },
-                "team_id": {
-                    "type": "string",
-                    "description": "团队标识(默认 default);不同 team_id 的条目表互相隔离",
-                    "default": "default",
-                },
-                "agent_id": {
-                    "type": "string",
-                    "description": "子 agent 自身标识;claim/update 必填(认领者身份与写权限判据)",
-                },
-                "task_id": {
-                    "type": "string",
-                    "description": "条目 id;claim/update 必填",
-                },
-                "title": {"type": "string", "description": "add:条目标题(必填)"},
-                "detail": {"type": "string", "description": "add:条目详情(可选)"},
-                "status": {
-                    "type": "string",
-                    "enum": ["pending", "claimed", "done", "blocked"],
-                    "description": "update:目标状态;非法值整条拒绝",
-                },
-                "note": {"type": "string", "description": "update:备注(可选,截断 500 字)"},
-            },
-            "required": ["action"],
-        },
-    ),
     # ===== 扩展工具(2026-07-24 新增,自研)=====
     MCPTool(
         name="fetch_url",
@@ -10122,27 +9780,6 @@ _TOOLS: list[MCPTool] = [
                 "max_chars": {"type": "integer", "description": "返回内容上限,默认 20000(500-100000)", "default": 20000},
             },
             "required": ["path"],
-            "additionalProperties": False,
-        },
-    ),
-    MCPTool(
-        name="init_agents_md",
-        description=(
-            "扫描工作区(package.json scripts / 构建文件 / 目录结构 / 既有约定文档)生成"
-            "AGENTS.md 草稿文本。默认只返回草稿、不落盘;仅当显式传 output_path 才写入,"
-            "且路径必须位于 workspace_root 内并避开 .git/node_modules 等敏感目录。"
-            "用于给仓库补齐 AI 协作约定文档。"
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "workspace_root": {"type": "string", "description": "工作区绝对路径(必填)"},
-                "output_path": {
-                    "type": "string",
-                    "description": "可选。显式传入才写盘,且须落在 workspace_root 内",
-                },
-            },
-            "required": ["workspace_root"],
             "additionalProperties": False,
         },
     ),
@@ -11176,8 +10813,6 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "vision_analyze": _tool_vision_analyze,
     # ===== 子智能体派发(2026-07-24 新增)=====
     "dispatch_subagent": _tool_dispatch_subagent,
-    # ===== D08①(2026-10-25):团队共享任务列表(与派发面同一协作域)=====
-    "team_task": _tool_team_task,
     # ===== 扩展工具(2026-07-24 新增,自研)=====
     "fetch_url": _tool_fetch_url,
     "image_generation": _tool_image_generation,
@@ -11190,9 +10825,6 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # PROJECT_PLAN #81 最小一环:报表模板生成器(2026-09-28,与 chart 共用产物基础设施)
     "generate_report": _generate_report,
     "parse_document": _parse_document,
-    # D07 残余②:AGENTS.md 草稿生成(默认不落盘,写盘须显式 output_path;
-    # workspace_root 经 MCP 面校验后才下传,见 _init_agents_md_guarded)
-    "init_agents_md": _init_agents_md_guarded,
     # ===== P1 文档资产/表格(2026-09-09,anydoc 文档模型极致融合)=====
     "extract_document_assets": _extract_document_assets,
     "document_tables": _document_tables,

@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -167,12 +167,12 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16, // px-4
-      paddingBottom: 8, // pb-2
-      paddingTop: 12, // pt-3
+      paddingHorizontal: rnSpacing.lg, // px-4
+      paddingBottom: rnSpacing.sm, // pb-2
+      paddingTop: rnSpacing.md, // pt-3
     },
     headerTitle: {
-      fontSize: 16, // text-base
+      fontSize: rnType.title.size, // text-base
       fontWeight: '500', // font-medium
       color: tk.text.primary,
       maxWidth: '60%',
@@ -182,7 +182,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     /* 列表 */
     listContent: {
-      padding: 16, // p-4
+      padding: rnSpacing.lg, // p-4
     },
     /* 技能卡片 */
     // 守门 131 转换新增:卡片盒下移到子 View 后,宽度由该档显式还给盒子
@@ -191,11 +191,11 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
     },
     card: {
-      marginBottom: 12, // mb-3
+      marginBottom: rnSpacing.md, // mb-3
       borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1, // border
       borderColor: tk.border.light,
-      padding: 16, // p-4
+      padding: rnSpacing.lg, // p-4
       backgroundColor: tk.surface.card,
     },
     cardHeader: {
@@ -205,29 +205,29 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardName: {
       flex: 1,
-      fontSize: 16, // text-base
+      fontSize: rnType.title.size, // text-base
       fontWeight: '500', // font-medium
       color: tk.text.primary,
     },
     categoryBadge: {
-      marginLeft: 8, // ml-2
+      marginLeft: rnSpacing.sm, // ml-2
       borderRadius: rnRadius.md, // rounded-sm
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
       backgroundColor: tk.surface.muted,
     },
     categoryText: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.text.secondary,
     },
     cardDescription: {
-      marginTop: 4, // mt-1
-      fontSize: 14, // text-sm
+      marginTop: rnSpacing.xs, // mt-1
+      fontSize: rnType.body.size, // text-sm
       lineHeight: 20, // leading-5
       color: tk.text.secondary,
     },
     tagRow: {
-      marginTop: 8, // mt-2
+      marginTop: rnSpacing.sm, // mt-2
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 6, // gap-1.5
@@ -239,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.warning.orangeLight,
     },
     tagText: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.warning.amber,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)

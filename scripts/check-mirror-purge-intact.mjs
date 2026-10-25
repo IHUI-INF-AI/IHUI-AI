@@ -46,7 +46,7 @@
  * 镜像测试:node --test scripts/tests/check-mirror-purge-intact.test.mjs(10 例,含 T1 方向锁)。
  * 紧急跳过:HUSKY_SKIP_MIRROR_PURGE_INTACT=1(必须在提交信息里写明理由与清偿票)。
  *
- * 接线状态:已接入 guardian-runner 注册表(守门 238,blocking,skipEnv=HUSKY_SKIP_MIRROR_PURGE_INTACT;
+ * 接线状态:已接入 guardian-runner 注册表(守门 237,blocking,skipEnv=HUSKY_SKIP_MIRROR_PURGE_INTACT;
  * stagedTriggers = 射程 10 文档;注册落地后本行随注册表现状维护,镜像测试 T1 双向锁死)。
  */
 

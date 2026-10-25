@@ -62,7 +62,7 @@ import {
   X,
 } from 'lucide-react-native'
 
-import { rnGeometry, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
   BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
   modelNameBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     flex: 1,
   } as ViewStyle,
   modelNameLabel: {
@@ -986,7 +986,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   configEmoji: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 20,
   } as TextStyle,
 
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
   // ── 新模式:图片预览 ──
   imageRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: rnSpacing.sm,
   } as ViewStyle,
   imagePreview: {
     position: 'relative',
@@ -1051,7 +1051,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   imageRemoveIcon: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     lineHeight: 14,
     color: tokens.surface.light,
     fontWeight: '600',
@@ -1061,7 +1061,7 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
+    gap: rnSpacing.sm,
   } as ViewStyle,
   voiceBtn: {
     width: VOICE_BTN_SIZE,
@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.brandAccent.deep,
   } as ViewStyle,
   voiceEmoji: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     lineHeight: 22,
   } as TextStyle,
   // ── 2026-10-16 录音态覆盖层(简约黑白:surface.card 底 + text.primary 波形)──
@@ -1108,13 +1108,13 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.text.primary,
   } as ViewStyle,
   recordingDuration: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.primary,
     fontVariant: ['tabular-nums'],
   } as TextStyle,
   recordingHint: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   } as TextStyle,
   input: {
@@ -1149,7 +1149,7 @@ const styles = StyleSheet.create({
   secondaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: rnSpacing.sm,
   } as ViewStyle,
   secondaryBtn: {
     width: SECONDARY_BTN_SIZE,
@@ -1165,7 +1165,7 @@ const styles = StyleSheet.create({
   addFileBtn: {
     height: SECONDARY_BTN_SIZE,
     minWidth: SECONDARY_BTN_SIZE,
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -1174,7 +1174,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 4,
+    gap: rnSpacing.xs,
   } as ViewStyle,
   secondaryEmoji: {
     fontSize: SECONDARY_BTN_EMOJI_SIZE,

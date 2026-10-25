@@ -411,9 +411,7 @@ async function renderHook<T>(hookFn: () => T): Promise<{
   }
 }
 
-// 与 apps/extension/tests/use-auth.test.tsx 同一份 helper 的两个分身,抬到同一档的理由同那条注释:
-// 1000ms 量的是机器负载(实测事件循环被占 1200ms ⇒ 链上首跳从 3ms 变 1201ms),不是被测件。
-async function waitFor<T>(fn: () => T, timeout = 4000): Promise<T> {
+async function waitFor<T>(fn: () => T, timeout = 1000): Promise<T> {
   const start = Date.now()
   while (true) {
     try {

@@ -28,13 +28,9 @@ export default function I18nDashboardPage() {
   })
 
   const d = data ?? EMPTY
-  // 空列表时除零会得到 NaN,而这两处读数都在 `isLoading` 分支**之前**渲染 ⇒
-  // 首次加载与接口失败时页面写着「平均完成度 NaN%」。取不到就是取不到:如实显示占位,
-  // 不拿 0% 冒充「一成都没翻」。
-  const avgCompletion = d.languages.length
-    ? Math.round(d.languages.reduce((s, l) => s + l.completion, 0) / d.languages.length)
-    : null
-  const avgCompletionLabel = avgCompletion === null ? '—' : `${avgCompletion}%`
+  const avgCompletion = Math.round(
+    d.languages.reduce((s, l) => s + l.completion, 0) / d.languages.length,
+  )
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
@@ -50,7 +46,7 @@ export default function I18nDashboardPage() {
           <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">国际化数据看板</h1>
         </div>
         <p className="text-xs text-muted-foreground">
-          5 种语言翻译进度概览 · 平均完成度 {avgCompletionLabel}
+          5 种语言翻译进度概览 · 平均完成度 {avgCompletion}%
         </p>
       </header>
 
@@ -85,7 +81,7 @@ export default function I18nDashboardPage() {
             <Clock className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{avgCompletionLabel}</div>
+            <div className="text-2xl font-bold text-emerald-600">{avgCompletion}%</div>
             <p className="text-xs text-muted-foreground">所有语言平均</p>
           </CardContent>
         </Card>

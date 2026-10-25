@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -51,7 +50,7 @@ interface ListData {
 
 const PAGE_SIZE = 20
 
-const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
+const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
 export default function DistributionTeamPage() {
   const t = useTranslations('distribution')

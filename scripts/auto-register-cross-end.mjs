@@ -24,8 +24,13 @@
 //   node scripts/auto-register-cross-end.mjs --apply         # 写盘(工作树,提交走仓规)
 //   node scripts/auto-register-cross-end.mjs --json          # 机器可读
 //   node scripts/auto-register-cross-end.mjs --only=web-rn|miniapp
-import { readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+//   node scripts/auto-register-cross-end.mjs --proposals=<文件或目录> [--apply]
+//     读子代理判定件(数组,元素含 shared/rn/miniapp/verdict/evidence/confidence 或 web/verdict/note|reason),
+//     过结构校验闸后才落地;declare 之外档(missing/not-applicable)不写代码,只在 --record-verdicts 时进判定台账。
+//   node scripts/auto-register-cross-end.mjs --proposals=<目录> --apply --record-verdicts
+//     ⇒ 一并把"这一格已验过"的结论写进 scripts/data/miniapp-mirror-verdicts.jsonl(缺口账本生成器消费它)。
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
@@ -36,12 +41,17 @@ const R = (...p) => join(ROOT, ...p)
 const MAP_PATH = 'scripts/data/web-rn-screen-map.jsonl'
 const REGISTRY_PATH = 'scripts/data/cross-end-screen-registry.json'
 const INDEX_PATH = 'packages/app/src/index.ts'
+// 判定台账(缺口账本的可持久侧车):键 = 共享屏 spec,一行一屏。
+// 为什么单独一件:门 128 的"未判定"只说明"没人验过",而验过的结论(缺页/不该承载)
+// 若只活在临时提案件里,下轮又要重判 —— 台账让"判过"这件事本身进仓、可被生成器与后续自动建页消费。
+const VERDICTS_PATH = 'scripts/data/miniapp-mirror-verdicts.jsonl'
 
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
 const applyMode = argv.includes('--apply')
 const worktreeMode = argv.includes('--worktree')
 const onlyArg = argv.find((a) => a.startsWith('--only='))
+const recordVerdicts = argv.includes('--record-verdicts')
 const only = onlyArg ? onlyArg.slice('--only='.length) : null
 const FACE = worktreeMode ? 'worktree' : 'head'
 const TODAY = new Date().toISOString().slice(0, 10)
@@ -230,16 +240,178 @@ if (!only || only === 'miniapp') {
   }
 }
 
+function safeRead(rel) {
+  try {
+    return readFileSync(R(rel), 'utf8')
+  } catch {
+    return null
+  }
+}
+
+// ---------- ③ 子代理提案通道(判定权在证据,校验与写盘在中心) ----------
+// `--proposals=<文件或目录>`:读子代理产出的判定 JSON,逐条过结构校验闸,合格才落地。
+// 小程序档 verdict=declare 需 6 条同时成立:shared 在 HEAD 存在 ∧ 符号在 packages/app/src/index.ts 有导出
+//   ∧ rn 壳在 HEAD 存在且 import 了该符号 ∧ miniapp 路由在 app.config 在册且有页面文件
+//   ∧ 该页(HEAD 面与工作树面)都不含任何镜像标记 ∧ 该配对不在 registry(HEAD∪工作树)。
+// 不合格逐条点名拒收原因(§0.3 取不到/不成立不冒充通过);confidence≠high 的 declare 一律拒。
+const proposalsArg = argv.find((a) => a.startsWith('--proposals='))
+const proposals = { miniapp: [], web: [], refused: [], filesRead: [], verdicts: [] }
+if (proposalsArg) {
+  const target = resolve(ROOT, proposalsArg.slice('--proposals='.length))
+  const files = existsSync(target) && statSync(target).isDirectory()
+    ? readdirSync(target).filter((f) => f.endsWith('.json')).map((f) => join(target, f))
+    : [target]
+  const headMirrored = new Set()
+  for (const p of mp) for (const s of cov.mirroredSpecs(p)) headMirrored.add(s)
+  const regPairs = new Set(registry.entries.map((e) => `${e.shared}::${e.miniapp}`))
+  const mpByRoute = new Map(mp.filter((p) => p.file).map((p) => [p.route, p]))
+  const sharedBySpec = new Map(shared.map((s) => [s.spec, s]))
+  const rnByRel = new Map(rn.map((r) => [r.file, r]))
+  const webRouteSet = new Set(routes.map((r) => r.route))
+  const registeredExcluded = new Set(mapRows.filter((r) => r.status === 'excluded').map((r) => r.web))
+
+  for (const f of files) {
+    let list
+    try {
+      list = JSON.parse(readFileSync(f, 'utf8'))
+    } catch (e) {
+      proposals.refused.push({ file: basename(f), why: `提案文件解析失败: ${e.message}` })
+      continue
+    }
+    if (!Array.isArray(list)) {
+      proposals.refused.push({ file: basename(f), why: '提案文件不是数组' })
+      continue
+    }
+    proposals.filesRead.push({ file: basename(f), items: list.length })
+    for (const it of list) {
+      const ev = String(it.evidence || it.note || it.reason || '')
+      const refuse = (why) => proposals.refused.push({ item: it.shared || it.web, why })
+      // 判定结论先入账(declare/missing/not-applicable 三档都是"这一格被人验过"的凭据);
+      // 不入库的话,子代理跑一遍 127 条取证只活在 gitignored 的临时件里,下轮又从零重判。
+      if (it.shared && (it.verdict === 'missing' || it.verdict === 'not-applicable'))
+        proposals.verdicts.push({
+          shared: it.shared,
+          verdict: it.verdict,
+          evidence: ev,
+          at: it.at || TODAY,
+          source: basename(f),
+        })
+      if (it.shared) {
+        // 小程序档
+        if (it.verdict !== 'declare') continue // missing / not-applicable 不写盘,由缺口账本继续点名
+        const s = sharedBySpec.get(it.shared)
+        if (!s) {
+          refuse(`shared 不在 HEAD 共享屏集:${String(it.shared)}`)
+          continue
+        }
+        if (it.confidence !== 'high') {
+          refuse(`confidence=${String(it.confidence)} ≠ high,拒(证据不足以代判)`)
+          continue
+        }
+        if (ev.trim().length < 10) {
+          refuse('evidence 少于 10 字,拒(空口声明不算证据)')
+          continue
+        }
+        if (headMirrored.has(s.spec)) {
+          refuse('该共享屏已被某小程序页镜像,不重复声明')
+          continue
+        }
+        if (!isExported(s.name)) {
+          refuse(`符号 ${s.name} 未在 packages/app/src/index.ts 导出(R1 必红)`)
+          continue
+        }
+        if (!rnByRel.has(it.rn) || !namedImports(cov.faceRead(FACE, it.rn) || '', '@ihui/rn-app').includes(s.name)) {
+          refuse(`rn 腿不成立:${String(it.rn)} 不存在或没 import ${s.name}`)
+          continue
+        }
+        const page = mpByRoute.get(it.miniapp)
+        if (!page) {
+          refuse(`小程序路由不在 app.config 在册或无页面文件:${String(it.miniapp)}`)
+          continue
+        }
+        if (cov.mirroredSpecs(page).size > 0) {
+          refuse(`该页(HEAD 面)已镜像别屏 ${[...cov.mirroredSpecs(page)][0]},不覆盖他席声明`)
+          continue
+        }
+        const workText = safeRead(page.file)
+        if (workText && /packages\/app\/src\/features\//.test(workText)) {
+          refuse(`该页工作树副本已含镜像标记(他席在飞),本枚不动:${page.file}`)
+          continue
+        }
+        if (regPairs.has(`${s.spec}::${page.route}`)) {
+          refuse('registry 已有该配对')
+          continue
+        }
+        proposals.miniapp.push({ shared: s.spec, rn: it.rn, miniapp: page.route, file: page.file, evidence: ev })
+      } else if (it.web) {
+        // web 档
+        if (it.verdict === 'gap') continue
+        if (ev.trim().length < 10) {
+          refuse('note/reason 少于 10 字,拒')
+          continue
+        }
+        if (it.verdict === 'aligned') {
+          if (!webRouteSet.has(it.web)) {
+            refuse(`web 键不在路由集:${String(it.web)}`)
+            continue
+          }
+          if (registeredWeb.has(it.web)) {
+            refuse('该路由已登记 aligned')
+            continue
+          }
+          const ok = sharedBySpec.has(it.rn) || rnByRel.has(it.rn)
+          if (!ok) {
+            refuse(`aligned 指向的屏不存在:${String(it.rn)}`)
+            continue
+          }
+          proposals.web.push({ web: it.web, rn: it.rn, status: 'aligned', note: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
+        } else if (it.verdict === 'excluded') {
+          const seg = String(it.web).endsWith('/**')
+          if (!seg && !webRouteSet.has(it.web)) {
+            refuse(`web 键不在路由集:${String(it.web)}`)
+            continue
+          }
+          if (registeredExcluded.has(it.web)) {
+            refuse('该路由/段已登记 excluded')
+            continue
+          }
+          proposals.web.push({ web: it.web, status: 'excluded', reason: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
+        }
+      } else {
+        refuse('条目既无 shared 也无 web 键')
+      }
+    }
+  }
+}
+
 // ---------- 落地 ----------
+/**
+ * 写「镜像」标记:底稿取 **HEAD blob**,不是工作树副本。
+ * 两条实测理由(本仓 2026-10-24/25 反复出现过):
+ *  ① 工作树副本常年滞后 HEAD(旁路落地只推进 HEAD)——按工作树写会连带把 HEAD 已有行写回旧态;
+ *     以 HEAD 为底重写,顺带把这一格的滞后副本治好。
+ *  ② 副本里若有用行不在 HEAD 里 ⇒ 那是**他席在飞新增**,本枚一动就会替人提交;当场拒,留待下轮。
+ * 拒收必须带原因点名(§0.10 失效方向是"多要一次定向说明",不是静默放过)。
+ */
 function insertMarker(rel, spec) {
-  const text = readFileSync(R(rel), 'utf8')
-  if (text.includes(spec)) return false
-  const lines = text.split('\n')
+  const head = cov.faceRead('head', rel)
+  if (head === null) return { done: false, why: 'HEAD 面取不到该页' }
+  if (head.includes(spec)) return { done: false, why: 'HEAD 面已有该标记' }
+  const work = safeRead(rel)
+  if (work !== null) {
+    if (/packages\/app\/src\/features\//.test(work))
+      return { done: false, why: '工作树副本已含镜像标记(他席声明,不覆盖)' }
+    const headLines = new Set(head.split('\n'))
+    const extra = work.split('\n').filter((l) => l.trim() !== '' && !headLines.has(l))
+    if (extra.length > 0)
+      return { done: false, why: `工作树副本有 ${extra.length} 行不在 HEAD(他席在飞),不替人提交` }
+  }
+  const lines = head.split('\n')
   let at = 0
   while (at < lines.length && (lines[at].startsWith('//') || lines[at].startsWith('#!'))) at++
   lines.splice(at, 0, `// 镜像 ${spec}`)
   writeFileSync(R(rel), lines.join('\n'))
-  return true
+  return { done: true }
 }
 
 function appendMapRows(rows) {
@@ -310,6 +482,36 @@ function appendRegistry(entries) {
   return added
 }
 
+/** 判定台账落地:HEAD 面为底 ∪ 工作树独有 ∪ 本批(同屏以本批为准),按 shared 键唯一 */
+function writeVerdicts(items) {
+  if (items.length === 0) return { total: 0, added: 0 }
+  const parse = (text) =>
+    (text || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        try {
+          return { shared: JSON.parse(l).shared, raw: l }
+        } catch {
+          return null
+        }
+      })
+      .filter(Boolean)
+  const headRows = parse(cov.faceRead('head', VERDICTS_PATH))
+  const workRows = parse(safeRead(VERDICTS_PATH))
+  const byKey = new Map()
+  for (const r of [...headRows, ...workRows]) byKey.set(r.shared, r.raw)
+  let added = 0
+  for (const it of items) {
+    const before = byKey.get(it.shared)
+    byKey.set(it.shared, JSON.stringify(it))
+    if (before === undefined) added++
+  }
+  writeFileSync(R(VERDICTS_PATH), [...byKey.values()].join('\n') + '\n')
+  return { total: byKey.size, added }
+}
+
 const summary = {
   face: FACE,
   webRn: webCandidates.map((c) => ({
@@ -333,6 +535,12 @@ const summary = {
     epJac: c.cand.epJac,
     alternatives: c.alternatives,
   })),
+  proposals: {
+    files: proposals.filesRead,
+    miniapp: proposals.miniapp.map((p) => ({ shared: p.shared, rn: p.rn, miniapp: p.miniapp })),
+    web: proposals.web.map((w) => ({ web: w.web, status: w.status, rn: w.rn || null })),
+    refused: proposals.refused,
+  },
 }
 
 if (applyMode) {
@@ -343,20 +551,41 @@ if (applyMode) {
     note: `自动登记@${TODAY}: 端点交集 ${c.commonEps} 条(${(c.sample || []).join(', ')}) + 名称 token ${c.nameHit.join('+')}`,
     at: TODAY,
   }))
+  for (const r of proposals.web) mapRowsToAdd.push(r)
   const regEntries = []
   const marked = []
+  const skipped = []
+  const land = (file, shared, rn, miniapp, evidence) => {
+    const r = insertMarker(file, shared)
+    if (!r.done) {
+      // 标记没写成功就绝不能进 registry —— 门 128 R1 判的就是"登记了却没有标记",
+      // 只登记不写标 = 当场造红。
+      skipped.push({ shared, miniapp, why: r.why })
+      return
+    }
+    marked.push(file)
+    regEntries.push({ shared, rn, miniapp, evidence })
+  }
   for (const c of miniappCandidates) {
     const ev = []
     if (c.cand.keyStrong)
       ev.push(`i18n 命名空间 ${c.cand.nsHit.join('/')} 专有键 ${c.cand.keyCommonN} 条重合`)
     if (c.cand.epStrong)
       ev.push(`端点交集 ${c.cand.epCommon.join(',')} (jac ${c.cand.epJac})`)
-    if (insertMarker(c.cand.file, c.shared)) marked.push(c.cand.file)
-    regEntries.push({ shared: c.shared, rn: c.rn, miniapp: c.cand.miniapp, evidence: ev.join(' ; ') })
+    land(c.cand.file, c.shared, c.rn, c.cand.miniapp, ev.join(' ; '))
   }
+  for (const p of proposals.miniapp)
+    land(p.file, p.shared, p.rn, p.miniapp, `子代理判定:${p.evidence}`)
   const addedMap = appendMapRows(mapRowsToAdd)
   const addedReg = appendRegistry(regEntries.map(({ shared, rn, miniapp }) => ({ shared, rn, miniapp })))
-  summary.applied = { mapRows: addedMap, markers: marked.length, registry: addedReg }
+  summary.applied = {
+    mapRows: addedMap,
+    markers: marked.length,
+    registry: addedReg,
+    skipped,
+    verdicts: recordVerdicts ? writeVerdicts(proposals.verdicts) : null,
+    fromProposals: { miniapp: proposals.miniapp.length, web: proposals.web.length, refused: proposals.refused.length },
+  }
 }
 
 if (jsonMode) {
@@ -373,10 +602,26 @@ if (jsonMode) {
     if (c.epStrong) why.push(`端点 ${c.epCommon.join(',')}`)
     console.log(`  ${c.shared}  →  ${c.miniapp}  [${why.join(' | ')}]`)
   }
+  if (proposalsArg) {
+    console.log(
+      `\n③ 子代理提案 ${proposals.filesRead.reduce((n, f) => n + f.items, 0)} 条(读 ${proposals.filesRead.length} 个文件)→ 合格 小程序 ${summary.proposals.miniapp.length} / web ${summary.proposals.web.length} / 拒收 ${summary.proposals.refused.length}`,
+    )
+    for (const p of summary.proposals.miniapp) console.log(`  [declare] ${p.shared}  →  ${p.miniapp}`)
+    for (const w of summary.proposals.web)
+      console.log(`  [${w.status}] ${w.web}${w.rn ? '  →  ' + w.rn : ''}`)
+    for (const r of summary.proposals.refused.slice(0, 25))
+      console.log(`  [拒] ${r.item || r.file}  ${r.why}`)
+    if (summary.proposals.refused.length > 25)
+      console.log(`  [拒] …其余 ${summary.proposals.refused.length - 25} 条(不静默省略计数)`)
+  }
   if (applyMode) {
     console.log(
       `\n✅ 已写盘:map +${summary.applied.mapRows} / 标记 +${summary.applied.markers} / registry +${summary.applied.registry}`,
     )
+    for (const s of summary.applied.skipped || [])
+      console.log(`  [未落] ${s.shared} → ${s.miniapp}  原因:${s.why}`)
+    if ((summary.applied.skipped || []).length > 0)
+      console.log(`  ↑ 这 ${summary.applied.skipped.length} 条只报数不进 registry(登记而无标记=门 128 R1 当场造红)`)
   } else {
     console.log('\n(预演模式,未写盘;加 --apply 落地)')
   }

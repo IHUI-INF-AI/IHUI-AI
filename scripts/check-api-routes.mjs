@@ -62,9 +62,6 @@ import {
   buildPyIncludeMaps,
   classifyRouteCoverage,
 } from './lib/route-registration-extract.mjs'
-// G-962c(2026-10-24):方法推导判据的单一真相源在 lib —— 门体只 import 这一份,
-// 不得自带第二份实现(镜像测试 T10 接线锁:门内出现同名函数**定义**即红;§0.6)。
-import { inferMethodAtLine } from './lib/api-route-method-infer.mjs'
 import { runSelfTest } from './lib/api-routes-selftest.mjs'
 
 /**
@@ -1576,6 +1573,186 @@ function extractCliShapeCalls(src, file, factory, importInfoByName) {
 
 
 /**
+ * method 推断的**唯一**实现(2026-09-28 由 extractFrontendCalls 整体搬出,判据一字未改)。
+ * 搬的理由:CLI 形态提取也要算同一件事,而"两处算同一件事必漂移"是本仓记过最多次的失败型。
+ * 优先级:显式注释 `// method: POST` > 同行 method: > 向后第一个 method(遇调用收尾行即停)
+ * > 向前最近 method > 同文件 wrapper 作用域 > 上下文启发式 > GET。
+ * CLI 的位置实参形态由调用方先问 cliPositionalMethod(),命中才不走这里。
+ */
+function inferMethodAtLine(lines, idx) {
+      // 推断 method: 优先 path 同行 → 向后第一个 method → 向前最近 method → 动态值用 ANY
+      let method = 'GET'
+      const sameLine = (lines[idx] || '').toLowerCase()
+      const sameLineMatch = sameLine.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+      if (sameLineMatch) {
+        method = sameLineMatch[1].toUpperCase()
+      } else {
+        // 向后搜索 path 之后的第一个 method（同一 options 对象内，后 4 行）
+        // 2026-09-17 加固:遇到「调用收尾行」(仅由 ) ] } > , ; 与空白组成)即停止扫描。
+        // 原实现盲扫固定 4 行 → 会跨出当前调用、抓到**下一个不相关调用**的 method:
+        //   queryFn: () => api<CirclesData>(`/api/circles/mine?page=${page}`),  ← path(应 GET)
+        //   })                                                                   ← 收尾,应在此停止
+        //   const delMut = useMutation({
+        //     mutationFn: (id) => api(`/api/circles/${id}/leave`, { method: 'POST' }), ← 曾被误抓
+        // 注:判据刻意**只用「整行纯闭合」**而非「行内出现右括号」——后者会被
+        // `reason.trim()` / `JSON.stringify(x)` 之类实参里的括号误触发,反而漏掉真正的 method。
+        let resolved = null
+        for (let i = 1; i <= 4; i++) {
+          const afterLine = lines[idx + i] || ''
+          if (/^\s*[)\]}>;,]*\s*$/.test(afterLine)) break
+          const afterMatch = afterLine
+            .toLowerCase()
+            .match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+          if (afterMatch) {
+            resolved = afterMatch[1].toUpperCase()
+            break
+          }
+        }
+        if (!resolved) {
+          // 向前搜索 path 之前的最近 method（前 3 行，取行号最大的 = 离 path 最近）
+          // 2026-10-04 加固:与「向后 4 行」段同口径 —— 遇「调用收尾行」即停。
+          // 原实现只判"这一行有没有 method",不判"我是否已经跨出了当前调用",于是会
+          // 隔着收尾行抓到**上一个无关调用**的 method:
+          //   mutationFn: async (favorited) => {
+          //     await fetchApi(`/api/favorites/aiworld/${id}`, {
+          //       method: 'DELETE',            ← 取消收藏的 method
+          //     })                             ← 收尾,应在此停止
+          //   ...
+          //   api('/api/ai-world')             ← 本身无 method(语义 GET),曾被误归成 DELETE
+          // 判据与向后那段**逐字同一条** `/^\s*[)\]}>;,]*\s*$/`(含"只用整行纯闭合"这条口径:
+          // 行内出现右括号不算收尾,否则 `reason.trim()` / `JSON.stringify(x)` 之类
+          // 实参里的括号会误触发,反而漏掉真正的 method)。
+          for (let i = -1; i >= -3; i--) {
+            const rawBefore = lines[idx + i] || ''
+            if (/^\s*[)\]}>;,]*\s*$/.test(rawBefore)) break
+            const beforeLine = rawBefore.toLowerCase()
+            const beforeMatch = beforeLine.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+            if (beforeMatch) {
+              resolved = beforeMatch[1].toUpperCase()
+              break
+            }
+          }
+        }
+        if (!resolved) {
+          // 作用域搜索:向前找最近的函数定义开头,在函数体内找 method
+          // 场景:const run = async (op, endpoint, body) => { ... method: 'POST' ... }
+          //       调用处 run('generate', '/api/self-media/koubo/generate', ...) 在另一行
+          // 限制 1:必须匹配 => 或 function 关键字,避免误匹配 const xxx = useMutation({ 等非函数
+          // 限制 2:只对"间接调用"(非 fetchApi 直接调用)适用,避免 React 组件内多 method 误判
+          // 2026-10-19 补(裸路径也算直接调用):`fetchApi('/course-qa')` 这类**不带 /api/ 前缀**
+          //   的裸路径,运行期由 transport 的 normalizeUrl 补成 /api/… ⇒ 它同样是 fetchApi 直接调用。
+          //   旧式只认 `['"`]\/api\/` ⇒ 裸路径被读成"间接调用" ⇒ 门向**前**借邻居函数的
+          //   `method:'POST'` ⇒ 明明是 GET 的在册端点被报成"POST 死调用"(假阳性:把正确实现钉红)。
+          //   `//` 起头是协议相对 URL(另一台主机),不属于本仓 transport ⇒ 仍排除。
+          const directFetchRe = /fetchApi\s*(<[^>]*>)?\s*\(\s*['"`]\/(?!\/)/i
+          const isDirectFetch = directFetchRe.test(lines[idx] || '')
+          if (!isDirectFetch) {
+            // 2026-09-17 加固:两处加 `(?:<[^<>()]*>\s*)?` 泛型参数支持。
+            // 原正则不认 `async function api<T>(url, options)` —— 这是本仓最常见的
+            // 「同文件 wrapper」写法(my-circles/page.tsx:41、meal/page.tsx:85、use-task-receiver.ts:92
+            // 的 apiData 等)。识别失败会让作用域搜索**越过 wrapper 继续向前**,抓到更早某个
+            // 函数的 `method: 'POST'`(如 join/leave 之类的写操作),把 wrapper 的 GET 调用误判成 POST。
+            // 2026-10-04 加固:`funcStartRe` 的**限制 1(必须匹配 `=>` 或 `function`)确实生效**,
+            // 已实测 8 形态:`const x = useMutation({` 之类非函数开头一律不匹配。
+            // 但它**认不出对象方法简写**(`mutationFn: async (favorited) => {`、`onSuccess: (v) => {`
+            // —— 第三支要求 `const|let|var` 前缀,对象字面量里的方法没有前缀 ⇒ 不匹配)。
+            // 于是向上找 funcStartLine 时会**穿过**这些嵌套函数体,把它们的 method 当成
+            // 外层函数的 method 取走(实测 ai-world/[id]/PageClient.tsx:112 归成 DELETE,
+            // 源是 :81 取消收藏的 method)。
+            //
+            // 修法:向下扫时**整块跳过别的 React 数据/变更 hook 的对象参数块**(见下面
+            // `reactDataHookBlockRe` 处的完整理由)。ai-world 那个块在到达 `:112` 之前
+            // 就闭合了 ⇒ 跳过它,`:81` 的 DELETE 就借不出去,`:112` 落回 GET。
+            const funcStartRe =
+              /(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?(?:<[^<>()]*>\s*)?\([^)]*\)\s*=>|function\s+\w+\s*(?:<[^<>()]*>\s*)?\(|(?:const|let|var)\s+\w+\s*:\s*(?:async\s*)?\([^)]*\)\s*=>/
+            // 别的 React 数据/变更 hook 的**对象参数块**开头(**含对象方法简写**那类):
+            // `useMutation({` / `useQuery({` 这种行,块里的一切(`mutationFn` / `queryFn` /
+            // `onSuccess` 等)都属于**那个 hook 自己的请求**,与本调用无关。
+            //
+            // ⚠️ 为什么**不用**"通用嵌套深度记账"(试过,已弃,理由留档免得下一个人重走):
+            //   ① 按"整行纯闭合"记 -1:空行也匹配那条正则(字符类允许零个闭合符)⇒ 深度在第一个
+            //      空行就归零 ⇒ 作用域段对**任何带空行的函数体全部失效**。实测后果:
+            //      use-analytics.ts:181(`navigator.sendBeacon('/api/analytics/track',…)`,
+            //      `sendBeacon` 隐式 POST)由 POST 掉成 GET = **由对变错**,被 method 清单
+            //      A/B 对账当场抓住。
+            //   ② 只记函数体开/闭:ai-world 那个 `useMutation({` 开的块在扫到 `:112` 时**仍未闭合**
+            //      ⇒ 深度压根归不了零 ⇒ 拦不住。
+            // 窄口径只认 hook 调用块,上面两类都不碰。
+            //
+            // ⚠️ hook 名只收**数据/变更**类、且必须 `({` 起头:
+            //   `React.useCallback(async () => {` 的 `(` 后是 `async` 不是 `{` ⇒ 不匹配
+            //   (实测正是它承载了 use-analytics.ts:181 必须保住的那个 POST);
+            //   `React.useRef<T>([])` / `React.useEffect(() => {` 同理不匹配。
+            const reactDataHookBlockRe =
+              /\buse(?:Mutation|Queries|Query|SWR|InfiniteQuery|LazyQuery)\s*(?:<[^<>]*>)?\s*\(\s*\{\s*$/
+            let funcStartLine = -1
+            for (let i = idx - 1; i >= 0; i--) {
+              if (funcStartRe.test(lines[i] || '')) {
+                funcStartLine = i
+                break
+              }
+            }
+            if (funcStartLine >= 0) {
+              for (let i = funcStartLine; i <= idx; i++) {
+                const raw = lines[i] || ''
+                // 别的 hook 对象块 ⇒ **整块跳过**(块内的 method 不属于本调用)。
+                // 配对到 idx 之后(含 idx)说明**本调用就写在这个块里** —— 它自己的
+                // queryFn/mutationFn,归因由「向后 4 行」段负责 ⇒ 同样不取,出循环。
+                if (reactDataHookBlockRe.test(raw)) {
+                  const blockEnd = findBraceBlockEnd(lines, i)
+                  i = blockEnd > i ? blockEnd : i
+                  if (i >= idx) break
+                  continue
+                }
+                const fl = raw.toLowerCase()
+                const fm = fl.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+                if (fm) {
+                  resolved = fm[1].toUpperCase()
+                  break
+                }
+              }
+            }
+          }
+        }
+        if (resolved) {
+          method = resolved
+        } else {
+          // 前后均无字面量 method：检查动态 method（三元等）→ ANY；否则启发式
+          const contextLines = []
+          for (let i = -3; i <= 4; i++) {
+            contextLines.push(lines[idx + i] || '')
+          }
+          const context = contextLines.join('\n').toLowerCase()
+          if (/method\s*:\s*[^'"`\s]/.test(context)) {
+            method = 'ANY'
+          } else if (/\bpost\s*[<(]/.test(context)) {
+            method = 'POST'
+          } else if (/\bput\s*[<(]/.test(context)) {
+            method = 'PUT'
+          } else if (/\bpatch\s*[<(]/.test(context)) {
+            method = 'PATCH'
+          } else if (/\bdelete\s*[<(]/.test(context)) {
+            method = 'DELETE'
+          }
+          if (method === 'GET') {
+            const prev = (lines[idx - 1] || '').toLowerCase()
+            const keyMatch = prev.match(/\b(post|put|patch|delete)\s*:\s*['"`]/)
+            if (keyMatch) method = keyMatch[1].toUpperCase()
+          }
+        }
+      }
+      // 最高优先级:显式注释标注 `// method: POST`(同行或前一行),覆盖上述全部推断
+      // 场景:跨文件 wrapper(useProcessApi)、多行函数签名(const run = async (\n...) =>)、
+      //       同文件 wrapper 链(srsPost → explainConcept)等自动推断失效时
+      const annotRe = /\/\/\s*method\s*:\s*(get|post|put|patch|delete)\b/i
+      const annotMatch = (lines[idx] || '').match(annotRe) || (lines[idx - 1] || '').match(annotRe)
+      if (annotMatch) {
+        method = annotMatch[1].toUpperCase()
+      }
+      return method
+}
+
+/**
  * 提取前端 API 调用路径，返回 [{ method, path, file, line }]
  * `opts.cli` = 该文件所属端已解析出的 createApiRequest 工厂绑定(仅 `apps/cli` 传),
  * 用于把"路径住在第二个实参"的形态拼回完整路径,并**不再把前缀常量声明行当调用点**
@@ -1589,33 +1766,9 @@ function extractCliShapeCalls(src, file, factory, importInfoByName) {
  * ② `classifyAliasLiteralSite` 判"改写前缀字面量是调用点还是片段"用的是同一个式子。
  * 泛型传输口(`fetchApi<T>(`)必须单独认 —— 本仓绝大多数真调用走本地 wrapper,
  * 少了泛型分支会把它们整族读成片段。
- *
- * ## 动词式传输口(2026-10-25 补,立因 = 一整族调用点在这一门外)
- * 小程序的桥接层把 HTTP 方法转发给 `fetchApi`(`apps/miniapp-taro/src/utils/api-bridge.ts` 的
- * `get/post/put/patch/del` 只是 `unwrapApi(fetchApi(url, opts))` 的薄壳),页面有两种写法:
- * 裸名 `get('/user/profile')` 与命名空间 `import * as api from '@/api'` 后的 `api.get('/x')`。
- * 原式一支都不认 ⇒ **BP 腿对整族不可见**。实测代价不是抽象的:`pages/distribution/order-list`
- * 打 `api.get('/distribution/orders')` 而后端从未注册,该页自建站起每次都是 404,而这道专门
- * 判"前端调用 vs 后端注册"的门连候选都没抽到(它报的是 ✅,而 ✅ 的成因是"看不见")。
- *
- * 收窄(假阳必须挡在抽取层,不能留给归一之后):
- *  - 动词表逐字取桥接层的导出名(`api-bridge.ts` 现读 = get/post/put/patch/del;`delete` 是
- *    保留字,不可能以 `delete(` 形态出现,故不收);
- *  - **零宽前瞻 `(?=['"`]/)`**:首参必须是引号紧邻、以 `/` 起头的字面量。这一条把
- *    `patch('title')`、`store.get(key)`、`params.get('code')` 这类同名不同职的调用全部挡在门外
- *    (2026-10-25 现读:动词式候选 274 条,首参不是路径的同名调用 12 例抽样全被这一条排除);
- *  - 裸名支用后视 `(?<![\w$.])` ⇒ `map.get('/x')`、`obj.post(...)`、`forget('/x')` 不命中;
- *  - 接收者支只认**名字里带 api/client 的接收者**(`api.get`、`apiClient.post`)。现读全仓
- *    「接收者.动词( 后紧跟路径字面量」的接收者名单:miniapp 页面 = `api`(15 处),其余同名命中
- *    落在 `__tests__` 的 `isSafeNavigationTarget.get('/…')` 这类 URLSearchParams 读法上 ——
- *    它们不带 api/client 词根,不收。**不**收 `.get(` 通用形态是有意为之:那条会把
- *    Map/SearchParams 的取值当调用点,造出的是恒红门(§12e),不是判据。
- *
- * 前瞻是**零宽**的:记号本身仍以 `(` 收尾,`extractBareTransportCalls` 走 `token.endsWith('(')`
- * 那条既有通路继续往后读引号与字面量(若把引号吃进记号,该函数会当成"点后接方法名"去找括号桥而整条放弃)。
  */
 const LINE_TRANSPORT_RE =
-  /\bfetchApi(?:<[^<>]*>)?\s*\(|\bfetch(?:<[^<>]*>)?\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\brequest(?:<[^<>]*>)?\s*\(|(?<![\w$.])(?:get|post|put|patch|del)\s*(?:<[^<>()]{0,80}>)?\s*\(\s*(?=['"`]\/)|\b[A-Za-z0-9_$]*(?:api|Api|client|Client)[A-Za-z0-9_$]*\.(?:get|post|put|patch|del)\s*(?:<[^<>()]{0,80}>)?\s*\(\s*(?=['"`]\/)/
+  /\bfetchApi(?:<[^<>]*>)?\s*\(|\bfetch(?:<[^<>]*>)?\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\brequest(?:<[^<>]*>)?\s*\(/
 
 /**
  * ============================================================================

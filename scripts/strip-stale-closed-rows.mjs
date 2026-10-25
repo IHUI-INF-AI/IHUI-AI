@@ -41,16 +41,6 @@
  * 机读结论行(供 git-guardian 日志分档,不靠中文文案猜):每轮恒打一行
  *   `SWEEP-RESULT state=<clean|preflight|stripped|all-held|refused|undetermined> stale=<n> held=<n> stripped=<n> …`
  *
- * 2026-10-24 补(治"器物空转 8+ 轮"):落地器 `object-space-land.mjs` 的退出码**不是唯一的真相**——
- * 它在"落地后受影响判据复跑"里跑的是**绝对判据**,面上本来就有的存量红(实测:门 130 的 F4 副本行,
- * 落地前的父提交面同样判红)也会让它 exit 1,而 CAS 早已成功推进 HEAD。此前本器在 `try` 里直接
- * `process.exit(1)`,于是**留痕与推送腿被整段跳过**(无凭据摘除 ⇒ 下一轮 union 又带回 ⇒ 再撞同一堵墙)。
- * 现在:① 留痕/推送腿一律按"HEAD 有没有推进"执行,不看退出码;② 落地前预探 + 落地后复跑
- * (同一实现 `lib/land-gate-rerun`)逐臂比判红证据,若判红全是**存量红**(证据行未增)⇒ 落
- * `state=stripped … preexisting=<门号>`,并大声点名"门照旧红、提交链照旧拦";
- * 归因不了(新红臂 / verdict=2 未判定 / HEAD 未推进)⇒ 照旧 `state=refused` + exit 1。
- * 归因成功**不放宽任何判据**:门红仍是红,变的只是"这枚摘除造成了判红"这句话。
- *
  * 用法:
  *   node scripts/strip-stale-closed-rows.mjs           # 只读预演(零副作用)
  *   node scripts/strip-stale-closed-rows.mjs --apply    # 落地 + 推送
@@ -83,20 +73,6 @@ import {
   missingFrom,
 } from './check-plan-line-loss.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-// 落地器 exit≠0 的归因**不另写一份判据**:落地前预探与落地后复跑都走 lib 的同一个出口
-// (`rerunAffectedGates`:选门 = 注册表 stagedTriggers 现读,判据 = 各门自己的全量档)。
-// 本器只做"两面的判红证据逐行比对",不解析任何门的业务语义(§0.6/§22c)。
-//
-// 为什么是**带守卫的动态 import** 而不是静态 import(2026-10-24 现读):`scripts/lib/land-gate-rerun.mjs`
-// 属另一个在批的半格(现读 `git ls-files` 为空、HEAD 版 lander 也没有这行 import)—— 静态 import 会让
-// 本器在**净检出**上直接 ERR_MODULE_NOT_FOUND 崩掉;那种失效方向是"清扫器整体消失",绝不能接受(§0.8)。
-// 取不到 ⇒ 归因恒落「未判定」(照旧 refused),与"没有复跑能力时行为一字不变"等价。
-let rerunAffectedGates = null
-try {
-  ;({ rerunAffectedGates } = await import('./lib/land-gate-rerun.mjs'))
-} catch {
-  rerunAffectedGates = null
-}
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
@@ -435,93 +411,6 @@ export function sweepOutcome(part, { apply = false } = {}) {
   if (part.strippable.length === 0) return { exit: 3, state: 'all-held' }
   if (!apply) return { exit: 1, state: 'preflight' }
   return { exit: 0, state: 'stripped' }
-}
-
-/**
- * 落地器 exit≠0 的归因(2026-10-24 立,治"清扫器空转 8+ 轮")。
- *
- * 现象(现读,不是推断):`object-space-land.mjs` 的 CAS 成功、本枚提交**已在 HEAD**,但它在
- * "落地后受影响判据复跑"里 exit 1 —— 判红的是**与本枚无关的存量红**(实测 2026-10-24T02:40~06:04
- * 八轮:门 130 的 F4「同一件事多条待办 由基线 0 涨到 1」在落地前的父提交面上同样判红、证据逐字相同)。
- * 清扫器把一枚**已经落地**的摘除报成 refused ⇒ 下一轮又有新滞留、再撞同一堵墙 ⇒ 器物空转。
- *
- * 本函数**不碰判据**:它只回答"这条红是不是本枚带来的"。依据 = 用**同一个复跑实现**
- * (lib/land-gate-rerun,§0.6)在落地前(父提交面)与落地后各测一次,逐臂比对判红证据:
- *   · 落地前没红的臂 ⇒ 新红,归因失败(照旧 refused);
- *   · 落地前红、落地后红但**出现落地前没有的证据行** ⇒ 新红,归因失败;
- *   · 落地后每一条证据行都在落地前那一次里 ⇒ 存量红,可归因。
- * `verdict` 不是 1(含 2 = 无法判定)**一律归因失败** —— 未判定不等于通过(§0.3);
- * 归因成功也**不代表门变绿**:门照旧判红、提交链照旧拦,扫掉的只是"这枚摘除造成的"这句话。
- */
-export function redEvidence(out) {
-  return String(out ?? '')
-    .split(/\r?\n/)
-    .map((l) => l.replace(/\x1b\[[0-9;]*m/g, '').replace(/\s+$/, ''))
-    .filter((l) => {
-      const t = l.trimStart()
-      if (t === '') return false
-      // 判红头行(❌ …)+ 其下的证据明细(`   F11 …` 的逐行点名 / `     - …` 的丢失行)
-      return t.startsWith('❌') || /^\s{3,}(?:[-·]|F\d)/.test(l)
-    })
-}
-
-/**
- * @returns {{ok:boolean, preexisting:Array, newArms:Array, why?:string, preVerdict?:number, postVerdict?:number}}
- */
-export function attributePreexistingRed({ pre, post } = {}) {
-  if (!pre || !post)
-    return { ok: false, preexisting: [], newArms: [], why: '预探或落地后复跑取不到(归因未判定)' }
-  if (pre.verdict !== 1 || post.verdict !== 1)
-    return {
-      ok: false,
-      preexisting: [],
-      newArms: [],
-      preVerdict: pre.verdict,
-      postVerdict: post.verdict,
-      why: `不是双侧 blocking 判红(pre=${pre.verdict}, post=${post.verdict})⇒ 未判定不按存量放行`,
-    }
-  const armKey = (a) => `${a.id ?? a.kind ?? '?'}|${a.script ?? ''}`
-  const preArms = new Map((pre.failed ?? []).map((f) => [armKey(f), new Set(redEvidence(f.out))]))
-  const preexisting = []
-  const newArms = []
-  for (const f of post.failed ?? []) {
-    const key = armKey(f)
-    const before = preArms.get(key)
-    const lines = redEvidence(f.out)
-    if (!lines.length) {
-      newArms.push({
-        id: f.id ?? null,
-        script: f.script ?? null,
-        why: '落地后判红证据取不到 ⇒ 无法归因',
-      })
-      continue
-    }
-    if (!before) {
-      newArms.push({ id: f.id ?? null, script: f.script ?? null, why: '落地前这一臂没判红' })
-      continue
-    }
-    const fresh = lines.filter((l) => !before.has(l))
-    if (fresh.length)
-      newArms.push({
-        id: f.id ?? null,
-        script: f.script ?? null,
-        why: '出现落地前没有的判红证据',
-        sample: fresh.slice(0, 3),
-      })
-    else preexisting.push({ id: f.id ?? null, script: f.script ?? null, evidence: lines.length })
-  }
-  if ((post.failed ?? []).length === 0)
-    newArms.push({ id: null, script: null, why: '落地后没有判红臂却自称判红' })
-  return {
-    ok: newArms.length === 0 && preexisting.length > 0,
-    preexisting,
-    newArms,
-    preVerdict: pre.verdict,
-    postVerdict: post.verdict,
-    why: newArms.length
-      ? `本枚引入或无法归因的判红臂 ${newArms.length} 个`
-      : '全部判红臂均为存量红',
-  }
 }
 
 /** 自检:纯函数夹具,不落盘、不碰仓库。 */
@@ -929,31 +818,8 @@ function main() {
   // 必须声明在 try 之外:留痕段在 try/finally 之后读取它(声明在 try 内会 ReferenceError,
   // 落地成功也写不进留痕 ⇒ 正是"摘一次、回一次"的根因)。
   const headBefore = git(['rev-parse', 'HEAD']).trim()
-  // 落地前预探受影响判据(只读):**与落地后复跑同一实现**,判的是落地前的父提交面。
-  // 用途只有一格 —— 落地器 exit≠0 时把"存量红"与"本枚带来的红"分开(见 attributePreexistingRed)。
-  // 预探自身不改判据、不跳过任何门;跳过开关跟着落地器那一格走(IHUI_LAND_SKIP_AFFECTED_GATES)。
-  let preProbe = null
-  if (!rerunAffectedGates)
-    console.log(
-      `${C.yellow}⏭ 落地前受影响门预探未跑:${C.reset}lib/land-gate-rerun.mjs 取不到(净检出形态)⇒ 归因不可用,落地器 exit≠0 时照旧落 refused(不猜"存量红")`,
-    )
-  else if (process.env.IHUI_LAND_SKIP_AFFECTED_GATES !== '1') {
-    console.log(
-      `${C.cyan}🔎 落地前受影响门预探(只读;与落地后复跑同一实现 lib/land-gate-rerun,不跳过任何门)${C.reset}`,
-    )
-    preProbe = rerunAffectedGates({ root: ROOT, paths: [FILE] })
-    console.log(
-      `   预探结论:verdict=${preProbe.verdict}(0 全绿 / 1 判红 / 2 未判定)` +
-        (preProbe.failed.length
-          ? ` 已判红 ${preProbe.failed.length} 臂:${preProbe.failed.map((f) => f.id ?? f.kind).join(' / ')}(落地后若仍是同一批证据 ⇒ 归为存量红)`
-          : ' 无判红臂'),
-    )
-  }
   const dir = mkScratch('ihui-strip-closed-')
   // 落地器的退出码要带出 try 块:留痕段(try 之后)要拿它决定"该怎么解释这次推进"。
-  // **绝不在 try 里 process.exit**:那会让留痕与推送腿被整段跳过 —— 2026-10-24 实测
-  // (02:40~06:04 八轮)落地器的 exit 1 全部来自"落地后复跑判红",而 HEAD 已推进 ⇒
-  // 每一轮都成了"无凭据摘除 + 推送腿不跑",行摘了又回潮、下一轮再撞同一堵墙。
   let landStatus = 0
   try {
     const newPath = path.join(dir, 'new.md')
@@ -997,11 +863,18 @@ function main() {
     const out = `${land.stdout ?? ''}${land.stderr ?? ''}`
     landStatus = land.status ?? 0
     console.log(out.split('\n').slice(-12).join('\n'))
-    if (landStatus !== 0)
+    if (land.status !== 0) {
       console.error(
-        `${C.red}❌ 落地器 exit ${landStatus}${C.reset} ⇒ 先按 HEAD 是否推进取凭据(留痕/推送腿照跑),` +
-          `归因(存量红 vs 本枚判红)在推送腿之后给出`,
+        `${C.red}❌ 落地器拒绝(exit ${land.status})${C.reset} ⇒ 不重试、不强推,交人工看上面的点名`,
       )
+      emitResult('refused', {
+        stale: v.stale.length,
+        held: part.held.length,
+        stripped: 0,
+        why: 'landing-rejected-' + land.status,
+      })
+      process.exit(1)
+    }
   } finally {
     rmScratch(dir)
   }
@@ -1029,7 +902,7 @@ function main() {
     } else {
       console.log(
         `${C.cyan}📝 摘除留痕 ${ledger.written} 条 → ${ledger.file}(回潮防线的凭据)` +
-          (landStatus !== 0 ? ` —— 落地器 exit ${landStatus} 但 HEAD 已推进 ⇒ 按推进事实留痕` : '') +
+          (landStatus !== 0 ? ` —— 落地器 exit ${landStatus} 属回读未判定,而 HEAD 已推进 ⇒ 按推进事实留痕` : '') +
           C.reset,
       )
     }
@@ -1051,56 +924,6 @@ function main() {
   console.log(
     `${push.status === 0 ? C.green + '✅ 推送腿已派发' : C.yellow + '⚠️ 推送腿 exit ' + push.status + '(不阻断,交 converge)' + C.reset}`,
   )
-
-  // ── 落地器 exit≠0 的归因(2026-10-24 立)──────────────────────────────────────
-  // 落地器复跑的是**绝对判据**:它不区分"本枚带来的红"与"面上本来就有的存量红"。
-  // 2026-10-24T02:40~06:04 八轮实测:门 130 的 F4 副本行在落地前的父提交面上同样判红、
-  // 证据逐字相同,而清扫器把一枚**已经落地**(HEAD 已推进、留痕已写、推送已派发)的摘除
-  // 报成 refused ⇒ 每轮都"失败",器物空转。这里只做归因,**不改任何门的判据/阈值/豁免**:
-  // 归因成功 = 报告"摘除已落地 + 存量红仍在(点名)",门照旧红、提交链照旧拦。
-  if (landStatus !== 0) {
-    let postProbe = null
-    if (advanced && rerunAffectedGates) {
-      console.log(`${C.cyan}🔎 落地后受影响门复跑(归因用;与预探同一实现)${C.reset}`)
-      postProbe = rerunAffectedGates({ root: ROOT, paths: [FILE] })
-    }
-    const attribution = attributePreexistingRed({ pre: preProbe, post: postProbe })
-    if (attribution.ok) {
-      const ids = attribution.preexisting.map((p) => p.id ?? p.script ?? '?').join(',')
-      console.error(
-        `${C.yellow}⚠️ 落地器 exit ${landStatus} 经归因为**存量红**${C.reset}:判红臂 ${ids} 在落地前同一面已判红,` +
-          `落地后证据行逐行未增 ⇒ 这枚摘除未引入新判红。判据未豁免、未改,门照旧红、提交链照旧拦;` +
-          `本条只纠正"这枚摘除造成了判红"的错误归因。`,
-      )
-      console.log(
-        `${C.green}✅ 清扫完成(带存量红):摘除 ${plan.removed} 条(跳过 ${part.held.length} 条仍保护者,已逐条点名);` +
-          `HEAD 现为 ${git(['rev-parse', 'HEAD']).trim().slice(0, 11)};存量红:${ids}${C.reset}`,
-      )
-      emitResult('stripped', {
-        stale: v.stale.length,
-        held: part.held.length,
-        stripped: plan.removed,
-        lostOnHead: part.baseLostCount,
-        preexisting: ids,
-      })
-      process.exit(0)
-    }
-    console.error(
-      `${C.red}❌ 落地器拒绝(exit ${landStatus})${C.reset} ⇒ 不重试、不强推,交人工看上面的点名` +
-        `(归因:${attribution.why ?? '未判定'}${attribution.newArms?.length ? `;新红臂 ${attribution.newArms.map((a) => a.id ?? a.script ?? '?').join(',')}` : ''})` +
-        (advanced
-          ? `;本枚已在 HEAD ${git(['rev-parse', 'HEAD']).trim().slice(0, 11)},留痕与推送腿已按推进事实执行`
-          : ';HEAD 未推进,本轮不写留痕'),
-    )
-    emitResult('refused', {
-      stale: v.stale.length,
-      held: part.held.length,
-      stripped: 0,
-      why: 'landing-rejected-' + landStatus,
-    })
-    process.exit(1)
-  }
-
   console.log(
     `${C.green}✅ 清扫完成:摘除 ${plan.removed} 条(跳过 ${part.held.length} 条仍保护者,已逐条点名);HEAD 现为 ${git(['rev-parse', 'HEAD']).trim().slice(0, 11)}${C.reset}`,
   )
@@ -1130,8 +953,6 @@ export const __test__ = {
   buildLineLossRuler,
   partitionStaleByProtection,
   sweepOutcome,
-  redEvidence,
-  attributePreexistingRed,
   FILE,
   BATCH_CAP,
 }

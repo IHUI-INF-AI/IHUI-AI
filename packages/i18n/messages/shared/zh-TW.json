@@ -80,7 +80,6 @@
     "toolAudioTranscription": "音訊轉文字",
     "toolVisionAnalyze": "辨識圖片內容",
     "toolDispatchSubagent": "派遣子代理",
-    "toolTeamTask": "管理團隊共享任務",
     "toolScheduleTask": "建立排程任務",
     "toolBgTaskStatus": "查詢背景任務",
     "toolUiDescribe": "讀取頁面控制項",
@@ -190,7 +189,6 @@
     "toolDebugListSessions": "調試會話列表",
     "toolVendorVoiceClone": "複製聲紋",
     "toolRequestBusinessForm": "請求填寫業務表單",
-    "toolInitAgentsMd": "初始化 AGENTS.md 文件",
     "fileActivity": "{state, select, running {正在處理檔案} completed {已處理檔案} other {處理檔案}}",
     "imageActivity": "{state, select, running {正在處理圖像} completed {已處理圖像} other {處理圖像}}",
     "searchActivity": "{state, select, running {正在檢索} completed {已檢索} other {檢索}}",
@@ -231,8 +229,7 @@
     "toolMcpToolGetFileActivity": "{state, select, running {正在取得檔案} completed {已取得檔案} other {取得檔案}}",
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {正在取得檔案「{name}」} completed {已取得檔案「{name}」} other {取得檔案「{name}」}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {正在檢索文件} completed {已檢索文件} other {檢索文件}}",
-    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {正在檢索文件「{name}」} completed {已檢索文件「{name}」} other {檢索文件「{name}」}}",
-    "toolInitAgentsMdActivity": "{state, select, running {正在初始化 AGENTS.md 文件} completed {已初始化 AGENTS.md 文件} other {初始化 AGENTS.md 文件}}"
+    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {正在檢索文件「{name}」} completed {已檢索文件「{name}」} other {檢索文件「{name}」}}"
   },
   "a11y": {
     "addAttachment": "新增附件(圖片/影片/檔案)",
@@ -266,7 +263,7 @@
   },
   "about": {
     "loading": "載入中...",
-    "metaDescription": "智匯 AI(IHUI AI)是一站式全端 AI 作業系統,整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議,支援 Web / 桌面 / 小程式 / 瀏覽器外掛 / React Native / Capacitor / CLI 九端同源,Apache 2.0 開源。",
+    "metaDescription": "智匯 AI(IHUI AI)是一站式全端 AI 作業系統,整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議,支援 Web / 桌面 / 小程式 / 瀏覽器外掛 / React Native / CLI 六端同源,Apache 2.0 開源。",
     "metaTitle": "關於我們 — 智匯 AI"
   },
   "agreement": {
@@ -2498,7 +2495,7 @@
               "runtimeNoInterject": "此 Runtime 不支援插入語句，訊息將留在佇列依序處理",
               "queueChanged": "佇列已被並行操作改動，當前順序已失效",
               "controlCommand": "控制命令無法插入執行中的 Turn，訊息將留在佇列依序處理",
-              "awaitingApproval": "有待核準的高風險操作，插話將暫讓，請先完成決策"
+              "awaitingApproval": "有待核准的高風險操作，插話將暫讓，請先完成決策"
             }
           }
         }

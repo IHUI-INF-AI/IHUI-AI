@@ -37,9 +37,6 @@ import {
   type ImportAccountInput,
 } from '../src/services/relay-account-pool-service.js'
 import { RELAY_PROVIDERS, type RelayProviderCode } from '../src/services/relay-account-format.js'
-// G-322 单源:带值旗标的取值出口(禁复制判据 §22c)。
-// @ts-expect-error scripts/*.mjs 无类型声明,apps/api tsconfig include 只收 src/**(脚本面不进 typecheck)
-import { isFlagValueToken } from '../../../scripts/lib/flag-value.mjs'
 
 // =============================================================================
 // 类型与纯函数(单测覆盖)
@@ -144,36 +141,15 @@ interface CliArgs {
   dryRun: boolean
 }
 
-/** 实得值进错误文案前必须**有界**(门 181):超 120 UTF-8 字节即截断并报原文大小,避免把整段 token 写进持久记录。 */
-function clipJsonText(json: string, maxBytes = 120): string {
-  const encoded = new TextEncoder().encode(json)
-  if (encoded.length <= maxBytes) return json
-  const head = new TextDecoder().decode(encoded.subarray(0, maxBytes))
-  return `${head.replace(/\uFFFD+$/, '')}…(截断,原文 ${encoded.length} 字节)`
-}
-
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { provider: 'qoder', dryRun: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    // G-322:带值旗标的值被紧邻旗标顶掉(`--file --dry-run`)或结尾无值时,旧写法
-    // `argv[++i]` 无条件吞掉并顺带跳过那枚旗标 —— 现在统一经 isFlagValueToken 校验,
-    // 值无效即抛错点名(与"未知参数"同一退出档),禁复制判据(§22c 单源 flag-value.mjs)。
-    // @ts-expect-error scripts/*.mjs 无类型声明,apps/api tsconfig include 只收 src/**(脚本面不进 typecheck)
-    const takeValue = (tok: string | undefined): string => {
-      if (!isFlagValueToken(tok)) {
-        throw new Error(
-          `--${a.replace(/^--/, '')} 需要一个参数 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : clipJsonText(JSON.stringify(tok))}(不得吞掉相邻旗标)`,
-        )
-      }
-      i++
-      return tok
-    }
-    if (a === '--file') args.file = takeValue(argv[i + 1])
-    else if (a === '--session-file') args.sessionFile = takeValue(argv[i + 1])
+    if (a === '--file') args.file = argv[++i]
+    else if (a === '--session-file') args.sessionFile = argv[++i]
     else if (a === '--dry-run') args.dryRun = true
     else if (a === '--provider') {
-      const v = takeValue(argv[i + 1])
+      const v = argv[++i] ?? ''
       if (!(RELAY_PROVIDERS as readonly string[]).includes(v)) {
         throw new Error(`不支持的 provider: ${v}(可选 ${RELAY_PROVIDERS.join('|')})`)
       }
@@ -199,8 +175,6 @@ function captureLocalSessions(): QoderSession[] {
     {
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
-      // §12g:派生必须显式接管 stdio(不吃 stdin ⇒ 首通道 ignore,stdout 要回读 JSON ⇒ 管道)
-      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     },
   )
