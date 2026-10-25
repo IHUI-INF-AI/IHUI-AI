@@ -2,10 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import {
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -16,6 +15,13 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import {
+  CategoryItemContent,
+  categoryItemA11yLabel,
+  useCategorySelectedIndex,
+  useScrollCategoryIntoView,
+} from './category-bar-core'
+import { renderRnCategoryIcon, rnCategoryPrimitives } from './rn-primitives'
 import type { CategoryItem, ColorSchemeName } from './types'
 
 export interface CategoryInlineBarProps {
@@ -85,30 +91,24 @@ export function CategoryInlineBar({
   const styles = useMemo(() => createStyles(tk), [tk])
   const listRef = useRef<FlatList<CategoryItem>>(null)
 
-  // 只按"选中项下标"滚动:调用方多处直接内联 items={x.map(...)},数组 identity 每次
-  // render 都在变。依赖数组会让 effect 每轮重跑,用户刚横滑到第 12 项,父层任意一次
-  // setState(输入/加载)就把条拽回选中项 —— 故 effect 只认下标变化。
-  const selectedIndex = selectedId === null ? -1 : items.findIndex((it) => it.id === selectedId)
-  useEffect(() => {
-    if (selectedIndex < 0) return
-    try {
-      listRef.current?.scrollToIndex({ index: selectedIndex, animated: true, viewPosition: 0.5 })
-    } catch {
-      // 未布局完成时 scrollToIndex 抛错,忽略
-    }
-  }, [selectedIndex])
+  // 选中下标与滚入视野的时序统一走核心(只认下标、不认 items 身份):
+  // 调用方多处直接内联 items={x.map(...)},数组 identity 每轮都在变。依赖数组若含 items,
+  // 用户刚横滑到第 12 项,父层任意一次 setState(输入/加载)就把条拽回选中项。
+  const selectedIndex = useCategorySelectedIndex(items, selectedId)
+  useScrollCategoryIntoView(selectedIndex, (index) => {
+    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 })
+  })
 
   if (items.length === 0) return null
 
   const renderItem = ({ item }: ListRenderItemInfo<CategoryItem>) => {
     const active = item.id === selectedId
-    const Icon = item.icon
     return (
       <Pressable
         onPress={() => onSelect(item.id)}
         accessibilityRole="tab"
         accessibilityState={{ selected: active }}
-        accessibilityLabel={item.a11yLabel ?? item.label}
+        accessibilityLabel={categoryItemA11yLabel(item)}
         hitSlop={4}
       >
         {({ pressed }) => (
@@ -123,39 +123,33 @@ export function CategoryInlineBar({
                 见守门 131)—— 早先这里写 `style={({pressed}) => …}`,于是"按压反馈留在
                 Pressable"只是个账面说法,手机上从来没有淡出。改走 children 函数形态:
                 它是 RN 自己的 API,不经 interop 的 style 通道。 */}
-            {Icon ? (
-              <Icon
-                size={item.iconSize ?? 16}
-                color={active ? tk.brand.ctaForeground : tk.text.secondary}
-              />
-            ) : item.image ? (
-              <Image
-                source={item.image}
-                style={[
-                  styles.itemImage,
-                  item.iconSize ? { width: item.iconSize, height: item.iconSize } : null,
-                ]}
-                resizeMode="contain"
-              />
-            ) : null}
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[styles.itemText, active ? styles.itemTextActive : null]}
-            >
-              {item.label}
-            </Text>
-            {typeof item.count === 'number' ? (
-              <CountBadge
-                value={item.count}
-                selected={active}
-                styles={styles}
-                activeTextColor={tk.brand.DEFAULT}
-                idleTextColor={tk.text.secondary}
-                activeBg={tk.brand.ctaForeground}
-                idleBg={tk.surface.muted}
-              />
-            ) : null}
+            {/* 条目内容的「图标 → 图片 → 文案 → 计数」顺序由核心统一,与下拉窗同一份实现;
+                这里只注入 RN 原语,不再抄第二遍结构。 */}
+            <CategoryItemContent
+              item={item}
+              active={active}
+              primitives={rnCategoryPrimitives}
+              renderIcon={renderRnCategoryIcon}
+              defaultIconSize={16}
+              iconColor={tk.text.secondary}
+              activeIconColor={tk.brand.ctaForeground}
+              textStyle={styles.itemText}
+              activeTextStyle={[styles.itemText, styles.itemTextActive]}
+              imageStyle={styles.itemImage}
+              trailing={
+                typeof item.count === 'number' ? (
+                  <CountBadge
+                    value={item.count}
+                    selected={active}
+                    styles={styles}
+                    activeTextColor={tk.brand.DEFAULT}
+                    idleTextColor={tk.text.secondary}
+                    activeBg={tk.brand.ctaForeground}
+                    idleBg={tk.surface.muted}
+                  />
+                ) : null
+              }
+            />
           </View>
         )}
       </Pressable>

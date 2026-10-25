@@ -50,6 +50,9 @@ import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { isFullAccessConfirmSuppressed } from './full-access-confirm-dialog'
 import { permissionTierText } from '@/lib/permission-tier-text'
+// 79 号票(2026-10-25 立):双轴的本机记忆。本弹层由输入框常驻渲染,是最早的稳定挂载点;
+// 在此读回 localStorage,并在 store 的 permissionAxes 变化时落盘(含"跟随单轴"时的清空)。
+import { usePermissionAxesPersistence } from '@/lib/permission-axes-prefs'
 
 /** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
 const PERMISSION_MODE_OVERLAY_ID = 'permission-mode-popover'
@@ -127,6 +130,8 @@ export function PermissionModePopover({
   // G-166:档位名与说明改走跨端共享词表(permissionTier),端内私有键已退役
   const tTier = useTranslations()
   const tCommon = useTranslations('common')
+  // 79 号票:双轴本机记忆的唯一接线点(读回 + 变化即落盘),见 lib/permission-axes-prefs.ts
+  usePermissionAxesPersistence()
 
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   // 未绑定工作区时暂存的权限模式(2026-08-31 修复按钮不响应 bug 的响应式数据源)

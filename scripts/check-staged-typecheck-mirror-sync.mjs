@@ -64,7 +64,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -98,7 +98,12 @@ const QUIET = argv.includes('--quiet')
 const JSON_OUT = argv.includes('--json')
 const SHOW_HELP = argv.includes('--help') || argv.includes('-h')
 
-if (SHOW_HELP) {
+// §22d(G-239)双形态入口:此前顶层直接点火 main(),任何 import 都会真的去读源/测文件并 process.exit。
+// 守卫只决定何时点火,不改判什么;须经 pathToFileURL():Windows 下 argv[1] 带反斜杠,手拼永不相等。
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun && SHOW_HELP) {
   console.log(`
 check-staged-typecheck-mirror-sync.mjs — 源/测 export 锚点回归测试
 
@@ -380,21 +385,33 @@ function main() {
   process.exit(1)
 }
 
-try {
-  main()
-} catch (err) {
-  if (JSON_OUT) {
-    console.log(
-      reportToJson({
-        ok: false,
-        error: 'script_exception',
-        message: err?.message || String(err),
-      }),
-    )
-  } else {
-    log('err', `脚本执行异常: ${err?.message || String(err)}`)
-    if (err?.stack) console.error(err.stack)
+if (isDirectRun) {
+  try {
+    main()
+  } catch (err) {
+    if (JSON_OUT) {
+      console.log(
+        reportToJson({
+          ok: false,
+          error: 'script_exception',
+          message: err?.message || String(err),
+        }),
+      )
+    } else {
+      log('err', `脚本执行异常: ${err?.message || String(err)}`)
+      if (err?.stack) console.error(err.stack)
+    }
+    process.exit(2)
   }
-  process.exit(2)
+}
+
+// §22c/§22d(G-239):导出判据单元,镜像测试可走「调生产入口」通道,不必再抄一份材料。
+// 导入本模块(经 isDirectRun 守卫)不触发 CLI、不读源/测文件、不 process.exit。
+export const __test__ = {
+  EXPECTED_KEYS,
+  stripComments,
+  extractTestExportKeys,
+  extractKeyNames,
+  main,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

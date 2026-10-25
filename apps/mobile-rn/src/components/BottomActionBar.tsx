@@ -32,6 +32,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type GestureResponderEvent,
   type ImageStyle,
   type StyleProp,
   type TextStyle,
@@ -63,6 +64,9 @@ import {
 } from 'lucide-react-native'
 
 import { rnGeometry, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+// O02 票④(2026-10-25):发送键的**结构**(方块 + 居中字形 + button 角色 + 按压/禁用通道)
+// 收进平台无关核心,本文件只留 StyleSheet 适配 + 平台原语(照 BackChevron 的形态)。
+import { BottomActionBarControl, type BottomActionBarPlatform } from '@ihui/shared/ui'
 import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
   BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
@@ -277,6 +281,61 @@ const MODEL_BAR_HEIGHT = 28
 const MODEL_BAR_FONT_SIZE = BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX
 
 const EMPTY_ACTIONS: ReadonlyArray<BottomActionBarAction> = []
+
+/**
+ * 注入给共享核心的平台原语(RN 这一端的适配器)。
+ * 这里**只**做"平台件怎么摆":盒子用 react-native View(dp 数)、可按压用 Pressable
+ * (pressed 只能落在子 View 的数组样式上,故由本原语合成),字形走 lucide-react-native。
+ * 结构与几何一律由 core 供出 —— 本文件不再自己写一份发送键的方块/字形尺寸。
+ */
+const SEND_GLYPHS: Record<string, typeof ArrowUp> = {
+  'arrow-up': ArrowUp,
+  square: Square,
+}
+
+const rnPlatform: BottomActionBarPlatform<number, StyleProp<ViewStyle>, GestureResponderEvent> = {
+  // RN 的几何单位本来就是 dp(= 逻辑 px),与 spec 的逻辑 px 恒等;墨迹 size 同单位。
+  toUnit: (px) => px,
+  glyphUnit: (px) => px,
+  View: ({ style, boxStyle, children }) => (
+    <View style={[boxStyle as ViewStyle, style]}>{children}</View>
+  ),
+  Text: ({ fontSize, color, children }) => <Text style={{ fontSize, color }}>{children}</Text>,
+  Pressable: ({
+    accessibilityLabel,
+    onActivate,
+    disabled,
+    active,
+    boxStyle,
+    style,
+    activeStyle,
+    disabledStyle,
+    children,
+  }) => (
+    <Pressable
+      style={[
+        boxStyle as ViewStyle,
+        style,
+        active === true ? activeStyle : null,
+        disabled === true ? disabledStyle : null,
+      ]}
+      onPress={onActivate}
+      disabled={disabled}
+      // 可点区扩张通道沿用本文件既有口径(可见盒 32 不变,命中区扩到 40)
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      {children}
+    </Pressable>
+  ),
+  Glyph: ({ name, size, color }) => {
+    const GlyphIcon = SEND_GLYPHS[name]
+    if (!GlyphIcon) return null
+    // 停止语义的 Square 是实心方块(与 web 发送簇同形);导出箭头是描边字形。
+    return <GlyphIcon size={size} color={color} fill={name === 'square' ? color : undefined} />
+  },
+}
 
 export function BottomActionBar(props: BottomActionBarProps) {
   // 新模式:聊天输入(prompt 提供,含空串)
@@ -685,29 +744,24 @@ function ChatInputBar(props: BottomActionBarProps) {
         ) : null}
 
         {onSend !== undefined ? (
-          <Pressable
-            style={[styles.sendBtn, isLoading ? styles.sendBtnDisabled : null]}
-            onPress={onSend}
+          /* 发送键:方块 32 / 字形 16 / button 角色 / 禁用通道由 core 的 control 一支供出;
+             本端只给 StyleSheet 视觉(bg / 圆角 / 居中)与停止态字形。
+             流式/发送中 = 停止语义:与 web 发送簇 Square(实心方块)同形,
+             不再用 ActivityIndicator 充当图标(AGENTS §4 矢量铁律)。
+             发送字形 2026-10-15 再裁决:与 web 发送簇 ArrowUp 同形同档(h-4 = 16),
+             告别旧裁决的 lucide `Send` 纸飞机(墨迹 14);此前更早的形态是文字「发送」胶囊。 */
+          <BottomActionBarControl
+            platform={rnPlatform}
+            boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
+            glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
+            glyph={isLoading ? 'square' : 'arrow-up'}
+            glyphColor={tokens.brand.ctaForeground}
+            label={t('chat.send')}
+            onActivate={onSend}
             disabled={isLoading}
-            hitSlop={4}
-            accessibilityRole="button"
-            accessibilityLabel={t('chat.send')}
-          >
-            {isLoading ? (
-              /* 流式/发送中 = 停止语义:与 web 发送簇 Square(实心方块)同形,
-                 不再用 ActivityIndicator 充当图标(AGENTS §4 矢量铁律)。 */
-              <Square
-                size={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
-                color={tokens.brand.ctaForeground}
-                fill={tokens.brand.ctaForeground}
-              />
-            ) : (
-              /* 发送字形 2026-10-15 再裁决:与 web 发送簇 ArrowUp 同形同档(h-4 = 16),
-                 告别旧裁决的 lucide `Send` 纸飞机(墨迹 14);档源 BOTTOM_ACTION_BAR_SEND_GLYPH_PX。
-                 此前更早的形态是文字「发送」胶囊(硬编码中文,三端唯一的文字胶囊)。 */
-              <ArrowUp size={BOTTOM_ACTION_BAR_SEND_GLYPH_PX} color={tokens.brand.ctaForeground} />
-            )}
-          </Pressable>
+            style={styles.sendBtn}
+            disabledStyle={styles.sendBtnDisabled}
+          />
         ) : null}
       </View>
 
@@ -1131,11 +1185,10 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     includeFontPadding: false,
   } as TextStyle,
-  // 发送可见方块:档源在共享 spec(= web `message-input.tsx` 的 `h-8 w-8` = 32)。
+  // 发送可见方块:档源在共享 spec(= web `message-input.tsx` 的 `h-8 w-8` = 32)与共享 core;
+  // 本档只留视觉(底色 / 圆角 / 居中),方块边长由 core 供出 —— 同一枚 32 不在本文件再写一遍。
   // 可点区不减:`hitSlop`(本文件多处已在用)把命中区扩到 40,可见盒与小程序端逐档同值。
   sendBtn: {
-    width: BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
-    height: BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
     borderRadius: INPUT_BORDER_RADIUS,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',

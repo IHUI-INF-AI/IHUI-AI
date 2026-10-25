@@ -27,10 +27,9 @@
  *   node scripts/check-token-literal-debt.mjs --strict   # 全量问责存量(人工盘点用,不进提交链)
  *   node scripts/check-token-literal-debt.mjs --self-test
  */
-import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import { migrateText } from './tokens-migrate.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -47,8 +46,10 @@ export function addedDebt(headHits, stagedHits) {
   return Math.max(0, stagedHits - headHits)
 }
 
-function git(args, opts = {}) {
-  return execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], ...opts })
+function git(args) {
+  // 取材统一走层(scripts/lib/face-reader.mjs):-C/encoding/显式 stdio 由 gitRaw 接管
+  // (另带 safe.directory + quotepath),不再自拼裸 'git' 派生;maxBuffer 与原调用一致。
+  return gitRaw(args, ROOT, { maxBuffer: 1 << 28 })
 }
 
 function scopedTracked() {

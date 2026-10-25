@@ -150,15 +150,15 @@
  * 紧急跳过:HUSKY_SKIP_BRAND_FOREGROUND=1
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 判定面取材的唯一出口(2026-09-26 迁,守门 118 的 loose-git 档收口)。此前本门自己派生
 // `execFileSync('git', ['show', 'HEAD:<rel>'])` **逐文件**读正文 —— 裸 `'git'` 依赖 PATH
 // (服务账户 / GUI 宿主与交互终端不通,AGENTS §5b),而 500+ 文件 = 500 次进程创建:本门自述
 // "27–45s 的大头正是逐文件 git show 取材成本",迁成一次 batch 是唯一正确的性能修法。
-// 保留 execFileSync 只用于**枚举路径清单**(ls-files / diff --cached / grep -l),不读正文。
-import { Undetermined, catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+// 2026-10-26(G-54):枚举路径清单(ls-files / diff --cached / grep -l)也统一走 gitRaw —— 本文件
+// 现读零裸派生(型 A 尺子对 `execFileSync('git', …)` 的计数由此清零,行为面逐字段等值)。
+import { Undetermined, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -504,18 +504,11 @@ function r5Prefilter(fromHead) {
   const paths = ['--', ...R5_DIRS]
   const one = (pat) => {
     try {
-      const out = execFileSync(
-        'git',
-        ['-c', 'safe.directory=*', 'grep', '-l', '-I', '-e', pat, ...revArgs, ...paths],
-        {
-          cwd: ROOT,
-          encoding: 'utf8',
-          maxBuffer: 1 << 26,
-          windowsHide: true,
-          timeout: 30000,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        },
-      )
+      // 枚举走取材层(G-54/G-927):gitRaw 自带绝对 git + safe.directory + 显式 stdio + timeout。
+      const out = gitRaw(['grep', '-l', '-I', '-e', pat, ...revArgs, ...paths], ROOT, {
+        maxBuffer: 1 << 26,
+        timeout: 30000,
+      })
       return out
         .split('\n')
         .filter(Boolean)
@@ -538,20 +531,8 @@ function r5Prefilter(fromHead) {
 function listR5Files() {
   const tracked = [
     ...new Set(
-      execFileSync('git', ['ls-files', ...R5_DIRS], {
-        cwd: ROOT,
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 30000,
-        /**
-         * stdio 必须显式接管(2026-10-03 立):本宿主派生 git 会 EBUSY(同刻 bash 里 git 正常
-         * ⇒ 排除 git 被锁与并发),凡走默认 stdio 继承的派生一律 `spawnSync git EBUSY`。
-         * 实测同一段代码:补 stdio 前 0/30 成功,补后 30/30 成功(成组对照,单次探测会读到
-         * 偶发成功的假象)。这一处是本仓第三例同型(前两例:plan-tasks-merge 的 gitIn、
-         * plan-tasks-merge.test 的 gitQ)—— 凡裸 `execFileSync('git', …)` 都得照此补齐。
-         */
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      // 枚举走取材层:绝对 git / 显式 stdio(§12g,EBUSY 病窗)/ windowsHide / timeout 由 gitRaw 统一提供。
+      gitRaw(['ls-files', ...R5_DIRS], ROOT, { timeout: 30000 })
         .split('\n')
         .filter((f) => isR5Scope(f)),
     ),
@@ -571,12 +552,8 @@ function listR5Files() {
 
 /** R5 待判文件清单(--staged 口径:暂存文件 ∩ R5 范围,清单已经很小,不预筛) */
 function stagedR5Files() {
-  const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
+  const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT, {
     timeout: 30000,
-    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\n')
     .filter((f) => isR5Scope(f))
@@ -595,22 +572,10 @@ function stagedR5Files() {
 function r8Prefilter(fromHead) {
   const revArgs = fromHead ? ['HEAD'] : ['--cached']
   try {
-    const out = execFileSync(
-      'git',
-      [
-        '-c',
-        'safe.directory=*',
-        'grep',
-        '-l',
-        '-I',
-        '-P',
-        '-e',
-        R8_CLASS_GREP_PATTERN,
-        ...revArgs,
-        '--',
-        ...R8_DIRS,
-      ],
-      { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] },
+    const out = gitRaw(
+      ['grep', '-l', '-I', '-P', '-e', R8_CLASS_GREP_PATTERN, ...revArgs, '--', ...R8_DIRS],
+      ROOT,
+      { maxBuffer: 1 << 26, timeout: 30000 },
     )
     return out
       .split('\n')
@@ -626,13 +591,7 @@ function r8Prefilter(fromHead) {
 function listR8WebFiles() {
   const tracked = [
     ...new Set(
-      execFileSync('git', ['ls-files', ...R8_DIRS], {
-        cwd: ROOT,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 30000,
-      })
+      gitRaw(['ls-files', ...R8_DIRS], ROOT, { timeout: 30000 })
         .split('\n')
         .filter((f) => isR8Scope(f)),
     ),
@@ -651,12 +610,8 @@ function listR8WebFiles() {
 
 /** R8 类名面待判清单(--staged 口径:暂存 ∩ 范围,清单已很小,不预筛) */
 function stagedR8WebFiles() {
-  const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
+  const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT, {
     timeout: 30000,
-    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\n')
     .filter((f) => isR8Scope(f))
@@ -1523,28 +1478,15 @@ function isR2Scope(rel) {
 }
 
 function listTargetFiles() {
-  // git ls-files 只取跟踪文件,避免扫到 gitignore 的临时副本
-  const out = execFileSync('git', ['ls-files', ...SCAN_DIRS], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    // 2026-10-12:不写 stdio = 三通道全管道,stdin 抢句柄撞 EBUSY(本机确定性复现,
-    // 见 ihui-spawn-ebusy-fix 配方第一形态)。不消费 stdin ⇒ ['ignore','pipe','pipe'],
-    // 返回值经 stdout 管道完整保留。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  // git ls-files 只取跟踪文件,避免扫到 gitignore 的临时副本;派生统一走 gitRaw(显式 stdio 管住 EBUSY)。
+  const out = gitRaw(['ls-files', ...SCAN_DIRS], ROOT)
     .split('\n')
     .filter((f) => /\.(ts|tsx)$/.test(f))
   return out.map((rel) => path.join(ROOT, rel))
 }
 
 function stagedFiles() {
-  const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
     .split('\n')
     .filter((f) => SCAN_DIRS.some((d) => f.startsWith(`${d}/`) && /\.(ts|tsx)$/.test(f)))
   return out.map((rel) => path.join(ROOT, rel))

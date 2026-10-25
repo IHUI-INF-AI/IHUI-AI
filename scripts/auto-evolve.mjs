@@ -461,6 +461,8 @@ function dispatchSession(gates, ticket, dryRun) {
       `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
       ``,
       `按 AGENTS.md 全部强制条款执行本票;只 add 本任务文件;走 safe-commit 五步法;`,
+      `提交时绑票键(决策链审计口):PowerShell 先 $env:IHUI_TICKET_KEY='${key}';`,
+      `$env:IHUI_TICKET_LINE='<票面前 120 字>';再跑 safe-commit —— 审计器靠它把提交接回本票。`,
       `验证齐绿(typecheck/test/守门末行现读)后才可声明完成;完成即翻勾。`,
       ``,
       `完成判定(硬性,防半成品):`,
@@ -919,6 +921,28 @@ async function main(args) {
     })
     const tOut = String(tr.stdout ?? '').trim()
     if (tOut) console.log(`── 感知层分诊轮 ──\n${tOut}`)
+  }
+  // 进化回流写回轮(第 3 期):把部署环反复出现的失败桶提炼成教训并落 lessons.jsonl。
+  // 台账尚未产生过决策时 retro 按设计判「未判定」;这里显式跳过并点名原因,不把"还没部署过"读成故障,
+  // 也不让 missing 台账每小时刷一条假红。台单一就位,本腿即自动生效。
+  if (!args.includes('--no-retro')) {
+    const decisionsPath = join(ROOT, '.ihui-agent', 'deploy-decisions.jsonl')
+    if (!existsSync(decisionsPath)) {
+      console.log(`── 进化回流写回轮 ──\nℹ 跳过:部署决策台账尚未产生(${decisionsPath}),无可提炼的失败桶`)
+    } else {
+      const rr = spawnSync(process.execPath, [join(ROOT, 'scripts', 'evolution-retro.mjs'), '--apply'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: ROOT,
+        windowsHide: true,
+        timeout: 120_000,
+        encoding: 'utf8',
+      })
+      const rOut = String(rr.stdout ?? '').trim()
+      if (rOut) console.log(`── 进化回流写回轮 ──\n${rOut}`)
+      if (rr.status !== 0) {
+        console.error(`⚠ 进化回流写回未判定(rc=${rr.status ?? '?'}):${String(rr.stderr ?? '').trim().slice(-300)}`)
+      }
+    }
   }
   return out
 }

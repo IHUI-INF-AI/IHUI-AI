@@ -50,18 +50,47 @@ export function EditorEmptyState() {
     workspacePath,
     setWorkspacePath,
     fetchFileTree,
+    fetchFileContent,
     fetchDiffFiles,
     fetchGitLog,
     fetchGitBranches,
+    loading,
   } = useIDEWorkspace()
   const t = useTranslations('ide')
   const { prompt, PromptDialogRenderer } = usePrompt()
 
-  // 顶层已有 AGENTS.md ⇒ 不再展示一键生成入口(避免覆盖既有约定文档)
-  const hasAgentsMd = React.useMemo(
-    () => fileTree.some((n) => n.type === 'file' && n.name.toLowerCase() === 'agents.md'),
+  // 空态判定以**真实读取结果**为准(D118 落点②):文件树里出现 AGENTS.md 只是线索,
+  // 必须真读一次。读取失败(拿不到文件)或内容为空 ⇒ 仍算空态,照常展示一键生成入口;
+  // 只有真读到非空内容才隐藏,避免把空文件误当既有约定文档。
+  const agentsMdNode = React.useMemo(
+    () => fileTree.find((n) => n.type === 'file' && n.name.toLowerCase() === 'agents.md'),
     [fileTree],
   )
+  const [agentsMdContentState, setAgentsMdContentState] = React.useState<
+    'absent' | 'pending' | 'empty' | 'filled'
+  >('absent')
+
+  React.useEffect(() => {
+    if (!workspacePath || !agentsMdNode) {
+      setAgentsMdContentState('absent')
+      return
+    }
+    let cancelled = false
+    setAgentsMdContentState('pending')
+    fetchFileContent(agentsMdNode.path).then((content) => {
+      if (cancelled) return
+      setAgentsMdContentState(content.trim() ? 'filled' : 'empty')
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [workspacePath, agentsMdNode, fetchFileContent])
+
+  const showAgentsMdEntry =
+    !!workspacePath &&
+    !loading &&
+    agentsMdContentState !== 'filled' &&
+    agentsMdContentState !== 'pending'
 
   // 最近打开的文件:openTabs 优先,不足时从文件树补齐(最多 5 项)
   const recentFiles = React.useMemo<RecentFile[]>(() => {
@@ -148,7 +177,7 @@ export function EditorEmptyState() {
                 </button>
               ))}
             </div>
-            {workspacePath && !hasAgentsMd && (
+            {showAgentsMdEntry && (
               <div className="w-full max-w-sm">
                 <AgentsMdGenerator workspacePath={workspacePath} />
               </div>

@@ -17,10 +17,16 @@ from .project_memory import build_system_prompt
 
 @dataclass
 class PersonaContract:
-    """Persona 输入/输出契约。"""
+    """Persona 输入/输出契约。
+
+    tools(D01 2026-10-25 立):该 persona 的工具白名单摘要,**唯一**数据面 ——
+    对话内 Agent 选择器(/personas)与 chat 请求的工具并入(merge_persona_tools)
+    都从这一份读,禁止再建第二份 persona→工具映射。
+    """
 
     input_schema: dict[str, Any]
     output_schema: dict[str, Any]
+    tools: tuple[str, ...] = ()
 
 
 PERSONAS_CONTRACTS: dict[str, PersonaContract] = {
@@ -58,6 +64,7 @@ PERSONAS_CONTRACTS: dict[str, PersonaContract] = {
             "required": ["researchSummary", "recommendedApproach"],
             "additionalProperties": False,
         },
+        tools=("read_file", "list_files", "search_codebase", "analyze_code", "parse_document"),
     ),
     "coder": PersonaContract(
         input_schema={
@@ -97,6 +104,15 @@ PERSONAS_CONTRACTS: dict[str, PersonaContract] = {
             "required": ["codeChanges", "verification"],
             "additionalProperties": False,
         },
+        tools=(
+            "read_file",
+            "list_files",
+            "search_codebase",
+            "file_edit",
+            "write_file",
+            "run_command",
+            "generate_test",
+        ),
     ),
     "reviewer": PersonaContract(
         input_schema={
@@ -137,6 +153,7 @@ PERSONAS_CONTRACTS: dict[str, PersonaContract] = {
             "required": ["reviewComments", "decision"],
             "additionalProperties": False,
         },
+        tools=("read_file", "list_files", "search_codebase", "analyze_code", "review_pr"),
     ),
     "architect": PersonaContract(
         input_schema={
@@ -176,6 +193,7 @@ PERSONAS_CONTRACTS: dict[str, PersonaContract] = {
             "required": ["designDoc", "fileStructure"],
             "additionalProperties": False,
         },
+        tools=("read_file", "list_files", "search_codebase", "analyze_code"),
     ),
     "debugger": PersonaContract(
         input_schema={
@@ -204,6 +222,7 @@ PERSONAS_CONTRACTS: dict[str, PersonaContract] = {
             "required": ["rootCause", "fix"],
             "additionalProperties": False,
         },
+        tools=("read_file", "search_codebase", "run_command", "file_edit", "generate_test"),
     ),
 }
 
@@ -216,6 +235,65 @@ def get_persona_contract(persona: str) -> PersonaContract | None:
 def list_persona_names() -> list[str]:
     """列出全部 persona 名称。"""
     return list(PERSONAS_CONTRACTS.keys())
+
+
+# ════════════════════════════════════════════════
+# D01(2026-10-25)对话内 Agent 选择器运行时并入
+# 与 build_persona_system_prompt 的分工:那个是 CLI persona 子进程的**完整**提示词
+# (DEFAULT + 字典 + 项目记忆 + 契约),而主聊天链路已经把记忆/字典注入过了,
+# 再叠加一次会把同一段记忆写两遍。故 chat 侧只并入 persona 契约摘要这一段,
+# 数据仍从 PERSONAS_CONTRACTS 这唯一注册表派生 —— 不新造第二份 persona 定义。
+# ════════════════════════════════════════════════
+
+
+def persona_catalog() -> list[dict[str, Any]]:
+    """对话内 Agent 选择器的目录投影(name / description / 工具白名单摘要)。
+
+    单一出口:``/personas`` 与 ``/llm/personas`` 都调它,前端选择器与工具并入共用同一份
+    ``PERSONAS_CONTRACTS`` —— D01 明令禁止第二份 persona 定义。
+    """
+    return [
+        {
+            "name": name,
+            "description": contract.input_schema.get("description", ""),
+            "tools": list(contract.tools),
+        }
+        for name, contract in PERSONAS_CONTRACTS.items()
+    ]
+
+
+def build_persona_chat_hint(persona: str) -> str | None:
+    """对话内选中 persona 时追加到 system 尾部的 persona 说明;未知 persona 返回 None。"""
+    contract = get_persona_contract(persona)
+    if contract is None:
+        return None
+    required_in = ", ".join(contract.input_schema.get("required", [])) or "(none)"
+    required_out = ", ".join(contract.output_schema.get("required", [])) or "(none)"
+    tools = ", ".join(contract.tools) or "(none)"
+    return (
+        f"## Persona active: {persona}\n"
+        f"The user selected the '{persona}' expert from the composer. Answer this "
+        "conversation in that role.\n"
+        f"- Input contract required fields: {required_in}\n"
+        f"- Output contract required fields: {required_out}\n"
+        f"- Preferred tools: {tools}\n"
+        "Prefer the listed tools; do not claim results you did not verify."
+    )
+
+
+def merge_persona_tools(persona: str, agent_tools: list[str] | None) -> list[str] | None:
+    """把 persona 白名单**并集**进本次工具清单(与 D09 merge_tools 同语义)。
+
+    - 并集而非替换:调用方显式给的工具是用户意图,不能被选择器改写成另一张表。
+    - 保持原顺序、去重:persona 工具排在调用方清单之后。
+    - 未知 persona 原样返回(None 就还是 None,不因拼错 id 而突然给工具)。
+    """
+    contract = get_persona_contract(persona)
+    if contract is None:
+        return agent_tools
+    merged = list(agent_tools or [])
+    merged.extend(tool for tool in contract.tools if tool not in merged)
+    return merged
 
 
 # ════════════════════════════════════════════════

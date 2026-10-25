@@ -133,7 +133,7 @@ export function twinFoldResidue({ root = '', readFace } = {}) {
   }
 }
 
-/** 复清器的处置判据按**自身位置**取(判据住在器物里,本层只问它"这轮真会动几行")。 */
+/** 复清器的处置判据**只许问,不许搬**(2026-10-25 立,判据住在本器 §0.6)。 */
 function loadPurgeTool() {
   try {
     return require(join(HERE, '..', 'plan-pointer-purge.mjs'))
@@ -147,25 +147,62 @@ function loadPurgeTool() {
  *
  * 立因(全部真档实测):派生闸原来读的是三个**外围存量维**(注记 / 可折 / 同号组),
  * 而复清器真正会动的行由它自己的分层判据决定 —— 两把尺不同源,账面存量就永不为 0。
- * 现读 HEAD 面:注记 0 / 可折 0 / 同号组 1 ⇒ 每轮都派生 `--apply --absorb`;而复清器在该面上
- * 的分类是 `L1..L7 = 0/0/0/1/0/0/0`(那唯一一枚 L4 是同号组的**持有行**,它自己没有注记,
- * `stripMergeNotes` 剥出来逐字等值)⇒ 非空行 5636 → 5636,落地的 blob 只比父面多一行空行。
- * 正解不是给外围维补白名单,是让触发条件直接 import 器物那套分层判据(§0.6 单一真相源):
- * `realWorkRows` 数"渲染前后逐字不等的行",为 0 就是无事可做。
+ * 现读 23eadba0af^ 那一轮:注记 0 / 可折 0 / 同号组 1 ⇒ 每轮都派生 `--apply --absorb`;
+ * 而器物在该面上的真实处置是 0 行 ⇒ 落地的 blob 只比父面多一行空行,累计 73 枚。
+ * 正解不是给外围维补白名单,是让触发条件直接问器物那把尺(渲染前后逐字差)。
  *
- * 返回 `null` = **未判定**(面取不到 / 器物判据装不上 / 判据抛错)⇒ 不派生且必须报名,
+ * **为什么走子进程而不是 `require()` 器物(第二次实测,差点把修法做成瞎法)**:
+ * 首版在这里 require 器物,而器物有一条环回到本层
+ * (purge → plan-tasks-merge → … → lib/bypass-git → 本层)。生产入口
+ * `node scripts/plan-tasks-merge.mjs --heal --commit`(post-commit 的 plan-state-heal 那一步)
+ * 正是从环的另一侧进来的 —— 此刻 require 一个**尚未求值完毕的环内 ESM** 会抛
+ * ERR_REQUIRE_CYCLE_MODULE,被 catch 折成 null,于是现读日志
+ * (`post-commit-plan-state-heal.log`)每一轮都是「处置维未判定 / 注记未判定 / 可折未判定 /
+ * 同号组=1」⇒ 复清**永不再派生**。循环是掐死了,代价是把眼睛蒙上:真副本来了也不会清,
+ * 这违反 §12e「修红不得顺手削判据」。子进程里器物自己是入口,环不存在 ⇒ 读数可信。
+ *
+ * 返回 `null` = **未判定**(器物 rc=2 / 结论行读不出 / 数字形态坏)⇒ 不派生且必须报名,
  * 绝不把"没量到"读成"已归零"(§0.3)。
  */
-export function purgeWorkResidue({ root = '', readFace, absorb = true } = {}) {
-  const text = readPlanFaceText({ root, readFace })
-  if (text === null) return null
-  const m = loadPurgeTool()
-  if (!m || typeof m.workResidueCount !== 'function') return null
+export function purgeWorkResidue({ root = '', readFace, absorb = true, spawnFn } = {}) {
+  // readFace 是测试注入面:注入了就不派生子进程(夹具面不在任何 git 面上)。
+  if (typeof readFace === 'function') {
+    const text = readPlanFaceText({ root, readFace })
+    if (text === null) return null
+    const m = loadPurgeTool()
+    if (!m || typeof m.workResidueCount !== 'function') return null
+    try {
+      return m.workResidueCount(text, { absorb })
+    } catch {
+      return null
+    }
+  }
+  const run = spawnFn || spawnSync
+  const abs = resolve(String(root || ''), PURGE_REL)
+  const args = ['--work-count']
+  if (absorb) args.push('--absorb')
+  let r
   try {
-    return m.workResidueCount(text, { absorb })
+    // §12g:派生 git/node 必须显式 stdio,不写稳定 EBUSY。
+    r = run(process.execPath, [abs, ...args], {
+      cwd: resolve(String(root || '')),
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 300000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
   } catch {
     return null
   }
+  if (!r || typeof r.status !== 'number') return null
+  const line = String(r.stdout || '')
+    .split(/\r?\n/)
+    .reverse()
+    .find((l) => l.startsWith('PURGE-WORK'))
+  if (!line) return null
+  const n = line.slice('PURGE-WORK'.length).trim()
+  if (!/^\d+$/.test(n)) return null // unjudged / 形态坏 ⇒ 未判定,不冒充 0
+  return Number(n)
 }
 
 /**

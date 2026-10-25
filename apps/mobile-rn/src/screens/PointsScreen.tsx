@@ -37,26 +37,17 @@ const PAGE_SIZE = 10
  *  - POST /api/sign-in             ⇒ 201 { record, points };已签到返回 409(方法为 POST)
  *  - GET  /api/levels/current      ⇒ { current, next, experience, progress, points }
  * 签到历史(/api/sign-in/history)与排行榜全量见既有 CheckIn / Ranking 屏。
+ *
+ * 端点回的形状与共享层的契约同物,因此类型**不在此重新声明**(§3 端内不得重新实现
+ * 共享层已有能力,§0.6 单一真相源):总览/等级/签到取 `@ihui/rn-app` 的
+ * `PointsAccountInfo` / `PointsLevelInfo` / `PointsSignInToday`。两处例外如实写明:
+ *  - `SignInTodayRow`:`/api/sign-in/today` 比共享屏需要的那份多回一枚 `week`(周历),
+ *    共享层视图契约里没有它,故按交叉类型在本端补上;
+ *  - `RawTxRow`:后端流水**行**形状,与共享层 `PointsTransactionItem`(**视图模型**,
+ *    带平台算好的 `title` / `createdAtText` / `income`)不是同一物,保留本端声明。
  */
-interface RawAccount {
-  points: number
-  totalEarned: number
-  totalSpent: number
-  level: number
-  experience: number
-}
-
-interface RawLevel {
-  current: { level: number; name: string; minExperience: number } | null
-  next: { level: number; name: string; minExperience: number } | null
-  experience: number
-  progress: number
-}
-
-interface RawSignInToday {
-  signedIn: boolean
-  consecutiveDays: number
-  todayReward: number
+interface SignInTodayRow extends PointsSignInToday {
+  /** 近七日签到格(共享屏不渲染周历,故单源不含此字段) */
   week: { date: string; reward: number; signed: boolean }[]
 }
 
@@ -75,9 +66,9 @@ export default function PointsScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
 
-  const [account, setAccount] = useState<RawAccount | null>(null)
-  const [level, setLevel] = useState<RawLevel | null>(null)
-  const [today, setToday] = useState<RawSignInToday | null>(null)
+  const [account, setAccount] = useState<PointsAccountInfo | null>(null)
+  const [level, setLevel] = useState<PointsLevelInfo | null>(null)
+  const [today, setToday] = useState<SignInTodayRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
 
@@ -107,9 +98,9 @@ export default function PointsScreen() {
     setFailed(false)
     try {
       const [pRes, lRes, sRes] = await Promise.all([
-        fetchApi<{ points: RawAccount }>('/api/points'),
-        fetchApi<RawLevel>('/api/levels/current'),
-        fetchApi<RawSignInToday>('/api/sign-in/today'),
+        fetchApi<{ points: PointsAccountInfo }>('/api/points'),
+        fetchApi<PointsLevelInfo>('/api/levels/current'),
+        fetchApi<SignInTodayRow>('/api/sign-in/today'),
       ])
       setAccount(pRes.success ? (pRes.data?.points ?? null) : null)
       setLevel(lRes.success ? (lRes.data ?? null) : null)
@@ -185,16 +176,13 @@ export default function PointsScreen() {
 
   /** 共享层只认算好的视图模型:时间文本、收支方向、行标题都归平台(与后端契约同处)。 */
   const txs = txRowsToItems(rows, fmt)
-  const overviewAccount: PointsAccountInfo | null = account
-  const overviewLevel: PointsLevelInfo | null = level
-  const signInToday: PointsSignInToday | null = today
 
   return (
     <SharedPointsScreen
       t={t}
-      account={overviewAccount}
-      level={overviewLevel}
-      today={signInToday}
+      account={account}
+      level={level}
+      today={today}
       loading={loading}
       failed={failed}
       signing={signing}

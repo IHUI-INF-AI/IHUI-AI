@@ -9,7 +9,7 @@
  * 增量字段探测、token 过期宽松解析、ExchangeToken 报文形状等。
  * 网络调用与错误语义全部留在 trae-adapter.ts 里。
  */
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes, sign as cryptoSign } from 'node:crypto'
 
 // =============================================================================
 // 多轮扁平化(FlattenQuery)
@@ -565,6 +565,164 @@ export function buildExchangeTokenBody(refreshToken: string): Record<string, str
     RefreshToken: refreshToken,
     ClientSecret: '-',
     UserID: '',
+  }
+}
+
+// =============================================================================
+// ExchangeToken 设备证明(新版端点,2026-10-25 实测:缺证明回 20405/10101)
+// =============================================================================
+
+/**
+ * 新版续票端点:桌面渠道签发/续期的唯一通道。
+ * 旧 `/cloudide/.../ExchangeToken` 只认 web 渠道签发的票;桌面客户端签发的 rt
+ * 必须走这里,并且带 DeviceProof(ECDSA P-256 设备私钥签名)。
+ */
+export const TRAE_EXCHANGE_TOKEN_PROOF_URL = 'https://api.trae.cn/trae/api/v3/oauth/ExchangeToken'
+
+/** 签名 canonical 第二行:必须与真实请求路径逐字一致(客户端同款) */
+export const TRAE_EXCHANGE_TOKEN_PROOF_PATH = '/trae/api/v3/oauth/ExchangeToken'
+
+/** 客户端版本(进 DeviceInfo.ClientVersion / IDEVersion;与设备密钥无关,只作身份档位) */
+export const TRAE_IDE_VERSION = '1.107.1'
+
+/** P-256 曲线阶(低 s 归一化用;导出供单测核对半区) */
+export const P256_ORDER = BigInt(
+  '0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551',
+)
+
+export interface TraeDeviceMaterial {
+  deviceId: string
+  machineId?: string
+  privateKeyPem: string
+  publicKeyPem: string
+}
+
+export interface TraeDeviceProof extends TraeDeviceMaterial {
+  refreshToken: string
+  clientId?: string
+  platformCode?: 'IDE_PC' | 'SOLO_PC'
+  /** 注入点(单测固定时刻/随机数用;生产不传) */
+  timestamp?: number
+  nonce?: string
+  deviceName?: string
+}
+
+function derEncodeInt(raw: Buffer): Buffer {
+  let i = 0
+  while (i < raw.length - 1 && raw[i] === 0) i++
+  let v = raw.subarray(i)
+  if ((v[0] ?? 0) & 0x80) v = Buffer.concat([Buffer.from([0]), v])
+  return Buffer.concat([Buffer.from([0x02, v.length]), v])
+}
+
+/** P1363(r||s 各 32B) → DER,并把 s 归一化为低半区(客户端同款) */
+export function p1363ToDerLowS(raw: Buffer): Buffer {
+  if (raw.length !== 64) throw new Error(`P-256 签名长度应为 64B,实际 ${raw.length}B`)
+  const r = raw.subarray(0, 32)
+  let s = raw.subarray(32)
+  const sVal = BigInt(`0x${s.toString('hex')}`)
+  if (sVal > P256_ORDER / 2n) {
+    s = Buffer.from((P256_ORDER - sVal).toString(16).padStart(64, '0'), 'hex')
+  }
+  const body = Buffer.concat([derEncodeInt(r), derEncodeInt(s)])
+  return Buffer.concat([Buffer.from([0x30, body.length]), body])
+}
+
+/** ECDSA P-256 / SHA-256,返回 base64(DER 低 s)—— 与服务端验签口径一致 */
+export function signTraeDeviceProof(privateKeyPem: string, canonical: string): string {
+  const raw = cryptoSign('sha256', Buffer.from(canonical, 'utf8'), {
+    key: privateKeyPem,
+    dsaEncoding: 'ieee-p1363',
+  })
+  return p1363ToDerLowS(raw).toString('base64')
+}
+
+/** 设备证明 canonical 串(单列导出:单测逐字钉形状) */
+export function buildTraeProofCanonical(i: {
+  clientId: string
+  refreshToken: string
+  timestamp: number
+  nonce: string
+}): string {
+  return [
+    'POST',
+    TRAE_EXCHANGE_TOKEN_PROOF_PATH,
+    i.clientId,
+    i.refreshToken,
+    String(i.timestamp),
+    i.nonce,
+  ].join('\n')
+}
+
+export interface TraeDeviceProofPayload {
+  DeviceInfo: Record<string, string>
+  DeviceProof: { Timestamp: number; Nonce: string; Signature: string }
+  clientId: string
+}
+
+/** 构造 (DeviceInfo, DeviceProof) —— 新版 ExchangeToken 报文的两个附加块 */
+export function buildTraeDeviceProof(i: TraeDeviceProof): TraeDeviceProofPayload {
+  const clientId = i.clientId ?? TRAE_OAUTH_CLIENT_ID
+  const timestamp = i.timestamp ?? Math.floor(Date.now() / 1000)
+  const nonce = i.nonce ?? randomBytes(16).toString('hex')
+  const canonical = buildTraeProofCanonical({
+    clientId,
+    refreshToken: i.refreshToken,
+    timestamp,
+    nonce,
+  })
+  return {
+    clientId,
+    DeviceProof: {
+      Timestamp: timestamp,
+      Nonce: nonce,
+      Signature: signTraeDeviceProof(i.privateKeyPem, canonical),
+    },
+    DeviceInfo: {
+      DeviceID: i.deviceId,
+      MachineID: i.machineId ?? '',
+      PlatformCode: i.platformCode ?? 'IDE_PC',
+      DeviceType: 'PC',
+      DeviceName: i.deviceName ?? 'PC',
+      DeviceModel: '',
+      ClientVersion: TRAE_IDE_VERSION,
+      DevicePublicKey: i.publicKeyPem,
+      DeviceBrand: '',
+      DeviceCPU: '',
+      OSInfo: 'Windows',
+      OSVersion: '',
+    },
+  }
+}
+
+/** 新版 ExchangeToken 完整请求体 */
+export function buildExchangeTokenProofBody(i: TraeDeviceProof): Record<string, unknown> {
+  const { clientId, DeviceInfo, DeviceProof } = buildTraeDeviceProof(i)
+  return {
+    ClientID: clientId,
+    ClientSecret: '',
+    RefreshToken: i.refreshToken,
+    DeviceInfo,
+    DeviceProof,
+    IDEVersion: TRAE_IDE_VERSION,
+  }
+}
+
+/** 从账号 secrets 解设备材料;缺任一必需项 → null(调用方退回旧通道) */
+export function deviceMaterialFromSecrets(
+  secrets: Record<string, unknown> | null | undefined,
+  deviceId: string | null | undefined,
+  machineId: string | null | undefined,
+): TraeDeviceMaterial | null {
+  const priv = typeof secrets?.['deviceKeyPem'] === 'string' ? secrets['deviceKeyPem'].trim() : ''
+  const pub = typeof secrets?.['devicePubPem'] === 'string' ? secrets['devicePubPem'].trim() : ''
+  const did = typeof deviceId === 'string' ? deviceId.trim() : ''
+  if (!priv || !pub || !did) return null
+  return {
+    deviceId: did,
+    machineId: machineId ?? undefined,
+    privateKeyPem: priv,
+    publicKeyPem: pub,
   }
 }
 

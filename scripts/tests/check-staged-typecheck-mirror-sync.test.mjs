@@ -39,7 +39,9 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, copyFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { __test__ as gate } from '../check-staged-typecheck-mirror-sync.mjs'
 
 // ─── 路径推导 ───
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -403,5 +405,34 @@ test('源 isDirectRun 守护被注释掉 → exit 1, 报告 source_isDirectRun_m
   } finally {
     rmScratch(tmpDir)
   }
+})
+
+// ─── 测试 13: import 面通道(G-239) — 判据从门体 __test__ 调,不在测试里复写 ───
+
+test('import 面通道:判据可被 import 调用,且不触发 CLI / 不读源测 / 不 exit', () => {
+  for (const k of ['extractTestExportKeys', 'extractKeyNames', 'stripComments', 'main'])
+    assert.equal(typeof gate[k], 'function', `__test__ 缺导出 ${k}`)
+  assert.deepEqual(
+    gate.EXPECTED_KEYS,
+    ['getOriginalInclude', 'normalizePath', 'filterTscOutputForStagedFiles'],
+    '期望锚点清单必须原样导出(键名重命名会破坏测试 import)',
+  )
+  const block = gate.extractTestExportKeys('export const __test__ = {\n  a,\n  b,\n}\n')
+  assert.equal(block, '\n  a,\n  b,\n', '键定义区抽取形状变了')
+  assert.deepEqual(gate.extractKeyNames(block), ['a', 'b'])
+  assert.equal(gate.extractTestExportKeys('const x = 1'), null, '没有 __test__ 时必须返回 null,不猜')
+  const stripped = gate.stripComments('a // b\n/* c */\n')
+  assert.ok(!stripped.includes('b') && !stripped.includes('c'), '注释必须先剥掉再判(否则遮罩失效)')
+})
+
+test('import 面无 CLI 副作用:独立子进程 import 门体不打印结论、不非零退出', () => {
+  const r = spawnSync(
+    process.execPath,
+    ['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(SCRIPT_PATH).href)});console.log('__IMPORTED__')`],
+    { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 120_000 },
+  )
+  assert.equal(r.status, 0, `import 门体不得非零退出:${r.stdout}${r.stderr}`)
+  assert.match(r.stdout, /__IMPORTED__/, '子进程未走到哨兵行,import 可能被判死')
+  assert.doesNotMatch(r.stdout, /源\/测 export 锚点一致/, 'import 即跑 main() ⇒ 顶层裸入口回来了')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

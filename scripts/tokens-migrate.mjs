@@ -14,10 +14,13 @@
 // fontSize 只换数值保留行结构(fontSize: 14 → fontSize: rnType.body.size);
 // 权重/行高不并 spread(不改变行结构,水印文件字节级安全);
 // 已含 rnSpacing/rnType 的行跳过。转写后必须跑 typecheck/eslint/watermark verify。
-import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const SPACING_MAP = { 4: 'rnSpacing.xs', 8: 'rnSpacing.sm', 12: 'rnSpacing.md', 16: 'rnSpacing.lg', 20: 'rnSpacing.xl', 24: "rnSpacing['2xl']", 32: "rnSpacing['3xl']", 40: "rnSpacing['4xl']", 48: "rnSpacing['5xl']", 64: "rnSpacing['6xl']" }
 const TYPE_MAP = { 11: 'rnType.caption.size', 12: 'rnType.label.size', 14: 'rnType.body.size', 15: 'rnType.strong.size', 16: 'rnType.title.size', 18: 'rnType.subtitle.size', 20: 'rnType.heading.size', 24: 'rnType.display.size', 30: 'rnType.displayLg.size' }
@@ -85,7 +88,7 @@ export function migrateText(text) {
 
 /** 展开目标(文件/目录)为已入库的 .tsx 清单:未跟踪文件不碰,避免把他人草稿卷进本批 */
 function collectTargets(targets) {
-  const tracked = new Set(execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).split('\0').filter(Boolean))
+  const tracked = new Set(gitRaw(['ls-files', '-z'], ROOT).split('\0').filter(Boolean))
   const set = new Set()
   const walk = (p) => {
     const st = statSync(p)
@@ -102,7 +105,7 @@ function collectTargets(targets) {
 
 /** 工作树已被其他会话改过的已入库路径(含暂存):默认跳过,避免把别人的未提交工作卷进本批 */
 function dirtyPaths() {
-  const raw = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const raw = gitRaw(['status', '--porcelain', '--untracked-files=no'], ROOT)
   const out = new Set()
   for (const line of raw.split('\n')) {
     if (!line) continue

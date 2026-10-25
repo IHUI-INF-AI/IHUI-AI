@@ -54,7 +54,11 @@ from ..core.model_pricing import (
     is_model_price_known,
     micro_usd_to_usd,
 )
-from ..core.token_baseline import PromptTokenSample, incremental_prompt_tokens
+from ..core.token_baseline import (
+    PromptTokenSample,
+    chain_bucket,
+    incremental_prompt_tokens,
+)
 from ._load_lifecycle import (
     DECISION_BACKOFF as _DECISION_BACKOFF,
 )
@@ -160,6 +164,8 @@ class LedgerEntry:
     # G-816021(2026-10-14):上下文链标签(main/subagent/workflow,…;空=未知链)。
     # 增量基线的真判别维度:同 session 内子代理与主链可以同为 tool_name="llm",
     # 只按 tool_name 分桶会共用基线而少计;空串保持旧行为(仅按 tool_name 分桶)。
+    # G-941(2026-10-22):三值常量源住 core.token_baseline;读面把空串/表外值
+    # 归入"未判定"桶(aggregate 的 by_chain 可见),不静默并入主链。
     chain: str = ""
     model: str = ""
     tokens_in: int = 0
@@ -184,21 +190,22 @@ class LedgerEntry:
 
 
 def _baseline_samples(entries: list[dict[str, Any]]) -> list[PromptTokenSample]:
-    """账本条目 → 增量基线输入;来源链 = (chain, tool_name)。
+    """账本条目 → 增量基线输入;来源链 = (链别桶, tool_name)。
 
     G-816021(2026-10-14):chain 是真判别维度 —— 同 session 内子代理与主链可以
-    同为 tool_name="llm",只按 tool_name 分桶会共用基线而少计。chain 为空(存量
-    数据/未标注链的生产者)退化为仅按 tool_name 分桶,与 G-821 落地时行为逐零一致。
+    同为 tool_name="llm",只按 tool_name 分桶会共用基线而少计。
+    G-941(2026-10-22):链别先经 `chain_bucket` 归一(三枚举值原样,空/表外值 →
+    "未判定"),缺失链的存量条目因此既可见又不可能并入主链桶。
     """
     samples: list[PromptTokenSample] = []
     # 循环变量用 entry 不用 e:独立语句形态的 `for e in entries:` 与祖先版本
     # (26975a4bf)字面撞行,会被反回退守门按"混合体回写"拦下(G-816021 实测)。
     for entry in entries:
-        chain = str(entry.get("chain") or "")
+        chain = chain_bucket(str(entry.get("chain") or ""))
         tool = str(entry.get("tool_name") or "(unknown)")
         samples.append(
             PromptTokenSample(
-                source=f"{chain}:{tool}" if chain else tool,
+                source=f"{chain}:{tool}",
                 session_id=str(entry.get("session_id") or ""),
                 prompt_tokens=int(_to_num(entry.get("tokens_in"), 0)),
             )
@@ -487,11 +494,13 @@ class CostLedger:
         """按 user/session/run/tool/model/date/status 过滤聚合。
 
         返回 totals:tokens_in/out、总数/成败/估算计数、cost、duration、steps、
-        by_tool / by_model、窗口边界(start/end)。
+        by_tool / by_model / by_chain、窗口边界(start/end)。
         P0-①(2026-09-18):新增缓存统计 —— total_cached_tokens /
         total_cache_creation_tokens / cache_hit_count(cached>0 的条目数)。
         G-821(2026-09-29):prompt/total token 按 (来源链, session) 增量基线计,
         逐条相加会把同一上下文按轮次重复计入(cost 仍按实际账单逐条相加)。
+        G-941(2026-10-22):新增 by_chain 链别分桶 —— 缺链别/表外值的存量条目
+        归入"未判定"桶并在读数里可见(不静默并入主链)。
         """
         entries = self._filtered(filter)
         increments = incremental_prompt_tokens(_baseline_samples(entries))
@@ -509,12 +518,18 @@ class CostLedger:
 
         by_tool: dict[str, dict[str, Any]] = {}
         by_model: dict[str, dict[str, Any]] = {}
+        by_chain: dict[str, dict[str, Any]] = {}
         parsed: list[datetime] = []
         for e, increment in zip(entries, increments, strict=True):
             tool = str(e.get("tool_name") or "(unknown)")
             model = str(e.get("model") or "") or "(unknown)"
+            chain = chain_bucket(str(e.get("chain") or ""))
             tokens_out = int(e.get("tokens_out") or 0)
-            for store, key in ((by_tool, tool), (by_model, model)):
+            for store, key in (
+                (by_tool, tool),
+                (by_model, model),
+                (by_chain, chain),
+            ):
                 b = store.setdefault(
                     key,
                     {"steps": 0, "tokens_in": 0, "tokens_out": 0, "tokens": 0, "cost": 0.0},
@@ -548,6 +563,7 @@ class CostLedger:
             ),
             "by_tool": by_tool,
             "by_model": by_model,
+            "by_chain": by_chain,
             "window": (
                 {"start": min(parsed).isoformat(), "end": max(parsed).isoformat()}
                 if parsed

@@ -33,11 +33,7 @@ import {
 } from '@ihui/types'
 
 import { useAiPanelStore } from '@/stores/ai-panel'
-import {
-  axisPairOrDefaults,
-  effectiveAxisPair,
-  resolveRequestAxes,
-} from '@/lib/permission-axes'
+import { axisPairOrDefaults, effectiveAxisPair, resolveRequestAxes } from '@/lib/permission-axes'
 import { PermissionAxesPicker } from '../permission-axes-picker'
 
 const messages = JSON.parse(
@@ -56,14 +52,21 @@ function readSource(relPath: string): string {
 
 function renderPicker() {
   return render(
-    <NextIntlClientProvider locale="zh-CN" messages={{ chat: { permission: messages.chat.permission } }}>
+    <NextIntlClientProvider
+      locale="zh-CN"
+      messages={{ chat: { permission: messages.chat.permission } }}
+    >
       <PermissionAxesPicker />
     </NextIntlClientProvider>,
   )
 }
 
 beforeEach(() => {
-  useAiPanelStore.setState({ permissionAxes: null, activeWorkspace: null, pendingPermissionMode: null })
+  useAiPanelStore.setState({
+    permissionAxes: null,
+    activeWorkspace: null,
+    pendingPermissionMode: null,
+  })
 })
 
 afterEach(cleanup)
@@ -90,7 +93,9 @@ describe('79 权限双轴 · 两轴默认值', () => {
     // 无单轴可映射 ⇒ 状态行必须明说"不发双轴",不得假装
     expect(screen.getByTestId('permission-axes-status').textContent).toBe(packKey('axesUnmapped'))
     // 档位清单来自契约(3 × 4),端内没有第二份数组
-    expect(screen.getAllByRole('radio')).toHaveLength(SANDBOX_MODES.length + APPROVAL_POLICIES.length)
+    expect(screen.getAllByRole('radio')).toHaveLength(
+      SANDBOX_MODES.length + APPROVAL_POLICIES.length,
+    )
   })
 })
 
@@ -120,16 +125,16 @@ describe('79 权限双轴 · 切换后请求带上正确字段', () => {
   })
 })
 
-describe('79 权限双轴 · 与旧单轴互斥 / 映射', () => {
-  it('单轴按 PERMISSION_MODE_TO_AXIS 派生;无等价档一条不发;切单轴清空显式双轴', () => {
+describe('79 权限双轴 · 与旧单轴互斥 / 缺省不下发', () => {
+  it('未显式选择 ⇒ 一条双轴字段都不发;展示仍按 PERMISSION_MODE_TO_AXIS;切单轴清空显式双轴', () => {
     // 映射只认契约表(bypass ⇄ Full Access 预设;acceptEdits 为 null 不伪造)
     expect(PERMISSION_MODE_TO_AXIS.bypassPermissions).toEqual(APPROVAL_PRESETS.fullAccess)
-    expect(resolveRequestAxes(null, 'bypass-permissions')).toEqual({
-      sandboxMode: 'danger-full-access',
-      approvalPolicy: 'never',
-    })
+    // 2026-10-25:请求侧不再替后端派生 —— 缺省即不下发(后端缺省才接管)
+    expect(resolveRequestAxes(null, 'bypass-permissions')).toEqual({})
     expect(resolveRequestAxes(null, 'accept-edits')).toEqual({})
     expect(resolveRequestAxes(null, 'manual')).toEqual({})
+    // 展示侧仍按同一张契约表派生,界面显示与后端将采用的档位一致
+    expect(effectiveAxisPair(null, 'bypass-permissions')).toEqual(APPROVAL_PRESETS.fullAccess)
     expect(effectiveAxisPair(null, 'accept-edits')).toBeNull()
 
     // 显式双轴优先于单轴(与后端 resolve_axis_resolution 同序)

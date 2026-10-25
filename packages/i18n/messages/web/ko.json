@@ -9385,7 +9385,6 @@
     "deleteSuccess": "삭제됨",
     "dispatchSubagent": "서브에이전트 파견",
     "dockPanel": "패널 고정",
-    "earlier": "이전",
     "emptyWorkspace": "빈 작업공간",
     "envInfo": {
       "added": "추가",
@@ -11155,6 +11154,8 @@
     "canvasVersions": "버전 기록",
     "clearInputAriaLabel": "입력 지우기",
     "clearInputTitle": "입력 내용 지우기",
+    "predictiveEditHint": "예측 편집 제안",
+    "predictiveEditApply": "적용",
     "cmdCode": "다음 기능을 코드로 구현하고 주석을 추가해 주세요:",
     "cmdExplain": "다음 개념을 자세히 설명해 주세요:",
     "cmdKouboScript": "오늘의 더우인 나레이션 대본 8편을 생성해 주세요. 요구사항:\n1. 날짜: MMDD\n2. 주제 방향:\n3. 이중 문턱 검증(모호성 압축 / 교차 대본 어휘 / 전량 검증 / 어병 / 핫토픽 커버리지)\nkoubo-workflow 파이프라인을 실행하세요(제약 우선 작성법).",
@@ -11672,7 +11673,8 @@
       "axesApprovalNever": "확인 안 함",
       "axesPresetReadOnly": "읽기 전용",
       "axesPresetAuto": "자동",
-      "axesPresetFullAccess": "전체 접근"
+      "axesPresetFullAccess": "전체 접근",
+      "axesPersistHint": "선택은 이 기기에 저장되며 새로고침 후 복원됩니다"
     },
     "permissionAlreadyActive": "이미 {mode} 모드입니다",
     "permissionLabelAsk": "승인 요청",
@@ -11950,6 +11952,18 @@
     "steerNoticeBar": {
       "title": "{count}회 유도됨",
       "moreItems": "외 {count}건"
+    },
+    "agentPicker": {
+      "triggerAria": "대화 내 에이전트 / 전문가 선택",
+      "default": "기본 어시스턴트",
+      "defaultDesc": "전문가 없음",
+      "groupTitle": "전문가",
+      "toolsSummary": "도구: {tools}"
+    },
+    "agentNoticeBar": {
+      "title": "{agent} 전문가로 전환됨",
+      "body": "이번 턴은 \"{agent}\" 전문가가 답변합니다. 시스템 프롬프트와 도구 허용 목록이 이번 요청에 병합되었습니다.",
+      "reset": "기본으로 되돌리기"
     },
     "streamingIndicator": "AI가 생성 중",
     "streamingIndicatorHint": "AI가 생성 중입니다. 다음 메시지를 입력할 수 있습니다",
