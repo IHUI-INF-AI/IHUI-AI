@@ -152,7 +152,7 @@ const architectureModules = [
   { name: 'apps/web', desc: 'Next.js 16 + React 19 frontend (Tailwind 4 + shadcn/ui).' },
   { name: 'apps/api', desc: 'Fastify 5 + Drizzle ORM backend (PostgreSQL).' },
   { name: 'apps/ai-service', desc: 'FastAPI + LangGraph AI service (LiteLLM + MCP).' },
-  { name: 'packages/', desc: 'Shared database / auth / types / ui across all 8 endpoints.' },
+  { name: 'packages/', desc: 'Shared database / auth / types / ui across all 9 endpoints.' },
 ]
 
 const supportCards = [
@@ -318,7 +318,7 @@ cd my-ai-app && ihui dev`}</code>
             </h2>
           </div>
           <p className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
-            IHUI AI is a TypeScript monorepo (pnpm workspace + Turborepo) spanning 8 endpoints. One codebase, every platform.
+            IHUI AI is a TypeScript monorepo (pnpm workspace + Turborepo) spanning 9 endpoints. One codebase, every platform.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
             {architectureModules.map((mod) => (
@@ -383,7 +383,7 @@ cd my-ai-app && ihui dev`}</code>
             Ready to build?
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
-            Launch your first AI agent on IHUI AI today. Apache 2.0 open source, 8-endpoint distribution.
+            Launch your first AI agent on IHUI AI today. Apache 2.0 open source, 9-endpoint distribution.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Button asChild variant="default">

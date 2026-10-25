@@ -16,7 +16,7 @@
 #   痛点 → 智汇 AI 解决方案 → 案例 → 合规要求 → ROI
 #
 # 目标读者: 农业合作社 / 种植大户 / 农业产业园 / 畜牧企业 / 农产品流通
-# 部署形态: 8 端同步(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)
+# 部署形态: 9 端同步(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli/capacitor)
 
 ---
 
@@ -145,7 +145,7 @@
 
 ---
 
-### 智汇 AI 端到端能力(8 端覆盖)
+### 智汇 AI 端到端能力(9 端覆盖)
 - **Web**(Next.js 16 + React 19):大田看板 / 决策驾驶舱
 - **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 18):农业数据接口
 - **AI Service**(FastAPI + LangGraph + LiteLLM + MCP):多 Agent 协同

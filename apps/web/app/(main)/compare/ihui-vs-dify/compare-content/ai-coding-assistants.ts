@@ -12,13 +12,13 @@ export const aiCodingAssistantsCompetitors: Partial<
     name: 'Claude Code',
     tagline: 'Claude Code 是终端内 AI 编程助手;IHUI AI 是含代码 Agent 的全栈 AI 操作系统',
     verdict:
-      '如果你的团队主要在终端写代码且只用 Claude 模型,Claude Code 体验流畅;如果你需要 Agent 市场 + 知识库 RAG + 六端分发 + 多模型调度 + 团队协作 + 私有化部署,IHUI AI 是更完整的企业级方案。',
+      '如果你的团队主要在终端写代码且只用 Claude 模型,Claude Code 体验流畅;如果你需要 Agent 市场 + 知识库 RAG + 九端分发 + 多模型调度 + 团队协作 + 私有化部署,IHUI AI 是更完整的企业级方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: '终端内 AI 编程助手',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端分发',
         competitorDetail: '专注 CLI 内代码生成与编辑',
       },
       {
@@ -81,12 +81,12 @@ export const aiCodingAssistantsCompetitors: Partial<
         dimension: '编程语言支持',
         ihui: '全栈代码 Agent(多语言)',
         competitor: '多语言(主流)',
-        ihuiDetail: '代码 Agent 是六端之一,支持多语言',
+        ihuiDetail: '代码 Agent 是九端之一,支持多语言',
         competitorDetail: 'Python/JS/TS/Go/Rust 等主流语言',
       },
       {
         dimension: 'IDE 集成',
-        ihui: '六端含 CLI + 扩展',
+        ihui: '九端含 CLI + 扩展',
         competitor: '终端 + IDE 适配',
         ihuiDetail: 'CLI 端 + 浏览器扩展端原生集成',
         competitorDetail: '通过 MCP 与 VS Code/JetBrains 联动',
@@ -106,13 +106,13 @@ export const aiCodingAssistantsCompetitors: Partial<
     name: 'Cursor',
     tagline: 'Cursor 是 AI IDE(代码补全 + Chat);IHUI AI 是含代码 Agent 的全栈操作系统',
     verdict:
-      '如果你是个人开发者专注写代码,Cursor IDE 体验优秀;如果企业需要 Agent 市场 + 知识库 RAG + 六端分发 + 团队协作 + 私有化,IHUI AI 是更完整方案(且 IHUI CLI 端同样支持代码生成)。',
+      '如果你是个人开发者专注写代码,Cursor IDE 体验优秀;如果企业需要 Agent 市场 + 知识库 RAG + 九端分发 + 团队协作 + 私有化,IHUI AI 是更完整方案(且 IHUI CLI 端同样支持代码生成)。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: 'AI 优先 IDE(VS Code fork)',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端分发',
         competitorDetail: '专注代码补全 + Chat + Agent',
       },
       {
@@ -175,12 +175,12 @@ export const aiCodingAssistantsCompetitors: Partial<
         dimension: '编程语言支持',
         ihui: '全栈代码 Agent(多语言)',
         competitor: '多语言(全栈)',
-        ihuiDetail: '代码 Agent 是六端之一,支持多语言',
+        ihuiDetail: '代码 Agent 是九端之一,支持多语言',
         competitorDetail: 'Python/JS/TS/Go/Rust/Java 等',
       },
       {
         dimension: 'IDE 集成',
-        ihui: '六端含 CLI + 扩展',
+        ihui: '九端含 CLI + 扩展',
         competitor: '原生 IDE',
         ihuiDetail: 'CLI 端 + 浏览器扩展端原生集成',
         competitorDetail: 'Cursor 本身即 IDE,体验较为完善',
@@ -200,13 +200,13 @@ export const aiCodingAssistantsCompetitors: Partial<
     name: 'GitHub Copilot',
     tagline: 'GitHub Copilot 是老牌 AI 编程助手;IHUI AI 是含代码 Agent 的全栈操作系统',
     verdict:
-      '如果你的团队已深度使用 GitHub + VS Code 生态,GitHub Copilot 集成较自然;如果需要 Agent 编排 + 知识库 + 工作流 + 六端分发 + 私有化部署,IHUI AI 是更完整的企业级方案。',
+      '如果你的团队已深度使用 GitHub + VS Code 生态,GitHub Copilot 集成较自然;如果需要 Agent 编排 + 知识库 + 工作流 + 九端分发 + 私有化部署,IHUI AI 是更完整的企业级方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: 'AI 编程助手(IDE 插件)',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端分发',
         competitorDetail: '专注代码补全 + Chat + Workspace',
       },
       {
@@ -269,12 +269,12 @@ export const aiCodingAssistantsCompetitors: Partial<
         dimension: '编程语言支持',
         ihui: '全栈代码 Agent(多语言)',
         competitor: '多语言(全栈)',
-        ihuiDetail: '代码 Agent 是六端之一,支持多语言',
+        ihuiDetail: '代码 Agent 是九端之一,支持多语言',
         competitorDetail: '20+ 主流编程语言',
       },
       {
         dimension: 'IDE 集成',
-        ihui: '六端含 CLI + 扩展',
+        ihui: '九端含 CLI + 扩展',
         competitor: '原生 IDE 集成',
         ihuiDetail: 'CLI 端 + 浏览器扩展端原生集成',
         competitorDetail: 'VS Code/JetBrains 深度集成',
@@ -294,13 +294,13 @@ export const aiCodingAssistantsCompetitors: Partial<
     name: 'Windsurf',
     tagline: 'Windsurf 是 Codeium 出品 AI IDE;IHUI AI 是含代码 Agent 的全栈操作系统',
     verdict:
-      '如果你喜欢 Codeium 风格的 AI IDE 体验,Windsurf 流畅;如果企业需要 Agent 市场 + 知识库 + 工作流 + 六端分发 + 私有化部署,IHUI AI 是更完整方案。',
+      '如果你喜欢 Codeium 风格的 AI IDE 体验,Windsurf 流畅;如果企业需要 Agent 市场 + 知识库 + 工作流 + 九端分发 + 私有化部署,IHUI AI 是更完整方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: 'AI 优先 IDE(Codeium 出品)',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端分发',
         competitorDetail: '专注代码补全 + Cascade Agent',
       },
       {
@@ -363,12 +363,12 @@ export const aiCodingAssistantsCompetitors: Partial<
         dimension: '编程语言支持',
         ihui: '全栈代码 Agent(多语言)',
         competitor: '多语言(全栈)',
-        ihuiDetail: '代码 Agent 是六端之一,支持多语言',
+        ihuiDetail: '代码 Agent 是九端之一,支持多语言',
         competitorDetail: '40+ 编程语言',
       },
       {
         dimension: 'IDE 集成',
-        ihui: '六端含 CLI + 扩展',
+        ihui: '九端含 CLI + 扩展',
         competitor: '原生 IDE',
         ihuiDetail: 'CLI 端 + 浏览器扩展端原生集成',
         competitorDetail: 'Windsurf 本身即 IDE',
@@ -388,13 +388,13 @@ export const aiCodingAssistantsCompetitors: Partial<
     name: 'Bolt.new',
     tagline: 'Bolt.new 是浏览器内全栈应用生成;IHUI AI 是含代码 Agent 的全栈操作系统',
     verdict:
-      '如果你需要快速原型生成全栈 Web 应用,Bolt.new 体验流畅;如果企业需要 Agent 市场 + 知识库 + 工作流 + 六端分发 + 团队协作 + 私有化,IHUI AI 是更完整方案。',
+      '如果你需要快速原型生成全栈 Web 应用,Bolt.new 体验流畅;如果企业需要 Agent 市场 + 知识库 + 工作流 + 九端分发 + 团队协作 + 私有化,IHUI AI 是更完整方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: '浏览器内全栈应用生成',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端分发',
         competitorDetail: '专注 prompt → 全栈应用一键生成',
       },
       {
@@ -457,12 +457,12 @@ export const aiCodingAssistantsCompetitors: Partial<
         dimension: '编程语言支持',
         ihui: '全栈代码 Agent(多语言)',
         competitor: 'JS/TS 全栈为主',
-        ihuiDetail: '代码 Agent 是六端之一,支持多语言',
+        ihuiDetail: '代码 Agent 是九端之一,支持多语言',
         competitorDetail: '专注 JavaScript/TypeScript 全栈',
       },
       {
         dimension: 'IDE 集成',
-        ihui: '六端含 CLI + 扩展',
+        ihui: '九端含 CLI + 扩展',
         competitor: '浏览器内 IDE',
         ihuiDetail: 'CLI 端 + 浏览器扩展端原生集成',
         competitorDetail: 'StackBlitz WebContainer 在线 IDE',
@@ -482,13 +482,13 @@ export const aiCodingAssistantsCompetitors: Partial<
     name: 'Replit Agent',
     tagline: 'Replit Agent 是云端 IDE + AI Agent;IHUI AI 是含代码 Agent 的全栈操作系统',
     verdict:
-      '如果你需要云端协作开发 + 一键部署,Replit Agent 体验流畅;如果企业需要 Agent 市场 + 知识库 + 工作流 + 六端分发 + 私有化 + 团队协作,IHUI AI 是更完整方案。',
+      '如果你需要云端协作开发 + 一键部署,Replit Agent 体验流畅;如果企业需要 Agent 市场 + 知识库 + 工作流 + 九端分发 + 私有化 + 团队协作,IHUI AI 是更完整方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: '云端 IDE + AI Agent',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端分发',
         competitorDetail: '专注云端开发 + 部署 + AI Agent',
       },
       {
@@ -551,12 +551,12 @@ export const aiCodingAssistantsCompetitors: Partial<
         dimension: '编程语言支持',
         ihui: '全栈代码 Agent(多语言)',
         competitor: '多语言(全栈)',
-        ihuiDetail: '代码 Agent 是六端之一,支持多语言',
+        ihuiDetail: '代码 Agent 是九端之一,支持多语言',
         competitorDetail: '50+ 编程语言',
       },
       {
         dimension: 'IDE 集成',
-        ihui: '六端含 CLI + 扩展',
+        ihui: '九端含 CLI + 扩展',
         competitor: '云端 IDE',
         ihuiDetail: 'CLI 端 + 浏览器扩展端原生集成',
         competitorDetail: 'Replit 云端 IDE 原生体验',
@@ -576,13 +576,13 @@ export const aiCodingAssistantsCompetitors: Partial<
     name: 'Lovable',
     tagline: 'Lovable 是全栈应用生成(prompt → 应用);IHUI AI 是含代码 Agent 的全栈操作系统',
     verdict:
-      '如果你需要快速生成全栈 Web 应用(类似 Bolt.new),Lovable 体验流畅;如果企业需要 Agent 市场 + 知识库 + 工作流 + 六端分发 + 私有化 + 团队协作,IHUI AI 是更完整方案。',
+      '如果你需要快速生成全栈 Web 应用(类似 Bolt.new),Lovable 体验流畅;如果企业需要 Agent 市场 + 知识库 + 工作流 + 九端分发 + 私有化 + 团队协作,IHUI AI 是更完整方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: '全栈应用生成(prompt → 应用)',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端分发',
         competitorDetail: '专注 prompt → 全栈 Web 应用一键生成',
       },
       {
@@ -645,12 +645,12 @@ export const aiCodingAssistantsCompetitors: Partial<
         dimension: '编程语言支持',
         ihui: '全栈代码 Agent(多语言)',
         competitor: 'JS/TS 全栈为主',
-        ihuiDetail: '代码 Agent 是六端之一,支持多语言',
+        ihuiDetail: '代码 Agent 是九端之一,支持多语言',
         competitorDetail: '专注 JavaScript/TypeScript 全栈',
       },
       {
         dimension: 'IDE 集成',
-        ihui: '六端含 CLI + 扩展',
+        ihui: '九端含 CLI + 扩展',
         competitor: '在线编辑器',
         ihuiDetail: 'CLI 端 + 浏览器扩展端原生集成',
         competitorDetail: 'Web IDE + GitHub 集成',
@@ -670,13 +670,13 @@ export const aiCodingAssistantsCompetitors: Partial<
     name: 'v0.dev',
     tagline: 'v0.dev 是 Vercel UI 组件生成;IHUI AI 是含代码 Agent 的全栈操作系统',
     verdict:
-      '如果你只需要生成 Next.js + Tailwind UI 组件,v0.dev 体验流畅;如果企业需要后端 + Agent 市场 + 知识库 + 工作流 + 六端分发 + 团队协作,IHUI AI 是更完整方案。',
+      '如果你只需要生成 Next.js + Tailwind UI 组件,v0.dev 体验流畅;如果企业需要后端 + Agent 市场 + 知识库 + 工作流 + 九端分发 + 团队协作,IHUI AI 是更完整方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: 'UI 组件生成(Next.js + Tailwind)',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端分发',
         competitorDetail: '专注前端 UI 组件生成',
       },
       {
@@ -744,7 +744,7 @@ export const aiCodingAssistantsCompetitors: Partial<
       },
       {
         dimension: 'IDE 集成',
-        ihui: '六端含 CLI + 扩展',
+        ihui: '九端含 CLI + 扩展',
         competitor: '在线编辑器 + Vercel',
         ihuiDetail: 'CLI 端 + 浏览器扩展端原生集成',
         competitorDetail: 'Web 编辑器 + Vercel 平台部署',

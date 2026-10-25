@@ -50,9 +50,9 @@ const COMPARISONS = [
   {
     slug: 'ihui-vs-dify',
     competitor: 'Dify',
-    tagline: 'IHUI AI 六端同源全栈 AI 操作系统 vs Dify Web 端 LLM 应用开发框架',
+    tagline: 'IHUI AI 九端同源全栈 AI 操作系统 vs Dify Web 端 LLM 应用开发框架',
     keyPoints: [
-      '六端 vs Web only',
+      '九端 vs Web only',
       'Agent 市场 vs 无',
       'MCP 原生支持 vs 不支持',
       'Apache 2.0 vs BSL',
@@ -73,7 +73,7 @@ const COMPARISONS = [
     slug: 'ihui-vs-fastgpt',
     competitor: 'FastGPT',
     tagline: 'IHUI AI 全栈 AI 操作系统 vs FastGPT 知识库 Q&A 工具',
-    keyPoints: ['Agent 市场 vs 无', '六端 vs Web only', 'MCP vs 不支持', '团队协作 vs 基础多用户'],
+    keyPoints: ['Agent 市场 vs 无', '九端 vs Web only', 'MCP vs 不支持', '团队协作 vs 基础多用户'],
   },
   {
     slug: 'ihui-vs-n8n',
@@ -135,7 +135,7 @@ const TABLE_ROWS: [
     true,
   ],
   [
-    '8 端同源',
+    '9 端同源',
     'Web/API/CLI/Desktop/Ext/Mobile/Miniapp',
     true,
     '仅 Web',
@@ -458,7 +458,7 @@ export default function CompareIndexPage() {
             立即开始使用 IHUI-AI
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
-            开源、免费、8 端同源,176 模型 + LangGraph + MCP + A2A 三栈合一。
+            开源、免费、9 端同源,101 模型 + LangGraph + MCP + A2A 三栈合一。
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Button size="lg" asChild>

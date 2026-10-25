@@ -42,7 +42,7 @@ const ICON_MAP = {
 export function AboutContent(): React.JSX.Element {
   const t = useTranslations('about')
 
-  // 4 个核心价值观(开源 / 六端 / 免费 / 企业级)
+  // 4 个核心价值观(开源 / 九端 / 免费 / 企业级)
   const values = [
     { icon: 'globe', titleKey: 'valueOpenTitle', descKey: 'valueOpenDesc' },
     { icon: 'blocks', titleKey: 'valueCrossTitle', descKey: 'valueCrossDesc' },

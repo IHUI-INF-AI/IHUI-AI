@@ -7,7 +7,7 @@
 测试覆盖:
 - RuleVersion dataclass 构造与默认值
 - _build_initial_version 从 PlatformRule 构造初始版本
-- RuleVersionManager 初始化(从 PLATFORM_RULES 同步 37 平台)
+- RuleVersionManager 初始化(从 PLATFORM_RULES 同步 38 平台)
 - get_current_version:已知平台返回 RuleVersion / 未知平台返回 None
 - list_all_platforms:返回所有已跟踪平台 ID
 - check_rule_outdated:未知平台 / 空 last_updated / 无效日期 / 90 天阈值
@@ -123,7 +123,7 @@ class TestManagerInit:
     """RuleVersionManager 初始化与平台加载。"""
 
     def test_loads_all_platforms_from_platform_rules(self) -> None:
-        """初始化后 _versions 包含 PLATFORM_RULES 全部 37 个平台。"""
+        """初始化后 _versions 包含 PLATFORM_RULES 全部 38 个平台。"""
         mgr = RuleVersionManager()
         assert len(mgr.list_all_platforms()) == len(PLATFORM_RULES)
         assert len(mgr.list_all_platforms()) >= 37

@@ -9,7 +9,7 @@ import PageClient from './PageClient'
 export const metadata: Metadata = {
   title: 'AI Agent 市场 — 200+ 智能 Agent 模板 | 智汇 AI',
   description:
-    '智汇 AI Agent 市场:200+ 智能 Agent 模板,覆盖客服、销售、内容创作、代码审查、数据分析等场景。可视化编排,一键发布六端,支持 MCP 工具协议。',
+    '智汇 AI Agent 市场:200+ 智能 Agent 模板,覆盖客服、销售、内容创作、代码审查、数据分析等场景。可视化编排,一键发布九端,支持 MCP 工具协议。',
   alternates: {
     canonical: '/agents',
     languages: {
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'AI Agent 市场 — 200+ 智能 Agent 模板',
-    description: '可视化编排 + MCP 工具协议 + 一键发布六端',
+    description: '可视化编排 + MCP 工具协议 + 一键发布九端',
     url: 'https://aizhs.top/agents',
     type: 'website',
   },

@@ -10,15 +10,15 @@ export const agentFrameworksCompetitorsPart1: Partial<
   dify: {
     id: 'dify',
     name: 'Dify',
-    tagline: 'Dify 偏 LLM 应用开发框架(Web 端);IHUI AI 是六端同源全栈 AI 操作系统',
+    tagline: 'Dify 偏 LLM 应用开发框架(Web 端);IHUI AI 是九端同源全栈 AI 操作系统',
     verdict:
-      '如果你的团队只需要 Web 端的 LLM 应用开发,Dify 是不错的选择;如果你需要 Agent 市场化、六端分发、团队协作和私有化,IHUI AI 是更完整的方案。',
+      '如果你的团队只需要 Web 端的 LLM 应用开发,Dify 是不错的选择;如果你需要 Agent 市场化、九端分发、团队协作和私有化,IHUI AI 是更完整的方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: 'Web 端 LLM 应用开发框架',
-        ihuiDetail: '一套代码,六端发布(Web/桌面/小程序/扩展/移动/CLI)',
+        ihuiDetail: '一套代码,九端发布(Web/桌面/小程序/扩展/移动/Capacitor/CLI,另有 API 与 AI 服务)',
         competitorDetail: '专注 Web 端 LLM 应用编排',
       },
       {
@@ -102,7 +102,7 @@ export const agentFrameworksCompetitorsPart1: Partial<
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: '字节出品的闭源 Agent 平台',
         ihuiDetail: '开源,Apache 2.0',
         competitorDetail: '闭源,字节跳动运营',
@@ -182,13 +182,13 @@ export const agentFrameworksCompetitorsPart1: Partial<
   fastgpt: {
     id: 'fastgpt',
     name: 'FastGPT',
-    tagline: 'FastGPT 专注知识库 Q&A;IHUI AI 含知识库 + Agent 市场 + 六端分发',
+    tagline: 'FastGPT 专注知识库 Q&A;IHUI AI 含知识库 + Agent 市场 + 九端分发',
     verdict:
       '如果你的需求只是知识库 Q&A,FastGPT 够用;如果你需要 Agent 编排 + 跨端分发 + 团队协作,IHUI AI 是更完整的方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: '知识库 Q&A 工具',
         ihuiDetail: '知识库是组件之一',
         competitorDetail: '专注知识库 RAG',
@@ -268,7 +268,7 @@ export const agentFrameworksCompetitorsPart1: Partial<
   n8n: {
     id: 'n8n',
     name: 'n8n',
-    tagline: 'n8n 偏工作流自动化;IHUI AI 在工作流上叠加 LLM + Agent + 六端',
+    tagline: 'n8n 偏工作流自动化;IHUI AI 在工作流上叠加 LLM + Agent + 九端',
     verdict:
       '如果你的需求是纯工作流自动化(无 AI),n8n 生态更丰富;如果你需要 LLM/Agent 作为工作流核心节点,IHUI AI 是更合适的选择。',
     rows: [
@@ -354,15 +354,15 @@ export const agentFrameworksCompetitorsPart1: Partial<
   'openai-agent': {
     id: 'openai-agent',
     name: 'OpenAI Agent',
-    tagline: 'OpenAI Agent 是 GPT 生态内的 Agent 构建;IHUI AI 是跨模型 + 六端分发的全栈操作系统',
+    tagline: 'OpenAI Agent 是 GPT 生态内的 Agent 构建;IHUI AI 是跨模型 + 九端分发的全栈操作系统',
     verdict:
-      '如果你已深度绑定 OpenAI 生态,GPTs / Assistants API 够用;如果需要跨模型调度 + 知识库 RAG + 六端分发 + 团队协作 + 私有化,IHUI AI 是更完整的方案。',
+      '如果你已深度绑定 OpenAI 生态,GPTs / Assistants API 够用;如果需要跨模型调度 + 知识库 RAG + 九端分发 + 团队协作 + 私有化,IHUI AI 是更完整的方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: 'OpenAI 生态内 Agent 构建',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: 'GPTs / Assistants API / Operator',
       },
       {
@@ -526,15 +526,15 @@ export const agentFrameworksCompetitorsPart1: Partial<
   'copilot-studio': {
     id: 'copilot-studio',
     name: 'Copilot Studio',
-    tagline: 'Copilot Studio 是微软低代码 AI 平台;IHUI AI 是开源 + 跨模型 + 六端全栈操作系统',
+    tagline: 'Copilot Studio 是微软低代码 AI 平台;IHUI AI 是开源 + 跨模型 + 九端全栈操作系统',
     verdict:
-      '如果你已使用 Microsoft 365 + Power Platform,Copilot Studio 集成自然;如果需要跨模型 + 开源 + 私有化 + Agent 市场 + 六端分发,IHUI AI 是更开放的方案。',
+      '如果你已使用 Microsoft 365 + Power Platform,Copilot Studio 集成自然;如果需要跨模型 + 开源 + 私有化 + Agent 市场 + 九端分发,IHUI AI 是更开放的方案。',
     rows: [
       {
         dimension: '定位',
-        ihui: '六端同源全栈 AI 操作系统',
+        ihui: '九端同源全栈 AI 操作系统',
         competitor: '微软低代码 AI Agent 平台',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端分发',
         competitorDetail: 'Power Platform + M365 集成',
       },
       {

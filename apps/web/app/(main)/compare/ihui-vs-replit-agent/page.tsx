@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-replit-agent',
       name: 'IHUI AI vs Replit Agent:全栈 AI 操作系统 vs 云端 IDE + AI Agent',
       description:
-        'Replit Agent 是云端 IDE + AI Agent(2025 现象级产品,专注云端开发 + 部署);IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 六端分发。本文深度对比。',
+        'Replit Agent 是云端 IDE + AI Agent(2025 现象级产品,专注云端开发 + 部署);IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 九端分发。本文深度对比。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
@@ -42,11 +42,11 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs Replit Agent:全栈 AI 操作系统 vs 云端 IDE Agent | 2026 对比',
   description:
-    'Replit Agent 是云端 IDE + AI Agent(无私有化/六端分发/团队协作);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 六端分发。本文 12 维度对比。',
+    'Replit Agent 是云端 IDE + AI Agent(无私有化/九端分发/团队协作);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 九端分发。本文 12 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-replit-agent' },
   openGraph: {
     title: 'IHUI AI vs Replit Agent — 全栈 AI OS vs 云端 IDE Agent',
-    description: '六端同源 AI 操作系统 vs Web + APP;开源可商用 vs 闭源 SaaS。',
+    description: '九端同源 AI 操作系统 vs Web + APP;开源可商用 vs 闭源 SaaS。',
     url: 'https://aizhs.top/compare/ihui-vs-replit-agent',
     type: 'article',
   },

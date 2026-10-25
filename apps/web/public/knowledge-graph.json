@@ -21,7 +21,7 @@
         "height": 512,
         "encodingFormat": "image/png"
       },
-      "description": "智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,Apache 2.0 开源,支持私有化部署。",
+      "description": "智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI,另有 API 与 AI 服务,九端同源,Apache 2.0 开源,支持私有化部署。",
       "slogan": "30 分钟拥有自己的 AI 中台",
       "foundingDate": "2024-01-01",
       "founder": {
@@ -119,14 +119,14 @@
       "datePublished": "2024-01-01",
       "dateModified": "2026-07-26",
       "inLanguage": ["zh-CN", "zh-TW", "en", "ko", "ja"],
-      "description": "全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型调度(MCP)、工作流编排、六端同源分发(Web/桌面/小程序/浏览器插件/RN/CLI),Apache 2.0 开源。",
+      "description": "全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型调度(MCP)、工作流编排、九端同源分发(Web/桌面/小程序/浏览器插件/RN/Capacitor/CLI,另有 API 与 AI 服务),Apache 2.0 开源。",
       "featureList": [
         "AI Agent Marketplace with 200+ templates",
         "Knowledge Base RAG with hybrid retrieval (BM25 + Vector + Reranker)",
         "Multi-Model Orchestration (30+ models: OpenAI/Claude/Gemini/Qwen/DeepSeek/GLM/ERNIE/Kimi/Hunyuan/Doubao/Ollama)",
         "MCP Protocol native support with 100+ pre-built tools",
         "Visual Workflow Builder (drag-and-drop, conditional branches, loops, parallelism)",
-        "Cross-Platform Distribution (6 clients: Web/Desktop/Mini-Program/Extension/RN/CLI)",
+        "Cross-Platform Distribution (9 ends: Web/Desktop/Mini-Program/Extension/RN/Capacitor/CLI, plus API & AI Service)",
         "Team Collaboration (RBAC, audit logs, SSO, OAuth/OIDC/SAML)",
         "Unified Credits System",
         "Private Deployment (Docker Compose / Kubernetes / Helm)",
@@ -199,7 +199,7 @@
       "url": "https://aizhs.top",
       "name": "IHUI AI",
       "alternateName": "智汇AI",
-      "description": "全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、六端同源分发。",
+      "description": "全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、九端同源分发。",
       "inLanguage": ["zh-CN", "zh-TW", "en", "ko", "ja"],
       "publisher": {
         "@id": "https://aizhs.top/#organization"

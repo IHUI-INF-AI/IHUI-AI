@@ -18,7 +18,7 @@
 #
 # Target audience: Developers / property agencies / long-term rental / property
 # management / internet property platforms
-# Deployment: 8-end sync (web / api / ai-service / desktop / extension / mobile-rn / miniapp-taro / cli)
+# Deployment: 9-end sync (web / api / ai-service / desktop / extension / mobile-rn / miniapp-taro / capacitor / cli)
 
 ---
 
@@ -152,7 +152,7 @@
 +-----------------------------------------+
 ```
 
-### IHUI AI End-to-End Capabilities (8-End Coverage)
+### IHUI AI End-to-End Capabilities (9-end Coverage)
 - **Web** (Next.js 16 + React 19): Sales management / agent workspace
 - **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): Property / contract APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Multi-agent collaboration

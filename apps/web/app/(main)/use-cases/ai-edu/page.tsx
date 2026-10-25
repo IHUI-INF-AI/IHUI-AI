@@ -65,7 +65,7 @@ const toolchain = [
 const metrics = [
   { value: '60%', label: '教师辅导工作量降低' },
   { value: '25%', label: '学员留存率提升' },
-  { value: '8 端', label: '同步分发' },
+  { value: '9 端', label: '同步分发' },
   { value: '30min', label: '上线时间' },
 ]
 
@@ -119,7 +119,7 @@ export default async function AiEduPage() {
             AI 教育 Agent:课程编排/智能答疑/学习推荐
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            基于 IHUI AI 全栈 AI 操作系统搭建,8 端同源分发,Apache 2.0 开源,支持私有化部署。
+            基于 IHUI AI 全栈 AI 操作系统搭建,9 端同源分发,Apache 2.0 开源,支持私有化部署。
             课程结构化编排 + 智能答疑 + 作业批改 + 学习数据看板,30 分钟上线。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
@@ -181,7 +181,7 @@ export default async function AiEduPage() {
 
         {/* 技术栈 */}
         <section className="mt-12 space-y-4">
-          <h2 className="text-2xl font-bold tracking-tight">8 端同源技术栈</h2>
+          <h2 className="text-2xl font-bold tracking-tight">9 端同源技术栈</h2>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
@@ -227,7 +227,7 @@ export default async function AiEduPage() {
           <h2 className="mt-3 text-2xl font-bold tracking-tight">30 分钟搭建 AI 教育 Agent</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
             注册即用,Apache 2.0 开源,可私有化部署;Web/API/AI
-            Service/Desktop/Extension/Mobile/Miniapp/CLI 8 端同源。
+            Service/Desktop/Extension/Mobile/Miniapp/CLI 9 端同源。
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <Link

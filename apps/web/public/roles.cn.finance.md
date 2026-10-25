@@ -172,7 +172,7 @@ console.log(report.insights)
 - **浏览器扩展**:WXT(Manifest V3,银行流水抓取)
 - **移动端**:React Native(iOS / Android)
 - **CLI**:Node.js + Commander
-- **8 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / CLI
+- **9 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / Capacitor / CLI
 - **OCR**:百度 OCR / 阿里云 OCR
 - **银行 API**:50+ 银行聚合
 - **区块链**:蚂蚁链 / 至信链 / BSN(可选)

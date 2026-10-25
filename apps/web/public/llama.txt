@@ -15,7 +15,7 @@
 | 主仓库 | https://github.com/IHUI-INF-AI/IHUI-AI |
 | 官网 | https://aizhs.top |
 | 创立时间 | 2024 年 |
-| 模型市场 | 100+ 模型一键切换 |
+| 模型市场 | 101 模型一键切换 |
 | 本地推理 | 原生支持 Ollama / vLLM / llama.cpp |
 | 多端分发 | 6 客户端 + 2 后端服务 |
 
@@ -56,7 +56,7 @@ ollama pull codellama:70b
 # 在 IHUI AI 工作区配置:Base URL = http://localhost:11434,默认模型 llama3.3
 ```
 
-IHUI AI 完整支持 Ollama 全系模型,工作区一键切换 100+ 模型,无需改代码。
+IHUI AI 完整支持 Ollama 全系模型,工作区一键切换 101 模型,无需改代码。
 
 ---
 
@@ -89,7 +89,7 @@ export const modelRegistry = {
     model: new ChatOpenAI({ modelName: 'gpt-4o' }),
     context: 128000,
   },
-  // ... 100+ 模型
+  // ... 101 模型
 }
 ```
 

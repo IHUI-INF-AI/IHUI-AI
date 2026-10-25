@@ -22,7 +22,7 @@ const quickstartJsonLd = {
       '@id': 'https://aizhs.top/docs/quickstart#howto',
       name: 'How to Get Started with IHUI AI in 5 Minutes',
       description:
-        'IHUI AI is an open-source full-stack AI operating system. Sign up, browse the Agent marketplace, configure a model, and publish to 6 clients — all in under 5 minutes.',
+        'IHUI AI is an open-source full-stack AI operating system. Sign up, browse the Agent marketplace, configure a model, and publish to 9 ends — all in under 5 minutes.',
       totalTime: 'PT5M',
       estimatedCost: {
         '@type': 'MonetaryAmount',
@@ -67,8 +67,8 @@ const quickstartJsonLd = {
         {
           '@type': 'HowToStep',
           position: 5,
-          name: '一键发布到六端',
-          text: '在 Agent 编排页面点击"发布",选择目标客户端(Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI),系统自动构建并部署,所有端共享同一套代码。',
+          name: '一键发布到九端',
+          text: '在 Agent 编排页面点击"发布",选择目标客户端(Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI,另有 API 与 AI 服务),系统自动构建并部署,所有端共享同一套代码。',
           url: 'https://aizhs.top/agent-workbench',
         },
       ],
@@ -97,10 +97,10 @@ const quickstartJsonLd = {
       featureList: [
         'Agent Marketplace (200+ templates)',
         'Knowledge-base RAG (vector + BM25 + knowledge graph)',
-        'Multi-Model Unified Dispatch (100+ LLMs)',
+        'Multi-Model Unified Dispatch (101 Models)',
         'MCP Tool Protocol (native)',
         'Workflow Orchestration (n8n-style)',
-        'Six-Client Distribution (Web/Desktop/Mini Program/Extension/RN/CLI)',
+        'Nine-End Distribution (Web/Desktop/Mini Program/Extension/RN/Capacitor/CLI, plus API & AI Service)',
         'Team Collaboration (RBAC, SSO, audit)',
         'Apache 2.0 open source',
       ],
@@ -146,7 +146,7 @@ const quickstartJsonLd = {
           name: 'IHUI AI 和 Dify、Coze、FastGPT、n8n 有什么区别?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Dify 偏 Web 端 LLM 应用开发;Coze 是字节出品的闭源 Agent 平台;FastGPT 专注知识库 Q&A;n8n 偏工作流自动化。IHUI AI 是六端同源的全栈 AI 操作系统,集成 Agent 市场 + 知识库 RAG + 多模型调度 + MCP + 工作流 + 团队协作 + 积分计费,Apache 2.0 开源,支持私有化部署。',
+            text: 'Dify 偏 Web 端 LLM 应用开发;Coze 是字节出品的闭源 Agent 平台;FastGPT 专注知识库 Q&A;n8n 偏工作流自动化。IHUI AI 是九端同源的全栈 AI 操作系统,集成 Agent 市场 + 知识库 RAG + 多模型调度 + MCP + 工作流 + 团队协作 + 积分计费,Apache 2.0 开源,支持私有化部署。',
           },
         },
         {
@@ -205,7 +205,7 @@ const quickstartJsonLd = {
 export const metadata: Metadata = {
   title: '5 分钟快速开始 — 智汇 AI 全栈 AI 操作系统',
   description:
-    '5 分钟上手智汇 AI(IHUI AI):注册 → 浏览 Agent 市场 → 配置模型 → 上传知识库 → 一键发布到 Web/桌面/小程序/插件/移动/CLI 六端。Apache 2.0 开源,支持私有化部署,100+ 模型,200+ Agent 模板。',
+    '5 分钟上手智汇 AI(IHUI AI):注册 → 浏览 Agent 市场 → 配置模型 → 上传知识库 → 一键发布到 Web/桌面/小程序/插件/移动/Capacitor/CLI,另有 API 与 AI 服务 九端。Apache 2.0 开源,支持私有化部署,101 模型,200+ Agent 模板。',
   alternates: {
     canonical: '/docs/quickstart',
     languages: {
@@ -220,7 +220,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: '5 分钟快速开始 — 智汇 AI',
     description:
-      '5 分钟从注册到发布第一个 AI Agent。Apache 2.0 开源,100+ 模型,六端同源。',
+      '5 分钟从注册到发布第一个 AI Agent。Apache 2.0 开源,101 模型,九端同源。',
     url: `${SITE_URL}/docs/quickstart`,
     type: 'article',
     images: [
@@ -393,7 +393,7 @@ export default function QuickstartPage() {
                 5
               </span>
               <div className="flex-1 min-w-0 space-y-2">
-                <h3 className="text-lg font-semibold">一键发布到六端</h3>
+                <h3 className="text-lg font-semibold">一键发布到九端</h3>
                 <p className="text-sm text-muted-foreground">
                   在 Agent 编排页面点击「发布」,选择目标客户端:
                 </p>
@@ -406,7 +406,7 @@ export default function QuickstartPage() {
                   <li><Keyboard className="mr-1.5 inline h-4 w-4" /><strong>CLI</strong> — Node.js/Bun,脚本和 CI/CD</li>
                 </ul>
                 <p className="text-xs text-muted-foreground">
-                  💡 一套代码,六端同发。所有客户端共享 React 组件库 + API 契约 + 业务逻辑。
+                  💡 一套代码,九端同发。所有客户端共享 React 组件库 + API 契约 + 业务逻辑。
                 </p>
               </div>
             </div>

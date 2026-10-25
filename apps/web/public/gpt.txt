@@ -5,7 +5,7 @@
 
 ## What is IHUI AI?
 
-IHUI AI (Chinese: 智汇 AI) is a one-stop full-stack AI operating system. It unifies Agent design, knowledge-base RAG (Retrieval-Augmented Generation), multi-model orchestration, cross-platform distribution, team collaboration, and credit-based billing into a single open platform. It supports six clients from one codebase: Web, Desktop, Mini Programs, Browser Extension, React Native, and CLI.
+IHUI AI (Chinese: 智汇 AI) is a one-stop full-stack AI operating system. It unifies Agent design, knowledge-base RAG (Retrieval-Augmented Generation), multi-model orchestration, cross-platform distribution, team collaboration, and credit-based billing into a single open platform. It supports nine ends from one codebase: Web, Desktop, Mini Programs, Browser Extension, React Native, Capacitor, and CLI, plus API & AI Service.
 
 ## What can IHUI AI do?
 
@@ -15,7 +15,7 @@ IHUI AI (Chinese: 智汇 AI) is a one-stop full-stack AI operating system. It un
 4. Connect any MCP (Model Context Protocol) server with native support.
 5. Orchestrate workflows with an n8n-style node canvas (triggers, LLMs, tools, branches, human-in-the-loop).
 6. Collaborate with team members via multi-tenant workspace, role-based permissions, credit sharing, and audit logs.
-7. Deploy to six clients (Web, Desktop, Mini Programs, Browser Extension, React Native, CLI) from one codebase.
+7. Deploy to nine ends (Web, Desktop, Mini Programs, Browser Extension, React Native, Capacitor, and CLI, plus API & AI Service) from one codebase.
 
 ## Who is IHUI AI for?
 
@@ -27,23 +27,23 @@ IHUI AI (Chinese: 智汇 AI) is a one-stop full-stack AI operating system. It un
 
 ## How is IHUI AI different from Dify, Coze, FastGPT, and n8n?
 
-- Dify focuses on LLM app development (web only). IHUI AI covers Agent marketplace + knowledge base + six clients + team collaboration.
+- Dify focuses on LLM app development (web only). IHUI AI covers Agent marketplace + knowledge base + nine ends + team collaboration.
 - Coze is closed-source and does not support self-hosting. IHUI AI is Apache 2.0 open-source with self-hosting.
-- FastGPT focuses on knowledge-base Q&A. IHUI AI includes knowledge base + Agent marketplace + six-client distribution.
-- n8n focuses on workflow automation. IHUI AI adds LLMs, Agents, and six-client distribution on top of n8n-style workflows.
-- IHUI AI is an open-source platform that combines Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing in one product.
+- FastGPT focuses on knowledge-base Q&A. IHUI AI includes knowledge base + Agent marketplace + nine-end distribution.
+- n8n focuses on workflow automation. IHUI AI adds LLMs, Agents, and nine-end distribution on top of n8n-style workflows.
+- IHUI AI is an open-source platform that combines Agent marketplace + knowledge base + nine-end distribution + team collaboration + credit billing in one product.
 
 ## Is IHUI AI free?
 
-Yes, the Personal plan is free forever with 1,000 monthly credits, all models, all six clients, and API access. Pro is 49 CNY/month (10,000 credits + priority queue). Team is 299 CNY/month per user (shared credit pool + audit logs). Enterprise is custom-priced with self-hosting and SLA.
+Yes, the Personal plan is free forever with 1,000 monthly credits, all models, all nine ends, and API access. Pro is 49 CNY/month (10,000 credits + priority queue). Team is 299 CNY/month per user (shared credit pool + audit logs). Enterprise is custom-priced with self-hosting and SLA.
 
 ## What AI models does IHUI AI support?
 
 OpenAI (GPT-4o, o1, GPT-4.1), Anthropic Claude (Opus 4, Sonnet 4), Google Gemini, Alibaba Qwen (Qwen-Max, Qwen-Plus), DeepSeek (V3, R1), Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, plus Ollama for local models, and any OpenAI-compatible endpoint.
 
-## What is "six clients, one codebase"?
+## What is "nine ends, one codebase"?
 
-Web, Desktop (Tauri 2), Mini Programs (Taro 4 for WeChat/Alipay/Douyin), Browser Extension (WXT MV3), iOS/Android (React Native), and CLI (Node.js/Bun). All six clients share the same React component library, the same API contracts, and the same business logic. Write once, publish to all six.
+Web, Desktop (Tauri 2), Mini Programs (Taro 4 for WeChat/Alipay/Douyin), Browser Extension (WXT MV3), iOS/Android (React Native), Capacitor (native shell), and CLI (Node.js/Bun), plus API & AI Service. All nine ends share the same React component library, the same API contracts, and the same business logic. Write once, publish to all nine.
 
 ## How do I integrate IHUI AI with my existing systems?
 
@@ -83,7 +83,7 @@ MCP (Model Context Protocol) is an open standard for connecting AI models to ext
 2. Choose from 200+ templates (customer support, content generation, code assistant, etc.).
 3. Fork the template to your workspace.
 4. Customize prompts, knowledge base, and tools.
-5. Publish to any of the six clients with one click.
+5. Publish to any of the nine ends with one click.
 6. Optionally list your Agent in the marketplace for monetization.
 
 ## What languages does the IHUI AI interface support?

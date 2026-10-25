@@ -16,7 +16,7 @@ const modelsJsonLd = {
       '@id': 'https://aizhs.top/docs/models#article',
       headline: '智汇 AI 多模型调度完整指南',
       description:
-        '智汇 AI 多模型调度:100+ LLM 统一接入,Provider 健康检查,自动 fallback,Combo 链组合,Token 压缩,统一积分池。',
+        '智汇 AI 多模型调度:101 LLM 统一接入,Provider 健康检查,自动 fallback,Combo 链组合,Token 压缩,统一积分池。',
       author: { '@id': 'https://aizhs.top/#organization' },
       publisher: { '@id': 'https://aizhs.top/#organization' },
       datePublished: '2024-01-01',
@@ -38,7 +38,7 @@ const modelsJsonLd = {
 export const metadata: Metadata = {
   title: '多模型调度 — 智汇 AI 文档',
   description:
-    '智汇 AI 多模型调度完整指南:100+ LLM 统一接入,Provider 健康检查,自动 fallback,Combo 链,Token 压缩,统一积分池。',
+    '智汇 AI 多模型调度完整指南:101 LLM 统一接入,Provider 健康检查,自动 fallback,Combo 链,Token 压缩,统一积分池。',
   alternates: {
     canonical: '/docs/models',
     languages: {
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: '多模型调度 — 智汇 AI',
-    description: '100+ LLM 统一接入,自动 fallback,Combo 链组合调用。',
+    description: '101 LLM 统一接入,自动 fallback,Combo 链组合调用。',
     url: `${SITE_URL}/docs/models`,
     type: 'article',
     images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 多模型调度' }],
@@ -77,14 +77,14 @@ export default function ModelsDocsPage() {
           多模型调度完整指南
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-          100+ LLM 统一接入,自动 fallback,Combo 链组合调用,Token 压缩,
+          101 LLM 统一接入,自动 fallback,Combo 链组合调用,Token 压缩,
           统一积分池一套账单全模型通用。
         </p>
       </header>
 
       {/* 支持的模型 */}
       <section id="supported-models" className="mt-16 space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">支持的模型(100+)</h2>
+        <h2 className="text-2xl font-bold tracking-tight">支持的模型(101)</h2>
         <div className="space-y-4">
           <div className="rounded-lg border bg-card p-3">
             <p className="text-sm font-semibold">🌍 国际厂商</p>

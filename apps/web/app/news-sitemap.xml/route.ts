@@ -42,7 +42,7 @@ const NEWS_ENTRIES: NewsEntry[] = [
   {
     title: '智汇 AI 0.1.0 里程碑版本发布:Fastify + Next.js + FastAPI 三端落地',
     description:
-      '新架构首个里程碑版本。96 表 32 迁移,Apache 2.0 开源,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,8 端同源。',
+      '新架构首个里程碑版本。96 表 32 迁移,Apache 2.0 开源,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,9 端同源。',
     path: '/',
     daysAgo: 11,
     category: 'release',

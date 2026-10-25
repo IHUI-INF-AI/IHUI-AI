@@ -30,7 +30,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, Button } fro
 export const metadata: Metadata = {
   title: 'IHUI AI — All-in-One AI Operating System | Agent Marketplace & RAG',
   description:
-    'IHUI AI is an open-source full-stack AI operating system. Build, deploy, and scale AI agents across 8 platforms (Web/Desktop/Mobile/CLI/Extension/Miniapp). Integrates Agent marketplace, RAG knowledge base, multi-model dispatch (OpenAI/Claude/Gemini/Qwen/DeepSeek), MCP tool protocol. Apache 2.0 licensed.',
+    'IHUI AI is an open-source full-stack AI operating system. Build, deploy, and scale AI agents across 9 ends (Web/Desktop/Mobile/Capacitor/CLI/Extension/Miniapp, plus API & AI Service). Integrates Agent marketplace, RAG knowledge base, multi-model dispatch (OpenAI/Claude/Gemini/Qwen/DeepSeek), MCP tool protocol. Apache 2.0 licensed.',
   alternates: {
     canonical: '/en',
     languages: {
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'IHUI AI — All-in-One AI Operating System',
     description:
-      'Open-source AI platform: Agent marketplace, RAG, multi-model dispatch, 8-end sync. Apache 2.0.',
+      'Open-source AI platform: Agent marketplace, RAG, multi-model dispatch, 9-end sync. Apache 2.0.',
     url: 'https://aizhs.top/en',
     type: 'website',
     locale: 'en_US',
@@ -67,8 +67,8 @@ interface Feature {
 const FEATURES: Feature[] = [
   {
     icon: Boxes,
-    title: '8-End Sync',
-    desc: 'Web / Desktop / Mobile / CLI / Extension / Miniapp — one codebase, eight platforms. Ship everywhere from a single source.',
+    title: '9-End Sync',
+    desc: 'Web / Desktop / Mobile / Capacitor / CLI / Extension / Miniapp, plus API & AI Service — one codebase, nine ends. Ship everywhere from a single source.',
   },
   {
     icon: Bot,
@@ -83,7 +83,7 @@ const FEATURES: Feature[] = [
   {
     icon: Cpu,
     title: 'Multi-Model Dispatch',
-    desc: '176+ models from OpenAI, Claude, Gemini, Qwen, and DeepSeek. Auto-fallback, smart routing, one unified API.',
+    desc: '101 models from OpenAI, Claude, Gemini, Qwen, and DeepSeek. Auto-fallback, smart routing, one unified API.',
   },
   {
     icon: Wrench,
@@ -119,6 +119,7 @@ const PLATFORMS: Platform[] = [
   { icon: Globe, name: 'Web', desc: 'Next.js 16 + React 19' },
   { icon: Monitor, name: 'Desktop', desc: 'Windows / macOS / Linux' },
   { icon: Smartphone, name: 'Mobile', desc: 'iOS / Android (RN)' },
+  { icon: Boxes, name: 'Capacitor', desc: 'Native shell (iOS/Android)' },
   { icon: Terminal, name: 'CLI', desc: 'Developer terminal tool' },
   { icon: Puzzle, name: 'Extension', desc: 'Browser extension' },
   { icon: Layers, name: 'Miniapp', desc: 'WeChat miniapp (Taro)' },
@@ -144,7 +145,7 @@ export default function EnglishHomePage() {
             </span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            Build, deploy, and scale AI agents across 8 platforms. Open-source. Apache 2.0.
+            Build, deploy, and scale AI agents across 9 ends. Open-source. Apache 2.0.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild variant="default" size="lg">
@@ -188,7 +189,7 @@ export default function EnglishHomePage() {
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
             <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-              176+ AI Models, One API
+              101 AI Models, One API
             </h2>
             <p className="mt-3 text-muted-foreground">
               Nine leading model providers, unified under a single interface.
@@ -209,11 +210,11 @@ export default function EnglishHomePage() {
           </div>
         </section>
 
-        {/* 8-End Platform Section */}
+        {/* 9-End Platform Section */}
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
             <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-              Eight Platforms, One Codebase
+              Nine Ends, One Codebase
             </h2>
             <p className="mt-3 text-muted-foreground">
               Write once. Deploy to web, desktop, mobile, CLI, and more.

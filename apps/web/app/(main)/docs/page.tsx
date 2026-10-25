@@ -89,7 +89,7 @@ const docsJsonLd = {
           position: 8,
           name: '多模型调度',
           url: 'https://aizhs.top/docs/models',
-          description: '统一 API 接入 100+ 模型,自动 fallback',
+          description: '统一 API 接入 101 模型,自动 fallback',
         },
         {
           '@type': 'ListItem',

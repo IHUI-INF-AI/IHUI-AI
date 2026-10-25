@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-cursor',
       name: 'IHUI AI vs Cursor:全栈 AI 操作系统 vs AI 优先 IDE',
       description:
-        'Cursor 是 AI 优先 IDE(VS Code fork,2025 现象级产品,专注代码补全 + Chat);IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 六端分发。本文深度对比。',
+        'Cursor 是 AI 优先 IDE(VS Code fork,2025 现象级产品,专注代码补全 + Chat);IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 九端分发。本文深度对比。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
@@ -42,11 +42,11 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs Cursor:全栈 AI 操作系统 vs AI 优先 IDE | 2026 对比',
   description:
-    'Cursor 是 AI 优先 IDE(VS Code fork,桌面 only,无 Agent 市场);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 六端分发 + 私有化。本文 12 维度对比。',
+    'Cursor 是 AI 优先 IDE(VS Code fork,桌面 only,无 Agent 市场);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含代码 Agent + Agent 市场 + 知识库 + 九端分发 + 私有化。本文 12 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-cursor' },
   openGraph: {
     title: 'IHUI AI vs Cursor — 全栈 AI OS vs AI 优先 IDE',
-    description: '六端同源 AI 操作系统 vs 桌面 IDE only;开源可商用 vs 闭源 SaaS。',
+    description: '九端同源 AI 操作系统 vs 桌面 IDE only;开源可商用 vs 闭源 SaaS。',
     url: 'https://aizhs.top/compare/ihui-vs-cursor',
     type: 'article',
   },

@@ -1101,7 +1101,44 @@ export function readInputs(env = process.env) {
       }
       reclassify = items
     }
-    return { root, doc, msg, block: null, anchorLines: null, replacements: pairs, reclassify }
+    // 声明式改号(2026-10-25 立,F9 撞号清偿):同一编号被两件不同的事共用 ⇒ 必须让后来者改号
+    // (G-312:逐组判后来者、不得批量改号)。而三维守恒的主键维禁止改号,同题让号额度只覆盖
+    // "指纹逐字相同"那一型 ⇒ 不同题让号结构上无出口。出口 = 逐条声明 fromKey/toKey/why,
+    // 新号必须空闲、新行必须带「〔旧号 X〕」保跨引用;主键维放行,租约/归属维照判。
+    const renumberFile = env.LIVE_KEY_RENUMBER ?? ''
+    let renumber = []
+    if (renumberFile !== '') {
+      let items
+      try {
+        items = JSON.parse(readFileSync(renumberFile, 'utf8'))
+      } catch (e) {
+        return { error: `读不到/解析不了 LIVE_KEY_RENUMBER(${renumberFile}):${e?.message ?? e}` }
+      }
+      if (!Array.isArray(items) || items.length === 0)
+        return { error: 'LIVE_KEY_RENUMBER 必须是非空数组 [{before, after, fromKey, toKey, why}]' }
+      const known = new Set(pairs.map((p) => p.before))
+      for (const [i, it] of items.entries()) {
+        if (
+          typeof it?.before !== 'string' ||
+          typeof it?.after !== 'string' ||
+          typeof it?.fromKey !== 'string' ||
+          typeof it?.toKey !== 'string' ||
+          typeof it?.why !== 'string'
+        )
+          return { error: `LIVE_KEY_RENUMBER 第 ${i + 1} 项缺 before/after/fromKey/toKey/why ⇒ 拒绝执行` }
+        if (it.fromKey === it.toKey) return { error: `第 ${i + 1} 项 fromKey == toKey ⇒ 无事可做` }
+        if (it.why.trim().length < 10)
+          return { error: `第 ${i + 1} 项 why 少于 10 字 ⇒ 不说明理由的改号等于替人猜(§0.10)` }
+        if (!known.has(it.before))
+          return { error: `第 ${i + 1} 项的 before 不在本次 LIVE_REPLACE_FILE 里 ⇒ 陈旧/串档声明` }
+        if (!it.after.includes(`〔旧号 ${it.fromKey}`))
+          return {
+            error: `第 ${i + 1} 项新行缺「〔旧号 ${it.fromKey}〕」⇒ 跨引用会断链(实测腐烂率最高的一型)`,
+          }
+      }
+      renumber = items
+    }
+    return { root, doc, msg, block: null, anchorLines: null, replacements: pairs, reclassify, renumber }
   }
   if (!blockFile) return { error: '缺 LIVE_BLOCK_FILE(或改用 LIVE_REPLACE_FILE 走整行改写档)' }
   let block
@@ -1390,15 +1427,23 @@ export function applyReplacements(baseLines, pairs) {
  * 侧车记录按同一面(HEAD)读取;取不到面时回落散文口径,但必须打印一行"未含侧车"。
  * `baseLines` 只用来给违规点名行号;不改动任何判据输入。
  */
-export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields = null, reclassify = null } = {}) {
+export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields = null, reclassify = null, renumber = null } = {}) {
   const openRe = /^\s*- \[ \]/
   const doneRe = /^\s*- \[[xX]\]/
   const violations = []
   const notes = []
   const recMap = new Map((reclassify ?? []).map((d) => [d.before, d]))
+  const renMap = new Map((renumber ?? []).map((d) => [d.before, d]))
   const usedReclassify = new Set()
+  const usedRenumber = new Set()
+  const occupiedKeys = new Set()
+  for (const l of baseLines) {
+    const k = keyOfRow(l)
+    if (k) occupiedKeys.add(k)
+  }
   let checked = 0
   let reclassified = 0
+  let renumbered = 0
   for (const [i, p] of pairs.entries()) {
     const oldLine = String(p.before ?? '')
     const newLine = String(p.after ?? '')
@@ -1436,6 +1481,43 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
       })
       continue
     }
+    // 声明式改号:同一编号被两件不同的事共用 ⇒ 让后来者改号(G-312)。主键维由声明放行,
+    // 但声明必须与现算逐字同形、新号必须空闲、新行必须带〔旧号 X〕;租约/归属维照判。
+    const rd = renMap.get(oldLine)
+    if (rd) {
+      usedRenumber.add(oldLine)
+      const fk = keyOfRow(oldLine)
+      const tk = keyOfRow(newLine)
+      const bad = []
+      if (fk !== rd.fromKey || tk !== rd.toKey)
+        bad.push(`声明改号 ${rd.fromKey}→${rd.toKey} 与现算 ${fk}→${tk} 不同形 ⇒ 声明陈旧或改错了行`)
+      if (tk && occupiedKeys.has(tk) && tk !== fk) bad.push(`新号 ${tk} 已被台账占用 ⇒ 不许制造第二枚撞号`)
+      if (!String(newLine).includes(`〔旧号 ${rd.fromKey}`))
+        bad.push(`新行缺「〔旧号 ${rd.fromKey}〕」⇒ 跨引用会断链`)
+      const assertBad = assertRowRewriteConservation({ oldLine, newLine, oldRec, newRec })
+      if (rd.bucketFrom && rd.bucketTo) {
+        // 改号会让侧车键失配(键=编号+标题),新键记录可能带着修正后的桶 ⇒ 归属维必须能随号迁移。
+        // 与 reclassify 同一纪律:声明 from/to 必须与现算逐字同形,否则照旧判违规。
+        const bf = bucketOf(oldLine, oldRec)
+        const bt = bucketOf(newLine, newRec)
+        if (bf !== rd.bucketFrom || bt !== rd.bucketTo)
+          bad.push(`声明改桶 ${rd.bucketFrom}→${rd.bucketTo} 与现算 ${bf}→${bt} 不同形`)
+        bad.push(
+          ...assertBad.filter((b) => !b.startsWith('主键漂了:') && !b.startsWith('归属判定会漂:')),
+        )
+        if (bf === rd.bucketFrom && bt === rd.bucketTo)
+          notes.push(`ℹ 第 ${i + 1} 项改号:归属维随号迁移 ${bf} → ${bt} 按声明放行`)
+      } else {
+        bad.push(...assertBad.filter((b) => !b.startsWith('主键漂了:')))
+      }
+      if (bad.length) {
+        violations.push({ item: i + 1, at: [], bad })
+        continue
+      }
+      renumbered++
+      notes.push(`ℹ 三维守恒第 ${i + 1} 项:声明式改号 ${fk} → ${tk} 放行(原因:${rd.why});主键维按声明放行,租约/归属维照判`)
+      continue
+    }
     let bad = assertRowRewriteConservation({ oldLine, newLine, oldRec, newRec })
     const fp0 = extractTaskFingerprint(oldLine)
     if (fp0 && fp0 === extractTaskFingerprint(newLine)) {
@@ -1459,7 +1541,16 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
     for (let k = 0; k < baseLines.length; k++) if (baseLines[k] === oldLine) at.push(k + 1)
     violations.push({ item: i + 1, at, bad })
   }
-  return { ok: violations.length === 0, checked, violations, notes, reclassified, staleReclassify: [...recMap.keys()].filter((k) => !usedReclassify.has(k)) }
+  return {
+    ok: violations.length === 0,
+    checked,
+    violations,
+    notes,
+    reclassified,
+    renumbered,
+    staleReclassify: [...recMap.keys()].filter((k) => !usedReclassify.has(k)),
+    staleRenumber: [...renMap.keys()].filter((k) => !usedRenumber.has(k)),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2416,8 +2507,18 @@ async function main() {
         pairs: effReplacements ?? [],
         fields: fields?.undetermined ? null : fields,
         reclassify: inputs.reclassify ?? null,
+        renumber: inputs.renumber ?? null,
       })
       for (const n of cons.notes) console.log(n)
+      if (cons.staleRenumber?.length) {
+        console.error(
+          `❌ 声明式改号有 ${cons.staleRenumber.length} 条未命中本轮改写(陈旧或串档)⇒ 拒绝写盘`,
+        )
+        for (const b of cons.staleRenumber) console.error(`   · ${String(b).slice(0, 140)}`)
+        process.exit(1)
+      }
+      if (cons.renumbered > 0)
+        console.log(`✅ 声明式改号:${cons.renumbered} 项已放行(逐条原因见上;commit message 须同步抄录)`)
       if (cons.staleReclassify?.length) {
         console.error(
           `❌ 声明式改桶有 ${cons.staleReclassify.length} 条未命中本轮改写(陈旧或串档)⇒ 拒绝写盘`,

@@ -15,7 +15,7 @@ const agentJsonLd = {
       '@type': 'TechArticle',
       '@id': 'https://aizhs.top/docs/agent#article',
       headline: '智汇 AI Agent 开发指南',
-      description: '可视化编排 + 模板开发 + 最佳实践。从 0 搭建企业级 AI Agent,含提示词工程、工具集成、知识库挂载、六端发布。',
+      description: '可视化编排 + 模板开发 + 最佳实践。从 0 搭建企业级 AI Agent,含提示词工程、工具集成、知识库挂载、九端发布。',
       author: { '@id': 'https://aizhs.top/#organization' },
       publisher: { '@id': 'https://aizhs.top/#organization' },
       datePublished: '2024-01-01',
@@ -37,7 +37,7 @@ const agentJsonLd = {
 export const metadata: Metadata = {
   title: 'Agent 开发 — 智汇 AI 全栈 AI 操作系统',
   description:
-    '可视化编排 + 模板开发 + 最佳实践。从 0 搭建企业级 AI Agent:提示词工程、工具集成、知识库挂载、工作流、六端发布、变现。',
+    '可视化编排 + 模板开发 + 最佳实践。从 0 搭建企业级 AI Agent:提示词工程、工具集成、知识库挂载、工作流、九端发布、变现。',
   alternates: {
     canonical: '/docs/agent',
     languages: {
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Agent 开发 — 智汇 AI',
-    description: '可视化编排 + 模板 + 最佳实践,六端发布。',
+    description: '可视化编排 + 模板 + 最佳实践,九端发布。',
     url: `${SITE_URL}/docs/agent`,
     type: 'article',
   },
@@ -201,7 +201,7 @@ export default defineAgentTemplate({
           <div className="rounded-lg border bg-card p-3">
             <h3 className="flex items-center text-lg font-semibold">
               <Smartphone className="mr-1.5 inline h-5 w-5" />
-              六端发布
+              九端发布
             </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>Web(主入口,PWA 离线)</li>

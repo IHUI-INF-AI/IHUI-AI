@@ -25,7 +25,7 @@ const jsonLd = {
       url: 'https://aizhs.top/en/use-cases/ai-research',
       name: 'AI Academic Research Assistant Agent Use Case — IHUI AI',
       description:
-        'AI academic research assistant built on IHUI AI full-stack AI operating system: paper retrieval/review, PDF parsing, citation management, research trend analysis, cross-discipline knowledge graph. 30-minute onboarding, 8-endpoint distribution.',
+        'AI academic research assistant built on IHUI AI full-stack AI operating system: paper retrieval/review, PDF parsing, citation management, research trend analysis, cross-discipline knowledge graph. 30-minute onboarding, 9-endpoint distribution.',
       inLanguage: ['en', 'zh-CN', 'zh-TW', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -113,7 +113,7 @@ const jsonLd = {
 export const metadata: Metadata = {
   title: 'AI Academic Research Assistant — Paper Retrieval / Review / Citation | IHUI AI',
   description:
-    'Build an AI academic research assistant on IHUI AI: paper retrieval + PDF parsing + citation management + review generation + knowledge graph + trend analysis. 30-minute onboarding, 8-endpoint distribution, Apache 2.0 open source.',
+    'Build an AI academic research assistant on IHUI AI: paper retrieval + PDF parsing + citation management + review generation + knowledge graph + trend analysis. 30-minute onboarding, 9-endpoint distribution, Apache 2.0 open source.',
   alternates: { canonical: '/en/use-cases/ai-research' },
   openGraph: {
     title: 'AI Academic Research Assistant — IHUI AI',
@@ -223,7 +223,7 @@ export default function AiResearchPage() {
             AI Academic Research Assistant: 8x faster literature research
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            Built on the IHUI AI full-stack AI operating system, distributed across 8 endpoints
+            Built on the IHUI AI full-stack AI operating system, distributed across 9 endpoints
             (Web, desktop, mini-program, browser extension, RN, CLI, API, AI-Service), Apache 2.0
             open source, with on-premise deployment support.
           </p>

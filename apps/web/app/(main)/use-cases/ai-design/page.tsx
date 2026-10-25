@@ -26,7 +26,7 @@ const jsonLd = {
       url: 'https://aizhs.top/use-cases/ai-design',
       name: 'AI 设计协作 Agent 用例 — IHUI AI',
       description:
-        '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 设计协作 Agent:海报/Logo 概念、UI 草图转代码、品牌资产管理、设计稿评审、设计系统检索,30 分钟上线,8 端分发。',
+        '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 设计协作 Agent:海报/Logo 概念、UI 草图转代码、品牌资产管理、设计稿评审、设计系统检索,30 分钟上线,9 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -104,7 +104,7 @@ const jsonLd = {
 export const metadata: Metadata = {
   title: 'AI 设计协作 — 海报/Logo/草图转代码/设计系统 | IHUI AI',
   description:
-    '用 IHUI AI 构建 AI 设计协作 Agent:海报 Logo 概念 + UI 草图转代码 + 品牌资产管理 + 设计稿评审 + 设计系统检索。30 分钟上线,8 端分发。',
+    '用 IHUI AI 构建 AI 设计协作 Agent:海报 Logo 概念 + UI 草图转代码 + 品牌资产管理 + 设计稿评审 + 设计系统检索。30 分钟上线,9 端分发。',
   alternates: { canonical: '/use-cases/ai-design' },
   openGraph: {
     title: 'AI 设计协作 Agent — IHUI AI',
@@ -202,7 +202,7 @@ export default function AiDesignPage() {
             AI 设计协作:草图转代码 + 品牌资产统一管理
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            基于 IHUI AI 全栈 AI 操作系统搭建,8 端分发,Apache 2.0
+            基于 IHUI AI 全栈 AI 操作系统搭建,9 端分发,Apache 2.0
             开源,支持私有化部署,Figma/即时设计深度集成。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
@@ -282,7 +282,7 @@ export default function AiDesignPage() {
             </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            基于 IHUI AI 全栈 AI 操作系统,8 端同源,核心组件全部开源,Figma/即时设计深度集成。
+            基于 IHUI AI 全栈 AI 操作系统,9 端同源,核心组件全部开源,Figma/即时设计深度集成。
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (

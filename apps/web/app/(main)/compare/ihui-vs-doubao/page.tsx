@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-doubao',
       name: 'IHUI AI vs 豆包:企业级开源 Agent 平台 vs 字节 C 端 AI',
       description:
-        '豆包是字节 C 端 AI 助手;IHUI AI 是 Apache 2.0 开源企业级 Agent 平台,含私有化+数据主权+Agent 市场+六端分发。',
+        '豆包是字节 C 端 AI 助手;IHUI AI 是 Apache 2.0 开源企业级 Agent 平台,含私有化+数据主权+Agent 市场+九端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
@@ -42,7 +42,7 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs 豆包:企业级开源 Agent 平台 vs 字节 C 端 AI | 2026 对比',
   description:
-    '豆包是字节 C 端 AI 助手(免费+抖音生态);IHUI AI 是 Apache 2.0 开源企业级 Agent 平台,含私有化+数据主权+Agent 市场+六端分发。本文 9 维度对比。',
+    '豆包是字节 C 端 AI 助手(免费+抖音生态);IHUI AI 是 Apache 2.0 开源企业级 Agent 平台,含私有化+数据主权+Agent 市场+九端分发。本文 9 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-doubao' },
   openGraph: {
     title: 'IHUI AI vs 豆包 — 企业级开源 vs C 端免费',

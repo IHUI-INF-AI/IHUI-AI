@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-wordware',
       name: 'IHUI AI vs Wordware:零代码全栈 OS vs 可读 AI 编程',
       description:
-        'Wordware 是可读 AI 编程语言;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,零代码可视化+200+ 模板+六端分发+团队协作。',
+        'Wordware 是可读 AI 编程语言;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,零代码可视化+200+ 模板+九端分发+团队协作。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'Wordware' }],
@@ -39,7 +39,7 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs Wordware:零代码全栈 OS vs 可读 AI 编程 | 2026 对比',
   description:
-    'Wordware 是可读 AI 编程语言(类自然语言);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,零代码可视化+200+ 模板+六端分发+团队协作。本文 8 维度对比。',
+    'Wordware 是可读 AI 编程语言(类自然语言);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,零代码可视化+200+ 模板+九端分发+团队协作。本文 8 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-wordware' },
   openGraph: {
     title: 'IHUI AI vs Wordware — 零代码 OS vs 可读编程',

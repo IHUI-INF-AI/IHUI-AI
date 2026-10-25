@@ -26,7 +26,7 @@ const jsonLd = {
       url: 'https://aizhs.top/zh-TW/use-cases/ai-research',
       name: 'AI 學術研究助手 Agent 用例 — IHUI AI',
       description:
-        '基於 IHUI AI 全棧 AI 作業系統搭建的 AI 學術研究助手:論文檢索/綜述、PDF 解析、引用管理、研究趨勢分析、跨學科知識圖譜,30 分鐘上線,8 端分發。',
+        '基於 IHUI AI 全棧 AI 作業系統搭建的 AI 學術研究助手:論文檢索/綜述、PDF 解析、引用管理、研究趨勢分析、跨學科知識圖譜,30 分鐘上線,9 端分發。',
       inLanguage: ['zh-TW', 'zh-CN', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -106,7 +106,7 @@ const jsonLd = {
 export const metadata: Metadata = {
   title: 'AI 學術研究助手 — 論文檢索/綜述/引用管理 | IHUI AI',
   description:
-    '用 IHUI AI 建構 AI 學術研究助手:論文檢索 + PDF 解析 + 引用管理 + 綜述生成 + 知識圖譜 + 趨勢分析。30 分鐘上線,8 端分發,Apache 2.0 開源。',
+    '用 IHUI AI 建構 AI 學術研究助手:論文檢索 + PDF 解析 + 引用管理 + 綜述生成 + 知識圖譜 + 趨勢分析。30 分鐘上線,9 端分發,Apache 2.0 開源。',
   alternates: { canonical: '/zh-TW/use-cases/ai-research' },
   openGraph: {
     title: 'AI 學術研究助手 — IHUI AI',
@@ -285,7 +285,7 @@ export default function AiResearchPage() {
             </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            基於 IHUI AI 全棧 AI 作業系統,8 端同源,核心元件全部開源。
+            基於 IHUI AI 全棧 AI 作業系統,9 端同源,核心元件全部開源。
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (

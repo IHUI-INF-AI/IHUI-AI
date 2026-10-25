@@ -16,7 +16,7 @@
 #   痛点 → 智汇 AI 解决方案 → 案例 → 合规要求 → ROI
 #
 # 目标读者: 广电集团 / 新闻社 / 视频平台 / 内容工作室 / 自媒体矩阵
-# 部署形态: 8 端同步(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)
+# 部署形态: 9 端同步(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli/capacitor)
 
 ---
 
@@ -145,7 +145,7 @@
 
 ---
 
-### 智汇 AI 端到端能力(8 端覆盖)
+### 智汇 AI 端到端能力(9 端覆盖)
 - **Web**(Next.js 16 + React 19):编辑工作台 / 选题看板
 - **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 18):内容服务接口
 - **AI Service**(FastAPI + LangGraph + LiteLLM + MCP):Agent 编排

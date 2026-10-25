@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-qwen-platform',
       name: 'IHUI AI vs 通义千问:跨 30+ 模型 Agent OS vs 阿里大模型平台',
       description:
-        '通义千问是阿里大模型平台;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨 30+ 模型中立+Agent 市场+六端分发+团队协作。',
+        '通义千问是阿里大模型平台;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨 30+ 模型中立+Agent 市场+九端分发+团队协作。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
@@ -42,7 +42,7 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs 通义千问:跨 30+ 模型 Agent OS vs 阿里大模型平台 | 2026 对比',
   description:
-    '通义千问是阿里大模型平台(模型 API+阿里云);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨 30+ 模型中立+Agent 市场+六端分发+团队协作。本文 9 维度对比。',
+    '通义千问是阿里大模型平台(模型 API+阿里云);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨 30+ 模型中立+Agent 市场+九端分发+团队协作。本文 9 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-qwen-platform' },
   openGraph: {
     title: 'IHUI AI vs 通义千问 — 跨模型 vs 锁定阿里',

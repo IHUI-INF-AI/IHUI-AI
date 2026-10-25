@@ -26,7 +26,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, Button } fro
 export const metadata: Metadata = {
   title: 'AI Agent Marketplace — 200+ Agent Templates | IHUI AI',
   description:
-    'Discover 200+ pre-built AI agent templates for customer service, sales, content creation, code review, data analysis. Visual orchestration, one-click deploy to 8 platforms, MCP tool protocol support. Open-source.',
+    'Discover 200+ pre-built AI agent templates for customer service, sales, content creation, code review, data analysis. Visual orchestration, one-click deploy to 9 ends, MCP tool protocol support. Open-source.',
   alternates: {
     canonical: '/en/agents',
     languages: {
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AI Agent Marketplace — 200+ Agent Templates',
     description:
-      'Visual orchestration + MCP tools + 8-end deploy. 200+ ready-to-use agent templates.',
+      'Visual orchestration + MCP tools + 9-end deploy. 200+ ready-to-use agent templates.',
     url: 'https://aizhs.top/en/agents',
     type: 'website',
     locale: 'en_US',
@@ -149,7 +149,7 @@ export default function EnglishAgentsPage() {
             </span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            200+ pre-built agent templates. Visual orchestration. One-click deploy to 8 platforms.
+            200+ pre-built agent templates. Visual orchestration. One-click deploy to 9 ends.
           </p>
           <div className="mt-8">
             <Button asChild variant="default" size="lg">

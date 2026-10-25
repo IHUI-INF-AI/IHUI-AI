@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-minimax',
       name: 'IHUI AI vs MiniMax:全栈 Agent OS vs 多模态模型 API',
       description:
-        'MiniMax 是多模态大模型 API;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含 MiniMax+30+ 模型+Agent 编排+六端分发。',
+        'MiniMax 是多模态大模型 API;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含 MiniMax+30+ 模型+Agent 编排+九端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'MiniMax' }],
@@ -39,11 +39,11 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs MiniMax:全栈 Agent OS vs 多模态模型 API | 2026 对比',
   description:
-    'MiniMax 是多模态大模型 API(文本/语音/视频);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含 MiniMax+30+ 模型+Agent 编排+六端分发。本文 9 维度对比。',
+    'MiniMax 是多模态大模型 API(文本/语音/视频);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含 MiniMax+30+ 模型+Agent 编排+九端分发。本文 9 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-minimax' },
   openGraph: {
     title: 'IHUI AI vs MiniMax — 全栈 OS vs 多模态 API',
-    description: 'Agent 编排 + 六端 vs 多模态 API。',
+    description: 'Agent 编排 + 九端 vs 多模态 API。',
     url: 'https://aizhs.top/compare/ihui-vs-minimax',
     type: 'article',
   },

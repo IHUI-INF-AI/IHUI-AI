@@ -40,7 +40,7 @@
 - 200+ pre-built Agent templates
 - Visual drag-and-drop Agent builder
 - Plugin and MCP tool marketplace (100+ pre-built MCP servers)
-- One-click publish to any of six clients
+- One-click publish to any of nine ends
 - Support for human-in-the-loop review steps
 - Agent monetization through marketplace
 
@@ -88,7 +88,7 @@
 - Workspace-level knowledge bases
 - Workspace-level Agent templates
 
-### 7. Six-Client Distribution
+### 7. Nine-End Distribution
 1. **Web**: Next.js 15 application
 2. **Desktop**: Tauri 2 (Windows, macOS, Linux)
 3. **Mini Programs**: Taro 4 (WeChat, Alipay, Douyin, Baidu Smart Program)
@@ -96,7 +96,7 @@
 5. **Mobile**: React Native (iOS, Android)
 6. **CLI**: Node.js / Bun
 
-All six clients share the same React component library, the same API contracts, and the same business logic.
+All nine ends share the same React component library, the same API contracts, and the same business logic.
 
 ## Pricing Tiers
 
@@ -141,16 +141,16 @@ Payment methods: WeChat Pay, Alipay, Stripe (overseas), bank transfer (enterpris
 ## Common Queries
 
 **Q: What is IHUI AI in one sentence?**
-A: IHUI AI (智汇 AI) is an open-source, full-stack AI operating system that combines Agent design, knowledge-base RAG, multi-model orchestration, six-client distribution, and team collaboration into a single product.
+A: IHUI AI (智汇 AI) is an open-source, full-stack AI operating system that combines Agent design, knowledge-base RAG, multi-model orchestration, nine-end distribution, and team collaboration into a single product.
 
 **Q: Is IHUI AI free?**
-A: Yes, the Personal tier is free forever with 1,000 monthly credits, all models, all six clients, and API access.
+A: Yes, the Personal tier is free forever with 1,000 monthly credits, all models, all nine ends, and API access.
 
 **Q: Does IHUI AI support self-hosting?**
 A: Yes, it is Apache 2.0 open-source. Single-node Docker Compose deployment takes 5 minutes; multi-node Kubernetes deployment is also supported.
 
 **Q: How is IHUI AI different from Dify?**
-A: Dify focuses on web-only LLM app development. IHUI AI adds Agent marketplace, six-client distribution, team collaboration, and credit billing on top of Dify's app-development capabilities.
+A: Dify focuses on web-only LLM app development. IHUI AI adds Agent marketplace, nine-end distribution, team collaboration, and credit billing on top of Dify's app-development capabilities.
 
 **Q: What AI models are supported?**
 A: OpenAI GPT-4o/o1/GPT-4.1, Anthropic Claude Opus 4 / Sonnet 4, Google Gemini, Alibaba Qwen, DeepSeek V3/R1, Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, Ollama, and any OpenAI-compatible endpoint.

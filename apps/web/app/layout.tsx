@@ -44,7 +44,7 @@ import { DOC_BG, DOC_BG_DARK } from '@ihui/design-tokens'
 
 const SITE_URL = 'https://aizhs.top'
 const SITE_DESCRIPTION =
-  'IHUI AI(智汇 AI 社区)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp 8 端同源分发,Apache 2.0 开源,支持私有化部署。'
+  'IHUI AI(智汇 AI 社区)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp / Capacitor 9 端同源分发,Apache 2.0 开源,支持私有化部署。'
 const SITE_KEYWORDS = [
   'IHUI AI',
   'iHuiAI',
@@ -61,8 +61,8 @@ const SITE_KEYWORDS = [
   'AI 工作流',
   'AI SaaS',
   'AI 平台',
-  '8 端',
-  '8 端同源',
+  '9 端',
+  '9 端同源',
   'monorepo AI',
   'OpenAI',
   'Claude',
@@ -132,7 +132,7 @@ export const metadata: Metadata = {
     alternateLocale: ['zh_TW', 'en_US'],
     url: SITE_URL,
     siteName: 'IHUI AI',
-    title: 'IHUI AI — 8 端全栈 AI 操作系统',
+    title: 'IHUI AI — 9 端全栈 AI 操作系统',
     description: SITE_DESCRIPTION,
     images: [
       // 2026-07-28 P1-4 SEO 资产补全:使用新建的 og-image.png(1200x630 品牌图)
@@ -140,14 +140,14 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'IHUI AI — 8 端全栈 AI 操作系统',
+        alt: 'IHUI AI — 9 端全栈 AI 操作系统',
         type: 'image/png',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'IHUI AI — 8 端全栈 AI 操作系统',
+    title: 'IHUI AI — 9 端全栈 AI 操作系统',
     description: SITE_DESCRIPTION,
     // 2026-07-28 P1-4 SEO 资产补全:Twitter card 使用 og-image.png
     images: ['/og-image.png'],
@@ -278,7 +278,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     height: 512,
                   },
                   description:
-                    '智汇 AI 社区(IHUI AI)是一站式 8 端全栈 AI 操作系统,提供 Agent 市场、知识库 RAG、多模型统一调度、跨端协作,支持 Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp 8 端同源,Apache 2.0 开源。',
+                    '智汇 AI 社区(IHUI AI)是一站式 9 端全栈 AI 操作系统,提供 Agent 市场、知识库 RAG、多模型统一调度、跨端协作,支持 Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp/Capacitor 9 端同源,Apache 2.0 开源。',
                   foundingDate: '2024',
                   founder: { '@type': 'Person', name: 'IHUI AI Team' },
                   address: {
@@ -312,9 +312,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   '@type': 'WebSite',
                   '@id': 'https://aizhs.top/#website',
                   url: 'https://aizhs.top',
-                  name: 'IHUI AI — 8 端全栈 AI 操作系统',
+                  name: 'IHUI AI — 9 端全栈 AI 操作系统',
                   description:
-                    '8 端全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、8 端同源分发(Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp)。',
+                    '9 端全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、9 端同源分发(Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp/Capacitor)。',
                   // 2026-08-02 inLanguage:zh-CN 主 + zh-TW 5 子页 + en 5 个 landing page(/en/*)
                   inLanguage: ['zh-CN', 'zh-TW', 'en'],
                   publisher: { '@id': 'https://aizhs.top/#organization' },
@@ -337,7 +337,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   operatingSystem:
                     'Web, Windows, macOS, Linux, iOS, Android, WeChat Mini Program, Chrome/Firefox/Edge',
                   description:
-                    '8 端全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型调度(MCP)、工作流编排、8 端同源分发(Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp),Apache 2.0 开源。',
+                    '9 端全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型调度(MCP)、工作流编排、9 端同源分发(Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp/Capacitor),Apache 2.0 开源。',
                   url: 'https://aizhs.top',
                   downloadUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI',
                   codeRepository: 'https://github.com/IHUI-INF-AI/IHUI-AI',
@@ -361,7 +361,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     worstRating: '1',
                   },
                   featureList:
-                    '8 端同源分发 (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp),AI Agent 市场,可视化拖拽 Agent 构建器,知识库 RAG,多模型统一调度(OpenAI/Claude/通义/DeepSeek/智谱/文心/豆包/Kimi/Ollama/Mistral/Llama),MCP 工具协议,工作流编排,团队协作,积分通兑,SSO/OAuth,Apache 2.0 开源,私有化部署,Docker Compose 一键部署',
+                    '9 端同源分发 (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp / Capacitor),AI Agent 市场,可视化拖拽 Agent 构建器,知识库 RAG,多模型统一调度(OpenAI/Claude/通义/DeepSeek/智谱/文心/豆包/Kimi/Ollama/Mistral/Llama),MCP 工具协议,工作流编排,团队协作,积分通兑,SSO/OAuth,Apache 2.0 开源,私有化部署,Docker Compose 一键部署',
                   screenshot: 'https://aizhs.top/images/logo.png?v=20261021',
                   softwareRequirements: 'Node.js 20+, PostgreSQL 18+, Redis 7+',
                   memoryRequirements: '4GB RAM minimum, 8GB recommended',

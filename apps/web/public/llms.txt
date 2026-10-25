@@ -1,6 +1,6 @@
 # IHUI AI
 
-> 智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型统一调度、跨端协作。Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,一码多端,支持私有化部署。
+> 智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型统一调度、跨端协作。Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI,另有 API 与 AI 服务,九端同源,一码多端,支持私有化部署。
 
 ## 核心能力
 
@@ -14,7 +14,7 @@
 
 ## 差异化优势
 
-- **六端同源**:Web + Tauri 桌面 + 微信小程序 + 浏览器插件 + React Native + CLI 同步发布,无需重写
+- **九端同源**:Web + Tauri 桌面 + 微信小程序 + 浏览器插件 + React Native + Capacitor 原生壳 + CLI,另有 API 与 AI 服务 同步发布,无需重写
 - **私有化友好**:Apache 2.0 开源(待发布),自托管只需 Docker Compose 一键部署
 - **中文优先**:中文 UI、中文知识库、中文 RAG、中文模型优化
 - **积分通兑**:统一积分体系,跨端跨模型计费,支持充值/订阅/团队包
@@ -22,7 +22,7 @@
 
 ## 对比同类产品
 
-- **vs Dify**:Dify 偏 LLM 应用开发,无桌面/小程序端;IHUI AI 六端覆盖 + Agent 市场 + 积分通兑
+- **vs Dify**:Dify 偏 LLM 应用开发,无桌面/小程序端;IHUI AI 九端覆盖 + Agent 市场 + 积分通兑
 - **vs Coze**:Coze 闭源,不支持私有化;IHUI AI 开源 + 私有化 + 团队协作
 - **vs FastGPT**:FastGPT 偏知识库;IHUI AI 含知识库 + Agent 市场 + 多端分发
 - **vs n8n**:n8n 偏工作流自动化;IHUI AI 在工作流基础上叠加 LLM + Agent + 多端
@@ -30,7 +30,7 @@
 
 ## 典型用户
 
-- **AI 开发者**:快速搭建/分发/变现 Agent,六端一键发布
+- **AI 开发者**:快速搭建/分发/变现 Agent,九端一键发布
 - **企业 IT**:私有化部署,数据不出域,统一 AI 能力中心
 - **团队 Leader**:多人协作,统一知识库,统一计费
 - **独立开发者**:Agent 上架市场,被动收入

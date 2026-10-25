@@ -171,7 +171,7 @@ console.log(similarCases.summary)
 - **浏览器扩展**:WXT(Manifest V3,网页合同抓取)
 - **移动端**:React Native(iOS / Android)
 - **CLI**:Node.js + Commander
-- **8 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / CLI
+- **9 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / Capacitor / CLI
 - **法律微调模型**:基于 GLM-4 / Qwen-Max 法律领域微调
 - **OCR**:PaddleOCR 3.0 / 阿里云 OCR
 - **向量检索**:pgvector + HNSW 索引

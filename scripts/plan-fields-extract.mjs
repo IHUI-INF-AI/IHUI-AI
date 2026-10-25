@@ -516,10 +516,18 @@ export function applyReclassify(records, items, nowIso = new Date().toISOString(
     if (!rec) return { error: `第 ${k + 1} 项 key 不在侧车面(陈旧声明不记通过):${it.key}` }
     if (it.waiting !== undefined && !WAITING.has(it.waiting))
       return { error: `第 ${k + 1} 项 waiting 只能是 none/env/human,实际 ${JSON.stringify(it.waiting)}` }
+    // 改号(2026-10-25):F9 让号时侧车键(=编号+标题)必须随号迁移,否则旧记录成孤儿、
+      // 新行失配回落散文(归属桶会漂)。新键不得与既有记录冲突(不合并两件事)。
+    if (it.toKey !== undefined) {
+      if (typeof it.toKey !== 'string' || !it.toKey.includes('#'))
+        return { error: `第 ${k + 1} 项 toKey 形态不对(应形如 <编号>#<标题前缀>)` }
+      if (byKey.has(it.toKey)) return { error: `第 ${k + 1} 项 toKey 已存在于侧车(不许把两件事并成一条)` }
+    }
     const next = { ...rec }
+    if (it.toKey !== undefined) next.key = it.toKey
     if (it.waiting !== undefined) next.waiting = it.waiting
     if (it.blocking !== undefined) next.blocking = String(it.blocking)
-    if (sigOf(next) === sigOf(rec)) continue
+    if (next.key === rec.key && sigOf(next) === sigOf(rec)) continue
     next.updatedAt = nowIso
     next.updatedBy = 'plan-fields-reclassify'
     changes.push({ key: it.key, from: sigOf(rec), to: sigOf(next), why: it.why, rec: next })

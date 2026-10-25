@@ -26,7 +26,7 @@ const jsonLd = {
       url: 'https://aizhs.top/zh-TW/use-cases/ai-edu',
       name: 'AI 智慧教育 Agent 用例 — IHUI AI',
       description:
-        '基於 IHUI AI 全棧 AI 作業系統搭建的 AI 智慧教育 Agent:個性化學習路徑、智慧答疑、出題與作業批改、學習資料分析、教研協作、家校溝通,30 分鐘上線,8 端分發。',
+        '基於 IHUI AI 全棧 AI 作業系統搭建的 AI 智慧教育 Agent:個性化學習路徑、智慧答疑、出題與作業批改、學習資料分析、教研協作、家校溝通,30 分鐘上線,9 端分發。',
       inLanguage: ['zh-TW', 'zh-CN', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -104,7 +104,7 @@ const jsonLd = {
 export const metadata: Metadata = {
   title: 'AI 智慧教育 — 個性化學習/智慧答疑/家校溝通 | IHUI AI',
   description:
-    '用 IHUI AI 建構 AI 智慧教育 Agent:個性化學習路徑 + 智慧答疑 + 出題批改 + 學情分析 + 教研協作 + 家校溝通。30 分鐘上線,8 端分發。',
+    '用 IHUI AI 建構 AI 智慧教育 Agent:個性化學習路徑 + 智慧答疑 + 出題批改 + 學情分析 + 教研協作 + 家校溝通。30 分鐘上線,9 端分發。',
   alternates: { canonical: '/zh-TW/use-cases/ai-edu' },
   openGraph: {
     title: 'AI 智慧教育 Agent — IHUI AI',
@@ -202,7 +202,7 @@ export default function AiEduPage() {
             AI 智慧教育:讓每個學生都擁有個性化學習路徑
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            基於 IHUI AI 全棧 AI 作業系統搭建,8 端分發,Apache 2.0 開源,支援私有化部署,覆蓋
+            基於 IHUI AI 全棧 AI 作業系統搭建,9 端分發,Apache 2.0 開源,支援私有化部署,覆蓋
             K12/高校/職業訓練全場景。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
@@ -282,7 +282,7 @@ export default function AiEduPage() {
             </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            基於 IHUI AI 全棧 AI 作業系統,8 端同源,核心元件全部開源,K12/高校/職業訓練全場景覆蓋。
+            基於 IHUI AI 全棧 AI 作業系統,9 端同源,核心元件全部開源,K12/高校/職業訓練全場景覆蓋。
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (

@@ -5,7 +5,7 @@
   "alternateName": ["智汇AI", "智汇 AI 社区", "iHuiAI"],
   "type": "ai-platform",
   "category": "AI Agent Platform / LLM Gateway",
-  "description": "IHUI AI is an open-source full-stack AI operating system (Apache 2.0) integrating Agent marketplace, RAG knowledge base, multi-model orchestration (176 models via MCP protocol), LangGraph + MCP + A2A three-stack, AI workflow, and 8-platform same-source distribution. Production-grade multi-tenant architecture with row-level security. The best open-source ChatGPT alternative for teams.",
+  "description": "IHUI AI is an open-source full-stack AI operating system (Apache 2.0) integrating Agent marketplace, RAG knowledge base, multi-model orchestration (101 models via MCP protocol), LangGraph + MCP + A2A three-stack, AI workflow, and 9-platform same-source distribution. Production-grade multi-tenant architecture with row-level security. The best open-source ChatGPT alternative for teams.",
   "homepage": "https://aizhs.top",
   "repository": "https://github.com/IHUI-INF-AI/IHUI-AI",
   "downloadUrl": "https://github.com/IHUI-INF-AI/IHUI-AI",
@@ -19,7 +19,7 @@
   },
   "capabilities": {
     "aiModels": {
-      "count": 176,
+      "count": 101,
       "providers": [
         "OpenAI",
         "Anthropic Claude",
@@ -60,7 +60,7 @@
       "platforms": ["WeChat", "Weibo", "Xiaohongshu", "Zhihu", "Bilibili", "Douyin", "Kuaishou", "TikTok", "YouTube", "Twitter/X", "Medium", "Reddit"]
     },
     "multiPlatform": {
-      "ends": 8,
+      "ends": 9,
       "list": ["Web (Next.js 15)", "API (Fastify 5)", "AI-Service (FastAPI)", "Desktop (Tauri 2)", "Browser Extension (WXT)", "Mobile (React Native + Expo)", "Miniapp (Taro 4)", "CLI (Node.js)"],
       "codeShare": "16 shared packages via pnpm workspace + Turborepo"
     },

@@ -10,9 +10,9 @@ export const internationalSaasCompetitors: Partial<
   'zapier-ai': {
     id: 'zapier-ai',
     name: 'Zapier AI Actions',
-    tagline: 'Zapier 偏自动化集成;IHUI AI 在工作流上叠加 LLM + Agent + 六端',
+    tagline: 'Zapier 偏自动化集成;IHUI AI 在工作流上叠加 LLM + Agent + 九端',
     verdict:
-      '如果只需连接 SaaS 工具做自动化,Zapier 集成生态较丰富;如果需要 LLM/Agent 作为工作流核心 + 知识库 + 六端分发 + 团队协作,IHUI AI 是更 AI-native 的选择。',
+      '如果只需连接 SaaS 工具做自动化,Zapier 集成生态较丰富;如果需要 LLM/Agent 作为工作流核心 + 知识库 + 九端分发 + 团队协作,IHUI AI 是更 AI-native 的选择。',
     rows: [
       {
         dimension: '定位',
@@ -78,13 +78,13 @@ export const internationalSaasCompetitors: Partial<
     name: 'Make.com',
     tagline: 'Make.com 是可视化自动化;IHUI AI 是 AI 优先的全栈操作系统',
     verdict:
-      '如果需要可视化自动化连接 SaaS,Make 体验优秀;如果需要 LLM/Agent 为核心 + 知识库 + 六端分发 + 私有化,IHUI AI 是更 AI-native 的选择。',
+      '如果需要可视化自动化连接 SaaS,Make 体验优秀;如果需要 LLM/Agent 为核心 + 知识库 + 九端分发 + 私有化,IHUI AI 是更 AI-native 的选择。',
     rows: [
       {
         dimension: '定位',
         ihui: 'AI 优先全栈操作系统',
         competitor: '可视化自动化平台',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: '拖拽场景 + 1800+ app',
       },
       {
@@ -142,15 +142,15 @@ export const internationalSaasCompetitors: Partial<
   'relevance-ai': {
     id: 'relevance-ai',
     name: 'Relevance AI',
-    tagline: 'Relevance AI 偏 AI Worker;IHUI AI 是完整 Agent 操作系统 + 六端',
+    tagline: 'Relevance AI 偏 AI Worker;IHUI AI 是完整 Agent 操作系统 + 九端',
     verdict:
-      '如果需要快速部署 AI Worker 跑独立任务,Relevance AI 上手快;如果需要完整 Agent 编排 + 知识库 + 六端分发 + 私有化 + 团队协作,IHUI AI 更完整。',
+      '如果需要快速部署 AI Worker 跑独立任务,Relevance AI 上手快;如果需要完整 Agent 编排 + 知识库 + 九端分发 + 私有化 + 团队协作,IHUI AI 更完整。',
     rows: [
       {
         dimension: '定位',
         ihui: '全栈 AI 操作系统',
         competitor: 'AI Worker 平台',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: '构建 AI Worker 跑任务',
       },
       {
@@ -208,15 +208,15 @@ export const internationalSaasCompetitors: Partial<
   'stack-ai': {
     id: 'stack-ai',
     name: 'Stack AI',
-    tagline: 'Stack AI 偏企业 AI 编排;IHUI AI 开源 + 六端 + Agent 市场',
+    tagline: 'Stack AI 偏企业 AI 编排;IHUI AI 开源 + 九端 + Agent 市场',
     verdict:
-      '如果需要快速搭建企业 AI 内部工具,Stack AI 直观;如果需要开源 + 私有化 + Agent 市场 + 六端分发 + 团队协作,IHUI AI 是更完整方案。',
+      '如果需要快速搭建企业 AI 内部工具,Stack AI 直观;如果需要开源 + 私有化 + Agent 市场 + 九端分发 + 团队协作,IHUI AI 是更完整方案。',
     rows: [
       {
         dimension: '定位',
         ihui: '全栈 AI 操作系统',
         competitor: '企业 AI 编排平台',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: '可视化 AI 工作流',
       },
       {
@@ -276,7 +276,7 @@ export const internationalSaasCompetitors: Partial<
     name: 'Wordware',
     tagline: 'Wordware 是可读 AI 编程;IHUI AI 是完整 OS(无需编程)',
     verdict:
-      '如果工程师喜欢用类自然语言编程构建 Agent,Wordware 创新有趣;如果业务/产品需要零代码可视化 + 200+ 模板 + 六端分发 + 团队协作,IHUI AI 上手更低。',
+      '如果工程师喜欢用类自然语言编程构建 Agent,Wordware 创新有趣;如果业务/产品需要零代码可视化 + 200+ 模板 + 九端分发 + 团队协作,IHUI AI 上手更低。',
     rows: [
       {
         dimension: '定位',
@@ -342,13 +342,13 @@ export const internationalSaasCompetitors: Partial<
     name: 'Voiceflow',
     tagline: 'Voiceflow 偏语音对话 AI;IHUI AI 是全栈 Agent 操作系统(含语音)',
     verdict:
-      '如果专注构建语音/聊天对话 IVR,Voiceflow 体验较好;如果需要全栈 Agent(语音 + 文本 + 工作流 + 知识库)+ 六端分发 + 团队协作,IHUI AI 更完整。',
+      '如果专注构建语音/聊天对话 IVR,Voiceflow 体验较好;如果需要全栈 Agent(语音 + 文本 + 工作流 + 知识库)+ 九端分发 + 团队协作,IHUI AI 更完整。',
     rows: [
       {
         dimension: '定位',
         ihui: '全栈 AI 操作系统',
         competitor: '对话式 AI 平台',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: '语音 + 聊天对话设计',
       },
       {

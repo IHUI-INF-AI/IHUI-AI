@@ -189,7 +189,7 @@ export const COMPANY_RELAYS: ApiRelay[] = [
     docsUrl: 'https://docs.aimlapi.com/',
     baseUrl: 'https://api.aimlapi.com/v1',
     vendors: ['OpenAI', 'Anthropic', 'Google', 'Meta', 'Mistral'],
-    features: '聚合 100+ 模型,统一 OpenAI 格式,价格比官方低 30-50%',
+    features: '聚合 101 模型,统一 OpenAI 格式,价格比官方低 30-50%',
     billing: '按 token 计费,送新用户免费额度,支持按月套餐',
   },
   {

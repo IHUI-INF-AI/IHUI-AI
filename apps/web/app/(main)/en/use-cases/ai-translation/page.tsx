@@ -25,7 +25,7 @@ const jsonLd = {
       url: 'https://aizhs.top/en/use-cases/ai-translation',
       name: 'AI Multilingual Translation Agent Use Case — IHUI AI',
       description:
-        'AI multilingual translation agent built on IHUI AI full-stack AI operating system: multi-language document translation, localization workflow, glossary management, translation review, cultural adaptation, subtitle translation. 30-minute onboarding, 8-endpoint distribution.',
+        'AI multilingual translation agent built on IHUI AI full-stack AI operating system: multi-language document translation, localization workflow, glossary management, translation review, cultural adaptation, subtitle translation. 30-minute onboarding, 9-endpoint distribution.',
       inLanguage: ['en', 'zh-CN', 'zh-TW', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -113,7 +113,7 @@ const jsonLd = {
 export const metadata: Metadata = {
   title: 'AI Multilingual Translation — Document / Localization / Glossary / Subtitle | IHUI AI',
   description:
-    'Build an AI multilingual translation agent on IHUI AI: document translation + localization workflow + glossary management + review + cultural adaptation + subtitle translation. 30-minute onboarding, 8-endpoint distribution.',
+    'Build an AI multilingual translation agent on IHUI AI: document translation + localization workflow + glossary management + review + cultural adaptation + subtitle translation. 30-minute onboarding, 9-endpoint distribution.',
   alternates: { canonical: '/en/use-cases/ai-translation' },
   openGraph: {
     title: 'AI Multilingual Translation Agent — IHUI AI',
@@ -220,7 +220,7 @@ export default function AiTranslationPage() {
             AI Multilingual Translation: 50+ languages, 70% cost reduction
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            Built on the IHUI AI full-stack AI operating system, 8-endpoint distribution, Apache 2.0
+            Built on the IHUI AI full-stack AI operating system, 9-endpoint distribution, Apache 2.0
             open source, on-premise support; glossary plus cultural adaptation ensures translation
             quality.
           </p>

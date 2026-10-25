@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-crewai',
       name: 'IHUI AI vs CrewAI:全栈 AI 操作系统 vs 角色扮演多 Agent 框架',
       description:
-        'CrewAI 是角色扮演多 Agent 协作的 Python SDK;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含可视化编排 + Agent 市场 + 知识库 RAG + 六端分发。本文深度对比。',
+        'CrewAI 是角色扮演多 Agent 协作的 Python SDK;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含可视化编排 + Agent 市场 + 知识库 RAG + 九端分发。本文深度对比。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'CrewAI' }],
@@ -39,7 +39,7 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs CrewAI:全栈 AI 操作系统 vs 角色扮演多 Agent 框架 | 2026 对比',
   description:
-    'CrewAI 是角色扮演(Role-Playing)多 Agent 协作 SDK;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含可视化编排 + Agent 市场 + 知识库 RAG + 六端分发 + 团队协作。本文 11 维度对比。',
+    'CrewAI 是角色扮演(Role-Playing)多 Agent 协作 SDK;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含可视化编排 + Agent 市场 + 知识库 RAG + 九端分发 + 团队协作。本文 11 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-crewai' },
   openGraph: {
     title: 'IHUI AI vs CrewAI — 生产就绪 OS vs 角色 SDK',

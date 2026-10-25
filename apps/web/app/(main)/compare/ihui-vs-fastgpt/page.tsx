@@ -39,11 +39,11 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs FastGPT:全栈 AI 平台 vs 知识库 Q&A 工具 | 2026 对比',
   description:
-    'FastGPT 专注知识库 Q&A,IHUI AI 是含知识库的全栈 AI 操作系统,还包含 Agent 市场、六端分发、MCP 工具、团队协作。如果你的需求不止 Q&A,IHUI AI 是更完整方案。',
+    'FastGPT 专注知识库 Q&A,IHUI AI 是含知识库的全栈 AI 操作系统,还包含 Agent 市场、九端分发、MCP 工具、团队协作。如果你的需求不止 Q&A,IHUI AI 是更完整方案。',
   alternates: { canonical: '/compare/ihui-vs-fastgpt' },
   openGraph: {
     title: 'IHUI AI vs FastGPT — 知识库只是开始',
-    description: 'FastGPT 偏 Q&A,IHUI AI 含知识库 + Agent + 六端 + 团队协作。',
+    description: 'FastGPT 偏 Q&A,IHUI AI 含知识库 + Agent + 九端 + 团队协作。',
     url: 'https://aizhs.top/compare/ihui-vs-fastgpt',
     type: 'article',
   },

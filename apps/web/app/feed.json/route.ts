@@ -44,21 +44,21 @@ const FEED_META: Record<
   'zh-CN': {
     title: '智汇 AI — 全栈 AI 操作系统',
     description:
-      '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,8 端同源,Apache 2.0 开源。',
+      '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统:Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,9 端同源,Apache 2.0 开源。',
     home_page_url: `${SITE_URL}/zh-cn`,
     author: 'IHUI AI Team',
   },
   'zh-TW': {
     title: '智匯 AI — 全端 AI 作業系統',
     description:
-      '智匯 AI(IHUI AI)是一站式全端 AI 作業系統:Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議,8 端同源,Apache 2.0 開源。',
+      '智匯 AI(IHUI AI)是一站式全端 AI 作業系統:Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議,9 端同源,Apache 2.0 開源。',
     home_page_url: `${SITE_URL}/zh-tw`,
     author: 'IHUI AI Team',
   },
   en: {
     title: 'IHUI AI — Full-Stack AI Operating System',
     description:
-      'IHUI AI is a full-stack AI operating system: Agent marketplace, knowledge base RAG, multi-model orchestration, MCP tool protocol, 8-end sync, Apache 2.0 open source.',
+      'IHUI AI is a full-stack AI operating system: Agent marketplace, knowledge base RAG, multi-model orchestration, MCP tool protocol, 9-end sync, Apache 2.0 open source.',
     home_page_url: `${SITE_URL}/en`,
     author: 'IHUI AI Team',
   },

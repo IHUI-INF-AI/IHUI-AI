@@ -30,12 +30,12 @@ export function getAllRoutesForFeed(): FeedItem[] {
       title: '智汇 AI — 全栈 AI 操作系统 | Agent 市场 / RAG / 多模型调度',
       path: '/',
       description:
-        '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web/桌面/小程序/插件/RN/CLI 六端同源,Apache 2.0 开源。',
+        '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web/桌面/小程序/浏览器插件/RN/Capacitor/CLI,另有 API 与 AI 服务 九端同源,Apache 2.0 开源。',
       category: '产品',
       publishedAt: PUBLISHED_BATCH,
     },
     {
-      title: '关于智汇 AI — 一码六端,一站 AI',
+      title: '关于智汇 AI — 一码九端,一站 AI',
       path: '/about',
       description:
         '智汇 AI 是开源的全栈 AI 操作系统,把 Agent 设计、知识库、多模型调度、跨端协作和团队运营装进同一个平台。',
@@ -64,7 +64,7 @@ export function getAllRoutesForFeed(): FeedItem[] {
       title: '快速开始(5 分钟上手) — 智汇 AI',
       path: '/docs/quickstart',
       description:
-        '5 分钟从注册到发布第一个 AI Agent。注册 → 浏览 Agent 市场 → 配置模型 → 上传知识库 → 一键发布六端。',
+        '5 分钟从注册到发布第一个 AI Agent。注册 → 浏览 Agent 市场 → 配置模型 → 上传知识库 → 一键发布九端。',
       category: '文档',
       publishedAt: PUBLISHED_BATCH,
     },
@@ -82,7 +82,7 @@ export function getAllRoutesForFeed(): FeedItem[] {
       title: 'IHUI AI vs Dify:2026 年全栈 AI 平台对比',
       path: '/compare/ihui-vs-dify',
       description:
-        'Dify 偏 Web 端 LLM 应用开发;IHUI AI 是六端同源全栈 AI 操作系统,集成 Agent 市场 + 知识库 + 多模型 + 团队协作。',
+        'Dify 偏 Web 端 LLM 应用开发;IHUI AI 是九端同源全栈 AI 操作系统,集成 Agent 市场 + 知识库 + 多模型 + 团队协作。',
       category: '对比',
       publishedAt: PUBLISHED_BATCH,
     },
@@ -97,7 +97,7 @@ export function getAllRoutesForFeed(): FeedItem[] {
     {
       title: 'IHUI AI vs FastGPT:知识库 + Agent 市场',
       path: '/compare/ihui-vs-fastgpt',
-      description: 'FastGPT 专注知识库 Q&A;IHUI AI 含知识库 + Agent 市场 + 六端分发 + 团队协作。',
+      description: 'FastGPT 专注知识库 Q&A;IHUI AI 含知识库 + Agent 市场 + 九端分发 + 团队协作。',
       category: '对比',
       publishedAt: PUBLISHED_BATCH,
     },
@@ -105,7 +105,7 @@ export function getAllRoutesForFeed(): FeedItem[] {
       title: 'IHUI AI vs n8n:AI-First 工作流',
       path: '/compare/ihui-vs-n8n',
       description:
-        'n8n 偏工作流自动化(LLM 是节点);IHUI AI 在工作流上叠加 LLM + Agent + 六端,AI-First。',
+        'n8n 偏工作流自动化(LLM 是节点);IHUI AI 在工作流上叠加 LLM + Agent + 九端,AI-First。',
       category: '对比',
       publishedAt: PUBLISHED_BATCH,
     },

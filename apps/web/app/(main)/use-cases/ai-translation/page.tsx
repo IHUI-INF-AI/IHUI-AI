@@ -26,7 +26,7 @@ const jsonLd = {
       url: 'https://aizhs.top/use-cases/ai-translation',
       name: 'AI 多语翻译 Agent 用例 — IHUI AI',
       description:
-        '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 多语翻译 Agent:多语种文档翻译、本地化工作流、术语库管理、译文审校、文化适配、字幕翻译,30 分钟上线,8 端分发。',
+        '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 多语翻译 Agent:多语种文档翻译、本地化工作流、术语库管理、译文审校、文化适配、字幕翻译,30 分钟上线,9 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -104,7 +104,7 @@ const jsonLd = {
 export const metadata: Metadata = {
   title: 'AI 多语翻译 — 文档/本地化/术语库/字幕翻译 | IHUI AI',
   description:
-    '用 IHUI AI 构建 AI 多语翻译 Agent:文档翻译 + 本地化工作流 + 术语库管理 + 译文审校 + 文化适配 + 字幕翻译。30 分钟上线,8 端分发。',
+    '用 IHUI AI 构建 AI 多语翻译 Agent:文档翻译 + 本地化工作流 + 术语库管理 + 译文审校 + 文化适配 + 字幕翻译。30 分钟上线,9 端分发。',
   alternates: { canonical: '/use-cases/ai-translation' },
   openGraph: {
     title: 'AI 多语翻译 Agent — IHUI AI',
@@ -202,7 +202,7 @@ export default function AiTranslationPage() {
             AI 多语翻译:50+ 语种本地化,成本降低 70%
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            基于 IHUI AI 全栈 AI 操作系统搭建,8 端分发,Apache 2.0 开源,支持私有化部署,术语库 +
+            基于 IHUI AI 全栈 AI 操作系统搭建,9 端分发,Apache 2.0 开源,支持私有化部署,术语库 +
             文化适配双引擎保障译文质量。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
@@ -282,7 +282,7 @@ export default function AiTranslationPage() {
             </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            基于 IHUI AI 全栈 AI 操作系统,8 端同源,核心组件全部开源,深度对接
+            基于 IHUI AI 全栈 AI 操作系统,9 端同源,核心组件全部开源,深度对接
             Git/CMS/Confluence/Notion。
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">

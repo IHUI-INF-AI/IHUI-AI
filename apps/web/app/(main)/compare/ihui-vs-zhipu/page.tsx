@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-zhipu',
       name: 'IHUI AI vs 智谱清言:跨模型 Agent OS vs GLM 应用平台',
       description:
-        '智谱清言是 GLM 模型应用平台;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨模型(含 GLM)+Agent 市场+知识库+六端分发。',
+        '智谱清言是 GLM 模型应用平台;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨模型(含 GLM)+Agent 市场+知识库+九端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
@@ -42,11 +42,11 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs 智谱清言:跨模型 Agent OS vs GLM 应用平台 | 2026 对比',
   description:
-    '智谱清言是 GLM 模型应用平台;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨模型(含 GLM)+Agent 市场+知识库+六端分发+团队协作。本文 9 维度对比。',
+    '智谱清言是 GLM 模型应用平台;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨模型(含 GLM)+Agent 市场+知识库+九端分发+团队协作。本文 9 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-zhipu' },
   openGraph: {
     title: 'IHUI AI vs 智谱清言 — 跨模型 vs 锁定 GLM',
-    description: '30+ 模型中立 + 六端 vs GLM 锁定。',
+    description: '30+ 模型中立 + 九端 vs GLM 锁定。',
     url: 'https://aizhs.top/compare/ihui-vs-zhipu',
     type: 'article',
   },

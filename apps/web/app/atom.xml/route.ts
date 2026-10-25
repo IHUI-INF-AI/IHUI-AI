@@ -16,7 +16,7 @@ export const dynamic = 'force-static'
 const SITE_URL = 'https://aizhs.top'
 const SITE_TITLE = 'IHUI AI — 全栈 AI 操作系统'
 const SITE_DESCRIPTION =
-  '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,Apache 2.0 开源。'
+  '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI,另有 API 与 AI 服务,九端同源,Apache 2.0 开源。'
 
 function escapeXml(s: string): string {
   return s

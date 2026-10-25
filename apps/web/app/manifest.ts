@@ -23,7 +23,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'IHUI AI — 全栈 AI 操作系统',
     short_name: 'IHUI AI',
     description:
-      'IHUI AI(智汇 AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、MCP 工具协议,支持 8 端同源分发。',
+      'IHUI AI(智汇 AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、MCP 工具协议,支持 9 端同源分发。',
     start_url: '/?source=pwa',
     scope: '/',
     display: 'standalone',

@@ -114,7 +114,7 @@ docker compose -f docker-compose.mistral-prod.yml up -d
 
 ---
 
-## 8 端架构(本地分发能力)
+## 9 端架构(本地分发能力)
 
 | 端 | 技术栈 | 适用场景 |
 |----|--------|----------|
@@ -127,7 +127,7 @@ docker compose -f docker-compose.mistral-prod.yml up -d
 | miniapp-taro | Taro 4 + React | 微信 / 支付宝 / 抖音小程序 |
 | cli | Node.js + TypeScript | 终端命令行工具 |
 
-8 端共享 `packages/database` Drizzle Schema、`packages/types` 跨端类型、`packages/auth` 统一认证。
+9 端共享 `packages/database` Drizzle Schema、`packages/types` 跨端类型、`packages/auth` 统一认证。
 
 ---
 

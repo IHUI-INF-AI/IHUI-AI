@@ -61,7 +61,7 @@ export default async function Image() {
           marginBottom: '60px',
         }}
       >
-        8 Platforms · 100+ LLMs · Open Source
+        9 Platforms · 101 Models · Open Source
       </div>
       <div
         style={{

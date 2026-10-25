@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   // - 子页面继承根 layout 的 template (子页面 metadata.title 为字符串时)
   title: { absolute: '工作区 — AI 对话 / Agent / RAG / 内容创作 | IHUI AI' },
   description:
-    'IHUI AI 工作区 — 集成 AI 对话、Agent 工作台、知识库 RAG、内容创作、教育学习、社区互动的一站式 AI 操作系统。支持 Web / API / CLI / Desktop / Extension / Mobile / Miniapp 8 端同源,Apache 2.0 开源,支持私有化部署。',
+    'IHUI AI 工作区 — 集成 AI 对话、Agent 工作台、知识库 RAG、内容创作、教育学习、社区互动的一站式 AI 操作系统。支持 Web / API / CLI / Desktop / Extension / Mobile / Miniapp 9 端同源,Apache 2.0 开源,支持私有化部署。',
   keywords: [
     'AI 工作区',
     'AI 对话',
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     type: 'website',
     title: '工作区 — IHUI AI',
     description:
-      'IHUI AI 工作区 — 一站式 AI 操作系统,集成 AI 对话、Agent 工作台、知识库 RAG、内容创作、教育学习、社区互动,支持 8 端同源。',
+      'IHUI AI 工作区 — 一站式 AI 操作系统,集成 AI 对话、Agent 工作台、知识库 RAG、内容创作、教育学习、社区互动,支持 9 端同源。',
     images: [
       {
         url: '/og-image.png',
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: '工作区 — IHUI AI',
     description:
-      'IHUI AI 工作区 — 一站式 AI 操作系统,集成 AI 对话、Agent 工作台、知识库 RAG、内容创作、教育学习、社区互动,支持 8 端同源。',
+      'IHUI AI 工作区 — 一站式 AI 操作系统,集成 AI 对话、Agent 工作台、知识库 RAG、内容创作、教育学习、社区互动,支持 9 端同源。',
     images: ['/og-image.png'],
   },
   robots: {

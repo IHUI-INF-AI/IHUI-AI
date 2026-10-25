@@ -135,7 +135,7 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 - **浏览器扩展**:WXT(Manifest V3)
 - **移动端**:React Native(iOS / Android)
 - **CLI**:Node.js + Commander
-- **8 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / CLI
+- **9 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / Capacitor / CLI
 - **代码审计**:Semgrep 1.84 + Snyk + CodeQL + 自研 LLM 研判
 - **密钥管理**:HashiCorp Vault 1.16 + AWS Secrets Manager
 - **向量检索**:pgvector + HNSW 索引(用于 PII 相似度扫描)

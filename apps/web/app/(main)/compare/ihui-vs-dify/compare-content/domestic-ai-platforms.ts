@@ -18,7 +18,7 @@ export const domesticAiPlatformsCompetitors: Partial<
         dimension: '定位',
         ihui: '企业级 Agent 操作系统',
         competitor: 'C 端通用 AI 助手',
-        ihuiDetail: 'Agent 市场 + 知识库 + 工作流 + 六端分发',
+        ihuiDetail: 'Agent 市场 + 知识库 + 工作流 + 九端分发',
         competitorDetail: '问答对话 + 百度生态集成',
       },
       {
@@ -85,13 +85,13 @@ export const domesticAiPlatformsCompetitors: Partial<
     name: 'Tongyi Qianwen / 通义千问',
     tagline: '通义千问是阿里大模型平台;IHUI AI 跨 30+ 模型中立 + Agent 市场化',
     verdict:
-      '如果只用通义千问模型 API,阿里平台够用;如果需要跨模型调度 + Agent 编排 + 六端分发 + 团队协作,IHUI AI 是更完整方案。',
+      '如果只用通义千问模型 API,阿里平台够用;如果需要跨模型调度 + Agent 编排 + 九端分发 + 团队协作,IHUI AI 是更完整方案。',
     rows: [
       {
         dimension: '定位',
         ihui: '全栈 AI 操作系统',
         competitor: '阿里大模型平台',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: '模型 API + 阿里云集成',
       },
       {
@@ -164,7 +164,7 @@ export const domesticAiPlatformsCompetitors: Partial<
         dimension: '定位',
         ihui: '全栈 AI 操作系统',
         competitor: '长文本 AI 助手',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: '200 万字长文本对话',
       },
       {
@@ -237,7 +237,7 @@ export const domesticAiPlatformsCompetitors: Partial<
         dimension: '定位',
         ihui: '企业级 Agent 操作系统',
         competitor: 'C 端 AI 助手',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: '日常对话 + 创作 + 抖音生态',
       },
       {
@@ -304,13 +304,13 @@ export const domesticAiPlatformsCompetitors: Partial<
     name: 'DeepSeek Platform',
     tagline: 'DeepSeek 是推理模型 API;IHUI AI 含 DeepSeek + 30+ 模型 + Agent 编排',
     verdict:
-      '如果只需调用 DeepSeek API,官方平台较直接;如果需要 Agent 编排 + 知识库 + 工作流 + 六端分发 + 团队协作,IHUI AI 是更完整方案(且原生支持 DeepSeek 模型)。',
+      '如果只需调用 DeepSeek API,官方平台较直接;如果需要 Agent 编排 + 知识库 + 工作流 + 九端分发 + 团队协作,IHUI AI 是更完整方案(且原生支持 DeepSeek 模型)。',
     rows: [
       {
         dimension: '定位',
         ihui: '全栈 AI 操作系统',
         competitor: '大模型 API 平台',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: 'V3/R1/Reasoner API',
       },
       {
@@ -375,15 +375,15 @@ export const domesticAiPlatformsCompetitors: Partial<
   zhipu: {
     id: 'zhipu',
     name: 'Zhipu Qingyan / 智谱清言',
-    tagline: '智谱清言是 GLM 模型应用;IHUI AI 跨模型 + Agent 市场 + 六端分发',
+    tagline: '智谱清言是 GLM 模型应用;IHUI AI 跨模型 + Agent 市场 + 九端分发',
     verdict:
-      '如果只用 GLM 系列模型,智谱清言够用;如果需要跨模型调度 + Agent 编排 + 六端分发 + 团队协作,IHUI AI 是更完整方案(且原生支持 GLM 模型)。',
+      '如果只用 GLM 系列模型,智谱清言够用;如果需要跨模型调度 + Agent 编排 + 九端分发 + 团队协作,IHUI AI 是更完整方案(且原生支持 GLM 模型)。',
     rows: [
       {
         dimension: '定位',
         ihui: '全栈 AI 操作系统',
         competitor: 'GLM 模型应用平台',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: 'GLM-4 + 智能体 + 阿里云集成',
       },
       {
@@ -450,13 +450,13 @@ export const domesticAiPlatformsCompetitors: Partial<
     name: 'iFlytek Spark / 讯飞星火',
     tagline: '星火偏教育/语音 AI;IHUI AI 是全栈 Agent 操作系统跨行业',
     verdict:
-      '如果业务聚焦教育/语音交互,讯飞星火生态成熟;如果需要跨行业 Agent 编排 + 六端分发 + 私有化 + 团队协作,IHUI AI 是更通用方案。',
+      '如果业务聚焦教育/语音交互,讯飞星火生态成熟;如果需要跨行业 Agent 编排 + 九端分发 + 私有化 + 团队协作,IHUI AI 是更通用方案。',
     rows: [
       {
         dimension: '定位',
         ihui: '全栈 AI 操作系统',
         competitor: '教育/语音 AI 平台',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: '星火大模型 + 讯飞语音 + 教育',
       },
       {
@@ -521,15 +521,15 @@ export const domesticAiPlatformsCompetitors: Partial<
   minimax: {
     id: 'minimax',
     name: 'MiniMax',
-    tagline: 'MiniMax 是多模态大模型 API;IHUI AI 含 MiniMax + Agent 编排 + 六端',
+    tagline: 'MiniMax 是多模态大模型 API;IHUI AI 含 MiniMax + Agent 编排 + 九端',
     verdict:
-      '如果只需多模态模型 API(文本/语音/视频),MiniMax 直接够用;如果需要 Agent 编排 + 知识库 + 工作流 + 六端分发 + 团队协作,IHUI AI 是更完整方案。',
+      '如果只需多模态模型 API(文本/语音/视频),MiniMax 直接够用;如果需要 Agent 编排 + 知识库 + 工作流 + 九端分发 + 团队协作,IHUI AI 是更完整方案。',
     rows: [
       {
         dimension: '定位',
         ihui: '全栈 AI 操作系统',
         competitor: '多模态大模型 API',
-        ihuiDetail: 'Agent + 知识库 + 工作流 + 六端',
+        ihuiDetail: 'Agent + 知识库 + 工作流 + 九端',
         competitorDetail: 'abab 系列 + 语音/视频',
       },
       {

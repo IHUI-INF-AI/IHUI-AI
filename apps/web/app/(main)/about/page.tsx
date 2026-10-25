@@ -18,7 +18,7 @@ const aboutJsonLd = {
       url: 'https://aizhs.top/about',
       name: '关于智汇 AI — 全栈 AI 操作系统',
       description:
-        '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持六端同源分发。',
+        '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持九端同源分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -51,14 +51,14 @@ const aboutJsonLd = {
 export const metadata: Metadata = {
   title: '关于我们 — 智汇 AI | 全栈 AI 操作系统',
   description:
-    '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统:集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI 六端同源,Apache 2.0 开源,支持私有化部署。',
+    '智汇 AI(IHUI AI)是一站式全栈 AI 操作系统:集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI,另有 API 与 AI 服务,九端同源,Apache 2.0 开源,支持私有化部署。',
   alternates: {
     canonical: '/about',
   },
   openGraph: {
     title: '关于智汇 AI — 全栈 AI 操作系统',
     description:
-      '一码六端,一站 AI。智汇 AI(IHUI AI)是开源的全栈 AI 操作系统,把 Agent 设计、知识库、多模型调度、跨端协作装进同一个平台。',
+      '一码九端,一站 AI。智汇 AI(IHUI AI)是开源的全栈 AI 操作系统,把 Agent 设计、知识库、多模型调度、跨端协作装进同一个平台。',
     url: 'https://aizhs.top/about',
     type: 'website',
   },

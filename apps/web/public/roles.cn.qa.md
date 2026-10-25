@@ -133,7 +133,7 @@ const result = await regression.execute(mustRun)
 - ✅ Apache 2.0 开源(测试脚本可复用)
 - ✅ 测试数据脱敏(基于 PII 识别模型)
 - ✅ 测试报告留痕(6 个月可追溯)
-- ✅ 多端测试覆盖 8 端(Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / CLI)
+- ✅ 多端测试覆盖 9 端(Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / CLI)
 - ✅ CI/CD 集成合规审计
 - ✅ 等保 / GDPR 隐私测试覆盖
 - ✅ 私有化部署支持(数据不出域)
@@ -150,7 +150,7 @@ const result = await regression.execute(mustRun)
 - **浏览器扩展**:WXT(Manifest V3)
 - **移动端**:React Native(iOS / Android)
 - **CLI**:Node.js + Commander
-- **8 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / CLI
+- **9 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / Capacitor / CLI
 - **测试框架**:Vitest 2.1 + Playwright 1.49 + k6 0.50
 - **AI 调度**:LiteLLM 30+ 模型统一调度
 - **可视化**:Grafana + 自研质量看板

@@ -3054,3 +3054,31 @@ test('T-reclassify readInputs 校验:桶名/理由长度/from==to/陈旧 before 
     rmScratch(dir, { bestEffort: true })
   }
 })
+
+// ── 声明式改号(2026-10-25,F9 撞号清偿):不同题让号的主键维出口 ──
+test('T-renumber 声明式改号:现算同形 + 新号空闲 + 带〔旧号〕才放行', () => {
+  const before = '- [ ] 〔归:—｜等:机主核隧道〕 **G-76. 生产备份链日志编码** 正文'
+  const after = '- [ ] 〔归:—｜等:机主核隧道〕 **G-100 生产备份链日志编码** 正文 〔旧号 G-76〕'
+  const decl = { before, after, fromKey: 'G-76', toKey: 'G-100', why: '同一编号被两件不同的事共用,后来者让号保§1' }
+  const baseLines = [before, '- [ ] G-50 另一件活']
+  const ok = __test__.judgeRowRewriteConservation({ baseLines, pairs: [{ before, after }], renumber: [decl] })
+  assert.equal(ok.ok, true, JSON.stringify(ok.violations))
+  assert.equal(ok.renumbered, 1)
+
+  const busy = __test__.judgeRowRewriteConservation({
+    baseLines: [before, '- [ ] G-100 已有的事'],
+    pairs: [{ before, after }],
+    renumber: [decl],
+  })
+  assert.equal(busy.ok, false, '新号已占用必须拒(不许制造第二枚撞号)')
+
+  const noNote = __test__.judgeRowRewriteConservation({
+    baseLines,
+    pairs: [{ before, after: after.replace(' 〔旧号 G-76〕', '') }],
+    renumber: [decl],
+  })
+  assert.equal(noNote.ok, false, '缺旧号注记必须拒(跨引用断链)')
+
+  const stale = __test__.judgeRowRewriteConservation({ baseLines, pairs: [], renumber: [decl] })
+  assert.equal(stale.staleRenumber.length, 1, '未命中的声明必须点名')
+})

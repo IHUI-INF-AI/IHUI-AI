@@ -8,7 +8,7 @@
 
 ## 项目定位
 
-IHUI AI(智汇 AI)是一个 Apache 2.0 开源的全栈 AI 操作系统,提供从模型调度、知识库 RAG、Agent 构建、工作流编排到六端同源分发的完整能力。与 DeepSeek 一样坚持开源路线,IHUI AI 致力于帮助企业以更可控的成本搭建自己的 AI 中台。
+IHUI AI(智汇 AI)是一个 Apache 2.0 开源的全栈 AI 操作系统,提供从模型调度、知识库 RAG、Agent 构建、工作流编排到九端同源分发的完整能力。与 DeepSeek 一样坚持开源路线,IHUI AI 致力于帮助企业以更可控的成本搭建自己的 AI 中台。
 
 ---
 
@@ -71,7 +71,7 @@ IHUI AI 完整支持 DeepSeek 全系模型,包括 V3、Coder V2、R1 推理模�
 - 知识库 RAG 检索 P99 < 50ms
 
 ### 2. 工程化
-- 端到端 TypeScript,跨 8 端共享类型零成本
+- 端到端 TypeScript,跨 9 端共享类型零成本
 - 35 项 pre-commit 守门脚本(端口/圆角/分隔线/i18n/Schema 漂移/陈旧 dist/... 全部自动化)
 - Husky + lint-staged + Turborepo 远程缓存
 - 周级发版,每月大版本,3 个月一次架构升级
@@ -147,7 +147,7 @@ Issue 与 PR 模板:
 1. **需要 RAG 知识库**:DeepSeek + IHUI AI 知识库 = 私有化 GPTs
 2. **需要 Agent 工具调用**:DeepSeek Function Calling + IHUI AI MCP 工具市场
 3. **需要工作流编排**:DeepSeek 单次调用不够,IHUI AI 工作流支持多步复杂任务
-4. **需要跨端分发**:DeepSeek 没有客户端,IHUI AI 六端同源一键发布
+4. **需要跨端分发**:DeepSeek 没有客户端,IHUI AI 九端同源一键发布
 5. **需要私有化**:DeepSeek API 公网访问,IHUI AI 支持完全离线部署 + 本地 DeepSeek Ollama
 
 ---

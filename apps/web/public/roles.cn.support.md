@@ -162,7 +162,7 @@ assist.on('suggestion', (suggestion) => {
 - **浏览器扩展**:WXT(Manifest V3,网页浮窗)
 - **移动端**:React Native(iOS / Android,客服移动端)
 - **CLI**:Node.js + Commander
-- **8 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / CLI
+- **9 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / Capacitor / CLI
 - **ASR / TTS**:Whisper / 阿里云语音 / 火山引擎语音
 - **情绪模型**:基于 bge-large-zh 微调
 - **向量检索**:pgvector + HNSW 索引

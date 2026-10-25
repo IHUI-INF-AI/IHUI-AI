@@ -77,7 +77,7 @@ const plans = [
       '3,000 AI messages per month',
       'Unlimited agent templates',
       '5 knowledge bases',
-      'All 176+ models',
+      'All 101 models',
       'Email support',
     ],
     cta: 'Choose Individual',
@@ -142,9 +142,9 @@ const comparison = [
   {
     feature: 'Models',
     free: 'Limited',
-    individual: 'All 176+',
-    team: 'All 176+',
-    enterprise: 'All 176+',
+    individual: 'All 101',
+    team: 'All 101',
+    enterprise: 'All 101',
   },
   { feature: 'Team Members', free: '1', individual: '1', team: '10', enterprise: 'Unlimited' },
   {
@@ -210,7 +210,7 @@ export default function PricingLandingPage() {
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <Cpu className="h-4 w-4 text-primary" /> 176+ models
+              <Cpu className="h-4 w-4 text-primary" /> 101 models
             </span>
             <span className="flex items-center gap-1.5">
               <Code className="h-4 w-4 text-primary" /> Apache 2.0 open source

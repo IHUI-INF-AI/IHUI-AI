@@ -26,7 +26,7 @@ const jsonLd = {
       url: 'https://aizhs.top/use-cases/ai-marketing',
       name: 'AI 营销内容生成 Agent 用例 — IHUI AI',
       description:
-        '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 营销内容生成 Agent:多平台文案(小红书/抖音/微博/公众号/LinkedIn)、SEO 博客、品牌语调统一、A/B 测试、用户画像驱动,30 分钟上线,8 端分发。',
+        '基于 IHUI AI 全栈 AI 操作系统搭建的 AI 营销内容生成 Agent:多平台文案(小红书/抖音/微博/公众号/LinkedIn)、SEO 博客、品牌语调统一、A/B 测试、用户画像驱动,30 分钟上线,9 端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -104,7 +104,7 @@ const jsonLd = {
 export const metadata: Metadata = {
   title: 'AI 营销内容生成 — 多平台文案/SEO/品牌语调 | IHUI AI',
   description:
-    '用 IHUI AI 构建 AI 营销内容生成 Agent:多平台文案 + SEO 博客 + 品牌语调统一 + A/B 测试 + 用户画像驱动。30 分钟上线,8 端分发。',
+    '用 IHUI AI 构建 AI 营销内容生成 Agent:多平台文案 + SEO 博客 + 品牌语调统一 + A/B 测试 + 用户画像驱动。30 分钟上线,9 端分发。',
   alternates: { canonical: '/use-cases/ai-marketing' },
   openGraph: {
     title: 'AI 营销内容生成 Agent — IHUI AI',
@@ -202,7 +202,7 @@ export default function AiMarketingPage() {
             AI 营销内容生成:多平台一键产出,产能提升 10 倍
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            基于 IHUI AI 全栈 AI 操作系统搭建,8 端分发,Apache 2.0
+            基于 IHUI AI 全栈 AI 操作系统搭建,9 端分发,Apache 2.0
             开源,支持私有化部署,品牌语调统一保障。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
@@ -282,7 +282,7 @@ export default function AiMarketingPage() {
             </h2>
           </div>
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
-            基于 IHUI AI 全栈 AI 操作系统,8 端同源,核心组件全部开源,无缝对接 5 大主流社媒平台。
+            基于 IHUI AI 全栈 AI 操作系统,9 端同源,核心组件全部开源,无缝对接 5 大主流社媒平台。
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (

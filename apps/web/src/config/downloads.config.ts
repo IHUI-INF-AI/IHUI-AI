@@ -17,7 +17,7 @@
  *  - 空字符串值视为"未接入",downloads.tsx 用占位状态展示"即将上线"
  *
  * 2026-08-06 深度扩展(用户反馈"所有端下载按钮点击后没有任何下载地址,也没有安装包可下载"):
- *  - 新增 `PLATFORM_META`:8 端完整元数据(版本号 / 发布日期 / 系统要求 / 安装指南 / 资源列表)
+ *  - 新增 `PLATFORM_META`:8 端(可下载)完整元数据(版本号 / 发布日期 / 系统要求 / 安装指南 / 资源列表)
  *  - desktop 接入真实 NSIS .exe + MSI 安装包(从 apps/desktop 构建产物复制)
  *  - extension 接入真实 Chrome MV3 .zip 包(从 apps/extension 构建产物打包)
  *  - cli/mobile 走 /download/[platform] 详情页展示 npm 安装命令 / 构建说明
@@ -92,7 +92,7 @@ import extensionPkg from '../../../extension/package.json'
 import mobileRnPkg from '../../../mobile-rn/package.json'
 import { DESKTOP_FEED } from './desktop-feed.generated'
 
-/** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
+/** 项目所有可下载分发端(8 端): web/desktop/ios/android-apk/mobile/wechat-miniapp/extension/cli;另有 API 与 AI 服务两个服务类端点,合计 9 端 */
 export type DownloadPlatform =
   'web' | 'desktop' | 'ios' | 'android-apk' | 'mobile' | 'wechat-miniapp' | 'extension' | 'cli'
 
@@ -301,7 +301,7 @@ export function resolveWechatHref(): string {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 8 端完整下载元数据(PLATFORM_META 兼容常量 + getPlatformMetaMap getter)    */
+/* 8 端(可下载)完整下载元数据(PLATFORM_META 兼容常量 + getPlatformMetaMap getter)    */
 /* -------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------- */
@@ -359,7 +359,7 @@ function resolveDesktopMeta(): Pick<
 }
 
 /**
- * 由 env 计算 8 端完整元数据。
+ * 由 env 计算 8 端(可下载)完整元数据。
  *
  * ios / android-apk / wechat-miniapp 三端 assets 由对应 env 配置自动生成:
  *  - 配置了 App Store ID / URL → ios.assets 出现 App Store 下载条目
@@ -478,7 +478,7 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
 }
 
 /**
- * 8 端完整下载元数据(向后兼容常量,2026-08-06 起由 env 计算)。
+ * 8 端(可下载)完整下载元数据(向后兼容常量,2026-08-06 起由 env 计算)。
  *
  * 用于 /download/[platform] 详情页渲染:
  *  - assets 非空 → 显示下载按钮(支持多格式/架构)
@@ -505,7 +505,7 @@ export interface DownloadsStatusItem {
 }
 
 /**
- * 下载配置自检:返回 8 端配置状态,运营/运维可直接调用确认「哪些端已上架、缺什么」。
+ * 下载配置自检:返回 8 端(可下载)配置状态,运营/运维可直接调用确认「哪些端已上架、缺什么」。
  * 判断口径与详情页一致:platform meta assets 非空 = 已配置;desktop/extension/mobile/cli/web
  * 为代码内资源(不依赖 env),恒为 configured=true。
  */

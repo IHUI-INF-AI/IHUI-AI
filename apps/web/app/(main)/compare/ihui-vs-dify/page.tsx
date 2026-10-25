@@ -19,7 +19,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-dify',
       name: 'IHUI AI vs Dify:全栈 AI 操作系统 vs LLM 应用开发平台',
       description:
-        'IHUI AI 和 Dify 都是开源 AI 应用平台,但定位不同:Dify 偏 LLM 应用开发(Web 端),IHUI AI 是六端同源的全栈 AI 操作系统,集成 Agent 市场 + 知识库 RAG + 多模型调度 + 团队协作。',
+        'IHUI AI 和 Dify 都是开源 AI 应用平台,但定位不同:Dify 偏 LLM 应用开发(Web 端),IHUI AI 是九端同源的全栈 AI 操作系统,集成 Agent 市场 + 知识库 RAG + 多模型调度 + 团队协作。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'Dify' }],
@@ -86,14 +86,14 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs Dify:2026 年全栈 AI 平台对比 | 哪个更适合你?',
   description:
-    'IHUI AI 和 Dify 都是 AI 应用平台,但定位完全不同:IHUI AI 是六端同源的全栈 AI 操作系统(Web/桌面/小程序/扩展/移动/CLI),集成 Agent 市场 + 知识库 + 多模型 + 团队协作;Dify 是 Web 端 LLM 应用开发框架。本文从客户端覆盖、Agent 市场、MCP、私有化、协作 5 个维度深度对比。',
+    'IHUI AI 和 Dify 都是 AI 应用平台,但定位完全不同:IHUI AI 是九端同源的全栈 AI 操作系统(Web/桌面/小程序/扩展/移动/Capacitor/CLI,另有 API 与 AI 服务),集成 Agent 市场 + 知识库 + 多模型 + 团队协作;Dify 是 Web 端 LLM 应用开发框架。本文从客户端覆盖、Agent 市场、MCP、私有化、协作 5 个维度深度对比。',
   alternates: {
     canonical: '/compare/ihui-vs-dify',
   },
   openGraph: {
     title: 'IHUI AI vs Dify — 2026 全栈 AI 平台对比',
     description:
-      'Dify 偏 Web 端 LLM 应用开发;IHUI AI 是六端同源全栈 AI 操作系统,Agent 市场 + 知识库 + 多模型 + 团队协作。',
+      'Dify 偏 Web 端 LLM 应用开发;IHUI AI 是九端同源全栈 AI 操作系统,Agent 市场 + 知识库 + 多模型 + 团队协作。',
     url: 'https://aizhs.top/compare/ihui-vs-dify',
     type: 'article',
   },

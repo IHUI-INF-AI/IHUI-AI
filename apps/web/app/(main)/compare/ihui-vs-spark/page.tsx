@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-spark',
       name: 'IHUI AI vs 讯飞星火:全栈 Agent OS vs 教育/语音 AI',
       description:
-        '讯飞星火偏教育/语音 AI;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨行业+30+ 模型+Agent 市场+六端分发。',
+        '讯飞星火偏教育/语音 AI;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨行业+30+ 模型+Agent 市场+九端分发。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [
@@ -42,7 +42,7 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs 讯飞星火:全栈 Agent OS vs 教育/语音 AI | 2026 对比',
   description:
-    '讯飞星火偏教育/语音 AI(星火大模型+讯飞语音);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨行业+30+ 模型+Agent 市场+六端分发。本文 9 维度对比。',
+    '讯飞星火偏教育/语音 AI(星火大模型+讯飞语音);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨行业+30+ 模型+Agent 市场+九端分发。本文 9 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-spark' },
   openGraph: {
     title: 'IHUI AI vs 讯飞星火 — 全栈跨行业 vs 教育/语音',

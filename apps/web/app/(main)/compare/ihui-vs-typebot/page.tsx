@@ -14,7 +14,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare/ihui-vs-typebot',
       name: 'IHUI AI vs Typebot:全栈 AI 操作系统 vs 开源聊天机器人构建器',
       description:
-        'Typebot 是开源聊天机器人构建器(表单/问卷流程);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含 AI Agent + 知识库 RAG + 工作流 + 六端分发。本文深度对比。',
+        'Typebot 是开源聊天机器人构建器(表单/问卷流程);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含 AI Agent + 知识库 RAG + 工作流 + 九端分发。本文深度对比。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: [{ '@id': 'https://aizhs.top/#organization' }, { '@type': 'Thing', name: 'Typebot' }],
@@ -39,7 +39,7 @@ const compareJsonLd = {
 export const metadata: Metadata = {
   title: 'IHUI AI vs Typebot:全栈 AI 操作系统 vs 开源聊天机器人构建器 | 2026 对比',
   description:
-    'Typebot 是开源聊天机器人构建器(可视化对话流程);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含 AI Agent + 知识库 RAG + 工作流 + 六端分发 + 团队协作。本文 11 维度对比。',
+    'Typebot 是开源聊天机器人构建器(可视化对话流程);IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,含 AI Agent + 知识库 RAG + 工作流 + 九端分发 + 团队协作。本文 11 维度对比。',
   alternates: { canonical: '/compare/ihui-vs-typebot' },
   openGraph: {
     title: 'IHUI AI vs Typebot — 全栈 AI OS vs 聊天机器人构建器',

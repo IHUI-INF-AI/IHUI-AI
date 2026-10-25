@@ -50,7 +50,7 @@ curl -X POST https://api.aizhs.top/v1/agents/agt_12345/chat \
   -d '{"message": "你好"}'
 ```
 
-#### 2. TypeScript 优先,跨 8 端共享类型
+#### 2. TypeScript 优先,跨 9 端共享类型
 ```typescript
 // packages/types 共享给所有 8 个客户端
 import type { Agent, Message, KnowledgeBase } from '@ihui/types'
@@ -136,7 +136,7 @@ AI: LangGraph + LiteLLM + MCP 协议
 CI/CD: GitHub Actions + Turborepo 远程缓存
 ```
 
-#### 2. 8 端代码同源,5 人团队干 50 人的活
+#### 2. 9 端代码同源,5 人团队干 50 人的活
 - Web/桌面/小程序/扩展/移动/CLI/API/AI-Service 共享 1 套代码
 - packages/types / packages/auth / packages/ui 跨端复用
 - TypeScript 严格模式,编译时保证类型安全
@@ -286,7 +286,7 @@ CI/CD: GitHub Actions + Turborepo 远程缓存
 #### 5. 生态护城河
 - Agent 市场(200+ 模板):网络效应
 - MCP 工具市场(100+ 工具):锁定开发者
-- 跨 8 端分发:渠道优势
+- 跨 9 端分发:渠道优势
 - Apache 2.0 开源:社区贡献
 
 ### 评估清单(CEO 版)
@@ -431,7 +431,7 @@ CI/CD: GitHub Actions + Turborepo 远程缓存
 - Agent ↔ Tool 解耦,工具可独立演进
 - 内置 100+ MCP 工具 + 自定义开发
 
-#### 5. 六端同源契约
+#### 5. 九端同源契约
 - packages/types 定义所有跨端类型
 - 编译时保证 Web/桌面/小程序/扩展/移动/CLI 类型一致
 - API 路由 OpenAPI 自动生成
@@ -559,7 +559,7 @@ print(results.compare())  # 输出对比表
 - 可定制设计令牌(CSS 变量)
 - 与 Figma 设计稿一一对应
 
-#### 2. 六端同源组件库
+#### 2. 九端同源组件库
 - packages/ui 跨端共享
 - Web/桌面/小程序/扩展/移动 UI 一致
 - 1 处修改,6 端同步
@@ -702,9 +702,9 @@ print(results.compare())  # 输出对比表
 - 开发者生态网络效应
 - 长尾流量自动获取
 
-#### 2. 多渠道分发(6 端覆盖)
-- Web / 桌面 / 小程序 / 扩展 / 移动 / CLI
-- 1 个 Agent 配置,6 端同时上线
+#### 2. 多渠道分发(9 端覆盖)
+- Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI,另有 API 与 AI 服务
+- 1 个 Agent 配置,9 端同时上线
 - 渠道流量自动归因
 - 多端用户行为统一分析
 

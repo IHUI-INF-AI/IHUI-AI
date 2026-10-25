@@ -25,7 +25,7 @@ const jsonLd = {
       url: 'https://aizhs.top/en/use-cases/ai-edu',
       name: 'AI Smart Education Agent Use Case — IHUI AI',
       description:
-        'AI smart education agent built on IHUI AI full-stack AI operating system: personalized learning path, smart Q&A, question generation and grading, learning data analytics, teaching collaboration, parent-school communication. 30-minute onboarding, 8-endpoint distribution.',
+        'AI smart education agent built on IHUI AI full-stack AI operating system: personalized learning path, smart Q&A, question generation and grading, learning data analytics, teaching collaboration, parent-school communication. 30-minute onboarding, 9-endpoint distribution.',
       inLanguage: ['en', 'zh-CN', 'zh-TW', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -113,7 +113,7 @@ const jsonLd = {
 export const metadata: Metadata = {
   title: 'AI Smart Education — Personalized Learning / Smart Q&A / Parent-School | IHUI AI',
   description:
-    'Build an AI smart education agent on IHUI AI: personalized learning path + smart Q&A + question generation and grading + learning analytics + teaching collaboration + parent-school communication. 30-minute onboarding, 8-endpoint distribution.',
+    'Build an AI smart education agent on IHUI AI: personalized learning path + smart Q&A + question generation and grading + learning analytics + teaching collaboration + parent-school communication. 30-minute onboarding, 9-endpoint distribution.',
   alternates: { canonical: '/en/use-cases/ai-edu' },
   openGraph: {
     title: 'AI Smart Education Agent — IHUI AI',
@@ -229,7 +229,7 @@ export default function AiEduPage() {
             AI Smart Education: a personalized learning path for every student
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            Built on the IHUI AI full-stack AI operating system, 8-endpoint distribution, Apache 2.0
+            Built on the IHUI AI full-stack AI operating system, 9-endpoint distribution, Apache 2.0
             open source, on-premise support; covers K12, higher education, and vocational training.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">

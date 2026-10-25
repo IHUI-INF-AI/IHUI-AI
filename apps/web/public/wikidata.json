@@ -42,7 +42,7 @@
     "Full-Stack",
     "Multi-Client"
   ],
-  "description": "IHUI AI(智汇 AI)is an open-source full-stack AI operating system. It ships 8 clients from a single TypeScript monorepo and bundles an Agent marketplace, knowledge-base RAG, multi-model orchestration, and the MCP tool protocol. The platform supports 176 LLM providers and 14 deployment targets.",
+  "description": "IHUI AI(智汇 AI)is an open-source full-stack AI operating system. It ships 9 clients from a single TypeScript monorepo and bundles an Agent marketplace, knowledge-base RAG, multi-model orchestration, and the MCP tool protocol. The platform supports 101 models and 14 deployment targets.",
   "inLanguage": [
     "zh-Hans",
     "zh-Hant",

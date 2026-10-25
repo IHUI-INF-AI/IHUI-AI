@@ -8,9 +8,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, Button } fro
 import { Cpu, Zap, Shield, Sparkles, ArrowRight, Check } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'AI Model Hub — 176+ Models Unified API | IHUI AI',
+  title: 'AI Model Hub — 101 Models Unified API | IHUI AI',
   description:
-    'Access 176+ AI models from OpenAI, Claude, Gemini, Qwen, DeepSeek, ERNIE, Doubao, Kimi, Zhipu through one unified API. Auto-failover, pay-as-you-go pricing, OpenAI-compatible API. Build with the best AI models.',
+    'Access 101 AI models from OpenAI, Claude, Gemini, Qwen, DeepSeek, ERNIE, Doubao, Kimi, Zhipu through one unified API. Auto-failover, pay-as-you-go pricing, OpenAI-compatible API. Build with the best AI models.',
   alternates: {
     canonical: '/en/models',
     languages: {
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'AI Model Hub — 176+ Models Unified API',
-    description: '9 providers, 176+ models, one API. OpenAI-compatible with auto-failover.',
+    title: 'AI Model Hub — 101 Models Unified API',
+    description: '9 providers, 101 models, one API. OpenAI-compatible with auto-failover.',
     url: 'https://aizhs.top/en/models',
     type: 'website',
     locale: 'en_US',
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
         url: '/og-image-en.jpg',
         width: 1200,
         height: 630,
-        alt: 'AI Model Hub — 176+ Models Unified API',
+        alt: 'AI Model Hub — 101 Models Unified API',
         type: 'image/jpeg',
       },
     ],
@@ -107,7 +107,7 @@ export default function ModelsLandingPage() {
             AI Model Hub
           </div>
           <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-foreground md:text-5xl">
-            176+ AI Models, One Unified API
+            101 AI Models, One Unified API
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
             Access OpenAI, Claude, Gemini, Qwen, DeepSeek and more through a single
@@ -130,7 +130,7 @@ export default function ModelsLandingPage() {
         <section className="mb-16 md:mb-24">
           <div className="mb-8 text-center md:mb-12">
             <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-              9 Providers, 176+ Models
+              9 Providers, 101 Models
             </h2>
             <p className="mt-3 text-muted-foreground">
               All major AI providers unified under one API. Switch models without changing your
@@ -207,7 +207,7 @@ export default function ModelsLandingPage() {
         <section>
           <Card className="p-3 text-center md:p-12">
             <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-              Ready to build with 176+ AI models?
+              Ready to build with 101 AI models?
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
               Get your API key and start building in minutes. Free tier available.

@@ -25,7 +25,7 @@ const jsonLd = {
       url: 'https://aizhs.top/en/use-cases/ai-design',
       name: 'AI Design Collaboration Agent Use Case — IHUI AI',
       description:
-        'AI design collaboration agent built on IHUI AI full-stack AI operating system: poster/Logo concepts, UI sketch to code, brand asset management, design review, design system retrieval. 30-minute onboarding, 8-endpoint distribution.',
+        'AI design collaboration agent built on IHUI AI full-stack AI operating system: poster/Logo concepts, UI sketch to code, brand asset management, design review, design system retrieval. 30-minute onboarding, 9-endpoint distribution.',
       inLanguage: ['en', 'zh-CN', 'zh-TW', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -113,7 +113,7 @@ const jsonLd = {
 export const metadata: Metadata = {
   title: 'AI Design Collaboration — Poster / Logo / Sketch-to-Code / Design System | IHUI AI',
   description:
-    'Build an AI design collaboration agent on IHUI AI: poster and Logo concepts + UI sketch to code + brand asset management + design review + design system retrieval. 30-minute onboarding, 8-endpoint distribution.',
+    'Build an AI design collaboration agent on IHUI AI: poster and Logo concepts + UI sketch to code + brand asset management + design review + design system retrieval. 30-minute onboarding, 9-endpoint distribution.',
   alternates: { canonical: '/en/use-cases/ai-design' },
   openGraph: {
     title: 'AI Design Collaboration Agent — IHUI AI',
@@ -222,7 +222,7 @@ export default function AiDesignPage() {
             AI Design Collaboration: sketch to code plus unified brand assets
           </h1>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-            Built on the IHUI AI full-stack AI operating system, 8-endpoint distribution, Apache 2.0
+            Built on the IHUI AI full-stack AI operating system, 9-endpoint distribution, Apache 2.0
             open source, on-premise support, with deep Figma and JiShi Design integration.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">

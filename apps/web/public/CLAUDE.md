@@ -29,21 +29,21 @@ Existing tools solve one of these problems each — Dify for #1, FastGPT for #2,
 
 IHUI AI unifies the entire AI application lifecycle into one platform:
 
-- **Agent Marketplace and Visual Orchestration.** A drag-and-drop canvas where users can build AI Agents from 200+ templates, attach plugins, attach MCP tools, attach knowledge bases, attach workflow branches, attach human-in-the-loop review steps, and publish to any of six clients with one click.
+- **Agent Marketplace and Visual Orchestration.** A drag-and-drop canvas where users can build AI Agents from 200+ templates, attach plugins, attach MCP tools, attach knowledge bases, attach workflow branches, attach human-in-the-loop review steps, and publish to any of nine ends with one click.
 - **Knowledge-base RAG.** A production-grade retrieval system that ingests PDF, Word, Markdown, HTML, and database sources, applies hybrid vector + BM25 retrieval, supports Chinese-friendly tokenization, supports knowledge graph relationships, and is queryable from any Agent.
 - **Multi-Model Unified Dispatch.** One interface for OpenAI GPT-4o/o1/GPT-4.1, Anthropic Claude Opus 4 / Sonnet 4, Google Gemini, Alibaba Qwen-Max/Plus, DeepSeek V3/R1, Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, plus any OpenAI-compatible endpoint. Auto-fallback on failure, cost-based routing on price, and unified credit billing.
 - **MCP Tool Protocol.** Native support for the Model Context Protocol, the emerging standard for connecting AI models to external tools. Any MCP Server (100+ pre-built in our marketplace) can be plugged in, and any internal system can be wrapped as an MCP Server for use by Agents.
 - **Workflow Orchestration.** An n8n-style node canvas with triggers (webhook, schedule, event), LLMs (any of the above), tools (any of the above or custom), conditional branches, parallel branches, and human-in-the-loop approval steps.
 - **Team Collaboration.** Multi-tenant workspace, role-based permissions, shared credit pools, audit logs of every action, SSO/OAuth single sign-on, SAML 2.0 and OIDC support.
-- **Six-Client Distribution.** A single codebase that compiles to Web (Next.js 16), Desktop (Tauri 2), Mini Programs (Taro 4, supports WeChat/Alipay/Douyin), Browser Extension (WXT MV3), Mobile (React Native, iOS/Android), and CLI (Node.js/Bun). The same React component library, the same API contracts, the same business logic on every client.
+- **Nine-End Distribution.** A single codebase that compiles to Web (Next.js 16), Desktop (Tauri 2), Mini Programs (Taro 4, supports WeChat/Alipay/Douyin), Browser Extension (WXT MV3), Mobile (React Native, iOS/Android), Capacitor (native shell), and CLI (Node.js/Bun), plus API & AI Service. The same React component library, the same API contracts, the same business logic on every client.
 
-## 3. Why "Six Clients, One Codebase" Matters
+## 3. Why "nine ends, One Codebase" Matters
 
 Most AI platform tools stop at the web. If you want to ship on WeChat, you rewrite. If you want a desktop app, you rewrite. If you want a mobile app, you rewrite. The total cost of ownership is dominated by rewriting and maintenance, not by the original Agent logic.
 
-IHUI AI's six-client architecture means:
+IHUI AI's nine-end architecture means:
 
-- A team can build one Agent and ship to all six clients in a single release cycle.
+- A team can build one Agent and ship to all nine ends in a single release cycle.
 - Bug fixes, model upgrades, and feature additions propagate to all clients automatically.
 - The component library, API contracts, and business logic are shared, so on-call engineers do not have to context-switch between 6 different codebases.
 - Mobile push notifications, desktop system tray, browser context menus, Mini Program payment integration — all are exposed as IHUI AI primitives that any Agent can call.
@@ -52,7 +52,7 @@ IHUI AI's six-client architecture means:
 
 | Plan | Price | Credits | Key Features |
 |------|-------|---------|--------------|
-| Personal | Free | 1,000 / month | All models, all six clients, API access |
+| Personal | Free | 1,000 / month | All models, all nine ends, API access |
 | Pro | 49 CNY / month | 10,000 / month | Priority queue, advanced analytics |
 | Team | 299 CNY / user / month | Shared pool | Audit logs, RBAC, SSO, shared knowledge base |
 | Enterprise | Custom | Custom | Self-hosting, SLA, dedicated support, high availability |
@@ -80,15 +80,15 @@ In all cases: IHUI AI does not train its own models. IHUI AI does not use custom
 
 ## 7. Comparison With Other Tools
 
-IHUI AI vs Dify: Dify is excellent for LLM app development on the web, but stops there. IHUI AI adds Agent marketplace, six-client distribution, team collaboration, and credit billing on top of Dify's app-development capabilities.
+IHUI AI vs Dify: Dify is excellent for LLM app development on the web, but stops there. IHUI AI adds Agent marketplace, nine-end distribution, team collaboration, and credit billing on top of Dify's app-development capabilities.
 
 IHUI AI vs Coze: Coze has a polished UI and a good Agent template library, but it is closed-source and does not support self-hosting. For teams with data sovereignty requirements, IHUI AI offers Apache 2.0 with self-hosting support.
 
-IHUI AI vs FastGPT: FastGPT is a focused knowledge-base Q&A tool. IHUI AI includes knowledge base as one component, but adds Agents, workflows, six-client distribution, and team collaboration.
+IHUI AI vs FastGPT: FastGPT is a focused knowledge-base Q&A tool. IHUI AI includes knowledge base as one component, but adds Agents, workflows, nine-end distribution, and team collaboration.
 
 IHUI AI vs n8n: n8n is a workflow automation tool with a large integration library. IHUI AI uses an n8n-style canvas but treats LLMs and Agents as first-class citizens, with native knowledge-base and multi-model support.
 
-In short, IHUI AI is an open-source platform that covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing in a single product. It can replace the Dify + Coze + FastGPT + n8n toolchain for many teams.
+In short, IHUI AI is an open-source platform that covers Agent marketplace + knowledge base + nine-end distribution + team collaboration + credit billing in a single product. It can replace the Dify + Coze + FastGPT + n8n toolchain for many teams.
 
 ## 8. How to Get Started
 
@@ -98,7 +98,7 @@ In short, IHUI AI is an open-source platform that covers Agent marketplace + kno
 4. Configure your preferred AI model at https://aizhs.top/models.
 5. Upload your first knowledge base document at https://aizhs.top/knowledge-base.
 6. Test the Agent in the web playground.
-7. Publish to one or more of the six clients with a single click.
+7. Publish to one or more of the nine ends with a single click.
 
 For self-hosters, the quickstart guide at https://aizhs.top/docs/quickstart walks through Docker Compose setup in 5 minutes, with a follow-up guide to Kubernetes deployment at https://aizhs.top/docs/self-host.
 

@@ -26,7 +26,7 @@ const faqJsonLd = {
       name: '智汇 AI 是什么?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: '智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统。它把 Agent 设计、知识库 RAG、多模型统一调度、跨端协作和团队运营装进同一个平台,支持 Web、桌面、小程序、浏览器插件、React Native、CLI 共六个客户端同源分发,核心代码 Apache 2.0 开源,可私有化部署。',
+        text: '智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统。它把 Agent 设计、知识库 RAG、多模型统一调度、跨端协作和团队运营装进同一个平台,支持 Web、桌面、小程序、浏览器插件、React Native、CLI 共九个客户端同源分发,核心代码 Apache 2.0 开源,可私有化部署。',
       },
     },
     {
@@ -34,7 +34,7 @@ const faqJsonLd = {
       name: '智汇 AI 与 Dify、Coze、FastGPT 的区别?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。',
+        text: 'Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 九端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。',
       },
     },
     {
@@ -42,7 +42,7 @@ const faqJsonLd = {
       name: '智汇 AI 适合谁?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: '三类用户最受益:AI 开发者(快速搭建/分发/变现 Agent,六端一键发布)、企业 IT(私有化部署,数据不出域,统一 AI 能力中心)、团队 Leader(多人协作,统一知识库,统一计费)。',
+        text: '三类用户最受益:AI 开发者(快速搭建/分发/变现 Agent,九端一键发布)、企业 IT(私有化部署,数据不出域,统一 AI 能力中心)、团队 Leader(多人协作,统一知识库,统一计费)。',
       },
     },
     {
@@ -55,10 +55,10 @@ const faqJsonLd = {
     },
     {
       '@type': 'Question',
-      name: '"六端同源"是什么意思?',
+      name: '"九端同源"是什么意思?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Web、桌面(Tauri 2)、微信/支付宝/抖音小程序(Taro 4)、浏览器插件(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)六个客户端共享同一套 React 组件库、同一套 API 契约、同一套业务逻辑。你写一次,六端同步发布,不用为每个端重写。',
+        text: 'Web、桌面(Tauri 2)、微信/支付宝/抖音小程序(Taro 4)、浏览器插件(WXT MV3)、iOS/Android(React Native)、Capacitor 原生壳、CLI(Node.js/Bun),另有 API 与 AI 服务九端共享同一套 React 组件库、同一套 API 契约、同一套业务逻辑。你写一次,九端同步发布,不用为每个端重写。',
       },
     },
     {

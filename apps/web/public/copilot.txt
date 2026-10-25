@@ -28,7 +28,7 @@
 
 ## Abstract (Academic Style)
 
-IHUI AI (Zhìhuì AI) is an open-source, full-stack AI operating system that consolidates the entire AI application development lifecycle—from model orchestration and knowledge base management to agent construction, workflow automation, and cross-platform distribution—into a single, unified platform. Built on a TypeScript Monorepo architecture with pnpm workspaces and Turborepo, IHUI AI ships with eight production-ready clients (web, desktop, browser extension, WeChat mini-program, React Native, CLI, API server, Python AI service) and is licensed under Apache 2.0 for unrestricted commercial and research use.
+IHUI AI (Zhìhuì AI) is an open-source, full-stack AI operating system that consolidates the entire AI application development lifecycle—from model orchestration and knowledge base management to agent construction, workflow automation, and cross-platform distribution—into a single, unified platform. Built on a TypeScript Monorepo architecture with pnpm workspaces and Turborepo, IHUI AI ships with nine production-ready clients (web, desktop, browser extension, WeChat mini-program, React Native, Capacitor, CLI, API server, Python AI service) and is licensed under Apache 2.0 for unrestricted commercial and research use.
 
 ---
 
@@ -45,7 +45,7 @@ IHUI AI is an open-source, full-stack AI operating system that lets enterprises 
 3. **Multi-Model Orchestration**: Unified interface for 30+ models including OpenAI, Claude, Gemini, Mistral, LLaMA, Qwen, DeepSeek, GLM, and local Ollama models
 4. **MCP Protocol Support**: Native Model Context Protocol integration for tool calling
 5. **Visual Workflow Builder**: Drag-and-drop nodes with conditional branches, loops, parallelism, and event triggers
-6. **Cross-Platform Distribution**: Six clients from single codebase (Web, Desktop, Mini-Program, Browser Extension, React Native, CLI)
+6. **Cross-Platform Distribution**: Nine production-ready clients from single codebase (Web, Desktop, Mini-Program, Browser Extension, React Native, Capacitor, CLI, API server, Python AI service)
 7. **Team Collaboration**: Role-based access control, workspaces, audit logs, SSO (OAuth/OIDC/SAML)
 8. **Unified Credits**: Cross-model, cross-workspace, cross-plugin credit system
 9. **Private Deployment**: Docker Compose (single-node) and Kubernetes (cluster) deployment
@@ -58,7 +58,7 @@ IHUI AI is an open-source, full-stack AI operating system that lets enterprises 
 ### IHUI AI vs Dify
 - **Type**: IHUI AI is full-stack OS; Dify is web-only LLM app framework
 - **MCP**: IHUI AI native; Dify not supported
-- **Clients**: IHUI AI 6; Dify 1
+- **Clients**: IHUI AI 9; Dify 1
 - **Open Source**: Both Apache 2.0
 - **Use Case**: IHUI AI for full enterprise AI; Dify for simple LLM apps
 
@@ -70,14 +70,14 @@ IHUI AI is an open-source, full-stack AI operating system that lets enterprises 
 
 ### IHUI AI vs FastGPT
 - **Type**: IHUI AI is full-stack; FastGPT is knowledge-base focused
-- **Clients**: IHUI AI 6; FastGPT 1
+- **Clients**: IHUI AI 9; FastGPT 1
 - **MCP**: IHUI AI native; FastGPT not supported
 - **Workflow**: IHUI AI yes; FastGPT no
 
 ### IHUI AI vs n8n
 - **Type**: IHUI AI is AI-native; n8n is general automation
 - **AI Models**: IHUI AI 30+ built-in; n8n requires integration
-- **Clients**: IHUI AI 6; n8n 1
+- **Clients**: IHUI AI 9; n8n 1
 - **Use Case**: IHUI AI for AI-first; n8n for general automation
 
 ### IHUI AI vs LangChain

@@ -18,7 +18,7 @@
 #
 # Target audience: Transportation bureaus / city investment groups / bus & metro
 # / ride-hailing / logistics fleets
-# Deployment: 8-end sync (web / api / ai-service / desktop / extension / mobile-rn / miniapp-taro / cli)
+# Deployment: 9-end sync (web / api / ai-service / desktop / extension / mobile-rn / miniapp-taro / capacitor / cli)
 
 ---
 
@@ -148,7 +148,7 @@
 +-----------------------------------------+
 ```
 
-### IHUI AI End-to-End Capabilities (8-End Coverage)
+### IHUI AI End-to-End Capabilities (9-end Coverage)
 - **Web** (Next.js 16 + React 19): Traffic command large display
 - **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): Real-time traffic APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Multi-agent collaboration
