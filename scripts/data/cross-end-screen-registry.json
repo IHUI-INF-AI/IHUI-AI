@@ -390,6 +390,16 @@
       "shared": "packages/app/src/features/usage-rules/UsageRulesScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/UsageRulesScreen.tsx",
       "miniapp": "pkg-about/about/usage-rules/index"
+    },
+    {
+      "shared": "packages/app/src/features/app-permission/AppPermissionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AppPermissionScreen.tsx",
+      "miniapp": "pkg-about/about/app-permission"
+    },
+    {
+      "shared": "packages/app/src/features/api-settings/ApiSettingsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ApiSettingsScreen.tsx",
+      "miniapp": "pkg-about/about/api-settings"
     }
   ]
 }
