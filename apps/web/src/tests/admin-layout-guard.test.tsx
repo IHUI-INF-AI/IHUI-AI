@@ -12,7 +12,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { act, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const replace = vi.fn()
@@ -25,6 +25,11 @@ vi.mock('next/navigation', () => ({
 
 import AdminLayout from '../../app/(main)/admin/layout'
 import { useAuthStore } from '@/stores/auth'
+import {
+  markSessionEstablished,
+  __resetSessionEstablishedMirrorForTest,
+  __resetSessionLoggedOutMirrorForTest,
+} from '@/lib/session-marker'
 
 const ADMIN = { id: 'u1', nickname: 'admin', roleId: 1 } as const
 
@@ -44,11 +49,16 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   beforeEach(async () => {
     vi.useFakeTimers()
     replace.mockClear()
+    localStorage.clear()
+    // session-marker 有进程内镜像,不清会把上一个用例的判定带进本用例
+    __resetSessionEstablishedMirrorForTest()
+    __resetSessionLoggedOutMirrorForTest()
     useAuthStore.setState({ isAuthenticated: false, user: null, token: null })
     await vi.waitFor(() => useAuthStore.persist.hasHydrated())
     vi.useRealTimers()
   })
   afterEach(() => {
+    cleanup()
     vi.useRealTimers()
   })
 
@@ -103,6 +113,47 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
     await mount()
     await act(async () => {
       vi.advanceTimersByTime(1_000)
+    })
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(String(replace.mock.calls[0]?.[0])).toMatch(/^\/sso\/login\?redirect=/)
+  })
+
+  it('E 未登录但会话可恢复 ⇒ 先宽限不立即踢;期间恢复则正常放行', async () => {
+    vi.useFakeTimers()
+    markSessionEstablished()
+    useAuthStore.setState({ isAuthenticated: false, token: null, user: null })
+    await mount()
+
+    // 宽限内绝不弹(旧写法这一拍已经 replace 到 /sso/login 了)
+    await act(async () => {
+      vi.advanceTimersByTime(1_000)
+    })
+    expect(replace).not.toHaveBeenCalled()
+
+    // bootstrap / 401 拦截器把登录态接回来 ⇒ 不再踢,照常渲染
+    act(() => {
+      useAuthStore.setState({ isAuthenticated: true, token: 't', user: ADMIN })
+    })
+    await act(async () => {
+      vi.advanceTimersByTime(20_000)
+    })
+    expect(replace).not.toHaveBeenCalled()
+    expect(screen.getByText('受守卫的后台内容')).toBeTruthy()
+  })
+
+  it('F 可恢复但始终没恢复 ⇒ 宽限到点仍踢登录页(终态不可缺)', async () => {
+    vi.useFakeTimers()
+    markSessionEstablished()
+    useAuthStore.setState({ isAuthenticated: false, token: null, user: null })
+    await mount()
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000)
+    })
+    expect(replace).not.toHaveBeenCalled()
+
+    await act(async () => {
+      vi.advanceTimersByTime(5_000)
     })
     expect(replace).toHaveBeenCalledTimes(1)
     expect(String(replace.mock.calls[0]?.[0])).toMatch(/^\/sso\/login\?redirect=/)

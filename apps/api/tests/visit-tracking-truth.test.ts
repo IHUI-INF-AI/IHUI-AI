@@ -22,6 +22,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import { bizDayKey } from '../src/utils/biz-day.js'
 
 vi.mock('../src/config/index.js', () => ({
   config: {
@@ -251,7 +252,9 @@ describe('B) /source/record 与 /page/record:此前根本不写 userAgent 的两
     })
     expect(a.statusCode).toBe(200)
     const row = await lastInserted()
-    expect(row.visitDate).toBe(new Date().toISOString().slice(0, 10))
+    // 业务日 = 上海日界(服务端 saveVisitLog 的口径);取 UTC 日期在上海 00:00-08:00
+    // 窗口里必然差一天,那是本用例原来的时区缺陷,不是服务端写错。
+    expect(row.visitDate).toBe(bizDayKey())
     expect(Object.keys(row).sort()).toEqual(
       ['city', 'ip', 'referer', 'sessionId', 'url', 'userId', 'userAgent', 'visitDate'].sort(),
     )

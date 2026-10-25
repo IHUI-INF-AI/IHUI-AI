@@ -13,7 +13,8 @@
  *
  * 特性:
  * - pathname 变化时上报(带 referer/sessionId/userId,userId 取 auth store)
- * - 忽略 /admin/*(后台操作不计入用户访问)、/api/*、/_next/*、静态资源
+ * - 覆盖全站页面(含 /admin、/login、/register);前后台口径由服务端按 URL 前缀分桶,
+ *   前端只排 /api/*、/_next/*、静态资源这些非页面面
  * - 防抖:同一路径 3s 内不重复上报
  * - 失败静默(不打断用户体验,失败自动丢弃)
  * - sendBeacon 优先(卸载/跳转场景可靠),回退 fetch keepalive
@@ -40,13 +41,13 @@ function getSessionId(): string {
 
 function isIgnored(path: string): boolean {
   if (!path || path === '/') return false
-  // 后台 / 内部接口 / 静态资源不记入用户访问
+  // 只排非页面面:后端接口 / 构建产物 / 静态资源。
+  // 2026-10-25:不再丢弃 /admin、/login、/register —— 目标要求「所有页面都能被统计」;
+  // 前台指标不被后台访问污染,改由服务端按 URL 前缀分桶(scope=public|admin|auth),
+  // 而不是靠前端把数据丢掉(丢掉就永远算不出后台被用了多少次)。
   return (
-    path.startsWith('/admin') ||
     path.startsWith('/api/') ||
     path.startsWith('/_next') ||
-    path.startsWith('/login') ||
-    path.startsWith('/register') ||
     /\.(png|jpg|jpeg|svg|ico|css|js|woff2?|webp|gif)(\?|$)/i.test(path)
   )
 }
