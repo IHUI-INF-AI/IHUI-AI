@@ -9,7 +9,8 @@
  *  ① A 处失败后 B 处不得读到旧成功快照 —— 失败向**所有**订阅者广播
  *     (:185-190,注释:"否则设置页失败后,推荐入口仍认为旧余额查询成功");
  *  ② 成功后缓存恢复可命中(反向锁,防做成"永远不缓存");
- *  ③ 身份变化使**全部**在途请求失效(不是只失效发起那一个,:45-46)。
+ *  ③ 身份变化使**全部**在途请求失效(不是只失效发起那一个,:45-46);
+ *  ④ ③ 的同一身份半场:购买换代(invalidate())身份不变,仍使全部在途请求作废。
  *
  * 双 runner 分流(先例:src/chat/__tests__/projection-watermark.test.mjs,G-816006):
  * 本文件落在 packages/shared 的 vitest 收集面(vitest.config.ts 的 COLLECT_INCLUDE
@@ -156,6 +157,44 @@ describe('G-816011 失败也是共享事实:失败广播 + 有失败不供缓存
     assert.equal(policy2.getFailureCount(), 0) // 迟到失败被换代作废
     assert.equal(policy2.getCachedSnapshot(), 'b-snap')
     assert.deepEqual(site2.calls, [['b-snap', null]])
+  })
+
+  it('④ 同一身份购买换代 ⇒ 全部在途请求作废(身份不变,旧请求不得回写缓存)', async () => {
+    // 上游「购买使同一身份全部旧请求失效」:身份字符串不变,但旧权益的在途请求必须失效。
+    // 有牙锁:购买前放**两条**在途(a1/a2)。若实现只在 setIdentity 换代(或只失效发起那一个),
+    // 这两条迟到结果会在购买后落地并广播 ⇒ 本用例翻红。
+    const gates = { a1: createDeferred(), a2: createDeferred(), after: createDeferred() }
+    let count = 0
+    const policy = createResourceRefreshPolicy({
+      load: () => {
+        count += 1
+        if (count === 1) return Promise.resolve('旧权益快照')
+        if (count === 2) return gates.a1.promise
+        if (count === 3) return gates.a2.promise
+        return gates.after.promise
+      },
+    })
+    const site = createRecorder()
+    policy.subscribe(site.listener)
+    policy.setIdentity('user-1')
+    await policy.refresh() // 旧权益快照入缓存
+    const before1 = policy.refresh() // 购买前的在途请求 1
+    const before2 = policy.refresh() // 购买前的在途请求 2
+    policy.invalidate() // 同一身份购买换代:身份不变
+    assert.equal(policy.getIdentity(), 'user-1')
+    assert.equal(policy.getCachedSnapshot(), null) // 旧权益快照不再供
+
+    const after = policy.refresh() // 购买后的请求
+    gates.after.resolve('购买后快照')
+    gates.a1.resolve('购买前的迟到快照 1') // 比购买后的请求还晚返回
+    gates.a2.resolve('购买前的迟到快照 2')
+    await Promise.all([before1, before2, after, flush()])
+
+    assert.equal(policy.getCachedSnapshot(), '购买后快照')
+    const snapshots = site.calls.map(([snapshot]) => snapshot)
+    assert.deepEqual(snapshots, ['旧权益快照', '购买后快照'])
+    assert.ok(!snapshots.includes('购买前的迟到快照 1'))
+    assert.ok(!snapshots.includes('购买前的迟到快照 2'))
   })
 
   it('补充:未设置身份时 refresh 不动(load 不被调)', async () => {

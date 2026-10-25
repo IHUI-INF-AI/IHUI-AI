@@ -79,6 +79,12 @@
  *      轮次绑定同一条判据)。凡这一面含 N 个非本票暂存项 ⇒ introduced 一律降级 undetermined-red,
  *      结论明写"这一面含 N 个非本票暂存项,归属未经差分证明"并**点名具体路径**(不得笼统拒绝,
  *      也不得多放一次跳门)。
+ *   ③ **面清单必须自证**(2026-10-25 补,同一票第三条):② 只拦"面里多了东西",拦不住"清单本身取不到"
+ *      —— 生产形态是 `gitStagedPaths` 跑不动返回 `[]`,而空清单让 ② 的集合为空、守卫静默不触发 ⇒
+ *      落 introduced ⇒ 判 mine。那是把"没判"写成"是我的"(§0.3 同型反向)。故 introduced 之前还要核
+ *      这一份清单**至少含本票声明的全部路径**("我的面"的定义;Step 2/3 已保证索引恰是清单):
+ *      未提供 / 缺项 ⇒ 一律 undetermined-red 并点名缺哪几项(`replayFaceUnverified` 可机读)。
+ *      既不是 ours,也不是 not-ours —— 面不可信时两个方向都没有证据。
  * 两档都由调用方注入(`runGateForeignFace` / `myFaceStaged`),本模块依旧不碰 git、不建门 id 清单。
  *
  * 本模块是纯判定 + 注入式复跑(`runGate` / `runGateBaseline`),因此可在不 spawn git 的前提下自测。
@@ -775,7 +781,12 @@ export const EXTERNAL_FS_MARK = '[judges-external-fs-state]'
  *        blob ⇒ "基线面(HEAD)不红 / 我的面红"两枚读数之间隔着非本票暂存项,差分的轮次前提
  *        (与 G-179 轮次绑定同一条判据)不成立。凡这一面含非声明集暂存项,introduced 一律降级为
  *        undetermined-red,结论明写"这一面含 N 个非本票暂存项,归属未经差分证明"并点名具体路径。
- *        未注入 ⇒ 无从核,行为与旧版逐字同形(接线属调用方下一批,票面"等什么①"已登记)。
+ *        **面清单必须自证(2026-10-25 补,同一票第三条)**:一旦给了清单,就必须核它至少含本票声明的
+ *        全部路径 —— 缺项(生产形态 = `gitStagedPaths` 跑不动返回 `[]`)⇒ introduced 一律降级
+ *        undetermined-red(`replayFaceUnverified` 可机读),既不是 ours 也不是 not-ours。
+ *        **完全未提供**保持旧行为(落 introduced):生产两处调用铰链(钩子轮 / 自跑轮)恒注入
+ *        (`safe-commit.mjs` 的 `myFaceStaged: stagedNow`),未提供只出现在自研调用/夹具;
+ *        而"多拦一次"比"多放一次跳门"符合 §0.10 的失效方向。
  * @returns kind ∈ 'mine'(点名本次文件 **或** 差分证明本枚引入 ⇒ 拒跳)
  *          | 'not-ours'(有证据表明红不在本次内容 ⇒ 可跳:复跑过关,或 HEAD 面亦红)
  *          | 'undetermined-red'(仍红且基线面跑不出去 ⇒ 可跳,但不得声称与本次无关,2026-09-27 新增)
@@ -986,16 +997,31 @@ export function classifyHookFailure({
   // 票 G-24 口径①(他人面仍红 ⇒ not-ours)与票 G-420①(introduced 被轮次绑定守卫拦下)两档,2026-10-22 立
   let foreignFaceRed = 0
   let replayForeignUndetermined = 0
+  // 复跑面自证失败档(票 G-420① 第三条,2026-10-25 立):调用方给了清单,而清单不含本票声明集。
+  let replayFaceUnverified = 0
   // 复跑"我的面"那一刻索引里的非声明集暂存项(G-420①:还原后的共享索引躺着他人旧版本 blob)。
-  // 未注入 myFaceStaged ⇒ 清单为空 ⇒ 守卫不触发,行为与旧版逐字同形(不得臆造观察面来"求个绿")。
+  // 判据前提(2026-10-25):先自证"这份清单确实是'我的面'",再数它比声明集多了什么。
   const declaredNorm = new Set(stagedFiles.map((f) => normGatePath(f)))
-  const foreignOnFaceList = [
-    ...new Set(
-      (Array.isArray(myFaceStaged) ? myFaceStaged : [])
-        .map((p) => normGatePath(p))
-        .filter((p) => p && !declaredNorm.has(p)),
-    ),
-  ].sort()
+  const faceStagedKnown = Array.isArray(myFaceStaged)
+  const faceStagedNorm = new Set(
+    (faceStagedKnown ? myFaceStaged : []).map((p) => normGatePath(p)).filter(Boolean),
+  )
+  // "我的面"的定义 = 复跑那一刻索引里**至少**含本票声明的全部路径(Step 2/3 已保证索引恰是清单)。
+  // 缺项 ⇒ 这份清单不是那一轮的索引态(取不到 / 读到别轮),拿它数"非本票暂存项"就是拿错面判因果。
+  const missingDeclaredOnFace = [...declaredNorm].filter((p) => !faceStagedNorm.has(p)).sort()
+  // 只有"调用方给了清单、而清单自证不过"才降级未判定;**完全未提供**保持旧行为(落 introduced)。
+  // 理由两条:①生产两处铰链(钩子轮 / 自跑轮)恒注入 `myFaceStaged`,未提供只出现在自研调用/夹具,
+  // 落旧行为是更严的一侧(§0.10:失效方向必须是多要一次定向说明,绝不是多放一次跳门);
+  // ②"给了却是 [] / 缺声明集"才是本票实测的失效形态(`gitStagedPaths` 跑不动返回 `[]`),
+  // 它与"未提供"必须分开 —— 前者是取到了一份不是"我的面"的清单,后者根本没取。
+  const faceUnverifiedWhy = !faceStagedKnown
+    ? null
+    : missingDeclaredOnFace.length > 0
+      ? `这份清单不含本票声明集 ${declaredNorm.size} 项中的 ${missingDeclaredOnFace.length} 项` +
+        `(${missingDeclaredOnFace.slice(0, 5).join(' , ')}${missingDeclaredOnFace.length > 5 ? ' …' : ''})` +
+        ` ⇒ 它证明不了"我的面"是哪一轮索引态(声明集本应全在索引里)`
+      : null
+  const foreignOnFaceList = [...faceStagedNorm].filter((p) => !declaredNorm.has(p)).sort()
   const foreignOnFaceBrief = foreignOnFaceList.slice(0, 5).join(' , ') + (foreignOnFaceList.length > 5 ? ' …' : '')
   for (const g of parsed.failed) {
     let r = null
@@ -1215,6 +1241,21 @@ export function classifyHookFailure({
       // 里面躺着他人挂在共享索引中的旧版本 blob(票面逐条 --find-object 命中历史提交)⇒ 两枚
       // 退出码的差隔着非本票暂存项,不是本枚内容的差。凡这一面含 N 个非本票暂存项 ⇒ introduced
       // 降级 undetermined-red,结论明写票面要求的原句并点名路径(不得笼统拒绝,也不得多放跳门)。
+      // ── 差分第三前提之半(票 G-420① 第三条,2026-10-25 立):先自证这一面是"我的面" ──
+      // 只把"面里多了东西"判成未判定还不够:清单**取不到**(生产形态 = gitStagedPaths 跑不动返回 [])
+      // 或**缺声明集**时,foreignOnFaceList 恰好为空 ⇒ 下面那道守卫静默不触发 ⇒ 落 introduced ⇒ 判 mine。
+      // 那是把"没判"写成"是我的"(§0.3 同型反向):面不可信时既不得判 ours,也不得判 not-ours。
+      if (faceUnverifiedWhy) {
+        replayFaceUnverified++
+        deltaUnknown++
+        detail.push(
+          `[${g.id}] ${g.label} —— 未能差分:${faceUnverifiedWhy};` +
+            `基线面(HEAD)不红 / 我的面 exit ${r.status} 本会落 introduced,` +
+            `但"我的面"本身未经自证 ⇒ 归属未经差分证明` +
+            `(不是"本枚引入",也不是"与本次无关";修法=把复跑面清单现读到本轮索引态,不是改本枚内容)`,
+        )
+        continue
+      }
       if (foreignOnFaceList.length > 0) {
         replayForeignUndetermined++
         deltaUnknown++
@@ -1270,6 +1311,7 @@ export function classifyHookFailure({
         externalsUnobtainable,
         foreignFaceRed,
         replayForeignUndetermined,
+        replayFaceUnverified,
         foreignOnFaceCount: foreignOnFaceList.length,
       },
       reason:
@@ -1306,6 +1348,7 @@ export function classifyHookFailure({
         externalsUnobtainable,
         foreignFaceRed,
         replayForeignUndetermined,
+        replayFaceUnverified,
         foreignOnFaceCount: foreignOnFaceList.length,
       },
       reason:
@@ -1323,7 +1366,11 @@ export function classifyHookFailure({
                     '差分的因果前提不成立,'
                   : '调用方取不到外部状态快照(未注入 / 问不到远端)⇒ 没有任何证据证明两跑之间世界没动,') +
                 '未能差分,归属未知 —— 不得据此判"本枚引入",也不得读成"与本次无关"(修法=在同一份外部状态下复跑差分)'
-              : replayForeignUndetermined === deltaUnknown
+              : replayFaceUnverified === deltaUnknown
+                ? `${deltaUnknown} 道失败门仍红但未点名本次文件,基线面(HEAD)不红、我的面红,本会判"本枚引入"——` +
+                  `但"我的面"未经自证(${faceUnverifiedWhy})⇒ 归属未经差分证明` +
+                  `(不得据此判"本枚引入",也不得读成"与本次无关";修法=把复跑面清单现读到本轮索引态)`
+                : replayForeignUndetermined === deltaUnknown
                 ? `${deltaUnknown} 道失败门仍红但未点名本次文件,基线面(HEAD)不红、我的面红,本会判"本枚引入"——` +
                   `但差分复跑读的是还原后的共享索引,未绑到"本次声明集"这一轮索引态 ⇒ ` +
                   `这一面含 ${foreignOnFaceList.length} 个非本票暂存项,归属未经差分证明` +
@@ -1354,6 +1401,9 @@ export function classifyHookFailure({
           : '') +
         (replayForeignUndetermined > 0 && replayForeignUndetermined !== deltaUnknown
           ? `;其中 ${replayForeignUndetermined} 道本会落 introduced,被"复跑面轮次绑定"守卫拦下 —— 这一面含 ${foreignOnFaceList.length} 个非本票暂存项,归属未经差分证明(点名:${foreignOnFaceBrief})`
+          : '') +
+        (replayFaceUnverified > 0 && replayFaceUnverified !== deltaUnknown
+          ? `;其中 ${replayFaceUnverified} 道本会落 introduced,但"我的面"清单未经自证(${faceUnverifiedWhy})`
           : '') +
         (stock > 0 ? `;另有 ${stock} 道已证 HEAD 面亦红` : ''),
     }

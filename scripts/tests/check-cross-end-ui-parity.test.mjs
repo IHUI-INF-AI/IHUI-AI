@@ -1682,3 +1682,118 @@ test('T46 类臂盒档反向:确实不等价的档必须判红,且接线锁住 c
   )
   assert.ok(/collected\.classArmCss \?\? \{\}/.test(gate), 'main 未把类臂声明体喂进 audit / webRadiusAudit')
 })
+
+/**
+ * T43–T46(2026-10-25,票 G-16 第(i)格残留):**具名档 → 具名档**的投影别名。
+ *
+ * 立因:门此前只认 `= <数字>` 与 `= GEOMETRY_PX.<step>` 两种右值,于是
+ * `export const A_PX = B_PX` 这一型**整枚从档表消失** —— 两端写的是同一个数的两个名字,
+ * 却被报成"仅一侧引用 / 仅一侧档"。这就是票面那句"按档名计数不认几何投影别名"在真仓的
+ * 现存实例(HEAD 面 `packages/shared/src/ui/tab-bar-spec.ts` 两枚)。四条用例互为对照:
+ * 等价必须不报 / 真不同档必须报 / 摘掉判据必须翻红(变异自证)/ 派生量不得被认成同值。
+ */
+const ALIAS_GEO_SRC = ['export const GEOMETRY_PX = {', '  controlBox: 32,', '  otherBox: 20', '}', ''].join(
+  '\n',
+)
+const ALIAS_SOURCES = {
+  'packages/design-tokens/src/geometry.js': ALIAS_GEO_SRC,
+  'packages/shared/src/ui/alias-spec.ts': [
+    'export const FOO_PX = GEOMETRY_PX.controlBox;',
+    'export const BAR_PX = FOO_PX;',
+    'export const DEEP_PX = GEOMETRY_PX.otherBox;',
+    'export const DERIVED_PX = FOO_PX + 4;',
+    '',
+  ].join('\n'),
+}
+const aliasSlRun = (miniappSrc, rnSrc, sources = ALIAS_SOURCES) => {
+  const tiers = src.specTiers(sources)
+  const pairs = { pairs: [{ name: 'Fixture', miniapp: 'm/Mini.tsx', rn: 'r/Rn.tsx' }] }
+  const text = { 'm/Mini.tsx': miniappSrc, 'r/Rn.tsx': rnSrc }
+  return { sl: src.specLegAudit(pairs, text, tiers), tiers, eq: src.specTierEquivalence(tiers) }
+}
+
+test('T49 负控(本票核心):同值异名(具名档投影)⇒ 不报单侧', () => {
+  const { sl, tiers, eq } = aliasSlRun(
+    'const s = { width: FOO_PX }\n',
+    'const s = { width: BAR_PX }\n',
+  )
+  assert.equal(tiers.BAR_PX, tiers.FOO_PX, 'BAR_PX 是 FOO_PX 的显式别名 ⇒ 必须进档表且同值')
+  assert.equal(eq.keyOf.get('FOO_PX'), eq.keyOf.get('BAR_PX'), '两枚必须落在同一个等价类')
+  assert.equal(sl.length, 0, `两端引的是同一个数,不该出单侧:${JSON.stringify(sl)}`)
+})
+
+test('T50 正控:真不同档 ⇒ 必须报(别名不许把两个档并成一个)', () => {
+  const { sl } = aliasSlRun(
+    'const s = { width: FOO_PX }\n',
+    'const s = { width: DEEP_PX }\n',
+  )
+  assert.equal(sl.length, 1, `不同几何档必须仍判单侧:${JSON.stringify(sl)}`)
+  assert.deepEqual(sl[0].onlyMiniapp, ['FOO_PX'])
+  assert.deepEqual(sl[0].onlyRn, ['DEEP_PX'])
+})
+
+test('T51 变异自证:摘掉具名档投影判据 ⇒ 夹具①当场翻红', () => {
+  const noAlias = {
+    'packages/design-tokens/src/geometry.js': ALIAS_GEO_SRC,
+    'packages/shared/src/ui/alias-spec.ts': [
+      'export const FOO_PX = GEOMETRY_PX.controlBox;',
+      'export const BAR_PX = 32;',
+      '',
+    ].join('\n'),
+  }
+  const { sl, tiers } = aliasSlRun(
+    'const s = { width: FOO_PX }\n',
+    'const s = { width: BAR_PX }\n',
+    noAlias,
+  )
+  assert.equal(tiers.BAR_PX, 32, '字面量档本身仍可读(对照组不是空场景)')
+  assert.equal(sl.length, 1, '没有声明式同值关系 ⇒ 按档名比,必须报出来')
+  assert.deepEqual(sl[0].onlyMiniapp, ['FOO_PX'])
+  assert.deepEqual(sl[0].onlyRn, ['BAR_PX'])
+})
+
+test('T52 派生量不得被认成同值:`A_PX = B_PX + 4` 不是别名', () => {
+  const { tiers } = aliasSlRun('const s = { a: 1 }\n', 'const s = { a: 1 }\n')
+  assert.equal(tiers.DERIVED_PX, undefined, '右值含算术 ⇒ 值未判定,不得按别名入表')
+  assert.notEqual(
+    src.specTierEquivalence(tiers).keyOf.get('DERIVED_PX'),
+    src.specTierEquivalence(tiers).keyOf.get('FOO_PX'),
+    '派生量与它的被除数不是同一个数',
+  )
+})
+
+test('T53 真仓对照:tab-bar 两枚具名档投影在 HEAD 面被认成同一档(值可解的那枚同值,不可解的仍登记等价)', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const alias = src.specProjectionAliases(c.tiers)
+  assert.equal(
+    c.tiers.TAB_BAR_MARGIN_H_PX,
+    c.tiers.INPUT_AREA_CONTAINER_PADDING_X_PX,
+    'TAB_BAR_MARGIN_H_PX = INPUT_AREA_CONTAINER_PADDING_X_PX 必须同值入表',
+  )
+  assert.equal(
+    alias.TAB_BAR_HEIGHT_PX,
+    'INPUT_AREA_SHELL_HEIGHT_PX',
+    '目标本身是算术派生(值未判定)⇒ 不许猜值,但等价关系必须登记',
+  )
+  assert.equal(
+    c.tiers.TAB_BAR_HEIGHT_PX,
+    undefined,
+    '值解不出就不入表(§0.3:没判不写判过)',
+  )
+})
+
+test('T54 圆角:档名 / 角色名 / 像素值是同一个档(取源 = HEAD 面 radius.js 的 RADIUS_STEPS)', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const table = c.radius
+  assert.ok(table, 'HEAD 面圆角档表取不到 ⇒ 这一腿没接到真数据')
+  const byName = radiusSetOf('const s = { card: { borderRadius: rnRadius.lg } }', table)
+  const byRole = radiusSetOf('const s = { card: { borderRadius: rnRadiusFor.card } }', table)
+  const byPx = radiusSetOf('const s = { card: { borderRadius: 8 } }', table)
+  const byClass = radiusSetOf('const el = <View className="rounded-lg" />', table)
+  assert.deepEqual(byName, byPx, `档名与像素值必须同档:${JSON.stringify(byName)} vs ${JSON.stringify(byPx)}`)
+  assert.deepEqual(byRole, byPx, `角色名与像素值必须同档:${JSON.stringify(byRole)} vs ${JSON.stringify(byPx)}`)
+  assert.deepEqual(byClass, byPx, `Tailwind 档名与像素值必须同档:${JSON.stringify(byClass)} vs ${JSON.stringify(byPx)}`)
+  assert.equal(byPx[0], table.lg, '判等依据必须是 RADIUS_STEPS 解析出的值(不是门里另抄的像素表)')
+  const other = radiusSetOf('const s = { card: { borderRadius: rnRadius.xl } }', table)
+  assert.notDeepEqual(other, byPx, '真不同档必须仍被判出差异')
+})

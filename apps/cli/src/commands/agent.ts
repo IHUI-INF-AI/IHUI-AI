@@ -893,14 +893,20 @@ export function buildAgentDangerGate(opts: {
     // 于是"关提示"与"关落链"两件事被物理分开(落链在包装器里,先于这段判序)。
     silent: true,
     auditSessionId: opts.sessionId,
-    onDecision: ({ route, tool, args }) => {
+    onDecision: ({ route, tool, args, reason }) => {
       if (opts.silent) return;
       if (route === 'flag') {
         console.info(
           chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`),
         );
       } else if (route === 'denied') {
-        console.error(chalk.red(`  ✗ 危险操作被拒绝(需 --allow-dangerous): ${tool.name}`));
+        // 拒因正文由唯一出口给出(为什么拒 + 怎么放行),本处只负责挂到终端。
+        console.error(
+          chalk.red(
+            `  ✗ 危险操作被拒绝(需 --allow-dangerous): ${tool.name}` +
+              (reason ? `\n    ${reason}` : ''),
+          ),
+        );
       }
     },
   });

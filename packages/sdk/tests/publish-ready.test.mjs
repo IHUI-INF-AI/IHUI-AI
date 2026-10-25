@@ -71,31 +71,66 @@ function headFile(relPath) {
     })
   } catch (err) {
     const stderr = String(err?.stderr ?? '')
-    if (/exists on disk, but not in|does not exist|pathspec .* did not match/i.test(stderr)) return null
+    if (/exists on disk, but not in|does not exist|pathspec .* did not match/i.test(stderr))
+      return null
     throw new Error(`git show HEAD:${relPath} 失败:${stderr || err?.message || err}`)
   }
 }
 
 /** @param {string} relPath @returns {string[]} HEAD 该目录下的全部路径 */
 function headList(relPath) {
-  const out = execFileSync(GIT, ['-c', 'safe.directory=*', 'ls-tree', '-r', '--name-only', 'HEAD', '--', relPath], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 20_000,
-    maxBuffer: 16 * 1024 * 1024,
-    // 2026-10-04:与上面 `git show` 同一形态 —— 本机对 git.exe 的 spawn 会 EBUSY,
-    // 不显式 pipe 时四条通道对账用例(含两条变异对照)全部以 `spawnSync git.exe EBUSY` 假红。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const out = execFileSync(
+    GIT,
+    ['-c', 'safe.directory=*', 'ls-tree', '-r', '--name-only', 'HEAD', '--', relPath],
+    {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 20_000,
+      maxBuffer: 16 * 1024 * 1024,
+      // 2026-10-04:与上面 `git show` 同一形态 —— 本机对 git.exe 的 spawn 会 EBUSY,
+      // 不显式 pipe 时四条通道对账用例(含两条变异对照)全部以 `spawnSync git.exe EBUSY` 假红。
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
   return out.split(/\r?\n/).filter(Boolean)
 }
 
 /** 读并 parse 一份 JSON 清单(HEAD 版)。 */
 function headJson(relPath) {
   const raw = headFile(relPath)
-  assert.notEqual(raw, null, `HEAD 中缺少 ${relPath} —— SDK 发布链的基础清单被删除,必须先恢复再放行`)
+  assert.notEqual(
+    raw,
+    null,
+    `HEAD 中缺少 ${relPath} —— SDK 发布链的基础清单被删除,必须先恢复再放行`,
+  )
   return JSON.parse(raw)
+}
+
+/**
+ * 读一份发布交付文档:默认仍判 HEAD(干净检出),只为「工作树里新建、索引与 HEAD 都还没有」
+ * 这一种在飞状态开口 —— 否则新增的 CHANGELOG 在提交前永远被自己的门判红,而发布就绪判据
+ * 必须在提交前就能跑通(AGENTS.md §0 第 9 条「判据必须在真跑它的那一刻才成立」)。
+ * 索引里已有而 HEAD 没有(删除/改名等迁移态)不回落工作树:那正是 HEAD 面要判的形态。
+ * @param {string} relPath 仓库根相对路径
+ * @returns {string|null} HEAD、在飞工作树文件都不存在时返回 null
+ */
+function deliveryDocFile(relPath) {
+  const head = headFile(relPath)
+  if (head !== null) return head
+  try {
+    execFileSync(GIT, ['-c', 'safe.directory=*', 'ls-files', '--error-unmatch', '--', relPath], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 20_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return null
+  } catch {
+    const abs = resolve(REPO_ROOT, relPath)
+    return existsSync(abs) ? readFileSync(abs, 'utf8') : null
+  }
 }
 
 const RELEASE_WORKFLOW = '.github/workflows/release-sdk.yml'
@@ -154,7 +189,11 @@ function assertNetChannelBidirectional(projectFiles, workflowText, channel = '.N
   // 工程文件唯一性:两个 csproj 会让 `dotnet pack <目录>` 直接报 More than one project file,
   // 也是 PackageId 的第二份真相源。
   const projects = projectFiles.filter((p) => NET_PROJECT_RE.test(p))
-  assert.equal(projects.length, 1, `${channel}:${DOTNET_DIR} 下工程文件必须恰好 1 个,实测 ${projects.length} 个:${projects.join(', ')}`)
+  assert.equal(
+    projects.length,
+    1,
+    `${channel}:${DOTNET_DIR} 下工程文件必须恰好 1 个,实测 ${projects.length} 个:${projects.join(', ')}`,
+  )
   // 发布动作 + 凭据 + 回读三件套缺一不可;"接了 job 但不回读"= 把"没发"印成"已发"。
   for (const [needle, why] of [
     ['dotnet pack', '不打包就没有产物'],
@@ -178,7 +217,10 @@ test('npm 清单:发布形态齐备且不外泄内部依赖', () => {
 
   // files 白名单:必须同时含编译产物与 Apache-2.0 要求的两份法律文本
   for (const need of ['dist', 'LICENSE', 'NOTICE', 'README.md']) {
-    assert.ok((pkg.files ?? []).includes(need), `files 未含 ${need} —— 发出去的包不满足 Apache-2.0 随附声明要求`)
+    assert.ok(
+      (pkg.files ?? []).includes(need),
+      `files 未含 ${need} —— 发出去的包不满足 Apache-2.0 随附声明要求`,
+    )
   }
   // 兄弟语言切片与源码都不得进 npm 包(历史上曾被打进 1.39MB 的包)
   for (const banned of ['src', 'python', 'go', 'java', 'dotnet', 'tests']) {
@@ -187,19 +229,86 @@ test('npm 清单:发布形态齐备且不外泄内部依赖', () => {
       `files 混入 ${banned}/ —— npm 产物泄漏源码或夹带其他语言 SDK`,
     )
   }
+  // 逐项审白名单:精确名相等挡不住 "src/**" 这类前缀/通配形态(白名单必须逐项可审)
+  for (const entry of pkg.files ?? []) {
+    assert.doesNotMatch(
+      String(entry),
+      /[*!]/,
+      `files 含通配/排除模式 ${entry} —— 白名单必须逐项可审`,
+    )
+    assert.doesNotMatch(
+      String(entry),
+      /^(src|tests|scripts|python|go|java|dotnet|node_modules|\.turbo)(\/|$)/,
+      `files 混入 ${entry} —— npm 产物泄漏源码/脚本/兄弟语言 SDK/构建噪音`,
+    )
+  }
 
   // 运行时依赖必须全为公网可解析的包:workspace: 协议与未入库的 @ihui/* 发出去即 404
-  for (const [field, deps] of Object.entries({ dependencies: pkg.dependencies, peerDependencies: pkg.peerDependencies })) {
+  for (const [field, deps] of Object.entries({
+    dependencies: pkg.dependencies,
+    peerDependencies: pkg.peerDependencies,
+  })) {
     for (const [dep, spec] of Object.entries(deps ?? {})) {
-      assert.ok(!String(spec).startsWith('workspace:'), `${field}.${dep}=${spec} 是 workspace 协议,外部装不到`)
+      assert.ok(
+        !String(spec).startsWith('workspace:'),
+        `${field}.${dep}=${spec} 是 workspace 协议,外部装不到`,
+      )
       assert.notMatch(dep, /^@ihui\//, `${field}.${dep} 是内部包,@ihui scope 未公开 → 消费者 404`)
     }
   }
 
   // 入口一律指 dist,指回 src 即外部不可用
-  for (const [field, val] of Object.entries({ main: pkg.main, module: pkg.module, types: pkg.types })) {
+  for (const [field, val] of Object.entries({
+    main: pkg.main,
+    module: pkg.module,
+    types: pkg.types,
+  })) {
     assert.ok(typeof val === 'string' && val.length > 0, `缺 ${field} 字段`)
     assert.doesNotMatch(val, /(^|\/)src\//, `${field}=${val} 指向 src,外部安装不可用`)
+  }
+})
+
+test('入口字段与 exports 映射同名同产物(消费者按 exports 解析不会落空)', () => {
+  const pkg = headJson('packages/sdk/package.json')
+  const root = pkg.exports?.['.']
+  assert.ok(
+    root && typeof root === 'object',
+    'exports 缺 "." 子路径 —— ESM 消费者只能退回 main,类型条件随之中断',
+  )
+  // 子路径集合必须恰好两项:多出的子路径会把内部模块暴露为公共 API(第二份导出面)
+  assert.deepEqual(
+    Object.keys(pkg.exports).sort(),
+    ['.', './package.json'],
+    'exports 暴露了 "." 与 "./package.json" 之外的子路径',
+  )
+  assert.equal(
+    pkg.exports['./package.json'],
+    './package.json',
+    'exports["./package.json"] 未指向清单自身',
+  )
+
+  // 三条条件必须与顶层字段指向同一份产物 —— 两处漂移时 TS 与 Node 会各解析到不同文件
+  for (const [cond, field, val] of [
+    ['types', 'types', pkg.types],
+    ['import', 'module', pkg.module],
+    ['default', 'main', pkg.main],
+  ]) {
+    assert.ok(typeof root[cond] === 'string' && root[cond].length > 0, `exports["."].${cond} 缺失`)
+    assert.equal(
+      root[cond],
+      val,
+      `exports["."].${cond}=${root[cond]} ≠ ${field}=${val} —— 入口导出与类型声明的说明面已分叉`,
+    )
+  }
+  assert.match(String(root.types), /\.d\.ts$/, `exports["."].types=${root.types} 不是 .d.ts`)
+  assert.match(String(root.import), /\.js$/, `exports["."].import=${root.import} 不是 .js`)
+  for (const [cond, val] of Object.entries(root)) {
+    assert.ok(String(val).startsWith('./dist/'), `exports["."].${cond}=${val} 未落在 dist/`)
+    assert.doesNotMatch(
+      String(val),
+      /(^|\/)src\//,
+      `exports["."].${cond}=${val} 指向 src,外部安装不可用`,
+    )
   }
 })
 
@@ -219,8 +328,16 @@ test('包内 LICENSE / NOTICE 按设计不入库(避免法律文本漂移的第�
   const ignore = headFile('packages/sdk/.gitignore')
   assert.notEqual(ignore, null, 'packages/sdk/.gitignore 缺失')
   for (const name of ['LICENSE', 'NOTICE']) {
-    assert.match(ignore, new RegExp(`^/${name}$`, 'm'), `.gitignore 未忽略 /${name}:prepack 生成物会污染 git status`)
-    assert.equal(headFile(`packages/sdk/${name}`), null, `packages/sdk/${name} 竟已入库:与根文件构成两份真相`)
+    assert.match(
+      ignore,
+      new RegExp(`^/${name}$`, 'm'),
+      `.gitignore 未忽略 /${name}:prepack 生成物会污染 git status`,
+    )
+    assert.equal(
+      headFile(`packages/sdk/${name}`),
+      null,
+      `packages/sdk/${name} 竟已入库:与根文件构成两份真相`,
+    )
   }
 })
 
@@ -242,7 +359,11 @@ test('五通道坐标:清单声明与 release-sdk.yml 逐一同名(改名即发�
   // CI 的"发布成功"唯一判据就是回读这些 URL;URL 里的坐标必须等于清单坐标,否则
   // 名字一改 → 回读查不到 → 恒红,或更糟:发到同名别人包上。
   const expectations = [
-    { channel: 'npm', needle: `npm view ${pkg.name} version`, src: 'packages/sdk/package.json name' },
+    {
+      channel: 'npm',
+      needle: `npm view ${pkg.name} version`,
+      src: 'packages/sdk/package.json name',
+    },
     { channel: 'PyPI', needle: `pypi.org/pypi/${pyName}/`, src: 'pyproject.toml [project].name' },
   ]
 
@@ -283,7 +404,11 @@ test('五通道坐标:清单声明与 release-sdk.yml 逐一同名(改名即发�
   // go.mod 的模块路径必须落在本仓库内,否则推的 tag 永远不会被该模块解析到。
   const modulePath = /^\s*module\s+(\S+)/m.exec(gomod)?.[1]
   assert.ok(modulePath, 'go.mod 解析不到 module 路径')
-  assert.match(modulePath, /IHUI-AI\/packages\/sdk\/go$/, `Go 模块路径 ${modulePath} 与仓库内目录不匹配`)
+  assert.match(
+    modulePath,
+    /IHUI-AI\/packages\/sdk\/go$/,
+    `Go 模块路径 ${modulePath} 与仓库内目录不匹配`,
+  )
 })
 
 test('版本单列:npm / PyPI / Maven / .NET 四份清单版本一致(一条发布列车)', () => {
@@ -295,8 +420,16 @@ test('版本单列:npm / PyPI / Maven / .NET 四份清单版本一致(一条发�
   const javaVersion = /<version>\s*([^<\s]+)\s*<\/version>/.exec(pomSelf)?.[1]
 
   assert.ok(pyVersion && javaVersion, 'PyPI / Maven 版本解析不到')
-  assert.equal(String(pyVersion), String(npmVersion), `pyproject 版本 ${pyVersion} ≠ npm ${npmVersion}`)
-  assert.equal(String(javaVersion), String(npmVersion), `pom 版本 ${javaVersion} ≠ npm ${npmVersion}`)
+  assert.equal(
+    String(pyVersion),
+    String(npmVersion),
+    `pyproject 版本 ${pyVersion} ≠ npm ${npmVersion}`,
+  )
+  assert.equal(
+    String(javaVersion),
+    String(npmVersion),
+    `pom 版本 ${javaVersion} ≠ npm ${npmVersion}`,
+  )
 
   // .NET 纳入同一判据:csproj 的 <Version> 是第四个通道,不得成为手工第四份真相。
   // 解析口径与 Maven 同形(<Version> 大写才是程序集版本,<version> 小写是依赖版本,不能混)。
@@ -307,9 +440,30 @@ test('版本单列:npm / PyPI / Maven / .NET 四份清单版本一致(一条发�
   } else {
     const csproj = headFile(csprojPath)
     const netVersion = /<Version>\s*([^<\s]+)\s*<\/Version>/.exec(csproj)?.[1]
-    assert.ok(netVersion, `${csprojPath} 解析不到 <Version> —— 该通道一旦发布就会带着 MSBuild 默认值 1.0.0 上 NuGet`)
-    assert.equal(String(netVersion), String(npmVersion), `csproj 版本 ${netVersion} ≠ npm ${npmVersion}`)
+    assert.ok(
+      netVersion,
+      `${csprojPath} 解析不到 <Version> —— 该通道一旦发布就会带着 MSBuild 默认值 1.0.0 上 NuGet`,
+    )
+    assert.equal(
+      String(netVersion),
+      String(npmVersion),
+      `csproj 版本 ${netVersion} ≠ npm ${npmVersion}`,
+    )
   }
+})
+
+test('版本与 CHANGELOG 口径一致(发布物不得带着过期变更日志)', () => {
+  const pkg = headJson('packages/sdk/package.json')
+  const changelog = deliveryDocFile('packages/sdk/CHANGELOG.md')
+  assert.notEqual(changelog, null, 'packages/sdk/CHANGELOG.md 不存在 —— 版本变更没有对外说明')
+  // Keep a Changelog 的版本标题形如 `## [0.1.0]`;取第一个(最新)与清单版本逐字比对。
+  const versions = [...changelog.matchAll(/^##\s*\[(\d+\.\d+\.\d+)\]/gm)].map((m) => m[1])
+  assert.ok(versions.length > 0, 'CHANGELOG 里没有任何 `## [x.y.z]` 版本标题')
+  assert.equal(
+    versions[0],
+    String(pkg.version),
+    `CHANGELOG 最新版本 ${versions[0]} ≠ package.json ${pkg.version} —— 发布列车与变更日志已分叉`,
+  )
 })
 
 test('PyPI 随包附带 Apache-2.0 声明(与 npm 通道同标准)', () => {
@@ -328,7 +482,11 @@ test('.NET 通道:工程文件与 nuget-publish job 必须同时成立(双向对
   // 实测的假绿:44 个 dotnet 文件在库、job 一个没有,本门照样报 ✔。现改为双向硬判据。
   const projectFiles = headList(DOTNET_DIR).filter((p) => NET_PROJECT_RE.test(p))
   const workflow = headFile(RELEASE_WORKFLOW)
-  assert.notEqual(workflow, null, `${RELEASE_WORKFLOW} 缺失,却存在 ${projectFiles.length} 个 .NET 工程文件`)
+  assert.notEqual(
+    workflow,
+    null,
+    `${RELEASE_WORKFLOW} 缺失,却存在 ${projectFiles.length} 个 .NET 工程文件`,
+  )
   assertNetChannelBidirectional(projectFiles, workflow)
 })
 
@@ -337,7 +495,11 @@ test('.NET 通道·变异对照 A:把 nuget-publish job 删掉,本门必须判�
   assert.ok(projectFiles.length > 0, '本用例前提是 HEAD 里 .NET 工程文件在位')
   const workflow = headFile(RELEASE_WORKFLOW) ?? ''
   const block = nugetJobBlock(workflow)
-  assert.notEqual(block, null, '前提不成立:HEAD 的 workflow 里找不到 nuget-publish job —— 上一用例应当已判红')
+  assert.notEqual(
+    block,
+    null,
+    '前提不成立:HEAD 的 workflow 里找不到 nuget-publish job —— 上一用例应当已判红',
+  )
   const mutated = withoutYamlComments(workflow).replace(block, '')
   // 注意:`assert.throws(fn)` **不返回**被抛的错误(返回 undefined),要校验文案只能把正则当
   // 第二参数传进去 —— 写成 `const err = assert.throws(...)` 再读 err.message 必 TypeError。
@@ -363,15 +525,33 @@ test('.NET 通道·变异对照 C:有 job 而无工程文件也必须判红(反�
 
 test('.NET 工程文件自洽(结构层面)—— 与"可构建"刻意分开判', () => {
   const csprojFiles = headList(DOTNET_DIR).filter((p) => /\.csproj$/i.test(p))
-  assert.equal(csprojFiles.length, 1, `.NET 工程文件必须恰好 1 个,实测 ${csprojFiles.length}:${csprojFiles.join(', ')}`)
+  assert.equal(
+    csprojFiles.length,
+    1,
+    `.NET 工程文件必须恰好 1 个,实测 ${csprojFiles.length}:${csprojFiles.join(', ')}`,
+  )
   const rel = csprojFiles[0]
   const csproj = headFile(rel)
   assert.notEqual(csproj, null, `${rel} 不在 HEAD`)
-  assert.match(csproj, /<Project\s+Sdk="Microsoft\.NET\.Sdk"/, `${rel} 不是 SDK 式工程,dotnet pack 走不了现代打包`)
-  const tfms = [...csproj.matchAll(/<TargetFramework[s]?>([^<]+)<\/TargetFramework[s]?>/g)].map((m) => m[1].trim())
+  assert.match(
+    csproj,
+    /<Project\s+Sdk="Microsoft\.NET\.Sdk"/,
+    `${rel} 不是 SDK 式工程,dotnet pack 走不了现代打包`,
+  )
+  const tfms = [...csproj.matchAll(/<TargetFramework[s]?>([^<]+)<\/TargetFramework[s]?>/g)].map(
+    (m) => m[1].trim(),
+  )
   assert.equal(tfms.length, 1, `TargetFramework 必须单一,实测:${tfms.join(', ')}`)
-  assert.match(tfms[0], /^net\d+(\.\d+)?$/, `TargetFramework=${tfms[0]} 不是现代 .NET(应为 net8.0 一类)`)
-  assert.match(csproj, /<Version>\s*\d+\.\d+\.\d+\s*<\/Version>/, `${rel} 缺 <Version>(与其余通道同一枚 semver)`)
+  assert.match(
+    tfms[0],
+    /^net\d+(\.\d+)?$/,
+    `TargetFramework=${tfms[0]} 不是现代 .NET(应为 net8.0 一类)`,
+  )
+  assert.match(
+    csproj,
+    /<Version>\s*\d+\.\d+\.\d+\s*<\/Version>/,
+    `${rel} 缺 <Version>(与其余通道同一枚 semver)`,
+  )
 
   // CI 装的 SDK 大版本必须与目标框架同源:装 6.0 打 net8 的包是"CI 红在无关处"那一型。
   const workflow = headFile(RELEASE_WORKFLOW) ?? ''
@@ -416,15 +596,22 @@ test('.NET 可构建性:本文件不下结论,判据只在 CI 的 nuget-publish 
   }
   // 「未判定」必须带原因(§5d 同一条纪律):dotnet 只装运行时不装 SDK 时,
   // --list-sdks 成功返回**空串**,上面那句会把原因印成一片空白 —— 现象与"判据坏了"同形。
-  if (!sdkPresent && detail.trim() === '') detail = "dotnet --list-sdks 返回空(本机为仅运行时安装,未装 SDK)"
+  if (!sdkPresent && detail.trim() === '')
+    detail = 'dotnet --list-sdks 返回空(本机为仅运行时安装,未装 SDK)'
   if (sdkPresent) {
-    console.error('  · .NET 可构建性:本机有 SDK,但构建/打包判据落在 CI(nuget-publish 的 build+pack 步)')
+    console.error(
+      '  · .NET 可构建性:本机有 SDK,但构建/打包判据落在 CI(nuget-publish 的 build+pack 步)',
+    )
   } else {
     console.error(`  · .NET 可构建性 **未判定**(本机实测:${detail})—— 不得据此声称通道已可构建`)
   }
   // 唯一硬判据:CI 里必须真的有人跑构建。缺了它,"可构建"就永远没有任何地方被证明过。
   const job = nugetJobBlock(headFile(RELEASE_WORKFLOW) ?? '') ?? ''
-  assert.match(job, /dotnet build/, 'nuget-publish job 未跑 dotnet build —— 可构建性没有任何判据现场')
+  assert.match(
+    job,
+    /dotnet build/,
+    'nuget-publish job 未跑 dotnet build —— 可构建性没有任何判据现场',
+  )
 })
 
 test('发布链引用的每一条 CI 判据脚本在 HEAD 都在位', () => {
@@ -432,11 +619,19 @@ test('发布链引用的每一条 CI 判据脚本在 HEAD 都在位', () => {
   const workflow = headFile(RELEASE_WORKFLOW) ?? ''
   const prepack = headFile('packages/sdk/scripts/prepack.mjs')
   assert.notEqual(prepack, null, 'packages/sdk/scripts/prepack.mjs 缺失')
-  assert.match(headJson('packages/sdk/package.json').scripts?.prepack ?? '', /prepack\.mjs/, 'prepack 钩子未接')
+  assert.match(
+    headJson('packages/sdk/package.json').scripts?.prepack ?? '',
+    /prepack\.mjs/,
+    'prepack 钩子未接',
+  )
   for (const rel of ['packages/sdk/scripts/prepack.mjs', 'packages/sdk/tsconfig.json']) {
     assert.notEqual(headFile(rel), null, `${rel} 缺失,但发布链引用它`)
   }
-  assert.match(workflow, /gate/, 'release-sdk.yml 缺少 gate job(凭据有效性判定层,防"未配凭据也印成 Real release")')
+  assert.match(
+    workflow,
+    /gate/,
+    'release-sdk.yml 缺少 gate job(凭据有效性判定层,防"未配凭据也印成 Real release")',
+  )
 })
 
 // ───────────── 通道就绪性台账(config/sdk-release-channels.json)结构对账 ─────────────
@@ -451,11 +646,18 @@ test('发布链引用的每一条 CI 判据脚本在 HEAD 都在位', () => {
 // 由 HEAD 各语言清单同源推导;③ blocked-* 必带具体解除动作。
 
 const CHANNELS_PATH = resolve(REPO_ROOT, 'config/sdk-release-channels.json')
-const CHANNEL_STATUS_ENUM = ['ready', 'blocked-by-credential', 'blocked-by-external-ownership', 'not-implemented']
+const CHANNEL_STATUS_ENUM = [
+  'ready',
+  'blocked-by-credential',
+  'blocked-by-external-ownership',
+  'not-implemented',
+]
 
 /** 从 workflow 文本(剥注释)取全部 `*-publish` job 键。 */
 function publishJobKeys(workflowText) {
-  return [...withoutYamlComments(workflowText).matchAll(/^ {2}([a-z][\w-]+-publish):$/gm)].map((m) => m[1])
+  return [...withoutYamlComments(workflowText).matchAll(/^ {2}([a-z][\w-]+-publish):$/gm)].map(
+    (m) => m[1],
+  )
 }
 
 /**
@@ -471,40 +673,65 @@ function validateChannelsLedger(manifest, expected) {
   const ids = channels.map((c) => String(c.id))
   const expectedIds = expected.jobs.map((j) => j.replace(/-publish$/, '')).sort()
   const sortedIds = ids.slice().sort()
-  for (const miss of expectedIds.filter((x) => !sortedIds.includes(x))) errors.push(`台账缺通道 ${miss}(workflow 里有对应 *-publish job)`)
-  for (const extra of sortedIds.filter((x) => !expectedIds.includes(x))) errors.push(`台账多出未知通道 ${extra}(没有任何 job 执行它)`)
+  for (const miss of expectedIds.filter((x) => !sortedIds.includes(x)))
+    errors.push(`台账缺通道 ${miss}(workflow 里有对应 *-publish job)`)
+  for (const extra of sortedIds.filter((x) => !expectedIds.includes(x)))
+    errors.push(`台账多出未知通道 ${extra}(没有任何 job 执行它)`)
   for (const ch of channels) {
     const id = String(ch.id)
     if (!CHANNEL_STATUS_ENUM.includes(String(ch.status))) {
-      errors.push(`${id}: status "${String(ch.status)}" 不在枚举 {${CHANNEL_STATUS_ENUM.join(', ')}}`)
+      errors.push(
+        `${id}: status "${String(ch.status)}" 不在枚举 {${CHANNEL_STATUS_ENUM.join(', ')}}`,
+      )
       continue
     }
     if (String(ch.status).startsWith('blocked-')) {
       for (const need of ['blocker', 'unblockAction']) {
         const v = ch[need]
-        if (typeof v !== 'string' || v.trim().length < 10) errors.push(`${id}: ${ch.status} 却缺具体的 ${need}(blocked 项不写解除动作 = 与没这条通道等效)`)
+        if (typeof v !== 'string' || v.trim().length < 10)
+          errors.push(
+            `${id}: ${ch.status} 却缺具体的 ${need}(blocked 项不写解除动作 = 与没这条通道等效)`,
+          )
       }
     }
-    if (typeof ch.verifyCommand !== 'string' || !ch.verifyCommand.trim()) errors.push(`${id}: 缺 verifyCommand`)
+    if (typeof ch.verifyCommand !== 'string' || !ch.verifyCommand.trim())
+      errors.push(`${id}: 缺 verifyCommand`)
     const probe = /** @type {Record<string, unknown>} */ (ch.probe ?? {})
-    if (!['http-status', 'git-ls-remote', 'none'].includes(String(probe.kind))) errors.push(`${id}: probe.kind 不在枚举`)
+    if (!['http-status', 'git-ls-remote', 'none'].includes(String(probe.kind)))
+      errors.push(`${id}: probe.kind 不在枚举`)
     // 坐标三面里的第二面:探针/命令必须指向 HEAD 清单推导出的**同一个**坐标。
     const url = String(probe.url ?? '')
     const cmd = String(ch.verifyCommand ?? '')
-    if (id === 'npm' && (!url.includes(expected.coordinates.npmUrlNeedle) || !cmd.includes(expected.coordinates.npm))) {
+    if (
+      id === 'npm' &&
+      (!url.includes(expected.coordinates.npmUrlNeedle) || !cmd.includes(expected.coordinates.npm))
+    ) {
       errors.push(`npm: 探针/回读命令未指向清单坐标 ${expected.coordinates.npm}(url=${url})`)
     }
     if (id === 'pypi' && !url.includes(`/pypi/${expected.coordinates.pypi}/`)) {
-      errors.push(`pypi: 探针 URL 未指向 pyproject 坐标 ihui-ai=${expected.coordinates.pypi}(url=${url})`)
+      errors.push(
+        `pypi: 探针 URL 未指向 pyproject 坐标 ihui-ai=${expected.coordinates.pypi}(url=${url})`,
+      )
     }
-    if (id === 'maven' && !url.includes(`maven2/${expected.coordinates.mavenGroupPath}/${expected.coordinates.mavenArtifact}/`)) {
-      errors.push(`maven: 探针 URL 未指向 pom 坐标 ${expected.coordinates.mavenGroupPath}/${expected.coordinates.mavenArtifact}(url=${url})`)
+    if (
+      id === 'maven' &&
+      !url.includes(
+        `maven2/${expected.coordinates.mavenGroupPath}/${expected.coordinates.mavenArtifact}/`,
+      )
+    ) {
+      errors.push(
+        `maven: 探针 URL 未指向 pom 坐标 ${expected.coordinates.mavenGroupPath}/${expected.coordinates.mavenArtifact}(url=${url})`,
+      )
     }
     if (id === 'nuget' && !url.includes(`v3-flatcontainer/${expected.coordinates.nugetLower}/`)) {
-      errors.push(`nuget: 探针 URL 未指向工程推导 PackageId ${expected.coordinates.nugetLower}(url=${url})`)
+      errors.push(
+        `nuget: 探针 URL 未指向工程推导 PackageId ${expected.coordinates.nugetLower}(url=${url})`,
+      )
     }
     if (id === 'go' && !String(probe.pattern ?? '').includes(expected.coordinates.goTagPrefix)) {
-      errors.push(`go: ls-remote pattern 未含子目录模块 tag 前缀 ${expected.coordinates.goTagPrefix}(pattern=${String(probe.pattern)})`)
+      errors.push(
+        `go: ls-remote pattern 未含子目录模块 tag 前缀 ${expected.coordinates.goTagPrefix}(pattern=${String(probe.pattern)})`,
+      )
     }
   }
   return errors
@@ -526,7 +753,10 @@ test('通道就绪性台账:通道集↔CI job 集↔清单坐标三面双向对
   const groupId = /<groupId>\s*([^<\s]+)\s*<\/groupId>/.exec(pomSelf)?.[1]
   const artifactId = /<artifactId>\s*([^<\s]+)\s*<\/artifactId>/.exec(pomSelf)?.[1]
   const netProject = headList(DOTNET_DIR).find((p) => NET_PROJECT_RE.test(p))
-  assert.ok(npmName && pyName && groupId && artifactId && netProject, '各语言清单坐标解析不到 —— 无法为台账立三面判据')
+  assert.ok(
+    npmName && pyName && groupId && artifactId && netProject,
+    '各语言清单坐标解析不到 —— 无法为台账立三面判据',
+  )
   const coordinates = {
     npm: String(npmName),
     npmUrlNeedle: String(npmName).replace('/', '%2F'),
@@ -549,7 +779,8 @@ test('通道就绪性台账:通道集↔CI job 集↔清单坐标三面双向对
   // 装车证明(守门 70/76/81 同型):台账点名的实跑判据脚本必须真在位 —— 判据只写在 JSON 里
   // 而没人执行,与"注释里写着 nuget job"是同一族失效。
   assert.ok(
-    typeof manifest.liveChecker === 'string' && existsSync(resolve(REPO_ROOT, manifest.liveChecker)),
+    typeof manifest.liveChecker === 'string' &&
+      existsSync(resolve(REPO_ROOT, manifest.liveChecker)),
     `台账 liveChecker(${String(manifest.liveChecker)})不在位 —— 结构面有人核、实跑面无人核`,
   )
 })
@@ -568,27 +799,95 @@ test('通道台账·变异对照:四类假账必须被结构判据点名(判据�
   const mk = (over = {}) => ({
     schemaVersion: 1,
     channels: [
-      { id: 'npm', status: 'blocked-by-credential', blocker: 'secrets 缺 NPM_TOKEN(gh 实测)', unblockAction: '生成 Automation token 并 gh secret set', verifyCommand: 'npm view @ihui/sdk version', probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@ihui%2Fsdk' }, ...over.npm },
-      { id: 'pypi', status: 'blocked-by-credential', blocker: 'secrets 缺 PYPI_TOKEN(gh 实测)', unblockAction: '注册账号并 gh secret set', verifyCommand: 'curl https://pypi.org/pypi/ihui-ai/json', probe: { kind: 'http-status', url: 'https://pypi.org/pypi/ihui-ai/json' }, ...over.pypi },
-      { id: 'maven', status: 'blocked-by-external-ownership', blocker: 'com.ihui 命名空间未在 Central 验证', unblockAction: '用 aizhs.top DNS 验证命名空间', verifyCommand: 'curl https://repo1.maven.org/maven2/com/ihui/ihui-ai-java/', probe: { kind: 'http-status', url: 'https://repo1.maven.org/maven2/com/ihui/ihui-ai-java/' }, ...over.maven },
-      { id: 'nuget', status: 'blocked-by-credential', blocker: 'secrets 缺 NUGET_API_KEY(gh 实测)', unblockAction: '注册账号生成 key 并 gh secret set', verifyCommand: 'curl https://api.nuget.org/v3-flatcontainer/ihui.ai/index.json', probe: { kind: 'http-status', url: 'https://api.nuget.org/v3-flatcontainer/ihui.ai/index.json' }, ...over.nuget },
-      { id: 'go', status: 'ready', blocker: null, unblockAction: '', requiredSecrets: [], verifyCommand: 'git ls-remote --tags origin "refs/tags/packages/sdk/go/v*"', probe: { kind: 'git-ls-remote', remote: 'origin', pattern: 'refs/tags/packages/sdk/go/v*' }, ...over.go },
+      {
+        id: 'npm',
+        status: 'blocked-by-credential',
+        blocker: 'secrets 缺 NPM_TOKEN(gh 实测)',
+        unblockAction: '生成 Automation token 并 gh secret set',
+        verifyCommand: 'npm view @ihui/sdk version',
+        probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@ihui%2Fsdk' },
+        ...over.npm,
+      },
+      {
+        id: 'pypi',
+        status: 'blocked-by-credential',
+        blocker: 'secrets 缺 PYPI_TOKEN(gh 实测)',
+        unblockAction: '注册账号并 gh secret set',
+        verifyCommand: 'curl https://pypi.org/pypi/ihui-ai/json',
+        probe: { kind: 'http-status', url: 'https://pypi.org/pypi/ihui-ai/json' },
+        ...over.pypi,
+      },
+      {
+        id: 'maven',
+        status: 'blocked-by-external-ownership',
+        blocker: 'com.ihui 命名空间未在 Central 验证',
+        unblockAction: '用 aizhs.top DNS 验证命名空间',
+        verifyCommand: 'curl https://repo1.maven.org/maven2/com/ihui/ihui-ai-java/',
+        probe: {
+          kind: 'http-status',
+          url: 'https://repo1.maven.org/maven2/com/ihui/ihui-ai-java/',
+        },
+        ...over.maven,
+      },
+      {
+        id: 'nuget',
+        status: 'blocked-by-credential',
+        blocker: 'secrets 缺 NUGET_API_KEY(gh 实测)',
+        unblockAction: '注册账号生成 key 并 gh secret set',
+        verifyCommand: 'curl https://api.nuget.org/v3-flatcontainer/ihui.ai/index.json',
+        probe: {
+          kind: 'http-status',
+          url: 'https://api.nuget.org/v3-flatcontainer/ihui.ai/index.json',
+        },
+        ...over.nuget,
+      },
+      {
+        id: 'go',
+        status: 'ready',
+        blocker: null,
+        unblockAction: '',
+        requiredSecrets: [],
+        verifyCommand: 'git ls-remote --tags origin "refs/tags/packages/sdk/go/v*"',
+        probe: { kind: 'git-ls-remote', remote: 'origin', pattern: 'refs/tags/packages/sdk/go/v*' },
+        ...over.go,
+      },
     ],
     liveChecker: 'scripts/check-sdk-release-channels.mjs',
   })
   // 基线自证:夹具本体必须过(否则下面四条红的可能是夹具)。
-  assert.deepEqual(validateChannelsLedger(mk(), { jobs, coordinates }), [], '夹具基线台账自身不合,变异对照失去意义')
+  assert.deepEqual(
+    validateChannelsLedger(mk(), { jobs, coordinates }),
+    [],
+    '夹具基线台账自身不合,变异对照失去意义',
+  )
   assert.match(
-    validateChannelsLedger({ ...mk(), channels: mk().channels.filter((c) => c.id !== 'nuget') }, { jobs, coordinates }).join('\n'),
+    validateChannelsLedger(
+      { ...mk(), channels: mk().channels.filter((c) => c.id !== 'nuget') },
+      { jobs, coordinates },
+    ).join('\n'),
     /缺通道 nuget/,
     '摘掉一个通道必须点名',
   )
-  const badUrl = mk({ npm: { probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@other%2Fpkg' } } })
-  assert.match(validateChannelsLedger(badUrl, { jobs, coordinates }).join('\n'), /npm: 探针\/回读命令未指向清单坐标/, '坐标漂移必须点名')
+  const badUrl = mk({
+    npm: { probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@other%2Fpkg' } },
+  })
+  assert.match(
+    validateChannelsLedger(badUrl, { jobs, coordinates }).join('\n'),
+    /npm: 探针\/回读命令未指向清单坐标/,
+    '坐标漂移必须点名',
+  )
   const badStatus = mk({ npm: { status: 'almost-ready' } })
-  assert.match(validateChannelsLedger(badStatus, { jobs, coordinates }).join('\n'), /不在枚举/, 'status 枚举外的值必须点名')
+  assert.match(
+    validateChannelsLedger(badStatus, { jobs, coordinates }).join('\n'),
+    /不在枚举/,
+    'status 枚举外的值必须点名',
+  )
   const lazyBlocked = mk({ pypi: { unblockAction: '' } })
-  assert.match(validateChannelsLedger(lazyBlocked, { jobs, coordinates }).join('\n'), /pypi:.*unblockAction/, 'blocked 而不写解除动作必须点名')
+  assert.match(
+    validateChannelsLedger(lazyBlocked, { jobs, coordinates }).join('\n'),
+    /pypi:.*unblockAction/,
+    'blocked 而不写解除动作必须点名',
+  )
 })
 
 /**
@@ -601,7 +900,9 @@ test('通道台账·变异对照:四类假账必须被结构判据点名(判据�
  * 保险丝被摘 ⇒ 三条前置全核。取不到 HEAD 清单 ⇒ 判失败而不是跳过。
  */
 test('@ihui/api-client 摘掉 private 即必须当场过发布前置(workspace 依赖 / 占位版本 / 可安装性)', async () => {
-  const mod = await import(new URL('../../../scripts/check-sdk-release-channels.mjs', import.meta.url).href)
+  const mod = await import(
+    new URL('../../../scripts/check-sdk-release-channels.mjs', import.meta.url).href
+  )
   const fail = mod.publishPreconditionFailures
   assert.equal(
     typeof fail,
@@ -629,7 +930,9 @@ test('@ihui/api-client 摘掉 private 即必须当场过发布前置(workspace �
   assert.ok(raw !== null, 'HEAD 里读不到 @ihui/api-client 清单 —— 判不了不是通过')
   const pkg = JSON.parse(raw)
   if (pkg.private === true) {
-    console.log('  ℹ️ @ihui/api-client 仍为 private: true,registry 侧拒发 ⇒ 本条不跑打包器;摘掉 private 即触发全量核')
+    console.log(
+      '  ℹ️ @ihui/api-client 仍为 private: true,registry 侧拒发 ⇒ 本条不跑打包器;摘掉 private 即触发全量核',
+    )
     return
   }
   const cheap = fail(pkg)
@@ -637,15 +940,19 @@ test('@ihui/api-client 摘掉 private 即必须当场过发布前置(workspace �
   let out = ''
   let rc = 0
   try {
-    out = execFileSync(process.execPath, ['scripts/check-pkg-installable.mjs', 'packages/api-client'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      timeout: 900000,
-      windowsHide: true,
-      // 2026-10-04:同上。子闸门要读自己的 stdout 才判得了"实跑判据已装车"。
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    out = execFileSync(
+      process.execPath,
+      ['scripts/check-pkg-installable.mjs', 'packages/api-client'],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        timeout: 900000,
+        windowsHide: true,
+        // 2026-10-04:同上。子闸门要读自己的 stdout 才判得了"实跑判据已装车"。
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
   } catch (err) {
     rc = typeof err.status === 'number' ? err.status : -1
     out = `${String(err.stdout ?? '')}${String(err.stderr ?? '')}`
@@ -667,7 +974,9 @@ test('@ihui/api-client 摘掉 private 即必须当场过发布前置(workspace �
  * 载体刻意取自真实入库文件(sdk 清单),而不是自造夹具 —— §22c:镜像只复读实现就是复读机。
  */
 test('廉价前置只看会发布的三个字段:workspace 形态的内部 devDeps 不得判红(真载体 @ihui/sdk)', async () => {
-  const mod = await import(new URL('../../../scripts/check-sdk-release-channels.mjs', import.meta.url).href)
+  const mod = await import(
+    new URL('../../../scripts/check-sdk-release-channels.mjs', import.meta.url).href
+  )
   const fail = mod.publishPreconditionFailures
   const raw = headFile('packages/sdk/package.json')
   assert.ok(raw !== null, 'HEAD 里读不到 @ihui/sdk 清单 —— 判不了不是通过')
@@ -675,8 +984,16 @@ test('廉价前置只看会发布的三个字段:workspace 形态的内部 devDe
   // 前提自证:这份真实清单确实"非 private + 带 workspace devDeps + 版本已定",
   // 否则本条就退化成一句空调用(判据的载体没了还报绿,是本仓反复记过的那一型)。
   assert.notEqual(sdk.private, true, '@ihui/sdk 应已非 private(本条的前提)')
-  assert.match(JSON.stringify(sdk.devDependencies ?? {}), /workspace:/, 'sdk 清单里已无 workspace 形态 devDeps → 换载体再来')
-  assert.deepEqual(fail(sdk), [], `已发布形态的 sdk 被判红,说明 devDeps 仍被误扫:\n${fail(sdk).join('\n')}`)
+  assert.match(
+    JSON.stringify(sdk.devDependencies ?? {}),
+    /workspace:/,
+    'sdk 清单里已无 workspace 形态 devDeps → 换载体再来',
+  )
+  assert.deepEqual(
+    fail(sdk),
+    [],
+    `已发布形态的 sdk 被判红,说明 devDeps 仍被误扫:\n${fail(sdk).join('\n')}`,
+  )
 
   // 故意做坏必须红(同一条判据的另一侧):把同一个内部包挪进 dependencies ⇒ 必须点名。
   const movedIntoDeps = {

@@ -1863,6 +1863,10 @@ try {
     declaredFiles: expectedFiles.map(normalize),
     gatesRan: hookSkipped !== true,
     hookSkipped: hookSkipped === true,
+    // 票→提交环(2026-10-26 接线):派单会话用 env 显式绑定票键,审计器才能把"这枚提交在还哪张票"接上;
+    // 未设 ⇒ 按无票提交记(不写空串)。
+    ticketKey: String(process.env.IHUI_TICKET_KEY ?? ''),
+    ticketLine: String(process.env.IHUI_TICKET_LINE ?? ''),
   })
   if (!w.ok) log('warn', `⚠️ ${w.why}`)
 } catch (e) {

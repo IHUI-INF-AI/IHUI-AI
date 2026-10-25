@@ -21,6 +21,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { CONFIG_TRACE_ENV } from '../src/subagents/precedence.js';
+
+// G-395 快照留痕默认写 stderr;本文件验的是 flag 短路,关掉留痕避免测试输出被刷。
+process.env[CONFIG_TRACE_ENV] = '0';
 
 vi.mock('../src/commands/agent.js', () => ({
   setupAgentTools: vi.fn(async () => ({

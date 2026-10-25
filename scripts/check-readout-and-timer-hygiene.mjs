@@ -48,13 +48,14 @@
  * 用法:node scripts/check-readout-and-timer-hygiene.mjs [--staged|--worktree] [--self-test]
  * 退出码:0 无判红 / 1 判红 / 2 未判定
  */
-import { spawnSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 // 括号配平复用全仓唯一那台分词器(§22c:分词只许一台,自造一份必然漂移)
 import { closeBrace } from './lib/batch-write-lexer.mjs'
+// 被审面取材复用面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath + 数字 timeout)
+import { gitRaw, gitErrText } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPES = ['apps/web/app', 'apps/web/src', 'packages/ui-react/src', 'packages/app/src']
@@ -233,14 +234,18 @@ export function findUnguardedLengthDivisors(code) {
   return out
 }
 
+/**
+ * 薄壳:本门既有的 `{status, stdout, stderr}` 形状接到面读取层上(§0.4 取材面纪律 +
+ * §5b 绝对路径 git + §12g 显式 stdio)。层抛 Undetermined ⇒ 折回非零 status 交调用方落未判定,
+ * 绝不在此回落另一个面。
+ */
 function git(args) {
-  return spawnSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 60_000,
-  })
+  try {
+    const stdout = gitRaw(args, ROOT)
+    return { status: 0, stdout, stderr: '' }
+  } catch (e) {
+    return { status: typeof e.status === 'number' ? e.status : 1, stdout: '', stderr: gitErrText(e) }
+  }
 }
 
 function faceFiles(face) {
@@ -251,7 +256,8 @@ function faceFiles(face) {
         ? ['ls-files', '-s', '--', ...SCOPES]
         : ['ls-files', '--', ...SCOPES]
   const r = git(args)
-  if (r.status !== 0) return { err: `${args[0]} 失败: ${r.stderr.trim()}` }
+  // 层内 gitErrText 已自带 `git <子命令> 失败:` 前缀,这里不再叠第二层(只折文本,不改判定)
+  if (r.status !== 0) return { err: r.stderr.trim() }
   return {
     files: r.stdout
       .split('\n')

@@ -9385,7 +9385,6 @@
     "deleteSuccess": "Deleted",
     "dispatchSubagent": "Dispatch Subagent",
     "dockPanel": "Dock Panel",
-    "earlier": "Earlier",
     "emptyWorkspace": "Empty Workspace",
     "envInfo": {
       "added": "Added",
@@ -11155,6 +11154,8 @@
     "canvasVersions": "Version History",
     "clearInputAriaLabel": "Clear input",
     "clearInputTitle": "Clear input content",
+    "predictiveEditHint": "Predictive edit suggestion",
+    "predictiveEditApply": "Apply",
     "cmdCode": "Please implement the following feature with code and comments:",
     "cmdExplain": "Please explain the following concept in detail:",
     "cmdKouboScript": "Please help me generate 8 daily Douyin voice-over scripts. Requirements:\n1. Date: MMDD\n2. Topic direction:\n3. Dual-gate validation (ambiguity compression / cross-script vocabulary / full validation / grammar / hot-topic coverage)\nRun the koubo-workflow pipeline (constraint-first writing method).",
@@ -11672,7 +11673,8 @@
       "axesApprovalNever": "Never ask",
       "axesPresetReadOnly": "Read only",
       "axesPresetAuto": "Auto",
-      "axesPresetFullAccess": "Full access"
+      "axesPresetFullAccess": "Full access",
+      "axesPersistHint": "Your choice is saved on this device and restored after refresh"
     },
     "permissionAlreadyActive": "Already in {mode} mode",
     "permissionLabelAsk": "Ask for approval",
@@ -11950,6 +11952,18 @@
     "steerNoticeBar": {
       "title": "Steered {count} times",
       "moreItems": "{count} more"
+    },
+    "agentPicker": {
+      "triggerAria": "Select in-conversation agent / expert",
+      "default": "Default assistant",
+      "defaultDesc": "No expert",
+      "groupTitle": "Experts",
+      "toolsSummary": "Tools: {tools}"
+    },
+    "agentNoticeBar": {
+      "title": "Switched to {agent} expert",
+      "body": "This turn is answered by the \"{agent}\" expert; its system prompt and tool allowlist are merged into this request.",
+      "reset": "Back to default"
     },
     "streamingIndicator": "AI is generating",
     "streamingIndicatorHint": "AI is generating, you can type the next message",

@@ -44,11 +44,10 @@
  * 用法:node scripts/check-ai-task-background-reference.mjs [--staged|--worktree] [--self-test]
  * 退出码:0 无判红 / 1 判红或装车失败 / 2 未判定
  */
-import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, gitErrText } from './lib/face-reader.mjs'
+import { catBatch, gitErrText, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPE = 'apps/ai-service'
@@ -236,14 +235,15 @@ function listScope(face) {
     face === 'staged'
       ? ['ls-files', '--cached', '--', SCOPE]
       : ['ls-tree', '-r', '--name-only', 'HEAD', '--', SCOPE]
-  const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1 << 28,
-  })
-  if (r.status !== 0) return null
-  return r.stdout.split(/\r?\n/).filter((s) => s.endsWith('.py'))
+  // 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + safe.directory + quotepath + 显式 stdio
+  // 由 gitRaw 提供,不再自拼裸 'git' 派生;maxBuffer 与原调用一致。取不到(非零退出/异常)仍返回 null。
+  try {
+    return gitRaw(args, ROOT, { maxBuffer: 1 << 28 })
+      .split(/\r?\n/)
+      .filter((s) => s.endsWith('.py'))
+  } catch {
+    return null
+  }
 }
 
 function main() {
