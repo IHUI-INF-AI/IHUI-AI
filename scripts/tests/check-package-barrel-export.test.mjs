@@ -150,6 +150,10 @@ test('T1 __test__ 必须把判据函数 export 出来(§22c:镜像测试不许�
   assert.deepEqual(t && typeof t, 'object', '源文件必须 export const __test__')
   for (const k of [
     'analyze',
+    'scanAppBarrelLeaks',
+    'isBarrelModule',
+    'typeOnlyImportNames',
+    'buildAppUniverse',
     'parseModule',
     'entrySourceCandidates',
     'deliveredOf',
@@ -476,4 +480,173 @@ test('T14b 阴性两臂:副作用导入即有消费者;仅水印头注无用途�
   }
   const r2 = gate.__test__.analyze({ readFace: (p) => text2[p] ?? null, files: files2 })
   assert.equal(r2.emptyContracts.length, 0, '仅水印头注没有"用途声称"可判,不得点名')
+})
+
+/* ────────── 端内 barrel 漏出口量算(`--report` 档,票面"先量后判")的成对夹具 ────────── */
+
+/** 跨目录形态:桶在 components/,而消费方要的符号定义在 `apps/web/src/lib/` —— 现有门(目录层
+ *  universe)结构上看不见,这正是本量算要补的那一格。 */
+const APP_LEAK_FILES = {
+  'packages/pkg/package.json': PKG_MANIFEST,
+  'apps/web/tsconfig.json': JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }),
+  'apps/web/src/components/index.ts': "export { Card } from './card.js'\n",
+  'apps/web/src/components/card.ts': 'export function Card() { return 1 }\n',
+  'apps/web/src/lib/format.ts': 'export function formatDate() { return 2 }\n',
+  'apps/web/src/page.ts': "import { formatDate } from '@/components'\nexport const x = formatDate\n",
+}
+const runLeakScan = (text) => {
+  const files = Object.keys(text)
+  return gate.__test__.scanAppBarrelLeaks({ readFace: (p) => text[p] ?? null, files })
+}
+
+test('T15 端内桶漏出口(跨目录定义)⇒ 命中并点名桶/消费方/符号/定义文件;同一夹具过 analyze 也必须红(扩面真装车)', () => {
+  const r = runLeakScan(APP_LEAK_FILES)
+  assert.equal(r.barrelCount, 1, `应枚举到 1 个纯桶,实得 ${JSON.stringify(r.barrels)}`)
+  assert.equal(r.hits.length, 1, `应恰好 1 处可判定命中,实得 ${JSON.stringify(r.hits)}`)
+  const h = r.hits[0]
+  assert.equal(h.barrel, 'apps/web/src/components/index.ts')
+  assert.equal(h.file, 'apps/web/src/page.ts')
+  assert.equal(h.name, 'formatDate')
+  assert.equal(h.definedAt, 'apps/web/src/lib/format.ts')
+  assert.equal(h.inBarrelDir, false, '跨目录命中必须标出来(证明现有目录层 universe 看不见)')
+  // 现有 blocking 档(`analyze`)必须同样有牙:否则 `--report` 与提交链是两把尺子
+  const a = gate.__test__.analyze({ readFace: (p) => APP_LEAK_FILES[p] ?? null, files: Object.keys(APP_LEAK_FILES) })
+  assert.equal(a.red.length, 1, `提交链判据未覆盖该形态:${JSON.stringify(a.red)}`)
+  assert.equal(a.red[0].scope, 'barrel')
+})
+
+test('T15b 变异对照:把桶的 re-export 补回去 ⇒ 命中与 red 同时归零(判据不是"见 barrel 即红")', () => {
+  const fixed = {
+    ...APP_LEAK_FILES,
+    'apps/web/src/components/index.ts': "export { Card } from './card.js'\nexport { formatDate } from '../lib/format.js'\n",
+  }
+  const r = runLeakScan(fixed)
+  assert.equal(r.hits.length, 0, `补齐 re-export 后不得再命中:${JSON.stringify(r.hits)}`)
+  const a = gate.__test__.analyze({ readFace: (p) => fixed[p] ?? null, files: Object.keys(fixed) })
+  assert.equal(a.red.length, 0)
+})
+
+test('T16 符号端内哪都不存在 ⇒ 归悬空导入(守门 98),本门不重复报(elsewhere 报名,hits 0)', () => {
+  const text = {
+    ...APP_LEAK_FILES,
+    'apps/web/src/page.ts': "import { nope } from '@/components'\nexport const x = nope\n",
+    'apps/web/src/lib/format.ts': 'export function unrelated() { return 2 }\n',
+  }
+  const r = runLeakScan(text)
+  assert.equal(r.hits.length, 0, '真·悬空导入不得被本门算成本型')
+  assert.equal(r.elsewhere.length, 1, `应报 1 处"归悬空门",实得 ${JSON.stringify(r.elsewhere)}`)
+  assert.equal(r.elsewhere[0].name, 'nope')
+})
+
+test('T17 桶文件与实现文件必须分开:实现型 index.ts 不进本族(防把普通文件当 barrel 误报)', () => {
+  const { isBarrelModule, parseModule } = gate.__test__
+  assert.equal(isBarrelModule(parseModule("export { A } from './a.js'\n")), true, '纯再导出 = 桶')
+  assert.equal(
+    isBarrelModule(parseModule('export function Widget() { return 1 }\nexport const w = 2\n')),
+    false,
+    '本地声明 = 实现文件',
+  )
+  assert.equal(isBarrelModule(parseModule("export const A = 1\nexport { B } from './b.js'\n")), false)
+  assert.equal(isBarrelModule(parseModule('export {}\n')), false, '空导出的 index 不是桶')
+  const text = {
+    ...APP_LEAK_FILES,
+    'apps/web/src/widgets/index.ts': 'export function Widget() { return 1 }\n',
+    'apps/web/src/widgets-page.ts': "import { Widget } from '@/widgets'\nexport const y = Widget\n",
+  }
+  const r = runLeakScan(text)
+  assert.ok(
+    !r.barrels.includes('apps/web/src/widgets/index.ts'),
+    '实现型 index.ts 不得进桶集合(否则会把"顺带 re-export"的实现文件当 barrel 误报)',
+  )
+  assert.equal(r.hits.length, 1, '只保留 formatDate 那一处命中')
+})
+
+test('T18 类型导入 / 端内仅类型导出 ⇒ 落 typeOnly 档,不进可判定命中(运行时不会 Export doesn\'t exist)', () => {
+  const onlyType = {
+    ...APP_LEAK_FILES,
+    'apps/web/src/lib/types.ts': 'export interface OnlyShape { a: number }\n',
+    'apps/web/src/page.ts': "import type { OnlyShape } from '@/components'\nexport type Y = OnlyShape\n",
+  }
+  const r1 = runLeakScan(onlyType)
+  assert.equal(r1.hits.length, 0)
+  assert.ok(r1.typeOnly.length >= 1, `仅类型必须落类型档:${JSON.stringify(r1.typeOnly)}`)
+  // 值导出但按 type 导入:运行时擦除,同样不判可判定
+  const typeImport = {
+    ...APP_LEAK_FILES,
+    'apps/web/src/page.ts': "import type { formatDate } from '@/components'\nexport type Z = typeof formatDate\n",
+  }
+  const r2 = runLeakScan(typeImport)
+  assert.equal(r2.hits.length, 0, `type 导入不得算可判定:${JSON.stringify(r2.hits)}`)
+  assert.equal(r2.typeOnly[0]?.typeImport, true)
+})
+
+test('T19 变异自证:端内一个纯桶都没有 ⇒ 判死,不得把"没扫到"记成"没有漏"(§0.3 空扫不记绿)', () => {
+  const files = ['packages/pkg/package.json', 'apps/web/src/page.ts']
+  const text = {
+    'packages/pkg/package.json': PKG_MANIFEST,
+    'apps/web/src/page.ts': 'export const x = 1\n',
+  }
+  assert.throws(
+    () => gate.__test__.scanAppBarrelLeaks({ readFace: (p) => text[p] ?? null, files, requireBarrels: true }),
+    (e) => e instanceof gate.__test__.Undetermined,
+    '空扫必须抛 Undetermined',
+  )
+})
+
+test('T20 形状锁:`--report` 必须真接上 scanAppBarrelLeaks(造好不装车 = 没有),且判据只有一份实现', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.ok(/if \(reportMode\) \{\s*const r = scanAppBarrelLeaks\(\{ readFace, files, requireBarrels: true \}\)/.test(src), '--report 分支没接上量算')
+  assert.ok(/export function buildAppUniverse\(/.test(src), '端内实现面必须单源导出 buildAppUniverse')
+  const calls = src.match(/buildAppUniverse\(\{/g) || []
+  assert.ok(calls.length >= 2, 'analyze 与 scan 必须共用 buildAppUniverse(两处各写一份必然漂移)')
+  assert.ok(/const appUniv = buildAppUniverse\(\{ files, moduleOf, barrelSet \}\)/.test(src), 'scan 侧调用形状变了')
+  assert.ok(/buildAppUniverse\(\{ files, moduleOf, barrelSet: appBarrelSet \}\)/.test(src), 'analyze 侧调用形状变了')
+  assert.ok(/hits\.push\(rec\)/.test(src), '可判定命中的落点不见了 ⇒ 夹具 T15 结构上不可能红')
+  // 新档不得自称已注册新 runner 条目(本席未动 guardian-runner;注册状态以 runner 现值为准)
+  assert.ok(!/已注册新档|runner 新条目/.test(src), '门体不得声称本席加过注册条目')
+})
+
+test('T21 真仓 HEAD 端到端:`--report` 只读档必须真枚举到端内纯桶与消费面(空转不算判过)', () => {
+  const real = execFileSync(process.execPath, [SRC, '--report'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const m = /APP-BARREL-REPORT barrels=(\d+) apps=(\d+) consumers=(\d+) hits=(\d+)/.exec(real)
+  assert.ok(m, `末行量算读数缺失:${real.slice(-200)}`)
+  assert.ok(Number(m[1]) > 0, `端内纯桶枚举 0 个 ⇒ 判据失明:${m[0]}`)
+  assert.ok(Number(m[3]) > 0, `端内没有一条消费落在桶上 ⇒ 解析器失明:${m[0]}`)
+})
+
+test('T22 变异自证(端到端):摘掉"端内全树 universe"那一格 ⇒ 夹具①的命中必须消失(红来自新判据,不是别的东西)', () => {
+  const dir = mkScratch('pbe-mutation-')
+  try {
+    makeRepo(dir, {
+      barrel: BARREL_OK,
+      appBarrel: "export { Card } from './card.js'\n",
+      extraFiles: {
+        // 默认夹具的两位消费者只认 Card,这里换成不消费 Tooltip,避免把它们的存量混进计数
+        'apps/web/src/ui.ts': 'export const ui = 1\n',
+        'apps/web/src/alias-user.ts': 'export const aliasUser = 1\n',
+        'apps/web/src/lib/format.ts': 'export function formatDate() { return 2 }\n',
+        'apps/web/src/page.ts': "import { formatDate } from '@/components'\nexport const x = formatDate\n",
+      },
+    })
+    const before = runGate(dir, ['--report'])
+    assert.equal(before.code, 0, before.out)
+    assert.match(before.out, /hits=1/, `基线臂必须命中 1 处:${before.out}`)
+    // 变异:把端内全树实现面换成空表 = 等价于"新判据不存在"(符号在端内别处的存在性看不见)
+    const copy = join(dir, 'scripts', GATE_REL)
+    const src = readFileSync(copy, 'utf8')
+    const anchor = 'const appUniv = buildAppUniverse({ files, moduleOf, barrelSet })'
+    assert.ok(src.includes(anchor), '变异锚点找不到 ⇒ 本自证失效(先修测试再谈判据)')
+    writeFileSync(copy, src.replace(anchor, 'const appUniv = new Map()'), 'utf8')
+    const after = runGate(dir, ['--report'])
+    assert.equal(after.code, 0, after.out)
+    assert.match(after.out, /hits=0/, `摘掉判据后必须漏报(否则红不是它给的):${after.out}`)
+  } finally {
+    rmScratch(dir)
+  }
 })

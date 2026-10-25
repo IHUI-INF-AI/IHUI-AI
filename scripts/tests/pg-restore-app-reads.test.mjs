@@ -27,7 +27,7 @@ import assert from 'node:assert/strict'
 
 import { assertReadOnlySql, decideQuery, shouldFail, isAllowedProdDb, main } from '../pg-restore-app-reads.mjs'
 import { resolveCredential } from '../pg-restore-drill.mjs'
-import { devEnvRoot } from '../seal-c-root-stray.mjs'
+import { pgBinDir } from '../lib/psql-client-locate.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -41,12 +41,12 @@ const DRILL = 'ihui_restore_drill_20260101'
 // 这三条注入 deps.spawnPsql 假执行器,确实"不真连库"——但 main 在把语句交给假执行器
 // **之前**还有两道真环境前置,吃的是与工具同一份实现/同一推导:
 //   ① resolveCredential() —— env IHUI_DB_BACKUP_* 或 db-backup 口令文件在位;
-//   ② psql.exe 在位 —— PG_BIN = IHUI_PG_BIN_DIR || devEnvRoot()/runtimes/pgsql/bin。
+//   ② psql.exe 在位 —— PG_BIN = pgBinDir()(与工具 import 同一个共用出口,不重算候选序)。
 // CI(windows-latest)两者皆缺 ⇒ main 提前 exit 2、假执行器一次都没被调用:
 // R7/R9 拿到 code=2(红在 expected=1),R8 的读数是"凭据/psql 不在位"而非"演练库不可达"。
 // 红因是环境缺资源、尺子无从执行,不是判据失效(§12e 恒红机同型)⇒ 落未判定 + 点名
 // 缺哪枚资源(静默跳过与判过在账面上不可分);资源在位时原断言逐字保留照常执行。
-const PG_BIN = process.env.IHUI_PG_BIN_DIR || join(devEnvRoot(), 'runtimes', 'pgsql', 'bin')
+const PG_BIN = pgBinDir()
 const CRED_PROBE = (() => {
   try {
     return resolveCredential()

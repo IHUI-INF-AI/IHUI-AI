@@ -6,9 +6,10 @@
 
 # chat 多端/多标签实时同步 —— 「同一消息 patch 幂等」契约
 
-> 状态:**契约先行(2026-10-08 定),通道未接**。本文件是台账票71(V2 #23 未交付,本轮重列)的契约正本;
+> 状态:**通道已接线,余面按 §7 逐项标注**(2026-10-25 现读:WS 房间广播 + rev 持久化 + 快照端点已在 HEAD)。
+> 本文件是台账票 B02(V2 #23;票71 那行是同题历史副本,不得再登记第二行)的契约正本;
 > 判据内核与类型在 `packages/types/src/chat-sync-contract.ts`,判据回归在
-> `packages/types/tests/chat-sync-contract-idempotency.test.ts`。三处同源的规则/表格若要改,必须一次改齐。
+> `packages/types/tests/chat-sync-contract-*.test.ts`。三处同源的规则/表格若要改,必须一次改齐。
 
 ## 0. 这份契约管什么、不管什么
 
@@ -47,9 +48,15 @@
 - 事件封套:`{ protocolVersion, channel: 'sse'|'ws', room: {kind:'conversation', conversationId}, messageId, … }`;
   `channel`/`room`/`emittedAt` 是投递元数据,**不参与幂等判定**(时钟不可信)。
 - 两个事件:`message:created`(完整初面)、`message:patched`(rev + delta/snapshot 载荷)。
-- 类型与判据内核:`packages/types/src/chat-sync-contract.ts`(`@ihui/types` 内,本轮**未挂**
-  `index.ts` / `package.json` exports 出口——接线时随通道票一并挂出;理由:同包 `chat.ts` 与
-  `packages/shared/src/sse/contract.ts` 两个面在登记时点正被并发会话持有,本切片刻意零触碰)。
+- 类型与判据内核:`packages/types/src/chat-sync-contract.ts`(`@ihui/types` 内,主入口与
+  `@ihui/types/chat-sync-contract` 子路径双出口均已登记)。
+- 帧名常量:**唯一真相源 = `packages/types/src/chat-sync-contract.ts` 的 `CHAT_SYNC_EVENT_NAMES`**
+  (`message:created` / `message:patched`)。送信契约 `packages/shared/src/sse/contract.ts` 的
+  `SSE_CHAT_SYNC_EVENT_NAMES` 直接引用同一对象(不重写值),且**刻意不并进** `SSE_EVENTS`:
+  后者与 ai-service `sse_contract.py` 由 `check-agent-event-parity.mjs` 逐名等值对账(并进去 = 恒红),
+  且 `isSSEEventName` 不得把消息面帧路由进生成流处理。两侧引用锁:
+  `packages/types/tests/chat-sync-contract-frame-names.test.ts` 与
+  `packages/shared/src/sse/__tests__/chat-sync-frame-names.test.ts`。
 
 ## 4. 接收端裁定表(与内核 JSDoc 逐字同源;唯一入口 `applyChatSyncEvent`)
 
@@ -89,13 +96,23 @@
 - 允许 at-least-once(重复投递、乱序发送都合法);不允许跳过 rev 发明新键。
 - rev 分配点是服务端唯一写入方;接收端发现 rev 回退 = 生产端违约,按 stale 处理并另行告警。
 
-## 7. 本轮未定(半程清单,通道接线票逐项收口)
+## 7. 余面清单(2026-10-25 逐项状态)
 
-1. 帧名收敛:与 `packages/shared/src/sse/contract.ts` 的既有 SSE 帧命名对齐(登记时点该面被并发会话持有)。
-2. WS 房间协议:订阅/退订、房间成员与在线态、连接生命周期。
-3. resync 传输:gap 后拉权威快照的端点与形状(快照端点须给出"rev=N 全量"语义)。
-4. terminal/done 帧:消息终态(生成结束/失败)如何进本契约(snapshot 加终态位,或独立事件)。
-5. meta 结构性 patch:消息级 pin/书签等结构位(与票64 的 sibling 存储共面),预计升 `chat-sync.v2` 或加子版本。
-6. 各端 store 接线:内核嵌入 `apps/web` 聊天 store / miniapp-taro / mobile-rn 的方式与重渲染面(依赖票60 store Map 化)。
-7. 跨消息排序与房间的会话级事件(标题改名等)是否入契约。
+1. ✅ **帧名收敛**(2026-10-25 收口):见 §3 —— `CHAT_SYNC_EVENT_NAMES` 单源,sse 侧只引用不重写值。
+2. ⬜ **WS 房间协议**:订阅/退订、房间成员与在线态、连接生命周期。已落地的是房间键
+   (`conv:<conversationId>`)与按成员 userId 集合的投递面;订阅协议与协作者扩员仍未定。
+3. ✅ **resync 传输**(2026-10-25 收口):`ChatSyncMessageSnapshot` +
+   `GET /conversations/:id/messages/:messageId/sync-snapshot`(rev=N 全量;rev=0 = 链上无 patch)。
+4. ⬜ **terminal/done 帧 —— 本轮不做**(2026-10-25 判定,不留在类型层当空壳):终态必须由
+   生产端(流收尾写库 + 广播)与消费端(web store 投影)同批落地;只在 `message:patched` 上加
+   `status?` 属"类型层加可选项、实现照旧"的假支持。前置 = 路由/ai-service 与 web store
+   两侧同批排期(本切片两处均在他席在飞),新增形态须升 `protocolVersion`。
+5. ⬜ **meta 结构性 patch —— 本轮不做**:pin/书签等结构位与票64 的 sibling 存储共面,须一次升
+   `chat-sync.v2`(或子版本);同样受"生产 + 消费同批"约束,单侧加字段不得合入。
+6. ⬜ **各端 store 接线**:web 已接(`apps/web/src/stores/chat.ts` 的 `applyChatSync` /
+   `applyChatSyncSnapshot`)。**taro/RN/cli/extension 本轮不做**:现读 taro/RN 的 `src/stores/`
+   没有 chat store(消息持在各聊天页的局部 state),且这两端的运行期验证(微信开发者工具 /
+   Android 模拟器)本机不具备(AGENTS §17)。前置 = 各自把消息面抽成 store +
+   `src/lib/user-broadcast.ts` 追加 `message:*` handler,且两端同批(§9)。
+7. ⬜ 跨消息排序与房间的会话级事件(标题改名等)是否入契约。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

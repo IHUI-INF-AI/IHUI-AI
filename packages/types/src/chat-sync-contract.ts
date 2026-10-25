@@ -17,11 +17,12 @@
  * 依赖面为空,各端唯一的共享出口是 @ihui/types;放 shared 会逼出 workspace 依赖或
  * 各端抄一份。判据内核是纯函数(零平台依赖,不碰 node:*,守门 126 纯度同理)。
  *
- * 交付边界(本轮 = 契约先行,半程):
+ * 交付边界(2026-10-25 现读):
  * - 已定:事件形状、幂等主键、rev 语义、接收端四态裁定、幂等判据(测试钉死)。
- * - 未定(接线票补):通道帧名与 packages/shared/src/sse/contract.ts 的收敛、
- *   WS 房间协议、resync(断链补快照)的传输、terminal/done 帧、meta 结构性 patch
- *   (与票64 pin/书签 sibling 存储共面)。见 docs/chat-sync-contract.md §7。
+ * - 已收口:帧名与 packages/shared/src/sse/contract.ts 的收敛(`CHAT_SYNC_EVENT_NAMES`
+ *   单源,sse 侧只引用、不重写值);resync 快照端点(`ChatSyncMessageSnapshot`)。
+ * - 未定(接线票补):WS 房间订阅协议、terminal/done 帧、meta 结构性 patch
+ *   (与票64 pin/书签 sibling 存储共面)、非 web 端 store 接线。见 docs/chat-sync-contract.md §7。
  *
  * 三条不许漂(与 docs/chat-sync-contract.md 逐字同源,改必须两边一起改):
  * 1. 幂等主键 = `(messageId, rev)`。同一逻辑变更无论走哪条通道,这对键必须逐字相同;
@@ -36,6 +37,33 @@
 /** 协议版本。判据或事件形状做不兼容变更时递增后缀;接收端遇到不认识的版本按 gap 处理。 */
 export const CHAT_SYNC_PROTOCOL_VERSION = 'chat-sync.v1' as const
 export type ChatSyncProtocolVersion = typeof CHAT_SYNC_PROTOCOL_VERSION
+
+/**
+ * chat-sync 帧名常量 —— **全仓唯一真相源**(2026-10-25,票 B02 余面①)。
+ *
+ * 为什么必须只有一份:同一逻辑变更要在两条通道上携带逐字相同的键(§2 第 1 条),
+ * 而帧名是两条通道唯一共用的线上锚点 —— 生产构造器、广播载体注册、送信契约、端侧订阅
+ * 各抄一份字面量,漂移的表现不是报错,是"一端收不到另一端的帧"(§0.6)。
+ *
+ * 现读的消费面:
+ *  - 本文件 `ChatMessageCreatedEvent` / `ChatMessagePatchedEvent` 的 `type` 由本表派生;
+ *  - `packages/shared/src/sse/contract.ts` 的 `SSE_CHAT_SYNC_EVENT_NAMES` **直接引用本对象**
+ *    (不是第二份值),并刻意不并进 `SSE_EVENTS`(那一族与 ai-service 逐名对账,理由见该文件);
+ *  - 生产构造器与广播载体注册在 `user-broadcast.ts`(票71 第二切片);其线格式字面量与本表
+ *    是同一字面量类型,改名会当场编译失败。
+ *
+ * 改名 = 不兼容变更:必须同批升 `CHAT_SYNC_PROTOCOL_VERSION`、改 docs/chat-sync-contract.md
+ * 与全部消费点(契约 §7 第 1 项已收口到本表)。
+ */
+export const CHAT_SYNC_EVENT_NAMES = {
+  /** 房间内新消息的完整初面(以 messageId 判重,无修订号) */
+  MESSAGE_CREATED: 'message:created',
+  /** 对既有消息的一次修订(rev 链,从 1 起) */
+  MESSAGE_PATCHED: 'message:patched',
+} as const
+
+/** 两枚帧名的联合类型(与 `SSEEventName` 是两个域,不得合并;见上表注释)。 */
+export type ChatSyncEventName = (typeof CHAT_SYNC_EVENT_NAMES)[keyof typeof CHAT_SYNC_EVENT_NAMES]
 
 /**
  * 交付通道。内核刻意不读这个字段(见 applyChatSyncEvent):
@@ -100,7 +128,7 @@ interface ChatSyncEventBase {
  * (否则重放会把流式增量打回初稿,这是本契约防的第二类自伤)。
  */
 export interface ChatMessageCreatedEvent extends ChatSyncEventBase {
-  type: 'message:created'
+  type: typeof CHAT_SYNC_EVENT_NAMES.MESSAGE_CREATED
   messageId: string
   role: ChatSyncRole
   content: string
@@ -113,7 +141,7 @@ export interface ChatMessageCreatedEvent extends ChatSyncEventBase {
  * - kind='snapshot':`content` 必填(全量);`reasoning` 可选,缺省 = 保持原值。
  */
 export interface ChatMessagePatchedEvent extends ChatSyncEventBase {
-  type: 'message:patched'
+  type: typeof CHAT_SYNC_EVENT_NAMES.MESSAGE_PATCHED
   messageId: string
   rev: number
   kind: ChatPatchKind
@@ -175,7 +203,7 @@ export function chatPatchKey(key: ChatPatchIdempotencyKey): string {
 
 /** 事件的幂等键字符串。同一逻辑变更经 sse/ws 双投,此值必须相等(测试钉死)。 */
 export function chatSyncIdempotencyKey(event: ChatSyncEvent): string {
-  return event.type === 'message:created'
+  return event.type === CHAT_SYNC_EVENT_NAMES.MESSAGE_CREATED
     ? `${event.messageId}#created`
     : chatPatchKey({ messageId: event.messageId, rev: event.rev })
 }
@@ -199,7 +227,7 @@ export function applyChatSyncEvent(
   state: ChatSyncState,
   event: ChatSyncEvent,
 ): { state: ChatSyncState; result: ChatSyncApplyResult } {
-  if (event.type === 'message:created') {
+  if (event.type === CHAT_SYNC_EVENT_NAMES.MESSAGE_CREATED) {
     if (state.messages.has(event.messageId)) {
       return {
         state,

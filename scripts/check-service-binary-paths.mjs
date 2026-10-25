@@ -815,6 +815,8 @@ export function judgeService(rec) {
   const runtime = rec.runtime ?? unmeasured('运行时代码新鲜度维没有值(调用方未提供)')
   if (runtime.kind === 'unmeasured') excuseable('运行时代码新鲜度', runtime.reason)
   else if (runtime.value.verdict === 'stale') problems.push(`运行时代码新鲜度:${runtime.value.detail}`)
+  // 断链是"量到的坏"(引用目标不在盘上),与 stale 同档进 problems;不并进 unmeasured(那是"没判")。
+  else if (runtime.value.verdict === 'brokenlink') problems.push(`运行时代码新鲜度(断链):${runtime.value.detail}`)
 
   let level
   if (problems.length > 0) level = 'issue'
@@ -1036,12 +1038,19 @@ export const DOT_SOURCE_CLOSURE_MAX = 64
 /** 把一个 PowerShell 操作数静态求值成路径。只认三类确定形态:
  *  ① 字面量(单引号串、双引号串内**不含**变量、裸路径)
  *  ② `$PSScriptRoot` / `$PSScriptDir` 打头(这两个是"该脚本自己所在目录",由 -File 那份脚本的位置定死)
- *  ③ `(Join-Path <上面两类> <上面两类> …)` 的静态组合
- *  其余(任何别的变量、`$env:`、子表达式、格式化)一律返回 why —— 判"解析不出"而不是猜。
- *  ⚠ 为什么 $PSScriptRoot 算"确定"而 $LockCommon 不算:本票要抓的那一次真实自伤(`ihui-monitor.ps1`
+ *  ③ `(Join-Path <上面两类> <上面两类> …)` 的静态组合(括号形与**裸 `Join-Path …` 形**都认——后者是本仓
+ *    赋值行的现读形态:`$LockCommon = Join-Path $PSScriptRoot 'deploy-lock-common.ps1'`,见 ⑤)
+ *  ④ 其余(任何别的变量、`$env:`、子表达式、格式化)一律返回 why —— 判"解析不出"而不是猜。
+ *  ⑤ **单次静态赋值的变量**不在这里解:由 extractDotSourcedScripts 的行序变量账(§varEnv)先替换再进本函数。
+ *  ⚠ 为什么 $PSScriptRoot 算"确定":本票要抓的那一次真实自伤(`ihui-monitor.ps1`
  *  dot-source `alert-dedup.ps1`)在本仓的真实书写形态就是 `. (Join-Path $PSScriptRoot 'alert-dedup.ps1')`
- *  (deploy/win/ihui-monitor.ps1 现读第 120 行)。把它判成"带变量、解析不出",这一维对本票的立项由头
- *  仍然零判据 —— 那就是白改。相对路径按**被 dot-source 的那份脚本自己所在目录**解析(不是仓库根)。 */
+ *  (deploy/win/ihui-monitor.ps1 现读第 143 行)。把它判成"带变量、解析不出",这一维对本票的立项由头
+ *  仍然零判据 —— 那就是白改。相对路径按**被 dot-source 的那份脚本自己所在目录**解析(不是仓库根)。
+ *  ⚠ 而 `. $LockCommon`(ihui-monitor.ps1 第 156 行)这类"变量当操作数"此前一律落未判定 ——
+ *  现读本仓形态,它的赋值行恒为 `$X = Join-Path $PSScriptRoot '<字面量>.ps1'`(单赋值、后接
+ *  Test-Path 守卫),静态完全确定;拒收它等于让 IHUI-MONITOR / IHUI-DEPLOY 两条服务的这一维**永远失明**,
+ *  正是票面"把没量写成量过"禁止的反方向(把能量写成没量,维度形同虚设)。所以 2026-10-25 起按
+ *  "同一变量恰好一次可静态求值的赋值"收(多次赋值/复合赋值 ⇒ 判不成,回落未判定点名,不猜)。 */
 function resolveDotSourceOperand(tok, scriptDir) {
   const s = String(tok ?? '').trim()
   if (s === '') return { why: '点号/Dot-Source 后面没有可解析的参数' }
@@ -1049,22 +1058,9 @@ function resolveDotSourceOperand(tok, scriptDir) {
     const inner = s.slice(1, -1).trim()
     const m = /^Join-Path\s+(.+)$/is.exec(inner)
     if (!m) return { why: `括号里不是可静态求值的 Join-Path(${inner.slice(0, 60)})` }
-    const parts = splitPowerShellArgs(m[1])
-    if (parts.length === 0) return { why: `Join-Path 的参数切不开(${inner.slice(0, 60)})` }
-    let acc = null
-    for (const part of parts) {
-      // Join-Path 的首段常常就是**裸** `$PSScriptRoot`(= 该脚本自己所在目录):作为整体操作数时
-      // 它是"目录不是脚本"必须拒(expandScriptRootToken 那一支),但作为 Join-Path 的基座它正是
-      // 基目录 —— 本票立项由头的真实书写形态(deploy/win/ihui-monitor.ps1 第 120 行
-      // `. (Join-Path $PSScriptRoot 'alert-dedup.ps1')`)就是这个,不认它这一维对真实自伤零判据。
-      const r = /^\$PS(?:ScriptRoot|ScriptDir)$/i.test(part.trim())
-        ? { path: scriptDir }
-        : resolveDotSourceOperand(part, scriptDir)
-      if (r.why) return r
-      acc = acc === null ? r.path : path.win32.resolve(acc, r.path)
-    }
-    return acc === null ? { why: 'Join-Path 没有参数' } : { path: acc }
+    return evalJoinPathExpr(m[1], scriptDir)
   }
+  if (/^Join-Path\s+/is.test(s)) return evalJoinPathExpr(s.replace(/^Join-Path\s+/is, ''), scriptDir)
   if (s.length > 1 && s.startsWith("'") && s.endsWith("'"))
     return { path: path.win32.resolve(scriptDir, s.slice(1, -1)) }
   if (s.length > 1 && s.startsWith('"') && s.endsWith('"'))
@@ -1073,6 +1069,25 @@ function resolveDotSourceOperand(tok, scriptDir) {
   if (/[$()`]/.test(s))
     return { why: `参数含变量或子表达式(${s.slice(0, 60)})⇒ 静态读不出实际落点,本维不猜` }
   return { path: path.win32.resolve(scriptDir, s) }
+}
+
+/** `Join-Path a b …` 的静态组合求值(括号形与裸形共用一份,§0.6)。 */
+function evalJoinPathExpr(inner, scriptDir) {
+  const parts = splitPowerShellArgs(inner)
+  if (parts.length === 0) return { why: `Join-Path 的参数切不开(${inner.slice(0, 60)})` }
+  let acc = null
+  for (const part of parts) {
+    // Join-Path 的首段常常就是**裸** `$PSScriptRoot`(= 该脚本自己所在目录):作为整体操作数时
+    // 它是"目录不是脚本"必须拒(expandScriptRootToken 那一支),但作为 Join-Path 的基座它正是
+    // 基目录 —— 本票立项由头的真实书写形态(deploy/win/ihui-monitor.ps1 第 143 行
+    // `. (Join-Path $PSScriptRoot 'alert-dedup.ps1')`)就是这个,不认它这一维对真实自伤零判据。
+    const r = /^\$PS(?:ScriptRoot|ScriptDir)$/i.test(part.trim())
+      ? { path: scriptDir }
+      : resolveDotSourceOperand(part, scriptDir)
+    if (r.why) return r
+    acc = acc === null ? r.path : path.win32.resolve(acc, r.path)
+  }
+  return acc === null ? { why: 'Join-Path 没有参数' } : { path: acc }
 }
 
 /** `$PSScriptRoot` / `$PSScriptDir` 打头的串/裸词元 ⇒ 脚本自己所在目录 + 尾段;其余带 `$` 的一律读不出。 */
@@ -1168,7 +1183,8 @@ function pickImportModuleOperand(parts) {
  *  `Import-Module` 只收静态路径操作数(`.psm1`):按模块名导入(落点由 PSModulePath 与已装模块决定)
  *  与 `.psd1` 清单(RootModule 未静态解析)一律落**未判定**并点名 —— 解析不出不许静默放行。
  *  已知看不见形态(如实登记,不得读成"已确认没有"):here-string(`@' … '@`)、块注释中部起始不在行首的
- *  `<#` 里的加载行、`using module` 语句。**这一漏的代价是有界的**:抽错出来的假路径下一步必然走 statFile 失败
+ *  `<#` 里的加载行、`using module` 语句、变量经多次赋值/复合赋值/非静态 RHS 后的 `. $X`
+ *  (单次静态赋值已按本仓现读写法收,见行序变量账)。**这一漏的代价是有界的**:抽错出来的假路径下一步必然走 statFile 失败
  *  ⇒ 落未判定并点名,不会被读成"新鲜";而抽漏的那一条只是这一维没覆盖到,不是给仓库发合格证。 */
 export function extractDotSourcedScripts({ text, scriptDir }) {
   if (typeof text !== 'string' || text === '')
@@ -1180,6 +1196,12 @@ export function extractDotSourcedScripts({ text, scriptDir }) {
       `dot-source 的相对落点无从确定(scriptDir=${scriptDir ?? '(未给)'})⇒ 不猜绝对路径`,
     )
   const items = []
+  // 行序变量账(2026-10-25 按票面"按 PowerShell 实际写法现读解析面"补):本仓服务脚本的现读形态是
+  // `$X = Join-Path $PSScriptRoot '<字面量>.ps1'` ⇒ Test-Path 守卫 ⇒ `. $X`(ihui-monitor.ps1 151-156、
+  // ihui-deploy.ps1 242-246、ihui-deploy-loop.ps1 107-112/122-127)。恰好一次可静态求值的赋值才算确定;
+  // 二次赋值/复合赋值(+=)/RHS 本身求不出 ⇒ 打回"解析不出",落未判定点名,不猜(§0.3)。
+  const varEnv = new Map() // 变量名(小写)⇒ 静态求出的路径
+  const assignSeen = new Set() // 出现过赋值的变量名:第二次即从 varEnv 剔掉并留污染标记
   let inBlockComment = false
   for (const lineRaw of text.split(/\r?\n/)) {
     const line = lineRaw.trim()
@@ -1195,7 +1217,39 @@ export function extractDotSourcedScripts({ text, scriptDir }) {
     if (line.startsWith('#')) continue
     const dm = /^(?:\.|Dot-Source)\s+(\S.*)$/i.exec(line)
     const im = dm ? null : /^(?:Import-Module|ipmo)\s+(\S.*)$/i.exec(line)
-    if (!dm && !im) continue
+    if (!dm && !im) {
+      // 赋值行追踪(在 dot-source 行之前逐行建档,与 PowerShell 的读取次序一致)
+      const am = /^\$([A-Za-z_]\w*)\s*(\+?=)\s*(.*)$/.exec(line)
+      if (am) {
+        const key = am[1].toLowerCase()
+        if (assignSeen.has(key)) varEnv.delete(key)
+        else {
+          assignSeen.add(key)
+          // RHS 只收四类确定形态(Join-Path 括号/裸形、引号字面量、盘符绝对路径打头);其余(命令调用、
+          // 变量拷贝、格式化表达式)一律不入账 ⇒ 该变量后续被 dot-source 时按"解析不出"落未判定,不猜。
+          const rhs = cutTrailingComment(am[3]).trim()
+          const staticRhs =
+            /^(?:\(\s*)?Join-Path\s/is.test(rhs) ||
+            (/^['"].+['"]$/.test(rhs)) ||
+            (/^[A-Za-z]:[\\/]/.test(rhs))
+          if (am[2] === '=' && staticRhs) {
+            const r = resolveDotSourceOperand(rhs, scriptDir)
+            if (!r.why) varEnv.set(key, r.path)
+          }
+        }
+      }
+      continue
+    }
+    // 操作数先问变量账,再落静态求值(§0.6:两条道共用同一枚 resolveDotSourceOperand 判据)
+    const resolveOperandToken = (tok) => {
+      const vm = /^\$([A-Za-z_]\w*)$/.exec(String(tok ?? '').trim())
+      if (!vm) return resolveDotSourceOperand(tok, scriptDir)
+      const key = vm[1].toLowerCase()
+      if (varEnv.has(key)) return { path: varEnv.get(key) }
+      if (assignSeen.has(key))
+        return { why: `变量 ${tok} 的赋值不止一次或不是静态可求值形态⇒ 实际落点要等运行次序,本维不猜` }
+      return resolveDotSourceOperand(tok, scriptDir)
+    }
     const arg = cutTrailingComment((dm ?? im)[1]).trim()
     if (arg === '') {
       items.push({ raw: (dm ?? im)[1].trim(), path: null, why: dm ? '点号后没有参数' : 'Import-Module 后没有参数' })
@@ -1220,7 +1274,7 @@ export function extractDotSourcedScripts({ text, scriptDir }) {
         })
         continue
       }
-      const r = resolveDotSourceOperand(picked.tok, scriptDir)
+      const r = resolveOperandToken(picked.tok)
       if (r.why) {
         items.push({ raw: arg, path: null, why: r.why })
         continue
@@ -1245,9 +1299,9 @@ export function extractDotSourcedScripts({ text, scriptDir }) {
       items.push({ raw: arg, path: r.path })
       continue
     }
-    // 一条行只取第一个操作数;多操作数(`. (Join-Path a b c)`)整体交给 resolveDotSourceOperand。
+    // 一条行只取第一个操作数;多操作数(`. (Join-Path a b c)`)整体交给 resolveOperandToken(→静态求值)。
     const first = parts[0] ?? arg
-    const r = resolveDotSourceOperand(first, scriptDir)
+    const r = resolveOperandToken(first)
     if (r.why) {
       items.push({ raw: arg, path: null, why: r.why })
       continue
@@ -1290,14 +1344,15 @@ export function extractDotSourcedScripts({ text, scriptDir }) {
  *  ② 闭包文件总数受 DOT_SOURCE_CLOSURE_MAX 封顶(超限落未判定并点名 —— 没跟完 = 没量到,不得读成新鲜);
  *  ③ 环保护:visited 集合按规范化路径去重,a→b→a 不无限递归,环上每份文件仍各计一次 mtime 账;
  *     同一模块被两条边重复加载(菱形)也只计一次账(scanned 不得重复计数)。
- *  失效出口全部落 undetermined 并各带原因:没有读取出口 / 读不到正文 / 模块 mtime 读不到 / 抽取判不出。
+ *  失效出口全部落未判定并各带原因:没有读取出口 / 读不到正文 / 模块 mtime 读不到 / 抽取判不出;
+ *  而"引用的模块文件不存在(ENOENT)"单独落**断链**桶(独立三态,票面 2026-10-25)——断链是量到的坏,不是没量到。
  *  而"量到的空"与"没量到"分档:根脚本确实没有加载边 ⇒ note(量到的空),加载目标不是 .ps1 ⇒ note(不适用)
  *  —— 两者都不是"这一维失明",把它们写成失明会让每台 PowerShell 服务都拿不到合格证。
  *  兼容注:`nested` 字段随封顶 1 一起退役(闭包之下不再有"已知未覆盖"层),恒为空数组,仅为既有
  *  JSON 输出形状兼容保留;超限/环路等闭包现象分别走 undetermined(没量到)与"不另立新档"。
  */
 function collectDotSourceLayer({ scriptPath, startMs, statFile, readScriptText }) {
-  const out = { scanned: 0, stale: [], undetermined: [], nested: [], notes: [] }
+  const out = { scanned: 0, stale: [], broken: [], undetermined: [], nested: [], notes: [] }
   if (!/\.ps1$/i.test(scriptPath)) {
     out.notes.push(
       `加载目标不是 .ps1(${scriptPath})⇒ dot-source 是 PowerShell 语法,这一维对它没有对象(是"不适用",不是"已确认没有")`,
@@ -1366,10 +1421,16 @@ function collectDotSourceLayer({ scriptPath, startMs, statFile, readScriptText }
             ? statFile(mp)
             : { ok: false, why: '调用方未提供 statFile 出口' }
         if (!st?.ok) {
-          out.undetermined.push(
-            `读不到模块 mtime(${mp}):${st?.why ?? '未知原因'} ⇒ 这一份没量到,不得记成新鲜`,
-          )
-          continue // mtime 读不到 ⇒ 不再往下跟(这一条已在 undetermined 点名,链在此断)
+          // 票面 2026-10-25 收口:文件不存在(ENOENT)与"读不到"是两态 —— 前者是**断链**
+          // (引用的模块压根不在盘上:服务若真按这份参数在跑,它的启动代码链是残缺的,这是量到的坏),
+          // 后者(权限/占用等)才是"没量到"。两态都不许写成新鲜,但话与处置不同。
+          const whyStr = String(st?.why ?? '')
+          if (/^ENOENT/.test(whyStr)) out.broken.push({ path: mp, why: whyStr })
+          else
+            out.undetermined.push(
+              `读不到模块 mtime(${mp}):${whyStr || '未知原因'} ⇒ 这一份没量到,不得记成新鲜`,
+            )
+          continue // 断链/读不到 ⇒ 都不再往下跟(链在此断;断链已由独立桶点名)
         }
         out.scanned++
         const deltaMs = st.mtimeMs - startMs
@@ -1437,6 +1498,7 @@ export function judgeRuntimeFreshness({
   const shape = {
     modulesScanned: layer.scanned,
     modulesStale: layer.stale,
+    modulesBroken: layer.broken,
     modulesUndetermined: layer.undetermined,
     modulesNested: layer.nested,
     modulesNotes: layer.notes,
@@ -1445,13 +1507,17 @@ export function judgeRuntimeFreshness({
     ? `;另有 ${layer.stale.length} 份被 dot-source / Import-Module 载入的共享模块同样新于进程:` +
       layer.stale.map((m) => `${m.path}(旧 ${m.mins} 分钟)`).join('、')
     : ''
+  const brokenTail = layer.broken.length
+    ? `;另有 ${layer.broken.length} 份被引用的模块文件不存在(断链):` +
+      layer.broken.map((b) => b.path).join('、')
+    : ''
   if (deltaMs > 0)
     return measured({
       verdict: 'stale',
       path,
       detail:
         `运行中的进程比它加载的脚本旧 ${mins} 分钟 ⇒ 线上跑的是旧代码(${path}:进程启动 ${stamp(startMs)} / 脚本改写 ${stamp(st.mtimeMs)};` +
-        `判的是启动那一刻载入的脚本本体与它 dot-source 进来的共享模块;它运行中用 & 调的子脚本按调用时刻生效,不在本维)${moduleTail}`,
+        `判的是启动那一刻载入的脚本本体与它 dot-source 进来的共享模块;它运行中用 & 调的子脚本按调用时刻生效,不在本维)${moduleTail}${brokenTail}`,
       ...shape,
     })
   // -File 那一份是新的,但被 dot-source 进来的模块比进程新 ⇒ 仍然 stale:那一份内容根本没进过这个进程
@@ -1465,7 +1531,24 @@ export function judgeRuntimeFreshness({
         layer.stale
           .map((m) => `${m.path}(进程启动 ${stamp(startMs)} / 模块改写后 ${m.mins} 分钟)`)
           .join('、') +
-        `(-File 那一份本身 ${path} 的 mtime 早于进程启动,所以只看它会一路报绿)`,
+        `(-File 那一份本身 ${path} 的 mtime 早于进程启动,所以只看它会一路报绿)${brokenTail}`,
+      ...shape,
+    })
+  // 引用的模块文件不存在 ⇒ **断链**(独立三态,2026-10-25 票面):既不是"新鲜"——那条加载边在盘上
+  // 根本没有,进程启动时读到的代码链是残缺的;也不是"没量到"——ENOENT 是量出来的确定事实。
+  // 排在 undetermined 臂之前:两种并存时断链是更强的结论,而未判定明细仍随话点名(不吞)。
+  if (layer.broken.length > 0)
+    return measured({
+      verdict: 'brokenlink',
+      path,
+      detail:
+        `被 dot-source / Import-Module 引用的模块文件不存在(断链,独立三态:不是新鲜、也不是"没量到"):${layer.broken
+          .map((b) => `${b.path}(${b.why})`)
+          .join('、')}` +
+        ` —— -File 那一份(${path})与链上其余模块的 mtime 都不晚于进程启动,但这份断链说明启动代码链不完整` +
+        (layer.undetermined.length
+          ? `;另有 ${layer.undetermined.length} 处没量到(点名,不得记成新鲜):${layer.undetermined.join(';')}`
+          : ''),
       ...shape,
     })
   // dot-source 层有量不到出口 ⇒ 整维**未判定**并点名(2026-10-12 补的洞):此前这里直接落
@@ -1736,12 +1819,21 @@ function finish(meta, exitCode, opts) {
   const svcs = meta.services
   const count = (level) => svcs.filter((s) => s.level === level).length
   const dimUnmeasured = (pick) => svcs.filter((s) => (pick(s.rec) ?? { kind: 'unmeasured' }).kind === 'unmeasured').length
+  const rtOf = (s) => s.rec.runtime ?? { kind: 'unmeasured' }
+  const rtIs = (s, v) => rtOf(s).kind === 'measured' && rtOf(s).value.verdict === v
   meta.totals = {
     services: svcs.length,
     ok: count('ok'),
     issue: count('issue'),
     unattested: count('unattested'),
     skipped: count('skipped'),
+    // 运行时代码新鲜度分桶(2026-10-25 票面验收:每服务落哪一档必须现读可见,不得只藏在逐条问题行里)
+    runtimeBuckets: {
+      fresh: svcs.filter((s) => rtIs(s, 'fresh')).length,
+      stale: svcs.filter((s) => rtIs(s, 'stale')).length,
+      brokenlink: svcs.filter((s) => rtIs(s, 'brokenlink')).length,
+      unmeasured: svcs.filter((s) => rtOf(s).kind !== 'measured').length,
+    },
     dimUnmeasured: {
       // ⚠ 本门历史上在这里翻过两次,方向相反,都把结论写得像跑通了:
       //   ① 旧版把 pick 收到的一层当 rec 又点一次 `.rec`(双重解引用),② 合并时我照旧注释改成
@@ -1817,6 +1909,20 @@ export function renderText(meta) {
   }
   const t = meta.totals
   if (t) {
+    if (t.runtimeBuckets) {
+      const rb = t.runtimeBuckets
+      const rtOf = (s) => s.rec.runtime ?? { kind: 'unmeasured' }
+      const namesIf = (pred) => {
+        const ns = meta.services.filter(pred).map((s) => s.name)
+        return ns.length ? ns.join(', ') : '无'
+      }
+      L.push(
+        `运行时代码新鲜度分桶:fresh ${rb.fresh} / stale ${rb.stale} / 断链 ${rb.brokenlink} / 未判定 ${rb.unmeasured}` +
+          (rb.stale ? ` —— stale:[${namesIf((s) => rtOf(s).kind === 'measured' && rtOf(s).value.verdict === 'stale')}]` : '') +
+          (rb.brokenlink ? ` —— 断链:[${namesIf((s) => rtOf(s).kind === 'measured' && rtOf(s).value.verdict === 'brokenlink')}]` : '') +
+          (rb.unmeasured ? ` —— 未判定:[${namesIf((s) => rtOf(s).kind !== 'measured')}]` : ''),
+      )
+    }
     L.push(
       `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped};各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 监听观察=${t.dimUnmeasured.observed} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
     )
@@ -1993,6 +2099,57 @@ function selfTest(opts) {
     const ps = buildProcessListScript()
     // 形状表只有一份(见模块顶部 PROC_SCRIPT_SHAPE_FORMS);镜像测试 RF-4 引的就是这张
     return PROC_SCRIPT_SHAPE_FORMS.length >= 3 && PROC_SCRIPT_SHAPE_FORMS.every(({ re }) => re.test(ps))
+  })())
+
+  ok('RF-11 被引用的模块文件不存在 ⇒ 断链独立三态(既不是 fresh 也不是未判定),judgeService 记 issue 并点名;权限类读不到仍走未判定(两态不并桶)', (() => {
+    const st = { kind: 'ticks', ticks: String((BigInt(Date.parse('2026-10-01T09:00:00Z')) + BigInt(TICKS_EPOCH_DIFF_MS)) * 10000n) }
+    const mkJudge = (why) =>
+      judgeRuntimeFreshness({
+        state: 'RUNNING',
+        start: st,
+        paramsTexts: ['-File D:\\r\\entry.ps1'],
+        statFile: (p) => (p === 'D:\\r\\entry.ps1' ? { ok: true, mtimeMs: Date.parse('2026-10-01T08:00:00Z') } : { ok: false, why }),
+        readScriptText: (p) =>
+          p === 'D:\\r\\entry.ps1'
+            ? { ok: true, text: ". (Join-Path $PSScriptRoot 'gone.ps1')\n" }
+            : { ok: false, why: '夹具:不该被调用' },
+      })
+    const broken = mkJudge('ENOENT')
+    const perm = mkJudge('EACCES')
+    const j = judge({ runtime: dim('m', broken.value) })
+    return (
+      broken.kind === 'measured' &&
+      broken.value.verdict === 'brokenlink' &&
+      /gone\.ps1/.test(broken.value.detail) &&
+      broken.value.modulesBroken.length === 1 &&
+      j.level === 'issue' &&
+      j.problems.some((p) => /断链/.test(p)) &&
+      perm.kind === 'unmeasured' &&
+      /gone\.ps1/.test(perm.reason)
+    )
+  })())
+
+  ok('RF-12 单次静态赋值 `$X = Join-Path $PSScriptRoot …` + `. $X`(本仓现读写法)解得出;多次/复合赋值与从未赋值各自回落"解析不出",不猜', (() => {
+    const dir = 'D:\\r'
+    const a = extractDotSourcedScripts({
+      text: "$RootCommon = Join-Path $PSScriptRoot 'ihui-root-common.ps1'\n. $RootCommon\n",
+      scriptDir: dir,
+    })
+    const b = extractDotSourcedScripts({
+      text: "$X = Join-Path $PSScriptRoot 'a.ps1'\n$X = Join-Path $PSScriptRoot 'b.ps1'\n. $X\n",
+      scriptDir: dir,
+    })
+    const c = extractDotSourcedScripts({ text: '. $NeverAssigned\n', scriptDir: dir })
+    const d = extractDotSourcedScripts({ text: "$X = 'lib\\m.ps1'\n$X += '-extra'\n. $X\n", scriptDir: dir })
+    return (
+      a.kind === 'measured' &&
+      a.value.paths.join() === 'D:\\r\\ihui-root-common.ps1' &&
+      b.value.paths.length === 0 &&
+      /不止一次|静态读不出/.test(b.value.items[0].why) &&
+      c.value.paths.length === 0 &&
+      /变量/.test(c.value.items[0].why) &&
+      d.value.paths.length === 0
+    )
   })())
 
   ok('S2c 多值参数保留全部行:OLLAMA 型(port 在第 2 行)不得被读成"没声明";反向对照单行值不受影响', (() => {

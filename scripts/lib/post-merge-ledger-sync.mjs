@@ -133,6 +133,41 @@ export function twinFoldResidue({ root = '', readFace } = {}) {
   }
 }
 
+/** 复清器的处置判据按**自身位置**取(判据住在器物里,本层只问它"这轮真会动几行")。 */
+function loadPurgeTool() {
+  try {
+    return require(join(HERE, '..', 'plan-pointer-purge.mjs'))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * **触发集 = 处置集**那一格(2026-10-25 立,治 73 枚自增提交)。
+ *
+ * 立因(全部真档实测):派生闸原来读的是三个**外围存量维**(注记 / 可折 / 同号组),
+ * 而复清器真正会动的行由它自己的分层判据决定 —— 两把尺不同源,账面存量就永不为 0。
+ * 现读 HEAD 面:注记 0 / 可折 0 / 同号组 1 ⇒ 每轮都派生 `--apply --absorb`;而复清器在该面上
+ * 的分类是 `L1..L7 = 0/0/0/1/0/0/0`(那唯一一枚 L4 是同号组的**持有行**,它自己没有注记,
+ * `stripMergeNotes` 剥出来逐字等值)⇒ 非空行 5636 → 5636,落地的 blob 只比父面多一行空行。
+ * 正解不是给外围维补白名单,是让触发条件直接 import 器物那套分层判据(§0.6 单一真相源):
+ * `realWorkRows` 数"渲染前后逐字不等的行",为 0 就是无事可做。
+ *
+ * 返回 `null` = **未判定**(面取不到 / 器物判据装不上 / 判据抛错)⇒ 不派生且必须报名,
+ * 绝不把"没量到"读成"已归零"(§0.3)。
+ */
+export function purgeWorkResidue({ root = '', readFace, absorb = true } = {}) {
+  const text = readPlanFaceText({ root, readFace })
+  if (text === null) return null
+  const m = loadPurgeTool()
+  if (!m || typeof m.workResidueCount !== 'function') return null
+  try {
+    return m.workResidueCount(text, { absorb })
+  } catch {
+    return null
+  }
+}
+
 /**
  * 第二步:复清(G-32,2026-10-14 实测立)。
  *
@@ -145,43 +180,46 @@ export function twinFoldResidue({ root = '', readFace } = {}) {
  * 本层是旁路落地的唯一自愈出口(union-converge / git-sync-converge / 对象空间落地器都走它),
  * 所以复清接在这里 = 接在判据源头(AGENTS §1「旁路落地不跑钩子,防它必须在判据源头接」)。
  *
- * 三条不变:①存量 0 ⇒ 完全不派生(不给每一轮收敛加常数成本,也不产生噪声);
+ * 三条不变:①**处置维 0 ⇒ 完全不派生**(不给每一轮收敛加常数成本,也不产生噪声);
  * ②未判定 ⇒ 不派生且必须报名(绝不把"没量到"读成"已归零");
  * ③失败只喊一行、不改本轮收敛成败(与第一条自愈同一条纪律),但 `ok:false` 必须如实回传。
+ *
+ * **触发集必须等于处置集**(2026-10-25 立,治 73 枚自增提交):
+ * 派生判据只认 `purgeWorkResidue`(= 复清器自己的 `realWorkRows`,渲染前后逐字差)。
+ * 外围三维(注记 / 可折 / 同号组)**降为只报数**:它们是"字样还在台账里"的账,
+ * 不是"这一轮真能改掉几行"的账 —— 拿前者当派生闸,后者为 0 时器物照样落地,
+ * 实测每一轮往 PROJECT_PLAN.md 文末多灌一枚空行、2–4 分钟一枚提交,累计 73 枚
+ * (现读 23eadba0af^ 那一轮:注记 0 / 可折 0 / 同号组 1 / 处置 0 ⇒ 派生了、但只灌进一行空行)。
+ * 同轮取面仍是同一份(§0.4 同面同轮)。
  */
 function runPurgeResettle({ root, log = (s) => console.log(s), spawnFn, readFace }) {
+  const w = purgeWorkResidue({ root, readFace })
   const n = ledgerNoteResidue({ root, readFace })
   const t = twinFoldResidue({ root, readFace })
   const g = sameKeyGroupResidue({ root, readFace })
-  if (n === null && t === null && g === null) {
-    log('⚠️ [G-32] 两类存量均未判定(取不到被审面或判据模块不可用)⇒ 本轮不复清;不得读成"已归零"')
-    return { ran: false, ok: false, residue: null, twinResidue: null, why: '未判定' }
+  const fmt = (v) => (v === null ? '未判定' : v)
+  if (w === null) {
+    log(
+      `⚠️ [G-32] 处置维未判定(取不到被审面,或复清器那把尺装不上;外围读数 注记=${fmt(n)} / 可折=${fmt(t)} / 同号组=${fmt(g)})⇒ 本轮不复清;不得读成"已归零"`,
+    )
+    return { ran: false, ok: false, residue: n, twinResidue: t, workResidue: null, why: '未判定' }
   }
-  if ((n || 0) + (t || 0) + (g || 0) === 0) {
-    if (n === null || t === null) {
-      // 一维判得出 0 而另一维取不到 ⇒ 仍不派生,但必须报名:§0.3「没量到」不等于「已归零」。
-      log(`⚠️ [G-32] 存量有一维未判定(注记=${n === null ? '未判定' : n} / 可折=${t === null ? '未判定' : t})⇒ 本轮不派生复清`)
-      return { ran: false, ok: false, residue: n, twinResidue: t, why: '未判定' }
+  if (w === 0) {
+    // 外围维仍 >0 而处置维判得出 0 ⇒ 正是当年那型"账面有存量、器物空转"的现场,
+    // 必须点名两把尺的分歧(§12f:判据失效的表现永远是安静),但一个进程都不派生。
+    if ((n || 0) + (t || 0) + (g || 0) > 0) {
+      log(
+        `ℹ️ [G-32] 外围存量 注记=${fmt(n)} / 可折=${fmt(t)} / 同号组=${fmt(g)},而复清器本轮真的动 0 行 ⇒ 不派生(空转不落地)`,
+      )
     }
-    return { ran: false, ok: true, residue: 0, twinResidue: 0, why: '' }
+    if (g > 0) reportSameKeyGroups(g, log)
+    return { ran: false, ok: true, residue: 0, twinResidue: 0, workResidue: 0, why: '' }
   }
+  if (g > 0) reportSameKeyGroups(g, log)
   const run = spawnFn || spawnSync
   const abs = resolve(String(root || ''), PURGE_REL)
-  // 可折维 > 0 ⇒ 必须带 `--absorb`:只有那一档动"无注记的真副本"(候选正文整段挂进幸存行行尾,
+  // 派生必带 `--absorb`:只有那一档动"无注记的真副本"(候选正文整段挂进幸存行行尾,
   // 由守恒断言 A1–A4 逐条自证零丢失);只带 --apply 的旧口径对这一型一条也折不掉。
-  // 第三维(同号多行组)的折并器不是 purge(L1 候选=带指针/让位行,同号漂开组不进候选集)
-  // 而是 plan-tasks-merge --heal --match-prefix-holder(同号前缀持有行折并,零损失断言自带)。
-  // 派生两段:先折同号组,再按注记/可折维走 purge。
-  const foldSameKey = () => {
-    if (!g) return
-    const absMerge = resolve(String(root || ''), 'scripts', 'plan-tasks-merge.mjs')
-    const r2 = (spawnFn || spawnSync)(process.execPath, [absMerge, '--heal', '--match-prefix-holder', '--commit'], {
-      cwd: resolve(String(root || '')), encoding: 'utf8', windowsHide: true, timeout: 600000,
-    })
-    if (!r2 || r2.status !== 0) log(`⚠️ [G-32] 同号折并派生未完成(组数=${g},rc=${r2 ? r2.status : '取不到'},不阻断)`)
-    else log(`✅ [G-32] 同号折并派生完成(组数=${g})`)
-  }
-  if (g > 0) foldSameKey()
   const flags = ['--apply', '--absorb']
   let r
   try {
@@ -193,19 +231,46 @@ function runPurgeResettle({ root, log = (s) => console.log(s), spawnFn, readFace
     })
   } catch (e) {
     const why = String((e && (e.stderr || e.message)) || e).slice(0, 200)
-    log(`⚠️ [G-32] 复清未派生成功(面上 ${n} 行注记 + ${t} 行可折待清;不阻断本轮收敛):${why}`)
-    return { ran: false, ok: false, residue: n, twinResidue: t, why }
+    log(`⚠️ [G-32] 复清未派生成功(处置维 ${w} 行待动;不阻断本轮收敛):${why}`)
+    return { ran: false, ok: false, residue: n, twinResidue: t, workResidue: w, why }
+  }
+  // rc=3 是器物自己给的结论「本轮真的动 0 行 ⇒ 不落地不推送」(HEAD 在量与派生之间被别人
+  // 推进过,新面上无事可做)。那是**无事**,不是失败:并进失败臂会把"循环已掐死"读成"复清报错",
+  // 逼人在日志里逐轮分辨 —— 而 §12f 说的是判据失效必须响,不是随便什么都响。
+  if (r && r.status === 3) {
+    log(
+      `ℹ️ [G-32] 派生后器物判定无需清偿(量时处置维=${w},落地闸 rc=3)⇒ 本轮未产提交,不阻断收敛`,
+    )
+    return { ran: true, ok: true, residue: n, twinResidue: t, workResidue: w, why: '无需清偿' }
   }
   if (!r || r.status !== 0) {
     const why = String((r && (r.stderr || r.stdout)) || (r && r.error && r.error.message) || '未知').slice(0, 200)
-    log(`⚠️ [G-32] 复清未完成(注记 ${n} 行 / 可折 ${t} 行待清,rc=${r ? r.status : '取不到'},不阻断本轮收敛):${why}`)
-    return { ran: true, ok: false, residue: n, twinResidue: t, why }
+    log(`⚠️ [G-32] 复清未完成(处置维 ${w} 行待动,注记 ${fmt(n)} / 可折 ${fmt(t)},rc=${r ? r.status : '取不到'},不阻断本轮收敛):${why}`)
+    return { ran: true, ok: false, residue: n, twinResidue: t, workResidue: w, why }
   }
   const out = String((r && r.stdout) || '')
   const named = out.split(/\r?\n/).filter((x) => x.includes('落地') || x.includes('守恒断言'))
-  log(`🩹 [G-32] 本轮带回 注记 ${n} 行 / 可折 ${t} 行 ⇒ 已复清(${flags.join(' ')});逐行处置见上面`)
+  log(`🩹 [G-32] 本轮带回 处置维 ${w} 行(注记 ${fmt(n)} / 可折 ${fmt(t)})⇒ 已复清(${flags.join(' ')});逐行处置见上面`)
   for (const l of named.slice(0, 4)) log(`  ${l.trim()}`)
-  return { ran: true, ok: true, residue: n, twinResidue: t, why: '', lines: named }
+  return { ran: true, ok: true, residue: n, twinResidue: t, workResidue: w, why: '', lines: named }
+}
+
+/**
+ * 同号组维的出路 = 人工裁决出口,**不得自动派生**(2026-10-25 定性,补 73 枚自增提交的第二半根因)。
+ *
+ * 旧实现自动派生 `plan-tasks-merge --heal --match-prefix-holder --commit`,而该旗标
+ * 必须带一个非旗标值(指定持有行片段),plan-tasks-merge 自己的头注写明它是"人工裁决出口,
+ * 绝不混进 post-commit 自动档"。没给值 ⇒ 该调用**恒 rc=2**、一行未改 ⇒ 这一维永不清零,
+ * 于是"外围存量 >0 ⇒ 派生复清"每轮都被它点着(现读组键 O02 两行分属两席,持有行由人裁)。
+ * 自动档 `--heal --commit` 对 F4/F4b/F10 刻意只报数不折叠(机主 2026-10-13 令)⇒ 这里
+ * 结构上没有自动出口。正解 = 点名交人工并给出可直接执行的命令,不再派生必然失败的那一枚
+ * (§0.10:失效方向必须是"多要一次定向说明",绝不是"多放一次跳门")。
+ */
+function reportSameKeyGroups(g, log = (s) => console.log(s)) {
+  log(
+    `ℹ️ [G-32] 同号多行组 ${g} 组待人工裁持有行(自动出口不存在:--match-prefix-holder 需指定持有行片段,` +
+      `plan-tasks-merge 的自动档对 F4/F4b/F10 刻意只报数)⇒ 出路:node scripts/plan-tasks-merge.mjs --heal --match-prefix-holder "<持有行原文片段>" --commit`,
+  )
 }
 
 

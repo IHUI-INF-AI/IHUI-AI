@@ -7768,7 +7768,7 @@
           "hour": "h",
           "minute": "m"
         },
-        "degradeHint": "Your free tier is still available. Switch to a free model to continue — no top-up needed",
+        "degradeHint": "Your free tier is still available. Switch to a free model to continue — no top-up needed. Usage details: <link>/models/usage</link>",
         "ariaLabel": "Quota ownership and suggested actions"
       },
       "moveToWorktree": {
@@ -13749,7 +13749,7 @@
     "exampleStep2": "output cost = 1200 ÷ 1000 × 10 = 12 cents",
     "exampleTitle": "Billing Example",
     "examplesSubtitle": "Auth via HTTP Bearer Token, POST application/json",
-    "examplesTip": "Tip: replace YOUR_API_KEY with the key from /developer/keys, and adjust baseURL to your actual endpoint.",
+    "examplesTip": "Tip: replace YOUR_API_KEY with the key from <link>/developer/keys</link>, and adjust baseURL to your actual endpoint.",
     "examplesTitle": "Code Examples",
     "formula": "Cost formula",
     "formulaBody": "Total = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",

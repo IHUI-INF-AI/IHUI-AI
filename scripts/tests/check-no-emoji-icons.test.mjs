@@ -10,7 +10,8 @@
  *   ① 违规族(icon 字段 / 渲染位 / 裸 emoji 行)与豁免族(注释 / i18n / 评分星 / 面板数据行 …)
  *      同时有牙:每条豁免都配一条"同一位置的另一种写法仍判违规"的反向对照;
  *   ② 判定面纪律(AGENTS §0.4):`analyze()` 在 head / staged / worktree 三档上各判各的 ——
- *      改盘不算改 HEAD、未提交的新文件不进 HEAD 面;
+ *      改盘不算改 HEAD、未提交的新文件不进 HEAD 面;三面同形的干净仓 ⇒ 三档全 0(防恒红),
+ *      `--staged` 与 `--worktree` 两面旗同给 ⇒ main 返 2(互斥唯一出口);
  *   ③ 枚举到 0 ⇒ `Undetermined`(不把"没扫到"读成"没违规");
  *   ④ §22d 形状锁:import 本模块零输出零退出,CLI 直跑才执行 main;
  *   ⑤ 加固维度(G-880 判据③,asset .svg/.css/.json):判据有牙 + 分流互不污染 +
@@ -285,5 +286,43 @@ test('E14 analyze 棘轮+面纪律:asset 命中 HEAD 面只报数,盘上偷改�
 
 test('E15 --self-test 与镜像同尺:判据共用一份实现,自检必须全绿', () => {
   assert.equal(gate.runSelfTest(), 0, '源脚本 --self-test 有失败用例')
+})
+
+test('E16 面纪律反向:HEAD 干净而盘上新增违规 ⇒ head 档仍判绿(不读工作树),worktree 档才红', () => {
+  const BAD = "export const NAV = [{ label: 'x', icon: '🦄' }]\n"
+  const dir = createRepo({ 'apps/web/src/nav.tsx': 'export const NAV = []\n' })
+  try {
+    const head1 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head1.scanned, 1, JSON.stringify(head1))
+    assert.equal(head1.totalViolations, 0, 'HEAD 面干净的基线都不绿 ⇒ 判据本身失准')
+
+    // 只在盘上加违规(不 add、不 commit):HEAD 档必须照旧报 0,只有 worktree 档才看见
+    writeRepoFile(dir, 'apps/web/src/nav.tsx', BAD)
+    const head2 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head2.scanned, 1, 'HEAD 档被盘上脏改动拖走了取材面')
+    assert.equal(head2.totalViolations, 0, '未提交的脏改动进了 HEAD 面 ⇒ 门对已入库代码给出假红')
+    assert.equal(gate.analyze({ root: dir, face: 'worktree' }).totalViolations, 1, 'worktree 档没看见盘上的违规')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('E17 三面一致(干净)⇒ 三档全 0(防恒红,W10 型);两面旗同给 ⇒ main 返 2(§0.4 互斥唯一出口)', async () => {
+  // 夹具:HEAD = 索引 = 盘上 三面同形的干净仓库 —— 若任何一档在此报红,门就是恒红门(§12e)
+  const dir = createRepo({ 'apps/web/src/nav.tsx': 'export const NAV = []\n' })
+  try {
+    const head = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head.totalViolations, 0, `head 档对干净三面报红 ⇒ 恒红门(${JSON.stringify(head.fileReports)})`)
+    assert.equal(head.assetStock, 0)
+    const wt = gate.analyze({ root: dir, face: 'worktree' })
+    assert.equal(wt.totalViolations, 0, 'worktree 档对干净三面报红 ⇒ 恒红门')
+    const st = gate.analyze({ root: dir, face: 'staged' })
+    assert.equal(st.totalViolations, 0, 'staged 档对干净三面报红 ⇒ 恒红门')
+    assert.equal(st.empty, true, '索引无新增行 ⇒ 应为空判定出口(枚举面不误报)')
+  } finally {
+    rmScratch(dir)
+  }
+  // 两面旗同给 ⇒ 拒判 exit 2(不选边、不回落、不静默按其中一个面跑)
+  assert.equal(await gate.main(['--staged', '--worktree']), 2, '--staged 与 --worktree 同给必须返 2')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

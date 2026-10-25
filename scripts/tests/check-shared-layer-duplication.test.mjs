@@ -10,7 +10,8 @@
  *   ① 采集与剪枝的口径单源:collectExports 5 式样 + 同名先现者为准、appOf/候选剪枝射程;
  *   ② 判定面纪律(AGENTS §0.4,G-880 本票核心):`analyze()` 在 head / staged / worktree 三档
  *      各判各面 —— 改端侧盘不算改 HEAD、改 shared 侧盘同样不算改 HEAD(export 集合必须同面取材)、
- *      未提交的新文件不进 HEAD 面;
+ *      未提交的新文件不进 HEAD 面;三面同形的干净仓 ⇒ 三档全 0(防恒红),
+ *      `--staged` 与 `--worktree` 两面旗同给 ⇒ main 返 2(互斥唯一出口);
  *   ③ 任一棵树枚举到 0 ⇒ `Undetermined`(不把"没扫到"读成"没重复");
  *   ④ §22d 形状锁:import 本模块零输出零退出,CLI 直跑才执行 main;
  *      取材必须走共用层(face-reader 枚举 + face-scan 同面取材,门内不得再现 readFileSync);
@@ -336,6 +337,43 @@ test('S11 analyze util 棘轮:HEAD 面 util 命中只报数不进阻断集,stage
   } finally {
     rmScratch(dir)
   }
+})
+
+test('S12 面纪律反向:HEAD 干净而盘上新增重复 ⇒ head 档仍判绿(不读工作树),worktree 档才红', () => {
+  const dir = createRepo({ [SHARED_SRC]: SHARED_TEXT, [APP_BAD_REL]: 'export const webOnly = 1\n' })
+  try {
+    const head1 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head1.violations.length, 0, `HEAD 面干净的基线都不绿 ⇒ 判据失准(${JSON.stringify(head1.violations)})`)
+
+    // 只在盘上加重复(不 add、不 commit):HEAD 档必须照旧报 0,只有 worktree 档才看见
+    writeRepoFile(dir, APP_BAD_REL, APP_BAD_TEXT)
+    assert.equal(
+      gate.analyze({ root: dir, face: 'head' }).violations.length,
+      0,
+      '未提交的脏改动进了 HEAD 面 ⇒ 门对已入库代码给出假红',
+    )
+    assert.equal(gate.analyze({ root: dir, face: 'worktree' }).violations.length, 1, 'worktree 档没看见盘上的重复')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S13 三面一致(干净)⇒ 三档全 0(防恒红,W10 型);两面旗同给 ⇒ main 返 2(§0.4 互斥唯一出口)', async () => {
+  // 夹具:HEAD = 索引 = 盘上 三面同形的干净仓库(端侧与 shared 侧都不重复)—— 任何一档报红即恒红门(§12e)
+  const dir = createRepo({ [SHARED_SRC]: SHARED_TEXT, [APP_BAD_REL]: 'export const webOnly = 1\n' })
+  try {
+    const head = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head.violations.length, 0, `head 档对干净三面报红 ⇒ 恒红门(${JSON.stringify(head.violations)})`)
+    const wt = gate.analyze({ root: dir, face: 'worktree' })
+    assert.equal(wt.violations.length, 0, 'worktree 档对干净三面报红 ⇒ 恒红门')
+    const st = gate.analyze({ root: dir, face: 'staged' })
+    assert.equal(st.violations.length, 0, 'staged 档对干净三面报红 ⇒ 恒红门')
+    assert.equal(st.utilStock.length, 0, '干净夹具不得有 util 存量读数')
+  } finally {
+    rmScratch(dir)
+  }
+  // 两面旗同给 ⇒ 拒判返 2(不选边、不回落、不静默按其中一个面跑)
+  assert.equal(await gate.main(['--staged', '--worktree']), 2, '--staged 与 --worktree 同给必须返 2')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

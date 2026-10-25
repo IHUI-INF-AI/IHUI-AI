@@ -30,6 +30,7 @@ import {
   type ServeSettingsConfig,
 } from '../config/credentials.js';
 import { DEFAULT_SANDBOX_PROFILE, type SandboxProfile } from '../config/sandbox-profile.js';
+import type { ApprovalPolicySpec, SandboxModeId } from '@ihui/types';
 
 export interface SandboxSettings {
   /** 沙盒预设 profile,优先级低于显式配置的字段 */
@@ -41,6 +42,19 @@ export interface SandboxSettings {
   commandAllowlist?: string[] | null;
   /** 屏蔽的环境变量名(子进程不会继承这些变量) */
   blockedEnvVars?: string[];
+}
+
+/**
+ * config profile 的顶层键子集(Codex `[profiles.NAME]` 同形)。
+ *
+ * 取值与语义解析的**唯一实现**在 `@ihui/types` 的 `resolveConfigProfileAxis`
+ * (与 Python 侧 permission_axis.py 逐字对账);本类型只声明"可以写哪些键",
+ * 不在 CLI 侧重述取值域或默认档 —— 第二份判定必然漂移(§0.6)。
+ */
+export interface ConfigProfileSettings {
+  sandbox_mode?: string;
+  approval_policy?: string | { granular?: Record<string, boolean> };
+  model?: string;
 }
 
 export interface Settings {
@@ -76,6 +90,24 @@ export interface Settings {
   auditEnabled?: boolean;
   /** 沙盒配置 */
   sandbox?: SandboxSettings;
+  /**
+   * 权限双轴(79 号票)沙箱轴:`read-only | workspace-write | danger-full-access`。
+   *
+   * 缺省不填 ⇒ 由 `sandbox.profile` 的本地档派生(默认档 `limited` ⇒ `workspace-write`);
+   * 显式给了就用它,认不出 ⇒ 落 `read-only`(最严)并打一行喊话 —— 装配与判定见
+   * `sandbox/permission-axis-runtime.ts`(取值域/别名/默认值的唯一真相源在 @ihui/types)。
+   * 安全敏感键:项目层(`<cwd>/.ihui/settings.json`)无权写入,见 config/layer-policy.ts。
+   */
+  sandboxMode?: SandboxModeId;
+  /** 权限双轴(79 号票)审批轴:四值字符串或 `{ granular: {…} }`;缺省 ⇒ on-request。 */
+  approvalPolicy?: ApprovalPolicySpec;
+  /** 选中的 config profile 名(Codex `profile = "NAME"` 同义),从 `profiles` 里取。 */
+  profile?: string;
+  /**
+   * 命名的组合档:每个 key 是 Codex `[profiles.NAME]` 的顶层键子集,加载后落到**同一对**
+   * 双轴字段(sandboxMode/approvalPolicy),不另立第三套语义;`model` 只做存在性放行。
+   */
+  profiles?: Record<string, ConfigProfileSettings>;
   /** 允许危险工具自动执行 */
   allowDangerous?: boolean;
   /** YOLO 逃生舱档位(与 IHUI_YOLO 环境变量、bypassPermissions 为 OR 语义,判定入口见 tools/command-policy/ 的 `isAutoApprovableCommand(input, { yolo })`) */

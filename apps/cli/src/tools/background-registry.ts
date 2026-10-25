@@ -764,6 +764,145 @@ export function registerFailedTask(command: string, errorMessage: string): strin
   return id;
 }
 
+// ==================== G-272 重臂复位:结算面 / 身份面 / 新生面 ====================
+
+/**
+ * 重臂(同一 id 在**终态**条目上开新的一轮)时每个字段的去向 —— 唯一真相源。
+ *
+ * 上游锚点 `apps/zcode-cli/packages/core/src/tool/executor/background-task-registry.ts:56-116`
+ * (外部参照,不在本仓):同一 id 在终态条目上重开时只重置**结算面**
+ * `notified/completedAt/error/exitCode/resultText/pid/stopInitiator`,而**身份面**
+ * `agentId/parentToolCallId/turnId/description/startedAt` 保留。我方没有
+ * `parentToolCallId/turnId`,身份面的等价载体 = `ownerAgentId`(agentId)+ `command`
+ * (description)+ `startedAt` + 登记期就定死的 worktree 归属。
+ *
+ * 三档语义(缺一不可,逐档都有用例):
+ *  - `preserve` 身份面:逐字取上一世。丢了它,新生命的等待者会把通知投给别的 agent
+ *    (`ownerAgentId` 决定级联归属),或者把新命令挂到旧描述上 —— 复位复错人比不清账更糟。
+ *  - `reset` 结算面:无条件重置到构造初值。不复位 `notified` ⇒ 新生命**永不投递**
+ *    (票面两型失败的第二种);不复位 status/exitCode ⇒ 新生命一出生就是"已结束"。
+ *  - `renew` 新生面:`identity` 必须换代(旧代的迟到终态否则会被代际门当成"归属成立",
+ *    先吃掉新生命的 claim = 票面两型失败的第一种);`branchGeneration` 重盖当下代
+ *    (旧代戳会把新生命的播报拦成 `stale_branch_dropped`,又一条"永不投递"的通道);
+ *    `process` 取新句柄(旧句柄已在上一世 close 时置空)。
+ *
+ * `satisfies Record<keyof BackgroundTask, ...>` 是编译期的牙齿:新增字段不归面 ⇒ typecheck 红,
+ * 而不是让"逐字段复位"悄悄变窄(`BackgroundTaskSnapshot` 的 Pick 清单同一条纪律)。
+ */
+export const BACKGROUND_TASK_REARM_FACE = {
+  // 身份面:逐字保留上一世
+  id: 'preserve',
+  command: 'preserve',
+  startedAt: 'preserve',
+  ownerAgentId: 'preserve',
+  worktreePath: 'preserve',
+  worktreeSourcePath: 'preserve',
+  // 新生面:取这一世的新值
+  identity: 'renew',
+  branchGeneration: 'renew',
+  process: 'renew',
+  // 结算面:重置到构造初值
+  status: 'reset',
+  exitedAt: 'reset',
+  exitCode: 'reset',
+  stdoutBuf: 'reset',
+  stderrBuf: 'reset',
+  stdoutHead: 'reset',
+  stderrHead: 'reset',
+  totalStdoutChars: 'reset',
+  totalStderrChars: 'reset',
+  truncated: 'reset',
+  droppedStdoutBytes: 'reset',
+  droppedStderrBytes: 'reset',
+  timedOut: 'reset',
+  stopInitiator: 'reset',
+  notified: 'reset',
+  settledBy: 'reset',
+} as const satisfies Record<keyof BackgroundTask, 'preserve' | 'reset' | 'renew'>;
+
+export type BackgroundTaskRearmRejection = 'not-terminal' | 'id-mismatch' | 'generation-not-renewed' | 'not-live';
+
+/**
+ * 重臂的结论:成功档交出**新条目**(已在注册表原位替换),四档拒绝互不相通 ——
+ * 与 `GuardedRemovalOutcome` 同一条纪律:不许把"没重臂"塌成"重臂了但看不出来"。
+ * 拒绝档一律原样交回**上一世条目**,调用方据此断言"整块没动"。
+ */
+export type RearmBackgroundTaskOutcome =
+  | { rearmed: true; task: BackgroundTask }
+  | { rearmed: false; reason: BackgroundTaskRearmRejection; task: BackgroundTask };
+
+/**
+ * G-272 **按面分域的重臂复位**:输入上一世条目与新一世条目,输出
+ * 「身份面逐字保留 + 结算面重置到初值 + 新生面取新值」,并在注册表**原位替换**
+ * (旧一世的等待者先以 `null` 结掉,不留吊死).
+ *
+ * 四条拒绝档(每条都有用例,不许并成一档):
+ *  - `not-terminal` —— 上一世还在跑。人还在写自己的结算面,复位它就是伪造账面
+ *    (票面③"非重臂的同 blob 重挂载不得改任何字段"的反向锁);
+ *  - `id-mismatch` —— 两枚不是同一个 key。身份面只能从"同一个任务"的上一世搬;
+ *  - `generation-not-renewed` —— 新世没换代。`identity` 相同 ⇒ 上一世的迟到终态会被
+ *    代际门当成归属成立,先消耗新世的 claim(票面两型失败之一);
+ *  - `not-live` —— 在册那一代已不是上一世(被换人/被裁)。不覆盖、不复活。
+ *
+ * fail-closed 取向:身份面的可选字段在上一世缺失时才回退到这一世给的值(方向恒为
+ * "不清空" —— 丢 `ownerAgentId` 会让通知与级联归属错人);表里没有的未知键(运行时
+ * 扩展字段)按旧值原样带上,不静默丢。
+ */
+export function rearmBackgroundTask(previous: BackgroundTask, incoming: BackgroundTask): RearmBackgroundTaskOutcome {
+  if (!isTerminalStatus(previous.status)) return { rearmed: false, reason: 'not-terminal', task: previous };
+  if (incoming.id !== previous.id) return { rearmed: false, reason: 'id-mismatch', task: previous };
+  if (typeof incoming.identity !== 'string' || incoming.identity === '' || incoming.identity === previous.identity) {
+    return { rearmed: false, reason: 'generation-not-renewed', task: previous };
+  }
+  const live = tasks.get(previous.id);
+  if (!live || live.identity !== previous.identity) return { rearmed: false, reason: 'not-live', task: previous };
+
+  const rearmed: BackgroundTask = {
+    // 身份面:逐字保留上一世(可选字段缺失时才取这一世,绝不清空)
+    id: previous.id,
+    command: previous.command,
+    startedAt: previous.startedAt,
+    ownerAgentId: previous.ownerAgentId ?? incoming.ownerAgentId,
+    worktreePath: previous.worktreePath ?? incoming.worktreePath,
+    worktreeSourcePath: previous.worktreeSourcePath ?? incoming.worktreeSourcePath,
+    // 新生面:世代号 / 分支代 / 进程句柄必须是这一世的,绝不继承旧世
+    identity: incoming.identity,
+    branchGeneration: Number.isFinite(incoming.branchGeneration)
+      ? incoming.branchGeneration
+      : currentBranchGeneration(),
+    process: incoming.process ?? null,
+    // 结算面:构造初值(与 registerTask 同口径)。**不取 incoming 的值** ——
+    // 脏的 incoming 不许把上一世的"已投递/已结束"带回新生命。
+    status: 'running',
+    exitedAt: undefined,
+    exitCode: undefined,
+    stdoutBuf: '',
+    stderrBuf: '',
+    stdoutHead: '',
+    stderrHead: '',
+    totalStdoutChars: 0,
+    totalStderrChars: 0,
+    truncated: false,
+    droppedStdoutBytes: 0,
+    droppedStderrBytes: 0,
+    timedOut: false,
+    stopInitiator: undefined,
+    notified: false,
+    settledBy: undefined,
+  };
+  // fail-closed 兜底:分域表里没有的键(运行时扩展字段)按旧值原样带上,不静默丢。
+  for (const key of Object.keys(previous) as Array<keyof BackgroundTask>) {
+    if (!(key in BACKGROUND_TASK_REARM_FACE)) {
+      (rearmed as unknown as Record<string, unknown>)[key] = previous[key];
+    }
+  }
+  // 先结旧桶再换人:上一世还挂着的等待者以 null 收场(新一世不替旧一世交付,旧一世也不吊死
+  // 等待者);顺序反过来会让 waitForTask 在一个已不在册的世代上收到投递。
+  dropSettleBucketGuarded(previous.id, previous.identity);
+  tasks.set(previous.id, rearmed);
+  return { rearmed: true, task: rearmed };
+}
+
 export function getTask(id: string): BackgroundTask | null {
   return tasks.get(id) ?? null;
 }
