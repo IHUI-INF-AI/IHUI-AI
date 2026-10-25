@@ -15,6 +15,8 @@
  * 三条判据(互不重叠,各有正反用例):
  *   DN1 生成块齐备性 —— README.md 必须有 `BLOCK_BEGIN…BLOCK_END` 的派生块,块内每个取数键的
  *       数值必须与现算值逐字相等;块不在 = 没有对账对象 ⇒ 红并给出生成命令。
+ *       例外:`VOLATILE_KEYS`(如 `trackedFiles`)是纯计数快照、随任意提交漂移且散文无声明,
+ *       其 mismatch 只写进 `drifts` 报数、不判红(结构性防恒红,详见该常量注释)。
  *   DN2 散文里的同一数字 —— 块**外**凡是命中某指标措辞的数字,必须等于现算值。这条才是门牙:
  *       光有生成块,别人照样能在正文里写一个旧数("542 张表"就是这么活的)。
  *       措辞表是**封闭集**(CLAIMS),刻意不做相似度匹配 —— 认不准的宁可判"未判定"也不猜。
@@ -68,6 +70,17 @@ export const UPDATES_END = '<!-- END RECENT UPDATES -->'
 export const SELF_SKIP = 'HUSKY_SKIP_DOC_NUMBERS'
 /** 带对外数字、必须被审的文档(新增一份就加一行,别在别处再抄清单) */
 export const AUDITED_DOCS = ['README.md', 'README.en.md']
+
+/**
+ * DN1 里**纯计数、永不出现在散文、且随任意提交漂移**的键 —— 这类数字没有"声明语义",
+ * 只是仓库当前状态的快照。例如 `trackedFiles` = 当前被 git 跟踪的文件总数,每加一个文件就 +1;
+ * 派生块里的数值由 doc-auto-update 钩子按提交时刻重算,必然比 gate 现算值慢若干拍。
+ * 若把它们当硬判据,gate 在 accountability 档(--strict/--worktree,以及碰巧改了 README 的
+ * 普通提交)会**结构性恒红** ⇒ 逼人 `--no-verify` 连带废掉全部守门(与 §12e 同型,正是本门
+ * 立门要消灭的根因)。所以这些键 mismatch 时只写进 `drifts`(报数),不进 `problems`,不影响
+ * exit 0。其余键(`testFiles`/`apiRoutes` 在散文里有真声明)一律照旧硬判,失配仍红。
+ */
+export const VOLATILE_KEYS = new Set(['trackedFiles'])
 
 /**
  * DN2 的措辞表:**封闭集**,每条都带 `pick` 从捕获组里挑那个数字。
@@ -302,13 +315,14 @@ export function findStaleClaims(text, numbers, { blockBegin = BLOCK_BEGIN, block
  * 若候选只从散文里数,它会被 `decide` 判成"尺子失明"(exit 2),那是把合规当成故障。
  * @returns {{ok:boolean, problems:string[], checked:number}}
  */
-export function checkGeneratedBlock(text, numbers) {
+export function checkGeneratedBlock(text, numbers, { volatile = VOLATILE_KEYS } = {}) {
   const problems = []
+  const drifts = []
   const b = text.indexOf(BLOCK_BEGIN)
   const e = text.indexOf(BLOCK_END)
   if (b < 0 || e < 0 || e < b) {
     problems.push(`缺生成块(或块结束标记在开始标记之前):跑 \`node scripts/gen-doc-numbers.mjs --markdown\` 生成后粘进 README`)
-    return { ok: false, problems, checked: 0 }
+    return { ok: false, problems, drifts, checked: 0 }
   }
   const block = text.slice(b, e)
   let checked = 0
@@ -321,9 +335,12 @@ export function checkGeneratedBlock(text, numbers) {
     }
     checked += 1
     const got = toInt(row[1])
-    if (got !== numbers[key]) problems.push(`生成块 \`${key}\` = ${got},现算 ${numbers[key]}`)
+    if (got !== numbers[key]) {
+      if (volatile.has(key)) drifts.push(`生成块 \`${key}\` = ${got},现算 ${numbers[key]}(volatile:仅报数不判红)`)
+      else problems.push(`生成块 \`${key}\` = ${got},现算 ${numbers[key]}`)
+    }
   }
-  return { ok: problems.length === 0, problems, checked }
+  return { ok: problems.length === 0, problems, drifts, checked }
 }
 
 /** DN3:仓库简介里出现的数字与现算值逐条判等。纯函数。 */
@@ -602,6 +619,26 @@ export function selfTest() {
     'S24b 英文支假阳护栏:test files 下限≥3 位,裸 "WebSocket endpoints" 不算声明',
     s24b.checked === 0 && s24b.violations.length === 0,
   )
+  // S25 volatile:trackedFiles 漂移只报数不判红(结构性防恒红;trackedFiles 是纯文件计数,
+  // 随任意提交漂移,散文里无对应声明,失败只逼人 --no-verify 连带废掉全部守门)。
+  //    构造一份**完整**派生块(覆盖 ORDER 全部键),仅 trackedFiles 故意写错 ⇒ 其余键不得误报。
+  const volNumbers = { ...numbers, trackedFiles: 1000 }
+  for (const k of ORDER) if (!Number.isFinite(volNumbers[k])) volNumbers[k] = 1
+  const blockOf = (mutate) =>
+    `${BLOCK_BEGIN}\n` +
+    ORDER.filter((k) => Number.isFinite(volNumbers[k]))
+      .map((k) => `| ${k} | ${mutate ? mutate(k, volNumbers[k]) : volNumbers[k]} | \`${k}\` |`)
+      .join('\n') +
+    `\n${BLOCK_END}`
+  const volBlock = blockOf((k, v) => (k === 'trackedFiles' ? v + 7 : v))
+  const volG = checkGeneratedBlock(volBlock, volNumbers)
+  ok(
+    'S25 volatile(trackedFiles)漂移 ⇒ 不进 problems、ok=true、drifts 记一笔',
+    volG.ok === true && volG.problems.length === 0 && volG.drifts.length === 1,
+  )
+  // S25b 反向护栏:非 volatile 键(dbTables)漂移仍照判红(收窄不能把门关掉)
+  const nonVolBlock = blockOf((k, v) => (k === 'dbTables' ? v + 1 : v))
+  ok('S25b 非 volatile(dbTables)漂移 ⇒ 仍判红', !checkGeneratedBlock(nonVolBlock, volNumbers).ok)
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -644,6 +681,7 @@ function main(argv) {
   const undetermined = [...(derived.undetermined ?? [])]
   const violations = []
   const blockProblems = []
+  const blockDrifts = []
   const descProblems = []
   let candidates = 0
 
@@ -666,16 +704,18 @@ function main(argv) {
   const driftDocs = []
   for (const [rel, text] of docsText) {
     const r = findStaleClaims(text, derived.numbers)
-    const g = rel === 'README.md' ? checkGeneratedBlock(text, derived.numbers) : { ok: true, problems: [], checked: 0 }
+    const g = rel === 'README.md' ? checkGeneratedBlock(text, derived.numbers) : { ok: true, problems: [], drifts: [], checked: 0 }
     if (!judgeAll && !touched.includes(rel)) {
-      const n = r.violations.length + g.problems.length + (r.danglingBlock ? 1 : 0)
+      const n = r.violations.length + g.problems.length + g.drifts.length + (r.danglingBlock ? 1 : 0)
       if (n > 0) driftDocs.push({ rel, n })
+      if (g.drifts.length > 0) blockDrifts.push(...g.drifts.map((p) => `${rel}:${p}`))
       continue
     }
     candidates += r.checked + g.checked
     for (const v of r.violations) violations.push({ ...v, file: rel })
     if (r.danglingBlock) blockProblems.push(`${rel}:生成块未闭合(有 begin 无 end)`)
     if (!g.ok) blockProblems.push(...g.problems.map((p) => `${rel}:${p}`))
+    if (g.drifts.length > 0) blockDrifts.push(...g.drifts.map((p) => `${rel}:${p}`))
   }
 
   const descArg = readArg(argv, '--description')
@@ -719,6 +759,7 @@ function main(argv) {
   for (const v of violations)
     console.log(`❌ ${v.file}:${v.line} \`${v.key}\` 写着 ${v.found},现算 ${v.want} —— ${v.excerpt}`)
   for (const p of blockProblems) console.log(`❌ ${p}`)
+  for (const p of blockDrifts) console.log(`⚠️ ${p}`)
   for (const p of descProblems) console.log(`❌ ${p}`)
   for (const u of undetermined) console.log(`⚠️ 未判定 ${u.key}:${u.reason}`)
   console.log(
