@@ -180,7 +180,6 @@ interface BusinessSnapshot {
   llmTopModels: Array<{ model: string; calls: number }>
   /** 签到快照:后端取不到时为 null(渲染"—"),老版本后端无此字段(undefined 同样走"—") */
   signIn?: SignInSnapshot | null
-<<<<<<< HEAD
   /** 近 14 日每日新增用户(上海日界,含今天);后端查询失败或老后端无此字段 ⇒ null/undefined */
   userGrowth?: Array<{ date: string; count: number }> | null
   /** 用户构成(与 usersTotal 同一次查询的即时计数;老后端无这些字段 ⇒ undefined ⇒ 渲染"—") */
@@ -192,8 +191,6 @@ interface BusinessSnapshot {
   usersByLevel?: [number, number, number, number]
   /** 近 7 日签到去重用户数(留存近似);查询失败为 null */
   activeUsers7d?: number | null
-=======
->>>>>>> origin/main
 }
 
 interface TrafficSnapshot {
@@ -2191,7 +2188,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <StatCell label={t('usersActive')} value={fmtInt(biz?.usersActive)} />
                 <StatCell label={t('usersNewToday')} value={fmtInt(biz?.usersTodayNew)} tone="ok" />
               </div>
-<<<<<<< HEAD
               {/* 用户构成(2026-10-25 机主要求"更多有用的数据"):VIP / 操盘手 / 邀请注册 /
                   近 7 日邀请 / 近 7 日活跃。全部与 usersTotal 同一次查询的 filter 计数 ⇒ 零额外开销;
                   老后端无这些字段 ⇒ 各自渲染"—"(§0.3 不把"没量到"写成 0)。 */}
@@ -2227,8 +2223,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <ChartEmpty text={t('sourceUnreachable')} />
                 ) : null}
               </div>
-=======
->>>>>>> origin/main
               {/* 签到:数据来自 sign_in_records(与积分体系同源);取不到 ⇒ 各格渲染"—",不写 0 */}
               <div className="mt-2">
                 <div className="mb-1.5 flex items-center gap-2 text-[10px] tracking-[0.14em] text-muted-foreground">
