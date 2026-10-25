@@ -505,6 +505,31 @@
       "shared": "packages/app/src/features/privacy/PrivacyScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PrivacyScreen.tsx",
       "miniapp": "pkg-about/about/privacy"
+    },
+    {
+      "shared": "packages/app/src/features/message-center/MessageCenterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageCenterScreen.tsx",
+      "miniapp": "pkg-user/message/index"
+    },
+    {
+      "shared": "packages/app/src/features/profile/ProfileScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ProfileScreen.tsx",
+      "miniapp": "pkg-user/user/profile"
+    },
+    {
+      "shared": "packages/app/src/features/topup-success/TopupSuccessScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TopupSuccessScreen.tsx",
+      "miniapp": "pkg-shop/vip/success"
+    },
+    {
+      "shared": "packages/app/src/features/withdraw/WithdrawScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WithdrawScreen.tsx",
+      "miniapp": "pages/distribution/withdraw"
+    },
+    {
+      "shared": "packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WrongQuestionsScreen.tsx",
+      "miniapp": "pages/exam/wrong-list/index"
     }
   ]
 }
