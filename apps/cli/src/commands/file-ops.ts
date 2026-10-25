@@ -292,6 +292,9 @@ export async function cmdBash(workspacePath: string, command: string, checkpoint
     console.info(chalk.yellow(`  💡 可用 /rollback ${autoCheckpointId} 回滚到此检查点`))
   }
 
+  // G-424 有意不接:cmdBash 是 REPL `/bash` 直达命令(repl.ts 调用,不经 runToolLoop/
+  // executeToolCall 装配链),签名只有 workspacePath/command/checkpoints——当前没有可传的
+  // signal 源;上方 pre 钩子(258 行)同理。形状锁见 tests/g-424-tool-hook-cancel-leg.test.ts ⑤。
   const postResult = await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut })
   if (!postResult.proceed) {
     console.info(chalk.yellow(`⚠ ${postResult.reason}`))
