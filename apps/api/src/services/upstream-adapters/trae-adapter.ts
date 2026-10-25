@@ -42,6 +42,9 @@ import type {
 } from '../relay-upstream-adapters.js'
 import {
   buildExchangeTokenBody,
+  buildExchangeTokenProofBody,
+  deviceMaterialFromSecrets,
+  TRAE_EXCHANGE_TOKEN_PROOF_URL,
   buildQueryBlocks,
   buildTraeCustomModel,
   createStopSequenceFilter,
@@ -694,11 +697,14 @@ export const traeAdapter: RelayUpstreamAdapter = {
   },
 
   /**
-   * Token 刷新,两条通道:
+   * Token 刷新,三条通道:
    * 1. web 号(cookie 换票):账号有 cookies → POST GetUserToken(纯靠 Cookie,无 body 无
    *    Authorization),换出 ~6h 新 JWT。线上实证通道,web 号(无 refreshToken)的唯一续命方式。
-   * 2. IDE 号(ExchangeToken):有 refreshToken → 原通道。
-   * cookie 路径失败且有 rt → 落回 ExchangeToken;两条都不可用 → null;HTTP 失败 → 抛错(调度器计数摘除)。
+   * 2. IDE 号 · 设备证明档:账号带设备材料(deviceId + secrets 里的密钥对)→ 走新版
+   *    ExchangeToken(DeviceProof 签名)。桌面渠道签发的票只认这条路 —— 2026-10-25 实测:
+   *    旧通道对桌面票恒回 10101 "refresh token is not matched to the client"。
+   * 3. IDE 号·旧通道:无设备材料时的原 ExchangeToken(web 渠道票)。
+   * cookie 路径失败且有 rt → 落回 IDE 通道;两条都不可用 → null;HTTP 失败 → 抛错(调度器计数摘除)。
    * opts.proxyUrl 非空时走账号级代理(与 chat 同出口 IP,防 Trae 风控因 IP 漂移触发校验)。
    */
   async refreshToken(
@@ -742,6 +748,37 @@ export const traeAdapter: RelayUpstreamAdapter = {
       }
     }
     if (!rt) return null
+    const material = deviceMaterialFromSecrets(
+      ctx.credentials.secrets,
+      ctx.row.deviceId,
+      ctx.row.machineId,
+    )
+    if (material) {
+      const resProof = await doFetch(TRAE_EXCHANGE_TOKEN_PROOF_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-cloudide-token': '' },
+        body: JSON.stringify(buildExchangeTokenProofBody({ ...material, refreshToken: rt })),
+      })
+      if (resProof.ok) {
+        const body: unknown = await resProof.json().catch(() => null)
+        const payload = extractTokenPayload(body)
+        if (!payload) throw new Error('Trae ExchangeToken(设备证明) 响应无 Token')
+        return {
+          token: payload.token,
+          refreshToken: payload.refreshToken,
+          expiresAt: payload.expiresAt ?? null,
+        }
+      }
+      const text = await resProof.text().catch(() => '')
+      // 10101(rt 与客户端不匹配)/ 20403(设备与票不匹配):设备材料救不了这枚票,
+      // 落回旧通道让错误以原口径暴露(不吞成未判定);其余 HTTP 错直接抛,由调度器计数。
+      if (!/10101|20403/.test(text)) {
+        throw new TraeUpstreamError(
+          resProof.status,
+          `Trae ExchangeToken(设备证明) 失败(HTTP ${resProof.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
+        )
+      }
+    }
     const res = await doFetch(TRAE_EXCHANGE_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

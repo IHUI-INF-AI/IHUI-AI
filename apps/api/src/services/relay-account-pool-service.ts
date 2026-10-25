@@ -54,6 +54,9 @@ export interface ImportAccountInput {
   refreshToken?: string
   deviceId?: string
   machineId?: string
+  /** 设备证明材料(Trae 桌面渠道续票必需;密钥对进 secretsEnc,两个都给才生效) */
+  deviceKeyPem?: string
+  devicePubPem?: string
   enabled?: boolean
   cookies?: unknown[]
   /** 账号级出口代理(可选) */
@@ -106,6 +109,19 @@ interface CodeartsImportMapping {
 
 function cstr(v: unknown): string {
   return typeof v === 'string' ? v.trim() : ''
+}
+
+/**
+ * Trae 设备材料 → secrets(2026-10-25 立):新版 ExchangeToken 用设备私钥签名
+ * 换票,桌面客户端签发的票只认这条路。只收"两个 PEM 都在"的完整材料,
+ * 缺一半视同没有(adapter 会退回旧通道)。token/refreshToken/uid 走原路径,
+ * 不参与映射(避免与 opaque token 平台的分支语义混淆)。
+ */
+function mapTraeImport(acc: ImportAccountInput): { secrets: Record<string, unknown> } | null {
+  const keyPem = cstr(acc['deviceKeyPem'])
+  const pubPem = cstr(acc['devicePubPem'])
+  if (!keyPem || !pubPem) return null
+  return { secrets: { deviceKeyPem: keyPem, devicePubPem: pubPem } }
 }
 
 /** DPoP 私钥既可能是 JWK 对象也可能是 JSON 字符串,统一解析为对象 */
@@ -277,6 +293,8 @@ export async function importAccounts(
           : providerCode === 'qoder'
             ? mapQoderImport(acc)
             : null
+      // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
+      const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       if (!accName && mapped?.name) displayName = mapped.name
       if ((providerCode === 'codearts' || providerCode === 'qoder') && !mapped) {
         result.failed++
@@ -367,7 +385,11 @@ export async function importAccounts(
         refreshTokenEnc: refreshToken ? encryptField(refreshToken) : null,
         cookiesEnc: cookies.length > 0 ? encryptField(JSON.stringify(cookies)) : null,
         secretsEnc:
-          mapped && 'secrets' in mapped ? encryptField(JSON.stringify(mapped.secrets)) : null,
+          mapped && 'secrets' in mapped
+            ? encryptField(JSON.stringify(mapped.secrets))
+            : traeSecrets
+              ? encryptField(JSON.stringify(traeSecrets.secrets))
+              : null,
         deviceId:
           typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId.slice(0, 128) : null,
         machineId:
