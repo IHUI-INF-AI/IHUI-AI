@@ -104,7 +104,13 @@ export function AccountCancelScreen({
         </TouchableOpacity>
       </ScrollView>
 
-      <Modal visible={showConfirmModal} transparent animationType="fade">
+      {/* 安卓返回键与"取消"按钮同语义关窗(缺 onRequestClose 时返回键会穿透弹"确认退出应用") */}
+      <Modal
+        visible={showConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={onCloseModal}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>确认注销</Text>
