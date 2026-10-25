@@ -261,7 +261,11 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
               // 401 = 新凭据也被拒(会话真死,结束本地会话、不落登出标记);网络/5xx = 瞬时。
               // 顺带堵住原漏洞:`!cancelled && success` 的 else 会把「已卸载」也当失败
               // 走 expireSession()(StrictMode/布局切换卸载时误杀自动登录)。
-              if (shouldExpireSession(classifyRefreshFailureStatus(retry.status))) {
+              const retryFailure = classifyRefreshFailureStatus(
+                retry.status,
+                retry.success ? undefined : retry.errorCode,
+              )
+              if (shouldExpireSession(retryFailure)) {
                 expireSession()
               } else {
                 console.info(

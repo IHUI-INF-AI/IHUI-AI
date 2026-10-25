@@ -34,6 +34,8 @@ import {
   classifyRefreshFailureStatus,
   SESSION_LOGGED_OUT_STORAGE_KEY,
 } from '@ihui/shared/auth/auto-login-policy'
+// 2026-10-26:子路径而非包根 —— 端内多处把 '@ihui/shared/auth' 整体 mock,
+// 新增导出从包根取会撞 mock;判据/工具模块一律走各自的子路径出口。
 import { createTokenAutoRefresh, type TokenAutoRefreshHandle } from '@ihui/shared/auth/auto-refresh'
 
 import { ACCOUNT_SCOPED_CONTENT_KEYS } from '@/constants/storage'
@@ -344,7 +346,10 @@ export async function refreshAccessToken(): Promise<string | null> {
     },
   )
   if (!res.success) {
-    if (classifyRefreshFailureStatus(res.status) === 'transient') throw new TransientRefreshError()
+    // 2026-10-26:陈旧副本(stale-sibling)回 401 但服务端未否定凭据 ⇒ 按瞬时失败处理
+    if (classifyRefreshFailureStatus(res.status, res.errorCode) === 'transient') {
+      throw new TransientRefreshError()
+    }
     return null
   }
   if (res.data?.accessToken) {

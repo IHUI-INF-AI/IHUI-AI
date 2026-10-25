@@ -413,11 +413,22 @@ export interface ScopeUsageLiveRow {
   uv: number
 }
 
+/** 端标识:web 端写裸路径,RN 写 `/rn/*`,小程序写 `/mp/*`(见各端埋点模块头注)。 */
+export type VisitPlatform = 'web' | 'rn' | 'mp'
+
+export interface PlatformUsageLiveRow {
+  platform: VisitPlatform
+  pv: number
+  uv: number
+}
+
 export interface PageUsageLiveSnapshot {
   /** 近 24h PV 最高的页面(降序,最多 PAGE_USAGE_TOP_N 条) */
   top: PageUsageLiveRow[]
   /** 近 24h 各访问面的 PV/UV —— 回答"后台/登录页各被用了多少次" */
   scopes: ScopeUsageLiveRow[]
+  /** 近 24h 各端 PV/UV(web / RN / 小程序);分桶靠 url 前缀,与各端埋点约定一致 */
+  platforms: PlatformUsageLiveRow[]
   /** 近 24h 同口径总 PV(前端算占比) */
   totalPv: number
   computedAtMs: number
@@ -436,7 +447,12 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
   const pvExpr = sql<number>`count(*)::int`
   const uvExpr = sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`
   const scopeExpr = scopeCaseSql()
-  const [topRows, scopeRows] = await Promise.all([
+  const pathCol = sql<string>`coalesce(${visitLogs.url}, '')`
+  const platformExpr = sql<VisitPlatform>`case
+    when ${pathCol} like '/mp/%' then 'mp'
+    when ${pathCol} like '/rn/%' then 'rn'
+    else 'web' end`
+  const [topRows, scopeRows, platformRows] = await Promise.all([
     db
       .select({ url: visitLogs.url, pv: pvExpr, uv: uvExpr })
       .from(visitLogs)
@@ -450,6 +466,12 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
       .where(inWindow)
       .groupBy(scopeExpr)
       .orderBy(sql`count(*) desc`),
+    db
+      .select({ platform: platformExpr, pv: pvExpr, uv: uvExpr })
+      .from(visitLogs)
+      .where(inWindow)
+      .groupBy(platformExpr)
+      .orderBy(sql`count(*) desc`),
   ])
   return {
     top: topRows.map((r) => ({
@@ -460,6 +482,11 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
     })),
     scopes: scopeRows.map((r) => ({
       scope: r.scope,
+      pv: Number(r.pv ?? 0),
+      uv: Number(r.uv ?? 0),
+    })),
+    platforms: platformRows.map((r) => ({
+      platform: r.platform,
       pv: Number(r.pv ?? 0),
       uv: Number(r.uv ?? 0),
     })),

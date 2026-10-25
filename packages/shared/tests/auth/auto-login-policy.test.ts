@@ -18,6 +18,7 @@ import {
   shouldAttemptAutoLogin,
   shouldExpireSession,
   classifyRefreshFailureStatus,
+  REFRESH_TOKEN_STALE_ERROR_CODE,
   SESSION_LOGGED_OUT_STORAGE_KEY,
 } from '../../src/auth/auto-login-policy'
 
@@ -114,6 +115,18 @@ describe('classifyRefreshFailureStatus(刷新失败分型)', () => {
     expect(classifyRefreshFailureStatus(400)).toBe('transient')
     expect(classifyRefreshFailureStatus(404)).toBe('transient')
     expect(classifyRefreshFailureStatus(429)).toBe('transient')
+  })
+
+  it('陈旧副本(REFRESH_TOKEN_STALE)虽随 401 到达,但服务端未否定凭据 ⇒ 瞬时、不结束会话', () => {
+    // 2026-10-26:后端 stale-sibling 只拒绝本次、不吊销家族;按 401 判 rejected 会清 vault /
+    // 结束会话 —— 一次多窗口轮转竞态就变成"偶发要重登"。
+    expect(classifyRefreshFailureStatus(401, REFRESH_TOKEN_STALE_ERROR_CODE)).toBe('transient')
+    expect(
+      shouldExpireSession(classifyRefreshFailureStatus(401, REFRESH_TOKEN_STALE_ERROR_CODE)),
+    ).toBe(false)
+    // 对照:同状态码但没有该错误码仍是 rejected(判据没有被放宽)
+    expect(classifyRefreshFailureStatus(401)).toBe('rejected')
+    expect(classifyRefreshFailureStatus(401, 'SOME_OTHER_CODE')).toBe('rejected')
   })
 })
 
