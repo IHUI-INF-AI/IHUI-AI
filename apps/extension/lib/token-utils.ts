@@ -57,7 +57,11 @@ export async function doRefresh(): Promise<boolean> {
       // transient(网络/超时/5xx/无 status)= 服务暂不可用,凭据没死 → 抛 TransientRefreshError,
       // 不清 token(refreshViaExtensionStore → refreshAccessTokenOnce 会 catch 住进冷却并置
       // wasLastRefreshTransient);rejected(401/403)才维持既有处置:清 token + false。
-      if (classifyRefreshFailureStatus(res.status) === 'transient') {
+      // 2026-10-26:陈旧副本(stale-sibling)回 401 但服务端未否定凭据 ⇒ 按瞬时失败处理
+      if (
+        classifyRefreshFailureStatus(res.status, res.success ? undefined : res.errorCode) ===
+        'transient'
+      ) {
         throw new TransientRefreshError()
       }
       await clearAllTokens()
