@@ -113,7 +113,9 @@ describe('business-card routes — /api/business-card/*', () => {
 
   it('GET /business-card/:id 存在 → 200 + viewCount +1', async () => {
     mockAuthed()
-    enqueue([{ id: CARD_ID, userId: USER_ID, name: '张三', viewCount: 5, isPublic: true }])
+    // viewCount 自增已下沉到 DB(UPDATE … SET view_count = view_count + 1 … RETURNING),
+    // 桩不执行 SQL ⇒ 必须直接回放入库后的读数;断言仍是“返回 6”而非“原值 5”。
+    enqueue([{ id: CARD_ID, userId: USER_ID, name: '张三', viewCount: 6, isPublic: true }])
     const res = await server.inject({
       method: 'GET',
       url: `${PREFIX}/business-card/${CARD_ID}`,

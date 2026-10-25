@@ -10,6 +10,7 @@
     "ModelConfigDialog": 6,
     "ModelList": 6,
     "NavBar": 7,
+    "ScreenStates": 1,
     "UserInfoCard": 4,
     "VideoPlayer": 5,
     "VoiceInput": 8
@@ -25,6 +26,7 @@
     "ModelConfigDialog": 0,
     "ModelList": 1,
     "NavBar": 1,
+    "ScreenStates": 0,
     "UserInfoCard": 1,
     "VideoPlayer": 0,
     "VoiceInput": 3
@@ -131,7 +133,7 @@
       "until": "2027-03-27"
     },
     "ScreenStates": {
-      "reason": "两端具名体系不同形:RN 用 StyleSheet 键(gridThumb/skeletonAvatar/skeletonRow/stateGlyphCircle…),小程序用 CSS 类名(ihui-sk-*/ihui-state-*)⇒ RE 维现读两侧无一同名元素,本维零判据(报告 ⊘ RE ScreenStates 行)。文件级档差 6 处逐条核过:①小程序 200 = .ihui-state 的 min-height 400rpx,是单端小屏居中下限(RN 端靠宿主 flex:1,无同元素),不属同元素双值;②RN 8/12/16/44/92 = skeletonWrap/skeletonRow/skeletonCard 的内衬与骨架块尺寸,小程序按本文件头注纪律以 toRpx(SP.*)/toRpx(n) 常数调用书写,而门的提取式只认「键名紧跟数字字面量」与 rpx(n),函数调用形态读不到;本轮已把小程序骨架的半档(22/6/5/46)改回与 RN 同值(44/12/10/92),两端渲染值现一致。RD 仅 RN 4 = 骨架 shimmer 的 rnRadius.sm,小程序同块写 toRpx(RD.sm)=8rpx(端上 4px),同一张档位表,同属常数调用形态读不到。收敛前置 = 本门提取式能解析 toRpx(常量表) 形态,不靠给单端补数字凑平。",
+      "reason": "单端结构性差异 1 处:小程序 200 = .ihui-state 的 min-height 400rpx,是小屏空态居中下限;RN 端 stateWrap 靠宿主 flex:1 撑满,结构上没有同元素同属性,不属同元素双值,亦不可由任一端消掉(RN 补 min-height 会破坏撑满布局)。其余曾登记的 5 枚几何假分叉(8/12/16/44/92)与 1 枚 RD 假分叉(4)已于 2026-10-24 判据修复当日归零——门采集面新增 toRpx 表达式族识别(lib/radius-tokens.geometryItemsInSrc 单源,几何维与 RD 维共用),现读 findings: onlyMiniapp=[200]、onlyRn=[]、RD 两侧均空;waiver 只留这一枚真差异,不掩盖任何未判格子(解不到的换算式逐枚走 geoUnreadable 点名)。RE 维两侧无一同名元素(StyleSheet 键 ↔ CSS 类名),该维由 ⊘ 行自报零判据,不记同值。",
       "until": "2027-04-24"
     }
   },

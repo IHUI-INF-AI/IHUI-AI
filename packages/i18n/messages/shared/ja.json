@@ -80,6 +80,7 @@
     "toolAudioTranscription": "音声を書き起こし",
     "toolVisionAnalyze": "画像を解析",
     "toolDispatchSubagent": "サブエージェントを派遣",
+    "toolTeamTask": "チーム共有タスクを管理",
     "toolScheduleTask": "定期タスクを作成",
     "toolBgTaskStatus": "バックグラウンドタスクを確認",
     "toolUiDescribe": "ページのコントロールを読み取り",
@@ -190,7 +191,6 @@
     "toolVendorVoiceClone": "声をクローン",
     "toolRequestBusinessForm": "業務フォーム入力を依頼",
     "toolInitAgentsMd": "AGENTS.md を初期化",
-    "toolTeamTask": "チーム共有タスク",
     "fileActivity": "{state, select, running {ファイルを処理中} completed {ファイルを処理済み} other {ファイルの処理}}",
     "imageActivity": "{state, select, running {画像を処理中} completed {画像を処理済み} other {画像の処理}}",
     "searchActivity": "{state, select, running {検索中} completed {検索済み} other {検索}}",
@@ -232,8 +232,7 @@
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {ファイル「{name}」を取得中} completed {ファイル「{name}」を取得しました} other {ファイル「{name}」を取得}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {ドキュメントを検索中} completed {ドキュメントを検索しました} other {ドキュメントを検索}}",
     "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {「{name}」でドキュメントを検索中} completed {「{name}」でドキュメントを検索しました} other {「{name}」でドキュメントを検索}}",
-    "toolInitAgentsMdActivity": "{state, select, running {AGENTS.md を初期化中} completed {AGENTS.md を初期化しました} other {AGENTS.md を初期化}}",
-    "toolTeamTaskActivity": "{state, select, running {チームタスク表を更新中} completed {チームタスク表を更新しました} other {チームタスク表を更新}}"
+    "toolInitAgentsMdActivity": "{state, select, running {AGENTS.md を初期化中} completed {AGENTS.md を初期化しました} other {AGENTS.md を初期化}}"
   },
   "a11y": {
     "addAttachment": "添付ファイルを追加（画像/動画/ファイル）",

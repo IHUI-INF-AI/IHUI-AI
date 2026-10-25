@@ -81,7 +81,7 @@ function isDir(p: string): boolean {
 }
 
 /** 定位 Qoder CN 安装（与桥脚本内解析逻辑保持一致） */
-export function resolveQoderAppRoot(): { root: string; version: string } | null {
+function resolveQoderAppRoot(): { root: string; version: string } | null {
   const candidates = [
     process.env.QODER_APP_DIR,
     'D:/电脑软件/Qoder CN',
@@ -139,15 +139,11 @@ function launchOnce(): Promise<QoderBridgeEndpoint> {
   const key = crypto.randomBytes(16).toString('hex')
 
   return new Promise<QoderBridgeEndpoint>((resolve, reject) => {
-    const proc = spawn(
-      exe,
-      [BRIDGE_SCRIPT, '--port', '0', '--key', key, '--cwd', BRIDGE_CWD],
-      {
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      },
-    )
+    const proc = spawn(exe, [BRIDGE_SCRIPT, '--port', '0', '--key', key, '--cwd', BRIDGE_CWD], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
     child = proc
 
     let settled = false
@@ -184,7 +180,11 @@ function launchOnce(): Promise<QoderBridgeEndpoint> {
           const info = JSON.parse(line) as BridgeReadyLine
           if (Number.isInteger(info.port) && info.port > 0) {
             finish(() =>
-              resolve({ baseUrl: `http://127.0.0.1:${info.port}`, key, pid: info.pid ?? proc.pid ?? 0 }),
+              resolve({
+                baseUrl: `http://127.0.0.1:${info.port}`,
+                key,
+                pid: info.pid ?? proc.pid ?? 0,
+              }),
             )
             return
           }
@@ -212,7 +212,9 @@ function launchOnce(): Promise<QoderBridgeEndpoint> {
       if (child === proc) child = null
       const tail = errTail.join(' | ').slice(-400)
       finish(() =>
-        reject(new Error(`桥进程提前退出 code=${code} signal=${signal}${tail ? ` :: ${tail}` : ''}`)),
+        reject(
+          new Error(`桥进程提前退出 code=${code} signal=${signal}${tail ? ` :: ${tail}` : ''}`),
+        ),
       )
     })
   })

@@ -80,6 +80,7 @@
     "toolAudioTranscription": "音频转文字",
     "toolVisionAnalyze": "识别图片内容",
     "toolDispatchSubagent": "派遣子代理",
+    "toolTeamTask": "管理团队共享任务",
     "toolScheduleTask": "创建定时任务",
     "toolBgTaskStatus": "查询后台任务",
     "toolUiDescribe": "读取页面控件",
@@ -190,7 +191,6 @@
     "toolVendorVoiceClone": "克隆声纹",
     "toolRequestBusinessForm": "请求填写业务表单",
     "toolInitAgentsMd": "初始化 AGENTS.md 文档",
-    "toolTeamTask": "团队共享任务",
     "fileActivity": "{state, select, running {正在处理文件} completed {已处理文件} other {处理文件}}",
     "imageActivity": "{state, select, running {正在处理图像} completed {已处理图像} other {处理图像}}",
     "searchActivity": "{state, select, running {正在检索} completed {已检索} other {检索}}",
@@ -232,8 +232,7 @@
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {正在获取文件「{name}」} completed {已获取文件「{name}」} other {获取文件「{name}」}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {正在检索文档} completed {已检索文档} other {检索文档}}",
     "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {正在检索文档「{name}」} completed {已检索文档「{name}」} other {检索文档「{name}」}}",
-    "toolInitAgentsMdActivity": "{state, select, running {正在初始化 AGENTS.md 文档} completed {已初始化 AGENTS.md 文档} other {初始化 AGENTS.md 文档}}",
-    "toolTeamTaskActivity": "{state, select, running {正在更新团队任务表} completed {已更新团队任务表} other {更新团队任务表}}"
+    "toolInitAgentsMdActivity": "{state, select, running {正在初始化 AGENTS.md 文档} completed {已初始化 AGENTS.md 文档} other {初始化 AGENTS.md 文档}}"
   },
   "a11y": {
     "addAttachment": "添加附件(图片/视频/文件)",

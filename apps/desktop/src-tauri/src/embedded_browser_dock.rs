@@ -50,11 +50,13 @@ use crate::IpcError;
 /// 「浏览器」(用户要求统一),多标签是这个浏览器**内部**的标签栏。
 pub const DOCK_TAB_PREFIX: &str = "workpanel-docked-tab-";
 
-/// 停靠浏览器内部最多标签数。
-///
-/// 2026-10-25 用户拍板从 8 收到 6:标签冻结 + 空闲休眠已经把闲置标签的代价压得
-/// 很低,再放宽只会让"同时活跃"的页面变多,峰值内存失控。
-const MAX_DOCK_TABS: usize = 6;
+/// 停靠浏览器内部最多标签数。取自设置项 `browser-settings.json` 的 `max_dock_tabs`
+/// (默认 6,允许 4..=12,2026-10-25 用户拍板把默认从 8 收到 6:标签冻结 + 空闲休眠
+/// 已经把闲置标签的代价压得很低,再放宽只会让"同时活跃"的页面变多,峰值内存失控)。
+/// 每次判定现读,改完立即生效。
+fn max_dock_tabs() -> usize {
+    crate::browser_settings::current().max_dock_tabs as usize
+}
 
 /// 一个停靠标签页的元数据(前端标签栏渲染 + 切换用)。
 #[derive(Debug, Clone, serde::Serialize)]
@@ -243,6 +245,8 @@ async fn maintain_hidden_tab(app: AppHandle, id: u64, label: String, token: u64)
         }
     }
 
+    // `None` = 用户在设置里关了空闲休眠:仍然每 30s 补一次挂起(冻结),
+    // 但永不走 discard 分支 —— 内存还一半,页面状态不丢。
     let threshold = idle_discard_threshold();
     // "安静"从隐藏那一刻算起;检测到出声就重置(正在放歌/通话的标签不休眠)。
     let mut silent_since = Instant::now();
@@ -268,9 +272,11 @@ async fn maintain_hidden_tab(app: AppHandle, id: u64, label: String, token: u64)
             silent_since = Instant::now();
             continue;
         }
-        if silent_since.elapsed() >= threshold {
-            discard_tab(&app, id);
-            return;
+        if let Some(t) = threshold {
+            if silent_since.elapsed() >= t {
+                discard_tab(&app, id);
+                return;
+            }
         }
         // 补挂起:切走时页面可能还在导航,`TrySuspend` 那一次没生效且不会自动重试。
         crate::embedded_browser::set_memory_low(&wv, true);
@@ -488,7 +494,7 @@ fn build_tab_builder(app: &AppHandle, label: String, id: u64, url: Url) -> Webvi
                         // 页内 window.open / target=_blank:开成停靠档自己的新标签
                         let app = app_for_nav.clone();
                         tauri::async_runtime::spawn(async move {
-                            let full = with_chrome(|s| s.tabs.len() >= MAX_DOCK_TABS);
+                            let full = with_chrome(|s| s.tabs.len() >= max_dock_tabs());
                             if full {
                                 return;
                             }
@@ -772,7 +778,7 @@ pub async fn embedded_browser_dock_destroy(app: AppHandle) -> Result<(), IpcErro
 /// 新建标签页(对齐独立窗口「+」)。不传 url 时开主页。
 #[tauri::command]
 pub async fn embedded_browser_dock_new_tab(app: AppHandle, url: Option<String>) -> Result<(), IpcError> {
-    let full = with_chrome(|s| s.tabs.len() >= MAX_DOCK_TABS);
+    let full = with_chrome(|s| s.tabs.len() >= max_dock_tabs());
     if full {
         return Err(IpcError::internal("标签页数量已达上限"));
     }

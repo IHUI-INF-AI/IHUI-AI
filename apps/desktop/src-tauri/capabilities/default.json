@@ -107,6 +107,8 @@
     "allow-set-tray-always-visible",
     "allow-get-desktop-prefs",
     "allow-set-desktop-prefs",
+    "allow-get-browser-settings",
+    "allow-set-browser-settings",
     "allow-resolve-close-choice",
     "allow-set-desktop-badge",
     "allow-take-pending-deep-links",

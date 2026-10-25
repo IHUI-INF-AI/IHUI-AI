@@ -150,25 +150,26 @@ import {
 } from '../utils/branch-conversation'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import {
-  applyPlanUpdate,
-  applyTerminalEnd,
   applyInjectionFrame,
   appendCitationFrames,
   appendSteerFrames,
   readSteerAppliedFromMetadata,
-  applyTerminalStart,
-  applyToolCallEvent,
-  applyToolDelta,
   formatDurationMs,
   formatStructured,
   mcpToolActivityTitle,
-  type MessageInjection,
-  type MessageCitation,
-  type SteerNotice,
-  type PlanStepItem,
-  type TerminalTaskItem,
-  type ToolCallItem,
 } from '../utils/chat-render-model'
+import type {
+  AssistantExecutionFrame,
+  AssistantExecutionViz,
+  MessageInjection,
+  MessageCitation,
+  SteerNotice,
+  PlanStepItem,
+  TerminalTaskItem,
+  ToolCallItem,
+} from '../utils/chat-render-model'
+// D135(承 G-46):执行帧折叠出口与主屏共用 ChatMessageList 这一份,本屏不再直名 reducer。
+import { foldMessageExecutionFrame } from '../components/chat/ChatMessageList'
 
 /**
  * 操控本端界面的工具族闸门(2026-09-21 立,agent-control RN 侧)。
@@ -680,6 +681,8 @@ interface MessageBubbleProps {
   terminalLive?: Record<string, string>
   /** D151 等待键盘输入的 terminalId 集合(键 = terminalId);缺失即不渲染等待行 */
   terminalWaiting?: TerminalWaitingMap
+  /** D135:本轮执行帧折叠快照(与主屏同一 AssistantExecutionViz);历史回放仍读消息字段 */
+  executionViz?: AssistantExecutionViz
 }
 
 function MessageBubble({
@@ -690,10 +693,17 @@ function MessageBubble({
   onBranch,
   terminalLive,
   terminalWaiting,
+  executionViz,
 }: MessageBubbleProps): React.JSX.Element {
   const { t } = useI18n()
   const isUser = message.role === 'user'
   const hasImages = !isUser && (message.images?.length ?? 0) > 0
+  // D135:流式执行帧读共享折叠出口(executionViz),历史回放仍读 metadata 映射出的消息字段。
+  // 逐字段 ?? 回落 —— 历史消息没有 viz,流式消息没有这些消息字段,任一来源都不丢。
+  const toolCalls = executionViz?.toolCalls ?? message.toolCalls
+  const planSteps = executionViz?.planSteps ?? message.planSteps
+  const planExplanation = executionViz?.planExplanation ?? message.planExplanation
+  const terminalTasks = executionViz?.terminalTasks ?? message.terminalTasks
   // 失败轮:渲染错误卡片而非正文(与 web D22 / ChatScreen 同一形态)
   const isFailed = !isUser && isErrorTurn(message)
   // 显示/隐藏回答(对齐 Uniapp answerVisibilityStates,默认可见)
@@ -808,20 +818,16 @@ function MessageBubble({
             ) : null}
           </View>
           {/* 工具调用可视化(W7:原生卡片,点击折叠查看参数/输出) */}
-          {answerVisible && message.toolCalls && message.toolCalls.length > 0 ? (
-            <ToolCallList items={message.toolCalls} />
+          {answerVisible && toolCalls && toolCalls.length > 0 ? (
+            <ToolCallList items={toolCalls} />
           ) : null}
           {/* 计划步骤可视化(W7:步骤 + 状态徽标 + 可选 explanation) */}
-          {answerVisible && message.planSteps && message.planSteps.length > 0 ? (
-            <PlanStepList steps={message.planSteps} explanation={message.planExplanation} />
+          {answerVisible && planSteps && planSteps.length > 0 ? (
+            <PlanStepList steps={planSteps} explanation={planExplanation} />
           ) : null}
           {/* 终端任务可视化(W7 + D19:命令 + 等宽输出 + 退出码;运行中 live 增量与整帧取更长者) */}
-          {answerVisible && message.terminalTasks && message.terminalTasks.length > 0 ? (
-            <TerminalTaskList
-              tasks={message.terminalTasks}
-              live={terminalLive}
-              waiting={terminalWaiting}
-            />
+          {answerVisible && terminalTasks && terminalTasks.length > 0 ? (
+            <TerminalTaskList tasks={terminalTasks} live={terminalLive} waiting={terminalWaiting} />
           ) : null}
           {/* D34 本轮上下文注入交代(第 45 轮补齐该端,此前该帧在本端 0 命中) */}
           {answerVisible && message.injections && message.injections.length > 0 ? (
@@ -953,6 +959,12 @@ export default function AiAssistantN8nScreen() {
   const nextId = (): string => `n8n-${++idCounter.current}`
 
   const [messages, setMessages] = useState<N8nMessage[]>([])
+  // D135(承 G-46):本轮执行帧折叠快照(键 = assistant 消息 id)。折叠出口统一在
+  // components/chat/ChatMessageList 的 foldMessageExecutionFrame —— 与主屏同一
+  // AssistantExecutionViz 形状,本屏不再自带 reducer 直折。
+  const [executionVizById, setExecutionVizById] = useState<Record<string, AssistantExecutionViz>>(
+    {},
+  )
   // D19:terminal_delta 的 live 缓冲(键 = terminalId,值 = 累计增量,超限保尾部)。
   // 只由 onTerminalDelta 写入、终端面板按"与整帧 output 取更长者"读取 ——
   // 与消息正文(onDelta 通道)完全分离,不落 content。
@@ -1232,15 +1244,20 @@ export default function AiAssistantN8nScreen() {
     }
   }
 
-  // 任务进度状态条数据源(对齐 web task-status-bar):plan_updated 权威快照写在
-  // "那一条 assistant 消息"上,取最后一条带 planSteps 的 assistant 消息(倒序扫描)。
+  // 任务进度状态条数据源(对齐 web task-status-bar):plan_updated 权威快照经共享折叠出口
+  // 落在"那一条 assistant 消息"的 viz 上(历史回放回落消息字段),倒序取最后一条带步骤的。
   const planMessage = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i]
-      if (message?.role === 'assistant' && (message.planSteps?.length ?? 0) > 0) return message
+      if (message?.role !== 'assistant') continue
+      const viz = executionVizById[message.id]
+      const steps = viz?.planSteps ?? message.planSteps
+      if ((steps?.length ?? 0) > 0) {
+        return { planSteps: steps ?? [], toolCalls: viz?.toolCalls ?? message.toolCalls }
+      }
     }
     return null
-  }, [messages])
+  }, [messages, executionVizById])
 
   const scrollToEnd = (): void => {
     requestAnimationFrame(() => {
@@ -1253,7 +1270,9 @@ export default function AiAssistantN8nScreen() {
     const res = await listConversations({ page: 1, pageSize: 50 })
     if (res.success) {
       setDrawerConversations(
-        res.data.conversations.map((c) => mapConversationToDrawer(c, t('plaza.index.untitledConv'))),
+        res.data.conversations.map((c) =>
+          mapConversationToDrawer(c, t('plaza.index.untitledConv')),
+        ),
       )
     } else {
       setDrawerConversations([])
@@ -1385,6 +1404,8 @@ export default function AiAssistantN8nScreen() {
           }
         })
       setMessages(loaded)
+      // D135:切会话/回放历史时丢弃上一轮的执行帧快照(历史执行态已由消息字段承载)
+      setExecutionVizById({})
       // D151:切会话/回放历史同样要清等待态(历史里没有"正在等输入"的进程)
       setTerminalWaiting({})
       requestAnimationFrame(() => {
@@ -1446,6 +1467,14 @@ export default function AiAssistantN8nScreen() {
     setInput('')
     const userMsg: N8nMessage = { id: nextId(), role: 'user', content: text }
     const aiMsg: N8nMessage = { id: nextId(), role: 'assistant', content: '' }
+    // D135:折叠键在发送时就锁到本轮这条 assistant 消息(不在回调里现算"最后一条")
+    const turnAssistantId = aiMsg.id
+    const foldExecutionFrame = (frame: AssistantExecutionFrame): void => {
+      setExecutionVizById((prev) => ({
+        ...prev,
+        [turnAssistantId]: foldMessageExecutionFrame(prev[turnAssistantId], frame),
+      }))
+    }
     setMessages((prev) => [...prev, userMsg, aiMsg])
     // D151:新一轮流开始 ⇒ 上一轮的"在等人"整体清空(它属于上一轮那条进程,
     // 留在这一轮会让等待行挂到与它无关的卡上)。
@@ -1544,67 +1573,25 @@ export default function AiAssistantN8nScreen() {
             showToast('warning', t('chat.truncation.maxLengthNotice'))
           }
         },
-        // 工具调用可视化(W7):tool-call-start/tool-result 折叠进最后一条 assistant 消息
+        // 工具调用可视化(W7):执行帧统一折进 ChatMessageList 的共用出口
         onToolCall: (event) => {
-          setMessages((prev) => {
-            const next = [...prev]
-            const last = next[next.length - 1]
-            if (last && last.role === 'assistant') {
-              next[next.length - 1] = {
-                ...last,
-                toolCalls: applyToolCallEvent(last.toolCalls, event),
-              }
-            }
-            return next
-          })
+          foldExecutionFrame({ kind: 'tool-call', event })
           scrollToEnd()
         },
         // D113(2026-09-27 对齐 web G-227):文件写类工具流中 diff 预览。
         // tool-delta 帧载荷为增量正文,按 toolCallId 以 seq 收敛追加 partialDiff(重传/乱序幂等);
-        // 仅 running 态渲染,tool-result 到达由 applyToolCallEvent 清除(最终 diff 以 result 为准)。
+        // 仅 running 态渲染,tool-result 到达由同一 reducer 清除(最终 diff 以 result 为准)。
         onToolDelta: (event) => {
-          setMessages((prev) => {
-            const next = [...prev]
-            const last = next[next.length - 1]
-            if (last && last.role === 'assistant') {
-              next[next.length - 1] = {
-                ...last,
-                toolCalls: applyToolDelta(last.toolCalls, event),
-              }
-            }
-            return next
-          })
+          foldExecutionFrame({ kind: 'tool-delta', event })
         },
         // 计划步骤可视化(W7):plan 为权威快照,整体替换(不可与现有步骤增量合并)
         onPlanUpdate: (event) => {
-          const reduced = applyPlanUpdate(event)
-          setMessages((prev) => {
-            const next = [...prev]
-            const last = next[next.length - 1]
-            if (last && last.role === 'assistant') {
-              next[next.length - 1] = {
-                ...last,
-                planSteps: reduced.steps,
-                planExplanation: reduced.explanation,
-              }
-            }
-            return next
-          })
+          foldExecutionFrame({ kind: 'plan-update', event })
           scrollToEnd()
         },
         // 终端任务可视化(W7):terminal_start 按 terminalId 新增/重置为 running
         onTerminalStart: (event) => {
-          setMessages((prev) => {
-            const next = [...prev]
-            const last = next[next.length - 1]
-            if (last && last.role === 'assistant') {
-              next[next.length - 1] = {
-                ...last,
-                terminalTasks: applyTerminalStart(last.terminalTasks, event),
-              }
-            }
-            return next
-          })
+          foldExecutionFrame({ kind: 'terminal-start', event })
           scrollToEnd()
         },
         // D19 终端实时输出增量(2026-09-18 后端起发 terminal_delta,web 2026-09-24 接,本端补齐):
@@ -1623,17 +1610,7 @@ export default function AiAssistantN8nScreen() {
         onTerminalEnd: (event) => {
           // D151:命令已收尾 ⇒ "还在等输入"这一维必须跟着清,否则等待行永久挂在结束的卡上
           setTerminalWaiting((prev) => clearTerminalWaitingFor(prev, event.terminalId))
-          setMessages((prev) => {
-            const next = [...prev]
-            const last = next[next.length - 1]
-            if (last && last.role === 'assistant') {
-              next[next.length - 1] = {
-                ...last,
-                terminalTasks: applyTerminalEnd(last.terminalTasks, event),
-              }
-            }
-            return next
-          })
+          foldExecutionFrame({ kind: 'terminal-end', event })
           scrollToEnd()
         },
         // #11 引用溯源(第 51 轮):引用进消息,答案下方出来源列表
@@ -1820,6 +1797,8 @@ export default function AiAssistantN8nScreen() {
   }
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
+    // D135:新建会话同属切会话,上一轮执行帧快照一并清
+    setExecutionVizById({})
     // D151:新建会话 = 会话切换的一种,等待态必须一起清(见 loadConversationMessages 同注释)
     setTerminalWaiting({})
     setInput('')
@@ -1905,6 +1884,7 @@ export default function AiAssistantN8nScreen() {
       }
       terminalLive={terminalLive}
       terminalWaiting={terminalWaiting}
+      executionViz={executionVizById[item.id]}
     />
   )
 
