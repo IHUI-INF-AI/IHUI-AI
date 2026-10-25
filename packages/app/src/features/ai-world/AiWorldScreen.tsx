@@ -442,7 +442,9 @@ function RankingRow({
         ) : null}
       </View>
       <View style={styles.rankScoreCol}>
-        {item.score ? <Text style={styles.rankScore}>{Number(item.score).toFixed(1)}</Text> : null}
+        {item.score !== null && item.score !== undefined && Number.isFinite(Number(item.score)) ? (
+          <Text style={styles.rankScore}>{Number(item.score).toFixed(1)}</Text>
+        ) : null}
         {item.votes !== null && Number.isFinite(item.votes) ? (
           <Text style={styles.rankVotes}>
             {item.votes.toLocaleString()} {t('aiWorld.votes')}

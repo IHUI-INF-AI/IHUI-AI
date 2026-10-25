@@ -8,6 +8,7 @@
 // `Error: chunk common [mini-css-extract-plugin] Conflicting order`(票 G-948;同一组判据
 // 的完整推理见 pages/index/index.tsx 桶文件上方注释)。import 排序工具不得把这两行换回去。
 import { FloatBox, EmptyState, PayPopup } from '@/components'
+import { localDayKey } from '@ihui/shared'
 import type { PayInfo } from '@/components'
 import { aizhsUrl } from '@/constants/icon-urls'
 import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
@@ -216,7 +217,8 @@ export default function Community() {
       const rawList = Array.isArray(res?.list) ? res.list : []
       const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
       for (const chat of rawList) {
-        const dateKey = chat.time ? chat.time.slice(0, 10) : tt('ai.agentList.tabRecent', '最近')
+        // 按日分桶同样走本地时区出口(原来 slice(0,10) 是 UTC 日 ⇒ 与 web 侧差一天)
+        const dateKey = localDayKey(chat.time) ?? tt('ai.agentList.tabRecent', '最近')
         if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
         dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
       }

@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/distribution-order-list/DistributionOrderListScreen.tsx
+import { formatPrice } from '@ihui/shared'
 import { useTt, useI18n, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
@@ -185,7 +186,7 @@ export default function DistributionOrderList() {
         <Text className="text-[length:28rpx] text-muted-foreground">
           {tt('distribution.orderList.totalCount', '共')} {list.length}{' '}
           {tt('distribution.orderList.orders', '笔')},
-          {tt('distribution.orderList.commissionTotal', '佣金总额')}:¥{totalCommission}
+          {tt('distribution.orderList.commissionTotal', '佣金总额')}:¥{formatPrice(totalCommission)}
         </Text>
       </View>
 
@@ -226,7 +227,7 @@ export default function DistributionOrderList() {
                       {tt('distribution.orderList.commission', '佣金')}
                     </Text>
                     <Text className="text-[length:32rpx] font-semibold text-[var(--color-danger)]">
-                      ¥{o.commission}
+                      ¥{formatPrice(o.commission)}
                     </Text>
                   </View>
                 </View>

@@ -182,7 +182,7 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
     },
     {
       label: t('detailDialog.voteCount'),
-      render: (e) => (e.voteCount ? e.voteCount.toLocaleString() : '-'),
+      render: (e) => (e.voteCount !== null ? e.voteCount.toLocaleString() : '-'),
     },
     { label: t('detailDialog.contextWindow'), render: (e) => e.contextWindow ?? '-' },
     { label: t('detailDialog.maxOutput'), render: (e) => e.maxOutput ?? '-' },

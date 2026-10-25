@@ -147,6 +147,20 @@ test('T4 scanDuplicateDefinitions:顶层同名命中,嵌套/注释不算,ts 臂�
     '}',
     'export const tick = () => 2',
   ].join('\n')
+  // 夹具里的同名声明不是定义(模板串/普通字符串):2026-10-25 实测过的假红型
+  const fixtureTs = [
+    "const SAMPLE = `import x from 'y'",
+    'export function Dialog() {',
+    '  return null',
+    '}`',
+    'const S2 = "export function Dialog() {"',
+    'export function Dialog() { return 1 }',
+  ].join('\n')
+  assert.deepEqual(
+    scanDuplicateDefinitions(fixtureTs, '.ts'),
+    [],
+    '字符串/模板串里的同名声明不得算第二份定义',
+  )
   const names = scanDuplicateDefinitions(ts, '.ts').map((x) => x.name).sort()
   assert.deepEqual(names, ['fmt', 'tick'])
 })
