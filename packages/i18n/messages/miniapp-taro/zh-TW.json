@@ -2229,8 +2229,7 @@
       "addParam": "新增參數",
       "deleteParam": "刪除",
       "create": "新建",
-      "createSuccess": "智慧體建立成功",
-      "mockSuccess": "介面暫未開放,已模擬建立",
+      "mockSuccess": "n8n 智慧體介面未開放,本次建立未生效",
       "submitting": "建立中…",
       "submit": "建立智慧體",
       "fileSizeExceeded": "檔案不能超過10MB",
@@ -2266,8 +2265,7 @@
       "discountFull": "全部參與",
       "submitting": "提交中…",
       "submit": "提交審核",
-      "submitSuccess": "提交成功",
-      "mockSuccess": "介面暫未開放,已模擬提交"
+      "mockSuccess": "收費設定介面未開放,本次提交未生效"
     }
   },
   "devSpace": {
@@ -2755,7 +2753,6 @@
     "missingParams": "支付參數缺失",
     "useWechatScan": "請使用微信掃碼支付",
     "configNotReady": "支付設定未就緒,請聯繫管理員",
-    "balanceInsufficient": "餘額不足,請充值",
     "noCoupon": "暫無可用優惠券",
     "couponNone": "不使用優惠券",
     "orderExpired": "訂單已超時,請重新下單",
@@ -2763,8 +2760,6 @@
     "couponSaved": "已優惠 ¥{n}",
     "goodsName": "商品名稱",
     "vipSubscription": "會員訂閱",
-    "balanceAmount": "餘額 ¥{n}",
-    "recharge": "充值",
     "couponAvailable": "{n} 張可用",
     "limitedFree": "限時免費",
     "memberFree": "會員免費",
@@ -2774,7 +2769,6 @@
     "paymentMethod": "支付方式",
     "confirmPay": "確認支付 ¥{price}",
     "alipay": "支付寶",
-    "balance": "餘額",
     "cancel": "您已取消支付",
     "wxNotInstalled": "未檢測到微信應用,請先安裝微信",
     "aliNotInstalled": "未檢測到支付寶應用,請先安裝支付寶",
@@ -4149,8 +4143,7 @@
     "q3": "運營部",
     "q4": "市場部",
     "q5": "銷售部",
-    "q6": "載入智能體",
-    "q7": "提交收費配置"
+    "q6": "載入智能體"
   },
   "modelplaza": {
     "r1": "阿里雲",

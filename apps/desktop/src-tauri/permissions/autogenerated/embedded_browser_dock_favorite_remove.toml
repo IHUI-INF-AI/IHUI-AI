@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-embedded-browser-dock-favorite-remove"
+description = "Enables the embedded_browser_dock_favorite_remove command without any pre-configured scope."
+commands.allow = ["embedded_browser_dock_favorite_remove"]
+
+[[permission]]
+identifier = "deny-embedded-browser-dock-favorite-remove"
+description = "Denies the embedded_browser_dock_favorite_remove command without any pre-configured scope."
+commands.deny = ["embedded_browser_dock_favorite_remove"]

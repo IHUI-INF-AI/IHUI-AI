@@ -52,6 +52,7 @@ import {
   isWindowMaximized,
   onWindowFocusChange,
   isWindowFocused,
+  isTauri,
 } from '@/lib/tauri-bridge'
 import {
   getModalDimState,
@@ -385,7 +386,14 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
       setActiveTopTab(action.setIdeTab)
     }
     if (action.toggleWorkPanel) {
+      const store = useWorkPanelStore.getState()
+      // 桌面端「浏览器」：打开面板时确保有那唯一一个「浏览器」标签(2026-10-24);
+      // 没有就建一个空标签，避免出现面板空着、要再点一次 + 才有浏览器的两段式。
+      const opening = !store.open
       toggleWorkPanel()
+      if (opening && isTauri() && !store.tabs.some((t) => t.state.mode === 'docked')) {
+        store.openDockedTab('about:blank')
+      }
     }
     if (action.href) {
       navigate(action.href)

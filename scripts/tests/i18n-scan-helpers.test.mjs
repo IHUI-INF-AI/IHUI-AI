@@ -43,6 +43,8 @@ import {
   scanCode,
   scanTexts,
   dynamicPrefixOf,
+  dynamicSuffixOf,
+  dynamicSuffixMatches,
   isInUsedNamespace,
   groupByNamespace,
 } from '../_i18n-scan-helpers.mjs'
@@ -513,6 +515,66 @@ describe('scanTexts — 动态拼接前缀必须收进 usedNamespaces(假死键�
     assert.equal(dynamicPrefixOf('a.b.${x}.suffix'), 'a.b')
     assert.equal(dynamicPrefixOf('${x}'), null, '纯插值没有静态前缀,不得当成命名空间')
     assert.equal(dynamicPrefixOf('nodots'), null, '无点分单段不构成前缀')
+  })
+})
+
+// 处方 ②(2026-10-25):动态模板 `t(\`${m}Desc\`)` / `t(\`${prefix}.${key}\`)` 这类「动态在首」的拼接,
+// 旧的 dynamicPrefixOf 只能取「静态前缀 + 点 + ${」那一型,导致 `${m}Desc` 型整族(commonDesc / userDesc)
+// 提取不到任何前缀 ⇒ 旗下键被判死。新增 dynamicSuffixOf(取静态尾段)+ dynamicSuffixMatches(单段键尾部启发式)。
+describe('dynamicSuffixOf / dynamicSuffixMatches — 动态在首的模板字面量(处方 ②)', () => {
+  test('dynamicSuffixOf:t(`${m}Desc`) → 尾段 "Desc"(动态在首、静态尾段不含点)', () => {
+    assert.equal(dynamicSuffixOf('${m}Desc'), 'Desc')
+  })
+
+  test('dynamicSuffixOf:t(`${prefix}.${key}`) → null(尾段是动态 ${key},不得当成尾段)', () => {
+    assert.equal(dynamicSuffixOf('${prefix}.${key}'), null)
+  })
+
+  test('dynamicSuffixOf:t(`a.b.c.${x}`) → null(有静态前缀,不取尾段,避免双重计入)', () => {
+    assert.equal(dynamicSuffixOf('a.b.c.${x}'), null)
+  })
+
+  test('dynamicSuffixOf:t(`${x}.a.b.c`) → null(尾段 a.b.c 含点,非单段尾,不可靠)', () => {
+    assert.equal(dynamicSuffixOf('${x}.a.b.c'), null)
+  })
+
+  test('dynamicSuffixOf:t(`${x}e`) → null(尾段长度 1,过短不启用,防误吞真死键)', () => {
+    assert.equal(dynamicSuffixOf('${x}e'), null)
+  })
+
+  test('dynamicSuffixMatches:commonDesc 被 "Desc" 尾段豁免(单段、更长、结尾匹配)', () => {
+    assert.equal(dynamicSuffixMatches('commonDesc', new Set(['Desc'])), true)
+  })
+
+  test('dynamicSuffixMatches:多段键 a.b.commonDesc 不豁免(尾部启发式只认单段键)', () => {
+    assert.equal(dynamicSuffixMatches('a.b.commonDesc', new Set(['Desc'])), false)
+  })
+
+  test('dynamicSuffixMatches:Desc 本身(长度等于尾段)不豁免(需含动态前缀)', () => {
+    assert.equal(dynamicSuffixMatches('Desc', new Set(['Desc'])), false)
+  })
+
+  test('dynamicSuffixMatches:userTitle 不被 "Desc" 尾段豁免(结尾不匹配)', () => {
+    assert.equal(dynamicSuffixMatches('userTitle', new Set(['Desc'])), false)
+  })
+})
+
+// 处方 ② 集成锁:scanTexts 必须把 `${x}Desc` 型模板收进 dynamicSuffixes,且单段键 commonDesc 不被判死。
+describe('scanTexts — `${x}Desc` 型动态模板不得误判死键(处方 ②)', () => {
+  test('t(`${m}Desc`) → 尾段 Desc 入 dynamicSuffixes,且 commonDesc 不判死', () => {
+    const { dynamicSuffixes, staticRefs } = scanTexts([
+      { rel: 'apps/x/Widget.tsx', text: '  {t(`${m}Desc`)}' },
+    ])
+    assert.ok(dynamicSuffixes.has('Desc'), '静态尾段 Desc 应记为动态尾段')
+    assert.ok(!staticRefs.has('commonDesc'), 'commonDesc 不进 staticRefs(它是动态的)')
+  })
+
+  test('t(`${prefix}.${key}`) → 不产生前缀/尾段(false 但被当成命名空间),仅计动态提示', () => {
+    const { usedNamespaces, dynamicSuffixes } = scanTexts([
+      { rel: 'apps/x/Y.tsx', text: '  {t(`${prefix}.${key}`)}' },
+    ])
+    assert.ok(!usedNamespaces.has('prefix'), '动态在首、尾段也是动态 ⇒ 不得当命名空间')
+    assert.ok(!dynamicSuffixes.has('prefix'), '动态尾段 ${key} 不得当静态尾段')
   })
 })
 

@@ -70,10 +70,29 @@
       // index.tsx/index.config.ts 两个页面入口 + 被页面 import 的 constants/web-portal.ts
       // (唯一 import 方就是页面自身,整簇因页面不可达而连带不可达)。
       // 到期复核:启用 @knip/taro 插件(能解析 pages 字符串)后应删本白名单。
+      // 2026-10-25(Knip 棘轮 files 超基线):同族第三批 —— 2026-10-23~24 跨端落地批新增的
+      // 页面/页面配置(index.config.ts 由页面一同按字符串装载)与"仅被页面 import"的件,
+      // 因页面不可达而整簇连带不可达。Sheet/Tabs/Collapsible 属"先落组件、屏幕未接"同族
+      // (对齐 mobile-rn AutomationCard/MetricCard 先例),不是死代码。
+      // 到期复核:启用能解析 Taro pages 字符串的插件后应删本白名单;若确认不做,应删除而非续挂。
       "ignore": [
         "src/pkg-about/about/web-portal/index.tsx",
         "src/pkg-about/about/web-portal/index.config.ts",
-        "src/constants/web-portal.ts"
+        "src/constants/web-portal.ts",
+        "src/pkg-user/fans/index.tsx",
+        "src/pkg-user/fans/index.config.ts",
+        "src/pkg-user/checkin-assistant/index.tsx",
+        "src/pkg-user/account-pool/index.tsx",
+        "src/pkg-user/account-pool/add-form.tsx",
+        "src/pkg-user/account-pool/pool-row.tsx",
+        "src/pkg-ai/dev-space/index.config.ts",
+        "src/components/ScreenStates.taro.tsx",
+        "src/components/ScrollJumpButton.tsx",
+        "src/pages/distribution/company/company-constants.ts",
+        "src/pkg-about/about/aboutSections.ts",
+        "src/components/Collapsible.tsx",
+        "src/components/Sheet.tsx",
+        "src/components/Tabs.tsx"
       ]
     },
     "packages/database": {
@@ -100,7 +119,11 @@
       // import lucide-react(真 SVG),native 侧用 -native;这些组件随 TabBar 液态玻璃接入(068af74ddf)、
       // 尚未挂到静态可达入口,knip 因而把真依赖误报为未用。
       // 到期复核:组件挂载到入口可达面后应删本白名单。
-      "ignoreDependencies": ["lucide-react"]
+      "ignoreDependencies": ["lucide-react"],
+      // 2026-10-25(Knip 棘轮 files 超基线):TabBar 与上面 NavBar/PayButton 同族 ——
+      // 液态玻璃跨端条先落组件、入口尚未接,knip import 图不可达 ⇒ 误报未引用文件。
+      // 到期复核:接入入口后删本白名单;若确认不做,应删除而非续挂。
+      "ignore": ["src/components/TabBar.tsx"]
     }
   }
 }

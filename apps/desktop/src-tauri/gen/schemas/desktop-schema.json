@@ -2523,16 +2523,40 @@
           "markdownDescription": "Enables the embedded_browser_dock_close_tab command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_dock_destroy command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-destroy",
+          "markdownDescription": "Enables the embedded_browser_dock_destroy command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_dock_devtools command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-dock-devtools",
           "markdownDescription": "Enables the embedded_browser_dock_devtools command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_dock_favorite_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-favorite-remove",
+          "markdownDescription": "Enables the embedded_browser_dock_favorite_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_favorite_toggle command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-favorite-toggle",
+          "markdownDescription": "Enables the embedded_browser_dock_favorite_toggle command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_dock_forward command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-dock-forward",
           "markdownDescription": "Enables the embedded_browser_dock_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_history_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-history-clear",
+          "markdownDescription": "Enables the embedded_browser_dock_history_clear command without any pre-configured scope."
         },
         {
           "description": "Enables the embedded_browser_dock_home command without any pre-configured scope.",
@@ -2583,6 +2607,12 @@
           "markdownDescription": "Enables the embedded_browser_dock_stop command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_dock_store command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-store",
+          "markdownDescription": "Enables the embedded_browser_dock_store command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_dock_switch_tab command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-dock-switch-tab",
@@ -2629,6 +2659,12 @@
           "type": "string",
           "const": "allow-get-app-info",
           "markdownDescription": "Enables the get_app_info command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_browser_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-browser-settings",
+          "markdownDescription": "Enables the get_browser_settings command without any pre-configured scope."
         },
         {
           "description": "Enables the get_desktop_prefs command without any pre-configured scope.",
@@ -2875,6 +2911,12 @@
           "type": "string",
           "const": "allow-screenshot-screen",
           "markdownDescription": "Enables the screenshot_screen command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_browser_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-browser-settings",
+          "markdownDescription": "Enables the set_browser_settings command without any pre-configured scope."
         },
         {
           "description": "Enables the set_desktop_badge command without any pre-configured scope.",
@@ -3171,16 +3213,40 @@
           "markdownDescription": "Denies the embedded_browser_dock_close_tab command without any pre-configured scope."
         },
         {
+          "description": "Denies the embedded_browser_dock_destroy command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-destroy",
+          "markdownDescription": "Denies the embedded_browser_dock_destroy command without any pre-configured scope."
+        },
+        {
           "description": "Denies the embedded_browser_dock_devtools command without any pre-configured scope.",
           "type": "string",
           "const": "deny-embedded-browser-dock-devtools",
           "markdownDescription": "Denies the embedded_browser_dock_devtools command without any pre-configured scope."
         },
         {
+          "description": "Denies the embedded_browser_dock_favorite_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-favorite-remove",
+          "markdownDescription": "Denies the embedded_browser_dock_favorite_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_favorite_toggle command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-favorite-toggle",
+          "markdownDescription": "Denies the embedded_browser_dock_favorite_toggle command without any pre-configured scope."
+        },
+        {
           "description": "Denies the embedded_browser_dock_forward command without any pre-configured scope.",
           "type": "string",
           "const": "deny-embedded-browser-dock-forward",
           "markdownDescription": "Denies the embedded_browser_dock_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_history_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-history-clear",
+          "markdownDescription": "Denies the embedded_browser_dock_history_clear command without any pre-configured scope."
         },
         {
           "description": "Denies the embedded_browser_dock_home command without any pre-configured scope.",
@@ -3231,6 +3297,12 @@
           "markdownDescription": "Denies the embedded_browser_dock_stop command without any pre-configured scope."
         },
         {
+          "description": "Denies the embedded_browser_dock_store command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-store",
+          "markdownDescription": "Denies the embedded_browser_dock_store command without any pre-configured scope."
+        },
+        {
           "description": "Denies the embedded_browser_dock_switch_tab command without any pre-configured scope.",
           "type": "string",
           "const": "deny-embedded-browser-dock-switch-tab",
@@ -3277,6 +3349,12 @@
           "type": "string",
           "const": "deny-get-app-info",
           "markdownDescription": "Denies the get_app_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_browser_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-browser-settings",
+          "markdownDescription": "Denies the get_browser_settings command without any pre-configured scope."
         },
         {
           "description": "Denies the get_desktop_prefs command without any pre-configured scope.",
@@ -3523,6 +3601,12 @@
           "type": "string",
           "const": "deny-screenshot-screen",
           "markdownDescription": "Denies the screenshot_screen command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_browser_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-browser-settings",
+          "markdownDescription": "Denies the set_browser_settings command without any pre-configured scope."
         },
         {
           "description": "Denies the set_desktop_badge command without any pre-configured scope.",

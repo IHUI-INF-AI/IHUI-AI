@@ -4527,6 +4527,7 @@
       "loadingMore": "加载中…"
     },
     "detail": {
+      "loading": "加载中…",
       "pageTitle": "话题详情",
       "loadFailed": "加载失败",
       "followers": "{n} 人关注",

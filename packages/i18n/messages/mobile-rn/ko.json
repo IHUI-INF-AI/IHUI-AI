@@ -4483,6 +4483,7 @@
       "loadingMore": "로딩 중…"
     },
     "detail": {
+      "loading": "로딩 중…",
       "pageTitle": "토픽 상세",
       "loadFailed": "로드 실패",
       "followers": "{n}명 팔로우",

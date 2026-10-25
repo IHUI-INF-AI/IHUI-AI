@@ -141,7 +141,8 @@ test('守门 77 的棘轮锚点必须是 HEAD 自身而不是静态清单(装车
     '必须真的 import 取材层(只写 catBatch 字样不引层 = 尺子失效)',
   )
   assert.doesNotMatch(src, /gitRo\(\['show'/, '锚点不得回到逐文件派生 git 读内容(取材纪律退化)')
-  assert.match(src, /const tolOf = \(rel\) => Math\.max\(/, 'tolOf 必须存在并被使用')
+  //  2026-10-23:提取式容忍换行/缩进(prettier 把 `=> Math.max(` 拆到下一行即假红,同 ec6e4465d3 型)
+  assert.match(src, /const tolOf = \(rel\) =>\s+Math\.max\(/, 'tolOf 必须存在并被使用')
   assert.match(src, /isStaged \|\| FILES_MODE \? headCountOf\(rel\) : 0/)
   //  全量审计判 HEAD 内容:否则并行会话滞后的旧草稿会被记成本仓债务(误红 → --no-verify 常态化)
   assert.match(src, /const auditHead = !isStaged && !FILES_MODE/)
@@ -573,7 +574,7 @@ test('T-B7c 装车形状锁:B7 挂在类名属性取材上、档位名单现取�
   assert.match(txt, /rule: 'B7-dead-class'/, 'B7 的判红不见了 ⇒ 死类名再次静默通过')
   assert.match(
     txt,
-    /const classStepNames = new Set\(\[\.\.\.Object\.keys\(table\.RADIUS_STEPS\)/,
+    /const classStepNames = new Set\(\[\s*\.\.\.Object\.keys\(table\.RADIUS_STEPS\)/,
     '档位名单必须是 radius.js 现取,不是抄死的名单',
   )
   assert.doesNotMatch(

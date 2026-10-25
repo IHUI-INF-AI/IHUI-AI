@@ -17,7 +17,7 @@
  * - API 失败时错误状态设置
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 // 相对路径导入 mock 专有导出：vitest alias '@ihui/rn-app' 与此相对路径解析到
 // 同一文件（tests/__mocks__/ihui-rn-app.ts），运行时为同一模块实例；
 // 而 tsc 类型检查不受影响（主 tsconfig 无 mock alias）。
@@ -129,16 +129,23 @@ describe('PlazaScreen 需求广场', () => {
 
   it('下拉刷新时 reset=true 重新加载列表', async () => {
     render(<PlazaScreen />)
-    await waitFor(() => {
-      expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
-    })
+    // render() 同步走完首帧,共享替身是在**渲染期**把 props 推进 plazaScreenPropsCaptured 的
+    // ⇒ "捕获过了"不是异步事实,写成 waitFor 只会把一个同步前提伪装成一段等待预算;降级为
+    // 同步断言(断言一条不减),本枚只留链终点那一次等待。
+    expect(
+      plazaScreenPropsCaptured.length,
+      '首帧就把委托链断了:薄壳根本没把 props 交给共享替身,后面的刷新无从谈起',
+    ).toBeGreaterThan(0)
     const initialProps = plazaScreenPropsCaptured[0]!
     // 模拟 onRefresh 回调触发
     await (initialProps.onRefresh as () => void)()
-    await waitFor(() => {
-      // 第二次调用（刷新）
-      expect(apiMocks.getPlazaList).toHaveBeenCalledTimes(2)
-    })
+    await waitFor(
+      () => {
+        // 第二次调用（刷新）
+        expect(apiMocks.getPlazaList).toHaveBeenCalledTimes(2)
+      },
+      { timeout: 8_000 },
+    )
   })
 
   // 2026-09-24:此用例原本钉的是"任何失败都显示『加载失败,请下拉刷新重试』"——
@@ -202,9 +209,11 @@ describe('PlazaScreen 需求广场', () => {
   it('分类按钮 onPress 打开赛道筛选弹层(categoryVisible=true)', async () => {
     render(<PlazaScreen />)
     // NavBar 被 mock 为 null，通过 SharedPlazaScreen props 验证
-    await waitFor(() => {
-      expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
-    })
+    // 首帧的 props 捕获是渲染期事实、不是异步事实 ⇒ 降级为同步断言,只留状态终点那一次等待。
+    expect(
+      plazaScreenPropsCaptured.length,
+      '首帧没把 props 交给共享替身 = 委托链断在渲染之前',
+    ).toBeGreaterThan(0)
     // 打开分类弹层：点击 NavBar 中分类按钮（mocked out），通过直接触发内部状态验证
     // 由于 NavBar/Drawer 都是 null，我们验证 SharedPlazaScreen 的 status prop 可以切换
     const props = plazaScreenPropsCaptured[0]!
@@ -212,11 +221,15 @@ describe('PlazaScreen 需求广场', () => {
     // onStatusChange 切换状态
     await (props.onStatusChange as (s: string) => void)('developing')
     // 2026-09-10 CI 修复:更新传播前的旧快照仍会被捕获,单次检查会拿到 waiting;
-    // 轮询直到最新捕获的 props 状态变为 developing
-    await waitFor(() => {
-      const last = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
-      expect(last.status).toBe('developing')
-    })
+    // 轮询直到最新捕获的 props 状态变为 developing(这一段在等 React 的 setState 落帧,是本枚
+    // 唯一的真异步终点 ⇒ 预算显式化,红绿由判据决定而不是由机器负载决定)
+    await waitFor(
+      () => {
+        const last = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+        expect(last.status).toBe('developing')
+      },
+      { timeout: 8_000 },
+    )
   })
 
   it('搜索输入 onChange 更新 searchInput', async () => {
@@ -231,15 +244,46 @@ describe('PlazaScreen 需求广场', () => {
 
   it('submitSearch 触发重新加载且 search 参数生效', async () => {
     render(<PlazaScreen />)
-    await waitFor(() => {
-      expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
+    // 首帧的 props 捕获是渲染期事实 ⇒ 降级为同步断言,本枚只留链终点那一次等待。
+    expect(
+      plazaScreenPropsCaptured.length,
+      '首帧没把 props 交给共享替身 = 委托链断在渲染之前,提交回调无从取得',
+    ).toBeGreaterThan(0)
+    const callsBefore = apiMocks.getPlazaList.mock.calls.length
+    // 牙在这里补上(2026-10-25):原断言 `toHaveBeenCalled()` 自首屏起恒真(首屏已 load 一次),
+    // 提交什么都不做也绿,票面标题里的「search 参数生效」从来没被量过。
+    // searchInput 是薄壳的内部态,只能经它自己委托出去的 onSearchChange 进去;而
+    // onSubmitSearch 每次渲染都是新闭包 ⇒ 必须取**输入落位之后最新那帧**的回调,
+    // 用首帧闭包提交带上的是空 searchInput,量到的就是"什么都没输入"。
+    // 两次 act 保证状态在读取之前已经 flush(否则"最新那帧"是竞态)。
+    act(() => {
+      ;(
+        plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!.onSearchChange as (
+          v: string,
+        ) => void
+      )('AI开发')
     })
-    const props = plazaScreenPropsCaptured[0]!
-    await (props.onSubmitSearch as () => void)()
-    // 搜索提交后，下一次 load 应该带 search 参数
-    await waitFor(() => {
-      expect(apiMocks.getPlazaList).toHaveBeenCalled()
+    act(() => {
+      ;(
+        plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!.onSubmitSearch as () => void
+      )()
     })
+    await waitFor(
+      () => {
+        const after = apiMocks.getPlazaList.mock.calls.slice(callsBefore)
+        expect(
+          after.length,
+          '提交后一次数都没再取 = 提交按钮是假的(或 search 变更没能触发下一次 load)',
+        ).toBeGreaterThan(0)
+        expect(
+          after.some((c) => (c[0] as { search?: string } | undefined)?.search === 'AI开发'),
+          `提交后的 ${after.length} 次取数没有任何一次带 search=AI开发(实参 search:${after
+            .map((c) => String((c[0] as { search?: string } | undefined)?.search))
+            .join(', ')})`,
+        ).toBe(true)
+      },
+      { timeout: 8_000 },
+    )
   })
 
   it('发布按钮 navigate 到 PostCreate', async () => {

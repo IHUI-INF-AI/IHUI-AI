@@ -37,6 +37,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { loadPageList } from './warm-prod-cache.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
@@ -46,9 +47,13 @@ const FALLBACK_ROUTES = ['/', '/agents', '/pricing', '/docs']
 
 const argv = process.argv.slice(2)
 const has = (f) => argv.includes(f)
-const val = (f, d) => {
-  const i = argv.indexOf(f)
-  return i >= 0 && argv[i + 1] ? argv[i + 1] : d
+const val = (f, d, noun = '参数') => {
+  const r = requireFlagValue(argv, f, { noun, fallback: d })
+  if (r.error) {
+    console.error(`❌ 用法错:${r.error}`)
+    process.exit(2)
+  }
+  return r.value
 }
 
 // ───────────────────────────── 判据(纯函数,几何量进、结论出) ─────────────────────────────

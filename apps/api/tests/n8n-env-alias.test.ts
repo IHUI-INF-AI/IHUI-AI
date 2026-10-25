@@ -77,11 +77,10 @@ vi.mock('../src/plugins/auth.js', () => ({
 vi.mock('../src/utils/ssrf-guard.js', () => ({
   ensureSafeFetchUrl: async () => undefined,
   assertSafeFetchUrl: async () => ({ safe: true }),
-  // 2026-10-24:9d020274 起 n8n 出站改走 safeFetch(SSRF 逐跳复检),本工厂此前缺这个
-  // 导出 ⇒ n8nFetch 里 safeFetch 为 undefined ⇒ TypeError 进 catch ⇒ 7 例齐 502。
-  // 守卫判定仍由上面两个 mock 短路;出站语义转发到 stub 的 globalThis.fetch
-  // (urlsOfGlobalFetch 量的正是它,两跳断言语义不变)。
-  safeFetch: (url: string, init?: RequestInit) => fetch(url, init),
+  // 安全出口(逐跳重定向复检)在此透传到被 stub 的 global fetch,
+  // 让"发到哪个 URL"仍是可断言的事实;落点判禁本身由 ssrf-outbound-guard.test.ts 守。
+  safeFetch: (...args: unknown[]) =>
+    (globalFetchMock as unknown as (...a: unknown[]) => unknown)(...args),
 }))
 
 vi.mock('../src/db/index.js', () => ({

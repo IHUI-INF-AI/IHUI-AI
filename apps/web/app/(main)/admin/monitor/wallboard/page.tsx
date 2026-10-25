@@ -182,6 +182,15 @@ interface BusinessSnapshot {
   signIn?: SignInSnapshot | null
   /** 近 14 日每日新增用户(上海日界,含今天);后端查询失败或老后端无此字段 ⇒ null/undefined */
   userGrowth?: Array<{ date: string; count: number }> | null
+  /** 用户构成(与 usersTotal 同一次查询的即时计数;老后端无这些字段 ⇒ undefined ⇒ 渲染"—") */
+  usersVip?: number
+  usersTrader?: number
+  usersInvited?: number
+  usersInvited7d?: number
+  /** 等级分布 [普通, 白银, 黄金, 钻石](users.level 0..3) */
+  usersByLevel?: [number, number, number, number]
+  /** 近 7 日签到去重用户数(留存近似);查询失败为 null */
+  activeUsers7d?: number | null
 }
 
 interface TrafficSnapshot {
@@ -210,6 +219,21 @@ interface RelayPoolSnapshot {
   accountRefreshAgeSec?: number | null
   /** 健康态不在封闭词表内、无法折叠的行数(非 0 = 库里有脏值) */
   rowsUnclassified?: number | null
+  /** Key 健康四态计数(unknown/healthy/degraded/down;老后端无此字段 ⇒ undefined) */
+  keyHealth?: { unknown: number; healthy: number; degraded: number; down: number } | null
+  /** 按 provider 分组的 Key 分布 */
+  keyByProvider?: Array<{
+    provider: string
+    total: number
+    schedulable: number
+    abnormal: number
+  }> | null
+  /** 按 provider 分组的账号池分布 */
+  accountByProvider?: Array<{ provider: string; total: number; schedulable: number }> | null
+  /** 余额 < 5 元且非无限的 Key 条数(余额预警) */
+  keyBalanceLow?: number | null
+  /** token 将在 24h 内过期的账号条数(含已过期) */
+  accountExpiring24h?: number | null
 }
 
 interface ActiveAlert {
@@ -1194,8 +1218,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     }
   }, [biz?.signIn?.last7d, isDark, t, locale])
 
-  // 用户增长:近 14 日每日新增(上海日界,与面板里「今日新增」同口径)。后端取不到 ⇒ 空数组
-  // ⇒ 图表空态 + ChartEmpty(§0.3:没判不得画成 14 根 0 柱)
+  // 近 14 日每日新增用户:纯柱形,横轴只留 MM-DD(14 根太密 ⇒ 标签间隔 2),柱顶不标数字
   const userGrowthOption = React.useMemo<EChartsOption>(() => {
     const rows = biz?.userGrowth ?? []
     return {
@@ -1210,7 +1233,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         type: 'category',
         data: rows.map((r) => r.date.slice(5)),
         ...AXIS(isDark),
-        axisLabel: { color: chartText(isDark), fontSize: 9 },
+        axisLabel: { color: chartText(isDark), fontSize: 9, interval: 2 },
       },
       yAxis: {
         type: 'value',
@@ -1220,28 +1243,14 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       },
       series: [
         {
-          type: 'line',
-          smooth: true,
-          showSymbol: true,
-          symbolSize: 5,
+          type: 'bar',
           data: rows.map((r) => r.count),
+          barWidth: 6,
           tooltip: {
             valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitUser')}`,
           },
-          ...seriesGlow(CHART_CYAN),
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0,
-              y: 0,
-              x2: 0,
-              y2: 1,
-              colorStops: [
-                { offset: 0, color: withAlpha(CHART_CYAN, 0.35) },
-                { offset: 1, color: withAlpha(CHART_CYAN, 0.02) },
-              ],
-            },
-          },
+          itemStyle: { borderRadius: [3, 3, 0, 0], color: withAlpha(CHART_CYAN, 0.85) },
+          label: { show: false },
         },
       ],
     }
@@ -1463,27 +1472,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           </div>
         </header>
 
-        {/* ===== KPI 带 =====
-            排列按机主 2026-10-25 定档:最关心「用户数据 / 增长 / AI」⇒ 这三类读数占最左两格
-            (大屏阅读从左上起),运维读数(QPS / 错误率 / P95)右移但仍同排可见,不做删减。
-            用户卡的 sub 就是「今日新增」——增长读数不另开一格:六列档多一张卡会落成 6+1 孤格
-            (.wb-cells-lg ≥900 固定 6 列,见 WALLBOARD_CSS 注释)。 */}
+        {/* ===== KPI 带 ===== */}
         <section className="wb-cells-lg grid gap-2.5 px-4 pt-3">
           {[
-            {
-              icon: <Users className="h-4 w-4" />,
-              label: t('kpiUsers'),
-              value: fmtInt(biz?.usersTotal),
-              sub: t('kpiUsersSub', { count: fmtInt(biz?.usersTodayNew) }),
-              tone: biz ? ('accent' as const) : ('unknown' as const),
-            },
-            {
-              icon: <Sparkles className="h-4 w-4" />,
-              label: t('kpiAiCalls'),
-              value: fmtCompact(biz?.llmCallsToday),
-              sub: t('kpiAiCallsSub', { count: fmtCompact(biz?.llmTokensToday) }),
-              tone: biz ? ('accent' as const) : ('unknown' as const),
-            },
             {
               icon: <Activity className="h-4 w-4" />,
               label: t('kpiQps'),
@@ -1520,6 +1511,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       : ('default' as const),
             },
             {
+              icon: <Users className="h-4 w-4" />,
+              label: t('kpiUsers'),
+              value: fmtInt(biz?.usersTotal),
+              sub: t('kpiUsersSub', { count: fmtInt(biz?.usersTodayNew) }),
+              tone: biz ? ('accent' as const) : ('unknown' as const),
+            },
+            {
               icon: <Wallet className="h-4 w-4" />,
               label: t('kpiTurnover'),
               // 金额 ≥1 万元走紧凑记法(避免 6 位整数把卡片撑破);其余保留至多两位小数。
@@ -1534,10 +1532,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               sub: t('kpiTurnoverSub', { count: fmtInt(biz?.ordersTodayPaid) }),
               tone: biz ? ('default' as const) : ('unknown' as const),
             },
+            {
+              icon: <Sparkles className="h-4 w-4" />,
+              label: t('kpiAiCalls'),
+              value: fmtCompact(biz?.llmCallsToday),
+              sub: t('kpiAiCallsSub', { count: fmtCompact(biz?.llmTokensToday) }),
+              tone: biz ? ('accent' as const) : ('unknown' as const),
+            },
           ].map((k) => (
             <div
               key={k.label}
-              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-xl border border-border bg-card/80 px-3 py-2"
+              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
                 <span className="text-info-text/70">{k.icon}</span>
@@ -1772,7 +1777,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTraffic')}
             icon={<Radio className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-prio-trend"
+            className="wb-c6 wb-flow-first"
             right={
               <span className="flex items-center gap-2">
                 {no5xxBadge}
@@ -2182,13 +2187,42 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelBusiness')}
             icon={<Wallet className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-prio-user"
+            className="wb-c6 wb-business-early"
             bodyClassName="wb-split wb-split-c3 overflow-y-auto"
           >
             <div className="wb-col">
-              {/* 用户三格 = 面板第一眼读数(机主 2026-10-25 定档:用户数据/增长优先于接口排行)。
-                  接口调用排行原在此处,已下移到签到块之后。 */}
-              <div className="wb-cells wb-cells-c3 grid gap-1.5">
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('topEndpoints')}
+              </div>
+              <div className="space-y-1">
+                {(biz?.topEndpoints ?? []).map((e, i) => (
+                  <div
+                    key={`${e.method}-${e.path}-${i}`}
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
+                    <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text">
+                      {e.method}
+                    </span>
+                    <Tooltip content={e.path}>
+                      <span className="truncate text-[10px] text-foreground">{e.path}</span>
+                    </Tooltip>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                      {fmtCompact(e.calls)}
+                    </span>
+                  </div>
+                ))}
+                {biz === null ? (
+                  <div className="flex justify-center px-2 py-3">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : biz.topEndpoints.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('noCallsToday')}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('usersRegistered')}
                   value={fmtInt(biz?.usersTotal)}
@@ -2197,13 +2231,46 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <StatCell label={t('usersActive')} value={fmtInt(biz?.usersActive)} />
                 <StatCell label={t('usersNewToday')} value={fmtInt(biz?.usersTodayNew)} tone="ok" />
               </div>
+              {/* 用户构成(2026-10-25 机主要求"更多有用的数据"):VIP / 操盘手 / 邀请注册 /
+                  近 7 日邀请 / 近 7 日活跃。全部与 usersTotal 同一次查询的 filter 计数 ⇒ 零额外开销;
+                  老后端无这些字段 ⇒ 各自渲染"—"(§0.3 不把"没量到"写成 0)。 */}
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+                <StatCell label={t('usersVip')} value={fmtInt(biz?.usersVip)} tone="accent" />
+                <StatCell label={t('usersTrader')} value={fmtInt(biz?.usersTrader)} />
+                <StatCell label={t('usersInvited')} value={fmtInt(biz?.usersInvited)} />
+                <StatCell
+                  label={t('usersInvited7d')}
+                  value={fmtInt(biz?.usersInvited7d)}
+                  tone="ok"
+                />
+                <StatCell
+                  label={t('activeUsers7d')}
+                  value={fmtInt(biz?.activeUsers7d)}
+                  unit={t('unitUser')}
+                />
+              </div>
+              {/* 等级分布:users.level 0..3 = 普通/白银/黄金/钻石(同一次查询的 4 个 filter 计数)。
+                  9px 小字行,不是 StatCell 读数 ⇒ 不在门 240 R1 射程,nowrap 防等级名被折断。 */}
+              <div className="mt-1 text-[9px] text-muted-foreground">
+                {t('levelDistTitle')}:{' '}
+                <span className="wb-num whitespace-nowrap">
+                  {t('level0')} {fmtInt(biz?.usersByLevel?.[0])} · {t('level1')}{' '}
+                  {fmtInt(biz?.usersByLevel?.[1])} · {t('level2')} {fmtInt(biz?.usersByLevel?.[2])}{' '}
+                  · {t('level3')} {fmtInt(biz?.usersByLevel?.[3])}
+                </span>
+              </div>
               {/* 用户增长:近 14 日每日新增(上海日界,与上面「今日新增」同口径)。
                   取不到 ⇒ 空态,不得把"没量到"画成 14 根 0 柱(§0.3)。 */}
               <div className="relative mt-2">
                 <div className="mb-0.5 text-[9px] tracking-[0.12em] text-muted-foreground">
                   {t('userGrowth14d')}
                 </div>
-                <EChart option={userGrowthOption} height={62} merge ariaLabel={t('userGrowth14d')} />
+                <EChart
+                  option={userGrowthOption}
+                  height={62}
+                  merge
+                  ariaLabel={t('userGrowth14d')}
+                />
                 {!biz?.userGrowth || biz.userGrowth.length === 0 ? (
                   <ChartEmpty text={t('sourceUnreachable')} />
                 ) : null}
@@ -2247,40 +2314,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <EChart option={signInOption} height={62} merge ariaLabel={t('signIn7d')} />
                   {!biz?.signIn || biz.signIn.last7d.length === 0 ? (
                     <ChartEmpty text={biz?.signIn ? t('noSignIn7d') : t('sourceUnreachable')} />
-                  ) : null}
-                </div>
-              </div>
-              {/* 接口调用排行(纵深信息,下移):原在用户三格之前,机主最关心的是用户/增长/AI */}
-              <div className="mt-2">
-                <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                  {t('topEndpoints')}
-                </div>
-                <div className="space-y-1">
-                  {(biz?.topEndpoints ?? []).map((e, i) => (
-                    <div
-                      key={`${e.method}-${e.path}-${i}`}
-                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                    >
-                      <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
-                      <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text">
-                        {e.method}
-                      </span>
-                      <Tooltip content={e.path}>
-                        <span className="truncate text-[10px] text-foreground">{e.path}</span>
-                      </Tooltip>
-                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                        {fmtCompact(e.calls)}
-                      </span>
-                    </div>
-                  ))}
-                  {biz === null ? (
-                    <div className="flex justify-center px-2 py-3">
-                      <SourceGap text={t('sourceUnreachable')} />
-                    </div>
-                  ) : biz.topEndpoints.length === 0 ? (
-                    <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                      {t('noCallsToday')}
-                    </div>
                   ) : null}
                 </div>
               </div>
@@ -2488,7 +2521,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTrafficRobot')}
             icon={<Users className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md wb-prio-traffic"
+            className="wb-c6 wb-c3-md order-1"
             right={
               traffic === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2580,7 +2613,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelRelayPool')}
             icon={<Sparkles className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md wb-prio-ai"
+            className="wb-c6 wb-c3-md order-1"
             right={
               relayPool === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2634,6 +2667,88 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   }
                 />
               </div>
+              {/* Key 健康四态(2026-10-25 机主要求"更多有用的数据"):unknown/healthy/degraded/down。
+                  与汇总字段同一把尺子(RELAY_POOL_HEALTH_STATE_VALUE);老后端无此字段 ⇒ 各格"—"。
+                  半宽栏内 4 格 auto-fit(143 下限)排 2×2 —— 与签到块同形态,门 240 R4 同规。 */}
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+                <StatCell
+                  label={t('poolHealthHealthy')}
+                  value={fmtInt(relayPool?.keyHealth?.healthy)}
+                  tone="ok"
+                />
+                <StatCell
+                  label={t('poolHealthDegraded')}
+                  value={fmtInt(relayPool?.keyHealth?.degraded)}
+                  tone={
+                    !isNum(relayPool?.keyHealth?.degraded)
+                      ? 'unknown'
+                      : (relayPool?.keyHealth?.degraded ?? 0) > 0
+                        ? 'warn'
+                        : undefined
+                  }
+                />
+                <StatCell
+                  label={t('poolHealthDown')}
+                  value={fmtInt(relayPool?.keyHealth?.down)}
+                  tone={
+                    !isNum(relayPool?.keyHealth?.down)
+                      ? 'unknown'
+                      : (relayPool?.keyHealth?.down ?? 0) > 0
+                        ? 'bad'
+                        : undefined
+                  }
+                />
+                <StatCell
+                  label={t('poolHealthUnknown')}
+                  value={fmtInt(relayPool?.keyHealth?.unknown)}
+                />
+              </div>
+              {/* 余额预警:余额 < 5 元且非"无限"(-1)的 Key 条数。0 = 无需动作(绿),>0 = 要续费(琥珀) */}
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+                <StatCell
+                  label={t('poolBalanceLow')}
+                  value={fmtInt(relayPool?.keyBalanceLow)}
+                  tone={
+                    !isNum(relayPool?.keyBalanceLow)
+                      ? 'unknown'
+                      : (relayPool?.keyBalanceLow ?? 0) > 0
+                        ? 'warn'
+                        : 'ok'
+                  }
+                />
+              </div>
+              {/* Key 按供应商分布:可调度/异常与汇总字段同一把尺子;一行一供应商,数字右对齐 */}
+              <div className="mt-2">
+                <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {t('poolProviderKeyTitle')}
+                </div>
+                <div className="space-y-1">
+                  {(relayPool?.keyByProvider ?? []).map((p) => (
+                    <div
+                      key={p.provider}
+                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      <span className="truncate text-[10px] text-foreground">{p.provider}</span>
+                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtInt(p.schedulable)}/{fmtInt(p.total)}
+                      </span>
+                      <span
+                        className={cn(
+                          'wb-num w-8 shrink-0 text-right text-[10px]',
+                          p.abnormal > 0 ? 'text-warning-text' : 'text-muted-foreground',
+                        )}
+                      >
+                        {fmtInt(p.abnormal)}
+                      </span>
+                    </div>
+                  ))}
+                  {relayPool && !relayPool.keyByProvider?.length ? (
+                    <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                      {t('noPoolRows')}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <div className="wb-col">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
@@ -2679,6 +2794,46 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         : 'ok'
                   }
                 />
+              </div>
+              {/* token 临期预警:24 小时内过期(含已过期)的账号条数。
+                  minTokenExpiresInSeconds 只看"最短的那一个",这个数看"一共有几个要续"——
+                  两个一起才构成可动作的监控(只修最短的,第二个过期时又宕一次)。 */}
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+                <StatCell
+                  label={t('poolExpiring24h')}
+                  value={fmtInt(relayPool?.accountExpiring24h)}
+                  tone={
+                    !isNum(relayPool?.accountExpiring24h)
+                      ? 'unknown'
+                      : (relayPool?.accountExpiring24h ?? 0) > 0
+                        ? 'warn'
+                        : 'ok'
+                  }
+                />
+              </div>
+              {/* 账号按供应商分布:可调度/总数,一行一供应商 */}
+              <div className="mt-2">
+                <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {t('poolProviderAccountTitle')}
+                </div>
+                <div className="space-y-1">
+                  {(relayPool?.accountByProvider ?? []).map((p) => (
+                    <div
+                      key={p.provider}
+                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      <span className="truncate text-[10px] text-foreground">{p.provider}</span>
+                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtInt(p.schedulable)}/{fmtInt(p.total)}
+                      </span>
+                    </div>
+                  ))}
+                  {relayPool && !relayPool.accountByProvider?.length ? (
+                    <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                      {t('noPoolRows')}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           </Panel>
@@ -2863,15 +3018,11 @@ const WALLBOARD_CSS = `
  * 面板内部的两栏(告警/业务)也按面板自身宽度判定(.wb-panel 是容器),不再按视口 md:。 */
 .wb-panel { container-type: inline-size; }
 .wb-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
-/* 首屏编排(全宽度生效,机主 2026-10-25 定档):最关心「用户数据 / 增长 / AI」⇒ 四块按此序前置,
- * 主机/服务、质量/告警、数据层、边缘、运行时长顺次后移。1920 下首屏两行正好是
- * 「业务纵深 6 + AI 号池 6」「访客与机器人 6 + 流量趋势 6」—— 用户增长与 AI 面无需滚动即读完。
- * 负 order 只改视觉顺序,DOM 顺序不变(读屏仍按 DOM 读,视觉优先是大屏的既定取舍)。
- * 四档必须两两不等:同值时回落到 DOM 顺序,编排就静默失效(2026-10-22 前那版只有 -2/-1 两档)。 */
-.wb-prio-user { order: -40; }
-.wb-prio-ai { order: -30; }
-.wb-prio-traffic { order: -20; }
-.wb-prio-trend { order: -10; }
+/* 首屏编排(全宽度生效):流量趋势与业务数据先读,主机/服务、质量/告警顺次后移。
+ * 1920 下一行刚好是流量 6 + 业务 6,首屏即可读完这两块;负 order 只改视觉顺序,
+ * DOM 顺序不变(读屏仍按 DOM 读,视觉优先是大屏的既定取舍)。 */
+.wb-flow-first { order: -2; }
+.wb-business-early { order: -1; }
 .wb-c3 { grid-column: span 3; }
 .wb-c6 { grid-column: span 6; }
 .wb-split {

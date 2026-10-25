@@ -4483,6 +4483,7 @@
       "loadingMore": "読み込み中…"
     },
     "detail": {
+      "loading": "読み込み中…",
       "pageTitle": "トピック詳細",
       "loadFailed": "読み込みに失敗しました",
       "followers": "{n} 人がフォロー中",

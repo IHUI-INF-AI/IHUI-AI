@@ -2229,8 +2229,7 @@
       "addParam": "매개변수 추가",
       "deleteParam": "삭제",
       "create": "새로 만들기",
-      "createSuccess": "에이전트가 생성되었습니다",
-      "mockSuccess": "API가 아직 열리지 않았습니다. 모의 생성 완료",
+      "mockSuccess": "n8n 에이전트 API가 열리지 않아 이번 생성이 저장되지 않았습니다",
       "submitting": "생성 중…",
       "submit": "에이전트 생성",
       "fileSizeExceeded": "파일은 10MB를 초과할 수 없습니다",
@@ -2266,8 +2265,7 @@
       "discountFull": "전체 참여",
       "submitting": "제출 중…",
       "submit": "심사 제출",
-      "submitSuccess": "제출 완료",
-      "mockSuccess": "API가 아직 열리지 않았습니다. 모의 제출 완료"
+      "mockSuccess": "과금 설정 API가 열리지 않아 이번 제출이 저장되지 않았습니다"
     }
   },
   "devSpace": {
@@ -2755,7 +2753,6 @@
     "missingParams": "결제 매개변수 누락",
     "useWechatScan": "WeChat으로 스캔하여 결제",
     "configNotReady": "결제 설정이 준비되지 않았습니다. 관리자에게 문의하세요.",
-    "balanceInsufficient": "잔액이 부족합니다. 충전해 주세요",
     "noCoupon": "사용 가능한 쿠폰이 없습니다",
     "couponNone": "쿠폰 사용 안 함",
     "orderExpired": "주문이 만료되었습니다. 다시 주문해 주세요",
@@ -2763,8 +2760,6 @@
     "couponSaved": "할인된 금액 ¥{n}",
     "goodsName": "상품명",
     "vipSubscription": "회원 구독",
-    "balanceAmount": "잔액 ¥{n}",
-    "recharge": "충전",
     "couponAvailable": "{n}장 사용 가능",
     "limitedFree": "한정 무료",
     "memberFree": "멤버 무료",
@@ -2774,7 +2769,6 @@
     "paymentMethod": "결제 방식",
     "confirmPay": "결제 확인 ¥{price}",
     "alipay": "알리페이",
-    "balance": "잔액",
     "cancel": "결제가 취소되었습니다",
     "wxNotInstalled": "위챗 앱이 감지되지 않았습니다. 위챗을 먼저 설치해 주세요",
     "aliNotInstalled": "알리페이 앱이 감지되지 않았습니다. 알리페이를 먼저 설치해 주세요",
@@ -4149,8 +4143,7 @@
     "q3": "운영부",
     "q4": "마케팅부",
     "q5": "영업부",
-    "q6": "에이전트 로드",
-    "q7": "유료 설정 제출"
+    "q6": "에이전트 로드"
   },
   "modelplaza": {
     "r1": "알리바바 클라우드",

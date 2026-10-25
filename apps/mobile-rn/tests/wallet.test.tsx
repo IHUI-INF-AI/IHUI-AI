@@ -29,9 +29,14 @@ vi.mock('@ihui/api-client', () => ({
   fetchApi: apiMocks.fetchApi,
 }))
 
-vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}))
+// t 必须跨渲染同引用:生产 useI18n 取自 Provider 的 context value(t 只在 Provider 自身重渲时换),
+// 而原替身每次调用都新建 t ⇒ WalletScreen 的 useCallback 链(t→uniappT→load)每次 render 都换引用,
+// [load] effect 反复重跑 ⇒ getBalance 被真调 2+ 次(2026-10-25 收口串行 waitFor 时,终点同步断言
+// toHaveBeenCalledTimes(1) 把它量了出来)。同 payment.test.tsx 替身的稳定写法对齐。
+vi.mock('../src/i18n', () => {
+  const t = (key: string) => key
+  return { useI18n: () => ({ t }) }
+})
 
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: vi.fn(), goBack: vi.fn() }),
@@ -194,12 +199,17 @@ describe('WalletScreen 余额查询', () => {
     apiMocks.getBalance.mockResolvedValue({ success: true, data: mockBalance })
     const { getByText } = render(<WalletScreen />)
 
-    await waitFor(() => {
-      expect(apiMocks.getBalance).toHaveBeenCalledTimes(1)
-    })
+    // 链:mount → await getBalance → setBalance → 四张卡片渲染。共享屏的 cards 派生自 balance
+    // (packages/app/src/features/wallet/WalletScreen.tsx),「可用余额」只在数据落位后才出现,
+    // 它是终点 ⇒ 只等终点一次(形态同先例 e4989cbb9e;预算 8s < testTimeout 10s)。
     // WalletScreen UNIAPP_TEXT 映射:wallet.balance→可用余额 / wallet.frozen→冻结金额
     // / wallet.totalRecharge→累计充值 / wallet.totalWithdraw→累计提现
-    await waitFor(() => expect(getByText('可用余额')).toBeTruthy())
+    await waitFor(() => expect(getByText('可用余额')).toBeTruthy(), { timeout: 8_000 })
+    // 接口一次都没调时上面那句根本不会绿(卡片不渲染);这里再钉「只调一次」——重复请求由它管
+    expect(
+      apiMocks.getBalance,
+      '余额卡渲染了却一次都没查过接口 = 数据来源是假的',
+    ).toHaveBeenCalledTimes(1)
     expect(getByText('冻结金额')).toBeTruthy()
     expect(getByText('累计充值')).toBeTruthy()
     expect(getByText('累计提现')).toBeTruthy()
@@ -291,10 +301,16 @@ describe('WithdrawScreen 提现流程', () => {
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
     fireEvent.click(getByText('withdraw.submit'))
-    await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
+    // handleSubmit 在第一个 await 之前就同步调 appAlert(见 src/screens/WithdrawScreen.tsx),
+    // fireEvent 的 act() 同步刷完 ⇒ 二次确认回调落位不需要等,降级为同步断言。
+    expect(
+      alertCallbacks.length,
+      '没弹二次确认就能提交提现 = 确认环节是假的',
+    ).toBeGreaterThanOrEqual(1)
     alertCallbacks[alertCallbacks.length - 1]!()
 
-    await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
+    // 链:确认 → await fetchApi → setSuccess。成功 toast 是终点,只等一次(8s < testTimeout 10s)。
+    await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy(), { timeout: 8_000 })
     expect(apiMocks.fetchApi).toHaveBeenCalledTimes(1)
     const [url, init] = apiMocks.fetchApi.mock.calls[0]!
     expect(url).toContain('/wallet/withdraw')
@@ -311,10 +327,14 @@ describe('WithdrawScreen 提现流程', () => {
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
     fireEvent.click(getByText('withdraw.submit'))
-    await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
+    // 二次确认回调同步落位(同「提现成功」条的注释),降级为同步断言;失败 toast 是链终点,只等一次。
+    expect(
+      alertCallbacks.length,
+      '没弹二次确认就能提交提现 = 确认环节是假的',
+    ).toBeGreaterThanOrEqual(1)
     alertCallbacks[alertCallbacks.length - 1]!()
 
-    await waitFor(() => expect(getByText('withdraw.failed')).toBeTruthy())
+    await waitFor(() => expect(getByText('withdraw.failed')).toBeTruthy(), { timeout: 8_000 })
   })
 
   it('提现失败(网络异常):显示 failed', async () => {
@@ -325,10 +345,14 @@ describe('WithdrawScreen 提现流程', () => {
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
     fireEvent.click(getByText('withdraw.submit'))
-    await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
+    // 同「提现成功」条:确认回调同步落位;failed toast 只等一次。
+    expect(
+      alertCallbacks.length,
+      '没弹二次确认就能提交提现 = 确认环节是假的',
+    ).toBeGreaterThanOrEqual(1)
     alertCallbacks[alertCallbacks.length - 1]!()
 
-    await waitFor(() => expect(getByText('withdraw.failed')).toBeTruthy())
+    await waitFor(() => expect(getByText('withdraw.failed')).toBeTruthy(), { timeout: 8_000 })
   })
 
   it('银行卡片号可选:不填也能提交', async () => {
@@ -339,10 +363,14 @@ describe('WithdrawScreen 提现流程', () => {
     const amountInput = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(amountInput, { target: { value: '50' } })
     fireEvent.click(getByText('withdraw.submit'))
-    await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
+    // 同「提现成功」条:确认回调同步落位;success toast 只等一次。
+    expect(
+      alertCallbacks.length,
+      '没弹二次确认就能提交提现 = 确认环节是假的',
+    ).toBeGreaterThanOrEqual(1)
     alertCallbacks[alertCallbacks.length - 1]!()
 
-    await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
+    await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy(), { timeout: 8_000 })
     const body = JSON.parse(apiMocks.fetchApi.mock.calls[0]![1].body)
     expect(body.bankCardId).toBeUndefined()
   })
