@@ -405,6 +405,11 @@
       "shared": "packages/app/src/features/coupon/CouponScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CouponScreen.tsx",
       "miniapp": "pages/member/coupon"
+    },
+    {
+      "shared": "packages/app/src/features/study-index/StudyIndexScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudyIndexScreen.tsx",
+      "miniapp": "pages/study/index"
     }
   ]
 }
