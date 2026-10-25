@@ -2198,6 +2198,12 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-25**
+- 🚀 기능/개선:补 8 页镜像标记(app-permission/api-settings/coupon/study-index/phone/password/help/integral) (6e3431fcafca)
+
+**2026-10-25**
+- 🔧 기타:清理功能回退残留 + 跨端同步 + 文档自动更新 (9fdbc207ba2e)
+
+**2026-10-25**
 - 🚀 기능/개선:6 路子代理判定后落地 10 条真镜像声明(小程序页↔RN共享屏) (8cca061cf3aa)
 - 🚀 기능/개선:web↔RN 屏对齐登记 41 条 + 把跨端自动登记器装进 post-commit 链 (6ad5de3c37a6)
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1081dca6e131)
@@ -4939,13 +4945,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-10-25**
 - ⚡ 성능:跨端两把尺子改批量取 blob(HEAD 面 4 分钟→17s) + web→RN 尺支持 --full + 6 段 web-only 豁免 (da67136b1626)
-
-**2026-10-25**
-- 🚀 기능/개선:补 4 条 about 族镜像声明(账本真实化,零行为变化) (f97405f954d1)
-- 🐞 수정:web→RN 功能尺三屏误报根治 + 删除一条不存在的 web 路由登记 (89239b8d3e0f)
-
-**2026-10-25**
-- 🚀 기능/개선:token 化批 #6 第 5 批(收尾)——21 文件裸数字转档 (3d8a7a33557e)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

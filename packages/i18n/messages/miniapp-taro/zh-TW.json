@@ -4820,5 +4820,17 @@
       "refunded": "已退",
       "pending": "待確認"
     }
+  },
+  "agreement": {
+    "title": "協議與政策",
+    "subtitle": "請仔細閱讀以下協議"
+  },
+  "agreementSections": {
+    "sectionTerms": "服務條款",
+    "sectionTermsBody": "使用本平臺服務即表示您同意本協議的全部條款。",
+    "sectionRights": "用戶權利",
+    "sectionRightsBody": "您有權隨時查看、修改和刪除您的個人資訊。",
+    "sectionObligations": "用戶義務",
+    "sectionObligationsBody": "您不得利用本平臺進行違法或侵權活動。"
   }
 }

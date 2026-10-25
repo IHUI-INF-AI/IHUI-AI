@@ -4820,5 +4820,17 @@
       "refunded": "Refunded",
       "pending": "Pending"
     }
+  },
+  "agreement": {
+    "title": "Agreements and Policies",
+    "subtitle": "Please read the following agreements carefully"
+  },
+  "agreementSections": {
+    "sectionTerms": "Terms of Service",
+    "sectionTermsBody": "By using this platform, you agree to all terms of this agreement.",
+    "sectionRights": "User Rights",
+    "sectionRightsBody": "You have the right to view, modify, and delete your personal information at any time.",
+    "sectionObligations": "User Obligations",
+    "sectionObligationsBody": "You must not use this platform for illegal or infringing activities."
   }
 }

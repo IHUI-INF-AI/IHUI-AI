@@ -2198,6 +2198,12 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-25**
+- 🚀 機能/改善:补 8 页镜像标记(app-permission/api-settings/coupon/study-index/phone/password/help/integral) (6e3431fcafca)
+
+**2026-10-25**
+- 🔧 その他:清理功能回退残留 + 跨端同步 + 文档自动更新 (9fdbc207ba2e)
+
+**2026-10-25**
 - 🚀 機能/改善:6 路子代理判定后落地 10 条真镜像声明(小程序页↔RN共享屏) (8cca061cf3aa)
 - 🚀 機能/改善:web↔RN 屏对齐登记 41 条 + 把跨端自动登记器装进 post-commit 链 (6ad5de3c37a6)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1081dca6e131)
@@ -4058,13 +4064,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-10-25**
 - 🚀 機能/改善:token 化批 #6 第 4 批——60 文件裸数字转档 (0088fd044ede)
-
-**2026-10-25**
-- 🚀 機能/改善:token 化批 #6 第 2 批——60 文件 1020 处裸数字转档 (5308e7aaf5b1)
-
-**2026-10-25**
-- 🚀 機能/改善:token 化批 #6 第 1 批——tokens-migrate 扩为目录批量器物 + 60 文件 1583 处裸数字转档 (e506840fc01a)
-- 🐞 修正:普查锁两 offender 清零——VoiceNote/LlmSettings 裸 TextInput 迁共享 TextField (e9226cbb507e)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

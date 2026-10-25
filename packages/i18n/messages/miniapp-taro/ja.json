@@ -4820,5 +4820,17 @@
       "refunded": "返金済み",
       "pending": "確認待ち"
     }
+  },
+  "agreement": {
+    "title": "規約とポリシー",
+    "subtitle": "以下の規約をよくお読みください"
+  },
+  "agreementSections": {
+    "sectionTerms": "利用規約",
+    "sectionTermsBody": "本プラットフォームのサービスを利用することで、本規約の全条項に同意したことになります。",
+    "sectionRights": "ユーザーの権利",
+    "sectionRightsBody": "いつでも個人情報の閲覧、変更、削除を行う権利があります。",
+    "sectionObligations": "ユーザーの義務",
+    "sectionObligationsBody": "本プラットフォームを違法または権利侵害の活動に使用してはなりません。"
   }
 }
