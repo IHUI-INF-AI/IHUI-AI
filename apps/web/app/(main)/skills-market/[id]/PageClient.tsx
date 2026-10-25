@@ -5,6 +5,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
 import MarketPageClient from '../PageClient'
 
 /**
@@ -18,15 +19,11 @@ export default function SkillMarketDetailRoute() {
   const params = useParams<{ id: string | string[] }>()
   const raw = Array.isArray(params.id) ? params.id[0] : params.id
   const slug = typeof raw === 'string' && raw.length > 0 ? raw : undefined
-  // Next 一般已解码动态段,但畸形百分号编码(如手改地址栏的 `%zz`)会让
-  // decodeURIComponent 抛错 ⇒ 兜底回原值,不让一个坏 URL 崩掉整页。
+  // Next 一般已解码动态段,但畸形百分号编码(如手改地址栏的 `%zz`)若直接 decode 会抛错
+  // ⇒ 走共享容错出口,解不动时回原值,不让一个坏 URL 崩掉整页。
   let name: string | undefined
   if (slug) {
-    try {
-      name = decodeURIComponent(slug)
-    } catch {
-      name = slug
-    }
+    name = safeDecodeURIComponent(slug)
   }
   return <MarketPageClient deepLinkName={name} />
 }

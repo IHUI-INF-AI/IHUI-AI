@@ -23,6 +23,8 @@
  *    工具卡应当派发那两个事件,不得在组件里自拼 `scrollIntoView`。
  */
 
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
+
 /** 高亮停留时长(ms):够看清"跳到的是这一条",又不干扰阅读 */
 const HIGHLIGHT_MS = 1400
 
@@ -41,11 +43,7 @@ export function isExternalHttpUrl(url: string): boolean {
  * 解码本身失败(畸形编码)时退回原串,行为与提取前的引用条一致。
  */
 export function findSourceTarget(ref: string): HTMLElement | null {
-  try {
-    return document.getElementById(decodeURIComponent(ref))
-  } catch {
-    return document.getElementById(ref)
-  }
+  return document.getElementById(safeDecodeURIComponent(ref))
 }
 
 /** 这一条引用到底有没有落点?渲染期用它决定要不要给"可点"外观。 */
