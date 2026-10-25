@@ -20,6 +20,7 @@ import {
   noteRedundancyVerdict,
   prefixTwinPairs,
   prefixTwinVerdict,
+  __test__ as T,
 } from '../check-plan-dup-pointer-ratchet.mjs'
 import { DUP_POINTER_RE } from '../lib/plan-task-index.mjs'
 import { stripMergeNotes, buildPlan, renderPurge, verifyPurge } from '../plan-pointer-purge.mjs'
@@ -260,12 +261,14 @@ test('P9 维③叠注重数:同一行同一注记多出来的份数只拦变多;
   if (redundantNoteCount(prose) !== 0) throw new Error('登记行以外的文本不得计入重数')
   // 承载段豁免(2026-10-25):〔副本正文并入·承载整段:…〕是折并时逐字搬来的旧正文,
   // 里面必带旧注记;那与活注记同 token 但属设计形态,数进来会造出"清不掉"的存量。
-  const carry = '- [ ] G-9 做点啥 〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〔同题原号 G-191〕〕\n'
+  const carry =
+    '- [ ] G-9 做点啥 〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〔同题原号 G-191〕〕\n'
   if (redundantNoteCount(carry) !== 0) throw new Error('承载段内的同 token 不该计重叠')
   const nested = '- [ ] G-9 做点啥 〔副本正文并入·承载整段:甲〔乙:丙〕丁〕〔同题原号 G-191〕\n'
   if (stripCarrySegments(nested) !== '- [ ] G-9 做点啥 〔同题原号 G-191〕\n')
     throw new Error('承载段摘除必须按括号深度配平,不得吃外文本')
-  const liveStill = '- [ ] G-9 做点啥 〔同题原号 G-191〕〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〕\n'
+  const liveStill =
+    '- [ ] G-9 做点啥 〔同题原号 G-191〕〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〕\n'
   if (redundantNoteCount(liveStill) !== 1) throw new Error('承载段豁免不得吞掉承载段外的真叠注')
   const grew = noteRedundancyVerdict(one, three)
   if (!grew.grew || grew.before !== 0 || grew.after !== 2) throw new Error('叠注变多必须判红')
@@ -333,4 +336,52 @@ test('P11 维③字族补入(2026-10-22 票面修法①):〔同题原号 …〕�
   // 形状锁:补字族只进维③自带识别集,DUP_POINTER_RE 仍只有原字面(维①/T3 不担责)
   if (DUP_POINTER_RE.source.includes('同题原号') || DUP_POINTER_RE.source.includes('改号'))
     throw new Error('DUP_POINTER_RE 被扩大 ⇒ 合法改号留痕会被维①/T3 算成存量判红(§12e)')
+})
+
+test('P12 维③「重复登记副本」族(2026-10-25 补):三形态叠两份即计重 / 两个不同注记各一份不计 / 差值档存量只报数', () => {
+  const row = (s) => `- [ ] G-9 做点啥 ${s}\n`
+  const bag =
+    '〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记,派单以那条为准,本行不再单独派单。〕'
+  const paren = '（【归并】重复登记副本·同题不同编号·本行与同题登记的持有行重复,派单以持有行为准）'
+  const prose = '【归并】重复登记副本:本行与同标题登记重复,以主行为准。'
+  // ① 同一行叠两份同种注记 ⇒ 判红(三种承载形态各一条;此前识别集只认〔〕短窗,三型全部判不到)
+  for (const [name, note] of [
+    ['〔…重复登记副本…〕', bag],
+    ['（…重复登记副本…）', paren],
+    ['散文形【归并】重复登记副本', prose],
+  ]) {
+    const n = T.redundantNoteCount(row(note + note))
+    if (n !== 1) throw new Error(`${name} 叠两份应计 1,实测 ${n}`)
+    if (!T.noteRedundancyVerdict(row(note), row(note + note)).grew)
+      throw new Error(`${name} 叠两份未判 grew(没有牙)`)
+  }
+  // 阳性对照:单份留痕读数必须为 0,否则合法单份注记会被判红
+  for (const note of [bag, paren, prose])
+    if (T.redundantNoteCount(row(note)) !== 0)
+      throw new Error('单份注记被计重 ⇒ 假红(阳性对照失败)')
+  // 2026-10-25 取消 24 字上界:现读长注记族(拍板/批注/让号记录)叠两份同样要被抓
+  const longA = '〔拍板@2026-10-07 机主:授权值守低峰窗口 ff-only 收敛分叉后切流〕'
+  const longB = '〔拍板@2026-10-07 机主:选③——实证下游确验真+落台账条目〕'
+  if (T.redundantNoteCount(row(longA + longA)) !== 1)
+    throw new Error('长注记族叠两份未识别(长度上界未放开?)')
+  if (T.redundantNoteCount(row(longA + longB)) !== 0) throw new Error('两个不同长注记各一份被误判')
+  // ② 一行里两个**不同**注记各一份 ⇒ 不判红(本维头号误判风险)
+  if (T.redundantNoteCount(row('〔同题原号 G-1〕〔同题原号 G-2〕')) !== 0)
+    throw new Error('两个不同的同题原号各一份被误判')
+  if (T.redundantNoteCount(row(bag + paren)) !== 0)
+    throw new Error('两个不同的重复登记副本注记各一份被误判')
+  if (T.redundantNoteCount(row(prose + paren)) !== 0) throw new Error('散文形+括号形不同内容被误判')
+  // 括号 token 内的散文起点不得被两种切法双计:单份 `（【归并】重复登记副本…）` 若被括号+散文
+  // 各数一遍,上面的单份阳性对照会读成 1 ⇒ 该对照同时就是这条反证(不另设重复断言)。
+  // ③ 存量行在差值档下只报数不拦:同一面自比不得 grew(否则就是按存量判红的 §12e 恒红门)
+  const stock = row(bag + bag + paren + paren)
+  const self = T.noteRedundancyVerdict(stock, stock)
+  if (self.grew) throw new Error('存量面自比被判 grew ⇒ 差值档退化成按存量判红')
+  if (self.after !== 2) throw new Error(`存量夹具应读 2 份超额,实测 ${self.after}`)
+  // ④ 新判据只长在维③:维①/T3 的 DUP_POINTER_RE 仍不得扩到通用括注族
+  if (DUP_POINTER_RE.source.includes('〔') || DUP_POINTER_RE.source.includes('【…'))
+    throw new Error('DUP_POINTER_RE 被扩到括注族 ⇒ 维①/T3 会把合法注记行算成存量判红(§12e)')
+  // §22c:测试取的是生产导出的 __test__,识别集只有一份
+  if (typeof T.noteTokensInLine !== 'function' || !T.NOTE_TOKEN_SRC.includes('重复登记副本'))
+    throw new Error('维③识别集未含「重复登记副本」族(补牙被摘掉?)')
 })
