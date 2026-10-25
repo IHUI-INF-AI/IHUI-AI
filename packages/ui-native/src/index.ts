@@ -8,10 +8,12 @@ export {
   Card,
   CardHeader,
   CardTitle,
+  CardDescription,
   CardContent,
   CardFooter,
   type CardProps,
   type CardTitleProps,
+  type CardDescriptionProps,
 } from './card'
 export { Loading, type LoadingProps } from './loading'
 export { VipBadge } from './vip-badge'
