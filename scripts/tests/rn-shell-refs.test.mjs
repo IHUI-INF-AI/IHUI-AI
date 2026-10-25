@@ -10,18 +10,26 @@
  * (Taro 解析 `@rn-shells/ConsoleTableScreen` ⇒ "…ConsoleTableScreen.vue doesn't exist"),
  * 而覆盖率账面因为标记行照涨 —— 绿账面 + 坏产物,是本仓最贵的那一型失效。
  *
- * 钉死四件事:
+ * 钉死六件事:
  *   S1 引用形态识别(单引号/双引号/别名变体不算);
  *   S2 落点按同名 RN 屏文件;
  *   S3 目标不在面上 ⇒ 点名;在面上 ⇒ 不判(反控,防"判据永远红"的假阳);
- *   S4 两把尺子(守门 251 C5 与跨端覆盖尺的镜像计数)import 的是同一份实现 —— 摘掉这份 import 即翻红。
+ *   S4 两把尺子(守门 251 C5 与跨端覆盖尺的镜像计数)import 的是同一份实现 —— 摘掉这份 import 即翻红;
+ *   S5 壳的导出形态(默认 / 具名 / `export { a as b }` 的导出侧)认得全;
+ *   S6 壳承载页的取用形态与壳真导出不符 ⇒ 点名(webpack 对此只给警告,页面照样渲染成 undefined)。
  */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
-import { shellRefsOf, shellTargetRel, hasDanglingShell } from '../lib/rn-shell-refs.mjs'
+import {
+  shellRefsOf,
+  shellTargetRel,
+  hasDanglingShell,
+  shellExportShapeOf,
+  mismatchedShellBinding,
+} from '../lib/rn-shell-refs.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..', '..')
 const headFace = (rel) => {
@@ -58,6 +66,36 @@ test('S3 目标不在面上 ⇒ 点名;在面上 ⇒ 不判(反控)', () => {
   assert.equal(
     hasDanglingShell(`import S from '@rn-shells/DefinitelyNotAScreen9x'\n`, headFace),
     'DefinitelyNotAScreen9x',
+  )
+})
+
+test('S5 壳导出形态识别:默认/具名/再导出别名都认得', () => {
+  assert.deepEqual(
+    [...shellExportShapeOf('export function LoginScreen() {}\nexport const x = 1\n').names].sort(),
+    ['LoginScreen', 'x'],
+  )
+  assert.equal(shellExportShapeOf('export default function DomainHubScreen() {}').hasDefault, true)
+  assert.equal(shellExportShapeOf('export function LoginScreen() {}').hasDefault, false)
+  assert.equal(shellExportShapeOf(`const A = 1\nexport { A as B }\n`).names.has('B'), true, '别名出口名要认导出的那一侧')
+})
+
+test('S6 取用形态对不上 ⇒ 点名;对得上 ⇒ 放过(这一型 webpack 只给警告,页面渲染成 undefined)', () => {
+  const namedOnly = 'export function DashboardScreen() {}\n'
+  assert.match(
+    mismatchedShellBinding(`import DashboardScreenShell from '@rn-shells/DashboardScreen'\n`, () => namedOnly),
+    /默认导入 .*而壳只有具名导出/,
+  )
+  assert.equal(
+    mismatchedShellBinding(`import { DashboardScreen as Shell } from '@rn-shells/DashboardScreen'\n`, () => namedOnly),
+    null,
+  )
+  assert.match(
+    mismatchedShellBinding(`import { Nope as Shell } from '@rn-shells/DashboardScreen'\n`, () => namedOnly),
+    /而壳的具名出口是/,
+  )
+  assert.equal(
+    mismatchedShellBinding(`import Shell from '@rn-shells/DomainHubScreen'\n`, () => 'export default function DomainHubScreen() {}\n'),
+    null,
   )
 })
 

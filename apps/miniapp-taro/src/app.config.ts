@@ -141,7 +141,6 @@ export default defineAppConfig({
         'check-in/index',
         'task-center/index',
         'bill/index',
-        'activity-detail/index',
         'dashboard/index',
         'domain-hub/index',
         'login/index',
@@ -167,6 +166,7 @@ export default defineAppConfig({
         'plaza/cover/index',
         'plaza/set-need/index',
         'community/create/index',
+        'activity-detail-shared/index',
       ],
     },
     {
