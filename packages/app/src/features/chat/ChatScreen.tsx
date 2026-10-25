@@ -15,7 +15,7 @@ import type {
 import { MessageInput } from './MessageInput'
 import { ContextUsagePanel } from './ContextUsagePanel'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export type { ChatScreenMessage, ChatScreenModel, ChatScreenNavItem, ChatScreenProps }
 
@@ -263,19 +263,19 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 12,
-      paddingVertical: 12,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    navRow: { flexDirection: 'row', gap: 12 },
-    navText: { fontSize: 14, color: tk.text.secondary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    navRow: { flexDirection: 'row', gap: rnSpacing.md },
+    navText: { fontSize: rnType.body.size, color: tk.text.secondary },
     modelBar: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
     },
-    modelText: { fontSize: 14, color: tk.text.secondary },
-    list: { flex: 1, paddingHorizontal: 12 },
-    listContent: { paddingVertical: 12 },
+    modelText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    list: { flex: 1, paddingHorizontal: rnSpacing.md },
+    listContent: { paddingVertical: rnSpacing.md },
     listGap: { height: 10 },
     msgEnd: { alignItems: 'flex-end' },
     msgStart: { alignItems: 'flex-start' },
@@ -291,23 +291,23 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    bubbleText: { fontSize: 16, lineHeight: 22, color: tk.text.primary },
-    errorWrap: { paddingHorizontal: 16, paddingBottom: 8 },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    bubbleText: { fontSize: rnType.title.size, lineHeight: 22, color: tk.text.primary },
+    errorWrap: { paddingHorizontal: rnSpacing.lg, paddingBottom: rnSpacing.sm },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)' },
     pickerSheet: {
       marginTop: 'auto',
       backgroundColor: tk.surface.light,
     },
     pickerHeader: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.md,
     },
-    pickerTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    pickerItem: { paddingHorizontal: 16, paddingVertical: 12 },
-    pickerItemName: { fontSize: 14, color: tk.text.medium },
+    pickerTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    pickerItem: { paddingHorizontal: rnSpacing.lg, paddingVertical: rnSpacing.md },
+    pickerItemName: { fontSize: rnType.body.size, color: tk.text.medium },
     pickerItemNameActive: { color: tk.text.primary, fontWeight: '500' },
-    pickerItemProvider: { marginTop: 2, fontSize: 12, color: tk.text.tertiary },
+    pickerItemProvider: { marginTop: 2, fontSize: rnType.label.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

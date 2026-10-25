@@ -51,7 +51,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /** 旧版工具按钮项(保留契约,供既有调用方使用) */
 export interface ToolbarItem {
@@ -324,11 +324,11 @@ const styles = StyleSheet.create({
   legacyStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xl,
-    gap: 4,
+    gap: rnSpacing.xs,
     marginBottom: 10,
   },
   rowItem: {
@@ -372,14 +372,14 @@ const styles = StyleSheet.create({
     height: 18,
   },
   iconEmoji: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 20,
     color: tokens.text.primary,
   },
   separator: {
     // 旧版契约分隔条:§4 禁分割线,已清线只留间距(marginHorizontal 维持原排布几何)
     height: 20,
-    marginHorizontal: 4,
+    marginHorizontal: rnSpacing.xs,
   },
 
   // ── 1. 3 服务项 ──
@@ -406,13 +406,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   } as ViewStyle,
   serviceTitle: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
   },
   serviceIcon: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     lineHeight: 28,
   },
 
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   bannerFloat: {
     width: 90,
     height: 90,
-    marginLeft: 16,
+    marginLeft: rnSpacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -463,18 +463,18 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     flexDirection: 'column',
     justifyContent: 'center',
-    paddingLeft: 12,
-    paddingRight: 16,
+    paddingLeft: rnSpacing.md,
+    paddingRight: rnSpacing.lg,
   },
   bannerTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
   bannerSub: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
   },
 
   // ── 4. 6 工具格 ──
@@ -497,30 +497,30 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: rnRadius['2xl'],
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.success.light,
   },
   toolIcon: {
-    fontSize: 20,
+    fontSize: rnType.heading.size,
     lineHeight: 24,
   },
   toolTextWrap: {
-    marginLeft: 12,
-    paddingRight: 12,
+    marginLeft: rnSpacing.md,
+    paddingRight: rnSpacing.md,
     flex: 1,
     minWidth: 0,
     flexDirection: 'column',
     justifyContent: 'center',
   },
   toolTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
   toolDesc: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     marginTop: 1,
   },
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.success.light,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: rnSpacing.xl,
   },
   // 横排面层:toolCell 与 customWrap 共用(两者的排布声明同形,按压态只落在这一层)。
   rowFace: {
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   customText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.success.deepText,
   },

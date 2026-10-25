@@ -30,7 +30,7 @@ import {
   ChevronLeft,
 } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { wrapFocusInk } from '../../hooks/use-wrap-focus'
 
 export type { MessageInputAgentVariable, MessageInputFile, MessageInputProps }
@@ -321,24 +321,28 @@ function createStyles(tk: AppThemeTokens) {
     fullscreenHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.md,
     },
     fullscreenBackBtn: { flexDirection: 'row', alignItems: 'center' },
-    fullscreenHint: { fontSize: 12, color: tk.text.tertiary },
+    fullscreenHint: { fontSize: rnType.label.size, color: tk.text.tertiary },
     agentVarsContainer: {
-      paddingVertical: 8,
-      paddingHorizontal: 4,
+      paddingVertical: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.xs,
     },
-    agentVarItem: { paddingHorizontal: 8, paddingVertical: 4 },
-    agentVarLabel: { fontSize: 12, color: tk.text.tertiary, marginBottom: 4 },
+    agentVarItem: { paddingHorizontal: rnSpacing.sm, paddingVertical: rnSpacing.xs },
+    agentVarLabel: {
+      fontSize: rnType.label.size,
+      color: tk.text.tertiary,
+      marginBottom: rnSpacing.xs,
+    },
     agentVarInput: {
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.light,
     },
@@ -354,9 +358,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     agentVarImage: { width: '100%', height: '100%' },
-    agentVarImageText: { fontSize: 11, color: tk.text.tertiary },
-    filesWrap: { paddingVertical: 8 },
-    filesRow: { gap: 8, paddingHorizontal: 4 },
+    agentVarImageText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    filesWrap: { paddingVertical: rnSpacing.sm },
+    filesRow: { gap: rnSpacing.sm, paddingHorizontal: rnSpacing.xs },
     fileItem: {
       position: 'relative',
       width: 72,
@@ -372,9 +376,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 4,
+      padding: rnSpacing.xs,
     },
-    fileVideoBadge: { color: tk.text.secondary, fontSize: 16, marginBottom: 2 },
+    fileVideoBadge: { color: tk.text.secondary, fontSize: rnType.title.size, marginBottom: 2 },
     fileVideoText: { color: tk.text.secondary, fontSize: 9, textAlign: 'center' },
     fileDocPlaceholder: {
       width: '100%',
@@ -382,9 +386,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 4,
+      padding: rnSpacing.xs,
     },
-    fileDocIcon: { fontSize: 20, marginBottom: 2 },
+    fileDocIcon: { fontSize: rnType.heading.size, marginBottom: 2 },
     fileDocText: { fontSize: 9, color: tk.text.secondary, textAlign: 'center' },
     fileRemove: {
       position: 'absolute',
@@ -397,7 +401,12 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    fileRemoveText: { color: tk.surface.light, fontSize: 12, lineHeight: 12, fontWeight: '700' },
+    fileRemoveText: {
+      color: tk.surface.light,
+      fontSize: rnType.label.size,
+      lineHeight: 12,
+      fontWeight: '700',
+    },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
@@ -417,12 +426,12 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    iconBtnText: { fontSize: 20, color: tk.text.secondary },
+    iconBtnText: { fontSize: rnType.heading.size, color: tk.text.secondary },
     input: {
       flex: 1,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 6,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       color: tk.text.primary,
       minHeight: 40,
       maxHeight: 120,
@@ -434,7 +443,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    voiceBarHint: { fontSize: 12, color: tk.text.tertiary },
+    voiceBarHint: { fontSize: rnType.label.size, color: tk.text.tertiary },
     voiceBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -442,10 +451,10 @@ function createStyles(tk: AppThemeTokens) {
       height: 20,
     },
     voiceBarLine: { width: 1, borderRadius: rnRadius.xs },
-    rightActions: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
+    rightActions: { flexDirection: 'row', alignItems: 'flex-end', gap: rnSpacing.xs },
     sendBtn: {
       paddingHorizontal: 14,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
       minWidth: 50,
@@ -458,8 +467,8 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     sendBtnDisabled: { backgroundColor: tk.text.tertiary },
-    sendBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
-    errorText: { marginTop: 4, fontSize: 14, color: tk.danger.DEFAULT },
+    sendBtnText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
+    errorText: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

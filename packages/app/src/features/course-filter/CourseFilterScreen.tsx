@@ -15,7 +15,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseFilterScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -171,7 +171,7 @@ export function CourseFilterScreen({
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 10, paddingBottom: rnSpacing['3xl'] }}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           // 分页由服务端取下一页:触底即取,不再"只拿第一页然后在端内过滤"
@@ -223,51 +223,56 @@ export function CourseFilterScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backBtn: { marginBottom: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    backBtn: { marginBottom: rnSpacing.sm },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     filterSection: {
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.muted,
     },
     filterLabel: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.medium,
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       marginBottom: 6,
     },
     // 某一轴在服务端当前没有可选值时的如实提示(不是错误态,故用 tertiary 而非 danger)
-    axisNotice: { fontSize: 12, color: tk.text.tertiary, marginBottom: 6 },
+    axisNotice: { fontSize: rnType.label.size, color: tk.text.tertiary, marginBottom: 6 },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     chip: {
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     chipActive: { backgroundColor: tk.brand.cta },
-    chipText: { fontSize: 12, color: tk.text.secondary },
+    chipText: { fontSize: rnType.label.size, color: tk.text.secondary },
     chipTextActive: { color: tk.surface.light },
-    actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-    actionBtn: { flex: 1, paddingVertical: 8, borderRadius: rnRadius.sm, alignItems: 'center' },
+    actionRow: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.md },
+    actionBtn: {
+      flex: 1,
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.sm,
+      alignItems: 'center',
+    },
     resetBtn: { backgroundColor: tk.surface.card },
     applyBtn: { backgroundColor: tk.brand.cta },
-    resetText: { fontSize: 14, color: tk.text.secondary },
-    applyText: { fontSize: 14, color: tk.surface.light },
+    resetText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    applyText: { fontSize: rnType.body.size, color: tk.surface.light },
     errorBar: {
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    retryText: { fontSize: 14, color: tk.brand.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 32 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    retryText: { fontSize: rnType.body.size, color: tk.brand.DEFAULT },
+    center: { alignItems: 'center', paddingVertical: rnSpacing['3xl'] },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -275,10 +280,10 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardMeta: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-    priceText: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
+    priceText: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

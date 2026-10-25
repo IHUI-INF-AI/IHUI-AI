@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipLevelItem2, VipMembershipInfo, VipScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -154,38 +154,52 @@ export function VipScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    body: { paddingBottom: 32 },
-    header: { paddingHorizontal: 16, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 4, fontSize: 14, color: tk.text.secondary },
-    errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    toastBar: { paddingHorizontal: 16, paddingVertical: 8 },
-    toastText: { fontSize: 12, color: tk.success.deepText },
+    body: { paddingBottom: rnSpacing['3xl'] },
+    header: { paddingHorizontal: rnSpacing.lg, paddingBottom: rnSpacing.sm },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.display.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    subtitle: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.text.secondary },
+    errorBar: { paddingHorizontal: rnSpacing.lg, paddingVertical: rnSpacing.sm },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    toastBar: { paddingHorizontal: rnSpacing.lg, paddingVertical: rnSpacing.sm },
+    toastText: { fontSize: rnType.label.size, color: tk.success.deepText },
     membershipCard: {
-      marginHorizontal: 16,
-      marginTop: 16,
+      marginHorizontal: rnSpacing.lg,
+      marginTop: rnSpacing.lg,
       padding: 14,
       borderRadius: rnRadius.lg,
       // 对齐 uniapp vip/index.vue .vip-page 深色渐变(#0F1623→#1F2937),用纯色 #1F2937 近似
       backgroundColor: VIP_GOLD_TEXT,
     },
-    membershipLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
-    membershipLevel: { marginTop: 4, fontSize: 20, fontWeight: '600', color: tk.surface.light },
+    membershipLabel: { fontSize: rnType.body.size, color: 'rgba(255,255,255,0.8)' },
+    membershipLevel: {
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.surface.light,
+    },
     membershipMeta: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
-    membershipMetaText: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
-    levelsSection: { paddingHorizontal: 10, marginTop: 16, paddingBottom: 32 },
+    membershipMetaText: { fontSize: rnType.label.size, color: 'rgba(255,255,255,0.7)' },
+    levelsSection: {
+      paddingHorizontal: 10,
+      marginTop: rnSpacing.lg,
+      paddingBottom: rnSpacing['3xl'],
+    },
     levelsTitle: {
-      marginBottom: 12,
-      fontSize: 20,
+      marginBottom: rnSpacing.md,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
-    cardSpacing: { marginBottom: 12 },
+    cardSpacing: { marginBottom: rnSpacing.md },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -198,25 +212,29 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    cardLevelName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    cardLevelName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     currentBadge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
       backgroundColor: VIP_GOLD,
     },
-    currentBadgeText: { fontSize: 12, fontWeight: '600', color: VIP_GOLD_TEXT },
+    currentBadgeText: { fontSize: rnType.label.size, fontWeight: '600', color: VIP_GOLD_TEXT },
     priceRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
       justifyContent: 'space-between',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
-    durationText: { fontSize: 12, color: tk.text.secondary },
-    priceText: { fontSize: 24, fontWeight: '700', color: VIP_GOLD },
-    benefitsText: { marginTop: 8, fontSize: 12, color: tk.text.secondary },
+    durationText: { fontSize: rnType.label.size, color: tk.text.secondary },
+    priceText: { fontSize: rnType.display.size, fontWeight: '700', color: VIP_GOLD },
+    benefitsText: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+    },
     purchaseBtn: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: VIP_GOLD,
@@ -224,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     purchaseBtnDisabled: { opacity: 0.6 },
-    purchaseBtnText: { fontSize: 16, fontWeight: '700', color: VIP_GOLD_TEXT },
+    purchaseBtnText: { fontSize: rnType.title.size, fontWeight: '700', color: VIP_GOLD_TEXT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

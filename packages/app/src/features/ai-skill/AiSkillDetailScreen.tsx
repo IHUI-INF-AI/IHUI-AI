@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { ScrollView, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
@@ -142,12 +142,12 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16, // px-4
-      paddingBottom: 8, // pb-2
-      paddingTop: 12, // pt-3
+      paddingHorizontal: rnSpacing.lg, // px-4
+      paddingBottom: rnSpacing.sm, // pb-2
+      paddingTop: rnSpacing.md, // pt-3
     },
     headerTitle: {
-      fontSize: 16, // text-base
+      fontSize: rnType.title.size, // text-base
       fontWeight: '500', // font-medium
       color: tk.text.primary,
       maxWidth: '60%', // max-w-[60%]
@@ -160,46 +160,46 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
     },
     scrollContent: {
-      paddingHorizontal: 16, // px-4
-      paddingTop: 8, // pt-2
-      paddingBottom: 24,
+      paddingHorizontal: rnSpacing.lg, // px-4
+      paddingTop: rnSpacing.sm, // pt-2
+      paddingBottom: rnSpacing['2xl'],
     },
     /* 详情内容 */
     description: {
-      fontSize: 14, // text-sm
+      fontSize: rnType.body.size, // text-sm
       lineHeight: 24, // leading-6
       color: tk.text.secondary,
     },
     tagRow: {
-      marginTop: 12, // mt-3
+      marginTop: rnSpacing.md, // mt-3
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 6, // gap-1.5
     },
     metaChip: {
       borderRadius: rnRadius.md, // rounded-md
-      paddingHorizontal: 8, // px-2
-      paddingVertical: 4, // py-1
+      paddingHorizontal: rnSpacing.sm, // px-2
+      paddingVertical: rnSpacing.xs, // py-1
       backgroundColor: tk.surface.muted,
     },
     metaChipText: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.text.secondary,
     },
     tagChip: {
       borderRadius: rnRadius.md, // rounded-md
-      paddingHorizontal: 8, // px-2
-      paddingVertical: 4, // py-1
+      paddingHorizontal: rnSpacing.sm, // px-2
+      paddingVertical: rnSpacing.xs, // py-1
       backgroundColor: tk.warning.orangeLight,
     },
     tagText: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.warning.amber,
     },
     sectionLabel: {
-      marginTop: 20, // mt-5
-      marginBottom: 8, // mb-2
-      fontSize: 14, // text-sm
+      marginTop: rnSpacing.xl, // mt-5
+      marginBottom: rnSpacing.sm, // mb-2
+      fontSize: rnType.body.size, // text-sm
       fontWeight: '500', // font-medium
       color: tk.text.medium,
     },
@@ -207,16 +207,16 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1, // border
       borderColor: tk.border.light,
-      padding: 12, // p-3
+      padding: rnSpacing.md, // p-3
       backgroundColor: tk.surface.inputBg,
     },
     promptText: {
-      fontSize: 14, // text-sm
+      fontSize: rnType.body.size, // text-sm
       lineHeight: 24, // leading-6
       color: tk.text.medium,
     },
     sourceText: {
-      fontSize: 14, // text-sm
+      fontSize: rnType.body.size, // text-sm
       color: tk.text.secondary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)

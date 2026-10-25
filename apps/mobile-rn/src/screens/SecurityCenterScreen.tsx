@@ -36,7 +36,7 @@ import {
   type TwoFactorSetup,
   type TwoFactorStatus,
 } from '@ihui/api-client'
-import { rnLightTokens, rnRadius } from '@ihui/design-tokens'
+import { rnLightTokens, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -489,23 +489,28 @@ export default function SecurityCenterScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 12, paddingBottom: 32 },
+    body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
-    loading: { paddingVertical: 16 },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
+    loading: { paddingVertical: rnSpacing.lg },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    scoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4 },
+    scoreRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: rnSpacing.xs,
+      marginTop: rnSpacing.xs,
+    },
     scoreValue: { fontSize: 32, fontWeight: '700' },
-    scoreMax: { fontSize: 14, color: tokens.text.tertiary },
-    scoreLevel: { marginLeft: 8, fontSize: 14, fontWeight: '600' },
+    scoreMax: { fontSize: rnType.body.size, color: tokens.text.tertiary },
+    scoreLevel: { marginLeft: rnSpacing.sm, fontSize: rnType.body.size, fontWeight: '600' },
     track: {
       height: 6,
       borderRadius: rnRadius.xs,
@@ -514,15 +519,15 @@ function makeStyles() {
       marginTop: 6,
     },
     trackFill: { height: '100%', borderRadius: rnRadius.xs },
-    statusOn: { fontSize: 14, fontWeight: '600', color: tokens.success.DEFAULT },
+    statusOn: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.success.DEFAULT },
     input: {
       height: 42,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       backgroundColor: tokens.surface.bg,
     },
     button: {
@@ -531,37 +536,45 @@ function makeStyles() {
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
     },
     buttonDisabled: { opacity: 0.5 },
-    buttonText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
+    buttonText: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
     dangerButton: {
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: tokens.danger.DEFAULT,
     },
-    dangerButtonText: { fontSize: 15, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerButtonText: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.danger.DEFAULT,
+    },
     // QR 码必须恒定亮底(跟随暗色主题会让多数扫码器识别失败),故取亮色板的书面白,不走当前主题。
     qrWrap: {
       alignItems: 'center',
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       backgroundColor: rnLightTokens.surface.light,
     },
     secret: {
       fontFamily: 'monospace',
       fontSize: 13,
       color: tokens.text.primary,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
     },
     backupBox: {
-      marginTop: 8,
-      padding: 12,
+      marginTop: rnSpacing.sm,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.bg,
       gap: 6,
     },
-    backupTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-    backupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    backupTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
+    backupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     backupCode: {
       fontFamily: 'monospace',
       fontSize: 13,
@@ -571,28 +584,33 @@ function makeStyles() {
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: rnSpacing.md,
       paddingVertical: 10,
     },
     rowLast: { borderBottomWidth: 0 },
     rowMain: { flex: 1, gap: 2 },
-    rowPrimary: { fontSize: 14, color: tokens.text.primary },
-    rowSecondary: { fontSize: 12, color: tokens.text.tertiary },
+    rowPrimary: { fontSize: rnType.body.size, color: tokens.text.primary },
+    rowSecondary: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     revoke: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
     linkRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 16,
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.md,
+      paddingHorizontal: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
     },
-    linkText: { flex: 1, fontSize: 15, color: tokens.text.primary },
-    footerNote: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 },
-    footerText: { flex: 1, fontSize: 12, color: tokens.text.tertiary },
+    linkText: { flex: 1, fontSize: rnType.strong.size, color: tokens.text.primary },
+    footerNote: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: rnSpacing.xs,
+    },
+    footerText: { flex: 1, fontSize: rnType.label.size, color: tokens.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native'
 import { Link2, Link2Off } from 'lucide-react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
@@ -210,11 +210,16 @@ export function ConnectedAccountsScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 12, gap: 12, paddingBottom: 32 },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.display.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -222,25 +227,25 @@ function createStyles(tk: AppThemeTokens) {
       gap: 10,
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    refresh: { paddingVertical: 2, paddingHorizontal: 4 },
+    cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    refresh: { paddingVertical: 2, paddingHorizontal: rnSpacing.xs },
     link: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
     muted: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
-    hint: { fontSize: 12, color: tk.text.tertiary, lineHeight: 17, marginTop: 2 },
+    hint: { fontSize: rnType.label.size, color: tk.text.tertiary, lineHeight: 17, marginTop: 2 },
     error: { fontSize: 13, color: tk.danger.DEFAULT },
-    loading: { paddingVertical: 16 },
-    centerBox: { alignItems: 'center', gap: 8, paddingVertical: 16 },
+    loading: { paddingVertical: rnSpacing.lg },
+    centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.bg,
     },
     rowMain: { flex: 1, gap: 2 },
-    platformName: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    meta: { fontSize: 12, color: tk.text.tertiary },
+    platformName: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
+    meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
     button: {
       height: 32,
       paddingHorizontal: 10,
@@ -249,9 +254,9 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 4,
+      gap: rnSpacing.xs,
     },
-    buttonText: { fontSize: 12, fontWeight: '600', color: tk.brand.ctaForeground },
+    buttonText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.brand.ctaForeground },
     outlineButtonSmall: {
       height: 32,
       paddingHorizontal: 10,
@@ -261,19 +266,19 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 4,
+      gap: rnSpacing.xs,
     },
-    dangerLink: { fontSize: 12, fontWeight: '600', color: tk.danger.DEFAULT },
+    dangerLink: { fontSize: rnType.label.size, fontWeight: '600', color: tk.danger.DEFAULT },
     outlineButton: {
       height: 36,
-      paddingHorizontal: 16,
+      paddingHorizontal: rnSpacing.lg,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    outlineText: { fontSize: 14, color: tk.text.primary },
+    outlineText: { fontSize: rnType.body.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

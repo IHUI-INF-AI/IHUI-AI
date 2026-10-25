@@ -31,7 +31,7 @@ import {
   ThumbsUp,
 } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { VoiceBubble } from '../../components/VoiceBubble'
 import { parseMessageContent } from '../../utils/message-parse'
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     gap: rpx(8),
   },
   msgActionText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   msgBubble: {
@@ -131,38 +131,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.danger.light,
   },
   msgErrorTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '500',
     color: tokens.error.text,
   },
   msgErrorBody: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
+    fontSize: rnType.body.size,
     lineHeight: 21,
     color: tokens.error.text,
   },
   msgErrorRetry: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     alignSelf: 'flex-start',
-    marginHorizontal: 8,
-    marginBottom: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    marginHorizontal: rnSpacing.sm,
+    marginBottom: rnSpacing.sm,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
   },
   msgErrorRetryText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.error.text,
   },
   msgText: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     lineHeight: 20,
   },
   msgBubbleUserText: {
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   // ── 消息富内容:图片(点击全屏预览) ──
   msgImageWrap: {
-    marginVertical: 4,
+    marginVertical: rnSpacing.xs,
     borderRadius: rnRadius.lg,
     overflow: 'hidden',
     alignSelf: 'flex-start',
@@ -200,30 +200,30 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.gray[700],
   },
   codeBlockLang: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.gray['200'],
     fontWeight: '600',
     flexShrink: 1,
-    marginRight: 8,
+    marginRight: rnSpacing.sm,
   },
   codeBlockActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: rnSpacing.md,
   },
   codeBlockBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     paddingVertical: 2,
   },
   codeBlockBtnText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.gray['200'],
   },
   codeBlockContent: {
     padding: 10,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     lineHeight: 17,
     color: tokens.gray['200'],
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
@@ -240,23 +240,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: rnSpacing.sm,
   },
   thinkingTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.secondary,
     flexShrink: 1,
   },
   thinkingToggle: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
   },
   thinkingContent: {
     paddingHorizontal: 10,
     paddingBottom: 10,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     lineHeight: 17,
     color: tokens.text.secondary,
   },
@@ -459,7 +459,7 @@ export function ChatMessageItem({
                 accessibilityRole="button"
                 accessibilityLabel={t('chat.msg.thinkingA11y')}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs }}>
                   <MessageSquare size={12} color={tokens.text.secondary} />
                   <Text style={styles.thinkingTitle}>
                     {t(`ai.pane.${thinkingView.titleKey}`, thinkingView.values)}

@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { BusinessCardItem, BusinessCardScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -124,12 +124,12 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     card: {
-      marginHorizontal: 16,
+      marginHorizontal: rnSpacing.lg,
       padding: 14,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
@@ -145,22 +145,27 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
     },
-    avatarText: { fontSize: 24, fontWeight: '700', color: tk.surface.light },
-    headerInfo: { marginLeft: 12, flex: 1 },
-    name: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    position: { marginTop: 8, fontSize: 14, color: tk.brand.DEFAULT },
-    company: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    bio: { marginTop: 12, fontSize: 14, lineHeight: 20, color: tk.text.medium },
+    avatarText: { fontSize: rnType.display.size, fontWeight: '700', color: tk.surface.light },
+    headerInfo: { marginLeft: rnSpacing.md, flex: 1 },
+    name: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    position: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
+    company: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    bio: {
+      marginTop: rnSpacing.md,
+      fontSize: rnType.body.size,
+      lineHeight: 20,
+      color: tk.text.medium,
+    },
     contactsBox: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       padding: 14,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
-    contactRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-    contactLabel: { width: 40, fontSize: 11, color: tk.text.secondary },
-    contactValue: { flex: 1, fontSize: 14, color: tk.text.primary },
-    qrWrap: { marginTop: 16, alignItems: 'center' },
+    contactRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: rnSpacing.xs },
+    contactLabel: { width: 40, fontSize: rnType.caption.size, color: tk.text.secondary },
+    contactValue: { flex: 1, fontSize: rnType.body.size, color: tk.text.primary },
+    qrWrap: { marginTop: rnSpacing.lg, alignItems: 'center' },
     qrBox: {
       width: 140,
       height: 140,
@@ -170,17 +175,17 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     qrPlaceholder: {
-      fontSize: 24,
+      fontSize: rnType.display.size,
       fontWeight: '700',
       letterSpacing: 2,
       color: tk.text.tertiary,
     },
-    qrTip: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
+    qrTip: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     actionRow: {
       flexDirection: 'row',
-      gap: 8,
+      gap: rnSpacing.sm,
       paddingHorizontal: 10,
-      paddingVertical: 16,
+      paddingVertical: rnSpacing.lg,
     },
     actionBtn: {
       flex: 1,
@@ -191,7 +196,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    actionBtnText: { fontSize: 14, color: tk.text.medium },
+    actionBtnText: { fontSize: rnType.body.size, color: tk.text.medium },
     actionPrimary: {
       flex: 1,
       alignItems: 'center',
@@ -200,12 +205,12 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.cta,
     },
-    actionPrimaryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    actionPrimaryText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
     customActionRow: {
       flexDirection: 'row',
-      gap: 8,
+      gap: rnSpacing.sm,
       paddingHorizontal: 10,
-      paddingBottom: 16,
+      paddingBottom: rnSpacing.lg,
     },
     customizeBtn: {
       flex: 1,
@@ -217,7 +222,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,
     },
-    customizeBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.DEFAULT },
+    customizeBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
