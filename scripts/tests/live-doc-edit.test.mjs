@@ -3025,6 +3025,7 @@ test('T-reclassify 声明式改桶:声明与现算同形才放行,不同形/陈�
     ],
   })
   assert.equal(stale.staleReclassify.length, 1, '未命中的声明必须点名,不能被读成"放过了一件事"')
+  assert.equal(stale.ok, false, '声明未命中 ⇒ 整批判不通过(不许以"无违规项"报绿)')
 
   // 镜像两向:声明只解释归属桶维 ⇒ 租约原样保留照常放行,顺带摘牌/换题仍拒(不是全维总闸)。
   const declFor = (b) => [{ before: b, from: 'waiting-human', to: 'actionable', why: '机主令要求代裁结清存量' }]
@@ -3050,6 +3051,26 @@ test('T-reclassify 声明式改桶:声明与现算同形才放行,不同形/陈�
   })
   assert.equal(drifted.ok, false, '改桶声明不得替主键维放行(换题仍拒)')
   assert.match(drifted.violations[0].bad.join('\n'), /主键漂了/)
+
+  // 同文多副本的合法通道 all:true:一份声明对同一文本的全部副本有效,仍只记一笔改桶。
+  const twin = '- [ ] **R7** 同文副本等机主拍板'
+  const all = __test__.judgeRowRewriteConservation({
+    baseLines: [twin, twin],
+    pairs: [{ before: twin, after: '- [ ] **R7** 同文副本已裁', all: true }],
+    reclassify: declFor(twin),
+  })
+  assert.equal(all.ok, true, JSON.stringify(all.violations))
+  assert.equal(all.reclassified, 1)
+  assert.deepEqual(all.violations, [])
+
+  // 改桶与加完整租约必须分两次:同批既改正文又插牌,条件③(剥牌后逐字节相等)必不成立 ⇒ 拒。
+  const claimTwin = '- [ ] **R8** 该口径等机主拍板'
+  const both = __test__.judgeRowRewriteConservation({
+    pairs: [{ before: claimTwin, after: '- [ ]（进行中@2026-10-25/甲） **R8** 该口径已裁' }],
+    reclassify: declFor(claimTwin),
+  })
+  assert.equal(both.ok, false, '改桶+加约同批必须拒(分两次定向改写)')
+  assert.match(both.violations[0].bad.join('\n'), /条件③/)
 })
 
 test('T-reclassify readInputs 校验:桶名/理由长度/from==to/陈旧 before 全拒', () => {
@@ -3076,6 +3097,24 @@ test('T-reclassify readInputs 校验:桶名/理由长度/from==to/陈旧 before 
     assert.match(run([{ ...base, to: 'waiting-human' }]).error, /无事可做/)
     assert.match(run([{ ...base, before: '- [ ] 不在本轮' }]).error, /陈旧\/串档/)
     assert.match(run([base, base]).error, /重复声明/, '同一行两条改桶去向必须整批拒')
+    assert.match(run([{ ...base, before: '## 段落标题' }]).error, /不是未勾登记行/, '段落不能拿改桶声明')
+    assert.match(run([{ ...base, before: '- [x] A' }]).error, /不是未勾登记行/, '已勾行不能拿改桶声明')
+
+    const dupPairsFile = join(dir, 'pairs-dup.json')
+    writeFileSync(
+      dupPairsFile,
+      JSON.stringify([
+        { before: '- [ ] A', after: '- [ ] B' },
+        { before: '- [ ] A', after: '- [ ] C' },
+      ]),
+    )
+    const dupPairs = __test__.readInputs({
+      LIVE_DOC: 'PROJECT_PLAN.md',
+      LIVE_MSG: 'x',
+      LIVE_REPLACE_FILE: dupPairsFile,
+      LIVE_ROOT: root,
+    })
+    assert.match(dupPairs.error, /before 重复/, '同一 before 两条 pair 落库必失败,必须在 readInputs 早拒')
     const noReplace = __test__.readInputs({
       LIVE_DOC: 'PROJECT_PLAN.md',
       LIVE_MSG: 'x',
