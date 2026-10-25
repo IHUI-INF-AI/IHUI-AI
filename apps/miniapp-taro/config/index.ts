@@ -342,7 +342,7 @@ export default defineConfig(async (merge) => {
       // 关掉后用本仓自己的门量过:`node scripts/check-artifact-budget.mjs --target miniapp` ⇒ ✅ 预算内
       // (主包 1,524,667 B / 上限 2,097,152 B,余量 572,485 B)。要翻回 true 必须先解掉那条同名相撞,
       // 且重跑预算门取现值,不得拿本行旧数当依据。
-      optimizeMainPackage: { enable: false },
+      optimizeMainPackage: { enable: true },
       postcss: {
         pxtransform: { enable: true, config: {} },
         tailwindcss: { enable: true, config: {} },
@@ -437,6 +437,27 @@ export default defineConfig(async (merge) => {
               // JS/WXML 侧一个名都不改** ⇒ 485 条 utility 变成谁也挂不上的死规则,而构建仍然 exit 0。
               // 由守门 check-miniapp-css-landing 的 C5(转写腿活性)结构性接住,不再靠人眼看覆盖率。
               if (process.env.TARO_ENV === 'weapp') {
+                // 让道(2026-10-26 实测:`Cache group "common" conflicts with existing chunk`):
+                // Taro 的 MiniCombination 内置一个 cacheGroups.common(产物 dist/common.js),
+                // 而 optimizeMainPackage 也要造名为 common 的下沉 chunk ⇒ 同名相撞,webpack 直接中止。
+                // 只改这枚内置组的 **name**(不动 test/priority/minChunks)⇒ 产物改名,
+                // 把 'common' 这个名字让给 optimizeMainPackage 去做"只被分包引用则下沉"这件事。
+                const sc: any = chain.optimization.get('splitChunks')
+                if (sc && sc.cacheGroups && sc.cacheGroups.common) {
+                  // 只删 name,不替换成新名字:实测改成 'taro-base-common' 会撞上
+                  // 「existing chunk is not a parent of the selected modules」—— 那个同名 chunk
+                  // 是 Taro 自己按 entry 造出来的。webpack5 明确 HINT「You can omit name to
+                  // automatically create a name」⇒ 交给 webpack 自动命名,把 'common' 让给下沉组。
+                  delete sc.cacheGroups.common.name
+                  chain.optimization.splitChunks(sc)
+                  console.info(
+                    '[miniapp] cacheGroups.common 的固定名已摘除(交给 webpack 自动命名,给 optimizeMainPackage 让道)',
+                  )
+                } else {
+                  console.info(
+                    `[miniapp] 未见 cacheGroups.common(现读键:${Object.keys(sc?.cacheGroups ?? {}).join(',') || '无 splitChunks'})`,
+                  )
+                }
                 chain.plugin('weappTailwindcss').use(WeappTailwindcss, [
                   {
                     rem2rpx: true,
