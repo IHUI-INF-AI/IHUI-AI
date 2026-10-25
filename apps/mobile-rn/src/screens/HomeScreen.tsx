@@ -2245,7 +2245,6 @@ export function HomeScreen() {
                 )
               })}
             </ScrollView>
-            <View style={shellStyles.modelModalHairline} />
             {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
                 搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
             {modelModalTab === 'skills' && !modelSearch.trim() ? (
@@ -2721,7 +2720,7 @@ const shellStyles = {
     fontWeight: '300',
     paddingHorizontal: rpx(8),
   } as const,
-  // ── 弹窗深化(2026-10-15):把手 + 副标题计数 + 分类 tab + 发丝线 + 搜索 ──
+  // ── 弹窗深化(2026-10-15):把手 + 副标题计数 + 分类 tab + 搜索 ──
   modelModalGrabber: {
     alignSelf: 'center',
     width: rpx(72),
@@ -2785,13 +2784,6 @@ const shellStyles = {
     // 否则判据认不出配对、R3 只能靠无配对实底兜账 —— 命名改对才让 R4/R9 直接可判。
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
-  } as const,
-  modelModalHairline: {
-    // 清偿@2026-10-24(票 L29015 尾格):背景色画的发丝线改等积单边描边(视觉等积:同 hairlineWidth、
-    // 同 tokens.border.light 中性档);族 7 与发丝尺已合一,此枚不再计入发丝尺存量。
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.border.light,
-    marginHorizontal: rpx(32),
   } as const,
   // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──
   modelSearchToggle: {
