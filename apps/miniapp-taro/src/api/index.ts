@@ -989,7 +989,9 @@ export const updateUserAvatar = (avatar: string) => put('/user/avatar', { avatar
 export const updateUserNickname = (nickname: string) => put('/user/nickname', { nickname })
 export const bindPhone = (phone: string, code: string) => post('/user/phone/bind', { phone, code })
 export const updatePassword = (oldPwd: string, newPwd: string) =>
-  post('/user/password', { oldPwd, newPwd })
+  // 立因:后端 miniapp-compat-routes.ts 的 POST /user/password 按 Zod 收
+  // {oldPassword,newPassword}(min 1/max 128、min 6/max 128),旧键名 oldPwd/newPwd 必 400
+  post('/user/password', { oldPassword: oldPwd, newPassword: newPwd })
 export const bindEmail = (email: string, code: string) => post('/user/email/bind', { email, code })
 export const realNameAuth = (data: { realName: string; idCard: string }) =>
   post('/user/realname', data)
@@ -1497,7 +1499,8 @@ export const getKnowledgePlanetNews = (page = 1) => get('/knowledge-planet/news'
 export const getCoursePlanet = () => get('/course-planet')
 
 /* ============ 多登录方式 ============ */
-export const loginByAlipay = (code: string) => post('/auth/alipay/login', { code })
+// `loginByAlipay`(POST /auth/alipay/login)已摘除:后端注册面从未有过这一条,而它唯一的消费者
+// utils/miniapp-login.ts 现改为当场拒(见该处注释)—— 留着就是一条永远 404 的假入口。
 export const register = (data: unknown) => post('/auth/register', data)
 export const changePassword = (data: unknown) => put('/auth/password', data)
 export const accountCancel = () => del('/auth/account')
