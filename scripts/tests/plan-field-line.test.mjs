@@ -55,6 +55,19 @@ describe('plan-field-line 投影层', () => {
     assert.equal(H.renderHeader(p.rec), once)
   })
 
+  it('parse(render(x)) 逐字段相等(不是只看 owner 有没有对上)', () => {
+    const x = { owner: '门 130 持有人', waiting: 'env', blocking: '容器运行时' }
+    const p = H.parseHeader('- [ ] ' + H.renderHeader({ key: 'G-9#x', ...x }) + ' 标题')
+    assert.deepEqual(p.rec, { key: null, ...x })
+  })
+
+  it('owner 自带 `｜` 也逐字段往返(分隔符只在后一段像槽名时才切)', () => {
+    const x = { owner: 'A｜B', waiting: 'none', blocking: '' }
+    const p = H.parseHeader('- [ ] ' + H.renderHeader({ key: 'G-9#x', ...x }) + ' 标题')
+    assert.equal(p.malformed, false)
+    assert.deepEqual(p.rec, { key: null, ...x })
+  })
+
   it('只有归段没有等段 ⇒ 读回 waiting=none(不是"未知",那会把它算成等待)', () => {
     const p = H.parseHeader('- [ ] 〔归:甲〕 标题')
     assert.equal(p.rec.waiting, 'none')
@@ -78,6 +91,34 @@ describe('plan-field-line 投影层', () => {
       '- [ ] 真标题〔注记不动〕',
     )
     assert.equal(H.stripHeader('- [ ] 普通行'), '- [ ] 普通行')
+  })
+
+  it('2026-10-25 同尺:票号/租约在标头前 ⇒ strip 剥得出且 parse 认得出(两把尺各写一份位置约束必漂,实测门 234 A2 误判 L28655)', () => {
+    const lease = '- [ ]（进行中@2026-10-25/z） 〔归:机主定级面〕 G-21 题'
+    assert.equal(H.stripHeader(lease), '- [ ]（进行中@2026-10-25/z） G-21 题')
+    const p = H.parseHeader(lease)
+    assert.equal(p.malformed, false)
+    assert.equal(p.rec.owner, '机主定级面')
+    const ticket = '- [ ]G-11〔归:web 在飞席〕队列拒因'
+    assert.equal(H.stripHeader(ticket), '- [ ]G-11队列拒因')
+    assert.equal(H.parseHeader(ticket).rec.owner, 'web 在飞席')
+  })
+
+  it('locateSidecarHeader 给出精确 span;反引号内与非归段 ⇒ null(strip/parse/门的 headerOf 同一把尺)', () => {
+    const line = '- [ ]（进行中@…/z） 〔归:甲｜等:乙〕 正文'
+    const span = H.locateSidecarHeader(line)
+    assert.equal(line.slice(span.start, span.end), '〔归:甲｜等:乙〕')
+    // span 必须指向行内真实的那一段(租约挡在前,标头不在复选框紧邻处)
+    assert.ok(span.start > line.indexOf('）'))
+    assert.equal(line.slice(0, span.start).includes('〔'), false)
+    assert.equal(H.locateSidecarHeader('- [ ] 上游文档写 `〔归:甲〕` 是举例'), null)
+    assert.equal(H.locateSidecarHeader('- [ ] 〔旧号〕正文'), null)
+    assert.equal(H.locateSidecarHeader('正文 〔归:甲〕'), null)
+  })
+
+  it('码段内与非归段先行时 parse 不得认标头(防误伤,与 strip 同判)', () => {
+    assert.equal(H.parseHeader('散文里写 〔归:甲〕').rec, null)
+    assert.equal(H.parseHeader('- [ ] 上游文档写 `〔归:甲〕` 是举例').rec, null)
   })
 
   it('roundTripOk 对无标头行返回 true(不是"失败"),对损坏标头返回 false', () => {

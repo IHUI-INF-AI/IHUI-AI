@@ -23,7 +23,7 @@
  *   同键多条但读数逐字相同(抽取器重跑只换 `updatedAt` 的那种同义追加)⇒ 照旧正常投影,不制造噪声;
  *   单条记录 ⇒ 输出与改动前 `renderHeader(rec)` 逐字节相同(阳性对照由镜像测试钉住)。
  */
-import { codeSpanRangesOf, insideCodeSpan } from './plan-task-index.mjs'
+import { locateSidecarHeader, stripSidecarHeader } from './plan-task-index.mjs'
 
 export const MAX = 48
 const OPEN = '〔'
@@ -44,17 +44,19 @@ function headerParts(rec) {
   return { owner, waitSeg }
 }
 
-/** 侧车记录 → 标头(不含标头时为 '')。owner 超长时截 owner,不牺牲等段。 */
+/**
+ * 侧车记录 → 标头(不含标头时为 '')。
+ *
+ * **不得截断**(2026-10-25 修,治"投影写得出、解析读不回"):旧实现按 MAX 截断并追加 `…`,
+ * 而 parseHeader 对含 `…` 的一律报 malformed(方向本身是对的 —— 截断后的 owner 无法充当权威)。
+ * 两者叠在一起 ⇒ 任何 owner 长度逼近上限的记录投影进台账后**永久**是 malformed:
+ * 门 234 A2 当场判红,而投影器物每次都会写出这种行(实测 G-47/G-71 等 3 行)。
+ * 标头是投影,投影必须无损;显示宽度(MAX)只用于诊断文案的 clip,不再参与渲染。
+ */
 export function renderHeader(rec) {
   if (!rec) return ''
   const { owner, waitSeg } = headerParts(rec)
-  const fixed = OWNER_PREFIX.length + owner.length + (waitSeg ? SEP.length + waitSeg.length : 0)
-  let shownOwner = owner
-  if (fixed > MAX) {
-    const room = Math.max(1, MAX - (fixed - owner.length) - 1)
-    shownOwner = owner.slice(0, room) + '…'
-  }
-  const parts = [OWNER_PREFIX + shownOwner]
+  const parts = [OWNER_PREFIX + owner]
   if (waitSeg) parts.push(waitSeg)
   return OPEN + parts.join(SEP) + CLOSE
 }
@@ -91,18 +93,17 @@ export function resolveSidecar(records) {
 /** 行 → 标头语义。`malformed` = 看见了但读不回(要人看),`rec=null ∧ malformed=false` = 没有标头。 */
 export function parseHeader(line) {
   const text = String(line ?? '')
-  const head = /^\s*-\s*\[[ xX]\]\s*/.exec(text)
-  if (!head) return { rec: null, malformed: false }
-  const m = /〔([^〕]*)〕/.exec(text)
-  if (!m) return { rec: null, malformed: false }
-  const { spans, undetermined } = codeSpanRangesOf(text)
-  if (!undetermined && insideCodeSpan(spans, m.index, m[0].length))
-    return { rec: null, malformed: false }
-  const body = m[1]
-  if (!body.startsWith(OWNER_PREFIX)) return { rec: null, malformed: false }
+  // 定位单源 = plan-task-index.locateSidecarHeader(strip 与门的 headerOf 同一把尺,§0.6):
+  // 复选框后第一个 codeSpan 外的 `〔归:…〕` 段。这里不再自写一份 `/〔…〕/` 定位。
+  const span = locateSidecarHeader(text)
+  if (!span) return { rec: null, malformed: false }
+  const body = text.slice(span.start + 1, span.end - 1)
   if (body.includes('…')) return { rec: null, malformed: true }
   const fields = { key: null, owner: '', waiting: 'none', blocking: '' }
-  for (const seg of body.split(SEP)) {
+  // 分隔符只在**下一段真像槽名**时才算分隔符:owner 自带 `｜`(如 `A｜B`)若按裸 `｜` 切,
+  // 会切出一个无冒号的段而误报 malformed —— 而那是合法的 owner,不是坏标头。
+  const segSplit = /\｜(?=[^｜〕]{1,4}:)/
+  for (const seg of body.split(segSplit)) {
     const i = seg.indexOf(':')
     if (i < 0) return { rec: null, malformed: true }
     const k = seg.slice(0, i).trim()
@@ -121,12 +122,9 @@ export function parseHeader(line) {
   return { rec: fields, malformed: false }
 }
 
-/** 剥掉本层生成的那一段;其它括号(注记、正文)一字不动。 */
-export function stripHeader(line) {
-  const m = /^(\s*-\s*\[[ xX]\]\s*)〔归[:：][^〕]*〕[ \t]*(.*)$/s.exec(String(line ?? ''))
-  if (!m) return String(line ?? '')
-  return m[1] + m[2]
-}
+/** 剥掉本层生成的那一段;其它括号(注记、正文)一字不动。
+ *  实现已下移到 `plan-task-index.stripSidecarHeader`(判定层也必须剥它,两处各写一份会漂),此处只留出口名。 */
+export const stripHeader = stripSidecarHeader
 
 /** 投影自检:无标头 = true(不是失败);有标头但读不回 = false。 */
 export function roundTripOk(line) {
@@ -147,5 +145,6 @@ export const __test__ = {
   MAX,
   UNJUDGED_OWNER,
   UNJUDGED_HEADER,
+  locateSidecarHeader,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
