@@ -31,6 +31,7 @@ import { dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { shellRefsOf, shellTargetRel } from './lib/rn-shell-refs.mjs'
 import { __test__ as gen } from './gen-rn-compat.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 
@@ -44,6 +45,8 @@ const ICONS_REL = `${COMPAT_DIR}/icons-generated.tsx`
 const ROUTE_REL = `${COMPAT_DIR}/route-map.generated.ts`
 const MP_CONFIG_REL = 'apps/miniapp-taro/src/app.config.ts'
 const MP_SRC = 'apps/miniapp-taro/src'
+/** 壳承载页的 `@rn-shells/<X>` 按名字指到这里(C5 判的就是它真不真存在)。 */
+const RN_SCREENS = 'apps/mobile-rn/src/screens'
 /** 标记载体:与 cov.MARK_RE 同形(顶行 `// 镜像 packages/app/...`) */
 const MIRROR_MARK_RE = /^\/\/ ?镜像 (packages\/app\/src\/\S+)/m
 /** 真复用的两种形态:直接渲染共享屏,或承载 RN 壳 */
@@ -148,8 +151,12 @@ function compatExports(contents) {
   return exported
 }
 
+/**
+ * C5 判据本体住在 scripts/lib/rn-shell-refs.mjs(与跨端覆盖尺共用同一份,§0.6);
+ * 这里只 import,不再写第二份正则 —— 两份实现早晚一边认一边不认。
+ */
 export function judge(reader) {
-  const findings = { c1: [], c2: [], c3: [], c4: [] }
+  const findings = { c1: [], c2: [], c3: [], c4: [], c5: [] }
   let files
   try {
     files = reader.listFiles(CONSUMERS)
@@ -272,12 +279,43 @@ export function judge(reader) {
     staleReuse = violating.filter((rel) => headViolating.has(rel)).sort()
   }
 
+  // C5 壳承载真值维:页里 `@rn-shells/<X>` 指过去的那个 RN 壳文件必须真存在。
+  // 立因是实测到的 dangling 页:造页器 form=shell 曾把"有 RN 屏 import 了这张共享屏"当成
+  // "同名 RN 壳存在"(console-table / switch-prefs 两枚),weapp 构建当场编不过
+  // (Taro 解析到 `…ConsoleTableScreen.vue doesn't exist`),而 C1..C4 四维都看不住这一格。
+  const shellTargets = new Map()
+  for (const rel of pageRels) {
+    const text = contents.get(rel)
+    if (!text) continue
+    for (const x of shellRefsOf(text)) {
+      if (!shellTargets.has(rel)) shellTargets.set(rel, new Set())
+      shellTargets.get(rel).add(x)
+    }
+  }
+  const shellFiles = [...new Set([...shellTargets.values()].flatMap((s) => [...s].map(shellTargetRel)))].sort()
+  if (shellFiles.length > 0) {
+    let got
+    try {
+      got = reader.readMany(shellFiles)
+    } catch (error) {
+      return { state: 'undetermined', reason: `C5:壳目标取不到(${String(error?.message ?? error).slice(0, 90)})⇒ 不判`, findings }
+    }
+    for (const [rel, set] of shellTargets) {
+      for (const x of set) {
+        const target = shellTargetRel(x)
+        if (got.get(target) == null) findings.c5.push(`${rel} → ${target}(被审面上不存在 ⇒ 该页编不过)`)
+      }
+    }
+  }
+
   return {
-    state: findings.c1.length + findings.c2.length + findings.c3.length + findings.c4.length > 0 ? 'red' : 'ok',
-    findings,
+    state:
+      findings.c1.length + findings.c2.length + findings.c3.length + findings.c4.length + findings.c5.length > 0
+        ? 'red'
+        : 'ok',   findings,
     staleIcons,
     staleReuse,
-    measured: { rnNames: rnNames.size, exported: exported.size, lucide: lucideTotal, routes: routeEntries.length, files: files.length, declared: declaredRoutes.length },
+    measured: { rnNames: rnNames.size, exported: exported.size, lucide: lucideTotal, routes: routeEntries.length, shells: shellTargets.size, files: files.length, declared: declaredRoutes.length },
   }
 }
 
@@ -312,16 +350,19 @@ function main() {
   console.log(
     `  C4 结构复用:声明镜像的页 ${m.declared ?? 0} 枚 / 真复用(共享屏或壳)= 本票后应逐轮上涨 / 存量未复用 ${r.staleReuse?.length ?? 0} 枚(只报数) / 本次新违例 ${r.findings.c4.length} 条`,
   )
+  console.log(`  C5 壳承载真值:@rn-shells 引用 ${m.shells ?? 0} 条 / 指向不存在的 RN 壳 ${r.findings.c5.length} 条`)
   for (const [label, list] of [
     ['C1', r.findings.c1],
     ['C2', r.findings.c2],
     ['C3', r.findings.c3],
+    ['C4', r.findings.c4],
+    ['C5', r.findings.c5],
   ]) {
     if (list.length > 0) console.log(`❌ ${label} 缺口逐条:${list.join('  ')}`)
   }
   if (r.state === 'red') {
     console.log(
-      '出路:C1 在 src/rn-compat 补出口(值或类型位都要补);C2 跑 `node scripts/gen-rn-compat.mjs --write`;C3 同上(路由映射由生成器按现读事实重建)。禁止为消红放宽判据。',
+      '出路:C1 在 src/rn-compat 补出口(值或类型位都要补);C2 跑 `node scripts/gen-rn-compat.mjs --write`;C3 同上(路由映射由生成器按现读事实重建);C4 把该页改成承载共享屏/壳(或按造页器的拒则摘页);C5 摘掉指向不存在壳的页(连同 app.config 路由与 registry 行一起摘),或先补出同名 RN 壳。禁止为消红放宽判据。',
     )
     process.exit(1)
   }
@@ -396,3 +437,4 @@ if (isDirectRun) {
 }
 
 export const __test__ = { judge, namedImportsFrom, compatExports, makeReader, faceFlags }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -2,23 +2,38 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx
+/**
+ * 壳承载引用的唯一判据面(守门 251 C5 与跨端覆盖尺共用,§0.6 单一真相源)。
+ *
+ * 为什么单独立一份:两把尺子都要问同一件事 —— 「这页 `@rn-shells/<X>` 指过去的那个 RN 壳
+ * 到底在不在面上」。各写一份正则 ⇒ 早晚一边认一边不认(本仓记过多次的失效型);
+ * 而它必须是共享的一份,因为**覆盖率计数与构建可行性不能各说各话**:
+ * 指向不存在壳的页编不过,若覆盖尺仍把它算成"已镜像",账面就是绿的、产物是坏的。
+ *
+ * 刻意放 lib 而不是让两道门互 import:check-rn-compat-coverage 已经 import 覆盖尺,
+ * 反向 import 会成环(环里顶层常量在求值期可能还没初始化)。
+ */
+export const RN_SHELL_ALIAS_PREFIX = '@rn-shells/'
+export const RN_SCREENS_DIR = 'apps/mobile-rn/src/screens'
+
+/** 一页文本里的壳引用名集合(不认 glob、不认别名变体:形态不符就是没引用)。 */
+export function shellRefsOf(text) {
+  const out = new Set()
+  for (const m of String(text ?? '').matchAll(/from\s*['"]@rn-shells\/([A-Za-z0-9_]+)['"]/g)) out.add(m[1])
+  return out
+}
+
+/** 壳引用的落点(别名口径:同名 RN 屏文件)。 */
+export function shellTargetRel(name) {
+  return `${RN_SCREENS_DIR}/${name}.tsx`
+}
 
 /**
- * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
- *   渲染 = packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
- *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/SwitchPrefsScreen.tsx 本体,
- *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
- * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ * 这页是否引了面上不存在的壳。`readTarget(rel)` 由调用方给(它决定判哪个面:HEAD / 索引 / 工作树),
+ * 本模块不碰任何读取 ⇒ 面纪律(§0.4 同面同轮)留在调用方,不在这里被暗中固定成一个面。
  */
-import ThemeRoot from '@/components/ThemeRoot'
-import SwitchPrefsScreenShell from '@rn-shells/SwitchPrefsScreen'
-
-export default function SwitchPrefsPage() {
-  return (
-    <ThemeRoot>
-      <SwitchPrefsScreenShell />
-    </ThemeRoot>
-  )
+export function hasDanglingShell(text, readTarget) {
+  for (const name of shellRefsOf(text)) if (readTarget(shellTargetRel(name)) == null) return name
+  return null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
