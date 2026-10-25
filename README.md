@@ -110,8 +110,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 607 | `dbTables` |
 | schema 文件 | 235 | `dbSchemaFiles` |
-| API 路由 | 4556 | `apiRoutes` |
-| 路由文件 | 628 | `apiRouteFiles` |
+| API 路由 | 4565 | `apiRoutes` |
+| 路由文件 | 629 | `apiRouteFiles` |
 | AI 服务路由 | 593 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 101 | `llmModels` |
@@ -123,18 +123,16 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3228 | `testFiles` |
+| 测试文件 | 3216 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 276 | `guardianGates` |
 | — blocking | 253 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 16231 | `trackedFiles` |
+| 跟踪文件 | 16215 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-25。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
-> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 1 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 1 个 .py 取不到内容)
 
 <!-- END GENERATED NUMBERS -->
 
@@ -5520,6 +5518,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-25**
+- 🚀 新功能/改进:补 8 页镜像标记(app-permission/api-settings/coupon/study-index/phone/password/help/integral) (6e3431fcafca)
+
+**2026-10-25**
+- 🔧 工程/其他:清理功能回退残留 + 跨端同步 + 文档自动更新 (9fdbc207ba2e)
+
+**2026-10-25**
 - 🚀 新功能/改进:6 路子代理判定后落地 10 条真镜像声明(小程序页↔RN共享屏) (8cca061cf3aa)
 - 🚀 新功能/改进:web↔RN 屏对齐登记 41 条 + 把跨端自动登记器装进 post-commit 链 (6ad5de3c37a6)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1081dca6e131)
@@ -8305,13 +8309,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:新守门 check-bare-decode-uri.mjs 接进提交链 (6a3e148297bc)
 - 🚀 新功能/改进:新增门 240 RN 样式裸数字回潮锁(差值棘轮)+ runner 接线 (d066355a355b)
 - 📚 文档:点名门 240 RN 样式裸数字回潮锁(与接线同批;AGENTS.md 超体积预算暂不写入,README 已满足 R4) (d562ca2018d1)
-
-**2026-10-25**
-- ⚡ 性能:跨端两把尺子改批量取 blob(HEAD 面 4 分钟→17s) + web→RN 尺支持 --full + 6 段 web-only 豁免 (da67136b1626)
-
-**2026-10-25**
-- 🚀 新功能/改进:补 4 条 about 族镜像声明(账本真实化,零行为变化) (f97405f954d1)
-- 🐞 修复:web→RN 功能尺三屏误报根治 + 删除一条不存在的 web 路由登记 (89239b8d3e0f)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:

@@ -4820,5 +4820,17 @@
       "refunded": "환불됨",
       "pending": "확인 대기"
     }
+  },
+  "agreement": {
+    "title": "약관 및 정책",
+    "subtitle": "다음 약관을 주의 깊게 읽어 주십시오"
+  },
+  "agreementSections": {
+    "sectionTerms": "서비스 약관",
+    "sectionTermsBody": "본 플랫폼 서비스를 이용하면 본 약관의 모든 조항에 동의하는 것으로 간주됩니다.",
+    "sectionRights": "사용자 권리",
+    "sectionRightsBody": "언제든지 개인정보를 조회, 수정, 삭제할 권리가 있습니다.",
+    "sectionObligations": "사용자 의무",
+    "sectionObligationsBody": "본 플랫폼을 불법적이거나 권리 침해 활동에 사용해서는 안 됩니다."
   }
 }
