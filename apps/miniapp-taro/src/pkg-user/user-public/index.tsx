@@ -14,7 +14,6 @@ import { followUser, unfollowUser } from '@/api/social'
 import { useI18n } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
-import BackChevron from '@/components/BackChevron'
 
 interface PublicUserRow {
   id: string
@@ -109,7 +108,6 @@ export default function UserPublicPage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background p-4">
         <View className="flex items-center gap-3 py-3">
-          <BackChevron />
           <Text className="text-xl font-bold text-foreground">{t('userPublic.title')}</Text>
         </View>
 

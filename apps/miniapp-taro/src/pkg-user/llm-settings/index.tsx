@@ -13,7 +13,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { get, post } from '@/api'
 import { useI18n } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 interface ProviderRow {
@@ -137,7 +136,6 @@ export default function LlmSettingsPage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background p-4">
         <View className="flex items-center gap-3 py-3">
-          <BackChevron />
           <Text className="text-xl font-bold text-foreground flex-1">{t('llmSettings.title')}</Text>
           <Button
             size="mini"
