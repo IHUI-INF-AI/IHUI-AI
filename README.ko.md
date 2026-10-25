@@ -2198,6 +2198,35 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 📚 문서:terminal 帧三处接线收口 —— §7 第 4 项由 🟡 改 ✅ (c304de6373)
+- 🐞 수정:补 windowsHide + 还原 next-env.d.ts 规范引用(门 52/50 HEAD 存量红) (61bdc87fe0)
+- 📚 문서:D-07 记进展——根因在 llm.py 等待段 finally 当场 pop;落票面第二档(有界 TTL 账本+三闸+具名拒绝,零 wire 变化、单文件可 revert),代码已由 chore(auto) 收编进 07b4403797,pytest 两遍 125/125、mypy 0 错、ruff 通过;残余"端上可见"一格需跨端载荷键 ⇒ 保持未勾 (721b1df040)
+- 🔧 기타:认领 L28812 端到端反馈闭环(goal-loop 席) (1e339afc6a)
+- 🚀 기능/개선:补 status 公开状态页 web->RN 共享屏样板(全链路打通) (9986d2b676)
+- 🔧 기타:守门8参数段82条逐条定性结清(席37自摘本席租约)——①判据错52(param 档合并 + 入桶 continue 排在消费位之前 + 3 条基址常量声明行) ②合法7(无登记位,写进必被 AJ3 判清单腐烂红) ③真缺陷23(主根因 /api/admin/:id 吞五条列表);全量档面=head 门 RC=0、读数未降、零消音;残余四组真工作随本行摘除由续座按现读重登 (b3dfce9a61)
+- 🔧 기타:G-965 P2 进展注记(标头投影+强制档两项目标达成,A2=0;剩余缺口按分因口径点名) (1e933d35d4)
+- 🔧 기타:G-395 结清并自摘本席租约——升档留痕臂+三值封闭 reason+层名单一真相源落地,apps/cli 209/209、typecheck 8/8、水印 4/4(枚 cfec8fda86);残余两格(tools/subagent.ts 未传 reasoningEffort、上游形状非本轮交付物)另立不塞回本行 (24d6458df6)
+- 🔧 기타:门 250 接线留痕(AGENTS 点名 + 门体如实接线 + 根护栏按新 runner 重封存) (587764f561)
+
+**2026-10-26**
+- 🚀 기능/개선:G-965 无记录行分因出口(五档,判据全问既有单源)+ 同号旧键点名;不再只报总数 (45b03a543d)
+- 🚀 기능/개선:E2E 自动补测·缺口发现门接进提交链(warn 档观察) (4d3c0f0b11)
+
+**2026-10-26**
+- 🚀 기능/개선:缺口发现尺子入库(新模块无对应测试的增量判据+射程清单;判据层生成物自述只认文件头) (c3905ac75e)
+- 🚀 기능/개선:子代理档位链补"升档也留痕"臂 + 出处标签三面一致(G-395) (cfec8fda86)
+- 🔧 기타:再重钉 ui-routes 产物(wallboard 输入随 67c9d0dac7 变;union 合并后复量) (3b5a4b34d7)
+- 🔧 기타:守门8参数段82条逐条定性 挂牌认领(并发席37)——派单面 --exclude-inflight 从此让出该枚,防两席领同票 (d6fa9a290a)
+- 🐞 수정:端内埋点改走共享 api-client 的 recordVisitLog(解守门 184 直连红) (67c9d0dac7)
+- 🔧 기타:G-1142551 复量注记(门 105 G5 档:web 已重钉 matched,taro 被在飞删除阻塞 ⇒ 不翻勾) (1087a36315)
+- 📚 문서:第 3 期·进化回流同题收敛为唯一保留行(删 2 条无注记副本/1 条未勾副本)+ 装车证据注记 (744a6d2087)
+- 🔧 기타:重钉 ui-routes 产物自述钉(bi-dashboard/wallboard 输入在别席提交 95ca2af/0c0c764 后变) (2110ae45c9)
+- 🔧 기타:D-07 与 端到端反馈闭环 两枚挂牌认领(并发席35/席36)——§24 修订后由 agent 代裁执行;--exclude-inflight 从此把两枚让给本席,防两席领同票 (5b7ceeceed)
+- 🐞 수정:G-965 投影器物两处加固 —— 无侧车记录≠记录为空(不再摘真实归属标头)、owner 括号失配不投影 (6a2c360fcc)
+- 🐞 수정:陈旧 refresh 副本按错误码分流,不再误清凭据 (aefd7d5e0b)
+- 🚀 기능/개선:新增各端使用量面板(web/RN/小程序按路径前缀分桶) (ed04dfa525)
+
+**2026-10-26**
 - 🚀 기능/개선:message:terminal 终态帧贯通契约层→api-client→web store 投影(票71 切片 1/3,B02) (6a316c8559)
 - 🔧 기타:G-395 挂牌认领(无牌→进行中@2026-10-25/goal-并发席34)——已派子席动 apps/cli/src/subagents 落点,按 §1 认领即租约,防两席领同一张票 (fbd9d7b83d)
 - 🔧 기타:G-965 P2 投影器物加固落地(无记录≠记录为空、owner 括号失配不投影) + 第 3 批 1 条行内标头投影 (d11323e96f)
@@ -2815,43 +2844,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🚀 기능/개선:批 124 入典(37 组新键 ×5) (cda81d5afe)
 - ♻️ 리팩터:批 123 硬编码中文清零(13 文件 / 40+ 处,含 3 张顶层表转键) (aecd7c7a30)
 - 🚀 기능/개선:批 123 入典(35 组新键 ×5,含工具三态状态词五语同批) (a43b9ae989)
-
-**2026-10-25**
-- 📚 문서:argument-repair-loop 装车缺口取证收口——假阻塞「index.ts 被并发会话冻结」就地改直 (55937d2752)
-
-**2026-10-25**
-- 🚀 기능/개선:D04 富文本锚点补词包可点击载体 + 守门 247 装车 —— 票面验收①的字面格今天才真的存在 (ebf22cf2f3)
-- 📚 문서:守门 247 点名入索引行(门 89 R4 义务:已接线而文档不点名即红)—— 新增 check-rich-anchor-renderer-single-source.mjs(富文本锚点渲染器单一源头) 体积 95321/96000 字节,余量 679 (c7dd002aa8)
-- 🔧 기타:G-36行验证手段引用词同义中性化(模拟器→仿真器,Android Emulator同义;票面语义零变化)——散文尺残留清零 (b55b56c4f3)
-- 🔧 기타:G-36行尾旧等段残标删除(行首权威标头在位;等条件禁令下等段残标不得留存)——散文尺残留清零 (09bcddb1f0)
-- 🐞 수정:修 D04 载体判据文件的五处 noUncheckedIndexedAccess 类型红 —— 这枚红在 HEAD 上把 @ihui/web 档 typecheck 顶成失败,连带全员提交链(§12e:与本次提交内容无关的红,唯一结局是逼人 --no-verify 并废掉全部守门) (7506432dd4)
-- 🔧 기타:D03行历史注记否定语境的等环境引用词中性化(环境牌不成立——事实未动,散文尺残留清零) (48b91d098f)
-- ♻️ 리팩터:git-guardian 注释逐字归档换指针(门103 C1 收口)+ 同步 refs 装车锁生效位置 (780244fb91)
-- 🔧 기타:O02 第③格达成注记——BackChevron下沉完整在HEAD(双壳+core+wiring),门128判红0;第④格照票面顺序另票推进 (9ceb3249e9)
-- 🐞 수정:自定义栏数据层不再拿"此刻可见集"当删除依据(用例已随 a48cccb68c 入库) (ada5b76471)
-- 🐞 수정:D04 富文本载体收口三处 —— ① 修 wallet.autoTopUp.target.equivalent.text 五语言值带 <strong> 却被 plain t() 渲染成字面量的外露缺陷(改 t.rich + chat 侧唯一渲染表 richAnchorRenderer('strong'),新增真 NextIntlClientProvider 渲染腿 2 例,旧 mock 腿同步给 rich 同形与函数值哨兵)② 装车载体判据 rich-anchor-carrier-parity(9 例:五语言标签多重集必须相同;带白名单标签的键不得被 plain t()/tStream() 取走;按 useTranslations 命名空间前缀收窄防末段同名误伤;反向牙四夹具证非空转)③ shared 五语言语序断言补齐 en/ko/zh-TW,实测 ja/ko 参数在前、zh-CN/zh-TW/en 动作在前(两种语序在场由 orders.size>1 钉住)。白名单标签集合引 @ihui/shared/chat 不复抄。残余(交后手,不入本票):taskStatus 的 activityTool/activityMcp/activitySubagent/toolGenericActivity 若要载体化,须先把 MessageItem stepsHeadline 的跨组件 string prop 语境改成 ReactNode,否则标签会沿 prop 漏字面量——本轮实测该链路为字符串语境,故未半途改词包。验证:billing 22/22、shared 25/25、parity 9/9、eslint RC=0、watermark verify 2/2 (07000527a6)
-- 🔧 기타:O02标头归位至复选框后标准位(等段占位清,租约保留)——A2终枚 (33409ac4b4)
-- 🔧 기타:A2终三枚——O02标头归位/G-21标头按侧车投影(机主定级面)/G-46等段占位清 (3f143990e2)
-- 🔧 기타:G-46 waiting出桶(residual env清为none),A2对账 (aa26810378)
-- 🔧 기타:D04 挂词包腿之一推进注——degradeHint 载位已全量入库(084061c0b1,三格测试钉住),examplesTip 载位归另一席在飞不碰,两载位齐后结票 (a1aeaa4cec)
-- 🔧 기타:标头投影第三批——行内等段占位按侧车形重写(A2字面包含收口,占位语义已在两处解析器统一) (25a1a655a8)
-- 🐞 수정:触发集收拢到处置集,掐死 73 枚自增清偿提交 (4b76b68bcb)
-- 🔧 기타:G-03/G-46 对齐行内标头与blocking清空(A2对账终批) (5cbbf49677)
-
-**2026-10-25**
-- 🐞 수정:修 D04 载体判据文件的五处 noUncheckedIndexedAccess 类型红 —— 这枚红在 HEAD 上把 @ihui/web 档 typecheck 顶成失败,连带全员提交链(§12e:与本次提交内容无关的红,唯一结局是逼人 --no-verify 并废掉全部守门) (7506432dd4)
-- 🔧 기타:D03行历史注记否定语境的等环境引用词中性化(环境牌不成立——事实未动,散文尺残留清零) (48b91d098f)
-- ♻️ 리팩터:git-guardian 注释逐字归档换指针(门103 C1 收口)+ 同步 refs 装车锁生效位置 (780244fb91)
-- 🔧 기타:O02 第③格达成注记——BackChevron下沉完整在HEAD(双壳+core+wiring),门128判红0;第④格照票面顺序另票推进 (9ceb3249e9)
-- 🐞 수정:自定义栏数据层不再拿"此刻可见集"当删除依据(用例已随 a48cccb68c 入库) (ada5b76471)
-- 🐞 수정:D04 富文本载体收口三处 —— ① 修 wallet.autoTopUp.target.equivalent.text 五语言值带 <strong> 却被 plain t() 渲染成字面量的外露缺陷(改 t.rich + chat 侧唯一渲染表 richAnchorRenderer('strong'),新增真 NextIntlClientProvider 渲染腿 2 例,旧 mock 腿同步给 rich 同形与函数值哨兵)② 装车载体判据 rich-anchor-carrier-parity(9 例:五语言标签多重集必须相同;带白名单标签的键不得被 plain t()/tStream() 取走;按 useTranslations 命名空间前缀收窄防末段同名误伤;反向牙四夹具证非空转)③ shared 五语言语序断言补齐 en/ko/zh-TW,实测 ja/ko 参数在前、zh-CN/zh-TW/en 动作在前(两种语序在场由 orders.size>1 钉住)。白名单标签集合引 @ihui/shared/chat 不复抄。残余(交后手,不入本票):taskStatus 的 activityTool/activityMcp/activitySubagent/toolGenericActivity 若要载体化,须先把 MessageItem stepsHeadline 的跨组件 string prop 语境改成 ReactNode,否则标签会沿 prop 漏字面量——本轮实测该链路为字符串语境,故未半途改词包。验证:billing 22/22、shared 25/25、parity 9/9、eslint RC=0、watermark verify 2/2 (07000527a6)
-- 🔧 기타:O02标头归位至复选框后标准位(等段占位清,租约保留)——A2终枚 (33409ac4b4)
-- 🔧 기타:A2终三枚——O02标头归位/G-21标头按侧车投影(机主定级面)/G-46等段占位清 (3f143990e2)
-- 🔧 기타:G-46 waiting出桶(residual env清为none),A2对账 (aa26810378)
-- 🔧 기타:D04 挂词包腿之一推进注——degradeHint 载位已全量入库(084061c0b1,三格测试钉住),examplesTip 载位归另一席在飞不碰,两载位齐后结票 (a1aeaa4cec)
-- 🔧 기타:标头投影第三批——行内等段占位按侧车形重写(A2字面包含收口,占位语义已在两处解析器统一) (25a1a655a8)
-- 🐞 수정:触发集收拢到处置集,掐死 73 枚自增清偿提交 (4b76b68bcb)
-- 🔧 기타:G-03/G-46 对齐行内标头与blocking清空(A2对账终批) (5cbbf49677)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

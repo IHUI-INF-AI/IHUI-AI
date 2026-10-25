@@ -1,6 +1,6 @@
 {
   "schema": "incident-signal",
-  "version": 1,
+  "version": 2,
   "status": "draft",
   "reviewBy": "2027-01-31",
   "format": "jsonl",
@@ -16,7 +16,7 @@
     },
     "source": {
       "type": "string",
-      "enum": ["api_logs", "grafana_alert", "user_feedback"],
+      "enum": ["api_logs", "grafana_alert", "user_feedback", "deploy_outcome"],
       "note": "票面三个消费入口。新增入口必须先改本契约并提 reviewBy,再改消费方。"
     },
     "kind": {
@@ -55,7 +55,8 @@
   "owners": {
     "api_logs": "后端(api)",
     "grafana_alert": "运维值班",
-    "user_feedback": "产品/体验"
+    "user_feedback": "产品/体验",
+    "deploy_outcome": "运维值班"
   },
   "identity": {
     "key": "source|kind|route:<归一化 route>[|code:<错误码>],无 route 时退 code:<错误码>,两者皆无则 msg:<归一化消息>",
@@ -65,6 +66,7 @@
   "producers": {
     "api_logs": "待后续席位接:packages/database 的 api_logs 只读导出为 JSONL(本器不连库)",
     "grafana_alert": "待后续席位接:Alertmanager GET /api/v2/alerts 的 alertname/labels 映射为本契约行(本器不调 Grafana)",
-    "user_feedback": "待后续席位接:feedbacks 既有导出落盘的 JSONL"
+    "user_feedback": "待后续席位接:feedbacks 既有导出落盘的 JSONL",
+    "deploy_outcome": "scripts/deploy-outcome-intake.mjs:把 .ihui-agent/deploy-decisions.jsonl 的失败型 action 映射为本契约行(本器即生产者;不联网、不读库、不 spawn)"
   }
 }
