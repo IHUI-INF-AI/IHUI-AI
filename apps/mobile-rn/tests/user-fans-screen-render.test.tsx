@@ -119,14 +119,23 @@ describe('UserFansScreen 渲染委托与内容', () => {
   it('回关:点击真的 POST /api/follows/u1 并弹成功提示,该行转为已关注态', async () => {
     fansOk()
     renderScreen()
-    await waitFor(() => expect(screen.queryByText('甲粉一号')).not.toBeNull())
+    // 链 A = 粉丝列表取数:回关按钮长在行上,行没上屏时后面的查询根本拿不到载体
+    // ⇒ 这一段是"点击前必须成立"的前提,不能被链 B 的终点回溯证明。
+    await waitFor(() => expect(screen.queryByText('甲粉一号')).not.toBeNull(), { timeout: 4_000 })
     const btn = document.querySelector(`button[accessibilitylabel="${val('userFans.follow')}"]`)
     expect(btn).not.toBeNull()
     fireEvent.click(btn as Element)
-    await waitFor(() =>
-      expect(fetchApi).toHaveBeenCalledWith('/api/follows/u1', { method: 'POST' }),
-    )
-    await waitFor(() => expect(screen.getAllByText(val('userFans.followed'))).toHaveLength(2))
+    // 链 B = 回关:终点是"该行转为已关注态"(全部 userFans.followed 文案 1 枚 → 2 枚)。
+    // 容器侧 onFollowBack 里 `await fetchApi(...)` 且 `res.success` 之后才 setFollowedIds
+    // —— 非乐观更新 ⇒ "POST /api/follows/u1 打出去了"被终点蕴含,降级为同步断言(断言不减)。
+    // 预算 4s+5s=9s < testTimeout 10s,保证真断链时红由断言消息定性、不被墙上时钟掐掉。
+    await waitFor(() => expect(screen.getAllByText(val('userFans.followed'))).toHaveLength(2), {
+      timeout: 5_000,
+    })
+    expect(
+      fetchApi,
+      '两行都成了已关注态却没打过 /api/follows/u1(POST)⇒ 这枚翻转不是回关链带来的',
+    ).toHaveBeenCalledWith('/api/follows/u1', { method: 'POST' })
     expect(appAlert).toHaveBeenCalledWith(val('common.hint'), val('userFans.followSuccess'))
   })
 

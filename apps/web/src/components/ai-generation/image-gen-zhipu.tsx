@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 
 const SIZES = ['1024x1024', '1280x720', '720x1280'] as const
@@ -46,19 +46,18 @@ export function ImageGenZhipu() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; model: string; size: string }) => {
-      const res = await fetchApi<ZhipuImageResult>('/api/ai/zhipu/images', {
+      const res = await api<ZhipuImageResult>('/api/ai/zhipu/images', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res.success) throw new Error(res.error)
-      const items = res.data?.data ?? []
+      const items = res?.data ?? []
       const urls = [
         ...items.map((item) => item.url).filter((u): u is string => !!u),
         ...items
           .filter((item) => !item.url && item.b64_json)
           .map((item) => `data:image/png;base64,${item.b64_json}`),
       ]
-      const extracted = urls.length > 0 ? urls : extractMediaUrls(res.data)
+      const extracted = urls.length > 0 ? urls : extractMediaUrls(res)
       if (extracted.length === 0) throw new Error(t('noResult'))
       return extracted
     },

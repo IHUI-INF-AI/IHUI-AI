@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 
 const IMAGE_SIZES = ['square_hd', 'square', 'landscape_16_9', 'portrait_16_9'] as const
@@ -42,12 +42,11 @@ export function ImageGenFal() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { model: string; prompt: string; image_size: string }) => {
-      const res = await fetchApi<unknown>('/api/ai/fal/generate', {
+      const res = await api<unknown>('/api/ai/fal/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res.success) throw new Error(res.error)
-      const urls = extractMediaUrls(res.data)
+      const urls = extractMediaUrls(res)
       if (urls.length === 0) throw new Error(t('noResult'))
       return urls
     },

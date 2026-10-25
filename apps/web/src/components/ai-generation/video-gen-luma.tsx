@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 
 const DURATIONS = ['5s', '9s'] as const
@@ -45,12 +45,11 @@ export function VideoGenLuma() {
 
   const mutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/luma/generate', {
+      const res = await api<{ taskId: string; status: string }>('/api/ai/luma/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      return res
     },
     onSuccess: (data) => {
       setTaskId(data.taskId)
@@ -62,9 +61,8 @@ export function VideoGenLuma() {
   const { data: task } = useQuery({
     queryKey: ['luma-task', taskId],
     queryFn: async () => {
-      const res = await fetchApi<AsyncTask>(`/api/ai/luma/tasks/${taskId}`)
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      const res = await api<AsyncTask>(`/api/ai/luma/tasks/${taskId}`)
+      return res
     },
     enabled: !!taskId,
     refetchInterval: (query) => {

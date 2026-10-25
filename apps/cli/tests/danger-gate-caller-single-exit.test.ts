@@ -243,6 +243,14 @@ describe('④ 反向锁:调用方不得自己判 flag 放行', () => {
     expect(gateBlock.slice(0, 260)).not.toMatch(/\bprompt\s*:/);
   });
 
+  it('其余三个装车点(repl / acp / subagent)同样零就地放行,且都经唯一出口', () => {
+    for (const rel of ['commands/repl.ts', 'acp/server.ts', 'tools/subagent.ts']) {
+      const src = readSrc(rel);
+      expect(countInlineFlagDecisions(src), rel).toBe(0);
+      expect(src, rel).toMatch(/confirmDangerous:\s*createAuditedDangerGate\(\s*\{/);
+    }
+  });
+
   it('danger-gate.ts 是唯一判 flag 的地方(两处短路都在出口内)', () => {
     const src = readSrc('tools/danger-gate.ts');
     expect(src).toMatch(/if\s*\(\s*opts\.allowDangerous\s*===\s*true\s*&&\s*!mandated\s*\)/);

@@ -18,6 +18,7 @@ import { clearWebViewCache } from '@/lib/tauri-bridge'
 import { SamplingParamsCard } from '@/components/settings/sampling-params-card'
 import { FoldPolicyCard } from '@/components/settings/fold-policy-card'
 import { WebSearchCard } from '@/components/settings/web-search-card'
+import { ExpertRouteCard } from '@/components/settings/expert-route-card'
 import { NavTierCard } from '@/components/settings/nav-tier-card'
 import { cn } from '@/lib/utils'
 
@@ -176,6 +177,9 @@ export default function PreferencesPage() {
 
         {/* 网页搜索开关(2026-09-21 自聊天输入区工具栏迁入,D22 能力偏好归位设置页) */}
         <WebSearchCard />
+
+        {/* 专家包自动路由(D09,2026-10-24):三档选择项;env 锁定时只读并说明原因 */}
+        <ExpertRouteCard />
 
         {isDesktop && (
           <Card>

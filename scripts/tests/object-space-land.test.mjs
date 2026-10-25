@@ -642,6 +642,63 @@ test('T-BLOB-4 端到端:落地成功、索引对齐,而盘上那份(别人的)�
 })
 
 /**
+ * G-04 补格②(2026-10-24):陈旧落地守卫在 blob 模式下必须判**提交面**(构造内容 vs 父提交
+ * blob vs 祖先后选),不再整段跳过、也不再去比盘上那份(属于别人的在飞改动)。
+ * 事故形状(2026-09-28 那一型):祖先 A 有 quit* 行,基线 B 合法删掉;构造内容 = A ⊕ 一行真新键
+ * ⇒ 整 blob 不等于任何祖先(祖先对账结构上看不见),却把基线已删的行搬了回来。
+ * 改前读数:blob 模式整段不跑本闸 ⇒ 这份内容一路落地(status 0,本用例断言失败);
+ * 改后读数:必须 exit 1、点名祖先与"复活 1 行"。
+ */
+test('T-STALE-blobface 构造内容搬回基线已删行 ⇒ 拒落并点名祖先(判据面=对象库 blob)', (t) => {
+  const A = 'title: 更新检查\nquitChecking: 正在检查更新\nsettings: 设置\n'
+  const B = 'title: 更新检查\nsettings: 设置\n'
+  const { dir, ancestor9 } = makeTwoCommitRepo(t, { oldText: A, newText: B })
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  // 盘上摆一份"别人的在飞改动":旧判据(读工作树)会拿它做证 ⇒ 判据面一换,结论必须只由构造 blob 决定。
+  writeFileSync(join(dir, 'pack.txt'), '完全不同的别人的内容\n')
+  const send = A + 'formChannelUnavailable: 该表单暂不可用\n'
+  const r = runLand(dir, {
+    paths: 'pack.txt',
+    blobs: [{ path: 'pack.txt', blob: hashText(dir, send) }],
+    proof: '构造内容 = 基线 + 本票一行',
+  })
+  const out = r.stderr + r.stdout
+  assert.equal(r.status, 1, `构造内容搬回基线已删行必须拦,实得 ${r.status}:\n${out}`)
+  assert.match(out, /陈旧落地守卫/)
+  assert.match(out, /构造提交的对象库 blob/, '拒绝理由必须说清判的是提交面,不是盘面')
+  assert.match(out, /复活 1 行/)
+  assert.ok(out.includes(ancestor9), `必须点名复活内容出自哪枚祖先 ${ancestor9}:\n${out}`)
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '拒绝路径上 HEAD 一步没动')
+})
+
+/**
+ * 反向对照:同一路径、同一基线,构造内容**只追加本票一行**(不搬回他行)⇒ 必须照常落地。
+ * 没有这一臂,"构造内容搬回已删行 ⇒ 拒"可以靠"blob 模式恒拒"骗过。
+ */
+test('T-STALE-blobface-control 只追加本票行的构造内容 ⇒ 照常落地(判据不是恒拦)', (t) => {
+  const A = 'title: 更新检查\nquitChecking: 正在检查更新\nsettings: 设置\n'
+  const B = 'title: 更新检查\nsettings: 设置\n'
+  const { dir } = makeTwoCommitRepo(t, { oldText: A, newText: B })
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  writeFileSync(join(dir, 'pack.txt'), '完全不同的别人的内容\n')
+  const send = B + 'formChannelUnavailable: 该表单暂不可用\n'
+  const blob = hashText(dir, send)
+  const r = runLand(dir, {
+    paths: 'pack.txt',
+    blobs: [{ path: 'pack.txt', blob }],
+    proof: '只追加本票一行,不触碰基线已删内容',
+  })
+  assert.equal(r.status, 0, `不搬回他行的构造内容必须能落,实得 ${r.status}:\n${r.stdout}\n${r.stderr}`)
+  assert.notEqual(git(['rev-parse', 'HEAD'], { root: dir }), before, 'HEAD 必须前进')
+  assert.equal(git(['rev-parse', 'HEAD:pack.txt'], { root: dir }), blob, '新 HEAD 内容必须是构造 blob')
+  assert.equal(
+    readFileSync(join(dir, 'pack.txt'), 'utf8'),
+    '完全不同的别人的内容\n',
+    'blob 模式的判据面换了,也绝不读写工作树那份',
+  )
+})
+
+/**
  * 接线锁:blob 模式必须真被 main 走到,且**不得**把"跳过水印预检"的措辞带进 blob 模式 ——
  * 那一支曾经是 `else`(无条件),于是 blob 模式(它上面已跑自己的横幅判据)又打印一句
  * "本次跳过水印预检",而那个环境变量根本没设 ⇒ 账面凭空出现一句没有发生过的放行。
@@ -653,6 +710,15 @@ test('T-BLOB-5 接线与措辞:blob 模式已装进主流程,且不得凭空声�
   assert.ok(
     !/if \(!skipWatermark && !blobOf\) \{[\s\S]{0,600}?\} else \{\s*console\.log\('⚠️ IHUI_LAND_SKIP_WATERMARK/.test(src),
     '又写回无条件 else 了 ⇒ blob 模式会打印一句没发生过的放行',
+  )
+  // G-04 换面的承重接线(2026-10-25 补):main 的工作树档必须把**已冻结进对象库的那一版**
+  // (`mine`)交给水印预检;退回裸 paths(=预检自己去重读盘)⇒ hash-object 与 verify 之间的
+  // 时间窗重新打开,别人改盘就能让未验证的字节进树。镜像行为锁在 watermark-scope.test.mjs S10,
+  // 这一条钉的是调用点——两头都要有,缺任一头都算"造好没装车"。
+  assert.match(
+    src,
+    /watermarkPreflight\(\{ root, paths, blobs: mine \}\)/,
+    '主流程必须把 blobs: mine 交给预检(判定面=将要进树的 blob,非盘上副本)',
   )
 })
 

@@ -8,12 +8,14 @@
  * 判据不复制:全部经源文件导出的 `__test__` 取,夹具走 `mkScratch`(§26:不落仓库树、
  * 不落可能钉在 C 盘的 os.tmpdir),绝不碰真实 `.ihui-agent/archive`。
  *
- * 覆盖五格(与交付票一一对应):
+ * 覆盖格(与交付票一一对应):
  *   a) 超总数上限 ⇒ 删最老,近 10 代原样留下;
  *   b) 超单件体积上限 ⇒ 单件独立出口判删;落在近 10 代内的超限件受保护优先;
  *   c) 近 10 代保护优先于总数上限 ⇒ 上限达不到也硬删;
- *   d) 未判定(判不出世代)⇒ 保留 + 报名,末行读数含"未判定",退出码 2;
- *   e) 默认 dry-run 不删 / `--apply` 真删,且 deleted 双日志留痕。
+ *   d) 未判定(判不出世代)⇒ 保留 + 点名,末行读数含"未判定",退出码 2;
+ *   e) 默认 dry-run 不删 / `--apply` 真删,且 deleted 双日志留痕;
+ *   f) 两轴独立但总数轴不重复计已判删件(不得过删到 maxFiles 以下);
+ *   g) 射程必须由调用方 `--root` 指定;人读面打印本次射程 × 该目录已有器物。
  */
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, utimesSync } from 'node:fs'
@@ -28,9 +30,11 @@ const { __test__ } = await import(pathToFileURL(SRC).href)
 const {
   DEFAULT_MAX_ITEM_BYTES,
   MIN_AGE_MS,
+  STD_GIT_ARCHIVE,
   parseGeneration,
   isInsideRoot,
   isInsideStateDir,
+  scopeNote,
   assertSafeRoot,
   classifyEntry,
   listEntries,
@@ -190,6 +194,10 @@ test('T4 判不出世代的件保留并报名(未判定计数 + 退出码 2)', (
     stderr: () => {},
   })
   assert.equal(code, 2, '存在未判定件 ⇒ 退出码 2(不记绿)')
+  assert.ok(
+    out.some((l) => /^未判定 1 件.*no-date\.md/.test(l)),
+    `未判定必须点名,不得悄悄当保留:${out.join(' | ')}`,
+  )
   assert.match(out.at(-1), /^保留 \d+ \/ 待删 1 \/ 未判定 1$/, `末行读数不对:${out.at(-1)}`)
 })
 
@@ -299,5 +307,60 @@ test('T8 根准入:state 目录与其子目录一律拒跑', () => {
   const st = __test__.STATE_DIR
   assert.equal(assertSafeRoot(st).ok, false)
   assert.equal(assertSafeRoot(join(st, 'sub')).ok, false)
+})
+
+test('T9 射程必须由调用方 --root 指定;人读面打印本次射程 × 该目录已有器物', () => {
+  const out = []
+  const err = []
+  const code = runMain({
+    argv: ['--dry-run'],
+    stdout: (l) => out.push(l),
+    stderr: (l) => err.push(l),
+  })
+  assert.equal(code, 2, '未给射程 ⇒ 不得默认某条硬编码路径,也不记通过')
+  assert.ok(
+    err.some((l) => /未指定射程/.test(l) && /--root/.test(l)),
+    `缺射程必须点名 --root:${err.join(' | ')}`,
+  )
+  assert.equal(out.length, 0, '缺射程不得输出任何读数')
+
+  const arch = mkArch(boxed('t9'))
+  const out2 = []
+  const code2 = runMain({
+    argv: ['--root', arch, '--dry-run'],
+    stdout: (l) => out2.push(l),
+    stderr: () => {},
+  })
+  assert.equal(code2, 0)
+  assert.ok(out2.some((l) => l.startsWith('本次射程:')), '必须打印本次射程')
+  const note = out2.find((l) => l.startsWith('射程说明:'))
+  assert.ok(note && /不是票面点名的 gitArchiveDir/.test(note), `非票面射程必须写明:${note}`)
+
+  if (STD_GIT_ARCHIVE) {
+    assert.match(
+      scopeNote(STD_GIT_ARCHIVE),
+      /gitArchiveDir.*retire-git-archive/,
+      '票面射程必须点名已有器物 retire-git-archive 已覆盖',
+    )
+  }
+})
+
+test('T10 两轴独立但总数轴不重复计已判删件:不得过删到 maxFiles 以下', () => {
+  const box = boxed('t10')
+  const arch = mkArch(box)
+  for (let i = 1; i <= 10; i++) put(arch, `snap-2026-09-${String(i).padStart(2, '0')}.md`)
+  put(arch, 'big-a-2026-09-01.md', 2048)
+  put(arch, 'big-b-2026-09-02.md', 2048)
+
+  const plan = planOf(arch, { keepGenerations: 0, maxFiles: 5, maxItemBytes: 1024 })
+  assert.equal(plan.totalFiles, 12)
+  assert.equal(plan.itemBytesRetired, 2, '体积轴应独立判删 2 件')
+  assert.equal(
+    plan.retire.length,
+    7,
+    `体积轴 2 件 + 总数轴 5 件 = 7;若重复计已判删件会过删到 9,实为 ${plan.retire.length}`,
+  )
+  assert.equal(plan.keep.length, 5, '最终保留数必须正好等于 maxFiles')
+  assert.equal(plan.capUnmet, false, '两轴合计已够回落,不得误报上限未达')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

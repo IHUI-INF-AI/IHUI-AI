@@ -49,6 +49,12 @@
  *       **刻意不纳**带宾语的标签(`backHome` 返回首页 / `backLogin` 返回登录 / `prevMonth`):
  *       那些是按钮文案,换成裸箭头反而不表意 —— 拦的是"箭头位放文字",不是"不许出现返回二字"。
  *       web 端 0 处存量(它的返回键本就是 lucide `<ChevronLeft />`),本判据把另三端对齐过去。
+ *       2026-10-24 补**同格矢量箭头**判据:文案的最近可点容器里已有矢量箭头图标时,
+ *       文案是标签、不是"文字当箭头"(旧判据只看文案里有没有箭头字符,看不见同格的图标兄弟,
+ *       把「矢量 ArrowLeft 图标 + span 文案」误判成文字返回)。保守三条:容器取**最近**的可点祖先、
+ *       图标必须是容器的**直接子元素**、图标名必须是已知的**左向/返回**矢量箭头(lucide 的 ArrowLeft、
+ *       ArrowBack、ChevronLeft 与共享 BackChevron、LineIcon 的 `name="arrow-left|chevron-left"`)—— 判不出仍按原规则报,
+ *       且只对**纯标签**形态(text-literal / i18n-call)生效:文案自带字形(GA5-A/GA8)时字形仍在当图标。
  *  GA5  「返回」与字形**混写**(2026-09-25 立)。GA1 只判"整格唯一子内容是字形"、GA4 只判
  *       "整格是返回文案",于是 `← 返回` / `‹ 返回` 这一型两条都不纳 —— 它恰好是**改了图标但把
  *       文案留在原地**的产物(实测两处真站点:`packages/app/src/components/Selecter.tsx:415`、
@@ -685,12 +691,78 @@ export function walkAffordanceChildren(text, strMask) {
   return out
 }
 
+/**
+ * GA4 的同格矢量箭头判据(2026-10-24):文案的最近可点容器里已有矢量箭头图标 ⇒ 文案是标签。
+ * 保守边界(判不出就回到原规则报红,不整体放宽):
+ *   ① 容器取**最近**的可点祖先(文案元素自身可点 ⇒ 无此通道),避免页面级 `<div onClick>`
+ *      把容器里别处的箭头图标算成"同格";
+ *   ② 图标必须是容器的**直接子元素**(相对深度 0),包在第二层 `<span>` 里 ⇒ 判不出,不豁免;
+ *   ③ 图标名必须是已知的**左向/返回**矢量箭头(lucide `ArrowLeft|ArrowBack|ChevronLeft`、
+ *      共享 `<BackChevron>`、`LineIcon name="arrow-left|chevron-left|arrow-back"`),右向箭头不算 ——
+ *      否则 `<span>返回</span><ArrowRight/>` 这种"文案 + 不相干的右向图标"会被误放。文本字形不走这条通道。
+ * 只用于**纯标签**形态(text-literal / i18n-call):文案自带字形(GA5-A / GA8)时字形仍在当图标。
+ */
+const VECTOR_ARROW_TAG_RE = /^(?:Arrow(?:Left|Back)|ChevronLeft|ChevronBack|BackChevron)$/
+const VECTOR_ARROW_NAME_RE = /\bname\s*=\s*["'`](?:arrow|chevron)-(?:left|back)["'`]/
+
+function isVectorArrowTag(t) {
+  if (VECTOR_ARROW_TAG_RE.test(t.name)) return true
+  return /^LineIcon$/.test(t.name) && VECTOR_ARROW_NAME_RE.test(t.attrs)
+}
+
+/** 最近的可点容器(从内往外);文案元素自身可点 ⇒ null(那样图标只可能在文案格内部) */
+function nearestClickableContainer(tag, ancestors) {
+  const clickable = (a) => AFFORDANCE_TAG_RE.test(a.name) || HANDLER_ATTR_RE.test(a.attrs)
+  if (clickable(tag)) return null
+  for (let i = ancestors.length - 1; i >= 0; i--) if (clickable(ancestors[i])) return ancestors[i]
+  return null
+}
+
+/** 容器内是否有矢量箭头图标作为**直接子元素**(相对深度 0) */
+function hasVectorArrowSibling(text, strMask, container, labelTag) {
+  if (!container || container.start === labelTag.start) return false
+  let depth = 0
+  let i = container.end
+  while (i < text.length) {
+    const lt = text.indexOf('<', i)
+    if (lt < 0) return false
+    const t = parseTagAt(text, lt, strMask)
+    if (!t) {
+      i = lt + 1
+      continue
+    }
+    if (t.kind === 'close') {
+      // 相对深度 0 的闭合标签 = 容器自身收尾(或结构失配)⇒ 容器内已扫完,没有同格图标
+      if (depth === 0) return false
+      depth--
+      i = t.end
+      continue
+    }
+    if (depth === 0 && isVectorArrowTag(t)) return true
+    if (t.kind === 'open') depth++
+    i = t.end
+  }
+  return false
+}
+
 /** 该开标签的整格子内容是否处在可证 affordance 语境,是则产出一条 */
 function consultLoneChild(text, strMask, t, stack, out) {
   const lone = loneChildText(text, strMask, t)
   if (!lone) return
   const ev = affordanceEvidence(t, stack.slice(-MAX_ANCESTORS))
-  if (ev) out.push({ tag: t, via: ev.reason, anchorLine: lineOf(text, ev.anchor.start), ...lone })
+  if (ev)
+    out.push({
+      tag: t,
+      via: ev.reason,
+      anchorLine: lineOf(text, ev.anchor.start),
+      vectorArrowSibling: hasVectorArrowSibling(
+        text,
+        strMask,
+        nearestClickableContainer(t, stack.slice(-MAX_ANCESTORS)),
+        t,
+      ),
+      ...lone,
+    })
 }
 
 /**
@@ -750,16 +822,20 @@ export function findBackLabelChildren(text, strMask) {
   const hits = []
   for (const c of walkAffordanceChildren(text, strMask)) {
     const form = classifyBackLabel(c.tr, strMask, c.pos)
-    if (form)
-      hits.push({
-        form,
-        pos: c.pos,
-        line: c.line,
-        anchorLine: c.anchorLine,
-        tag: c.tag.name,
-        via: c.via,
-        text: c.tr,
-      })
+    if (!form) continue
+    // 纯标签形态 + 同格矢量箭头 ⇒ 箭头位已是矢量,文案是标签(不记债);
+    // 文案自带字形(GA5-A/GA8)时字形仍在当图标,不得因旁边有矢量图标放行。
+    const plainLabel = form === 'text-literal' || form === 'i18n-call'
+    hits.push({
+      form,
+      pos: c.pos,
+      line: c.line,
+      anchorLine: c.anchorLine,
+      tag: c.tag.name,
+      via: c.via,
+      text: c.tr,
+      vectorLabeled: plainLabel && c.vectorArrowSibling,
+    })
   }
   return hits
 }
@@ -916,7 +992,7 @@ export function findOpticalMismatch(entries) {
 // ── 单文件审计(返回结构化条目,不做字符串反解析) ───────────────────────────────────────
 export function auditFile(rel, text) {
   const findings = []
-  const notes = { exempt: 0, backExempt: 0, undetermined: [], backBlind: [], ga8Blind: [] }
+  const notes = { exempt: 0, backExempt: 0, vectorBackLabel: 0, undetermined: [], backBlind: [], ga8Blind: [] }
   const sawBack = new Set()
   const exempt = collectExemptLines(text)
   const backExempt = collectExemptLines(text, BACK_EXEMPT_LINE_RE)
@@ -936,6 +1012,11 @@ export function auditFile(rel, text) {
     }
     for (const h of findBackLabelChildren(code, strMask)) {
       sawBack.add(h.line)
+      // 同格矢量箭头:箭头位已是矢量图标,文案是标签 —— 不是"文字当箭头",不记债也不占豁免通道。
+      if (h.vectorLabeled) {
+        notes.vectorBackLabel++
+        continue
+      }
       // GA8 走 **GA1 那条逐行通道**(`glyph-arrow-exempt`),不复用 back-label 的三位置宽档:
       // 它的错是"字形当图标用",不是"文案摆在箭头位";若共用宽档,一个写在可点块上的标记
       // 就能整棵子树免检,那等于给刚立项的这一型留第二条后门(两条通道的宽严各有反向锁)。
@@ -1542,6 +1623,7 @@ export function scan(readFile, files, opts = {}) {
     unreadable: [],
     exempt: 0,
     backExempt: 0,
+    vectorBackLabel: 0,
     undetermined: [],
     chromeUndetermined: [],
     rnDoubleUndetermined: [],
@@ -1568,6 +1650,7 @@ export function scan(readFile, files, opts = {}) {
     const { findings, notes: fn } = auditFile(rel, text)
     notes.exempt += fn.exempt
     notes.backExempt += fn.backExempt
+    notes.vectorBackLabel += fn.vectorBackLabel ?? 0
     for (const b of fn.backBlind) notes.backBlind.push(b)
     for (const b of fn.ga8Blind ?? []) notes.ga8Blind.push(b)
     for (const u of fn.undetermined) notes.undetermined.push(`${rel}: ${u}`)
@@ -1742,6 +1825,8 @@ function report(res, meta) {
   ]
   if (notes.exempt) lines.push(`  行内豁免 glyph-arrow-exempt 放过:${notes.exempt} 处`)
   if (notes.backExempt) lines.push(`  行内豁免 back-label-exempt 放过:${notes.backExempt} 处`)
+  if (notes.vectorBackLabel)
+    lines.push(`  同格矢量箭头放过的文案标签:${notes.vectorBackLabel} 处(箭头位是矢量图标,文案是标签)`)
   if (notes.undetermined.length)
     lines.push(`  GA2 单位不一致、判不出:${notes.undetermined.length} 对(不判红,如实计数)`)
   // 盲区读数**恒打印**(0 也打印):只在出事时才出声,读报告的人就分不清"量到 0"与"这一层根本没量"
@@ -2317,6 +2402,46 @@ function selfTest() {
       'apps/miniapp-taro/src/fixed.tsx':
         "import BackChevron from '@/components/BackChevron'\nexport const P = ({ goBack }) => <View style={viewStyles.header()}><BackChevron onTap={goBack} /><Text>{'平台活动'}</Text></View>\n",
     }).n4 === 0,
+  )
+  // 同格矢量箭头(2026-10-24):旧判据只看文案里有没有箭头字符,把「矢量 ArrowLeft + span 文案」
+  // 误判成文字返回(GA4 恒红 ⇒ 逼人去写临时豁免)。正例证明判据认得图标兄弟,
+  // 下面三条边界证明它**没有整体放宽**:判不出的仍按原规则报。
+  const ICON_LABEL_SITE =
+    "import { ArrowLeft } from 'lucide-react'\nexport const P = ({ t }) => (\n  <Link href=\"/learn\" className=\"inline-flex items-center gap-1.5\">\n    <ArrowLeft className=\"h-4 w-4\" />\n    <span>{t('detail.back')}</span>\n  </Link>\n)\n"
+  t(
+    'GA4 同格矢量箭头:图标与文案同属一个可点容器 ⇒ 文案是标签,不判(且确实由该判据放过)',
+    (() => {
+      const r = only({ 'apps/web/app/(main)/learn/[id]/PageClient.tsx': ICON_LABEL_SITE })
+      return r.n4 === 0 && r.notes.vectorBackLabel === 1
+    })(),
+  )
+  t(
+    'GA4 同格矢量箭头:共享 LineIcon 的 chevron-left 同形认(不是只认 lucide 组件名)',
+    only({
+      'apps/web/app/vec-lineicon.tsx':
+        "import LineIcon from '@/components/LineIcon'\nexport const P = ({ t }) => <button onClick={() => {}}><LineIcon name=\"chevron-left\" size={16} /><span>{t('detail.back')}</span></button>\n",
+    }).n4 === 0,
+  )
+  t(
+    'GA4 同格矢量箭头反向:纯文字「‹ 返回」没有图标兄弟 ⇒ 仍按 GA5 报(判据不得整体放宽)',
+    only({
+      'apps/web/app/vec-only-glyph.tsx':
+        "export const P = ({ go }) => <button onClick={go}><span>‹ 返回</span></button>\n",
+    }).n5 === 1,
+  )
+  t(
+    'GA4 同格矢量箭头边界:图标包在第二层 span 里 ⇒ 判不出同格,仍按原规则报',
+    only({
+      'apps/web/app/vec-nested.tsx':
+        "export const P = ({ t }) => <button onClick={() => {}}><span><ArrowLeft /></span><span>{t('detail.back')}</span></button>\n",
+    }).n4 === 1,
+  )
+  t(
+    'GA4 同格矢量箭头边界:图标在可点容器**之外**(文案元素自己可点)⇒ 仍按原规则报',
+    only({
+      'apps/web/app/vec-outside.tsx':
+        "export const P = ({ t }) => <div><ArrowLeft /><span onClick={() => {}}>{t('detail.back')}</span></div>\n",
+    }).n4 === 1,
   )
   t(
     'GA4 豁免:同行带原因 ⇒ 放过,且裸标记不生效',

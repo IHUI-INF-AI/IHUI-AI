@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 
 const SIZES = ['1024*1024', '1280*720', '720*1280'] as const
 const MODELS = ['imagen-3.0-generate-002', 'imagen-4.0-generate-001'] as const
@@ -46,12 +46,11 @@ export function ImageGenGemini() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; model: string; size: string; n: number }) => {
-      const res = await fetchApi<{ predictions?: GeminiPrediction[] }>('/api/ai/gemini/image', {
+      const res = await api<{ predictions?: GeminiPrediction[] }>('/api/ai/gemini/image', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res.success) throw new Error(res.error)
-      const predictions = res.data?.predictions ?? []
+      const predictions = res?.predictions ?? []
       const urls = predictions
         .filter((p) => p.bytesBase64Encoded)
         .map((p) => `data:${p.mimeType ?? 'image/png'};base64,${p.bytesBase64Encoded}`)

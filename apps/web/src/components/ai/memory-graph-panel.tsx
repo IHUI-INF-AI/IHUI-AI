@@ -8,7 +8,7 @@
 import * as React from 'react'
 import { Loader2, Network, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /**
@@ -151,16 +151,11 @@ export function MemoryGraphPanel() {
     setLoading(true)
     setSelected(null)
     try {
-      const r = await fetchApi<{ nodes: GraphNode[]; edges: GraphEdge[] }>(
+      const r = await api<{ nodes: GraphNode[]; edges: GraphEdge[] }>(
         `/api/memory/graph?query=${encodeURIComponent(q)}`,
       )
-      if (r.success && r.data) {
-        setNodes(r.data.nodes)
-        setEdges(r.data.edges)
-      } else {
-        setNodes([])
-        setEdges([])
-      }
+      setNodes(r.nodes)
+      setEdges(r.edges)
     } catch {
       setNodes([])
       setEdges([])

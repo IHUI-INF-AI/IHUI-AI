@@ -46,7 +46,10 @@ import {
   TEMPFAIL_EXIT_CODE,
 } from './signal-exit.mjs'
 // 2026-09-29:把"跑不起来(崩溃)"与"判据判红"分流的纯函数(构造面四条分支各有正反例)。
-import { crashAdvisory, decideGateOutcome } from './gate-failure-kind.mjs'
+// 2026-10-24:同一把尺子多收一个输入 `code` —— 执行器两道兜底(单门超时看门狗 / 输出超 20MB)合成的
+// Error 只有 error.code、没有 status/signal,不传 code 就被读成"判据判红"(§0.3 把"没判"写成"判过");
+// 归 crash 档后后果一项不减(仍 failed++、仍非零退出、提交仍被拦)。判定与措辞单源都在该 lib。
+import { crashAdvisory, crashNextStep, decideGateOutcome } from './gate-failure-kind.mjs'
 
 export async function runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs }) {
 
@@ -156,7 +159,7 @@ const gateContentCache = createGateContentCache({ cwd: process.cwd() })
 const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
 /** blocking 失败门清单(末尾汇总用)。 */
 const failedGates = []
-/** 跑不起来的门(崩溃指纹 ⇒ 未判定)。仍计入 failed(不放行),但**不进** failedGates,免得被当"判据判红"。 */
+/** 跑不起来的门(崩溃指纹 / 被兜底弄死的 error.code ⇒ 都是"未判定")。仍计入 failed(不放行),但**不进** failedGates,免得被当"判据判红"。 */
 const crashedGates = []
 
 // ─── 批次留痕(G-1059139)───
@@ -465,6 +468,10 @@ async function dispatchPar(check, cmdArgs) {
   parLive.add(child)
   // 输出上限与 spawnSync maxBuffer 同档(≈20MB):超限合成 ENOBUFS error,与 spawnSync
   // 超限同走 applyGateResult 的 crash 分流 —— 绝不把"输出被截断"静默洗成通过。
+  // 分流真成立靠 applyGateResult 把 job.error.code 传给 decideGateOutcome(2026-10-24 接上;
+  // 此前只传 status/signal,而本行这个合成 Error 的 status/signal 可都是空的 ⇒ 被读成判红)。
+  // 注意并行档这里 job.status 可能是真实退出码 0(截断的是"跑完但输出爆表"那型),
+  // 所以 gate-failure-kind 把兜底码排在"退出码 0 ⇒ pass"之前。
   const CAP = 20 * 1024 * 1024
   const outChunks = []
   const errChunks = []
@@ -521,7 +528,16 @@ async function dispatchPar(check, cmdArgs) {
   // 子进程不死 ⇒ parPending 队头永远等不到 job.done ⇒ 整条提交链无界挂起(比判红更难查)。
   // 处置与门 80(热路径 git 只读调用必须带 timeout)同一口径:**任何子检查都不得无界**。
   // 超时 → kill 子进程 + job.error.code = 'ETIMEDOUT',走 applyGateResult 的 r.error 分支
-  // (与 ENOBUFS 同路)⇒ 崩溃分流、点名、非零退出,绝不静默洗成通过。
+  // (与 ENOBUFS 同路)⇒ 未判定分流、点名、非零退出,绝不静默洗成通过。
+  // ⚠️ 2026-10-24 修正本注:它此前自称"走崩溃分流"其实是**假**的 —— applyGateResult 把
+  //   status/signal/stderr 交给 decideGateOutcome 时**没有传 code**,而这个 Error 的
+  //   status/signal 都是 null ⇒ 一路落到最后一行的 `判据判红(exit null)`,被记进 failedGates
+  //   (判红名单),汇总既无 crashedGates 也无未判定段。当天实测复现:门 30c check-stale-copy.mjs
+  //   被 300010ms 看门狗 SIGKILL、零输出 ⇒ 判红。修法 = 调用处把 `code: e?.code ?? null` 一起传入
+  //   (判定实现在 lib/gate-failure-kind.mjs 的 FALLBACK_KILL_CODES,本文件不复制判据)。
+  //   后果一项没减:这一族仍 failed++、仍非零退出、提交仍被拦 —— 改的只是"没判"不许写成"判过"(§0.3)。
+  //   另:shouldPropagateAsInterrupt(lib/signal-exit.mjs)对这两个 code 实测返回 false
+  //   (它只看 status/signal)⇒ 不会被误传播成 exit 75 重试,这正是"后果不变"要的那一格,**不得**扩。
   // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
   const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
   if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
@@ -636,16 +652,20 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
       // 崩溃 ≠ 判红(纯函数与四条分支的构造面证明在 scripts/lib/gate-failure-kind.mjs)。
       // 分流只改**说法与归类**,不改后果:仍然 failed、批量仍然非零退出 —— 把"跑不起来"洗成
       // 通过,等于给一台瞎掉的尺子发合格证(本仓对"未判定"的一贯要求:大声、点名、不清偿不放行)。
+      // code 必须一起传:兜底弄死(超时看门狗 / 输出超 20MB)那两个 Error 只有 code,
+      // 没有 status/signal —— 少传这一个键,门就会被读成"判据判红"(2026-10-24 实测即此型)。
       const kind = decideGateOutcome({
         status: e?.status ?? null,
         signal: e?.signal ?? null,
+        code: e?.code ?? null,
         stderr: gateStderr,
       })
       if (kind.kind === 'crash') {
         crashedGates.push({ id: check.id, label: check.label, script: check.script, reason: kind.reason })
         console.error(
           `${C.yellow}⚠️ [${check.id}] ${check.label} ${kind.reason}${C.reset} —— 跑不起来(未判定),不是检查结论;` +
-            `提交仍被阻止,但**请勿把它读成"这道门发现了缺陷"**。先跑全量 pnpm install 再复跑本批。`,
+            `提交仍被阻止,但**请勿把它读成"这道门发现了缺陷"**。${crashNextStep(kind.reason)}` +
+            `(单独复现:node scripts/${check.script})`,
         )
       } else {
         failedGates.push({ id: check.id, label: check.label, script: check.script })
@@ -812,8 +832,10 @@ if (crashedGates.length > 0) {
     `${C.bold}${C.yellow}⚠️ ${crashedGates.length} 道门**跑不起来(未判定)**—— 与"判据判红"分开列,别按缺陷派单:${C.reset}`,
   )
   for (const g of crashedGates)
-    console.error(`   · [${g.id}] ${g.label} —— ${g.reason}(复现:node scripts/${g.script})`)
-  console.error(`   ${crashAdvisory(crashedGates.length)}`)
+    console.error(
+      `   · [${g.id}] ${g.label} —— ${g.reason}(复现:node scripts/${g.script};下一步:${crashNextStep(g.reason)})`,
+    )
+  console.error(`   ${crashAdvisory(crashedGates.length, crashedGates.map((g) => g.reason))}`)
 }
 if (failedGates.length > 0) {
   console.error('')

@@ -52,9 +52,7 @@ vi.mock('@react-navigation/native-stack', () => ({}))
 
 // 真件转发(见文件头两条理由:静态替身缺这个导出 / 副本会冒充实现)
 vi.mock('@ihui/rn-app', async () => {
-  const shared = await import(
-    '../../../packages/app/src/features/course-filter/CourseFilterScreen'
-  )
+  const shared = await import('../../../packages/app/src/features/course-filter/CourseFilterScreen')
   return { CourseFilterScreen: shared.CourseFilterScreen }
 })
 vi.mock('../src/hooks', async () => {
@@ -154,7 +152,8 @@ function fakeLessonsPayload(search: URLSearchParams) {
   if (difficulty) rows = rows.filter((r) => r.difficulty === difficulty)
   if (price === 'free') rows = rows.filter(isFreeRow)
   else if (price === 'paid') rows = rows.filter((r) => !isFreeRow(r))
-  if (searchWord) rows = rows.filter((r) => r.title.toLowerCase().includes(searchWord.toLowerCase()))
+  if (searchWord)
+    rows = rows.filter((r) => r.title.toLowerCase().includes(searchWord.toLowerCase()))
   const total = rows.length
   const page = Number(search.get('page') ?? '1')
   const pageSize = Number(search.get('pageSize') ?? '20')
@@ -265,20 +264,31 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   it('选「付费」并应用:请求真的带 price=paid,渲染的行只剩付费的 3 行', async () => {
     const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5))
+    // 链 A(首屏取数)的终点 = 全量 5 行在屏。这份 DOM 状态在链 B 之后就不存在了,链 B 的终点
+    // 证不到它 ⇒ 它自己那一段等待不能省,只把预算显式化(8s;本文件墙上时间 60s,两段吃得下)。
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5), { timeout: 8_000 })
     const before = outboundUrls.length
 
     await pressChip(container, 'courseFilter.price_paid')
     await pressChip(container, 'courseFilter.apply')
 
-    await waitFor(() => expect(outboundUrls.length).toBeGreaterThan(before))
-    const q = lastLessonQuery()
-    expect(q!.get('price')).toBe('paid')
-    await waitFor(() =>
-      expect([...renderedTitles(container)].sort()).toEqual(
-        ['G469_PAID_ADVANCED', 'G469_PAID_BEGINNER', 'G469_PAID_UNMARKED'].sort(),
-      ),
+    // 链 B 的终点 = 渲染出的行只剩付费那 3 行。"请求真的发出去了"与"URL 带上 price=paid"
+    // 是这条链上的中间态(行集只能由那一次新请求带来)⇒ 降级为终点之后的同步断言,不再各占
+    // 一段等待预算(照 e4989cbb9e:每段 waitFor 的量的是机器负载,不是测试判据)。
+    await waitFor(
+      () =>
+        expect([...renderedTitles(container)].sort()).toEqual(
+          ['G469_PAID_ADVANCED', 'G469_PAID_BEGINNER', 'G469_PAID_UNMARKED'].sort(),
+        ),
+      { timeout: 8_000 },
     )
+    expect(
+      outboundUrls.length,
+      '点应用后一条新请求都没发 ⇒ 上面那个行集其实是首屏那一次取数的结果',
+    ).toBeGreaterThan(before)
+    const q = lastLessonQuery()
+    expect(q, '终点已到达却没有任何 lessons 请求可查').not.toBeNull()
+    expect(q!.get('price'), '最后一次请求不带 price=paid ⇒ 收窄不是这一档带来的').toBe('paid')
     // 被收窄掉的行必须真的从渲染结果里消失(不是"还在,只是数了个 3")
     expect(renderedTitles(container)).not.toContain('G469_FREE_BEGINNER')
     expect(renderedTitles(container)).not.toContain('G469_FREE_ADVANCED')
@@ -287,43 +297,50 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   it('反向对照一:改点「免费」是另一组行,与付费结果集不同(不是恒渲染 N 行)', async () => {
     const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5))
+    // 三段各是一条独立链的终点(首屏全量 / 应用付费 / 应用免费),不是同一条链的中间态:
+    // paidSet 要作为后面 `freeSet !== paidSet` 与并集=全量的**输入**,而 DOM 状态是瞬时的,
+    // 链 C 的终点证不到链 B 的终点(不等就会把首屏那 5 行当成 paidSet,反而造成假阳)。
+    // ⇒ 本枚不合一,只把三段预算显式化(3×8s,墙上 60s 足够)。
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5), { timeout: 8_000 })
 
     await pressChip(container, 'courseFilter.price_paid')
     await pressChip(container, 'courseFilter.apply')
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(3))
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(3), { timeout: 8_000 })
     const paidSet = [...renderedTitles(container)].sort()
 
     await pressChip(container, 'courseFilter.price_free')
     await pressChip(container, 'courseFilter.apply')
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(2))
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(2), { timeout: 8_000 })
     const freeSet = [...renderedTitles(container)].sort()
 
     expect(lastLessonQuery()!.get('price')).toBe('free')
     expect(freeSet).toEqual(['G469_FREE_ADVANCED', 'G469_FREE_BEGINNER'].sort())
     expect(freeSet).not.toEqual(paidSet)
     // 两档合起来正好是全量,说明收窄是真的分区,不是随机少几行
-    expect([...new Set([...paidSet, ...freeSet])].sort()).toEqual(
-      CORPUS.map((r) => r.title).sort(),
-    )
+    expect([...new Set([...paidSet, ...freeSet])].sort()).toEqual(CORPUS.map((r) => r.title).sort())
   })
 
   it('反向对照二:难度轴换 beginner → advanced,两次结果集逐 id 不同', async () => {
     const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5))
+    // 同「反向对照一」:三段是三条独立链的终点(全量 / beginner 收窄 / advanced 收窄),
+    // beginnerSet 既是本轮的判据又是末行 `advancedSet !== beginnerSet` 的输入,DOM 瞬时状态
+    // 不可由后面的终点回溯证明 ⇒ 不合一,预算显式化。
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5), { timeout: 8_000 })
 
     await pressChip(container, 'courseFilter.difficulty_beginner')
     await pressChip(container, 'courseFilter.apply')
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(2))
-    expect(lastLessonQuery()!.get('difficulty')).toBe('beginner')
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(2), { timeout: 8_000 })
+    expect(lastLessonQuery()!.get('difficulty'), 'beginner 这轮的请求没带上难度轴').toBe('beginner')
     const beginnerSet = [...renderedTitles(container)].sort()
     expect(beginnerSet).toEqual(['G469_FREE_BEGINNER', 'G469_PAID_BEGINNER'].sort())
 
     await pressChip(container, 'courseFilter.difficulty_advanced')
     await pressChip(container, 'courseFilter.apply')
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(2))
-    expect(lastLessonQuery()!.get('difficulty')).toBe('advanced')
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(2), { timeout: 8_000 })
+    expect(lastLessonQuery()!.get('difficulty'), '终点行集已换但请求没带 advanced 轴').toBe(
+      'advanced',
+    )
     const advancedSet = [...renderedTitles(container)].sort()
     expect(advancedSet).toEqual(['G469_FREE_ADVANCED', 'G469_PAID_ADVANCED'].sort())
     expect(advancedSet).not.toEqual(beginnerSet)
@@ -335,17 +352,22 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   it('两根轴能同时生效:URL 里 price 与 difficulty 都在,渲染只剩交集那 1 行', async () => {
     const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5))
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5), { timeout: 8_000 })
 
     await pressChip(container, 'courseFilter.price_paid')
     await pressChip(container, 'courseFilter.difficulty_advanced')
     await pressChip(container, 'courseFilter.apply')
 
-    await waitFor(() => expect(renderedTitles(container)).toEqual(['G469_PAID_ADVANCED']))
+    // 链 A(全量在屏,后即消失)与链 B(交集那一行)是两个终点,段数已是最省;
+    // "请求发出/带没带轴"不进等待、只在终点后同步查请求台账。
+    await waitFor(() => expect(renderedTitles(container)).toEqual(['G469_PAID_ADVANCED']), {
+      timeout: 8_000,
+    })
     const q = lastLessonQuery()
+    expect(q, '终点已到达却没有任何 lessons 请求可查').not.toBeNull()
     // 吞参数形态的探针:任一轴在 URL 里消失,上一行的交集断言就会因为"只按一根轴筛"而多出行
-    expect(q!.get('price')).toBe('paid')
-    expect(q!.get('difficulty')).toBe('advanced')
+    expect(q!.get('price'), '交集行集在屏但 URL 里没有 price').toBe('paid')
+    expect(q!.get('difficulty'), '交集行集在屏但 URL 里没有 difficulty').toBe('advanced')
   })
 
   it('草稿档不触发请求:只点轴不点应用时,不发新请求、行也不变', async () => {
@@ -365,24 +387,30 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
   it('reset 之后回到全量,且请求不再带任何轴(证明"收窄"是可逆的)', async () => {
     const { CourseFilterScreen } = await import('../src/screens/CourseFilterScreen')
     const { container } = render(React.createElement(CourseFilterScreen))
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5))
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5), { timeout: 8_000 })
 
     await pressChip(container, 'courseFilter.difficulty_advanced')
     await pressChip(container, 'courseFilter.apply')
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(2))
+    // 这一段不能降级:终点(reset 后)的行集与首屏逐字相同(都是 5 行),若收窄根本没发生,
+    // 只等终点会一路绿到底 ⇒ "收窄过 2 行"是本枚唯一能证明收窄发生过的观测点,它是独立链的
+    // 终点而非中间态。
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(2), { timeout: 8_000 })
 
     await pressChip(container, 'courseFilter.reset')
-    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5))
+    await waitFor(() => expect(renderedTitles(container)).toHaveLength(5), { timeout: 8_000 })
     const q = lastLessonQuery()
-    expect(q!.get('difficulty')).toBeNull()
-    expect(q!.get('price')).toBeNull()
+    expect(q, 'reset 后没有再发一次 lessons 请求,无从判"回到全量"').not.toBeNull()
+    expect(q!.get('difficulty'), 'reset 后的请求仍带难度轴').toBeNull()
+    expect(q!.get('price'), 'reset 后的请求仍带价格轴').toBeNull()
   })
 
   it('夹具自身有牙:未知键名被"服务端"静默忽略 ⇒ 端内拼错键会被本文件照出来', async () => {
     const api = await import('@ihui/api-client')
     const before = outboundUrls.length
     // 故意用一个服务端不认的键(diffucilty)问"进阶" —— 若假服务不剥未知键,这条会返回 2 行
-    const res = await api.fetchApi<{ list: FakeLessonRow[] }>('/api/learn/lessons?diffucilty=advanced')
+    const res = await api.fetchApi<{ list: FakeLessonRow[] }>(
+      '/api/learn/lessons?diffucilty=advanced',
+    )
     expect(outboundUrls.length).toBeGreaterThan(before)
     // `expect(res.success).toBe(true)` **不做类型收窄**(ApiResult 是可判别联合),
     // 直接读 res.data 是 TS2339;要收窄就得真的分支一次 —— 失败时把 error 原文抛出来,
@@ -390,7 +418,9 @@ describe('G-469 课程筛选屏:选轴 → 请求 → 收窄 → 渲染 的端�
     if (!res.success) throw new Error(`假服务端不该拒绝未知键请求:${res.error}`)
     expect(res.data.list.length).toBe(CORPUS.length)
     // 同一台假服务、拼对的键 ⇒ 真的收窄。两支对照缺一,上一支就只是"什么都没发生"
-    const okRes = await api.fetchApi<{ list: FakeLessonRow[] }>('/api/learn/lessons?difficulty=advanced')
+    const okRes = await api.fetchApi<{ list: FakeLessonRow[] }>(
+      '/api/learn/lessons?difficulty=advanced',
+    )
     if (!okRes.success) throw new Error(`假服务端不该拒绝合法请求:${okRes.error}`)
     expect(okRes.data.list.length).toBe(2)
   })
