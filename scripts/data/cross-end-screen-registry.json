@@ -370,6 +370,26 @@
       "shared": "packages/app/src/features/edu-shop/EduShopScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/EduShopScreen.tsx",
       "miniapp": "pkg-shop/edu-shop/index"
+    },
+    {
+      "shared": "packages/app/src/features/business-license/BusinessLicenseScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/BusinessLicenseScreen.tsx",
+      "miniapp": "pkg-about/about/business-license/index"
+    },
+    {
+      "shared": "packages/app/src/features/icp-record/IcpRecordScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/IcpRecordScreen.tsx",
+      "miniapp": "pkg-about/about/icp-record/index"
+    },
+    {
+      "shared": "packages/app/src/features/model-record/ModelRecordScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ModelRecordScreen.tsx",
+      "miniapp": "pkg-about/about/model-record/index"
+    },
+    {
+      "shared": "packages/app/src/features/usage-rules/UsageRulesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/UsageRulesScreen.tsx",
+      "miniapp": "pkg-about/about/usage-rules/index"
     }
   ]
 }
