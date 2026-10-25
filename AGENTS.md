@@ -416,3 +416,7 @@ pnpm turbo typecheck --filter=@ihui/web       # 单独验证前端(正解)
 <!-- 旧 §24「须用户确认」流程已由 2026-10-23 机主令作废,旧文逐字留档 .ihui-agent/archive/AGENTS_trim-2026-10-25.md;现行口径 = 下方「24. 新增功能决策口径」。 -->
 <!-- 「计划/台账」旧副本移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md;唯一面=文末同名行。 -->
 <!-- 「API/后端/DB」旧副本移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md;唯一面=文末同名行。 -->
+
+
+
+

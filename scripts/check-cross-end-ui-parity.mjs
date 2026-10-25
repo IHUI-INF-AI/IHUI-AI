@@ -44,6 +44,9 @@ import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './li
 // 裸档形状单独一行导:把上面那条 import 折成多行会让"行级复活"判据把成员行读成搬回祖先形态(2026-10-11 实测)
 import { bareRoundedOccurrences } from './lib/radius-tokens.mjs'
 import { facePx } from './lib/length-units.mjs'
+// 换算器包档(toRpx/toUnit 支)的形态识别与取源表**只此一份**,住在 lib/radius-tokens.mjs;
+// 圆角维已从那一份取数,几何维若另写一条正则,两处就会漂成"圆角认得、盒形不认"(§0.6)。
+import { geometryItemsInSrc, lengthConstsOf } from './lib/radius-tokens.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -332,6 +335,32 @@ export function readGeometry(src, side, tiers = {}) {
     push(TW_FONT_PX[m[1]] ?? null)
   for (const m of code.matchAll(/\bsize=\{(\d+(?:\.\d+)?)\}/g)) push(toPx(m[1], undefined, side))
   /**
+   * **换算器包档**(2026-10-24,toRpx / toUnit 支):`width: toRpx(44)` / `gap: toRpx(SP.md)`。
+   * 小程序镜像件的主流写法是 `const toRpx = (px) => `${px * 2}rpx``,而上面所有提取式只认
+   * 「键名紧跟数字字面量」与 `rpx(数字)` 两型 —— 换算器包住的那一族在几何维**整族隐身**,
+   * 账面表现不是"少一个数",而是**凭空造出跨端分叉**(实测 ScreenStates 虚报仅 RN 档 8/12/16/44/92)。
+   * 形态识别、折算与未判定报名**一律复用** `lib/radius-tokens.geometryItemsInSrc`(与 RD 维同一份,
+   * §0.6);本门只做一件事:按调用式**紧邻的键名**过 `keyed()` 语境筛 ——
+   * `borderRadius: toRpx(RD.sm)` 属圆角维,漏进几何集就是同一处双计。
+   * 解不到的逐枚进 `unreadable`(不记 0、不记同值、不静默)。
+   */
+  const unreadable = []
+  {
+    const consts = lengthConstsOf(src, tiers)
+    const keyBefore = (at) => {
+      const head = code.slice(code.lastIndexOf('\n', at - 1) + 1, at)
+      const m = /([A-Za-z][A-Za-z0-9_-]*)\s*[:=]\s*[^:;{}]*$/.exec(head)
+      return m ? m[1] : null
+    }
+    for (const it of geometryItemsInSrc(code, consts, tiers)) {
+      const key = keyBefore(it.at)
+      if (!key || !keyed(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
+      if (it.px === null) unreadable.push({ raw: it.raw, text: it.text, px: null, why: it.why })
+      else if (it.px <= MAX_GEO_PX) push(it.px)
+    }
+  }
+
+  /**
    * **具名档必须也进集合**,否则尺子奖励隐藏:把数字收编进 `packages/shared/src/ui/*-spec.ts`
    * 或 `design-tokens/geometry.js` 之后,组件里只剩标识符,前面所有"数字形态"的提取式全部落空
    * —— 于是"两端各取 spec 里不同的一档"读起来比"两端各抄一个裸数字"更加隐身。
@@ -389,7 +418,7 @@ export function readGeometry(src, side, tiers = {}) {
       if (named[name] === undefined) named[name] = px
     }
   }
-  return { values, named }
+  return { values, named, unreadable }
 }
 
 /**
@@ -419,6 +448,8 @@ const fileName = (f) => f.split('/').pop()
  * tiers 被六处判据当纯数字表消费,改形状等于让每一处都跟着改一遍(改漏一处就是静默失明)。
  */
 const SPEC_PROJECTIONS = new WeakMap()
+/** 档名 → **声明它的那份 spec 文件**(同一次解析记下)。只用来划一条归属边界,见 specLegAudit。 */
+const SPEC_OWNERS = new WeakMap()
 /**
  * 单一源表(共享 spec + design-tokens 几何表)→ 具名档表。
  * 键:`SPEC_…_PX` 原样;`GEOMETRY_PX` 的档挂 `geometry.` 前缀(与消费侧 `rnGeometry.tapBox` 同形)。
@@ -436,6 +467,7 @@ export function specTiers(sources) {
    * (相似度匹配会把两个不同档并成一个,那正是本仓记过的那一型)。
    */
   const projections = {}
+  const owners = {}
   // 两遍:几何表可能排在 spec 之后,先收表,再解析 `export const X = GEOMETRY_PX.y` 这类投影档。
   const geom = []
   for (const [rel, src] of Object.entries(sources)) {
@@ -460,6 +492,7 @@ export function specTiers(sources) {
       const px = m[2] !== undefined ? Number(m[2]) : tiers[`geometry.${m[3]}`]
       if (typeof px === 'number' && px > 0) {
         tiers[name] = px
+        owners[name] = rel
         if (m[3]) projections[name] = m[3]
       }
       // 投影源取不到(表里没这一档 / 改了名)⇒ **不计入档表**:把"解析不出"当成 0 或跳过,
@@ -467,12 +500,18 @@ export function specTiers(sources) {
     }
   }
   SPEC_PROJECTIONS.set(tiers, projections)
+  SPEC_OWNERS.set(tiers, owners)
   return tiers
 }
 
 /** 档名 → 投影的几何档名(由 specTiers 同一次解析记下;没有这层关系就返回空表)。 */
 export function specProjectionAliases(tiers) {
   return SPEC_PROJECTIONS.get(tiers) ?? {}
+}
+
+/** 档名 → 声明它的 spec 文件(由 specTiers 同一次解析记下)。 */
+export function specProjectionOwners(tiers) {
+  return SPEC_OWNERS.get(tiers) ?? {}
 }
 
 const normKey = (file) =>
@@ -979,6 +1018,19 @@ export function specLegAudit(pairs, text, tiers) {
     const step = aliases[name]
     return step ? ids.has(step) : false
   }
+  /**
+   * **同档异名的两条具名档**:两端各引一枚不同的常数名,而两枚都是**同一个几何档**的投影
+   * (2026-10-24,G-16 第(i)格剩下的一半)⇒ 它们是一档,不得按档名各算一条单侧。
+   *
+   * 归属边界是**声明它的那份 spec 文件**(owner 由 specTiers 同一次解析记下):
+   * 只认同一份 spec 里的两枚投影。跨 spec 文件不配对 —— 真仓实测 `controlBox` 同挂
+   * INPUT_AREA_IN_SHELL_BTN_PX 与 BOTTOM_ACTION_BAR_CONTROL_BOX_PX,把"同一几何档"当配对键
+   * 会把别处组件的档算到这个组件头上(单向用成双向时当场多报 3 条,已由 T41 单调性锁拦住)。
+   * 这是"同一组件的两端应当消费同一份 spec"这条结构事实,不是名字相似度。
+   */
+  const owners = specProjectionOwners(tiers)
+  const sameTier = (x, y) =>
+    Boolean(aliases[x]) && aliases[x] === aliases[y] && Boolean(owners[x]) && owners[x] === owners[y]
   const out = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
@@ -989,8 +1041,13 @@ export function specLegAudit(pairs, text, tiers) {
     const ib = idsOf(stripComments(b))
     const onlyMiniapp = specNames.filter((n) => ia.has(n) && !ib.has(n) && !viaStep(ib, n))
     const onlyRn = specNames.filter((n) => ib.has(n) && !ia.has(n) && !viaStep(ia, n))
-    if (!onlyMiniapp.length && !onlyRn.length) continue
-    out.push({ name: p.name, onlyMiniapp, onlyRn })
+    // 同档异名配对:只划掉"其实是同一个几何档"的那两条假账,不新增任何单侧。
+    const paired = new Set()
+    for (const x of onlyMiniapp) for (const y of onlyRn) if (sameTier(x, y)) paired.add(x).add(y)
+    const mOnly = paired.size ? onlyMiniapp.filter((n) => !paired.has(n)) : onlyMiniapp
+    const rOnly = paired.size ? onlyRn.filter((n) => !paired.has(n)) : onlyRn
+    if (!mOnly.length && !rOnly.length) continue
+    out.push({ name: p.name, onlyMiniapp: mOnly, onlyRn: rOnly })
   }
   return out
 }
@@ -2144,23 +2201,27 @@ export function collect(
       }
   }
   const addDef = (map, n, d) => {
-    const cur = map.get(n) ?? { count: 0, important: false, complex: 0 }
+    const cur = map.get(n) ?? { count: 0, important: false, complex: 0, bodies: [] }
     cur.count += d.count
     cur.important = cur.important || d.important
     cur.complex += d.complex
+    cur.bodies.push(...(d.bodies ?? []))
     map.set(n, cur)
   }
   const mergeDefs = (list) => {
-    const acc = { count: 0, important: false, complex: 0 }
+    const acc = { count: 0, important: false, complex: 0, bodies: [] }
     for (const d of list) {
       acc.count += d.count
       acc.important = acc.important || d.important
       acc.complex += d.complex
+      acc.bodies.push(...(d.bodies ?? []))
     }
     return acc
   }
   const classArmLegs = []
   const classArmTotals = { legs: 0, legsWithClasses: 0, resolved: 0, undefined: 0, undetermined: 0 }
+  /** 配对腿文件 → 解析成功的类臂声明体(只给几何维加读数,不改圆角维取面)。 */
+  const classArmCss = {}
   for (const l of classRefs) {
     classArmTotals.legs++
     if (!l.refs.size) continue
@@ -2183,6 +2244,20 @@ export function collect(
     const miss = rows.filter((r) => r.verdict === 'undefined').map((r) => r.class)
     const unk = rows.filter((r) => r.verdict === 'undetermined')
     const ok = rows.filter((r) => r.verdict === 'resolved')
+    /**
+     * **类臂盒档入几何**(G-16 第(ii)格):解析成功的类名,它的定义体就是该元素的盒档出处。
+     * 只收小程序/web 腿 —— RN 侧盒档走 StyleSheet,className 由构建期生成(见 classArmVerdicts)。
+     * `resolved` 的三条前置(唯一无覆盖定义 + 无条件使用 + 选择器恰为单类)已由判定层把过,
+     * 这里不再自行判断形状;否则"哪一态才算可比对象"就会在两处各裁一次。
+     */
+    if (l.side === 'miniapp') {
+      const bodies = []
+      for (const r of ok) {
+        const d = own.get(r.class) ?? glob.get(r.class)
+        if (d?.bodies?.length) bodies.push(...d.bodies)
+      }
+      if (bodies.length) classArmCss[l.file] = bodies.join('\n')
+    }
     classArmTotals.resolved += ok.length
     classArmTotals.undefined += miss.length
     classArmTotals.undetermined += unk.length
@@ -2277,6 +2352,8 @@ export function collect(
     blindClasses,
     // 类臂解析维(G-16(ii)):与 blindClasses 分开登记 —— 前者是"读不到",后者是"解不出/查无"。
     classArm,
+    // 解析成功的类臂声明体(几何维读入面):与 classArm 同一次取数,不另扫一遍样式表。
+    classArmCss,
     // CS 维的登记面(自检 ㉗ 钉 `styles,` 与 `blindClasses,` 必须相邻 —— 新增键放它们后面,
     // 不是为了让锁让步,而是这两键同属"取材面",顺序本身在表达这件事)。
     styleSources,
@@ -2904,10 +2981,12 @@ export function classDefScan(cssText, wanted) {
       for (const c of p.matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)/gi)) {
         const name = c[1]
         if (!wanted.has(name)) continue
-        const cur = out.get(name) ?? { count: 0, important: false, complex: 0 }
+        const cur = out.get(name) ?? { count: 0, important: false, complex: 0, bodies: [] }
         cur.count++
         if (important) cur.important = true
         if (p !== `.${name}`) cur.complex++
+        // 声明体留着给"类臂盒档入几何"用:解析成功(唯一无覆盖定义)时,这一段就是那个元素的盒档来源。
+        cur.bodies.push(m[2])
         out.set(name, cur)
       }
     }
@@ -3007,7 +3086,36 @@ function withLocalStyles(text, styles, f) {
   return text[f] + (styles[f] ?? '')
 }
 
-export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null, styles = {}) {
+/**
+ * **几何维的取材面** = 组件正文 + 本地样式表 + 类臂解析成功的声明体。
+ *
+ * 第三项是票面 G-16 第(ii)格:盒档写在 `app.css` 的类臂上时,前两项都读不到,门只能印
+ * "本门读不到" —— 那是**没读到**,不是"该侧无档"。但并进来的只能是判定层已经放行的
+ * `resolved`(唯一无覆盖定义 + 无条件使用);多处定义 / `!important` / 条件取用仍是
+ * "哪一态才是可比对象"未裁定的档,不得在这里选边。
+ *
+ * 与 `withLocalStyles` 分开而不是直接并进 `styles`:RD / RE 两维的取面是既有口径,
+ * 这一格票面明写"只给几何维加读数",并进 `styles` 会让圆角维跟着移动(同一处双计)。
+ */
+function withGeometryStyles(text, styles, armStyles, f) {
+  return withLocalStyles(text, styles, f) + (armStyles?.[f] ?? '')
+}
+
+/**
+ * 换算器包档里**解不到**的逐枚原文 + 原因(机器面):"没读到"必须能被下一票看见 ——
+ * 只算出来而不交给 finding,账面读起来与"没有未判定"完全同形。
+ */
+const geoUnreadLines = (g) => (g.unreadable ?? []).map((u) => `${u.raw} —— ${u.why}`)
+
+export function audit(
+  pairs,
+  text,
+  baseline = {},
+  tiers = {},
+  radiusTable = null,
+  styles = {},
+  armStyles = {},
+) {
   const findings = []
   /**
    * 配对射程逐组件登记:`radiusEntriesOf` 在一侧读得出元素名、另一侧读不出时,那一族**本维零判据**。
@@ -3028,7 +3136,7 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
      */
     const aAll = withLocalStyles(text, styles, p.miniapp)
     const bAll = withLocalStyles(text, styles, p.rn)
-    const ga = readGeometry(aAll, 'miniapp', tiers)
+    const ga = readGeometry(withGeometryStyles(text, styles, armStyles, p.miniapp), 'miniapp', tiers)
     const gb = readGeometry(bAll, 'rn', tiers)
     const named = namedConflicts(ga.named, gb.named)
     const geometry = diffValues(ga.values, gb.values)
@@ -3091,6 +3199,9 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
       radius,
       radiusSeen,
       elementRadius,
+      // 几何维的"读不到"逐枚点名(换算器实参解不到 / 倍率取不到):机器面必须有这一格,
+      // 否则下一票只看得见"差异为 0",看不见"还有几枚没判"。
+      geoUnreadable: geoUnreadLines(ga),
       lang: { miniapp: styleLanguage(a), rn: styleLanguage(b) },
       icons: { miniapp: iconCarriers(a), rn: iconCarriers(b) },
       invalidWaiver: waiverProblem(w) ?? undefined,
@@ -3123,7 +3234,14 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
  *  - 两侧都读不出任何档 ⇒ 记**未判定**而不是"同档"(没量到与量到零是两件事)。
  *  - 档位表解析不出来(`radiusTable` 为空)⇒ 整腿未判定,不得当成"web 腿零分叉"。
  */
-export function webRadiusAudit(webPairs, text, radiusTable, styles = {}, tiers = {}) {
+export function webRadiusAudit(
+  webPairs,
+  text,
+  radiusTable,
+  styles = {},
+  tiers = {},
+  armStyles = {},
+) {
   const findings = []
   const undetermined = []
   for (const p of webPairs ?? []) {
@@ -3143,8 +3261,9 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}, tiers =
      * G / named 与主腿**同一批 helper**(readGeometry / namedConflicts / diffValues),
      * 不在这里另写一份提取式 —— 两处算同一件事必漂移(§22c)。第 3 参 `'rn'` 是单位口径选择器:
      * web 与 RN 同为 px/dp 直通,只有 miniapp 那一侧要折 rpx→px。
+     * 类臂声明体同样只并进几何:RD / RE 的取面仍是 `aAll` / `bAll`。
      */
-    const ga = readGeometry(aAll, 'miniapp', tiers)
+    const ga = readGeometry(withGeometryStyles(text, styles, armStyles, p.miniapp), 'miniapp', tiers)
     const gb = readGeometry(bAll, 'rn', tiers)
     const mini = new Set(radiusSetOf(aAll, radiusTable, { side: 'miniapp' }))
     const web = new Set(radiusSetOf(bAll, radiusTable))
@@ -3170,6 +3289,7 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}, tiers =
       },
       elementRadius,
       webSeen: { miniapp: [...mini], web: [...web] },
+      geoUnreadable: geoUnreadLines(ga),
     })
   }
   return { findings, undetermined }
@@ -3535,6 +3655,7 @@ export function main(argv, repoRoot = ROOT) {
     collected.tiers,
     collected.radius,
     collected.styles ?? {},
+    collected.classArmCss ?? {},
   )
   /**
    * web 腿(与主腿**分开记账**):同一组件名在主腿与 web 腿各自有一份差异时,共用一个锚点会让
@@ -3547,6 +3668,7 @@ export function main(argv, repoRoot = ROOT) {
     collected.radius,
     collected.styles ?? {},
     collected.tiers,
+    collected.classArmCss ?? {},
   )
   const webVerdict = verdictOf(web.findings, baseline, WEB_LEDGER)
   /**
@@ -3701,6 +3823,8 @@ export function main(argv, repoRoot = ROOT) {
         // 类臂解析维(G-16(ii),只报数):机器面要能读到"查无定义 / 未判定"两份名单 ——
         // 只印人读面的话,下一票(转判红)又得抄终端输出当数据源。
         classArm: collected.classArm ?? null,
+        // 类臂声明体并入几何的面(机器面):只给计数的话,"并了 0 份"与"没接线"分不开。
+        classArmGeometryFiles: Object.keys(collected.classArmCss ?? {}),
         // web 腿也要能被机器读:只有人读面的话,下一票(把 web 的几何也纳进来)就得抄终端输出当数据源。
         web: {
           pairCount: web.findings.length,
@@ -3763,7 +3887,9 @@ export function main(argv, repoRoot = ROOT) {
       const total = blind.reduce((n, b) => n + b.classes.length, 0)
       console.log(
         `  ⓘ 读数不完整:${blind.length} 条配对腿用到 ${total} 个类名,其定义不在本组件样式表里` +
-          `(盒档落在 app.css / 某页 css)⇒ 这些元素的几何本门读不到。` +
+          `(盒档落在 app.css / 某页 css)⇒ 本门未从组件自身样式表读到。` +
+          `其中类臂判定为"唯一无覆盖定义 + 无条件使用"的声明体已并入几何(见下),` +
+          `其余(多处定义 / !important / 条件取用 / 工具类)仍未读到。` +
           `没读到不得当成该侧无档,也不得拿去当已核对过的凭据`,
       )
       for (const b of blind.slice(0, 6))
@@ -3787,7 +3913,8 @@ export function main(argv, repoRoot = ROOT) {
       const tt = ca.totals
       console.log(
         `  ⓘ 类臂解析(只报数,不进退出码):${tt.legsWithClasses}/${tt.legs} 条腿用到类名;` +
-          `唯一无覆盖定义 ${tt.resolved} / 查无定义 ${tt.undefined} / 未判定 ${tt.undetermined}`,
+          `唯一无覆盖定义 ${tt.resolved} / 查无定义 ${tt.undefined} / 未判定 ${tt.undetermined};` +
+          `其中 ${Object.keys(collected.classArmCss ?? {}).length} 份声明体已并入几何维`,
       )
       for (const l of ca.legs) {
         const parts = []

@@ -491,6 +491,18 @@ function selfTest() {
     d.length === 1 && /owned-elsewhere/.test(d[0]) && /actionable/.test(d[0]),
   )
   ok('S7 空侧车不可能有漂移', batchBucketDrift([owned], new Map()).length === 0)
+  // S8/S9(2026-10-25 owner 补全):reclassify 可写 owner ⇒ bucketFromFields 判 owned-elsewhere;
+  // 非字符串 owner 整批拒。
+  const s8base = { key: 'G-8 甲', waiting: 'env', updatedAt: '2026-10-24T00:00:00.000Z' }
+  const s8 = applyReclassify([s8base], [
+    { key: 'G-8 甲', owner: '机主凭据交付面', why: '等条件禁令清偿:真卡在机主供值面' },
+  ])
+  ok(
+    'S8 reclassify 写 owner ⇒ 桶变 owned-elsewhere',
+    s8.changes?.length === 1 && s8.changes[0].rec.owner === '机主凭据交付面',
+  )
+  const s9 = applyReclassify([s8base], [{ key: 'G-8 甲', owner: 42, why: '非字符串 owner 必须整批拒' }])
+  ok('S9 非字符串 owner ⇒ error(不落半批)', !!s9.error)
   let fails = 0
   for (const [name, pass] of checks) {
     if (!pass) fails++
@@ -516,9 +528,15 @@ export function applyReclassify(records, items, nowIso = new Date().toISOString(
     if (!rec) return { error: `第 ${k + 1} 项 key 不在侧车面(陈旧声明不记通过):${it.key}` }
     if (it.waiting !== undefined && !WAITING.has(it.waiting))
       return { error: `第 ${k + 1} 项 waiting 只能是 none/env/human,实际 ${JSON.stringify(it.waiting)}` }
+    if (it.owner !== undefined && typeof it.owner !== 'string')
+      return { error: `第 ${k + 1} 项 owner 必须是字符串,实际 ${JSON.stringify(it.owner)}` }
     const next = { ...rec }
     if (it.waiting !== undefined) next.waiting = it.waiting
     if (it.blocking !== undefined) next.blocking = String(it.blocking)
+    // owner(2026-10-25 补,机主令"等条件同型禁止"清偿批):归机主动作面/归他席的行需要把
+    // owner 写进侧车(bucketFromFields:owner 非空 ⇒ owned-elsewhere)。与 waiting/blocking
+    // 同一条纪律:逐条声明、带 why、陈旧不记通过。
+    if (it.owner !== undefined) next.owner = String(it.owner).trim()
     if (sigOf(next) === sigOf(rec)) continue
     next.updatedAt = nowIso
     next.updatedBy = 'plan-fields-reclassify'
