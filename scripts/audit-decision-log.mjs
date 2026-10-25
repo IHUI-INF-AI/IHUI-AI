@@ -41,6 +41,7 @@ import {
   normalizeAt,
   readDecisions,
 } from './lib/decision-log.mjs'
+import { gitBinary } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -65,10 +66,15 @@ export function clip(v, max = MAX_TEXT) {
 /**
  * 派生 git 必须显式接管 stdio(§12g:不写会稳定 EBUSY)+ `windowsHide`(§5c 派生进程纪律)。
  * 带 input 时 stdin 必须是 pipe。
+ *
+ * 2026-10-26 G-54:二进制改走 face-reader 的 `gitBinary()`(绝对路径,§5b 不依赖宿主 PATH)。
+ * 不直接换成 face-reader.gitRaw 的原因是语义不同:本函数要**非抛出**地回 {status,stdout,stderr},
+ * 而层内 gitRaw 取不到面即抛 Undetermined(本文件的四型审计要把 rc 当结论而非异常);另外
+ * commitFile 需要 env 覆写 GIT_AUTHOR_DATE/GIT_COMMITTER_DATE,层的 opts 无 env 形态。
  */
 export function gitRaw(args, { cwd, input } = {}) {
   const stdio = input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  const r = spawnSync('git', args, {
+  const r = spawnSync(gitBinary(), args, {
     cwd,
     input,
     encoding: 'utf8',
@@ -404,7 +410,7 @@ function commitFile(cwd, file, content, msg, iso) {
   mkdirSync(dirname(resolve(cwd, file)), { recursive: true })
   writeFileSync(resolve(cwd, file), content, 'utf8')
   gitOrThrow(['add', file], cwd)
-  const r = spawnSync('git', ['-c', 'user.email=t@example.com', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', msg], {
+  const r = spawnSync(gitBinary(), ['-c', 'user.email=t@example.com', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', msg], {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
