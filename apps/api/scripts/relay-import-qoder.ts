@@ -144,6 +144,14 @@ interface CliArgs {
   dryRun: boolean
 }
 
+/** 实得值进错误文案前必须**有界**(门 181):超 120 UTF-8 字节即截断并报原文大小,避免把整段 token 写进持久记录。 */
+function clipJsonText(json: string, maxBytes = 120): string {
+  const encoded = new TextEncoder().encode(json)
+  if (encoded.length <= maxBytes) return json
+  const head = new TextDecoder().decode(encoded.subarray(0, maxBytes))
+  return `${head.replace(/\uFFFD+$/, '')}…(截断,原文 ${encoded.length} 字节)`
+}
+
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { provider: 'qoder', dryRun: false }
   for (let i = 0; i < argv.length; i++) {
@@ -155,7 +163,7 @@ function parseArgs(argv: string[]): CliArgs {
     const takeValue = (tok: string | undefined): string => {
       if (!isFlagValueToken(tok)) {
         throw new Error(
-          `--${a.replace(/^--/, '')} 需要一个参数 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)`,
+          `--${a.replace(/^--/, '')} 需要一个参数 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : clipJsonText(JSON.stringify(tok))}(不得吞掉相邻旗标)`,
         )
       }
       i++

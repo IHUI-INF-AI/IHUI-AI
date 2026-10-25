@@ -14,7 +14,8 @@ import { defineConfig, devices } from '@playwright/test'
  * globalSetup 在所有 spec 前自动 seed test@aizhs.top 用户,globalTeardown 在所有 spec 后
  * 自动 cleanup(回到只有 admin 状态),保证 E2E 自包含、CI 无需手动干预。
  * - 跳过 seed:`E2E_SKIP_SEED=1`(本地复用已 seed 的数据库)
- * - 跳过 cleanup:`E2E_AUTO_CLEANUP=0`(调试时保留 test@aizhs.top)
+ * - 执行 cleanup:`E2E_AUTO_CLEANUP=1`(默认**跳过**——共享库测试用户被并发裸跑删除已两次
+ *   复发,2026-10-25 翻默认;CI 本就显式 '0';手动清理出口 node apps/api/scripts/cleanup-test-users.mjs)
  */
 export default defineConfig({
   // 覆盖默认 testDir + testMatch:同时发现 e2e/ 与 tests/visual/ 两个目录下的 spec。
