@@ -41,7 +41,14 @@ import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
-import { OAUTH_BRAND_COLORS, withAlpha, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import {
+  OAUTH_BRAND_COLORS,
+  withAlpha,
+  rnRadius,
+  rnRadiusFor,
+  rnSpacing,
+  rnType,
+} from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { isSessionLoggedOut } from '../lib/token'
 import { shouldAttemptAutoLogin } from '../lib/auto-login-policy'
@@ -1237,7 +1244,7 @@ const styles = StyleSheet.create({
     elevation: 999,
   },
   devFillText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: '600',
     color: tokens.brandAccent.foreground,
   },
@@ -1249,10 +1256,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: rnSpacing.sm,
   },
   carrierOneKeyText: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '500',
     textAlign: 'center',
   },
@@ -1269,7 +1276,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: rnRadius['2xl'],
     alignItems: 'flex-end',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: rnSpacing.lg,
   },
   carrierWebClose: {
     fontSize: 26,

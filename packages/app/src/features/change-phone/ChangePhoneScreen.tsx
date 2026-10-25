@@ -8,7 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ChangePhoneScreenProps } from '../../types'
 import { ChevronDown } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 
 /** 换绑手机共享屏 — props 注入式跨端组件(wrapper 负责 fetchApi + setInterval 倒计时)。
@@ -52,7 +52,7 @@ export function ChangePhoneScreen({
             accessibilityLabel="选择区号"
           >
             <Text style={styles.areaText}>{phoneHead}</Text>
-            <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: 8 }} />
+            <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: rnSpacing.sm }} />
           </Pressable>
           <TextField
             colorScheme={colorScheme}
@@ -129,34 +129,43 @@ export function ChangePhoneScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    content: { padding: 24 },
+    content: { padding: rnSpacing['2xl'] },
     title: {
       fontSize: 22,
       fontWeight: '700',
       color: tk.text.primary,
       textAlign: 'center',
-      marginBottom: 24,
+      marginBottom: rnSpacing['2xl'],
     },
-    inputWbox: { width: '100%', marginBottom: 16 },
+    inputWbox: { width: '100%', marginBottom: rnSpacing.lg },
     inputBox: {
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.xl,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
       backgroundColor: tk.surface.muted,
     },
-    areaBox: { flexDirection: 'row', alignItems: 'center', paddingRight: 12, marginRight: 12 },
-    areaText: { fontSize: 16, color: tk.text.medium },
-    areaArrow: { fontSize: 10, color: tk.text.tertiary, marginLeft: 8 },
-    input: { flex: 1, fontSize: 16, color: tk.text.primary, padding: 0 },
-    sendBtn: { paddingLeft: 12 },
-    sendText: { fontSize: 14, fontWeight: '700', color: tk.brand.DEFAULT },
-    countdownText: { fontSize: 14, color: tk.text.secondary, paddingLeft: 12 },
+    areaBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingRight: rnSpacing.md,
+      marginRight: rnSpacing.md,
+    },
+    areaText: { fontSize: rnType.title.size, color: tk.text.medium },
+    areaArrow: { fontSize: 10, color: tk.text.tertiary, marginLeft: rnSpacing.sm },
+    input: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary, padding: 0 },
+    sendBtn: { paddingLeft: rnSpacing.md },
+    sendText: { fontSize: rnType.body.size, fontWeight: '700', color: tk.brand.DEFAULT },
+    countdownText: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      paddingLeft: rnSpacing.md,
+    },
     nationBox: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.xl,
@@ -169,21 +178,21 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       paddingHorizontal: 14,
       paddingVertical: 10,
-      gap: 12,
+      gap: rnSpacing.md,
     },
-    nationTitle: { fontSize: 14, color: tk.text.primary },
-    nationCode: { fontSize: 14, color: tk.text.tertiary },
-    tipText: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 12 },
+    nationTitle: { fontSize: rnType.body.size, color: tk.text.primary },
+    nationCode: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    tipText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.md },
     submitBtn: {
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
     submitBtnDisabled: { opacity: 0.6 },
-    submitText: { fontSize: 16, fontWeight: '700', color: tk.brand.ctaForeground },
+    submitText: { fontSize: rnType.title.size, fontWeight: '700', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
@@ -349,11 +349,11 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14, paddingBottom: 32, gap: 12 },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    body: { padding: 14, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     introCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -362,13 +362,13 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     introPara: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
       lineHeight: 22,
       marginBottom: 10,
     },
     introParaLast: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
       lineHeight: 22,
     },
@@ -380,36 +380,36 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
       lineHeight: 22,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     subtitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginTop: 12,
-      marginBottom: 8,
+      marginTop: rnSpacing.md,
+      marginBottom: rnSpacing.sm,
     },
     paragraph: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
       lineHeight: 22,
       marginBottom: 10,
     },
     footer: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
     },
     footerLine: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.tertiary,
       lineHeight: 20,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
     footerLineLast: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.tertiary,
       lineHeight: 20,
     },

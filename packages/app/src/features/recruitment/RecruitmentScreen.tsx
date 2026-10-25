@@ -49,7 +49,7 @@ import {
 } from '@ihui/shared/constants/trader-plan-promo'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export type { TraderPlanImageSlot, TraderPlanSegment }
 
@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     heroWrap: { position: 'absolute', top: 10, left: 15, right: 15 },
     heroTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '700',
       textAlign: 'center',
       color: tk.gray[50],
@@ -209,23 +209,28 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brandAccent.light,
     },
-    segmentBlock: { marginTop: 12 },
+    segmentBlock: { marginTop: rnSpacing.md },
     founderRow: { flexDirection: 'row', alignItems: 'center' },
     avatar: { width: 50, height: 50, borderRadius: rnRadius['2xl'] },
-    founderText: { flex: 1, marginLeft: 12 },
-    founder: { fontSize: 16, fontWeight: '700', color: tk.text.primary },
+    founderText: { flex: 1, marginLeft: rnSpacing.md },
+    founder: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
     recommend: { marginTop: 2, fontSize: 13, color: tk.text.secondary },
     intro: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       lineHeight: 20,
       fontWeight: '600',
       textAlign: 'center',
       color: tk.danger.DEFAULT,
     },
-    qrBlock: { marginTop: 12, alignItems: 'center' },
+    qrBlock: { marginTop: rnSpacing.md, alignItems: 'center' },
     qrWrap: { alignItems: 'center' },
     qrcode: { width: 176, height: 176 },
-    auxText: { marginTop: 6, fontSize: 11, textAlign: 'center', color: tk.text.secondary },
+    auxText: {
+      marginTop: 6,
+      fontSize: rnType.caption.size,
+      textAlign: 'center',
+      color: tk.text.secondary,
+    },
     buyBtn: {
       marginTop: 14,
       height: 44,
@@ -234,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    buyText: { fontSize: 16, fontWeight: '700', color: tk.brand.ctaForeground },
+    buyText: { fontSize: rnType.title.size, fontWeight: '700', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

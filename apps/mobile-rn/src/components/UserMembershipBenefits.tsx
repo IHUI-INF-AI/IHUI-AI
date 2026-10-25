@@ -17,7 +17,7 @@ import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } fro
 import type { ReactNode } from 'react'
 import { tokens } from '../theme/active-tokens'
 import { Check, CircleCheck, Crown, Sparkles, X, type LucideIcon } from 'lucide-react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 export interface BenefitItem {
@@ -247,8 +247,8 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius['2xl'],
-    padding: 16,
-    gap: 12,
+    padding: rnSpacing.lg,
+    gap: rnSpacing.md,
   } as ViewStyle,
   header: {
     flexDirection: 'row',
@@ -261,11 +261,11 @@ const styles = StyleSheet.create({
     gap: 6,
   } as ViewStyle,
   levelText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
   } as TextStyle,
   expireText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   } as TextStyle,
   benefitList: {
@@ -274,10 +274,10 @@ const styles = StyleSheet.create({
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: rnSpacing.md,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xl,
-    paddingHorizontal: 12,
+    paddingHorizontal: rnSpacing.md,
     paddingVertical: 10,
   } as ViewStyle,
   benefitIconWrap: {
@@ -293,33 +293,33 @@ const styles = StyleSheet.create({
     gap: 2,
   } as ViewStyle,
   benefitTitle: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '500',
     color: tokens.text.primary,
   } as TextStyle,
   benefitDesc: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   } as TextStyle,
   // ── 权益对比表 ──
   compareSection: {
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xl,
-    padding: 12,
+    padding: rnSpacing.md,
     gap: 10,
     borderWidth: 1,
     borderColor: tokens.border.light,
   } as ViewStyle,
   promoTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   } as TextStyle,
   priceBlock: {
-    gap: 4,
+    gap: rnSpacing.xs,
   } as ViewStyle,
   priceRow: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
   } as TextStyle,
   priceStrike: {
@@ -363,17 +363,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   } as TextStyle,
   cellCheck: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '700',
     color: tokens.success.DEFAULT,
   } as TextStyle,
   cellCross: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '700',
     color: tokens.danger.DEFAULT,
   } as TextStyle,
   cellText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     textAlign: 'center',
     color: tokens.text.primary,
   } as TextStyle,
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   openBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brandAccent.foreground,
   } as TextStyle,

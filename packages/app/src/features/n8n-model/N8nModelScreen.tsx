@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, StyleSheet, RefreshControl } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { N8nModelItem, N8nModelScreenProps, N8nModelTab } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
@@ -191,32 +191,32 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 10,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
     },
-    headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     createBtn: {
       paddingHorizontal: 14,
       paddingVertical: 6,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    createText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    createText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     searchRow: { paddingHorizontal: 10 },
     searchInput: {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
-      fontSize: 14,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
     tabRow: {
       flexDirection: 'row',
       marginHorizontal: 10,
-      marginTop: 12,
-      padding: 4,
+      marginTop: rnSpacing.md,
+      padding: rnSpacing.xs,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
@@ -228,24 +228,34 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     tabItemActive: { backgroundColor: tk.surface.bg },
-    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.text.primary, fontWeight: '600' },
     errorBar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginHorizontal: 10,
-      marginTop: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.danger.light,
     },
-    errorText: { flex: 1, fontSize: 14, color: tk.danger.DEFAULT },
-    retryText: { fontSize: 14, fontWeight: '600', color: tk.brand.DEFAULT, marginLeft: 8 },
+    errorText: { flex: 1, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    retryText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.brand.DEFAULT,
+      marginLeft: rnSpacing.sm,
+    },
     listBody: { padding: 10 },
     separator: { height: 12 },
-    card: { padding: 12, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tk.border.light },
+    card: {
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
     cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     cardTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     dot: {
@@ -253,25 +263,25 @@ function createStyles(tk: AppThemeTokens) {
       height: 8,
 
       borderRadius: rnRadius.sm,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     },
     dotRun: { backgroundColor: tk.success.DEFAULT },
     dotStop: { backgroundColor: tk.text.tertiary },
-    cardName: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    cardName: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     badge: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       fontWeight: '600',
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
     badgeRun: { color: tk.success.DEFAULT, backgroundColor: tk.success.light },
     badgeStop: { color: tk.text.secondary, backgroundColor: tk.surface.card },
-    cardDesc: { marginTop: 8, fontSize: 14, color: tk.text.medium },
-    cardUrl: { marginTop: 8, fontSize: 11, color: tk.brand.DEFAULT },
-    cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
-    metaText: { fontSize: 11, color: tk.text.tertiary },
-    cardActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
+    cardUrl: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
+    cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md, marginTop: 10 },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardActions: { flexDirection: 'row', gap: 10, marginTop: rnSpacing.md },
     actionBtn: {
       paddingHorizontal: 10,
       height: 34,
@@ -281,7 +291,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     actionStart: { backgroundColor: tk.success.DEFAULT },
     actionStop: { backgroundColor: tk.brandAccent.DEFAULT },
-    actionText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    actionText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
     // 浅灰蓝底上白字不可读,停止按钮文字改用 brandAccent.foreground(2026-09-14 灰蓝定稿)
     actionStopText: { color: tk.brandAccent.foreground },
     actionEdit: {
@@ -293,7 +303,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    actionEditText: { fontSize: 14, color: tk.text.medium },
+    actionEditText: { fontSize: rnType.body.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

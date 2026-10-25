@@ -42,7 +42,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { X } from 'lucide-react-native'
 import { useI18n } from '../i18n'
 
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 export interface BottomPopsProps {
   visible: boolean
@@ -66,6 +66,7 @@ const CONTENT_PADDING_H = 20
 const CONTENT_PADDING_B = 16
 
 export function BottomPops({ visible, onClose, children, title, height }: BottomPopsProps) {
+  const { t } = useI18n()
   const insets = useSafeAreaInsets()
   const [rendered, setRendered] = useState(visible)
   const translateY = useRef(new Animated.Value(SHEET_HIDDEN_OFFSET)).current
@@ -178,7 +179,7 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={handleClose}
-            accessibilityLabel="关闭弹出层"
+            accessibilityLabel={t('common.closeOverlay')}
           />
         </Animated.View>
 
@@ -203,7 +204,7 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
                 onPress={handleClose}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel="关闭"
+                accessibilityLabel={t('common.close')}
               >
                 {({ pressed }) => (
                   <View style={pressed ? styles.closeButtonPressed : null}>
@@ -393,12 +394,12 @@ const styles = StyleSheet.create({
     fontSize: rnGeometry.textBody,
     lineHeight: rnGeometry.textBody + 6,
     color: tokens.text.secondary,
-    paddingTop: 4,
-    paddingBottom: 20,
+    paddingTop: rnSpacing.xs,
+    paddingBottom: rnSpacing.xl,
   } as TextStyle,
   confirmActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: rnSpacing.md,
   } as ViewStyle,
   confirmBtn: {
     flex: 1,

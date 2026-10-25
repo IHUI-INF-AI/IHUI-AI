@@ -32,7 +32,7 @@ import { tokens } from '../theme/active-tokens'
 import { rpx } from '../utils/rpx'
 import { Check } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 /** 单个 Agent 条目(对齐 Uniapp AgentListItem 核心字段) */
@@ -210,7 +210,7 @@ export default function AgentList({
               />
             )
           })}
-          {isLoading ? <Text style={styles.loadingText}>{'加载中...'}</Text> : null}
+          {isLoading ? <Text style={styles.loadingText}>{t('common.loading')}</Text> : null}
           {!hasMore && items.length > 0 ? (
             <Text style={styles.noMoreText}>{t('order.noMore')}</Text>
           ) : null}
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     minWidth: 0,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     marginLeft: 10,
     color: tokens.text.primary,
   },
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
   // nameCol 内的 name(不带 flex,避免纵向主轴上 flexGrow 干扰两行布局)
   textName: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
   },
   // 人格副标题:小字号 rpx(11)+ tertiary 色,单行截断,行距紧凑(仅 +1 marginTop)
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     color: tokens.surface.light,
     backgroundColor: tokens.danger.DEFAULT,
     borderRadius: rnRadius.md,
-    paddingHorizontal: 4,
+    paddingHorizontal: rnSpacing.xs,
     paddingVertical: 1,
     marginLeft: 6,
     overflow: 'hidden',
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   },
   selectedIconText: {
     color: tokens.brand.ctaForeground,
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: '700',
     lineHeight: 13,
   },
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    paddingVertical: 24,
+    paddingVertical: rnSpacing['2xl'],
     fontSize: 13,
     color: tokens.text.tertiary,
   },

@@ -14,7 +14,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteCreateScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -110,33 +110,33 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingBottom: rnSpacing['3xl'],
     },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.bg,
-      padding: 16,
+      padding: rnSpacing.lg,
     },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
+    muted: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
-    label: { marginTop: 12, fontSize: 14, color: tk.text.secondary },
+    label: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.text.secondary },
     input: {
-      marginTop: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
@@ -145,13 +145,13 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       padding: 14,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    visibilityLabel: { fontSize: 16, color: tk.text.primary },
+    visibilityLabel: { fontSize: rnType.title.size, color: tk.text.primary },
     switchTrack: {
       width: 44,
       height: 24,
@@ -165,14 +165,14 @@ function createStyles(tk: AppThemeTokens) {
     switchThumbOn: { alignSelf: 'flex-end' },
     switchThumbOff: { alignSelf: 'flex-start' },
     submitBtn: {
-      marginTop: 20,
-      paddingVertical: 12,
+      marginTop: rnSpacing.xl,
+      paddingVertical: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
     submitDisabled: { backgroundColor: tk.text.tertiary },
-    submitText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

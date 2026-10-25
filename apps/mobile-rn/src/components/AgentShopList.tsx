@@ -26,7 +26,8 @@ import {
   type ListRenderItem,
 } from 'react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 /** 单个 Agent 条目(与 AgentList 弹出选择列表共用契约) */
 export interface AgentShopItem {
@@ -95,6 +96,7 @@ function ShopRow({
   onItemLike?: (id: string) => void
   onItemCollect?: (id: string) => void
 }): React.JSX.Element {
+  const { t } = useI18n()
   const hasMeta =
     item.usageCount !== undefined || item.collectCount !== undefined || item.likeCount !== undefined
 
@@ -124,11 +126,13 @@ function ShopRow({
         ) : null}
         {hasMeta ? (
           <Text style={styles.meta} numberOfLines={1}>
-            {item.usageCount !== undefined ? `使用 ${item.usageCount}` : ''}
+            {item.usageCount !== undefined ? t('agentShop.use', { n: item.usageCount }) : ''}
             {item.usageCount !== undefined && item.collectCount !== undefined ? ' · ' : ''}
-            {item.collectCount !== undefined ? `收藏 ${item.collectCount}` : ''}
+            {item.collectCount !== undefined
+              ? t('agentShop.collect', { n: item.collectCount })
+              : ''}
             {item.collectCount !== undefined && item.likeCount !== undefined ? ' · ' : ''}
-            {item.likeCount !== undefined ? `点赞 ${item.likeCount}` : ''}
+            {item.likeCount !== undefined ? t('agentShop.like', { n: item.likeCount }) : ''}
           </Text>
         ) : null}
         {onItemLike || onItemCollect ? (
@@ -139,7 +143,7 @@ function ShopRow({
                 activeOpacity={0.6}
                 onPress={() => onItemLike(item.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name} 点赞`}
+                accessibilityLabel={t('agentShop.likeA11y', { name: item.name })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <ThumbsUp
@@ -160,7 +164,7 @@ function ShopRow({
                 activeOpacity={0.6}
                 onPress={() => onItemCollect(item.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name} 收藏`}
+                accessibilityLabel={t('agentShop.collectA11y', { name: item.name })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Star
@@ -187,11 +191,13 @@ export default function AgentShopList({
   onItemClick,
   onItemLike,
   onItemCollect,
-  emptyText = '该分类下暂无智能体',
+  emptyText: emptyTextProp,
   refreshing = false,
   onRefresh,
   scrollEnabled = true,
 }: AgentShopListProps): React.JSX.Element {
+  const { t } = useI18n()
+  const emptyText = emptyTextProp ?? t('agentShop.catEmpty')
   const renderItem: ListRenderItem<AgentShopItem> = ({ item }) => (
     <ShopRow
       item={item}
@@ -232,8 +238,8 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   listBody: {
-    padding: 12,
-    gap: 12,
+    padding: rnSpacing.md,
+    gap: rnSpacing.md,
   },
   card: {
     flexDirection: 'row',
@@ -241,7 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    padding: 12,
+    padding: rnSpacing.md,
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -262,26 +268,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarFallbackText: {
-    fontSize: 20,
+    fontSize: rnType.heading.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   cardBody: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: rnSpacing.md,
   },
   name: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   newBadge: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.danger.DEFAULT,
   },
   description: {
-    marginTop: 4,
-    fontSize: 12,
+    marginTop: rnSpacing.xs,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     lineHeight: 18,
   },
@@ -292,7 +298,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   tag: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.secondary,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
@@ -302,23 +308,23 @@ const styles = StyleSheet.create({
   },
   meta: {
     marginTop: 6,
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
   reactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
+    gap: rnSpacing.sm,
+    marginTop: rnSpacing.sm,
   },
   reactionBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   reactionText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   reactionTextActive: {
@@ -326,11 +332,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   empty: {
-    paddingVertical: 48,
+    paddingVertical: rnSpacing['5xl'],
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
 })

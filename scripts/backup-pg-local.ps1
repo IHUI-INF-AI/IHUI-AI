@@ -20,7 +20,11 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $BackupDir = 'D:\DevEnv\backups\pg'
-$PgDump = 'D:\DevEnv\runtimes\pgsql\bin\pg_dump.exe'
+# 2026-10-25 修:pg tooling 已迁至 D:\ihui-pg\16(服务 PostgreSQL16IHUI 镜像路径为证),
+# 旧写死 D:\DevEnv\runtimes\pgsql 失踪后 pwsh 只把 CommandNotFound 吐到控制台,
+# 而计划任务经 wscript 启动看不到 stderr ⇒ 本地备份静默烂了一个月(P5/P7 靠读文件才量到)。
+# 失踪守卫必须写 backup.log —— 停摆要留下能被人量到的痕迹,不得只剩任务面 Last Result 0 的谎。
+$PgDump = 'D:\ihui-pg\16\bin\pg_dump.exe'
 $Retain = 7
 
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
@@ -28,8 +32,8 @@ $LogFile = Join-Path $BackupDir 'backup.log'
 function Write-Log([string]$Msg) {
   $line = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Msg"
   $line | Out-File -FilePath $LogFile -Append -Encoding utf8
-  Write-Output $line
 }
+if (-not (Test-Path $PgDump)) { Write-Log "ERROR: pg_dump 不在位: $PgDump —— 迁机/挪卷后请更新本文件路径"; exit 1 }
 
 $envLine = Get-Content -LiteralPath (Join-Path $RepoRoot 'apps\api\.env') |
   Where-Object { $_ -match '^DATABASE_URL=' } | Select-Object -First 1

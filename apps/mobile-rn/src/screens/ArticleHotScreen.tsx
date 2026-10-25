@@ -18,7 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, Flame, Newspaper } from 'lucide-react-native'
 import { fetchApi, resolveFileUrl } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -186,19 +186,25 @@ export default function ArticleHotScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: 12, paddingBottom: 32, gap: 8 },
-  subtitle: { fontSize: 12, color: tokens.text.tertiary, marginBottom: 2 },
-  stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 24 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.sm },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary, marginBottom: 2 },
+  stateBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    padding: rnSpacing['2xl'],
+  },
   muted: { fontSize: 13, color: tokens.text.secondary, textAlign: 'center' },
   errorBox: {
-    padding: 12,
-    gap: 8,
+    padding: rnSpacing.md,
+    gap: rnSpacing.sm,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
     backgroundColor: tokens.surface.card,
   },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
@@ -207,12 +213,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.medium,
   },
-  retryText: { fontSize: 12, fontWeight: '600', color: tokens.text.primary },
+  retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    padding: 12,
+    padding: rnSpacing.md,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -227,13 +233,13 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   rankTop: { backgroundColor: tokens.surface.chrome },
-  rankText: { fontSize: 14, fontWeight: '700', color: tokens.text.tertiary },
+  rankText: { fontSize: rnType.body.size, fontWeight: '700', color: tokens.text.tertiary },
   rankTextTop: { color: tokens.brandAccent.deep },
   rowMain: { flex: 1, gap: 3 },
-  title: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-  summary: { fontSize: 12, color: tokens.text.secondary },
+  title: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
+  summary: { fontSize: rnType.label.size, color: tokens.text.secondary },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
-  meta: { fontSize: 11, color: tokens.text.tertiary },
+  meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   viewMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   cover: {
     width: 72,
@@ -245,8 +251,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingTop: 8,
+    gap: rnSpacing.xs,
+    paddingTop: rnSpacing.sm,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

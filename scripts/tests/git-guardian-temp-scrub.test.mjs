@@ -31,6 +31,9 @@ const DAY = 24 * HOUR
 const HERE = dirname(fileURLToPath(import.meta.url))
 
 const SRC = readFileSync(join(HERE, '..', 'git-guardian.mjs'), 'utf8')
+// 2026-10-25:TEMP 清扫两族原样搬进 lib/git-guardian-temp-sweepers.mjs(守门 103 C1 行数上限),
+// 归属锁读实现所在的那一份(§22c:不复制判据,只认实现住处的源码形状);挂点锁仍读主文件。
+const SWEEPERS = readFileSync(join(HERE, '..', 'lib', 'git-guardian-temp-sweepers.mjs'), 'utf8')
 
 function harness(call, intervalMs = DAY, minAgeDays = 7) {
   const logs = []
@@ -169,10 +172,9 @@ test('T7 尺子不在位 ⇒ ran:false 并报名,绝不记为"这一格已巡检
 })
 
 test('T8 归属锁(反向):本层不得自己判"什么算我们的残留" —— 名字白名单与账龄只许住在清扫器那一份实现里', () => {
-  const body = SRC.slice(
-    SRC.indexOf('export function scrubTempFixtures'),
-    SRC.indexOf('// §22d isDirectRun'),
-  )
+  const from = SWEEPERS.indexOf('export function scrubTempFixtures')
+  const next = SWEEPERS.indexOf('\nexport ', from + 10)
+  const body = SWEEPERS.slice(from, next > 0 ? next : SWEEPERS.length)
   assert.ok(body.length > 400, '切不到函数体(锚点漂了 ⇒ 本条恒真)')
   for (const forbidden of ['mtimeMs', 'readdirSync', 'startsWith(\'ihui', '/^ihui-']) {
     assert.equal(

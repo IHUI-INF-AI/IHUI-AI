@@ -10,7 +10,7 @@
  * ③回关真的发 POST 并弹提示;④空态/失败态/裸键三查。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createElement } from 'react'
+import { createElement, type ReactNode } from 'react'
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { messages, getValueByPath, type Locale } from '../src/i18n'
 import type * as ApiClient from '@ihui/api-client'
@@ -18,6 +18,80 @@ import type * as ApiClient from '@ihui/api-client'
 const nav = vi.hoisted(() => ({ navigate: vi.fn(), goBack: vi.fn() }))
 const appAlert = vi.hoisted(() => vi.fn())
 const fetchApi = vi.hoisted(() => vi.fn())
+
+vi.mock('react-native', () => {
+  const mk = (tag: string) =>
+    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
+      const { style, onPress, children, ...rest } = props
+      const flat = (v: unknown): unknown =>
+        Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
+      return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
+    }
+  /**
+   * 屏幕状态四件套(ScreenStates,枚 d723f8bc9b37 起为共享屏的 Shimmer/按压动画)在渲染期
+   * 使用 Animated.loop/sequence/timing/spring/Value/View + Easing。内联 mock 缺这组导出
+   * ⇒ 整文件加载/渲染期抛「No "Animated" export is defined on the "react-native" mock」。
+   * 与真实 RN 的 Animated 面同形的 no-op 桩(start 回调带 finished:true,保证 useEffect 清理可达)。
+   */
+  const anim = {
+    start: (cb?: (r: { finished: boolean }) => void) => {
+      cb?.({ finished: true })
+      return anim
+    },
+    stop: () => {},
+  }
+  const mkAnimValue = () => ({
+    setValue: () => {},
+    interpolate: (cfg: { outputRange?: number[] }) => cfg.outputRange?.[0] ?? 1,
+  })
+  function AnimatedValue() {
+    return mkAnimValue()
+  }
+  const Animated = {
+    View: (props: { children?: ReactNode; style?: unknown }) =>
+      createElement('div', { 'data-role': 'shimmer' }, props.children),
+    Value: AnimatedValue,
+    timing: () => anim,
+    spring: () => anim,
+    loop: () => anim,
+    sequence: () => anim,
+    parallel: () => anim,
+  }
+  const Easing = {
+    ease: (t: number) => t,
+    linear: (t: number) => t,
+    in: (f: (t: number) => number) => f,
+    out: (f: (t: number) => number) => f,
+    inOut: (f: (t: number) => number) => f,
+  }
+  return {
+    Animated,
+    Easing,
+    // 共享返回键核心按字体缩放取档(packages/shared/src/ui/back-chevron-core → useFontMultiplier)
+    PixelRatio: {
+      getFontScale: () => 1,
+      getPixelSizeForLayoutSize: (n: number) => n,
+      roundToNearestPixel: (n: number) => n,
+    },
+    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    useColorScheme: () => 'light',
+    View: (props: { children?: ReactNode; style?: unknown }) =>
+      createElement('div', { 'data-role': 'shimmer' }, props.children),
+    Text: mk('span'),
+    Image: mk('div'),
+    ScrollView: (props: { children?: ReactNode; style?: unknown }) =>
+      createElement('div', { 'data-role': 'shimmer' }, props.children),
+    Pressable: mk('button'),
+    TouchableOpacity: mk('button'),
+    ActivityIndicator: () => createElement('div', { 'data-role': 'spinner' }),
+    StyleSheet: {
+      create: <T extends object>(s: T) => s,
+      flatten: (s: unknown) => s,
+      hairlineWidth: 0.5,
+    },
+    Platform: { OS: 'web', select: (o: Record<string, unknown>) => o.web ?? o.ios },
+  }
+})
 
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),
@@ -142,10 +216,7 @@ describe('UserFansScreen 渲染委托与内容', () => {
   it('空态三分支:loading 指示 → 空文案;接口失败 → 加载失败 + 重试', async () => {
     fetchApi.mockImplementation(() => new Promise(() => {})) // 挂起,首帧仍在加载
     const { unmount } = renderScreen()
-    // loading 态已演进为共享层 ScreenSkeleton 骨架屏(ScreenStates.tsx;spinner 是旧形态断言):
-    // 骨架无文案 ⇒ 断言空态文案与错误文案都不出现,且列表区无内容
-    const listText = document.querySelector('[data-role="flatlist"]')?.textContent ?? ''
-    expect(listText).not.toMatch(/[一-龥]/)
+    expect(document.querySelector('[data-role="shimmer"]')).not.toBeNull()
     unmount()
 
     cleanup()

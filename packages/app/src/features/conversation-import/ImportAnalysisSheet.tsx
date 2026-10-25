@@ -16,7 +16,7 @@ import { TextField } from '../../components/TextField'
 import { AlertTriangle, Sparkles } from 'lucide-react-native'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { buildAnalysisPrompt, type ImportSource } from '@ihui/shared/import-analysis'
 import type {
   ImportAnalysisCategory,
@@ -365,8 +365,8 @@ function createStyles(tk: AppThemeTokens) {
     backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
     sheet: {
       maxHeight: '88%',
-      padding: 16,
-      gap: 8,
+      padding: rnSpacing.lg,
+      gap: rnSpacing.sm,
       // 档位表单源:panel 角色档 = xl(12px),不得写死数字(守门 77 B1 / §4 圆角单一源头)
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
@@ -376,25 +376,30 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    title: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     close: { fontSize: 13, color: tk.text.secondary },
-    desc: { fontSize: 12, lineHeight: 18, color: tk.text.secondary },
-    stateRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12 },
+    desc: { fontSize: rnType.label.size, lineHeight: 18, color: tk.text.secondary },
+    stateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.md,
+    },
     scroll: { maxHeight: 460 },
-    scrollBody: { gap: 8, paddingBottom: 8 },
+    scrollBody: { gap: rnSpacing.sm, paddingBottom: rnSpacing.sm },
     sectionTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
-    hint: { fontSize: 11, lineHeight: 16, color: tk.text.tertiary },
+    hint: { fontSize: rnType.caption.size, lineHeight: 16, color: tk.text.tertiary },
     errorBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: 6,
-      padding: 8,
+      padding: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.danger.DEFAULT + '22',
     },
-    errorText: { flex: 1, fontSize: 11, lineHeight: 16, color: tk.danger.DEFAULT },
+    errorText: { flex: 1, fontSize: rnType.caption.size, lineHeight: 16, color: tk.danger.DEFAULT },
     scenarioRow: {
       padding: 10,
       gap: 2,
@@ -405,16 +410,16 @@ function createStyles(tk: AppThemeTokens) {
     },
     scenarioRowActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     scenarioTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
-    scenarioSubtitle: { fontSize: 11, lineHeight: 15, color: tk.text.tertiary },
+    scenarioSubtitle: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.tertiary },
     browseToggle: { paddingVertical: 6 },
     browseBox: {
       gap: 6,
-      padding: 8,
+      padding: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingVertical: 4 },
+    categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingVertical: rnSpacing.xs },
     chip: {
       paddingHorizontal: 10,
       paddingVertical: 5,
@@ -435,14 +440,14 @@ function createStyles(tk: AppThemeTokens) {
     // 配对前景必须落进**与底同名前缀**的样式键(而不是行内 style),门 83 R3 才认得到兄弟配对:
     // chipActive × chipActiveText 成对 ⇒ 免债;叫 chipTextActive 时底那侧配不上,行内色它更看不见。
     chipActiveText: { color: tk.brand.ctaForeground },
-    chipText: { fontSize: 11 },
-    linkText: { fontSize: 12, color: tk.brand.dark },
+    chipText: { fontSize: rnType.caption.size },
+    linkText: { fontSize: rnType.label.size, color: tk.brand.dark },
     field: { gap: 2, marginBottom: 6 },
-    fieldLabel: { fontSize: 11, color: tk.text.secondary },
+    fieldLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
     input: {
       height: 34,
-      paddingHorizontal: 8,
-      fontSize: 12,
+      paddingHorizontal: rnSpacing.sm,
+      fontSize: rnType.label.size,
       color: tk.text.primary,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
@@ -453,10 +458,10 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
-      paddingTop: 8,
+      gap: rnSpacing.sm,
+      paddingTop: rnSpacing.sm,
     },
-    footerHint: { flex: 1, fontSize: 11, color: tk.text.tertiary },
+    footerHint: { flex: 1, fontSize: rnType.caption.size, color: tk.text.tertiary },
     submit: {
       flexDirection: 'row',
       alignItems: 'center',

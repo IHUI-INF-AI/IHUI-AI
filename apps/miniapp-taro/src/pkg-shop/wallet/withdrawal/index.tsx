@@ -92,29 +92,29 @@ export default function WithdrawalPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-[20rpx]">
+      <View className="min-h-screen bg-background p-4">
         {/* 可提现金额卡片 — 对齐 RN WithdrawScreen balanceCard(padding 14/radius 12/白卡) */}
-        <View className="p-[28rpx] rounded-lg bg-card mb-[24rpx]">
-          <Text className="block text-[length:28rpx] text-muted-foreground">
+        <View className="px-4 py-3 rounded-lg bg-card mb-4">
+          <Text className="block text-sm text-muted-foreground">
             {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
           </Text>
-          <Text className="block text-[length:56rpx] font-bold text-foreground mt-[16rpx]">
+          <Text className="block text-2xl font-bold text-foreground mt-2">
             {priceFmt.format(available)}
           </Text>
         </View>
 
         {/* 提现金额 + 提现方式卡片 — 对齐 RN WithdrawScreen card(padding 12/radius 12/border.light) */}
-        <View className="rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
+        <View className="rounded-lg border border-border bg-card p-4">
           <Text className="block text-[length:28rpx] text-muted-foreground">
             {tt('wallet.withdrawal.amountLabel', '提现金额')}
           </Text>
           <View
-            className="flex items-center mt-[16rpx] h-[100rpx] px-[28rpx] rounded-xl border-[length:2rpx] border-border bg-[var(--color-muted)]"
+            className="flex items-center mt-2 h-[50px] px-3 rounded-xl border border-border bg-[var(--color-muted)]"
             style={ffAmount.focusStyle}
           >
-            <Text className="text-[length:32rpx] font-semibold text-foreground">¥</Text>
+            <Text className="text-base font-semibold text-foreground">¥</Text>
             <Input
-              className="flex-1 text-[length:32rpx] text-foreground ml-[12rpx]"
+              className="flex-1 text-base text-foreground ml-1.5"
               {...ffAmount.spread}
               type="digit"
               value={amount}
@@ -129,10 +129,10 @@ export default function WithdrawalPage() {
             </Text>
           </View>
 
-          <Text className="block text-[length:28rpx] text-muted-foreground mt-[32rpx] mb-[16rpx]">
+          <Text className="block text-sm text-muted-foreground mt-4 mb-2">
             {tt('distribution.withdraw.method', '提现方式')}
           </Text>
-          <View className="flex gap-[20rpx]">
+          <View className="flex gap-3">
             {methods.map((m) => (
               <View
                 key={m.value}
@@ -145,7 +145,7 @@ export default function WithdrawalPage() {
                 >
                   {m.icon}
                 </View>
-                <Text className="flex-1 text-[length:32rpx] text-foreground">{m.label}</Text>
+                <Text className="flex-1 text-base text-foreground">{m.label}</Text>
                 <View
                   className={`w-[36rpx] h-[36rpx] border-[length:2rpx] rounded-sm flex items-center justify-center ${method === m.value ? 'bg-primary border-brand-accent-deep' : 'border-border bg-card'}`}
                 >
@@ -159,7 +159,7 @@ export default function WithdrawalPage() {
         </View>
 
         <Button
-          className="mt-[40rpx] bg-cta text-cta-foreground rounded-sm text-[length:32rpx] font-semibold"
+          className="mt-5 bg-cta text-cta-foreground rounded-sm text-base font-semibold"
           loading={submitting}
           disabled={submitting}
           onClick={onSubmit}
@@ -168,7 +168,7 @@ export default function WithdrawalPage() {
         </Button>
 
         <View
-          className="mt-[24rpx] text-center text-[length:22rpx] text-[var(--color-text-tertiary)]"
+          className="mt-3 text-center text-[length:22rpx] text-[var(--color-text-tertiary)]"
           onClick={goRecords}
           hoverClass="opacity-60"
         >

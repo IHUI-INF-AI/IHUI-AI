@@ -17,7 +17,7 @@
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 export interface RecentAgentItem {
@@ -85,14 +85,14 @@ export default function RecentAgents({ items, onItemClick, defaultAvatar }: Rece
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
   },
   title: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   },
   scroll: {
     gap: 10,
@@ -116,14 +116,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   name: {
     marginTop: 6,
     maxWidth: 80,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     textAlign: 'center',
   },

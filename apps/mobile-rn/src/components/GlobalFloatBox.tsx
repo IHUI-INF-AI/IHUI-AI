@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -57,6 +58,7 @@ const COLLAPSE_DISTANCE = FLOAT_BOX_WIDTH + RIGHT // 收起平移距离 = 盒宽
 const ARROW_GRAY = tokens.gray[400]
 
 export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloatBoxProps) {
+  const { t } = useI18n()
   // isOpen = true 展开(浮窗在屏幕内);false 收起(浮窗滑出,只露竖条)
   // 默认收起(false),对齐 uniapp 侧边栏初始为收回状态
   const [isOpen, setIsOpen] = useState(false)
@@ -98,7 +100,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
         onPress={toggleBox}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         accessibilityRole="button"
-        accessibilityLabel={isOpen ? '收起浮窗' : '展开浮窗'}
+        accessibilityLabel={isOpen ? t('globalBox.collapse') : t('globalBox.expand')}
       >
         {isOpen ? (
           <ChevronsRight size={30} strokeWidth={2.75} color={ARROW_GRAY} style={styles.arrowIcon} />
@@ -114,7 +116,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           style={styles.item}
           onPress={handlePromote}
           accessibilityRole="button"
-          accessibilityLabel="赚米"
+          accessibilityLabel={t('globalBox.earn')}
         >
           <Image source={ICON_TUIGUANG} style={styles.icon} resizeMode="contain" />
           <Text style={[styles.label, styles.labelPromote]}>赚 米</Text>
@@ -123,7 +125,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           style={styles.item}
           onPress={handleConsult}
           accessibilityRole="button"
-          accessibilityLabel="客服"
+          accessibilityLabel={t('globalBox.support')}
         >
           <Image source={ICON_KF} style={styles.icon} resizeMode="contain" />
           <Text style={styles.label}>客 服</Text>
@@ -132,7 +134,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           style={styles.item}
           onPress={handleFeedback}
           accessibilityRole="button"
-          accessibilityLabel="反馈"
+          accessibilityLabel={t('globalBox.feedback')}
         >
           <Image source={ICON_FANKUI} style={styles.icon} resizeMode="contain" />
           <Text style={styles.label}>反 馈</Text>

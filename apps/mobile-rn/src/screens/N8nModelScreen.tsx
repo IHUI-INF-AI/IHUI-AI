@@ -30,7 +30,7 @@ import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnType } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     padding: rpx(28),
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
     marginBottom: rpx(20),
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(12),
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
     backgroundColor: tokens.surface.muted,
     marginBottom: rpx(16),
@@ -466,11 +466,11 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   modalBtnTextCancel: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     color: tokens.text.secondary,
   },
   modalBtnTextConfirm: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   },

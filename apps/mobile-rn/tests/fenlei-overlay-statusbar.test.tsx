@@ -23,10 +23,12 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaFrame: () => ({ x: 0, y: 0, width: 375, height: 812 }),
 }))
 
-// FenLeiOverlay 接入 useI18n(文案国际化)后,不包 Provider/mock ⇒ 渲染即炸
-// (app-root-background-focused-route.test.tsx 同款形态)。
+/**
+ * FenLeiOverlay(2026-10-2x 起屏内吃 useI18n:关闭/确定无障碍标签走词包)——本套件判据是
+ * **几何**(面板 paddingTop 随 inset 移动),文案取键形即可;缺这枚 mock 会在渲染期抛
+ * 「useI18n must be used within I18nProvider」整文件红。
+ */
 vi.mock('../src/i18n', () => ({
-  I18nProvider: ({ children }: { children: unknown }) => children,
   useI18n: () => ({ t: (key: string) => key }),
 }))
 

@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
@@ -41,6 +41,7 @@ export function ActivityScreen({
   error,
   onRefresh,
   onBack,
+  onItemPress,
   colorScheme = 'light',
 }: ActivityScreenProps) {
   const tk = getTokens(colorScheme)
@@ -54,7 +55,12 @@ export function ActivityScreen({
       </View>
 
       {error ? (
-        <ErrorState message={error} onRetry={onRefresh} retryLabel={t('common.retry')} colorScheme={colorScheme} />
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       ) : loading && items.length === 0 ? (
         <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
@@ -73,7 +79,11 @@ export function ActivityScreen({
             />
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={onItemPress ? 0.85 : 1}
+              onPress={onItemPress ? () => onItemPress(item) : undefined}
+            >
               <View style={styles.titleRow}>
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {item.title}
@@ -97,7 +107,7 @@ export function ActivityScreen({
               <TouchableOpacity style={styles.joinBtn}>
                 <Text style={styles.joinText}>{t('activity.joinNow')}</Text>
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}
@@ -112,13 +122,13 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { flex: 1, fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    errorText: { paddingHorizontal: 10, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
+    muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
     listBody: { padding: 14 },
     separator: { height: 12 },
     card: {
@@ -132,15 +142,20 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    cardTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: tk.text.primary },
-    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.md },
+    cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
+    badge: { paddingHorizontal: rnSpacing.sm, paddingVertical: 2, borderRadius: rnRadius.md },
     badgeText: { fontSize: 10, color: tk.surface.light },
-    cardDesc: { marginTop: 8, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
-    meta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    joinBtn: { marginTop: 8, paddingVertical: 6, alignItems: 'flex-end' },
-    joinText: { fontSize: 14, color: tk.brand.DEFAULT },
+    cardDesc: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: 18,
+    },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    joinBtn: { marginTop: rnSpacing.sm, paddingVertical: 6, alignItems: 'flex-end' },
+    joinText: { fontSize: rnType.body.size, color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

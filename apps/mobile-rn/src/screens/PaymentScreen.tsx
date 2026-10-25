@@ -175,19 +175,20 @@ export function PaymentScreen() {
         onCancel={handleCancel}
         onRefresh={() => load(true)}
         onBack={() => navigation.goBack()}
-       colorScheme={resolvedTheme}/>
+        colorScheme={resolvedTheme}
+      />
       <View style={styles.rechargeWrap}>
         <PayButton amount={0} label={t('payment.recharge')} onPress={handleRecharge} />
       </View>
       {pendingProduct ? (
         <ConfirmPurchasePopUp
           visible={pendingPurchase !== null}
-          title="确认支付"
-          message={`订单号:${pendingPurchase?.orderNo ?? ''}`}
+          title={t('payment.confirm')}
+          message={t('payment.orderNo', { no: pendingPurchase?.orderNo ?? '' })}
           product={pendingProduct}
           loading={purchaseLoading}
-          cancelText="再看看"
-          confirmText="确认支付"
+          cancelText={t('payment.later')}
+          confirmText={t('payment.confirm')}
           onCancel={cancelPurchase}
           onConfirm={() => {
             if (pendingPurchase) void executePayment(pendingPurchase)

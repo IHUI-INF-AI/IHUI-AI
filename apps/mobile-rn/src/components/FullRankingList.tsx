@@ -27,6 +27,7 @@ import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react
 import type { ListRenderItem } from 'react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 export interface FullRankingItem {
   id: string
@@ -65,7 +66,7 @@ export interface FullRankingListProps {
 }
 
 /** 昵称为空时回退占位 */
-const ANONYMOUS_LABEL = '匿名'
+const ANONYMOUS_LABEL_KEY = 'ranking.anonShort'
 
 /** 取昵称首字符作为头像占位 */
 function deriveInitial(nickname: string, fallback: string | undefined): string {
@@ -75,11 +76,14 @@ function deriveInitial(nickname: string, fallback: string | undefined): string {
 }
 
 /** 关注度万格式化:>=10000 → 1.2万,其余原值(对齐原版 formatAttention) */
-function formatAttention(value: number): string {
+function formatAttention(
+  value: number,
+  t: (k: string, v?: Record<string, string | number>) => string,
+): string {
   if (value >= 10000) {
     let v = (value / 10000).toFixed(1)
     if (v.endsWith('.0')) v = v.slice(0, -2)
-    return `${v}万`
+    return t('ranking.wanSuffix', { v })
   }
   return String(value)
 }
@@ -134,8 +138,10 @@ function Row({
 }: {
   item: FullRankingItem
   onPress: ((id: string) => void) | undefined
-  valueLabel: string
+  /** 数值单位标签(已由父级解析的展示文案;缺省由 Row 取 t('ranking.pointsUnit')) */
+  valueLabel?: string
 }): React.ReactElement {
+  const { t } = useI18n()
   const badge = rankBadgeStyle(item.rank)
   const initial = deriveInitial(item.nickname, item.avatarInitial)
   const displayName = item.name ?? item.nickname
@@ -168,7 +174,7 @@ function Row({
       {/* 名称 + 公司 */}
       <View style={styles.detailCol}>
         <Text style={styles.name} numberOfLines={1}>
-          {displayName || ANONYMOUS_LABEL}
+          {displayName || t(ANONYMOUS_LABEL_KEY)}
         </Text>
         {item.company ? (
           <Text style={styles.company} numberOfLines={1}>
@@ -180,15 +186,15 @@ function Row({
       {/* 关注度(万格式化) */}
       {item.attention !== undefined ? (
         <View style={styles.attentionCol}>
-          <Text style={styles.attentionValue}>{formatAttention(item.attention)}</Text>
-          <Text style={styles.attentionLabel}>关注度</Text>
+          <Text style={styles.attentionValue}>{formatAttention(item.attention, t)}</Text>
+          <Text style={styles.attentionLabel}>{t('ranking.attention')}</Text>
         </View>
       ) : null}
 
       {/* 数值(积分等) */}
       <View style={styles.valueWrap}>
         <Text style={styles.valueText}>{item.value}</Text>
-        <Text style={styles.valueLabel}>{valueLabel}</Text>
+        <Text style={styles.valueLabel}>{valueLabel ?? t('ranking.pointsUnit')}</Text>
       </View>
     </TouchableOpacity>
   )
@@ -197,7 +203,7 @@ function Row({
 export default function FullRankingList({
   items,
   onPress,
-  valueLabel = '分',
+  valueLabel,
 }: FullRankingListProps): React.ReactElement {
   const renderItem: ListRenderItem<FullRankingItem> = ({ item }) => (
     <Row item={item} onPress={onPress} valueLabel={valueLabel} />

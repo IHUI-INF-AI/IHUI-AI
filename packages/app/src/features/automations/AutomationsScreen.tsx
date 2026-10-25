@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { rnRadius, type RnThemeTokens } from '@ihui/design-tokens'
+import { rnRadius, type RnThemeTokens, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
 
 /** 自动化调度类型(字段对齐 @ihui/api-client AutomationScheduleType) */
@@ -196,10 +196,15 @@ export function AutomationsScreen({
 
 function createStyles(tk: RnThemeTokens) {
   return StyleSheet.create({
-    screen: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 16, paddingTop: 16 },
-    body: { gap: 12, paddingBottom: 24 },
+    screen: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.lg,
+    },
+    body: { gap: rnSpacing.md, paddingBottom: rnSpacing['2xl'] },
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -209,41 +214,60 @@ function createStyles(tk: RnThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
-    cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.md, marginLeft: 8 },
+    cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    badge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: 2,
+      borderRadius: rnRadius.md,
+      marginLeft: rnSpacing.sm,
+    },
     badgeActive: { backgroundColor: tk.success.light },
     badgePaused: { backgroundColor: tk.surface.muted },
-    badgeText: { fontSize: 12, color: tk.text.primary },
-    row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
-    rowLabel: { width: 80, fontSize: 12, color: tk.text.secondary },
-    rowValue: { flex: 1, fontSize: 12, color: tk.text.primary },
-    miniRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-    miniLabel: { fontSize: 12, color: tk.text.secondary },
-    miniValue: { fontSize: 12, color: tk.text.primary },
-    block: { marginTop: 8 },
-    blockLabel: { marginBottom: 4, fontSize: 12, color: tk.text.secondary },
-    blockValue: { fontSize: 14, color: tk.text.primary },
-    summary: { fontSize: 12, color: tk.text.secondary },
+    badgeText: { fontSize: rnType.label.size, color: tk.text.primary },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
+    },
+    rowLabel: { width: 80, fontSize: rnType.label.size, color: tk.text.secondary },
+    rowValue: { flex: 1, fontSize: rnType.label.size, color: tk.text.primary },
+    miniRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.xs,
+    },
+    miniLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
+    miniValue: { fontSize: rnType.label.size, color: tk.text.primary },
+    block: { marginTop: rnSpacing.sm },
+    blockLabel: {
+      marginBottom: rnSpacing.xs,
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+    },
+    blockValue: { fontSize: rnType.body.size, color: tk.text.primary },
+    summary: { fontSize: rnType.label.size, color: tk.text.secondary },
     stateWrap: {
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 48,
-      paddingHorizontal: 24,
-      gap: 12,
+      paddingVertical: rnSpacing['5xl'],
+      paddingHorizontal: rnSpacing['2xl'],
+      gap: rnSpacing.md,
     },
-    stateText: { fontSize: 14, color: tk.text.secondary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    stateText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     outlineBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',
     },
-    outlineBtnText: { fontSize: 14, color: tk.text.primary },
+    outlineBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

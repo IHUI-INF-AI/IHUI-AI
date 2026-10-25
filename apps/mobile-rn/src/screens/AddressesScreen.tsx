@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Check, MapPin, Plus } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -346,30 +346,30 @@ export default function AddressesScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 10, paddingBottom: 32 },
-    subtitle: { fontSize: 12, color: tokens.text.tertiary },
+    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     card: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
-    field: { gap: 4 },
-    label: { fontSize: 12, color: tokens.text.secondary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
+    field: { gap: rnSpacing.xs },
+    label: { fontSize: rnType.label.size, color: tokens.text.secondary },
     input: {
       height: 42,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       backgroundColor: tokens.surface.bg,
     },
-    checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 },
+    checkRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm, paddingVertical: 2 },
     checkbox: {
       width: 18,
       height: 18,
@@ -381,7 +381,7 @@ function makeStyles() {
     },
     checkboxOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
     checkboxOnText: { color: tokens.brand.ctaForeground },
-    checkLabel: { fontSize: 14, color: tokens.text.primary },
+    checkLabel: { fontSize: rnType.body.size, color: tokens.text.primary },
     button: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -391,15 +391,24 @@ function makeStyles() {
     },
     buttonInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     buttonDisabled: { opacity: 0.5 },
-    buttonText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
+    buttonText: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
     ghostButton: { height: 40, alignItems: 'center', justifyContent: 'center' },
-    ghostButtonText: { fontSize: 14, color: tokens.text.secondary },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 40 },
+    ghostButtonText: { fontSize: rnType.body.size, color: tokens.text.secondary },
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['4xl'],
+    },
     muted: { fontSize: 13, color: tokens.text.secondary },
     errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    itemHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    itemName: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+    itemHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
     itemPhone: { fontSize: 13, color: tokens.text.secondary },
     badge: {
       paddingHorizontal: 6,
@@ -407,9 +416,9 @@ function makeStyles() {
       borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
-    badgeText: { fontSize: 11, color: tokens.text.secondary },
+    badgeText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
     itemAddress: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, paddingTop: 2 },
+    actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: rnSpacing.lg, paddingTop: 2 },
     actionText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
   })

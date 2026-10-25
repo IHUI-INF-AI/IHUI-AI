@@ -12,7 +12,7 @@ import { appAlert } from './BottomPops'
 import { Building2, Gem, Receipt, Wallet } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 
 export type UserCardKey = 'order' | 'company' | 'token' | 'wallet'
 
@@ -132,12 +132,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     marginTop: 2,
   },

@@ -28,7 +28,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { CalendarDays, Clock, X } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -383,24 +383,29 @@ export default function PublishCalendarScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 12, paddingBottom: 32 },
-    subtitle: { fontSize: 12, color: tokens.text.tertiary },
-    group: { gap: 8 },
+    body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    group: { gap: rnSpacing.sm },
     groupTitle: { fontSize: 13, fontWeight: '700', color: tokens.text.primary },
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
       gap: 5,
     },
-    cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    itemName: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    meta: { fontSize: 11, color: tokens.text.tertiary },
+    cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    itemName: {
+      flex: 1,
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tokens.text.primary,
+    },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     pill: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadiusFor.chip,
       backgroundColor: tokens.surface.muted,
@@ -410,10 +415,15 @@ function makeStyles() {
     pillText: { fontSize: 10, color: tokens.text.secondary },
     pillTextSuccess: { color: tokens.success.deepText, fontWeight: '600' },
     pillTextFailed: { color: tokens.danger.DEFAULT, fontWeight: '600' },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['5xl'],
+    },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    hint: { fontSize: 11, color: tokens.text.tertiary, lineHeight: 16 },
-    errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
+    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
+    errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
@@ -426,27 +436,32 @@ function makeStyles() {
     },
     sheet: {
       maxHeight: '85%',
-      padding: 16,
-      gap: 8,
+      padding: rnSpacing.lg,
+      gap: rnSpacing.sm,
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tokens.surface.card,
     },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    sheetTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tokens.text.primary },
-    cardTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-    rescheduleBox: { gap: 8, marginTop: 4 },
+    sheetTitle: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tokens.text.primary,
+    },
+    cardTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
+    rescheduleBox: { gap: rnSpacing.sm, marginTop: rnSpacing.xs },
     input: {
       height: 40,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       backgroundColor: tokens.surface.bg,
     },
-    quickRow: { flexDirection: 'row', gap: 8 },
+    quickRow: { flexDirection: 'row', gap: rnSpacing.sm },
     quickChip: {
       paddingHorizontal: 10,
       height: 28,
@@ -455,7 +470,7 @@ function makeStyles() {
       borderWidth: 1,
       borderColor: tokens.border.light,
     },
-    quickText: { fontSize: 11, color: tokens.text.secondary },
+    quickText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
     primaryBtn: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -463,7 +478,11 @@ function makeStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    primaryBtnText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
+    primaryBtnText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
     disabled: { opacity: 0.5 },
   })
 }

@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { BookOpen, ChevronDown, ChevronUp, Map as MapIcon } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -217,13 +217,18 @@ export default function LearnMapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: 12, paddingBottom: 32, gap: 10 },
-  subtitle: { fontSize: 12, color: tokens.text.tertiary },
-  stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  stateBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rnSpacing.sm,
+    paddingVertical: rnSpacing['5xl'],
+  },
   muted: { fontSize: 13, color: tokens.text.secondary },
   errorBox: {
-    padding: 12,
-    gap: 8,
+    padding: rnSpacing.md,
+    gap: rnSpacing.sm,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
@@ -242,7 +247,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: rnSpacing.md,
     padding: 14,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -258,8 +263,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brandAccent.light,
   },
   summaryMain: { flex: 1, gap: 2 },
-  summaryLabel: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
-  summaryHint: { fontSize: 11, color: tokens.text.tertiary },
+  summaryLabel: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
+  summaryHint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   card: {
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -276,25 +281,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
   },
-  stepBadgeText: { fontSize: 12, fontWeight: '600', color: tokens.text.secondary },
-  cardMain: { flex: 1, gap: 4 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  stepBadgeText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.secondary },
+  cardMain: { flex: 1, gap: rnSpacing.xs },
+  cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   cardDesc: { fontSize: 13, lineHeight: 19, color: tokens.text.secondary },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText: { fontSize: 11, color: tokens.text.tertiary },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
+  metaText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   expandBox: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingTop: 2 },
-  expandText: { fontSize: 11, color: tokens.text.tertiary },
+  expandText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   nodesBox: {
     gap: 10,
     marginHorizontal: 14,
     marginBottom: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: rnSpacing.md,
     paddingVertical: 10,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.bg,
   },
-  nodesTitle: { fontSize: 12, fontWeight: '600', color: tokens.text.secondary, paddingTop: 8 },
-  nodeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  nodesTitle: {
+    fontSize: rnType.label.size,
+    fontWeight: '600',
+    color: tokens.text.secondary,
+    paddingTop: rnSpacing.sm,
+  },
+  nodeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
   nodeIndex: {
     width: 20,
     height: 20,
@@ -303,9 +313,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.brandAccent.light,
   },
-  nodeIndexText: { fontSize: 11, fontWeight: '600', color: tokens.brandAccent.deep },
+  nodeIndexText: {
+    fontSize: rnType.caption.size,
+    fontWeight: '600',
+    color: tokens.brandAccent.deep,
+  },
   nodeMain: { flex: 1, gap: 2 },
   nodeTitle: { fontSize: 13, fontWeight: '500', color: tokens.text.primary },
-  nodeDesc: { fontSize: 12, lineHeight: 18, color: tokens.text.secondary },
+  nodeDesc: { fontSize: rnType.label.size, lineHeight: 18, color: tokens.text.secondary },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

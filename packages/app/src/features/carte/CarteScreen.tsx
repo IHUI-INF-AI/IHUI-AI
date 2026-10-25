@@ -5,7 +5,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { Image, StyleSheet, Text, View } from 'react-native'
 import { Users } from 'lucide-react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { CARTE_I18N_KEYS, CARTE_SEGMENTS, type CarteSegment } from '@ihui/shared/constants'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -93,9 +93,14 @@ export function CarteScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, padding: 16 },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 12 },
-    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    container: { flex: 1, backgroundColor: tk.surface.bg, padding: rnSpacing.lg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.md,
+      paddingBottom: rnSpacing.md,
+    },
+    title: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -106,34 +111,38 @@ function createStyles(tk: AppThemeTokens) {
     hero: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      padding: 16,
+      gap: rnSpacing.md,
+      padding: rnSpacing.lg,
       backgroundColor: tk.brandAccent.DEFAULT,
       borderTopLeftRadius: rnRadius['2xl'],
       borderTopRightRadius: rnRadius['2xl'],
     },
     heroAvatar: { width: 64, height: 64, borderRadius: rnRadius.xl },
     heroTexts: { flex: 1 },
-    heroLead: { fontSize: 16, fontWeight: '700', color: tk.brandAccent.foreground },
-    heroSub: { marginTop: 4, fontSize: 14, color: tk.brandAccent.foreground },
-    invite: { marginTop: 16, paddingHorizontal: 12 },
+    heroLead: { fontSize: rnType.title.size, fontWeight: '700', color: tk.brandAccent.foreground },
+    heroSub: {
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.body.size,
+      color: tk.brandAccent.foreground,
+    },
+    invite: { marginTop: rnSpacing.lg, paddingHorizontal: rnSpacing.md },
     inviteText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       textAlign: 'center',
       color: tk.text.primary,
     },
-    qrWrap: { alignItems: 'center', marginTop: 16 },
+    qrWrap: { alignItems: 'center', marginTop: rnSpacing.lg },
     qrImage: { width: 192, height: 192 },
     scanRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
-      marginTop: 12,
-      marginBottom: 16,
+      marginTop: rnSpacing.md,
+      marginBottom: rnSpacing.lg,
     },
-    scanText: { fontSize: 12, color: tk.text.secondary },
+    scanText: { fontSize: rnType.label.size, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
