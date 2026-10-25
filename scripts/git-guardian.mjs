@@ -5676,6 +5676,15 @@ function startDaemon() {
         // ⇒ 双执行体并存时只有先到那一个真删,不会把同一批夹具删两遍(第二遍也只是"无候选",
         // 但日志会多一行噪声,更重要的是节流语义必须与其余各层一致)。
         scrubTempFixtures()
+        // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线;2026-10-26 补装 daemon 腿):
+        // 这四个派发现在只挂在 main() 那条**单轮**路径上,而本机实际载体是 nssm 服务跑 `--daemon`
+        // ⇒ main() 从不执行,四层器物等于装了个没有车跑的车站(§0.9「造好没装车 = 没有」再犯一次)。
+        // 节流戳与 main() 共用(同一 tick 文件),双执行体并存也只会有一边真跑;顺序先感知后派发,
+        // 同轮登记的票下一轮即被自进化取到。仿 main() 同格:健康轮次内 + 提交窗口外(函数开头已让路)。
+        dispatchGateRot()
+        dispatchAutoTriage()
+        dispatchDepAdvisoryRadar()
+        dispatchAutoEvolve()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
