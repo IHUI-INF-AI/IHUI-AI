@@ -7847,3 +7847,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] **第 2 期·部署闭环**:合入 main 后自动同步 prod-bundle(check-prod-bundle-shadow 影子对账做落地校验)→ 部署后 check-public-path-probe 健康探测 → 失败自动回滚上一可用包;deploy-lock 全程持锁;部署失败邮件已通(notify-deploy-failure),补"回滚决策"机读口径。
 - [ ] **第 3 期·进化回流**:失败票归因自动沉淀 AGENTS.md 增补/记忆文件(受体积门 107 约束);守门判据腐烂自检自修回路(判据指向漂移自动发现);pnpm 依赖升级/安全通告自动生成票并消化(第 0 期白名单已预留该族);起会话 token 计量接入后预算闸由"轮数"升"token 双闸"。
 
+
