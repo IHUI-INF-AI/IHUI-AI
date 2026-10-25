@@ -82,9 +82,9 @@
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { execFileSync } from 'node:child_process'
 import { flagValue as flagValueRaw, requireFlagValue } from './lib/flag-value.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 // 判据里「值缺失」一律 null 与 undefined 同待:eqeqeq 禁 `== null`,而拆成 `=== null` 会只挡一半(典型误修)。
 const isNil = (v) => v === null || v === undefined
@@ -982,17 +982,10 @@ function readBaseline(root) {
 
 function stagedFiles(root) {
   try {
+    // 2026-10-26：裸 git 派生收编进 face-reader.gitRaw(绝对 git + safe.directory + quotepath
+    //   + stdio/EBUSY 兜底都在层内);取不到面仍按原语义吞成空集。
     return new Set(
-      execFileSync(
-        'git',
-        ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMRD'],
-        {
-          cwd: root,
-          encoding: 'utf8',
-          windowsHide: true,
-          stdio: ['ignore', 'pipe', 'ignore'],
-        },
-      )
+      gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMRD'], root)
         .split('\n')
         .map((s) => s.trim().replace(/\\/g, '/'))
         .filter(Boolean),

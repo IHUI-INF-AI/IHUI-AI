@@ -24,10 +24,10 @@
 // 判据有效性靠 --self-test 注入违规自证(不读脚本自己的注释),全量模式宁漏不误报:
 // 只扫 KNOWN_CONSUMERS 清单内的显式模式,不做全仓模糊匹配。
 
-import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -582,36 +582,21 @@ export function strictVerdict(problems, unjudged) {
 }
 
 function censusSignaled(root) {
-  const res = spawnSync(
-    'git',
-    [
-      '-C',
+  try {
+    // 枚举走取材层:绝对 git + -C root / 显式 stdio(§12g,EBUSY 病窗)/ windowsHide / timeout 由 gitRaw 统一提供。
+    const out = gitRaw(
+      ['grep', '-I', '-l', '-i', '-E', 'permission[-_]?mode', '--', ':/', ':!.ihui-agent'],
       root,
-      'grep',
-      '-I',
-      '-l',
-      '-i',
-      '-E',
-      'permission[-_]?mode',
-      '--',
-      ':/',
-      ':!.ihui-agent',
-    ],
-    {
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true, // §5b/守门 52:热路径派生 git 一律带上 windowsHide,漏参数=用户桌面反复闪窗
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  )
-  if (res.status === 0)
-    return res.stdout
+      { maxBuffer: 64 * 1024 * 1024 },
+    )
+    return out
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean)
-  if (res.status === 1) return [] // git grep 无命中
-  throw new Error(`git grep exit ${res.status}: ${String(res.stderr).slice(0, 200)}`)
+  } catch (e) {
+    if (e?.status === 1) return [] // git grep 无命中
+    throw new Error(`git grep exit ${e?.status ?? 'unknown'}: ${String(e?.message ?? e).slice(0, 200)}`)
+  }
 }
 
 // ---------------------------------------------------------------------------
