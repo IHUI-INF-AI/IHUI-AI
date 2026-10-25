@@ -23,6 +23,7 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { rotateAppendLog } from './lib/log-rotation.mjs'
+import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { isInteractiveUserHome } from './check-home-junctions.mjs'
@@ -4830,6 +4831,24 @@ export function auditMigrationGaps(opts = {}) {
 }
 
 /**
+ * 资源目录同步停更哨兵(2026-10-25 立)。实测宕型:批内复合键重复触发 PG 21000,
+ * 整轮 760 条全军 synced=0,而可见面只有一行 WARN —— "静默"就是这一格的立项理由。
+ * 判定住在 lib(守护顶着门 103 C1 的 6000 行天花板,与 sweeper/batch-write 归位 lib 同一先例)。
+ */
+const REGISTRY_SYNC_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'registry-sync-health-tick.ts')
+
+export function auditRegistrySyncHealth(opts = {}) {
+  return runRegistrySyncHealth({
+    script: join(dirname(fileURLToPath(import.meta.url)), 'check-registry-sync-health.mjs'),
+    tickFile: REGISTRY_SYNC_AUDIT_TICK,
+    cwd: WORKTREE,
+    logger: log,
+    notify: notifyGuardRed,
+    ...opts,
+  })
+}
+
+/**
  * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
  * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
  * 于是 .git 存续守护与凭据告警会在"机器重启后没人登录"这段时间里同时静默 ——
@@ -5501,6 +5520,9 @@ function main() {
     // 迁移账本「中间缺口」:drizzle 只按 when>max 应用,晚到的旧 when 会被永久跳过且 migrate exit 0
     // (实测 chat_collab 生产缺建表、部署只报档位)。尺子 = check-db-migration-gaps.mjs;30min 节流。
     if (!CHECK_ONLY) auditMigrationGaps()
+    // 资源目录同步停更哨兵(尺子 = check-registry-sync-health.mjs;判定住 lib/registry-sync-audit)。
+    // 30min 节流;psql/DSN 取不到 = 未判定不喊人(§12e:与提交内容无关的恒响只会废掉通道)。
+    if (!CHECK_ONLY) auditRegistrySyncHealth()
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
     // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
     if (!CHECK_ONLY) scrubTempFixtures()
