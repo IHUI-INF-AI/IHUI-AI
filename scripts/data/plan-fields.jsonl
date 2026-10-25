@@ -62,7 +62,7 @@
 {"key":"G-58#git-lock与index","owner":"git 写锁与部署锁同源机制的持有人)**","waiting":"none","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-59#门94的R4射程对它自己守的那件事的消费者全盲","owner":"门 94 持有人","waiting":"none","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-62#G-62归属","owner":"union-converge 落地闸持有人","waiting":"none","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
-{"key":"G-63#本仓每一次走safe-commit的路径提交都在","owner":"`scripts/lib/pre-commit-hook.js` 与 `scripts/safe","waiting":"none","blocking":"","updatedAt":"2026-10-25T08:18:07.725Z","updatedBy":"plan-fields-reclassify"}
+{"key":"G-63#本仓每一次走safe-commit的路径提交都在","owner":"safe-commit 两条线持有人","waiting":"none","blocking":"","updatedAt":"2026-10-25T08:22:20.332Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-64#落地闸第②把尺子对F9是永不可满足的","owner":"门 130 / union-converge 判据持有人裁决","waiting":"none","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-66#生产切流被\"别人滞留在工作树的整份台账副本\"挡住","owner":"那份副本的写者会话","waiting":"none","blocking":"它自己落地或被显式处置 —— 自愈层按设计拒绝代","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-68#旁路落地","owner":"union-converge / object-space-land 持有人","waiting":"none","blocking":"把\"落地后复跑受影响判据\"从人的纪律变成工具的出","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
