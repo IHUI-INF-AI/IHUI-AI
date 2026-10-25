@@ -38,11 +38,14 @@ import {
   CHAT_SYNC_PROTOCOL_VERSION,
   EMPTY_CHAT_SYNC_STATE,
   applyChatSyncEvent,
+  isChatSyncTerminalReason,
   type ChatSyncApplyResult,
   type ChatSyncMessageSnapshot,
   type ChatSyncState,
+  type ChatSyncTerminalState,
   type MessageCreatedEvent,
   type MessagePatchedEvent,
+  type MessageTerminalEvent,
 } from '@ihui/types'
 
 export type { ChatRole } from '@ihui/shared'
@@ -223,6 +226,9 @@ export interface ChatMessage extends Omit<
    * - 用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
    * - 前端 addMessage 写入,后端 streamChat 事件不携带(纯前端元数据) */
   permissionMode?: WorkspacePermissionMode
+  /** 票71 terminal 切片(2026-10-26):消息流终态投影(chat-sync v2 独立帧)。
+   *  缺省 = 尚未收到终态(或该端未接终态投影);rev = 宣告终结时的链头,不新增修订号。 */
+  terminal?: ChatSyncTerminalState
   /** P1-6 断点续传(2026-09-13 立):该助手消息的流是否已完整结束。
    *  false = 中断未完成(刷新页面后可自动续接);true/undefined = 已完成,不续接。 */
   streamCompleted?: boolean
@@ -300,12 +306,18 @@ export interface TerminalInteractionState {
 }
 
 /**
- * 票71(V2 #23)第二切片:`applyChatSync` 的结果面 = 契约裁定 ∪ 本端房间过滤。
- * `room-mismatch` 刻意**不**塞进 `ChatSyncRejectReason`:它不是契约的四态裁定之一
- * (契约管的是"同一会话内的幂等与判序"),混进去会让内核的裁定表多一档没人能测的形状。
+ * 票71(V2 #23)第二切片:`applyChatSync` 的结果面 = 契约裁定 ∪ 本端房间过滤/终态档位过滤。
+ * `room-mismatch` / `unknown-terminal-reason` 刻意**不**塞进 `ChatSyncRejectReason`:
+ * 它们不是契约的四态裁定之一(契约管的是"同一会话内的幂等与判序"),
+ * 混进去会让内核的裁定表多两档没人能测的形状。
  */
 export type ChatSyncStoreOutcome =
-  ChatSyncApplyResult | { applied: false; reason: 'room-mismatch'; messageId: string }
+  | ChatSyncApplyResult
+  | {
+      applied: false
+      reason: 'room-mismatch' | 'unknown-terminal-reason'
+      messageId: string
+    }
 
 /**
  * B02 第三切片:gap 坐标表的唯一增口(去重;封顶防无界 —— 同 hook 里 noticeSeen 的 200 档)。
@@ -715,12 +727,15 @@ export interface ChatState {
    *
    * 去重与判序**只走契约内核**(`applyChatSyncEvent`),本动作只做三件事:
    * ① 房间过滤(帧的 `room.conversationId` 必须等于当前会话);
-   * ② 把内核裁出的结果投影进渲染数组(created 增行 / patched 就地改 content);
+   * ② 把内核裁出的结果投影进渲染数组(created 增行 / patched 就地改 content /
+   *    terminal 只打终态标记,不新增 rev);
    * ③ gap 置 resync 旗。
    * 被拒(duplicate/stale/gap)时**不写 messages** —— 内核返回原 state 引用,
    * 本动作据此不 set,避免"拒绝也触发重渲染"。
    */
-  applyChatSync: (evt: MessageCreatedEvent | MessagePatchedEvent) => ChatSyncStoreOutcome
+  applyChatSync: (
+    evt: MessageCreatedEvent | MessagePatchedEvent | MessageTerminalEvent,
+  ) => ChatSyncStoreOutcome
   /** resync 拉取成功(或确认无缺口)后清旗;消费面 = use-conversation-broadcast-sync 的 gap 拉取 effect */
   markChatSyncResynced: () => void
   /**
@@ -1129,6 +1144,11 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     if (event.room.conversationId !== conversationId) {
       return { applied: false, reason: 'room-mismatch', messageId: event.messageId }
     }
+    // 终态 reason 是封闭集:未知档位在渲染面没有可呈现的语义(用户最需要看懂的一格),
+    // 按「未判定」拒收 —— 不交给内核当合法值落面,也不自造一句话补齐。
+    if (event.type === 'message:terminal' && !isChatSyncTerminalReason(event.reason)) {
+      return { applied: false, reason: 'unknown-terminal-reason', messageId: event.messageId }
+    }
     const { state, result } = applyChatSyncEvent(chatSync, event)
     if (!result.applied) {
       // 被拒一律不写 messages(内核返回原 state 引用);只有 gap 需要一次 resync ——
@@ -1173,10 +1193,21 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       return result
     }
     const next = messages.slice()
+    if (event.type === 'message:terminal') {
+      // 终态是状态位、只落在已应用的链头上:内容面零变化,只把 terminal 投影进该行。
+      next[idx] = {
+        ...messages[idx]!,
+        ...(surface.terminal !== undefined ? { terminal: surface.terminal } : {}),
+      }
+      set({ chatSync: state, messages: next })
+      return result
+    }
     next[idx] = {
       ...messages[idx]!,
       content: surface.content,
       ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+      // snapshot 可推进内容但不清除既有终态(契约 §4 终态粘性),投影面一并对齐。
+      ...(surface.terminal !== undefined ? { terminal: surface.terminal } : {}),
     }
     set({ chatSync: state, messages: next })
     return result
