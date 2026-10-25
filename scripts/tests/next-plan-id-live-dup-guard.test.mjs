@@ -84,6 +84,16 @@ function runCli(args, env = null) {
 /** 声明号出现在行首区(复选框 + 括注之后)的未勾登记行 —— 与工具报"既有号"的口径同形。 */
 const DECLARED_OPEN_ROW = /^-\s*\[ \]\s*(?:[（(〔][^）)〕]*[）)〕]\s*)*([A-Z]+-?\d+)/
 
+/**
+ * 能安全当 argv 传的行长上限。旧值 240 是 2026-10-24 拍的"短行"经验值;2026-10-25 现读台账
+ * (HEAD 与工作树两面的未勾登记行 82 条)里 **≤240 的一条都没有**(最短 380、多数上千)⇒
+ * `mergedOpenRow()` 的断言从那天起恒红,而红在"选不出输入"、不在被测判据上(§12e 同型:
+ * 与提交内容无关的红门)。这里**不是**放宽判据:被测的"同题已册 ⇒ 拒发号"一字未动,
+ * 改的是取材闸 —— argv 的真实上限是 Windows 命令行 ~32k,1000 既能让选择器选到真行
+ * (现读 40 条命中),又离上限有两个数量级的余量。
+ */
+const MAX_ARGV_TITLE_LEN = 1000
+
 /** 从**调用时现读正文**取一条已并入、指纹可算、长度可当 argv 传的未勾登记行(旧底稿并入侧的代表)。 */
 function mergedOpenRow() {
   const row = readPlan()
@@ -92,7 +102,7 @@ function mergedOpenRow() {
     .find(
       (l) =>
         DECLARED_OPEN_ROW.test(l) &&
-        l.length <= 240 &&
+        l.length <= MAX_ARGV_TITLE_LEN &&
         extractTaskFingerprint(l) !== null,
     )
   assert.ok(row, '现读正文里必须找得到可按指纹判定的未勾登记行(找不到 ⇒ 本测试不成立,不得当绿)')
