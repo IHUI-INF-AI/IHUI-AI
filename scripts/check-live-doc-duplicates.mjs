@@ -73,6 +73,7 @@ function readFace(relPath, face) {
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 1 << 28,
     encoding: 'buffer',
+    windowsHide: true, // §5f:派生 git 必须显式接管 stdio + 不弹窗(52 门 HEAD 面实名命中)
   })
   if (r.status !== 0) return null
   return r.stdout.toString('utf8')
@@ -95,6 +96,7 @@ function readFaceAt(ref) {
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 1 << 28,
     encoding: 'buffer',
+    windowsHide: true, // §5f:派生 git 必须显式接管 stdio + 不弹窗(52 门 HEAD 面实名命中)
   })
   if (r.status !== 0) return null
   return r.stdout.toString('utf8')
@@ -146,6 +148,7 @@ function main() {
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       shell: false,
+      windowsHide: true, // §5f
     })
     return r.status === 0 && r.stdout.trim() !== ''
   })
