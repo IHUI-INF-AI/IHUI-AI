@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
 import { logger } from '@/utils/logger'
 import { consumeSsoCode, extractSsoCodeFromWebviewMessages } from '@/utils/sso'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** 导航到 webview 页面并加载指定 URL(title 可选:带上后导航栏显示功能名而非空白) */
@@ -38,23 +39,14 @@ export default function WebviewIndex() {
     if (initedRef.current) return
     initedRef.current = true
 
-    // 标题设置(对标原项目 uni.setNavigationBarTitle)
+    // 标题设置(对标原项目 uni.setNavigationBarTitle;decode 已收敛到跨端唯一 safe 出口)
     if (params.title) {
-      try {
-        setNavigationBarTitle({ title: decodeURIComponent(params.title) })
-      } catch (e) {
-        console.error('webview title decode failed', e)
-      }
+      setNavigationBarTitle({ title: safeDecodeURIComponent(params.title) })
     }
 
     // URL 参数处理(对标原项目 decodeURIComponent + 额外参数追加)
     if (params.url) {
-      let decodedUrl = params.url
-      try {
-        decodedUrl = decodeURIComponent(params.url)
-      } catch (e) {
-        console.error('webview url decode failed', e)
-      }
+      const decodedUrl = safeDecodeURIComponent(params.url)
 
       // 追加除 url/title 外的其他参数到 URL query string
       const h5Params: Record<string, string | undefined> = { ...params }

@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
 import { isPublicPath, openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { useAuthStore } from '@/stores/auth'
 
@@ -56,7 +57,7 @@ export function LoginRedirectListener() {
     // 2. 处理 middleware 设置的 cookie
     const match = document.cookie.match(/(?:^|;\s*)login_redirect=([^;]+)/)
     if (!match) return
-    const target = decodeURIComponent(match[1] ?? '')
+    const target = safeDecodeURIComponent(match[1] ?? '')
     document.cookie = 'login_redirect=; path=/; max-age=0'
     // 关键修复(2026-07-26):用户要求"刷新进项目不要弹窗"
     // 旧逻辑:仅检查 cookie 中 target 是否公开路径 → 用户先访问受保护页面留下

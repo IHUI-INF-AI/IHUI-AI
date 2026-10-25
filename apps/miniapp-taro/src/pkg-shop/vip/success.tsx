@@ -9,11 +9,12 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
 import { formatDateByTemplate } from '@ihui/shared'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import './success.css'
 
 /** 安全 decode router 参数 */
-const decodeParam = (v: string | undefined): string => (v ? decodeURIComponent(v) : '')
+const decodeParam = (v: string | undefined): string => (v ? safeDecodeURIComponent(v) : '')
 
 /** 推算支付方式文案(未传时默认微信) */
 const resolvePayMethod = (raw: string | undefined, tt: (k: string, fb: string) => string) => {

@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { refund, getOrderDetail, type Order } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { getRnTokens } from '@ihui/design-tokens'
@@ -52,7 +53,7 @@ export default function OrderRefund() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    const no = decodeURIComponent(router.params.orderNo || '')
+    const no = safeDecodeURIComponent(router.params.orderNo || '')
     setOrderNo(no)
     if (!no) {
       setLoading(false)

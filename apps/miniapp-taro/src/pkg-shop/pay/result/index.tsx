@@ -12,6 +12,7 @@ import { useTt } from '@/i18n'
 import { getPayResult } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import LineIcon, { type IconName } from '@/components/LineIcon'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** 支付结果三态(对齐 RN PayStatus / 旧 miniapp result.tsx) */
@@ -47,7 +48,7 @@ export default function PayResult() {
   const initialStatus: PayStatus =
     params.status === 'paid' || params.status === 'failed' ? params.status : 'pending'
   const initialAmount = Number(params.amount ?? '') || 0
-  const fromUrl = params.from ? decodeURIComponent(params.from) : ''
+  const fromUrl = params.from ? safeDecodeURIComponent(params.from) : ''
 
   const [status, setStatus] = useState<PayStatus>(initialStatus)
   const [amount, setAmount] = useState(initialAmount)
