@@ -164,6 +164,8 @@ describe('WallboardView 使用数据面板', () => {
     expect(screen.getAllByText('热门页面(近24h)').length).toBeGreaterThan(0)
     // 标题是静态的,数据要等 query 落地 —— 这里等的是「数据真的绑上屏」。
     await waitFor(() => expect(screen.getByText('/ecosystem')).toBeTruthy())
+    // 每行同时给「多少次 / 多少人」:fixture 里 /ecosystem = PV 90 / UV 60
+    expect(document.body.textContent).toContain('90 / 60')
     expect(screen.getByText('/admin/monitor/wallboard')).toBeTruthy()
     expect(screen.getAllByText('前台').length).toBeGreaterThan(0)
     expect(screen.getAllByText('后台').length).toBeGreaterThan(0)
