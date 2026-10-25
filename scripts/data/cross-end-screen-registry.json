@@ -580,6 +580,11 @@
       "shared": "packages/app/src/features/mcp-store/McpStoreScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgentRuntimeScreen.tsx",
       "miniapp": "pkg-user/mcp-store/index"
+    },
+    {
+      "shared": "packages/app/src/features/activity-detail/ActivityDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ActivityDetailScreen.tsx",
+      "miniapp": "pkg-content/activity-detail-shared/index"
     }
   ]
 }

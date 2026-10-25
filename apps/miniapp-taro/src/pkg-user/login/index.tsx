@@ -12,7 +12,7 @@
  * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
  */
 import ThemeRoot from '@/components/ThemeRoot'
-import LoginScreenShell from '@rn-shells/LoginScreen'
+import { LoginScreen as LoginScreenShell } from '@rn-shells/LoginScreen'
 
 export default function LoginPage() {
   return (
