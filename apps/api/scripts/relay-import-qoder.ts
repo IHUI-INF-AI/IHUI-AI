@@ -37,9 +37,12 @@ import {
   type ImportAccountInput,
 } from '../src/services/relay-account-pool-service.js'
 import { RELAY_PROVIDERS, type RelayProviderCode } from '../src/services/relay-account-format.js'
-// G-322 单源:带值旗标的取值出口(禁复制判据 §22c)。
-// @ts-expect-error scripts/*.mjs 无类型声明,apps/api tsconfig include 只收 src/**(脚本面不进 typecheck)
-import { isFlagValueToken } from '../../../scripts/lib/flag-value.mjs'
+// 带值旗标取值口径(G-322):紧邻 token 必须非空且不以 `-` 开头。本地副本与
+// scripts/lib/flag-value.mjs 的 isFlagValueToken 逐字同源 —— apps/api→repo-tooling 被
+// config/architecture-policy.yaml 禁止(D1/D2/D3),消依赖优先;语义变更须两处同改。
+function isFlagValueToken(token: unknown): boolean {
+  return typeof token === 'string' && token !== '' && !token.startsWith('-')
+}
 
 // =============================================================================
 // 类型与纯函数(单测覆盖)
@@ -144,14 +147,6 @@ interface CliArgs {
   dryRun: boolean
 }
 
-/** 实得值进错误文案前必须**有界**(门 181):超 120 UTF-8 字节即截断并报原文大小,避免把整段 token 写进持久记录。 */
-function clipJsonText(json: string, maxBytes = 120): string {
-  const encoded = new TextEncoder().encode(json)
-  if (encoded.length <= maxBytes) return json
-  const head = new TextDecoder().decode(encoded.subarray(0, maxBytes))
-  return `${head.replace(/\uFFFD+$/, '')}…(截断,原文 ${encoded.length} 字节)`
-}
-
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { provider: 'qoder', dryRun: false }
   for (let i = 0; i < argv.length; i++) {
@@ -163,7 +158,7 @@ function parseArgs(argv: string[]): CliArgs {
     const takeValue = (tok: string | undefined): string => {
       if (!isFlagValueToken(tok)) {
         throw new Error(
-          `--${a.replace(/^--/, '')} 需要一个参数 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : clipJsonText(JSON.stringify(tok))}(不得吞掉相邻旗标)`,
+          `--${a.replace(/^--/, '')} 需要一个参数 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)`,
         )
       }
       i++

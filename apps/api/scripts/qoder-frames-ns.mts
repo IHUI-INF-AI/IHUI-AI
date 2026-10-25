@@ -1,0 +1,56 @@
+// © 2026 IHUI AI. 一次性：直连 SDK 非流式，dump 每帧，定位 credits 真实位置。
+import { readFileSync } from 'node:fs'
+import { createDecipheriv } from 'node:crypto'
+import postgres from 'postgres'
+
+// 手动解析 .env
+const envText = readFileSync('D:/IHUI-AI/apps/api/.env', 'utf8')
+const env: Record<string, string> = {}
+for (const line of envText.split('\n')) {
+  const m = line.match(/^([A-Z0-9_]+)=(.*)$/)
+  if (m) env[m[1]] = m[2].trim()
+}
+const KEY = (env['CREDENTIALS_ENCRYPTION_KEY'] || '').slice(0, 32)
+if (KEY.length < 32) throw new Error('bad key')
+
+function decryptField(stored: string): string {
+  const parsed = JSON.parse(stored)
+  const { iv, ciphertext, tag } = parsed
+  const decipher = createDecipheriv('aes-256-gcm', Buffer.from(KEY), Buffer.from(iv, 'base64'))
+  decipher.setAuthTag(Buffer.from(tag, 'base64'))
+  const pt = Buffer.concat([decipher.update(Buffer.from(ciphertext, 'base64')), decipher.final()])
+  const text = pt.toString('utf8')
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+const sql = postgres(env['DATABASE_URL'] || '')
+const rows = await sql`select token_enc, token_expires_at, extra_metadata from ai_relay_account_pool where provider_code = 'qoder' limit 2`
+console.log('qoder rows=', rows.length)
+if (!rows.length) process.exit(2)
+const r = rows[0]
+const token = decryptField(r.token_enc)
+console.log('token len=', token?.length, 'exp=', r.token_expires_at)
+
+const SDK = 'file:///' + 'D:/电脑软件/Qoder CN/.qoder-versions/0.4.9/resources/app.asar/node_modules/@qoder-ai/qoder-cn-agent-sdk/dist/index.js'.replace(/\\/g, '/')
+const mod: any = await import(SDK)
+const auth = mod.jobToken(async () => ({ token, expiresAt: Date.now() + 3600000 }))
+const it = mod.query({ prompt: '只回答两个字：你好', options: { cwd: 'D:/IHUI-AI/.qoder-bridge-cwd', auth, tools: [] } })
+let n = 0
+for await (const msg of it) {
+  n++
+  const keys = Object.keys(msg || {})
+  const summary: any = { type: msg?.type, subtype: msg?.subtype }
+  if (msg?.message?.usage) summary.usage = msg.message.usage
+  if (msg?.total_credits !== undefined) summary.total_credits = msg.total_credits
+  if (msg?.modelUsage) summary.modelUsage = msg.modelUsage
+  if (msg?.request_id) summary.request_id = msg.request_id
+  if (msg?.result && typeof msg.result === 'string') summary.result_len = msg.result.length
+  console.log(`FRAME ${n} keys=${keys.join(',')} :: ${JSON.stringify(summary).slice(0, 600)}`)
+}
+console.log('total frames=', n)
+await sql.end()
+process.exit(0)

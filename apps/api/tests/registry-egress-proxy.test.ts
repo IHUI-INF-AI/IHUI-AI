@@ -67,19 +67,31 @@ describe('E4 装车锁:闸必须咬合在唯一出口上', () => {
     'utf8',
   )
   it('fetchWithTimeout 本体接线:dispatcher 从单一 builder 取,取到就走 undiciFetch 成对出口', () => {
-    expect(SRC).toMatch(/registryEgressDispatcher\(env\)[\s\S]*undiciFetch\(url, \{[\s\S]*dispatcher,?[\s\S]*\}\)/)
+    expect(SRC).toMatch(
+      /registryEgressDispatcher\(env\)[\s\S]*undiciFetch\(url, \{[\s\S]*dispatcher,?[\s\S]*\}\)/,
+    )
     expect(SRC).toMatch(/const dispatcher = registryEgressDispatcher\(env\)/)
     // AbortController 超时臂必须还在(代理分支不得吞掉超时)
     expect(SRC).toMatch(/controller\.abort\(\), timeoutMs/)
     expect(SRC).toMatch(/signal: controller\.signal,[\s\S]*dispatcher/)
   })
   it('四个适配器都只能从本出口取数,不得有人绕过再裸 fetch', () => {
-    for (const f of ['github-adapter', 'npm-adapter', 'mcp-marketplace-adapter', 'custom-registry-adapter']) {
-      const src = readFileSync(join(__dirname, '..', 'src', 'services', 'registry-sync', `${f}.ts`), 'utf8')
+    for (const f of [
+      'github-adapter',
+      'npm-adapter',
+      'mcp-marketplace-adapter',
+      'custom-registry-adapter',
+    ]) {
+      const src = readFileSync(
+        join(__dirname, '..', 'src', 'services', 'registry-sync', `${f}.ts`),
+        'utf8',
+      )
       expect(src, `${f} 必须 import fetchWithTimeout`).toMatch(/fetchWithTimeout/)
       // 不得出现绕闸的裸 `await fetch(`(import 行以外的直接调用形态)
       const body = src.replace(/^import[\s\S]*?from .*$/gm, '')
-      expect(body, `${f} 不得裸 fetch(那是绕过出口代理闸的第二把出口)`).not.toMatch(/\bawait fetch\(/)
+      expect(body, `${f} 不得裸 fetch(那是绕过出口代理闸的第二把出口)`).not.toMatch(
+        /\bawait fetch\(/,
+      )
     }
   })
 })
