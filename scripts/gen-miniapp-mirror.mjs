@@ -55,6 +55,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 
 import { catBatch, listFaceFiles, readWorktreeFile } from './lib/face-reader.mjs'
+import { shellExportShapeOf } from './lib/rn-shell-refs.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 
 const LANGS = ['en', 'ja', 'ko', 'zh-CN', 'zh-TW']
@@ -409,8 +410,22 @@ export function insertRegistryEntry(text, entry) {
  * 由 apps/miniapp-taro/config/rn-shell-replace-plugin.ts 按"发起上下文在 apps/mobile-rn/src/ 内"
  * 换到端内真相源(src/i18n、src/rn-compat/theme.tsx)。
  */
-export function buildShellPage({ spec, base }) {
+export function buildShellPage({ spec, base, shellText = '' }) {
   const shellSymbol = `${base}Screen`
+  const shape = shellExportShapeOf(shellText)
+  // 取用形态由**壳的现读导出**决定:实测 5 枚壳承载页里 4 枚写的是默认导入,而壳只有具名导出
+  // (webpack 只给一条 "export 'default' was not found" 警告,页面渲染成 undefined 而不是报错)。
+  const binding = shape.hasDefault
+    ? `import ${shellSymbol}Shell from '@rn-shells/${shellSymbol}'`
+    : shape.names.has(shellSymbol)
+      ? `import { ${shellSymbol} as ${shellSymbol}Shell } from '@rn-shells/${shellSymbol}'`
+      : null
+  if (!binding) {
+    return {
+      error: `壳文件既无 default 导出也没有具名 ${shellSymbol}(现读出口 {${[...shape.names].join(',')}})⇒ 不知该怎么引,拒绝产出`,
+    }
+  }
+  const jsxTag = `${shellSymbol}Shell`
   const L = []
   L.push(`// 镜像 ${spec}`, '')
   L.push('/**')
@@ -421,12 +436,12 @@ export function buildShellPage({ spec, base }) {
   L.push(' * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。')
   L.push(' */')
   L.push("import ThemeRoot from '@/components/ThemeRoot'")
-  L.push(`import ${shellSymbol}Shell from '@rn-shells/${shellSymbol}'`)
+  L.push(binding)
   L.push('')
   L.push(`export default function ${base}Page() {`)
   L.push('  return (')
   L.push('    <ThemeRoot>')
-  L.push(`      <${shellSymbol}Shell />`)
+  L.push(`      <${jsxTag} />`)
   L.push('    </ThemeRoot>')
   L.push('  )')
   L.push('}')
@@ -714,6 +729,12 @@ export function planGeneration(rootDir, opts, ctx = null) {
     paths: nsKeys.flatMap((g) => g.keys),
   }))
 
+  const shellPage =
+    opts.form === 'shell'
+      ? buildShellPage({ spec: shape.spec, base: shape.base, shellText: rnMap.get(shellRel) ?? '' })
+      : null
+  if (shellPage?.error) return { kind: 'refuse', why: `${shape.spec}:${shellPage.error}` }
+
   return {
     kind: 'plan',
     spec: shape.spec,
@@ -731,10 +752,7 @@ export function planGeneration(rootDir, opts, ctx = null) {
     singles,
     nsKeys,
     droppedKeys: dropped,
-    pageText:
-      opts.form === 'shell'
-        ? buildShellPage({ spec: shape.spec, base: shape.base })
-        : buildPage({ spec: shape.spec, fnName: shape.base, titleKey, subtitleKey, pairs, singles }),
+    pageText: shellPage ?? buildPage({ spec: shape.spec, fnName: shape.base, titleKey, subtitleKey, pairs, singles }),
     langBlocks,
     registryEntry: { shared: shape.spec, rn: rnHits[0], miniapp: route },
   }
@@ -1204,6 +1222,7 @@ export const __test__ = {
   insertConfigPage,
   insertRegistryEntry,
   buildPage,
+  buildShellPage,
   workDiverges,
   planGeneration,
   applyGeneration,

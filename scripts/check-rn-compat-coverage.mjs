@@ -31,7 +31,12 @@ import { dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import { shellRefsOf, shellTargetRel } from './lib/rn-shell-refs.mjs'
+import { shellRefsOf, shellTargetRel, mismatchedShellBinding } from './lib/rn-shell-refs.mjs'
+// 路由解析复用造页器那一份(parseMiniappRoutes)—— 本门 C3 与 C8 判的都是"在册路由",
+// 自己再写一条正则就是第二份真相,而路由清单两头一漂,C3/C8 会各自读出不同的"在册"集合(§0.6)。
+import { parseMiniappRoutes } from './gen-miniapp-mirror.mjs'
+// C9 判的是"壳承载的编译期契约"与面上引用是否逐字同步 ⇒ 判据取生成器那一份(§0.6,同一条算式不许两处各写)。
+import { __test__ as shellTypes } from './gen-rn-shell-types.mjs'
 import { __test__ as gen } from './gen-rn-compat.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 
@@ -45,6 +50,8 @@ const ICONS_REL = `${COMPAT_DIR}/icons-generated.tsx`
 const ROUTE_REL = `${COMPAT_DIR}/route-map.generated.ts`
 const MP_CONFIG_REL = 'apps/miniapp-taro/src/app.config.ts'
 const MP_SRC = 'apps/miniapp-taro/src'
+/** 一条在册路由可能指向的页文件后缀(C8 逐条探存在性用;顺序即 Taro 的解析候选)。 */
+const PAGE_EXTS = ['.tsx', '.ts', '.jsx', '.js']
 /** 壳承载页的 `@rn-shells/<X>` 按名字指到这里(C5 判的就是它真不真存在)。 */
 const RN_SCREENS = 'apps/mobile-rn/src/screens'
 /** 标记载体:与 cov.MARK_RE 同形(顶行 `// 镜像 packages/app/...`) */
@@ -129,34 +136,79 @@ function namedImportsFrom(text, moduleName) {
 }
 
 /** 兼容层具名出口集(含 `export const|function|class|let|var`、`export {A, B}`、`export type X`、`export type {A}`) */
-function compatExports(contents) {
-  const exported = new Set()
-  for (const f of COMPAT_FILES) {
-    const src = contents.get(`${COMPAT_DIR}/${f}`)
-    if (!src) continue
-    for (const m of src.matchAll(/export\s+(?:declare\s+)?(?:const|function|class|let|var)\s+([A-Za-z0-9_]+)/g)) exported.add(m[1])
-    for (const m of src.matchAll(/export\s+type\s+([A-Za-z0-9_]+)/g)) exported.add(m[1])
-    for (const m of src.matchAll(/export\s*(?:type\s*)?\{([^}]*)\}(?:\s*from)?/g)) {
-      for (const part of m[1].split(',')) {
-        const name = part
-          .trim()
-          .replace(/^type\s+/, '')
-          .split(/\s+as\s+/)
-          .pop()
-          .trim()
-        if (name) exported.add(name)
-      }
+/** 一枚文件自身的具名出口集(不含它 `export *` 带进来的东西)。 */
+function ownExports(src) {
+  const out = new Set()
+  if (!src) return out
+  for (const m of src.matchAll(/export\s+(?:declare\s+)?(?:const|function|class|let|var)\s+([A-Za-z0-9_]+)/g)) out.add(m[1])
+  for (const m of src.matchAll(/export\s+type\s+([A-Za-z0-9_]+)/g)) out.add(m[1])
+  for (const m of src.matchAll(/export\s*(?:type\s*)?\{([^}]*)\}(?:\s*from)?/g)) {
+    for (const part of m[1].split(',')) {
+      const name = part
+        .trim()
+        .replace(/^type\s+/, '')
+        .split(/\s+as\s+/)
+        .pop()
+        .trim()
+      if (name) out.add(name)
     }
   }
-  return exported
+  return out
+}
+
+/**
+ * 桶口的**有效**出口集(不是各文件名字的并集)。
+ * ESM 语义:`export *` 撞上同名 ⇒ 歧义名两侧都不出口(webpack 的 "conflicting star exports" 就是这个)。
+ * 并集读法会把 `Image`/`Keyboard` 这类"名字在册、实际上拿到 undefined"读成兼容层已覆盖 ⇒ C1 结构性失明。
+ * 只有桶文件自己的**显式**重导出能把歧义名压回来,故 explicit 优先。
+ */
+function effectiveExports(contents) {
+  const barrelRel = `${COMPAT_DIR}/index.ts`
+  const barrel = contents.get(barrelRel) ?? ''
+  // 桶里的 `export * from './primitives'` 是**无扩展名**写法 ⇒ 解析到清单里的真实键,
+  // 不解析就永远取不到正文,歧义维会在真仓上结构性失明(实测第一版就是这么漏的)。
+  const resolveStar = (spec) => {
+    for (const ext of ['', '.ts', '.tsx', '.js', '.jsx']) {
+      const key = `${COMPAT_DIR}/${spec}${ext}`
+      if (contents.get(key) != null) return key
+    }
+    return null
+  }
+  const starTargets = [...barrel.matchAll(/export\s*\*\s*from\s*['"]\.\/([A-Za-z0-9_.-]+?)['"]/g)]
+    .map((m) => resolveStar(m[1]))
+    .filter(Boolean)
+  const perSource = starTargets.map((key) => [key, ownExports(contents.get(key))])
+  const explicit = ownExports(barrel)
+  const count = new Map()
+  for (const [, names] of perSource) for (const n of names) count.set(n, (count.get(n) ?? 0) + 1)
+  const all = new Set(explicit)
+  for (const [, names] of perSource) for (const n of names) if (count.get(n) === 1 || explicit.has(n)) all.add(n)
+  const conflicts = [...count.entries()].filter(([n, c]) => c > 1 && !explicit.has(n)).map(([n]) => n).sort()
+  return { all, conflicts, starTargets }
+}
+
+function compatExports(contents) {
+  return effectiveExports(contents).all
 }
 
 /**
  * C5 判据本体住在 scripts/lib/rn-shell-refs.mjs(与跨端覆盖尺共用同一份,§0.6);
  * 这里只 import,不再写第二份正则 —— 两份实现早晚一边认一边不认。
  */
+/** C7 夹具:桶 + 两个来源的出口集;explicit=true 时桶写了显式重导出压歧义。 */
+function c7Fixture(explicit) {
+  const STAR = ["export * from './primitives'", "export * from './icons-generated'", ''].join('\n')
+  const STAR_EXPLICIT = ["export * from './primitives'", "export * from './icons-generated'", "export { Image } from './primitives'", ''].join('\n')
+  const PRIM = ['export const Image = 1', 'export const View = 2', ''].join('\n')
+  const ICONS = ['export const Image = 3', 'export const Star = 4', ''].join('\n')
+  return {
+    [`${COMPAT_DIR}/index.ts`]: explicit ? STAR_EXPLICIT : STAR,
+    [`${COMPAT_DIR}/primitives.tsx`]: PRIM,
+    [`${COMPAT_DIR}/icons-generated.tsx`]: ICONS,
+  }
+}
 export function judge(reader) {
-  const findings = { c1: [], c2: [], c3: [], c4: [], c5: [] }
+  const findings = { c1: [], c2: [], c3: [], c4: [], c5: [], c6: [], c7: [], c8: [], c9: [] }
   let files
   try {
     files = reader.listFiles(CONSUMERS)
@@ -176,6 +228,15 @@ export function judge(reader) {
   }
 
   // 一次批取全部需要的正文(消费面 + 兼容层 + 生成物 + 分包清单 + 页文件)—— 同面同轮(§0.4)
+  // C8 要按"路由 ↔ 页"逐条探存在性,而后者的路径由前者决定 ⇒ 先从同一 reader 取 config 解路由,
+  // 再把候选页并进主批。分两批是为了顺序,面的档位没有变(仍是同一个 reader、同一个 face)。
+  let pageRoutes = []
+  try {
+    const cfgPre = reader.readMany([MP_CONFIG_REL]).get(MP_CONFIG_REL)
+    if (cfgPre != null) pageRoutes = parseMiniappRoutes(cfgPre).routes
+  } catch {
+    pageRoutes = [] // 取不到 ⇒ 主批里仍会因 config 缺失落到「未判定」,这里不抢先定论
+  }
   let contents
   try {
     contents = reader.readMany([
@@ -185,6 +246,9 @@ export function judge(reader) {
       ROUTE_REL,
       MP_CONFIG_REL,
       ...declaredRoutes.map((r) => `${MP_SRC}/${r}.tsx`),
+      // C8 的候选后缀一次批齐(同面同轮):一条路由可能落在 .tsx/.ts/.jsx/.js 任一种
+      ...pageRoutes.flatMap((r) => PAGE_EXTS.map((e) => `${MP_SRC}/${r}${e}`)),
+      shellTypes.OUT_REL,
     ])
   } catch (error) {
     return { state: 'undetermined', reason: `取材失败:${String(error?.message ?? error).slice(0, 120)}`, findings }
@@ -197,7 +261,8 @@ export function judge(reader) {
   // C1 react-native 具名取用 ↔ 兼容层出口
   const rnNames = new Set()
   for (const text of rnText.values()) for (const n of namedImportsFrom(text, 'react-native')) rnNames.add(n)
-  const exported = compatExports(contents)
+  const eff = effectiveExports(contents)
+  const exported = eff.all
   findings.c1 = [...rnNames].filter((n) => !exported.has(n)).sort()
 
   // C2 lucide 取用 ↔ 生成物。两档分别判:
@@ -308,14 +373,84 @@ export function judge(reader) {
     }
   }
 
+  // C6 取用形态维:C5 只管"壳在不在",这一维管"页面按哪种形态引它、壳真有那么出口吗"。
+  // 立因是构建里那批 `export 'default' ... was not found in '@rn-shells/X'` 警告:webpack 不拦,
+  // 页面渲染出来是 undefined —— 声明复用、壳也在,唯独取法错了,前五维全都看不住。
+  const shellTexts = new Map()
+  {
+    const rels = [...new Set([...shellTargets.values()].flatMap((s) => [...s].map(shellTargetRel)))]
+    if (rels.length > 0) {
+      const g = reader.readMany(rels)
+      for (const r of rels) shellTexts.set(r, g.get(r) ?? null)
+    }
+  }
+  for (const rel of shellTargets.keys()) {
+    const bad = mismatchedShellBinding(contents.get(rel) ?? '', (t) => shellTexts.get(t))
+    if (bad) findings.c6.push(`${rel} → ${bad}`)
+  }
+  // C7 桶歧义维:两条 `export *` 撞同名而桶没写显式重导出 ⇒ 该名字谁都拿不到(ESM 歧义语义)。
+  // 这一维不判就等于把 `<Image>` 这类基础组件在小程序端的存在性交给"运气"。
+  findings.c7 = eff.conflicts.map(
+    (n) => `${COMPAT_DIR}/index.ts:「${n}」被多条 export * 同名带出且无显式重导出 ⇒ 消费面按名取用拿到 undefined`,
+  )
+
+  // C8 路由↔页配对维:app.config 在册的每一条路由,页文件必须真在被审面上。
+  // 立因是实测到的一枚悬空路由(d1dc35c331ae 只插了路由行,页文件从未进过任何提交):
+  // `pkg-user/activity-detail/index` 在 HEAD 的 app.config 在册,而 git 全树没有这个页 ⇒ 真机/Taro 侧
+  // 拿到一个解析不到的入口。C1..C7 全部只看"页里写了什么",看不见"路由指向的页根本不在面上"这一型。
+  // 反向那一格(页在而路由不在)不判红:射程外的历史页存量口径未定,判了就是恒红门(§12e)。
+  if (pageRoutes.length === 0) {
+    findings.c8.push(`${MP_CONFIG_REL}:在册路由枚举到 0 条 ⇒ 这一维没看,不得记绿(判据面异常或路由解析坏)`)
+  } else {
+    findings.c8 = pageRoutes
+      .filter((r) => !PAGE_EXTS.some((e) => contents.get(`${MP_SRC}/${r}${e}`) != null))
+      .map((r) => `app.config 在册 /${r} ⇒ ${MP_SRC}/${r}{${PAGE_EXTS.join(',')}} 在被审面上一个都不存在`)
+  }
+
+  // C9 编译期契约维:小程序端那两个只在 webpack 别名里成立的说明符(@rn-shells/* 与 @ihui/rn-app/*)
+  // 必须有一份与面上引用逐字同步的 declare 声明件。立因:tsconfig 的 paths 把别名指到仓库根之外,
+  // 实测 6 枚壳承载页长期 TS2307(在 tsc 眼里等于 any)而构建照过 —— 账面绿、类型面无契约,
+  // 正是造页器 C6 取用形态判据在编译期丢掉的那一半兜底。
+  {
+    const declSrc = contents.get(shellTypes.OUT_REL)
+    if (declSrc == null) {
+      findings.c9.push(`${shellTypes.OUT_REL}:被审面上没有这份派生件 ⇒ 壳承载页在 tsc 里等于 any(跑 node scripts/gen-rn-shell-types.mjs --write)`)
+    } else {
+      const pageTexts = pageRoutes.map((r) => PAGE_EXTS.map((e) => contents.get(`${MP_SRC}/${r}${e}`)).find((t) => t != null) ?? '')
+      const targets = [...new Set(shellTypes.specsOfPages(pageTexts).map((s) => shellTypes.targetOfSpecifier(s)).filter(Boolean))]
+      let tmap
+      try {
+        tmap = reader.readMany(targets)
+      } catch (error) {
+        return { state: 'undetermined', reason: `C9:契约真相源取不到(${String(error?.message ?? error).slice(0, 90)})⇒ 不判`, findings }
+      }
+      const plan = shellTypes.planDeclarations({ pageTexts, readTarget: (rel) => tmap.get(rel) ?? null })
+      for (const u of plan.undetermined) findings.c9.push(`契约无从生成:${u}`)
+      if (plan.undetermined.length === 0 && shellTypes.applyBlock(declSrc, plan.next) !== declSrc) {
+        findings.c9.push(
+          `${shellTypes.OUT_REL}:与面上 ${plan.modules.length} 个说明符不同步 ⇒ 跑 node scripts/gen-rn-shell-types.mjs --write`,
+        )
+      }
+    }
+  }
+
   return {
     state:
-      findings.c1.length + findings.c2.length + findings.c3.length + findings.c4.length + findings.c5.length > 0
+      findings.c1.length +
+        findings.c2.length +
+        findings.c3.length +
+        findings.c4.length +
+        findings.c5.length +
+        findings.c6.length +
+        findings.c7.length +
+        findings.c8.length +
+        findings.c9.length >
+        0
         ? 'red'
         : 'ok',   findings,
     staleIcons,
     staleReuse,
-    measured: { rnNames: rnNames.size, exported: exported.size, lucide: lucideTotal, routes: routeEntries.length, shells: shellTargets.size, files: files.length, declared: declaredRoutes.length },
+    measured: { rnNames: rnNames.size, exported: exported.size, lucide: lucideTotal, routes: routeEntries.length, shells: shellTargets.size, files: files.length, declared: declaredRoutes.length, pageRoutes: pageRoutes.length },
   }
 }
 
@@ -351,34 +486,47 @@ function main() {
     `  C4 结构复用:声明镜像的页 ${m.declared ?? 0} 枚 / 真复用(共享屏或壳)= 本票后应逐轮上涨 / 存量未复用 ${r.staleReuse?.length ?? 0} 枚(只报数) / 本次新违例 ${r.findings.c4.length} 条`,
   )
   console.log(`  C5 壳承载真值:@rn-shells 引用 ${m.shells ?? 0} 条 / 指向不存在的 RN 壳 ${r.findings.c5.length} 条`)
+  console.log(`  C6 取用形态:与壳的真导出对不上的页 ${r.findings.c6.length} 条 / C7 桶歧义名 ${r.findings.c7.length} 个`)
+  console.log(`  C8 路由↔页配对:在册路由 ${m.pageRoutes ?? 0} 条 / 页文件不在被审面上的 ${r.findings.c8.length} 条`)
+  console.log(`  C9 编译期契约:declare 声明件与面上引用不同步 ${r.findings.c9.length} 条`)
   for (const [label, list] of [
     ['C1', r.findings.c1],
     ['C2', r.findings.c2],
     ['C3', r.findings.c3],
     ['C4', r.findings.c4],
     ['C5', r.findings.c5],
+    ['C6', r.findings.c6],
+    ['C7', r.findings.c7],
+    ['C8', r.findings.c8],
+    ['C9', r.findings.c9],
   ]) {
     if (list.length > 0) console.log(`❌ ${label} 缺口逐条:${list.join('  ')}`)
   }
   if (r.state === 'red') {
     console.log(
-      '出路:C1 在 src/rn-compat 补出口(值或类型位都要补);C2 跑 `node scripts/gen-rn-compat.mjs --write`;C3 同上(路由映射由生成器按现读事实重建);C4 把该页改成承载共享屏/壳(或按造页器的拒则摘页);C5 摘掉指向不存在壳的页(连同 app.config 路由与 registry 行一起摘),或先补出同名 RN 壳。禁止为消红放宽判据。',
+      '出路:C1 在 src/rn-compat 补出口(值或类型位都要补);C2 跑 `node scripts/gen-rn-compat.mjs --write`;C3 同上(路由映射由生成器按现读事实重建);C4 把该页改成承载共享屏/壳(或按造页器的拒则摘页);C5 摘掉指向不存在壳的页(连同 app.config 路由与 registry 行一起摘),或先补出同名 RN 壳;C8 二选一 —— 把这条路由从 app.config 摘掉,或按造页器产出该页(页与路由必须同批落,只落一头就是本维判的形态);C9 跑 `node scripts/gen-rn-shell-types.mjs --write` 重生成 declare 声明件(别手改那份派生件)。禁止为消红放宽判据。',
     )
     process.exit(1)
   }
-  console.log('✅ 四维覆盖对账通过(消费面取用全集 ⊆ 兼容层/生成物,映射目标全在册,声明镜像页无新增"声明不复用");')
+  console.log('✅ 覆盖对账通过(各维条数见上行;维度条数不在文案里数,数一次过期一次 —— 以代码为准)')
   process.exit(0)
 }
 
 /** 自检:用纯判据函数证明"摘掉即翻红"(§22c 同形;夹具不落盘) */
 function selfTestCases() {
+  // C9 的反控需要一份"与面上引用同步"的 declare 件:这枚登录页没有壳引用 ⇒ 空覆盖面也是一份合法派生件。
+  const emptyDecl = shellTypes.planDeclarations({ pageTexts: [], readTarget: () => null }).next
   const base = {
     'packages/app/src/Control.tsx': `import { View, StyleSheet } from 'react-native'\nimport { Heart } from 'lucide-react-native'\n`,
-    [`${COMPAT_DIR}/index.ts`]: `export const StyleSheet = {}\nexport type ViewStyle = unknown\n`,
+    // 桶必须写成"真桶"形态(星号 + 显式):新语义按桶的有效出口判,并集读法下这份夹具曾经是假的
+    [`${COMPAT_DIR}/index.ts`]: `export * from './primitives'\nexport * from './icons-generated'\nexport const StyleSheet = {}\nexport type ViewStyle = unknown\n`,
     [`${COMPAT_DIR}/primitives.tsx`]: `export const View = () => null\nexport const Text = () => null\n`,
     [`${COMPAT_DIR}/icons-generated.tsx`]: `export const Heart = null\n`,
     [`${COMPAT_DIR}/route-map.generated.ts`]: `export const RN_ROUTE_MAP = {\n  'Login': '/pkg-user/login/index',\n}\n`,
-    'apps/miniapp-taro/src/app.config.ts': `subpackages: [{ root: 'pkg-user', pages: ['login/index'] }]\n`,
+    'apps/miniapp-taro/src/app.config.ts': `subPackages: [{ root: 'pkg-user', pages: ['login/index'] }]\n`,
+    // C8 的对照面:路由在册的这条必须真有页,否则"覆盖齐 ⇒ ok"这一例判的就不是覆盖齐。
+    'apps/miniapp-taro/src/pkg-user/login/index.tsx': `export default function Login() {\n  return null\n}\n`,
+    [shellTypes.OUT_REL]: emptyDecl,
   }
   const reader = (overrides) => {
     const face = { ...base, ...overrides }
@@ -394,7 +542,22 @@ function selfTestCases() {
       name: 'C1 摘掉 StyleSheet 出口 ⇒ 点名 1 枚',
       want: 1,
       got: () =>
-        judge(reader({ [`${COMPAT_DIR}/index.ts`]: `export type ViewStyle = unknown\n` })).findings.c1.length,
+        judge(
+          // 只摘 StyleSheet 那一行。新语义下"整条桶只剩一行类型"会把所有星号出口一起抹掉,
+          // 那测的就不是 StyleSheet 这一格(两种失效各留各的例)。
+          reader({
+            [`${COMPAT_DIR}/index.ts`]: String(base[`${COMPAT_DIR}/index.ts`] ?? '')
+              .split('\n')
+              .filter((l) => !/StyleSheet/.test(l))
+              .join('\n'),
+          }),
+        ).findings.c1.length,
+    },
+    {
+      name: 'C1 并集读法的盲区:桶只剩一行类型时,星号出口一律不在册(摘掉 style 那行的旧读法会顶绿)',
+      want: true,
+      got: () =>
+        judge(reader({ [`${COMPAT_DIR}/index.ts`]: 'export type ViewStyle = unknown\n' })).findings.c1.length > 1,
     },
     {
       name: 'C2 生成物换成别的图标 ⇒ 点名 1 枚',
@@ -411,6 +574,58 @@ function selfTestCases() {
             [`${COMPAT_DIR}/route-map.generated.ts`]: `export const RN_ROUTE_MAP = {\n  'Ghost': '/pkg-user/ghost/index',\n}\n`,
           }),
         ).findings.c3.length,
+    },
+    {
+      name: 'C7 桶歧义名:两条 export * 同名且无显式重导出 ⇒ 点名(并集读法会把它当成已覆盖)',
+      want: 1,
+      got: () => judge(reader(c7Fixture(false))).findings.c7.length,
+    },
+    {
+      name: 'C7 反向对照:桶写了显式重导出压歧义 ⇒ 不判(否则消红无路可走)',
+      want: 0,
+      got: () => judge(reader(c7Fixture(true))).findings.c7.length,
+    },
+    {
+      name: 'C8 路由在册而页不在面 ⇒ 点名(实测悬空路由型:只插了路由行,页从未进提交)',
+      want: 1,
+      got: () =>
+        judge(reader({ 'apps/miniapp-taro/src/pkg-user/login/index.tsx': null })).findings.c8.filter((x) =>
+          x.includes('pkg-user/login/index'),
+        ).length,
+    },
+    {
+      name: 'C8 反向对照:页与路由同批在面 ⇒ 不判',
+      want: 0,
+      got: () => judge(reader({})).findings.c8.length,
+    },
+    {
+      name: 'C8 路由枚举到 0 条 ⇒ 点名不记绿(解析坏掉不能读成"没有缺口")',
+      want: 1,
+      got: () =>
+        judge(reader({ 'apps/miniapp-taro/src/app.config.ts': `subPackages: []\n` })).findings.c8.filter((x) =>
+          x.includes('枚举到 0 条'),
+        ).length,
+    },
+    {
+      name: 'C9 契约落后:页面新引 @rn-shells/* 而声明件没这一格 ⇒ 点名',
+      want: 1,
+      got: () =>
+        judge(
+          reader({
+            'apps/miniapp-taro/src/pkg-user/login/index.tsx': `import S from '@rn-shells/LoginScreen'\nexport default function Login() {\n  return null\n}\n`,
+            'apps/mobile-rn/src/screens/LoginScreen.tsx': 'export const LoginScreen = () => null\n',
+          }),
+        ).findings.c9.filter((x) => x.includes('不同步')).length,
+    },
+    {
+      name: 'C9 反向对照:声明件与面上引用逐字同步 ⇒ 不判',
+      want: 0,
+      got: () => judge(reader({})).findings.c9.length,
+    },
+    {
+      name: 'C9 派生件整份不在面 ⇒ 点名(不得读成"没有壳引用所以没事")',
+      want: 1,
+      got: () => judge(reader({ [shellTypes.OUT_REL]: null })).findings.c9.filter((x) => x.includes('没有这份派生件')).length,
     },
     {
       name: '生成物不在面 ⇒ 未判定(不记绿)',
@@ -436,5 +651,5 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { judge, namedImportsFrom, compatExports, makeReader, faceFlags }
+export const __test__ = { judge, namedImportsFrom, compatExports, effectiveExports, ownExports, makeReader, faceFlags }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

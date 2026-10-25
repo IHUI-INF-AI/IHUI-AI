@@ -68,7 +68,8 @@ describe('File:同步读写(Storage 承载)', () => {
     expect(() => f.write(new Uint8Array([1, 2, 3]))).not.toThrow()
     expect(f.exists).toBe(true)
     const hits = warn.mock.calls.filter((c) => String(c[0]).includes('二进制'))
-    expect(hits.length).toBeLessThanOrEqual(1, '同一告警只应出现一次,避免逐帧刷屏')
+    // 同一告警只应出现一次,避免逐帧刷屏(vitest 的匹配器不收消息参数,意图写在这儿)
+    expect(hits.length).toBeLessThanOrEqual(1)
   })
 
   it('delete 之后 exists=false', () => {
@@ -90,7 +91,8 @@ describe('nativewind colorScheme', () => {
     colorScheme.set('dark')
     expect(colorScheme.get()).toBe('dark')
     colorScheme.set('system')
-    expect(colorScheme.get()).toBe('dark', 'system = 交还控制权,不应清空已解析档')
+    // system = 交还控制权,不应清空已解析档
+    expect(colorScheme.get()).toBe('dark')
     colorScheme.set('light')
     expect(colorScheme.get()).toBe('light')
   })
@@ -124,7 +126,8 @@ describe('expo-device / linking / web-browser 的降级语义', () => {
   it('openAuthSessionAsync 显式按取消返回,绝不假装 success', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const r = await openAuthSessionAsync('https://x', 'ihui-miniapp://cb')
-    expect(r).toEqual({ type: 'cancel' }, '假装成功会让调用方等一个永不到的回跳')
+    // 假装成功会让调用方等一个永不到的回跳
+    expect(r).toEqual({ type: 'cancel' })
     expect(warn.mock.calls.some((c) => String(c[0]).includes('认证会话'))).toBe(true)
   })
 })

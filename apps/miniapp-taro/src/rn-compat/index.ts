@@ -16,10 +16,33 @@
  *  - 语义降级处(Animated 补间、lucide strokeWidth)在各自文件里点名,不静默。
  */
 import Taro from '@tarojs/taro'
+// React 19 起全局 JSX 命名空间不再存在,`JSX.Element` 必须从 react 显式取类型位
+import type { JSX } from 'react'
 
 export * from './primitives'
 export * from './apis'
 export * from './icons-generated'
+
+/**
+ * 星号导出的重名消歧(必须写成显式出口,顺序无关):
+ * `Image`(primitives vs 图标 Image)、`Keyboard`(apis 的 Keyboard 模块 vs 图标 Keyboard)在
+ * 三条 `export *` 里同名 ⇒ ESM 语义下**歧义名两侧都不出口**,消费面 `<Image source=…>` 直接拿到 undefined。
+ * 构建里那两条 "conflicting star exports for the name …" 警告就是这个,不是噪音。
+ * 显式重导出压过歧义:组件语义归 primitives,系统键盘归 apis;图标要叫 Image 时走 `@rn-shells` 之外的
+ * lucide 出口(lucide-react-native$ 直接指 icons-generated,不经本桶,故图标名不受影响)。
+ */
+export { Image } from './primitives'
+export { Keyboard } from './apis'
+
+/**
+ * RN 的 findNodeHandle 在小程序里没有对应物(没有原生 view tag)。
+ * 现读有 node_modules 侧的库按名取用它(构建里报 "export 'findNodeHandle' was not found in 'react-native'"),
+ * 缺这一格时那条路径会在运行时拿到 undefined 去调用 ⇒ 这里给出**点名的降级**:返回 null,
+ * 与 Animated 那档同一纪律(降级必须可见,不能变成缺失)。
+ */
+export function findNodeHandle(_componentOrRef?: unknown): number | null {
+  return null
+}
 
 export { StyleSheet } from './style'
 export type { ViewStyle, TextStyle, ImageStyle, StyleProp } from './style'
