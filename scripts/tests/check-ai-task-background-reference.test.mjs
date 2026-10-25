@@ -79,7 +79,7 @@ ok('形状锁:被迁移三文件无裸 create_task', () => {
 })
 
 ok('形状锁:出口 importer 数与 gate HEAD 现读一致(装车非声称)', () => {
-  const out = execFileSync('git', ['grep', '-l', 'background_tasks import', '--', 'apps/ai-service/app'], { cwd: ROOT, encoding: 'utf8' })
+  const out = execFileSync('git', ['grep', '-l', 'background_tasks import', '--', 'apps/ai-service/app'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   const importers = out.split(/\r?\n/).filter(Boolean)
   assert.ok(importers.length >= 10, `importer ${importers.length} < 10 —— 迁移波没走完就别说收口`)
 })
