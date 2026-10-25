@@ -255,6 +255,11 @@ export { ChatRoomScreen, detectChatRoomMediaType } from './features/chat-room/Ch
  * error-any,连锁 TS2724 + TS7006 共 4 错(CI 实测 run 37105480849);文件本身从未删除,
  * 恢复 value 导出即根治。类型契约 ChatScreen* 仍自 ./types 导出。 */
 export { ChatScreen } from './features/chat/ChatScreen'
+/** G-403/G-225(2026-10-25):上下文占用归因面板单独导出 —— RN 主聊天屏自绘导航栏并传
+ * `showModelBar={false}`,走不到 ChatScreen 内部那一处渲染位,缓存两维因此在 RN 无入口。
+ * 导出的是**同一个组件**(不是第三份实现):web 用 ring、小程序用归因条、RN 用这块面板,
+ * 三者共用 computeContextAttribution 与同一套三态口径(数字含 0=真回报,null=没采到)。 */
+export { ContextUsagePanel } from './features/chat/ContextUsagePanel'
 /** 批次 35(2026-08-15):账号注销/充值/分类详情/课程星球/开发者入口/分销订单/知识星球/学习中心/更多课程/需求广场(10 屏迁移自 mobile-rn) */
 export { AccountCancelScreen } from './features/account-cancel/AccountCancelScreen'
 export { AppTopupScreen } from './features/app-topup/AppTopupScreen'
