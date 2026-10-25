@@ -38,8 +38,9 @@ export default function Avatar({
   onClick,
 }: AvatarProps) {
   const sizeClass = SIZES[size]
-  // 圆角对齐 RN ui-native/avatar.tsx:circle→rounded-2xl,其余('square'|'rounded')→rounded-lg
-  const shapeClass = shape === 'circle' ? 'rounded-2xl' : 'rounded-lg'
+  // 圆角取自跨端唯一表 AVATAR_SHAPE_STEP(circle→md / square→lg),与 web/RN 三端同形;
+  // 项目规则:头像外层容器禁止 rounded-full,统一 rounded-md,故 circle 档 = rounded-md
+  const shapeClass = shape === 'circle' ? 'rounded-md' : 'rounded-lg'
   // 首字母缩写对齐 RN:按空格分词、各词首字母、最多 2 个、大写(中文名无空格取首字;空名留空)
   const initials = name
     ? name
