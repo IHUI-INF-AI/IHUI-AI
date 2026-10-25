@@ -167587,6 +167587,15 @@
         }
       }
     },
+    "/api/user/email/bind": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/user/feedback": {
       "post": {
         "responses": {
@@ -167764,6 +167773,15 @@
       }
     },
     "/api/user/password": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/user/phone/bind": {
       "post": {
         "responses": {
           "200": {

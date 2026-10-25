@@ -569,7 +569,7 @@ function Reset-DivergedStreak {
 function Get-DivergenceRemedy {
     param([string]$RemoteTip)
     # 只读量三条判据,把"能不能安全对齐"的结论连同**可直接粘贴的**补救一起交给人。
-    # 为什么不自动做:自动对生产签出 reset --hard 等于让机器动 ref,需要独立评审与自己的
+    # 为什么不自动做:自动对生产签出做强制硬重置等于让机器动 ref,需要独立评审与自己的
     #   判据链,不在这里顺手装。
     # 为什么必须做这条:2026-10-24 实测分叉连挡 111 轮 / 7.3 小时才被人手工解掉,期间
     #   告警一直在寄(15 分钟宽限窗后转正式),但信里只有"需人工收敛",没有"收敛该敲什么"
@@ -599,7 +599,7 @@ function Get-DivergenceRemedy {
             if ($dirty.Count -gt 0) {
                 $lines += "  3) 先把未提交副本留底(它挡住也证明有人在写):$(@($dirty | Select-Object -First 3 | ForEach-Object { $_.Trim() }) -join ' | ')"
             }
-            $lines += "  4) git fetch origin main && git reset --hard $RemoteTip"
+            $lines += "  4) cd $Root && node scripts/git-sync-converge.mjs   # §12d 唯一出口:索引层收敛到 $RemoteTip,零触碰他人未提交文件"
             $lines += "  5) node scripts/deploy-lock.mjs release --mode build --token <第 1 步的 token>,然后等下一轮自己构建"
         }
         return ($lines -join "`n")

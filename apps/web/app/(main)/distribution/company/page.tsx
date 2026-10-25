@@ -4,6 +4,7 @@
 
 'use client'
 
+import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -35,7 +36,7 @@ import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
-const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
+const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
 
 async function apiOverview(): Promise<CommissionOverview> {
   const r = await getOverview()
@@ -148,88 +149,91 @@ export default function DistributionCompanyPage() {
       {!allow ? (
         <AuthGatePrompt message="请先登录后查看分销数据" />
       ) : (
-      <>
-      <Card>
-        <CardContent className="min-[640px]:p-3 flex flex-wrap items-center justify-between gap-4 p-3">
-          <div className="flex items-center gap-3">
-            {loading ? (
-              <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-            ) : (
-              <Avatar src={user?.avatar} fallback={initials} name={user?.nickname} size="lg" />
-            )}
-            <div className="space-y-1">
-              <div className="text-lg font-semibold">{user?.nickname ?? '-'}</div>
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
-                  'bg-primary/10 text-primary',
-                )}
-              >
-                <Crown className="h-3 w-3" />
-                {t('levelLabel')}: {level}
-              </span>
-            </div>
-          </div>
-          <Link href="/wallet/withdraw">
-            <Button>
-              <ArrowDownToLine className="h-4 w-4" />
-              {t('withdraw')}
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
-        {stats.map((s) => {
-          const Icon = s.icon
-          return (
-            <Card key={s.label}>
-              <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{s.label}</span>
-                  <Icon className={cn('h-4 w-4', s.tone)} />
-                </div>
+        <>
+          <Card>
+            <CardContent className="min-[640px]:p-3 flex flex-wrap items-center justify-between gap-4 p-3">
+              <div className="flex items-center gap-3">
                 {loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
                 ) : (
-                  <div
-                    className={cn('text-xl font-bold tracking-tight min-[768px]:text-2xl', s.tone)}
+                  <Avatar src={user?.avatar} fallback={initials} name={user?.nickname} size="lg" />
+                )}
+                <div className="space-y-1">
+                  <div className="text-lg font-semibold">{user?.nickname ?? '-'}</div>
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                      'bg-primary/10 text-primary',
+                    )}
                   >
-                    {s.value}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      <Card>
-        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-base font-semibold">
-              <Users className="h-4 w-4 text-primary" />
-              {t('teamOverview')}
-            </h2>
-            <Link href="/distribution/team" className="text-sm text-primary hover:underline">
-              {t('viewDetail')}
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
-            {teamStats.map((s) => (
-              <div key={s.label} className="rounded-lg bg-muted/40 px-4 py-3 text-center">
-                <div className="text-xs text-muted-foreground">{s.label}</div>
-                {loading ? (
-                  <Loader2 className="mx-auto mt-1 h-5 w-5 animate-spin text-muted-foreground" />
-                ) : (
-                  <div className="mt-1 text-2xl font-bold">{s.value}</div>
-                )}
+                    <Crown className="h-3 w-3" />
+                    {t('levelLabel')}: {level}
+                  </span>
+                </div>
               </div>
-            ))}
+              <Link href="/wallet/withdraw">
+                <Button>
+                  <ArrowDownToLine className="h-4 w-4" />
+                  {t('withdraw')}
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
+            {stats.map((s) => {
+              const Icon = s.icon
+              return (
+                <Card key={s.label}>
+                  <CardContent className="min-[640px]:p-3 space-y-2 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">{s.label}</span>
+                      <Icon className={cn('h-4 w-4', s.tone)} />
+                    </div>
+                    {loading ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <div
+                        className={cn(
+                          'text-xl font-bold tracking-tight min-[768px]:text-2xl',
+                          s.tone,
+                        )}
+                      >
+                        {s.value}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
-        </CardContent>
-      </Card>
-      </>
+
+          <Card>
+            <CardContent className="min-[640px]:p-3 space-y-4 p-3">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-base font-semibold">
+                  <Users className="h-4 w-4 text-primary" />
+                  {t('teamOverview')}
+                </h2>
+                <Link href="/distribution/team" className="text-sm text-primary hover:underline">
+                  {t('viewDetail')}
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
+                {teamStats.map((s) => (
+                  <div key={s.label} className="rounded-lg bg-muted/40 px-4 py-3 text-center">
+                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                    {loading ? (
+                      <Loader2 className="mx-auto mt-1 h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <div className="mt-1 text-2xl font-bold">{s.value}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   )

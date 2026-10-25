@@ -9,6 +9,7 @@
  * 四个工作台:企业认证审核 / 发票开具 / 企业合同 / 对公打款确认。
  * 对公确认后端复用既有支付闭环(completeOrder + activateOrderSubscription,订阅自动激活)。
  */
+import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Loader2, RefreshCw } from 'lucide-react'
@@ -71,7 +72,7 @@ interface ListResp<T> {
   total: number
 }
 
-const yuan = (c: number) => `¥${(c / 100).toFixed(2)}`
+const yuan = (c: number) => `¥${formatPrice(c)}`
 
 const TABS = [
   { key: 'profiles', label: '企业认证' },
