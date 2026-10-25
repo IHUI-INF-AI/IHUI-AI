@@ -28,7 +28,9 @@ import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { sanitizeHexRuns } from './lib/triage-doc-line.mjs'
-import { clusterSignals, loadContract, normalizeSignature, validateSignal, windowOf } from './lib/incident-cluster.mjs'
+import { clusterSignals, loadContract, validateSignal, windowOf } from './lib/incident-cluster.mjs'
+// 归一签名的唯一定义在 auto-triage.mjs(该文件头注:"判据只有这一份");此处只引,不复制。
+import { normalizeSignature } from './auto-triage.mjs'
 
 /** 末行前缀 —— 机器读末行,人不猜。 */
 export const RESULT_PREFIX = 'TRIAGE-RESULT'
