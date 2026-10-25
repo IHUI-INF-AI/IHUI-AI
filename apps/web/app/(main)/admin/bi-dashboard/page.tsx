@@ -239,25 +239,29 @@ export default function BiDashboardPage() {
         })}
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">7 天趋势</CardTitle>
-          <p className="text-xs text-muted-foreground">营收与订单变化</p>
-        </CardHeader>
-        <CardContent>
-          <EChart option={trendOption} loading={isLoading} />
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">7 天趋势</CardTitle>
+            <p className="text-xs text-muted-foreground">营收与订单变化</p>
+          </CardHeader>
+          <CardContent>
+            <EChart option={trendOption} loading={isLoading} height={280} />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">近 7 日访问趋势</CardTitle>
-          <p className="text-xs text-muted-foreground">每天被打开多少次（PV）与多少人到访（UV）</p>
-        </CardHeader>
-        <CardContent>
-          <EChart option={visitTrendOption} loading={isLoading} />
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">近 7 日访问趋势</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              每天被打开多少次（PV）与多少人到访（UV）
+            </p>
+          </CardHeader>
+          <CardContent>
+            <EChart option={visitTrendOption} loading={isLoading} height={280} />
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
