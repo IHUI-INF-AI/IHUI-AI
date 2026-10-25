@@ -139,10 +139,11 @@ export function rewriteFile(src, sites) {
 }
 
 function collect(face) {
+  // 枚举:工作树与索引都按 ls-files(索引面就是 ls-files 的那张表);HEAD 面才用 ls-tree
   const files = SCAN_FACES.flatMap((d) =>
-    (face === 'worktree'
-      ? git(['ls-files', '--', d])
-      : git(['ls-tree', '-r', '--name-only', face === 'staged' ? '--' : 'HEAD', '--', d])
+    (face === 'head'
+      ? git(['ls-tree', '-r', '--name-only', 'HEAD', '--', d])
+      : git(['ls-files', '--', d])
     )
       .split('\n')
       .filter((p) => /\.(tsx|ts)$/.test(p)),
@@ -162,7 +163,7 @@ function collect(face) {
   const { byNorm, paletteSize } = buildIndex(rnText, cssText)
   const all = []
   for (const r of files) all.push(...sitesOf(r, contents.get(r) ?? '', byNorm))
-  return { all, paletteSize, contents }
+  return { all, paletteSize, contents, byNorm }
 }
 function prefix0(face) {
   return face === 'staged' ? ':' : 'HEAD:'
@@ -261,14 +262,116 @@ const s = StyleSheet.create({ scrim: { backgroundColor: 'rgba(0,0,0,0.5)' } })
       mRw.src.includes('  rnType,'),
   )
 
+  // T10 拦新增的正反控:同值字面量在"本枚改过的文件"里从 0→1 ⇒ fresh;未改动的文件一律不算本枚的账
+  const mkSite = (rel, line) => ({ rel, line, raw: 'rgba(0,0,0,0.5)', key: 'black50', ambiguous: false, needsTheme: false })
+  const twoSites = [mkSite('a.tsx', 1), mkSite('b.tsx', 2)]
+  const ratchetFresh = checkRatchet({
+    face: 'staged',
+    changedRels: new Set(['a.tsx']),
+    sites: twoSites,
+    sitesOfBase: new Map([['a.tsx', 0]]),
+  })
+  const ratchetQuiet = checkRatchet({
+    face: 'staged',
+    changedRels: new Set(['a.tsx']),
+    sites: twoSites,
+    sitesOfBase: new Map([['a.tsx', 1]]),
+  })
+  ok(
+    'T10 拦新增:改过的文件 0→1 即点名;1→1 不报;未改动文件(b.tsx)只进存量不进本枚账',
+    ratchetFresh.fresh.length === 1 &&
+      ratchetFresh.fresh[0].rel === 'a.tsx' &&
+      ratchetQuiet.fresh.length === 0 &&
+      ratchetFresh.stock === 2 &&
+      ratchetFresh.checked === 1,
+  )
+
   const failed = results.filter((r) => r.startsWith('❌')).length
   for (const r of results) console.log(r)
   console.log(failed ? `❌ 自检 ${results.length - failed}/${results.length}` : `✅ self-test 全通过(${results.length} 条)`)
   process.exit(failed ? 1 : 0)
 }
 
+/**
+ * 拦新增(守门 255 的判据):被审面上"可机械改走源档"的字面量,只按**本枚改动过的文件**计数。
+ *
+ * 为什么按改动集而不是全数:① 全数存量由这一批之前的历史造成(现读 34 处已在 b853339 一次清完,
+ *   剩 5 处歧义待人工命名),拿它拦别人的提交就是 §12e 的恒红门;② 未改动的文件在这一枚里内容逐字节不变,
+ *   它的命中数结构上不可能变 ⇒ 只需为改动过的那几枚文件取上一面的数,判据既准又便宜。
+ * 但必须如实报全数存量 —— 只报"本枚新增 0"而藏住存量,等于把治理面读成已归零。
+ *
+ * @returns {{fresh:Array,stock:number,checked:number,face:string,base:string}}
+ */
+export function checkRatchet({ face, changedRels, sites, sitesOfBase }) {
+  const fresh = []
+  for (const s of sites) {
+    if (s.ambiguous || s.needsTheme) continue
+    if (!changedRels.has(s.rel)) continue
+    const before = sitesOfBase.get(s.rel) ?? 0
+    const now = sites.filter((x) => x.rel === s.rel && !x.ambiguous && !x.needsTheme).length
+    if (now > before) {
+      fresh.push({ ...s, before, now })
+      // 同一枚文件只点一次,附前后计数(逐处再列会淹没归因)
+      sitesOfBase.set(s.rel, now)
+    }
+  }
+  return { fresh, stock: sites.filter((s) => !s.ambiguous && !s.needsTheme).length, checked: changedRels.size, face, base: face === 'staged' ? 'HEAD' : 'HEAD^' }
+}
+
+/** 提交链档:被审面(索引或 HEAD)对上一面,只按本枚改过的文件比命中数。 */
+function runCheck(face) {
+  const baseRef = face === 'staged' ? 'HEAD' : 'HEAD^'
+  const { all, paletteSize, byNorm } = collect(face)
+  let changedRaw
+  try {
+    changedRaw = git([
+      'diff',
+      ...(face === 'staged' ? ['--cached'] : []),
+      '--name-only',
+      baseRef,
+      '--',
+      ...SCAN_FACES,
+    ])
+  } catch (e) {
+    console.log(`❌ 未判定:改动集取不到(${String(e?.message ?? e).slice(0, 120)})——不记绿也不冒红`)
+    return 2
+  }
+  const changed = new Set(changedRaw.split('\n').filter((p) => /\.(tsx|ts)$/.test(p)))
+  if (changed.size === 0) {
+    console.log(
+      `[fix-color-literals] ✅ 本枚未新增可走源档的色值字面量(射程内改动文件 0 枚 ⇒ 不适用,不等于全仓归零;全数存量 ${all.filter((s) => !s.ambiguous && !s.needsTheme).length} 处,覆盖面档 ${paletteSize})`,
+    )
+    return 0
+  }
+  const sitesOfBase = new Map()
+  for (const rel of changed) {
+    let t = ''
+    try {
+      t = git(['show', `${baseRef}:${rel}`])
+    } catch {
+      t = '' // 新建文件:上一面没有 ⇒ 基线 0 处(新建里写死字面量同样该拦)
+    }
+    sitesOfBase.set(rel, sitesOf(rel, t, byNorm).filter((s) => !s.ambiguous && !s.needsTheme).length)
+  }
+  const r = checkRatchet({ face, changedRels: changed, sites: all, sitesOfBase })
+  for (const f of r.fresh)
+    console.log(
+      `✗ ${f.rel}:${f.line} 新写死 ${JSON.stringify(f.raw)}(源里有档 rnCssLight.${f.key})⇒ 该走源档;本枚把这枚文件从 ${f.before} 处抬到 ${f.now} 处`,
+    )
+  const line = r.fresh.length
+    ? `❌ 本枚新增 ${r.fresh.length} 处可机械改走源档的字面量(检查 ${r.checked} 枚改动文件;全数存量 ${r.stock} 处)`
+    : `✅ 本枚零新增:检查 ${r.checked} 枚改动文件,全数存量 ${r.stock} 处只报数(存量治理归替换器 --apply)`
+  console.log(line)
+  if (argv.includes('--json'))
+    console.log(JSON.stringify({ summary: { face, base: r.base, checked: r.checked, fresh: r.fresh.length, stock: r.stock } }))
+  return r.fresh.length ? 1 : 0
+}
+
 function main() {
   if (argv.includes('--self-test')) return selfTest()
+  const isCheck = argv.includes('--check')
+  const isStaged = argv.includes('--staged')
+  if (isCheck) return runCheck(isStaged ? 'staged' : 'head')
   const face = argv.includes('--apply') ? 'worktree' : 'head'
   const { all, paletteSize } = collect(face)
   const { safe, ambiguous, needsTheme } = splitBuckets(all)
@@ -377,5 +480,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { ensureImport, rewriteFile, sitesOf, splitBuckets, buildIndex }
+export const __test__ = { ensureImport, rewriteFile, sitesOf, splitBuckets, buildIndex, checkRatchet }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
