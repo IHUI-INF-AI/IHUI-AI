@@ -4,6 +4,7 @@
 
 'use client'
 
+import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -44,7 +45,7 @@ async function safeFetch<T>(url: string, fallback: T): Promise<T> {
   }
 }
 
-const fmtYuan = (n: number) => `¥${(n / 100).toFixed(2)}`
+const fmtYuan = (n: number) => `¥${formatPrice(n)}`
 
 export default function AdminDistributionPage() {
   const ovQ = useQuery({

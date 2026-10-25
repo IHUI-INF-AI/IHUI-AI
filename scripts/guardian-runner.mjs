@@ -5542,6 +5542,27 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 显示层分→元格式化单一出口(2026-10-26 立;20 份 fmtYuan 型副本收口后防复活)---
+  {
+    id: '248',
+    label:
+      '💴 显示层分→元格式化只许一个出口(blocking;M1 本地自算定义 ⇒ 绝对零容忍(存量本波清零)/ M2 行内定长格式化 ⇒ 差值棘轮只拦新增 / M3 唯一出口无人 import ⇒ 造好未装车)',
+    script: 'check-money-display-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/'],
+    skipEnv: 'HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE',
+    onFailHint: [
+      '',
+      '  💡 `¥${(n/100).toFixed(2)}` 同形曾被逐字复制 20 份(改单位口径要 20 处手改,漏一处=该页 100 倍显示事故;',
+      '     分销族 46758b5b2b8 的"分当元"批修即同型受害者)。出口:import { formatPrice } from @ihui/shared/utils;',
+      '     委托转发(¥${formatPrice(n)})合法,数字换算(返回 number)出射程;行内定长存量走 ratchet 只报数。',
+      '     --self-test 10 例 / 镜像 scripts/tests/check-money-display-single-source.test.mjs。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
 
   // --- 身份主体单一真相源(2026-10-25 立;crew/knowledge 匿名越权族根治)(1 项,blocking)---
   {
