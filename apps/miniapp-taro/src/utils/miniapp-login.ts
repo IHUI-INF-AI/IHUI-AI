@@ -22,7 +22,7 @@ import {
   isWeapp,
   isAlipay,
 } from '../platform'
-import { loginByWechat, loginByAlipay } from '../api'
+import { loginByWechat } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo, type LoginResult } from './auth'
 import { useUserStore } from '../stores/user'
 import { requireLoginSession, type LoginSessionReply } from './login-session'
@@ -57,13 +57,16 @@ export async function miniAppLogin(options: MiniAppLoginOptions = {}): Promise<M
   const { code, platform } = await platformLogin()
   if (!code) throw new Error(t('utilsMiniapplogin.q2'))
 
-  // 2. 调后端换 token(根据平台走不同接口)
-  let result: LoginResult
-  if (platform === 'weapp') {
-    result = await loginByWechat(code)
-  } else {
-    result = (await loginByAlipay(code)) as LoginResult
-  }
+  // 2. 调后端换 token
+  // 支付宝支路当场拒,不发请求:后端注册面现读 0 条 `/api/auth/alipay/login`(只有
+  // `GET /api/auth/alipay/config`、`GET /api/auth/alipay/pc/wxCode`,语义都不是"换票"),
+  // 原先 `loginByAlipay(code)` 每次都是 404 ⇒ 支付宝小程序端"登录"从来就没通过,
+  // 而失败被 `catch` 折成一句通用错,没人看得出这一格是空的。
+  // 要真开通:照 `/auth/wechat/mini/phone` 的形态补一条"authCode→buyerId→三方账号→发票"的路由
+  // (`POST /payments/alipay/miniapp/exchange-buyer-id` 已有 authCode 换 buyerId 的那半)。
+  if (platform !== 'weapp') throw new Error(t('login.loginFailed'))
+  const result: LoginResult = await loginByWechat(code)
+
   // 与 utils/wechat-login.ts 同一把尺子:未绑定 openid 的答复里没有 user,判在任何读取与落盘之前。
   requireLoginSession(result as LoginSessionReply, {
     notBound: t('login.wechatNotBound'),

@@ -9,7 +9,7 @@ import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
-import { get, post } from '@/api'
+import { get } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
@@ -64,7 +64,7 @@ export default function N8nModel() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [n8nFileName, setN8nFileName] = useState('')
-  const [n8nFileData, setN8nFileData] = useState<unknown>(null)
+  const [, setN8nFileData] = useState<unknown>(null)
   const [n8nUrl, setN8nUrl] = useState('')
   const [inputParams, setInputParams] = useState<Param[]>([newParam()])
   const [outputParams, setOutputParams] = useState<Param[]>([newParam()])
@@ -255,48 +255,17 @@ export default function N8nModel() {
     if (submitting) return
     if (!validate()) return
     setSubmitting(true)
-    const formData = {
-      agentName: name.trim(),
-      agentDescription: description.trim(),
-      agentAvatar: avatar,
-      agentUrl: n8nUrl.trim(),
-      agentN8nJson: n8nFileData,
-      agentVariablesIn: JSON.stringify(
-        inputParams.map((p) => ({
-          parameterName: p.name.trim(),
-          type: p.type,
-          parameterDescription: p.description.trim(),
-          Default: p.defaultValue,
-        })),
-      ),
-      agentVariablesOut: JSON.stringify(
-        outputParams.map((p) => ({
-          parameterName: p.name.trim(),
-          type: p.type,
-          parameterDescription: p.description.trim(),
-          Default: p.defaultValue,
-        })),
-      ),
-    }
-    try {
-      await post('/developer/n8n-agents', formData)
-      Taro.showToast({
-        title: tt('devEnter.n8nModel.createSuccess', '智能体创建成功'),
-        icon: 'success',
-      })
-    } catch (e) {
-      logger.error('n8n-model', '创建N8N智能体', e)
-      Taro.showToast({
-        title: tt('devEnter.n8nModel.mockSuccess', '接口暂未开放,已模拟创建'),
-        icon: 'success',
-      })
-    } finally {
-      setSubmitting(false)
-      setTimeout(() => {
-        setView('list')
-        loadList()
-      }, 1200)
-    }
+    // 后端从未注册 `POST /api/developer/n8n-agents`(oracle 现读:`/api/developer/n8n*` 0 命中)。
+    // 名字最接近的 `POST /api/ai/n8n/addAgent/db` 要 `agentModel`+`connectorUserId`,且**不落**
+    // 本屏填的 agentUrl / agentN8nJson ⇒ 改指过去等于把用户刚贴进来的工作流 JSON 静默丢掉,
+    // 比 404 更坏,所以这里不发请求。
+    // 旧形态是 `catch → toast(「接口暂未开放,已模拟创建」, icon:'success') → 跳回列表并刷新`,
+    // 那是把"一个都没创建成功"渲染成"创建成功"(§30:没有终态不许渲染成完成),现改为如实报错、留在本页。
+    setSubmitting(false)
+    Taro.showToast({
+      title: tt('devEnter.n8nModel.mockSuccess', 'n8n 智能体接口未开放,本次创建未生效'),
+      icon: 'error',
+    })
   }
 
   const renderDefaultInput = (p: Param, which: 'in' | 'out', index: number) => {
