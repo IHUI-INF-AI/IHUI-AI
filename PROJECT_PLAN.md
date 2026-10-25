@@ -28855,6 +28855,27 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] （进行中@2026-10-24/qoder-maxpar）B03. 权限双轴化(`sandbox_mode` × `approval_policy`)+ config profiles(对齐 Codex 2026;起点是已有的 `packages/types/src/permission-mode.ts` 跨语言真源) 〔PROGRESS 2026-10-01(契约层入库,票保持未勾——运行时接线未做):一手取证(Codex 源码+官方 docs 多源交叉,2026-10-01)sandbox_mode 三值 read-only(默认)/workspace-write/danger-full-access、approval_policy 四值 untrusted/on-failure(旧拼写按成员收)/on-request(默认)/never、granular 变体 5 布尔(sandbox_approval/rules/skill_approval/request_permissions/mcp_elicitations,false=自动拒绝)、官方 approval_presets 三档 Read Only/Auto/Full Access、config.toml [profiles.NAME] 顶层键子集;双轴注册表跨语言真源 packages/types/src/permission-axis.ts ↔ apps/ai-service/app/core/permission_axis.py 逐字镜像;守门 68 新增 R6:成员/别名/预设/Legacy 映射/granular 键五样对账 + 映射键集必须=单轴成员集,self-test 27/27(含 6 例注入违规自证);Legacy 映射 fail-closed 不伪造:plan/default/bypassPermissions 三档精确等价,acceptEdits(编辑类细分仅 granular 可表达)/manual(全人工无 Codex 对应档)置 null,消费方必须显式处理。验证:types vitest 27/27、ai-service pytest 6/6、types tsc RC=0、守门 live 零违规。**下一格**:消费面接线(sandbox/approval 进执行面 + profiles 解析 + wire 契约拍板)〕 〔拍板@2026-10-07 机主:批消费面接线——wire契约=现有帧扩字段不新开端点;sandbox/approval进执行面+profiles解析按已入库契约层推进〕（认领已释放@2026-10-22/qoder-claimfix:原牌 2026-10-18/w1-permax:大型票·消费面接线 超龄 96h 未清账,机主 2026-10-22 判定无席位在飞,按 §1 交回派单面;登记内容一字未动）〔PROGRESS 2026-10-18(第二刀·消费面接线,落地 f81195cb9b29d2d292aaab8d7493aef5d8749dcf;票保持未勾):① 契约层补 config profiles(TS `packages/types/src/permission-axis.ts` ↔ PY `apps/ai-service/app/core/permission_axis.py` 双份,守门 68 的 R6 新增「顶层键子集」逐字对账 + 注入漂移自证,两侧一致 0 违规);② 新增裁决器 `apps/ai-service/app/core/permission_axis_gate.py`,安全方向 = **只收紧不放宽** —— approval_policy=never 与 sandbox_mode=danger-full-access 到达本门只产出「不介入」,绝不压过既有审批链(否则客户端多带两个字段就等于关掉审批门,是 G-161〔旧号〕〔旧号〕〔旧号〕 那一型静默失效);接进 `agent_loop_v2` 工具审批链,位置**在工具级策略之前**:FORBID 压过本地 never 配置(结构性禁止 > "这个工具不用问人"),REQUIRE_APPROVAL 可被后面的本地显式配置翻回(管理员意图 > 请求级外部输入);③ wire 三处同形落地(api-client camel 入 / 网关 ai-chat-stream.ts schema + snake 透传 / ai-service `routers/agents.py` 请求模型),按机主 2026-10-07 拍板的「现有帧扩字段、不新开端点」;非流式 execute 端点拒 approvalPolicy=untrusted(该档是唯一会产出 REQUIRE_APPROVAL 的档,而本端点没有审批投递通道 ⇒ 选了只会撞超时判不执行);④ 未携带双轴 ⇒ 裁决层整段跳过 ⇒ 现网零行为变化。误判订正一处:首版「缺轴补默认档」会把"只声明审批轴"的请求读成"禁止一切写操作"(方向相反的失真),已改为缺轴 = 未指定 = 该轴无发言权,并由用例钉住。pytest 18/18 绿(影子树隔离,未碰工作树)。**未闭环(逐条登记,不是遗漏)**:断点续跑链的三条 resume 出口本轮**不接**(半新半旧比不改更糟 —— permission_mode 就是在其中一份参数表里被漏掉才有了 b76-11),理由逐条写在 routers/agents.py 的调用点注释里;前端未暴露双轴选择 UI;未做真机集成验证(本票只到单元级)。〕
 
 ## O65 AI 自进化调度系统 auto-evolve:四期系列总纲(2026-10-25 立,§24 代裁执行)
+### 一期 P0 安全护栏(无人化先决,必须最先做)
+- [ ]〔归:自进化〕(2026-10-25) 不可变护栏:对 `scripts/guardian-runner.mjs` / `AGENTS.md` 铁律段 / `scripts/lib/judgement-libs.json` 建只读 hash 校验清单,任何改动须人工显式解锁,否则 `IHUI-DEPLOYLOOP` fail-closed 拒绝推进(参考现有 object-space-land 的 CAS 思路扩展到规则自身)
+- [ ]〔归:自进化〕(2026-10-25) 成本熔断:在 `IHUI-DEPLOYLOOP` / 自动 agent 调度层设预算上限(API 调用额、算力时长、部署频次),超限即停转并告警,避免无人时无限烧钱
+- [ ]〔归:自进化〕(2026-10-25) 影响面隔离与原子回滚:单 agent 改动限定独立 worktree/分支,提供一键原子回退到上一个通过守门的可运行态(基于现有 gitdir + 部署环 ff 结构)
+- [ ]〔归:自进化〕(2026-10-25) 人工阀清单:明确 AI 可自决范围与必须停机等人的清单(换 API key / 控制台操作 / 真机扫码 / 对外发布口径),设计为安全停机等人工而非硬失败
+
+### 二期 P1 感知与闭环
+- [ ]〔归:自进化〕(2026-10-25) 需求/异常自动发现器:消费 `api_logs` / Grafana 告警 / 用户反馈入口,由 agent 自动聚类生成可派单改进项写入台账(复用 `plan-tasks` 入口)
+- [ ]〔归:自进化〕(2026-10-25) 端到端反馈闭环:打通 监控异常 → 自动建单/派单 → agent 修复 → 过门 → 部署 → 部署后指标比对 → 异常自动回滚
+
+### 三期 P2 验证与决策
+- [ ]〔归:自进化〕(2026-10-25) E2E 自动补测:随代码演进由 AI 自动补全集成/E2E 测试,新模块缺对应测试才准入(守门扩展)
+- [ ]〔归:自进化〕(2026-10-25) 金丝雀发布:`IHUI-DEPLOYLOOP` 增加灰度分流 + 部署后自动比对错误率/延迟,异常自动回滚
+- [ ]〔归:自进化〕(2026-10-25) 自治决策模型:建立收益/风险/成本评估模型,让 AI 自行排期
+
+### 四期 P3 知识自举 + P4 治理
+- [ ]〔归:自进化〕(2026-10-25) 经验自动提炼:每次改动/事故后 AI 自动把教训写回 `AGENTS.md` / memory(受 P0 不可变护栏约束非铁律段)
+- [ ]〔归:自进化〕(2026-10-25) 守门规则自生长:新模块自动生成对应守门项(在单一真源 `judgement-libs.json` 内扩展),经 P0 护栏与人工抽检
+- [ ]〔归:自进化〕(2026-10-25) 可审计决策链:无人状态下为什么这么改的决策理由留痕可追责
+- [ ]〔归:自进化〕(2026-10-25) 安全停机而非硬失败:异常时进入受控停机态并通知人工而非放任失败扩散
+
 > 机主令「项目自己开发自己、自动更新迭代优化,不需要人为操作」落地总纲。深度分析结论:本仓执行层(safe-commit 五步法/守门群/自动推送)、验证层(check:all/镜像测试)、协作机器化(租约/锁/代摘/归并)已是全自动水准,真缺的是五层——发起权(调度)、发现权(感知)、上线权(部署闭环)、刹车(无人值守安全边界)、学习回路(进化回流);其中刹车与调度器是全部后续的前置。按依赖序分四期,每期独立可回退;凡"待拍板"一律按最优推荐方案直接执行(2026-10-23 机主令),落选方案与理由进各期 commit message。
 - [ ] **第 1 期·感知层自动分诊器**:巡检发现(只读尺子产出/告警邮件)→ 按 §1「台账只记真工作」门槛自动分诊(可当场修的当场修/可派单的走 live-doc-edit 登记/观察类进 commit message)→ 防噪音淹没:每日登记配额 + 来源尺子白名单 + 同源去重;登记行带新鲜日期三选一交代。〔立@2026-10-25,按依赖序在第 0 期后开工〕
 - [ ] **第 2 期·部署闭环**:合入 main 后自动同步 prod-bundle(check-prod-bundle-shadow 影子对账做落地校验)→ 部署后 check-public-path-probe 健康探测 → 失败自动回滚上一可用包;deploy-lock 全程持锁;部署失败邮件已通(notify-deploy-failure),补"回滚决策"机读口径。〔立@2026-10-25,按依赖序在第 1 期后开工〕

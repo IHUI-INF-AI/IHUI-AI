@@ -89,3 +89,16 @@
 {"key":"O02#跨端UI单一源","waiting":"none","blocking":"","updatedAt":"2026-10-25T08:18:07.725Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-46#D135现读复核","owner":"mobile-rn ChatScreen 持有席","waiting":"none","blocking":"","updatedAt":"2026-10-25T08:36:59.289Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-21#第八轮剩余六格候选清单","owner":"机主定级面","waiting":"none","blocking":"①跨层发布闸/④告警去重桶+周期/⑥幂等 key 复用三项全仓 0 落点,缺上游子系统或契约,定级后方能开实现票;③ 凭据日志脱敏已收口、②⑤ 现读满足","updatedAt":"2026-10-25T08:26:29.041Z","updatedBy":"main-session/owner-reclass 2026-10-25"}
+{"key":"O6501#不可变护栏","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6502#成本熔断","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6503#影响面隔离与原子回滚","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6504#人工阀清单","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6505#需求/异常自动发现器","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6506#端到端反馈闭环","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6507#E2E自动补测","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6508#金丝雀发布","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6509#自治决策模型","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6510#经验自动提炼","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6511#守门规则自生长","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6512#可审计决策链","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6513#安全停机而非硬失败","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
