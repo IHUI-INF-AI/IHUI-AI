@@ -7,14 +7,15 @@
  *
  * 这一屏此前有三份互不相同的实现:RN 端自带一份静态宣传页、共享层躺着一份**没人渲染的招聘列表屏**、
  * 小程序端又是一份 API 驱动的招募信息页(其 privileges/incomeEstimates 字段与 POST /recruitment/apply
- * 后端都不存在)。本套件把能机判的五件事钉住:
+ * 后端都不存在)。本套件把能机判的四件事钉住,第五件(迁移门判据)由门体镜像测试对 HEAD 全屏承担:
  *  ① RN 那一屏渲染的**就是**共享层 packages/app/src/features/recruitment/RecruitmentScreen.tsx
  *     —— 卡与二维码的 testID 只住在共享屏,壳里与小程序端都没有(阳性对照同批给出);
  *  ② 上屏段落的构成与顺序 = 跨端单一源 TRADER_PLAN_SEGMENTS(RN 与小程序读同一张表);
  *  ③ 六个取词键五语言齐备、取到的是真文案而不是键名;
  *  ④ 购买 CTA 真跳到在册屏 VipTrader,长按二维码真调系统相册保存 —— 两枚都不是假按钮;
- *  ⑤ 迁移门(守门 check-rn-app-migration)判据按 §22c 直接 import 源脚本 `__test__`,本壳零违规,
- *     白名单被发起人摘掉后链子仍有牙。
+ *  ⑤ 迁移门判据由门体镜像测试 scripts/tests/check-rn-app-migration.test.mjs T3 对 HEAD 全屏
+ *     承担(§22c 同源 import 门体,不复制判据);本文件不再越层 import repo-tooling —— 端内测试
+ *     相对路径穿透 scripts/ 命中架构政策 D1/D2(无豁免通道),按屏断言与 T3 是重复覆盖。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement } from 'react'
@@ -27,7 +28,6 @@ import {
   TRADER_PLAN_PROMO_KEYS,
   TRADER_PLAN_SEGMENTS,
 } from '@ihui/shared/constants/trader-plan-promo'
-import { __test__ as rnAppGate } from '../../../scripts/check-rn-app-migration.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -116,24 +116,6 @@ describe('RecruitmentScreen 渲染的是共享层那一份', () => {
     expect(miniappText).toContain('TRADER_PLAN_PROMO_KEYS')
     // 小程序端不出现第二份段名字面量数组(段名只从表里来)
     expect(miniappText).not.toMatch(/=\s*\[\s*'hero',\s*'founder'/)
-  })
-
-  it('迁移门判据(源脚本 __test__,不复制判据)对本壳零违规;摘掉豁免同样零违规', () => {
-    const run = (whitelist: Map<string, { why: string; expires: string }>, text: string) =>
-      rnAppGate.verdict({
-        screens: [{ name: 'RecruitmentScreen.tsx', text }],
-        baseline: new Map([['RecruitmentScreen.tsx', text]]),
-        sharedNames: new Set([rnAppGate.stemOf('RecruitmentScreen.tsx')]),
-        headScreenNames: new Set(['RecruitmentScreen.tsx']),
-        whitelist,
-        today: rnAppGate.isoToday(),
-      })
-    expect(run(rnAppGate.WHITELIST_ENTRIES, shellText).violations).toEqual([])
-    // 阳性对照 1:白名单被摘掉后,真壳仍判绿(靠的是真 import)
-    expect(run(new Map(), shellText).violations).toEqual([])
-    // 阳性对照 2:同一把尺子把 import 抹掉必须判 V1 红(否则上一条断言是恒真的)
-    const stripped = shellText.replace(/'@ihui\/rn-app'/g, "'../screens/RecruitmentScreenLocal'")
-    expect(run(new Map(), stripped).violations.map((v: { code: string }) => v.code)).toEqual(['V1'])
   })
 })
 
