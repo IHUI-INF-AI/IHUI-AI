@@ -25,11 +25,13 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
+from app.core.default_model import default_chat_model
 from app.core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "stepfun/step-3.7-flash"
+# 2026-10-26:原写死 "stepfun/step-3.7-flash"(stepfun 已永久退役),改走统一解析入口。
+_DEFAULT_MODEL = default_chat_model()
 
 # 允许的画布节点类型(对齐前端 CanvasNodeType)
 _CANVAS_NODE_TYPES = {"agent", "tool", "human-review"}

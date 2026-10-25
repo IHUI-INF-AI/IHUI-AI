@@ -1182,7 +1182,10 @@ def _default_model_chain() -> list[str]:
     for m in (settings.litellm_model, settings.litellm_fallback_model):
         if m and m not in chain:
             chain.append(m)
-    return chain or ["stepfun/step-3.7-flash"]
+    # 2026-10-26:末位兜底原为 stepfun/step-3.7-flash。stepfun 订阅失效
+    # (余额 -0.09 CNY,chat 恒定 400)且机主明确不再续费 ⇒ 永久退役,换成 2026-10-26
+    # 实测直连 200 的两条腿(与 COMBO_CHAINS.maximize-free 同序)。
+    return chain or ["agnes/agnes-2.5-flash", "pollinations/openai-fast"]
 
 
 def _infer_tier_from_model_id(model_id: str) -> int:
@@ -2039,7 +2042,8 @@ class LLMGateway:
             real_model = (
                 settings.litellm_model
                 or settings.litellm_fallback_model
-                or "stepfun/step-3.7-flash"
+                # 2026-10-26:stepfun 永久退役(见 _default_model_chain 注释)
+                or "agnes/agnes-2.5-flash"
             )
             logger.info("[llm_gateway] model=%r 占位(实际路由在 complete() 入口处理),占位模型 %r",
                        model, real_model)

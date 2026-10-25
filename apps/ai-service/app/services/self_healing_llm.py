@@ -33,13 +33,17 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
+from app.core.default_model import default_chat_model
 from app.core.llm_gateway import llm_gateway
 from app.services.self_healing import classify_failure, extract_error_digest
 
 logger = logging.getLogger(__name__)
 
 # 默认模型(env 可覆盖);生产/测试均可注入 llm= 假网关绕过真实网络。
-DEFAULT_MODEL = os.environ.get("AGENT_SELF_HEALING_MODEL", "stepfun/step-3.7-flash")
+# 2026-10-26:末位兜底原为 "stepfun/step-3.7-flash"(stepfun 已永久退役,chat 恒定 400)。
+# 这里保留 env 优先,但兜底改走统一解析入口 —— 即使有人把 env 指回退役档,
+# default_chat_model() 的退役守卫也会跳过它。
+DEFAULT_MODEL = default_chat_model(os.environ.get("AGENT_SELF_HEALING_MODEL"))
 
 
 # ---------------------------------------------------------------------------
