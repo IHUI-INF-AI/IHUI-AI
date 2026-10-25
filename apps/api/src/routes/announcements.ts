@@ -47,7 +47,10 @@ export const announcementsRoutes: FastifyPluginAsync = async (server) => {
       }))
       return reply.send(success({ list, total: all.length }))
     } catch {
-      return reply.send(success({ list: [], total: 0 }))
+      // 原先 catch 后回 success({list:[],total:0}) —— DB 故障与"确实没有公告"渲染成同一张脸,
+      // CLI 用户看到的是"无公告"而不是"读不到"。同文件 GET /cli/announcements/:id 详情端点
+      // 早已用 500 口径,此处向它对齐:故障必须让调用方能区分、能重试。
+      return reply.status(500).send(error(500, '公告列表读取失败,请稍后重试'))
     }
   })
 
@@ -101,7 +104,9 @@ export const announcementsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch {
-      return reply.send(success({ latestAt: null, count: 0 }))
+      // 同 latest:这一格是 CLI 的**缓存失效信号** —— 故障时回 latestAt:null 会被读成
+      // "一条公告都没有",客户端据此永不失效地用旧缓存。回 500 让调用方保留上次已知版本。
+      return reply.status(500).send(error(500, '公告版本读取失败,请稍后重试'))
     }
   })
 }
