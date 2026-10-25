@@ -44,6 +44,10 @@ const payload = {
       { date: '2026-10-22', pv: 0, uv: 0 },
     ],
   },
+  stays: [
+    { page: '/chat', avgSec: 120.4, samples: 5 },
+    { page: '/', avgSec: 63.5, samples: 12 },
+  ],
 }
 
 function renderPage() {
@@ -78,6 +82,13 @@ describe('BI 数据大屏', () => {
     await waitFor(() => expect(screen.getAllByText('页面访问排行').length).toBeGreaterThan(0))
     await waitFor(() => expect(screen.getAllByText('/sso/login').length).toBeGreaterThan(0))
     expect(document.body.textContent).toContain('UV 73')
+  })
+
+  it('页面停留 TOP 按接口字段渲染(均值 + 样本数)', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText('页面停留时长 TOP').length).toBeGreaterThan(0))
+    await waitFor(() => expect(document.body.textContent).toContain('120.4s'))
+    expect(document.body.textContent).toContain('n=12')
   })
 
   it('接口失败时给诚实错误态而不是白屏', async () => {

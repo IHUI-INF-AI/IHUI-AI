@@ -51,6 +51,8 @@ interface BiDashboardData {
     /** 近 7 日逐日 PV/UV(缺失日已由后端补 0) */
     daily: Array<{ date: string; pv: number; uv: number }>
   }
+  /** 近 7 日页面停留 TOP(page_time 均值;样本数 = 停留事件条数) */
+  stays: Array<{ page: string; avgSec: number; samples: number }>
 }
 
 /** 加载失败时的诚实空态(全 0/空数组),避免用假数字冒充真实运营数据 */
@@ -63,6 +65,7 @@ const EMPTY: BiDashboardData = {
   categories: [],
   sources: [],
   visits: { pv: 0, uv: 0, pages: [], daily: [] },
+  stays: [],
 }
 
 const STAT_CARDS = [
@@ -90,6 +93,7 @@ export default function BiDashboardPage() {
   const sourceRows = d.sources ?? []
   const visitPages = d.visits?.pages ?? []
   const visitDaily = d.visits?.daily ?? []
+  const stays = d.stays ?? []
 
   const visitTrendOption: EChartsOption = {
     tooltip: { trigger: 'axis' },
@@ -314,6 +318,46 @@ export default function BiDashboardPage() {
                     <span className="w-16 text-right font-mono text-xs tabular-nums">{p.pv}</span>
                     <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
                       UV {p.uv}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">页面停留时长 TOP</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            近 7 日 · 平均每次停留秒数（括号内为样本数）
+          </p>
+        </CardHeader>
+        <CardContent>
+          {stays.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {isLoading ? '加载中…' : '暂无停留数据'}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {stays.map((s) => {
+                const max = stays[0]?.avgSec || 1
+                const pct = Math.round((s.avgSec / max) * 100)
+                return (
+                  <div key={s.page} className="flex items-center gap-2">
+                    <span className="w-[46%] truncate text-xs text-foreground">{s.page}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                      <div
+                        className="h-full rounded-sm bg-primary/60"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="w-16 text-right font-mono text-xs tabular-nums">
+                      {s.avgSec.toFixed(1)}s
+                    </span>
+                    <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
+                      n={s.samples}
                     </span>
                   </div>
                 )
