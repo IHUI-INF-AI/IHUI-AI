@@ -389,7 +389,8 @@ export function selfTest() {
   const t4 = run(['--verify', '--worktree'])
   add(
     '④ 段标记漂 ⇒ missing(不静默过)',
-    t4.status === 1 && t4.out.includes('missing') && !t4.out.includes('✅'),
+    // 断言"该条必须被报成 missing",不能断言"输出里没有 ✅" —— 另外三条本该 pass,天然会打 ✅。
+    t4.status === 1 && t4.out.includes('missing 1') && t4.out.includes('guardian-pushgate'),
     `rc=${t4.status}`,
   )
   writeFileSync(guardianPath, guardian, 'utf8')

@@ -30,10 +30,22 @@
  * 但**大屏不再读 gauge**,改读本文件的 `getRelayPoolLiveSnapshot()` —— 同一份
  * `loadRelayPoolRows()` + 同一把 `isRelayPoolRowSchedulable` 尺子,带 5 秒缓存,
  * 所以重启不再需要等下一轮 gauge 才有数,也不会把"进程刚起来"读成"池子空了"。
+ *
+ * 2026-10-26 追加(号池"容量归零"从来没人量):本文件新增 `foldRelayPoolCapacity()` ——
+ * 按 provider 折叠 total/enabled/schedulable 三档,是**容量口径的唯一实现**,同时供
+ * ① gauge 族 `ihui_relay_account_pool_{accounts,enabled_accounts,schedulable_accounts,zero_capacity}{provider_code}`
+ * (与 key 族 `*_schedulable_keys` 同节拍:同一个 `relay-pool-gauge` job、同一次 setter)、
+ * ② 每轮刷新里的到人 warn(容量归零/整池无启用号)、
+ * ③ 告警引擎 `relay-alert-rules-service.ts` 的号池指标。
+ * 与上面第 4 条大屏 `accountByProvider` 的分工不是重复实现:那一块回答"健康态可折叠的行里
+ * 有几条能调度"(展示口径,脏健康态行已被词表闸在外),这一块回答"池子里到底还有没有腿"
+ * (容量口径,停用行与词表外脏行都在册);两把尺子的**可调度判定仍然只有
+ * `isRelayPoolRowSchedulable` 一份**(§0.6)。
  */
 
 import { db } from '../db/index.js'
 import { aiRelayKeyPool, aiRelayAccountPool } from '@ihui/database'
+import { logger } from '../utils/logger.js'
 import {
   isRelayPoolHealthState,
   RELAY_POOL_HEALTH_STATE_VALUE,
@@ -41,6 +53,7 @@ import {
   type RelayPoolAccountSample,
   type RelayPoolHealthState,
   type RelayPoolKeySample,
+  type RelayPoolProviderCapacity,
 } from '../plugins/business-metrics.js'
 
 /** 一次刷新的结果(给 scheduler-worker 记日志用;失败时 reason 非空)。 */
@@ -68,6 +81,56 @@ export function isRelayPoolRowSchedulable(row: {
   tempUnschedulable: boolean | null
 }): boolean {
   return Boolean(row.isEnabled) && !row.tempUnschedulable
+}
+
+/** 折叠容量所需的最小行形(两张池表都满足;不要求健康态列 —— 容量与健康态是两回事)。 */
+export interface RelayPoolCapacityRow {
+  providerCode: string
+  isEnabled: boolean | null
+  tempUnschedulable: boolean | null
+}
+
+/**
+ * 按 provider 折叠一个池子的容量三档(total / enabled / schedulable)。**唯一一份**:
+ * gauge 侧的 `ihui_relay_account_pool_*{provider_code}`、告警引擎的号池指标、
+ * 以及下面的到人日志,全部读它,不许在任何一侧再数一遍(AGENTS §0.6)。
+ *
+ * 三条口径写死在这里,免得日后各自漂移:
+ * - `totalRows` 计**所有**行(含 is_enabled=false、含健康态落在封闭词表之外的脏值行)
+ *   —— 容量问的是"池子里有没有腿",与健康态词表能不能折叠无关;
+ * - `enabledRows` 只数 `is_enabled = true`(临时摘除的也算,那正是"有号但调度不到"这一型);
+ * - `schedulableRows` 一律走 `isRelayPoolRowSchedulable`,不自立判据。
+ * 结果按 providerCode 升序(渲染与日志都要确定性顺序)。空输入 ⇒ 空数组(不是"全 0")。
+ */
+export function foldRelayPoolCapacity(
+  rows: readonly RelayPoolCapacityRow[],
+): RelayPoolProviderCapacity[] {
+  const byProvider = new Map<string, RelayPoolProviderCapacity>()
+  for (const row of rows) {
+    const bucket = byProvider.get(row.providerCode) ?? {
+      providerCode: row.providerCode,
+      totalRows: 0,
+      enabledRows: 0,
+      schedulableRows: 0,
+    }
+    bucket.totalRows++
+    if (Boolean(row.isEnabled)) bucket.enabledRows++
+    if (isRelayPoolRowSchedulable(row)) bucket.schedulableRows++
+    byProvider.set(row.providerCode, bucket)
+  }
+  return [...byProvider.values()].sort((a, b) => a.providerCode.localeCompare(b.providerCode))
+}
+
+/** 容量归零的 provider(enabled>0 ∧ schedulable=0)—— 静默回落正在发生的那一格。 */
+export function zeroCapacityProviders(
+  capacity: readonly RelayPoolProviderCapacity[],
+): RelayPoolProviderCapacity[] {
+  return capacity.filter((c) => c.enabledRows > 0 && c.schedulableRows === 0)
+}
+
+/** 整池归零(一条 enabled 号都没有)—— 与"provider 全停用"同型,单独点名不并入上一档。 */
+export function poolHasNoEnabledRows(capacity: readonly RelayPoolProviderCapacity[]): boolean {
+  return capacity.reduce((acc, c) => acc + c.enabledRows, 0) === 0
 }
 
 /** 两张池表的原始行(带 schema 全量列,供 gauge 与实时快照两种消费方各自折叠)。 */
@@ -194,7 +257,11 @@ export async function computeRelayPoolLiveSnapshot(
     if (isRelayPoolRowSchedulable(row)) bucket.schedulable++
     if (isAbnormal) bucket.abnormal++
     keyByProvider.set(row.providerCode, bucket)
-    if (row.balanceCents !== null && row.balanceCents >= 0 && row.balanceCents < KEY_BALANCE_LOW_CENTS) {
+    if (
+      row.balanceCents !== null &&
+      row.balanceCents >= 0 &&
+      row.balanceCents < KEY_BALANCE_LOW_CENTS
+    ) {
       keyBalanceLow++
     }
   }
@@ -341,13 +408,43 @@ export async function refreshRelayPoolGauges(
     })
   }
 
+  // 按 provider 的容量折叠(全仓唯一一份算法,见 foldRelayPoolCapacity 头注):
+  // 喂 gauge 的 ihui_relay_account_pool_{accounts,enabled_accounts,schedulable_accounts,zero_capacity}
+  // 四连,也喂下面的到人日志,还喂告警引擎 `relay-alert-rules-service` 的号池指标。
+  // 取的是**原始行**而非上面的样本 ⇒ 停用行/脏健康态行都在册,容量不被词表过滤遮蔽。
+  const accountCapacity = foldRelayPoolCapacity(accountRows)
+
   setRelayPoolGaugeSample({
     keys,
     accounts,
+    accountCapacity,
     refreshedAtMs: nowMs,
     keyRowsSkipped,
     accountRowsSkipped,
   })
+
+  // 容量归零必须当场喊出来(2026-10-26 立):此前"账号池一条都调度不到"与"这个站点
+  // 压根没用账号池"在观面上同形,回落点的 catch 连一行日志都没有。gauge 是面板面,
+  // 这一行是日志面 —— 两脸都要有,缺一就还是"造好没装车"(AGENTS §0.9)。
+  // 节拍 = 本 job 每 5 分钟一轮,不在请求路径上 ⇒ 不会成日志风暴。
+  for (const c of zeroCapacityProviders(accountCapacity)) {
+    logger.warn(
+      `[relay-pool] 账号池容量归零:provider=${c.providerCode} enabled=${c.enabledRows} schedulable=0` +
+        ` —— 该 provider 的账号池回退现在每次都静默落回 ai-service;` +
+        `下一步:后台「中转-号池-账号池」把 temp_unschedulable 解除(冷却到期自动解除看 consecutive_failures),` +
+        `或补入可用号;复现口径 node scripts/check-relay-capacity-zero.mjs`,
+      { providerCode: c.providerCode, enabledRows: c.enabledRows, totalRows: c.totalRows },
+    )
+  }
+  if (accountCapacity.length > 0 && poolHasNoEnabledRows(accountCapacity)) {
+    logger.warn(
+      `[relay-pool] 账号池整池无可启用号:providers=${accountCapacity.map((c) => c.providerCode).join(',')} ` +
+        `rows=${accountCapacity.reduce((acc, c) => acc + c.totalRows, 0)} enabled=0` +
+        ` —— 全部 is_enabled=false,账号池这条腿等于不存在;` +
+        `下一步:确认是否刻意停用(那么在容量哨兵里登记白名单理由),否则在后台重新启用需要的号`,
+      { providers: accountCapacity.map((c) => c.providerCode) },
+    )
+  }
 
   return {
     keys: keys.length,

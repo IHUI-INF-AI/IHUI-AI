@@ -200,7 +200,6 @@ async function main(argv) {
         `[${at}] ${last.status} diffs=${result.diffs.length} inputs=${result.inputCount}` +
           (opts.wait ? '' : ''),
       )
-      if (!opts.wait) printDiffs(result.diffs, log)
       if (last.status === 'WINDOW-OPEN') break
     } else {
       rounds.push({ at, status: 'UNDETERMINED', error })
@@ -215,9 +214,12 @@ async function main(argv) {
   }
 
   const elapsedMs = Date.now() - started
+  // 只有**最后一轮成功**才给 OPEN/CLOSED;最后一轮取不到面 ⇒ UNDETERMINED。
+  // 中途失败轮只留档不落槌(不把「没判成」写成 CLOSED/OPEN,§0.3)。
+  const lastOk = last && last.at === rounds[rounds.length - 1]?.at && rounds[rounds.length - 1]?.status !== 'UNDETERMINED'
   let status
-  if (last && last.status === 'WINDOW-OPEN' && !finalUndetermined) status = 'WINDOW-OPEN'
-  else if (last) status = last.status === 'WINDOW-OPEN' ? 'WINDOW-OPEN' : last.status
+  if (lastOk && last.status === 'WINDOW-OPEN') status = 'WINDOW-OPEN'
+  else if (lastOk && last.status === 'WINDOW-CLOSED') status = 'WINDOW-CLOSED'
   else status = 'UNDETERMINED'
 
   if (opts.json) {
