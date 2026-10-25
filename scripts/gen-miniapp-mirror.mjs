@@ -56,6 +56,7 @@ import { execFileSync } from 'node:child_process'
 
 import { catBatch, listFaceFiles, readWorktreeFile } from './lib/face-reader.mjs'
 import { shellExportShapeOf } from './lib/rn-shell-refs.mjs'
+import { walkClosure, aliasKeysOf, uncoveredNativePackages } from './lib/rn-shell-closure.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 
 const LANGS = ['en', 'ja', 'ko', 'zh-CN', 'zh-TW']
@@ -65,6 +66,8 @@ const MP_CONFIG = `${MP_SRC}/app.config.ts`
 const REGISTRY = 'scripts/data/cross-end-screen-registry.json'
 const RN_SCREENS = 'apps/mobile-rn/src/screens'
 const APP_INDEX = 'packages/app/src/index.ts'
+/** weapp 侧 RN 别名表所在地(两处块:顶层 + mini 平台段,平台段是整体替换而非合并)。 */
+const TARO_CONFIG_REL = 'apps/miniapp-taro/config/index.ts'
 const RN_PACK_DIR = 'packages/i18n/messages/mobile-rn'
 const MP_PACK_DIR = 'packages/i18n/messages/miniapp-taro'
 const MP_SHARED_SCREEN_RE = new RegExp(`^${SHARED_DIR}/([^/]+)/([A-Z][A-Za-z0-9_]*)Screen\\.tsx$`)
@@ -610,6 +613,46 @@ function makeContext(rootDir) {  const miniapp = listMiniappPages(rootDir)
   return { rootDir, miniapp, regText, rnRels, rnMap, indexText, packObjs, packError }
 }
 
+/**
+ * 壳承载前置③(2026-10-26 立)—— 闭包里的 RN 原生族包必须**都**已被端内别名承载。
+ *
+ * 立因(实测一天构建停摆):`react-native-svg` / `react-native-webview` / `react-native-wechat-lib` /
+ * `expo-secure-store` 这四枚都不在别名表里,而它们的入口就是**未编译的 TS**(package.json 的 main /
+ * react-native 指向 src/index.ts)。weapp 侧 webpack 不转译 node_modules 的 .ts ⇒
+ * `ModuleParseError: Unexpected token`,整轮产物出不来 —— 而当时门全绿、账面一切正常。
+ * 也就是说"这一页能不能编"取决于它**间接**拖进哪些包,这一格必须事先算得出,而不是等构建炸。
+ *
+ * 射程与如实边界:遍历壳本体 + 其相对导入 + `@rn-shells/*`;`@ihui/*` 与本包 workspace 包按"外部停点"
+ * 处理(它们自己发 JS,不经 RN 别名)。这一档够用是因为炸构建的包都由 RN 侧源码直接引;
+ * 若哪天共享屏自己直引 RN 原生包,把 workspace 展开加进 barrelOf 即可(判据同一条,不另写)。
+ */
+function shellClosureGaps(rootDir, shellRel, shellText, taroCfgText) {
+  const aliasKeys = aliasKeysOf(taroCfgText)
+  const relCache = new Map()
+  const read = (rel) => {
+    if (relCache.has(rel)) return relCache.get(rel)
+    const t = faceReadMap(rootDir, [rel]).get(rel) ?? null
+    relCache.set(rel, t)
+    return t
+  }
+  const toRel = (fromFile, spec) => {
+    if (spec.startsWith('@rn-shells/')) return `${RN_SCREENS}/${spec.slice('@rn-shells/'.length)}.tsx`
+    const base = spec.startsWith('.') ? new URL(spec, `file:///${fromFile}`).pathname.replace(/^\/+/, '') : null
+    if (base == null) return null
+    for (const e of ['.tsx', '.ts', '.jsx', '.js', '.json']) if (read(`${base}${e}`) !== null) return `${base}${e}`
+    for (const e of ['.tsx', '.ts', '.jsx', '.js']) if (read(`${base}/index${e}`) !== null) return `${base}/index${e}`
+    return null
+  }
+  const walk = walkClosure({
+    roots: [{ file: shellRel, text: shellText }],
+    readFile: read,
+    toRel,
+    isBare: (s) => !s.startsWith('.') && !s.startsWith('@/') && !s.startsWith('@rn-shells/'),
+  })
+  void INTERNAL_STOP
+  return { gaps: uncoveredNativePackages(walk.externals, aliasKeys), files: walk.files.size, unresolved: walk.unresolved }
+}
+
 export function planGeneration(rootDir, opts, ctx = null) {
   const { screenRel, subpackage, page } = opts
   const shape = screenShapeOf(screenRel)
@@ -649,6 +692,19 @@ export function planGeneration(rootDir, opts, ctx = null) {
     return {
       kind: 'refuse',
       why: `壳承载需同名 RN 壳 ${shellRel}(现读消费方 ${rnHits[0]} 只是使用者)⇒ 数据腿无从继承,不产 dangling 页`,
+    }
+  }
+  // 壳承载前置③:闭包里的 RN 原生族包必须都已被端内别名承载(缺一枚 = weapp 构建当场停摆)
+  if (opts.form === 'shell') {
+    const cfgMap = faceReadMap(rootDir, [TARO_CONFIG_REL])
+    const taroCfg = cfgMap.get(TARO_CONFIG_REL)
+    if (taroCfg === null) return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${TARO_CONFIG_REL}(别名表读不到就不判)` }
+    const g = shellClosureGaps(rootDir, shellRel, rnMap.get(shellRel) ?? '', taroCfg)
+    if (g.gaps.length > 0) {
+      return {
+        kind: 'refuse',
+        why: `壳承载闭包里有未承载的 RN 原生包:${g.gaps.map((x) => `${x.pkg}(取用者 ${x.importers[0]})`).join(' / ')} —— 这些包入口是未编译 TS,weapp 侧没有 loader 处理 ⇒ 先在 ${TARO_CONFIG_REL} 两处 alias 块补端内承载,再来落页`,
+      }
     }
   }
   const indexText = c.indexText
