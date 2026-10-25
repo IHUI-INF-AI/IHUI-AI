@@ -24,7 +24,7 @@
  * 故 `agentId?: string` 出现在每个判别成员的元信息中,而非独立事件。
  */
 
-import type { GoalStatus } from '@ihui/types'
+import { CHAT_SYNC_EVENT_NAMES, type ChatSyncEventName, type GoalStatus } from '@ihui/types'
 // b76-13 票2:帧级字段 schema 用(本文件下方 SSE_FRAME_SCHEMAS;shared 的既有依赖)
 import { z as zod } from 'zod'
 
@@ -134,6 +134,25 @@ export const SSE_COMPAT_EVENTS = {
 
 /** 全部 SSE 事件名的联合类型。 */
 export type SSEEventName = (typeof SSE_EVENTS)[keyof typeof SSE_EVENTS]
+
+/**
+ * chat-sync 消息面帧名在送信契约里的**投影**(2026-10-25,票 B02 余面①)。
+ *
+ * 值**不在此重写** —— 直接引用 `@ihui/types` 的 `CHAT_SYNC_EVENT_NAMES`(§0.6 单一真相源)。
+ * SSE 单播流与 WS 房间广播共用同一批名字,正是 chat-sync 契约 §2 第 1 条"同一逻辑变更
+ * 两条通道逐字同键"的前提;在这里再抄一份字面量,两端会出现"各自自洽、只在真机上对不下"。
+ *
+ * **为什么单列而不并进 `SSE_EVENTS`**(两条硬判据,缺一不可):
+ *  ① `SSE_EVENTS` 与 `apps/ai-service/app/core/sse_contract.py` 的集合由
+ *     `scripts/check-agent-event-parity.mjs` **逐名等值**对账;消息面帧的发射口是
+ *     `apps/api` 的 ws-broadcast 房间投递(Python 侧不存在)⇒ 并进去 = parity 对账恒红;
+ *  ② `SSE_EVENTS` 是「LLM 生成流」词汇表,消息面帧是「消息修订链」词汇表,不同域;
+ *     `isSSEEventName` 必须对它们返回 false,否则分发层会把一帧修订路由进生成流处理。
+ */
+export const SSE_CHAT_SYNC_EVENT_NAMES = CHAT_SYNC_EVENT_NAMES
+
+/** 消息面帧名联合(与上方常量同源;刻意不并入 `SSEEventName` —— 见常量注释第 ② 条)。 */
+export type SSEChatSyncEventName = ChatSyncEventName
 
 /** 每个事件的共享元信息(顶层注入字段)。 */
 export interface SSEEventMeta {

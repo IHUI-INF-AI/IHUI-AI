@@ -21,8 +21,6 @@
  *   · 回调已起跑后再抛 ⇒ 必须 `console.error` 出可定位的一行(不中断读流)。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 
 import {
   postFormResponse,
@@ -32,8 +30,6 @@ import {
   setStreamBaseUrl,
   streamChat,
 } from '../src/client.js'
-
-const CLIENT_SRC = fileURLToPath(new URL('../src/client.ts', import.meta.url))
 
 type FetchCall = { url: string; init: RequestInit }
 
@@ -118,34 +114,61 @@ describe('三条上行通道的接受性(200 不等于被接受)', () => {
 })
 
 /**
- * G-593 判定结论(2026-10-07 事实核查,拍板①"行为在 ⇒ 守卫锁现行形状,保留行为断言"):
- * 本文件 + 同族 tests/tool-approval-response-acceptance.test.ts 现跑 21/21 全绿。
- * 立案时的红因 = 2026-09-28 HEAD(7baa8ab0e7)上两枚提交(17a81f58e7/d4029af58d)把三条上行
- * 重写成不读包体 ok 的形状;现读工作树该形状已被"共用出口"实现取代并入库 —— client.ts 里
- * `not accepted:` 恰好 1 处(assertAiServiceAccepted),三条腿各自从该出口取值;
- * 行为断言"回传未送达喊一次"由 streamChat 解析层 delegate 回调 catch 里的
- * console.error('[streamChat] tool-delegate 回传未送达(后端将等到超时):', …) 满足
- * ⇒ **不是静默吞,真回归不存在,四条断言判据一字未改**。
- * 变异对照由断言自身承担:删出口(0 命中即红)/摘任一条腿(缺 assertAiServiceAccepted 即红)/
- * 删诊断(喊 0 次即红),守卫对下一轮重构不哑。
+ * G-593 终态(2026-10-25 复核;立案前提已腐烂 —— 票面那四条在 HEAD 面全绿,不重做修复):
+ *
+ * 事实链:2026-09-28 的 `7baa8ab0e7c76e0b8ea601635b41bea912e6330e`(一枚纯 web UI 提交)把
+ * `client.ts` 整文件回写成旧基线,连带删掉接受性判据与 delegate 诊断 —— 那是**实现被静默
+ * 回写**,不是"新实现真的不喊了";`3fe758765541c56a9f168cd6a32e102344e92754`(2026-10-07)
+ * 以"守卫改锁新形状 + 保留行为断言"收口。本票在 HEAD 面已无红可修。
+ *
+ * 四条断言的终态(逐条,均在本文件内落地):
+ *  ① 「`not accepted:` 恰好 1 处」(源码计数)= 锁字面 ⇒ **改判据**,由下方语义锁替代;
+ *  ② 「三条腿函数体里含 `assertAiServiceAccepted(`」= 锁函数名 ⇒ **改判据**,由 LEGS 矩阵
+ *     逐腿判 reject 替代(判行为不判名字);
+ *  ③ 「回传未送达必须喊一次」= 行为断言 ⇒ **原样保留**:事实核查 = 诊断出口在 streamChat
+ *     解析层(`console.error('[streamChat] tool-delegate 回传未送达…')`),不在
+ *     `postToolResult` 体内,故"200+{ok:false} 抛错"与"喊诊断"是两条腿、都要留;
+ *  ④ 同族 `tests/tool-approval-response-acceptance.test.ts` 的 "resolved undefined instead
+ *     of rejecting" ⇒ **随 ① 的实现恢复而绿**(该文件现跑 5/5),本文件不改它。
+ *
+ * 为什么 ①② 必须换形态(而不是留着):它们记的是**字面**("`not accepted:` 出现几次"、
+ * "函数体里有没有某个函数名"),换名 / 换抛出位置 / 换文案前缀都会误伤,而把判据复制成
+ * 第二份照样能骗过"名字还在"。现在改成**语义锁**,与上面 LEGS 行为矩阵互为完备:
+ *  · 三条腿对"HTTP 200 但没被接受"都必须 reject —— 矩阵逐腿判;删掉判据 ⇒ 三条腿都
+ *    resolve ⇒ 三条红(0 命中不记绿,不再靠源码计数);
+ *  · "被没被接受"只有一份判据 ⇒ 三条腿的失败消息在各自的定位上下文之后**必须逐字相同**
+ *    (某条腿改口 / 退回只看 `resp.ok` / 自抄一份措辞,都会在这里分叉)。
+ *
+ * 变异自证(2026-10-25 本机实测:改 `client.ts` → 跑本文件 → 从备份还原并核 sha256 一致):
+ *  · A 形状解耦 = 判据函数重命名(`assertAiServiceAccepted`→`verifyAccepted`,行为不变)
+ *    ⇒ **15/15 仍绿**(旧的字面断言在这一步会误伤,证明本断言已与形状解耦);
+ *  · B 行为退化 = 摘掉 `postToolApprovalResponse` 的接受性调用(退回只看 `resp.ok`)
+ *    ⇒ **3 红**(语义锁 `expected null to be an instance of Error` + 该腿两条 LEGS);
+ *  · C 判据分叉 = 给 `postFormResponse` 的定位上下文加后缀 ⇒ **语义锁 1 红**;
+ *  · D 行为退化 = 删掉 delegate 回传未送达的 `console.error` ⇒ **行为断言 1 红**
+ *    (`回传未送达必须喊一次: expected +0 to be 1`)。
  */
-describe('判据只允许有一份实现', () => {
-  const src = readFileSync(CLIENT_SRC, 'utf8')
-
-  it('接受性判据的抛出点在 client.ts 里恰好一次', () => {
-    const hits = src.match(/not accepted:/g) ?? []
-    // 0 命中不记绿:那说明判据被删了,而不是"没有第二份"
-    expect(hits.length, `抛出点应恰好 1 处,实到 ${hits.length}`).toBe(1)
-  })
-
-  it('三条腿都真从该出口取值(摘掉任一条 = 那条腿静默回到"200 即成功")', () => {
-    for (const name of ['postToolResult', 'postToolApprovalResponse', 'postFormResponse']) {
-      const body = src.slice(src.indexOf(`export async function ${name}`))
-      const upto = body.slice(0, body.indexOf('\n}\n') > 0 ? body.indexOf('\n}\n') : body.length)
-      expect(upto, `${name} 必须经 assertAiServiceAccepted 判接受性`).toContain(
-        'assertAiServiceAccepted(',
+describe('判据只允许有一份实现(语义锁,不锁字面)', () => {
+  it('三条腿的"未接受"判定同源:失败消息只在各自的定位上下文上不同', async () => {
+    const verdicts = new Set<string>()
+    for (const [name, call] of LEGS) {
+      responses.push({ status: 200, body: '{"ok":false,"error":"session not found or expired"}' })
+      const err = await call().then(
+        () => null,
+        (e: unknown) => e,
       )
+      // 0 命中不记绿:判据被删时这里拿不到 Error
+      expect(err, `${name}:200 + {ok:false} ⇒ 必须 reject(200 不等于被接受)`).toBeInstanceOf(Error)
+      const message = (err as Error).message
+      expect(message, `${name} 的失败消息要带得上端点给的 error`).toContain(
+        'session not found or expired',
+      )
+      // 末尾 ')' 之后是判据本体;之前是这条腿自己的定位上下文(带各自的 id)
+      verdicts.add(message.slice(message.lastIndexOf(')') + 1))
     }
+    expect([...verdicts], '三条腿各喊各的 = 接受性判据被复制成了多份(只允许一份实现)').toHaveLength(
+      1,
+    )
   })
 })
 
