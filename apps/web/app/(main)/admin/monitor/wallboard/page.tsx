@@ -2670,8 +2670,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
                   >
                     <span className="truncate text-[10px] text-foreground">{p.url}</span>
+                    {/* 读数 = PV / UV:前者答「用了多少次」,后者答「多少人」 */}
                     <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
                       {fmtCompact(p.pv)}
+                      <span className="text-muted-foreground"> / {fmtCompact(p.uv)}</span>
                     </span>
                   </div>
                 ))}
