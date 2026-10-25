@@ -10,6 +10,7 @@ import {
   setNavigationBarTitle,
   getStorageSync,
   reLaunch,
+  showToast,
 } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
@@ -74,6 +75,12 @@ export default function WebviewIndex() {
   // sso_code,微信在「后退/组件销毁/分享」时机把消息投给 bindmessage。
   // 收到即走 consumeSsoCode 换登录态(与 app.tsx 启动腿同一出口),成功后 600ms reLaunch
   // 首页(与登录页微信登录成功路径同形)。ref 防重:消息数组在销毁时机可能整批重投。
+  //
+  // 失效方向(本票强制口径 = 如实提示 + 绝不静默当成功):consumeSsoCode 对"空码/换票
+  // 失败/网络异常"一律返回 false 且不弹错,把提示的决定权留给调用方(app.tsx 启动腿选
+  // 静默是有意 —— 冷启动不该为一张过期的票打扰用户)。本页是用户走完网页授权后停在
+  // 等结果的那一屏,这里静默等于"点了没反应",所以两条失败支路都必须显式提示;取词
+  // login.loginFailed(五语言包已在位,不新增文案,AGENTS §19)。
   const ssoReturnInflightRef = useRef(false)
   const handleWebviewMessage = (e: unknown) => {
     logger.info('webview', 'message', String(e))
@@ -87,13 +94,15 @@ export default function WebviewIndex() {
         if (ok) {
           setTimeout(() => reLaunch({ url: '/pages/index/index' }), 600)
         } else {
-          // 换票失败(code 过期/网络异常):释放防重锁,允许用户重试回传
+          // 换票失败(code 过期/网络异常):如实提示,并释放防重锁允许用户回 H5 重试
           ssoReturnInflightRef.current = false
+          showToast({ title: t('login.loginFailed'), icon: 'none' })
         }
       })
       .catch((err: unknown) => {
         logger.warn('webview', 'sso 回传消费异常', String(err))
         ssoReturnInflightRef.current = false
+        showToast({ title: t('login.loginFailed'), icon: 'none' })
       })
   }
 

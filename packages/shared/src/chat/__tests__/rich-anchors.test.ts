@@ -127,6 +127,26 @@ describe('rich-anchors / 五语言语序变体(读真实词包,不 mock)', () =>
     expect(richAnchorTagSequence(parseRichAnchors(readFlow('ja')))).toEqual(['detail', 'action'])
   })
 
+  // D04 验收第 3 条「五语言语序变体用例各 1 条」:逐语言钉**解析后的标签序列**,
+  // 不是"串里含标签"(上一条已钉);只断字符串会把 en/ko/zh-TW 三语言的断序缺口藏起来。
+  it('五语言语序变体各 1 条:逐语言显式断解析后的标签序列', () => {
+    const expected: Record<(typeof LOCALES)[number], string[]> = {
+      'zh-CN': ['action', 'detail'],
+      'zh-TW': ['action', 'detail'],
+      en: ['action', 'detail'],
+      ja: ['detail', 'action'],
+      ko: ['detail', 'action'],
+    }
+    for (const locale of LOCALES) {
+      expect(richAnchorTagSequence(parseRichAnchors(readFlow(locale)))).toEqual(expected[locale])
+    }
+    // 反向牙:若五语言被写成同一语序,本用例即失去判别力 ⇒ 断"确有两种不同语序在场"
+    const orders = new Set(
+      LOCALES.map((l) => richAnchorTagSequence(parseRichAnchors(readFlow(l))).join('>')),
+    )
+    expect(orders.size).toBeGreaterThan(1)
+  })
+
   it('参数占位符在两种语序下都完整保留', () => {
     for (const locale of LOCALES) {
       expect(richAnchorsToPlainText(parseRichAnchors(readFlow(locale)))).toContain('{target}')

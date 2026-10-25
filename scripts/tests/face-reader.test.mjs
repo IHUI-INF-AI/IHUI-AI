@@ -50,6 +50,8 @@ import {
   parseBatchBuffers,
   spawnViaTempStdinFile,
   batchExecFileSync,
+  bareGitCountOf,
+  hideComments,
 } from '../lib/face-reader.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -512,82 +514,7 @@ const SELF_BATCH_BASELINE = 0
  * 由提交者负责,而不是由别人替他平账。
  */
 
-/**
- * 只抹注释(整行行注释与成对斜杠星…星斜杠包围的块注释),**不抹字符串** ——
- * 型 A 要找的派生调用里 `'git'` 本身就是字符串字面量,抹字符串等于把靶子涂掉。
- *
- * 为什么必须有这一步(2026-09-25 实测):`scripts/lib/import-graph.mjs` 明明已经 `import catBatch`
- * 走本层,却被型 C 记成"自拼 batch 的门" —— 命中的是它第 164 行**JSDoc 注释**里那句
- * "一次 cat-file --batch"。一条把注释当代码的尺子会把"已经收口"判成"又长了一枚债",
- * 而这类误报的最终出路是有人去削判据或跳门。与守门 80 的 `markHidden` 同一取向。
- *
- * (本头注刻意不写出块注释的两个闭合字符 —— 写出来就是把本注释自己提前关掉,已踩过一次。)
- */
-export function hideComments(src) {
-  const out = []
-  let inBlock = false
-  for (const line of src.split(/\r?\n/)) {
-    let res = ''
-    let i = 0
-    let quote = null // 当前所在字符串的引号(' " `);字符串里的 // 与 /* 都不是注释
-    while (i < line.length) {
-      const ch = line[i]
-      if (inBlock) {
-        if (line.startsWith('*/', i)) {
-          i += 2
-          inBlock = false
-        } else i += 1
-        continue
-      }
-      if (quote) {
-        res += ch
-        if (ch === '\\') {
-          res += line[i + 1] ?? ''
-          i += 2
-          continue
-        }
-        if (ch === quote) quote = null
-        i += 1
-        continue
-      }
-      if (ch === "'" || ch === '"' || ch === '`') {
-        quote = ch
-        res += ch
-        i += 1
-        continue
-      }
-      if (line.startsWith('//', i)) {
-        // 行注释:整段抹平(URL 的 `://` 落在字符串里,已由上面的 quote 分支保住)
-        i = line.length
-        continue
-      }
-      if (line.startsWith('/*', i)) {
-        const end = line.indexOf('*/', i + 2)
-        if (end < 0) {
-          inBlock = true
-          i = line.length
-        } else i = end + 2
-        continue
-      }
-      res += ch
-      i += 1
-    }
-    // 抹掉的部分补回等量空格以外的字符会导致行内列号漂移,但三条判据都不依赖列号 ⇒ 直接截断即可;
-    // 唯一必须保住的是**换行**,否则 `$`/multiline 类锚点会跨行误配。
-    out.push(res)
-  }
-  return out.join('\n')
-}
 
-/**
- * 裸 git 派生的计数尺子。⚠️ 必须同时覆盖两个维度,少一个都会让棘轮"看起来在收口、实际没量到":
- *  · 入口:`execFileSync` / `execSync` / `spawnSync` / `spawn` 四种(`git-push-guard` 用的就是 spawnSync);
- *  · 形态:数组式 `execFileSync('git', […])` **和** shell 串式 `execSync('git status --porcelain')`
- *    —— 后者 `git` 后面跟的是空格而不是引号,只匹配 `['"]git['"]` 会把它整类漏掉(实测本仓有大量这种写法)。
- * 判据要覆盖自己想拦的那一种形态,否则分母骗人。
- */
-const BARE_GIT_RE = /(execFileSync|execSync|spawnSync|spawn)\(\s*['"]git(?:\.exe)?(?=['"\s])/g
-const bareGitCountOf = (text) => (text.match(BARE_GIT_RE) || []).length
 
 /**
  * 型 B:变量被**初始化成**裸 'git'(直接赋值,或 `|| 'git'` / `?? 'git'` / 三元兜底),

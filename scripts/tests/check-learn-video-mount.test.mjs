@@ -51,12 +51,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import os from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { __test__ as gate, runSelfTest } from '../check-learn-video-mount.mjs'
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
@@ -318,7 +317,7 @@ test('夹具落点纪律:manifest 夹具落 mkScratch,不落被跟踪的产品/�
       assert.ok(!p.startsWith(join(ROOT, seg)), `夹具落进被跟踪源码树 ${seg}/:${p}`)
     }
     assert.ok(p.includes('ihui-scratch'), `夹具不在 scratch 根下:${p}`)
-    assert.ok(!p.startsWith(resolve(os.tmpdir())), `夹具走了 os.tmpdir()(§15b 禁,TEMP 可能钉 C 盘):${p}`)
+    assert.ok(p.startsWith(resolve(scratchRoot())), `夹具不在唯一落点 scratchRoot() 基座内(§15b):${p}`)
   } finally {
     rmScratch(scratch, { bestEffort: true })
   }

@@ -7814,7 +7814,7 @@
           "hour": "小時",
           "minute": "分"
         },
-        "degradeHint": "免費額度仍可使用,可切換免費模型繼續,無需儲值",
+        "degradeHint": "免費額度仍可使用,可切換免費模型繼續,無需儲值,用量明細見 <link>/models/usage</link>",
         "ariaLabel": "額度歸屬與處理建議"
       },
       "moveToWorktree": {
@@ -13835,7 +13835,7 @@
     "exampleStep2": "output 費用 = 1200 ÷ 1000 × 10 = 12 分",
     "exampleTitle": "計費示例",
     "examplesSubtitle": "使用 HTTP Bearer Token 鑑權,POST application/json",
-    "examplesTip": "提示:替換 YOUR_API_KEY 為你在 /developer/keys 創建的密鑰,baseURL 改為實際接入地址。",
+    "examplesTip": "提示:替換 YOUR_API_KEY 為你在 <link>/developer/keys</link> 創建的密鑰,baseURL 改為實際接入地址。",
     "examplesTitle": "調用示例",
     "formula": "費用計算公式",
     "formulaBody": "總費用 = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",

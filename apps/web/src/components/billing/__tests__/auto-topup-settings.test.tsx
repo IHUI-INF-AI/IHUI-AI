@@ -19,9 +19,18 @@ import { AutoTopupSettings } from '../auto-topup-settings'
 
 // 只断言**结构与判据**(确认门 / 校验错误 / aria / 失败恢复出路),文案一律走 key,
 // 真实文案覆盖由下面「读真实词包」那组用例守住 —— 组件测试不依赖文案措辞变动。
+// rich 与 translate 同形(函数值序列化成 '<fn>' 哨兵,JSON.stringify 默认会静默丢函数):
+// 真渲染腿(词包 t.rich + 共享渲染表产出 <strong> 元素)由
+// __tests__/auto-topup-equivalent-rich.test.tsx 用真实 NextIntlClientProvider 钉死。
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string, values?: Record<string, unknown>) =>
-    values ? `${key}(${JSON.stringify(values)})` : key,
+  useTranslations: () => {
+    const translate = (key: string, values?: Record<string, unknown>): string =>
+      values
+        ? `${key}(${JSON.stringify(values, (_k, v) => (typeof v === 'function' ? '<fn>' : v))})`
+        : key
+    ;(translate as unknown as { rich: typeof translate }).rich = translate
+    return translate
+  },
 }))
 
 const here = dirname(fileURLToPath(import.meta.url))
