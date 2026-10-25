@@ -74,6 +74,61 @@ const RE_FORM = /(?:onSubmit|handleSubmit|<form[\s>])/g
 
 const countOf = (text, re) => (text.match(re) ?? []).length
 
+/** 本地 import 说明符(相对路径与 `@/` 别名)—— 用于展开「页面族」,见 familyOf */
+const RE_IMPORT_SRC = /(?:^|[\s;])(?:import|export)[^'"]*?from\s*['"]([^'"]+)['"]/g
+const WEB_SRC_PREFIX = 'apps/web/src'
+const RESOLVE_EXTS = ['', '.tsx', '.ts', '.jsx', '.js', '/index.tsx', '/index.ts']
+
+const dirnameOf = (p) => {
+  const i = p.lastIndexOf('/')
+  return i < 0 ? '' : p.slice(0, i)
+}
+
+/** import 说明符 → 仓库内相对路径;第三方包/解析不到一律 null(不展开,也不报错) */
+function resolveLocal(fromRel, spec, fileSet) {
+  const base = spec.startsWith('@/')
+    ? `${WEB_SRC_PREFIX}/${spec.slice(2)}`
+    : spec.startsWith('.')
+      ? `${dirnameOf(fromRel)}/${spec}`.replace(/\/\.\//g, '/')
+      : null
+  if (!base) return null
+  for (const e of RESOLVE_EXTS) {
+    if (fileSet.has(base + e)) return base + e
+  }
+  return null
+}
+
+/** 页面族:page.tsx ∪ 沿本地 import 展开 depth 层的组件文件(默认 2 层,上限 12 个文件)。
+ * 立因(2026-10-26 修假阴性):Next.js 的 page.tsx 常是「薄壳 + 同目录 PageClient」,
+ * 极端到 `return <PageClient />` 一行 —— 只读 page.tsx 会把真功能页读成空壳。实测首版
+ * 71 条 shell 里绝大多数正是这一型,照单豁免就等于把真功能当非功能放掉。
+ * 故证据面必须是「页面族」而不是单个文件;展开不到的(第三方包)如实不展开。 */
+function familyOf(rel, texts, fileSet, depth = 2, maxFiles = 12) {
+  const seen = new Set([rel])
+  const parts = []
+  let frontier = [rel]
+  for (let d = 0; d < depth; d++) {
+    const next = []
+    for (const f of frontier) {
+      const t = texts.get(f)
+      if (typeof t !== 'string') continue
+      parts.push(t)
+      if (d === depth - 1) continue
+      for (const m of t.matchAll(RE_IMPORT_SRC)) {
+        if (seen.size >= maxFiles) break
+        const target = resolveLocal(f, m[1], fileSet)
+        if (target && !seen.has(target)) {
+          seen.add(target)
+          next.push(target)
+        }
+      }
+    }
+    frontier = next
+    if (frontier.length === 0) break
+  }
+  return { text: parts.join('\n'), files: [...seen] }
+}
+
 /** 有效行:剔除空行、注释、纯 import 与再导出 —— 空壳页的判据靠它(总行数会把转发页读成真页面) */
 function effectiveLines(text) {
   return text
@@ -159,26 +214,41 @@ function run() {
 
   const revOf = (rel) => (FACE === 'staged' ? `:${rel}` : `HEAD:${rel}`)
   const texts = new Map()
-  if (FACE === 'worktree') {
-    for (const r of unmapped) {
-      try {
-        texts.set(revOf(r.rel), readFileSync(join(ROOT, r.rel), 'utf8'))
-      } catch {
-        texts.set(revOf(r.rel), null)
+  const readInto = (rels) => {
+    const miss = rels.filter((rel) => !texts.has(rel))
+    if (miss.length === 0) return
+    if (FACE === 'worktree') {
+      for (const rel of miss) {
+        try {
+          texts.set(rel, readFileSync(join(ROOT, rel), 'utf8'))
+        } catch {
+          texts.set(rel, null)
+        }
       }
+      return
     }
-  } else {
-    for (const [k, v] of catBatch(ROOT, unmapped.map((r) => revOf(r.rel)), { maxBuffer: 512 * 1024 * 1024 })) {
-      texts.set(k, v)
-    }
+    const got = catBatch(ROOT, miss.map(revOf), { maxBuffer: 512 * 1024 * 1024 })
+    for (const rel of miss) texts.set(rel, got.get(revOf(rel)) ?? null)
   }
 
+  readInto(unmapped.map((r) => r.rel))
+  // 证据面 = 页面族(见 familyOf):先按 page.tsx 解析本地依赖并补读,再算证据。
+  const fileSet = new Set(cov.faceList(FACE, 'apps/web/src'))
+  const need = new Set()
+  for (const r of unmapped) {
+    for (const f of familyOf(r.rel, texts, fileSet).files) if (!texts.has(f)) need.add(f)
+  }
+  readInto([...need])
+
   const rows = unmapped.map((r) => {
-    const ev = evOf(texts.get(revOf(r.rel)) ?? null)
+    const fam = familyOf(r.rel, texts, fileSet)
+    // 页面族展开的前提是 page.tsx 自身取得到;取不到 ⇒ undetermined,不拿族内其他文件冒充
+    const ev = evOf(texts.get(r.rel) === null || texts.get(r.rel) === undefined ? null : fam.text)
     return {
       web: r.route,
       rel: r.rel,
       seg: r.route.split('/')[0] ?? '(root)',
+      family: fam.files.length,
       bytes: ev.bytes,
       lines: ev.lines,
       eff: ev.eff,
@@ -218,6 +288,8 @@ function run() {
   log(`判定面        : ${FACE === 'head' ? 'HEAD blob' : FACE === 'staged' ? '索引 blob' : '工作树(人工逃生舱)'}`)
   log(`web 路由      : ${webRoutes.length} / RN 屏 ${rnScreens.length}`)
   log(`未映射(分诊对象): ${rows.length}`)
+  log(`证据面          : page.tsx ∪ 沿本地 import 展开 2 层的组件(页面族;只读 page.tsx 会把`)
+  log(`                   「薄壳 + PageClient」的真功能页读成空壳,2026-10-26 已修该假阴性)`)
   log('')
   log(`分档结果(建议,不是判定 —— 登记权仍在 scripts/data/web-rn-screen-map.jsonl):`)
   for (const b of BUCKETS) {
@@ -253,6 +325,8 @@ export const __test__ = {
   bucketOf,
   evOf,
   effectiveLines,
+  familyOf,
+  resolveLocal,
   BUCKETS,
   BUCKET_NOTE,
   countOf,
