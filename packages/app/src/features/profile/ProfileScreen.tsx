@@ -10,7 +10,7 @@ import { ChevronRight } from 'lucide-react-native'
 import { useFontMultiplier } from '../../components/MoreLink'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * ProfileScreen — 跨端共享「个人资料」页。
@@ -134,14 +134,14 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     errorBar: {
-      marginHorizontal: 16,
-      marginBottom: 8,
+      marginHorizontal: rnSpacing.lg,
+      marginBottom: rnSpacing.sm,
       padding: 10,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.error.bg,
     },
-    errorText: { fontSize: 14, color: tk.error.text },
-    body: { paddingHorizontal: 10, paddingVertical: 16, gap: 12 },
+    errorText: { fontSize: rnType.body.size, color: tk.error.text },
+    body: { paddingHorizontal: 10, paddingVertical: rnSpacing.lg, gap: rnSpacing.md },
     userCard: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -150,7 +150,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
-      gap: 12,
+      gap: rnSpacing.md,
     },
     avatar: {
       width: 56,
@@ -161,13 +161,13 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     avatarText: { fontSize: 28, fontWeight: '700', color: tk.brandAccent.foreground },
-    userMeta: { flex: 1, gap: 4 },
+    userMeta: { flex: 1, gap: rnSpacing.xs },
     nickname: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    subText: { fontSize: 14, color: tk.text.secondary },
+    subText: { fontSize: rnType.body.size, color: tk.text.secondary },
     statsGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     statsCell: {
       width: '31%',
@@ -177,10 +177,10 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
     },
-    statsValue: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    statsLabel: { marginTop: 4, fontSize: 12, color: tk.text.secondary },
-    menuSection: { gap: 8 },
-    sectionTitle: { fontSize: 14, fontWeight: '600', color: tk.text.medium },
+    statsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    statsLabel: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.secondary },
+    menuSection: { gap: rnSpacing.sm },
+    sectionTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.medium },
     menuCard: {
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
@@ -192,14 +192,14 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       minHeight: 60,
-      paddingVertical: 16,
-      paddingHorizontal: 16,
+      paddingVertical: rnSpacing.lg,
+      paddingHorizontal: rnSpacing.lg,
       gap: 10,
     },
-    menuIcon: { fontSize: 16 },
-    menuLabel: { flex: 1, fontSize: 16, color: tk.text.primary },
+    menuIcon: { fontSize: rnType.title.size },
+    menuLabel: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },
     logoutBtn: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       height: 50,
       paddingHorizontal: 14,
       borderRadius: rnRadius.sm,
@@ -207,7 +207,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    logoutText: { fontSize: 16, fontWeight: '600', color: tk.error.text },
+    logoutText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.error.text },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

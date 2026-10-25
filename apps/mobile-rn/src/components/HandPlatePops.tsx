@@ -47,7 +47,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export interface HandPlatePaymentMethod {
   id: string
@@ -488,11 +488,11 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   // ---- 会员购买模式 ----
   purchaseWrap: {
-    paddingVertical: 8,
-    gap: 12,
+    paddingVertical: rnSpacing.sm,
+    gap: rnSpacing.md,
   } as ViewStyle,
   purchaseName: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 22,
     fontWeight: '700',
     color: tokens.text.primary,
@@ -502,10 +502,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
   } as ViewStyle,
   purchaseSymbol: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 24,
     fontWeight: '700',
     color: tokens.success.DEFAULT,
@@ -523,15 +523,15 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   } as TextStyle,
   purchaseBenefits: {
-    gap: 4,
+    gap: rnSpacing.xs,
   } as ViewStyle,
   purchaseBenefit: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     lineHeight: 22,
     color: tokens.text.secondary,
   } as TextStyle,
   purchaseBenefitHighlight: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     lineHeight: 22,
     color: tokens.brandAccent.deep,
     fontWeight: '600',
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
     gap: 6,
   } as ViewStyle,
   purchasePaymentTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   } as TextStyle,
   purchasePaymentOption: {
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
-    paddingHorizontal: 12,
+    paddingHorizontal: rnSpacing.md,
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -566,14 +566,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   purchasePaymentIconText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.surface.light,
     fontWeight: '700',
   } as TextStyle,
   purchasePaymentName: {
     flex: 1,
     marginLeft: 10,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
   } as TextStyle,
   radio: {
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.success.DEFAULT,
   } as ViewStyle,
   checkboxMark: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     lineHeight: 13,
     color: tokens.surface.light,
     fontWeight: '700',
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   } as ViewStyle,
   purchaseAgreementText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     lineHeight: 18,
     color: tokens.text.secondary,
   } as TextStyle,
@@ -633,13 +633,13 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: rnSpacing.sm,
   } as ViewStyle,
   purchasePayBtnDisabled: {
     opacity: 0.6,
   } as ViewStyle,
   purchasePayBtnText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     lineHeight: 20,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,

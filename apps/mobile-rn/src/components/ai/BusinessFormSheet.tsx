@@ -20,7 +20,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { CalendarDays, Check, Mail, X } from 'lucide-react-native'
 import { postFormResponse } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import {
   BUSINESS_FORM_FIELDS,
@@ -355,61 +355,66 @@ function FormPanel({
 
 function createStyles() {
   return StyleSheet.create({
-    chipWrap: { marginBottom: 8 },
+    chipWrap: { marginBottom: rnSpacing.sm },
     chip: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.muted,
     },
     chipText: { flex: 1, fontSize: 13, color: tokens.text.primary },
-    chipStatus: { fontSize: 11, color: tokens.text.secondary },
+    chipStatus: { fontSize: rnType.caption.size, color: tokens.text.secondary },
     backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
     // 门 217:sheet 是 bounded 容器 ⇒ 内部唯一弹性块是 body(ScrollView),固定 chrome 显式 flexShrink:0。
     sheet: {
       maxHeight: '78%',
       flexDirection: 'column',
-      gap: 8,
-      padding: 12,
+      gap: rnSpacing.sm,
+      padding: rnSpacing.md,
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tokens.surface.bg,
     },
-    chrome: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
-    title: { flexShrink: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+    chrome: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm, flexShrink: 0 },
+    title: {
+      flexShrink: 1,
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.text.primary,
+    },
     body: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
-    bodyInner: { gap: 10, paddingVertical: 8 },
-    field: { gap: 4 },
-    label: { fontSize: 12, color: tokens.text.secondary },
+    bodyInner: { gap: 10, paddingVertical: rnSpacing.sm },
+    field: { gap: rnSpacing.xs },
+    label: { fontSize: rnType.label.size, color: tokens.text.secondary },
     required: { color: tokens.danger.DEFAULT },
     input: {
       minHeight: 40,
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       backgroundColor: tokens.surface.inputBg,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tokens.text.primary,
     },
-    error: { fontSize: 11, color: tokens.danger.DEFAULT },
-    failed: { fontSize: 12, color: tokens.danger.DEFAULT },
-    attendeeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+    error: { fontSize: rnType.caption.size, color: tokens.danger.DEFAULT },
+    failed: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
+    attendeeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: rnSpacing.xs },
     attendee: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tokens.text.medium,
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.card,
     },
-    fold: { fontSize: 11, color: tokens.text.secondary },
+    fold: { fontSize: rnType.caption.size, color: tokens.text.secondary },
     action: {
       flex: 1,
       flexDirection: 'row',

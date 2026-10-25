@@ -23,7 +23,7 @@ import type {
   MessageTab,
 } from '../../types'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -215,11 +215,11 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    tabs: { paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    tabs: { paddingHorizontal: 10, paddingVertical: rnSpacing.sm, gap: rnSpacing.sm },
     tab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
@@ -229,20 +229,25 @@ function createStyles(tk: AppThemeTokens) {
     tabActive: {
       backgroundColor: tk.brand.cta,
     },
-    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
+    errorText: { paddingHorizontal: 10, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     listBody: { padding: 10 },
     // ── 会话列表区块(对齐 Uniapp message 页聊天列表) ──
     convSection: { marginBottom: 6 },
-    convTitle: { fontSize: 13, fontWeight: '700', color: tk.text.primary, marginBottom: 4 },
+    convTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.xs,
+    },
     convItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       paddingHorizontal: 10,
       borderRadius: rnRadius.xl,
-      gap: 12,
+      gap: rnSpacing.md,
     },
     convAvatarWrap: { position: 'relative' },
     convAvatar: {
@@ -252,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     convAvatarFallback: { alignItems: 'center', justifyContent: 'center' },
-    convAvatarText: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    convAvatarText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     convUnread: {
       position: 'absolute',
       top: -4,
@@ -271,12 +276,12 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    convName: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    convTime: { fontSize: 12, color: tk.text.tertiary },
+    convName: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
+    convTime: { fontSize: rnType.label.size, color: tk.text.tertiary },
     convPreview: { marginTop: 2, fontSize: 13, color: tk.text.secondary },
-    convPinBtn: { paddingHorizontal: 4, justifyContent: 'center' },
+    convPinBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
