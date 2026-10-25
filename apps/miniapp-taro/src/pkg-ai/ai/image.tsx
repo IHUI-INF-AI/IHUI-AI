@@ -12,6 +12,7 @@ import { useState, useCallback } from 'react'
 import { generateImage } from '@/api'
 import EmptyState from '@/components/EmptyState'
 import { formatDateByTemplate } from '@ihui/shared'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface HistoryItem {
@@ -84,7 +85,7 @@ export default function ImagePage() {
     setHistory(loadHistory())
     setFavorites(loadFavorites())
     const incoming = router.params.prompt
-    if (incoming) setPrompt(decodeURIComponent(incoming))
+    if (incoming) setPrompt(safeDecodeURIComponent(incoming))
   })
 
   useShareAppMessage(() => ({
