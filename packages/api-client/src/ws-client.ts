@@ -14,6 +14,9 @@
  * 心跳:客户端发 'ping' 字符串,服务端回 'pong' 字符串
  */
 import type { WSNotification } from '@ihui/types'
+// 2026-10-26:换票失败(access 过期)时先续期一次。依赖方向 ws-client → client 单向
+// (client 不 import 本文件),不构成模块环;各端接入本客户端即自动获得,不新增注入点。
+import { refreshAccessTokenOnce } from './client.js'
 
 /**
  * WebSocket 子集接口(跨端适配)。
@@ -163,11 +166,28 @@ export class WebSocketClient<TMessage = WSNotification> {
     // 失败/未配置时降级为直连 access token(兼容旧服务端)
     let connectToken = token
     if (this.options.ticketProvider) {
+      let ticket: string | null = null
       try {
-        connectToken = (await this.options.ticketProvider(token)) || token
+        ticket = (await this.options.ticketProvider(token)) || null
       } catch {
-        connectToken = token
+        ticket = null
       }
+      // 2026-10-26:access 过期(15 分钟)时换票端点恒 401,旧逻辑直接拿**过期** access
+      // 降级建连 ⇒ 服务端 4003 拒绝 ⇒ 重连循环(通知/agent 通道反复断)。这里先续期一次再换票,
+      // 续期成功但换票仍失败时也至少用新 token 降级。
+      let fallbackToken = token
+      if (!ticket) {
+        const fresh = await refreshAccessTokenOnce()
+        if (fresh) {
+          fallbackToken = fresh
+          try {
+            ticket = (await this.options.ticketProvider(fresh)) || null
+          } catch {
+            ticket = null
+          }
+        }
+      }
+      connectToken = ticket || fallbackToken
       // 换取期间被 disconnect 或换代(G-816007:原只判 closedByUser,漏了代际比对
       // ⇒ 换代发生在 await 窗口内时,这次建连照旧接管 this.ws,旧 socket 被顶出
       // 后再无 close 路径,成为服务端可见的孤儿连接),放弃本次建连
