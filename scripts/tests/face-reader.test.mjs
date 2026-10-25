@@ -503,7 +503,12 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 2026-10-26 G-54 批次第 3 轮(枚举面续迁):4 枚迁 gitRaw(check-i18n-namespace-passing / check-input-border-var /
 // check-permission-mode-vocabulary / check-portal-fixed,入库 `7634c0cbb7b`);入库后 HEAD 面现读打出
 // 「◽ 裸 git 存量已降到 49(基线 53)」⇒ 53 → 49,紧贴现读不留余量(留余量=容忍新增)。
-const BARE_GIT_BASELINE = 49 // 紧贴现读(2026-10-26 第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
+// 2026-10-26 G-54 批次第 4 轮(枚举面续迁):4 枚迁 gitRaw(check-button-height 自检夹具 1 处 /
+// check-event-closure-leak 2 处 / check-direct-backend-calls 1 处 / check-single-branch 6 处,
+// 入库 `cca944cc6a`);入库后 HEAD 面现读打出「◽ 裸 git 存量已降到 45(基线 49)」⇒ 49 → 45,
+// 紧贴现读不留余量。行为对账:前 3 枚各在固定索引快照下 HEAD 版与迁移版逐字同输出同 rc,
+// 单分支在真仓直跑两面 0/0 且输出零差;三枚自带 --self-test 全过(18/18、8/8、37 例)。
+const BARE_GIT_BASELINE = 45 // 紧贴现读(2026-10-26 第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
 // check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。
