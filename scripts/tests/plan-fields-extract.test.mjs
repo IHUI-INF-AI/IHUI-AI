@@ -14,10 +14,9 @@ import assert from 'node:assert/strict'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { __test__ as X } from '../plan-fields-extract.mjs'
+import { __test__ as X, cleanOwner } from '../plan-fields-extract.mjs'
 import {
   compositeKeyOf,
-  dispositionFace,
   dispositionOf,
   ownedElsewhereRe,
 } from '../lib/plan-task-index.mjs'
@@ -299,6 +298,31 @@ describe('侧车抽取:归属词表补洞(2026-10-24 漂移桶)', () => {
         `同一词表下忠实抽取却漂移:${line}`,
       )
     }
+  })
+})
+
+describe('侧车抽取:owner 尾括号归一(2026-10-26,G-965 末批)', () => {
+  it('① 正向:包裹句尾括号剥净后才采用(半角 `)` / 全角 `）` 各钉真实值)', () => {
+    // 三条取自侧车真实记录(G-242 / G-244 / G-863):括号是包裹句收尾,不是持有人本字
+    assert.equal(cleanOwner('web 聊天附件链)'), 'web 聊天附件链')
+    assert.equal(cleanOwner('ai-service 端）'), 'ai-service 端')
+    assert.equal(cleanOwner('ai-service↔api 两侧持有者）'), 'ai-service↔api 两侧持有者')
+    // 括号前留白同样只是包裹句收尾(不是"连续空白"那段判据的切点)
+    assert.equal(cleanOwner('台账判据线 ）'), '台账判据线')
+  })
+
+  it('② 反向:纯括号噪声 / 冒号收尾 / 剥完占位或虚词 / 剥完超长 一律 null', () => {
+    assert.equal(cleanOwner('）'), null, '单字收尾括号 = 纯噪声,剥完为空')
+    assert.equal(cleanOwner('）：'), null, '括号后紧跟收尾冒号同属噪声,剥完为空')
+    assert.equal(cleanOwner('未派）'), null, '剥完是占位值')
+    assert.equal(cleanOwner('的与）'), null, '剥完以虚词开头')
+    assert.equal(cleanOwner('持有人了）'), null, '剥完以虚词结尾')
+    assert.equal(cleanOwner('长'.repeat(49) + ')'), null, '剥完仍超 MAX_OWNER(48)')
+  })
+
+  it('③ 回归:带反引号的真实标头形态不因尾括号归一而变形(REAL_POSITIVE)', () => {
+    const line = '- [ ] 〔归:`scripts/lib/commit-gate-attribution.mjs` 持有人)〕 G-24 safe-commit'
+    assert.equal(X.extractFromLine(line)?.owner, '`scripts/lib/commit-gate-attribution.mjs` 持有人)')
   })
 })
 

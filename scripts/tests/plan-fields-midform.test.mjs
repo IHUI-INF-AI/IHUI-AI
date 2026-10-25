@@ -172,8 +172,9 @@ describe('抽取器:owner 取值面收窄(注记里的嵌入标头不算本行�
     assert.equal(cleanOwner('`scripts/lib/x.mjs` 与 `scripts/safe-commit.mjs` 两条线持有人'), null)
   })
 
-  it('孤立右括号(无反引号)不造值;真实带反引号标头写法仍保留', () => {
-    assert.equal(cleanOwner('ai-service 成本账本)'), null)
+  it('尾括号是包裹句收尾 ⇒ 剥净后采用;带反引号的真实标头写法保持原样', () => {
+    // 2026-10-26(G-965 末批)判据改判:值尾未配对收尾 `)`/`）` 属包裹句噪声,剥净后仍走全部约束
+    assert.equal(cleanOwner('ai-service 成本账本)'), 'ai-service 成本账本')
     assert.equal(cleanOwner('`scripts/lib/commit-gate-attribution.mjs` 持有人)'), '`scripts/lib/commit-gate-attribution.mjs` 持有人)')
   })
 })
