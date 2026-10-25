@@ -711,6 +711,15 @@ test('T-BLOB-5 接线与措辞:blob 模式已装进主流程,且不得凭空声�
     !/if \(!skipWatermark && !blobOf\) \{[\s\S]{0,600}?\} else \{\s*console\.log\('⚠️ IHUI_LAND_SKIP_WATERMARK/.test(src),
     '又写回无条件 else 了 ⇒ blob 模式会打印一句没发生过的放行',
   )
+  // G-04 换面的承重接线(2026-10-25 补):main 的工作树档必须把**已冻结进对象库的那一版**
+  // (`mine`)交给水印预检;退回裸 paths(=预检自己去重读盘)⇒ hash-object 与 verify 之间的
+  // 时间窗重新打开,别人改盘就能让未验证的字节进树。镜像行为锁在 watermark-scope.test.mjs S10,
+  // 这一条钉的是调用点——两头都要有,缺任一头都算"造好没装车"。
+  assert.match(
+    src,
+    /watermarkPreflight\(\{ root, paths, blobs: mine \}\)/,
+    '主流程必须把 blobs: mine 交给预检(判定面=将要进树的 blob,非盘上副本)',
+  )
 })
 
 /**
