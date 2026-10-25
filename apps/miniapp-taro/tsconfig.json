@@ -26,6 +26,7 @@
       "expo-image-picker": ["./src/rn-compat/platform.tsx"],
       "expo-media-library": ["./src/rn-compat/platform.tsx"],
       "react-native-safe-area-context": ["./src/rn-compat/platform.tsx"],
+      "@rn-shells/*": ["../../../apps/mobile-rn/src/screens/*"],
       "@ihui/rn-app/*": ["../../../packages/app/src/*"]
     },
     "baseUrl": "."

@@ -148,6 +148,7 @@ export default defineAppConfig({
       root: 'pkg-content',
       pages: [
         'news/list',
+        'activity-detail-shared/index',
         'news/detail',
         'topic/list',
         'topic/detail',

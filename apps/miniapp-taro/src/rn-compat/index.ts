@@ -38,6 +38,50 @@ export type AccessibilityRole = string
 export type Transitions = Record<string, unknown>
 export type StyleAttrs = Record<string, unknown>
 
+/**
+ * 共享层与 RN 壳实际 import 的其余 RN 类型名(现读口径:node .ihui-agent/tmp 那把尺量出的差集)。
+ * 这些是**类型位**,运行时被 babel 擦除,但缺一枚就让 miniapp 侧 `tsc --noEmit` 报
+ * "has no exported member" —— 而构建(babel)照样绿,正是"构建能过、类型失明"那一型。
+ */
+export type DimensionValue = number | string | `${number}%` | 'auto' | undefined
+export type ListRenderItemInfo<T = unknown, Extra = unknown> = {
+  item: T
+  index: number
+  separators: unknown
+  extraData?: Extra
+}
+export type ListRenderItem<T = unknown, Extra = unknown> = (
+  info: ListRenderItemInfo<T, Extra>,
+) => JSX.Element | null
+export type SectionListData<T = unknown, Extra = unknown> = {
+  title?: string
+  data: T[]
+} & Record<string, Extra | undefined>
+export type SectionListRenderItem<T = unknown, Extra = unknown> = (
+  info: ListRenderItemInfo<T, Extra> & { section: SectionListData<T, Extra>; index: number },
+) => JSX.Element | null
+export type NativeScrollEvent = {
+  contentInset: { bottom: number; left: number; right: number; top: number }
+  contentSize: { height: number; width: number }
+  contentOffset: { x: number; y: number }
+  layoutMeasurement: { height: number; width: number }
+  zoomScale?: number
+  velocityX?: number
+  velocityY?: number
+}
+export type NativeScrollEventLike = NativeScrollEvent
+export type ImageLoadEventData = { width: number; height: number; uri?: string }
+export type TextInputSubmitEditingEventData = { text: string }
+export type PanResponderInstance = { panHandlers: Record<string, unknown> }
+export type GestureState = {
+  x0: number
+  y0: number
+  dx: number
+  dy: number
+  moveX: number
+  moveY: number
+}
+
 export const AppState = {
   isAvailable: true,
   currentState: 'active' as 'active' | 'background' | 'inactive',
