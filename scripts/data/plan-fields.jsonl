@@ -104,14 +104,14 @@
 {"key":"O6513#安全停机而非硬失败","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
 {"key":"G-957#小程序网页登录三处入口是死路","owner":"机主小程序后台域名白名单面","waiting":"none","updatedAt":"2026-10-25T13:14:52.157Z","updatedBy":"plan-fields-extract"}
 {"key":"G-241#自动化\"结算状态机\"","owner":"api 端持有者","waiting":"none","updatedAt":"2026-10-25T13:14:52.158Z","updatedBy":"plan-fields-extract"}
-{"key":"G-242#一次性capabilityticket取代常驻可","owner":"ai-service↔api 两侧持有者）","waiting":"none","updatedAt":"2026-10-25T13:14:52.158Z","updatedBy":"plan-fields-extract"}
-{"key":"G-244#后台任务run状态缺append-onlyjou","owner":"ai-service 端）","waiting":"none","updatedAt":"2026-10-25T13:14:52.158Z","updatedBy":"plan-fields-extract"}
+{"key":"G-242#一次性capabilityticket取代常驻可","owner":"ai-service↔api 两侧持有者","waiting":"none","updatedAt":"2026-10-25T23:54:17.229Z","updatedBy":"plan-fields-reclassify"}
+{"key":"G-244#后台任务run状态缺append-onlyjou","owner":"ai-service 端","waiting":"none","updatedAt":"2026-10-25T23:54:17.229Z","updatedBy":"plan-fields-reclassify"}
 {"key":"O87g#守门8的\"前缀假设\"确实是本票假绿的成因","owner":"守门 8 持有人","waiting":"none","updatedAt":"2026-10-25T13:14:52.158Z","updatedBy":"plan-fields-extract"}
 {"key":"G-395#配置分层的\"出处标签\"与\"请求档vs实得档\"留痕","owner":"cli/子代理线持有人","waiting":"none","updatedAt":"2026-10-25T13:14:52.158Z","updatedBy":"plan-fields-extract"}
 {"key":"G-397#锁的\"租约认token不认pid\"一格只登记","owner":"`git-lock`/`deploy-lock` 持有人)**","waiting":"none","updatedAt":"2026-10-25T13:14:52.158Z","updatedBy":"plan-fields-extract"}
 {"key":"G-681#F9基线层把\"别人跳门塞进HEAD的存量\"记在每","owner":"台账判据线","waiting":"none","updatedAt":"2026-10-25T13:14:52.158Z","updatedBy":"plan-fields-extract"}
 {"key":"G-455#守门130的F9把「已完成历史行」与「正文里的交","owner":"门 130 持有人","waiting":"none","updatedAt":"2026-10-25T13:14:52.159Z","updatedBy":"plan-fields-extract"}
-{"key":"G-863#附件容量按\"屏当时快照\"计","owner":"web 聊天附件链)","waiting":"none","updatedAt":"2026-10-25T13:14:52.159Z","updatedBy":"plan-fields-extract"}
+{"key":"G-863#附件容量按\"屏当时快照\"计","owner":"web 聊天附件链","waiting":"none","updatedAt":"2026-10-25T23:54:17.229Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-858#union-converge的镜像在干净HEAD","owner":"`scripts/union-converge.mjs` 的 R-AR-I 出路文案族 + 「装","waiting":"none","updatedAt":"2026-10-25T13:14:52.159Z","updatedBy":"plan-fields-extract"}
 {"key":"G-5#27行\"别人认领过但已过期72小时\"的进行中标记","owner":"那 6 张票各自的持有人","waiting":"none","updatedAt":"2026-10-25T13:14:52.159Z","updatedBy":"plan-fields-extract"}
 {"key":"G-08#合并落地闸拦下这一枚合并的真病灶是\"并集少带了本","owner":"`scripts/union-converge.mjs` 落地闸持有人","waiting":"none","updatedAt":"2026-10-25T13:14:52.159Z","updatedBy":"plan-fields-extract"}
@@ -125,5 +125,5 @@
 {"key":"G-948#活文档整文件回写又吞掉他席已入库登记行","owner":"台账自愈层):一枚 bypass 落地","waiting":"none","updatedAt":"2026-10-25T13:14:52.160Z","updatedBy":"plan-fields-extract"}
 {"key":"G-329#机主2026-09-28拍板四条——①工作记忆接","owner":"机主运维面","waiting":"none","updatedAt":"2026-10-25T13:14:52.160Z","updatedBy":"plan-fields-extract"}
 {"key":"G-1182551#生产备份链日志写入侧UTF-8","owner":"机主运维面","waiting":"none","updatedAt":"2026-10-25T13:14:52.160Z","updatedBy":"plan-fields-extract"}
-{"key":"G-76#生产备份链日志的写入侧编码要改成UTF-8","owner":"","waiting":"env","updatedAt":"2026-10-25T17:19:10.296Z","updatedBy":"plan-fields-reclassify","blocking":"机主核隧道"}
+{"key":"G-76#生产备份链日志的写入侧编码要改成UTF-8","owner":"","waiting":"env","blocking":"机主核隧道","updatedAt":"2026-10-25T17:19:10.296Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-1222558#收敛链这一轮量到的四格","owner":"union-converge 落地闸 / git-sync-converge 转述层 / 台账取","waiting":"none","updatedAt":"2026-10-25T13:14:52.167Z","updatedBy":"plan-fields-extract"}

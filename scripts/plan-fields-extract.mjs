@@ -75,20 +75,28 @@ export function cleanOwner(raw) {
     // (2026-10-25 实测 G-47/G-48/G-49 三行正是这么来的)。去掉省略号、保留已知前缀。
     .replace(/…/g, '')
     .trim()
-  if (cut.length < 2) return null
-  if (OWNER_PLACEHOLDER_RE.test(cut)) return null
-  if (OWNER_LEAD_PARTICLE_RE.test(cut)) return null
-  if (OWNER_TAIL_PARTICLE_RE.test(cut)) return null
   // 孤立右括号 = 括号噪声,不是持有人本字(2026-10-26 实测 G-941 `（可判;归属:ai-service 成本账本)`:
   // 同句全角 `（` 开、半角 `)` 收,字符类只挡全角)。带反引号的值不在此列 —— 本仓真实标头就是
   // `` 〔归:`path` 持有人)〕 `` 这种写法(镜像测试 REAL_POSITIVE 钉住),不能一刀切。
-  if (!cut.includes('`') && /[)）]$/.test(cut)) return null
+  // 2026-10-26(G-965 末批):括号是**包裹句的收尾**,不是持有人本字 ⇒ 剥掉一个未配对的收尾
+  // `)`/`）`(紧接一个收尾冒号时,冒号属同段噪声)后,余值仍走下面**全部**既有约束;
+  // 余值不成立才判 null(纯括号噪声剥完为空/占位,仍拒)。`cut` 已在第一个开括号处切开,
+  // 故其中不可能有开括号 —— 尾括号天然未配对,只需剥这一个。
+  let value = cut
+  if (!cut.includes('`')) {
+    const tail = /[)）][:：]?$/.exec(cut)
+    if (tail) value = cut.slice(0, -tail[0].length).trimEnd()
+  }
+  if (value.length < 2) return null
+  if (OWNER_PLACEHOLDER_RE.test(value)) return null
+  if (OWNER_LEAD_PARTICLE_RE.test(value)) return null
+  if (OWNER_TAIL_PARTICLE_RE.test(value)) return null
   // 超长一律**不造**(2026-10-26 立,治 G-63 那型):以前切到 48 字,切点常落在反引号/句子中段,
   // 产出 `\`scripts/lib/pre-commit-hook.js\` 与 \`scripts/safe` 这种**不能充当归属**的畸形值;
   // 同键再被另一条完整值补上就是投影互斥(门 234 conflict)。失效方向选"少搬一带",
   // 改值通道仍是 `--reclassify`(逐条带 why),不是抽取器顺手截。
-  if (cut.length > MAX_OWNER) return null
-  return cut
+  if (value.length > MAX_OWNER) return null
+  return value
 }
 
 /**
