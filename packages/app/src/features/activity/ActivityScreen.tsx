@@ -41,6 +41,7 @@ export function ActivityScreen({
   error,
   onRefresh,
   onBack,
+  onItemPress,
   colorScheme = 'light',
 }: ActivityScreenProps) {
   const tk = getTokens(colorScheme)
@@ -78,7 +79,11 @@ export function ActivityScreen({
             />
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={onItemPress ? 0.85 : 1}
+              onPress={onItemPress ? () => onItemPress(item) : undefined}
+            >
               <View style={styles.titleRow}>
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {item.title}
@@ -102,7 +107,7 @@ export function ActivityScreen({
               <TouchableOpacity style={styles.joinBtn}>
                 <Text style={styles.joinText}>{t('activity.joinNow')}</Text>
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}
