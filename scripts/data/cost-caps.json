@@ -1,0 +1,17 @@
+{
+  "$comment": "O6502 成本熔断上限(机读闭集)。窗口为滚动窗口:perHour = 近 60 分钟,perDay / minutesPerDay = 近 24 小时。改上限属于人工阀 budget-cap-change。",
+  "version": 1,
+  "issuesAt": "2026-10-25",
+  "kinds": {
+    "deploy": {
+      "perHour": 4,
+      "perDay": 40,
+      "minutesPerDay": 240
+    },
+    "session": {
+      "perHour": 3,
+      "perDay": 24,
+      "minutesPerDay": 720
+    }
+  }
+}
