@@ -133,7 +133,13 @@ jobs:
         # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;
         # 连续两轮 desktop build 阶段遭 runner shutdown(cancel)。
         # 禁止加 continue-on-error / `|| true`:这一步是"生产构建能不能过"的唯一真值来源。
-        run: pnpm turbo run build --filter=!@ihui/desktop
+        # 2026-10-25 加 --force(实测两次红):本步吃 turbo 缓存时会把上游某一步
+        # (`pnpm --filter "@ihui/api-client..." run build`,atomic-build 走"原地覆盖兜底"
+        # 那次)产出的**不完整 dist** 固化下来 —— web 的 next build 在 tsc 阶段报
+        # `Module '"@ihui/api-client"' has no exported member 'ExpertAutoRouteMode' /
+        # 'ReviewFindingEvent'`,而 webpack 本身 `Compiled successfully`、本地同一条
+        # `apps/web` tsc 零错误。产物面污染而非代码面问题,--force 让本步真正重建。
+        run: pnpm turbo run build --filter=!@ihui/desktop --force
 
       # 后置断言:"这一步报绿"与"web 端真的产出了产物"是两件事。.next/BUILD_ID 由 next build
       # 独占生成(turbo 会把 .next/** 作为 outputs 一并回缓存),它不在位就说明本次根本没有

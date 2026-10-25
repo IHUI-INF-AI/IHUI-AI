@@ -11,6 +11,7 @@
 import { toast } from '@/components/common'
 import { compactConversation, getMessages } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
 import { noteBudgetTrustedZeroPhase } from './budget-state'
 
 /** 压缩结果语义(与后端 reason 对齐;failed = 网络/服务端错误) */
@@ -27,9 +28,12 @@ type CompactTranslator = (key: string, vars?: Record<string, string>) => string
 export async function runManualCompact(
   conversationId: string | null,
   t: CompactTranslator,
+  // 票60 步序四:流态守卫与消息写回按调用方传入的 store 实例(默认单例,零回归)——
+  // 窗格里 /compact 读的是该窗格的 isStreaming、重拉结果写回该窗格,不再串到根单例。
+  chatStore: ChatStore = useChatStore,
 ): Promise<ManualCompactOutcome> {
   if (!conversationId) return 'skipped'
-  if (useChatStore.getState().isStreaming) return 'skipped'
+  if (chatStore.getState().isStreaming) return 'skipped'
   try {
     const res = await compactConversation(conversationId)
     if (res.success && res.data) {
@@ -49,9 +53,9 @@ export async function runManualCompact(
         if (
           result.success &&
           result.data &&
-          useChatStore.getState().conversationId === conversationId
+          chatStore.getState().conversationId === conversationId
         ) {
-          useChatStore.getState().setMessages(
+          chatStore.getState().setMessages(
             result.data.messages.map((m) => ({
               id: m.id,
               role: m.role,

@@ -49,9 +49,10 @@ describe('浏览历史字段名口径:统一 targetType/targetId', () => {
 
   it('页面的类型与渲染处都走 target*(含 TYPE_ICON 取键与标签渲染)', () => {
     const src = read(PAGE)
-    // 类型定义处
-    expect(src).toMatch(/targetType:\s*TargetType/)
-    expect(src).toMatch(/targetId:\s*string/)
+    // 类型定义处:2026-10 d1b7ff6329f 起本地联合删除、HistoryItem 收回 @ihui/types 单源
+    // (targetType 在共享契约里是开放值域);此处改钉"页面消费共享单源",不许回抄本地联合
+    expect(src).toMatch(/import type \{ HistoryItem \} from '@ihui\/types'/)
+    expect(src).not.toMatch(/type TargetType =/)
     // 渲染处两处 + 回退标题一处
     expect(src).toMatch(/TYPE_ICON\[item\.targetType\]/)
     expect(src).toMatch(/\{item\.targetType\}/)
@@ -77,9 +78,16 @@ describe('浏览历史字段名口径:统一 targetType/targetId', () => {
   it('写入侧的 targetType 落在后端白名单内(否则上报 400,历史永远是空的)', () => {
     const page = read(PAGE)
     const routes = read(API_ROUTES)
-    // 前端页面的值域
-    const union = page.match(/type TargetType = ([^\n]+)/)?.[1] ?? ''
-    const pageValues = [...union.matchAll(/'([a-z]+)'/g)].map((m) => m[1]).sort()
+    // 前端页面的值域:本地联合已删(d1b7ff6329f 收回共享单源),图标映射的键集即页面
+    // 认得的值域(开放 Record + FileText 兜底),须逐个覆盖后端白名单,否则列表图标恒落兜底
+    const pageLines = page.split('\n')
+    const start = pageLines.findIndex((l) => l.startsWith('const TYPE_ICON'))
+    const iconLines = start >= 0 ? pageLines.slice(start + 1) : []
+    const pageValues = [
+      ...new Set(
+        iconLines.map((l) => /^\s{2}([a-z]+):/.exec(l)?.[1]).filter((v): v is string => Boolean(v)),
+      ),
+    ].sort()
     expect(pageValues).toEqual(['doc', 'file', 'post', 'project'])
     // 后端 z.enum 白名单必须逐个覆盖页面值域
     const zenum = routes.match(/targetType:\s*z\.enum\(\[([^\]]+)\]\)/)?.[1] ?? ''

@@ -946,9 +946,24 @@ export const getWithdrawalRecords = (params?: { page?: number; pageSize?: number
   }>('/distribution/withdrawals', params)
 export const getCommissionRecords = (params?: { page?: number; pageSize?: number }) =>
   get<{
-    list: Array<{ id: string; amount: number; type: string; time: string; nickname?: string }>
+    // 行形状 = 后端 listCommissionFlows 交出的 commission_flows 原始列(现读自
+    // apps/api/src/routes/distribution.ts:391 `/distribution/list`):
+    //  · amount 单位是**分**(schema/commission.ts 注释「佣金金额(分)」)
+    //  · type/status 是**整数档**,不是字符串;时间是 createdAt,没有 time / nickname 列
+    // 旧声明写的是 `type: string; time: string; nickname?: string` —— 那是照着
+    // 一个**从未注册过的**端点猜出来的形状,字段全都取不到值。
+    list: Array<{
+      id: string
+      amount: number
+      type: number
+      status: number
+      remark: string | null
+      createdAt: string
+    }>
     total: number
-  }>('/distribution/commission', params)
+    page: number
+    pageSize: number
+  }>('/distribution/list', params)
 export const withdraw = (data: { amount: number; type: string }) =>
   post('/distribution/withdraw', { amount: data.amount, method: data.type })
 export const getDistributionRank = () =>

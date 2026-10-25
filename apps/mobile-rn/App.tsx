@@ -55,6 +55,9 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   // 刻意**不**改成"默认全给 chrome + 例外表":沉浸式/渐变定档那几屏(VideoPlayer / CoursePlanet / MoreCourse /
   // ChatTools)的顶色是各自定稿,翻默认会把它们推给白档。
   Home: (t) => t.surface.chrome,
+  // CheckinAssistant(2026-10-24 补录):他人落库该屏时注册了路由却漏登记本表,
+  // 屏内渲染 <NavBar>+<NavChrome> ⇒ 按 SecurityCenter 同型判据取 chrome 档
+  CheckinAssistant: (t) => t.surface.chrome,
   HomeMain: (t) => t.surface.chrome,
   // SecurityCenter(2026-10-21 补录):他人落库该屏时注册了路由却漏登记本表,
   // 屏内确实渲染 <NavBar> ⇒ 按上表判据取 chrome 档(与 Home/Settings 同档)。
@@ -351,19 +354,23 @@ function AppContent() {
               树内位置不影响视觉层级;放在 Provider 子树内是硬要求 —— AppConfirmHost 调
               useI18n 取默认确认按钮文案,挂在子树外会直接抛 useI18n 上下文错误。 */}
           <AppConfirmHost />
+          {/* 全局浮窗:赚米/客服/反馈,覆盖在 RootNavigator 之上(右下角悬浮)。
+              对齐历史 Uniapp FloatBox.vue:靠右竖条 + 左滑展开,非箭头按钮显隐。
+              未登录时这三个功能页不在导航器里(token 条件分支),先引导到登录页。
+              2026-10-25 修启动即崩:i18n 扫尾批给它加了 useI18n(accessibilityLabel 取译文),
+              却仍挂在本 Provider 之外 ⇒ release 包一启动即抛 useI18n 上下文错误
+              (AppConfirmHost 同型问题的第二次发生,真机 boot 崩溃栈实证)。 */}
+          <GlobalFloatBox
+            onPromote={() => goFloat('Promote')}
+            onConsult={() => goFloat('CustomerService')}
+            onFeedback={() => goFloat('Feedback')}
+          />
+          {/* 首启隐私政策弹窗(RN Modal 恒在最顶层):未同意不可继续使用(对齐历史 App.vue privacy-modal);
+              同样吃 useI18n,必须留在 Provider 子树内(与 GlobalFloatBox 同批修)。 */}
+          <PrivacyPolicyModal visible={privacyVisible} onAgree={handlePrivacyAgree} />
         </I18nProvider>
         <StatusBar style="auto" />
       </SafeAreaProvider>
-      {/* 全局浮窗:赚米/客服/反馈,覆盖在 RootNavigator 之上(右下角悬浮)。
-          对齐历史 Uniapp FloatBox.vue:靠右竖条 + 左滑展开,非箭头按钮显隐。
-          未登录时这三个功能页不在导航器里(token 条件分支),先引导到登录页。 */}
-      <GlobalFloatBox
-        onPromote={() => goFloat('Promote')}
-        onConsult={() => goFloat('CustomerService')}
-        onFeedback={() => goFloat('Feedback')}
-      />
-      {/* 首启隐私政策弹窗(RN Modal 恒在最顶层):未同意不可继续使用(对齐历史 App.vue privacy-modal) */}
-      <PrivacyPolicyModal visible={privacyVisible} onAgree={handlePrivacyAgree} />
     </View>
   )
 }

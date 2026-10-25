@@ -7,7 +7,7 @@ import { render, fireEvent } from '@testing-library/react'
 import { type ReactNode } from 'react'
 import { I18nProvider } from '../src/i18n'
 
-// 不再自带 vi.mock('react-native') 工厂:它遮蔽 vitest.config.ts 的 alias 替身
+// 不再自带 工厂:它遮蔽 vitest.config.ts 的 alias 替身
 // tests/__mocks__/react-native.ts,替身补了 PixelRatio 而内联副本没有 ⇒ MoreLink 一渲染即抛。
 // 共享替身是本工厂的严格超集(同款 mk 组件/onPress→onClick/样式合并/Appearance/DevSettings/
 // StyleSheet,另含 PixelRatio/Platform/FlatList/Pressable 等),断言语义不变。

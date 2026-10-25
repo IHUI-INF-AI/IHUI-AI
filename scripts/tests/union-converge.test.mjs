@@ -1208,6 +1208,129 @@ test('R-O F5 的豁免额度必须窄到"指针行 ∧ 仍 ≥1 份",否则注�
   )
 })
 
+test('G-62 F5 两版判据共存:欠账名单与归档抑制额度必须机器可读(--json 问责)', () => {
+  // 票面:c18ac45d98 那一版(`f5Deficit`/`suppCredit`)被"整文件取向"的并发合并抹掉过。
+  // 这里钉的是它的**可问责出口**:逐行欠账必须是结构化的全部行(不是红句里列前 5 的字符串),
+  // 且"被本侧归档抑制"抵掉的份数必须单列 —— 两者与判据同源(同一份 rest),不得各算一遍。
+  const ONE =
+    '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。〔【归并】D9 落账:复测 2026-09-26: 取证 A。〕'
+  const NONE = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。'
+  const noSide = '# 乙侧\n这一面没有任何注记行\n'
+  // A) 注记行整族消失 ⇒ 名单逐行给出:行原文 + 欠几份 + 结果面剩几份(全部行,不受红句截断)
+  const r = U.planStateRegressions(`${NONE}\n`, [`${ONE}\n`, noSide])
+  assert.ok(
+    r.some((x) => x.startsWith('F5')),
+    `A) 注记整族消失必须判红,实测 ${JSON.stringify(r)}`,
+  )
+  assert.ok(Array.isArray(r.f5Deficit), 'A) 欠账名单必须是机器可读数组(挂在返回值上供 --json 取)')
+  assert.deepEqual(
+    r.f5Deficit,
+    [{ line: ONE, short: 1, carried: 0 }],
+    `A) 名单必须给全行原文/欠份数/剩余份数,实测 ${JSON.stringify(r.f5Deficit)}`,
+  )
+  assert.equal(r.f5SuppressedCredit, 0, 'A) 没有抑制证据时该项额度必须是 0(不得空着)')
+  assert.equal(JSON.parse(JSON.stringify(r.f5Deficit))[0].short, 1, 'A) JSON 序列化后字段必须仍在')
+  // B) 抑制表**逐字点名** ⇒ 不判红,且额度必须报出条数(不得静默放过)
+  const cleared = U.planStateRegressions(`${NONE}\n`, [`${ONE}\n`, noSide], null, {
+    suppress: new Map([[ONE, 1]]),
+  })
+  assert.equal(
+    cleared.filter((x) => x.startsWith('F5')).length,
+    0,
+    `B) 被归档抑制的行不得判红,实测 ${JSON.stringify(cleared)}`,
+  )
+  assert.deepEqual(cleared.f5Deficit, [], 'B) 已抵清 ⇒ 名单必须为空')
+  assert.equal(cleared.f5SuppressedCredit, 1, 'B) 抵掉的份数必须逐条报出')
+  // C) 抑制表点名的是**另一行** ⇒ 照常判红(加额度不等于放过)
+  const still = U.planStateRegressions(`${NONE}\n`, [`${ONE}\n`, noSide], null, {
+    suppress: new Map([[NONE, 9]]),
+  })
+  assert.ok(
+    still.some((x) => x.startsWith('F5')),
+    `C) 点名另一行不得放过,实测 ${JSON.stringify(still)}`,
+  )
+  assert.equal(still.f5Deficit.length, 1, 'C) 未解释的行仍必须进名单')
+  assert.equal(still.f5SuppressedCredit, 0, 'C) 未命中抑制表不得记账')
+  // D) 量纲成对:一行两枚注记 ⇒ 欠账按 2 计,抑制一行恰好抵 2
+  const TWO =
+    '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。' +
+    '〔【归并】D9 落账:复测 2026-09-26: 取证 A。〕 另有同题一条。' +
+    '〔【归并】D9 落账:复测 2026-09-27: 取证 B。〕'
+  const two = U.planStateRegressions(`${NONE}\n`, [`${TWO}\n`, noSide])
+  assert.equal(two.f5Deficit[0]?.short, 2, `D) 两枚注记必须按 2 份欠账计,实测 ${JSON.stringify(two.f5Deficit)}`)
+  const twoCleared = U.planStateRegressions(`${NONE}\n`, [`${TWO}\n`, noSide], null, {
+    suppress: new Map([[TWO, 1]]),
+  })
+  assert.equal(
+    twoCleared.f5SuppressedCredit,
+    2,
+    `D) 抑制一行必须抵 2 份(按标记数而不是按行数),实测 ${twoCleared.f5SuppressedCredit}`,
+  )
+})
+
+test('R-O3 G-815913:F5 必须与 verifyUnion 认同一本折叠账(⑤ 档),比较集由调用点收到两侧', () => {
+  const body = topLevelBody(srcOfTool(), 'export function planStateRegressions(')
+  // 同源锁:⑤ 档的折叠举证必须复用 attestFoldPair 那**一份**实现 —— 门内再写第二份"折没折成"必漂移,
+  // 漂移的固定代价就是本票的病:一边绿灯一边判红(两把尺子不同形)。
+  assert.match(
+    body,
+    /attestFoldPair\(/,
+    'F5 的折叠额度必须过与 verifyUnion 同一份 attestFoldPair 四问举证,不得自造第二把尺子',
+  )
+  assert.ok(body.includes('f5SideTexts') && body.includes('foldPairs'), 'F5 段必须读调用点传来的两侧集合与折叠台账')
+  const FD = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 落账:复测 2026-09-26〕'
+  const FK = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 落账:复测 2026-09-26〕〔【归并】G-900077 补记:第二注〕'
+  const FKX = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 补记:第二注〕'
+  const SIDE = `# 侧\n${FD}\n${FD}\n${FK}\n`
+  const MERGED = `# 果\n${FK}\n`
+  // 正例:合法折叠(保留行接住独有注记)⇒ 不得判红 —— 这正是部署环 BLOCKED-DIVERGED 120+ 轮的形状
+  assert.equal(
+    U.planStateRegressions(MERGED, [SIDE, 'z\n']).join(''),
+    '',
+    `合法折叠不得判红,实测 ${JSON.stringify(U.planStateRegressions(MERGED, [SIDE, 'z\n']))}`,
+  )
+  // 反向锁 1:去向行没接住独有注记 ⇒ 真少带仍被点名
+  assert.ok(
+    U.planStateRegressions(`# 果\n${FKX}\n`, [SIDE, 'z\n']).join('').includes('未被任何机制解释'),
+    'Q4 信息守恒不过的"折叠"必须照旧判红',
+  )
+  // 反向锁 2:结果面没有同指纹去向(真删除)⇒ 判红
+  assert.ok(
+    U.planStateRegressions('# 果\n无\n', [SIDE, 'z\n']).join('').includes('F5'),
+    '无去向的真删除必须判红,折叠额度不得成为删除的掩体',
+  )
+  // 反向锁 3:台账少报 ⇒ 超出部分不记额度(与 verifyUnion 的 droppedCopies 封顶同形)
+  assert.ok(
+    U.planStateRegressions(MERGED, [SIDE, 'z\n'], null, {
+      foldPairs: [{ dropped: FD, kept: FK, droppedCopies: 1 }],
+    })
+      .join('')
+      .includes('F5'),
+    '台账报 1 份而结果缺 2 份时,多出的那一份不得被折叠额度吞掉',
+  )
+  // 比较集(票面改法①):base 历史缩量不进 F5 差额;不传该参时旧口径逐字不变
+  const CN = '- [x] ✅(2026-09-20) **G-900078 比较集例**:做完了。〔【归并】G-900078 落账:复测 2026-09-26〕'
+  const OLD = '- [x] ✅(2026-09-20) **G-900079 历史缩量例**:做完了。〔【归并】G-900079 落账:复测 2026-09-26〕'
+  const BASE = `# B\n${OLD}\n${CN}\n`
+  const OURS = `# O\n${CN}\n`
+  const THEIRS = `# T\n${CN}\n`
+  assert.equal(
+    U.planStateRegressions(`# M\n${CN}\n`, [BASE, OURS, THEIRS], null, { f5SideTexts: [OURS, THEIRS] }).join(''),
+    '',
+    '声明两侧集合后,base 独有的历史缩量不得计入 F5 差额',
+  )
+  assert.ok(
+    U.planStateRegressions(`# M\n${CN}\n`, [BASE, OURS, THEIRS]).join('').includes('F5'),
+    '不传 f5SideTexts 的旧调用必须逐字保持旧口径(放宽只长在显式声明的调用点上)',
+  )
+  assert.ok(
+    U.planStateRegressions('# M\n无\n', [BASE, OURS, THEIRS], null, { f5SideTexts: [OURS, THEIRS] })
+      .join('')
+      .includes('F5'),
+    '两侧独有的注记行被顶掉,换集合后仍必须判红(比较集修法不削牙)',
+  )
+})
+
 test('R-O2 量纲锁(G-977960 ①):跨行注记只报名不判红,承载行真消失仍判红', async () => {
   // 同一条注记横写两行时,`[^〕]` 含换行 ⇒ 整面命中数会随**行序**变化,而逐行额度机器看不见它。
   // 旧写法拿整面数当份数 ⇒ 一行没少也恒差 N 条且名单为空(实测 622/530/扣 90+3/差 2)。

@@ -217,9 +217,25 @@ export default defineConfig({
       // model-catalog 的 `import type`,编译期擦除),平台无关 ⇒ 别名直指真实源码,
       // 与同文件 auth / chat / ui / api-client 各条同一条规矩(纯逻辑/纯常量给它写 mock,测的就是 mock)。
       // 子路径别名仍排在前面(最长匹配优先,父别名按 startsWith 会吞子路径)。
+      '@ihui/shared/constants/about-sections': resolve(
+        __dirname,
+        '../../packages/shared/src/constants/about-sections.ts',
+      ),
+      '@ihui/shared/constants/developer-space': resolve(
+        __dirname,
+        '../../packages/shared/src/constants/developer-space.ts',
+      ),
       '@ihui/shared/constants/storage-keys': resolve(
         __dirname,
         '../../packages/shared/src/constants/storage-keys.ts',
+      ),
+      '@ihui/shared/constants/trader-plan-promo': resolve(
+        __dirname,
+        '../../packages/shared/src/constants/trader-plan-promo.ts',
+      ),
+      '@ihui/shared/constants/web-portal': resolve(
+        __dirname,
+        '../../packages/shared/src/constants/web-portal.ts',
       ),
       '@ihui/shared/constants': resolve(__dirname, '../../packages/shared/src/constants/index.ts'),
       // D111:权限档展示为纯逻辑模块(chat barrel 无 DOM/RN 依赖),指向真实源码而非 mock ——

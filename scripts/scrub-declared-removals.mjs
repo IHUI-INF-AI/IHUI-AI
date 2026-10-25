@@ -46,12 +46,36 @@ import { gitRaw } from './lib/face-reader.mjs'
 import { bodyOfRow, compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const LEDGERS = ['.ihui-agent/state/stale-claim-strip.jsonl', '.ihui-agent/state/plan-row-drop.jsonl']
+// 顶层 export 供 `union-converge` 的复合主键维(G-34/G-43, 2026-10-25)复用同一份文件清单——
+// 台账路径若有两份,第二份必然漂移(§0.6);既有 `__test__.LEDGERS` 指向同一数组,语义不变。
+export const LEDGERS = ['.ihui-agent/state/stale-claim-strip.jsonl', '.ihui-agent/state/plan-row-drop.jsonl']
 
 /** 勾选态取自单源解析器(非登记行 ⇒ null;本器不判"什么算复选框行")。 */
 export function rowStateOf(line) {
   const rows = parseTaskRows(String(line ?? ''))
   return rows.length ? rows[0].state : null
+}
+
+/**
+ * 题面前缀指纹:抹掉行首编号、装饰与括号内引用后取正文前 32 个字。
+ *
+ * 为什么需要它(2026-10-25 实测):让号/清偿会把同一张票改成新号(同一条"生产备份链
+ * UTF-8"在半小时内出现过 G-65→G-87→G-63),而摘除台账的逐字维只认整行原文 ⇒
+ * `check-plan-line-loss --heal` 每次都能把改号后的同题行当"历史被抹掉"再回捞一次。
+ * 题面指纹只用于**已声明为 f11-purge 的摘除**这一族,不改变其它任何桶的逐字语义。
+ *
+ * 取 32 而不是 16(2026-10-25 A2 实测):16 字会把"机主 2026-09-28 拍板四条"
+ * 的 G-99(已退场)与 G-06(归口行)、"VideoPlayerScreen 全屏纯黑" 的 G-72 与 G-15
+ * 算成同一指纹,存在把不同票的丢失一并豁免的假阴性;32 字在分歧点之后。
+ */
+export function titleFpOf(line) {
+  const body = bodyOfRow(String(line ?? '')) ?? String(line ?? '')
+  return body
+    .replace(/^\s*\**\s*/, '')
+    .replace(/^[A-Za-z]{1,8}-?\d+[a-z]?\s*[.、:：]?\s*/, '')
+    .replace(/（[^）]*）|\([^)]*\)/g, '')
+    .replace(/[^\p{L}\p{N}]/gu, '')
+    .slice(0, 32)
 }
 
 /** 台账整行原文 → 摘除声明索引。这是维二输入的**唯一构造出口**(self-test 与镜像测试都走它,
@@ -79,13 +103,20 @@ export function buildDeclared(rowTexts) {
  *    的 `declaredDropCaps` 与门 71 都只读它,新增维度必须是**加字段**而不是改语义);
  *  · `closed` = 台账里**已勾形态**的行按复合主键建好的索引(维二输入;同主键可能多枚,存数组);
  *  · `closedDeclared` = 已勾形态枚数(维二的输入面;0 枚只说明"台账里没有结清行",不是判据坏了)。
- *  解不开的行长跳过并计数。 */
+ *  解不开的行长跳过并计数。
+ *  〔G-34/G-43 补字段@2026-10-25,只加不改语义〕`malformedLines` = 解不开的那些行的**原文清单**
+ *  (`union-converge` 的复合主键维要靠它做"坏行含该候选编号 ⇒ 未判定不回补"的归因;本器自身不读);
+ *  `filesSeen` = 两份台账中**实际在位**的份数(0 = 台账整体缺失,调用方不得当成"没有声明过",§0.3)。 */
 export function declaredRows(root = ROOT, files = LEDGERS) {
   const rows = []
+  const dropRows = []
   let malformed = 0
+  const malformedLines = []
+  let filesSeen = 0
   for (const f of files) {
     const p = path.join(root, f)
     if (!existsSync(p)) continue
+    filesSeen++
     for (const line of readFileSync(p, 'utf8').split('\n')) {
       if (line.trim() === '') continue
       let o
@@ -93,25 +124,39 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
         o = JSON.parse(line)
       } catch {
         malformed++
+        malformedLines.push(line)
         continue
       }
       for (const key of ['rowBefore', 'before']) {
-        if (typeof o[key] === 'string' && /^\s*- \[[ xX]\]/.test(o[key])) rows.push(o[key])
+        if (typeof o[key] === 'string' && /^\s*- \[[ xX]\]/.test(o[key])) {
+          rows.push(o[key])
+          if (o.kind === 'f11-purge' || o.seat === 'f11-purge-20261025') dropRows.push(o[key])
+        }
       }
     }
   }
-  return { ...buildDeclared(rows), malformed }
+  return {
+    ...buildDeclared(rows),
+    dropTitleFps: new Set(dropRows.map(titleFpOf).filter(Boolean)),
+    malformed,
+    malformedLines,
+    filesSeen,
+  }
 }
 
-/** 兼容旧调用方:只给 `Set` 的调用只有逐字维(维二输入为空 ⇒ 一条也不按正文剔)。 */
+/** 兼容旧调用方:只给 `Set` 的调用只有逐字维(维二/维三输入为空 ⇒ 不按正文/题面剔)。 */
 function declaredInputs(declared) {
-  if (declared instanceof Set) return { set: declared, closed: new Map() }
-  return { set: declared?.set ?? new Set(), closed: declared?.closed ?? new Map() }
+  if (declared instanceof Set) return { set: declared, closed: new Map(), dropTitleFps: new Set() }
+  return {
+    set: declared?.set ?? new Set(),
+    closed: declared?.closed ?? new Map(),
+    dropTitleFps: declared?.dropTitleFps ?? new Set(),
+  }
 }
 
 /** 纯函数:算出该剔哪些行(不写盘,便于自检)。`headText` = HEAD 面全文,`declared` = Set 或 `declaredRows()` 返回值。 */
 export function scrub(text, headText, declared) {
-  const { set: declaredSet, closed } = declaredInputs(declared)
+  const { set: declaredSet, closed, dropTitleFps } = declaredInputs(declared)
   const headLines = String(headText ?? '').split('\n')
   const head = new Set(headLines)
   /** HEAD 面在册的复合主键(维二的②'):同主键仍在册 ⇒ 别人真在写同题,绝不剔。 */
@@ -130,6 +175,19 @@ export function scrub(text, headText, declared) {
     if (declaredSet.has(l) && !head.has(l) && /^\s*- \[[ xX]\]/.test(l)) {
       dropped.push(l)
       via.set(l, 'verbatim')
+      continue
+    }
+    // 维三(题面前缀维,2026-10-25):声明为 f11-purge 的同题行即使让号/改号也剔;
+    // HEAD 仍有同题键 ⇒ 别人真在写同题,绝不剔(与维二同一条让路纪律)。
+    if (
+      /^\s*- \[[ xX]\]/.test(l) &&
+      !head.has(l) &&
+      dropTitleFps.size > 0 &&
+      dropTitleFps.has(titleFpOf(l)) &&
+      !headKeys.has(compositeKeyOf(l))
+    ) {
+      dropped.push(l)
+      via.set(l, 'title')
       continue
     }
     if (head.has(l)) {
@@ -272,5 +330,5 @@ function selfTest() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) process.exitCode = main(process.argv.slice(2))
 
-export const __test__ = { scrub, declaredRows, buildDeclared, rowStateOf, main, LEDGERS }
+export const __test__ = { scrub, declaredRows, buildDeclared, rowStateOf, titleFpOf, main, LEDGERS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

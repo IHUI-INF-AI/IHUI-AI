@@ -27,6 +27,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 
 import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { randomBytes } from 'node:crypto'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -35,8 +36,12 @@ const ROOT = resolve(__dirname, '..')
 // ---------- 参数解析 ----------
 const argv = process.argv.slice(2)
 function argValue(name) {
-  const i = argv.indexOf(name)
-  return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null
+  const f = requireFlagValue(argv, name, { noun: '值' })
+  if (f.error) {
+    console.error(`❌ ${f.error}`)
+    process.exit(2)
+  }
+  return f.value
 }
 const HOST = argValue('--host') || 'aizhs.top'
 const DRY_RUN = argv.includes('--dry-run')

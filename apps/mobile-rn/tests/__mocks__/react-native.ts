@@ -51,10 +51,26 @@ type Measurable = HTMLElement & {
   measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => void
 }
 
+/**
+ * 这是 RN 测试的**全局单源替身**(vitest.config.ts 的 resolve.alias 把 'react-native'
+ * 指到本文件)——新测试一律直接吃它,**禁止**再在测试文件里写 `vi.mock('react-native', …)`
+ * 覆盖式文件内 mock(仓内尚存 27 份历史文件内 mock:文件内工厂优先于本替身,导致组件新用
+ * 的 API(Animated.sequence/Easing.inOut/onLongPress 等)只在部分文件生效、其余齐崩
+ * ——2026-10-24 实测 45 例红即此型)。组件新增 react-native API 消费时:补本文件,
+ * 一处生效;确需文件内特化时用 importOriginal 部分覆盖,勿整厂复制。
+ */
 const mk = (tag: string) =>
   function MockComp(props: { children?: ReactNode; ref?: unknown; [k: string]: unknown }) {
-    const { style, onPress, onChangeText, onSubmitEditing, accessibilityLabel, ref, ...rest } =
-      props
+    const {
+      style,
+      onPress,
+      onLongPress,
+      onChangeText,
+      onSubmitEditing,
+      accessibilityLabel,
+      ref,
+      ...rest
+    } = props
     /**
      * React 19 把 ref 当普通 prop 传给函数组件,而这里此前直接把它连同 `style` 一起
      * spread 到 DOM 上 —— 结果 ref 被静默丢弃,`triggerRef.current` 恒为 null,
@@ -87,15 +103,38 @@ const mk = (tag: string) =>
       extra.onKeyDown = (e: { key: string }) => {
         if (e.key === 'Enter') (onSubmitEditing as () => void)()
       }
-    if (typeof accessibilityLabel === 'string') extra['aria-label'] = accessibilityLabel
+    if (typeof accessibilityLabel === 'string') {
+      extra['aria-label'] = accessibilityLabel
+      // 兼发裸属性:渲染族测试(cart/payment 等)历史工厂把 accessibilityLabel 原样落 DOM,
+      // 断言用 querySelector('button[accessibilitylabel="…"]');收归后两种查询都要能命中
+      extra['accessibilitylabel'] = accessibilityLabel
+    }
     return createElement(
       tag,
-      { ...rest, ...extra, ref: setRef, onClick: onPress, style: flattenStyle(style) },
+      {
+        onContextMenu: onLongPress,
+        ...rest,
+        ...extra,
+        ref: setRef,
+        onClick: onPress,
+        style: flattenStyle(style),
+      },
       resolveChildren(props.children),
     )
   }
 
-export const Platform = { OS: 'web' as const }
+export const Platform = {
+  OS: 'web' as const,
+  // 2026-10-24 收归补齐:27 份历史文件内工厂全带 select(@react-navigation/native 等
+  // 真实包会调),此前靠文件内 mock 纸糊;收归后这里必须自足
+  select: (spec: Record<string, unknown>) =>
+    'web' in spec
+      ? spec['web']
+      : ((spec['ios'] ?? spec['android'] ?? Object.values(spec)[0]) as unknown),
+  Version: 0,
+  isPad: false,
+  isTV: false,
+}
 
 // 共享替身必须覆盖真身用到的 RN API:MoreLink 经 PixelRatio 换算 hairline/字号,替身缺这个出口时
 // 表现是"渲染即抛 No PixelRatio export",而它影响的不止一枚测试(端内 6 个文件从 @ihui/rn-app 引
@@ -162,7 +201,8 @@ export function FlatList(props: {
   onPress?: unknown
   [k: string]: unknown
 }) {
-  const { data, renderItem, keyExtractor, style, onPress, children, ...rest } = props
+  const { data, renderItem, keyExtractor, style, onPress, children, ListEmptyComponent, ...rest } =
+    props
   const rows = (data ?? []).map((item, index) =>
     createElement(
       'div',
@@ -173,7 +213,9 @@ export function FlatList(props: {
   return createElement(
     'div',
     { ...rest, onClick: onPress, style: flattenStyle(style) },
-    rows.length ? rows : (children as ReactNode | undefined),
+    // 2026-10-24 收归补齐:空数据时落 ListEmptyComponent(空态骨架/文案)——27 份历史
+    // 文件内工厂全处理它,渲染族(cart 等)的空态三分支用例钉的就是这一格
+    rows.length ? rows : ((children ?? ListEmptyComponent) as ReactNode | undefined),
   )
 }
 export const TextInput = mk('input')
@@ -227,6 +269,22 @@ export const Animated = {
       if (typeof cb === 'function') (cb as () => void)()
     },
   }),
+  // 2026-10-24:ScreenStates 骨架屏 shimmer 走 Animated.loop(Animated.sequence([...]))
+  // —— 缺 sequence 时凡渲染骨架屏的屏(用本全局替身的全部测试)挂载即崩(g-469 七例即此型)
+  sequence: (anims: readonly { start: () => void }[]) => ({
+    start: (cb?: unknown) => {
+      anims.forEach((a) => a.start())
+      if (typeof cb === 'function') (cb as () => void)()
+    },
+  }),
+  loop: (anim: { start: () => void }) => ({
+    start: () => anim.start(),
+    stop: () => {},
+    reset: () => {},
+  }),
+  event: () => () => {},
+  addListener: () => ({ remove: () => {} }),
+  removeAllListeners: () => {},
   Value: class {
     // 不能写 private:导出的匿名类带私有成员会触发 TS4094(声明无法 emit)
     current: number
@@ -255,6 +313,18 @@ export const Animated = {
 export const PanResponder = {
   create: () => ({ panHandlers: {} }),
 }
+// App.tsx 模块求值期注册组件 + 抑制黄框(2026-10-24 收归:此前 app-root-background-focused-route
+// 与 video-immersive-band 两份文件内 mock 各自扩展这两键,现收进单源替身)
+export const AppRegistry = {
+  registerComponent: () => ({}),
+  runApplication: () => {},
+}
+export const LogBox = {
+  ignoreAllLogs: () => {},
+  ignoreLogs: () => {},
+  install: () => {},
+}
+
 export const Easing = {
   linear: 'linear',
   ease: 'ease',

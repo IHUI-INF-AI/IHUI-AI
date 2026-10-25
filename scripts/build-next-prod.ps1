@@ -14,13 +14,16 @@
 #   - 内存充足(物理 27GB 空闲,pagefile 16GB),排除 OOM。
 # 策略:改用 Node 22.22.2 绝对路径执行构建,NAPI 绑定兼容性更好。
 # 用法:
-#   powershell -ExecutionPolicy Bypass -File .ihui-agent\tmp\next-build-node22\build-with-node22.ps1
-#   可选参数:-RestartService  (构建成功后自动重启 IHUI-WEB)
+#   pwsh -File scripts/build-next-prod.ps1 [-RestartService] [-CleanCache]
+#   -RestartService  构建成功后原子换入 .next 并重启 IHUI-WEB(停机=秒级目录交换)
+#   (不加时只构建到 .next-staging,**线上 .next 全程不动**,服务零影响)
 # =============================================================================
 
 param(
     [switch]$RestartService,
-    [switch]$CleanCache
+    [switch]$CleanCache,
+    # 内部重入标记:外层用 `deploy-lock run` 拿锁后以本开关再调自己(用户不要手传)。
+    [switch]$UnderLock
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,7 +35,11 @@ $ErrorActionPreference = "Stop"
 $Node22Candidates = @(
     "C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-3\node.exe",
     "C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2\node.exe",
-    "D:\DevEnv\runtimes\node22\node.exe"
+    "D:\DevEnv\runtimes\node22\node.exe",
+    # 2026-10-25:本机实际在位的 Node 22 是 node22-lts(前三条候选在本机全部不存在,
+    # 构建脚本因此 FATAL「Node 22 未找到」,生产 web 无法重建;该 exe 实测可正常跑
+    # next build,SWC 不再 STATUS_STACK_BUFFER_OVERRUN)。
+    "D:\DevEnv\runtimes\node22-lts\node.exe"
 )
 $Node22 = $Node22Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $Node22) {
@@ -49,7 +56,6 @@ $WebDir        = Join-Path $ProjectRoot 'apps/web'
 $LogDir        = Join-Path $ProjectRoot '.ihui-agent/tmp/next-build-node22/logs'
 # .next 备份落工作区外(既防 Tailwind 扫描污染,也不写 C 盘 —— §26 开发工具缓存一律指向 D 盘,
 # 本机 TEMP 由用户环境变量指向 D:\DevEnv\Temp;§26 旧表写的 D:\caches\Temp 本机不存在,已更正)
-$BackupRoot    = Join-Path $env:TEMP 'ihui-next-backup'
 $Timestamp     = Get-Date -Format "yyyyMMdd-HHmmss"
 $BuildLog      = Join-Path $LogDir "next-build-node22-$Timestamp.log"
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Force -Path $LogDir | Out-Null }
@@ -82,67 +88,76 @@ Write-Host "API base  : '$env:NEXT_PUBLIC_API_BASE_URL' (空=生产同源)"
 if ($RestartService) { Write-Host "构建后    : 自动重启 IHUI-WEB" }
 Write-Host ""
 
-# ----------------------------- [0/6] 部署全局锁 -----------------------------
-# 2026-08-09 根治并发部署:在任何 .next 操作(备份/清理)之前获取部署锁。
-# 多个 Agent/自动化任务并行触发构建时,后到者等待超时后直接退出,避免互相破坏产物。
-Write-Host "[0/6] 获取部署锁 (deploy-lock)" -ForegroundColor Yellow
-# --owner-pid $PID:锁的主人必须登记成**本脚本自己**这个进程,而不是 deploy-lock.mjs 那次 CLI 调用
-# —— CLI 打印"锁已获取"就退出了,拿它的 pid 判活等于没有判据:要么恒"已退出"(别人的构建被抢),
-# 要么 pid 被系统复用给别的过程(2026-09-25 实测被 nssm.exe 复用 ⇒ 部署环冻结 11h50m)。
-& $Node22 "$ProjectRoot\scripts\deploy-lock.mjs" acquire --mode build --timeout 600000 --stale 600000 --owner-pid $PID 2>&1 | Tee-Object -FilePath $BuildLog
-$lockExit = $LASTEXITCODE
-if ($lockExit -ne 0) {
-    Write-Host ""
-    Write-Host "[FATAL] 无法获取部署锁(退出码 $lockExit)" -ForegroundColor Red
-    Write-Host "  原因: 已有其他构建/部署在运行,或 .deploy.lock 残留"
-    Write-Host "  处理: 等待其完成;若确认无构建在跑,可删除工作区根下的 .deploy.lock 后重试"
-    Write-Host "  日志: $BuildLog"
-    exit $lockExit
+# ----------------------------- [0/6] 部署锁(整段覆盖) -----------------------------
+# 2026-10-25 治"锁账面有、实际没挡住":旧写法在 [0/6] 用子进程 acquire、在 [7/6] 再开一个
+# 子进程 release —— 两个都不是锁主人(ownerPid=本 pwsh),release 因"owner 仍存活"必被拒
+# (实测),锁只能等 stale 被下一位抢占,期间部署环空转。
+# 正解是 `deploy-lock run`(拿锁+跑命令+交还全在同一进程,命令退出即交还)—— 本脚本自举重入,
+# 让**整段构建 + 原子换入**都在同一把锁内。
+if (-not $UnderLock) {
+    Write-Host "[0/6] 获取部署锁并托管本脚本(deploy-lock run)" -ForegroundColor Yellow
+    $inner = @('-UnderLock')
+    if ($RestartService) { $inner += '-RestartService' }
+    if ($CleanCache) { $inner += '-CleanCache' }
+    $pwshExe = (Get-Process -Id $PID).Path
+    & $Node22 "$ProjectRoot\scripts\deploy-lock.mjs" run --mode build --timeout 600000 --stale 600000 -- $pwshExe -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath @inner
+    exit $LASTEXITCODE
 }
+Write-Host "[0/6] 已在部署锁内(deploy-lock run 托管)" -ForegroundColor DarkGray
 
 # 切换到 web 目录
 Set-Location $WebDir
 
-# ----------------------------- [1/6] 备份当前 .next -----------------------------
-Write-Host "[1/6] 备份当前 .next" -ForegroundColor Yellow
-$backupName = $null
-if (Test-Path ".next\BUILD_ID") {
-    $currentBuildId = Get-Content ".next\BUILD_ID"
-    # 2026-08-05 根治:备份到工作区外(不在 apps/web 内创建 .next-bak-*),
-    # 否则 Tailwind 4 扫描这些目录会内存爆炸(137GB+)导致构建失败。
-    # 2026-09-21:备份根目录由写死 C 盘 tmp 改为 $env:TEMP 下的 ihui-next-backup(§26 禁往 C 盘堆产物)
-    $backupName = Join-Path $BackupRoot "next-backup-node22-$Timestamp"
-    Write-Host "  当前 BUILD_ID: $currentBuildId"
-    Write-Host "  备份为: $backupName (工作区外,防 Tailwind 扫描污染)"
-    if (-not (Test-Path $BackupRoot)) { New-Item -ItemType Directory -Path $BackupRoot -Force | Out-Null }
-    # 2026-08-06 提速:robocopy /MT 多线程复制(4.7GB 单线程 Copy-Item 慢 3-5 倍)。
-    # /NFL /NDL /NJH /NJS /NP 抑制日志刷屏;退出码 >= 8 表示复制失败。
-    robocopy ".next" $backupName /E /MT:16 /NFL /NDL /NJH /NJS /NP | Out-Null
-    if ($LASTEXITCODE -ge 8) {
-        Write-Host "  [WARN] robocopy 备份失败(退出码 $LASTEXITCODE),回退 Copy-Item" -ForegroundColor DarkYellow
-        Remove-Item $backupName -Recurse -Force -ErrorAction SilentlyContinue
-        Copy-Item ".next" $backupName -Recurse -Force
-    }
-} else {
-    Write-Host "  当前 .next 无 BUILD_ID(不完整或不存在),跳过备份"
-}
+# 2026-10-25 根治"构建期间线上 500"(实测事故):旧流程先删 apps/web/.next 再就地构建,
+# 而 `next start` 正在服务这棵目录 ⇒ 整个构建期(~9 分钟)静态资源 404、动态页 500。
+# next.config.ts 已支持 IHUI_BUILD_DIST(部署环零停机交换用的同一机制),本脚本改为
+# 构建到 `.next-staging` —— 构建全程不碰线上 `.next`;只有成功且带 -RestartService 时
+# 才做"停服务 → 原子换入 → 起服务"(秒级停机)。
+$StagingRel = '.next-staging'
+$StagingDir = Join-Path $WebDir $StagingRel
+$env:IHUI_BUILD_DIST = $StagingRel
 
-# ----------------------------- [2/6] 清理旧产物 -----------------------------
-Write-Host "[2/6] 清理旧产物" -ForegroundColor Yellow
-# 2026-08-05 根治:仅清 .next 旧产物(已备份到 $BackupRoot)。
-# 不再清理 node_modules\.cache 和 *.tsbuildinfo —— 它们是 webpack filesystem
-# 持久缓存,二次构建命中后从 50 分钟降到 10-15 分钟。缓存损坏时用
-# -CleanCache 参数强制清理。
-# 2026-08-06 21:15 回退 webpack:保留 .next\cache 后二次 Turbopack 构建从
-# 4min42s 恶化到 9min50s(页面数据收集阶段 4→9min);Turbopack 该阶段比 webpack
-# 慢 6 倍(4min vs 40s)→ 回退 webpack 且 .next 全删,避免混用缓存。
-if (Test-Path ".next") { Remove-Item ".next" -Recurse -Force -ErrorAction SilentlyContinue }
+# ----------------------------- [1/6] 准备 staging 目录 -----------------------------
+Write-Host "[1/6] 准备 staging 构建目录" -ForegroundColor Yellow
+if (Test-Path $StagingDir) { Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue }
+Write-Host "  线上 .next 保持不动(构建期间服务只读旧产物)"
+Write-Host "  staging   : $StagingRel"
+
+# ----------------------------- [2/6] 清理旧缓存(可选) -----------------------------
+Write-Host "[2/6] 清理旧缓存" -ForegroundColor Yellow
+# 不再清理 .next(线上产物);staging 已在上一格整清。node_modules\.cache 与
+# *.tsbuildinfo 是 webpack filesystem 持久缓存,命中后构建从 ~10 分钟降到 ~4 分钟;
+# 只有 -CleanCache 档才强制清(缓存损坏时用)。
 if ($CleanCache) {
     Write-Host "  -CleanCache: 强制清理 node_modules\.cache + *.tsbuildinfo" -ForegroundColor Yellow
     if (Test-Path "node_modules\.cache") { Remove-Item "node_modules\.cache" -Recurse -Force -ErrorAction SilentlyContinue }
     Get-ChildItem -Filter "*.tsbuildinfo" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 }
-Write-Host "  旧产物清理完成"
+Write-Host "  清理完成(线上产物未触碰)"
+
+# ----------------------------- [2b/6] 重建工作区依赖 dist -----------------------------
+# 手动路径不走 turbo 依赖图,而 web 的 next build 直接读 `@ihui/types` 等包的 **dist**。
+# 上游刚新增导出时,陈旧 dist 会让类型检查假红(2026-10-25 实测:`packages/types/src` 已有
+# `ChatSyncMessageSnapshot`、dist 没有 ⇒ TS2305,构建失败)。这里用 turbo 的**依赖过滤**
+# 重建(不手抄部署脚本那串包名,避免第二份清单漂移):`@ihui/web^...` = web 的全部依赖。
+Write-Host "[2b/6] 重建工作区依赖 dist(turbo: @ihui/web^...)" -ForegroundColor Yellow
+Push-Location $ProjectRoot
+try {
+    # 用 **pnpm 自己的依赖过滤**直接递归跑(已实测集合 = 9 个依赖包,不含 @ihui/web):
+    #   · 不能用 `pnpm turbo build --filter=...`:--filter 先被 pnpm 消费,选中 web 自身 ⇒
+    #     turbo 在 web 包里再跑 build,而 web 的 build 脚本自己 `deploy-lock run` ⇒
+    #     与外层持锁死等(2026-10-25 实测两轮卡死 5 分钟零产物)。
+    #   · 不自抄包名清单(部署环那一串是第二份清单,新增依赖必然漂)。
+    #   · --if-present:eslint-config/tsconfig 这类没有 build 脚本的包直接跳过。
+    & (Join-Path $PnpmGlobal 'pnpm.cmd') --filter "@ihui/web^..." run --if-present build
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[FAILED] 依赖 dist 重建失败(exit $LASTEXITCODE)⇒ 不构建,线上不受影响" -ForegroundColor Red
+        Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
+} finally {
+    Pop-Location
+}
 
 # ----------------------------- [3/6] prebuild (lock verify) -----------------------------
 # 2026-08-09:锁已在 [0/6] 获取,这里做幂等校验——若锁丢失(被误删)则终止,
@@ -194,26 +209,23 @@ if ($buildExit -ne 0) {
     Write-Host "--- 错误尾部(最后 30 行)---" -ForegroundColor DarkGray
     Get-Content $BuildLog -Tail 30
 
-    # 回滚:恢复备份(从 $BackupRoot 复制回来)
-    if ($backupName -and (Test-Path $backupName)) {
-        Write-Host ""
-        Write-Host "  回滚:恢复 $backupName → .next" -ForegroundColor Yellow
-        if (Test-Path ".next") { Remove-Item ".next" -Recurse -Force -ErrorAction SilentlyContinue }
-        Copy-Item $backupName ".next" -Recurse -Force
-        Write-Host "  已恢复,服务可继续使用旧产物" -ForegroundColor Green
-    }
+    # staging 构建失败:删掉半成品即可 —— 线上 .next 全程未被触碰,服务继续用旧产物。
+    Write-Host ""
+    Write-Host "  清理 staging(线上 .next 未受影响)" -ForegroundColor Yellow
+    Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue
     exit $buildExit
 }
 
 # ----------------------------- [5/6] 验证产物 -----------------------------
 Write-Host "[5/6] 验证构建产物" -ForegroundColor Yellow
 
-if (-not (Test-Path ".next\BUILD_ID")) {
+if (-not (Test-Path "$StagingRel\BUILD_ID")) {
     Write-Host "[FAILED] BUILD_ID 不存在,产物不完整" -ForegroundColor Red
+    Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue
     exit 1
 }
-$newBuildId = Get-Content ".next\BUILD_ID"
-$size = [math]::Round((Get-ChildItem ".next" -Recurse -ErrorAction SilentlyContinue |
+$newBuildId = Get-Content "$StagingRel\BUILD_ID"
+$size = [math]::Round((Get-ChildItem $StagingRel -Recurse -ErrorAction SilentlyContinue |
     Measure-Object Length -Sum).Sum / 1GB, 2)
 Write-Host "  BUILD_ID  : $newBuildId"
 Write-Host "  产物大小  : $size GB"
@@ -221,7 +233,7 @@ Write-Host "  产物大小  : $size GB"
 # 检查 rewrites 是否已编译进产物(生产模式必需,代理 /api/* → 8802/8803)
 # 2026-08-05 修复:rewrites 是对象{beforeFiles,afterFiles,fallback},
 # $routes.rewrites.Count 对对象统计返回错误值(误报"1条")。改为统计 afterFiles 数组。
-$routesManifest = ".next\routes-manifest.json"
+$routesManifest = "$StagingRel\routes-manifest.json"
 if (Test-Path $routesManifest) {
     $routes = Get-Content $routesManifest -Raw | ConvertFrom-Json
     $rewriteCount = @($routes.rewrites.afterFiles).Count
@@ -236,23 +248,32 @@ if (Test-Path $routesManifest) {
 }
 
 # 检查 server 产物(next start 必需)
-if (Test-Path ".next\server") {
-    $serverSize = [math]::Round((Get-ChildItem ".next\server" -Recurse |
+if (Test-Path "$StagingRel\server") {
+    $serverSize = [math]::Round((Get-ChildItem "$StagingRel\server" -Recurse |
         Measure-Object Length -Sum).Sum / 1MB, 1)
     Write-Host "  server    : OK ($serverSize MB)"
 } else {
-    Write-Host "  [FAILED] .next\server 不存在,next start 无法运行" -ForegroundColor Red
+    Write-Host "  [FAILED] $StagingRel\server 不存在,next start 无法运行" -ForegroundColor Red
+    Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue
     exit 1
 }
 
 # 检查 static 产物(前端资源)
-if (Test-Path ".next\static") {
-    $staticSize = [math]::Round((Get-ChildItem ".next\static" -Recurse |
+if (Test-Path "$StagingRel\static") {
+    $staticSize = [math]::Round((Get-ChildItem "$StagingRel\static" -Recurse |
         Measure-Object Length -Sum).Sum / 1MB, 1)
     Write-Host "  static    : OK ($staticSize MB)"
 } else {
-    Write-Host "  [WARN] .next\static 不存在,前端资源缺失" -ForegroundColor DarkYellow
+    Write-Host "  [WARN] $StagingRel\static 不存在,前端资源缺失" -ForegroundColor DarkYellow
 }
+
+# next build 在 IHUI_BUILD_DIST 覆盖 distDir 时会改写被跟踪的 apps/web/next-env.d.ts
+# (引用 `.next-staging/types/...`)。**不论是否换入**,构建一结束就还原为提交版 ——
+# 否则 staging 被清掉后引用残留 = 源码树污染(门 check-next-env-dist 判红)。
+try {
+    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+    if ($gitCmd) { & git -C $ProjectRoot checkout -- apps/web/next-env.d.ts 2>$null }
+} catch {}
 
 # ----------------------------- [6/6] 完成 / 重启服务 -----------------------------
 Write-Host ""
@@ -264,20 +285,42 @@ Write-Host "  总耗时    : $($buildDuration.ToString('hh\时mm\分ss\秒'))"
 Write-Host "  日志      : $BuildLog"
 Write-Host ""
 
-# 2026-08-05 极致优化:成功构建后清理旧备份($BackupRoot),只保留最新 1 个(防堆积)
-if (Test-Path $BackupRoot) {
-    $oldBackups = Get-ChildItem $BackupRoot -Directory -Filter "next-backup-*" |
-        Sort-Object LastWriteTime -Descending | Select-Object -Skip 1
-    foreach ($ob in $oldBackups) {
-        Write-Host "  清理旧备份: $($ob.Name)" -ForegroundColor DarkGray
-        Remove-Item $ob.FullName -Recurse -Force -ErrorAction SilentlyContinue
-    }
-}
+# staging 构建不再产生备份:线上 .next 在构建期间从未被删,失败只需丢掉 staging。
 
-if ($RestartService) {
-    Write-Host "[6/6] 重启 IHUI-WEB 服务(应用新产物)" -ForegroundColor Yellow
-    Restart-Service IHUI-WEB -Force
-    Start-Sleep -Seconds 5
+$webSvc = Get-Service IHUI-WEB -ErrorAction SilentlyContinue
+$webRunning = $webSvc -and $webSvc.Status -eq 'Running'
+# 线上服务在跑 ⇒ 必须显式 -RestartService 才换入(交换要停服务);服务没跑 ⇒ 直接换入。
+$doSwap = $RestartService -or (-not $webRunning)
+if ($doSwap) {
+    Write-Host "[6/6] 原子换入 staging → 线上 .next$(if ($RestartService) { ' 并重启 IHUI-WEB' })" -ForegroundColor Yellow
+    if ($webRunning) {
+        Write-Host "  停止 IHUI-WEB(停机窗口 = 交换耗时,秒级)..."
+        Stop-Service IHUI-WEB -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
+    $liveNext = Join-Path $WebDir '.next'
+    $rollbackNext = Join-Path $WebDir '.next-rollback'
+    $swapOk = $false
+    try {
+        if (Test-Path $rollbackNext) { Remove-Item $rollbackNext -Recurse -Force -ErrorAction Stop }
+        if (Test-Path $liveNext) { Move-Item -LiteralPath $liveNext -Destination $rollbackNext -ErrorAction Stop }
+        Move-Item -LiteralPath $StagingDir -Destination $liveNext -ErrorAction Stop
+        if (-not (Test-Path (Join-Path $liveNext 'BUILD_ID'))) { throw "换入后 BUILD_ID 不在位" }
+        $swapOk = $true
+    } catch {
+        Write-Host "  [FAILED] 目录交换失败:$($_.Exception.Message)" -ForegroundColor Red
+        if (-not (Test-Path $liveNext) -and (Test-Path $rollbackNext)) {
+            Move-Item -LiteralPath $rollbackNext -Destination $liveNext -ErrorAction SilentlyContinue
+        }
+        if ($webRunning) { Start-Service IHUI-WEB -ErrorAction SilentlyContinue }
+        exit 1
+    }
+    Write-Host "  已换入:$newBuildId(旧产物保留在 .next-rollback)"
+    if ($webRunning) {
+        Start-Service IHUI-WEB
+        Start-Sleep -Seconds 5
+    }
+
 
     # 验证服务起来
     $ok = $false
@@ -324,15 +367,19 @@ if ($RestartService) {
         Write-Host "  [WARN] 公网验证未通过,请手动检查 Cloudflared" -ForegroundColor DarkYellow
     }
 } else {
-    Write-Host "如需应用新产物,重启 IHUI-WEB:" -ForegroundColor DarkGray
-    Write-Host "  Restart-Service IHUI-WEB -Force" -ForegroundColor DarkGray
-    Write-Host "  (run-web.ps1 会检测到 BUILD_ID 存在,跳过 build 直接 next start)" -ForegroundColor DarkGray
+    Write-Host "产物已就绪但**未换入**:IHUI-WEB 正在运行,换入需要秒级停机。" -ForegroundColor DarkGray
+    Write-Host "  staging : $StagingDir" -ForegroundColor DarkGray
+    Write-Host "  线上 .next 全程未被触碰,服务仍用旧产物。" -ForegroundColor DarkGray
+    Write-Host "  应用方式(二选一):" -ForegroundColor DarkGray
+    Write-Host "    a) 重跑本脚本加 -RestartService(会重新构建并原子换入)" -ForegroundColor DarkGray
+    Write-Host "    b) 手工交换(停机 = 秒级):" -ForegroundColor DarkGray
+    Write-Host "       Stop-Service IHUI-WEB -Force" -ForegroundColor DarkGray
+    Write-Host "       Remove-Item '$WebDir\.next-rollback' -Recurse -Force -ErrorAction SilentlyContinue" -ForegroundColor DarkGray
+    Write-Host "       Move-Item '$WebDir\.next' '$WebDir\.next-rollback'" -ForegroundColor DarkGray
+    Write-Host "       Move-Item '$StagingDir' '$WebDir\.next'" -ForegroundColor DarkGray
+    Write-Host "       Start-Service IHUI-WEB" -ForegroundColor DarkGray
 }
 
-# ----------------------------- [7/6] 释放部署锁 -----------------------------
 Write-Host ""
-Write-Host "释放部署锁..." -ForegroundColor Yellow
-& $Node22 "$ProjectRoot\scripts\deploy-lock.mjs" release --mode build 2>&1 | Tee-Object -FilePath $BuildLog
-
-Write-Host ""
+# 锁由外层 `deploy-lock run` 在本进程(内层)退出时交还,无需手工 release。
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -65,7 +65,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
     },
     chipOn: { backgroundColor: tk.brand.cta },
     chipText: { fontSize: 12, color: tk.text.secondary },
-    chipTextOn: { color: tk.brand.ctaForeground },
+    chipOnText: { color: tk.brand.ctaForeground },
     label: { fontSize: 12, color: tk.text.secondary, marginTop: 4 },
     tokenInput: { textAlignVertical: 'top', minHeight: 64 },
     submit: {

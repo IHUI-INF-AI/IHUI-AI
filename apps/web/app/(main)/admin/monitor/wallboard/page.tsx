@@ -4,6 +4,7 @@
 
 'use client'
 import { isNum, isUnset, thresholdTone, type StatusTone } from './unknown-state'
+import { tzParts } from './data-time'
 
 /**
  * 生产在线端监控大屏(/admin/monitor/wallboard)。
@@ -76,7 +77,7 @@ interface HostSnapshot {
 
 interface ServicesSnapshot {
   windows: Array<{ name: string; state: string; retired: boolean }>
-  targets: Array<{ job: string; instance: string; up: number }>
+  targets: Array<{ job: string; instance: string; up: number | null }>
   windowsTotal: number
   windowsRunning: number
   windowsExpectedTotal: number
@@ -168,17 +169,19 @@ interface BusinessSnapshot {
   ordersTodayAmountCents: number
   ordersYesterdayPaid: number
   apiCallsToday: number
-  apiErrRate: number
-  apiAvgLatencyMs: number
+  apiErrRate: number | null
+  apiAvgLatencyMs: number | null
   topEndpoints: Array<{ path: string; method: string; calls: number }>
   llmCallsToday: number
   llmTokensToday: number
   llmCostCentsToday: number
-  llmErrRate: number
-  llmP95LatencyMs: number
+  llmErrRate: number | null
+  llmP95LatencyMs: number | null
   llmTopModels: Array<{ model: string; calls: number }>
   /** 签到快照:后端取不到时为 null(渲染"—"),老版本后端无此字段(undefined 同样走"—") */
   signIn?: SignInSnapshot | null
+  /** 近 14 日每日新增用户(上海日界,含今天);后端查询失败或老后端无此字段 ⇒ null/undefined */
+  userGrowth?: Array<{ date: string; count: number }> | null
 }
 
 interface TrafficSnapshot {
@@ -294,9 +297,14 @@ function fmtPct(v: number | null | undefined, digits = 2): string {
   return `${v.toFixed(digits)}%`
 }
 
+/**
+ * 大屏的时间一律按**数据侧时区**显示与判定(实现与理由见 ./data-time:page.tsx 不能带
+ * 具名导出,判据住在一个可被测试 import 的模块里才不会漂移)。
+ */
+
 function fmtClockDigits(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+  const t = tzParts(d)
+  return `${t.dateKey} ${t.hms}`
 }
 
 /**
@@ -352,16 +360,16 @@ function makeFmt(locale: string, t: WallboardT) {
       if (!iso) return '—'
       const d = new Date(iso)
       if (Number.isNaN(d.getTime())) return '—'
-      return d.toLocaleTimeString(locale, { hour12: false })
+      return tzParts(d).hms
     },
     /** 事件流用:当天只显示时分秒,跨天补 MM-DD(否则隔夜事件看不出哪一天)。 */
     fmtStamp(iso: string | null | undefined): string {
       if (!iso) return '—'
       const d = new Date(iso)
       if (Number.isNaN(d.getTime())) return '—'
-      const time = d.toLocaleTimeString(locale, { hour12: false })
-      if (d.toDateString() === new Date().toDateString()) return time
-      return `${d.toLocaleDateString(locale, { month: '2-digit', day: '2-digit' })} ${time}`
+      const t = tzParts(d)
+      if (t.dateKey === tzParts(new Date()).dateKey) return t.hms
+      return `${t.dateKey.slice(5)} ${t.hms}`
     },
     fmtAgo(iso: string | null | undefined): string {
       if (!iso) return '—'
@@ -403,10 +411,10 @@ function Panel({
       <header className="flex shrink-0 items-center gap-2 px-3 pt-2 pb-1">
         <span className="h-3 w-[3px] rounded-full bg-info shadow-[0_0_8px_color-mix(in_srgb,var(--color-info)_80%,transparent)]" />
         {icon ? <span className="text-info-text/70">{icon}</span> : null}
-        <h2 className="wb-display text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
+        <h2 className="wb-display min-w-0 truncate text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
           {title}
         </h2>
-        <div className="ml-auto flex items-center gap-2">{right}</div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>
       </header>
       <div className={cn('min-h-0 flex-1 overflow-hidden p-3', bodyClassName)}>{children}</div>
     </section>
@@ -456,18 +464,29 @@ function StatCell({
   value,
   unit,
   tone,
+  hint,
 }: {
   label: string
   value: string
   unit?: string
   tone?: StatusTone | 'accent'
+  /** 口径说明:把「这数是怎么算出来的」收进悬停,标签本身只留能一眼读完的名字。 */
+  hint?: string
 }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/60 px-2.5 py-2">
-      <div className="text-[10px] tracking-[0.12em] text-muted-foreground">{label}</div>
+    <div className="min-w-0 rounded-lg border border-border bg-muted/60 px-2.5 py-2">
+      <div className="text-[10px] tracking-[0.12em] text-muted-foreground">
+        {hint ? (
+          <Tooltip content={hint}>
+            <span>{label}</span>
+          </Tooltip>
+        ) : (
+          label
+        )}
+      </div>
       <div
         className={cn(
-          'wb-num mt-0.5 text-[18px] leading-tight font-semibold',
+          'wb-num mt-0.5 text-[18px] leading-tight font-semibold whitespace-nowrap',
           tone === 'bad'
             ? 'text-danger-text'
             : tone === 'warn'
@@ -692,6 +711,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         ? null
         : (alerts.promActiveCount ?? 0) +
           (alerts.firingNames ?? []).filter((n) => !promAlertNames.has(n)).length
+  // AM 侧没量到、只有库内 firing ⇒ 上面这个数是**下界**,不得渲染成精确总数(会静默少报)。
+  const alertCountIsFloor =
+    alerts !== null && alerts.promActiveCount === null && (alertCount ?? 0) > 0
   // 退役服务(见路由 RETIRED_SERVICES)不计入健康度分母,避免状态灯恒黄。
   // alerts 块或 services 块不可达 ⇒ 'unknown'(§0.3:「没判」不得渲染成「全域正常 / 0 告警」)。
   // 核心数据源断掉时不能仍报「全域正常」:Prometheus / 业务库是这张屏的主判据,
@@ -906,6 +928,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     const ordered = [...rows].reverse()
     const data = ordered.map((s) => ({
       value: total > 0 ? Number(((s.rate / total) * 100).toFixed(2)) : 0,
+      rate: s.rate,
       itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: rnRadius.xs },
     }))
     return {
@@ -916,7 +939,25 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         backgroundColor: chartBg(isDark),
         borderColor: chartAxis(isDark),
         textStyle: { color: fg(isDark), fontSize: 11 },
-        valueFormatter: (v) => `${v}%`,
+        // 条形长度是占比,速率(次/秒)只在 tooltip 里给 —— 值班排障时两个读数都要。
+        formatter: (params) => {
+          const list = Array.isArray(params) ? params : [params]
+          return list
+            .map((raw) => {
+              const p = raw as {
+                marker?: string
+                name?: string
+                value?: number | string
+                data?: { rate?: number }
+              }
+              const rate =
+                p.data && typeof p.data.rate === 'number'
+                  ? `${p.data.rate.toFixed(3)}${t('piePerSecSuffix')}`
+                  : '—'
+              return `${p.marker ?? ''}${p.name ?? ''}  ${p.value ?? '—'}% · ${rate}`
+            })
+            .join('<br/>')
+        },
       },
       xAxis: {
         type: 'value',
@@ -948,7 +989,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [http?.statusRates, isDark])
+  }, [http?.statusRates, isDark, t])
 
   // 主机 CPU / 内存走势(补齐 trend.cpuPct / trend.memPct 两个已返回未上屏的序列)
   const hostTrendOption = React.useMemo<EChartsOption>(() => {
@@ -1021,7 +1062,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   }, [trend, locale, t, isDark])
 
   // 只画到今天当前小时:把未到的时段画成 0 柱会被读成「这些时段没有流量」。
-  const nowHour = now.getHours()
+  // 小时必须按数据侧时区取(服务端分桶就是 Asia/Shanghai 的小时),否则非 +08 的机器
+  // 会把对侧已发生的小时整段截掉,剩下的空槽照样渲染成 0 柱。
+  const nowHour = tzParts(now).hour
   const hourlyOption = React.useMemo<EChartsOption>(() => {
     const hours = Array.from({ length: nowHour + 1 }, (_, i) => String(i).padStart(2, '0'))
     const byHour = new Map((trend?.hourlyCalls ?? []).map((r) => [r.hour, r.calls]))
@@ -1151,6 +1194,59 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     }
   }, [biz?.signIn?.last7d, isDark, t, locale])
 
+  // 用户增长:近 14 日每日新增(上海日界,与面板里「今日新增」同口径)。后端取不到 ⇒ 空数组
+  // ⇒ 图表空态 + ChartEmpty(§0.3:没判不得画成 14 根 0 柱)
+  const userGrowthOption = React.useMemo<EChartsOption>(() => {
+    const rows = biz?.userGrowth ?? []
+    return {
+      grid: { left: 4, right: 4, top: 12, bottom: 2, containLabel: true },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
+      },
+      xAxis: {
+        type: 'category',
+        data: rows.map((r) => r.date.slice(5)),
+        ...AXIS(isDark),
+        axisLabel: { color: chartText(isDark), fontSize: 9 },
+      },
+      yAxis: {
+        type: 'value',
+        ...AXIS(isDark),
+        splitLine: { show: false },
+        axisLabel: { show: false },
+      },
+      series: [
+        {
+          type: 'line',
+          smooth: true,
+          showSymbol: true,
+          symbolSize: 5,
+          data: rows.map((r) => r.count),
+          tooltip: {
+            valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitUser')}`,
+          },
+          ...seriesGlow(CHART_CYAN),
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: withAlpha(CHART_CYAN, 0.35) },
+                { offset: 1, color: withAlpha(CHART_CYAN, 0.02) },
+              ],
+            },
+          },
+        },
+      ],
+    }
+  }, [biz?.userGrowth, isDark, t, locale])
+
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
     const rows = edge?.series ?? []
@@ -1199,6 +1295,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   // 避免被圆角角色门按 panel 角色误判须 xl;该徽章自身无角色类名,落「未判定」射程外,不计入红。
   const no5xxBadge =
     trend &&
+    // 趋势查询本身已停摆时不得再发好消息:徽章读的是**上一份快照**,而快照会一直绿着
+    // (trendStale = 请求报错,或快照超 60s 未更新)。
+    !trendStale &&
     trend.qps.length > 0 &&
     // 空序列 ≠ 「窗口内没有 5xx」:查询无数据时不能凭 0 条样本发好消息(§0.3)。
     trend.errRate.length > 0 &&
@@ -1213,6 +1312,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const edgeLastTone = thresholdTone(edge?.stats.lastMs, (n) =>
     n >= 3000 ? 'bad' : n >= 1500 ? 'warn' : 'ok',
   )
+  // 数据源/抓取目标/探测腿的状态词:后端给的是 up/down/undefined 这三档协议值,
+  // 直接渲染会在中文界面里留下 "up"——机主 2026-10-24 指认的同一族缺陷,统一走文案。
+  const stateWord = (s: string | undefined) =>
+    s === 'up' ? t('stateUp') : s === 'down' ? t('stateDown') : t('stateUnknown')
   const edgeHitTone = thresholdTone(edge?.stats.hitRatio, (n) => (n >= 0.8 ? 'ok' : 'warn'))
   // 边缘探测三条腿的标签键(官网首页 / 根域名跳转 / 静态资源);对照腿 originViaCf 已有专属文案
   const EDGE_LEG_LABEL: Record<
@@ -1232,7 +1335,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
 
         {/* overview/trend 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」或旧快照无解释 */}
         {ovError || trendError ? (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-danger-text">
+          <div
+            role="alert"
+            className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-danger-text"
+          >
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>{t('loadFailed')}</span>
             <button
@@ -1241,7 +1347,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 void refetchOv()
                 void refetchTrend()
               }}
-              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-danger-text transition-colors hover:bg-destructive/20"
+              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-danger-text transition-colors hover:bg-destructive/20 focus-visible:ring-1 focus-visible:ring-ring"
             >
               {t('retry')}
             </button>
@@ -1274,10 +1380,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 [t('srcEdge'), ov?.sources?.edge],
               ] as Array<[string, string | undefined]>
             ).map(([name, state]) => (
-              <Tooltip key={name} content={name}>
+              <Tooltip key={name} content={`${name} · ${stateWord(state)}`}>
                 <span
                   role="img"
-                  aria-label={name}
+                  aria-label={`${name} ${stateWord(state)}`}
                   className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
                 >
                   <Dot tone={sourceTone(state)} />
@@ -1306,6 +1412,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   : t('statusUnknown')}
             </span>
             <span
+              aria-live="polite"
               className={cn(
                 'flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px]',
                 alertCount === null
@@ -1318,13 +1425,15 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <Bell className="h-3 w-3" />
               {alertCount === null
                 ? t('alertCountUnknown')
-                : t('alertCount', { count: alertCount })}
+                : alertCountIsFloor
+                  ? t('alertCountAtLeast', { count: alertCount })
+                  : t('alertCount', { count: alertCount })}
             </span>
             <div className="text-right">
               <LiveClock />
               <div
                 className={cn(
-                  'text-[9px] tracking-[0.2em]',
+                  'wb-hdr-refresh text-[9px] tracking-[0.2em]',
                   dataStale ? 'text-warning-text/90' : 'text-muted-foreground',
                 )}
               >
@@ -1344,7 +1453,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 onClick={() => void toggleDutyMode()}
                 aria-pressed={dutyMode}
                 aria-label={dutyMode ? t('exitDutyMode') : t('dutyMode')}
-                className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:bg-muted"
+                className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:bg-muted focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {dutyMode ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
                 <span className="wb-src-name">{dutyMode ? t('exitDutyMode') : t('dutyMode')}</span>
@@ -1354,9 +1463,27 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           </div>
         </header>
 
-        {/* ===== KPI 带 ===== */}
+        {/* ===== KPI 带 =====
+            排列按机主 2026-10-25 定档:最关心「用户数据 / 增长 / AI」⇒ 这三类读数占最左两格
+            (大屏阅读从左上起),运维读数(QPS / 错误率 / P95)右移但仍同排可见,不做删减。
+            用户卡的 sub 就是「今日新增」——增长读数不另开一格:六列档多一张卡会落成 6+1 孤格
+            (.wb-cells-lg ≥900 固定 6 列,见 WALLBOARD_CSS 注释)。 */}
         <section className="wb-cells-lg grid gap-2.5 px-4 pt-3">
           {[
+            {
+              icon: <Users className="h-4 w-4" />,
+              label: t('kpiUsers'),
+              value: fmtInt(biz?.usersTotal),
+              sub: t('kpiUsersSub', { count: fmtInt(biz?.usersTodayNew) }),
+              tone: biz ? ('accent' as const) : ('unknown' as const),
+            },
+            {
+              icon: <Sparkles className="h-4 w-4" />,
+              label: t('kpiAiCalls'),
+              value: fmtCompact(biz?.llmCallsToday),
+              sub: t('kpiAiCallsSub', { count: fmtCompact(biz?.llmTokensToday) }),
+              tone: biz ? ('accent' as const) : ('unknown' as const),
+            },
             {
               icon: <Activity className="h-4 w-4" />,
               label: t('kpiQps'),
@@ -1393,13 +1520,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       : ('default' as const),
             },
             {
-              icon: <Users className="h-4 w-4" />,
-              label: t('kpiUsers'),
-              value: fmtInt(biz?.usersTotal),
-              sub: t('kpiUsersSub', { count: fmtInt(biz?.usersTodayNew) }),
-              tone: biz ? ('accent' as const) : ('unknown' as const),
-            },
-            {
               icon: <Wallet className="h-4 w-4" />,
               label: t('kpiTurnover'),
               // 金额 ≥1 万元走紧凑记法(避免 6 位整数把卡片撑破);其余保留至多两位小数。
@@ -1414,13 +1534,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               sub: t('kpiTurnoverSub', { count: fmtInt(biz?.ordersTodayPaid) }),
               tone: biz ? ('default' as const) : ('unknown' as const),
             },
-            {
-              icon: <Sparkles className="h-4 w-4" />,
-              label: t('kpiAiCalls'),
-              value: fmtCompact(biz?.llmCallsToday),
-              sub: t('kpiAiCallsSub', { count: fmtCompact(biz?.llmTokensToday) }),
-              tone: biz ? ('accent' as const) : ('unknown' as const),
-            },
           ].map((k) => (
             <div
               key={k.label}
@@ -1432,7 +1545,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               </div>
               <div
                 className={cn(
-                  'wb-num mt-1 text-[26px] leading-none font-bold',
+                  'wb-num mt-1 text-[26px] leading-none font-bold whitespace-nowrap',
                   k.tone === 'bad'
                     ? 'text-danger-text'
                     : k.tone === 'warn'
@@ -1482,7 +1595,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <ChartEmpty text={t('sourceUnreachable')} />
               ) : null}
             </div>
-            <div className="mt-2 wb-cells grid gap-2">
+            <div className="mt-2 wb-cells wb-cells-wide grid gap-2">
               <StatCell
                 label={t('memPhysical')}
                 value={`${fmtBytes(typeof host?.memTotalBytes === 'number' && typeof host?.memFreeBytes === 'number' ? host.memTotalBytes - host.memFreeBytes : null)} / ${fmtBytes(host?.memTotalBytes)}`}
@@ -1620,21 +1733,34 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 })}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {(services?.targets ?? []).map((target) => (
-                  <Tooltip key={`${target.job}-${target.instance}`} content={target.instance}>
-                    <span
-                      className={cn(
-                        'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]',
-                        target.up === 1
-                          ? 'border-success/25 bg-success/10 text-success-text/90'
-                          : 'border-destructive/30 bg-destructive/10 text-danger-text',
-                      )}
+                {(services?.targets ?? []).map((target) => {
+                  // 三档:1=在线 / 0=确实抓取失败 / 其它=没有样本(未判定,不得染成红色)
+                  const tone: StatusTone =
+                    target.up === 1 ? 'ok' : target.up === 0 ? 'bad' : 'unknown'
+                  const word = stateWord(tone === 'ok' ? 'up' : tone === 'bad' ? 'down' : undefined)
+                  return (
+                    <Tooltip
+                      key={`${target.job}-${target.instance}`}
+                      content={`${target.instance} · ${word}`}
                     >
-                      <Dot tone={target.up === 1 ? 'ok' : 'bad'} />
-                      {target.job}
-                    </span>
-                  </Tooltip>
-                ))}
+                      <button
+                        type="button"
+                        aria-label={`${target.job} ${word}`}
+                        className={cn(
+                          'flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
+                          tone === 'ok'
+                            ? 'border-success/25 bg-success/10 text-success-text/90'
+                            : tone === 'bad'
+                              ? 'border-destructive/30 bg-destructive/10 text-danger-text'
+                              : 'border-border bg-muted/60 text-muted-foreground',
+                        )}
+                      >
+                        <Dot tone={tone} />
+                        {target.job}
+                      </button>
+                    </Tooltip>
+                  )
+                })}
                 {(services?.targets ?? []).length === 0 && services !== null ? (
                   <span className="text-[10px] text-muted-foreground">{t('noScrapeTargets')}</span>
                 ) : null}
@@ -1646,7 +1772,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTraffic')}
             icon={<Radio className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-flow-first"
+            className="wb-c6 wb-prio-trend"
             right={
               <span className="flex items-center gap-2">
                 {no5xxBadge}
@@ -1667,7 +1793,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noTrendData')} />
               ) : null}
             </div>
-            <div className="wb-cells grid gap-2">
+            <div className="wb-cells wb-cells-5 grid gap-2">
               <StatCell
                 label={t('wsConnections')}
                 value={fmtInt(http?.wsConnections)}
@@ -1693,6 +1819,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               />
               <StatCell
                 label={t('apiErrRateLabel')}
+                hint={t('apiErrRateHint')}
                 value={typeof biz?.apiErrRate === 'number' ? fmtPct(biz.apiErrRate, 2) : '—'}
                 tone={thresholdTone(biz?.apiErrRate, (n) =>
                   n > 5 ? 'bad' : n > 1 ? 'warn' : 'ok',
@@ -1705,7 +1832,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelQuality')}
             icon={<Gauge className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md order-1"
+            className="wb-c6 wb-c3-md order-1 self-start"
             bodyClassName="flex flex-col gap-1"
           >
             <div className="relative">
@@ -1724,11 +1851,15 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               {trendError ? (
                 <ChartEmpty text={t('trendLoadFailed')} />
               ) : trend && trend.hourlyCalls.length === 0 ? (
-                /* 分时数据来自业务库聚合(后端失败降级为 []);库不可达时不得把
-                   全零柱渲染成「今日无流量」(§0.3) */
+                /* 分时数据来自业务库聚合(后端失败降级为 []);库不可达、或聚合静默失败时
+                   不得把空数组渲染成「今日无流量」(§0.3)。只有当日调用数确实是 0 才敢这么说。 */
                 <ChartEmpty
                   text={
-                    ov?.sources?.database === 'down' ? t('sourceUnreachable') : t('noCallsToday')
+                    ov?.sources?.database === 'down'
+                      ? t('sourceUnreachable')
+                      : biz?.apiCallsToday === 0
+                        ? t('noCallsToday')
+                        : t('noTrendData')
                   }
                 />
               ) : null}
@@ -1873,9 +2004,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       </span>
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-muted-foreground">
-                      <span className="shrink-0 text-info-text/70">{a.source}</span>
+                      <span className="shrink-0 text-info-text">{a.source}</span>
                       {a.resolvedAt ? (
-                        <span className="truncate text-success-text/80">
+                        <span className="truncate text-success-text">
                           {t('resolvedAgo', { ago: fmtAgo(a.resolvedAt) })}
                         </span>
                       ) : a.message ? (
@@ -1922,7 +2053,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                               : 'ok'
                         }
                       />
-                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-info-text/80 uppercase">
+                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-info-text uppercase">
                         {e.type}
                       </span>
                       <span className="ml-auto shrink-0 text-[9px] text-muted-foreground">
@@ -1953,7 +2084,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelDatastore')}
             icon={<Database className="h-3.5 w-3.5" />}
-            className="wb-c6 order-1"
+            className="wb-c6 order-1 self-start"
             bodyClassName="flex flex-col gap-2"
           >
             <div>
@@ -1967,7 +2098,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </span>
                 )}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-5 grid gap-1.5">
                 <StatCell label={t('dbSize')} value={fmtBytes(pg?.sizeBytes)} tone="accent" />
                 <StatCell
                   label={t('bufferHit')}
@@ -2014,7 +2145,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <SourceGap text={t('sourceUnreachable')} />
                 ) : null}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-5 grid gap-1.5">
                 <StatCell
                   label={t('llmCallsToday')}
                   value={fmtCompact(biz?.llmCallsToday)}
@@ -2051,42 +2182,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelBusiness')}
             icon={<Wallet className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-business-early"
-            bodyClassName="wb-split overflow-y-auto"
+            className="wb-c6 wb-prio-user"
+            bodyClassName="wb-split wb-split-c3 overflow-y-auto"
           >
-            <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('topEndpoints')}
-              </div>
-              <div className="space-y-1">
-                {(biz?.topEndpoints ?? []).map((e, i) => (
-                  <div
-                    key={`${e.method}-${e.path}-${i}`}
-                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                  >
-                    <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
-                    <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text/90">
-                      {e.method}
-                    </span>
-                    <Tooltip content={e.path}>
-                      <span className="truncate text-[10px] text-foreground">{e.path}</span>
-                    </Tooltip>
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                      {fmtCompact(e.calls)}
-                    </span>
-                  </div>
-                ))}
-                {biz === null ? (
-                  <div className="flex justify-center px-2 py-3">
-                    <SourceGap text={t('sourceUnreachable')} />
-                  </div>
-                ) : biz.topEndpoints.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                    {t('noCallsToday')}
-                  </div>
-                ) : null}
-              </div>
-              <div className="mt-2 wb-cells grid gap-1.5">
+            <div className="wb-col">
+              {/* 用户三格 = 面板第一眼读数(机主 2026-10-25 定档:用户数据/增长优先于接口排行)。
+                  接口调用排行原在此处,已下移到签到块之后。 */}
+              <div className="wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('usersRegistered')}
                   value={fmtInt(biz?.usersTotal)}
@@ -2095,35 +2197,47 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <StatCell label={t('usersActive')} value={fmtInt(biz?.usersActive)} />
                 <StatCell label={t('usersNewToday')} value={fmtInt(biz?.usersTodayNew)} tone="ok" />
               </div>
+              {/* 用户增长:近 14 日每日新增(上海日界,与上面「今日新增」同口径)。
+                  取不到 ⇒ 空态,不得把"没量到"画成 14 根 0 柱(§0.3)。 */}
+              <div className="relative mt-2">
+                <div className="mb-0.5 text-[9px] tracking-[0.12em] text-muted-foreground">
+                  {t('userGrowth14d')}
+                </div>
+                <EChart option={userGrowthOption} height={62} merge ariaLabel={t('userGrowth14d')} />
+                {!biz?.userGrowth || biz.userGrowth.length === 0 ? (
+                  <ChartEmpty text={t('sourceUnreachable')} />
+                ) : null}
+              </div>
               {/* 签到:数据来自 sign_in_records(与积分体系同源);取不到 ⇒ 各格渲染"—",不写 0 */}
               <div className="mt-2">
                 <div className="mb-1.5 flex items-center gap-2 text-[10px] tracking-[0.14em] text-muted-foreground">
                   <span>{t('signInTitle')}</span>
                   {biz && !biz.signIn ? <SourceGap text={t('sourceUnreachable')} /> : null}
                 </div>
-                <div className="wb-cells grid gap-1.5">
+                <div className="wb-cells wb-cells-4 grid gap-1.5">
                   <StatCell
                     label={t('signInToday')}
                     value={fmtInt(biz?.signIn?.todayUsers)}
                     unit={t('unitUser')}
-                    tone="ok"
+                    tone={isNum(biz?.signIn?.todayUsers) ? 'ok' : 'unknown'}
                   />
                   <StatCell
                     label={t('signInUnsigned')}
                     value={fmtInt(biz?.signIn?.unsignedActiveUsers)}
                     unit={t('unitUser')}
-                    tone="warn"
+                    tone={isNum(biz?.signIn?.unsignedActiveUsers) ? 'warn' : 'unknown'}
                   />
                   <StatCell
                     label={t('signInStreak')}
                     value={fmtInt(biz?.signIn?.maxStreakDays)}
                     unit={t('unitDay')}
+                    tone={isNum(biz?.signIn?.maxStreakDays) ? undefined : 'unknown'}
                   />
                   <StatCell
                     label={t('signInReward')}
                     value={fmtInt(biz?.signIn?.todayRewardPoints)}
                     unit={t('unitPoint')}
-                    tone="accent"
+                    tone={isNum(biz?.signIn?.todayRewardPoints) ? 'accent' : 'unknown'}
                   />
                 </div>
                 <div className="relative mt-1.5">
@@ -2133,6 +2247,40 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <EChart option={signInOption} height={62} merge ariaLabel={t('signIn7d')} />
                   {!biz?.signIn || biz.signIn.last7d.length === 0 ? (
                     <ChartEmpty text={biz?.signIn ? t('noSignIn7d') : t('sourceUnreachable')} />
+                  ) : null}
+                </div>
+              </div>
+              {/* 接口调用排行(纵深信息,下移):原在用户三格之前,机主最关心的是用户/增长/AI */}
+              <div className="mt-2">
+                <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {t('topEndpoints')}
+                </div>
+                <div className="space-y-1">
+                  {(biz?.topEndpoints ?? []).map((e, i) => (
+                    <div
+                      key={`${e.method}-${e.path}-${i}`}
+                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
+                      <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text">
+                        {e.method}
+                      </span>
+                      <Tooltip content={e.path}>
+                        <span className="truncate text-[10px] text-foreground">{e.path}</span>
+                      </Tooltip>
+                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtCompact(e.calls)}
+                      </span>
+                    </div>
+                  ))}
+                  {biz === null ? (
+                    <div className="flex justify-center px-2 py-3">
+                      <SourceGap text={t('sourceUnreachable')} />
+                    </div>
+                  ) : biz.topEndpoints.length === 0 ? (
+                    <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                      {t('noCallsToday')}
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -2149,7 +2297,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   />
                 ) : null}
               </div>
-              <div className="mt-2 wb-cells grid gap-1.5">
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('ordersToday')}
                   value={fmtInt(biz?.ordersTodayPaid)}
@@ -2208,7 +2356,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                     <div
                       className={cn(
-                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
+                        'wb-num mt-0.5 text-[26px] leading-none font-bold whitespace-nowrap',
                         edgeLastTone === 'bad'
                           ? 'text-danger-text'
                           : edgeLastTone === 'warn'
@@ -2232,7 +2380,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                     <div
                       className={cn(
-                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
+                        'wb-num mt-0.5 text-[26px] leading-none font-bold whitespace-nowrap',
                         edgeHitTone === 'bad'
                           ? 'text-danger-text'
                           : edgeHitTone === 'warn'
@@ -2261,7 +2409,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     label={t('edgeStatWorst')}
                     value={isNum(edge.stats.worstMs) ? fmtInt(edge.stats.worstMs) : '—'}
                     unit={t('unitMs')}
-                    tone={thresholdTone(edge.stats.worstMs, (n) => (n >= 5000 ? 'bad' : 'warn'))}
+                    tone={thresholdTone(edge.stats.worstMs, (n) =>
+                      // 三档:原实现是「<5000 一律 warn」⇒ 最差 12ms 也染黄,警告就成了常态噪声。
+                      n >= 5000 ? 'bad' : n >= 2000 ? 'warn' : 'ok',
+                    )}
                   />
                   <StatCell label={t('edgeStatSamples')} value={fmtInt(edge.stats.samples)} />
                 </div>
@@ -2296,7 +2447,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       key={legKey}
                       content={`HTTP ${leg.status ?? '—'} · TTFB ${leg.ttfbMs ?? '—'}ms${leg.encoding ? ` · ${leg.encoding}` : ''}`}
                     >
-                      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5">
+                      <button
+                        type="button"
+                        aria-label={`${t(EDGE_LEG_LABEL[legKey])} ${stateWord(leg.ok ? 'up' : 'down')} ${isNum(leg.totalMs) ? `${leg.totalMs}ms` : ''}`}
+                        className="flex w-full items-center gap-2 rounded-sm border border-border bg-muted/60 px-2.5 py-1.5 text-left focus-visible:ring-1 focus-visible:ring-ring"
+                      >
                         <Dot tone={leg.ok ? 'ok' : 'bad'} />
                         <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
                           {t(EDGE_LEG_LABEL[legKey])}
@@ -2312,7 +2467,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                             {t('unitMs')}
                           </span>
                         </span>
-                      </div>
+                      </button>
                     </Tooltip>
                   ))}
                 </div>
@@ -2333,7 +2488,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTrafficRobot')}
             icon={<Users className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md order-1"
+            className="wb-c6 wb-c3-md wb-prio-traffic"
             right={
               traffic === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2343,7 +2498,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </span>
               ) : null
             }
-            bodyClassName="wb-split"
+            bodyClassName="wb-split wb-split-c3"
           >
             <div>
               <div className="wb-cells wb-cells-6 grid gap-1.5">
@@ -2425,23 +2580,32 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelRelayPool')}
             icon={<Sparkles className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md order-1"
+            className="wb-c6 wb-c3-md wb-prio-ai"
             right={
               relayPool === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
               ) : isNum(relayPool.staleAgeSec) ? (
-                <span className="text-[10px] text-muted-foreground">
-                  {t('poolStale')} {fmtDuration(relayPool.staleAgeSec)}
+                <span
+                  className={cn(
+                    'text-[10px]',
+                    // 「滞后」是结论,不是年龄:一两秒的缓存龄是这张板的正常节拍,
+                    // 常年挂着「号池刷新滞后 2秒」等于把警告喊成噪声(5e-1 可整改性)。
+                    relayPool.staleAgeSec >= 60 ? 'text-warning-text' : 'text-muted-foreground',
+                  )}
+                >
+                  {relayPool.staleAgeSec >= 60
+                    ? `${t('poolStale')} ${fmtDuration(relayPool.staleAgeSec)}`
+                    : t('footerDataAge', { duration: fmtDuration(relayPool.staleAgeSec) })}
                 </span>
               ) : null
             }
-            bodyClassName="wb-split"
+            bodyClassName="wb-split wb-split-c3"
           >
-            <div>
+            <div className="wb-col">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolKey')}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('poolKeySchedulable')}
                   value={`${fmtInt(relayPool?.keySchedulable)} / ${fmtInt(relayPool?.keyTotal)}`}
@@ -2471,11 +2635,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 />
               </div>
             </div>
-            <div>
+            <div className="wb-col">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolAccount')}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('poolAccountSchedulable')}
                   value={`${fmtInt(relayPool?.accountsSchedulable)} / ${fmtInt(relayPool?.accountsTotal)}`}
@@ -2523,13 +2687,19 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelUptime')}
             icon={<Clock3 className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md order-1"
+            className="wb-c6 wb-c3-md order-1 self-start"
             right={http === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
             bodyClassName="max-h-[320px] overflow-y-auto"
           >
             {(http?.uptimeSeconds ?? []).length === 0 ? (
+              /* 只有 http 块**确实取不到**(null)才喊「数据源不可达」;
+                 源是好的、序列为空(或首轮还没回来)时这句是假指控 —— 页头数据源灯会同时亮绿。 */
               <div className="flex justify-center py-3">
-                <SourceGap text={t('sourceUnreachable')} />
+                {http === null ? (
+                  <SourceGap text={t('sourceUnreachable')} />
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">{t('noScrapeTargets')}</span>
+                )}
               </div>
             ) : (
               <div className="space-y-1">
@@ -2568,6 +2738,14 @@ const WALLBOARD_CSS = `
 .wb-root {
   --wb-font-display: 'Bahnschrift', 'DIN Alternate', 'Oswald', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --wb-font-num: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Bahnschrift', monospace;
+  /* 「一格一读数」网格的列宽下限 = 读数**单行**放下的最小格宽(真 Chromium + 自托管字体实测):
+   * 五语言最坏读数是 ko「365일 23시간」内容 120.5px,加 px-2.5(20) 与边框(2) ⇒ 143。
+   * 读数一旦折行就是"数字被切成两半"(机主 2026-10-24 指认的号池面板缺陷),
+   * 所以这条下限是硬约束:宁可少列,不可断读数。 */
+  --wb-cell-min: 143px;
+  /* 复合读数(「12.3 GB / 15.6 GB」「↓ 1.5 MB/s ↑ 1.5 MB/s」= 两个量并排 + unit 槽)
+   * 实测单行需 224px。这类格必须走 .wb-cells-wide,否则 nowrap 会把它压成溢出(实测溢出 51px)。 */
+  --wb-cell-min-wide: 224px;
   /* 刻意不给底:大屏直接坐在工作区自己的背景上(机主 2026-10-20 定档:灰底 + 网格线是多余的一层壳)。 */
 }
 .wb-display { font-family: var(--wb-font-display); }
@@ -2594,6 +2772,10 @@ const WALLBOARD_CSS = `
 .dark .wb-panel.ui-lift:hover {
   box-shadow: var(--wb-inset), var(--lift-shadow-dark);
 }
+/* 页头底部的扫描线:用 background-position 移动,**不用 transform:translateX(±30%)**。
+ * 后者会把这条 1px 线整条推到容器右边界之外(实测页头 scrollWidth 比 clientWidth 多 220px,
+ * 连带整块大屏多出 166px 横向可滚动区 —— 值班屏上就是「能左右拖、右边一片空白」)。
+ * 背景绘制天然被自身盒子裁切,视觉上仍是同一条从左扫到右的光带,零溢出。 */
 .wb-header::after {
   content: '';
   position: absolute;
@@ -2601,19 +2783,22 @@ const WALLBOARD_CSS = `
   right: 0;
   bottom: -1px;
   height: 1px;
-  background: linear-gradient(
+  background-image: linear-gradient(
     90deg,
     transparent,
     color-mix(in srgb, var(--color-info) 55%, transparent),
     color-mix(in srgb, var(--chart-5) 45%, transparent),
     transparent
   );
+  background-size: 55% 100%;
+  background-repeat: no-repeat;
+  background-position: -30% 0;
   animation: wb-scan 6s linear infinite;
 }
 @keyframes wb-scan {
-  0% { transform: translateX(-30%); opacity: 0.5; }
-  50% { transform: translateX(30%); opacity: 1; }
-  100% { transform: translateX(-30%); opacity: 0.5; }
+  0% { background-position: -30% 0; opacity: 0.5; }
+  50% { background-position: 100% 0; opacity: 1; }
+  100% { background-position: 130% 0; opacity: 0.5; }
 }
 /* 页头按容器判定,不按视口:三簇 nowrap 实测宽 326(标题)+251(数据源)+331(状态)=997,
  * 嵌进 ~900px 面板时视口 lg: 仍算"宽"⇒ 中文被逐字断行。996 取 N-1 防临界抖动;
@@ -2621,14 +2806,37 @@ const WALLBOARD_CSS = `
 .wb-header { container-type: inline-size; }
 /* 均匀列网格:列数由容器宽决定,不再用视口断点(实测容器宽与视口不同步)。
  * 104 = 实测最大标签需求 99px + 余量;135 = 反算自原设计(容器 914 时 6 栏、gap 10 ⇒ 6×135+5×10=860≤882)。
- * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。 */
+ * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。
+ * 注意:96 只兜得住「纯数字读数」的组(实测 128,431 单行 92px)。读数里带中文时长/单位的组
+ * 必须改用 .wb-cells-c3,否则读数会被切成两半 —— 见下方 --wb-cell-min 的算式。 */
 .wb-cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+/* 读数为「中文时长/带单位」等长形态的组:列宽下限 = 单行放下的最小格宽(--wb-cell-min)。
+ * 与 auto-fit 配合 ⇒ 宽度不够时**减列**,而不是把读数折断或让它溢出压到邻格。 */
+.wb-cells-c3 { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min), 1fr)); }
+/* 复合读数组(两个量并排 / 带 unit 槽):列宽下限更高,窄面板下自动落成单列一行一格。 */
+.wb-cells-wide { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min-wide), 1fr)); }
+/* 三格一组的长读数档:auto-fit 在「只够排 2 列」这一带会留下 2+1 的空洞(1440 实测号池面板
+ * 单栏 365 ⇒ 2 列 + 第 3 格独占半行)。441 = 3 格下限 + 2 个格间距的临界值:装不下 3 列
+ * 就整组竖排 —— 该减的是列数,不是把网格排坏。必须写在上面那条基档之后(门 240 R3 取首个
+ * .wb-cells-c3 块判下限来源)。 */
+@container (max-width: 440px) { .wb-cells-c3 { grid-template-columns: minmax(0, 1fr); } }
 /* 6 格一组(Redis / 访客):auto-fit 在半宽面板里只能排 5 列 ⇒ 第 6 格单独一行。
  * 这里固定 3 列 ×2 行(总行数与 5+1 相同,但不再出现孤格);<480 落 2 列。 */
 .wb-cells-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @container (max-width: 479px) { .wb-cells-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-/* 4 格组(边缘分位):窄面板下 auto-fit 会排成 3+1,孤格单独一行;固定 2×2。 */
-@container (max-width: 479px) { .wb-cells-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 5 格一组(流量摘要 / 数据库 / LLM):5 是质数,除了 5 列一行就必在末行留空位。
+ * 手机档固定 2 列并让第 5 格吃满整行 ⇒ 2+2+一整行,不留半个空洞。 */
+@container (max-width: 479px) {
+  .wb-cells-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wb-cells-5 > :last-child:nth-child(5) { grid-column: 1 / -1; }
+}
+/* 4 格一组(边缘分位 / 签到):必须固定列数。auto-fit 在 3~4 格之间只会排 3 列
+ * ⇒ 第 4 格孤零零占满一行 1/3(实测 1920 业务纵深左栏 390、边缘面板 762 各撞一次)。
+ * 472 = 4×112 + 3×8:单格 112px 是离线实测尺(verify-wallboard-readout.mjs)量出的
+ * 「六位读数 + 单位槽」单行下限(999,999人 实测需 111.9,108.6 时溢出 3.3px),8 是这两组
+ * 里更大的格间距(gap-2)。低于 472 就退回 2×2 —— 宁可两行,不要溢出也不要孤格。 */
+.wb-cells-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container (min-width: 472px) { .wb-cells-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .wb-cells-lg { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
 /* KPI 带按容器宽分档:1440 视口下容器 ~786px,auto-fit(135) 只排 5 列,第 6 张会单独
  * 占一行的 1/5(实测 2026-10-24)。≥900 六列一行、600–899 三列两行、<600 两列。 */
@@ -2636,7 +2844,11 @@ const WALLBOARD_CSS = `
 @container (min-width: 600px) and (max-width: 899px) { .wb-cells-lg { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @container (max-width: 599px) { .wb-cells-lg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wb-hdr-title h1, .wb-hdr-title p, .wb-hdr-status, .wb-hdr-sources { white-space: nowrap; }
-@container (max-width: 996px) {
+/* ≤996 曾整簇隐掉数据源名,但 ≤1023 起状态簇已换到第二行 ⇒ 第一行只剩「标题 + 数据源」,
+ * 实测 326 + 12 + 267(四名全开)= 605 就够;996 那档在 620–995 之间白白把四个源退化成
+ * 四个无名字圆点(1440 值班屏正是这一带,四个点读不出哪个源掉了)。阈值改按第一行实需收到 605,
+ * 再窄才收名字(名字收掉后第一行只需 326 + 12 + 4×22 ≈ 426,由标题 truncate 兜底)。 */
+@container (max-width: 605px) {
   /* 窄容器只收掉文字、保留四个状态点(悬停 Tooltip 给全名),不再整块隐藏数据源 */
   .wb-src-name { display: none; }
 }
@@ -2651,11 +2863,15 @@ const WALLBOARD_CSS = `
  * 面板内部的两栏(告警/业务)也按面板自身宽度判定(.wb-panel 是容器),不再按视口 md:。 */
 .wb-panel { container-type: inline-size; }
 .wb-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
-/* 首屏编排(全宽度生效):流量趋势与业务数据先读,主机/服务、质量/告警顺次后移。
- * 1920 下一行刚好是流量 6 + 业务 6,首屏即可读完这两块;负 order 只改视觉顺序,
- * DOM 顺序不变(读屏仍按 DOM 读,视觉优先是大屏的既定取舍)。 */
-.wb-flow-first { order: -2; }
-.wb-business-early { order: -1; }
+/* 首屏编排(全宽度生效,机主 2026-10-25 定档):最关心「用户数据 / 增长 / AI」⇒ 四块按此序前置,
+ * 主机/服务、质量/告警、数据层、边缘、运行时长顺次后移。1920 下首屏两行正好是
+ * 「业务纵深 6 + AI 号池 6」「访客与机器人 6 + 流量趋势 6」—— 用户增长与 AI 面无需滚动即读完。
+ * 负 order 只改视觉顺序,DOM 顺序不变(读屏仍按 DOM 读,视觉优先是大屏的既定取舍)。
+ * 四档必须两两不等:同值时回落到 DOM 顺序,编排就静默失效(2026-10-22 前那版只有 -2/-1 两档)。 */
+.wb-prio-user { order: -40; }
+.wb-prio-ai { order: -30; }
+.wb-prio-traffic { order: -20; }
+.wb-prio-trend { order: -10; }
 .wb-c3 { grid-column: span 3; }
 .wb-c6 { grid-column: span 6; }
 .wb-split {
@@ -2663,6 +2879,10 @@ const WALLBOARD_CSS = `
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
+/* 两栏 .wb-split 的某一栏需要「按自己这一栏的宽度」分档时,把这一栏标成容器再挂档。
+ * 不加它,栏内的 @container 会一路向上找到 .wb-panel ⇒ 面板 788 却只有 390 可用宽,
+ * 4 格组被排成 4 列挤到 91px/格(读数断行那一族的同一成因)。 */
+.wb-col { container-type: inline-size; }
 @container (max-width: 1149px) {
   .wb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .wb-c3 { grid-column: span 3; }
@@ -2682,12 +2902,27 @@ const WALLBOARD_CSS = `
 }
 /* 半宽面板(约 440px)内部两栏会把 11px 文本挤成 2-3 字一行 ⇒ 只有面板自身够宽才开两栏 */
 @container (min-width: 620px) {
-  .wb-split { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wb-split:not(.wb-split-c3) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* 分组里还要再排「一格一读数」网格的面板(号池:两组各 3 格)必须另开一栏档。
+ * 620 对它们是错的阈值:两栏后每栏只剩 ~333、3 格各 107 < --wb-cell-min(143)
+ * ⇒ 「6天19小时」被切成「6天19小 / 时」(机主 2026-10-24 指认的号池面板缺陷)。
+ * 列宽不足时该减的是**栏数**,不是把读数折断。
+ * 890 = 2×(3×143 + 2×6) + 8,即两栏各自放得下 3 格单行读数所需的面板**内容宽**
+ * (@container 按 content box 判,不含 p-3 的 24 与边框 2)。门 240 R5 复算这条算式。 */
+@container (min-width: 890px) {
+  .wb-split-c3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* 窄容器:状态区落到第二行右对齐,标题不再被逐字挤压 */
 @container (max-width: 1023px) {
   .wb-header { flex-wrap: wrap; }
   .wb-hdr-status { width: 100%; justify-content: flex-end; }
+}
+/* 极窄容器(<=699):状态区允许换行,并收起"刷新于"这行 —— 否则总体状态+告警+时钟+
+   值班键+视图切换器约 450px,超过可用宽会被裁掉左侧徽章。 */
+@container (max-width: 699px) {
+  .wb-hdr-status { flex-wrap: wrap; }
+  .wb-hdr-refresh { display: none; }
 }
 /* fill-mode 用 backwards 而不是 both:both 会在动画结束后**永久占住 transform**
  * (动画优先级高于普通作者声明),把 hover 浮起的 transform 整个吃掉 —— 实测这些卡片
@@ -2710,9 +2945,9 @@ const WALLBOARD_CSS = `
   border-radius: var(--radius-xs);
 }
 .wb-root ::-webkit-scrollbar-track, .wb-scroll-host::-webkit-scrollbar-track { background: transparent; }
-/* 4K/超宽值班屏:视口 ≥2200 时整体放大 12%,字号与图表一起变,不用逐类改 px。
- * 常规 1920/1440 不触发;不支持 zoom 的浏览器自动退化为当前密度(不做第二套布局)。 */
-@media (min-width: 2200px) {
+/* 4K/超宽值班屏:按可用容器宽(不是视口)放大 12% —— 侧栏展开时视口 2560 的可用宽
+ * 只有 ~1906,同样需要放大;1440(786)不触发。不支持 zoom 的浏览器退化为当前密度。 */
+@container (min-width: 1700px) {
   .wb-root { zoom: 1.12; }
 }
 `

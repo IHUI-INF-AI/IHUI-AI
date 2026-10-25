@@ -18,6 +18,7 @@
  * - topPages:Top 5 页面 [{path,visits}](无数据为空数组)
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { bizDayStartUtc } from '../../utils/biz-day.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import {
@@ -32,24 +33,13 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-// Asia/Shanghai 日界(UTC 表示),与聚合查询模块口径一致
-function shanghaiDayStartUtc(daysAgo = 0): Date {
-  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() - daysAgo,
-    ) -
-      8 * 3600 * 1000,
-  )
-}
+// 业务日界唯一出口在 utils/biz-day.ts(守门 246 拦第二份副本)
 
 const mobileStatsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/mobile-stats', { preHandler: requireAdmin }, async (request, reply) => {
     try {
       const now = new Date()
-      const todayStart = shanghaiDayStartUtc(0)
+      const todayStart = bizDayStartUtc(0)
       const nextDayStart = new Date(todayStart.getTime() + DAY_MS)
       const since24h = new Date(now.getTime() - DAY_MS)
       const since7d = new Date(now.getTime() - 7 * DAY_MS)

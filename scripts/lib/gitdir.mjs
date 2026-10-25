@@ -30,8 +30,9 @@ import { fileURLToPath } from 'node:url'
 // 夹具判据只有一份实现(scratch-dir.mjs 是 §26 批准的临时物唯一落点,段名与计数都住在那儿)。
 // 在别处再抄一遍 `ihui-scratch` 字面量 = 名字一改本闸整族失明,与 §3「两处实现必漂移」同一条禁令。
 import { countScratchSegments } from './scratch-dir.mjs'
-// G-814433(2026-09-30):DevEnv 实体已迁仓内 G:/IHUI-AI/.DevEnv,归档根推导跟随
-// devEnvRoot() 双形态(仓内 .DevEnv 优先,回落 <盘>/DevEnv)。seal 不依赖本模块,无环。
+// G-814433(2026-09-30):归档根推导跟随 devEnvRoot() 双形态。2026-10-25 起判据改为
+// 「仓内 .DevEnv 带机器标记(runtimes/tools/… )才算数」,否则回落 <盘>/DevEnv ——
+// 半迁移机器上 scratch 自建的仓内空壳不再能把归档根吸进仓树。seal 不依赖本模块,无环。
 import { devEnvRoot } from '../seal-c-root-stray.mjs'
 
 // ── git 可执行文件解析:不依赖 PATH(服务账户如 LocalSystem 可能没有 PATH) ──
@@ -483,5 +484,25 @@ export function refExpectationSatisfied(ref, expectedSha, actualSha) {
   if (!actualSha) return false // 解析不到 = 真缺失(宿主清理 depth>=2 目录的典型征状)
   if (ref.startsWith('refs/remotes/')) return true // 移动型远端镜像:不比 sha
   return actualSha === expectedSha
+}
+
+/**
+ * 按**一份**批量快照判整张清单里哪些 ref 不满足期望;逐条判定仍走上面那唯一一把尺子,
+ * 这里只做集合运算(§0.6:同一判据不许有第二份实现)。
+ *
+ * 为什么这一层必须存在:清单把 `refs/tags/lost-commit/*` 全量收在内(2026-10-24 实测
+ * 24,582 枚,§29 的悬空 commit 备份族只增不减),而逐条问 `git rev-parse --verify --quiet`
+ * 本机实测单条 39.5–177.9 ms ⇒ 一轮 24,737 条要派两万余次进程(外推 977–4,401 秒),
+ * 计划任务每 2 分钟派一轮 ⇒ 守护无限堆积(同日夜实测 54 枚常驻 node、git.exe 118 枚,
+ * 连带把会话侧打成 bash fork 失败)。同一份 `for-each-ref` 快照实测 120 ms / 25,398 条。
+ *
+ * 三态:`snapshot === null`(这一面问不到)⇒ 返回 null 判「未判定」,
+ * 绝不折成"清单全缺"(把读不到当被删了来治,方向反了)。
+ */
+export function brokenRefsFromSnapshot(expectedMap, snapshot) {
+  if (snapshot === null) return null
+  return Object.entries(expectedMap).filter(
+    ([ref, sha]) => !refExpectationSatisfied(ref, sha, snapshot[ref]),
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

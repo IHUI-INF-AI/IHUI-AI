@@ -22,6 +22,12 @@
  *      - 【归并】族:同复合主键组(`keyOfRow` 编号+标题逐字等值)内存在**幸存者**
  *        (open ∧ 无副本标记 ∧ 无租约 ∧ 异行)—— 组内不删空;
  *      - 行首指针族:自述指向编号 N(`副本指针(编号 N)`),新面仍存在编号 N 的 open 行 —— 指向不悬空;
+ *      - 行首指针族·**归档已勾主行档**(2026-10-24,本票):新面没有编号 N 的 open 行时,再查**归档件**
+ *        (`.ihui-agent/archive/PROJECT_PLAN*.md`,与取号占用面同一取材层 `lib/plan-id-face.mjs`,
+ *        不自造第二套归档读取)。该编号在归档里**全部已勾**且至少一条给得出复合主键
+ *        (`compositeKeyOf` = 编号 + 题面前 24 字,逐字)⇒ 陈旧悬空指针,可删(receiver=archive);
+ *        归档里**仍有未勾主行** ⇒ 不可删并逐条点名(仍有未完成工作,删指针=丢唯一活登记);
+ *        归档里找不到该编号 / 归档面没取全 ⇒ 与补档前逐字同形(不可删)。
  *   ⑤ 行所属主键组不在 F9 撞号声明组(撞号组的"同主键"语义被污染,归撞号链管,G-312);
  *   ⑥ 不在 F1 forkOpenLines(与 auditPlan 同口径;现读 0 组,保险档)。
  *
@@ -88,9 +94,12 @@ import {
   MERGE_NOTE_RE,
   parseTaskRows,
   compositeKeyOf,
+  titleOf,
   findForks,
   f9Faces,
 } from './lib/plan-task-index.mjs'
+// ④c 归档档:归档件的枚举/取正文**只走这一层**(与取号占用面、归档器同一条取材面)。
+import { ID_FACE_TRANSPORT } from './lib/plan-id-face.mjs'
 import {
   alignSharedIndex,
   attestBypassCommit,
@@ -121,6 +130,111 @@ const hasCopyMark = (raw) => isClaimExcludedPointer(raw)
 const hasSettledNote = (raw) => new RegExp(MERGE_NOTE_RE.source).test(raw)
 
 /**
+ * 编号账:编号 → open 行(④ 判定唯一实现;main 的 dry-run 报告与 `selectCopyRowsToPurge` 共用一份,
+ * 避免"同一件事两处各判")。
+ */
+export function indexOpenRowsById(rows) {
+  const openById = new Map()
+  for (const r of rows) {
+    if (r.state !== 'open') continue
+    if (!r.key) continue
+    if (!openById.has(r.key)) openById.set(r.key, [])
+    openById.get(r.key).push(r)
+  }
+  return openById
+}
+
+/**
+ * 归档面索引(纯函数,self-test 直测):吃 `[{ path, text }]`,交出台账归档件里的登记行。
+ * 取材面由调用方按 `lib/plan-id-face.mjs` 的同一形状(`.ihui-agent/archive/PROJECT_PLAN*.md`)枚举,
+ * 本函数**不自己找文件、不自己读盘** —— 归档读取全仓只有那一份。
+ * 每行附 `title`/`composite`:`compositeKeyOf`(编号 + 题面前 24 字)唯一实现,供 ④c 逐字比对。
+ * `ok=false` 表示有归档件没读到正文 —— 判不出 ≠ 零份,调用方必须据此拒删。
+ */
+export function buildArchiveIndex(files) {
+  const rows = []
+  const byKey = new Map()
+  const undetermined = []
+  for (const f of Array.isArray(files) ? files : []) {
+    if (!f || typeof f.text !== 'string') {
+      undetermined.push(`${f?.path ?? '<未知归档件>'} 没读到正文`)
+      continue
+    }
+    for (const r of parseTaskRows(f.text)) {
+      const rec = {
+        path: f.path,
+        line: r.line,
+        state: r.state,
+        key: r.key,
+        title: titleOf(r.raw),
+        composite: compositeKeyOf(r.raw),
+        // 归档里的"主行"(非副本自述行)—— 点名时优先指向它,别拿同族的另一枚指针当替身
+        main: !isClaimExcludedPointer(r.raw),
+      }
+      rows.push(rec)
+      if (!rec.key) continue
+      if (!byKey.has(rec.key)) byKey.set(rec.key, [])
+      byKey.get(rec.key).push(rec)
+    }
+  }
+  return { ok: undetermined.length === 0, rows, byKey, undetermined }
+}
+
+/** 括注里的「编号·题面提示」形态(如 `4·观察期`);无提示 ⇒ 只按编号逐字对上。 */
+function splitPointedId(pointed) {
+  const m = /^(.+?)[·・](.+)$/.exec(pointed)
+  if (!m) return { id: pointed, titleHint: null }
+  return { id: m[1].trim(), titleHint: m[2].trim() }
+}
+
+/**
+ * ④ 行首指针族的"接收方"判定(纯函数,唯一实现;select 与 dry-run 报告共用)。
+ * verdict:
+ *  - `ledger-open`       新面仍有编号 open 行 ⇒ 指向不悬空(原语义,可删);
+ *  - `archive-done`      新面缺席,归档面该编号主行**全部已勾** ⇒ 陈旧悬空指针(可删,receiver=archive);
+ *  - `archive-live`      归档面该编号仍有**未勾**主行 ⇒ 不可删(删指针=丢唯一活登记);
+ *  - `archive-absent`    归档面找不到该编号 ⇒ 不可删(与补档前逐字同形);
+ *  - `archive-undetermined` 归档面没取全 ⇒ 不可删(判不出 ≠ 零份);
+ *  - `no-pointer`        本行不是行首指针族。
+ * 编号比对:编号段**逐字等值**(`keyOfRow` 口径),不许前缀/模糊;带「编号·题面」的括注再把题面
+ * 提示逐字前缀对上。归档行按 `compositeKeyOf` 分族,凡有未勾族即拒删(哪怕勾族也有)。
+ */
+export function pointerTargetVerdict(row, openById, archiveIndex) {
+  if (!COPY_POINTER_ROW_RE.test(row.raw)) return { verdict: 'no-pointer', pointed: null }
+  const pointed = pointedIdOf(row.raw)
+  if (!pointed) return { verdict: 'no-pointer', pointed: null }
+  const targets = (openById.get(pointed) ?? []).filter((x) => x.line !== row.line)
+  if (targets.length) return { verdict: 'ledger-open', pointed, survivorLine: targets[0].line }
+  if (!archiveIndex) return { verdict: 'archive-undetermined', pointed, detail: ['归档面未取'] }
+  if (!archiveIndex.ok) {
+    return { verdict: 'archive-undetermined', pointed, detail: archiveIndex.undetermined ?? [] }
+  }
+  const { id, titleHint } = splitPointedId(pointed)
+  const scope = archiveIndex.byKey.get(id) ?? []
+  let hits = titleHint ? scope.filter((x) => typeof x.title === 'string' && x.title.startsWith(titleHint)) : scope
+  if (!hits.length && !titleHint) {
+    // 二档:编号取不出时(`P1-①` 这类带圈字的号,`keyOfRow` 交 null),按"题面以该编号逐字起头"认主行 ——
+    // 仍是逐字前缀,不是相似度。
+    hits = archiveIndex.rows.filter((x) => typeof x.title === 'string' && x.title.startsWith(pointed))
+  }
+  if (!hits.length) return { verdict: 'archive-absent', pointed }
+  const live = hits.filter((x) => x.state !== 'done')
+  if (live.length) {
+    // 点名优先取归档里的主行(非副本自述行),同族另有未勾指针时不至于指错条
+    return { verdict: 'archive-live', pointed, detail: [...live].sort((a, b) => Number(b.main) - Number(a.main)) }
+  }
+  const done = hits.filter((x) => x.composite)
+  if (!done.length) return { verdict: 'archive-absent', pointed, detail: hits }
+  return {
+    verdict: 'archive-done',
+    pointed,
+    receiverPath: done[0].path,
+    receiverLine: done[0].line,
+    composites: [...new Set(done.map((x) => x.composite))],
+  }
+}
+
+/**
  * 删除判定(纯函数,self-test 直测):给定全行集合,返回删除行索引集合与逐行理由。
  * 判据见文件头注 —— 这里是唯一实现,--dry-run/--apply/--self-test 各档共用。
  *
@@ -133,11 +247,17 @@ const hasSettledNote = (raw) => new RegExp(MERGE_NOTE_RE.source).test(raw)
  *    claim 缺失放行,claim 在但行号 ∈ staleLeaseLines(租约门 analyzeLeases 判的过期集)放行,
  *    租约在飞(claim 在但不在过期集)一律保留。staleLeaseLines 由 main 传入(纯函数不派生);
  *    includeSettled 与 expiredLease 互斥,同传即抛(①与②的取舍方向相反,混档=判据自相矛盾)。
+ *
+ * `opts.archiveIndex`(④c 归档档,`buildArchiveIndex` 的产物):新面缺席时据此判"陈旧悬空指针"
+ * 还是"仍有未勾主行";不传/`ok=false` 一律按"判不出"拒删。
+ * `opts.rejectLog`(可选数组):被 ④ 判"不可删"的行就地记一笔 `{row, pointed, verdict, detail}`,
+ * 供 dry-run 逐条点名 —— 判据只在这里走一次,报告不许另立第二套 ④ 复算。
  */
 export function selectCopyRowsToPurge(rows, opts = {}) {
   const includeSettled = Boolean(opts.includeSettled)
   const expiredLease = Boolean(opts.expiredLease)
   if (includeSettled && expiredLease) throw new Error('批2(--include-settled)与批3(--expired-lease)两档互斥,拒')
+  const archiveIndex = opts.archiveIndex ?? null
   const openRows = rows.filter((r) => r.state === 'open')
   // 组账:复合主键 → open 行(幸存者判定用)
   const byKey = new Map()
@@ -148,13 +268,7 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
     byKey.get(k).push(r)
   }
   // 编号账:编号 → open 行(行首指针族的"指向不悬空"判定用)
-  const openById = new Map()
-  for (const r of openRows) {
-    const id = r.key
-    if (!id) continue
-    if (!openById.has(id)) openById.set(id, [])
-    openById.get(id).push(r)
-  }
+  const openById = indexOpenRowsById(rows)
   const deletes = []
   for (const r of rows) {
     if (r.state !== 'open') continue // 只动未勾行(勾行归归档器)
@@ -167,15 +281,32 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
     if (r.claim && !(expiredLease && opts.staleLeaseLines?.has(r.line))) continue // ③(批3收窄:claim 在但已过期 ⇒ 放行;租约在飞 ⇒ 保留)
     const pointed = COPY_POINTER_ROW_RE.test(r.raw) ? pointedIdOf(r.raw) : null
     if (pointed) {
-      // ④a 行首指针族:指向编号仍有 open 行(非本行)
-      const targets = (openById.get(pointed) ?? []).filter((x) => x.line !== r.line)
-      if (!targets.length) continue
-      deletes.push({
-        row: r,
-        family: includeSettled ? 'pointer-note' : expiredLease ? 'pointer-lease' : 'pointer-row',
-        key: pointed,
-        survivorLine: targets[0].line,
-      })
+      // ④a 行首指针族:接收方在**新面**,缺席时再查归档面(④c,见 pointerTargetVerdict)
+      const v = pointerTargetVerdict(r, openById, archiveIndex)
+      if (v.verdict === 'ledger-open') {
+        deletes.push({
+          row: r,
+          family: includeSettled ? 'pointer-note' : expiredLease ? 'pointer-lease' : 'pointer-row',
+          key: pointed,
+          survivorLine: v.survivorLine,
+          receiver: 'ledger',
+        })
+      } else if (v.verdict === 'archive-done') {
+        deletes.push({
+          row: r,
+          family: includeSettled ? 'pointer-note' : expiredLease ? 'pointer-lease' : 'pointer-row',
+          key: pointed,
+          survivorLine: v.receiverLine,
+          receiver: 'archive',
+          receiverPath: v.receiverPath,
+          composites: v.composites,
+        })
+      } else {
+        if (Array.isArray(opts.rejectLog)) {
+          opts.rejectLog.push({ row: r, pointed, verdict: v.verdict, detail: v.detail ?? [] })
+        }
+        continue
+      }
     } else {
       // ④b 【归并】族:同复合主键组内存在幸存者。批3语义收窄:幸存者允许持**已过期**租约
       // (主行本体留在账面不代摘,租约清账归持有者;登记信息不丢 ⇒ 接收方成立);
@@ -196,6 +327,7 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
         family: includeSettled ? 'settled-note' : expiredLease ? 'merge-lease' : 'merge-note',
         key: k,
         survivorLine: survivor.line,
+        receiver: 'ledger',
       })
     }
   }
@@ -348,6 +480,46 @@ function selfTest() {
     { staleLeaseLines: new Set([1]) },
   )
   ok(d.length === 0, '批1档:幸存者持租约(哪怕行号在过期集)仍不作数 —— 收窄只在批3档生效')
+  // —— ④c 归档已勾主行档(2026-10-24):新面缺席时按归档面判"陈旧悬空指针"还是"仍有未勾主行" ——
+  // 夹具只喂 `[{path, text}]` 进 buildArchiveIndex,取材面(目录枚举/取正文)归 lib/plan-id-face.mjs,
+  // 判据侧不自己读盘 —— 与 self-test 纯函数、不碰工作区 git 面的既有约定同向。
+  const ARCH_DONE = ['# 归档件', '- [x] ✅(2026-09-27) 62. 会话搜索栏挂载 + 侧栏批量选择', ''].join('\n')
+  const ARCH_OPEN = ['# 归档件', '- [ ] 4. 观察期:连续 3 次 main push e2e 稳定绿后收官。', ''].join('\n')
+  const archOf = (text) => buildArchiveIndex([{ path: '.ihui-agent/archive/PROJECT_PLAN_x.md', text }])
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本,只加指针不动勾选;当前状态见 62 那条。')], {
+    archiveIndex: archOf(ARCH_DONE),
+  })
+  ok(
+    d.length === 1 && d[0].receiver === 'archive' && d[0].key === '62' && d[0].family === 'pointer-row' && d[0].survivorLine === 2,
+    '④c A型:新面缺席 ∧ 归档主行已勾 ⇒ 陈旧悬空指针可删(receiver=archive)',
+  )
+  ok(d[0]?.composites?.[0] === '62#会话搜索栏挂载+侧栏批量选择', '④c A型:点名用复合主键(编号+题面前 24 字逐字)')
+  let rej = []
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 4·观察期)：同主键第二份未勾选副本,只加指针不动勾选。')], {
+    archiveIndex: archOf(ARCH_OPEN),
+    rejectLog: rej,
+  })
+  ok(d.length === 0 && rej.length === 1 && rej[0].verdict === 'archive-live', '④c B型:归档主行未勾 ⇒ 不可删并点名(archive-live)')
+  rej = []
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本。')], {
+    archiveIndex: archOf('# 归档件\n'),
+    rejectLog: rej,
+  })
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-absent', '④c 归档缺席 ⇒ 维持补档前判定(不可删,archive-absent)')
+  rej = []
+  const brokenFace = buildArchiveIndex([{ path: '.ihui-agent/archive/PROJECT_PLAN_x.md' }])
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本。')], { archiveIndex: brokenFace, rejectLog: rej })
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-undetermined', '④c 归档面没取全 ⇒ 判不出≠零份,拒删')
+  rej = []
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 P1-①)：同主键第二份未勾选副本。')], {
+    archiveIndex: archOf('# 归档件\n- [ ] P1-①扩共享层首批:等容器运行时。\n'),
+    rejectLog: rej,
+  })
+  ok(d.length === 0 && rej[0]?.verdict === 'archive-live', '④c 编号取不出(key=null)时按题面逐字前缀认主行,未勾 ⇒ 拒删')
+  d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 P1-②)：同主键第二份未勾选副本。')], {
+    archiveIndex: archOf('# 归档件\n- [ ] P1-①扩共享层首批:等容器运行时。\n'),
+  })
+  ok(d.length === 0, '④c 题面前缀不算模糊匹配(`P1-②` 不得被 `P1-①` 主行顶替)')
   let threwBatchClash = false
   try {
     selectCopyRowsToPurge([mk(1, '- [ ] G-65 x')], { includeSettled: true, expiredLease: true })
@@ -406,7 +578,32 @@ function main() {
     staleLeaseLines = new Set(lease.stale.map((v) => v.line))
     staleLeaseTotal = lease.stale.length
   }
-  const candidates = selectCopyRowsToPurge(rows, { includeSettled, expiredLease, staleLeaseLines }).filter((d) => {
+  // ④c 归档已勾主行档:只有"新面上没有接收方"的指针行才需要归档面(常态下省掉整目录扫描)。
+  // 归档件的枚举/取正文只走 lib/plan-id-face.mjs(归档器与取号占用面同一条取材),本器不自造第二套。
+  const openById = indexOpenRowsById(rows)
+  const pointerRows = rows.filter((r) => r.state === 'open' && COPY_POINTER_ROW_RE.test(r.raw) && pointedIdOf(r.raw))
+  const orphanPointers = pointerRows.filter(
+    (r) => !(openById.get(pointedIdOf(r.raw)) ?? []).some((x) => x.line !== r.line),
+  )
+  let archiveIndex = null
+  if (orphanPointers.length) {
+    const listed = ID_FACE_TRANSPORT.listArchives({ root: ROOT, source: 'HEAD' })
+    const archiveFiles = []
+    for (const p of listed.paths) {
+      try {
+        archiveFiles.push({ path: p, text: ID_FACE_TRANSPORT.show({ root: ROOT, source: 'HEAD', path: p }) })
+      } catch {
+        archiveFiles.push({ path: p }) // 没读到正文 ⇒ buildArchiveIndex 记 undetermined ⇒ ④c 一律拒删
+      }
+    }
+    archiveIndex = buildArchiveIndex(archiveFiles)
+    console.log(
+      `归档面:HEAD 的 PROJECT_PLAN*.md ${listed.paths.length} 份 / 登记行 ${archiveIndex.rows.length} 行` +
+        (archiveIndex.ok ? '' : `(⚠️ ${archiveIndex.undetermined.length} 份没读到正文 ⇒ ④c 判不出,拒删)`),
+    )
+  }
+  const rejectLog = []
+  const candidates = selectCopyRowsToPurge(rows, { includeSettled, expiredLease, staleLeaseLines, archiveIndex, rejectLog }).filter((d) => {
     if (forkOpenLines.has(d.row.line)) return false // ⑥
     // ⑤ 撞号组"同主键"语义被污染,只辖同键组判定(④b);行首指针族(family 前缀 pointer-*)走指向判定不查 F9
     if (!d.family.startsWith('pointer') && f9Keys.has(d.key)) return false
@@ -417,8 +614,35 @@ function main() {
   const before = { openRows: rows.filter((r) => r.state === 'open').length }
   console.log(`判定面:HEAD(${headRef}) 未勾 ${before.openRows} 行 [${batchLabel}]`)
   console.log(`候选删除 ${candidates.length} 行(${candidates.map((d) => d.family).filter((f, i, a) => a.indexOf(f) === i).join(' / ') || '无'})`)
-  for (const d of candidates.slice(0, 12))
-    console.log(`  L${d.row.line} [${d.family}] → 幸存/指向 L${d.survivorLine} ${d.row.raw.slice(0, 80)}`)
+  const archivedCandidates = candidates.filter((d) => d.receiver === 'archive')
+  if (archivedCandidates.length) {
+    console.log(
+      `④c 陈旧悬空指针可删 ${archivedCandidates.length} 行(编号:${[...new Set(archivedCandidates.map((d) => d.key))].join('/')};` +
+        `新面缺席,接收方在归档面)`,
+    )
+  }
+  // ④ 判"不可删"的指针行逐条点名(判据只在 select 里走一次,此处只读同一份 rejectLog)
+  const rejectedPointers = rejectLog.filter((x) => !forkOpenLines.has(x.row.line))
+  if (rejectedPointers.length) {
+    const why = {
+      'archive-live': '归档件里该编号的主行仍未勾(留着唯一活登记)',
+      'archive-absent': '归档面找不到该编号的登记行(维持不可删)',
+      'archive-undetermined': '归档面没取全,判不出 ⇒ 拒删',
+    }
+    console.log(`④ 维持不可删的指针行 ${rejectedPointers.length} 行:`)
+    for (const x of rejectedPointers) {
+      const hit = x.detail?.[0]
+      const at = hit ? ` ⇒ ${String(hit.path).split('/').pop()}:L${hit.line}「${hit.title ?? ''}」` : ''
+      console.log(`  L${x.row.line} (编号 ${x.pointed}) ${why[x.verdict] ?? x.verdict}${at} ${x.row.raw.slice(0, 60)}`)
+    }
+  }
+  for (const d of candidates.slice(0, 12)) {
+    const to =
+      d.receiver === 'archive'
+        ? `归档 ${String(d.receiverPath).split('/').pop()}:L${d.survivorLine}`
+        : `幸存/指向 L${d.survivorLine}`
+    console.log(`  L${d.row.line} [${d.family}] → ${to} ${d.row.raw.slice(0, 80)}`)
+  }
   if (candidates.length > 12) console.log(`  … 其余 ${candidates.length - 12} 行见留痕 md`)
   if (expiredLease) {
     const withClaim = candidates.filter((d) => d.row.claim).length
@@ -455,11 +679,14 @@ function main() {
   const after = parseTaskRows(newContent)
   const afterForks = findForks(newContent)
   const afterF1 = afterForks.forks.length
-  const afterDupPointer = after.filter((r) => r.state === 'open' && DUP_POINTER_RE.test(r.raw)).length
+  // dupPointerRows 必须与 ① 同判据(「本行自述副本」= isClaimExcludedPointer,不是单看【归并】字面):
+  // 行首指针族(`副本指针(编号 N)`)删行时,旧写法 before/after 双 0 ⇒ 闸门形同摆设(2026-10-24 实证)。
+  const countCopyMarks = (rs) => rs.filter((r) => r.state === 'open' && isClaimExcludedPointer(r.raw)).length
+  const afterDupPointer = countCopyMarks(after)
   const afterMergeNotes = (newContent.match(new RegExp(MERGE_NOTE_RE.source, 'g')) ?? []).length
   const beforeMergeNotes = (content.match(new RegExp(MERGE_NOTE_RE.source, 'g')) ?? []).length
   const afterF9 = f9Faces(newContent).collisions.length
-  const beforeDupPointer = rows.filter((r) => r.state === 'open' && DUP_POINTER_RE.test(r.raw)).length
+  const beforeDupPointer = countCopyMarks(rows)
   const violations = []
   if (afterF1 !== 0) violations.push(`F1 分叉 ${afterF1} 组(必须 0)`)
   if (includeSettled) {
@@ -473,6 +700,7 @@ function main() {
       violations.push(
         `mergeNotes 降幅 ${beforeMergeNotes - afterMergeNotes} ≠ 被删行行级注记和 ${perRowDeleted}(横跨注记口径差或误删 ⇒ 交人看面)`,
       )
+    // 批2:注记行删除严格减注记;自述副本全集只需"没增"(批2删的是注记行,不能拿它当指针族的下降账)
     if (afterDupPointer > beforeDupPointer)
       violations.push(`dupPointerRows ${beforeDupPointer}→${afterDupPointer}(不得增加)`)
   } else {
@@ -486,17 +714,43 @@ function main() {
   console.log(`复跑对账:F1=0 / mergeNotes ${beforeMergeNotes}→${afterMergeNotes} / dupPointerRows ${beforeDupPointer}→${afterDupPointer} / F9 ${f9.collisions.length}→${afterF9}`)
 
   // 安全阀 3:门71模拟 —— 被删行的**主键编号**(merge-note 族 = keyOfRow 的编号)或**指向编号**
-  // (pointer-row 族,④a 已判,此处对删除后再复核)在新面仍存在登记行(keyOfRow 同源重扫)。
+  // (pointer-row 族,④ 已判,此处对删除后再复核)在新面仍存在登记行(keyOfRow 同源重扫)。
   // 刻意不对正文里的引用编号判活 —— 那是别人票的号,不是本行的键(dry-run 实证:G-23 等括注
   // 引用会被误报悬空)。
+  // ④c 档的接收方在**归档面** ⇒ 新面缺席是预期的,改按归档面判活(同一取材),绝不许两边皆空;
+  // 且按**复合主键**粒度判:同编号下"已勾族"在而"未勾族"也在 ⇒ 未勾族是另一件事的活登记,
+  // 不构成本行的接收方(删族之后同键仍挂 open 不算数)。
   const newKeys = new Set(after.filter((r) => r.key).map((r) => r.key))
+  const archiveOpenByKey = new Map()
+  for (const rec of archiveIndex?.rows ?? []) {
+    if (!rec.key) continue
+    if (!archiveOpenByKey.has(rec.key)) archiveOpenByKey.set(rec.key, new Set())
+    if (rec.state !== 'done' && rec.composite) archiveOpenByKey.get(rec.key).add(rec.composite)
+  }
   const newFaceMissing = []
   for (const d of candidates) {
     const id = d.family.startsWith('pointer') ? d.key : d.row.key
-    if (id && !newKeys.has(id)) newFaceMissing.push(`L${d.row.line} ${id}`)
+    if (!id) continue
+    if (d.receiver === 'archive') {
+      const doneComposites = new Set(
+        (archiveIndex?.byKey.get(id) ?? []).filter((x) => x.state === 'done' && x.composite).map((x) => x.composite),
+      )
+      if (!doneComposites.size) {
+        newFaceMissing.push(`L${d.row.line} ${id}(归档面也没有已勾主行 ⇒ 接收方两处皆空)`)
+        continue
+      }
+      for (const c of d.composites ?? []) {
+        if (archiveOpenByKey.get(id)?.has(c)) newFaceMissing.push(`L${d.row.line} ${id}「${c}」同族仍挂 open`)
+      }
+      continue
+    }
+    if (!newKeys.has(id)) newFaceMissing.push(`L${d.row.line} ${id}`)
   }
   if (newFaceMissing.length) throw new Error(`门71模拟红(编号判活悬空)⇒ 拒绝落地:${newFaceMissing.slice(0, 10).join(';')}`)
-  console.log('门71模拟:被删行主键编号在新面全部判活')
+  console.log(
+    '门71模拟:被删行主键编号在新面全部判活' +
+      (archivedCandidates.length ? `(其中 ${archivedCandidates.length} 行接收方在归档面,按复合主键同族已勾判活)` : ''),
+  )
 
   if (!apply) {
     console.log(`⚠️  --dry-run,未落地。真跑:node scripts/plan-copy-row-purge.mjs --apply`)
@@ -514,8 +768,11 @@ function main() {
   const section = candidates
     .map(
       (d) =>
-        `- L${d.row.line} [${d.family}] → 幸存/指向 L${d.survivorLine} (head ${headRef.slice(0, 11)})\n` +
-        d.row.raw,
+        `- L${d.row.line} [${d.family}] → ${
+          d.receiver === 'archive'
+            ? `归档 ${String(d.receiverPath).split('/').pop()}:L${d.survivorLine}`
+            : `幸存/指向 L${d.survivorLine}`
+        } (head ${headRef.slice(0, 11)})\n` + d.row.raw,
     )
     .join('\n')
   const header = existing

@@ -31,7 +31,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { renderHeader, stripHeader } from './lib/plan-field-line.mjs'
+import { parseHeader, renderHeader, stripHeader } from './lib/plan-field-line.mjs'
 import { cleanOwner } from './plan-fields-extract.mjs'
 import { assertRowRewriteConservation } from './lib/plan-row-conservation.mjs'
 import {
@@ -42,6 +42,7 @@ import {
   parseTaskRows,
 } from './lib/plan-task-index.mjs'
 import { readFieldsFace, readPlan } from './plan-tasks.mjs'
+import { flagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const MAX_LEN = 400
@@ -100,12 +101,47 @@ export function dimsOf(line) {
  * 一行 + 一条记录 ⇒ 要不要动、怎么动。
  * 返回 `action`: `rewrite`(给新行) / `already`(标头已在位且一致) / `skip`(点名原因,一行不动)。
  */
+/** 改写的四道公共闸(守恒 / 主键三面 / 侧车权威桶前后不变);两个分支共用一份。 */
+function validateRewrite(line, candidate, rec) {
+  const bad = assertRowRewriteConservation({ oldLine: line, newLine: candidate, newRec: rec })
+  const a = dimsOf(line)
+  const b = dimsOf(candidate)
+  const map = new Map([[rec.key, rec]])
+  const bucketOldFields = dispositionOfV2({ line, fields: { map } }).bucket
+  const bucketNewFields = dispositionOfV2({ line: candidate, fields: { map } }).bucket
+  const dims = { ...a, conserved: false, bucketOldFields, bucketNewFields }
+  if (bad.length > 0) return { ok: false, reason: '守恒违规:' + bad.join(' | '), dims }
+  for (const dim of ['key', 'composite', 'claim'])
+    if (a[dim] !== b[dim])
+      return {
+        ok: false,
+        reason: `整行改写把 ${dim} 维改动了(${a[dim]} ⇄ ${b[dim]})⇒ 不动`,
+        dims,
+      }
+  if (bucketOldFields !== bucketNewFields)
+    return { ok: false, reason: `侧车权威前后桶变了(${bucketOldFields} ⇄ ${bucketNewFields})⇒ 不动`, dims }
+  dims.conserved = true
+  return { ok: true, dims }
+}
+
 export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
   const want = renderHeader(rec)
   const informative =
     String(rec.owner ?? '').trim() !== '' || String(rec.blocking ?? '').trim() !== ''
-  if (want === '' || !informative)
-    return { action: 'skip', reason: '记录里没有可渲染的信息(owner 与 blocking 都空) ⇒ 不造空标头' }
+  if (want === '' || !informative) {
+    // 侧车没有可渲染的信息 ⇒ 陈旧标头必须被**摘除**:它已不可能再被渲染出来,留着只会让
+    // 门 234 A2 永远报"标头⇄侧车不一致"。摘除同样是整行改写,走同一套守恒/主键/桶断言。
+    const hp = parseHeader(line)
+    // 读得回的标头、以及 malformed(含旧版截断 `…`)都算"有标头形态":后者更要摘 ——
+    // 它永远不会被重渲染成有效形态(parse 拒 `…`),留着就是门 234 A2 的恒红源。
+    if (!hp.rec && !hp.malformed)
+      return { action: 'skip', reason: '记录里没有可渲染的信息(owner 与 blocking 都空) ⇒ 不造空标头' }
+    const bare = stripHeader(line)
+    if (bare === line) return { action: 'skip', reason: '标头形态读不回(非本层生成的形态),不代裁' }
+    const v = validateRewrite(line, bare, rec)
+    if (!v.ok) return { action: 'skip', reason: v.reason, dims: v.dims }
+    return { action: 'rewrite', line: bare, removedProse: 0, len: bare.length, dims: v.dims }
+  }
   if (line.includes(want)) return { action: 'already' }
 
   const bare = stripHeader(line)
@@ -123,6 +159,7 @@ export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
   // 只删不补则判据落空。删的仅是记录 owner 的本字那一截,括号补充与后续叙述一律留(见 cutOwnerProse)。
   // 删散文会挪复合主键时由下面守恒断言拒绝 —— 那是"不许删"的闸,不是注释里的承诺。
   const cut = span ? cutOwnerProse(rest, owner) : null
+  const restBeforeCut = rest
   if (cut) rest = cut.line
   // **预算只拦"新增长行"**,不是"候选超预算就拦":门 63(`scripts/check-plan-row-length.mjs`)的
   // 违规身份是 `violationKey` = 复合主键(编号 + 题面前缀),存量长行被改写时仍按同一主键认作存量。
@@ -136,34 +173,30 @@ export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
       len: candidate.length,
     }
 
-  const bad = assertRowRewriteConservation({ oldLine: line, newLine: candidate, newRec: rec })
-  const a = dimsOf(line)
-  const b = dimsOf(candidate)
-  const map = new Map([[rec.key, rec]])
-  const bucketOldFields = dispositionOfV2({ line, fields: { map } }).bucket
-  const bucketNewFields = dispositionOfV2({ line: candidate, fields: { map } }).bucket
-  const dims = { ...a, conserved: false, bucketOldFields, bucketNewFields }
-  if (bad.length > 0) return { action: 'skip', reason: '守恒违规:' + bad.join(' | '), dims }
-  for (const dim of ['key', 'composite', 'claim'])
-    if (a[dim] !== b[dim])
-      return {
-        action: 'skip',
-        reason: `整行改写把 ${dim} 维改动了(${a[dim]} ⇄ ${b[dim]})⇒ 不动`,
-        dims,
+  let v = validateRewrite(line, candidate, rec)
+  let finalLine = candidate
+  let removed = cut?.removed ?? 0
+  if (!v.ok && cut) {
+    // 删散文是**长度优化**,不是投影的必要条件:若删了会让散文面的归属桶漂掉
+    // (实测 G-47/G-48/G-49:散文 `归属:…` 被删后,行内标头的 owner 不被 prose 判据识别,
+    // owned → actionable 被守恒闸拒绝),就退回"只加标头、保留散文句"再验一次。
+    const keepsProse = prefix[0] + want + ' ' + restBeforeCut
+    if (keepsProse.length <= maxLen || line.length > maxLen) {
+      const v2 = validateRewrite(line, keepsProse, rec)
+      if (v2.ok) {
+        v = v2
+        finalLine = keepsProse
+        removed = 0
       }
-  if (bucketOldFields !== bucketNewFields)
-    return {
-      action: 'skip',
-      reason: `侧车权威前后桶变了(${bucketOldFields} ⇄ ${bucketNewFields})⇒ 不动`,
-      dims,
     }
-  dims.conserved = true
+  }
+  if (!v.ok) return { action: 'skip', reason: v.reason, dims: v.dims }
   return {
     action: 'rewrite',
-    line: candidate,
-    removedProse: cut?.removed ?? 0,
-    len: candidate.length,
-    dims,
+    line: finalLine,
+    removedProse: removed,
+    len: finalLine.length,
+    dims: v.dims,
   }
 }
 
@@ -182,6 +215,23 @@ export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
     const rec = key ? (side.map.get(key) ?? null) : null
     if (!rec) {
       noRecord++
+      // 没有侧车记录、却还挂着标头(尤其 malformed `…`)的行也要过一遍:
+      // 空记录渲染不出任何标头 ⇒ 走 planRow 的摘除分支,清掉陈旧投影(门 234 A2 的恒红源)。
+      const hp = parseHeader(r.raw)
+      if (hp.rec || hp.malformed) {
+        const synthetic = { key, waiting: 'none', updatedAt: new Date(0).toISOString() }
+        const p = planRow(r.raw, synthetic, { maxLen })
+        if (p.action === 'rewrite')
+          rewrite.push({
+            before: r.raw,
+            after: p.line,
+            delta: p.line.length - r.raw.length,
+            len: p.len,
+            removedProse: 0,
+            key,
+          })
+        else if (p.action !== 'already') skip.push({ key, reason: p.reason ?? '(未点名)' })
+      }
       continue
     }
     const p = planRow(r.raw, rec, { maxLen })
@@ -365,8 +415,10 @@ function main() {
   const p = planAll({ root: ROOT, face })
   const code = reportPlan(p, { limit: batch, showSkip: has('--dry-run') })
   if (code !== 0 || !has('--emit')) return code
-  const jsonPath = argv[argv.indexOf('--emit') + 1]
-  if (!jsonPath || jsonPath.startsWith('--')) {
+  // --emit 取值走 G-322 单源:紧邻 token 是旗标/结尾无值/空串一律算无效(与旧校验同语义,
+  // 值被旗标顶掉时不再经 startsWith 分支,统一按"没给合法值"点名)。
+  const jsonPath = flagValue(argv, '--emit').valid ? flagValue(argv, '--emit').value : null
+  if (!jsonPath) {
     console.log('❌ 用法错 —— --emit 需要紧跟一个 json 路径')
     return 2
   }

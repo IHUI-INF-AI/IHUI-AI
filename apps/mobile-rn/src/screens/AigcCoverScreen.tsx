@@ -39,14 +39,14 @@ function readResult(raw: unknown): AigcCoverResult {
   return { url, label, source }
 }
 
-function mapTaskToCover(task: AigcTask, tr: (key: string) => string): AigcCoverOption | null {
+function mapTaskToCover(task: AigcTask, t: (key: string) => string): AigcCoverOption | null {
   const r = readResult(task.result)
   if (!r.url) return null
   return {
     id: task.taskId,
     url: r.url,
     source: r.source || 'work',
-    label: r.label || tr('aigcCover.labelDefault'),
+    label: r.label || t('aigcCover.labelDefault'),
   }
 }
 

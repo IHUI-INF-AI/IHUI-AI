@@ -418,19 +418,20 @@ describe('workbuddyAdapter.refreshToken', () => {
     expect(res?.refreshToken).toBe('RT-new')
   })
 
-  it('expiresIn 缺省/非正 → 沿用 row.tokenExpiresAt;row 也没有 → now+24h(防刷新风暴)', async () => {
+  // 2026-10-23 票:上游没给到期 ⇒ 写 null(未知)。旧契约"沿用旧值 / now+24h"被废除 ——
+  // 沿用旧值会把已被收敛到过去的时刻当成新票到期,编造未来时刻则让"未知"冒充"可用"。
+  it('expiresIn 缺省/非正 → null(未知);不沿用 row.tokenExpiresAt、不编造兜底时刻', async () => {
     const expiry = new Date('2030-01-01T00:00:00Z')
     vi.stubGlobal('fetch', async () =>
       jsonResponse({ code: 0, msg: 'ok', data: { accessToken: 'AT', expiresIn: 0 } }),
     )
     const r1 = await workbuddyAdapter.refreshToken!(makeCtx({ tokenExpiresAt: expiry }))
-    expect(r1?.expiresAt).toEqual(expiry)
+    expect(r1?.expiresAt).toBeNull()
     vi.stubGlobal('fetch', async () =>
       jsonResponse({ code: 0, msg: 'ok', data: { accessToken: 'AT' } }),
     )
     const r2 = await workbuddyAdapter.refreshToken!(makeCtx({ tokenExpiresAt: null }))
-    const skew = Math.abs(r2!.expiresAt.getTime() - (Date.now() + 24 * 3600_000))
-    expect(skew).toBeLessThan(5000)
+    expect(r2?.expiresAt).toBeNull()
   })
 
   it('accessToken 为空 → 抛错且 message 不含凭证', async () => {

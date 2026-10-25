@@ -508,6 +508,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
   } = props
   const { t } = useI18n()
 
+  const { t } = useI18n()
+
   useUiTextField({
     label: 'Temperature',
     value: String(config.temperature),

@@ -45,15 +45,6 @@ const env = vi.hoisted(() => {
   }
 })
 
-vi.mock('react-native', async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>
-  return {
-    ...actual,
-    AppRegistry: { registerComponent: vi.fn(), runApplication: vi.fn() },
-    LogBox: { ignoreAllLogs: vi.fn() },
-  }
-})
-
 // react-native-video 是原生包:测试环境替身为"只记 props、不渲染"的函数组件
 // (组件头注自述的测试口径)。ref 按 React 19 的 props 形态接住并挂上命令式句柄。
 vi.mock('react-native-video', () => ({

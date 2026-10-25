@@ -169,7 +169,7 @@ export default function CostDashboardPage() {
       {!loading && summary && summary.steps > 0 && (
         <>
           {/* 聚合卡片 */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 tablet:grid-cols-4">
             <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Coins className="h-3.5 w-3.5" /> {t('totalCost')}

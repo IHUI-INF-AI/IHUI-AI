@@ -5,7 +5,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { rnRadius } from '@ihui/design-tokens'
-import type { AppThemeTokens } from '../../theme/tokens'
+import { darkTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -79,10 +79,17 @@ export function DashboardScreen({
 }: DashboardScreenProps) {
   const styles = useMemo(() => createStyles(tk), [tk])
   const groups = useMemo(() => groupItems(items), [items])
+  /**
+   * 状态四件套是主题驱动组件(`colorScheme` 形参默认 'light')。本屏不另建主题来源:
+   * 调用方注入的 `tk` 就是它按 `resolvedTheme` 解析出的 token 集,而 `getTokens` 只可能返回
+   * `lightTokens` / `darkTokens` 两个单例(identity 契约由 dark-mode.test.tsx 钉住),
+   * 故由 `tk` 反推出来的档案与屏幕自身配色必然同档 —— 这正是门 91 要的不"同屏两套档案"。
+   */
+  const colorScheme: 'light' | 'dark' = tk === darkTokens ? 'dark' : 'light'
 
   if (loading && items.length === 0) {
     if (renderLoading) return <>{renderLoading()}</>
-    return <ScreenSkeleton variant="grid" count={4} />
+    return <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
   }
 
   const isEmpty = items.length === 0
@@ -106,7 +113,7 @@ export function DashboardScreen({
         renderEmpty ? (
           renderEmpty()
         ) : (
-          <EmptyState title={t('common.empty')} />
+          <EmptyState title={t('common.empty')} colorScheme={colorScheme} />
         )
       ) : (
         groups.map((group) => (
@@ -117,9 +124,7 @@ export function DashboardScreen({
                 const card = (
                   <View style={styles.card}>
                     <Text style={styles.cardLabel}>{metric.label}</Text>
-                    <Text style={styles.cardValue} numberOfLines={1}>
-                      {metric.value}
-                    </Text>
+                    <Text style={styles.cardValue}>{metric.value}</Text>
                     {metric.hint ? <Text style={styles.cardHint}>{metric.hint}</Text> : null}
                   </View>
                 )
@@ -169,7 +174,10 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       gap: 10,
     },
-    cell: { flexBasis: '48%' },
+    /* 原先靠 numberOfLines={1} 防断行 = 把数字截成省略号(违反 UI_GUIDELINES §13)。
+       改成 minWidth + 父级 flexWrap:22px 最坏读数(9 字符 ≈ 108 + padding 24)放得下,
+       窄屏放不下时整格换行,数字始终完整。 */
+    cell: { flexBasis: '48%', minWidth: 150 },
     card: {
       flexGrow: 1,
       padding: 12,

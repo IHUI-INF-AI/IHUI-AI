@@ -319,6 +319,420 @@ test('同内容副本: 树同而题不同 → 仍判 blocking(白名单不放宽
   }
 })
 
+// ─── ④ patch-id 等价放行(G-417②:union-converge 重写产出的同补丁副本**树不同**,③ 盖不住)──
+// 判据面:`git cherry HEAD <c>` 对 c 打 `- <完整oid>` 行 ⇔ c 的补丁已在主线。
+// 超单轮上限 / 派生失败 / 无 `-` 行 ⇒ 一律照拦(失效方向只许"多要一次定向说明")。
+
+test('纯函数: parseCherryHit 只认 `- <完整40位oid>` 行(+ 行/缩写/空读数/他枚 一律 false)', () => {
+  const oid = 'd63a61ad717dfe2659fb2e78b05c3ef1141defa9'
+  assert.ok(__test__.parseCherryHit(`- ${oid}`, oid), '现读形态:无 subject 的 `-` 行')
+  assert.ok(
+    __test__.parseCherryHit(`- ${oid} docs(plan): 带 subject 的形态`, oid),
+    '不同 git 版本带 subject 也应认得',
+  )
+  assert.ok(!__test__.parseCherryHit(`+ ${oid}`, oid), '+ 行 = 未合入主线,不得放行')
+  assert.ok(!__test__.parseCherryHit(`- ${oid.slice(0, 12)}`, oid), '缩写 oid 不得当命中(保守方向)')
+  assert.ok(!__test__.parseCherryHit(`- ${'0'.repeat(40)}`, oid), '`-` 行指向他枚不算这一枚命中')
+  assert.ok(!__test__.parseCherryHit('', oid), '空读数(allowFail 折空的派生失败)⇒ 照拦')
+  assert.ok(!__test__.parseCherryHit(null, oid))
+  assert.ok(!__test__.parseCherryHit(`- ${oid}`, ''), 'oid 缺失不得命中')
+})
+
+test('patch-id 等价: 树已并入他改的同补丁副本(cherry-pick 到主线)→ 放行不阻塞且点名', () => {
+  const dir = createTempRepo()
+  try {
+    // 分支提交:加 a.txt(树 = README+a.txt,题 "feat: add a")
+    execSync('git checkout -qb feat', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'a.txt'), 'content-a\n')
+    execSync('git add a.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "feat: add a"', { cwd: dir, stdio: 'ignore' })
+    const featOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
+    // 主线先岔开(加 b.txt)再 cherry-pick 同一补丁 ⇒ 补丁已在主线,但落地树与副本树**不同**
+    // ⇒ ③"树+题逐字同"盖不住(正是票面②点名的 9 枚那一型),必须由 ④ 接住。
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'b.txt'), 'content-b\n')
+    execSync('git add b.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "chore: b"', { cwd: dir, stdio: 'ignore' })
+    execSync(`git cherry-pick ${featOid}`, { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D feat', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `同补丁副本应放行 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /patch-id 等价放行/, '④ 放行必须点名,不得静默')
+    assert.match(r.stdout, /feat: add a/, '放行明细应带 subject')
+    assert.match(r.stdout, /经 patch-id 等价放行/, '综合判定必须留只报数结论,不得读成"已全部备份"')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('patch-id 等价: 独有内容的悬空 commit(补丁不在主线)→ 仍判 blocking,④ 不放宽', () => {
+  const dir = createTempRepo()
+  try {
+    execSync('git checkout -qb solo', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'solo.txt'), 'only-on-this-branch\n')
+    execSync('git add solo.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "feat: unique-solo-XYZ"', { cwd: dir, stdio: 'ignore' })
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D solo', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      1,
+      `独有内容悬空必须照拦,实际 ${r.status}\nstdout: ${r.stdout.slice(0, 600)}`,
+    )
+    assert.doesNotMatch(r.stdout, /patch-id 等价放行/, '补丁不在主线不得放行')
+    assert.match(r.stdout, /未备份/, '仍按未备份悬空点名')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('patch-id 维上限: 窗内未备份超 CHERRY_EQUIV_MAX 枚 → 整维不量、黄色点名、保守照拦', () => {
+  const dir = createTempRepo()
+  try {
+    execSync('git checkout -qb bulk', { cwd: dir, stdio: 'ignore' })
+    for (let i = 0; i < __test__.CHERRY_EQUIV_MAX + 1; i++)
+      execSync(`git commit -qm "wip-bulk-${i}" --allow-empty`, { cwd: dir, stdio: 'ignore' })
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D bulk', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      1,
+      `超上限必须保守照拦(绝不因"没量"折绿),实际 ${r.status}\nstdout: ${r.stdout.slice(0, 600)}`,
+    )
+    assert.match(r.stdout, /本维不量/, '整维跳过必须可见,不得静默')
+    assert.doesNotMatch(r.stdout, /patch-id 等价放行/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── ⑤ 对象空间落地范式中间枚豁免(2026-10-23 代裁:30a 对 commit-tree+CAS 中间枚增豁免档)──
+// 判据面:subject 与在册引用同题孪生 + 全部父枚在册 ⇒ 可归因的范式滞留枚;逐条点名、清单可取。
+// 真悬空(题无孪生 / 父不在册 / 无父)一律照拦 —— §12f 不削牙。
+
+test('纯函数: parseReachableCommitIndex 解析 %H\\t%P\\t%T\\t%s(根枚空父、题内 tab 并入、畸形行跳过)', () => {
+  const idx = __test__.parseReachableCommitIndex(
+    [
+      'a'.repeat(40) + '\t' + 'b'.repeat(40) + ' ' + 'c'.repeat(40) + '\tT1\tsome merge',
+      'd'.repeat(40) + '\t\tT2\troot subject', // 根提交:%P 为空(相邻两 tab)
+      'e'.repeat(40) + '\t' + 'f'.repeat(40) + '\tT3\tsome\tsubject\twith\ttabs', // 题内 tab 原样并入
+      'no-tab-line',
+      '',
+      '\t\t\t', // hash/tree 皆空 ⇒ 跳过
+      'g'.repeat(40) + '\t' + 'h'.repeat(40) + '\t\t', // tree 为空 ⇒ 跳过
+    ].join('\n'),
+  )
+  assert.equal(idx.subjectTwin.get('some merge'), 'a'.repeat(40), '同题留第一枚入表者')
+  assert.equal(idx.subjectTwin.get('some\tsubject\twith\ttabs'), 'e'.repeat(40), '题内 tab 整段当题')
+  assert.equal(idx.treeByHash.get('d'.repeat(40)), 'T2', '根枚也入 treeByHash(父在册判定域含根)')
+  assert.equal(idx.subjectTwin.has(''), false, '空题不入表')
+  assert.equal(idx.treeByHash.size, 3, '畸形行(不足三帧/空 hash/空 tree)不得入表,实得 ' + idx.treeByHash.size)
+  assert.equal(idx.treeSubjectKeys.has('T1\tsome merge'), true, 'treeSubjectKeys 与 ③ 键集同形')
+  const empty = __test__.parseReachableCommitIndex('')
+  assert.equal(empty.subjectTwin.size, 0, '空读数 → 空表')
+  assert.equal(__test__.parseReachableCommitIndex(null).treeByHash.size, 0, 'null → 空表')
+})
+
+test('纯函数: pickParadigmIntermediates 三件齐备才豁免;无孪生/父不在册/无父/索引缺位 一律留红', () => {
+  const P = 'p'.repeat(40)
+  const Q = 'q'.repeat(40)
+  const index = {
+    subjectTwin: new Map([['land: X', 't'.repeat(40)]]),
+    treeByHash: new Map([
+      [P, 'TREE_P'],
+      [Q, 'TREE_Q'],
+    ]),
+  }
+  // 单亲暂存枚:题有孪生、父在册、树与父不同
+  let r = pick({
+    candidates: ['c1'],
+    subjectByHash: new Map([['c1', 'land: X']]),
+    parentsByHash: new Map([['c1', [P]]]),
+    treeByCommit: new Map([['c1', 'TREE_OTHER']]),
+    index,
+  })
+  assert.equal(r.exempt.length, 1)
+  assert.equal(r.exempt[0].shape, '单亲暂存枚')
+  assert.equal(r.exempt[0].twin, 't'.repeat(40), '孪生 hash 必须带出(点名留痕)')
+  assert.deepEqual(r.rest, [])
+  // 空枚:树与在册父枚逐字同
+  r = pick({
+    candidates: ['c2'],
+    subjectByHash: new Map([['c2', 'land: X']]),
+    parentsByHash: new Map([['c2', [P]]]),
+    treeByCommit: new Map([['c2', 'TREE_P']]),
+    index,
+  })
+  assert.equal(r.exempt[0].shape, '空枚')
+  // merge 中间态:双父都在册
+  r = pick({
+    candidates: ['c3'],
+    subjectByHash: new Map([['c3', 'land: X']]),
+    parentsByHash: new Map([['c3', [P, Q]]]),
+    index,
+  })
+  assert.equal(r.exempt[0].shape, 'merge中间态')
+  // 题无孪生 ⇒ 留红(真悬空)
+  r = pick({
+    candidates: ['c4'],
+    subjectByHash: new Map([['c4', 'unique-subject-no-twin']]),
+    parentsByHash: new Map([['c4', [P]]]),
+    index,
+  })
+  assert.deepEqual(r.rest, ['c4'], '题无孪生不得豁免')
+  assert.equal(r.exempt.length, 0)
+  // 父枚不在册(悬空链)⇒ 即便题有孪生也留红
+  r = pick({
+    candidates: ['c5'],
+    subjectByHash: new Map([['c5', 'land: X']]),
+    parentsByHash: new Map([['c5', [P, 'x'.repeat(40)]]]),
+    index,
+  })
+  assert.deepEqual(r.rest, ['c5'], '有一枚父不在册即整枚留红(全父在册是硬条件)')
+  // 无父(悬空根)⇒ 留红
+  r = pick({
+    candidates: ['c6'],
+    subjectByHash: new Map([['c6', 'land: X']]),
+    parentsByHash: new Map([['c6', []]]),
+    index,
+  })
+  assert.deepEqual(r.rest, ['c6'], '无父的悬空根枚无归因出口,照拦')
+  // 父读数取不到(Map 里没有这一枚)⇒ 留红("没量到"不折绿)
+  r = pick({
+    candidates: ['c7'],
+    subjectByHash: new Map([['c7', 'land: X']]),
+    parentsByHash: new Map(),
+    index,
+  })
+  assert.deepEqual(r.rest, ['c7'], '父枚读数缺失照拦')
+  // 索引缺位 ⇒ 整维不量,全部留红且 indexMissing 大声
+  r = pick({
+    candidates: ['c8', 'c9'],
+    subjectByHash: new Map([['c8', 'land: X']]),
+    parentsByHash: new Map([['c8', [P]]]),
+    index: null,
+  })
+  assert.deepEqual(r.rest, ['c8', 'c9'], '索引缺位时整维不量')
+  assert.equal(r.indexMissing, true)
+  assert.equal(r.exempt.length, 0)
+  function pick(args) {
+    return __test__.pickParadigmIntermediates(args)
+  }
+})
+
+test('范式豁免·单亲暂存枚: CAS 重试滞留枚(题与主线孪生同、父在册、树不同)→ 豁免且点名,门转绿', () => {
+  const dir = createTempRepo()
+  try {
+    // 旁路落地范式的重试形态:同一 subject 先在旁路支上 commit-tree(滞留),
+    // 主线孪生同题但树不同(CAS 重试落在更新的基线上)⇒ ③(树+题逐字同)盖不住。
+    execSync('git checkout -qb side', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'a.txt'), 'v1\n')
+    execSync('git add a.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "land: X"', { cwd: dir, stdio: 'ignore' })
+    const sideOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'b.txt'), 'v2\n')
+    execSync('git add b.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "land: X"', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D side', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `范式中间枚应豁免 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /落地范式中间枚豁免/, '⑤ 放行必须点名,不得静默')
+    assert.match(r.stdout, /单亲暂存枚/, '形态归类必须可见')
+    assert.match(r.stdout, new RegExp(sideOid.slice(0, 12)), '豁免行必须带候选 hash')
+    assert.match(r.stdout, /经对象空间落地范式豁免/, '综合判定必须留只报数结论,不得读成"已全部备份"')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('范式豁免·merge 中间态: 双父均在册且题有主线孪生 → 豁免且点名(④ 对 merge 产不出命中,必须由 ⑤ 接住)', () => {
+  const dir = createTempRepo()
+  try {
+    execSync('git checkout -qb theirs', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 't.txt'), 'theirs\n')
+    execSync('git add t.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "feat: theirs"', { cwd: dir, stdio: 'ignore' })
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'm.txt'), 'main\n')
+    execSync('git add m.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "chore: advance"', { cwd: dir, stdio: 'ignore' })
+    // 旁路支先合一次(滞留枚 P1:父 = M1 与 T1,题 "union merge")
+    execSync('git checkout -qb mbranch', { cwd: dir, stdio: 'ignore' })
+    execSync('git merge -m "union merge" theirs', { cwd: dir, stdio: 'ignore' })
+    const p1Oid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
+    // 主线岔开后落地同题合并(孪生,树不同)
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'c.txt'), 'advance2\n')
+    execSync('git add c.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "chore: advance2"', { cwd: dir, stdio: 'ignore' })
+    execSync('git merge -m "union merge" theirs', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D mbranch', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `merge 中间态应豁免 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /落地范式中间枚豁免/, '⑤ 放行必须点名')
+    assert.match(r.stdout, /merge中间态/, '形态归类必须可见')
+    assert.match(r.stdout, new RegExp(p1Oid.slice(0, 12)), '豁免行必须带滞留 merge 枚 hash')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('范式豁免·空枚: 树与在册父枚逐字同且题有孪生 → 豁免,读数标"空枚"', () => {
+  const dir = createTempRepo()
+  try {
+    execSync('git checkout -qb side', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "chore(auto): 收编" --allow-empty', { cwd: dir, stdio: 'ignore' })
+    const eOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'a.txt'), 'landed\n')
+    execSync('git add a.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "chore(auto): 收编"', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D side', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `范式空枚应豁免 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /落地范式中间枚豁免/, '⑤ 放行必须点名')
+    assert.match(r.stdout, /空枚/, '形态归类必须可见')
+    assert.match(r.stdout, new RegExp(eOid.slice(0, 12)), '豁免行必须带空枚 hash')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('真悬空仍判红: 题无孪生的独有内容悬空(父在册)→ ⑤ 不放行,blocking 照旧(§12f 不削牙)', () => {
+  const dir = createTempRepo()
+  try {
+    execSync('git checkout -qb solo', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'solo.txt'), 'only-here\n')
+    execSync('git add solo.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "feat: unique-solo-P5"', { cwd: dir, stdio: 'ignore' })
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D solo', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 1, `独有内容悬空必须照拦,实际 ${r.status}`)
+    assert.doesNotMatch(r.stdout, /落地范式中间枚豁免/, '题无孪生不得被 ⑤ 折绿')
+    assert.match(r.stdout, /未备份/, '仍按未备份悬空点名')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('真悬空仍判红: 悬空链(父枚本身不在册)→ 即便题有孪生也不豁免', () => {
+  const dir = createTempRepo()
+  try {
+    execSync('git checkout -qb side', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'x.txt'), 'x\n')
+    execSync('git add x.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "land: Y"', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'y.txt'), 'y\n')
+    execSync('git add y.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "land: Z"', { cwd: dir, stdio: 'ignore' })
+    const topOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
+    // 主线只有 "land: Z" 的孪生(顶枚题有出处),但它的父(第一枚)不在册 ⇒ 整链无出处
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'w.txt'), 'w\n')
+    execSync('git add w.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "land: Z"', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D side', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 1, `父不在册的悬空链必须照拦,实际 ${r.status}`)
+    assert.doesNotMatch(r.stdout, /落地范式中间枚豁免/, '全父在册是硬条件,链上枚不得折绿')
+    assert.match(r.stdout, new RegExp(topOid.slice(0, 12)), '未备份点名必须含链上顶枚')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('问责档: --strict 不关 ⑤(范式豁免判的是"不是丢失",不是"不由提交链负责")', () => {
+  const dir = createTempRepo()
+  try {
+    execSync('git checkout -qb side', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'a.txt'), 'v1\n')
+    execSync('git add a.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "land: X"', { cwd: dir, stdio: 'ignore' })
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'b.txt'), 'v2\n')
+    execSync('git add b.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "land: X"', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D side', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash', '--strict'], { cwd: dir })
+    assert.equal(r.status, 0, `--strict 下范式中间枚仍应豁免,实际 ${r.status}\n${r.stdout}`)
+    assert.match(r.stdout, /落地范式中间枚豁免/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('清单出口·范式豁免: --list-paradigm-exempt 逐枚交完整 oid,行形状与 --list-unbacked 同形', () => {
+  const dir = createTempRepo()
+  try {
+    execSync('git checkout -qb side', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'a.txt'), 'v1\n')
+    execSync('git add a.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "land: X"', { cwd: dir, stdio: 'ignore' })
+    const sideOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
+    execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'b.txt'), 'v2\n')
+    execSync('git add b.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -qm "land: X"', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D side', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listParadigmExempt], {
+      cwd: dir,
+    })
+    assert.equal(r.status, 0, `实际 ${r.status}\n${r.stdout}`)
+    const listed = oidsAfterHeader(r.stdout, '--list-paradigm-exempt:')
+    assert.deepEqual(listed, [sideOid], `豁免清单必须恰含 ${sideOid},实际 ${listed}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('装车证明: 范式豁免清单旗标必须①在 FLAGS 唯一源头②被 argv 读取③真的逐枚打印', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.ok(
+    /listParadigmExempt:\s*'--list-paradigm-exempt'/.test(src),
+    'FLAGS 必须声明该旗标(唯一源头)',
+  )
+  assert.ok(
+    src.includes('process.argv.includes(FLAGS.listParadigmExempt)'),
+    'main 必须从 FLAGS 读,不得写死字面量',
+  )
+  assert.ok(/if \(isListParadigmExempt\)/.test(src), '读取点之后必须有真判定点')
+  assert.ok(/for \(const e of paradigmExempt\) console\.log\(e\.hash\)/.test(src), '判定必须落到逐枚打印')
+  assert.ok(
+    __test__.FLAGS && __test__.FLAGS.listParadigmExempt === '--list-paradigm-exempt',
+    'FLAGS 必须随 __test__ 导出该键,否则测试只能抄字面量(§22c 的镜像漂移)',
+  )
+})
+
+test('装车证明: ⑤ 判据必须真挂在 main 的判定链上(函数在而无人调 = 没有)', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  for (const name of ['parseReachableCommitIndex', 'pickParadigmIntermediates']) {
+    const decl = (src.match(new RegExp(`^function ${name}\\s*\\(`, 'm')) || []).length
+    const calls = (src.match(new RegExp(`\\b${name}\\s*\\(`, 'g')) || []).length
+    assert.equal(decl, 1, `${name} 应且仅应声明一次,实得 ${decl}`)
+    assert.ok(calls >= 2, `${name} 除声明外必须有调用点(main 未接=门对该型失明),实得 ${calls}`)
+  }
+})
+
 // ─── lost-commit/* 和 backup/* tag 检测 ─────────────────
 
 test('检测: lost-commit/* tag 存在 → stdout 列出', () => {
@@ -498,7 +912,9 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
       '前置:本机确实没有这个 tag',
     )
 
-    const r = runScript(['--blocking'], { cwd: local })
+    // 2026-10-21 起远端扫描默认不发网络(IHUI_COMMIT_LOSS_REMOTE=1 才开)——本条测的正是
+    // 远端面,必须显式开旗;不开则 remoteTagScan 直接跳过,"仅远端 tag 不自愈"是必然红。
+    const r = runScript(['--blocking'], { cwd: local, env: { IHUI_COMMIT_LOSS_REMOTE: '1' } })
     assert.doesNotMatch(
       r.stdout,
       /❌ 仅远端/,

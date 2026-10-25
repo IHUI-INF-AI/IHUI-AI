@@ -29,6 +29,7 @@ import { eq, and, or, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
+import { deductToken } from '../db/commission-queries.js'
 import { findPublishedVideoFeed, findLatestStudyPlanId } from '../db/learn-queries.js'
 import { USER_PREFERENCE_GROUPS } from '../db/user-preferences-queries.js'
 import {
@@ -53,6 +54,7 @@ import {
   zhsAgentBuy,
   zhsAiUserModelChatHistory,
   userMargins,
+  userTokenBalance,
   tokenFlows,
   commissionFlows,
   withdrawalFlows,
@@ -2216,32 +2218,30 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         relatedOrderNo: z.string().max(64).optional(),
       })
       .parse(request.body ?? {})
-    const [margin] = await dbRead
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, userId))
-      .limit(1)
-    const currentBalance = margin?.tokenQuantity ?? 0
-    const balanceAfter = Math.max(0, currentBalance - body.quantity)
-    const [flow] = await db
-      .insert(tokenFlows)
-      .values({
+    // 修前这一格有三重资金缺陷(2026-10-25 实测):
+    //  ① 余额从 **dbRead 副本**读,再在 JS 里算新值,最后 `.set({ tokenQuantity: 绝对值 })`
+    //     整字回写 ⇒ 这一读一写之间任何一笔充值/扣减都被抹掉(经典 lost update,钱会凭空消失);
+    //  ② `Math.max(0, currentBalance - quantity)`:余额不够时**静默清零并照样记全额流水、
+    //     照样回 200** ⇒ 用户被扣光还不算,流水上写的是他"付了"那么多;
+    //  ③ 查不到 margin 行时(`if (margin)`)只插流水、不扣钱 ⇒ 免费购买。
+    // 现复用仓内那一份**守卫式原子扣减**(条件 UPDATE 内联 `token_quantity >= quantity`
+    // + RETURNING,并同事务写流水),不再在本路由里保留第二套算法(§0.6 单一真相源)。
+    let deducted: { balanceAfter: number; flowId: string }
+    try {
+      deducted = await deductToken(
         userId,
-        opType: 1,
-        quantity: body.quantity,
-        balanceAfter,
-        remark: body.remark ?? `agent charge: ${body.agentId ?? 'unknown'}`,
-        relatedOrderNo: body.relatedOrderNo,
-      })
-      .returning()
-    if (!flow) return reply.status(500).send(error(500, '支付流水创建失败'))
-    if (margin) {
-      await db
-        .update(userMargins)
-        .set({ tokenQuantity: balanceAfter, updatedAt: new Date() })
-        .where(eq(userMargins.userId, userId))
+        body.quantity,
+        body.remark ?? `agent charge: ${body.agentId ?? 'unknown'}`,
+        body.relatedOrderNo,
+      )
+    } catch (e) {
+      const message = (e as Error).message || '扣减失败'
+      if (message.includes('Token 余额不足'))
+        return reply.status(402).send(error(402, '余额不足'))
+      request.log.error({ err: e, userId, quantity: body.quantity }, '支付历史扣减失败')
+      return reply.status(500).send(error(500, message))
     }
-    return reply.send(success({ id: flow.id, balanceAfter }))
+    return reply.send(success({ id: deducted.flowId, balanceAfter: deducted.balanceAfter }))
   })
 
   server.put('/agents/charge', async (request, reply) => {
@@ -2765,27 +2765,39 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     }
     const orderNo = `ord_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`
     // 查询 user_token_balance 余额
-    const rows = await dbRead.execute(
-      sql`SELECT balance FROM user_token_balance WHERE user_uuid = ${userId} LIMIT 1`,
-    )
-    const row = rows[0] as { balance: string | number } | undefined
-    const currentBalance = row ? Number(row.balance) : 0
-    if (currentBalance < coursePrice) {
-      return reply.status(402).send(error(402, '余额不足'))
-    }
-    // 扣减余额
-    await db.execute(
-      sql`UPDATE user_token_balance SET balance = balance - ${coursePrice}, updated_at = now() WHERE user_uuid = ${userId}`,
-    )
-    // 记录 tokenFlows 流水(opType=1 扣减,quantity 取整)
-    await db.insert(tokenFlows).values({
-      userId,
-      opType: 1,
-      quantity: Math.round(coursePrice),
-      balanceAfter: Math.max(0, Math.round(currentBalance - coursePrice)),
-      remark: `course buy: ${course.title}`,
-      relatedOrderNo: orderNo,
+    // 修前:副本读余额 → JS 判够不够 → **无守卫**的 `balance = balance - price` 回写。
+    // 并发两笔可同时通过判定 ⇒ balance 扣成负数;流水里的 balanceAfter 又是拿陈旧读数
+    // 算的、还套了一层 Math.max(0,…) ⇒ 账面既不平也看不出哪一笔越了额。
+    // 现在:够才扣的单条条件语句 + RETURNING 取回真实新值,判定与扣减之间没有窗口。
+    let paidBalance: string | null = null
+    await db.transaction(async (tx) => {
+      const [deducted] = await tx
+        .update(userTokenBalance)
+        .set({ balance: sql`${userTokenBalance.balance} - ${coursePrice}`, updatedAt: new Date() })
+        .where(
+          and(
+            eq(userTokenBalance.userUuid, userId),
+            // balance 是 numeric(20,4) ⇒ Drizzle 侧类型是 string,比较值必须同型传(传 number 直接不匹配重载)
+            gte(userTokenBalance.balance, String(coursePrice)),
+          ),
+        )
+        .returning({ balance: userTokenBalance.balance })
+      if (!deducted) {
+        // 0 行 = 余额不足或该用户还没有余额行 —— 一律按"没扣成"处理,不写流水、不给 paid 回执
+        paidBalance = null
+        return
+      }
+      paidBalance = deducted.balance
+      await tx.insert(tokenFlows).values({
+        userId,
+        opType: 1,
+        quantity: Math.round(coursePrice),
+        balanceAfter: Math.round(Number(deducted.balance)),
+        remark: `course buy: ${course.title}`,
+        relatedOrderNo: orderNo,
+      })
     })
+    if (paidBalance === null) return reply.status(402).send(error(402, '余额不足'))
     return reply.send(
       success({
         orderId: orderNo,

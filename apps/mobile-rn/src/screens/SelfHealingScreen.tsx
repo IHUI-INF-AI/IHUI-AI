@@ -21,6 +21,7 @@ import { runSelfHealing, type SelfHealingOutcome } from '@ihui/api-client/endpoi
 import NavBar from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { TextField } from '@ihui/rn-app'
+import Empty from '../components/common/Empty'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 
@@ -121,11 +122,11 @@ export function SelfHealingScreen() {
             placeholder={t('selfHealing.targetPlaceholder')}
             className={inputClass}
           />
-          <Text className="mt-2 text-xs text-neutral-500">{t('selfHealing.durationHint')}</Text>
+          <Text className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{t('selfHealing.durationHint')}</Text>
           <TouchableOpacity
             disabled={running || !task.trim() || !targetPath.trim()}
             onPress={run}
-            className={`mt-3 self-start rounded-sm px-4 py-2 ${
+            className={`mt-3 self-start rounded-sm px-4 py-2 min-h-[44px] ${
               running || !task.trim() || !targetPath.trim()
                 ? 'bg-neutral-300 dark:bg-neutral-800'
                 : 'bg-neutral-900 dark:bg-neutral-100'
@@ -160,8 +161,8 @@ export function SelfHealingScreen() {
         ) : null}
 
         {error ? (
-          <View className="mx-4 mb-3 rounded-xl border border-red-300 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
-            <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
+          <View className="mx-4 mb-3">
+            <Empty text={error} actionText={t('common.retry')} onAction={run} />
           </View>
         ) : null}
 
@@ -169,13 +170,13 @@ export function SelfHealingScreen() {
           <>
             <View className="mx-4 mb-3 flex-row">
               <View className="mr-2 flex-1 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-                <Text className="mb-1 text-xs text-neutral-500">{t('selfHealing.attempts')}</Text>
+                <Text className="mb-1 text-xs text-neutral-500 dark:text-neutral-400">{t('selfHealing.attempts')}</Text>
                 <Text className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
                   {outcome.attempts}
                 </Text>
               </View>
               <View className="mr-2 flex-1 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-                <Text className="mb-1 text-xs text-neutral-500">{t('selfHealing.status')}</Text>
+                <Text className="mb-1 text-xs text-neutral-500 dark:text-neutral-400">{t('selfHealing.status')}</Text>
                 <Text
                   className={`text-base font-bold ${
                     outcome.final_passed ? 'text-emerald-600' : 'text-red-600'
@@ -185,7 +186,7 @@ export function SelfHealingScreen() {
                 </Text>
               </View>
               <View className="flex-1 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-                <Text className="mb-1 text-xs text-neutral-500">{t('selfHealing.lastRun')}</Text>
+                <Text className="mb-1 text-xs text-neutral-500 dark:text-neutral-400">{t('selfHealing.lastRun')}</Text>
                 <Text className="text-base font-bold">
                   <Text className="text-emerald-600">{lastRun?.passed ?? 0}</Text>
                   <Text className="text-neutral-400">{` / `}</Text>
@@ -199,7 +200,7 @@ export function SelfHealingScreen() {
                 {t('selfHealing.history')}
               </Text>
               {outcome.run_history.length === 0 ? (
-                <Text className="py-2 text-center text-xs text-neutral-500">
+                <Text className="py-2 text-center text-xs text-neutral-500 dark:text-neutral-400">
                   {t('selfHealing.noHistory')}
                 </Text>
               ) : (
@@ -235,7 +236,7 @@ export function SelfHealingScreen() {
                     </View>
                     {rec.patch_applied !== null && rec.patch_applied !== undefined ? (
                       <View className="mt-1">
-                        <Text className="text-xs text-neutral-500">
+                        <Text className="text-xs text-neutral-500 dark:text-neutral-400">
                           {t('selfHealing.patchApplied')}
                         </Text>
                         <Text className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
@@ -243,7 +244,7 @@ export function SelfHealingScreen() {
                         </Text>
                       </View>
                     ) : (
-                      <Text className="mt-1 text-xs text-neutral-500">
+                      <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                         {t('selfHealing.noPatch')}
                       </Text>
                     )}
@@ -267,7 +268,7 @@ export function SelfHealingScreen() {
           </>
         ) : (
           <View className="items-center py-10">
-            <Text className="text-sm text-neutral-500">{t('selfHealing.empty')}</Text>
+            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('selfHealing.empty')}</Text>
           </View>
         )}
       </ScrollView>

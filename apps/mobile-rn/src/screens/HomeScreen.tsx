@@ -1570,16 +1570,13 @@ export function HomeScreen() {
   )
 
   /** 智能体卡分享 → ShareSheet(标题随卡片) */
-  const handleAgentCardShare = useCallback(
-    (data: AiModelData) => {
-      setCardShareTarget({
-        title: t('home.shareBoardTitle', { name: data.name }),
-        description: String(data.subname || ''),
-      })
-      setAssistantShareVisible(true)
-    },
-    [t],
-  )
+  const handleAgentCardShare = useCallback((data: AiModelData) => {
+    setCardShareTarget({
+      title: `智汇AI社区 - ${data.name}`,
+      description: String(data.subname || ''),
+    })
+    setAssistantShareVisible(true)
+  }, [])
 
   /** FunctionBlockColumn 点击路由映射 */
   const onFunctionBlockPress = (id: string) => {
@@ -1653,7 +1650,7 @@ export function HomeScreen() {
               name: m.name,
               description:
                 m.model_tier && MODEL_TIER_LABELS[m.model_tier]
-                  ? t(MODEL_TIER_LABELS[m.model_tier] ?? '')
+                  ? t(MODEL_TIER_LABELS[m.model_tier]!)
                   : '',
               // 厂商品牌图标优先:vendor 有值时 ModelList 渲染 BrandIcon 真实矢量
               // (web 同源 @lobehub/icons);provider 缺失按 inferVendor 从模型 id 推断
@@ -2454,6 +2451,14 @@ export function HomeScreen() {
          *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2)。
          *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。 */}
         <InputArea
+          // D43 语音笔记 RN 腿接线(2026-10-24 复挂:ChatScreen 同款经 voiceNoteNode 槽传入;
+          // 此前某轮 HomeScreen 重构把挂载丢了,voice-note-mount 契约三例钉红)
+          voiceNoteNode={
+            <VoiceNote
+              conversationId={null}
+              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+            />
+          }
           value={inputValue}
           onChangeText={setInputValue}
           placeholder={t('home.inputPlaceholder')}
@@ -2472,15 +2477,6 @@ export function HomeScreen() {
           selectedModelName={selectedModel?.name ?? null}
           onClearModel={handleClearModel}
           onOpenModelConfig={() => setShowModelConfig(true)}
-          // D43 票③ RN 大输入框挂载位(2026-10-23 强制令到终态的顺延格,与 ChatScreen
-          // L3025 同形):首页尚未开会话 ⇒ conversationId 恒 null,归档笔记标"无会话";
-          // 「插入对话」= 追加进本页输入框既有通道(setInputValue),提交时随消息带过去。
-          voiceNoteNode={
-            <VoiceNote
-              conversationId={null}
-              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
-            />
-          }
           transparentBackground
         />
         {/* 悬浮胶囊让位区:透明,停靠区玻璃透出;TabBar 绝对定位在其中浮起 */}
@@ -2782,8 +2778,10 @@ const shellStyles = {
     fontWeight: '600',
   } as const,
   modelModalHairline: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: tokens.border.light,
+    // 清偿@2026-10-24(票 L29015 尾格):背景色画的发丝线改等积单边描边(视觉等积:同 hairlineWidth、
+    // 同 tokens.border.light 中性档);族 7 与发丝尺已合一,此枚不再计入发丝尺存量。
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.border.light,
     marginHorizontal: rpx(32),
   } as const,
   // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──

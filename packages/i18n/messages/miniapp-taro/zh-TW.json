@@ -111,8 +111,7 @@
     "uploading": "上傳中…",
     "user": "使用者",
     "more": "更多",
-    "discountAmount": "優惠",
-    "loadFailed": "載入失敗"
+    "discountAmount": "優惠"
   },
   "login": {
     "loginSuccess": "登入成功",
@@ -226,7 +225,6 @@
     "liveNow": "直播中",
     "detail": {
       "loadFailed": "直播載入失敗",
-      "loading": "直播載入中…",
       "notStarted": "直播尚未開始",
       "ended": "直播已結束",
       "connecting": "正在連線直播間…",
@@ -304,10 +302,7 @@
     "titleRequired": "請輸入直播標題",
     "startFailed": "開啟直播失敗",
     "endFailed": "結束直播失敗",
-    "copySuccess": "已複製到剪貼簿",
-    "d1": "AI 課程包",
-    "d2": "會員年卡",
-    "d3": "實體週邊"
+    "copySuccess": "已複製到剪貼簿"
   },
   "order": {
     "title": "訂單",
@@ -1308,7 +1303,6 @@
       "correctValue": "{n} 題",
       "duration": "用時",
       "durationValue": "{n} 分鐘",
-      "loading": "載入中…",
       "questionIdx": "第 {n} 題",
       "retry": "再考一次",
       "reviewScore": "{n} 分",
@@ -1545,7 +1539,7 @@
     "ctaTitle": "30 分鐘開始你的 AI 之旅",
     "heroBadge": "關於智匯 AI",
     "heroSubtitle": "智匯 AI(IHUI AI)是開源的全棧 AI 操作系統,把 Agent 設計、知識庫、多模型調度、跨端協作和團隊運營裝進同一個平臺。",
-    "heroTitle": "一碼六端,一站 AI",
+    "heroTitle": "一碼九端,一站 AI",
     "numbersTitle": "數字見證",
     "platformAgentsDesc": "可視化拖拽搭建 AI Agent,200+ 模板,插件/MCP 工具,一鍵發布到任意端。",
     "platformAgentsTitle": "Agent 市場與編排",
@@ -1573,10 +1567,10 @@
     "storyP2": "於是我們做了智匯 AI:開源、統一、跨端、可私有化。把 12-18 個月的自研時間,壓縮到 30 分鐘開通賬號。",
     "storyTitle": "為什麼做智匯 AI?",
     "valueCrossDesc": "Web / 桌面 / 小程序 / 瀏覽器插件 / React Native / CLI,一套代碼,一次發布,全端觸達。",
-    "valueCrossTitle": "六端同源",
+    "valueCrossTitle": "九端同源",
     "valueEnterpriseDesc": "SSO/OAuth、審計日誌、角色權限、私有化部署,服務多家上市公司。",
     "valueEnterpriseTitle": "企業級安全",
-    "valueFreeDesc": "每月 1000 積分,全模型可用,六端同發。Pro 版 ¥49/月起,企業版支持私有化。",
+    "valueFreeDesc": "每月 1000 積分,全模型可用,九端同發。Pro 版 ¥49/月起,企業版支持私有化。",
     "valueFreeTitle": "個人版永久免費",
     "valueOpenDesc": "Apache 2.0 協議,核心代碼公開,商業可用,Self-host 零成本。",
     "valueOpenTitle": "完全開源",
@@ -2947,12 +2941,9 @@
       "follow": "關注",
       "followers": "{n} 人關注",
       "following": "已關注",
-      "hoursAgo": "{n} 小時前",
-      "justNow": "剛剛",
       "loadFailed": "載入失敗",
       "loading": "載入中…",
       "loadingMore": "載入中…",
-      "minutesAgo": "{n} 分鐘前",
       "noMore": "沒有更多了",
       "publish": "發帖"
     },
@@ -3308,8 +3299,7 @@
       "duration": "會員時長",
       "monthlyPlan": "月度會員",
       "payMethod": "支付方式",
-      "yearlyPlan": "年度會員",
-      "daysUnit": "{n} 天"
+      "yearlyPlan": "年度會員"
     },
     "benefitsTitle": "會員權益",
     "upgradeNow": "立即升級",
@@ -3512,10 +3502,6 @@
   },
   "index": {
     "mock": {
-      "post1Title": "如何使用 React Hooks?",
-      "today": "今天",
-      "post2Title": "TypeScript 型別推論",
-      "post3Title": "設計模式討論",
       "yesterday": "昨天"
     },
     "feature": {
@@ -3604,52 +3590,8 @@
     "register1": "🎉 歡迎使用智匯AI社區,新使用者註冊即贈5000智匯值!",
     "text2": "智慧體助手頁未設定",
     "save3": "圖片已儲存",
-    "d1": "AI 寫作助手",
-    "d2": "幫你撰寫高品質文章、報告和文案",
-    "d3": "程式設計助手",
-    "d4": "程式碼編寫、除錯和最佳化建議",
     "d5": "開發",
-    "d6": "資料分析師",
-    "d7": "資料視覺化和分析洞察",
-    "d8": "分析",
-    "d9": "設計創意師",
-    "d10": "創意設計和視覺方案",
     "d11": "設計",
-    "d12": "翻譯達人",
-    "d13": "多語言翻譯和本地化",
-    "d14": "工具",
-    "d15": "文字生成",
-    "d16": "高品質文字內容生成",
-    "d17": "圖片生成",
-    "d18": "AI 繪畫和圖片創作",
-    "d19": "影片製作",
-    "d20": "AI 影片生成和編輯",
-    "d21": "音訊處理",
-    "d22": "語音合成和音訊編輯",
-    "d23": "程式碼生成",
-    "d24": "多語言程式碼自動生成",
-    "d25": "資料分析",
-    "d26": "資料分析和視覺化",
-    "d27": "AI 繪畫",
-    "d28": "文生圖和圖生圖創作",
-    "d29": "影片剪輯",
-    "d30": "智慧影片剪輯和特效",
-    "d31": "AI 繪畫入門指南",
-    "d32": "本文詳細介紹 AI 繪畫的基礎知識和常用工具...",
-    "d33": "深度學習模型最佳化技巧",
-    "d34": "如何最佳化深度學習模型的訓練速度和準確率...",
-    "d35": "Prompt 工程最佳實踐",
-    "d36": "掌握 Prompt 工程的核心技巧,提升 AI 輸出品質...",
-    "d37": "多模態 AI 應用場景",
-    "d38": "探索多模態 AI 在醫療、教育、金融等領域的應用...",
-    "d39": "山水風景畫",
-    "d40": "城市夜景",
-    "d41": "抽象藝術作品",
-    "d42": "AI 影片生成教學",
-    "d43": "數位人直播演示",
-    "d44": "AI 語音合成演示",
-    "d45": "TTS 音色對比",
-    "d46": "語音克隆效果",
     "p1": "圖片內容",
     "p2": "影片內容",
     "p3": "音訊內容",
@@ -3881,25 +3823,6 @@
     "d15": "高端資源對接",
     "d16": "客製化解決方案"
   },
-  "aigcList": {
-    "d1": "賽博城市夜景",
-    "d2": "智匯小方",
-    "d3": "極光幻境",
-    "d4": "AI創作家",
-    "d5": "機械姬 Concept",
-    "d6": "未來派",
-    "d7": "量子詩篇",
-    "d10": "資料洪流 數位時代 詩",
-    "d11": "霓虹脈搏",
-    "d12": "聲音藝術家",
-    "d13": "未來之城",
-    "d14": "數位畫師",
-    "d15": "AI 覺醒錄",
-    "d17": "探討 AI 覺醒後的人類處境,生成一段哲思短文。",
-    "d18": "AI 覺醒 意識 共存",
-    "d19": "深空迴響",
-    "r1": "在資料洪流中,我們以程式碼為筆,以演算法為墨,描繪著數位時代的詩與遠方。每一段文字都是思想的延伸,每一次生成都是創造的開始。"
-  },
   "aiAgentdetail": {
     "q1": "取得Agent詳情",
     "r6": "取得Agent權限失敗"
@@ -3956,18 +3879,6 @@
     "r3": "函數",
     "r4": "前端",
     "r5": "後端"
-  },
-  "courseplanet": {
-    "d1": "AI 繪畫入門:從零到精通",
-    "d2": "AI 教研組",
-    "d3": "短影音製作全流程實戰",
-    "d4": "實戰導師",
-    "d5": "ChatGPT 提示詞工程",
-    "d6": "AI 教研組",
-    "d7": "AI 辦公效率提升指南",
-    "d8": "效率專家",
-    "d9": "大模型應用開發實戰",
-    "d10": "技術大牛"
   },
   "aiHistory": {
     "d1": "AI繪圖",
@@ -4222,9 +4133,7 @@
     "13": "加入於 {m}",
     "14": "選擇感興趣的賽道,獲取個人化推薦",
     "15": "預設模型",
-    "16": "以\"資料洪流\"為意象,生成一段關於數位時代創作的散文詩。",
     "17": "付費可看 ¥{m}",
-    "18": "當機器開始思考,人類是否做好了準備?這是一個關於意識、自由與共存的故事。在矽基生命與碳基生命的交匯處,我們重新審視\"存在\"的意義。",
     "20": "確認選擇{count}",
     "21": "AI助手免費使用次數增加",
     "22": "部分課程免費學習",
@@ -4663,26 +4572,19 @@
     "checkinSuccess": "簽到成功",
     "addSuccess": "帳號已新增",
     "actionFailed": "操作失敗",
-    "loginRequired": "登入後管理你的個人號池",
-    "addTitle": "新增帳號",
-    "adding": "新增中…",
-    "deleteConfirm": "確認刪除 {name}？",
-    "summary": "共 {total} 個帳號 · 已啟用 {enabled}"
+    "adding": "新增中…"
   },
   "checkinAssistant": {
     "title": "簽到助手",
     "subtitle": "管理第三方帳號並自動簽到；與個人號池互通，轉發時優先使用你自己的帳號。",
-    "summary": "共 {total} 個帳號 · 已啟用 {enabled} · 已進號池 {synced}",
     "empty": "還沒有帳號",
     "emptyHint": "在下方表單新增第一個帳號。",
     "addTitle": "新增帳號",
     "add": "新增",
     "adding": "新增中…",
     "namePlaceholder": "帳號名稱",
-    "tokenLabel": "Token",
     "tokenPlaceholder": "貼上存取憑證",
     "refreshTokenLabel": "Refresh Token（選填）",
-    "optional": "選填",
     "enabled": "已啟用",
     "disabled": "已停用",
     "enable": "啟用",
@@ -4694,131 +4596,5 @@
     "lastOk": "上次簽到成功 +{credits}",
     "lastFailed": "上次簽到失敗",
     "actionFailed": "操作失敗"
-  },
-  "developerInfo": {
-    "title": "開發者資訊",
-    "nameLabel": "名稱",
-    "descLabel": "簡介",
-    "statusLabel": "申請狀態",
-    "statusApproved": "已通過",
-    "statusRejected": "已拒絕",
-    "statusPending": "待審核",
-    "accountLabel": "帳號",
-    "apiKeyLabel": "API 金鑰",
-    "apiKeyCount": "已建立 {count} 個",
-    "apiKeyNone": "未建立",
-    "urlLabel": "網址",
-    "expiryLabel": "到期時間"
-  },
-  "userPublic": {
-    "title": "用戶主頁",
-    "notFound": "用戶不存在",
-    "follow": "關注",
-    "following": "已關注",
-    "message": "發訊息",
-    "followingCount": "關注",
-    "followersCount": "粉絲",
-    "favoritesCount": "收藏",
-    "joined": "加入於"
-  },
-  "eduShop": {
-    "title": "教育商城",
-    "courses": "課程商品",
-    "orders": "我的訂單",
-    "free": "免費",
-    "buy": "購買",
-    "lessons": "{n} 課時",
-    "loadMore": "載入更多",
-    "emptyCourses": "暫無在售課程",
-    "emptyOrders": "暫無訂單",
-    "cancelOrder": "取消訂單",
-    "orderCreated": "訂單已建立",
-    "status": {
-      "pending": "待支付",
-      "paid": "已支付",
-      "cancelled": "已取消",
-      "completed": "已完成",
-      "refunded": "已退款"
-    }
-  },
-  "llmSettings": {
-    "title": "模型服務商",
-    "empty": "還沒有配置服務商",
-    "emptyDesc": "點擊右上角嚮導,4 步配置 API Key",
-    "enabled": "已啟用",
-    "disabled": "已停用"
-  },
-  "byok": {
-    "fab": "快速配置",
-    "title": "一鍵配置嚮導",
-    "step1Title": "選擇廠商",
-    "step2Title": "填寫 API Key",
-    "step3Title": "驗證密鑰",
-    "step4Title": "完成",
-    "keyPlaceholder": "貼上 API Key(sk-…)",
-    "verify": "驗證",
-    "next": "下一步",
-    "activate": "啟用並建立",
-    "verifying": "正在驗證…",
-    "verifySuccess": "驗證通過",
-    "verifyFailed": "驗證未通過",
-    "doneDesc": "服務商已建立,平臺分潤已啟用"
-  },
-  "eduParent": {
-    "title": "家長端",
-    "child": "孩子",
-    "relationship": "關係",
-    "statusTitle": "狀態",
-    "empty": "還沒有綁定的孩子",
-    "status": {
-      "pending": "待確認",
-      "confirmed": "已確認",
-      "active": "生效",
-      "rejected": "已拒絕",
-      "cancelled": "已解除"
-    }
-  },
-  "eduChildAttendance": {
-    "title": "孩子考勤",
-    "date": "日期"
-  },
-  "eduChildGrades": {
-    "title": "孩子成績"
-  },
-  "eduGrades": {
-    "student": "學生",
-    "subject": "科目",
-    "exam": "考試",
-    "score": "分數",
-    "date": "日期"
-  },
-  "eduAttendance": {
-    "statusTitle": "狀態",
-    "checkIn": "簽到",
-    "checkOut": "簽退",
-    "status": {
-      "present": "正常",
-      "late": "遲到",
-      "absent": "缺勤",
-      "leave": "請假"
-    }
-  },
-  "eduMgmt": {
-    "attendanceTitle": "考勤管理",
-    "gradesTitle": "成績管理",
-    "financeTitle": "繳費記錄"
-  },
-  "eduFinance": {
-    "student": "學生",
-    "className": "班級",
-    "fee": "費用",
-    "amount": "金額(元)",
-    "date": "繳費日期",
-    "status": {
-      "paid": "已繳",
-      "success": "成功",
-      "refunded": "已退",
-      "pending": "待確認"
-    }
   }
 }

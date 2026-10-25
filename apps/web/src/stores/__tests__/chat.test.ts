@@ -727,6 +727,176 @@ describe('useChatStore', () => {
     })
   })
 
+  // ============ B02 第三切片(2026-10-25)resync 快照:applyChatSyncSnapshot ============
+  //
+  // 契约 §7 第 3 项(resync 传输)落地后的接线回归。判据纪律:两步(created → patched
+  // snapshot)**全走契约内核**,本组用例钉的是"快照面与内核面零旁路"——
+  // 内容真值只从内核裁过的结果来,快照字段不得绕开裁定直写渲染面。
+
+  describe('B02③ resync 快照:applyChatSyncSnapshot 接线', () => {
+    const CONV = 'conv-sync'
+    function snapOf(over: Partial<{ messageId: string; rev: number; content: string; role: 'user' | 'assistant' | 'system'; reasoning?: string; conversationId: string }> = {}) {
+      return {
+        conversationId: CONV,
+        messageId: 'm-1',
+        rev: 5,
+        role: 'assistant' as const,
+        content: '全量',
+        ...over,
+      }
+    }
+    function delta(messageId: string, rev: number, textDelta: string): MessagePatchedEvent {
+      return {
+        event: 'message:patched',
+        data: {
+          type: 'message:patched',
+          protocolVersion: 'chat-sync.v1',
+          channel: 'ws',
+          room: { kind: 'conversation', conversationId: CONV },
+          messageId,
+          rev,
+          kind: 'delta',
+          textDelta,
+        },
+      }
+    }
+    function created(messageId: string, content: string): MessageCreatedEvent {
+      return {
+        event: 'message:created',
+        data: {
+          type: 'message:created',
+          protocolVersion: 'chat-sync.v1',
+          channel: 'ws',
+          room: { kind: 'conversation', conversationId: CONV },
+          messageId,
+          role: 'assistant',
+          content,
+        },
+      }
+    }
+
+    beforeEach(() => {
+      useChatStore.setState({
+        messages: [],
+        conversationId: CONV,
+        chatSync: EMPTY_CHAT_SYNC_STATE,
+        chatSyncResyncPending: false,
+        chatSyncGapMessageIds: [],
+      })
+    })
+
+    it('判据面缺行:created 补达 + snapshot 应用 ⇒ 渲染面增行、gap 摘除、旗清', () => {
+      useChatStore.setState({ chatSyncGapMessageIds: ['m-1'], chatSyncResyncPending: true })
+      const out = useChatStore.getState().applyChatSyncSnapshot(snapOf())
+      expect(out.applied).toBe(true)
+      const s = useChatStore.getState()
+      expect(s.messages).toHaveLength(1)
+      expect(s.messages[0]?.content).toBe('全量')
+      expect(s.chatSync.appliedRevs.get('m-1')).toBe(5)
+      expect(s.chatSyncGapMessageIds).toEqual([])
+      expect(s.chatSyncResyncPending).toBe(false)
+    })
+
+    it('渲染面已有行且 rev 落后:snapshot 应用 ⇒ 就地替换内容', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      const out = useChatStore.getState().applyChatSyncSnapshot(snapOf({ rev: 5, content: '全量' }))
+      expect(out.applied).toBe(true)
+      expect(useChatStore.getState().messages.find((m) => m.id === 'm-1')?.content).toBe('全量')
+    })
+
+    it('rev=0(链上无 patch):created 后 snapshot 恒拒 ⇒ 面 = created 初面,appliedRevs 无记录', () => {
+      const out = useChatStore.getState().applyChatSyncSnapshot(snapOf({ rev: 0, content: '初面' }))
+      expect(out.applied).toBe(false)
+      expect(out).toEqual(expect.objectContaining({ reason: 'duplicate' }))
+      const s = useChatStore.getState()
+      expect(s.messages[0]?.content).toBe('初面')
+      expect(s.chatSync.appliedRevs.size).toBe(0)
+    })
+
+    it('端侧已到更高 rev,快照值更旧 ⇒ stale 零回退;服务端已回答 ⇒ gap 仍摘除', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      useChatStore.getState().applyChatSync(delta('m-1', 2, 'C'))
+      useChatStore.setState({ chatSyncGapMessageIds: ['m-1'], chatSyncResyncPending: true })
+      const out = useChatStore.getState().applyChatSyncSnapshot(snapOf({ rev: 1, content: '旧值' }))
+      expect(out).toEqual(expect.objectContaining({ applied: false, reason: 'stale' }))
+      const s = useChatStore.getState()
+      expect(s.messages.find((m) => m.id === 'm-1')?.content).toBe('ABC')
+      expect(s.chatSyncGapMessageIds).toEqual([])
+      expect(s.chatSyncResyncPending).toBe(false)
+    })
+
+    it('幂等重放:同快照两次 ⇒ 第二次 duplicate,渲染面引用不变', () => {
+      useChatStore.getState().applyChatSyncSnapshot(snapOf())
+      const before = useChatStore.getState().messages
+      const out = useChatStore.getState().applyChatSyncSnapshot(snapOf())
+      expect(out.applied).toBe(false)
+      expect(useChatStore.getState().messages).toBe(before)
+    })
+
+    it('m-ghost(内核面有行渲染面缺行)⇒ 快照回喂后按内核面补行,不凭快照字段另造', () => {
+      useChatStore.setState({
+        chatSync: {
+          messages: new Map([['m-ghost', { id: 'm-ghost', role: 'assistant' as const, content: 'AB' }]]),
+          appliedRevs: new Map([['m-ghost', 1]]),
+        },
+        chatSyncGapMessageIds: ['m-ghost'],
+        chatSyncResyncPending: true,
+      })
+      // 快照声称 rev=1 content='旧值',但内核已应用 rev=1(面='AB')⇒ duplicate ⇒
+      // 内容以内核面为准(快照字段绕不开裁定)。
+      const out = useChatStore
+        .getState()
+        .applyChatSyncSnapshot(snapOf({ messageId: 'm-ghost', rev: 1, content: '旧值' }))
+      expect(out.applied).toBe(false)
+      const s = useChatStore.getState()
+      expect(s.messages).toHaveLength(1)
+      expect(s.messages[0]?.content).toBe('AB')
+      expect(s.chatSyncGapMessageIds).toEqual([])
+    })
+
+    it('房间不匹配 ⇒ room-mismatch,判据面与渲染面零写入', () => {
+      const before = useChatStore.getState().messages
+      const out = useChatStore
+        .getState()
+        .applyChatSyncSnapshot(snapOf({ conversationId: 'other-conv' }))
+      expect(out).toEqual({ applied: false, reason: 'room-mismatch', messageId: 'm-1' })
+      expect(useChatStore.getState().messages).toBe(before)
+    })
+
+    it('gap 坐标记录:delta 跳号 ⇒ 坐标入表(去重),旗置位', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 3, 'D'))
+      const s = useChatStore.getState()
+      expect(s.chatSyncGapMessageIds).toEqual(['m-1'])
+      expect(s.chatSyncResyncPending).toBe(true)
+      // 同坐标重复判 gap ⇒ 去重,不是第二行
+      useChatStore.getState().applyChatSync(delta('m-1', 4, 'E'))
+      expect(useChatStore.getState().chatSyncGapMessageIds).toEqual(['m-1'])
+    })
+
+    it('切会话:同会话 setConversationId 保留坐标,异会话清空坐标', () => {
+      useChatStore.setState({ chatSyncGapMessageIds: ['m-1'] })
+      useChatStore.getState().setConversationId('conv-sync')
+      expect(useChatStore.getState().chatSyncGapMessageIds).toEqual(['m-1'])
+      useChatStore.getState().setConversationId('conv-other')
+      expect(useChatStore.getState().chatSyncGapMessageIds).toEqual([])
+    })
+
+    it('坐标不进持久化白名单(会话局部坐标,同 chatSync 档)', async () => {
+      const mod = await import('../chat')
+      const storeApi = mod.useChatStore as unknown as {
+        persist?: { getOptions?: () => { partialize?: (s: unknown) => Record<string, unknown> } }
+      }
+      const partialize = storeApi.persist?.getOptions?.()?.partialize
+      if (!partialize) throw new Error('chat store 持久化必须存在 partialize')
+      useChatStore.getState().applyChatSyncSnapshot(snapOf())
+      const persisted = partialize(useChatStore.getState())
+      expect('chatSyncGapMessageIds' in persisted).toBe(false)
+    })
+  })
+
   // ============ G-703(2026-09-29 立)运行域状态一次性回收 ============
   //
   // 票面诊断的那一型:`setStreaming` 是裸写单键,而 `aiStreamSessionId`(postTerminalInput 的

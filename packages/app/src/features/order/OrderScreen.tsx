@@ -3,14 +3,21 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import { View, Text, Image, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
-import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
 
 /** 订单/Tab/Props 类型 re-export(单一来源 @ihui/types) */
@@ -122,7 +129,9 @@ export function OrderScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+        <View style={styles.center}>
+          <Text style={styles.muted}>{t('common.loading')}</Text>
+        </View>
       ) : (
         <FlatList
           data={filteredItems}
@@ -155,30 +164,35 @@ export function OrderScreen({
               </>
             )
             return (
-              <PressableCard
-                style={styles.card}
+              <TouchableOpacity
                 onPress={() => onPressItem(item)}
-                colorScheme={colorScheme}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               >
-                {item.image ? (
-                  <View style={styles.cardBodyRow}>
-                    <Image
-                      source={{ uri: item.image }}
-                      style={styles.cardImg}
-                      resizeMode="cover"
-                      accessibilityLabel={item.title}
-                    />
-                    <View style={styles.cardInfo}>{info}</View>
-                  </View>
-                ) : (
-                  info
-                )}
-              </PressableCard>
+                <View style={styles.card}>
+                  {item.image ? (
+                    <View style={styles.cardBodyRow}>
+                      <Image
+                        source={{ uri: item.image }}
+                        style={styles.cardImg}
+                        resizeMode="cover"
+                        accessibilityLabel={item.title}
+                      />
+                      <View style={styles.cardInfo}>{info}</View>
+                    </View>
+                  ) : (
+                    info
+                  )}
+                </View>
+              </TouchableOpacity>
             )
           }}
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={<EmptyState title={t('order.empty')} colorScheme={colorScheme} />}
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <Text style={styles.muted}>{t('order.empty')}</Text>
+            </View>
+          }
           onEndReachedThreshold={0.2}
           onEndReached={onLoadMore ? () => onLoadMore() : undefined}
           ListFooterComponent={
@@ -205,38 +219,39 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: rnSpacing.md,
-      gap: rnSpacing.md,
+      paddingVertical: 12,
+      gap: 12,
     },
-    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     searchInput: {
       marginHorizontal: 10,
-      marginTop: rnSpacing.xs,
-      marginBottom: rnSpacing.xs,
-      paddingHorizontal: rnSpacing.md,
+      marginTop: 4,
+      marginBottom: 4,
+      paddingHorizontal: 12,
       height: 40,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      fontSize: rnType.body.size,
+      fontSize: 14,
       color: tk.text.primary,
     },
-    errorText: { paddingHorizontal: 10, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
+    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
+    center: { alignItems: 'center', paddingVertical: 48 },
+    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     // 上拉分页 footer:对齐 Uniapp loadMore 底部加载提示
-    footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
+    footer: { alignItems: 'center', paddingVertical: 16 },
     listBody: { padding: 10 },
     card: {
-      padding: rnSpacing.md,
+      padding: 12,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: rnSpacing.md,
+      marginBottom: 12,
     },
     // 商品图 130×130 圆角(对齐 Uniapp card-img;无图不渲染)
-    cardBodyRow: { flexDirection: 'row', gap: rnSpacing.md },
+    cardBodyRow: { flexDirection: 'row', gap: 12 },
     cardImg: {
       width: 130,
       height: 130,
@@ -248,11 +263,11 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: rnSpacing.sm,
+      gap: 8,
     },
     cardTitle: {
       flex: 1,
-      fontSize: rnType.title.size,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
     },
@@ -262,23 +277,24 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
-    badgeText: { fontSize: rnType.caption.size },
+    badgeText: { fontSize: 11 },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: rnSpacing.sm,
+      marginTop: 8,
     },
-    orderNo: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    metaTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    orderNo: { fontSize: 11, color: tk.text.tertiary },
+    metaTime: { fontSize: 11, color: tk.text.tertiary },
     amountRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
       justifyContent: 'space-between',
-      marginTop: rnSpacing.sm,
+      marginTop: 8,
     },
-    amountLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    amountLabel: { fontSize: 11, color: tk.text.tertiary },
     amountValue: {
-      fontSize: rnType.subtitle.size,
+      flexShrink: 0,
+      fontSize: 18,
       fontWeight: '700',
       color: tk.text.primary,
     },

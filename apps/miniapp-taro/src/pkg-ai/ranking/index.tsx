@@ -69,8 +69,10 @@ export default function RankingIndex() {
         })) as ListResponse | undefined
         const newList = res?.list || []
         setList((prev) => (curPage === 1 ? newList : [...prev, ...newList]))
-        const total = res?.total ?? newList.length
-        const more = newList.length >= PAGE_SIZE && curPage * PAGE_SIZE < total
+        const total = res?.total ?? 0
+        // 有 total 就只信 total:后端按状态过滤后某页不足一页是常态,再拿"本页满页"当条件
+        // 会让"还有更多"提前消失 ⇒ 用户翻不到后面的内容。total 缺失时才退回页数猜。
+        const more = total > 0 ? curPage * PAGE_SIZE < total : newList.length >= PAGE_SIZE
         setHasMore(more)
         return more
       } catch {

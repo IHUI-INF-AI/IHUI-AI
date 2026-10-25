@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
@@ -108,7 +108,7 @@ export function PaymentScreen({
       <FlatList
         data={orders}
         keyExtractor={(item) => item.orderNo}
-        contentContainerStyle={{ gap: 10, padding: 10, paddingBottom: rnSpacing['3xl'] }}
+        contentContainerStyle={{ gap: 10, padding: 10, paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           loading ? (
@@ -209,30 +209,25 @@ function statusToStyle(status: PaymentOrderStatus, tk: AppThemeTokens) {
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
-    title: {
-      marginTop: rnSpacing.sm,
-      fontSize: rnType.display.size,
-      fontWeight: '600',
-      color: tk.text.primary,
-    },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    errorWrap: { paddingHorizontal: 10, paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    toastWrap: { paddingHorizontal: 10, paddingVertical: rnSpacing.sm },
-    toastText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    errorWrap: { paddingHorizontal: 10, paddingVertical: 8 },
+    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    toastWrap: { paddingHorizontal: 10, paddingVertical: 8 },
+    toastText: { fontSize: 14, color: tk.success.DEFAULT },
     outlineBtn: {
-      marginTop: rnSpacing.sm,
+      marginTop: 8,
       paddingVertical: 6,
-      paddingHorizontal: rnSpacing.md,
+      paddingHorizontal: 12,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.success.DEFAULT,
       alignItems: 'center',
     },
-    outlineBtnText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    outlineBtnText: { fontSize: 14, color: tk.success.DEFAULT },
     card: {
-      padding: rnSpacing.md,
+      padding: 12,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -243,33 +238,28 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    cardTitle: {
-      flex: 1,
-      fontSize: rnType.subtitle.size,
-      fontWeight: '600',
-      color: tk.text.primary,
-    },
+    cardTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
     statusTag: {
-      marginLeft: rnSpacing.sm,
-      paddingHorizontal: rnSpacing.sm,
+      marginLeft: 8,
+      paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
     },
-    statusTagText: { fontSize: rnType.body.size, color: tk.text.primary },
+    statusTagText: { fontSize: 14, color: tk.text.primary },
     cardMetaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: rnSpacing.sm,
+      marginTop: 8,
     },
-    metaText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    metaText: { fontSize: 14, color: tk.text.secondary },
     amountRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
       justifyContent: 'space-between',
-      marginTop: rnSpacing.sm,
+      marginTop: 8,
     },
-    amountValue: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
-    actionWrap: { marginTop: rnSpacing.md, gap: rnSpacing.sm },
+    amountValue: { flexShrink: 0, fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
+    actionWrap: { marginTop: 12, gap: 8 },
     primaryBtn: {
       height: 50,
       borderRadius: rnRadius.sm,
@@ -277,8 +267,8 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    primaryBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
-    secondaryActions: { flexDirection: 'row', gap: rnSpacing.sm },
+    primaryBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    secondaryActions: { flexDirection: 'row', gap: 8 },
     flexBtn: { flex: 1 },
     btnDisabled: { opacity: 0.5 },
   })

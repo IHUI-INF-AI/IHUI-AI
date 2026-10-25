@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, ne } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   chatConversationCollaborators,
@@ -105,29 +105,36 @@ export async function acceptCollaboratorInvitation(
   conversationId: string,
   userId: string,
 ): Promise<ChatConversationCollaborator[]> {
+  // 条件更新即"先取现值再写":where 的 status='pending' 只在真翻转时命中,
+  // 已裁决的行不会被同值空写推进 updatedAt(增量读不被假变化污染)。
+  const changed = { status: 'accepted' } as const
   return db
     .update(chatConversationCollaborators)
-    .set({ status: 'accepted', updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(
       and(
-        eq(chatConversationCollaborators.conversationId, conversationId),
-        eq(chatConversationCollaborators.userId, userId),
         eq(chatConversationCollaborators.status, 'pending'),
+        eq(chatConversationCollaborators.conversationId, conversationId),
+        // status 守卫:仅 pending 行会被翻正(终态不可逆出,防迟到/并发调用覆盖裁决)
+        eq(chatConversationCollaborators.userId, userId),
       ),
     )
     .returning()
 }
 
-/** 属主撤销(软删):同上,库确认集判有没有真删到。 */
+/** 属主撤销(软删):同上,库确认集判有没有真删到。revoked 为终态,守卫拒绝二次翻写。 */
 export async function revokeCollaborator(
   conversationId: string,
   userId: string,
 ): Promise<ChatConversationCollaborator[]> {
+  // 同上:where 的 status != 'revoked' 只在真翻转时命中,二次撤销不发 UPDATE、不盖 updatedAt。
+  const changed = { status: 'revoked' } as const
   return db
     .update(chatConversationCollaborators)
-    .set({ status: 'revoked', updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(
       and(
+        ne(chatConversationCollaborators.status, 'revoked'),
         eq(chatConversationCollaborators.conversationId, conversationId),
         eq(chatConversationCollaborators.userId, userId),
       ),

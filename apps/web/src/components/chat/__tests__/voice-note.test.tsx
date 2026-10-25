@@ -179,6 +179,27 @@ describe('VoiceNote(D43 会话内快捷笔记)', () => {
     expect(screen.getAllByTestId('voice-note-archive-item')).toHaveLength(1)
   })
 
+  it('转写成功即可一键插入当前输入框:落库失败也走得通(draftInput 既有通道)', async () => {
+    installBrowserMocks()
+    stubListOk()
+    mockGetUserMedia.mockResolvedValue({ getTracks: () => [] })
+    sttFromBlobMock.mockResolvedValue('刚说完的一段话')
+    // 服务端落库失败 ⇒ 乐观行被回滚,归档列表里没有插入图标
+    createVoiceNoteMock.mockResolvedValue({ success: false, error: 'persist down' })
+
+    render(<VoiceNote />)
+    fireEvent.click(screen.getByTestId('voice-note-trigger'))
+    fireEvent.click(screen.getByTestId('voice-note-start'))
+    await act(async () => {})
+    fireEvent.click(screen.getByTestId('voice-note-stop'))
+    await act(async () => {})
+    expect(screen.queryByTestId('voice-note-archive-item')).toBe(null)
+
+    // 转写结果本身带插入入口:插入的是 draftInput(MessageInput 消费后填充 textarea)
+    fireEvent.click(screen.getByTestId('voice-note-insert-current'))
+    expect(chatSetState).toHaveBeenCalledWith({ draftInput: '刚说完的一段话' })
+  })
+
   it('读失败:显式喊 errors.loadFailed,不静默兜一张空列表', async () => {
     installBrowserMocks()
     listVoiceNotesMock.mockResolvedValue({ success: false, error: 'backend down' })

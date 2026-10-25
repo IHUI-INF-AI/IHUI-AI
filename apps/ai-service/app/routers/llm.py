@@ -104,6 +104,11 @@ from ..services.agent_events import (
 from ..services.async_gen_close import aclose_async_gen
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
+from ..services.expert_route import frame_payload as _expert_frame_payload
+from ..services.expert_route import merge_tools as _merge_expert_tools
+from ..services.expert_route import plan_route as _plan_expert_route
+from ..services.expert_route import resolve_mode as _resolve_expert_route_mode
+from ..services.expert_route import system_hint as _expert_system_hint
 from ..services.form_responses import (
     list_form_responses,
     persist_form_response,
@@ -112,6 +117,8 @@ from ..services.form_responses import (
 from ..services.mcp_server import (
     _FORM_REQUEST_TOOL_NAME,
     _TOOL_ALIASES,
+    _subagent_handoff_event,
+    _subagent_handoff_kind,
     _tool_dispatch_subagent,
     _tool_vision_analyze,
     build_form_request_frame,
@@ -2318,6 +2325,24 @@ def _inject_system_prefix(messages: list[dict[str, Any]], prefix: str) -> list[d
     return new_messages
 
 
+def _append_system_note(messages: list[dict[str, Any]], note: str | None) -> list[dict[str, Any]]:
+    """把一段说明**追加**到 system 消息尾部(与 ``_inject_system_prefix`` 的置顶语义相反)。
+
+    D09:专家包的系统提示属于"辅助说明"——会话级自定义指令与 ChatMode 引导优先,
+    故不置顶;无 system 消息时新插一条。
+    """
+    if not note:
+        return messages
+    new_messages = list(messages)
+    if new_messages and new_messages[0].get("role") == "system":
+        existing = new_messages[0].get("content", "")
+        merged = f"{existing}\n\n{note}" if existing else note
+        new_messages[0] = {**new_messages[0], "content": merged}
+    else:
+        new_messages.insert(0, {"role": "system", "content": note})
+    return new_messages
+
+
 def _inject_custom_system_prompt(
     messages: list[dict[str, Any]], prefix: str | None
 ) -> list[dict[str, Any]]:
@@ -2384,6 +2409,63 @@ def _build_subagent_orchestration_prompt() -> str:
     不在每轮 iteration 重复注入。返回模块级常量,避免每次请求重新构造。
     """
     return _SUBAGENT_ORCHESTRATION_PROMPT
+
+
+def _build_subagent_end_event(
+    subagent_id: str,
+    ok: bool,
+    exec_result: dict[str, Any],
+    *,
+    ts: str | None = None,
+) -> dict[str, Any]:
+    """D08②:构造 subagent_end 帧载荷(复用既有帧族,禁新帧)。
+
+    原有 id/status/timestamp/failureReason 语义一字不动,仅**加键**:
+    kind(done|blocked|help) / agent_id / summary / [token_usage] / ts。
+    三档判定与字段拼装唯一来源是 mcp_server 的 `_subagent_handoff_kind` /
+    `_subagent_handoff_event`,此处只负责把工具结果接到既有帧上。
+    """
+    _now = ts or datetime.now(UTC).isoformat()
+    if ok:
+        _summary = (
+            exec_result.get("summary")
+            or exec_result.get("output")
+            or exec_result.get("message")
+            or ""
+        )
+    else:
+        _summary = (
+            exec_result.get("summary")
+            or exec_result.get("error")
+            or exec_result.get("message")
+            or "subagent 执行失败(无详细错误信息)"
+        )
+    _raw_usage = exec_result.get("token_usage") or exec_result.get("tokenUsage")
+    _usage = _raw_usage if isinstance(_raw_usage, dict) and _raw_usage else None
+    _evt: dict[str, Any] = {
+        "type": "subagent_end",
+        "id": subagent_id,
+        "status": "done" if ok else "failed",
+        "timestamp": _now,
+        **_subagent_handoff_event(
+            _subagent_handoff_kind(
+                ok=ok,
+                needs_help=bool(exec_result.get("needs_help") or exec_result.get("needsHelp")),
+            ),
+            subagent_id,
+            str(_summary),
+            token_usage=_usage,
+            ts=_now,
+        ),
+    }
+    if not ok:
+        # 旧行为逐字保留:失败原因优先取 error,其次 message,最后给默认文案。
+        _evt["failureReason"] = str(
+            exec_result.get("error")
+            or exec_result.get("message")
+            or "subagent 执行失败(无详细错误信息)"
+        )[:500]
+    return _evt
 
 
 def _load_default_models() -> list[dict[str, Any]]:
@@ -2538,6 +2620,13 @@ class LLMCompleteRequest(BaseModel):
     # 丢弃并落通知 —— Pydantic 直接 422 会把「用户选了个不支持的档」打成整轮请求失败。
     reasoning_effort: str | None = Field(
         None, description="推理强度档位:minimal/low/medium/high(封闭集,非法值丢弃并回报回落)"
+    )
+    # D09(2026-10-24 立):意图自动路由专家包的三档开关。
+    # 默认(None)= hint:只把分类结果作为 injection_applied 帧交代给用户,**不改工具、
+    # 不改提示词**(票面"默认温和提示不强切");auto = 命中时并入专家包工具白名单与系统提示;
+    # off = 不分类、不发帧。值域不写 Literal:写错值只该回落默认档并留日志,不该 422 掉整轮。
+    expert_auto_route: str | None = Field(
+        None, description="意图自动路由专家包:'off'/'hint'(默认)/'auto'"
     )
 
 
@@ -3392,6 +3481,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         messages.insert(0, {"role": "system", "content": _ac_block})
         except Exception as _ac_err:  # 静默降级,绝不阻塞主聊天
             logger.warning("auto_context inject skipped: %s", _ac_err)
+    # D09(2026-10-24 立):发送前轻量意图分类 → 专家包。规则分类纯函数、零 LLM、零 IO。
+    # 默认 hint 档只发交代帧,不改 tools/messages;auto 档才追加系统提示(工具白名单在 gen()
+    # 内按同一 decision 并入,位置在 chat_mode 过滤之前)。off 档连分类都不做。
+    _expert_route = _plan_expert_route(_last_user_text(messages), req.expert_auto_route)
+    messages = _append_system_note(messages, _expert_system_hint(_expert_route))
     # D34(2026-09-22,G-40):把"本轮到底给模型注入了什么"交代成帧,在 gen() 首帧前发出。
     # 判定只复用注入器既有的去重 marker 与请求字段,不给任何注入器加新状态:
     # 手动 wiki `<!-- repo_wiki:{repo} -->` / 自动 wiki `<!-- repo-wiki-auto -->` /
@@ -3457,6 +3551,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 "count": auto_context_hits,
             }
         )
+    # D09:意图自动路由的交代帧(未命中/off 档 = None ⇒ 不发空帧,与 D34 口径一致)。
+    _expert_frame = _expert_frame_payload(_expert_route)
+    if _expert_frame:
+        injection_frames.append(_expert_frame)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
@@ -3708,6 +3806,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 # READONLY_TOOLS 交集(与 AgentLoopV2 plan 档同源同语义)。
                 # 必须在 augment 之后过滤:服务端自主补全的浏览器/电脑控制族同样受约束。
                 # ask 模式上游 if 已置 None(不进 tool loop),无需再过滤。
+                # D09:专家包工具白名单并入放在**过滤之前** —— auto 档加进来的写类工具
+                # 同样受 (mode × permission_mode) 收窄,不能绕过 plan/review 的只读承诺。
+                agent_tools = _merge_expert_tools(_expert_route, agent_tools)
                 agent_tools = _filter_agent_tools_for_chat_mode(
                     chat_mode, agent_tools, req.permission_mode
                 )
@@ -5261,9 +5362,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "phase": evt.get("phase", ""),
                                         "timestamp": datetime.now(UTC).isoformat(),
                                     }
-                                    for _fk in ("iteration", "tool", "ok", "output_preview"):
+                                    for _fk in (
+                                        "iteration", "tool", "ok", "output_preview",
+                                        # D08②:换手消息字段 —— 复用 subagent_progress 帧下发。
+                                        "kind", "summary", "token_usage", "ts",
+                                    ):
                                         if _fk in evt:
                                             _sse_evt[_fk] = evt[_fk]
+                                    # agent_id 以本流真实子代理实例 id 为准(mcp 层只有角色名)。
+                                    if "kind" in _sse_evt:
+                                        _sse_evt["agent_id"] = _sa_id
                                     if _agent_name:
                                         _sse_evt["agentName"] = _agent_name
                                     _progress_queue.put_nowait(_sse_evt)
@@ -5445,23 +5553,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # 重复调用分支(dedup)不发 end 事件:subagent 在首次调用时已发过 spawn+end,
                             # 重复调用只是 LLM 决策被去重跳过,不应重复触发前端生命周期展示。
                             if tool_name == "dispatch_subagent" and _spawned_sub_ids:
-                                _sa_status = "done" if ok else "failed"
-                                _sa_error_msg = None
-                                if not ok:
-                                    # 2026-08-02 补充默认错误信息:当 error/message 都为空时,
-                                    # 前端 markSubagentEnd 会显示"执行失败"(无原因),用户无法排查
-                                    _sa_error_msg = exec_result.get("error") or exec_result.get("message") or "subagent 执行失败(无详细错误信息)"
                                 _end_now = datetime.now(UTC).isoformat()
                                 for _sa_id in _spawned_sub_ids:
-                                    _end_evt = {
-                                        "type": "subagent_end",
-                                        "id": _sa_id,
-                                        "status": _sa_status,
-                                        "timestamp": _end_now,
-                                    }
-                                    if _sa_error_msg:
-                                        _end_evt["failureReason"] = str(_sa_error_msg)[:500]
-                                    yield _sse(SSE_SUBAGENT_END, _end_evt)
+                                    # D08②:完成/受阻/求助换手消息与结束帧**同帧**下发
+                                    # (复用 subagent_end,不新造帧;失败原因默认文案在 helper 内保留)。
+                                    yield _sse(
+                                        SSE_SUBAGENT_END,
+                                        _build_subagent_end_event(
+                                            _sa_id, ok, exec_result, ts=_end_now
+                                        ),
+                                    )
 
                             # 回灌工具结果(失败时显式标注,防止 LLM 幻觉"已完成")
                             result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
@@ -7312,6 +7413,19 @@ async def gemini_stream_generate_content_endpoint(
         kwargs["top_p"] = payload["generationConfig"]["topP"]
 
     return _gemini_streaming_response(messages, model_name, kwargs, request)
+
+
+@router.get("/llm/expert-route", response_model=None)
+async def get_expert_route_mode() -> dict[str, Any]:
+    """D09(2026-10-24 立)设置项只读镜像:部署侧意图路由档位 + 是否被 env 硬关。
+
+    web 设置页据此把 ``expert_auto_route`` 选择项置灰并说明原因 —— 部署方用
+    ``IHUI_EXPERT_AUTO_ROUTE=off`` 钉死时,请求字段一概被 ``resolve_mode`` 丢弃,
+    界面上再让用户拨档就是谎报可改。只回档位与布尔,不摊开 env(最小暴露面,
+    也不把部署配置变成客户端可探测的清单)。
+    """
+    mode = _resolve_expert_route_mode(None)
+    return _wrap_ok({"mode": mode, "envLocked": mode == "off"})
 
 
 @router.get("/llm/free-providers", response_model=None)

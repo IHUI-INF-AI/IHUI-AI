@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { TextField } from '@ihui/rn-app'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import Empty from '../components/common/Empty'
 import { appAlert } from '../components/BottomPops'
 import {
   createKnowledgeSpace,
@@ -284,12 +285,12 @@ export function TeamKnowledgeScreen() {
               placeholderTextColor={tokens.text.tertiary}
               autoCapitalize="none"
               autoCorrect={false}
-              className="mr-2 h-9 flex-1 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+              className="mr-2 h-9 flex-1 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100 min-h-[44px]"
             />
             <TouchableOpacity
               disabled={loading}
               onPress={onSearch}
-              className="mr-2 rounded-sm bg-neutral-900 px-3 py-2 dark:bg-neutral-100"
+              className="mr-2 rounded-sm bg-neutral-900 px-3 py-2 dark:bg-neutral-100 min-h-[44px]"
             >
               <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                 {t('teamKnowledge.searchBtn')}
@@ -297,7 +298,7 @@ export function TeamKnowledgeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setSpaceForm((v) => !v)}
-              className="rounded-sm border border-neutral-300 px-3 py-2 dark:border-neutral-700"
+              className="rounded-sm border border-neutral-300 px-3 py-2 dark:border-neutral-700 min-h-[44px]"
             >
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                 {t('teamKnowledge.newSpaceBtn')}
@@ -317,7 +318,7 @@ export function TeamKnowledgeScreen() {
               onChangeText={setSpaceName}
               placeholder={t('teamKnowledge.spaceNamePlaceholder')}
               placeholderTextColor={tokens.text.tertiary}
-              className="mt-2 h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+              className="mt-2 h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100 min-h-[44px]"
             />
             <View className="mt-2 flex-row items-center">
               {(['team', 'restricted'] as const).map((v) => {
@@ -326,7 +327,7 @@ export function TeamKnowledgeScreen() {
                   <TouchableOpacity
                     key={v}
                     onPress={() => setRestricted(v === 'restricted')}
-                    className={`mr-2 rounded-sm px-3 py-1.5 ${
+                    className={`mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
                       active
                         ? 'bg-neutral-900 dark:bg-neutral-100'
                         : 'bg-neutral-200 dark:bg-neutral-800'
@@ -349,7 +350,7 @@ export function TeamKnowledgeScreen() {
               <TouchableOpacity
                 disabled={saving}
                 onPress={onCreateSpace}
-                className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100 min-h-[44px]"
               >
                 <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                   {t('teamKnowledge.saveBtn')}
@@ -357,7 +358,7 @@ export function TeamKnowledgeScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setSpaceForm(false)}
-                className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
               >
                 <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                   {t('teamKnowledge.cancelBtn')}
@@ -369,7 +370,11 @@ export function TeamKnowledgeScreen() {
 
         {error ? (
           <View className="mt-3 px-4">
-            <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
+            <Empty
+              text={error}
+              actionText={t('common.retry')}
+              onAction={() => void load(teamId)}
+            />
           </View>
         ) : null}
 
@@ -379,11 +384,11 @@ export function TeamKnowledgeScreen() {
           </Text>
           {loading && spaces.length === 0 ? (
             <View className="items-center py-8">
-              <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
+              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
             </View>
           ) : spaces.length === 0 ? (
             <View className="items-center py-8">
-              <Text className="text-sm text-neutral-500">{t('teamKnowledge.emptySpaces')}</Text>
+              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('teamKnowledge.emptySpaces')}</Text>
             </View>
           ) : (
             <View className="mt-2 flex-row flex-wrap">
@@ -393,7 +398,7 @@ export function TeamKnowledgeScreen() {
                   <TouchableOpacity
                     key={space.id}
                     onPress={() => onPickSpace(space)}
-                    className={`mb-2 mr-2 rounded-xl border px-3 py-2 ${
+                    className={`mb-2 mr-2 rounded-md border px-3 py-2 min-h-[44px] ${
                       active
                         ? 'border-neutral-900 bg-white dark:border-neutral-100 dark:bg-neutral-900'
                         : 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900'
@@ -402,7 +407,7 @@ export function TeamKnowledgeScreen() {
                     <Text className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                       {space.name}
                     </Text>
-                    <Text className="mt-0.5 text-xs text-neutral-500">
+                    <Text className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
                       {roleLabel(t, space.myRole)}
                       {' · '}
                       {t(
@@ -424,7 +429,7 @@ export function TeamKnowledgeScreen() {
               {t('teamKnowledge.membersTitle')}
             </Text>
             {members.length === 0 ? (
-              <Text className="mt-1 text-xs text-neutral-500">
+              <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                 {t('teamKnowledge.emptyMembers')}
               </Text>
             ) : (
@@ -460,7 +465,7 @@ export function TeamKnowledgeScreen() {
                   <TouchableOpacity
                     key={k || 'all'}
                     onPress={() => onPickKind(k)}
-                    className={`mb-2 mr-2 rounded-sm px-3 py-1.5 ${
+                    className={`mb-2 mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
                       active
                         ? 'bg-neutral-900 dark:bg-neutral-100'
                         : 'bg-neutral-200 dark:bg-neutral-800'
@@ -484,7 +489,7 @@ export function TeamKnowledgeScreen() {
                   onChangeText={setItemTitle}
                   placeholder={t('teamKnowledge.titlePlaceholder')}
                   placeholderTextColor={tokens.text.tertiary}
-                  className="h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+                  className="h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100 min-h-[44px]"
                 />
                 <TextField
                   colorScheme={resolvedTheme}
@@ -499,7 +504,7 @@ export function TeamKnowledgeScreen() {
                   <TouchableOpacity
                     disabled={saving}
                     onPress={onCreateItem}
-                    className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                    className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100 min-h-[44px]"
                   >
                     <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                       {t('teamKnowledge.saveBtn')}
@@ -507,7 +512,7 @@ export function TeamKnowledgeScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setItemForm(false)}
-                    className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                    className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
                   >
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {t('teamKnowledge.cancelBtn')}
@@ -519,7 +524,7 @@ export function TeamKnowledgeScreen() {
 
             {items.length === 0 ? (
               <View className="items-center py-8">
-                <Text className="text-sm text-neutral-500">{t('teamKnowledge.emptyItems')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('teamKnowledge.emptyItems')}</Text>
               </View>
             ) : (
               items.map((item) => (
@@ -531,7 +536,7 @@ export function TeamKnowledgeScreen() {
                     <Text className="flex-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                       {item.title}
                     </Text>
-                    <Text className="text-xs text-neutral-500">{statusLabel(t, item.status)}</Text>
+                    <Text className="text-xs text-neutral-500 dark:text-neutral-400">{statusLabel(t, item.status)}</Text>
                   </View>
                   {item.plainText ? (
                     <Text
@@ -541,7 +546,7 @@ export function TeamKnowledgeScreen() {
                       {item.plainText}
                     </Text>
                   ) : null}
-                  <Text className="mt-1 text-xs text-neutral-500">
+                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {kindLabel(t, item.kind)}
                     {' · '}v{item.revision}
                   </Text>
@@ -549,7 +554,7 @@ export function TeamKnowledgeScreen() {
                     <TouchableOpacity
                       disabled={busyId === item.id || item.status === 'published'}
                       onPress={() => onSetStatus(item, 'published')}
-                      className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                      className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100 min-h-[44px]"
                     >
                       <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                         {t('teamKnowledge.publishBtn')}
@@ -558,7 +563,7 @@ export function TeamKnowledgeScreen() {
                     <TouchableOpacity
                       disabled={busyId === item.id || item.status === 'archived'}
                       onPress={() => onSetStatus(item, 'archived')}
-                      className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                      className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
                     >
                       <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                         {t('teamKnowledge.archiveBtn')}
