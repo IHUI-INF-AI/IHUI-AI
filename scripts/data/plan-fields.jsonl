@@ -150,16 +150,16 @@
 {"key":"H02#承G-427第②步","waiting":"human","updatedAt":"2026-10-25T10:35:33.192Z","updatedBy":"plan-fields-extract"}
 {"key":"G-76#生产备份链日志的写入侧编码要改成UTF-8","owner":"机主处置隧道","waiting":"none","updatedAt":"2026-10-25T10:35:33.194Z","updatedBy":"plan-fields-extract"}
 {"key":"G-65#小程序/Web缺图的来源问题今天有了终判","waiting":"env","blocking":"等用户","updatedAt":"2026-10-25T10:35:33.194Z","updatedBy":"plan-fields-extract"}
-{"key": "自进化#不可变护栏:对 guardian-runner", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#成本熔断:在 IHUI-DEPLOYLOOP", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#影响面隔离与原子回滚", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#人工阀清单:明确 AI 可自决范围", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#需求/异常自动发现器", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#端到端反馈闭环", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#E2E 自动补测", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#金丝雀发布", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#自治决策模型", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#经验自动提炼", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#守门规则自生长", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#可审计决策链", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
-{"key": "自进化#安全停机而非硬失败", "owner": "自进化", "waiting": "none", "updatedAt": "2026-10-25T18:30:00.000Z", "updatedBy": "plan-fields-extract"}
+{"key":"O6501#不可变护栏","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6502#成本熔断","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6503#影响面隔离与原子回滚","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6504#人工阀清单","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6505#需求/异常自动发现器","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6506#端到端反馈闭环","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6507#E2E自动补测","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6508#金丝雀发布","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6509#自治决策模型","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6510#经验自动提炼","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6511#守门规则自生长","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6512#可审计决策链","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
+{"key":"O6513#安全停机而非硬失败","owner":"自进化","waiting":"none","updatedAt":"2026-10-25T11:11:30.484Z","updatedBy":"o65-numbering"}
