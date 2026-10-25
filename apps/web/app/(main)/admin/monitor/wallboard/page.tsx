@@ -180,7 +180,6 @@ interface BusinessSnapshot {
   llmTopModels: Array<{ model: string; calls: number }>
   /** 签到快照:后端取不到时为 null(渲染"—"),老版本后端无此字段(undefined 同样走"—") */
   signIn?: SignInSnapshot | null
-<<<<<<< HEAD
   /** 近 14 日每日新增用户(上海日界,含今天);后端查询失败或老后端无此字段 ⇒ null/undefined */
   userGrowth?: Array<{ date: string; count: number }> | null
   /** 用户构成(与 usersTotal 同一次查询的即时计数;老后端无这些字段 ⇒ undefined ⇒ 渲染"—") */
@@ -192,8 +191,6 @@ interface BusinessSnapshot {
   usersByLevel?: [number, number, number, number]
   /** 近 7 日签到去重用户数(留存近似);查询失败为 null */
   activeUsers7d?: number | null
-=======
->>>>>>> origin/main
 }
 
 interface TrafficSnapshot {
@@ -225,7 +222,12 @@ interface RelayPoolSnapshot {
   /** Key 健康四态计数(unknown/healthy/degraded/down;老后端无此字段 ⇒ undefined) */
   keyHealth?: { unknown: number; healthy: number; degraded: number; down: number } | null
   /** 按 provider 分组的 Key 分布 */
-  keyByProvider?: Array<{ provider: string; total: number; schedulable: number; abnormal: number }> | null
+  keyByProvider?: Array<{
+    provider: string
+    total: number
+    schedulable: number
+    abnormal: number
+  }> | null
   /** 按 provider 分组的账号池分布 */
   accountByProvider?: Array<{ provider: string; total: number; schedulable: number }> | null
   /** 余额 < 5 元且非无限的 Key 条数(余额预警) */
@@ -1216,6 +1218,44 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     }
   }, [biz?.signIn?.last7d, isDark, t, locale])
 
+  // 近 14 日每日新增用户:纯柱形,横轴只留 MM-DD(14 根太密 ⇒ 标签间隔 2),柱顶不标数字
+  const userGrowthOption = React.useMemo<EChartsOption>(() => {
+    const rows = biz?.userGrowth ?? []
+    return {
+      grid: { left: 4, right: 4, top: 12, bottom: 2, containLabel: true },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
+      },
+      xAxis: {
+        type: 'category',
+        data: rows.map((r) => r.date.slice(5)),
+        ...AXIS(isDark),
+        axisLabel: { color: chartText(isDark), fontSize: 9, interval: 2 },
+      },
+      yAxis: {
+        type: 'value',
+        ...AXIS(isDark),
+        splitLine: { show: false },
+        axisLabel: { show: false },
+      },
+      series: [
+        {
+          type: 'bar',
+          data: rows.map((r) => r.count),
+          barWidth: 6,
+          tooltip: {
+            valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitUser')}`,
+          },
+          itemStyle: { borderRadius: [3, 3, 0, 0], color: withAlpha(CHART_CYAN, 0.85) },
+          label: { show: false },
+        },
+      ],
+    }
+  }, [biz?.userGrowth, isDark, t, locale])
+
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
     const rows = edge?.series ?? []
@@ -2191,7 +2231,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <StatCell label={t('usersActive')} value={fmtInt(biz?.usersActive)} />
                 <StatCell label={t('usersNewToday')} value={fmtInt(biz?.usersTodayNew)} tone="ok" />
               </div>
-<<<<<<< HEAD
               {/* 用户构成(2026-10-25 机主要求"更多有用的数据"):VIP / 操盘手 / 邀请注册 /
                   近 7 日邀请 / 近 7 日活跃。全部与 usersTotal 同一次查询的 filter 计数 ⇒ 零额外开销;
                   老后端无这些字段 ⇒ 各自渲染"—"(§0.3 不把"没量到"写成 0)。 */}
@@ -2199,7 +2238,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <StatCell label={t('usersVip')} value={fmtInt(biz?.usersVip)} tone="accent" />
                 <StatCell label={t('usersTrader')} value={fmtInt(biz?.usersTrader)} />
                 <StatCell label={t('usersInvited')} value={fmtInt(biz?.usersInvited)} />
-                <StatCell label={t('usersInvited7d')} value={fmtInt(biz?.usersInvited7d)} tone="ok" />
+                <StatCell
+                  label={t('usersInvited7d')}
+                  value={fmtInt(biz?.usersInvited7d)}
+                  tone="ok"
+                />
                 <StatCell
                   label={t('activeUsers7d')}
                   value={fmtInt(biz?.activeUsers7d)}
@@ -2212,8 +2255,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {t('levelDistTitle')}:{' '}
                 <span className="wb-num whitespace-nowrap">
                   {t('level0')} {fmtInt(biz?.usersByLevel?.[0])} · {t('level1')}{' '}
-                  {fmtInt(biz?.usersByLevel?.[1])} · {t('level2')} {fmtInt(biz?.usersByLevel?.[2])} ·{' '}
-                  {t('level3')} {fmtInt(biz?.usersByLevel?.[3])}
+                  {fmtInt(biz?.usersByLevel?.[1])} · {t('level2')} {fmtInt(biz?.usersByLevel?.[2])}{' '}
+                  · {t('level3')} {fmtInt(biz?.usersByLevel?.[3])}
                 </span>
               </div>
               {/* 用户增长:近 14 日每日新增(上海日界,与上面「今日新增」同口径)。
@@ -2222,13 +2265,16 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <div className="mb-0.5 text-[9px] tracking-[0.12em] text-muted-foreground">
                   {t('userGrowth14d')}
                 </div>
-                <EChart option={userGrowthOption} height={62} merge ariaLabel={t('userGrowth14d')} />
+                <EChart
+                  option={userGrowthOption}
+                  height={62}
+                  merge
+                  ariaLabel={t('userGrowth14d')}
+                />
                 {!biz?.userGrowth || biz.userGrowth.length === 0 ? (
                   <ChartEmpty text={t('sourceUnreachable')} />
                 ) : null}
               </div>
-=======
->>>>>>> origin/main
               {/* 签到:数据来自 sign_in_records(与积分体系同源);取不到 ⇒ 各格渲染"—",不写 0 */}
               <div className="mt-2">
                 <div className="mb-1.5 flex items-center gap-2 text-[10px] tracking-[0.14em] text-muted-foreground">
