@@ -1,0 +1,28 @@
+{
+  "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
+  "version": 1,
+  "sealedAt": "2026-10-25T12:52:15.622Z",
+  "sealedBy": "root-guard --seal",
+  "reason": "初始封存(O65 P0 落地)",
+  "targets": [
+    {
+      "id": "guardian-runner",
+      "path": "scripts/guardian-runner.mjs",
+      "mode": "file",
+      "sha256": "11063fe119b01f95dfb6d84ca1ae6291f064c7b20797313be98f0a43ce554137"
+    },
+    {
+      "id": "judgement-libs",
+      "path": "scripts/lib/judgement-libs.json",
+      "mode": "file",
+      "sha256": "ba32b8680c403c61bfbd9955ba3171d437e60183d064f73b40448f411872c9c1"
+    },
+    {
+      "id": "agents-ironlaw",
+      "path": "AGENTS.md",
+      "mode": "section",
+      "start": "## 0. 全局铁律",
+      "sha256": "4eb3bf17d04f940815ec0c4adba52b1d8e66cb49520900aaf33f824058a08d9d"
+    }
+  ]
+}

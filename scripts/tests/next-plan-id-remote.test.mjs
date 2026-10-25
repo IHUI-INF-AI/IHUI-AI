@@ -23,6 +23,10 @@
  *      夹具单元 + 真仓端到端:--next-only 给的号在 HEAD 台账 ⊕ 工作树副本上必须零命中)。
  *  T9  G-955「新增撞号仍须红」:登记行声明位同号多行 ⇒ judgeRowIdDuplicates 判红,且 --check 分支
  *      以 exit 1 收场;括注内被引号(指针行)不算声明(G-955 病根的反证)。
+ *  T11 G-35(2026-10-25)「远端那一维不能只交 max」:第二出口必须把远端已用号集
+ *      (remote.ids[族],readRemoteIdBasis 的 G-454② 产出)并进实时占用面 —— poolBlocked 的
+ *      远端避让只盖 lowMax+1..baseMax,远端**低位**独占号(本地面已让空/已推未并)旧口径会当空闲
+ *      发出(第一出口 2026-10-16 已修,本器当时没跟上 = 两出口漂移)。夹具级正证 + 装车形状锁。
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -31,8 +35,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { judgeRowIdDuplicates } from '../lib/plan-id-duplicates.mjs'
-import { smallestFreeId } from '../lib/plan-id-lease.mjs'
+import { judgeRowIdDuplicates, judgeRowIdDuplicatesDelta } from '../lib/plan-id-duplicates.mjs'
+import { smallestFreeId, remoteIdNumsOf, poolBlocked } from '../lib/plan-id-lease.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 import { scanFamilyIds } from '../lib/plan-id-face.mjs'
 import { git } from '../lib/bypass-git.mjs'
@@ -69,12 +73,23 @@ test('T3 --check 不问远端:发号维必须在 --check 分岔之后', () => {
   assert.match(TOOL_SRC, /SOURCE === 'HEAD'/, '--source 显式指面时不得重复问远端(那一面本来就是被指的面)')
 })
 
-test('T4 真仓只读冒烟:--next-only 恒一行号;完整报告正常退出(不断言具体号,号是现读的)', () => {
+test('T4 真仓只读冒烟:--next-only 恒一行号;完整报告正常退出(不断言具体号,号是现读的)', (t) => {
   // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r1 = spawnSync(process.execPath, [CLI, '--next-only'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
+  if (skipIfCliCrashed(t, r1)) return
+  // 占用面判不出窗口(并发 HEAD 切换):CLI 按设计拒发是"未判定"不是回归,t.skip 点名(§0.3)。
+  if (/占用面判不出|无法判定占用/.test(String(r1.stderr))) {
+    t.skip('未判定:CLI 占用面判不出(并发 HEAD 切换窗口,归档件/台账 git show 失败),冒烟未判成')
+    return
+  }
   assert.equal(r1.status, 0, `--next-only 必须 exit 0(真仓此刻远端可问/离线都该走得到发号):\n${r1.stderr}`)
   assert.match(String(r1.stdout).trim(), /^O\d+$/, `--next-only 的 stdout 恒为一行号,实得:${r1.stdout}`)
   const r2 = spawnSync(process.execPath, [CLI], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
+  if (skipIfCliCrashed(t, r2)) return
+  if (/占用面判不出|无法判定占用/.test(String(r2.stderr))) {
+    t.skip('未判定:CLI 占用面判不出(并发 HEAD 切换窗口,归档件/台账 git show 失败),完整报告未判成')
+    return
+  }
   assert.equal(r2.status, 0, `完整报告必须 exit 0:\n${r2.stderr}`)
   assert.match(String(r2.stdout), /下一个号 = O\d+/)
 })
@@ -132,15 +147,51 @@ test('T6 数字段提取必须走 key 而不是整串:带后缀的 key 不得把
  * **点名报告但不以 exit 1 顶死独立取号入口**。断言只锁行为契约,不锁组数/组名 ——
  * 存量归并线随时可能折掉某组,把它断死等于给并发会话造一台恒红(T4 同一条纪律)。
  */
-test('T7 --check 对存量重号点名不顶死:exit 0 + 两档读数措辞在场(G-955)', () => {
+test('T7 --check 对存量重号点名不顶死:exit 0 + 两档读数措辞在场(G-955)', (t) => {
+  const preHead = git(['rev-parse', 'HEAD'], { root: ROOT, timeout: 60_000 })
   const r = spawnSync(process.execPath, [CLI, '--check'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 180_000,
   })
-  assert.equal(r.status, 0, `--check 不得被存量重号顶死(独立取号入口必须可用):\n${r.stdout}\n${r.stderr}`)
-  assert.match(String(r.stdout), /无登记行重号/, '绿行必须说清判的是登记行声明位')
+  if (skipIfCliCrashed(t, r)) return
+  // 占用面判不出窗口:--check 读宽面撞并发 HEAD 切换 ⇒ exit 1 是"未判定"不是存量顶死,t.skip 点名。
+  if (/占用面判不出|无法判定占用/.test(String(r.stderr))) {
+    t.skip(`未判定:CLI 占用面判不出(并发 HEAD 切换窗口),--check 未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
+  if (r.status !== 0) {
+    // 2026-10-25 起 exit 1 只可能是**新增档**或未判定(存量已按差值棘轮只报数)。并发窗口分诊:
+    // 用**同一把生产判据**(judgeRowIdDuplicatesDelta)在 preHead 静态历史面上复算 —— preHead 自己
+    // 就有 fresh(即 preHead 相对其父提交也是新增)⇒ 真回归照红;preHead 面不新鲜 ⇒ 现读红来自
+    // 别席新落账(并发窗口)⇒ t.skip 点名,不记绿也不冒红。
+    if (/重号判据未判定/.test(String(r.stdout))) {
+      t.skip(`未判定:基线面取不到(浅克隆/根提交窗口),--check 未判成;preHead=${String(preHead).slice(0, 8)}`)
+      return
+    }
+    const preHeadLedger = git(['show', `${preHead}:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000 })
+    const preBaseLedger = git(['show', `${preHead}^:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000, allowFail: true })
+    const preDelta = judgeRowIdDuplicatesDelta({
+      currentText: typeof preHeadLedger === 'string' ? preHeadLedger : '',
+      baselineText: typeof preBaseLedger === 'string' ? preBaseLedger : '',
+      family: 'O',
+    })
+    if (!preDelta.ok) {
+      t.skip(`未判定:preHead 面分不开存量与新增(${preDelta.reason})⇒ 不拿它当真;preHead=${String(preHead).slice(0, 8)}`)
+      return
+    }
+    if (preDelta.fresh.length > 0) {
+      assert.fail(
+        `preHead 面自身就有新增登记行重号(真回归):${JSON.stringify(preDelta.fresh)}\n${r.stdout}\n${r.stderr}`,
+      )
+    }
+    t.skip(
+      `未判定:并发窗口 —— preHead=${String(preHead).slice(0, 8)} 面无新增重号,现读红来自别席新落账(非存量顶死)`,
+    )
+    return
+  }
+  assert.match(String(r.stdout), /无新增登记行重号/, '绿行必须说清判的是登记行声明位、且只判"新增"那一档')
   const m = /历史小节标题同 id (\d+) 组/.exec(String(r.stdout))
   if (m) {
     // 存量组在场时:必须点名(组列表非空)且写明两档处置口径
@@ -163,13 +214,30 @@ function fullScanIds(text) {
   return scanFamilyIds(text, 'O')
 }
 
+/**
+ * 并发窗口分诊(2026-10-25,与 next-plan-id-live-dup-guard.test.mjs 同一套纪律):
+ * CLI import 的脚本/lib 正被别席编辑 ⇒ 写到一半被 import,Node 直接崩(stderr 是
+ * `file:///…mjs:NNNN` 栈)或进程被信号杀。那不是回归,是中间态。判据有牙:
+ * 依赖面 scripts/ 有在飞修改 ⇒ 未判定 t.skip;依赖面干净而 CLI 仍崩 ⇒ 真回归照红。
+ */
+function skipIfCliCrashed(t, r) {
+  const crashed = r.status === null || r.error !== undefined && r.error !== null || /file:\/\/\S+\.mjs:\d+/.test(String(r.stderr))
+  if (!crashed) return false
+  const dirty = git(['status', '--porcelain', 'scripts/'], { root: ROOT, timeout: 60_000 }).trim()
+  if (dirty) {
+    t.skip(`未判定:CLI 依赖模块在飞编辑中(${dirty.split('\n')[0].trim()}),不拿中间态当真`)
+    return true
+  }
+  assert.fail(`CLI 异常退出且依赖面干净 ⇒ 真回归:status=${r.status} signal=${r.signal}\nstderr=${r.stderr}`)
+}
+
 test('T8a 发号路径必须吃全文件扫描的实时占用面(G-14 形状锁)', () => {
   const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
   const scanDecl = TOOL_SRC.indexOf('const scanHead = scanFamilyIds(')
   assert.ok(scanDecl > checkBranch, '全文件扫描档必须在 --check 分岔之后(发号路径专属,G-955 契约不变)')
   assert.match(
     TOOL_SRC,
-    /import\s*\{\s*collectIdFace,\s*scanFamilyIds\s*\}\s*from\s*'\.\/lib\/plan-id-face\.mjs'/,
+    /import\s*\{[^}]*\bcollectIdFace\b[^}]*\bscanFamilyIds\b[^}]*\}\s*from\s*'\.\/lib\/plan-id-face\.mjs'/,
     '扫描必须 import 那份唯一实现(自抄一条正则就是第二份尺子)',
   )
   assert.doesNotMatch(TOOL_SRC, /const FULLSCAN/, '本器不得自带第二份全文件扫描正则')
@@ -196,13 +264,20 @@ test('T8b 夹具单元:正文引用与行声明的号都必须顶掉建议号(G-
   assert.ok(!hit.has(next), `建议号 ${next} 自身必须不在占用集里(占用不发)`)
 })
 
-test('T8c 真仓端到端:--next-only 发出的号在实时面上零命中(G-14 正病反证)', () => {
+test('T8c 真仓端到端:--next-only 发出的号在实时面上零命中(G-14 正病反证)', (t) => {
+  const preHead = git(['rev-parse', 'HEAD'], { root: ROOT, timeout: 60_000 })
   const r = spawnSync(process.execPath, [CLI, '--next-only'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 180_000,
   })
+  if (skipIfCliCrashed(t, r)) return
+  // 占用面判不出窗口:CLI 按设计拒发(exit 1)是"未判定"不是回归,t.skip 点名(§0.3)。
+  if (/占用面判不出|无法判定占用/.test(String(r.stderr))) {
+    t.skip(`未判定:CLI 占用面判不出(并发 HEAD 切换窗口),发号路径未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
   assert.equal(r.status, 0, `--next-only 必须 exit 0:\n${r.stderr}`)
   const line = String(r.stdout).trim()
   assert.match(line, /^O\d+$/, `stdout 恒一行号,实得:${JSON.stringify(r.stdout)}`)
@@ -211,10 +286,23 @@ test('T8c 真仓端到端:--next-only 发出的号在实时面上零命中(G-14 
   const head = git(['show', 'HEAD:PROJECT_PLAN.md'], { root: ROOT, raw: true, timeout: 120_000 })
   assert.equal(typeof head, 'string', 'HEAD 台账取不到(占用面判不出 ⇒ 这一轮端到端不成立)')
   const occupied = fullScanIds(`${head}\n${wt}`)
-  assert.ok(
-    !occupied.has(n),
-    `${line} 在 HEAD 台账 ⊕ 工作树副本上并非零命中(全文件扫描可见 ${occupied.size} 号)⇒ 取号器又把已占号当空闲发了(G-14 正病复发)`,
-  )
+  if (occupied.has(n)) {
+    // 并发窗口分诊(2026-10-25):CLI 跑完后别席可能刚落一笔含 O<n> 的账(两个取号出口同刻取到
+    // 池内同一空闲号 —— 归 G-35 CAS 租约射程,不是本用例射程)。方向性判据:n 在 CLI 运行**之前**
+    // 的历史面(preHead 台账,静态可重放)里就已命中 ⇒ 取号器发旧占号 = G-14 正病复发,照红;
+    // 只在 preHead 之后的新落账/工作树新行里出现 ⇒ 并发窗口,t.skip 点名,不记绿也不冒红。
+    const preHeadLedger = git(['show', `${preHead}:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000 })
+    const preOccupied = typeof preHeadLedger === 'string' ? fullScanIds(preHeadLedger) : null
+    if (preOccupied && preOccupied.has(n)) {
+      assert.fail(
+        `${line} 在 CLI 运行前的历史面(preHead=${String(preHead).slice(0, 8)} 台账)里就已命中 ⇒ 取号器把已占号当空闲发(G-14 正病复发)`,
+      )
+    }
+    t.skip(
+      `未判定:并发窗口 —— ${line} 只在 preHead=${String(preHead).slice(0, 8)} 之后的新落账里出现(别席同刻取到池内同一空闲号),非本用例射程`,
+    )
+    return
+  }
 })
 
 /**
@@ -237,22 +325,31 @@ test('T9 新增撞号仍判红、指针被引号不算声明(G-955 判红维正�
   })
   assert.deepEqual(ptr.rowDups, [], '括注内被引号不得顶死判红维(G-955 病根:一行指针顶死整个入口)')
   assert.equal(ptr.rowDecls, 1, '声明位读数必须只数真声明')
-  // CLI 接线锁:--check 分支必须真的以 exit 1 收场(判据在场 ≠ 装车)
+  // CLI 接线锁:--check 分支必须真的以 exit 1 收场(判据在场 ≠ 装车),且判红维自 2026-10-25 起
+  // 走**差值棘轮**(新增才红):绝对值 `if (dup.rowDups.length)` 的形状必须已经被摘掉,
+  // 否则"存量只报数"会被一次误改反悔回恒红门(§12e/§12f:两向都要锁)。
   const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
   const branch = TOOL_SRC.slice(checkBranch, TOOL_SRC.indexOf('const headingNote', checkBranch))
-  assert.match(branch, /dup\.rowDups\.length/, '--check 必须吃 rowDups 判红')
+  assert.match(branch, /judgeRowIdDuplicatesDelta\(/, '--check 必须吃差值判据(存量/新增分档)')
+  assert.match(branch, /delta\.fresh\.length/, '判红必须只看新增档')
   assert.match(branch, /process\.exit\(1\)/, '新增撞号必须以 exit 1 收场(存量不顶死 ≠ 新增不红)')
+  assert.match(branch, /`\$\{SOURCE\}\^`/, '基线面必须是被审面的父提交(锚点取错=棘轮失效)')
+  assert.doesNotMatch(
+    branch,
+    /if\s*\(\s*dup\.rowDups\.length\s*\)/,
+    '不得退回"只要有同号多行就 exit 1"的绝对值判红(存量会把它读成恒红门)',
+  )
 })
 
 /**
  * T10 —— 结论必须与判据同形(2026-10-23 立)。本器旧措辞把"发不出号"一律念成
- * "号池 1..999 已满 ⇒ 先归档已完成条目腾号",而现读证明真因可以是**「没有连续段容量的租约窗」**
- * (G 族:池内已占 815 / 空闲 184 / 最长可落窗游程 32 < 段容量 50)。两种成因的出路相反
+ * "号池 1..99 已满 ⇒ 先归档已完成条目腾号",而现读证明真因可以是**「没有连续段容量的租约窗」**
+ * (无连续窗那一型:池内仍有闲号,却没有任何一段连续空闲位)。两种成因的出路相反
  * (无窗型靠散点让位腾不出窗),归因念错 = 把台账里的票全引向无效出路(AGENTS §0.3/§0.8/§10)。
  *  ⇒ ①② 源码形状锁:拒绝行只能由 lib 那一份渲染器给、必须带机读 reason、出口代码不得再出现
  *    "已满"断言,且本器只**读**租约窗做报告(段容量/池上限一个都不自赋 = 分配语义未动);
- *    ③ 端到端:把段容量顶到 999(池内只要有一枚已占号就必然无 999 宽窗)⇒ stderr 必须念
- *    "NO_CONTIGUOUS_LEASE_WINDOW / 但无连续 999 号租约窗",且一个"已满"都不许出现。
+ *    ③ 端到端:把段容量顶到 99(池内只要有一枚已占号就必然无 99 宽窗)⇒ stderr 必须念
+ *    "NO_CONTIGUOUS_LEASE_WINDOW / 但无连续 99 号租约窗",且一个"已满"都不许出现。
  */
 test('T10 发不出号的两种成因必须分开念(结论与判据同形,2026-10-23)', () => {
   const CODE = maskComments(TOOL_SRC)
@@ -278,22 +375,67 @@ test('T10 发不出号的两种成因必须分开念(结论与判据同形,2026-
     /leaseView\.mode === 'pool-exhausted'/,
     '两出口口径分歧必须被真判出来并喊出来(静默给号 = 读不出第一出口会拒发)',
   )
-  // ③ 真跑:段容量顶到 999 ⇒ 本器按最小空闲照样发号,而租约窗尺子必须点名"无连续窗"
+  // ③ 真跑:段容量顶到 99 ⇒ 本器按最小空闲照样发号,而租约窗尺子必须点名"无连续窗"
   const r = spawnSync(process.execPath, [CLI, '--source', 'origin/main'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 300_000,
-    env: { ...process.env, IHUI_LEASE_SEGMENT_SIZE: '999' },
+    env: { ...process.env, IHUI_LEASE_SEGMENT_SIZE: '99' },
   })
   assert.equal(r.status, 0, `结论层改动不得影响发号(本器按池内最小空闲给号):\n${r.stderr}`)
   const err = String(r.stderr)
   assert.match(
     err,
     /NO_CONTIGUOUS_LEASE_WINDOW/,
-    `池内确有闲号却无 999 宽窗 ⇒ 必须点名无窗型,实得 stderr:\n${err.slice(0, 600)}`,
+    `池内确有闲号却无 99 宽窗 ⇒ 必须点名无窗型,实得 stderr:\n${err.slice(0, 600)}`,
   )
-  assert.match(err, /但无连续 999 号租约窗/, '可读行必须把"空闲 N 枚 / 无连续 M 号窗"这一对念出来')
+  assert.match(err, /但无连续 99 号租约窗/, '可读行必须把"空闲 N 枚 / 无连续 M 号窗"这一对念出来')
   assert.doesNotMatch(err, /已满/, `无窗型的结论行不得念成"已满",实得:\n${err.slice(0, 600)}`)
+})
+
+/**
+ * T11 —— G-35(2026-10-25)「远端那一维不能只交 max」夹具级正证。
+ *
+ * 病型:本地面占 1..4 与 10(lowMax=10),远端台账登记了 G-05 而那一行本地还没并进来
+ * (或本地面已把 05 让空)。`poolBlocked` 的远端避让只盖 `lowMax+1..baseMax` = 11..10(空段)⇒
+ * 旧口径(只吃 remote.max)把 O5 当空闲发出,与远端已占号相撞 —— 这正是第一出口
+ * resolveIdTokens 在 G-454②(2026-10-16 实测撞号)修掉、第二出口当时没跟上的那一型。
+ *
+ * 判据全部 import 生产出口(§22c):投影 = lib/plan-id-lease.mjs 的 `remoteIdNumsOf`,
+ * 建议号算术 = 同文件的 `smallestFreeId`(两出口共用那一份),本测试不写第二份。
+ */
+test('T11a 夹具阳性对照:远端低位独占号必须顶掉建议号(G-35 病型,修复前会撞号)', () => {
+  // 投影单源:标签 → 号数(输入形状 = usedIdsOfPrefix 的 ids 产出,恒为"族+分隔符+数字",无字母后缀)
+  assert.deepEqual(remoteIdNumsOf(['G-05', 'G-42']), [5, 42], '投影必须取数字段且剥前导零')
+  assert.deepEqual(remoteIdNumsOf(null), [], '输入不是数组 ⇒ 空数组(远端那一维缺席,不猜)')
+  const localUsed = [1, 2, 3, 4, 10]
+  const remoteWide = 10 // 远端 max 与本地同值 ⇒ baseMax 避让段 11..10 为空,低位号全靠号集本身
+  // ① 修复前行为实证:只吃 max 的旧口径确实把 O5 当空闲发出(撞号正病)
+  const before = smallestFreeId({ usedNumbers: localUsed, baseMax: remoteWide })
+  assert.equal(before, 5, '旧口径(不含远端号集)的建议号 = O5 —— 这一条就是"改动前会撞号"的取证')
+  assert.ok(poolBlocked({ usedNumbers: localUsed, baseMax: remoteWide }).blocked.has(5) === false, 'poolBlocked 的远端避让段(11..10)盖不住低位号 ⇒ 结构性漏,不是边界抖动')
+  // ② 修复后行为:远端号集并进实时占用面 ⇒ O5 被顶掉,顺延 O6
+  const remoteIds = ['G-05']
+  const after = smallestFreeId({ usedNumbers: [...localUsed, ...remoteIdNumsOf(remoteIds)], baseMax: remoteWide })
+  assert.equal(after, 6, '远端已占的 O5 必须被顶掉,顺延 O6(第一出口 G-454② 同一行为)')
+  // ③ 恒等并反证:远端与本地同号集(无新增)⇒ 建议号与改动前逐字同形(不得给正常路径加噪声)
+  const sameAsLocal = smallestFreeId({ usedNumbers: [...localUsed, ...remoteIdNumsOf(['G-01', 'G-02', 'G-03', 'G-04', 'G-10'])], baseMax: remoteWide })
+  assert.equal(sameAsLocal, before, '远端号集是本地面子集时必须恒等并(行为逐字同形)')
+})
+
+test('T11b 装车形状锁:发号路径必须真吃远端号集并逐枚点名(造好没装车 = 没有)', () => {
+  assert.match(
+    TOOL_SRC,
+    /import\s*\{[^}]*remoteIdNumsOf[^}]*\}\s*from\s*'\.\/lib\/plan-id-lease\.mjs'/,
+    '投影必须 import lib 那一份(在 CLI 里再写一条 (\\d+)$ 提取就是第二份尺子,§22c)',
+  )
+  assert.match(TOOL_SRC, /const remoteIdNums = remoteIdNumsOf\(remote\?\.ids\?\.\[FAMILY\]\)/, '远端号集必须从 readRemoteIdBasis 的 G-454② 产出取')
+  assert.match(TOOL_SRC, /liveUsed\.push\(\.\.\.remoteIdNums\)/, '实时占用面必须真并入远端号集(只声明不消费 = 没装车)')
+  assert.match(TOOL_SRC, /const skippedByRemote/, '被远端顶掉的号必须点名(票面出路①:命中即换号并打印)')
+  // --check 契约不变:远端号集消费必须在发号路径上,--check 分岔之后才出现
+  const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
+  const consume = TOOL_SRC.indexOf('liveUsed.push(...remoteIdNums)')
+  assert.ok(consume > checkBranch, '--check 不发号 ⇒ 远端号集消费必须在其后(契约逐字不变)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

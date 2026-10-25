@@ -50,6 +50,24 @@
  * 仅人工逃生舱、两面旗同给 exit 2、取不到判「无法判定」且不回落、枚举到 0 个候选判死。
  * 取材必须走 `face-reader` 的**读取入口** `catBatch`(守门 118:引了层却自己 `git show`/读盘 = 半接线)。
  *
+ * 端内 barrel 漏出口(2026-10-25 补,票面「守门 149 对端内 barrel 整片失明」)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 原票面读数(149 的候选集按 workspace 包入口枚举、端内 barrel 不在面里)在 2026-09-28 那轮
+ * (6f1bae8410)已部分过期:barrel 族进来了,但它的 universe 只到**barrel 那一层目录**,
+ * 而票面的判据是"符号在**端内某实现文件**里真实存在、桶没递出" —— 跨目录引用这一格当时仍漏。
+ * 本轮补齐:
+ *   · **桶 vs 实现文件**:唯一判据 `isBarrelModule`(列 0 export 全部带 `from` ∧ 无本地声明)。
+ *     实现型 index.ts 不进这一族 —— 它漏的符号未必"该由这个文件递出"(票面的区分要求)。
+ *   · **universe**:端内纯桶改取**同端 `apps/<端>/src/**` 全树**(`buildAppUniverse` 单源,
+ *     `analyze` 与量算共用);其余 barrel 维持目录层。
+ *   · **`--report` 只读档**:端内桶全集 × 消费面 × 漏出口逐条清单,按"是否会让构建/运行时报
+ *     `Export … doesn't exist`"分档(可判定 / 类型档 / 归悬空门 98 / 未判定),**永远 exit 0**
+ *     (有存量也不改退出码 —— 它是"先量后判"的尺子,不是门)。
+ *   · **定级**:存量现读 0(以 `--report` 末行现读为准),已并入现有 `--staged` 差值棘轮
+ *     (锚点 = 该消费者文件 HEAD 自身命中的 `red` 数)⇒ 只拦本次新增;不新增 runner 注册条目。
+ *     阳性对照在镜像测试 T15(跨目录命中)与 T22(摘掉 universe 即漏报)里成对钉住。
+ *   · 与悬空导入(98)的分工:符号端内哪都没有 ⇒ `elsewhere` 档报名,本门不重复报。
+ *
  * 存量与棘轮
  * ─────────
  * 默认档(HEAD 全量)**只报数不判红** —— 与任何提交都无关的恒红门唯一结局是逼人 `--no-verify`,
@@ -63,6 +81,7 @@
  *   node scripts/check-package-barrel-export.mjs --strict     # 问责档(存量判红;有未判定 exit 2)
  *   node scripts/check-package-barrel-export.mjs --staged     # 提交链档(索引面 + HEAD 棘轮)
  *   node scripts/check-package-barrel-export.mjs --worktree   # 人工排查(磁盘面)
+ *   node scripts/check-package-barrel-export.mjs --report     # 端内 barrel 漏出口量算(只读,永远 exit 0)
  *   node scripts/check-package-barrel-export.mjs --json       # 机读结论
  *   node scripts/check-package-barrel-export.mjs --root <dir> # 测试/换仓通道:指定仓根(镜像测试拿临时 git 仓用它)
  *   node scripts/check-package-barrel-export.mjs --self-test  # 逻辑自检(正反成对)
@@ -298,6 +317,13 @@ export function parseModule(text) {
   const type = new Set()
   const edges = []
   let opaque = false
+  /**
+   * 本地声明语句数(default / 函数 / 类 / 变量 / interface / type / 无 from 的 `export {}`)。
+   * `localStatements === 0` 时这个文件是**纯再导出桶**(每条列 0 export 都带 `from`)—— 端内
+   * barrel 漏出口量算靠它把"桶文件"与"顺便 re-export 几行的实现文件"分开:后者漏的符号
+   * 未必是"该由它递出"的(票面 `scripts/` 侧的区分要求)。
+   */
+  let localStatements = 0
 
   const stmts = []
   // 快路径:遮噪后全文连 `export` 这个词都没有 ⇒ 一条导出语句都没有,
@@ -331,6 +357,7 @@ export function parseModule(text) {
     let m
     if (/^export\s+default\b/.test(t)) {
       value.add('default')
+      localStatements += 1
     } else if (
       (m = /^export\s*\*\s*(?:as\s+([A-Za-z_$][\w$]*))?\s*from\s*['"]([^'"]+)['"]/.exec(t))
     ) {
@@ -371,6 +398,7 @@ export function parseModule(text) {
           typeNames,
           typeOnly: isType,
         })
+      if (!m[3]) localStatements += 1 // 无 from 的 `export { … }` 转的是本文件声明 ⇒ 实现文件
     } else if (
       (m =
         /^export\s+(?:declare\s+)?(?:async\s+)?(?:abstract\s+)?(?:function\*?|class|const|let|var|enum)\s+([\{\[]|[A-Za-z_$][\w$]*)/.exec(
@@ -380,8 +408,10 @@ export function parseModule(text) {
       if (m[1] === '{' || m[1] === '[')
         for (const n of listNames(/\[[^\]]*\]|\{[^}]*\}/.exec(t)[0])) value.add(n)
       else value.add(m[1])
+      localStatements += 1
     } else if ((m = /^export\s+(?:declare\s+)?(interface|type)\s+([A-Za-z_$][\w$]*)/.exec(t))) {
       type.add(m[2])
+      localStatements += 1
     } else opaque = true // 列 0 的 export 但没有一条形态被认出 ⇒ 不猜
   }
 
@@ -390,7 +420,15 @@ export function parseModule(text) {
   const keywords = (code.match(/\bexport\b/g) || []).length
   if (keywords > stmts.length) opaque = true
 
-  return { value, type, edges, opaque, statements: stmts.length, keywords }
+  return {
+    value,
+    type,
+    edges,
+    opaque,
+    localStatements,
+    statements: stmts.length,
+    keywords,
+  }
 }
 
 /** 一行的花括号净深度(先抹字符串,否则 `'}'` 这类字面量会算错) */
@@ -409,6 +447,64 @@ function listNames(body) {
   return listEntries(body)
     .map((s) => (s.includes(' as ') ? s.split(/\s+as\s+/)[1].trim() : s))
     .filter((s) => /^[A-Za-z_$][\w$]*$/.test(s))
+}
+
+/**
+ * **桶文件 vs 实现文件**的唯一判定(票面明确要求区分,防把普通文件当 barrel 误报):
+ * 纯再导出桶 = 至少一条列 0 export ∧ 每条 export 都带 `from`(没有本地声明) ∧ 没有认不出的形态。
+ * `export {}`(空导出)、`export { A }`(转本地声明)、`export const X`、`export interface X`
+ * 全部落实现文件一侧 —— 它们漏的符号未必"该由这个文件递出"。
+ */
+export function isBarrelModule(mod) {
+  return !!mod && !mod.opaque && mod.statements > 0 && (mod.localStatements || 0) === 0
+}
+
+/**
+ * 一条 import 语句里**按类型导入**的名字集合(键 = `${语句起始行}:${名字}`)。
+ * 只服务"Export doesn't exist 会不会打到运行时"这一档的分拣:类型导入编译期擦除,
+ * 运行时不会拿到 undefined;端内桶漏出口这一型要判的是值导入。
+ * 与 `parseImports` 共用同一套续行口径(括号闭合且读到 from),但只回答"是不是 type",
+ * 不重算具名清单 —— 具名清单一律取 `parseImports` 的结果(§0.6 单一真相源)。
+ */
+export function typeOnlyImportNames(text) {
+  const masked = maskComments(text)
+  const lines = masked.split('\n')
+  const out = new Set()
+  for (let i = 0; i < lines.length; i += 1) {
+    const head = lines[i]
+    if (!/^import\b/.test(head)) continue
+    const start = i
+    let stmt = head
+    let depth = bracesOf(stmt)
+    let j = i
+    while (!(depth === 0 && /from\s*['"][^'"]+['"]\s*;?\s*$/.test(stmt))) {
+      if (depth === 0) {
+        stmt = ''
+        break
+      }
+      j += 1
+      if (j - i > 30 || j >= lines.length) {
+        stmt = ''
+        break
+      }
+      stmt += '\n' + lines[j]
+      depth += bracesOf(lines[j])
+    }
+    i = j
+    if (!stmt) continue
+    const braces = /\{([\s\S]*)\}/.exec(stmt)
+    if (!braces) continue
+    const wholeType = /^import\s+type\b/.test(stmt)
+    for (const raw of braces[1].split(',')) {
+      const s = raw.replace(/\/\*[\s\S]*?\*\//g, '').trim()
+      if (!s) continue
+      const isType = wholeType || /^type\s+/.test(s)
+      if (!isType) continue
+      const orig = s.replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim()
+      if (/^[A-Za-z_$][\w$]*$/.test(orig)) out.add(`${start + 1}:${orig}`)
+    }
+  }
+  return out
 }
 
 /** 相对 spec → 仓内路径(与守门 98 的候选族同形,但只服务包内文件,不做跨包猜测) */
@@ -688,9 +784,22 @@ export function analyze({ readFace, files, consumerFilter = null, requireBarrels
   if (requireBarrels && !barrelSet.size)
     throw new Undetermined('一个目录 barrel(index.ts/tsx)都没枚举到 ⇒ 判据失明,不记通过')
   const barrelDir = (b) => b.replace(/\/index\.(ts|tsx)$/, '')
+  /**
+   * **端内纯再导出桶**(票面"守门 149 对端内 barrel 失明"的收口格):这一族的 universe 取
+   * **同端 `apps/<端>/src/**` 全树**,而不是 barrel 那一层目录 —— 票面的判据是"消费方要的
+   * 符号在端内某实现文件里真实存在,而桶没递出",跨目录引用正是现有门报不出来的那部分。
+   * 只认 `isBarrelModule` 的纯桶(实现型 index.ts 不进这一族),防止把"文件里顺带 re-export
+   * 几行的普通实现文件"当 barrel 误报(票面的区分要求)。
+   */
+  const appBarrelSet = new Set(
+    barrels.filter((b) => APP_BARREL_RE.test(b) && isBarrelModule(moduleOf(b))),
+  )
+  const appUniverse = buildAppUniverse({ files, moduleOf, barrelSet: appBarrelSet })
+  const EMPTY_UNIVERSE = { value: new Set(), type: new Set(), defs: new Map() }
   /** barrel → 目录内(不含 barrel 自己)的值/类型导出全集。按目录记忆,一次判据一趟共用。 */
   const universeCache = new Map()
   const universeOfBarrel = (b) => {
+    if (appBarrelSet.has(b)) return appUniverse.get(appOfPath(b)) || EMPTY_UNIVERSE
     const dir = barrelDir(b)
     if (universeCache.has(dir)) return universeCache.get(dir)
     const u = { value: new Set(), type: new Set() }
@@ -785,6 +894,7 @@ export function analyze({ readFace, files, consumerFilter = null, requireBarrels
             universeValue: u.value.size,
             entry: b,
             scope: 'barrel',
+            universeScope: appBarrelSet.has(b) ? 'app' : 'dir',
           }
           st.consumers += imp.named.length
           stats.set(b, st)
@@ -987,6 +1097,281 @@ export function perFileCounts(red) {
   return m
 }
 
+// ────────────────────────────────────────────── 端内 barrel 漏出口量算(只读,`--report` 档)
+
+/** 端内 barrel 的路径形态:`apps/<端>/src/**\/index.(ts|tsx)` */
+const APP_BARREL_RE = /^apps\/([^/]+)\/src\/(?:.+\/)?index\.(ts|tsx)$/
+const appOfPath = (p) => (p.startsWith('apps/') ? p.split('/')[1] : null)
+
+/**
+ * **端内实现面**(每端一张表):`apps/<端>/src/**` 里非桶、非测试、非 d.ts 的源文件的导出全集。
+ * `analyze`(端内纯桶的 universe)与 `scanAppBarrelLeaks`(--report 量算)**共用这一份实现**
+ * (§0.6 单一真相源:两处各写一遍,扩面判据与提交链判据必然漂移)。
+ * 值优先于类型:`defs` 记首个**值**定义文件,只有纯类型名才落类型文件的路径。
+ */
+export function buildAppUniverse({ files, moduleOf, barrelSet, skipDir = SKIP_DIR, nonUniverse = NON_UNIVERSE }) {
+  const appUniv = new Map()
+  for (const f of files) {
+    if (!/^apps\/[^/]+\/src\//.test(f)) continue
+    if (!SRC_RE.test(f) || skipDir.test(f) || nonUniverse.test(f) || /\.d\.ts$/.test(f)) continue
+    if (barrelSet && barrelSet.has(f)) continue // 桶只是转出口,不算"实现文件里存在"
+    const m = moduleOf(f)
+    if (!m) continue
+    const app = appOfPath(f)
+    let u = appUniv.get(app)
+    if (!u) {
+      u = { value: new Set(), type: new Set(), defs: new Map() }
+      appUniv.set(app, u)
+    }
+    for (const n of m.value) {
+      u.value.add(n)
+      u.defs.set(n, f) // 值定义优先,后扫到的值覆盖先扫到的类型
+    }
+    for (const n of m.type) {
+      u.type.add(n)
+      if (!u.value.has(n) && !u.defs.has(n)) u.defs.set(n, f)
+    }
+  }
+  return appUniv
+}
+
+/**
+ * **端内 barrel 漏出口量算**(票面:守门 149(包入口 barrel 漏 re-export)对"端内 barrel"失明)。
+ *
+ * 与 `analyze` 的关系:同一条判定形状(符号没递出),但取证面不同 ——
+ *   · `analyze` 的 barrel 面:universe = **该 barrel 那一层目录**的子树(保守,只认"该由这层递出");
+ *   · 本量算:universe = **同端 `apps/<端>/src/**` 全树**(票面口径"该符号在端内某实现文件里
+ *     真实存在"),即跨目录引用也点名 —— 这一格正是现有门报不出来的那部分。
+ * 因此本函数**不自称能替代 analyze**:它是扩面前的存量尺子,输出分三档:
+ *   · `hits`      —— 可判定:消费方按**值**导入 ∧ 端内某**实现文件**有该值导出 ∧ 桶没递出。
+ *                    web 构建开着 ignoreBuildErrors 也挡不住运行时报 `Export … doesn't exist`。
+ *   · `typeOnly`  —— 未判定:消费方是 `import type`/`import { type X }`,或端内只有类型导出。
+ *                    编译期擦除,不构成运行时 undefined(只有 tsc 会红,而 web 不看 tsc)。
+ *   · `elsewhere` —— 端内哪都找不到该名字:归悬空导入(守门 98)那一族,**本门不重复报**。
+ *   · `opaque`    —— 桶的可达图有枚举不动的边(三方 `export *` 等)⇒ 不猜,逐条点名。
+ *
+ * 桶判定只认 `isBarrelModule`(纯再导出);实现型 index.ts 不进来,避免把"文件里顺带 re-export
+ * 几行"的普通实现文件当成 barrel 误报。
+ *
+ * **纯函数**:只吃传入的 reader 与路径清单(守门 103 T12 那一课),不派生 git、不读盘。
+ */
+export function scanAppBarrelLeaks({ readFace, files, requireBarrels = false }) {
+  const fileSet = new Set(files)
+  const has = (p) => fileSet.has(p)
+  const cache = new Map()
+  const read = (p) => {
+    if (!fileSet.has(p)) return null
+    if (!cache.has(p)) {
+      const t = readFace(p)
+      cache.set(p, t === null || t === undefined ? null : t)
+    }
+    return cache.get(p)
+  }
+  const modCache = new Map()
+  const moduleOf = (p) => {
+    if (modCache.has(p)) return modCache.get(p)
+    const t = read(p)
+    let mod = null
+    if (t !== null) {
+      try {
+        mod = parseModule(t)
+      } catch {
+        mod = null
+      }
+    }
+    modCache.set(p, mod)
+    return mod
+  }
+
+  // 包表:端内桶可以 `export * from '@ihui/shared'`,跨包边的枚举要靠它
+  const pkgByName = new Map()
+  const pkgManifest = new Map()
+  for (const mp of manifestPaths(files)) {
+    const txt = read(mp)
+    if (txt === null) throw new Undetermined(`包清单取不到:${mp}`)
+    let j
+    try {
+      j = JSON.parse(txt)
+    } catch {
+      throw new Undetermined(`包清单不是合法 JSON:${mp}(判据无法继续,不静默跳过)`)
+    }
+    if (!j || typeof j.name !== 'string') continue
+    pkgByName.set(j.name, mp.replace(/\/package\.json$/, ''))
+    pkgManifest.set(j.name, j)
+  }
+  if (!pkgByName.size) throw new Undetermined('一个 workspace 包清单都没枚举到 ⇒ 空扫不记绿')
+  const entries = new Map()
+  for (const [name, dir] of pkgByName) {
+    let entry = null
+    for (const t of runtimeEntryCandidates(pkgManifest.get(name), dir)) {
+      const { hit } = entrySourceCandidates(t, dir, has)
+      if (hit) {
+        entry = hit
+        break
+      }
+    }
+    entries.set(name, entry)
+  }
+  const entryOf = (n) => entries.get(n) || null
+  const resolveAnywhere = (_pn, fromRel, spec) => {
+    const base = resolveRelative(fromRel, spec)
+    for (const c of REL_CANDS(base)) if (has(c)) return c
+    return null
+  }
+  const ctx = {
+    moduleOf,
+    pkgByName: (n) => pkgByName.has(n),
+    resolveRelIn: resolveAnywhere,
+    entryOf,
+  }
+
+  // 1) 端内纯再导出桶全集
+  const barrels = []
+  const unreadable = []
+  for (const f of files) {
+    if (!APP_BARREL_RE.test(f) || SKIP_DIR.test(f) || NON_UNIVERSE.test(f)) continue
+    // §0.3:面里有这个文件、内容却取不到 ⇒ 显式未判定,不静默少一个候选
+    if (read(f) === null) {
+      unreadable.push(f)
+      continue
+    }
+    if (isBarrelModule(moduleOf(f))) barrels.push(f)
+  }
+  if (requireBarrels && !barrels.length)
+    throw new Undetermined('端内一个"纯再导出桶文件"(apps/*/src/**/index.ts)都没枚举到 ⇒ 判据失明,不记通过')
+  const barrelSet = new Set(barrels)
+
+  // 2) 端内实现面(与 analyze 共用 `buildAppUniverse`,不另写第二份)
+  const appUniv = buildAppUniverse({ files, moduleOf, barrelSet })
+  const appOf = appOfPath
+
+  // 3) 别名表(与 analyze 同一份实现,不另写解析器)
+  const tsConfigs = files.filter((f) => TS_RE.test(f) && !SKIP_DIR.test(f))
+  const aliasBuilt = buildAliasIndex(read, tsConfigs)
+  const aliasIndex = aliasBuilt.index
+  const aliasUnparsed = aliasBuilt.unparsed || 0
+
+  const barrelOfSpec = (fromRel, spec) => {
+    let base = null
+    if (spec.startsWith('./') || spec.startsWith('../')) base = resolveRelative(fromRel, spec)
+    else if (aliasIndex && aliasIndex.size) {
+      const a = resolveAliasSpec(fromRel, spec, aliasIndex)
+      if (a) base = a
+    }
+    if (!base) return null
+    for (const c of REL_CANDS(base)) if (barrelSet.has(c)) return c
+    return null
+  }
+
+  // 4) 消费面:同端(含 tests/e2e)从桶具名导入
+  const hits = []
+  const typeOnly = []
+  const opaque = []
+  const elsewhere = []
+  const undetermined = []
+  const judged = new Set()
+  let consumerFiles = 0
+  const dirUnivCache = new Map()
+  const dirUniverseOf = (b) => {
+    const dir = b.replace(/\/index\.(ts|tsx)$/, '')
+    if (dirUnivCache.has(dir)) return dirUnivCache.get(dir)
+    const u = { value: new Set(), type: new Set() }
+    for (const f of files) {
+      if (!f.startsWith(`${dir}/`) || BARREL_RE.test(f)) continue
+      if (!SRC_RE.test(f) || SKIP_DIR.test(f) || NON_UNIVERSE.test(f)) continue
+      const m = moduleOf(f)
+      if (!m) continue
+      for (const n of m.value) u.value.add(n)
+      for (const n of m.type) u.type.add(n)
+    }
+    dirUnivCache.set(dir, u)
+    return u
+  }
+  for (const f of files) {
+    if (!f.startsWith('apps/') || !SRC_RE.test(f) || SKIP_DIR.test(f)) continue
+    const t = read(f)
+    if (t === null) continue
+    consumerFiles += 1
+    const typeFlags = typeOnlyImportNames(t)
+    const lines = maskComments(t).split('\n')
+    for (const imp of parseImports(t)) {
+      if (!imp.named.length) continue
+      // 只认 import 语句;`export { X } from '…/桶'` 属于再导出链,会经 deliveredOf 的边自己走
+      if (!/^import\b/.test((lines[imp.line - 1] || '').trim())) continue
+      const b = barrelOfSpec(f, imp.spec)
+      if (!b) continue
+      judged.add(b)
+      const dl = deliveredOf(b.replace(/\/index\.(ts|tsx)$/, ''), b, ctx)
+      if (dl.opaque) {
+        opaque.push({
+          barrel: b,
+          file: f,
+          line: imp.line,
+          spec: imp.spec,
+          names: imp.named.map((n) => n.imported),
+          why: (dl.reasons || []).join('; ') || '未记录',
+        })
+        continue
+      }
+      const u = appUniv.get(appOf(f)) || { value: new Set(), type: new Set(), defs: new Map() }
+      const du = dirUniverseOf(b)
+      for (const n of imp.named) {
+        if (dl.value.has(n.imported) || dl.type.has(n.imported)) continue
+        const definedKind = u.value.has(n.imported)
+          ? 'value'
+          : u.type.has(n.imported)
+            ? 'type'
+            : null
+        if (!definedKind) {
+          // 端内哪都没有 ⇒ 悬空导入(守门 98)的射程,本门不重复报
+          elsewhere.push({ barrel: b, file: f, line: imp.line, spec: imp.spec, name: n.imported })
+          continue
+        }
+        const rec = {
+          barrel: b,
+          app: appOf(f),
+          file: f,
+          line: imp.line,
+          spec: imp.spec,
+          name: n.imported,
+          definedAt: u.defs.get(n.imported) || null,
+          definedKind,
+          inBarrelDir: du.value.has(n.imported) || du.type.has(n.imported),
+        }
+        const typeImport = typeFlags.has(`${imp.line}:${n.imported}`)
+        if (definedKind === 'value' && !typeImport) hits.push(rec)
+        else typeOnly.push({ ...rec, typeImport })
+      }
+    }
+  }
+  for (const o of opaque)
+    undetermined.push({
+      pkg: `barrel:${o.barrel}`,
+      why: `桶的可达图有枚举不动的边 —— ${o.why}(消费方 ${o.file}:${o.line})`,
+    })
+  for (const f of unreadable)
+    undetermined.push({
+      pkg: `barrel:${f}`,
+      why: '被审面里有这个 index 文件,内容却取不到 ⇒ 无法判定它是不是桶(不猜,也不记绿)',
+    })
+  if (!consumerFiles) throw new Undetermined('一个端内消费者源文件都没扫到 ⇒ 判据失明,不记通过')
+  return {
+    barrels,
+    barrelCount: barrels.length,
+    appCount: new Set(barrels.map(appOf)).size,
+    consumerFiles,
+    barrelConsumers: judged.size,
+    hits,
+    typeOnly,
+    elsewhere,
+    opaque,
+    unreadable: unreadable.length,
+    undetermined: [...new Map(undetermined.map((x) => [`${x.pkg}::${x.why}`, x])).values()],
+    aliasConfigs: tsConfigs.length,
+    aliasUnparsed,
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────── CLI
 
 function makeReader(face, root = ROOT) {
@@ -1009,6 +1394,9 @@ function makeReader(face, root = ROOT) {
 export function main(argv = process.argv.slice(2)) {
   const strict = argv.includes('--strict')
   const json = argv.includes('--json')
+  /** `--report`:端内 barrel 漏出口量算(票面"先量后判")。**永远只读**:不改文件、不进提交链、
+   *  有存量也 exit 0;只有"取不到被审面"才按 §0.3 落 2(不记绿也不冒红)。 */
+  const reportMode = argv.includes('--report')
   if (argv.includes('--self-test')) return selfTest()
   const { face, error } = selectFace({
     staged: argv.includes('--staged'),
@@ -1042,6 +1430,33 @@ export function main(argv = process.argv.slice(2)) {
       ),
     )
     const readFace = (p) => reader.read(p)
+    if (reportMode) {
+      const r = scanAppBarrelLeaks({ readFace, files, requireBarrels: true })
+      if (json) {
+        console.log(JSON.stringify({ face, ...r, blockingCount: 0 }, null, json === '2' ? 2 : 0))
+      } else {
+        console.log(`[app-barrel-report] 取材面:${face}(只读档:有存量也 exit 0,取不到面才 2)`)
+        console.log(
+          `[app-barrel-report] 端内纯再导出桶 ${r.barrelCount} 个(端 ${r.appCount} 个)/ 被具名导入消费 ${r.barrelConsumers} 个 / 消费源文件 ${r.consumerFiles} 个(别名表 ${r.aliasConfigs} 份,解析失败 ${r.aliasUnparsed})`,
+        )
+        for (const h of r.hits.slice(0, 60))
+          console.log(
+            `   ❌ 可判定 ${h.file}:${h.line} 从 '${h.spec}' 要 '${h.name}' —— 端内实现 ${h.definedAt} 有该值导出,桶 ${h.barrel} 没递出${h.inBarrelDir ? '(该层目录内,现有 barrel 面也判)' : '(跨目录,现有 barrel 面看不见)'}`,
+          )
+        if (r.hits.length > 60) console.log(`   … 另有 ${r.hits.length - 60} 处(--report --json 看全量)`)
+        for (const x of r.typeOnly.slice(0, 20))
+          console.log(
+            `   [类型档] ${x.file}:${x.line} '${x.name}' ← '${x.spec}'${x.typeImport ? '(type 导入)' : '(端内仅类型导出)'} —— 不构成运行时 undefined`,
+          )
+        for (const x of r.elsewhere.slice(0, 20))
+          console.log(`   [归悬空门] ${x.file}:${x.line} '${x.name}' ← '${x.spec}'(端内哪都没有)`)
+        for (const u of r.undetermined) console.log(`   ⚠️ 未判定:${u.pkg} —— ${u.why}`)
+        console.log(
+          `APP-BARREL-REPORT barrels=${r.barrelCount} apps=${r.appCount} consumers=${r.barrelConsumers} hits=${r.hits.length} type=${r.typeOnly.length} elsewhere=${r.elsewhere.length} undetermined=${r.undetermined.length}`,
+        )
+      }
+      return 0
+    }
     // **不按暂存文件收窄判据面**(与守门 78/126 同取向):两格洞都是收窄造出来的 ——
     //   ① 一枚只改 `packages/x/src/index.ts`(摘掉一行 re-export)的提交,暂存里没有消费者文件,
     //      收窄后本门"无消费者可判" ⇒ 要么假喊无法判定、要么放过整类;
@@ -1175,7 +1590,11 @@ export function main(argv = process.argv.slice(2)) {
             : ''
       console.log(
         `   [覆盖] ${p.scope === 'barrel' ? 'barrel' : '包'} ${p.pkg}:入口 ${p.entry} 递出 值${p.deliveredValue}/类${p.deliveredType},${
-          p.scope === 'barrel' ? '该层目录' : '包内'
+          p.scope === 'barrel'
+            ? p.universeScope === 'app'
+              ? '端内实现面'
+              : '该层目录'
+            : '包内'
         }值导出 ${p.universeValue},被消费 ${p.consumers} 名${flag}`,
       )
     }
@@ -1644,6 +2063,10 @@ function selfTest() {
 
 export const __test__ = {
   analyze,
+  scanAppBarrelLeaks,
+  buildAppUniverse,
+  isBarrelModule,
+  typeOnlyImportNames,
   parseModule,
   parseImports,
   maskComments,

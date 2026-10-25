@@ -182,7 +182,14 @@ export function checkFolderTrust(filePath: string, trustMap: FolderTrustMap | un
   return bestMatch?.level ?? 'trusted';
 }
 
-export type SandboxProfile = 'readonly' | 'limited' | 'trusted' | 'open' | 'full';
+/**
+ * 档位字面量类型的唯一落点在 `config/sandbox-profile.ts`(G-212 收口)。
+ * 本文件此前自述一份同样的联合 ⇒ 两份可以各改各的而类型仍自洽(只有运行时键集测试才看得见),
+ * 现改为再导出:新增/删除档位只需改配置层一处,`SANDBOX_PROFILES: Record<SandboxProfile, …>`
+ * 会当场因缺键/多键 typecheck 报错(比原来的"两表同集"更强)。
+ */
+export type { SandboxProfile } from '../config/sandbox-profile.js';
+import { DEFAULT_SANDBOX_PROFILE, isSandboxProfile, type SandboxProfile } from '../config/sandbox-profile.js';
 
 export interface SandboxProfileConfig {
   description: string;
@@ -211,7 +218,7 @@ export const SANDBOX_PROFILES: Record<SandboxProfile, SandboxProfileConfig> = {
     },
   },
   trusted: {
-    description: '信任:限工作区路径,白名单命令,保护 API key(默认推荐)',
+    description: '信任:限工作区路径,白名单命令,保护 API key(比默认档宽,须用户在配置里显式选)',
     overrides: {
       commandAllowlist: ['node', 'npm', 'npx', 'pnpm', 'git', 'rg', 'tsc', 'eslint', 'vitest', 'tsx', 'cat', 'ls', 'echo'],
       blockedEnvVars: [...CREDENTIAL_SHAPE_BLOCKED_PATTERNS],
@@ -236,15 +243,35 @@ export const SANDBOX_PROFILES: Record<SandboxProfile, SandboxProfileConfig> = {
   },
 };
 
-/** 按 profile 解析 sandbox 配置:profile 提供基础,用户 opts 覆盖 */
+/**
+ * 按 profile 解析 sandbox 配置:profile 提供基础,用户 opts 覆盖。
+ *
+ * **失效方向 = 默认严档,不是"无限制"**(G-212 收口的最后一格):
+ * 旧形态对 `undefined` 与"配置文件里写错的档位字符串"一律 `return userOpts` —— 而调用方传的
+ * userOpts 就是 `settings.sandbox ?? {}`,即"白名单没设、凭据 env 没屏蔽"的最宽行为。
+ * 于是"用户没配 sandbox"(V1 `loadSettings()` 无文件时返回 `{}`,这是首跑/CI/新环境的常态)
+ * 和"用户把 limited 拼错"两条路径都静默落到最宽档,而默认档早已是 `'limited'` ——
+ * 账面与运行时相反。现在两者都按 `DEFAULT_SANDBOX_PROFILE` 这一唯一默认源结算:
+ *   - 缺档(未配置)⇒ 默认档;
+ *   - 未知档(拼错/大小写/别的字符串)⇒ 默认档 + 一行 ASCII 喊话(不静默);
+ *   - **用户显式写的合法档(含 `'trusted'/'open'/'full' 等宽松档)一律照办**,本函数不替用户收权;
+ *   - 用户在同一对象里的显式 opts(如 `timeoutMs`/`commandAllowlist`)仍覆盖档表基础值。
+ */
 export function resolveSandboxOptions(
-  profile: SandboxProfile | undefined,
+  profile: SandboxProfile | string | null | undefined,
   userOpts: Partial<SandboxOptions>
 ): Partial<SandboxOptions> {
-  if (!profile) return userOpts;
-  const profileConfig = SANDBOX_PROFILES[profile];
-  if (!profileConfig) return userOpts;
-  return { ...profileConfig.overrides, ...userOpts };
+  let effective: SandboxProfile = DEFAULT_SANDBOX_PROFILE;
+  if (isSandboxProfile(profile)) {
+    effective = profile;
+  } else if (typeof profile === 'string' && profile.length > 0) {
+    // 纯 ASCII:新增中文状态词须五语言同批(AGENTS §19),而 cli 语言包在 packages/i18n(本票射程外)。
+    // 喊话只保证"不静默",取值一律引默认源,不复述档位清单。
+    console.warn(
+      `[sandbox] unknown sandbox.profile="${profile}" -> using default profile="${DEFAULT_SANDBOX_PROFILE}" (never falls back to unrestricted)`,
+    );
+  }
+  return { ...SANDBOX_PROFILES[effective].overrides, ...userOpts };
 }
 
 /**
@@ -862,7 +889,7 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
     });
     return {
       stdout: '',
-      stderr: `⛔ 命令被沙盒拒绝: ${commandBlockReason}(命令白名单未放行)`,
+      stderr: `⛔ 命令被沙盒拒绝: ${commandBlockReason}(命令白名单未放行;改用白名单内命令,或在用户全局 settings.json 的 sandbox.commandAllowlist 里登记该命令)`,
       exitCode: null,
       timedOut: false,
       truncated: false,
@@ -889,7 +916,7 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
         });
         return {
           stdout: '',
-          stderr: `⛔ 路径被沙盒拒绝: ${p}`,
+          stderr: `⛔ 路径被沙盒拒绝: ${p}(路径不在工作区或 sandbox.allowedPaths 内;把目标移进工作区,或在用户全局 settings.json 的 sandbox.allowedPaths 里登记该目录)`,
           exitCode: null,
           timedOut: false,
           truncated: false,
@@ -999,7 +1026,7 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
   if (precheck.blocked) {
     const blockedResult: SandboxResult = {
       stdout: '',
-      stderr: `⛔ 命令被沙盒拒绝: ${precheck.blockReason}`,
+      stderr: `⛔ 命令被沙盒拒绝: ${precheck.blockReason}(命令白名单未放行;改用白名单内命令,或在用户全局 settings.json 的 sandbox.commandAllowlist 里登记该命令)`,
       exitCode: null,
       timedOut: false,
       truncated: false,

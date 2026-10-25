@@ -673,9 +673,7 @@ export function StudyIndexScreen() {
               <Loading text="加载更多..." />
             ) : items.length > 0 && items.length >= total ? (
               <View style={styles.noMoreWrap}>
-                <View style={styles.noMoreLine} />
                 <Text style={styles.noMoreText}>没有更多了</Text>
-                <View style={styles.noMoreLine} />
               </View>
             ) : null
           }
@@ -954,18 +952,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tk.gray.black,
   } as TextStyle,
-  // 没有更多了(对齐 Uniapp study_list .line + .no-more-text)
+  // 没有更多了(只留居中文字;两侧横线按 §4 移除,用间距分隔)
   noMoreWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: rpx(40),
     marginTop: rpx(20),
-  } as ViewStyle,
-  noMoreLine: {
-    flex: 1,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tk.border.light,
   } as ViewStyle,
   noMoreText: {
     marginHorizontal: rpx(20),

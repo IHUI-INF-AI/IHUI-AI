@@ -9,10 +9,12 @@
 // 其中 netstat 行与父子链逐字取自本机现读(REAL_* 三组);形状锁(T2)只指执行面,不指注释。
 
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, utimesSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import test from 'node:test'
+// DS-9 真实文件系统夹具唯一落点(§15b:工作树外、进程退出自动回收;禁止 os.tmpdir / 仓库树内造夹具)
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 // §22c:判据一律走静态 import 的导出口(执行面形状表 PROC_SCRIPT_SHAPE_FORMS 也取自这一份)
 import { __test__ as gate } from '../check-service-binary-paths.mjs'
 
@@ -55,6 +57,7 @@ const {
   renderText,
   ENUM_HEAD,
   ENUM_TAIL,
+  defaultDeps,
 } = gate
 
 /** 真机现读的逐字形态(2026-09-29 于本机量取,§22c:镜像至少一条用例的输入取自真实文件/真机)。
@@ -815,16 +818,26 @@ const DS_MODULE = 'C:\\app\\alert-dedup.ps1'
 const DS_START = { kind: 'ticks', ticks: ticksOf(FIX_START_ISO) }
 const DS_OLD_MS = Date.parse(FIX_SCRIPT_WRITE_ISO) // 08:00,早于进程启动(09:00)⇒ -File 是新的
 const DS_NEW_MS = Date.parse('2026-10-01T10:00:00Z') // 晚于进程启动 60 分钟
-const dsDeps = (statMap, readMap) => ({
-  statFile: (p) =>
-    Object.prototype.hasOwnProperty.call(statMap, p)
-      ? { ok: true, mtimeMs: statMap[p] }
-      : { ok: false, why: 'ENOENT(夹具)' },
-  readScriptText: (p) =>
-    Object.prototype.hasOwnProperty.call(readMap, p)
-      ? { ok: true, text: readMap[p] }
-      : { ok: false, why: '读不到(夹具)' },
-})
+const dsDeps = (statMap, readMap, opts = {}) => {
+  const missing = new Set((opts.missing ?? []).map((p) => String(p).toLowerCase()))
+  const inaccessible = new Set((opts.inaccessible ?? []).map((p) => String(p).toLowerCase()))
+  return {
+    statFile: (p) => {
+      if (Object.prototype.hasOwnProperty.call(statMap, p)) return { ok: true, mtimeMs: statMap[p] }
+      const key = String(p).toLowerCase()
+      if (missing.has(key)) return { ok: false, why: 'ENOENT' }
+      // 默认缺项给 **EACCES**(权限类"读不到"),不再给 ENOENT:2026-10-25 票面把"文件不存在"
+      // 拆成独立的**断链**三态(见 DS-8),这一族夹具要钉的是"量不到 ⇒ 未判定",两者不得并桶;
+      // 断链臂(opts.missing)自带显式 ENOENT。
+      if (inaccessible.has(key)) return { ok: false, why: 'EACCES(夹具:点名读不到)' }
+      return { ok: false, why: 'EACCES(夹具:读不到,非断链)' }
+    },
+    readScriptText: (p) =>
+      Object.prototype.hasOwnProperty.call(readMap, p)
+        ? { ok: true, text: readMap[p] }
+        : { ok: false, why: '读不到(夹具)' },
+  }
+}
 const dsJudge = (over) =>
   judgeRuntimeFreshness({
     state: 'RUNNING',
@@ -933,7 +946,7 @@ test('DS-2 端到端(本票主判据):-File 那份是新的,但 dot-source 进�
 })
 
 test('DS-3 量不到的模块绝不写成新鲜(2026-10-12 补的洞:此前 verdict 落 fresh,modulesUndetermined 无任何消费方)', () => {
-  // ① 模块 mtime 读不到 ⇒ 整维未判定并点名(不是 fresh,也不是红)
+  // ① 模块 mtime 读不到(权限类 EACCES;文件不存在是另一态 ⇒ DS-8 断链)⇒ 整维未判定并点名(不是 fresh,也不是红)
   const a = dsJudge(dsDeps({ [DS_SCRIPT]: DS_OLD_MS }, { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n" }))
   assert.equal(a.kind, 'unmeasured')
   assert.match(a.reason, /alert-dedup\.ps1/)
@@ -1051,18 +1064,18 @@ test('DS-4b 闭包工程闸:环路不死循环不重复计账;菱形同一模块
   assert.equal(dia.value.modulesScanned, 3, 'alert-dedup/other/shared 各一次,shared 被两条边指到不翻倍')
 })
 
-test('DS-5 闭包里跟不到 ⇒ 未判定并点名(票面验收②):变量目标 / 二层 mtime 读不到,绝不落 fresh', () => {
-  // ① 变量目标(deploy/win/ihui-monitor.ps1 第 136 行 `. $LockCommon` 的现读书写形态):
-  //    静态读不出落点 ⇒ 整维未判定,原书写进话(是"没量到",不是"没有依赖",更不是 fresh)
+test('DS-5 闭包里跟不到 ⇒ 未判定并点名(票面验收②):真解析不出的变量目标 / 二层 mtime 读不到,绝不落 fresh;单次静态赋值形态(本仓现读)解得出(正向对照)', () => {
+  // ① 变量目标但 RHS 静态求不出(`$X = Get-ChildItem …` 型):读不出落点 ⇒ 整维未判定,
+  //    原书写进话(是"没量到",不是"没有依赖",更不是 fresh)
   const a = dsJudge(
     dsDeps(
       { [DS_SCRIPT]: DS_OLD_MS },
-      { [DS_SCRIPT]: "$LockCommon = Join-Path $PSScriptRoot 'deploy-lock-common.ps1'\n. $LockCommon\n" },
+      { [DS_SCRIPT]: "$LockCommon = Get-ChildItem -Path $PSScriptRoot\n. $LockCommon\n" },
     ),
   )
   assert.equal(a.kind, 'unmeasured')
   assert.match(a.reason, /\$LockCommon/)
-  assert.match(a.reason, /变量/)
+  assert.match(a.reason, /静态/)
   // 消费侧:点名服务 —— 未判定落 unattested,在该服务行下挂"运行时代码新鲜度:…原因",不得 ok
   const j = judgeService({
     name: 'IHUI-MONITOR',
@@ -1099,6 +1112,21 @@ test('DS-5 闭包里跟不到 ⇒ 未判定并点名(票面验收②):变量目�
   assert.equal(c.kind, 'measured')
   assert.equal(c.value.verdict, 'fresh')
   assert.equal(c.value.modulesUndetermined.length, 0)
+  // 正向对照④(2026-10-25 补):单次静态赋值 `$X = Join-Path $PSScriptRoot '…ps1'` + `. $X`
+  //   (deploy/win/ihui-monitor.ps1 151-156、ihui-deploy.ps1 242-246、ihui-deploy-loop.ps1 107-112/122-127
+  //   的现读写法)⇒ 必须解得出 —— 把它打回未判定,等于让部署链这一维永久失明(能量却写成没量)。
+  const d = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, 'C:\\app\\deploy-lock-common.ps1': DS_NEW_MS },
+      {
+        [DS_SCRIPT]: "$LockCommon = Join-Path $PSScriptRoot 'deploy-lock-common.ps1'\n. $LockCommon\n",
+        'C:\\app\\deploy-lock-common.ps1': DS_DEEP_LEAF,
+      },
+    ),
+  )
+  assert.equal(d.kind, 'measured')
+  assert.equal(d.value.verdict, 'stale', '变量形态 dot-source 的模块比进程新 ⇒ 与字面量形态同判')
+  assert.match(d.value.detail, /deploy-lock-common\.ps1/)
 })
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1155,6 +1183,137 @@ test('DS-7 端到端主判据:入口脚本是新的,但 Import-Module 载入的 
   assert.equal(negative.value.modulesScanned, 1)
   assert.equal(negative.value.modulesStale.length, 0)
   assert.equal(negative.value.modulesUndetermined.length, 0, '反臂同样必须是完全量到的场景')
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 断链独立三态(2026-10-25 票面要求②):"引用的模块文件不存在(ENOENT)"与"读不到(EACCES 等)"
+// 是两态 —— 前者是**量到的坏**(启动代码链残缺),后者才是"没量到"。两态都不许写成新鲜,
+// 但话与处置不同:断链 ⇒ verdict brokenlink ⇒ judgeService 记 issue;读不到 ⇒ unmeasured ⇒ unattested。
+// ──────────────────────────────────────────────────────────────────────────────
+const dsJudgeSvc = (runtime) =>
+  judgeService({
+    name: 'X',
+    state: measured('RUNNING'),
+    application: measured(DEFAULT_APP),
+    appExists: measured('file'),
+    appDirectory: measured(DEFAULT_DIR),
+    appDirectoryExists: measured('dir'),
+    ports: measured([]),
+    probe: measured({ listening: true, ports: [] }),
+    nssmManaged: measured(true),
+    runtime,
+  })
+
+test('DS-8 断链(注入档):ENOENT 模块 ⇒ brokenlink(不是 fresh 也不是未判定)且 judgeService 记 issue 点名;EACCES 仍走未判定(两态不并桶);并存时断链结论在前、未判定明细不吞', () => {
+  // 主臂:-File 那份旧于进程,引用的模块在盘上不存在
+  const r = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS },
+      { [DS_SCRIPT]: ". (Join-Path $PSScriptRoot 'alert-dedup.ps1')\n" },
+      { missing: [DS_MODULE] },
+    ),
+  )
+  assert.equal(r.kind, 'measured')
+  assert.equal(r.value.verdict, 'brokenlink')
+  assert.equal(r.value.modulesBroken.length, 1)
+  assert.equal(r.value.modulesBroken[0].path, DS_MODULE)
+  assert.match(r.value.detail, /断链/)
+  assert.match(r.value.detail, /alert-dedup\.ps1/)
+  const j = dsJudgeSvc(r)
+  assert.equal(j.level, 'issue', '断链是量到的坏 ⇒ 记问题,不得退成 unattested(那等于没人能从那行看出坏了什么)')
+  assert.match(j.problems.join(';'), /运行时代码新鲜度\(断链\)/)
+  // 成对①:同结构而模块存在且旧 ⇒ fresh(证明不是"有 dot-source 就断链"的恒真式)
+  const okArm = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_OLD_MS },
+      { [DS_SCRIPT]: ". (Join-Path $PSScriptRoot 'alert-dedup.ps1')\n", [DS_MODULE]: DS_DEEP_LEAF },
+    ),
+  )
+  assert.equal(okArm.kind, 'measured')
+  assert.equal(okArm.value.verdict, 'fresh')
+  // 成对②:断链与"读不到(EACCES)"并存 ⇒ verdict 取更强的断链,未判定明细仍随话点名(不吞)
+  const mix = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS },
+      { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n. 'perm.ps1'\n" },
+      { missing: [DS_MODULE], inaccessible: ['C:\\app\\perm.ps1'] },
+    ),
+  )
+  assert.equal(mix.kind, 'measured')
+  assert.equal(mix.value.verdict, 'brokenlink')
+  assert.match(mix.value.detail, /没量到/)
+  assert.match(mix.value.detail, /perm\.ps1/)
+  // 成对③:-File 本身 stale 且另有断链 ⇒ verdict 仍 stale,断链尾巴随话点名(两件事都看得见)
+  const both = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_NEW_MS },
+      { [DS_SCRIPT]: ". (Join-Path $PSScriptRoot 'alert-dedup.ps1')\n" },
+      { missing: [DS_MODULE] },
+    ),
+  )
+  assert.equal(both.kind, 'measured')
+  assert.equal(both.value.verdict, 'stale')
+  assert.match(both.value.detail, /断链/)
+  assert.match(both.value.detail, /alert-dedup\.ps1/)
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// DS-9 真实文件系统成对夹具(2026-10-25 票面要求⑤):落点唯一走 scratch-dir.mjs(工作树外、
+// 自动回收),判据走 defaultDeps.statFile / readScriptText 的真出口 —— 钉"真盘 mtime 读得出、
+// 真正文读得出"的完整链路,不是注入闭包的自说自话。主臂"模块新于进程 ⇒ stale 被报出"与
+// 反臂"三面同旧 ⇒ fresh"成对(§0.5:每条拦得住配一条不冤枉)。
+// ──────────────────────────────────────────────────────────────────────────────
+test('DS-9 真实盘(scratch-dir 夹具 + defaultDeps 真出口):模块新于进程 ⇒ stale;三面同旧 ⇒ fresh;变量赋值形态同判;引用模块不存在 ⇒ 断链', () => {
+  const dir = mkScratch('svc-fresh-')
+  try {
+    const entry = resolve(dir, 'entry.ps1')
+    const entryVar = resolve(dir, 'entry-var.ps1')
+    const entryBroken = resolve(dir, 'entry-broken.ps1')
+    const mod = resolve(dir, 'module.ps1')
+    // 两种现读形态都造:括号 Join-Path(deploy/win/ihui-monitor.ps1:143)与 单赋值变量+点号(:151-156)
+    writeFileSync(entry, ". (Join-Path $PSScriptRoot 'module.ps1')\n")
+    writeFileSync(entryVar, "$Mod = Join-Path $PSScriptRoot 'module.ps1'\n. $Mod\n")
+    writeFileSync(entryBroken, ". (Join-Path $PSScriptRoot 'missing-module.ps1')\n")
+    writeFileSync(mod, '# 夹具模块:无更深层\n')
+    const now = Date.now()
+    const startMs = now - 3600_000 // "进程"一小时前启动
+    const older = startMs - 60_000
+    for (const f of [entry, entryVar, entryBroken]) utimesSync(f, new Date(older), new Date(older))
+    utimesSync(mod, new Date(now), new Date(now)) // 模块比进程新 1 小时 ⇒ 主臂条件
+    const start = { kind: 'ticks', ticks: ticksOf(new Date(startMs).toISOString()) }
+    const judgeReal = (e) =>
+      judgeRuntimeFreshness({
+        state: 'RUNNING',
+        start,
+        paramsTexts: [`-NoProfile -File "${e}"`],
+        statFile: defaultDeps.statFile,
+        readScriptText: defaultDeps.readScriptText,
+      })
+    const stale = judgeReal(entry)
+    assert.equal(stale.kind, 'measured')
+    assert.equal(stale.value.verdict, 'stale', '主臂:模块新于进程必须被报出(这一维存在的唯一理由)')
+    assert.match(stale.value.detail, /module\.ps1/)
+    assert.equal(stale.value.modulesScanned, 1)
+    const staleVar = judgeReal(entryVar)
+    assert.equal(staleVar.value.verdict, 'stale', '变量赋值形态在真实盘上与括号 Join-Path 同判')
+    assert.match(staleVar.value.detail, /module\.ps1/)
+    // 反臂:三面同旧(进程起于最新)⇒ fresh,且完全量到(undetermined 必须为空才算真判过)
+    utimesSync(mod, new Date(startMs - 30_000), new Date(startMs - 30_000))
+    const fresh = judgeReal(entry)
+    assert.equal(fresh.kind, 'measured')
+    assert.equal(fresh.value.verdict, 'fresh')
+    assert.equal(fresh.value.modulesScanned, 1)
+    assert.equal(fresh.value.modulesUndetermined.length, 0)
+    assert.equal(fresh.value.modulesBroken.length, 0)
+    // 断链臂:引用的模块真不在盘上 ⇒ 真 statFile 给 ENOENT ⇒ brokenlink(独立三态)
+    const broken = judgeReal(entryBroken)
+    assert.equal(broken.kind, 'measured')
+    assert.equal(broken.value.verdict, 'brokenlink', '断链不是新鲜也不是未判定')
+    assert.match(broken.value.detail, /missing-module\.ps1/)
+    assert.equal(dsJudgeSvc(broken).level, 'issue')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
 })
 
 

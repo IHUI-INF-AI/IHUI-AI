@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { AlertTriangle, Loader2, Sparkles } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { rulesApi } from './rules-api'
+import { apiOrThrow } from '@/lib/api'
 import type { RuleConflict, RuleConflictsResponse, RuleResolveConflictsResult } from './types'
 import type { Rule } from '@ihui/types'
 import { Button, CloseButton } from '@ihui/ui-react'
@@ -57,7 +57,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
     let cancelled = false
     setLoading(true)
     setError(null)
-    rulesApi<RuleConflictsResponse>('/api/rules/conflicts')
+    apiOrThrow<RuleConflictsResponse>('/api/rules/conflicts')
       .then((res) => {
         if (!cancelled) {
           setConflicts(res.conflicts)
@@ -82,7 +82,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
     if (!arbitrationContext.trim() || ruleIds.length < 2) return
     setArbitrating(idx)
     try {
-      const res = await rulesApi<RuleResolveConflictsResult>('/api/rules/resolve-conflicts', {
+      const res = await apiOrThrow<RuleResolveConflictsResult>('/api/rules/resolve-conflicts', {
         method: 'POST',
         body: JSON.stringify({
           context: arbitrationContext,

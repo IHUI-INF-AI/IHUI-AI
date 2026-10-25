@@ -5398,12 +5398,6 @@ const checks = [
   },
 
   // --- 裸decode URI容错(1 项,blocking)---
-  {
-    id: '241',
-    label:
-      '移动端/全端裸 decodeURIComponent 差值棘轮(孤立%抛 URIError 崩渲染;唯一容错出口 safeDecodeURIComponent 在 @ihui/shared/utils/safe-decode-uri;拦新增放存量)',
-    script: 'check-bare-decode-uri.mjs',
-    args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_BARE_DECODE_URI',
     stagedTriggers: ['apps/miniapp-taro', 'apps/mobile-rn', 'apps/web', 'apps/extension', 'apps/desktop', 'packages/app', 'packages/ui-native', 'packages/shared'],
@@ -5693,11 +5687,6 @@ const checks = [
     // 逃生:HUSKY_SKIP_I18N_DEAD_KEY=1(与原 pre-commit 段同一变量,语义不变)。
     skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY',
   },
-  {
-    id: '247',
-    label: '🔒 RN 样式裸数字回潮(差值棘轮:只拦本次把可自动对档的裸数字加回来)',
-    script: 'check-token-literal-debt.mjs',
-    args: ['--staged'],
     mode: 'blocking',
     // 2026-10-25 立(goal「样式全面对齐」):tokens-migrate 已把 261 个已入库屏的 3720 处裸数字转成 rnSpacing/rnType,
     // 但此前没有任何判据管"新增" —— 随手写 padding: 16 就能把成果加回来。差值棘轮(§0.5):
@@ -5736,15 +5725,6 @@ const checks = [
       '',
     ],
   },
-  {
-    // 2026-10-25 注册:门体头注与 AGENTS.md 点名称「守门 241」,但 runner 里该号已被
-    // check-bare-decode-uri.mjs(2026-10-25 11:18 装车)占用 —— 撞号即 R5 判红,按
-    // 「后来者改号」先例(同门 239 由撞号的 237 改号)取 max+1=248;判据面一字未动。
-    id: '248',
-    label:
-      '📐 RN/共享源「等分读数格」AST 父子判据(blocking;V1 等分格必 minWidth / V2 等分行必 flexWrap / V3 space-between 与 V4 absolute 容器内读数必 flexShrink:0 / V5 定宽格必 minWidth)',
-    script: 'check-rn-readout-cell.mjs',
-    args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_RN_READOUT_CELL',
     stagedTriggers: [
@@ -5804,6 +5784,68 @@ const pushGateChecks = [
       '',
     ].join('\n'),
   },
+  {
+    // 2026-10-25 注册:门体头注与 AGENTS.md 点名称「守门 241」,但 runner 里该号已被
+    // check-bare-decode-uri.mjs(2026-10-25 11:18 装车)占用 —— 撞号即 R5 判红,按
+    // 「后来者改号」先例(同门 239 由撞号的 237 改号)取 max+1=248;判据面一字未动。
+    id: '241',
+    label:
+      '📐 RN/共享源「等分读数格」AST 父子判据(blocking;V1 等分格必 minWidth / V2 等分行必 flexWrap / V3 space-between 与 V4 absolute 容器内读数必 flexShrink:0 / V5 定宽格必 minWidth)',
+    script: 'check-rn-readout-cell.mjs',
+    args: [],
+  {
+    label:
+      '移动端/全端裸 decodeURIComponent 差值棘轮(孤立%抛 URIError 崩渲染;唯一容错出口 safeDecodeURIComponent 在 @ihui/shared/utils/safe-decode-uri;拦新增放存量)',
+    script: 'check-bare-decode-uri.mjs',
+    args: [],
+  {
+    label: '🔒 RN 样式裸数字回潮(差值棘轮:只拦本次把可自动对档的裸数字加回来)',
+    script: 'check-token-literal-debt.mjs',
+    args: ['--staged'],
+  {
+    id: '242',
+    label:
+      '🪪 apps/api 身份主体取值对账(blocking;W1 身份取自 auth 层从不填充的 request.user ⇒ 绝对零容忍 / W2 主体与客户端自报字段同一条 ??·|| 链 ⇒ 差值棘轮 / W3 测试夹具给生产不填的字段赋值(假 oracle)⇒ 绝对零容忍)',
+    script: 'check-identity-principal-source.mjs',
+    args: [],
+  {
+    id: '243',
+    label:
+      '💸 额度扣减必须读回影响行 + 资金回调不得用 SUCCESS 吞失败(blocking;G1 扣额度型守卫写入无 .returning 且结果被丢 / G3 相对扣减完全没有额度守卫 / G4 额度列无锁的绝对值回写(锁内 FOR UPDATE 机器豁免) / G5 计数字段(…Count/aiRounds)读出来±1再写绝对值 / G2 回调 catch 里回 code:SUCCESS)',
+    script: 'check-guarded-write-affected.mjs',
+    args: [],
+  {
+    id: '244',
+    label:
+      '⏱️ 读数分母与定时器句柄卫生(blocking;D1 `<ref>.current = setInterval(` 前既无字面 clearInterval、也无一跳可验的具名停止函数 ⇒ 绝对零容忍 / D2 `A / B.length` 无 B 的零守卫 ⇒ 差值棘轮,存量现读 0)',
+    script: 'check-readout-and-timer-hygiene.mjs',
+    args: [],
+  {
+    id: '245',
+    label:
+      '📜 活文档副本增生对账(blocking;六份活文档各按自身差值棘轮拦"本次把同形态副本加回来了";折叠判据 import scripts/dedupe-live-doc.mjs,本门不写第二份)',
+    script: 'check-live-doc-duplicates.mjs',
+    args: [],
+  {
+    id: '246',
+    label:
+      '🕐 业务日界只许一个出口(blocking;B1 第二份日界算法 ⇒ 绝对零容忍(存量本枚清零)/ B2 日键型 toISOString().slice(0,10) ⇒ 差值棘轮 / B3 唯一出口无人 import ⇒ 造好未装车)',
+    script: 'check-biz-day-single-source.mjs',
+    args: [],
+  {
+    id: '247',
+    label:
+      '🧵 ai-service asyncio 后台任务强引用(blocking;W1 裸 create_task/ensure_future ⇒ 绝对零容忍 / W3 唯一出口无人 import ⇒ 造好未装车;赋值/列表持有型只报数,见门体 W2)',
+    script: 'check-ai-task-background-reference.mjs',
+    args: [],
+    id: '248',
+    label:
+      '💴 显示层分→元格式化只许一个出口(blocking;M1 本地自算定义 ⇒ 绝对零容忍(存量本波清零)/ M2 行内定长格式化 ⇒ 差值棘轮只拦新增 / M3 唯一出口无人 import ⇒ 造好未装车)',
+    script: 'check-money-display-single-source.mjs',
+    args: [],
+    id: '249',
+      '🧩 富文本锚点渲染器单一源头(blocking;A1 渲染表键集==RICH_ANCHOR_TAGS 双向相等+守卫在位(绝对零容忍,非棘轮)/ A2 apps/web 生产面 t.rich 内联渲染器分叉逐条点名(真 AST)/ A3 载体 importer 枚举 0 即死)',
+    script: 'check-rich-anchor-renderer-single-source.mjs',
 ]
 
 // === CLI 解析 ===

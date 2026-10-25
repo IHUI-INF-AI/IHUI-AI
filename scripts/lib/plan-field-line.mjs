@@ -109,8 +109,13 @@ export function parseHeader(line) {
     const v = seg.slice(i + 1).trim()
     if (k === '归') fields.owner = v === NO_OWNER ? '' : v
     else if (k === '等') {
-      fields.waiting = 'env'
-      fields.blocking = v
+      // 等段 '—' 是投影占位(= 无等待),不是等待对象(2026-10-25 修,与 dispositionOf
+      // 标头补判的同型同日批:占位当等待 = 把"没有等待"读成"在等",实测 4 行投影行
+      // 被读回 waiting-env 而侧车是 none ⇒ A2 永久红)。
+      if (v !== '—') {
+        fields.waiting = 'env'
+        fields.blocking = v
+      }
     } else return { rec: null, malformed: true }
   }
   return { rec: fields, malformed: false }

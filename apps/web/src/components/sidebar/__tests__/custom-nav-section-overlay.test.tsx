@@ -5,7 +5,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, act } from '@testing-library/react'
 import type * as ApiClientModule from '@ihui/api-client'
 
 /**
@@ -134,6 +134,30 @@ describe('CustomNavSection 右侧浮层命中契约(P0)', () => {
     expect(remove.getAttribute('title')).toBe('nav.customRemove')
     // 原生 button ⇒ 天然可聚焦,且不会触发导航
     expect(remove.tagName).toBe('BUTTON')
+  })
+})
+
+/**
+ * 「不留死链」这条契约如今住在视图层(2026-10-25 从数据层挪过来)。
+ * 数据层不再删它判不准的 href(可见集是异步攒出来的,拿快照当删除依据 = 静默删用户数据),
+ * 于是"收藏里有一条此刻不可见的 href"成为合法常态 —— 它必须一条链接都渲染不出来。
+ * 摘掉 customItems 那层 itemMap 过滤(直接拿 hrefs 渲染)本用例即翻红。
+ */
+describe('CustomNavSection —— 可见表里查不到的收藏不得渲染成链接', () => {
+  it('收藏里有 /models,而本帧可见项表是空的 ⇒ 零条链接、零个移除按钮', async () => {
+    const { container } = render(
+      <CustomNavSection
+        collapsed={false}
+        onCloseMobile={() => {}}
+        registerRef={() => {}}
+        groups={[]}
+      />,
+    )
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(container.querySelectorAll('a[href="/models"]')).toHaveLength(0)
+    expect(container.querySelector('[data-testid="nav-custom-remove-/models"]')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

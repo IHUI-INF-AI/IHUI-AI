@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { BarChart3, Loader2 } from 'lucide-react'
 
-import { rulesApi } from './rules-api'
+import { apiOrThrow } from '@/lib/api'
 import type { RuleGlobalStats } from './types'
 import { Button, CloseButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
@@ -64,7 +64,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
   React.useEffect(() => {
     let cancelled = false
     setLoading(true)
-    rulesApi<RuleGlobalStats>('/api/rules/stats')
+    apiOrThrow<RuleGlobalStats>('/api/rules/stats')
       .then((res) => {
         if (!cancelled) {
           setStats(res)
