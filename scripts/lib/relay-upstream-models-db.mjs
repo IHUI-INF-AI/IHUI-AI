@@ -54,31 +54,37 @@ export async function applyActions(sql, actions) {
              ${`号池上游登记 · 由 scripts/relay-upstream-models-sync.mjs 依 scripts/data/relay-upstream-models.jsonl 落库(${a.reason})`})
            returning id`
         configIdByProvider.set(a.providerCode, Number(ins[0].id))
-        written.push(`ai_model_config +1 id=${ins[0].id} provider=${a.providerCode} base_url=${a.baseUrl}`)
+        written.push(
+          `ai_model_config +1 id=${ins[0].id} provider=${a.providerCode} base_url=${a.baseUrl}`,
+        )
       } else if (a.kind === 'updateConfig') {
         // provider + owner_uuid 谓词写进 WHERE(不是只靠 id):登记器结构上改不到别人的配置行
         await tx`update ai_model_config set enabled=${a.enabled}, api_format=${a.apiFormat}, updated_at=now()
            where id=${a.id} and provider_code=${a.providerCode} and owner_uuid is null`
-        written.push(`ai_model_config ~1 id=${a.id} provider=${a.providerCode} enabled=${a.enabled}`)
-      } else {
+        written.push(
+          `ai_model_config ~1 id=${a.id} provider=${a.providerCode} enabled=${a.enabled}`,
+        )
+      } else if (a.kind === 'insertModel') {
         const cid = a.configId ?? configIdByProvider.get(a.providerCode)
         if (cid === null || cid === undefined)
           throw new Error(`insertModel 定不到 config_id(provider=${a.providerCode})`)
-        if (a.kind === 'insertModel') {
-          // metadata 带上游真名的出处(与 apps/api/scripts/relay-workbuddy-models.ts 同形态),
-          // 便于日后核对别名映射;catalog(别名→上游真名)不归本器写,见 CLI 头注。
-          await tx`insert into ai_model_config_models
-               (config_id, model_id, display_name, enabled, is_relay_public, points_multiplier, metadata)
-             values (${cid}, ${a.alias}, ${a.displayName}, true, ${a.isRelayPublic}, 1.00,
-               ${JSON.stringify({ [a.providerCode]: { upstreamModel: a.upstreamModel, by: 'scripts/relay-upstream-models-sync.mjs' } })}::jsonb)`
-          written.push(`ai_model_config_models +1 config=${cid} model_id=${a.alias} upstream=${a.upstreamModel}`)
-        } else {
-          await tx`update ai_model_config_models
-               set enabled=${a.enabled}, is_relay_public=${a.isRelayPublic}, updated_at=now()
-             where id=${a.id} and config_id in (
-               select id from ai_model_config where provider_code=${a.providerCode} and owner_uuid is null)`
-          written.push(`ai_model_config_models ~1 id=${a.id} provider=${a.providerCode}`)
-        }
+        // metadata 带上游真名的出处(与 apps/api/scripts/relay-workbuddy-models.ts 同形态),
+        // 便于日后核对别名映射;catalog(别名→上游真名)不归本器写,见 CLI 头注。
+        await tx`insert into ai_model_config_models
+             (config_id, model_id, display_name, enabled, is_relay_public, points_multiplier, metadata)
+           values (${cid}, ${a.alias}, ${a.displayName}, true, ${a.isRelayPublic}, 1.00,
+             ${JSON.stringify({ [a.providerCode]: { upstreamModel: a.upstreamModel, by: 'scripts/relay-upstream-models-sync.mjs' } })}::jsonb)`
+        written.push(
+          `ai_model_config_models +1 config=${cid} model_id=${a.alias} upstream=${a.upstreamModel}`,
+        )
+      } else {
+        // updateModel 不需要 config_id(按 id + provider 归属谓词收窄);把它和 insertModel 分岔,
+        // 否则漂移这一格会拿 undefined 当"定不到 config_id"炸掉整笔事务。
+        await tx`update ai_model_config_models
+             set enabled=${a.enabled}, is_relay_public=${a.isRelayPublic}, updated_at=now()
+           where id=${a.id} and config_id in (
+             select id from ai_model_config where provider_code=${a.providerCode} and owner_uuid is null)`
+        written.push(`ai_model_config_models ~1 id=${a.id} provider=${a.providerCode}`)
       }
     }
   })

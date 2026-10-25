@@ -64,7 +64,9 @@ const miss = (why) => console.error(`❌ 未判定:${why}`)
 
 function printPlan(plan) {
   for (const r of plan.rows)
-    console.log(`  provider=${r.providerCode} alias=${r.alias ?? '(配置行)'} state=${r.state} ${r.why}`)
+    console.log(
+      `  provider=${r.providerCode} alias=${r.alias ?? '(配置行)'} state=${r.state} ${r.why}`,
+    )
 }
 
 function summarize(plan) {
@@ -93,8 +95,14 @@ export async function runMain(argv, env = process.env) {
     )
     return 2
   }
-  const reg = requireFlagValue(argv, '--registry', { noun: ' 登记表路径', fallback: REGISTRY_DEFAULT })
-  const envf = requireFlagValue(argv, '--env-file', { noun: ' .env 路径', fallback: ENV_FILE_DEFAULT })
+  const reg = requireFlagValue(argv, '--registry', {
+    noun: ' 登记表路径',
+    fallback: REGISTRY_DEFAULT,
+  })
+  const envf = requireFlagValue(argv, '--env-file', {
+    noun: ' .env 路径',
+    fallback: ENV_FILE_DEFAULT,
+  })
   if (reg.error || envf.error) {
     miss(reg.error ?? envf.error)
     return 2
@@ -130,7 +138,9 @@ export async function runMain(argv, env = process.env) {
   }
   const codes = [...new Set(parsed.entries.map((e) => e.providerCode))]
   const face = dsnFace(dsn.dsn)
-  console.log(`[relay-upstream-models] mode=${mode} registry=${reg.value.replace(ROOT + '/', '')} entries=${parsed.entries.length} DSN面=${face}`)
+  console.log(
+    `[relay-upstream-models] mode=${mode} registry=${reg.value.replace(ROOT + '/', '')} entries=${parsed.entries.length} DSN面=${face}`,
+  )
   const sql = opened.postgres(dsn.dsn, { max: 2, prepare: false, connect_timeout: 8 })
   try {
     const plan0 = planRegistration(parsed.entries, await readSnapshot(sql, codes))
