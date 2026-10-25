@@ -86,14 +86,73 @@ function main() {
   }
   if (check || !apply) {
     console.log(apply ? '已写盘' : '(未写盘;加 --apply 落地,须与所改 package.json 同 commit)')
-    return 0
+    // --check 档量到缺口 ⇒ 判红(exit 1):守门 import 的正是这一档,只打印等于没有门。
+    return check ? 1 : 0
   }
   return 0
 }
 
+const argv = process.argv.slice(2)
 const isDirectRun = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url
+
+/** 自检:两条对照都要过 —— 缺 default ⇒ 补得出且点名;已带 default/require ⇒ 一字不动 */
+function selfTest() {
+  const cases = [
+    {
+      name: '只写 types+import ⇒ 补 default 同值',
+      want: '{"a":{"types":"./src/a.ts","import":"./src/a.ts","default":"./src/a.ts"}}|a → ./src/a.ts',
+      got: () => {
+        const r = withDefaultConditions({ a: { types: './src/a.ts', import: './src/a.ts' } })
+        return `${JSON.stringify(r.exports)}|${r.added.join(',')}`
+      },
+    },
+    {
+      name: '已有 require ⇒ 不动(不抢既有语义)',
+      want: '{"a":{"import":"./src/a.ts","require":"./dist/a.cjs"}}|',
+      got: () => {
+        const r = withDefaultConditions({ a: { import: './src/a.ts', require: './dist/a.cjs' } })
+        return `${JSON.stringify(r.exports)}|${r.added.join(',')}`
+      },
+    },
+    {
+      name: '已有 default ⇒ 不动且零点名(幂等)',
+      want: '{"a":{"import":"./src/a.ts","default":"./src/a.ts"}}|',
+      got: () => {
+        const r = withDefaultConditions({ a: { import: './src/a.ts', default: './src/a.ts' } })
+        return `${JSON.stringify(r.exports)}|${r.added.join(',')}`
+      },
+    },
+    {
+      name: '字符串简写形 ⇒ 原样返回(不猜条件)',
+      want: '{"a":"./src/a.ts"}|',
+      got: () => {
+        const r = withDefaultConditions({ a: './src/a.ts' })
+        return `${JSON.stringify(r.exports)}|${r.added.join(',')}`
+      },
+    },
+    {
+      name: '只有 types 没有 import ⇒ 不造值(宁可漏补也不编路径)',
+      want: '{"a":{"types":"./src/a.ts"}}|',
+      got: () => {
+        const r = withDefaultConditions({ a: { types: './src/a.ts' } })
+        return `${JSON.stringify(r.exports)}|${r.added.join(',')}`
+      },
+    },
+  ]
+  let pass = 0
+  for (const c of cases) {
+    const got = c.got()
+    const ok = got === c.want
+    console.log(`${ok ? '✓' : '✗'} ${c.name}\n    期望 ${c.want}\n    实得 ${got}`)
+    if (ok) pass += 1
+  }
+  console.log(pass === cases.length ? `自检 ${pass}/${cases.length} 通过` : `❌ 自检 ${pass}/${cases.length}`)
+  process.exit(pass === cases.length ? 0 : 1)
+}
+
 if (isDirectRun) {
-  process.exit(main())
+  if (argv.includes('--self-test')) selfTest()
+  else process.exit(main())
 }
 
 export const __test__ = { withDefaultConditions, listOfManifests }
