@@ -126,8 +126,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 3216 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 276 | `guardianGates` |
-| — blocking | 253 | `guardianBlocking` |
+| 工程守门 | 278 | `guardianGates` |
+| — blocking | 255 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
 | 跟踪文件 | 16215 | `trackedFiles` |
 
@@ -5205,6 +5205,95 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | 115                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | check-tool-arg-validation-wired.mjs                                                                                                                                                                                                                                           | **入参校验装车对账(blocking,`stagedTriggers=apps/cli/src/tools/`+`packages/types/src/`,2026-09-25 立)**:A36 查出 `apps/cli/src/tools/argument-validator.ts` 生产面**零调用方**(`grep -rn "validateToolArguments                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | formatValidationErrors" --include=_.ts apps/cli/src packages/_/src` 只命中它自己的定义与注释)⇒ CLI 工具入参从未被校验:`required` 只用于生成提示文案(`tools/index.ts:187`)与投给 provider 的 schema,没有任何一处按它拒绝或纠正入参 ⇒ 同一类错误在 104 枚工具有 104 种表现,A13 那句"运行时怎么校验与模型被告知怎么填同源"只有后半句成立。**只判两条**:①`validateToolArguments(`必须有非测试调用方(**注释里的提及不算** —— 全仓三处`argument-validator` 的出现位置全是注释,正是"看起来有、其实没装车"那一型);②模式开关在位、**默认 off**、`shadow`档存在(**enforce 档已实现(容错解析 + 有界 repair),但**默认档仍是 off**——描述未被证明可信前翻默认就是运行时恒红事故** —— 那些`parameters`描述从未被执行过、准确度未知,直接打开拒绝就是运行时版恒红事故)。影子档只记账:不改`call.arguments`、不改返回值、不拦调用;遥测**不落任何入参值**(`ValidationError.actual`在`enum_mismatch` 分支装的就是用户原值,`expected` 装枚举表 ⇒ 双双排除)。覆盖面缺口如实登记:`hubEnabled && hubResolver`分支在拿到 Tool 对象之前就 return,那条路径影子不生效。三步顺序(①影子→②用影子数据修描述→③才谈默认 enforce + 把 {字段路径,期望,实得} 逐条回灌模型)登记在 PROJECT_PLAN 第八波。口径同 77/83/98/103/112/113;取不到 exit 2、枚举 0 判死。自检 14 条 + 镜像 5 例;紧急跳过`HUSKY_SKIP_TOOL_ARG_VALIDATION_WIRED=1` |
 - **包入口 barrel 漏 re-export 对账**(`scripts/check-package-barrel-export.mjs`,守门 149,blocking):判「端内从裸包名 import 的名字,包入口有没有真的递出」—— 与守门 98 方向相反(98 判 import 了不存在的)。立项实测:`packages/api-client` 入口漏列两个已 export 的符号 ⇒ 端内拿到 `undefined`,而 `ignoreBuildErrors` + 打包器只看 `dist/index.js` 让类型错、构建错、部署错**一个都不报**。递出名单按入口可达图算(含 `export *` 边与 `.js→.ts` 回退),值档/类型档分开;不可枚举的三方整表转发记「未判定」且 `--strict` 拒绝出合格证。修复只有一条:补进入口清单。问责 `pnpm check:package-barrel`;紧急跳过 `HUSKY_SKIP_PACKAGE_BARREL_EXPORT=1`。
 - **守门脚本速查**:pre-commit 守门条目数与分类**一律现读,文档不钉数字** —— 权威清单 `node scripts/guardian-runner.mjs --help`(或数 `scripts/guardian-runner.mjs` 里的 `id:` 条目),按类别的现行判据说明见 `AGENTS.md`「守门脚本速查」节。**这里曾写着"33+ 钩子 + 一份分类明细",而条目数是并发抢占式增长的(数字会随任何一枚新门提交立刻腐烂),钉进总览就等于替读文档的人做出"守门只有三十几道、分类还是那十项"的判断 —— 本仓同型失效已登记多次(含本轮守门 101 的取证例数假账),故改为只给现读入口。**
+
+**已接线门点名清单（按 guardian-runner 注册 id 序；2026-10-25 守门 89 R4 补登 85 枚已接线门——此前它们在 runner/钩子注册而 AGENTS.md/README.md 通篇未点名；判据细节一律以门体头注与 `node scripts/guardian-runner.mjs --help` 为准，此处只点名 + 一句话）**
+
+- `check-adapter-style-parity.mjs`(id 66,blocking,skipEnv=HUSKY_SKIP_ADAPTER_STYLE_PARITY)：[miniapp-taro] 适配层硬编码颜色基线(防新增 hex/rgb 绕过 token)
+- `check-ai-panel-mount-guards.mjs`(id 171,blocking,skipEnv=HUSKY_SKIP_AI_PANEL_MOUNT_GUARDS)：AI 面板装载守门:GlobalShell/AISidePanel 的骨架占位几何一致 + 8 个重组件懒加载边界 + inferVendor 单一来源(首屏延迟根治防回潮,2026-09-30;门体随 d5c54f4499 入库,本枚重注
+- `check-api-key-permission-labels.mjs`(id 214,blocking,skipEnv=HUSKY_SKIP_API_KEY_PERM_LABELS)：ApiKeyPermission 三面对账(union ↔ web 两处标签表 ↔ 五语言 apiKeyPerms;2026-10-16 CI e2e 因缺 voice:stt 标签恒红那格的防回潮)
+- `check-auth-cookie-domain-scope.mjs`(id 230,blocking,skipEnv=HUSKY_SKIP_AUTH_COOKIE_DOMAIN_SCOPE)：会话 Cookie 域作用域对账(blocking):Domain= 只许经 auth-cookies 的 resolveCookieDomain 单源按请求 host 下发,Host 取样必须走代理感知出口 request.hostnam
+- `check-authorization-column-isolation.mjs`(id 188,blocking,skipEnv=HUSKY_SKIP_AUTHZ_COLUMN_ISOLATION)：授权判据列隔离(blocking,拦「归属判据所在的 SELECT 顺带取了展示列」—— 展示字段损坏会把授权查询拖成 500 而不是 403/404;判据本体单份住在 check-authorization-column-isolatio
+- `check-baseline-freshness.mjs`(id —,非blocking,接线点=package.json `check:baseline-freshness` + git-guardian.mjs 现调度)：开工前基线新鲜度自检(三轴:分支落后远端/落后主线/共享工作树滞后 HEAD)
+- `check-bpe-encoding-parity.mjs`(id 228,blocking,skipEnv=HUSKY_SKIP_BPE_ENCODING_PARITY)：跨端 BPE 词表对账(blocking;C1 声明 + C2 行为 + C3 反向锁)
+- `check-bypass-landing-scope.mjs`(id 170,blocking,skipEnv=HUSKY_SKIP_BYPASS_LANDING_SCOPE)：旁路落地声明面对账(blocking,留痕声明面 ⊉ 实际面 ∧ 射程外路径写回旧 blob ⇒ 红并点名;增量台账每枚判一次)
+- `check-capability-field-not-client-supplied.mjs`(id 176,blocking,skipEnv=HUSKY_SKIP_CAPABILITY_FIELD_NOT_CLIENT_SUPPLIED)：能力位不得客户端自供守门(b76-08a票2配套):客户端不得自报 capability 字段(connectionId/clientMode/deliveryProfile/subscriberScope/workflowRunDelta
+- `check-cli-i18n-parity.mjs`(id 2f-cli,非blocking(warn),skipEnv=无)：cli i18n parity 守门(warn-only,2026-07-28 立)
+- `check-crash-report-redaction.mjs`(id 144,blocking,skipEnv=HUSKY_SKIP_CRASH_REDACTION)：崩溃上报出口脱敏对账(blocking,拦「崩溃上报把未脱敏的 message/stack 送进 crash_reports(90 天)与管理面板」—— 发射点与落库点都必须调用共享层唯一出口 redactCrashText)
+- `check-credential-leak-in-message.mjs`(id 67,blocking,skipEnv=HUSKY_SKIP_CREDENTIAL_LEAK_IN_MESSAGE)：凭据经非2xx message 外泄对账(blocking,拦上游令牌/密钥响应体被拼进错误消息)
+- `check-credential-presence-bypass.mjs`(id 157,blocking,skipEnv=HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS)：按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)
+- `check-csrf-exemption-shape.mjs`(id 209,blocking,skipEnv=HUSKY_SKIP_CSRF_EXEMPTION_SHAPE)：CSRF 豁免形状对账(blocking,存在性唯一条件放行/验真出口摘线/timingSafeEqual 单源三判据)
+- `check-dangling-local-imports.mjs`(id 98,blocking,skipEnv=HUSKY_SKIP_DANGLING_IMPORTS)：HEAD 悬空具名导入对账(blocking,import 的名字目标必须真导出)
+- `check-db-blind-updatedat-set.mjs`(id 198,blocking,skipEnv=HUSKY_SKIP_DB_BLIND_UPDATEDAT)：⏱️ DB 盲写 updatedAt 棘轮(blocking,拦「.set({ ...data, updatedAt: new Date() })」无条件覆盖形态回潮 —— 它把增量读的 updatedAt 消费源污染成假变化)
+- `check-diagnostic-redaction.mjs`(id 174,blocking,skipEnv=HUSKY_SKIP_DIAGNOSTIC_REDACTION)：诊断面脱敏守门(b76-08a票1配套):诊断/错误上报面不得携带未脱敏的密钥/令牌/邮箱/路径等敏感串,自检 --self-test 内嵌红绿对照
+- `check-digest-name-reality.mjs`(id 137,blocking,skipEnv=HUSKY_SKIP_DIGEST_NAME_REALITY)：名字承诺/实现兑现对账(拦「函数或字段叫 hash/digest/指纹/脱敏,实现却是明文拼接且流向持久化或出网」这一型 —— 本仓 4 处真缺陷同族立门)
+- `check-dockerfile-copy-paths.mjs`(id 72,blocking,skipEnv=HUSKY_SKIP_DOCKERFILE_COPY_GUARD)：Dockerfile 构建上下文对账(blocking,钩子脚本必须 COPY 进镜像 + COPY 源必须在提交里)
+- `check-doom-loop-parity.mjs`(id 141,blocking,skipEnv=HUSKY_SKIP_DOOM_LOOP_PARITY)：doom-loop parity 对账(共享层/CLI/agent.ts/Python 等价/主链路五面成套,策略数字不得有第二份)
+- `check-edu-arrears-single-source.mjs`(id 165,blocking,skipEnv=HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE)：教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)
+- `check-enum-default-widening.mjs`(id 190,非blocking(warn),skipEnv=HUSKY_SKIP_ENUM_DEFAULT_WIDENING)：枚举/映射取不到时的兜底分支不得落到更宽的权限或能力档(票 G-816027):宽档集合由被审面的两份注册表(TS POLICY_BY_MODE / PY skips_approval_permission_mode)现读推导,推导失败或槽
+- `check-enum-fallback-terminal.mjs`(id 205,blocking,skipEnv=HUSKY_SKIP_ENUM_FALLBACK_TERMINAL)：未知枚举兜底档(blocking,闭集状态的未命中分支兜初始态 ⇒ 红;未知值必须落「不再产生副作用」那一档)
+- `check-error-attribution-single-source.mjs`(id 204,blocking,skipEnv=HUSKY_SKIP_ERROR_ATTRIBUTION_SINGLE_SOURCE)：错误归因唯一出口(blocking,生产面不得出现第二份 `.message.includes(` 归因判定;调用点必须走 packages/shared 的 attributeError)
+- `check-error-code-not-text-matching.mjs`(id 206,blocking,skipEnv=HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING)：错误码不得按文本判(blocking,新增分支按 err.message/includes(\'429\') 判身份 ⇒ 红;存量按该文件 HEAD 自身棘轮只报数)
+- `check-error-message-bounded.mjs`(id 181,blocking,skipEnv=HUSKY_SKIP_ERROR_MESSAGE_BOUNDED)：错误文案有界化守门(b76-12b票1配套):错误文案出边界(PERSISTENT sink)的 JSON.stringify 内插必须有界或带 ref= 基线;测试面/CLI 面/stdout-only 豁免,基线棘轮只减不增
+- `check-file-write-safety.mjs`(id 122,blocking,skipEnv=HUSKY_SKIP_FILE_WRITE_SAFETY)：文件写盘安全对账(blocking,工具写文件必须走原子写出口;裸写盘棘轮)
+- `check-gate-face-discipline.mjs`(id 118,blocking,skipEnv=HUSKY_SKIP_GATE_FACE_DISCIPLINE)：门脚本取材面纪律对账(blocking,本次改动动过的门必须经统一取材层;全量档只报数)
+- `check-generator-resource-release.mjs`(id 225,非blocking(warn),skipEnv=HUSKY_SKIP_GENERATOR_RESOURCE_RELEASE)：生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC)
+- `check-git-read-timeout.mjs`(id 80,blocking,skipEnv=HUSKY_SKIP_GIT_READ_TIMEOUT)：⏱ 热路径 git 只读调用必须带 timeout(blocking,拦无界挂起拖死守门链)
+- `check-grafana-datasource-wiring.mjs`(id 222,blocking,skipEnv=HUSKY_SKIP_GRAFANA_DATASOURCE_WIRING)：监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态)
+- `check-grafana-metric-exists.mjs`(id 220,blocking,skipEnv=HUSKY_SKIP_GRAFANA_METRIC_EXISTS)：监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)
+- `check-guardian-review-wired.mjs`(id 142,blocking,skipEnv=HUSKY_SKIP_GUARDIAN_REVIEW_WIRED)：Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)
+- `check-husky-hook-form.mjs`(id 226,blocking,skipEnv=HUSKY_SKIP_HOOK_FORM)：钩子装载形态对账(.husky 钩子必须 sh 薄壳,node 正文只能在 scripts/lib)
+- `check-i18n-locale-content-language.mjs`(id 133,blocking,skipEnv=HUSKY_SKIP_I18N_LOCALE_CONTENT_LANGUAGE)：🈶 语言包语种内容对账(blocking,L1 跨族/块级只报数 + L2 同名自套一层按 HEAD 锚点棘轮 —— parity 绿不等于语种对)
+- `check-image-placeholders.mjs`(id —,非blocking,接线点=package.json `check:image-placeholders`)：只读量算图片源站 0 字节空文件(灰底占位图)及其代码引用点
+- `check-inbound-schema-strict.mjs`(id 161,blocking,skipEnv=HUSKY_SKIP_INBOUND_SCHEMA_STRICT)：入站契约 .strict() 到达性对账
+- `check-index-unmerged-age.mjs`(id —,非blocking,接线点=git-guardian.mjs index 烂尾哨兵派发)：index 烂尾(unmerged 条目)滞留哨兵(2026-10-24 立)
+- `check-line-split-parity.mjs`(id 210,非blocking(warn),skipEnv=HUSKY_SKIP_LINE_SPLIT_PARITY)：TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格)
+- `check-list-cap-honesty.mjs`(id 178,blocking,skipEnv=HUSKY_SKIP_LIST_CAP_HONESTY)：列表截断诚实守门(b76-13票7配套):UI 列表截断必须如实交代截断帽(不得假装展示全量),三处 UI 命中已清偿;1 处字符串尾截(terminal-section.tsx)属票面不判面(未判定不判红)
+- `check-list-predicate-has-positive-proof.mjs`(id 120,blocking,skipEnv=HUSKY_SKIP_LIST_POSITIVE_PROOF)：名单类判据正向证明对账(blocking,登记名单必须被自己的成员命中过)
+- `check-live-doc-references.mjs`(id 184,blocking,skipEnv=HUSKY_SKIP_LIVE_DOC_REFERENCES)：活文档点名路径存续性对账(blocking,正文反引号点名的仓内路径必须在被审面在位;索引缺而 HEAD 在 ⇒ 红,HEAD 缺席只 warning,2026-09-30 D169 立)
+- `check-load-state-loaded-marks.mjs`(id 187,blocking,skipEnv=HUSKY_SKIP_LOAD_STATE_LOADED_MARKS)：不安全加载标记四形态扫描(finally-set / except-set / tail-set / set-add;判据本体单份住在 _load_lifecycle.py,门内零自行判定;blocking)
+- `check-load-state-projection-parity.mjs`(id 186,非blocking(warn),skipEnv=HUSKY_SKIP_LOAD_STATE_PROJECTION_PARITY)：loadState 四档投影防漂移对账(LV1 四档字面量零散落 + LV2 五族 get_status 的 loadState 键与共享出口来源;warn 起步)
+- `check-lock-manifest-consistency.mjs`(id 101,blocking,skipEnv=HUSKY_SKIP_LOCK_MANIFEST_GUARD)：清单↔锁 specifier 对账(blocking,拦"本地全绿、生产构建必炸"的依赖真值)
+- `check-lsp-language-table.mjs`(id 143,blocking,skipEnv=HUSKY_SKIP_LSP_LANGUAGE_TABLE)：LSP 语言表与探测四态对账(拦 binary 名回到写死字面量、能力声明无对应族、探测失败被折叠成无诊断)
+- `check-mention-engine-wired.mjs`(id 138,blocking,skipEnv=HUSKY_SKIP_MENTION_ENGINE_WIRED)：@ 多维提及引擎接线与单一源对账(V3 #61:三件不得回到无人调用 / 维度表与触发符解析不得出现第二份)
+- `check-miniapp-taro-design-tokens.mjs`(id 227,blocking,skipEnv=HUSKY_SKIP_MINIAPP_TARO_DESIGN_TOKENS)：小程序 design-token 副本逐位同值(blocking,判 app.css 首块已有键 × 7 类 token,含提交链唯一覆盖的 --chart-* 档)
+- `check-mobile-api-base-bake.mjs`(id 202,blocking,skipEnv=HUSKY_SKIP_MOBILE_API_BASE_BAKE)：移动端 release 打包步必须能看到 EXPO_PUBLIC_API_BASE_URL(只挂 prebuild 步 ⇒ 打包期内联 localhost:8802,线上全量断网;2026-10-13 装机实测)
+- `check-mobile-version-code.mjs`(id 201,blocking,skipEnv=HUSKY_SKIP_MOBILE_VERSION_CODE)：mobile-rn Expo 配置必须产出单调递增的 versionCode/buildNumber(app.json 无 versionCode ⇒ Expo 默认恒 1,覆盖安装必被 Android 降级保护拒;2026-10-12 装
+- `check-mode-permission-matrix.mjs`(id 139,blocking,skipEnv=HUSKY_SKIP_MODE_PERMISSION_MATRIX)：模式×权限档×审批三轴矩阵对账(V3 #53:ChatMode 硬收窄的表与判定两侧逐格等值,出口唯一、有生产调用点)
+- `check-nested-additional-properties.mjs`(id 180,blocking,skipEnv=HUSKY_SKIP_NESTED_ADDITIONAL_PROPERTIES)：嵌套 additionalProperties 闭集守门(b76-14票2配套):嵌套层 schema 的闭集声明不得被摘(嵌套三态在位 + 类型面收编 ≥2),取不到按 UNDETERMINED 不记绿,自检 --self-test 3 
+- `check-no-nested-git-sites-durability.mjs`(id 232,blocking,skipEnv=HUSKY_SKIP_NESTED_GIT_SITES_DURABILITY)：嵌套仓豁免台账耐久性(HEAD 面已登记未到期行被洗掉即红;载体=行式 no-nested-git-sites.jsonl + 旧 JSON 台账;现场存续仍由门 208 现算,本门只守行存续)
+- `check-no-warm-border.mjs`(id 231,blocking,skipEnv=HUSKY_SKIP_WARM_BORDER)：暖色描边禁令(W1 聚焦态描边取暖色 / W2 原生 EditText 背景引用 textfield_* 9-patch / W3 AppTheme 未钉强调色 / W4 plugins 被 .gitignore 吞掉)
+- `check-orphan-deletion-refs.mjs`(id —,非blocking,接线点=git-guardian.mjs 孤儿删除引用常驻巡检派发)：孤儿删除引用对账:HEAD 树仍 import 已从索引/磁盘删除的文件(warn 不进提交链)
+- `check-percent-clamp-single-source.mjs`(id —,非blocking,接线点=package.json `check:percent-clamp`)：百分比裁剪单一出口对账:出口外再现内联 0–100 裁剪形态即记站点
+- `check-plan-id-pool.mjs`(id 211,blocking,skipEnv=HUSKY_SKIP_PLAN_ID_POOL)：PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名)
+- `check-plan-sha-form.mjs`(id 196,非blocking(warn),skipEnv=无)：PROJECT_PLAN.md 短 sha 出处指针防回潮(新增行裸短 sha 须走台账/声明前缀/文件名通道,warn)
+- `check-plan-sha-resolvable.mjs`(id —,非blocking,接线点=package.json `check:plan-sha`)：PROJECT_PLAN.md 台账里 sha 引用可解析性只读三态对账(不改台账)
+- `check-principal-consumed.mjs`(id 152,blocking,skipEnv=HUSKY_SKIP_PRINCIPAL_CONSUMED)：ai-service 身份消费对账(blocking,拦「端点取到已验证身份却一次都没用它」—— 认证不等于授权;判据单一真相在 apps/ai-service/scripts/audit_principal_consumed.py,本门只
+- `check-process-exit-attribution.mjs`(id 175,blocking,skipEnv=HUSKY_SKIP_PROCESS_EXIT_ATTRIBUTION)：进程退出码归因守门(b76-08a票1配套):进程 exit 1/非零退出必须可归因到显式 failure kind/错误码,禁止无归因的裸退出,自检 --self-test 内嵌红绿对照
+- `check-push-sync.mjs`(id 29,blocking,skipEnv=无)：Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线)
+- `check-python-import-landed.mjs`(id 189,blocking,skipEnv=HUSKY_SKIP_PYTHON_IMPORT_LANDED)：Python import 入库存续性对账
+- `check-registry-worktree-superset.mjs`(id 192,blocking,skipEnv=HUSKY_SKIP_REGISTRY_WORKTREE_SUPERSET)：注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责)
+- `check-selftest-registrant-evaluates.mjs`(id 156,非blocking(warn),skipEnv=HUSKY_SKIP_SELFTEST_REGISTRANT)：自检用例登记侧的求值配对对账(登记不求值 ∧ 用例传函数 ⇒ 才判红;潜伏档只报数)
+- `check-sequence-lag.mjs`(id —,非blocking,接线点=package.json `check:sequence-lag`(手动问责档,不进提交链))：整数主键序列落后对账(只读探测 + 可选只向前修复,绝不回拨)
+- `check-shared-type-not-redeclared.mjs`(id 219,blocking,skipEnv=HUSKY_SKIP_SHARED_TYPE_REDECLARED)：端内共享类型重声明对账(共享对外类型名不得在端内再写一份;差值棘轮锚点=该文件 HEAD 自身违规数,存量只报数)
+- `check-sheet-flex-contract.mjs`(id 217,blocking,skipEnv=HUSKY_SKIP_RN_STYLE_PARITY)：mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁)
+- `check-skip-env-promise.mjs`(id 172,blocking,skipEnv=HUSKY_SKIP_SKIP_ENV_PROMISE)：跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增)
+- `check-slash-command-wired.mjs`(id 160,blocking,skipEnv=HUSKY_SKIP_SLASH_COMMAND_WIRED)：斜杠命令「注册表 ↔ 分派 switch」到达性对账 + 注册名去重:注册名(含别名)必须各有活 case/if 分支(W1)、注册名多重集零重复(W2)、分派顶层必须有 default 兜底(W4),三维零容忍;分派有而注册表无(W3 名
+- `check-sse-frame-watermark.mjs`(id 177,blocking,skipEnv=HUSKY_SKIP_SSE_FRAME_WATERMARK)：SSE 帧水印守门(b76-13票1配套):SSE 流消费环必须带 fromSeq≥1 帧水印接线(唯一出口 + 读环接线 + 阳性对照),摘线即红,自检 --self-test 红绿对照
+- `check-sse-no-blind-merge.mjs`(id 233,blocking,skipEnv=HUSKY_SKIP_SSE_NO_BLIND_MERGE)：SSE 全量帧盲合并(全量帧 snapshot/initial 分支里铺开本地旧状态即红;未判定逐条点名,--strict 下 exit 2)
+- `check-stale-stashes.mjs`(id 30b,blocking,skipEnv=无)：Stash 滞留源码改动守门(blocking,AGENTS.md §12d,防已完成工作滞留 stash 静默失联)
+- `check-subagent-permission-inherited.mjs`(id 119,blocking,skipEnv=HUSKY_SKIP_SUBAGENT_PERMISSION_INHERITED)：子代理权限继承对账(blocking,派生点必须下传 permissionMode/permissions)
+- `check-sweeper-liveness.mjs`(id —,非blocking,接线点=git-guardian.mjs 清扫背离巡检派发)：「派发在动、留痕静默」背离检测(sweeper 巡检活着但留痕静默即红)
+- `check-tool-exec-budget.mjs`(id 123,blocking,skipEnv=HUSKY_SKIP_TOOL_EXEC_BUDGET)：⏱️ 工具执行预算对账(blocking,工具级超时/取消机制在位且被调用;缺常量/缺通道即红)
+- `check-tool-family-registered.mjs`(id 132,blocking,skipEnv=HUSKY_SKIP_TOOL_FAMILY_REGISTERED)：工具族注册对账(blocking,存量已归零:tools/** 里导出的一族工具必须能在生产面找到把它挂进注册表的调用点 —— "造好没装车"那一型)
+- `check-tool-schema-projection.mjs`(id 179,blocking,skipEnv=HUSKY_SKIP_TOOL_SCHEMA_PROJECTION)：工具 schema 投影完整性守门(b76-05票2配套):工具描述符 JSON schema 投影必须键序 canonical/拒绝通道在位/A-B 两面一致/缓存中性,99 个可判工具全过才绿,自检 --self-test 4 例
+- `check-truncation-accounting.mjs`(id 197,非blocking(warn),skipEnv=无)：truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,warn)
+- `check-turn-ordinal-lock.mjs`(id 167,blocking,skipEnv=HUSKY_SKIP_TURN_ORDINAL_LOCK)：turn 序号分配点上锁(blocking,max(turnOrdinal) 与 insert(chatMessages) 同体 ⇒ 体内必须有 .for(\'update\') 或 db.transaction;全量档只报数)
+- `check-txn-cancel-boundary.mjs`(id 195,blocking,skipEnv=HUSKY_SKIP_TXN_CANCEL_BOUNDARY)：事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)
+- `check-typecheck.mjs`(id T1,blocking,skipEnv=无)：push 门全量 typecheck(staged-scope 降级)
+- `check-upload-budget.mjs`(id 183,blocking,skipEnv=HUSKY_SKIP_UPLOAD_BUDGET)：分片上传聚合预算棘轮门(b76-12c票3配套):chunked-upload.ts 的 begin 新建装配检(isPerUserSessionBudgetExceeded)与每片落盘追加检(wouldStagedBudgetOverfl
+- `check-v3-62-conversation-mount.mjs`(id 140,blocking,skipEnv=HUSKY_SKIP_V362_CONV_MOUNT)：V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)
+- `check-wire-strictness.mjs`(id 182,blocking,skipEnv=HUSKY_SKIP_WIRE_STRICTNESS)：控制面 strict 棘轮门(b76-12c票2配套):扫描面(apps/api/src/plugins + packages/shared/src)的 z.object+.strict+.catch 总和只减不增(基线 91);禁 pas
+
 ### 本轮新增的对外能力与运维入口(2026-09-27 · 证据流水 / CLI 版本闸门 / 报表产物)
 - **审计证据导出(只读 admin 面)**:`GET /api/admin/audit-evidence/signed` 产出自签信封、`GET /api/admin/audit-evidence/public-key` 递出公钥与密钥标识。信封的签名对象是**键序归一后的确定性序列化**,所以同一内容两次导出签名字节全等;筛选条件六维全部锁进签名(否则一份"全量"签名可被裁成任意子集而仍成立)。**签名是 RSA-SHA256 非对称,不是链内那把 HMAC** —— 对称密钥交给收件方等于收件方能自签。鉴权只走既有 `requireAdmin`(`roleId >= 1`,且只认人用 JWT)。**现读事实:签名密钥今天未配置**(环境变量表里没有该键),故 `/signed` 按设计回 503 并给出原因而不是回一份没签名的数据;上线前需在凭据权威目录放密钥并**重启 API 服务**(改文件不影响已在跑的进程)。取路径一律经 `node scripts/secret-path.mjs`,不得硬编码盘符。
 - **CLI 可远程下发的最低版本闸门**:`GET /api/app-version/min-cli-version`(`platform` 枚举止步补了 `cli` 档 —— 此前该端在枚举里根本没有,服务端下发对 CLI 结构上不可达)。取值优先级 **环境变量 > 配置文件 > 无配置 = 不拦**;**配错或问不到一律降级成"不拦"并把原因喊出来**(挡住全部用户比"旧 CLI 跑新契约"更坏)。CLI 侧用**上一次问到的缓存结论**在命令开始前同步判定,保证拦截不会发生在命令跑到一半之后;低于要求时退出码 78。独立运维入口:`ihui min-version-probe --json`(0 = 不拦 / 78 = 低于要求 / 2 = 无法判定)。注意配置文件档在 API 容器镜像里恒不可达(镜像不 COPY 仓库根 `config/`)⇒ 容器侧降级为"不拦",要改这个边界须先动 Dockerfile 的 COPY 清单。
@@ -5517,6 +5606,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-25**
+- 🚀 新功能/改进:补 5 屏镜像标记（高置信项：小程序已有页） (70e73f8cea1d)
+
+**2026-10-25**
+- 🚀 新功能/改进:agreement 用户协议页完整落地(路由+5语i18n) (16d7b86f56c7)
+
 **2026-10-25**
 - 🚀 新功能/改进:补 8 页镜像标记(app-permission/api-settings/coupon/study-index/phone/password/help/integral) (6e3431fcafca)
 
@@ -8298,17 +8393,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 **2026-10-25**
 - 🔧 工程/其他:门 241 镜像测 T1 前提断言改大小写不敏感 (3a893d14814f)
-
-**2026-10-25**
-- 📚 文档:守门 241(裸 decodeURIComponent)R4 点名行 (8ffd95d1dc0b)
-
-**2026-10-25**
-- 🐞 修复:移动端行为级深挖批——裸 decodeURIComponent 族 21 处从底层修复 + 守门 241 防回潮 (815bfe638fd2)
-- 🐞 修复:RN 样式裸数字回潮锁改号 240→247——远端 f126e734 已占 240(大屏读数不得断行门),合并前让号,判据与 skipEnv 一字未动 (284aa41062de)
-- 🔧 工程/其他:门 240 判据镜像测试——3 例直接 import 源脚本 __test__(§22c,判据零复制),含阳性对照(把 rnSpacing.lg 改回 16 必须被抓) (1dfe636e62eb)
-- 🚀 新功能/改进:新守门 check-bare-decode-uri.mjs 接进提交链 (6a3e148297bc)
-- 🚀 新功能/改进:新增门 240 RN 样式裸数字回潮锁(差值棘轮)+ runner 接线 (d066355a355b)
-- 📚 文档:点名门 240 RN 样式裸数字回潮锁(与接线同批;AGENTS.md 超体积预算暂不写入,README 已满足 R4) (d562ca2018d1)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
