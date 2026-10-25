@@ -57,10 +57,13 @@ test('② 取票唯一入口:plan-tasks + --open --dispatchable --exclude-inflig
   assert.deepEqual([...ae.DISPATCH_ARGS].sort(), ['--dispatchable', '--exclude-inflight', '--open'].sort())
 })
 
-test('③a 白名单:命中/不命中/大小写不敏感', () => {
+test('③a 白名单:命中/不命中/大小写不敏感/只看标题区', () => {
   assert.equal(ae.matchWhitelist('README 数字收尾对齐', ['readme']), true)
   assert.equal(ae.matchWhitelist('补齐 i18n 五语言键', ['i18n']), true)
   assert.equal(ae.matchWhitelist('重构数据库连接池', ['readme', '文档', 'i18n']), false)
+  // 2026-10-25 --once 真派实测缺口:正文含白名单词而标题不含 ⇒ 不得命中(误派大工程票)
+  assert.equal(ae.matchWhitelist('**第 3 期·进化回流**:失败票归因沉淀;pnpm 依赖升级自动生成票', ['依赖升级']), false)
+  assert.equal(ae.matchWhitelist('**README 数字收尾** 其他正文随便写依赖升级', ['readme']), true)
 })
 
 test('③b 连败封票:计数只看连续失败,派发成功打断', () => {
@@ -126,3 +129,22 @@ test('⑥ pid 判活:自身活 / 非法与不存在者死', () => {
   assert.equal(ae.isPidAlive(999999999), false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('⑦ 会话 JWT 形状:HS256 三段 / sub 必在(实测缺口)/ iss/aud/exp 同 auth 包', async () => {
+  const { createHmac } = await import('node:crypto')
+  const secret = 'x'.repeat(40)
+  const uid = '123e4567-e89b-12d3-a456-426614174000'
+  const now = Math.floor(Date.now() / 1000)
+  const jwt = ae.signSessionJwt(secret, { userId: uid, now })
+  const [h, p, s] = jwt.split('.')
+  assert.ok(h.length > 0 && p.length > 0 && s.length > 0)
+  const payload = JSON.parse(Buffer.from(p, 'base64url').toString('utf8'))
+  assert.equal(payload.sub, uid, 'verifyAccessToken 强制 sub(缺 ⇒ 401 且文案被吞),此步不能省')
+  assert.equal(payload.userId, uid)
+  assert.equal(payload.iss, 'ihui-ai')
+  assert.equal(payload.aud, 'ihui-ai-users')
+  assert.equal(payload.roleId, 0, '最小权限:机器会话恒 role 0')
+  assert.ok(payload.exp - payload.iat === 8 * 3600)
+  const expect = createHmac('sha256', secret).update(h + '.' + p).digest('base64url')
+  assert.equal(s, expect)
+})
