@@ -146,10 +146,45 @@ export function twinRatchetVerdict(headText, newText) {
  */
 const NOTE_TOKEN_SRC = '〔(?:[^〔〕]{8,24}|同题原号[^〔〕]*|改号\\([^〔〕]*\\):原[^〔〕]*)〕'
 
-/** 一行内每种注记多出来的份数之和(0 = 该行无重复叠注)。 */
+/**
+ * 逐字承载段的起始标记(2026-10-25 立):`〔副本正文并入·承载整段:…〕` 是折并时把旧行
+ * **正文整段逐字**搬进来的载体,里面必然带着旧行的同一条注记 —— 它与本行的活注记构成
+ * "同 token 两份",但那是折并的**设计形态**,不是并发回灌的叠注。旧读数因此常年非零
+ * (实测 72 份里 51 份在承载段内),而清它就得改写逐字引文,等于毁掉承载凭据。
+ * 判据只数**活文本**:先把承载段按括号平衡摘掉,再数其中的注记。
+ */
+const CARRY_SEGMENT_START = '〔副本正文并入·承载整段:'
+
+/** 摘除 `〔副本正文并入·承载整段:…〕` 平衡段(纯函数;承载段内嵌同形括号,故按深度配平)。 */
+export function stripCarrySegments(line) {
+  const text = String(line || '')
+  let out = ''
+  let i = 0
+  while (i < text.length) {
+    const at = text.indexOf(CARRY_SEGMENT_START, i)
+    if (at < 0) {
+      out += text.slice(i)
+      break
+    }
+    out += text.slice(i, at)
+    let j = at + 1
+    let depth = 1
+    while (j < text.length && depth > 0) {
+      const ch = text[j]
+      if (ch === '〔') depth++
+      else if (ch === '〕') depth--
+      j++
+    }
+    i = j
+  }
+  return out
+}
+
+/** 一行内每种注记多出来的份数之和(0 = 该行无重复叠注;承载段不计)。 */
 export function redundantNoteCountInLine(line) {
   const seen = new Map()
-  for (const m of String(line || '').matchAll(new RegExp(NOTE_TOKEN_SRC, 'g')))
+  const live = stripCarrySegments(line)
+  for (const m of live.matchAll(new RegExp(NOTE_TOKEN_SRC, 'g')))
     seen.set(m[0], (seen.get(m[0]) ?? 0) + 1)
   let total = 0
   for (const n of seen.values()) if (n > 1) total += n - 1
@@ -254,6 +289,16 @@ export function selfTestRun(asJson) {
     { name: '同一行叠两份改号 7 位原号 ⇒ 计 1(字族补入后超窗形态可识别)', text: row('〔改号(2026-10-22):原G-1058619〕〔改号(2026-10-22):原G-1058619〕'), want: 1 },
     { name: '同一行叠两份省略号形同题原号(6 字低于窗形) ⇒ 计 1', text: row('〔同题原号 …〕〔同题原号 …〕'), want: 1 },
     { name: '非登记行(散文)叠两份 ⇒ 不计', text: '随便一句正文 〔同题原号 G-191〕〔同题原号 G-191〕\n', want: 0 },
+    {
+      name: '承载段〔副本正文并入·承载整段:…〕内的同 token ⇒ 不计(逐字引文非活注记)',
+      text: row('〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〔同题原号 G-191〕〕'),
+      want: 0,
+    },
+    {
+      name: '承载段外的真叠注仍计(承载段豁免不吞活文本)',
+      text: row('〔同题原号 G-191〕〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〕'),
+      want: 1,
+    },
   ]
   let fail = 0
   for (const c of cases) {

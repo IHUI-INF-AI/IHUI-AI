@@ -16,6 +16,7 @@ import {
   twinRatchetVerdict,
   redundantNoteCount,
   redundantNoteCountInLine,
+  stripCarrySegments,
   noteRedundancyVerdict,
   prefixTwinPairs,
   prefixTwinVerdict,
@@ -257,6 +258,15 @@ test('P9 维③叠注重数:同一行同一注记多出来的份数只拦变多;
   if (redundantNoteCountInLine('') !== 0) throw new Error('空行必须读成 0')
   const prose = '随便一句正文 〔同题原号 G-191〕〔同题原号 G-191〕\n'
   if (redundantNoteCount(prose) !== 0) throw new Error('登记行以外的文本不得计入重数')
+  // 承载段豁免(2026-10-25):〔副本正文并入·承载整段:…〕是折并时逐字搬来的旧正文,
+  // 里面必带旧注记;那与活注记同 token 但属设计形态,数进来会造出"清不掉"的存量。
+  const carry = '- [ ] G-9 做点啥 〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〔同题原号 G-191〕〕\n'
+  if (redundantNoteCount(carry) !== 0) throw new Error('承载段内的同 token 不该计重叠')
+  const nested = '- [ ] G-9 做点啥 〔副本正文并入·承载整段:甲〔乙:丙〕丁〕〔同题原号 G-191〕\n'
+  if (stripCarrySegments(nested) !== '- [ ] G-9 做点啥 〔同题原号 G-191〕\n')
+    throw new Error('承载段摘除必须按括号深度配平,不得吃外文本')
+  const liveStill = '- [ ] G-9 做点啥 〔同题原号 G-191〕〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〕\n'
+  if (redundantNoteCount(liveStill) !== 1) throw new Error('承载段豁免不得吞掉承载段外的真叠注')
   const grew = noteRedundancyVerdict(one, three)
   if (!grew.grew || grew.before !== 0 || grew.after !== 2) throw new Error('叠注变多必须判红')
   const shrank = noteRedundancyVerdict(three, one)
