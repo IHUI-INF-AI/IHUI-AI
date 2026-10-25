@@ -485,7 +485,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
   // Watch:刷新状态
   const refreshWatchStatus = React.useCallback(async () => {
     try {
-      const r = await api<SpecWatchStatusResult>('/api/spec/watch/status')
+      const r = await api<SpecWatchStatusResult>('/api/spec/watch/status', { method: 'GET' })
       setWatchStatus(r)
     } catch {
       // 静默
@@ -588,7 +588,9 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
         pipelineId: pid,
       }).toString()
       if (scopePath.trim()) qs.concat(`&scopePath=${encodeURIComponent(scopePath.trim())}`)
-      const r = await api<SpecPipelineStatusResult>(`/api/spec/pipeline-status?${qs}`)
+      const r = await api<SpecPipelineStatusResult>(`/api/spec/pipeline-status?${qs}`, {
+        method: 'GET',
+      })
       setPipelineStatus(r)
     } catch (e) {
       toast.error('状态查询失败', { description: e instanceof Error ? e.message : String(e) })
@@ -763,7 +765,9 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
           branchName,
         }).toString()
         if (scopePath.trim()) qs.concat(`&scopePath=${encodeURIComponent(scopePath.trim())}`)
-        const r = await api<SpecBranchDiffResult>(`/api/spec/branch/diff?${qs}`)
+        const r = await api<SpecBranchDiffResult>(`/api/spec/branch/diff?${qs}`, {
+          method: 'GET',
+        })
         setBranchDiffResult(r)
       } catch (e) {
         toast.error('diff 失败', { description: e instanceof Error ? e.message : String(e) })
