@@ -449,31 +449,32 @@ async def lifespan(app: FastAPI) -> Any:
 
     # 配置 FallbackRouter 故障转移
     from app.core.llm_gateway import fallback_router
-    # StepFun 主路由故障转移(2026-07-24 立,2026-09-05 修订):
-    # 原 stepfun -> agnes/gpt-4o 兜底已移除——agnes 聚合端点对本部署 key 无 gpt-4o 通道
-    # ("No available channel for model gpt-4o under group default",实测 502),属死配置。
-    # 改为 stepfun 双模型互备(同 provider,均实测稳定),避免无效升级失败。
+    # 2026-10-26 【stepfun 永久退役】:本段原为 stepfun 双模型互备 + gpt-4o -> stepfun
+    # 兜底。stepfun 订阅失效(余额 -0.09 CNY,/v1/chat/completions 恒定 400
+    # "you have no active step plan subscription"),机主明确不再续费 ⇒ 三条腿全部换掉。
+    # 现改为 agnes 双档互备(agnes 2026-10-26 实测直连 200,与 COMBO_CHAINS 同族),
+    # gpt-4o 显式指定失败时也落到 agnes,不再落到任何 stepfun 档。
     fallback_router.configure(
-        "stepfun/step-3.7-flash",
+        "agnes/agnes-2.5-flash",
         {
-            "fallbacks": ["stepfun/step-router-v1"],
+            "fallbacks": ["agnes/agnes-2.0-flash", "pollinations/openai-fast"],
             "triggerOnError": ["timeout", "overloaded", "rate_limited"],
         },
     )
     fallback_router.configure(
-        "stepfun/step-router-v1",
+        "agnes/agnes-2.0-flash",
         {
-            "fallbacks": ["stepfun/step-3.7-flash"],
+            "fallbacks": ["agnes/agnes-2.5-flash", "pollinations/openai-fast"],
             "triggerOnError": ["timeout", "overloaded", "rate_limited"],
         },
     )
     # gpt-4o(openai 官方端点)兜底(2026-09-04 立):auto-route 已显式排除 gpt-4o 作为
-    # premium 候选(本部署 openai key 无余额 + agnes 无 gpt-4o 通道);但若调用方显式
-    # 指定 gpt-4o,失败(LLM_ERROR/timeout 等)时切 stepfun/step-3.7-flash 保证不整体失败。
+    # premium 候选(本部署 openai key 无余额 + agnes 无 gpt-4o 通道);若调用方显式
+    # 指定 gpt-4o,失败(LLM_ERROR/timeout 等)时落到 agnes 保证不整体失败。
     fallback_router.configure(
         "gpt-4o",
         {
-            "fallbacks": ["stepfun/step-3.7-flash"],
+            "fallbacks": ["agnes/agnes-2.5-flash", "pollinations/openai-fast"],
             "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
         },
     )
@@ -495,8 +496,9 @@ async def lifespan(app: FastAPI) -> Any:
         },
     )
     logger.info(
-        "[fallback_router] configured: stepfun 双模型互备 + gpt-4o -> stepfun/step-3.7-flash"
-        " + 默认链 gemini-3.8-flash <-> @cf/glm-4.7-flash 互备(D208)"
+        "[fallback_router] configured: agnes 双档互备(2.5 <-> 2.0,末位 pollinations)"
+        " + gpt-4o -> agnes 兜底 + 默认链 gemini-3.8-flash <-> @cf/glm-4.7-flash 互备(D208)"
+        " [2026-10-26 stepfun 已永久退役,全部腿已换掉]"
     )
 
     # 启动时从 Redis 加载历史向量记忆(进程重启不丢)

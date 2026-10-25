@@ -22,6 +22,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from ..core.default_model import default_chat_model
 from ..core.llm_gateway import llm_gateway
 from ..services.ai_tutor import _extract_json, _repair_escapes
 
@@ -29,8 +30,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ai-marking", tags=["ai-marking"])
 
-# 与 services/ai_tutor.py 保持一致:非推理模型,JSON 输出干净
-_DEFAULT_MODEL: str | None = "stepfun/step-3.7-flash"
+# 与 services/ai_tutor.py 保持一致:非推理模型,JSON 输出干净。
+# 2026-10-26:原写死 "stepfun/step-3.7-flash"(stepfun 已永久退役,chat 恒定 400)。
+# 改走 app.core.default_model 单一解析入口 —— 上游换档/换版本时自动跟随,
+# 不必再来改这个字面量(全仓曾有 19 处同类硬编码)。
+_DEFAULT_MODEL: str | None = default_chat_model()
 
 _DEFAULT_MAX_SCORE = 100
 
