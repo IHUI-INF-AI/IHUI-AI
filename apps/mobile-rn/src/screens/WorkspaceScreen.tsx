@@ -284,7 +284,7 @@ export function WorkspaceScreen() {
               key={mode}
               disabled={busyKey !== ''}
               onPress={() => onPick(mode)}
-              className={`mb-2 mr-2 rounded-sm px-3 py-1.5 ${
+              className={`mb-2 mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
                 active ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-800'
               }`}
             >
@@ -318,7 +318,7 @@ export function WorkspaceScreen() {
             <TouchableOpacity
               key={k}
               onPress={() => setTab(k)}
-              className={`mr-2 rounded-sm px-3 py-1.5 ${
+              className={`mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
                 active ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-800'
               }`}
             >
@@ -345,7 +345,7 @@ export function WorkspaceScreen() {
             <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
               <TouchableOpacity
                 onPress={() => setFormOpen((v) => !v)}
-                className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
+                className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100 min-h-[44px]"
               >
                 <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                   {t('workspace.newProject')}
@@ -375,7 +375,7 @@ export function WorkspaceScreen() {
                   <TouchableOpacity
                     disabled={creating}
                     onPress={onSubmitProject}
-                    className={`mt-2 self-start rounded-sm px-4 py-2 ${
+                    className={`mt-2 self-start rounded-sm px-4 py-2 min-h-[44px] ${
                       creating
                         ? 'bg-neutral-300 dark:bg-neutral-800'
                         : 'bg-neutral-900 dark:bg-neutral-100'
@@ -393,14 +393,14 @@ export function WorkspaceScreen() {
 
             {loading ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
               </View>
             ) : error ? (
               <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
                 <Text className="mb-3 text-xs text-red-700 dark:text-red-300">{error}</Text>
                 <TouchableOpacity
                   onPress={() => void loadProjects()}
-                  className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
+                  className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100 min-h-[44px]"
                 >
                   <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                     {t('common.retry')}
@@ -409,7 +409,7 @@ export function WorkspaceScreen() {
               </View>
             ) : projects.length === 0 ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500">{t('workspace.empty')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('workspace.empty')}</Text>
               </View>
             ) : (
               projects.map((item) => (
@@ -432,7 +432,7 @@ export function WorkspaceScreen() {
                       {item.description}
                     </Text>
                   ) : null}
-                  <Text className="mt-1 text-xs text-neutral-500">
+                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {t('workspace.files', { count: item.fileCount })} ·{' '}
                     {t('workspace.members', {
                       count: item.memberCount,
@@ -440,7 +440,7 @@ export function WorkspaceScreen() {
                   </Text>
                   <TouchableOpacity
                     onPress={() => onDeleteProject(item)}
-                    className="mt-3 self-start rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                    className="mt-3 self-start rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
                   >
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {t('common.delete')}
@@ -466,14 +466,14 @@ export function WorkspaceScreen() {
 
             {permLoading ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
               </View>
             ) : permError ? (
               <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
                 <Text className="mb-3 text-xs text-red-700 dark:text-red-300">{permError}</Text>
                 <TouchableOpacity
                   onPress={() => void loadPermissions()}
-                  className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
+                  className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100 min-h-[44px]"
                 >
                   <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                     {t('common.retry')}
@@ -482,7 +482,7 @@ export function WorkspaceScreen() {
               </View>
             ) : permissions.length === 0 ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500">{t('workspace.permEmpty')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('workspace.permEmpty')}</Text>
               </View>
             ) : (
               permissions.map((perm) => {
@@ -502,11 +502,11 @@ export function WorkspaceScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text className="mt-1 text-xs text-neutral-500" numberOfLines={1}>
+                    <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400" numberOfLines={1}>
                       {t('workspace.permPath')}: {perm.workspacePath}
                     </Text>
                     {perm.techStack ? (
-                      <Text className="mt-1 text-xs text-neutral-500">
+                      <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                         {t('workspace.permStack')}: {perm.techStack}
                       </Text>
                     ) : null}
@@ -517,7 +517,7 @@ export function WorkspaceScreen() {
                     <TouchableOpacity
                       disabled={busyKey === perm.id}
                       onPress={() => onDeletePermission(perm)}
-                      className="self-start rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                      className="self-start rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
                     >
                       <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                         {t('workspace.permDelete')}

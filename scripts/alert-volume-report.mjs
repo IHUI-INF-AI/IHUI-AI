@@ -1251,9 +1251,12 @@ async function selfTest() {
       if (!r.ok || r.truncated) throw new Error('小文件不该被判截断')
     })
 
-    t('S13 夹具落点在仓库外(§26:仓库内 git 夹具会向上逃逸到真仓;os.tmpdir 可能钉在 C 盘)', () => {
+    t('S13 夹具落点走 scratch-dir 出口且不在受版面内(G-158:新址 = 仓内 .DevEnv,git 面由边界阻断;os.tmpdir 可能钉在 C 盘)', () => {
       const rootS = ROOT.split('\\').join('/')
-      if (box.split('\\').join('/').startsWith(rootS + '/')) throw new Error('夹具落进了仓库树')
+      const boxS = box.split('\\').join('/')
+      const approved = (rootS + '/.DevEnv').toLowerCase()
+      if (boxS.toLowerCase().startsWith(rootS.toLowerCase() + '/') && !boxS.toLowerCase().startsWith(approved))
+        throw new Error(`夹具落进了受版仓库树(批准的 .DevEnv 根之外):${box}`)
       if (!process.env.IHUI_SCRATCH_DIR && !/DevEnv/.test(box)) throw new Error(`夹具没走 scratch-dir 出口:${box}`)
     })
 

@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Building2, Coins, RefreshCw, Users } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -168,51 +168,49 @@ export default function DistributionCompanyScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
+    body: { padding: 12, gap: 12, paddingBottom: 32 },
     card: {
-      padding: rnSpacing.lg,
+      padding: 16,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: rnSpacing.sm,
+      gap: 8,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
+    cardTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
     windowHint: { fontSize: 13, color: tokens.text.secondary },
-    statRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: 6 },
-    statCell: { flex: 1, gap: 2 },
-    statValue: { fontSize: rnType.display.size, fontWeight: '700', color: tokens.brand.DEFAULT },
-    statLabel: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
+    // 读数 24px,最坏「999,999.99」(10 字符 × 24 × 0.55 = 132px)⇒ minWidth 136。
+    statRow: { flexDirection: 'row', gap: 12, marginTop: 6, flexWrap: 'wrap' },
+    statCell: { flex: 1, minWidth: 136, gap: 2 },
+    statValue: { fontSize: 24, fontWeight: '700', color: tokens.brand.DEFAULT },
+    statLabel: { fontSize: 12, color: tokens.text.tertiary },
     muted: { fontSize: 13, color: tokens.text.secondary },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: rnSpacing.sm,
+      gap: 8,
       paddingVertical: 10,
     },
-    rowText: { flex: 1, fontSize: rnType.body.size, color: tokens.text.primary },
+    rowText: { flex: 1, fontSize: 14, color: tokens.text.primary },
     rowCount: { fontSize: 13, color: tokens.text.secondary, fontWeight: '600' },
     linkRow: {
       paddingVertical: 14,
-      paddingHorizontal: rnSpacing.lg,
+      paddingHorizontal: 16,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
     },
-    linkText: { fontSize: rnType.strong.size, color: tokens.text.primary },
+    linkText: { fontSize: 15, color: tokens.text.primary },
     centerText: {
       textAlign: 'center',
-      paddingVertical: rnSpacing['3xl'],
-      fontSize: rnType.body.size,
+      paddingVertical: 32,
+      fontSize: 14,
       color: tokens.text.secondary,
     },
-    errorText: {
-      paddingVertical: rnSpacing.lg,
-      fontSize: rnType.body.size,
-      color: tokens.danger.DEFAULT,
-    },
+    errorText: { paddingVertical: 16, fontSize: 14, color: tokens.danger.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -561,23 +561,61 @@ export async function findThumb(uuid: string, botId: string): Promise<{ id: stri
   return rows[0]
 }
 
+/**
+ * 点赞落库(2026-10-25 收口 TOCTOU):调用方此前是 `findThumb()` 判存在 → `addThumb()` 裸插,
+ * 两次并发"点赞"会同时通过存在性判断 —— 而 `zhs_agent_thumbs` **没有任何 unique 约束**
+ * (2026-10-25 现读 pg_indexes:只有 pkey 与一个普通 (uuid,bot_id) 索引),于是两条都插进去、
+ * 计数 +2,而用户只点了一次。
+ * 这里把"判存在 + 插行 + 加计数"收进同一个事务,并对父行(agents)取 FOR UPDATE 串行化同一
+ * botId 的并发点赞;已存在时整条幂等返回,不再重复加计数。
+ * (真正的长期正解是给 (uuid,bot_id) 建唯一键,但那是生产 schema 变更,单独立项做,不混进本枚。)
+ */
 export async function addThumb(uuid: string, botId: string): Promise<void> {
-  await db.insert(agentThumbs).values({ uuid, botId })
-  await db
-    .update(agents)
-    .set({ likeCount: sql`${agents.likeCount} + 1`, updatedAt: new Date() })
-    .where(eq(agents.botId, botId))
+  await db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select({ id: agents.agentId })
+      .from(agents)
+      .where(eq(agents.botId, botId))
+      .for('update')
+      .limit(1)
+    if (!locked) throw new Error('智能体不存在,点赞未记录')
+    const [already] = await tx
+      .select({ id: agentThumbs.id })
+      .from(agentThumbs)
+      .where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
+      .limit(1)
+    if (already) return
+    await tx.insert(agentThumbs).values({ uuid, botId })
+    await tx
+      .update(agents)
+      .set({ likeCount: sql`${agents.likeCount} + 1`, updatedAt: new Date() })
+      .where(eq(agents.botId, botId))
+  })
 }
 
 export async function removeThumb(uuid: string, botId: string): Promise<void> {
-  await db.delete(agentThumbs).where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
-  await db
-    .update(agents)
-    .set({
-      likeCount: sql`GREATEST(COALESCE(${agents.likeCount}, 0) - 1, 0)`,
-      updatedAt: new Date(),
-    })
-    .where(eq(agents.botId, botId))
+  await db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select({ id: agents.agentId })
+      .from(agents)
+      .where(eq(agents.botId, botId))
+      .for('update')
+      .limit(1)
+    if (!locked) return
+    // 删除档同样要"真删掉了才减计数",否则并发取消会把 likeCount 多扣一次
+    const [gone] = await tx
+      .delete(agentThumbs)
+      .where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
+      .returning({ id: agentThumbs.id })
+    if (!gone) return
+    await tx
+      .update(agents)
+      .set({
+        likeCount: sql`GREATEST(COALESCE(${agents.likeCount}, 0) - 1, 0)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(agents.botId, botId))
+  })
 }
 
 export async function findCollect(
@@ -592,25 +630,52 @@ export async function findCollect(
   return rows[0]
 }
 
+/** 收藏落库:与 addThumb 同型(TOCTOU + 无唯一约束),同一事务 + 父行 FOR UPDATE 串行化。 */
 export async function addCollect(uuid: string, botId: string): Promise<void> {
-  await db.insert(agentCollects).values({ uuid, botId })
-  await db
-    .update(agents)
-    .set({ collectCount: sql`${agents.collectCount} + 1`, updatedAt: new Date() })
-    .where(eq(agents.botId, botId))
+  await db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select({ id: agents.agentId })
+      .from(agents)
+      .where(eq(agents.botId, botId))
+      .for('update')
+      .limit(1)
+    if (!locked) throw new Error('智能体不存在,收藏未记录')
+    const [already] = await tx
+      .select({ id: agentCollects.id })
+      .from(agentCollects)
+      .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
+      .limit(1)
+    if (already) return
+    await tx.insert(agentCollects).values({ uuid, botId })
+    await tx
+      .update(agents)
+      .set({ collectCount: sql`${agents.collectCount} + 1`, updatedAt: new Date() })
+      .where(eq(agents.botId, botId))
+  })
 }
 
 export async function removeCollect(uuid: string, botId: string): Promise<void> {
-  await db
-    .delete(agentCollects)
-    .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
-  await db
-    .update(agents)
-    .set({
-      collectCount: sql`GREATEST(COALESCE(${agents.collectCount}, 0) - 1, 0)`,
-      updatedAt: new Date(),
-    })
-    .where(eq(agents.botId, botId))
+  await db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select({ id: agents.agentId })
+      .from(agents)
+      .where(eq(agents.botId, botId))
+      .for('update')
+      .limit(1)
+    if (!locked) return
+    const [gone] = await tx
+      .delete(agentCollects)
+      .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
+      .returning({ id: agentCollects.id })
+    if (!gone) return
+    await tx
+      .update(agents)
+      .set({
+        collectCount: sql`GREATEST(COALESCE(${agents.collectCount}, 0) - 1, 0)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(agents.botId, botId))
+  })
 }
 
 export async function recordAgentUse(uuid: string, botId: string): Promise<void> {

@@ -13,7 +13,7 @@ import { cn } from '@ihui/design-tokens'
  * 两端共用同一份 `@ihui/design-tokens` Tailwind preset(颜色/间距/圆角档位),
  * 故同一组类名在 RN(NativeWind)与小程序(Taro)渲染出完全一致的视觉:
  * - 容器:`flex-row rounded-lg bg-muted p-1`(分段控件式标签栏)
- * - 项:   `flex-1 items-center justify-center rounded-md py-1.5`,激活态 `bg-background`
+ * - 项:   `flex-1 items-center justify-center rounded-md py-[12rpx]`,激活态 `bg-background`
  * - 文案: `text-sm font-medium`,激活 `text-foreground` / 未激活 `text-muted-foreground`
  *
  * API 与 RN 完全一致(受控):`tabs` / `value` / `onChange`。为兼容非受控用法,
@@ -48,11 +48,7 @@ export function Tabs({ tabs, value, onChange, className, ...props }: TabsProps) 
   }
 
   return (
-    <View
-      className={cn('flex-row rounded-lg bg-muted p-1', className)}
-      role="tablist"
-      {...props}
-    >
+    <View className={cn('flex-row rounded-lg bg-muted p-1', className)} role="tablist" {...props}>
       {tabs.map((tab) => {
         const isActive = tab.value === active
         return (
@@ -62,7 +58,7 @@ export function Tabs({ tabs, value, onChange, className, ...props }: TabsProps) 
             hoverClass="opacity-80"
             role="tab"
             className={cn(
-              'flex-1 items-center justify-center rounded-md py-1.5',
+              'flex-1 items-center justify-center rounded-md py-[12rpx]',
               isActive && 'bg-background',
             )}
           >

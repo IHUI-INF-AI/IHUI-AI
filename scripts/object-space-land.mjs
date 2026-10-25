@@ -26,6 +26,17 @@
  *    `git-sync-converge` 补同一条时的原话)。补跑失败只喊一行、不改本器退出码;
  *    未闭环的一格:`scripts/plan-tasks-merge.mjs` 是第四台旁路落地器,同样需要自带补跑,
  *    本票开工时它正被他人持有(` M`)⇒ 未动,登记在这里而不是装作已全覆盖。
+ *  - ④ (G-113,2026-10-23)落地、回读、主索引对齐全部完成后,**复跑受影响判据**
+ *    (`lib/land-gate-rerun.mjs`,与 ③ 同一条"判据必须在真跑它的那一刻才成立"的纪律,
+ *    但退出码语义不同):按落地面路径选门 —— 内置最低三件(python 面 mypy、ts 面 tsc、
+ *    同名函数族重复定义扫描)+ 注册表映射(guardian-runner 里 stagedTriggers 被触及的
+ *    门,复跑其全量档)。blocking 臂判红 ⇒ 大声报数后 exit 1;有臂无法判定 ⇒ exit 2。
+ *    **不回滚**(落地是既成事实,替身无权撤销),但拒绝静默 —— 2026-09-29 枚 f57e0c9983
+ *    那一型("干净合并"把两份同名函数族一起送进 HEAD,mypy 10 条红是部署环先看见的)
+ *    正是本档要当场咬住的。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(跳过必打留痕行)。
+ *    同档接线已闭环(2026-10-23 续席):`scripts/union-converge.mjs` 已在落地+对齐之后接同一
+ *    出口(声明面 = 活文档 ∪ 取对侧版本的路径,与它 recordBypassLanding 的 declaredFiles 同集);
+ *    形状锁见 scripts/tests/land-gate-rerun.test.mjs T12。
  *
  * CLI 契约(env 驱动,无参数):
  *  LAND_PATHS  必填,以 `;` 分隔的仓库相对路径清单
@@ -111,9 +122,15 @@
 import { hasAnyWatermarkTrace, hasExactCanonicalBanner, dropZeroWidth } from './lib/watermark-lines.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { dirname, join, normalize, resolve } from 'node:path'
+import { basename, dirname, join, normalize, relative, resolve } from 'node:path'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// G-04(2026-10-24):换面后的预检要把 blob 落到临时副本再跑 verify,而那一层按**仓库相对路径**
+// 判"已登记第三方 / 上游工具生成物"两档豁免 —— 临时路径会丢掉这个身份。两档判据各自只有
+// 一份实现(§0.6),这里直接复用它们的出口,不在本器里另写一份"哪些路径不用带横幅"。
+import { createExclusionPredicate } from './lib/third-party-roots.mjs'
+import { judgeToolGenerated, loadToolGeneratedEntries } from './lib/tool-generated-roots.mjs'
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
+import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -304,8 +321,22 @@ export function clobberedPaths(paths, baseMap, headNow, { root }) {
  *  - 不在射程(报数不判红):基线里没有这条(新增文件无行可消失)/ 基线该路径 ≠ 当下 HEAD
  *    (守门 84 的祖先链以 HEAD 为锚,那条链此刻不是本次落地的基准)/ 二进制正文(行级判据按定义
  *    不适用,而 A 仍照判)。三种都**报名**,不静默。
+ *
+ * **blob 模式(`blobOf` 非空)**:判据面换成**构造提交的对象库 blob**,正文取 `git cat-file blob
+ * <oid>`,不再读工作树(盘上那份属于别人的在飞改动,拿它做证就是替别人的内容签字)。整 blob
+ * 命中祖先那一支**只报名、不重复拒**:它由上一步的祖先对账(`blobAncestorClash`,含逐行声明
+ * 出口)判决;这里若照搬"命中祖先 + 有消失 ⇒ 拒"会把那份显式放行重新判红,两条判据互锁。
+ * 本维在 blob 模式下专判它结构上看不见的另一半:构造内容**不等于任何祖先**、却把基线已删的
+ * 行搬回来。报告带 `face` 字段(`worktree` / `blob`),渲染层据此说清判的是哪一面。
  */
-export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonStructure = false }) {
+export function detectStaleLanding({
+  root,
+  paths,
+  baseRef = 'HEAD',
+  head,
+  jsonStructure = false,
+  blobOf = null,
+}) {
   const headRef = head ?? git(['rev-parse', 'HEAD'], { root })
   const notes = []
   const judged = []
@@ -324,7 +355,9 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
   }
   let hits
   try {
-    hits = staleAncestorAnalysis(root, judged, { source: 'worktree' })
+    hits = blobOf
+      ? blobFaceAncestorHits({ root, paths: judged, blobOf })
+      : staleAncestorAnalysis(root, judged, { source: 'worktree' })
   } catch (e) {
     return {
       ok: false,
@@ -335,6 +368,7 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
         }),
       ),
       notes,
+      face: blobOf ? 'blob' : 'worktree',
       reason: `陈旧判据未能运行:${firstLine(e)}`,
     }
   }
@@ -346,12 +380,24 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
   const shasBy = new Map()
   const logFailed = new Set()
   const sizeExceeded = new Set()
-  const worktreeOf = new Map()
+  const contentOf = new Map()
   for (const p of judged) {
+    if (blobOf) {
+      // blob 模式:判的是**构造提交的那份字节**,从对象库取;盘上那份是谁的不重要,反正不采用。
+      const oid = blobOf.get(p)
+      const text = isOidLike(oid)
+        ? git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+        : null
+      contentOf.set(
+        p,
+        text === null ? new Error(`构造 blob ${oid || '(清单里没有)'} 的正文取不到`) : text,
+      )
+      continue
+    }
     try {
-      worktreeOf.set(p, readWorktreeFile(root, p))
+      contentOf.set(p, readWorktreeFile(root, p))
     } catch (e) {
-      worktreeOf.set(p, e) // 留错误对象:报告要能区分"读不到"与"读出来是 null(二进制/不存在)"
+      contentOf.set(p, e) // 留错误对象:报告要能区分"读不到"与"读出来是 null(二进制/不存在)"
     }
   }
   let texts = new Map()
@@ -366,7 +412,7 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
   }
   if (!batchError) {
     for (const p of judged) {
-      const wt = worktreeOf.get(p)
+      const wt = contentOf.get(p)
       const base = texts.get(`${baseRef}:${p}`)
       if (
         typeof wt === 'string' &&
@@ -397,11 +443,24 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
 
   const offenders = []
   for (const p of judged) {
-    const wt = worktreeOf.get(p)
+    const wt = contentOf.get(p)
     const newText = wt instanceof Error ? null : wt
     const baseText = batchError ? null : (texts.get(`${baseRef}:${p}`) ?? null)
     let delta = lineDelta(baseText, newText)
     const wholeHit = hitBy.get(p) ?? null
+    /**
+     * blob 模式:整 blob 命中祖先这一格已由祖先对账(`blobAncestorClash`,含逐行声明出口)判过,
+     * 本维只报名、不重复拒。这里若照搬"命中祖先 + 有消失 ⇒ 拒",会把那一闸**显式放行**的
+     * 声明件重新判红 —— 两条判据互锁,合法出口一次都走不通。
+     */
+    if (blobOf && wholeHit && !(wt instanceof Error)) {
+      notes.push({
+        path: p,
+        kind: 'blob-face-delegated',
+        why: `构造内容命中祖先 ${String(wholeHit).slice(0, 9)} ⇒ 整 blob 面已由祖先对账判决(含行级声明出口),本维不重复拒`,
+      })
+      continue
+    }
     let line
     // G-814414:.json/.jsonl 后缀的路径在"判据真的读到了东西"的格子里改走键路径对账;
     // 其余格子(批量读取失败/超尺寸/取不到祖先清单)与判不出(非可解析 JSON)一律退回
@@ -461,7 +520,11 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
       }
     }
     if (wt instanceof Error)
-      notes.push({ path: p, kind: 'undetermined', why: `工作树正文读不到:${firstLine(wt)}` })
+      notes.push({
+        path: p,
+        kind: 'undetermined',
+        why: `${blobOf ? '构造 blob 正文取不到' : '工作树正文读不到'}:${firstLine(wt)}`,
+      })
     const entry = mkEntry(p, wholeHit, delta, line)
     // 未覆盖必须**逐条报名**,且与"是否参与拒绝"无关 —— 一台只在放行时才沉默的守卫,
     // 读报告的人会把"没判"当成"判过了"(本仓最高频失效型)。
@@ -536,7 +599,32 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
           `且新增行都不在该祖先版本里(复活 0 行)⇒ 只报不拦`,
       })
   }
-  return { ok: offenders.length === 0, offenders, notes }
+  return { ok: offenders.length === 0, offenders, notes, face: blobOf ? 'blob' : 'worktree' }
+}
+
+/**
+ * `detectStaleLanding` 的 blob 模式整 blob 判据:把"要落的内容"换成**清单里的构造 oid**,
+ * 再与该路径的祖先后选逐个比。与 `blobAncestorClash` 判的是同一件事,但这里只产出
+ * `[{path, commit}]`(本维只拿它决定"这一格是否交给上游那闸"),不在这里另立声明面。
+ * 取不到 oid / 祖先清单 / 祖先正文 ⇒ 抛错,由调用方折成"未判定"(不写成"不等于任何祖先")。
+ */
+function blobFaceAncestorHits({ root, paths, blobOf }) {
+  const out = []
+  for (const p of paths) {
+    const oid = blobOf.get(p)
+    if (!isOidLike(oid)) throw new Error(`${p}: 内容清单里没有可判定的 blob oid`)
+    const anc = ancestorCommits(root, p)
+    if (!anc.length) throw new Error(`${p}: 祖先清单为空/取不到 ⇒ 整 blob 对账无从做起`)
+    const ab = resolveBlobs(
+      root,
+      anc.map((c) => `${c}:${p}`),
+    )
+    if (ab.size !== anc.length)
+      throw new Error(`${p}: 祖先正文只取到 ${ab.size}/${anc.length} 个 ⇒ 对账不完整`)
+    const hit = anc.find((c) => ab.get(`${c}:${p}`) === oid)
+    if (hit) out.push({ path: p, commit: hit })
+  }
+  return out
 }
 
 /** 报告条目的一份子:两条判据的读数并排放,渲染层不再各自判一次。countUnit 标计数口径(G-814414 起有键路径档)。 */
@@ -899,9 +987,12 @@ function staleReport(guard, { allowStale }) {
     return lines
   }
   const unjudged = guard.offenders.filter((o) => o.lineStatus === 'undetermined').length
+  const blobFace = guard.face === 'blob'
   const head = allowStale
     ? `⚠️ LAND_ALLOW_STALE=1 ⇒ 放行 ${guard.offenders.length} 处陈旧落地(其中 ${unjudged} 处判据未判定 —— 放行不等于判过;这一枚提交确实会把下面这些行写回旧态,该行输出即留痕)`
-    : `❌ 陈旧落地守卫:这些声明路径的盘上副本**等于该文件某个祖先版本**,或会把基线里已被删掉的行**搬回**落地内容 ⇒ 拒绝落地${guard.reason ? '(' + guard.reason + ')' : ''}`
+    : blobFace
+      ? `❌ 陈旧落地守卫(判定面=构造提交的对象库 blob,非工作树):这些构造内容**不等于任何祖先**,却把基线里已被删掉的行**搬回**落地内容 ⇒ 拒绝落地${guard.reason ? '(' + guard.reason + ')' : ''}`
+      : `❌ 陈旧落地守卫:这些声明路径的盘上副本**等于该文件某个祖先版本**,或会把基线里已被删掉的行**搬回**落地内容 ⇒ 拒绝落地${guard.reason ? '(' + guard.reason + ')' : ''}`
   lines.push(head)
   for (const o of guard.offenders) {
     const v = o.vanished === null ? '消失行数未判定' : `消失 ${o.vanished} 行`
@@ -922,16 +1013,26 @@ function staleReport(guard, { allowStale }) {
     appendSamples(lines, o)
   }
   if (!allowStale) {
-    lines.push(
-      '   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),',
-    )
-    lines.push(
-      '   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。',
-    )
-    lines.push('   出口 ① 取 HEAD 形态重新施加改动(先看判据再动手,别覆盖别人的在飞现场):')
-    lines.push(
-      '            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用',
-    )
+    if (blobFace) {
+      lines.push(
+        '   成因:构造内容以某枚滞后祖先版本为底,又在本票改动之外把基线已删的行带了回来(整 blob 不等于任何祖先,只有行级复活看得见)。',
+      )
+      lines.push('   出口 ① 以父提交 blob 为底重新施加本票行,再取号落地(判据面是对象库那份,不是盘上):')
+      lines.push(
+        '            R=$(git rev-parse HEAD:<path>); <重算内容> | git hash-object -w --stdin  → 写回 LAND_BLOBS',
+      )
+    } else {
+      lines.push(
+        '   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),',
+      )
+      lines.push(
+        '   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。',
+      )
+      lines.push('   出口 ① 取 HEAD 形态重新施加改动(先看判据再动手,别覆盖别人的在飞现场):')
+      lines.push(
+        '            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用',
+      )
+    }
     lines.push('   出口 ② 确属有意重生成 ⇒ LAND_ALLOW_STALE=1 重跑本器(会大声留痕,不会静默放行)')
     lines.push(
       '   标了"未判定"的行是**判据没读到东西**(浅历史 / 超过尺寸护栏 / git 派生失败),不是"检查过且干净";',
@@ -948,7 +1049,7 @@ function appendSamples(lines, entry) {
 }
 
 /**
- * 溯源水印预检(G-253,2026-09-27 立)。
+ * 溯源水印预检(G-253,2026-09-27 立;G-04,2026-10-24 换面)。
  *
  * 为什么落地点归本器管、而不该由 pre-commit 那道 `check-watermark-coverage` 管:
  * 旁路落地**不跑钩子** —— read 一次真仓历史就能看到,对象空间提交是"新文件带着无横幅
@@ -958,28 +1059,114 @@ function appendSamples(lines, entry) {
  * 判据本体仍是那一份:`watermark.mjs verify`(含第三方台账排除 —— 不给 Apache/MIT 原文
  * 打我方归属横幅,那是 provenance-ledger P8 的射程)。这里只回答"要不要现在落地"。
  *
- * @param {{ root: string, paths: string[], run?: Function, node?: string }} a
+ * **判定面(2026-10-24 换面)**:传 `blobs`(声明路径 → 构造 blob oid)时,判的是**对象库里
+ * 将要进树的那一版** —— 逐路径 `git cat-file blob <oid>` 落到 scratch 临时副本,再对副本跑
+ * verify,判完即删;不传 `blobs` 时沿用"显式点名 = 盘上那份"的既有语义(单纯把盘路径交给
+ * verify,供 `scripts/tests/watermark-scope.test.mjs` 与未跟踪新文件通道使用)。
+ *
+ * 为什么**不**判索引那版(票面原话是"索引 blob"):本器工作树模式的正文取自**工作树**
+ * (`writeBlobOfWorktree` = `git hash-object -w -- <path>`,见 lib/bypass-git.mjs:173-175,
+ * 调用点在本文件 `mine` 那一行),索引只在落地**之后**由 `alignSharedIndex` 对齐。判索引
+ * 等于判一份不会进树的字节,而"索引好 / 盘上坏"会被判成通过 —— 比现状更漏。
+ * 换面真正要堵的是判据与提交内容之间的时间窗:`mine` 先把 blob 写进对象库,旧写法 verify
+ * 再重新读一次盘,两次读之间别人改盘 ⇒ 验的就不是要交的那一份。`main` 因此传 `mine`。
+ *
+ * @param {{ root: string, paths: string[], blobs?: Map<string,string>|null, run?: Function, node?: string }} a
  * @returns {{ ok: true } | { ok: false, why: string }}
  */
-export function watermarkPreflight({ root, paths, run = defaultRun, node = process.execPath }) {
-  /** 摘出 verify 的"未覆盖"清单 —— 拒绝理由必须点名是哪个文件,不得只说"没通过"。 */
-  const uncoveredOf = (text) =>
+export function watermarkPreflight({
+  root,
+  paths,
+  blobs = null,
+  run = defaultRun,
+  node = process.execPath,
+}) {
+  /** 摘出 verify 的"未覆盖"清单 —— 拒绝理由必须点名是哪个文件,不得只说"没通过"。
+   *  换面后 verify 看到的是临时副本路径,`nameOf` 把它映射回声明路径。 */
+  const uncoveredOf = (text, nameOf) =>
     String(text ?? '')
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l.startsWith('- '))
       .slice(0, 10)
+      .map((l) => `- ${nameOf(l.slice(2).trim())}`)
       .join('\n  ')
   const hint =
     '  修法:`node scripts/watermark.mjs inject <file>` 后重跑本落地器;' +
     '台账登记的第三方内容不需要横幅(由 provenance-ledger P8 审计)。'
   let res
+  let dir = null
+  let nameOf = (rel) => rel
   try {
+    let args = []
+    if (blobs) {
+      dir = mkScratch('osl-wm-blob-')
+      // verify 的 scopeFromArgs 把显式路径折算成"相对**本仓根**(REPO_ROOT)",两档豁免
+      // (第三方台账 / 上游工具生成物)按那个相对路径判 —— 这里复算同一个 rel,否则临时副本
+      // 会把已登记第三方内容判成"缺横幅"(假红,还是本仓反复登记的那型"给出路跑不通")。
+      const relOf = (p) => relative(REPO_ROOT, resolve(root, p)).replaceAll('\\', '/')
+      let excl
+      try {
+        excl = createExclusionPredicate(REPO_ROOT)
+      } catch (e) {
+        return {
+          ok: false,
+          why: `第三方排除面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 无法判断哪些声明路径本来就不该带横幅,拒绝落地(宁停不猜)`,
+        }
+      }
+      let entries
+      try {
+        entries = loadToolGeneratedEntries(REPO_ROOT)
+      } catch (e) {
+        return {
+          ok: false,
+          why: `工具生成物豁免面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 拒绝落地(宁停不猜)`,
+        }
+      }
+      const tempRelOf = new Map()
+      const refusals = []
+      paths.forEach((p, i) => {
+        const rel = relOf(p)
+        if (excl.isExcluded(rel)) return
+        const oid = blobs.get(p)
+        if (!oid) {
+          refusals.push(`${p}: 内容清单里没有该路径的 blob ⇒ 没有可判定的那一版`)
+          return
+        }
+        const text = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+        if (text === null) {
+          refusals.push(`${p}: 取不到构造 blob ${oid}(对象库问不到)⇒ 未判定,不按"通过"放行`)
+          return
+        }
+        if (judgeToolGenerated({ rel, text, entries }).exempt) return
+        const abs = join(dir, String(i), basename(p))
+        mkdirSync(dirname(abs), { recursive: true })
+        writeFileSync(abs, text)
+        args.push(abs)
+        tempRelOf.set(relative(REPO_ROOT, abs).replaceAll('\\', '/'), p)
+      })
+      if (refusals.length > 0) {
+        return {
+          ok: false,
+          why:
+            '判定面=构造提交的 blob(对象库),非工作树;这些声明路径没有可判定的版本:\n  ' +
+            refusals.join('\n  '),
+        }
+      }
+      nameOf = (rel) => tempRelOf.get(rel) ?? rel
+    } else {
+      // 显式点名档沿用 verify 的既有语义(判你点名的盘上那份):工作树模式的提交正文本就取盘面,
+      // 未跟踪新文件也只有这一条合法通道 —— 换面不得把它判成"没有 blob"而拒掉。
+      args = paths.map((x) => resolve(root, x))
+    }
+    // 声明面为空(纯删除落地)或全部落在豁免面内 ⇒ 没有内容进树。此时**不得**跑 verify:
+    // 零文件参数的 verify 是"整面扫",会把与本次提交无关的路径红算到本票头上。
+    if (args.length === 0) return { ok: true }
     // 刻意用**本文件旁边的** watermark.mjs(绝对路径)+ **绝对**目标路径:
     // 落地器的 `root` 可以是任何仓(镜像测试就在临时仓里跑),按 root 相对拼路径会
     // 指向一个不存在的脚本,而"脚本不存在"被当成"校验不通过"就是假红、当成通过就是假绿。
     // 绝对路径让 verify 的 scopeFromArgs 直接命中文件,与 root 是否为被验仓无关。
-    res = run(node, [WATERMARK_CLI, 'verify', ...paths.map((x) => resolve(root, x))], {
+    res = run(node, [WATERMARK_CLI, 'verify', ...args], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       windowsHide: true,
@@ -990,7 +1177,7 @@ export function watermarkPreflight({ root, paths, run = defaultRun, node = proce
     if (e && e.code === 'ENOENT') {
       return { ok: false, why: '取不到 node 执行体 ⇒ 无法判断水印是否完整,拒绝落地(宁停不猜)' }
     }
-    const uncovered = uncoveredOf(String(e?.stdout ?? '') + String(e?.stderr ?? ''))
+    const uncovered = uncoveredOf(String(e?.stdout ?? '') + String(e?.stderr ?? ''), nameOf)
     return {
       ok: false,
       why:
@@ -998,12 +1185,15 @@ export function watermarkPreflight({ root, paths, run = defaultRun, node = proce
         (uncovered ? `  未覆盖清单(前 10):\n  ${uncovered}\n` : '') +
         hint,
     }
+  } finally {
+    // 临时副本用完即删。清理失败**不得改写判据结论**(§26:清理问题归清理,不由它替判定表态)。
+    if (dir) rmScratch(dir, { bestEffort: true })
   }
   const status = res?.status ?? 0
   if (status !== 0) {
     // 两条拒绝路径**共用**同一份清单提取:第一版只在抛异常那一支摘 stdout,而真跑 `verify`
     // 非零退出走的是这一支 —— 于是拒绝理由只说"没通过",不点名是哪个文件。
-    const uncovered = uncoveredOf(String(res?.stdout ?? '') + String(res?.stderr ?? ''))
+    const uncovered = uncoveredOf(String(res?.stdout ?? '') + String(res?.stderr ?? ''), nameOf)
     return {
       ok: false,
       why:
@@ -1644,43 +1834,46 @@ async function main() {
    * 陈旧落地守卫:放在 CAS **与水印预检之前** —— 拒绝路径上对象库、ref、索引都没被碰过,
    * 也不必先花一次 verify 派生去为一个注定不落地的内容做证。
    * 判据本身不在此重述(见 detectStaleLanding),这里只接线。
-   * **blob 模式不走这一段**:它的两条判据都以"盘上那份 = 要落的内容"为前提,而 blob 模式的
-   * 盘上那份属于别人;上面已换成祖先对账 + 横幅保持 + 调用方出具的证明,三条各自大声报数。
+   * G-04 补格(2026-10-24):两档都走,但**判据面不同** —— 工作树模式仍比盘面(那条路的语义没变);
+   * blob 模式传 `blobOf`,由 `detectStaleLanding` 改读构造提交的对象库 blob,不再拿盘上那份
+   * (属于别人的在飞改动)替自己的内容做证。上一版整段跳过 blob 模式,于是"构造内容搬回基线
+   * 已删行"这一型在 blob 模式结构上没有判据 —— 正是本次补的那一半。
    */
   const allowStale = process.env.LAND_ALLOW_STALE === '1'
-  if (!blobOf) {
-    if (allowStale)
-      console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
-    const guard = detectStaleLanding({ root, paths, baseRef, head: head0, jsonStructure })
-    const refusing = !guard.ok && !allowStale
-    for (const line of staleReport(guard, { allowStale })) {
-      if (refusing) console.error(line)
-      else console.log(line)
-    }
-    if (guard.notes.some((n) => n.kind === 'json-structure-exempt'))
-      console.log(
-        'ℹ️ 结构档生效说明(G-816037):上面标了"结构等值成立"的路径**不是**被放宽,而是行级判据的量纲对不上' +
-          '机器格式化 JSON(数组追加会让前一个末元素多一个逗号 ⇒ 那一行文字变化被读成"消失/复活")。' +
-          '豁免依据是"基线键路径与数组元素零丢失"的结构判据;不带 LAND_JSON_STRUCTURE=1 时本档不启用,行为与改前逐字同形。',
-      )
-    if (refusing) process.exit(1)
+  if (allowStale)
+    console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
+  const guard = detectStaleLanding({ root, paths, baseRef, head: head0, jsonStructure, blobOf })
+  const refusing = !guard.ok && !allowStale
+  for (const line of staleReport(guard, { allowStale })) {
+    if (refusing) console.error(line)
+    else console.log(line)
   }
+  if (guard.notes.some((n) => n.kind === 'json-structure-exempt'))
+    console.log(
+      'ℹ️ 结构档生效说明(G-816037):上面标了"结构等值成立"的路径**不是**被放宽,而是行级判据的量纲对不上' +
+        '机器格式化 JSON(数组追加会让前一个末元素多一个逗号 ⇒ 那一行文字变化被读成"消失/复活")。' +
+        '豁免依据是"基线键路径与数组元素零丢失"的结构判据;不带 LAND_JSON_STRUCTURE=1 时本档不启用,行为与改前逐字同形。',
+    )
+  if (refusing) process.exit(1)
 
   let landed = ''
   let parentSha = ''
   // 水印预检(G-253):旁路提交不跑钩子,这道检查是"无横幅文件进 HEAD"的唯一拦截点。
   // 放在 CAS **之前** —— 校验不通过时对象库与 ref 都未被动过。
-  // blob 模式改由 blobBannerPreserved 判(上面已跑):verify 读的是盘上文件,而盘上那份属于别人,
-  // 拿它给要落地的内容做证就是替别人的内容签字。
+  // G-04(2026-10-24)换面:把 `mine`(1564 行 hash-object 已冻结进对象库的那一版,**正是
+  // commitTreeWithIndex 要写进树的 oid**)交给预检 —— 判据与提交内容自此是同一份字节,
+  // 不再在 verify 里重读一次盘(两次读之间别人改盘 = 给未验证的字节发通行证)。
+  // blob 模式仍由 blobBannerPreserved 判(上面已跑):那份内容的来源是调用方构造的 oid,
+  // 盘上那份属于别人,拿它做证就是替别人的内容签字。
   if (!skipWatermark && !blobOf) {
-    const preflight = watermarkPreflight({ root, paths })
+    const preflight = watermarkPreflight({ root, paths, blobs: mine })
     if (!preflight.ok) {
       console.error(`❌ 水印预检不通过,拒绝落地:${preflight.why}`)
       console.error('   应急跳过(仅限确属台账第三方内容):IHUI_LAND_SKIP_WATERMARK=1')
       process.exit(1)
     }
     console.log(
-      `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(verify 口径,含第三方台账排除)`,
+      `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
     )
   } else if (skipWatermark) {
     // 上一版把这条写成 `else`,于是 **blob 模式**(它有自己的横幅判据,已在上面跑过)也走进这一支,
@@ -1953,6 +2146,28 @@ async function main() {
     console.log(
       `⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`,
     )
+  }
+
+  /**
+   * G-113(头注④,2026-10-23):落地后复跑受影响判据。位置与 ③ 同一条理由链 —— 必须在
+   * CAS 成功且提交面回读通过之后(没落地的东西没有"落地那一刻"可补),且在主索引对齐之后
+   * (tsc --files 档读盘上那份,对齐后索引=落地面,盘的漂已由 notes 点名,不静默)。
+   * 与 ③ 不同的一点:③ 失败只喊一行不改退出码(自愈替身无权判红一次零丢失自证已通过的落地),
+   * 本档是**判据本身** —— 票面纪律:复跑失败 ⇒ 大声报数 + exit 非 0;不回滚(既成事实),
+   * 但拒绝静默。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(lib 内打留痕行)。
+   */
+  const affected = rerunAffectedGates({ root, paths: paths.concat(removePaths) })
+  if (affected.verdict === 1) {
+    console.error(
+      `❌ 落地后受影响判据复跑判红(blocking ${affected.failed.length} 臂)⇒ 本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),但拒绝报绿静默;修复后请就地再落一次更正提交`,
+    )
+    process.exit(1)
+  }
+  if (affected.verdict === 2) {
+    console.error(
+      `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),请人工复跑点名臂`,
+    )
+    process.exit(2)
   }
   process.exit(0)
 }

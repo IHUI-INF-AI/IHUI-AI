@@ -29,7 +29,8 @@ import React from 'react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // 五个端到端用例是整屏渲染 + waitFor 异步收束,CI 高负载下超 10s 默认上限(实测全部超时)。
-// 本文件统一放宽到 60s。
+// 本条只管**整条用例的墙上时间**,一分也不加给 waitFor 每段的等待预算 —— 那一份自 2026-10-24 起
+// 由 tests/setup.ts 的 configure({ asyncUtilTimeout }) 单点给出;别把"红在等待预算"当成"红在墙上时间"。
 vi.setConfig({ testTimeout: 60_000 })
 import { fireEvent, render, waitFor } from '@testing-library/react'
 

@@ -7,18 +7,6 @@ import { render, act } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { I18nProvider, useI18n, getValueByPath, messages, type Locale } from '../src/i18n'
 
-vi.mock('react-native', () => {
-  const mk = (name: string) =>
-    function MockComp(props: { children?: ReactNode }) {
-      return createElement(name, props, props.children)
-    }
-  return {
-    View: mk('View'),
-    Text: mk('Text'),
-    ActivityIndicator: mk('ActivityIndicator'),
-  }
-})
-
 function CapturedText({
   path,
   params,

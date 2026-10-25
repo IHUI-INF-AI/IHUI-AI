@@ -131,7 +131,6 @@
     "navJoinGroup": "加入群",
     "navMenu": "菜單",
     "navShare": "分享",
-    "closeDrawer": "關閉抽屜",
     "closeBtn": "關閉",
     "qrHint": "掃描二維碼加入社區",
     "shareRewardLater": "稍後再說",
@@ -250,8 +249,7 @@
     "pubVideo": "發布視頻",
     "pubGroup": "發布課程合集",
     "closePreview": "關閉預覽",
-    "recentUsed": "最近使用",
-    "shareBoardTitle": "智匯AI社群 - {name}"
+    "recentUsed": "最近使用"
   },
   "plaza": {
     "index": {
@@ -269,7 +267,6 @@
       "notLoggedInUser": "未登入用戶",
       "navCategory": "分類",
       "identityLabel": "身份",
-      "searchNeedDesc": "搜索需求或描述",
       "trackPanelTitle": "選擇需求賽道",
       "closeTrackFilter": "關閉賽道篩選",
       "closeIdentity": "關閉身份切換",
@@ -336,8 +333,7 @@
     "progressLessons": "已學 {completed}/{total} 節",
     "free": "免費",
     "loadFailed": "載入課程失敗",
-    "playError": "播放出錯",
-    "moreTitle": "更多課程"
+    "playError": "播放出錯"
   },
   "teacher": {
     "list": {
@@ -455,7 +451,6 @@
     "benefitListAiMore": "AI 助手免費次數大幅增加",
     "benefitListKb": "建立專屬知識庫",
     "benefitSupport": "專屬客服支持",
-    "benefitTraderAll": "享受平臺全部權益",
     "levelVip": "VIP 會員",
     "dlgDelConvTitle": "刪除對話",
     "dlgDelConvBody": "確認刪除此對話?",
@@ -596,9 +591,7 @@
       "hasbuy": "已購買",
       "monthly": "每月"
     },
-    "recharge": "去充值",
-    "confirm": "確認支付",
-    "later": "再看看"
+    "recharge": "去充值"
   },
   "order": {
     "title": "訂單",
@@ -874,33 +867,7 @@
     },
     "voicePlay": "播放語音",
     "voicePause": "暫停語音",
-    "actionRunA11y": "執行動作：{label}",
-    "toolRunning": "執行中…",
-    "toolOk": "成功",
-    "toolFail": "失敗",
-    "diffCollapse": "收起流中 diff 預覽",
-    "diffExpand": "展開流中 diff 預覽",
-    "imagePreview": "預覽圖片",
-    "notes": {
-      "loadFailShort": "載入失敗",
-      "recordNew": "新建錄音"
-    },
-    "thinkingShort": "思考中",
-    "msg": {
-      "thinkingA11y": "收起/展開思考過程",
-      "collapse": "收起",
-      "expand": "展開",
-      "imgA11y": "訊息圖片，點擊預覽",
-      "copied": "已複製",
-      "copyCode": "複製代碼",
-      "collapseCode": "收起代碼",
-      "expandCode": "展開代碼",
-      "thinkingNow": "正在思考…",
-      "copy": "複製",
-      "share2": "分享",
-      "agree": "贊同",
-      "disagree": "反對"
-    }
+    "actionRunA11y": "執行動作：{label}"
   },
   "settings": {
     "title": "設定",
@@ -938,8 +905,7 @@
     "account": "帳號與安全",
     "version": "版本",
     "language": "語言",
-    "theme": "主題",
-    "logoutConfirmBody": "確認退出當前帳號？"
+    "theme": "主題"
   },
   "menu": {
     "about": "關於我們",
@@ -1056,16 +1022,7 @@
     "noteCreate": "建立筆記",
     "sectionSettings": "設定",
     "subscriptions": "我的訂閱",
-    "settings": "設定",
-    "catImage": "圖片",
-    "catVideo": "視頻",
-    "catCopy": "文案",
-    "catAgent": "智能體",
-    "catRpa": "RPA",
-    "catCode": "編程",
-    "catMusic": "音樂",
-    "catOther": "其他",
-    "catCopyShort": "文案"
+    "settings": "設定"
   },
   "drawer": {
     "newChat": "新建任務",
@@ -1150,14 +1107,9 @@
     "deleted": "已刪除",
     "loadFailPullRetry": "載入失敗，請下拉重新整理重試",
     "emptyContent": "暫無內容",
-    "closeOverlay": "關閉彈出層",
     "add": "新增",
     "panelCollapse": "收起面板",
-    "panelExpand": "展開面板",
-    "loadMore": "載入更多",
-    "user": "用戶",
-    "retryShort": "重試",
-    "known": "知道了"
+    "panelExpand": "展開面板"
   },
   "network": {
     "offline": "網路已中斷,部分功能不可用",
@@ -1174,20 +1126,9 @@
     "favoriteCount": "{count} 收藏",
     "startChat": "開始對話",
     "catAll": "全部",
-    "catDouyin": "抖音運營",
-    "catPrivate": "私域運營",
-    "catContent": "內容創作",
-    "catData": "數據分析",
-    "catAll2": "全部",
     "catWriting": "寫作",
     "catCoding": "編程",
     "catOffice": "辦公",
-    "catLearning": "學習",
-    "mainAll": "全部",
-    "mainWriting": "寫作",
-    "mainCoding": "編程",
-    "mainOffice": "辦公",
-    "mainLearning": "學習",
     "vendorOther": "其他",
     "copyOkToast": "連結已複製到剪貼板",
     "catStudy": "Study",
@@ -1351,13 +1292,7 @@
     "kindAutoContext": "自動檢索上下文"
   },
   "developer": {
-    "title": "開發者入口",
-    "becomeDeveloper": "成為開發者",
-    "subtitle": "發布智能體,獲取收益",
-    "selectService": "請選擇所需的服務",
-    "processing": "處理中...",
-    "openNow": "一鍵開通",
-    "agreementHint": "開通即表示同意《開發者服務協議》"
+    "becomeDeveloper": "成為開發者"
   },
   "liveHost": {
     "error": {
@@ -1380,7 +1315,6 @@
     "productAddBtn": "新增商品",
     "productEmpty": "暫無商品",
     "productLoadFailed": "載入商品失敗",
-    "productLoading": "載入中...",
     "productManage": "商品管理",
     "pushUrl": "推流地址",
     "startLive": "開始直播",
@@ -1449,7 +1383,6 @@
     "operationFailed": "操作失敗，請稍後重試",
     "title": "n8n 模型",
     "vendorName": "n8n 工作流",
-    "groupBrowse": "分組瀏覽",
     "listView": "列表視圖"
   },
   "modelPlaza": {
@@ -1473,7 +1406,6 @@
     "selectProviderLabel": "選擇供應商",
     "title": "模型廣場",
     "groupBrowse": "分組瀏覽",
-    "listView": "列表視圖",
     "workflowTab": "工作流"
   },
   "tokenValue": {
@@ -1501,13 +1433,7 @@
     },
     "title": "智匯值",
     "tokenUnit": "智匯值",
-    "totalCost": "總消費",
-    "range7d": "7天",
-    "range1m": "一個月",
-    "range1y": "近一年",
-    "rangeAll": "全部",
-    "unitYi": "{v}億",
-    "unitWan": "{v}萬"
+    "totalCost": "總消費"
   },
   "messageInput": {
     "document": "文件",
@@ -1532,24 +1458,7 @@
     "remarkPlaceholder": "請輸入備註",
     "shareNow": "立即分享",
     "title": "分享",
-    "url": "連結",
-    "brandCommunity": "智匯AI社群",
-    "copiedWx": "已複製連結,請在微信中貼上分享",
-    "linkCopied": "連結已複製",
-    "copyFailManual": "複製失敗,請手動訪問 {url}",
-    "sentFriend": "已分享到微信好友",
-    "sentMoments": "已分享到朋友圈",
-    "sheetCloseA11y": "點擊關閉分享面板",
-    "toFriendA11y": "分享到微信好友",
-    "toMomentsA11y": "分享到朋友圈",
-    "copyLinkA11y": "複製分享連結",
-    "cancelA11y": "取消分享",
-    "defaultDesc": "來智匯AI社群，一起玩轉 AI",
-    "contentDefault": "來看看這個 AI 內容",
-    "okSent": "分享成功",
-    "cancelled": "已取消分享",
-    "fail": "分享失敗",
-    "needAlbum": "需要相簿權限才能選擇圖片"
+    "url": "連結"
   },
   "vipScreen": {
     "plans": {
@@ -1584,15 +1493,8 @@
     "payFailed": "支付失敗"
   },
   "about": {
-    "title": "關於",
-    "appName": "應用名稱",
-    "version": "版本",
-    "description": "應用介紹",
-    "officialSite": "官方網站",
-    "contactEmail": "聯絡信箱",
-    "license": "開放原始碼授權",
     "heroBadge": "關於智匯 AI",
-    "heroTitle": "一碼六端,一站 AI",
+    "heroTitle": "一碼九端,一站 AI",
     "heroSubtitle": "智匯 AI(IHUI AI)是開源的全棧 AI 操作系統,把 Agent 設計、知識庫、多模型調度、跨端協作和團隊運營裝進同一個平臺。",
     "storyBadge": "我們的故事",
     "storyTitle": "為什麼做智匯 AI?",
@@ -1600,10 +1502,10 @@
     "storyP2": "於是我們做了智匯 AI:開源、統一、跨端、可私有化。把 12-18 個月的自研時間,壓縮到 30 分鐘開通賬號。",
     "valueOpenTitle": "完全開源",
     "valueOpenDesc": "Apache 2.0 協議,核心代碼公開,商業可用,Self-host 零成本。",
-    "valueCrossTitle": "六端同源",
+    "valueCrossTitle": "九端同源",
     "valueCrossDesc": "Web / 桌面 / 小程序 / 瀏覽器插件 / React Native / CLI,一套代碼,一次發布,全端觸達。",
     "valueFreeTitle": "個人版永久免費",
-    "valueFreeDesc": "每月 1000 積分,全模型可用,六端同發。Pro 版 ¥49/月起,企業版支持私有化。",
+    "valueFreeDesc": "每月 1000 積分,全模型可用,九端同發。Pro 版 ¥49/月起,企業版支持私有化。",
     "valueEnterpriseTitle": "企業級安全",
     "valueEnterpriseDesc": "SSO/OAuth、審計日誌、角色權限、私有化部署,服務多家上市公司。",
     "platformTitle": "全棧 AI 操作系統",
@@ -1909,10 +1811,7 @@
     "sales": "已售 {count} 件",
     "loadFailed": "載入分銷失敗",
     "withdrawFailed": "提現失敗",
-    "withdrawSuccess": "提現成功",
-    "unsettled": "待結算",
-    "refunded": "退單",
-    "unknown": "未知"
+    "withdrawSuccess": "提現成功"
   },
   "earnCommission": {
     "title": "分傭計畫",
@@ -1957,10 +1856,7 @@
     "tabCourse": "課程",
     "tabLive": "直播",
     "tabArticle": "文章",
-    "empty": "暫無收藏",
-    "loadFailed": "載入收藏失敗",
-    "deleteTitle": "刪除收藏",
-    "deleteFailed": "刪除失敗"
+    "empty": "暫無收藏"
   },
   "finance": {
     "title": "財務",
@@ -2036,16 +1932,7 @@
   },
   "learnDevelop": {
     "title": "學習開發",
-    "contactLabel": "直接聯繫李總",
-    "courseTitle": "課程星球",
-    "courseDesc": "熱門/精選課程瀏覽",
-    "planDesc": "查看我的學習計劃",
-    "kTitle": "知識星球",
-    "kDesc": "知識內容瀏覽",
-    "videoTitle": "學習視頻",
-    "videoDesc": "最新課程視頻",
-    "centerTitle": "學習中心",
-    "centerDesc": "系統化學習路線"
+    "contactLabel": "直接聯繫李總"
   },
   "liveChat": {
     "title": "直播間互動",
@@ -2232,7 +2119,6 @@
     "loadFailed": "載入 QR Code 失敗"
   },
   "ranking": {
-    "attention": "關注度",
     "subtitle": "學習排行榜,看看你排第幾",
     "retry": "重試",
     "anonymous": "匿名用戶",
@@ -2240,13 +2126,7 @@
     "studyHours": "學習 {count} 小時",
     "empty": "暫無排行",
     "loadFailed": "載入排行榜失敗",
-    "title": "排行榜",
-    "wanSuffix": "{v}萬",
-    "pointsUnit": "分",
-    "anonShort": "匿名",
-    "histFallback": "歷史會話",
-    "historyBoard": "歷史榜單",
-    "visitorName": "排行榜訪客"
+    "title": "排行榜"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -3301,29 +3181,7 @@
     "loading": "加載中..."
   },
   "studyIndex": {
-    "title": "AI 視頻",
-    "catAll": "全部",
-    "catDouyin": "抖音運營",
-    "catPrivate": "私域運營",
-    "catContent": "內容創作",
-    "catData": "數據分析",
-    "tipMarquee": "智匯AI 雲教育/短視頻  歡迎所有AI相關視頻上傳分享",
-    "myCollection": "我的合集",
-    "searchPh": "搜索視頻",
-    "loadMoreHint": "加載更多...",
-    "noMoreText": "沒有更多了",
-    "emptyVideos": "暫無學習視頻",
-    "emptyModels": "暫無模型",
-    "paidCollection": "推薦課程合集",
-    "latestCourses": "最新課程",
-    "viewMoreModels": "查看更多模型",
-    "viewMoreCourses": "查看更多課程",
-    "tagPaid": "付費",
-    "tagFree": "免費",
-    "publishVidBtn": "發布視頻",
-    "authorFallback": "智匯社區-官方",
-    "receiveFreeTitle": "領取免費資料",
-    "receiveFreeBody": "連結已複製到剪貼板,可在瀏覽器粘貼打開"
+    "title": "AI 視頻"
   },
   "studyProgress": {
     "title": "學習進度",
@@ -3401,10 +3259,7 @@
     "joinedAt": "加入時間",
     "contact": "聯繫",
     "viewOrders": "查看訂單",
-    "empty": "暫無成員資訊",
-    "loadFail": "載入失敗，請重試",
-    "noPhone": "該成員未提供手機號",
-    "callFail": "無法撥號，請檢查裝置"
+    "empty": "暫無成員資訊"
   },
   "vip": {
     "benefitList": {
@@ -3427,27 +3282,7 @@
     "orderCreated": "訂單已建立",
     "purchase": "開通會員",
     "purchaseFailed": "開通失敗",
-    "title": "會員中心",
-    "month": "包月",
-    "quarter": "包季",
-    "halfYear": "半年",
-    "year": "包年",
-    "renewM": "每月自動續費，可隨時取消",
-    "renewQ": "每季自動續費，節省 25%",
-    "renewY": "每年自動續費，最划算",
-    "onceN": "一次性購買，{n} 天有效",
-    "continuous": "連續{c}",
-    "discountN": "{n} 折",
-    "trial7": "7 天試用",
-    "lvMonth": "月度會員",
-    "lvQuarter": "季度會員",
-    "lvYear": "年度會員",
-    "benefitsA11y": "會員權益介紹",
-    "traderA11y": "操盤手權益介紹",
-    "advisorA11y": "私人顧問介紹",
-    "popTitle": "VIP 會員權益",
-    "popSub": "解鎖全部高級內容與專屬服務",
-    "viewNow": "立即查看"
+    "title": "會員中心"
   },
   "vipBenefit": {
     "title": "會員權益",
@@ -3497,23 +3332,7 @@
     "price": "價格",
     "rating": "評分",
     "startChat": "開始對話",
-    "uses": "使用次數",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "uses": "使用次數"
   },
   "agentMarket": {
     "empty": "暫無智慧體",
@@ -3566,8 +3385,7 @@
     "publish": "發布",
     "subtitle": "我的 AIGC 作品",
     "title": "AIGC 作品",
-    "videoBadge": "影片",
-    "catDoc": "文檔"
+    "videoBadge": "影片"
   },
   "announcement": {
     "empty": "暫無公告",
@@ -3877,9 +3695,7 @@
       "order": "訂單",
       "social": "互動",
       "system": "系統"
-    },
-    "conversationFallback": "對話",
-    "searchPh": "搜尋對話記錄/聯絡人/服務號"
+    }
   },
   "messageDirect": {
     "empty": "暫無私訊",
@@ -3959,16 +3775,7 @@
     "paidAt": "支付時間",
     "product": "商品",
     "status": "訂單狀態",
-    "title": "訂單詳情",
-    "contactSeller": "聯繫賣家",
-    "contactBody": "如有問題請聯繫客服微信：aizhs_kefu",
-    "payNow": "立即支付",
-    "buyAgain": "再次購買",
-    "paidTitle": "購買成功",
-    "paidSub": "請仔細閱讀購買須知，享受您的權益",
-    "paidLine1": "訂單已支付成功，請妥善保管憑證",
-    "paidLine2": "如需退款請在 7 天內申請",
-    "paidLine3": "專屬客服 24 小時在線服務"
+    "title": "訂單詳情"
   },
   "pointHistory": {
     "balance": "積分餘額",
@@ -4006,10 +3813,7 @@
     "sectionThirdParty": "第三方共用",
     "sectionThirdPartyBody": "我們不會出售您的個人資訊。在法律要求或為您提供服務所必要的情況下,我們可能與可信的合作夥伴共用必要的資訊,但我們會確保其遵守同等嚴格的資料保護標準。",
     "subtitle": "我們重視您的隱私",
-    "title": "隱私權政策",
-    "mustAgree": "需同意隱私政策才能使用本應用",
-    "disagreeA11y": "不同意隱私政策",
-    "agreeA11y": "同意隱私政策"
+    "title": "隱私權政策"
   },
   "refundDetail": {
     "amount": "退款金額",
@@ -4377,10 +4181,7 @@
     "knowledgePlanet": "知識星球"
   },
   "knowledgePlanet": {
-    "title": "知識星球",
-    "newOfficial": "官方資訊",
-    "newCommunity": "星球社群",
-    "enter": "進入星球"
+    "title": "知識星球"
   },
   "knowledgeRag": {
     "title": "RAG 知識庫",
@@ -4484,7 +4285,6 @@
     },
     "detail": {
       "pageTitle": "話題詳情",
-      "loading": "載入中…",
       "loadFailed": "載入失敗",
       "followers": "{n} 人關注",
       "follow": "關注",
@@ -4497,9 +4297,6 @@
       "empty": "暫無帖子,快來發布第一條吧",
       "loadingMore": "載入中…",
       "noMore": "沒有更多了",
-      "justNow": "剛剛",
-      "minutesAgo": "{n} 分鐘前",
-      "hoursAgo": "{n} 小時前",
       "anonymous": "匿名用戶"
     }
   },
@@ -4774,12 +4571,7 @@
     "vividTail": "，馬上就好"
   },
   "notification": {
-    "pushBannerTitle": "新訊息",
-    "justNow": "剛剛",
-    "minAgo": "{n}分鐘前",
-    "hourAgo": "{n}小時前",
-    "newTitle": "新消息",
-    "markAllRead": "全部已讀"
+    "pushBannerTitle": "新訊息"
   },
   "ai": {
     "pane": {
@@ -4929,11 +4721,7 @@
     "resend": "重新發送",
     "confirm": "確定",
     "closeA11y": "關閉驗證碼彈窗",
-    "inputA11y": "驗證碼輸入",
-    "noPhoneBound": "未綁定手機號",
-    "bindFirst": "請先綁定手機號後再驗證",
-    "phoneOk": "手機號驗證成功",
-    "codeWrong": "驗證碼錯誤，請重試"
+    "inputA11y": "驗證碼輸入"
   },
   "patrol": {
     "title": "主動巡邏",
@@ -5271,16 +5059,11 @@
     "calls": "呼叫次數",
     "title": "個人號池",
     "subtitle": "你自己的第三方 AI 帳號池：與簽到助手同一批帳號，支援每日自動簽到，並優先服務你自己的轉發請求。",
-    "add": "新增帳號",
-    "provider": "平臺",
-    "name": "名稱",
     "namePlaceholder": "給帳號起個名字",
     "token": "Token（存取憑證）",
     "refreshToken": "Refresh Token",
     "optional": "選填",
     "save": "儲存",
-    "cancel": "取消",
-    "loading": "載入中…",
     "empty": "還沒有帳號",
     "emptyHint": "在簽到助手中新增帳號後會自動同步到這裡。",
     "enabled": "已啟用",
@@ -5289,13 +5072,10 @@
     "disable": "停用",
     "checkin": "立即簽到",
     "delete": "刪除",
-    "confirmDelete": "確認刪除",
     "syncPending": "待同步",
     "uid": "帳號識別",
     "checkinSuccess": "簽到成功",
-    "addSuccess": "帳號已新增",
     "actionFailed": "操作失敗",
-    "loginRequired": "登入後管理你的個人號池",
     "addTitle": "新增帳號",
     "adding": "新增中…",
     "deleteConfirm": "確認刪除 {name}？",
@@ -5331,19 +5111,10 @@
     "unknown": "未知錯誤",
     "deleteTitle": "刪除素材",
     "deleteBody": "確認刪除「{title}」？",
-    "detailLabel": "素材詳情",
-    "btnDetail": "詳情"
+    "detailLabel": "素材詳情"
   },
   "topup": {
-    "failDefault": "充值未完成，請稍後重試",
-    "faqTitle": "常見問題",
-    "faqContent": "關於充值到賬與訂單的常見問題",
-    "faqOk": "我知道了",
-    "tip1": "充值成功後智匯值一般即時到賬，如餘額未更新，可在「我的智匯值」頁下拉刷新",
-    "tip2": "微信支付成功但停留在結果頁時,請在訂單列表中確認狀態,避免重複充值",
-    "tip3": "訂單編號是查詢與售後的重要憑證，請妥善保留",
-    "tip4": "如長時間未到賬，請聯繫客服並提供訂單編號與充值時間",
-    "tip5": "充值金額不支持退款與轉讓"
+    "failDefault": "充值未完成，請稍後重試"
   },
   "devEnterCover": {
     "priceAbnormal": "套餐價格異常，請稍後重試"
@@ -5352,24 +5123,9 @@
     "addedCount": "+{n}",
     "removedCount": "-{n}"
   },
-  "userPublic": {
-    "title": "用戶主頁",
-    "notFound": "用戶不存在",
-    "follow": "關注",
-    "following": "已關注",
-    "message": "發訊息",
-    "followingCount": "關注",
-    "followersCount": "粉絲",
-    "favoritesCount": "收藏",
-    "joined": "加入於"
-  },
   "commission": {
     "myLabel": "我的佣金",
     "label": "佣金"
-  },
-  "courseSwiper": {
-    "tabHotIntro": "爆款入門課程",
-    "tabHotPick": "爆款精選課程"
   },
   "agentList": {
     "emptyText": "暫無 Agent"
@@ -5380,606 +5136,5 @@
   },
   "fenlei": {
     "closeOverlay": "關閉分類彈層"
-  },
-  "llmSettings": {
-    "title": "模型服務商",
-    "empty": "還沒有配置服務商",
-    "emptyDesc": "點擊右上角嚮導,4 步配置 API Key",
-    "enabled": "已啟用",
-    "disabled": "已停用"
-  },
-  "byok": {
-    "fab": "快速配置",
-    "title": "一鍵配置嚮導",
-    "step1Title": "選擇廠商",
-    "step2Title": "填寫 API Key",
-    "step3Title": "驗證密鑰",
-    "step4Title": "完成",
-    "keyPlaceholder": "貼上 API Key(sk-…)",
-    "showKey": "顯示密鑰",
-    "hideKey": "隱藏密鑰",
-    "verify": "驗證",
-    "next": "下一步",
-    "activate": "啟用並建立",
-    "verifyIdle": "待驗證",
-    "verifying": "正在驗證…",
-    "verifySuccess": "驗證通過",
-    "verifyFailed": "驗證未通過",
-    "doneTitle": "配置完成",
-    "doneDesc": "服務商已建立,平臺分潤已啟用"
-  },
-  "pay": {
-    "alipayNotOpen": "支付寶支付暫未開通,請選擇微信支付"
-  },
-  "popularCourses": {
-    "tabHotIntro": "爆款入門",
-    "tabHotPick": "爆款精選",
-    "lessonsCount": "· {n} 課時",
-    "enrolled": "{n} 人在學"
-  },
-  "modelConfig": {
-    "framesUnit": "{n} 幀",
-    "inputPrefix": "請輸入{desc}"
-  },
-  "bottomPopup": {
-    "selectLevel": "選擇 {name}",
-    "payA11y": "關閉支付彈窗"
-  },
-  "purchaseNotice": {
-    "title": "賺取佣金",
-    "subtitle": "加入我們的推廣計劃，獲得額外收入",
-    "cta": "前往開啟會員",
-    "closeA11y": "關閉彈窗"
-  },
-  "eduShop": {
-    "title": "教育商城",
-    "courses": "課程商品",
-    "orders": "我的訂單",
-    "free": "免費",
-    "buy": "購買",
-    "lessons": "{n} 課時",
-    "loadMore": "載入更多",
-    "emptyCourses": "暫無在售課程",
-    "emptyOrders": "暫無訂單",
-    "cancelOrder": "取消訂單",
-    "cancelConfirmTitle": "取消訂單",
-    "cancelConfirmDesc": "確定取消該訂單嗎?",
-    "orderCreated": "訂單已建立",
-    "status": {
-      "pending": "待支付",
-      "paid": "已支付",
-      "cancelled": "已取消",
-      "completed": "已完成",
-      "refunded": "已退款"
-    }
-  },
-  "developerLimits": {
-    "title": "介面限額",
-    "item": "指標",
-    "usage": "用量"
-  },
-  "developerWebhooks": {
-    "title": "Webhooks",
-    "url": "地址",
-    "status": "狀態",
-    "events": "事件",
-    "lastTriggered": "最近觸發",
-    "active": "啟用",
-    "disabled": "停用",
-    "never": "未觸發",
-    "delete": "刪除",
-    "deleteConfirmTitle": "刪除 Webhook",
-    "deleteConfirmDesc": "確定刪除該 Webhook 嗎?"
-  },
-  "tabBar": {
-    "market": "AI應用商店",
-    "plaza": "廣場",
-    "chat": "智匯AI",
-    "feed": "動態",
-    "me": "我的"
-  },
-  "agentShop": {
-    "use": "使用 {n}",
-    "collect": "收藏 {n}",
-    "like": "點讚 {n}",
-    "likeA11y": "{name} 點讚",
-    "collectA11y": "{name} 收藏",
-    "catEmpty": "該分類下暫無智能體"
-  },
-  "career": {
-    "fillField": "請填寫：{name}",
-    "submitFail": "提交失敗，請稍後重試",
-    "doneTitle": "提交成功",
-    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。"
-  },
-  "pwd": {
-    "oldRequired": "請輸入舊密碼",
-    "minLen": "新密碼至少 {n} 位",
-    "okTitle": "修改成功",
-    "okBody": "密碼已更新",
-    "failRetry": "修改失敗",
-    "retryLater": "請稍後重試",
-    "netFail": "網路異常，請稍後重試"
-  },
-  "study": {
-    "learnA11y": "學習發展",
-    "careerA11y": "AI 學業規劃"
-  },
-  "developerNotifications": {
-    "title": "通知偏好",
-    "apiError": "API 異常通知",
-    "quotaWarning": "配額預警",
-    "webhookFailure": "Webhook 失敗通知",
-    "weeklyReport": "每週報告",
-    "versionUpdate": "版本更新",
-    "billingReminder": "帳單提醒"
-  },
-  "developerSettings": {
-    "title": "開發者設定",
-    "sandboxAutoRun": "沙箱自動執行",
-    "sandboxAutoRunDesc": "沙箱程式碼執行完成後自動執行",
-    "errorReport": "錯誤上報",
-    "errorReportDesc": "自動上報介面錯誤便於排查"
-  },
-  "globalBox": {
-    "collapse": "收起浮窗",
-    "expand": "展開浮窗",
-    "earn": "賺米",
-    "support": "客服",
-    "feedback": "反饋"
-  },
-  "hand": {
-    "memberPurchase": "會員購買"
-  },
-  "ia": {
-    "remainingPoints": "剩餘智匯值",
-    "recharge": "充值"
-  },
-  "uiCard": {
-    "inviteCodeBody": "邀請碼:{code}\n(長按複製)",
-    "userGreet": "AI IHUI丨{name}",
-    "growthA11y": "成長值進度條,點擊查看等級介紹",
-    "vipBenefitBody": "您當前為 VIP 會員，享受專屬權益。繼續累積成長值可升級至更高等級。",
-    "normalBenefitBody": "您當前為普通會員，升級 VIP 可享受更多權益。"
-  },
-  "earn": {
-    "tabToday": "今日",
-    "tabMonth": "本月",
-    "tabTotal": "累計",
-    "tabDayShort": "日",
-    "tabMonthShort": "月",
-    "tabTotalShort": "總",
-    "promoOrders": "{tab}推廣訂單",
-    "teamNew": "{tab}團隊新增人數",
-    "withdrawAmount": "{tab}提現金額"
-  },
-  "developerConversations": {
-    "title": "中轉會話記錄",
-    "title2": "會話",
-    "model": "模型",
-    "messages": "訊息",
-    "tokens": "Tokens",
-    "cost": "費用(元)",
-    "lastActive": "最近活躍"
-  },
-  "modelsPrompts": {
-    "title": "提示詞庫",
-    "name": "名稱",
-    "desc": "描述",
-    "version": "版本",
-    "updated": "更新時間"
-  },
-  "voice": {
-    "cam": "相機",
-    "album": "相簿",
-    "file": "檔案",
-    "closeImgMenu": "關閉圖片選單",
-    "addImage": "新增圖片",
-    "holdToTalk": "按住說話",
-    "clearResult": "清除結果",
-    "releaseEnd": " 鬆開結束",
-    "transcribing": "轉寫中…",
-    "realStart": "開始即時語音",
-    "realConnecting": "連接中...",
-    "realLive": "即時語音進行中",
-    "reconnect": "重新連線",
-    "realFailDefault": "連線失敗,請重試",
-    "inputDone": "語音輸入完成"
-  },
-  "material": {
-    "cText": "文本內容",
-    "cImage": "圖片內容",
-    "cVideo": "視頻內容",
-    "cAudio": "音頻內容",
-    "cDefault": "素材內容",
-    "eText": "暫無文本內容",
-    "eImage": "暫無圖片內容",
-    "eVideo": "暫無視頻內容",
-    "eAudio": "暫無音頻素材",
-    "eDefault": "暫無內容",
-    "detailA11y": "查看詳情"
-  },
-  "article": {
-    "commentPh": "寫下你的評論...",
-    "loadCommentsFail": "評論載入失敗",
-    "commentFail": "評論失敗",
-    "send": "發送",
-    "commentFailRetry": "評論失敗，請重試"
-  },
-  "comment": {
-    "send": "發表評論",
-    "empty": "暫無評論,快來搶沙發",
-    "close": "關閉評論"
-  },
-  "businesscard": {
-    "unnamed": "未命名",
-    "loadFailBody": "載入失敗",
-    "shareWechat": "微信好友",
-    "shareMoments": "朋友圈",
-    "needAlbum": "需要相簿權限才能選擇名片圖片",
-    "uploadFail": "名片圖片上傳失敗",
-    "okTitle": "成功",
-    "updated": "名片已更新",
-    "submitFail": "名片提交失敗",
-    "customFail": "名片定製失敗，請重試"
-  },
-  "model": {
-    "type0": "全能",
-    "type1": "對話",
-    "type2": "圖片",
-    "type3": "視頻",
-    "type4": "音頻",
-    "type5": "數字人",
-    "agentMode": "Agent模式"
-  },
-  "aiCard": {
-    "tFreeVip": "會員免費",
-    "tFreeUse": "免費使用",
-    "tFreeLimit": "限時免費",
-    "tBought": "已購買",
-    "tMonth": "包月",
-    "btnWarn": "警告",
-    "btnDislike": "踩",
-    "btnFav": "收藏",
-    "btnInfo": "信息",
-    "btnShare": "分享",
-    "officialFallback": "智匯社群-官方",
-    "buyTime": "購買時間：{t0}",
-    "expireTime": "　到期時間：{t1}"
-  },
-  "viptrader": {
-    "productName": "VIP 操盤手",
-    "teamCount": "團隊人數",
-    "activeTrend": "活躍 {n}",
-    "totalCommission": "累計佣金",
-    "rankTrend": "排名 #{n}",
-    "monthIncome": "本月收益",
-    "withdrawnTrend": "已提現 {v}",
-    "pendingIncome": "待結算",
-    "frozenTrend": "凍結 {v}",
-    "myInviteCode": "我的邀請碼",
-    "invitedTrend": "已邀請 {n} 人",
-    "distLevel": "分銷等級",
-    "rateTrend": "佣金比例 {n}%"
-  },
-  "contact": {
-    "phoneLabel": "電話：",
-    "wechatLabel": "微信："
-  },
-  "account": {
-    "phoneRequired": "請輸入手機號",
-    "phoneInvalid": "請輸入正確的手機號",
-    "smsSent": "驗證碼已發送",
-    "smsFailRetry": "驗證碼發送失敗，請稍後重試",
-    "smsRequired": "請輸入簡訊驗證碼",
-    "smsMin": "驗證碼至少 4 位",
-    "confirmHint": "請輸入「{s}」確認註銷",
-    "failRetry": "提交失敗，請稍後重試",
-    "okTitle": "註銷成功",
-    "okBody": "您的帳號已註銷"
-  },
-  "subPkg": {
-    "devTitle": "開發者進駐",
-    "devDesc": "發布模型與應用",
-    "plazaTitle": "AI 需求廣場",
-    "plazaDesc": "需求對接平臺",
-    "topupTitle": "充值中心",
-    "topupDesc": "智匯值充值",
-    "homeTitle": "學習首頁",
-    "homeDesc": "學習進度與計劃",
-    "groupTitle": "AI 群組",
-    "groupDesc": "多 Agent 協作",
-    "aigcTitle": "AIGC 創作",
-    "aigcDesc": "AI 內容生成",
-    "courseDesc": "探索精選課程"
-  },
-  "annot": {
-    "penThin": "細",
-    "penMid": "中",
-    "penThick": "粗",
-    "closeA11y": "關閉標註",
-    "imageA11y": "待標註圖片",
-    "composeA11y": "標註合成底圖",
-    "penToolA11y": "畫筆工具",
-    "textToolA11y": "文字工具",
-    "undoA11y": "撤銷上一步",
-    "clearA11y": "清空標註",
-    "colorA11y": "切換畫筆顏色",
-    "penLabel": "畫筆{v}",
-    "markPh": "輸入標記文字",
-    "markInputA11y": "標記文字輸入",
-    "markAddA11y": "添加標記文字",
-    "markDropA11y": "放棄標記文字",
-    "modelEditSaveA11y": "儲存標註"
-  },
-  "lp": {
-    "member": "會員",
-    "trader": "操盤手",
-    "normal": "普通用戶",
-    "closeA11y": "關閉登入彈窗",
-    "oneLoginFail": "運營商一鍵登入失敗，請手動輸入手機號",
-    "nickRequired": "請輸入暱稱",
-    "nickTooLong": "暱稱過長，不能超過 8 字元",
-    "phoneInvalid": "請輸入正確的手機號碼",
-    "changeAvatarA11y": "更換頭像",
-    "usernamePh": "請輸入用戶名",
-    "upgradeA11y": "立即升級",
-    "phonePh": "請輸入電話號碼",
-    "bindA11y": "綁定手機號",
-    "rebind": "重綁",
-    "bind": "綁定",
-    "saveA11y": "保存資訊",
-    "logoutA11y": "登出"
-  },
-  "need": {
-    "titleRequired": "請輸入需求標題",
-    "titleMin2": "需求標題至少 2 個字元",
-    "descRequired": "請輸入需求描述",
-    "descMin": "需求描述至少 {n} 個字元",
-    "priceLowRequired": "請輸入有效的起步價",
-    "priceHighRequired": "請輸入有效的最高價",
-    "priceOrder": "起步價不能高於最高價",
-    "priceMin100": "起步價不能低於 100 元",
-    "contactRequired": "請輸入聯絡方式",
-    "timeRequired": "請設置任務截止時間",
-    "timeInvalid": "截止時間格式無效",
-    "timePast": "截止時間必須晚於當前時間",
-    "cycleRequired": "請設置有效的開發週期",
-    "publishedTitle": "提交成功",
-    "publishedBody": "需求已發布，稍後將在廣場展示",
-    "okBtn": "好的",
-    "submitFail": "提交失敗，請稍後重試",
-    "netFail": "網路異常，請稍後重試",
-    "cycleUnitWeek": "周"
-  },
-  "news": {
-    "catAi": "人工智慧",
-    "catMl": "機器學習",
-    "catCv": "計算機視覺",
-    "catNlp": "自然語言",
-    "catChip": "AI 晶片",
-    "catRec": "智能推薦",
-    "title": "AI資訊",
-    "anonAuthor": "佚名",
-    "netFail": "網路異常"
-  },
-  "iaa": {
-    "expandFab": "展開提問輸入",
-    "removeAttach": "刪除附件",
-    "stop": "停止",
-    "collapseArea": "收起輸入區",
-    "holdAsk": "按住說出你的問題",
-    "zoomOut": "縮小輸入框",
-    "zoomIn": "放大輸入框",
-    "switchKeyboard": "切換到鍵盤",
-    "switchVoice": "切換到語音",
-    "holdEnd": "按住說話，鬆開結束",
-    "addFile": "添加圖片或文件",
-    "addParam": "添加參數圖片"
-  },
-  "bab": {
-    "camera": "相機",
-    "album": "相簿",
-    "localFile": "本地文件",
-    "wxFile": "微信文件",
-    "knowledge": "知識庫",
-    "memory": "記憶",
-    "pickModel": "選擇模型",
-    "modelA11y": "模型：{name}",
-    "modelConfig": "模型配置",
-    "voiceInput": "語音輸入",
-    "feature2": "功能",
-    "source": "來源",
-    "enlarge": "放大",
-    "agentAssist": "智能體輔"
-  },
-  "eduAttendance": {
-    "title": "考勤管理",
-    "student": "學生",
-    "statusTitle": "狀態",
-    "checkIn": "簽到",
-    "checkOut": "簽退",
-    "remark": "備註",
-    "status": {
-      "present": "正常",
-      "late": "遲到",
-      "absent": "缺勤",
-      "leave": "請假"
-    }
-  },
-  "eduGrades": {
-    "title": "成績管理",
-    "student": "學生",
-    "subject": "科目",
-    "exam": "考試",
-    "score": "分數",
-    "date": "日期"
-  },
-  "toolbar": {
-    "svcTraffic": "流量運營陪跑",
-    "svcDevice": "一站式設備應用",
-    "svcOther": "AI 其他技術服務",
-    "aiImage": "AI 圖片創作",
-    "aiImageD": "輕鬆創作圖片",
-    "aiVideo": "AI 視頻創作",
-    "aiVideoD": "輕鬆創作視頻",
-    "aiCopy": "AI 文案創作",
-    "aiCopyD": "輕鬆創作文案",
-    "aiClip": "AI 自動剪輯",
-    "aiClipD": "輕鬆創作剪輯",
-    "aiLive": "AI 直播",
-    "aiLiveD": "AI 直播服務",
-    "aiAvatar": "AI 數碼人",
-    "aiAvatarD": "製作數碼人",
-    "more2": "更多",
-    "viewMoreA11y": "查看更多 AI Agent 應用",
-    "oneClickA11y": "獨家一鍵生成運營內容",
-    "customA11y": "AI 定製服務"
-  },
-  "confirm": {
-    "defaultCancel": "取消",
-    "defaultOk": "確認",
-    "payFmt": "立即支付 ¥{v}"
-  },
-  "sr": {
-    "closeA11y": "點擊關閉",
-    "firstBonus": "首次分享成功，獲得 {n} 智匯值獎勵",
-    "inviteNote": "邀請好友加入智匯AI社群，註冊成功後雙方均可再獲智匯值",
-    "claimA11y": "領取 {n} 智匯值",
-    "rewardUnit": " 智匯值",
-    "footnote": "智匯值可用於兌換模型算力、會員權益等",
-    "claimBtn": "領取 {n} 智匯值"
-  },
-  "dist": {
-    "noInviteCode": "暫無邀請碼",
-    "linkCopied": "已複製邀請連結",
-    "inviteTitle": "邀請你加入 AI 智匯社",
-    "shared": "已分享",
-    "shareFail": "分享失敗，請重試",
-    "qrNotReady": "二維碼未就緒，請稍後重試",
-    "needAlbum": "未獲得相簿權限，無法儲存",
-    "savedAlbum": "已保存到相簿",
-    "saveFail": "儲存失敗，請稍後重試",
-    "teamCompany": "公司團隊",
-    "teamCompanyD": "查看我的公司團隊",
-    "teamAi": "AI 團隊",
-    "teamAiD": "查看智能體團隊",
-    "card": "我的名片",
-    "cardD": "查看我的個人信息",
-    "qr": "我的二維碼",
-    "qrD": "推廣專用二維碼",
-    "orders": "分銷訂單",
-    "ordersD": "查看我的分銷訂單",
-    "devSoon": "功能開發中",
-    "dealer": "分銷商",
-    "earningsLabel": "分銷收益概覽",
-    "shareQrA11y": "分享二維碼",
-    "withdrawDetail": "提現詳情",
-    "copyLinkA11y": "複製邀請連結",
-    "saveQrA11y": "保存到相簿",
-    "saving": "儲存中...",
-    "shareFriendA11y": "分享給好友"
-  },
-  "eduParent": {
-    "title": "家長端",
-    "child": "孩子",
-    "relationship": "關係",
-    "statusTitle": "狀態",
-    "status": {
-      "pending": "待確認",
-      "confirmed": "已確認",
-      "active": "生效",
-      "rejected": "已拒絕",
-      "cancelled": "已解除"
-    },
-    "chooseView": "選擇查看內容"
-  },
-  "eduParentBind": {
-    "title": "綁定管理",
-    "student": "學生",
-    "created": "申請時間",
-    "confirm": "確認綁定",
-    "reject": "拒絕",
-    "delete": "刪除",
-    "actionTitle": "綁定操作"
-  },
-  "eduEnrollment": {
-    "title": "班級",
-    "className": "班級",
-    "grade": "年級"
-  },
-  "eduSchedule": {
-    "title": "孩子課表",
-    "weekdayTitle": "星期",
-    "course": "課程",
-    "teacher": "教師",
-    "time": "時段",
-    "classroom": "教室",
-    "weekday": {
-      "mon": "週一",
-      "tue": "週二",
-      "wed": "週三",
-      "thu": "週四",
-      "fri": "週五",
-      "sat": "週六",
-      "sun": "週日"
-    },
-    "title2": "校園課表"
-  },
-  "eduChildAttendance": {
-    "title": "孩子考勤",
-    "date": "日期"
-  },
-  "eduChildGrades": {
-    "title": "孩子成績"
-  },
-  "eduChildMeals": {
-    "title": "孩子餐食",
-    "date": "日期",
-    "mealType": "餐類",
-    "dish": "菜品",
-    "ingredients": "食材",
-    "nutrition": "營養"
-  },
-  "eduChildBills": {
-    "title": "孩子帳單",
-    "className": "班級",
-    "term": "學期",
-    "total": "總額",
-    "paid": "已付",
-    "arrears": "欠費",
-    "nextDue": "下次到期"
-  },
-  "eduChildStudyPlans": {
-    "title": "學習計劃",
-    "title2": "計劃",
-    "planType": "類型",
-    "range": "週期",
-    "desc": "說明"
-  },
-  "eduFinance": {
-    "title": "繳費記錄",
-    "student": "學生",
-    "className": "班級",
-    "fee": "費用",
-    "amount": "金額(元)",
-    "date": "繳費日期",
-    "status": {
-      "paid": "已繳",
-      "success": "成功",
-      "refunded": "已退",
-      "pending": "待確認"
-    }
-  },
-  "eduMeal": {
-    "title": "餐次模板",
-    "name": "模板名"
-  },
-  "eduScheduling": {
-    "title": "教師排班時段",
-    "teacher": "教師",
-    "availability": "可用性",
-    "available": "可用",
-    "busy": "已佔"
   }
 }

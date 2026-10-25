@@ -111,8 +111,7 @@
     "uploading": "上传中…",
     "user": "用户",
     "more": "更多",
-    "discountAmount": "优惠",
-    "loadFailed": "加载失败"
+    "discountAmount": "优惠"
   },
   "login": {
     "loginSuccess": "登录成功",
@@ -226,7 +225,6 @@
     "liveNow": "直播中",
     "detail": {
       "loadFailed": "直播加载失败",
-      "loading": "直播加载中…",
       "notStarted": "直播尚未开始",
       "ended": "直播已结束",
       "connecting": "正在连接直播间…",
@@ -304,10 +302,7 @@
     "titleRequired": "请输入直播标题",
     "startFailed": "开启直播失败",
     "endFailed": "结束直播失败",
-    "copySuccess": "已复制到剪贴板",
-    "d1": "AI 课程包",
-    "d2": "会员年卡",
-    "d3": "实体周边"
+    "copySuccess": "已复制到剪贴板"
   },
   "order": {
     "title": "订单",
@@ -1308,7 +1303,6 @@
       "correctValue": "{n} 题",
       "duration": "用时",
       "durationValue": "{n} 分钟",
-      "loading": "加载中…",
       "questionIdx": "第 {n} 题",
       "retry": "再考一次",
       "reviewScore": "{n} 分",
@@ -1545,7 +1539,7 @@
     "ctaTitle": "30 分钟开始你的 AI 之旅",
     "heroBadge": "关于智汇 AI",
     "heroSubtitle": "智汇 AI(IHUI AI)是开源的全栈 AI 操作系统,把 Agent 设计、知识库、多模型调度、跨端协作和团队运营装进同一个平台。",
-    "heroTitle": "一码六端,一站 AI",
+    "heroTitle": "一码九端,一站 AI",
     "numbersTitle": "数字见证",
     "platformAgentsDesc": "可视化拖拽搭建 AI Agent,200+ 模板,插件/MCP 工具,一键发布到任意端。",
     "platformAgentsTitle": "Agent 市场与编排",
@@ -1572,11 +1566,11 @@
     "storyP1": "2024 年,我们发现企业在落地 AI 时普遍面临\"四件套难题\":选模型难、接知识库难、跨端分发难、协作计费难。市面上的产品要么只解决一件,要么闭源锁死,要么贵到用不起。",
     "storyP2": "于是我们做了智汇 AI:开源、统一、跨端、可私有化。把 12-18 个月的自研时间,压缩到 30 分钟开通账号。",
     "storyTitle": "为什么做智汇 AI?",
-    "valueCrossDesc": "Web / 桌面 / 小程序 / 浏览器插件 / React Native / CLI,一套代码,一次发布,全端触达。",
-    "valueCrossTitle": "六端同源",
+    "valueCrossDesc": "Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor / CLI,一套代码,一次发布,全端触达。",
+    "valueCrossTitle": "九端同源",
     "valueEnterpriseDesc": "SSO/OAuth、审计日志、角色权限、私有化部署,服务多家上市公司。",
     "valueEnterpriseTitle": "企业级安全",
-    "valueFreeDesc": "每月 1000 积分,全模型可用,六端同发。Pro 版 ¥49/月起,企业版支持私有化。",
+    "valueFreeDesc": "每月 1000 积分,全模型可用,九端同发。Pro 版 ¥49/月起,企业版支持私有化。",
     "valueFreeTitle": "个人版永久免费",
     "valueOpenDesc": "Apache 2.0 协议,核心代码公开,商业可用,Self-host 零成本。",
     "valueOpenTitle": "完全开源",
@@ -2947,12 +2941,9 @@
       "follow": "关注",
       "followers": "{n} 人关注",
       "following": "已关注",
-      "hoursAgo": "{n} 小时前",
-      "justNow": "刚刚",
       "loadFailed": "加载失败",
       "loading": "加载中…",
       "loadingMore": "加载中…",
-      "minutesAgo": "{n} 分钟前",
       "noMore": "没有更多了",
       "publish": "发帖"
     },
@@ -3308,8 +3299,7 @@
       "duration": "会员时长",
       "monthlyPlan": "月度会员",
       "payMethod": "支付方式",
-      "yearlyPlan": "年度会员",
-      "daysUnit": "{n} 天"
+      "yearlyPlan": "年度会员"
     },
     "benefitsTitle": "会员权益",
     "upgradeNow": "立即升级",
@@ -3512,10 +3502,6 @@
   },
   "index": {
     "mock": {
-      "post1Title": "如何使用 React Hooks?",
-      "today": "今天",
-      "post2Title": "TypeScript 类型推断",
-      "post3Title": "设计模式讨论",
       "yesterday": "昨天"
     },
     "feature": {
@@ -3604,52 +3590,8 @@
     "register1": "🎉 欢迎使用智汇AI社区，新用户注册即赠5000智汇值！",
     "text2": "智能体助手页未配置",
     "save3": "图片已保存",
-    "d1": "AI 写作助手",
-    "d2": "帮你撰写高质量文章、报告和文案",
-    "d3": "编程助手",
-    "d4": "代码编写、调试和优化建议",
     "d5": "开发",
-    "d6": "数据分析师",
-    "d7": "数据可视化和分析洞察",
-    "d8": "分析",
-    "d9": "设计创意师",
-    "d10": "创意设计和视觉方案",
     "d11": "设计",
-    "d12": "翻译达人",
-    "d13": "多语言翻译和本地化",
-    "d14": "工具",
-    "d15": "文本生成",
-    "d16": "高质量文本内容生成",
-    "d17": "图片生成",
-    "d18": "AI 绘画和图片创作",
-    "d19": "视频制作",
-    "d20": "AI 视频生成和编辑",
-    "d21": "音频处理",
-    "d22": "语音合成和音频编辑",
-    "d23": "代码生成",
-    "d24": "多语言代码自动生成",
-    "d25": "数据分析",
-    "d26": "数据分析和可视化",
-    "d27": "AI 绘画",
-    "d28": "文生图和图生图创作",
-    "d29": "视频剪辑",
-    "d30": "智能视频剪辑和特效",
-    "d31": "AI 绘画入门指南",
-    "d32": "本文详细介绍 AI 绘画的基础知识和常用工具...",
-    "d33": "深度学习模型优化技巧",
-    "d34": "如何优化深度学习模型的训练速度和准确率...",
-    "d35": "Prompt 工程最佳实践",
-    "d36": "掌握 Prompt 工程的核心技巧,提升 AI 输出质量...",
-    "d37": "多模态 AI 应用场景",
-    "d38": "探索多模态 AI 在医疗、教育、金融等领域的应用...",
-    "d39": "山水风景画",
-    "d40": "城市夜景",
-    "d41": "抽象艺术作品",
-    "d42": "AI 视频生成教程",
-    "d43": "数字人直播演示",
-    "d44": "AI 语音合成演示",
-    "d45": "TTS 音色对比",
-    "d46": "语音克隆效果",
     "p1": "图片内容",
     "p2": "视频内容",
     "p3": "音频内容",
@@ -3881,25 +3823,6 @@
     "d15": "高端资源对接",
     "d16": "定制化解决方案"
   },
-  "aigcList": {
-    "d1": "赛博城市夜景",
-    "d2": "智汇小方",
-    "d3": "极光幻境",
-    "d4": "AI创作家",
-    "d5": "机械姬 Concept",
-    "d6": "未来派",
-    "d7": "量子诗篇",
-    "d10": "数据洪流 数字时代 诗",
-    "d11": "霓虹脉搏",
-    "d12": "声音艺术家",
-    "d13": "未来之城",
-    "d14": "数字画师",
-    "d15": "AI 觉醒录",
-    "d17": "探讨 AI 觉醒后的人类处境,生成一段哲思短文。",
-    "d18": "AI 觉醒 意识 共存",
-    "d19": "深空回响",
-    "r1": "在数据洪流中,我们以代码为笔,以算法为墨,描绘着数字时代的诗与远方。每一段文字都是思想的延伸,每一次生成都是创造的开始。"
-  },
   "aiAgentdetail": {
     "q1": "获取Agent详情",
     "r6": "获取Agent权限失败"
@@ -3956,18 +3879,6 @@
     "r3": "函数",
     "r4": "前端",
     "r5": "后端"
-  },
-  "courseplanet": {
-    "d1": "AI 绘画入门:从零到精通",
-    "d2": "AI 教研组",
-    "d3": "短视频制作全流程实战",
-    "d4": "实战导师",
-    "d5": "ChatGPT 提示词工程",
-    "d6": "AI 教研组",
-    "d7": "AI 办公效率提升指南",
-    "d8": "效率专家",
-    "d9": "大模型应用开发实战",
-    "d10": "技术大牛"
   },
   "aiHistory": {
     "d1": "AI绘图",
@@ -4222,9 +4133,7 @@
     "13": "加入于 {m}",
     "14": "选择感兴趣的赛道,获取个性化推荐",
     "15": "默认模型",
-    "16": "以\"数据洪流\"为意象,生成一段关于数字时代创作的散文诗。",
     "17": "付费可看 ¥{m}",
-    "18": "当机器开始思考,人类是否做好了准备?这是一个关于意识、自由与共存的故事。在硅基生命与碳基生命的交汇处,我们重新审视\"存在\"的意义。",
     "20": "确认选择{count}",
     "21": "AI助手免费使用次数增加",
     "22": "部分课程免费学习",
@@ -4663,26 +4572,19 @@
     "checkinSuccess": "签到成功",
     "addSuccess": "账号已添加",
     "actionFailed": "操作失败",
-    "loginRequired": "登录后管理你的个人号池",
-    "addTitle": "添加账号",
-    "adding": "添加中…",
-    "deleteConfirm": "确认删除 {name}？",
-    "summary": "共 {total} 个账号 · 已启用 {enabled}"
+    "adding": "添加中…"
   },
   "checkinAssistant": {
     "title": "签到助手",
     "subtitle": "管理第三方账号并自动签到；与个人号池互通，转发时优先使用你自己的账号。",
-    "summary": "共 {total} 个账号 · 已启用 {enabled} · 已进号池 {synced}",
     "empty": "还没有账号",
     "emptyHint": "在下方表单录入第一个账号。",
     "addTitle": "添加账号",
     "add": "添加",
     "adding": "添加中…",
     "namePlaceholder": "账号名称",
-    "tokenLabel": "Token",
     "tokenPlaceholder": "粘贴访问凭证",
     "refreshTokenLabel": "Refresh Token（可选）",
-    "optional": "可选",
     "enabled": "已启用",
     "disabled": "已停用",
     "enable": "启用",
@@ -4694,131 +4596,5 @@
     "lastOk": "上次签到成功 +{credits}",
     "lastFailed": "上次签到失败",
     "actionFailed": "操作失败"
-  },
-  "developerInfo": {
-    "title": "开发者信息",
-    "nameLabel": "名称",
-    "descLabel": "简介",
-    "statusLabel": "申请状态",
-    "statusApproved": "已通过",
-    "statusRejected": "已拒绝",
-    "statusPending": "待审核",
-    "accountLabel": "账号",
-    "apiKeyLabel": "API 密钥",
-    "apiKeyCount": "已创建 {count} 个",
-    "apiKeyNone": "未创建",
-    "urlLabel": "网址",
-    "expiryLabel": "到期时间"
-  },
-  "userPublic": {
-    "title": "他人主页",
-    "notFound": "用户不存在",
-    "follow": "关注",
-    "following": "已关注",
-    "message": "发消息",
-    "followingCount": "关注",
-    "followersCount": "粉丝",
-    "favoritesCount": "收藏",
-    "joined": "加入于"
-  },
-  "eduShop": {
-    "title": "教育商城",
-    "courses": "课程商品",
-    "orders": "我的订单",
-    "free": "免费",
-    "buy": "购买",
-    "lessons": "{n} 课时",
-    "loadMore": "加载更多",
-    "emptyCourses": "暂无在售课程",
-    "emptyOrders": "暂无订单",
-    "cancelOrder": "取消订单",
-    "orderCreated": "订单已创建",
-    "status": {
-      "pending": "待支付",
-      "paid": "已支付",
-      "cancelled": "已取消",
-      "completed": "已完成",
-      "refunded": "已退款"
-    }
-  },
-  "llmSettings": {
-    "title": "模型服务商",
-    "empty": "还没有配置服务商",
-    "emptyDesc": "点击右上角向导,4 步配置 API Key",
-    "enabled": "已启用",
-    "disabled": "已停用"
-  },
-  "byok": {
-    "fab": "快速配置",
-    "title": "一键配置向导",
-    "step1Title": "选择厂商",
-    "step2Title": "填写 API Key",
-    "step3Title": "验证密钥",
-    "step4Title": "完成",
-    "keyPlaceholder": "粘贴 API Key(sk-…)",
-    "verify": "验证",
-    "next": "下一步",
-    "activate": "激活并创建",
-    "verifying": "正在验证…",
-    "verifySuccess": "验证通过",
-    "verifyFailed": "验证未通过",
-    "doneDesc": "服务商已创建,平台抽成已按规则激活"
-  },
-  "eduParent": {
-    "title": "家长端",
-    "child": "孩子",
-    "relationship": "关系",
-    "statusTitle": "状态",
-    "empty": "还没有绑定的孩子",
-    "status": {
-      "pending": "待确认",
-      "confirmed": "已确认",
-      "active": "生效",
-      "rejected": "已拒绝",
-      "cancelled": "已解除"
-    }
-  },
-  "eduChildAttendance": {
-    "title": "孩子考勤",
-    "date": "日期"
-  },
-  "eduChildGrades": {
-    "title": "孩子成绩"
-  },
-  "eduGrades": {
-    "student": "学生",
-    "subject": "科目",
-    "exam": "考试",
-    "score": "分数",
-    "date": "日期"
-  },
-  "eduAttendance": {
-    "statusTitle": "状态",
-    "checkIn": "签到",
-    "checkOut": "签退",
-    "status": {
-      "present": "正常",
-      "late": "迟到",
-      "absent": "缺勤",
-      "leave": "请假"
-    }
-  },
-  "eduMgmt": {
-    "attendanceTitle": "考勤管理",
-    "gradesTitle": "成绩管理",
-    "financeTitle": "缴费记录"
-  },
-  "eduFinance": {
-    "student": "学生",
-    "className": "班级",
-    "fee": "费用",
-    "amount": "金额(元)",
-    "date": "缴费日期",
-    "status": {
-      "paid": "已缴",
-      "success": "成功",
-      "refunded": "已退",
-      "pending": "待确认"
-    }
   }
 }

@@ -134,7 +134,7 @@ const result = await regression.execute(mustRun)
 - ✅ Apache 2.0 open source (test scripts reusable)
 - ✅ Test data redaction (based on PII recognition model)
 - ✅ Test report retention (6 months traceable)
-- ✅ Multi-platform test coverage 8 platforms (Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / CLI)
+- ✅ Multi-platform test coverage 9 platforms (Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / Capacitor / CLI)
 - ✅ CI/CD integration compliance audit
 - ✅ MLPS / GDPR privacy test coverage
 - ✅ Private deployment support (data stays in domain)
@@ -151,7 +151,7 @@ const result = await regression.execute(mustRun)
 - **Browser Extension**: WXT (Manifest V3)
 - **Mobile**: React Native (iOS / Android)
 - **CLI**: Node.js + Commander
-- **8-platform coverage**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / CLI
+- **9-platform coverage**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / Capacitor 7 / CLI
 - **Test Frameworks**: Vitest 2.1 + Playwright 1.49 + k6 0.50
 - **AI Dispatch**: LiteLLM 30+ models unified dispatch
 - **Visualization**: Grafana + self-developed quality dashboard

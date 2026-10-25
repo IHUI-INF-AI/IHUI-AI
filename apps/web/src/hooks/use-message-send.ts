@@ -19,7 +19,7 @@ import {
 } from '@/hooks/use-message-references'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { steerChatStream } from '@ihui/api-client'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { answerSideQuestion, tryHandleSideSlash } from '@/hooks/use-chat/slash-commands'
 // 2026-10-06(O59⑤):草稿清桶走加密通道(单一出口,防漏点 —— 过去是 6 处裸 localStorage)
 import { clearDraft } from '@/lib/chat-draft-storage'
@@ -153,6 +153,11 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
   } = params
   const t = useTranslations('chat')
   const { track } = useAnalytics()
+  // 票60 步序四:会话域按窗格寻址(本 hook 挂在 message-input 内 = ChatPaneProvider
+  // 树下 ⇒ 读该窗格实例;Provider 外恒单例,行为与改造前逐字节等价)。
+  // 覆盖面:引用回复(quotedMessage)、/side 队列入队、steer 取流坐标 —— 此前全部
+  // 直读根单例,窗格里的引用/侧问队列/引导文本会串到根窗格。
+  const chatStore = usePaneChatStore()
   const [isDragOver, setIsDragOver] = React.useState(false)
   // W27(2026-09-14):单条 pendingMessage 升级为 FIFO 队列 —— 流式期间可连续排队多条,
   // 每次流式结束自动出队一条;失败条目退回主输入框,剩余条目保留
@@ -401,7 +406,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       // D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):quotedMessage 非空时把被引用
       // 消息快照以 markdown 引用块附加到正文(用户/AI 分别标注),发送成功后清除;
       // 发送失败保留引用,便于用户重试时仍带上下文。
-      const quoted = useChatStore.getState().quotedMessage
+      const quoted = chatStore.getState().quotedMessage
       let contentWithQuote = finalContent
       if (quoted) {
         const roleLabel = quoted.role === 'user' ? t('quotedReplyUser') : t('quotedReplyAssistant')
@@ -415,7 +420,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       if (!ok) return false
       // D36:发送成功 → 推送原始用户文本到会话输入历史栈(与附件无关,仅文本)
       if (onSent) onSent(text)
-      if (quoted) useChatStore.getState().setQuotedMessage(null)
+      if (quoted) chatStore.getState().setQuotedMessage(null)
       // 埋点:聊天消息发送成功(web 端)
       track({ name: 'chat_send', category: 'chat', label: 'web' })
       // 释放所有 objectURL
@@ -428,7 +433,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       requestAnimationFrame(() => inputCoreRef.current?.resize())
       return true
     },
-    [onSend, draftKey, resetReferences, setValue, inputCoreRef, track, onSent],
+    [onSend, draftKey, resetReferences, setValue, inputCoreRef, track, onSent, chatStore],
   )
 
   /** overrideValue:外部预填后立即发送场景(如 draftAutoSend)使用,绕开 value state 异步更新
@@ -452,13 +457,13 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
           // 流式期间:入当前会话侧问队列(按会话分桶存 zustand store,切会话不丢),
           // 流结束后由 message-input.tsx 的流结束 effect 自动出队补答。
           // 不进 W27 pendingMessages、不进 doSend、附件引用不消费(保留给后续主消息)。
-          const conversationId = useChatStore.getState().conversationId
+          const conversationId = chatStore.getState().conversationId
           if (!conversationId) {
             // 会话未持久化(极罕见的流中状态):保留输入内容,提示后返回
             toast.error(t('sideNoConversation'))
             return
           }
-          useChatStore.getState().enqueueSideQuestion(conversationId, side.question)
+          chatStore.getState().enqueueSideQuestion(conversationId, side.question)
           toast.info(t('sideEnqueued'))
           setValue('')
           if (typeof window !== 'undefined') clearDraft(draftKey)
@@ -471,7 +476,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         if (typeof window !== 'undefined') clearDraft(draftKey)
         requestAnimationFrame(() => inputCoreRef.current?.resize())
         try {
-          await answerSideQuestion(side.question, t)
+          await answerSideQuestion(side.question, t, chatStore)
         } catch (e: unknown) {
           toast.error(t('sideAnswerFailed', { error: e instanceof Error ? e.message : String(e) }))
           setValue(`/side ${side.question}`)
@@ -562,6 +567,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       draftKey,
       inputCoreRef,
       onSent,
+      chatStore,
     ],
   )
 
@@ -594,7 +600,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     const text = value.trim()
     // 非流式 / 空输入:静默不动作(闪电按钮在非流式态不渲染,此处为双保险)
     if (!text || !isStreaming) return
-    const store = useChatStore.getState()
+    const store = chatStore.getState()
     const messageId = store.streamingAssistantId
     const conversationId = store.conversationId
     if (!messageId || !conversationId) {
@@ -623,7 +629,18 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       // 5xx / 网络失败(fetchApi 抛错路径):同样保留输入内容,toast 提示
       toast.warning(t('steerFailed'))
     }
-  }, [value, isStreaming, references, setValue, resetReferences, inputCoreRef, draftKey, track, t])
+  }, [
+    value,
+    isStreaming,
+    references,
+    setValue,
+    resetReferences,
+    inputCoreRef,
+    draftKey,
+    track,
+    t,
+    chatStore,
+  ])
 
   return {
     isDragOver,

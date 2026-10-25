@@ -22,18 +22,49 @@ import {
 
 /**
  * 公开查询公告列表：仅已发布、未过期，置顶在前、published_at 在后。
+ *
+ * platform(2026-10-24 按端定向):传入端标识时只返回"全端通用(platforms 空数组)
+ * 或包含该端"的公告;不传 = 不过滤(管理端/兼容旧调用)。
+ * 端标识见 ANNOUNCEMENT_PLATFORMS(web/miniapp/desktop/extension/rn/cli/mobile-cap)。
  */
-export async function findAnnouncements(): Promise<Announcement[]> {
+export async function findAnnouncements(platform?: string): Promise<Announcement[]> {
   const now = new Date()
+  const conds = [
+    eq(announcements.isPublished, true),
+    or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
+  ]
+  if (platform) {
+    conds.push(
+      or(
+        sql`cardinality(${announcements.platforms}) = 0`,
+        sql`${platform} = ANY(${announcements.platforms})`,
+      ),
+    )
+  }
   return dbRead
     .select()
     .from(announcements)
-    .where(
-      and(
-        eq(announcements.isPublished, true),
-        or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
+    .where(and(...conds))
+    .orderBy(desc(announcements.isPinned), desc(announcements.publishedAt))
+}
+
+/**
+ * 管理端列表：含未发布/已过期公告，可选端过滤(过滤规则同 findAnnouncements)。
+ */
+export async function findAllAnnouncements(platform?: string): Promise<Announcement[]> {
+  const conds = []
+  if (platform) {
+    conds.push(
+      or(
+        sql`cardinality(${announcements.platforms}) = 0`,
+        sql`${platform} = ANY(${announcements.platforms})`,
       ),
     )
+  }
+  return dbRead
+    .select()
+    .from(announcements)
+    .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(announcements.isPinned), desc(announcements.publishedAt))
 }
 
@@ -50,6 +81,8 @@ export interface CreateAnnouncementInput {
   isPublished?: boolean
   publishedAt?: Date | null
   expiresAt?: Date | null
+  /** 投放端(空数组 = 全端通用;见 ANNOUNCEMENT_PLATFORMS) */
+  platforms?: string[]
   createdBy?: string
 }
 
@@ -65,6 +98,7 @@ export async function createAnnouncement(data: CreateAnnouncementInput): Promise
       isPublished,
       publishedAt: data.publishedAt ?? (isPublished ? new Date() : null),
       expiresAt: data.expiresAt,
+      platforms: data.platforms ?? [],
       createdBy: data.createdBy,
     })
     .returning()
@@ -81,6 +115,8 @@ export interface UpdateAnnouncementInput {
   isPublished?: boolean
   publishedAt?: Date | null
   expiresAt?: Date | null
+  /** 投放端(空数组 = 全端通用;见 ANNOUNCEMENT_PLATFORMS) */
+  platforms?: string[]
 }
 
 export async function updateAnnouncement(
@@ -105,6 +141,7 @@ export async function updateAnnouncement(
       ...(data.isPublished !== undefined ? { isPublished: data.isPublished } : {}),
       ...setPublishedAt,
       ...(data.expiresAt !== undefined ? { expiresAt: data.expiresAt } : {}),
+      ...(data.platforms !== undefined ? { platforms: data.platforms } : {}),
       updatedAt: new Date(),
     })
     .where(eq(announcements.id, id))
@@ -454,21 +491,29 @@ export async function findReadAnnouncementIds(userId: string): Promise<string[]>
   return rows.map((r) => r.announcementId)
 }
 
-/** 统计用户未读公告数（已发布公告 - 已读数）。 */
+/** 统计用户未读公告数（已发布公告 - 已读数）。platform 传入时只统计该端可见公告。 */
 export async function countUnreadAnnouncements(
   userId: string,
+  platform?: string,
 ): Promise<{ total: number; unread: number; unreadIds: string[] }> {
   const now = new Date()
-  // 已发布公告
+  const conds = [
+    eq(announcements.isPublished, true),
+    or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
+  ]
+  if (platform) {
+    conds.push(
+      or(
+        sql`cardinality(${announcements.platforms}) = 0`,
+        sql`${platform} = ANY(${announcements.platforms})`,
+      ),
+    )
+  }
+  // 已发布公告(按端过滤)
   const published = await dbRead
     .select({ id: announcements.id })
     .from(announcements)
-    .where(
-      and(
-        eq(announcements.isPublished, true),
-        or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
-      ),
-    )
+    .where(and(...conds))
   const publishedIds = published.map((p) => p.id)
 
   if (publishedIds.length === 0) {

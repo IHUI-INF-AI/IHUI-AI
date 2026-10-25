@@ -63,6 +63,8 @@
  *
  * 用法:node scripts/check-service-binary-paths.mjs [--json] [--strict] [--service <名>]... [--filter 'IHUI*'] [--self-test]
  *   问责入口 `pnpm check:service-paths`(默认档);`--strict` 把"有维量不到"也计入不通过(拒绝出具合格证)。
+ *   仓内基准维(G-10):`scripts/data/service-definitions.json` 在位时对账"列出/在册/缺/启动类型/Application/快照过期"六件事,
+ *   **只报数点名,不判红、不改退出码**(只读对账器,判红权归人);基准读不到或解不开 ⇒ 记未判定,绝不读成"没有差异"。
  * 退出码:0 = 跑完且没有量到的问题(有未判定维时末行明写"不出具合格证");1 = 至少一个服务**量到**了问题
  *   (路径不存在 / 非 RUNNING / 声明端口无应答 / 观察到的监听端点全部不应答 / Application 值为空 / 两通道取值不一致),--strict 下含未判定;
  *   2 = 未判定到给不出任何结论(非 win32 / 任一枚举通道没跑到 / 没有任何可判对象 / --self-test 失败)。
@@ -73,7 +75,7 @@ import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:
 import path from 'node:path'
 import { hostname } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { gitFaceEscapesToRepo, isAllowedScratchRoot, mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 /** 解释器候选(合并自对侧):装了 PS7 优先它(AGENTS §27),in-box 兜底。
  *  ⚠ 本机 2026-09-28 现读 $PSVersionTable:**两者都是 7.6.2**,所以这条不是"两套引擎取其一",
@@ -103,6 +105,10 @@ export const REG_ENCODE_ERROR = '!E'
  *  没有哨兵的"0 行"与"根本没跑到"必须能分开。 */
 export const ENUM_HEAD = '#IHUI-SVC-LIST v1'
 export const ENUM_TAIL = '#IHUI-SVC-END'
+/** 仓内服务定义基准(入库真相源)的相对落点。§15:落点由脚本自身位置推导(本文件在 <repo>/scripts/ 下),
+ *  禁 `process.cwd()` —— 共享工作区里 cwd 不可靠。该文件只由人工/快照生成器写,本门**只读**。 */
+export const BASELINE_REL = 'scripts/data/service-definitions.json'
+export const SERVICE_BASELINE_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'service-definitions.json')
 const PS_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_ENUM_TIMEOUT_MS) || 120_000
 const NSSM_TIMEOUT_MS = 5_000
 const TCP_TIMEOUT_MS = 1_500
@@ -745,6 +751,157 @@ export function resolvePorts({ pb64, nssmParameters, nssmEnvironmentExtra }) {
     return { ports: unmeasured(`端口声明取不到:${why};且 nssm AppParameters/AppEnvironmentExtra 至少一份未量到`), portsSources: [] }
   }
   return { ports: measured(extractPortsFromConfig(texts)), portsSources: sources }
+}
+
+// ---------------------------------------------------------------------------
+// 仓内基准对账维(只读;只报数/点名,**不参与 computeExitCode**)
+//
+// 立因(G-10):服务定义原先只活在注册表里,仓里无可查的真相源 —— 换机/迁移后"这台机本来应该跑什么、
+// 从哪跑"只能靠人回忆,台账 service-auto-restart.json 的 21 个名字里有 18 个在本机已无服务键而无人知道。
+// 本维把 `scripts/data/service-definitions.json` 当对账面:列出/在册/缺失/启动类型/Application/快照过期
+// 六件事分别报,任一维度上都**不判红** —— 它是只读巡检器的对账,判红权归人(§12e:判机器状态的门只能 warn)。
+// 三态纪律与全文件一致:基准读不到或解不出 ⇒ 未判定(既不判红也不记绿),绝不把"没读到"读成"没有差异"。
+// ---------------------------------------------------------------------------
+const START_TYPE_ALIASES = {
+  auto: 'AUTOMATIC',
+  automatic: 'AUTOMATIC',
+  autostart: 'AUTOMATIC',
+  manual: 'MANUAL',
+  disabled: 'DISABLED',
+  boot: 'BOOT',
+  bootstart: 'BOOT',
+  system: 'SYSTEM',
+}
+/** 启动类型归一分档:.NET 的 `Automatic`、Win32 的 `Auto`、注册表数值映射出的 `AUTOMATIC` 是同一档;
+ *  比较前必须折成同一个词,否则每台机都会"不符"。未知词返回大写原形(仍参与比较,不静默放行)。 */
+export function normalizeStartType(value) {
+  const s = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '')
+  if (!s) return null
+  return START_TYPE_ALIASES[s] ?? s.toUpperCase()
+}
+
+/** 解析仓内基准。形状坏 ⇒ 未判定(§0.3):不许把"基准看不懂"读成"基准里没有这一条"。 */
+export function parseServiceBaseline(text) {
+  let raw
+  try {
+    raw = JSON.parse(String(text ?? ''))
+  } catch (e) {
+    return unmeasured(`仓内基准 JSON 解不出(${e?.message ?? e})`)
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return unmeasured('仓内基准顶层不是对象')
+  if (!Array.isArray(raw.services)) return unmeasured('仓内基准缺 services 数组')
+  const services = []
+  for (const [i, s] of raw.services.entries()) {
+    if (!s || typeof s !== 'object' || Array.isArray(s)) return unmeasured(`仓内基准 services[${i}] 不是对象`)
+    const name = typeof s.name === 'string' ? s.name.trim() : ''
+    if (!name) return unmeasured(`仓内基准 services[${i}] 缺 name`)
+    services.push({
+      name,
+      application: typeof s.application === 'string' && s.application.trim() ? s.application.trim() : null,
+      appDirectory: typeof s.appDirectory === 'string' && s.appDirectory.trim() ? s.appDirectory.trim() : null,
+      startType: typeof s.startType === 'string' && s.startType.trim() ? s.startType.trim() : null,
+    })
+  }
+  const ledger =
+    raw.ledger && typeof raw.ledger === 'object' && Array.isArray(raw.ledger.absentOnHost)
+      ? { absentOnHost: raw.ledger.absentOnHost.filter((x) => typeof x === 'string') }
+      : null
+  return measured({
+    generatedAt: typeof raw.generatedAt === 'string' ? raw.generatedAt : null,
+    host: typeof raw.host === 'string' ? raw.host : null,
+    services,
+    ledger,
+  })
+}
+
+/** 基准 ↔ 本机实测(纯函数,零 IO)。差异只收集成点名清单,绝不产出 level/exitCode。
+ *  `existence` = 取一个路径的存在性判据(生产档传 `(v) => existenceOf(v, deps)`,复用同一把尺子;
+ *  self-test 传假判据 ⇒ 纯构造面)。不传 ⇒ 路径存在性维记未判,不会读成"都对"。 */
+export function compareServiceBaseline({ stateRows = [], services = [], baseline, existence = null } = {}) {
+  const stateByName = new Map(stateRows.map((r) => [String(r?.name ?? '').toLowerCase(), r]))
+  const recByName = new Map(services.map((s) => [String(s?.name ?? '').toLowerCase(), s?.rec ?? null]))
+  const absentInHost = []
+  const startTypeMismatch = []
+  const appDiffs = []
+  const pathMismatch = []
+  let present = 0
+  let appCompared = 0
+  let appUnmeasured = 0
+  let pathChecked = 0
+  let pathUndetermined = 0
+  for (const b of baseline.services) {
+    const key = b.name.toLowerCase()
+    const st = stateByName.get(key)
+    if (!st) {
+      absentInHost.push(b.name)
+      continue
+    }
+    present++
+    const want = normalizeStartType(b.startType)
+    const got = normalizeStartType(st.startType)
+    if (want && got && want !== got) startTypeMismatch.push(`${b.name}:基准=${b.startType} 本机=${st.startType}`)
+    const dim = recByName.get(key)?.application
+    if (dim && dim.kind === 'measured' && typeof dim.value === 'string' && dim.value) {
+      appCompared++
+      if (b.application && dim.value !== b.application) appDiffs.push(`${b.name}:基准=${b.application} 本机=${dim.value}`)
+    } else appUnmeasured++
+  }
+  // 路径存在性维:基准自己声明的落点在本机还在不在(D: 盘钉死那一型正是靠这一维点名)。
+  // 相对名(cmd.exe/node)无从判,记未判而不是记一致 —— 两种态不得并桶。
+  for (const b of baseline.services) {
+    for (const [field, expect] of [
+      ['application', 'file'],
+      ['appDirectory', 'dir'],
+    ]) {
+      const value = b[field]
+      if (!value) continue
+      if (typeof existence !== 'function') {
+        pathUndetermined++
+        continue
+      }
+      const r = existence(value)
+      if (!r || r.kind !== 'measured') {
+        pathUndetermined++
+        continue
+      }
+      pathChecked++
+      if (r.value !== expect) pathMismatch.push(`${b.name}.${field}=${r.value}@${value}`)
+    }
+  }
+  const reappeared = []
+  for (const name of baseline.ledger?.absentOnHost ?? []) if (stateByName.has(name.toLowerCase())) reappeared.push(name)
+  return {
+    generatedAt: baseline.generatedAt,
+    host: baseline.host,
+    listed: baseline.services.length,
+    present,
+    absentInHost,
+    startTypeMismatch,
+    appCompared,
+    appDiffs,
+    appUnmeasured,
+    pathChecked,
+    pathUndetermined,
+    pathMismatch,
+    reappeared,
+  }
+}
+
+/** 读盘 + 解析 + 比对。读不到/解不出 ⇒ `kind:'unmeasured'`;**不抛**、不判红(只读对账器)。 */
+export function readAndCompareBaseline({ stateRows = [], services = [], deps = defaultDeps, filePath = SERVICE_BASELINE_PATH } = {}) {
+  let text
+  try {
+    text = typeof deps?.readBaseline === 'function' ? deps.readBaseline(filePath) : readFileSync(filePath, 'utf8')
+  } catch (e) {
+    return { path: BASELINE_REL, kind: 'unmeasured', reason: `仓内基准读不到(${e?.code ?? e?.message ?? e})⇒ 未判定,既不判红也不记绿` }
+  }
+  const p = parseServiceBaseline(text)
+  if (p.kind === 'unmeasured') return { path: BASELINE_REL, kind: 'unmeasured', reason: p.reason }
+  const existence = (v) => (typeof deps?.fileKind === 'function' ? existenceOf(v, deps) : unmeasured('deps 没有 fileKind ⇒ 存在性维未判'))
+  return { path: BASELINE_REL, kind: 'measured', ...compareServiceBaseline({ stateRows, services, baseline: p.value, existence }) }
 }
 
 /**
@@ -1702,6 +1859,10 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps } 
     meta.services[meta.services.length - 1].rec.scope = s.from
   }
 
+  // 仓内基准对账维(只读):只报数/点名,**不参与 computeExitCode**。它是"仓内快照与这台机还对得上吗"
+  // 的对账面,不是"这台机有没有问题"的判据 —— 基准缺失/解不出记未判定,既不判红也不记绿(§0.3)。
+  meta.baseline = readAndCompareBaseline({ stateRows, services: meta.services, deps })
+
   return finish(meta, computeExitCode(meta.services, meta.channels, { strict: opts.strict }), opts)
 }
 
@@ -1725,6 +1886,7 @@ function baseMeta(deps) {
     listen: null,
     enumeration: null,
     filter: null,
+    baseline: null,
     services: [],
     skippedByFilter: 0,
     malformedRows: 0,
@@ -1787,6 +1949,14 @@ export function renderText(meta) {
     if (meta.enumeration.matched === 0) L.push('  (确实是 0:两通道都跑到了而没有任何入审对象。这不是"没量到",但也**不出合格证** —— 见退出码 2 的约定。)')
     if (meta.skippedByFilter) L.push(`  被过滤器跳过 ${meta.skippedByFilter} 个 STATE 服务`)
     if (meta.malformedRows) L.push(`  STATE 输出形态不符行 ${meta.malformedRows} 条未计入`)
+  }
+  if (meta.baseline) {
+    const b = meta.baseline
+    if (b.kind === 'unmeasured') L.push(`仓内基准(${b.path}):未判定 —— ${b.reason}(只读对账维,不判红)`)
+    else
+      L.push(
+        `仓内基准(${b.path}@${b.generatedAt ?? '未记快照时刻'} host=${b.host ?? '未记'}):列出 ${b.listed} / 本机在册 ${b.present} / 缺 ${b.absentInHost.length}${b.absentInHost.length ? `〔${b.absentInHost.join(', ')}〕` : ''};启动类型不符 ${b.startTypeMismatch.length}${b.startTypeMismatch.length ? `〔${b.startTypeMismatch.join('; ')}〕` : ''};Application 可比 ${b.appCompared}(差异 ${b.appDiffs.length}${b.appDiffs.length ? `〔${b.appDiffs.join('; ')}〕` : ''},门量不到应用层 ${b.appUnmeasured} 个);基准路径存在性 判 ${b.pathChecked}${b.pathMismatch.length ? `〔不符:${b.pathMismatch.join('; ')}〕` : ''}(不符 ${b.pathMismatch.length},未判 ${b.pathUndetermined});基准记『本机无』而现又出现 ${b.reappeared.length}${b.reappeared.length ? `〔${b.reappeared.join(', ')}〕` : ''}(只读对账维,不判红)`,
+      )
   }
   for (const s of meta.services) {
     const fmt = (d) =>
@@ -2330,10 +2500,19 @@ function selfTest(opts) {
       rmSync(bin)
       ok('F2 真夹具:同一路径删掉后 ⇒ missing(证明 missing 来自文件系统,不是硬编码)',
         judge({ appExists: measured(depsFileKind(bin)) }).level === 'issue')
-      // 本模块就在 <repo>/scripts/ 下 ⇒ 上一级就是仓库根;写成两级会把"父目录"当仓库根,
-      // 于是这条锁在任何机器上都恒假(夹具永远"在仓库内")—— 永假断言与永真断言同样没用。
-      const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-      ok('F3 夹具落点不得在仓库树内(§26 唯一夹具落点)', !dir.startsWith(repo))
+      // G-158 之后"仓内"不等于"在真仓 git 面内":批准的 `<repo>/.DevEnv` 靠坏 gitfile 边界
+      // 把 discovery 挡在真仓之外。旧判据 `!dir.startsWith(repo)` 没跟上这次搬家 ⇒ 恒红。
+      // 现在两维都判,且判据只从 scratch-dir 取(§0.6 单一真相源):
+      //   ① 结构:仓外,或仓内唯一批准的 .DevEnv;
+      //   ② 行为:从这里问 `git rev-parse --show-toplevel` 必须问不出真仓(边界真的在生效)。
+      // 行为维未判定(git 不可达等)按未通过记 —— 没量到不得写成量过。
+      const allowed = isAllowedScratchRoot(dir)
+      const face = gitFaceEscapesToRepo(dir)
+      const faceNote = face.state === 'undetermined' ? `;git 面未判定:${face.why}` : ''
+      ok(
+        `F3 夹具落点=仓外或批准的 .DevEnv,且不在真仓 git 面内(§26/§15b,G-158)${faceNote}`,
+        allowed && face.state === 'measured' && face.escapes === false,
+      )
       fixtureNote = `\n  (真夹具 3 条已跑;落点 ${dir})`
     } finally {
       rmScratch(dir)
@@ -2342,6 +2521,101 @@ function selfTest(opts) {
     ok('F0 真夹具建得起来(建不起来就是判据失效,必须喊出来)', false)
     fixtureNote = `\n  夹具失败:${e?.message ?? e}`
   }
+
+  // B 段(仓内基准对账维):纯构造面,不读盘、不派生。正反成对 —— 只留一侧会让"基准过期/坏 JSON"恒绿。
+  const bBase = parseServiceBaseline(
+    JSON.stringify({
+      generatedAt: '2026-10-24T00:00:00.000Z',
+      host: 'h',
+      services: [
+        { name: 'A', application: 'a.exe', startType: 'AUTOMATIC' },
+        { name: 'B', startType: 'MANUAL' },
+      ],
+      ledger: { absentOnHost: ['Z'] },
+    }),
+  )
+  ok('B1 基准正形 ⇒ measured,服务逐条读出', bBase.kind === 'measured' && bBase.value.services.length === 2 && bBase.value.services[0].name === 'A')
+  ok(
+    'B2 坏 JSON / 顶层非对象 / services 非数组 / 缺 name ⇒ 未判定(不得读成"没有差异")',
+    parseServiceBaseline('{').kind === 'unmeasured' &&
+      parseServiceBaseline('[]').kind === 'unmeasured' &&
+      parseServiceBaseline('{"services":{}}').kind === 'unmeasured' &&
+      parseServiceBaseline('{"services":[{"x":1}]}').kind === 'unmeasured',
+  )
+  const bCmp = compareServiceBaseline({
+    stateRows: [
+      { name: 'A', status: 'RUNNING', startType: 'Auto' },
+      { name: 'B', status: 'RUNNING', startType: 'Manual' },
+    ],
+    services: [],
+    baseline: bBase.value,
+  })
+  ok('B3 存在性与启动类型归一:Auto ≡ AUTOMATIC、Manual ≡ MANUAL ⇒ 不算不符;全在册 ⇒ 缺 0', bCmp.present === 2 && bCmp.absentInHost.length === 0 && bCmp.startTypeMismatch.length === 0)
+  const bCmp2 = compareServiceBaseline({ stateRows: [{ name: 'A', status: 'RUNNING', startType: 'Manual' }], services: [], baseline: bBase.value })
+  ok(
+    'B4 反向对照:本机 Manual vs 基准 AUTOMATIC ⇒ 点名不符;缺 B ⇒ absentInHost 点名',
+    bCmp2.startTypeMismatch.length === 1 && bCmp2.startTypeMismatch[0].startsWith('A:') && bCmp2.absentInHost.join(',') === 'B',
+  )
+  ok(
+    'B5 基准记『本机无』而现又出现 ⇒ reappeared 点名(快照过期信号,不判红)',
+    compareServiceBaseline({ stateRows: [{ name: 'Z', status: 'STOPPED', startType: 'Manual' }], services: [], baseline: bBase.value }).reappeared.join(',') === 'Z',
+  )
+  ok(
+    'B6 Application:门量到且不同 ⇒ 点名;门量不到 ⇒ 计入 appUnmeasured 而不是记"一致"',
+    (() => {
+      const rows = [{ name: 'A', startType: 'Automatic' }]
+      const diff = compareServiceBaseline({ stateRows: rows, services: [{ name: 'A', rec: { application: measured('b.exe') } }], baseline: bBase.value })
+      const blind = compareServiceBaseline({ stateRows: rows, services: [{ name: 'A', rec: { application: unmeasured('nssm 不在位') } }], baseline: bBase.value })
+      return diff.appDiffs.length === 1 && blind.appDiffs.length === 0 && blind.appUnmeasured === 1
+    })(),
+  )
+  ok(
+    'B7 基准文件读不到 ⇒ 未判定(既不判红也不记绿),原因里带原始错误',
+    (() => {
+      const r = readAndCompareBaseline({
+        stateRows: [],
+        services: [],
+        deps: {
+          readBaseline: () => {
+            throw new Error('ENOENT: no such file')
+          },
+        },
+      })
+      return r.kind === 'unmeasured' && /ENOENT/.test(r.reason)
+    })(),
+  )
+  ok(
+    'B8 基准路径存在性:类型不符⇒点名;判不到⇒计未判(不与"都对"并桶)',
+    (() => {
+      const rows = [
+        { name: 'A', status: 'RUNNING', startType: 'Auto' },
+        { name: 'B', status: 'RUNNING', startType: 'Manual' },
+      ]
+      const base = measured({
+        services: [
+          { name: 'A', application: 'C:\\app\\a.exe', appDirectory: 'C:\\app', startType: 'AUTOMATIC' },
+          { name: 'B', application: 'C:\\app\\b.exe', appDirectory: 'C:\\gone', startType: 'MANUAL' },
+        ],
+        ledger: null,
+      }).value
+      const kinds = { 'C:\\app\\a.exe': 'dir', 'C:\\app\\b.exe': 'file', 'C:\\app': 'dir', 'C:\\gone': 'missing' }
+      const good = compareServiceBaseline({ stateRows: rows, services: [], baseline: base, existence: (v) => measured(kinds[v]) })
+      const bad = compareServiceBaseline({
+        stateRows: rows,
+        services: [],
+        baseline: base,
+        existence: (v) => (v === 'C:\\gone' ? unmeasured('取不到') : measured(kinds[v])),
+      })
+      return (
+        good.pathChecked === 4 &&
+        good.pathMismatch.length === 2 &&
+        good.pathMismatch.some((x) => x.startsWith('A.application=dir')) &&
+        good.pathMismatch.some((x) => x.startsWith('B.appDirectory=missing')) &&
+        bad.pathChecked === 3 &&
+        bad.pathUndetermined === 1
+      )
+    })(),
+  )
 
   return {
     exitCode: fail > 0 ? 1 : 0,
@@ -2380,7 +2654,9 @@ export const __test__ = {
   measured, unmeasured, decodeNssm, interpretNssmGet, interpretNssmGetMultiline, looksCorrupted, extractPortsFromConfig,
   decodeRegistryConfigBlob, buildEnumerationScript, buildRegistryScript, parseServiceList,
   parseRegistryOutput, compileFilter, pickPowerShell, resolveApplication, resolveNssmManaged,
-  resolvePorts, existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,
+  resolvePorts, normalizeStartType, parseServiceBaseline, compareServiceBaseline, readAndCompareBaseline,
+  BASELINE_REL, SERVICE_BASELINE_PATH,
+  existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,
   interpretNetstatListening, splitHostPort, buildProcessListScript, interpretProcessList, buildProcessTree,
   PROC_SCRIPT_SHAPE_FORMS,
   attributeListening, probeHostForBind, buildProbeTargets, foldProbeOutcome, computeObservedListening,

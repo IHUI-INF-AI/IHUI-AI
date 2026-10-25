@@ -35,17 +35,25 @@ import { argv, env } from 'node:process'
 import { existsSync, readdirSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const args = argv.slice(2)
 const dryRun = args.includes('--dry-run')
-const jwtFlag = (() => {
-  const i = args.indexOf('--jwt')
-  return i >= 0 ? args[i + 1] : env.API_PUBLISH_JWT || ''
-})()
-const apiUrl = (() => {
-  const i = args.indexOf('--api-url')
-  return i >= 0 ? args[i + 1] : env.API_URL || 'http://localhost:8802'
-})()
+const jwtFlagReq = requireFlagValue(args, '--jwt', { noun: 'JWT 字符串', fallback: env.API_PUBLISH_JWT || '' })
+if (jwtFlagReq.error) {
+  console.error(`❌ ${jwtFlagReq.error}`)
+  process.exit(2)
+}
+const jwtFlag = jwtFlagReq.value
+const apiUrlReq = requireFlagValue(args, '--api-url', {
+  noun: 'API 地址',
+  fallback: env.API_URL || 'http://localhost:8802',
+})
+if (apiUrlReq.error) {
+  console.error(`❌ ${apiUrlReq.error}`)
+  process.exit(2)
+}
+const apiUrl = apiUrlReq.value
 
 // 项目根目录(从 import.meta.url 推导,不硬编码绝对路径,AGENTS.md §15)
 const __dirname = fileURLToPath(new URL('.', import.meta.url))

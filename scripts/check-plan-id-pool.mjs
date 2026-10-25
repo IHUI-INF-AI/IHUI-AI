@@ -7,9 +7,10 @@
  * check-plan-id-pool.mjs —— 号池对账门(2026-10-22 HEAD 存量归零后按 §12e 升 blocking;接线状态以 `guardian-runner.mjs` 注册条目现值为准,
  * 本头注不自称"已接"—— 守门 89 R1/R2 就是拦"声称已接而权威点零命中"的那一型)。立因(2026-10-14 真事故):
  *
- * 机主 2026-10-14 拍板「任务号全部 ≤3 位、个位数起」,这条硬上限**只写在发号器里**
- * (`lib/plan-id-lease.mjs` 的 `LEASE_POOL_MAX = 999`,`next-plan-id.mjs` 池满即拒绝发号)。
- * 活面上没有任何一道门拦"声明位号 >999 的登记行" ⇒ 谁绕过发号器就没人管:本会话实测就是
+ * 机主 2026-10-14 拍板「任务号全部 ≤3 位、个位数起」(2026-10-24 收紧为两位数:每族池 1..99,
+ * 族满开新字母族、永不升位数),这条硬上限**只写在发号器里**
+ * (`lib/plan-id-lease.mjs` 的 `LEASE_POOL_MAX`(本文件自 import,不另写字面量);`next-plan-id.mjs` 池满即拒绝发号)。
+ * 活面上没有任何一道门拦"声明位号 >LEASE_POOL_MAX 的登记行" ⇒ 谁绕过发号器就没人管:本会话实测就是
  * 直接用 `plan-task-index.usedIdsOfPrefix()` 的 `max + 1` 取号,拿到 `G-1080899 / G-1080900`
  * 两条七位号,并一路绿灯落地(提交 `f477d186ef`,已让号为 O23/O27,枚 `4ee12cb8bc`)。
  * §0.9:判据必须在真跑它的那一刻才成立;"规则写在 A 里、B 面无人守"就是这一型。
@@ -58,7 +59,7 @@ const C = { red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[
 const isRow = (l) => /^\s*(?:[-*]\s*)?\[[ xX]\]/.test(l) && !/^\s*<!--/.test(l)
 
 /**
- * 一面上的"超池声明"清单:取每行**声明位**号(keyOfRow 那一份判据),按 ID_HEAD_RE 取族与数字段,
+ * 一面上的"超池声明"清单:取每行**声明位**号(plan-task-index 的 declaredKeyOf 那一份判据),按 ID_HEAD_RE 取族与数字段,
  * 数字段 > poolMax 即违规。返回 [{key, family, num, line}]。
  */
 export function overPoolDeclarations(text, poolMax = LEASE_POOL_MAX) {
@@ -66,7 +67,7 @@ export function overPoolDeclarations(text, poolMax = LEASE_POOL_MAX) {
   const lines = String(text ?? '').split(/\r?\n/)
   lines.forEach((l, i) => {
     if (!isRow(l)) return
-    const key = idx.keyOfRow(l)
+    const key = idx.declaredKeyOf(l)
     if (!key) return
     const m = ID_HEAD_RE.exec(key)
     if (!m) return
@@ -117,6 +118,65 @@ export function poolRatchetVerdict(headText, indexText, poolMax = LEASE_POOL_MAX
     if (n > (baseCount.get(x.key) || 0)) added.push(x)
   }
   return { before, after, added }
+}
+
+/**
+ * R3 编号形态(2026-10-24 立,两位号重排之后):每族在册号必须**唯一、两位、连续 1..N**。
+ *
+ * 立因不是洁癖,是三次真实回插:并行会话手填号时既会**撞号**(两件事同一号,F9 有同号异题维
+ * 拦),也会在删行后留下**空洞**(实测 B03 被合并后 B04..B07 仍在,族内 1..7 缺 3),
+ * 还会写出单位数号(`G-5`)。三者都不是"能跑就行"的问题:号是派单主键,空洞会让
+ * "按号取任务"的读法错位,单位数号则破坏"两位号"这条机主定死的形态。
+ *
+ * 判据纪律照 R1(§12e):**差值棘轮**。HEAD 面已有的缺陷只报数,只有索引面里
+ * 超出 HEAD 面重数的缺陷才拦红 —— 否则这道门从落地当刻起就是与提交内容无关的恒红门。
+ * 形态(两位)与重复(重数>1)与空洞(fam 内 1..max 缺号)三类都进签名,签名带族与号,
+ * 所以"同一空洞在两面都在"自然抵消。
+ */
+export function numberingDefects(text) {
+  const byFam = new Map()
+  String(text ?? '')
+    .split(/\r?\n/)
+    .forEach((l, i) => {
+      if (!isRow(l)) return
+      // 用**声明位**号(declaredKeyOf),不用 keyOfRow:后者在"未取号"行上会退化成取行内第一个
+      // 历史引用(实测 `（未取号:承 G-935〔旧号〕…）` 被读成声明 G-935 ⇒ 3 条假超池)。
+      // 未取号的行没有号,归 F9 的无号维管;这一维只看"写了号的那些行"。
+      const key = idx.declaredKeyOf(l)
+      if (!key) return
+      const m = ID_HEAD_RE.exec(key)
+      if (!m) return
+      const fam = m[1].toUpperCase()
+      const raw = String(m[3])
+      const list = byFam.get(fam) ?? []
+      list.push({ key, raw, num: Number(raw), line: i + 1 })
+      byFam.set(fam, list)
+    })
+  const defects = []
+  for (const [fam, list] of byFam) {
+    const counts = new Map()
+    for (const x of list) counts.set(x.raw, (counts.get(x.raw) || 0) + 1)
+    for (const [raw, n] of counts) if (n > 1) defects.push(`dup:${fam}:${raw.padStart(2, '0')}x${n}`)
+    for (const x of list) if (!/^\d{2}$/.test(x.raw)) defects.push(`fmt:${fam}:${x.raw}`)
+    const nums = [...counts.keys()].map(Number).filter(Number.isFinite)
+    const max = nums.length ? Math.max(...nums) : 0
+    for (let i = 1; i <= max; i++) if (!nums.includes(i)) defects.push(`gap:${fam}:${String(i).padStart(2, '0')}`)
+  }
+  return defects.sort()
+}
+
+/** 差值:索引面里超出 HEAD 面重数的缺陷签名(同一签名出现两次只算一次新)。 */
+export function numberingRatchet(headText, indexText) {
+  const base = new Map()
+  for (const d of numberingDefects(headText)) base.set(d, (base.get(d) || 0) + 1)
+  const seen = new Map()
+  const added = []
+  for (const d of numberingDefects(indexText)) {
+    const n = (seen.get(d) || 0) + 1
+    seen.set(d, n)
+    if (n > (base.get(d) || 0)) added.push(d)
+  }
+  return { before: [...base.keys()], after: numberingDefects(indexText), added }
 }
 
 /**
@@ -215,10 +275,21 @@ function main(argv) {
     verdict = { before: over, after: over, added: [] }
   }
   const alloc = scanAllocPath()
+  const num = staged ? numberingRatchet(headText, faceText) : { before: [], after: numberingDefects(faceText), added: [] }
 
   if (jsonOut) {
-    console.log(JSON.stringify({ poolMax: LEASE_POOL_MAX, staged, stock: verdict.after.length, added: verdict.added, allocPath: alloc }))
-    if (staged && verdict.added.length) return 1
+    console.log(
+      JSON.stringify({
+        poolMax: LEASE_POOL_MAX,
+        staged,
+        stock: verdict.after.length,
+        added: verdict.added,
+        numberingStock: num.after,
+        numberingAdded: num.added,
+        allocPath: alloc,
+      }),
+    )
+    if (staged && (verdict.added.length || num.added.length)) return 1
     return 0
   }
 
@@ -228,6 +299,16 @@ function main(argv) {
   console.log(
     `  R1 超池声明:存量 ${verdict.after.length} 条;本次新增 ${verdict.added.length} 条${verdict.after.length ? `(样例 ${verdict.after.slice(0, 5).map((x) => x.key).join(' ')})` : ''}`,
   )
+  const R3_LABEL = { dup: '重复号', gap: '族内空洞', fmt: '非两位号' }
+  console.log(
+    `  R3 编号形态:存量缺陷 ${num.after.length} 条${num.after.length ? `(${num.after.slice(0, 6).join(' ')})` : ''};本次新增 ${num.added.length} 条`,
+  )
+  if (staged && num.added.length) {
+    for (const d of num.added.slice(0, 10)) console.log(`    · ${R3_LABEL[d.split(':')[0]] ?? d} ${d}`)
+  } else if (!staged && num.after.length) {
+    console.log('    说明:存量只报数(§12e);要收口就跑一次族内重排,把号压回 1..N 连续')
+  }
+
   if (alloc === null) console.log('  R2 未判定:scripts/ 递归枚举为空 ⇒ 发号路径这一维不出结论')
   else {
     if (alloc.dead.length)
@@ -243,6 +324,16 @@ function main(argv) {
         )
   }
 
+  if (staged && num.added.length) {
+    console.error(`${C.red}❌ 编号形态棘轮:本次提交新带进 ${num.added.length} 条编号缺陷${C.reset}`)
+    for (const d of num.added.slice(0, 10)) console.error(`  · ${R3_LABEL[d.split(':')[0]] ?? d} ${d}`)
+    console.error(
+      `${C.yellow}出路:① 撞号 ⇒ 用正牌取号器发号(node scripts/next-plan-id.mjs);` +
+        `\n       ② 删行留下空洞 ⇒ 把该族后面的号顺次前移,别留空位(号是派单主键,空洞会让按号取任务错位);` +
+        `\n       ③ 写成单位数号 ⇒ 补零成两位(G-5 → G-05)。`,
+    )
+    return 1
+  }
   if (staged && verdict.added.length) {
     console.error(
       `${C.red}❌ 号池差值棘轮:本次提交新带进 ${verdict.added.length} 条 >${LEASE_POOL_MAX} 的声明号${C.reset}`,
@@ -265,10 +356,10 @@ function selfTest() {
   const fail = []
   const NOTE = (n, k) => `- [ ] ${k} **事${n}**:正文交代得很长以便过闸。\n`
   // ① 超池识别
-  const face = `# t\n${NOTE(1, 'G-1038426')}${NOTE(2, 'O23')}${NOTE(3, 'D1047')}${NOTE(4, 'G-999')}${NOTE(5, 'O13b')}`
+  const face = `# t\n${NOTE(1, 'G-1038426')}${NOTE(2, 'O23')}${NOTE(3, 'D1047')}${NOTE(4, 'G-99')}${NOTE(5, 'O13b')}`
   const over = overPoolDeclarations(face)
   const keys = over.map((x) => x.key).sort()
-  if (keys.join(',') !== 'D1047,G-1038426') fail.push(`R1 识别错:${keys.join(',')} 应为 D1047,G-1038426(999/23/13b 不得算超池)`)
+  if (keys.join(',') !== 'D1047,G-1038426') fail.push(`R1 识别错:${keys.join(',')} 应为 D1047,G-1038426(99/23/13b 不得算超池)`)
   // ② 差值棘轮有牙:索引面把存量长号原样带着 ⇒ 不红;新带一条长号 ⇒ 红
   const headFace = `# t\n${NOTE(1, 'G-1038426')}${NOTE(2, 'O23')}`
   const sameFace = headFace
@@ -289,10 +380,23 @@ function selfTest() {
   // ④ 非登记行不参与(占位注释里的长号引用是历史留痕,不算超池声明)
   const prose = `# t\n<!-- 已归档(2026-10-14:G-1080898 完整内容在 x -->\n- [ ] O24 正常行\n`
   if (overPoolDeclarations(prose).length) fail.push('占位注释里的历史号被算成超池声明 ⇒ 判据过宽')
+  // ⑤ 编号形态三型 + 棘轮(2026-10-24)
+  const clean = `# t\n${NOTE(1, 'G-01')}${NOTE(2, 'G-02')}${NOTE(3, 'D01')}`
+  if (numberingDefects(clean).length) fail.push(`形态维误伤:干净的 1..N 被判 ${numberingDefects(clean).join(',')}`)
+  const dupFace = clean + NOTE(4, 'G-02')
+  if (!numberingDefects(dupFace).some((d) => d.startsWith('dup:G:')))
+    fail.push('形态维失明:两行同号 G-02 没被认出(这是并行会话手填号的头号形态)')
+  const gapFace = `# t\n${NOTE(1, 'G-01')}${NOTE(2, 'G-03')}`
+  if (!numberingDefects(gapFace).includes('gap:G:02')) fail.push('形态维失明:1..3 缺 2 的空洞没被认出')
+  const fmtFace = `# t\n${NOTE(1, 'G-5')}`
+  if (!numberingDefects(fmtFace).some((d) => d.startsWith('fmt:G:'))) fail.push('形态维失明:单位数号 G-5 没被认出')
+  if (numberingRatchet(dupFace, dupFace).added.length) fail.push('形态棘轮:存量缺陷被要求本次担责(§12e 恒红门)')
+  if (numberingRatchet(clean, dupFace).added.length !== 1) fail.push('形态棘轮:本次新撞的号没被拦')
+  if (numberingRatchet(clean, gapFace).added.length !== 1) fail.push('形态棘轮:本次新留的空洞没被拦')
   console.log(
     fail.length
       ? `❌ self-test ${fail.length} 例:\n  - ` + fail.join('\n  - ')
-      : `✅ self-test 通过(4 组判据 · 阳性对照 5 条:新增长号必拦 / 构造发号必拦 / 存量不担责 / 分组统计不误伤 / 引文不误伤;池上限 ${LEASE_POOL_MAX})`,
+      : `✅ self-test 通过(5 组判据 · 阳性对照 9 条:新增长号必拦 / 构造发号必拦 / 存量不担责 / 分组统计不误伤 / 引文不误伤 / 撞号必认 / 空洞必认 / 单位数号必认 / 编号形态棘轮不担存量;池上限 ${LEASE_POOL_MAX})`,
   )
   return fail.length ? 1 : 0
 }

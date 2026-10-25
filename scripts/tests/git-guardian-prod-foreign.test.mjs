@@ -12,6 +12,11 @@
 //   D3 foreign ⇒ 首轮即到人,身份 `prod-foreign;faces=…;tier=…`(§5e-1:不含 blob/时刻/计数)。
 //   D4 unjudged / 不可解析 stdout ⇒ notifyEnvUndetermined 持续门槛,首轮绝不冒绿也绝不寄信。
 //   D5 duplicate / 尺子没装车:前者不发信(挡 ff 归 auditDeployStall);后者首轮即到人。
+//   E1 未判定**逐型点名**:日志与正文都取自尺子的 `undet[]`,旧三合一散文回潮即翻红;
+//      标题保持稳定(它进身份去重面,明细只进正文)。
+//   E2 "量出来的空"(surface=absent-surveyed)不发信、也不挂未判定牌。
+//   E3 邮件正文里的仓根取当次现读值(注入假根 + 源码不得出现写死盘符)。
+//   E4 归因取用的三档出口:undet → why → 显式点名"尺子没给归因",绝不回落散文冒判(§0.3)。
 //   T1 装车证明:main() 的 `if (!CHECK_ONLY) auditProdForeignWork()` 落在健康分支内、
 //      健康早退行之前(挂进 CHECK_ONLY 一侧等于永不执行,本文件踩过两次);startDaemon 双覆盖。
 //   T2 摘线必红(方向性对照)+ T3 绝不进提交链(guardian-runner checks 里不得出现尺子)。
@@ -23,7 +28,9 @@ import { join } from 'node:path'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { auditProdForeignWork, prodForeignAlertDetail } from '../git-guardian-prod-foreign.mjs'
+import { auditProdForeignWork, prodForeignAlertDetail, prodForeignUndetText } from '../git-guardian-prod-foreign.mjs'
+// E3 用的现读仓根:直接 import 源实现同一枚绑定,不在测试里抄第二份推导(§22c)
+import { WORKTREE } from '../git-guardian.mjs'
 
 const GUARDIAN = new URL('../git-guardian.mjs', import.meta.url)
 const RUNNER = new URL('../guardian-runner.mjs', import.meta.url)
@@ -219,4 +226,81 @@ test('告警正文形状:计数行 + 人工出路(归人,器物不代删代提�
   assert.match(d, /\[外来\] f\.ts blob=ffffffffffff 行数差 \+3\/-1/)
   assert.match(d, /人工出路/)
   assert.match(d, /绝不代删代提交/)
+})
+
+// —— 2026-10-24 归因两格(E1..E4):尺子侧把根因拆成逐型 undet[] 后,派发侧不得再复述旧散文 ——
+test('E1 未判定逐型点名:日志与正文都取自尺子 undet[];旧三合一散文回潮即翻红;标题不含抖动明细', () => {
+  const s = mkScratch('gpf-e1-')
+  try {
+    const undet = ['svc-enum-empty', 'root-unusable:D:/DevEnv/ihui-prod', 'dir-survey-refused(仓库根本身在夹具内)']
+    const und = probeResult({ state: 'unjudged', prodRoot: null, surface: 'none', undet, why: undet.join('; ') })
+    const h = harness(s, { run: () => ({ code: 2, stdout: JSON.stringify(und) }) })
+    const r1 = h.audit({ now: T0 })
+    assert.equal(r1.state, 'undetermined')
+    assert.equal(h.mails.length, 0, '单轮未判定仍走持续门槛,不许首轮冒红')
+    const q = h.logs.find((l) => l.startsWith('❓'))
+    assert.ok(q, '未判定必须留点名行')
+    for (const code of undet) assert.ok(q.includes(code), `日志必须逐型点名 ${code};实测:${q}`)
+    assert.ok(q.includes('surface=none'), 'surface 维度也要落进日志(区分"量出来的空")')
+    assert.ok(!h.logs.some((l) => l.includes('nssm 取不到实跑路径')), '旧三合一散文回潮 = 把后手指引到已不存在的载体形态')
+    assert.ok(!h.logs.some((l) => l.includes('签出不可读 / git 失败')), '同上')
+    // notifyEnvUndetermined 读真实时钟 ⇒ 起点件预写成 31 分钟前
+    writeFileSync(h.opts.undetFile, JSON.stringify({ firstMs: Date.now() - 31 * MIN }), 'utf8')
+    h.audit({ now: T0 + 31 * MIN })
+    assert.equal(h.mails.length, 1, '连满 30 分钟 ⇒ "这一格瞎了"到人')
+    const m = h.mails[0]
+    assert.match(m.detail, /\[归因 undet\]/)
+    assert.match(m.detail, /\[判定面 surface\] none/)
+    for (const code of undet) assert.ok(m.detail.includes(code), `正文必须逐型点名 ${code}`)
+    assert.ok(!m.name.includes('D:/') && !m.name.includes('svc-enum-empty'), '标题进身份去重面(dedupKey=…;name=<标题>)⇒ 明细只进正文(门 224 / §5e-3)')
+    assert.match(m.opts.dedupKey, /^prod-foreign-undet;name=/)
+  } finally {
+    rmScratch(s, { bestEffort: true })
+  }
+})
+
+test('E2 量出来的空(surface=absent-surveyed)既不发信也不挂未判定牌', () => {
+  const s = mkScratch('gpf-e2-')
+  try {
+    const absent = probeResult({
+      state: 'clean',
+      prodRoot: null,
+      surface: 'absent-surveyed',
+      undet: [],
+      why: '判定面为空(实测:服务枚举 214 枚 ∧ IHUI 服务 3 枚 ∧ 自树让路 ∧ 约定目录 null)',
+    })
+    const h = harness(s, { run: () => ({ code: 0, stdout: JSON.stringify(absent) }) })
+    h.audit({ now: T0 })
+    h.audit({ now: T0 + 31 * MIN })
+    assert.equal(h.mails.length, 0, 'clean 任何一轮都不许发信')
+    assert.ok(!h.logs.some((l) => l.startsWith('❓')), '量出来的空不是未判定,不许挂未判定牌')
+    assert.ok(!existsSync(h.opts.undetFile), '未判定起点件不该被写:写了它,30 分钟后会把"没有独立签出"误报成"这一格瞎了"')
+  } finally {
+    rmScratch(s, { bestEffort: true })
+  }
+})
+
+test('E3 邮件正文的仓根取当次现读值:源码不得写死盘符(AGENTS 前言七类机器事实 / §15 / 守门 70)', () => {
+  const src = readFileSync(new URL('../git-guardian-prod-foreign.mjs', import.meta.url), 'utf8')
+  assert.ok(!src.includes('D:/IHUI-AI'), '源码里不得再出现写死的本仓根盘符(本机实测根不是它)')
+  assert.ok(!/独立于本仓\s*[A-Za-z]:[\\/]/.test(src), '正文里的仓根必须是变量插值,不是字面量盘符')
+  assert.ok(!src.includes('D:\\DevEnv\\ihui-prod') || src.includes('2026-10-24 归因补记'), '那枚盘符只准出现在标明"立项当日现场"的叙述里,不得当判据取值用')
+  const parsed = probeResult({ state: 'dirty', counts: { foreign: 1 }, foreign: [{ path: 'x.py', blob: 'x'.repeat(12) }] })
+  const injected = prodForeignAlertDetail(parsed, '外来改动', { repoRoot: 'Z:/Injected/Repo' })
+  assert.ok(injected.includes('独立于本仓 Z:/Injected/Repo'), '注入档必须真的落到正文里(否则"可注入"是假的)')
+  const real = prodForeignAlertDetail(parsed, '外来改动')
+  assert.ok(WORKTREE && WORKTREE.length > 0, 'WORKTREE 现读为空 ⇒ 默认档无从可验')
+  assert.ok(real.includes(`独立于本仓 ${WORKTREE}`), `默认档必须落在 WORKTREE 这把现读尺子上;实测正文没有它`)
+})
+
+test('E4 归因取用的三档出口:undet → why → 显式点名"尺子没给归因",绝不回落散文冒判(§0.3)', () => {
+  assert.equal(prodForeignUndetText({ undet: ['reg-not-located', ' ls-files-fail(exit 1) '] }), 'reg-not-located | ls-files-fail(exit 1)', '空段剔除 + 去空白,逐型拼出')
+  assert.equal(prodForeignUndetText({ undet: [], why: 'override-root-unusable:E:/nope' }), 'override-root-unusable:E:/nope', 'undet 空 ⇒ 退到尺子当次实测的 why')
+  const none = prodForeignUndetText({ undet: [] })
+  assert.ok(none.includes('尺子未给出归因码'), '两样皆无 ⇒ 点名"尺子没给归因"这一事实本身')
+  assert.ok(!none.includes('nssm 取不到实跑路径') && !none.includes('签出不可读'), '失效方向必须是"多要一次定向说明",绝不能是复述旧散文冒判')
+  assert.ok(prodForeignUndetText(null).includes('尺子未给出归因码'), 'null/undefined 输入不许抛,也不许冒判')
+  // 未判定的信**必须**带归因行:undet 空集合 + state=unjudged 也要点名,不许发一封"未判定但没说为什么"
+  const d = prodForeignAlertDetail(probeResult({ state: 'unjudged', prodRoot: null, undet: [], why: '' }), '未判定')
+  assert.match(d, /\[归因 undet\].*尺子未给出归因码/)
 })

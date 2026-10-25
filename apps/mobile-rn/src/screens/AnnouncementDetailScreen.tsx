@@ -30,7 +30,7 @@ export function AnnouncementDetailScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<AnnouncementDetailItem>(`/announcements/${id}`)
+      const res = await fetchApi<AnnouncementDetailItem>(`/announcements/${id}?platform=rn`)
       if (!res.success) throw new Error()
       setItem(res.data ?? null)
     } catch {

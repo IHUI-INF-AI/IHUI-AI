@@ -189,6 +189,7 @@
     "toolDebugListSessions": "디버그 세션 목록",
     "toolVendorVoiceClone": "음성 복제",
     "toolRequestBusinessForm": "양식 작성 요청",
+    "toolInitAgentsMd": "AGENTS.md 초기화",
     "fileActivity": "{state, select, running {파일 처리 중} completed {파일 처리 완료} other {파일 처리}}",
     "imageActivity": "{state, select, running {이미지 처리 중} completed {이미지 처리 완료} other {이미지 처리}}",
     "searchActivity": "{state, select, running {검색 중} completed {검색 완료} other {검색}}",
@@ -229,7 +230,8 @@
     "toolMcpToolGetFileActivity": "{state, select, running {파일을 가져오는 중} completed {파일을 가져왔습니다} other {파일 가져오기}}",
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {파일을 가져오는 중: {name}} completed {파일을 가져왔습니다: {name}} other {파일 가져오기: {name}}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {문서를 검색하는 중} completed {문서를 검색했습니다} other {문서 검색}}",
-    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {문서를 검색하는 중: {name}} completed {문서를 검색했습니다: {name}} other {문서 검색: {name}}}"
+    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {문서를 검색하는 중: {name}} completed {문서를 검색했습니다: {name}} other {문서 검색: {name}}}",
+    "toolInitAgentsMdActivity": "{state, select, running {AGENTS.md 초기화 중} completed {AGENTS.md 초기화 완료} other {AGENTS.md 초기화}}"
   },
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/동영상/파일)",

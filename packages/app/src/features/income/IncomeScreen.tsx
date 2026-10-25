@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, ScrollView, StyleSheet } from '
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IncomeCommissionItem, IncomeData, IncomeScreenProps } from '@ihui/types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -180,7 +180,7 @@ export function IncomeScreen({
           data={filteredList}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
-          contentContainerStyle={{ gap: rnSpacing.md }}
+          contentContainerStyle={{ gap: 12 }}
           ListEmptyComponent={<EmptyState title={t('income.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => {
             const st = statusOf(item)
@@ -233,25 +233,30 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: rnSpacing.md,
-      gap: rnSpacing.md,
+      paddingBottom: 12,
+      gap: 12,
     },
-    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 10, paddingBottom: rnSpacing['3xl'] },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    body: { padding: 10, paddingBottom: 32 },
     summaryCard: {
-      padding: rnSpacing.md,
+      padding: 12,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
     summaryRow: {
       flexDirection: 'row',
-      marginBottom: rnSpacing.md,
+      flexWrap: 'wrap',
+      marginBottom: 12,
     },
-    summaryItem: { flex: 1, alignItems: 'center' },
-    summaryLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    /* 读数不得被切成两行(AGENTS §4 / docs/UI_GUIDELINES.md §13):
+       等分 flex:1 会把格子压到任意窄 ⇒ 「¥999999.99」在 375 屏 3 等分下只剩 117px。
+       minWidth = 最坏读数的单行宽(10 字符 × 20px 数字宽 ≈ 0.55em ⇒ 110 + 余量),
+       配合父级 flexWrap ⇒ 放不下就整格换行,而不是把数字切断。 */
+    summaryItem: { flex: 1, minWidth: 112, alignItems: 'center' },
+    summaryLabel: { fontSize: 11, color: tk.text.secondary },
     summaryValue: {
-      marginTop: rnSpacing.sm,
-      fontSize: rnType.heading.size,
+      marginTop: 8,
+      fontSize: 20,
       fontWeight: '700',
       color: tk.text.primary,
     },
@@ -262,16 +267,16 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    withdrawBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
+    withdrawBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     sectionTitle: {
-      marginTop: rnSpacing.md,
-      marginBottom: rnSpacing.sm,
-      fontSize: rnType.subtitle.size,
+      marginTop: 12,
+      marginBottom: 8,
+      fontSize: 18,
       fontWeight: '600',
       color: tk.text.primary,
     },
     // 状态 Tab 栏(对齐 Uniapp tab-list)
-    tabs: { paddingVertical: rnSpacing.sm, gap: rnSpacing.sm },
+    tabs: { paddingVertical: 8, gap: 8 },
     tab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
@@ -279,10 +284,10 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.cta },
-    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
     card: {
-      padding: rnSpacing.md,
+      padding: 12,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -295,44 +300,44 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: {
       flex: 1,
-      fontSize: rnType.title.size,
+      fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
-      marginRight: rnSpacing.sm,
+      marginRight: 8,
     },
-    cardStatus: { fontSize: rnType.caption.size, fontWeight: '600' },
+    cardStatus: { fontSize: 11, fontWeight: '600' },
     statusSettled: { color: tk.success.DEFAULT },
     statusPending: { color: tk.warning.DEFAULT },
     // 取消结算(对齐 Uniapp 取消结算状态)
     statusCancelled: { color: tk.text.tertiary },
     // 下单人
-    cardBuyer: { fontSize: rnType.label.size, color: tk.text.secondary, marginTop: 6 },
+    cardBuyer: { fontSize: 12, color: tk.text.secondary, marginTop: 6 },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: rnSpacing.sm,
+      marginTop: 8,
     },
-    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    cardAmount: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },
+    cardTime: { fontSize: 11, color: tk.text.tertiary },
+    cardAmount: { flexShrink: 0, fontSize: 16, fontWeight: '700', color: tk.success.DEFAULT },
     // 关联订单 + 复制按钮
     copyRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: rnSpacing.sm,
-      gap: rnSpacing.sm,
+      marginTop: 8,
+      gap: 8,
     },
-    cardOrder: { flex: 1, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardOrder: { flex: 1, fontSize: 11, color: tk.text.tertiary },
     copyBtn: {
-      paddingHorizontal: rnSpacing.md,
-      paddingVertical: rnSpacing.xs,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,
     },
-    copyBtnText: { fontSize: rnType.label.size, fontWeight: '500', color: tk.brand.DEFAULT },
+    copyBtnText: { fontSize: 12, fontWeight: '500', color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -285,7 +285,7 @@ export default function MediaTasksPage() {
       ) : (
         <>
           {/* 2026-09-09 F8:统计概览卡片(总数/在途/已完成/失败/已取消);第五轮:卡片可点击直达对应状态过滤 */}
-          <section className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <section className="grid grid-cols-2 gap-2 tablet:grid-cols-5">
             {(
               [
                 {

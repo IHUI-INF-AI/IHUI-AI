@@ -10,7 +10,7 @@ import { Gift, Loader2, Ticket, TrendingUp } from 'lucide-react'
 import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow, fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 
 interface TierInfo {
@@ -72,12 +72,6 @@ interface CouponsData {
   total: number
 }
 
-async function apiGet<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function RelayBenefitsPage() {
   const t = useTranslations('developer')
   const locale = useLocale()
@@ -90,14 +84,14 @@ export default function RelayBenefitsPage() {
   const tierQ = useQuery({
     queryKey: ['developer', 'relay', 'tiered-progress', model],
     queryFn: () =>
-      apiGet<TieredProgress>(
+      apiOrThrow<TieredProgress>(
         `/api/developer/relay/tiered-progress?model=${encodeURIComponent(model)}`,
       ),
     enabled: model.trim().length > 0,
   })
   const couponsQ = useQuery({
     queryKey: ['developer', 'relay', 'coupons'],
-    queryFn: () => apiGet<CouponsData>('/api/developer/relay/coupons'),
+    queryFn: () => apiOrThrow<CouponsData>('/api/developer/relay/coupons'),
   })
   const claimM = useMutation({
     mutationFn: async (inputCode: string) => {

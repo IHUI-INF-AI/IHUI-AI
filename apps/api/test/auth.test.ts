@@ -7,6 +7,14 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
 import { hashPassword } from '../src/utils/password-crypto.js'
 
+// G-876(2026-10-24):register 校验链新增"短信通道未配置 ⇒ 503 fail-closed"。真实现的
+// fail-closed 语义不动;此处仅 stub 配置判定为已配置,让用例走到 409/200 分支
+// (不依赖本机 .env 是否带 ALI_SMS_*/TENCENT_SMS_*/SMS_API_BASE_URL —— CI 与生产机两态都稳)。
+vi.mock('../src/services/sms.js', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, isSmsConfigured: () => true }
+})
+
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
@@ -424,23 +432,37 @@ describe('auth routes', () => {
     })
 
     it('手机号已注册返回 409', async () => {
+      // G-876:register 的 code 必填且必须是 register 场景发出的码(schema 层先于查库),
+      // 不造码的话 400 会抢在 409 之前(2026-10-24 实测两例齐 400 即此型)。
+      await putCodeEntry('13800000001', {
+        code: '123456',
+        expiresAt: Date.now() + 60000,
+        sentAt: Date.now(),
+        scene: 'register',
+      })
       mockFindUserByPhone.mockResolvedValueOnce(makeUser())
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/register',
-        payload: { phone: '13800000001', password: 'pass1234' },
+        payload: { phone: '13800000001', password: 'pass1234', code: '123456' },
       })
       expect(res.statusCode).toBe(409)
       expect(res.json().message).toContain('已注册')
     })
 
     it('注册成功返回 200 与 token + user', async () => {
+      await putCodeEntry('13800000001', {
+        code: '123456',
+        expiresAt: Date.now() + 60000,
+        sentAt: Date.now(),
+        scene: 'register',
+      })
       mockFindUserByPhone.mockResolvedValueOnce(null)
       mockCreateUser.mockResolvedValueOnce(makeUser())
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/register',
-        payload: { phone: '13800000001', password: 'pass1234' },
+        payload: { phone: '13800000001', password: 'pass1234', code: '123456' },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()

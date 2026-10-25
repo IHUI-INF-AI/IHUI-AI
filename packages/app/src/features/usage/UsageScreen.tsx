@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { BarChart3, Gauge, Zap } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
@@ -261,41 +261,40 @@ export function UsageScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
-    title: {
-      marginTop: rnSpacing.sm,
-      fontSize: rnType.display.size,
-      fontWeight: '600',
-      color: tk.text.primary,
-    },
-    body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
+    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
+    body: { padding: 12, gap: 12, paddingBottom: 32 },
     card: {
-      padding: rnSpacing.lg,
+      padding: 16,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      gap: rnSpacing.sm,
+      gap: 8,
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    meta: { fontSize: 12, color: tk.text.tertiary },
     muted: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
-    quotaRow: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.xs },
-    quotaCell: { flex: 1, gap: 2 },
-    metric: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    /* 读数不得被切成两行(AGENTS §4 / docs/UI_GUIDELINES.md §13):等分 flex:1 会把格子
+       压到任意窄 ⇒ 20px 的 metric 一旦是「123.4万」「$0.0000」这类 6+ 字符就断。
+       minWidth = 最坏读数单行宽(6 字符 × 20px 数字宽 ≈ 0.55em ⇒ 66 + 余量),
+       配合 flexWrap ⇒ 放不下整格换行,不切断数字、不截断、不缩字号。 */
+    quotaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+    quotaCell: { flex: 1, minWidth: 96, gap: 2 },
+    metric: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     track: {
       height: 6,
       borderRadius: rnRadius.xs,
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
-      marginTop: rnSpacing.xs,
+      marginTop: 4,
     },
     trackFill: { height: '100%', borderRadius: rnRadius.xs },
-    statsGrid: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.xs },
-    statCell: { flex: 1, gap: 2 },
-    barRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    barLabel: { width: 38, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+    statCell: { flex: 1, minWidth: 96, gap: 2 },
+    barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    barLabel: { width: 38, fontSize: 11, color: tk.text.tertiary },
     barTrack: {
       flex: 1,
       height: 6,
@@ -308,15 +307,10 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xs,
       backgroundColor: tk.brandAccent.deep,
     },
-    barValue: {
-      width: 116,
-      textAlign: 'right',
-      fontSize: rnType.caption.size,
-      color: tk.text.secondary,
-    },
+    barValue: { width: 116, textAlign: 'right', fontSize: 11, color: tk.text.secondary },
     modelRow: { gap: 3 },
-    modelHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    modelName: { flex: 1, fontSize: rnType.label.size, color: tk.text.primary },
+    modelHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    modelName: { flex: 1, fontSize: 12, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
