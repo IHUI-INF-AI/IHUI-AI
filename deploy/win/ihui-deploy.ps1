@@ -536,6 +536,54 @@ function Fail {
     exit 1
 }
 
+# ── 部署决策机读台账(O65 第 2 期「部署闭环」,2026-10-25)──────────────────────
+# 为什么需要:部署环每个出口(切流 / 回滚 / 构建失败)此前只有中文日志与自由文本邮件,
+# 「这一轮为什么这么处置、退回到的是哪一枚包」没有结构化载体 —— 自治 agent 与事故复盘
+# 只能靠正则猜日志。本函数把一次出口写成一行 JSONL,判据与形状归一全部住在
+# scripts/deploy-decision.mjs(唯一真相源,镜像测试 scripts/tests/deploy-decision.test.mjs)。
+# 边界(刻意,不得放宽):
+#   ① 只记账、不改流程 —— 自身任何异常都吞成一行 WARN,不 throw、不改退出码;
+#   ② 台账落 .ihui-agent/(整目录被 .gitignore 覆盖)⇒ 生产机写它不会弄脏工作树、不挡 ff-only;
+#   ③ node 或脚本取不到 ⇒ 记「未记录」,不得让"没记成"被读成"没有回滚过"。
+function Write-DeployDecision {
+    param(
+        [Parameter(Mandatory = $true)][string]$Action,
+        [string]$Sha = '',
+        [string]$PrevSha = '',
+        [string]$RollbackId = '',
+        [string]$GateVerdict = 'not-run',
+        [string]$Dims = '',
+        [string]$Reason = '',
+        [string]$ShadowRc = ''
+    )
+    try {
+        $nodeDd = Resolve-NodeExe
+        if (-not $nodeDd) { Log "DECISION 未记录:node.exe 取不到(action=$Action)"; return '' }
+        $ddScript = Join-Path $Root 'scripts\deploy-decision.mjs'
+        if (-not (Test-Path $ddScript)) { Log "DECISION 未记录:$ddScript 不存在(action=$Action)"; return '' }
+        # 健康门禁的维度串用 '+' 拼(见 Test-HealthGate 里 $script:HealthGateFailDims 的 -join),台账口径是逗号 ⇒ 在入口归一,
+        # 不让同一个概念在两侧各记一份(§22c)。
+        $ddArgs = @($ddScript, '--action', $Action, '--sha', $Sha, '--verdict', $GateVerdict,
+            '--ledger', (Join-Path $Root '.ihui-agent\deploy-decisions.jsonl'))
+        if ($PrevSha) { $ddArgs += @('--prev-sha', $PrevSha) }
+        if ($RollbackId) { $ddArgs += @('--rollback-id', $RollbackId) }
+        if ($Dims) { $ddArgs += @('--dims', ($Dims -replace '\+', ',')) }
+        if ($Reason) { $ddArgs += @('--reason', $Reason) }
+        if ($ShadowRc -ne '') { $ddArgs += @('--shadow-rc', $ShadowRc) }
+        $ddOut = (& $nodeDd @ddArgs 2>&1 | Out-String)
+        $ddLine = ($ddOut -split "`r?`n" | Where-Object { $_ -match '^DEPLOY-DECISION ' } | Select-Object -Last 1)
+        if (-not $ddLine) {
+            Log ("DECISION 未记录(action={0}):{1}" -f $Action, (($ddOut -replace '\s+', ' ').Trim()))
+            return ''
+        }
+        Log $ddLine
+        return $ddLine.Trim()
+    } catch {
+        Log "DECISION 未记录(action=$Action,异常不影响部署):$_"
+        return ''
+    }
+}
+
 # ── 分叉自动收敛与连续计数(2026-09-27 立,值守第一件工程活)────────────────────
 # 为什么"一撞分叉就寄信"是错的:这台机同时有多个会话在提交+推送,ff-only 撞上「远端刚被
 # 推走、本地也有新提交」是**每几分钟一次的常态中间态**,不是生产事故。旧写法每撞一次就 Fail,
@@ -2013,7 +2061,19 @@ Set-Location $Root
 
 if (-not $dryrun) { Get-DeployLock }     # 仅实际构建占用;dryrun 只读裸查不占锁
 
-if ($rollbackOnly) { try { Do-Rollback; exit 0 } finally { Release-DeployLock } }
+if ($rollbackOnly) {
+    try {
+        Do-Rollback
+        # 人工回滚同样进机读台账:事后必须可查"退回到了哪一枚包"。Do-Rollback 内部失败走 Fail/exit,
+        # 结构上到不了这一行 ⇒ 这里只记成功出口(action 闭集见 scripts/deploy-decision.mjs)。
+        $moSha = ''
+        if (Test-Path "$WebDir\.next\IHUI_BUILD_SHA") {
+            $moSha = ((Get-Content "$WebDir\.next\IHUI_BUILD_SHA" -Raw -ErrorAction SilentlyContinue) | Out-String).Trim()
+        }
+        [void](Write-DeployDecision -Action 'manual-rollback' -PrevSha $moSha -GateVerdict 'not-run' -Reason '人工执行 -rollbackOnly,已恢复上一可用包')
+        exit 0
+    } finally { Release-DeployLock }
+}
 
 # ── DB 迁移(2026-09-13 加):幂等,每轮执行;drizzle journal 保证仅 pending 迁移实际跑 ──
 # 失败只告警不中止部署(数据库连接失败不应阻断 web 发布;计费修复依赖本步,失败会有监控/验证兜底)
@@ -2689,6 +2749,9 @@ try {
         # G-21(2026-10-22):但身份从此不含任何病因 ⇒ 换病因落进旧槽被静默压住(票面 04:37 实测,
         # 1.9h 前的同名槽位把新一轮压成一行"本轮跳过")。现补 -Reason:$_ 是 catch 到的 throw 原文,
         # 而 Build-Web 连败 throw 已带"末次报错指纹"(同因每轮同串、换因换串),正是结构化病因。
+        # 「未切流」出口同样进决策台账(O65 第 2 期):目标 sha 取不到就如实留空(台账会记成未判定),
+        # 记录本身不参与 Fail 的告警身份,明细漂移不会改变"这是同一类失败"的判定(§5e-1)。
+        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason '构建失败,未切流,保持当前在线版本')
         Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_" -Reason "$_"
     }
 
@@ -2797,7 +2860,19 @@ if (-not (Test-HealthGate)) {
         # 且回滚后必须提前退出 —— 旧代码会流到收尾 Set-BuildMarker,把「回滚保留的
         # 旧构建」标记成新 HEAD 的成功构建,下轮误判新鲜跳过,同样造成部署停滞。
         Set-BuildCooldown
+        # 决策留痕要在 Do-Rollback **之前**取回滚点身份:回滚会把 .next 整份换成 .rollback,
+        # 而 .rollback 目录要到成功轮才删 —— 顺序反了就只能记"未判定"。
+        # 这两个文件是"客人此刻实际跑哪一枚包"的唯一凭据(见 Set-BuildMarker 上方不变量②)。
+        $rbSha = ''
+        if (Test-Path "$WebDir\.rollback\IHUI_BUILD_SHA") {
+            $rbSha = ((Get-Content "$WebDir\.rollback\IHUI_BUILD_SHA" -Raw -ErrorAction SilentlyContinue) | Out-String).Trim()
+        }
+        $rbId = ''
+        if (Test-Path "$WebDir\.rollback\BUILD_ID") {
+            $rbId = ((Get-Content "$WebDir\.rollback\BUILD_ID" -Raw -ErrorAction SilentlyContinue) | Out-String).Trim()
+        }
         Do-Rollback
+        $ddRollback = Write-DeployDecision -Action 'rollback' -Sha $buildSha -PrevSha $rbSha -RollbackId $rbId -GateVerdict 'fail' -Dims $script:HealthGateFailDims -Reason '健康门禁未过,新构建整份退回上一可用包'
         Log "=== 门禁未过已回滚,旧版本在线;已记冷却,30 分钟后自动重试构建 ==="
         # 2026-09-29 补:这一支过去只 Log + exit 0,对到人通道**静音**。而它是用户影响面最大的
         # 一种失败 —— 新构建已经切进 .next 才发现健康不过,又整份退回旧版本(线上短暂跑过一版
@@ -2807,7 +2882,10 @@ if (-not (Test-HealthGate)) {
         # (外壳按退出码记账,换码会改"门禁失败轮"在流水里的形态)。这里只补发信那一件事,
         # 收口路径与退出码逐字不动 —— 只加响,不改流。
         # 签名稳定性同 :1380 那条:文案不含 sha/时间戳/轮次,按身份去重(4h)才会真命中。
-        try { Invoke-FailNotify -Stall -m "健康门禁未过,新构建已回滚:旧版本仍在线(30 分钟后自动重试;构建本身成功,是 web/api/llm 门禁判不过)" -Reason $(if ($script:HealthGateFailDims) { "红项维度=$script:HealthGateFailDims" }) } catch { Log "ALERT 门禁失败告警发信异常(不影响回滚已成立):$_" }
+        # 邮件正文带一条机读决策行(DEPLOY-DECISION <json>):收信人/后续 agent 不必再从中文里
+        # 反推"退回了哪一枚包"。它为正文($Detail),不进告警身份(§5e-1)。
+        # DecisionLine 取不到时 $ddRollback 是空串,Detail 传空即可(不会伪造一行)。
+        try { Invoke-FailNotify -Stall -m "健康门禁未过,新构建已回滚:旧版本仍在线(30 分钟后自动重试;构建本身成功,是 web/api/llm 门禁判不过)" -Detail $ddRollback -Reason $(if ($script:HealthGateFailDims) { "红项维度=$script:HealthGateFailDims" }) } catch { Log "ALERT 门禁失败告警发信异常(不影响回滚已成立):$_" }
         # 回滚轮同样收尾:失败路径最容易留下半截净面,不清就等下一轮 add 撞 already registered。
         # 顺序与正常收尾一致 —— 先回收再放锁,避免放锁后新起的一轮重建的净面被这条删掉。
         Invoke-CleanBuildWorktreeSweep
@@ -2821,14 +2899,42 @@ if (-not (Test-HealthGate)) {
     # 只加响、不改流:Clear-BuildCooldown、摘 .rollback、重启 api/ai-service 与退出码逐字不动
     # (把"未证明"升成回滚等于给发布链加一道恒红门,§12e —— 探测走的是经 Cloudflare 的公网 URL,
     #  隧道一抖就好发布也会被读成 502;要收那一格得先加一条不经隧道的源站直探,那是另一张票)。
+    # ── 落地校验(O65 第 2 期):prod-bundle 影子对账 ─────────────────────────
+    # 「合入 main 后自动同步 prod-bundle」这件事在部署机上没有独立证明:运行副本
+    # (deploy/prod-bundle/,整目录 gitignore)可能与入库源(deploy/scripts/prod-bundle/)
+    # 悄悄分叉,"生产到底跑哪份代码"就无人可查。本门逐字节对账,是那条链的落地校验。
+    # 定级与同段门 98 一致:它判的是**证明力**,与线上是否健康是两个问题 ⇒ 不一致只记日志
+    # 与决策字段,不回滚、不退出(否则等于给发布链加一道恒红门,§12e)。
+    $shadowRc = ''
+    try {
+        $nodeSh = Resolve-NodeExe
+        $shScript = Join-Path $Root 'scripts\check-prod-bundle-shadow.mjs'
+        if ($nodeSh -and (Test-Path $shScript)) {
+            $null = & $nodeSh $shScript 2>&1
+            $shadowRc = "$LASTEXITCODE"
+            if ($shadowRc -eq '0') {
+                Log "影子对账通过(运行副本与入库源逐字节相同)"
+            } else {
+                Log "WARN  影子对账 rc=$shadowRc(运行副本与入库源不一致或未判定;不影响在线版本,详见该门输出)"
+            }
+        } else {
+            Log "WARN  影子对账未判定:node.exe 或 scripts\check-prod-bundle-shadow.mjs 取不到"
+        }
+    } catch {
+        Log "WARN  影子对账异常(不影响部署):$_"
+    }
+
     if ($script:HealthGateUnproven) {
         Log "WARN  本轮已切流但健康未经证明:没有任何一轮拿到三项全绿(见上方 GATE-UNPROVEN)⇒ 此处不打印「部署成功」"
+        [void](Write-DeployDecision -Action 'pass-unproven' -Sha $buildSha -GateVerdict 'pass-unproven' -Dims $script:HealthGateUnknownDims -Reason '已切流但无任何一轮三项全绿' -ShadowRc $shadowRc)
         try { Invoke-FailNotify -Severity warning -m "健康门禁未取得全绿证明:本轮发布已放行,但线上是否活着无人证明(需人工核查 deploy\win\ihui-deploy.ps1 -diagnose)" -Detail "逐维 pass/fail/unknown 计数见部署日志的 GATE-UNPROVEN 行(计数不进身份,理由见门 224)" -Reason $(if ($script:HealthGateUnknownDims) { "未证明维度=$script:HealthGateUnknownDims" }) } catch { Log "ALERT 未证明告警发信异常(不影响已切流):$_" }
     } elseif ($script:HealthGateEntryBroken) {
         Log "WARN  本轮已切流但公网入口读不到(源站直探正常)⇒ 判为入口故障,不回滚好构建;此处不打印「部署成功」"
+        [void](Write-DeployDecision -Action 'pass-entry-broken' -Sha $buildSha -GateVerdict 'entry-broken' -Dims $script:HealthGateFailDims -Reason '已切流但公网入口读不到(源站直探正常)' -ShadowRc $shadowRc)
         try { Invoke-FailNotify -Severity warning -m "公网入口不可达而源站健康:本轮发布未回滚(回滚只会延长访客侧故障),需人工核查 Cloudflared 隧道腿与 DNS" -Detail "逐维 pass/fail/unknown 计数见部署日志的 GATE-ENTRY-BROKEN 行(计数不进身份,理由见门 224)" -Reason $(if ($script:HealthGateFailDims) { "入口不可达维度=$script:HealthGateFailDims" }) } catch { Log "ALERT 入口故障告警发信异常(不影响已切流):$_" }
     } else {
         Ok "健康门禁通过,部署成功"
+        [void](Write-DeployDecision -Action 'pass' -Sha $buildSha -GateVerdict 'pass' -Reason '健康门禁三项全绿后切流' -ShadowRc $shadowRc)
     }
     Clear-BuildCooldown
     Remove-Item "$WebDir\.rollback" -Recurse -Force -ErrorAction SilentlyContinue
