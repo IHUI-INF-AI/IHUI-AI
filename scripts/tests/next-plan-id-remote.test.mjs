@@ -35,7 +35,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { judgeRowIdDuplicates } from '../lib/plan-id-duplicates.mjs'
+import { judgeRowIdDuplicates, judgeRowIdDuplicatesDelta } from '../lib/plan-id-duplicates.mjs'
 import { smallestFreeId, remoteIdNumsOf, poolBlocked } from '../lib/plan-id-lease.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 import { scanFamilyIds } from '../lib/plan-id-face.mjs'
@@ -162,23 +162,36 @@ test('T7 --check 对存量重号点名不顶死:exit 0 + 两档读数措辞在�
     return
   }
   if (r.status !== 0) {
-    // 并发窗口分诊(2026-10-25):--check 对**登记行声明位**同号多行判红(exit 1)是对的,但那可能是
-    // 别席刚落的账。判据 = preHead 静态历史面上就有的登记行重号 ⇒ 存量顶死入口(真回归)照红;
-    // preHead 面干净 ⇒ 并发新增(别席射程)⇒ t.skip 点名,不记绿也不冒红。
+    // 2026-10-25 起 exit 1 只可能是**新增档**或未判定(存量已按差值棘轮只报数)。并发窗口分诊:
+    // 用**同一把生产判据**(judgeRowIdDuplicatesDelta)在 preHead 静态历史面上复算 —— preHead 自己
+    // 就有 fresh(即 preHead 相对其父提交也是新增)⇒ 真回归照红;preHead 面不新鲜 ⇒ 现读红来自
+    // 别席新落账(并发窗口)⇒ t.skip 点名,不记绿也不冒红。
+    if (/重号判据未判定/.test(String(r.stdout))) {
+      t.skip(`未判定:基线面取不到(浅克隆/根提交窗口),--check 未判成;preHead=${String(preHead).slice(0, 8)}`)
+      return
+    }
     const preHeadLedger = git(['show', `${preHead}:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000 })
-    const preDup = judgeRowIdDuplicates({
-      ledgerText: typeof preHeadLedger === 'string' ? preHeadLedger : '',
+    const preBaseLedger = git(['show', `${preHead}^:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000, allowFail: true })
+    const preDelta = judgeRowIdDuplicatesDelta({
+      currentText: typeof preHeadLedger === 'string' ? preHeadLedger : '',
+      baselineText: typeof preBaseLedger === 'string' ? preBaseLedger : '',
       family: 'O',
     })
-    if (preDup.ok && preDup.rowDups.length > 0) {
-      assert.fail(`存量登记行重号顶死了独立取号入口(真回归):${JSON.stringify(preDup.rowDups)}\n${r.stdout}\n${r.stderr}`)
+    if (!preDelta.ok) {
+      t.skip(`未判定:preHead 面分不开存量与新增(${preDelta.reason})⇒ 不拿它当真;preHead=${String(preHead).slice(0, 8)}`)
+      return
+    }
+    if (preDelta.fresh.length > 0) {
+      assert.fail(
+        `preHead 面自身就有新增登记行重号(真回归):${JSON.stringify(preDelta.fresh)}\n${r.stdout}\n${r.stderr}`,
+      )
     }
     t.skip(
-      `未判定:并发窗口 —— preHead=${String(preHead).slice(0, 8)} 面登记行零重号,现读红来自别席新落账(非存量顶死)`,
+      `未判定:并发窗口 —— preHead=${String(preHead).slice(0, 8)} 面无新增重号,现读红来自别席新落账(非存量顶死)`,
     )
     return
   }
-  assert.match(String(r.stdout), /无登记行重号/, '绿行必须说清判的是登记行声明位')
+  assert.match(String(r.stdout), /无新增登记行重号/, '绿行必须说清判的是登记行声明位、且只判"新增"那一档')
   const m = /历史小节标题同 id (\d+) 组/.exec(String(r.stdout))
   if (m) {
     // 存量组在场时:必须点名(组列表非空)且写明两档处置口径
@@ -224,7 +237,7 @@ test('T8a 发号路径必须吃全文件扫描的实时占用面(G-14 形状锁)
   assert.ok(scanDecl > checkBranch, '全文件扫描档必须在 --check 分岔之后(发号路径专属,G-955 契约不变)')
   assert.match(
     TOOL_SRC,
-    /import\s*\{\s*collectIdFace,\s*scanFamilyIds\s*\}\s*from\s*'\.\/lib\/plan-id-face\.mjs'/,
+    /import\s*\{[^}]*\bcollectIdFace\b[^}]*\bscanFamilyIds\b[^}]*\}\s*from\s*'\.\/lib\/plan-id-face\.mjs'/,
     '扫描必须 import 那份唯一实现(自抄一条正则就是第二份尺子)',
   )
   assert.doesNotMatch(TOOL_SRC, /const FULLSCAN/, '本器不得自带第二份全文件扫描正则')
@@ -312,11 +325,20 @@ test('T9 新增撞号仍判红、指针被引号不算声明(G-955 判红维正�
   })
   assert.deepEqual(ptr.rowDups, [], '括注内被引号不得顶死判红维(G-955 病根:一行指针顶死整个入口)')
   assert.equal(ptr.rowDecls, 1, '声明位读数必须只数真声明')
-  // CLI 接线锁:--check 分支必须真的以 exit 1 收场(判据在场 ≠ 装车)
+  // CLI 接线锁:--check 分支必须真的以 exit 1 收场(判据在场 ≠ 装车),且判红维自 2026-10-25 起
+  // 走**差值棘轮**(新增才红):绝对值 `if (dup.rowDups.length)` 的形状必须已经被摘掉,
+  // 否则"存量只报数"会被一次误改反悔回恒红门(§12e/§12f:两向都要锁)。
   const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
   const branch = TOOL_SRC.slice(checkBranch, TOOL_SRC.indexOf('const headingNote', checkBranch))
-  assert.match(branch, /dup\.rowDups\.length/, '--check 必须吃 rowDups 判红')
+  assert.match(branch, /judgeRowIdDuplicatesDelta\(/, '--check 必须吃差值判据(存量/新增分档)')
+  assert.match(branch, /delta\.fresh\.length/, '判红必须只看新增档')
   assert.match(branch, /process\.exit\(1\)/, '新增撞号必须以 exit 1 收场(存量不顶死 ≠ 新增不红)')
+  assert.match(branch, /`\$\{SOURCE\}\^`/, '基线面必须是被审面的父提交(锚点取错=棘轮失效)')
+  assert.doesNotMatch(
+    branch,
+    /if\s*\(\s*dup\.rowDups\.length\s*\)/,
+    '不得退回"只要有同号多行就 exit 1"的绝对值判红(存量会把它读成恒红门)',
+  )
 })
 
 /**
