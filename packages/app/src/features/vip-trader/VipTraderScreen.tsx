@@ -34,7 +34,7 @@ import {
   Zap,
 } from 'lucide-react-native'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -241,14 +241,14 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
-      backgroundColor: 'rgba(255,215,0,0.18)',
+      backgroundColor: rnCssLight.vipGoldTint,
     },
     heroBadgeText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.warning.amber },
     heroPrice: { fontSize: rnType.display.size, fontWeight: '700', color: tk.warning.amber },
     heroDesc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
-      color: 'rgba(255,255,255,0.7)',
+      color: rnCssLight.white70,
     },
     statCard: {
       marginHorizontal: rnSpacing.lg,

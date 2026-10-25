@@ -21,7 +21,7 @@ import {
 import { appAlert } from '../components/BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { rnRadius, rnRadiusFor, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnType, rnCssLight } from '@ihui/design-tokens'
 // 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const SHARE_FALLBACK_IMAGE: ImageSourcePropType = require('../../assets/images/common/default/vip_message.jpg')
@@ -2090,7 +2090,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: rnRadius['2xl'],
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: rnCssLight.black50,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2162,7 +2162,7 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: rpx(28),
     borderRadius: rnRadius.sm,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: rnCssLight.white18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2178,7 +2178,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: rnRadius.sm,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: rnCssLight.white18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2212,7 +2212,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: rnRadius.xl,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: rnCssLight.white18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2237,7 +2237,7 @@ const styles = StyleSheet.create({
   // ── 图片分享弹窗(对齐 Uniapp image-share-popup 行 1842-1926:居中卡片 + 关闭× + 标题 + 图 + 按钮) ──
   sharePopupOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: rnCssLight.black50,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: rpx(48),
@@ -2360,7 +2360,7 @@ const styles = StyleSheet.create({
   // ── 编辑资料 Modal(对齐 Uniapp 编辑资料弹层) ──
   editProfileOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: rnCssLight.black50,
     justifyContent: 'flex-end',
   },
   editProfileCard: {
@@ -2496,7 +2496,7 @@ const styles = StyleSheet.create({
   // ── 等级介绍 Modal(对齐 Uniapp level-intro popup) ──
   levelIntroOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: rnCssLight.black50,
     justifyContent: 'flex-end',
   },
   levelIntroCard: {
@@ -2568,7 +2568,7 @@ const styles = StyleSheet.create({
   // ── 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ──
   unsubscribeOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: rnCssLight.black50,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: rpx(48),

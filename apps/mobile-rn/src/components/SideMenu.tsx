@@ -9,7 +9,7 @@
  * SideMenu 是轻量级菜单列表(仅 key+label+icon)。
  * 平台特有:依赖 react-native Modal + Animated,不适合共享层。
  */
-import { rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { useEffect, useRef } from 'react'
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: rnCssLight.black50,
   },
   container: {
     width: 220,

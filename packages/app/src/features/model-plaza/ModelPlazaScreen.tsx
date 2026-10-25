@@ -21,7 +21,7 @@ import type {
   ModelPlazaTypeFilter,
 } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -340,7 +340,7 @@ function createStyles(tk: AppThemeTokens) {
       ...shadowSoft,
     },
     providerTabActive: {
-      backgroundColor: 'rgba(0, 0, 0, 0.08)',
+      backgroundColor: rnCssLight.black8,
     },
     providerTabIcon: {
       width: 18,
@@ -387,7 +387,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       ...shadowSoft,
     },
-    typeTabActive: { backgroundColor: 'rgba(0, 0, 0, 0.08)' },
+    typeTabActive: { backgroundColor: rnCssLight.black8 },
     typeTabText: { fontSize: 16, color: tk.text.secondary },
     typeTabTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     listBody: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 32 },
