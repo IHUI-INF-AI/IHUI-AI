@@ -239,6 +239,7 @@ function listScope(face) {
   const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 1 << 28,
   })
   if (r.status !== 0) return null
