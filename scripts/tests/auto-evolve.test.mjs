@@ -128,6 +128,25 @@ test('⑥ pid 判活:自身活 / 非法与不存在者死', () => {
   assert.equal(ae.isPidAlive(-1), false)
   assert.equal(ae.isPidAlive(999999999), false)
 })
+
+test('⑧ token 计量:只认终态 complete 行的 usage,缺失/形状坏判未计量', () => {
+  const complete = JSON.stringify({
+    type: 'complete',
+    stopReason: 'end_turn',
+    usage: { promptTokens: 900, completionTokens: 100, totalTokens: 1000, estimatedCostUsd: 0.12 },
+  })
+  const u = ae.parseSessionUsage(`${JSON.stringify({ type: 'start' })}\n${complete}\n`)
+  assert.equal(u.measured, true)
+  assert.equal(u.tokens, 1000)
+  assert.equal(u.costUsd, 0.12)
+  // 超时/被杀:没有终态行 ⇒ 未计量(不得读成 0 tokens 放行)
+  assert.equal(ae.parseSessionUsage('{"type":"message_delta","text":"x"}').measured, false)
+  assert.equal(ae.parseSessionUsage('').measured, false)
+  // 终态行 usage 形状坏 ⇒ 未计量
+  assert.equal(ae.parseSessionUsage('{"type":"complete","usage":{"totalTokens":"NaN"}}').measured, false)
+  // complete 行不是 JSON 行(人读排版)⇒ 未计量
+  assert.equal(ae.parseSessionUsage('📊 tokens: 1000 (prompt 900 + completion 100)').measured, false)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 test('⑦ 会话 JWT 形状:HS256 三段 / sub 必在(实测缺口)/ iss/aud/exp 同 auth 包', async () => {
