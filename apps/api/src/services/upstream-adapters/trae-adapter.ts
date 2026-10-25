@@ -44,7 +44,8 @@ import {
   buildExchangeTokenBody,
   buildExchangeTokenProofBody,
   deviceMaterialFromSecrets,
-  TRAE_EXCHANGE_TOKEN_PROOF_URL,
+  TRAE_EXCHANGE_TOKEN_COMBOS,
+  TRAE_EXCHANGE_TOKEN_PROOF_URL as TRAE_EXCHANGE_TOKEN_PROOF_URL_DEFAULT,
   buildQueryBlocks,
   buildTraeCustomModel,
   createStopSequenceFilter,
@@ -91,6 +92,11 @@ const TRAE_REMOTE_BASE = endpoint(
 const TRAE_EXCHANGE_TOKEN_URL = endpoint(
   'TRAE_EXCHANGE_TOKEN_URL',
   'https://api.trae.cn/cloudide/api/v3/trae/oauth/ExchangeToken',
+)
+/** 新版(设备证明)ExchangeToken 端点;可经 env 覆写供本机假上游联调 */
+const TRAE_EXCHANGE_TOKEN_PROOF_URL = endpoint(
+  'TRAE_EXCHANGE_TOKEN_PROOF_URL',
+  TRAE_EXCHANGE_TOKEN_PROOF_URL_DEFAULT,
 )
 /** web 官网 cookie 换票端点(线上实证:credentials:'include' 纯靠 HttpOnly cookie,
  * 返回 Result{Token,ExpiredAt};web 号无 refreshToken 时的自动续票唯一通道) */
@@ -754,30 +760,44 @@ export const traeAdapter: RelayUpstreamAdapter = {
       ctx.row.machineId,
     )
     if (material) {
-      const resProof = await doFetch(TRAE_EXCHANGE_TOKEN_PROOF_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-cloudide-token': '' },
-        body: JSON.stringify(buildExchangeTokenProofBody({ ...material, refreshToken: rt })),
-      })
-      if (resProof.ok) {
-        const body: unknown = await resProof.json().catch(() => null)
-        const payload = extractTokenPayload(body)
-        if (!payload) throw new Error('Trae ExchangeToken(设备证明) 响应无 Token')
-        return {
-          token: payload.token,
-          refreshToken: payload.refreshToken,
-          expiresAt: payload.expiresAt ?? null,
+      // 「ClientID × 产品线」组合链:票由哪条线签发就只能用哪条线续。
+      // 10101(rt 与客户端不匹配)/ 20403(设备与票不匹配)⇒ 换下一组再试;
+      // 其余 HTTP 错直接抛(sweep 计数),别把网络故障误判成"票坏了"。
+      // 失败尝试不轮换 rt(只有 2xx 才换),所以同一枚票可以安全地多组试。
+      let lastProof: { status: number; text: string } | null = null
+      for (const combo of TRAE_EXCHANGE_TOKEN_COMBOS) {
+        const resProof = await doFetch(TRAE_EXCHANGE_TOKEN_PROOF_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-cloudide-token': '' },
+          body: JSON.stringify(
+            buildExchangeTokenProofBody({
+              ...material,
+              ...combo,
+              refreshToken: rt,
+            }),
+          ),
+        })
+        if (resProof.ok) {
+          const body: unknown = await resProof.json().catch(() => null)
+          const payload = extractTokenPayload(body)
+          if (!payload) throw new Error('Trae ExchangeToken(设备证明) 响应无 Token')
+          return {
+            token: payload.token,
+            refreshToken: payload.refreshToken,
+            expiresAt: payload.expiresAt ?? null,
+          }
+        }
+        const text = await resProof.text().catch(() => '')
+        lastProof = { status: resProof.status, text }
+        if (!/10101|20403/.test(text)) {
+          throw new TraeUpstreamError(
+            resProof.status,
+            `Trae ExchangeToken(设备证明) 失败(HTTP ${resProof.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
+          )
         }
       }
-      const text = await resProof.text().catch(() => '')
-      // 10101(rt 与客户端不匹配)/ 20403(设备与票不匹配):设备材料救不了这枚票,
-      // 落回旧通道让错误以原口径暴露(不吞成未判定);其余 HTTP 错直接抛,由调度器计数。
-      if (!/10101|20403/.test(text)) {
-        throw new TraeUpstreamError(
-          resProof.status,
-          `Trae ExchangeToken(设备证明) 失败(HTTP ${resProof.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
-        )
-      }
+      // 全部组合都被"票/设备不匹配"拒 ⇒ 落回旧通道,让错误以原口径暴露
+      void lastProof
     }
     const res = await doFetch(TRAE_EXCHANGE_TOKEN_URL, {
       method: 'POST',

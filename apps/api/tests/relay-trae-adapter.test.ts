@@ -653,6 +653,20 @@ describe('Trae 设备证明(DeviceProof)', () => {
       ),
     ).toBeNull()
     expect(deviceMaterialFromSecrets(null, '123', null)).toBeNull()
+    // 可选展示字段覆盖(secrets.deviceName/Model/Brand),供与客户端真实 DeviceInfo 对齐
+    expect(
+      deviceMaterialFromSecrets(
+        {
+          deviceKeyPem: privateKeyPem,
+          devicePubPem: publicKeyPem,
+          deviceName: 'DESKTOP-X',
+          deviceModel: 'M1',
+          deviceBrand: 'BR',
+        },
+        '123',
+        'm',
+      ),
+    ).toMatchObject({ deviceName: 'DESKTOP-X', deviceModel: 'M1', deviceBrand: 'BR' })
   })
 })
 
