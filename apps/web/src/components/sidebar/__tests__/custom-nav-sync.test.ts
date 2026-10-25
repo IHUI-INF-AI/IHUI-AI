@@ -37,6 +37,9 @@ const server = vi.hoisted(() => ({
   /** 所有上推尝试(含失败)—— 失败也要留痕,否则"推了但被拒"无从断言 */
   putAttempts: [] as string[][],
   getCalls: 0,
+  /** 置 true 则 GET 挂起,直到测试调用 releaseGet() —— 用来摆出"同步在飞期间用户动手"的窗口 */
+  holdGet: false,
+  releaseGet: () => {},
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -50,6 +53,12 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
     getSidebarNavPreference: async () => {
       server.getCalls += 1
       if (server.getFail) return { success: false, error: { code: 500, message: 'boom' } }
+      if (server.holdGet) {
+        await new Promise<void>((resolve) => {
+          server.releaseGet = resolve
+        })
+      }
+      // 取值必须在 await 之后:挂起期间测试会把远端内容和/或本地列表改掉
       return { success: true, data: { hrefs: server.hrefs, exists: server.exists } }
     },
     updateSidebarNavPreference: async (hrefs: string[]) => {
@@ -87,6 +96,8 @@ beforeEach(async () => {
   server.writes = []
   server.putAttempts = []
   server.getCalls = 0
+  server.holdGet = false
+  server.releaseGet = () => {}
 })
 
 afterEach(() => {
@@ -108,31 +119,14 @@ describe('useCustomNav —— 允许集与去重', () => {
     expect(result.current.customHrefs).toEqual(['/models', '/agents'])
   })
 
-  it('运行时才出现的 href(admin 动态路由)在传入允许集后不再被当失效项剔除', async () => {
-    // 静态表里没有 /admin/dynamic-x:不传允许集时它被剔除(既有语义不变)
+  it('运行时才出现的 href(admin 动态路由)不在数据层的射程内 ⇒ 不得被当失效项剔除', async () => {
+    // 2026-10-25:数据层不再有"允许集"这个东西。可见项集合是异步攒出来的,
+    // 任何一刻的快照都不完整,拿它当删除依据就是静默删用户数据(见文件头用例组的立因)。
     window.localStorage.setItem(STORAGE_PREFIX + 'u2', JSON.stringify(['/admin/dynamic-x']))
     login('u2')
-    const strict = renderHook(() => useCustomNav())
-    expect(strict.result.current.customHrefs).toEqual([])
-
-    // 传入"当前可见项"后,动态项被保留 —— 这就是刷新后不丢的关键
-    // (载入发生在 effect 里,必须先 flush 再断言:首帧 state 还是 [])
-    // 注意:上面那个 strict hook 仍挂载着,它的持久化 effect 已把 localStorage 写成 [],
-    // 所以这里必须重写一次,否则读到的就是被它清空的副本。
-    window.localStorage.setItem(STORAGE_PREFIX + 'u2', JSON.stringify(['/admin/dynamic-x']))
-    const allowed = new Set(['/admin/dynamic-x'])
-    const lenient = renderHook(() => useCustomNav(allowed))
+    const { result } = renderHook(() => useCustomNav())
     await flush()
-    expect(lenient.result.current.customHrefs).toEqual(['/admin/dynamic-x'])
-
-    // 顺带钉死:调用方每次渲染都新建集合也不许死循环(依赖是内容签名不是引用)
-    const churn = renderHook(() => useCustomNav(new Set(['/admin/dynamic-x'])))
-    await flush()
-    await act(async () => {
-      churn.rerender()
-      churn.rerender()
-    })
-    expect(churn.result.current.customHrefs).toEqual(['/admin/dynamic-x'])
+    expect(result.current.customHrefs).toEqual(['/admin/dynamic-x'])
   })
 })
 
@@ -432,6 +426,85 @@ describe('useCustomNav —— 跨设备实时同步(焦点/可见性重拉)', ()
     })
     await flush()
     expect(result.current.customHrefs).toEqual([])
+  })
+})
+
+/**
+ * 「此刻不认识的 href」不得被当失效项删除(2026-10-25 立;机主报"换新设备还要重新设置、
+ * 各设备还不一致")。
+ *
+ * 立因:admin 的后台路由由 `useAdminRouters()` 每次挂载**异步**拉取(该 hook 刻意不做模块级
+ * 缓存,防跨账号菜单泄漏),而 `/settings/sidebar-nav` 的 GET 是另一条独立请求 ⇒ 谁先回来
+ * 不确定。GET 先回时,远端列表里的动态项还不在那一刻的可见集内 ⇒ 被当"失效项"剔除 ⇒
+ * 持久化 effect 紧接着把剔完的短名单写回 localStorage ⇒ 动态路由随后到了也补不回来
+ * (载入 effect 的"补回"读的就是那份已被覆盖的本地)。用户下一次改动还会把短名单整体
+ * PUT 回服务端 ⇒ 云端跟着一起丢。
+ *
+ * 时序竞态 ⇒ 同一账号在不同设备/不同次刷新上结果不同,这正是"不一致"的来源。
+ * 正解是把"有效性判定"从数据层删掉:数据层只清洗形状,可见性归视图层。
+ */
+describe('useCustomNav —— 云端收藏里"此刻不认识"的项不得被静默丢弃', () => {
+  const DYNAMIC = '/admin/dynamic-x'
+
+  it('GET 先回、后台路由后到:动态项必须原样留在列表里,本地副本也一样', async () => {
+    login('allowed-late')
+    server.exists = true
+    server.hrefs = ['/models', DYNAMIC]
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+
+    expect(result.current.customHrefs).toEqual(['/models', DYNAMIC])
+    // 本地副本也不许留短名单(否则换标签页/刷新又是新一轮丢失)
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_PREFIX + 'allowed-late') ?? '[]')).toEqual([
+      '/models',
+      DYNAMIC,
+    ])
+  })
+
+  it('动态项被保留后用户再改一项,上推的必须是完整列表(云端不得被短名单覆盖)', async () => {
+    login('allowed-late-push')
+    server.exists = true
+    server.hrefs = ['/models', DYNAMIC]
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+
+    server.writes = []
+    await act(async () => {
+      result.current.addHref('/ecosystem')
+    })
+    await flush()
+    const last = server.writes[server.writes.length - 1]
+    expect(last).toEqual(['/models', DYNAMIC, '/ecosystem'])
+  })
+})
+
+/**
+ * 同步在飞期间的本机新增(2026-10-25 立)。
+ * 「以远端为准」这条规则本身是对的(否则 B 设备删掉的项会被 A 设备的陈旧缓存复活),
+ * 但它盖住的应当是"上一次同步为止的状态",而不是把本会话刚做的操作也算成陈旧缓存:
+ * GET 发出到返回之间对话框已经可点(侧栏先渲染本地态),这期间加的那一项此刻还
+ * 推不上云(上推被"同步未完成"闸门挡着),返回后被 setHrefs(remote) 原地抹掉 ——
+ * 症状与票面同形:"新设备上加的第一项没保存"。
+ */
+describe('useCustomNav —— 同步在飞期间的本机新增不得被远端盖掉', () => {
+  it('GET 未返回时用户加了一项 ⇒ 采用远端时把那项带上,并推上云', async () => {
+    login('in-flight')
+    server.exists = true
+    server.hrefs = ['/models']
+    server.holdGet = true
+    const { result } = renderHook(() => useCustomNav())
+    await flush() // GET 已发出并挂起
+
+    await act(async () => {
+      result.current.addHref('/agents')
+    })
+    await act(async () => {
+      server.releaseGet()
+    })
+    await flush()
+
+    expect(result.current.customHrefs).toEqual(['/models', '/agents'])
+    expect(server.writes.some((w) => w.includes('/agents'))).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

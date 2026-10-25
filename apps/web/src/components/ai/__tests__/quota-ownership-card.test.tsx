@@ -19,8 +19,14 @@ import { QuotaOwnershipCard } from '../quota-ownership-card'
 // 只断言**结构与判据**(四型标题 / escalate 差异 / 付费动作剔除 / 折扣两态),
 // 文案一律走 key;真实文案覆盖由「读真实词包」那组用例守住。
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string, values?: Record<string, unknown>) =>
-    values ? `${key}(${JSON.stringify(values)})` : key,
+  useTranslations: () => {
+    const t = (key: string, values?: Record<string, unknown>) =>
+      values ? `${key}(${JSON.stringify(values)})` : key
+    // D04③:组件 degradeHint 走 t.rich;mock 下原样返回 key,渲染断言由
+    // quota-ownership-rich-link.test.tsx(真实词包 + 真 next-intl)承担。
+    ;(t as unknown as { rich: typeof t }).rich = t
+    return t
+  },
 }))
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -44,7 +50,9 @@ describe('D67 QuotaOwnershipCard / 四型标题渲染', () => {
   })
 
   it('预防性展示(rejectedByQuota=false)不渲染 —— 不充值可用心智:还没拒绝不得推销', () => {
-    const { container } = render(<QuotaOwnershipCard kind="personalDaily" rejectedByQuota={false} />)
+    const { container } = render(
+      <QuotaOwnershipCard kind="personalDaily" rejectedByQuota={false} />,
+    )
     expect(container.firstChild).toBeNull()
   })
 })
@@ -52,7 +60,11 @@ describe('D67 QuotaOwnershipCard / 四型标题渲染', () => {
 describe('D67 QuotaOwnershipCard / escalate 两类动作差异', () => {
   it('personalDaily:escalate=false,给全三动作(含付费出路 upgradeOrAdmin)', () => {
     const { container } = render(<QuotaOwnershipCard kind="personalDaily" onAction={() => {}} />)
-    expect(container.querySelector('[data-quota-kind="personalDaily"]')?.getAttribute('data-quota-escalate')).toBe('false')
+    expect(
+      container
+        .querySelector('[data-quota-kind="personalDaily"]')
+        ?.getAttribute('data-quota-escalate'),
+    ).toBe('false')
     for (const action of QUOTA_OWNERSHIP_ACTIONS) {
       expect(container.querySelector(`[data-action="${action}"]`), action).not.toBeNull()
     }
@@ -61,7 +73,10 @@ describe('D67 QuotaOwnershipCard / escalate 两类动作差异', () => {
   it('teamAdmin / billingGroupCredits:escalate=true,不给切档(团队模型由管理员配置)', () => {
     for (const kind of ['teamAdmin', 'billingGroupCredits'] as const) {
       const { container, unmount } = render(<QuotaOwnershipCard kind={kind} onAction={() => {}} />)
-      expect(container.querySelector(`[data-quota-kind="${kind}"]`)?.getAttribute('data-quota-escalate'), kind).toBe('true')
+      expect(
+        container.querySelector(`[data-quota-kind="${kind}"]`)?.getAttribute('data-quota-escalate'),
+        kind,
+      ).toBe('true')
       expect(container.querySelector('[data-action="viewUsage"]'), kind).not.toBeNull()
       expect(container.querySelector('[data-action="upgradeOrAdmin"]'), kind).not.toBeNull()
       expect(container.querySelector('[data-action="switchFreeModel"]'), kind).toBeNull()
@@ -117,7 +132,10 @@ describe('D67 QuotaOwnershipCard / 折扣两态', () => {
 
   it('active 相位:低峰折扣进行中(data-discount-phase=active)', () => {
     const { container } = render(
-      <QuotaOwnershipCard kind="personalDaily" discountWindow={{ windowStart: START, windowEnd: END, now: START }} />,
+      <QuotaOwnershipCard
+        kind="personalDaily"
+        discountWindow={{ windowStart: START, windowEnd: END, now: START }}
+      />,
     )
     const el = container.querySelector('[data-discount-phase="active"]')
     expect(el).not.toBeNull()
@@ -158,10 +176,15 @@ describe('D67 QuotaOwnershipCard / 折扣两态', () => {
 describe('D67 词包覆盖(读真实词包,不 mock)', () => {
   const flat = (obj: Record<string, unknown>, prefix = ''): string[] =>
     Object.entries(obj).flatMap(([k, v]) =>
-      v && typeof v === 'object' ? flat(v as Record<string, unknown>, `${prefix}${k}.`) : [`${prefix}${k}`],
+      v && typeof v === 'object'
+        ? flat(v as Record<string, unknown>, `${prefix}${k}.`)
+        : [`${prefix}${k}`],
     )
 
-  const readNode = (locale: string, path: 'quotaOwnership' | 'quotaOwnership.voiceSubtitles'): Record<string, unknown> => {
+  const readNode = (
+    locale: string,
+    path: 'quotaOwnership' | 'quotaOwnership.voiceSubtitles',
+  ): Record<string, unknown> => {
     const raw = readFileSync(join(MESSAGES_ROOT, `${locale}.json`), 'utf8')
     const parsed = JSON.parse(raw) as { ai?: { pane?: Record<string, unknown> } }
     let node: unknown = parsed.ai?.pane?.quotaOwnership
@@ -181,8 +204,10 @@ describe('D67 词包覆盖(读真实词包,不 mock)', () => {
   it('四型标题 + 三动作 + 折扣两态 + 时长单位 + ariaLabel + 降级建议,键全齐', () => {
     for (const locale of LOCALES) {
       const keys = flat(readNode(locale, 'quotaOwnership'))
-      for (const kind of QUOTA_OWNERSHIP_KINDS) expect(keys, `${locale} title.${kind}`).toContain(`title.${kind}`)
-      for (const action of QUOTA_OWNERSHIP_ACTIONS) expect(keys, `${locale} action.${action}`).toContain(`action.${action}`)
+      for (const kind of QUOTA_OWNERSHIP_KINDS)
+        expect(keys, `${locale} title.${kind}`).toContain(`title.${kind}`)
+      for (const action of QUOTA_OWNERSHIP_ACTIONS)
+        expect(keys, `${locale} action.${action}`).toContain(`action.${action}`)
       expect(keys, `${locale} discount.active`).toContain('discount.active')
       expect(keys, `${locale} discount.upcoming`).toContain('discount.upcoming')
       expect(keys, `${locale} duration.hour`).toContain('duration.hour')
@@ -197,7 +222,11 @@ describe('D67 词包覆盖(读真实词包,不 mock)', () => {
       const walk = (obj: Record<string, unknown>): void => {
         for (const value of Object.values(obj)) {
           if (value && typeof value === 'object') walk(value as Record<string, unknown>)
-          else expect(typeof value === 'string' && (value as string).trim().length > 0, `${locale}`).toBe(true)
+          else
+            expect(
+              typeof value === 'string' && (value as string).trim().length > 0,
+              `${locale}`,
+            ).toBe(true)
         }
       }
       walk(readNode(locale, 'quotaOwnership'))
@@ -231,8 +260,14 @@ describe('D67 词包覆盖(读真实词包,不 mock)', () => {
       const anchors = parsed.ai?.pane?.annotationAnchors
       expect(voice, `${locale} voiceSubtitles`).toBeTruthy()
       expect(anchors, `${locale} annotationAnchors`).toBeTruthy()
-      expect(flat(voice as Record<string, unknown>).length, `${locale} voiceSubtitles keys`).toBeGreaterThan(0)
-      expect(flat(anchors as Record<string, unknown>).length, `${locale} annotationAnchors keys`).toBeGreaterThan(0)
+      expect(
+        flat(voice as Record<string, unknown>).length,
+        `${locale} voiceSubtitles keys`,
+      ).toBeGreaterThan(0)
+      expect(
+        flat(anchors as Record<string, unknown>).length,
+        `${locale} annotationAnchors keys`,
+      ).toBeGreaterThan(0)
     }
   })
 })

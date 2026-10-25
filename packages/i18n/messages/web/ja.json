@@ -7814,7 +7814,7 @@
           "hour": "時間",
           "minute": "分"
         },
-        "degradeHint": "無料プランは引き続き利用できます。無料モデルに切り替えて続行でき、チャージは不要です",
+        "degradeHint": "使用量の詳細は <link>/models/usage</link> をご覧ください。無料プランは引き続き利用でき、無料モデルに切り替えて続行でき、チャージは不要です",
         "ariaLabel": "クォータの種別と対処の提案"
       },
       "moveToWorktree": {
@@ -13834,7 +13834,7 @@
     "exampleStep2": "output 費用 = 1200 ÷ 1000 × 10 = 12 分",
     "exampleTitle": "課金例",
     "examplesSubtitle": "HTTP Bearer Token 認証、POST application/json",
-    "examplesTip": "ヒント:YOUR_API_KEY を /developer/keys で作成したキーに置き換え、baseURL を実際のエンドポイントに変更してください。",
+    "examplesTip": "ヒント:YOUR_API_KEY を <link>/developer/keys</link> で作成したキーに置き換え、baseURL を実際のエンドポイントに変更してください。",
     "examplesTitle": "呼び出し例",
     "formula": "料金計算式",
     "formulaBody": "合計 = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",
