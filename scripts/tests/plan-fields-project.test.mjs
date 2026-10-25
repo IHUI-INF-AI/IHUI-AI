@@ -222,6 +222,31 @@ describe('无侧车记录的行不许被当成"记录为空"(2026-10-26 修)', (
   })
 })
 
+describe('无记录行分因出口(2026-10-26,G-965:疑点必须是可读点名,不是"101 行"一个总数)', () => {
+  it('四档各认一例:不可寻址 / 散文可做 / 归属抽不出值 / 复算可自愈', () => {
+    assert.equal(P.noRecordKind('- [ ] 副本指针(编号 62)：同主键第二份未勾选副本'), 'keyless')
+    assert.equal(P.noRecordKind('- [ ] **G-1 甲题** 可做'), 'prose-actionable')
+    assert.equal(
+      P.noRecordKind('- [ ] **G-2 乙题** 由安全线持有者接管这条线'),
+      'owner-unextractable',
+      '归属词族命中但无可搬值 ⇒ 抽取器宁缺,不能读成"可做"',
+    )
+    assert.equal(P.noRecordKind('- [ ] **G-3 丙题** 归属:甲持有人'), 'self-healable')
+  })
+
+  it('有编号但题面退化 ⇒ key-degenerate(侧车没有可寻址键,补题面要动判定面)', () => {
+    assert.equal(P.noRecordKind('- [ ] G-16（等守门 128 持有人拍两件事）门 128 的 SL 维'), 'key-degenerate')
+  })
+
+  it('形状锁:分因判据必须问既有单源,不得在本层另造桶/词表', () => {
+    const src = readFileSync(new URL('../plan-fields-project.mjs', import.meta.url), 'utf8')
+    assert.match(src, /extractFromLine/, '"现在抽不抽得出"必须问抽取器自己的出口')
+    assert.match(src, /dispositionOf,/, '桶必须问 plan-task-index 那一份')
+    assert.match(src, /export function noRecordKind/, '分因出口必须可被外部复核')
+    assert.match(src, /无记录行分因/, '报告面必须打印分因,否则读数仍是一团总数')
+  })
+})
+
 describe('分批与出件契约', () => {
   it('--batch 上限 40,越界/非整数一律判用法错', () => {
     assert.equal(P.MAX_BATCH, 40, '规格 §4.3:每批 ≤40 行')
