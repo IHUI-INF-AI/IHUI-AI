@@ -4,6 +4,7 @@
 
 'use client'
 
+import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -64,7 +65,7 @@ const METHOD_KEY: Record<string, string> = {
   bank: 'methodBank',
 }
 
-const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
+const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
 
 export default function WithdrawRecordsPage() {
   const t = useTranslations('distribution')
