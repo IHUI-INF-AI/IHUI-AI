@@ -40,6 +40,7 @@ import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import { initTheme } from './lib/theme'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import { initCrashReport } from './utils/crash-report'
+import { startPageViewTracking } from './utils/visit-tracker'
 import './app.css'
 
 // 初始化 api-client:注入 Taro transport + token provider + baseUrl
@@ -133,6 +134,12 @@ function NetworkStatusHandler() {
         Taro.showToast({ title: t('error.network'), icon: 'none', duration: 2000 })
       }
     })
+  })
+
+  // 页面访问埋点:小程序端没有全局路由钩子,用页面栈轮询(见 utils/visit-tracker 头注)。
+  // 单独一个 useLaunch:上面那块的守卫只覆盖网络监听,不应把埋点一起短路。
+  useLaunch(() => {
+    startPageViewTracking()
   })
   return null
 }
