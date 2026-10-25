@@ -26,6 +26,9 @@
  *   rollback           健康门禁未过,整份退回上一可用包
  *   manual-rollback    人工执行 -rollbackOnly
  *   build-fail         构建失败,未切流
+ *   canary-pass        金丝雀观察窗通过(错误率/延迟未超策略阈值),放量完成
+ *   canary-rollback    金丝雀观察窗异常,自动回滚到上一可用包
+ *   canary-unproven    金丝雀观察窗未判定(样本不足/未知占比过高),不回滚也不冒充通过
  *
  * 用法:
  *   node scripts/deploy-decision.mjs --action rollback --sha <sha> --verdict fail \
@@ -49,6 +52,9 @@ export const DECISION_ACTIONS = Object.freeze([
   'rollback',
   'manual-rollback',
   'build-fail',
+  'canary-pass',
+  'canary-rollback',
+  'canary-unproven',
 ])
 export const DECISION_VERDICTS = Object.freeze(['pass', 'pass-unproven', 'fail', 'entry-broken', 'unknown', 'not-run'])
 
