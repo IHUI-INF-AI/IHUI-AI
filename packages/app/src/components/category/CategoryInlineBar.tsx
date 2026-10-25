@@ -15,7 +15,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import type { CategoryItem, ColorSchemeName } from './types'
 
 export interface CategoryInlineBarProps {
@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: 6,
       height: 32,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.md,
       borderWidth: 1,
       // 底色必须与"它所坐落的容器"不同档:分类条既会落在 surface.bg 页面上,
@@ -223,7 +223,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       height: 16,
       minWidth: 16,
-      paddingHorizontal: 4,
+      paddingHorizontal: rnSpacing.xs,
       borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',

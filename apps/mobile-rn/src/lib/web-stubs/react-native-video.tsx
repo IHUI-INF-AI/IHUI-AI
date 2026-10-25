@@ -15,7 +15,7 @@
 
 import { forwardRef, useImperativeHandle, useRef } from 'react'
 import { View, Text, StyleSheet, type ViewStyle, type StyleProp } from 'react-native'
-import { rnTokens as tk } from '@ihui/design-tokens'
+import { rnTokens as tk, rnSpacing } from '@ihui/design-tokens'
 
 /** 与 react-native-video 的 VideoRef 方法面保持兼容的子集,web 上全部 no-op */
 export interface VideoRef {
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   uri: {
     color: tk.gray[500],
     fontSize: 10,
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
   },
 })
 

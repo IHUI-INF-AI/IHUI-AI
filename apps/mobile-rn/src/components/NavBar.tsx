@@ -13,6 +13,7 @@
  * - 不自绘背景、不画底边线:顶栏与页面同色,由所在屏的 shell 底色透出
  * - 状态栏:顶距由 App.tsx 的 SafeAreaView 单点注入,本组件不再自加(否则双份)
  */
+import { rnSpacing } from '@ihui/design-tokens'
 import { type ReactNode } from 'react'
 import { Image, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native'
 import { tokens } from '../theme/active-tokens'
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
     // 盒宽/盒高/居中唯一源 navbar-spec;gap 与内边距是"图标+文字"并排的端内布局,不是跨端档
     ...navbarActionBoxStyle((px: number) => px),
     paddingHorizontal: 6,
-    gap: 4,
+    gap: rnSpacing.xs,
   },
   actionImage: {
     width: NAVBAR_ACTION_GLYPH_PX,
