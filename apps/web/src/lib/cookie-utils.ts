@@ -13,6 +13,7 @@
  * - getAuthCookie / getRefreshTokenCookie 保留(读 httpOnly 会返回 null,
  *   作为旧版本降级通道——兼容后端仍下发非 httpOnly cookie 的部署;新部署恒返回 null)。
  */
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
 
 const REFRESH_TOKEN_COOKIE = 'refresh_token'
 const AUTH_TOKEN_COOKIE = 'auth_token'
@@ -45,7 +46,7 @@ export function getRefreshTokenCookie(): string | null {
   // 保留实现作为旧版本降级通道(后端仍下发非 httpOnly refresh_token 时可读)。
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${REFRESH_TOKEN_COOKIE}=([^;]+)`))
-  return match?.[1] ? decodeURIComponent(match[1]) : null
+  return match?.[1] ? safeDecodeURIComponent(match[1]) : null
 }
 
 export function clearRefreshTokenCookie(): void {
@@ -61,6 +62,6 @@ export function clearRefreshTokenCookie(): void {
 export function getAuthCookie(): string | null {
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${AUTH_TOKEN_COOKIE}=([^;]+)`))
-  return match?.[1] ? decodeURIComponent(match[1]) : null
+  return match?.[1] ? safeDecodeURIComponent(match[1]) : null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

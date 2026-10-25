@@ -12,6 +12,7 @@ import Taro, { useReady } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as api from '@/api'
 import { AGENT_DIALOGUE_DATA_KEY } from '@/constants/storage'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
 type MsgType = 'user' | 'seller' | 'system'
@@ -454,11 +455,11 @@ export default function AgentDialogue() {
     initedRef.current = true
     const params = Taro.getCurrentInstance().router?.params || {}
     const roomId = (params.roomId as string) || (params.id as string) || ''
-    const roomName = params.room_name ? decodeURIComponent(params.room_name as string) : ''
+    const roomName = params.room_name ? safeDecodeURIComponent(params.room_name as string) : ''
     const receiverUuid = params.receiver_uuid
-      ? decodeURIComponent(params.receiver_uuid as string)
+      ? safeDecodeURIComponent(params.receiver_uuid as string)
       : ''
-    const avatar = params.avatar ? decodeURIComponent(params.avatar as string) : ''
+    const avatar = params.avatar ? safeDecodeURIComponent(params.avatar as string) : ''
 
     roomIdRef.current = roomId
     receiverUuidRef.current = receiverUuid
