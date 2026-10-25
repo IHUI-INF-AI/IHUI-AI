@@ -152,7 +152,8 @@ export function AppTopupScreen({
         </TouchableOpacity>
       </ScrollView>
 
-      <Modal visible={introVisible} transparent animationType="fade">
+      {/* 安卓返回键关"充值说明"(与 modalClose/我知道了 同语义),不再穿透到退出确认 */}
+      <Modal visible={introVisible} transparent animationType="fade" onRequestClose={onCloseIntro}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>充值说明</Text>
