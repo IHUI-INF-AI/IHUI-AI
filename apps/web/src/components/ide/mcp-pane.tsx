@@ -421,7 +421,11 @@ function DetailPanel({
   const [skillLoading, setSkillLoading] = React.useState(false)
 
   // skills tab:选中后加载详情(getSkill 返回 prompt_template)
+  // 在途序号:选中项在 fetch 途中被切换时,旧 skill 的迟到响应不得覆盖新选中项的详情
+  // (DetailPanel 常驻不重挂载,原来每次都把迟到的详情直接 setSkillDetail ⇒ 张冠李戴)。
+  const skillSeqRef = React.useRef(0)
   React.useEffect(() => {
+    const mine = ++skillSeqRef.current
     if (tab !== 'skills') {
       setSkillDetail(null)
       return
@@ -434,9 +438,11 @@ function DetailPanel({
     setSkillLoading(true)
     getSkill(item.key)
       .then((r) => {
-        if (r.success) setSkillDetail(r.data)
+        if (skillSeqRef.current === mine && r.success) setSkillDetail(r.data)
       })
-      .finally(() => setSkillLoading(false))
+      .finally(() => {
+        if (skillSeqRef.current === mine) setSkillLoading(false)
+      })
   }, [tab, item.key, item.raw])
 
   // schema 字段提取(工具用 inputSchema,提示词用 arguments)

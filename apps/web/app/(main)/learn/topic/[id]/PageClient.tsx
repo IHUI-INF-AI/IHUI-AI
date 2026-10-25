@@ -43,13 +43,20 @@ export default function LearnTopicDetailPage() {
 
   const [premiumLessons, setPremiumLessons] = React.useState<TopicLesson[]>([])
   const [premiumError, setPremiumError] = React.useState(false)
+  // 在付费课请求的在途序号:effect 重跑/切课时,旧响应一律作废(见下方 effect)。
+  const premiumSeqRef = React.useRef(0)
 
   React.useEffect(() => {
     if (data?.source === 'premium') {
       setPremiumError(false)
+      // 在途序号(2026-10-26):topic 间快速切换/重挂载时,旧请求迟到响应不得覆盖新课列表(串课)。
+      const mine = ++premiumSeqRef.current
       fetchPremiumLessons(id)
-        .then(setPremiumLessons)
+        .then((list) => {
+          if (premiumSeqRef.current === mine) setPremiumLessons(list)
+        })
         .catch(() => {
+          if (premiumSeqRef.current !== mine) return
           setPremiumLessons([])
           setPremiumError(true)
         })
