@@ -13,9 +13,6 @@ vi.mock('../src/utils/ssrf-guard.js', () => ({
   ensureSafeFetchUrl: vi.fn().mockResolvedValue(undefined),
   assertSafeFetchUrl: vi.fn().mockResolvedValue({ safe: true }),
   isPrivateOrReservedIp: vi.fn().mockReturnValue(false),
-  // 安全出口透传到被 spy 的 global fetch,保持既有 fetch 断言语义
-  safeFetch: (...args: unknown[]) =>
-    (globalThis.fetch as unknown as (...a: unknown[]) => unknown)(...args),
 }))
 
 import { BrowserAutomation, getBrowserAutomation } from '../src/services/clawdbot/browser.js'

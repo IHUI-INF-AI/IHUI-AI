@@ -57,27 +57,13 @@ test('挂点位置:必须排在两把清扫器派发之后(同轮 tick 刚刷新
 })
 
 test('只读探针铁律:不改守护退出码、不喊人(§12e 恒红门禁令)', () => {
-  // 2026-10-24 auditIndexUnmerged 插进两个 marker 之间后,"两 marker 之间切一刀"会把
-  // 邻位函数的合法 notify 算进本格头上(实测假红)。铁律判的是**本体**,取景=函数自身跨度:
-  // 从本函数声明起,到下一个顶层 `export function` 止。
-  const start = GUARDIAN_SRC.indexOf('export function auditSweeperLiveness')
-  assert.ok(start >= 0, 'auditSweeperLiveness 必须仍住在 git-guardian.mjs')
-  const next = GUARDIAN_SRC.indexOf('\nexport function', start + 1)
-  const body = GUARDIAN_SRC.slice(start, next > 0 ? next : GUARDIAN_SRC.length)
-  assert.ok(
-    !next || body.length < 9000,
-    `跨度异常(截到 ${body.length} 字符)⇒ 取景没停在下一个导出函数前,锁在判别人`,
+  const body = GUARDIAN_SRC.slice(
+    GUARDIAN_SRC.indexOf('export function auditSweeperLiveness'),
+    GUARDIAN_SRC.indexOf('export function auditTunnelLegHealth'),
   )
   assert.ok(!/notifyGuardRed/.test(body), '本格判的是巡检层空转,与提交内容无关 ⇒ 不得 notify')
   assert.ok(!/process\.exit/.test(body), '探针自己不得改退出码')
   assert.ok(/readProbeVerdict/.test(body), '结论必须走 readProbeVerdict 三态分档(rc=1/2 的 stdout 也是结论)')
-  // 牙的自证:把邻位函数(auditIndexUnmerged 的合法 notify)拼进取景窗 ⇒ 必须仍能区分 ——
-  // 变异对照:若有人把"两 marker 切法"改回来,这一臂会红。
-  const oldWaySlice = GUARDIAN_SRC.slice(
-    GUARDIAN_SRC.indexOf('export function auditSweeperLiveness'),
-    GUARDIAN_SRC.indexOf('export function auditTunnelLegHealth'),
-  )
-  assert.match(oldWaySlice, /notifyGuardRed/, '前提核对:旧两-marker 切法确实会吞进邻位 notify(这正是假红的成因)')
 })
 
 // ── 节流 ─────────────────────────────────────────────────────────────────────

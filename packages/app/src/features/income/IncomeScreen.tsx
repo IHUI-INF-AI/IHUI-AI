@@ -1,4 +1,3 @@
-import { formatPrice } from '@ihui/shared/utils'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -8,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, ScrollView, StyleSheet } from '
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IncomeCommissionItem, IncomeData, IncomeScreenProps } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -17,8 +16,7 @@ export type { IncomeCommissionItem, IncomeData, IncomeScreenProps }
 
 /** 后端金额以「分」存储,换算为元(两位小数) */
 function fmtYuan(cents: number): string {
-  // 委托全仓唯一出口(2026-10-26):非有限值同回 '0.00',旧语义逐字保留
-  return Number.isFinite(cents) ? formatPrice(cents) : '0.00'
+  return Number.isFinite(cents) ? (cents / 100).toFixed(2) : '0.00'
 }
 
 /**
@@ -182,7 +180,7 @@ export function IncomeScreen({
           data={filteredList}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
-          contentContainerStyle={{ gap: 12 }}
+          contentContainerStyle={{ gap: rnSpacing.md }}
           ListEmptyComponent={<EmptyState title={t('income.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => {
             const st = statusOf(item)
@@ -235,30 +233,25 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 10, paddingBottom: 32 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    body: { padding: 10, paddingBottom: rnSpacing['3xl'] },
     summaryCard: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
     summaryRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
-    /* 读数不得被切成两行(AGENTS §4 / docs/UI_GUIDELINES.md §13):
-       等分 flex:1 会把格子压到任意窄 ⇒ 「¥999999.99」在 375 屏 3 等分下只剩 117px。
-       minWidth = 最坏读数的单行宽(10 字符 × 20px 数字宽 ≈ 0.55em ⇒ 110 + 余量),
-       配合父级 flexWrap ⇒ 放不下就整格换行,而不是把数字切断。 */
-    summaryItem: { flex: 1, minWidth: 112, alignItems: 'center' },
-    summaryLabel: { fontSize: 11, color: tk.text.secondary },
+    summaryItem: { flex: 1, alignItems: 'center' },
+    summaryLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
     summaryValue: {
-      marginTop: 8,
-      fontSize: 20,
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
     },
@@ -269,16 +262,16 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    withdrawBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    withdrawBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
     sectionTitle: {
-      marginTop: 12,
-      marginBottom: 8,
-      fontSize: 18,
+      marginTop: rnSpacing.md,
+      marginBottom: rnSpacing.sm,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     // 状态 Tab 栏(对齐 Uniapp tab-list)
-    tabs: { paddingVertical: 8, gap: 8 },
+    tabs: { paddingVertical: rnSpacing.sm, gap: rnSpacing.sm },
     tab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
@@ -286,10 +279,10 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.cta },
-    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -302,44 +295,44 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: {
       flex: 1,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginRight: 8,
+      marginRight: rnSpacing.sm,
     },
-    cardStatus: { fontSize: 11, fontWeight: '600' },
+    cardStatus: { fontSize: rnType.caption.size, fontWeight: '600' },
     statusSettled: { color: tk.success.DEFAULT },
     statusPending: { color: tk.warning.DEFAULT },
     // 取消结算(对齐 Uniapp 取消结算状态)
     statusCancelled: { color: tk.text.tertiary },
     // 下单人
-    cardBuyer: { fontSize: 12, color: tk.text.secondary, marginTop: 6 },
+    cardBuyer: { fontSize: rnType.label.size, color: tk.text.secondary, marginTop: 6 },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
-    cardTime: { fontSize: 11, color: tk.text.tertiary },
-    cardAmount: { flexShrink: 0, fontSize: 16, fontWeight: '700', color: tk.success.DEFAULT },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardAmount: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },
     // 关联订单 + 复制按钮
     copyRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 8,
-      gap: 8,
+      marginTop: rnSpacing.sm,
+      gap: rnSpacing.sm,
     },
-    cardOrder: { flex: 1, fontSize: 11, color: tk.text.tertiary },
+    cardOrder: { flex: 1, fontSize: rnType.caption.size, color: tk.text.tertiary },
     copyBtn: {
-      paddingHorizontal: 12,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,
     },
-    copyBtnText: { fontSize: 12, fontWeight: '500', color: tk.brand.DEFAULT },
+    copyBtnText: { fontSize: rnType.label.size, fontWeight: '500', color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

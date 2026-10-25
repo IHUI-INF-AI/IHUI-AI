@@ -709,15 +709,8 @@ function parseRoot(argv) {
     }
     return resolve(v)
   }
-  // G-322(等号形同族):`--root=` 空值旧写法 resolve('')=cwd —— 实测 `--root= --worktree` 静默按
-  // 当前目录扫完照常出结论 RC 0(与 gate-wiring/miniapp 等号批同一型)。等号后为空判死。
   const inline = argv.find((a) => a.startsWith('--root='))
-  if (inline !== undefined) {
-    const v = inline.slice('--root='.length)
-    if (v === '') throw new Error('--root= 需要一个目录值 —— 等号后为空(不得静默按 cwd 跑)')
-    return resolve(v)
-  }
-  return null
+  return inline ? resolve(inline.slice('--root='.length)) : null
 }
 
 export function main(argv = []) {

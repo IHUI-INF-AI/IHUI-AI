@@ -22,13 +22,13 @@ fail-closed 拒绝会以"任务失败(可重放一次)"的形式如实穿透队�
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
 import uuid
-from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 

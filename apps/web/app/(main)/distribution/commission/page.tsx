@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -67,7 +66,7 @@ const TYPE_KEY: Record<number, string> = {
   2: 'commissionType2',
 }
 
-const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
+const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
 export default function MyCommissionPage() {
   const t = useTranslations('distribution')

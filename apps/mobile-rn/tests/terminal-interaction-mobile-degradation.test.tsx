@@ -42,7 +42,15 @@ vi.mock('expo-audio', () => ({
   setAudioModeAsync: vi.fn(async () => {}),
   useAudioRecorder: () => ({}),
 }))
-
+vi.mock('react-native', async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>()
+  const platform = mod['Platform'] as Record<string, unknown> | undefined
+  if (platform && typeof platform.select !== 'function') {
+    platform.select = (spec: Record<string, unknown>) =>
+      'web' in spec ? spec['web'] : (spec['android'] ?? Object.values(spec)[0])
+  }
+  return mod
+})
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     navigate: vi.fn(),

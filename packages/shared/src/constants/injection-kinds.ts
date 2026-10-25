@@ -21,7 +21,6 @@ export const INJECTION_KINDS = [
   'repo_wiki',
   'auto_context',
   'iteration_extension',
-  'expert_pack',
 ] as const
 
 /** 注入来源 kind(闭集;未知 kind 在展示层回落 `collapsed`) */
@@ -38,7 +37,6 @@ export const INJECTION_KIND_KEYS = {
   repo_wiki: 'injectionKindRepoWiki',
   auto_context: 'injectionKindAutoContext',
   iteration_extension: 'injectionKindIterationExtension',
-  expert_pack: 'injectionKindExpertPack',
 } as const satisfies Readonly<Record<InjectionKind, string>>
 
 /**

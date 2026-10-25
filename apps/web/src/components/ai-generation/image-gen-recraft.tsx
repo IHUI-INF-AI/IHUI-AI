@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 
 const SIZES = ['1024x1024', '1365x1024', '1024x1365'] as const
@@ -44,11 +44,12 @@ export function ImageGenRecraft() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; model: string; size: string; style: string }) => {
-      const res = await api<unknown>('/api/ai/recraft/generate', {
+      const res = await fetchApi<unknown>('/api/ai/recraft/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      const urls = extractMediaUrls(res)
+      if (!res.success) throw new Error(res.error)
+      const urls = extractMediaUrls(res.data)
       if (urls.length === 0) throw new Error(t('noResult'))
       return urls
     },

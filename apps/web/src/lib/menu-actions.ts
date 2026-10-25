@@ -67,7 +67,7 @@ export async function dispatchMenuAction(id: MenuActionId): Promise<void> {
       // 简单 toast 占位(后续可换 Modal 显示版本号/版权/快捷键 cheat sheet)
       const { toast } = await import('sonner')
       toast('智汇AI Desktop', {
-        description: '© 2026 IHUI-AI · 工作空间权限 + 9 端协同 + 100+ 模型',
+        description: '© 2026 IHUI-AI · 工作空间权限 + 8 端协同 + 176 模型',
         duration: 4000,
       })
       return

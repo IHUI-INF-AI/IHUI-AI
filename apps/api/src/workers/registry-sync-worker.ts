@@ -107,7 +107,6 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
       let synced = 0
       let failed = 0
       let skipped = 0
-      let deduped = 0
       // d2:聚合 newVersion(取第一个非空) + oldVersion(取第一个版本有变化的)
       let newVersion: string | null = null
       let oldVersion: string | null = null
@@ -130,7 +129,6 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         skipped = result.skipped
         failed = result.failed
         hashList = result.hashList
-        deduped = result.deduped ?? 0
 
         // d2:聚合 oldVersion(取第一个版本有变化的) + newVersion(取第一个非空)
         for (const ov of result.oldVersions) {
@@ -188,15 +186,6 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         }
       }
 
-      if (deduped > 0) {
-        // 上游分页重叠的可见性(2026-10-25 宕因):去重救了整批,但"上游在同一轮里换了序"
-        // 这件事必须留一行 —— 下次谁改这段,量得到它还会发生。
-        server.log.warn(
-          { jobId: job.id, deduped, fetched: items.length },
-          'registry-sync: 批内复合键去重(上游 offset 分页在同一轮出现重叠条目,后页覆盖前页)',
-        )
-      }
-
       server.log.info(
         {
           jobId: job.id,
@@ -204,7 +193,6 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
           failed,
           skipped,
           total: items.length,
-          deduped,
           durationMs: Date.now() - startedAt.getTime(),
         },
         'registry-sync: 同步任务完成',

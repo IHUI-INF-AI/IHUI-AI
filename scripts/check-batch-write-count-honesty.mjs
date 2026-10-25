@@ -4,7 +4,333 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
-/** 〈原 332 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#batch-write-L7〉 应急跳过 HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY=1;check-batch-write-count-honesty.mjs — 批量写端点的 affected/deleted 不得由请求侧自算 */
+/**
+ * check-batch-write-count-honesty.mjs — 批量写端点的 affected/deleted 不得由请求侧自算
+ *
+ * 在修什么(本批实测成因,不是抽象理由):同一批里人肉逐文件找到 8 处"批量写端点把
+ * affected/deleted 由请求侧 `.length` 自算"的静默失真(chat.ts 批量、admin-sys/role-routes.ts
+ * cancelAll+selectAll、admin-demand-square.ts、admin/_shared.ts registerCrud 批量删、
+ * message.ts 批量删、workspace.ts batch-delete/batch-restore)。症状是**改了 0 行与改成功返回完全
+ * 同形** —— 不报错、typecheck 全绿、单测不红,只有用户看到"已删除 3 条"而库里一条没动。修法是唯一
+ * 出口 `apps/api/src/utils/batch-outcome.ts`(dedupeIds / batchWriteOutcome)+ db 层用
+ * `.returning({id})` 回报真实命中集合。**没有尺子,下一批同类端点照样进 HEAD** —— 这正是本仓全部
+ * 守门的立项理由。
+ *
+ * 判据(一条,窄口径,宁漏不误报):在 `apps/api/src/routes/**` 与 `apps/api/src/db/**` 的
+ * 跟踪文件里,同一**函数体**内
+ *   ① 有一条 `db|tx|trx` 发起的 `.delete(`/`.update(` 链,链上带 `.where(` 且其中出现 `inArray(`;
+ *   ② 且该链**之后**有 `.send(success({ … (deleted|affected|restored|removed|count): <点号链>.length … }))`。
+ *
+ * 四条放过通道(任一成立即不算违规,各有一支正反对照钉住):
+ *   E1 链上带 `.returning(` —— 计数来自库确认的返回集;
+ *   E1b 计数根标识符可追到库确认的集合(归属预查询 `select … where inArray(…)` / returning 结果,
+ *       ≤2 跳)。必须有这一条:唯一出口自己的定义就是"affected 由库确认的集合(… / **归属预查询
+ *       命中集**)推出",只看 `.returning(` 会把 `business-card-routes.ts` 那种正确写法判成红。
+ *   E2 该文件 import 了 `utils/batch-outcome`(已在唯一出口上);
+ *   E3 命中行或其紧邻上一行有行内豁免 `batch-count-exempt: <原因>` —— **必须带非空原因**,裸标记
+ *       不算(与门 102/108 同规矩),且必须在注释里(否则把标记写进字符串就能冒充豁免)。
+ *
+ * 刻意不判的邻近形状(反向锁,不得为消红放宽判据):N1 布尔确认里**与写链无关的那一型**(同函数体内
+ * 没有 db|tx|trx 的 delete/update ⇒ 它只是"惯例 ack",改它属全 API 语义决策,不归这道门顺手做;带写链
+ * 的那一半自 2026-09-27 起升级成判据 **B1**,见下一段)与"布尔档的值是一枚比较式"那一型;
+ * N2 `count: rows.length` 读查询计数(函数体内无写链);
+ * N3 注释与字符串里的字样 —— 判据跑在"剥注释 + 抹字符串"的代码面上,模块说明符是唯一例外(E2 只能
+ * 从字符串里读),所以 import 判据跑在另一档上;两型遮噪方向不同,门 118 头注记过同一条教训,各有用例。
+ *
+ * **布尔档的键族(2026-09-27 第二十九批扩面)**:判据此前只认 `deleted` 一个键,于是"同一形状换个
+ * 键名"整型隐身 —— 第二十八批(`9155c57ed06`)逐体清掉的 15 处里,10 处改真的键是 removed/restored/
+ * revoked/cleared,判据一处也看不见,下一次同样写法照样进 HEAD 而门一路报绿。当时键族 =
+ * `deleted | removed | restored | revoked | cleared`(BOOL_ACK_KEYS 一份真相:判据正则、按键分组的
+ * 报表、结论行逐键点名三处都从它派生;自检 K0 另备一份**独立写死**的期望表对账它有没有被削短)。
+ * **2026-10-22 扩面(本批)**:全仓普查成功信封里的布尔 ack,五键之外还有 `updated` 13 处、
+ * `created` 10 处,都是"写结果 ack"(UPDATE/INSERT 之后承诺"改/建成了一行"),与五键**同一形状、
+ * 同一语义类别**;不纳入就继续整型隐身。故键族现为 **七键**,`updated` / `created` 一并纳入
+ * `BOOL_ACK_KEYS`。其余信封键(`success` / `ok` / `received` / `accepted` / `notAvailable` 等)是
+ * 业务状态或通用包裹标志,不是写结果 ack,**不进键族**;`success: true` 尤其只是一层通用包裹
+ * (信封内 37 处,与"到底写了哪一行"无关),纳进来只会把整型的读数稀释。扩面后 HEAD 存量按既有
+ * 棘轮只报数,**不写基线、不写白名单**。
+ * **不与 COUNT_KEYS 复用同一个常量**:那张表问的是"自算的计数值",这张表问的是"布尔档承诺了什么",
+ * 且键集并不相同(前者有 affected/count 无 revoked/cleared,后者反之)—— 合并就是混计。
+ * 报表**按键分组**(`booleanAckByKey`,键族恒在位含 0),因为扩面后"合计 17 处"这句话分不清
+ * "新那一族一处没有"与"新那一族全是" —— 而这两种情况的下一步动作完全不同。
+ *
+ * 四类"证据在别处"的放过通道(2026-09-27,第二十九批:扩键族必须同时扩**认证据**的能力,否则
+ * 第二十八批逐体判为诚实的五处会被新键当场判红 = 与任何提交都无关的恒红门,§12e):
+ *   ① 一跳委托的 RETURNING —— B2 的被调体可以做**两件**写事(实测 `detachTag`:先
+ *     `delete … .returning()` 拿命中集,再把计数列 -1 的 update 不带 returning)。旧口径"任一链缺
+ *     returning 即违规"把这种**已诚实**的形状判红。现按 ack 键筛写动词(BOOL_ACK_KEY_VERBS):
+ *     只有该动词的链参与定罪,筛完没有匹配链则**退回旧口径**(只少误伤、不给"根本没做过那次写"发
+ *     合格证);摘掉那条 returning 后同一夹具必读红(K12)。**B1 不做这一层筛选** —— 调用方体内任何
+ *     db 写都算"这一屏真发了写",筛动词等于削弱 `deleted` 那一族既有判据(自检 B1b 钉着)。
+ *   ② 原生 SQL 里的 RETURNING —— `db.execute(sql\`DELETE … RETURNING id\`)` 的库答复住在模板串里,
+ *     而模板内容在遮蔽后的代码面上被抹成空格,既有 F1 的 `.returning(` 结构上读不到它。现另开一条:
+ *     在"剥注释、**保留字符串**"那一档(与 E2 的 import 说明符同一档、同一份取材)按同一行号窗口读
+ *     execute 调用的原文,RETURNING 关键字必须落在**该次调用的括号内**才算(注释里提一句不配放过 ——
+ *     与"注释里的 .returning( 不算"同一条规矩)。
+ *   ③ 内存 store/Map 的删除返回真布尔 —— 由**接收者白名单**放过(db|tx|trx 之外不算库写),
+ *     这一型没有"库侧行"的概念,不属本型(自检 K5/K6 各钉一处真实形状)。
+ *   ④ 同响应里另有诚实字段承载行数 —— `{ cleared: true, deleted, prefix }`:受影响键数由同一份响应里
+ *     那枚行数键(简写形态)诚实承载,布尔档不承诺行数。**只认简写**:带冒号的那一支随便写个不相干的
+ *     标识符就能洗白,所以结构上不匹配(自检 K9 去掉载体必红 / K10 带冒号那支仍红)。
+ *   ②③④ 的放过都**折进既有的 confirmed 桶**(它们说的是"库答复已在别处存在",不是"有人给了豁免"),
+ *   所以 b1* 与 b2* 的既有键、取值形态一字不变;具体靠哪一条证据放过由 confirmWhy 带出(`--explain` 里
+ *   点名)—— "放过"与"没看见"必须能各自被问到。
+ *   **原"已知空档"已于同日关闭(第三十批)**:门此前**不把** `db.execute(sql\`DELETE …\`)` 当成一条
+ *   写链(只把它当放过的证据),所以"原生 SQL 发了写 + 回布尔 true + SQL 里没有 RETURNING"这一格
+ *   B1/V 都看不见。现已补上 **裸 SQL 写链**这一维(`findRawSqlWriteChains`,写判据用
+ *   `DELETE FROM` / `UPDATE <ident>` / `INSERT INTO` / `TRUNCATE TABLE` 的**搭配式**而非裸关键字,
+ *   以免把 `WHERE action = 'UPDATE'` 这类读查询判成写)。**仍开着两格,如实登记**:
+ *     ① B2 那一跳(ack 在调用方、写住在**另一个文件**的委托函数里)仍只认 drizzle 链 —— 触发条件
+ *       ("任一 ack 落点的最小函数体 await 了体内含无 RETURNING 裸 SQL 写的具名函数 ⇒ 必补",票 守门134)
+ *       现由 `measureB2RawSqlTrigger` 在 HEAD 面**可复跑**地普查(镜像 M24 带阳性/阴性对照钉它不是
+ *       瞎眼量出来的 0)。2026-09-28 复跑:一跳 15 条、命中 0 ⇒ 判据不动。出现该形状的那天 M24 当场红,
+ *       接维时读 `indexExportedFns` 的 rawBodyText("保留字符串"那一档已随测量收进,索引不用再改)。
+ *     ② ack 键在 `BOOL_ACK_KEYS` 五键**之外**的同一形状 —— **2026-10-22 已扩面关闭**:
+ *       `updated` / `created` 经全仓普查后已纳入键族(普查数据与语义理由见上"布尔档的键族"一段)。
+ *
+ * B1(2026-09-27 立):布尔 ack 里**可判的那一部分**从"只报数"升级成棘轮判据。用户已拍板把
+ * `deleted: true` 改成真实语义(= 库里真删了一行,6 路并行改造在跑),所以"函数里真发了 delete/update,
+ * 却无条件回 `deleted: true`"从惯例变成了**已知在偿的债** —— 新写一处这种假 ack、或把已改真的点改回
+ * 字面量,都必须当场红;而 HEAD 存量不判红(与改动无关的恒红门唯一结局是逼人 `--no-verify`,§12e)。
+ *   判据一条:同一**函数体**内 ① 有一条 `db|tx|trx` 发起的 `.delete(`/`.update(` 链(不要求 inArray ——
+ *     B1 只问"这一屏真的发了写",不问命中集算法),② 有 `.send(<X>success({ … deleted: true … }))`
+ *     字面量(与 V1 **共用同一份取材**:`sendSuccessObjects` + `findBooleanAckSends`,两处各扫一遍必漂移,
+ *     M13 的 send-success 扫描式单点锁同时管住这一族),③ 体内没有 `.returning(`、也没有 `batchWriteOutcome(`
+ *     ⇒ 违规。判据只在**响应对象面**里找 `deleted: true` —— select 结果映射、类型注解、注释、字符串里的
+ *     同字样一律不算(所以它不是整行 grep,`B1r` 用例钉死这一点)。
+ *   两条放过通道(与违规判据同一次扫描内判定,各配正反用例):
+ *     F1 同函数体有 `.returning(` 或 `batchWriteOutcome(` 调用 —— 已是库确认口径(注释/字符串里的这两个
+ *        字样不算:判据跑在遮蔽后的代码面上);
+ *     F2 行内豁免 `delete-ack-exempt: <原因>` —— **必须带非空原因**(裸标记不计,同门 102/108 的
+ *        "注释闭合符冒充原因"教训)、**必须落在注释里**(字符串里的标记不算)、**只命中本行生效**(比
+ *        `batch-count-exempt` 的"本行或紧邻上一行"更严:假 ack 的标记写在上一行是直觉动作,那条通道
+ *        宽一寸,一个标记就能救整块,反向锁由 `B1p②c` 钉住)。它已登记进守门 108 的
+ *        `FAMILY_LIFETIME_DAYS` 取 **30 天** —— 这是待偿的迁移债,不是结构性定性。
+ *   **E2(文件级 import 唯一出口)刻意不救 B1**:import 了 `utils/batch-outcome` 不等于这一处 ack
+ *     走了库确认(实测 fixture `b1OutletFileStillJudged`),文件级放过是计数判据的口径,搬过来就
+ *     把最典型的"迁了一半的端点"洗成通过。
+ *   棘轮锚点 = **该文件 HEAD 自身的 B1 计数**(与门 70/77/83/98 同形,禁止手工白名单文件清单 ——
+ *     清单必然腐烂):存量只报数、新增即红、把已改真的点改回字面量即红、清掉后锚点自动下降。
+ *   结构性看不见的一格如实报数:布尔 ack 落在**解析不出函数体**的位置(模块顶层、class 方法简写等)
+ *     ⇒ `b1NoBody` 只报数不判红也不记绿;`--strict` 下与既有未判定同档 ⇒ 拒绝出合格证(exit 2)。
+ *
+ * B2(2026-09-27 立,与 B1 并列、各计各的):**把"一跳委托"接进判据 —— 防的是摘掉 .returning( 的回退**。
+ *   B1 只看**同一函数体**内有没有写链,而 HEAD 面 38 处布尔 ack 里有一批的写法是
+ *   `await deleteXxx(id)` + `deleted: true` —— 真 `db.delete()` 住在**另一个文件**的被委托函数里,
+ *   函数体看不见写链 ⇒ **B1 结构上失明**。第二十六批刚把这一族改成"委托函数回报 RETURNING 命中集";
+ *   以后谁把某个委托函数里的 `.returning(` 摘掉(或把路由改回 `deleted: true`),B1 一声不响,
+ *   而账面仍是"这一族已清零"。B2 就是把这一跳接上。
+ *   判据:ack 所在函数体 ①**没有**直接写链(有链那一子集归 B1,同一格不得两道判据各计一次),
+ *   ②体内 `await` 了**经 import 说明符解析到本仓 `apps/api/src` 文件**的具名导出函数(一跳,不追传递闭包),
+ *   ③被调函数体含 `db|tx|trx` 上带 `.where(` 的 `.delete(`/`.update(` 链、**该链没有 `.returning(`**,
+ *   ④被调函数体内也没有 `batchWriteOutcome(` ⇒ 违规。
+ *   三条刻意收窄,每条都落到"未判定"并报数、在结论行点名(绝不静默算通过,也绝不因判不出而判红):
+ *     N1 命名空间转发(`import * as ns` + `await ns.del()`)、`export * from` / `export {} from` 再导出、
+ *        第三方与 workspace 包(`fastify` / `@ihui/database`)、被调文件不在所判面、相对/别名路径解析不到、
+ *        被调符号不是可解析的函数导出、被调链 opaque(where 里混函数字面量)⇒ **未判定**;
+ *     N2 被调函数体解析到了但**根本没有带 where 的写链**(纯归属预查、软删标记走别的路径)⇒
+ *        判"无写链",这是真绿,不塞进未判定充数;
+ *     N3 ack 体内既没有被 await 的 import 具名函数、也没有 N1 那些形态 ⇒ **不入 B2 的账**
+ *        (它已由 V1 的布尔 ack 惯例数逐条点名,再计一次就是把同一格算两遍)。
+ *   豁免:与 B1 **同一条通道、同一份实现** —— `delete-ack-exempt: <原因>`,只本行生效,原因不得由
+ *     注释闭合符冒充(M16 那把"不得另写第二份豁免判法"的锁同时管住这一族)。
+ *   取材:被调函数体与调用方**同面同轮**(head 判 HEAD、staged 判索引、worktree 判磁盘),needs 清单由
+ *     调用方那一遍得出、在同一次 analyze 里一次读满;枚举表(`ls-tree`/`ls-files`)也按同一面取,
+ *     不得"清单来自磁盘 + 内容来自 HEAD"。
+ *
+ * B3(2026-09-30 立,G-815953):批量回填的 UPDATE 必须带「上一次迁移应用时刻」的时间上界谓词。
+ *   背景:回填按"当前最新数据"重算历史,会把两次迁移之间用户写入的值当旧格式覆盖。唯一出口
+ *   `apps/api/src/utils/backfill-baseline.ts`(assertBaselineTime fail-closed + backfillWhere 强制
+ *   lte(col, baseline))已先行落库;本判据守的是"下一个回填落点只能走这里"。
+ *   判据一条:`db|tx|trx` 的 `.update(` 链,`set(` 实参命中**迁移记账列**(migrationBatch /
+ *   migration_batch / legacyId / legacy_id / legacyTable / legacy_table)—— 收窄到"写迁移记账列"才算
+ *   回填:软删形状 `set({deletedAt/revokedAt: new Date()}).where(and(eq(...), isNull(...)))` 与回填词法
+ *   同形且 HEAD 实测十几处,任何按 isNull 划线的判据都是恒红门(§12e),自检 B3d 钉死这一条;
+ *   且 `where(` 实参里**没有**时间上界谓词(lte( / lt( / backfillWhere( / `<=` 任一)⇒ 违规;
+ *   无 where 的全表无界 update 同判。裸 SQL 维:`db.execute` 的 `UPDATE` 语句同判(取材"保留字符串"
+ *   那一档,`<=` 在 SQL 串里可读)。
+ *   放过:where 实参出现上界谓词即绿 —— 走 backfillWhere 出口的,其实参自带 `backfillWhere(` 字样。
+ *   **无行内豁免通道**:回填没有"确属有意无界"的合法场景(fail-closed 出口已把语义钉死),红点的
+ *   唯一正解是补上界/走出口;应急走 SELF_SKIP。
+ *   存量口径:head 实测 0(drizzle 与裸 SQL 两维),走与 B1/B2 同款「head 默认只报数、--strict 判红、
+ *   staged 差值棘轮」三档,decide 签名收 b3Violations(签名即判据)。
+ *   判不了格(如实登记):①落点在 SCAN_DIRS 之外的独立回填脚本;②接收者非 db|tx|trx 裸标识符
+ *   (含 `db.with(...).update` —— 既有链扫描对这一形态整体失明,V/B1/B2 同一取材,非本判据新欠的债);
+ *   ③上界谓词经中间变量间接拼装(如 `const w = cond ? lte(...) : undefined` —— whereText 只看一跳字面);
+ *   ④drizzle 链 where 里用 sql`…<=…` 模板写上界 ⇒ 遮蔽面(blankStrings 档)读不到模板内容,按无上界计
+ *   (fail-closed:新写该形态请用 lte() 表达式,别用模板串)。
+ *
+ * B4(2026-09-30 立,G-815956):迟到终态事件不得把已终态记录改回活动态 —— `update` 写 status/state
+ *   列而 where 无对**同一状态列**的 eq/in/ne 前置,等于把"改哪几行"交给调用方纪律。
+ *   判据一条:`.update(` 链 `set(` 实参里出现**字面量** status/state 键(遮蔽面把字符串值抹空 ⇒
+ *   `status:` 后紧跟 `,`/`}` 才算字面量;变量值/简写/spread 在遮蔽面上有可见 token,一律不进面)
+ *   且 whereText 无同列 eq/ne/inArray/in 前置 ⇒ 违规。
+ *   **棘轮专用维(与 B1/B2/B3 不同档,理由如实登记)**:head 实测存量 53 处(agents/order/team/
+ *   workflow 等 db 层与 edu-ai-management 等路由层),镜像红形状与存量词法**完全同形**、收窄到 0 不得
+ *   —— 按票面拍板"现存违规报数不判红,只拦新增":head 面(含 --strict)**只报数、永不判红**
+ *   (decide 签名**刻意不收** b4Violations —— "签名即判据"是结构锁不是注释约定,自检 B4D 钉住);
+ *   staged 面走「该文件 HEAD 自身 B4 计数」差值棘轮,净新增即红。棘轮粒度 = 文件 × 判据(**无键**:
+ *   状态列没有 ack 键族,"换值逃逸"在这一维不成立)。
+ *   判不了格(如实登记;票面明说上游 settleSessionInput / markSessionInput 等判不了):
+ *   ① set 值来自变量/简写/spread ⇒ 词法非字面量,不进面(状态机收口的语义判定不做);
+ *   ② 值是数字枚举码(set({status: 2}))⇒ 数字字面量在遮蔽面可见、与变量同格,字面量判据
+ *     (值被抹空形态)结构上不认 —— 判不了,不假装已解决;
+ *   ③ `as` 断言字面量(set({status: 'x' as T}))⇒ 遮蔽面 `status:` 后跟标识符,不进面;
+ *   ④ 前置写在 sql`…` 模板里 ⇒ 遮蔽面读不到,按无前置计(fail-closed:新写请用 eq() 表达前置);
+ *   ⑤ 裸 SQL 的 `UPDATE … SET status = 'x'`:存量实测 0,但字面量与前置在 SQL 串里另成词法体,
+ *     本版**刻意只认 drizzle 链**(收窄,登记;该形状出现的那天由镜像正例扩面接维);
+ *   ⑥ "该列是否真是终态列"是语义问题,词法只认列名 status/state。
+ *
+ * B5(2026-09-30 立,G-815955):按可空/非唯一排序列 ORDER BY 必须带确定性尾键 —— 单键
+ *   `orderBy(asc(t.sortOrder))` 下同值行在两次查询间没有确定座位,分页漂移(上游经验:
+ *   `order by sequence is null, sequence, time_created, rowid` 每级都有确定性尾键)。
+ *   判据一条:遮蔽面上的 `.orderBy(` 实参,顶层**单键**且恰是 `asc(<t>.<col>)` / `desc(<t>.<col>)`
+ *   形态、<col> ∈ {sortOrder, sortOrderInGroup, position, sequence}(票面点名的可空/非唯一排序键族)
+ *   且无后续尾键 ⇒ 违规;首键同族但后面还有键(如 `…, desc(t.createdAt), asc(t.id))`)⇒ 处置
+ *   tail-key 放过。主排序语义不归本门管(第一序是什么是业务问题,本门只问"有没有确定性尾键")。
+ *   **棘轮专用维(与 B4 同档同构)**:head 实测存量 8 处(routes/db 面单键形态;content-queries/
+ *   learn-queries/exam-queries 等已带尾键的那一批只进候选),镜像红形状与存量词法完全同形 ——
+ *   按票面拍板"存量报数不判红,只拦新增":head 面(含 --strict)**只报数、永不判红**
+ *   (decide 签名**刻意不收** b5Violations —— 与 B4 同一条结构锁);staged 面走「该文件 HEAD 自身
+ *   B5 计数」差值棘轮,净新增即红。棘轮粒度 = 文件 × 判据(无键,与 B3/B4 同理)。
+ *   取材:与 findWriteChains 同一遮蔽面、同一套括号配平(closeParen),但 orderBy 是读链,
+ *   findWriteChains(.delete/.update)结构上够不着 ⇒ B5 自带一遍 `.orderBy(` 扫描(判据只此一份,
+ *   走 __test__ 出口);裸 SQL 维:findRawSqlWriteChains 只认写动词锚(DELETE/UPDATE/INSERT/TRUNCATE),
+ *   SELECT…ORDER BY 不进池 ⇒ 判不了,登记不进面。
+ *   判不了格(如实登记):
+ *   ① 键经变量/展开传入(orderBy(sortCol) / orderBy(...keys))⇒ 非 asc/desc 字面形态,不进面;
+ *   ② `sql`…order by…`` 模板 ⇒ 遮蔽面(blankStrings 档)读不到模板内容,不进面(与 B3④/B4④
+ *     同一遮蔽面代价;判不了 ≠ 按无尾键计);
+ *   ③ 裸 SQL 的 SELECT…ORDER BY(上段,不进池);
+ *   ④ "该列是否真的可空/非唯一"与"尾键组合是否真的唯一"是语义问题,词法只认列名族与"有没有
+ *     后续键" —— 尾键本身也落在同族列上时词法不认输(语义复核不归本门);
+ *   ⑤ SCAN_DIRS 之外的落点(services/ai-feed-service.ts 等)不进面 —— 覆盖面与 B1-B4 同一张表。
+ *
+ * B6(2026-10-07 立,G-815954):jsonb 整列覆盖式 upsert 会吃掉"显式清空"的墓碑 —— onConflictDoUpdate
+ *   的 set 块凡写 jsonb 列,整列覆盖必须**逐列声明写策略**;具名成员合并 / jsonb_set 结构上即绿。
+ *   病灶:agent-runtime/session-store.ts 曾对 metadata/messages 整列覆盖 —— metadata 整列落盘会把
+ *   行内"显式清空(null 墓碑)"与旧版回滚快照字段一并吃掉;已修(提交 adcdceb7f6):metadata 走
+ *   具名成员合并(`t.metadata || <具名成员>::jsonb`)、messages 带逐列声明(全量真相)—— 本判据
+ *   对 HEAD 面该文件必须判绿(镜像测试直接读 HEAD blob 复核,见 scripts/tests/g-815954-*.test.mjs)。
+ *   判据一条:`.onConflictDoUpdate(` 的 set 实参里出现 jsonb 键族的列(词法近似,见
+ *   JSONB_UPSERT_COL_RE 注)——
+ *     - 值为具名成员合并(`||` 且带 `::jsonb` 或 excluded 引用)或 `jsonb_set(` 指定路径 ⇒ 绿
+ *       (缺席不触碰语义,票面正反对的"绿腿");
+ *     - 其余形态(`excluded.<col>` 整块搬入 / 裸赋值 / 纯字符串)⇒ 整列覆盖,键行及其上 3 行内必须有
+ *       逐列策略声明注释 `// <列>:全量真相`(或 `<列>:full-truth` 别名),无声明 ⇒ 违规
+ *       (票面正反对的"红腿":整块 excluded 无声明必红)。
+ *   **棘轮专用维(与 B4/B5 同档,取舍如实登记)**:HEAD 面实存 7 处整列覆盖无声明(registry 同步
+ *   快照 upsert ×6:registry-queries.ts 的 categories/tags/payload,raw.* 与 EXCLUDED.* 各 3;
+ *   im-gateway.ts 凭据回写 ×1),镜像形状与存量词法同形;收窄列族到 0 列会让判据失明,逐处补声明
+ *   又属业务代码改动(不归本门)—— 按票面同款口径"现存违规报数不判红,只拦新增":head 面
+ *   (含 --strict)只报数、永不判红(decide 签名**刻意不收** b6Violations —— 结构锁同 B4/B5,自检
+ *   B6D 钉住);staged 面走「该文件 HEAD 自身 B6 计数」差值棘轮,净新增即红(新文件锚点 0:第一个
+ *   jsonb upsert 第一次就写错必须判红)。棘轮粒度 = 文件 × 判据(无 ack 键;被覆盖的列名已在红点
+ *   字段里点名 —— 同文件换一列再覆盖 = 新增一处,照红,不存在"换列逃逸")。
+ *   **取材三档(各档有名有姓,不与既有判据的取材档混用)**:①结构(set 块定位/键/值 span)在
+ *   **全遮蔽档**(blankStrings=true)—— 注释与字符串里冒充的 onConflictDoUpdate 不进面(N 系同款);
+ *   ②形态(合并/jsonb_set)在**剥注释留字符串**档读 —— `sql`… || …::jsonb`` 的 `||`/`::jsonb` 与
+ *   `jsonb_set(` 活在模板字面量里,全遮蔽档看不见;值若为纯字符串字面量(全遮蔽档剩空白)⇒ 按整列
+ *   覆盖计,字符串冒充绿腿被这一格挡住(自检 B6g 钉住);③声明注释在**原始正文**读(键行及其上
+ *   3 行),且该 token 位置在留字符串档必须**不在**(注释在那一档被剥 ⇒ 同位置还读得到 = 它活在
+ *   字符串里,不配作声明;比 readExemptMarker 的"头查注释符"更准一道,两道都设,自检 B6s 钉住)。
+ *   三份取材 scanFileText 各算一次传下去,判据不二次 maskText(门 118/93 同一条教训)。
+ *   **面**:本维专属枚举 = SCAN_DIRS ∪ services ∪ plugins(JSONB_UPSERT_SCAN_DIRS)—— 票面阳性
+ *   站点 session-store.ts 住在 services,判据必须看得见它才能判绿;B1-B5/V1/V2 的面**一字不动**
+ *   (枚举多一个目录就是给它们添新候选,那是另一个决策)。--files 名单只作用于基础面:services/
+ *   plugins 路径经 --files 递入会按"面外"点名,但 B6 在全量面仍判它(登记,不装看不见)。
+ *   判不了格(如实登记):①"列是否真是 jsonb"靠键族词法近似(刻意**不含 value**:systemConfigs/
+ *   userPreferences 的 value 是 text 列,p3-deep-layer 的 jsonb value 无 upsert 落点,按名收族会把
+ *   6 处 KV 覆盖误判进面);族外 jsonb 列(config/context/prefs 等 HEAD 面无 upsert 覆盖落点)不进
+ *   面,扩族必须同批核对 HEAD 存量,否则恒红门(§12e);②config 非对象字面量(回调式)或无 set 键
+ *   ⇒ 不进面;③合并右值经中间变量在别处拼装 ⇒ 看不见(fail-closed:按整列覆盖计,声明通道可放行);
+ *   ④声明写在键行上方 >3 行 ⇒ 读不到;⑤jsonb_insert( 等其他路径语义函数未列绿腿 ⇒ 按整列覆盖计
+ *   (fail-closed,同 ③ 有声明通道)。
+ *
+ * B7(2026-10-07 立,G-815984):写时刻必须原样回给调用方 —— 写链(.delete/.update)带了 .returning(
+ *   且实参是**显式列投影对象字面量**时,取了业务列就必须同时取回时间列(票面点名形态 `.returning({id})`
+ *   的"只回主键"是既有计数绿形态,归豁免半句,见下)。判据一条,四腿:
+ *     - 裸 `.returning()` 无参 = 回全行 ⇒ 绿(处置 bare-full-row;时间列结构性在内);
+ *     - 纯 id 计数投影(顶层键全部 id 形)⇒ 绿(处置 id-count;票面"写链 `.returning({id})` **之外**"
+ *       的豁免半句 —— 它是 V1/B1 的既有绿形态、也是本门修法指引自己推荐的形状,判它违规会让棘轮把
+ *       "按修法指引补 .returning({id})"判成净新增(自检 BR/B2R"补回即归零"契约当场红),门与自己打架;
+ *     - 投影里带时间列(键/值任一侧出现 At|Time 结尾标识符,仓内驼峰时间戳惯例
+ *       createdAt/updatedAt/deletedAt/settledAt…)⇒ 绿(处置 time-col);
+ *     - 其余(取了业务列却无任何时间列)⇒ 违规 —— 写入时刻没回给调用方,时序/去重/审计只能靠猜。
+ *   **棘轮专用维(与 B4/B5/B6 同档同构)**:head 面(含 --strict)只报数、永不判红(decide 签名**刻意
+ *   不收** b7Violations —— 结构锁同 B4/B5/B6,自检 B7D 钉住);staged 面走「该文件 HEAD 自身 B7 计数」
+ *   差值棘轮,净新增即红(新文件锚点 0:第一个写点第一次就漏回传必须判红)。棘轮粒度 = 文件 × 判据
+ *   (无 ack 键;缺的列名已在红点 excerpt 里点名 —— 同文件换一列再写 = 新增一处,照红,无"换列逃逸")。
+ *   取材:findWriteChains 链对象新增 returningText 字段(与 whereText/setText 同源同批 —— links 只此
+ *   一份,B7 不二次扫描,§22c);判据读**全遮蔽档** —— 注释里提时间列冒充不了投影(自检 B7f 钉住)。
+ *   判不了格(如实登记,不进面、不冒充已判):①实参经变量传入(returning(cols))⇒ 里面有没有时间列
+ *   词法不可知;②投影对象带展开({...pick})⇒ 同格;③`sql` 模板实参 ⇒ 遮蔽面读不到内容,同格;
+ *   ④"调用方是否真需要时序"是语义问题,词法按"取业务列的写点默认随行回传写时刻"收紧(存量只报数,
+ *   新增走棘轮);⑤insert 链不进本维 —— findWriteChains 动词锚只有 .delete/.update,扩动词会同时改
+ *   B1/B3/B4 的面,那是另一个决策(登记,不装看不见)。
+ *
+ * 两份"惯例存量"计数(可见性,不是判据 —— **永不影响退出码**):上面那两个"刻意放过"的形状此前只有
+ * 注释里的一句"全仓 257 处"撑着,而那句是人肉量的,下次谁扩面/收面账面没人知道它变了多少。现由本门
+ * 每次现读数并报数:
+ *   V1 `booleanAckSites` / `booleanAckFiles` —— 窄到形态:`.send(<X>success({ … <键族成员>: true … }))`
+ *      对象字面量里 **键逐字等于 BOOL_ACK_KEYS 的某一员、值为布尔字面量、其后紧跟 `,` 或 `}`**。
+ *      因此"值是标识量 / 是 `.length` 链 / 字面量后还接着算式"、以及"键名带前缀(`isDeleted` 这类)"
+ *      **一律不混进这一计数**。
+ *      **2026-09-27 语义变化(必须如实说)**:这两个数的口径从"`deleted` 一族"扩大为"五键全集",
+ *      所以同一份 HEAD 在扩面前后读数不同(现读 12 → 17)—— 不是判据变松,是**看得见多了四族**。
+ *      2026-10-22 再扩到七键(updated/created),同一份 HEAD 的 V1 读数再次变大,理由同上一句。
+ *      要问"哪一族多少处"读 `booleanAckByKey`(键族恒在位,含 0),不要读那两个合计。
+ *      **V1 仍是全形态的"现读可见性"数,自身依旧不参与任何退出码**;但自 2026-09-27 起它是 B1 的
+ *      超集 —— 其中"同函数体有写链且无库确认"的那一子集被 B1 判据问责(走 `b1*` 自己的键,
+ *      V1 的读数一字不动)。"布尔 ack 惯例不计红"这句现在只对**无写链**的那一半成立。
+ *   V2 `readQueryCountSites` / `readQueryCountFiles` —— N2 那一族,复用同一份 sends 判据而不是另写
+ *      正则(两处算同一件事必漂移):键为 `count` 且**函数体内没有任何批量写链**(有链而顺序不成立
+ *      的那些已经落在 U1 未判定里,不重复计)。
+ *   两型各计各的,**混计就等于没有信息**。口径与违规判据同面同轮,所以 U2(词法未闭合)那一份文件
+ *   两份都不计 —— 该文件已在"未判定"清单里逐条点名,不会静默少掉。
+ *   **锚点边界(不是漏判,是口径,扩面前先读这句)**:V1 只认 `.send(<X>success({ … }))` 这一个形态
+ *   (键族扩面扩的是**信封里那一个对象**的键集,不是信封本身)。同族但形态不同的一律不进这一数 ——
+ *   ① 裸 `return { … }`(legacy-ask / legacy-exam / zhs-legacy / tenant);② 不走 success 信封的
+ *   OpenAI 兼容契约(v1-assistants);③ 代码生成器**模板字符串**里的该字样(gen-table,由遮蔽面排除,
+ *   与 V1c 同一把锁);④ SCAN_DIRS 之外的落点(如 `apps/api/src/plugins/ws-chat.ts`)。
+ *   上一轮人肉量的"257 处"就是这么来的:它按整串 grep 数整个 `apps/api/src`,把这四类全算进去了。
+ *   要并掉①②④必须**同批改枚举表与判据两半**(§4 圆角那条记过只改一半 ⇒ 整块动静默失效而门照报绿),
+ *   并另立键族;不得只放宽正则把一个数做大。
+ *   **信封锚枚举(2026-10-23 第三十一批 ③)**:上面 V1/B1/B2 的锚点是 `success(` **后紧跟 `{`**
+ *   (`ENVELOPE_ANCHOR_KEYS.direct`);`success(row ?? { updated: true })` 这一族在 `\s*\{` 那一步就被挡在
+ *   面外,5 处整型隐身。故另立 `ENVELOPE_ANCHOR_KEYS.fallback`(`updated|created`)并配 B8 判据
+ *   (`findFallbackAckSites`,只报数、不接提交链):兜底对象写死字面量 true ⇒ 点名;布尔来自
+ *   rowCount/.length/.returning( 追溯或 `success(batchWriteOutcome(...))` 唯一出口 ⇒ 放过。
+ *
+ * 判不了 / 未判定(如实登记,绝不静默成"看起来全绿"):U1 链在 send 之后 ⇒ 顺序不成立,计入未判定
+ * 并点名;U2 词法状态到文件末尾没闭合(疑正则字面量吞掉引号)⇒ 整份文件结论不可信 ⇒ 未判定,不冒红;
+ * U3 写链在 db 层函数里、计数在路由 handler 里(如 workspace.ts 的 batchSoftDelete)⇒ 本门结构上
+ * 看不见 —— 这是窄口径的代价,登记为已知空档,不得为覆盖它去猜跨函数归属。
+ *
+ * 口径纪律(与 36/70/77/83/93/98/101/103/118 同形):全量档判 **HEAD blob**、`--staged` 判**索引
+ * blob**、`--worktree` 只作人工逃生舱、两面旗同给 ⇒ exit 2;清单与内容**同面同轮**;任一面取不到
+ * ⇒ exit 2 显式"无法判定"且**不回落**另一个面;枚举到 0 个候选文件 ⇒ 判死,不记为通过。
+ * **棘轮锚点 = 该文件 HEAD 自身的违规数** —— 只拦"这次改动把计数自算加回来了",存量不当场判红
+ * (与改动无关的恒红门唯一结局是逼人 `--no-verify`,一次绕过等于全部守门作废,§12e)。
+ * 取材走 `scripts/lib/face-reader.mjs` 的读取入口(catBatch / readWorktreeFile),枚举走 gitRaw
+ * (ls-tree / ls-files 不产正文,不算散写读内容)。ROOT 由脚本自身位置推导(§15),`--root <dir>`
+ * 是显式测试通道(换根后清单与内容仍同面,故无双根分裂)。
+ *
+ * 用法:node scripts/check-batch-write-count-honesty.mjs
+ *   [--staged|--worktree] [--strict] [--explain] [--json] [--files a,b 或 --files a b] [--root <dir>] [--self-test]
+ * 退出码:0 = 通过(或全量档只报数);1 = 判红;2 = 无法判定(不冒红也不记绿)。
+ * **V1/V2 两份惯例存量计数不参与任何一档退出码**(含 --strict);--explain 会逐条点名它们的 file:line,
+ * --json 在 counts 里追加 booleanAckSites/booleanAckFiles/readQueryCountSites/readQueryCountFiles
+ * 四个新字段,既有字段名与取值形态逐字不变。
+ * **B1 是判据不是可见性数**,自带一组 `b1*` 键进 counts 与退出码:staged 档走「该文件 HEAD 自身
+ * B1 计数」的差值棘轮判红;全量档默认只报数、--strict 判红;--json 既有四个判据数
+ * (candidates/violations/undetermined/exempt)的取值**逐字不变**(B1 不并入,只追加)。
+ *
+ * 本门**已接入提交链**(guardian-runner id 134,blocking,`stagedTriggers=apps/api/src/routes/` +
+ * `apps/api/src/db/`):暂存档走「该文件 HEAD 自身 B1/违规计数」的差值棘轮判红。
+ * 编号一律以 runner 现值为准,照本行派单前先 `grep -n "check-batch-write-count-honesty" scripts/guardian-runner.mjs`。
+ * 应急跳过 HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY=1。
+ */
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -20,12 +346,6 @@ import {
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
-// 词法层住在 scripts/lib/batch-write-lexer.mjs(门 103 C1 拆出,判据本体不动)
-import { maskText, lineAt, closeParen, closeBrace, findWriteChains, findFunctionBodies, enclosingBody, DB_CONFIRMED_RE, statementEnd, resolveConfirmed, sendSuccessObjects, WRITE_RECEIVERS } from './lib/batch-write-lexer.mjs'
-// 拆层把词法函数搬进 lib 后老消费者(check-state-transition-guard / check-write-owner-predicate /
-// check-batch-write-count-probe)仍按旧出口面从本文件 import ⇒ 必须显式转发保住旧出口,否则
-// 消费方模块加载即炸(rc 1,不是判据红而是加载崩,§12f:判据失效的表现永远是安静)。不回抄第二份实现(§22c)。
-export { maskText, findWriteChains, findFunctionBodies }
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..') // ROOT 由脚本自身位置推导(§15,不写死盘符)
@@ -38,15 +358,462 @@ export const EXEMPT_TOKEN = 'batch-count-exempt'
 /** B1 的行内豁免族(守门 108 FAMILY_LIFETIME_DAYS 取 30 天:待偿的迁移债,不是结构性定性)。 */
 export const DELETE_ACK_EXEMPT_TOKEN = 'delete-ack-exempt'
 export const UNIQUE_OUTLET = 'utils/batch-outcome'
+const WRITE_RECEIVERS = new Set(['db', 'tx', 'trx'])
 const COUNT_KEYS = 'deleted|affected|restored|removed|count'
 const FILE_RE = /\.(ts|mts|cts)$/
 const SKIP_RE = /(^|\/)(?:tests?|__tests__|e2e)\//
 const SPEC_RE = /(?:from|require\()\s*['"][^'"]*utils\/batch-outcome(?:\.js)?['"]/
-// B1 放过通道 F1(2026-10-24 收窄):证据必须落在**被审的那条写链**上,不再按整段函数体放行。
-// 跑在**遮蔽后的代码面**上,所以注释/字符串里的 `.returning(` 或 `batchWriteOutcome(` 不配放过
-// (否则一句解释性注释就能给假 ack 发合格证)。
+// B1 放过通道 F1:同函数体内出现库确认调用。跑在**遮蔽后的代码面**上,所以注释/字符串里的
+// `.returning(` 或 `batchWriteOutcome(` 不配放过(否则一句解释性注释就能给假 ack 发合格证)。
+const RETURNING_IN_BODY_RE = /\.\s*returning\s*\(/
 const BATCH_OUTCOME_IN_BODY_RE = /\bbatchWriteOutcome\s*\(/
-const OUTLET_CALL_RE = /\bbatchWriteOutcome\s*\(/g
+
+/* ------------------------------- 词法遮噪 ------------------------------- */
+
+/**
+ * 剥注释(两档都剥);`blankStrings` 档另把字符串/模板字面量的内容与引号抹成空格。
+ * 逐字符保位(换行原样),所以"遮蔽后的下标"仍能映射回原始行号 —— 行内豁免要吃原始行,靠这一点。
+ * 为什么这一档要抹字符串:被抹掉的 token(inArray(、deleted: x.length)没有一个会合法地出现在
+ * 字符串里;反过来保留字符串,一句 OpenAPI 描述就会替门产出一个"从字符串里 harvest 出来的假用量"
+ * (守门 93 R6 正是栽在这一格)。唯一反例是 E2 的模块说明符 —— 它必须在字符串里才读得到。
+ * 正则字面量按"值位置才是正则"的启发式跳过:不认它,里面的引号会把整份文件读盲
+ * (实测真仓 13 个文件因此失明,判据看不见存量却一路报绿)。
+ * @returns {{text:string, leaks:string[]}} leaks 非空 ⇒ 状态机没走干净(见 U2)
+ */
+export function maskText(src, { blankStrings = true } = {}) {
+  const n = src.length
+  const kill = new Uint8Array(n)
+  const K = (i) => {
+    if (blankStrings) kill[i] = 1
+  }
+  const stack = [{ kind: 'root', depth: 0 }]
+  const leaks = []
+  let lastSig = '' // 上一个有意义的代码字符:判 `/` 是除法还是正则开头
+  let word = ''
+  let i = 0
+  while (i < n) {
+    const top = stack[stack.length - 1]
+    const c = src[i]
+    const d = src[i + 1]
+    if (top.kind === 'tpl') {
+      if (c === '\\') {
+        K(i)
+        K(i + 1)
+        i += 2
+        continue
+      }
+      if (c === '`') {
+        stack.pop()
+        K(i)
+        lastSig = '`'
+        i++
+        continue
+      }
+      if (c === '$' && d === '{') {
+        stack.push({ kind: 'interp', depth: 1 })
+        K(i)
+        K(i + 1)
+        i += 2
+        continue
+      }
+      K(i)
+      i++
+      continue
+    }
+    if (c === '/' && d === '/') {
+      let j = i
+      while (j < n && src[j] !== '\n') kill[j++] = 1
+      i = j
+      continue
+    }
+    if (c === '/' && d === '*') {
+      let j = i
+      while (j < n && !(src[j] === '*' && src[j + 1] === '/')) kill[j++] = 1
+      if (j < n) {
+        kill[j] = 1
+        kill[j + 1] = 1
+        i = j + 2
+      } else {
+        leaks.push('块注释未闭合')
+        i = n
+      }
+      continue
+    }
+    // 正则字面量按"值位置才是正则"的启发式跳过:不认它,里面的引号会把整份文件读盲
+    // (实测真仓 13 个文件因此失明,判据看不见存量却一路报绿)。
+    if (c === '/' && regexMayStartHere(lastSig, word)) {
+      const end = scanRegexLiteral(src, i)
+      if (end > 0) {
+        for (let j = i; j < end; j++) K(j)
+        lastSig = '/'
+        i = end
+        continue
+      }
+    }
+    if (c === "'" || c === '"') {
+      let j = i + 1
+      let closed = false
+      while (j < n) {
+        if (src[j] === '\\') {
+          K(j)
+          K(j + 1)
+          j += 2
+          continue
+        }
+        if (src[j] === '\n') break
+        if (src[j] === c) {
+          closed = true
+          break
+        }
+        K(j)
+        j++
+      }
+      if (closed) {
+        K(i)
+        K(j)
+        lastSig = c
+        i = j + 1
+      } else {
+        leaks.push(`第 ${lineAt(src, i)} 行的 ${c} 未闭合(疑正则字面量)`)
+        i = j
+      }
+      continue
+    }
+    if (c === '`') {
+      stack.push({ kind: 'tpl', depth: 0 })
+      K(i)
+      i++
+      continue
+    }
+    if (top.kind === 'interp') {
+      if (c === '{') top.depth++
+      else if (c === '}') {
+        top.depth--
+        if (top.depth === 0) {
+          stack.pop()
+          K(i)
+          i++
+          continue
+        }
+      }
+    }
+    if (!/\s/.test(c)) {
+      lastSig = c
+      word = /[\w$]/.test(c) ? (word + c).slice(-12) : ''
+    }
+    i++
+  }
+  if (stack.length > 1) leaks.push(`模板/插值嵌套未收平(残留 ${stack.length - 1} 层)`)
+  let out = ''
+  for (let k = 0; k < n; k++) {
+    const ch = src[k]
+    out += kill[k] && ch !== '\n' && ch !== '\r' ? ' ' : ch
+  }
+  return { text: out, leaks }
+}
+
+function lineAt(src, idx) {
+  let line = 1
+  for (let i = 0; i < idx && i < src.length; i++) if (src[i] === '\n') line++
+  return line
+}
+
+const REGEX_AFTER = new Set([
+  '(',
+  ',',
+  '=',
+  ':',
+  '[',
+  '!',
+  '&',
+  '|',
+  '?',
+  '{',
+  '}',
+  ';',
+  '>',
+  '<',
+  '+',
+  '*',
+  '%',
+  '^',
+  '~',
+  '',
+])
+const REGEX_WORDS = new Set([
+  'return',
+  'typeof',
+  'case',
+  'in',
+  'of',
+  'do',
+  'else',
+  'yield',
+  'await',
+  'delete',
+  'void',
+])
+function regexMayStartHere(lastSig, word) {
+  return REGEX_WORDS.has(word) || lastSig === '' || REGEX_AFTER.has(lastSig)
+}
+
+/** 扫一个正则字面量(含字符类里的 `/` 与尾随 flag)。本行没有收尾的 `/` ⇒ 返回 -1,按普通字符走。 */
+function scanRegexLiteral(src, i) {
+  let j = i + 1
+  let inClass = false
+  let body = ''
+  while (j < src.length) {
+    const c = src[j]
+    if (c === '\\') {
+      body += 'x'
+      j += 2
+      continue
+    }
+    if (c === '\n') return -1
+    if (inClass) {
+      if (c === ']') inClass = false
+      body += c
+      j++
+      continue
+    }
+    if (c === '[') {
+      inClass = true
+      body += c
+      j++
+      continue
+    }
+    if (c === '/') {
+      if (!body) return -1 // 空的 `//` 已在注释分支处理;`a / /` 之类不是正则
+      let k = j + 1
+      while (k < src.length && /[a-z]/i.test(src[k])) k++
+      return k
+    }
+    body += c
+    j++
+  }
+  return -1
+}
+
+/* ------------------------------- 结构扫描 ------------------------------- */
+
+function closePair(src, openIdx, o, c) {
+  let depth = 0
+  for (let i = openIdx; i < src.length; i++) {
+    if (src[i] === o) depth++
+    else if (src[i] === c && --depth === 0) return i + 1
+  }
+  return -1
+}
+const closeParen = (s, i) => closePair(s, i, '(', ')')
+const closeBrace = (s, i) => closePair(s, i, '{', '}')
+
+/**
+ * `db|tx|trx` 发起的 `.delete(` / `.update(` 调用链(逐链走括号,不按行切 —— 跨行写法实测存在)。
+ * 接收者白名单是防误伤的第一道:实测 HEAD 面 `*.delete(` 里路由注册(server.delete)387 处、
+ * Map/Set 的 .delete 上百处,远多于 `db.delete(` 242 处 —— 不认接收者就等于把路由注册当违规数。
+ * 链上必须有 `.where(`(裸 `db.delete(table)` 全表删除不属本型);`opaque` 那支承认自己分不清。
+ */
+export function findWriteChains(code) {
+  const out = []
+  const re = /\.(delete|update)\s*\(/g
+  let m
+  while ((m = re.exec(code)) !== null) {
+    const rec = /([A-Za-z_$][\w$]*)\s*$/.exec(code.slice(0, m.index))
+    if (!rec || !WRITE_RECEIVERS.has(rec[1])) continue
+    const end0 = closeParen(code, code.indexOf('(', m.index))
+    if (end0 < 0) continue
+    const links = [{ name: m[1], text: code.slice(m.index + m[0].length, end0 - 1) }]
+    let cur = end0
+    for (;;) {
+      const cm = /^\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/.exec(code.slice(cur, cur + 80))
+      if (!cm) break
+      const open = cur + cm[0].length - 1
+      const cend = closeParen(code, open)
+      if (cend < 0) break
+      links.push({ name: cm[1], text: code.slice(open + 1, cend - 1) })
+      cur = cend
+    }
+    const whereLink = links.find((l) => l.name === 'where')
+    const setLink = links.find((l) => l.name === 'set')
+    // B7(G-815984)的取材:returning 实参原文 —— 与 whereText/setText 同源同批(links 只此一份,
+    // B7 不二次扫描,§22c)。
+    const returningLink = links.find((l) => l.name === 'returning')
+    out.push({
+      start: m.index,
+      end: cur,
+      receiver: rec[1],
+      names: links.map((l) => l.name),
+      hasWhere: links.some((l) => l.name === 'where'),
+      hasInArray: links.some((l) => /\binArray\s*\(/.test(l.text)),
+      hasReturning: links.some((l) => l.name === 'returning'),
+      opaque: links.some((l) => /=>|\bfunction\b/.test(l.text)),
+      // B3/B4(G-815953/G-815956)的取材:where/set 各自的实参原文(遮蔽面上的)。
+      // 与 hasWhere/hasReturning 同源 —— links 只此一份,不存在第二份链扫描(§22c)。
+      whereText: whereLink ? whereLink.text : '',
+      setText: setLink ? setLink.text : '',
+      returningText: returningLink ? returningLink.text : '',
+    })
+  }
+  return out
+}
+
+/**
+ * 函数体 = `=>` 后紧跟 `{`,或 `function` 头部之后的第一个顶层 `{`。
+ * 为什么必须是函数体而不是"任意最小花括号块":取"同时包住链与 send 的最小块"会让兄弟 handler
+ * 互相借链(A 里的链替 B 里的 send 定罪)—— 那等于把判据建立在花括号几何上。
+ */
+export function findFunctionBodies(code) {
+  const bodies = []
+  const push = (b) => {
+    if (b >= 0 && code[b] === '{') {
+      const end = closeBrace(code, b)
+      if (end > 0) bodies.push({ start: b, end })
+    }
+  }
+  let m
+  const arrow = /=>/g
+  while ((m = arrow.exec(code)) !== null) {
+    const rest = /^\s*\{/.exec(code.slice(m.index + 2, m.index + 12))
+    if (rest) push(m.index + 2 + rest[0].length - 1)
+  }
+  const fn = /\bfunction\b/g
+  while ((m = fn.exec(code)) !== null) {
+    let i = m.index + 8
+    while (i < code.length && code[i] !== '{' && code[i] !== ';' && code[i] !== '}') i++
+    push(i)
+  }
+  return bodies
+}
+
+function enclosingBody(bodies, idx) {
+  let best = null
+  for (const b of bodies)
+    if (idx >= b.start && idx < b.end && (!best || b.start > best.start)) best = b
+  return best
+}
+
+const DB_CONFIRMED_RE =
+  /\.(?:returning|select|execute|insert|update|delete)\s*\(|\bawait\s+[\w$.]*\bdb\b|dbRead|dbWrite/
+const CONTINUE_CHARS = new Set([
+  '.',
+  ',',
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+  '&',
+  '|',
+  '^',
+  '?',
+  ':',
+  ')',
+  '}',
+  ']',
+  '=',
+  '<',
+  '>',
+  '`',
+])
+const NOT_IDENT = new Set([
+  'const',
+  'let',
+  'var',
+  'await',
+  'async',
+  'return',
+  'if',
+  'else',
+  'for',
+  'of',
+  'in',
+  'new',
+  'map',
+  'filter',
+  'from',
+  'where',
+  'and',
+  'or',
+  'eq',
+  'inArray',
+  'set',
+  'then',
+  'length',
+  'ids',
+  'String',
+  'Number',
+  'Boolean',
+  'Array',
+  'Object',
+  'JSON',
+  'Math',
+  'Date',
+  'size',
+  'join',
+  'split',
+  'includes',
+  'some',
+  'every',
+  'push',
+])
+
+/** 语句结尾:深度 0 处的 `;`,或深度 0 处换行且下一行不是续行。 */
+function statementEnd(code, from, limit) {
+  let depth = 0
+  for (let i = from; i < limit; i++) {
+    const c = code[i]
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') {
+      if (depth > 0) depth--
+    } else if (c === ';' && depth === 0) return i
+    else if (c === '\n' && depth === 0) {
+      let k = i + 1
+      while (k < limit && /\s/.test(code[k])) k++
+      if (k >= limit || !CONTINUE_CHARS.has(code[k])) return i
+    }
+  }
+  return limit
+}
+
+function initializersOf(code, span, name) {
+  const re = new RegExp(`\\b(?:const|let|var)\\s+${name}\\s*=`, 'g')
+  const out = []
+  let m
+  while ((m = re.exec(code)) !== null) {
+    if (m.index < span.start || m.index >= span.end) continue
+    const eq = m.index + m[0].length - 1
+    out.push(code.slice(eq + 1, statementEnd(code, eq + 1, span.end)))
+  }
+  return out
+}
+
+/** E1b:计数根标识符是否可追到库确认的集合(≤2 跳)。查不到声明 ⇒ 不放过(参数/请求侧解构都是这种)。 */
+function resolveConfirmed(code, span, name, depth) {
+  if (depth > 2) return false
+  for (const rhs of initializersOf(code, span, name)) {
+    if (rhs.length > 4000) continue
+    if (DB_CONFIRMED_RE.test(rhs)) return true
+    if (depth >= 2) continue
+    for (const mm of rhs.matchAll(/[A-Za-z_$][\w$]*/g)) {
+      if (!NOT_IDENT.has(mm[0]) && resolveConfirmed(code, span, mm[0], depth + 1)) return true
+    }
+  }
+  return false
+}
+
+/** `.send(<X>success({ … }))` 的对象字面量 —— 违规判据与两份惯例计数**共用这一遍取材**。
+ *  为什么必须共用:两处各扫一遍 send 形态,一处改了另一处不会跟着改,惯例数就会和违规数说不同的话
+ *  (本仓"两处算同一件事必须共用一份实现"记过多次)。 */
+function* sendSuccessObjects(code) {
+  const sendRe = /\.\s*send\s*\(\s*\w*[Ss]uccess\s*\(\s*\{/g
+  let m
+  while ((m = sendRe.exec(code)) !== null) {
+    const objOpen = code.indexOf('{', m.index + m[0].length - 1)
+    const objEnd = closeBrace(code, objOpen)
+    if (objEnd < 0) continue
+    yield { objOpen, objText: code.slice(objOpen, objEnd) }
+  }
+}
 
 /** `.send(<X>success({ … <键族成员>: true … }))` 的**布尔 ack** 落点(V1 可见性计数 + B1/B2 判据的
  *  共用取材)。窄到形态才算:键名必须**逐字等于键族成员**(故 `isDeleted:` / `deleted_count:` 不纳)、
@@ -407,59 +1174,8 @@ export function hasRawSqlReturning(nonBlankCode, bodyStart, bodyEnd) {
 }
 
 /**
- * 写链的结果绑定名(≤1 跳,只用于"这条链的返回值有没有喂给唯一出口"):
- * `const rows = await db.delete(…)` / `const [row] = …` / `const { id } = …`。
- * 拿不到绑定名 ⇒ 空数组(出口证据不成立,不猜)。
- * 2026-10-24(F1 收窄配套):`=` 之后只许 `await` + 接收者标识符,不得用 `[^;{}]*` 吞掉整段 ——
- * 本仓源码省分号,`const cached = …` 与下一行 `await db.delete(…)` 之间没有 `;`,旧写法会把上一条
- * 语句的结果名错绑到这条链上(于是 `batchWriteOutcome(ids, cached)` 被当成"本链喂了出口"),
- * 给 F1 的出口证据开一道静默假绿。新判据:证据必须是**这条链自己的**返回值。
- */
-function chainResultNames(code, chain) {
-  let i = chain.start - 1
-  while (i >= 0 && !/[;{}]/.test(code[i])) i--
-  const seg = code.slice(i + 1, chain.start)
-  const plain =
-    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;{}]+)?=\s*(?:await\s+)?[A-Za-z_$][\w$]*\s*$/.exec(
-      seg,
-    )
-  if (plain) return [plain[1]]
-  const destr =
-    /(?:const|let|var)\s*[{[]([\s\S]*?)[}\]]\s*=\s*(?:await\s+)?[A-Za-z_$][\w$]*\s*$/.exec(seg)
-  return destr ? [...destr[1].matchAll(/[A-Za-z_$][\w$]*/g)].map((m) => m[0]) : []
-}
-
-/** 这条写链自己的返回值是否被喂给了 `batchWriteOutcome(`(唯一出口只在**这次调用**上算证据)。 */
-function chainFeedsOutlet(code, chain, limit) {
-  const names = chainResultNames(code, chain)
-  if (!names.length) return false
-  OUTLET_CALL_RE.lastIndex = 0
-  const win = code.slice(chain.end, limit)
-  let m
-  while ((m = OUTLET_CALL_RE.exec(win)) !== null) {
-    const open = chain.end + m.index + m[0].length - 1
-    const end = closeParen(code, open)
-    if (end < 0 || end > limit) continue
-    const args = code.slice(open + 1, end - 1)
-    if (names.some((n) => new RegExp(`\\b${n}\\b`).test(args))) return true
-  }
-  return false
-}
-
-/** ack 之前**最近的一条**写链(drizzle 与裸 SQL 同池)—— F1 的被审单位就是它。 */
-function lastWriteChainBefore(allChains, body, limit) {
-  let best = null
-  for (const c of allChains) {
-    if (c.start < body.start || c.end > body.end || c.end > limit) continue
-    if (!best || c.start > best.start) best = c
-  }
-  return best
-}
-
-/**
  * B1(2026-09-27):布尔 ack 中**可判的那一子集** —— 同一函数体内有 `db|tx|trx` 的 `.delete(`/`.update(`
- * 写链、且**被审的那条写链**(ack 之前最近的一条,见 F1)自身没有库答复、且命中行无带原因豁免
- * ⇒ 假 ack 违规。
+ * 写链、且体内无库确认(`.returning(` / `batchWriteOutcome(`)、且命中行无带原因豁免 ⇒ 假 ack 违规。
  *
  * 三条设计决定,每条都有用例钉住(改任何一条前先读它的反例):
  *  ① **落点取材与 V1 共用 `findBooleanAckSends`**(同一处 `sendSuccessObjects` 扫描,扫描式在源码里
@@ -513,20 +1229,19 @@ export function findBoolAckB1Sites(
     const site = { file: relPath, line, key: b.key, receiver: chain.receiver }
     if (chain.rawSql) site.via = 'raw-sql'
     out.candidates.push(site)
-    // F1(2026-10-24 收窄):证据只认**被审的那条调用** —— ack 之前最近的一条写链(drizzle 与裸 SQL
-    // 同池)。它之后的写链、同体别处的写链都不替它发合格证:同体 A 链带 `.returning(` 不能让裸写的 B 链
-    // 过关(旧实现按整段函数体放行,那一格里 B 的假 ack 是静默失真的)。
-    const audited = lastWriteChainBefore([...chains, ...rawChains], body, b.index) || chain
-    const evidence = audited.hasReturning
-      ? audited.rawSql
-        ? 'raw-sql-returning'
-        : 'chain-returning'
-      : chainFeedsOutlet(code, audited, b.index)
-        ? 'chain-outlet'
-        : ''
-    if (evidence) {
+    const bodyText = code.slice(body.start, body.end)
+    if (RETURNING_IN_BODY_RE.test(bodyText) || BATCH_OUTCOME_IN_BODY_RE.test(bodyText)) {
       site.disposition = 'db-confirmed'
-      site.confirmWhy = evidence
+      out.exempt.confirmed++
+      continue
+    }
+    // 放过通道之二/之三(2026-09-27 第二十九批,认"证据在别处"):原始 SQL 的 RETURNING 与同响应里的
+    // 诚实行数载体。两者都**折进 confirmed 这一桶**(与 F1 同族:它们说的是"库答复在别处已存在",
+    // 不是"有人给了豁免"),所以 b1*/b2* 的既有键与取值形态一字不变;具体是哪一种由 confirmWhy 带出,
+    // 复核 --explain 时才分得开 —— "放过"与"没看见"必须能各自被问到。
+    if (nonBlankCode && hasRawSqlReturning(nonBlankCode, body.start, body.end)) {
+      site.disposition = 'db-confirmed'
+      site.confirmWhy = 'raw-sql-returning'
       out.exempt.confirmed++
       continue
     }
@@ -1601,11 +2316,7 @@ export function scanFileText(relPath, text, opts = {}) {
     const marked = mk.state === 'ok' || prev.state === 'ok'
     if (mk.state === 'bare' || prev.state === 'bare') res.bareExempt++
     const root = /^([A-Za-z_$][\w$]*)/.exec(s.expr)?.[1] || ''
-    // E1b 的取材收窄(2026-10-24):计数根只许追到**被审这条写调用**的结果或库读(归属预查询),
-    // 同体另一条写链的 .returning( 不再替这条的请求侧 .length 发合格证。
-    const dbDerived =
-      !!root &&
-      resolveConfirmed(code, body, root, 0, { chain, chains: [...batchChains, ...rawPool.chains] })
+    const dbDerived = !!root && resolveConfirmed(code, body, root, 0)
     // 四条放过通道按" cheapest 且最能说明意图"排序;每支各有反面对照(见 selfTest 的 P1b/P2)。
     const kind = usesOutlet
       ? 'outlet'
@@ -2291,7 +3002,7 @@ export function formatReport(out) {
   }
   if (out.face !== 'staged' && c.b1Violations) {
     L.push(
-      `${out.strict ? '❌' : '⚠️'} 全量档现读 B1 假 ack ${c.b1Violations} 处 / ${c.b1Files} 文件(同函数体有 db/tx 写链、回字面量、被审那条写链无 .returning()/batchWriteOutcome() 证据)${out.strict ? ' —— --strict 判红' : ' —— 存量只报数不拦提交;提交链走差值棘轮,新增即红(§12e)'}`,
+      `${out.strict ? '❌' : '⚠️'} 全量档现读 B1 假 ack ${c.b1Violations} 处 / ${c.b1Files} 文件(同函数体有 db/tx 写链、回 deleted: true 字面量、体内无 .returning()/batchWriteOutcome())${out.strict ? ' —— --strict 判红' : ' —— 存量只报数不拦提交;提交链走差值棘轮,新增即红(§12e)'}`,
     )
     for (const v of b1v.slice(0, 40))
       L.push(`   ${v.file}:${v.line}  (写链=${v.receiver}.delete/update,响应布尔档键=${v.key})`)
@@ -2500,8 +3211,7 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
     放过:链带 .returning( / 计数根可追到库确认集 / import ${UNIQUE_OUTLET} / 行内 ${EXEMPT_TOKEN}: <原因>(须带原因)
   判据二(B1 假 ack,2026-09-27):同函数体内 db|tx|trx .delete(/.update( 写链 + 响应对象里布尔档键取字面值
     (键族:${BOOL_ACK_KEYS.join(' | ')})
-    放过:**被审那条写调用**自带 .returning( / 它的返回值喂给 batchWriteOutcome( /
-          同次 db.execute 的原生 SQL 里有 RETURNING(证据不跨调用:同体另一条写链带 .returning( 不算)/
+    放过:体内 .returning( / 体内 batchWriteOutcome( / 同次 db.execute 的原生 SQL 里有 RETURNING /
           同响应另有诚实行数载体 / **同行**行内 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(须带原因)
   判据三(B2 委托假 ack,2026-09-27):ack 体内**无**直接写链(那一子集归 B1),但 await 了经 import 解析到
     ${API_SRC_DIR} 内某文件的具名导出函数,而被调函数体有带 .where( 的写链却无 .returning( / batchWriteOutcome(
@@ -2726,19 +3436,6 @@ const FIX = {
     '  await db.delete(table).where(inArray(table.id, idList))',
     '  return reply.send(success({ deleted: idList.length }))',
   ]),
-  /** F1 收窄(2026-10-24)(a):A 链带 .returning(、B 链裸写、计数取 **A** 的返回集 ⇒ 证据不跨调用,
-   *  B 的 `.length` 必红(旧实现按"同体任一处 .returning("放过)。 */
-  countReturningWrongChain: h([
-    '  const rows = await db.delete(a).where(inArray(a.id, ids)).returning({ id: a.id })',
-    '  await db.delete(b).where(inArray(b.id, ids))',
-    '  return reply.send(success({ affected: rows.length }))',
-  ]),
-  /** 同一形状把计数换成**被审链自己**(最后一条,自带 .returning() )的返回集 ⇒ 真证据链仍放过。 */
-  countReturningOwnChain: h([
-    '  await db.delete(a).where(inArray(a.id, ids))',
-    '  const rows = await db.delete(b).where(inArray(b.id, ids)).returning({ id: b.id })',
-    '  return reply.send(success({ affected: rows.length }))',
-  ]),
   returning: h([
     '  const deleted = await db',
     '    .delete(table)',
@@ -2889,43 +3586,15 @@ const FIX = {
       '  return reply.send(success({ deleted: true }))',
     ],
   ),
-  /** 放过 F1a:被审的那条链自己带 .returning( —— 库答复就在这次调用的返回值上。 */
+  /** 放过 F1a:链上 .returning( —— 体内有库确认调用即放过,不追问这条 ack 用的是不是它。 */
   b1ConfirmedReturning: h([
     '  await db.delete(table).where(eq(table.id, id)).returning({ id: table.id })',
     '  return reply.send(success({ id, deleted: true }))',
   ]),
-  /** 放过 F1b:被审那条链的返回值喂给了 batchWriteOutcome( 调用(这处仍回字面量,已在迁移途中)。 */
+  /** 放过 F1b:体内 batchWriteOutcome( 调用(即便这处仍回字面量,已在迁移途中,不算"新写假 ack")。 */
   b1ConfirmedOutletCall: h([
     '  const rows = await db.delete(table).where(eq(table.id, id))',
     '  const o = batchWriteOutcome(idList, rows)',
-    '  return reply.send(success({ id, deleted: true }))',
-  ]),
-  /** F1 收窄(2026-10-24)①:A 链带 .returning(、B 链裸写、ack 在 B 之后 ⇒ 证据不得跨调用,B 必红
-   *  (旧实现按"同函数体任一处 .returning("放行,这一格是静默失真)。 */
-  b1ReturningWrongChain: h([
-    '  const rows = await db.delete(a).where(eq(a.id, id)).returning({ id: a.id })',
-    '  await db.delete(b).where(eq(b.id, id2))',
-    '  return reply.send(success({ id, deleted: true }))',
-  ]),
-  /** F1 收窄②:A 裸写、最后一条 B 带 .returning( ⇒ 被审的是 B,真证据链仍放过。 */
-  b1ReturningOwnChainLast: h([
-    '  await db.delete(a).where(eq(a.id, id))',
-    '  const rows = await db.delete(b).where(eq(b.id, id2)).returning({ id: b.id })',
-    '  return reply.send(success({ deleted: true }))',
-  ]),
-  /** F1 收窄③:唯一出口喂的是 A 链的结果、B 链裸写 ⇒ B 不被 A 的出口证据放行,必红。 */
-  b1OutletWrongChain: h([
-    '  const rows = await db.delete(a).where(eq(a.id, id))',
-    '  const o = batchWriteOutcome(idList, rows)',
-    '  await db.delete(b).where(eq(b.id, id2))',
-    '  return reply.send(success({ deleted: true }))',
-  ]),
-  /** F1 收窄④:上一条语句的结果名不得被错绑到本链(省分号代码里 `const cached = …` 与下一行写链之间
-   *  没有 `;`)。出口实参是 cached、不是这条 delete 的结果 ⇒ 证据不成立,必红(旧绑定判法会放过)。 */
-  b1OutletStaleBinding: h([
-    '  const cached = await cache.get(key)',
-    '  await db.delete(table).where(eq(table.id, id))',
-    '  const o = batchWriteOutcome(idList, cached)',
     '  return reply.send(success({ id, deleted: true }))',
   ]),
   /** F1 的反面:.returning( 只活在注释里 ⇒ 不配放过(判据跑在遮蔽后的代码面上)。 */
@@ -3530,16 +4199,6 @@ function selfTest(argv) {
     return [r.candidates.length, r.violations.length, r.exempt]
   }
   eq('P1 自算 count ⇒ 候选 1 违规 1', st(FIX.selfCount), [1, 1, 0])
-  eq(
-    'P1c F1 收窄(a):A 链的 .returning( 不再替裸写的 B 链的 .length 发合格证 ⇒ B 必红(旧实现放过)',
-    st(FIX.countReturningWrongChain),
-    [1, 1, 0],
-  )
-  eq(
-    'P1d F1 收窄(b):计数根来自被审链自己的 .returning( ⇒ 违规 0(真证据链仍放过)',
-    trip(FIX.countReturningOwnChain),
-    [1, 0, { returning: 1, db: 0, outlet: 0, marker: 0 }],
-  )
   eq('N1 链带 .returning( ⇒ 违规 0(库确认放过)', trip(FIX.returning), [
     1,
     0,
@@ -3706,33 +4365,8 @@ function selfTest(argv) {
     [1, 1, 0, 0, 0, 0],
   )
   eq('B1b update 链同判(set().where() 也是写)', b1(FIX.b1FalseAckTwice), [2, 2, 0, 0, 0, 0])
-  eq('B1p①a 被审链自带 .returning( ⇒ 放过(库确认口径)', b1(FIX.b1ConfirmedReturning), [1, 0, 1, 0, 0, 0])
-  eq('B1p①b 被审链返回值喂给 batchWriteOutcome( ⇒ 放过', b1(FIX.b1ConfirmedOutletCall), [1, 0, 1, 0, 0, 0])
-  eq(
-    'B1p①c F1 收窄:A 链的 .returning( 不再替裸写的 B 链发合格证(旧实现同体放过,现必红)',
-    b1(FIX.b1ReturningWrongChain),
-    [1, 1, 0, 0, 0, 0],
-  )
-  eq(
-    'B1p①d F1 收窄:被审链(最后一条)自带 .returning( ⇒ 真证据链仍放过,同体另一条裸写不牵连',
-    b1(FIX.b1ReturningOwnChainLast),
-    [1, 0, 1, 0, 0, 0],
-  )
-  eq(
-    'B1p①d2 放过来自被审链自己的 .returning( 且可被问到(confirmWhy=chain-returning,不混进"没看见")',
-    v(FIX.b1ReturningOwnChainLast).b1.candidates[0]?.confirmWhy,
-    'chain-returning',
-  )
-  eq(
-    'B1p①e F1 收窄:出口证据只认喂给 batchWriteOutcome 的那条链;B 链裸写 ⇒ 必红',
-    b1(FIX.b1OutletWrongChain),
-    [1, 1, 0, 0, 0, 0],
-  )
-  eq(
-    'B1p①f F1 收窄:上一条语句的结果名不得被错绑到本链(省分号 ASI)⇒ 出口证据不成立,必红',
-    b1(FIX.b1OutletStaleBinding),
-    [1, 1, 0, 0, 0, 0],
-  )
+  eq('B1p①a 体内 .returning( ⇒ 放过(库确认口径)', b1(FIX.b1ConfirmedReturning), [1, 0, 1, 0, 0, 0])
+  eq('B1p①b 体内 batchWriteOutcome( ⇒ 放过', b1(FIX.b1ConfirmedOutletCall), [1, 0, 1, 0, 0, 0])
   eq(
     'B1f① .returning( 只活在注释里 ⇒ 不放行(判据跑在遮蔽后的代码面上,反向锁)',
     b1(FIX.b1ReturningOnlyInComment),

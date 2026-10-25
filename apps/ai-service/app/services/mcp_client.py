@@ -43,8 +43,6 @@ from app.services.command_streamer import (
 )
 from app.services.mcp_oauth import MCPOAuthClient, MCPOAuthConfig
 
-from ..core.background_tasks import spawn
-
 logger = logging.getLogger(__name__)
 
 # 传输模式
@@ -115,7 +113,6 @@ class MCPClient:
         self._request_id = 0
         self._pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
         self._read_task: asyncio.Task[None] | None = None
-        self._stderr_task: asyncio.Task[None] | None = None
         self._reconnect_attempts = 0
         self._sse_buffer = b""
         self._session_id = ""
@@ -236,9 +233,6 @@ class MCPClient:
         if self._read_task is not None:
             self._read_task.cancel()
             self._read_task = None
-        if self._stderr_task is not None:
-            self._stderr_task.cancel()
-            self._stderr_task = None
         if self._writer is not None:
             try:
                 self._writer.close()
@@ -451,8 +445,7 @@ class MCPClient:
             self._read_task = asyncio.create_task(self._stdio_read_loop())
             # 启动 stderr 日志读取(不阻塞)
             if self._process.stderr is not None:
-                # stderr 采集是长命任务:裸 create_task 被 GC 收走 ⇒ stderr 静默停采(挂属性便于 disconnect 时一并取消)
-                self._stderr_task = spawn(self._stderr_reader(self._process.stderr))
+                asyncio.create_task(self._stderr_reader(self._process.stderr))
             return True
         except Exception as e:
             logger.error("stdio 连接失败(%s): %s", self._config.command, e)
@@ -518,7 +511,7 @@ class MCPClient:
             was_connected = self._connected
             self._connected = False
             if was_connected and self._config.reconnect:
-                spawn(self._reconnect())
+                asyncio.create_task(self._reconnect())
 
     @staticmethod
     async def _stderr_reader(stderr: asyncio.StreamReader) -> None:
@@ -627,7 +620,7 @@ class MCPClient:
             was_connected = self._connected
             self._connected = False
             if was_connected and self._config.reconnect:
-                spawn(self._reconnect())
+                asyncio.create_task(self._reconnect())
 
     def _sse_feed_data(self, data: bytes) -> None:
         """解析 SSE 数据块。"""
@@ -1041,7 +1034,8 @@ class MCPClientManager:
         client = self._clients.pop(name, None)
         if client is not None:
             try:
-                spawn(client.disconnect())
+                asyncio.get_running_loop()
+                asyncio.create_task(client.disconnect())
             except RuntimeError:
                 # 无运行中的事件循环(同步上下文),不触发 disconnect
                 pass

@@ -44,8 +44,7 @@ from app.routers.llm import (
     _TERMINAL_TOOL_NAMES,
     _TOOL_DANGER_LEVELS,
 )
-from app.services.mcp_server import _FORM_REQUEST_TOOL_NAME, _TOOL_ALIASES
-from app.services.mcp_server import mcp_server as _mcp
+from app.services.mcp_server import _FORM_REQUEST_TOOL_NAME, _TOOL_ALIASES, mcp_server as _mcp
 from app.services.plan_mode import READONLY_TOOLS
 
 # 每枚工具的模拟耗时:足够长以便计数窗口稳定分辨"并行 vs 串行",又足够短不拖慢用例。

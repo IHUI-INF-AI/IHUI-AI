@@ -10,7 +10,7 @@
 
 ## 服务定位
 
-IHUI AI 是全栈 AI 平台(TS Monorepo,9 端覆盖:web/api/ai-service/desktop/extension/mobile-rn/mobile-cap/miniapp-taro/cli),核心代码 Apache 2.0 开源。对于缺乏 AI 工程能力的企业客户,我们提供 4 类付费服务,直接产生现金流。
+IHUI AI 是全栈 AI 平台(TS Monorepo,8 端覆盖:web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli),核心代码 Apache 2.0 开源。对于缺乏 AI 工程能力的企业客户,我们提供 4 类付费服务,直接产生现金流。
 
 ## 服务清单
 
@@ -19,7 +19,7 @@ IHUI AI 是全栈 AI 平台(TS Monorepo,9 端覆盖:web/api/ai-service/desktop/e
 | 项目 | 说明 |
 |------|------|
 | **包含** | 源码部署到客户服务器(Linux/Windows) |
-| **配置** | PostgreSQL + Redis + 9 端构建 |
+| **配置** | PostgreSQL + Redis + 8 端构建 |
 | **培训** | 2 小时线上培训(管理员 + 开发者) |
 | **支持** | 30 天邮件支持 |
 | **交付周期** | 3-5 工作日 |

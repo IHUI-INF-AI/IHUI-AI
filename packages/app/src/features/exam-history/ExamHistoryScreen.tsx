@@ -7,7 +7,7 @@ import { FlatList, RefreshControl, Text, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamHistoryItem, ExamHistoryScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import {
   EmptyState,
@@ -101,8 +101,8 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
     },
     title: {
-      marginTop: 8,
-      marginBottom: 12,
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
@@ -113,7 +113,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
     cardHead: {
       flexDirection: 'row',
@@ -122,27 +122,31 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: {
       flex: 1,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '700',
       color: tk.text.primary,
     },
     badge: {
       paddingHorizontal: 6,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
-      marginLeft: 8,
+      marginLeft: rnSpacing.sm,
     },
     badgePassed: { backgroundColor: tk.success.light },
     badgeFailed: { backgroundColor: tk.danger.light },
-    badgePassedText: { fontSize: 11, color: tk.success.DEFAULT, fontWeight: '600' },
-    badgeFailedText: { fontSize: 11, color: tk.danger.DEFAULT, fontWeight: '600' },
+    badgePassedText: {
+      fontSize: rnType.caption.size,
+      color: tk.success.DEFAULT,
+      fontWeight: '600',
+    },
+    badgeFailedText: { fontSize: rnType.caption.size, color: tk.danger.DEFAULT, fontWeight: '600' },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
-    score: { flexShrink: 0, fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
-    metaTime: { fontSize: 11, color: tk.text.tertiary },
+    score: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.brand.DEFAULT },
+    metaTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

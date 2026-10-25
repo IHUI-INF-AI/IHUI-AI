@@ -14,7 +14,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { extractText } from '@/lib/ai-media'
 import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'
 import {
@@ -80,11 +80,12 @@ export function VisionAnalysis() {
 
   const mutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api<unknown>('/api/ai/dashscope/multimodal', {
+      const res = await fetchApi<unknown>('/api/ai/dashscope/multimodal', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      return res
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: () => toast.success(t('generateSuccess')),
     onError: (err: Error) => toast.error(err.message),

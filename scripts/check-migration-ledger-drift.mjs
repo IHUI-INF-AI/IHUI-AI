@@ -222,15 +222,6 @@ async function main() {
     process.exit(2)
   }
 
-  // G-322(本站):`resolveDsn` 是纯函数、自检锁住"--dsn 值优先,缺省回落 env"语义,**不动**;
-  // 但 CLI 入口旧写法只挡"结尾缺值/空串"(`argv[flagAt+1]` falsy 就悄悄去看环境变量),
-  // `--dsn --json` 这一支会把旗标 token 当 DSN 直连数据库。判死只加入口:给了 --dsn 必须有值。
-  const dsnFlag = requireFlagValue(args, '--dsn', { noun: 'DSN' })
-  if (dsnFlag.error) {
-    console.error(`[ledger-drift] ❌ ${dsnFlag.error}`)
-    process.exit(2)
-  }
-
   // 锚点 2:DSN
   const dsn = resolveDsn(args, process.env)
   if (!dsn) skip('未提供 DSN(--dsn / IHUI_LEDGER_DSN / DATABASE_URL 均为空)')

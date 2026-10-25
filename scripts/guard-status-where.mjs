@@ -10,16 +10,6 @@
  * 其后 3 行内必须出现 `status` 于 where 谓词,或显式注明无需守卫的理由
  * (注释标记 `status-guard-exempt: <理由>`,写在 set 行当行或其后 3 行内)。
  *
- * 两尺取材面不一致的实测登记(2026-10-23,只记事实不改判据;统一归另票):守门 108
- * (`check-exemption-expiry.mjs` scanFile)的挂靠口径只认**标记与违规行同行(inline)或紧邻上一
- * 纯注释行(prev-line)**,而本门的放行窗是**set 行同行或其后 3 行**——"标记在违规行下方"这一型
- * 108 的挂靠尺子结构性看不见。HEAD 面现读:全部 status-guard-exempt 标记都取"后 1 行"形态
- * (同行 0 处、后 2/3 行 0 处、上一行 0 处),即两尺在**关联维上交集为空**;而两尺的**枚数**恰等,
- * 只因当下每枚标记恰好只救一枚 set 行——一枚标记若在窗内同时罩住多枚 set 行,本门放行的站点数
- * 就会超过 108 入账的标记数,故 108 那侧的计数只是**下界**(方向:108 ≤ 本门)。复测口径 =
- * 本门缺省档(HEAD blob)的 exempt 站点数 对比 `node scripts/check-exemption-expiry.mjs` 的
- * status-guard-exempt 族计数;此处不写死任何计数(§0.1,凡数字一律现读)。
- *
  * 背景:条件 UPDATE + 影响行数判失败 = "终态不可逆出"纪律(对照 order-queries.ts
  * cancelPayment / agents-queries.ts settleSettlement)。本脚本只做棘轮式报告:
  * 退出码 0 = 全部命中合规;1 = 存在裸写点(列出 file:line)。

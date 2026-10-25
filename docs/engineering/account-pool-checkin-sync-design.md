@@ -284,3 +284,27 @@ sweep worker 每轮顺带执行(现成 sweepAccountPool 之后,复用同分布�
 | 内网 HTTP 成为新故障点 | 两侧全 fail-open + pending + 对账自愈; 同步失败绝不阻塞号池主业 |
 | 系统账号签到量放大风控面 | 全额继承错峰/闸门/冷却; admin 面可见可一键停用 |
 | pool_uid 与存量 identity 冲突 | pool_uid 仅同步账号带; backfill 只对系统 owner 账号执行,一次性对账脚本 |
+
+## 16. 用户态个人号池 · 三端管理(2026-10-23 立,移动端对齐 Web)
+
+每个登录用户的 `owner_user_id` 独立成池(运营池 `owner_user_id IS NULL` 与本节互不串门)。用户池里的账号即签到助手同一批账号,经 §7 双向同步 + scheduler 对账收敛自动进签到调度 → 每日自动签到获取免费积分,并在转发时优先使用。
+
+**用户态端点**(`apps/api/src/routes/account-pool.ts`,全部 `authenticate` 门):
+
+- `GET /api/account-pool` 我的个人号池列表(投影不含 *Enc/proxyUrl/cosy)
+- `POST /api/account-pool` 添加(手动凭证;等价签到助手录入,自动推送签到侧 + 回连 pool_account_id)
+- `PATCH /api/account-pool/:id` 改名/启停(启用态联动签到侧 `push(state)`)
+- `DELETE /api/account-pool/:id` 删除(联动 `push(pool_deleted)`)
+- `POST /api/account-pool/:id/checkin` 立即签到(转签到引擎 manual 语义,尊重冷却)
+- `GET /api/account-pool/:id/status` 签到状态点查
+- `GET /api/account-pool/summary` 个人池概览(角标/首页)
+
+**三端入口**(数据同一后端,天然互通):
+
+| 端 | 入口/文件 | 说明 |
+|---|---|---|
+| Web | `/account-pool`(`apps/web/app/(main)/account-pool/page.tsx`)+ 侧栏 | 用户态个人号池 |
+| RN | `Screen AccountPool`(SettingsScreen 菜单+抽屉)调 `/api/account-pool` | 对齐 Web |
+| 小程序 | `pkg-user/account-pool`(`app.config.ts` 注册+入口)调端内 `api.*('/account-pool')` | 对齐 Web |
+
+**文案**: 新增 `accountPool` 命名空间(RN/miniapp 各 5 语言同批;两端共用 zh-CN/en/ja/ko/zh-TW)。小程序运行时读 `gen-i18n-compressed.mjs` 派生产物,改完 `packages/i18n/.../miniapp-taro/*.json` 须 `pnpm --filter @ihui/miniapp-taro gen:i18n` 重算 `zh-cn-pack.gen.ts`/`remote-locale-manifest.gen.ts` 才进端内首屏回落包。

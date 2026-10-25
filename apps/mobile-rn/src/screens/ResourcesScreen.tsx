@@ -217,7 +217,7 @@ export function ResourcesScreen() {
     if (loading) {
       return (
         <View className="flex-1 items-center justify-center">
-          <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
+          <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
         </View>
       )
     }
@@ -227,7 +227,7 @@ export function ResourcesScreen() {
           <Text className="mb-3 text-sm text-neutral-600 dark:text-neutral-300">{error}</Text>
           <TouchableOpacity
             onPress={() => void load()}
-            className="rounded-sm bg-neutral-900 px-4 py-2 min-h-[44px]"
+            className="rounded-sm bg-neutral-900 px-4 py-2"
           >
             <Text className="text-sm text-neutral-50">{t('common.retry')}</Text>
           </TouchableOpacity>
@@ -241,7 +241,7 @@ export function ResourcesScreen() {
       >
         {items.length === 0 && !hasMore ? (
           <View className="items-center py-16">
-            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('resources.empty')}</Text>
+            <Text className="text-sm text-neutral-500">{t('resources.empty')}</Text>
           </View>
         ) : null}
 
@@ -261,15 +261,15 @@ export function ResourcesScreen() {
               ) : null}
               <View className="mt-2 flex-row flex-wrap items-center">
                 {item.fileType ? (
-                  <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">{item.fileType}</Text>
+                  <Text className="mr-3 text-xs text-neutral-500">{item.fileType}</Text>
                 ) : null}
-                <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">
+                <Text className="mr-3 text-xs text-neutral-500">
                   {t('resources.fileSize')}: {formatFileSize(item.fileSize)}
                 </Text>
-                <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">
+                <Text className="mr-3 text-xs text-neutral-500">
                   {t('resources.viewCount')}: {item.viewCount ?? 0}
                 </Text>
-                <Text className="text-xs text-neutral-500 dark:text-neutral-400">
+                <Text className="text-xs text-neutral-500">
                   {t('resources.downloadCount')}: {item.downloadCount ?? 0}
                 </Text>
               </View>
@@ -281,7 +281,7 @@ export function ResourcesScreen() {
           <TouchableOpacity
             disabled={loadingMore}
             onPress={() => void onLoadMore()}
-            className="mx-4 mb-6 items-center rounded-sm border border-neutral-300 py-2 dark:border-neutral-700 min-h-[44px]"
+            className="mx-4 mb-6 items-center rounded-sm border border-neutral-300 py-2 dark:border-neutral-700"
           >
             <Text className="text-xs text-neutral-700 dark:text-neutral-300">
               {loadingMore ? t('common.loading') : t('resources.loadMore')}
@@ -317,23 +317,23 @@ export function ResourcesScreen() {
 
           <View className="mt-3 flex-row flex-wrap items-center">
             {categoryName ? (
-              <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">{categoryName}</Text>
+              <Text className="mr-3 text-xs text-neutral-500">{categoryName}</Text>
             ) : null}
             {resource.fileType ? (
-              <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">{resource.fileType}</Text>
+              <Text className="mr-3 text-xs text-neutral-500">{resource.fileType}</Text>
             ) : null}
-            <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">
+            <Text className="mr-3 text-xs text-neutral-500">
               {t('resources.fileSize')}: {formatFileSize(resource.fileSize)}
             </Text>
-            <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">
+            <Text className="mr-3 text-xs text-neutral-500">
               {t('resources.viewCount')}: {resource.viewCount ?? 0}
             </Text>
-            <Text className="text-xs text-neutral-500 dark:text-neutral-400">
+            <Text className="text-xs text-neutral-500">
               {t('resources.downloadCount')}: {resource.downloadCount ?? 0}
             </Text>
           </View>
 
-          <Text className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+          <Text className="mt-2 text-xs text-neutral-500">
             {t('resources.publishedAt', { date: formatDay(resource.createdAt) })}
           </Text>
 
@@ -355,14 +355,14 @@ export function ResourcesScreen() {
           <TouchableOpacity
             disabled={downloading}
             onPress={() => onDownload(resource)}
-            className="mx-4 mb-6 items-center rounded-sm bg-neutral-900 py-2.5 dark:bg-neutral-100 min-h-[44px]"
+            className="mx-4 mb-6 items-center rounded-sm bg-neutral-900 py-2.5 dark:bg-neutral-100"
           >
             <Text className="text-sm text-neutral-50 dark:text-neutral-900">
               {t('resources.download')}
             </Text>
           </TouchableOpacity>
         ) : (
-          <Text className="mx-4 mb-6 text-xs text-neutral-500 dark:text-neutral-400">{t('resources.noFile')}</Text>
+          <Text className="mx-4 mb-6 text-xs text-neutral-500">{t('resources.noFile')}</Text>
         )}
       </ScrollView>
     )
@@ -379,14 +379,14 @@ export function ResourcesScreen() {
       ) : (
         <>
           <View className="px-4 pb-2">
-            <Text className="mb-1 text-xs text-neutral-500 dark:text-neutral-400">{t('resources.subtitle')}</Text>
+            <Text className="mb-1 text-xs text-neutral-500">{t('resources.subtitle')}</Text>
             <TextField
               colorScheme={resolvedTheme}
               value={search}
               onChangeText={setSearch}
               placeholder={t('resources.searchPlaceholder')}
               placeholderTextColor={tokens.text.tertiary}
-              className="h-9 rounded-sm border border-neutral-200 bg-white px-3 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 min-h-[44px]"
+              className="h-9 rounded-sm border border-neutral-200 bg-white px-3 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
             />
           </View>
 
@@ -394,7 +394,7 @@ export function ResourcesScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4 pb-2">
               <TouchableOpacity
                 onPress={() => setCategoryId('all')}
-                className={`mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
+                className={`mr-2 rounded-sm px-3 py-1.5 ${
                   categoryId === 'all'
                     ? 'bg-neutral-900 dark:bg-neutral-100'
                     : 'bg-neutral-200 dark:bg-neutral-800'
@@ -416,7 +416,7 @@ export function ResourcesScreen() {
                   <TouchableOpacity
                     key={category.id}
                     onPress={() => setCategoryId(category.id)}
-                    className={`mr-2 rounded-sm px-3 py-1.5 min-h-[44px] ${
+                    className={`mr-2 rounded-sm px-3 py-1.5 ${
                       active
                         ? 'bg-neutral-900 dark:bg-neutral-100'
                         : 'bg-neutral-200 dark:bg-neutral-800'

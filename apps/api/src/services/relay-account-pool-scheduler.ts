@@ -15,7 +15,7 @@
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
-import { and, eq, isNotNull, isNull, lt, lte, ne, or, inArray, sql } from 'drizzle-orm'
+import { and, eq, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
@@ -25,7 +25,10 @@ import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
 import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
-import { retryPendingCheckinSyncs } from './relay-account-pool-checkin-sync.js'
+import {
+  retryPendingCheckinSyncs,
+  type RetryPendingResult,
+} from './relay-account-pool-checkin-sync.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
@@ -98,11 +101,25 @@ export interface AccountPoolSweepResult {
   refreshSkipped: number
   healthChecked: number
   healthRecovered: number
-  // O64 checkinReconcile/checkinRetry 两键不得进产出面(2026-10-24 定案 099b843,由
-  // apps/api/tests/relay-account-pool-sweep-result.test.ts 三例钉住):①两条分支必须同键集,
-  // 跳过分支无对账可发;②产出面只允许标量,对象键消费面不解码。要加回来的合法顺序 =
-  // 消费面(worker)先写真读取 → 产出面同批加键 → 白名单同批登记,三者缺一即红。
-  // 调用接线保留(价值在真跑),明细走调度日志。
+  /** O64 对账收敛器结果(undefined = 未执行/被跳过;号池↔签到断链自愈) */
+  checkinReconcile?: {
+    ok: boolean
+    error: string | null
+    pushed: number
+    pushFailed: number
+    disabled: number
+    disableFailed: number
+    stateCalibrated: number
+    stateFailed: number
+    flushed: number
+    flushFailed: number
+    orphanNoPoolId: number
+    outOfScope: number
+    truncated: number
+  }
+  /** O64 断链待推重推结果(undefined = 未执行/被跳过;reconcile 仅按"缺/版本落后"补推,
+   *  读不到 pending 标记,覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending) */
+  checkinRetry?: RetryPendingResult
   /** true = 分布式锁被其他实例持有,本轮整体跳过(多实例不重复 sweep) */
   skipped: boolean
 }
@@ -157,51 +174,6 @@ export const __test__ = {
  */
 export function recredentialableCondition() {
   return or(isNotNull(aiRelayAccountPool.refreshTokenEnc), isNotNull(aiRelayAccountPool.cookiesEnc))
-}
-
-/**
- * 「这枚号现在能不能被调度选中」的唯一判据(2026-10-23 立)。
- *
- * 立因:巡检把上游明确拒收判成 `healthStatus='down'` 并收敛到期列,而选号 WHERE 只看了
- * `isEnabled ∧ ¬tempUnschedulable` ⇒ 巡检判死的号照样被选中,一次拒收要等转发再失败几次
- * 才靠会话死/额度冷却摘除。两个面各写一份「可用」的口径,必然漂移(§0.6)。
- *
- * 所以这条条件是调度侧(relay-account-forwarder.selectAccountCandidates)与巡检侧
- * (`healthStatusOf` 的产物)之间唯一的接缝:巡检写 down ⇒ 调度当场不再选它。
- * `unknown` 仍可选(新导入/未判定要给一次实测机会),`healthy`/`degraded` 照旧可选。
- */
-export function accountSchedulableCondition() {
-  return and(
-    eq(aiRelayAccountPool.isEnabled, true),
-    eq(aiRelayAccountPool.tempUnschedulable, false),
-    ne(aiRelayAccountPool.healthStatus, 'down'),
-  )
-}
-
-/**
- * 上游**当场明确拒收**凭据 ⇒ 同一次写里:到期列收敛到当下 + 健康降级 down。
- *
- * 单点实现,供巡检之外的「上游主动探测」档(管理面按需查余额等)复用 ——
- * 到期列是弱证据,任何一处拿到"上游明确拒收"都必须立刻把它收敛掉,
- * 否则换票写进去的新未来时刻会继续冒充「票仍可用」。5xx/网络/形状不符
- * 不是明确拒收,不得调用本函数(那些走 indeterminate,保留原状)。
- */
-export async function markAccountAuthRejected(
-  accountId: string,
-  reason: string | null,
-  now: Date = new Date(),
-): Promise<void> {
-  await db
-    .update(aiRelayAccountPool)
-    .set({
-      tokenExpiresAt: now,
-      healthStatus: 'down',
-      healthCheckedAt: now,
-      lastErrorMessage: (reason ?? '上游拒收凭据').slice(0, 500),
-      updatedAt: now,
-    })
-    .where(eq(aiRelayAccountPool.id, accountId))
-    .catch(() => {})
 }
 
 /** 步骤 1「临期刷新」的 where(导出供镜像测试锁形状,查询与断言读同一个对象) */
@@ -414,10 +386,8 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   }
 
   // ── 4. O64 号池↔签到对账收敛(断链自愈;失败不中断 sweep,下轮继续) ──
-  // 结果走日志留痕,不进返回键集(见接口处注记:两条分支同键 + 全标量契约)。
   try {
-    const reconciled = await reconcileCheckinSync()
-    logger.info('[relay-account-pool] O64 对账收敛完成', reconciled as unknown as Record<string, unknown>)
+    out.checkinReconcile = await reconcileCheckinSync()
   } catch (e) {
     logger.warn('[relay-account-pool] 对账收敛器异常(不影响巡检)', {
       error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
@@ -428,8 +398,7 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   //    reconcile(步骤4)仅按"缺/版本落后"补推、读不到 extraMetadata.checkinSync.pending,
   //    覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending。两者同在分布式锁内、幂等、互不冲突。
   try {
-    const retried = await retryPendingCheckinSyncs()
-    logger.info('[relay-account-pool] O64 断链待推重推完成', retried as unknown as Record<string, unknown>)
+    out.checkinRetry = await retryPendingCheckinSyncs()
   } catch (e) {
     logger.warn('[relay-account-pool] 待推重推异常(不影响巡检)', {
       error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',

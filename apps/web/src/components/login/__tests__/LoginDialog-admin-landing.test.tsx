@@ -46,12 +46,10 @@ vi.mock('@/components/auth/AuthShell', () => ({
   AuthShell: ({ children }: { children?: never }) => <div>{children}</div>,
 }))
 vi.mock('@/lib/tauri-bridge', () => ({
+  openEmbeddedBrowser: vi.fn(),
   openExternalUrl: vi.fn(async () => true),
 }))
-vi.mock('@/lib/sso-desktop-bridge', () => ({ rememberSsoDockedWindow: vi.fn() }))
-vi.mock('@/stores/work-panel', () => ({
-  useWorkPanelStore: { getState: () => ({ openPanel: vi.fn() }) },
-}))
+vi.mock('@/lib/sso-desktop-bridge', () => ({ rememberSsoEmbeddedWindow: vi.fn() }))
 vi.mock('@ihui/shared', () => ({
   buildSsoLoginUrl: () => 'https://example.test/sso/login',
   SSO_CLIENT_IDS: { DESKTOP: 'desktop', WEB: 'web' },

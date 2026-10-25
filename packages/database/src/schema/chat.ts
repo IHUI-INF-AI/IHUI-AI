@@ -142,29 +142,6 @@ export const chatMessages = pgTable(
 )
 
 /**
- * chat-sync 修订号账本(票 B02 第三切片,2026-10-25 立)。
- *
- * rev 的**唯一权威源**:每消息一行,UPSERT 原子递增(严格递增、不重号、不回退)。
- * 为什么是 PG 而不是 Redis INCR / 进程内计数器:
- *  - Redis 无持久化配置或被清 ⇒ 重启归零,rev 从 1 重数,端侧按 stale 丢弃新内容
- *    (症状"另一台设备停在半截回复,而账面全绿");
- *  - 壁钟回落值一旦进链,重启后小数字链必然回退,同样全判 stale。
- *  PG 与消息本体(chat_messages)同库 ⇒ 快照端点"内容 + rev"同库同读,天然一致。
- *
- * 刻意不冗余存 conversationId:会话归属单源在 chat_messages,快照读 JOIN 一次即可
- * (快照端点低频),第二份会话归属必然漂移。
- *
- * 行生命周期:ON DELETE CASCADE 跟随消息行 —— 消息删了,修订链没有存在的意义。
- */
-export const chatMessageSyncRevs = pgTable('chat_message_sync_revs', {
-  messageId: uuid('message_id')
-    .primaryKey()
-    .references(() => chatMessages.id, { onDelete: 'cascade' }),
-  rev: integer('rev').default(0).notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
-
-/**
  * 压缩归档表(2026-09-01 立,"归档记忆"能力)。
  * 自动上下文压缩触发时,把被压缩掉的原始消息数组整体落库归档 ——
  * 压缩从"黑箱有损"变成"透明可逆":用户可回看压缩前的原始消息。

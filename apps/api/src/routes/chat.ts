@@ -8,7 +8,7 @@ import { sql, and, eq, inArray } from 'drizzle-orm'
 // D153(2026-09-29 立):会话元数据变更的 per-user 下行广播。
 // 事件形态与构造的唯一出口在 @ihui/types(三个消费面共用一份描述),
 // 路由内不得手拼 `{event,data}` 字面量,也不得把"哪些字段真的变了"照抄请求体键名。
-import { conversationUpdatedEvent, isChatSyncRole, type ConversationMetaField, type ChatSyncMessageSnapshot } from '@ihui/types'
+import { conversationUpdatedEvent, isChatSyncRole, type ConversationMetaField } from '@ihui/types'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
@@ -71,8 +71,6 @@ import {
 } from '../db/chat-queries.js'
 // D125 另批收口(2026-10-23):写锁地板门控判据(纯函数,不触库;锁读写面在 chat-collab 路由)
 import { readCollabLock, resolveFloorGate } from '../db/chat-collab-write-queries.js'
-// B02 第三切片(2026-10-25):resync 权威快照读(内容 + rev 同库同读,契约 §7 第 3 项)
-import { findChatSyncSnapshot } from '../db/chat-sync-rev-queries.js'
 import { success, error } from '../utils/response.js'
 import { generateSemanticSummary, getCachedSemanticSummary } from '../utils/semantic-summary.js'
 import {
@@ -417,19 +415,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
   // 正则逐字取 ajv-formats 的 uuid 形态(松散十六进制形状,不校验 version/variant 位)——
   // 用 z.uuid() 会比原 ajv 更严(zod v4 校 variant),把既有合法调用方(如测试里的 1111-…-1111)
   // 从 404/200 改成 400,违反本票"合法参数响应逐字不变"判据。
-  // B02 第三切片:正则提成常量,快照端点的 messageId 参数与它同源(两处抄必然漂)。
-  const UUID_PARAM_RE = /^(?:urn:uuid:)?[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i
   const conversationIdParam = z.object({
-    id: z.string().regex(UUID_PARAM_RE, '无效的对话 ID'),
+    id: z
+      .string()
+      .regex(/^(?:urn:uuid:)?[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i, '无效的对话 ID'),
   })
-  // B02 第三切片:快照端点参数。id 与 conversationIdParam 同源(shape 复用同一正则常量);
-  // messageId 走同一松散 uuid 形态(理由同上,z.uuid() 会把既有合法调用方改判 400)。
-  const syncSnapshotParams = z
-    .object({
-      id: conversationIdParam.shape.id,
-      messageId: z.string().regex(UUID_PARAM_RE, '无效的消息 ID'),
-    })
-    .strict()
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await authenticate(request)
@@ -1105,71 +1095,6 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           nextCursor,
         }),
       )
-    },
-  )
-
-  // GET /conversations/:id/messages/:messageId/sync-snapshot - B02 第三切片(2026-10-25)
-  // resync 传输(契约 docs/chat-sync-contract.md §7 第 3 项):端侧判 gap 后拉权威快照的端点。
-  // "rev=N 全量"语义:rev = 当前修订链头(0 = 链上无 patch,created 初面即权威),
-  // content/reasoning = 链头时刻的全量自包含面 —— findChatSyncSnapshot 内容与 rev 同库同读,
-  // 契约 §2 第 3 条"rev=N 的 snapshot 必须已包含 ≤N 的全部内容变更"由同库同读直接兑现。
-  // 鉴权:requireAuth + 会话归属(ensureOwnedConversation)+ 消息归属(WHERE 谓词一查定案)。
-  server.get(
-    '/conversations/:id/messages/:messageId/sync-snapshot',
-    {
-      schema: {
-        summary: '消息同步快照',
-        description: 'resync 权威快照:返回该消息当前修订链头 rev 与链头时刻的全量内容',
-        tags: ['chat'],
-        params: {
-          type: 'object',
-          required: ['id', 'messageId'],
-          properties: {
-            // G-261:type-only,uuid 由 syncSnapshotParams(Zod)校验;format:'uuid' 走 ajv 先拒会被掩盖成 500
-            id: { type: 'string', description: '对话 ID(UUID,服务端 Zod 校验)' },
-            messageId: { type: 'string', description: '消息 ID(UUID,服务端 Zod 校验)' },
-          },
-        },
-        response: buildResponseSchema(400, 401, 403, 404, 409),
-      },
-    },
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      const userId = request.userId
-
-      const parsed = syncSnapshotParams.safeParse(request.params)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const { id, messageId } = parsed.data
-      const owned = await ensureOwnedConversation(id, userId, reply)
-      if (!owned.conversation) return
-
-      const snap = await findChatSyncSnapshot(id, messageId)
-      if (!snap) return reply.status(404).send(error(404, '消息不存在'))
-
-      // 角色不在契约封闭集 ⇒ 端侧无从把它折成 created/patched 喂内核,照发等于推一帧
-      // 消费端必判"未判定"的载荷。409 显式点名(消息在、但契约面投影失败),不冒 200。
-      const syncRole = isChatSyncRole(snap.role) ? snap.role : null
-      if (!syncRole) {
-        request.log.warn(
-          { conversationId: id, messageId, role: snap.role },
-          'chat 快照端点拒绝:角色不在契约封闭集内(消费端无从应用)',
-        )
-        return reply.status(409).send(error(409, '消息角色不可同步'))
-      }
-
-      const data: ChatSyncMessageSnapshot = {
-        conversationId: snap.conversationId,
-        messageId: snap.messageId,
-        rev: snap.rev,
-        role: syncRole,
-        content: snap.content,
-        // reasoning 空(null/'')= 无信息量,省略(契约:缺省 = 保持原值/无)。
-        ...(snap.reasoning ? { reasoning: snap.reasoning } : {}),
-      }
-      return reply.send(success(data))
     },
   )
 

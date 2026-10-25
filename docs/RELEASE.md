@@ -16,7 +16,7 @@
 
 IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actions → 构建产物 → 推送至各平台 → 蓝绿部署上线。所有发布动作均有守门脚本与 checklist 兜底。
 
-- 9 端定位与平台支持矩阵见 [MULTI_END.md](./MULTI_END.md),本文件只聚焦**发布流程**。
+- 8 端定位与平台支持矩阵见 [MULTI_END.md](./MULTI_END.md),本文件只聚焦**发布流程**。
 - 服务器部署、Nginx 配置、证书续期、SaaS 多租户运维细节见 [DEPLOYMENT_RUNBOOK.md](./DEPLOYMENT_RUNBOOK.md),本文件不重复。
 - 变更记录见 [CHANGELOG.md](./CHANGELOG.md),本文件只描述"如何把变更发出去"。
 
@@ -564,12 +564,12 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 ### sdk / cli 依赖闭包(决定"谁能对外发布")
 
 `packages/` 下 16 个包**全部** `private: true` 且 `version: 0.0.0`,入口统一 `main/types → ./src/index.ts`
-(仓库内 9 端按源码消费,靠 `turbo` 的 `dependsOn: ["^build"]` 串起构建)。这带来两条硬结论:
+(仓库内 8 端按源码消费,靠 `turbo` 的 `dependsOn: ["^build"]` 串起构建)。这带来两条硬结论:
 
 | 包 | 定位 | 处理 |
 | --- | --- | --- |
 | `@ihui/sdk` | 对外唯一 TS 入口 | 已改为可发布形态:`main/types → dist`、`files` 白名单、`license: Apache-2.0`、`publishConfig.registry` 锁 npmjs.org、`@ihui/types` 移到 devDependencies(纯类型引用,发行包不需要) |
-| `@ihui/api-client` | **内部传输层,不对外发布** | 保留 `private: true`。理由:① 它被 9 端经 workspace 直接按源码消费,翻成 `dist` 入口会让 `pnpm dev` 依赖先构建,收益为零;② 对外契约由 `@ihui/sdk` 承担,同时发布两个高度重叠的客户端包只会让使用者困惑;③ 它 `dependencies: { "@ihui/types": "workspace:*" }`,而 `@ihui/types` 是 private —— 去 private 也发不出去。**注意:`build` 脚本(`tsc`)是好的,`packages/api-client/dist` 能正常产出**,只是不用于发布。 |
+| `@ihui/api-client` | **内部传输层,不对外发布** | 保留 `private: true`。理由:① 它被 8 端经 workspace 直接按源码消费,翻成 `dist` 入口会让 `pnpm dev` 依赖先构建,收益为零;② 对外契约由 `@ihui/sdk` 承担,同时发布两个高度重叠的客户端包只会让使用者困惑;③ 它 `dependencies: { "@ihui/types": "workspace:*" }`,而 `@ihui/types` 是 private —— 去 private 也发不出去。**注意:`build` 脚本(`tsc`)是好的,`packages/api-client/dist` 能正常产出**,只是不用于发布。 |
 | `@ihui/types` | 契约包 | 仍是 `private: true`。`@ihui/sdk` 的 `dist/*.d.ts` 有 13 处 `import type … from '@ihui/types'`,严格消费者(`skipLibCheck: false`)会报 13 个 TS2307 —— 见"SDK 类型面遗留问题" |
 | `ihui-cli` | 对外发布 npm 包 `ihui-cli`(unscoped) | 已收口为**单文件 bundle**:`build:npm`(esbuild CJS)产出 `apps/cli/npm-dist/`,`@ihui/*` 全部内联,`package.json` **无 `dependencies`**,语言包在 `dist/messages/{cli,shared}/`;发布命令为 `npm publish ./npm-dist --access public`。`packages/i18n` 的 `findMessagesRoot()` 已增加 `dist/messages` 探测。**首版 `1.0.0` 已于 2026-10-19 用 granular token 手动 bootstrap 发布并通过安装验证**;后续版本的 CI 发布走 `secrets.NPM_PUBLISH_TOKEN`(同一枚 granular token,勾 Bypass 2FA),**不再需要 Trusted Publisher**(已定案永久不登记) |
 

@@ -73,6 +73,75 @@ vi.mock('../src/context/AuthContext', () => ({
 // 已指向 tests/__mocks__/ihui-rn-app.ts（静态 mock）。动态 mock 会创建独立的模块实例，
 // 导致 agentScreenPropsCaptured 数组与静态 mock 的不一致。
 
+// Modal 在 jsdom 中需要 mock，否则 React Native Modal 会崩溃
+vi.mock('react-native', async () => {
+  const { createElement: h } = await import('react')
+  const mk = (tag: string) =>
+    function MockComp(props: { children?: React.ReactNode; [k: string]: unknown }) {
+      // 合并 style 数组为单对象:React DOM 19 setValueForStyles 对 style 数组
+      // 会 Object.freeze 后按索引 '0'/'1' 遍历并写入 node.style,jsdom
+      // CSSStyleDeclaration 代理拒绝数字属性 set → "'set' on proxy: trap
+      // returned falsish for property '0'"。
+      const { style, onPress, ...rest } = props
+      const flat = (v: unknown): unknown =>
+        Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
+      const mergedStyle = flat(style)
+      return h(tag, { ...rest, onClick: onPress, style: mergedStyle }, props.children)
+    }
+  return {
+    // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
+    // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
+    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    // BottomPops(经 AgentScreen 的 appAlert 导入拉入)模块求值期读窗口高:
+    // const SCREEN_HEIGHT = Dimensions.get('window').height,缺它则整文件加载即炸。
+    Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
+    DevSettings: { reload: () => {} },
+    __esModule: true,
+    Modal: ({ children, visible }: { visible?: boolean; children?: React.ReactNode }) =>
+      visible ? h('div', null, children) : null,
+    View: mk('div'),
+    Text: mk('span'),
+    Pressable: mk('button'),
+    TouchableOpacity: mk('button'),
+    ScrollView: mk('div'),
+    FlatList: mk('div'),
+    RefreshControl: () => h('div', { 'data-testid': 'refresh-control' }, null),
+    ActivityIndicator: () => h('div', { 'data-testid': 'activity-indicator' }, null),
+    StyleSheet: {
+      // hairlineWidth:SearchOverlay(styles 分隔线 height 求值期就读它)缺则模块求值即炸
+      hairlineWidth: 1,
+      create: (s: Record<string, unknown>) => {
+        const out: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(s)) {
+          out[String(k)] = v
+        }
+        return out
+      },
+    },
+    Image: mk('img'),
+    TextInput: mk('input'),
+    PanResponder: () => ({ panHandlers: {} }),
+    Platform: { OS: 'web' as const },
+    useColorScheme: () => 'light' as const,
+    // SearchOverlay 顶栏弹窗取窗口宽算面板宽,缺该导出即 "No useWindowDimensions export"
+    useWindowDimensions: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }),
+    Animated: {
+      View: mk('div'),
+      Text: mk('span'),
+      createAnimatedComponent: (c: unknown) => c,
+      timing: () => ({ start: () => {} }),
+      spring: () => ({ start: () => {} }),
+      Value: class {
+        constructor(_v: number) {}
+        setValue(_v: number) {}
+        interpolate() {
+          return { __getValue: () => 0 }
+        }
+      },
+    },
+  }
+})
+
 vi.mock('../src/components/Drawer', () => ({
   default: () => null,
   Drawer: () => null,

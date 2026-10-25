@@ -8,6 +8,7 @@ import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCoverFilter, AigcCoverOption, AigcCoverScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -41,9 +42,7 @@ export function AigcCoverScreen({
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.stateWrap}>
-          <Text style={styles.stateText}>{t('aigcCover.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -51,9 +50,7 @@ export function AigcCoverScreen({
   if (error) {
     return (
       <View style={styles.container}>
-        <View style={styles.stateWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
+        <ErrorState message={error} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -96,9 +93,7 @@ export function AigcCoverScreen({
         </View>
 
         {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('aigcCover.empty')}</Text>
-          </View>
+          <EmptyState title={t('aigcCover.empty')} colorScheme={colorScheme} />
         ) : (
           <View style={styles.grid}>
             {filtered.map((c) => (
@@ -145,11 +140,6 @@ function createStyles(tk: AppThemeTokens) {
   const primary = tk.brand.DEFAULT
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    stateWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-    stateText: { fontSize: 14, color: tk.text.tertiary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    empty: { paddingVertical: 40, alignItems: 'center' },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },

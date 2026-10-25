@@ -4,7 +4,6 @@
 
 'use client'
 
-import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -71,7 +70,7 @@ async function safeFetch<T>(url: string, fallback: T): Promise<T> {
   }
 }
 
-const fmtYuan = (n: number) => `¥${formatPrice(n)}`
+const fmtYuan = (n: number) => `¥${(n / 100).toFixed(2)}`
 
 export default function AdminDistributionSettlementsPage() {
   const locale = useLocale()

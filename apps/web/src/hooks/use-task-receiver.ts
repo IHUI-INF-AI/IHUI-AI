@@ -158,9 +158,6 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
     }
 
     void register()
-    // 先停旧再起新:effect 重跑时(依赖变化/StrictMode 双调用)若直接覆盖句柄,
-    // 上一只心跳定时器不再被 cleanup 看见 ⇒ 同一页面并发多路心跳注册
-    if (heartbeatRef.current) clearInterval(heartbeatRef.current)
     heartbeatRef.current = setInterval(() => {
       void register()
     }, HEARTBEAT_INTERVAL_MS)

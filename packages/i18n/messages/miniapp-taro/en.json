@@ -226,12 +226,12 @@
     "liveNow": "Live",
     "detail": {
       "loadFailed": "Live load failed",
+      "loading": "Loading live…",
       "notStarted": "Live not started yet",
       "ended": "Live ended",
       "connecting": "Connecting to live room…",
       "enter": "Enter live room",
-      "anchor": "Host: {name}",
-      "loading": "Loading live…"
+      "anchor": "Host: {name}"
     },
     "subscribe": {
       "subscribe": "Subscribe",
@@ -1308,6 +1308,7 @@
       "correctValue": "{n} questions",
       "duration": "Duration",
       "durationValue": "{n} minutes",
+      "loading": "Loading...",
       "questionIdx": "Question {n}",
       "retry": "Take Test Again",
       "reviewScore": "{n} points",
@@ -1317,8 +1318,7 @@
       "unanswered": "Unanswered",
       "unansweredValue": "{n} questions",
       "wrong": "Wrong",
-      "wrongValue": "{n} questions",
-      "loading": "Loading..."
+      "wrongValue": "{n} questions"
     },
     "detail": {
       "loadFailed": "Exam load failed",
@@ -1545,7 +1545,7 @@
     "ctaTitle": "Start your AI journey in 30 minutes",
     "heroBadge": "About IHUI AI",
     "heroSubtitle": "IHUI AI is an open-source full-stack AI operating system that brings Agent design, knowledge base, multi-model dispatch, cross-platform collaboration and team operations into a single platform.",
-    "heroTitle": "One codebase, nine ends, one AI",
+    "heroTitle": "One codebase, six clients, one AI",
     "numbersTitle": "Numbers Speak",
     "platformAgentsDesc": "Visual drag-and-drop to build AI Agents, 200+ templates, plugin/MCP tools, one-click publish to any client.",
     "platformAgentsTitle": "Agent Marketplace & Orchestration",
@@ -1573,10 +1573,10 @@
     "storyP2": "So we built IHUI AI: open-source, unified, cross-platform, self-hostable. We compressed what would take 12-18 months of in-house development into a 30-minute sign-up.",
     "storyTitle": "Why we built IHUI AI?",
     "valueCrossDesc": "Web / Desktop / Mini Program / Browser Extension / React Native / CLI, one codebase, one publish, reach every platform.",
-    "valueCrossTitle": "nine ends, One Codebase",
+    "valueCrossTitle": "Six Clients, One Codebase",
     "valueEnterpriseDesc": "SSO/OAuth, audit logs, role-based access, self-hosting, serving multiple listed companies.",
     "valueEnterpriseTitle": "Enterprise-grade Security",
-    "valueFreeDesc": "1,000 credits monthly, all models, all nine ends. Pro from ¥49/month, Enterprise supports self-hosting.",
+    "valueFreeDesc": "1,000 credits monthly, all models, all six clients. Pro from ¥49/month, Enterprise supports self-hosting.",
     "valueFreeTitle": "Free for Personal Use",
     "valueOpenDesc": "Apache 2.0 license, core code public, commercial use allowed, zero self-host cost.",
     "valueOpenTitle": "Fully Open Source",
@@ -2229,7 +2229,8 @@
       "addParam": "Add parameter",
       "deleteParam": "Delete",
       "create": "New",
-      "mockSuccess": "n8n agent API is not open yet; this creation was not saved",
+      "createSuccess": "Agent created successfully",
+      "mockSuccess": "API not yet available. Mock creation completed",
       "submitting": "Creating…",
       "submit": "Create Agent",
       "fileSizeExceeded": "File cannot exceed 10MB",
@@ -2265,7 +2266,8 @@
       "discountFull": "Fully eligible",
       "submitting": "Submitting…",
       "submit": "Submit for review",
-      "mockSuccess": "Pricing API is not open yet; this submission was not saved"
+      "submitSuccess": "Submitted successfully",
+      "mockSuccess": "API not yet available. Mock submission completed"
     }
   },
   "devSpace": {
@@ -2753,6 +2755,7 @@
     "missingParams": "Missing payment params",
     "useWechatScan": "Use WeChat to scan and pay",
     "configNotReady": "Payment config not ready. Contact admin.",
+    "balanceInsufficient": "Insufficient balance, please recharge",
     "noCoupon": "No coupons available",
     "couponNone": "No coupon",
     "orderExpired": "Order expired, please place a new order",
@@ -2760,6 +2763,8 @@
     "couponSaved": "Saved ¥{n}",
     "goodsName": "Product name",
     "vipSubscription": "VIP subscription",
+    "balanceAmount": "Balance ¥{n}",
+    "recharge": "Recharge",
     "couponAvailable": "{n} available",
     "limitedFree": "Limited Free",
     "memberFree": "VIP Free",
@@ -2769,6 +2774,7 @@
     "paymentMethod": "Payment Method",
     "confirmPay": "Confirm Pay ¥{price}",
     "alipay": "Alipay",
+    "balance": "Balance",
     "cancel": "Payment cancelled",
     "wxNotInstalled": "WeChat app not detected. Please install WeChat first",
     "aliNotInstalled": "Alipay app not detected. Please install Alipay first",
@@ -2941,14 +2947,14 @@
       "follow": "Follow",
       "followers": "{n} followers",
       "following": "Following",
+      "hoursAgo": "{n} hours ago",
+      "justNow": "Just now",
       "loadFailed": "Failed to load",
       "loading": "Loading...",
       "loadingMore": "Loading...",
+      "minutesAgo": "{n} minutes ago",
       "noMore": "No more",
-      "publish": "Post",
-      "hoursAgo": "{n} hours ago",
-      "justNow": "Just now",
-      "minutesAgo": "{n} minutes ago"
+      "publish": "Post"
     },
     "list": {
       "pageTitle": "Topics",
@@ -3506,11 +3512,11 @@
   },
   "index": {
     "mock": {
-      "yesterday": "Yesterday",
       "post1Title": "How to use React Hooks?",
       "today": "Today",
       "post2Title": "TypeScript Type Inference",
-      "post3Title": "Design Pattern Discussion"
+      "post3Title": "Design Pattern Discussion",
+      "yesterday": "Yesterday"
     },
     "feature": {
       "superAgent": "Deep Thinking",
@@ -3598,21 +3604,17 @@
     "register1": "🎉 Welcome to IHUI AI Community! New users get 5000 IHUI credits on signup!",
     "text2": "Agent assistant page not configured",
     "save3": "Image saved",
-    "d5": "Development",
-    "d11": "Design",
-    "p1": "Image content",
-    "p2": "Video content",
-    "p3": "Audio content",
-    "r1": "Save image to album",
     "d1": "AI Writing Assistant",
     "d2": "Helps you write high-quality articles, reports, and copy",
     "d3": "Coding Assistant",
     "d4": "Code writing, debugging, and optimization advice",
+    "d5": "Development",
     "d6": "Data Analyst",
     "d7": "Data visualization and analysis insights",
     "d8": "Analysis",
     "d9": "Design Creative",
     "d10": "Creative design and visual solutions",
+    "d11": "Design",
     "d12": "Translation Expert",
     "d13": "Multilingual translation and localization",
     "d14": "Tools",
@@ -3647,7 +3649,11 @@
     "d43": "Digital Human Live Demo",
     "d44": "AI Speech Synthesis Demo",
     "d45": "TTS Voice Comparison",
-    "d46": "Voice Cloning Effect"
+    "d46": "Voice Cloning Effect",
+    "p1": "Image content",
+    "p2": "Video content",
+    "p3": "Audio content",
+    "r1": "Save image to album"
   },
   "aiassistant": {
     "text1": "Deep thinking...",
@@ -3875,6 +3881,25 @@
     "d15": "Premium resource matchmaking",
     "d16": "Customized solutions"
   },
+  "aigcList": {
+    "d1": "Cyberpunk City Night",
+    "d2": "IHUI Xiaofang",
+    "d3": "Aurora Wonderland",
+    "d4": "AI Creator",
+    "d5": "Machina Concept",
+    "d6": "Futurist",
+    "d7": "Quantum Verses",
+    "d10": "Data flood, digital age, poetry",
+    "d11": "Neon Pulse",
+    "d12": "Sound Artist",
+    "d13": "City of the Future",
+    "d14": "Digital Painter",
+    "d15": "The AI Awakening",
+    "d17": "Explore the human condition after AI awakens; generate a short philosophical essay.",
+    "d18": "AI awakening, consciousness, coexistence",
+    "d19": "Echoes of Deep Space",
+    "r1": "In the data flood, we use code as pen and algorithms as ink, depicting poetry and horizons of the digital age. Every piece of text is an extension of thought, and every generation is the beginning of creation."
+  },
   "aiAgentdetail": {
     "q1": "Get agent details",
     "r6": "Failed to get agent permission"
@@ -3931,6 +3956,18 @@
     "r3": "Function",
     "r4": "Frontend",
     "r5": "Backend"
+  },
+  "courseplanet": {
+    "d1": "AI Painting 101: From Zero to Mastery",
+    "d2": "AI Research Team",
+    "d3": "Short Video Production Full Workflow",
+    "d4": "Mentor",
+    "d5": "ChatGPT Prompt Engineering",
+    "d6": "AI Research Team",
+    "d7": "AI Office Productivity Guide",
+    "d8": "Efficiency Expert",
+    "d9": "LLM App Development in Practice",
+    "d10": "Tech Expert"
   },
   "aiHistory": {
     "d1": "AI Image",
@@ -4143,7 +4180,8 @@
     "q3": "Operations",
     "q4": "Marketing",
     "q5": "Sales",
-    "q6": "Load agent"
+    "q6": "Load agent",
+    "q7": "Submit paid config"
   },
   "modelplaza": {
     "r1": "Alibaba Cloud",
@@ -4625,23 +4663,26 @@
     "checkinSuccess": "Checked in",
     "addSuccess": "Account added",
     "actionFailed": "Action failed",
-    "adding": "Adding…",
     "loginRequired": "Sign in to manage your account pool",
     "addTitle": "Add account",
+    "adding": "Adding…",
     "deleteConfirm": "Delete {name}?",
     "summary": "{total} accounts · {enabled} enabled"
   },
   "checkinAssistant": {
     "title": "Check-in Assistant",
     "subtitle": "Manage third-party accounts and check in daily. Synced with your personal account pool and used first for your own relay requests.",
+    "summary": "{total} accounts · {enabled} enabled · {synced} in pool",
     "empty": "No accounts yet",
     "emptyHint": "Add your first account using the form below.",
     "addTitle": "Add account",
     "add": "Add",
     "adding": "Adding…",
     "namePlaceholder": "Account name",
+    "tokenLabel": "Token",
     "tokenPlaceholder": "Paste access credential",
     "refreshTokenLabel": "Refresh token (optional)",
+    "optional": "Optional",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "enable": "Enable",
@@ -4652,41 +4693,7 @@
     "poolSynced": "In account pool",
     "lastOk": "Last check-in succeeded +{credits}",
     "lastFailed": "Last check-in failed",
-    "actionFailed": "Action failed",
-    "summary": "{total} accounts · {enabled} enabled · {synced} in pool",
-    "tokenLabel": "Token",
-    "optional": "Optional"
-  },
-  "aigcList": {
-    "d1": "Cyberpunk City Night",
-    "d2": "IHUI Xiaofang",
-    "d3": "Aurora Wonderland",
-    "d4": "AI Creator",
-    "d5": "Machina Concept",
-    "d6": "Futurist",
-    "d7": "Quantum Verses",
-    "d10": "Data flood, digital age, poetry",
-    "d11": "Neon Pulse",
-    "d12": "Sound Artist",
-    "d13": "City of the Future",
-    "d14": "Digital Painter",
-    "d15": "The AI Awakening",
-    "d17": "Explore the human condition after AI awakens; generate a short philosophical essay.",
-    "d18": "AI awakening, consciousness, coexistence",
-    "d19": "Echoes of Deep Space",
-    "r1": "In the data flood, we use code as pen and algorithms as ink, depicting poetry and horizons of the digital age. Every piece of text is an extension of thought, and every generation is the beginning of creation."
-  },
-  "courseplanet": {
-    "d1": "AI Painting 101: From Zero to Mastery",
-    "d2": "AI Research Team",
-    "d3": "Short Video Production Full Workflow",
-    "d4": "Mentor",
-    "d5": "ChatGPT Prompt Engineering",
-    "d6": "AI Research Team",
-    "d7": "AI Office Productivity Guide",
-    "d8": "Efficiency Expert",
-    "d9": "LLM App Development in Practice",
-    "d10": "Tech Expert"
+    "actionFailed": "Action failed"
   },
   "developerInfo": {
     "title": "Developer info",
@@ -4813,14 +4820,5 @@
       "refunded": "Refunded",
       "pending": "Pending"
     }
-  },
-  "agreement": {"subtitle":"Please read this agreement carefully","title":"User Agreement"},
-  "agreementSections": {
-    "sectionObligations": "User Obligations",
-    "sectionObligationsBody": "You must comply with applicable laws and regulations, and shall not publish illegal, non-compliant, or harmful content, nor infringe upon the legitimate rights and interests of others.",
-    "sectionRights": "User Rights",
-    "sectionRightsBody": "You have the right to access services in accordance with the law, manage your personal information, and report non-compliant content.",
-    "sectionTerms": "Terms of Service",
-    "sectionTermsBody": "This agreement is made between you and ZHIHUI AI regarding your use of the platform services. Please read it carefully before use. By using the platform, you agree to all terms of this agreement."
   }
 }

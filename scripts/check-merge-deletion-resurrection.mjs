@@ -866,6 +866,7 @@ async function main() {
   assertRepoRoot(ROOT, '本门')
   const strict = argv.includes('--strict')
   const today = new Date().toISOString().slice(0, 10)
+  const revIdx = argv.indexOf('--rev')
   const limitIdx = argv.indexOf('--limit')
   // G-322:--limit 给旗标不给值一律 exit 2 点名 —— 旧写法 Number(undefined)=NaN 把"回看 N 枚"
   // 窗口静默吞成"审计全部",scope 行还照印"回看 NaN 枚"。(漏值非空但被顶值时同样死在域校验。)
@@ -879,15 +880,12 @@ async function main() {
     process.exit(2)
   }
   let res
-  // G-322:--rev 旧写法 `if(!sha)` 只挡"结尾缺值",`--rev --strict` 会把 `--strict` 当提交规格
-  // 喂进 git rev-list(形态不佳,报错来自 git 而不是点名实得 token)。改走单源:给了旗标没给值 ⇒ exit 2 点名。
-  const revFlag = requireFlagValue(argv, '--rev', { noun: '提交规格' })
-  if (revFlag.error) {
-    console.error(`❌ ${revFlag.error}`)
-    process.exit(2)
-  }
-  if (revFlag.present) {
-    const sha = revFlag.value
+  if (revIdx >= 0) {
+    const sha = argv[revIdx + 1]
+    if (!sha) {
+      console.error('❌ 无法判定:--rev 需要一个提交规格')
+      process.exit(2)
+    }
     const parents = parentsFromLine(git(['rev-list', '--parents', '-n', '1', sha], ROOT))
     const one = auditMerge(sha, parents, ROOT)
     const allow = readAllowlist(ROOT, face)

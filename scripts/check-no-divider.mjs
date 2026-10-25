@@ -25,27 +25,17 @@
  *   6) **RN / Taro 样式对象单边宽**(`{ borderTopWidth: 1, borderTopColor: tk.border.light }`)
  *      → 差值棘轮 BLOCKING(同批立)。原生端根本不用 Tailwind 类名,族 1–4 对它结构上打不到。
  *
- * 族 4/6 的形状重载补档(2026-10-23 L29015;**2026-10-24 合一**):**背景色发丝线** —— `h-px bg-border` /
+ * 族 4/6 的形状重载补档(2026-10-23 L29015):**背景色发丝线** —— `h-px bg-border` /
  * RN `{ height: 1, backgroundColor: tk.border.light }` 与单边描边是同一个视觉动作(线由背景色画),
- * 并入同一把差值棘轮。**合一后族 7 不再自带一把宽松近似**:判据本体 = 发丝尺
- * (`check-hairline-separator.mjs`) 的严格指纹,实现只有一份,住在下方族 7 段的
- * `scanHairlineFaces`(§0.6)—— 底色档表、任意值发丝档(1–2px / ≤4rpx)、RN `hairlineWidth×1|×2`、
- * 三型结构件指纹、shadowOffset 例外、未判定档,族 7 与发丝尺对同一枚文件读出**同一个枚数**。
- * 立因(互顶实证,票 L29015 尾格):旧族 7 按整名精确匹配 + 只认 `h-px|w-px|h-[1px]`,比发丝尺窄 ——
- * 把 `h-px bg-popover` 这类尺子计为存量的形状改成等积单边描边时,发丝尺存量 1→0(变好),族 6/4 棘轮
- * 却按 HEAD 基线 0 把清偿本身判成"新增 1 超棘轮"⇒ 两把尺互相顶着,清偿被回退。**合一 = 清偿形状
- * 换写法不再触红**:HEAD 基线已含这枚线,改成等积单边描边后计数不升,棘轮天然放行;这**不是**豁免
- * 清单,也不是削任何一把尺(判据反而在族 7 侧收紧:低透明度发丝 `bg-border/50` 与复合名中性词根
- * `bg-muted-foreground`、`height: 2`、`hairlineWidth * 2` 从"不判/WARN/未判定"升为与其它中性发丝线
- * 同档的 blocking 计数 —— 与发丝尺同判;带透明度的**单边描边**(族 3)仍是 WARN,两族分档不变)。
- * 形状被三型结构件重载,全部在命中**之前**按可机械判定指纹排除(§12e:
+ * 并入同一把差值棘轮。形状被三型结构件重载,全部在命中**之前**按可机械判定指纹排除(§12e:
  * 把这三型判红就是恒红门):菜单/下拉 `role="separator"`(含 Separator 组件定义行)、
  * 时间线/树 `absolute`+上界成对 + `w-px` 竖向导引轨、`pane-split` 分割器的 `w-full h-px`;
  * 三型指纹与 `check-hairline-separator.mjs` 共用 `structuralTypeOf`(§0.6,同一把尺子)。
  * 反向锁:裸 `h-px bg-border` 照判;`absolute` + `h-px` 横轴**不**享轨出口;
  * 裸 `h-full|flex-1` + `w-px` 不享轨出口(尺子按 divider+railSuspect 计数,族 7 同判);
- * 彩色 bg(bg-primary)与整段非中性的底色档不判。RN 面 `height: StyleSheet.hairlineWidth * <变量>`
- * 这类表达式量不出宽度 ⇒ 未判定报数(SearchOverlay:481 实测那一型),不判也不冒充没命中(§0.3)。
+ * 彩色 bg(bg-primary)与文字色档(bg-muted-foreground 整名精确匹配,不吃词根)不判;
+ * 带透明度档(`bg-border/50`)= WARN(与族 3 同档)。RN 面 `height: StyleSheet.hairlineWidth * 2` 这类
+ * 表达式量不出宽度 ⇒ 未判定报数(SearchOverlay:481 实测那一型),不判也不冒充没命中(§0.3)。
  *
  * 为什么第 4 族走差值棘轮而不是"出现即拦":机主 2026-10-22 定档"界面里不该有分割线",
  * 而存量按当次 HEAD 现读(散在几十页)。把存量挂成绝对红就是 §12e 的恒红门 —— 唯一结局
@@ -129,13 +119,11 @@ check-no-divider.mjs — 分割线守门
   - .css 里的单边声明(border-top: 1px solid var(--color-border)):同一把差值棘轮 BLOCKING
   - RN/Taro 样式对象单边宽({ borderTopWidth: 1, ... }):同一把差值棘轮 BLOCKING
   - 背景色发丝线(h-px bg-border / RN { height: 1, backgroundColor: 中性 }):同一把差值棘轮 BLOCKING
-    判据 = 发丝尺严格指纹单源(scanHairlineFaces,2026-10-24 合一;含 bg-popover/bg-white 等复合中性档、
-    1–2px 与 ≤4rpx 任意值、hairlineWidth×1|×2、bg-border/50 同档照判)
-    排除:role="separator" 菜单线 / absolute+上界成对 + w-px 竖导引轨 / w-full h-px 分割器 / 彩色底
+    排除:role="separator" 菜单线 / absolute+上界成对 + w-px 竖导引轨 / w-full h-px 分割器
   - 代码文件字符串里的生成式 CSS(邮件/落地页/第三方主题):WARN 逐条报数,不拦提交
   放过:整圈边框 / 双轴 / ≥2px 粗边 / 彩色或 transparent / 横竖同格(网格收口) /
         竖边+同轴 m?p? 缩进轨(引用块左条)/ 宽度 0 擦除(last:border-0、border-bottom:none) /
-        发丝线三型结构件(separator/导引轨/分割器)/ 发丝线彩色底(bg-primary 等非中性档)
+        发丝线三型结构件(separator/导引轨/分割器)/ 发丝线彩色 bg 与文字色档(bg-muted-foreground)
 `)
   process.exit(0)
 }
@@ -143,13 +131,9 @@ check-no-divider.mjs — 分割线守门
 /** 源码(class 工具类 + RN 样式对象)与 .css(声明块)两面都要扫 —— 2026-10-23 补 CSS 面 */
 const SCAN_GLOBS = ['*.ts', '*.tsx', '*.js', '*.jsx', '*.css']
 
-/** git grep 预筛:必须是各族判据的**超集**,否则清单面比内容面窄 = 静默少扫
- *  (2026-10-24 合一:`[hw]-\\[(length:)?[0-9.]` 取代旧 `[hw]-\\[1px\\]`、并补 RN 数值档
- *   `(height|width): *[0-2]` —— 严格尺还认 `h-[2px]`/`h-[2rpx]`/`h-[length:1px]` 与
- *   `height: 1`(展开运算符无 backgroundColor 的未判定档连 backgroundColor 都不含),
- *   旧支比内容面窄 ⇒ 清偿这些形状时清单面失明) */
+/** git grep 预筛:必须是各族判据的**超集**,否则清单面比内容面窄 = 静默少扫 */
 const PREFILTER_RE =
-  'divide-[yx]|<hr|border-[tblr]|border-\\[|border-(top|bottom|left|right)|border(Top|Bottom|Left|Right)(Width|Color)|[hw]-px|[hw]-\\[(length:)?[0-9.]|hairlineWidth|backgroundColor|(height|width): *[0-2][[:space:],}]'
+  'divide-[yx]|<hr|border-[tblr]|border-\\[|border-(top|bottom|left|right)|border(Top|Bottom|Left|Right)(Width|Color)|[hw]-px|[hw]-\\[1px\\]|hairlineWidth|backgroundColor'
 
 /** 违规模式:divide-y / divide-x(独立 class token;用 \b 词边界,兼容引号包裹的 className) */
 const VIOLATION_RE = /\bdivide-[yx]\b/
@@ -258,9 +242,7 @@ export function isArbitraryColor(raw) {
 /** 没写颜色 ⇒ 继承全局中性描边档;写了非中性色档 ⇒ 强调,不算分隔线 */
 export function isNeutralBorderColor(name) {
   if (name === undefined || name === null) return true
-  const raw = String(name)
-    .trim()
-    .replace(/^color:/i, '')
+  const raw = String(name).trim().replace(/^color:/i, '')
   if (NEUTRAL_COLOR_ROOTS.has(raw)) return true
   if (NEUTRAL_SHADE_RE.test(raw)) return true
   // CSS 变量名:同一张中性档表,`--color-border` → `border`,`--color-border-medium` → `border` 档
@@ -344,14 +326,36 @@ export function classifyDividerLine(line) {
   return { level: 'blocking', label: 'single-side divider', col: first.col }
 }
 
-// ─────────────────────── 族 7:背景色发丝线(2026-10-24 合一:严格指纹单源在本段) ───────────────────────
+// ─────────────────────── 族 7:背景色发丝线(class 面,并入族 4 的棘轮) ───────────────────────
 // `h-px bg-border` 与 `border-b border-border` 画的是同一条视觉线 —— 线由背景色画(L29015 票)。
-// 旧族 7 自带一把宽松近似(整名精确匹配 + 只认 h-px|w-px|h-[1px]),与发丝尺 `check-hairline-separator.mjs`
-// 的严格指纹分叉 ⇒ 等积清偿被族 6/4 棘轮判成"新增超基线"(两尺互顶,票尾实证)。
-// 合一 = 判据本体只剩一份:发丝尺的两面扫描(面 A class 表达式 / 面 B RN 样式对象)整体住在下面的
-// `scanHairlineFaces`,族 7 与发丝尺对同一枚文件读出同一组命中;发丝尺退化为适配层 + 自己的棘轮面。
 // 形状被三型结构件重载:菜单/下拉 role="separator"、时间线/树竖向导引轨、pane-split 分割器。
 // 排除指纹全部走在命中**之前**,且只认机械形状不做语义猜测;判据宁窄勿宽,漏的由全量档报数暴露。
+
+/** 轴 token:h-px / h-[1px](横向发丝)、w-px / w-[1px](纵向发丝)。任意值只吃 1px,其余不判 */
+const HAIRLINE_AXIS_RE = /^[hw]-(?:px|\[1px\])$/
+
+/** 排除指纹①:语义分隔件 —— 组件定义行与调用点都是"菜单里的那条 separator",不是页面分隔线 */
+const EX_SEP_RE =
+  /role\s*=\s*["']?separator|\.Separator\b|Separator\s+className=|["']-mx-1 my-1 h-px/
+
+/**
+ * 这一枚 class 是不是背景档、是不是中性。与描边族同一张表(NEUTRAL_COLOR_ROOTS + gray 系色阶)。
+ * **整名精确匹配**:`bg-muted-foreground` 是文字色档 —— 按词根判会把整页文字类吃进射程。
+ * @returns {{neutral:boolean, opacity:number|null}|null}
+ */
+export function classifyBgToken(cls) {
+  const head = stripVariantPrefix(cls)
+  if (!head.startsWith('bg-')) return null
+  const slash = head.indexOf('/')
+  const body = slash < 0 ? head : head.slice(0, slash)
+  const opacityRaw = slash < 0 ? null : head.slice(slash + 1)
+  const opacity = opacityRaw !== null && /^\d+$/.test(opacityRaw) ? Number(opacityRaw) : null
+  const rest = body.slice(3)
+  return {
+    neutral: NEUTRAL_COLOR_ROOTS.has(rest) || NEUTRAL_SHADE_RE.test(rest),
+    opacity,
+  }
+}
 
 // ── 三型结构件的**唯一**指纹实现(§0.6)──────────────────────────────────────
 // `check-hairline-separator.mjs` 已 import 本段,两边不再是"两把尺子":
@@ -532,328 +536,39 @@ export function structuralTypeOf({ relPath = '', text = '', idx = 0, surface = '
 }
 
 /**
- * 单行判定(族 7,**兼容包装**,纯函数;自检与镜像测试的既有入口)。
- * 2026-10-24 合一后本函数不再自带判据:它把整份文本交给 `scanHairlineFaces`(严格指纹单源),
- * 取落在目标行的 divider 命中。级别只有 blocking(发丝尺对 `bg-border/50` 本就计 divider,
- * 族 7 的旧 WARN 档随合一取消 —— 低透明度档只保留给**描边**族 3)。
- * @returns {{level:'blocking', label:string, col:number}|null}
+ * 单行判定(族 7,纯函数;与 classifyDividerLine 同一入口、同一把棘轮尺)。
+ * `ctx` 提供完整文本/行首偏移时,三型指纹按 className 值表达式整体读(多行 cn() 也认得出)。
+ * @returns {{level:'warn'|'blocking', label:string, col:number}|null}
  */
 export function classifyHairlineLine(line, ctx = {}) {
   const { relPath = '', text = line, lineStart = 0 } = ctx
-  const faces = scanHairlineFaces(relPath, text)
-  const targetLine = text.slice(0, lineStart).split('\n').length
-  const hit = faces.hits.find((h) => h.line === targetLine && h.kind === 'divider')
-  if (!hit) return null
-  return {
-    level: 'blocking',
-    label: hit.family === 'rn' ? 'rn-style bg hairline divider' : 'bg hairline divider',
-    col: hit.col ?? 1,
-  }
-}
-
-// ─────────────── 严格指纹单源:`scanHairlineFaces`(2026-10-24 由发丝尺整体迁入) ───────────────
-// 本体原住 `check-hairline-separator.mjs` 的 scanSource(票 L29015 尾格:族 7 宽松档与尺子严格档
-// 必须合一)。迁移原因:①§0.6 一把尺子 —— 旧族 7 的整名表/轴档/透明度档是第二份实现,必然漂开;
-// ②发丝尺 import 本门的 structuralTypeOf/thinTokensOf,若反向 import 就成循环 ⇒ 判据上收到
-// 三型指纹同侧(本段紧跟 structuralTypeOf,依赖全部就地)。发丝尺退化为适配层(命中对象逐字沿用)。
-
-/** 排除指纹①:语义分隔件 —— 组件定义行与调用点都是"菜单里的那条 separator",不是页面分隔线 */
-const EX_SEP_RE =
-  /role\s*=\s*["']?separator|\.Separator\b|Separator\s+className=|["']-mx-1 my-1 h-px/
-
-/**
- * 中性底色词根(发丝族专表 = 描边中性根表 + {white, black, popover, hairline, divider, separator,
- * surface})。差异只有一处:白/黑在本族算中性。理由是「描边不得取墨档」是 **border 专有**规则,
- * 而"背景色画线"取墨档在白底上根本看不见,不构成同一个问题。
- */
-const NEUTRAL_BG_ROOTS = new Set([
-  'border',
-  'input',
-  'muted',
-  'card',
-  'background',
-  'popover',
-  'divider',
-  'hairline',
-  'separator',
-  'surface',
-  'white',
-  'black',
-])
-const NEUTRAL_BG_SHADE_RE = /^(?:gray|grey|neutral|slate|zinc|stone)-\d+$/
-/** `bg-*` 里这些不是颜色(尺寸/定位/渐变/关键字),读到就整枚不算底色 */
-const NON_COLOR_BG_RE =
-  /^(?:gradient|none|cover|contain|center|left|right|top|bottom|repeat|no-repeat|clip|origin|blend|fixed|local|scroll|auto|transparent|current|inherit|unset|initial|opacity|size|position|image|url)/
-
-/** 索引 → 行号(遮罩后文本与原文逐行等长,行号可直接对回原文件) */
-export function lineOfIndex(text, idx) {
-  const before = text.slice(0, idx)
-  return (before.match(/\n/g) || []).length + 1
-}
-
-/**
- * 底色档。返回 true = 中性(就是"线"的颜色)/ false = 彩色(强调)/ null = 不是颜色 token。
- */
-export function bgNeutrality(classHead) {
-  if (!/^bg-/.test(classHead)) return null
-  const body = classHead.slice(3)
-  const slash = body.indexOf('/')
-  const colorPart = slash < 0 ? body : body.slice(0, slash)
-  if (colorPart === '') return null
-  if (/^\[/.test(colorPart)) {
-    // `bg-[length:…]`/`bg-[size:…]` 是尺寸不是颜色
-    if (/^\[(length|size|position|image|url|linear-gradient|radial-gradient):/.test(colorPart))
-      return null
-    return isNeutralColorRef(colorPart.replace(/^\[/, '').replace(/\]$/, ''))
-  }
-  if (NON_COLOR_BG_RE.test(colorPart)) return null
-  if (NEUTRAL_BG_ROOTS.has(colorPart)) return true
-  if (NEUTRAL_BG_SHADE_RE.test(colorPart)) return true
-  // 复合名(`bg-surface-muted`):任一段落在中性根表即中性
-  return colorPart.includes('-') && colorPart.split('-').some((seg) => NEUTRAL_BG_ROOTS.has(seg))
-}
-
-/** @returns {Array<{token:string, neutral:boolean}>} */
-export function bgTokensOf(classText) {
-  const out = []
-  for (const m of classText.matchAll(CLASS_TOKEN_RE)) {
+  let axisCol = -1
+  let axisIdx = -1
+  for (const m of line.matchAll(CLASS_TOKEN_RE)) {
     const head = stripVariantPrefix(m[0])
-    const verdict = bgNeutrality(head)
-    if (verdict !== null) out.push({ token: head, neutral: verdict })
+    if (axisCol < 0 && HAIRLINE_AXIS_RE.test(head)) {
+      axisCol = m.index + 1
+      axisIdx = m.index
+    }
   }
-  return out
-}
-
-/** surface 里是否存在匹配 re 的 class token(带变体前缀剥离) */
-function tokensSome(surface, re) {
+  if (axisIdx < 0) return null
+  const at = lineStart + axisIdx
+  const span = classNameValueSpan(text, at)
+  // 底色按 **className 值表达式整体**读:多行 cn() 里 `h-px` 与 `bg-border` 分行书写是同一枚线
+  // (尺子早按整段表达式读;只读物理行会让族 7 漏掉这一半形态 ⇒ 又成两把尺子)
+  const surface = span ? text.slice(span.start, span.end) : line
+  if (structuralTypeOf({ relPath, text, idx: at, surface })) return null
+  let bg = null
   for (const m of surface.matchAll(CLASS_TOKEN_RE)) {
-    if (re.test(stripVariantPrefix(m[0]))) return true
+    const head = stripVariantPrefix(m[0])
+    if (!head.startsWith('bg-')) continue
+    bg = classifyBgToken(head)
+    break
   }
-  return false
-}
-
-/**
- * RN 横截面档。`StyleSheet.hairlineWidth`(×1|×2)与数值 1–2 都是发丝;
- * `* <非数字>` ⇒ unknown(量不到);变量/百分比/函数调用 ⇒ null(不是发丝候选,不进射程)。
- * @returns {'hair'|'thick'|'erase'|'unknown'|null}
- */
-export function rnThinGrade(raw) {
-  const v = String(raw ?? '')
-    .trim()
-    .replace(/,$/, '')
-  if (v === '') return null
-  const hw = /^StyleSheet\.hairlineWidth(?:\s*\*\s*(\d+(?:\.\d+)?))?$/.exec(v)
-  if (hw) {
-    const n = hw[1] === undefined ? 1 : Number(hw[1])
-    if (n <= 0) return 'erase'
-    return n <= 2 ? 'hair' : 'thick'
-  }
-  if (/^StyleSheet\.hairlineWidth\s*\*/.test(v)) return 'unknown'
-  if (/^[A-Za-z_$'"`]/.test(v)) return null
-  const n = Number(v)
-  if (!Number.isFinite(n)) return null
-  if (n <= 0) return 'erase'
-  return n <= 2 ? 'hair' : 'thick'
-}
-
-/**
- * 整份源码的发丝线严格指纹(发丝尺与族 7 **共用这一把**,§0.6/§22c)。
- * 命中对象逐字沿用迁移前形态,另带 `family`('class'|'rn')与 `col` 供 11d 消费。
- * @returns {{hits:Array<{line:number,col?:number,family:string,kind:'divider'|'exempt'|'undetermined',label:string,snippet:string,type?:string,why?:string,railSuspect?:boolean}>}}
- */
-export function scanHairlineFaces(relPath, rawText) {
-  const masked = maskComments(rawText)
-  const skip = interpolationBraceIndices(masked)
-  const rawLines = rawText.split('\n')
-  const hits = []
-  const seen = new Set()
-  const push = (hit) => {
-    if (seen.has(hit.line)) return
-    seen.add(hit.line)
-    hits.push(hit)
-  }
-  const snippetOf = (line) =>
-    String(rawLines[line - 1] ?? '')
-      .trim()
-      .slice(0, 140)
-  const colOf = (idx) => idx - (masked.lastIndexOf('\n', idx) + 1) + 1
-
-  // ── 面 A:Tailwind 类名(h-px / w-px / 任意值发丝 + bg-*)──
-  for (const m of masked.matchAll(/[hw]-px\b|[hw]-\[(?:length:)?[0-9.]+(?:px|rpx|rem|em|pt)\]/g)) {
-    const line = lineOfIndex(masked, m.index)
-    if (seen.has(line)) continue
-    const span = classNameValueSpan(masked, m.index)
-    const surface = span
-      ? masked.slice(span.start, span.end)
-      : masked.slice(
-          masked.lastIndexOf('\n', m.index) + 1,
-          masked.indexOf('\n', m.index) < 0 ? masked.length : masked.indexOf('\n', m.index),
-        )
-    // 没写底色 ⇒ 这条线不是背景色画的,不归本族
-    const bgs = bgTokensOf(surface)
-    if (bgs.length === 0) continue
-    // ⚠️ 顺序即口径:**粗尺寸过滤必须排在彩色底(accent)判定之前**(「粗于发丝的尺寸根本不进候选」)。
-    // thinTokensOf 自己就把 thick 档丢掉 ⇒ `thin.length === 0` ⇔ 这枚在 h/w 两维上都量不出发丝 ⇒
-    // 它是尺寸块(徽标/按钮/头像/骨架条),连"放过行"都不该有。反过来先问底色,就会把 `h-[100rpx] bg-cta`
-    // 这类 50px 高的按钮记成「彩色底发丝线」—— 标签失真(账面上"彩色底"里躺着的全是粗块),
-    // 而且与三型指纹分叉(那边 HAIRLINE 先认出发丝才看底色)。§22c:一把尺子。
-    // 排在底色**之后**的那一格(没底色不判)不动:那是"不归本门"的射程边界,与粗细无关(尺子自检 T04/T17)。
-    const thin = thinTokensOf(surface)
-    if (thin.length === 0) continue
-    if (!bgs.some((b) => b.neutral)) {
-      push({
-        line,
-        family: 'class',
-        kind: 'exempt',
-        type: 'accent-background',
-        label: `彩色底 ${bgs.map((b) => b.token).join(',')}`,
-        why: '底色非中性档 ⇒ 强调条 / 下划线,不是中性分隔线',
-        snippet: snippetOf(line),
-      })
-      continue
-    }
-    const hair = thin.filter((t) => t.grade === 'hair')
-    if (hair.length === 0) {
-      const unknown = thin.filter((t) => t.grade === 'unknown')
-      if (unknown.length > 0) {
-        push({
-          line,
-          family: 'class',
-          col: colOf(m.index),
-          kind: 'undetermined',
-          label: `发丝维度量不出物理像素(${unknown.map((t) => t.token).join(',')})`,
-          snippet: snippetOf(line),
-        })
-      }
-      continue
-    }
-    const structural = structuralTypeOf({ relPath, text: masked, idx: m.index, surface })
-    if (structural) {
-      push({
-        line,
-        family: 'class',
-        kind: 'exempt',
-        type: structural.type,
-        label: structural.type,
-        why: structural.why,
-        snippet: snippetOf(line),
-      })
-      continue
-    }
-    const suspect =
-      thin.some((t) => t.axis === 'w') &&
-      tokensSome(surface, /^(?:h-full|flex-1|h-auto|flex-auto|self-stretch)$/)
-    push({
-      line,
-      family: 'class',
-      col: colOf(m.index),
-      kind: 'divider',
-      label: 'bg 发丝分隔线(h-px/w-px + 中性底)',
-      snippet: snippetOf(line),
-      ...(suspect ? { railSuspect: true } : {}),
-    })
-  }
-
-  // ── 面 B:RN / 内联样式对象(height|width 发丝 + backgroundColor 中性)──
-  // 词界必须是 `(?<![-\w])` 而不是 `\b`(合一后实测):`\b` 认 '-' 后的 'height' ⇒ 模板串里的
-  // kebab CSS 属性 `line-height:1.6;`(无单位数值!)被读成 RN 发丝档——email-templates /
-  // design-templates / certificate-download 页 8 处假阳即此型(2026-10-24 现读 diff 取证)。
-  // kebab CSS 串归族 5(生成式 CSS,代码文件里只 WARN),本面只管 JS 对象键。
-  for (const m of masked.matchAll(/(?<![-\w])(height|width)\s*:\s*([^,;{}\n]+)/g)) {
-    const line = lineOfIndex(masked, m.index)
-    if (seen.has(line)) continue
-    const grade = rnThinGrade(m[2])
-    if (grade === 'unknown') {
-      push({
-        line,
-        family: 'rn',
-        col: colOf(m.index),
-        kind: 'undetermined',
-        label: `横截面取不出物理像素(${m[2].trim()})`,
-        snippet: snippetOf(line),
-      })
-      continue
-    }
-    if (grade !== 'hair') continue
-    const block = enclosingBraceBlock(masked, m.index, skip)
-    if (!block) {
-      push({
-        line,
-        family: 'rn',
-        col: colOf(m.index),
-        kind: 'undetermined',
-        label: '样式对象括号配不平 ⇒ 同块底色读不出',
-        snippet: snippetOf(line),
-      })
-      continue
-    }
-    // `shadowOffset: { width: 0, height: 1 }` 是阴影偏移,不是线(实测 5 枚,见票面)
-    if (
-      /shadow(?:Offset|Radius)\s*:\s*$/.test(
-        masked.slice(Math.max(0, block.start - 40), block.start),
-      )
-    ) {
-      continue
-    }
-    const bgVals = [...block.inner.matchAll(/\bbackgroundColor\s*:\s*([^,;{}\n]+)/g)].map(
-      (x) => x[1],
-    )
-    if (bgVals.length === 0) {
-      // 有展开运算符却读不到显式底色 ⇒ 形状读不出(不猜成绿)
-      if (block.inner.includes('...')) {
-        push({
-          line,
-          family: 'rn',
-          col: colOf(m.index),
-          kind: 'undetermined',
-          label: '样式对象用展开运算符且未写 backgroundColor ⇒ 底色读不出',
-          snippet: snippetOf(line),
-        })
-      }
-      continue
-    }
-    if (!bgVals.every((v) => isNeutralColorRef(v))) {
-      push({
-        line,
-        family: 'rn',
-        kind: 'exempt',
-        type: 'accent-background',
-        label: '彩色底',
-        why: 'background 非中性档 ⇒ 强调条,不是中性分隔线',
-        snippet: snippetOf(line),
-      })
-      continue
-    }
-    const structural = structuralTypeOf({
-      relPath,
-      text: masked,
-      idx: m.index,
-      surface: snippetOf(line),
-    })
-    if (structural) {
-      push({
-        line,
-        family: 'rn',
-        kind: 'exempt',
-        type: structural.type,
-        label: structural.type,
-        why: structural.why,
-        snippet: snippetOf(line),
-      })
-      continue
-    }
-    push({
-      line,
-      family: 'rn',
-      col: colOf(m.index),
-      kind: 'divider',
-      label: 'RN/内联发丝分隔线(height|width + 中性 backgroundColor)',
-      snippet: snippetOf(line),
-    })
-  }
-
-  hits.sort((a, b) => a.line - b.line)
-  return { hits }
+  if (!bg || !bg.neutral) return null
+  if (bg.opacity !== null)
+    return { level: 'warn', label: 'low-opacity bg hairline divider', col: axisCol }
+  return { level: 'blocking', label: 'bg hairline divider', col: axisCol }
 }
 
 // ─────────────────────── 族 5/6:CSS 声明块与 RN 样式对象 ───────────────────────
@@ -1160,9 +875,36 @@ export function scanRnStyleObjects(text, skip = interpolationBraceIndices(text))
       snippet: text.split('\n')[line - 1].trim().slice(0, 140),
     })
   }
-  // 族 7 的 RN 面(`height/width` 发丝 + 同块中性 backgroundColor)2026-10-24 起不再在本函数里
-  // 自带一把宽松尺(旧档 `rnHairlineGrade` 只认 ×1、无三型/无 shadowOffset 例外 ⇒ 与发丝尺分叉,
-  // 等积清偿被读成新增)。统一走 `scanHairlineFaces` 面 B(严格指纹单源,由 scanSource 挂载)。
+  // 族 7 RN 面:同一个"背景色画发丝线"动作在对象字面量里的书写形态 ——
+  // `height:1` / `StyleSheet.hairlineWidth` + 同块中性 `backgroundColor` ⇒ 线由背景色画。
+  // `*2` 这类表达式量不出宽度 ⇒ 未判定报数(SearchOverlay:481 实测那一型);
+  // 粗档 / 彩色底 / 没写 backgroundColor 一律不判(§0.3 取不到不冒充)。
+  for (const m of text.matchAll(/\b(height|width)\s*:\s*([^,;{}\n]*)/g)) {
+    const grade = rnHairlineGrade(m[2])
+    if (grade !== 'hair' && !/hairlineWidth/.test(m[2])) continue
+    const block = enclosingBraceBlock(text, m.index, skip)
+    if (!block) continue
+    const bgm = /\bbackgroundColor\s*:\s*([^,;{}\n]*)/.exec(block.inner)
+    if (!bgm || !isNeutralColorRef(bgm[1])) continue
+    const { line, col } = lineColAt(text, m.index)
+    if (grade !== 'hair') {
+      undetermined++
+      undeterminedRows.push({
+        line,
+        col,
+        label: 'rn-style bg hairline undetermined',
+        why: `发丝线宽度是表达式(${m[2].trim().slice(0, 24)})⇒ 量不到不判`,
+      })
+      continue
+    }
+    hits.push({
+      line,
+      col,
+      level: 'blocking',
+      label: 'rn-style bg hairline divider',
+      snippet: text.split('\n')[line - 1].trim().slice(0, 140),
+    })
+  }
   return { hits, undetermined, undeterminedRows }
 }
 
@@ -1210,6 +952,7 @@ export function scanSource(relPath, text) {
   const lines = classText.split('\n')
   let lineStart = 0
   lines.forEach((line, idx) => {
+    const start = lineStart
     lineStart += line.length + 1
     if (isExemptLine(line)) return
     const lineNumber = idx + 1
@@ -1236,13 +979,15 @@ export function scanSource(relPath, text) {
         return
       }
     }
-    const dividerHit = classifyDividerLine(line)
-    if (dividerHit) {
+    const sd =
+      classifyDividerLine(line) ||
+      classifyHairlineLine(line, { relPath, text: classText, lineStart: start })
+    if (sd) {
       single.push({
         line: lineNumber,
-        col: dividerHit.col,
-        level: dividerHit.level,
-        label: dividerHit.label,
+        col: sd.col,
+        level: sd.level,
+        label: sd.label,
         snippet: line.trim().slice(0, 140),
       })
     }
@@ -1262,31 +1007,6 @@ export function scanSource(relPath, text) {
     single.push(...found.hits)
     undetermined += found.undetermined
     undeterminedRows.push(...found.undeterminedRows)
-  }
-  // ── 族 7(2026-10-24 合一):发丝线严格指纹与发丝尺同一把(§0.6)──
-  // 判据面 = 整份文本(maskComments 在 scanHairlineFaces 内部完成;跨行 className 值表达式整体读)。
-  // divider → 与描边族同一把 blocking 棘轮尺;exempt(三型/彩色底)→ 不计数(尺子同样不计数);
-  // undetermined → 只报数(§0.3)。.css 面不归本族(发丝尺头注现读:css 发丝为空集,扩容走尺子侧)。
-  if (!isCss) {
-    for (const h of scanHairlineFaces(relPath, text).hits) {
-      if (h.kind === 'divider') {
-        single.push({
-          line: h.line,
-          col: h.col ?? 1,
-          level: 'blocking',
-          label: h.family === 'rn' ? 'rn-style bg hairline divider' : 'bg hairline divider',
-          snippet: h.snippet,
-        })
-      } else if (h.kind === 'undetermined') {
-        undetermined++
-        undeterminedRows.push({
-          line: h.line,
-          col: h.col ?? 1,
-          label: 'bg hairline undetermined',
-          why: h.label,
-        })
-      }
-    }
   }
   return { hard, single, undetermined, undeterminedRows }
 }
@@ -1827,10 +1547,7 @@ export function selfTest() {
     // 族 7 的三型输入(类名轴 token / RN 表达式 / RN 背景键)都必须在预筛超集里,
     // 否则清单面比内容面窄 = 静默少扫(与 CSS 面那一格同型)
     ok(/\[hw\]-px/.test(PREFILTER_RE), PREFILTER_RE)
-    // 合一@2026-10-24:严格尺认任意值发丝(`h-[2px]`/`h-[2rpx]`/`h-[length:1px]`)与 RN 数值档
-    // (`height: 1`,展开运算符未写 backgroundColor 的未判定档连 backgroundColor 都不含)
-    ok(PREFILTER_RE.includes('[hw]-\\[(length:)?[0-9.]'), PREFILTER_RE)
-    ok(PREFILTER_RE.includes('(height|width): *[0-2][[:space:],}]'), PREFILTER_RE)
+    ok(/\[hw\]-\\\[1px\\\]/.test(PREFILTER_RE), PREFILTER_RE)
     ok(PREFILTER_RE.includes('hairlineWidth'), PREFILTER_RE)
     ok(PREFILTER_RE.includes('backgroundColor'), PREFILTER_RE)
   })
@@ -1906,62 +1623,45 @@ export function selfTest() {
     // 反向锁:没有分隔件结构件的同一形状必须照判(排除不许被拿来遮红)
     ok(hit2('  <div className="h-px bg-muted" />')?.level === 'blocking')
   })
-  t(
-    'S62 族 7 排除②导引轨:absolute+上界成对 + w-px 放过;裸 h-full/flex-1 照判(与尺子 railSuspect 同判)',
-    () => {
-      ok(hit2('  <div className="absolute top-0 bottom-0 left-3 w-px bg-border" />') === null)
-      ok(
-        hit2('  <div className="h-full w-px bg-muted" />')?.level === 'blocking',
-        '裸 h-full 不享轨出口',
-      )
-      ok(
-        hit2('  <div className="w-px flex-1 bg-border" />')?.level === 'blocking',
-        '裸 flex-1 不享轨出口',
-      )
-      ok(
-        hit2('  <div className="absolute h-px bg-border" />')?.level === 'blocking',
-        '横轴不享轨出口',
-      )
-    },
-  )
+  t('S62 族 7 排除②导引轨:absolute+上界成对 + w-px 放过;裸 h-full/flex-1 照判(与尺子 railSuspect 同判)', () => {
+    ok(hit2('  <div className="absolute top-0 bottom-0 left-3 w-px bg-border" />') === null)
+    ok(hit2('  <div className="h-full w-px bg-muted" />')?.level === 'blocking', '裸 h-full 不享轨出口')
+    ok(hit2('  <div className="w-px flex-1 bg-border" />')?.level === 'blocking', '裸 flex-1 不享轨出口')
+    ok(
+      hit2('  <div className="absolute h-px bg-border" />')?.level === 'blocking',
+      '横轴不享轨出口',
+    )
+  })
   t('S63 族 7 排除③分割器:w-full + h-px 放过(pane-split);非通宽照判', () => {
     ok(hit2('  <div className="w-full h-px cursor-row-resize bg-border" />') === null)
     ok(hit2('  <div className="flex-1 h-px bg-border" />')?.level === 'blocking')
   })
-  t(
-    'S64 族 7 边界(合一后与发丝尺同判):彩色/transparent/无 bg/非发丝轴不判;透明度档与复合名中性档照判 blocking',
-    () => {
-      ok(hit2('  <div className="h-px bg-primary" />') === null)
-      ok(hit2('  <div className="h-px bg-transparent" />') === null)
-      // 合一@2026-10-24:发丝尺对 `bg-border/50` 本就按 divider 计数(底色档剥 /opacity),
-      // 族 7 旧 WARN 档是那把宽松近似的第二把尺 ⇒ 随合一取消(低透明度档只保留给描边族 3)。
-      const op = hit2('  <div className="h-px bg-border/50" />')
-      ok(op && op.level === 'blocking', JSON.stringify(op))
-      // 复合名 = 任一段落中性根即算(bg-muted-foreground 含 muted 根)——尺子口径,整名档随合一取消
-      const comp = hit2('  <div className="h-px bg-muted-foreground" />')
-      ok(comp && comp.level === 'blocking', JSON.stringify(comp))
-      ok(hit2('  <div className="h-px" />') === null, '没有 bg 不判(可能是占位/轨道)')
-      ok(hit2('  <div className="h-4 bg-border" />') === null, '非发丝轴 token 不判')
-    },
-  )
+  t('S64 族 7 边界:彩色不判 / 透明度 WARN / 文字色档整名不吃 / transparent 不判', () => {
+    ok(hit2('  <div className="h-px bg-primary" />') === null)
+    ok(hit2('  <div className="h-px bg-transparent" />') === null)
+    const w = hit2('  <div className="h-px bg-border/50" />')
+    ok(w && w.level === 'warn', JSON.stringify(w))
+    ok(hit2('  <div className="h-px bg-muted-foreground" />') === null, '文字色档不是背景档')
+    ok(hit2('  <div className="h-px" />') === null, '没有 bg 不判(可能是占位/轨道)')
+    ok(hit2('  <div className="h-4 bg-border" />') === null, '非发丝轴 token 不判')
+  })
   t('S65 族 7 主路径:scanSource 与棘轮同尺(countOpaqueSingles 含发丝线 blocking)', () => {
     const r = scanSource(
       'apps/web/a.tsx',
       'export const P = () => (\n  <div>\n    <div className="h-px bg-border" />\n    <div className="h-px bg-primary" />\n    <div className="border-b border-border" />\n  </div>\n)\n',
     )
     ok(countOpaqueSingles(r) === 2, JSON.stringify(r.single))
-    // 合一@2026-10-24:`bg-border/50` 与发丝尺同判 blocking(旧 WARN 档是第二把尺,已随合一取消)
     const w = scanSource(
       'apps/web/b.tsx',
       'export const P = () => <div className="h-px bg-border/50" />\n',
     )
     ok(
-      countOpaqueSingles(w) === 1 && w.single.length === 1 && w.single[0].level === 'blocking',
+      countOpaqueSingles(w) === 0 && w.single.length === 1 && w.single[0].level === 'warn',
       JSON.stringify(w.single),
     )
   })
   t(
-    'S66 族 7 RN 面(合一后):height:1|2、hairlineWidth×1|×2 + 中性底 ⇒ blocking;×变量 ⇒ 未判定;彩色/无 bg/粗档不判',
+    'S66 族 7 RN 面:height:1+中性 backgroundColor ⇒ blocking;*2 表达式 ⇒ 未判定;彩色/无 bg/粗档不判',
     () => {
       const hits = rn(
         'const s = StyleSheet.create({\n  line: { height: 1, backgroundColor: tk.border.light },\n})',
@@ -1974,17 +1674,9 @@ export function selfTest() {
         'const s = {\n  line: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },\n}',
       )
       ok(hw.length === 1, JSON.stringify(hw))
-      // 合一@2026-10-24:`×2` 与 `height: 2` 在发丝尺是真实写法的发丝档(SearchOverlay:481 同型),
-      // 旧档"量不出宽度⇒未判定"是第二把宽松尺,已随严格指纹单源取消;`× <变量>` 仍是未判定。
-      const two = rn(
-        'const s = {\n  line: { height: StyleSheet.hairlineWidth * 2, backgroundColor: tk.border.light },\n}',
-      )
-      ok(two.length === 1 && two[0].label === 'rn-style bg hairline divider', JSON.stringify(two))
-      const thick2 = rn('const s = {\n  line: { height: 2, backgroundColor: tk.border.light },\n}')
-      ok(thick2.length === 1, JSON.stringify(thick2))
       const r = scanSource(
         'a.tsx',
-        'const s = {\n  line: { height: StyleSheet.hairlineWidth * SCALE, backgroundColor: tk.border.light },\n}',
+        'const s = {\n  line: { height: StyleSheet.hairlineWidth * 2, backgroundColor: tk.border.light },\n}',
       )
       ok(r.single.length === 0 && r.undetermined === 1, JSON.stringify(r))
       ok(
@@ -2004,94 +1696,36 @@ export function selfTest() {
     },
   )
 
-  t('S70 合一牙(票 L29015 尾格·两尺互顶实证):族 7 基线必已含发丝线 ⇒ 等积清偿不抬高计数', () => {
-    // 立因:旧族 7 比发丝尺窄(`bg-popover` / `h-[2px]` / `h-[2rpx]` / RN `height: 2` 都不计),
-    // 把这些尺子计为存量的形状改成等积单边描边时,族 6/4 棘轮按 HEAD 基线 0 把清偿本身判成
-    // "新增 1 超棘轮"⇒ 有人被迫回退。合一后每枚形状在动手前就已计入同一把棘轮:计数只降不升。
-    const pairs = [
-      [
-        'apps/web/a.tsx',
-        'export const P = () => <div className="h-px bg-popover" />\n',
-        'export const P = () => <div className="border-b border-border" />\n',
-      ],
-      [
-        'apps/web/b.tsx',
-        'export const P = () => <div className="h-[2px] bg-border" />\n',
-        'export const P = () => <div className="border-b border-border" />\n',
-      ],
-      [
-        'apps/miniapp-taro/src/pages/x/index.tsx',
-        'export const P = () => <View className="h-[2rpx] bg-border" />\n',
-        'export const P = () => <View className="border-b border-border" />\n',
-      ],
-      [
-        'apps/mobile-rn/src/screens/Y.tsx',
-        'const s = {\n  hairline: { height: 2, backgroundColor: tk.border.light },\n}\n',
-        'const s = {\n  hairline: { borderTopWidth: 2, borderTopColor: tk.border.light },\n}\n',
-      ],
-      [
-        'apps/web/c.tsx',
-        'export const P = () => <div className="h-px bg-border/50" />\n',
-        'export const P = () => <div className="border-b border-border/50" />\n',
-      ],
-    ]
-    for (const [rel, before, after] of pairs) {
-      const b = countOpaqueSingles(scanSource(rel, before))
-      const a = countOpaqueSingles(scanSource(rel, after))
-      ok(b >= 1, `HEAD 基线必须已把这枚发丝线计入族 7:${rel}`)
-      ok(a <= b, `等积清偿不得抬高计数(互顶回潮):${rel} ${b}→${a}`)
-    }
-  })
-
   t(
-    'S71 面 B 词界假阳锁:模板串里的 kebab CSS(line-height:1.6 无单位数值)不是 RN 样式对象候选',
+    'S67 族 7 跨行:轴 token 与中性底分行写在同一 className 表达式 ⇒ 照判;结构件/彩色仍放过',
     () => {
-      // 立因:`\b(height|width)` 认 '-' 后的 'height' ⇒ `<div style="font-size:16px;line-height:2;">`
-      // 这类 HTML 生成串被读成 RN 发丝(2026-10-24 合一现读 diff:email-templates / design-templates /
-      // certificate-download 页共 8 处)。kebab CSS 串归族 5(代码文件里只 WARN),面 B 只管 JS 对象键。
-      ok(rn('const s = `<p style="font-size:16px;line-height:2;">x</p>`\n').length === 0)
-      ok(
-        rn(
-          'const s = `<div style="max-width:400px;line-height:1.6;color:${DOC_TEXT_BODY}">y</div>`\n',
-        ).length === 0,
+      const r = scanSource(
+        'apps/web/f.tsx',
+        "export const P = () => (\n  <div className={cn('h-px', 'bg-border')} />\n)\n",
       )
-      // 正向对照:真 RN 对象形状照常命中(词界只踢 kebab,不踢对象键)
       ok(
-        rn('const s = {\n  line: { height: 1, backgroundColor: tk.border.light },\n}').length === 1,
-        '对象键 height 仍要判',
+        countOpaqueSingles(r) === 1 && r.single[0].label === 'bg hairline divider',
+        JSON.stringify(r.single),
       )
-      const spread = scanSource('a.tsx', 'const s = `<p style="line-height:1.8;margin:0">z</p>`\n')
-      ok(spread.undetermined === 0, JSON.stringify(spread.undeterminedRows))
+      const rail = scanSource(
+        'apps/web/g.tsx',
+        "export const P = () => (\n  <span className={cn('absolute top-0 bottom-0 w-px', 'bg-border')} />\n)\n",
+      )
+      ok(rail.single.length === 0, `跨行导引轨仍属型②\n${JSON.stringify(rail.single)}`)
+      const accent = scanSource(
+        'apps/web/h.tsx',
+        "export const P = () => (\n  <span className={cn('h-px', 'bg-primary')} />\n)\n",
+      )
+      ok(accent.single.length === 0, JSON.stringify(accent.single))
+      // 反向锁:轴 token 不在 className 值表达式里 ⇒ 不跨行借邻近元素的底色
+      ok(
+        classifyHairlineLine("  const w = 'h-px'", {
+          text: "  const w = 'h-px'\n  const c = 'bg-border'",
+        }) === null,
+        '表达式外的底色不许被借来判红',
+      )
     },
   )
-
-  t('S67 族 7 跨行:轴 token 与中性底分行写在同一 className 表达式 ⇒ 照判;结构件/彩色仍放过', () => {
-    const r = scanSource(
-      'apps/web/f.tsx',
-      "export const P = () => (\n  <div className={cn('h-px', 'bg-border')} />\n)\n",
-    )
-    ok(
-      countOpaqueSingles(r) === 1 && r.single[0].label === 'bg hairline divider',
-      JSON.stringify(r.single),
-    )
-    const rail = scanSource(
-      'apps/web/g.tsx',
-      "export const P = () => (\n  <span className={cn('absolute top-0 bottom-0 w-px', 'bg-border')} />\n)\n",
-    )
-    ok(rail.single.length === 0, `跨行导引轨仍属型②\n${JSON.stringify(rail.single)}`)
-    const accent = scanSource(
-      'apps/web/h.tsx',
-      "export const P = () => (\n  <span className={cn('h-px', 'bg-primary')} />\n)\n",
-    )
-    ok(accent.single.length === 0, JSON.stringify(accent.single))
-    // 反向锁:轴 token 不在 className 值表达式里 ⇒ 不跨行借邻近元素的底色
-    ok(
-      classifyHairlineLine("  const w = 'h-px'", {
-        text: "  const w = 'h-px'\n  const c = 'bg-border'",
-      }) === null,
-      '表达式外的底色不许被借来判红',
-    )
-  })
 
   let pass = 0
   const lines = []
@@ -2130,8 +1764,7 @@ if (isDirectRun) {
 }
 
 export const __test__ = {
-  bgNeutrality,
-  bgTokensOf,
+  classifyBgToken,
   classifyBorderToken,
   classifyDividerLine,
   classifyHairlineLine,
@@ -2141,14 +1774,11 @@ export const __test__ = {
   isArbitraryColor,
   isNeutralBorderColor,
   isNeutralColorRef,
-  lineOfIndex,
   maskBlockComments,
   maskCssAttributeSelectors,
   interpolationBraceIndices,
   rnHairlineGrade,
-  rnThinGrade,
   scanCssDeclarations,
-  scanHairlineFaces,
   scanRnStyleObjects,
   scanSource,
   countOpaqueSingles,

@@ -68,7 +68,7 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import type { StudyVideoItem } from '@ihui/types'
 
@@ -739,11 +739,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
   previewIcon: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     marginRight: rpx(12),
   } as TextStyle,
   previewTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tk.text.primary,
   } as TextStyle,
@@ -767,18 +767,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   previewModelEmoji: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
   } as TextStyle,
   previewModelBody: {
     flex: 1,
   } as ViewStyle,
   previewModelName: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tk.text.primary,
   } as TextStyle,
   previewModelDesc: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tk.text.secondary,
     marginTop: rpx(4),
   } as TextStyle,
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
     backgroundColor: tk.warning.amberLight,
   } as ViewStyle,
   previewBadgeText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
   } as TextStyle,
   previewBadgeFreeText: {
     color: tk.success.DEFAULT,
@@ -856,7 +856,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   gridCoverPlaceholderText: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     color: tk.text.tertiary,
   } as TextStyle,
   // 标题+日期覆盖层(对齐 Uniapp .video_info absolute,top:148rpx≈74dp)
@@ -883,7 +883,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   // 下方课程名(对齐 Uniapp .title {{ item.name }}:24rpx≈12dp,#3D3D3D)
   gridTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tk.text.medium,
     marginTop: rpx(8),
     marginBottom: rpx(8),
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(6),
   } as ViewStyle,
   tipIcon: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     marginRight: rpx(12),
   } as TextStyle,
   tipScrollContainer: {
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
   tipText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '700',
     color: tk.text.secondary,
     paddingRight: rpx(20),
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
     marginLeft: rpx(8),
   } as ViewStyle,
   tipMyModelText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '700',
     color: tk.gray.black,
   } as TextStyle,
@@ -970,7 +970,7 @@ const styles = StyleSheet.create({
   noMoreText: {
     marginHorizontal: rpx(20),
     color: tk.text.tertiary,
-    fontSize: 12,
+    fontSize: rnType.label.size,
   } as TextStyle,
   // 模型列表容器
   modelListWrap: {
@@ -984,7 +984,7 @@ const styles = StyleSheet.create({
     gap: rpx(24),
   } as ViewStyle,
   errorText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tk.error.text,
     textAlign: 'center',
   } as TextStyle,

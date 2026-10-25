@@ -44,7 +44,7 @@ import ModelList, { type ModelListItem, type ModelListGroup } from './ModelList'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 
-import { rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 
 // 调用方需要用它自己组装条目(category / modelTier 是 ModelListItem 的字段),此处转出
@@ -246,9 +246,9 @@ const styles = StyleSheet.create({
   /** 与默认列表用背景色对比区分(禁止 divide-y 分割线) */
   archiveSection: {
     backgroundColor: tokens.surface.muted,
-    paddingTop: 8,
-    paddingBottom: 8,
-    gap: 8,
+    paddingTop: rnSpacing.sm,
+    paddingBottom: rnSpacing.sm,
+    gap: rnSpacing.sm,
   },
   /**
    * 展开时才分走 2/3 高度。注意:必须挂在这一层 —— archiveWrap 的父级若仍是
@@ -262,11 +262,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,
-    marginHorizontal: 12,
-    paddingHorizontal: 12,
+    marginHorizontal: rnSpacing.md,
+    paddingHorizontal: rnSpacing.md,
     // 角色档 control(整行切换按钮)→ sm(4),与 web @ihui/ui-react Button 基座同档
     borderRadius: rnRadiusFor.control,
-    gap: 8,
+    gap: rnSpacing.sm,
     backgroundColor: tokens.surface.card,
   },
   toggleText: {
@@ -278,31 +278,31 @@ const styles = StyleSheet.create({
   archiveWrap: {
     flex: 1,
     minHeight: 160,
-    gap: 8,
+    gap: rnSpacing.sm,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 40,
-    marginHorizontal: 12,
-    paddingHorizontal: 12,
+    marginHorizontal: rnSpacing.md,
+    paddingHorizontal: rnSpacing.md,
     // 角色档 control(搜索输入井)→ sm(4),与 web search-input / 小程序 SearchBar 同档
     borderRadius: rnRadiusFor.control,
-    gap: 8,
+    gap: rnSpacing.sm,
     backgroundColor: tokens.surface.inputBg,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.primary,
     paddingVertical: 0,
   },
   empty: {
-    paddingVertical: 24,
+    paddingVertical: rnSpacing['2xl'],
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
 })

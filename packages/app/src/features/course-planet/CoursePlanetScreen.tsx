@@ -8,7 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BookOpen } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import type { CoursePlanetScreenProps } from '@ihui/types'
 export type { CoursePlanetScreenProps }
@@ -157,16 +157,16 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
     typeTabsRow: {
       flexDirection: 'row',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 8,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.sm,
     },
     typeTab: {
       paddingHorizontal: 10,
@@ -178,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     typeTabText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     typeTabTextActive: {
@@ -187,20 +187,20 @@ function createStyles(tk: AppThemeTokens) {
     },
     section: {
       paddingHorizontal: 10,
-      marginBottom: 16,
+      marginBottom: rnSpacing.lg,
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     horizontalList: {
       flexDirection: 'row',
-      gap: 12,
+      gap: rnSpacing.md,
     },
     verticalList: {
-      gap: 12,
+      gap: rnSpacing.md,
     },
     courseCard: {
       width: 140,
@@ -222,17 +222,17 @@ function createStyles(tk: AppThemeTokens) {
     },
     courseCoverEmoji: { fontSize: 32 },
     courseInfo: {
-      padding: 12,
+      padding: rnSpacing.md,
       gap: 6,
     },
     courseTitle: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
       lineHeight: 18,
     },
     coursePrice: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
     },

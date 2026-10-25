@@ -78,21 +78,9 @@ vi.mock('react-native-webview', () => ({
   WebView: () => createElement('div', null),
 }))
 
-// 2026-10-24:LoginScreen 的第三方引导文案迁到 i18n 键(原 WEB_PREVIEW_LOGIN_HINT 常量去重),
-// 本用例判的是**译文语义**(必须含"验证码/账号密码"这类真实出路)⇒ mock 的 t 对该键回真字典值,
-// 其余键回显(与 plaza 等"键身份"断言型相反:这里是文案语义型)。
-vi.mock('../src/i18n', async () => {
-  const { readFileSync } = await import('node:fs')
-  const zh = JSON.parse(
-    readFileSync('../../packages/i18n/messages/mobile-rn/zh-CN.json', 'utf8'),
-  ) as { login: Record<string, string> }
-  return {
-    useI18n: () => ({
-      t: (key: string) => (key === 'login.webPreviewHint' ? zh.login.webPreviewHint : key),
-      locale: 'zh-CN',
-    }),
-  }
-})
+vi.mock('../src/i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key, locale: 'zh-CN' }),
+}))
 
 vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),

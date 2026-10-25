@@ -459,36 +459,13 @@ describe('finance margin/adjust:userId 形状闸(user_margins.user_id 是 uuid �
   })
 
   it('反向对照:合法 uuid 进查询层', async () => {
-    // 本路由已从“先 SELECT 再整字写回”改成 insert(onConflictDoNothing)+DB 侧自增 UPDATE，
-    // 因此判据看 update/insert 是否被调到；桩也须回放 UPDATE…RETURNING 的那一行，
-    // 否则 adjusted 为空会走“余额不能为负”的 400，测的就不是形状闸了。
     dbMock.select.mockClear()
-    dbMock.update.mockClear()
-    dbMock.insert.mockClear()
-    dbMock.update.mockImplementationOnce(
-      () =>
-        ({
-          set: () => chain,
-          where: () => chain,
-          returning: () => chain,
-          then: (resolve: (rows: unknown[]) => unknown) => resolve([{ tokenQuantity: 10 }]),
-        }) as never,
-    )
-    const chain = {
-      set: () => chain as never,
-      where: () => chain as never,
-      returning: () => chain as never,
-      then: (resolve: (rows: unknown[]) => unknown) => resolve([{ tokenQuantity: 10 }]),
-    }
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/finance/margin/adjust',
       payload: { userId: LEGIT, amount: 10 },
     })
-    expect(
-      dbMock.update.mock.calls.length + dbMock.insert.mock.calls.length,
-      '合法 uuid 应进查询层',
-    ).toBeGreaterThan(0)
+    expect(dbMock.select.mock.calls.length).toBeGreaterThan(0)
     expect([200, 201]).toContain(res.statusCode)
   })
 })

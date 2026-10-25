@@ -25,19 +25,13 @@
  * `[取证覆盖]` 行,且汇总行末尾追加"本次有 N 步被取证覆盖 ⇒ 结论不代表仓库状态",无从静默。
  * 本器**不**提供跳过某步的通道 —— 跳过与短路是同一个毛病。
  *
- * 耗时尺子:每轮末尾必打印 `总耗时=Nms / 门数=N / 预算=Nms / 判定=通过|超预算`,预算与最近一次
- * 人工确认的基线读自 `scripts/check-all-budget-baseline.json`(缺失则按 120000ms)。默认 `check:all`
- * 不因耗时顶红(时间不是判据真假,别让每次提交都恒红);`--budget-strict`(即 `pnpm check:all:120`)
- * 才把"超预算"落成 RC=1 —— 尺子要能失败,但只在被指名跑预算档时失败。
- *
- * 退出码:0 = 全部通过且无未跑完;1 = 有失败(或 `--budget-strict` 下超预算);2 = 编排器自身
- * 用法/环境错(含"一条子步骤都没枚举到",空扫不记绿)。
+ * 退出码:0 = 全部通过且无未跑完;1 = 有失败;2 = 编排器自身用法/环境错(含"一条子步骤都没枚举到",
+ * 空扫不记绿)。
  */
 
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 /** 直接执行时的入口(为空则说明本文件被当作断言目标跑,不进 CLI 主流程)。 */
 const entryArg = process.argv[1] || ''
@@ -77,67 +71,6 @@ export const CHECK_ALL_STEPS = Object.freeze([
 
 /** 单步子上限:默认 25 分钟(全量档里最慢的是逐 blob 取材的那几道门)。 */
 const STEP_TIMEOUT_MS = Number(process.env.IHUI_CHECK_ALL_STEP_TIMEOUT_MS || 25 * 60 * 1000)
-
-/** 全量门预算 = 120 秒(票 G-217 尺子②);基线文件缺失时的兜底值。 */
-export const CHECK_ALL_BUDGET_MS = 120000
-
-/** 预算基线档案(与既有 `scripts/*-baseline.json` 同族,不是第二套报告通道)。 */
-export const BUDGET_BASELINE_PATH = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  'check-all-budget-baseline.json',
-)
-
-/**
- * 读预算基线。文件缺失 ⇒ 按 120000ms 兜底;文件存在但坏 ⇒ 硬错(坏 JSON 不得当默认值用)。
- * @param {string} [path]
- * @returns {{ budgetMs:number, baselineMs:number|null }}
- */
-export function loadBudgetBaseline(path = BUDGET_BASELINE_PATH) {
-  let text
-  try {
-    text = readFileSync(path, 'utf8')
-  } catch (e) {
-    if (e && e.code === 'ENOENT') return { budgetMs: CHECK_ALL_BUDGET_MS, baselineMs: null }
-    throw new Error(`预算基线不可读:${path} —— ${e?.message ?? e}`)
-  }
-  let raw
-  try {
-    raw = JSON.parse(text)
-  } catch (e) {
-    throw new Error(`预算基线不是合法 JSON:${path} —— ${e?.message ?? e}`)
-  }
-  const budgetMs = Number(raw?.budgetMs)
-  const baselineMs = Number(raw?.baselineMs)
-  if (!Number.isInteger(budgetMs) || budgetMs <= 0) {
-    throw new Error(`预算基线的 budgetMs 必须是正整数,实得:${JSON.stringify(raw?.budgetMs)}`)
-  }
-  return {
-    budgetMs,
-    baselineMs: Number.isFinite(baselineMs) && baselineMs > 0 ? Math.round(baselineMs) : null,
-  }
-}
-
-/**
- * 耗时判定。边界按"≤ 预算即通过":恰 120000ms 是预算内,120001ms 起才算超。
- * @param {number} elapsedMs
- * @param {number} budgetMs
- * @returns {'通过'|'超预算'}
- */
-export function judgeBudget(elapsedMs, budgetMs) {
-  return elapsedMs <= budgetMs ? '通过' : '超预算'
-}
-
-/**
- * 预算只在被指名跑预算档时顶红;默认 `check:all` 保持原退出码。
- * @param {number} stepExitCode
- * @param {boolean} overBudget
- * @param {boolean} strict
- * @returns {number}
- */
-export function finalExitCode(stepExitCode, overBudget, strict) {
-  return strict && overBudget ? 1 : stepExitCode
-}
-
 
 /**
  * @typedef {{ index:number, command:string, state:'pass'|'fail'|'incomplete', rc:number|null,
@@ -254,35 +187,15 @@ export function aggregate(results) {
 /**
  * @param {StepResult[]} results
  * @param {number[]} overriddenIndices
- * @param {{ elapsedMs:number, budgetMs:number, baselineMs:number|null, strict:boolean }} [budget]
  * @returns {string[]} 汇总行(不含退出码语义,只把人该看见的东西逐条报名)
  */
-export function summaryLines(results, overriddenIndices = [], budget = null) {
+export function summaryLines(results, overriddenIndices = []) {
   const agg = aggregate(results)
   const lines = [
     '',
     '==== check:all 汇总 ====',
     `子步骤总数 ${results.length} / 通过 ${agg.passed} / 失败 ${agg.failed.length} / 未跑完 ${agg.incomplete.length}`,
   ]
-  if (budget) {
-    const verdict = judgeBudget(budget.elapsedMs, budget.budgetMs)
-    lines.push(
-      `总耗时=${Math.round(budget.elapsedMs)}ms / 门数=${results.length} / 预算=${budget.budgetMs}ms / 判定=${verdict}`,
-    )
-    if (budget.baselineMs !== null) {
-      const delta = Math.round(budget.elapsedMs) - budget.baselineMs
-      lines.push(`[预算] 基线=${budget.baselineMs}ms / 本次−基线=${delta >= 0 ? '+' : ''}${delta}ms`)
-    } else {
-      lines.push('[预算] 基线=未记录(scripts/check-all-budget-baseline.json)')
-    }
-    if (verdict === '超预算') {
-      lines.push(
-        budget.strict
-          ? '[预算] 超预算 ⇒ 本档 --budget-strict,RC=1(尺子判红)'
-          : '[预算] 超预算但本档未顶红(要判红请跑 pnpm check:all:120 或 --budget-strict)',
-      )
-    }
-  }
   if (agg.failed.length > 0) {
     lines.push('失败清单(判据给出非零结论):')
     for (const f of agg.failed) lines.push(`  ✗ 第 ${f.index} 步 ${f.command} → ${f.reason}`)
@@ -337,7 +250,6 @@ function main() {
   const argv = process.argv.slice(2)
   /** @type {string[]} */
   const overrides = []
-  let budgetStrict = false
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (a === '--print-steps') {
@@ -346,10 +258,6 @@ function main() {
     }
     if (a === '--synthetic') return runSynthetic()
     if (a === '--self-test') return runSelfTest()
-    if (a === '--budget-strict') {
-      budgetStrict = true
-      continue
-    }
     if (a === '--step') {
       const next = argv[i + 1]
       if (!next) {
@@ -364,9 +272,7 @@ function main() {
       overrides.push(a.slice('--step='.length))
       continue
     }
-    console.error(
-      `❌ 未知参数:${a}(可用:--print-steps / --synthetic / --self-test / --budget-strict / --step <n>=<cmd>)`,
-    )
+    console.error(`❌ 未知参数:${a}(可用:--print-steps / --synthetic / --self-test / --step <n>=<cmd>)`)
     return 2
   }
 
@@ -374,26 +280,15 @@ function main() {
     console.error('❌ 子步骤清单为空 ⇒ 判死不记绿(空扫就是本器要防的同一型故障)')
     return 2
   }
-  const baseline = loadBudgetBaseline()
-  const startedAt = Date.now()
   const { plan, overridden } = applyOverrides(overrides, CHECK_ALL_STEPS)
   const results = plan.map((p) => {
     const r = runStep(p.index, p.command)
     r.overridden = p.overridden
     return r
   })
-  const elapsedMs = Date.now() - startedAt
-  for (const line of summaryLines(results, overridden, {
-    elapsedMs,
-    budgetMs: baseline.budgetMs,
-    baselineMs: baseline.baselineMs,
-    strict: budgetStrict,
-  })) {
-    console.log(line)
-  }
+  for (const line of summaryLines(results, overridden)) console.log(line)
   const agg = aggregate(results)
-  const overBudget = judgeBudget(elapsedMs, baseline.budgetMs) === '超预算'
-  return finalExitCode(agg.exitCode, overBudget, budgetStrict)
+  return agg.exitCode
 }
 
 /**
@@ -511,40 +406,6 @@ function runSelfTest() {
       'A9 末条是 check:benchmark-delivery(票 G-217:造好没装车 = 没有,摘掉即红)',
       CHECK_ALL_STEPS[CHECK_ALL_STEPS.length - 1] === 'pnpm check:benchmark-delivery',
     ],
-    [
-      'A10 预算边界:恰 120000ms 判通过,120001ms 判超预算',
-      judgeBudget(120000, 120000) === '通过' && judgeBudget(120001, 120000) === '超预算',
-    ],
-    [
-      'A11 汇总行必带总耗时/门数/预算/判定四项,且超预算被点名',
-      (() => {
-        const joined = summaryLines(
-          [{ index: 1, command: 'a', state: 'pass', rc: 0, reason: 'ok', overridden: false, ms: 1 }],
-          [],
-          { elapsedMs: 170000, budgetMs: 120000, baselineMs: 150000, strict: true },
-        ).join('\n')
-        return (
-          joined.includes('总耗时=170000ms') &&
-          joined.includes('门数=1') &&
-          joined.includes('预算=120000ms') &&
-          joined.includes('判定=超预算') &&
-          joined.includes('RC=1')
-        )
-      })(),
-    ],
-    [
-      'A12 默认档超预算不顶红,只有 --budget-strict 才 RC=1',
-      finalExitCode(0, true, false) === 0 && finalExitCode(0, true, true) === 1,
-    ],
-    [
-      'A13 基线缺失时兜底 120000ms(不因缺档记绿或记红)',
-      (() => {
-        const b = loadBudgetBaseline(
-          resolve(dirname(BUDGET_BASELINE_PATH), 'no-such-budget-baseline.json'),
-        )
-        return b.budgetMs === 120000 && b.baselineMs === null
-      })(),
-    ],
   ]
   let bad = 0
   for (const [name, ok] of cases) {
@@ -560,17 +421,7 @@ function runSelfTest() {
   return bad === 0 ? 0 : 1
 }
 
-export const __test__ = {
-  runStep,
-  aggregate,
-  summaryLines,
-  applyOverrides,
-  CHECK_ALL_STEPS,
-  judgeBudget,
-  finalExitCode,
-  loadBudgetBaseline,
-  BUDGET_BASELINE_PATH,
-}
+export const __test__ = { runStep, aggregate, summaryLines, applyOverrides, CHECK_ALL_STEPS }
 
 // AGENTS §22d:CLI 直跑与被 import 双形态必须隔离副作用,且 Windows 反斜杠路径要经 pathToFileURL 归一。
 const isDirectRun =

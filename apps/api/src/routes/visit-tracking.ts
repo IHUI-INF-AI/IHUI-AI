@@ -69,10 +69,6 @@ function observeVisitorRequest(request: FastifyRequest): ObservedVisitorFields {
 // 2026-10-23 真值化:这里**刻意不再声明** ip / userAgent —— 客户端自报的来源与 UA
 // 属可整写字段,收下即污染整张表。旧前端仍可能带这两个键,剥未知键 ⇒ 静默丢弃,
 // 不会 400(ajv 未配 additionalProperties:false,见 src/server.ts 的 ajv 段)。
-// 2026-10-25 同一口径补上 visitDate:它是 PV/UV 的**分组键**(业务日),此前却由浏览器算好
-// 送上来(VisitTracker 发 `new Date().toISOString().slice(0,10)`),任何人 POST 任意日期即可
-// 回填/伪造任意一天的访问量,连格式都不校验(z.string().max(10) 收下 "abc" 也照存)。
-// 现在与 ip/UA 同处理:不声明 ⇒ 剥掉静默忽略,业务日一律由服务端在写入口里定(见 saveVisitLog)。
 const saveVisitLogSchema = z
   .object({
     data: z
@@ -82,6 +78,7 @@ const saveVisitLogSchema = z
         url: z.string().max(512).optional(),
         referer: z.string().max(512).optional(),
         sessionId: z.string().max(128).optional(),
+        visitDate: z.string().max(10).optional(),
       })
       .optional(),
     userId: z.uuid().optional(),
@@ -89,6 +86,7 @@ const saveVisitLogSchema = z
     url: z.string().max(512).optional(),
     referer: z.string().max(512).optional(),
     sessionId: z.string().max(128).optional(),
+    visitDate: z.string().max(10).optional(),
   })
   .transform((v) => (v.data ? v.data : v))
 
@@ -196,6 +194,7 @@ export const visitTrackingRoutes: FastifyPluginAsync = async (server) => {
                 url: { type: 'string' },
                 referer: { type: 'string' },
                 sessionId: { type: 'string' },
+                visitDate: { type: 'string', description: 'YYYY-MM-DD' },
               },
             },
             userId: { type: 'string', description: 'UUID(服务端 Zod 校验)' },
@@ -203,6 +202,7 @@ export const visitTrackingRoutes: FastifyPluginAsync = async (server) => {
             url: { type: 'string' },
             referer: { type: 'string' },
             sessionId: { type: 'string' },
+            visitDate: { type: 'string' },
           },
         },
         response: {

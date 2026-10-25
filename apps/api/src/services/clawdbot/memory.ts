@@ -317,11 +317,10 @@ export class MemoryService extends EventEmitter {
       }
       // 回填内存桶
       bucket.set(item.id, item)
-      // 异步更新访问计数(不阻塞读)—— 计数由数据库加,不拿这次读到的旧值当绝对值写回:
-      // 同一条记忆被并发读两次时,旧值回写会把其中一次访问吞掉(读到的 row 已经是过期快照)。
+      // 异步更新访问计数(不阻塞读)
       void db
         .update(userMemories)
-        .set({ lastAccessedAt: new Date(), accessCount: sql`${userMemories.accessCount} + 1` })
+        .set({ lastAccessedAt: new Date(), accessCount: row.accessCount + 1 })
         .where(eq(userMemories.id, row.id))
       return item
     } catch (err) {

@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -183,21 +183,26 @@ export default function PlazaNewScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 16, gap: 4, paddingBottom: 40 },
+    body: { padding: rnSpacing.lg, gap: rnSpacing.xs, paddingBottom: rnSpacing['4xl'] },
     hint: { fontSize: 13, color: tokens.text.secondary, marginBottom: 6 },
-    label: { fontSize: 14, color: tokens.text.secondary, marginTop: 10 },
+    label: { fontSize: rnType.body.size, color: tokens.text.secondary, marginTop: 10 },
     input: {
       height: 44,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       backgroundColor: tokens.surface.card,
     },
-    descInput: { height: 176, paddingTop: 12, paddingBottom: 12, textAlignVertical: 'top' },
-    row: { flexDirection: 'row', gap: 12 },
+    descInput: {
+      height: 176,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.md,
+      textAlignVertical: 'top',
+    },
+    row: { flexDirection: 'row', gap: rnSpacing.md },
     rowCell: { flex: 1 },
     submit: {
       height: 46,
@@ -208,7 +213,11 @@ function makeStyles() {
       justifyContent: 'center',
     },
     submitDisabled: { opacity: 0.5 },
-    submitText: { fontSize: 16, fontWeight: '600', color: tokens.brand.ctaForeground },
+    submitText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

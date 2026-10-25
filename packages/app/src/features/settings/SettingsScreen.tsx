@@ -104,7 +104,7 @@ export function SettingsScreen({
           此前是裸 View,在手机上"账号"分区及其下全部内容被裁掉且滚不到(实测滚动手势零响应)。 */}
       <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.body}>
         {user && onEditProfile ? (
-          <PressableCard style={styles.userCard} onPress={onEditProfile} colorScheme={colorScheme}>
+          <PressableCard style={styles.userCard} onPress={onEditProfile}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{user.nickname?.charAt(0).toUpperCase() || 'U'}</Text>
             </View>

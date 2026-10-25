@@ -18,6 +18,7 @@ import type { LivePlaybackScreenItem, LivePlaybackScreenProps } from '../../type
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 直播回放共享屏 — props 注入式跨端组件(纯 UI,API/Modal 状态由 wrapper 注入) */
 export type { LivePlaybackScreenItem, LivePlaybackScreenProps }
@@ -40,20 +41,16 @@ export function LivePlaybackScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading && items.length === 0) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
   }
   if (error && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
-          <Text style={styles.retryText}>{t('livePlayback.retry')}</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error}
+        onRetry={onRefresh}
+        retryLabel={t('livePlayback.retry') || undefined}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -72,9 +69,7 @@ export function LivePlaybackScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('livePlayback.empty')}</Text>
-          </View>
+          <EmptyState title={t('livePlayback.empty')} colorScheme={colorScheme} />
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -152,30 +147,11 @@ export function LivePlaybackScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      paddingHorizontal: 10,
-    },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
-    retryText: { color: tk.surface.light, fontSize: 16 },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     list: { flex: 1, paddingHorizontal: 10 },
-    empty: { paddingVertical: 40, alignItems: 'center' },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 12,
       borderRadius: rnRadius.lg,

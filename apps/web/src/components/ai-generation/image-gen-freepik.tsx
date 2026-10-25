@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 
 const MODELS = ['mystic', 'classic', 'realism'] as const
@@ -49,13 +49,14 @@ export function ImageGenFreepik() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; model: string }) => {
-      const res = await api<FreepikSubmitResult>('/api/ai/freepik/generate', {
+      const res = await fetchApi<FreepikSubmitResult>('/api/ai/freepik/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      const taskId = res?.data?.task_id
+      if (!res.success) throw new Error(res.error)
+      const taskId = res.data?.data?.task_id
       if (!taskId) throw new Error(t('noResult'))
-      return { taskId, model: res?.poll_model ?? payload.model }
+      return { taskId, model: res.data?.poll_model ?? payload.model }
     },
     onSuccess: ({ taskId, model: pollModel }) => {
       setPoll({ taskId, model: pollModel })
@@ -67,11 +68,12 @@ export function ImageGenFreepik() {
   const { data: task } = useQuery({
     queryKey: ['freepik-task', poll?.taskId, poll?.model],
     queryFn: async () => {
-      const res = await api<FreepikTaskResult>(
+      const res = await fetchApi<FreepikTaskResult>(
         `/api/ai/freepik/tasks/${poll?.taskId}?model=${encodeURIComponent(poll?.model ?? '')}`,
         { method: 'GET' },
       )
-      return res
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     enabled: !!poll,
     refetchInterval: (query) => {

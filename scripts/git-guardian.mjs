@@ -4,7 +4,42 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息 */
-/** 〈原 36 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L7〉 git-guardian.mjs — `.git` 存活守护 + 秒级自愈(2026-09-12 立)。 */
+/**
+ * git-guardian.mjs — `.git` 存活守护 + 秒级自愈(2026-09-12 立)。
+ *
+ * 事故背景(2026-08 至 2026-09-12,累计 15 次):本机宿主 safe-delete 层会**整体删除**
+ * 工作区里的 `.git`。实测触发点:git commit(husky pre-commit 链)、rebase、
+ * filter-repo(内部 gc/repack)、reset --hard、**git stash create**、
+ * 以及本机直推 Gitee/GitCode 完成后的 5 秒窗口。
+ * `CODEBUDDY_SAFE_DELETE_ENABLED=0` 前缀**已证明防不住**(第 14、15 次实测)。
+ *
+ * 两道根治(2026-09-12 落地):
+ *   ① 结构根治 —— 仓库改为 `--separate-git-dir`:
+ *        D:/IHUI-AI/.git      <- 28 字节**指针文件**(不再是 544MB 目录)
+ *        D:/IHUI-AI-git-repo  <- 真实 gitdir(在工作区之外,躲开批量删除判定)
+ *      即便指针文件被删,实体完好 —— 重建只需写 1 行。
+ *   ② 本脚本兜底 —— 定时巡检,任一环缺失即自动重建,并写审计日志。
+ *
+ * 三道根治(2026-09-12 落地):
+ *   ① 结构根治 —— 仓库改为 `--separate-git-dir`(见上)
+ *   ② 本脚本兜底 —— 定时巡检,任一环缺失即自动重建,并写审计日志
+ *   ③ 环境解耦 —— git 调用**不依赖 PATH / safe.directory 等环境**:
+ *        可执行文件按候选列表绝对路径解析;每次调用显式带 `-c safe.directory=*`。
+ *      (2026-09-12 06:47 实测缺口:服务账户 LocalSystem 下 git 不可用 →
+ *       旧版只有"需人工介入",无自愈路径。本版补齐 healEnv()。)
+ *
+ * 用法:
+ *   node scripts/git-guardian.mjs            # 检查 + 自动修复(默认)
+ *   node scripts/git-guardian.mjs --check    # 只检查不修复(退出码 1 = 异常;供 CI/巡检用)
+ *   node scripts/git-guardian.mjs --status   # 只打印健康详情
+ *   node scripts/git-guardian.mjs --daemon   # 常驻巡检(需自备托管;本机未装 nssm,实际未用)
+ *   node scripts/git-guardian.mjs --install  # 注册 Windows 任务计划(每 2 分钟自检;2026-09-12 实测可用并已启用,任务名 IHUI-AI git-guardian)
+ *   node scripts/git-guardian.mjs --notify-test [名字]  # 真发一封"通知链路自测"邮件(绕过当轮去重,须节制)
+ *   node scripts/git-guardian.mjs --notify-dry-run      # 只问品牌邮件派发器「通道是否齐备」(零网络请求)
+ *   node scripts/git-guardian.mjs --bare-audit-report [--json]
+ *      # 只读:列出守护每次检出 core.bare=true 时留下的现场审计(进程清单 + 嫌疑人),
+ *      #   件在 .ihui-agent/state/git-bare-flip-audit/flip-*.json,保留最新 20 份。零副作用。
+ */
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
   cpSync,
@@ -22,16 +57,10 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { rotateAppendLog } from './lib/log-rotation.mjs'
-import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { isInteractiveUserHome } from './check-home-junctions.mjs'
 import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
-// §0.6 单一真相源:PowerShell 解释器候选复用 check-service-binary-paths 的出口,禁抄第二份。
-// 2026-10-25 立:本机的 schtasks.exe 在程序黑名单里 —— spawn 它不是报错,而是**把本 node 进程
-// 连同守护本身一起杀掉**(RC=143 = 128+SIGTERM,try/catch 救不了)。计划任务的存在性与
-// XML 改走 Get-ScheduledTask / Export-ScheduledTask,形态判据仍是 lib/schtasks-form.mjs 那一份。
-import { pickPowerShell } from './check-service-binary-paths.mjs'
 // 死值分流必须与 `git-refs-heal.mjs` **共用同一份实现**。本文件原先有一份同名同实现的私有
 // `writeLooseRef`,而 `healRefs()` 直接遍历 broken 无校验地写 —— 于是"修好的那一份"只在人工
 // 按文档敲 `node scripts/git-refs-heal.mjs` 时生效,**每 2 分钟真跑的这一个恰恰是无校验的那份**。
@@ -52,7 +81,7 @@ import {
   needsGitdirPointer,
   resolveBackupDir,
   gitdirArchivePath,
-  brokenRefsFromSnapshot,
+  refExpectationSatisfied,
 } from './lib/gitdir.mjs'
 // 凭据形状脱敏的**唯一实现**住在 lib(G-334 / G-400):本文件原先自带一份逐字相同的副本,
 // 两份实现必漂移是本仓记过最多次的失效型,而这一族的失败形态是安静的 —— 漂了的一侧只会让
@@ -98,10 +127,26 @@ export {
   homeHealDue,
   classifyMergeLossOutcome,
 }
-import { tempScrubDue, parseScrubReport, scrubTempFixtures, auditTempLanding } from './lib/git-guardian-temp-sweepers.mjs'
+// TEMP 清扫两族 + 守护日志(2026-10-25 原样搬出:守门 103 C1 行数上限;实现单源在 lib)。
+// 与上方纯判据层同型:主文件只留调度(三处挂点原样不动),判据与动作住在 lib。
+import {
+  tempScrubDue,
+  parseScrubReport,
+  scrubTempFixtures,
+  auditTempLanding,
+} from './lib/git-guardian-temp-sweepers.mjs'
+// 守护日志随同批搬出(叶子模块纪律:清扫两族的 logger 默认值绑定 log,反向 import 主文件
+// 即形成环);LOG 常量同走 import —— 余下几处 tick 路径仍以 dirname(LOG) 为状态目录锚点。
 import { log, LOG } from './lib/git-guardian-log.mjs'
 // 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
-export { tempScrubDue, parseScrubReport, scrubTempFixtures, auditTempLanding, log }
+// audit-temp-landing 镜像测试按原名 import auditTempLanding,漏了这四行它就再也找不到调度器。
+export {
+  tempScrubDue,
+  parseScrubReport,
+  scrubTempFixtures,
+  auditTempLanding,
+  log,
+}
 
 // 工作树 / 真实 gitdir / 备份目录动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
 export const WORKTREE = resolveWorktree()
@@ -173,10 +218,61 @@ const ALIGN_HEAL_THROTTLE_MS = Number(process.env.IHUI_ALIGN_HEAL_THROTTLE_MS ||
 const ALIGN_HEAL_MAX_ATTEMPTS = Number(process.env.IHUI_ALIGN_HEAL_MAX_ATTEMPTS || 3)
 const ALIGN_HEAL_ATTEMPT_LOG = join(WORKTREE, '.ihui-agent', 'state', 'converge-align-heal-attempts.json')
 
-// 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l168(门 103 C1 收口)〉首意: // 通用自动修复骨架(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
+// ═══════════════════════════════════════════════════════════════════════════
+// 通用自动修复骨架(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 上面那套是对齐格的专用版(2026-10-04 第一批)。李总随后要求把**全部可自动修的告警格**
+// 都接上自愈,而逐格各写一套节流/熔断必然漂移(本仓反复登记的同型)⇒ 抽成这一份通用骨架。
+//
+// **动作面分档是本骨架的前提**,不是可选项。自动化的收益是"快",代价是"可能在错的判断上
+// 动手"。所以只有**同时满足**下面三条的格才接进来:
+//   ① 幂等 —— 跑两次与跑一次同形(否则重启/重试会放大副作用);
+//   ② 有回滚材料 —— 动作自带归档/副本(`*.stale-<stamp>` 之类),错了能退;
+//   ③ 判据已在尺子脚本里 —— 本层**只派发**,不自己判断"该不该修"(不重复发明判据)。
+// 不满足的(内容回滚、文件被删、凭据漂移、公网不可达)一律留人工,理由见各 audit 头注。
+//
+// 四条护栏,所有格共用:
+//   ① 事实闸:没真判红就不修("未判定"也不算 —— 那不是能修的故障,是尺子没在跑);
+//   ② 节流:动作本身有耗时的,本守护每 2 分钟一轮,不节流会把"修"变成新的负载源;
+//   ③ 熔断:自愈失败要有上限,否则就是每轮重试一次,那比只喊人更吵;
+//   ④ 回读确认:动作跑完 ≠ 修好了 —— 修复后必须再判一次事实(见 healConvergeAlignStall)。
+//
+// ⚠ 这一段曾经试图再抽一份"通用骨架"(decideAutoHeal / runAutoHeal / AUTO_HEAL_PROFILE),
+// **已按实测结论撤回**,撤回理由连同撤回本身都写进下面的 AUTO_HEAL_LEDGER 头注 ——
+// 逐个核实后发现多数动作器**本来就带修复动作与封顶**,硬套第二层只会造出两处真相。
+// 保留下来的是**分档台账**,它才是李总要的那份"能自动修/不能自动修 + 理由"的显式清单。
 
 
-// 〈原 29 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l194(门 103 C1 收口)〉首意: // 全量告警格的**自动修复分档台账**(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
+// 全量告警格的**自动修复分档台账**(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 第一批只补了对齐那一格(真缺口:停摆 24.8 小时零动作)。李总随后要求"要 AI 自动修",
+// 于是把全部告警格逐个过了一遍 —— **结论与最初的设想相反,这里如实记录,因为它决定了
+// 为什么没有第二批自动修复**:
+//
+//   已自修(本层派发时即带修复动作,**不重复包一层**):
+//     · ops-patrol          --apply,写回运行副本 + POST /-/reload,自带 .stale-<stamp> 归档
+//     · merge-addition-loss --apply(union-converge),实测一次 2–13 分钟
+//     · service-heal        --apply,且它**自己已有完整封顶**(consecutiveRounds 2 +
+//                            cooldown 60min + maxRestartsPerWindow 2/60min,H6 自测钉着)
+//     · 其余 heal*           指针 / env / HEAD / refs / 工作区 / 盘根 / junction,均为
+//                            幂等修复,且多数带 git-lock 互斥
+//   不自动修(**逐格给了理由,不是"懒得做"**):
+//     · host-timezone   尺子头注明写"只读:不改时区、不写注册表"且"定级…不得自作主张改"
+//     · env-drift       动作面是**凭据回填**;错填一个密钥的后果远大于停摆,且备份值
+//                       需人工比对(自动回填等于无人核对地改生产凭据)
+//     · disk-root       动作面是删除文件;误删不可逆,无回滚材料
+//     · public-path     告警文案自己写着"先用 --report 确认是目标端慢/失败(而非探针机抖动)"
+//                       ⇒ 判红**不蕴含本机可修**,自动重启本机服务是在错误判断上动手
+//     · orphan-deletion 命中的是"疑似误删他人文件",归属需人判;自动回滚会覆盖当前持有者
+//
+// **因此本轮刻意没有新增第二处自动修复**。往已有封顶的动作器上再叠一层节流/熔断,
+// 只会造出"两处真相"(节流值在两处漂移),而收益为零 —— 这正是本仓反复登记的
+// "造好没装车 / 各写一遍必然漂移"那一型。
+//
+// 这份台账本身是**交付物**:它把"哪些能自动修、哪些不能、为什么"写成可被测试钉住的常量,
+// 而不是留在某个人的脑子里。新增告警格时必须在此登记,否则就是"新格默认只喊人"且无人察觉。
 export const AUTO_HEAL_LEDGER = {
   'converge-align': {
     mode: 'auto',
@@ -273,7 +369,6 @@ const CHECK_ONLY = process.argv.includes('--check')
 const STATUS_ONLY = process.argv.includes('--status')
 const INSTALL = process.argv.includes('--install')
 const DAEMON = process.argv.includes('--daemon')
-
 
 // —— git 可执行文件解析:复用共享库(不依赖 PATH,服务账户如 LocalSystem 仍可定位 PortableGit) ——
 // 解析结果缓存于共享库;本处仅镜像 GIT_BIN / GIT_VERSION 供日志与 status() 展示。
@@ -1191,8 +1286,11 @@ function currentRefs() {
 
 /** 清单中解析不到(或值与清单不符)的 ref;移动型 remote HEAD 由 lib 统一放过(见 refExpectationSatisfied) */
 function missingRefs() {
-  const broken = brokenRefsFromSnapshot(readRefsManifest(), currentRefs())
-  return broken === null ? null : broken.map(([ref]) => ref)
+  const cur = currentRefs()
+  if (cur === null) return null // 面问不到 ⇒ 未判定,不得把整张清单报成"缺失"
+  return Object.entries(readRefsManifest())
+    .filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref]))
+    .map(([ref]) => ref)
 }
 
 /** 把松散 ref 固化进 packed-refs(顶层单文件, 宿主清理不到) */
@@ -1281,8 +1379,10 @@ function healRefs() {
 
   // 合并后清单里"当前不可见或值不符"的即为待修复项
   // (移动型 refs/remotes/<remote>/HEAD 不比 sha,见 lib/gitdir.mjs refExpectationSatisfied)
-  // 取上面**同一份** for-each-ref 快照判定:清单与内容同面同轮(§0.4),且不再逐条派 git
-  const broken = brokenRefsFromSnapshot(map, cur)
+  const broken = Object.entries(map).filter(([ref, sha]) => {
+    const resolved = git(['rev-parse', '--verify', '--quiet', ref], true)
+    return !refExpectationSatisfied(ref, sha, resolved)
+  })
   if (broken.length === 0) return true
 
   // 先分流:清单值本身可能是死值(宿主抹过 objects/),死值一律不写 ref,
@@ -1310,15 +1410,9 @@ function healRefs() {
     }
   }
   packRefs()
-  // 复检口径与旧逐条档一致:旧写法问的是"这条 ref 现在解析得到吗"(值不符也算过),
-  // 所以这里按"快照里没有这条"判,不得换成 refExpectationSatisfied —— 那会把 origin/main
-  // 这类"清单值取 FETCH_HEAD、packed 值还在滞后"的正常形态每轮报成未达标,连到人通知一起刷。
-  const after = currentRefs()
-  if (after === null) {
-    log('❌ refs 修复后复检面取不到(for-each-ref 未产出)⇒ 本轮判「未判定」,不记成功')
-    return false
-  }
-  const still = Object.keys(map).filter((ref) => !after[ref])
+  const still = Object.entries(map)
+    .filter(([ref]) => !git(['rev-parse', '--verify', '--quiet', ref], true))
+    .map(([ref]) => ref)
   if (still.length) {
     log(`refs 修复未完全达标: ${still.join(', ')}`)
     return false
@@ -1477,7 +1571,16 @@ function healWorktreeTracked() {
   }
 }
 
-/** 〈原 10 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L1569〉 盘根封口自愈(2026-09-24 立)。`seal-c-root-stray.mjs` 把"第三方以 CWD=C:\ 写歪"的 */
+/**
+ * 盘根封口自愈(2026-09-24 立)。`seal-c-root-stray.mjs` 把"第三方以 CWD=C:\ 写歪"的
+ * 那几个名字换成指向外置根的 junction;但**重启会把它们清掉** —— 当天实测:开机后
+ * `C:\common_attachment`、`C:\persistent_data`、`C:\tmp` 三个链接消失(只有 `tools` 活下来),
+ * 而 D 侧目标内容完好。只靠每日 03:00 的 [4/4] 体检,意味着最长 23 小时空窗 ——
+ * 这段时间够剪映/微信输入法自建真目录,回到"删了又长"的原点。本守护每 2 分钟一趟,
+ * 挂在这里等于把空窗压到一个巡检周期。
+ * 与其它自愈层同规矩:不改 status()/退出码语义,失败只记日志;--check 零副作用,
+ * 仅真异常或真重封才写行(健康轮次不写日志是本守护的既有口径)。
+ */
 /** §26 家目录改道自愈:门 96 判红就调修复器。
  *  为什么挂在守护而不是等人跑:2026-09-24 实测 `D:\DevEnv\cache\userhome` 整棵消失,
  *  16 项登记里 9 项退回 C 盘实体目录,而门 96 是 blocking ⇒ **每一次提交都被逼成绕过钩子**,
@@ -2642,7 +2745,28 @@ export function checkConvergeAlignStall(opts = {}) {
   }
 }
 
-/** 〈原 22 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L2743〉 受管 `.env` 的「键值被悄悄清空」巡检 + 到人(2026-09-26 立,PLAN G-223 第三格)。 */
+/**
+ * 受管 `.env` 的「键值被悄悄清空」巡检 + 到人(2026-09-26 立,PLAN G-223 第三格)。
+ *
+ * 为什么挂在这里(而不是提交链):这一格判的是**机器状态** —— 这台机上的 .env 此刻有没有被
+ * 悄悄清空。挂进 pre-commit blocking 就是一台与任何提交都无关的恒红门,唯一结局是逼人
+ * `--no-verify`、连带废掉全部守门(AGENTS §12e / §4 记过多次同型);挂 warn 又等于没人看。
+ * 本守护每 2 分钟一趟、已是全部自愈告警的唯一派发点(§5e),所以判据住在
+ * `check-env-drift.mjs`,**到人**住在这里。
+ *
+ * 立因不是假想:2026-09-26 03:08 `apps/api/.env` 被一次整体替换清空 55 个键值(根 `./.env`
+ * 那份 09-19 的过期镜像被按时间戳复制过来)。应用没崩(DATABASE_URL/JWT_SECRET 恰好非空),
+ * 而唯一到人通道静默寄不出去 —— 症状只有去翻 deploy-loop.log 的人才看得见。
+ *
+ * 三态分流(与那把尺子的退出码同形,不许互相顶掉):
+ *   exit 1 键值漂移   ⇒ log ❌ + notifyGuardRed(严重:凭据面)
+ *   exit 2 未判定     ⇒ log ❓ + notifyGuardRed(另立 alert 身份,窗口各自去重;
+ *                       "现文件没了 / 从没落过备份"都是这一档 —— 绝不静默,也绝不冒充"漂移")
+ *   exit 0 全部可判且零漂移 ⇒ 不写日志(健康轮次保持安静,与其余 heal* 层同一条约定)
+ * 尺子本身坏了(输出不是 JSON / 派生失败)同样喊出来,并按 §12e 的方向给出手动出口。
+ * run/notify/logger 全部可注入 —— 与 checkConvergeAlignStall 同一套取证形状(§22c:镜像测试
+ * 直接 import 本函数,用假派发器断言"哪种结论发哪种 alert",绝不在测试里真发信)。
+ */
 /**
  * `.env` 那一族"这一轮取不到输入"的信(不可判定 / 未判定 / 退出码与结论不符)必须有持续性门槛。
  *
@@ -3223,7 +3347,30 @@ const WORKTREE_HEAL_INTERVAL_MS = Number(process.env.IHUI_WORKTREE_HEAL_INTERVAL
 const WORKTREE_ALIGN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'worktree-align-tick')
 const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS || 420_000)
 
-// 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l3279(门 103 C1 收口)〉首意: 
+/**
+ * 不响应服务的自愈派发点(动作器 = `scripts/heal-unresponsive-services.mjs`,白名单台账在
+ * `scripts/data/service-auto-restart.json`)。三层重启方案的第三层,2026-10-01 机主拍板(台账 G-978121)。
+ *
+ * 为什么这一层只能挂在这里、且必须挂两次调用点之一都不行:本机 22 个服务里 21 个是 nssm 包装的,
+ * SCM 的恢复动作对它们**结构上不会触发**(死的是子进程,nssm.exe 自己还活着 ⇒ 服务永远 Running);
+ * nssm 的退出重启又只覆盖"子进程退出"那一型。真实发生过的两次事故 —— 路径烂掉导致子进程根本起不来
+ * (RSSHub 静默停 3 天)、进程在而端口不应答 —— 两种都表现为"Running + 不通",没有任何日志行会红。
+ * "判某件事没发生"的尺子按设计不能进提交链(判机器状态 ⇒ 每台每次被逼 --no-verify,连带全部守门作废),
+ * 所以唯一调度器就是这个守护。
+ *
+ * 五条不可漂的执行细节(与 auditOpsPatrol 同规矩):
+ *  - 节流戳与 `--apply` 一起交给动作器;它内部还另有每台冷却与全局窗口上限(防重启风暴);
+ *  - **单轮未判定只写日志不喊人**,但必须报名(取不到报告 ⇒ exit 2,不是"都没事");
+ *  - 真重启过或重启失败才发信,沿用"身份 + 内容指纹 4h 去重、无总量封顶"。
+ *  - **自愈注定不会动手的那两种终态也必须到人**(2026-10-21 补,详见函数体内那段):重启预算用完
+ *    (`window-capped`)与名单外真坏了(`not-in-list`)都不在"重启过/重启失败"两集里 —— 而按这条判据,
+ *    越是不重启能解决的故障越安静。台账对后者的原话是"只喊人",而"只喊人"从来没有生产者。
+ *    两个入口共用 `alertTerminalHeld` 一件器物:身份 = 服务名集合 × 持续档,解除即摘起点。
+ *  - 同族第三种:**连续六小时量不到**(`undetermined`)喊的是**看守层自己瞎了**,不是服务坏了。
+ *    单轮必须闭嘴(§0.3 把"没判"当坏了 = 让一把量不到的尺子获得发信权),但 indefinite 的失明
+ *    本身就是事故 —— 而"判某件事没发生"的尺子按设计不进提交链,这里也没有别的调度器。
+ *    门槛取 6h = `alertHeldTier` 已登记的第一条档界,不另拍新数。
+ */
 export function healUnresponsiveServices(opts = {}) {
   const {
     now = Date.now(),
@@ -4010,7 +4157,27 @@ export function auditTunnelMetrics(opts = {}) {
   }
 }
 
-// 〈原 21 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l4089(门 103 C1 收口)〉首意: 
+/**
+ * 「完成即删」兜底清扫轮(守门 229 的姊妹层,2026-10-20 立,机主令"要彻底根治 固定完成立即删掉记录")。
+ *
+ * 为什么提交口那道闸不够:门 229 只在**有人提交且暂存了 PROJECT_PLAN.md** 时判滞留;把旧已勾行
+ * 带回 HEAD 的那枚提交(并发旧基线 / 合并 union)可以不碰台账 ⇒ 提交口结构上看不见它。判据本身
+ * 不在此重写:清扫器 import 门 229 的 `staleClosedVerdict`(§0.6 单一实现)。
+ *
+ * 纪律:
+ *  - **节流 5 分钟**(2026-10-23 由 30 分钟下调):清扫是一次对象空间落地 + 一次推送,太密会把共享仓
+ *    刷爆;但 30 分钟那一档实测**跟不上造的速度** —— 结清提交每分钟都在落地(03:12/03:14/03:20/
+ *    03:25 各一枚),而清扫一拍只摘一次 ⇒ 存量永远在涨。5 分钟这一档不会刷仓:无滞留时清扫器
+ *    直接 exit 0、零落地零推送,只有真有滞留才产生一次提交。
+ *  - 先落"已尝试"再派发(与收尾对齐自愈同一取舍:台账写不下去时宁可多跑一轮也不裸奔,
+ *    但节流与熔断不能双双失效);
+ *  - 旁路落地不跑 post-commit ⇒ 推送腿由清扫器自带(不推就等于没删,AGENTS §5b 回潮通道①);
+ *  - **不改本守护退出码**:清台账失败不等于 .git 失败(与 auditPublicPathProbe 同型);
+ *  - 日志三态(2026-10-20 加固):摘了 N 条 / 无滞留 / **有滞留但全部被判「仍保护」而一条未摘**,
+ *    按清扫器的机读结论行 `SWEEP-RESULT state=…` 分档;取不到结论行 ⇒ 报"读数未判定",
+ *    不得显示成"无需清扫"(把"没做"写成"做过"是 §0.3/§0.10 明令禁止的那一型);
+ *  - 派生子进程一律显式 stdio + windowsHide + timeout(§12g / 守门 52 / 80)。
+ */
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -4486,7 +4653,31 @@ export function auditTunnelLegHealth(opts = {}) {
   }
 }
 
-/** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
+/**
+ * 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`)。
+ *
+ * 为什么必须挂在这里(2026-10-17 现读两件事):
+ *  ① 节律:判据写的是 45 分钟阈值,而整支凭据巡检只由计划任务 `IHUI credential-health` 每 6 小时
+ *     自跑(现读 Last Run 09:37 / Next 15:37 +08:00)⇒ "45 分钟"这个数从来没有按 45 分钟量过,
+ *     节律与阈值差两个数量级等于没有判据。
+ *  ② 同一天还量出更糟的一半:那封信里的**小时数本身是假的** —— 取材读的是仓内这份 checkout 的
+ *     `.next/IHUI_BUILD_SHA` 与 `deploy/win/deploy-loop.log`,而活环根本不写这两处(线上标记
+ *     11:36 已是 `cf3d5fc6e0`,仓内那份还停在 10-13 的 `2822437d8`)。根已改到 `prodCheckoutRoot`,
+ *     节律由本格补上;两半缺一半都算没修。
+ *
+ * 三态纪律照 `auditTunnelLegHealth`:节流而非封量、发信一律经 `notifyGuardRed()`、未判定只写日志
+ * 并点名原因(发一封"我什么都没量到"的信是把噪音冒充成告警)。尺子那一档**零写盘零发信**,
+ * 本格是它唯一的人到出口。
+ *
+ * 身份 = **故障类别**(线上无构建标记 / 线上落后)× **拖了多久折档**(见 `alertHeldTier`)。
+ * 2026-10-18 改:原写法把 `tip 前缀 + 最近一次成功部署时刻` 拼进身份,两个分量在这台机上每轮都变
+ * —— 当日 361 枚提交推进 origin/main,而成功时刻又被尺子读成环自己的"距上次部署完成 N 分钟,本轮
+ * 跳过"节流行(见 `collectStallInputs` 里那条注释)⇒ 每量一轮都是新故障,4 小时窗从没生效过,
+ * 实测 18 封/天。这正是本文件 `alertCountTier` 头注与 §5e-1 明令禁止的形态("实时读数进正文,
+ * 不进身份")。判据一个字没动:线上确实落后 origin/main,该红照红;改的只是**同一段红寄几封**。
+ * 清偿 = `level` 回到 `ok`(线上追平)并清掉起点;起点件由 `noteUndeterminedStreak`/
+ * `clearUndeterminedStreak` 这一份通用件维护,未判定不续命也不清零。
+ */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
 const DEPLOY_STALL_INTERVAL_MS = Number(process.env.IHUI_DEPLOY_STALL_INTERVAL_MS || 15 * 60 * 1000)
@@ -4724,127 +4915,6 @@ export function auditOrphanDeletionRefs(opts = {}) {
   }
 }
 
-const MIGRATION_GAPS_TICK = join(WORKTREE, '.ihui-agent', 'state', 'migration-gaps-tick.ts')
-const MIGRATION_GAPS_INTERVAL_MS = Number(process.env.IHUI_MIGRATION_GAPS_INTERVAL_MS || 30 * 60 * 1000)
-const MIGRATION_GAPS_TIMEOUT_MS = Number(process.env.IHUI_MIGRATION_GAPS_TIMEOUT_MS || 120_000)
-
-/**
- * 迁移账本「中间缺口」巡检(尺子 = `scripts/check-db-migration-gaps.mjs`,2026-10-25 立)。
- *
- * 为什么必须常驻: `drizzle-kit migrate` 只应用 `when > max(账本.created_at)` 的迁移,一个带旧 when
- * 的迁移晚到(并发合并/重排)会被**永久跳过**且 migrate 仍 exit 0;部署侧只看条数差,把“永不补的
- * 中间缺口”与“下轮会补的待应用”混成一档。实测 2026-10-25:D125 协作两表在生产缺建表,日志只报
- * “1-3 档”。本格 30 分钟量一次,缺口集合进 dedupKey(新缺口=新事实该重报,单纯条数抖动不重报)。
- */
-export function migrationGapsDue(nowMs, tickMs, intervalMs = MIGRATION_GAPS_INTERVAL_MS) {
-  if (!Number.isFinite(tickMs)) return true
-  return nowMs - tickMs >= intervalMs
-}
-
-export function auditMigrationGaps(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = MIGRATION_GAPS_INTERVAL_MS,
-    tickFile = MIGRATION_GAPS_TICK,
-    logger = log,
-    notify = notifyGuardRed,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-db-migration-gaps.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ 迁移缺口审计:尺子脚本不在位(scripts/check-db-migration-gaps.mjs)⇒ 本轮跳过,不记为已巡检')
-    return { ran: false, why: '尺子脚本不在位' }
-  }
-  let lastTick = NaN
-  try {
-    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (!migrationGapsDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-    const call =
-      typeof runner === 'function'
-        ? runner()
-        : (() => {
-            try {
-              const out = execFileSync(process.execPath, [script, '--json'], {
-                cwd: WORKTREE,
-                encoding: 'utf8',
-                windowsHide: true, // §5b
-                timeout: MIGRATION_GAPS_TIMEOUT_MS, // 守门 80
-                maxBuffer: 1 << 22,
-                stdio: ['ignore', 'pipe', 'pipe'], // §12g
-              })
-              return { status: 0, stdout: String(out || ''), stderr: '' }
-            } catch (e) {
-              return {
-                status: typeof e.status === 'number' ? e.status : 2,
-                stdout: String(e.stdout || ''),
-                stderr: String(e.stderr || e.message || ''),
-              }
-            }
-          })()
-    const lines = String(call.stdout || '').split(/[\r\n]+/).filter((x) => x.trim())
-    let p = null
-    try {
-      p = JSON.parse(lines[lines.length - 1] || '')
-    } catch {
-      p = null
-    }
-    if (!p || !Array.isArray(p.lateGap)) {
-      logger(
-        `ℹ️ 迁移缺口审计:未判定(rc=${call.status},读数不可解析)—— ${String(call.stderr || call.stdout || '(无输出)').split(/[\r\n]+/)[0].slice(0, 140)}`,
-      )
-      return { ran: true, judged: false, why: '读数不可解析' }
-    }
-    const late = p.lateGap
-    const pending = Array.isArray(p.pending) ? p.pending : []
-    const drift = Array.isArray(p.hashDrift) ? p.hashDrift : []
-    if (late.length === 0) {
-      logger(
-        `✅ 迁移缺口审计:无中间缺口(applied=${p.applied ?? '?'} / pending=${pending.length} / hashDrift=${drift.length} 只报数)`,
-      )
-      return { ran: true, judged: true, ok: true }
-    }
-    const tags = late.map((x) => (x && x.tag) || '(无名)').sort()
-    const outcome = notify(
-      'DB 迁移账本存在中间缺口(drizzle 永不应用)',
-      `缺口 ${late.length} 条:${tags.join(', ')}\npending=${pending.length}(下轮会补)/ hashDrift=${drift.length}(内容后改或水印,已应用)。\n处置:node scripts/check-db-migration-gaps.mjs --repair --yes(先快照账本,再逐条单事务应用+补账本);不要手改 drizzle.__drizzle_migrations。\n取证:node scripts/check-db-migration-gaps.mjs --json`,
-      { severity: 'critical', dedupKey: `migration-gap;set=${tags.join('+').slice(0, 600)}` },
-    )
-    logger(
-      outcome && outcome.suppressed
-        ? `ℹ️ 迁移缺口审计:同一缺口窗口内已通报,本轮压住 —— ${tags.join(', ').slice(0, 140)}`
-        : `❌ 迁移缺口审计:已派发到邮件通道 —— ${tags.join(', ').slice(0, 140)}`,
-    )
-    return { ran: true, judged: true, ok: false, lateGap: late.length }
-  } catch (e) {
-    logger('⚠️ 迁移缺口审计派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
-    return { ran: false, why: '派发异常' }
-  }
-}
-
-/**
- * 资源目录同步停更哨兵(2026-10-25 立)。实测宕型:批内复合键重复触发 PG 21000,
- * 整轮 760 条全军 synced=0,而可见面只有一行 WARN —— "静默"就是这一格的立项理由。
- * 判定住在 lib(守护顶着门 103 C1 的 6000 行天花板,与 sweeper/batch-write 归位 lib 同一先例)。
- */
-const REGISTRY_SYNC_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'registry-sync-health-tick.ts')
-
-export function auditRegistrySyncHealth(opts = {}) {
-  return runRegistrySyncHealth({
-    script: join(dirname(fileURLToPath(import.meta.url)), 'check-registry-sync-health.mjs'),
-    tickFile: REGISTRY_SYNC_AUDIT_TICK,
-    cwd: WORKTREE,
-    logger: log,
-    notify: notifyGuardRed,
-    ...opts,
-  })
-}
-
 /**
  * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
  * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
@@ -4927,7 +4997,30 @@ function samePath(a, b) {
   return String(a).replace(/\\/g, '/').toLowerCase() === String(b).replace(/\\/g, '/').toLowerCase()
 }
 
-// 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l5008(门 103 C1 收口)〉首意: 
+/**
+ * `cpSync`/`rmSync` 打在 GITDIR 之前的准入闸(2026-10-16 事故加,勿删):
+ *   ① GITDIR 绝不能是工作树里的 `.git` 指针文件本身 —— 那是自指损坏态,往里灌备份 = 删库;
+ *   ② GITDIR 存在时必须是目录;是文件 ⇒ 拒绝一切破坏性恢复(先喊人,不自己动手)。
+ * 返回 false 时调用方**必须放弃恢复**(保住现场可回溯),不得退而求其次继续写。
+ *
+ * 事故现场(2026-10-16 00:21):`resolveGitdir()` 当时回退成 `<wt>/.git`,守护判定 gitdir 不健康,
+ * 于是每 10 秒 `cpSync(BACKUP, GITDIR)` 一次,25MB 备份内容被灌进 `.git` 指针文件 ⇒
+ * `fatal: too large to be a .git file`,整仓不可用。①正是这条链的断口。
+ */
+/**
+ * `gitdirTargetSafe` 的**纯判据层**(§22c:镜像测试直接吃这份,不在测试里复制第二份判据)。
+ *
+ * 为什么单列:真实现要 stat 本机路径,而这一格的判据本身是"三个输入 ⇒ 一个结论",
+ * 把它留在只有 side effect 的函数里,就只能靠"在真仓上把 .git 换成一个大文件"来取证 ——
+ * 那台机上每条 git 命令都会失败,而这是一棵**共享工作树**,别人正在提交。
+ * 所以形态三态在此判清,现场演练交给人(见 ledger 行 L15556 的残余),不由守护自己制造。
+ *
+ * @param {{ samePointer?: boolean, exists?: boolean, isDirectory?: boolean }} p
+ *   samePointer = GITDIR 解析后与工作树 `.git` 指针文件同路径(自指损坏态);
+ *   exists/isDirectory = 对 GITDIR 的 stat 结果投影(读不出来时调用方给 exists:true,isDirectory:false 也不行,
+ *   必须走 unreadable 一支)。
+ * @returns {{ok:boolean, why:string}} false ⇒ 调用方必须放弃一切破坏性恢复
+ */
 export function gitdirTargetVerdict({ samePointer = false, exists = false, isDirectory = false, unreadable = false } = {}) {
   if (samePointer)
     return { ok: false, why: 'GITDIR 解析成指针文件自身 —— 自指损坏态,写它等于删库;先修 scripts/lib/gitdir.mjs 的解析,勿在此放行' }
@@ -5112,71 +5205,28 @@ function registerTask() {
 }
 
 /**
- * 活任务形态判定 —— 2026-09-23 首立,2026-10-25 换主通道(判定口径不动)。
+ * 活任务形态判定 —— 2026-09-23 重写,因为旧实现在本机**每 2 分钟空转重注册一次**。
  *
- * 判定口径仍只有一份(`lib/schtasks-form.mjs`):承认**两种合法形态** ——
+ * 旧写法用 pwsh 的 Get-ScheduledTask 读 Principal.LogonType。本机 pwsh **没有 ScheduledTasks
+ * cmdlet**(实测 `The term 'Get-ScheduledTask' is not recognized`),而那条命令的
+ * CommandNotFoundException 并不会让进程非零退出 ⇒ execFileSync 不抛、stdout 只有 `MISSING`
+ * ⇒ 判"漂移" → 重注册;而 registerTask() 的 S4U 路径同样依赖那批 cmdlet,**在这台机上永远
+ * 不成功**(回读永远 `LOGON=` 空),只有 .vbs 回退真能注册成功 → 于是"注册成功"和"判它漂移"
+ * 每 2 分钟互相打脸一次,并把最关键的那层 .git 存续守护反复删除重建。
+ *
+ * 新实现不碰 cmdlet:存在性用 `schtasks /Query /FO CSV`(任务名是 ASCII,不受 GBK 控制台影响),
+ * 形态用 `/XML`(去 NUL 后按 ASCII 关键字判)。并明确承认**两种合法形态**:
  *   · S4U(session 0,结构上开不出窗口)—— 首选;
  *   · InteractiveToken + wscript + 我们的 ASCII .vbs —— 回退形态,同样无弹窗,不是漂移。
  * 只有"InteractiveToken 且直跑 node.exe"(必闪黑窗)或任务消失才叫漂移。拿不到数据一律 unknown,
  * 绝不在信息不足时改动任务(§5b 的"宁可不动也不误动")。
- *
- * 2026-10-25 换"怎么读":本机安全策略把 `schtasks.exe` 列入黑名单(与
- * `check-c-drive-pollution.mjs` 同一起事故),而守护是每 2 分钟一 tick 的常驻体 —— 在这里
- * spawn 一个被策略拦的可执行文件,失败形态不是"报错",而是把守护一起带走。计划任务的存在性
- * 与形态改由 PowerShell 的 `Get-ScheduledTask` / `Export-ScheduledTask` 读(同一份任务存储,
- * 只是不碰那个 exe);`schtasks.exe` 降为**默认关**的兜底通道。
  * @returns {'ok'|'ok-vbs'|'missing'|'drift'|'unknown'}
  */
-/** schtasks.exe 兜底通道(**默认关**,理由见 taskForm 头注):黑名单机器上 spawn 它会把守护本身带走。 */
-const ALLOW_SCHTASKS_EXE = process.env.IHUI_ALLOW_SCHTASKS_EXE === '1'
-
-/** 跑一段 PowerShell,拿不到(解释器不在位/报错/超时/空输出)一律返回 null ⇒ 调用方落 unknown。 */
-function runPs(script, { timeoutMs = 30_000, encoding = 'utf8' } = {}) {
-  const bin = pickPowerShell()?.bin
-  if (!bin) return null
-  try {
-    const out = execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', script], {
-      encoding,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      timeout: timeoutMs,
-      maxBuffer: 1 << 24,
-    })
-    const s = String(out || '').replace(/\0/g, '')
-    return s.trim() ? s : null
-  } catch {
-    return null
-  }
-}
-
-/** 一次 PowerShell 调用同时回答"在不在"与"形态 XML":守护每 2 分钟一轮,两次冷启动 PS
- *  会把一轮巡检拖长。取不到 ⇒ null(调用方落 unknown);cmdlet 不在位 ⇒ 也 null,
- *  **不得**借此判"任务不存在"(查法失效与产物为空必须分家)。 */
-function psTaskProbe() {
-  return runPs(
-    [
-      `if ($null -eq (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue)) {`,
-      `  ''`, // cmdlet 不在位 ⇒ **不得**借此判"任务不存在"(查法失效与产物为空必须分家)
-      `} else {`,
-      `  $t = @(Get-ScheduledTask -TaskName '${TASK_NAME}' -ErrorAction SilentlyContinue)`,
-      `  if ($t.Count -eq 0) { '__MISSING__' } else { ($t[0] | Export-ScheduledTask) -join "\`n" }`,
-      `}`,
-    ].join('\n'),
-  )
-}
-
 function taskForm() {
   const flat = (buf) => String(buf || '').replace(/\0/g, '')
-  // 主通道:PowerShell(Get-ScheduledTask 读的是同一份任务存储,只是不碰黑名单里的那个 exe)。
-  const probe = psTaskProbe()
-  if (probe) return probe.trim() === '__MISSING__' ? 'missing' : judgeTaskForm(probe)
-  // 兜底通道:schtasks.exe(**默认关** —— 黑名单机器上 spawn 它会把守护本身杀掉);
-  // 形态判据一律是 lib/schtasks-form.mjs 那一份,两通道不得各写一版。
-  if (!ALLOW_SCHTASKS_EXE) return 'unknown'
-  let csv
+  let list = ''
   try {
-    csv = flat(
+    list = flat(
       execFileSync('schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], {
         // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -5188,8 +5238,8 @@ function taskForm() {
   } catch {
     return 'unknown' // schtasks 本身不可用 ⇒ 不下判断
   }
-  if (!csv.includes(TASK_NAME)) return 'missing'
-  let xml
+  if (!list.includes(TASK_NAME)) return 'missing'
+  let xml = ''
   try {
     xml = flat(
       execFileSync('schtasks.exe', ['/Query', '/TN', TASK_NAME, '/XML'], {
@@ -5557,12 +5607,6 @@ function main() {
     if (!CHECK_ONLY) auditDeployStall()
     // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY) auditOrphanDeletionRefs()
-    // 迁移账本「中间缺口」:drizzle 只按 when>max 应用,晚到的旧 when 会被永久跳过且 migrate exit 0
-    // (实测 chat_collab 生产缺建表、部署只报档位)。尺子 = check-db-migration-gaps.mjs;30min 节流。
-    if (!CHECK_ONLY) auditMigrationGaps()
-    // 资源目录同步停更哨兵(尺子 = check-registry-sync-health.mjs;判定住 lib/registry-sync-audit)。
-    // 30min 节流;psql/DSN 取不到 = 未判定不喊人(§12e:与提交内容无关的恒响只会废掉通道)。
-    if (!CHECK_ONLY) auditRegistrySyncHealth()
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
     // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
     if (!CHECK_ONLY) scrubTempFixtures()
@@ -5680,9 +5724,6 @@ function startDaemon() {
   tick()
 }
 
-// 〈原 19 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l5738(门 103 C1 收口)〉首意: 
-
-
 // §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。
 // 不守卫的话 `node --test` 一 import 就会把整轮巡检(含真发信)跑起来,这正是 §22d 立的禁忌。
 const isDirectRun = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -5733,12 +5774,6 @@ export const __test__ = {
   noteUndeterminedStreak,
   clearUndeterminedStreak,
   auditDeployStall,
-  // 计划任务形态自检(2026-10-25 导出):通道换到 PowerShell 后,须有一条端到面读数钉住
-  // "拿不到数据 ⇒ unknown、绝不改动任务",否则这条 2 分钟一 tick 的路径只能靠肉眼守。
-  taskForm,
-  taskActionOk,
-  auditMigrationGaps,
-  migrationGapsDue,
   shouldAlertAlignStall,
   checkConvergeAlignStall,
   // 对齐停摆的自动修复(2026-10-04):与 checkConvergeAlignStall 配套导出,镜像测试据此

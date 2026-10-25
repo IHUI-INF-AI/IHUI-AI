@@ -6,12 +6,7 @@ import { useChatStore, type ToolCall } from '@/stores/chat'
 import type { ChatStore } from '@/stores/chat-pane-context'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { emitAgentHook } from '@/stores/agent-hooks'
-import type {
-  ReviewFindingEvent,
-  ToolDeltaEvent,
-  ToolSummaryEvent,
-  UsageEvent,
-} from '@ihui/api-client'
+import type { ToolDeltaEvent, ToolSummaryEvent, UsageEvent } from '@ihui/api-client'
 import { PROVIDER_QUOTA_EXHAUSTED } from '@ihui/api-client'
 import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
 
@@ -248,24 +243,6 @@ export function createUsageHandler(
       durationMs: Number(payload.timing?.durationMs) || 0,
       model: payload.model ?? '',
       costUsd: payload.costUsd !== null ? Number(payload.costUsd) : null,
-    })
-  }
-}
-
-/**
- * D115(G-229,2026-10-24 立):onReviewFinding 消费工厂。
- * 绑定 assistantMessageId,把 review-finding 帧逐条写入 store.reviewFindingsByMessageId,
- * 由 MessageItem 按 message.id 订阅渲染 ReviewFindingsCard(按 P1/P2/Nit 分组)。
- * 未注册该回调时 api-client 也不解析此帧 —— 接线与解析同一条开关。
- */
-export function createReviewFindingHandler(
-  assistantMessageId: string,
-  chatStore: ChatStore = useChatStore,
-) {
-  return (event: ReviewFindingEvent) => {
-    chatStore.getState().appendReviewFinding(assistantMessageId, {
-      type: 'review-finding',
-      ...event,
     })
   }
 }

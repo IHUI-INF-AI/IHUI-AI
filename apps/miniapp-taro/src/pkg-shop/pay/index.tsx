@@ -12,23 +12,14 @@ import {
   getVipOrderPayInfo,
   createAlipayMiniappPayment,
   type VipPayInfo,
+  getProfile,
   get,
+  post,
 } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import ThemeRoot from '@/components/ThemeRoot'
 
-/**
- * 支付方式与 web 端同源收银台对齐(见 apps/web/app/(main)/payment/checkout/PageClient.tsx
- * 的 METHODS 现值:wechat/alipay 两档)。原先的第三档「余额支付」已摘除,三重证据:
- * ① 它打的 `POST /pay/balance` 后端注册面从未有过(每次 404,被外层 catch 吞成"操作失败");
- * ② 档位上的"余额"读数取自 GET /user/profile 的 balance 字段,而该端点的字段投影里
- *    根本没有 balance ⇒ 永远显示 ¥0.00、永远"余额不足,请充值",这一档从上线起就不可选;
- * ③ 全仓唯一的"余额"账本 userMargins.tokenQuantity 是 **AI token 额度**(充值订单回调
- *    rechargeToken 加的就是它),不是现金负债 —— 拿它抵扣会员订单在资金语义上不成立,
- *    要真做"余额支付"需要先定义现金钱包账本,那是独立产品票,不是这一枚 bug 修复。
- * §30 口径:没有终态的能力不许渲染成可用档。
- */
-type PayMethod = 'wechat' | 'alipay'
+type PayMethod = 'wechat' | 'alipay' | 'balance'
 
 interface CouponItem {
   id: string
@@ -37,15 +28,9 @@ interface CouponItem {
   threshold: number
 }
 
-/**
- * GET /orders/:orderNo 的真实回形(原写法打 `/vip/order/${no}` —— 后端只有
- * POST /vip/order 与 GET /vip/order/:orderNo/payinfo,从未有过 GET /vip/order/:orderNo)。
- * 字段名按后端投影逐字取:eduOrders 行是 targetTitle/createdAt,不是 goodsName/createTime。
- */
-interface OrderInfo {
-  orderNo?: string
-  targetTitle?: string
-  createdAt?: string
+interface OrderDetailInfo {
+  goodsName?: string
+  createTime?: string
 }
 
 const COUNTDOWN_TOTAL = 15 * 60
@@ -57,6 +42,7 @@ const priceFmt = new Intl.NumberFormat('zh-CN', {
 const METHOD_ICON_COLOR: Record<PayMethod, string> = {
   wechat: 'text-success',
   alipay: 'text-primary',
+  balance: 'text-warning',
 }
 
 function formatTime(sec: number): string {
@@ -74,9 +60,10 @@ export default function PayIndex() {
   const [amount, setAmount] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [payMethod, setPayMethod] = useState<PayMethod>('wechat')
+  const [balance, setBalance] = useState(0)
   const [coupons, setCoupons] = useState<CouponItem[]>([])
   const [selectedCouponId, setSelectedCouponId] = useState('')
-  const [orderDetail, setOrderDetail] = useState<OrderInfo>({})
+  const [orderDetail, setOrderDetail] = useState<OrderDetailInfo>({})
   const [remaining, setRemaining] = useState(COUNTDOWN_TOTAL)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -84,6 +71,7 @@ export default function PayIndex() {
   const selectedCoupon = coupons.find((c) => c.id === selectedCouponId)
   const couponDiscount = selectedCoupon?.amount ?? 0
   const finalAmount = Math.max(0, amount - couponDiscount)
+  const balanceInsufficient = balance < finalAmount
   // G-933 冷启动门控用就绪位（见下方 effect 内的 return 说明）
   const { ready } = useAuthReadyGate()
 
@@ -93,17 +81,21 @@ export default function PayIndex() {
     setOrderNo(no)
     setAmount(amt)
     if (!no) return
-    // G-933:未落定时整支不出门,ready 翻真后本 effect 重跑一次(waitUntilReady 语义等价:
-    // 只等「判定落定」,不等登录 ⇒ 游客仍会在落定后走一次,终态与改前一致)。
+    // G-933：这一支的 getProfile 需鉴权（miniapp-compat-routes.ts:2247 checkAuth），
+    // 与 /vip/order/:no、/coupons/available 三支共用同一个 Promise.all 与同一次状态事务，
+    // 拆支会改该页的加载/回填语义 ⇒ 未落定时整支不出门，ready 翻真后本 effect 重跑一次。
+    // waitUntilReady 语义等价：只等「判定落定」，不等登录 ⇒ 游客仍会在落定后走一次，终态与改前一致。
     if (!ready) return
 
     Promise.all([
-      get<{ order: OrderInfo }>(`/orders/${no}`).catch(() => null),
+      getProfile().catch(() => null),
+      get<OrderDetailInfo>(`/vip/order/${no}`).catch(() => null),
       get<{ items: CouponItem[] } | CouponItem[]>('/coupons/available', { amount: amt }).catch(
         () => null,
       ),
-    ]).then(([detail, couponRes]) => {
-      if (detail?.order) setOrderDetail(detail.order)
+    ]).then(([user, detail, couponRes]) => {
+      if (user && typeof user.balance === 'number') setBalance(user.balance)
+      if (detail) setOrderDetail(detail)
       if (couponRes) {
         const list = Array.isArray(couponRes) ? couponRes : couponRes.items || []
         setCoupons(list)
@@ -119,6 +111,10 @@ export default function PayIndex() {
   }, [router.params.orderNo, router.params.amount, ready])
 
   const onSelectMethod = (m: PayMethod) => {
+    if (m === 'balance' && balanceInsufficient) {
+      Taro.showToast({ title: tt('pay.balanceInsufficient', '余额不足,请充值'), icon: 'none' })
+      return
+    }
     setPayMethod(m)
   }
 
@@ -137,6 +133,8 @@ export default function PayIndex() {
     })
   }
 
+  const goRecharge = () => Taro.navigateTo({ url: '/pkg-shop/wallet/recharge/index' })
+
   const onPay = async () => {
     if (!orderNo) {
       Taro.showToast({ title: t('pay.orderAbnormal'), icon: 'none' })
@@ -149,10 +147,15 @@ export default function PayIndex() {
     if (submitting) return
     setSubmitting(true)
     try {
+      if (payMethod === 'balance') {
+        await post('/pay/balance', { orderNo })
+        Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&status=paid` })
+        return
+      }
       if (payMethod === 'alipay') {
         const res = await createAlipayMiniappPayment({
           amount: finalAmount,
-          subject: orderDetail.targetTitle || tt('pay.vipSubscription', '会员订阅'),
+          subject: orderDetail.goodsName || tt('pay.vipSubscription', '会员订阅'),
         })
         if (!res.tradeNo) {
           Taro.showToast({ title: tt('pay.configNotReady', '支付宝支付配置未就绪'), icon: 'none' })
@@ -219,7 +222,7 @@ export default function PayIndex() {
     Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${no}` })
   }
 
-  const payDisabled = submitting || expired
+  const payDisabled = submitting || expired || (payMethod === 'balance' && balanceInsufficient)
 
   const methodBase = 'py-method'
   const methodActive = 'py-method--active'
@@ -255,12 +258,12 @@ export default function PayIndex() {
           <View className="py-order-row">
             <Text className="py-order-label">{tt('pay.goodsName', '商品名称')}</Text>
             <Text className="py-order-value">
-              {orderDetail.targetTitle || tt('pay.vipSubscription', '会员订阅')}
+              {orderDetail.goodsName || tt('pay.vipSubscription', '会员订阅')}
             </Text>
           </View>
           <View className="py-order-row">
             <Text className="py-order-label">{tt('pay.createTime', '下单时间')}</Text>
-            <Text className="py-order-value">{orderDetail.createdAt || '—'}</Text>
+            <Text className="py-order-value">{orderDetail.createTime || '—'}</Text>
           </View>
         </View>
 
@@ -301,6 +304,42 @@ export default function PayIndex() {
                 <LineIcon name="check" size={24} color="var(--color-cta-foreground)" />
               )}
             </View>
+          </View>
+
+          <View
+            className={`${methodBase}${payMethod === 'balance' ? ` ${methodActive}` : ''}`}
+            hoverClass="opacity-60"
+            onClick={() => onSelectMethod('balance')}
+          >
+            <View className={`py-method-icon ${METHOD_ICON_COLOR.balance}`}>
+              {tt('pay.balance', '余')}
+            </View>
+            <View className="py-method-body">
+              <Text className="py-method-name">{tt('pay.balance', '余额支付')}</Text>
+              <Text className="py-method-sub">
+                {t('pay.balanceAmount', { n: priceFmt.format(balance) })}
+                {balanceInsufficient
+                  ? ` · ${tt('pay.balanceInsufficient', '余额不足,请充值')}`
+                  : ''}
+              </Text>
+            </View>
+            {balanceInsufficient ? (
+              <Text
+                className="py-recharge-link"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  goRecharge()
+                }}
+              >
+                {tt('pay.recharge', '充值')}
+              </Text>
+            ) : (
+              <View className={`${radioBase}${payMethod === 'balance' ? ` ${radioOn}` : ''}`}>
+                {payMethod === 'balance' && (
+                  <LineIcon name="check" size={24} color="var(--color-cta-foreground)" />
+                )}
+              </View>
+            )}
           </View>
         </View>
 

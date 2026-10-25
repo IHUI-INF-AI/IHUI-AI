@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -51,14 +52,14 @@ export interface MenuProps {
 //   tabbar/coursePlanet/3.png  → assets/images/menu/3.png
 //   tabbar/coursePlanet/10.png → assets/images/menu/10.png
 const DEFAULT_ITEMS: MenuEntry[] = [
-  { id: 1, name: '图片', icon: IMG_PIC },
-  { id: 2, name: '视频', icon: IMG_VIDEO },
-  { id: 3, name: '文案', icon: IMG_WENAN },
-  { id: 4, name: '智能体', icon: IMG_AGENT },
-  { id: 5, name: 'RPA', icon: IMG_RPA },
-  { id: 6, name: '编程', icon: IMG_CODE },
-  { id: 7, name: '音乐', icon: IMG_MUSIC },
-  { id: 8, name: '其他', icon: IMG_OTHER },
+  { id: 1, name: 'menu.catImage', icon: IMG_PIC },
+  { id: 2, name: 'menu.catVideo', icon: IMG_VIDEO },
+  { id: 3, name: 'menu.catCopy', icon: IMG_WENAN },
+  { id: 4, name: 'menu.catAgent', icon: IMG_AGENT },
+  { id: 5, name: 'menu.catRpa', icon: IMG_RPA },
+  { id: 6, name: 'menu.catCode', icon: IMG_CODE },
+  { id: 7, name: 'menu.catMusic', icon: IMG_MUSIC },
+  { id: 8, name: 'menu.catOther', icon: IMG_OTHER },
 ]
 
 export default function Menu({
@@ -66,6 +67,7 @@ export default function Menu({
   onPress,
   columns = MENU_DEFAULT_COLUMNS,
 }: MenuProps) {
+  const { t } = useI18n()
   return (
     <FlatList
       data={items}
@@ -80,7 +82,7 @@ export default function Menu({
           onPress={() => onPress?.(item, index)}
         >
           <Image source={toImageSource(item.icon)} style={styles.icon} />
-          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.name}>{t(item.name)}</Text>
         </TouchableOpacity>
       )}
     />

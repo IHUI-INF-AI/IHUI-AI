@@ -94,7 +94,6 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { stripWatermarkStructure } from './lib/watermark-lines.mjs'
-import { requireFlagValue } from './lib/flag-value.mjs'
 import {
   Undetermined,
   assertRepoRoot,
@@ -624,12 +623,19 @@ function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
 
   let root = ROOT
-  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
-  if (rootFlag.error) {
-    console.error(`❌ 无法判定(exit 2): ${rootFlag.error}`)
-    return 2
+  const ri = argv.indexOf('--root')
+  if (ri >= 0) {
+    const token = argv[ri + 1]
+    if (typeof token !== 'string' || token === '' || token.startsWith('-')) {
+      console.error(
+        `❌ 无法判定(exit 2): --root 没收到有效目录 —— 紧邻 token 实得:${
+          token === undefined ? '(其后没有任何参数)' : JSON.stringify(token)
+        }`,
+      )
+      return 2
+    }
+    root = resolve(token)
   }
-  if (rootFlag.present) root = resolve(rootFlag.value)
   const strict = argv.includes('--strict')
   const { face, error } = selectFace({
     staged: argv.includes('--staged'),

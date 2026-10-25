@@ -33,8 +33,7 @@
         "titleBarStyle": "Overlay",
         "backgroundColor": "#242424",
         "shadow": true,
-        "visible": false,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site"
+        "visible": false
       }
     ],
     "security": {

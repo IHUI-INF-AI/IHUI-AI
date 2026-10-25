@@ -15,40 +15,11 @@ import {
 import { users } from './users.js'
 
 /**
- * 公告投放端枚举(2026-10-24 立)。
- *
- * 语义(李总 2026-10-24 定案):公告全端统一一个接口 GET /api/announcements,
- * 各端传 ?platform=<自身>;本字段为空数组 = 全端通用(所有端都显示),
- * 非空 = 仅数组内端可见(按端独立设定)。
- *
- * 端标识与仓库九端一一对应:
- *   web        apps/web(Next.js 站,含桌面 Tauri 加载的同一站点)
- *   miniapp    apps/miniapp-taro(微信小程序)
- *   desktop    apps/desktop(Tauri 原生壳独立公告入口,预留)
- *   extension  apps/extension(浏览器扩展 sidepanel)
- *   rn         apps/mobile-rn(React Native App)
- *   cli        apps/cli(命令行)
- *   mobile-cap apps/mobile-cap(Capacitor 原生壳,预留)
- */
-export const ANNOUNCEMENT_PLATFORMS = [
-  'web',
-  'miniapp',
-  'desktop',
-  'extension',
-  'rn',
-  'cli',
-  'mobile-cap',
-] as const
-
-export type AnnouncementPlatform = (typeof ANNOUNCEMENT_PLATFORMS)[number]
-
-/**
  * 公告表。
  * type: 'info' | 'warning' | 'maintenance' | 'update'。
  * is_pinned: 置顶（列表置顶在前）。
  * is_published: 是否发布（公开列表只返回已发布）。
  * published_at: 发布时间（列表按此倒序）；expires_at 过期时间（过期则不展示）。
- * platforms: 投放端(空数组 = 全端通用；见 ANNOUNCEMENT_PLATFORMS)。
  */
 export const announcements = pgTable('announcements', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -59,7 +30,6 @@ export const announcements = pgTable('announcements', {
   isPublished: boolean('is_published').default(false).notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
-  platforms: text('platforms').array().default([]).notNull(),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

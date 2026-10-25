@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { AppThemeTokens } from '../theme/tokens'
 
 /** 消息/通知卡片统一形状(MessageCenterItem 与 NotificationListItem 的公共字段)。 */
@@ -101,12 +101,12 @@ export function NotificationCard({
 export function createCardStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     unread: {
       borderColor: tk.success.DEFAULT,
@@ -115,7 +115,7 @@ export function createCardStyles(tk: AppThemeTokens) {
     cardHead: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     type: {
       fontSize: 10,
@@ -138,32 +138,32 @@ export function createCardStyles(tk: AppThemeTokens) {
     },
     meta: {
       marginLeft: 'auto',
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },
     cardTitle: {
       marginTop: 6,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '700',
       color: tk.text.primary,
     },
     cardContent: {
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
       fontSize: 13,
       color: tk.text.medium,
     },
     rowWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     rowMain: {
       flex: 1,
       minWidth: 0,
     },
     status: {
-      marginTop: 4,
-      fontSize: 12,
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
     statusDestructive: {
@@ -171,8 +171,8 @@ export function createCardStyles(tk: AppThemeTokens) {
     },
     action: {
       alignSelf: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },

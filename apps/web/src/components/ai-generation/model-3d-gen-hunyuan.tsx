@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 
 const TEXTAREA_CLS =
@@ -25,11 +25,12 @@ export function Model3dGenHunyuan() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { Prompt: string; ImageUrl?: string; ResultFormat: string }) => {
-      const res = await api<{ JobId: string; taskId: string }>('/api/ai/tencent/hunyuan3d/submit', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
-      return res
+      const res = await fetchApi<{ JobId: string; taskId: string }>(
+        '/api/ai/tencent/hunyuan3d/submit',
+        { method: 'POST', body: JSON.stringify(payload) },
+      )
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: (data) => {
       setTaskId(data.taskId)
@@ -41,8 +42,9 @@ export function Model3dGenHunyuan() {
   const { data: task } = useQuery({
     queryKey: ['ai-task', taskId],
     queryFn: async () => {
-      const res = await api<AsyncTask>(`/api/ai/tasks/${taskId}`)
-      return res
+      const res = await fetchApi<AsyncTask>(`/api/ai/tasks/${taskId}`)
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     enabled: !!taskId,
     refetchInterval: (query) => {

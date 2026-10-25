@@ -20,7 +20,6 @@
 import { createHash } from 'node:crypto'
 import { and, asc, desc, eq } from 'drizzle-orm'
 import {
-  TEAM_KNOWLEDGE_STATUSES,
   teamKnowledgeItems,
   teamKnowledgeRevisions,
   teamKnowledgeSpaceMembers,
@@ -35,7 +34,6 @@ import {
   type TeamKnowledgeSpace,
   type TeamKnowledgeStatus,
 } from '@ihui/database'
-import { coerceKnownOr } from '@ihui/types'
 import { db } from '../db/index.js'
 import { AppError } from '../errors/AppError.js'
 
@@ -281,9 +279,7 @@ function toItemDTO(row: TeamKnowledgeItem): ItemDTO {
     content: (row.content ?? {}) as Record<string, unknown>,
     plainText: row.plainText,
     tags: Array.isArray(row.tags) ? row.tags : [],
-    // G-59/门 94 R4a:`status` 列是无约束 varchar,越界/未知值不得静默当合法状态 —— 落 `archived`
-    // (只读终态,即"不再产生副作用"的那一档),不把外部字符串原样透传给前端。
-    status: coerceKnownOr(row.status, TEAM_KNOWLEDGE_STATUSES, 'archived'),
+    status: row.status as TeamKnowledgeStatus,
     revision: row.revision,
     sourceRef: (row.sourceRef ?? null) as Record<string, unknown> | null,
     createdBy: row.createdBy,

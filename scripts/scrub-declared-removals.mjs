@@ -130,15 +130,7 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
       for (const key of ['rowBefore', 'before']) {
         if (typeof o[key] === 'string' && /^\s*- \[[ xX]\]/.test(o[key])) {
           rows.push(o[key])
-          // f12-purge(2026-10-25,等条件禁令清偿批)与 f11-purge 同一条兜底射程:摘的是未勾行,
-          // 回捞通道(收编器/union 行级回补)同一批,射程不同就会像 f11 立项前一样 100% 回潮。
-          if (
-            o.kind === 'f11-purge' ||
-            o.seat === 'f11-purge-20261025' ||
-            o.kind === 'f12-purge' ||
-            o.seat === 'f12-purge-20261025'
-          )
-            dropRows.push(o[key])
+          if (o.kind === 'f11-purge' || o.seat === 'f11-purge-20261025') dropRows.push(o[key])
         }
       }
     }

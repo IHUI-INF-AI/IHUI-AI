@@ -16,11 +16,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // 封口清单**不抄第二份**:名字与目标路径的唯一真相源在封口器里,本门只读它。
 import { ORPHAN_FILES, SEALED_DIRS, devEnvRoot, pathsFor, sealedFootprint } from './seal-c-root-stray.mjs'
-// §0.6 单一真相源:PowerShell 解释器候选复用 check-service-binary-paths 的出口,禁抄第二份。
-// 2026-10-25 立:本文件原先的 `pwshCandidates()` 靠 `process.env.ProgramFiles` 拼路径,而本机该
-// 变量为空 ⇒ 候选全部落空、两条 PowerShell 通道都静默退化成"未判定"。看上去"已换成 pwsh",
-// 实际一次都没真读到 —— 这与过去的假绿灯同型;改按 §0.6 复用对侧已验证的绝对路径候选择一器。
-import { pickPowerShell, PS_CANDIDATES } from './check-service-binary-paths.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
@@ -365,77 +360,22 @@ function scanDriveRoot(drive, devEnv) {
 }
 
 /**
- * 注册表读取通道(2026-10-25 立,治"落地链被安全策略杀进程")。
- *
- * **事故**:本门原先直接 `execFileSync('reg.exe', …)`。在装有程序黑名单的机器上,spawn 的那一刻
- * 安全策略**杀掉的是整个 node 进程**(实测 RC=143 = 128+SIGTERM),不是抛异常 —— try/catch
- * 完全救不了。而本门挂在提交链上 ⇒ `live-doc-edit` / `safe-commit` 全线断,任何台账改动与代码
- * 提交都落不了地。这是比"门判红"严重一档的失效:门红还能定向说明,进程被杀则整条链路静默消失。
- *
- * **修法不是跳门,是换通道**:注册表还有一条不 spawn reg.exe 的路 —— PowerShell 的注册表
- * PSDrive(`Get-ItemProperty 'HKCU:\Environment'`)。同一次读取、同一个值,只是不碰那个被拦的
- * 可执行文件。取不到一律返回 null ⇒ 由调用方报「未判定」,绝不记为通过(§0.3)。
- *
- * reg.exe 通道本身**不删除**,但默认关闭,只在显式 `IHUI_ALLOW_REG_EXE=1` 时启用(供黑名单
- * 机器上确需该通道的人自行开,并承担被拦的后果)。
- */
-const ALLOW_REG_EXE = process.env.IHUI_ALLOW_REG_EXE === '1'
-
-/** PowerShell 读注册表值。多值(REG_MULTI_SZ)以换行拼回,喂给既有解析器。取不到返回 null。 */
-function pwshRegQuery(key, valueName) {
-  // ⚠️ 脚本串必须用**换行**join,不能用空格/分号:原先 `].join(' ')` 把 `try {` / `$v = …` /
-  // `if …` 挤进同一行 ⇒ PowerShell 抛 ParserError(status=1),execFileSync 一抛就被下面的空
-  // catch 吞掉 ⇒ 本函数恒返回 null。表面"已换成 pwsh 通道",实际一次都没真读到(换壳没换血)。
-  // 2026-10-25 实机验到并修正。
-  const script = [
-    `try {`,
-    `  $v = (Get-ItemProperty -Path '${key}' -Name '${valueName}' -ErrorAction Stop).'${valueName}'`,
-    `  if ($null -eq $v) { '' } else { ($v -join "\`n") }`,
-    `} catch { '' }`,
-  ].join('\n')
-  for (const bin of pwshCandidates()) {
-    try {
-      const out = execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', script], {
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 20000,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      const s = String(out || '').trim()
-      if (s) return s
-    } catch {
-      /* 换下一个候选;全落空则由调用方报「未判定」 */
-    }
-  }
-  return null
-}
-
-/** reg.exe 兜底通道(默认关,见上方头注)。 */
-function regExeQuery(args) {
-  if (!ALLOW_REG_EXE) return null
-  try {
-    return execFileSync('reg.exe', args, {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 8000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-  } catch {
-    return null
-  }
-}
-
-/**
  * TEMP 漂移检测:HKCU 声明的 TEMP 与活进程实际拿到的 TEMP 不一致,就是"改了指针
  * 但老进程不认"的那道根因(C 盘残骸天天新增的机制)。读注册表失败时如实报 unknown。
  */
 function readHkcuTemp() {
-  const viaPwsh = pwshRegQuery('HKCU:\\Environment', 'TEMP')
-  if (viaPwsh) return viaPwsh
-  const out = regExeQuery(['query', 'HKCU\\Environment', '/v', 'TEMP'])
-  const m = out && out.match(/TEMP\s+REG_SZ\s+(.+)/)
-  return m ? m[1].trim() : null
+  try {
+    const out = execFileSync('reg.exe', ['query', 'HKCU\\Environment', '/v', 'TEMP'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    const m = out.match(/TEMP\s+REG_SZ\s+(.+)/)
+    return m ? m[1].trim() : null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -488,11 +428,11 @@ export function parsePagefileUsage(raw) {
 }
 
 function pwshCandidates() {
-  // 复用 §0.6 出口(绝对路径、按当次存在性择一、不依赖 PATH / process.env.ProgramFiles),
-  // 再按本文件原有顺序补齐其余候选 —— Selector 已按存在性排序,这里只去重。
-  const picked = pickPowerShell()
-  if (!picked) return []
-  return [picked.bin, ...PS_CANDIDATES.map((c) => c.bin).filter((b) => b !== picked.bin)]
+  const out = [join(resolve(REPO, '..', '..'), 'Program Files', 'PowerShell', '7', 'pwsh.exe')]
+  if (process.env.ProgramFiles) out.push(join(process.env.ProgramFiles, 'PowerShell', '7', 'pwsh.exe'))
+  out.push('pwsh.exe')
+  // 绝对路径候选先过滤存在性:不然每次先白抛一个 ENOENT(本机 PowerShell 装在 C:,而仓库在 D:)
+  return [...new Set(out)].filter((p) => p === 'pwsh.exe' || existsSync(p))
 }
 
 function measurePagefilesMB() {
@@ -519,20 +459,22 @@ function measurePagefilesMB() {
 }
 
 function readPagingFiles() {
-  // 通道换 PowerShell(理由见 pwshRegQuery 头注):reg.exe 被安全策略拦时杀的是本进程本身
-  const viaPwsh = pwshRegQuery(
-    'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management',
-    'PagingFiles'
-  )
-  if (viaPwsh) return parsePagingFiles(viaPwsh)
-  const raw = regExeQuery([
-    'query',
-    'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management',
-    '/v',
-    'PagingFiles',
-  ])
-  if (!raw) return null
-  return parsePagingFiles(raw)
+  try {
+    const raw = execFileSync(
+      'reg.exe',
+      ['query', 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management', '/v', 'PagingFiles'],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 8000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    return parsePagingFiles(raw)
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -606,75 +548,6 @@ export function judgeTaskRegistration(raw, needle = MAINTAIN_TASK_NEEDLE) {
 }
 
 /**
- * 计划任务名列表 → 三态。与 `judgeTaskRegistration` 同一套三态与同一句渲染措辞,差别只在输入
- * 形态:那条吃 schtasks 的 CSV 文本,这条吃 PowerShell 已经解好的任务名数组(JSON 侧不易糊)。
- * 「未注册」同样以**列表非空自证**为前提 —— 空列表是"没量到",不是"量到全是别人的"。
- */
-export function judgeTaskNames(names, needle = MAINTAIN_TASK_NEEDLE) {
-  const list = Array.isArray(names) ? names.map((x) => String(x).trim()).filter(Boolean) : []
-  if (!list.length)
-    return {
-      state: 'undetermined',
-      reason: 'PowerShell 取不到任何任务名(Get-ScheduledTask 不在位 / 报错 / 输出为空)',
-      rows: 0,
-      matched: [],
-    }
-  const n = String(needle).toLowerCase()
-  const matched = list.filter((x) => x.toLowerCase().includes(n))
-  return matched.length
-    ? { state: 'registered', reason: '', rows: list.length, matched }
-    : { state: 'unregistered', reason: '', rows: list.length, matched: [] }
-}
-
-/**
- * schtasks.exe 兜底通道(**默认关**,见 `pwshRegQuery` 头注那一起事故)。
- * 换通道不是跳门:PowerShell 的 `Get-ScheduledTask` 读的是同一份任务存储,只是不 spawn
- * 那个被安全策略拦的可执行文件。默认不再 spawn,只在显式 `IHUI_ALLOW_SCHTASKS_EXE=1` 时启用。
- */
-const ALLOW_SCHTASKS_EXE = process.env.IHUI_ALLOW_SCHTASKS_EXE === '1'
-
-function schtasksExeQuery(args, timeoutMs = 15000) {
-  if (!ALLOW_SCHTASKS_EXE) return null
-  try {
-    return execFileSync('schtasks.exe', args, {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: timeoutMs,
-      maxBuffer: 1 << 24,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-  } catch {
-    return null
-  }
-}
-
-/** 计划任务名列表(PowerShell 通道)。取不到返回 null ⇒ 由调用方报「未判定」。 */
-function pwshTaskNames(timeoutMs = 30000) {
-  const script = 'Get-ScheduledTask | Select-Object -ExpandProperty TaskName'
-  for (const bin of pwshCandidates()) {
-    try {
-      const out = execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', script], {
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: timeoutMs,
-        maxBuffer: 1 << 24,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      const lines = String(out || '')
-        .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-      if (lines.length) return lines
-    } catch {
-      /* 换下一个候选;全落空则由调用方报「未判定」 */
-    }
-  }
-  return null
-}
-
-/**
  * 计划任务在不在 —— 只回答"在不在",不伸到 S4U/StartBoundary 等注册验收细节(那是注册动作的验收,
  * 不属本只读门)。非 win32 / 命令不可用 / 超时 / 退出异常 / 输出形态不符 ⇒ 一律 `未判定` + 原因,
  * **绝不记为通过**(与本门"空扫不报绿"、§26"一条都没量到必须未判定"同一取向)。
@@ -684,47 +557,30 @@ function pwshTaskNames(timeoutMs = 30000) {
  */
 export function queryMaintainTask(options = {}) {
   if (typeof options.raw === 'string') return judgeTaskRegistration(options.raw, options.needle)
-  if (Array.isArray(options.names)) return judgeTaskNames(options.names, options.needle)
   if (process.platform !== 'win32')
     return { state: 'undetermined', reason: `非 win32 平台(${process.platform}),没有 schtasks 可查`, rows: 0, matched: [] }
-  // ① 离线注入口(`bin`):测试要的就是"某个可执行文件不可用/超时"这条分支本身,给了就照原样直跑。
-  if (options.bin) {
-    try {
-      const out = execFileSync(options.bin, ['/Query', '/FO', 'CSV', '/NH'], {
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: options.timeout || 15000,
-        maxBuffer: 1 << 24,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      return judgeTaskRegistration(out, options.needle)
-    } catch (e) {
-      const detail = String(e?.stderr || e?.message || '')
-        .replace(/\r?\n/g, ' ')
-        .trim()
-        .slice(0, 160)
-      const reason =
-        e?.code === 'ENOENT'
-          ? 'schtasks.exe 不可用(ENOENT)'
-          : e?.code === 'ETIMEDOUT' || e?.signal === 'SIGTERM'
-            ? `schtasks 查询超时(${options.timeout || 15000}ms)被杀`
-            : `schtasks 查询失败(${detail || e?.code || '未知异常'})`
-      return { state: 'undetermined', reason, rows: 0, matched: [] }
-    }
-  }
-  // ② 默认走 PowerShell 通道(Get-ScheduledTask):同是那一份任务存储,只是不 spawn schtasks.exe。
-  const names = pwshTaskNames(options.timeout || 30000)
-  if (names) return judgeTaskNames(names, options.needle)
-  const raw = schtasksExeQuery(['/Query', '/FO', 'CSV', '/NH'], options.timeout || 15000)
-  if (raw) return judgeTaskRegistration(raw, options.needle)
-  return {
-    state: 'undetermined',
-    reason: ALLOW_SCHTASKS_EXE
-      ? 'PowerShell 与 schtasks 两条通道都取不到任务列表'
-      : 'PowerShell 通道取不到任务列表;schtasks.exe 属本机黑名单、默认不 spawn(IHUI_ALLOW_SCHTASKS_EXE=1 可开)',
-    rows: 0,
-    matched: [],
+  try {
+    const out = execFileSync(options.bin || 'schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: options.timeout || 15000,
+      maxBuffer: 1 << 24,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return judgeTaskRegistration(out, options.needle)
+  } catch (e) {
+    const detail = String(e?.stderr || e?.message || '')
+      .replace(/\r?\n/g, ' ')
+      .trim()
+      .slice(0, 160)
+    const reason =
+      e?.code === 'ENOENT'
+        ? 'schtasks.exe 不可用(ENOENT)'
+        : e?.code === 'ETIMEDOUT' || e?.signal === 'SIGTERM'
+          ? `schtasks 查询超时(${options.timeout || 15000}ms)被杀`
+          : `schtasks 查询失败(${detail || e?.code || '未知异常'})`
+    return { state: 'undetermined', reason, rows: 0, matched: [] }
   }
 }
 
@@ -1253,7 +1109,6 @@ export const __test__ = {
   detectTempDrift,
   FOREIGN_ROOT,
   // 仓库根:内容归因特征由它派生,测试必须同源取(§22c)—— 在测试里另写一个盘符,换 checkout 即恒红
-  judgeTaskNames,
   REPO,
   // 计划任务活性三态(§22c:判据只从这里出,测试不得另抄一份匹配逻辑)
   MAINTAIN_TASK_NAME,

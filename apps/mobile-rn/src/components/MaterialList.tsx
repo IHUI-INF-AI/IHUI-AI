@@ -38,7 +38,7 @@ import {
 } from 'react-native'
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /** 素材类型(文本/图片/视频/音频;doc 保留向后兼容,供 AigcList/Assistant 屏使用) */
 export type MaterialType = 'text' | 'image' | 'video' | 'audio' | 'doc'
@@ -343,20 +343,20 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
   listContent: {
     paddingHorizontal: 10,
-    paddingBottom: 12,
+    paddingBottom: rnSpacing.md,
   },
   // 行改卡片(2026-10-18 美化):白卡 + md 圆角 + 间距,去 hairline 分割线(AGENTS 禁分割线)
   row: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.md,
-    padding: 12,
-    marginBottom: 8,
+    padding: rnSpacing.md,
+    marginBottom: rnSpacing.sm,
   },
   rowWithThumb: {
     flexDirection: 'row',
@@ -376,31 +376,31 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     flex: 1,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   rowTime: {
     flexShrink: 0,
     marginLeft: 6,
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
   detailBtn: {
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   detailBtnText: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: '500',
     color: tokens.text.tertiary,
   },
   rowPreview: {
     marginTop: 3,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   thumb: {
@@ -417,10 +417,10 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: rnSpacing.sm,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.tertiary,
   },
   footer: {

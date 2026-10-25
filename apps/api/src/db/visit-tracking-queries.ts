@@ -3,7 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { and, gte, lte, isNotNull, desc, sql, asc } from 'drizzle-orm'
-import { bizDayKey } from '../utils/biz-day.js'
 import { db } from './index.js'
 import { visitLogs, type VisitLog } from '@ihui/database'
 
@@ -33,18 +32,16 @@ export interface SaveVisitLogInput {
   url?: string
   referer?: string
   sessionId?: string
+  visitDate?: string
   observed: ObservedVisitorFields
 }
 
 /**
- * 保存访问记录。visitDate 由服务端按业务日界算出(不再有入参通道:
- * 2026-10-25 摘掉 `visitDate?` 字段 —— 路由层 schema 已不收客户端自报日期,留这个字段
- * 就是给下一个"照着类型写"的人留一条把日键交回客户端的路)。
+ * 保存访问记录。visitDate 缺省取当天 YYYY-MM-DD(取前 10 位)。
  * ip / user_agent 一律取 `observed`(服务端观测面),客户端自报值不进这一层。
  */
 export async function saveVisitLog(input: SaveVisitLogInput): Promise<VisitLog> {
-  // 访客日键一律服务端算,且必须是业务日界(上海);以前是 UTC ⇒ 早八点前 PV/UV 落错一天
-  const visitDate = bizDayKey()
+  const visitDate = input.visitDate?.slice(0, 10) || new Date().toISOString().slice(0, 10)
   const rows = await db
     .insert(visitLogs)
     .values({

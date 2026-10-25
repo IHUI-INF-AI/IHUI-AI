@@ -131,7 +131,7 @@
 | 73 | 🈲 端内绕过 @ihui/api-client 直连后端(blocking,裸 fetch/Taro.request 指向本仓后端即拦,存量走基线只减不增) | check-direct-backend-calls.mjs | — | 有 |
 | 74 | 🈴 词表键五语言可解析(blocking,静态映射缺语言/小程序离线包过期即红;W5 落点债只告警) | check-word-table-resolvable.mjs | — | 有 |
 | 75 | 🗄️  配置表名存在性(blocking,O20d:COMPUTE_ALLOWED_TABLES 必须与 drizzle schema 对齐) | check-config-table-existence.mjs | — | 有 |
-| 77 | 📐  圆角单一源头对账(blocking,全 9 端:档位表一致 + 端内取用必须引用档位) | check-radius-single-source.mjs | — | 有 |
+| 77 | 📐  圆角单一源头对账(blocking,全 8 端:档位表一致 + 端内取用必须引用档位) | check-radius-single-source.mjs | — | 有 |
 | 93 | 🎨 跨端色值同源对账(blocking,RN rn-tokens ↔ tokens.css 逐位同值 + 品牌档不得端内自立) | check-cross-end-tokens.mjs | — | 有 |
 | 91 | 🌗 主题接线对账(blocking,theme-driven 共享组件必须拿到调用方解析出的主题) | check-theme-prop-wiring.mjs | — | 有 |
 | 10 | 📋 OpenAPI 契约一致性(blocking,O8b 清零后由 info 升级) | openapi-check.mjs | — | — |
@@ -1065,7 +1065,7 @@
 
 ```
 
-#### [77] 📐  圆角单一源头对账(blocking,全 9 端:档位表一致 + 端内取用必须引用档位)
+#### [77] 📐  圆角单一源头对账(blocking,全 8 端:档位表一致 + 端内取用必须引用档位)
 
 ```
 
@@ -3190,7 +3190,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 74 | `—（待补充）` | 🈴 词表键五语言可解析(blocking,静态映射缺语言/小程序离线包过期即红;W5 落点债只告警) | check-word-table-resolvable.mjs |
 | 75 | `—（待补充）` | 🗄️  配置表名存在性(blocking,O20d:COMPUTE_ALLOWED_TABLES 必须与 drizzle schema 对齐) | check-config-table-existence.mjs |
 | 76 | `—（待补充）` | 📋  迁移账本带外对象防回潮(warn-only,O20e:journal 序号全集 vs 账本行全集) | check-migration-ledger-drift.mjs |
-| 77 | `—（待补充）` | 📐  圆角单一源头对账(blocking,全 9 端:档位表一致 + 端内取用必须引用档位) | check-radius-single-source.mjs |
+| 77 | `—（待补充）` | 📐  圆角单一源头对账(blocking,全 8 端:档位表一致 + 端内取用必须引用档位) | check-radius-single-source.mjs |
 | 93 | `—（待补充）` | 🎨 跨端色值同源对账(blocking,RN rn-tokens ↔ tokens.css 逐位同值 + 品牌档不得端内自立) | check-cross-end-tokens.mjs |
 | 91 | `—（待补充）` | 🌗 主题接线对账(blocking,theme-driven 共享组件必须拿到调用方解析出的主题) | check-theme-prop-wiring.mjs |
 | 10 | `code-quality/openapi-info` | 📋 OpenAPI 契约一致性(blocking,O8b 清零后由 info 升级) | openapi-check.mjs |

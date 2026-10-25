@@ -34,6 +34,8 @@ const GATE = join(ROOT, 'scripts', 'check-cross-end-ui-parity.mjs')
 const SNAPSHOT_REL = 'scripts/cross-end-ui-parity-debt.json'
 const SNAPSHOT = join(ROOT, SNAPSHOT_REL)
 const GATE_TIMEOUT_MS = 600_000
+/** 门的真实退出码(1 = 门判出分叉,不等于台账失效);由 readGateJson 落进来供如实标注 */
+let gateRc = 0
 /** 对账门的豁免登记台账(族的"已裁决"状态与存活期唯一住在这里,本尺子只投影、不另立一份) */
 const WAIVERS_REL = 'scripts/cross-end-ui-parity-baseline.json'
 
@@ -120,18 +122,43 @@ function buildRows(json, waivers = {}, today = new Date().toISOString().slice(0,
   return rows.sort((a, b) => b.debt - a.debt || a.name.localeCompare(b.name))
 }
 
+/**
+ * 把门的输出解析成 JSON —— **「门判红」与「门跑不动」是两件事,不得混为一谈**。
+ * 门 rc=1 的语义是"量出了分叉"(它本来就是 blocking 门),这恰恰是本台账最需要出数的时刻;
+ * 此前用 execFileSync 的非零抛出把它当成"跑不动"⇒ 台账在门红时恒落未判定,样式链的欠债地图
+ * 永远在需要它的时候是瞎的(2026-10-25 实测:门 --json stdout 37,679 字节完好、stderr 0 字节、rc=1)。
+ * 真·未判定的形态只有一个:stdout 里解析不出 JSON(崩、超时被杀、ENOENT、口径改了)。
+ */
+export function parseGateOutput(stdout, rc) {
+  const text = typeof stdout === 'string' ? stdout : ''
+  const start = text.indexOf('{')
+  if (start < 0) {
+    throw new Error(
+      `门没有输出 JSON ⇒ 未判定,不猜(rc=${rc === null || rc === undefined ? '未取到' : rc};stdout ${text.length} 字节)`,
+    )
+  }
+  return JSON.parse(text.slice(start))
+}
+
 function readGateJson() {
-  const out = execFileSync(process.execPath, [GATE, '--json'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-    timeout: GATE_TIMEOUT_MS,
-  })
-  const start = out.indexOf('{')
-  if (start < 0) throw new Error('门没有输出 JSON(取不到输入,不猜)')
-  return JSON.parse(out.slice(start))
+  let out
+  let rc = 0
+  try {
+    out = execFileSync(process.execPath, [GATE, '--json'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: GATE_TIMEOUT_MS,
+    })
+  } catch (e) {
+    // 非零退出(含"门判红")从这里接住:stdout 有 JSON 就照常出账,rc 只用于如实标注口径
+    out = typeof e?.stdout === 'string' ? e.stdout : ''
+    rc = e?.status === null || e?.status === undefined ? null : e.status
+  }
+  gateRc = rc
+  return parseGateOutput(out, rc)
 }
 
 function readSnapshot() {
@@ -197,6 +224,11 @@ async function main() {
   if (!Array.isArray(json.findings)) {
     console.error('❌ 未判定:门的 JSON 里没有 findings 数组(口径变了,先修台账)')
     return 2
+  }
+  if (gateRc !== 0) {
+    console.log(
+      `  ⓘ 门 rc=${gateRc} = 它量到了分叉(它本来就是 blocking 门),不是"跑不动"⇒ 下面照它的输出出账;这张表也不代表门绿。`,
+    )
   }
 
   let waivers
@@ -331,6 +363,7 @@ export const __test__ = {
   debtOf,
   langMismatch,
   buildRows,
+  parseGateOutput,
   diffAgainst,
   uncoveredDimensions,
   waiverState,

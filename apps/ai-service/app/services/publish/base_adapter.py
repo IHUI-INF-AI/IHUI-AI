@@ -116,7 +116,7 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
     """枚举所有已注册的适配器类(供 /platforms 端点使用)。
 
     通过延迟 import 避免循环依赖,且 Playwright 适配器 import 失败时跳过。
-    共 38 个平台适配器(9 HTTP API + 4 友好 API + 6 六大号 + 2 视频 + 5 Playwright + 12 SEO/GEO 第二批)。
+    共 37 个平台适配器(9 HTTP API + 4 友好 API + 6 六大号 + 2 视频 + 5 Playwright + 12 SEO/GEO 第二批)。
     """
     classes: list[type[BasePlatformAdapter]] = []
 

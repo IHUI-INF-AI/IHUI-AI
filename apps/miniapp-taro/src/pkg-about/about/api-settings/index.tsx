@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-// 镜像 packages/app/src/features/api-settings/ApiSettingsScreen.tsx
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
@@ -11,7 +10,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { BASE_URL } from '@/utils/api-config'
-import { get } from '@/api'
+import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 
@@ -57,14 +56,12 @@ export default function ApiSettings() {
   const [testing, setTesting] = useState<TestState>('idle')
 
   const load = useCallback(async () => {
-    // 原 `GET /about/api-config` 后端注册面从未有过(404 被 logger 吞成静态展示值),
-    // 面板三行其实是客户端自有事实:环境=构建 target、超时=端内默认常量,直接如实本地给出,
-    // 不再为一个从未响应的请求留传输口。version 后端确无出口,保持 '-'。
-    setConfig((c) => ({
-      ...c,
-      environment: process.env.TARO_ENV || 'unknown',
-      timeout: DEFAULT_TIMEOUT,
-    }))
+    try {
+      const res = await get<ApiConfig>('/about/api-config')
+      if (res) setConfig(res)
+    } catch (e) {
+      logger.error('about/api-settings', '获取 API 配置', e)
+    }
     const savedToken = Taro.getStorageSync(STORAGE_TOKEN_KEY) || ''
     const savedWorkflow = Taro.getStorageSync(STORAGE_WORKFLOW_KEY) || ''
     setApiToken(savedToken)
@@ -111,17 +108,13 @@ export default function ApiSettings() {
   }, [tt])
 
   const testConnection = useCallback(async () => {
-    // 原写法 `POST /about/api-test {token, workflowId}` 后端从未注册:每次 404,
-    // 按钮永远显示「连接失败」,把"服务端没有这个出口"渲染成"用户配置错了"。
-    // 且它设想让用户把 Coze 令牌明文 POST 给自家服务器 —— 该端点不存在也就从未有
-    // 这条凭据传输链;补一个"代测第三方连通性"的路由会把本端变成出站代理,不是这一页的需求。
-    // 现按面板标题本义改成如实的**自家 API 连通性探测**:打真实在册的公开端点 GET /contact
-    // (`unwrapApi` 对非 success/超时都会 throw,能 resolve 即链路通)。Coze 令牌是否有效,
-    // 由使用它的工作流运行时反馈,不在此页伪造校验。
     setTesting('testing')
     try {
-      const res = await get<{ phone?: string; email?: string }>('/contact')
-      if (res && res.email) {
+      const res = await post<{ ok?: boolean; version?: string }>('/about/api-test', {
+        token: apiToken,
+        workflowId,
+      })
+      if (res && (res.ok || res.version)) {
         setTesting('success')
         Taro.showToast({
           title: tt('about.apiSettings.testSuccess', '连接成功'),
@@ -138,7 +131,7 @@ export default function ApiSettings() {
         icon: 'none',
       })
     }
-  }, [tt])
+  }, [apiToken, workflowId, tt])
 
   useDidShow(() => load())
 

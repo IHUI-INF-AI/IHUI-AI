@@ -54,7 +54,6 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   audio_transcription: 'toolAudioTranscription',
   vision_analyze: 'toolVisionAnalyze',
   dispatch_subagent: 'toolDispatchSubagent',
-  team_task: 'toolTeamTask',
   schedule_task: 'toolScheduleTask',
   configure_automation_task: 'toolScheduleTask',
   bg_task_status: 'toolBgTaskStatus',
@@ -146,12 +145,6 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   // request_business_form)。守门 55 三方比对 `_TOOLS × 本表 × 五语言 taskStatus`,
   // 少这一行 ⇒ 界面上该工具退化成裸码名 `request_business_form`(界面禁止直显英文码名)。
   request_business_form: 'toolRequestBusinessForm',
-  // 2026-10-24 立:守门 55 三方比对 `mcp_server._TOOLS × 本表 × 五语言 taskStatus`,
-  // `init_agents_md`(mcp_server.py 的 `_init_agents_md_guarded`,含 workspace_root 守卫)
-  // 在 _TOOLS 里注册着,本表与词表却都缺 ⇒ 覆盖率停在 88/89。这是**存量红**:
-  // 判定面取索引 blob 时,连纯 HEAD 索引也判红 ⇒ 任何人的提交都会被它挡住(恒红门,§0.2)。
-  // 补这一行 + 五语言 `toolInitAgentsMd` / `toolInitAgentsMdActivity` 即归零 89/89。
-  init_agents_md: 'toolInitAgentsMd',
 }
 
 export function toolDisplayKey(toolName: string): string | null {

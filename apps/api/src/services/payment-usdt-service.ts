@@ -985,24 +985,26 @@ export async function confirmUsdtPayment(
     }
 
     // 2. 更新 wallet 余额(user_margins.tokenQuantity += tokens)
-    // 修前在这里是"事务内 select 读余额 → JS 加 → .set(绝对值)回写"。
-    // 上面那句原子状态翻转防的是**同一订单**被并发确认;而**不同订单**同时给同一个人入账时,
-    // 这一读一写照样互相抹掉一笔钱(两个事务读到同一个旧值,后提交者覆盖前者)。
-    // 现在:补行走 onConflictDoNothing(AGENTS 指定的幂等惯用法),增减落在 DB 侧表达式上,
-    // 并 RETURNING 取回真实新值给流水当读数 —— 流水里的 balanceAfter 从此不再是猜的。
-    await tx
-      .insert(userMargins)
-      .values({ userId: updated.userId, tokenQuantity: 0, frozenQuantity: 0, updatedAt: now })
-      .onConflictDoNothing({ target: userMargins.userId })
-    const [marginAfter] = await tx
-      .update(userMargins)
-      .set({ tokenQuantity: sql`${userMargins.tokenQuantity} + ${tokensCredited}`, updatedAt: now })
+    const [margin] = await tx
+      .select()
+      .from(userMargins)
       .where(eq(userMargins.userId, updated.userId))
-      .returning({ tokenQuantity: userMargins.tokenQuantity })
-    if (!marginAfter) {
-      throw Object.assign(new Error('USDT 入账未命中余额行,拒绝静默成功'), { statusCode: 500 })
+      .limit(1)
+
+    const newBalance = (margin?.tokenQuantity ?? 0) + tokensCredited
+    if (margin) {
+      await tx
+        .update(userMargins)
+        .set({ tokenQuantity: newBalance, updatedAt: now })
+        .where(eq(userMargins.userId, updated.userId))
+    } else {
+      await tx.insert(userMargins).values({
+        userId: updated.userId,
+        tokenQuantity: newBalance,
+        frozenQuantity: 0,
+        updatedAt: now,
+      })
     }
-    const newBalance = marginAfter.tokenQuantity
 
     // 3. 记录流水(token_flows,opType=0 充值,幂等键 relatedOrderNo + opType)
     await tx.insert(tokenFlows).values({

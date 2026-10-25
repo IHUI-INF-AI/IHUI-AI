@@ -335,22 +335,6 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     }
     const req = result.data as AgentActionRequest
 
-    // 在飞重复派发守卫(G-21 格⑤,in-flight 合并 + CAS 驱逐的入口半格):
-    // 同 requestId 仍在对飞时,第二次派发不得静默覆盖 —— 旧记录被顶掉后,旧计时器
-    // 到点会删掉新记录,新请求的回执从此无人受理(await 永不返回)。已收口后的
-    // 同 requestId 重派不拦:那是 G-86 水位重放的合法协议出口(定址投递测试 ⑥)。
-    if (_pending.has(req.requestId)) {
-      const response: AgentActionResponse = {
-        requestId: req.requestId,
-        success: false,
-        error: '同一 requestId 仍在对飞,请等回执或换新 ID',
-        errorCode: 'DUPLICATE_REQUEST_ID',
-        durationMs: 0,
-        executedBy: 'unknown',
-      }
-      return reply.send(success(response))
-    }
-
     // 找到对应类型的端(带 userId 过滤,2026-08-16 多用户隔离)
     const ep = findEndpointByCategory(req.category, req.userId, req.targetInstanceId)
     if (!ep) {
@@ -397,29 +381,27 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     // 等待结果(用 pending Map + Promise + 超时)
     const timeoutMs = req.timeout ?? 30000
     const responsePromise = new Promise<AgentActionResponse>((resolve, reject) => {
-      // 超时驱逐前按"在飞记录是否仍是自己这枚"做 CAS 守卫(G-21 格⑤,对齐上游
-      // in-flight 图的驱逐纪律:旧请求不得删新记录)。timer 回填在 record 构造之后,
-      // 回调只会在同步块结束后才可能触发,守卫读到的是完整记录。
-      const record: PendingRequest = {
+      const timer = setTimeout(() => {
+        if (_pending.has(req.requestId)) {
+          _pending.delete(req.requestId)
+          resolve({
+            requestId: req.requestId,
+            success: false,
+            error: `执行超时(${timeoutMs} 毫秒)`,
+            errorCode: 'TIMEOUT',
+            durationMs: timeoutMs,
+            executedBy: 'unknown',
+          })
+        }
+      }, timeoutMs)
+
+      _pending.set(req.requestId, {
         resolve,
         reject,
-        timer: undefined as unknown as NodeJS.Timeout,
+        timer,
         startedAt: Date.now(),
         assignment,
-      }
-      record.timer = setTimeout(() => {
-        if (_pending.get(req.requestId) !== record) return
-        _pending.delete(req.requestId)
-        resolve({
-          requestId: req.requestId,
-          success: false,
-          error: `执行超时(${timeoutMs} 毫秒)`,
-          errorCode: 'TIMEOUT',
-          durationMs: timeoutMs,
-          executedBy: 'unknown',
-        })
-      }, timeoutMs)
-      _pending.set(req.requestId, record)
+      })
     })
 
     try {

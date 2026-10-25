@@ -1,10 +1,18 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { TextField } from '../../components/TextField'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -74,7 +82,8 @@ export function KnowledgeCreateScreen({
 
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>{t('knowledgeCreate.titleLabel')}</Text>
-        <TextField colorScheme={colorScheme}
+        <TextField
+          colorScheme={colorScheme}
           value={title}
           onChangeText={onTitleChange}
           placeholder={t('knowledgeCreate.titlePlaceholder')}
@@ -83,7 +92,8 @@ export function KnowledgeCreateScreen({
           style={[styles.input, styles.titleInput]}
         />
         <Text style={styles.label}>{t('knowledgeCreate.textLabel')}</Text>
-        <TextField colorScheme={colorScheme}
+        <TextField
+          colorScheme={colorScheme}
           value={text}
           onChangeText={onTextChange}
           placeholder={t('knowledgeCreate.textPlaceholder')}
@@ -113,29 +123,29 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.sm,
     },
     titleText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     submitText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '500',
       color: tk.brandAccent.deep,
     },
     /* 表单 */
     scroll: {
       flex: 1,
-      paddingHorizontal: 16,
-      paddingTop: 8,
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.sm,
     },
     label: {
       marginBottom: 6,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.medium,
     },
     input: {
@@ -143,20 +153,20 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.card,
-      padding: 12,
-      fontSize: 16,
+      padding: rnSpacing.md,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
     titleInput: {
-      marginBottom: 16,
+      marginBottom: rnSpacing.lg,
     },
     textInput: {
       minHeight: 220,
       textAlignVertical: 'top',
     },
     hint: {
-      marginTop: 8,
-      fontSize: 12,
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)

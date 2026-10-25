@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Label } from '@ihui/ui-react'
-import { apiOrThrow as api } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
 import {
   AdvancedParamsPanel,
   parseParamValues,
@@ -87,11 +87,12 @@ export function VideoGenJimeng() {
 
   const mutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api<{ taskId: string; status: string }>('/api/ai/jimeng4/video', {
+      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/jimeng4/video', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      return res
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: (data) => {
       setTaskId(String(data.taskId))
@@ -103,10 +104,11 @@ export function VideoGenJimeng() {
   const { data: task } = useQuery({
     queryKey: ['jimeng-video-task', taskId],
     queryFn: async () => {
-      const res = await api<{ task: JimengVideoTask }>(
+      const res = await fetchApi<{ task: JimengVideoTask }>(
         `/api/ai/jimeng4/video/tasks/${taskId}`, // method: GET
       )
-      return res.task
+      if (!res.success) throw new Error(res.error)
+      return res.data.task
     },
     enabled: !!taskId,
     refetchInterval: (query) => {

@@ -60,11 +60,7 @@ export default function TopicListPage() {
       try {
         const res = await getTopicList({ page: pageRef.current, pageSize: PAGE_SIZE })
         const newList = (res.list || []) as TopicItem[]
-        setList((prev) => {
-          if (reset) return newList
-          const seen = new Set(prev.map((p) => p.id))
-          return [...prev, ...newList.filter((n) => !seen.has(n.id))]
-        })
+        setList((prev) => (reset ? newList : [...prev, ...newList]))
         const total = res.total ?? 0
         const currentCount = reset ? newList.length : list.length + newList.length
         const more = currentCount < total

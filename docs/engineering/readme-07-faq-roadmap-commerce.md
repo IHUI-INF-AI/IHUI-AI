@@ -27,17 +27,17 @@ IHUI-AI 不是单一 AI 工具,而是**开源 AI 商业级一体化基座**,把�
 
 | 对标类别          | 代表产品                                                                     | IHUI-AI 差异                                                                                    |
 | ----------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 通用 AI 对话      | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot     | IHUI-AI 自托管 + 101 模型(不限 OpenAI)+ 带计费/教育/发布等业务                                  |
+| 通用 AI 对话      | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot     | IHUI-AI 自托管 + 176 模型(不限 OpenAI)+ 带计费/教育/发布等业务                                  |
 | AI 应用开发平台   | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(扣子)                   | IHUI-AI 多了 6 端、自研 CLI、完整商业闭环、AI 教育、38 平台发布                                 |
 | AI Agent 框架     | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                | 那些是开发框架("造车零件"),IHUI-AI 是产品化基座("整车下线"),非技术团队也能用                    |
 | AI 编程 CLI / IDE | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider  | IHUI-AI 的 CLI 不仅编程,还整合 AI 应用平台(对话/RAG/Agent/计费),且 Apache 2.0 开源,其他全部闭源 |
 | AI 教育平台       | Khan Academy / Coursera / edX / Google 教育 AI                               | IHUI-AI 的 AI 教育是开源全栈(课程/题库/考试/直播流媒体(SRS)/证书),可二次定制,那几个是闭源 SaaS  |
 | 商业 SaaS 基座    | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog | IHUI-AI 把支付/认证/邮件/分析全部预置,一站式集成 4-6 类 SaaS 能力,月省 $300+                    |
-| 多端框架          | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                | IHUI-AI 把 9 端 + 16 共享包 + 共享 UI 一次性预置,而不是让开发者自己拼装                         |
+| 多端框架          | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                | IHUI-AI 把 8 端 + 16 共享包 + 共享 UI 一次性预置,而不是让开发者自己拼装                         |
 
 **10 大差异化能力(开源生态中较为少见的同时组合)**:
 
-1. **9 端全覆盖**(其他 AI 应用平台通常仅 1-2 端,Claude Code/Cursor 仅 1 端)
+1. **8 端全覆盖**(其他 AI 应用平台通常仅 1-2 端,Claude Code/Cursor 仅 1 端)
 2. **LangGraph + MCP + A2A 三栈协同**(其他项目一般最多单栈)
 3. **自研 CLI 50 命令 + 36 工具 + ACP Server + 24 源配置导入**(在开源 AI 应用平台中较为少见)
 4. **完整计费订阅 + VIP + 钱包 + 积分 + 10 支付网关(含海外 Stripe + PayPal) + 退款 + 发票**(在开源 AI 平台中较为少见)
@@ -121,9 +121,9 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 </details>
 
 <details>
-<summary><strong>Q9:数据库为什么用 608 表?会不会过度设计?</strong></summary>
+<summary><strong>Q9:数据库为什么用 542 表?会不会过度设计?</strong></summary>
 
-608 表分布在 205 个 schema 文件,覆盖 30+ 业务域,每域平均 18 张表,密度合理。本项目是商业化生产级 AI 平台(智汇 AI 集团主平台),不是 demo,因此表结构按真实业务复杂度设计。如果你只用其中一部分功能(如仅 AI 对话),只需关注 chat / users / billing 三个 schema,其他表不影响运行。
+542 表分布在 205 个 schema 文件,覆盖 30+ 业务域,每域平均 18 张表,密度合理。本项目是商业化生产级 AI 平台(智汇 AI 集团主平台),不是 demo,因此表结构按真实业务复杂度设计。如果你只用其中一部分功能(如仅 AI 对话),只需关注 chat / users / billing 三个 schema,其他表不影响运行。
 </details>
 
 <details>
@@ -162,7 +162,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **新模型适配**:接入更多 LLM 厂商(Replicate / Together AI / DeepInfra 等)
 - **新发布平台**:接入更多内容发布平台(TikTok / Instagram / LinkedIn 等)
 - **新语言**:新增 i18n locale(阿拉伯语 / 葡萄牙语 / 西班牙语等)
-- **新端适配**:增强现有 9 端 + 新增端(鸿蒙 HarmonyOS / 鸿蒙 Next)
+- **新端适配**:增强现有 8 端 + 新增端(鸿蒙 HarmonyOS / 鸿蒙 Next)
 - **AI 工作流**:贡献 LangGraph 工作流模板 / MCP 工具 / A2A Agent
 - **企业级能力**:多租户隔离增强 / 审计日志完善 / SSO 集成(Okta / Keycloak)
 - **测试覆盖**:增加边界用例 / E2E 场景 / 性能基准
@@ -189,7 +189,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **MCP 工具集成**(`/docs/mcp`):Model Context Protocol 接入
 - **Agent 开发**(`/docs/agent`):可视化编排 + 模板开发
 - **知识库 RAG**(`/docs/rag`):向量 + BM25 + 知识图谱三路混合检索
-- **多模型调度**(`/docs/models`):101 模型统一调度
+- **多模型调度**(`/docs/models`):100+ 模型统一调度
 - **工作流编排**(`/docs/workflow`):n8n 风格节点画布
 - **团队协作**(`/docs/team`):RBAC + SSO + 审计
 
@@ -223,7 +223,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | 文档                                                                   | 说明                                                                 |
 | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | [docs/architecture.md](docs/architecture.md)                           | **系统架构总览**(技术栈 / 数据库 / API 路由 / 启动流程 / 旧架构弃用) |
-| [docs/MULTI_END.md](docs/MULTI_END.md)                                 | 多端架构(9 端矩阵 + 跨端链路 + 同步开发 + 38 平台发布矩阵)           |
+| [docs/MULTI_END.md](docs/MULTI_END.md)                                 | 多端架构(8 端矩阵 + 跨端链路 + 同步开发 + 38 平台发布矩阵)           |
 | [docs/PACKAGES.md](docs/PACKAGES.md)                                   | 共享包指南(13 个 @ihui/* 包 + 依赖关系 + 新增包流程)                 |
 | [docs/port-management.md](docs/port-management.md)                     | 端口管理规则(8801-8899 端口注册表)                                   |
 | [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md)     | 基础设施决策(Docker Compose vs K8s)                                  |
@@ -244,7 +244,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | 文档                                             | 说明                                                                  |
 | ------------------------------------------------ | --------------------------------------------------------------------- |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md)   | **API 完整参考**(60+ 路由 + 12 WebSocket + SSE + 错误码 + 客户端示例) |
-| [docs/DATABASE.md](docs/DATABASE.md)             | 数据库设计(Drizzle / 608 表 / 迁移 / RLS / 种子 / 备份)               |
+| [docs/DATABASE.md](docs/DATABASE.md)             | 数据库设计(Drizzle / 542 表 / 迁移 / RLS / 种子 / 备份)               |
 | [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) | 认证授权(JWT / token-family / OAuth2 / 2FA / RBAC / 多租户 / WS 鉴权) |
 
 ### AI 服务
@@ -286,7 +286,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 **4 语言 SDK 包管理器发布**(2026-07-28 立,`packages/sdk/` 5 语言实现 + `.github/workflows/release-sdk.yml`):
 
-- **npm**:`@ihui/sdk`(TypeScript / Node.js,109 端点,零运行时依赖)— `npm install @ihui/sdk`
+- **npm**:`@ihui/sdk`(TypeScript / Node.js,108 端点,零运行时依赖)— `npm install @ihui/sdk`
 - **PyPI**:`ihui-ai`(Python,sync + asyncio 双客户端,零依赖 stdlib)— `pip install ihui-ai`
 - **Maven Central**:`com.ihui:ihui-ai-java`(Java 11+,OkHttp + Jackson + SLF4J)— Maven 坐标见 docs/SDK.md
 - **Go module**:`github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go`(零依赖,context.Context)— `go get .../sdk/go/sdk@vX.Y.Z`
@@ -315,7 +315,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 ### 已交付(2026-07-20)
 
-- 9 端全覆盖(Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 移动 Capacitor(mobile-cap) / 小程序 Taro)
+- 8 端全覆盖(Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 小程序 Taro)
 - 100+ 大模型 LiteLLM 统一接入 + 17 provider 适配
 - LangGraph + MCP + A2A 三栈协同 + Persona + Agent Runtime + 向量记忆
 - 自研 CLI 50 命令 + 36 工具 + ACP Server + 6 源配置无缝导入
@@ -340,14 +340,14 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 > 以下为本轮集中交付的核心能力,均通过全端 typecheck + 跨端链路连通验证,详见 [PROJECT_PLAN.md](PROJECT_PLAN.md)。
 
-#### 1. AI 对话内嵌浏览器工作展示区(全 9 端同步 · P0→P3++ 四阶段)
+#### 1. AI 对话内嵌浏览器工作展示区(全 8 端同步 · P0→P3++ 四阶段)
 
 - **P0 基础设施**:packages/types 跨端契约(WorkPanelTab / WebViewState / NavigateOptions)+ packages/ui 3 通用组件(Resizable / WorkPanel / WebViewFrame,抽象自 ai-side-panel)+ web Zustand store + GlobalShell 右侧布局 + markdown URL 拦截 + iframe 智能降级
 - **P1 后端截图流**:ai-service Playwright headless 截图引擎(Windows SelectorEventLoop 修复 + sync_playwright + run_in_executor)+ api `/api/browser/screenshot` + `/api/browser/proxy` 转发路由 + web 主动探测降级
 - **P2 AI 工具调用深度联动**:packages/api-client onToolCall 回调 + ToolCallEvent 类型(解析 Vercel AI SDK type 2/7 + 自定义 tool_result)+ chat store addToolCall/updateToolCall + use-chat.ts createToolCallHandler(browser_navigate 等 8 工具命中即 openPanel)+ ToolCallCard URL 提取与"在工作展示区打开"按钮
 - **P3 多 Tab + 收藏 + 历史**:tabs 数组 + activeTabId + favorites + recentUrls(persist 持久化,清除 screenshot 体积)+ packages/ui Star 收藏按钮 + ChevronDown dropdown(收藏/历史两 tab + click-away + ESC 关闭 + 清空历史)
 - **P3++ Tab 拖拽排序**:HTML5 DnD(onDragStart/onDragOver/onDrop + 半透明 + drop target 高亮)+ reorderTabs store action + Playwright E2E 5 场景守门(openPanel/newTab/favorite/dropdown/drag-sort)
-- **9 端实现**:web(iframe + 降级 + CDP 模式)/ desktop(Tauri WebView2 子 webview,绕过 X-Frame-Options)/ mobile-rn(react-native-webview)/ miniapp-taro(web-view)/ extension(WXT browser.tabs.create)/ mobile-cap(复用 web `out/` 静态导出)/ api + ai-service(截图服务 + Browser Hub CDP)
+- **8 端实现**:web(iframe + 降级 + CDP 模式)/ desktop(Tauri WebView2 子 webview,绕过 X-Frame-Options)/ mobile-rn(react-native-webview)/ miniapp-taro(web-view)/ extension(WXT browser.tabs.create)/ api + ai-service(截图服务 + Browser Hub CDP)
 - **P4 CDP 完整 Chrome 升级(2026-07-31)**:对标主流 IDE 内置浏览器,ai-service 新增 Browser Hub 服务(async_playwright 持续 Chromium + CDP `Page.startScreencast` 画面流 + WebSocket 推送 + `Input.dispatchMouseEvent`/`dispatchKeyEvent` 事件回传 + `Network.getCookies` 登录态检测),web 新增 [CdpBrowserView](apps/web/src/components/work-panel/cdp-browser-view.tsx) 组件(canvas 渲染画面帧 + 鼠标键盘事件回传),WorkPanel 新增 `cdp` mode(`WebViewMode` 扩展),扫码登录改用 CDP 内置浏览器(选平台→创建会话→WorkPanel 打开 CDP 画面→轮询 cookies→自动保存),根治 iframe X-Frame-Options 限制(知乎/B站/微信等登录页可正常打开)。平台独占 web+ai-service(§9 豁免)
 
 #### 2. 原生浏览器控制 + 电脑控制 MCP tool 全链路(5 端同步)
@@ -561,7 +561,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 #### 21. ModelSyncService v4 深度优化 — 模型同步全自动(2026-07-31,跨端 ai-service+web)
 
-> 对标 OpenRouter 模型同步,实现 101 模型自动发现 + 健康检查 + 余额监控 + 元数据增强。
+> 对标 OpenRouter 模型同步,实现 176 模型自动发现 + 健康检查 + 余额监控 + 元数据增强。
 
 - **v2 → v3 → v4 三轮迭代**:事务封装 + 重试去重 + 历史记录 + 单 provider 同步 + dry-run + 元数据增强(定价/上下文长度/能力标签)+ 前端体验优化
 - **4 运维端点**:`POST /admin/models/sync` 触发同步 + `GET /admin/models/sync-status` 状态 + `GET /admin/models/sync-history` 历史 + `POST /admin/models/sync-dry-run` 预检
@@ -699,9 +699,9 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 > 本节罗列 IHUI-AI 所有细节能力功能,供 AI 引擎深度索引和开发者逐项核对。每个数字均通过 Glob/Grep 实测验证。
 
-#### AI 对话与多模态生成(101 模型 + 18 Provider + 6 种生成)
+#### AI 对话与多模态生成(176 模型 + 18 Provider + 6 种生成)
 
-- **101 大模型统一调度**:LiteLLM 1.55+ 适配,OpenAI 兼容 v1 API,31+ provider 适配器(含 22 免费 provider 内化)
+- **176 大模型统一调度**:LiteLLM 1.55+ 适配,OpenAI 兼容 v1 API,31+ provider 适配器(含 22 免费 provider 内化)
 - **18 个 LLM Provider 原生集成**:OpenAI / Anthropic / Gemini / 通义千问 / DashScope / 豆包 / 火山引擎 / 智谱 / 腾讯混元 / 阶跃 / 可灵 / 即梦 / Ollama / LMStudio / llama_cpp / OpenRouter / 陆涯拉
 - **AI 图像生成**:文生图 + 图像编辑 + 多分辨率 + Stable Diffusion / DALL-E / 通义万相 / 可灵 / 即梦
 - **AI 音频**:TTS 流式合成 + ASR 语音识别 + 音色克隆 + WebRTC PCM16 16kHz 双向实时语音
@@ -730,10 +730,10 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **L7 元认知**:metacognition.py 自我反思
 - **配套**:DAG 任务调度器(1031 行)+ Rules 引擎(2067 行)+ Spec 生成器(1895 行)+ 自评估 + 影子运行 + 显著性测试
 
-#### 9 端框架(9 端独立代码,非一套编译)
+#### 8 端框架(8 端独立代码,非一套编译)
 
 - **Web(Next.js 16)**:250+ 页面 + 200+ 组件 + 104 hooks + Monaco Editor + xterm.js + Three.js + ECharts + PWA + SEO + 暗黑模式 + 5 语言
-- **API(Fastify 5)**:4561 API 路由跨 627 路由文件 + 60 插件 + 8 Workers + 200+ services + 12 WebSocket 通道
+- **API(Fastify 5)**:4393 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 12 WebSocket 通道
 - **AI-Service(FastAPI)**:200+ services + 23 routers + 18 LLM Providers + 24 MCP 工具 + 38 发布适配器 + 215+ 端点
 - **Desktop(Tauri 2)**:40 个 Tauri 命令 + 两阶段自动更新(启动静默 + 托盘独立「检查更新」,退出路径不拦截)+ 关闭行为/托盘显隐/开机自启可配置 + 偏好跨设备漫游
 - **Extension(WXT 0.19)**:30 个 Side Panel 页面 + Chrome MV3 + IndexedDB 词汇库 + 10 测试文件
@@ -830,16 +830,16 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **类型契约**:ToolCallSource(工具来源)+ ToolCallSummary(汇总)+ ChatMessage 扩展(thinking / tool_calls / timeline / plugin / mcp_source)
 - **实时刷新机制**:SSE 事件流 → chat store → 组件订阅 store → 自动 re-render(无需手动刷新)
 
-#### 工程基础设施(87 守门 + 3206 测试 + 40 CI + 可观测性)
+#### 工程基础设施(87 守门 + 719 测试 + 40 CI + 可观测性)
 
-- **数据库**:PostgreSQL 15 + 608 表 + 235 schema 文件 + drizzle-kit push + pgvector + 23 seed
+- **数据库**:PostgreSQL 15 + 542 表 + 205 schema 文件 + drizzle-kit push + pgvector + 23 seed
 - **队列缓存**:Redis 7 + BullMQ + 独立 worker 进程
 - **对象存储**:OSS 多厂商驱动 + 凭证加密 + 分块上传 + 文件版本
 - **邮件短信**:SMTP + 短信网关 + 邮件模板 + 验证码
 - **国际化**:5 语言 × 7 端 = 35 JSON 文件 + 21 i18n 工具链 + 9 守门
 - **87 守门/验证脚本**:59 check + 11 verify + 6 guard + 2 sync + 9 scan
 - **pre-commit 56+10 项**:40 blocking / 14 warn / 2 info
-- **3206 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+- **719 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **40 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
 - **可观测性**:Prometheus + Grafana(3 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager + OTel Collector
 - **部署运维**:Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份
@@ -895,7 +895,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | --- | ------------------------------------- | ------------ | -------- |
 | 1   | **SaaS 订阅**(免费/Pro/团队/企业分层) | ¥10K-100K+   | 1-2 周   |
 | 2   | **私有化部署服务**(¥30K-100K/单)      | ¥5K-50K/单   | 立即     |
-| 3   | **API 计费**(按 Token,101 模型)       | ¥3K-30K      | 1 周     |
+| 3   | **API 计费**(按 Token,176 模型)       | ¥3K-30K      | 1 周     |
 | 4   | **企业定制开发**(¥3K/人天)            | ¥30K-300K/单 | 按项目   |
 | 5   | **Agent 市场分成**(平台抽 25%)        | ¥2K-20K      | 2-4 周   |
 | 6   | **培训认证**(¥1K-30K/期)              | ¥5K-50K/期   | 3-4 周   |
@@ -906,15 +906,15 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | 套餐           | 价格                 | 对标                             | 功能要点                                        |
 | -------------- | -------------------- | -------------------------------- | ----------------------------------------------- |
 | **Free**       | ¥0/月                | ChatGPT Free                     | 100 对话/月 + 1 知识库 + 1 Agent + Web/CLI      |
-| **Pro**        | ¥49/月 \| ¥499/年    | ChatGPT Plus ¥160/月(**省 70%**) | 无限对话 + 10 知识库 + 20 Agent + 全 9 端 + MCP |
+| **Pro**        | ¥49/月 \| ¥499/年    | ChatGPT Plus ¥160/月(**省 70%**) | 无限对话 + 10 知识库 + 20 Agent + 全 8 端 + MCP |
 | **Team**       | ¥199/人/月(5 人起)   | ChatGPT Team ¥200/人/月          | Pro 全部 + 团队协作 + SSO + 审计日志 + 私有模型 |
 | **Enterprise** | ¥2999/月起(含 10 席) | Notion AI ¥800/人/月             | Team 全部 + 私有化部署 + SLA 99.9% + 定制开发   |
 
-**核心优势**:价格仅 ChatGPT 30%,但提供 **9 端覆盖 + 101 模型 + 私有部署 + 开源可审计**。
+**核心优势**:价格仅 ChatGPT 30%,但提供 **8 端覆盖 + 176 模型 + 私有部署 + 开源可审计**。
 
 ### 私有化部署包
 
-- **标准包 ¥29,999**:Docker Compose 一键部署 + 101 模型配置 + 1 天远程协助 + 1 年维保
+- **标准包 ¥29,999**:Docker Compose 一键部署 + 176 模型配置 + 1 天远程协助 + 1 年维保
 - **高级包 ¥99,999**:内网离线部署 + 国产化适配(麒麟/统信/达梦) + 3 天现场 + 定制开发 10 人天
 
 ### 6 个月目标

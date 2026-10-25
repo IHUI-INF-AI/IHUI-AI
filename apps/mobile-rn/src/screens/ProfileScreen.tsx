@@ -282,7 +282,9 @@ export function ProfileScreen() {
     if (statsRes.success) setStats(statsRes.data)
     if (orderRes.success) setOrderCount(orderRes.data.total)
     if (!statsRes.success && !orderRes.success) {
-      setError(statsRes.error || orderRes.error || t('error.network'))
+      // 原始 error 可能是英文/fetch failed 等,经 toUserFriendlyMessage 本地化后再弹红条,
+      // 避免真机「我的」页暴露英文错误(G-925 走查发现)。
+      setError(toUserFriendlyMessage(statsRes.error || orderRes.error || t('error.network')))
     }
     setLoading(false)
   }, [t])

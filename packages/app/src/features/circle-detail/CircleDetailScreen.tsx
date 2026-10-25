@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleDetailItem, CircleDetailScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -100,59 +100,71 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingBottom: rnSpacing['3xl'],
     },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     statsRow: {
       flexDirection: 'row',
-      gap: 8,
-      marginBottom: 12,
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
     },
     statBadge: {
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    statText: { fontSize: 14, color: tk.text.secondary },
+    statText: { fontSize: rnType.body.size, color: tk.text.secondary },
     description: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       lineHeight: 22,
       color: tk.text.primary,
     },
     actions: {
       flexDirection: 'row',
-      gap: 8,
-      marginTop: 20,
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.xl,
     },
     actionBtn: {
       flex: 1,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       borderRadius: rnRadius.sm,
       alignItems: 'center',
     },
     actionBtnPrimary: { backgroundColor: tk.brand.cta },
-    actionBtnPrimaryText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    actionBtnPrimaryText: {
+      color: tk.surface.light,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+    },
     actionBtnSecondary: {
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.bg,
     },
-    actionBtnSecondaryText: { color: tk.brand.DEFAULT, fontSize: 16, fontWeight: '600' },
+    actionBtnSecondaryText: {
+      color: tk.brand.DEFAULT,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+    },
     actionBtnOutline: {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
     },
-    actionBtnOutlineText: { color: tk.text.secondary, fontSize: 16, fontWeight: '600' },
+    actionBtnOutlineText: {
+      color: tk.text.secondary,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

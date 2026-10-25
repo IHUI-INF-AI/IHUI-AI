@@ -43,7 +43,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Clock, Flame, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { POPULAR_SEARCHES } from '@ihui/shared/utils/search-suggestions'
 import { SearchInput, type SearchScreenItem } from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     // 面板内左右留白(web SearchInput wrapperClassName p-1.5 ≈ 6px + 面板 p-1 的合成量级)
     paddingTop: 6,
     paddingHorizontal: 6,
-    paddingBottom: 8,
+    paddingBottom: rnSpacing.sm,
   },
   inputRow: {
     // 输入行落在面板内圈(web `p-1.5` 内边距的 RN 对位)
@@ -447,8 +447,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: WORD_ROW_PADDING_H,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: rnSpacing.sm,
+    paddingBottom: rnSpacing.xs,
   },
   sectionLabel: {
     fontSize: SECTION_LABEL_FONT,
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   wordRowFace: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: rnSpacing.sm,
     paddingHorizontal: WORD_ROW_PADDING_H,
     paddingVertical: WORD_ROW_PADDING_V,
     borderRadius: rnRadiusFor.tiny,
@@ -489,24 +489,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 24,
+    gap: rnSpacing.sm,
+    paddingVertical: rnSpacing['2xl'],
   },
   stateText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.secondary,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.danger.DEFAULT,
   },
   card: {
     // 外层裸 Pressable 只承接点击与无障碍语义,盒子(边框/圆角/内距/按压态)整体落在 face
     width: '100%',
-    marginBottom: 12,
+    marginBottom: rnSpacing.md,
   },
   cardFace: {
-    padding: 12,
+    padding: rnSpacing.md,
     borderRadius: rnRadiusFor.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   },
   cardHead: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   },
   typeBadge: {
     fontSize: 10,
@@ -529,13 +529,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   cardSummary: {
-    marginTop: 8,
-    fontSize: 14,
+    marginTop: rnSpacing.sm,
+    fontSize: rnType.body.size,
     color: tokens.text.medium,
   },
 })
