@@ -415,12 +415,33 @@ export default defineConfig(async (merge) => {
               // transport,小程序无对应物 ⇒ 必须换而不是硬编(机制与理由见 config/rn-shell-replace-plugin.ts)。
               chain.plugin('rnShellReplacements').use(RnShellReplacePlugin, [
                 [
+                  // base = RN 侧真相源模块的绝对路径(不含扩展名)。判"解析到哪模块",不判请求写法 ——
+                  // 词包与主题是端内单一真相源,RN 那份内联 10 个 JSON catalog,漏一条就把整包拖进页面分块。
                   {
-                    request: '../i18n',
+                    base: path.resolve(
+                      __dirname,
+                      '..',
+                      '..',
+                      '..',
+                      'apps',
+                      'mobile-rn',
+                      'src',
+                      'i18n',
+                    ),
                     to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'i18n.ts'),
                   },
                   {
-                    request: '../context/ThemeContext',
+                    base: path.resolve(
+                      __dirname,
+                      '..',
+                      '..',
+                      '..',
+                      'apps',
+                      'mobile-rn',
+                      'src',
+                      'context',
+                      'ThemeContext',
+                    ),
                     to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'theme.tsx'),
                   },
                 ],
