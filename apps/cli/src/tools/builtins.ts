@@ -974,7 +974,8 @@ export const run_command: Tool = {
     if (blockMessage) {
       return { success: false, output: blockMessage };
     }
-    // 只读命令自动批准(trusted profile 默认):免 confirmDangerous 提示
+    // 只读命令自动批准(判据在 command-safety 的 gateCommandExecution,与 profile 无关;
+    // 默认档是严档 'limited',见 config/sandbox-profile.ts 的 DEFAULT_SANDBOX_PROFILE)
     if (!gate.autoApprovable) {
       // 默认拒绝策略:未提供 confirmDangerous 回调时,dangerous 工具直接拒绝(安全优先)
       if (run_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {

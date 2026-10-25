@@ -5,17 +5,22 @@
 /**
  * 沙盒 profile 枚举域、默认值与解析 —— 唯一真相源(G-212 切片,配置/类型层)。
  *
- * 本文件只收口三件事,不碰 `src/sandbox/index.ts` 的执行路径(该文件按 profile 组装
- * 命令白名单/超时/输出上限的那张表原样不动):
+ * 本文件只收口三件事:
  *  1. 枚举域:五档 `readonly | limited | trusted | open | full`,顺序 = 由严到宽的展示序;
- *  2. 默认值:`DEFAULT_SETTINGS` / 首跑模板 / settings 模板三处只准引 `DEFAULT_SANDBOX_PROFILE`;
+ *     `src/sandbox/index.ts` 的 `SandboxProfile` 自 2026-10-25 起**再导出本文件的类型**
+ *     (此前两份联合各写一份,漂了也只有运行时测试看得见);
+ *  2. 默认值:`DEFAULT_SETTINGS` / 首跑模板 / settings 模板三处只准引 `DEFAULT_SANDBOX_PROFILE`,
+ *     运行时的缺档/未知档回落也只准引它(见下第 3 条);
  *  3. 解析:环境变量等自由字符串必须过 `parseSandboxProfile`,未知值返回 `undefined`
  *     (调用方保持低层值),**不得**原样落进 Settings。
  *
- * 为什么必须有第 3 条:`resolveSandboxOptions()` 对未知 profile 的现行行为是
- * “取不到档位就返回用户 opts”(即不加任何命令白名单/路径限制)—— 一个拼错的环境变量
- * 会静默退化成最宽行为,而配置层此前的 `type: 'string'` 让任何字符串都能穿过去。
- * 本层只做“不认识就不采用”,失效方向是保持默认档,不是放行。
+ * 为什么必须有第 3 条:`resolveSandboxOptions()` 的旧形态是"取不到档位就返回用户 opts"
+ * (即不加任何命令白名单/路径限制)—— 一个拼错的环境变量、一份还没有 sandbox 段的
+ * settings.json,都会静默退化成最宽行为,而配置层此前的 `type: 'string'` 让任何字符串都能穿过去。
+ * 本层只做"不认识就不采用";2026-10-25(G-212 收尾)把另一半也补齐:
+ * `resolveSandboxOptions()` 现在对缺档与未知档一律按 `DEFAULT_SANDBOX_PROFILE` 结算
+ * (未知档另打一行 ASCII 喊话,不静默),而**用户显式选择的宽松档照办** —— 收紧的是默认态,
+ * 不是替用户收权。
  *
  * 现状(2026-10-22 机主拍板):默认档已切换为严档 `'limited'`(G-212 台账票,机主明确
  * 批准“沙箱默认严档落地”)。切换纪律不变:真要再切换只改本文件的
