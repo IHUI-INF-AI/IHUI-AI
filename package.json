@@ -68,6 +68,7 @@
     "check:public-admin-default": "node scripts/check-public-admin-default.mjs",
     "check:status-vocabulary": "node scripts/check-agent-status-vocabulary-parity.mjs --strict",
     "check:plan-tasks": "node scripts/plan-tasks.mjs",
+    "check:plan-truncated-rows": "node scripts/check-plan-truncated-rows.mjs",
     "check:memory-owner": "node scripts/check-memory-owner-binding.mjs --strict",
     "check:credential-presence": "node scripts/check-credential-presence-bypass.mjs --strict",
     "check:gate-face": "node scripts/check-gate-face-discipline.mjs",

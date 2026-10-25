@@ -219,6 +219,10 @@ export function createSendAnswer(
         reasoningEffort: samplingParams.reasoningEffort,
         // D09(2026-10-24 立):专家包自动路由档位(与 sendMessage 对称;null = 未表态不发)
         expertAutoRoute: chatStore.getState().expertAutoRoute ?? undefined,
+        // D01(2026-10-25 立):对话内选中的专家 —— 续答与首答**同一份发送时快照**。
+        // 不接这一格的话,首答带专家、用户回答完 AI 提问后那一轮静默回落默认助手,
+        // 界面胶囊仍显示已选(同 D130 那型"两边都读不出错")。
+        personaId: chatStore.getState().selectedAgentId ?? undefined,
         // P1 #26(2026-09-16 立):知识库默认注入开关(与 sendMessage 对称;
         // undefined = 后端默认开,false = 显式关闭)
         knowledgeContext: samplingParams.knowledgeContext,

@@ -29,10 +29,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native'
 import { Mic, Square, Trash2, X } from 'lucide-react-native'
+import { TextField } from '@ihui/rn-app'
 import { createVoiceNote, deleteVoiceNote, listVoiceNotes } from '@ihui/api-client'
 import { rnRadius } from '@ihui/design-tokens'
 import type { VoiceNoteGroupFacet } from '@ihui/types'
@@ -52,7 +52,7 @@ import {
 } from '@ihui/shared/chat/voice-note'
 import { useI18n } from '../../i18n'
 import { useVoiceRecorder } from '../../hooks/use-voice-recorder'
-import { tokens } from '../../theme/active-tokens'
+import { currentRnTheme, tokens } from '../../theme/active-tokens'
 
 /** RN locale → whisper 语言提示(兜底 zh,与 VoiceInput/useVoiceRecorder 默认同档) */
 const STT_LANGUAGE: Record<string, string> = {
@@ -85,11 +85,6 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
   const [listError, setListError] = useState(false)
   // 检索与分组都落在服务端(与 web 同形):面板只持有查询条件,不持数据
   const [query, setQuery] = useState('')
-  // 搜索框聚焦态(G-978007 口径):裸 TextInput 必须带聚焦处理,否则输入框这一族
-  // 的聚焦反馈各写各的。描边走强调档 tokens.brandAccent.deep(§4 强调描边合法档,
-  // 端内 BottomPopup/AgentList/BottomActionBar 同尺;不取墨档,门 83 R8/R3 全过),
-  // 且只换色不换宽度 ⇒ 零布局跳动。判据见 packages/app/tests/text-field.test.tsx 普查锁。
-  const [searchFocused, setSearchFocused] = useState(false)
   const [groupKey, setGroupKey] = useState<string | null>(null)
   const [groups, setGroups] = useState<VoiceNoteGroupFacet[]>([])
 
@@ -362,15 +357,11 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               )}
             </View>
 
-            <TextInput
-              style={[
-                styles.searchInput,
-                searchFocused ? { borderColor: tokens.brandAccent.deep } : null,
-              ]}
+            <TextField
+              colorScheme={currentRnTheme()}
+              style={styles.searchInput}
               value={query}
               onChangeText={setQuery}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
               placeholder={t('chat.voiceNote.searchPlaceholder')}
               placeholderTextColor={tokens.text.tertiary}
               testID="voice-note-search"
@@ -565,5 +556,4 @@ const styles = StyleSheet.create({
   archiveAction: { fontSize: 11, color: tokens.text.secondary },
 })
 
-export default VoiceNote
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

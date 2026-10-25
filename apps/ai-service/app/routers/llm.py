@@ -30,7 +30,6 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from ..core.background_tasks import spawn
 from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.jwt_auth import resolve_request_user_id
@@ -128,6 +127,11 @@ from ..services.mcp_server import (
     set_terminal_stream_context,
     settle_terminal_input,
 )
+
+# D01(2026-10-25):对话内 Agent 选择器 —— persona 提示词与工具白名单的运行时并入,
+# 数据面仍是 services/persona_registry.py 的唯一注册表。
+from ..services.persona_registry import build_persona_chat_hint as _persona_chat_hint
+from ..services.persona_registry import merge_persona_tools as _merge_persona_tools
 from ..services.project_memory import build_system_prompt
 from ..services.user_quota import user_trial_quota
 
@@ -321,20 +325,35 @@ _PREVIEW_MAX_CHARS = 32 * 1024
 # 或旧名 LLM_ITERATION_EXTEND_LIMIT 均可调,0 = 关闭);每次续期追加
 # settings.agent_budget_renewal_turns 轮(默认 +2,env AGENT_BUDGET_RENEWAL_TURNS)。
 # 成本守门(预算门/扣费)不因续期绕过 —— 进度总结走 llm_gateway.astream 同一通道。
-_ITERATION_EXTEND_LIMIT = max(
-    0,
-    int(
-        os.getenv(
-            "MAX_AGENT_BUDGET_RENEWALS",
-            os.getenv("LLM_ITERATION_EXTEND_LIMIT", str(settings.agent_budget_renewals)),
-        )
-    ),
-)
-# 每次续期追加的轮数。下限 1:续期必须是真实预算,不允许"续了等于没续"的空转。
-_ITERATION_EXTEND_TURNS = max(
-    1,
-    int(os.getenv("AGENT_BUDGET_RENEWAL_TURNS", str(settings.agent_budget_renewal_turns))),
-)
+def _resolve_extension_limits() -> tuple[int, int]:
+    """D120 续期参数的唯一 env 读取出口 —— 返回 (续期次数上限, 每次追加轮数)。
+
+    供模块级常量在 import 时求值(运行期改 env 仍需重启,与本文件其余 env 档位
+    同口径);抽成函数只为让「env 可调次数」这条验收能在不 reload 整个 router 的
+    前提下被单测覆盖。别名优先级:MAX_AGENT_BUDGET_RENEWALS > AGENT_BUDGET_RENEWALS
+    > LLM_ITERATION_EXTEND_LIMIT > settings.agent_budget_renewals。
+    """
+    limit = max(
+        0,
+        int(
+            os.getenv(
+                "MAX_AGENT_BUDGET_RENEWALS",
+                os.getenv(
+                    "AGENT_BUDGET_RENEWALS",
+                    os.getenv("LLM_ITERATION_EXTEND_LIMIT", str(settings.agent_budget_renewals)),
+                ),
+            )
+        ),
+    )
+    # 每次续期追加的轮数。下限 1:续期必须是真实预算,不允许"续了等于没续"的空转。
+    turns = max(
+        1,
+        int(os.getenv("AGENT_BUDGET_RENEWAL_TURNS", str(settings.agent_budget_renewal_turns))),
+    )
+    return limit, turns
+
+
+_ITERATION_EXTEND_LIMIT, _ITERATION_EXTEND_TURNS = _resolve_extension_limits()
 # 进度总结提示词的识别标记(测试替身据此区分"总结调用"与主循环轮次调用)
 _D120_SUMMARY_MARKER = "[D120_PROGRESS_SUMMARY]"
 
@@ -431,13 +450,16 @@ async def _d120_generate_progress_summary(
     owner_uuid: str | None,
     billing_kwargs: dict[str, Any],
     rounds: int,
-) -> tuple[str | None, dict[str, Any] | None, str | None]:
+) -> tuple[str | None, dict[str, Any] | None, str | None, str | None]:
     """D120 进度总结的唯一模型调用出口。
 
     走 `llm_gateway.astream`(与主链路同一个模型选择/计费/流水/限额通道),
     不为总结另开直连:限流、退避重试、provider 配额守门与主链路完全一致。
-    返回 (summary, usage, error);error 非空表示总结失败,由调用方按
+    返回 (summary, usage, error, error_code);error 非空表示总结失败,由调用方按
     "限额收口 ⇒ 不续期 / 普通失败 ⇒ 本地兜底总结"两档处置。
+    error_code 单列返回是必需的:`_is_budget_exhaustion_error` 的码面白名单
+    认的是**原始错误码**(如 apps/api 成本守门的 `BUDGET_EXHAUSTED`),把它拼进
+    消息串会被消息面模式漏判 ⇒ 限额收口后仍续期、额度继续被烧。
     流内 chunk 只收集不 yield —— 总结只经交代帧与 messages 呈现。
     """
     digest = _d120_activity_digest(tool_calls_history)
@@ -466,13 +488,23 @@ async def _d120_generate_progress_summary(
             elif etype == "done":
                 usage = evt.get("usage")
             elif etype == "error":
-                return (None, usage, f"{evt.get('errorCode')}: {evt.get('message')}")
+                return (
+                    None,
+                    usage,
+                    f"{evt.get('errorCode')}: {evt.get('message')}",
+                    str(evt.get("errorCode") or "") or None,
+                )
             elif etype == "fallback" and str(evt.get("reason") or "").startswith("quota"):
-                return (None, usage, f"PROVIDER_QUOTA_EXHAUSTED: {evt.get('reason')}")
+                return (
+                    None,
+                    usage,
+                    f"PROVIDER_QUOTA_EXHAUSTED: {evt.get('reason')}",
+                    "PROVIDER_QUOTA_EXHAUSTED",
+                )
     except Exception as e:  # noqa: BLE001 - 总结失败不打断主链,由调用方降级
-        return (None, usage, str(e))
+        return (None, usage, str(e), None)
     text = "".join(parts).strip()
-    return (text or None, usage, None)
+    return (text or None, usage, None, None)
 
 
 def _metadata_with_iteration_extensions(
@@ -2629,6 +2661,13 @@ class LLMCompleteRequest(BaseModel):
     expert_auto_route: str | None = Field(
         None, description="意图自动路由专家包:'off'/'hint'(默认)/'auto'"
     )
+    # D01(2026-10-25 立):对话内 Agent 选择器选中的 persona/专家包 id。
+    # 字段名沿用网关/传输层的 camelCase 契约(与 autoContext / streamSessionId 同族),
+    # 值域 = PERSONAS_CONTRACTS 的键;未知 id 一律忽略(零行为变化,不 422 掉整轮)。
+    # 命中的 persona 在 chat 流里并入:① 契约摘要 system 说明;② 工具白名单并集。
+    agentId: str | None = Field(
+        None, description="对话内选中的 persona id(researcher/coder/reviewer/architect/debugger)"
+    )
 
 
 # =============================================================================
@@ -3482,6 +3521,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         messages.insert(0, {"role": "system", "content": _ac_block})
         except Exception as _ac_err:  # 静默降级,绝不阻塞主聊天
             logger.warning("auto_context inject skipped: %s", _ac_err)
+    # D01(2026-10-25 立):对话内 Agent 选择器 —— 用户显式选中的 persona 优先于 D09 的
+    # 自动路由结果,故它的 system 说明排在 D09 之前追加(同一 system 消息里越靠前越优先)。
+    # 未知 id ⇒ hint 为 None,与接线前逐字节一致。
+    _persona_id = (req.agentId or "").strip() or None
+    messages = _append_system_note(
+        messages, _persona_chat_hint(_persona_id) if _persona_id else None
+    )
     # D09(2026-10-24 立):发送前轻量意图分类 → 专家包。规则分类纯函数、零 LLM、零 IO。
     # 默认 hint 档只发交代帧,不改 tools/messages;auto 档才追加系统提示(工具白名单在 gen()
     # 内按同一 decision 并入,位置在 chat_mode 过滤之前)。off 档连分类都不做。
@@ -3809,6 +3855,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 # ask 模式上游 if 已置 None(不进 tool loop),无需再过滤。
                 # D09:专家包工具白名单并入放在**过滤之前** —— auto 档加进来的写类工具
                 # 同样受 (mode × permission_mode) 收窄,不能绕过 plan/review 的只读承诺。
+                # D01:对话内选中的 persona 白名单同理,先并入再统一过滤。
+                if _persona_id:
+                    agent_tools = _merge_persona_tools(_persona_id, agent_tools)
                 agent_tools = _merge_expert_tools(_expert_route, agent_tools)
                 agent_tools = _filter_agent_tools_for_chat_mode(
                     chat_mode, agent_tools, req.permission_mode
@@ -3939,7 +3988,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # D120:续期前先让模型做一次进度总结。走 llm_gateway.astream
                             # (与主循环同一模型/计费/流水/限额通道),不新增直连;
                             # 总结调用本身撞限额 ⇒ 本轮不续期(原语义停,不再开模型请求)。
-                            _ext_summary, _ext_usage, _ext_error = (
+                            _ext_summary, _ext_usage, _ext_error, _ext_error_code = (
                                 await _d120_generate_progress_summary(
                                     tool_calls_history=tool_calls_history,
                                     model=req.model,
@@ -3951,14 +4000,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             if _ext_usage and owner_uuid:
                                 _ext_tokens = int(_ext_usage.get("total_tokens", 0) or 0)
                                 if _ext_tokens > 0:
-                                    spawn(
+                                    asyncio.create_task(
                                         user_trial_quota.consume(owner_uuid, _ext_tokens)
                                     )
                             if _ext_error:
                                 logger.warning(
                                     "D120 进度总结失败(round=%s): %s", _tool_iter, _ext_error
                                 )
-                                if _is_budget_exhaustion_error(None, _ext_error):
+                                if _is_budget_exhaustion_error(_ext_error_code, _ext_error):
                                     # G-815971:总结调用撞限额 ⇒ 本轮惜不续期。
                                     _budget_exhausted_this_turn = True
                             if not _budget_exhausted_this_turn:
@@ -5830,7 +5879,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     if isinstance(_usage_obj, dict) and owner_uuid:
                         _trial_tokens = int(_usage_obj.get("total_tokens", 0) or 0)
                         if _trial_tokens > 0:
-                            spawn(
+                            asyncio.create_task(
                                 user_trial_quota.consume(owner_uuid, _trial_tokens)
                             )
                     accumulated["stub"] = event.get("stub", False)

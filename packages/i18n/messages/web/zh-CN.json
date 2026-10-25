@@ -9373,7 +9373,6 @@
     "deleteSuccess": "已删除",
     "dispatchSubagent": "派发 Subagent",
     "dockPanel": "停靠面板",
-    "earlier": "更早",
     "emptyWorkspace": "空工作区",
     "envInfo": {
       "added": "新增",
@@ -11143,6 +11142,8 @@
     "canvasVersions": "版本历史",
     "clearInputAriaLabel": "清除输入",
     "clearInputTitle": "清除输入内容",
+    "predictiveEditHint": "预测式编辑建议",
+    "predictiveEditApply": "应用",
     "cmdCode": "请用代码实现以下功能，并添加注释：",
     "cmdExplain": "请详细解释以下概念：",
     "cmdKouboScript": "请帮我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 选题方向:\n3. 双门禁验证(歧义压缩 / 跨稿词表 / 全量验证 / 语病 / 热点覆盖)\n请走 koubo-workflow 流水线(约束优先写作法)。",
@@ -11660,7 +11661,8 @@
       "axesApprovalNever": "从不询问",
       "axesPresetReadOnly": "只读档",
       "axesPresetAuto": "自动档",
-      "axesPresetFullAccess": "完全访问档"
+      "axesPresetFullAccess": "完全访问档",
+      "axesPersistHint": "选择保存在本机,刷新后自动恢复"
     },
     "permissionAlreadyActive": "当前已是 {mode} 模式",
     "permissionLabelAsk": "请求批准",
@@ -11938,6 +11940,18 @@
     "steerNoticeBar": {
       "title": "已引导 {count} 次",
       "moreItems": "等 {count} 条"
+    },
+    "agentPicker": {
+      "triggerAria": "选择对话内 Agent / 专家",
+      "default": "默认助手",
+      "defaultDesc": "无专家",
+      "groupTitle": "专家",
+      "toolsSummary": "工具:{tools}"
+    },
+    "agentNoticeBar": {
+      "title": "已切换 {agent} 专家",
+      "body": "本轮对话由「{agent}」专家作答，其系统提示与工具白名单已并入本次请求。",
+      "reset": "切回默认"
     },
     "streamingIndicator": "AI 正在生成中",
     "streamingIndicatorHint": "AI 正在生成中,可输入下一条消息草稿",

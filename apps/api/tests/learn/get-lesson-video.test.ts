@@ -83,6 +83,7 @@ const VALID_LESSON_UUID = '11111111-1111-4111-8111-111111111111'
 const VALID_SECTION_UUID = '22222222-2222-4222-8222-222222222222'
 const VALID_CHAPTER_UUID = '33333333-3333-4333-9333-333333333333'
 const USER_ID = '00000000-0000-4000-8000-000000000001'
+const FIRST_SECTION_UUID = '44444444-4444-4444-8444-444444444444'
 
 async function buildApp() {
   const app = Fastify({ logger: false })
@@ -178,13 +179,16 @@ describe('GET /api/learn/lesson/:id/video', () => {
     expect(res.statusCode).toBe(404)
   })
 
-  it('200 free lesson returns signed url', async () => {
+  it('200 免费课返回指向 /play 校验点的签名地址,且不含 CDN 直链', async () => {
     mockFindLessonById.mockResolvedValueOnce({
       id: VALID_LESSON_UUID,
       isFree: true,
     })
     joinResult = [
-      { section: { id: 99, videoUrl: 'https://cdn.example.com/v.mp4' }, chapter: { id: 1 } },
+      {
+        section: { id: FIRST_SECTION_UUID, videoUrl: 'https://cdn.example.com/v.mp4' },
+        chapter: { id: 1 },
+      },
     ]
     const res = await app.inject({
       method: 'GET',
@@ -194,24 +198,33 @@ describe('GET /api/learn/lesson/:id/video', () => {
     expect(res.statusCode).toBe(200)
     const body = JSON.parse(res.body)
     expect(body.code).toBe(0)
-    expect(body.data.url).toContain('https://cdn.example.com/v.mp4')
-    expect(body.data.url).toContain('uid=')
-    expect(body.data.url).toContain('rid=section%3A99')
-    expect(body.data.url).toMatch(/sig=[0-9a-f]{64}/)
+    expect(body.data.url).toMatch(
+      new RegExp(
+        `/api/learn/lessons/${VALID_LESSON_UUID}/sections/${FIRST_SECTION_UUID}/play\\?uid=${USER_ID}&rid=${FIRST_SECTION_UUID}&exp=\\d+&sig=[0-9a-f]{64}$`,
+        'u',
+      ),
+    )
+    // G-31 ①:响应体不得再出现可被转发的桶直链
+    expect(res.body).not.toContain('cdn.example.com')
+    expect(body.data.resourceId).toBe(FIRST_SECTION_UUID)
+    expect(body.data.sectionId).toBe(FIRST_SECTION_UUID)
     expect(body.data.mimeType).toBe('video/mp4')
     expect(typeof body.data.expiresAt).toBe('number')
     // 免费课不应触发 isSignedUp
     expect(mockIsSignedUp).not.toHaveBeenCalled()
   })
 
-  it('200 paid lesson after sign-up returns signed url', async () => {
+  it('200 付费课已报名返回指向 /play 校验点的签名地址', async () => {
     mockFindLessonById.mockResolvedValueOnce({
       id: VALID_LESSON_UUID,
       isFree: false,
     })
     mockIsSignedUp.mockResolvedValueOnce(true)
     joinResult = [
-      { section: { id: 88, videoUrl: 'https://cdn.example.com/v2.mp4' }, chapter: { id: 1 } },
+      {
+        section: { id: FIRST_SECTION_UUID, videoUrl: 'https://cdn.example.com/v2.mp4' },
+        chapter: { id: 1 },
+      },
     ]
     const res = await app.inject({
       method: 'GET',
@@ -221,7 +234,11 @@ describe('GET /api/learn/lesson/:id/video', () => {
     expect(res.statusCode).toBe(200)
     const body = JSON.parse(res.body)
     expect(body.data.url).toMatch(/sig=[0-9a-f]{64}/)
-    expect(body.data.resourceId).toBe('section:88')
+    expect(body.data.url).toContain(
+      `/api/learn/lessons/${VALID_LESSON_UUID}/sections/${FIRST_SECTION_UUID}/play`,
+    )
+    expect(body.data.resourceId).toBe(FIRST_SECTION_UUID)
+    expect(res.body).not.toContain('cdn.example.com')
   })
 })
 
@@ -261,7 +278,7 @@ describe('GET /api/learn/section/:id/video', () => {
     expect(res.statusCode).toBe(403)
   })
 
-  it('200 when signed up returns signed url', async () => {
+  it('200 已报名返回指向 /play 校验点的签名地址,且不含 CDN 直链', async () => {
     mockFindSectionById.mockResolvedValueOnce({
       id: VALID_SECTION_UUID,
       chapterId: VALID_CHAPTER_UUID,
@@ -279,8 +296,13 @@ describe('GET /api/learn/section/:id/video', () => {
     })
     expect(res.statusCode).toBe(200)
     const body = JSON.parse(res.body)
-    expect(body.data.url).toContain(`rid=section%3A${VALID_SECTION_UUID}`)
+    expect(body.data.url).toContain(
+      `/api/learn/lessons/${VALID_LESSON_UUID}/sections/${VALID_SECTION_UUID}/play`,
+    )
+    expect(body.data.url).toContain(`rid=${VALID_SECTION_UUID}`)
     expect(body.data.url).toMatch(/sig=[0-9a-f]{64}/)
+    expect(body.data.resourceId).toBe(VALID_SECTION_UUID)
+    expect(res.body).not.toContain('cdn.example.com')
   })
 
   it('404 when section not found', async () => {

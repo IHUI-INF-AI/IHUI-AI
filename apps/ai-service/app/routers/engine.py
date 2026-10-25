@@ -67,6 +67,7 @@ def _make_loop_factory() -> Any:
     """构造主循环工厂:复用 agents 路由既有的 LLM/工具装配(不重复实现一遍)。"""
 
     async def _factory(spec: dict[str, Any], host_tools: list[Any]) -> Any:
+        from ..core.token_baseline import CHAIN_MAIN
         from ..services.agent_loop_v2 import AgentLoopV2
         from .agents import _build_loop_v2_tools, _make_loop_v2_llm
 
@@ -114,9 +115,9 @@ def _make_loop_factory() -> Any:
             model_params=spec.get("model_params"),
             # 2026-09-18 第三批(Goals 对标):线程目标注入 system 全程可见
             thread_goal=spec.get("goal"),
-            # G-941(2026-10-22):引擎线程的主循环工厂,链标签标 "main"
+            # G-941(2026-10-22):引擎线程的主循环工厂,链标签取唯一常量源
             # (账本增量基线按 (chain, tool_name) 分桶,见 agents._new_v2_loop 同款注释)。
-            chain="main",
+            chain=CHAIN_MAIN,
         )
 
     return _factory

@@ -423,8 +423,12 @@
     "undoSucceeded": "Restored {count} files; task records are kept.",
     "undoPartialWarning": "Some changes are not in the CLI file checkpoint; the rollback may be incomplete.",
     "undoUnavailable": "File checkpoint unavailable; the workspace has not changed.",
+    "undoFailed": "The CLI file checkpoint is temporarily unavailable; the workspace has not changed.",
     "undoFailedChanged": "Rollback incomplete: the workspace HAS changed (verified). Review the file list below before continuing.",
     "undoFailedUnverifiable": "Rollback incomplete, and whether the workspace changed could not be confirmed (some files could not be read). Verify manually before retrying.",
+    "undoFailedFilesTitle": "Failed to roll back {count} file(s) across {turns} turn(s):",
+    "undoFailedFileLine": "  · {file} — {reason}",
+    "undoFailedFilesMore": "…and {count} more",
     "undoDesc": "Roll back the last N file-change steps (default 1; must run inside the agent session workspace)",
     "sessionOptDesc": "Session ID (defaults to the most recent session)",
     "undoNothing": "Nothing to roll back",
@@ -477,7 +481,14 @@
     "goalCriteriaBadArg": "--goal-criteria requires a file path",
     "goalCriteriaUnreadable": "Cannot read --goal-criteria file {file}: {error}",
     "goalCriteriaNotAnArray": "{file} must contain a non-empty JSON array",
-    "goalCriteriaBadEntry": "Criterion #{index} is missing id or statement"
+    "goalCriteriaBadEntry": "Criterion #{index} is missing id or statement",
+    "dangerGate": {
+      "denyNoPrompt": "Dangerous action denied: no --allow-dangerous flag was provided and no confirmation channel is available, so the gate fails closed. To allow it, relaunch with --allow-dangerous, or run interactively and confirm at the prompt.",
+      "denyDeclined": "Dangerous action denied: the user explicitly declined at the confirmation prompt. To allow it, ask again and choose allow; unattended runs have no silent override.",
+      "denyEmpty": "Dangerous action denied: the confirmation prompt returned no definite answer (empty or undefined), which is never treated as approval. To allow it, run interactively and choose allow explicitly.",
+      "denyError": "Dangerous action denied: the confirmation channel failed while asking, and denial wins. To allow it, repair the channel (for example the editor connection), or run interactively and confirm manually.",
+      "denyContract": "Dangerous action denied: this tool's contract requires human approval, so --allow-dangerous cannot answer on the user's behalf. To allow it, run interactively and confirm manually; there is no flag-level bypass for this class."
+    }
   },
   "cliWorkflows": {
     "contextBadJson": "--context is not valid JSON: {message}",

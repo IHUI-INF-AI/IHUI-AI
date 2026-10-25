@@ -9373,7 +9373,6 @@
     "deleteSuccess": "削除しました",
     "dispatchSubagent": "サブエージェントを派遣",
     "dockPanel": "パネルをドッキング",
-    "earlier": "それ以前",
     "emptyWorkspace": "空のワークスペース",
     "envInfo": {
       "added": "追加",
@@ -11143,6 +11142,8 @@
     "canvasVersions": "バージョン履歴",
     "clearInputAriaLabel": "入力をクリア",
     "clearInputTitle": "入力内容をクリア",
+    "predictiveEditHint": "予測編集の提案",
+    "predictiveEditApply": "適用",
     "cmdCode": "のをコードでし、コメントをしてください：",
     "cmdExplain": "のをしくしてください：",
     "cmdKouboScript": "本日8本のDouyinナレーション原稿を生成してください。要件:\n1. 日付: MMDD\n2. テーマ方向:\n3. 二重ゲート検証(曖昧さ圧縮 / 原稿間語彙 / 全量検証 / 語弊 / ホットトピックカバー)\nkoubo-workflowパイプラインを実行してください(制約優先執筆法)。",
@@ -11660,7 +11661,8 @@
       "axesApprovalNever": "確認しない",
       "axesPresetReadOnly": "読み取り専用",
       "axesPresetAuto": "自動",
-      "axesPresetFullAccess": "完全アクセス"
+      "axesPresetFullAccess": "完全アクセス",
+      "axesPersistHint": "選択はこの端末に保存され、再読み込み後に復元されます"
     },
     "permissionAlreadyActive": "現在は {mode} モードです",
     "permissionLabelAsk": "承認を求める",
@@ -11938,6 +11940,18 @@
     "steerNoticeBar": {
       "title": "{count} 回誘導済み",
       "moreItems": "他 {count} 件"
+    },
+    "agentPicker": {
+      "triggerAria": "会話内エージェント / エキスパートを選択",
+      "default": "デフォルトアシスタント",
+      "defaultDesc": "エキスパートなし",
+      "groupTitle": "エキスパート",
+      "toolsSummary": "ツール:{tools}"
+    },
+    "agentNoticeBar": {
+      "title": "{agent} エキスパートに切り替えました",
+      "body": "このターンは「{agent}」エキスパートが回答します。システムプロンプトとツール許可リストはこのリクエストに統合済みです。",
+      "reset": "デフォルトに戻す"
     },
     "streamingIndicator": "AI が生成中",
     "streamingIndicatorHint": "AI が生成中です。次のメッセージを入力できます",

@@ -280,29 +280,30 @@ interface HttpSnapshot {
   uptimeSeconds: Array<{ job: string; seconds: number }>
   wsConnections: number | null
   activeConnections: number | null
-  aiActiveSessions: number | null
 }
 
 async function buildHttp(): Promise<HttpSnapshot | null> {
   try {
-    const [qps, errRate, p95Api, p95Ai, statusDist, uptime, ws, active, llmSessions] =
-      await Promise.all([
-        promQuery('sum(rate(http_requests_total[5m]))'),
-        promQuery(
-          'sum(rate(http_requests_by_status{status=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_by_status[5m])), 0.000001)',
-        ),
-        promQuery(
-          'histogram_quantile(0.95, sum by (le) (rate(http_response_time_ms_bucket{job="api"}[5m])))',
-        ),
-        promQuery(
-          'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="ai-service"}[5m]))) * 1000',
-        ),
-        promQuery('sum by (status) (rate(http_requests_by_status[5m]))'),
-        promQuery('process_uptime_seconds'),
-        promQuery('websocket_connections'),
-        promQuery('active_connections'),
-        promQuery('ihui_llm_active_sessions'),
-      ])
+    // 2026-10-25:原先这里还查 `ihui_llm_active_sessions`。该 gauge 在 ai-service 侧
+    // 已随"死 gauge 摘除"退役(生产零调用,面板恒空),墙板是最后一处残留消费点 ⇒
+    // 一并摘掉,否则大屏把"指标已不存在"画成"会话数为零"。号池健康已由
+    // `ihui_llm_pool_leg_*` 族承载,见 /admin/monitor/panels 的「号池冷却中的腿数」。
+    const [qps, errRate, p95Api, p95Ai, statusDist, uptime, ws, active] = await Promise.all([
+      promQuery('sum(rate(http_requests_total[5m]))'),
+      promQuery(
+        'sum(rate(http_requests_by_status{status=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_by_status[5m])), 0.000001)',
+      ),
+      promQuery(
+        'histogram_quantile(0.95, sum by (le) (rate(http_response_time_ms_bucket{job="api"}[5m])))',
+      ),
+      promQuery(
+        'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="ai-service"}[5m]))) * 1000',
+      ),
+      promQuery('sum by (status) (rate(http_requests_by_status[5m]))'),
+      promQuery('process_uptime_seconds'),
+      promQuery('websocket_connections'),
+      promQuery('active_connections'),
+    ])
     // 状态码 → 2xx/3xx/4xx/5xx 分桶
     const buckets = new Map<string, number>()
     for (const s of statusDist ?? []) {
@@ -324,7 +325,6 @@ async function buildHttp(): Promise<HttpSnapshot | null> {
         .map((s) => ({ job: s.metric.job!, seconds: sampleNum(s) ?? 0 })),
       wsConnections: firstNum(ws),
       activeConnections: firstNum(active),
-      aiActiveSessions: firstNum(llmSessions),
     }
   } catch {
     return null
@@ -507,7 +507,12 @@ interface RelayPoolSnapshot {
   /** Key 健康四态计数(unknown/healthy/degraded/down;与汇总字段同一把尺子) */
   keyHealth: { unknown: number; healthy: number; degraded: number; down: number } | null
   /** 按 provider 分组的 Key 分布(可调度/异常口径与汇总字段同一把尺子) */
-  keyByProvider: Array<{ provider: string; total: number; schedulable: number; abnormal: number }> | null
+  keyByProvider: Array<{
+    provider: string
+    total: number
+    schedulable: number
+    abnormal: number
+  }> | null
   /** 按 provider 分组的账号池分布 */
   accountByProvider: Array<{ provider: string; total: number; schedulable: number }> | null
   /** 余额 < 5 元且非"无限"(-1)的 Key 条数 —— 余额预警 */

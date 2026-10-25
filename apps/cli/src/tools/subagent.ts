@@ -500,7 +500,7 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           // 86H:子代理里的危险放行同样要进链,归属记父会话 id(parentId)——
           // 否则"父没批、子代理自己放行"这一型在审计面上完全不可见。
           confirmDangerous: createAuditedDangerGate({
-            allowDangerous: parentOpts.allowDangerous,
+            allowDangerous: parentOpts.allowDangerous === true,
             silent: true,
             auditSessionId: parentId,
           }),

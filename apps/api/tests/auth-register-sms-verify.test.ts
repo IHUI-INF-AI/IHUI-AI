@@ -136,6 +136,12 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
+// auth.ts 仅从 @ihui/shared 取一个错误文案工具;注册主路径不依赖它。
+// 本文件只验注册码判据,不把共享包(及其在途改动)拖进收集面。
+vi.mock('@ihui/shared', () => ({
+  toUserFriendlyMessage: (e: unknown) => (e instanceof Error ? e.message : String(e ?? '')),
+}))
+
 import { authRoutes } from '../src/routes/auth.js'
 import {
   __test__ as codeStoreTest,
@@ -270,6 +276,15 @@ describe('G-876 register 验证码校验', () => {
       expect(mockFindUserByPhone).not.toHaveBeenCalled()
     })
 
+    it('反例:码格式非法(非 6 位数字)⇒ 400 且不落库、不查 409', async () => {
+      const res = await postRegister({ phone: PHONE, password: 'password123', code: '12345' })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().errorCode).toBe('VALIDATION_FAILED')
+      expect(res.json().message).toContain('验证码必须为 6 位')
+      expect(mockCreateUser).not.toHaveBeenCalled()
+      expect(mockFindUserByPhone).not.toHaveBeenCalled()
+    })
+
     it('反例:错码 ⇒ 400 且不消费原码、不落库', async () => {
       await seedCode(PHONE, '246810')
       const res = await postRegister({ phone: PHONE, password: 'password123', code: '999999' })
@@ -278,6 +293,21 @@ describe('G-876 register 验证码校验', () => {
       expect(res.json().message).toContain('验证码错误或已过期')
       expect(await codeStoreTest.exists(PHONE)).toBe(true)
       expect(mockCreateUser).not.toHaveBeenCalled()
+      // 错码也不得走到「号码已注册」查询:409 文案不能被拿来枚举号码归属
+      expect(mockFindUserByPhone).not.toHaveBeenCalled()
+    })
+
+    it('抢号未遂:无码抢注 400 且不落库 ⇒ 真号主随后带正确 register 码仍能 200', async () => {
+      // 票面原始攻击面:未验码者抢先建号,真号主之后只会撞 409。这里把两步都钉住。
+      const stolen = await postRegister({ phone: PHONE, password: 'password123' })
+      expect(stolen.statusCode).toBe(400)
+      expect(mockCreateUser).not.toHaveBeenCalled()
+
+      await seedCode(PHONE, '654321')
+      const owner = await postRegister({ phone: PHONE, password: 'password123', code: '654321' })
+      expect(owner.statusCode).toBe(200)
+      expect(owner.json().data.accessToken).toBe('access-token')
+      expect(mockCreateUser).toHaveBeenCalledTimes(1)
     })
 
     it('反例:过期码 ⇒ 400 且不落库', async () => {
