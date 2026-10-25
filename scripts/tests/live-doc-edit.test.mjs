@@ -3025,6 +3025,31 @@ test('T-reclassify 声明式改桶:声明与现算同形才放行,不同形/陈�
     ],
   })
   assert.equal(stale.staleReclassify.length, 1, '未命中的声明必须点名,不能被读成"放过了一件事"')
+
+  // 镜像两向:声明只解释归属桶维 ⇒ 租约原样保留照常放行,顺带摘牌/换题仍拒(不是全维总闸)。
+  const declFor = (b) => [{ before: b, from: 'waiting-human', to: 'actionable', why: '机主令要求代裁结清存量' }]
+  const keptLease = '- [ ]（进行中@2026-10-23/甲） **R1** 该口径等机主拍板'
+  const kept = __test__.judgeRowRewriteConservation({
+    pairs: [{ before: keptLease, after: '- [ ]（进行中@2026-10-23/甲） **R1** 该口径已裁' }],
+    reclassify: declFor(keptLease),
+  })
+  assert.equal(kept.ok, true, JSON.stringify(kept.violations))
+  assert.equal(kept.reclassified, 1)
+
+  const strippedLease = __test__.judgeRowRewriteConservation({
+    pairs: [{ before: keptLease, after: '- [ ] **R1** 该口径已裁' }],
+    reclassify: declFor(keptLease),
+  })
+  assert.equal(strippedLease.ok, false, '改桶声明不得替租约维放行(摘牌仍拒)')
+  assert.match(strippedLease.violations[0].bad.join('\n'), /租约/)
+
+  const driftBefore = '- [ ] G-901 **R1** 该口径等机主拍板'
+  const drifted = __test__.judgeRowRewriteConservation({
+    pairs: [{ before: driftBefore, after: '- [ ] G-902 **R1** 该口径已裁' }],
+    reclassify: declFor(driftBefore),
+  })
+  assert.equal(drifted.ok, false, '改桶声明不得替主键维放行(换题仍拒)')
+  assert.match(drifted.violations[0].bad.join('\n'), /主键漂了/)
 })
 
 test('T-reclassify readInputs 校验:桶名/理由长度/from==to/陈旧 before 全拒', () => {
@@ -3050,6 +3075,14 @@ test('T-reclassify readInputs 校验:桶名/理由长度/from==to/陈旧 before 
     assert.match(run([{ ...base, why: '太短' }]).error, /少于 10 字/)
     assert.match(run([{ ...base, to: 'waiting-human' }]).error, /无事可做/)
     assert.match(run([{ ...base, before: '- [ ] 不在本轮' }]).error, /陈旧\/串档/)
+    assert.match(run([base, base]).error, /重复声明/, '同一行两条改桶去向必须整批拒')
+    const noReplace = __test__.readInputs({
+      LIVE_DOC: 'PROJECT_PLAN.md',
+      LIVE_MSG: 'x',
+      LIVE_BUCKET_RECLASSIFY: recFile,
+      LIVE_ROOT: root,
+    })
+    assert.match(noReplace.error, /只在 LIVE_REPLACE_FILE/, '插入档里的声明无人核验,必须拒绝而不是静默吞掉')
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
