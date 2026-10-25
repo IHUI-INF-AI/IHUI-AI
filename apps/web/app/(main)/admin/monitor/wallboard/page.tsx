@@ -288,6 +288,14 @@ interface OverviewPayload {
   alerts: AlertsSnapshot | null
   events: EventItem[] | null
   traffic?: TrafficSnapshot | null
+  /** 行为埋点 24h 快照(analytics_events 口径);null = 该腿取不到 */
+  engagement?: {
+    events: Array<{ event: string; n: number }>
+    clickTop: Array<{ label: string; n: number }>
+    avgPageTimeSec: number | null
+    totalEvents: number
+    computedAtMs: number
+  } | null
   relayPool?: RelayPoolSnapshot | null
   edge: EdgeSnapshot | null
 }
@@ -722,6 +730,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const alerts = ov?.alerts ?? null
   const events = ov?.events ?? null
   const traffic = ov?.traffic ?? null
+  const engagement = ov?.engagement ?? null
   const relayPool = ov?.relayPool ?? null
   const edge = ov?.edge ?? null
 
@@ -2688,6 +2697,84 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ) : null}
                 {traffic?.pageTop === null ? (
+                  <div className="flex justify-center px-2 py-2">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Panel>
+
+          {/* 交互热度(2026-10-26):analytics_events 口径的事件分布 / 平均停留 / 热门点击。
+              补的是「用了多少次」之外的另一半:用户点了什么、在一页停多久。 */}
+          <Panel
+            title={t('panelEngagement')}
+            icon={<Activity className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={
+              engagement === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('engagementAvgStay')}:{' '}
+                  {isNum(engagement?.avgPageTimeSec)
+                    ? fmtDuration(Math.round(engagement.avgPageTimeSec))
+                    : '—'}
+                </span>
+              )
+            }
+            bodyClassName="wb-split wb-split-c3"
+          >
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('engagementEvents')}
+              </div>
+              <div className="space-y-1">
+                {(engagement?.events ?? []).map((e) => (
+                  <div
+                    key={e.event}
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="truncate text-[10px] text-foreground">{e.event}</span>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                      {fmtCompact(e.n)}
+                    </span>
+                  </div>
+                ))}
+                {engagement && engagement.events.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('engagementNoData')}
+                  </div>
+                ) : null}
+                {engagement === null ? (
+                  <div className="flex justify-center px-2 py-2">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('engagementClicks')}
+              </div>
+              <div className="space-y-1">
+                {(engagement?.clickTop ?? []).map((c) => (
+                  <div
+                    key={c.label}
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="truncate text-[10px] text-foreground">{c.label}</span>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                      {fmtCompact(c.n)}
+                    </span>
+                  </div>
+                ))}
+                {engagement && engagement.clickTop.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('engagementNoData')}
+                  </div>
+                ) : null}
+                {engagement === null ? (
                   <div className="flex justify-center px-2 py-2">
                     <SourceGap text={t('sourceUnreachable')} />
                   </div>
