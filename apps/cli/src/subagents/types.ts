@@ -102,7 +102,7 @@ export interface LayerRevision {
 export type SourceRevisions = Record<PrecedenceLayer, LayerRevision>
 
 /**
- * G-395 请求档 vs 实得档留痕:仅当请求档未被原样采纳(降档/非法枚举损耗)时非空。
+ * G-395 请求档 vs 实得档留痕:仅当请求档未被原样采纳(降档/升档/非法枚举损耗)时非空。
  * 'effective' 与 EffectiveRuntimeConfig.reasoningEffort 同值、同一出口生成(非第二份真相),
  * 打包进本记录只为让日志/状态面一次读全 requested ≠ effective。
  */
@@ -115,8 +115,8 @@ export interface EffortDowngradeTrace {
   effective?: ReasoningEffort
   /** 实得档出处(哪层/哪个配置项接手了) */
   effectiveSource: ConfigFieldSource
-  /** 'invalid-enum' = 请求档非法枚举被容错丢弃;'rank-lower' = 实得档档位低于请求档 */
-  reason: 'invalid-enum' | 'rank-lower'
+  /** 'invalid-enum' = 请求档非法枚举被容错丢弃;'rank-lower' = 实得档低于请求档(含落空);'rank-higher' = 实得档被抬高于请求档 */
+  reason: 'invalid-enum' | 'rank-lower' | 'rank-higher'
 }
 
 /** 解析后的有效运行时配置(四层短路链结果) */

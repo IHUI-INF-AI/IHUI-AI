@@ -20,12 +20,16 @@ import {
   PRECEDENCE_LAYER_LABELS,
   CONFIG_TRACE_ENV,
   formatConfigSnapshot,
+  __test__ as precedenceTest,
 } from '../src/subagents/precedence.js'
 import type {
   SubagentRuntimeOverrides,
   SubagentRole,
   SubagentPersona,
   PersonaMap,
+  ConfigFieldSource,
+  EffectiveRuntimeConfig,
+  ReasoningEffort,
 } from '../src/subagents/types.js'
 
 // 快照留痕默认写 stderr(生产行为);本文件除专门的留痕用例外一律关闭,避免测试输出被刷。
@@ -930,7 +934,7 @@ describe('G-395 快照留痕出口(sourceRevisions 的真实消费者)', () => {
     expect(lines[0]).toContain('winners=model:explicit')
     expect(lines[0]).toContain('explicit=null(no-file-source)')
     expect(lines[0]).toContain('parent=null(no-file-source)')
-    expect(lines[0].endsWith('\n')).toBe(true)
+    expect(lines[0]?.endsWith('\n')).toBe(true)
   })
 
   it('默认出口 = stderr;IHUI_SUBAGENT_CONFIG_TRACE=0 时不写', () => {
@@ -980,6 +984,137 @@ describe('G-395 层名清单单一真相源', () => {
     expect(r.sources.isolation).toEqual({ layer: 'parent', origin: 'default:none' })
     expect(r.isolation).toBe('none')
     expect(PRECEDENCE_LAYER_LABELS[r.sources.isolation.layer]).toBe('父 session 继承/默认档')
+  })
+})
+
+// ============================================================
+// 25. G-395 降档判据镜像测试(§22c:判据一律 import 源模块 __test__,测试不复制一份)
+//     票面「请求档因约束被降/升必须留痕」的三个原因臂逐臂钉住,并反向核验今天哪些臂打不到。
+// ============================================================
+describe('G-395 降档判据镜像(__test__.buildEffortDowngrade 逐臂)', () => {
+  const explicitSrc: ConfigFieldSource = { layer: 'explicit', origin: 'overrides.reasoningEffort' }
+  const roleSrc: ConfigFieldSource = { layer: 'role', origin: 'role[coder].reasoningEffort' }
+
+  it('臂 1 invalid-enum:请求档非法枚举 ⇒ 留痕带原始值 + 双方出处,不静默丢弃', () => {
+    const trace = precedenceTest.buildEffortDowngrade(
+      { raw: 'ultra', source: explicitSrc },
+      { value: 'low', source: roleSrc },
+    )
+    expect(trace).toEqual({
+      requested: 'ultra',
+      requestedSource: explicitSrc,
+      effective: 'low',
+      effectiveSource: roleSrc,
+      reason: 'invalid-enum',
+    })
+    // 实得档彻底落空(四层皆空)同样必须留痕,不得静默
+    const gone = precedenceTest.buildEffortDowngrade(
+      { raw: 'turbo', source: explicitSrc },
+      { value: undefined, source: { layer: 'parent', origin: 'parent(inherit)' } },
+    )
+    expect(gone?.reason).toBe('invalid-enum')
+    expect(gone?.effective).toBeUndefined()
+  })
+
+  it('臂 2 rank-lower:合法请求档被压到更低档 ⇒ 留痕点名原因与接手层', () => {
+    const trace = precedenceTest.buildEffortDowngrade(
+      { raw: 'high', source: explicitSrc },
+      { value: 'low', source: roleSrc },
+    )
+    expect(trace?.reason).toBe('rank-lower')
+    expect(trace?.requested).toBe('high')
+    expect(trace?.effective).toBe('low')
+    expect(trace?.effectiveSource).toEqual(roleSrc)
+    // 降到最低以下(落空)也是同一臂(eRank=-1 < rRank)
+    const fell = precedenceTest.buildEffortDowngrade(
+      { raw: 'minimal', source: explicitSrc },
+      { value: undefined, source: roleSrc },
+    )
+    expect(fell?.reason).toBe('rank-lower')
+  })
+
+  it('臂 3 rank-higher:合法请求档被抬高 ⇒ 同样留痕("被降/升都不得静默改档"的升档半边)', () => {
+    const trace = precedenceTest.buildEffortDowngrade(
+      { raw: 'low', source: explicitSrc },
+      { value: 'high', source: roleSrc },
+    )
+    expect(trace?.reason).toBe('rank-higher')
+    expect(trace?.requested).toBe('low')
+    expect(trace?.effective).toBe('high')
+    expect(trace?.requestedSource).toEqual(explicitSrc)
+  })
+
+  it('原样采纳 / 无请求档 ⇒ 不产生留痕(留痕不是"每次都写一坨")', () => {
+    expect(
+      precedenceTest.buildEffortDowngrade(
+        { raw: 'medium', source: explicitSrc },
+        { value: 'medium', source: explicitSrc },
+      ),
+    ).toBeUndefined()
+    expect(
+      precedenceTest.buildEffortDowngrade(undefined, { value: 'low', source: roleSrc }),
+    ).toBeUndefined()
+  })
+
+  it('档位序 = 档位表下标(单射且严格递增):"同序异值"的坏表前置被钉死', () => {
+    const list = precedenceTest.REASONING_EFFORTS
+    const ranks = list.map((e) => precedenceTest.effortRank(e))
+    expect(ranks).toEqual(list.map((_, i) => i))
+    expect(new Set(ranks).size).toBe(ranks.length)
+    expect(list.length).toBeGreaterThan(1)
+    expect(precedenceTest.effortRank('__not_a_tier__')).toBe(-1)
+  })
+
+  it('反向核验:公共入口在"请求档合法"的全排列上永不出留痕 ⇒ 后两臂今天确实打不到', () => {
+    const valids: ReasoningEffort[] = [...precedenceTest.REASONING_EFFORTS] as ReasoningEffort[]
+    let combos = 0
+    for (const requested of valids) {
+      for (const other of valids) {
+        const r = resolveEffectiveOverrides(
+          { reasoningEffort: requested },
+          { name: 'coder', reasoningEffort: other },
+          {},
+          undefined,
+          undefined,
+          { traceSink: null },
+        )
+        // 合法请求档必然自己获胜:生效值 == 请求档,且没有任何改档发生
+        expect(r.reasoningEffort).toBe(requested)
+        expect(r.effortDowngrade).toBeUndefined()
+        expect(r.sources.reasoningEffort).toEqual({ layer: 'explicit', origin: 'overrides.reasoningEffort' })
+        combos += 1
+      }
+    }
+    expect(combos).toBe(valids.length * valids.length)
+  })
+
+  it('留痕开关只静音 stderr 那一行:结构化留痕与生效值一字不变(不构成判定旁路)', () => {
+    const role: SubagentRole = { name: 'coder', reasoningEffort: 'low' }
+    const overrides = { reasoningEffort: 'ultra' as 'high' }
+    const prev = process.env[CONFIG_TRACE_ENV]
+    const writeSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    let muted: EffectiveRuntimeConfig | undefined
+    try {
+      process.env[CONFIG_TRACE_ENV] = '0'
+      muted = resolveEffectiveOverrides(overrides, role, {})
+      expect(writeSpy).not.toHaveBeenCalled()
+    } finally {
+      writeSpy.mockRestore()
+      if (prev === undefined) delete process.env[CONFIG_TRACE_ENV]
+      else process.env[CONFIG_TRACE_ENV] = prev
+    }
+    const lines: string[] = []
+    const loud = resolveEffectiveOverrides(overrides, role, {}, undefined, undefined, {
+      traceSink: (line) => lines.push(line),
+    })
+    expect(muted).toBeDefined()
+    expect(lines).toHaveLength(1)
+    // 静音开关动不到判定面:生效值、出处标签、降档留痕、快照修订号四面逐字相同
+    expect(muted!.reasoningEffort).toBe(loud.reasoningEffort)
+    expect(muted!.effortDowngrade).toEqual(loud.effortDowngrade)
+    expect(muted!.effortDowngrade?.reason).toBe('invalid-enum')
+    expect(muted!.sources).toEqual(loud.sources)
+    expect(muted!.sourceRevisions).toEqual(loud.sourceRevisions)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
