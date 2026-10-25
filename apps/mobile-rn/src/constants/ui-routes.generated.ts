@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 6353758789c2875405ecd66adc5f181696aa18eb
-// inputsSha256: 04fb7681b1a02c6a73f5e5466be2a80a3cba0c7b2152c7a3e8cf8ef3d4bfa740
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 859d013476dffe28cf6554a8b32d679827c288f0d7ce75bd5a69ee20951118c4
+// sourceCommit: 94751a08450ef799e9a96bd3f5471983e60db8ad
+// inputsSha256: 7de3f03ed5555653a5b0ff16c8be6190cda01964c1d2a2f5cacbbc1109c841b8
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx f4a7ec7281f4e8c4e7bef47b426e48590f2c01a31a761cb28bb60228f036e564
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-23T16:40:56.496Z
+// generatedAt: 2026-10-25T17:15:09.110Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 252 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 277 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -76,6 +76,30 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Points', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Groups', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'UserFans', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'UserPublic', tab: false, requiresParams: true, requiredParams: ['userId'] },
+  { name: 'LlmSettings', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduShop', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'DeveloperLimits', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'DeveloperWebhooks', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'DeveloperNotifications', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'DeveloperSettings', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'DeveloperConversations', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ModelsPrompts', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduAttendance', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduGrades', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduParent', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduParentBind', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduEnrollment', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduChildSchedule', tab: false, requiresParams: true, requiredParams: ['childId'] },
+  { name: 'EduChildAttendance', tab: false, requiresParams: true, requiredParams: ['childId'] },
+  { name: 'EduChildGrades', tab: false, requiresParams: true, requiredParams: ['childId'] },
+  { name: 'EduChildMeals', tab: false, requiresParams: true, requiredParams: ['childId'] },
+  { name: 'EduChildBills', tab: false, requiresParams: true, requiredParams: ['childId'] },
+  { name: 'EduChildStudyPlans', tab: false, requiresParams: true, requiredParams: ['childId'] },
+  { name: 'EduFinance', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduMeal', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduSchedule', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduScheduling', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'UserArticles', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Invoices', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Purchase', tab: false, requiresParams: false, requiredParams: [] },
@@ -137,6 +161,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'MessageDirect', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MessageGroup', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AnnouncementDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'ActivityDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'FeedbackHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'FeedbackDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'SettingsAccount', tab: false, requiresParams: false, requiredParams: [] },
