@@ -17,7 +17,7 @@
  *   C3 路由映射真值 —— rn-compat/route-map.generated.ts 里每个目标路径必须真在 app.config 的
  *       页面清单里(分包 root + page 拼接);指向不存在的页 = 声明链断了,跳过去必失败。
  *
- * 档位:三维都是**绝对零容忍**(不是差值棘轮)—— 兼容层的缺口没有"存量合理"这一说,
+ * 档位:C1/C2/C3 是**绝对零容忍**(不是差值棘轮)—— 兼容层的缺口没有"存量合理"这一说,
  * 补上即可(出口加一行 / 跑一次生成器),所以立起来当天就能是绿的;一旦红就是真断链。
  * 取不到被审面 ⇒ exit 2「未判定」(§0.3),不记绿也不冒红。
  *
@@ -32,6 +32,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { __test__ as gen } from './gen-rn-compat.mjs'
+import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -42,6 +43,11 @@ const COMPAT_FILES = ['index.ts', 'primitives.tsx', 'apis.ts', 'style.ts', 'navi
 const ICONS_REL = `${COMPAT_DIR}/icons-generated.tsx`
 const ROUTE_REL = `${COMPAT_DIR}/route-map.generated.ts`
 const MP_CONFIG_REL = 'apps/miniapp-taro/src/app.config.ts'
+const MP_SRC = 'apps/miniapp-taro/src'
+/** 标记载体:与 cov.MARK_RE 同形(顶行 `// 镜像 packages/app/...`) */
+const MIRROR_MARK_RE = /^\/\/ ?镜像 (packages\/app\/src\/\S+)/m
+/** 真复用的两种形态:直接渲染共享屏,或承载 RN 壳 */
+const REUSE_IMPORT_RE = /from '@(?:ihui\/rn-app|rn-shells)[^']*'/
 
 /** 判定面选择一律走取材层(§0.4):两面同给当场判死 */
 function faceFlags(argv) {
@@ -94,11 +100,12 @@ function makeReader(face) {
     for (const rel of uniq) map.set(rel, got.get(`${prefix}${rel}`) ?? null)
     return map
   }
-  return {
-    label: face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树磁盘(人工逃生舱)' : 'HEAD blob',
-    listFiles,
-    readMany,
-  }
+  return { face, label: face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树磁盘(人工逃生舱)' : 'HEAD blob', listFiles, readMany }
+}
+
+/** cov 那把尺要的面上,与本门的 face 逐字同一档 */
+function faceOf(reader) {
+  return reader.face
 }
 
 function namedImportsFrom(text, moduleName) {
@@ -142,7 +149,7 @@ function compatExports(contents) {
 }
 
 export function judge(reader) {
-  const findings = { c1: [], c2: [], c3: [] }
+  const findings = { c1: [], c2: [], c3: [], c4: [] }
   let files
   try {
     files = reader.listFiles(CONSUMERS)
@@ -151,7 +158,17 @@ export function judge(reader) {
   }
   if (files.length === 0) return { state: 'undetermined', reason: '消费面枚举到 0 个文件(判据面异常,不记绿)', findings }
 
-  // 一次批取全部需要的正文(消费面 + 兼容层 + 生成物 + 分包清单)—— 同面同轮(§0.4)
+  let declaredRoutes = []
+  try {
+    declaredRoutes = cov
+      .collectMiniapp(faceOf(reader))
+      .map((r) => (typeof r === 'string' ? r : r.route))
+      .filter(Boolean)
+  } catch {
+    declaredRoutes = []
+  }
+
+  // 一次批取全部需要的正文(消费面 + 兼容层 + 生成物 + 分包清单 + 页文件)—— 同面同轮(§0.4)
   let contents
   try {
     contents = reader.readMany([
@@ -160,6 +177,7 @@ export function judge(reader) {
       ICONS_REL,
       ROUTE_REL,
       MP_CONFIG_REL,
+      ...declaredRoutes.map((r) => `${MP_SRC}/${r}.tsx`),
     ])
   } catch (error) {
     return { state: 'undetermined', reason: `取材失败:${String(error?.message ?? error).slice(0, 120)}`, findings }
@@ -224,11 +242,42 @@ export function judge(reader) {
   }
   findings.c3 = routeEntries.filter(([, path]) => !declared.has(path)).map(([name, path]) => `${name} → ${path}`)
 
+  // C4 结构复用维:声明镜像 ≠ 复用。HEAD 面现读 38 枚页顶写着 `// 镜像 packages/app/...`,
+  // 而真实 import @ihui/rn-app / @rn-shells 的页 = 0 枚 ⇒ "镜像"只是声明不是复用
+  // (AGENTS §4 禁止"两端各写一份靠对账追平";与 check-miniapp-mirror-fidelity 头注同一事实)。
+  // 档位 = 以 HEAD 自身违例集为锚点的差值棘轮:存量只报数,本次带进来的新违例才拦(§12e)。
+  let staleReuse = []
+  const pageRels = declaredRoutes.map((r) => `${MP_SRC}/${r}.tsx`)
+  if (pageRels.length > 0) {
+    const violating = []
+    for (const rel of pageRels) {
+      const text = contents.get(rel)
+      if (!text || !MIRROR_MARK_RE.test(text)) continue
+      if (!REUSE_IMPORT_RE.test(text)) violating.push(rel)
+    }
+    const headReader = makeReader('head')
+    let headContents
+    try {
+      headContents = headReader.readMany(pageRels)
+    } catch (error) {
+      return { state: 'undetermined', reason: `C4:HEAD 面存量锚点取不到(${String(error?.message ?? error).slice(0, 90)})⇒ 不判倒退也不记绿`, findings }
+    }
+    const headViolating = new Set(
+      pageRels.filter((rel) => {
+        const t = headContents.get(rel)
+        return t && MIRROR_MARK_RE.test(t) && !REUSE_IMPORT_RE.test(t)
+      }),
+    )
+    findings.c4 = violating.filter((rel) => !headViolating.has(rel)).sort()
+    staleReuse = violating.filter((rel) => headViolating.has(rel)).sort()
+  }
+
   return {
-    state: findings.c1.length + findings.c2.length + findings.c3.length > 0 ? 'red' : 'ok',
+    state: findings.c1.length + findings.c2.length + findings.c3.length + findings.c4.length > 0 ? 'red' : 'ok',
     findings,
     staleIcons,
-    measured: { rnNames: rnNames.size, exported: exported.size, lucide: lucideTotal, routes: routeEntries.length, files: files.length },
+    staleReuse,
+    measured: { rnNames: rnNames.size, exported: exported.size, lucide: lucideTotal, routes: routeEntries.length, files: files.length, declared: declaredRoutes.length },
   }
 }
 
@@ -260,6 +309,9 @@ function main() {
   )
   console.log(`  C2 图标:消费面 ${m.lucide} 个 / 生成物在册 ${m.lucide - r.findings.c2.length} 个 / 缺口 ${r.findings.c2.length} / 生成物残名 ${r.staleIcons.length}(只报数)`)
   console.log(`  C3 路由:映射 ${m.routes} 条 / 指向不在册页 ${r.findings.c3.length} 条`)
+  console.log(
+    `  C4 结构复用:声明镜像的页 ${m.declared ?? 0} 枚 / 真复用(共享屏或壳)= 本票后应逐轮上涨 / 存量未复用 ${r.staleReuse?.length ?? 0} 枚(只报数) / 本次新违例 ${r.findings.c4.length} 条`,
+  )
   for (const [label, list] of [
     ['C1', r.findings.c1],
     ['C2', r.findings.c2],
@@ -273,7 +325,7 @@ function main() {
     )
     process.exit(1)
   }
-  console.log('✅ 三维覆盖对账通过(消费面取用全集 ⊆ 兼容层/生成物,映射目标全在册)')
+  console.log('✅ 四维覆盖对账通过(消费面取用全集 ⊆ 兼容层/生成物,映射目标全在册,声明镜像页无新增"声明不复用");')
   process.exit(0)
 }
 
