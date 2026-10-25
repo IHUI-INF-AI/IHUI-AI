@@ -4257,6 +4257,126 @@ export function auditSweeperLiveness(opts = {}) {
   }
 }
 
+const CROSS_END_DRIFT_INTERVAL_MS = Number(
+  process.env.IHUI_CROSS_END_DRIFT_INTERVAL_MS || 60 * 60 * 1000,
+)
+
+/**
+ * 跨端对齐漂移巡检(2026-10-26 立):尺子 `check-cross-end-parity-drift.mjs` 的头注自述
+ * 「供 git-guardian 巡检轮派发」,而全仓此前**零派发** —— 判据齐全却无人调度,失效形态是安静
+ * (§0.9「造好没装车」= 没有)。本函数是它唯一的调度器。
+ *
+ * 三态(§0.3):ok 只写一行读数(涨跌都要有证据链);regressed 到人(§5e-1:正文自带可执行
+ * 下一步,去重身份 = 倒退维名,不把会抖动的明细清单塞进去重键);undetermined 只写 ⚠️,
+ * 不喊人也不记绿。判机器状态 ⇒ 绝不进提交链(§12e);不改本守护退出码(与
+ * auditSweeperLiveness 同型)。60 分钟节流:尺子要跑三道子对账器(每次数秒),而漂移是慢变量。
+ */
+export function auditCrossEndParityDrift(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CROSS_END_DRIFT_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'cross-end-drift-last.json'),
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-cross-end-parity-drift.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 跨端漂移巡检:尺子不在位(scripts/check-cross-end-parity-drift.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 跨端漂移巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--record', '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 5 * 60 * 1000, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // exit 1 = 判出倒退、exit 2 = 未判定;两种都**不是**"尺子坏了",结论整份在 stdout。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  // runner 两种契约都收:生产派生(`{ok,out,err,status}`)与镜像测试(`{status,stdout,stderr}`)。
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const stderr = String(r.err ?? r.stderr ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用"那一支 */
+  }
+  if (!parsed || typeof parsed.state !== 'string') {
+    logger(
+      `⚠️ 跨端漂移巡检:尺子结论不可用:未判定 —— ${stderr.slice(0, 120) || '未取到 JSON'}` +
+        ` ⇒ 本轮没判,不等于"没有倒退"`,
+    )
+    return { ran: true, ok: false, state: 'unparsed' }
+  }
+  const cur = parsed.cur ?? {}
+  const reasons = Array.isArray(parsed.reasons) ? parsed.reasons : []
+  if (parsed.state === 'undetermined') {
+    logger(
+      `⚠️ 跨端漂移巡检:未判定(${parsed.why ?? '子对账器取不到结论'})⇒ 本轮没判,` +
+        `既不算"对齐了"也不算"倒退了"(§0.3)`,
+    )
+    return { ran: true, ok: false, state: 'undetermined', why: parsed.why ?? null }
+  }
+  if (parsed.state === 'regressed') {
+    const dims = reasons.map((x) => x?.dim).filter(Boolean)
+    const detail =
+      `跨端对齐倒退 ${reasons.length} 维:` +
+      reasons.map((x) => `\n· ${x?.dim}:${x?.detail}`).join('') +
+      `\n\n可执行下一步:① node scripts/check-cross-end-parity-drift.mjs 看三态与 reasons;` +
+      `② 账本文档落后(mirror 净增而文档未重生成)⇒ node scripts/report-rn-miniapp-gaps.mjs ` +
+      `--write docs/engineering/rn-miniapp-parity-matrix.md;` +
+      `③ 镜像/登记真倒退 ⇒ 按 reasons 的维定位本次改动,或 node scripts/repair-cross-end-mirror.mjs 预演补回声明链。`
+    logger(`⚠️ 跨端对齐倒退:${dims.join(',') || '未命名维度'} ⇒ 已按稳定身份到人`)
+    notify('跨端对齐倒退', detail, {
+      severity: 'warning',
+      dedupKey: `cross-end-drift;${[...new Set(dims)].sort().join('+')}`,
+      logger,
+    })
+    return { ran: true, ok: false, state: 'regressed', dims, reasons }
+  }
+  logger(
+    `✅ 跨端对齐漂移:无倒退(共享屏镜像 ${cur.mirrored ?? '?'}/${cur.sharedTotal ?? '?'}` +
+      ` · web→RN 已登记 ${cur.aligned ?? '?'} / 未映射 ${cur.unmapped ?? '?'}` +
+      ` · 门 128 判红 ${cur.coverageRed ?? '?'} · 登记表腐烂 ${cur.mapRot ?? '?'})`,
+  )
+  return { ran: true, ok: true, state: 'ok', cur }
+}
+
 const INDEX_UNMERGED_INTERVAL_MS = Number(process.env.IHUI_INDEX_UNMERGED_INTERVAL_MS || 15 * 60 * 1000)
 
 /**
@@ -5499,6 +5619,10 @@ function main() {
     // (10-22 护栏③整批让路 / 10-23 摘除不写留痕,两度实证)。只读探针,不改退出码、不喊人
     // (§12e);挂在两族 tick 刚刷新的这一轮之后,同轮即可验证健康。自带 30 分钟节流。
     if (!CHECK_ONLY) auditSweeperLiveness()
+    // 跨端对齐漂移(2026-10-26 立):尺子自述"供 guardian 巡检轮派发",而此前全仓零派发 ——
+    // 判据齐全却无人调度。同一挂点语义(健康轮次早退之前 + !CHECK_ONLY),自带 60 分钟节流;
+    // 判机器状态绝不进提交链(§12e),只在 regressed 那一档按稳定身份到人。
+    if (!CHECK_ONLY) auditCrossEndParityDrift()
     // index 烂尾哨兵(2026-10-24 立,尺子 = scripts/check-index-unmerged-age.mjs):stash pop
     // 冲突/merge 中断逃逸会让 index 挂 unmerged 条目数小时(实测 12h)。同一挂点语义 ——
     // 判机器状态绝不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。15 分钟节流。
@@ -5658,6 +5782,7 @@ export const __test__ = {
   auditPublicPathProbe,
   auditTunnelLegHealth,
   auditSweeperLiveness,
+  auditCrossEndParityDrift,
   auditIndexUnmerged,
   sweepStaleClosedRows,
   sweepBannedBuckets,
