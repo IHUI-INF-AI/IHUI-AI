@@ -31,12 +31,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native'
 import { Mic, Square, Trash2, X } from 'lucide-react-native'
 import { createVoiceNote, deleteVoiceNote, listVoiceNotes } from '@ihui/api-client'
 import { rnRadius } from '@ihui/design-tokens'
+import { TextField } from '@ihui/rn-app'
 import type { VoiceNoteGroupFacet } from '@ihui/types'
 import {
   formatVoiceNoteDuration,
@@ -54,7 +54,7 @@ import {
 } from '@ihui/shared/chat/voice-note'
 import { useI18n } from '../../i18n'
 import { useVoiceRecorder } from '../../hooks/use-voice-recorder'
-import { tokens } from '../../theme/active-tokens'
+import { tokens, currentRnTheme } from '../../theme/active-tokens'
 
 /** RN locale → whisper 语言提示(兜底 zh,与 VoiceInput/useVoiceRecorder 默认同档) */
 const STT_LANGUAGE: Record<string, string> = {
@@ -365,7 +365,10 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                 )}
               </View>
 
-              <TextInput
+              {/* G-978007:裸 TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);
+                  style 自带 1px 常态描边排在 RESTING_BORDER 后原样生效,聚焦只换色不改宽 */}
+              <TextField
+                colorScheme={currentRnTheme()}
                 style={styles.searchInput}
                 value={query}
                 onChangeText={setQuery}
