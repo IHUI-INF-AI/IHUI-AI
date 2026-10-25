@@ -1,10 +1,10 @@
 {
   "schema": "incident-signal",
-  "version": 1,
+  "version": 2,
   "status": "draft",
   "reviewBy": "2027-01-31",
   "format": "jsonl",
-  "description": "需求/异常自动发现器的只读取数契约 v1。生产方(api_logs 导出 / Grafana 告警导出 / 用户反馈导出)按本契约逐行写 JSONL;消费方 scripts/triage-incidents.mjs 离线归类。本契约不含任何连接凭据,归类器不连库、不调 Grafana。",
+  "description": "需求/异常自动发现器的只读取数契约 v2。生产方(api_logs 导出 / Grafana 告警导出 / 用户反馈导出 / scripts/deploy-outcome-intake.mjs 的部署结果映射)按本契约逐行写 JSONL;消费方 scripts/triage-incidents.mjs 离线归类、scripts/deploy-feedback.mjs 聚类后登记可派单台账行,两者共用 scripts/lib/incident-cluster.mjs 的身份/聚类判据。v1→v2 只新增 source=deploy_outcome 这一个生产者(部署失败/回滚回流为新事故信号),字段面与身份键未变。本契约不含任何连接凭据,归类器不连库、不调 Grafana。",
   "required": ["at", "source", "kind", "severity", "message"],
   "optional": ["traceId", "route"],
   "fields": {
@@ -16,8 +16,8 @@
     },
     "source": {
       "type": "string",
-      "enum": ["api_logs", "grafana_alert", "user_feedback"],
-      "note": "票面三个消费入口。新增入口必须先改本契约并提 reviewBy,再改消费方。"
+      "enum": ["api_logs", "grafana_alert", "user_feedback", "deploy_outcome"],
+      "note": "票面四个消费入口。新增入口必须先改本契约并提 reviewBy,再改消费方。"
     },
     "kind": {
       "type": "string",
@@ -55,7 +55,8 @@
   "owners": {
     "api_logs": "后端(api)",
     "grafana_alert": "运维值班",
-    "user_feedback": "产品/体验"
+    "user_feedback": "产品/体验",
+    "deploy_outcome": "运维值班"
   },
   "identity": {
     "key": "source|kind|route:<归一化 route>[|code:<错误码>],无 route 时退 code:<错误码>,两者皆无则 msg:<归一化消息>",
@@ -65,6 +66,7 @@
   "producers": {
     "api_logs": "待后续席位接:packages/database 的 api_logs 只读导出为 JSONL(本器不连库)",
     "grafana_alert": "待后续席位接:Alertmanager GET /api/v2/alerts 的 alertname/labels 映射为本契约行(本器不调 Grafana)",
-    "user_feedback": "待后续席位接:feedbacks 既有导出落盘的 JSONL"
+    "user_feedback": "待后续席位接:feedbacks 既有导出落盘的 JSONL",
+    "deploy_outcome": "scripts/deploy-outcome-intake.mjs:把 .ihui-agent/deploy-decisions.jsonl 的失败型 action 映射为本契约行(本器即生产者;不联网、不读库、不 spawn)"
   }
 }
