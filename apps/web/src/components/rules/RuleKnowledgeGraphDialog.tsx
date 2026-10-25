@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, TrendingUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { rulesApi } from './rules-api'
+import { apiOrThrow } from '@/lib/api'
 import type { RuleKnowledgeGraph } from './types'
 import type { Rule } from '@ihui/types'
 import { Button, CloseButton } from '@ihui/ui-react'
@@ -115,7 +115,7 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
     let cancelled = false
     setLoading(true)
     setError(null)
-    rulesApi<RuleKnowledgeGraph>('/api/rules/knowledge-graph')
+    apiOrThrow<RuleKnowledgeGraph>('/api/rules/knowledge-graph')
       .then((res) => {
         if (!cancelled) {
           setGraph(res)
