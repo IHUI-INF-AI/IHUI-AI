@@ -19,7 +19,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as tr } from '../auto-triage.mjs'
@@ -73,10 +73,12 @@ test('③b 配额:只数当日 registered(observed/quota-deferred 不占额)', (
   assert.equal(tr.registeredToday(led, now), 1)
 })
 
-test('④ 登记通道:live-doc-edit 子进程形态(env 驱动 + 唯一入口路径)', () => {
+test('④ 登记通道:live-doc-edit 子进程形态(env 驱动 + 唯一入口路径 + 取号令牌)', () => {
   const calls = []
+  let block = ''
   const fakeSpawn = (_cmd, argv, opts) => {
     calls.push({ argv, opts })
+    block = readFileSync(opts.env.LIVE_BLOCK_FILE, 'utf8')
     return { status: 0, stdout: '✅ 回读:本块每一条非空行都在 HEAD 里', stderr: '' }
   }
   const r = tr.registerToPlan({ source: 'mail-failure', fingerprint: 'fpt', title: '测试票', evidence: 'e' }, fakeSpawn)
@@ -85,6 +87,17 @@ test('④ 登记通道:live-doc-edit 子进程形态(env 驱动 + 唯一入口�
   assert.ok(String(calls[0].argv[0]).endsWith(LDE_TAIL), LDE_MSG)
   assert.equal(calls[0].opts.env.LIVE_DOC, 'PROJECT_PLAN.md')
   assert.match(calls[0].opts.env.LIVE_MSG, /auto-triage/)
+  // 取号必须走令牌(手填/自算号在并发仓必撞号;live-doc-edit 在每次 CAS 按当下 HEAD 现算)
+  assert.match(block, /^- \[ \] \{\{NEXT_ID:G\}\} \[auto-triage\] /, `登记行缺取号令牌:${block}`)
+  assert.ok(!/^- \[ \] G-\d+/.test(block), '不得自己拼号')
+  // 台账行不得出现 7~64 位 hex(守门 117 当短 sha 拒落,2026-10-26 端到端实测)
+  assert.ok(!/[0-9a-f]{7,64}/i.test(block), `登记行混入 hex 串会被 live-doc-edit 整块拒落:${block}`)
+})
+
+test('④ 登记行守卫:7~64 位 hex 折占位,版本号/日期/域名不误伤', () => {
+  assert.equal(tr.sanitizeHexRuns('指纹 abc123def456;'), '指纹 [hex:12];')
+  assert.equal(tr.sanitizeHexRuns('decimal.js 16.3.6 2026-10-26'), 'decimal.js 16.3.6 2026-10-26')
+  assert.equal(tr.sanitizeHexRuns('sha 0123456789abcdef0123456789abcdef01234567'), 'sha [hex:40]')
 })
 
 test('④ 登记通道:live-doc-edit 失败 ⇒ 不冒充已登记', () => {

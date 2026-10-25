@@ -27,9 +27,14 @@ import {
   checkRefs,
   extractRegistryRefs,
   parseLibRefs,
+  ratchetOf,
+  readBaseline,
   resolveRef,
+  rotKeyOf,
   suggestFix,
+  writeBaseline,
 } from '../check-gate-rot.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const SCRIPT = fileURLToPath(new URL('../check-gate-rot.mjs', import.meta.url))
 const normalize = (p) => String(p).replace(/\\/g, '/')
@@ -134,4 +139,81 @@ test('CLI 真跑:三档退出码 0/1/2 与 --json 形状', () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ── 差值档(2026-10-26 接线时补):只拦新增,存量只报数 ───────────────────────────
+
+test('差值档:身份不含行号/时刻,new 与 fixed 分列', () => {
+  const rot = [
+    { source: 'judgement-libs', id: '', ref: 'scripts/lib/a.mjs', resolved: 'scripts/lib/a.mjs' },
+    { source: 'guardian-registry', id: '42', ref: 'check-b.mjs', resolved: 'scripts/check-b.mjs' },
+  ]
+  assert.equal(rotKeyOf(rot[1]), 'guardian-registry|42|scripts/check-b.mjs')
+  const r = ratchetOf(rot, ['judgement-libs|-|scripts/lib/a.mjs', 'guardian-registry|9|scripts/gone.mjs'])
+  assert.equal(r.newRot.length, 1)
+  assert.equal(r.newRot[0].resolved, 'scripts/check-b.mjs')
+  assert.deepEqual(r.fixed, ['guardian-registry|9|scripts/gone.mjs'])
+})
+
+test('差值档:基线读不到/形状坏 = 未判定,绝不回落成空基线放行', () => {
+  const dir = mkScratch('gate-rot-baseline-')
+  try {
+    const missing = readBaseline(join(dir, 'nope.json'), () => {
+      throw new Error('ENOENT')
+    })
+    assert.equal(missing.status, 'undetermined')
+    assert.deepEqual(missing.keys, [])
+    const bad = readBaseline(join(dir, 'bad.json'), () => '{"keys":"nope"}')
+    assert.equal(bad.status, 'undetermined')
+    const ok = readBaseline(join(dir, 'ok.json'), () => '{"keys":["a|b|c",""]}')
+    assert.equal(ok.status, 'ok')
+    assert.deepEqual(ok.keys, ['a|b|c'])
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('差值档:写基线 → 读回逐字一致(排序 + 去重)', () => {
+  const dir = mkScratch('gate-rot-write-')
+  try {
+    const file = join(dir, 'b.json')
+    const w = writeBaseline(file, ['b|2|y', 'a|1|x', 'a|1|x'], { now: new Date('2026-10-26T00:00:00Z') })
+    assert.equal(w.written, 2)
+    const back = readBaseline(file)
+    assert.equal(back.status, 'ok')
+    assert.deepEqual(back.keys, ['a|1|x', 'b|2|y'])
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('差值档 CLI:无基线全算新增 exit 1 / --write-baseline 认账后转 known exit 0', () => {
+  const dir = mkScratch('gate-rot-cli-')
+  try {
+    mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
+    writeFileSync(join(dir, 'scripts', 'guardian-runner.mjs'), REGISTRY, 'utf8')
+    writeFileSync(join(dir, 'scripts', 'lib', 'judgement-libs.json'), '["scripts/lib/a.mjs","scripts/lib/gone.mjs"]', 'utf8')
+    writeFileSync(join(dir, 'scripts', 'lib', 'a.mjs'), '// x', 'utf8')
+    writeFileSync(join(dir, 'scripts', 'check-a.mjs'), '// x', 'utf8')
+    const baseline = join(dir, 'baseline.json')
+
+    // 无基线 ⇒ 当前腐烂全算新增(方向:多喊一次),exit 1
+    const first = spawnSync(process.execPath, [SCRIPT, '--root', dir, '--json', '--ratchet', '--baseline', baseline], { encoding: 'utf8' })
+    assert.equal(first.status, 1, first.stderr)
+    const p1 = JSON.parse(first.stdout.trim().split(/\r?\n/).pop())
+    assert.equal(p1.overall, 'new')
+    assert.equal(p1.newRot.length, 1)
+    assert.equal(p1.baseline.status, 'undetermined')
+
+    // 人工认账后 ⇒ 存量转 known,exit 0,且不再算 new
+    const w = spawnSync(process.execPath, [SCRIPT, '--root', dir, '--write-baseline', '--baseline', baseline], { encoding: 'utf8' })
+    assert.equal(w.status, 0, w.stderr)
+    const second = spawnSync(process.execPath, [SCRIPT, '--root', dir, '--json', '--ratchet', '--baseline', baseline], { encoding: 'utf8' })
+    assert.equal(second.status, 0, second.stderr)
+    const p2 = JSON.parse(second.stdout.trim().split(/\r?\n/).pop())
+    assert.equal(p2.overall, 'known')
+    assert.equal(p2.newRot.length, 0)
+    assert.equal(p2.rot.length, 1)
+  } finally {
+    rmScratch(dir)
+  }
+})

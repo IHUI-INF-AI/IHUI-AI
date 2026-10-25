@@ -27,8 +27,14 @@
  * → 改清单 → `root-guard --seal`。
  *
  * 用法:node scripts/check-gate-rot.mjs [--json] [--suggest] [--root <path>] [--self-test]
+ *      node scripts/check-gate-rot.mjs --ratchet [--baseline <file>] [--write-baseline]
+ *
+ * 差值档(2026-10-26 接线时补,治"存量腐烂天天喊、真新增反被淹"):`--ratchet` 只把
+ * **相对基线新增**的腐烂算失败(exit 1);存量只报数(exit 0)。基线缺失/形状坏 ⇒ 不回落成
+ * 空基线放行,而是把当下每条都算新增(失效方向 = 多喊一次,§0.10),并点名 `baseline=missing`;
+ * 基线只能由人看读数后 `--write-baseline` 显式认账(不自动追认,否则新增腐烂第一次就被吞掉)。
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -38,6 +44,9 @@ export const SOURCES = Object.freeze([
   { name: 'guardian-registry', path: 'scripts/guardian-runner.mjs', kind: 'registry' },
   { name: 'judgement-libs', path: 'scripts/lib/judgement-libs.json', kind: 'libs' },
 ])
+
+/** 差值档默认基线(机器状态件,不进提交链;仓外/state 落点见 §15b) */
+export const DEFAULT_BASELINE = join(ROOT, '.ihui-agent', 'state', 'gate-rot-baseline.json')
 
 const SCHEMA_VERSION = 1
 
@@ -159,6 +168,51 @@ export function audit(root = ROOT, readFile = readText, exists = existsSync) {
   return { checked, rot, undetermined, overall, suggest: suggestFix(rot, (p) => exists(join(root, p))) }
 }
 
+/**
+ * 腐烂条目的稳定身份 = 来源 + 注册表 id + 解析后路径。
+ * 刻意不含行号/时刻/扫描顺序:那三样每次重扫都会抖,进身份就变成"每次都算新增"。
+ */
+export function rotKeyOf(x) {
+  return `${x?.source ?? '?'}|${x?.id || '-'}|${x?.resolved ?? x?.ref ?? '?'}`
+}
+
+/** 与基线做集合差:新增(要喊)/ 已修(基线有、本轮没有)分开报,存量只报数。 */
+export function ratchetOf(rot, baselineKeys) {
+  const base = new Set(Array.isArray(baselineKeys) ? baselineKeys : [])
+  const current = new Set(rot.map(rotKeyOf))
+  return {
+    keys: [...current].sort(),
+    newRot: rot.filter((x) => !base.has(rotKeyOf(x))),
+    fixed: [...base].filter((k) => !current.has(k)).sort(),
+  }
+}
+
+/**
+ * 读基线。读不到/形状坏 ⇒ status='undetermined' 且 keys=[] —— 调用方据此把当下每条都算
+ * 新增(方向:多喊一次),**绝不**回落成"空基线 ⇒ 全 known ⇒ 静默放行"。
+ */
+export function readBaseline(file, readFile = (p) => readFileSync(p, 'utf8')) {
+  let doc
+  try {
+    doc = JSON.parse(readFile(file))
+  } catch (e) {
+    return { status: 'undetermined', keys: [], why: `基线读不到或非法 JSON(${file}):${e?.message ?? e}` }
+  }
+  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.keys)) {
+    return { status: 'undetermined', keys: [], why: `基线形状坏(缺 keys 数组):${file}` }
+  }
+  return { status: 'ok', keys: doc.keys.filter((k) => typeof k === 'string' && k.trim()), at: doc.at ?? null }
+}
+
+/** 写基线(只有人显式 --write-baseline 才走这里;自动追认会把新增腐烂吞掉)。 */
+export function writeBaseline(file, keys, { now = new Date() } = {}) {
+  const dir = dirname(file)
+  if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true })
+  const uniq = [...new Set(keys.map(String))].sort()
+  writeFileSync(file, `${JSON.stringify({ v: SCHEMA_VERSION, at: now.toISOString(), keys: uniq }, null, 1)}\n`, 'utf8')
+  return { written: uniq.length, file }
+}
+
 function parseArgs(argv) {
   const out = { _: [] }
   for (let i = 0; i < argv.length; i += 1) {
@@ -260,7 +314,51 @@ function main(argv) {
   const args = parseArgs(argv)
   if (args['self-test']) return selfTest()
   const root = typeof args.root === 'string' ? args.root : ROOT
+  const baselineFile = typeof args.baseline === 'string' ? args.baseline : DEFAULT_BASELINE
   const r = audit(root)
+
+  // 显式认账档:只有人看读数后才跑。自动追认 = 新增腐烂第一次就被吞掉(§0.10 反向失效)。
+  if (args['write-baseline']) {
+    if (r.overall === 'undetermined') {
+      console.log(`❓ 未判定:${r.undetermined.map((u) => u.why).join(' / ')} ⇒ 拒绝写基线(判不了的面不得被认账)`)
+      return 2
+    }
+    const w = writeBaseline(baselineFile, r.rot.map(rotKeyOf))
+    console.log(`已写基线:${w.written} 条 ⇒ ${w.file}(此后 --ratchet 只拦新增)`)
+    return 0
+  }
+
+  if (args.ratchet) {
+    const base = readBaseline(baselineFile)
+    const ratchet = ratchetOf(r.rot, base.keys)
+    const state = r.overall === 'undetermined' ? 'undetermined' : ratchet.newRot.length ? 'new' : r.rot.length ? 'known' : 'clean'
+    const payload = {
+      v: SCHEMA_VERSION,
+      overall: state,
+      checked: r.checked,
+      rot: r.rot,
+      newRot: ratchet.newRot,
+      fixed: ratchet.fixed,
+      baseline: { file: baselineFile, status: base.status, count: base.keys.length, why: base.why ?? null },
+      undetermined: r.undetermined,
+    }
+    if (args.json) {
+      console.log(JSON.stringify(payload))
+    } else {
+      console.log(
+        `GATE-ROT state=${state} known=${r.rot.length} new=${ratchet.newRot.length} fixed=${ratchet.fixed.length}` +
+          `${base.status === 'ok' ? '' : ` baseline=${base.status}`}`,
+      )
+      for (const x of ratchet.newRot) console.log(`❌ 新增腐烂[${x.source}${x.id ? ` #${x.id}` : ''}]:${x.resolved}`)
+      for (const k of ratchet.fixed) console.log(`✅ 已修(基线有、本轮无):${k}`)
+      for (const u of r.undetermined) console.log(`❓ 未判定[${u.source}]:${u.why}`)
+      if (state === 'known') console.log(`ℹ 存量腐烂 ${r.rot.length} 条只报数(差值档只拦新增;认账 --write-baseline,修法 --suggest)`)
+      if (state === 'undetermined') console.log('❓ 有清单判不了,不记绿')
+      if (base.status !== 'ok') console.log(`ℹ 基线${base.status === 'undetermined' ? '不可用' : base.status}:${base.why ?? baselineFile} ⇒ 当下腐烂一律按新增报出`)
+    }
+    return state === 'undetermined' ? 2 : state === 'new' ? 1 : 0
+  }
+
   const payload = { v: SCHEMA_VERSION, overall: r.overall, checked: r.checked, rot: r.rot, undetermined: r.undetermined, suggest: r.suggest }
   if (args.json) {
     console.log(JSON.stringify(payload))
@@ -288,6 +386,11 @@ export const __test__ = {
   checkRefs,
   suggestFix,
   audit,
+  rotKeyOf,
+  ratchetOf,
+  readBaseline,
+  writeBaseline,
+  DEFAULT_BASELINE,
   SOURCES,
   RotShapeError,
 }
