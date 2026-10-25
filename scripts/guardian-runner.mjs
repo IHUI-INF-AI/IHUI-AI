@@ -3436,6 +3436,36 @@ const checks = [
     ]
   },
   {
+    id: '251',
+    label:
+      '🧱 RN 兼容层覆盖面对账(blocking,小程序复用共享屏/RN 壳的"能不能编过"三维 —— 缺一名即整屏运行期炸,而 babel 构建照样绿)',
+    script: 'check-rn-compat-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_COMPAT_COVERAGE',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/rn-compat/',
+      'apps/miniapp-taro/src/app.config.ts',
+      'apps/miniapp-taro/config/',
+      'packages/app/src/',
+      'apps/mobile-rn/src/',
+      'scripts/gen-rn-compat.mjs',
+      'scripts/check-rn-compat-coverage.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 本门判的是覆盖面,不是观感:消费面(packages/app + apps/mobile-rn)从 react-native /',
+      '     lucide-react-native 具名取用的全集,必须在 src/rn-compat 出口或生成物里真在册。',
+      '     ① C1 缺标识符 ⇒ 在 apps/miniapp-taro/src/rn-compat 补出口(值档补实现、类型档补类型位,',
+      '        两者缺一分别炸运行期与 tsc);',
+      '     ② C2 缺图标 ⇒ 跑 `node scripts/gen-rn-compat.mjs --write`(名字全集按 HEAD 面现算,不需要人工登记);',
+      '     ③ C3 路由映射指向不在册页 ⇒ 同上重生成(映射由导航器登记 ∩ 跨端登记表 join 得出)。',
+      '     绝对零容忍:兼容层的缺口没有"存量合理"这一说 —— 补上即绿,禁止为消红放宽判据(§12e)。',
+      '     自检:node scripts/check-rn-compat-coverage.mjs --self-test(6 例,含摘掉即翻红)',
+      '',
+    ]
+  },
+  {
     id: '129',
     label:
       '🛡️ 提示注入登记对账(blocking,"以宿主名义进模型提示"的每段必须有登记的 producer 与记账出口;拦 登记没生产 / 生产没消费 / 裸 [系统提醒] 前缀 三型)',
