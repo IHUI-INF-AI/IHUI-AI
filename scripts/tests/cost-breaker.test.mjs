@@ -80,3 +80,40 @@ test('④ 台账坏行跳过、配置形状锁、记账行与退出码', () => {
   assert.equal(cb.exitCodeOf({ allowed: true }), 0)
   assert.equal(cb.exitCodeOf({ allowed: false }), 3)
 })
+
+const TOK_CAPS = cb.loadCaps(
+  JSON.stringify({ kinds: { session: { tokensPerSession: 1000, tokensPerDay: 2500 } } }),
+)
+const tk = (minAgo, tokens) => ({ ts: NOW - minAgo * 60_000, kind: 'session', minutes: 1, tokens, note: '' })
+
+test('⑤ token 双闸:单会话闸按单条越线、日闸按 24 小时累计、小时窗只算 60 分钟', () => {
+  const single = cb.evaluate({ caps: TOK_CAPS, events: [tk(1, 1500)], kind: 'session', now: NOW })
+  assert.equal(single.allowed, false)
+  assert.ok(single.breaches.some((b) => /单会话/.test(b)))
+  const daily = cb.evaluate({
+    caps: TOK_CAPS,
+    events: [tk(10, 900), tk(600, 900), tk(900, 800)],
+    kind: 'session',
+    now: NOW,
+  })
+  assert.equal(daily.allowed, false)
+  assert.ok(daily.breaches.some((b) => /24 小时 2600 tokens/.test(b)))
+  const one = cb.evaluate({ caps: TOK_CAPS, events: [tk(10, 900)], kind: 'session', now: NOW })
+  assert.equal(one.allowed, true)
+  assert.equal(one.used.tokensHour, 900)
+  assert.equal(one.used.tokensDay, 900)
+})
+
+test('⑥ token 记账:台账读回 tokens,量不到的轮不写 0 冒充', () => {
+  const parsed = cb.parseLedger(
+    [
+      '{"ts":"2026-10-25T11:00:00Z","kind":"session","minutes":1,"tokens":1200}',
+      '{"ts":"2026-10-25T11:10:00Z","kind":"session","minutes":2}',
+    ].join('\n'),
+  )
+  assert.equal(parsed[0].tokens, 1200)
+  assert.equal(parsed[1].tokens, 0)
+  assert.equal(JSON.parse(cb.chargeLine({ kind: 'session', minutes: 1, tokens: 999.9, now: NOW })).tokens, 999)
+  assert.ok(!('tokens' in JSON.parse(cb.chargeLine({ kind: 'session', minutes: 1, now: NOW }))))
+  assert.throws(() => cb.chargeLine({ kind: 'session', minutes: 1, tokens: -1, now: NOW }), /非负数/)
+})

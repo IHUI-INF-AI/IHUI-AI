@@ -11,7 +11,8 @@
  *     租约算交代(它已机器可读地指名持有者),侧车记录算交代(它结构化地指名持有者或等待条件),
  *     两者皆无才是 P1 要收的那种"靠散文猜"的新账 —— 存量一律只报数(下面 stock),
  *     因为 237 行历史账不可能在上线当天补齐:那是一台与任何提交都无关的恒红门(§12e)。
- *  A2 行内投影标头与侧车不一致:读不回(malformed)或投影 `renderHeader(侧车)` 不在行内 ⇒ 点名。
+ *  A2 行内投影标头与侧车不一致:读不回(malformed)或投影 `renderHeader(侧车)` 与行内标头**不逐字相等** ⇒ 点名。
+ *     逐字相等,不是"包含":标头文本恰好出现在正文别处、而行内标头写了另一个人,那种形态不得蒙过。
  *     投影本身属 P2,所以今天 A2 的射程只有"手工写了个不对的标头"这一型 —— 正是必须现在就拦的那型。
  *     **例外(2026-10-24 补)**:该键位若落在 A3 的矛盾组上,期望标头本身就不可判(见下),
  *     那一行 A2 **不判**并计入 `blind=` 点名 —— "没判"绝不写成"判过"(§0.3),也绝不因为
@@ -40,15 +41,17 @@
  * (哪天把 stock/dup 也判红)仍未升档,那一步的前置才是存量归零。
  *
  * 机读末行:`PLAN-FIELDS-RESULT state=clean|warn|red|undetermined a1=<n|NA> a2=<n> a3=<n|NA>
- *  dup=<n> conflict=<n> blind=<n> stock=<n> face=<head|staged|worktree>`
+ *  dup=<n> conflict=<n> blind=<n> orphan=<n> stock=<n> face=<head|staged|worktree>`
  * 退出码:0 = clean/warn / 1 = red / 2 = 未判定(取不到台账或侧车面,含 A3 的基准侧车面)。
+ * `orphan`(侧车记录在台账里找不到对应行)只报数、不进 verdict(规格 §1)。
  */
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { MAX as HEADER_MAX } from './lib/plan-field-line.mjs'
-import { parseHeader, renderHeader, resolveSidecar, stripHeader } from './lib/plan-field-line.mjs'
-import { claimMarkOf, compositeKeyOf, parseTaskRows, titleOf } from './lib/plan-task-index.mjs'
+import { parseHeader, renderHeader, resolveSidecar } from './lib/plan-field-line.mjs'
+import { fieldsFor } from './lib/plan-fields.mjs'
+import { claimMarkOf, compositeKeyOf, locateSidecarHeader, parseTaskRows, titleOf } from './lib/plan-task-index.mjs'
 import { readFieldsFace, readPlan } from './plan-tasks.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -121,6 +124,23 @@ export function judge(
   const a2List = []
   const blindList = []
   let stock = 0
+  // 孤儿记录(规格 §1):侧车记录在台账里找不到对应行 ⇒ **只报数、不判红**。
+  // 行键一律走单源 `fieldsFor`(含无主键行的 `T:<sha1>` 兜底键),不在本门另拼一份键;
+  // 兜底键本来就会在行被重写时换人,所以"孤儿"是这套设计的已知形态,不是违规。
+  const rowKeys = new Set()
+  for (const r of rows) rowKeys.add(fieldsFor({ line: r.raw, map: null }).key)
+  const orphanKeys = new Map()
+  for (const rec of allRecords ?? []) {
+    if (!rec || typeof rec.key !== 'string' || rec.key === '') continue
+    if (rowKeys.has(rec.key)) continue
+    orphanKeys.set(rec.key, (orphanKeys.get(rec.key) ?? 0) + 1)
+  }
+  let orphan = 0
+  const orphanList = []
+  for (const [key, n] of orphanKeys) {
+    orphan += n
+    orphanList.push(`  ${key}  ${n} 条侧车记录在台账里找不到对应行`)
+  }
   for (const r of rows.filter(isOpenRow)) {
     const line = r.raw
     const key = compositeKeyOf(line)
@@ -140,7 +160,8 @@ export function judge(
       a2List.push(`  L${r.line}  标头读不回(malformed):${clip(headerOf(line))}`)
     } else if (p.rec && rec) {
       const want = renderHeader(rec)
-      if (want !== '' && !line.includes(want))
+      // 逐字相等,不是包含(A2 契约):行内标头那一段必须与投影完全是同一串字符。
+      if (want !== '' && headerOf(line) !== want)
         a2List.push(
           `  L${r.line}  标头 ⇄ 侧车不一致 行内=${clip(headerOf(line))} 侧车=${clip(want)}`,
         )
@@ -154,6 +175,7 @@ export function judge(
     conflict: conflicts.length,
     blind: blindList.length,
     stock,
+    orphan,
     hasBase: !!baseRowTexts,
     hasBaseSide: baseSideSignatures !== null,
     a1List,
@@ -161,17 +183,14 @@ export function judge(
     a3List,
     conflictList,
     blindList,
+    orphanList,
   }
 }
 
-/** 行内那一段投影标头的原文(复用单源 stripHeader 的定位,不写第二份括号语法)。 */
+/** 行内那一段投影标头的原文(定位单源 locateSidecarHeader,不写第二份括号语法)。 */
 function headerOf(line) {
-  const stripped = stripHeader(line)
-  if (stripped === line) return ''
-  const m = /^\s*-\s*\[[ xX]\]\s*/.exec(stripped)
-  const prefixLen = m ? m[0].length : 0
-  const tail = stripped.slice(prefixLen)
-  return line.slice(prefixLen, line.length - tail.length).trim()
+  const span = locateSidecarHeader(line)
+  return span ? line.slice(span.start, span.end) : ''
 }
 
 const clip = (s, n = HEADER_MAX + 8) =>
@@ -234,7 +253,7 @@ export function verdict(v, face) {
     code: red ? 1 : 0,
     line:
       `PLAN-FIELDS-RESULT state=${state} a1=${a1Text} a2=${v.a2} a3=${a3Text} dup=${v.dup} ` +
-      `conflict=${v.conflict} blind=${v.blind} stock=${v.stock} face=${face}`,
+      `conflict=${v.conflict} blind=${v.blind} orphan=${v.orphan} stock=${v.stock} face=${face}`,
   }
 }
 
@@ -243,7 +262,7 @@ function run({ root = ROOT, face = 'head' } = {}) {
   if (!f.ok) {
     console.log(`⚠️ 未判定 —— ${f.why}`)
     console.log(
-      `PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA stock=NA face=${face}`,
+      `PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA orphan=NA stock=NA face=${face}`,
     )
     return 2
   }
@@ -261,7 +280,8 @@ function run({ root = ROOT, face = 'head' } = {}) {
     `A1 新增行缺交代 ${v.hasBase ? v.a1 : 'NA'} 枚 / A2 标头不一致 ${v.a2} 枚 / ` +
       `A3 新增矛盾键组 ${v.hasBaseSide ? v.a3 : 'NA'} 组 / ` +
       `同键同读数 dup ${v.dup} 组 / 全量矛盾 ${v.conflict} 组 / A2 盲区点名 ${v.blind} 枚 / ` +
-      `存量缺侧车记录 ${v.stock} 枚(dup/conflict/blind/存量只报数)`,
+      `孤儿记录 ${v.orphan} 条(只报数,不判红) / ` +
+      `存量缺侧车记录 ${v.stock} 枚(dup/conflict/blind/orphan/存量只报数)`,
   )
   for (const l of v.a1List.slice(0, 20)) console.log(`  · A1 ${l}`)
   if (v.a1List.length > 20) console.log(`  · A1 …另 ${v.a1List.length - 20} 枚同型未逐条打印`)
@@ -275,6 +295,9 @@ function run({ root = ROOT, face = 'head' } = {}) {
   for (const l of v.blindList.slice(0, 20)) console.log(`  · A2盲区 ${l}`)
   if (v.blindList.length > 20)
     console.log(`  · A2盲区 …另 ${v.blindList.length - 20} 枚同型未逐条打印`)
+  for (const l of (v.orphanList ?? []).slice(0, 20)) console.log(`  · 孤儿 ${l}`)
+  if ((v.orphanList ?? []).length > 20)
+    console.log(`  · 孤儿 …另 ${v.orphanList.length - 20} 条同型未逐条打印`)
   if (v.stock > 0)
     console.log(
       `   存量 ${v.stock} 枚 = P1 的迁移分母,结清出口:node scripts/plan-fields-extract.mjs --apply(只搬说辞,不改一行台账文本)`,
@@ -378,6 +401,25 @@ function selfTest() {
     v19.hasBaseSide === false &&
       /a3=NA/.test(verdict(v19, 'head').line) &&
       verdict(v19, 'head').code === 0,
+  )
+
+  // 孤儿记录(规格 §1):记录在台账里找不到对应行 ⇒ 只报数、不判红。
+  const orphanRec = { ...rec, key: 'G-999#台账里已经没有这一行' }
+  const v20 = judge([mk(fresh)], { map: new Map(), allRecords: [orphanRec] })
+  ok(
+    'S20 侧车记录找不到对应行 ⇒ orphan 报数且不判红',
+    v20.orphan === 1 && verdict(v20, 'staged').code === 0 && v20.a1 === 0,
+  )
+  const v21 = judge([mk(fresh)], { map: new Map([[rec.key, rec]]), allRecords: [rec] })
+  ok('S21 记录有对应行 ⇒ orphan=0', v21.orphan === 0)
+
+  // A2 的"逐字相等":want 若只是出现在正文别处,不得把行内那块错标头蒙过去。
+  const sneakyTitle = '- [ ] 〔归:另一个人〕 G-1 甲 细节'
+  const sneaky = `${sneakyTitle} —— 备注里写了 ${want}`
+  const skey = compositeKeyOf(sneaky)
+  ok(
+    'S22 标头必须逐字相等(正文里包含同一串不算)',
+    judge([mk(sneaky)], { map: new Map([[skey, { ...rec, key: skey }]]) }).a2 === 1,
   )
 
   let fails = 0
