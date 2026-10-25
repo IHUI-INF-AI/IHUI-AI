@@ -234,8 +234,174 @@ test('⑤ 出口件写法被 lint-staged 校验接受,且天然不进水印覆�
   )
 })
 
+const OUTLET_BASENAME = '.lintstagedrc.json'
+const ROOT_KEY = posix(ROOT_PKG_ABS)
+const asCandidates = (rels) =>
+  rels.map((rel) => ({ filepath: `${ROOT_POSIX}/${rel}`, status: 'M' }))
+
+/** 全仓「已跟踪却被 .gitignore 覆盖」集(现读,不写死枚数)。 */
+function ignoredTrackedFiles() {
+  return git(['ls-files', '-ci', '--exclude-standard', '-z']).split('\0').filter(Boolean).map(posix)
+}
+
+const hitByRoot = (rel, patterns) =>
+  patterns.some((p) => matchFiles(asCandidates([rel]), p, ROOT_POSIX).length > 0)
+
+/**
+ * 仍会炸的目录集:目录下存在"已跟踪 ∧ 被忽略 ∧ 被根 glob 命中"的文件。
+ * 它由现读现算得出 ⇒ 任何**新增目录**会自动进入 ⑥ 的四臂检查,不需要人工往本文件补名录;
+ * 反过来,某目录若已按 (b) 路线脱离忽略形态(或根 glob 不再覆盖),它就自动退出,不空转。
+ */
+function explosionDirs() {
+  const patterns = Object.keys(rootConfig())
+  return [
+    ...new Set(
+      ignoredTrackedFiles()
+        .filter((rel) => hitByRoot(rel, patterns))
+        .map((rel) => path.posix.dirname(rel)),
+    ),
+  ].sort()
+}
+
+async function discoveredConfigMap() {
+  const found = await searchConfigs({ cwd: ROOT, topLevelDir: ROOT }, silentLogger)
+  const out = {}
+  for (const [k, v] of Object.entries(found)) out[posix(k)] = v
+  return out
+}
+
+function trackedUnder(dir) {
+  return git(['ls-files', '-z', '--', dir])
+    .split('\0')
+    .filter(Boolean)
+    .map((rel) => ({ filepath: `${ROOT_POSIX}/${rel}`, status: 'M' }))
+}
+
+const relFromAbs = (abs) => posix(path.relative(ROOT, abs))
+
+test('⑥ 新增目录的出口件同样满足①②③④(仍会炸的目录自动纳入,无需人工补名录)', async () => {
+  const patterns = Object.keys(rootConfig())
+  const dirs = explosionDirs()
+  assert.ok(
+    dirs.length > 0,
+    '现读没有任何目录仍含"已跟踪 ∧ 被忽略 ∧ 被根 glob 命中"的文件 ⇒ 前提消失,应连出口件一起撤,而不是空转',
+  )
+  assert.ok(
+    dirs.includes(ARCHIVE_REL),
+    `archive 已不在仍会炸的目录集(现读 ${dirs.join(', ')})⇒ 本文件的 archive 四臂失去对象,要先对账`,
+  )
+  const configs = await discoveredConfigMap()
+  const bystander = { filepath: `${ROOT_POSIX}/AGENTS.md`, status: 'M' }
+  for (const dir of dirs) {
+    const outletRel = `${dir}/${OUTLET_BASENAME}`
+    const outletAbs = path.join(ROOT, ...outletRel.split('/'))
+    const sub = trackedUnder(dir)
+    const boom = ignoredTrackedFiles().filter(
+      (rel) => rel.startsWith(`${dir}/`) && hitByRoot(rel, patterns),
+    )
+    assert.ok(sub.length > 0, `${dir}: 子树枚举不到已跟踪文件 ⇒ 无输入,不记绿(§0.3)`)
+    assert.ok(
+      boom.length > 0,
+      `${dir}: 枚举不到根 glob 能命中的 ignored-tracked 文件 ⇒ 出口件已无对象`,
+    )
+
+    // ① 出口件存在、已在索引里、且被 lint-staged 自己的 searchConfigs 发现
+    assert.ok(existsSync(outletAbs), `新增目录缺就近出口:${outletRel}(照 archive 同形同写法建)`)
+    assert.ok(
+      git(['ls-files', '--', outletRel]).trim().length > 0,
+      `${outletRel} 不在索引里 ⇒ 对被忽略目录等于不存在。出路:git add -f ${outletRel}`,
+    )
+    assert.ok(
+      Object.keys(configs).some((k) => k.endsWith(`/${outletRel}`)),
+      `lint-staged 没发现就近出口:${outletRel}`,
+    )
+
+    // ② 出口 glob 对本目录已跟踪文件一条都不命中,且出口桶恰等于本目录全集(不外溢)
+    const cfg = validateConfigLogic(
+      JSON.parse(readFileSync(outletAbs, 'utf8')),
+      outletAbs,
+      silentLogger,
+    )
+    for (const pattern of Object.keys(cfg)) {
+      const hits = matchFiles(sub, pattern, ROOT_POSIX)
+      assert.equal(
+        hits.length,
+        0,
+        `${outletRel}: glob "${pattern}" 命中本目录 ${hits.length} 枚已跟踪文件 ⇒ 又跑任务又 re-stage 失败`,
+      )
+    }
+    const grouped = await groupFilesByConfig({
+      configs,
+      files: [...sub, bystander],
+    })
+    assert.deepEqual(
+      (grouped[posix(outletAbs)]?.files ?? []).map((f) => f.filepath).sort(),
+      sub.map((f) => f.filepath).sort(),
+      `${outletRel}: 出口桶 ≠ 本目录全集(少一枚 = 那枚回根配置继续炸;多一枚 = 射程外溢)`,
+    )
+    assert.deepEqual(
+      (grouped[ROOT_KEY]?.files ?? []).map((f) => f.filepath),
+      [bystander.filepath],
+      `${outletRel}: 根配置桶应只剩本目录之外的对照文件`,
+    )
+
+    // ③ 前提仍在:根配置确实覆盖本目录下那批 ignored-tracked 文件的扩展名
+    const covering = Object.keys(rootConfig()).filter(
+      (pattern) => matchFiles(asCandidates(boom), pattern, ROOT_POSIX).length > 0,
+    )
+    assert.ok(
+      covering.length > 0,
+      `${dir}: 根配置已无任何 glob 命中该目录 ${boom.length} 枚 ignored-tracked 文件 ⇒ 出口件已无对象,应撤`,
+    )
+
+    // ④ 变异对照(纯函数,不真删文件):抽掉本目录出口 ⇒ 本目录已跟踪文件全部落回根配置
+    const withoutOutlet = { ...configs }
+    delete withoutOutlet[posix(outletAbs)]
+    const leaked = await groupFilesByConfig({ configs: withoutOutlet, files: sub })
+    assert.equal(
+      (leaked[ROOT_KEY]?.files ?? []).length,
+      sub.length,
+      `${outletRel}: 抽掉出口后本目录文件没有全部回根配置 ⇒ 本目录的 ④ 没有牙`,
+    )
+  }
+})
+
+test('⑦ 收口复量:被根 glob 命中的 ignored-tracked 文件必须被现役出口件全部中和(残留=0)', async () => {
+  const patterns = Object.keys(rootConfig())
+  const boom = ignoredTrackedFiles().filter((rel) => hitByRoot(rel, patterns))
+  assert.ok(boom.length > 0, '现读没有会炸的 ignored-tracked 文件 ⇒ 前提消失,应连本测试一起撤')
+  const configs = await discoveredConfigMap()
+  const bystander = { filepath: `${ROOT_POSIX}/AGENTS.md`, status: 'M' }
+  const grouped = await groupFilesByConfig({
+    configs,
+    files: [...asCandidates(boom), bystander],
+  })
+  const leaked = (grouped[ROOT_KEY]?.files ?? [])
+    .map((f) => relFromAbs(f.filepath))
+    .filter((rel) => boom.includes(rel))
+  assert.deepEqual(
+    leaked,
+    [],
+    `${leaked.length} 枚仍会被根 lint-staged glob 命中且没被任何现役出口件中和(${leaked.slice(0, 8).join(', ')})` +
+      '⇒ 谁把它们带进声明集,那枚提交的整批守门就在 lint-staged 一步全废',
+  )
+  assert.ok(
+    (grouped[ROOT_KEY]?.files ?? []).some((f) => f.filepath === bystander.filepath),
+    '对照文件也被出口件划走了 ⇒ 射程外溢',
+  )
+})
+
 /** 核心取材/判定小工具,供别处 import(§22d 双形态:被 import 时不触发任何 CLI 动作)。 */
-export const __test__ = { trackedArchiveFiles, rootConfig, outletConfig, OUTLET_REL, ARCHIVE_REL }
+export const __test__ = {
+  trackedArchiveFiles,
+  rootConfig,
+  outletConfig,
+  ignoredTrackedFiles,
+  explosionDirs,
+  discoveredConfigMap,
+  OUTLET_REL,
+  ARCHIVE_REL,
+}
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 

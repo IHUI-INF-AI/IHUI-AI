@@ -15,6 +15,7 @@
  *    failureCount > 0 ⇒ getCachedSnapshot() 返回 null,A 处失败后 B 处不得读到旧成功快照。
  * 3. **身份变化使全部在途请求失效**(上游 :45-46 "不能仅依赖单个 hook 的 requestVersion"):
  *    requestVersion 是工厂级(不是单 hook 级),换代后在途请求的结果一律丢弃。
+ *    同一身份的购买换代同型(上游"购买使同一身份全部旧请求失效")⇒ invalidate()。
  *
  * 反向锁:成功后缓存恢复可命中(failureCount 归零)—— 不是做成"永远不缓存"。
  */
@@ -45,6 +46,12 @@ export interface ResourceRefreshPolicy<T> {
    * 的结果一律丢弃;旧身份的缓存与失败计数一并作废。
    */
   setIdentity(identity: string): void
+  /**
+   * 同一身份的权益换代(购买/权益变更):requestVersion 递增 ⇒ **全部在途请求**作废,
+   * 旧快照与失败计数一并作废 —— 旧请求结果不得回写缓存。
+   * 与 setIdentity 的差别只在身份字符串不变:上游「购买使同一身份全部旧请求失效」即此形态。
+   */
+  invalidate(): void
   /** 当前身份;未设置过为 null(refresh 在未设置身份时不动)。 */
   getIdentity(): string | null
   /** 失败计数(当前身份下,连续失败次数;成功归零)。 */
@@ -63,6 +70,13 @@ export function createResourceRefreshPolicy<T>(
   /** 广播到**所有**订阅者(失败也是共享事实,不是发起那一个的私事)。 */
   const broadcast = (next: T | null, reason: string | null): void => {
     for (const listener of [...listeners]) listener(next, reason)
+  }
+
+  /** 工厂级换代:全部在途请求作废(不是只失效发起那一个);缓存与失败计数一并作废。 */
+  const bumpGeneration = (): void => {
+    requestVersion += 1
+    snapshot = null
+    failureCount = 0
   }
 
   return {
@@ -101,9 +115,12 @@ export function createResourceRefreshPolicy<T>(
       if (identity === next) return
       identity = next
       // 工厂级换代:全部在途请求作废;旧身份的缓存/失败计数一并作废
-      requestVersion += 1
-      snapshot = null
-      failureCount = 0
+      bumpGeneration()
+    },
+
+    invalidate() {
+      // 同一身份的权益换代(购买):身份不变也要换代,旧请求结果不得回写缓存
+      bumpGeneration()
     },
 
     getIdentity() {

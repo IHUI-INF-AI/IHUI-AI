@@ -1,0 +1,108 @@
+{
+  "$comment": "公网入口腿清单的唯一登记面 —— 唯一消费方 scripts/check-public-path-probe.mjs(只读探活尺子,判机器态,不进提交链不进 CI §12e;派发点 = scripts/git-guardian.mjs 的 auditPublicPathProbe 巡检轮)。立项凭据 = 台账票 G-960:2026-10-22 入口整条断流(www 522、api/sso/ai 530)而尺子一声没报,根因是靶钉在裸域只拿到 Cloudflare 边缘 301,结构上看不到真腿。纪律:① 每一行必须带「出处」(registeredIn,精确到 file:line 的仓内既有登记),不许凭记忆写路径;② 每行带 measuredOn/measured(现读时刻与实测状态形态),过期或取不到 ⇒ 尺子落 unjudged 不记绿;③ 台账整体必须带 expires,到期 = 靶清单重裁(§0.7 豁免会到期同族);④ 已知不存在的腿只能进 excluded 写明证据,不得挂成常红靶(§12e)。",
+  "schema": 1,
+  "ticket": "G-960",
+  "updatedOn": "2026-10-25",
+  "expires": "2026-11-25",
+  "legs": [
+    {
+      "id": "www",
+      "host": "www.aizhs.top",
+      "url": "https://www.aizhs.top/sso/login",
+      "role": "主站入口(登录页)—— 真实访客进来的那一条",
+      "origin": "127.0.0.1:8801",
+      "registeredIn": [
+        "scripts/data/eo-origin-expectation.json rows[face=www.aizhs.top](EdgeOne 站点源站直填 8801)",
+        "deploy/scripts/prod-bundle/health-check.ps1:128(公网验证)",
+        "scripts/check-public-path-probe.mjs ENTRY_URL_DEFAULT(2026-10-22 两组成组对照定档:www/sso/login 20×200)"
+      ],
+      "measuredOn": "2026-10-25",
+      "measured": "200"
+    },
+    {
+      "id": "bsm",
+      "host": "bsm.aizhs.top",
+      "url": "https://bsm.aizhs.top/sso/login",
+      "role": "认证子域登录入口(分域 SSO;非主功能域,其余路径 307 跳回主域)",
+      "origin": "127.0.0.1:8801",
+      "registeredIn": [
+        "scripts/start-cloudflared-tunnel.ps1:18(bsm.aizhs.top → 127.0.0.1:8801)",
+        "deploy/scripts/prod-bundle/deploy.ps1:366(登录 https://bsm.aizhs.top/login)",
+        "scripts/data/eo-origin-expectation.json rows[face=bsm.aizhs.top]",
+        "deploy/win/ihui-monitor.ps1:593(公网监控腿含 https://bsm.aizhs.top/)"
+      ],
+      "measuredOn": "2026-10-25",
+      "measured": "200"
+    },
+    {
+      "id": "api",
+      "host": "api.aizhs.top",
+      "url": "https://api.aizhs.top/api/health",
+      "role": "API 腿(REST/WS;跨域 WS 必须走这条子域)",
+      "origin": "127.0.0.1:8802",
+      "registeredIn": [
+        "scripts/start-cloudflared-tunnel.ps1:19(api.aizhs.top → 127.0.0.1:8802)",
+        "deploy/scripts/prod-bundle/health-check.ps1:96(/api/health 为 API 健康路径)",
+        "deploy/scripts/prod-bundle/scripts/smoke-public-ws.mjs:27(WS_HOST=api.aizhs.top)"
+      ],
+      "measuredOn": "2026-10-25",
+      "measured": "200"
+    },
+    {
+      "id": "file",
+      "host": "file.aizhs.top",
+      "url": "https://file.aizhs.top/api/health",
+      "role": "文件/静态腿(与 api 同源站 8802;根路径实测 404,故登记既有健康路径)",
+      "origin": "127.0.0.1:8802",
+      "registeredIn": ["scripts/start-cloudflared-tunnel.ps1:19(file.aizhs.top → 127.0.0.1:8802)"],
+      "measuredOn": "2026-10-25",
+      "measured": "200"
+    },
+    {
+      "id": "ai",
+      "host": "ai.aizhs.top",
+      "url": "https://ai.aizhs.top/health",
+      "role": "AI 服务腿(FastAPI/LangGraph)",
+      "origin": "127.0.0.1:8803",
+      "registeredIn": [
+        "scripts/start-cloudflared-tunnel.ps1:20(ai.aizhs.top → 127.0.0.1:8803)",
+        "deploy/scripts/prod-bundle/health-check.ps1:103(http://localhost:8803/health)"
+      ],
+      "measuredOn": "2026-10-25",
+      "measured": "200"
+    },
+    {
+      "id": "sso",
+      "host": "sso.aizhs.top",
+      "url": "https://sso.aizhs.top/realms/ihui/.well-known/openid-configuration",
+      "role": "IdP 腿(Keycloak 源站 8850;钉 realm `ihui` 的 OIDC 元数据端点 —— 它答 200 才证明「我们的 realm 在服务」,而 '/' 只证明边缘肯 302)",
+      "pathNote": "2026-10-25 现读:'/' 恒 302,跟 2 跳到 /admin/master/console/ 时该终页一度答 502(尺子实测;curl 复量 200)⇒ 管理台不是本腿的契约面,故钉 realm 元数据端点(实测 200)。",
+      "origin": "127.0.0.1:8850",
+      "registeredIn": [
+        "scripts/start-cloudflared-tunnel.ps1:21(sso.aizhs.top → 127.0.0.1:8850)",
+        "docs/port-management.md:94(8850 = 本地 Keycloak SSO 源站;sso 腿源站切换须三处同步,缺一条即直接 530)",
+        "apps/ai-service/app/core/sso.py:15(IdP issuer 形态 = /realms/<realm>,.well-known/openid-configuration 由此推出)",
+        "deploy/win/ihui-pg-backup.ps1:423(realm `ihui` 是 SSO 身份提供方的唯一落盘处)"
+      ],
+      "measuredOn": "2026-10-25",
+      "measured": "200"
+    }
+  ],
+  "excluded": [
+    {
+      "host": "aizhs.top",
+      "reason": "裸域在边缘即 301 收场(2026-10-22 成组对照 20×301,Location 恒指 www;2026-10-25 复量仍 301→www)。跟随后与 www 腿同终点 ⇒ 单列只会造出重复身份,不入册。",
+      "evidence": "scripts/check-public-path-probe.mjs ZERO_INFO_LEGACY_URL;2026-10-25 实测 https://aizhs.top/sso/login = 301 Location https://www.aizhs.top/sso/login"
+    },
+    {
+      "host": "rdp.aizhs.top",
+      "reason": "tcp://127.0.0.1:3389 与 ssh://127.0.0.1:22 两条 ingress 规则不是 HTTP 腿,本尺子(按状态行判据)判不了 ⇒ 不入册,免得把'判不了'记成'没问题'。",
+      "evidence": "scripts/start-cloudflared-tunnel.ps1:22-23"
+    },
+    {
+      "host": "img.aizhs.top",
+      "reason": "deploy/cdn-server.js:253 规划过该腿,但 2026-10-25 实测 DNS 直接 NXDOMAIN(curl exit 6,连不上)⇒ 该腿当前不存在。挂进 legs 就是恒红靶(§12e);要它进射程得先在 DNS/控制台确认上线,并把 measuredOn/measured 刷新。",
+      "evidence": "2026-10-25 现读:nslookup img.aizhs.top = Non-existent domain;curl -s -o /dev/null -w '%{http_code}' = 000"
+    }
+  ]
+}
