@@ -2198,6 +2198,79 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🚀 機能/改善:三端 ui-routes/离线包重钉 + chat-sync terminal/resync 契约 + gate-grow 候选器 + G-965 P2 投影器增强 (fa9d1ad423)
+- 🔧 その他:侧车 enrich 1 条(G-63 补 blocking),抽取器 --apply 现读 changed=1 bucketsDrift=0、回读 129 条 —— 由 seat-sidecar2 的 --check 点名的唯一一条待办,主席执行;门 234 复跑 state=warn(midform 3→0 / a2=0 / conflict=0 / blind=0),孤儿 80 条只报数 (6b942ede52)
+- 🔧 その他:拆除 31 枚已退役零引用残影(deploy/cf-preferred-ip 2026-10-22 整链退役、qoder 探针退役、plugins-data 已下沉 packages/shared、零引用测试收口) (f80b0bb34e)
+- 🔧 その他:中间态标头归一(门 234 midform 3→0) —— 三条机主面行(G-957 / G-329 / G-1182551)的行内标头带 ｜等:— 属未渲染完的中间态(语义已等价:parseHeader 读回 waiting=none、dispositionOf 同判),按 §1「标头是投影」归一成 renderHeader 产物形态;只动这三行标头,正文与归属语义逐字不变,三维守恒由 live-doc-edit 当场断言(上一版误带第四行被守恒拒落,已剔除) (f1439785cb)
+- ♻️ リファクタ:audit-decision-log 两处裸 git 派生改走 face-reader.gitBinary()(G-54:棘轮新增拦截即修,行为逐字不变) (1c0938e1d3)
+
+**2026-10-26**
+- 🐞 修正:并集收敛按复合主键认"已处置权"——本侧已结清的行不再被滞后副本回捞成 open 原形态 (937fafb78e)
+- 📚 ドキュメント:守门 89 R4 清偿 —— 四枚只读尺子/自检器点名入速查区(gate-rot/plan-truncated-rows/web-rn-screen-parity/miniapp-mirror-fidelity),接线面与退役口径一并写清 (d09bf0a749)
+- 🚀 機能/改善:状态查询口同款 9074 自愈——与签到口共用 _rotate_device (b3fadcd296)
+- 🐞 修正:数据大屏前后端字段对齐(修白屏) + 接入页面访问/来源埋点数据 (968b13a99f)
+- 🐞 修正:门 234 A2 收口——投影等式三档化(中间态点名不判红)+ 抽取器同键冲突闸 (6d72f0164c)
+- 🚀 機能/改善:AI 自进化调度层四件器物接线装车 + 登记出口补取号令牌/短 sha 守卫(O65 第 0/1/3 期) (1f1f9508a7)
+- 🔧 その他:G-54 第4轮 —— 裸 git 基线 49→45(紧贴现读,不留余量;4 枚入库 cca944cc6a) (62f7d34699)
+- 🐞 修正:补齐权限双轴本机记忆模块(HEAD 缺文件致 web 构建红) + 大屏使用数据面板渲染测试 (cbf3aa4329)
+- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (59145cf2f0)
+- 🐞 修正:探针取证面从单文件改为页面族 —— 修 71 条空壳的假阴性 (7c8d5b9e82)
+- 🐞 修正:流式/AI 服务/raw 通道 401 自动续期 + RN/小程序主动续期 (831baf7200)
+
+**2026-10-26**
+- ♻️ リファクタ:G-927 第五席复核——票面 10 枚已由 0ff78d7fda 迁完(求差 0),本轮收口两枚镜像测试读真仓的裸 git (8d7cbb701e)
+- 🚀 機能/改善:签到设备号 9074 自愈——换新设备号重签一次并持久化 rotated 标记 (529b9879d6)
+- 🚀 機能/改善:安全停机状态机与 haltctl(自进化票:安全停机而非硬失败) (94751a0845)
+- 🔧 その他:5 枚结清行被并集收敛回捞,按原凭据再结一次(G-62/G-01/G-03/G-07/O88)——回捞根因=declaredDropCaps 只认整行逐字而翻勾会追加注记,已记入项目记忆 (047f746b15)
+- 🚀 機能/改善:金丝雀观察窗上线——源站直探量错误率/P95 与滚动基线比对,异常自动回滚 (9add3a32fe)
+- ♻️ リファクタ:G-54 第4轮 —— 4 枚守门裸 git 派生收编 face-reader.gitRaw(按钮高度自检夹具/事件闭包/staged 取材/单分支 6 处) (cca944cc6a)
+- 🚀 機能/改善:Trae 设备证明通道对齐并超越开源——产品线组合兜底(IDE_PC→SOLO_PC)+设备展示字段可覆盖+端点可覆写联调 (adf5ebc6d9)
+- 🐞 修正:更正 G-962 参数段覆盖注记的转档计数——三轮转档实为 8 条(7 alive + 1 dead),13 条是笔误 (7feaa2d0a4)
+- 🔧 その他:登记三端 ui-routes 自述钉与离线包钉重钉(承 G-1142551 复量) (3c281d1983)
+- 🔧 その他:参数段覆盖 last-mile——4 条转 alive,最终 21 alive / 54 dead / 7 human-review(82/82) (9723b0c004)
+- 📚 ドキュメント:第 3 期进化回流三副本收敛(两份同题副本结清,主行保留余面) (c458c8350b)
+- 🔧 その他:参数段覆盖 human-review 二轮转档 5 条 + 记一条双端契约缺口(82/82 结论更新为 18 alive / 54 dead / 10 human-review) (8d9e7ff12a)
+- 🐞 修正:补齐四处"消费方已入库、被 import 的模块却缺失"的断链(门 98 五处清零) (6b167b2a9f)
+- 🔧 その他:G-54 型 A 基线 53→49(紧贴入库后现读,不留余量)—— 4 枚枚举面迁移已入库 7634c0cbb7b,HEAD 面现读 49 与钉数齐 (6f130e29e5)
+- 🚀 機能/改善:旁路落地器对新建路径注入溯源水印(G-04) (247ca68459)
+- ♻️ リファクタ:G-54 批次第 3 轮 4 枚枚举面裸 git 进 face-reader 层(check-i18n-namespace-passing / check-input-border-var / check-permission-mode-vocabulary / check-portal-fixed)—— argv/stdio/timeout/status 语义由 gitRaw 统一,判据零变化 (7634c0cbb7)
+- 🚀 機能/改善:判据面不可变护栏(自进化票:不可变护栏) (62fc34e0a9)
+- 📚 ドキュメント:结清 G-964 P1 与 decode 家族单源;G-1142551 记进展保留未勾 (5128ce1fd5)
+- 🚀 機能/改善:人工阀清单与安全停机判据(自进化票:人工阀清单/安全停机而非硬失败) (1b22f3bb9b)
+- 🚀 機能/改善:web→RN 缺口分诊探针 + 小程序镜像还原度门(两枚只读尺子,均不进提交链) (45dd89e4e4)
+- ♻️ リファクタ:decode 家族 D2 9→0 折到共享 safe-decode-uri(9 处调用点)+miniapp ui-routes 产物重钉 (899f8c8871)
+- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4f81fc23bd)
+- 🔧 その他:G-54 型 A 基线 57→53(紧贴入库后现读,不留余量)—— 4 枚枚举面迁移已入库 3e8b864094,HEAD 面现读 53 与钉数齐 (12d2573ca2)
+- 🐞 修正:access 过期不再 307 打回登录页，守卫认 refresh 并自动续种回跳 (c8815af713)
+- ♻️ リファクタ:G-54 批次续迁 4 枚枚举面裸 git 进 face-reader 层(check-i18n-keys / check-i18n-messages-exist / check-z-index-guard / check-rounded-overflow)—— argv/stdio/timeout 由 gitRaw 统一,判据零变化 (3e8b864094)
+- 🐞 修正:补入 D01 人设选择器整条依赖链 5 文件——修 HEAD 断链(干净检出 TS2307) (d5a27ded0f)
+- 🐞 修正:收编 agent-picker/agent-notice-bar 两模块——修 HEAD 断链(干净检出无法构建) (442f00dad7)
+- 🚀 機能/改善:大屏新增交互热度面板(事件分布/平均停留/热门点击) (578e038dcb)
+- 🐞 修正:收编 agent-picker/agent-notice-bar 两模块——修 HEAD 断链(干净检出无法构建) (f07c4c0d40)
+- 🐞 修正:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (29cb1e9aef)
+- 🔧 その他:守门 8 参数段覆盖 82/82 逐条定性——余 49 条 = 7 alive / 30 dead / 10 human-review (27b860b725)
+- 📚 ドキュメント:L28120 失败广播票结清(落点与双镜像在 HEAD,5/5 绿) (07a4f28cc9)
+- 🔧 その他:G-54 型 A 基线 60→57(紧贴入库后现读,不留余量)—— 3 枚枚举面迁移已入库 9b7439eee1,HEAD 面现读 57 与钉数齐 (77e7e6d7aa)
+- 🔧 その他:G-1222559 结清——索引面 PROJECT_PLAN.md 无暂存改动(git diff --cached 空),推送收敛 origin=PUSHED,滞台副本形态消失 (98967f3831)
+- 🔧 その他:票→提交环读侧 round-trip 镜像(正证可选绑票键,缺席不写空串) (6adfb2909b)
+- 🔧 その他:G-1222556 结清——CSRF 的 Gemini ?key= 载体已由存在性豁免改为 hasVerifiedApiKeyCarrier 验真(三载体逐个交 isRegisteredUsableApiKey,fail-closed),票面三选一的『实证验真』已由更前置一档满足 (cf50864de4)
+- 🐞 修正:G-54 批次 3 枚裸 git 枚举迁 gitRaw(check-brand-foreground / check-rounded-full / check-capability-catalog)—— 型 A 存量 60→57,自检与全量行为面等值 (9b7439eee1)
+- 🚀 機能/改善:大屏新增页面访问热度面板(TOP 页面 + 前台/后台/登录页使用量) (344cda7701)
+- 🔧 その他:G-858 结清——union-converge 镜像 58/58 全绿(登记时 10 红→接手 1 红→0),根因两套口径相反已由 0a3defae5a 收口,三套镜像+端到端探针作证 (a2f356e63d)
+- 🐞 修正:通配归档占位不构成移出凭据——修 union-converge 唯一那条镜像红 (0a3defae5a)
+- 🚀 機能/改善:全站页面埋点补齐后台/登录页 + 访问统计前后台口径与页面使用排行 (9cde533655)
+- 🚀 機能/改善:收编失败席半成品——G-395 配置分层出处标签(source + sourceRevisions) —— 该席撞今日用量上限停摆;主席自审:apps/cli 跑 subagent-precedence + subagent-precedence-flag ⇒ Tests 83 passed。落点 precedence.ts(+140)与 types.ts(新增 RevisionUnavailable='no-file-source'|'stat-failed' 与 SourceRevisions=Record<PrecedenceLayer,LayerRevision>):每个生效配置对象带 source 标签、快照带 sourceRevisions,四层短路优先级与生效值零变化。未完成面:sourceRevisions 的生产消费者与'取不到⇒null 不冒充'夹具,该席未及交付,已记入残余清单 (de2f6504dd)
+- 🚀 機能/改善:O6505 三源适配器(api-logs/grafana-alerts/user-feedback)+签名归一+聚类阈值+dry-run (58d7f4fcee)
+- 🚀 機能/改善:Trae 上游服务器自续票(设备证明)——桌面渠道签发的票由池自续,不再依赖本机客户端 (3f5fd52be7)
+- 🐞 修正:收编失败席半成品——归因层差分面按提交面取材(commit-gate-attribution +70/−?) —— 该席撞今日用量上限停摆,主席自审:node --test scripts/tests/commit-payload-attribution.test.mjs ⇒ tests 18 pass 18 fail 0。改动面=归因层差分复跑不再读'还原后的索引',避免并发共享索引里的历史 blob 把无关提交钉红;未完成面:该席未及补'取不到面⇒未判定'的第三条夹具,已记录在残余清单 (fba4ed7968)
+- 🔧 その他:r5 认领自进化两票(金丝雀发布/需求与异常自动发现器)——牌插在复选框后,正文一字未动 (4277abb873)
+- 📚 ドキュメント:G-964 更正注记重新落账(上一步为消 union 双行先对齐成远端同文本,事实一条不丢)——三件载体现读全在仓,残余改为存量迁移 101 枚+72 条孤儿 (bdb6bef481)
+- 🔧 その他:登记 Trae 服务器自续票(设备证明)已完成(未取号:号池满) (79cb796af5)
+- 🔧 その他:撤回 G-962 批15 的 20 条参数段覆盖裁决(按陈旧守卫出口②显式放行,删的是本席上一枚自己加的条目) (29dd4876f8)
+- 📚 ドキュメント:r5 自进化四票进展注——代码已交付(56855eb75f:自治决策模型/决策链审计/E2E 补测器/经验写回腿),未接线格逐条点名,租约保留不翻勾 (85788c457e)
+- 🔧 その他:G-964 行文本对齐远端同文本(消除活文档 union 双行:F4 0→1 的机械成因)——更正注记随后单独落一次,事实不丢 (489ce34618)
+
+**2026-10-26**
 - 🐞 修正:G-927 第四批 10 枚裸 git 派生迁入 lib/face-reader(gitRaw/catBatch)—— 棘轮 HEAD 面 70→60 与基线 60 对齐;check-cross-end-screen-coverage 正文同时改走 catBatch/readWorktreeFile 满足门 118 取材面纪律 (0ff78d7fda)
 - 📚 ドキュメント:G-964 行内更正——『侧车抽取器与新守门未建』已不成立(三件载体现读全在仓 36,986/27,192/24,595 B);残余改为存量迁移 101 枚 + 72 条孤儿记录治理,凭 check-plan-fields 末行 state=warn stock=101 orphan=72 (491c8b3321)
 - 🔧 その他:F9 双档两枚结清(G-455/G-681)——判据已收窄到声明位口径,现读 --gate F9 存量 0 组、宽口径 0 组、引用图 0、差值 F9=0 无 ❌ 行 (620d74f861)
@@ -2751,31 +2824,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-10-25**
 - 🐞 修正:teardown 默认翻为跳过 cleanup——共享库测试用户被并发裸跑删除当日两次复发;E2E_AUTO_CLEANUP=1 显式启用才清理(CI 本就显式 '0' 于 e2e.yml:225,零消费方依赖默认清理);交错型并发(对方跑完清理的瞬间本席浏览器未起)是 hasConcurrentPlaywright 拦不住的形态,故默认不删;手动清理出口 node apps/api/scripts/cleanup-test-users.mjs 不变 (886eae6992)
-
-**2026-10-25**
-- 🐞 修正:OpenAPI 契约产物同步今日补建的两条绑定路由 (462044fe47)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2110948b96)
-- 📚 ドキュメント:D04 登记验收面进展(浏览器级五例已入库,枚 4c80bf75db418f70d1b3fcf374efc2d845594cdd)—— 取证与剩余格按 §1 只进那枚提交信息,本行不翻勾(票面③规模化未动) (47b9db9f93)
-- 🔧 その他:侧车reclassify终批——7键出等条件桶(G-03/G-20/G-100/G-46归他席与机主面,O02/G-50/G-74出桶),v2尺等条件归零 (8e681cfb07)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (59f1476f95)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1614f18a56)
-- 🔧 その他:等条件禁令清偿收尾——末批摘行5枚(④/需真机副本/D19/H01/冷启动盘点,f12-purge留痕;union带回尾巴清零)⇒散文尺等条件全清 (9b53fd05d0)
-- 🔧 その他:goal-r4 结清长会话滚动四维活账——r3e 判据三件齐:四维权名(映射 spec 断言)+可跑自验命令(supply 入口)+实测 rc=0(真浏览器 9 passed 2.3m);副本 L7663 已由他席结为指针 (12391049ef)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b5d3110deb)
-- 🔧 その他:去重 机器可见的欠账清单(三路并行审计产出)2026-10-24 逐条核账 副本行改为指向主行短指针(禁手写归并注记) (5fdb7afd77)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6fc06bf1bb)
-- 🔧 その他:goal-r4 结清 TEMP 等环境票——分叉已消(HKCU 现读标准值 D:/DevEnv/Temp)+夹具门现跑 rc=0 红线 0;LocalSystem 面按 §26 显式指定目录既有口径 (ef98e4083e)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (24f139c94f)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (95f0527553)
-
-**2026-10-25**
-- 🔧 その他:D04 消息串内富文本锚点补浏览器级验收面(五例真跑全绿) (4c80bf75db)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d3aeebebc7)
-- 🔧 その他:goal-r4 结清 AGENTS 体积判据接链票——前提过时:门 207 已 blocking 装车(runner:4891 现读,stagedTriggers=AGENTS.md),注册表按域拆分条件随装车消散 (b4b7f05298)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (74ddef1c3d)
-
-**2026-10-25**
-- 🔧 その他:G-1102638 批1 同主键副本行物理归并 — 删 7 行(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;复跑auditPlan对账F1=0/F9不增;逐行留痕 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-25.md) (6426b6134e)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
