@@ -7,7 +7,7 @@ import { ScrollView, Text, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamResultItem, ExamResultScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -91,10 +91,10 @@ export function ExamResultScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    content: { paddingHorizontal: 10, paddingBottom: 32 },
+    content: { paddingHorizontal: 10, paddingBottom: rnSpacing['3xl'] },
     title: {
-      marginTop: 8,
-      marginBottom: 12,
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
@@ -104,27 +104,41 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       alignItems: 'center',
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     scoreCardPassed: { borderColor: tk.brandAccent.deep, backgroundColor: tk.success.light },
     scoreCardFailed: { borderColor: tk.border.light },
     scoreText: { fontSize: 36, fontWeight: '700', color: tk.text.primary },
-    passedText: { marginTop: 8, fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT },
-    failedText: { marginTop: 8, fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
-    metaRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+    passedText: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brand.DEFAULT,
+    },
+    failedText: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.danger.DEFAULT,
+    },
+    metaRow: { flexDirection: 'row', gap: rnSpacing.md, marginBottom: rnSpacing.sm },
     metaPill: {
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    metaPillText: { fontSize: 14, color: tk.text.primary },
-    submittedAt: { fontSize: 11, color: tk.text.tertiary, marginBottom: 16 },
+    metaPillText: { fontSize: rnType.body.size, color: tk.text.primary },
+    submittedAt: {
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+      marginBottom: rnSpacing.lg,
+    },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
     card: {
       padding: 14,
@@ -132,11 +146,11 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
-    question: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
-    yourAnswer: { marginTop: 8, fontSize: 14, color: tk.danger.DEFAULT },
-    correctAnswer: { marginTop: 8, fontSize: 14, color: tk.brand.DEFAULT },
+    question: { fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
+    yourAnswer: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    correctAnswer: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

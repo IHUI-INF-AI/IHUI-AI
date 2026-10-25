@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as DocumentPicker from 'expo-document-picker'
 import { FileAudio, Mic, Upload, X } from 'lucide-react-native'
 import { voiceSttFromReactNative } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -249,10 +249,10 @@ export default function VoiceSttScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: 12, paddingBottom: 32, gap: 10 },
-  subtitle: { fontSize: 12, color: tokens.text.tertiary },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   card: {
-    gap: 12,
+    gap: rnSpacing.md,
     padding: 14,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   fileBox: {
-    padding: 12,
+    padding: rnSpacing.md,
     borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.brandAccent.light,
@@ -268,26 +268,26 @@ const styles = StyleSheet.create({
   },
   fileHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   fileMain: { flex: 1, gap: 2 },
-  fileName: { fontSize: 14, fontWeight: '500', color: tokens.text.primary },
-  fileSize: { fontSize: 11, color: tokens.text.tertiary },
+  fileName: { fontSize: rnType.body.size, fontWeight: '500', color: tokens.text.primary },
+  fileSize: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   uploadBox: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 32,
+    paddingVertical: rnSpacing['3xl'],
     borderRadius: rnRadius.md,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.bg,
   },
-  uploadTitle: { fontSize: 14, fontWeight: '500', color: tokens.text.primary },
-  uploadHint: { fontSize: 11, color: tokens.text.tertiary },
+  uploadTitle: { fontSize: rnType.body.size, fontWeight: '500', color: tokens.text.primary },
+  uploadHint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   field: { gap: 5 },
-  label: { fontSize: 12, color: tokens.text.secondary },
+  label: { fontSize: rnType.label.size, color: tokens.text.secondary },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: rnSpacing.md,
     paddingVertical: 6,
     borderRadius: rnRadius.md,
     borderWidth: 1,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   chipSelected: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
-  chipText: { fontSize: 12, color: tokens.text.secondary },
+  chipText: { fontSize: rnType.label.size, color: tokens.text.secondary },
   chipSelectedText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
   primaryBtn: {
     height: 44,
@@ -306,7 +306,11 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
-  primaryBtnText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
+  primaryBtnText: {
+    fontSize: rnType.strong.size,
+    fontWeight: '600',
+    color: tokens.brand.ctaForeground,
+  },
   disabled: { opacity: 0.5 },
   errorBox: {
     flexDirection: 'row',
@@ -317,21 +321,26 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.danger.light,
   },
-  errorText: { flex: 1, fontSize: 12, color: tokens.danger.DEFAULT },
-  retryText: { fontSize: 12, fontWeight: '600', color: tokens.danger.DEFAULT },
-  stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 24 },
+  errorText: { flex: 1, fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
+  retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.danger.DEFAULT },
+  stateBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rnSpacing.sm,
+    paddingVertical: rnSpacing['2xl'],
+  },
   muted: { fontSize: 13, color: tokens.text.secondary },
   warningBox: {
     padding: 10,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.warning.light,
   },
-  warningText: { fontSize: 12, color: tokens.warning.amberText },
+  warningText: { fontSize: rnType.label.size, color: tokens.warning.amberText },
   resultBox: {
-    padding: 12,
+    padding: rnSpacing.md,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.bg,
   },
-  resultText: { fontSize: 14, lineHeight: 21, color: tokens.text.primary },
+  resultText: { fontSize: rnType.body.size, lineHeight: 21, color: tokens.text.primary },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

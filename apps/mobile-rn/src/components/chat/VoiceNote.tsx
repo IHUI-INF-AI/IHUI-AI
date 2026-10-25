@@ -35,7 +35,7 @@ import {
 } from 'react-native'
 import { Mic, Square, Trash2, X } from 'lucide-react-native'
 import { createVoiceNote, deleteVoiceNote, listVoiceNotes } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import type { VoiceNoteGroupFacet } from '@ihui/types'
 import {
@@ -464,7 +464,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
 }
 
 const styles = StyleSheet.create({
-  trigger: { paddingHorizontal: 4, paddingVertical: 4 },
+  trigger: { paddingHorizontal: rnSpacing.xs, paddingVertical: rnSpacing.xs },
   // Modal 内键盘避让容器:flex:1 让 backdrop 的 flex-end 贴底语义原样保持
   kavWrap: { flex: 1 },
   backdrop: { flex: 1, backgroundColor: tokens.overlay.modal, justifyContent: 'flex-end' },
@@ -472,14 +472,14 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl, // panel 档 xl(12)
     borderTopRightRadius: rnRadius.xl,
-    padding: 12,
+    padding: rnSpacing.md,
     maxHeight: '70%',
   },
   panelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   },
   panelTitle: { fontSize: 13, fontWeight: '500', color: tokens.text.primary },
   phaseBadge: {
@@ -488,28 +488,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.md, // chip 档 md(6)
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginBottom: 8,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
+    marginBottom: rnSpacing.sm,
   },
-  phaseText: { fontSize: 12, color: tokens.text.secondary },
-  phaseDuration: { marginLeft: 8, fontSize: 12, color: tokens.text.secondary },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginBottom: 8 },
-  pendingText: { fontSize: 12, color: tokens.text.tertiary, marginBottom: 8 },
+  phaseText: { fontSize: rnType.label.size, color: tokens.text.secondary },
+  phaseDuration: {
+    marginLeft: rnSpacing.sm,
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+  },
+  errorText: {
+    fontSize: rnType.label.size,
+    color: tokens.danger.DEFAULT,
+    marginBottom: rnSpacing.sm,
+  },
+  pendingText: {
+    fontSize: rnType.label.size,
+    color: tokens.text.tertiary,
+    marginBottom: rnSpacing.sm,
+  },
   transcriptBox: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    padding: 8,
-    marginBottom: 8,
+    padding: rnSpacing.sm,
+    marginBottom: rnSpacing.sm,
     maxHeight: 128,
   },
-  transcriptText: { fontSize: 12, color: tokens.text.primary },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  transcriptText: { fontSize: rnType.label.size, color: tokens.text.primary },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: rnSpacing.sm },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.sm, // control 档 sm(4)
     paddingHorizontal: 10,
@@ -518,13 +530,13 @@ const styles = StyleSheet.create({
   stopBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     backgroundColor: tokens.danger.DEFAULT,
     borderRadius: rnRadius.sm, // control 档 sm(4)
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  primaryBtnText: { fontSize: 12, color: tokens.brand.ctaForeground },
+  primaryBtnText: { fontSize: rnType.label.size, color: tokens.brand.ctaForeground },
   outlineBtn: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -532,30 +544,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  outlineBtnText: { fontSize: 12, color: tokens.text.secondary },
+  outlineBtnText: { fontSize: rnType.label.size, color: tokens.text.secondary },
   searchInput: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 6,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.primary,
-    marginBottom: 8,
+    marginBottom: rnSpacing.sm,
   },
-  groupRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
+  groupRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: rnSpacing.xs,
+    marginBottom: rnSpacing.sm,
+  },
   chip: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.md, // chip 档 md(6)
-    paddingHorizontal: 8,
+    paddingHorizontal: rnSpacing.sm,
     paddingVertical: 3,
   },
   // 选中胶囊走 RN 既有范式(ChatTemplatesScreen/ArticleEditScreen 同尺):brand.cta 底 +
   // ctaForeground 字,两态自适应;不得用 surface.light(两态恒白 ⇒ 白卡上选中态不可见)
   chipActive: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
   chipActiveText: { color: tokens.brand.ctaForeground },
-  chipText: { fontSize: 11, color: tokens.text.secondary },
+  chipText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
   archiveList: { maxHeight: 220 },
   archiveItem: {
     flexDirection: 'row',
@@ -564,9 +581,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 2,
   },
-  archiveDuration: { fontSize: 11, color: tokens.text.tertiary },
-  archiveText: { flex: 1, fontSize: 12, color: tokens.text.primary },
-  archiveAction: { fontSize: 11, color: tokens.text.secondary },
+  archiveDuration: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  archiveText: { flex: 1, fontSize: rnType.label.size, color: tokens.text.primary },
+  archiveAction: { fontSize: rnType.caption.size, color: tokens.text.secondary },
 })
 
 export default VoiceNote

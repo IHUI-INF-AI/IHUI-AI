@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Download, Share2, Trash2 } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -371,23 +371,28 @@ export default function DataRightsScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 12, paddingBottom: 32 },
+    body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
-    dangerTitle: { fontSize: 15, fontWeight: '600', color: tokens.danger.DEFAULT },
-    subTitle: { fontSize: 13, fontWeight: '600', color: tokens.text.primary, marginTop: 4 },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
+    dangerTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.danger.DEFAULT },
+    subTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: tokens.text.primary,
+      marginTop: rnSpacing.xs,
+    },
     label: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    meta: { fontSize: 12, color: tokens.text.tertiary },
-    value: { fontSize: 14, color: tokens.text.primary },
+    meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    value: { fontSize: rnType.body.size, color: tokens.text.primary },
     error: { fontSize: 13, color: tokens.danger.DEFAULT },
     button: {
       height: 44,
@@ -395,9 +400,13 @@ function makeStyles() {
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
     },
-    buttonText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
+    buttonText: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
     disabled: { opacity: 0.5 },
     outlineButton: {
       height: 44,
@@ -407,7 +416,7 @@ function makeStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    outlineText: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+    outlineText: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
     dangerButton: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -422,38 +431,43 @@ function makeStyles() {
       borderColor: tokens.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
     },
-    dangerText: { fontSize: 15, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerText: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     dangerBox: {
-      gap: 8,
-      padding: 12,
+      gap: rnSpacing.sm,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.danger.DEFAULT,
       backgroundColor: tokens.surface.bg,
     },
-    buttonRow: { flexDirection: 'row', gap: 8 },
+    buttonRow: { flexDirection: 'row', gap: rnSpacing.sm },
     flex1: { flex: 1 },
     input: {
       height: 42,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       backgroundColor: tokens.surface.card,
     },
     resultBox: {
-      gap: 4,
+      gap: rnSpacing.xs,
       padding: 10,
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.bg,
     },
-    receiptRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+    receiptRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
+    },
     receiptName: { flex: 1, fontSize: 13, color: tokens.text.primary },
-    receiptStatus: { fontSize: 12, fontWeight: '600' },
+    receiptStatus: { fontSize: rnType.label.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

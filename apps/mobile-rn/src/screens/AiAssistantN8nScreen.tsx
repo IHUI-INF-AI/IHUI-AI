@@ -110,7 +110,13 @@ import {
   type ToolCallView,
 } from '@ihui/shared'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
-import { rnLightTokens as tokens, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import {
+  rnLightTokens as tokens,
+  rnRadius,
+  rnRadiusFor,
+  rnSpacing,
+  rnType,
+} from '@ihui/design-tokens'
 import {
   CitationList,
   InjectionDisclosure,
@@ -2193,15 +2199,15 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   modelConfigBtnText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   modelConfigBtnLabel: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   modelBarArrow: {
-    fontSize: 18,
+    fontSize: rnType.subtitle.size,
     color: tokens.text.tertiary,
     marginLeft: rpx(16),
   },
@@ -2223,7 +2229,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
   },
   quickChipText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
   streamingBar: {
@@ -2234,7 +2240,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(12),
     backgroundColor: tokens.surface.card,
   },
-  streamingText: { fontSize: 12, color: tokens.text.tertiary },
+  streamingText: { fontSize: rnType.label.size, color: tokens.text.tertiary },
 })
 
 const bubbleStyles = StyleSheet.create({
@@ -2249,7 +2255,7 @@ const bubbleStyles = StyleSheet.create({
   },
   bubbleUser: { backgroundColor: tokens.brand.DEFAULT },
   bubbleAi: { backgroundColor: tokens.surface.card },
-  text: { fontSize: 14, lineHeight: 20 },
+  text: { fontSize: rnType.body.size, lineHeight: 20 },
   textUser: { color: tokens.surface.light },
   textAi: { color: tokens.text.primary },
   // 回复内图片网格(对齐 Uniapp agent-content-item-img)
@@ -2266,29 +2272,29 @@ const bubbleStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     backgroundColor: tokens.danger.light,
   },
-  errorTitle: { fontSize: 12, fontWeight: '500', color: tokens.error.text },
+  errorTitle: { fontSize: rnType.label.size, fontWeight: '500', color: tokens.error.text },
   errorBody: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
+    fontSize: rnType.body.size,
     lineHeight: 20,
     color: tokens.error.text,
   },
   errorRetry: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rnSpacing.xs,
     alignSelf: 'flex-start',
-    marginHorizontal: 8,
-    marginBottom: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    marginHorizontal: rnSpacing.sm,
+    marginBottom: rnSpacing.sm,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
   },
-  errorRetryText: { fontSize: 12, color: tokens.error.text },
+  errorRetryText: { fontSize: rnType.label.size, color: tokens.error.text },
   imageGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -2315,7 +2321,7 @@ const bubbleStyles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   thinkingText: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     lineHeight: 18,
     color: tokens.text.secondary,
   },
@@ -2334,7 +2340,7 @@ const bubbleStyles = StyleSheet.create({
   tokensText: {
     flex: 1,
     marginRight: rpx(16),
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
   actionBtns: {
@@ -2353,12 +2359,12 @@ const bubbleStyles = StyleSheet.create({
     gap: rpx(6),
   },
   blockTitle: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     fontWeight: '600',
     color: tokens.text.tertiary,
   },
   blockHint: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     lineHeight: 18,
     color: tokens.text.secondary,
   },
@@ -2377,10 +2383,10 @@ const bubbleStyles = StyleSheet.create({
     paddingHorizontal: rpx(12),
     paddingVertical: rpx(8),
   },
-  cardTitle: { flexShrink: 0, fontSize: 12, color: tokens.text.primary },
+  cardTitle: { flexShrink: 0, fontSize: rnType.label.size, color: tokens.text.primary },
   cardSubject: {
     flex: 1,
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
   },
@@ -2395,14 +2401,14 @@ const bubbleStyles = StyleSheet.create({
   // 等宽文本(工具参数/输出、终端命令与输出)
   monoText: {
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     lineHeight: 16,
     color: tokens.text.medium,
   },
   terminalCommand: {
     flex: 1,
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.primary,
   },
   // 计划步骤行(序号 + 步骤文本 + 状态徽标 + 耗时)
@@ -2413,10 +2419,10 @@ const bubbleStyles = StyleSheet.create({
   },
   planIndex: {
     width: 16,
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
-  planText: { flex: 1, fontSize: 12, lineHeight: 18, color: tokens.text.primary },
+  planText: { flex: 1, fontSize: rnType.label.size, lineHeight: 18, color: tokens.text.primary },
   // 状态徽标(pending/active/done/failed 四态:底色 + 文字色成对)
   badge: {
     paddingHorizontal: rpx(8),
@@ -2455,12 +2461,12 @@ const pickerStyles = StyleSheet.create({
     paddingVertical: rpx(24),
   },
   title: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   close: {
-    fontSize: 24,
+    fontSize: rnType.display.size,
     color: tokens.text.tertiary,
     lineHeight: 26,
   },
