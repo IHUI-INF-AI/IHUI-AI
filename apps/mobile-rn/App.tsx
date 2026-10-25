@@ -19,6 +19,7 @@ import { DevErrorToast } from './src/components/DevErrorToast'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
 import { navigationRef, navigateTo } from './src/navigation/navigation-ref'
+import { reportScreenView } from './src/lib/visit-tracker'
 import { registerWechat } from './src/lib/wechat'
 import {
   subscribeOAuthDeepLink,
@@ -190,6 +191,8 @@ function ThemedNavigation() {
       ref={navigationRef}
       linking={linking}
       theme={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}
+      onReady={() => reportScreenView(navigationRef.getCurrentRoute()?.name)}
+      onStateChange={() => reportScreenView(navigationRef.getCurrentRoute()?.name)}
     >
       <RootNavigator />
     </NavigationContainer>
