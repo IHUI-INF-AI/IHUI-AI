@@ -20,10 +20,10 @@
  *   node scripts/green-state.mjs --rollback [--apply]
  *   node scripts/green-state.mjs --self-test
  */
-import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const STATE_PATH = join(ROOT, '.ihui-agent', 'state', 'last-green.json')
@@ -75,14 +75,14 @@ export function decideRollback({ state, headSha }) {
 }
 
 function git(args) {
-  const r = spawnSync('git', args, {
-    cwd: ROOT,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 8 * 1024 * 1024,
-  })
-  return { ok: r.status === 0, out: String(r.stdout ?? ''), err: String(r.stderr ?? '') }
+  // G-927 迁移批(2026-10-25):裸 spawnSync('git') 改走 face-reader 取材层 gitRaw。
+  // gitRaw 非零即抛 Undetermined(带 status),这里折回调用方的 {ok,out,err} 三态,
+  // 行为面与旧实现逐字段等值。
+  try {
+    return { ok: true, out: gitRaw(args, ROOT), err: '' }
+  } catch (e) {
+    return { ok: false, out: '', err: String(e?.message ?? e) }
+  }
 }
 
 function headSha() {
