@@ -7,7 +7,8 @@
 # chat 多端/多标签实时同步 —— 「同一消息 patch 幂等」契约
 
 > 状态:**通道已接线,余面按 §7 逐项标注**(2026-10-26 现读:WS 房间广播 + rev 持久化 + 快照端点已在 HEAD;
-> terminal 帧与 resync 客户端契约已落**契约层**,生产端发射 / 各端 store 投影 / WS 载体登记三处仍同批未接,见 §7 第 4 项)。
+> terminal 帧契约层 + 生产端发射 + web 端投影 + WS 载体登记四处已同批落地,残留见 §7 第 4 项)。
+> resync 客户端契约已落,**真实发起/网络重试**仍归 §7 第 6 项各端接线。
 > 本文件是台账票 B02(V2 #23;票71 那行是同题历史副本,不得再登记第二行)的契约正本;
 > 判据内核与类型在 `packages/types/src/chat-sync-contract.ts`,判据回归在
 > `packages/types/tests/chat-sync-contract-*.test.ts`。三处同源的规则/表格若要改,必须一次改齐。
@@ -144,12 +145,23 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    2026-10-26 补客户端契约:`planChatSyncResync`(仅 gap 发起)+ `mergeChatSyncResyncSnapshot`
    (created → snapshot → terminal 三步并回、坏快照零写入),见 §4。**仍未接**:store/hook 里的
    真实发起与网络重试(归第 6 项各端接线)。
-4. 🟡 **terminal 帧 —— 契约层已落(2026-10-26),生产/消费/载体未接**:独立帧
-   `message:terminal`(v2 信封、rev = 链头、reason 封闭集、终态粘性)与判据已进内核并有回归
-   (⑪–⑭)。仍**同批未做**的三处:① 生产端(流收尾写库 + 广播,路由/ai-service 他席在飞);
-   ② 各端 store 状态投影(web `apps/web/src/stores/chat.ts` 他席在飞);③ 广播载体登记
-   (`packages/types/src/user-broadcast.ts` 的 `USER_BROADCAST_EVENT_NAMES` / `DATA_GUARDS`)。
-   三处齐了才允许把信封整体切到 v2(现在只 terminal 用 v2,created/patched 保持 v1)。
+4. ✅ **terminal 帧**(2026-10-26 收口):独立帧 `message:terminal`(v2 信封、rev = 链头、reason
+   封闭集、终态粘性)契约层在内核并有回归(⑪–⑭)。**票面三处已同批落地**:
+   ① **生产端** `apps/api/src/routes/ai-chat-stream.ts` —— 上游 `finishReason` 经闭集映射
+   (`length` 家族 → `length`、`content_filter` → `content_filter`、其余 → `stop`),上游 HTTP 错 /
+   重放窗口放弃 / 中断分别落 `error` / `aborted` / `error`,仅 `replayKey` 存在时在 `finally`
+   fire-and-forget 发帧;
+   ② **广播载体** `apps/api/src/plugins/ws-broadcast.ts` 装饰器 `broadcastChatMessageTerminal`
+   (rev 取账本链头、帧复用 `messageTerminalEvent`)+ `apps/api/src/db/chat-sync-rev-queries.ts` 只读
+   `readChatSyncRev`(无账行返 0)、`packages/types/src/user-broadcast.ts` 的
+   `USER_BROADCAST_EVENT_NAMES` / `DATA_GUARDS` 均已登记;
+   ③ **各端 store 投影**:web 已落(`apps/web/src/stores/chat.ts` 的 `applyChatSyncEvent`);
+   taro 端由他席在飞(工作树 `apps/miniapp-taro/src/stores/chat-sync.ts` 未提交),RN/cli/extension
+   仍归第 6 项。
+   **残留(另票)**:SSE 路径不广播 `created`/`patched`(助手消息由 `ai-callback-worker` 落库)⇒ 账本
+   通常无行、本轮 terminal 的 `rev=0`;端侧按 §4 gap 判据触发 resync 自愈(不会漏终态,但要多一次
+   快照往返)。补齐 = 在 SSE 落库处补发 created/patched 帧。信封整体切 v2 也须等 created/patched
+   一并上 v2 后另批(现在只 terminal 用 v2,created/patched 保持 v1)。
 5. ⬜ **meta 结构性 patch —— 本轮不做**:pin/书签等结构位与票64 的 sibling 存储共面,须一次升
    `chat-sync.v2`(或子版本);同样受"生产 + 消费同批"约束,单侧加字段不得合入。
 6. ⬜ **各端 store 接线**:web 已接(`apps/web/src/stores/chat.ts` 的 `applyChatSync` /
