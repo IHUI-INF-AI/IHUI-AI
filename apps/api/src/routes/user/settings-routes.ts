@@ -39,7 +39,10 @@ const exportContentStore = new Map<string, { content: string; expiresAt: Date }>
 
 const settingsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/settings/notifications', async (request, reply) => {
-    const { list } = await findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.notifications)
+    const { list } = await findUserPreferences(
+      request.userId!,
+      USER_PREFERENCE_GROUPS.notifications,
+    )
     const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))
     return reply.send(success({ settings }))
   })
@@ -189,7 +192,12 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
       try {
         const parsed: unknown = JSON.parse(row.value)
         if (Array.isArray(parsed)) {
-          hrefs = parsed.filter((h): h is string => typeof h === 'string').slice(0, SIDEBAR_NAV_MAX)
+          // 读取侧**不截断**(2026-10-25):上限只管"能写进来多少",不管"能读出去多少"。
+          // 在 GET 上 slice 是有损动作 —— 客户端每次改动都把整表 PUT 回来覆盖(见
+          // apps/web/src/components/sidebar/use-custom-nav.ts 的"变更上推"),被截掉的尾部
+          // 会在用户改任意一项的那一刻永久消失,而且他从头到尾没收到任何提示。
+          // 收口点只有 PUT 一处(schema 的 max(SIDEBAR_NAV_MAX)),那才是"拒绝写入"的正解。
+          hrefs = parsed.filter((h): h is string => typeof h === 'string')
         }
       } catch {
         hrefs = []
@@ -224,7 +232,10 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/settings/devices', async (request, reply) => {
-    const { list, total } = await findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.devices)
+    const { list, total } = await findUserPreferences(
+      request.userId!,
+      USER_PREFERENCE_GROUPS.devices,
+    )
     return reply.send(success({ list, total }))
   })
 
@@ -421,9 +432,7 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
       })
       .safeParse(request.body ?? {})
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
-    const groups: Array<
-      [UserPreferenceGroup, Record<string, unknown> | undefined]
-    > = [
+    const groups: Array<[UserPreferenceGroup, Record<string, unknown> | undefined]> = [
       [USER_PREFERENCE_GROUPS.notifications, body.data.notifications],
       [USER_PREFERENCE_GROUPS.privacy, body.data.privacy],
       [USER_PREFERENCE_GROUPS.preferences, body.data.preferences],

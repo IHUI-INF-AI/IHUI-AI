@@ -20,17 +20,14 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { UNDO_CLAIM_KEYS } from '../src/commands/undo-claim-copy.js';
+import { UNDO_CLAIM_KEYS, UNDO_FAILURE_LIST_KEYS } from '../src/commands/undo-claim-copy.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MESSAGES_DIR = join(here, '..', '..', '..', 'packages', 'i18n', 'messages', 'cli');
 const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW'] as const;
 
-/** D163 收口刀额外要的选项说明键(不属于 UNDO_CLAIM_KEYS,但同属本刀)。 */
-const EXTRA_KEYS = ['undoDryRunDesc'] as const;
-
-/** web 侧八键里 CLI 刻意不落的那一枚:差异显式,不静默漂移。 */
-const WEB_ONLY_KEYS = ['undoFailed'] as const;
+/** D163 收口刀额外要的选项说明键 + D22046 失败文件清单三键(同属 undo 词包)。 */
+const EXTRA_KEYS: readonly string[] = [...UNDO_FAILURE_LIST_KEYS, 'undoDryRunDesc'];
 
 type Messages = Record<string, unknown>;
 
@@ -51,9 +48,9 @@ function value(locale: string, key: string): string | undefined {
   return typeof v === 'string' ? v : undefined;
 }
 
-describe('D163 CLI 词包 parity(五语 × 七键 + 选项说明)', () => {
+describe('D163 CLI 词包 parity(五语 × 八键 + 选项说明)', () => {
   for (const locale of LOCALES) {
-    it(`${locale}: 七键与 undoDryRunDesc 齐、值非空`, () => {
+    it(`${locale}: 八键与失败清单三键、undoDryRunDesc 齐、值非空`, () => {
       for (const key of [...UNDO_CLAIM_KEYS, ...EXTRA_KEYS]) {
         const v = value(locale, key);
         expect(v, `${locale}/${key}`).toBeDefined();
@@ -61,10 +58,10 @@ describe('D163 CLI 词包 parity(五语 × 七键 + 选项说明)', () => {
       }
     });
 
-    it(`${locale}: 刻意不落 undoFailed(语义被 partial/unavailable 覆盖)`, () => {
-      for (const key of WEB_ONLY_KEYS) {
-        expect(value(locale, key), `${locale}/${key}`).toBeUndefined();
-      }
+    it(`${locale}: 不可用原因两档必须是两句不同的话(不再一律同一句)`, () => {
+      const unavailable = value(locale, 'undoUnavailable')!;
+      const failed = value(locale, 'undoFailed')!;
+      expect(failed, locale).not.toBe(unavailable);
     });
   }
 
@@ -82,11 +79,23 @@ describe('D163 CLI 词包 parity(五语 × 七键 + 选项说明)', () => {
     }
   });
 
+  it('D22046 失败清单三键的插值占位五语一致', () => {
+    for (const locale of LOCALES) {
+      // 标题必须同时给"文件数"与"轮次"两个数:只有文件数会让用户多试几次。
+      expect(value(locale, 'undoFailedFilesTitle')!, locale).toContain('{count}');
+      expect(value(locale, 'undoFailedFilesTitle')!, locale).toContain('{turns}');
+      expect(value(locale, 'undoFailedFilesMore')!, locale).toContain('{count}');
+      const line = value(locale, 'undoFailedFileLine')!;
+      expect(line, locale).toContain('{file}');
+      expect(line, locale).toContain('{reason}');
+    }
+  });
+
   it('失败两态与"未发生变化"三态互不串台:changed/unverifiable 的文案不得含承诺句', () => {
     for (const locale of LOCALES) {
       const changed = value(locale, 'undoFailedChanged')!;
       const unverifiable = value(locale, 'undoFailedUnverifiable')!;
-      // 承诺句只属于 unchanged 那一族(undoUnavailable / undoPartialWarning)
+      // 承诺句只属于 unchanged 那一族(undoUnavailable / undoFailed / undoPartialWarning)
       expect(changed, locale).not.toContain('未发生变化');
       expect(changed, locale).not.toContain('has not changed');
       expect(unverifiable, locale).not.toContain('未发生变化');
@@ -100,7 +109,7 @@ describe('D163 CLI 词包 parity(五语 × 七键 + 选项说明)', () => {
     }
   });
 
-  it('键表与词包双向齐:代码侧七键 ⊆ 词包七键,且词包无第八个 undo* 承诺键', () => {
+  it('键表与词包双向齐:代码侧八键 ⊆ 词包八键(不多造承诺键)', () => {
     for (const locale of LOCALES) {
       const inPack = UNDO_CLAIM_KEYS.filter((k) => value(locale, k) !== undefined);
       expect(inPack.length, locale).toBe(UNDO_CLAIM_KEYS.length);

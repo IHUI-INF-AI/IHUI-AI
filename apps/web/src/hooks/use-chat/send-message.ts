@@ -744,6 +744,11 @@ export function createSendMessage(
         // D09(2026-10-24 立):专家包自动路由档位(设置页三档)。发送时快照,与上面几轴同姿势;
         // null/undefined = 用户未表态 ⇒ 不发该字段,后端按 env / 默认 hint 档处理。
         expertAutoRoute: chatStore.getState().expertAutoRoute ?? undefined,
+        // D01(2026-10-25 立):对话内 Agent 选择器选中的 persona。与上面几轴同姿势 ——
+        // 发送时快照;null = 未选专家 ⇒ 不发该字段,请求体逐字节与接线前一致。
+        // 传输槽复用 body.agentId(网关只为这一个标识字段开了通道),见 api-client
+        // streamChat 的 boundAgentId 注释;ai-service 侧据此并入 system 说明与工具白名单。
+        personaId: chatStore.getState().selectedAgentId ?? undefined,
         // P1 #26(2026-09-16 立):知识库默认注入开关。
         // undefined = 后端默认开(top-3 检索注入);false = 显式关闭(api-client 仅在 false 时写入 body)。
         knowledgeContext: samplingParams.knowledgeContext,

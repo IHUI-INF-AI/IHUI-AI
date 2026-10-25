@@ -653,7 +653,7 @@ export class IhuiAcpAgent {
         // 86H:IDE 弹窗是"真人批准"的主通路,决策必须落审计链;会话取 ACP 的
         // params.sessionId,入参原文仍不上线(那是 86A 的 tool.invoke 行的事)。
         confirmDangerous: createAuditedDangerGate({
-          allowDangerous: this.opts.allowDangerous,
+          allowDangerous: this.opts.allowDangerous === true,
           silent: true,
           auditSessionId: params.sessionId,
           prompt: async (tool, args) => {

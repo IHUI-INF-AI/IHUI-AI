@@ -94,7 +94,6 @@ interface HttpSnapshot {
   uptimeSeconds: Array<{ job: string; seconds: number }>
   wsConnections: number | null
   activeConnections: number | null
-  aiActiveSessions: number | null
 }
 
 interface RedisSnapshot {
@@ -1472,27 +1471,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           </div>
         </header>
 
-        {/* ===== KPI 带 =====
-            排列按机主 2026-10-25 定档:最关心「用户数据 / 增长 / AI」⇒ 这三类读数占最左两格
-            (大屏阅读从左上起),运维读数(QPS / 错误率 / P95)右移但仍同排可见,不做删减。
-            用户卡的 sub 就是「今日新增」——增长读数不另开一格:六列档多一张卡会落成 6+1 孤格
-            (.wb-cells-lg ≥900 固定 6 列,见 WALLBOARD_CSS 注释)。 */}
+        {/* ===== KPI 带 ===== */}
         <section className="wb-cells-lg grid gap-2.5 px-4 pt-3">
           {[
-            {
-              icon: <Users className="h-4 w-4" />,
-              label: t('kpiUsers'),
-              value: fmtInt(biz?.usersTotal),
-              sub: t('kpiUsersSub', { count: fmtInt(biz?.usersTodayNew) }),
-              tone: biz ? ('accent' as const) : ('unknown' as const),
-            },
-            {
-              icon: <Sparkles className="h-4 w-4" />,
-              label: t('kpiAiCalls'),
-              value: fmtCompact(biz?.llmCallsToday),
-              sub: t('kpiAiCallsSub', { count: fmtCompact(biz?.llmTokensToday) }),
-              tone: biz ? ('accent' as const) : ('unknown' as const),
-            },
             {
               icon: <Activity className="h-4 w-4" />,
               label: t('kpiQps'),
@@ -1529,6 +1510,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       : ('default' as const),
             },
             {
+              icon: <Users className="h-4 w-4" />,
+              label: t('kpiUsers'),
+              value: fmtInt(biz?.usersTotal),
+              sub: t('kpiUsersSub', { count: fmtInt(biz?.usersTodayNew) }),
+              tone: biz ? ('accent' as const) : ('unknown' as const),
+            },
+            {
               icon: <Wallet className="h-4 w-4" />,
               label: t('kpiTurnover'),
               // 金额 ≥1 万元走紧凑记法(避免 6 位整数把卡片撑破);其余保留至多两位小数。
@@ -1542,6 +1530,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               unit: t('unitYuan'),
               sub: t('kpiTurnoverSub', { count: fmtInt(biz?.ordersTodayPaid) }),
               tone: biz ? ('default' as const) : ('unknown' as const),
+            },
+            {
+              icon: <Sparkles className="h-4 w-4" />,
+              label: t('kpiAiCalls'),
+              value: fmtCompact(biz?.llmCallsToday),
+              sub: t('kpiAiCallsSub', { count: fmtCompact(biz?.llmTokensToday) }),
+              tone: biz ? ('accent' as const) : ('unknown' as const),
             },
           ].map((k) => (
             <div
@@ -1781,7 +1776,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTraffic')}
             icon={<Radio className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-prio-trend"
+            className="wb-c6 wb-flow-first"
             right={
               <span className="flex items-center gap-2">
                 {no5xxBadge}
@@ -1802,17 +1797,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noTrendData')} />
               ) : null}
             </div>
-            <div className="wb-cells wb-cells-5 grid gap-2">
+            <div className="wb-cells wb-cells-4 grid gap-2">
               <StatCell
                 label={t('wsConnections')}
                 value={fmtInt(http?.wsConnections)}
                 unit={t('unitConn')}
-                tone="accent"
-              />
-              <StatCell
-                label={t('aiSessions')}
-                value={fmtInt(http?.aiActiveSessions)}
-                unit={t('unitSession')}
                 tone="accent"
               />
               <StatCell
@@ -2191,13 +2180,42 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelBusiness')}
             icon={<Wallet className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-prio-user"
+            className="wb-c6 wb-business-early"
             bodyClassName="wb-split wb-split-c3 overflow-y-auto"
           >
             <div className="wb-col">
-              {/* 用户三格 = 面板第一眼读数(机主 2026-10-25 定档:用户数据/增长优先于接口排行)。
-                  接口调用排行原在此处,已下移到签到块之后。 */}
-              <div className="wb-cells wb-cells-c3 grid gap-1.5">
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('topEndpoints')}
+              </div>
+              <div className="space-y-1">
+                {(biz?.topEndpoints ?? []).map((e, i) => (
+                  <div
+                    key={`${e.method}-${e.path}-${i}`}
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
+                    <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text">
+                      {e.method}
+                    </span>
+                    <Tooltip content={e.path}>
+                      <span className="truncate text-[10px] text-foreground">{e.path}</span>
+                    </Tooltip>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                      {fmtCompact(e.calls)}
+                    </span>
+                  </div>
+                ))}
+                {biz === null ? (
+                  <div className="flex justify-center px-2 py-3">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : biz.topEndpoints.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('noCallsToday')}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('usersRegistered')}
                   value={fmtInt(biz?.usersTotal)}
@@ -2289,40 +2307,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <EChart option={signInOption} height={62} merge ariaLabel={t('signIn7d')} />
                   {!biz?.signIn || biz.signIn.last7d.length === 0 ? (
                     <ChartEmpty text={biz?.signIn ? t('noSignIn7d') : t('sourceUnreachable')} />
-                  ) : null}
-                </div>
-              </div>
-              {/* 接口调用排行(纵深信息,下移):原在用户三格之前,机主最关心的是用户/增长/AI */}
-              <div className="mt-2">
-                <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
-                  {t('topEndpoints')}
-                </div>
-                <div className="space-y-1">
-                  {(biz?.topEndpoints ?? []).map((e, i) => (
-                    <div
-                      key={`${e.method}-${e.path}-${i}`}
-                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                    >
-                      <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
-                      <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text">
-                        {e.method}
-                      </span>
-                      <Tooltip content={e.path}>
-                        <span className="truncate text-[10px] text-foreground">{e.path}</span>
-                      </Tooltip>
-                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                        {fmtCompact(e.calls)}
-                      </span>
-                    </div>
-                  ))}
-                  {biz === null ? (
-                    <div className="flex justify-center px-2 py-3">
-                      <SourceGap text={t('sourceUnreachable')} />
-                    </div>
-                  ) : biz.topEndpoints.length === 0 ? (
-                    <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                      {t('noCallsToday')}
-                    </div>
                   ) : null}
                 </div>
               </div>
@@ -2530,7 +2514,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTrafficRobot')}
             icon={<Users className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md wb-prio-traffic"
+            className="wb-c6 wb-c3-md order-1"
             right={
               traffic === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2622,7 +2606,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelRelayPool')}
             icon={<Sparkles className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md wb-prio-ai"
+            className="wb-c6 wb-c3-md order-1"
             right={
               relayPool === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -3027,15 +3011,11 @@ const WALLBOARD_CSS = `
  * 面板内部的两栏(告警/业务)也按面板自身宽度判定(.wb-panel 是容器),不再按视口 md:。 */
 .wb-panel { container-type: inline-size; }
 .wb-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
-/* 首屏编排(全宽度生效,机主 2026-10-25 定档):最关心「用户数据 / 增长 / AI」⇒ 四块按此序前置,
- * 主机/服务、质量/告警、数据层、边缘、运行时长顺次后移。1920 下首屏两行正好是
- * 「业务纵深 6 + AI 号池 6」「访客与机器人 6 + 流量趋势 6」—— 用户增长与 AI 面无需滚动即读完。
- * 负 order 只改视觉顺序,DOM 顺序不变(读屏仍按 DOM 读,视觉优先是大屏的既定取舍)。
- * 四档必须两两不等:同值时回落到 DOM 顺序,编排就静默失效(2026-10-22 前那版只有 -2/-1 两档)。 */
-.wb-prio-user { order: -40; }
-.wb-prio-ai { order: -30; }
-.wb-prio-traffic { order: -20; }
-.wb-prio-trend { order: -10; }
+/* 首屏编排(全宽度生效):流量趋势与业务数据先读,主机/服务、质量/告警顺次后移。
+ * 1920 下一行刚好是流量 6 + 业务 6,首屏即可读完这两块;负 order 只改视觉顺序,
+ * DOM 顺序不变(读屏仍按 DOM 读,视觉优先是大屏的既定取舍)。 */
+.wb-flow-first { order: -2; }
+.wb-business-early { order: -1; }
 .wb-c3 { grid-column: span 3; }
 .wb-c6 { grid-column: span 6; }
 .wb-split {

@@ -149,7 +149,7 @@ export class AgentCore {
       // 构造时刻没有"当前会话"可归属,故决策落 'cli-default' —— 要按会话归因得先让
       // core 跟踪活动会话,那是另一件事,不在本票(不为此假造一个归属)。
       confirmDangerous: createAuditedDangerGate({
-        allowDangerous: this.opts.allowDangerous,
+        allowDangerous: this.opts.allowDangerous === true,
         silent: true,
       }),
     });

@@ -423,8 +423,12 @@
     "undoSucceeded": "{count} 個のファイルを復元しました。タスク記録は保持されます。",
     "undoPartialWarning": "一部の変更は CLI ファイルチェックポイントに含まれておらず、ロールバックは不完全な場合があります。",
     "undoUnavailable": "ファイルチェックポイントを利用できません。ワークスペースは変更されていません。",
+    "undoFailed": "CLI ファイルチェックポイントを一時的に利用できません。ワークスペースは変更されていません。",
     "undoFailedChanged": "ロールバック未完了:ワークスペースは変更されています(確認済み)。続行する前に下のファイル一覧を確認してください。",
     "undoFailedUnverifiable": "ロールバック未完了。ワークスペースが変更されたか確認できません(一部のファイルが読めません)。再試行前に手動で確認してください。",
+    "undoFailedFilesTitle": "次の {count} 個のファイルをロールバックできませんでした({turns} ターン):",
+    "undoFailedFileLine": "  · {file} — {reason}",
+    "undoFailedFilesMore": "…ほか {count} 件",
     "undoDesc": "直近 N ステップのファイル変更を巻き戻し(既定 1、agent セッションのワークスペース内で実行)",
     "sessionOptDesc": "セッション ID(既定は直近セッション)",
     "undoNothing": "巻き戻し可能な変更はありません",
@@ -477,7 +481,14 @@
     "goalCriteriaBadArg": "--goal-criteria にはファイルパスが必要です",
     "goalCriteriaUnreadable": "--goal-criteria ファイル {file} を読み込めません:{error}",
     "goalCriteriaNotAnArray": "{file} は空ではない JSON 配列でなければなりません",
-    "goalCriteriaBadEntry": "条件 第{index}件に id または statement がありません"
+    "goalCriteriaBadEntry": "条件 第{index}件に id または statement がありません",
+    "dangerGate": {
+      "denyNoPrompt": "危険な操作を拒否しました：--allow-dangerous が指定されておらず、確認チャネルもないため、fail-closed で拒否します。許可するには起動時に --allow-dangerous を付け、または対話式ターミナルで再実行して手動で確認してください。",
+      "denyDeclined": "危険な操作を拒否しました：確認プロンプトでユーザーが明確に拒否しました。許可するには再実行して確認プロンプトで許可を選んでください（無人実行に黙認の抜け道はありません）。",
+      "denyEmpty": "危険な操作を拒否しました：確認プロンプトが明確な回答を返さなかった（空または未定義）ため、許可として扱いません。許可するには対話式ターミナルで再実行し、明示的に許可してください。",
+      "denyError": "危険な操作を拒否しました：確認チャネルが問い合わせ中に失敗したため、拒否を優先します。許可するには確認チャネル（例：エディタ接続）を修復するか、対話式ターミナルで再実行して手動で確認してください。",
+      "denyContract": "危険な操作を拒否しました：このツールの契約は人間による承認を必須としており、--allow-dangerous が人間の代わりに答える権限はありません。許可するには対話式ターミナルで再実行して手動で確認してください（この区分にコマンド行の抜け道はありません）。"
+    }
   },
   "cliWorkflows": {
     "contextBadJson": "--context が有効な JSON ではありません: {message}",

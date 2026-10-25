@@ -11,10 +11,12 @@ import type { NavAdvancedTier } from '@/components/sidebar/types'
 /**
  * 侧边栏简洁模式 store(2026-10-20 立)
  *
- * 立因:侧边栏对普通用户可见的 101 项里 61 项属于「开发者 / 中转站运营后台 /
- * Agent 框架内部 / 实验性」四类 —— 权限上用户能进,产品上他不该看见。
- * 此前只有 roleId / permission 两层硬过滤,缺的正是这个**用户自选层**。
- * (61/101 为 `__tests__/nav-tier-visibility.test.ts` 实跑读数,不是估算)
+ * 立因:侧边栏里「开发者 / 中转站运营后台 / Agent 框架内部 / 实验性」这四类入口,
+ * 权限上用户能进、产品上他不该看见 —— roleId / permission 两层硬过滤挡不住这种,
+ * 缺的正是这个**用户自选层**。
+ * 计量口径(勿手改数字,按 `__tests__/nav-tier-visibility.test.ts` 现读同步):
+ * 侧边栏树 28 项里 21 项带档;AI 域清单 54 项里 41 项带档(2026-10-23 起 AI 域
+ * 那批条目搬到域入口页面,不在侧边栏树这一面,所以是两面各自计量)。
  *
  * 为什么必须是 store 而不是组件 state:设置页改开关要**当场**反映到侧边栏,
  * 两者不是父子关系(侧栏挂在 GlobalShell,设置页是路由 children),
@@ -103,8 +105,9 @@ export const useNavVisibilityStore = create<NavVisibilityState>((set, get) => {
       if (get().hydrated) return
       const local = readLocal()
       // 从未设置过 ⇒ 默认全隐藏(简洁模式默认开)。
-      // 这是产品判断:那 61 项对绝大多数用户一次都用不上,默认展示是纯粹的噪声。
-      set({ hydrated: true, hiddenTiers: local ?? [...ALL_NAV_TIERS] })
+      // 这是产品判断:那批研发向条目对绝大多数用户一次都用不上,默认展示是纯粹的噪声。
+      const firstFrame = local ?? [...ALL_NAV_TIERS]
+      set({ hydrated: true, hiddenTiers: firstFrame })
       if (!userId) return
       // 远端为准(服务端是唯一真相源),本地只用作首帧渲染与离线降级。
       // 之所以不做双向并集:并集会让"我在 B 设备删掉的项"被 A 设备的陈旧缓存复活
@@ -127,6 +130,11 @@ export const useNavVisibilityStore = create<NavVisibilityState>((set, get) => {
       } catch {
         return
       }
+      // 「以远端为准」盖住的只能是**水合那一帧**的状态(2026-10-25 补)。侧栏首帧就按本地
+      // 渲染出来了,设置页的开关当场可拨;GET 在飞期间用户拨过 ⇒ 这帧远端是他改动**之前**
+      // 的快照,照盖就是"我拨了它又弹回来",而他那一次的 PUT 已经发出去了 ⇒ 屏幕与云端背离。
+      // 引用判据够用:commit 每次真变更都换一个新数组(值没变时它当场 return,不动引用)。
+      if (get().hiddenTiers !== firstFrame) return
       set({ hiddenTiers: remote })
     },
   }

@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   BackHandler,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -20,6 +19,8 @@ import {
 import { Check, ChevronDown } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius } from '@ihui/design-tokens'
+import { CategoryItemContent, categoryItemA11yLabel } from './category-bar-core'
+import { renderRnCategoryIcon, rnCategoryPrimitives } from './rn-primitives'
 import type { CategoryItem, ColorSchemeName } from './types'
 
 export interface CategoryDropdownProps {
@@ -253,14 +254,13 @@ export function CategoryDropdown({
             ) : (
               items.map((item) => {
                 const active = item.id === selectedId
-                const Icon = item.icon
                 return (
                   <Pressable
                     key={item.id}
                     onPress={() => handleSelect(item.id)}
                     accessibilityRole="menuitem"
                     accessibilityState={{ checked: active }}
-                    accessibilityLabel={item.a11yLabel ?? item.label}
+                    accessibilityLabel={categoryItemA11yLabel(item)}
                   >
                     {({ pressed }) => (
                       <View
@@ -269,23 +269,21 @@ export function CategoryDropdown({
                           pressed ? styles.optionPressed : null,
                         ]}
                       >
-                        {Icon ? (
-                          <Icon size={16} color={active ? tk.brandAccent.deep : tk.text.primary} />
-                        ) : item.image ? (
-                          <Image
-                            source={item.image}
-                            style={styles.optionImage}
-                            resizeMode="contain"
-                          />
-                        ) : null}
-                        <Text
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                          style={[styles.optionText, active ? styles.optionTextActive : null]}
-                        >
-                          {item.label}
-                        </Text>
-                        {active ? <Check size={16} color={tk.brandAccent.deep} /> : null}
+                        {/* 与横滑条同一份条目结构(核心 `CategoryItemContent`):
+                            图标 → 图片 → 文案 → 尾槽;这里只注入 RN 原语与选中勾。 */}
+                        <CategoryItemContent
+                          item={item}
+                          active={active}
+                          primitives={rnCategoryPrimitives}
+                          renderIcon={renderRnCategoryIcon}
+                          defaultIconSize={16}
+                          iconColor={tk.text.primary}
+                          activeIconColor={tk.brandAccent.deep}
+                          textStyle={styles.optionText}
+                          activeTextStyle={[styles.optionText, styles.optionTextActive]}
+                          imageStyle={styles.optionImage}
+                          trailing={active ? <Check size={16} color={tk.brandAccent.deep} /> : null}
+                        />
                       </View>
                     )}
                   </Pressable>
