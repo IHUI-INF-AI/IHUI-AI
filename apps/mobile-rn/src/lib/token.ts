@@ -17,6 +17,7 @@
  */
 import {
   fetchApi,
+  refreshAccessTokenOnce,
   setBaseUrl,
   setDeviceFingerprintProvider,
   setUserAgent,
@@ -37,6 +38,7 @@ import {
   createInMemoryTokenStore,
   type TokenStore,
 } from '@ihui/shared/auth'
+import { createTokenAutoRefresh, type TokenAutoRefreshHandle } from '@ihui/shared/auth/auto-refresh'
 
 /**
  * 内存缓存 TokenStore(工厂创建)
@@ -259,6 +261,32 @@ export async function initApi(): Promise<void> {
   })
   bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })
   setDeviceFingerprintProvider(mobileRnDeviceFingerprintCollector)
+  startTokenAutoRefresh()
+}
+
+/**
+ * 主动续期(2026-10-26)。
+ *
+ * 此前 RN 只有 401 兜底:空闲超过 15 分钟后的第一条请求必先失败一次;而流式与 ai-service
+ * 通道连 401 兜底都走不到(聊天/能力上报直接报"登录过期")。周期检查把"到点续期"
+ * 从"等请求撞 401"改成"自己按时换",后台挂起错过的那一拍由下一次检查自然补上。
+ * 刷新实现复用 api-client 的全局单飞(与 401 拦截器共享 in-flight),不新增第二个刷新源。
+ */
+let autoRefresh: TokenAutoRefreshHandle | null = null
+
+export function startTokenAutoRefresh(): void {
+  if (autoRefresh) return
+  autoRefresh = createTokenAutoRefresh({
+    getToken,
+    refresh: () => refreshAccessTokenOnce(),
+    isSessionLoggedOut,
+  })
+  autoRefresh.start()
+}
+
+export function stopTokenAutoRefresh(): void {
+  autoRefresh?.stop()
+  autoRefresh = null
 }
 
 export function getToken(): string | null {
