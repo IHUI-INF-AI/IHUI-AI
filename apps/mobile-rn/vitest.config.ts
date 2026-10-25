@@ -136,6 +136,13 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/auth/auto-login-policy.ts',
       ),
+      // 2026-10-26:周期续期循环(shouldRefreshNow / createTokenAutoRefresh)。与上一条同型 ——
+      // 必须排在 '@ihui/shared/auth' 之前(父别名按 startsWith 吞子路径),且指真实源码:
+      // 这是判据本身,给它写 mock 测的就是 mock。src/lib/token.ts 按此子路径取用。
+      '@ihui/shared/auth/auto-refresh': resolve(
+        __dirname,
+        '../../packages/shared/src/auth/auto-refresh.ts',
+      ),
       // 票 #27:「记住登录」记录的唯一编解码出口(纯函数,零平台依赖)。同样必须排在
       // '@ihui/shared/auth' 之前 —— 父别名按 startsWith 会把子路径吞成 <index.ts>/remembered-account。
       // 指真实源码而不是替身:给它写 mock,测的就是 mock(同上方两条先例)。
