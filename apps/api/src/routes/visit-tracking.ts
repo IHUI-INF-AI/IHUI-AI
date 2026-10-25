@@ -14,6 +14,7 @@ import {
   getPageUsageList,
   visitScopeFilter,
   VISIT_SCOPE_VALUES,
+  VISIT_PLATFORM_VALUES,
   type ObservedVisitorFields,
 } from '../db/visit-tracking-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -132,6 +133,8 @@ const pageStatsQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   scope: z.enum(VISIT_SCOPE_VALUES).default('public'),
+  // 2026-10-26:端筛选项。分桶判据与 /ops-wallboard 的 platformSplit 同源(visitPlatformFilter)。
+  platform: z.enum(VISIT_PLATFORM_VALUES).default('all'),
 })
 
 // 同上:ip / userAgent 不在客户端可写字段清单里(2026-10-23 真值化)。
@@ -491,6 +494,11 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
             ...dateRangeProps,
             page: { type: 'integer', minimum: 1, default: 1 },
             pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+            platform: {
+              type: 'string',
+              enum: [...VISIT_PLATFORM_VALUES],
+              description: '端:all(默认)/web/rn/mp',
+            },
           },
         },
         response: {
@@ -507,8 +515,8 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { startTime, endTime, page, pageSize, scope } = parsed.data
-      const result = await getPageUsageList({ startTime, endTime, page, pageSize, scope })
+      const { startTime, endTime, page, pageSize, scope, platform } = parsed.data
+      const result = await getPageUsageList({ startTime, endTime, page, pageSize, scope, platform })
       return reply.send(success(result))
     },
   )

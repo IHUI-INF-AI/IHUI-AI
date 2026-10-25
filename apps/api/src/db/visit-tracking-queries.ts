@@ -318,6 +318,7 @@ export interface FindPageUsageOpts {
   startTime?: string
   endTime?: string
   scope?: VisitScopeQuery
+  platform?: VisitPlatformQuery
   page: number
   pageSize: number
 }
@@ -339,6 +340,7 @@ export interface PageUsageResult {
 export async function getPageUsageList(opts: FindPageUsageOpts): Promise<PageUsageResult> {
   const where = and(
     dateRangeFilter(opts.startTime, opts.endTime, opts.scope),
+    visitPlatformFilter(opts.platform),
     isNotNull(visitLogs.url),
   )
   const uvExpr = sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`
@@ -420,6 +422,22 @@ export interface PlatformUsageLiveRow {
   platform: VisitPlatform
   pv: number
   uv: number
+}
+
+/** 端筛选:端值 + 'all'。 */
+export type VisitPlatformQuery = VisitPlatform | 'all'
+export const VISIT_PLATFORM_VALUES = ['web', 'rn', 'mp', 'all'] as const
+
+/**
+ * platform → SQL 条件。与 `platformExpr`(大屏快照那一段)同语义:web = 非 `/rn/` 非 `/mp/`。
+ * 缺省/'all' 不加条件。
+ */
+export function visitPlatformFilter(platform?: VisitPlatformQuery | null) {
+  if (!platform || platform === 'all') return undefined
+  const path = sql<string>`coalesce(${visitLogs.url}, '')`
+  if (platform === 'rn') return sql`${path} like '/rn/%'`
+  if (platform === 'mp') return sql`${path} like '/mp/%'`
+  return sql`not (${path} like '/rn/%' or ${path} like '/mp/%')`
 }
 
 export interface PageUsageLiveSnapshot {
