@@ -4,7 +4,7 @@
   "status": "draft",
   "reviewBy": "2027-01-31",
   "format": "jsonl",
-  "description": "需求/异常自动发现器的只读取数契约 v1。生产方(api_logs 导出 / Grafana 告警导出 / 用户反馈导出)按本契约逐行写 JSONL;消费方 scripts/triage-incidents.mjs 离线归类。本契约不含任何连接凭据,归类器不连库、不调 Grafana。",
+  "description": "需求/异常自动发现器的只读取数契约 v2。生产方(api_logs 导出 / Grafana 告警导出 / 用户反馈导出 / scripts/deploy-outcome-intake.mjs 的部署结果映射)按本契约逐行写 JSONL;消费方 scripts/triage-incidents.mjs 离线归类、scripts/deploy-feedback.mjs 聚类后登记可派单台账行,两者共用 scripts/lib/incident-cluster.mjs 的身份/聚类判据。v1→v2 只新增 source=deploy_outcome 这一个生产者(部署失败/回滚回流为新事故信号),字段面与身份键未变。本契约不含任何连接凭据,归类器不连库、不调 Grafana。",
   "required": ["at", "source", "kind", "severity", "message"],
   "optional": ["traceId", "route"],
   "fields": {
@@ -17,7 +17,7 @@
     "source": {
       "type": "string",
       "enum": ["api_logs", "grafana_alert", "user_feedback", "deploy_outcome"],
-      "note": "票面三个消费入口。新增入口必须先改本契约并提 reviewBy,再改消费方。"
+      "note": "票面四个消费入口。新增入口必须先改本契约并提 reviewBy,再改消费方。"
     },
     "kind": {
       "type": "string",
