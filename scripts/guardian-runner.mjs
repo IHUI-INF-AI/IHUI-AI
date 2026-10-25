@@ -3509,6 +3509,28 @@ const checks = [
     ]
   },
   {
+    id: '254',
+    label:
+      '🎨 RN 令牌表派生面 ↔ tokens.css 对账(blocking;值同步 + 覆盖面块落后都算漂移 —— 源改一处 RN 自动跟上,不跟上就拦在提交口)',
+    script: 'sync-rn-tokens.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_TOKEN_DERIVATION',
+    stagedTriggers: [
+      'packages/design-tokens/',
+      'scripts/sync-rn-tokens.mjs',
+    ],
+    onFailHint: [
+      '  💡 判的是 rn-tokens.ts 的派生面落后于唯一源 packages/design-tokens/src/styles/tokens.css。',
+      '     ① 看差在哪:node scripts/sync-rn-tokens.mjs --check;台账(逐档可派生/不可派生/拒绝/跳过):node scripts/sync-rn-tokens.mjs --list;',
+      '     ② 修:node scripts/sync-rn-tokens.mjs(原位写回,幂等;含末端的 rnCssLight/rnCssDark 覆盖面块),',
+      '        然后 pnpm --filter @ihui/design-tokens build(RN 读 dist,不重建则设备上毫无变化 —— 2026-10-20 实测四轮),',
+      '        并把所改文件与本枚改动同提交;',
+      '     ③ 判据本体:node scripts/sync-rn-tokens.mjs --self-test(41 例;J 族钉覆盖面块:遮蔽手抄档即跳 / 应用后幂等 / 源改值即落后 / 标记不齐拒写 / 水印仍在文件末)。',
+      '     拒绝项(refusals)与语义分歧档属人工裁决,派生器不抹平;禁止为消红放宽判据(§12e)。',
+    ]
+  },
+  {
     id: '129',
     label:
       '🛡️ 提示注入登记对账(blocking,"以宿主名义进模型提示"的每段必须有登记的 producer 与记账出口;拦 登记没生产 / 生产没消费 / 裸 [系统提醒] 前缀 三型)',
