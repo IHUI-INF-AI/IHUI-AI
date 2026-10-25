@@ -18,7 +18,7 @@
  */
 
 import Taro from '@tarojs/taro'
-import { BASE_URL } from './api-config'
+import { recordVisitLog } from '@ihui/api-client'
 
 /** 同屏 3 秒内只报一次(与 web / RN 同档)。 */
 export const MP_VISIT_DEBOUNCE_MS = 3000
@@ -58,18 +58,10 @@ export function reportPageView(route: string | null | undefined, now = Date.now(
   lastPath = path
   lastAt = now
   try {
-    const task = Taro.request({
-      url: `${BASE_URL}/visit-tracking/visit-log`,
-      method: 'POST',
-      data: { url: path, sessionId: SESSION_ID },
-      header: { 'Content-Type': 'application/json' },
-      success: () => {},
-      fail: () => {},
+    // 走共享 api-client(守门 184:端内不得手拼 baseUrl 直连后端);失败静默
+    void recordVisitLog({ url: path, sessionId: SESSION_ID }).catch(() => {
+      /* 埋点失败静默 */
     })
-    // H5 模式下 Taro.request 返回 Promise:必须 catch,否则网络错误会冒成 unhandledrejection
-    if (task && typeof (task as Promise<unknown>).catch === 'function') {
-      ;(task as Promise<unknown>).catch(() => {})
-    }
   } catch {
     /* 埋点失败静默 */
   }

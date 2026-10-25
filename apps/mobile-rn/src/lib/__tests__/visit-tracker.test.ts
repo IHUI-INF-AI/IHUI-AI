@@ -6,11 +6,17 @@
  * RN 端页面埋点取证(2026-10-26 立)。
  *
  * 钉三件:路径前缀统一 `/rn/`(后台只靠它区分端)、同屏 3 秒去抖、空名不造
- * `/rn/undefined`。任一被改坏,监控面要么多算(导航抖动)要么静默漏端。
+ * `/rn/undefined`;并钉上报走共享 api-client(端内手拼 baseUrl 会被守门 184 拦)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../config', () => ({ API_BASE_URL: 'http://api.test' }))
+const h = vi.hoisted(() => ({
+  recordVisitLog: vi.fn((_payload: { url: string; sessionId: string }) =>
+    Promise.resolve({ success: true, data: {} }),
+  ),
+}))
+
+vi.mock('@ihui/api-client', () => ({ recordVisitLog: h.recordVisitLog }))
 
 import {
   __resetScreenViewThrottleForTest,
@@ -19,11 +25,12 @@ import {
   SCREEN_VIEW_DEBOUNCE_MS,
 } from '../visit-tracker'
 
-const fetchMock = vi.fn(async () => ({ ok: true }))
+const callCount = () => h.recordVisitLog.mock.calls.length
+const lastPayload = () => h.recordVisitLog.mock.calls.at(-1)![0]
 
 beforeEach(() => {
-  fetchMock.mockClear()
-  vi.stubGlobal('fetch', fetchMock)
+  h.recordVisitLog.mockClear()
+  h.recordVisitLog.mockImplementation(() => Promise.resolve({ success: true, data: {} }))
   __resetScreenViewThrottleForTest()
 })
 
@@ -46,39 +53,36 @@ describe('screenViewPath', () => {
 })
 
 describe('reportScreenView', () => {
-  it('首次进入即上报:POST 到访问端点,带会话 id 且不带身份字段', () => {
+  it('首次进入即上报:走共享 api-client,带会话 id 且不带身份字段', () => {
     const sent = reportScreenView('Home', 1_000)
     expect(sent).toBe(true)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe('http://api.test/api/visit-tracking/visit-log')
-    expect(init.method).toBe('POST')
-    const body = JSON.parse(String(init.body)) as Record<string, unknown>
-    expect(body.url).toBe('/rn/Home')
-    expect(typeof body.sessionId).toBe('string')
-    expect('userId' in body).toBe(false)
+    expect(callCount()).toBe(1)
+    const payload = lastPayload() as Record<string, unknown>
+    expect(payload.url).toBe('/rn/Home')
+    expect(typeof payload.sessionId).toBe('string')
+    expect('userId' in payload).toBe(false)
   })
 
   it('同屏 3 秒内去抖,换屏立即放行', () => {
     expect(reportScreenView('Home', 10_000)).toBe(true)
     expect(reportScreenView('Home', 10_000 + SCREEN_VIEW_DEBOUNCE_MS - 1)).toBe(false)
     expect(reportScreenView('Chat', 10_000 + 1)).toBe(true)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(callCount()).toBe(2)
   })
 
   it('超过去抖窗口后同屏再次进入照报', () => {
     expect(reportScreenView('Home', 20_000)).toBe(true)
     expect(reportScreenView('Home', 20_000 + SCREEN_VIEW_DEBOUNCE_MS)).toBe(true)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(callCount()).toBe(2)
   })
 
-  it('空名不发请求', () => {
+  it('空名不上报', () => {
     expect(reportScreenView(null, 30_000)).toBe(false)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(callCount()).toBe(0)
   })
 
-  it('网络失败静默(不抛、不影响导航)', async () => {
-    fetchMock.mockRejectedValueOnce(new Error('offline'))
+  it('上报失败静默(不抛、不影响导航)', async () => {
+    h.recordVisitLog.mockImplementationOnce(() => Promise.reject(new Error('offline')))
     expect(() => reportScreenView('Home', 40_000)).not.toThrow()
     await Promise.resolve()
   })

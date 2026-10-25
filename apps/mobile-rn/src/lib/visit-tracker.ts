@@ -17,7 +17,7 @@
  * 3. **失败静默**:埋点永远不阻塞导航、不弹错误、不重试;连不上就是这条丢了。
  */
 
-import { API_BASE_URL } from './config'
+import { recordVisitLog } from '@ihui/api-client'
 
 /** 进程内会话 id:一次冷启动一个值(与 web 的 sessionStorage 语义对齐,不落盘)。 */
 const SESSION_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -53,11 +53,7 @@ export function reportScreenView(
   if (path === lastPath && now - lastAt < SCREEN_VIEW_DEBOUNCE_MS) return false
   lastPath = path
   lastAt = now
-  void fetch(`${API_BASE_URL}/api/visit-tracking/visit-log`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: path, sessionId: SESSION_ID }),
-  }).catch(() => {
+  void recordVisitLog({ url: path, sessionId: SESSION_ID }).catch(() => {
     /* 埋点失败静默 */
   })
   return true
