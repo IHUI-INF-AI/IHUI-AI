@@ -133,7 +133,9 @@ test('T6 真仓 HEAD 端到端:--json 可 parse、退出码 ∈ {0,1,2}(不断�
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 120000,
+    // §12g:派生必须显式接管 stdio(不吃 stdin ⇒ 首通道 ignore,stdout 要回读 ⇒ 管道)
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
   const parsed = JSON.parse(r.stdout)
   assert.ok([0, 1, 2].includes(r.status), `退出码必须落在 {{0,1,2}},实得 ${r.status};stderr=${r.stderr}`)

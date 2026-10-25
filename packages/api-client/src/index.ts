@@ -70,6 +70,9 @@ export type {
   UnauthorizedHandler,
   DeviceFingerprintProvider,
   StreamChatOptions,
+  // D09(2026-10-24 立):专家包自动路由档位 —— 设置项与发送链共用一份值域,
+  // 与 StreamChatOptions 同批入入口(漏列则端内 import 得 undefined/TS2305)。
+  ExpertAutoRouteMode,
   SSEErrorInfo,
   SSEErrorSeverity,
   FormattedSSEError,
@@ -102,6 +105,10 @@ export type {
   BudgetEvent,
   // G-815976(2026-10-04 收口入契约):流式中断标记事件(llm_gateway astream 异常中断帧)
   PartialDoneEvent,
+  // D115(2026-10-23,G-229):review 模式结构化 finding 帧 —— 入口是显式命名清单,
+  // 漏列则端内拿到 undefined(同 D106/D130 那一型);severity 闭合域一并递出。
+  ReviewFindingEvent,
+  ReviewFindingSeverity,
   // G-425(2026-10-07 立,默认档"只提示"):done 帧的 finish/stop reason 透传事件
   FinishReasonEvent,
   // G-998168 票5(2026-10-05 立):首帧耗时分段归因 —— 挂在首帧数据载荷的顶层可选字段
@@ -155,11 +162,7 @@ export type {
   StreamBodyReader,
 } from './stream-transport.js'
 export { runResumableSSEStream, appendResumeEventIdHeader } from './client.js'
-export type {
-  ResumableSSEStreamOptions,
-  ExpertAutoRouteMode,
-  ReviewFindingEvent,
-} from './client.js'
+export type { ResumableSSEStreamOptions } from './client.js'
 
 // 模型上下文容量映射(跨端共享:web/desktop/extension/mobile-rn/miniapp-taro)
 export {

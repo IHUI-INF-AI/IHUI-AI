@@ -56,17 +56,29 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { isFlagValueToken, requireFlagValue } from './lib/flag-value.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 
 // ═══════════════════════════════════ CLI ═══════════════════════════════════
 const argv = process.argv.slice(2)
-function flagOf(name) {
+function flagOf(name, noun = '参数') {
   const eq = argv.find((a) => a.startsWith(`--${name}=`))
-  if (eq) return eq.slice(name.length + 3)
-  const i = argv.indexOf(`--${name}`)
-  return i >= 0 ? argv[i + 1] : undefined
+  if (eq) {
+    const v = eq.slice(name.length + 3)
+    if (!isFlagValueToken(v)) {
+      console.error(`❌ 用法错:--${name}= 需要${noun} —— 实得:${JSON.stringify(v)}(不得静默)`)
+      process.exit(2)
+    }
+    return v
+  }
+  const r = requireFlagValue(argv, `--${name}`, { noun })
+  if (r.error) {
+    console.error(`❌ 用法错:${r.error}`)
+    process.exit(2)
+  }
+  return r.value
 }
 function envOr(names, fallback = '') {
   for (const n of names) if (process.env[n]) return process.env[n]

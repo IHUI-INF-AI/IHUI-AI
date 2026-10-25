@@ -5,6 +5,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+import { isTauri } from '@/lib/tauri-bridge'
+
 import {
   browserHubBack,
   browserHubForward,
@@ -324,6 +326,11 @@ interface WorkPanelState {
 
   /** 新建 Tab(可带初始 URL) */
   newTab: (url?: string) => void
+  /**
+   * 新建「停靠浏览器」Tab(2026-10-24):占位 Tab,内容由桌面端原生 webview
+   * 铺在 Tab 内容区上(docked 模式)。非桌面端调用无效 —— 调用方自己判定运行环境。
+   */
+  openDockedTab: (url: string, title?: string) => string
   /** 关闭 Tab */
   closeTab: (tabId: string) => void
   /** 切换激活 Tab */
@@ -385,11 +392,49 @@ export const useWorkPanelStore = create<WorkPanelState>()(
       recentUrls: [],
 
       openPanel: (params) => {
-        if (params?.url) {
-          get().navigate(params.url, params.source ?? 'user')
+        const rawUrl = params?.url
+        // 桌面端「在浏览器打开」默认走右侧工作区的停靠浏览器(2026-10-24 用户拍板):
+        // iframe/代理帧拿不到第三方登录态,且用户不想再出现第二个"浏览器"入口。
+        // web 端(无 IPC)继续走原 iframe/代理链路。
+        if (rawUrl && isTauri()) {
+          const dockUrl = normalizeUrl(rawUrl)
+          if (dockUrl && isSafeUrl(dockUrl)) {
+            get().openDockedTab(dockUrl)
+            return
+          }
+        }
+        if (rawUrl) {
+          get().navigate(rawUrl, params?.source ?? 'user')
         } else {
           set({ open: true })
         }
+      },
+
+      // 停靠浏览器 Tab(2026-10-24):只建占位,不触发 loadUrl ——
+      // 任何 iframe/代理预探测都会让同一页面加载两遍(原生 webview 才是真渲染方)。
+      // 全 App 只有一个停靠原生 webview(DOCK_LABEL 单例),故 Tab 也必须单例:
+      // 复用既有 docked Tab,并清掉持久化残留的多余 docked Tab(否则多个 Tab 指向
+      // 同一个 webview,切 Tab 只是换了个空宿位、页面仍显示在激活的那个里)。
+      openDockedTab: (url, title) => {
+        const { tabs } = get()
+        const existing = tabs.find((t) => t.state.mode === 'docked')
+        const tab: WorkPanelTab = existing
+          ? {
+              ...existing,
+              url,
+              title: title ?? existing.title,
+              updatedAt: Date.now(),
+              state: { status: 'loaded', url, mode: 'docked', title },
+            }
+          : { ...createTab(url, title), state: { status: 'loaded', url, mode: 'docked' } }
+        const nextTabs = [...tabs.filter((t) => t.state.mode !== 'docked'), tab].slice(-MAX_TABS)
+        set({
+          open: true,
+          tabs: nextTabs,
+          activeTabId: tab.id,
+          addressInput: url,
+        })
+        return tab.id
       },
       closePanel: () => set({ open: false }),
       toggle: () => set((s) => ({ open: !s.open })),
@@ -714,6 +759,12 @@ export const useWorkPanelStore = create<WorkPanelState>()(
       },
 
       newTab: (url) => {
+        // 桌面端(2026-10-24):浏览器只有一个标签窗口 —— 所有网页都复用同一个
+        // docked Tab,「+ / 新建标签页」也落到它上面,不再新开 iframe 标签。
+        if (isTauri()) {
+          get().openDockedTab(url && /^https?:\/\//i.test(url) ? url : 'about:blank')
+          return
+        }
         const { tabs } = get()
         const tabUrl = url ?? ''
         const tab = createTab(tabUrl || 'about:blank')
