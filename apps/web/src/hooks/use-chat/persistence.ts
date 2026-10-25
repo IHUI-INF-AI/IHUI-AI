@@ -6,6 +6,7 @@ import { sendMessage as persistMessage, persistQuestion } from '@ihui/api-client
 import { logger } from '@/lib/logger'
 import { toast } from '@/components/common'
 import { useChatStore, type SendReliabilityStatus } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
 
 /** D60 发送可靠性状态族(2026-09-23 立):persist 层对外状态,复用 store 的单一真相源类型 */
 export type PersistSendStatus = SendReliabilityStatus
@@ -128,6 +129,9 @@ export async function persistMessageSafe(
   metadata?: { questionId?: string; isAnswer?: boolean; [key: string]: unknown },
   reasoning?: string,
   options?: PersistMessageOptions,
+  // 票60 步序四:失败草稿(failedDraft)读写按调用方传入的 store 实例(默认单例,
+  // 既有调用零改动零回归)—— 窗格里发送失败,草稿保到该窗格,重发提示也归该窗格。
+  chatStore: ChatStore = useChatStore,
 ): Promise<PersistSendOutcome> {
   const res = await persistMessage(conversationId, content, role, metadata, reasoning).catch(
     (err: unknown): PersistFailureInput => ({
@@ -137,7 +141,7 @@ export async function persistMessageSafe(
   )
   if (res.success) {
     // 同文草稿已落地 → 清理,避免输入框残留旧草稿;他文草稿(另一次失败的保留)不动
-    const state = useChatStore.getState()
+    const state = chatStore.getState()
     if (state.failedDraft === content) state.clearFailedDraft()
     return { status: 'ok', draftPreserved: false, retryable: false }
   }
@@ -145,7 +149,7 @@ export async function persistMessageSafe(
   const texts = resolvePersistTexts(status, res.error)
   const preserved = content.trim().length > 0
   if (preserved) {
-    useChatStore.getState().setFailedDraft(content, status)
+    chatStore.getState().setFailedDraft(content, status)
     options?.onPreserved?.(content, status)
   }
   logger.error(`[chat] persist ${role} message failed [${status}]:`, res.error)
