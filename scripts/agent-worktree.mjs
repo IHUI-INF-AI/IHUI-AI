@@ -20,9 +20,9 @@
  *   node scripts/agent-worktree.mjs --remove <名> [--tag-lost] [--apply]
  *   node scripts/agent-worktree.mjs --self-test
  */
-import { spawnSync } from 'node:child_process'
 import { join, dirname, resolve, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const EXIT_OK = 0
@@ -74,19 +74,14 @@ export function parseWorktreeList(out) {
 }
 
 function git(args, { root = ROOT, input = null } = {}) {
-  const r = spawnSync('git', args, {
-    cwd: root,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    encoding: 'utf8',
-    input,
-    windowsHide: true,
-    maxBuffer: 8 * 1024 * 1024,
-  })
-  return {
-    ok: r.status === 0,
-    status: r.status,
-    out: String(r.stdout ?? ''),
-    err: String(r.stderr ?? ''),
+  // G-927 迁移批(2026-10-25):裸 spawnSync('git') 改走 face-reader 取材层 gitRaw
+  // (绝对路径 git + quotepath=false + safe.directory + timeout + EBUSY 兜底)。
+  // gitRaw 非零即抛 Undetermined(带 status),这里折回调用方的 {ok,status,out,err} 三态,
+  // 行为面与旧实现逐字段等值(out 含 stdout,status 透传,err 取异常消息)。
+  try {
+    return { ok: true, status: 0, out: gitRaw(args, root, { input: input ?? undefined }), err: '' }
+  } catch (e) {
+    return { ok: false, status: typeof e?.status === 'number' ? e.status : 1, out: '', err: String(e?.message ?? e) }
   }
 }
 
