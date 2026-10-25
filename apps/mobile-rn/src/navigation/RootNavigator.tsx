@@ -105,6 +105,7 @@ import DistributionCompanyScreen from '../screens/DistributionCompanyScreen'
 import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
+import { StatusScreen } from '../screens/StatusScreen'
 import { HelpScreen } from '../screens/HelpScreen'
 import { FeedbackScreen } from '../screens/FeedbackScreen'
 import { CustomerServiceScreen } from '../screens/CustomerServiceScreen'
@@ -467,6 +468,7 @@ export type RootStackParamList = {
   Privacy: undefined
   Agreement: undefined
   About: undefined
+  Status: undefined
   Help: undefined
   Feedback: undefined
   CustomerService: undefined
@@ -942,6 +944,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Privacy" component={PrivacyScreen} />
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />
+            <RootStack.Screen name="Status" component={StatusScreen} />
             <RootStack.Screen name="Help" component={HelpScreen} />
             <RootStack.Screen name="Feedback" component={FeedbackScreen} />
             <RootStack.Screen name="CustomerService" component={CustomerServiceScreen} />
