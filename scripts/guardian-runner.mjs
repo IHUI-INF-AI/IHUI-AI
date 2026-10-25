@@ -5638,6 +5638,26 @@ const checks = [
   },
 
 
+  // --- 新模块缺对应测试准入(增量)(1 项,warn)---
+  {
+    id: '250',
+    label:
+      '🧪 新模块缺对应测试(增量;票 E2E 自动补测·发现缺口那半,先 warn 观察)',
+    script: 'check-e2e-coverage-gap.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_E2E_COVERAGE_GAP',
+    stagedTriggers: ['apps/web/app/', 'apps/web/src/', 'apps/api/src/', 'scripts/check-e2e-coverage-gap.mjs', 'scripts/data/e2e-coverage-gap-scope.json'],
+    onFailHint: [
+      '',
+      '  💡 本次暂存带进了没有对应测试的新模块(判据:同目录 *.test.* / __tests__ 词边界前缀)。',
+      '     补测骨架:node scripts/e2e-autofill.mjs --propose --staged',
+      '     存量缺口只报数(差值棘轮),不拦本次;warn 档观察中。',
+      '     紧急跳过:HUSKY_SKIP_E2E_COVERAGE_GAP=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
