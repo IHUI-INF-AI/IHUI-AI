@@ -455,6 +455,56 @@
       "shared": "packages/app/src/features/chat/ChatScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ChatScreen.tsx",
       "miniapp": "pkg-ai/ai/chat"
+    },
+    {
+      "shared": "packages/app/src/features/agent-detail/AgentDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentDetailScreen.tsx",
+      "miniapp": "pkg-ai/ai/agent-detail"
+    },
+    {
+      "shared": "packages/app/src/features/agent-screen/AgentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentScreen.tsx",
+      "miniapp": "pkg-ai/ai/agent"
+    },
+    {
+      "shared": "packages/app/src/features/app-topup/AppTopupScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AppTopupScreen.tsx",
+      "miniapp": "pkg-shop/wallet/recharge/index"
+    },
+    {
+      "shared": "packages/app/src/features/chat-room/ChatRoomScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AssistantScreen.tsx",
+      "miniapp": "pkg-ai/agent-dialogue/index"
+    },
+    {
+      "shared": "packages/app/src/features/earn-commission/EarnCommissionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EarnCommissionScreen.tsx",
+      "miniapp": "pages/distribution/plan/index"
+    },
+    {
+      "shared": "packages/app/src/features/exam-question/ExamQuestionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ExamQuestionScreen.tsx",
+      "miniapp": "pages/exam/answer"
+    },
+    {
+      "shared": "packages/app/src/features/live-playback/LivePlaybackListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LivePlaybackListScreen.tsx",
+      "miniapp": "pkg-learn/live/history"
+    },
+    {
+      "shared": "packages/app/src/features/model-income/ModelIncomeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ModelIncomeScreen.tsx",
+      "miniapp": "pkg-ai/developer/income"
+    },
+    {
+      "shared": "packages/app/src/features/order/OrderScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OrderScreen.tsx",
+      "miniapp": "pkg-shop/order/list"
+    },
+    {
+      "shared": "packages/app/src/features/privacy/PrivacyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PrivacyScreen.tsx",
+      "miniapp": "pkg-about/about/privacy"
     }
   ]
 }
