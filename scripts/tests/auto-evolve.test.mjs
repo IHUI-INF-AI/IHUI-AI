@@ -13,6 +13,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { __test__ as ae } from '../auto-evolve.mjs'
 
 const GOOD_GATES = {
@@ -167,3 +168,46 @@ test('⑦ 会话 JWT 形状:HS256 三段 / sub 必在(实测缺口)/ iss/aud/exp
   const expect = createHmac('sha256', secret).update(h + '.' + p).digest('base64url')
   assert.equal(s, expect)
 })
+
+// ===== 自治决策排期接线(2026-10-26):有评估才排序,没评估保持台账序 =====
+test('⑨a 无候选评估 ⇒ 台账序原样返回(不补默认因子)', () => {
+  const rows = [
+    { line: 1, text: '票一' },
+    { line: 2, text: '票二' },
+  ]
+  const r = ae.rankTicketRows(rows, { candidatesText: '' })
+  assert.equal(r.mode, 'ledger-order')
+  assert.deepEqual(r.rows, rows)
+})
+
+test('⑨b 有评估 ⇒ 按模型序放行可排期票,压后票逐条点名', () => {
+  const policyText = readFileSync(new URL('../data/autonomy-policy.json', import.meta.url), 'utf8')
+  const low = { line: 1, text: '低分票' }
+  const high = { line: 2, text: '高分票' }
+  const mk = (row, id, over) => ({
+    id: ae.ticketKeyOf(row.text),
+    title: id,
+    benefit: { impact: 3, userValue: 3 },
+    risk: { irreversible: 0, externalDependency: 0, ruleTouch: 0 },
+    cost: { changeSurface: 0, verifyMinutes: 1 },
+    urgency: { leaseHours: null, blockingOthers: 0 },
+    ...over,
+  })
+  const candidates = [
+    mk(low, 'low', {
+      benefit: { impact: 0, userValue: 0 },
+      risk: { irreversible: 3, externalDependency: 3, ruleTouch: 3 },
+    }),
+    mk(high, 'high'),
+  ]
+  const r = ae.rankTicketRows([low, high], {
+    policyText,
+    candidatesText: JSON.stringify({ candidates }),
+  })
+  assert.equal(r.mode, 'decision')
+  assert.equal(r.rows.length, 1, '只放行模型判为可排期的票')
+  assert.equal(r.rows[0].text, '高分票', '模型序优先于台账序')
+  assert.equal(r.skipped.length, 1)
+  assert.match(r.skipped[0].reason, /硬阻断|风险/, '压后原因必须逐条点名,不能只报数')
+})
+
