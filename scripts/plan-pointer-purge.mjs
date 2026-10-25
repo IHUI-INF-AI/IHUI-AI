@@ -1033,19 +1033,21 @@ function main() {
     `守恒断言 5/5 通过;门 203 同源自校验 0 键;非空行 ${before} → ${after}(-${before - after})`,
   )
   console.log(workVerdictLine(work, stats))
-  // 首轮与 CAS 重算轮走**同一把尺**(landingDiffVerdict),不得一处严一处松(§0.6)。
+  // 首轮与 CAS 重算轮走**同一把尺**(landingDiffVerdict),不得一处严一处松(§0.6);
+  // 且两处都必须是"闸体自带 return"的同构形状 —— 镜像 P4 逐调用点按括号配对核验。
   const verdict = landingDiffVerdict({
     parentText: headText,
     nextText: serialize(next, eol),
     work,
   })
-  if (!verdict.ok && apply) console.log(`❌ ${verdict.why}`)
-  if (!apply) {
-    if (work.length === 0) console.log('本轮无需清偿 ⇒ 加 --apply 也不会落地、不会推送。')
-    else console.log('--dry-run 模式,未落地。加 --apply 走对象空间落地(从不写工作树)。')
-    return work.length === 0 ? 3 : 0
+  if (!verdict.ok) {
+    console.log(apply ? `❌ ${verdict.why}` : verdict.blankOnly ? `⚠️ ${verdict.why}` : '本轮无需清偿 ⇒ 加 --apply 也不会落地、不会推送。')
+    return 3
   }
-  if (!verdict.ok) return 3
+  if (!apply) {
+    console.log('--dry-run 模式,未落地。加 --apply 走对象空间落地(从不写工作树)。')
+    return 0
+  }
 
   const MSG_TAIL =
     '落地前五条守恒断言必须全绿(A1 已勾选不缩水 ∧ A2 未勾选不反增 ∧ A3 登记行注记归零 ∧\n' +
