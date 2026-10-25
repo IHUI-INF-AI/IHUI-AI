@@ -182,6 +182,15 @@ interface BusinessSnapshot {
   signIn?: SignInSnapshot | null
   /** 近 14 日每日新增用户(上海日界,含今天);后端查询失败或老后端无此字段 ⇒ null/undefined */
   userGrowth?: Array<{ date: string; count: number }> | null
+  /** 用户构成(与 usersTotal 同一次查询的即时计数;老后端无这些字段 ⇒ undefined ⇒ 渲染"—") */
+  usersVip?: number
+  usersTrader?: number
+  usersInvited?: number
+  usersInvited7d?: number
+  /** 等级分布 [普通, 白银, 黄金, 钻石](users.level 0..3) */
+  usersByLevel?: [number, number, number, number]
+  /** 近 7 日签到去重用户数(留存近似);查询失败为 null */
+  activeUsers7d?: number | null
 }
 
 interface TrafficSnapshot {
@@ -210,6 +219,16 @@ interface RelayPoolSnapshot {
   accountRefreshAgeSec?: number | null
   /** 健康态不在封闭词表内、无法折叠的行数(非 0 = 库里有脏值) */
   rowsUnclassified?: number | null
+  /** Key 健康四态计数(unknown/healthy/degraded/down;老后端无此字段 ⇒ undefined) */
+  keyHealth?: { unknown: number; healthy: number; degraded: number; down: number } | null
+  /** 按 provider 分组的 Key 分布 */
+  keyByProvider?: Array<{ provider: string; total: number; schedulable: number; abnormal: number }> | null
+  /** 按 provider 分组的账号池分布 */
+  accountByProvider?: Array<{ provider: string; total: number; schedulable: number }> | null
+  /** 余额 < 5 元且非无限的 Key 条数(余额预警) */
+  keyBalanceLow?: number | null
+  /** token 将在 24h 内过期的账号条数(含已过期) */
+  accountExpiring24h?: number | null
 }
 
 interface ActiveAlert {
@@ -2197,6 +2216,30 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <StatCell label={t('usersActive')} value={fmtInt(biz?.usersActive)} />
                 <StatCell label={t('usersNewToday')} value={fmtInt(biz?.usersTodayNew)} tone="ok" />
               </div>
+              {/* 用户构成(2026-10-25 机主要求"更多有用的数据"):VIP / 操盘手 / 邀请注册 /
+                  近 7 日邀请 / 近 7 日活跃。全部与 usersTotal 同一次查询的 filter 计数 ⇒ 零额外开销;
+                  老后端无这些字段 ⇒ 各自渲染"—"(§0.3 不把"没量到"写成 0)。 */}
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+                <StatCell label={t('usersVip')} value={fmtInt(biz?.usersVip)} tone="accent" />
+                <StatCell label={t('usersTrader')} value={fmtInt(biz?.usersTrader)} />
+                <StatCell label={t('usersInvited')} value={fmtInt(biz?.usersInvited)} />
+                <StatCell label={t('usersInvited7d')} value={fmtInt(biz?.usersInvited7d)} tone="ok" />
+                <StatCell
+                  label={t('activeUsers7d')}
+                  value={fmtInt(biz?.activeUsers7d)}
+                  unit={t('unitUser')}
+                />
+              </div>
+              {/* 等级分布:users.level 0..3 = 普通/白银/黄金/钻石(同一次查询的 4 个 filter 计数)。
+                  9px 小字行,不是 StatCell 读数 ⇒ 不在门 240 R1 射程,nowrap 防等级名被折断。 */}
+              <div className="mt-1 text-[9px] text-muted-foreground">
+                {t('levelDistTitle')}:{' '}
+                <span className="wb-num whitespace-nowrap">
+                  {t('level0')} {fmtInt(biz?.usersByLevel?.[0])} · {t('level1')}{' '}
+                  {fmtInt(biz?.usersByLevel?.[1])} · {t('level2')} {fmtInt(biz?.usersByLevel?.[2])} ·{' '}
+                  {t('level3')} {fmtInt(biz?.usersByLevel?.[3])}
+                </span>
+              </div>
               {/* 用户增长:近 14 日每日新增(上海日界,与上面「今日新增」同口径)。
                   取不到 ⇒ 空态,不得把"没量到"画成 14 根 0 柱(§0.3)。 */}
               <div className="relative mt-2">
@@ -2634,6 +2677,88 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   }
                 />
               </div>
+              {/* Key 健康四态(2026-10-25 机主要求"更多有用的数据"):unknown/healthy/degraded/down。
+                  与汇总字段同一把尺子(RELAY_POOL_HEALTH_STATE_VALUE);老后端无此字段 ⇒ 各格"—"。
+                  半宽栏内 4 格 auto-fit(143 下限)排 2×2 —— 与签到块同形态,门 240 R4 同规。 */}
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+                <StatCell
+                  label={t('poolHealthHealthy')}
+                  value={fmtInt(relayPool?.keyHealth?.healthy)}
+                  tone="ok"
+                />
+                <StatCell
+                  label={t('poolHealthDegraded')}
+                  value={fmtInt(relayPool?.keyHealth?.degraded)}
+                  tone={
+                    !isNum(relayPool?.keyHealth?.degraded)
+                      ? 'unknown'
+                      : (relayPool?.keyHealth?.degraded ?? 0) > 0
+                        ? 'warn'
+                        : undefined
+                  }
+                />
+                <StatCell
+                  label={t('poolHealthDown')}
+                  value={fmtInt(relayPool?.keyHealth?.down)}
+                  tone={
+                    !isNum(relayPool?.keyHealth?.down)
+                      ? 'unknown'
+                      : (relayPool?.keyHealth?.down ?? 0) > 0
+                        ? 'bad'
+                        : undefined
+                  }
+                />
+                <StatCell
+                  label={t('poolHealthUnknown')}
+                  value={fmtInt(relayPool?.keyHealth?.unknown)}
+                />
+              </div>
+              {/* 余额预警:余额 < 5 元且非"无限"(-1)的 Key 条数。0 = 无需动作(绿),>0 = 要续费(琥珀) */}
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+                <StatCell
+                  label={t('poolBalanceLow')}
+                  value={fmtInt(relayPool?.keyBalanceLow)}
+                  tone={
+                    !isNum(relayPool?.keyBalanceLow)
+                      ? 'unknown'
+                      : (relayPool?.keyBalanceLow ?? 0) > 0
+                        ? 'warn'
+                        : 'ok'
+                  }
+                />
+              </div>
+              {/* Key 按供应商分布:可调度/异常与汇总字段同一把尺子;一行一供应商,数字右对齐 */}
+              <div className="mt-2">
+                <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {t('poolProviderKeyTitle')}
+                </div>
+                <div className="space-y-1">
+                  {(relayPool?.keyByProvider ?? []).map((p) => (
+                    <div
+                      key={p.provider}
+                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      <span className="truncate text-[10px] text-foreground">{p.provider}</span>
+                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtInt(p.schedulable)}/{fmtInt(p.total)}
+                      </span>
+                      <span
+                        className={cn(
+                          'wb-num w-8 shrink-0 text-right text-[10px]',
+                          p.abnormal > 0 ? 'text-warning-text' : 'text-muted-foreground',
+                        )}
+                      >
+                        {fmtInt(p.abnormal)}
+                      </span>
+                    </div>
+                  ))}
+                  {relayPool && !relayPool.keyByProvider?.length ? (
+                    <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                      {t('noPoolRows')}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <div className="wb-col">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
@@ -2679,6 +2804,46 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         : 'ok'
                   }
                 />
+              </div>
+              {/* token 临期预警:24 小时内过期(含已过期)的账号条数。
+                  minTokenExpiresInSeconds 只看"最短的那一个",这个数看"一共有几个要续"——
+                  两个一起才构成可动作的监控(只修最短的,第二个过期时又宕一次)。 */}
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
+                <StatCell
+                  label={t('poolExpiring24h')}
+                  value={fmtInt(relayPool?.accountExpiring24h)}
+                  tone={
+                    !isNum(relayPool?.accountExpiring24h)
+                      ? 'unknown'
+                      : (relayPool?.accountExpiring24h ?? 0) > 0
+                        ? 'warn'
+                        : 'ok'
+                  }
+                />
+              </div>
+              {/* 账号按供应商分布:可调度/总数,一行一供应商 */}
+              <div className="mt-2">
+                <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {t('poolProviderAccountTitle')}
+                </div>
+                <div className="space-y-1">
+                  {(relayPool?.accountByProvider ?? []).map((p) => (
+                    <div
+                      key={p.provider}
+                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      <span className="truncate text-[10px] text-foreground">{p.provider}</span>
+                      <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtInt(p.schedulable)}/{fmtInt(p.total)}
+                      </span>
+                    </div>
+                  ))}
+                  {relayPool && !relayPool.accountByProvider?.length ? (
+                    <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                      {t('noPoolRows')}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           </Panel>
