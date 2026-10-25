@@ -1756,10 +1756,30 @@ const WAITING_HUMAN_SLOT_HUMAN_RE =
  * 立因(现读实测):`〔归:—｜等:机主真机窗口〕` 这类标头被 waiting-human 的措辞判据当成
  * "等机主"命中 ⇒ F11 把 19 条条件等待判成"等人拍板",而它的语义来自侧车 `waiting: env`,
  * 标头只是投影。判定层与渲染层必须同一份剥法,否则同一行在两个面上是两个归属。
+ * 2026-10-25 二修(与 parseHeader 同尺):位置约束曾写死"标头紧跟复选框",而票号/租约
+ * (`- [ ]G-11〔归:…〕`、`- [ ]（进行中@…）〔归:…〕`)挡在中间时 strip 剥不出、parseHeader
+ * (复选框后**第一个** `〔〕`)却认得出 ⇒ headerOf 返回空 ⇒ 门 234 A2 把侧车一致的行误判成
+ * "标头不一致"(实测 HEAD 面 L28655)。两把尺子各写一份位置约束必然漂(§0.6),现同一把尺:
+ * 标头 = 复选框后第一个 codeSpan 外的 `〔归:…〕` 段;紧跟形态逐字节不变。
+ * 定位单源 = `locateSidecarHeader`,strip/parseHeader/门的 headerOf 都从它取,不再各推导一遍。
  */
+export function locateSidecarHeader(line) {
+  const text = String(line ?? '')
+  const head = /^\s*-\s*\[[ xX]\]\s*/.exec(text)
+  if (!head) return null
+  const rest = text.slice(head[0].length)
+  const m = /^([^〔\n]*)〔(归[:：][^〕]*)〕/.exec(rest)
+  if (!m) return null
+  const start = head[0].length + m[1].length
+  const { spans, undetermined } = codeSpanRangesOf(text)
+  if (!undetermined && insideCodeSpan(spans, start, m[2].length + 2)) return null
+  return { start, end: start + m[2].length + 2 }
+}
 export function stripSidecarHeader(line) {
-  const m = /^(\s*-\s*\[[ xX]\]\s*)〔归[:：][^〕]*〕[ \t]*(.*)$/s.exec(String(line ?? ''))
-  return m ? m[1] + m[2] : String(line ?? '')
+  const text = String(line ?? '')
+  const span = locateSidecarHeader(text)
+  if (!span) return text
+  return text.slice(0, span.start) + text.slice(span.end).replace(/^[ \t]+/, '')
 }
 /** 标头两段原文(归 / 等);无标头 ⇒ null。`等` 段文案是**归属桶的唯一投影证据**(见 dispositionOf)。 */
 export function sidecarHeaderParts(line) {
