@@ -161,21 +161,29 @@ describe('取消置顶即时落位(RN 渲染 index 判据)', () => {
 
     fireEvent.click(container.querySelector('[data-pin-id="A"]') as HTMLButtonElement)
 
-    await waitFor(() => {
-      expect(apiMocks.setConversationPinned).toHaveBeenCalledWith('A', false)
-    })
-    await waitFor(() => {
-      const rows = renderedRows(container)
-      // 落位判据:取消后 A 的渲染 index = 剩余置顶行数(1) + 原列中 A 之前的非置顶行数(0) = 1
-      expect(rows.map((r) => r.id)).toEqual(['B', 'A', 'C', 'D'])
-      const landedA = rows.find((r) => r.id === 'A')!
-      expect(landedA.index).toBe(1)
-      // 置顶标记也须同帧翻落:false 的行不得再排在 true 的行之前(渲染序满足置顶优先)
-      expect(landedA.pinned).toBe(false)
-      expect(rows[0]).toMatchObject({ id: 'B', pinned: true })
-      // 反向排除"追加末尾"形态:A 不在末位
-      expect(landedA.index).not.toBe(rows.length - 1)
-    })
+    // 只等终点一次(2026-10-25 实测:原形在这里挂了三个串行等待窗,全量并发下第 2 窗过后
+    // 第 3 窗仍读到旧序 ⇒ 假红;solo 恒绿)。串行等待窗每多一个,就多一次被 CPU 争抢打中的机会,
+    // 而"行已重排"本身蕴含"出口已被调过且成功"(handleTogglePin 只在 outcome.ok 时 setConversations),
+    // 所以下面把"参数正确"降级为同步断言 —— 一条判据也没少,只是不再为它单开一个等待窗。
+    await waitFor(
+      () => {
+        const rows = renderedRows(container)
+        // 落位判据:取消后 A 的渲染 index = 剩余置顶行数(1) + 原列中 A 之前的非置顶行数(0) = 1
+        expect(rows.map((r) => r.id)).toEqual(['B', 'A', 'C', 'D'])
+        const landedA = rows.find((r) => r.id === 'A')!
+        expect(landedA.index).toBe(1)
+        // 置顶标记也须同帧翻落:false 的行不得再排在 true 的行之前(渲染序满足置顶优先)
+        expect(landedA.pinned).toBe(false)
+        expect(rows[0]).toMatchObject({ id: 'B', pinned: true })
+        // 反向排除"追加末尾"形态:A 不在末位
+        expect(landedA.index).not.toBe(rows.length - 1)
+      },
+      { timeout: 8_000 },
+    )
+    expect(
+      apiMocks.setConversationPinned,
+      '行序动了却没人调过置顶出口 = 重排是端内自己搓的(本票立论的反面)',
+    ).toHaveBeenCalledWith('A', false)
   })
 
   it('服务端拒绝取消置顶:渲染序与置顶标记逐字不动(不出现 UI/数据分叉),且 Alert 喊出', async () => {

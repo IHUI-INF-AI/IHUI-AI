@@ -346,6 +346,24 @@ function foldLegacyGroups(
     : primary
 }
 
+/** 占位模型组 vendor/name/description 存的是 i18n 键,进列表渲染前本地化为展示词。
+ *  模块作用域纯函数,t 由调用方注入(同 ChatScreen mapConversationToDrawer 的口径),
+ *  不进 useMemo deps —— 组件内定义会让 memo 身份每渲染一变(react-hooks/exhaustive-deps)。 */
+function localizePlaceholderGroups(
+  gs: ModelListGroup[],
+  t: (key: string) => string,
+): ModelListGroup[] {
+  return gs.map((g) => ({
+    ...g,
+    vendor: g.vendor ? t(g.vendor) : g.vendor,
+    models: g.models.map((m) => ({
+      ...m,
+      name: t(m.name),
+      description: m.description ? t(m.description) : m.description,
+    })),
+  }))
+}
+
 /** 模型参数默认配置(对齐 Uniapp ModelConfigDialog 初始值) */
 const DEFAULT_MODEL_CONFIG: ModelConfig = {
   temperature: 0.7,
@@ -1034,17 +1052,8 @@ export function HomeScreen() {
    * skills tab 渲染真实智能体列表(AgentList),不走模型过滤(搜索态除外)。
    * 两个分支统一走 foldLegacyGroups:legacy 档收编进尾部「历史模型(N)」分组。
    */
-  /** 占位模型组 vendor/name/description 存的是 i18n 键,进列表渲染前本地化为展示词 */
-  const localizePlaceholderGroups = (gs: ModelListGroup[]): ModelListGroup[] =>
-    gs.map((g) => ({
-      ...g,
-      vendor: g.vendor ? t(g.vendor) : g.vendor,
-      models: g.models.map((m) => ({
-        ...m,
-        name: t(m.name),
-        description: m.description ? t(m.description) : m.description,
-      })),
-    }))
+  /** 占位模型组本地化已提为模块作用域纯函数 localizePlaceholderGroups(见文件上部),
+   *  此处只按 tab 取占位表并把 t 交进去。 */
   const modalModelGroups = useMemo<ModelListGroup[]>(() => {
     const q = modelSearch.trim().toLowerCase()
     if (q) {
@@ -1072,10 +1081,10 @@ export function HomeScreen() {
       .filter((g) => g.models.length > 0)
     return filtered.length > 0
       ? foldLegacyGroups(filtered, (n) => t('home.historyGroupCount', { count: n }))
-      : foldLegacyGroups(localizePlaceholderGroups(PLACEHOLDER_MODELS[modelModalTab]), (n) =>
+      : foldLegacyGroups(localizePlaceholderGroups(PLACEHOLDER_MODELS[modelModalTab], t), (n) =>
           t('home.historyGroupCount', { count: n }),
         )
-  }, [modelModalTab, realModelGroups, modelSearch, t, localizePlaceholderGroups])
+  }, [modelModalTab, realModelGroups, modelSearch, t])
   const modalModelCount = useMemo(
     () => modalModelGroups.reduce((n, g) => n + g.models.length, 0),
     [modalModelGroups],
