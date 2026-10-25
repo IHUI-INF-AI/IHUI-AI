@@ -410,6 +410,11 @@
       "shared": "packages/app/src/features/study-index/StudyIndexScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/StudyIndexScreen.tsx",
       "miniapp": "pages/study/index"
+    },
+    {
+      "shared": "packages/app/src/features/agreement/AgreementScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgreementScreen.tsx",
+      "miniapp": "pkg-about/about/agreement/index"
     }
   ]
 }

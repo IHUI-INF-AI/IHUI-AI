@@ -4820,5 +4820,14 @@
       "refunded": "已退",
       "pending": "待確認"
     }
+  },
+  "agreement": {"subtitle":"請仔細閱讀本協議","title":"使用者協議"},
+  "agreementSections": {
+    "sectionObligations": "使用者義務",
+    "sectionObligationsBody": "您應遵守相關法律法規,不得發布違法、違規、有害資訊,不得侵犯他人合法權益。",
+    "sectionRights": "使用者權利",
+    "sectionRightsBody": "您享有依法獲取服務、對個人資訊進行管理、對違規內容檢舉等權利。",
+    "sectionTerms": "服務條款",
+    "sectionTermsBody": "本協議是您與智匯 AI 之間就使用本平臺服務所訂立的協議。請在使用前仔細閱讀,一旦使用即視為同意並接受本協議所有條款。"
   }
 }
