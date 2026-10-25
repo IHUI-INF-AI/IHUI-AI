@@ -94,7 +94,7 @@ export function readDsn({ envFile = DEFAULT_ENV_FILE, env = process.env } = {}) 
   }
 }
 
-function psqlArgsFromDsn(dsn) {
+export function psqlArgsFromDsn(dsn) {
   let u
   try {
     u = new URL(dsn)
