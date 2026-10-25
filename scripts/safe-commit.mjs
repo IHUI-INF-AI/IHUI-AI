@@ -87,6 +87,10 @@ import {
   diffForeignIndexEntries,
   foreignEntryAdvice,
 } from './lib/commit-payload-attribution.mjs'
+// Step 5 载荷**相等性**判据(2026-10-25 立):实到集合必须等于声明集合且非空。
+// 单源 = lib/commit-payload-judge.mjs —— 镜像测试直接 import 同一份(§22c),
+// 本器不在这里另写一遍集合比较。
+import { judgeCommitPayload } from './lib/commit-payload-judge.mjs'
 // O43建议②(2026-10-15 机主拍板):钩子运行期外来件护栏 —— 生成临时 hooksPath 逐文件转发
 // .husky 全部钩子,pre-commit 成功后写树前复量索引(判据仍是 diffForeignIndexEntries 那一份)。
 import { buildWrappedHooksDir, GUARD_MARK } from './lib/hook-window-guard.mjs'
@@ -1798,11 +1802,43 @@ if (newShas.length === 0) {
   )
 }
 
-const committedUnexpected = committedFiles.filter((f) => !expectedNorm.has(f))
-if (committedUnexpected.length > 0) {
-  log('err', `${C.red}严重!commit 包含非预期文件${C.reset}: ${committedUnexpected.join(', ')}`)
-  log('err', '这是一个污染事故(载荷含本票之外的路径)。')
-  for (const line of adviceFor('polluted-ours').lines) log('err', line)
+// 最终判据(2026-10-25 立,seat-safecommit):实到集合必须**等于**声明集合,且声明集合非空。
+// 旧实现只判 `实到 ⊖ 预期`(多出来的),于是"实到 0 个"的差集为空 ⇒ 打印「commit 干净,仅包含
+// 0 个预期文件」并 exit 0。两次实害 c8f2750a5c / 56227f8b33 即此型:钩子链跑的 9 分钟里,
+// 暂存面被并发会话 safe-commit Step1 的 `git reset HEAD` 清空,而 Step5 对空集判绿。
+// 同源第二型:实到 ⊂ 预期(只落地一部分)旧判据同样放行 —— 那是 "⊆" 不是 "=="。
+// 判据只有一份:`lib/commit-payload-judge.mjs`,镜像测试直接 import 同一份(§22c)。
+const payloadVerdict = judgeCommitPayload({ expected: [...expectedNorm], actual: committedFiles })
+if (!payloadVerdict.ok) {
+  if (payloadVerdict.kind === 'extra') {
+    log('err', `${C.red}严重!commit 包含非预期文件${C.reset}: ${payloadVerdict.extra.join(', ')}`)
+    log('err', '这是一个污染事故(载荷含本票之外的路径)。')
+    for (const line of adviceFor('polluted-ours').lines) log('err', line)
+    process.exit(1)
+  }
+  // empty-commit / missing / no-expected 三型同源:提交窗口内暂存面被并发改动。
+  const what =
+    payloadVerdict.kind === 'empty-commit'
+      ? '本枚提交落地了 0 个文件(空提交)'
+      : payloadVerdict.kind === 'no-expected'
+        ? '声明集为空(Step 1 本应已拒绝)'
+        : `本枚提交只落地了 ${payloadVerdict.actual.length}/${payloadVerdict.expected.length} 个声明路径`
+  log('err', `${C.red}严重!${what}${C.reset}(本枚 ${committedSha.slice(0, 9)})`)
+  if (payloadVerdict.missing.length > 0)
+    log('err', `未落地的声明路径 ${payloadVerdict.missing.length} 个: ${payloadVerdict.missing.join(', ')}`)
+  log(
+    'err',
+    '判据:实到集合必须等于声明集合且非空。最常见成因 = 暂存面在提交窗口内被清空/改动 —— ' +
+      '并发会话的 safe-commit Step1 会 `git reset HEAD` 清空整个共享索引,而钩子链可长达数分钟。',
+  )
+  log(
+    'err',
+    `出路:原样重试本命令(Step 1-3 会重新暂存并逐文件校验):node scripts/safe-commit.mjs -m "<原 message>" -- ${expectedFiles.join(' ')}`,
+  )
+  log(
+    'warn',
+    '不要用 `git reset HEAD~1` / rebase 撤销那枚提交 —— 多会话下 HEAD~1 是相对位置,会删掉别人的提交;空提交/缺件提交本身无害,保留即可,重试会落一枚正确的。',
+  )
   process.exit(1)
 }
 
