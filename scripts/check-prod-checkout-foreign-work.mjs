@@ -89,6 +89,7 @@ import { NSSM_CANDIDATES, decodeNssm, interpretNssmGet, pickPowerShell } from '.
 // §0.6 DevEnv 根的推导只有一份(项目内/盘根双形态由它自己判),本器不另数两级
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const PROD_SERVICE = 'IHUI-DEPLOYLOOP'
 const ORIGIN_REF = 'origin/main'
@@ -855,12 +856,12 @@ export function verdictFromSurvey(survey, opts = {}) {
 async function main() {
   const argv = process.argv.slice(2)
   const json = argv.includes('--json')
-  const oi = argv.indexOf('--prod-root')
-  const overrideRoot = oi >= 0 ? argv[oi + 1] : undefined
-  if (oi >= 0 && !overrideRoot) {
-    console.error('用法错误:--prod-root 后面必须给路径(§0.8 出路必须真跑得通,不给值不当"没指定")')
+  const pr = requireFlagValue(argv, '--prod-root', { noun: '路径' })
+  if (pr.error) {
+    console.error(`用法错误:${pr.error}(§0.8 出路必须真跑得通,不给值不当"没指定")`)
     process.exit(2)
   }
+  const overrideRoot = pr.value
   const survey = surveyProdCheckouts(overrideRoot ? { overrideRoot } : {})
   const verdict = verdictFromSurvey(survey)
   if (json) {
