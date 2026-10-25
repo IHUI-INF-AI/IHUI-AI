@@ -5,7 +5,7 @@
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
- * check-token-literal-debt.mjs — RN 样式裸数字回潮锁(差值棘轮,门 240)
+ * check-token-literal-debt.mjs — RN 样式裸数字回潮锁(差值棘轮,门 247;原拟 240,远端已占 240=大屏读数百度门,合并前改号)
  *
  * 为什么要有这道门:tokens-migrate 把 261 个已入库屏的 3720 处裸数字转成了 rnSpacing/rnType 档,
  * 但仓里没有任何判据管"新增" —— 不加门,下一次随手写 `padding: 16` 就把它加回来了,

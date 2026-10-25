@@ -5694,7 +5694,7 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY',
   },
   {
-    id: '240',
+    id: '247',
     label: '🔒 RN 样式裸数字回潮(差值棘轮:只拦本次把可自动对档的裸数字加回来)',
     script: 'check-token-literal-debt.mjs',
     args: ['--staged'],
