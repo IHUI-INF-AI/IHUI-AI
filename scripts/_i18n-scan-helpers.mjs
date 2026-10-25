@@ -136,6 +136,27 @@ export function dynamicPrefixOf(captured) {
   const m = /^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.(?=\$\{)/.exec(captured)
   return m ? m[0].replace(/\.$/, '') : null
 }
+/**
+ * 动态模板的「静态尾部」:`${m}Desc` → `Desc`(动态部分在首、静态后缀在尾,且尾段不含点)。
+ * 与 dynamicPrefixOf 互补:dymanicPrefixOf 只能取「静态前缀 + 点 + ${」(动态在尾)那一型;
+ * 这里取「${...} + 静态尾段」(动态在首)那一型 —— 二者覆盖了所有"只有一个静态段可见"的模板拼接。
+ * 命名空间判定靠前缀(dynamicPrefixOf),而「单段键 + 静态尾」这一型没有可用前缀,
+ * 只能退化成"单段键尾部启发式":任何**不含点**、以该尾段结尾、且比尾段更长的键都视为被此动态取词引用,
+ * 避免整族(i18n 里 commonDesc / userDesc 这类)被判死。
+ * 注意:这只用于"死键豁免",不进入 parity / 翻译完整性;尾段长度过短(≤1)不启用,避免误吞真死键。
+ */
+export function dynamicSuffixOf(captured) {
+  const m = /^\$\{[^}'"]+\}([A-Za-z0-9_-]{2,})$/.exec(captured)
+  return m ? m[1] : null
+}
+/** 单段键尾部启发式:键不含点、且以某静态尾段结尾(且比尾段更长 ⇒ 含动态前缀)。 */
+export function dynamicSuffixMatches(key, suffixes) {
+  if (key.includes('.')) return false
+  for (const s of suffixes) {
+    if (s.length >= 2 && key.length > s.length && key.endsWith(s)) return true
+  }
+  return false
+}
 // useTranslations('namespace') / getTranslations('namespace') - 命名空间下所有 key 视为潜在引用(启发式)
 // 2026-07-26 增强:getTranslations 是 next-intl/server 在 server component 使用的 API(等价于 useTranslations),
 // subagent-D commit 5ebb17915 仅识别 useTranslations 模式,导致 server component 引用 namespace 被误判为死 key。
@@ -380,6 +401,7 @@ export function scanTexts(items) {
   const staticRefs = new Set()
   const usedNamespaces = new Set()
   const dynamicHits = []
+  const dynamicSuffixes = new Set()
   for (const { rel, text: content } of items) {
     // 2026-07-26 三次增强:整文件级匹配 STATIC_T_RE / TLIST_RE
     // 背景:miniapp-taro 普遍存在 `tt('a.b', '默认值', {\n  n: x,\n})` 跨多行调用,
@@ -489,6 +511,9 @@ export function scanTexts(items) {
         // 使 order.status.* 等动态拼接引用的 key 不再被误判为死 key(2026-08-20 增强,对齐 DYNAMIC_PREFIX_RE 语义)
         const p = dynamicPrefixOf(m[1])
         if (p) usedNamespaces.add(p)
+        // 动态在首、静态尾段在尾(`${m}Desc` 型):尾段收进 dynamicSuffixes,供死键判定做单段键尾部启发式豁免
+        const s = dynamicSuffixOf(m[1])
+        if (s) dynamicSuffixes.add(s)
       }
     }
     // 2026-10-18 二次增强:动态拼接也要跨行看 —— 整文件级(剥注释后)只补 usedNamespaces。
@@ -504,6 +529,8 @@ export function scanTexts(items) {
     while ((m = DYNAMIC_T_RE.exec(codeOnly)) !== null) {
       const p = dynamicPrefixOf(m[1])
       if (p) usedNamespaces.add(p)
+      const s = dynamicSuffixOf(m[1])
+      if (s) dynamicSuffixes.add(s)
     }
     // G-167 ②(2026-10-19):流键并入 staticRefs —— 与门 2 同一份派生(deriveStatePairs +
     // traceKeyFlow + translationConsumesReader),归属判据同形:state 读数必须被本文件的翻译变量
@@ -521,7 +548,7 @@ export function scanTexts(items) {
     let m
     while ((m = NS_RE.exec(it.text)) !== null) usedNamespaces.add(m[1])
   }
-  return { staticRefs, usedNamespaces, dynamicHits, scanned: items.length }
+  return { staticRefs, usedNamespaces, dynamicHits, dynamicSuffixes, scanned: items.length }
 }
 
 /** 磁盘档薄包装:读盘 → 交给同一份 scanTexts(判据只有一份,§22c)。 */
@@ -971,14 +998,21 @@ export function main(opts) {
     console.log(`[${TAG}] 扫描代码: ${files.length} 个文件`)
     scan = scanCode(files)
   }
-  const { staticRefs, usedNamespaces, dynamicHits } = scan
+  const { staticRefs, usedNamespaces, dynamicHits, dynamicSuffixes } = scan
   console.log(`[${TAG}] 静态引用 key: ${staticRefs.size} 个(去重)`)
   console.log(`[${TAG}] useTranslations/getTranslations namespace: ${usedNamespaces.size} 个`)
 
   // 3. 死 key
   const deadKeys = new Set()
   for (const k of leafKeys) {
-    if (!staticRefs.has(k) && !isInUsedNamespace(k, usedNamespaces)) deadKeys.add(k)
+    // 动态模板(`${m}Desc` 型)的单段键尾部启发式:dymanicSuffixOf 收来的静态尾段,任何不含点、以它结尾、
+    // 且比它更长的单段键都算被该动态取词引用,不再判死(避免 commonDesc / userDesc 这类整族误判)。
+    if (
+      !staticRefs.has(k) &&
+      !isInUsedNamespace(k, usedNamespaces) &&
+      !dynamicSuffixMatches(k, dynamicSuffixes)
+    )
+      deadKeys.add(k)
   }
   // 3b. 契约键声明:仅把「有依据且依据已在判定面上逐条核验」的键从死键判定里免除(见文件头注释)。
   //     git 面(HEAD / --staged):契约文件与依据文件都取**被审那一面**(与语料同面同轮);

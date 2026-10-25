@@ -190,6 +190,7 @@
     "toolVendorVoiceClone": "複製聲紋",
     "toolRequestBusinessForm": "請求填寫業務表單",
     "toolInitAgentsMd": "初始化 AGENTS.md 文件",
+    "toolTeamTask": "團隊共享任務",
     "fileActivity": "{state, select, running {正在處理檔案} completed {已處理檔案} other {處理檔案}}",
     "imageActivity": "{state, select, running {正在處理圖像} completed {已處理圖像} other {處理圖像}}",
     "searchActivity": "{state, select, running {正在檢索} completed {已檢索} other {檢索}}",
@@ -231,7 +232,8 @@
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {正在取得檔案「{name}」} completed {已取得檔案「{name}」} other {取得檔案「{name}」}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {正在檢索文件} completed {已檢索文件} other {檢索文件}}",
     "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {正在檢索文件「{name}」} completed {已檢索文件「{name}」} other {檢索文件「{name}」}}",
-    "toolInitAgentsMdActivity": "{state, select, running {正在初始化 AGENTS.md 文件} completed {已初始化 AGENTS.md 文件} other {初始化 AGENTS.md 文件}}"
+    "toolInitAgentsMdActivity": "{state, select, running {正在初始化 AGENTS.md 文件} completed {已初始化 AGENTS.md 文件} other {初始化 AGENTS.md 文件}}",
+    "toolTeamTaskActivity": "{state, select, running {正在更新團隊任務表} completed {已更新團隊任務表} other {更新團隊任務表}}"
   },
   "a11y": {
     "addAttachment": "新增附件(圖片/影片/檔案)",

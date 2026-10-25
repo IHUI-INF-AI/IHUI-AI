@@ -855,12 +855,15 @@ export function ackCoversDebt({ ack, name, fp, ts, now }) {
  * 标记被清的那一刻起彻底隐形(2026-10-01 实测:`孤儿删除引用巡检命中` 记着
  * delivered:false,而 P8 同一轮报"无未送达标记")。
  *
- * 判读四条,缺一都会让它变成一台瞎尺子:
+ * 判读五条,缺一都会让它变成一台瞎尺子:
  *   ① 认的是**状态台账**里 `delivered === false` 且已超过宽限期的条目(逐条点名 + 时刻);
  *   ② 没有 `delivered` 键的条目属旧形态,**只报数不判红**(否则上线当天即恒红);
  *   ③ 目录/文件/JSON 任一层取不到 ⇒ **未判定**并点名,绝不被"没有欠账"的措辞顺带洗成通过;
  *   ④ 有**逐条**出口(loadDebtAcks):免掉的条数照旧报名,到期或复发自动回红 ——
  *      一条永远修不动、又没有出处的红,结局和恒红门一样是"大家学会不看它"。
+ *   ⑤ 事实性覆盖有两个证据源,任一命中即不计欠账:探针落盘件的"最近一班成功"(2026-10-03 立),
+ *      以及**台账自己更晚的 `delivered:true`**(2026-10-25 补 —— 探针 24h 才跑一班,时刻钟会冻;
+ *      台账里的真投递新鲜到当下,实测欠账 06:02Z 挂红 30h 而台账 18:35Z 明明投成功过)。
  * 措辞里只有绝对时刻,不写"已挂 N 分钟":指纹吃 detail,逐轮变动的数字 = 每轮一封新信。
  * 生产者不写死清单:扫 `.ihui-agent/state/*notify-state*.json`,谁的台账带 delivered 这一维就查谁 ——
  * 新增生产者自动进射程,而"手工登记一份生产者名单"必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 同课)。
@@ -887,10 +890,13 @@ export function checkUndeliveredAlertDebt({
   const debts = []
   const legacy = []
   const broken = []
+  const candidates = []
   const usedAnchors = new Set()
   let acked = 0
   let entriesSeen = 0
   let coveredByChannel = 0
+  let coveredByLedger = 0
+  let latestSuccessInLedgerMs = 0
   // 通道最近一次"有收件人且投递成功"的时刻(毫秒,0 = 量不到/通道从未通)。
   // 取径:邮件通道活性探针的落盘件(`.ihui-agent/state/mail-probe-last.json`,P9 同一个生产者写的),
   // **只认 verdict==='ok' 且确实有收件人的那次** —— 探针说 ok 而台账一条都没寄出去,
@@ -930,40 +936,58 @@ export function checkUndeliveredAlertDebt({
         legacy.push(`${f}#${name}`)
         continue
       }
-      if (v.delivered === true) continue
+      if (v.delivered === true) {
+        // 台账里每一次"有收件人且投递成功"都是**当下就在收信**的直接证据,并且它比探针
+        // 落盘件新鲜得多 —— 探针每 `mailProbeIntervalHours`(24h)才真跑一班,其余轮次复述
+        // 缓存;2026-10-25 实测:欠账记于 06:02Z,探针停在 04:28Z(更早),而台账自己
+        // 18:35Z/19:15Z 有真投成功 ⇒ 通道明明活着,这笔却永久挂红。两趟制:先扫全账取
+        // 最新成功时刻,再逐笔判覆盖(单趟会因文件序把"晚到的成功"漏对给"早登记的欠账")。
+        if (Number.isFinite(ts) && ts > latestSuccessInLedgerMs) latestSuccessInLedgerMs = ts
+        continue
+      }
       if (!Number.isFinite(ts)) {
         broken.push(`${f}#${name}:ts 不是数字`)
         continue
       }
-      // **通道故障期漏网 ⇒ 已被事实性覆盖,不计欠账(2026-10-03 立,P10 自我循环根治)**
-      // 立因:2026-09-26~09-30 `apps/api/.env` 缺 `ALERT_EMAIL_TO`,notifyGuardRed 在**派发前**
-      // 就失败 ⇒ 4 条被记 `delivered:false`;09-30T01:01 通道修好后这 4 个身份对应的底层故障
-      // (.env 漂移 / 合并吞并对账)**再未复发** ⇒ 没有任何同名告警去覆盖它们 ⇒ 欠账永久挂账。
-      // 后果是死循环:P10 红 → 寄信(P10 自己那封**寄成功了**,躺在"元运维巡检红 delivered:true"
-      // 里)→ 但成功投递只覆盖**同名**条目,覆盖不到这 4 个身份 → 下一轮 P10 仍红。
-      // 实测 115 轮判红、详情逐字去重仅 1 种(sha256 c1b33f15a1e1)、寄出 24 封。
-      // 判据:欠账 ts **早于**通道最近一次"有收件人且投递成功"的时刻 ⇒ 那次成功证明通道已通,
-      // 收件人当时正在收信,这几封漏网属通道故障期,不该永久追责。
-      // 口径说明:这是**事实性覆盖**(通道已恢复),不是"假定已读" —— 与下面人工裁决那条
-      // (`undelivered-debt-acks.json`,需 alert+fp+atTs 毫秒级逐字对上,实测 2 条裁决零命中、
-      // 形同虚设)不是一回事;后者留着,给"通道一直好、但某条确实没寄出去"那种真欠账用。
-      if (channelOkSinceMs > 0 && ts < channelOkSinceMs) {
-        coveredByChannel += 1
-        continue
-      }
-      const waitMin = Math.round((now - ts) / 60000)
-      if (waitMin < graceMs / 60000) continue
-      if (acks.some((a) => ackCoversDebt({ ack: a, name, fp: v.fp, ts, now }))) {
-        acked += 1
-        usedAnchors.add(debtAnchor(name, v.fp, ts))
-        continue
-      }
-      // 只写**绝对时刻**:守护的发信指纹吃 detail,任何"距今/已挂 N 分钟"都会逐轮变动,
-      // 于是同一件故障每轮生成一封新信(AGENTS §5e 与用户明令「一直在报警你干啥吃的」)。
-      debts.push(
-        `${f} | 身份=${String(name).slice(0, 64)} | 指纹=${String(v.fp ?? '').slice(0, 12)} | 记于=${new Date(ts).toISOString()}`,
-      )
+      candidates.push({ f, name, fp: v.fp, ts })
     }
+  }
+  for (const c of candidates) {
+    const { f, name, fp, ts } = c
+    // **通道故障期漏网 ⇒ 已被事实性覆盖,不计欠账(2026-10-03 立,P10 自我循环根治)**
+    // 立因:2026-09-26~09-30 `apps/api/.env` 缺 `ALERT_EMAIL_TO`,notifyGuardRed 在**派发前**
+    // 就失败 ⇒ 4 条被记 `delivered:false`;09-30T01:01 通道修好后这 4 个身份对应的底层故障
+    // (.env 漂移 / 合并吞并对账)**再未复发** ⇒ 没有任何同名告警去覆盖它们 ⇒ 欠账永久挂账。
+    // 后果是死循环:P10 红 → 寄信(P10 自己那封**寄成功了**,躺在"元运维巡检红 delivered:true"
+    // 里)→ 但成功投递只覆盖**同名**条目,覆盖不到这 4 个身份 → 下一轮 P10 仍红。
+    // 实测 115 轮判红、详情逐字去重仅 1 种(sha256 c1b33f15a1e1)、寄出 24 封。
+    // 判据:欠账 ts **早于**通道最近一次"有收件人且投递成功"的时刻 ⇒ 那次成功证明通道已通,
+    // 收件人当时正在收信,这几封漏网属通道故障期,不该永久追责。
+    // 口径说明:这是**事实性覆盖**(通道已恢复),不是"假定已读" —— 与下面人工裁决那条
+    // (`undelivered-debt-acks.json`,需 alert+fp+atTs 毫秒级逐字对上,实测 2 条裁决零命中、
+    // 形同虚设)不是一回事;后者留着,给"通道一直好、但某条确实没寄出去"那种真欠账用。
+    if (channelOkSinceMs > 0 && ts < channelOkSinceMs) {
+      coveredByChannel += 1
+      continue
+    }
+    // 同一件事,用**更近的证据源**再判一遍(2026-10-25 立):台账里任何一笔后发的 `delivered:true`
+    // 与探针的"握手 ok"是同级事实、且新鲜到当下。欠账 ts 早于它 ⇒ 收件人当时在收信。
+    if (latestSuccessInLedgerMs > 0 && ts < latestSuccessInLedgerMs) {
+      coveredByLedger += 1
+      continue
+    }
+    const waitMin = Math.round((now - ts) / 60000)
+    if (waitMin < graceMs / 60000) continue
+    if (acks.some((a) => ackCoversDebt({ ack: a, name, fp, ts, now }))) {
+      acked += 1
+      usedAnchors.add(debtAnchor(name, fp, ts))
+      continue
+    }
+    // 只写**绝对时刻**:守护的发信指纹吃 detail,任何"距今/已挂 N 分钟"都会逐轮变动,
+    // 于是同一件故障每轮生成一封新信(AGENTS §5e 与用户明令「一直在报警你干啥吃的」)。
+    debts.push(
+      `${f} | 身份=${String(name).slice(0, 64)} | 指纹=${String(fp ?? '').slice(0, 12)} | 记于=${new Date(ts).toISOString()}`,
+    )
   }
   if (entriesSeen === 0 && !broken.length)
     return { id, state: 'ok', detail: '台账存在但没有任何告警身份条目(首次发信前)' }
@@ -974,6 +998,10 @@ export function checkUndeliveredAlertDebt({
   if (coveredByChannel)
     tail.push(
       `另有 ${coveredByChannel} 条记于通道修复前(通道已实测恢复,那次成功投递证明收件人当时在收信 ⇒ 不计欠账)`,
+    )
+  if (coveredByLedger)
+    tail.push(
+      `另有 ${coveredByLedger} 条被台账内更晚的成功投递覆盖(欠账之后有告警真寄到人 ⇒ 收件人当时在收信,不计欠账)`,
     )
   // 免掉的每一条都必须**当场对得上一次真投递** —— 否则那条裁决只是在替一个
   // 并没有发生过的清偿背书(实测:台账写 alert 而指纹留空,曾被读成"这一格已裁")。
@@ -2835,9 +2863,24 @@ function undeliveredDebtFixture() {
   write({ 旧形态条目: { fp: 'c'.repeat(40), ts: now - 9 * 3600_000 } })
   const legacy = checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now })
   if (legacy.state !== 'ok' || !legacy.detail.includes('旧形态条目 1 条')) return { ok: false, why: '无 delivered 键的存量被当成红(上线即恒红型)' }
-  write({ 备份失败: { fp: 'a'.repeat(40), ts: now - 6 * 3600_000, delivered: true } })
-  if (checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now }).state !== 'ok') return { ok: false, why: '已清偿的账没回到绿' }
-  writeFileSync(st, '{坏了', 'utf8')
+   write({ 备份失败: { fp: 'a'.repeat(40), ts: now - 6 * 3600_000, delivered: true } })
+   if (checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now }).state !== 'ok') return { ok: false, why: '已清偿的账没回到绿' }
+   // ── 台账内成功投递的事实性覆盖(2026-10-25 立,探针班次钟冻住 30h 而台账一直在真投)──
+   // 反向臂:成功早于欠账 ⇒ 不得放行;两趟制臂:对象书写序(欠账在前、成功在后)必须也能覆盖。
+   write({
+     备份失败: { fp: 'a'.repeat(40), ts: now - 6 * 3600_000, delivered: false },
+     别的告警后来寄成功了: { fp: 'd'.repeat(40), ts: now - 2 * 3600_000, delivered: true },
+   })
+   const ledgerCovered = checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now })
+   if (ledgerCovered.state !== 'ok' || !ledgerCovered.detail.includes('被台账内更晚的成功投递覆盖'))
+     return { ok: false, why: `台账更晚的成功投递没覆盖早先欠账:${ledgerCovered.detail}` }
+   write({
+     成功在欠账之前: { fp: 'd'.repeat(40), ts: now - 8 * 3600_000, delivered: true },
+     备份失败: { fp: 'a'.repeat(40), ts: now - 2 * 3600_000, delivered: false },
+   })
+   if (checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now }).state !== 'finding')
+     return { ok: false, why: '成功早于欠账也放行 ⇒ 覆盖认了不该认的证据' }
+   writeFileSync(st, '{坏了', 'utf8')
   const broken = checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now })
   if (broken.state !== 'undetermined' || !broken.detail.includes('git-guardian-notify-state.json')) return { ok: false, why: '坏台账未落未判定或未点名文件' }
   rmSync(st, { force: true })

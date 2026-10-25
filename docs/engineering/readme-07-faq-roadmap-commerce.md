@@ -121,9 +121,9 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 </details>
 
 <details>
-<summary><strong>Q9:数据库为什么用 542 表?会不会过度设计?</strong></summary>
+<summary><strong>Q9:数据库为什么用 608 表?会不会过度设计?</strong></summary>
 
-542 表分布在 205 个 schema 文件,覆盖 30+ 业务域,每域平均 18 张表,密度合理。本项目是商业化生产级 AI 平台(智汇 AI 集团主平台),不是 demo,因此表结构按真实业务复杂度设计。如果你只用其中一部分功能(如仅 AI 对话),只需关注 chat / users / billing 三个 schema,其他表不影响运行。
+608 表分布在 205 个 schema 文件,覆盖 30+ 业务域,每域平均 18 张表,密度合理。本项目是商业化生产级 AI 平台(智汇 AI 集团主平台),不是 demo,因此表结构按真实业务复杂度设计。如果你只用其中一部分功能(如仅 AI 对话),只需关注 chat / users / billing 三个 schema,其他表不影响运行。
 </details>
 
 <details>
@@ -244,7 +244,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | 文档                                             | 说明                                                                  |
 | ------------------------------------------------ | --------------------------------------------------------------------- |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md)   | **API 完整参考**(60+ 路由 + 12 WebSocket + SSE + 错误码 + 客户端示例) |
-| [docs/DATABASE.md](docs/DATABASE.md)             | 数据库设计(Drizzle / 542 表 / 迁移 / RLS / 种子 / 备份)               |
+| [docs/DATABASE.md](docs/DATABASE.md)             | 数据库设计(Drizzle / 608 表 / 迁移 / RLS / 种子 / 备份)               |
 | [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) | 认证授权(JWT / token-family / OAuth2 / 2FA / RBAC / 多租户 / WS 鉴权) |
 
 ### AI 服务
@@ -733,7 +733,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 #### 9 端框架(9 端独立代码,非一套编译)
 
 - **Web(Next.js 16)**:250+ 页面 + 200+ 组件 + 104 hooks + Monaco Editor + xterm.js + Three.js + ECharts + PWA + SEO + 暗黑模式 + 5 语言
-- **API(Fastify 5)**:4393 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 12 WebSocket 通道
+- **API(Fastify 5)**:4561 API 路由跨 627 路由文件 + 60 插件 + 8 Workers + 200+ services + 12 WebSocket 通道
 - **AI-Service(FastAPI)**:200+ services + 23 routers + 18 LLM Providers + 24 MCP 工具 + 38 发布适配器 + 215+ 端点
 - **Desktop(Tauri 2)**:40 个 Tauri 命令 + 两阶段自动更新(启动静默 + 托盘独立「检查更新」,退出路径不拦截)+ 关闭行为/托盘显隐/开机自启可配置 + 偏好跨设备漫游
 - **Extension(WXT 0.19)**:30 个 Side Panel 页面 + Chrome MV3 + IndexedDB 词汇库 + 10 测试文件
@@ -830,16 +830,16 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **类型契约**:ToolCallSource(工具来源)+ ToolCallSummary(汇总)+ ChatMessage 扩展(thinking / tool_calls / timeline / plugin / mcp_source)
 - **实时刷新机制**:SSE 事件流 → chat store → 组件订阅 store → 自动 re-render(无需手动刷新)
 
-#### 工程基础设施(87 守门 + 719 测试 + 40 CI + 可观测性)
+#### 工程基础设施(87 守门 + 3206 测试 + 40 CI + 可观测性)
 
-- **数据库**:PostgreSQL 15 + 542 表 + 205 schema 文件 + drizzle-kit push + pgvector + 23 seed
+- **数据库**:PostgreSQL 15 + 608 表 + 235 schema 文件 + drizzle-kit push + pgvector + 23 seed
 - **队列缓存**:Redis 7 + BullMQ + 独立 worker 进程
 - **对象存储**:OSS 多厂商驱动 + 凭证加密 + 分块上传 + 文件版本
 - **邮件短信**:SMTP + 短信网关 + 邮件模板 + 验证码
 - **国际化**:5 语言 × 7 端 = 35 JSON 文件 + 21 i18n 工具链 + 9 守门
 - **87 守门/验证脚本**:59 check + 11 verify + 6 guard + 2 sync + 9 scan
 - **pre-commit 56+10 项**:40 blocking / 14 warn / 2 info
-- **719 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+- **3206 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **40 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
 - **可观测性**:Prometheus + Grafana(3 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager + OTel Collector
 - **部署运维**:Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份

@@ -595,7 +595,7 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 | **staged 污染预警**         | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs)(pre-commit 第 19 项)               | 检测跨 ≥4 目录的 staged 改动                            |
 | **commit scope 一致性预警** | [scripts/check-commit-scope-consistency.mjs](./scripts/check-commit-scope-consistency.mjs)(commit-msg hook)   | 检测 scope 与 staged 文件领域不匹配(防 git add -A 污染) |
 
-### 通病 ② 边界条件处理不足 → 实际:719 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+### 通病 ② 边界条件处理不足 → 实际:3206 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
 
 | 机制               | 证据                                                                                                                                                                   |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -632,7 +632,7 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 | AI 代码通病      | 本项目反制机制                                                                                       |
 | ---------------- | ---------------------------------------------------------------------------------------------------- |
 | 代码冗余         | Knip CI 守门 + check-dedupe + check-tailwind-class-conflict                                          |
-| 边界条件缺失     | 719 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+| 边界条件缺失     | 3206 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 | 业务逻辑断裂     | 业务流程集成测试(`test_business_flow_integration.py`)+ saga 事务模式 + outbox 事务发件箱             |
 | 类型安全漏洞     | TypeScript strict + Zod 端到端校验 + @ihui/types 跨端契约                                            |
 | 文档与代码 drift | §13 文件修改持久化强制 Read 验证 + check-project-plan-archive 守门                                   |
