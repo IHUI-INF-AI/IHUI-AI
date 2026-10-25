@@ -3466,6 +3466,49 @@ const checks = [
     ]
   },
   {
+    id: '252',
+    label:
+      '📦 workspace 包 exports 条件真值对账(blocking,子路径必须对 CJS 解析条件可达 —— 缺 default 就是小程序/CI 构建当场红)',
+    script: 'fix-package-exports-conditions.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PACKAGE_EXPORTS_CONDITIONS',
+    stagedTriggers: [
+      'packages/',
+      'apps/',
+      'scripts/fix-package-exports-conditions.mjs',
+    ],
+    onFailHint: [
+      '  💡 判的是 exports 条件覆盖:只写 types+import 的子路径,对 webpack(require/module/production)' +
+         '与 pnpm frozen install 都不可达(import 条件不等于 module/require)。',
+      '     ① 看哪几条缺:node scripts/fix-package-exports-conditions.mjs --check;',
+      '     ② 补(单向增覆盖面,不改既有条件、不删条目):node scripts/fix-package-exports-conditions.mjs --apply,',
+      '     ② 补(单向增覆盖面,不改既有条件、不删条目):node scripts/fix-package-exports-conditions.mjs --apply,',
+      '        并把所改 package.json 与本枚改动同提交;',
+      '     ③ 判据本体:node scripts/fix-package-exports-conditions.mjs --self-test(5 例)。',
+      '     禁止为消红放宽判据(§12e);存量已于 e91d8c38ed96 一次清零,故本门从第一天起绝对零容忍。',
+    ]
+  },
+  {
+    id: '253',
+    label:
+      '🧬 scripts 相对具名导入 ↔ 目标模块出口面真值对账(blocking,生产方被削出口那一型的唯一着力点 —— 消费方一字未动而守护当场起不来)',
+    script: 'check-mjs-export-resolution.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MJS_EXPORT_RESOLUTION',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '  💡 两维:D1 = 本枚改动的文件里有人按名取用而目标不再导出;D2 = 本枚改动/删除的文件削掉了某个仍被按名取用的出口。',
+      '     ① 看清单:node scripts/check-mjs-export-resolution.mjs --staged(全量档只报存量,不拦提交);',
+      '     ② 修法二选一,不许两边都不选:',
+      '        · 能力仍在用 ⇒ 把出口连实现补回生产方(逐字回补可参考 HEAD^ 面,补完 node --check + import 自证);',
+      '        · 能力确已退役 ⇒ 同批把消费方的取用一起摘掉(删者须答 §7 三问,不得只删一半留个崩口)。',
+      '     ③ 判据本体:node scripts/check-mjs-export-resolution.mjs --self-test(11 例,含 D2 正控/反向对照/新建面不判)。',
+      '     立因实测:9fdbc207ba2e 删 lib/gitdir.mjs 的 brokenRefsFromSnapshot 而 git-guardian.mjs 未动 ⇒ 守护实例化期抛、任何档起不来,巡检腿全停。',
+    ]
+  },
+  {
     id: '129',
     label:
       '🛡️ 提示注入登记对账(blocking,"以宿主名义进模型提示"的每段必须有登记的 producer 与记账出口;拦 登记没生产 / 生产没消费 / 裸 [系统提醒] 前缀 三型)',
