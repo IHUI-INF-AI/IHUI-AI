@@ -201,6 +201,7 @@ import {
   findMalformedRows,
   newMalformed,
   malformedLine,
+  DISPOSITIONS,
 } from './lib/plan-task-index.mjs'
 import { collectIdFace, scanFamilyIdHits } from './lib/plan-id-face.mjs'
 
@@ -1039,6 +1040,12 @@ export function readInputs(env = process.env) {
       error:
         '改写档(LIVE_REPLACE_FILE)与插入档(LIVE_BLOCK_FILE / LIVE_ANCHOR_FILE)互斥 ⇒ 一次只做一件事',
     }
+  // 声明只有在整行改写档里才会被逐条核验;塞进插入档等于"看着声明了、其实没人读"⇒ 拒绝,不静默吞掉。
+  if (replaceFile === '' && (env.LIVE_BUCKET_RECLASSIFY ?? '') !== '')
+    return {
+      error:
+        'LIVE_BUCKET_RECLASSIFY 只在 LIVE_REPLACE_FILE 整行改写档可用 ⇒ 本次插入档不会核验任何声明,拒绝执行',
+    }
   if (replaceFile !== '') {
     let pairs
     try {
@@ -1078,7 +1085,7 @@ export function readInputs(env = process.env) {
       if (!Array.isArray(items))
         return { error: 'LIVE_BUCKET_RECLASSIFY 必须是数组 [{before, from, to, why}]' }
       const known = new Set(pairs.map((p) => p.before))
-      const BUCKETS = new Set(['owned-elsewhere', 'waiting-human', 'waiting-env', 'actionable'])
+      const seenDecl = new Set()
       for (const [i, it] of items.entries()) {
         if (
           typeof it?.before !== 'string' ||
@@ -1087,9 +1094,9 @@ export function readInputs(env = process.env) {
           typeof it?.why !== 'string'
         )
           return { error: `LIVE_BUCKET_RECLASSIFY 第 ${i + 1} 项缺 before/from/to/why ⇒ 拒绝执行` }
-        if (!BUCKETS.has(it.from) || !BUCKETS.has(it.to))
+        if (!DISPOSITIONS.includes(it.from) || !DISPOSITIONS.includes(it.to))
           return {
-            error: `第 ${i + 1} 项 from/to 不是归属桶名(可选 ${[...BUCKETS].join(' / ')})`,
+            error: `第 ${i + 1} 项 from/to 不是归属桶名(可选 ${DISPOSITIONS.join(' / ')})`,
           }
         if (it.from === it.to) return { error: `第 ${i + 1} 项 from == to ⇒ 无事可做` }
         if (it.why.trim().length < 10)
@@ -1098,6 +1105,10 @@ export function readInputs(env = process.env) {
           return {
             error: `第 ${i + 1} 项的 before 不在本次 LIVE_REPLACE_FILE 里 ⇒ 陈旧/串档声明,不记通过`,
           }
+        // 同一行两条声明 = 两个互斥的"改为",无论哪条命中都会让另一条静默未生效 ⇒ 整批拒。
+        if (seenDecl.has(it.before))
+          return { error: `第 ${i + 1} 项的 before 重复声明 ⇒ 一行只能有一个改桶去向` }
+        seenDecl.add(it.before)
       }
       reclassify = items
     }
@@ -1417,23 +1428,34 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
     const oldRec = fields ? fieldsFor({ line: oldLine, map: fields.map }).rec : null
     const newRec = fields ? fieldsFor({ line: newLine, map: fields.map }).rec : null
     // 声明式改桶:前后桶必须与声明**逐字**相同(同一把尺 bucketOf),否则按违规拒写。
+    // 声明**只解释归属桶这一维**:主键与租约维照旧逐条判 —— 一条改桶声明若顺带摘牌/换题也放行,
+    // 就等于给三维守恒开了一个全维总闸(本仓记过最多的一型:多放一次跳门)。
+    const at = []
+    for (let k = 0; k < baseLines.length; k++) if (baseLines[k] === oldLine) at.push(k + 1)
     const decl = recMap.get(oldLine)
     if (decl) {
       usedReclassify.add(oldLine)
       const from = bucketOf(oldLine, oldRec)
       const to = bucketOf(newLine, newRec)
-      if (from === decl.from && to === decl.to) {
+      if (from !== decl.from || to !== decl.to) {
+        violations.push({
+          item: i + 1,
+          at,
+          bad: [`声明改桶 ${decl.from}→${decl.to} 与现算 ${from}→${to} 不同形 ⇒ 声明陈旧或改错了行`],
+        })
+        continue
+      }
+      const rest = assertRowRewriteConservation({ oldLine, newLine, oldRec, newRec }).filter(
+        (b) => !b.startsWith('归属判定会漂:'),
+      )
+      if (rest.length === 0) {
         reclassified++
         notes.push(
-          `ℹ 三维守恒第 ${i + 1} 项:声明式改桶 ${from} → ${to} 放行(原因:${decl.why})`,
+          `ℹ 三维守恒第 ${i + 1} 项:声明式改桶 ${from} → ${to} 放行(原因:${decl.why};主键/租约维照判)`,
         )
         continue
       }
-      violations.push({
-        item: i + 1,
-        at: [],
-        bad: [`声明改桶 ${decl.from}→${decl.to} 与现算 ${from}→${to} 不同形 ⇒ 声明陈旧或改错了行`],
-      })
+      violations.push({ item: i + 1, at, bad: rest })
       continue
     }
     let bad = assertRowRewriteConservation({ oldLine, newLine, oldRec, newRec })
@@ -1455,8 +1477,6 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
         )
       continue
     }
-    const at = []
-    for (let k = 0; k < baseLines.length; k++) if (baseLines[k] === oldLine) at.push(k + 1)
     violations.push({ item: i + 1, at, bad })
   }
   return { ok: violations.length === 0, checked, violations, notes, reclassified, staleReclassify: [...recMap.keys()].filter((k) => !usedReclassify.has(k)) }
