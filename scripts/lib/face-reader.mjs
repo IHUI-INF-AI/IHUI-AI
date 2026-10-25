@@ -209,6 +209,62 @@ export function catBatchOids(root, specs, opts = {}) {
   return map
 }
 
+/**
+ * 一次 `cat-file --batch-check=%(objectname) %(objecttype)` 问一批对象的**类型**。
+ * 与 `catBatchCheck`(只答哪些不存在)和 `catBatchOids`(只答 oid)的分工:本出口答
+ * "这个 sha 是 commit 还是 blob/tree"。审计类判据要区分「绑到一枚提交」与「绑到一个别的对象」,
+ * 用标准 `--batch-check` 只能拿到"存在",会把 blob 误当成提交。
+ *
+ * 为什么必须在层里(2026-10-26):型 C 尺子把任何 `['cat-file', '--batch…']` 自拼都记成债,
+ * 而每自拼一次就要重写 stdio[0]=pipe / maxBuffer / 头解析 —— 这三处本仓都真踩过(见文件头)。
+ *
+ * 输出与输入按行对齐;missing 行与空行归 null。key 统一小写(调用方用小写 sha 取值)。
+ * @returns {Map<string, string|null>}
+ */
+export function catBatchTypes(root, oids) {
+  const list = [...new Set(oids)]
+  const map = new Map()
+  if (list.length === 0) return map
+  let out
+  try {
+    out = batchExecFileSync(
+      GIT,
+      [
+        '-c',
+        'safe.directory=*',
+        '-C',
+        root,
+        'cat-file',
+        '--batch-check=%(objectname) %(objecttype)',
+      ],
+      {
+        cwd: root,
+        input: Buffer.from(list.join('\n') + '\n', 'utf8'),
+        encoding: 'utf8',
+        windowsHide: true,
+        maxBuffer: GIT_MAX_BUFFER,
+        timeout: BATCH_TIMEOUT,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
+  } catch (e) {
+    throw new Undetermined(
+      `git cat-file --batch-check 失败(${list.length} 个对象): ${gitErrText(e)}`,
+    )
+  }
+  const lines = String(out).split('\n')
+  list.forEach((spec, i) => {
+    const line = (lines[i] || '').trim()
+    if (!line || line === 'missing' || /\smissing$/.test(line)) {
+      map.set(spec.toLowerCase(), null)
+      return
+    }
+    const [sha, type] = line.split(/\s+/)
+    map.set((sha || spec).toLowerCase(), type || null)
+  })
+  return map
+}
+
 export function gitErrText(e) {
   const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
   const text = String(typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf8')).trim()
