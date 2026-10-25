@@ -25,12 +25,16 @@
 
 import {
   CHAT_SYNC_PROTOCOL_VERSION,
+  CHAT_SYNC_TERMINAL_PROTOCOL_VERSION,
   isChatPatchKind,
   isChatSyncRole,
+  isChatSyncTerminalReason,
   type ChatMessageCreatedEvent,
   type ChatMessagePatchedEvent,
+  type ChatMessageTerminalEvent,
   type ChatPatchKind,
   type ChatSyncRole,
+  type ChatSyncTerminalReason,
 } from './chat-sync-contract.js'
 
 // ===================== 事件名 =====================
@@ -58,6 +62,8 @@ export const USER_BROADCAST_EVENT_NAMES = [
   // 另起一份"投递用载荷"就必然在两份之间漂移,故这里只做载体声明 + 房间校验。
   'message:created',
   'message:patched',
+  // 票71 terminal 切片(2026-10-26):终态是新帧而非 patched 的可选字段,载体同样只做声明。
+  'message:terminal',
 ] as const
 
 export type UserBroadcastEventName = (typeof USER_BROADCAST_EVENT_NAMES)[number]
@@ -361,10 +367,11 @@ function isCollabLockData(v: unknown): v is CollabLockData {
   return true
 }
 
-// ===================== message:created / message:patched(票71 第二切片)=====================
+// ===================== message:created / message:patched / message:terminal(票71)=====================
 
 /**
- * 投递载体声明:data **就是**契约事件本体(`ChatMessageCreatedEvent` / `ChatMessagePatchedEvent`)。
+ * 投递载体声明:data **就是**契约事件本体(`ChatMessageCreatedEvent` / `ChatMessagePatchedEvent` /
+ * `ChatMessageTerminalEvent`)。
  *
  * 为什么不另写一份 `{conversationId, messageId, content, …}`:
  * 契约 §6「生产端义务」要求同一逻辑变更在 sse/ws 两条通道上携带逐字相同的
@@ -376,6 +383,7 @@ function isCollabLockData(v: unknown): v is CollabLockData {
  */
 export type MessageCreatedData = ChatMessageCreatedEvent
 export type MessagePatchedData = ChatMessagePatchedEvent
+export type MessageTerminalData = ChatMessageTerminalEvent
 
 export interface MessageCreatedEvent {
   event: 'message:created'
@@ -387,6 +395,12 @@ export interface MessagePatchedEvent {
   data: MessagePatchedData
 }
 
+/** 终态帧载体(2026-10-26):data 逐字就是契约的 `ChatMessageTerminalEvent`(v2 信封)。 */
+export interface MessageTerminalEvent {
+  event: 'message:terminal'
+  data: MessageTerminalData
+}
+
 /** 房间必须是 conversation 房间且 id 非空 —— 空房间键没人能订阅,等于一帧发给空气 */
 function isChatSyncRoom(v: unknown): boolean {
   if (typeof v !== 'object' || v === null) return false
@@ -396,9 +410,9 @@ function isChatSyncRoom(v: unknown): boolean {
   )
 }
 
-/** `{protocolVersion, channel:'ws', room, emittedAt?}` 四格封套的公共判据 */
-function isChatSyncEnvelope(d: Record<string, unknown>): boolean {
-  if (d.protocolVersion !== CHAT_SYNC_PROTOCOL_VERSION) return false
+/** `{protocolVersion, channel:'ws', room, emittedAt?}` 四格封套的公共判据(版本由帧族指定) */
+function isChatSyncEnvelope(d: Record<string, unknown>, protocolVersion: string): boolean {
+  if (d.protocolVersion !== protocolVersion) return false
   // 本载体只发 ws 面;收到别家通道的帧 ⇒ 生产面有两个发射口,整帧判「未判定」
   if (d.channel !== 'ws') return false
   if (!isChatSyncRoom(d.room)) return false
@@ -413,7 +427,7 @@ function isMessageCreatedData(v: unknown): v is MessageCreatedData {
   if (typeof v !== 'object' || v === null) return false
   const d = v as Record<string, unknown>
   if (d.type !== 'message:created') return false
-  if (!isChatSyncEnvelope(d)) return false
+  if (!isChatSyncEnvelope(d, CHAT_SYNC_PROTOCOL_VERSION)) return false
   if (typeof d.messageId !== 'string' || d.messageId.length === 0) return false
   if (!isChatSyncRole(d.role)) return false
   if (typeof d.content !== 'string') return false
@@ -425,7 +439,7 @@ function isMessagePatchedData(v: unknown): v is MessagePatchedData {
   if (typeof v !== 'object' || v === null) return false
   const d = v as Record<string, unknown>
   if (d.type !== 'message:patched') return false
-  if (!isChatSyncEnvelope(d)) return false
+  if (!isChatSyncEnvelope(d, CHAT_SYNC_PROTOCOL_VERSION)) return false
   if (typeof d.messageId !== 'string' || d.messageId.length === 0) return false
   // rev 由服务端分配、从 1 起(0 是 created 的哨兵,链上不存在 rev 0 的 patch)
   if (typeof d.rev !== 'number' || !Number.isInteger(d.rev) || d.rev < 1) return false
@@ -439,6 +453,21 @@ function isMessagePatchedData(v: unknown): v is MessagePatchedData {
   if (d.textDelta !== undefined && typeof d.textDelta !== 'string') return false
   if (d.content !== undefined && typeof d.content !== 'string') return false
   if (d.reasoning !== undefined && typeof d.reasoning !== 'string') return false
+  return true
+}
+
+/**
+ * 终态帧判据(2026-10-26):v2 信封 + rev ≥ 0 + reason 在封闭集内。
+ * rev 允许 0 = 该消息只有 created、链上无 patch 时终结;终态不新增修订号。
+ */
+function isMessageTerminalData(v: unknown): v is MessageTerminalData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (d.type !== 'message:terminal') return false
+  if (!isChatSyncEnvelope(d, CHAT_SYNC_TERMINAL_PROTOCOL_VERSION)) return false
+  if (typeof d.messageId !== 'string' || d.messageId.length === 0) return false
+  if (typeof d.rev !== 'number' || !Number.isInteger(d.rev) || d.rev < 0) return false
+  if (!isChatSyncTerminalReason(d.reason)) return false
   return true
 }
 
@@ -521,6 +550,39 @@ export function messagePatchedEvent(input: {
   return { event: 'message:patched', data }
 }
 
+/**
+ * 生产侧构造 `message:terminal` 的唯一出口(2026-10-26)。
+ * `rev` = 终结时已到达的链头(0 = 只有 created),不新增修订号;未知 reason 在构造点直接拒
+ * —— 推上线只会被端侧计成「未判定」,而终态恰恰是用户最需要看懂的那一格。
+ */
+export function messageTerminalEvent(input: {
+  conversationId: string
+  messageId: string
+  rev: number
+  reason: ChatSyncTerminalReason
+  at?: Date | string
+}): MessageTerminalEvent {
+  if (!input.conversationId) throw new Error('messageTerminalEvent: conversationId 不得为空')
+  if (!input.messageId) throw new Error('messageTerminalEvent: messageId 不得为空')
+  if (!Number.isInteger(input.rev) || input.rev < 0) {
+    throw new Error(`messageTerminalEvent: rev 必须是 ≥0 的整数(实际 ${String(input.rev)})`)
+  }
+  if (!isChatSyncTerminalReason(input.reason)) {
+    throw new Error(`messageTerminalEvent: 未知终态原因 ${String(input.reason)}`)
+  }
+  const data: MessageTerminalData = {
+    protocolVersion: CHAT_SYNC_TERMINAL_PROTOCOL_VERSION,
+    channel: 'ws',
+    room: { kind: 'conversation', conversationId: input.conversationId },
+    type: 'message:terminal',
+    messageId: input.messageId,
+    rev: input.rev,
+    reason: input.reason,
+  }
+  if (input.at !== undefined) data.emittedAt = toIsoAt('messageTerminalEvent', input.at)
+  return { event: 'message:terminal', data }
+}
+
 function toIsoAt(fn: string, at: Date | string): string {
   const iso = typeof at === 'string' ? at : at.toISOString()
   if (Number.isNaN(Date.parse(iso))) throw new Error(`${fn}: at 不是时间:${iso}`)
@@ -538,6 +600,7 @@ export type UserBroadcastEvent =
   | CollabLockEvent
   | MessageCreatedEvent
   | MessagePatchedEvent
+  | MessageTerminalEvent
 
 /** 传输线上的裸帧形态:`/ws/broadcast` 推送的就是这个对象 */
 export interface UserBroadcastFrame {
@@ -627,6 +690,7 @@ const DATA_GUARDS: Record<UserBroadcastEventName, (v: unknown) => boolean> = {
   // 票71 第二切片:chat 消息面房间广播(形状与 chat-sync-contract 逐字同源)
   'message:created': isMessageCreatedData,
   'message:patched': isMessagePatchedData,
+  'message:terminal': isMessageTerminalData,
 }
 
 /**
