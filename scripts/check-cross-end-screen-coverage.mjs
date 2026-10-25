@@ -36,6 +36,7 @@ import { join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { catBatch } from './lib/face-reader.mjs'
+import { shellRefsOf, shellTargetRel } from './lib/rn-shell-refs.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(HERE, '..')
@@ -260,11 +261,30 @@ function gitGrep(pattern, pathspec) {
 function headMirroredSpecs(allowedFiles) {
   const out = new Set()
   const allow = new Set(allowedFiles || [])
+  const hitByFile = new Map()
   for (const line of gitGrep('packages/app/src/features/[A-Za-z0-9_-]+/[A-Za-z0-9_]+Screen', MP_SRC).split('\n')) {
     const pm = line.match(/^HEAD:([^:]+):\d+:/)
     if (!pm || !allow.has(pm[1])) continue
     const m = line.match(/(packages\/app\/src\/features\/[A-Za-z0-9_-]+\/[A-Za-z0-9_]+Screen\.tsx)/)
-    if (m) out.add(m[1])
+    if (m) hitByFile.set(pm[1], (hitByFile.get(pm[1]) ?? new Set()).add(m[1]))
+  }
+  // 一次批取这些页的正文(逐枚 faceRead 会把本门拖成超时 = 等于没装车);只为判"引了不存在的壳"
+  const texts = new Map()
+  const rels = [...hitByFile.keys()]
+  for (let i = 0; i < rels.length; i += 300) {
+    const chunk = rels.slice(i, i + 300)
+    const got = catBatch(ROOT, chunk.map((r) => `HEAD:${r}`))
+    for (const r of chunk) texts.set(r, String(got.get(`HEAD:${r}`) ?? ''))
+  }
+  const shells = new Set()
+  for (const t of texts.values()) for (const n of shellRefsOf(t)) shells.add(n)
+  const shellSpecs = [...shells].map((n) => `HEAD:${shellTargetRel(n)}`)
+  const shellGot = shellSpecs.length ? catBatch(ROOT, shellSpecs) : new Map()
+  const missingShell = new Set([...shells].filter((n) => shellGot.get(`HEAD:${shellTargetRel(n)}`) == null))
+  for (const [file, specs] of hitByFile) {
+    const text = texts.get(file) ?? ''
+    if ([...shellRefsOf(text)].some((n) => missingShell.has(n))) continue // 编不过的页不算已镜像
+    for (const sp of specs) out.add(sp)
   }
   return out
 }
@@ -296,13 +316,26 @@ function run() {
   for (const s of shared) if (rn.some((r) => rnConsumes(r, s.name))) rnConsumed.add(s.spec)
 
   // --- 小程序显式镜像 ---
+  // 引了不存在壳的页在真产物里编不过 ⇒ 不得计入"已镜像"(与守门 251 C5 同一把尺子:lib/rn-shell-refs)。
+  // 立因:造页器曾把"有 RN 屏 import 了这张共享屏"当成"同名 RN 壳存在",产出 2 枚 dangling 页,
+  // 而标记行让覆盖率账面看起来是涨的 —— 账面绿、产物坏,正是本尺最不该复制的那种失效。
+  const danglingPages = new Set(
+    mp
+      .filter((p) => {
+        const refs = shellRefsOf(p.text)
+        return refs.size > 0 && [...refs].some((n) => faceRead(FACE, shellTargetRel(n)) === null)
+      })
+      .map((p) => p.file),
+  )
   const mirrored = new Map() // spec -> [route]
   for (const s of shared) {
-    for (const p of mp) if (mirroredSpecs(p).has(s.spec)) {
+    for (const p of mp) if (!danglingPages.has(p.file) && mirroredSpecs(p).has(s.spec)) {
       if (!mirrored.has(s.spec)) mirrored.set(s.spec, [])
       mirrored.get(s.spec).push(p.route)
     }
   }
+  if (danglingPages.size > 0)
+    log(`⚠️ 排除出镜像计数(壳不存在,页编不过):${[...danglingPages].join(', ')} —— 守门 251 C5 同源判据`)
 
   // --- R1:登记表真实性 ---
   const r1Red = []
