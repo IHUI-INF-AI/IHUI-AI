@@ -5572,7 +5572,7 @@ const checks = [
 
   // --- 裸decode URI容错(1 项,blocking)---
   {
-    id: '241',
+    id: '248',
     label:
       '移动端/全端裸 decodeURIComponent 差值棘轮(孤立%抛 URIError 崩渲染;唯一容错出口 safeDecodeURIComponent 在 @ihui/shared/utils/safe-decode-uri;拦新增放存量)',
     script: 'check-bare-decode-uri.mjs',
