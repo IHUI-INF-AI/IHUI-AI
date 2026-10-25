@@ -149,6 +149,10 @@ function renderSource(names, rows) {
  * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
  */
 import { makeIcon } from './icons-runtime'
+import type { CompatIconProps } from './icons-runtime'
+
+/** lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,这个类型位也必须在这里 */
+export type LucideIcon = (props: CompatIconProps) => JSX.Element
 
 const S: Record<string, string> = {
 ${rows.join('\n')}
@@ -223,7 +227,43 @@ ${lines.join('\n')}
 `
 }
 
-function main() {
+/**
+ * 生成物落盘后先过 prettier(按仓库自己的配置),**再**注入水印。
+ * 为什么必须同轮归一:lint-staged 会在提交前重排生成物(实测把 `'AccountCancel': "/x"` 改成
+ * `AccountCancel: '/x'`)⇒ 生成器下次跑就报"有变化"、门按旧形态匹配就读到 0 条 ——
+ * 差异与正确性无关却常年占用改动面,还会把尺子喂成假绿(派生钉要按格式化后的最终形态重算)。
+ */
+async function formatWithPrettier(relPath) {
+  const abs = R(relPath)
+  const prettier = await import('prettier')
+  const options = await prettier.resolveConfig(abs)
+  const formatted = await prettier.format(readFileSync(abs, 'utf8'), {
+    ...options,
+    parser: relPath.endsWith('.tsx') ? 'typescript' : 'typescript',
+    filepath: abs,
+  })
+  writeFileSync(abs, formatted, 'utf8')
+}
+
+/**
+ * 生成物落盘后**紧随**注入溯源水印(§5c:生成器 writeFileSync 后必须注入,用 process.execPath +
+ * 绝对路径)。不注入的后果不是"少一行注释":check-watermark-coverage 会把这一枚判成
+ * 未覆盖/残迹,而它按被审面判 ⇒ 下一次提交链直接红,且红在没人写过这行的地方。
+ */
+function injectWatermark(relPath) {
+  try {
+    execFileSync(process.execPath, [R('scripts', 'watermark.mjs'), 'inject', R(relPath)], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (error) {
+    console.error(`❌ 水印注入失败(${relPath}):${String(error?.message ?? error).slice(0, 140)}`)
+    process.exit(2)
+  }
+}
+
+async function main() {
   const argv = process.argv.slice(2)
   const write = argv.includes('--write')
   const check = argv.includes('--check')
@@ -263,19 +303,39 @@ function main() {
   const routeOut = R(ROUTE_OUT_REL)
   const routeCurrent = existsSync(routeOut) ? readFileSync(routeOut, 'utf8') : ''
   const routeNext = renderRouteMap(routeInfo.map)
+
+  // 幂等判据取**语义档**(名字集合/映射键集合),不取字节:落盘内容会先过 prettier 再注水印,
+  // 拿未格式化的稿与盘上副本比字节必然永不相等 ⇒ 每轮都"有变化",改动面被无意义的重写长期占用。
+  const iconNamesNew = rows.map((r) => /^  '?([A-Za-z0-9]+)'?:/.exec(r)?.[1]).filter(Boolean)
+  const iconNamesOnDisk = [...current.matchAll(/^export const ([A-Za-z0-9]+) =/gm)].map((m) => m[1])
+  const iconsAlreadyCovered =
+    current.length > 0 &&
+    iconNamesOnDisk.length >= iconNamesNew.length &&
+    iconNamesNew.every((n) => iconNamesOnDisk.includes(n))
+  const routeKeysNew = [...routeInfo.map.keys()]
+  const routeKeysOnDisk = [...routeCurrent.matchAll(/^\s*(?:'([A-Za-z0-9]+)'|([A-Za-z0-9]+)):\s*'/gm)].map((m) => m[1] ?? m[2])
+  const routesAlreadyCovered =
+    routeCurrent.length > 0 &&
+    routeKeysOnDisk.length >= routeKeysNew.length &&
+    routeKeysNew.every((k) => routeKeysOnDisk.includes(k))
   console.log(
     `路由名映射:${routeInfo.map.size} 条在册 / 映射不到 ${routeInfo.unmapped.length} 条(运行时点名)/ 导航器壳文件 ${routeInfo.total} 个`,
   )
   if (write) {
-    if (current === next) console.log('✓ 图标无变化(生成物已与现读全集同形)')
+    if (iconsAlreadyCovered) console.log(`✓ 图标无变化(盘上生成物已覆盖现读全集 ${iconNamesNew.length} 名)`)
     else {
       writeFileSync(outPath, next, 'utf8')
-      console.log(`✓ 已写 ${OUT_REL}(${rows.length} 个图标)`)
+      await formatWithPrettier(OUT_REL)
+      injectWatermark(OUT_REL)
+      console.log(`✓ 已写 ${OUT_REL}(${rows.length} 个图标,已按仓库 prettier 配置归一并注入水印)`)
     }
-    if (routeCurrent !== routeNext) {
+    if (routesAlreadyCovered) console.log(`✓ 路由映射无变化(盘上已覆盖现读 ${routeKeysNew.length} 条)`)
+    else {
       writeFileSync(routeOut, routeNext, 'utf8')
-      console.log(`✓ 已写 ${ROUTE_OUT_REL}(${routeInfo.map.size} 条路由)`)
-    } else console.log('✓ 路由映射无变化')
+      await formatWithPrettier(ROUTE_OUT_REL)
+      injectWatermark(ROUTE_OUT_REL)
+      console.log(`✓ 已写 ${ROUTE_OUT_REL}(${routeInfo.map.size} 条路由,已归一 + 注水印)`)
+    }
     return
   }
   console.log('(预演模式,未写盘;加 --write 落地)')
@@ -284,7 +344,10 @@ function main() {
 const isDirectRun = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url
 
 if (isDirectRun) {
-  main()
+  main().catch((error) => {
+    console.error(`❌ ${String(error?.message ?? error)}\n${error?.stack ?? ''}`)
+    process.exit(2)
+  })
 }
 
 export const __test__ = { kebab, collectIconNames, buildTable, renderSource, OUT_REL }

@@ -12,6 +12,8 @@ import path from 'path'
 // 2026-09-10 编译器统一切 webpack5,vite 版插件换 webpack 版(见 mini.webpackChain)
 import type { UserConfig } from 'vite'
 import { WeappTailwindcss } from 'weapp-tailwindcss/webpack'
+// RN 壳复用腿:把壳里的两个相对请求按"发起方是 RN 侧目录"这一条件换到端内真相源。
+import { RnShellReplacePlugin } from './rn-shell-replace-plugin'
 
 export default defineConfig(async (merge) => {
   // Taro CLI 在调用 config 前会用 --type 覆盖 process.env.TARO_ENV(见
@@ -199,7 +201,7 @@ export default defineConfig(async (merge) => {
       'expo-device$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
       'react-native-restart$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
       'expo-file-system$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
-      'nativewind$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      nativewind$: path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
     },
     mini: {
       es5: true,
@@ -278,13 +280,26 @@ export default defineConfig(async (merge) => {
         'expo-device$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
         'react-native-restart$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
         'expo-file-system$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
-        'nativewind$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        nativewind$: path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
         'react-native-safe-area-context$': path.resolve(
           __dirname,
           '..',
           'src',
           'rn-compat',
           'platform.tsx',
+        ),
+        // RN 壳目录:小程序页面以 `@rn-shells/<Name>` 直接承载 RN 壳 —— 现读 98 枚跨端缺口里
+        // 96 枚的必填 props 是数据/状态(error/item/loading),那段胶水 RN 壳已经写好;
+        // 端内只包一层 ThemeRoot。取词与主题由下面 rnShellReplacements 接回端内真相源。
+        '@rn-shells': path.resolve(
+          __dirname,
+          '..',
+          '..',
+          '..',
+          'apps',
+          'mobile-rn',
+          'src',
+          'screens',
         ),
       },
       // 2026-09-10 主包 2MB 硬上限治理:把仅被分包引用的公共 chunk 自动
@@ -340,6 +355,9 @@ export default defineConfig(async (merge) => {
                       path.join(realRoot, p, 'src'),
                     ]),
                   ),
+                  // 壳复用腿:RN 壳目录也在 mini 编译面里(未预编译的 TS 源,默认 exclude 会
+                  // 让它落进"无 loader"而 ModuleParseError;与 @ihui/* 同一条处理法)
+                  path.resolve(__dirname, '..', '..', '..', 'apps', 'mobile-rn', 'src'),
                 ]
               })(),
             },
@@ -359,6 +377,23 @@ export default defineConfig(async (merge) => {
                 '.js': ['.ts', '.tsx', '.js'],
                 '.mjs': ['.mts', '.mjs'],
               })
+              // 2026-10-26 RN 壳复用腿的注入点。判据按"发起方在 apps/mobile-rn/src/ 里"生效,
+              // 端内自己那条 `../i18n`(src/api/index.ts)不受影响;落点是端内已有真相源,
+              // 不建第二套取词/主题(§0.6)。RN 侧 ThemeContext 自带 NativeWind 与 AsyncStorage
+              // transport,小程序无对应物 ⇒ 必须换而不是硬编(机制与理由见 config/rn-shell-replace-plugin.ts)。
+              chain.plugin('rnShellReplacements').use(RnShellReplacePlugin, [
+                [
+                  {
+                    request: '../i18n',
+                    to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'i18n.ts'),
+                  },
+                  {
+                    request: '../context/ThemeContext',
+                    to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'theme.tsx'),
+                  },
+                ],
+                'apps/mobile-rn/src/',
+              ])
               // weapp 端注入 weapp-tailwindcss webpack 版插件(2026-09-10 自 vite
               // 版迁移):处理 Tailwind 任意值语法 [xxx] 的 WXSS 选择器转义 +
               // wxml class 匹配 + rem2rpx。v5.2.9 webpack 入口导出同名类,
