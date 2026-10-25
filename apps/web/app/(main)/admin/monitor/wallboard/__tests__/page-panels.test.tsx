@@ -113,6 +113,11 @@ const overview = {
       { scope: 'admin', pv: 101, uv: 2 },
       { scope: 'auth', pv: 20, uv: 18 },
     ],
+    platformSplit: [
+      { platform: 'web', pv: 4000, uv: 280 },
+      { platform: 'rn', pv: 120, uv: 20 },
+      { platform: 'mp', pv: 80, uv: 15 },
+    ],
   },
   engagement: {
     events: [
@@ -178,6 +183,17 @@ describe('WallboardView 使用数据面板', () => {
     expect(screen.getByText('page_view')).toBeTruthy()
     expect(screen.getByText('打开设置')).toBeTruthy()
     expect(screen.getByText(/平均停留/)).toBeTruthy()
+  })
+
+  it('渲染各端使用量:网站/移动端/小程序三行都按接口字段绑定', async () => {
+    renderWallboard()
+    await waitFor(() => expect(screen.getAllByText('各端使用量').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('网站').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('移动端').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('小程序').length).toBeGreaterThan(0)
+    // web 行读数 PV 4000 / UV 280(读数走 fmtInt,千分位)
+    await waitFor(() => expect(document.body.textContent).toContain('4,000'))
+    expect(document.body.textContent).toContain('/ 280')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

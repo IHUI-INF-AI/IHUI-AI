@@ -41,6 +41,7 @@ import { getTrafficLiveSnapshot } from '../services/traffic-stats-service.js'
 import {
   getPageUsageLiveSnapshot,
   type PageUsageLiveRow,
+  type PlatformUsageLiveRow,
   type ScopeUsageLiveRow,
 } from '../db/visit-tracking-queries.js'
 import { getEngagementLiveSnapshot } from '../services/engagement-stats-service.js'
@@ -475,6 +476,8 @@ interface TrafficSnapshot {
   pageTop: PageUsageLiveRow[] | null
   /** 近 24h 各访问面(前台/后台/登录页)的 PV/UV;null = 同一条腿取不到 */
   scopeSplit: ScopeUsageLiveRow[] | null
+  /** 近 24h 各端(web/RN/小程序)PV/UV;null = 同一条腿取不到 */
+  platformSplit: PlatformUsageLiveRow[] | null
 }
 
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
@@ -501,6 +504,7 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       truncated: live.truncated,
       pageTop: pageUsage?.top ?? null,
       scopeSplit: pageUsage?.scopes ?? null,
+      platformSplit: pageUsage?.platforms ?? null,
     }
   } catch {
     return null
