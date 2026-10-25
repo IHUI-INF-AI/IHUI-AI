@@ -18,6 +18,15 @@
  *
  * 取材面(§0.4):壳与 app.config 一律取 HEAD blob;写盘基底取 HEAD 文本(工作树滞后不回流)。
  *
+ * ⚠ 铺开前置(2026-10-26 实测,勿跳过):小程序主包有 **2 MiB 平台硬上限**。本仓现状下,
+ *   每新增一个**跨分包**的壳页,webpack 会把 `rn-compat` / `packages/app` 的共享依赖抬进
+ *   主包 common —— 实测:无该页时主包 1,723,572 B(余量 373,580 B),加一页后 2,449,620 B
+ *   ⇒ **超限 352,468 B**,上传必失败。`optimizeMainPackage` 开启会复现 Taro 4.2 的
+ *   `common` chunk 相撞(build exit 1),不是可选项。
+ *   ⇒ 批量铺开前必须先解决共享依赖落点(建议:壳页集中到**同一个分包**,让共享依赖落进
+ *   该分包自己的 common,而不是主包)。每加一屏都要复跑
+ *   `npx taro build --type weapp && node scripts/check-artifact-budget.mjs --target miniapp`。
+ *
  * Usage:
  *   node scripts/gen-rn-shell-page.mjs --screen=MoreCourseScreen --route=pkg-learn/more-course --title=更多课程
  *   node scripts/gen-rn-shell-page.mjs --screen=… --route=… --title=… --apply
@@ -245,6 +254,7 @@ function main() {
     console.log(`  页:${files.pageRel}`)
     console.log(`  配置:${files.configRel}`)
     console.log(`  路由插入:${ins.insertedLine}`)
+    console.log('  ⚠ 落地后必须复量体积:npx taro build --type weapp && node scripts/check-artifact-budget.mjs --target miniapp')
   }
 }
 
