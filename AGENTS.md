@@ -370,7 +370,6 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **207 体积对账**:`check-agents-doc-size.mjs`(blocking,预算 96,000 字节,跳过 `HUSKY_SKIP_AGENTS_DOC_SIZE=1`);阈值出处 = 同一份会话日志 1,261,607 B ⇒ ratio 1.000、96KB ≈ 7.6% 的实测锚点,不是拍的整数;阈值/定级以门体头注与 runner 现值为准。
 - **门名点名索引**(按主题归堆;编号与档位以 runner 现值为准):**已整体迁 `README.md` 的「守门脚本点名索引」节**(R4 的文档面本就含 README,本文不再重复抄一份;2026-10-25 守门 207 清偿第二刀,原 9 行逐字在 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`)。
 - **常驻工具清单**(不在 runner、勿当没装车):同迁 `README.md` 同名节末段(两份历史清单已并集去重;原行逐字在 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`)。
-- **门 249 点名**:`check-rich-anchor-renderer-single-source.mjs`(富文本锚点渲染器单一源头;2026-10-25 立。README 索引节尚未收录,故本文保留点名以满足守门 89 R4)。
 > 重复登记副本已归档：见 `.ihui-agent/archive/AGENTS_trim-2026-10-21b.md`「常驻工具清单（重复登记副本之一）」。
 - **生产签出外来工作只读尺子** `check-prod-checkout-foreign-work.mjs`(2026-10-21 立;镜像测试 `scripts/tests/check-prod-checkout-foreign-work.test.mjs`):生产签出工作区/索引 blob ↔ 该签出 HEAD 与 origin/main 两侧逐路径三态对账(duplicate/foreign/unjudged,`staged-untracked` 独立计数列,单列不并桶);判机器状态 ⇒ **不进提交链、不进 CI**(§12e),唯一调度器 = git-guardian 巡检双挂点;只读零写入;立因与两个实现坑见门体头注。
 - tracked-but-ignored: `check-tracked-ignored.mjs`(236,blocking,只拦本次**新增**的 gitignored 路径;存量只报数;跳过 `HUSKY_SKIP_TRACKED_IGNORED`)
