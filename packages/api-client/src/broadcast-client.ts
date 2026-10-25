@@ -32,6 +32,7 @@ import {
   parseUserBroadcastFrame,
   type MessageCreatedEvent,
   type MessagePatchedEvent,
+  type MessageTerminalEvent,
   type UserBroadcastEvent,
   type UserBroadcastEventName,
 } from '@ihui/types'
@@ -109,6 +110,8 @@ export interface UserBroadcastHandlers {
    */
   'message:created'?: (evt: MessageCreatedEvent) => void
   'message:patched'?: (evt: MessagePatchedEvent) => void
+  /** 终态帧(v2):载荷就是契约的 `ChatMessageTerminalEvent`,唯一消费出口仍是 store 的 applyChatSync。 */
+  'message:terminal'?: (evt: MessageTerminalEvent) => void
   /** 收到对象形态但解不出已知事件的帧 ⇒ 「未判定」,必须计数/点名,不得静默丢弃 */
   onUndetermined?: (raw: unknown) => void
   /** 连接状态变化(`'injected'` 档恒为 `idle`,因为它不拥有连接) */
@@ -349,10 +352,10 @@ export function subscribeUserBroadcast(
 export function subscribeChatSync(
   config: UserBroadcastConfig,
   conversationId: string,
-  onEvent: (evt: MessageCreatedEvent | MessagePatchedEvent) => void,
-  onOtherRoom?: (evt: MessageCreatedEvent | MessagePatchedEvent) => void,
+  onEvent: (evt: MessageCreatedEvent | MessagePatchedEvent | MessageTerminalEvent) => void,
+  onOtherRoom?: (evt: MessageCreatedEvent | MessagePatchedEvent | MessageTerminalEvent) => void,
 ): UserBroadcastSubscription {
-  const handle = (evt: MessageCreatedEvent | MessagePatchedEvent): void => {
+  const handle = (evt: MessageCreatedEvent | MessagePatchedEvent | MessageTerminalEvent): void => {
     if (evt.data.room.conversationId !== conversationId) {
       onOtherRoom?.(evt)
       return
@@ -362,6 +365,7 @@ export function subscribeChatSync(
   return subscribeUserBroadcast(config, {
     'message:created': handle,
     'message:patched': handle,
+    'message:terminal': handle,
   })
 }
 
@@ -433,6 +437,8 @@ export const USER_BROADCAST_SUBSCRIBABLE_EVENTS: readonly UserBroadcastEventName
   // 票71(V2 #23)第二切片(2026-10-24):chat 消息面房间广播
   'message:created',
   'message:patched',
+  // 票71 terminal 切片(2026-10-26):终态独立帧
+  'message:terminal',
 ]
 
 // ===================== 宿主绑定工厂(端内适配器的唯一入口) =====================

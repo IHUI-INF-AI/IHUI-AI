@@ -9,11 +9,12 @@
  * 零命中 —— 两套帧名分居两个包,只靠"值恰好相同"保持自洽。本锁判四格:
  *   A **引用同一对象**(`toBe`,不是 `toEqual`):有人在本文件重写一份同值字面量,
  *     引用立刻不等 —— 值相同骗不过 A;
- *   B 值逐字锁定(从消费侧再看一遍,防上游被改成别的名字而这里悄悄跟随);
- *   C **不并进 `SSE_EVENTS`**:`isSSEEventName` 对两枚必须 false(`SSE_EVENTS` 与
+ *   B 值逐字锁定(从消费侧再看一遍,防上游被改成别的名字而这里悄悄跟随),
+ *     含 terminal(v2 独立帧)的族内互异;
+ *   C **不并进 `SSE_EVENTS`**:`isSSEEventName` 对三枚必须 false(`SSE_EVENTS` 与
  *     ai-service 逐名对账,并进去 = parity 恒红;分发层也不该把消息面帧当生成流处理);
  *     正控:既有生成流帧(chunk/done)判定照旧 true —— 旧行为不被误伤;
- *   D 形状锁:本包 `contract.ts` 源码不得出现两枚帧名的**引号字面量**
+ *   D 形状锁:本包 `contract.ts` 源码不得出现三枚帧名的**引号字面量**
  *     (值只许在 `@ihui/types` 的 `CHAT_SYNC_EVENT_NAMES` 定义一处)。
  */
 import { readFileSync } from 'node:fs'
@@ -37,10 +38,20 @@ describe('帧名引用 B:值逐字锁定', () => {
       SSE_CHAT_SYNC_EVENT_NAMES.MESSAGE_PATCHED,
     )
   })
+
+  it('terminal 帧名属于同一族且逐字锁定(v2 独立帧,不得写回 patched)', () => {
+    expect(SSE_CHAT_SYNC_EVENT_NAMES.MESSAGE_TERMINAL).toBe('message:terminal')
+    const names = Object.values(SSE_CHAT_SYNC_EVENT_NAMES)
+    // 同族三枚互不相同:把 terminal 并回 patched 的可选字段会在这里当场露馅
+    expect(new Set(names).size).toBe(names.length)
+    expect(SSE_CHAT_SYNC_EVENT_NAMES.MESSAGE_TERMINAL).not.toBe(
+      SSE_CHAT_SYNC_EVENT_NAMES.MESSAGE_PATCHED,
+    )
+  })
 })
 
 describe('帧名引用 C:不并进 SSE_EVENTS(isSSEEventName 判 false)', () => {
-  it('两枚帧名都不在生成流词汇表里', () => {
+  it('三枚帧名都不在生成流词汇表里', () => {
     for (const name of Object.values(SSE_CHAT_SYNC_EVENT_NAMES)) {
       expect(SSE_EVENT_NAMES as readonly string[]).not.toContain(name)
       expect(isSSEEventName(name)).toBe(false)
@@ -58,10 +69,10 @@ describe('帧名引用 C:不并进 SSE_EVENTS(isSSEEventName 判 false)', () => 
 })
 
 describe('帧名引用 D:contract.ts 源码不重复定义帧名字面量', () => {
-  it("源码中不出现 'message:created' / 'message:patched' 的引号字面量", () => {
+  it("源码中不出现 'message:created' / 'message:patched' / 'message:terminal' 的引号字面量", () => {
     const source = readFileSync(new URL('../contract.ts', import.meta.url), 'utf8')
     // 只判**带引号**的字面量:注释里叙述帧名(不带引号)不是第二份值。
-    expect(source).not.toMatch(/['"]message:(?:created|patched)['"]/)
+    expect(source).not.toMatch(/['"]message:(?:created|patched|terminal)['"]/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
