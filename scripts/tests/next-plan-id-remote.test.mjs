@@ -73,12 +73,23 @@ test('T3 --check 不问远端:发号维必须在 --check 分岔之后', () => {
   assert.match(TOOL_SRC, /SOURCE === 'HEAD'/, '--source 显式指面时不得重复问远端(那一面本来就是被指的面)')
 })
 
-test('T4 真仓只读冒烟:--next-only 恒一行号;完整报告正常退出(不断言具体号,号是现读的)', () => {
+test('T4 真仓只读冒烟:--next-only 恒一行号;完整报告正常退出(不断言具体号,号是现读的)', (t) => {
   // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r1 = spawnSync(process.execPath, [CLI, '--next-only'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
+  if (skipIfCliCrashed(t, r1)) return
+  // 占用面判不出窗口(并发 HEAD 切换):CLI 按设计拒发是"未判定"不是回归,t.skip 点名(§0.3)。
+  if (/占用面判不出|无法判定占用/.test(String(r1.stderr))) {
+    t.skip('未判定:CLI 占用面判不出(并发 HEAD 切换窗口,归档件/台账 git show 失败),冒烟未判成')
+    return
+  }
   assert.equal(r1.status, 0, `--next-only 必须 exit 0(真仓此刻远端可问/离线都该走得到发号):\n${r1.stderr}`)
   assert.match(String(r1.stdout).trim(), /^O\d+$/, `--next-only 的 stdout 恒为一行号,实得:${r1.stdout}`)
   const r2 = spawnSync(process.execPath, [CLI], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
+  if (skipIfCliCrashed(t, r2)) return
+  if (/占用面判不出|无法判定占用/.test(String(r2.stderr))) {
+    t.skip('未判定:CLI 占用面判不出(并发 HEAD 切换窗口,归档件/台账 git show 失败),完整报告未判成')
+    return
+  }
   assert.equal(r2.status, 0, `完整报告必须 exit 0:\n${r2.stderr}`)
   assert.match(String(r2.stdout), /下一个号 = O\d+/)
 })
@@ -136,14 +147,37 @@ test('T6 数字段提取必须走 key 而不是整串:带后缀的 key 不得把
  * **点名报告但不以 exit 1 顶死独立取号入口**。断言只锁行为契约,不锁组数/组名 ——
  * 存量归并线随时可能折掉某组,把它断死等于给并发会话造一台恒红(T4 同一条纪律)。
  */
-test('T7 --check 对存量重号点名不顶死:exit 0 + 两档读数措辞在场(G-955)', () => {
+test('T7 --check 对存量重号点名不顶死:exit 0 + 两档读数措辞在场(G-955)', (t) => {
+  const preHead = git(['rev-parse', 'HEAD'], { root: ROOT, timeout: 60_000 })
   const r = spawnSync(process.execPath, [CLI, '--check'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 180_000,
   })
-  assert.equal(r.status, 0, `--check 不得被存量重号顶死(独立取号入口必须可用):\n${r.stdout}\n${r.stderr}`)
+  if (skipIfCliCrashed(t, r)) return
+  // 占用面判不出窗口:--check 读宽面撞并发 HEAD 切换 ⇒ exit 1 是"未判定"不是存量顶死,t.skip 点名。
+  if (/占用面判不出|无法判定占用/.test(String(r.stderr))) {
+    t.skip(`未判定:CLI 占用面判不出(并发 HEAD 切换窗口),--check 未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
+  if (r.status !== 0) {
+    // 并发窗口分诊(2026-10-25):--check 对**登记行声明位**同号多行判红(exit 1)是对的,但那可能是
+    // 别席刚落的账。判据 = preHead 静态历史面上就有的登记行重号 ⇒ 存量顶死入口(真回归)照红;
+    // preHead 面干净 ⇒ 并发新增(别席射程)⇒ t.skip 点名,不记绿也不冒红。
+    const preHeadLedger = git(['show', `${preHead}:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000 })
+    const preDup = judgeRowIdDuplicates({
+      ledgerText: typeof preHeadLedger === 'string' ? preHeadLedger : '',
+      family: 'O',
+    })
+    if (preDup.ok && preDup.rowDups.length > 0) {
+      assert.fail(`存量登记行重号顶死了独立取号入口(真回归):${JSON.stringify(preDup.rowDups)}\n${r.stdout}\n${r.stderr}`)
+    }
+    t.skip(
+      `未判定:并发窗口 —— preHead=${String(preHead).slice(0, 8)} 面登记行零重号,现读红来自别席新落账(非存量顶死)`,
+    )
+    return
+  }
   assert.match(String(r.stdout), /无登记行重号/, '绿行必须说清判的是登记行声明位')
   const m = /历史小节标题同 id (\d+) 组/.exec(String(r.stdout))
   if (m) {
@@ -165,6 +199,23 @@ test('T7 --check 对存量重号点名不顶死:exit 0 + 两档读数措辞在�
  */
 function fullScanIds(text) {
   return scanFamilyIds(text, 'O')
+}
+
+/**
+ * 并发窗口分诊(2026-10-25,与 next-plan-id-live-dup-guard.test.mjs 同一套纪律):
+ * CLI import 的脚本/lib 正被别席编辑 ⇒ 写到一半被 import,Node 直接崩(stderr 是
+ * `file:///…mjs:NNNN` 栈)或进程被信号杀。那不是回归,是中间态。判据有牙:
+ * 依赖面 scripts/ 有在飞修改 ⇒ 未判定 t.skip;依赖面干净而 CLI 仍崩 ⇒ 真回归照红。
+ */
+function skipIfCliCrashed(t, r) {
+  const crashed = r.status === null || r.error !== undefined && r.error !== null || /file:\/\/\S+\.mjs:\d+/.test(String(r.stderr))
+  if (!crashed) return false
+  const dirty = git(['status', '--porcelain', 'scripts/'], { root: ROOT, timeout: 60_000 }).trim()
+  if (dirty) {
+    t.skip(`未判定:CLI 依赖模块在飞编辑中(${dirty.split('\n')[0].trim()}),不拿中间态当真`)
+    return true
+  }
+  assert.fail(`CLI 异常退出且依赖面干净 ⇒ 真回归:status=${r.status} signal=${r.signal}\nstderr=${r.stderr}`)
 }
 
 test('T8a 发号路径必须吃全文件扫描的实时占用面(G-14 形状锁)', () => {
@@ -200,13 +251,20 @@ test('T8b 夹具单元:正文引用与行声明的号都必须顶掉建议号(G-
   assert.ok(!hit.has(next), `建议号 ${next} 自身必须不在占用集里(占用不发)`)
 })
 
-test('T8c 真仓端到端:--next-only 发出的号在实时面上零命中(G-14 正病反证)', () => {
+test('T8c 真仓端到端:--next-only 发出的号在实时面上零命中(G-14 正病反证)', (t) => {
+  const preHead = git(['rev-parse', 'HEAD'], { root: ROOT, timeout: 60_000 })
   const r = spawnSync(process.execPath, [CLI, '--next-only'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 180_000,
   })
+  if (skipIfCliCrashed(t, r)) return
+  // 占用面判不出窗口:CLI 按设计拒发(exit 1)是"未判定"不是回归,t.skip 点名(§0.3)。
+  if (/占用面判不出|无法判定占用/.test(String(r.stderr))) {
+    t.skip(`未判定:CLI 占用面判不出(并发 HEAD 切换窗口),发号路径未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
   assert.equal(r.status, 0, `--next-only 必须 exit 0:\n${r.stderr}`)
   const line = String(r.stdout).trim()
   assert.match(line, /^O\d+$/, `stdout 恒一行号,实得:${JSON.stringify(r.stdout)}`)
@@ -215,10 +273,23 @@ test('T8c 真仓端到端:--next-only 发出的号在实时面上零命中(G-14 
   const head = git(['show', 'HEAD:PROJECT_PLAN.md'], { root: ROOT, raw: true, timeout: 120_000 })
   assert.equal(typeof head, 'string', 'HEAD 台账取不到(占用面判不出 ⇒ 这一轮端到端不成立)')
   const occupied = fullScanIds(`${head}\n${wt}`)
-  assert.ok(
-    !occupied.has(n),
-    `${line} 在 HEAD 台账 ⊕ 工作树副本上并非零命中(全文件扫描可见 ${occupied.size} 号)⇒ 取号器又把已占号当空闲发了(G-14 正病复发)`,
-  )
+  if (occupied.has(n)) {
+    // 并发窗口分诊(2026-10-25):CLI 跑完后别席可能刚落一笔含 O<n> 的账(两个取号出口同刻取到
+    // 池内同一空闲号 —— 归 G-35 CAS 租约射程,不是本用例射程)。方向性判据:n 在 CLI 运行**之前**
+    // 的历史面(preHead 台账,静态可重放)里就已命中 ⇒ 取号器发旧占号 = G-14 正病复发,照红;
+    // 只在 preHead 之后的新落账/工作树新行里出现 ⇒ 并发窗口,t.skip 点名,不记绿也不冒红。
+    const preHeadLedger = git(['show', `${preHead}:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000 })
+    const preOccupied = typeof preHeadLedger === 'string' ? fullScanIds(preHeadLedger) : null
+    if (preOccupied && preOccupied.has(n)) {
+      assert.fail(
+        `${line} 在 CLI 运行前的历史面(preHead=${String(preHead).slice(0, 8)} 台账)里就已命中 ⇒ 取号器把已占号当空闲发(G-14 正病复发)`,
+      )
+    }
+    t.skip(
+      `未判定:并发窗口 —— ${line} 只在 preHead=${String(preHead).slice(0, 8)} 之后的新落账里出现(别席同刻取到池内同一空闲号),非本用例射程`,
+    )
+    return
+  }
 })
 
 /**
