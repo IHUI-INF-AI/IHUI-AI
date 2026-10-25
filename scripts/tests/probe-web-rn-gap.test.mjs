@@ -95,4 +95,28 @@ test('T7 取材面二义(§0.4):--staged 与 --worktree 同给 ⇒ exit 2,不回
   assert.equal(code, 2)
   assert.match(err, /取材面不明/)
 })
+
+test('T8 页面族展开:薄壳 page.tsx 必须带上同目录 PageClient 一起取证(假阴性锁)', () => {
+  const page = 'apps/web/app/(main)/x/page.tsx'
+  const client = 'apps/web/app/(main)/x/PageClient.tsx'
+  const fileSet = new Set([page, client])
+  const texts = new Map([
+    [page, "import PageClient from './PageClient'\nexport default function Page(){ return <PageClient /> }\n"],
+    [client, "export default function C(){ const [a,s]=useState(0); fetch('/api/list'); return null }\n"],
+  ])
+  const fam = probe.familyOf(page, texts, fileSet)
+  assert.ok(fam.files.includes(client), 'PageClient 未纳入取证面')
+  // 只按 page.tsx 取证 ⇒ 空壳;带上页面族 ⇒ 真交互页。首版 71 条 shell 多是这一型假阴性。
+  assert.equal(probe.bucketOf(probe.evOf(texts.get(page))), 'shell')
+  assert.equal(probe.bucketOf(probe.evOf(fam.text)), 'interactive')
+})
+
+test('T9 第三方 import 不展开(解析不到如实不展开,不报错也不冒充已展开)', () => {
+  const page = 'apps/web/app/(main)/y/page.tsx'
+  const fileSet = new Set([page])
+  const texts = new Map([[page, "import { Button } from '@/components/ui/button'\nexport default function P(){ return <Button/> }\n"]])
+  const fam = probe.familyOf(page, texts, fileSet)
+  assert.deepEqual(fam.files, [page])
+  assert.equal(probe.resolveLocal(page, 'react', fileSet), null)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
