@@ -27,6 +27,7 @@ import {
   dispositionOf,
   findIdCollisions,
   findRotatedPointers,
+  isSelfDeclaredCopyRow,
   keyOfRow,
   parseTaskRows,
   sameIdDonePairs,
@@ -2606,5 +2607,55 @@ test('派单面必须自报"靠什么判"(dispositionSummary)', () => {
   if (at < 0) throw new Error('派单口径那行漂了 ⇒ 本形状锁的锚点需同步(不是判据变了)')
   if (!/dispositionOfV2\(/.test(CODE.slice(Math.max(0, at - 1500), at)))
     throw new Error('--open --dispatchable 的分桶过滤必须调 dispositionOfV2')
+})
+
+/**
+ * CP1/CP2 —— 裸「重复登记副本:」行首 ∧ 行内自述 的派单逐出(2026-10-25 立,机主令"不允许不同
+ * agent 抢同一件任务重复做")。
+ *
+ * 病(HEAD 面取证):台账里有一族行首逐字写 `重复登记副本:`、行内自述「本行不进派单口径,活账以
+ * 主行为准」的副本行 —— `DUP_POINTER_RE` 只认带【归并】的归并器自产形,`COPY_POINTER_ROW_RE` 只认
+ * 「副本指针(编号 …」行首族,两把都看不见它 ⇒ 它自述不出单却仍在出单清单里,两个会话各领同一张票。
+ * 这两条是任务书点名的"反向牙两条,缺一不可":CP1 咬"自述副本必须被逐出且点名可见",
+ * CP2 咬"只是提到这些字样的真活票一枚都不能被吞"(防关键字命中即吞把真活判死)。
+ * §22c:判据一律 import 生产出口,测试内不复制第二份正则。
+ */
+test('CP1 自述副本行逐出派单面,且诊断桶点名(行首「重复登记副本:」∧ 行内"不进派单口径/以主行为准")', () => {
+  // 行首措辞逐字取自 HEAD 面真形(`- [ ] 重复登记副本:本行与同标题登记 L6880(枚 290a26bc1)…本行不进派单口径,活账以主行为准。`)
+  const copy =
+    '- [ ] 重复登记副本:本行与同标题登记 L1 重复,并发归档/回捞把它复制到了不同编号下(编号一律不改、不删行、正文逐字留在下方)。本行不进派单口径,活账以主行为准。 **G-777 某某**:说明文字。'
+  if (!isSelfDeclaredCopyRow(copy))
+    throw new Error('夹具必须命中生产判据本体,否则下面全是空转(§14:不许只凭形状说话)')
+  const face = ['# 计划', '- [ ] **G-776 真活**:现在就能做。', copy, ''].join('\n')
+  const a = auditPlan(face)
+  if (a.counts.claimable !== 1)
+    throw new Error(`派单面应只剩真活 1 行,实测 ${a.counts.claimable} ⇒ 自述副本行仍在被派出去`)
+  if (a.claimableRows.some((r) => isSelfDeclaredCopyRow(r.raw)))
+    throw new Error('自述副本行仍进 claimableRows ⇒ 新臂没接上派单出口 isClaimExcludedPointer')
+  if (a.counts.dupPointerRows !== 1)
+    throw new Error(
+      `"已标副本指针"报告桶必须收这一行(被派单出口逐出的行必须点名可见,§12f 沉默失效),实测 ${a.counts.dupPointerRows}`,
+    )
+})
+
+test('CP2 反向牙:关键字"提到"≠ 自述副本 —— 三枚真活票必须全部留在派单面', () => {
+  const rows = [
+    // ① 正文提到行首族措辞,但开头不是这一族 ⇒ 行首锚不命中
+    '- [ ] **G-801 真活**:修那一族"重复登记副本:"行首漏认的病,本票要动手改判据。',
+    // ② 行首写了「重复登记副本:」却没有行内自述 ⇒ 可能是正要登记修这一病型的真票(G-1058653 同形),不得吞
+    '- [ ] G-802 真活:重复登记副本:这一族行首形态需要有人登记修复,本行就是那张活票。',
+    // ③ 含自述字样但行首不是副本族 ⇒ 单锚不足
+    '- [ ] **G-803 真活**:台账里有人误写"本行不进派单口径"字样,本票逐行核对这一措辞。',
+  ]
+  for (const r of rows)
+    if (isSelfDeclaredCopyRow(r)) throw new Error(`真活票被新臂误吞(判据退化成关键字命中即吞):${r.slice(0, 40)}`)
+  const face = ['# 计划', ...rows, ''].join('\n')
+  const a = auditPlan(face)
+  if (a.claimableRows.length !== 3)
+    throw new Error(
+      `三枚真活票必须全在派单面(防"猜测把别人没做完的活记成副本"),实测 ${a.claimableRows.length}`,
+    )
+  if (a.counts.dupPointerRows !== 0)
+    throw new Error(`"提到"型行不得进副本桶,实测 ${a.counts.dupPointerRows}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

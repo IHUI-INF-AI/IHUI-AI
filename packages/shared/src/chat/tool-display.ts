@@ -54,6 +54,7 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   audio_transcription: 'toolAudioTranscription',
   vision_analyze: 'toolVisionAnalyze',
   dispatch_subagent: 'toolDispatchSubagent',
+  team_task: 'toolTeamTask',
   schedule_task: 'toolScheduleTask',
   configure_automation_task: 'toolScheduleTask',
   bg_task_status: 'toolBgTaskStatus',

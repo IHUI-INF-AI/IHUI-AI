@@ -63,7 +63,7 @@ export interface TopicDetailScreenProps {
 const DAY_MS = 86_400_000
 
 /** 帖子流时间:≤24h 相对化,>24h 落 YYYY-MM-DD(date-utils 单源实现) */
-export function topicFeedTime(value: string, locale = 'zh-CN'): string {
+function topicFeedTime(value: string, locale = 'zh-CN'): string {
   if (!value) return ''
   const then = new Date(value).getTime()
   if (Number.isNaN(then)) return value

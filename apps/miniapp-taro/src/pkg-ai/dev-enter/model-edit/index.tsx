@@ -10,7 +10,7 @@ import { useFieldFocus } from '@/hooks/use-field-focus'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { get, post } from '@/api'
+import { get } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const CATEGORIES = [
@@ -188,35 +188,17 @@ export default function ModelEdit() {
 
   const onSubmit = async () => {
     if (submitting) return
-    setSubmitting(true)
-    const formData = {
-      agentId,
-      agentName: agentInfo.name,
-      categories: categories.join(','),
-      department: DEPARTMENTS[deptIndex],
-      saleType,
-      chargePeriod: saleType === 'free' ? '' : chargePeriod,
-      limitedDuration: saleType === 'limited' ? limitedDuration : '',
-      targetGroup,
-      discount: saleType === 'free' ? '' : discount,
-      price: saleType === 'paid' ? price : '',
-    }
-    try {
-      await post(`/developer/agents/${agentId}/charge`, formData)
-      Taro.showToast({
-        title: tt('devEnter.modelEdit.submitSuccess', '提交成功'),
-        icon: 'success',
-      })
-    } catch (e) {
-      logger.error('model-edit', t('deventerModeledit.q7'), e)
-      Taro.showToast({
-        title: tt('devEnter.modelEdit.mockSuccess', '接口暂未开放,已模拟提交'),
-        icon: 'success',
-      })
-    } finally {
-      setSubmitting(false)
-      setTimeout(() => Taro.navigateBack(), 1200)
-    }
+    // 这一格后端从来没有:注册面现读 `/api/developer/agents*` 0 命中,而名字最接近的
+    // `/api/agents/charge`(POST/PUT)是**买家侧**购买流水(`zhsAgentBuy`,`price` 必填且是 number),
+    // 与本屏 saleType/chargePeriod/targetGroup/discount 语义不通 ⇒ 不发请求。
+    // 旧形态是 `catch → toast(「接口暂未开放,已模拟提交」, icon:'success') → navigateBack`,
+    // 那等于把"一条都没提交上去"渲染成"提交成功"并带着用户离开表单(§30 同一条禁令:
+    // 没有终态不许渲染成完成),现改为如实报错且留在本页。
+    setSubmitting(false)
+    Taro.showToast({
+      title: tt('devEnter.modelEdit.mockSuccess', '收费设置接口未开放,本次提交未生效'),
+      icon: 'error',
+    })
   }
 
   return (

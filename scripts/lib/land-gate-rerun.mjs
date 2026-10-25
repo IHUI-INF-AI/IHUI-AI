@@ -172,10 +172,15 @@ export function selectAffectedGates(paths, entries) {
 
 /**
  * 同名函数族重复定义扫描(简单判据,票面允许):同一文件**顶层**同名 def/class/function/
- * export const 出现 ≥2 次 ⇒ 命中。这正是 f57e0c9983 那一型:行级归并把两侧各自重写的
- * 同名函数族一起留下,归并不报冲突、tsc/mypy 未必当轮跑,而重复定义扫描一条就咬住。
+ * export const **带 body 的声明**出现 ≥2 次 ⇒ 命中。这正是 f57e0c9983 那一型:行级归并把
+ * 两侧各自重写的同名函数族一起留下,归并不报冲突、tsc/mypy 未必当轮跑,而重复定义扫描一条就咬住。
  * 只认第 0 列起的声明行(嵌套定义不算重复);注释行(// # /* * 起头)跳过 —— 判据刻意做窄
  * (误报一次就没人信简单判据),漏报的那部分由 mypy/tsc 两臂兜底。
+ *
+ * 为什么只数"带 body"的(2026-10-25 实测):TS 的**函数重载**是"多个无 body 签名 + 单个实现",
+ * `apps/web/src/lib/tauri-bridge.ts` 的 withTimeout 就是 2 签名 + 1 实现(L1359/L1360/L1365)。
+ * 早期版本只数同名声明行数 ⇒ 把合法重载判成"重复族",落地复跑假红。签名以 `;` 收尾(或无 body
+ * 直接接下一声明),实现在括号平衡后以 `{` 起 body —— 据此分档,仍不建 AST。
  */
 export function scanDuplicateDefinitions(text, ext) {
   const src = String(text ?? '')
@@ -192,6 +197,7 @@ export function scanDuplicateDefinitions(text, ext) {
         /^(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/,
       ]
   const seen = new Map()
+  const isPy = PY_EXTS.includes(ext)
   lines.forEach((l, idx) => {
     const t = l.trimStart()
     if (t === '' || t.startsWith('//') || t.startsWith('#') || t.startsWith('*') || t.startsWith('/*')) return
@@ -199,18 +205,48 @@ export function scanDuplicateDefinitions(text, ext) {
     for (const re of patterns) {
       const m = re.exec(l)
       if (m) {
+        // function 声明要分"签名 / 实现":其余形态(class / const 赋值)一律当带 body。
+        const isFunctionDecl = /^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s/.test(l)
+        const hasBody = isPy || !isFunctionDecl ? true : functionDeclHasBody(lines, idx)
         if (!seen.has(m[1])) seen.set(m[1], [])
-        seen.get(m[1]).push(idx + 1)
+        seen.get(m[1]).push({ line: idx + 1, hasBody })
         break
       }
     }
   })
   const dups = []
-  for (const [name, ln] of seen) {
-    if (ln.length >= 2) dups.push({ name, lines: ln })
+  for (const [name, entries] of seen) {
+    const bodyLines = entries.filter((e) => e.hasBody).map((e) => e.line)
+    if (bodyLines.length >= 2) dups.push({ name, lines: bodyLines })
   }
   dups.sort((a, b) => a.lines[0] - b.lines[0])
   return dups
+}
+
+/**
+ * 从顶层 `function` 声明行起,判断该声明是"重载签名"(无 body)还是"实现"(带 body)。
+ * 只数圆括号深度(尖括号在泛型与 `=>` 里都会捣乱,不参与),括号平衡后看声明段落收尾:
+ *   · 以 `{` 收尾 ⇒ 实现
+ *   · 含 `{` 且以 `}` 收尾(单行写法的实现)⇒ 实现
+ *   · 其余(以 `;` / 返回类型 / 换行接下一声明收尾)⇒ 签名
+ * 返回对象类型的签名(`): { ok: true };`)会被判成"实现" —— 该形态在本仓现读 0 处,且多算一枚
+ * body 才会造成误红,故不为此加复杂度。
+ */
+function functionDeclHasBody(lines, idx) {
+  let depth = 0
+  let seg = ''
+  for (let i = idx; i < lines.length && i < idx + 60; i += 1) {
+    const s = lines[i]
+    seg += `\n${s}`
+    for (const c of s) {
+      if (c === '(') depth += 1
+      else if (c === ')' && depth > 0) depth -= 1
+    }
+    if (depth === 0 && i > idx) break
+    if (depth === 0 && i === idx && !s.trimEnd().endsWith(',')) break
+  }
+  const tail = seg.trim()
+  return tail.endsWith('{') || (tail.includes('{') && tail.endsWith('}'))
 }
 
 // ===========================================================================

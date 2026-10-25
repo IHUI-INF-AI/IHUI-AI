@@ -828,7 +828,7 @@ export function ChatScreen() {
       setDrawerConversations([])
     }
     setDrawerConversationsLoaded(true)
-  }, [])
+  }, [t])
 
   // Drawer 首次打开时懒加载历史对话
   useEffect(() => {

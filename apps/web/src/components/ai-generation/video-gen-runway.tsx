@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 
 const DURATIONS = ['5', '10'] as const
@@ -45,12 +45,11 @@ export function VideoGenRunway() {
 
   const mutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/runway/generate', {
+      const res = await api<{ taskId: string; status: string }>('/api/ai/runway/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      return res
     },
     onSuccess: (data) => {
       setTaskId(data.taskId)
@@ -62,9 +61,8 @@ export function VideoGenRunway() {
   const { data: task } = useQuery({
     queryKey: ['runway-task', taskId],
     queryFn: async () => {
-      const res = await fetchApi<AsyncTask>(`/api/ai/runway/tasks/${taskId}`)
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      const res = await api<AsyncTask>(`/api/ai/runway/tasks/${taskId}`)
+      return res
     },
     enabled: !!taskId,
     refetchInterval: (query) => {

@@ -504,6 +504,16 @@ interface RelayPoolSnapshot {
   accountRefreshAgeSec: number | null
   /** 健康态不在封闭词表内、无法折叠的行数(非 0 说明库里有脏值,必须看得见) */
   rowsUnclassified: number | null
+  /** Key 健康四态计数(unknown/healthy/degraded/down;与汇总字段同一把尺子) */
+  keyHealth: { unknown: number; healthy: number; degraded: number; down: number } | null
+  /** 按 provider 分组的 Key 分布(可调度/异常口径与汇总字段同一把尺子) */
+  keyByProvider: Array<{ provider: string; total: number; schedulable: number; abnormal: number }> | null
+  /** 按 provider 分组的账号池分布 */
+  accountByProvider: Array<{ provider: string; total: number; schedulable: number }> | null
+  /** 余额 < 5 元且非"无限"(-1)的 Key 条数 —— 余额预警 */
+  keyBalanceLow: number | null
+  /** access token 将在 24 小时内过期的账号条数(含已过期) */
+  accountExpiring24h: number | null
 }
 
 async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
@@ -520,6 +530,11 @@ async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
       staleAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
       accountRefreshAgeSec: live.maxRefreshAgeSeconds,
       rowsUnclassified: live.rowsUnclassified,
+      keyHealth: live.keyHealth,
+      keyByProvider: live.keyByProvider,
+      accountByProvider: live.accountByProvider,
+      keyBalanceLow: live.keyBalanceLow,
+      accountExpiring24h: live.accountExpiring24h,
     }
   } catch {
     return null
@@ -569,6 +584,16 @@ interface BusinessSnapshot {
   signIn: SignInSnapshot | null
   /** 近 14 日每日新增用户(上海日界,含今天,后端逐日补齐);查询失败为 null */
   userGrowth: Array<{ date: string; count: number }> | null
+  /** 用户构成(全部即时计数,与 usersTotal 同一次查询):VIP 身份 / 操盘手身份 */
+  usersVip: number
+  usersTrader: number
+  /** 邀请注册用户(累计)与近 7 日邀请注册(parent_id 非空 = 经推荐人链接注册) */
+  usersInvited: number
+  usersInvited7d: number
+  /** 等级分布 [普通, 白银, 黄金, 钻石](users.level 0..3) */
+  usersByLevel: [number, number, number, number]
+  /** 近 7 日签到去重用户数(留存近似);查询失败为 null(不折成 0) */
+  activeUsers7d: number | null
 }
 
 async function buildBusiness(): Promise<BusinessSnapshot | null> {
@@ -589,12 +614,23 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       signToday,
       signWeek,
       userGrowthRows,
+      activeUsers7dRows,
     ] = await Promise.all([
+      // 用户构成:与 usersTotal 同一次扫描上多加几个 filter 计数 ⇒ 零额外查询成本。
+      // is_vip 值域(-1 游客 / 0 普通 / 1 VIP / 2 操盘手)见 users schema 注释。
       dbRead
         .select({
           total: sql<number>`count(*)::int`,
           todayNew: sql<number>`count(*) filter (where ${users.createdAt} >= ${todayStart.toISOString()}::timestamptz)::int`,
           active: sql<number>`count(*) filter (where ${users.status} = 1)::int`,
+          vip: sql<number>`count(*) filter (where ${users.isVip} = 1)::int`,
+          trader: sql<number>`count(*) filter (where ${users.isVip} = 2)::int`,
+          invited: sql<number>`count(*) filter (where ${users.parentId} is not null)::int`,
+          invited7d: sql<number>`count(*) filter (where ${users.parentId} is not null and ${users.createdAt} >= ${bizDayStartUtc(6).toISOString()}::timestamptz)::int`,
+          level0: sql<number>`count(*) filter (where ${users.level} = 0)::int`,
+          level1: sql<number>`count(*) filter (where ${users.level} = 1)::int`,
+          level2: sql<number>`count(*) filter (where ${users.level} = 2)::int`,
+          level3: sql<number>`count(*) filter (where ${users.level} = 3)::int`,
         })
         .from(users),
       dbRead
@@ -694,6 +730,15 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         .groupBy(sql`1`)
         .orderBy(sql`1`)
         .catch(() => null),
+      // 近 7 日签到去重用户数(留存近似:一天都没签到的用户不进分母口径,报"活跃"而非"沉默")。
+      // sign_in_records 有 (user_id, sign_in_date) 唯一索引 ⇒ 这条 count distinct 走索引即可。
+      dbRead
+        .select({
+          users: sql<number>`count(distinct ${signInRecords.userId})::int`,
+        })
+        .from(signInRecords)
+        .where(gte(signInRecords.signInDate, signInWeekAgo))
+        .catch(() => null),
     ])
     const u = userRows[0]
     const o = orderToday[0]
@@ -737,6 +782,12 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       usersTotal: u?.total ?? 0,
       usersTodayNew: u?.todayNew ?? 0,
       usersActive: u?.active ?? 0,
+      usersVip: u?.vip ?? 0,
+      usersTrader: u?.trader ?? 0,
+      usersInvited: u?.invited ?? 0,
+      usersInvited7d: u?.invited7d ?? 0,
+      usersByLevel: [u?.level0 ?? 0, u?.level1 ?? 0, u?.level2 ?? 0, u?.level3 ?? 0],
+      activeUsers7d: activeUsers7dRows?.[0]?.users ?? null,
       ordersTodayPaid: o?.paid ?? 0,
       ordersTodayAmountCents: o?.amountCents ?? 0,
       ordersYesterdayPaid: oy?.paid ?? 0,

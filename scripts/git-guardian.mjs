@@ -26,6 +26,11 @@ import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { isInteractiveUserHome } from './check-home-junctions.mjs'
 import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
+// §0.6 单一真相源:PowerShell 解释器候选复用 check-service-binary-paths 的出口,禁抄第二份。
+// 2026-10-25 立:本机的 schtasks.exe 在程序黑名单里 —— spawn 它不是报错,而是**把本 node 进程
+// 连同守护本身一起杀掉**(RC=143 = 128+SIGTERM,try/catch 救不了)。计划任务的存在性与
+// XML 改走 Get-ScheduledTask / Export-ScheduledTask,形态判据仍是 lib/schtasks-form.mjs 那一份。
+import { pickPowerShell } from './check-service-binary-paths.mjs'
 // 死值分流必须与 `git-refs-heal.mjs` **共用同一份实现**。本文件原先有一份同名同实现的私有
 // `writeLooseRef`,而 `healRefs()` 直接遍历 broken 无校验地写 —— 于是"修好的那一份"只在人工
 // 按文档敲 `node scripts/git-refs-heal.mjs` 时生效,**每 2 分钟真跑的这一个恰恰是无校验的那份**。
@@ -5205,28 +5210,71 @@ function registerTask() {
 }
 
 /**
- * 活任务形态判定 —— 2026-09-23 重写,因为旧实现在本机**每 2 分钟空转重注册一次**。
+ * 活任务形态判定 —— 2026-09-23 首立,2026-10-25 换主通道(判定口径不动)。
  *
- * 旧写法用 pwsh 的 Get-ScheduledTask 读 Principal.LogonType。本机 pwsh **没有 ScheduledTasks
- * cmdlet**(实测 `The term 'Get-ScheduledTask' is not recognized`),而那条命令的
- * CommandNotFoundException 并不会让进程非零退出 ⇒ execFileSync 不抛、stdout 只有 `MISSING`
- * ⇒ 判"漂移" → 重注册;而 registerTask() 的 S4U 路径同样依赖那批 cmdlet,**在这台机上永远
- * 不成功**(回读永远 `LOGON=` 空),只有 .vbs 回退真能注册成功 → 于是"注册成功"和"判它漂移"
- * 每 2 分钟互相打脸一次,并把最关键的那层 .git 存续守护反复删除重建。
- *
- * 新实现不碰 cmdlet:存在性用 `schtasks /Query /FO CSV`(任务名是 ASCII,不受 GBK 控制台影响),
- * 形态用 `/XML`(去 NUL 后按 ASCII 关键字判)。并明确承认**两种合法形态**:
+ * 判定口径仍只有一份(`lib/schtasks-form.mjs`):承认**两种合法形态** ——
  *   · S4U(session 0,结构上开不出窗口)—— 首选;
  *   · InteractiveToken + wscript + 我们的 ASCII .vbs —— 回退形态,同样无弹窗,不是漂移。
  * 只有"InteractiveToken 且直跑 node.exe"(必闪黑窗)或任务消失才叫漂移。拿不到数据一律 unknown,
  * 绝不在信息不足时改动任务(§5b 的"宁可不动也不误动")。
+ *
+ * 2026-10-25 换"怎么读":本机安全策略把 `schtasks.exe` 列入黑名单(与
+ * `check-c-drive-pollution.mjs` 同一起事故),而守护是每 2 分钟一 tick 的常驻体 —— 在这里
+ * spawn 一个被策略拦的可执行文件,失败形态不是"报错",而是把守护一起带走。计划任务的存在性
+ * 与形态改由 PowerShell 的 `Get-ScheduledTask` / `Export-ScheduledTask` 读(同一份任务存储,
+ * 只是不碰那个 exe);`schtasks.exe` 降为**默认关**的兜底通道。
  * @returns {'ok'|'ok-vbs'|'missing'|'drift'|'unknown'}
  */
+/** schtasks.exe 兜底通道(**默认关**,理由见 taskForm 头注):黑名单机器上 spawn 它会把守护本身带走。 */
+const ALLOW_SCHTASKS_EXE = process.env.IHUI_ALLOW_SCHTASKS_EXE === '1'
+
+/** 跑一段 PowerShell,拿不到(解释器不在位/报错/超时/空输出)一律返回 null ⇒ 调用方落 unknown。 */
+function runPs(script, { timeoutMs = 30_000, encoding = 'utf8' } = {}) {
+  const bin = pickPowerShell()?.bin
+  if (!bin) return null
+  try {
+    const out = execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 1 << 24,
+    })
+    const s = String(out || '').replace(/\0/g, '')
+    return s.trim() ? s : null
+  } catch {
+    return null
+  }
+}
+
+/** 一次 PowerShell 调用同时回答"在不在"与"形态 XML":守护每 2 分钟一轮,两次冷启动 PS
+ *  会把一轮巡检拖长。取不到 ⇒ null(调用方落 unknown);cmdlet 不在位 ⇒ 也 null,
+ *  **不得**借此判"任务不存在"(查法失效与产物为空必须分家)。 */
+function psTaskProbe() {
+  return runPs(
+    [
+      `if ($null -eq (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue)) {`,
+      `  ''`, // cmdlet 不在位 ⇒ **不得**借此判"任务不存在"(查法失效与产物为空必须分家)
+      `} else {`,
+      `  $t = @(Get-ScheduledTask -TaskName '${TASK_NAME}' -ErrorAction SilentlyContinue)`,
+      `  if ($t.Count -eq 0) { '__MISSING__' } else { ($t[0] | Export-ScheduledTask) -join "\`n" }`,
+      `}`,
+    ].join('\n'),
+  )
+}
+
 function taskForm() {
   const flat = (buf) => String(buf || '').replace(/\0/g, '')
-  let list = ''
+  // 主通道:PowerShell(Get-ScheduledTask 读的是同一份任务存储,只是不碰黑名单里的那个 exe)。
+  const probe = psTaskProbe()
+  if (probe) return probe.trim() === '__MISSING__' ? 'missing' : judgeTaskForm(probe)
+  // 兜底通道:schtasks.exe(**默认关** —— 黑名单机器上 spawn 它会把守护本身杀掉);
+  // 形态判据一律是 lib/schtasks-form.mjs 那一份,两通道不得各写一版。
+  if (!ALLOW_SCHTASKS_EXE) return 'unknown'
+  let csv
   try {
-    list = flat(
+    csv = flat(
       execFileSync('schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], {
         // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -5238,8 +5286,8 @@ function taskForm() {
   } catch {
     return 'unknown' // schtasks 本身不可用 ⇒ 不下判断
   }
-  if (!list.includes(TASK_NAME)) return 'missing'
-  let xml = ''
+  if (!csv.includes(TASK_NAME)) return 'missing'
+  let xml
   try {
     xml = flat(
       execFileSync('schtasks.exe', ['/Query', '/TN', TASK_NAME, '/XML'], {
@@ -5779,6 +5827,10 @@ export const __test__ = {
   noteUndeterminedStreak,
   clearUndeterminedStreak,
   auditDeployStall,
+  // 计划任务形态自检(2026-10-25 导出):通道换到 PowerShell 后,须有一条端到面读数钉住
+  // "拿不到数据 ⇒ unknown、绝不改动任务",否则这条 2 分钟一 tick 的路径只能靠肉眼守。
+  taskForm,
+  taskActionOk,
   auditMigrationGaps,
   migrationGapsDue,
   shouldAlertAlignStall,

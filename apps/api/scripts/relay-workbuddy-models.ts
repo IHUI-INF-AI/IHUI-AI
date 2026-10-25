@@ -23,6 +23,9 @@
 import { config } from 'dotenv'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+// G-322 单源:带值旗标的取值出口(只校验紧邻 token 是不是"值",禁复制判据 §22c)。
+// @ts-expect-error scripts/*.mjs 无类型声明,apps/api tsconfig include 只收 src/**(脚本面不进 typecheck)
+import { isFlagValueToken } from '../../../scripts/lib/flag-value.mjs'
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 config({ path: path.resolve(SCRIPT_DIR, '..', '.env') })
@@ -38,9 +41,8 @@ const { eq, and } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { dbClient, dbRead } = await import('../src/db/index.js')
 const { decryptAccountCredentials } = await import('../src/services/relay-account-pool-service.js')
-const { buildHealthHeaders, chatBaseUrl, parseLoginState } = await import(
-  '../src/services/upstream-adapters/workbuddy-protocol.js'
-)
+const { buildHealthHeaders, chatBaseUrl, parseLoginState } =
+  await import('../src/services/upstream-adapters/workbuddy-protocol.js')
 
 const PROVIDER = 'workbuddy'
 const CONFIG_NAME = 'WorkBuddy 账号池(反代)'
@@ -50,7 +52,12 @@ interface TxLike {
   unsafe: (q: string, p?: unknown[]) => Promise<unknown[]>
 }
 
-function parseArgs(argv: string[]): { apply: boolean; remove: boolean; json: boolean; uid: string | null } {
+function parseArgs(argv: string[]): {
+  apply: boolean
+  remove: boolean
+  json: boolean
+  uid: string | null
+} {
   let apply = false
   let remove = false
   let json = false
@@ -60,8 +67,18 @@ function parseArgs(argv: string[]): { apply: boolean; remove: boolean; json: boo
     if (a === '--apply') apply = true
     else if (a === '--remove') remove = true
     else if (a === '--json') json = true
-    else if (a === '--uid') uid = argv[++i] ?? null
-    else if (a === '--help' || a === '-h') {
+    else if (a === '--uid') {
+      // G-322:值被紧邻旗标顶掉(`--uid --apply`)或结尾无值不得吞,点名 exit 2。
+      const tok = argv[i + 1]
+      if (!isFlagValueToken(tok)) {
+        process.stderr.write(
+          `--uid 需要一个账号 uid —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)\n`,
+        )
+        process.exit(2)
+      }
+      uid = tok
+      i++
+    } else if (a === '--help' || a === '-h') {
       process.stdout.write(
         '用法: tsx scripts/relay-workbuddy-models.ts [--apply] [--remove] [--uid <uid>] [--json]\n',
       )
@@ -86,7 +103,9 @@ async function fetchUpstreamModels(uid: string | null): Promise<WorkbuddyUpstrea
     rows = await dbRead
       .select()
       .from(aiRelayAccountPool)
-      .where(and(eq(aiRelayAccountPool.providerCode, PROVIDER), eq(aiRelayAccountPool.isEnabled, true)))
+      .where(
+        and(eq(aiRelayAccountPool.providerCode, PROVIDER), eq(aiRelayAccountPool.isEnabled, true)),
+      )
       .orderBy(aiRelayAccountPool.priority)
       .limit(1)
   }
@@ -113,14 +132,28 @@ async function upsertConfig(tx: TxLike): Promise<number> {
     await tx.unsafe(
       `update ai_model_config set name=$1, base_url=$2, api_format='openai_chat', enabled=true,
          description=$3, provider_group=$4, group_label=$5, updated_at=now() where id=$6`,
-      [CONFIG_NAME, BASE_URL, 'WorkBuddy 桌面版账号池反代(内部试用,0 价)', PROVIDER, 'WorkBuddy 账号池', existing[0].id],
+      [
+        CONFIG_NAME,
+        BASE_URL,
+        'WorkBuddy 桌面版账号池反代(内部试用,0 价)',
+        PROVIDER,
+        'WorkBuddy 账号池',
+        existing[0].id,
+      ],
     )
     return Number(existing[0].id)
   }
   const inserted = (await tx.unsafe(
     `insert into ai_model_config (name, provider_code, base_url, api_format, enabled, description, provider_group, group_label, is_builtin)
      values ($1,$2,$3,'openai_chat',true,$4,$5,$6,false) returning id`,
-    [CONFIG_NAME, PROVIDER, BASE_URL, 'WorkBuddy 桌面版账号池反代(内部试用,0 价)', PROVIDER, 'WorkBuddy 账号池'],
+    [
+      CONFIG_NAME,
+      PROVIDER,
+      BASE_URL,
+      'WorkBuddy 桌面版账号池反代(内部试用,0 价)',
+      PROVIDER,
+      'WorkBuddy 账号池',
+    ],
   )) as Array<{ id: string | number }>
   return Number(inserted[0]?.id)
 }
@@ -180,10 +213,7 @@ async function upsertModel(
   return 'inserted'
 }
 
-async function upsertAlias(
-  tx: TxLike,
-  row: WorkbuddyPoolModelRow,
-): Promise<void> {
+async function upsertAlias(tx: TxLike, row: WorkbuddyPoolModelRow): Promise<void> {
   await tx.unsafe(
     `insert into ai_relay_model_catalog (provider_code, upstream_model, display_name, alias, enabled)
      values ($1,$2,$3,$4,true)
@@ -226,7 +256,9 @@ async function main(): Promise<number> {
 
   const models = await fetchUpstreamModels(opts.uid)
   const rows = buildWorkbuddyModelRows(models)
-  const excluded = models.filter((m) => !rows.some((r) => r.upstreamModel === m.id)).map((m) => m.id)
+  const excluded = models
+    .filter((m) => !rows.some((r) => r.upstreamModel === m.id))
+    .map((m) => m.id)
   const summary = {
     upstream: models.length,
     willSync: rows.length,
@@ -242,7 +274,9 @@ async function main(): Promise<number> {
     apply: opts.apply,
   }
   if (!opts.apply) {
-    process.stdout.write(`${opts.json ? JSON.stringify(summary, null, 2) : JSON.stringify(summary)}\n`)
+    process.stdout.write(
+      `${opts.json ? JSON.stringify(summary, null, 2) : JSON.stringify(summary)}\n`,
+    )
     process.stdout.write('干跑完成;加 --apply 才会写库\n')
     return 0
   }

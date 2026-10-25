@@ -119006,6 +119006,149 @@
         }
       }
     },
+    "/api/chat/conversations/{id}/messages/{messageId}/sync-snapshot": {
+      "get": {
+        "description": "resync 权威快照:返回该消息当前修订链头 rev 与链头时刻的全量内容",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "对话 ID(UUID,服务端 Zod 校验)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "messageId",
+            "required": true,
+            "description": "消息 ID(UUID,服务端 Zod 校验)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "消息同步快照",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/api/chat/conversations/{id}/regenerate": {
       "post": {
         "parameters": [
@@ -126656,6 +126799,15 @@
       }
     },
     "/api/distribution/list": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/distribution/orders": {
       "get": {
         "responses": {
           "200": {
@@ -168804,10 +168956,6 @@
                       },
                       "sessionId": {
                         "type": "string"
-                      },
-                      "visitDate": {
-                        "type": "string",
-                        "description": "YYYY-MM-DD"
                       }
                     }
                   },
@@ -168825,9 +168973,6 @@
                     "type": "string"
                   },
                   "sessionId": {
-                    "type": "string"
-                  },
-                  "visitDate": {
                     "type": "string"
                   }
                 }

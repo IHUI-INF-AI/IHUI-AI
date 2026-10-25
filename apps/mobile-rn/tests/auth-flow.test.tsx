@@ -270,8 +270,13 @@ describe('AuthContext 认证流程', () => {
     ssoMocks.exchangeSsoCode.mockResolvedValue(mockSsoTokenData)
     const { result } = renderAuth()
 
-    await waitFor(() => expect(result.current.ready).toBe(true))
-    await waitFor(() => expect(result.current.token).toBe('sso-at'))
+    // 一条链: initApi() → hydrateAuth → setReady(true) → await getInitialSsoCode → applySsoCode
+    // → exchangeSsoCode → setAuth。终点 = token 落进 store。`ready=true` 写在 exchange **之前**
+    // (同一个 async 回调里),所以它被终点严格蕴含 ⇒ 降级为同步断言,本枚只等一次(8s < 10s)。
+    await waitFor(() => expect(result.current.token).toBe('sso-at'), { timeout: 8_000 })
+    expect(result.current.ready, '令牌都写进来了 ready 还是 false = 就绪时序与链身自相矛盾').toBe(
+      true,
+    )
 
     expect(ssoMocks.exchangeSsoCode).toHaveBeenCalledWith('cold-start-code')
     expect(result.current.user).toEqual(mockUser)
@@ -286,15 +291,26 @@ describe('AuthContext 认证流程', () => {
     ssoMocks.exchangeSsoCode.mockResolvedValue(mockSsoTokenData)
     const { result } = renderAuth()
 
-    await waitFor(() => expect(result.current.ready).toBe(true))
-    await waitFor(() => expect(ssoMocks.subscribeSsoDeepLink).toHaveBeenCalled())
+    // 链 A(initApi → hydrateAuth → setReady(true) → await getInitialSsoCode → subscribe):
+    // 终点 = 订阅真的挂上了,而**回调句柄必须在触发链 B 之前就拿到**(不在这儿等,下面的
+    // `deepLinkCallback!` 就是一次凭空调用)⇒ 这一段不能并进链 B。ready 写在 subscribe 之前,
+    // 被这个终点蕴含 ⇒ 降级为同步断言。
+    await waitFor(() => expect(ssoMocks.subscribeSsoDeepLink).toHaveBeenCalled(), {
+      timeout: 4_000,
+    })
+    expect(result.current.ready, '订阅都挂上了 ready 还是 false = 就绪时序与链身自相矛盾').toBe(
+      true,
+    )
 
     expect(deepLinkCallback).not.toBeNull()
     await act(async () => {
       await deepLinkCallback!('runtime-code')
     })
 
-    await waitFor(() => expect(result.current.token).toBe('sso-at'))
+    // 链 B(回调 → applySsoCode → exchangeSsoCode → setAuth):终点 = token 落库。
+    // "exchange 用哪枚 code 被调用"是链上的中间态,被终点蕴含 ⇒ 保持原来的同步断言位置。
+    // 预算 4s+5s=9s < testTimeout 10s:两枚独立链各留一次等待,和仍低于墙上时间,红由断言定性。
+    await waitFor(() => expect(result.current.token).toBe('sso-at'), { timeout: 5_000 })
     expect(ssoMocks.exchangeSsoCode).toHaveBeenCalledWith('runtime-code')
   })
 })

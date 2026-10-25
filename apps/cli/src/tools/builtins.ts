@@ -1007,6 +1007,10 @@ export const run_command: Tool = {
       }
       const taskId = registerTask(handle.process, command);
       // 异步等待结果,完成后触发 post hook
+      // G-424 有意不接:后台任务的 post 钩子 fire-and-forget 跨回合——发起回合收口后该回合
+      // 的 signal 已随回合消亡,而后台任务(及其 post 钩子)按设计要在后续回合存续(wait_command
+      // 查询/600s 自身预算才是它的死期),把发起回合的 signal 挂进来等于"回合一结束就杀后台钩子"。
+      // 形状锁见 tests/g-424-tool-hook-cancel-leg.test.ts ⑤;前台同步路径才传 ctx.signal(下文)。
       handle.result.then(async (result) => {
         await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
       }).catch(() => { /* ignore */ });
@@ -1053,6 +1057,7 @@ export const run_command: Tool = {
           .then(async (result) => {
             clearTimeout(bgDeadline);
             adoptedDeadlineTimers.delete(bgDeadline);
+            // G-424 有意不接:同上——收编进后台后 post 钩子同样跨回合存续,不挂发起回合的 signal。
             await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
           })
           .catch(() => {

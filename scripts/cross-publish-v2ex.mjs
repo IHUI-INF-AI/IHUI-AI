@@ -23,6 +23,7 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -36,9 +37,13 @@ const DEFAULT_DRAFT_PATH = join(ROOT, '.ihui-agent', 'tmp', 'v2ex-post.md')
 
 // ---------- 参数解析 ----------
 const argv = process.argv.slice(2)
-function argValue(name) {
-  const i = argv.indexOf(name)
-  return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null
+function argValue(name, noun = '参数') {
+  const r = requireFlagValue(argv, name, { noun })
+  if (r.error) {
+    console.error(`❌ 用法错:${r.error}`)
+    process.exit(2)
+  }
+  return r.value
 }
 const DRY_RUN = argv.includes('--dry-run')
 const NODE_NAME = argValue('--node') || 'programmer' // 默认程序员节点

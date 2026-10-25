@@ -4527,6 +4527,7 @@
       "loadingMore": "Loading…"
     },
     "detail": {
+      "loading": "Loading...",
       "pageTitle": "Topic Detail",
       "loadFailed": "Failed to load",
       "followers": "{n} followers",

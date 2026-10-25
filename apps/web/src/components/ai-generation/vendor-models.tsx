@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 
 /**
  * 动态模型列表 + OpenAI 官方参数面板(共享)。
@@ -74,9 +74,8 @@ export function useVendorModels(
   const { data, isLoading } = useQuery({
     queryKey: ['vendor-models', vendor],
     queryFn: async () => {
-      const res = await fetchApi<unknown>(`/api/ai/${vendor}/models`)
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      const res = await api<unknown>(`/api/ai/${vendor}/models`)
+      return res
     },
     staleTime: 5 * 60_000,
     retry: 1,
