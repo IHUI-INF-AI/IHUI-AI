@@ -285,6 +285,11 @@ function modeOf(rev, p, cwd) {
 }
 
 function writeBlob(content, p, cwd) {
+  // 冲突标记闸(2026-10-25,wallboard 实况:11:18 手工收敛把带标记的文件推上主历史,
+  // 当日 13:04 的 union 又按"对侧自身改动"整份照单收下)。本器任何进树内容过这道单源判据:
+  // 成对 <<<<====>>>> ⇒ 直接拒绝,绝不"取一侧顺手入库"。豁免面/判定住 lib/conflict-marker-guard。
+  if (typeof content === 'string' && content.includes('<'.repeat(7)))
+    assertNoConflictMarkers(p, content, { source: 'union-converge' })
   // 根治(2026-09-30):--stdin 通道要求子进程 stdin 真管道,而本会话 Node 建 stdin 管道
   // 会 EBUSY ⇒ 改走临时文件。`--path p` 保留:属性/换行过滤仍按业务路径判定,与
   // `--stdin --path p` 产出同一 blob SHA(2026-09-30 以 CRLF 样本实证等价);scratch 用后即焚。
