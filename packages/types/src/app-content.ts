@@ -326,6 +326,8 @@ export interface ActivityScreenProps {
   error: string
   onRefresh: () => void
   onBack: () => void
+  /** 可选:点卡片进详情(未传则无跳转,不破坏既有调用方) */
+  onItemPress?: (item: ActivityItem) => void
   colorScheme?: 'light' | 'dark'
 }
 

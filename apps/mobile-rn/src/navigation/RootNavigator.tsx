@@ -158,6 +158,7 @@ import { MessageSystemScreen } from '../screens/MessageSystemScreen'
 import { MessageDirectScreen } from '../screens/MessageDirectScreen'
 import { MessageGroupScreen } from '../screens/MessageGroupScreen'
 import { AnnouncementDetailScreen } from '../screens/AnnouncementDetailScreen'
+import { ActivityDetailScreen } from '../screens/ActivityDetailScreen'
 import { FeedbackHistoryScreen } from '../screens/FeedbackHistoryScreen'
 import { FeedbackDetailScreen } from '../screens/FeedbackDetailScreen'
 import { SettingsAccountScreen } from '../screens/SettingsAccountScreen'
@@ -503,6 +504,7 @@ export type RootStackParamList = {
   MessageDirect: undefined
   MessageGroup: undefined
   AnnouncementDetail: { id: string }
+  ActivityDetail: { id: string }
   FeedbackHistory: undefined
   FeedbackDetail: { id: string }
   SettingsAccount: undefined
@@ -977,6 +979,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="MessageDirect" component={MessageDirectScreen} />
             <RootStack.Screen name="MessageGroup" component={MessageGroupScreen} />
             <RootStack.Screen name="AnnouncementDetail" component={AnnouncementDetailScreen} />
+            <RootStack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
             <RootStack.Screen name="FeedbackHistory" component={FeedbackHistoryScreen} />
             <RootStack.Screen name="FeedbackDetail" component={FeedbackDetailScreen} />
             <RootStack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
