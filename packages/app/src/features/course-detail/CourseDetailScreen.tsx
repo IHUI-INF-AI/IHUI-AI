@@ -13,7 +13,7 @@ import {
   ScreenSkeleton,
 } from '../../components/ScreenStates'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * 课程详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
@@ -144,23 +144,23 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     btn: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     btnDisabled: { opacity: 0.5 },
-    btnText: { color: tk.surface.light, fontSize: 16 },
-    header: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 16 },
-    tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    btnText: { color: tk.surface.light, fontSize: rnType.title.size },
+    header: { paddingHorizontal: 10, paddingTop: rnSpacing.md, paddingBottom: rnSpacing.lg },
+    tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm, marginTop: rnSpacing.sm },
     tag: {
-      paddingHorizontal: 8,
+      paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    tagText: { fontSize: 12, color: tk.text.medium },
+    tagText: { fontSize: rnType.label.size, color: tk.text.medium },
     body: { paddingHorizontal: 10 },
     card: {
       padding: 14,
@@ -169,27 +169,32 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    cardTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    cardMeta: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    cardDesc: { marginTop: 12, fontSize: 14, color: tk.text.medium },
+    cardTitle: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    cardDesc: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.text.medium },
     actionRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 12,
+      marginTop: rnSpacing.md,
     },
-    price: { fontSize: 20, fontWeight: '700', color: tk.brand.DEFAULT },
+    price: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
     enrolledBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.success.lighter,
     },
-    enrolledText: { fontSize: 12, color: tk.success.deepText },
-    lessons: { paddingHorizontal: 10, marginTop: 16, paddingBottom: 32 },
-    sectionTitle: { marginBottom: 8, fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    enrolledText: { fontSize: rnType.label.size, color: tk.success.deepText },
+    lessons: { paddingHorizontal: 10, marginTop: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] },
+    sectionTitle: {
+      marginBottom: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     lessonItem: {
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       padding: 14,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
@@ -197,8 +202,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     lessonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    lessonTitle: { flex: 1, fontSize: 16, color: tk.text.primary },
-    completed: { marginLeft: 8, fontSize: 12, color: tk.success.DEFAULT },
+    lessonTitle: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },
+    completed: { marginLeft: rnSpacing.sm, fontSize: rnType.label.size, color: tk.success.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -27,7 +27,7 @@ import { ChevronRight, Plus } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { BottomPops } from './BottomPops'
 
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 // ── PlusButton 统一加号按钮 ──────────────────────────────────────────────
@@ -193,11 +193,11 @@ const styles = StyleSheet.create({
   iconGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    paddingBottom: 12,
+    gap: rnSpacing.sm,
+    paddingBottom: rnSpacing.md,
   },
   iconGroupWithHero: {
-    marginTop: 12,
+    marginTop: rnSpacing.md,
   },
   iconGroupItem: {
     width: 72,
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: rnSpacing.md,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     paddingHorizontal: 14,

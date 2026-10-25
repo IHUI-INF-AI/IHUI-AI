@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Globe2, Send } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -263,11 +263,11 @@ function Chip({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  body: { padding: 12, paddingBottom: 32, gap: 10 },
-  subtitle: { fontSize: 12, color: tokens.text.tertiary },
-  muted: { fontSize: 12, color: tokens.text.secondary },
+  body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: 10 },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
   card: {
-    gap: 12,
+    gap: rnSpacing.md,
     padding: 14,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -275,25 +275,25 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   field: { gap: 5 },
-  label: { fontSize: 12, color: tokens.text.secondary },
+  label: { fontSize: rnType.label.size, color: tokens.text.secondary },
   input: {
     minHeight: 42,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     color: tokens.text.primary,
-    fontSize: 14,
+    fontSize: rnType.body.size,
     backgroundColor: tokens.surface.bg,
   },
   textarea: { minHeight: 120, lineHeight: 21 },
-  categoriesLoading: { alignSelf: 'flex-start', paddingVertical: 4 },
+  categoriesLoading: { alignSelf: 'flex-start', paddingVertical: rnSpacing.xs },
   inlineError: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
-  retryText: { fontSize: 12, fontWeight: '600', color: tokens.text.primary },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
+  retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   chip: {
     paddingHorizontal: 10,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   chipSelected: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
-  chipText: { fontSize: 12, color: tokens.text.secondary },
+  chipText: { fontSize: rnType.label.size, color: tokens.text.secondary },
   chipSelectedText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
   primaryBtn: {
     height: 44,
@@ -315,7 +315,11 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
-  primaryBtnText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
+  primaryBtnText: {
+    fontSize: rnType.strong.size,
+    fontWeight: '600',
+    color: tokens.brand.ctaForeground,
+  },
   disabled: { opacity: 0.5 },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

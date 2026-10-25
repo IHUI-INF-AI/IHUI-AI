@@ -31,6 +31,7 @@ import {
   type ChatRoomItem,
   type ChatRoomMessageItem,
 } from '@ihui/rn-app'
+import { safeDecodeURIComponent } from '@ihui/shared'
 import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -134,12 +135,12 @@ export default function AssistantScreen() {
     params?.roomId
       ? {
           id: params.roomId,
-          name: params.roomName ? decodeURIComponent(params.roomName) : 'AI助手',
-          avatar: params.avatar ? decodeURIComponent(params.avatar) : '',
+          name: params.roomName ? safeDecodeURIComponent(params.roomName) : 'AI助手',
+          avatar: params.avatar ? safeDecodeURIComponent(params.avatar) : '',
           lastMessage: '',
           time: '',
           unreadCount: 0,
-          receiverUuid: params.receiverUuid ? decodeURIComponent(params.receiverUuid) : '',
+          receiverUuid: params.receiverUuid ? safeDecodeURIComponent(params.receiverUuid) : '',
         }
       : null,
   )

@@ -6,7 +6,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SearchScreenItem, SearchScreenProps } from '../../types'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -98,36 +98,46 @@ export function SearchScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10 },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.md,
+      marginBottom: rnSpacing.md,
+    },
     title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
+    },
     input: {
       flex: 1,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 14,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
     searchBtn: {
       paddingHorizontal: 14,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    searchText: { color: tk.surface.light, fontSize: 16 },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
+    searchText: { color: tk.surface.light, fontSize: rnType.title.size },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
     separator: { height: 12 },
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    cardHead: { flexDirection: 'row', marginBottom: 8 },
+    cardHead: { flexDirection: 'row', marginBottom: rnSpacing.sm },
     typeBadge: {
       fontSize: 10,
       color: tk.success.DEFAULT,
@@ -136,8 +146,8 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 2,
       borderRadius: rnRadius.md,
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardSummary: { marginTop: 8, fontSize: 14, color: tk.text.medium },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    cardSummary: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

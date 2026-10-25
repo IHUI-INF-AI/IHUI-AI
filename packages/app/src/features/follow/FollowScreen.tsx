@@ -15,7 +15,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FollowScreenProps, FollowTab, FollowUserItem } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -161,34 +161,34 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     tabs: {
       flexDirection: 'row',
       paddingHorizontal: 10,
-      paddingVertical: 8,
-      gap: 8,
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing.sm,
     },
     tab: {
       flex: 1,
-      paddingVertical: 8,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
     },
     tabActive: { backgroundColor: tk.brand.cta },
-    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    listBody: { padding: 10, paddingBottom: 32 },
+    listBody: { padding: 10, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
-    footer: { alignItems: 'center', paddingVertical: 16 },
-    footerText: { fontSize: 11, color: tk.text.secondary },
+    footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
+    footerText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -204,20 +204,20 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl'] }, // 跟随见方容器:相对式即几何真圆(门 77 量得出等值宽高,不需要标记)保持圆形
-    avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
-    cardInfo: { flex: 1, marginLeft: 12 },
-    cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardBio: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
-    cardMeta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    avatarInitial: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.secondary },
+    cardInfo: { flex: 1, marginLeft: rnSpacing.md },
+    cardName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    cardBio: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     unfollowBtn: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
     },
-    unfollowBtnText: { fontSize: 14, color: tk.text.primary },
+    unfollowBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -23,7 +23,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiGroupItem, AiGroupScreenProps, AiGroupTab } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /** AI 群组共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AiGroupItem, AiGroupScreenProps, AiGroupTab }
@@ -86,7 +86,7 @@ export function AiGroupScreen({
         </View>
         <ScrollView
           style={styles.detailBody}
-          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] }}
         >
           <Text style={styles.detailDesc}>{selectedItem.desc}</Text>
           <View style={styles.metaRow}>
@@ -227,7 +227,7 @@ export function AiGroupScreen({
         data={list}
         keyExtractor={(i) => i.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] }}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={<EmptyState title={t('aiGroup.empty')} colorScheme={colorScheme} />}
         renderItem={renderItem}
@@ -239,25 +239,25 @@ export function AiGroupScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    header: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingTop: rnSpacing.md, paddingBottom: rnSpacing.sm },
     headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    headerSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     tabRow: {
       flexDirection: 'row',
-      marginHorizontal: 16,
-      padding: 4,
+      marginHorizontal: rnSpacing.lg,
+      padding: rnSpacing.xs,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
-    searchRow: { marginHorizontal: 16, marginTop: 10 },
+    searchRow: { marginHorizontal: rnSpacing.lg, marginTop: 10 },
     searchInput: {
       height: 40,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      paddingHorizontal: 12,
-      fontSize: 14,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     tabItem: {
@@ -268,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     tabItemActive: { backgroundColor: tk.surface.light },
-    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.text.primary, fontWeight: '600' },
     card: {
       padding: 14,
@@ -287,19 +287,29 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       marginRight: 10,
     },
-    cardIconText: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    cardIconText: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     cardMain: { flex: 1 },
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    name: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    name: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     tagBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    tagText: { fontSize: 11, color: tk.text.primary },
-    desc: { marginTop: 8, fontSize: 14, color: tk.text.secondary, lineHeight: 18 },
-    cardFoot: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8 },
+    tagText: { fontSize: rnType.caption.size, color: tk.text.primary },
+    desc: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: 18,
+    },
+    cardFoot: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: rnSpacing.md,
+      gap: rnSpacing.sm,
+    },
     memberPreview: { flexDirection: 'row', alignItems: 'center' },
     miniAvatar: {
       width: 22,
@@ -312,34 +322,39 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.surface.light,
     },
     miniAvatarText: { fontSize: 10, fontWeight: '600', color: tk.text.secondary },
-    moreText: { marginLeft: 8, fontSize: 11, color: tk.text.tertiary },
-    footMeta: { fontSize: 11, color: tk.text.tertiary },
+    moreText: { marginLeft: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    footMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     enterMiniBtn: {
       marginLeft: 'auto',
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 28,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    enterMiniText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    enterMiniText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
     detailHead: {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    detailTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    detailTitle: {
+      flex: 1,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     detailBody: { flex: 1 },
-    detailDesc: { fontSize: 14, color: tk.gray[600], lineHeight: 20 },
-    metaRow: { flexDirection: 'row', gap: 16, marginTop: 8 },
-    metaText: { fontSize: 11, color: tk.text.tertiary },
+    detailDesc: { fontSize: rnType.body.size, color: tk.gray[600], lineHeight: 20 },
+    metaRow: { flexDirection: 'row', gap: rnSpacing.lg, marginTop: rnSpacing.sm },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     sectionTitle: {
-      marginTop: 20,
+      marginTop: rnSpacing.xl,
       marginBottom: 10,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
@@ -349,8 +364,8 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 10,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
-      paddingHorizontal: 12,
-      marginBottom: 8,
+      paddingHorizontal: rnSpacing.md,
+      marginBottom: rnSpacing.sm,
     },
     memberAvatar: {
       width: 36,
@@ -361,43 +376,48 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       marginRight: 10,
     },
-    memberAvatarText: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    memberAvatarText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     memberMain: { flex: 1 },
-    memberName: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    memberRole: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    memberName: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    memberRole: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     roleBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    roleBadgeText: { fontSize: 11, color: tk.text.primary },
+    roleBadgeText: { fontSize: rnType.caption.size, color: tk.text.primary },
     previewBubble: {
       padding: 10,
       borderRadius: rnRadiusFor.bubble,
       backgroundColor: tk.surface.card,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
-    previewName: { fontSize: 11, color: tk.text.primary, fontWeight: '600', marginBottom: 8 },
-    previewText: { fontSize: 14, color: tk.text.medium, lineHeight: 18 },
+    previewName: {
+      fontSize: rnType.caption.size,
+      color: tk.text.primary,
+      fontWeight: '600',
+      marginBottom: rnSpacing.sm,
+    },
+    previewText: { fontSize: rnType.body.size, color: tk.text.medium, lineHeight: 18 },
     previewBubbleMine: {
       padding: 10,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.cta,
       alignSelf: 'flex-end',
       maxWidth: '80%',
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     },
-    previewTextMine: { fontSize: 14, color: tk.brand.ctaForeground, lineHeight: 18 },
+    previewTextMine: { fontSize: rnType.body.size, color: tk.brand.ctaForeground, lineHeight: 18 },
     enterBtn: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       height: 44,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    enterBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    enterBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

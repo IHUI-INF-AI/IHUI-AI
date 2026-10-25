@@ -261,10 +261,10 @@ const ICON_GROUP_ITEMS: ReadonlyArray<{
   label: string
   Icon: typeof Camera
 }> = [
-  { type: 'camera', label: '相机', Icon: Camera },
-  { type: 'album', label: '相册', Icon: ImageIcon },
-  { type: 'file', label: '本地文件', Icon: Folder },
-  { type: 'wxfile', label: '微信文件', Icon: MessageCircle },
+  { type: 'camera', label: 'bab.camera', Icon: Camera },
+  { type: 'album', label: 'bab.album', Icon: ImageIcon },
+  { type: 'file', label: 'bab.localFile', Icon: Folder },
+  { type: 'wxfile', label: 'bab.wxFile', Icon: MessageCircle },
 ]
 
 // 图片预览行:小程序端本文件里没有这一行(该端预览在 InputArea)—— 这些档无对照,保留端内。
@@ -501,18 +501,28 @@ function ChatInputBar(props: BottomActionBarProps) {
   }, [voiceInputEnabled, onStartVoiceAnimation, onStopVoiceAnimation])
 
   const allChips: ReadonlyArray<ToggleChipConfig> = [
-    { key: 'super-agent', label: '智能体', active: superAgentEnabled, onPress: onToggleSuperAgent },
-    { key: 'super-agentfu', label: '智能体辅', active: false, onPress: onToggleSuperAgentfu },
+    {
+      key: 'super-agent',
+      label: t('nav.agents'),
+      active: superAgentEnabled,
+      onPress: onToggleSuperAgent,
+    },
+    {
+      key: 'super-agentfu',
+      label: t('bab.agentAssist'),
+      active: false,
+      onPress: onToggleSuperAgentfu,
+    },
     { key: 'mcp', label: 'MCP', active: mcpEnabled, onPress: onToggleMcp },
     {
       key: 'knowledge-base',
-      label: '知识库',
+      label: t('bab.knowledge'),
       active: knowledgeBaseEnabled,
       onPress: onToggleKnowledgeBase,
     },
     {
       key: 'permanent-memory',
-      label: '记忆',
+      label: t('bab.memory'),
       active: permanentMemoryEnabled,
       onPress: onTogglePermanentMemory,
     },
@@ -556,10 +566,10 @@ function ChatInputBar(props: BottomActionBarProps) {
               }
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel={`模型: ${modelName ?? '选择模型'}`}
+              accessibilityLabel={t('bab.modelA11y', { name: modelName ?? t('bab.pickModel') })}
             >
               <Text style={styles.modelNameLabel} numberOfLines={1}>
-                {modelName ?? '选择模型'}
+                {modelName ?? t('bab.pickModel')}
               </Text>
               <ChevronDown size={BOTTOM_ACTION_BAR_MODEL_BADGE_PX} color={tokens.text.tertiary} />
             </Pressable>
@@ -575,7 +585,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               }
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="模型配置"
+              accessibilityLabel={t('bab.modelConfig')}
             >
               <Settings size={16} color={tokens.text.secondary} />
             </Pressable>
@@ -609,7 +619,7 @@ function ChatInputBar(props: BottomActionBarProps) {
                   onPress={() => onRemoveImage(index)}
                   hitSlop={4}
                   accessibilityRole="button"
-                  accessibilityLabel="删除图片"
+                  accessibilityLabel={t('chat.imageDelete')}
                 >
                   <X size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX} color={tokens.brand.ctaForeground} />
                 </Pressable>
@@ -629,7 +639,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             onPressOut={onEndLongPress}
             hitSlop={4}
             accessibilityRole="button"
-            accessibilityLabel="语音输入"
+            accessibilityLabel={t('bab.voiceInput')}
           >
             <Mic
               size={rnGeometry.glyphMd}
@@ -730,7 +740,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               onPress={onFunctionHandle}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="功能"
+              accessibilityLabel={t('chat.fnTitle')}
             >
               <SquareFunction
                 size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX}
@@ -744,7 +754,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               onPress={onSourceHandle}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="来源"
+              accessibilityLabel={t('bab.source')}
             >
               <Paperclip size={rnGeometry.glyphMd} color={tokens.text.secondary} />
             </Pressable>
@@ -755,7 +765,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               onPress={onFangda}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="放大"
+              accessibilityLabel={t('bab.enlarge')}
             >
               <Maximize size={rnGeometry.glyphMd} color={tokens.text.secondary} />
             </Pressable>

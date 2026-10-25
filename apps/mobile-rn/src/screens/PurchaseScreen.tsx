@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Check, Crown, Wallet } from 'lucide-react-native'
 import QRCode from 'react-native-qrcode-svg'
 import { fetchApi } from '@ihui/api-client'
-import { rnLightTokens, rnRadius } from '@ihui/design-tokens'
+import { rnLightTokens, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -413,9 +413,9 @@ export default function PurchaseScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 10, paddingBottom: 32 },
-    subtitle: { fontSize: 12, color: tokens.text.tertiary },
-    tabRow: { flexDirection: 'row', gap: 8 },
+    body: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    tabRow: { flexDirection: 'row', gap: rnSpacing.sm },
     tab: {
       flex: 1,
       height: 36,
@@ -428,7 +428,12 @@ function makeStyles() {
     tabActive: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.brandAccent.light },
     tabText: { fontSize: 13, color: tokens.text.secondary },
     tabTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['5xl'],
+    },
     errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     card: {
@@ -440,27 +445,32 @@ function makeStyles() {
       gap: 6,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary },
-    cardValue: { fontSize: 18, fontWeight: '700', color: tokens.text.primary },
-    price: { fontSize: 16, fontWeight: '700', color: tokens.brandAccent.deep },
-    muted: { fontSize: 12, color: tokens.text.secondary },
+    cardTitle: {
+      flex: 1,
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tokens.text.primary,
+    },
+    cardValue: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tokens.text.primary },
+    price: { fontSize: rnType.title.size, fontWeight: '700', color: tokens.brandAccent.deep },
+    muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
     featureRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    featureText: { flex: 1, fontSize: 12, color: tokens.text.secondary },
-    label: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
+    featureText: { flex: 1, fontSize: rnType.label.size, color: tokens.text.secondary },
+    label: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tokens.text.secondary },
     input: {
       height: 42,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       backgroundColor: tokens.surface.bg,
     },
-    quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     quickChip: {
       height: 30,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
@@ -471,9 +481,9 @@ function makeStyles() {
       borderColor: tokens.brandAccent.deep,
       backgroundColor: tokens.brandAccent.light,
     },
-    quickText: { fontSize: 12, color: tokens.text.secondary },
+    quickText: { fontSize: rnType.label.size, color: tokens.text.secondary },
     quickTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
-    methodRow: { flexDirection: 'row', gap: 8 },
+    methodRow: { flexDirection: 'row', gap: rnSpacing.sm },
     methodChip: {
       flex: 1,
       height: 34,
@@ -496,26 +506,35 @@ function makeStyles() {
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.bg,
     },
-    noteText: { flex: 1, fontSize: 11, lineHeight: 17, color: tokens.text.secondary },
+    noteText: {
+      flex: 1,
+      fontSize: rnType.caption.size,
+      lineHeight: 17,
+      color: tokens.text.secondary,
+    },
     payBtn: {
       height: 42,
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
     btnDisabled: { opacity: 0.5 },
-    payBtnText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
+    payBtnText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tokens.brand.ctaForeground,
+    },
     qrBox: { alignItems: 'center', gap: 6, paddingVertical: 10 },
     // 二维码必须恒定亮底(跟随暗色主题会让多数扫码器识别失败),取亮色板书面白。
     qrCanvas: {
-      padding: 8,
+      padding: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: rnLightTokens.surface.light,
     },
-    qrTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-    paidText: { fontSize: 15, fontWeight: '600', color: tokens.success.DEFAULT },
+    qrTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
+    paidText: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.success.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

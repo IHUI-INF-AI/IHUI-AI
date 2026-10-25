@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 import { useCallback, useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
@@ -25,10 +25,10 @@ export type { LearnCategory }
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export const CATEGORIES: readonly LearnCategory[] = [
-  { id: 'douyin', name: '抖音运营', icon: Smartphone },
-  { id: 'private', name: '私域运营', icon: Users },
-  { id: 'content', name: '内容创作', icon: PenLine },
-  { id: 'data', name: '数据分析', icon: BarChart3 },
+  { id: 'douyin', name: 'studyIndex.catDouyin', icon: Smartphone },
+  { id: 'private', name: 'studyIndex.catPrivate', icon: Users },
+  { id: 'content', name: 'studyIndex.catContent', icon: PenLine },
+  { id: 'data', name: 'studyIndex.catData', icon: BarChart3 },
 ] as const
 
 export function LearnScreen() {
@@ -74,7 +74,7 @@ export function LearnScreen() {
   const openCourse = (id: string) => navigation.navigate('CourseDetail', { id })
   const openBrowse = () => navigation.navigate('CourseFilter')
   const openCategory = (cat: LearnCategory) =>
-    navigation.navigate('CategoryDetail', { categoryId: cat.id, title: cat.name })
+    navigation.navigate('CategoryDetail', { categoryId: cat.id, title: t(cat.name) })
 
   return (
     <View style={styles.container}>
@@ -87,7 +87,7 @@ export function LearnScreen() {
           style={styles.entryBtnHit}
           onPress={() => navigation.navigate('LearnDevelop')}
           accessibilityRole="button"
-          accessibilityLabel="学习发展"
+          accessibilityLabel={t('study.learnA11y')}
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
@@ -99,7 +99,7 @@ export function LearnScreen() {
           style={styles.entryBtnHit}
           onPress={() => navigation.navigate('AiCareer')}
           accessibilityRole="button"
-          accessibilityLabel="AI 学业规划"
+          accessibilityLabel={t('study.careerA11y')}
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
@@ -143,8 +143,8 @@ const styles = StyleSheet.create({
   },
   entryRow: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
+    gap: rnSpacing.md,
+    paddingHorizontal: rnSpacing.xl,
     paddingVertical: 10,
   },
   // 外层裸 Pressable 的命中层:只承接行内等分这一条纯布局档,不画任何底色/描边。

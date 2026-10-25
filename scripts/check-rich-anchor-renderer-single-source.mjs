@@ -5,7 +5,7 @@
 // scripts/check-rich-anchor-renderer-single-source.mjs
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
- * 守门 247:富文本动作锚点渲染器单一源头(2026-10-25 立,D99/G-136 机制的账面兑现)。
+ * 守门 249:富文本动作锚点渲染器单一源头(2026-10-25 立,D99/G-136 机制的账面兑现)。
  *
  * 接线状态(如实,守门 89 会读这段):**已接 pre-commit** —— 注册条目在
  * scripts/guardian-runner.mjs(id 以 runner 现值为准,blocking,

@@ -14,6 +14,7 @@
  * - 样式与 KnowledgeBaseScreen 一致:Tailwind className + resolvedTheme 暗色适配 + NavBar。
  * - 端点失败时整页错误态 + 重试;支持下拉刷新。
  */
+import { rnSpacing } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
@@ -282,7 +283,7 @@ export function SubagentsScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ padding: 16 }}
+          contentContainerStyle={{ padding: rnSpacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {tab === 'overview' ? (

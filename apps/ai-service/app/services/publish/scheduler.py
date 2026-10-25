@@ -33,6 +33,7 @@ from app.core.config import settings
 from app.core.db import get_db_conn
 from app.core.logging import get_logger
 
+from ...core.background_tasks import spawn
 from . import notifications
 
 # Anti-Risk 反风控(2026-07-31 强化):发布前冷却检查 + 风险评分检查,
@@ -799,7 +800,7 @@ class PublishScheduler:
             and result.platform_content_id
             and platform == "zhihu"
         ):
-            asyncio.create_task(
+            spawn(
                 _survival_watch_zhihu(
                     scheduler=self,
                     task_id=task_id,

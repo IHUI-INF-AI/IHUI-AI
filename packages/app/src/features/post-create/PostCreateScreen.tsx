@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PostCreateScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -90,46 +90,46 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-      paddingBottom: 32,
+      paddingBottom: rnSpacing['3xl'],
     },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.bg,
-      padding: 16,
+      padding: rnSpacing.lg,
     },
-    muted: { fontSize: 14, color: tk.text.secondary },
+    muted: { fontSize: rnType.body.size, color: tk.text.secondary },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
-    label: { marginTop: 12, fontSize: 14, color: tk.text.secondary },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
+    label: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.text.secondary },
     input: {
-      marginTop: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
     textarea: { minHeight: 120, maxHeight: 240 },
     submitBtn: {
-      marginTop: 20,
-      paddingVertical: 12,
+      marginTop: rnSpacing.xl,
+      paddingVertical: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
     submitDisabled: { backgroundColor: tk.text.tertiary },
-    submitText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

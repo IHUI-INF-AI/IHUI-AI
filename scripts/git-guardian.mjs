@@ -7,7 +7,6 @@
 /** 〈原 36 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L7〉 git-guardian.mjs — `.git` 存活守护 + 秒级自愈(2026-09-12 立)。 */
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
-  appendFileSync,
   cpSync,
   existsSync,
   lstatSync,
@@ -23,6 +22,7 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { rotateAppendLog } from './lib/log-rotation.mjs'
+import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { isInteractiveUserHome } from './check-home-junctions.mjs'
@@ -98,6 +98,10 @@ export {
   homeHealDue,
   classifyMergeLossOutcome,
 }
+import { tempScrubDue, parseScrubReport, scrubTempFixtures, auditTempLanding } from './lib/git-guardian-temp-sweepers.mjs'
+import { log, LOG } from './lib/git-guardian-log.mjs'
+// 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
+export { tempScrubDue, parseScrubReport, scrubTempFixtures, auditTempLanding, log }
 
 // 工作树 / 真实 gitdir / 备份目录动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
 export const WORKTREE = resolveWorktree()
@@ -114,7 +118,6 @@ const GITHUB_SSH_URL = 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'
 const SSH_COMMAND =
   'ssh -i C:/Users/Administrator/.ssh/id_ed25519_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20'
 const TASK_NAME = 'IHUI-AI git-guardian'
-const LOG = join(WORKTREE, '.ihui-agent', 'state', 'git-guardian.log')
 const POINTER = join(WORKTREE, '.git')
 const EXPECTED_POINTER = `gitdir: ${GITDIR}\n`
 // 嵌套 ref( depth>=2 )的期望值清单 —— gitdir 顶层文件,宿主清理不到(2026-09-12 立)
@@ -170,10 +173,10 @@ const ALIGN_HEAL_THROTTLE_MS = Number(process.env.IHUI_ALIGN_HEAL_THROTTLE_MS ||
 const ALIGN_HEAL_MAX_ATTEMPTS = Number(process.env.IHUI_ALIGN_HEAL_MAX_ATTEMPTS || 3)
 const ALIGN_HEAL_ATTEMPT_LOG = join(WORKTREE, '.ihui-agent', 'state', 'converge-align-heal-attempts.json')
 
-// 〔归档@2026-10-25/门103 C1〕原 24 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l170-起-24-行
+// 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l168(门 103 C1 收口)〉首意: // 通用自动修复骨架(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
 
 
-// 〔归档@2026-10-25/门103 C1〕原 29 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l196-起-29-行
+// 〈原 29 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l194(门 103 C1 收口)〉首意: // 全量告警格的**自动修复分档台账**(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
 export const AUTO_HEAL_LEDGER = {
   'converge-align': {
     mode: 'auto',
@@ -271,16 +274,6 @@ const STATUS_ONLY = process.argv.includes('--status')
 const INSTALL = process.argv.includes('--install')
 const DAEMON = process.argv.includes('--daemon')
 
-export function log(msg) {
-  const line = `[${new Date().toISOString()}] ${msg}`
-  console.log(line)
-  try {
-    mkdirSync(dirname(LOG), { recursive: true })
-    appendFileSync(LOG, line + '\n')
-  } catch {
-    /* 日志失败不影响守护 */
-  }
-}
 
 // —— git 可执行文件解析:复用共享库(不依赖 PATH,服务账户如 LocalSystem 仍可定位 PortableGit) ——
 // 解析结果缓存于共享库;本处仅镜像 GIT_BIN / GIT_VERSION 供日志与 status() 展示。
@@ -3159,7 +3152,7 @@ const WORKTREE_HEAL_INTERVAL_MS = Number(process.env.IHUI_WORKTREE_HEAL_INTERVAL
 const WORKTREE_ALIGN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'worktree-align-tick')
 const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS || 420_000)
 
-// 〔归档@2026-10-25/门103 C1〕原 24 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l3281-起-24-行
+// 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l3279(门 103 C1 收口)〉首意: 
 export function healUnresponsiveServices(opts = {}) {
   const {
     now = Date.now(),
@@ -3911,7 +3904,7 @@ export function auditTunnelMetrics(opts = {}) {
   }
 }
 
-// 〔归档@2026-10-25/门103 C1〕原 21 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l4091-起-21-行
+// 〈原 21 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l4089(门 103 C1 收口)〉首意: 
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -4712,6 +4705,24 @@ export function auditMigrationGaps(opts = {}) {
 }
 
 /**
+ * 资源目录同步停更哨兵(2026-10-25 立)。实测宕型:批内复合键重复触发 PG 21000,
+ * 整轮 760 条全军 synced=0,而可见面只有一行 WARN —— "静默"就是这一格的立项理由。
+ * 判定住在 lib(守护顶着门 103 C1 的 6000 行天花板,与 sweeper/batch-write 归位 lib 同一先例)。
+ */
+const REGISTRY_SYNC_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'registry-sync-health-tick.ts')
+
+export function auditRegistrySyncHealth(opts = {}) {
+  return runRegistrySyncHealth({
+    script: join(dirname(fileURLToPath(import.meta.url)), 'check-registry-sync-health.mjs'),
+    tickFile: REGISTRY_SYNC_AUDIT_TICK,
+    cwd: WORKTREE,
+    logger: log,
+    notify: notifyGuardRed,
+    ...opts,
+  })
+}
+
+/**
  * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
  * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
  * 于是 .git 存续守护与凭据告警会在"机器重启后没人登录"这段时间里同时静默 ——
@@ -4793,30 +4804,7 @@ function samePath(a, b) {
   return String(a).replace(/\\/g, '/').toLowerCase() === String(b).replace(/\\/g, '/').toLowerCase()
 }
 
-/**
- * `cpSync`/`rmSync` 打在 GITDIR 之前的准入闸(2026-10-16 事故加,勿删):
- *   ① GITDIR 绝不能是工作树里的 `.git` 指针文件本身 —— 那是自指损坏态,往里灌备份 = 删库;
- *   ② GITDIR 存在时必须是目录;是文件 ⇒ 拒绝一切破坏性恢复(先喊人,不自己动手)。
- * 返回 false 时调用方**必须放弃恢复**(保住现场可回溯),不得退而求其次继续写。
- *
- * 事故现场(2026-10-16 00:21):`resolveGitdir()` 当时回退成 `<wt>/.git`,守护判定 gitdir 不健康,
- * 于是每 10 秒 `cpSync(BACKUP, GITDIR)` 一次,25MB 备份内容被灌进 `.git` 指针文件 ⇒
- * `fatal: too large to be a .git file`,整仓不可用。①正是这条链的断口。
- */
-/**
- * `gitdirTargetSafe` 的**纯判据层**(§22c:镜像测试直接吃这份,不在测试里复制第二份判据)。
- *
- * 为什么单列:真实现要 stat 本机路径,而这一格的判据本身是"三个输入 ⇒ 一个结论",
- * 把它留在只有 side effect 的函数里,就只能靠"在真仓上把 .git 换成一个大文件"来取证 ——
- * 那台机上每条 git 命令都会失败,而这是一棵**共享工作树**,别人正在提交。
- * 所以形态三态在此判清,现场演练交给人(见 ledger 行 L15556 的残余),不由守护自己制造。
- *
- * @param {{ samePointer?: boolean, exists?: boolean, isDirectory?: boolean }} p
- *   samePointer = GITDIR 解析后与工作树 `.git` 指针文件同路径(自指损坏态);
- *   exists/isDirectory = 对 GITDIR 的 stat 结果投影(读不出来时调用方给 exists:true,isDirectory:false 也不行,
- *   必须走 unreadable 一支)。
- * @returns {{ok:boolean, why:string}} false ⇒ 调用方必须放弃一切破坏性恢复
- */
+// 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l5008(门 103 C1 收口)〉首意: 
 export function gitdirTargetVerdict({ samePointer = false, exists = false, isDirectory = false, unreadable = false } = {}) {
   if (samePointer)
     return { ok: false, why: 'GITDIR 解析成指针文件自身 —— 自指损坏态,写它等于删库;先修 scripts/lib/gitdir.mjs 的解析,勿在此放行' }
@@ -5449,6 +5437,9 @@ function main() {
     // 迁移账本「中间缺口」:drizzle 只按 when>max 应用,晚到的旧 when 会被永久跳过且 migrate exit 0
     // (实测 chat_collab 生产缺建表、部署只报档位)。尺子 = check-db-migration-gaps.mjs;30min 节流。
     if (!CHECK_ONLY) auditMigrationGaps()
+    // 资源目录同步停更哨兵(尺子 = check-registry-sync-health.mjs;判定住 lib/registry-sync-audit)。
+    // 30min 节流;psql/DSN 取不到 = 未判定不喊人(§12e:与提交内容无关的恒响只会废掉通道)。
+    if (!CHECK_ONLY) auditRegistrySyncHealth()
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
     // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
     if (!CHECK_ONLY) scrubTempFixtures()
@@ -5566,237 +5557,7 @@ function startDaemon() {
   tick()
 }
 
-// 〔归档@2026-10-25/门103 C1〕原 19 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l5783-起-19-行
-const TEMP_SCRUB_TICK = join(WORKTREE, '.ihui-agent', 'state', 'temp-scrub-tick.iso')
-const TEMP_SCRUB_INTERVAL_MS = Number(process.env.IHUI_TEMP_SCRUB_INTERVAL_MS || 24 * 60 * 60 * 1000)
-const TEMP_SCRUB_MIN_AGE_DAYS = Number(process.env.IHUI_TEMP_SCRUB_MIN_AGE_DAYS || 7)
-/** 清扫器要遍历整个 TEMP(实测这台机 4.6 万个条目);给 5 分钟硬上限,超时只算"本轮没跑成"。 */
-const TEMP_SCRUB_TIMEOUT_MS = Number(process.env.IHUI_TEMP_SCRUB_TIMEOUT_MS || 300_000)
-
-/** 节流判定(纯函数):取不到戳 ⇒ 视为**该跑了**(与 `orphanAuditDue` 同一条失效方向)。 */
-export function tempScrubDue(nowMs, tickMs, intervalMs = TEMP_SCRUB_INTERVAL_MS) {
-  if (!Number.isFinite(tickMs)) return true
-  return nowMs - tickMs >= intervalMs
-}
-
-/** 从清扫器的人类报告里取三个数(不重抄判据,只读它已经大声报出来的结论)。 */
-export function parseScrubReport(text) {
-  const s = String(text || '')
-  // 清扫器现在按"多根并集"跑,每个根各打一行明细、最后一行打汇总。
-  // 取首条匹配会只读到**第一个根**的数字 ⇒ 把"另一个根还有 18 GB"读成"只剩这一点"。
-  // 所以汇总行优先,且只在它存在时才覆盖;没有汇总行(旧输出/崩在半路)照旧走明细正则。
-  const agg = /^汇总 ·.*$/m.exec(s)
-  if (agg) {
-    const cand = /候选 (\d+)/.exec(agg[0])
-    const del = /已删 (\d+) 条 \/ 失败 (\d+) 条/.exec(agg[0])
-    const err = /取不到 (\d+)/.exec(agg[0])
-    const root = /root=(\S+)/.exec(s)
-    return {
-      candidates: cand ? Number(cand[1]) : null,
-      deleted: del ? Number(del[1]) : null,
-      failed: del ? Number(del[2]) : null,
-      root: root ? root[1] : null,
-      aggregate: true,
-      unreadableRoots: err ? Number(err[1]) : 0,
-    }
-  }
-  const cand = /候选 (\d+)/.exec(s)
-  const del = /已删 (\d+) 条 \/ 失败 (\d+)/.exec(s)
-  const root = /root=(\S+)/.exec(s)
-  return {
-    candidates: cand ? Number(cand[1]) : null,
-    deleted: del ? Number(del[1]) : null,
-    failed: del ? Number(del[2]) : null,
-    root: root ? root[1] : null,
-    aggregate: false,
-    unreadableRoots: 0,
-  }
-}
-
-export function scrubTempFixtures(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = TEMP_SCRUB_INTERVAL_MS,
-    minAgeDays = TEMP_SCRUB_MIN_AGE_DAYS,
-    tickFile = TEMP_SCRUB_TICK,
-    logger = log,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'scrub-temp-fixtures.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ TEMP 夹具清扫:清扫器不在位(scripts/scrub-temp-fixtures.mjs)⇒ 本轮跳过,不记为已清扫')
-    return { ran: false, why: '清扫器不在位' }
-  }
-  let lastTick = NaN
-  try {
-    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (!tempScrubDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-  } catch (_e) {
-    /* 戳写失败只意味着下轮多跑一遍清扫,不影响判定 */
-  }
-  const call =
-    typeof runner === 'function'
-      ? runner()
-      : (() => {
-          try {
-            const out = execFileSync(
-              process.execPath,
-              [script, '--apply', '--older-than', String(minAgeDays)],
-              {
-                cwd: WORKTREE,
-                encoding: 'utf8',
-                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-                timeout: TEMP_SCRUB_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
-                maxBuffer: 1 << 24,
-                stdio: ['ignore', 'pipe', 'pipe'],
-              },
-            )
-            return { status: 0, stdout: String(out || ''), stderr: '' }
-          } catch (e) {
-            return {
-              status: typeof e.status === 'number' ? e.status : 2,
-              stdout: String(e.stdout || ''),
-              stderr: String(e.stderr || e?.message || ''),
-            }
-          }
-        })()
-  const p = parseScrubReport(`${call.stdout}\n${call.stderr}`)
-  if (call.status === 2 || (p.candidates === null && p.deleted === null)) {
-    logger(
-      `⚠️ TEMP 夹具清扫未跑成(rc=${call.status}):${String(call.stderr || call.stdout).replace(/\s+/g, ' ').slice(0, 160)}` +
-        ' —— 未跑成不等于没有残留,下轮重试(不改本守护退出码)',
-    )
-    return { ran: true, ok: false, why: '未跑成', status: call.status }
-  }
-  if (p.failed) {
-    logger(
-      `⚠️ TEMP 夹具清扫:删了 ${p.deleted ?? 0} 条但有 ${p.failed} 条失败(多为在句柄中的夹具,属正常)` +
-        ` · root=${p.root} · 候选 ${p.candidates}` +
-        (p.deleted ? '' : ' —— 一条都没删掉,残留仍在,下轮重试') +
-        (p.unreadableRoots ? ` · 取不到的根 ${p.unreadableRoots}` : ''),
-    )
-    return { ran: true, ok: true, partial: true, ...p }
-  }
-  if (p.deleted) {
-    logger(`✅ TEMP 夹具清扫:释放 ${p.deleted} 条(账龄闸 ${minAgeDays} 天,root=${p.root},候选 ${p.candidates})`)
-  }
-  return { ran: true, ok: true, ...p }
-}
-
-/**
- * 活 TEMP 落点回潮哨兵的**唯一调度器**(尺子本体 = `scripts/check-temp-landing.mjs`)。
- *
- * 为什么必须补这一格(2026-10-17):那份尺子的文件头早就写下"派生出面的唯一调度器 =
- * 本文件健康轮次 `!CHECK_ONLY` 巡检格(auditTempLanding())",而这个函数**从来不存在** ——
- * 判据、声明表、镜像测试全在,脚本却没有任何人调度 ⇒ 典型"造好没装车"。它的失效形态与
- * 元运维巡检同一类:安静(不是报错,是根本不跑)。
- *
- * 为什么不能进提交链:它读的是**本机注册表 + 本机进程环境**(TEMP/TMP 指向哪),提交者
- * 结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`,连带废掉全部守门(§12e/§12f)。
- * 它的文件头也是这么定级的(warn/告警档)。
- *
- * 三态纪律:尺子 exit 3 / JSON 取不到 / 字段缺失 ⇒ 写日志点名、**不发信**(发一封"我什么都
- * 没量到"是把噪音冒充成告警);只有真 drift 或近窗内仍在往旧落点写 >0 才喊人。
- * 节流 24h:落点配置一天也不会变两次,每 2 分钟读一遍注册表纯属白烧。
- */
-const TEMP_LANDING_INTERVAL_MS = Number(
-  process.env.IHUI_TEMP_LANDING_INTERVAL_MS || 24 * 60 * 60 * 1000,
-)
-const TEMP_LANDING_TIMEOUT_MS = 60_000
-const TEMP_LANDING_TICK = join(WORKTREE, '.ihui-agent', 'state', 'temp-landing-tick.ts')
-
-export function auditTempLanding(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = TEMP_LANDING_INTERVAL_MS,
-    tickFile = TEMP_LANDING_TICK,
-    logger = log,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-temp-landing.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ TEMP 落点哨兵:尺子脚本不在位(scripts/check-temp-landing.mjs)⇒ 本轮跳过')
-    return { ran: false, why: '尺子脚本不在位' }
-  }
-  let lastTick = NaN
-  try {
-    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (Number.isFinite(lastTick) && now - lastTick < intervalMs) return { ran: false, why: '未到节流窗口' }
-  const call =
-    typeof runner === 'function'
-      ? runner()
-      : (() => {
-          try {
-            const out = execFileSync(process.execPath, [script, '--json'], {
-              cwd: WORKTREE,
-              encoding: 'utf8',
-              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-              timeout: TEMP_LANDING_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
-              maxBuffer: 1 << 22,
-              stdio: ['ignore', 'pipe', 'pipe'],
-            })
-            return { status: 0, stdout: String(out || ''), stderr: '' }
-          } catch (e) {
-            return {
-              status: typeof e.status === 'number' ? e.status : 2,
-              stdout: String(e.stdout || ''),
-              stderr: String(e.stderr || e?.message || ''),
-            }
-          }
-        })()
-  let parsed
-  try {
-    parsed = JSON.parse(String(call.stdout || '').trim())
-  } catch (e) {
-    logger(
-      `⚠️ TEMP 落点哨兵未判定(rc=${call.status},JSON 取不到):` +
-        `${String(call.stderr || call.stdout || e?.message).replace(/\s+/g, ' ').slice(0, 160)}` +
-        ' —— 未判定不等于合规,下轮重试(不改本守护退出码)',
-    )
-    return { ran: true, ok: false, why: '未判定' }
-  }
-  // 判定有效才推进节流戳:取不到读数时不能把 24h 窗口白占掉(否则一次失败就瞎一整天)。
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-  } catch {
-    /* 戳写失败只意味着下轮多跑一遍,不影响判定 */
-  }
-  const c = parsed.counts || {}
-  const drift = Number(c.drift ?? 0)
-  const undetermined = Number(c.undetermined ?? 0)
-  // 生产者那份 counts 里这一维叫 `writing`(check-temp-landing.mjs 的 probeCounts 四态)。
-  // 原先读的是 `recentWrites`/`probeHits` —— 两个**从未被发射过**的键名 ⇒ 恒 0,
-  // 于是"注册表看着对、进程照旧在写"这条证据支结构上永不触发(与今天修掉的 firstAt/stat 同一型)。
-  const recentWrites = Number(c.writing ?? 0)
-  if (drift > 0) {
-    const names = (parsed.tiers || [])
-      .filter((t) => t.judged && t.state === 'drift')
-      .map((t) => t.label || t.name)
-      .join(' / ')
-    logger(
-      `🚨 TEMP 落点回潮:${drift} 层与声明表(config/temp-landing.json)不一致 —— ${names}` +
-        ' · 清理归既有清扫器(scrubTempFixtures,24h 档),本格只判不动手',
-    )
-  } else if (recentWrites > 0) {
-    logger(
-      `🚨 TEMP 落点回潮证据:近窗内有 ${recentWrites} 个条目仍写在非批准落点(注册表看着对,进程照旧在写)` +
-        ' —— 清理归既有清扫器',
-    )
-  } else if (undetermined > 0) {
-    logger(`ℹ️ TEMP 落点哨兵:${undetermined} 层未判定(注册表取不到)⇒ 不记通过,下轮重试`)
-  }
-  return { ran: true, ok: drift === 0 && recentWrites === 0, drift, undetermined, recentWrites }
-}
+// 〈原 19 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l5738(门 103 C1 收口)〉首意: 
 
 
 // §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。

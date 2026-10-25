@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
@@ -90,21 +90,26 @@ export function DomainHubScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.display.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     body: { flex: 1 },
-    bodyContent: { padding: 12, gap: 8 },
+    bodyContent: { padding: rnSpacing.md, gap: rnSpacing.sm },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: rnSpacing.md,
       minHeight: 56,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
-    rowLabel: { flex: 1, fontSize: 16, color: tk.text.primary },
+    rowLabel: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },
   })
 }
 

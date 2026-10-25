@@ -38,7 +38,12 @@ import {
   normalizeLoginHistory,
   pushLoginHistory,
 } from '@ihui/shared/auth/remembered-account'
-import { deleteSecureItem, getSecureItem, isSecureBackendEncrypted, setSecureItem } from './auth/secure-store'
+import {
+  deleteSecureItem,
+  getSecureItem,
+  isSecureBackendEncrypted,
+  setSecureItem,
+} from './auth/secure-store'
 
 /** 口令在 Keychain 侧的项名:只有 RN 有安全存储原语,所以这一把留在端内。 */
 const PASSWORD_KEY = 'ihui-remember-password'
@@ -64,10 +69,19 @@ async function hydrate(): Promise<void> {
       // 这一处**不经** decodeRememberedAccount:共享解码刻意不把口令交回调用方,
       // 而本端要把盘上的旧明文迁进 Keychain —— 它是唯一需要读回 password 的地方,
       // 读回来只用于"搬一次然后抹掉",不写回 AsyncStorage(见下面的 persistAccount)。
-      const parsed = JSON.parse(credRaw) as Partial<RememberedCredentials>
-      if (typeof parsed.account === 'string' && parsed.account) account = parsed.account
-      // 旧版(以及任何被回滚的写入)把密码和账号写在同一条明文记录里 ⇒ 读出来只为迁移掉
-      if (typeof parsed.password === 'string' && parsed.password) legacyPassword = parsed.password
+      // 脏盘防护:半截写入/手改/回滚留下的非法 JSON 不得把整个"记住账号"读取打崩
+      // (调用方在启动链上,抛出=登录屏预填整个失效);坏数据视同无记录,后续 persistAccount 会覆盖。
+      let parsed: Partial<RememberedCredentials> | null = null
+      try {
+        parsed = JSON.parse(credRaw) as Partial<RememberedCredentials>
+      } catch {
+        parsed = null
+      }
+      if (parsed) {
+        if (typeof parsed.account === 'string' && parsed.account) account = parsed.account
+        // 旧版(以及任何被回滚的写入)把密码和账号写在同一条明文记录里 ⇒ 读出来只为迁移掉
+        if (typeof parsed.password === 'string' && parsed.password) legacyPassword = parsed.password
+      }
     }
     const storedPassword = await getSecureItem(PASSWORD_KEY)
     const password = storedPassword ?? legacyPassword

@@ -123,6 +123,7 @@ import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
+import { assertNoConflictMarkers } from './lib/conflict-marker-guard.mjs'
 // G-113(2026-10-23):旁路落地不跑钩子 ⇒ 落地后必须自带"复跑受影响判据"(与 object-space-land
 // 头注④同一出口;开工时本器被 G-815913 折叠层在飞持有,那一格如实登记未闭环,本轮补上)。
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
@@ -162,6 +163,11 @@ import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
 // G-34/G-43(2026-10-25):补"复合主键/指纹"认账所需的一把既有单源 —— `titleFpOf`(题面 32 字指纹,
 // scrub 维三同一把尺);本器不写第二份台账解析。
 import { declaredRows, titleFpOf } from './scrub-declared-removals.mjs'
+// 归档移出凭据(2026-10-25,守门 207 第二刀①):AGENTS 的重复登记副本按 §1 合法出路
+// 「整区逐字移入 archive + 原位留指针」搬走后,对侧旧基线里那份逐字同行会被本表读成
+// 「对侧相对基底新增」⇒ 补回,清偿成果一轮被吞回。判据住 lib(与 merge-live-doc 的第四态同源),
+// 本器只做取材与"不补回"这一步 —— 不在这里写第二份"什么算被移出"。
+import { archiveDropCaps, selectMovedOut, ARCHIVE_REL } from './lib/live-doc-archive-drops.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -285,6 +291,11 @@ function modeOf(rev, p, cwd) {
 }
 
 function writeBlob(content, p, cwd) {
+  // 冲突标记闸(2026-10-25,wallboard 实况:11:18 手工收敛把带标记的文件推上主历史,
+  // 当日 13:04 的 union 又按"对侧自身改动"整份照单收下)。本器任何进树内容过这道单源判据:
+  // 成对 <<<<====>>>> ⇒ 直接拒绝,绝不"取一侧顺手入库"。豁免面/判定住 lib/conflict-marker-guard。
+  if (typeof content === 'string' && content.includes('<'.repeat(7)))
+    assertNoConflictMarkers(p, content, { source: 'union-converge' })
   // 根治(2026-09-30):--stdin 通道要求子进程 stdin 真管道,而本会话 Node 建 stdin 管道
   // 会 EBUSY ⇒ 改走临时文件。`--path p` 保留:属性/换行过滤仍按业务路径判定,与
   // `--stdin --path p` 产出同一 blob SHA(2026-09-30 以 CRLF 样本实证等价);scratch 用后即焚。
@@ -970,7 +981,7 @@ export function formatFoldReport(folded, { maxEntries = 5 } = {}) {
  * 一道与内容无关的红:`PROJECT_PLAN.md 未存活行:`(冒号后面什么都没有)。这一型是被搬运感知照出来的:
  * 拦掉已归档正文之后,补回的最后一批里第一次出现了空行。
  */
-export function liveDocExpectedCounts(oursText, theirsText, baseText = null, suppress = null, report = null, declaredOverride = null) {
+export function liveDocExpectedCounts(oursText, theirsText, baseText = null, suppress = null, report = null, declaredOverride = null, archivedOverride = null) {
   const co = counter(oursText)
   const ct = subtractSuppressed(counter(theirsText), suppress)
   const cb = baseText === null ? new Map() : counter(baseText)
@@ -1011,6 +1022,13 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
    * union 不补、落地闸也不按"未存活行"追讨,摘掉的行不再被自己人带回。
    */
   for (const l of declaredDropCaps(oursText)) want.delete(l)
+  /**
+   * 「本侧已按 §1 合法出路整区移入 archive」的行不得从对侧/基底被补回(2026-10-25,守门 207 第二刀①):
+   * 与上面那一条同形(本侧 0 份 ⇒ 处置权已行使 ⇒ 不补),凭据来源不同 —— 这一族不是登记行台账,
+   * 而是"原文逐字在已入库的同族归档件里、且该件不是本文件的整篇复制件"(判据见 lib 头注)。
+   * 产出面(`unionLines`)与自证面(`verifyUnion`)共用这一张表 ⇒ 两边不会一个不补、一个追讨。
+   */
+  for (const l of archiveDropCaps(oursText, archivedOverride)) want.delete(l)
   /**
    * 同一族的**改写形态**认账(G-34/G-43, 2026-10-25):逐字维只能认"台账里那一串字节",对侧把
    * 被摘行改写过一笔(追加注记/剥装饰)就结构上认不出 ⇒ 照旧 100% 带回(昨夜 24 行 f11 存量即此)。
@@ -1270,7 +1288,7 @@ export function declaredFamilyCaps(oursText, want, declared = null) {
   }
   let d = declared
   let readError = null
-  if (d == null) {
+  if (d === null || d === undefined) {
     try {
       d = declaredRows(ROOT)
     } catch (e) {
@@ -1521,8 +1539,8 @@ export function foldDedupe(text, baseLines = null, oursLines = null, picks = nul
  *
  * 文本形状与拆分前逐字一致:`pre` 就是"未折叠的行 union 产物",`text` 就是"折叠后的产物"。
  */
-function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks, foldPicks = null, report = null, declaredOverride = null) {
-  const want = liveDocExpectedCounts(oursText, theirsText, baseText, suppress, report, declaredOverride)
+function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks, foldPicks = null, report = null, declaredOverride = null, archivedOverride = null) {
+  const want = liveDocExpectedCounts(oursText, theirsText, baseText, suppress, report, declaredOverride, archivedOverride)
   // 脊柱裁剪:期望表已按改写折叠下调过的行,这里必须真把多出来的份数从本侧脊柱里去掉,
   // 否则"折叠"只存在于断言侧而产出面仍是双份 —— 那等于 F9 判据看不见、落地闸却对着一个不存在的数红。
   const remove = new Map()
@@ -1595,6 +1613,7 @@ export function unionLines(oursText, theirsText, baseText = null, suppress = nul
     null,
     (opts && opts.report) || null,
     opts && Object.prototype.hasOwnProperty.call(opts, 'declared') ? opts.declared : null,
+    opts && Object.prototype.hasOwnProperty.call(opts, 'archived') ? opts.archived : null,
   ).text
 }
 
@@ -1667,6 +1686,43 @@ function moveAwareCached(cache, doc, oursText, theirsText, oursRev, cwd) {
   const r = moveAwareForDoc(doc, oursText, theirsText, oursRev, cwd)
   if (cache) cache.set(doc, r)
   return r
+}
+
+/**
+ * 侧面(`oursRev`)上的全部归档件正文 —— 整批一次读满,按 (cwd, rev) 缓存。
+ *
+ * 为什么与 `moveAwareForDoc` 分开:那一条只读"本侧占位注释**点名**的那几份"(台账条目块),
+ * 这一条要判"这一行是不是被整区移出",必须看见同族的全部归档件(移出批次的指针可能写在
+ * 别处、也可能压根没写指针)。缓存键含 cwd:自检会在同一进程里对多个临时仓取证,
+ * 只按 rev 缓存会让第二个仓借到第一个仓的归档内容(自洽却错基准的假绿)。
+ */
+const ARCHIVE_TEXT_CACHE = new Map()
+function archiveTextsOn(rev, cwd) {
+  const key = `${cwd}\u0000${rev}`
+  if (ARCHIVE_TEXT_CACHE.has(key)) return ARCHIVE_TEXT_CACHE.get(key)
+  let out = { ok: false, files: [], reason: '未取' }
+  try {
+    const paths = listPaths(rev, cwd).filter((p) => p.startsWith(`${ARCHIVE_REL}/`))
+    const specs = paths.map((p) => `${rev}:${p}`)
+    const texts = specs.length ? catBatch(cwd, specs) : new Map()
+    out = { ok: true, files: paths.map((p) => ({ path: p, text: texts.get(`${rev}:${p}`) ?? null })) }
+  } catch (e) {
+    // 取不到归档面 ⇒ 这一维整轮不生效(退回"多留一份"),并让调用方把那句话喊出来(§0.3)
+    out = { ok: false, files: [], reason: String((e && e.message) || e).split('\n')[0].slice(0, 160) }
+  }
+  ARCHIVE_TEXT_CACHE.set(key, out)
+  return out
+}
+
+/**
+ * 某份活文档在本侧面上的"移出批次"行集(判据全住 `lib/live-doc-archive-drops.mjs`)。
+ * 内容面与期望表同面同轮:读的是 `oursRev` 的归档件、判的是同一轮 `oursText`。
+ * @returns {ReturnType<typeof selectMovedOut>|null} `null` = 归档面取不到 ⇒ 一条不扣
+ */
+function archiveDropSetFor(doc, oursText, rev, cwd) {
+  const t = archiveTextsOn(rev, cwd)
+  if (!t.ok) return null
+  return selectMovedOut(doc, t.files, oursText)
 }
 
 /* ══ 行级复活对账(R1r 同款形态,台账票 G-383 最后一格,2026-10-07)══════════════════════
@@ -1952,7 +2008,21 @@ export function buildUnion(
       const foldOn = p.endsWith('PROJECT_PLAN.md')
       const foldPicks = foldOn ? foldKeep?.get?.(p) || null : null
       const withheldReport = []
-      const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks, withheldReport)
+      const archFaces = archiveTextsOn(ours, cwd)
+      const archived = archFaces.ok ? selectMovedOut(p, archFaces.files, a) : null
+      const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks, withheldReport, null, archived)
+      if (archived === null) {
+        console.log(
+          `   归档移出这一维本轮不生效(${p};归档面取不到:${archFaces.reason ?? '未判定'})⇒ 退路 = 多留一份,不冒充"已归档"`,
+        )
+      } else if (archived.ok && archiveDropCaps(a, archived).size) {
+        const caps = archiveDropCaps(a, archived)
+        console.log(
+          `   归档移出认账:${caps.size} 行不参与补回(${p};本侧已按 §1 把整区逐字移入 ${ARCHIVE_REL}/,对侧旧基线那份不再带回)`,
+        )
+        for (const l of [...caps].slice(0, 5)) console.log(`     ⌂ ${l.trim().slice(0, 72)}`)
+        if (caps.size > 5) console.log(`     ⌂ 其余 ${caps.size - 5} 行同批,清单随报告面可查`)
+      }
       const mergedText = built0.text
       if (withheldReport.length) {
         for (const w of withheldReport) ledgerWithheld.push({ doc: p, ...w })
@@ -2427,7 +2497,7 @@ export function verifyUnion(
     // 搬运感知同一道理:抑制表若只在归并侧生效、断言侧不认,落地闸就会把"合法未取回"判成丢行。
     const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
     moveAware.push(ma)
-    const want = liveDocExpectedCounts(a, b, bt, ma.suppress)
+    const want = liveDocExpectedCounts(a, b, bt, ma.suppress, null, null, archiveDropSetFor(p, a, ours, cwd))
     const mTree = show(tree, p, cwd)
     const m = counter(mTree)
     // 少带的份数在这一条路径上同样必须点名(本票防的就是"台账被静默少带")
@@ -3944,6 +4014,43 @@ function selfTest() {
             !gate.some((b) => String(b).includes('F9') || String(b).includes('未存活行') || String(b).includes(Y_VAR.slice(0, 40))) &&
             classic.some((b) => String(b).includes('F9 归并新增撞号组'))
           )
+        })(),
+      )
+    }
+    // ── 归档移出(2026-10-25,守门 207 第二刀①):本侧按 §1 把整区逐字移入 archive 的行不得被补回 ──
+    // 立因现读:AGENTS 的重复登记副本搬走后,对侧那份逐字同行会被本表读成"对侧新增"⇒ 补回一份,
+    // 20KB 清偿成果一轮被吞(实测 merge-live-doc --apply 407 → 442 行)。凭据判据住 lib,本器只用它。
+    {
+      const AR_MOVED = '**速查区重复登记副本甲:这一整行已按 §1 移入 archive,长度足够充当"整区移出"的一行正文**'
+      const AR_OTHER = '**另一行与归档无关的正文,同样够长,用来当反向对照的凭据(不得咬到上面那行)**'
+      const AR_NEW = '**本侧新增的一行正文:归档这一维不许连本侧自己的活账一起吞掉**'
+      const oursA = `# 文档\n${AR_NEW}\n`
+      const theirsA = `# 文档\n${AR_MOVED}\n${AR_NEW}\n`
+      ok(
+        '归档移出(正):无共同基底时对侧带回来的那行若本侧 0 份且已移入 archive ⇒ 期望表不补、产出面也不补',
+        (() => {
+          const caps = new Set([AR_MOVED])
+          const want = liveDocExpectedCounts(oursA, theirsA, null, null, null, null, caps)
+          const merged = unionLines(oursA, theirsA, null, null, { archived: caps })
+          return !want.has(AR_MOVED) && !merged.includes(AR_MOVED) && merged.includes(AR_NEW)
+        })(),
+      )
+      ok(
+        '归档移出(阳性对照):同一对输入、不给凭据 ⇒ 必须照旧补回(证明这一维只在真拿到凭据时才生效,不是把补回关了)',
+        (() => {
+          const want = liveDocExpectedCounts(oursA, theirsA)
+          return want.has(AR_MOVED) && unionLines(oursA, theirsA).includes(AR_MOVED)
+        })(),
+      )
+      ok(
+        '归档移出(反向对照):凭据命中另一行 ⇒ 不得误伤本行(扣行必须逐字对上,不是按族/按前缀)',
+        (() => unionLines(oursA, theirsA, null, null, { archived: new Set([AR_OTHER]) }).includes(AR_MOVED))(),
+      )
+      ok(
+        '归档移出(本侧仍持有则不扣):本侧还留着这一行 ⇒ 处置权未行使,一条不扣',
+        (() => {
+          const want = liveDocExpectedCounts(oursA, theirsA, null, null, null, null, new Set([AR_NEW]))
+          return want.has(AR_NEW) && (want.get(AR_NEW) || 0) >= 1
         })(),
       )
     }

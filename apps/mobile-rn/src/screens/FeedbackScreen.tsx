@@ -13,6 +13,7 @@
  *   注:后端 POST /feedbacks 尚未接收 filePath 字段(schema 无 additionalProperties:false,
  *   未知字段被 fastify 忽略,不报错);后端 feedbacks 表加 file_path 字段后即可持久化。
  */
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as ImagePicker from 'expo-image-picker'
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
   },
   historyBtn: {
     paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingHorizontal: rnSpacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   historyBtnText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brandAccent.deep,
   },

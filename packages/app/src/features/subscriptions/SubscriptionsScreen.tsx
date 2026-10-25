@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
@@ -92,25 +92,25 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingTop: 12,
-      paddingBottom: 4,
-      gap: 12,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.xs,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     errorText: {
       paddingHorizontal: 10,
-      paddingVertical: 8,
-      fontSize: 14,
+      paddingVertical: rnSpacing.sm,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
-    listBody: { padding: 10, paddingBottom: 32 },
+    listBody: { padding: 10, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
-    muted: { fontSize: 14, color: tk.text.secondary },
-    footer: { alignItems: 'center', paddingVertical: 16 },
+    muted: { fontSize: rnType.body.size, color: tk.text.secondary },
+    footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -125,23 +125,23 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     thumbText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.brand.DEFAULT,
     },
-    body: { marginLeft: 12, flex: 1 },
+    body: { marginLeft: rnSpacing.md, flex: 1 },
     targetId: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     createdAt: {
-      marginTop: 8,
-      fontSize: 14,
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     cancelBtn: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
@@ -149,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     cancelBtnText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.medium,
       fontWeight: '600',
     },

@@ -7,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TeamDetailScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -159,19 +159,19 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
-    scrollContent: { padding: 14, gap: 12 },
+    scrollContent: { padding: 14, gap: rnSpacing.md },
     memberCard: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       padding: 14,
-      gap: 12,
+      gap: rnSpacing.md,
     },
     avatar: {
       width: 48,
@@ -182,20 +182,20 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     avatarText: { fontSize: 22, fontWeight: '600', color: tk.surface.light },
-    memberMeta: { flex: 1, gap: 4 },
-    nickname: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    metaText: { fontSize: 14, color: tk.text.secondary },
+    memberMeta: { flex: 1, gap: rnSpacing.xs },
+    nickname: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
+    metaText: { fontSize: rnType.body.size, color: tk.text.secondary },
     statsRow: {
       flexDirection: 'row',
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.xl,
       padding: 14,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
-    statItem: { flex: 1, alignItems: 'center', gap: 4 },
-    statValue: { fontSize: 18, fontWeight: '600', color: tk.brand.DEFAULT },
-    statLabel: { fontSize: 14, color: tk.text.secondary },
-    actionRow: { flexDirection: 'row', gap: 12 },
+    statItem: { flex: 1, alignItems: 'center', gap: rnSpacing.xs },
+    statValue: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.brand.DEFAULT },
+    statLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
+    actionRow: { flexDirection: 'row', gap: rnSpacing.md },
     // 外层 = 在 actionRow 里占一半 + 定高的布局档;视觉档在下面的 actionBtn(内层面)。
     // 拆两层是为了把按压态从 Pressable 的 style 上摘下来(守门 131 那一型),数值逐字搬移未新增。
     actionBtnBox: {
@@ -211,8 +211,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     actionBtnPrimary: { backgroundColor: tk.brand.cta },
-    actionBtnText: { fontSize: 16, fontWeight: '500', color: tk.text.primary },
-    actionBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    actionBtnText: { fontSize: rnType.title.size, fontWeight: '500', color: tk.text.primary },
+    actionBtnPrimaryText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.surface.light,
+    },
     pressed: { opacity: 0.85 },
   })
 }

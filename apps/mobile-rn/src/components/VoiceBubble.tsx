@@ -17,7 +17,7 @@ import { useCallback } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Pause, Play } from 'lucide-react-native'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
-import { rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadiusFor, rnType } from '@ihui/design-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     opacity: 0.28,
   },
   duration: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontVariant: ['tabular-nums'],
     fontWeight: '500',
   },

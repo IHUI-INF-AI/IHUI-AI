@@ -7,7 +7,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { FeedbackScreenProps, FeedbackType } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -203,10 +203,10 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     body: { padding: 14 },
     card: {
       padding: 14,
@@ -215,37 +215,42 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    label: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    label: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
+    typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm, marginTop: rnSpacing.sm },
     typeBtn: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
     },
     typeBtnActive: { backgroundColor: tk.brandAccent.DEFAULT },
-    typeText: { fontSize: 14, color: tk.text.secondary },
+    typeText: { fontSize: rnType.body.size, color: tk.text.secondary },
     typeTextActive: { color: tk.brandAccent.foreground },
     textarea: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       minHeight: 94, // 对齐 Uniapp fankui text_area min-height 188rpx
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       color: tk.text.primary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
     },
     input: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       height: 50,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       color: tk.text.primary,
-      fontSize: 14,
+      fontSize: rnType.body.size,
     },
-    imageSection: { marginTop: 12 },
-    imageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    imageSection: { marginTop: rnSpacing.md },
+    imageRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.sm,
+    },
     imageItem: { position: 'relative' },
     imageThumb: {
       width: 70, // 140rpx
@@ -264,7 +269,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    imageRemoveText: { color: tk.surface.light, fontSize: 14, lineHeight: 18 },
+    imageRemoveText: { color: tk.surface.light, fontSize: rnType.body.size, lineHeight: 18 },
     imageAdd: {
       width: 70,
       height: 70,
@@ -275,11 +280,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    imageAddText: { fontSize: 24, color: tk.text.tertiary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
-    successText: { fontSize: 14, color: tk.success.DEFAULT, marginTop: 8 },
+    imageAddText: { fontSize: rnType.display.size, color: tk.text.tertiary },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
+    successText: { fontSize: rnType.body.size, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
     submitBtn: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brandAccent.DEFAULT,
@@ -287,7 +292,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     submitBtnDisabled: { opacity: 0.6 },
-    submitText: { fontSize: 14, fontWeight: '600', color: tk.brandAccent.foreground },
+    submitText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brandAccent.foreground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

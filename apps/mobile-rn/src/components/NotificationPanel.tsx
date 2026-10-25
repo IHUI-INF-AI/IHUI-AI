@@ -18,6 +18,7 @@ import { tokens } from '../theme/active-tokens'
 import { useNotificationStore } from '../stores/notification'
 import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
+import { useI18n } from '../i18n'
 import { rnRadius } from '@ihui/design-tokens'
 
 /**
@@ -32,6 +33,7 @@ import { rnRadius } from '@ihui/design-tokens'
  *   由调用方在收到 WS 通知时控制(见 RootNavigator useNotificationWebSocket)。
  */
 export default function NotificationPanel() {
+  const { t } = useI18n()
   const { notifications, visible, markAllRead, setVisible, clearAll } = useNotificationStore()
 
   return (
@@ -61,13 +63,17 @@ export default function NotificationPanel() {
                 className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-neutral-700"
                 onPress={markAllRead}
               >
-                <Text className="text-xs text-gray-700 dark:text-neutral-300">全部已读</Text>
+                <Text className="text-xs text-gray-700 dark:text-neutral-300">
+                  {t('notification.markAllRead')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-neutral-700"
                 onPress={clearAll}
               >
-                <Text className="text-xs text-gray-700 dark:text-neutral-300">清空</Text>
+                <Text className="text-xs text-gray-700 dark:text-neutral-300">
+                  {t('chat.clearOk')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity className="px-2 py-0.5" onPress={() => setVisible(false)}>
                 <Text className="text-[20px] text-gray-500 dark:text-neutral-400 leading-[22px]">
@@ -132,23 +138,27 @@ export interface PushBannerProps {
 }
 
 /** 相对时间格式化(对齐原 index.vue formatTime computed) */
-function formatPushTime(timestamp?: number): string {
+function formatPushTime(
+  timestamp: number | undefined,
+  t: (k: string, v?: Record<string, string | number>) => string,
+): string {
   if (!timestamp) return ''
   const diff = Date.now() - timestamp
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  const t = new Date(timestamp)
-  const month = t.getMonth() + 1
-  const day = t.getDate()
-  const hour = t.getHours().toString().padStart(2, '0')
-  const minute = t.getMinutes().toString().padStart(2, '0')
+  if (diff < 60000) return t('notification.justNow')
+  if (diff < 3600000) return t('notification.minAgo', { n: Math.floor(diff / 60000) })
+  if (diff < 86400000) return t('notification.hourAgo', { n: Math.floor(diff / 3600000) })
+  const dt = new Date(timestamp)
+  const month = dt.getMonth() + 1
+  const day = dt.getDate()
+  const hour = dt.getHours().toString().padStart(2, '0')
+  const minute = dt.getMinutes().toString().padStart(2, '0')
   return `${month}-${day} ${hour}:${minute}`
 }
 
 export function PushBanner({
+  // title 空时回落 i18n(顶层无法取 t)
   visible,
-  title = '新消息',
+  title,
   content = '',
   timestamp,
   duration = 5000,
@@ -156,6 +166,8 @@ export function PushBanner({
   onClick,
   onClose,
 }: PushBannerProps) {
+  const { t } = useI18n()
+  const bannerTitle = title ?? t('notification.newTitle')
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -180,7 +192,7 @@ export function PushBanner({
             onClose?.()
           }}
           accessibilityRole="button"
-          accessibilityLabel={title}
+          accessibilityLabel={bannerTitle}
         >
           {({ pressed }) => (
             <View style={[styles.cardFace, styles.card, pressed ? styles.pressed : null]}>
@@ -190,10 +202,10 @@ export function PushBanner({
                 </View>
                 <View style={styles.info}>
                   <Text style={styles.title} numberOfLines={1}>
-                    {title}
+                    {bannerTitle}
                   </Text>
-                  {formatPushTime(timestamp) ? (
-                    <Text style={styles.time}>{formatPushTime(timestamp)}</Text>
+                  {formatPushTime(timestamp, t) ? (
+                    <Text style={styles.time}>{formatPushTime(timestamp, t)}</Text>
                   ) : null}
                 </View>
                 <Pressable
@@ -204,7 +216,7 @@ export function PushBanner({
                   hitSlop={8}
                   style={styles.close}
                   accessibilityRole="button"
-                  accessibilityLabel="关闭"
+                  accessibilityLabel={t('common.close')}
                 >
                   <X size={14} color={tokens.text.tertiary} />
                 </Pressable>

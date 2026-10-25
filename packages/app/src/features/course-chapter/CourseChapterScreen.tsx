@@ -7,7 +7,7 @@ import { View, Text, FlatList, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseChapterItem, CourseChapterScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import {
   EmptyState,
@@ -80,11 +80,11 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10 },
     title: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       fontSize: 22,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     card: {
       flexDirection: 'row',
@@ -94,12 +94,12 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
-    idx: { width: 28, fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT },
+    idx: { width: 28, fontSize: rnType.title.size, fontWeight: '600', color: tk.brand.DEFAULT },
     cardBody: { flex: 1 },
-    cardTitle: { fontSize: 16, fontWeight: '500', color: tk.text.primary },
-    meta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '500', color: tk.text.primary },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

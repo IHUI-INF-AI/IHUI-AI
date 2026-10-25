@@ -17,7 +17,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerTitle: {
       flex: 1,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
       textAlign: 'center',
@@ -205,52 +205,52 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'flex-end',
     },
     headerAction: {
-      fontSize: 14, // text-sm
+      fontSize: rnType.body.size, // text-sm
       color: tk.brandAccent.deep, // text-orange-600 dark:text-orange-400 → 共享层强调色
     },
     /* 桌面提示条 */
     hintBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      marginHorizontal: 16, // mx-4
+      gap: rnSpacing.sm,
+      marginHorizontal: rnSpacing.lg, // mx-4
       borderRadius: rnRadius.md, // rounded-md
-      paddingHorizontal: 12, // px-3
-      paddingVertical: 8, // py-2
+      paddingHorizontal: rnSpacing.md, // px-3
+      paddingVertical: rnSpacing.sm, // py-2
       backgroundColor: tk.warning.orangeLight, // bg-amber-50 dark:bg-amber-900/20
     },
     hintText: {
       flex: 1,
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.warning.amberText, // text-amber-700 dark:text-amber-300
     },
     hintAction: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       fontWeight: '600',
       color: tk.brandAccent.deep,
     },
     /* 滚动区 */
     scrollContent: {
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     stackGapLg: {
-      gap: 12, // gap-3
+      gap: rnSpacing.md, // gap-3
     },
     /* 模板卡 */
     card: {
       borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
-      padding: 12, // p-3
+      padding: rnSpacing.md, // p-3
       backgroundColor: tk.surface.card,
     },
     headRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8, // gap-2
+      gap: rnSpacing.sm, // gap-2
     },
     tplName: {
-      fontSize: 14, // text-sm
+      fontSize: rnType.body.size, // text-sm
       fontWeight: '500', // font-medium
       color: tk.text.primary, // dark:text-neutral-100
     },
@@ -265,14 +265,14 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary, // text-gray-500 dark:text-neutral-400
     },
     tplDesc: {
-      fontSize: 12, // text-xs
-      marginTop: 4, // mt-1
+      fontSize: rnType.label.size, // text-xs
+      marginTop: rnSpacing.xs, // mt-1
       color: tk.text.secondary, // text-gray-500 dark:text-neutral-400
     },
     tagRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      marginTop: 8, // mt-2
+      marginTop: rnSpacing.sm, // mt-2
       gap: 6, // gap-1.5
     },
     tag: {

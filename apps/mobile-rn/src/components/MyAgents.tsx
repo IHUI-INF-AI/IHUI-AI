@@ -18,7 +18,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { tokens, currentRnTheme } from '../theme/active-tokens'
 import { MoreLink } from '@ihui/rn-app'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 export interface MyAgentItem {
@@ -127,12 +127,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
   },
   teamButton: {
-    marginLeft: 8,
+    marginLeft: rnSpacing.sm,
   },
   scroll: {
     flexDirection: 'row',
@@ -165,12 +165,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   name: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
     textAlign: 'center',
     maxWidth: 80,
@@ -179,11 +179,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: rnSpacing['5xl'],
     paddingHorizontal: 10,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     color: tokens.text.tertiary,
     textAlign: 'center',
   },

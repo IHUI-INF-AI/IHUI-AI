@@ -30,7 +30,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronRight, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, rnRadius, rnType } from '@ihui/design-tokens'
 import { TextField, CategoryInlineBar } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
@@ -260,7 +260,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     searchInput: {
       flex: 1,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       padding: 0,
     },
@@ -296,7 +296,7 @@ const createStyles = (tk: RnThemeTokens) =>
       justifyContent: 'center',
     },
     coverHash: {
-      fontSize: 20,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
     },
@@ -307,12 +307,12 @@ const createStyles = (tk: RnThemeTokens) =>
       gap: rpx(8),
     },
     name: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     desc: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     },
     metaRow: {
@@ -320,7 +320,7 @@ const createStyles = (tk: RnThemeTokens) =>
       gap: rpx(16),
     },
     meta: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },
     center: {

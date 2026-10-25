@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ReferrerInfo, ReferrerScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
@@ -97,38 +97,43 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     body: { padding: 14 },
     card: {
       padding: 14,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
     },
-    label: { fontSize: 14, color: tk.text.secondary },
-    value: { marginTop: 8, fontSize: 18, fontWeight: '600', color: tk.success.DEFAULT },
-    desc: { marginTop: 8, fontSize: 14, color: tk.text.tertiary },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    label: { fontSize: rnType.body.size, color: tk.text.secondary },
+    value: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.success.DEFAULT,
+    },
+    desc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
+    muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
     input: {
-      marginTop: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
-    successText: { fontSize: 14, color: tk.success.DEFAULT, marginTop: 8 },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
+    successText: { fontSize: rnType.body.size, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
     submitBtn: {
-      marginTop: 12,
+      marginTop: rnSpacing.md,
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
@@ -136,7 +141,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     submitDisabled: { backgroundColor: tk.text.tertiary },
-    submitText: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
+    submitText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

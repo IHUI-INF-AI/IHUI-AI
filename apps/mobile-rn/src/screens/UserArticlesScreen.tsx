@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronLeft, ChevronRight, Eye, FileText } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -211,16 +211,25 @@ export default function UserArticlesScreen() {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 8, paddingBottom: 32 },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
+    body: { padding: rnSpacing.md, gap: rnSpacing.sm, paddingBottom: rnSpacing['3xl'] },
+    stateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing['5xl'],
+    },
     errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    muted: { fontSize: 12, color: tokens.text.secondary },
-    total: { fontSize: 12, color: tokens.text.tertiary, paddingHorizontal: 4 },
+    muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
+    total: {
+      fontSize: rnType.label.size,
+      color: tokens.text.tertiary,
+      paddingHorizontal: rnSpacing.xs,
+    },
     card: {
       flexDirection: 'row',
       gap: 10,
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
@@ -232,19 +241,19 @@ function makeStyles() {
       borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
-    cardMain: { flex: 1, gap: 4 },
+    cardMain: { flex: 1, gap: rnSpacing.xs },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    title: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+    title: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
     badge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: rnRadius.md },
     badgePublished: { backgroundColor: tokens.success.light },
     badgeDraft: { backgroundColor: tokens.surface.muted },
-    badgeText: { fontSize: 11, fontWeight: '600' },
+    badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
     badgeTextPublished: { color: tokens.success.DEFAULT },
     badgeTextDraft: { color: tokens.text.secondary },
-    summary: { fontSize: 12, lineHeight: 17, color: tokens.text.secondary },
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    summary: { fontSize: rnType.label.size, lineHeight: 17, color: tokens.text.secondary },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    metaText: { fontSize: 11, color: tokens.text.tertiary },
+    metaText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     pager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     pageBtn: {
       flexDirection: 'row',
@@ -258,8 +267,8 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
     },
     pageBtnDisabled: { opacity: 0.4 },
-    pageBtnText: { fontSize: 12, color: tokens.text.primary },
-    pageInfo: { fontSize: 12, color: tokens.text.secondary },
+    pageBtnText: { fontSize: rnType.label.size, color: tokens.text.primary },
+    pageInfo: { fontSize: rnType.label.size, color: tokens.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
