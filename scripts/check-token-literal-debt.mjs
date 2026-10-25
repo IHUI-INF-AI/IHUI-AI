@@ -48,7 +48,7 @@ export function addedDebt(headHits, stagedHits) {
 }
 
 function git(args, opts = {}) {
-  return execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', maxBuffer: 1 << 28, ...opts })
+  return execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], ...opts })
 }
 
 function scopedTracked() {
