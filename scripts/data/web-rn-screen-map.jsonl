@@ -154,7 +154,6 @@
 {"web":"edu/parent/children/[childId]/attendance","rn":"apps/mobile-rn/src/screens/EduChildAttendanceScreen.tsx","status":"aligned","note":"孩子考勤;开发即登记","at":"2026-10-24"}
 {"web":"edu/parent/children/[childId]/grades","rn":"apps/mobile-rn/src/screens/EduChildGradesScreen.tsx","status":"aligned","note":"孩子成绩;开发即登记","at":"2026-10-24"}
 {"web":"edu/parent/children/[childId]/meals","rn":"apps/mobile-rn/src/screens/EduChildMealsScreen.tsx","status":"aligned","note":"孩子餐食;开发即登记","at":"2026-10-24"}
-{"web":"edu/parent/children/[childId]/bills","rn":"apps/mobile-rn/src/screens/EduChildBillsScreen.tsx","status":"aligned","note":"孩子账单(首版顶层字段);开发即登记","at":"2026-10-24"}
 {"web":"edu/parent/children/[childId]/study-plans","rn":"apps/mobile-rn/src/screens/EduChildStudyPlansScreen.tsx","status":"aligned","note":"孩子学习计划;开发即登记","at":"2026-10-24"}
 {"web":"user/[id]","rn":"apps/mobile-rn/src/screens/UserPublicScreen.tsx","status":"aligned","note":"他人主页(轮14 四件套,落地后补登);开发即登记","at":"2026-10-24"}
 {"web":"settings/llm","rn":"apps/mobile-rn/src/screens/LlmSettingsScreen.tsx","status":"aligned","note":"BYOK 供应商管理 MVP(轮17,落地后补登);开发即登记","at":"2026-10-24"}

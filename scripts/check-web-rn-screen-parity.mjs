@@ -151,7 +151,12 @@ function run() {
     process.exit(2)
   }
   const webByRoute = new Map(webRoutes.map((r) => [r.route, r]))
-  const rnByRel = new Map(rnScreens.map((s) => [s.rel, s]))
+  // 登记表可以指向共享屏(真相源)或端内薄壳任一层:屏名去重只服务「候选建议」,
+  // 不能让同名的端内屏在归属面被判"不存在"(2026-10-25 实测 UserPublic/LlmSettings/EduShop 三屏误报 ——
+  // 共享层有同名屏时 byName 记的是共享层 rel,而登记表写的是端内路径)。
+  const rnByRel = new Map()
+  for (const s of cov.collectShared(FACE)) rnByRel.set(s.rel, s)
+  for (const r of cov.collectRn(FACE)) rnByRel.set(r.file, { rel: r.file, name: r.name })
   const map = loadMap()
 
   const rot = []
