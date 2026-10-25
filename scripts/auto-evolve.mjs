@@ -639,21 +639,75 @@ function printStatus() {
   for (const e of ledger.slice(-5)) console.log(`  ${e.ts} ${e.mode}/${e.action}${e.why ? ` :: ${e.why}` : ''}`)
 }
 
-function installTaskCommand() {
-  // §0.8:文档/工具不得写跑不通的出路。本机实测(2026-10-25)三重堵点:
-  //  ① schtasks.exe 在 ZCode 宿主程序黑名单(spawn 它会带走本进程);
-  //  ② ScheduledTasks cmdlet 模块整体缺失(System32\Modules 与 pwsh7\Modules 均无);
-  //  ③ Schedule.Service COM 的 RegisterTaskDefinition 对最小定义也抛 80041318
-  //     (XML 与属性两条装配路同错 ⇒ COM 互操作 marshal 层损坏,非定义内容问题)。
-  // git-guardian 的任务注册成功是历史环境产物;现行可行出路 = 在环境完整的
-  // 管理员会话里用 powershell 5.1 + ScheduledTasks cmdlet,或由 git-guardian 未来
-  // 代注册(它每 2 分钟 tick,天然有"确认任务在位、不在则注册"的自愈位)。
-  // 在那之前,调度器可手动驱动:node scripts/auto-evolve.mjs --probe / --once
-  console.log('⚠ 本机注册计划任务的三个通道全部实测堵死(见上方头注),未注册成,不冒充已装。')
-  console.log('  现状:调度器通路已通(--probe 端到端绿),节律载体缺位;驱动方式:')
-  console.log('    node scripts/auto-evolve.mjs --probe   # 通路自检(现签 JWT → 起真会话 → 判 end_turn)')
-  console.log('    node scripts/auto-evolve.mjs --once    # 手动单轮(取票→闸→派发→记账)')
-  console.log('  出路(按优先序):管理员完整环境会话注册 / git-guardian 代注册(需登记新票)')
+/**
+ * 计划任务注册(--install-task [--apply])。
+ *
+ * 本机实测四条通道的结论(2026-10-25,全部现跑取值):
+ *  ① schtasks.exe 在 ZCode 宿主程序黑名单(spawn 它会带走本进程)——死路;
+ *  ② ScheduledTasks cmdlet 模块本机整体缺失(System32\Modules 与 pwsh7\Modules 均无)——死路;
+ *  ③ Schedule.Service COM + **S4U LogonType(5)**:pwsh7 与 5.1 同报 "(49,4):Task:"(80041318),
+ *     UserId 换 SID / DOMAIN\user 两形态都一样 ⇒ S4U 在本机 COM 通道死路;
+ *  ④ Schedule.Service COM + **InteractiveToken(3)**:✅ 成功(STATE=3 READY 回读验证)。
+ * 差异只有 LogonType ⇒ 器物定档 InteractiveToken:任务跑在交互会话(用户不登录则不跑,
+ * 本机为常登工作站可接受),窗口风险由派生进程 windowsHide 全覆盖顶住。
+ * 差异化教训:别把"S4U 是 guardian 的正确形态"当成"本机 S4U 可用"——同一 COM 接口,
+ * LogonType 一格之差就是成与败,凡机器事实按当次实测取值(§0)。
+ * 幂等:RegisterTaskDefinition flag 6 = TASK_CREATE_OR_UPDATE,重复执行安全。
+ */
+function buildInstallTaskPs1() {
+  const BS = String.fromCharCode(92)
+  return [
+    '$ErrorActionPreference = "Stop"',
+    '$svc = New-Object -ComObject Schedule.Service',
+    '$svc.Connect()',
+    '$folder = $svc.GetFolder("\\")',
+    '$def = $svc.NewTask(0)',
+    '$trig = $def.Triggers.Create(9)',
+    '$trig.StartBoundary = (Get-Date).AddMinutes(10).ToString("yyyy-MM-ddTHH:mm:ss")',
+    '$trig.Repetition.Interval = "PT1H"',
+    '$trig.Repetition.Duration = "P3650D"',
+    '$trig.Enabled = $true',
+    '$act = $def.Actions.Create(0)',
+    `$act.Path = "node.exe"`,
+    `$act.Arguments = "scripts/auto-evolve.mjs --once"`,
+    `$act.WorkingDirectory = "${ROOT.replace(/\//g, BS)}"`,
+    `$def.Principal.UserId = "${[process.env.USERDOMAIN ?? '', process.env.USERNAME ?? ''].join(BS)}"`,
+    '$def.Principal.LogonType = 3',
+    '$folder.RegisterTaskDefinition("IHUI-AI auto-evolve", $def, 6, $null, $null, 3) | Out-Null',
+    '$t = $folder.GetTask("IHUI-AI auto-evolve")',
+    'Write-Output ("STATE=" + $t.State + " INTERVAL=" + $t.Definition.Triggers.Item(1).Repetition.Interval + " CMD=" + $t.Definition.Actions.Item(1).Arguments)',
+  ].join('\r\n')
+}
+
+function installTask({ apply = false } = {}) {
+  mkdirSync(TMP_DIR, { recursive: true })
+  const ps1 = join(TMP_DIR, 'register-auto-evolve-task.ps1')
+  writeFileSync(ps1, buildInstallTaskPs1(), 'utf8')
+  if (!apply) {
+    console.log(`注册脚本已生成:${ps1}(InteractiveToken 档,每小时;--apply 执行真注册)`)
+    return
+  }
+  const PS51 = 'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+  if (!existsSync(PS51)) {
+    console.error('❌ 未判定:Windows PowerShell 5.1 不在位(注册通道的唯一可用宿主)')
+    process.exitCode = 2
+    return
+  }
+  const r = spawnSync(PS51, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ps1], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    windowsHide: true,
+    timeout: 90_000,
+    encoding: 'utf8',
+  })
+  const out = String(r.stdout ?? '')
+  if (r.status === 0 && /STATE=3\s+INTERVAL=PT1H/.test(out)) {
+    console.log(`✅ 计划任务已注册(IHUI-AI auto-evolve,每小时,InteractiveToken):${out.trim()}`)
+    record({ mode: 'install', action: 'task-registered', why: out.trim() })
+  } else {
+    console.error(`❌ 注册未判定(status=${r.status}):${(String(r.stderr ?? '')).slice(-200) || out.slice(-200)}`)
+    process.exitCode = 2
+  }
 }
 
 function selfTest() {
@@ -720,7 +774,7 @@ if (isDirectRun) {
 async function main(args) {
   if (args.includes('--self-test')) return selfTest()
   if (args.includes('--status')) return printStatus()
-  if (args.includes('--install-task')) return installTaskCommand()
+  if (args.includes('--install-task')) return installTask({ apply: args.includes('--apply') })
   if (args.includes('--probe')) {
     let gates
     try {
@@ -733,7 +787,21 @@ async function main(args) {
     return probeSession({ gates, dryRun: args.includes('--dry-run') })
   }
   if (args.includes('--dry-run')) return runOnce({ dryRun: true })
-  return runOnce({ dryRun: false })
+  const out = await runOnce({ dryRun: false })
+  // 感知层顺带轮(第 1 期 auto-triage):派发轮完成后独立进程跑一次分诊;
+  // 它的失败不顶红派发轮(未判定记它自己的台账),产出受它自己的每日配额约束。
+  if (!args.includes('--no-triage')) {
+    const tr = spawnSync(process.execPath, [join(ROOT, 'scripts', 'auto-triage.mjs'), '--once'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      windowsHide: true,
+      timeout: 180_000,
+      encoding: 'utf8',
+    })
+    const tOut = String(tr.stdout ?? '').trim()
+    if (tOut) console.log(`── 感知层分诊轮 ──\n${tOut}`)
+  }
+  return out
 }
 
 export const __test__ = {
