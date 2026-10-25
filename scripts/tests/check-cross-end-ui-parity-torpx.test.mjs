@@ -8,7 +8,7 @@
 // 这把尺子只判内存表达式 + 三枚真仓 blob,秒级可复跑,派单与收尾都能当场取证。
 // 判据一律 import 源脚本的 `__test__` 与共享 lib 出口,本件零复制(§0.6/§22c)。
 //
-// 四条用例的来源:取证报告 `.ihui-agent/tmp/goal-concurrency-2026-10-24/gate128-css.md`
+// 五条用例的来源:取证报告 `.ihui-agent/tmp/goal-concurrency-2026-10-24/gate128-css.md`
 // —— ScreenStates 族 5 枚几何(8/12/16/44/92)+ 1 枚 RD(4)全是假分叉,而 `200` 是唯一真差异。
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -173,10 +173,37 @@ test('C8 端到端:audit 里 ScreenStates 只剩 200 一枚真差异,未判定�
   assert.ok(f, '这一族从 findings 消失 —— 假分叉清零后真差异也必须留痕(消失不等于销账)')
   assert.deepEqual(f.geometry.onlyMiniapp, [200])
   assert.deepEqual(f.geometry.onlyRn, [])
-  assert.deepEqual(f.radius.onlyRn, [], 'RD 仅 RN 4 的假分叉未清')
+  assert.deepEqual(f.radius.onlyRn, [], `RD 仍有仅 RN 档:${f.radius.onlyRn.join('/')}`)
   assert.ok(
     Array.isArray(f.geoUnreadable) && f.geoUnreadable.every((s) => typeof s === 'string'),
     'geoUnreadable 没进 finding(未判定只在人读面有、机器面没有 = 下一票看不见)',
+  )
+})
+
+test('C8b 单源投影:空态徽章圆角两端同取 2xl 档(小程序不得再写 64rpx 真圆)', () => {
+  // 形态锁读工作树(与 T7 的台账取材纪律无关):钉的是"两端取同一份源",不是把磁盘数写回锚点。
+  const css = readFileSync(join(ROOT, MINI_CSS), 'utf8')
+  const rn = readFileSync(join(ROOT, RN), 'utf8')
+  const miniBlock = css.match(/\.ihui-state-glyph-circle\s*\{[^}]*\}/)?.[0] ?? ''
+  const rnBlock = rn.match(/stateGlyphCircle:\s*\{[^}]*\}/)?.[0] ?? ''
+  assert.equal(
+    miniBlock.match(/border-radius:\s*([^;]+);/)?.[1]?.trim(),
+    'var(--radius-2xl)',
+    '小程序徽章圆角没接 2xl 档(仍是一份端内魔数)',
+  )
+  assert.equal(
+    rnBlock.match(/borderRadius:\s*([^,]+),/)?.[1]?.trim(),
+    "rnRadius['2xl']",
+    'RN 徽章圆角没接 2xl 档',
+  )
+  assert.deepEqual(
+    radiusItemsInLine('  border-radius: var(--radius-2xl);', tbl).map((i) => i.px),
+    [16],
+  )
+  assert.deepEqual(
+    radiusItemsInLine("      borderRadius: rnRadius['2xl'],", tbl).map((i) => i.px),
+    [16],
+    '同一档在两端读成不同值 ⇒ 仍是两份真相',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
