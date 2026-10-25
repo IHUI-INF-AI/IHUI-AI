@@ -12,7 +12,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 import {
   AdvancedParamsPanel,
@@ -50,12 +50,11 @@ export const ImageEditQwen = React.memo(function ImageEditQwen() {
 
   const mutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await fetchApi<unknown>('/api/ai/dashscope/image-edit', {
+      const res = await api<unknown>('/api/ai/dashscope/image-edit', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      return res
     },
     onSuccess: () => toast.success(t('generateSuccess')),
     onError: (err: Error) => toast.error(err.message),

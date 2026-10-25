@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 
 const SIZES = ['1920x1080', '1080x1920', '1024x1024'] as const
@@ -53,13 +53,12 @@ export function VideoGenZhipu() {
 
   const mutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await fetchApi<ZhipuVideoSubmitResult>('/api/ai/zhipu/video', {
+      const res = await api<ZhipuVideoSubmitResult>('/api/ai/zhipu/video', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      if (!res.success) throw new Error(res.error)
-      if (!res.data?.id) throw new Error(t('noResult'))
-      return res.data.id
+      if (!res?.id) throw new Error(t('noResult'))
+      return res.id
     },
     onSuccess: (id) => {
       setUpstreamId(id)
@@ -71,11 +70,10 @@ export function VideoGenZhipu() {
   const { data: task } = useQuery({
     queryKey: ['zhipu-video-task', upstreamId],
     queryFn: async () => {
-      const res = await fetchApi<ZhipuVideoTaskResult>(`/api/ai/zhipu/video/tasks/${upstreamId}`, {
+      const res = await api<ZhipuVideoTaskResult>(`/api/ai/zhipu/video/tasks/${upstreamId}`, {
         method: 'GET',
       })
-      if (!res.success) throw new Error(res.error)
-      return res.data
+      return res
     },
     enabled: !!upstreamId,
     refetchInterval: (query) => {

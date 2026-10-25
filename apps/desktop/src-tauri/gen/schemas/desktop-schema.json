@@ -2523,16 +2523,40 @@
           "markdownDescription": "Enables the embedded_browser_dock_close_tab command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_dock_destroy command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-destroy",
+          "markdownDescription": "Enables the embedded_browser_dock_destroy command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_dock_devtools command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-dock-devtools",
           "markdownDescription": "Enables the embedded_browser_dock_devtools command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_dock_favorite_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-favorite-remove",
+          "markdownDescription": "Enables the embedded_browser_dock_favorite_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_favorite_toggle command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-favorite-toggle",
+          "markdownDescription": "Enables the embedded_browser_dock_favorite_toggle command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_dock_forward command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-dock-forward",
           "markdownDescription": "Enables the embedded_browser_dock_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_history_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-history-clear",
+          "markdownDescription": "Enables the embedded_browser_dock_history_clear command without any pre-configured scope."
         },
         {
           "description": "Enables the embedded_browser_dock_home command without any pre-configured scope.",
@@ -2581,6 +2605,12 @@
           "type": "string",
           "const": "allow-embedded-browser-dock-stop",
           "markdownDescription": "Enables the embedded_browser_dock_stop command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_store command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-store",
+          "markdownDescription": "Enables the embedded_browser_dock_store command without any pre-configured scope."
         },
         {
           "description": "Enables the embedded_browser_dock_switch_tab command without any pre-configured scope.",
@@ -3171,16 +3201,40 @@
           "markdownDescription": "Denies the embedded_browser_dock_close_tab command without any pre-configured scope."
         },
         {
+          "description": "Denies the embedded_browser_dock_destroy command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-destroy",
+          "markdownDescription": "Denies the embedded_browser_dock_destroy command without any pre-configured scope."
+        },
+        {
           "description": "Denies the embedded_browser_dock_devtools command without any pre-configured scope.",
           "type": "string",
           "const": "deny-embedded-browser-dock-devtools",
           "markdownDescription": "Denies the embedded_browser_dock_devtools command without any pre-configured scope."
         },
         {
+          "description": "Denies the embedded_browser_dock_favorite_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-favorite-remove",
+          "markdownDescription": "Denies the embedded_browser_dock_favorite_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_favorite_toggle command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-favorite-toggle",
+          "markdownDescription": "Denies the embedded_browser_dock_favorite_toggle command without any pre-configured scope."
+        },
+        {
           "description": "Denies the embedded_browser_dock_forward command without any pre-configured scope.",
           "type": "string",
           "const": "deny-embedded-browser-dock-forward",
           "markdownDescription": "Denies the embedded_browser_dock_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_history_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-history-clear",
+          "markdownDescription": "Denies the embedded_browser_dock_history_clear command without any pre-configured scope."
         },
         {
           "description": "Denies the embedded_browser_dock_home command without any pre-configured scope.",
@@ -3229,6 +3283,12 @@
           "type": "string",
           "const": "deny-embedded-browser-dock-stop",
           "markdownDescription": "Denies the embedded_browser_dock_stop command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_store command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-store",
+          "markdownDescription": "Denies the embedded_browser_dock_store command without any pre-configured scope."
         },
         {
           "description": "Denies the embedded_browser_dock_switch_tab command without any pre-configured scope.",

@@ -20,6 +20,7 @@
 import { createHash } from 'node:crypto'
 import { and, asc, desc, eq } from 'drizzle-orm'
 import {
+  TEAM_KNOWLEDGE_STATUSES,
   teamKnowledgeItems,
   teamKnowledgeRevisions,
   teamKnowledgeSpaceMembers,
@@ -34,6 +35,7 @@ import {
   type TeamKnowledgeSpace,
   type TeamKnowledgeStatus,
 } from '@ihui/database'
+import { coerceKnownOr } from '@ihui/types'
 import { db } from '../db/index.js'
 import { AppError } from '../errors/AppError.js'
 
@@ -202,9 +204,7 @@ export async function resolveEffectiveAccess(
   }
 
   if (candidates.length === 0) return null
-  return candidates.reduce((acc, cur) =>
-    ROLE_RANK[cur.role] > ROLE_RANK[acc.role] ? cur : acc,
-  )
+  return candidates.reduce((acc, cur) => (ROLE_RANK[cur.role] > ROLE_RANK[acc.role] ? cur : acc))
 }
 
 export function isTeamKnowledgeRole(value: unknown): value is TeamKnowledgeRole {
@@ -281,7 +281,9 @@ function toItemDTO(row: TeamKnowledgeItem): ItemDTO {
     content: (row.content ?? {}) as Record<string, unknown>,
     plainText: row.plainText,
     tags: Array.isArray(row.tags) ? row.tags : [],
-    status: row.status as TeamKnowledgeStatus,
+    // G-59/门 94 R4a:`status` 列是无约束 varchar,越界/未知值不得静默当合法状态 —— 落 `archived`
+    // (只读终态,即"不再产生副作用"的那一档),不把外部字符串原样透传给前端。
+    status: coerceKnownOr(row.status, TEAM_KNOWLEDGE_STATUSES, 'archived'),
     revision: row.revision,
     sourceRef: (row.sourceRef ?? null) as Record<string, unknown> | null,
     createdBy: row.createdBy,
@@ -339,7 +341,11 @@ export interface CreateSpaceInput {
  * 无人使用的需求输入的 admin 旁路就是 §5 警告的那类 fail-open 面。
  */
 export async function createSpace(actor: Actor, input: CreateSpaceInput): Promise<SpaceDTO> {
-  const [team] = await db.select({ id: teams.id }).from(teams).where(eq(teams.id, input.teamId)).limit(1)
+  const [team] = await db
+    .select({ id: teams.id })
+    .from(teams)
+    .where(eq(teams.id, input.teamId))
+    .limit(1)
   if (!team) throw new AppError('团队不存在', 404, 'TEAM_NOT_FOUND')
 
   const [membership] = await db
@@ -353,7 +359,8 @@ export async function createSpace(actor: Actor, input: CreateSpaceInput): Promis
   }
 
   const [row] = await db
-    .insert(teamKnowledgeSpaces)    .values({
+    .insert(teamKnowledgeSpaces)
+    .values({
       teamId: input.teamId,
       name: input.name,
       settings: input.settings ?? {},
@@ -562,7 +569,11 @@ export class RevisionConflictError extends AppError {
   readonly expectedRevision: number
 
   constructor(currentRevision: number, expectedRevision: number) {
-    super(`版本冲突:当前是 ${currentRevision},你基于 ${expectedRevision} 修改`, 409, 'REVISION_CONFLICT')
+    super(
+      `版本冲突:当前是 ${currentRevision},你基于 ${expectedRevision} 修改`,
+      409,
+      'REVISION_CONFLICT',
+    )
     this.name = 'RevisionConflictError'
     this.currentRevision = currentRevision
     this.expectedRevision = expectedRevision
@@ -579,7 +590,7 @@ export async function reviseItem(actor: Actor, input: ReviseItemInput): Promise<
 
   const before = summarize(item.title, item.status, item.content)
   const nextTitle = input.title ?? item.title
-  const nextContent = input.content ?? (item.content ?? {})
+  const nextContent = input.content ?? item.content ?? {}
   const nextStatus = item.status
   const nextRevision = item.revision + 1
 
@@ -644,11 +655,7 @@ export async function setItemStatus(actor: Actor, input: SetItemStatusInput): Pr
     revisionNo: nextRevision,
     // 归档与发布的动词分开,draft→published 之外的流转统一记 revise 会丢信息
     action:
-      input.status === 'published'
-        ? 'publish'
-        : input.status === 'archived'
-          ? 'archive'
-          : 'revise',
+      input.status === 'published' ? 'publish' : input.status === 'archived' ? 'archive' : 'revise',
     actorUserId: actor.userId,
     actorRole: access.role,
     before,

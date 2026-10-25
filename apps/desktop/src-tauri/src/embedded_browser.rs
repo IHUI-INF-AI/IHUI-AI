@@ -108,32 +108,37 @@ static WB_LOGIN_POLLING: AtomicBool = AtomicBool::new(false);
 /// (也会把"内嵌"这件事暴露给站点);显式伪装成 Chrome,与内核事实自洽。
 pub const CHROME_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-/// WebView2(Chromium 内核)启动参数 —— 压内存。
+/// 取主窗配置里的 `additional_browser_args`(WebView2 Environment 必须**逐字一致**)。
 ///
-/// 2026-10-16 立(用户反馈「子进程太多、内存太大」)。实测我们 App 单开 = 7 进程 /
-/// ~776 MB,是 Chromium 多进程模型的正常基线;本串把可调的几项压下去:
+/// ⚠️ **必须全 App 一致**:WebView2 同一 user-data-folder 下只有一套共享 Environment,
+/// 各 webview 的 options 一旦不一致就 `0x8007139F` 拒建(2026-10-13 白屏事故根因)。
+/// 而 Environment 由**第一个**建起来的 webview(主窗)定义,所以子 webview
+/// (停靠档 / 独立窗)只能**照抄主窗实际值**:主窗没配就什么都不传(传空串也算不一致)。
+/// 2026-10-24 实测:独立窗此前写死一份自己压内存的参数,`add_child` 失败后整个浏览器
+/// 被降级成单 webview 窗(多标签、工具条全丢),根因就是比主窗多了一段参数。
 ///
-/// - `--renderer-process-limit=2`:渲染进程上限(默认按 CPU 核数,可能起十几个)
-/// - `--js-flags=--max-old-space-size=256 --scavenger_max_new_space_capacity_mb=8`:
-///   压 V8 老生代/新生代堆(第二项取自微软官方 flags 文档示例值)
-/// - `--disk-cache-size=52428800`:磁盘缓存上限 50 MB
-/// - `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`:
-///   **必须原样保留** —— 这是 wry 的默认值,而只要显式传 `additionalBrowserArgs`
-///   就会**整体覆盖**默认(官方文档原话),漏掉等于把默认行为改坏。
+/// 想调 WebView2 启动参数(压内存等)只有一个入口:改主窗的
+/// `tauri.conf.json → app.windows[main].additionalBrowserArgs`,不要在各处另写常量 ——
+/// 那份参数只要显式传就会**整体覆盖** wry 默认值,因此必须原样保留 wry 默认的
+/// `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`。
+/// 反面清单(实测/官方明说会变差,禁止加):`--disable-background-timer-throttling`
+/// (增加后台 CPU 与内存)、`--disable-gpu`(丢 GPU 合成)、
+/// `--enable-features=msWebView2MemoryUsageTargetLevel:low`(该开关不存在,
+/// 官方机制是 API `SetMemoryUsageTargetLevel`,见 [`set_memory_low`])。
 ///
-/// ⚠️ **反面清单(实测/官方明说会变差,禁止加)**:
-/// - `--disable-background-timer-throttling` —— 会增加后台 CPU 与内存
-/// - `--disable-gpu` —— 丢掉 GPU 合成,渲染变差且省不了多少
-/// - `--enable-features=msWebView2MemoryUsageTargetLevel:low` —— **这个开关不存在**,
-///   官方机制是 API `SetMemoryUsageTargetLevel`,见 [`set_memory_low`]。
-///
-/// ⚠️ **必须全 App 一致**:WebView2 同一 user-data-folder 下,各 webview 的 options
-/// 一旦不一致就 `0x8007139F` 拒建(2026-10-13 白屏事故根因)。所以主窗(配置)、
-/// admin(lib.rs)、内嵌浏览器(本文件两处)**同用这一份常量**,一处漏传就开窗炸。
-pub const WEBVIEW2_BROWSER_ARGS: &str = "--renderer-process-limit=2 \
---disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
---js-flags=--max-old-space-size=256 --scavenger_max_new_space_capacity_mb=8 \
---disk-cache-size=52428800";
+/// 现行值(2026-10-25 A/B 实测,6 标签 / 20s 稳定态):
+/// - 不带 `--process-per-site`:渲染进程 8 个,合计私用 1153MB
+/// - 带 `--process-per-site`:渲染进程 5 个,合计 838MB(**-27%**)
+/// 代价是同站点的多个标签共用一个渲染进程(一个卡死会连带同站其它标签),
+/// 对本 App(最多 6~12 个标签、绝大多不同站)是划算的取舍。
+pub(crate) fn main_window_browser_args(app: &AppHandle) -> Option<String> {
+    app.config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == "main")
+        .and_then(|w| w.additional_browser_args.clone())
+}
 
 // ==================== 工具条注入脚本(纯 CSSOM,零 IPC) ====================
 
@@ -210,10 +215,97 @@ const BAR_JS: &str = r#"(function () {
   toolbar.appendChild(btn('\u2715', '停止', 'stop'));
   toolbar.appendChild(btn('\u2302', '主页', 'home'));
   toolbar.appendChild(urlInput);
+  // 收藏 / 历史(2026-10-24 用户要求「两种形态都该有」):独立窗口是裸 webview,
+  // 拿不到 web 端 store,数据来自宿主进程的 browser_store,由 __ihuiBarRender 推送。
+  var favBtn = btn('\u2606', '收藏', 'favorite-toggle');
+  favBtn.id = '__ihui_fav_btn';
+  toolbar.appendChild(favBtn);
+  // 「收藏夹 / 历史」是**本地下拉面板**,不走哨兵导航(不能用 btn:那个必然导航)。
+  function plainBtn(label, title, id) {
+    var b = el('button', {
+      width: '28px', height: '28px', 'line-height': '26px', flex: '0 0 auto',
+      background: 'transparent', color: '#cfcfcf', padding: '0',
+      border: '1px solid #333333', 'border-radius': '6px',
+      cursor: 'pointer', 'font-size': '14px'
+    }, label);
+    b.type = 'button';
+    b.title = title;
+    b.id = id;
+    b.addEventListener('mouseenter', function () { b.style.setProperty('background', '#2f2f2f'); });
+    b.addEventListener('mouseleave', function () { b.style.setProperty('background', 'transparent'); });
+    return b;
+  }
+  var favListBtn = plainBtn('\u2630', '收藏夹', '__ihui_fav_list_btn');
+  toolbar.appendChild(favListBtn);
+  var histBtn = plainBtn('\u231a', '历史', '__ihui_hist_btn');
+  toolbar.appendChild(histBtn);
   toolbar.appendChild(btn('\u2699', '开发者工具', 'devtools'));
   var pickBtn = btn('\u25ce', '元素点选', 'pick', 'on=1');
   toolbar.appendChild(pickBtn);
   toolbar.appendChild(btn('\u2715', '关闭窗口', 'close-window'));
+
+  // 下拉面板(收藏夹 / 历史共用;绝对定位在工具条下方)。注意本脚本在
+  // document-start 执行,document.body 可能还没有 —— 挂载统一放到 mount()。
+  var panel = el('div', {
+    position: 'fixed', top: TOTAL + 'px', right: '8px', width: '320px',
+    'max-height': '60vh', overflow: 'auto', background: '#1b1b1b',
+    border: '1px solid #333333', 'border-radius': '8px', 'box-shadow': '0 8px 24px rgba(0,0,0,0.5)',
+    display: 'none', 'z-index': '2147483647', padding: '6px', 'box-sizing': 'border-box'
+  });
+  panel.id = '__ihui_bar_panel';
+  function hidePanel() { panel.style.setProperty('display', 'none'); }
+  function renderList(kind) {
+    while (panel.firstChild) panel.removeChild(panel.firstChild);
+    var items = (kind === 'favorites') ? (lastState.favorites || []) : (lastState.history || []);
+    var head = el('div', {
+      display: 'flex', 'align-items': 'center', 'justify-content': 'space-between',
+      padding: '2px 6px 6px', color: '#9a9a9a', 'font-size': '12px'
+    });
+    head.appendChild(el('span', {}, kind === 'favorites' ? '收藏夹' : '历史记录'));
+    if (kind !== 'favorites') {
+      var clear = el('span', { cursor: 'pointer', color: '#7aa2f7', 'font-size': '12px' }, '清空');
+      clear.addEventListener('click', function () { window.__ihuiNav('history-clear'); });
+      head.appendChild(clear);
+    }
+    panel.appendChild(head);
+    if (!items.length) {
+      panel.appendChild(el('div', { padding: '10px 6px', color: '#777777', 'font-size': '12px' }, '暂无记录'));
+    }
+    items.forEach(function (it) {
+      var row = el('div', {
+        display: 'flex', 'align-items': 'center', gap: '6px', padding: '6px',
+        'border-radius': '6px', cursor: 'pointer', 'font-size': '12px', color: '#dcdcdc'
+      });
+      row.addEventListener('mouseenter', function () { row.style.setProperty('background', '#2a2a2a'); });
+      row.addEventListener('mouseleave', function () { row.style.setProperty('background', 'transparent'); });
+      var label = el('span', { flex: '1 1 auto', overflow: 'hidden', 'white-space': 'nowrap', 'text-overflow': 'ellipsis' }, it.title || it.url);
+      row.appendChild(label);
+      if (kind === 'favorites') {
+        var del = el('span', { 'flex': '0 0 auto', color: '#888888', cursor: 'pointer' }, '\u2715');
+        del.addEventListener('click', function (e) {
+          e.stopPropagation();
+          window.__ihuiNav('favorite-remove', 'u=' + encodeURIComponent(it.url));
+        });
+        row.appendChild(del);
+      }
+      row.addEventListener('click', function () {
+        hidePanel();
+        window.__ihuiNav('navigate', 'u=' + encodeURIComponent(it.url));
+      });
+      panel.appendChild(row);
+    });
+    panel.style.setProperty('display', 'block');
+  }
+  favListBtn.addEventListener('click', function () {
+    if (panel.style.getPropertyValue('display') === 'block' && panel.dataset.kind === 'favorites') { hidePanel(); return; }
+    panel.dataset.kind = 'favorites';
+    renderList('favorites');
+  });
+  histBtn.addEventListener('click', function () {
+    if (panel.style.getPropertyValue('display') === 'block' && panel.dataset.kind === 'history') { hidePanel(); return; }
+    panel.dataset.kind = 'history';
+    renderList('history');
+  });
 
   var newTabBtn = btn('+', '新建标签页', 'new-tab', 'u=' + encodeURIComponent('about:blank'));
   bar.appendChild(tabStrip);
@@ -222,6 +314,7 @@ const BAR_JS: &str = r#"(function () {
   function mount() {
     if (document.body && !document.getElementById('__ihui_browser_bar')) {
       document.body.appendChild(bar);
+      if (!document.getElementById('__ihui_bar_panel')) document.body.appendChild(panel);
       document.documentElement.style.setProperty('padding-top', TOTAL + 'px');
       document.documentElement.style.setProperty('box-sizing', 'border-box');
     }
@@ -239,9 +332,16 @@ const BAR_JS: &str = r#"(function () {
   } catch (e) {}
   function syncUrl() { if (document.activeElement !== urlInput) urlInput.value = location.href; }
 
-  var lastState = { tabs: [], picking: false };
+  var lastState = { tabs: [], picking: false, favorites: [], history: [] };
   window.__ihuiBarRender = function (s) {
     lastState = s || lastState;
+    // 收藏按钮:当前页已收藏 ⇒ 实心星
+    favBtn.textContent = s.favorited ? '\u2605' : '\u2606';
+    favBtn.title = s.favorited ? '取消收藏' : '收藏';
+    // 面板还开着就当数据旧了,重绘一次(收藏/历史刚被操作过)
+    if (panel.style.getPropertyValue('display') === 'block' && panel.dataset.kind) {
+      renderList(panel.dataset.kind);
+    }
     // 标签栏(降级单 webview 模式整条隐藏 —— 没有多标签可言)
     var multi = (s.multiTab !== false);
     tabStrip.style.setProperty('display', multi ? 'flex' : 'none');
@@ -347,6 +447,106 @@ pub(crate) const PICK_JS: &str = r#"(function () {
   };
 })();"#;
 
+/// 页内音频探针(2026-10-25)。
+///
+/// `IsDocumentPlayingAudio` 只认 `<audio>/<video>` 媒体元素:纯 WebAudio 的应用
+/// (在线白噪音、网页音乐播放器、游戏)在原生侧完全探测不到 ⇒ 切走后一冻结就没声。
+/// 本脚本补上这一段。
+///
+/// 做法:钩 `AudioScheduledSourceNode.prototype.start/stop`(OscillatorNode /
+/// AudioBufferSourceNode / ConstantSourceNode 的共同基类,覆盖绝大多数实际发声),
+/// 用 `ended` 事件维护"正在出声的源"计数;状态变化经哨兵导航回传(`audio?on=1|0`),
+/// 由 Rust 按标签记账(不再做 COM 探测,零阻塞)。
+///
+/// 三条守则:
+/// - 只在 `document.readyState === 'complete'` 后回传 —— 否则这次哨兵导航会打断
+///   正在加载的文档;
+/// - 状态没变不回传,且 800ms 去抖 —— 游戏每秒几十个音效不能变成哨兵洪水;
+/// - 全程 try/catch,且**先调用原方法再记账**:探针出问题绝不能拖垮页面自己的音频。
+///
+/// 盲区(已记录):AudioWorklet 自行合成的音频、WebAudio 之外的插件音频不计入。
+pub(crate) const AUDIO_PROBE_JS: &str = r##"(function () {
+  if (window.__ihuiAudioProbe) return;
+  window.__ihuiAudioProbe = true;
+  var SENTINEL = 'https://browser.ihui.invalid/audio?on=';
+  var ctxs = [];
+  var playing = 0;
+  var last = null;
+  var timer = 0;
+
+  function addCtx(ctx) {
+    if (!ctx) return;
+    for (var i = 0; i < ctxs.length; i++) if (ctxs[i] === ctx) return;
+    // 页面可能高频新建上下文:只留最近的 32 个,避免探针自己漏内存
+    if (ctxs.length >= 32) ctxs.shift();
+    ctxs.push(ctx);
+  }
+
+  function sounding() {
+    if (playing <= 0) return false;
+    for (var i = 0; i < ctxs.length; i++) {
+      try { if (ctxs[i].state === 'running') return true; } catch (e) {}
+    }
+    return false;
+  }
+
+  function send() {
+    try {
+      if (document.readyState !== 'complete') { schedule(); return; }
+      var now = sounding() ? '1' : '0';
+      if (now === last) return;
+      last = now;
+      location.href = SENTINEL + now;
+    } catch (e) {}
+  }
+
+  function schedule() {
+    if (timer) return;
+    timer = setTimeout(function () { timer = 0; send(); }, 800);
+  }
+
+  function release(node) {
+    try {
+      if (!node.__ihuiCounted) return;
+      node.__ihuiCounted = false;
+      playing = Math.max(0, playing - 1);
+      schedule();
+    } catch (e) {}
+  }
+
+  try {
+    var P = window.AudioScheduledSourceNode && window.AudioScheduledSourceNode.prototype;
+    if (P && P.start) {
+      var start = P.start;
+      var stop = P.stop;
+      P.start = function () {
+        var r = start.apply(this, arguments);
+        try {
+          var self = this;
+          if (!self.__ihuiCounted) {
+            self.__ihuiCounted = true;
+            addCtx(self.context);
+            playing += 1;
+            self.addEventListener('ended', function () { release(self); }, { once: true });
+            schedule();
+          }
+        } catch (e) {}
+        return r;
+      };
+      if (stop) {
+        P.stop = function () {
+          var r = stop.apply(this, arguments);
+          try { release(this); } catch (e) {}
+          return r;
+        };
+      }
+    }
+  } catch (e) {}
+
+  // 页面从后台恢复定时器后补报一次(用户手动点播放之类)
+  try { document.addEventListener('visibilitychange', schedule); } catch (e) {}
+})();"##;
+
 // ==================== 哨兵动作解析(纯函数,单测覆盖) ====================
 
 /// 工具条通过哨兵导航发来的动作。
@@ -364,8 +564,16 @@ pub enum SentinelAction {
     Devtools,
     Pick(bool),
     Picked(String),
+    /// 收藏/取消收藏当前页(2026-10-24:独立窗口与停靠档功能对齐)。
+    FavoriteToggle,
+    /// 删除一条收藏(u=url)。
+    FavoriteRemove(String),
+    /// 清空历史。
+    ClearHistory,
     /// 页面标题回传(停靠档的标签栏是 React 的,拿不到 DOM,只能由页内脚本带回)。
     Title(String),
+    /// 页内音频探针回传:`true` = 该标签正在出声(WebAudio 也算)。
+    Audio(bool),
     CloseWindow,
     /// 签到页(内嵌 tab 里的 aizhs.top/checkin)请求「浏览器登录 WorkBuddy」:
     /// 内容页无 IPC,只能借哨兵导航把意图带出来(2026-10-17 立)。
@@ -399,8 +607,12 @@ pub fn parse_sentinel(url: &Url) -> Option<SentinelAction> {
         "home" => SentinelAction::Home,
         "devtools" => SentinelAction::Devtools,
         "pick" => SentinelAction::Pick(q("on").as_deref() == Some("1")),
+        "favorite-toggle" => SentinelAction::FavoriteToggle,
+        "favorite-remove" => SentinelAction::FavoriteRemove(q("u").unwrap_or_default()),
+        "history-clear" => SentinelAction::ClearHistory,
         "picked" => SentinelAction::Picked(q("d").unwrap_or_default()),
         "title" => SentinelAction::Title(q("t").unwrap_or_default()),
+        "audio" => SentinelAction::Audio(q("on").as_deref() == Some("1")),
         "close-window" => SentinelAction::CloseWindow,
         "wb-checkin-login" => SentinelAction::WbCheckinLogin,
         _ => return None,
@@ -419,17 +631,36 @@ pub fn is_browsable_url(url: &str) -> bool {
 // ==================== 会话状态 ====================
 
 /// 一个标签页的元数据。
+///
+/// `label` / `discarded` / `hide_token` 是宿主内部账本,不进前端契约(serde skip):
+/// 前端只要 id/url/title,这三个字段只服务「空闲休眠后按 url 重建」。
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TabInfo {
     pub id: u64,
     pub url: String,
     pub title: String,
+    /// 当前 webview 的 label。**带世代号**:休眠丢弃后重建会换新 label,
+    /// Tauri 不允许同一个 label 二次注册(与停靠档同款做法)。
+    #[serde(skip)]
+    label: String,
+    /// 已空闲休眠:webview 已销毁、页面状态不保留;切回按 `url` 重载。
+    #[serde(skip)]
+    discarded: bool,
+    /// 每次切走 +1。后台维护任务拿自己那一轮的 token,过期即退出 ——
+    /// 否则「切走→切回→再切走」会让两轮任务同时盯同一个标签。
+    #[serde(skip)]
+    hide_token: u64,
+    /// 页内探针报上来的出声状态(WebAudio 等原生 API 探不到的音频)。
+    #[serde(skip)]
+    audio: bool,
 }
 
 #[derive(Default, Clone)]
 struct Session {
     next_id: u64,
+    /// webview label 的世代号(**不是**标签 id):休眠重建必须换 label。
+    next_label: u64,
     tabs: Vec<TabInfo>,
     active: Option<u64>,
     /// true = `Window::add_child`(unstable 多 webview)建窗失败,已降级为
@@ -467,19 +698,57 @@ pub struct BrowserStateDto {
     pub degraded: bool,
 }
 
-fn tab_label(id: u64) -> String {
-    format!("{TAB_LABEL_PREFIX}{id}")
+fn alloc_label(s: &mut Session) -> String {
+    s.next_label = s.next_label.saturating_add(1);
+    format!("{TAB_LABEL_PREFIX}{}", s.next_label)
+}
+
+/// 标签 id → 当前 webview label(休眠重建会换 label,不能从 id 反推)。
+fn label_of(app: &AppHandle, id: u64) -> Option<String> {
+    app.state::<BrowserManager>()
+        .with(|s| s.tabs.iter().find(|t| t.id == id).map(|t| t.label.clone()))
+}
+
+/// 某个 label 是不是独立窗口**当前活动**标签(焦点挂起循环用)。
+pub(crate) fn is_active_tab_label(app: &AppHandle, label: &str) -> bool {
+    app.state::<BrowserManager>().with(|s| {
+        s.active
+            .and_then(|id| s.tabs.iter().find(|t| t.id == id))
+            .map(|t| t.label == label)
+            .unwrap_or(false)
+    })
 }
 
 /// 取当前活动标签页的 webview(供签到探针读 cookie / url 用)。
 /// 降级模式(单 webview 窗)下,窗口 label 本身就是 webview label,直接取它。
 pub fn active_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
-    let (id, degraded) = app.state::<BrowserManager>().with(|s| (s.active, s.degraded));
+    let (label, degraded) = app.state::<BrowserManager>().with(|s| {
+        if s.degraded {
+            return (Some(BROWSER_WINDOW_LABEL.to_string()), true);
+        }
+        let label = s
+            .active
+            .and_then(|id| s.tabs.iter().find(|t| t.id == id))
+            .map(|t| t.label.clone());
+        (label, false)
+    });
     if degraded {
         return app.get_webview(BROWSER_WINDOW_LABEL);
     }
-    let id = id?;
-    app.get_webview(&tab_label(id))
+    app.get_webview(&label?)
+}
+
+/// 隐藏标签「安静」满这么久就休眠丢弃(销毁 webview,切回按 url 重载)。
+///
+/// 停靠档与独立窗口**共用**同一阈值:`IHUI_TAB_IDLE_DISCARD_SECS` 覆盖(最小 5s),
+/// 默认 15 分钟 —— 比 Chrome 的 Memory Saver 保守,但足够把"开一堆标签忘了关"
+/// 的内存还回去。
+pub(crate) fn idle_discard_threshold() -> Duration {
+    let secs = std::env::var("IHUI_TAB_IDLE_DISCARD_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(900);
+    Duration::from_secs(secs.max(5))
 }
 
 /// 把某个 webview 的内存目标档位切到 Low / Normal(Windows / WebView2)。
@@ -547,7 +816,7 @@ pub fn set_memory_low(webview: &tauri::webview::Webview, low: bool) {
 pub fn set_suspend(webview: &tauri::webview::Webview, suspend: bool) {
     #[cfg(windows)]
     {
-        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_3;
+        use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2_3, ICoreWebView2_8};
         use webview2_com::TrySuspendCompletedHandler;
         use windows_core::Interface;
         let _ = webview.with_webview(move |pw| {
@@ -564,6 +833,20 @@ pub fn set_suspend(webview: &tauri::webview::Webview, suspend: bool) {
                 Err(_) => return,
             };
             if suspend {
+                // 可听标签不冻结(2026-10-25,用户要求「后台音乐/视频不被掐断」):
+                // Chrome 同样不冻结正在放声音的标签。音频停了之后由停靠档的后台
+                // 维护任务再次尝试(见 embedded_browser_dock::maintain_hidden_tab)。
+                if let Ok(v8) = core.cast::<ICoreWebView2_8>() {
+                    // 这个属性是 out 参数式 API(`*mut BOOL`),不是返回值式
+                    let mut flag = windows_core::BOOL(0);
+                    let playing = unsafe { v8.IsDocumentPlayingAudio(&mut flag) }
+                        .map(|_| flag.as_bool())
+                        .unwrap_or(false);
+                    if playing {
+                        log::debug!("[embedded-browser] 标签正在播放声音,跳过挂起");
+                        return;
+                    }
+                }
                 let handler = TrySuspendCompletedHandler::create(Box::new(|hr, did_suspend: bool| {
                     if let Err(e) = hr {
                         log::debug!("[embedded-browser] TrySuspend 报错: {e}");
@@ -589,6 +872,44 @@ pub fn set_suspend(webview: &tauri::webview::Webview, suspend: bool) {
     }
 }
 
+/// 页面是否正在播放声音(`ICoreWebView2_8`;Runtime 太旧 cast 失败 ⇒ None)。
+///
+/// 用途只有一个:**决定能不能冻结/休眠**。可听标签被冻结 = 后台音乐、视频、
+/// 语音通话被掐断,所以停靠档的后台维护任务每轮先问这里。
+///
+/// `with_webview` 是把闭包投到 WebView2 UI 线程执行(`Send + 'static`,拿不到返回值),
+/// 故用一次性 channel 把结果带回(最多等 600ms)。**只能在非主线程调用** ——
+/// 本函数唯一调用方是 tokio 上的维护任务。
+pub fn is_audio_playing(webview: &tauri::webview::Webview) -> Option<bool> {
+    #[cfg(windows)]
+    {
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_8;
+        use windows_core::Interface;
+        let (tx, rx) = std::sync::mpsc::channel();
+        webview
+            .with_webview(move |pw| {
+                let controller = pw.controller();
+                let playing = unsafe { controller.CoreWebView2() }
+                    .ok()
+                    .and_then(|core| core.cast::<ICoreWebView2_8>().ok())
+                    .and_then(|v8| {
+                        let mut flag = windows_core::BOOL(0);
+                        unsafe { v8.IsDocumentPlayingAudio(&mut flag) }
+                            .ok()
+                            .map(|_| flag.as_bool())
+                    });
+                let _ = tx.send(playing);
+            })
+            .ok()?;
+        rx.recv_timeout(Duration::from_millis(600)).ok().flatten()
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = webview;
+        None
+    }
+}
+
 /// 对整个内嵌浏览器(当前活动标签页)设置内存档位。
 #[allow(dead_code)]
 pub fn set_active_memory_low(app: &AppHandle, low: bool) {
@@ -597,8 +918,193 @@ pub fn set_active_memory_low(app: &AppHandle, low: bool) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// 标签级冻结(2026-10-24 用户要求「按第一种方案加标签冻结」)
+// ---------------------------------------------------------------------------
+//
+// 背景:隐藏标签用 `hide()` 只保活、不省内存 —— 它的渲染进程照样占着(和 Chrome
+// 后台标签同理),开满 8 个标签就是 8 份内存。这里在切走后把隐藏 webview 用
+// WebView2 官方 `TrySuspend` **真正冻结**(渲染进程挂起、JS/定时器停摆,页面状态保留),
+// 切回来 `Resume` 无重载闪烁。
+//
+// 两个必须注意的点:
+// 1. `TrySuspend` 只在 webview **不可见**时才会真正生效,所以顺序是先 `hide()` 再挂起;
+//    且隐藏/可见切换由 UI 线程异步落地,这里延迟 250ms 再挂起(best-effort,失败只记 debug)。
+// 2. 用户可能很快切回:延迟任务在挂起前再确认一次「这个标签现在仍不是活动标签」,
+//    否则会把刚展示出来的页面冻住。恢复则必须**先 Resume 再 show**,否则窗口会白一帧。
+
+/// 切走标签:隐藏 + 冻结,并起后台维护链(安静满阈值 ⇒ 空闲休眠丢弃)。
+///
+/// 2026-10-25 与停靠档对齐:此前独立窗口只有冻结、没有丢弃 —— 12 个标签开一天,
+/// 闲置的渲染进程一直占着。现在同一套策略:隐藏 ⇒ TrySuspend ⇒ 安静够久 close()。
+fn hide_and_suspend_tab(app: &AppHandle, id: u64) {
+    let got = app.state::<BrowserManager>().with(|s| {
+        let t = s.tabs.iter_mut().find(|t| t.id == id)?;
+        if t.discarded {
+            return None;
+        }
+        t.hide_token += 1;
+        Some((t.label.clone(), t.hide_token))
+    });
+    let Some((label, token)) = got else {
+        return;
+    };
+    let Some(wv) = app.get_webview(&label) else {
+        return;
+    };
+    let _ = wv.hide();
+    // 隐藏标签把内存目标档位也调到 Low(与挂起互补:挂起管渲染进程,档位管运行时策略)
+    set_memory_low(&wv, true);
+    tauri::async_runtime::spawn(maintain_hidden_tab(app.clone(), id, label, token));
+}
+
+/// 隐藏标签的后台维护:挂起 → 可听不冻 → 安静够久就休眠(销毁 webview)。
+async fn maintain_hidden_tab(app: AppHandle, id: u64, label: String, token: u64) {
+    // 这一轮任务是否仍然有效:标签还在、token 没被下一轮顶掉、webview 没换 label、
+    // 且此刻确实不是活动标签(用户可能已经切回来)。
+    let valid = || {
+        app.state::<BrowserManager>().with(|s| {
+            s.tabs.iter().any(|t| {
+                t.id == id && t.hide_token == token && !t.discarded && t.label == label
+            }) && s.active != Some(id)
+        })
+    };
+
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    if !valid() {
+        return;
+    }
+    if let Some(wv) = app.get_webview(&label) {
+        set_memory_low(&wv, true);
+        // 页内探针说正在出声(WebAudio 等原生探不到的音)⇒ 先别冻结;
+        // 隐藏不等于挂起,页面 JS 还会跑,音频停下会自己回传 on=0。
+        if !label_is_audio_playing(&app, &label) {
+            set_suspend(&wv, true);
+        }
+    }
+
+    let threshold = idle_discard_threshold();
+    // "安静"从隐藏那一刻算起;检测到出声就重置(正在放歌/通话的标签不休眠)。
+    let mut silent_since = Instant::now();
+    loop {
+        tokio::time::sleep(Duration::from_secs(30)).await;
+        if !valid() {
+            return;
+        }
+        let Some(wv) = app.get_webview(&label) else {
+            return;
+        };
+        if is_audio_playing(&wv).unwrap_or(false) || label_is_audio_playing(&app, &label) {
+            silent_since = Instant::now();
+            continue;
+        }
+        if silent_since.elapsed() >= threshold {
+            discard_tab(&app, id);
+            return;
+        }
+        // 补挂起:切走时页面可能还在导航,那一次 `TrySuspend` 没生效且不会自动重试。
+        set_memory_low(&wv, true);
+        set_suspend(&wv, true);
+    }
+}
+
+/// 销毁一个隐藏标签的 webview,保留标签条目(切回按 url 重载)。
+fn discard_tab(app: &AppHandle, id: u64) {
+    let label = app.state::<BrowserManager>().with(|s| {
+        // 正在看的标签绝不休眠
+        if s.active == Some(id) {
+            return None;
+        }
+        let t = s.tabs.iter_mut().find(|t| t.id == id)?;
+        // 出声中的标签不休眠(WebAudio 探针报上来的也要算)
+        if t.discarded || t.audio {
+            return None;
+        }
+        t.discarded = true;
+        t.hide_token += 1;
+        Some(t.label.clone())
+    });
+    let Some(label) = label else {
+        return;
+    };
+    if let Some(wv) = app.get_webview(&label) {
+        let _ = wv.close();
+    }
+    log::debug!("[embedded-browser] 独立窗口标签 {id} 空闲超时,已休眠(切回按 url 重载)");
+}
+
+/// 切回标签:先 Resume 再显示(页面状态保留,不重载)。
+fn resume_and_show_tab(webview: &tauri::webview::Webview) {
+    set_suspend(webview, false);
+    set_memory_low(webview, false);
+    let _ = webview.show();
+    let _ = webview.set_focus();
+}
+
+/// 取标签的 webview;已被空闲休眠的按存的 url **重建**(新 label)。
+///
+/// 不存在且未标记 discarded ⇒ None(webview 意外丢失,调用方按"没东西可显示"处理)。
+fn ensure_tab_webview(app: &AppHandle, id: u64) -> Option<tauri::webview::Webview> {
+    let (label, discarded, url) = app.state::<BrowserManager>().with(|s| {
+        let t = s.tabs.iter().find(|t| t.id == id)?;
+        Some((t.label.clone(), t.discarded, t.url.clone()))
+    })?;
+    if let Some(wv) = app.get_webview(&label) {
+        return Some(wv);
+    }
+    if !discarded {
+        return None;
+    }
+    let window = app.get_window(BROWSER_WINDOW_LABEL)?;
+    let parsed = url.parse::<Url>().ok()?;
+    let size = window.inner_size().ok()?;
+    let new_label = app.state::<BrowserManager>().with(alloc_label);
+    let builder = build_tab_builder(app, new_label.clone(), id, parsed).auto_resize();
+    spawn_tab_webview(&window, builder, size).ok()?;
+    app.state::<BrowserManager>().with(|s| {
+        if let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) {
+            t.label = new_label.clone();
+            t.discarded = false;
+            t.hide_token += 1;
+        }
+    });
+    log::debug!("[embedded-browser] 独立窗口标签 {id} 已从休眠恢复(按 {url} 重载)");
+    app.get_webview(&new_label)
+}
+
+/// 后台标签加载完成后再补一次挂起。
+///
+/// 切走时页面若还在导航,`TrySuspend` 会返回 did_suspend=false 且**不会自动重试** ——
+/// 不补这一下,后台标签就一直占着渲染进程。降级档(单 webview 窗)没有后台标签,跳过。
+async fn suspend_tab_if_inactive(app: &AppHandle, tab_id: u64, label: &str) {
+    let inactive = || {
+        app.state::<BrowserManager>()
+            .with(|s| s.active != Some(tab_id) && !s.degraded)
+    };
+    if !inactive() {
+        return;
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+    if !inactive() {
+        return;
+    }
+    if let Some(wv) = app.get_webview(label) {
+        set_memory_low(&wv, true);
+        set_suspend(&wv, true);
+    }
+}
+
+/// 工具条是否显示标签栏(降级单 webview 窗没有多标签可言)。
+///
+/// 抽成纯函数是为了单测:构造 `AppHandle` 需要真跑一个 Tauri 应用。
+fn multi_tab(s: &Session) -> bool {
+    !s.degraded
+}
+
 /// 生成推给页面工具条的状态 JSON。
-fn bar_state_json(s: &Session) -> serde_json::Value {
+/// 工具条状态(标签 + 地址 + 收藏/历史)。收藏/历史由 `browser_store` 提供,
+/// 独立窗口是裸 webview,拿不到 web 端 store(见 browser_store 模块头)。
+fn bar_state_json(app: &AppHandle, s: &Session) -> serde_json::Value {
     let tabs: Vec<serde_json::Value> = s
         .tabs
         .iter()
@@ -616,7 +1122,18 @@ fn bar_state_json(s: &Session) -> serde_json::Value {
         .and_then(|id| s.tabs.iter().find(|t| t.id == id))
         .map(|t| t.url.clone())
         .unwrap_or_default();
-    serde_json::json!({ "tabs": tabs, "url": url, "picking": false, "multiTab": !s.degraded })
+    // 一次取快照(带缓存),收藏列表与"当前页是否已收藏"同源,避免两把锁两次 clone
+    let store = crate::browser_store::snapshot_arc(app);
+    let favorited = !url.is_empty() && store.favorites.iter().any(|f| f.url == url);
+    serde_json::json!({
+        "tabs": tabs,
+        "url": url,
+        "picking": false,
+        "multiTab": multi_tab(s),
+        "favorites": store.favorites,
+        "history": store.history,
+        "favorited": favorited,
+    })
 }
 
 /// 把状态渲染进某个 webview 的工具条。
@@ -624,21 +1141,64 @@ fn push_bar_state(app: &AppHandle, webview_label: &str, s: &Session) {
     if let Some(wv) = app.get_webview(webview_label) {
         let js = format!(
             "if(window.__ihuiBarRender){{window.__ihuiBarRender({});}}",
-            bar_state_json(s)
+            bar_state_json(app, s)
         );
         let _ = wv.eval(js);
     }
 }
 
-/// 更新当前标签标题(`title` 哨兵回传;BAR_JS 直读 DOM,这里保持会话一致)。
-fn update_active_tab_title(app: &AppHandle, title: String) {
+/// 按标签 id 改标题(`title` 哨兵回传用;BAR_JS 直读 DOM,这里保持会话一致)。
+/// 返回是否真的变了。
+fn update_tab_title(app: &AppHandle, id: u64, title: &str) -> bool {
     app.state::<BrowserManager>().with(|s| {
-        if let Some(id) = s.active {
-            if let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) {
-                t.title = title;
-            }
+        let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) else {
+            return false;
+        };
+        if t.title == title {
+            return false;
         }
-    });
+        t.title = title.to_string();
+        true
+    })
+}
+
+/// 记下某个标签的出声状态(页内探针回传)。
+fn set_tab_audio(app: &AppHandle, id: u64, on: bool) -> bool {
+    app.state::<BrowserManager>().with(|s| {
+        let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) else {
+            return false;
+        };
+        if t.audio == on {
+            return false;
+        }
+        t.audio = on;
+        true
+    })
+}
+
+/// 该 webview 的页内探针是否报"正在出声"(只看 WebAudio 一路,媒体元素见
+/// [`is_audio_playing`])。维护任务与焦点挂起循环都读这里,零 COM 开销。
+pub fn label_is_audio_playing(app: &AppHandle, label: &str) -> bool {
+    app.state::<BrowserManager>()
+        .with(|s| s.tabs.iter().find(|t| t.label == label).map(|t| t.audio).unwrap_or(false))
+}
+
+fn update_active_tab_title(app: &AppHandle, title: String) -> bool {
+    app.state::<BrowserManager>().with(|s| {
+        let Some(id) = s.active else {
+            return false;
+        };
+        let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) else {
+            return false;
+        };
+        // 标题没变就不刷工具条:SPA 常把未读数写进 title,几十毫秒一次,
+        // 每来一次都重推全量状态(含收藏/历史)并重建标签栏 DOM,纯属烧 CPU。
+        if t.title == title {
+            return false;
+        }
+        t.title = title;
+        true
+    })
 }
 
 /// 把状态推给当前活动标签页(不持锁调用,避免在锁内做 eval)。
@@ -649,8 +1209,12 @@ fn refresh_active_bar(app: &AppHandle) {
         push_bar_state(app, BROWSER_WINDOW_LABEL, &snapshot);
         return;
     }
-    if let Some(id) = snapshot.active {
-        push_bar_state(app, &tab_label(id), &snapshot);
+    if let Some(label) = snapshot
+        .active
+        .and_then(|id| snapshot.tabs.iter().find(|t| t.id == id))
+        .map(|t| t.label.clone())
+    {
+        push_bar_state(app, &label, &snapshot);
     }
 }
 
@@ -666,18 +1230,19 @@ fn build_tab_builder(
 ) -> WebviewBuilder<tauri::Wry> {
     let app_for_nav = app.clone();
     let app_for_load = app.clone();
-    WebviewBuilder::new(label, WebviewUrl::External(url))
+    let label_for_load = label.clone();
+    let mut builder = WebviewBuilder::new(label, WebviewUrl::External(url))
         .user_agent(CHROME_UA)
-        .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
         .devtools(true)
         .background_color(Color(0x24, 0x24, 0x24, 0xff))
         .initialization_script(BAR_JS)
         .initialization_script(PICK_JS)
+        .initialization_script(AUDIO_PROBE_JS)
         .on_navigation(move |url| {
             if let Some(action) = parse_sentinel(url) {
                 let a = app_for_nav.clone();
                 tauri::async_runtime::spawn(async move {
-                    handle_sentinel(a, action).await;
+                    handle_sentinel(a, action, Some(tab_id)).await;
                 });
                 false // 取消真实导航
             } else {
@@ -689,18 +1254,43 @@ fn build_tab_builder(
             // 直接用 document.title 呈现,见 BAR_JS),否则标签栏/地址栏停在建窗初值。
             let app = app_for_load.clone();
             let url = payload.url().to_string();
+            // payload 是借用,不能进 'static 任务:先把是否「加载完成」拷出来
+            let finished = payload.event() == tauri::webview::PageLoadEvent::Finished;
+            let label = label_for_load.clone();
             tauri::async_runtime::spawn(async move {
-                app.state::<BrowserManager>().with(|s| {
-                    if let Some(tab) = s.tabs.iter_mut().find(|t| t.id == tab_id) {
-                        tab.url = url.clone();
-                        if tab.title.is_empty() {
-                            tab.title = url.clone();
+                let title = app.state::<BrowserManager>().with(|s| {
+                    let t = s.tabs.iter_mut().find(|t| t.id == tab_id);
+                    match t {
+                        Some(tab) => {
+                            tab.url = url.clone();
+                            if tab.title.is_empty() {
+                                tab.title = url.clone();
+                            }
+                            tab.title.clone()
                         }
+                        None => String::new(),
                     }
                 });
-                refresh_active_bar(&app);
+                // 历史(2026-10-24):独立窗口的访问记录存宿主进程,供工具条「历史」用
+                if finished {
+                    crate::browser_store::record_visit(&app, &url, &title);
+                }
+                // 先刷工具条,再补挂起(补挂要等 800ms,不能拖慢 UI)。
+                // 后台标签加载完不必推:活动页的 lastState 没变,推一次等于白跑
+                // 一包 JSON 序列化 + 一次 eval;切回去时 switch_tab 会重推。
+                if is_active_tab_label(&app, &label) {
+                    refresh_active_bar(&app);
+                }
+                if finished {
+                    suspend_tab_if_inactive(&app, tab_id, &label).await;
+                }
             });
-        })
+        });
+    // Environment 参数照抄主窗,见 [`main_window_browser_args`]
+    if let Some(args) = main_window_browser_args(app) {
+        builder = builder.additional_browser_args(&args);
+    }
+    builder
 }
 
 /// 一个标签页的内容 webview,建好并按父窗口尺寸铺满。
@@ -732,7 +1322,7 @@ fn spawn_degraded_window(
         s.next_id
     });
     let app_for_nav = app.clone();
-    tauri::WebviewWindowBuilder::new(
+    let mut builder = tauri::WebviewWindowBuilder::new(
         app,
         BROWSER_WINDOW_LABEL,
         WebviewUrl::External(parsed.clone()),
@@ -745,27 +1335,36 @@ fn spawn_degraded_window(
     .decorations(true)
     .background_color(Color(0x24, 0x24, 0x24, 0xff))
     .user_agent(CHROME_UA)
-    .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
     .initialization_script(BAR_JS)
     .initialization_script(PICK_JS)
     .on_navigation(move |url| {
         if let Some(action) = parse_sentinel(url) {
             let a = app_for_nav.clone();
             tauri::async_runtime::spawn(async move {
-                handle_sentinel(a, action).await;
+                // 降级档只有一个 webview,来源就是它自己
+                handle_sentinel(a, action, Some(id)).await;
             });
             false
         } else {
             true
         }
-    })
-    .build()
-    .map_err(|e| IpcError::internal(format!("内嵌浏览器窗口创建失败: {e}")))?;
+    });
+    if let Some(args) = main_window_browser_args(app) {
+        builder = builder.additional_browser_args(&args);
+    }
+    builder
+        .build()
+        .map_err(|e| IpcError::internal(format!("内嵌浏览器窗口创建失败: {e}")))?;
     app.state::<BrowserManager>().with(|s| {
         s.tabs.push(TabInfo {
             id,
             url: parsed.to_string(),
             title: parsed.to_string(),
+            // 降级窗:窗口 label 就是 webview label
+            label: BROWSER_WINDOW_LABEL.to_string(),
+            discarded: false,
+            hide_token: 0,
+            audio: false,
         });
         s.active = Some(id);
         s.degraded = true;
@@ -783,13 +1382,14 @@ fn add_tab_webview(
     window: &tauri::Window,
     app: &AppHandle,
     id: u64,
+    label: String,
     url: &Url,
 ) -> Result<(), IpcError> {
     let size = window
         .inner_size()
         .map_err(|e| IpcError::internal(format!("取窗口尺寸失败: {e}")))?;
     // 内容 webview 随窗口缩放(auto_resize);降级路不需要(webview 即窗口)。
-    let builder = build_tab_builder(app, tab_label(id), id, url.clone()).auto_resize();
+    let builder = build_tab_builder(app, label, id, url.clone()).auto_resize();
     spawn_tab_webview(window, builder, size)
 }
 
@@ -847,11 +1447,12 @@ pub async fn open_or_navigate(
         }
     };
 
-    let id = app.state::<BrowserManager>().with(|s| {
+    let (id, label) = app.state::<BrowserManager>().with(|s| {
         s.next_id += 1;
-        s.next_id
+        let label = alloc_label(s);
+        (s.next_id, label)
     });
-    if let Err(e) = add_tab_webview(&window, &app, id, &parsed) {
+    if let Err(e) = add_tab_webview(&window, &app, id, label.clone(), &parsed) {
         log::warn!("[embedded-browser] add_child 失败,降级单 webview: {e}");
         let _ = window.close();
         return spawn_degraded_window(&app, title, parsed);
@@ -861,6 +1462,10 @@ pub async fn open_or_navigate(
             id,
             url: parsed.to_string(),
             title: parsed.to_string(),
+            label,
+            discarded: false,
+            hide_token: 0,
+            audio: false,
         });
         s.active = Some(id);
         s.degraded = false;
@@ -871,18 +1476,29 @@ pub async fn open_or_navigate(
 // ==================== 哨兵动作处理 ====================
 
 /// 处理工具条动作。跑在工作线程上(可安全调用 `add_child`/`hide`/`show`)。
-async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
+///
+/// `source_tab` = 发这个哨兵的 webview 属于哪个标签。标题回传必须认来源:
+/// 后台标签也会改 document.title(未读数之类),一律写到"活动标签"上是错的。
+async fn handle_sentinel(app: AppHandle, action: SentinelAction, source_tab: Option<u64>) {
     let Some(window) = app.get_window(BROWSER_WINDOW_LABEL) else {
         return;
     };
     let active_wv = || -> Option<tauri::webview::Webview> {
-        let (id, degraded) = app.state::<BrowserManager>().with(|s| (s.active, s.degraded));
+        let (label, degraded) = app.state::<BrowserManager>().with(|s| {
+            if s.degraded {
+                return (Some(BROWSER_WINDOW_LABEL.to_string()), true);
+            }
+            let label = s
+                .active
+                .and_then(|id| s.tabs.iter().find(|t| t.id == id))
+                .map(|t| t.label.clone());
+            (label, false)
+        });
         if degraded {
             // 降级:窗口 label == webview label
             return app.get_webview(BROWSER_WINDOW_LABEL);
         }
-        let id = id?;
-        app.get_webview(&tab_label(id))
+        app.get_webview(&label?)
     };
 
     match action {
@@ -948,10 +1564,64 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             // 独立窗口的标签栏在页内(BAR_JS 直接读 document.title),不需要这个;
             // 真正用到的是停靠档(React 标签栏)。这里只更新会话标题保持两套一致。
             let title = percent_decode(&t);
-            if !title.trim().is_empty() {
-                update_active_tab_title(&app, title);
+            if title.trim().is_empty() {
+                return;
+            }
+            let changed = match source_tab {
+                Some(id) => update_tab_title(&app, id, &title),
+                None => update_active_tab_title(&app, title.clone()),
+            };
+            // 后台标签报标题只记账,不重推工具条(它此刻根本看不见);切回去时
+            // switch_tab 会重推一次。只有活动标签才值得 eval 一整包 JSON。
+            let active = source_tab
+                .map(|id| app.state::<BrowserManager>().with(|s| s.active == Some(id)))
+                .unwrap_or(true);
+            if changed && active {
                 refresh_active_bar(&app);
             }
+        }
+        SentinelAction::Audio(on) => {
+            // 页内探针只回传状态,不改 UI:记到来源标签上即可(切走时由维护任务读)
+            let target = source_tab
+                .or_else(|| app.state::<BrowserManager>().with(|s| s.active));
+            if let Some(id) = target {
+                set_tab_audio(&app, id, on);
+            }
+        }
+        SentinelAction::FavoriteToggle => {
+            // 收藏 / 取消收藏当前页(独立窗口)。当前 URL 取活动 webview 的真实落点。
+            let (url, title) = active_wv()
+                .and_then(|wv| wv.url().ok())
+                .map(|u| {
+                    let title = app
+                        .state::<BrowserManager>()
+                        .with(|s| {
+                            s.active
+                                .and_then(|id| s.tabs.iter().find(|t| t.id == id))
+                                .map(|t| t.title.clone())
+                        })
+                        .unwrap_or_default();
+                    (u.to_string(), title)
+                })
+                .unwrap_or_default();
+            if !url.is_empty() {
+                if crate::browser_store::is_favorite(&app, &url) {
+                    crate::browser_store::remove_favorite(&app, &url);
+                } else {
+                    crate::browser_store::add_favorite(&app, &url, &title);
+                }
+                refresh_active_bar(&app);
+            }
+        }
+        SentinelAction::FavoriteRemove(url) => {
+            if !url.is_empty() {
+                crate::browser_store::remove_favorite(&app, &url);
+                refresh_active_bar(&app);
+            }
+        }
+        SentinelAction::ClearHistory => {
+            crate::browser_store::clear_history(&app);
+            refresh_active_bar(&app);
         }
         SentinelAction::WbCheckinLogin => {
             // 签到页(内容页无 IPC)请求「浏览器登录 WorkBuddy」(2026-10-17 立):
@@ -991,11 +1661,12 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                     }
                     None
                 } else {
-                    let id = app.state::<BrowserManager>().with(|s| {
+                    let (id, label) = app.state::<BrowserManager>().with(|s| {
                         s.next_id += 1;
-                        s.next_id
+                        let label = alloc_label(s);
+                        (s.next_id, label)
                     });
-                    if let Err(e) = add_tab_webview(&window, &app, id, &login_url) {
+                    if let Err(e) = add_tab_webview(&window, &app, id, label.clone(), &login_url) {
                         log::warn!("[embedded-browser] wb-checkin-login 建登录标签失败: {e}");
                         WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
                         return;
@@ -1005,15 +1676,18 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                             id,
                             url: login_url.to_string(),
                             title: login_url.to_string(),
+                            label,
+                            discarded: false,
+                            hide_token: 0,
+                            audio: false,
                         });
                         let prev = s.active;
                         s.active = Some(id);
                         prev
                     });
                     if let Some(prev_id) = prev {
-                        if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
-                            let _ = wv.hide();
-                        }
+                        // 切走登录前的标签:隐藏并冻结,省下它的渲染进程内存
+                        hide_and_suspend_tab(&app, prev_id);
                     }
                     refresh_active_bar(&app);
                     Some(id)
@@ -1045,11 +1719,12 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                 _ => HOME_URL.to_string(),
             };
             let Ok(parsed) = target.parse::<Url>() else { return };
-            let id = app.state::<BrowserManager>().with(|s| {
+            let (id, label) = app.state::<BrowserManager>().with(|s| {
                 s.next_id += 1;
-                s.next_id
+                let label = alloc_label(s);
+                (s.next_id, label)
             });
-            if add_tab_webview(&window, &app, id, &parsed).is_err() {
+            if add_tab_webview(&window, &app, id, label.clone(), &parsed).is_err() {
                 return;
             }
             // 隐藏当前,激活新标签
@@ -1058,15 +1733,18 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                     id,
                     url: parsed.to_string(),
                     title: parsed.to_string(),
+                    label,
+                    discarded: false,
+                    hide_token: 0,
+                    audio: false,
                 });
                 let prev = s.active;
                 s.active = Some(id);
                 prev
             });
             if let Some(prev_id) = prev {
-                if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
-                    let _ = wv.hide();
-                }
+                // 切走旧标签:隐藏并冻结(见 hide_and_suspend_tab)
+                hide_and_suspend_tab(&app, prev_id);
             }
             refresh_active_bar(&app);
         }
@@ -1080,15 +1758,19 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                 });
                 return;
             }
-            let (remaining, new_active) = app.state::<BrowserManager>().with(|s| {
+            let (closing_label, remaining, new_active) = app.state::<BrowserManager>().with(|s| {
+                // label 要在 retain 前取 —— 移除后会话里就查不到了
+                let closing_label = s.tabs.iter().find(|t| t.id == i).map(|t| t.label.clone());
                 s.tabs.retain(|t| t.id != i);
                 if s.active == Some(i) {
                     s.active = s.tabs.last().map(|t| t.id);
                 }
-                (s.tabs.len(), s.active)
+                (closing_label, s.tabs.len(), s.active)
             });
-            if let Some(wv) = app.get_webview(&tab_label(i)) {
-                let _ = wv.close();
+            if let Some(label) = closing_label {
+                if let Some(wv) = app.get_webview(&label) {
+                    let _ = wv.close();
+                }
             }
             if remaining == 0 {
                 let _ = window.close();
@@ -1098,11 +1780,11 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                 return;
             }
             if let Some(id) = new_active {
-                if let Some(wv) = app.get_webview(&tab_label(id)) {
-                    let _ = wv.show();
-                    let _ = wv.set_focus();
+                // 接任的标签可能已被空闲休眠:先按 url 重建,再 Resume + 显示
+                if let Some(wv) = ensure_tab_webview(&app, id) {
+                    resume_and_show_tab(&wv);
+                    refresh_active_bar(&app);
                 }
-                refresh_active_bar(&app);
             }
         }
         SentinelAction::Switch(i) => {
@@ -1122,14 +1804,13 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             let Some(prev) = prev else { return };
             if let Some(pid) = prev {
                 if pid != i {
-                    if let Some(wv) = app.get_webview(&tab_label(pid)) {
-                        let _ = wv.hide();
-                    }
+                    // 切走的标签隐藏并冻结(见 hide_and_suspend_tab)
+                    hide_and_suspend_tab(&app, pid);
                 }
             }
-            if let Some(wv) = app.get_webview(&tab_label(i)) {
-                let _ = wv.show();
-                let _ = wv.set_focus();
+            // 目标标签可能已被空闲休眠:先按 url 重建(重建的那次也算一次导航)
+            if let Some(wv) = ensure_tab_webview(&app, i) {
+                resume_and_show_tab(&wv);
             }
             refresh_active_bar(&app);
         }
@@ -1197,8 +1878,8 @@ async fn run_wb_checkin_login_watch(app: AppHandle, login_tab: Option<u64>, retu
                 // 登录标签没了(用户关了它):退回活动标签;降级窗登录页就占着
                 // 窗体 webview,`get_webview(BROWSER_WINDOW_LABEL)` 直接命中。
                 let wv = match login_tab {
-                    Some(id) => app
-                        .get_webview(&tab_label(id))
+                    Some(id) => label_of(&app, id)
+                        .and_then(|label| app.get_webview(&label))
                         .or_else(|| active_webview(&app)),
                     None => app
                         .get_webview(BROWSER_WINDOW_LABEL)
@@ -1330,14 +2011,15 @@ pub async fn embedded_browser_new_tab(app: AppHandle, url: Option<String>) -> Re
         return open_or_navigate(app, url.unwrap_or_else(|| HOME_URL.to_string()), None).await;
     }
     let action = SentinelAction::NewTab(url.filter(|u| is_browsable_url(u)));
-    handle_sentinel(app, action).await;
+    // IPC 入口,不是页面里的 webview 报上来的:没有"来源标签",按活动标签处理
+    handle_sentinel(app, action, None).await;
     Ok(())
 }
 
 /// 打开当前标签页的开发者工具。
 #[tauri::command]
 pub async fn embedded_browser_devtools(app: AppHandle) -> Result<(), IpcError> {
-    handle_sentinel(app, SentinelAction::Devtools).await;
+    handle_sentinel(app, SentinelAction::Devtools, None).await;
     Ok(())
 }
 
@@ -1399,6 +2081,15 @@ mod tests {
         assert_eq!(
             parse_sentinel(&u("https://browser.ihui.invalid/pick?on=0")),
             Some(SentinelAction::Pick(false))
+        );
+        // 页内音频探针:on=1/0 两个方向都要认
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/audio?on=1")),
+            Some(SentinelAction::Audio(true))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/audio?on=0")),
+            Some(SentinelAction::Audio(false))
         );
         assert_eq!(
             parse_sentinel(&u("https://browser.ihui.invalid/navigate?u=https%3A%2F%2Fa.b%2F")),
@@ -1498,11 +2189,11 @@ mod tests {
     fn bar_state_json_reflects_degraded_flag() {
         // 正常多标签:multiTab = true
         let s = Session::default();
-        assert_eq!(bar_state_json(&s)["multiTab"], serde_json::json!(true));
+        assert_eq!(multi_tab(&s), true);
         // 降级单 webview:multiTab = false(工具条据此隐藏标签栏)
         let mut d = Session::default();
         d.degraded = true;
-        assert_eq!(bar_state_json(&d)["multiTab"], serde_json::json!(false));
+        assert_eq!(multi_tab(&d), false);
         // 工具条脚本里确实有这条分支
         assert!(BAR_JS.contains("multiTab"));
         assert!(BAR_JS.contains("'display', multi ? 'flex' : 'none'"));
