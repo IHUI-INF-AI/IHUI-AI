@@ -34,11 +34,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { parseHeader, renderHeader, stripHeader } from './lib/plan-field-line.mjs'
 import { fieldsFor } from './lib/plan-fields.mjs'
-import { cleanOwner } from './plan-fields-extract.mjs'
+import { cleanOwner, extractFromLine } from './plan-fields-extract.mjs'
 import { assertRowRewriteConservation } from './lib/plan-row-conservation.mjs'
 import {
   claimMarkOf,
   compositeKeyOf,
+  dispositionOf,
   dispositionOfV2,
   keyOfRow,
   parseTaskRows,
@@ -307,6 +308,40 @@ export function noRecordVerdict(line) {
   return 'nothing'
 }
 
+/**
+ * 无记录行的**可读出口**(2026-10-26 立,G-965:改前只报"101 行还没有记录"一个总数,
+ * 读的人分不出哪些是"本来就不该有记录"、哪些是"重跑就能自愈"、哪些是"机器不猜,要人给定向说明")。
+ *
+ * 判据**全部问既有单源**,本层不新造词表(§0.6/§22c):
+ *  · `compositeKeyOf` / `keyOfRow` —— 与侧车寻址同一把尺;
+ *  · `dispositionOf` —— 与抽取器、派单面同一把尺;
+ *  · `extractFromLine` —— 抽取器自己的出口(问它"现在抽不抽得出",而不是在这里复算一遍)。
+ *
+ * kind:
+ *  · `prose-actionable` —— 散文判"现在可做",抽取器按规矩①**不造记录**(不是缺口,派单面继续靠散文判);
+ *  · `keyless` —— 没有编号(副本指针行 /【归并】副本 / 叙述行)⇒ 侧车没有可寻址键;
+ *  · `key-degenerate` —— 有编号但复合键不成(题面 <4 字或退化成编号本身)⇒ 同样不可寻址;
+ *  · `owner-unextractable` —— 归属词族命中但抽不出可寻址持有人(抽取器"宁缺");放宽取值就改判;
+ *  · `self-healable` —— 现在复算就抽得出记录而侧车没有(侧车面落后于台账面)⇒ 重跑抽取器即可。
+ *
+ * 失效方向:除 `self-healable` 外一律**不自动补** —— "没有记录"从不被读成"记录说没有归属"。
+ */
+export function noRecordKind(line) {
+  const key = compositeKeyOf(line)
+  if (!key) return keyOfRow(line) ? 'key-degenerate' : 'keyless'
+  if (extractFromLine(line)) return 'self-healable'
+  return dispositionOf(line) === 'owned-elsewhere' ? 'owner-unextractable' : 'prose-actionable'
+}
+
+/** 三类"需定向说明"的缺口为什么不能自动修(打印给人读,不是判据)。 */
+const NO_RECORD_WHY = {
+  'key-degenerate':
+    '有编号但复合键不成(题面太短/退化成编号本身)⇒ 补题面或换键都会挪判定面,需定向说明',
+  'owner-unextractable':
+    '归属词族命中但抽不出可寻址持有人(抽取器按规矩宁缺);放宽取值会改判 ⇒ 交 --reclassify 逐条声明',
+  'self-healable': '现在复算抽得出记录 ⇒ 重跑 plan-fields-extract.mjs --apply 即可补(本条可自愈)',
+}
+
 /** 全量规划:台账面 ⊕ 同轮侧车面 ⇒ 三类读数。纯 IO 只在这一个出口里发生。 */
 export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
   const doc = readPlan(root, face)
@@ -317,11 +352,27 @@ export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
   const skip = []
   let already = 0
   let noRecord = 0
+  const noRecordKinds = {
+    'prose-actionable': 0,
+    keyless: 0,
+    'key-degenerate': 0,
+    'owner-unextractable': 0,
+    'self-healable': 0,
+  }
+  const noRecordNamed = []
+  const noRecordStale = []
   for (const r of rows) {
     const key = compositeKeyOf(r.raw)
     const rec = key ? (side.map.get(key) ?? null) : null
     if (!rec) {
       noRecord++
+      const kind = noRecordKind(r.raw)
+      noRecordKinds[kind] = (noRecordKinds[kind] ?? 0) + 1
+      if (kind in NO_RECORD_WHY) noRecordNamed.push({ key: key ?? keyOfRow(r.raw) ?? '(无编号)', kind })
+      // 同号旧键:编号还在、题面已被重排/改写 ⇒ 旧记录在侧但接不上。它属于谁是人判(readonly 面不猜)。
+      const id = key ? key.slice(0, key.indexOf('#')) : keyOfRow(r.raw)
+      const stale = id ? [...side.map.keys()].filter((k) => k.startsWith(`${id}#`)) : []
+      if (stale.length) noRecordStale.push({ key: key ?? `(不可成键:${id})`, stale })
       // 没有侧车记录 ≠ 记录说 owner 为空(见 noRecordVerdict):只有 malformed `…` 形态才允许摘,
       // 有效标头一律不动并报未判定 —— 摘掉它就是把全仓唯一的归属证据当"陈旧投影"删了。
       const verdict = noRecordVerdict(r.raw)
@@ -376,6 +427,9 @@ export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
     records: side.map.size,
     malformedSide: side.malformed ?? 0,
     noRecord,
+    noRecordKinds,
+    noRecordNamed,
+    noRecordStale,
     already,
     rewrite,
     skip,
@@ -412,6 +466,25 @@ function reportPlan(p, { limit, showSkip }) {
   console.log(
     `侧车未判定三态:孤儿键 ${p.leftover.counts.orphan} / 被新版本顶掉 ${p.leftover.counts.superseded} / 无法判定 ${p.leftover.counts.undetermined}(只报数,无对应行可投影)`,
   )
+  const nk = p.noRecordKinds
+  console.log(
+    `无记录行分因:散文可做(抽取器按规矩不造记录)${nk['prose-actionable']} / 编号不可寻址 ${nk.keyless} / ` +
+      `题面退化不可成键 ${nk['key-degenerate']} / 归属词族命中但抽不出可寻址值 ${nk['owner-unextractable']} / ` +
+      `复算即可自愈 ${nk['self-healable']}`,
+  )
+  if (p.noRecordStale.length > 0) {
+    console.log(
+      `无记录行里 ${p.noRecordStale.length} 行同号仍有旧键记录(编号重排/题面改写残留 ⇒ 旧记录归属谁是人判,机器不猜):`,
+    )
+    for (const x of p.noRecordStale.slice(0, limit || 10))
+      console.log(`  · ${x.key} ⇄ 旧键 ${x.stale.join(' | ')}`)
+    if (p.noRecordStale.length > (limit || 10))
+      console.log(`  …另 ${p.noRecordStale.length - (limit || 10)} 行同型未逐条打印`)
+  }
+  for (const x of p.noRecordNamed.slice(0, limit || 10))
+    console.log(`  · 需定向说明 ${x.key} —— ${NO_RECORD_WHY[x.kind]}`)
+  if (p.noRecordNamed.length > (limit || 10))
+    console.log(`  …另 ${p.noRecordNamed.length - (limit || 10)} 行需定向说明未逐条打印`)
   for (const k of p.leftover.orphan.slice(0, Math.min(limit, 10))) console.log(`  · 孤儿键 ${k}`)
   if (p.leftover.orphan.length > Math.min(limit, 10))
     console.log(`  · 孤儿键 …另 ${p.leftover.orphan.length - Math.min(limit, 10)} 键未逐条打印`)
@@ -426,7 +499,9 @@ function reportPlan(p, { limit, showSkip }) {
   console.log(
     `PROJECT-RESULT state=${p.rewrite.length > 0 ? 'changed' : 'clean'} face=${p.face} rows=${p.rows} rewrite=${p.rewrite.length} ` +
       `already=${p.already} skip=${p.skip.length} over400=${p.over400} undetermined=${p.undeterminedRows} ` +
-      `orphan=${p.leftover.counts.orphan} superseded=${p.leftover.counts.superseded} undecided=${p.leftover.counts.undetermined}`,
+      `orphan=${p.leftover.counts.orphan} superseded=${p.leftover.counts.superseded} undecided=${p.leftover.counts.undetermined} ` +
+      `noRecActionable=${nk['prose-actionable']} noRecKeyless=${nk.keyless} noRecKeyDegenerate=${nk['key-degenerate']} ` +
+      `noRecOwnerless=${nk['owner-unextractable']} noRecSelfheal=${nk['self-healable']} noRecStale=${p.noRecordStale.length}`,
   )
   return 0
 }
@@ -573,6 +648,18 @@ function selfTest() {
       lo.counts.undetermined === 1 &&
       lo.orphan[0] === 'G-9#台账里已经没有这一行',
   )
+  // T10(2026-10-26):无记录行的分因出口。四档各认一例,判据全问既有单源(不在本层造词表)。
+  ok(
+    'T10 无记录行分因:指针行不可寻址 / 散文可做 / 归属抽不出值 / 复算可自愈',
+    noRecordKind('- [ ] 副本指针(编号 62)：同主键第二份未勾选副本') === 'keyless' &&
+      noRecordKind('- [ ] **G-1 甲题** 可做') === 'prose-actionable' &&
+      noRecordKind('- [ ] **G-2 乙题** 由安全线持有者接管这条线') === 'owner-unextractable' &&
+      noRecordKind('- [ ] **G-3 丙题** 归属:甲持有人') === 'self-healable',
+  )
+  ok(
+    'T11 有编号但题面退化 ⇒ key-degenerate(不是"可做",也不是可寻址键)',
+    noRecordKind('- [ ] G-16（等守门 128 持有人拍两件事）门 128 的 SL 维') === 'key-degenerate',
+  )
   const fails = checks.filter(([, v]) => !v).length
   for (const [n, v] of checks) console.log(`${v ? '✅' : '❌'} ${n}`)
   console.log(`\n自检:${checks.length - fails} 通过 / ${fails} 失败`)
@@ -634,6 +721,7 @@ export const __test__ = {
   planRow,
   planAll,
   noRecordVerdict,
+  noRecordKind,
   dimsOf,
   emit,
   parseBatchArg,
