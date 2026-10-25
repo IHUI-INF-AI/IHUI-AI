@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { ChatScreenMessage } from '@ihui/types'
 import type { TFunction } from '@ihui/types'
 import {
@@ -226,15 +226,24 @@ export function ContextUsagePanel({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    wrap: { paddingHorizontal: 12, paddingTop: 6 },
-    summary: { fontSize: 12, color: tk.text.secondary, fontVariant: ['tabular-nums'] },
+    wrap: { paddingHorizontal: rnSpacing.md, paddingTop: 6 },
+    summary: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      fontVariant: ['tabular-nums'],
+    },
     panel: {
       marginTop: 6,
-      padding: 8,
+      padding: rnSpacing.sm,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
-    panelTitle: { fontSize: 12, fontWeight: '600', color: tk.text.primary, marginBottom: 6 },
+    panelTitle: {
+      fontSize: rnType.label.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: 6,
+    },
     bar: {
       flexDirection: 'row',
       height: 6,
@@ -245,14 +254,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 },
     dot: { width: 8, height: 8, borderRadius: rnRadius.xs },
-    rowLabel: { fontSize: 11, color: tk.text.primary },
+    rowLabel: { fontSize: rnType.caption.size, color: tk.text.primary },
     topDetail: { flex: 1, fontSize: 10 },
-    num: { fontSize: 11, color: tk.text.primary, fontVariant: ['tabular-nums'] },
+    num: { fontSize: rnType.caption.size, color: tk.text.primary, fontVariant: ['tabular-nums'] },
     dim: { color: tk.text.secondary },
     note: { fontSize: 10, paddingLeft: 14, paddingVertical: 2 },
     details: {
       marginLeft: 14,
-      marginBottom: 4,
+      marginBottom: rnSpacing.xs,
       padding: 6,
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,

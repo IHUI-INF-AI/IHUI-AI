@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 
 /**
  * ShareScreen 分享页(mobile-rn 端)
@@ -473,12 +473,12 @@ function createStyles(tk: RnThemeTokens) {
       gap: rpx(16),
     } as ViewStyle,
     sectionTitle: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     voiceText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
       lineHeight: 20,
       marginTop: rpx(8),
@@ -502,7 +502,7 @@ function createStyles(tk: RnThemeTokens) {
       color: tk.text.tertiary,
     } as TextStyle,
     pickerHint: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
     } as TextStyle,
     previewWrap: {
@@ -536,7 +536,7 @@ function createStyles(tk: RnThemeTokens) {
       opacity: 0.85,
     } as ViewStyle,
     clearText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.surface.light,
       lineHeight: 18,
     } as TextStyle,
@@ -556,7 +556,7 @@ function createStyles(tk: RnThemeTokens) {
       opacity: 0.85,
     } as ViewStyle,
     shareBtnText: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.brand.ctaForeground,
     } as TextStyle,

@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 /**
  * BottomPopup 支付弹窗(mobile-rn 端)
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   subtitle: {
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
     fontSize: SUBTITLE_FONT_SIZE,
     lineHeight: SUBTITLE_FONT_SIZE + 4,
     color: tokens.text.secondary,
@@ -252,14 +252,14 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   levelsContent: {
     gap: LEVEL_ITEM_GAP,
-    paddingBottom: 8,
+    paddingBottom: rnSpacing.sm,
   } as ViewStyle,
   emptyText: {
     fontSize: EMPTY_TEXT_FONT_SIZE,
     lineHeight: EMPTY_TEXT_FONT_SIZE + 4,
     color: tokens.text.tertiary,
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingVertical: rnSpacing.xl,
   } as TextStyle,
   // 下移到子 View 的盒子用这两档取回原来由父级 stretch 给出的整行宽;不是新的尺寸档。
   levelItemFace: { width: '100%' } as ViewStyle,
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   levelInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: rnSpacing.md,
   } as ViewStyle,
   levelName: {
     fontSize: LEVEL_NAME_FONT_SIZE,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   } as TextStyle,
   levelMeta: {
-    marginTop: 4,
+    marginTop: rnSpacing.xs,
     fontSize: LEVEL_META_FONT_SIZE,
     lineHeight: LEVEL_META_FONT_SIZE + 2,
     color: tokens.text.secondary,

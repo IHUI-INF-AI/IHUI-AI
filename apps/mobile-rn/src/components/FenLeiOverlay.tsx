@@ -21,7 +21,7 @@ import { CategoryInlineBar, type CategoryItem } from '@ihui/rn-app'
 import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 /** 面板自身留白(与状态栏避让无关,单列以免和 `insets.top` 混成一个数) */
@@ -152,14 +152,14 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    paddingHorizontal: 12,
+    paddingHorizontal: rnSpacing.md,
     // paddingTop 由组件内联注入 `insets.top + PANEL_PADDING_TOP`(见 Modal 处注释),此处不留常量档
     paddingBottom: 14,
     gap: 10,
   },
   // 标题(对齐 uniapp tag-head:36rpx≈18sp 紫色 #865EFF 加粗居中)
   headTitle: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.brandAccent.deep,
     textAlign: 'center',
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   },
   confirmText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   },

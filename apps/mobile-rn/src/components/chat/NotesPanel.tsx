@@ -10,7 +10,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Mic, X } from 'lucide-react-native'
 import { listVoiceNotes, type VoiceNoteItem } from '@ihui/api-client'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { formatShortDateTime } from '../../utils/date-utils'
 
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   listDialogTitle: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
   },
   newRecordText: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
@@ -93,12 +93,12 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
   },
   notesRowTitle: {
-    fontSize: 15,
+    fontSize: rnType.strong.size,
     color: tokens.text.primary,
   },
   notesRowMeta: {
     marginTop: rpx(8),
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.tertiary,
   },
   loadingText: {
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   // 空态沿用全仓 emptyText 口径(AgentList/BottomPopup 同值)
   emptyText: {
     textAlign: 'center',
-    paddingVertical: 24,
+    paddingVertical: rnSpacing['2xl'],
     fontSize: 13,
     color: tokens.text.tertiary,
   },
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(24),
   },
   retryText: {
-    fontSize: 14,
+    fontSize: rnType.body.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(32),
   },
   panelCancelText: {
-    fontSize: 16,
+    fontSize: rnType.title.size,
     fontWeight: '500',
     color: tokens.text.primary,
   },
