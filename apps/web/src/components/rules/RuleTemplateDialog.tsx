@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { rulesApi } from './rules-api'
+import { apiOrThrow } from '@/lib/api'
 import type { RuleTemplate, RuleTemplatesResponse } from './types'
 import { matchTypeLabel, priorityVariant } from '@/stores/rules'
 import { useRules } from '@/hooks/use-rules'
@@ -33,7 +33,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
     let cancelled = false
     setLoading(true)
     setError(null)
-    rulesApi<RuleTemplatesResponse>('/api/rules/templates')
+    apiOrThrow<RuleTemplatesResponse>('/api/rules/templates')
       .then((res) => {
         if (!cancelled) {
           setTemplates(res.templates)

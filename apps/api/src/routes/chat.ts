@@ -8,7 +8,12 @@ import { sql, and, eq, inArray } from 'drizzle-orm'
 // D153(2026-09-29 立):会话元数据变更的 per-user 下行广播。
 // 事件形态与构造的唯一出口在 @ihui/types(三个消费面共用一份描述),
 // 路由内不得手拼 `{event,data}` 字面量,也不得把"哪些字段真的变了"照抄请求体键名。
-import { conversationUpdatedEvent, isChatSyncRole, type ConversationMetaField, type ChatSyncMessageSnapshot } from '@ihui/types'
+import {
+  conversationUpdatedEvent,
+  isChatSyncRole,
+  type ConversationMetaField,
+  type ChatSyncMessageSnapshot,
+} from '@ihui/types'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
@@ -66,6 +71,8 @@ import {
   MessageEditRejectedError,
   editMessageAndTruncateAfter,
   branchConversationFrom,
+  ForkIdempotencyConflictError,
+  ForkSourceRejectedError,
   replaceMessages,
   updateConversationTitle,
 } from '../db/chat-queries.js'
@@ -285,6 +292,9 @@ const branchSchema = z.object({
   messageId: z.uuid('messageId 必须是有效的 UUID'),
   title: z.string().max(255).optional(),
   model: z.string().max(64).optional(),
+  // 幂等键(可选,客户端生成 UUID):双击/重试/断网重放只建一条分叉。
+  // 不传 = 保持旧语义(每次调用都新建),旧客户端零感知。
+  clientRequestId: z.uuid('clientRequestId 必须是有效的 UUID').optional(),
 })
 
 // 批量操作 schema(2026-07-31 立,对话历史批量删除/收藏/归档)
@@ -1538,12 +1548,14 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /conversations/:id/branch - 分支/回退
+  // POST /conversations/:id/branch - 分支/回退(票 60 服务端分叉的现行唯一端点)
   // 2026-08-30 立:基于指定消息(含该消息)之前的内容创建新会话,旧会话原样保留。
-  // 相当于 Git 分支:从历史某条消息处"重新分叉",而非删除旧内容。
+  // 票 60 收口(2026-10-25):响应补 fork 族信息;带 clientRequestId 时幂等(重放 → 200 + replayed);
+  // 分叉点消息级越权/不存在 → 404,幂等键冲突 → 409(按错误类型分流,不比对文本)。
   server.post('/conversations/:id/branch', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    // 身份只来自令牌主体:body 里的任何 userId 字段都不参与分支的归属判定
     const userId = request.userId
 
     const { id } = idParam.parse(request.params)
@@ -1556,13 +1568,34 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
 
     try {
-      const conversation = await branchConversationFrom(id, parsed.data.messageId, {
+      const result = await branchConversationFrom(id, parsed.data.messageId, {
         userId,
         title: parsed.data.title,
         model: parsed.data.model,
+        clientRequestId: parsed.data.clientRequestId,
       })
-      return reply.status(201).send(success({ conversation: serializeConversation(conversation) }))
+      return reply.status(result.replayed ? 200 : 201).send(
+        success({
+          conversation: serializeConversation(result.conversation),
+          // 族信息:分叉点在源会话里的族根与版本号(与票59 sibling 语义同源)
+          fork: {
+            sourceConversationId: id,
+            forkedFromMessageId: result.forkedFromMessageId,
+            sourceRootId: result.sourceRootId,
+            sourceSiblingIndex: result.sourceSiblingIndex,
+            messageCount: result.copiedMessageCount,
+          },
+          replayed: result.replayed,
+        }),
+      )
     } catch (err) {
+      if (err instanceof ForkIdempotencyConflictError) {
+        return reply.status(409).send(error(409, err.message))
+      }
+      if (err instanceof ForkSourceRejectedError) {
+        // 不区分"消息不存在"与"消息不属于该会话":对外一致 404,不泄露他人消息 id 有效性
+        return reply.status(404).send(error(404, err.message))
+      }
       request.log.error({ err }, '创建分支失败')
       const msg = err instanceof Error ? err.message : '创建分支失败'
       return reply.code(500).send(error(500, msg))
