@@ -259,6 +259,70 @@ export function readBackCount(root) {
 }
 
 /**
+ * 落盘 `plan.pendingList` 这一批(2026-10-25 补):**同键就地改写胜出那条**、新键追加。
+ *
+ * 与 `writeRecords` 的分工是刻意分开的两件事:后者是初装期的"只增不删"(它连同键改值都追加,
+ * 历史可对照);而 pendingList 里混着 `enrichRecord` 的**合并记录**(同键,只补了缺字段),
+ * 若也按只增不删落盘,同键会长期两份,且 `--check` 每轮都把它再算成待搬 —— 实测 worktree 面
+ * 3 条(G-593 / G-941 / G-115)把 check 钉在 changed,永远到不了 ready。
+ * "胜出那条"的挑选口径与 `loadFields` 相同:updatedAt 最新,并列取先出现的。
+ */
+export function writePendingRecords(root, recs) {
+  const abs = recordsFile(root)
+  const before = existingLines(root)
+  const winner = new Map()
+  const parsedLine = []
+  for (const [i, l] of before.entries()) {
+    let rec = null
+    try {
+      const n = normalizeRecord(JSON.parse(l))
+      if (n.ok) rec = n.rec
+    } catch {
+      // 畸形行不替它做决定:原样留着,由门报数
+    }
+    parsedLine.push(rec)
+    if (!rec) continue
+    const cur = winner.get(rec.key)
+    if (cur === undefined) winner.set(rec.key, i)
+    else if (Date.parse(rec.updatedAt) > Date.parse(parsedLine[cur].updatedAt)) winner.set(rec.key, i)
+  }
+  const out = [...before]
+  let rewrote = 0
+  let appended = 0
+  let rejected = 0
+  for (const raw of recs) {
+    const n = normalizeRecord(raw)
+    if (!n.ok) {
+      rejected++
+      continue
+    }
+    const i = winner.get(n.rec.key)
+    if (i === undefined) {
+      appended++
+      out.push(JSON.stringify(n.rec))
+      parsedLine.push(n.rec)
+      winner.set(n.rec.key, out.length - 1)
+    } else {
+      out[i] = JSON.stringify(n.rec)
+      parsedLine[i] = n.rec
+      rewrote++
+    }
+  }
+  if (rewrote + appended === 0) return { rewritten: 0, appended, rejected, path: abs }
+  mkdirSync(path.dirname(abs), { recursive: true })
+  const tmp = `${abs}.tmp-${process.pid}`
+  writeFileSync(tmp, out.join('\n') + '\n', 'utf8')
+  try {
+    renameSync(tmp, abs)
+  } catch (e) {
+    throw new Error(
+      `侧车写盘失败(${String(e?.code ?? e)}),目标文件保持原样:${abs} —— 临时件留在 ${path.basename(tmp)}`,
+    )
+  }
+  return { rewritten: rewrote, appended, rejected, path: abs }
+}
+
+/**
  * 同键去重(2026-10-25 立;治「唯一写入口只会追加 ⇒ 同键双记录」:门 234 的 4 组矛盾组)。
  *
  * 语义必须**零变化**,三道闸:

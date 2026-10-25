@@ -1,6 +1,16 @@
 {
-  "$comment": "守门 check-fixture-tmpdir.mjs 的 B 堆台账(AGENTS §26「临时夹具唯一落点 = scripts/lib/scratch-dir.mjs」的唯一豁免通道)。每条必须 {file, reason(非空、且是可复核的事实), reviewBy(ISO 日期)};形态坏或已过期 ⇒ 不再豁免且照计违规(entryProblem/applyLedger),条目指向的被审文件在该面上已无 F1/F2 命中 ⇒ 判清单腐烂 rot(修好了就删行,挂着腐烂的行会替后来人做出「这一端已被想过」的判断)。刻意不收 A 堆:凡是「用完即删的临时夹具」都必须迁 mkScratch/rmScratch,写进本表等于把本门存在的理由抹掉。⚠️ 如实登记接线现状(不得读成已生效):门体 run() 目前**从未加载本文件**、也从未调用 applyLedger —— LEDGER_FILE 只在常量处出现,applyLedger/entryProblem 仅在 --self-test 的构造面上被跑;因此本表对现读 violations/rotations 零影响(violations 仍 = 原始 F1+F2 计数,rotations 恒 0)。补齐这一格是主会话那一票的活,判据本体不得由本表消费方顺手改。台账形态与字段口径取自同族 scripts/auth-handler-registration-exemptions.json。本文件不注入溯源水印横幅:// 横幅会让 JSON.parse 失败,而 check-watermark-coverage 的分母只含 .ts/.tsx/.js/.mjs/.cjs/.css,.json 不在内。",
+  "$comment": "守门 check-fixture-tmpdir.mjs 的 B 堆台账(AGENTS §26「临时夹具唯一落点 = scripts/lib/scratch-dir.mjs」的唯一豁免通道)。每条必须 {file, reason(非空、且是可复核的事实), reviewBy(ISO 日期)};形态坏或已过期 ⇒ 不再豁免且照计违规(entryProblem/applyLedger),条目指向的被审文件在该面上已无 F1/F2 命中 ⇒ 判清单腐烂 rot(修好了就删行,挂着腐烂的行会替后来人做出「这一端已被想过」的判断)。刻意不收 A 堆:凡是「用完即删的临时夹具」都必须迁 mkScratch/rmScratch,写进本表等于把本门存在的理由抹掉。接线现状(2026-10-25 主会话现读复核并改正旧注的过期陈述):门体 run() 已在 scripts/check-fixture-tmpdir.mjs:922 `loadLedger(usedFace)` 从被审面加载本表、:932 逐文件 `applyLedger` 施加、:948 把 `rotations` 喂给 `decide`(:471 `ledger-rot` 任何档判红);即本表对现读 violations / exempted / rotations **全部生效**。台账缺失 ⇒ 零豁免并大声报出;JSON 坏 ⇒ Undetermined 判死(不静默当空表)。本表仍不得由判据消费方顺手改口径。台账形态与字段口径取自同族 scripts/auth-handler-registration-exemptions.json。本文件不注入溯源水印横幅:// 横幅会让 JSON.parse 失败,而 check-watermark-coverage 的分母只含 .ts/.tsx/.js/.mjs/.cjs/.css,.json 不在内。",
   "exemptions": [
+    {
+      "file": "scripts/tests/check-learn-video-mount.test.mjs",
+      "reason": "唯一 F2 在 HEAD:321,是**反向断言**「夹具不得落进 os.tmpdir()」(§15b 的 C 盘债判据),不是夹具落点:该测试的夹具本体用 mkScratch(scratch) 造、finally rmScratch,把断言改成 mkScratch 会让它测不到自己那句话。整文件豁免的风险由 rot 判据兜住:该断言一旦消失,本行即变清单腐烂并判红。",
+      "reviewBy": "2027-03-31"
+    },
+    {
+      "file": "scripts/tests/scratch-dir.test.mjs",
+      "reason": "唯一 F2 在 HEAD:421,断言被测函数 chooseScratchRoot 的 linux 退路**必须等于** join(tmpdir(), SCRATCH_DIR_NAME) —— 被断言的规格本身就是 os.tmpdir(),换成 mkScratch 即同一实现自证(恒真、什么也测不到)。同族先例=scripts/check-c-drive-pollution.mjs 的豁免理由。",
+      "reviewBy": "2027-03-31"
+    },
     {
       "file": "scripts/check-c-drive-pollution.mjs",
       "reason": "本门判据对象之一就是「这台机器此刻的 TEMP 落在哪」,不在被审面上。HEAD:490 detectTempDrift() 拿 tmpdir() 当活进程实得的 proc TEMP,与 HKCU 声明值对账(§26 实测:HKCU 已改指 D:\\DevEnv\\Temp 而活进程仍持 C:\\Users\\...\\AppData\\Local\\Temp ⇒ 这个差值本身就是本门的「TEMP 漂移」结论);HEAD:594 tempScanDirs(sysRoot, tmpdir()) 把「守门自己那一侧」与「服务身份那一侧」(LocalSystem = C:\\Windows\\Temp)一并纳入扫描面 —— §26 记过只扫 tmpdir() 时部署脚本每轮构建泄漏 2 个 ihui-next-build-*.log、累计 526 项/6.86MB 而门一路报「本项目产物 0 项」,那是假绿灯不是漏扫;HEAD:872 是自检里的实机阳性对照,断言扫描面真覆盖到 Windows\\Temp。迁成 mkScratch 或改成 HEAD 档取值 ⇒ 门看不见自己要量的运行时状态,后果是这台机唯一一条 TEMP 漂移哨兵静默失效。到期重看条件:§26 的 TEMP 漂移在全机消失后,490/594 的输入可换成显式注入,届时删本行。",

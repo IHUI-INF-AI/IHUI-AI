@@ -386,8 +386,8 @@ test('L21b 生产面取材形状锁:未注入面时必须走器物子进程探�
   // 探针派生同样吃 §12g:显式 stdio,否则 Windows 上稳定 EBUSY
   assert.match(code, /stdio:\s*\['ignore',\s*'pipe',\s*'pipe'\]/, '子进程探针必须显式 stdio(§12g)')
   // 读不出结论行 / 数字形态坏 ⇒ 必须是 null(未判定),不得冒充 0
-  assert.match(code, /return null[\s\S]{0,120}PURGE-WORK|if\s*\(!line\)\s*return null/, '取不到结论行必须落未判定')
-  assert.match(code, /not=\/\^\\d\+\$\/|\/\^\\d\+\$\/\.test\(n\)/, '结论形态坏必须判未判定,不得静默取 0')
+  assert.match(code, /if \(!line\) return null/, '取不到结论行必须落未判定')
+  assert.match(code, /if \(!\/\^\\d\+\$\/\.test\(n\)\) return null/, '结论形态坏必须判未判定,不得静默取 0')
 })
 
 

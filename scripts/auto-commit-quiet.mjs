@@ -30,7 +30,9 @@ import {
 } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { gitRaw } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
+// 已结清行回退判据(§0.6 单一真相源):本器只 import,不抄第二份"什么算已结清/同一件事"。
+import { closedRowRegressions } from './lib/ledger-closed-rows.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const QUIET_MIN = Number(process.env.IHUI_AUTO_COMMIT_QUIET_MIN || 3)
@@ -280,6 +282,28 @@ function rollbackLedger(file, snap, why) {
 }
 
 /**
+ * 已结清行回退闸的取数口(2026-10-25):HEAD blob 走取材层(守门 118 —— 散写 cat-file 会让
+ * "判据与内容不同面同轮"悄悄发生);候选取**现盘文本**,因为调用点已在归并/复洁之后,
+ * 那一刻的盘上文本就是即将入库的那一份。任一取不到 ⇒ null,由判据落 undetermined(fail-closed)。
+ */
+function ledgerFaces(file) {
+  let head = null
+  try {
+    const spec = `HEAD:${file}`
+    head = catBatch(ROOT, [spec]).get(spec) ?? null
+  } catch {
+    head = null
+  }
+  let candidate = null
+  try {
+    candidate = readFileSync(join(ROOT, file), 'utf8')
+  } catch {
+    candidate = null
+  }
+  return { head, candidate }
+}
+
+/**
  * 把 README 的 GENERATED NUMBERS 块刷到现算值,并把**真写盘**的 README 纳入本次提交。
  *
  * 病灶(2026-10-22 实测):该块由 post-commit 回写 ⇒ 工作树最新、索引面落后一枚;而门 173 判的
@@ -444,6 +468,40 @@ function main() {
             stale.splice(stale.indexOf(f), 1)
             continue
           }
+        }
+        // 已结清行回退闸(2026-10-25 新增,承当日 16:25 收编事故):merge-live-doc 只判"丢行/长行
+        // 重复",判不出"HEAD 已勾的登记行在工作树副本里被原地写回 `- [ ]`"(行数不变、一行不丢,
+        // 归并档结构性看不见);归档单调性只管 ✅ 标题复活,不管勾选态。
+        // 两型回退源都在本闸射程内(根因与取证见 scripts/lib/ledger-closed-rows.mjs 头注):
+        // ① 混合体(旧副本⊕本地小改)——整份文本不等于任何祖先 blob,dropStaleCopies 结构上判不了;
+        // ② 整份旧 blob 覆盖——dropStaleCopies 能拦,但它只审未暂存文件、只回溯最近 6 枚提交,
+        //    而本闸按**盘上文本 vs HEAD blob** 判勾选态,不受"是否已暂存/副本多老"影响。
+        // 位置刻意选在**归并+复洁之后、safe-commit 之前**的最后一档:①候选文本此刻就是即将入库
+        // 的那一份(复洁只剔 HEAD 面已不存在的行,动不到本闸的主键面);②放到归并之前会把"归并
+        // 本来能补回的行"误判成回退;③与归档单调性同层,任何一道红都在同一处回滚 + 退出候选。
+        if (f.endsWith('PROJECT_PLAN.md')) {
+          const { head, candidate } = ledgerFaces(f)
+          const g = closedRowRegressions(head, candidate)
+          if (g.undetermined) {
+            log(`活文档已结清行闸未判定(${f}):HEAD/候选取不到或为空 ⇒ 本轮不收编、不写盘`)
+            rollbackLedger(f, snap, '已结清行闸未判定')
+            stale.splice(stale.indexOf(f), 1)
+            continue
+          }
+          if (!g.ok) {
+            const named = g.regressions.slice(0, 10).map((r) => `${r.key}(HEAD L${r.line})`)
+            const more =
+              g.regressions.length > named.length
+                ? ` …另有 ${g.regressions.length - named.length} 条`
+                : ''
+            log(`活文档已结清行回退(${f}),本轮不收编:${named.join(' / ')}${more}`)
+            rollbackLedger(f, snap, `候选把 ${g.regressions.length} 条已结清行写回未勾/抹掉`)
+            stale.splice(stale.indexOf(f), 1)
+            continue
+          }
+          log(
+            `活文档已结清行闸通过(${f}):HEAD 面 ${g.headClosed} 个已结清主键仍全部在候选已勾集中(${g.candidateClosed})`,
+          )
         }
         log(`活文档归并完成(${f}):lost=0 / 长行重复新增 0,可收编`)
       } else {

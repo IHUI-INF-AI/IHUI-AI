@@ -77,13 +77,32 @@
  * 定义(节流、三态、告警一律经 `notifyGuardRed()` 按 alert 身份去重、无每日封顶),**但巡检轮里
  * 还没有它的调用点,且那整段定义也未入库** —— 即截至本票交付,本门**零调度器**,现役问责方式只有手跑。
  * 本门自身不发信、不自拼 SMTP、不新建通道(守门 81 硬拦的就是这个)。
+ * 接线现状(2026-10-25 现读):`scripts/guardian-runner.mjs` / `scripts/lib/pre-commit-hook.js` /
+ * `.husky/*` / 根 `package.json` / `.github/workflows` 五处**零命中**(只读尺子判机器态,§12e),
+ * 唯一派发点 = `scripts/git-guardian.mjs` 的 `auditPublicPathProbe()`(巡检轮,`!CHECK_ONLY`)。
+ *
+ * 腿面判据(票 G-960,2026-10-25 收口,凌驾此前"301 放过"那一档):
+ *   ① 靶清单只认 `scripts/data/public-path-legs.json`(每行带仓内出处 registeredIn + 现读
+ *      measuredOn/measured + 台账 expires);取不到 / 枚举 0 / 到期 / 任一行不合格 ⇒ **该面未判定**,
+ *      绝不回落到代码里另抄一份靶(§0.3/§0.4/§0.7)。
+ *   ② 3xx 不得当成"可用":跟 Location 到终页(上限 --leg-hops)再判;跟不完(超上限 / Location
+ *      缺失或不可解析)⇒ `redirect-unresolved` ⇒ **unjudged 并点名出路**;4xx 同理
+ *      (`unverified-answer`,边缘或路由语义都能答,不证明回源)。绿只发给**终页 2xx**。
+ *   ③ ok / breach / unjudged **逐维独立报数**(照 `check-tunnel-leg-health.mjs` 的三态形态,
+ *      那道门本身不动),合计与台账在册数不等 ⇒ 该面未判定;绝不并桶、绝不拿"0 个坏点"冒充绿。
+ *   ④ 到人通道的可整改性(§5e-1):红 = 该腿终页 5xx/拒连/复位 ⇒ 收信人按 leg 定位查 cloudflared
+ *      ingress / 源站端口(台账 `origin` 字段逐腿写明该腿源站);未判定 = 台账腐烂 / 止步 3xx /
+ *      探不到 ⇒ 收信人先修靶登记或出口链路,不查服务本体。去重身份 = `E/<腿>` × 成因 × 严重度档 ×
+ *      持续档(classifyAlertIdentity 一份实现,身份里**不含任何原始计数**,守门 224 同族)。
  *
  * 用法:
- *   node scripts/check-public-path-probe.mjs --snapshot            # 一次采样巡检(A+B+阳性对照+取证封缄读回;裸跑同义)
+ *   node scripts/check-public-path-probe.mjs --snapshot            # 一次采样巡检(A+B+腿矩阵+阳性对照+取证封缄读回;裸跑同义)
  *   node scripts/check-public-path-probe.mjs --snapshot --json     # 同上,输出单行可 JSON.parse 的结论
  *   node scripts/check-public-path-probe.mjs --sequence B --samples 40 --interval-ms 1000
  *   node scripts/check-public-path-probe.mjs --sequence A --wait-ms 240000   # 等下一次换流再量
  *   node scripts/check-public-path-probe.mjs --burst --json        # 守护用的短程档
+ *   node scripts/check-public-path-probe.mjs --legs <file>         # 换靶台账(成对对照/夹具用;读不到即未判定)
+ *   node scripts/check-public-path-probe.mjs --leg-hops 0          # 关掉跟跳(每一腿的 3xx 都会如实落成未判定)
  *   node scripts/check-public-path-probe.mjs --report <ledger>     # 只读回一份取证
  *   node scripts/check-public-path-probe.mjs --self-test           # 构造面正反对照(唯一不触网的一档)
  * 退出码:0 已判定且未越阈值 / 1 已判定且越阈值 / 2 用法错 / 3 INCOMPLETE 或未判定(结论无效)。
@@ -124,17 +143,90 @@ const ENTRY_URL_DEFAULT = 'https://www.aizhs.top/sso/login'
 const ZERO_INFO_LEGACY_URL = 'https://aizhs.top/sso/login'
 
 /**
- * **公网四端矩阵**(票 G-960,2026-10-24)。入口不是一条腿:2026-10-22 实测同一时刻
- * `www` 522、`api`/`sso`/`ai` 530,而旧靶(裸域)只拿到 CF 边缘 301 —— 结构上看不到这四条真腿。
- * 每条腿只打**一次** GET(探活不是压测),命中判据见 classifyEndpointTier。
- * hostname 以票面现读为准;路径取各端既有健康/入口路径,避免把 404 当成源站故障。
+ * **公网腿清单的唯一登记面 = `scripts/data/public-path-legs.json`**(票 G-960,2026-10-25 收口)。
+ * 入口不是一条腿:2026-10-22 实测同一时刻 `www` 522、`api`/`sso`/`ai` 530,而旧靶(裸域)只拿到
+ * CF 边缘 301 —— 结构上看不到这些真腿。此前矩阵硬编码四枚在代码里,路径是"凭记忆写的",
+ * 而仓内早有成文的出处(`scripts/start-cloudflared-tunnel.ps1` 的 8 条 ingress、
+ * `scripts/data/eo-origin-expectation.json` 的面、`deploy/scripts/prod-bundle/health-check.ps1`
+ * 的健康路径)⇒ 按 §0.6 把清单挪到台账:每行必须带 `registeredIn`(精确到 file:line)与
+ * `measuredOn`/`measured`;台账取不到 / 枚举为 0 / 到期 / 任一行不合格 ⇒ **未判定**,
+ * 绝不回落成"代码里再抄一份默认靶"(§0.3 没判绝不写成判过;§0.4 取不到不回落另一个面)。
+ *
+ * 3xx 语义(2026-10-25 收紧,取代旧"301 放过 = 边缘可达 ok"那一档):
+ *   入口被重定向时**必须跟到终态再判**(上限 `LEG_REDIRECT_MAX_HOPS` 跳);跟不动了(超上限 /
+ *   Location 缺失或不可解析)而终读仍是 3xx ⇒ 落 **unjudged 并点名出路**,不得顶绿。
+ *   现网现场:`sso.aizhs.top/` 恒 302→302→200(2 跳),旧判据把它记成"边缘可达、放过",
+ *   等于用一条 Keycloak 的边缘应答给整条 IdP 腿出合格证;裸域旧靶 2026-10-25 复量仍是 301。
+ *   4xx 同理不得顶绿:边缘/路由语义都能答 4xx,不证明回源 ⇒ unjudged 并点名核对登记路径。
  */
-export const PUBLIC_ENDPOINTS = [
-  { id: 'www', host: 'www.aizhs.top', url: 'https://www.aizhs.top/sso/login' },
-  { id: 'api', host: 'api.aizhs.top', url: 'https://api.aizhs.top/api/health' },
-  { id: 'sso', host: 'sso.aizhs.top', url: 'https://sso.aizhs.top/' },
-  { id: 'ai', host: 'ai.aizhs.top', url: 'https://ai.aizhs.top/health' },
-]
+export const PUBLIC_LEGS_FILE = resolve(HERE, 'data', 'public-path-legs.json')
+/** 跟随重定向的跳数上限:超过即"止步于重定向"⇒ 未判定(不得读成可用)。 */
+export const LEG_REDIRECT_MAX_HOPS = 3
+
+/**
+ * 读靶台账并逐行验前提(验过才免,§0.7)。纯 IO + 纯判据,零网络。
+ * @returns {{state:'ok'|'unjudged', legs:Array<{id:string,host:string,url:string,role?:string,measuredOn?:string,measured?:string}>, dropped:Array<{index:number,id:string,why:string}>, reason:string, file:string, expires?:string, excludedCount:number}}
+ */
+export function loadPublicLegs(file = PUBLIC_LEGS_FILE, opt = {}) {
+  const today = typeof opt.today === 'string' ? opt.today : new Date().toISOString().slice(0, 10)
+  const base = { state: 'unjudged', legs: [], dropped: [], reason: '', file, excludedCount: 0 }
+  let text = ''
+  try {
+    text = readFileSync(file, 'utf8')
+  } catch (e) {
+    return { ...base, reason: `靶台账读不到:${file}(${(e && e.code) || (e && e.message) || e})⇒ 腿清单未判定(不得读成"没有腿要探",也不得回落到代码里另抄一份靶)` }
+  }
+  let doc = null
+  try {
+    doc = JSON.parse(text)
+  } catch (e) {
+    return { ...base, reason: `靶台账不是合法 JSON:${String((e && e.message) || e).slice(0, 120)}⇒ 未判定` }
+  }
+  const rows = Array.isArray(doc && doc.legs) ? doc.legs : []
+  const excluded = Array.isArray(doc && doc.excluded) ? doc.excluded : []
+  if (rows.length === 0) return { ...base, excludedCount: excluded.length, reason: `靶台账 legs 枚举为 0 ⇒ 判死,不得记绿(§0.3:枚举到 0 个候选不记绿)` }
+  const expires = String((doc && doc.expires) || '')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expires)) return { ...base, excludedCount: excluded.length, reason: `靶台账缺 expires 或形态坏(实得"${expires || '(空)'}")⇒ 出处未经"会到期"的登记不免(§0.7),未判定` }
+  if (expires < today) return { ...base, excludedCount: excluded.length, reason: `靶台账已于 ${expires} 到期(今日 ${today})⇒ 靶清单待重裁;本轮不得出合格证(§0.7 豁免会到期同族)` }
+  const seen = new Set()
+  const legs = []
+  const dropped = []
+  rows.forEach((row, index) => {
+    const id = String((row && row.id) || '')
+    const host = String((row && row.host) || '')
+    const url = String((row && row.url) || '')
+    const fail = (why) => dropped.push({ index, id: id || '(无 id)', why })
+    if (!/^[a-z0-9][a-z0-9_-]{0,31}$/.test(id)) return fail('id 缺失或形态不合法(小写字母数字/-/_ ,≤32)')
+    if (seen.has(id)) return fail(`id 与前一行的 ${id} 撞号(同一轮里两条同身份腿 = 重复身份)`)
+    let u = null
+    try {
+      u = new URL(url)
+    } catch {
+      return fail(`url 不是合法绝对地址:"${url.slice(0, 80)}"`)
+    }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return fail(`url 协议不是 http(s):"${u.protocol}"`)
+    if (u.host !== host) return fail(`host("${host}")与 url 的 host("${u.host}")逐字不等(两套靶必漂移)`)
+    const src = Array.isArray(row.registeredIn) ? row.registeredIn.filter((x) => typeof x === 'string' && x.trim()) : []
+    if (src.length === 0) return fail('缺 registeredIn(仓内既有登记出处)⇒ 路径系凭记忆写的,不入射程(票面"不许凭记忆写")')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String((row && row.measuredOn) || ''))) return fail(`measuredOn 缺失或形态坏("${String(row && row.measuredOn).slice(0, 20)}")⇒ 现读凭据不成立`)
+    if (!String((row && row.measured) || '').trim()) return fail('缺 measured(现读状态形态)⇒ 该行未被验过,不得白嫖合格证')
+    if (!/(127\.0\.0\.1|localhost):\d+/.test(String((row && row.origin) || ''))) return fail('缺 origin(该腿源站 127.0.0.1:端口)⇒ 红了给不出可执行的下一步(§5e-1)')
+    seen.add(id)
+    legs.push({ id, host, url, role: String(row.role || ''), origin: String(row.origin || ''), measuredOn: row.measuredOn, measured: String(row.measured), registeredIn: src })
+  })
+  if (legs.length === 0) return { ...base, dropped, excludedCount: excluded.length, reason: `靶台账 ${rows.length} 行全部不合格 ⇒ 无可探靶(判死,不记绿):${dropped.map((d) => `${d.id}(${d.why})`).join(' | ')}`, expires }
+  return {
+    state: dropped.length ? 'unjudged' : 'ok',
+    legs,
+    dropped,
+    excludedCount: excluded.length,
+    expires,
+    file,
+    reason: dropped.length
+      ? `靶台账 ${rows.length} 行里有 ${dropped.length} 行不合格被剔:${dropped.map((d) => `${d.id}(${d.why})`).join(' | ')} ⇒ 腿面不完整,该面不得出合格证(失效方向 = 多要一次登记,绝不少探一条)`
+      : 'ok',
+  }
+}
 
 export const DEFAULTS = {
   publicUrl: process.env.IHUI_PUBLIC_URL || ENTRY_URL_DEFAULT,
@@ -215,8 +307,11 @@ export function classifySample(r) {
     if (/ENOTFOUND|EAI_AGAIN/i.test(code)) return { stage: 'stall', bucket: 'dns', unavailable: false, indeterminate: true, preTls: true, note: 'DNS 解析失败 ⇒ 分不清对端与我方出口,计未判定' }
     return { stage: 'stall', bucket: 'connStall', unavailable: false, indeterminate: true, preTls: true, note: '连 TCP 都没通 ⇒ 属本机出口与链路这一跳,不得记成对端不可用' }
   }
-  if (r.aborted || /PROBE_CEILING|ABORT_ERR|AbortError/i.test(code)) {
-    return { stage: 'stall', bucket: 'overCeiling', unavailable: false, indeterminate: true, note: '超过探测上限被我方中止 ⇒ 只知"比上限还慢",不得记成对端不可用' }
+  if (r.aborted || /PROBE_CEILING|PROBE_INACTIVITY|ABORT_ERR|AbortError/i.test(code)) {
+    // `PROBE_INACTIVITY` = 我方 socket 空闲超时把请求拆了(2026-10-25 现读:E/bsm 10460ms 拿到
+    // `PROBE_INACTIVITY,PROBE_INACTIVITY,Error` 却落 probeError ⇒ 记成"尺子自己失明")。
+    // 事实是"握手完成后没等到响应头,慢过我方超时"——它不是对端坏,也不是尺子坏 ⇒ 与超上限同档。
+    return { stage: 'stall', bucket: 'overCeiling', unavailable: false, indeterminate: true, note: '超过探测上限/空闲超时被我方中止 ⇒ 只知"比上限还慢",不得记成对端不可用,也不得记成本地探测故障' }
   }
   if (/ECONNREFUSED/i.test(code)) return { stage: 'conn', bucket: 'connRefused', unavailable: true, note: '连接被拒(换流那一型)' }
   if (/ECONNRESET|EPIPE|SocketClosed|ERR_SOCKET|socket hang up/i.test(code)) return { stage: 'conn', bucket: 'connReset', unavailable: true, note: '连接被复位' }
@@ -235,28 +330,98 @@ export function classifySample(r) {
 }
 
 /**
- * 四端单条探活 → **两档判据**(票 G-960,2026-10-24)。
+ * 单条腿(已跟到终态)→ **三档判据**(票 G-960,2026-10-25 收紧)。
  *
- *   · `origin-ok`          2xx:源站可达(绿)
- *   · `edge-reachable`     3xx/4xx:到得了应答的那一跳,**不红也不冒充源站健康**(票面"301 放过")
- *   · `origin-unreachable` 5xx(含 522/530)/拒连/复位:**红** —— 522/530 是"边缘在、回源不通"
- *                          的签名,绝不能并进 3xx 那一档放过(立案现场 10/10 都这么被放过的)
- *   · `undetermined`       超时/DNS/TLS/我方上限:探不到 ⇒ 未判定,不得冒充通过
+ *   · `origin-ok`            终读 2xx:源站可达(绿)
+ *   · `origin-unreachable`   终读 5xx(含 522/530)/拒连/复位:**红** —— 522/530 是"边缘在、回源不通"
+ *                            的签名,绝不能并进 3xx 放过(立案现场 10/10 都这么被放过的)
+ *   · `redirect-unresolved`  终读仍是 3xx(超跳数上限 / Location 缺失或不可解析):**未判定** ——
+ *                            3xx 不等于可用,它只证明"到得了答 3xx 的那一跳"(§0.3)。
+ *                            旧档叫 `edge-reachable` 且 verdict=ok,那正是"断了也顶绿"的那一格。
+ *   · `unverified-answer`    终读 4xx:未判定 —— 边缘与路由语义都能答 4xx,不证明回源
+ *   · `undetermined`         超时/DNS/TLS/我方上限:探不到 ⇒ 未判定,不得冒充通过
  *
- * 与 classifySample 同一份底层归桶(单一真相源);本函数只加"这条腿算红还是算未判定"这一维,
- * 不改 3xx"单条不算坏"的既有语义(混合腿的合格证仍由 judgeSequence 那一份判)。
+ * 与 classifySample 同一份底层归桶(单一真相源);本函数只加"这条腿算红还是算未判定"这一维。
+ * 单条 3xx 在**序列 B** 面照旧"不算坏"(混合腿里 3xx 不进取代率,那条腿已由其它 2xx 样本触达终页);
+ * 不得顶绿这一维在腿面由本函数成立,在序列面由 judgeSequence 的"全 3xx ⇒ 未判定"支成立。
+ * @param {object} raw 采样读数(可带 legHops/redirectNote,由 sampleLeg 填)
+ * @param {{hops?:number, redirectNote?:string}} [opt]
  */
-export function classifyEndpointTier(raw) {
+export function classifyEndpointTier(raw, opt = {}) {
   const status = raw && typeof raw.status === 'number' ? raw.status : null
+  const hops = Number.isFinite(opt.hops) ? opt.hops : Number(raw && raw.legHops) || 0
+  const via = hops > 0 ? `(经 ${hops} 跳跟随)` : ''
+  const why = opt.redirectNote || (raw && raw.redirectNote) || ''
+  const stopNote = why ? `—— ${why}` : ''
   if (status !== null) {
     if (status >= 500) return { tier: 'origin-unreachable', red: true, note: `HTTP ${status} ⇒ **源站不可达**(522/530/5xx 是"边缘在、回源不通"的签名)` }
-    if (status >= 300) return { tier: 'edge-reachable', red: false, note: `HTTP ${status} ⇒ **边缘可达**(3xx/4xx 也说明到得了应答的那一跳,但**不证明源站健康**)` }
-    if (status >= 200) return { tier: 'origin-ok', red: false, note: `HTTP ${status} ⇒ **源站可达**` }
-    return { tier: 'undetermined', red: false, note: `HTTP ${status} 不在 2xx/3xx/5xx 口径内 ⇒ 未判定` }
+    if (status >= 400) return { tier: 'unverified-answer', red: false, note: `HTTP ${status}${via} ⇒ **未判定**:4xx 可能由边缘/路由语义作答,不证明回源健康。出路:核对靶台账该行的 url 与 registeredIn 登记的既有路径是否仍成立` }
+    if (status >= 300) return { tier: 'redirect-unresolved', red: false, note: `HTTP ${status}${via} ⇒ **止步于重定向,未判定**:3xx 不等于可用${stopNote}。出路:把该腿的 url 直接登记成终页路径,或提高 --leg-hops(上限存在本身就是"跟不完"的证据)` }
+    return { tier: 'origin-ok', red: false, note: `HTTP ${status}${via} ⇒ **源站可达(终页)**` }
   }
   const cls = classifySample(raw)
   if (cls.unavailable === true) return { tier: 'origin-unreachable', red: true, note: `${cls.note} ⇒ **源站不可达**` }
   return { tier: 'undetermined', red: false, note: `${cls.note} ⇒ **未判定**(探不到,不冒充通过)` }
+}
+
+/** 一条 3xx 读数 → 下一跳绝对 URL;缺失/不可解析/非 http(s) ⇒ null(不得猜终点)。 */
+export function nextHopUrl(base, location) {
+  const l = String(location ?? '').trim()
+  if (!l) return null
+  let u = null
+  try {
+    u = new URL(l, base)
+  } catch {
+    return null
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null
+  return u.href
+}
+
+/**
+ * 一条 3xx 读数 → **下一跳决策**(纯函数;镜像测试据此打到"跟不完"的每一支,不必发网络)。
+ * @returns {{follow:boolean, next:string|null, stop:'terminal'|'cap'|'broken'|null, note:string}}
+ */
+export function planLegHop(raw, currentUrl, hops, maxHops) {
+  const st = raw && typeof raw.status === 'number' ? raw.status : null
+  if (st === null || st < 300 || st >= 400) return { follow: false, next: null, stop: 'terminal', note: '' }
+  if (hops >= maxHops) return { follow: false, next: null, stop: 'cap', note: `跟随已达上限 ${maxHops} 跳` }
+  const next = nextHopUrl(currentUrl, raw && raw.location)
+  if (next === null) {
+    const l = raw && raw.location
+    return { follow: false, next: null, stop: 'broken', note: `HTTP ${st} 的 Location ${l ? `不可解析:"${String(l).slice(0, 80)}"` : '缺失'} ⇒ 终点未知,不猜` }
+  }
+  return { follow: true, next, stop: null, note: '' }
+}
+
+/**
+ * 一条腿的**终态**采样(票 G-960 判据面 2):3xx 不再当成可用,而是跟着 Location 走到终页再判。
+ * 上限 `LEG_REDIRECT_MAX_HOPS` 跳;到上限仍是 3xx、或 Location 缺失/不可解析 ⇒ 把"止步"这件事
+ * 如实写进 `redirectNote`,由 classifyEndpointTier 落成 **unjudged**(绝不落成 ok)。
+ * 每条腿只走一条链(探活不是压测);耗时按整链累计,判定按终页那一跳。
+ * @returns {Promise<object>} 终态读数 + `{legHops, legUrl, chain, redirectNote}`
+ */
+export async function sampleLeg(url, ceilingMs, opt = {}) {
+  const maxHops = Number.isFinite(opt.maxHops) && opt.maxHops >= 0 ? opt.maxHops : LEG_REDIRECT_MAX_HOPS
+  const chain = []
+  let current = url
+  let hops = 0
+  let totalMs = 0
+  let redirectNote = ''
+  let raw = null
+  for (;;) {
+    raw = await sampleOnce(current, ceilingMs)
+    totalMs += raw.ms
+    chain.push(current)
+    const plan = planLegHop(raw, current, hops, maxHops)
+    if (!plan.follow) {
+      if (plan.note) redirectNote = plan.stop === 'cap' ? `${plan.note}(${chain.join(' → ')})` : plan.note
+      break
+    }
+    current = plan.next
+    hops += 1
+  }
+  return { ...raw, url: current, ms: totalMs, legHops: hops, legUrl: current, chain, redirectNote }
 }
 
 /**
@@ -463,21 +628,56 @@ export function judgeSequence(id, stat, opt = {}) {
 }
 
 /**
- * 四端矩阵的单条判定(票 G-960):把 classifyEndpointTier 的两档落成派发契约里的三态。
+ * 单条腿的探活读数 → 把 classifyEndpointTier 的档位落成**派发契约里的三态**(ok/breach/unjudged)。
  * `stat` 必须随结论出口 —— 派发层按它算严重度档(522/530 全轮 = 断流级 sev=4)。
- * 3xx 落 `ok` 是票面口径("301 放过"),但 `tier:'edge-reachable'` 明写"不证明源站健康",
- * 不与 2xx 的 `origin-ok` 混成一句"入口健康"。
+ * 三档落法(票 G-960 判据面 2/3):`origin-ok` ⇒ ok;**红** ⇒ breach;
+ * `redirect-unresolved` / `unverified-answer` / `undetermined` ⇒ **unjudged 并点名出路**,
+ * 一律不得读成"这条腿没问题"(§0.3)。
  */
 export function judgeEndpointSample(id, url, raw, opt = {}) {
   const cls = classifySample(raw)
-  const tier = classifyEndpointTier(raw)
+  const tier = classifyEndpointTier(raw, { hops: Number(raw && raw.legHops) || 0, redirectNote: raw && raw.redirectNote })
   const at = opt.at || new Date().toISOString()
   const stat = summarizeSequence([{ at, ...raw, ...cls }], { slowMs: opt.slowMs ?? DEFAULTS.slowMs })
   const key = `E/${id}`
-  const numbers = `${url} ⇒ ${tier.tier}(${tier.note});耗时 ${raw && typeof raw.ms === 'number' ? raw.ms : '?'}ms,归桶 ${cls.bucket}`
+  const hops = Number(raw && raw.legHops) || 0
+  const chain = Array.isArray(raw && raw.chain) ? raw.chain.join(' → ') : String(url)
+  const numbers = `${url}${hops > 0 ? ` ⇒ 跟随 ${hops} 跳至 ${raw.legUrl || url}` : ''} ⇒ ${tier.tier}(${tier.note});终读链路 ${chain};耗时 ${raw && typeof raw.ms === 'number' ? raw.ms : '?'}ms,归桶 ${cls.bucket}`
   if (tier.red) return { key, verdict: 'breach', tier: tier.tier, reasons: [`${key}:${tier.note}`], numbers, stat, leg: 'entry' }
-  if (tier.tier === 'undetermined') return { key, verdict: 'unjudged', tier: tier.tier, reasons: [`${key}:${tier.note}`], numbers, stat, leg: null }
-  return { key, verdict: 'ok', tier: tier.tier, reasons: [], numbers, stat, leg: null }
+  if (tier.tier === 'origin-ok') return { key, verdict: 'ok', tier: tier.tier, reasons: [], numbers, stat, leg: null }
+  return { key, verdict: 'unjudged', tier: tier.tier, reasons: [`${key}:${tier.note}`], numbers, stat, leg: null }
+}
+
+/**
+ * 腿面的**逐维三态报数**(参照 `check-tunnel-leg-health.mjs` 的三态形态:每维独立、互不顶账)。
+ * 计数不并桶:`total` 只算**真探过**的腿;台账本身未判定 ⇒ `ledger:'unjudged'` 且 total 可为 0,
+ * 这种"一条都没量"绝不许被读成"0 个坏点 ⇒ 绿"。
+ * @param {Array<{verdict:string,id?:string}>} probes
+ * @param {{state?:string, reason?:string, legsExpected?:number}} [legsLoad]
+ */
+export function summarizeLegStates(probes, legsLoad = {}) {
+  const list = Array.isArray(probes) ? probes : []
+  const counts = { ok: 0, breach: 0, unjudged: 0 }
+  for (const p of list) {
+    if (p && p.verdict === 'breach') counts.breach += 1
+    else if (p && p.verdict === 'unjudged') counts.unjudged += 1
+    else if (p && p.verdict === 'ok') counts.ok += 1
+    else counts.unjudged += 1
+  }
+  const total = list.length
+  const ledgerState = legsLoad.state === 'ok' ? 'ok' : 'unjudged'
+  const expected = Number.isFinite(legsLoad.legsExpected) ? legsLoad.legsExpected : total
+  const note =
+    ledgerState === 'unjudged'
+      ? `靶台账未判定(${String(legsLoad.reason || '原因缺失').slice(0, 200)})⇒ 腿面整体未判定,不得按"0 个坏点"出合格证`
+      : total === 0
+        ? '腿面枚举为 0 条 ⇒ 判死,不记绿(§0.3)'
+        : total !== expected
+          ? `实测 ${total} 条 ≠ 台账 ${expected} 条 ⇒ 有腿没探到,该面未判定`
+          : counts.unjudged > 0
+            ? `${counts.unjudged}/${total} 条未判定(3xx 止步 / 4xx 未证明回源 / 探不到)⇒ 本轮不出合格证`
+            : `${total} 条各自独立判定,互不顶账`
+  return { ...counts, total, ledgerState, legsExpected: expected, note }
 }
 
 // ───────────────────────── 告警身份归一(纯函数,2026-10-17 立) ─────────────────────────
@@ -805,7 +1005,9 @@ async function sampleOnce(url, ceilingMs) {
       })
       res.on('end', () => {
         mark.body = Date.now()
-        finish({ status: res.statusCode, bytes })
+        // `location` 是"跟到终态再判"的唯一输入(票 G-960 判据面 2):只准从响应头取,
+        // 取不到就是"止步",不得凭状态码猜终点。
+        finish({ status: res.statusCode, bytes, location: res.headers && typeof res.headers.location === 'string' ? res.headers.location : undefined })
       })
       res.on('error', (e) => finish({ status: res.statusCode ?? null, ...errShape(e) }))
       res.resume()
@@ -1043,6 +1245,11 @@ function selfTest() {
     const r = classifySample({ ms: 3, causeCode: 'ECONNREFUSED' })
     return r.stage === 'conn' && r.unavailable === true
   })())
+  ok('C10 握手完成后被**空闲超时**中止(PROBE_INACTIVITY,2026-10-25 现读 E/bsm 10460ms 那一型)⇒ overCeiling/不可归因;既不是对端坏,也不得记成"尺子自己失明"(20% 失明线会把真慢洗成"本轮不出结论")', (() => {
+    const r = classifySample({ status: null, ms: 10_460, errorName: 'Error', errorCode: 'PROBE_INACTIVITY', causeCode: 'PROBE_INACTIVITY,PROBE_INACTIVITY,Error', stageReached: 'tlsDone', stages: { dns: 2, tcp: 260, tls: 520, head: null, body: null } })
+    const legacy = classifySample({ status: null, ms: 10_460, errorCode: 'PROBE_INACTIVITY', causeCode: 'PROBE_INACTIVITY,PROBE_INACTIVITY,Error' })
+    return r.bucket === 'overCeiling' && r.indeterminate === true && r.probeSideBroken !== true && r.unavailable === false && legacy.bucket === 'overCeiling' && legacy.probeSideBroken !== true
+  })())
   ok('S1 慢样本按跳分账且总额不丢:slow = http 慢 + stall 慢 + conn 慢', (() => {
     const mix = [S({ status: 200, ms: 100 }), S({ status: 200, ms: 9000 }), S({ bucket: 'connStall', stage: 'stall', indeterminate: true, ms: 10735, status: null }), S({ bucket: 'connRefused', stage: 'conn', unavailable: true, ms: 9000, status: null }), S({ bucket: 'probeError', stage: 'stall', probeSideBroken: true, ms: 1, status: null })]
     const m = summarizeSequence(mix, { slowMs: 8000 })
@@ -1241,19 +1448,57 @@ function selfTest() {
   ok('G6 靶的形状锁(与 env 无关,只锁默认字面量):默认靶必须是**真入口**(www 前缀),不得回落到实测恒 301 的裸域旧靶', (() => {
     return hostOf(ENTRY_URL_DEFAULT).startsWith('www.') && ENTRY_URL_DEFAULT !== ZERO_INFO_LEGACY_URL
   })())
-  // ── 票 G-960 判据面(2026-10-24):四端各自 hostname + "边缘可达 / 源站不可达"两档 + 探不到未判定
-  ok('G7 四端形状锁:默认矩阵必须是 www/api/sso/ai **四个各自 hostname**(只钉裸域或只钉 www 一条腿 = 立案现场)', (() => {
-    const hosts = PUBLIC_ENDPOINTS.map((e) => hostOf(e.url))
-    return PUBLIC_ENDPOINTS.length === 4 && hosts.every((h, i) => h.startsWith(['www.', 'api.', 'sso.', 'ai.'][i])) && PUBLIC_ENDPOINTS.every((e) => e.host === hostOf(e.url))
+  // ── 票 G-960 判据面(2026-10-25 收口):靶清单只认台账 + 3xx 必须跟到终态 + 逐维三态 ──
+  const legsNow = loadPublicLegs(PUBLIC_LEGS_FILE)
+  ok('G7 靶台账形状锁:每一腿各自 hostname、含 www/api/sso/ai 四条以上、host 与 url 逐字等值(只钉裸域或只钉一条腿 = 立案现场)', (() => {
+    if (legsNow.state !== 'ok') return false
+    const hosts = legsNow.legs.map((e) => hostOf(e.url))
+    const need = ['www.aizhs.top', 'api.aizhs.top', 'sso.aizhs.top', 'ai.aizhs.top']
+    return legsNow.legs.length >= 4 && new Set(hosts).size === hosts.length && need.every((h) => hosts.includes(h)) && legsNow.legs.every((e) => e.host === hostOf(e.url)) && legsNow.dropped.length === 0
+  })())
+  ok('G7b 靶台账必须每行带仓内出处(registeredIn)与现读凭据(measuredOn/measured)—— 路径不许凭记忆写', legsNow.state === 'ok' && legsNow.legs.every((e) => e.registeredIn.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(String(e.measuredOn)) && String(e.measured).length > 0))
+  ok('G7c 台账取不到 ⇒ 未判定并点名(不得回落成代码里的第二份靶):缺文件 / 坏 JSON / 枚举 0 行 / 到期 / 行不合格 五型各打一次', (() => {
+    const dir = resolve(ROOT, '.ihui-agent/tmp/probers')
+    mkdirSync(dir, { recursive: true })
+    const f = (name, text) => {
+      const p = resolve(dir, name)
+      writeFileSync(p, text, 'utf8')
+      return p
+    }
+    try {
+      const a = loadPublicLegs(resolve(dir, 'legs-no-such-file.json'))
+      const b = loadPublicLegs(f('legs-broken.json', '{不是 JSON'))
+      const c = loadPublicLegs(f('legs-empty.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [] })))
+      const d = loadPublicLegs(f('legs-expired.json', JSON.stringify({ schema: 1, expires: '2020-01-01', legs: [{ id: 'x', host: 'x.test', url: 'https://x.test/', registeredIn: ['a:1'], measuredOn: '2026-01-01', measured: '200', origin: '127.0.0.1:8801' }] })))
+      const e = loadPublicLegs(f('legs-badrow.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [{ id: 'x', host: 'x.test', url: 'https://x.test/', registeredIn: ['a:1'], measuredOn: '2026-01-01', measured: '200', origin: '127.0.0.1:8801' }, { id: 'y', host: '别的.host', url: 'https://y.test/', registeredIn: ['a:1'], measuredOn: '2026-01-01', measured: '200', origin: '127.0.0.1:8801' }] })))
+      const g = loadPublicLegs(f('legs-nomemory.json', JSON.stringify({ schema: 1, expires: '2099-01-01', legs: [{ id: 'x', host: 'x.test', url: 'https://x.test/', measuredOn: '2026-01-01', measured: '200', origin: '127.0.0.1:8801' }] })))
+      const five = [a, b, c, d, e, g]
+      const allUnjudged = [a, b, c, d, g].every((x) => x.state === 'unjudged' && x.legs.length === 0 && x.reason.length > 8) && e.state === 'unjudged' && e.legs.length === 1
+      const eKeptGood = e.dropped.length === 1 && /逐字不等/.test(e.dropped[0].why)
+      const gNamed = /registeredIn/.test(g.dropped[0]?.why || '')
+      for (const x of five) if (x !== a) rmSync(x.file, { force: true })
+      return five.every((x) => x.state === 'unjudged') && allUnjudged && eKeptGood && gNamed && /读不到/.test(a.reason)
+    } catch {
+      return false
+    }
   })())
   ok('G8 正照:522/530 ⇒ origin-unreachable 且判红(不许当 3xx 放过)', (() => {
     const a = judgeEndpointSample('www', 'https://www.aizhs.top/sso/login', { status: 522, ms: 10_300 })
     const b = judgeEndpointSample('api', 'https://api.aizhs.top/api/health', { status: 530, ms: 300 })
     return a.tier === 'origin-unreachable' && a.verdict === 'breach' && a.stat.unavailable === 1 && b.tier === 'origin-unreachable' && b.verdict === 'breach'
   })())
-  ok('G9 反照:301 ⇒ 边缘可达、放过(不红,但也不冒充源站健康)', (() => {
-    const j = judgeEndpointSample('sso', 'https://sso.aizhs.top/', { status: 301, ms: 668 })
-    return j.tier === 'edge-reachable' && j.verdict === 'ok' && j.reasons.length === 0 && /不证明源站健康/.test(j.numbers)
+  ok('G9 收紧(2026-10-25):终读仍 3xx ⇒ **不得顶绿** —— 落 redirect-unresolved/unjudged 并点名出路(旧档 edge-reachable+ok 就是"断了也没人喊"的那一格)', (() => {
+    const cap = judgeEndpointSample('sso', 'https://sso.aizhs.top/', { status: 302, ms: 668, legHops: 3, redirectNote: '跟随已达上限 3 跳' })
+    const broken = judgeEndpointSample('sso', 'https://sso.aizhs.top/', { status: 301, ms: 668, legHops: 0, redirectNote: 'HTTP 301 的 Location 缺失 ⇒ 终点未知,不猜' })
+    return cap.tier === 'redirect-unresolved' && cap.verdict === 'unjudged' && /上限 3 跳/.test(cap.reasons.join(' ')) && broken.tier === 'redirect-unresolved' && broken.verdict === 'unjudged' && /Location 缺失/.test(broken.reasons.join(' '))
+  })())
+  ok('G9b 4xx ⇒ unverified-answer/unjudged:边缘或路由语义都能答 4xx,不证明回源(不得读成"腿是好的")', (() => {
+    const j = judgeEndpointSample('file', 'https://file.aizhs.top/api/health', { status: 404, ms: 300 })
+    return j.tier === 'unverified-answer' && j.verdict === 'unjudged' && /核对靶台账/.test(j.reasons.join(' '))
+  })())
+  ok('G9c 跟到终页 200 ⇒ 绿,且读数必须写明"经 N 跳"(绿要有凭据,不能只给一个状态码)', (() => {
+    const j = judgeEndpointSample('sso', 'https://sso.aizhs.top/', { status: 200, ms: 900, legHops: 2, legUrl: 'https://sso.aizhs.top/admin/master/console/', chain: ['https://sso.aizhs.top/', 'https://sso.aizhs.top/admin/', 'https://sso.aizhs.top/admin/master/console/'] })
+    return j.tier === 'origin-ok' && j.verdict === 'ok' && /跟随 2 跳/.test(j.numbers) && /admin\/master\/console/.test(j.numbers)
   })())
   ok('G10 正照:200 ⇒ origin-ok(绿)', (() => {
     const j = judgeEndpointSample('ai', 'https://ai.aizhs.top/health', { status: 200, ms: 120 })
@@ -1263,6 +1508,34 @@ function selfTest() {
     const t = judgeEndpointSample('www', 'https://www.aizhs.top/sso/login', { status: null, ms: 15_001, aborted: true, causeCode: 'ABORT_ERR' })
     const d = judgeEndpointSample('ai', 'https://ai.aizhs.top/health', { status: null, ms: 5, causeCode: 'ENOTFOUND' })
     return t.tier === 'undetermined' && t.verdict === 'unjudged' && d.tier === 'undetermined' && d.verdict === 'unjudged'
+  })())
+  ok('G12 下一跳解析:相对 Location 按 base 解析、绝对照用;缺失/非 http(s)/不可解析 ⇒ null(不猜终点)', (() => {
+    return nextHopUrl('https://sso.aizhs.top/', '/admin/') === 'https://sso.aizhs.top/admin/' && nextHopUrl('https://x.test/a', 'https://www.aizhs.top/sso/login') === 'https://www.aizhs.top/sso/login' && nextHopUrl('https://x.test/a', '') === null && nextHopUrl('https://x.test/a', undefined) === null && nextHopUrl('https://x.test/a', 'ftp://x.test/b') === null && nextHopUrl('https://x.test/a', 'http://') === null
+  })())
+  ok('G13 跟跳决策三态:终页停 / 超上限停(带 note)/ Location 坏停(带 note);非 3xx 一律不跟(2xx/4xx/5xx/无状态)', (() => {
+    const term = planLegHop({ status: 200, location: '/x' }, 'https://x.test/a', 0, 3)
+    const cap = planLegHop({ status: 302, location: '/y' }, 'https://x.test/a', 3, 3)
+    const bad = planLegHop({ status: 301 }, 'https://x.test/a', 0, 3)
+    const go = planLegHop({ status: 302, location: '/y' }, 'https://x.test/a', 0, 3)
+    const four = planLegHop({ status: 404, location: '/y' }, 'https://x.test/a', 0, 3)
+    return term.stop === 'terminal' && !term.follow && cap.stop === 'cap' && /上限 3 跳/.test(cap.note) && bad.stop === 'broken' && /Location 缺失/.test(bad.note) && go.follow && go.next === 'https://x.test/y' && four.stop === 'terminal'
+  })())
+  ok('G14 逐维三态报数:ok/breach/unjudged 各自独立、不并桶;合计≠台账在册 ⇒ 该面未判定;枚举 0 ⇒ 判死不记绿', (() => {
+    const mix = summarizeLegStates([{ verdict: 'ok' }, { verdict: 'breach' }, { verdict: 'unjudged' }], { state: 'ok', legsExpected: 3 })
+    const short = summarizeLegStates([{ verdict: 'ok' }], { state: 'ok', legsExpected: 3 })
+    const none = summarizeLegStates([], { state: 'ok', legsExpected: 0 })
+    const dead = summarizeLegStates([], { state: 'unjudged', reason: '靶台账读不到', legsExpected: 0 })
+    return mix.ok === 1 && mix.breach === 1 && mix.unjudged === 1 && mix.total === 3 && mix.ledgerState === 'ok' && short.note.includes('有腿没探到') && none.note.includes('判死') && dead.ledgerState === 'unjudged' && /不得按"0 个坏点"出合格证/.test(dead.note)
+  })())
+  ok('G15 身份稳定性(§5e-1/守门 224 同族):腿面的 dedupKey 只含"腿身份 × 成因 × 档位",同一条腿同档不同计数不得换身份', (() => {
+    const mk = (n) => {
+      const raw = { status: 522, ms: 300 + n }
+      return judgeEndpointSample('www', 'https://www.aizhs.top/sso/login', raw)
+    }
+    const a = classifyAlertIdentity('E/www', mk(1).stat, { nowMs: NOW, leg: 'entry' })
+    const b = classifyAlertIdentity('E/www', mk(742).stat, { nowMs: NOW, leg: 'entry' })
+    const green = classifyAlertIdentity('E/www', summarizeSequence([{ at: new Date(t0).toISOString(), status: 200, ms: 20, ...classifySample({ status: 200, ms: 20 }) }]), { nowMs: NOW, leg: 'entry' })
+    return a.identity === b.identity && a.sevTier === 4 && /;sev=/.test(a.identity) && !/300|742/.test(a.identity + a.why) && green.sevTier === 0 && green.identity !== a.identity
   })())
   let pass = 0
   for (const [n, p] of cases) {
@@ -1360,8 +1633,15 @@ async function main(argv) {
       if (byUrl.size === 0) console.log(`  ${id}:取证里没有该序列的样本行 ⇒ 未判定(不得读成 0)`)
     }
     const epSummary = r.summary && Array.isArray(r.summary.endpoints) ? r.summary.endpoints : []
+    const legsLedgerRow = r.summary && r.summary.legsLedger ? r.summary.legsLedger : null
     for (const ep of epSummary) {
-      console.log(`  四端 ${ep.id}(${ep.url}):${ep.tier} ⇒ ${ep.verdict === 'breach' ? '**红(源站不可达)**' : ep.verdict === 'unjudged' ? '未判定(探不到,不冒充通过)' : '放过(3xx 仅边缘可达 / 2xx 源站可达)'}`)
+      console.log(`  腿 ${ep.id}(${ep.url}${typeof ep.hops === 'number' && ep.hops > 0 ? ` → ${ep.legUrl}` : ''}):${ep.tier} ⇒ ${ep.verdict === 'breach' ? '**红(源站不可达)**' : ep.verdict === 'unjudged' ? '未判定(止步于 3xx / 4xx 未证明回源 / 探不到 ⇒ 一律不冒充通过)' : '绿(2xx 终页,源站可达)'}`)
+    }
+    if (epSummary.length === 0) console.log('  腿面:取证里没有腿记录 ⇒ **未判定**(不得读成"没有腿坏了";老取证无该维时同样算未判定)')
+    if (legsLedgerRow && legsLedgerRow.state !== 'ok') console.log(`  靶台账(取证当时):未判定 —— ${String(legsLedgerRow.reason || '(无原因)').slice(0, 200)}`)
+    if (r.summary && r.summary.legStates) {
+      const ls = r.summary.legStates
+      console.log(`  腿面逐维三态(取证当时):ok=${ls.ok || 0} / breach=${ls.breach || 0} / unjudged=${ls.unjudged || 0}/合计 ${ls.total || 0}(台账在册 ${ls.legsExpected || 0} 条)⇒ ${ls.note || ''}`)
     }
     if (r.summary && r.summary.control) {
       const c = r.summary.control
@@ -1372,7 +1652,7 @@ async function main(argv) {
     const epBreach = epSummary.some((e) => e.verdict === 'breach')
     const epUnjudged = epSummary.some((e) => e.verdict === 'unjudged')
     if (epBreach) return 1
-    if (r.exit === 0 && epUnjudged) return 3
+    if (r.exit === 0 && (epUnjudged || epSummary.length === 0 || (legsLedgerRow && legsLedgerRow.state !== 'ok'))) return 3
     return r.exit === 0 ? 0 : r.exit === 3 ? 3 : 1
   }
   const json = argv.includes('--json')
@@ -1388,6 +1668,9 @@ async function main(argv) {
     publicUrl: pickOpt(argv, 'url-public', DEFAULTS.publicUrl, flagErrs),
     localUrl: pickOpt(argv, 'url-local', DEFAULTS.localUrl, flagErrs),
     controlUrl: pickOpt(argv, 'control-url', DEFAULTS.controlUrl, flagErrs),
+    /** 靶台账路径(默认 = 仓内唯一登记面)。指向别处只为成对对照/夹具,失效方向同 §0.3:读不到即未判定。 */
+    legsFile: pickOpt(argv, 'legs', PUBLIC_LEGS_FILE, flagErrs),
+    legHops: Math.max(0, Number(pickOpt(argv, 'leg-hops', LEG_REDIRECT_MAX_HOPS, flagErrs)) || 0),
     // 阳性对照**默认开**;关掉它 = 主动放弃"尺子有牙"的证明,所以关掉时报告必须大声报名。
     positiveControl: !argv.includes('--no-positive-control'),
     // --snapshot(含裸跑,两档同义)是"一次采样巡检"档:比长跑档轻,取证封缄+读回闭环都在这一档做。
@@ -1514,15 +1797,33 @@ async function main(argv) {
       }
     }
   }
-  // ── 四端矩阵(票 G-960):www/api/sso/ai 各打**一次** GET。不是压测 —— 四个请求换一条
-  // "哪条腿断了"的可执行事实;522/530 判红,3xx 只记"边缘可达",探不到落未判定。
+  // ── 公网腿矩阵(票 G-960):靶清单只认 `scripts/data/public-path-legs.json`(§0.6 单一真相源;
+  // 台账取不到/到期/任一行不合格 ⇒ 该面未判定,绝不回落到代码里另抄一份靶)。每条腿 GET **到终态**
+  // (3xx 跟 Location 到终页,上限 --leg-hops 跳)才判:522/530 红;止步于 3xx、4xx、探不到
+  // 一律 unjudged 并点名出路 —— 绝不顶绿(§0.3"没判绝不写成判过")。
+  const legsLoad = loadPublicLegs(opt.legsFile)
   const endpointProbes = []
-  for (const ep of PUBLIC_ENDPOINTS) {
-    const raw = await sampleOnce(ep.url, opt.ceilingMs)
-    const j = judgeEndpointSample(ep.id, ep.url, raw, { slowMs: opt.slowMs })
-    endpointProbes.push({ id: ep.id, host: ep.host, url: ep.url, status: raw.status ?? null, ms: raw.ms, bucket: classifySample(raw).bucket, tier: j.tier, verdict: j.verdict })
-    emit(`E/${ep.id}`, ep.url, j)
+  if (legsLoad.state !== 'ok') {
+    const j = {
+      verdict: 'unjudged',
+      tier: 'ledger-unjudged',
+      reasons: [`E/台账:${legsLoad.reason}`],
+      numbers: `靶台账 ${legsLoad.file}:清单未判定 ⇒ 本面一条腿都没量(不得读成"0 个坏点")`,
+      stat: summarizeSequence([]),
+      leg: null,
+    }
+    endpointProbes.push({ id: '台账', host: '(靶台账)', url: legsLoad.file, status: null, ms: 0, hops: 0, legUrl: legsLoad.file, bucket: 'probeError', tier: j.tier, verdict: j.verdict })
+    emit('E/台账', legsLoad.file, j)
+  } else {
+    for (const ep of legsLoad.legs) {
+      const raw = await sampleLeg(ep.url, opt.ceilingMs, { maxHops: opt.legHops })
+      const j = judgeEndpointSample(ep.id, ep.url, raw, { slowMs: opt.slowMs })
+      endpointProbes.push({ id: ep.id, host: ep.host, url: ep.url, status: raw.status ?? null, ms: raw.ms, hops: raw.legHops, legUrl: raw.legUrl, bucket: classifySample(raw).bucket, tier: j.tier, verdict: j.verdict })
+      emit(`E/${ep.id}`, ep.url, j)
+    }
   }
+  const legStates = summarizeLegStates(endpointProbes, { state: legsLoad.state, reason: legsLoad.reason, legsExpected: legsLoad.state === 'ok' ? legsLoad.legs.length : 0 })
+  lines.push(`腿面逐维三态:${['ok', 'breach', 'unjudged'].map((k) => `${k}=${legStates[k]}`).join(' / ')}/合计 ${legStates.total}(台账在册 ${legStates.legsExpected} 条)⇒ ${legStates.note}`)
   // ── 阳性对照(判据三):这把尺子必须先证明"看得见一个已知必坏的目标",才有资格报"0 次异常"。
   let control
   if (opt.positiveControl) {
@@ -1538,17 +1839,18 @@ async function main(argv) {
 
   const controlBlind = opt.positiveControl && control && !control.hit
   const anyBreach = verdicts.some((v) => v.verdict === 'breach')
-  // "全未判定"只按 A/B 两条序列算:四端矩阵加的 `E/*` 是**补充面**,不得把原先该报 3 的轮次洗成 0。
+  // "全未判定"只按 A/B 两条序列算:腿面加的 `E/*` 是**补充面**,不得把原先该报 3 的轮次洗成 0。
   const seqVerdicts = verdicts.filter((v) => !String(v.key || '').startsWith('E/'))
   const allUnjudged = seqVerdicts.length > 0 && seqVerdicts.every((v) => v.verdict === 'unjudged')
   let rc = seqVerdicts.length === 0 ? 3 : anyBreach ? 1 : allUnjudged ? 3 : 0
-  // 四端有任一"探不到"⇒ 本轮不能出合格证(未判定 ≠ 通过)。红优先于未判定。
-  if (endpointProbes.some((p) => p.verdict === 'unjudged') && rc === 0) rc = 3
+  // 腿面有任一"未判定"(含靶台账本身未判定)⇒ 本轮不能出合格证(未判定 ≠ 通过)。红优先于未判定。
+  if (legStates.unjudged > 0 && rc === 0) rc = 3
+  if (legStates.total === 0 && rc === 0) rc = 3
   if (controlBlind) rc = 3
   const results = {}
   for (const v of verdicts) results[v.key] = projectVerdictForDispatch(v)
   if (opt.ledger) {
-    writeLedgerTrailer(opt.ledger, { at: new Date().toISOString(), rc, results, control, split: splitReport, endpoints: endpointProbes, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), opt: { slowMs: opt.slowMs, ceilingMs: opt.ceilingMs, samples: opt.samples, publicUrl: opt.publicUrl, localUrl: opt.localUrl, endpoints: PUBLIC_ENDPOINTS.map((e) => e.url) } })
+    writeLedgerTrailer(opt.ledger, { at: new Date().toISOString(), rc, results, control, split: splitReport, endpoints: endpointProbes, legStates, legsLedger: { state: legsLoad.state, reason: legsLoad.reason, file: legsLoad.file, expires: legsLoad.expires || null, dropped: legsLoad.dropped }, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), opt: { slowMs: opt.slowMs, ceilingMs: opt.ceilingMs, samples: opt.samples, publicUrl: opt.publicUrl, localUrl: opt.localUrl, legHops: opt.legHops, legs: endpointProbes.map((e) => e.url) } })
     sealLedger(opt.ledger, rc)
     // 封缄后**读回自证**(run-evidence 那把尺子判文件):写进去的取证自己读不回 complete,
     // 本轮结论就是无凭据的 —— 探测被掐/磁盘写入失败都必须在这一格现形,而不是让 stdout 继续报平安。
@@ -1559,10 +1861,10 @@ async function main(argv) {
     }
   }
   if (json) {
-    console.log(JSON.stringify({ rc, at: new Date().toISOString(), results, control, split: splitReport, endpoints: endpointProbes, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), ledger: opt.ledger || null, positiveControlRan: opt.positiveControl }))
+    console.log(JSON.stringify({ rc, at: new Date().toISOString(), results, control, split: splitReport, endpoints: endpointProbes, legStates, legsLedger: { state: legsLoad.state, reason: legsLoad.reason, file: legsLoad.file, expires: legsLoad.expires || null, dropped: legsLoad.dropped }, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), ledger: opt.ledger || null, positiveControlRan: opt.positiveControl }))
   } else {
     console.log(`目标:公网 ${opt.publicUrl} | 本地 ${opt.localUrl}(两条独立序列 × 两个目标;任一都不得替另一条顶结论)`)
-    console.log(`四端矩阵:${PUBLIC_ENDPOINTS.map((e) => `${e.id}=${e.host}`).join(' | ')}(各一次 GET;522/530 判红,3xx 只记边缘可达,探不到落未判定)`)
+    console.log(`腿矩阵(${legsLoad.file}):${legsLoad.state === 'ok' ? legsLoad.legs.map((e) => `${e.id}=${e.host}`).join(' | ') : `**台账未判定** —— ${legsLoad.reason}`}(各一条 GET 跟到终页,上限 ${opt.legHops} 跳;522/530 判红,止步于 3xx/4xx/探不到一律未判定)`)
     for (const l of lines) console.log(l)
     console.log(
       rc === 0
@@ -1598,7 +1900,12 @@ export const __test__ = {
   classifySample,
   classifyEndpointTier,
   judgeEndpointSample,
-  PUBLIC_ENDPOINTS,
+  nextHopUrl,
+  planLegHop,
+  loadPublicLegs,
+  summarizeLegStates,
+  PUBLIC_LEGS_FILE,
+  LEG_REDIRECT_MAX_HOPS,
   sampleStage,
   summarizeSequence,
   classifyPublicLeg,

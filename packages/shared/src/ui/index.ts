@@ -8,6 +8,7 @@
  */
 export * from './back-chevron-spec'
 export * from './back-chevron-core'
+export * from './bottom-action-bar-core'
 export * from './scroll-jump-spec'
 export * from './scroll-jump-core'
 export * from './navbar-core'

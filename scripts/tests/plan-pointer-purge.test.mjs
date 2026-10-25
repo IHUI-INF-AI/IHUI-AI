@@ -157,4 +157,43 @@ test('P7 装车证明:真取本仓 HEAD 面 ⇒ 处置尺必须量出数字(不�
   assert.equal(typeof h, 'number', 'HEAD 面必须量得到,实测 ' + String(h))
   assert.equal(T.workResidueCount('', { absorb: true }), null, '取不到面 ⇒ 未判定,绝不冒充 0(§0.3)')
 })
+
+/**
+ * P8 只读探针档的契约(2026-10-25 立)。派生层生产面靠子进程问这一行取触发读数,所以契约必须钉死:
+ *  ① stdout 有一行 `PURGE-WORK <非负整数>`;
+ *  ② **绝不落地** —— 探针跑完 HEAD 必须逐字节没动(本档的安全底线);
+ *  ③ 读数必须等于器物自己在同一面的 `workResidueCount`(触发集=处置集的端到端凭据);
+ *  ④ 探针自己就是入口 ⇒ 不依赖调用方进程走到模块图哪一步 —— 这正是它取代 `require()` 的理由
+ *     (生产面实测:`loadPurgeTool()`/`loadRatchet()` 在 plan-tasks-merge --heal --commit 那一程
+ *      双双读成 null,详见 post-merge-ledger-sync.test.mjs 的 L21b)。
+ */
+test('P8 --work-count 探针档:单行机器可读结论 + 绝不落地 + 与处置尺同值', () => {
+  const root = resolve(HERE, '..', '..')
+  const rev = () =>
+    execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  const headBefore = rev()
+  const out = execFileSync(
+    process.execPath,
+    [join(root, 'scripts', 'plan-pointer-purge.mjs'), '--work-count', '--absorb'],
+    { cwd: root, encoding: 'utf8', windowsHide: true, timeout: 300000, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
+  const line = out
+    .split(/\r?\n/)
+    .reverse()
+    .find((l) => l.startsWith('PURGE-WORK'))
+  assert.ok(line, `必须打出 PURGE-WORK 结论行,实测末段 ${JSON.stringify(out.slice(-200))}`)
+  assert.match(line, /^PURGE-WORK \d+$/, `结论必须是行首 + 一个非负整数,实测 ${JSON.stringify(line)}`)
+  assert.equal(rev(), headBefore, '只读探针档绝不允许推进 HEAD(它一旦被当成落地通道就是灾难)')
+  const face = execFileSync('git', ['show', 'HEAD:PROJECT_PLAN.md'], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 256 * 1048576,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.equal(
+    Number(line.slice('PURGE-WORK'.length).trim()),
+    T.workResidueCount(face, { absorb: true }),
+    '探针读数必须等于器物自己在同一面的处置尺读数(两把尺同源的端到端凭据)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
