@@ -5,13 +5,15 @@
 
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息 */
 /** 〈原 36 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L7〉 git-guardian.mjs — `.git` 存活守护 + 秒级自愈(2026-09-12 立)。 */
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import {
   appendFileSync,
+  closeSync,
   cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -59,6 +61,25 @@ import {
 // 两份实现必漂移是本仓记过最多次的失效型,而这一族的失败形态是安静的 —— 漂了的一侧只会让
 // 某些告警少打码或多打码,没有任何门会喊。`redactChildOutput` 在本文件里已不再有实现。
 import { redactChildOutput } from './lib/secret-shape-redact.mjs'
+// AI 自进化调度层(第 0 期)的接线锚点:取票面/闸门/台账/锁全部 import 自器物本身(§0.6 单一真相源),
+// 派发层不另写"什么算可派/今日已派几轮/成本还剩多少"的第二份判据 —— 两处各算一次必漂移。
+import {
+  COST_LEDGER as AE_COST_LEDGER,
+  DISPATCH_ARGS as AE_DISPATCH_ARGS,
+  LEDGER as AE_LEDGER,
+  LOCK_FILE as AE_LOCK_FILE,
+  PLAN_TASKS as AE_PLAN_TASKS,
+  isPidAlive as isAutoEvolvePidAlive,
+  loadGates as loadAutoEvolveGates,
+  matchWhitelist as matchAutoEvolveWhitelist,
+  parseTicketRows as parseAutoEvolveTicketRows,
+  todayKey as autoEvolveTodayKey,
+} from './auto-evolve.mjs'
+import {
+  evaluate as evaluateCostBudget,
+  loadCaps as loadCostCaps,
+  parseLedger as parseCostLedger,
+} from './cost-breaker.mjs'
 // 公网探测的**告警身份归一**住在尺子那侧(§0.6 单一真相源,2026-10-17 立):派发层只负责把它填进
 // dedupKey,不再自己拼含计数的身份。模块有 §22d 直跑守卫,import 不会触发采样。
 import { classifyAlertIdentity } from './check-public-path-probe.mjs'
@@ -5552,6 +5573,13 @@ function main() {
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
     if (!CHECK_ONLY) watchWatchdog()
+    // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线):四层器物此前零派发点,
+    // 属 §0.9「造好没装车 = 没有」。全部自带节流,判机器状态/产出台账 ⇒ 不进提交链(§12e)。
+    // 顺序:先感知(分诊/腐烂/依赖)→ 再派发,同轮登记的票下一轮即可被自进化取到。
+    if (!CHECK_ONLY) dispatchGateRot()
+    if (!CHECK_ONLY) dispatchAutoTriage()
+    if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
+    if (!CHECK_ONLY) dispatchAutoEvolve()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     if (!CHECK_ONLY) ensureS4u()
     if (CHECK_ONLY)
@@ -5890,6 +5918,399 @@ export function auditTempLanding(opts = {}) {
 }
 
 
+// ─── AI 自进化调度层派发点(2026-10-26 接线:第 0 期 + 第 1 期 + 第 3 期②③) ───────────
+// 器物 `auto-evolve.mjs` / `auto-triage.mjs` / `dep-advisory-radar.mjs` / `check-gate-rot.mjs`
+// 全部造好却零派发点 ⇒ §0.9「造好没装车 = 没有」。挂点语义与既有各层同格:健康轮次早退之前 +
+// !CHECK_ONLY;四层都判机器状态/产出台账 ⇒ 绝不进提交链(§12e)。
+// 节拍:自进化 60min / 分诊 30min / 依赖安全 24h / 判据腐烂 6h(逐条可用 env 覆盖,便于排障)。
+// 无活即零落地零推送:自进化在「无票 / 预算耗尽 / 成本熔断 / 上一轮在跑」四档都不 spawn ——
+// runOnce 每次真跑都会给「预算耗尽 / 成本熔断」各寄一封逃生邮件,若每小时无条件 spawn,
+// 一天就是十几封(§5e-3 邮件风暴),这条前置判据是接线的前置条件而不是优化。
+const AUTO_EVOLVE_INTERVAL_MS = Number(process.env.IHUI_AUTO_EVOLVE_INTERVAL_MS || 60 * 60 * 1000)
+const AUTO_TRIAGE_INTERVAL_MS = Number(process.env.IHUI_AUTO_TRIAGE_INTERVAL_MS || 30 * 60 * 1000)
+const DEP_RADAR_INTERVAL_MS = Number(process.env.IHUI_DEP_RADAR_INTERVAL_MS || 24 * 60 * 60 * 1000)
+const GATE_ROT_INTERVAL_MS = Number(process.env.IHUI_GATE_ROT_INTERVAL_MS || 6 * 60 * 60 * 1000)
+const GUARDIAN_SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url))
+
+function dispatchDue(tickFile, now, intervalMs) {
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  return !(Number.isFinite(last) && now - last < intervalMs)
+}
+
+function stampDispatchTick(tickFile, now, logger) {
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠ 派发节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})—— 下轮照旧派发`)
+  }
+}
+
+/**
+ * 自进化派发(第 0 期装车):取票面/白名单/预算/成本/单实例锁全部复用器物判据,
+ * 本层只做「该不该起一轮」的前置闸与异步 spawn。
+ * 异步的原因:一次会话上限 maxSessionMinutes=45min,同步跑会把这 2 分钟一 tick 的守护整体卡死
+ * (工作树自愈/推送/清扫全停)。器物自带锁与预算,重复 spawn 会在锁处秒退,不会并行开发。
+ */
+export function dispatchAutoEvolve(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = AUTO_EVOLVE_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'auto-evolve-dispatch-last.json'),
+    ledgerFile = AE_LEDGER,
+    lockFile = AE_LOCK_FILE,
+    costLedgerFile = AE_COST_LEDGER,
+    logger = log,
+    readFile = (p) => readFileSync(p, 'utf8'),
+    exists = existsSync,
+    probe = null,
+    launcher = null,
+    gatesLoader = null,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'auto-evolve.mjs')
+  if (!exists(script)) {
+    logger('ℹ 自进化派发:器物不在位(scripts/auto-evolve.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '自进化器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+
+  let gates
+  try {
+    gates = (gatesLoader ?? (() => loadAutoEvolveGates((p) => readFile(p))))()
+  } catch (e) {
+    logger(`❓ 自进化派发:闸门配置未判定(${String(e?.message ?? e).slice(0, 160)})⇒ 本轮不派发(§0.3)`)
+    return { ran: true, ok: false, why: '闸门配置未判定' }
+  }
+  if (!gates.enabled) {
+    logger('⏸ 自进化派发:auto-evolve-gates.json enabled=false ⇒ 不派发(观察期)')
+    return { ran: true, ok: true, why: '未启用' }
+  }
+
+  // ① 今日预算:只认器物自己的派发台账(同一判据,不另算)
+  let todayDispatched = 0
+  try {
+    const dayKey = autoEvolveTodayKey(new Date(now))
+    for (const line of readFile(ledgerFile).split(/\r?\n/)) {
+      if (!line.trim()) continue
+      let e
+      try {
+        e = JSON.parse(line)
+      } catch {
+        continue
+      }
+      if (e?.action === 'dispatched' && String(e.ts ?? '').startsWith(dayKey)) todayDispatched += 1
+    }
+  } catch {
+    /* 台账不存在 = 今日 0 轮(器物首跑同口径) */
+  }
+  if (todayDispatched >= gates.dailyDispatchBudget) {
+    logger(
+      `⏸ 自进化派发:今日已派 ${todayDispatched}/${gates.dailyDispatchBudget} 轮达上限 ⇒ 不 spawn` +
+        '(否则 runOnce 每小时寄一封「预算耗尽」逃生邮件)',
+    )
+    return { ran: true, ok: true, why: '预算耗尽' }
+  }
+
+  // ② 成本熔断:判据 import 自 cost-breaker 同一份(单源,不在此处另写阈值)
+  try {
+    const caps = loadCostCaps(readFile(join(WORKTREE, 'scripts', 'data', 'cost-caps.json')))
+    const events = exists(costLedgerFile) ? parseCostLedger(readFile(costLedgerFile)) : []
+    const cost = evaluateCostBudget({ caps, events, kind: 'session', now })
+    if (!cost.allowed) {
+      logger(`⏸ 自进化派发:成本熔断(${cost.breaches.join(';')})⇒ 本轮不 spawn`)
+      return { ran: true, ok: true, why: '成本熔断' }
+    }
+  } catch (e) {
+    logger(`❓ 自进化派发:成本熔断判不了(${String(e?.message ?? e).slice(0, 160)})⇒ 本轮不派发(§0.3)`)
+    return { ran: true, ok: false, why: '成本熔断未判定' }
+  }
+
+  // ③ 单实例闸:器物锁在且持有者活着 ⇒ 让路(不让第二个会话抢同一张票)
+  try {
+    const { pid } = JSON.parse(readFile(lockFile))
+    if (isAutoEvolvePidAlive(pid)) {
+      logger(`⏭ 自进化派发:上一轮仍在跑(pid=${pid})⇒ 本轮让路`)
+      return { ran: true, ok: true, why: '上一轮在跑' }
+    }
+  } catch {
+    /* 无锁/锁坏 = 无有效持有者,继续 */
+  }
+
+  // ④ 取票面:plan-tasks 唯一入口 + 器物自己的白名单判据
+  let rows = []
+  let candidates = []
+  try {
+    const p = probe
+      ? probe()
+      : spawnSync(process.execPath, [AE_PLAN_TASKS, ...AE_DISPATCH_ARGS], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 120_000,
+          maxBuffer: 1 << 24,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+    if (p?.error) throw new Error(p.error?.message ?? String(p.error))
+    rows = parseAutoEvolveTicketRows(p?.stdout)
+    if (rows.length === 0 && Number(p?.status) !== 0) {
+      throw new Error(`派单面未判定(status=${p?.status ?? '?'}):${String(p?.stderr ?? p?.stdout ?? '').slice(-160)}`)
+    }
+    candidates = rows.filter((r) => matchAutoEvolveWhitelist(r.text, gates.ticketWhitelist))
+  } catch (e) {
+    logger(`❓ 自进化派发:派单面未判定(${String(e?.message ?? e).slice(0, 160)})⇒ 本轮不派发`)
+    return { ran: true, ok: false, why: '派单面未判定' }
+  }
+  if (candidates.length === 0) {
+    logger(`✅ 自进化派发:派单面 ${rows.length} 行、白名单命中 0 ⇒ 无活可派(零落地零推送)`)
+    return { ran: true, ok: true, why: '无票可派', rows: rows.length }
+  }
+
+  // ⑤ 异步 spawn(§12g:显式 stdio + windowsHide;detached 让子进程活过本轮 tick)
+  let child
+  let logFd = null
+  try {
+    child = launcher
+      ? launcher({ script, args: [script, '--once', '--no-triage'] })
+      : (() => {
+          const logFile = join(WORKTREE, '.ihui-agent', 'state', 'auto-evolve-run.log')
+          mkdirSync(dirname(logFile), { recursive: true })
+          logFd = openSync(logFile, 'a')
+          return spawn(process.execPath, [script, '--once', '--no-triage'], {
+            cwd: WORKTREE,
+            detached: true,
+            windowsHide: true,
+            stdio: ['ignore', logFd, logFd],
+          })
+        })()
+    if (typeof child?.unref === 'function') child.unref()
+  } catch (e) {
+    logger(`⚠ 自进化派发:spawn 失败(${String(e?.message ?? e).slice(0, 160)})`)
+    return { ran: true, ok: false, why: 'spawn 失败' }
+  } finally {
+    if (logFd !== null) {
+      try {
+        closeSync(logFd)
+      } catch {
+        /* 已关 */
+      }
+    }
+  }
+  logger(
+    `🚀 自进化派发:白名单命中 ${candidates.length} 枚(派单面 ${rows.length} 行,今日已派 ${todayDispatched}/${gates.dailyDispatchBudget})` +
+      ' ⇒ 已异步起一轮(日志 .ihui-agent/state/auto-evolve-run.log)',
+  )
+  return { ran: true, ok: true, spawned: true, candidates: candidates.length }
+}
+
+/**
+ * 感知层分诊轮(第 1 期装车):分诊与自进化拆成两个派发点,理由 = 自进化的 spawn 会被
+ * 「预算耗尽 / 成本熔断」前置闸按住,而分诊恰恰要在那种时候照常感知(它只写自己的台账 +
+ * 受每日登记配额约束,不花会话额度)。
+ */
+export function dispatchAutoTriage(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = AUTO_TRIAGE_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'auto-triage-dispatch-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'auto-triage.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ 感知层分诊:器物不在位(scripts/auto-triage.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '分诊器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--once'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10 * 60 * 1000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { ok: true, out: String(out ?? '') }
+      } catch (e) {
+        return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+      }
+    })
+  const r = run()
+  const text = String(r.out ?? '')
+  const registered = (text.match(/已登记[:：]/g) ?? []).length
+  const undetermined = (text.match(/未判定/g) ?? []).length
+  const keep = text
+    .split(/\r?\n/)
+    .filter((l) => /登记|未判定|配额|可派单|观察|无发现|❌|⏸/.test(l))
+    .slice(-2)
+    .join(' / ')
+  logger(
+    `${r.ok ? '✅' : '⚠️'} 感知层分诊轮:登记 ${registered} 枚 / 未判定 ${undetermined} 处` +
+      `${keep ? ` ｜ ${keep.slice(0, 220)}` : ''}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`,
+  )
+  return { ran: true, ok: r.ok, registered, undetermined }
+}
+
+/** 依赖安全通告派发(第 3 期③装车):每日一轮,`--register` 走 live-doc-edit 唯一登记入口。 */
+export function dispatchDepAdvisoryRadar(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = DEP_RADAR_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'dep-radar-dispatch-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'dep-advisory-radar.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ 依赖安全通告:器物不在位(scripts/dep-advisory-radar.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '依赖通告器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--json', '--register', '--max-tickets', '3'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10 * 60 * 1000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { ok: true, out: String(out ?? '') }
+      } catch (e) {
+        return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+      }
+    })
+  const r = run()
+  const text = String(r.out ?? '').trim()
+  const line = text
+    .split(/\r?\n/)
+    .reverse()
+    .find((l) => l.trim().startsWith('{'))
+  let parsed = null
+  try {
+    parsed = line ? JSON.parse(line) : null
+  } catch {
+    parsed = null
+  }
+  if (!parsed) {
+    logger(
+      `${r.ok ? '⚠️' : '❓'} 依赖安全通告轮:结论不可解析 ⇒ 本轮未判定(不改结论、不冒充已检查)` +
+        `${r.err ? ` ｜ ${r.err.slice(0, 120)}` : ''}`,
+    )
+    return { ran: true, ok: false, why: '结论不可解析' }
+  }
+  if (parsed.overall === 'undetermined') {
+    logger(`❓ 依赖安全通告轮:未判定 —— ${String(parsed.why ?? '(尺子未给原因)').slice(0, 200)}(不改结论,下轮再试)`)
+    return { ran: true, ok: false, why: '尺子未取到' }
+  }
+  const reg = Array.isArray(parsed.registered) ? parsed.registered.length : 0
+  logger(
+    `✅ 依赖安全通告轮:通告 ${parsed.advisories ?? '?'} 条 / 可修候选 ${parsed.candidates ?? '?'} 枚 / 本轮票 ` +
+      `${(parsed.tickets ?? []).length} 枚(受日配额截断 ${parsed.suppressed ?? 0})/ 已登记 ${reg} 枚`,
+  )
+  return { ran: true, ok: true, tickets: (parsed.tickets ?? []).length, registered: reg }
+}
+
+/**
+ * 守门判据腐烂轮(第 3 期②装车):读 `check-gate-rot --json --ratchet` 的机读结论,
+ * **只把相对基线新增的腐烂**当失败喊人(存量只报数,§12e 同族);未判定不冒绿。
+ * 本器不进提交链(判机器状态),邮件身份 = 类别 + 新增计数(§5e-1,明细不进指纹)。
+ */
+export function dispatchGateRot(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = GATE_ROT_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'gate-rot-dispatch-last.json'),
+    logger = log,
+    runner = null,
+    notifier = notifyGuardRed,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'check-gate-rot.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ 判据腐烂自检:器物不在位(scripts/check-gate-rot.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '判据腐烂器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--json', '--ratchet'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 5 * 60 * 1000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { ok: true, out: String(out ?? '') }
+      } catch (e) {
+        // exit 1 = 有新增腐烂(JSON 照常输出),不是「跑不起来」;照常解析 stdout
+        return { ok: true, out: `${e?.stdout ?? ''}`, err: String(e?.message ?? e) }
+      }
+    })
+  const r = run()
+  let parsed = null
+  try {
+    parsed = JSON.parse(
+      String(r.out ?? '')
+        .trim()
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .pop(),
+    )
+  } catch {
+    parsed = null
+  }
+  if (!parsed || typeof parsed.overall !== 'string') {
+    logger('❓ 判据腐烂自检:结论不可解析 ⇒ 本轮未判定(不记绿、不冒红)')
+    return { ran: true, ok: false, why: '结论不可解析' }
+  }
+  if (parsed.overall === 'undetermined') {
+    const why = (parsed.undetermined ?? []).map((u) => u?.why).filter(Boolean).join(' / ')
+    logger(`❓ 判据腐烂自检:未判定(${String(why || '(尺子未给原因)').slice(0, 200)})⇒ 本轮没判,不等于清单干净`)
+    return { ran: true, ok: false, why: '未判定' }
+  }
+  const rot = Array.isArray(parsed.rot) ? parsed.rot : []
+  const newRot = Array.isArray(parsed.newRot) ? parsed.newRot : []
+  const known = rot.length - newRot.length
+  if (newRot.length === 0) {
+    logger(`✅ 判据腐烂自检:无新增腐烂(存量 ${known} 条只报数,差值为 0)`)
+    return { ran: true, ok: true, known }
+  }
+  const names = newRot.map((x) => x?.resolved ?? x?.ref ?? '?').slice(0, 5)
+  logger(
+    `⚠️ 判据腐烂自检:新增腐烂 ${newRot.length} 条 ⇒ ${names.join(', ')}` +
+      `${newRot.length > names.length ? ` …(共 ${newRot.length})` : ''}(存量 ${known} 条只报数)`,
+  )
+  try {
+    notifier(
+      '守门判据腐烂(新增)',
+      `相对基线新增 ${newRot.length} 条判据指向不存在的路径:\n${names.join('\n')}\n\n` +
+        `修法:node scripts/check-gate-rot.mjs --suggest。存量 ${known} 条不喊(差值档只拦新增)。`,
+      { severity: 'warning', dedupKey: `gate-rot:new:${newRot.length}` },
+    )
+  } catch {
+    /* 通知层失败只影响喊人,不改本轮判定 */
+  }
+  return { ran: true, ok: false, why: '新增腐烂', known, fresh: newRot.length }
+}
+
 // §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。
 // 不守卫的话 `node --test` 一 import 就会把整轮巡检(含真发信)跑起来,这正是 §22d 立的禁忌。
 const isDirectRun = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -5916,6 +6337,13 @@ export const __test__ = {
   auditIndexUnmerged,
   sweepStaleClosedRows,
   sweepStaleClaimMarks,
+  // AI 自进化调度层派发点(2026-10-26 导出):镜像测试据此逐条钉「节流 / 无票不 spawn /
+  // 预算耗尽不 spawn / 锁在让路 / 结论不可解析落未判定」—— 不导出的话只能读源码字符串,
+  // 钉不住行为,而这一族的失效形态全是安静(多 spawn 一次 = 多派一个会话)。
+  dispatchAutoEvolve,
+  dispatchAutoTriage,
+  dispatchDepAdvisoryRadar,
+  dispatchGateRot,
   auditTunnelMetrics,
   bumpProbeStreak,
   parseNotifyState,
