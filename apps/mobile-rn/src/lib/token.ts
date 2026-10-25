@@ -38,6 +38,8 @@ import {
   createInMemoryTokenStore,
   type TokenStore,
 } from '@ihui/shared/auth'
+// 子路径而非包根:多处测试把 '@ihui/shared/auth' 整体 mock 了,新增导出从包根取会撞 mock;
+// 子路径由 vitest.config 的显式别名解析到真实源码(与 auto-login-policy 同型)。
 import { createTokenAutoRefresh, type TokenAutoRefreshHandle } from '@ihui/shared/auth/auto-refresh'
 
 /**
@@ -215,7 +217,10 @@ async function refreshAccessToken(): Promise<string | null> {
     },
   )
   if (!res.success) {
-    if (classifyRefreshFailureStatus(res.status) === 'transient') throw new TransientRefreshError()
+    // 2026-10-26:陈旧副本(stale-sibling)回 401 但服务端未否定凭据 ⇒ 按瞬时失败处理
+    if (classifyRefreshFailureStatus(res.status, res.errorCode) === 'transient') {
+      throw new TransientRefreshError()
+    }
     return null
   }
   // success 但缺 accessToken:契约异常,保守按失败处理(不抛,不写凭据)

@@ -90,10 +90,32 @@ export function shouldAttemptAutoLogin(deps: AutoLoginDeps): boolean {
 export type RefreshFailureKind = 'rejected' | 'transient'
 
 /**
- * HTTP 状态码 → 刷新失败性质。仅 401/403 算「凭据被明确拒绝」;
- * 其余(5xx、0、undefined=网络错误/超时)一律瞬时。
+ * 「陈旧 refresh token 副本」的稳定错误码(2026-10-26)。
+ *
+ * 后端 `POST /auth/refresh` 的重放裁决有三档(race / stale-sibling / reuse):
+ * - stale-sibling = 这一族还有活 token,只是本次拿来的是旧副本(桌面多窗口共用 vault、
+ *   停在旧页签的上下文、另一台设备) ⇒ 服务端**只拒绝本次、不吊销家族**;
+ * - 但它与 reuse 一样回 401。端内若按状态码一律判 rejected,就会把仍然有效的 30 天凭据
+ *   判死(清桌面 vault / 结束本地会话)—— 一次窗口间的轮转竞态就表现为"偶发要重登"。
+ *
+ * 三端与后端共用这一个字面量(后端路由 import 本常量),不得各写一份。
  */
-export function classifyRefreshFailureStatus(status: number | undefined): RefreshFailureKind {
+export const REFRESH_TOKEN_STALE_ERROR_CODE = 'REFRESH_TOKEN_STALE'
+
+/**
+ * HTTP 状态码 + 可选稳定错误码 → 刷新失败性质。
+ *
+ * 仅 401/403 算「凭据被明确拒绝」;
+ * 其余(5xx、0、undefined=网络错误/超时)一律瞬时。
+ *
+ * 唯一例外:`REFRESH_TOKEN_STALE_ERROR_CODE` 虽随 401 到达,但语义是"这次问错了副本",
+ * 服务端并未否定凭据 ⇒ 按 transient 处理(不清凭据、不通知登出,下一次冷启动/检查自然重试)。
+ */
+export function classifyRefreshFailureStatus(
+  status: number | undefined,
+  errorCode?: string,
+): RefreshFailureKind {
+  if (errorCode === REFRESH_TOKEN_STALE_ERROR_CODE) return 'transient'
   return status === 401 || status === 403 ? 'rejected' : 'transient'
 }
 
