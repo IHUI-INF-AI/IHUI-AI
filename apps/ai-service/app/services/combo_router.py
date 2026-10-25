@@ -20,7 +20,7 @@ ComboRouter 接管,按策略选下一个 provider,记录 fallback 历史到 LLM_
 {
   "maximize-free": {
     "strategy": "priority",
-    "chain": ["kimi-k2", "glm-4-flash", "deepseek-chat", "stepfun/step-3.7-flash"]
+    "chain": ["kimi-k2", "glm-4-flash", "deepseek-chat", "agnes/agnes-2.5-flash"]
   },
   "maximize-quality": {
     "strategy": "priority",
@@ -28,7 +28,7 @@ ComboRouter 接管,按策略选下一个 provider,记录 fallback 历史到 LLM_
   },
   "cheapest-first": {
     "strategy": "cheapest",
-    "chain": ["glm-4-flash", "deepseek-chat", "kimi-k2", "stepfun/step-3.7-flash"]
+    "chain": ["glm-4-flash", "deepseek-chat", "kimi-k2", "agnes/agnes-2.5-flash"]
   },
   "fusion-vote": {
     "strategy": "fusion",
