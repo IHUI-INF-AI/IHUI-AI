@@ -21,6 +21,12 @@
 
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
+// 79 号票运行时的唯一装配点(判定本体在 @ihui/types,本文件只消费).
+import {
+  authorizeWritePath,
+  evaluateToolAxis,
+  type ResolvedPermissionAxis,
+} from '../sandbox/permission-axis-runtime.js';
 import { observeShadowToolCall } from '../skills/allowed-tools-shadow.js';
 import { checkPermission, checkRulesWithLease, type PermissionRules } from './permissions.js';
 import { activePermissionLease } from './permission-lease.js';
@@ -624,6 +630,16 @@ export interface ToolContext {
   };
   /** 路径信任映射(可选,用于 write/edit/delete 工具的额外路径检查) */
   folderTrust?: FolderTrustMap;
+  /**
+   * 权限双轴(79 号票)的生效对 + 来源,由 setupAgentTools 从 settings/config profile 解析后注入。
+   *
+   * 缺席(undefined)= 本进程未装配双轴闸:写入面退回 folderTrust 单判、审批面退回既有
+   * `requiresUserConfirmation` 单判 —— 与引入本字段前逐字节同形(测试/嵌入式调用零行为变更)。
+   * 已装配时:
+   *  - 写类工具先过 `authorizeWritePath`(read-only 全拒;workspace-write 限工作区+allowedPaths);
+   *  - 所有工具过 `evaluateToolAxis`(deny 直接拒;ask 进人工确认,无确认渠道 ⇒ 拒)。
+   */
+  permissionAxis?: ResolvedPermissionAxis;
   /** P0-7 Permission rules:白名单/黑名单控制(--tools/--disallowed-tools CLI flag 注入) */
   permissions?: PermissionRules;
   /**
@@ -1392,6 +1408,16 @@ async function executeToolCallInner(
       const rejection = applyToolArgValidation(hubTool, call);
       if (rejection) return rejection;
     }
+    // 79 号票双轴闸同样覆盖 hub 分支(2026-10-25):hub 路径在本地路径之前 return,
+    // 若不在这里问一次,"启用 toolHub 即绕过双轴"就是一个结构性后门。remote 工具拿不到
+    // 完整 Tool 对象 ⇒ 按名字 + 缺省 dangerLevel 归类(危险级缺省与 MCP 适配层同口径);
+    // hub 分支没有既有确认闸,所以 ask 一律就地处理(有渠道问、无渠道拒),不传 skipIfLegacyConfirm。
+    const hubAxisRejection = await gatePermissionAxis(
+      hubTool ?? { name: call.name, dangerLevel: 'dangerous' },
+      call,
+      ctx,
+    );
+    if (hubAxisRejection) return hubAxisRejection;
     // G-401 拍板②(2026-10-07):remote(MCP 适配层)工具的批准闸。
     // 本地 Tool 的批准闸在下方原路径(requiresUserConfirmation → 钩子 → confirmDangerous);
     // remote 工具没有本地 Tool 对象,那条路径结构上到不了 —— 此前 hub 分支对 remote 是
@@ -1483,6 +1509,11 @@ async function executeToolCallInner(
     // 而本函数原先只看 `!perm.allowed` ⇒ 整套槽位指纹在运行时是死代码(造好没装车)。
     leaseContentDrifted = 'approvalState' in perm && perm.approvalState === 'content-drifted';
   }
+  // 79 号票权限双轴闸:沙箱面在写工具内由 authorizeWritePath 判过(与路径强相关),这里判
+  // 命令/技能/MCP 的沙箱面 + 所有类别的审批面。位置在 permission rules 之后、限流之前:
+  // 规则是显式名单(最具体,先拒),轴是默认授权(被规则收紧后不再放回);被拒的调用不消耗限流配额。
+  const axisRejection = await gatePermissionAxis(tool, call, ctx, { skipIfLegacyConfirm: true });
+  if (axisRejection) return axisRejection;
   // P1-4 Rate limiting:同一工具 10 秒内最多 5 次,超限返回 error
   const rateLimit = checkRateLimit(call.name);
   if (!rateLimit.allowed) {
@@ -1619,6 +1650,62 @@ export async function executeToolCall(
   ctx: ToolContext,
 ): Promise<ToolResult> {
   return assembleToolResultProjections(await executeToolCallInner(call, ctx));
+}
+
+/**
+ * 权限双轴执行闸(79 号票在工具执行面的**唯一**应用点;判定本体在 @ihui/types)。
+ *
+ * 三态处理:
+ *  - `deny` ⇒ 直接拒绝,错误串 = 机器可读 reason + 可执行出路(hint),errorType=permission_denied;
+ *  - `ask` ⇒ **既有确认闸已经会问的**(requiresUserConfirmation)交给它,避免同一次调用问两遍;
+ *    只有既有闸不会问的那几格(如 untrusted / on-failure 下的写工具)才在这里补问;
+ *    非交互会话没有确认渠道 ⇒ 拒(fail-closed,不把"没人可问"读成"默许");
+ *  - `allow` ⇒ 放行,后续既有链路一字不变。
+ *
+ * `ctx.permissionAxis` 缺席 ⇒ 整段不介入(嵌入式调用/测试零行为变更);这不是"默认放宽":
+ * 生产装配点 `setupAgentTools` 无条件注入(settings 缺配置时落 DEFAULT_SANDBOX_PROFILE)。
+ */
+async function gatePermissionAxis(
+  tool: Pick<Tool, 'name' | 'dangerLevel'>,
+  call: ParsedToolCall,
+  ctx: ToolContext,
+  opts: { skipIfLegacyConfirm?: boolean } = {},
+): Promise<ToolResult | null> {
+  const axis = ctx.permissionAxis;
+  if (!axis) return null;
+  const gate = evaluateToolAxis(axis, tool);
+  if (gate.decision === 'allow') return null;
+  const detail = [gate.reason, gate.hint].filter((v): v is string => !!v).join('\n');
+  if (gate.decision === 'deny') {
+    return {
+      success: false,
+      output: '',
+      error: `权限轴拒绝: ${detail}`,
+      errorType: 'permission_denied',
+    };
+  }
+  // 本地路径:既有确认闸已经会问的交给它(避免同一次调用问两遍)。hub 分支没有既有确认闸,
+  // 所以不传 skipIfLegacyConfirm ⇒ ask 一律在这里问/拒(比现状只严不宽)。
+  if (opts.skipIfLegacyConfirm && requiresUserConfirmation(tool as Tool)) return null;
+  if (!ctx.confirmDangerous) {
+    return {
+      success: false,
+      output: '',
+      error: `需要用户确认但当前会话没有确认渠道,本次调用不执行: ${detail}`,
+      errorType: 'permission_denied',
+    };
+  }
+  const approved = await ctx.confirmDangerous(tool as Tool, call.arguments);
+  if (!approved) {
+    return {
+      success: false,
+      output: '',
+      error: `用户拒绝了本次调用: ${detail}`,
+      errorType: 'permission_denied',
+    };
+  }
+  noteDangerousApproval(ctx.allowDangerous === true, tool.name);
+  return null;
 }
 
 // ==================== P1-4 Rate limiting(滑动窗口计数)====================
@@ -1760,11 +1847,25 @@ export function isFatalErrorType(errorType: string | undefined): boolean {
 /**
  * 检查路径是否允许写操作。
  * 返回 { allowed: boolean, reason?: string }
+ *
+ * 两道闸,顺序 = 双轴沙箱面 → folderTrust(结构性信任面):
+ *  1. `ctx.permissionAxis` 存在时先问它(G-212/票79):read-only 全拒;workspace-write 只允许
+ *     工作区与 `sandbox.allowedPaths` 内;danger-full-access 放行。拒绝串带下一步出路。
+ *  2. folderTrust(forbidden / read-only)照旧 —— 它是"这个目录被标成不可写"的结构性意图,
+ *     比轴更具体,不能被更宽的轴翻掉(方向只能是更严)。
  */
 export function checkPathWritePermission(
   filePath: string,
   ctx: ToolContext,
 ): { allowed: boolean; reason?: string } {
+  const axis = ctx.permissionAxis;
+  if (axis) {
+    const decision = authorizeWritePath(axis, ctx.workspacePath, filePath, ctx.sandbox?.allowedPaths ?? []);
+    if (!decision.allowed) {
+      const reason = [decision.reason, decision.hint].filter((v): v is string => !!v).join('\n');
+      return { allowed: false, reason };
+    }
+  }
   if (!ctx.folderTrust) return { allowed: true };
   const level = checkFolderTrust(filePath, ctx.folderTrust);
   if (level === 'forbidden') {
