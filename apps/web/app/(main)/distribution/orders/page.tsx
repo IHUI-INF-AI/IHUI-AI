@@ -4,6 +4,7 @@
 
 'use client'
 
+import { formatPrice } from '@ihui/shared/utils'
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -66,7 +67,7 @@ const STATUS_CLS: Record<string, string> = {
 
 const STATUS_OPTIONS = ['pending', 'paid', 'cancelled', 'refunded']
 
-const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
+const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
 
 export default function CommissionOrdersPage() {
   const t = useTranslations('distribution')

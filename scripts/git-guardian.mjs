@@ -22,6 +22,7 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { rotateAppendLog } from './lib/log-rotation.mjs'
+import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { isInteractiveUserHome } from './check-home-junctions.mjs'
@@ -172,61 +173,10 @@ const ALIGN_HEAL_THROTTLE_MS = Number(process.env.IHUI_ALIGN_HEAL_THROTTLE_MS ||
 const ALIGN_HEAL_MAX_ATTEMPTS = Number(process.env.IHUI_ALIGN_HEAL_MAX_ATTEMPTS || 3)
 const ALIGN_HEAL_ATTEMPT_LOG = join(WORKTREE, '.ihui-agent', 'state', 'converge-align-heal-attempts.json')
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 通用自动修复骨架(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// 上面那套是对齐格的专用版(2026-10-04 第一批)。李总随后要求把**全部可自动修的告警格**
-// 都接上自愈,而逐格各写一套节流/熔断必然漂移(本仓反复登记的同型)⇒ 抽成这一份通用骨架。
-//
-// **动作面分档是本骨架的前提**,不是可选项。自动化的收益是"快",代价是"可能在错的判断上
-// 动手"。所以只有**同时满足**下面三条的格才接进来:
-//   ① 幂等 —— 跑两次与跑一次同形(否则重启/重试会放大副作用);
-//   ② 有回滚材料 —— 动作自带归档/副本(`*.stale-<stamp>` 之类),错了能退;
-//   ③ 判据已在尺子脚本里 —— 本层**只派发**,不自己判断"该不该修"(不重复发明判据)。
-// 不满足的(内容回滚、文件被删、凭据漂移、公网不可达)一律留人工,理由见各 audit 头注。
-//
-// 四条护栏,所有格共用:
-//   ① 事实闸:没真判红就不修("未判定"也不算 —— 那不是能修的故障,是尺子没在跑);
-//   ② 节流:动作本身有耗时的,本守护每 2 分钟一轮,不节流会把"修"变成新的负载源;
-//   ③ 熔断:自愈失败要有上限,否则就是每轮重试一次,那比只喊人更吵;
-//   ④ 回读确认:动作跑完 ≠ 修好了 —— 修复后必须再判一次事实(见 healConvergeAlignStall)。
-//
-// ⚠ 这一段曾经试图再抽一份"通用骨架"(decideAutoHeal / runAutoHeal / AUTO_HEAL_PROFILE),
-// **已按实测结论撤回**,撤回理由连同撤回本身都写进下面的 AUTO_HEAL_LEDGER 头注 ——
-// 逐个核实后发现多数动作器**本来就带修复动作与封顶**,硬套第二层只会造出两处真相。
-// 保留下来的是**分档台账**,它才是李总要的那份"能自动修/不能自动修 + 理由"的显式清单。
+// 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l168(门 103 C1 收口)〉首意: // 通用自动修复骨架(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
 
 
-// 全量告警格的**自动修复分档台账**(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// 第一批只补了对齐那一格(真缺口:停摆 24.8 小时零动作)。李总随后要求"要 AI 自动修",
-// 于是把全部告警格逐个过了一遍 —— **结论与最初的设想相反,这里如实记录,因为它决定了
-// 为什么没有第二批自动修复**:
-//
-//   已自修(本层派发时即带修复动作,**不重复包一层**):
-//     · ops-patrol          --apply,写回运行副本 + POST /-/reload,自带 .stale-<stamp> 归档
-//     · merge-addition-loss --apply(union-converge),实测一次 2–13 分钟
-//     · service-heal        --apply,且它**自己已有完整封顶**(consecutiveRounds 2 +
-//                            cooldown 60min + maxRestartsPerWindow 2/60min,H6 自测钉着)
-//     · 其余 heal*           指针 / env / HEAD / refs / 工作区 / 盘根 / junction,均为
-//                            幂等修复,且多数带 git-lock 互斥
-//   不自动修(**逐格给了理由,不是"懒得做"**):
-//     · host-timezone   尺子头注明写"只读:不改时区、不写注册表"且"定级…不得自作主张改"
-//     · env-drift       动作面是**凭据回填**;错填一个密钥的后果远大于停摆,且备份值
-//                       需人工比对(自动回填等于无人核对地改生产凭据)
-//     · disk-root       动作面是删除文件;误删不可逆,无回滚材料
-//     · public-path     告警文案自己写着"先用 --report 确认是目标端慢/失败(而非探针机抖动)"
-//                       ⇒ 判红**不蕴含本机可修**,自动重启本机服务是在错误判断上动手
-//     · orphan-deletion 命中的是"疑似误删他人文件",归属需人判;自动回滚会覆盖当前持有者
-//
-// **因此本轮刻意没有新增第二处自动修复**。往已有封顶的动作器上再叠一层节流/熔断,
-// 只会造出"两处真相"(节流值在两处漂移),而收益为零 —— 这正是本仓反复登记的
-// "造好没装车 / 各写一遍必然漂移"那一型。
-//
-// 这份台账本身是**交付物**:它把"哪些能自动修、哪些不能、为什么"写成可被测试钉住的常量,
-// 而不是留在某个人的脑子里。新增告警格时必须在此登记,否则就是"新格默认只喊人"且无人察觉。
+// 〈原 29 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l194(门 103 C1 收口)〉首意: // 全量告警格的**自动修复分档台账**(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
 export const AUTO_HEAL_LEDGER = {
   'converge-align': {
     mode: 'auto',
@@ -3273,30 +3223,7 @@ const WORKTREE_HEAL_INTERVAL_MS = Number(process.env.IHUI_WORKTREE_HEAL_INTERVAL
 const WORKTREE_ALIGN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'worktree-align-tick')
 const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS || 420_000)
 
-/**
- * 不响应服务的自愈派发点(动作器 = `scripts/heal-unresponsive-services.mjs`,白名单台账在
- * `scripts/data/service-auto-restart.json`)。三层重启方案的第三层,2026-10-01 机主拍板(台账 G-978121)。
- *
- * 为什么这一层只能挂在这里、且必须挂两次调用点之一都不行:本机 22 个服务里 21 个是 nssm 包装的,
- * SCM 的恢复动作对它们**结构上不会触发**(死的是子进程,nssm.exe 自己还活着 ⇒ 服务永远 Running);
- * nssm 的退出重启又只覆盖"子进程退出"那一型。真实发生过的两次事故 —— 路径烂掉导致子进程根本起不来
- * (RSSHub 静默停 3 天)、进程在而端口不应答 —— 两种都表现为"Running + 不通",没有任何日志行会红。
- * "判某件事没发生"的尺子按设计不能进提交链(判机器状态 ⇒ 每台每次被逼 --no-verify,连带全部守门作废),
- * 所以唯一调度器就是这个守护。
- *
- * 五条不可漂的执行细节(与 auditOpsPatrol 同规矩):
- *  - 节流戳与 `--apply` 一起交给动作器;它内部还另有每台冷却与全局窗口上限(防重启风暴);
- *  - **单轮未判定只写日志不喊人**,但必须报名(取不到报告 ⇒ exit 2,不是"都没事");
- *  - 真重启过或重启失败才发信,沿用"身份 + 内容指纹 4h 去重、无总量封顶"。
- *  - **自愈注定不会动手的那两种终态也必须到人**(2026-10-21 补,详见函数体内那段):重启预算用完
- *    (`window-capped`)与名单外真坏了(`not-in-list`)都不在"重启过/重启失败"两集里 —— 而按这条判据,
- *    越是不重启能解决的故障越安静。台账对后者的原话是"只喊人",而"只喊人"从来没有生产者。
- *    两个入口共用 `alertTerminalHeld` 一件器物:身份 = 服务名集合 × 持续档,解除即摘起点。
- *  - 同族第三种:**连续六小时量不到**(`undetermined`)喊的是**看守层自己瞎了**,不是服务坏了。
- *    单轮必须闭嘴(§0.3 把"没判"当坏了 = 让一把量不到的尺子获得发信权),但 indefinite 的失明
- *    本身就是事故 —— 而"判某件事没发生"的尺子按设计不进提交链,这里也没有别的调度器。
- *    门槛取 6h = `alertHeldTier` 已登记的第一条档界,不另拍新数。
- */
+// 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l3279(门 103 C1 收口)〉首意: 
 export function healUnresponsiveServices(opts = {}) {
   const {
     now = Date.now(),
@@ -4083,27 +4010,7 @@ export function auditTunnelMetrics(opts = {}) {
   }
 }
 
-/**
- * 「完成即删」兜底清扫轮(守门 229 的姊妹层,2026-10-20 立,机主令"要彻底根治 固定完成立即删掉记录")。
- *
- * 为什么提交口那道闸不够:门 229 只在**有人提交且暂存了 PROJECT_PLAN.md** 时判滞留;把旧已勾行
- * 带回 HEAD 的那枚提交(并发旧基线 / 合并 union)可以不碰台账 ⇒ 提交口结构上看不见它。判据本身
- * 不在此重写:清扫器 import 门 229 的 `staleClosedVerdict`(§0.6 单一实现)。
- *
- * 纪律:
- *  - **节流 5 分钟**(2026-10-23 由 30 分钟下调):清扫是一次对象空间落地 + 一次推送,太密会把共享仓
- *    刷爆;但 30 分钟那一档实测**跟不上造的速度** —— 结清提交每分钟都在落地(03:12/03:14/03:20/
- *    03:25 各一枚),而清扫一拍只摘一次 ⇒ 存量永远在涨。5 分钟这一档不会刷仓:无滞留时清扫器
- *    直接 exit 0、零落地零推送,只有真有滞留才产生一次提交。
- *  - 先落"已尝试"再派发(与收尾对齐自愈同一取舍:台账写不下去时宁可多跑一轮也不裸奔,
- *    但节流与熔断不能双双失效);
- *  - 旁路落地不跑 post-commit ⇒ 推送腿由清扫器自带(不推就等于没删,AGENTS §5b 回潮通道①);
- *  - **不改本守护退出码**:清台账失败不等于 .git 失败(与 auditPublicPathProbe 同型);
- *  - 日志三态(2026-10-20 加固):摘了 N 条 / 无滞留 / **有滞留但全部被判「仍保护」而一条未摘**,
- *    按清扫器的机读结论行 `SWEEP-RESULT state=…` 分档;取不到结论行 ⇒ 报"读数未判定",
- *    不得显示成"无需清扫"(把"没做"写成"做过"是 §0.3/§0.10 明令禁止的那一型);
- *  - 派生子进程一律显式 stdio + windowsHide + timeout(§12g / 守门 52 / 80)。
- */
+// 〈原 21 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l4089(门 103 C1 收口)〉首意: 
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -4921,6 +4828,24 @@ export function auditMigrationGaps(opts = {}) {
 }
 
 /**
+ * 资源目录同步停更哨兵(2026-10-25 立)。实测宕型:批内复合键重复触发 PG 21000,
+ * 整轮 760 条全军 synced=0,而可见面只有一行 WARN —— "静默"就是这一格的立项理由。
+ * 判定住在 lib(守护顶着门 103 C1 的 6000 行天花板,与 sweeper/batch-write 归位 lib 同一先例)。
+ */
+const REGISTRY_SYNC_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'registry-sync-health-tick.ts')
+
+export function auditRegistrySyncHealth(opts = {}) {
+  return runRegistrySyncHealth({
+    script: join(dirname(fileURLToPath(import.meta.url)), 'check-registry-sync-health.mjs'),
+    tickFile: REGISTRY_SYNC_AUDIT_TICK,
+    cwd: WORKTREE,
+    logger: log,
+    notify: notifyGuardRed,
+    ...opts,
+  })
+}
+
+/**
  * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
  * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
  * 于是 .git 存续守护与凭据告警会在"机器重启后没人登录"这段时间里同时静默 ——
@@ -5002,30 +4927,7 @@ function samePath(a, b) {
   return String(a).replace(/\\/g, '/').toLowerCase() === String(b).replace(/\\/g, '/').toLowerCase()
 }
 
-/**
- * `cpSync`/`rmSync` 打在 GITDIR 之前的准入闸(2026-10-16 事故加,勿删):
- *   ① GITDIR 绝不能是工作树里的 `.git` 指针文件本身 —— 那是自指损坏态,往里灌备份 = 删库;
- *   ② GITDIR 存在时必须是目录;是文件 ⇒ 拒绝一切破坏性恢复(先喊人,不自己动手)。
- * 返回 false 时调用方**必须放弃恢复**(保住现场可回溯),不得退而求其次继续写。
- *
- * 事故现场(2026-10-16 00:21):`resolveGitdir()` 当时回退成 `<wt>/.git`,守护判定 gitdir 不健康,
- * 于是每 10 秒 `cpSync(BACKUP, GITDIR)` 一次,25MB 备份内容被灌进 `.git` 指针文件 ⇒
- * `fatal: too large to be a .git file`,整仓不可用。①正是这条链的断口。
- */
-/**
- * `gitdirTargetSafe` 的**纯判据层**(§22c:镜像测试直接吃这份,不在测试里复制第二份判据)。
- *
- * 为什么单列:真实现要 stat 本机路径,而这一格的判据本身是"三个输入 ⇒ 一个结论",
- * 把它留在只有 side effect 的函数里,就只能靠"在真仓上把 .git 换成一个大文件"来取证 ——
- * 那台机上每条 git 命令都会失败,而这是一棵**共享工作树**,别人正在提交。
- * 所以形态三态在此判清,现场演练交给人(见 ledger 行 L15556 的残余),不由守护自己制造。
- *
- * @param {{ samePointer?: boolean, exists?: boolean, isDirectory?: boolean }} p
- *   samePointer = GITDIR 解析后与工作树 `.git` 指针文件同路径(自指损坏态);
- *   exists/isDirectory = 对 GITDIR 的 stat 结果投影(读不出来时调用方给 exists:true,isDirectory:false 也不行,
- *   必须走 unreadable 一支)。
- * @returns {{ok:boolean, why:string}} false ⇒ 调用方必须放弃一切破坏性恢复
- */
+// 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l5008(门 103 C1 收口)〉首意: 
 export function gitdirTargetVerdict({ samePointer = false, exists = false, isDirectory = false, unreadable = false } = {}) {
   if (samePointer)
     return { ok: false, why: 'GITDIR 解析成指针文件自身 —— 自指损坏态,写它等于删库;先修 scripts/lib/gitdir.mjs 的解析,勿在此放行' }
@@ -5658,6 +5560,9 @@ function main() {
     // 迁移账本「中间缺口」:drizzle 只按 when>max 应用,晚到的旧 when 会被永久跳过且 migrate exit 0
     // (实测 chat_collab 生产缺建表、部署只报档位)。尺子 = check-db-migration-gaps.mjs;30min 节流。
     if (!CHECK_ONLY) auditMigrationGaps()
+    // 资源目录同步停更哨兵(尺子 = check-registry-sync-health.mjs;判定住 lib/registry-sync-audit)。
+    // 30min 节流;psql/DSN 取不到 = 未判定不喊人(§12e:与提交内容无关的恒响只会废掉通道)。
+    if (!CHECK_ONLY) auditRegistrySyncHealth()
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
     // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
     if (!CHECK_ONLY) scrubTempFixtures()
@@ -5775,6 +5680,7 @@ function startDaemon() {
   tick()
 }
 
+// 〈原 19 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l5738(门 103 C1 收口)〉首意: 
 
 
 // §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。

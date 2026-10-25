@@ -75,9 +75,42 @@ test('成功快进后连续计数必须归零', () => {
   )
 })
 
-test('未引入任何强推或破坏性 git 动作', () => {
-  const added = ['git push --force', 'push -f', 'reset --hard', 'git stash', 'clean -fd']
-  for (const a of added) assert.equal(SRC.includes(a), false, `新增破坏性动作:${a}`)
+test('未引入任何强推或破坏性 git 动作(射程=执行路径;补救文案与注释不算)', () => {
+  // 2026-10-24 Get-DivergenceRemedy 上线:它把"人可直接粘贴"的补救(含第 4 步
+  // `git fetch origin main && git reset --hard <tip>`)写进**展示字符串**,注释里也解释了
+  // "为什么不自动做"。全文件裸子串检查把这些引用当执行 ⇒ 恒红(§12e)。
+  // 判据收窄的正确方向不是删提示(提示是给 111 轮/7.3 小时那种真人场景的),而是把锁
+  // 钉在"执行形态"上:每个破坏性动词的出现,要么在 `#` 注释行,要么在补救文案构建器
+  // Get-DivergenceRemedy 的跨度内;出现在别处 = 执行路径引入破坏性动作 ⇒ 红。
+  const destructive = ['git push --force', 'push -f', 'reset --hard', 'git stash', 'clean -fd']
+  const violations = (src) => {
+    const fnStart = src.indexOf('function Get-DivergenceRemedy')
+    assert.ok(fnStart >= 0, 'Get-DivergenceRemedy 是破坏性动词唯一允许的非注释落点;它没了,本锁的豁免面就该关')
+    const fnEndRel = src.slice(fnStart + 10).indexOf('\nfunction ')
+    const fnEnd = fnEndRel > 0 ? fnStart + 10 + fnEndRel : src.length
+    const out = []
+    for (const verb of destructive) {
+      let idx = -1
+      while ((idx = src.indexOf(verb, idx + 1)) !== -1) {
+        const lineStart = src.lastIndexOf('\n', idx) + 1
+        const lineEndRel = src.slice(idx).indexOf('\n')
+        const lineEnd = lineEndRel >= 0 ? idx + lineEndRel : src.length
+        if (src.slice(lineStart, lineEnd).trimStart().startsWith('#')) continue
+        if (idx >= fnStart && idx < fnEnd) continue
+        out.push(`${verb} @ 行 ${src.slice(0, lineStart).split('\n').length}`)
+      }
+    }
+    return out
+  }
+  assert.deepEqual(violations(SRC), [], `执行路径出现破坏性 git 动作:${violations(SRC).join(' ; ')}`)
+  // 变异对照(锁必须有牙):把同一条 reset 塞进真正的执行函数体里 ⇒ 必须被点名。
+  const anchor = SRC.indexOf('function Invoke-AutoConverge')
+  assert.ok(anchor > 0, '前提核对:Invoke-AutoConverge 在位')
+  const mutant = `${SRC.slice(0, anchor + 30)}\n    git reset --hard $RemoteTip\n${SRC.slice(anchor + 30)}`
+  assert.ok(
+    violations(mutant).some((v) => v.includes('reset --hard')),
+    '执行形态的 reset --hard 不被判红 ⇒ 本锁无牙(只是把今天的假红合法化)',
+  )
 })
 
 /**
