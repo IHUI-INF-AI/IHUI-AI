@@ -1,4 +1,4 @@
-﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -305,6 +305,41 @@ function Invoke-PollOnce {
     # 旧实现在这里只有一句 `Get-Process -Id $pidIn` 的存活判断,pid 复用即恒真。
     if (-not (Enter-IhuiLoopLock -Path $LockFile)) { return }
     try {
+        # ---- 1b) 自进化 P0 前置闸(O65 O6501/O6502,2026-10-25 立)----
+        # 两道闸都是 fail-closed:取不到判据 ⇒ 本轮不部署,绝不回落成"没改动所以放行"(§0.3)。
+        #   ① 根护栏(root-guard --check):守门执行器/判据单一真源/AGENTS 铁律段被改动且无人工解锁 ⇒ 拒推进;
+        #   ② 成本熔断(cost-breaker --check --kind deploy):滚动窗口内部署次数/墙钟超限 ⇒ 软停机(exit 3),留响声非故障。
+        # node 在服务上下文(LocalSystem)的 PATH 里常常取不到,故按绝对路径兜底(与 ihui-deploy.ps1 Resolve-NodeExe 同源)。
+        $guardNode = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
+        if (-not $guardNode) {
+            foreach ($np in @('D:\DevEnv\runtimes\node\node.exe', 'C:\Program Files\nodejs\node.exe')) {
+                if (Test-Path -LiteralPath $np) { $guardNode = $np; break }
+            }
+        }
+        if (-not $guardNode) {
+            Log "FAIL  自进化前置闸:node.exe 取不到 ⇒ 根护栏/成本熔断判不了,本轮不部署(fail-closed)"
+            return
+        }
+        $rgOut = (& $guardNode (Join-Path $Root 'scripts\root-guard.mjs') --check 2>&1 | Out-String)
+        $rgRc = $LASTEXITCODE
+        if ($rgRc -ne 0) {
+            Log "FAIL  根护栏未通过(rc=$rgRc)⇒ 本轮不部署(fail-closed;人工复核后 node scripts/root-guard.mjs --seal --reason `"...`")"
+            foreach ($ln in ($rgOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
+            return
+        }
+        $cbOut = (& $guardNode (Join-Path $Root 'scripts\cost-breaker.mjs') --check --kind deploy 2>&1 | Out-String)
+        $cbRc = $LASTEXITCODE
+        if ($cbRc -eq 3) {
+            Log "PAUSE 成本熔断:部署额度已耗尽 ⇒ 本轮停转(软停机,下一轮再看;放量属人工阀 budget-cap-change)"
+            foreach ($ln in ($cbOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
+            return
+        }
+        if ($cbRc -ne 0) {
+            Log "FAIL  成本熔断判不了(rc=$cbRc)⇒ 本轮不部署(fail-closed)"
+            foreach ($ln in ($cbOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
+            return
+        }
+        $roundStart = Get-Date
         # ---- 2) 调真实部署脚本(不带 -deployLatest:落后才部署,behind=0 优雅退出) ----
         Log "———— 部署轮询开始 ————"
         # 流式落盘(2026-09-21 根治):旧写法 `$out = & pwsh ... 2>&1` 先在内存攒完子进程
@@ -403,7 +438,21 @@ function Invoke-PollOnce {
             # §26:临时物用完必须删 —— 部署环每 60 秒一轮,不清就是每天数千个文件
             Remove-Item $runOut, $runErr -Force -ErrorAction SilentlyContinue
         }
-        Log "———— 部署轮询结束(exit=$LASTEXITCODE) ————"
+        $roundRc = $LASTEXITCODE
+        $roundMinutes = [Math]::Round(((Get-Date) - $roundStart).TotalMinutes, 2)
+        # ---- 2b) 记账与绿色态(O65 O6502 记账腿 / O6503 记号腿)----
+        # 记账条件 = 本轮墙钟 ≥1 分钟(真的动过构建/部署);behind=0 的秒退不进账,否则额度被空转吃光。
+        if ($roundMinutes -ge 1) {
+            $budgetOut = (& $guardNode (Join-Path $Root 'scripts\cost-breaker.mjs') --charge --kind deploy --minutes $roundMinutes --note "deploy-loop rc=$roundRc" 2>&1 | Out-String)
+            foreach ($ln in ($budgetOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [budget] $($ln.Trim())" } }
+        }
+        # 绿色态只在"本轮确实部署完成"时刷新:子进程打出「部署完成,HEAD=」且 exit=0;
+        # 用时刻比较排掉"上一轮的完成标记被本轮 behind=0 误读成自己的战果"。
+        if ($roundRc -eq 0 -and $null -ne $script:LastDeployDoneAt -and $script:LastDeployDoneAt -ge $roundStart) {
+            $greenOut = (& $guardNode (Join-Path $Root 'scripts\green-state.mjs') --mark --apply --note "deploy-loop ok" 2>&1 | Out-String)
+            foreach ($ln in ($greenOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [green] $($ln.Trim())" } }
+        }
+        Log "———— 部署轮询结束(exit=$roundRc) ————"
     } finally {
         # 只删自己那把(pid 对得上才删)。旧写法无条件 Remove-Item 会在"上一轮的锁被判
         # 陈旧清掉、新持有者刚写下锁"的窗口里替别人放锁 ⇒ 两个构建并发。
