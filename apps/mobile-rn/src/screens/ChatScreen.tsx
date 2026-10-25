@@ -146,6 +146,7 @@ import {
 import type { ModelConfigType } from '@ihui/ui-native'
 import {
   ChatScreen as SharedChatScreen,
+  ContextUsagePanel,
   type ChatScreenMessage,
   type ChatScreenModel,
 } from '@ihui/rn-app'
@@ -569,6 +570,13 @@ export function ChatScreen() {
   const realtimeSessionRef = useRef<string | null>(null)
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
+  // ── G-403/G-225:本轮 usage 帧的 prompt 缓存两维(上下文归因面板的数据源)──
+  // 三态口径与 web ring、小程序归因条同一条:数字(含 **0**)= 上游真回报;null = 没采到(未知)。
+  // 渲染位不得把 null 折成 0 —— 0 是"一次都没命中"这个结论本身,不是"没量到"。
+  const [latestCacheTokens, setLatestCacheTokens] = useState<{
+    cacheReadTokens: number | null
+    cacheWriteTokens: number | null
+  }>({ cacheReadTokens: null, cacheWriteTokens: null })
   // 票 68:档位「最新值」的两个出口。modelRef 供 send() 在把 payload 交出去之前复核档位;
   // previousModelRef 供下面换档 effect 判「模型确实变了」—— 首帧与 fetchModels 回填两侧同值 ⇒ 不打断。
   const modelRef = useRef(model)
@@ -918,6 +926,8 @@ export function ChatScreen() {
     abortRef.current = controller
     // 新一轮开始,上一轮的 trace 不得挂到新消息上(与 G-403 缓存读数同一条复位纪律)
     roundTraceIdRef.current = undefined
+    // G-403:新一轮开始,重置上一轮的缓存读数 —— 旧账挂到本轮归因面板就是把别人的账记到这一页
+    setLatestCacheTokens({ cacheReadTokens: null, cacheWriteTokens: null })
     // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):
     // 否则"请求出错"那句会被模型当成自己上一轮的回答读进去
     const apiMessages = history
@@ -1038,7 +1048,14 @@ export function ChatScreen() {
         )
       },
       // token 用量:写进消息 meta.totalTokens(与 N8n 屏 totalTokens 同义,主屏渲染位另行票面)
+      // G-403:缓存两维**无条件**接住 —— 不得排在 totalTokens<=0 的早退之后,否则"上游报了缓存、
+      // 本轮总量为 0"会被读成"没采到",把三态里已知的一档折成未知。`?? null` 把"字段缺席(旧帧)"
+      // 与"显式 null"一并归未知;数字(含 0=真没命中)原样保留,渲染位不造 0。
       onUsage: (usage) => {
+        setLatestCacheTokens({
+          cacheReadTokens: usage.cacheReadTokens ?? null,
+          cacheWriteTokens: usage.cacheWriteTokens ?? null,
+        })
         if (usage.totalTokens <= 0) return
         setMessages((prev) => {
           const next = [...prev]
@@ -2853,6 +2870,21 @@ export function ChatScreen() {
         />
       </NavChrome>
 
+      {/* 上下文占用归因面板(共享引擎,G-403/G-225 最后一格):此前本屏只有 onUsage 帧里的
+          totalTokens 落进消息 meta,缓存两维接了却无人渲染 —— web 有 ring、小程序有归因条,
+          RN 什么都没有。这里复用同一个 ContextUsagePanel(不是第三份实现),口径与两端一致:
+          没采到传 null(显示"不可得"),不在渲染位造 0。 */}
+      {messages.length ? (
+        <ContextUsagePanel
+          t={t}
+          messages={sharedMessages}
+          maxTokens={getModelContextCapacity(model)}
+          colorScheme={resolvedTheme}
+          cacheReadTokens={latestCacheTokens.cacheReadTokens}
+          cacheWriteTokens={latestCacheTokens.cacheWriteTokens}
+        />
+      ) : null}
+
       <KeyboardAvoidingView
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -3576,7 +3608,10 @@ const subscribeConversationMeta = (onStoreChange: () => void): (() => void) =>
   conversationMetaLedger.subscribe(onStoreChange)
 const getConversationMetaVersion = (): number => conversationMetaLedger.version()
 
-function mapConversationToDrawer(c: ConversationDetail, t: (key: string) => string): DrawerConversationItem {
+function mapConversationToDrawer(
+  c: ConversationDetail,
+  t: (key: string) => string,
+): DrawerConversationItem {
   const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
   const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
   const mdl = c.model ?? ''
