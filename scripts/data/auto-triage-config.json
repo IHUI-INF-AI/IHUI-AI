@@ -1,5 +1,20 @@
 {
   "enabled": true,
   "dailyRegistrationQuota": 3,
-  "sources": ["mail-failure", "index-unmerged"]
+  "sources": ["mail-failure", "index-unmerged", "api-logs", "grafana-alerts", "user-feedback"],
+  "clustering": {
+    "windowHours": 24,
+    "minOccurrences": 2
+  },
+  "apiLogs": {
+    "jsonl": "",
+    "rowLimit": 500,
+    "minStatus": 500
+  },
+  "grafanaAlerts": {
+    "url": ""
+  },
+  "userFeedback": {
+    "jsonl": ".ihui-agent/state/user-feedback-export.jsonl"
+  }
 }
