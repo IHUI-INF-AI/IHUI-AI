@@ -30,6 +30,11 @@ vi.mock('../src/db/visit-tracking-queries.js', () => ({
   getDayPvList: vi.fn().mockResolvedValue([]),
   getDayUvList: vi.fn().mockResolvedValue([]),
   findIpCityList: vi.fn().mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 20 }),
+  getPageUsageList: vi
+    .fn()
+    .mockResolvedValue({ list: [], total: 0, totalPv: 0, page: 1, pageSize: 20 }),
+  visitScopeFilter: vi.fn().mockReturnValue(undefined),
+  VISIT_SCOPE_VALUES: ['public', 'admin', 'auth', 'all'],
 }))
 
 import { visitTrackingRoutes, adminVisitTrackingRoutes } from '../src/routes/visit-tracking'
