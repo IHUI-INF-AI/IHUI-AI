@@ -63,8 +63,17 @@ export function addedMarkIsIsolated(oldLine, newLine, mark) {
   }
 }
 
+/** 今日历日(本机时区)的 `YYYY-MM-DD` 形态 —— 条件②「日期不晚于今天」的**唯一**取值出口,
+ * 调用方与测试一律 import 本件,不得自己再拼一份(§0.6;ISO 定宽形态可直接逐字比大小)。 */
+export function todayIso() {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 /**
- * 租约形态迁移分档(2026-10-23 立,承「台账挂牌没有合法通道」票;同日晚补齐条件③)。
+ * 租约形态迁移分档(2026-10-23 立,承「台账挂牌没有合法通道」票;同日晚补齐条件③;
+ * 2026-10-26 本席补齐条件②的「日期不晚于今天」边界,承同一票 L28073 的放行面收窄条款)。
  * 放行档 = 「无牌 → 完整租约」,四个条件**同时**成立才算 `add-complete`;任一不成立就落到
  * 自己的拒落档,由 `assertRowRewriteConservation` 点名是哪一条(§0.10:失效方向恒为"多要一次
  * 定向说明",绝不是"多放一次跳门"):
@@ -72,7 +81,9 @@ export function addedMarkIsIsolated(oldLine, newLine, mark) {
  *     绝不代摘任何人的认领"要刻意保住的那一格(摘超龄牌另有兜底器物 `strip-stale-claim-marks`);
  *  ② `claimMarkOf(after)` 是**完整租约**(`form==='lease'` ∧ `date` ∧ `holder`,判据现读自
  *     `claimMarkOf`/`parseLeaseForm`)—— 裸 `（进行中）`、缺日期、缺持有者一律不算,所以守门 109
- *     的 CL4「裸牌新增即拦」不可能被本器旁路;
+ *     的 CL4「裸牌新增即拦」不可能被本器旁路;**且日期不得晚于今天**(`todayIso()`,2026-10-26 补):
+ *     明天以后的日期不改变挂牌动作本身,却把守门 109 CL1 的 72h 超龄兜底永远推到够不着——
+ *     等于给认领牌发免死牌,这一型落在 `add-future` 档,拒并点名;
  *  ③ 把 after 里那一枚新增标记剥掉后与 before **逐字节相等**(见 `addedMarkIsIsolated`);
  *  ④ 主键维与归属桶维照常判,本档一条也不替它们放行(见 `assertRowRewriteConservation` 首尾)。
  *
@@ -90,6 +101,8 @@ export function leaseTransitionOf(oldLine, newLine) {
   if (f0 === f1) return 'same'
   if (!f0 && f1) {
     if (!(m1.form === 'lease' && m1.date && m1.holder)) return 'add-incomplete'
+    // ISO `YYYY-MM-DD` 定宽形态,逐字比大小即日历比大小;晚于今天的牌进 add-future 档。
+    if (m1.date > todayIso()) return 'add-future'
     return addedMarkIsIsolated(o, n, m1).ok ? 'add-complete' : 'add-attached'
   }
   if (f0 && !f1) return 'removed'
@@ -99,8 +112,8 @@ export function leaseTransitionOf(oldLine, newLine) {
 /**
  * @returns {string[]} 违规列表;空 = 放行。
  * 三件分别钉:主键漂(门 71 会按缺失回捞,等于把行判死)、租约形态变化(=本器代摘)、归属桶变化(=账面虚增)。
- * 唯一放行的形态变化 = 「旧行本来没牌 → 新行多一枚完整租约,且除此之外逐字节不动」四条件全中
- * (AGENTS §1 要求的认领动作,不是代摘);摘牌、换持有者、改日期、裸牌/半牌、加牌顺带改正文
+ * 唯一放行的形态变化 = 「旧行本来没牌 → 新行多一枚完整租约(日期不晚于今天),且除此之外逐字节不动」四条件全中
+ * (AGENTS §1 要求的认领动作,不是代摘);摘牌、换持有者、改日期、裸牌/半牌、未来日期牌、加牌顺带改正文
  * 仍一律拒,且**逐条点名是哪一条件不满足**(§0.10)。分档判据见 `leaseTransitionOf`。
  */
 export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, newRec = null }) {
@@ -137,13 +150,18 @@ export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, 
     v.push(
       `加的不是完整租约:${f1}(条件②:必须 @日期/持有者 三要素齐备;裸（进行中）与半牌由守门 109 CL4「新增即拦」,本器不给它开后门)`,
     )
+  } else if (lease === 'add-future') {
+    const m1 = claimMarkOf(n)
+    v.push(
+      `挂牌日期在未来:${m1?.date} > 今天(${todayIso()})(条件②:租约日期必须不晚于今天——写明天以后的日期,守门 109 CL1 的 72h 超龄兜底永远够不着这张牌,等于给认领牌发免死牌;出路=按今天真实日期重挂)`,
+    )
   } else if (lease === 'add-attached') {
     const d = addedMarkIsIsolated(o, n, claimMarkOf(n))
     v.push(
       `加牌这一步顺带改了别的东西(条件③:${d.ok ? '(判定与分档不一致,请上报)' : d.why}):唯一差异必须只是插入这枚牌。出路=分两次定向改写:先只加牌(正文一个字都别动),再单独改正文/注记`,
     )
   }
-  // 'add-complete'(四条件全中)与 'same'(没牌/同一张牌)放行;其余四档逐条点名。
+  // 'add-complete'(四条件全中)与 'same'(没牌/同一张牌)放行;其余五档逐条点名。
 
   const b0 = bucketOf(o, oldRec)
   const b1 = bucketOf(n, newRec)
@@ -235,5 +253,6 @@ export const __test__ = {
   completeLeaseOf,
   leaseCarryOf,
   applyLeaseCarry,
+  todayIso,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

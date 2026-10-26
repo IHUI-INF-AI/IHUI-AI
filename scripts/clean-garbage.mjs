@@ -26,9 +26,10 @@
  *   node scripts/clean-garbage.mjs --quiet      # 只输出汇总
  */
 import { promises as fs } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -113,7 +114,10 @@ async function gitMaintenance(dryRun) {
   if (!dryRun) {
     console.log('[clean-garbage] git gc --prune=now(打包松散对象)...')
     try {
-      execFileSync('git', ['gc', '--prune=now'], { cwd: ROOT, stdio: 'ignore', windowsHide: true })
+      // 2026-10-26 G-54:git 派生收口到 face-reader(root=原 cwd:ROOT;原 execFileSync 无 timeout,
+      // 传 timeout:0 走 ?? 语义保留无超时,不中途杀长 gc;gitRaw stdio 捕获输出但本处原 stdio:'ignore'
+      // 即丢弃,成功路径行为一致;失败经 Undetermined.status 抛出,catch 兜底语义不变)
+      gitRaw(['gc', '--prune=now'], ROOT, { timeout: 0 })
       results.push('git gc 完成')
     } catch (err) {
       results.push(`git gc 失败: ${err.message.split('\n')[0]}`)
