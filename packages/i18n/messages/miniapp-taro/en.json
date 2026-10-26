@@ -4982,5 +4982,20 @@
     "submit": "Create",
     "nameRequired": "Please enter a name",
     "saveFailed": "Failed to save"
+  },
+  "agentMarket": {
+    "empty": "No agents",
+    "free": "Free",
+    "loadFailed": "Failed to load",
+    "paid": "Paid",
+    "searchPlaceholder": "Search agents",
+    "title": "Agent Market",
+    "uses": "Uses"
+  },
+  "agentReviewList": {
+    "author": "Author",
+    "empty": "No reviews",
+    "loadFailed": "Failed to load reviews",
+    "title": "User Reviews"
   }
 }

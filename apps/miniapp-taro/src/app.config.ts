@@ -147,6 +147,8 @@ export default defineAppConfig({
         'mcp-store/index',
         'agent-chat/index',
         'agent-create/index',
+        'agent-market/index',
+        'agent-review-list/index',
       ],
     },
     {

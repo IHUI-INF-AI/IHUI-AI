@@ -4982,5 +4982,20 @@
     "submit": "创建",
     "nameRequired": "请输入名称",
     "saveFailed": "保存失败"
+  },
+  "agentMarket": {
+    "empty": "暂无智能体",
+    "free": "免费",
+    "loadFailed": "加载失败",
+    "paid": "付费",
+    "searchPlaceholder": "搜索智能体",
+    "title": "智能体市场",
+    "uses": "使用次数"
+  },
+  "agentReviewList": {
+    "author": "作者",
+    "empty": "暂无评价",
+    "loadFailed": "加载评价失败",
+    "title": "用户评价"
   }
 }
