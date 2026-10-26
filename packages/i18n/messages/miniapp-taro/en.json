@@ -4997,5 +4997,15 @@
     "empty": "No reviews",
     "loadFailed": "Failed to load reviews",
     "title": "User Reviews"
+  },
+  "agentSetting": {
+    "title": "Agent Settings",
+    "name": "Name",
+    "model": "Model",
+    "temperature": "Temperature",
+    "enabled": "Enabled",
+    "save": "Save",
+    "loadFailed": "Failed to load settings",
+    "saved": "Saved successfully"
   }
 }

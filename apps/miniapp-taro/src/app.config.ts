@@ -149,6 +149,7 @@ export default defineAppConfig({
         'agent-create/index',
         'agent-market/index',
         'agent-review-list/index',
+        'agent-setting/index',
       ],
     },
     {

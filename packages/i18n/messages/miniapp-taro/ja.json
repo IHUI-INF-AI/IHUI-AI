@@ -4997,5 +4997,15 @@
     "empty": "レビューがありません",
     "loadFailed": "レビューの読み込みに失敗",
     "title": "ユーザーレビュー"
+  },
+  "agentSetting": {
+    "title": "エージェント設定",
+    "name": "名称",
+    "model": "モデル",
+    "temperature": "温度",
+    "enabled": "有効",
+    "save": "保存",
+    "loadFailed": "設定の読み込みに失敗",
+    "saved": "保存しました"
   }
 }
