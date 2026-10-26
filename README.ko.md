@@ -2198,6 +2198,16 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🐞 수정:明文 doom_loop 审计守护改回先睡后扫 —— 现读 .env 有真 DSN 且 config 导入即同步 os.environ,先扫后睡会让 TestClient lifespan 用例装载瞬间真连库(§5 铁律,2026-09-12/10-24 两案同型);与 expiry_janitor 同形后短命进程全程不碰真库,闩用例改钉 calls==0;130 全绿,ruff/mypy/watermark 过 (01b11df130)
+- 🚀 기능/개선:明文 doom_loop 审计守护接线装车 —— main.py lifespan 装载 ensure_started(默认开,先扫后睡)+shutdown 步骤入列;守护用例 13 例钉死:零写盘绊线/undetermined 不带计数/待改写与撞键点名 --apply/装载闩幂等/间隔回落夹下限 (e5ef306822)
+- 🚀 기능/개선:明文 doom_loop 存量审计守护装车(清洗器定时批量 dry-run 触发点) —— 判据单源复用 scripts/redact_legacy_procedural_patterns.py 本体(importlib 按路径加载,零写盘,apply_updates 绊线钉死);缺DSN/连不上/schema不符一律 undetermined 不读成 0 行;待改写或撞键>0 即 warning 点名手动 --apply;默认开,PROCEDURAL_REDACT_AUDIT_ENABLED/_INTERVAL_SECONDS(86400s,下限300s),先扫后睡;随 lifespan 装载+shutdown 步骤入列;新测试 13 例,关联四套 130 全绿,mypy strict/ruff check 过 (0f28000c95)
+- 🔧 기타:重生成 ui-routes 产物对齐 Input.tsx 最新输入 —— 自述钉 581462972f0a，四端 ui-routes 全 matched；门 105 工作树档绿 (1a78651672)
+- 🔧 기타:结清门94 R4射程票 —— 16 处状态直转收敛 coerceKnownOr 入库 1ef438970e;R4a 0 处/R4b 通过 11 未判定 0 RC=0,typecheck 8/8,两颗测试 19+7 全绿 (26dcd5c0e3)
+- 📚 문서:新登记一票 goal-20261026-b9r1 —— lint-staged stdio 三针补丁打在 node_modules 内,postinstall 不重打、无守门盯针,重装依赖即失效(未取号:G 族号池已满属既成事实;归属:pre-commit 钩子持有人) (386f111090)
+- 📚 문서:结清注记 goal-20261026-b9r1 —— G-706 注记(四格全在位:worktree EEXIST 原子互斥+reused、提交后解除武装、对账三态;证据枚 9e5d56cf20/5cc0e0debc/2c9d2d57ee 均 merge-base 验讫;测试 11/11 绿)+ G-59 现读更正(误映射枚 c08c71f7e7 实为门83 R4,services 直转 19→16 未消解,不注结清);注记不动勾不摘牌 (80063723ee)
+- 📚 문서:结清注记 goal-20261026-b8r1 —— G-22 注记(FM 维 F9b 落地接进收敛闸,现读 malformedIds=0;证据枚 ed0c8f671e merge-base --is-ancestor 验讫;注记不动勾不摘牌) (fbc85771ad)
+
+**2026-10-26**
 - 🚀 기능/개선:明文 doom_loop 存量审计守护装车(清洗器定时批量 dry-run 触发点) —— 判据单源复用 scripts/redact_legacy_procedural_patterns.py 本体(importlib 按路径加载,零写盘,apply_updates 绊线钉死);缺DSN/连不上/schema不符一律 undetermined 不读成 0 行;待改写或撞键>0 即 warning 点名手动 --apply;默认开,PROCEDURAL_REDACT_AUDIT_ENABLED/_INTERVAL_SECONDS(86400s,下限300s),先扫后睡;随 lifespan 装载+shutdown 步骤入列;新测试 13 例,关联四套 130 全绿,mypy strict/ruff check 过 (0f28000c95)
 - 🔧 기타:重生成 ui-routes 产物对齐 Input.tsx 最新输入 —— 自述钉 581462972f0a，四端 ui-routes 全 matched；门 105 工作树档绿 (1a78651672)
 - 🔧 기타:结清门94 R4射程票 —— 16 处状态直转收敛 coerceKnownOr 入库 1ef438970e;R4a 0 处/R4b 通过 11 未判定 0 RC=0,typecheck 8/8,两颗测试 19+7 全绿 (26dcd5c0e3)
@@ -2332,12 +2342,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 **2026-10-26**
 - 🚀 기능/개선:上游模型双写路径只读对账尺子 L28825(check-relay-model-dual-writers:provider 级交集点名,face-reader 统一取材,自检15/15+镜像9/9,真仓 overlap=0) (8d8ca9935f)
 - 🔧 기타:G-54 第6轮 裸 git 基线 41→40(紧贴现读,不留余量;2 枚迁移已入库 073bd769f8) (bbf9b8e52e)
-
-**2026-10-26**
-- 🐞 수정:登记器同键对账判据两步落地(L28830)——plan 层键=(provider_code,base_url) 且同键行只认本器出处标记:带标记⇒复用/update,不带⇒既不复用也不改、--check 打 BREACH 点名「两条路径抢同一行」exit 1 零落库;出处字面量单源 plan 层 PROVENANCE_MARK(库层 import,禁自拼);快照补读 description。镜像新增⑧-⑫(复用/异键 insert/无出处 breach/CLI 真跑 breach 不落库/单源形状锁),既有断言③原样保留。15/15 绿;真库现读:qoder 4 行 matched,trae id=48(他路径写)按设计报 BREACH 待人工裁决 (36e9329ba4)
-- 🔧 기타:认领 L28136 号池可观测三档(dev 库已见真网关落库行,补 pytest 全量验收) (4d93e4a975)
-- 🚀 기능/개선:移动端与小程序换屏即上报页面停留(page_time),补齐两端在停留时长维度上的盲区 (53e5419e9d)
-- 🐞 수정:401/403(key失效)静默跳过,不再误报 [replay of 4c4ae154d44 onto origin/main] (87f6b3ad51)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

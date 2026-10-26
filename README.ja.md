@@ -2198,6 +2198,16 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🐞 修正:明文 doom_loop 审计守护改回先睡后扫 —— 现读 .env 有真 DSN 且 config 导入即同步 os.environ,先扫后睡会让 TestClient lifespan 用例装载瞬间真连库(§5 铁律,2026-09-12/10-24 两案同型);与 expiry_janitor 同形后短命进程全程不碰真库,闩用例改钉 calls==0;130 全绿,ruff/mypy/watermark 过 (01b11df130)
+- 🚀 機能/改善:明文 doom_loop 审计守护接线装车 —— main.py lifespan 装载 ensure_started(默认开,先扫后睡)+shutdown 步骤入列;守护用例 13 例钉死:零写盘绊线/undetermined 不带计数/待改写与撞键点名 --apply/装载闩幂等/间隔回落夹下限 (e5ef306822)
+- 🚀 機能/改善:明文 doom_loop 存量审计守护装车(清洗器定时批量 dry-run 触发点) —— 判据单源复用 scripts/redact_legacy_procedural_patterns.py 本体(importlib 按路径加载,零写盘,apply_updates 绊线钉死);缺DSN/连不上/schema不符一律 undetermined 不读成 0 行;待改写或撞键>0 即 warning 点名手动 --apply;默认开,PROCEDURAL_REDACT_AUDIT_ENABLED/_INTERVAL_SECONDS(86400s,下限300s),先扫后睡;随 lifespan 装载+shutdown 步骤入列;新测试 13 例,关联四套 130 全绿,mypy strict/ruff check 过 (0f28000c95)
+- 🔧 その他:重生成 ui-routes 产物对齐 Input.tsx 最新输入 —— 自述钉 581462972f0a，四端 ui-routes 全 matched；门 105 工作树档绿 (1a78651672)
+- 🔧 その他:结清门94 R4射程票 —— 16 处状态直转收敛 coerceKnownOr 入库 1ef438970e;R4a 0 处/R4b 通过 11 未判定 0 RC=0,typecheck 8/8,两颗测试 19+7 全绿 (26dcd5c0e3)
+- 📚 ドキュメント:新登记一票 goal-20261026-b9r1 —— lint-staged stdio 三针补丁打在 node_modules 内,postinstall 不重打、无守门盯针,重装依赖即失效(未取号:G 族号池已满属既成事实;归属:pre-commit 钩子持有人) (386f111090)
+- 📚 ドキュメント:结清注记 goal-20261026-b9r1 —— G-706 注记(四格全在位:worktree EEXIST 原子互斥+reused、提交后解除武装、对账三态;证据枚 9e5d56cf20/5cc0e0debc/2c9d2d57ee 均 merge-base 验讫;测试 11/11 绿)+ G-59 现读更正(误映射枚 c08c71f7e7 实为门83 R4,services 直转 19→16 未消解,不注结清);注记不动勾不摘牌 (80063723ee)
+- 📚 ドキュメント:结清注记 goal-20261026-b8r1 —— G-22 注记(FM 维 F9b 落地接进收敛闸,现读 malformedIds=0;证据枚 ed0c8f671e merge-base --is-ancestor 验讫;注记不动勾不摘牌) (fbc85771ad)
+
+**2026-10-26**
 - 📚 ドキュメント:结清注记批 goal-20261026-b7r1 —— G-941/G-24/G-37① 注记(G-752 已被他席翻勾不再注;证据枚 merge-base --is-ancestor 验讫;注记不动勾不摘牌,摘牌归守门109) (88728a5899)
 
 **2026-10-26**
@@ -2339,12 +2349,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🚀 機能/改善:页面访问热度面板显示实时在线人数(近5分钟去重会话) (1021c1e51e)
 - 🚀 機能/改善:页面排行支持按端筛选(网站/移动端/小程序),与大屏分端同源 (877da141ee)
 - 🚀 機能/改善:stepfun 永久退役 + 上游模型自动更新替换 + 默认模型收敛单一入口 (b20279c2f2)
-
-**2026-10-26**
-- ♻️ リファクタ:断流计数并入 ihui_* 指标家族(单一真相源)+ 封闭集护栏测试 (9319968a74)
-- 🔧 その他:门 250 触发面补入判据层(scripts/lib/e2e-coverage-gap.mjs 改动也触发复跑)+ 根护栏同步重封存 (cb0202d083)
-- 🚀 機能/改善:会话级污点追踪 + 凭据保险库内核(P0-2) (84a73a1a7b)
-- 📚 ドキュメント:L28812 记进展——E2E 联合测试落地(f7c5c659b9)+身份口径分家修复(0e9087add7),真实四账仍缺故未勾 (d9442af8fe)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
