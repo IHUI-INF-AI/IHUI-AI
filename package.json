@@ -183,6 +183,7 @@
     "check:miniapp-parity": "node scripts/check-miniapp-taro-style-parity.mjs",
     "check:mirror-fidelity": "node scripts/check-miniapp-mirror-fidelity.mjs",
     "check:web-rn-parity": "node scripts/check-web-rn-screen-parity.mjs",
+    "check:analytics-coverage": "node scripts/check-analytics-page-coverage.mjs",
     "probe:web-rn-gap": "node scripts/probe-web-rn-gap.mjs",
     "gen:miniapp-mirror": "node scripts/gen-miniapp-mirror.mjs --all",
     "gen:miniapp-mirror:apply": "node scripts/gen-miniapp-mirror.mjs --all --apply",
