@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi, fetchText, aiServiceBaseUrl, getToken } from '../client.js'
+import { fetchApi, fetchText, aiServiceBaseUrl, fetchWithAuthRefresh } from '../client.js'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
@@ -850,12 +850,10 @@ export interface ApprovalGrant {
 
 /** 列出未过期的命令前缀放行规则;服务端异常时抛错(面板展示失败态,不静默空列表)。 */
 export async function listApprovalGrants(): Promise<ApprovalGrant[]> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const token = getToken()
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const resp = await fetch(`${aiServiceBaseUrl()}/llm/approval-grants`, {
+  // 2026-10-26:凭据注入 + 401 续期重放走包内唯一裸 fetch 出口(判序不在本文件重复一份)
+  const resp = await fetchWithAuthRefresh(`${aiServiceBaseUrl()}/llm/approval-grants`, {
     method: 'GET',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     // cookie 兜底(与 streamChat 同口径):ai-service 中间件读 HttpOnly auth_token
     credentials: 'include',
   })
@@ -882,15 +880,17 @@ export async function listApprovalGrants(): Promise<ApprovalGrant[]> {
 /** 撤销一条放行规则(cache_key + kind 精确删,服务端幂等);kind 缺省 exec_prefix。 */
 export async function revokeApprovalGrant(cacheKey: string, kind = 'exec_prefix'): Promise<void> {
   if (!cacheKey) throw new Error('revokeApprovalGrant: cacheKey required')
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const token = getToken()
-  if (token) headers['Authorization'] = `Bearer ${token}`
   const qs = new URLSearchParams({ cache_key: cacheKey, kind })
-  const resp = await fetch(`${aiServiceBaseUrl()}/llm/approval-grants?${qs.toString()}`, {
-    method: 'DELETE',
-    headers,
-    credentials: 'include',
-  })
+  // 2026-10-26:同 listApprovalGrants —— 走包内唯一裸 fetch 出口。
+  // DELETE 已由服务端保证幂等(精确键删),401 续期后重放一次不会"删两遍"。
+  const resp = await fetchWithAuthRefresh(
+    `${aiServiceBaseUrl()}/llm/approval-grants?${qs.toString()}`,
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    },
+  )
   if (!resp.ok) {
     const detail = await resp.text().catch(() => '')
     throw new Error(

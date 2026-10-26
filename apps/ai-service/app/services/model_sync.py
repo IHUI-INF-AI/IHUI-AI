@@ -1396,7 +1396,11 @@ class ModelSyncService:
         # 拉取失败降级为仅 skills/models(不阻塞同步主流程)。
         logical_index: dict[str, dict[str, Any]] = {}
 
-        async with httpx.AsyncClient(timeout=SYNC_TIMEOUT_S) as client:
+        # 2026-10-26:经 SYNC_PROXY_URL 出网(本机对 US/EU provider 无直连出口,
+        # 直连超时/本地 DNS 失败;Clash 7897 可通)。空值→None 即直连,
+        # 国内系 provider 经代理侧 geo 规则直连,不受影响。
+        _sync_proxy = (settings.sync_proxy_url or "").strip() or None
+        async with httpx.AsyncClient(timeout=SYNC_TIMEOUT_S, proxy=_sync_proxy) as client:
             resp = await client.get(url, headers=headers)
 
             # F4.8 304 Not Modified:命中缓存,跳过 upsert

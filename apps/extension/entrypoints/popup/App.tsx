@@ -27,6 +27,8 @@ import {
   Wallet,
 } from 'lucide-react'
 import { getMe, logout, type AuthUser } from '@ihui/api-client'
+import type { ApiResult } from '@ihui/types'
+import { classifyRefreshFailureStatus } from '@ihui/shared/auth/auto-login-policy'
 import { AuthShell, LoginForm, type LoginResult } from '@ihui/ui-react'
 import { initApi, getToken, getRefreshToken, clearAllTokens } from '../../lib/token'
 import { startAutoRefresh } from '../../lib/token-utils'
@@ -43,6 +45,34 @@ interface ActiveTab {
   tabId?: number
   url?: string
   title?: string
+}
+
+/**
+ * Popup 身份探测唯一出口(2026-10-26 根治扩展端「账号总是要重新登录」)。
+ *
+ * 旧实现:getMe **任何**失败(含网络错误/超时/5xx/无 status)都 `clearAllTokens()`
+ * —— 一次网络抖动就把登录态清光。现在判据复用全仓唯一出口 `classifyRefreshFailureStatus`
+ * (@ihui/shared/auth/auto-login-policy,第二参数透传 errorCode,REFRESH_TOKEN_STALE 算瞬时):
+ * - rejected(服务端明确否定凭据,401/403)⇒ 清;
+ * - transient(5xx/超时/无 status)⇒ 一条不清,凭据留着等下一次探测/续期 tick;
+ * - 抛出的异常(网络层)= 未判定,同样不清(§0.3「没判」绝不实现成「删数据」)。
+ *
+ * 依赖注入以便测试按镜像纪律直接驱动判据(见 tests/auth-probe-credential-guard.test.ts)。
+ */
+export async function probeIdentity(deps: {
+  getMe: () => Promise<ApiResult<{ user: AuthUser }>>
+  clearAllTokens: () => Promise<void>
+}): Promise<AuthUser | null> {
+  try {
+    const res = await deps.getMe()
+    if (res.success) return res.data.user
+    if (classifyRefreshFailureStatus(res.status, res.errorCode) === 'rejected') {
+      await deps.clearAllTokens()
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 export default function App() {
@@ -66,13 +96,9 @@ export default function App() {
     initApi()
       .then(async () => {
         if (getToken()) {
-          try {
-            const res = await getMe()
-            if (res.success) setUser(res.data.user)
-            else await clearAllTokens()
-          } catch {
-            await clearAllTokens()
-          }
+          // 2026-10-26:探测失败的分型与是否清凭据一律收进 probeIdentity(单源判据),
+          // 这里只在 rejected 时被它清掉;transient/异常保留凭据,下一次打开或 tick 再试。
+          setUser(await probeIdentity({ getMe, clearAllTokens }))
         }
         setReady(true)
       })

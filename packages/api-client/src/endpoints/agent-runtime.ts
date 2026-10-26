@@ -6,6 +6,7 @@ import {
   appendResumeEventIdHeader,
   fetchApi,
   fetchAiServiceJson,
+  fetchWithAuthRefresh,
   isAbortError,
 } from '../client.js'
 // G-693(2026-10-01 立):读环空闲判据 —— canonical 在 packages/shared/src/utils/stream-idle.ts,
@@ -493,9 +494,7 @@ export async function getAgentSession(sessionId: string) {
  * (`/agents/sessions/*` 只有 GET messages / GET deliverables / DELETE),即**恒 404**;
  * 全仓零调用方所以从未暴露。现指向 `pauseAgentSession` 的对称出口。
  */
-export async function resumeAgentSession(
-  sessionId: string,
-): Promise<ApiResult<AgentResumeResult>> {
+export async function resumeAgentSession(sessionId: string): Promise<ApiResult<AgentResumeResult>> {
   const res = await fetchAiServiceJson<ApiResponse<AgentResumeResult>>(
     `/agents/${encodeURIComponent(sessionId)}/resume`,
     {
@@ -798,7 +797,12 @@ export async function executeAgentStream(
   appendResumeEventIdHeader(headers, options.lastEventId)
 
   try {
-    const resp = await fetch(url, {
+    // 2026-10-26:此前只透传调用方 headers、既不注入凭据也不管 401 ——
+    // access(15 分钟)过期后表现为"点了执行没反应"(onError 拿到 401 正文)。
+    // 走包内唯一裸 fetch 出口:调用方自带 Authorization 时不覆盖,没带才取当前 token;
+    // 401 ⇒ 续期后重放一次(body 是 JSON string,可重放)。重放后仍非 2xx 的响应
+    // 仍交给下面同一个 `!resp.ok` 分支报错,文案与状态码一字未改。
+    const resp = await fetchWithAuthRefresh(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(params),
@@ -1005,7 +1009,8 @@ export async function executeAgentRuntimeStream(
   appendResumeEventIdHeader(headers, options.lastEventId)
 
   try {
-    const resp = await fetch(url, {
+    // 2026-10-26:同 executeAgentStream —— 走包内唯一裸 fetch 出口(补凭据 + 401 续期后重放一次)。
+    const resp = await fetchWithAuthRefresh(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(params),
