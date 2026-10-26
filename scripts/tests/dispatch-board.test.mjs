@@ -161,6 +161,20 @@ test('⑫ 残缺/未知旗标一律 exit 2 面(静默退回默认是本仓登记
   assert.equal(BOARD.parseArgs(['--seats', '4']).issues.length, 0)
 })
 
+test('⑬b 派单书自带今晚三条硬约束(派单靠手抄就会漏,这一格是判据不是格式)', () => {
+  const br = BOARD.briefOf(
+    { line: 3, ticketId: 'G-42', title: '示例票', paths: ['apps/api/src/x.ts', 'deploy/win/a.ps1'], hot: [] },
+    { seat: 's9', ticketRow: '- [ ] G-42 示例票正文' },
+  )
+  assert.match(br, /严禁 git worktree/, 'worktree 顶穿盘那条必须在书里')
+  assert.match(br, /先自核票面勾选态/, '票面被对席结清 ⇒ 席位自己就要能判停')
+  assert.match(br, /git add/, '执行席不 commit 那条必须在书里')
+  assert.match(br, /mkdir -p \.ihui-agent\/tmp/, '第一条动作必须是自己建目录(死席主形态是静默死亡)')
+  assert.ok(br.includes('apps/api/src/x.ts') && br.includes('deploy/win/a.ps1'), '作用域逐条列全')
+  assert.match(br, /--claim s9 --ticket G-42 --scope apps\/api\/src\/x\.ts/, '登记命令随行给到,不用主席回忆')
+  assert.ok(br.includes('G-42 示例票正文'), '票面原文随书交付')
+})
+
 test('⑬ 直执行档:--self-test 真跑一次并取末行(接线锁,不是把判据再抄一遍)', () => {
   const out = execFileSync(process.execPath, [path.join('scripts', 'dispatch-board.mjs'), '--self-test'], {
     cwd: ROOT,
