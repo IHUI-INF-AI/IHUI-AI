@@ -4958,5 +4958,29 @@
     "weeklyReport": "Weekly report",
     "versionUpdate": "Version updates",
     "billingReminder": "Billing reminders"
+  },
+  "agentChat": {
+    "empty": "No messages yet. Send the first one to start",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "loadFailed": "Failed to load chat",
+    "sendFailed": "Failed to send"
+  },
+  "agentCreate": {
+    "title": "Create Agent",
+    "name": "Name",
+    "namePlaceholder": "Name your agent",
+    "category": "Category",
+    "categoryPlaceholder": "e.g. Office Assistant",
+    "description": "Description",
+    "descPlaceholder": "Describe what this agent does",
+    "systemPrompt": "System Prompt",
+    "promptPlaceholder": "Define the role and behavior of the agent",
+    "isPublic": "Public",
+    "public": "Public",
+    "private": "Private",
+    "submit": "Create",
+    "nameRequired": "Please enter a name",
+    "saveFailed": "Failed to save"
   }
 }

@@ -4958,5 +4958,29 @@
     "weeklyReport": "주간 보고서",
     "versionUpdate": "버전 업데이트",
     "billingReminder": "청구 알림"
+  },
+  "agentChat": {
+    "empty": "메시지가 없습니다. 첫 메시지를 보내 대화를 시작하세요",
+    "placeholder": "메시지 입력...",
+    "send": "보내기",
+    "loadFailed": "채팅 불러오기 실패",
+    "sendFailed": "전송 실패"
+  },
+  "agentCreate": {
+    "title": "에이전트 생성",
+    "name": "이름",
+    "namePlaceholder": "에이전트 이름을 지어주세요",
+    "category": "카테고리",
+    "categoryPlaceholder": "예: 업무 어시스턴트",
+    "description": "설명",
+    "descPlaceholder": "에이전트를 소개해 주세요",
+    "systemPrompt": "시스템 프롬프트",
+    "promptPlaceholder": "에이전트의 역할과 동작을 정의하세요",
+    "isPublic": "공개 여부",
+    "public": "공개",
+    "private": "비공개",
+    "submit": "생성",
+    "nameRequired": "이름을 입력하세요",
+    "saveFailed": "저장 실패"
   }
 }

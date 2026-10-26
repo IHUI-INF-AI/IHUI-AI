@@ -4958,5 +4958,29 @@
     "weeklyReport": "週次レポート",
     "versionUpdate": "バージョン更新",
     "billingReminder": "請求リマインダー"
+  },
+  "agentChat": {
+    "empty": "まだメッセージはありません。最初の投稿をしましょう",
+    "placeholder": "メッセージを入力...",
+    "send": "送信",
+    "loadFailed": "チャットの読み込みに失敗",
+    "sendFailed": "送信に失敗しました"
+  },
+  "agentCreate": {
+    "title": "エージェント作成",
+    "name": "名称",
+    "namePlaceholder": "エージェントの名前を入力",
+    "category": "カテゴリ",
+    "categoryPlaceholder": "例:オフィスアシスタント",
+    "description": "説明",
+    "descPlaceholder": "このエージェントを紹介してください",
+    "systemPrompt": "システムプロンプト",
+    "promptPlaceholder": "エージェントの役割と動作を定義します",
+    "isPublic": "公開するか",
+    "public": "公開",
+    "private": "非公開",
+    "submit": "作成",
+    "nameRequired": "名前を入力してください",
+    "saveFailed": "保存に失敗しました"
   }
 }
