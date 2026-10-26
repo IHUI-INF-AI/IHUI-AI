@@ -204,6 +204,39 @@ export function proxyConfiguredFor(root) {
   return value
 }
 
+/** 留痕存活期(天)。超窗按行首 ISO 时刻裁;裁掉的条数写回同一本账,**不往 stdout/stderr 打** ——
+ *  本层被全仓几百把尺子共用,守门按 stdout/stderr 做逐字基线比对,漏一行就是把诊断混进判定里。 */
+export const EGRESS_LEDGER_KEEP_DAYS = 30
+
+/**
+ * 退化留痕的存活期(§0.7「豁免会到期」同一纪律,日志也一样:只增不减的账本迟早没人看)。
+ * 30 天足够覆盖一次"代理腿抖动 ↔ 直连兜底"的归因窗口;超窗行按 ISO 前缀裁掉。
+ * 刻意**只裁带合法 ISO 时刻的行**:解析不出时刻 ⇒ 保留(失效方向是多留,不是静默删证据)。
+ * @param {string} text 整份日志文本
+ * @param {{nowMs?:number, keepDays?:number}} [opts]
+ * @returns {{text:string, kept:number, dropped:number}}
+ */
+export function pruneEgressLedger(text, { nowMs = Date.now(), keepDays = EGRESS_LEDGER_KEEP_DAYS } = {}) {
+  const cutoff = nowMs - keepDays * 86400_000
+  const lines = String(text ?? '').split('\n')
+  const kept = []
+  let dropped = 0
+  for (const line of lines) {
+    if (!line) continue
+    // ⚠️ 时刻取「行首到第一个制表符」这一段:写成 slice(0, slice(0,i)) 会把字符串当长度传进去
+    //    ⇒ 恒 NaN ⇒ 老化形同虚设(镜像测试 ⑤ 正是钉这一格的,别顺手"优化"回去)
+    const tab = line.indexOf('\t')
+    const stamp = tab > 0 ? line.slice(0, tab) : line.slice(0, 24)
+    const ts = Date.parse(stamp)
+    if (Number.isFinite(ts) && ts < cutoff) {
+      dropped += 1
+      continue
+    }
+    kept.push(line)
+  }
+  return { text: kept.length ? `${kept.join('\n')}\n` : '', kept: kept.length, dropped }
+}
+
 /** 退化留痕:兜住了也要看得见(写不动不影响判定,只回 null)。 */
 function noteEgressDegradation({ root, verb, plan, ok }) {
   try {
@@ -214,6 +247,20 @@ function noteEgressDegradation({ root, verb, plan, ok }) {
       `${new Date().toISOString()}\tverb=${verb}\tfallback=${ok ? 'recovered' : 'both-failed'}\t依据=${plan?.why ?? '(无)'}\n`,
       'utf8',
     )
+    // 超窗老化:每次写入顺手裁,不做第二次调度器(本文件的教训:关键自愈别挂到会自己消失的东西上)。
+    // 被裁条数必须报名 —— 静默丢行等于"账本看起来一直完整"。
+    const raw = readFileSync(file, 'utf8')
+    const pruned = pruneEgressLedger(raw)
+    if (pruned.dropped > 0) {
+      // 被裁条数**写进账本自己**(不 print):本层被全仓几百把尺子共用,任何一行 stdout/stderr
+      // 都会混进守门的逐字基线比对(§12f:失效的表现永远是安静 —— 但治它不能靠制造噪声)。
+      // marker 行本身带合法 ISO 时刻 ⇒ 30 天后照样老化,账本不会长歪。
+      writeFileSync(
+        file,
+        `${pruned.text}${new Date().toISOString()}\tcad=prune\tdropped=${pruned.dropped}\tkept=${pruned.kept}\tkeepDays=${EGRESS_LEDGER_KEEP_DAYS}\n`,
+        'utf8',
+      )
+    }
     return file
   } catch {
     return null
@@ -1101,9 +1148,12 @@ export function hideComments(src) {
 export const __test__ = {
   egressFallbackPlan,
   GIT_EGRESS_NETWORK_VERBS,
-  isForceDirect,
   GIT_EGRESS_DIRECT_ARGS,
   GIT_EGRESS_TRANSPORT_RE,
   proxyConfiguredFor,
+  isForceDirect,
+  pruneEgressLedger,
+  EGRESS_LEDGER_KEEP_DAYS,
+  noteEgressDegradation,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
