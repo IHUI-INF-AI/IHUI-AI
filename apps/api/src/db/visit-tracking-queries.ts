@@ -310,6 +310,8 @@ export interface PageUsageItem {
   url: string
   /** 该页面归属的访问面(按 url 前缀现算,不是存储列) */
   scope: VisitScope
+  /** 该页面归属的端(按 url 前缀现算:`/rn/` `/mp/` `/ex/`,其余 web) */
+  platform: VisitPlatform
   pv: number
   uv: number
 }
@@ -377,6 +379,7 @@ export async function getPageUsageList(opts: FindPageUsageOpts): Promise<PageUsa
     list: rows.map((r) => ({
       url: r.url ?? '',
       scope: classifyVisitScope(r.url),
+      platform: classifyVisitPlatform(r.url),
       pv: Number(r.pv ?? 0),
       uv: Number(r.uv ?? 0),
     })),
@@ -422,8 +425,8 @@ export interface ScopeUsageLiveRow {
   uv: number
 }
 
-/** 端标识:web 端写裸路径,RN 写 `/rn/*`,小程序写 `/mp/*`(见各端埋点模块头注)。 */
-export type VisitPlatform = 'web' | 'rn' | 'mp'
+/** 端标识:网站写裸路径,RN 写 `/rn/*`,小程序写 `/mp/*`,浏览器插件写 `/ex/*`(见各端埋点模块头注)。 */
+export type VisitPlatform = 'web' | 'rn' | 'mp' | 'ex'
 
 export interface PlatformUsageLiveRow {
   platform: VisitPlatform
@@ -433,18 +436,63 @@ export interface PlatformUsageLiveRow {
 
 /** 端筛选:端值 + 'all'。 */
 export type VisitPlatformQuery = VisitPlatform | 'all'
-export const VISIT_PLATFORM_VALUES = ['web', 'rn', 'mp', 'all'] as const
+export const VISIT_PLATFORM_VALUES = ['web', 'rn', 'mp', 'ex', 'all'] as const
 
 /**
- * platform → SQL 条件。与 `platformExpr`(大屏快照那一段)同语义:web = 非 `/rn/` 非 `/mp/`。
+ * 非 web 端的 url 前缀词表 —— 分桶判据的唯一真相源。
+ * web 不列在这里:它按「不落在任何登记前缀里」现算(见 visitPlatformFilter / platformCaseSql),
+ * 所以新增一端只改这张表,筛选面与大屏聚合面会同时跟着走,不可能出现两边口径漂移。
+ */
+export const VISIT_PLATFORM_PATH_PREFIXES = { rn: '/rn/', mp: '/mp/', ex: '/ex/' } as const
+
+/** 前缀 → like 形态(`/rn/` ⇒ `/rn/%`),两处判据共用同一算式。 */
+function likePattern(prefix: string): string {
+  return `${prefix}%`
+}
+
+/** 任意非 web 端前缀命中条件;空表(理论态)会退化成 false,不会误把全部当成某端。 */
+function anyNonWebPrefixCond() {
+  const path = sql<string>`coalesce(${visitLogs.url}, '')`
+  const entries = Object.values(VISIT_PLATFORM_PATH_PREFIXES)
+  if (entries.length === 0) return sql`false`
+  return sql`(${sql.join(
+    entries.map((prefix) => sql`${path} like ${likePattern(prefix)}`),
+    sql` or `,
+  )})`
+}
+
+/**
+ * platform → SQL 条件。与 `platformCaseSql`(大屏快照那一段)同语义:web = 不落在任何登记前缀。
  * 缺省/'all' 不加条件。
  */
 export function visitPlatformFilter(platform?: VisitPlatformQuery | null) {
   if (!platform || platform === 'all') return undefined
   const path = sql<string>`coalesce(${visitLogs.url}, '')`
-  if (platform === 'rn') return sql`${path} like '/rn/%'`
-  if (platform === 'mp') return sql`${path} like '/mp/%'`
-  return sql`not (${path} like '/rn/%' or ${path} like '/mp/%')`
+  const prefix = VISIT_PLATFORM_PATH_PREFIXES[platform as Exclude<VisitPlatform, 'web'>] as
+    string | undefined
+  if (prefix) return sql`${path} like ${likePattern(prefix)}`
+  return sql`not ${anyNonWebPrefixCond()}`
+}
+
+/** 大屏「各端使用量」的分桶表达式:命中登记前缀归该端,其余归 web。 */
+function platformCaseSql() {
+  const path = sql<string>`coalesce(${visitLogs.url}, '')`
+  const whens = Object.entries(VISIT_PLATFORM_PATH_PREFIXES).map(
+    ([platform, prefix]) => sql`when ${path} like ${likePattern(prefix)} then ${platform}`,
+  )
+  return sql<VisitPlatform>`case ${sql.join(whens, sql` `)} else 'web' end`
+}
+
+/**
+ * 单条 url 的端归属(与 `platformCaseSql` 共用 `VISIT_PLATFORM_PATH_PREFIXES`)。
+ * 排行列表要在每一行上标出「这条页面属于哪一端」,而 SQL 分桶只给聚合值,故需要这份逐行判据。
+ */
+export function classifyVisitPlatform(url: string | null | undefined): VisitPlatform {
+  const path = (url ?? '').trim()
+  for (const [platform, prefix] of Object.entries(VISIT_PLATFORM_PATH_PREFIXES)) {
+    if (path.startsWith(prefix)) return platform as VisitPlatform
+  }
+  return 'web'
 }
 
 export interface PageUsageLiveSnapshot {
@@ -452,7 +500,7 @@ export interface PageUsageLiveSnapshot {
   top: PageUsageLiveRow[]
   /** 近 24h 各访问面的 PV/UV —— 回答"后台/登录页各被用了多少次" */
   scopes: ScopeUsageLiveRow[]
-  /** 近 24h 各端 PV/UV(web / RN / 小程序);分桶靠 url 前缀,与各端埋点约定一致 */
+  /** 近 24h 各端 PV/UV(web / RN / 小程序 / 浏览器插件);分桶靠 url 前缀,与各端埋点约定一致 */
   platforms: PlatformUsageLiveRow[]
   /** 近 5 分钟去重会话数(实时在线近似) */
   online5m: number
@@ -476,11 +524,7 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
   const pvExpr = sql<number>`count(*)::int`
   const uvExpr = sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`
   const scopeExpr = scopeCaseSql()
-  const pathCol = sql<string>`coalesce(${visitLogs.url}, '')`
-  const platformExpr = sql<VisitPlatform>`case
-    when ${pathCol} like '/mp/%' then 'mp'
-    when ${pathCol} like '/rn/%' then 'rn'
-    else 'web' end`
+  const platformExpr = platformCaseSql()
   const [topRows, scopeRows, platformRows, onlineRows] = await Promise.all([
     db
       .select({ url: visitLogs.url, pv: pvExpr, uv: uvExpr })
