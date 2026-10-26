@@ -51,6 +51,28 @@ const runGate = (args) => {
   }
 }
 
+/**
+ * 计数维形态锁(2026-10-27 改判,假牙清偿):`hits` 是门体明写的**只报数**存量维
+ * (头注 :41 / 结论行 :1022 原话见 T9 内联注)。这里钉形态、不钉数值:
+ *  · `hits` 在且可解析为非负整数(字段缺 / 形态坏 ⇒ 这一维没上岗);
+ *  · `detail` 逐条清单在且与 hits 等长(门必须自己把账交出来,§22c);
+ *  · hits 的**数值**只报数(不挂下限;变异自证见 T11)。
+ */
+function assertHitsCountShape(j) {
+  assert.ok(
+    j && typeof j === 'object',
+    `--json 结论不是对象 ⇒ 这一维没上岗:${JSON.stringify(j).slice(0, 200)}`,
+  )
+  assert.ok('hits' in j, '--json 缺 hits 计数 ⇒ 命中这一维没上岗')
+  assert.ok(
+    Number.isInteger(j.hits) && j.hits >= 0,
+    `hits 必须是可解析的非负整数(数值本身只报数;实得 ${JSON.stringify(j.hits)})`,
+  )
+  assert.ok(Array.isArray(j.detail), '--json 缺 detail 逐条清单(只有计数没有清单 ⇒ 清账方要自己再扫一份)')
+  assert.equal(j.detail.length, j.hits, 'detail 条数与 hits 计数不等 ⇒ 有一边在撒谎')
+  return { hits: j.hits, detail: j.detail.length }
+}
+
 test('T1 方向锁:未接进提交链时,门体与测试都不得自称已接线', () => {
   const wired = /已接进提交链|已接入提交链|pre-commit 第 \d+ 项/.test(src)
   // 从被审面问"runner 里有没有这条注册",而不是从磁盘 —— 磁盘那份此刻是他人 UU 合并现场。
@@ -156,8 +178,13 @@ test('T9 --json 档的 stdout 必须可 JSON.parse(尾随人类读语会砸碎�
     assert.ok(typeof d.name === 'string' && d.name.length > 0, 'detail 每条必须点名类型名')
     assert.equal(typeof d.isRed, 'boolean', 'detail 必须带棘轮归属(清账要先知道哪条真是红)')
   }
-  if (j.face === 'head')
-    assert.ok(j.hits > 0, 'HEAD 面存量早已实测非零 ⇒ 量到 0 说明扫描面塌了,不是"已清干净"')
+  // 【2026-10-27 改判·假牙清偿】`hits` 是门体明写的**只报数**存量维 —— 头注
+  // `scripts/check-shared-type-not-redeclared.mjs:41`「锚点 = 该文件 HEAD 自身命中数,现读存量
+  // 247 处对任何一次提交都不构成红」,结论行 `:1022`「端内重声明命中 N 处(本次新增判红 R ·
+  // 存量按该文件 HEAD 棘轮只报数 Q)」。旧断言把它钉成 `> 0` 下限:存量被合法清干净那天本测试
+  // 就假红,而测试假红在共享树里等于挡住所有会话落地(§12e 同型,只是从门面挪到了测试面)。
+  // 现在只钉形态(计数在 + 逐条清单等长 + 数值可解析),数值只报数 —— 变异自证见 T11。
+  console.log('  端内重声明命中现读(只报数):', JSON.stringify(assertHitsCountShape(j)))
   // sameShape 维的真仓锁:三态计数必须与 hits 自洽，且 yes/no 两桶都必须量到非零 ——
   // 实测量的是 yes 47 / no 150 / undetermined 63。若这把尺子在全量上静默失效(解析器崩溃被
   // 吞掉、共享形态表没传)，全体会落进 undetermined，"只有 yes 可收敛"就退化成"一条也不能动"，
@@ -220,6 +247,35 @@ test('T9 --json 档的 stdout 必须可 JSON.parse(尾随人类读语会砸碎�
       j.crossName.crossEndSameName > 0,
       'HEAD 面同名跨端组量到 0 ⇒ 这把形状尺子在真仓上失效(实测 94 组),不是"没有跨名重复"',
     )
+})
+
+/**
+ * 变异自证(2026-10-27,改判的承重证明):牙必须长在"形态"上,不能靠一次性读数。
+ * 都在**同一次**真仓结论面上做变异(零额外判据实现,§22c):
+ *  变异①:摘掉只报数维字段(hits)⇒ 必须抛(缺维=没上岗有牙);
+ *  变异①b:摘掉逐条清单(detail)⇒ 必须抛;①c 字段形态坏(string)⇒ 必须抛;①d 计数与清单不等 ⇒ 必须抛;
+ *  变异②:hits 读数改成 0(清单同步清空)⇒ **必须不抛**(它不是判据 —— 旧的 `> 0` 下限正是这里假红的牙)。
+ */
+test('T11 计数维断言变异自证:摘 hits/清单/形态坏必翻红 / hits 归零必不红', () => {
+  const { out } = runGate(['--json'])
+  const j = JSON.parse(out)
+  assert.doesNotThrow(() => assertHitsCountShape(j), '基准面:真报告必须先过(否则下面全是空转)')
+  const noHits = { ...j }
+  delete noHits.hits
+  assert.throws(() => assertHitsCountShape(noHits), /缺 hits 计数/, '摘掉只报数维字段必须翻红')
+  const noDetail = { ...j }
+  delete noDetail.detail
+  assert.throws(() => assertHitsCountShape(noDetail), /缺 detail/, '摘掉逐条清单必须翻红')
+  assert.throws(() => assertHitsCountShape({ ...j, hits: String(j.hits) }), /非负整数/, '字段形态坏必须有牙')
+  assert.throws(
+    () => assertHitsCountShape({ ...j, hits: j.hits + 1 }),
+    /不等/,
+    '计数与清单不等必须翻红(门不许只报一个数不给账)',
+  )
+  assert.doesNotThrow(
+    () => assertHitsCountShape({ ...j, hits: 0, detail: [] }),
+    'hits=0 是门体明写的"只报数"常态(存量被合法清干净)⇒ 断言不得为此翻红(假红=挡全仓落地)',
+  )
 })
 
 test('T10 sameShape 三态用门的生产函数判:等/不等/判不出各钉一条,且格式与字段顺序不得影响"等"', () => {
