@@ -360,6 +360,45 @@ export default function AdminRelayAccountPoolPage() {
   const [importProvider, setImportProvider] = React.useState<ProviderCode | ''>('')
   const [importText, setImportText] = React.useState('')
   const [importResult, setImportResult] = React.useState<ImportResult | null>(null)
+  // ⑤ 拖拽/点选文件(2026-10-26,机主「更傻瓜」):第三方工具导出的备份 .json 拖进来即可
+  const importFileRef = React.useRef<HTMLInputElement | null>(null)
+  const [importDragOver, setImportDragOver] = React.useState(false)
+  const [importFileName, setImportFileName] = React.useState('')
+  // 读文件只填文本框,解析/入库仍走同一条 submitImport 通道(不另起第二份导入判据)
+  const applyImportFile = (file: File | null | undefined): void => {
+    if (!file) return
+    const name = file.name || 'pasted.json'
+    if (!/\.(json|txt)$/i.test(name)) {
+      toast.error('只接受 .json / .txt 账号导出文件')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error(`文件过大(${Math.round(file.size / 1048576)}MB),单次上限 8MB`)
+      return
+    }
+    file
+      .text()
+      .then((t) => {
+        if (!t.trim()) {
+          toast.error('文件是空的')
+          return
+        }
+        setImportText(t)
+        setImportFileName(name)
+        toast.success(`已读取「${name}」,点「提交导入」入池`)
+      })
+      .catch(() => toast.error('读取文件失败,请改用「粘贴」'))
+  }
+  // 导出包顶层自带 providerCode 时自动选平台(用户手选过则尊重手选)
+  const autofillProviderFromPayload = (parsed: unknown): void => {
+    if (importProvider) return
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return
+    const raw = (parsed as { providerCode?: unknown; provider?: unknown }).providerCode
+    const alt = (parsed as { provider?: unknown }).provider
+    const v = typeof raw === 'string' ? raw : typeof alt === 'string' ? alt : ''
+    if ((PROVIDER_OPTIONS as readonly string[]).includes(v)) setImportProvider(v as ProviderCode)
+  }
+
   const [editing, setEditing] = React.useState<AccountRow | null>(null)
   const [editForm, setEditForm] = React.useState({
     name: '',
@@ -589,6 +628,7 @@ export default function AdminRelayAccountPoolPage() {
     },
     onSuccess: (d) => {
       setImportResult(d)
+      setImportFileName('')
       toast.success(
         `导入完成:新增 ${d.imported} / 更新 ${d.updated} / 跳过 ${d.skipped} / 失败 ${d.failed}`,
       )
@@ -669,32 +709,37 @@ export default function AdminRelayAccountPoolPage() {
 
   const submitImport = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!importProvider) {
-      toast.error('请选择平台')
-      return
-    }
     const raw = importText.trim()
     if (!raw) {
-      toast.error('请粘贴账号导出 JSON')
+      toast.error('把 .json 拖进来、点「选文件」,或直接粘贴账号导出 JSON')
       return
     }
     let accounts: unknown[]
+    let parsedTop: unknown
     try {
-      const parsed: unknown = JSON.parse(raw)
-      if (Array.isArray(parsed)) {
-        accounts = parsed
+      parsedTop = JSON.parse(raw)
+      if (Array.isArray(parsedTop)) {
+        accounts = parsedTop
       } else if (
-        parsed &&
-        typeof parsed === 'object' &&
-        Array.isArray((parsed as { accounts?: unknown }).accounts)
+        parsedTop &&
+        typeof parsedTop === 'object' &&
+        Array.isArray((parsedTop as { accounts?: unknown }).accounts)
       ) {
-        accounts = (parsed as { accounts: unknown[] }).accounts
+        accounts = (parsedTop as { accounts: unknown[] }).accounts
+      } else if (parsedTop && typeof parsedTop === 'object' && !Array.isArray(parsedTop)) {
+        // 单条账号对象也吃(最傻瓜:workbuddy-switch 等工具常导出单条)
+        accounts = [parsedTop]
       } else {
-        toast.error('JSON 需为账号数组或 { accounts: [...] } 整包')
+        toast.error('JSON 需为账号数组、{ accounts: [...] } 整包或单条对象')
         return
       }
     } catch {
       toast.error('JSON 解析失败,请检查格式')
+      return
+    }
+    autofillProviderFromPayload(parsedTop)
+    if (!importProvider) {
+      toast.error('请选择平台(或让导出 JSON 顶层带 providerCode)')
       return
     }
     if (accounts.length === 0) {
@@ -720,6 +765,8 @@ export default function AdminRelayAccountPoolPage() {
     setImportResult(null)
     setImportText('')
     setImportProvider('')
+    setImportFileName('')
+    setImportDragOver(false)
   }
 
   return (
@@ -1443,18 +1490,54 @@ export default function AdminRelayAccountPoolPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="a-import-json">账号导出 JSON</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="a-import-json">账号导出 JSON</Label>
+                <div className="flex items-center gap-1">
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept=".json,.txt,application/json,text/plain"
+                    className="hidden"
+                    onChange={(e) => applyImportFile(e.target.files?.[0])}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="px-2 text-xs"
+                    onClick={() => importFileRef.current?.click()}
+                  >
+                    <FileText className="mr-1 h-3 w-3" />
+                    选文件
+                  </Button>
+                </div>
+              </div>
               <textarea
                 id="a-import-json"
                 rows={10}
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder='支持整包 { "accounts": [...] } 或裸数组 [ ... ]'
-                className={textareaClass}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  setImportDragOver(true)
+                }}
+                onDragLeave={() => setImportDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setImportDragOver(false)
+                  applyImportFile(e.dataTransfer.files?.[0])
+                }}
+                placeholder='把 .json 备份文件拖进来 / 点右上「选文件」;也支持粘贴整包 { "accounts": [...] }、裸数组、单条,以及 workbuddy-switch 等第三方导出(access_token 形状由服务端自动归一)'
+                className={
+                  textareaClass +
+                  ' transition-colors' +
+                  (importDragOver ? ' border-primary bg-primary/5 ring-1 ring-primary/40' : '')
+                }
               />
               <p className="text-xs text-muted-foreground">
-                字段:name / token / refreshToken / deviceId / machineId / enabled / cookies(proxyUrl
-                可选)。示例:
+                {importFileName
+                  ? `已载入文件 ${importFileName}(点「提交导入」才写进号池)`
+                  : '字段:name / token / refreshToken / deviceId / machineId / enabled / cookies(proxyUrl 可选);第三方导出自动识别。示例:'}
               </p>
               <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
                 {EXAMPLE_JSON}
