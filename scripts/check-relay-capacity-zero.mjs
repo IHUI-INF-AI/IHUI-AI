@@ -35,30 +35,40 @@
  * 取出、用本仓自带的 typescript 剥掉类型注解后求值 —— 跑的就是生产实现本身;源文件漂移
  * (锚点找不到 / 括号不配平 / 抽出来不是函数)一律落 unjudged,不猜、不复制第二份。
  *
+ * 差值档(2026-10-26 补,照 `check-gate-rot --ratchet` 同格,治"存量归零天天喊、真新增反被淹"):
+ *   `--ratchet [--baseline <file>]` 与基线做集合差,**只把相对基线新增的 breach 当失败喊人**
+ *   (存量只报数)。breach 的稳定身份 = `kind|providerCode`(刻意不含 detail/读数——那会抖)。
+ *   基线读不到/形状坏 ⇒ **不回落成"空基线=全 known=静默放行"**,而是把当下每条都算新增
+ *   (失效方向=多喊一次,§0.10),并点名 `baseline=undetermined`。基线只能由人看读数后
+ *   `--write-baseline` 显式认账(自动追认会把新增 breach 第一次就吞掉);未判定档拒绝写基线。
+ *
  * 密码与落点纪律:DSN 只经 `PGPASSWORD` 进 psql 子进程,任何输出不回显 DSN/凭据;
- * **只读**,零写盘;`psql` 派生带 `windowsHide` + 显式 stdio(§5f/§12g)。
+ * 判据路径**只读**、零写盘(唯一写路径=人显式 `--write-baseline` 认账,落 `.ihui-agent/state/`);
+ * `psql` 派生带 `windowsHide` + 显式 stdio(§5f/§12g)。
  * 生产库护栏:解析出的 DSN host 不在本机/私网白名单内 ⇒ unjudged(本尺子为本机开发库而写)。
  *
- * 接线状态(**不是"已装车",别照这句话去 guardian 里找它**):本次按派单约束**没有**改
- * `scripts/git-guardian.mjs`(另有会话在飞)。建议挂点写在这里供后手一次接完 ——
- * 照 `check-registry-sync-health.mjs` 的先例,在 git-guardian 的巡检派发段加一个 5 分钟
- * 节流条目(`node scripts/check-relay-capacity-zero.mjs --json`),`breach` 走
- * `apps/api/scripts/notify-deploy-failure.ts` 的邮件唯一出口(§5e,禁自拼 SMTP),
- * 去重身份按稳定语义 `relay-capacity-zero + 命中条数`(不按会抖动的 provider 清单,§5e-3)。
+ * 接线状态(2026-10-26 已装车,枚 5015c3a422 + 差值档同批):派发点 = `scripts/git-guardian.mjs`
+ * 的巡检轮 `dispatchRelayCapacity`(main tick 与 daemon tick 各一处),默认 5 分钟节流
+ * (`IHUI_RELAY_CAPACITY_INTERVAL_MS` 可覆盖),跑的就是本器的 `--json --ratchet` 面;
+ * 喊人走既有通知层 `notifyGuardRed` 唯一出口(§5e,禁自拼 SMTP),
+ * 去重身份 = `relay-capacity-zero:new + 新增条数`(不按会抖动的 provider 清单,§5e-3)。
  * 不进提交链:它判的是机器/库状态,与提交内容无关 —— 挂成提交门就是 §12e 的恒红门。
  *
  * 用法:
  *   node scripts/check-relay-capacity-zero.mjs [--json] [--self-test] [--env-file <path>]
- * 退出码:0=ok / 1=breach / 2=未判定。
+ *   node scripts/check-relay-capacity-zero.mjs --json --ratchet [--baseline <file>]
+ *   node scripts/check-relay-capacity-zero.mjs --write-baseline   # 人看读数后显式认账存量
+ * 退出码:全量档 0=ok / 1=breach / 2=未判定;差值档 0=known|clean / 1=new / 2=未判定。
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import ts from 'typescript'
 import { psqlArgsFromDsn, readDsn } from './check-db-migration-gaps.mjs'
 import { locatePsqlClient } from './lib/psql-client-locate.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 判据的唯一来源文件(相对仓库根);锚点在它里面逐字存在,否则本尺子当场未判定。 */
@@ -70,6 +80,9 @@ const REQUIRED_JUDGES = [
   'poolHasNoEnabledRows',
 ]
 const ALLOW_EMPTY_ENV = 'IHUI_RELAY_CAPACITY_ALLOW_EMPTY_POOL'
+/** 差值档基线(机器态,与巡检节流戳同目录;照 check-gate-rot 的 `.ihui-agent/state/` 落点)。 */
+const DEFAULT_BASELINE = join(REPO, '.ihui-agent', 'state', 'relay-capacity-baseline.json')
+const SCHEMA_VERSION = 1
 /** 白名单理由下界(与 all-checks-runner 那档豁免一致:短到能随手填 = 不是豁免)。 */
 const MIN_REASON_LEN = 10
 /** 哨兵行标记:证明这次查询真跑完了(两表都 0 行时,输出本身只有这一行)。 */
@@ -181,7 +194,7 @@ export async function loadPoolJudges({ repo = REPO } = {}) {
   let mod
   try {
     mod = await import(
-      `data:text/javascript;charset=utf-8,${encodeURIComponent(js)}` // eslint-disable-line n/no-unsupported-features/node-builtins
+      `data:text/javascript;charset=utf-8,${encodeURIComponent(js)}`
     )
   } catch (e) {
     return { ok: false, why: `抽出的判据无法求值:${String(e?.message ?? e)}` }
@@ -408,6 +421,51 @@ export function exitCodeFor(state) {
   return state === 'ok' ? 0 : state === 'breach' ? 1 : 2
 }
 
+/**
+ * breach 的稳定身份 = 型别 + provider。刻意不含 detail/读数/时刻:那几样每次重扫都会抖,
+ * 进身份就变成"每次都算新增"(照 check-gate-rot 的 rotKeyOf 同一把尺子)。
+ */
+export function breachKeyOf(b) {
+  return `${b?.kind ?? '?'}|${b?.providerCode ?? '?'}`
+}
+
+/** 与基线做集合差:新增(要喊)/ 已修(基线有、本轮没有)分开报,存量只报数。 */
+export function ratchetOf(breaches, baselineKeys) {
+  const base = new Set(Array.isArray(baselineKeys) ? baselineKeys : [])
+  const current = new Set(breaches.map(breachKeyOf))
+  return {
+    keys: [...current].sort(),
+    newBreaches: breaches.filter((b) => !base.has(breachKeyOf(b))),
+    fixed: [...base].filter((k) => !current.has(k)).sort(),
+  }
+}
+
+/**
+ * 读基线。读不到/形状坏 ⇒ status='undetermined' 且 keys=[] —— 调用方据此把当下每条都算
+ * 新增(方向:多喊一次),**绝不**回落成"空基线 ⇒ 全 known ⇒ 静默放行"。
+ */
+export function readBaseline(file, readFile = (p) => readFileSync(p, 'utf8')) {
+  let doc
+  try {
+    doc = JSON.parse(readFile(file))
+  } catch (e) {
+    return { status: 'undetermined', keys: [], why: `基线读不到或非法 JSON(${file}):${e?.message ?? e}` }
+  }
+  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.keys)) {
+    return { status: 'undetermined', keys: [], why: `基线形状坏(缺 keys 数组):${file}` }
+  }
+  return { status: 'ok', keys: doc.keys.filter((k) => typeof k === 'string' && k.trim()), at: doc.at ?? null }
+}
+
+/** 写基线(只有人显式 --write-baseline 才走这里;自动追认会把新增 breach 吞掉)。 */
+export function writeBaseline(file, keys, { now = new Date() } = {}) {
+  const dir = dirname(file)
+  if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true })
+  const uniq = [...new Set(keys.map(String))].sort()
+  writeFileSync(file, `${JSON.stringify({ v: SCHEMA_VERSION, at: now.toISOString(), keys: uniq }, null, 1)}\n`, 'utf8')
+  return { written: uniq.length, file }
+}
+
 // ─────────────────────────── 自检(不落库、不派子进程)───────────────────────────
 export async function runSelfTest() {
   const { t, report } = makeRegistrar()
@@ -615,6 +673,60 @@ export async function runSelfTest() {
       [u1, u2, u3, u4].every((v) => v.state !== 'ok'),
   )
 
+  // 差值档族(照 check-gate-rot --ratchet 同格的语义,逐条钉死"只拦新增、坏基线多喊"):
+  const bTrae = { kind: 'account_provider_zero_capacity', providerCode: 'trae', detail: '旧读数' }
+  const bTrae2 = { kind: 'account_provider_zero_capacity', providerCode: 'trae', detail: '新读数会抖' }
+  const bGem = { kind: 'key_provider_zero_capacity', providerCode: 'gemini', detail: 'x' }
+  t(
+    'R1 breach 稳定身份=kind|provider,detail 抖动不换身份',
+    breachKeyOf(bTrae) === breachKeyOf(bTrae2) && breachKeyOf(bTrae) !== breachKeyOf(bGem),
+  )
+  const r2 = ratchetOf([bTrae2, bGem], [breachKeyOf(bTrae)])
+  t(
+    'R2 基线内存量不算新增;本轮新 provider 点名;fixed=基线有、本轮无',
+    r2.newBreaches.length === 1 &&
+      r2.newBreaches[0].providerCode === 'gemini' &&
+      r2.fixed.length === 0,
+  )
+  const r2b = ratchetOf([bTrae], [breachKeyOf(bTrae), breachKeyOf(bGem)])
+  t(
+    'R2b 存量归零已修 ⇒ fixed 报出且 newBreaches 空(差值为 0 不喊人)',
+    r2b.newBreaches.length === 0 && r2b.fixed.length === 1 && r2b.fixed[0] === breachKeyOf(bGem),
+  )
+  const r3 = readBaseline('__no_such_file_relay_capacity_baseline__.json')
+  t(
+    'R3 基线读不到 ⇒ undetermined 且 keys 空 ⇒ 当下 breach 一律按新增报出(绝不静默放行)',
+    r3.status === 'undetermined' &&
+      r3.keys.length === 0 &&
+      ratchetOf([bTrae, bGem], r3.keys).newBreaches.length === 2,
+  )
+  const r3b = readBaseline('x.json', () => '{"notKeys":[]}')
+  t('R3b 基线形状坏(缺 keys)⇒ 同 undetermined,不回落成空 known', r3b.status === 'undetermined')
+  const scratch = mkScratch('relay-capacity-baseline')
+  try {
+    const bFile = join(scratch, 'baseline.json')
+    const w = writeBaseline(bFile, [breachKeyOf(bTrae), breachKeyOf(bGem), breachKeyOf(bTrae)])
+    const rb = readBaseline(bFile)
+    t(
+      'R4 显式认账往返:writeBaseline 去重落盘 ⇒ readBaseline ok,当下全 known,newBreaches 空',
+      w.written === 2 &&
+        rb.status === 'ok' &&
+        rb.keys.length === 2 &&
+        ratchetOf([bTrae2, bGem], rb.keys).newBreaches.length === 0,
+    )
+    const wEmpty = writeBaseline(join(scratch, 'empty.json'), [])
+    const rbEmpty = readBaseline(join(scratch, 'empty.json'))
+    t(
+      'R5 显式认账"无存量"(空 keys)⇒ status=ok 且当下 breach 全算新增(空基线≠坏基线,但同样不吞新增)',
+      wEmpty.written === 0 &&
+        rbEmpty.status === 'ok' &&
+        rbEmpty.keys.length === 0 &&
+        ratchetOf([bTrae], rbEmpty.keys).newBreaches.length === 1,
+    )
+  } finally {
+    rmScratch(scratch)
+  }
+
   const r = report()
   const line = `SELF-TEST check-relay-capacity-zero:${r.pass} passed / ${r.fail} failed(共 ${r.cases.length} 例,now=${nowMs})`
   for (const c of r.cases) if (!c.pass) console.log(`  ❌ ${c.name} ⇒ got=${c.got}`)
@@ -629,6 +741,13 @@ async function main() {
     return
   }
   const json = args.includes('--json')
+  const ratchet = args.includes('--ratchet')
+  const writeBase = args.includes('--write-baseline')
+  const baseIdx = args.indexOf('--baseline')
+  const baselineFile =
+    baseIdx >= 0 && args[baseIdx + 1] && !args[baseIdx + 1].startsWith('--')
+      ? args[baseIdx + 1]
+      : DEFAULT_BASELINE
   const envIdx = args.indexOf('--env-file')
   const envFile = envIdx >= 0 ? args[envIdx + 1] : join(REPO, 'apps', 'api', '.env')
   const allowEmptyReason = process.env[ALLOW_EMPTY_ENV] ?? null
@@ -642,8 +761,10 @@ async function main() {
       for (const b of obj.breaches ?? [])
         console.log(`  ⚠ [${b.kind}] ${b.detail}\n     下一步:${b.nextStep}`)
       for (const n of obj.notes ?? []) console.log(`  · ${n}`)
-      if (obj.state === 'unjudged')
+      if (obj.state === 'unjudged') {
         console.log('  ⇒ 未判定:既不记绿也不冒红(§0.3),请按 reason 修输入后复跑')
+        if (writeBase) console.log('  ⇒ --write-baseline 已拒绝:判不了的面不得被认账')
+      }
     }
     process.exit(code)
   }
@@ -702,6 +823,53 @@ async function main() {
     sentinel: rows.sentinel,
     allowEmptyReason,
   })
+
+  // 显式认账档:只有人看读数后才跑。自动追认 = 新增 breach 第一次就被吞掉(§0.10 反向失效)。
+  if (writeBase) {
+    if (verdict.state === 'unjudged') {
+      return emit(
+        { ...verdict, reason: `未判定(${verdict.reason})⇒ 拒绝写基线(判不了的面不得被认账)` },
+        2,
+      )
+    }
+    const w = writeBaseline(baselineFile, (verdict.breaches ?? []).map(breachKeyOf))
+    if (json) console.log(JSON.stringify({ written: w.written, file: w.file, state: verdict.state }))
+    else console.log(`已写基线:${w.written} 条 ⇒ ${w.file}(此后 --ratchet 只拦新增)`)
+    process.exit(0)
+    return
+  }
+
+  if (ratchet) {
+    const base = readBaseline(baselineFile)
+    const ratch = ratchetOf(verdict.breaches ?? [], base.keys)
+    const rState =
+      verdict.state === 'unjudged'
+        ? 'unjudged'
+        : ratch.newBreaches.length > 0
+          ? 'new'
+          : (verdict.breaches ?? []).length > 0
+            ? 'known'
+            : 'clean'
+    const payload = {
+      ...verdict,
+      ratchetState: rState,
+      newBreaches: ratch.newBreaches,
+      fixed: ratch.fixed,
+      baseline: { file: baselineFile, status: base.status, count: base.keys.length, why: base.why ?? null },
+    }
+    if (!json) {
+      const known = (verdict.breaches ?? []).length - ratch.newBreaches.length
+      console.log(
+        `RATCHET state=${rState} known=${known} new=${ratch.newBreaches.length} fixed=${ratch.fixed.length}` +
+          `${base.status === 'ok' ? '' : ` baseline=${base.status}`}`,
+      )
+      for (const k of ratch.fixed) console.log(`✅ 已修(基线有、本轮无):${k}`)
+      if (rState === 'known') console.log(`ℹ 存量 breach ${(verdict.breaches ?? []).length} 处只报数(差值档只拦新增;认账 --write-baseline)`)
+      if (base.status !== 'ok') console.log(`ℹ 基线${base.status}:${base.why ?? baselineFile} ⇒ 当下 breach 一律按新增报出`)
+    }
+    return emit(payload, rState === 'unjudged' ? 2 : rState === 'new' ? 1 : 0)
+  }
+
   emit(verdict, exitCodeFor(verdict.state))
 }
 
@@ -718,6 +886,7 @@ export const __test__ = {
   ALLOW_EMPTY_ENV,
   MIN_REASON_LEN,
   SENTINEL,
+  DEFAULT_BASELINE,
   loadPoolJudges,
   judgeCapacity,
   exitCodeFor,
@@ -725,5 +894,9 @@ export const __test__ = {
   buildSql,
   isLocalHost,
   sliceTopLevelFunction,
+  breachKeyOf,
+  ratchetOf,
+  readBaseline,
+  writeBaseline,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
