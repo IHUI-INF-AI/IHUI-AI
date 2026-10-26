@@ -22719,16 +22719,22 @@
         "filter": {
           "all": "全部",
           "configured": "已配置",
+          "invalidKey": "密钥无效",
           "local": "本地",
-          "notConfigured": "未配置"
+          "notConfigured": "未配置",
+          "ok": "可用",
+          "unreachable": "不可达"
         },
         "models": "个模型",
         "refresh": "刷新",
         "summary": {
           "configured": "已配置",
+          "invalidKey": "密钥无效",
           "local": "本地",
           "notConfigured": "未配置",
-          "total": "总计"
+          "ok": "可用",
+          "total": "总计",
+          "unreachable": "不可达"
         }
       },
       "subtitle": "Provider 健康状态、Combo 链管理、Token 压缩演示",
