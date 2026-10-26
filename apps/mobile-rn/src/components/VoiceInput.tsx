@@ -32,7 +32,7 @@ import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { VOICE_INPUT_RECORD_ROW_GAP_PX } from '@ihui/shared/ui/voice-input-spec'
 import { voiceSttFromReactNative } from '@ihui/api-client'
-import { getToken } from '../lib/token'
+import { runWithFreshToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
@@ -88,6 +88,9 @@ export function VoiceInput({
   const [duration, setDuration] = useState(0)
   const [showImagePopup, setShowImagePopup] = useState(false)
   const [lastResult, setLastResult] = useState('')
+  // 转写失败的用户可见原因(2026-10-26:此前失败只回填空串,界面停在"按住说话",
+  // 看起来像"没按到",而真实原因是上传被服务端拒了)
+  const [sttError, setSttError] = useState('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const waveAnim = useRef(new Animated.Value(0)).current
   const recordingRef = useRef(false)
@@ -146,22 +149,32 @@ export function VoiceInput({
 
     setTranscribing(true)
     try {
-      const text = await voiceSttFromReactNative(uri, {
-        language,
-        aiServiceUrl,
-        token: getToken() ?? undefined,
-      })
+      // 凭据新鲜度由 lib/token 的兜带负责:上传前剩余寿命 ≤ 5 分钟先续期,
+      // 被服务端否定(判据 = classifyRefreshFailureStatus)则续期后只重试一次。
+      const text = await runWithFreshToken((token) =>
+        voiceSttFromReactNative(uri, {
+          language,
+          aiServiceUrl,
+          token: token ?? undefined,
+        }),
+      )
+      setSttError('')
       setLastResult(text)
       onChange?.(text)
       onComplete?.(text)
-    } catch {
+    } catch (e) {
+      // 失败要响:上一行成功才清空,这里给出可见原因(仍回填空串 = 调用方按"无内容"处理)
+      setSttError(t('common.failed'))
+      console.warn(
+        `[rn-voice] VoiceInput STT failed: ${e instanceof Error ? e.message : 'unknown error'}`,
+      )
       setLastResult('')
       onChange?.('')
       onComplete?.('')
     } finally {
       setTranscribing(false)
     }
-  }, [onChange, onComplete, recorder, language, aiServiceUrl])
+  }, [onChange, onComplete, recorder, language, aiServiceUrl, t])
 
   // 计时器 + 波形动画
   useEffect(() => {
@@ -197,6 +210,8 @@ export function VoiceInput({
     recordingRef.current = true
     setRecording(true)
     setDuration(0)
+    // 新一轮录音:上一轮可见失败原因先退场(失败仍会由下一轮的 catch 重新给出)
+    setSttError('')
     void (async () => {
       try {
         await recorder.prepareToRecordAsync()
@@ -304,7 +319,9 @@ export function VoiceInput({
         ) : transcribing ? (
           <Text style={styles.transcribingText}>转写中…</Text>
         ) : (
-          <Text style={styles.idleText}>{placeholder ?? '按住说话'}</Text>
+          <Text style={sttError ? styles.errorText : styles.idleText} numberOfLines={2}>
+            {sttError || (placeholder ?? '按住说话')}
+          </Text>
         )}
       </Pressable>
 
@@ -416,6 +433,10 @@ const styles = StyleSheet.create({
   idleText: {
     fontSize: 12,
     color: tokens.text.secondary,
+  } as TextStyle,
+  errorText: {
+    fontSize: 12,
+    color: tokens.danger.DEFAULT,
   } as TextStyle,
   clearBtn: {
     width: 24,

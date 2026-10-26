@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import {
   AGENT_TASK_EVENTS,
@@ -95,6 +96,11 @@ export interface UseAgentRuntimeReturn {
    *  (单值覆盖,session_end 到达时重设;事件缺该字段或解析失败为 null) */
   sessionDeliverables: TaskDeliverables | null
   connected: boolean
+  /**
+   * 2026-10-26:运行时事件流**致命**断开的原因(非 null = 流已停,不会再自己活过来)。
+   * null = 未判定/正常。瞬态网络抖动不写这里(那是 EventSource 内置重连的职权)。
+   */
+  streamError: string | null
 }
 
 /** 自愈事件 FIFO 上限(单 run 事件量小,50 条足够覆盖长会话) */
@@ -146,6 +152,22 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     null,
   )
   const [connected, setConnected] = React.useState(false)
+  /** 2026-10-26:流致命断开的原因(见 UseAgentRuntimeReturn.streamError) */
+  const [streamError, setStreamError] = React.useState<string | null>(null)
+  /**
+   * 续期后重建 EventSource 的扳机:bump 一次 ⇒ 本 effect 重跑(cleanup 关掉死流)。
+   * 用 nonce 而不是自己 new 一条流,是为了让"重建"与"首次连接"共用同一段注册代码,
+   * 不出现第二份 handler 接线(那正是漂移的成因)。
+   */
+  const [streamNonce, setStreamNonce] = React.useState(0)
+  /**
+   * 「本次 agent 的这条流已经用过那唯一一次续期」的账。必须跨 effect 重跑存活
+   * (nonce  bump 就是一次重跑),且换 agent 时重新记账。
+   */
+  const authRetryRef = React.useRef<{ agentId: string | null; tried: boolean }>({
+    agentId: null,
+    tried: false,
+  })
   const esRef = React.useRef<EventSource | null>(null)
 
   React.useEffect(() => {
@@ -189,17 +211,50 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setLastMessageSend(null)
       setSessionDeliverables(null)
       setConnected(false)
+      setStreamError(null)
       return
     }
     const url = `/api/agents/tasks/stream?agentId=${encodeURIComponent(agentId)}`
     const es = new EventSource(url)
     esRef.current = es
 
-    es.onopen = () => setConnected(true)
+    es.onopen = () => {
+      setConnected(true)
+      setStreamError(null)
+    }
+    /**
+     * 2026-10-26 修「cookie 内那枚 15 分钟 JWT 过期后,运行时事件流静默死透」。
+     * EventSource 的 onerror 有两种互斥成因,旧实现把它们混成一桶(一律"交给内置重连"):
+     *   - CONNECTING ⇒ 瞬态抖动,浏览器**正在**自动重连 ⇒ 这里不许续期、不许报错
+     *     (错了就是把网络抖动读成会话失效,违反"判不出不得登出"红线);
+     *   - CLOSED     ⇒ 致命失败(HTTP 401/403/410、内容类型不符),浏览器**不再**重连
+     *     ⇒ 旧代码以为还在重连,于是功能哑掉而零报错。
+     * 致命档唯一出路 = 换新凭据(cookie 随续期一起重写)后重建一条流,且只重建一次;
+     * 续期失败或重建仍致命 ⇒ 置 streamError 并大声记一行(界面文案需补五语言 i18n,
+     * 不属本批范围,与 use-agent-stream 尾帧账目同一口径走 console)。
+     * 同一条分档口径另见 use-admin-insights-stream.ts / tool-approval-dialog.tsx / useAgentSSE.ts。
+     */
     es.onerror = () => {
       setConnected(false)
-      // 2026-08-02 修复:不手动 close,让 EventSource 内置自动重连生效
-      // (手动 close 后 EventSource 不会重连,网络抖动会导致 SSE 永久断开)
+      if (es.readyState !== EventSource.CLOSED) return
+      void (async () => {
+        if (authRetryRef.current.agentId !== agentId) {
+          authRetryRef.current = { agentId, tried: false }
+        }
+        if (authRetryRef.current.tried) {
+          setStreamError('unauthorized-after-refresh')
+          console.error(`[use-agent-runtime] agent stream dead: unauthorized-after-refresh agentId=${agentId}`)
+          return
+        }
+        authRetryRef.current = { agentId, tried: true }
+        const fresh = await refreshAccessTokenOnce()
+        if (fresh) {
+          setStreamNonce((n) => n + 1)
+          return
+        }
+        setStreamError('refresh-failed')
+        console.error(`[use-agent-runtime] agent stream dead: refresh-failed agentId=${agentId}`)
+      })()
     }
     es.onmessage = (e) => {
       try {
@@ -342,7 +397,8 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setLastMessageSend(null)
       setSessionDeliverables(null)
     }
-  }, [agentId])
+    // streamNonce 变化 = 续期后要求重建这条流(见 es.onerror 的致命档分支)
+  }, [agentId, streamNonce])
 
   return {
     sessionTree,
@@ -359,6 +415,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     lastMessageSend,
     sessionDeliverables,
     connected,
+    streamError,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

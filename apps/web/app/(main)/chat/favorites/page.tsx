@@ -53,7 +53,14 @@ export default function ChatFavoritesPage() {
         </Button>
       </div>
 
-      {!ready || !isAuthenticated ? (
+      {!ready ? (
+        // 「还没查完」≠「确认未登录」(2026-10-26,与 /chat/history 同型修复):校验中只给加载态
+        <div className="py-10 text-center text-muted-foreground">
+          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+          {t('loading')}
+        </div>
+      ) : !isAuthenticated ? (
+        // 终态(ready 且未登录/会话确认过期):登录引导
         <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
           <LogIn className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('loginRequired')}</p>
