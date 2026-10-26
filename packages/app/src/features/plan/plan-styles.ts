@@ -76,7 +76,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
     },
     filterChipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     filterChipText: { fontSize: 13, color: tk.text.secondary },
-    filterChipTextActive: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    filterChipActiveText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
