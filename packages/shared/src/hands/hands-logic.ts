@@ -115,7 +115,8 @@ export function validateHandsCommand(
     if (cmd.target?.kind === 'coords') {
       return { ok: false, error: 'type requires a node target, not coords' }
     }
-    if (cmd.text == null) return { ok: false, error: 'type requires text' }
+    if (cmd.text === null || cmd.text === undefined)
+      return { ok: false, error: 'type requires text' }
   }
   if (cmd.type === 'scroll' && !cmd.direction) {
     return { ok: false, error: 'scroll requires direction' }
@@ -144,7 +145,8 @@ export interface HandsIntent {
 function selectorFor(tree: UiTreeSchema, located: UiNodeSchema): HandsTarget | null {
   const preferred = nearestClickable(tree, located) ?? located
   if (preferred.viewId) return { kind: 'viewId', viewId: preferred.viewId }
-  if (preferred.text != null) return { kind: 'text', text: preferred.text }
+  if (preferred.text !== null && preferred.text !== undefined)
+    return { kind: 'text', text: preferred.text }
   return null
 }
 
@@ -171,7 +173,7 @@ export function planCommandFromIntent(
       return target ? { id, type: 'click', target } : null
     }
     case 'input': {
-      if (!intent.label || intent.value == null) return null
+      if (!intent.label || intent.value === null || intent.value === undefined) return null
       const located = findNodeByText(tree, intent.label) ?? findNodeByViewId(tree, intent.label)
       if (!located) return null
       const target = selectorFor(tree, located)

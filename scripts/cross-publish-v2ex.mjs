@@ -37,7 +37,7 @@ const DEFAULT_DRAFT_PATH = join(ROOT, '.ihui-agent', 'tmp', 'v2ex-post.md')
 
 // ---------- 参数解析 ----------
 const argv = process.argv.slice(2)
-function argValue(name, noun = '参数') {
+function argValue(name, noun = '值') {
   const r = requireFlagValue(argv, name, { noun })
   if (r.error) {
     console.error(`❌ 用法错:${r.error}`)

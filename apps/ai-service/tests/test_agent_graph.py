@@ -72,9 +72,20 @@ class TestConstantsAndTypes:
     """_DEFAULT_MODEL 常量 + AgentState TypedDict 字段定义。"""
 
     def test_default_model_value(self):
-        """_DEFAULT_MODEL 应为 stepfun/step-3.7-flash(与源码常量一致)。"""
-        assert _DEFAULT_MODEL == "stepfun/step-3.7-flash"
+        """_DEFAULT_MODEL 走 default_chat_model() 统一入口;不得是已永久退役的厂商档。
+
+        2026-10-26 stepfun 永久退役:旧断言把值写死成 'stepfun/step-3.7-flash',
+        而实现早已改成 `default_chat_model()` ⇒ 这条断言在 HEAD 上就恒红(存量欠账)。
+        现改为断「非空 + 非退役档」:退役判定走 core.default_model 的单一真相源,
+        不硬编码某个具体档位 —— 上游换默认档时不必再改这条测试。
+        """
+        from app.core.default_model import is_retired_model
+
         assert isinstance(_DEFAULT_MODEL, str)
+        assert _DEFAULT_MODEL
+        assert not is_retired_model(_DEFAULT_MODEL), (
+            f"默认模型命中已退役档:{_DEFAULT_MODEL}"
+        )
 
     def test_agent_state_annotations_contain_all_fields(self):
         """AgentState 必须声明 7 个字段(messages/mode/session_id/plan/execution_result/summary/error)。"""

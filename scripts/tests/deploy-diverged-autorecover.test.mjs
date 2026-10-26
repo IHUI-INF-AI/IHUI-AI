@@ -85,7 +85,10 @@ test('未引入任何强推或破坏性 git 动作(射程=执行路径;补救文
   const destructive = ['git push --force', 'push -f', 'reset --hard', 'git stash', 'clean -fd']
   const violations = (src) => {
     const fnStart = src.indexOf('function Get-DivergenceRemedy')
-    assert.ok(fnStart >= 0, 'Get-DivergenceRemedy 是破坏性动词唯一允许的非注释落点;它没了,本锁的豁免面就该关')
+    assert.ok(
+      fnStart >= 0,
+      'Get-DivergenceRemedy 是破坏性动词唯一允许的非注释落点;它没了,本锁的豁免面就该关',
+    )
     const fnEndRel = src.slice(fnStart + 10).indexOf('\nfunction ')
     const fnEnd = fnEndRel > 0 ? fnStart + 10 + fnEndRel : src.length
     const out = []
@@ -102,7 +105,11 @@ test('未引入任何强推或破坏性 git 动作(射程=执行路径;补救文
     }
     return out
   }
-  assert.deepEqual(violations(SRC), [], `执行路径出现破坏性 git 动作:${violations(SRC).join(' ; ')}`)
+  assert.deepEqual(
+    violations(SRC),
+    [],
+    `执行路径出现破坏性 git 动作:${violations(SRC).join(' ; ')}`,
+  )
   // 变异对照(锁必须有牙):把同一条 reset 塞进真正的执行函数体里 ⇒ 必须被点名。
   const anchor = SRC.indexOf('function Invoke-AutoConverge')
   assert.ok(anchor > 0, '前提核对:Invoke-AutoConverge 在位')
@@ -146,7 +153,12 @@ function assertFfRaceGuards(src) {
   const ban = (re, why) => {
     if (re.test(code)) fails.push(why)
   }
-  need(/\$remoteTipRaw\s*=\s*\(& git rev-parse FETCH_HEAD/, 'R1 没把当次 FETCH_HEAD 定格成显式 sha')
+  // `(?:-C \$Root )?` = 2026-10-26 起允许"git 调用钉住生产签出那一本仓"(取源面读错仓库那一族,
+  // 由 scripts/tests/deploy-repo-pinning.test.mjs 独立守):形状可选,但"必须定格成显式 sha"这条不变。
+  need(
+    /\$remoteTipRaw\s*=\s*\(& git (?:-C \$Root )?rev-parse FETCH_HEAD/,
+    'R1 没把当次 FETCH_HEAD 定格成显式 sha',
+  )
   need(
     /remoteTipRaw\s*-notmatch\s*'\^\[0-9a-f\]\{40\}\$'/,
     'R1 定格后没做 40 位十六进制形状校验(取不到必须 fail-closed)',
@@ -156,7 +168,7 @@ function assertFfRaceGuards(src) {
     'R1 远端对象不在本地时没有定向补取/判无法判定这一步',
   )
   need(/rev-list --count "HEAD\.\.\$remoteTip"/, 'R2 behind 仍在读共享的 FETCH_HEAD')
-  need(/git merge --ff-only \$remoteTip/, 'R2 merge 的目标不是本轮定格的 sha')
+  need(/git (?:-C \$Root )?merge --ff-only \$remoteTip/, 'R2 merge 的目标不是本轮定格的 sha')
   need(
     /diff --name-only HEAD \$remoteTip/,
     'R2 挡路路径清单算的是另一个面(与 merge 不同面 ⇒ 点名会错)',
@@ -202,7 +214,7 @@ test('R-OLD 变异:整段退回"处处读 FETCH_HEAD、无复核"必须翻红', 
 
 test('R-NOANC 变异:只删复核那一刀必须翻红(不是靠前面几刀连带)', () => {
   const noAnc = SRC.replace(
-    /& git merge-base --is-ancestor \$remoteTip HEAD/,
+    /& git (?:-C \$Root )?merge-base --is-ancestor \$remoteTip HEAD/,
     '& git noop-ancestor-check',
   )
   assert.notEqual(noAnc, SRC, '夹具没生效(定位不到复核调用)')
