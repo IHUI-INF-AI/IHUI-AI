@@ -8783,8 +8783,8 @@
           "action": "모델 변경"
         },
         "MODEL_RETIRED": {
-          "title": "이 모델은 영구적으로 서비스 종료되었습니다",
-          "action": "목록에 게시된 다른 모델로 전환하세요"
+          "title": "이 모델은 영구적으로 사용이 중단되었습니다",
+          "action": "목록의 제공 중 모델로 변경"
         },
         "MODEL_STREAM_IDLE": {
           "title": "응답 시간이 초과되었습니다",
@@ -23263,6 +23263,9 @@
     "authorizeAndRedirect": "인증 및 리디렉션",
     "authorizing": "{clientId}에 대한 인증 진행 중…",
     "desktopHandoffHint": "데스크톱 앱으로 돌아가 로그인을 완료했습니다. 이 페이지는 닫아도 됩니다.",
+    "miniappHandoffTitle": "인증 완료",
+    "miniappHandoffHint": "로그인 자격증명을 미니프로그램에 전달했습니다. 왼쪽 위 '뒤로'를 눌러 미니프로그램으로 돌아가 로그인을 완료하세요.",
+    "miniappHandoffFailed": "미니프로그램 전달에 실패했습니다. 다시 시도하거나 직접 돌아가 주세요.",
     "desktopHandoffTitle": "인증 완료",
     "code": "인증 코드",
     "codePlaceholder": "인증 코드를 입력하세요",

@@ -8783,8 +8783,8 @@
           "action": "モデルを変更"
         },
         "MODEL_RETIRED": {
-          "title": "このモデルは永久に退役しました",
-          "action": "一覧に掲載中のモデルへ切り替えてください"
+          "title": "このモデルは永久に提供終了しました",
+          "action": "モデル一覧の提供中モデルに変更"
         },
         "MODEL_STREAM_IDLE": {
           "title": "応答がタイムアウトしました",
@@ -23263,6 +23263,9 @@
     "authorizeAndRedirect": "してリダイレクト",
     "authorizing": "{clientId} へのをっています…",
     "desktopHandoffHint": "デスクトップアプリに戻り、ログインが完了しました。このページは閉じて構いません。",
+    "miniappHandoffTitle": "認証が完了しました",
+    "miniappHandoffHint": "ログイン資格をミニプログラムに引き渡しました。左上の「戻る」でミニプログラムに戻り、ログインを完了してください。",
+    "miniappHandoffFailed": "ミニプログラムへの引き渡しに失敗しました。再試行するか、手動で戻ってください。",
     "desktopHandoffTitle": "認証が完了しました",
     "code": "認証コード",
     "codePlaceholder": "認証コードを入力してください",
