@@ -625,6 +625,16 @@
       "shared": "packages/app/src/features/ai-world/AiWorldScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiWorldScreen.tsx",
       "miniapp": "pkg-user/ai-world/index"
+    },
+    {
+      "shared": "packages/app/src/features/aigc-cover/AigcCoverScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AigcCoverScreen.tsx",
+      "miniapp": "pkg-user/aigc-cover/index"
+    },
+    {
+      "shared": "packages/app/src/features/assistant/AssistantScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AssistantScreen.tsx",
+      "miniapp": "pkg-user/assistant/index"
     }
   ]
 }
