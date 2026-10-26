@@ -5075,5 +5075,27 @@
     "metaPublishTime": "发布时间",
     "searchPlaceholder": "搜索智能体",
     "title": "我的助理"
+  },
+  "automations": {
+    "empty": "暂无自动化任务",
+    "loadFailed": "自动化加载失败",
+    "active": "启用中",
+    "paused": "已暂停",
+    "scheduleOnce": "一次性",
+    "scheduleRecurring": "重复",
+    "lastRun": "上次运行",
+    "nextRun": "下次运行",
+    "prompt": "提示词",
+    "noResult": "暂无运行结果",
+    "rrule": "调度规则",
+    "timezone": "时区",
+    "schedule": "触发方式"
+  },
+  "bankCard": {
+    "title": "银行卡",
+    "empty": "暂无银行卡",
+    "default": "默认",
+    "holder": "持卡人",
+    "loadFailed": "加载银行卡失败"
   }
 }
