@@ -52,15 +52,37 @@ export async function applyActions(sql, actions) {
     const configIdByProvider = new Map()
     for (const a of actions) {
       if (a.kind === 'insertConfig') {
+        // 并发窗口(2026-10-26 补,票面第二半格):快照判 missing 与真正 insert 之间,另一事务
+        // 可能已写入同键行。裸 insert 撞唯一约束 ⇒ 整笔事务 23505 回滚;on conflict do nothing
+        // 把它降级成"这条没插进去",再由同事务内的复选拿到对方的 id 继续后续模型行。
+        // 不带冲突目标:本表有两枚唯一索引(全局部分唯一 + 其它),指定单一目标会漏掉另一枚。
         const ins = await tx`insert into ai_model_config
              (name, provider_code, base_url, api_format, enabled, is_builtin, description)
            values (${a.name}, ${a.providerCode}, ${a.baseUrl}, ${a.apiFormat}, ${a.enabled}, false,
              ${provenanceDescription(a.reason)})
+           on conflict do nothing
            returning id`
-        configIdByProvider.set(a.providerCode, Number(ins[0].id))
-        written.push(
-          `ai_model_config +1 id=${ins[0].id} provider=${a.providerCode} base_url=${a.baseUrl}`,
-        )
+        let cid = ins[0]?.id
+        if (cid === undefined) {
+          const again = await tx`select id from ai_model_config
+             where provider_code = ${a.providerCode}
+               and coalesce(base_url, '') = ${a.baseUrl ?? ''}
+               and owner_uuid is null
+             order by id limit 1`
+          if (again.length !== 1)
+            throw new Error(
+              `insertConfig 撞唯一约束后复选不到同键行(provider=${a.providerCode} base_url=${a.baseUrl})⇒ 不猜`,
+            )
+          cid = again[0].id
+          written.push(
+            `ai_model_config =1 id=${cid} provider=${a.providerCode} base_url=${a.baseUrl}(并发同键 ⇒ 复选复用,未新增)`,
+          )
+        } else {
+          written.push(
+            `ai_model_config +1 id=${cid} provider=${a.providerCode} base_url=${a.baseUrl}`,
+          )
+        }
+        configIdByProvider.set(a.providerCode, Number(cid))
       } else if (a.kind === 'updateConfig') {
         // provider + owner_uuid 谓词写进 WHERE(不是只靠 id):登记器结构上改不到别人的配置行
         await tx`update ai_model_config set enabled=${a.enabled}, api_format=${a.apiFormat}, updated_at=now()
@@ -74,13 +96,28 @@ export async function applyActions(sql, actions) {
           throw new Error(`insertModel 定不到 config_id(provider=${a.providerCode})`)
         // metadata 带上游真名的出处(与 apps/api/scripts/relay-workbuddy-models.ts 同形态),
         // 便于日后核对别名映射;catalog(别名→上游真名)不归本器写,见 CLI 头注。
-        await tx`insert into ai_model_config_models
+        const ins = await tx`insert into ai_model_config_models
              (config_id, model_id, display_name, enabled, is_relay_public, points_multiplier, metadata)
            values (${cid}, ${a.alias}, ${a.displayName}, true, ${a.isRelayPublic}, 1.00,
-             ${JSON.stringify({ [a.providerCode]: { upstreamModel: a.upstreamModel, by: 'scripts/relay-upstream-models-sync.mjs' } })}::jsonb)`
-        written.push(
-          `ai_model_config_models +1 config=${cid} model_id=${a.alias} upstream=${a.upstreamModel}`,
-        )
+             ${JSON.stringify({ [a.providerCode]: { upstreamModel: a.upstreamModel, by: 'scripts/relay-upstream-models-sync.mjs' } })}::jsonb)
+           on conflict do nothing
+           returning id`
+        if (ins.length === 1) {
+          written.push(
+            `ai_model_config_models +1 config=${cid} model_id=${a.alias} upstream=${a.upstreamModel}`,
+          )
+        } else {
+          // 冲突 ⇒ 复用同键行(大小写不敏感索引也走这一支:lower(model_id) 那把尺子在库里)。
+          const dup = await tx`select id from ai_model_config_models
+             where config_id = ${cid} and lower(model_id) = lower(${a.alias}) limit 1`
+          if (dup.length !== 1)
+            throw new Error(
+              `insertModel 撞唯一约束后复选不到同键行(config=${cid} model_id=${a.alias})⇒ 不猜`,
+            )
+          written.push(
+            `ai_model_config_models =1 config=${cid} model_id=${a.alias} upstream=${a.upstreamModel}(同键 ⇒ 复用未新增)`,
+          )
+        }
       } else {
         // updateModel 不需要 config_id(按 id + provider 归属谓词收窄);把它和 insertModel 分岔,
         // 否则漂移这一格会拿 undefined 当"定不到 config_id"炸掉整笔事务。
