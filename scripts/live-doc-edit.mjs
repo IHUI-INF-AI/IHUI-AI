@@ -2950,8 +2950,11 @@ async function main() {
       `❌ 结清留痕未判定 ⇒ exit 2:内容已落地 HEAD=${String(landed).slice(0, 11)},但本次 ` +
         `${dropRecord.flips.length} 项「未勾→已勾」形态未进 plan-row-drop.jsonl,` +
         '下游 scrub-declared-removals 与 union declaredDropCaps 认不出"这行本侧已处置过" ⇒ 会被回捞。\n' +
-        '   修法:让 .ihui-agent/state/plan-row-drop.jsonl 可写(或让 HEAD 可读)后重跑本器 —— 幂等,' +
-        '不会重复追加,也不会把已落地的行再改一遍。',
+        '   修法(两步,都真跑得通):① 先修可写/可读面 —— 本机实测方向是 `ls -ld .ihui-agent/state` 看目录是否存在/被占,' +
+        '`node -e "require(\'fs\').appendFileSync(\'.ihui-agent/state/plan-row-drop.jsonl\',\'\')"` 自证可追加;\n' +
+        '   ② 再由持有台账写盘权的席位按台账格式逐条补记本次两形态(kind=closed-row-reclose-open-form,' +
+        'rowBefore 逐字取本次 before 与 after)——本器**不**提供"只补留痕"的复跑档:重跑时 before 已不在 HEAD,' +
+        '会在 replace-not-found 处退,到不了这一段(如实登记,不写跑不通的出路)。',
     )
     process.exit(2)
   }
