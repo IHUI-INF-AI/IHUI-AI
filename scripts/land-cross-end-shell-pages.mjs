@@ -232,7 +232,15 @@ function syncParityDoc(deps = {}) {
   }
   if (headText === null || headText === undefined) return { state: 'undetermined', why: `HEAD 面取不到 ${PARITY_DOC}` }
   if (headText === fresh) return { state: 'clean' }
-  const landed = landOf(fresh, (fresh.match(/镜像[^\n]*/) || ['?'])[0].slice(0, 40))
+  const landed = landOf(
+    fresh,
+    // 提交信息里的数 must 是**读数行**,不是标题:只取"已被小程序显式镜像: **N**"那一行
+    // (上一版直接 /镜像[^\n]*/ 抓,抓到的是标题「…镜像缺口账本(自动生成)」,等于自证信息说谎)
+    (() => {
+      const m = /已被小程序显式镜像:\s*\*\*(\d+)\*\*[\s\S]*?缺口合计:\s*\*\*(\d+)\*\*/.exec(fresh)
+      return m ? `镜像 ${m[1]} · 缺口 ${m[2]}` : '未取到读数行'
+    })(),
+  )
   if (!landed?.ok) return { state: 'pending', why: landed?.why ?? '未落地' }
   return { state: 'landed' }
 }
@@ -485,6 +493,24 @@ function selfTest() {
           },
         })
         return `${r.state}/${calls}`
+      },
+    },
+    {
+      name: '账本自刷:落地信息里取的是**读数行**,不是标题(上一版 /镜像[^\\n]*/ 抓到标题"…镜像缺口账本",等于自证信息说谎)',
+      want: '镜像 123 · 缺口 95',
+      got: () => {
+        let seen = ''
+        const text =
+          '// [IHUI-AI-PROVENANCE]:x\n# RN → 小程序 镜像缺口账本(自动生成)\n- 已被小程序显式镜像: **123**\n- 缺口合计: **95**(其中已判定 95 / 未判定 0)\n'
+        syncParityDoc({
+          generate: () => ({ ok: true, text }),
+          headOf: () => '// [IHUI-AI-PROVENANCE]:x\n旧\n',
+          landOf: (_t, nums) => {
+            seen = nums
+            return { ok: true }
+          },
+        })
+        return seen
       },
     },
     // ---------- 折叠口径(页面批 × 账本腿)----------
