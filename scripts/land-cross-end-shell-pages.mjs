@@ -43,6 +43,8 @@ import {
   planBatch,
 } from './gen-miniapp-mirror.mjs'
 import { CAPACITY_REL, admitByCapacity, parseCapacity } from './lib/cross-end-subpackage-capacity.mjs'
+// 声明件派生口径取生成器那一份(§0.6:本器不另写"引用→declare"的第二套算式)
+import { __test__ as shellTypes } from './gen-rn-shell-types.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const R = (...p) => join(ROOT, ...p)
@@ -51,6 +53,8 @@ const MP_CONFIG = 'apps/miniapp-taro/src/app.config.ts'
 const REGISTRY = 'scripts/data/cross-end-screen-registry.json'
 // 缺口账本(漂移尺 doc-stale 那一维的正文)—— 落完页必须按新 HEAD 再刷一次,否则每批都留一格旧数叫人来看
 const PARITY_DOC = 'docs/engineering/rn-miniapp-parity-matrix.md'
+// 壳声明件 —— 每落一枚承载页就多一条 @rn-shells 引用,不重生成 ⇒ 门 251 C9 直接红(下一枚提交就被它拦)
+const SHELL_DECL = 'apps/miniapp-taro/types/rn-shells.generated.d.ts'
 const DEFAULT_CAP = 5
 
 const git = (args, input) =>
@@ -272,8 +276,94 @@ export function foldDocResult(r, doc) {
 }
 
 /**
- * run 的最外层包装:页面批 + 账本自刷。
- * 账本只在真落地档(--apply 且非 headless)刷 —— 预演档不该动 HEAD。
+ * 壳声明件自刷(2026-10-26 立)—— 承载页每落一枚,小程序端就多一条 `@rn-shells/<X>` 引用,
+ * 而 `types/rn-shells.generated.d.ts` 不跟着长 ⇒ 门 251 C9「声明件与面上引用不同步」当场判红。
+ * 实测:自动落 3 枚之后 C9 红、点名 16 条说明符,而整改动作只有重跑生成器(§5e-1 可整改性准入)。
+ *
+ * 三条与账本腿同形:① 取文只走生成器(collect + applyBlock,本器零复算,§0.6);
+ * ② 与 HEAD blob 逐字节相同 ⇒ clean(零写零推);③ 缺水位横幅先注入再判,注入后仍缺 ⇒ 未判定。
+ */
+function syncShellTypes(deps = {}) {
+  const headOf = deps.headOf ?? headBlob
+  let plan
+  try {
+    plan = (deps.collect ?? (() => shellTypes.collect({ face: 'head' })))()
+  } catch (e) {
+    return { state: 'undetermined', why: `声明件派生失败:${String(e?.message ?? e).slice(0, 140)}` }
+  }
+  if (!plan || typeof plan.next !== 'string') return { state: 'undetermined', why: '派生器没给出正文' }
+  if (Array.isArray(plan.undetermined) && plan.undetermined.length > 0) {
+    return { state: 'undetermined', why: `派生未判定:${String(plan.undetermined[0]).slice(0, 120)}` }
+  }
+  let current
+  try {
+    current = headOf(SHELL_DECL)
+  } catch {
+    return { state: 'undetermined', why: `HEAD 面取不到 ${SHELL_DECL}` }
+  }
+  if (current === null || current === undefined) {
+    return { state: 'undetermined', why: `HEAD 面取不到 ${SHELL_DECL}` }
+  }
+  const expected = shellTypes.applyBlock(current, plan.next)
+  if (expected === current) return { state: 'clean' }
+  let fresh
+  try {
+    fresh = (deps.watermarkOf ?? ((t) => watermarkBytesOf(SHELL_DECL, t, '.ts')))(expected)
+  } catch (e) {
+    return { state: 'undetermined', why: `横幅注入失败:${String(e?.message ?? e).slice(0, 140)}` }
+  }
+  if (!/\[IHUI-AI-PROVENANCE\]:/.test(fresh)) {
+    return { state: 'undetermined', why: '产文缺水位横幅(注入后仍缺)⇒ 不落(落了就是洗载荷)' }
+  }
+  const oid = hashBytes(fresh)
+  const manifest = join(TMP, 'shell-decl-blob.json')
+  writeFileSync(manifest, JSON.stringify({ files: [{ path: SHELL_DECL, blob: oid }] }, null, 1), 'utf8')
+  try {
+    const out = execFileSync(process.execPath, [R('scripts', 'object-space-land.mjs')], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 1 << 26,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        LAND_PATHS: SHELL_DECL,
+        LAND_BLOBS: manifest,
+        LAND_BLOB_PROOF:
+          'blob = gen-rn-shell-types 按新 HEAD 面派生 + applyBlock 进受管块(本器零复算);与 HEAD blob 逐字节比过才落',
+        LAND_MSG: [
+          `chore(cross-end): 壳声明件跟随新落承载页(${plan.modules.length} 条说明符)`,
+          '',
+          '器物:scripts/gen-rn-shell-types.mjs 的 collect/applyBlock(由 land-cross-end-shell-pages 的声明件自刷腿调起)',
+          '为什么必须自动:每落一枚承载页就多一条 @rn-shells 引用,不重生成 ⇒ 门 251 C9 判红,',
+          '而被拦的是下一位提交者、他的整改动作也只是重跑这条命令(§5e-1 可整改性准入)。',
+        ].join('\n'),
+      },
+    })
+    return /CAS 成功|提交面回读/.test(out) ? { state: 'landed' } : { state: 'pending', why: '落地器未自证成功' }
+  } catch (e) {
+    return { state: 'pending', why: `声明件落地失败:${String(e?.message ?? e).slice(0, 140)}` }
+  }
+}
+
+/** 折叠口径与账本腿同型(纯函数,自检直接打它):落了 ⇒ 本轮确实写了东西;pending 只点名;未判定只在原本 clean 时降级。 */
+export function foldShellTypesResult(r, types) {
+  const out = { ...r, types: types.state }
+  if (types.state === 'landed') {
+    out.blobs = (typeof out.blobs === 'number' ? out.blobs : 0) + 1
+    out.state = 'landed'
+  } else if (types.state === 'pending') {
+    out.note = `${out.note ?? ''} ｜ 壳声明件有差异但没落地,下轮再试`.trim()
+  } else if (types.state === 'undetermined' && out.state === 'clean') {
+    out.state = 'undetermined'
+    out.why = out.why ?? types.why ?? '壳声明件自刷未判定'
+  }
+  return out
+}
+
+/**
+ * run 的最外层包装:页面批 + 账本自刷 + 壳声明件自刷。
+ * 两条派生腿都只在真落地档(--apply 且非 headless)跑 —— 预演档不该动 HEAD。
  */
 function run(opts = {}) {
   const r = runPages(opts)
@@ -284,7 +374,13 @@ function run(opts = {}) {
   } catch (e) {
     doc = { state: 'undetermined', why: String(e?.message ?? e).slice(0, 140) }
   }
-  return foldDocResult(r, doc)
+  let types
+  try {
+    types = syncShellTypes()
+  } catch (e) {
+    types = { state: 'undetermined', why: String(e?.message ?? e).slice(0, 140) }
+  }
+  return foldShellTypesResult(foldDocResult(r, doc), types)
 }
 
 /**
@@ -701,5 +797,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { assembleBlobs, writePackText, run, runPages, capacityGate, syncParityDoc, foldDocResult, PARITY_DOC, CAPACITY_REL, DEFAULT_CAP }
+export const __test__ = { assembleBlobs, writePackText, run, runPages, capacityGate, syncParityDoc, foldDocResult, syncShellTypes, foldShellTypesResult, SHELL_DECL, PARITY_DOC, CAPACITY_REL, DEFAULT_CAP }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
