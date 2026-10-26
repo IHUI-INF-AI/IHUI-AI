@@ -46,6 +46,18 @@ import {
 } from '../db/visit-tracking-queries.js'
 import { getEngagementLiveSnapshot } from '../services/engagement-stats-service.js'
 import { getAudienceLiveSnapshot } from '../services/audience-stats-service.js'
+import {
+  getSessionQualityLiveSnapshot,
+  type SessionQualitySnapshot,
+} from '../services/session-quality-stats-service.js'
+import {
+  getVisitSourceLiveSnapshot,
+  type VisitSourceSnapshot,
+} from '../services/visit-source-stats-service.js'
+import {
+  getVisitTransitionLiveSnapshot,
+  type VisitTransitionSnapshot,
+} from '../services/visit-transition-stats-service.js'
 import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
@@ -475,6 +487,12 @@ interface TrafficSnapshot {
    * 被用了多少次";本格与 `scopeSplit` 同源(同一次 24h 聚合),单腿失败只置 null。
    */
   pageTop: PageUsageLiveRow[] | null
+  /**
+   * 近 24h 同口径总 PV(visit_logs 口径,不是 api_logs 的流量)。
+   * 前端拿它算「这个页面占了多少」——排行里没有分母就只能比大小,看不出占比。
+   * null = 页面热度腿取不到。
+   */
+  pageTotalPv: number | null
   /** 近 24h 各访问面(前台/后台/登录页)的 PV/UV;null = 同一条腿取不到 */
   scopeSplit: ScopeUsageLiveRow[] | null
   /** 近 24h 各端(web/RN/小程序)PV/UV;null = 同一条腿取不到 */
@@ -483,6 +501,27 @@ interface TrafficSnapshot {
   online5m: number | null
   /** 近 5 分钟浏览量 */
   pv5m: number | null
+  /**
+   * 近 24h 会话质量(来了之后看了几屏 / 落地页排行);null = 同一条腿取不到。
+   * 2026-10-26 立:页面热度说「/chat 被打开 N 次」,不回答「打开的人里有多少顺手又翻了别的
+   * 页面」—— 这一格补的就是那句没答的话。口径 = session_id(标签页级),见
+   * `services/session-quality-stats-service.ts` 头注。
+   */
+  sessionQuality: SessionQualitySnapshot | null
+  /**
+   * 近 24h 访问来源(直接访问 / 本机开发 / 站内 / 外部 + 主机 TOP);null = 同一条腿取不到。
+   * 2026-10-26 立:此前大屏只说"多少人用了多少次",不说"他们从哪来"——
+   * 生产实测 GitHub 是最大入口,本机开发流量却占着约三成,不分类就分不清推广渠道。
+   * 只给 PV(来源维度上访客数无法精确去重),见 `services/visit-source-stats-service.ts` 头注。
+   */
+  visitSource: VisitSourceSnapshot | null
+  /**
+   * 近 24h 页面流转(相邻页对 TOP:从哪一页走到了哪一页);null = 同一条腿取不到。
+   * 2026-10-26 立:排行只说"哪个页面热"、会话质量只说"看了几屏",
+   * 这两格都不答「进来之后走到了哪一步」—— 生产实测最大的一跳是
+   * `/ → /sso/login` 与 `/sso/login → /`(未登录用户在登录↔首页之间打转)。
+   */
+  visitTransition: VisitTransitionSnapshot | null
 }
 
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
@@ -492,6 +531,27 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
     pageUsage = await getPageUsageLiveSnapshot()
   } catch {
     pageUsage = null
+  }
+  // 会话质量也是独立腿:失败只把这一格置 null(渲染"—"),不拖垮其它腿。
+  let sessionQuality: SessionQualitySnapshot | null = null
+  try {
+    sessionQuality = await getSessionQualityLiveSnapshot()
+  } catch {
+    sessionQuality = null
+  }
+  // 访问来源同样独立:失败只置 null,不拖垮其它腿。
+  let visitSource: VisitSourceSnapshot | null = null
+  try {
+    visitSource = await getVisitSourceLiveSnapshot()
+  } catch {
+    visitSource = null
+  }
+  // 页面流转同样独立:失败只置 null。
+  let visitTransition: VisitTransitionSnapshot | null = null
+  try {
+    visitTransition = await getVisitTransitionLiveSnapshot()
+  } catch {
+    visitTransition = null
   }
   try {
     // 现算(带 5 秒进程内缓存):三条限窗 SQL 走 api_logs_created_at_idx,合计 ≈ 46 ms。
@@ -508,10 +568,14 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       aggregationAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
       truncated: live.truncated,
       pageTop: pageUsage?.top ?? null,
+      pageTotalPv: pageUsage?.totalPv ?? null,
       scopeSplit: pageUsage?.scopes ?? null,
       platformSplit: pageUsage?.platforms ?? null,
       online5m: pageUsage?.online5m ?? null,
       pv5m: pageUsage?.pv5m ?? null,
+      sessionQuality,
+      visitSource,
+      visitTransition,
     }
   } catch {
     return null

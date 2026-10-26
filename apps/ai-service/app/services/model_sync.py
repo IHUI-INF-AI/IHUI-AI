@@ -69,6 +69,7 @@ from prometheus_client import Counter, Gauge, Histogram
 from ..core.background_tasks import spawn
 from ..core.config import settings
 from ..core.db_pool import get_shared_pool
+from ..core.default_model import RETIRED_PROVIDERS
 from ..core.provider_caps import get_provider_cap
 from .free_provider_registry import ProviderCategory, free_provider_registry
 
@@ -124,13 +125,12 @@ _PLACEHOLDER_KEYS: frozenset[str] = frozenset({
 # 这里是**商务性**永久退役 —— 同步服务既不拉它的清单,也不允许它再被注册回来,
 # 且管理端 reset 接口**不能**把它解除(见 reset_provider 里的守卫)。
 # 机主 2026-10-26 明确:stepfun 不再续费,不得再以任何形式回到主聊链路。
-RETIRED_PROVIDERS: dict[str, str] = {
-    "stepfun": (
-        "2026-10-26 永久退役:阶跃星辰订阅失效(余额 -0.09 CNY),"
-        "/v1/chat/completions 恒定 400 'you have no active step plan subscription';"
-        "机主明确不再续费。不得再加回 COMBO_CHAINS / LITELLM_MODEL。"
-    ),
-}
+#
+# 名单本体在 app/core/default_model.py(RETIRED_PROVIDERS):退役要同时管住
+# 同步面(这里)、可用性面(model_availability 不 ping、不进模型列表)、
+# 面板面(管理端不列已退役厂商)、调用面(不再当默认模型)四个面;
+# 名单若只存在本模块,另外三个面就只剩各抄一份前缀表的命 —— 漂移即漏改。
+# 故本模块只**取用**同一份,不再另存一份。
 
 # ---------------------------------------------------------------------------
 # 2026-10-26 上游模型自动更新替换
@@ -1399,7 +1399,12 @@ class ModelSyncService:
         # 2026-10-26:经 SYNC_PROXY_URL 出网(本机对 US/EU provider 无直连出口,
         # 直连超时/本地 DNS 失败;Clash 7897 可通)。空值→None 即直连,
         # 国内系 provider 经代理侧 geo 规则直连,不受影响。
-        _sync_proxy = (settings.sync_proxy_url or "").strip() or None
+        # 增补:provider_code 命中 sync_proxy_url_by_provider 时优先用其专用代理
+        # (如 huggingface/github_models 经第二份不被封锁的订阅出网),否则回退全局。
+        _sync_proxy = (
+            (settings.sync_proxy_url_by_provider.get(provider_code)
+             or settings.sync_proxy_url or "").strip()
+        ) or None
         async with httpx.AsyncClient(timeout=SYNC_TIMEOUT_S, proxy=_sync_proxy) as client:
             resp = await client.get(url, headers=headers)
 

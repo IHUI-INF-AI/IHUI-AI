@@ -32,6 +32,7 @@ import { BASE_URL } from '@/utils/api-config'
 import { getToken } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import { taroWebSocketFactory } from '@/utils/taro-websocket-adapter'
+import { createTaroWsTicketProvider } from '@/utils/taro-ws-ticket'
 
 /**
  * AI 对话操控小程序端的桥接层(2026-09-21 立)。
@@ -300,6 +301,10 @@ function ensureConnected(): void {
     {
       webSocketFactory: taroWebSocketFactory,
       urlBuilder: (token) => buildTaroNotificationWsUrl(BASE_URL, token),
+      // 小程序没有全局 fetch ⇒ 包内默认 ticketProvider(fetchWsTicket)恒返回 null
+      // ⇒ 长期直连 access token(15 分钟即过期,长连接必被服务端 4003 拒)。
+      // 这里注入 Taro.request 版换票:拿 5 分钟短期 WS 票,换票失败由包内降级直连兜住。
+      ticketProvider: createTaroWsTicketProvider(BASE_URL),
     },
   )
   wsClient.connect()

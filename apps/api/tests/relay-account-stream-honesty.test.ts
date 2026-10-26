@@ -18,6 +18,7 @@
  * 因为「冷却了多久」正是这次要判的东西,只测文案等于没测。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type * as RelayAccountSharedState from '../src/services/relay-account-shared-state.js'
 
 // ── db mock:select 按查询特征供行,update 记录 set 参数 ──
 let providerRows: unknown[] = []
@@ -87,8 +88,7 @@ vi.mock('../src/services/relay-model-catalog.js', () => ({
 /** 冷却落账探针:记「谁、冷却到几毫秒、写入时刻」,据此量真实退避时长 */
 const cooldownWrites: Array<{ id: string; untilMs: number; atMs: number }> = []
 vi.mock('../src/services/relay-account-shared-state.js', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../src/services/relay-account-shared-state.js')>()
+  const actual = await importOriginal<typeof RelayAccountSharedState>()
   return {
     ...actual,
     setAccountCooldown: async (id: string, untilMs: number) => {

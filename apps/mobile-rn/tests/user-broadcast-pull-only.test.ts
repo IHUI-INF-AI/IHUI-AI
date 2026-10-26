@@ -14,30 +14,23 @@
  *  ⑥ 广播链路不得新立 UI 面:lib / hook 两层不 import FloatBox,而挂载层确实把本端已有的
  *    FloatBox 提示口接了进来(票第 2 栏「提示出口复用该端已有机制」)。
  *
- * 关于本文件顶上那条 `vi.mock('@ihui/types', …)`:本端 vitest 把 `@ihui/types` 别名指到
- * `tests/__mocks__/ihui-types.ts`,而那份替身只有 device-fingerprint 用的几个名字,
+ * 关于本文件原先那条 `vi.mock('@ihui/types', …)`:当时本端 vitest 把 `@ihui/types` 别名
+ * 指到 `tests/__mocks__/ihui-types.ts`,而那份替身只有 device-fingerprint 用的几个名字,
  * 没有任何广播符号(`conversationUpdatedEvent` / `mcpStatusEvent` / `parseUserBroadcastFrame` /
- * `isNewerThan` / `isMcpConnectionState`)。照现状跑,本用例测的是虚构 API
- * (与同配置文件里 sso-core / auth / api-client 三条收口记录同一型)。
- * 处置:**只在本用例内**把 '@ihui/types' 指回真实源码,不动端级别名 ——
- * 改别名会影响 mobile-rn 全部套件,那属该配置持有者的一票(已登记进交付报告)。
+ * `isNewerThan` / `isMcpConnectionState`)⇒ 照现状跑,本用例测的是虚构 API。
+ * 2026-10-26:那条理由**已不成立** —— 端级别名指向的替身已补转发 chat-sync-contract 与
+ * user-broadcast 两个真源模块(见该文件的转发行注),本用例要的广播符号由替身按值转发。
+ * 原先「只在本用例内指回真实源码」的本地 mock 已成冗余(本地 override 优先,会盖掉替身
+ * 这条真实路径),故删除:删掉后本用例走的就是「端级别名 → 替身 → 真源」这条生产同形路径,
+ * 与同配置文件里 sso-core / auth / api-client 三条收口记录同一型。
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@ihui/types', async () => {
-  const mod = await import('../../../packages/types/src/index')
-  return { default: mod, ...mod }
-})
-
 import { feedUserBroadcastFrame, resetUserBroadcastHub } from '@ihui/api-client'
-import {
-  conversationUpdatedEvent,
-  mcpStatusEvent,
-  toUserBroadcastFrame,
-} from '@ihui/types'
+import { conversationUpdatedEvent, mcpStatusEvent, toUserBroadcastFrame } from '@ihui/types'
 import { conversationMetaLedger, mcpStatusLedger } from '@ihui/shared/chat'
 
 import {
@@ -220,9 +213,9 @@ describe('结构纪律(RN 端)', () => {
       const hasBothNames = source.includes('conversation:updated') && source.includes('mcp:status')
       if (hasBothNames) {
         expect(/\[[^\]]*'conversation:updated'[^\]]*'mcp:status'/.test(source)).toBe(false)
-        expect(/new\s+Set\s*\(\s*\[[^\]]*'conversation:updated'[^\]]*'mcp:status'/.test(source)).toBe(
-          false,
-        )
+        expect(
+          /new\s+Set\s*\(\s*\[[^\]]*'conversation:updated'[^\]]*'mcp:status'/.test(source),
+        ).toBe(false)
       }
       expect(source).not.toMatch(/USER_BROADCAST_(EVENT_NAMES|SUBSCRIBABLE_EVENTS)\s*=/)
       expect(source).not.toMatch(/===?\s*['"](conversation:updated|mcp:status)['"]/)
@@ -244,7 +237,10 @@ describe('结构纪律(RN 端)', () => {
   it('⑤ App 语包的 pullOnly 不得写"小程序"(措辞必须属于这一端)', () => {
     for (const locale of ['zh-CN', 'zh-TW'] as const) {
       const pack = JSON.parse(
-        readFileSync(join(HERE, '../../../packages/i18n/messages/mobile-rn', `${locale}.json`), 'utf8'),
+        readFileSync(
+          join(HERE, '../../../packages/i18n/messages/mobile-rn', `${locale}.json`),
+          'utf8',
+        ),
       ) as { chat?: { meta?: { pullOnly?: string } } }
       const text = pack.chat?.meta?.pullOnly ?? ''
       expect(text.length).toBeGreaterThan(0)
