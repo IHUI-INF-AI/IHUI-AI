@@ -635,6 +635,16 @@
       "shared": "packages/app/src/features/assistant/AssistantScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AssistantScreen.tsx",
       "miniapp": "pkg-user/assistant/index"
+    },
+    {
+      "shared": "packages/app/src/features/automations/AutomationsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AutomationsScreen.tsx",
+      "miniapp": "pkg-user/automations/index"
+    },
+    {
+      "shared": "packages/app/src/features/bank-card/BankCardScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/BankCardScreen.tsx",
+      "miniapp": "pkg-user/bank-card/index"
     }
   ]
 }

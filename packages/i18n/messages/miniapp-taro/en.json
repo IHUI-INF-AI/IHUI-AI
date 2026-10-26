@@ -5075,5 +5075,27 @@
     "metaPublishTime": "Published",
     "searchPlaceholder": "Search assistants",
     "title": "My Assistants"
+  },
+  "automations": {
+    "empty": "No automation tasks yet",
+    "loadFailed": "Failed to load automations",
+    "active": "Active",
+    "paused": "Paused",
+    "scheduleOnce": "Once",
+    "scheduleRecurring": "Recurring",
+    "lastRun": "Last run",
+    "nextRun": "Next run",
+    "prompt": "Prompt",
+    "noResult": "No run result yet",
+    "rrule": "Schedule (RRULE)",
+    "timezone": "Timezone",
+    "schedule": "Schedule"
+  },
+  "bankCard": {
+    "title": "Bank Cards",
+    "empty": "No bank cards yet",
+    "default": "Default",
+    "holder": "Cardholder",
+    "loadFailed": "Failed to load bank cards"
   }
 }

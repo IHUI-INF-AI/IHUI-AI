@@ -5075,5 +5075,27 @@
     "metaPublishTime": "發布時間",
     "searchPlaceholder": "搜尋智慧體",
     "title": "我的助理"
+  },
+  "automations": {
+    "empty": "暫無自動化任務",
+    "loadFailed": "自動化載入失敗",
+    "active": "啟用中",
+    "paused": "已暫停",
+    "scheduleOnce": "一次性",
+    "scheduleRecurring": "重複",
+    "lastRun": "上次執行",
+    "nextRun": "下次執行",
+    "prompt": "提示詞",
+    "noResult": "暫無執行結果",
+    "rrule": "排程規則",
+    "timezone": "時區",
+    "schedule": "觸發方式"
+  },
+  "bankCard": {
+    "title": "銀行卡",
+    "empty": "暫無銀行卡",
+    "default": "預設",
+    "holder": "持卡人",
+    "loadFailed": "載入銀行卡失敗"
   }
 }

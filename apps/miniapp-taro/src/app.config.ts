@@ -155,6 +155,8 @@ export default defineAppConfig({
         'ai-world/index',
         'aigc-cover/index',
         'assistant/index',
+        'automations/index',
+        'bank-card/index',
       ],
     },
     {
