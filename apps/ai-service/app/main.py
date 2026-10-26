@@ -402,7 +402,32 @@ async def lifespan(app: FastAPI) -> Any:
     # 随 lifespan 挂载,由 COOKIE_REFRESH_ENABLED 控制(默认 false,显式开启才跑),
     # 间隔 COOKIE_REFRESH_INTERVAL_HOURS 小时(默认 6)。未开启时本调用是 no-op。
     from app.services.publish.cookie_refresh_daemon import cookie_daemon
-    cookie_daemon.ensure_started()
+
+    # 账号保活中心(2026-10-26 立):把发布线 Cookie 探活、密钥到期检测、签到凭证
+    # 健康收敛成一套调度 / 一套状态表 / 一套健康度 / 一套告警。
+    # 与上面两条线的关系是"各管一段,不互相接管":业务动作(访问平台刷 cookie / 每日
+    # 签到)仍归各自调度器,本中心只回答"凭证还活着吗、什么时候到期、要不要喊人"。
+    # 建表 fail-open(失败只告警,不拦启动);启用判据见 resolve_config —— 未启用时
+    # 会以 warning 明确点名缺哪个键(不再静默)。
+    try:
+        from app.services.keepalive import store as keepalive_store
+
+        await keepalive_store.ensure_tables()
+        logger.info("[keepalive] keepalive_* 表确认/创建完成")
+    except Exception as e:
+        logger.warning("[keepalive] 建表异常(忽略,保活中心降级为不可用): %s", e)
+    from app.services.keepalive import keepalive_center, resolve_config as _keepalive_cfg
+
+    _keepalive_on = _keepalive_cfg().enabled
+    # 单一调度源:中心已接管 Cookie 探活时,旧守护自己的循环不再启动 ——
+    # 否则同一账号每轮被两处同时访问平台(既浪费,也会让"上次保活时间"互相覆盖)。
+    if not _keepalive_on:
+        cookie_daemon.ensure_started()
+    else:
+        logger.info(
+            "[keepalive] 中心已接管 Cookie 探活,旧守护循环不启动(避免同一账号被两处同时访问)"
+        )
+    keepalive_center.ensure_started()
 
     # 过期资源清扫守护(2026-10-15 立,goal 第 53 轮)。此前 debugger 与 agent_checkpoint 两处
     # cleanup_expired() **全仓零调用者**(agent_checkpoint 的注释还把"过期留给 cleanup_expired 清理"
@@ -838,6 +863,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         await checkin_scheduler.stop()
 
+    async def _s_keepalive_center() -> None:
+        from app.services.keepalive import keepalive_center
+
+        await keepalive_center.stop()
+
     async def _s_video_worker() -> None:
         from app.services.video_generation import stop_video_worker
 
@@ -935,6 +965,7 @@ async def lifespan(app: FastAPI) -> Any:
         ("news_scheduler", _s_news_scheduler),
         ("db_sync_scheduler", _s_db_sync_scheduler),
         ("checkin_scheduler", _s_checkin_scheduler),
+        ("keepalive_center", _s_keepalive_center),
         ("video_worker", _s_video_worker),
         ("task_scheduler", _s_task_scheduler),
         ("screenshot_service", _s_screenshot),
@@ -1161,6 +1192,11 @@ def create_app() -> FastAPI:
     # O64 号池↔签到同步 internal 端点(自带 /internal/checkin 前缀,X-Internal-Secret 鉴权)。
     from app.routers import internal_checkin_pool as checkin_internal_router
     app.include_router(checkin_internal_router.router, tags=["checkin-internal"])
+
+    # 2026-10-26 立:账号保活中心(统一 Cookie / 密钥到期 / 签到凭证三条线的状态面)。
+    # router 自带 /api/keepalive 前缀,鉴权用 require_request_user_id。
+    from app.services.keepalive.router import router as keepalive_router
+    app.include_router(keepalive_router, tags=["keepalive"])
 
     # W4(Phase 0):Plan Mode 计划模式端点族(对标 Claude Code Plan Mode,全新端点 /api/agent-plan*)
     from app.routers import agent_plan as agent_plan_router

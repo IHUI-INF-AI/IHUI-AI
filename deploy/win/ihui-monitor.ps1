@@ -251,6 +251,14 @@ function Test-AlertDue {
 # (旧 `$sig = "$reason|$pendingTxt"`)是同一条缺陷(第三型:去重身份里放实时抖动的量)。
 # 正解只有档位化:身份只留"落到哪一档",实时读数进正文
 # (见 Send-Alert 的 $detail)。跨档 ⇒ 新身份当场重报;同档持续 ⇒ 由 4h 窗压住。
+# [2026-10-26 G-44 监控腿] "跨档必重报"这一条自本日起要按归一后的串读:身份面改走模块单源
+# (Get-AlertIdentitySig → ConvertTo-AlertStableText 会把裸数字折成 <n>)之后,
+#   · 磁盘两档 'lt1GB' 与 '1-10GB' 归一后是 'lt<n>GB' 与 '<n>-<n>GB' ⇒ 仍然不同串,跨档照旧重报;
+#   · 备份"缺 N 班"的班号是裸数字 ⇒ 归一后并成 '缺<n>班' 一个串,**跨班不再另开槽**。
+# 这一格是本票已知且被取证钉住的代价(harness 13k/13l),不是漏网:跨班最快也要 24h 后才发生,
+# 恒大于 $AlertRepeatHours 的 4h 窗 ⇒ 跨班那一轮仍然寄信,只是判定名从 due-new 变 due-repeat,
+# 主题与正文里的实际班号不受影响(展示面与身份面已分家,见 Send-Alert)。真要在跨班瞬间另开槽,
+# 出路是在 deploy/win/alert-dedup.ps1 的 Get-AlertCategory 给监控族登记固定枚举(交主席,本席不动单源)。
 function Get-DiskFreeTier {
   # 磁盘剩余(GB)→ 阈值档位标签。边界**不新造数**,两处都是现读既有阈值:
   #   · 10GB = 本文件巡检阈值(扫描段 "<10GB";文件头 :11「磁盘剩余(阈值 10GB)」;
@@ -278,9 +286,14 @@ function Get-BackupMissedShifts {
   return [int](1 + [math]::Floor(($AgeHours - 26) / 24))
 }
 
-# ── 身份串拼装唯一出口(2026-10-17 立;与上面两枚档位函数同一条纯函数纪律:不取盘、不打
-#    日志、无副作用)。镜像测试按 §22c 从本文件源码抽出这些函数体离线喂输入,测试内不得手抄判据。
-#    共同规矩:实时抖动的量只进 Send-Alert 的 $detail(正文),身份里只留固定类别/档位。──────
+# ── 档位串(逐项告警的**展示面** = 喂给身份层的输入)拼装唯一出口(2026-10-17 立;与上面两枚
+#    档位函数同一条纯函数纪律:不取盘、不打日志、无副作用)。镜像测试按 §22c 从本文件源码抽出这些
+#    函数体离线喂输入,测试内不得手抄判据。
+#    共同规矩:实时抖动的量只进 Send-Alert 的 $detail(正文),档位串里只留固定类别/档位。
+#    [2026-10-26 票 G-44 监控腿] 小节标题从"身份串"改成"档位串"的理由:这些串**不再直接拿去当
+#    去重身份用** —— 身份面自本日起只由下方 Get-MonitorAlertIdentity(透传共享模块的
+#    Get-AlertIdentitySig)产出,这里保留的固定类别/档位只是它的输入。此前全仓两把身份尺
+#    (部署侧已改档、监控侧仍吃整条文案),违反 §0.6 单一真相源,故把监控这侧也收到同一个出口。──────
 function Get-DiskAlertSig {
   # 磁盘告警身份:只含 档位+卷标(两者都不随轮次抖)。实时剩余量进 $alertDetail。
   param([string]$Tier, [string]$Volume)
@@ -316,6 +329,25 @@ function Get-BackupAbsentAlertSig {
   # 身份必须带类别:两类共用一条常量时,一类没备份会被另一类顶掉(去重只认一个身份)。
   param([string]$Kind)
   return "无数据库备份文件 类别=$Kind"
+}
+
+function Get-MonitorAlertIdentity {
+  # ── 监控侧告警身份的**唯一出口**(2026-10-26 立,票 G-44 的监控腿)──────────────────
+  # 这里**不拼任何字符串**:整条职责就是把逐项档位串透传给共享模块 alert-dedup.ps1 的
+  # Get-AlertIdentitySig(类别 + 归一化病因),与部署侧 ihui-deploy.ps1 吃的是同一把尺(§0.6)。
+  # 立因(现读,不是假想):此前 Send-Alert 的逐项身份就是**折叠过空白的那一条文案本身**,
+  # 于是"这条文案里有没有实时读数"全靠人记得调用上面那批档位函数 —— 那层保护是散文,不是器物。
+  # 下一个新增告警只要忘了分档、把轮次/条数/时刻/sha/盘符路径拼进文案,就又是一次"每轮换一槽 ⇒
+  # 去重窗结构上永不命中"(alert-dedup.ps1 头注的 48h/47 封、ihui-monitor 磁盘档的旧形同族)。
+  # 走单源之后,那种文案里的读数会被 ConvertTo-AlertStableText 当场折成 <n>/<ts>/<path>/<hex>。
+  # 与展示面的分工(与 ihui-deploy.ps1 的 Invoke-FailNotify 同构,见 Send-Alert 本体):
+  #   · 身份面 = 本函数 ⇒ 只进 Test-AlertDue / Test-AlertSuppressionGrace / 清偿档的键位;
+  #   · 展示面 = 逐项文案原样 ⇒ 进主题、正文、日志,给人看的仍然是"缺2 班"这种实测档位,
+  #     绝不能把归一后的 <n> 占位符寄到人邮箱里。
+  # 纯函数纪律同上面那批:不取盘、不打日志、无副作用;函数体注释里不出现花括号(镜像测试按大括号
+  # 配平从本文件抽函数原文离线喂输入)。
+  param([string]$Item)
+  return Get-AlertIdentitySig -Message $Item
 }
 
 function Write-Undelivered {
@@ -560,7 +592,9 @@ function Test-DeployAffectedAlertItem {
 function Send-Alert($msg, $detail = '') {
   # [2026-10-17 身份档位化] 新增可选第二参数 $detail:**实时读数只进正文,绝不进身份**
   # (与 ihui-deploy.ps1:422 那条"$Detail 只能进正文、绝不进签名"同一条规矩;身份里放抖动量
-  #  = 每轮换身份 = 下面 Test-AlertDue 的 4h 窗结构上永不命中)。逐项身份仍取 $msg 拆出来的条目。
+  #  = 每轮换身份 = 下面 Test-AlertDue 的 4h 窗结构上永不命中)。逐项**展示面**仍取 $msg 拆出来的
+  #  条目;逐项**身份面**自 2026-10-26 起只由 Get-MonitorAlertIdentity(共享模块单源)产出 ——
+  #  两面的分工见循环体内那段注释,人看的与当键用的从此不再是同一个东西。
   # [2026-10-16 根治] 去重身份从"全清单组合签名"改为**逐项独立身份**(机主明令:重复告警
   # 本身就是缺陷)。旧形:身份 = 所有异常项 join 后的单一签名,组合一变(一项恢复/一项新增)
   # 就生成新身份绕过 4h 去重 → 持续故障期间每个新组合都寄一封(10-15 一天 20+ 封的机制根源)。
@@ -608,25 +642,33 @@ function Send-Alert($msg, $detail = '') {
   $itemNotes  = @()
   $dueItems   = @()
   foreach ($item in $items) {
-    $isig = ($item -replace '\s+', ' ').Trim()
+    # [2026-10-26 票 G-44 监控腿] 展示面与身份面**分家**(旧形只有一把:整条文案既寄给人看、
+    # 又直接当去重身份 ⇒ 文案里混进读数就换槽,而收信人需要的恰好就是那条文案)。
+    #   $itemTxt = 逐项文案(与改动前那个身份表达式逐字同形 ⇒ 主题/正文/日志一字不变);
+    #   $isig    = 告警身份,只由 Get-MonitorAlertIdentity 产出(→ 模块单源 Get-AlertIdentitySig)。
+    # 抑制锚点也吃 $isig 而不吃文案:锚点回答"同一件事连续被压了多久",它只该按**稳定身份**
+    # 连续,措辞/读数漂一下不许把窗重新起锚(与 ihui-deploy.ps1:462 那条"锚点不随病因漂"同一条禁令)。
+    $itemTxt = ($item -replace '\s+', ' ').Trim()
+    $isig = Get-MonitorAlertIdentity -Item $item
     if ($diag.Contains('[部署重启中-预期现象]')) {
       # 只暂存"部署会让它短暂成立"的项;磁盘/备份/Cloudflared/监控栈端口照常走发信路径。
-      # 用一个不影响外层源码锁结构的内层判断,保持 T14 的 `if ($diag.Contains(...)) {` 原文。
+      # 用一个不影响外层源码锁结构的内层判断,保持 T14 的 if ($diag.Contains(...)) { 原文。
       if (Test-DeployAffectedAlertItem $isig) {
         $g = Test-AlertSuppressionGrace -Sig $isig -RunId $deployRunId -StateFile $MonitorStateFile -GraceMinutes $deployGraceMin
         if ($g.Suppressed) {
-          $itemNotes += "[$isig] 预期窗口抑制: $($g.Note)"
+          $itemNotes += "[" + $itemTxt + "] 预期窗口抑制: " + $g.Note
           continue
         }
-        $graceNotes += "[$isig] $($g.Note)"
+        $graceNotes += "[" + $itemTxt + "] " + $g.Note
       }
+
     }
     $due = Test-AlertDue -Sig $isig
     if ($due.Due) {
-      $dueItems += $isig
-      $itemNotes += "[$isig] 放行: $($due.Note)"
+      $dueItems += $itemTxt
+      $itemNotes += "[$itemTxt] 放行($($due.Decision)·身份=$($due.Key)): $($due.Note)"
     } else {
-      $itemNotes += "[$isig] 身份去重跳过: $($due.Note)"
+      $itemNotes += "[$itemTxt] 身份去重跳过: $($due.Note)"
     }
   }
   if ($dueItems.Count -eq 0) {
@@ -838,7 +880,11 @@ while ($true) {
   #   ③ 间歇故障会"清一轮、报一轮"交替 ⇒ 恢复信+新故障信交替轰炸,消噪变成造噪
   #      (alert-dedup.ps1 头注同一禁令)。信面沉默、账目有出口:缺席未超窗只打 recoveredTs
   #      标记(抑制间歇重寄),超窗才删条目(真终态)。
-  $activeSigs = @($alerts | ForEach-Object { ($_ -replace '\s+', ' ').Trim() } | Where-Object { $_ })
+  # [2026-10-26 票 G-44 监控腿] 这一行必须与身份面**同一把尺**:清偿档是按 Sig 反查键位判"在场/缺席"
+  # 的(Send-Alert 写进去的是身份面的键),这里若仍喂逐项文案 ⇒ 台账里每一格都成了"本轮缺席"
+  # ⇒ 刚寄过信的身份被标 recoveredTs、超窗被删 ⇒ 4h 抑制被拆掉、每轮重寄(消噪器亲手造噪)。
+  # 锚点与身份同键(见 Send-Alert),所以一份清单同时覆盖两型条目,不必再喂第二把尺。
+  $activeSigs = @($alerts | ForEach-Object { Get-MonitorAlertIdentity -Item $_ } | Where-Object { $_ })
   $rc = Clear-AlertRecoveredIdentities -StateFile $MonitorStateFile -ActiveSig $activeSigs -RepeatHours $AlertRepeatHours
   if (-not $rc.Ok) {
     Log "身份恢复清偿 未判定:$($rc.Error)(本轮台账未动——不等于已清,下一轮继续判)"

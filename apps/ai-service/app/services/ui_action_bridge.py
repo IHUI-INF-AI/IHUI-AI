@@ -40,6 +40,7 @@ from typing import Any
 
 import httpx
 
+from ..core.internal_ticket import internal_service_headers
 from .mcp_server import (
     MCPTool,
     _get_agent_control_secret,
@@ -81,6 +82,25 @@ def _execute_url() -> str:
     from ..core.config import settings
 
     return f"{settings.api_service_url}/api/agent-control/execute"
+
+
+def _auth_headers(secret: str, user_id: str) -> dict[str, str]:
+    """/execute 请求鉴权头(2026-09-21 形状 + internal_ticket 短期票,2026-10-26)。
+
+    Bearer = /execute 的鉴权凭据(AGENT_CONTROL_INTERNAL_SECRET,api 侧
+    isVerifiedAgentControlInternalCall 验真);x-internal-service-token 是**必须**的
+    第二个头 —— apps/api 的 CSRF 钩子只对"验真通过的机器调用"放行(见
+    apps/api/src/plugins/csrf.ts),只发 Bearer 会被拦成 403「CSRF 令牌缺失或无效」。
+    这条**只有真实聊天 round-trip 才能暴露**(直打 /execute 用用户 JWT 会顺带带
+    auth_token cookie 而绕过),2026-09-21 端到端实证时就是被它挡住的。
+
+    常驻密钥头的直拼路径已收进 internal_ticket 唯一出口:dual 兼容窗内旧头照发
+    (legacy_token = 本桥原有那把密钥,不改变 Bearer 语义),x-internal-service-ticket
+    短期票同带(主体 = user_id,scope='api-tools' 通用工具面)。
+    """
+    headers = internal_service_headers(user_id, "api-tools", legacy_token=secret)
+    headers["Authorization"] = f"Bearer {secret}"
+    return headers
 
 
 async def _ui_call(
@@ -134,17 +154,7 @@ async def _ui_call(
             response = await client.post(
                 _execute_url(),
                 json=request,
-                # Bearer = /execute 的鉴权凭据;x-internal-service-token 是**必须**的第二个头 ——
-                # apps/api 的 CSRF 钩子只对"带自定义头/非浏览器表单"的请求放行(见
-                # apps/api/src/plugins/csrf.ts:`x-internal-service-token` 存在即豁免),
-                # 只发 Bearer 会被拦成 403「CSRF 令牌缺失或无效」。这条**只有真实聊天
-                # round-trip 才能暴露**(直打 /execute 用用户 JWT 会顺带带 auth_token cookie 而绕过),
-                # 2026-09-21 端到端实证时就是被它挡住的。x-user-id 与 api_tools_bridge 口径一致。
-                headers={
-                    "Authorization": f"Bearer {secret}",
-                    "x-internal-service-token": secret,
-                    "x-user-id": user_id,
-                },
+                headers=_auth_headers(secret, user_id),
             )
             response.raise_for_status()
             payload = response.json()

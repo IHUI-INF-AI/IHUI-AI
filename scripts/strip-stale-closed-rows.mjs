@@ -51,19 +51,32 @@
  * 归因不了(新红臂 / verdict=2 未判定 / HEAD 未推进)⇒ 照旧 `state=refused` + exit 1。
  * 归因成功**不放宽任何判据**:门红仍是红,变的只是"这枚摘除造成了判红"这句话。
  *
+ * 2026-10-26 补(治"摘了却一行留痕都没写",主席实测 G-17/G-39 那一轮):留痕腿**本来就挂在
+ * 落地之后**,可它照样丢 —— 因为派发层 `git-guardian.mjs` 的 `sweepStaleClosedRows` 用
+ * `execFileSync(..., {timeout: 10*60*1000})` 起本器,而落地器在推进 HEAD 之后还要复跑受影响判据
+ * (实测有凭据那 10 枚的留痕时刻距提交时刻 24~233s,长尾直接顶穿 600s)。父进程被 SIGKILL 时
+ * 行已摘、HEAD 已推进,代码却根本没跑到那一句。现读:近 500 枚提交里 36 枚清扫提交,**26 枚零留痕**。
+ * 新增的**留痕回捞腿** `reconcileDropLedgerDebt()` 排在每轮开工第一件事:按"提交已在 HEAD 历史里
+ * ∧ 两面差集确实少了那几行"这笔既成事实补写欠账(凭据仍是 HEAD 推进,不是退出码;只认历史里
+ * 已存在的提交 ⇒ 天然排在落地成功之后)。取不到面 / 差集冒出非「已勾登记行」⇒ 该枚一条不写并
+ * 逐枚点名,整腿落「未判定」exit 2(§0.3)。
+ *
  * 用法:
  *   node scripts/strip-stale-closed-rows.mjs           # 只读预演(零副作用)
- *   node scripts/strip-stale-closed-rows.mjs --apply    # 落地 + 推送
+ *   node scripts/strip-stale-closed-rows.mjs --apply    # 落地 + 推送(先跑留痕回捞腿)
+ *   node scripts/strip-stale-closed-rows.mjs --reconcile [--dry]  # 只跑回捞腿(--dry 只点名不写)
  *   node scripts/strip-stale-closed-rows.mjs --self-test
  * 退出码(0/1/2 语义与 2026-10-20 初版一致,3 是本轮加固新增的第三态):
  *   0 无跨枚滞留 / 已成功摘除 N 条(可能同时跳过 M 条并逐条点名)
  *   1 预演发现滞留(未落地) / 超单批上限 / 守恒不过 / 点名归不到本次摘除行
- *   2 未判定(HEAD 或 HEAD^ 面取不到、登记行解析异常、门 71 的尺子取不到)
+ *     / `--reconcile --dry` 量到欠账待补
+ *   2 未判定(HEAD 或 HEAD^ 面取不到、登记行解析异常、门 71 的尺子取不到、
+ *     留痕回捞腿取不到清单或两面取不到)
  *   3 有滞留但**全部**被判「门 71 仍保护」⇒ 本轮一条未摘(这不是"无需清扫",交人工)
  */
 
 import { spawnSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -109,6 +122,30 @@ const BATCH_CAP = 400
  * 所以可追责性的真相源只能是这里 + 提交信息。
  */
 const DROP_LEDGER = '.ihui-agent/state/plan-row-drop.jsonl'
+
+/**
+ * 清扫提交题面的**唯一模板**(2026-10-26 抽出)。
+ *
+ * 为什么要抽出来(§0.6 单一真相源,不是审美问题):下面的留痕回捞腿要靠这道题面认出
+ * "哪几枚提交是本器摘的行",而题面正是本器自己写进 `LAND_MSG` 的那一句。两处各写一份,
+ * 那么任何一次措辞改动都会让回捞腿**静默失明**(认不出 ⇒ 不报 ⇒ 又回到"摘了没留痕"那一型,
+ * 而这一型的失效方向按 §12f 永远是安静)。所以:题面只有这一个出口,`SWEEP_SUBJECT_RE` 只能配它,
+ * 镜像测试里有一条专门钉"正则必须能解析本器自己生成的题面"。
+ */
+export function sweepCommitSubject(removed, held) {
+  return (
+    `chore(plan): 自动摘除 ${removed} 条跨枚滞留的已完成登记行(完成即删兜底轮;` +
+    `未勾行逐字节守恒,判据 import 守门 check-plan-closed-stock,` +
+    `摘除前按守门 71 同一把尺子复核 ⇒ 另跳过 ${held} 条"仍保护"的行交人工)`
+  )
+}
+
+/** 与 `sweepCommitSubject` 配对:从题面读回"这枚提交自称摘了几行";不匹配 ⇒ 不是清扫提交 */
+export const SWEEP_SUBJECT_RE =
+  /^chore\(plan\): 自动摘除 (\d+) 条跨枚滞留的已完成登记行\(完成即删兜底轮/
+
+/** 回捞腿每轮往前扫多少枚提交(本仓清扫节奏实测:500 枚窗口内 36 枚清扫提交,够用且不刷盘) */
+const DEBT_SCAN_DEFAULT = 400
 
 const C = {
   red: '\x1b[31m',
@@ -184,7 +221,15 @@ export function buildStripPlan(baseText, staleLines) {
  */
 export function appendDropLedger(
   rows,
-  { file = FILE, seat = 'stale-closed-sweep', commit = '', baseline = '', at = new Date().toISOString() } = {},
+  {
+    file = FILE,
+    seat = 'stale-closed-sweep',
+    commit = '',
+    baseline = '',
+    at = new Date().toISOString(),
+    via = '',
+    note = '',
+  } = {},
   root = ROOT,
 ) {
   const list = (Array.isArray(rows) ? rows : []).filter((r) => typeof r === 'string' && r !== '')
@@ -194,23 +239,252 @@ export function appendDropLedger(
     mkdirSync(path.dirname(abs), { recursive: true })
     const payload =
       list
-        .map((rowBefore) =>
-          JSON.stringify({
-            at,
-            seat,
-            file,
-            rowBefore,
-            kind: 'stale-closed-sweep',
-            baseline,
-            commit,
-          }),
-        )
+        .map((rowBefore) => {
+          // 键序与旧版一致(via/note 只在给了值时追加在末尾)⇒ 既有台账行逐字节不变
+          const entry = { at, seat, file, rowBefore, kind: 'stale-closed-sweep', baseline, commit }
+          if (via) entry.via = via
+          if (note) entry.note = note
+          return JSON.stringify(entry)
+        })
         .join('\n') + '\n'
     appendFileSync(abs, payload, 'utf8')
     return { ok: true, file: DROP_LEDGER, written: list.length }
   } catch (e) {
     return { ok: false, file: DROP_LEDGER, written: 0, why: String(e?.message ?? e).slice(0, 160) }
   }
+}
+
+/**
+ * 两面逐行多重集差:`parentText` 里有、`landedText` 里没有了的那些行 ⇒ "这枚提交真的摘掉了什么"。
+ *
+ * 为什么以差集为准而不是以提交信息里自报的枚数为准:自报数只是**线索**(用它挑出哪些提交是本器写的),
+ * 差集才是**面上发生过的事**;而留痕要写的正是逐字整行 —— 下游 `scrub-declared-removals` 的
+ * `declaredRows` 与 `union-converge` 的 `declaredDropCaps` 都按整行逐字比对认行,差一个字符这条防线就瞎。
+ * 纯函数、零 IO ⇒ 镜像测试直接喂两面文本取证。
+ *
+ * @returns {{closed:string[], unexpected:string[], removed:string[]}}
+ */
+export function removedRowsBetween(parentText, landedText) {
+  if (typeof parentText !== 'string' || typeof landedText !== 'string')
+    return { closed: [], unexpected: [], removed: [] }
+  const multiset = (text) => {
+    const m = new Map()
+    for (const l of String(text).split('\n')) m.set(l, (m.get(l) || 0) + 1)
+    return m
+  }
+  const before = multiset(parentText)
+  const after = multiset(landedText)
+  const removed = []
+  for (const [line, n] of before) {
+    const d = n - (after.get(line) || 0)
+    for (let i = 0; i < d; i++) removed.push(line)
+  }
+  const closed = removed.filter((l) => /^\s*- \[x\]/.test(l))
+  const unexpected = removed.filter((l) => !/^\s*- \[x\]/.test(l))
+  return { closed, unexpected, removed }
+}
+
+/**
+ * 留痕欠账判定(纯函数):一枚清扫提交自称摘了 N 行,台账里该枚只记着 M(<N)条 ⇒ 欠 N−M 条。
+ *
+ * 按 `commit` 计数、**不按 kind** —— 主席手工补账(kind=stale-closed-sweep-backfill)与本器
+ * 自动回捞(kind=stale-closed-sweep + via=debt-reconcile)都算"这一枚已付过",否则同一枚会被
+ * 每轮重复补写(台账虽按集合语义消费,但"补了多少条"就不再可读)。
+ * @param {Array<{sha:string,parent?:string,subject:string}>} commits
+ * @param {Array<object>} ledgerEntries
+ */
+export function findDropLedgerDebt(commits, ledgerEntries, { subjectRe = SWEEP_SUBJECT_RE } = {}) {
+  const recorded = new Map()
+  for (const e of Array.isArray(ledgerEntries) ? ledgerEntries : []) {
+    if (!e || typeof e.commit !== 'string' || e.commit === '') continue
+    if (typeof e.rowBefore !== 'string' && typeof e.before !== 'string') continue
+    recorded.set(e.commit, (recorded.get(e.commit) || 0) + 1)
+  }
+  const debt = []
+  for (const c of Array.isArray(commits) ? commits : []) {
+    const sha = typeof c?.sha === 'string' ? c.sha : ''
+    if (!/^[0-9a-f]{40}$/.test(sha)) continue
+    const m = subjectRe.exec(String(c?.subject ?? ''))
+    if (!m) continue
+    const expected = Number(m[1])
+    if (!Number.isFinite(expected) || expected <= 0) continue
+    const have = recorded.get(sha) || 0
+    if (have >= expected) continue
+    debt.push({
+      sha,
+      parent: typeof c?.parent === 'string' ? c.parent : '',
+      expected,
+      recorded: have,
+      missing: expected - have,
+    })
+  }
+  return debt
+}
+
+/**
+ * 留痕回捞腿(2026-10-26 立,根治本次实测的"摘了却没留痕")。
+ *
+ * 立因是**量出来的**,不是推断。现读(2026-10-26):近 500 枚提交里 36 枚是本器的清扫提交,
+ * 其中 **26 枚在摘除台账里一条留痕都没有**(应留 100 条,实留 0)。而有凭据的那 10 枚,
+ * 留痕时刻距提交时刻分别是 24/113/123/139/155/215/215/225/227/233 秒 —— 也就是
+ * **落地器在"推进 HEAD"之后还要跑 0.4~4 分钟**(它落地后复跑受影响判据)。留痕腿挂在这段
+ * 长同步链的**末端**,而派发层 `git-guardian.mjs` 的 `sweepStaleClosedRows` 用
+ * `execFileSync(..., { timeout: 10 * 60 * 1000 })` 起本器:20:39:09 那枚 `ef9d5081e8` 的轮次,
+ * 守护日志 12:44:08.020Z 收尾 = 起跑 12:34:08.02 + 整 600s ⇒ 父进程被派发层超时 SIGKILL,
+ * HEAD 已推进、行已摘掉,**那一段代码根本没机会跑到**。日志里"摘除留痕写入失败"0 次、
+ * "HEAD 未推进"0 次 ⇒ 既不是写失败,也不是没推进,就是"人没活到那句话"。
+ *
+ * 所以光把留痕写在落地之后不够(那一腿本来就在那儿,也照样丢)。缺的是**事后认账**的那一半:
+ * 每一轮开工第一件事,先按"提交已在 HEAD 历史里 ∧ 差集里确实少了那几行"这笔**既成事实**
+ * 把欠着的留痕补上。三条纪律与本轮口径一致:
+ *   · 凭据 = HEAD 有没有被推进(提交可达 = 已推进),不是落地器退出码;
+ *   · 只认历史里已经存在的提交 ⇒ 天然排在"落地成功之后",不可能把"面上还在"说成"已删";
+ *   · 面取不到 / 差集里冒出非「已勾登记行」(前提破了)⇒ 该枚**一条不写**并进 `undetermined`
+ *     逐枚点名,整腿落「未判定」exit 2 —— 绝不把"没量到"写成"补好了"(§0.3/§0.10)。
+ * 幂等:按 `commit` 记账,补过的不再补。
+ *
+ * @param {{root?:string, file?:string, scan?:number, write?:boolean,
+ *          gitRun?:(args:string[])=>string, append?:Function, now?:string}} opts
+ * @returns {{state:'clean'|'pending'|'recovered'|'undetermined', scanned:number, debt:number,
+ *            written:number, pending:number, items:Array, undetermined:Array, short:Array, why?:string}}
+ */
+export function reconcileDropLedgerDebt({
+  root = ROOT,
+  file = FILE,
+  scan = Number(process.env.IHUI_PLAN_DROP_DEBT_SCAN || DEBT_SCAN_DEFAULT),
+  write = true,
+  gitRun = null,
+  append = appendDropLedger,
+  now = new Date().toISOString(),
+} = {}) {
+  const empty = {
+    state: 'clean',
+    scanned: 0,
+    debt: 0,
+    written: 0,
+    pending: 0,
+    items: [],
+    undetermined: [],
+    short: [],
+  }
+  const run = gitRun || ((args) => gitRaw(args, root))
+  let rawLog = null
+  try {
+    rawLog = run(['log', '--format=%H%x1f%P%x1f%s', `-n${Number.isFinite(scan) && scan > 0 ? scan : DEBT_SCAN_DEFAULT}`, '--', file])
+  } catch (e) {
+    return {
+      ...empty,
+      state: 'undetermined',
+      why: `git log 取不到(清扫提交清单无法枚举):${String(e?.message ?? e).slice(0, 140)}`,
+    }
+  }
+  if (typeof rawLog !== 'string')
+    return { ...empty, state: 'undetermined', why: 'git log 返回的不是文本 ⇒ 清单未判定' }
+  const commits = rawLog
+    .split('\n')
+    .filter((l) => l.trim() !== '')
+    .map((l) => {
+      const [sha = '', parent = '', ...rest] = l.split('\u001f')
+      return { sha: sha.trim(), parent: parent.trim(), subject: rest.join('\u001f') }
+    })
+
+  const abs = path.join(root, DROP_LEDGER)
+  const entries = []
+  let malformed = 0
+  if (existsSync(abs)) {
+    let txt = null
+    try {
+      txt = readFileSync(abs, 'utf8')
+    } catch (e) {
+      return {
+        ...empty,
+        scanned: commits.length,
+        state: 'undetermined',
+        why: `摘除台账读不到(${String(e?.message ?? e).slice(0, 120)})⇒ 欠账未判定,不得读成"没有欠账"`,
+      }
+    }
+    for (const line of String(txt).split('\n')) {
+      if (line.trim() === '') continue
+      try {
+        entries.push(JSON.parse(line))
+      } catch {
+        malformed++
+      }
+    }
+  }
+
+  const debt = findDropLedgerDebt(commits, entries)
+  const res = {
+    ...empty,
+    scanned: commits.length,
+    debt: debt.length,
+    malformed,
+    ledgerEntries: entries.length,
+  }
+  if (debt.length === 0) return { ...res, state: 'clean' }
+
+  const undetermined = []
+  const short = []
+  const items = []
+  let written = 0
+  let pending = 0
+  for (const d of debt) {
+    let parentText = null
+    let landedText = null
+    if (!d.parent) {
+      undetermined.push({ sha: d.sha, why: '题面里取不到父提交 ⇒ 两面对比无从下手' })
+      continue
+    }
+    try {
+      parentText = run(['cat-file', '-p', `${d.parent}:${file}`])
+      landedText = run(['cat-file', '-p', `${d.sha}:${file}`])
+    } catch (e) {
+      undetermined.push({
+        sha: d.sha,
+        why: `面取不到(${String(e?.message ?? e).slice(0, 90)})⇒ 这一枚不补`,
+      })
+      continue
+    }
+    if (typeof parentText !== 'string' || typeof landedText !== 'string') {
+      undetermined.push({ sha: d.sha, why: `${file} 的两面至少一面读不到 ⇒ 这一枚不补` })
+      continue
+    }
+    const { closed, unexpected } = removedRowsBetween(parentText, landedText)
+    if (unexpected.length > 0) {
+      // 本器只摘「已勾登记行」(H1/H2 保证)。差集里冒出别的行 ⇒ 这枚提交不是(只是)本器摘的,
+      // 前提破了就一条不写:多写一条假凭据会教复洁器去剔别人的行(§0.10 明令禁止的那一型)。
+      undetermined.push({
+        sha: d.sha,
+        why: `差集含 ${unexpected.length} 枚非「已勾登记行」⇒ 前提破了,这一枚一条不补(交人工看)`,
+      })
+      continue
+    }
+    if (closed.length === 0) {
+      undetermined.push({ sha: d.sha, why: '差集里 0 枚已勾登记行(与题面自报枚数矛盾)⇒ 不补' })
+      continue
+    }
+    if (closed.length < d.expected) short.push({ sha: d.sha, expected: d.expected, found: closed.length })
+    if (!write) {
+      pending += closed.length
+      items.push({ sha: d.sha, rows: closed.length })
+      continue
+    }
+    const r = append(closed, { file, seat: 'stale-closed-sweep', commit: d.sha, baseline: d.parent, via: 'debt-reconcile', at: now }, root)
+    if (!r.ok) {
+      undetermined.push({ sha: d.sha, why: `补写失败:${r.why ?? '未知'}` })
+      continue
+    }
+    written += r.written
+    items.push({ sha: d.sha, rows: r.written })
+  }
+  res.undetermined = undetermined
+  res.short = short
+  res.items = items
+  res.written = written
+  res.pending = pending
+  if (undetermined.length > 0) return { ...res, state: 'undetermined', why: `${undetermined.length} 枚无法判定(逐枚点名见 items)` }
+  if (written > 0) return { ...res, state: 'recovered' }
+  return { ...res, state: 'pending' }
 }
 
 /**
@@ -721,6 +995,161 @@ function selfTest() {
         [...pDup.held].map((h) => h.row.raw).sort().join('\n'),
     ` ok=${pDup.ok} strippable=${pDup.strippable.length} held=${pDup.held.length} after=${afterDup.stale.length}${pDup.why ? ' why=' + pDup.why : ''}`,
   )
+  // ── 留痕回捞腿(2026-10-26 立;本次实测"摘了却没留痕"就是缺这一腿的认账)───────────
+  const DEBT_PARENT = 'f'.repeat(40)
+  const DEBT_COMMIT = 'e'.repeat(40)
+  const DEBT_R1 = '- [x] ✅(2026-10-26/甲) G-9001 回捞腿夹具:一枚'
+  const DEBT_R2 = '- [x] ✅(2026-10-26/乙) G-9002 回捞腿夹具:二枚'
+  const DEBT_OPEN = '- [ ] G-9003 回捞腿夹具:别人的活,一行都不许动'
+  const DEBT_HEAD = [DEBT_OPEN, DEBT_R1, DEBT_R2].join('\n') + '\n'
+  const DEBT_LANDED = [DEBT_OPEN].join('\n') + '\n'
+  const DEBT_SUBJECT = sweepCommitSubject(2, 0)
+  const debtGit = (args) => {
+    if (args[0] === 'log') return `${DEBT_COMMIT}\u001f${DEBT_PARENT}\u001f${DEBT_SUBJECT}\n`
+    const spec = String(args[2] ?? '')
+    if (spec === `${DEBT_PARENT}:PROJECT_PLAN.md`) return DEBT_HEAD
+    if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`) return DEBT_LANDED
+    throw new Error(`夹具没有这一面:${spec}`)
+  }
+  // 题面单源:正则必须能解析本器自己生成的题面,否则改了措辞 ⇒ 回捞腿静默失明(认不出=不报)
+  const subjMatch = SWEEP_SUBJECT_RE.exec(DEBT_SUBJECT)
+  t(
+    '⑪题面单源:SWEEP_SUBJECT_RE 解析得出自己生成的清扫题面,且枚数读得回 2',
+    subjMatch !== null && subjMatch[1] === '2' && DEBT_SUBJECT.startsWith('chore(plan): 自动摘除 2 条'),
+    `match=${subjMatch ? subjMatch[1] : 'null'}`,
+  )
+  const dDiff = removedRowsBetween(DEBT_HEAD, DEBT_LANDED)
+  t(
+    '⑫差集逐字:两面相减只把「已勾登记行」算作摘除行,未勾行进 unexpected(不冒充凭据)',
+    dDiff.closed.length === 2 && dDiff.unexpected.length === 0 && dDiff.closed.includes(DEBT_R1),
+    ` closed=${dDiff.closed.length} unexpected=${dDiff.unexpected.length}`,
+  )
+  const dDebt = findDropLedgerDebt(
+    [{ sha: DEBT_COMMIT, parent: DEBT_PARENT, subject: DEBT_SUBJECT }],
+    [],
+  )
+  const dPaid = findDropLedgerDebt(
+    [{ sha: DEBT_COMMIT, parent: DEBT_PARENT, subject: DEBT_SUBJECT }],
+    [
+      { commit: DEBT_COMMIT, rowBefore: DEBT_R1, kind: 'stale-closed-sweep-backfill' },
+      { commit: DEBT_COMMIT, rowBefore: DEBT_R2, kind: 'stale-closed-sweep' },
+    ],
+  )
+  t(
+    '⑬欠账判定:台账 0 条 ⇒ 欠 2;按 commit 计数不按 kind ⇒ 主席手工补过的那一枚不得重复补账',
+    dDebt.length === 1 && dDebt[0].missing === 2 && dPaid.length === 0,
+    ` debt=${dDebt.length} missing=${dDebt[0]?.missing ?? '-'} paid=${dPaid.length}`,
+  )
+  const debtDir = mkScratch('ihui-drop-debt-selftest-')
+  let dRec1 = null
+  let dRec2 = null
+  let dLines = []
+  let dFileExists = false
+  try {
+    dRec1 = reconcileDropLedgerDebt({ root: debtDir, gitRun: debtGit, now: '2026-10-26T13:00:00.000Z' })
+    dFileExists = existsSync(path.join(debtDir, DROP_LEDGER))
+    dLines = dFileExists
+      ? readFileSync(path.join(debtDir, DROP_LEDGER), 'utf8')
+          .split('\n')
+          .filter((l) => l.trim() !== '')
+          .map((l) => JSON.parse(l))
+      : []
+    dRec2 = reconcileDropLedgerDebt({ root: debtDir, gitRun: debtGit, now: '2026-10-26T13:00:05.000Z' })
+  } finally {
+    rmScratch(debtDir)
+  }
+  t(
+    '⑭端到端:清扫提交推进了 HEAD 而台账空 ⇒ 回捞腿逐字补写 2 条(commit/baseline/via 齐),再跑一次归零(幂等)',
+    dRec1 &&
+      dRec1.state === 'recovered' &&
+      dRec1.written === 2 &&
+      dLines.length === 2 &&
+      dLines.map((o) => o.rowBefore).sort().join('\n') === [DEBT_R1, DEBT_R2].sort().join('\n') &&
+      dLines.every(
+        (o) =>
+          o.commit === DEBT_COMMIT &&
+          o.baseline === DEBT_PARENT &&
+          o.kind === 'stale-closed-sweep' &&
+          o.via === 'debt-reconcile' &&
+          o.file === 'PROJECT_PLAN.md',
+      ) &&
+      dRec2 &&
+      dRec2.state === 'clean' &&
+      dRec2.written === 0,
+    ` state=${dRec1?.state} written=${dRec1?.written} 行数=${dLines.length} 二次=${dRec2?.state}/${dRec2?.written}`,
+  )
+  const dryDir = mkScratch('ihui-drop-debt-dry-')
+  let dDry = null
+  let dDryFile = false
+  try {
+    dDry = reconcileDropLedgerDebt({ root: dryDir, gitRun: debtGit, write: false })
+    dDryFile = existsSync(path.join(dryDir, DROP_LEDGER))
+  } finally {
+    rmScratch(dryDir)
+  }
+  t(
+    '⑭b dry 档只点名不落盘(预演档不得有副作用 —— 与主流程 --check 契约同一条)',
+    dDry && dDry.state === 'pending' && dDry.pending === 2 && dDry.written === 0 && dDryFile === false,
+    ` state=${dDry?.state} pending=${dDry?.pending} written=${dDry?.written} 落盘=${dDryFile}`,
+  )
+  const unjDir = mkScratch('ihui-drop-debt-unj-')
+  let dUnj = null
+  let dUnjLines = 0
+  try {
+    dUnj = reconcileDropLedgerDebt({
+      root: unjDir,
+      gitRun: (args) => {
+        if (args[0] === 'log') return `${DEBT_COMMIT}\u001f${DEBT_PARENT}\u001f${DEBT_SUBJECT}\n`
+        throw new Error('夹具:面取不到')
+      },
+    })
+    dUnjLines = existsSync(path.join(unjDir, DROP_LEDGER))
+      ? readFileSync(path.join(unjDir, DROP_LEDGER), 'utf8').split('\n').filter((l) => l.trim()).length
+      : 0
+  } finally {
+    rmScratch(unjDir)
+  }
+  t(
+    '⑮未判定:面取不到 ⇒ state=undetermined 且一条不写(绝不把"没量到"写成"补好了",§0.3)',
+    dUnj &&
+      dUnj.state === 'undetermined' &&
+      dUnj.written === 0 &&
+      dUnj.undetermined.length === 1 &&
+      dUnjLines === 0,
+    ` state=${dUnj?.state} written=${dUnj?.written} 未判定=${dUnj?.undetermined?.length} 台账行=${dUnjLines}`,
+  )
+  const brokeDir = mkScratch('ihui-drop-debt-broke-')
+  let dBroke = null
+  let dBrokeLines = 0
+  try {
+    // 差集里冒出未勾登记行 ⇒ 这枚提交不是(只是)本器摘的 ⇒ 前提破了,一条不写
+    dBroke = reconcileDropLedgerDebt({
+      root: brokeDir,
+      gitRun: (args) => {
+        if (args[0] === 'log') return `${DEBT_COMMIT}\u001f${DEBT_PARENT}\u001f${DEBT_SUBJECT}\n`
+        const spec = String(args[2] ?? '')
+        if (spec === `${DEBT_PARENT}:PROJECT_PLAN.md`) return DEBT_HEAD
+        if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`) return '# 台账\n'
+        throw new Error('夹具:' + spec)
+      },
+    })
+    dBrokeLines = existsSync(path.join(brokeDir, DROP_LEDGER))
+      ? readFileSync(path.join(brokeDir, DROP_LEDGER), 'utf8').split('\n').filter((l) => l.trim()).length
+      : 0
+  } finally {
+    rmScratch(brokeDir)
+  }
+  t(
+    '⑮b 前提破了:差集含非「已勾登记行」⇒ 该枚整枚不补(写了假凭据会教复洁器去剔别人的行)',
+    dBroke &&
+      dBroke.state === 'undetermined' &&
+      dBroke.written === 0 &&
+      dBroke.undetermined.length === 1 &&
+      /前提破了/.test(dBroke.undetermined[0].why) &&
+      dBrokeLines === 0,
+    ` state=${dBroke?.state} why=${dBroke?.undetermined?.[0]?.why ?? '-'}`,
+  )
+
   // 机读结论行形状:三态必须能被 state= 区分,且三个计数恒在场
   const shape = `state=stripped stale=2 held=1 stripped=1`
   t(
@@ -760,6 +1189,48 @@ function main() {
   const args = process.argv.slice(2)
   if (args.includes('--self-test')) process.exit(selfTest())
   const apply = args.includes('--apply')
+  const reconcileOnly = args.includes('--reconcile')
+  const dryRun = args.includes('--dry')
+
+  // ── 留痕回捞腿:每轮**开工第一件事**(2026-10-26 立;立因与逐枚实测见函数头注)──────
+  // 为什么排在所有重活前面:本器随时可能被派发层在 600s 处 SIGKILL(实测 36 枚清扫提交里 26 枚
+  // 就是这样丢了留痕),而"摘了没留痕"的代价是两条回潮防线同时瞎 ⇒ 行必被带回、别的会话再领一次。
+  // 认旧账这一腿若挂在重活后面,就和留痕腿一起被杀掉 —— 等于没装。
+  // 写盘只在 --apply(派发档)或显式 --reconcile 时发生;裸跑/`--check` 仍是零副作用预演(契约不变)。
+  if (apply || reconcileOnly) {
+    const rec = reconcileDropLedgerDebt({ write: !dryRun })
+    const tag =
+      rec.state === 'clean'
+        ? C.green
+        : rec.state === 'undetermined'
+          ? C.yellow
+          : C.cyan
+    console.log(
+      `${tag}🧾 留痕回捞腿${C.reset}:扫 ${rec.scanned} 枚提交 / 台账 ${rec.ledgerEntries ?? '?'} 条(坏行 ${rec.malformed ?? 0})` +
+        `/ 欠账 ${rec.debt} 枚 → ` +
+        (dryRun
+          ? `待补 ${rec.pending} 条(dry:只点名,不写)`
+          : `已补 ${rec.written} 条`) +
+        (rec.short && rec.short.length
+          ? ` / 另 ${rec.short.length} 枚与题面自报枚数不符(以两面差集为准,不照自报数补)`
+          : ''),
+    )
+    for (const u of rec.undetermined || [])
+      console.error(`${C.red}❗ 无法判定 ${String(u.sha).slice(0, 12)}:${u.why}${C.reset}`)
+    // 机读行前缀刻意不叫 SWEEP-RESULT:派发层按**第一条** SWEEP-RESULT 分档,
+    // 这里再发一条会把本轮的三态读数顶掉(等于把"清扫做没做成"读错)。
+    console.log(
+      `DROP-DEBT debt-state=${rec.state} scanned=${rec.scanned} debt=${rec.debt} written=${rec.written} pending=${rec.pending} undetermined=${(rec.undetermined || []).length}`,
+    )
+    if (rec.state === 'undetermined') {
+      console.error(
+        `${C.yellow}⏭ 未判定(留痕回捞腿):${rec.why ?? '逐枚点名见上'}${C.reset} ⇒ 本轮不清扫、不落地。` +
+          `"没量到"绝不写成"补好了",也不写成"没有欠账"(§0.3)。`,
+      )
+      process.exit(2)
+    }
+    if (reconcileOnly) process.exit(dryRun && rec.pending > 0 ? 1 : 0)
+  }
 
   const headText = blobOf('HEAD:' + FILE)
   const baseText = blobOf('HEAD^:' + FILE)
@@ -981,10 +1452,7 @@ function main() {
         `另有 ${part.held.length} 条被判「仍保护」故本轮未摘(门 71 会按未勾形态还原,交人工)。` +
         `守恒:H1 未勾 ${(plan.text.match(/^\s*- \[ \]/gm) || []).length} 行逐字节同序 / ` +
         `H2 行数 -${plan.removed} / H3 摘后滞留集 == 跳过集(${part.held.length} 条)`,
-      LAND_MSG:
-        `chore(plan): 自动摘除 ${plan.removed} 条跨枚滞留的已完成登记行(完成即删兜底轮;` +
-        `未勾行逐字节守恒,判据 import 守门 check-plan-closed-stock,` +
-        `摘除前按守门 71 同一把尺子复核 ⇒ 另跳过 ${part.held.length} 条"仍保护"的行交人工)`,
+      LAND_MSG: sweepCommitSubject(plan.removed, part.held.length),
     }
     const land = spawnSync(process.execPath, [path.join(ROOT, 'scripts/object-space-land.mjs')], {
       cwd: ROOT,
@@ -1126,6 +1594,12 @@ if (isDirectRun) {
 export const __test__ = {
   buildStripPlan,
   appendDropLedger,
+  sweepCommitSubject,
+  removedRowsBetween,
+  findDropLedgerDebt,
+  reconcileDropLedgerDebt,
+  DROP_LEDGER,
+  SWEEP_SUBJECT_RE,
   emitResult,
   buildLineLossRuler,
   partitionStaleByProtection,

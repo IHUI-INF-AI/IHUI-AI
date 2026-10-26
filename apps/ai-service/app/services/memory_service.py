@@ -38,6 +38,7 @@ import asyncpg
 
 from ..core.config import settings
 from ..core.db_pool import get_shared_pool
+from ..core.internal_ticket import internal_service_headers
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -941,10 +942,10 @@ class MemoryService:
             params: dict[str, str] = {"scope": scope}
             if session_id and scope == "session":
                 params["sessionId"] = session_id
-            headers = {
-                "X-Internal-Service-Token": _internal_service_token(),
-                "X-User-Id": user_id,
-            }
+            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)
+            headers = internal_service_headers(
+                user_id, "memory", legacy_token=_internal_service_token()
+            )
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(
                     f"{_memory_api_base()}/api/memory",
@@ -1120,11 +1121,13 @@ class MemoryService:
             # 4. 批量保存到 API
             import httpx
 
-            headers = {
-                "X-Internal-Service-Token": _internal_service_token(),
-                "X-User-Id": user_id,
-                "Content-Type": "application/json",
-            }
+            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)
+            headers = internal_service_headers(
+                user_id,
+                "memory",
+                legacy_token=_internal_service_token(),
+                extra={"Content-Type": "application/json"},
+            )
             saved = 0
             async with httpx.AsyncClient(timeout=5.0) as client:
                 for item in extracted:

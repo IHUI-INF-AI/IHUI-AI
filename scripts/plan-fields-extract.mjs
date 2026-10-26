@@ -26,14 +26,25 @@
  *
  * 用法:`node scripts/plan-fields-extract.mjs --check | --dry-run | --apply [--staged|--worktree]`
  *       `node scripts/plan-fields-extract.mjs --dedupe [--apply]`(同键去重;默认只报不写)
- * 结论行:`EXTRACT-RESULT state=ready|changed|refused|undetermined changed=N bucketsDrift=M`
+ * 结论行:`EXTRACT-RESULT state=ready|changed|refused|undetermined changed=N extractable=N bucketsDrift=M adopted=K`
  * 退出码:0 = 无待搬 / 1 = 有待搬且本档只报数 / 2 = 未判定或被拒。
+ *
+ * 孤儿键归并(2026-10-26 立,票面"新旧标识符双向差 ∧ ANC 标题锚点"):改号器只换台账行号、
+ * 不搬侧车键;抽取器又按新号补写 —— 同一件事两把键,旧号键从此成孤儿(门 234 现读 orphan=97
+ * 的主因)。本器是"认领"的唯一判据与唯一迁移出口(`--apply` 同批落地),两支:
+ *  · **搬**(目标键空):孤儿记录 re-key 到新号键。受同一道守恒闸(目标行归属桶零变化),
+ *    已禁形态(waiting-human / blocking 拍板残留)一律不搬 —— 把禁令形态搬到新键 = 扩散禁令。
+ *  · **退场**(目标键已被抽取器按新号补写):旧记录的非空语义字段必须被新记录**逐字覆盖**
+ *    (删旧键不丢任何信息)才许退;否则点名交 `--reclassify`,绝不代裁。
+ *  · 标题锚点命中多行(同题不同号同时在册)⇒ 归属歧义,一条都不动(失效方向恒为"少搬")。
+ * 判据出口 `adoptMovesOf` 同时供门 234(`check-plan-fields.mjs`)归并维 import,不写第二把匹配。
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { auditFace, readFieldsFace } from './plan-tasks.mjs'
+import { auditFace, readFieldsFace, readPlan } from './plan-tasks.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { FIELDS_REL, normalizeRecord } from './lib/plan-fields.mjs'
 import { parseHeader, resolveSidecar, stripHeader } from './lib/plan-field-line.mjs'
 import {
@@ -43,6 +54,7 @@ import {
   dispositionOf,
   dispositionOfV2,
   ownedElsewhereRe,
+  parseTaskRows,
   sidecarHeaderParts,
   waitingEnvRe,
   waitingEnvSlotRe,
@@ -533,6 +545,152 @@ export function planFromRows(lines, sideMap) {
   return { candidates, extractable: candidates.length, pending: pendingList.length, pendingList, collisions: collisionKeysOf(pendingList) }
 }
 
+/**
+ * 孤儿键归并的唯一判据(2026-10-26 立,门 234 归并维同 import 这一份,§0.6)。
+ *
+ *  · 孤儿 = 侧车里有 ∧ 当前台账任何行(含已勾)的复合键都对不上;认领目标 = **未勾在册行**
+ *    (`state==='open'`,已勾行不充当认领目标),其复合键与孤儿键**标题锚点(`#` 后段)逐字相等
+ *    ∧ 号段不同** —— 键本身仍单源 `compositeKeyOf`,这里只按 `#` 分段,不写第二把键解析。
+ *  · 目标键已有记录 ⇒ **退场**支:旧记录的非空语义字段被新记录逐字覆盖(删旧键零信息丢失)才许退;
+ *    否则点名交 `--reclassify`,绝不代裁。
+ *  · 目标键空 ⇒ **搬**支:re-key 到新号键;已禁形态(waiting-human / blocking 拍板残留)不搬,
+ *    搬动前过同一道守恒闸(目标行归属桶零变化,`batchBucketDrift`)。
+ *  · 标题锚点命中多行 ⇒ 归属歧义,一条都不动;台账已无同锚点行(完成即删)⇒ 真孤儿,保持只报数。
+ * 纯函数(除 `nowIso` 打戳)。`rows` 需要 `{state, raw}` 形(`parseTaskRows` 的产物)。
+ */
+export function adoptMovesOf(records, rows, sideMap, nowIso = new Date().toISOString()) {
+  const openByTitle = new Map()
+  const rowKeySet = new Set()
+  for (const r of rows ?? []) {
+    const k = compositeKeyOf(r?.raw ?? '')
+    if (!k) continue
+    rowKeySet.add(k)
+    if (r.state !== 'open') continue
+    const i = k.indexOf('#')
+    if (i <= 0) continue
+    const t = k.slice(i + 1)
+    if (!t) continue
+    if (!openByTitle.has(t)) openByTitle.set(t, [])
+    openByTitle.get(t).push({ key: k, row: r })
+  }
+  // 语义覆盖:旧记录每个非空语义字段都逐字等于新记录的对应字段 ⇒ 删旧键不丢任何信息。
+  const covered = (oldRec, newRec) =>
+    ['owner', 'waiting', 'blocking', 'next'].every((k) => {
+      const ov = String(oldRec?.[k] ?? '')
+      return ov === '' || ov === String(newRec?.[k] ?? '')
+    })
+  const moves = []
+  const retires = []
+  const skipped = []
+  const seen = new Set()
+  const takenTargets = new Set()
+  for (const rec of records ?? []) {
+    const fromKey = String(rec?.key ?? '')
+    const i = fromKey.indexOf('#')
+    if (i <= 0) continue // 无号段(T:rowhash 兜底键)不参与:它本来就不充当归属权威
+    if (rowKeySet.has(fromKey) || seen.has(fromKey)) continue
+    seen.add(fromKey)
+    const title = fromKey.slice(i + 1)
+    const same = openByTitle.get(title) ?? []
+    const uniqKeys = [...new Set(same.map((c) => c.key))]
+    if (uniqKeys.length === 0) continue // 台账已无同锚点行(完成即删)⇒ 真孤儿,保持只报数
+    if (uniqKeys.length > 1) {
+      skipped.push({ key: fromKey, why: `标题锚点命中 ${uniqKeys.length} 行在册(${uniqKeys.join(' / ')}),归属歧义 ⇒ 一条都不动` })
+      continue
+    }
+    const target = same[0]
+    const toKey = target.key
+    const existing = (sideMap ?? new Map()).get(toKey) ?? null
+    if (existing) {
+      if (covered(rec, existing)) retires.push({ fromKey, toKey })
+      else
+        skipped.push({
+          key: fromKey,
+          why: `新号键 ${toKey} 已有记录且未逐字覆盖旧记录语义(旧 owner=${String(rec?.owner ?? '')} waiting=${String(rec?.waiting ?? '')} blocking=${String(rec?.blocking ?? '')}) ⇒ 交 --reclassify 裁`,
+        })
+      continue
+    }
+    if (takenTargets.has(toKey)) {
+      skipped.push({ key: fromKey, why: `同锚点已有一条搬往 ${toKey},多条只搬一条 ⇒ 其余交人工` })
+      continue
+    }
+    if (bucketFromFields(rec) === 'waiting-human') {
+      skipped.push({ key: fromKey, why: '已禁形态(waiting-human 待拍板桶)⇒ 先 --reclassify 改判再搬' })
+      continue
+    }
+    if (String(rec?.blocking ?? '').includes('拍板')) {
+      skipped.push({ key: fromKey, why: '已禁形态(blocking 拍板残留)⇒ 先 --reclassify 改判再搬' })
+      continue
+    }
+    // 守恒闸:搬到新号键后,目标行的归属桶必须零变化(与抽取候选同一道闸,不绕开)。
+    const moved = { ...rec, key: toKey, updatedAt: nowIso, updatedBy: 'plan-fields-extract-adopt' }
+    const afterMap = new Map(sideMap ?? new Map())
+    afterMap.delete(fromKey)
+    afterMap.set(toKey, moved)
+    const drift = batchBucketDrift([target.row.raw], afterMap, sideMap ?? new Map())
+    if (drift.length > 0) {
+      skipped.push({ key: fromKey, why: `守恒闸:搬到 ${toKey} 后目标行归属桶漂移(${drift[0]})` })
+      continue
+    }
+    takenTargets.add(toKey)
+    moves.push({ fromKey, toKey, rec: moved })
+  }
+  return { moves, retires, skipped }
+}
+
+/**
+ * 孤儿键归并落盘(搬 + 退场一条出口):摘掉 fromKey 的全部物理行,搬支把 re-key 记录追加。
+ * 临时件 + rename,失败目标文件一字节不动;写前重验目标键仍为空(防与抽取写盘竞态造第二读数,
+ * 竞态条目进 `raced` 点名而不是硬写)。退场支无需追加 —— 摘行即退场。
+ */
+export function applyAdoptMoves(root, moves = [], retires = []) {
+  const abs = recordsFile(root)
+  const before = existingLines(root)
+  const fromKeys = new Set([...moves.map((m) => m.fromKey), ...retires.map((m) => m.fromKey)])
+  const kept = []
+  const stillThere = new Set()
+  let removed = 0
+  for (const l of before) {
+    let k = null
+    try {
+      const n = normalizeRecord(JSON.parse(l))
+      if (n.ok) k = n.rec.key
+    } catch {
+      // 畸形行原样保留,由门报数(§0.3:不替看不懂的行做决定)
+    }
+    if (k !== null && fromKeys.has(k)) {
+      removed++
+      continue
+    }
+    kept.push(l)
+    if (k !== null) stillThere.add(k)
+  }
+  const appended = []
+  const raced = []
+  let moved = 0
+  for (const m of moves) {
+    if (stillThere.has(m.toKey)) {
+      raced.push(m.fromKey)
+      continue
+    }
+    stillThere.add(m.toKey)
+    appended.push(JSON.stringify(m.rec))
+    moved++
+  }
+  if (moved === 0 && removed === 0) return { moved: 0, retired: 0, removed: 0, raced, path: abs }
+  mkdirSync(path.dirname(abs), { recursive: true })
+  const tmp = `${abs}.tmp-${process.pid}`
+  writeFileSync(tmp, [...kept, ...appended].join('\n') + '\n', 'utf8')
+  try {
+    renameSync(tmp, abs)
+  } catch (e) {
+    throw new Error(
+      `侧车归并写盘失败(${String(e?.code ?? e)}),目标文件保持原样:${abs} —— 临时件留在 ${path.basename(tmp)}`,
+    )
+  }
+  return { moved, retired: retires.length, removed, raced, path: abs }
+}
+
 /** 一次算完:面 → 候选 → 合并侧车 → 漂移。check / dry-run / apply 三处共用同一份,不许两套口径。 */
 export function plan({ root = ROOT, face = 'head' } = {}) {
   const a = auditFace(root, face)
@@ -550,14 +708,27 @@ export function plan({ root = ROOT, face = 'head' } = {}) {
       drift: [],
     }
   const p = planFromRows(lines, side.map)
-  // 只有**真正会写出去的那批**(pendingList)参与漂移判定;候选全集里被 enrich 拒掉的那些
-  // 本来就不会落盘,拿它们算 before/after 只会把"不写"误报成"改判"。
+  // 孤儿键归并(2026-10-26):判据单源 adoptMovesOf;认领目标 = 全部未勾在册行,不是收窄后的
+  // claimableRows(被租约/指针收窄掉的行照样可能是改号后的新号行)。
+  const adopt = adoptMovesOf(
+    [...side.map.values(), ...(side.orphans ?? [])],
+    parseTaskRows(readPlan(root, face)),
+    side.map,
+  )
+  // 只有**真正会写出去的那批**(pendingList + 归并搬/退场)参与漂移判定;候选全集里被 enrich
+  // 拒掉的那些本来就不会落盘,拿它们算 before/after 只会把"不写"误报成"改判"。
   const merged = new Map(side.map)
   for (const rec of p.pendingList) merged.set(rec.key, rec)
+  for (const m of adopt.moves) {
+    merged.delete(m.fromKey)
+    merged.set(m.toKey, m.rec)
+  }
+  for (const m of adopt.retires) merged.delete(m.fromKey)
   return {
     undetermined: false,
     lines,
     ...p,
+    adopt,
     // before 面 = **旧侧车**(判定语义的基线),不是裸散文(见 batchBucketDrift 头注)。
     drift: batchBucketDrift(lines, merged, side.map),
     existingCount: readBackCount(root),
@@ -567,13 +738,26 @@ export function plan({ root = ROOT, face = 'head' } = {}) {
 function printVerdict(p, { listLimit = 0 }) {
   if (p.undetermined) {
     console.log(`⚠️ 未判定 —— 侧车面取不到:${p.why}`)
-    console.log('EXTRACT-RESULT state=undetermined changed=0 extractable=0 bucketsDrift=0')
+    console.log('EXTRACT-RESULT state=undetermined changed=0 extractable=0 bucketsDrift=0 adopted=NA')
     return 2
   }
   console.log(
     `派单面 ${p.lines.length} 行 ⇒ 抽得出 ${p.extractable} 行(已在侧车 ${p.extractable - p.pending} 行 / 待追加 ${p.pending} 行)` +
       ` / 抽不出(继续靠散文报数)${p.lines.length - p.extractable} 行;侧车现有 ${p.existingCount} 条记录`,
   )
+  const ad = p.adopt ?? { moves: [], retires: [], skipped: [] }
+  const adoptedN = ad.moves.length + ad.retires.length
+  if (ad.moves.length || ad.retires.length || ad.skipped.length) {
+    console.log(
+      `孤儿键归并(新旧标识符双向差 ∧ 标题锚点):搬 ${ad.moves.length} / 退场 ${ad.retires.length} / 不可归并 ${ad.skipped.length}` +
+        `(改号器留下的旧号键;同批搬侧车键的迁移出口 = 本器 --apply)`,
+    )
+    for (const m of ad.moves.slice(0, 20)) console.log(`   ⇲ 搬 ${m.fromKey} → ${m.toKey}`)
+    for (const m of ad.retires.slice(0, 20))
+      console.log(`   ✂ 退场 ${m.fromKey}(新号键 ${m.toKey} 已有记录且语义逐字覆盖旧键,删旧键零信息丢失)`)
+    for (const s of ad.skipped.slice(0, 10)) console.log(`   ⚠ ${s.key}:${s.why}`)
+    if (ad.skipped.length > 10) console.log(`   …另 ${ad.skipped.length - 10} 条不可归并未逐条打印`)
+  }
   if (listLimit > 0)
     for (const r of p.pendingList.slice(0, listLimit))
       console.log(`   待追加 ${r.key}  waiting=${r.waiting}${r.owner ? ` owner=${r.owner}` : ''}`)
@@ -585,7 +769,7 @@ function printVerdict(p, { listLimit = 0 }) {
     )
     for (const d of p.drift.slice(0, 20)) console.log(`   · ${d}`)
     if (p.drift.length > 20) console.log(`   …另 ${p.drift.length - 20} 条同型,未逐条打印`)
-    console.log(`EXTRACT-RESULT state=refused changed=0 bucketsDrift=${p.drift.length}`)
+    console.log(`EXTRACT-RESULT state=refused changed=0 extractable=${p.extractable} bucketsDrift=${p.drift.length} adopted=0`)
     return 2
   }
   // 同批同键投影互斥(2026-10-26 立):抽出来两个互斥读数 ⇒ 一条都不写,交 `--reclassify` 逐条裁决。
@@ -596,14 +780,14 @@ function printVerdict(p, { listLimit = 0 }) {
     )
     for (const k of p.collisions.slice(0, 20)) console.log(`   · ${k}`)
     if (p.collisions.length > 20) console.log(`   …另 ${p.collisions.length - 20} 个键未逐条打印`)
-    console.log(`EXTRACT-RESULT state=refused changed=0 conflictKeys=${p.collisions.length}`)
+    console.log(`EXTRACT-RESULT state=refused changed=0 extractable=${p.extractable} bucketsDrift=0 adopted=0 conflictKeys=${p.collisions.length}`)
     return 2
   }
   console.log('守恒:抽取前后每一行的归属桶零变化(逐行比 旧侧车 ↔ 新侧车,同为 dispositionOfV2)')
   // `changed` 只数**待追加**:全搬完时它是 0 ⇒ state=ready。把"已在位"再报成"有活"就是虚增待办。
   const state = p.pending > 0 ? 'changed' : 'ready'
   console.log(
-    `EXTRACT-RESULT state=${state} changed=${p.pending} extractable=${p.extractable} bucketsDrift=0`,
+    `EXTRACT-RESULT state=${state} changed=${p.pending} extractable=${p.extractable} bucketsDrift=0 adopted=${adoptedN}`,
   )
   return p.pending > 0 ? 1 : 0
 }
@@ -640,6 +824,64 @@ function selfTest() {
   )
   const s9 = applyReclassify([s8base], [{ key: 'G-8 甲', owner: 42, why: '非字符串 owner 必须整批拒' }])
   ok('S9 非字符串 owner ⇒ error(不落半批)', !!s9.error)
+
+  // 孤儿键归并(2026-10-26):改号器留下的旧号键由新号键认领 —— 搬/退场/守恒闸/禁令/歧义各一臂。
+  const newRow = '- [ ] G-70 备份链重建 —— 归属:备份链持有人'
+  const newRowKey = compositeKeyOf(newRow)
+  const oldRec = {
+    key: compositeKeyOf('- [ ] G-79 备份链重建 —— 归属:备份链持有人'),
+    owner: '备份链持有人',
+    waiting: 'none',
+    updatedAt: '2026-10-22T00:00:00.000Z',
+  }
+  const openRow = { line: 1, state: 'open', raw: newRow }
+  const a10 = adoptMovesOf([oldRec], [openRow], new Map())
+  ok(
+    'S10 搬支:标题锚点逐字相等 ∧ 号段不同 ∧ 目标键空 ⇒ 搬到新号键',
+    a10.moves.length === 1 && a10.moves[0].toKey === newRowKey && a10.moves[0].fromKey === oldRec.key,
+  )
+  const newRec = { key: newRowKey, owner: '备份链持有人', waiting: 'none', updatedAt: '2026-10-23T00:00:00.000Z' }
+  const a11 = adoptMovesOf([oldRec], [openRow], new Map([[newRec.key, newRec]]))
+  ok(
+    'S11 退场支:新号键已有记录且语义逐字覆盖旧键 ⇒ 退场(不产生第二份)',
+    a11.retires.length === 1 && a11.retires[0].toKey === newRowKey && a11.moves.length === 0,
+  )
+  const a12 = adoptMovesOf([{ ...oldRec, blocking: '旧记录独有的信息' }], [openRow], new Map([[newRec.key, newRec]]))
+  ok(
+    'S12 旧记录有新记录没有的字段 ⇒ 不退场,点名交 --reclassify(绝不代裁)',
+    a12.retires.length === 0 && a12.skipped.length === 1 && /reclassify/.test(a12.skipped[0].why),
+  )
+  const a13 = adoptMovesOf(
+    [{ key: compositeKeyOf('- [ ] G-72 纯标题可做'), owner: '某持有者', waiting: 'none', updatedAt: '2026-10-22T00:00:00.000Z' }],
+    [{ line: 1, state: 'open', raw: '- [ ] G-71 纯标题可做' }],
+    new Map(),
+  )
+  ok(
+    'S13 守恒闸:搬动会把可做行改判成归他人 ⇒ 拒搬并点名(闸沿用,不绕开)',
+    a13.moves.length === 0 && /守恒闸/.test(a13.skipped[0]?.why ?? ''),
+  )
+  const a14 = adoptMovesOf(
+    [{ key: compositeKeyOf('- [ ] G-73 备份链重建 —— 归属:备份链持有人'), waiting: 'human', updatedAt: '2026-10-22T00:00:00.000Z' }],
+    [openRow],
+    new Map(),
+  )
+  ok('S14 已禁形态(waiting-human 待拍板桶)不搬 —— 搬=扩散禁令', a14.moves.length === 0 && /已禁形态/.test(a14.skipped[0]?.why ?? ''))
+  const a15 = adoptMovesOf([oldRec], [openRow, { line: 2, state: 'open', raw: '- [ ] G-80 备份链重建 —— 归属:备份链持有人' }], new Map())
+  ok('S15 标题锚点命中两行在册 ⇒ 归属歧义,一条都不动', a15.moves.length === 0 && /歧义/.test(a15.skipped[0]?.why ?? ''))
+  const dir = mkScratch('pf-extract-adopt')
+  try {
+    mkdirSync(path.join(dir, 'scripts', 'data'), { recursive: true })
+    const oldLine = JSON.stringify({ key: oldRec.key, owner: '备份链持有人', waiting: 'none', updatedAt: '2026-10-22T00:00:00.000Z' })
+    writeFileSync(path.join(dir, 'scripts', 'data', 'plan-fields.jsonl'), oldLine + '\n', 'utf8')
+    const w = applyAdoptMoves(dir, a10.moves, [])
+    const after = readFileSync(path.join(dir, 'scripts', 'data', 'plan-fields.jsonl'), 'utf8')
+    ok(
+      'S16 归并落盘:旧号键物理行被摘、新号键记录写入(临时件+rename 出口)',
+      w.moved === 1 && w.removed === 1 && after.includes(newRowKey) && !after.includes(oldRec.key),
+    )
+  } finally {
+    rmScratch(dir)
+  }
   let fails = 0
   for (const [name, pass] of checks) {
     if (!pass) fails++
@@ -784,20 +1026,32 @@ function main() {
     if (modes[0] === '--dry-run') console.log('   (dry-run:零写盘 —— 侧车文件一个字节都不动)')
     return code
   }
-  if (code !== 1) {
+  const ad = p.adopt ?? { moves: [], retires: [] }
+  if (code !== 1 && ad.moves.length === 0 && ad.retires.length === 0) {
     if (code === 0) console.log('   本轮零条待追加(抽得出的记录已在侧车):侧车无需写入。')
     return code
   }
-  // 落盘 = `pendingList`(同键合并后的那一批),**不是** `candidates`:
-  // 后者含"已有键的候选",按只增不删追加会给同键叠出第二读数 ⇒ 门 234 conflict(2026-10-26 收口)。
-  // 同键就地改写胜出那条的实现住在 `writePendingRecords`(它跑起来才不会把 check 钉在 changed)。
-  const written = writePendingRecords(ROOT, p.pendingList)
-  for (const k of written.collisions ?? [])
-    console.log(`   ⚠ 同批同键互斥,整键拒写并点名:${k}(交 --reclassify 逐条裁决)`)
-  console.log(
-    `已写入 ${written.rewritten} 条合并记录 / 追加 ${written.appended} 条记录(记录不合法或同批互斥被拒 ${written.rejected} 条)` +
-      ` → ${path.relative(ROOT, written.path)}`,
-  )
+  if (code === 1) {
+    // 落盘 = `pendingList`(同键合并后的那一批),**不是** `candidates`:
+    // 后者含"已有键的候选",按只增不删追加会给同键叠出第二读数 ⇒ 门 234 conflict(2026-10-26 收口)。
+    // 同键就地改写胜出那条的实现住在 `writePendingRecords`(它跑起来才不会把 check 钉在 changed)。
+    const written = writePendingRecords(ROOT, p.pendingList)
+    for (const k of written.collisions ?? [])
+      console.log(`   ⚠ 同批同键互斥,整键拒写并点名:${k}(交 --reclassify 逐条裁决)`)
+    console.log(
+      `已写入 ${written.rewritten} 条合并记录 / 追加 ${written.appended} 条记录(记录不合法或同批互斥被拒 ${written.rejected} 条)` +
+        ` → ${path.relative(ROOT, written.path)}`,
+    )
+  }
+  // 孤儿键归并同批落地(2026-10-26):写前重验目标键仍为空,竞态条目点名放弃,不造第二读数。
+  if (ad.moves.length || ad.retires.length) {
+    const w = applyAdoptMoves(ROOT, ad.moves, ad.retires)
+    console.log(
+      `孤儿键归并已落地:搬 ${w.moved} 条 / 退场 ${w.retired} 条(摘旧号键物理行 ${w.removed} 行)→ ${path.relative(ROOT, w.path)}`,
+    )
+    for (const k of w.raced ?? [])
+      console.log(`   ⚠ 目标键在写盘间隙已有记录,该条放弃(不造第二读数):${k}`)
+  }
   console.log(`回读条数:${readBackCount(ROOT)}`)
   return 0
 }
@@ -823,5 +1077,7 @@ export const __test__ = {
   writeDedupedRecords,
   planFromRows,
   plan,
+  adoptMovesOf,
+  applyAdoptMoves,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
