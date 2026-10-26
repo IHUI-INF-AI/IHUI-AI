@@ -1,118 +1,131 @@
 {
   "schema": 1,
-  "measuredAtSha": "c898912a64b0",
+  "measuredAtSha": "29479d1f7049",
   "measuredAt": "2026-10-26",
-  "face": "隔离 worktree 在 c898912a64b0 上 `pnpm --filter @ihui/miniapp-taro build:weapp` 的真实产物(apps/miniapp-taro/dist),体积由 check-artifact-budget 同一把尺子量",
+  "face": "隔离 worktree 在 29479d1f7049(第一批 38 枚壳承载页已落)上 `pnpm --filter @ihui/miniapp-taro build:weapp` 的真实产物,由 check-artifact-budget 同一把尺子逐包量",
   "limitBytes": 2097152,
-  "safetyRatio": 0.95,
-  "bytesPerShellPage": 28760,
+  "safetyRatio": 0.92,
+  "bytesPerShellPage": 30000,
   "overflowRoots": [
     "pkg-mirror",
-    "pkg-mirror2"
+    "pkg-mirror2",
+    "pkg-mirror3",
+    "pkg-mirror4"
   ],
   "notes": [
-    "limitBytes = 微信平台硬限制:主包与**每个分包**各 2 MiB(总 20 MiB)。旧口径只判主包,分包是盲区。",
-    "bytesPerShellPage = 2026-10-26 实测:隔离树一次性落 78 枚壳承载页,pkg-user 1,525,850 → 3,769,041 B ⇒ 边际 28,760 B/页(含该包 sub-common 增长)。",
-    "chunkReserveBytes = 该包**首次**引入共享闭包时要吃下的一枚 sub-common 实测值(707,273 B)。已经带大 sub-common 的包(=实测 ≥1 MB)记 0。",
-    "pkg-content 的 chunkReserveBytes 取 312,000:那一批 78 页里它一页没接,体积仍从 1,801,421 涨到 2,113,602 B(chunk 重排),⇒ 该包按'零增长'封口。",
-    "maxMirrorEntries 由 lib/cross-end-subpackage-capacity.mjs 现算(不在此手写):floor((limit×safety−bytes−reserve)/bytesPerShellPage) + 该包在册镜像条数。",
-    "该表是**测量快照**,不是豁免:重建产物后按新读数重跑更新(sha/时间/bytes 三项一起换)。取不到本表 ⇒ 造页器整轮 blocked,不猜。"
+    "limitBytes = 微信硬限制:主包与**每个分包**各 2 MiB(总 20 MiB)。门 110 的 AB1 只判主包,AB3 逐分包判。",
+    "safetyRatio 由 0.95 收到 0.92:上一版按 0.95 + 闭包×0.5 估,pkg-user 落在 2,110,263 B —— 超硬上限 13,111 B。低估 25% 的那格必须由水位兜住,方向只能是早收手,不能是晚发现。",
+    "chunkReserveBytes = 一个分包**首次**接收壳承载页时要吃下的固定共享块。2026-10-26 实测同一枚 sub-common(3b9e6393…,707,273 B)在 pkg-user / pkg-mirror / pkg-mirror2 各存一份,外加 117,204 B 等小块 ⇒ 合计取 900,000 B。已经带大块(实测 ≥1 MB)的包记 0。",
+    "bytesPerShellPage = 页代码本体边际(已带共享块的包里实测约 30 KB);闭包大的屏由 pageEstimates 逐屏覆盖。",
+    "pageEstimates = 由 `node scripts/measure-cross-end-page-sizes.mjs --write` 现算(键 = 共享屏 spec 全路径),RATIO=0.65 —— 0.5 那一版把整批低估 25%,当场造成 pkg-user 超限。",
+    "pkg-user 记 2,110,263 B / 44 条:摘除让位后 delta 为负 ⇒ 该包按\"不再收新壳页\"封口,新屏一律走 overflow 链。",
+    "该表是**测量快照**不是豁免:重建产物后按新读数重跑更新(sha/时间/bytes/条数一起换);取不到本表 ⇒ 造页器整轮 blocked,不猜。"
   ],
   "roots": {
     "pages": {
-      "bytes": 1719822,
+      "bytes": 1683105,
       "mirrorEntriesAtMeasure": 2,
       "chunkReserveBytes": 0
     },
     "pages/ask": {
-      "bytes": 37052,
+      "bytes": 37160,
       "mirrorEntriesAtMeasure": 3,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pages/circle": {
-      "bytes": 70138,
+      "bytes": 70228,
       "mirrorEntriesAtMeasure": 2,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pages/distribution": {
-      "bytes": 75359,
+      "bytes": 75643,
       "mirrorEntriesAtMeasure": 5,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pages/exam": {
-      "bytes": 58046,
+      "bytes": 58226,
       "mirrorEntriesAtMeasure": 4,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pages/forgot-password": {
-      "bytes": 21908,
+      "bytes": 21938,
       "mirrorEntriesAtMeasure": 0,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pages/member": {
-      "bytes": 442864,
+      "bytes": 443014,
       "mirrorEntriesAtMeasure": 4,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pages/register": {
-      "bytes": 23354,
+      "bytes": 23382,
       "mirrorEntriesAtMeasure": 1,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pages/setting": {
-      "bytes": 34514,
+      "bytes": 34664,
       "mirrorEntriesAtMeasure": 2,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pages/study": {
-      "bytes": 83563,
+      "bytes": 83827,
       "mirrorEntriesAtMeasure": 5,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pages/webview": {
-      "bytes": 2782,
+      "bytes": 2812,
       "mirrorEntriesAtMeasure": 0,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pkg-about": {
-      "bytes": 332897,
+      "bytes": 335058,
       "mirrorEntriesAtMeasure": 10,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pkg-ai": {
-      "bytes": 1305553,
+      "bytes": 1307808,
       "mirrorEntriesAtMeasure": 21,
       "chunkReserveBytes": 0
     },
     "pkg-content": {
-      "bytes": 1801421,
+      "bytes": 1980566,
       "mirrorEntriesAtMeasure": 15,
-      "chunkReserveBytes": 312000
+      "chunkReserveBytes": 0
     },
     "pkg-learn": {
-      "bytes": 290237,
-      "mirrorEntriesAtMeasure": 10,
-      "chunkReserveBytes": 707000
+      "bytes": 1543328,
+      "mirrorEntriesAtMeasure": 11,
+      "chunkReserveBytes": 0
     },
     "pkg-shop": {
-      "bytes": 263367,
+      "bytes": 263899,
       "mirrorEntriesAtMeasure": 13,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
     },
     "pkg-user": {
-      "bytes": 1525850,
-      "mirrorEntriesAtMeasure": 26,
+      "bytes": 2110263,
+      "mirrorEntriesAtMeasure": 44,
       "chunkReserveBytes": 0
     },
     "pkg-mirror": {
-      "bytes": 0,
-      "mirrorEntriesAtMeasure": 0,
-      "chunkReserveBytes": 707000
+      "bytes": 1760369,
+      "mirrorEntriesAtMeasure": 24,
+      "chunkReserveBytes": 0
     },
     "pkg-mirror2": {
+      "bytes": 1218864,
+      "mirrorEntriesAtMeasure": 2,
+      "chunkReserveBytes": 0
+    },
+    "pkg-mirror3": {
       "bytes": 0,
       "mirrorEntriesAtMeasure": 0,
-      "chunkReserveBytes": 707000
+      "chunkReserveBytes": 900000
+    },
+    "pkg-mirror4": {
+      "bytes": 0,
+      "mirrorEntriesAtMeasure": 0,
+      "chunkReserveBytes": 900000
     }
   },
   "pageEstimates": {
@@ -144,7 +157,7 @@
     "packages/app/src/features/feedback-detail/FeedbackDetailScreen.tsx": 20419,
     "packages/app/src/features/feedback/FeedbackHistoryScreen.tsx": 20583,
     "packages/app/src/features/history/HistoryScreen.tsx": 20842,
-    "packages/app/src/features/home/HomeScreen.tsx": 474463,
+    "packages/app/src/features/home/HomeScreen.tsx": 616801,
     "packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx": 39685,
     "packages/app/src/features/image-gen-history/ImageGenHistoryScreen.tsx": 23026,
     "packages/app/src/features/image-gen-templates/ImageGenTemplatesScreen.tsx": 33333,
@@ -159,41 +172,41 @@
     "packages/app/src/features/memory/MemoryScreen.tsx": 62166,
     "packages/app/src/features/message-chat/MessageChatScreen.tsx": 21238,
     "packages/app/src/features/message-detail/MessageDetailScreen.tsx": 20625,
-    "packages/app/src/features/message-direct/MessageDirectScreen.tsx": 20636,
-    "packages/app/src/features/message-group/MessageGroupScreen.tsx": 20490,
-    "packages/app/src/features/message-system/MessageSystemScreen.tsx": 20664,
-    "packages/app/src/features/more-course/MoreCourseScreen.tsx": 70193,
-    "packages/app/src/features/note-create/NoteCreateScreen.tsx": 20765,
-    "packages/app/src/features/note-detail/NoteDetailScreen.tsx": 20459,
-    "packages/app/src/features/note-list/NoteListScreen.tsx": 20517,
-    "packages/app/src/features/note/NoteScreen.tsx": 60719,
-    "packages/app/src/features/notification/NotificationListScreen.tsx": 21738,
-    "packages/app/src/features/order-log/OrderLogScreen.tsx": 20414,
-    "packages/app/src/features/order-track/OrderTrackScreen.tsx": 20420,
-    "packages/app/src/features/payment/PaymentScreen.tsx": 46129,
-    "packages/app/src/features/point-rule/PointRuleScreen.tsx": 20411,
-    "packages/app/src/features/points-mall/PointsMallScreen.tsx": 40873,
-    "packages/app/src/features/points-record/PointsRecordScreen.tsx": 39998,
-    "packages/app/src/features/points/PointsScreen.tsx": 32296,
-    "packages/app/src/features/profile-edit/ProfileEditScreen.tsx": 68535,
-    "packages/app/src/features/promote/PromoteScreen.tsx": 31179,
-    "packages/app/src/features/promotion/PromotionScreen.tsx": 20592,
-    "packages/app/src/features/qr-code/QrCodeScreen.tsx": 20468,
-    "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx": 21176,
-    "packages/app/src/features/referrer/ReferrerScreen.tsx": 20821,
-    "packages/app/src/features/refund-detail/RefundDetailScreen.tsx": 20403,
-    "packages/app/src/features/security-settings/SecuritySettingsScreen.tsx": 20520,
-    "packages/app/src/features/self-media/SelfMediaScreen.tsx": 30515,
-    "packages/app/src/features/settings-account/SettingsAccountScreen.tsx": 20867,
-    "packages/app/src/features/spec/SpecScreen.tsx": 31342,
-    "packages/app/src/features/status/StatusScreen.tsx": 21063,
-    "packages/app/src/features/study-progress/StudyProgressScreen.tsx": 20426,
-    "packages/app/src/features/team-detail/TeamDetailScreen.tsx": 31005,
-    "packages/app/src/features/topup-fail/TopupFailScreen.tsx": 20202,
-    "packages/app/src/features/usage/UsageScreen.tsx": 26159,
-    "packages/app/src/features/vip-level/VipLevelScreen.tsx": 20386,
-    "packages/app/src/features/wallet/WalletScreen.tsx": 20890,
-    "packages/app/src/features/workflows/WorkflowsScreen.tsx": 21016
+    "packages/app/src/features/message-direct/MessageDirectScreen.tsx": 26827,
+    "packages/app/src/features/message-group/MessageGroupScreen.tsx": 26636,
+    "packages/app/src/features/message-system/MessageSystemScreen.tsx": 26863,
+    "packages/app/src/features/more-course/MoreCourseScreen.tsx": 91250,
+    "packages/app/src/features/note-create/NoteCreateScreen.tsx": 26995,
+    "packages/app/src/features/note-detail/NoteDetailScreen.tsx": 26597,
+    "packages/app/src/features/note-list/NoteListScreen.tsx": 26672,
+    "packages/app/src/features/note/NoteScreen.tsx": 78935,
+    "packages/app/src/features/notification/NotificationListScreen.tsx": 28259,
+    "packages/app/src/features/order-log/OrderLogScreen.tsx": 26538,
+    "packages/app/src/features/order-track/OrderTrackScreen.tsx": 26546,
+    "packages/app/src/features/payment/PaymentScreen.tsx": 59967,
+    "packages/app/src/features/point-rule/PointRuleScreen.tsx": 26534,
+    "packages/app/src/features/points-mall/PointsMallScreen.tsx": 53134,
+    "packages/app/src/features/points-record/PointsRecordScreen.tsx": 51997,
+    "packages/app/src/features/points/PointsScreen.tsx": 41985,
+    "packages/app/src/features/profile-edit/ProfileEditScreen.tsx": 89096,
+    "packages/app/src/features/promote/PromoteScreen.tsx": 40532,
+    "packages/app/src/features/promotion/PromotionScreen.tsx": 26770,
+    "packages/app/src/features/qr-code/QrCodeScreen.tsx": 26608,
+    "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx": 27529,
+    "packages/app/src/features/referrer/ReferrerScreen.tsx": 27067,
+    "packages/app/src/features/refund-detail/RefundDetailScreen.tsx": 26523,
+    "packages/app/src/features/security-settings/SecuritySettingsScreen.tsx": 26676,
+    "packages/app/src/features/self-media/SelfMediaScreen.tsx": 39670,
+    "packages/app/src/features/settings-account/SettingsAccountScreen.tsx": 27127,
+    "packages/app/src/features/spec/SpecScreen.tsx": 40744,
+    "packages/app/src/features/status/StatusScreen.tsx": 27382,
+    "packages/app/src/features/study-progress/StudyProgressScreen.tsx": 26554,
+    "packages/app/src/features/team-detail/TeamDetailScreen.tsx": 40307,
+    "packages/app/src/features/topup-fail/TopupFailScreen.tsx": 26262,
+    "packages/app/src/features/usage/UsageScreen.tsx": 34006,
+    "packages/app/src/features/vip-level/VipLevelScreen.tsx": 26502,
+    "packages/app/src/features/wallet/WalletScreen.tsx": 27157,
+    "packages/app/src/features/workflows/WorkflowsScreen.tsx": 27320
   },
-  "pageEstimatesNote": "由 node scripts/measure-cross-end-page-sizes.mjs --write 生成(RATIO=0.5,clamp 12000..4000000,面=HEAD)"
+  "pageEstimatesNote": "由 node scripts/measure-cross-end-page-sizes.mjs --write 增量并入(RATIO=0.65,clamp 12000..4000000,面=HEAD)"
 }

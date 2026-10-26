@@ -31,7 +31,7 @@ import { walkClosure } from './lib/rn-shell-closure.mjs'
 import { CAPACITY_REL } from './lib/cross-end-subpackage-capacity.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
-const RATIO = 0.5
+const RATIO = 0.65
 const MIN_BYTES = 12_000
 const MAX_BYTES = 4_000_000
 const CLOSURE_ROOTS = ['apps/mobile-rn/src', 'packages/app/src', 'packages/shared/src', 'packages/design-tokens/src']
@@ -162,10 +162,12 @@ function main() {
   }
   const abs = join(ROOT, CAPACITY_REL)
   const model = JSON.parse(readFileSync(abs, 'utf8'))
-  model.pageEstimates = r.estimates
-  model.pageEstimatesNote = `由 node scripts/measure-cross-end-page-sizes.mjs --write 生成(RATIO=${RATIO},clamp ${MIN_BYTES}..${MAX_BYTES},面=HEAD)`
+  // 并入而不是覆盖:表里已落页的条目对路由无害(路由只查"本轮要产的屏"),
+  // 覆盖会让每一轮把上一轮算出的估算丢掉 ⇒ 下一批又退回均值估,正是造成超限的那型低估。
+  model.pageEstimates = { ...(model.pageEstimates ?? {}), ...r.estimates }
+  model.pageEstimatesNote = `由 node scripts/measure-cross-end-page-sizes.mjs --write 增量并入(RATIO=${RATIO},clamp ${MIN_BYTES}..${MAX_BYTES},面=HEAD)`
   writeFileSync(abs, `${JSON.stringify(model, null, 2)}\n`, 'utf8')
-  console.log(`✅ 已写入 ${CAPACITY_REL}:${Object.keys(r.estimates).length} 条估算`)
+  console.log(`✅ 已写入 ${CAPACITY_REL}:本轮 ${Object.keys(r.estimates).length} 条,表内合计 ${Object.keys(model.pageEstimates).length} 条`)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
