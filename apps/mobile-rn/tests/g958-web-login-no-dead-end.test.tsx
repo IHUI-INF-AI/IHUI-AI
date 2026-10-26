@@ -231,9 +231,9 @@ describe('G-958 web(H5)登录引导不得指向被自己拒绝的死路', () => 
     })
     expect(appAlertCalls).toHaveLength(1)
     const message = appAlertCalls.at(-1)?.message ?? ''
-    // 文案已 token 化(2026-10-24 对齐):本套件 i18n mock 取键透传,上屏即键 ⇒ 键形断言;
-    // 「必须给出 H5 真实可行出路」的内容判据锚到词包真值(缺键或词里没出路 = 当场红)。
-    expect(message).toBe('login.webPreviewHint')
+    // 文案已 token 化(2026-10-24 对齐):本套件 i18n mock 对该键回真字典值(见顶部 mock 注),
+    // 上屏即真值 ⇒ 内容判据直接量上屏文案;词包真值另由下方 zhPack 断言钉住(同词族)。
+    expect(message).toMatch(/验证码|账号密码|账密/)
     const zhPack = JSON.parse(
       readFileSync(
         join(

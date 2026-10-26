@@ -149,7 +149,11 @@ export default function LlmSettingsPage() {
         {loading ? (
           <ScreenSkeleton variant="card" />
         ) : providers.length === 0 ? (
-          <EmptyState title={t('llmSettings.empty')} desc={t('llmSettings.emptyDesc')} />
+          <EmptyState
+            icon="key-round"
+            title={t('llmSettings.empty')}
+            desc={t('llmSettings.emptyDesc')}
+          />
         ) : (
           <View className="space-y-3">
             {providers.map((p) => (

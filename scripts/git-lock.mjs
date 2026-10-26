@@ -13,7 +13,7 @@
  *
  * 用法(CLI):
  *   node scripts/git-lock.mjs acquire [--unit <id>] [--timeout <ms>] [--stale <ms>]
- *   node scripts/git-lock.mjs release [--unit <id>]
+ *   node scripts/git-lock.mjs release [--unit <id>] [--token <t>]
  *   node scripts/git-lock.mjs check              # 只读:是否有锁,exit 0=无锁 1=有锁
  *   node scripts/git-lock.mjs scan               # 只读:G-262 原生锁三分类读数 + git 进程数 + 等待 P95(账本累积)
  *   node scripts/git-lock.mjs heartbeat --unit <id> [--interval <ms>] [--parent-pid <pid>]
@@ -58,6 +58,7 @@
  *   - scripts/safe-gc.mjs:手动 gc 前必须 acquire(杜绝 gc 与写操作并发)
  */
 import { execSync } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import {
   appendFileSync,
   existsSync,
@@ -70,7 +71,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 // 现场归档的唯一落点(AGENTS §15b / §5b「现场归档一律落在 gitArchiveDir(),手工抢修也不得例外」)。
 // 抢占产生的 `.stale-*` 目录**绝不**留在 .git 里,更不落工作区根或盘根。
@@ -138,22 +139,85 @@ function readMeta(dir) {
   }
 }
 
+/**
+ * ── 租约凭据 leaseToken(G-397 补的那一格,机制对标 deploy-lock 的 G-696)─────────────
+ *
+ * 立因:release 侧旧写法拿 `meta.pid === process.pid` 这**一个裸 pid 事实**就删锁,而 pid 会被
+ * 系统复用(2026-09-25 部署锁因此冻了 11h50m,登记 G-193);`unitId` 又不入此列 —— 它是调用方
+ * 自取的公开名(谁都能 `check` 一眼看见再照抄),所以它证明的是"我领了这枚号",不是"这把锁归我"。
+ * 于是"迟到的一次 finish"只要 pid 恰好撞上,就能删掉别人正在用的活锁。
+ *
+ * 三条口径(与 deploy-lock 一字同纪律,不得各写一份):
+ *  - 凭据**不可预测**:`randomBytes(16)` hex,由 writeMeta 在 acquire 那一刻现生成;
+ *  - **绝不把空凭据写进锁里**(那等于把"无凭据"合法化,比对失去意义);
+ *  - 比对是**逐字节等值**,且拒绝文案只打掩码(整枚凭据进日志 = 把钥匙贴在门上)。
+ *
+ * 来源优先级:显式入参 > 环境变量 `IHUI_GIT_LOCK_TOKEN` > 现生成。
+ * ⚠️ 这一档**不是**身份档的替代品:身份被**确证**复用(mismatch)时,凭据也翻不回来
+ * (见 release 头注的档位次序与理由)。
+ */
+const LEASE_TOKEN_ENV = 'IHUI_GIT_LOCK_TOKEN'
+
+/** 本进程为**哪些锁目录**写下过哪枚凭据(同进程 acquire⇒release 不必显式带 token)。 */
+const leaseTokenMemo = new Map()
+
+function cleanToken(v) {
+  return typeof v === 'string' && v.trim() ? v.trim() : ''
+}
+
+function newLeaseToken() {
+  return randomBytes(16).toString('hex')
+}
+
+/** 掩码形态(进日志/拒绝文案用):前 4 后 2 + 长度,与原 deploy-lock 同形。 */
+function maskLeaseToken(t) {
+  const s = cleanToken(t)
+  return s === '' ? '(未携带)' : `${s.slice(0, 4)}***${s.slice(-2)} (len=${s.length})`
+}
+
+/** 记下"这个目录的凭据是我刚写进去的" —— 只有 mkdir/rename 成功那一支才配记。 */
+function rememberLeaseToken(dir, token) {
+  const t = cleanToken(token)
+  if (t !== '') leaseTokenMemo.set(resolve(dir), t)
+  return t
+}
+
+function forgetLeaseToken(dir) {
+  leaseTokenMemo.delete(resolve(dir))
+}
+
+/**
+ * 取调用方带来的凭据:显式入参 > 进程内备忘(本进程自己 acquire 写的那枚)> 环境变量。
+ * 返回 '' = 没带 ⇒ 调用方**不得**把它当成"空凭据也匹配"。
+ */
+function resolveLeaseToken(token, dir) {
+  const declared = cleanToken(token)
+  if (declared !== '') return declared
+  const memo = leaseTokenMemo.get(resolve(dir))
+  if (memo) return memo
+  return cleanToken(process.env[LEASE_TOKEN_ENV])
+}
+
 function writeMeta(dir, unitId, opts = {}) {
   // 除 pid 之外再记两元:host(哪台机器)与 pidStart(那个 pid 的启动时刻)。
   // pid 会被系统复用 ⇒ 单看 pid 判活要么恒真、要么恒假;年龄阈值只是在**猜**。
   // 取不到 pidStart 时 identityFields 给 undefined,JSON.stringify 会整键丢掉
   // ⇒ 与改动前的 meta 形态逐字相同(向后兼容,不写假值)。
   //
-  // 落盘走唯一出口的原子替换(G-653):写出的字节与改动前逐字相同,只是不再让读者看见半截。
-  atomicWriteFileSync(
-    metaFile(dir),
-    JSON.stringify({
-      unitId: unitId ?? '',
-      pid: process.pid,
-      ts: Date.now(),
-      ...identityFields(opts.run ? { run: opts.run } : {}),
-    }),
-  )
+  // G-397 多落一格 `leaseToken` = 持锁凭据(release 侧比对的唯一依据,见上方头注)。
+  // 旧锁没有这一格 ⇒ release 走"旧格式报名"分支维持改动前判据,随下一次 acquire 自然绝迹。
+  //
+  // 落盘走唯一出口的原子替换(G-653):除新增的 leaseToken 键外,写出的字节与改动前同形,
+  // 且不再让读者看见半截。返回值带完整 meta,供调用方把凭据记进进程内备忘。
+  const meta = {
+    unitId: unitId ?? '',
+    pid: process.pid,
+    ts: Date.now(),
+    ...identityFields(opts.run ? { run: opts.run } : {}),
+    leaseToken: cleanToken(opts.token) || cleanToken(process.env[LEASE_TOKEN_ENV]) || newLeaseToken(),
+  }
+  atomicWriteFileSync(metaFile(dir), JSON.stringify(meta))
+  return meta
 }
 
 /**
@@ -337,21 +401,28 @@ function isPidAlive(pid) {
  *  因为"判不出来"与"判过了"在账面上必须长得不一样(本仓最高频的失效型)。
  *  `heartbeat` / `check` 一律**不**经过这里 —— 它们既不判抢占,就不该付这次派生。
  *
+ * `scene`(G-397 新增,只为把"喊出来的那句话"写对):同一座闸门服务两种失效方向 ——
+ *  抢占侧判不出来 ⇒ 维持原判据、**不据此抢**;释放侧判不出来 ⇒ 不得折成"身份已核对"、
+ *  **不据此放行**。把这两种结论写成同一句话,就是"没判"冒充"判过"的另一副面孔。
+ *
  * @param {{run?:Function,host?:string}} [opts] 透给 proc-identity 的注入面(测试用假 run)
  * @param {(m:string)=>void} [log] 输出出口(默认 console.log;测试夹具注入收集器)
+ * @param {'claim'|'release'} [scene] 结论落点:抢占(不据此抢)还是释放(不据此放行)
  * @returns {(meta:object)=>{kind:string,why?:string}}
  */
-function makeIdentityProbe(opts = {}, log = (m) => console.log(m)) {
+function makeIdentityProbe(opts = {}, log = (m) => console.log(m), scene = 'claim') {
   const seen = new Map()
+  const tail =
+    scene === 'release'
+      ? '⇒ 释放侧不据此放行(未判定 ≠ 身份已核对),改走租约凭据 / unitId 兼容档'
+      : '⇒ 维持改动前判据(锁龄/存活),不据此抢占'
   return (meta) => {
     const key = `${meta?.unitId ?? ''}|${meta?.pid ?? ''}|${meta?.ts ?? ''}`
     if (!seen.has(key)) {
       const verdict = verifyHolder(meta, opts)
       if (verdict.kind === 'unverifiable') {
         // 不据此抢占,但必须留痕:否则读日志的人会把"没有身份凭据"看成"身份已核过"
-        log(
-          `[git-lock] 身份无法核对(pid=${meta?.pid ?? ''}):${verdict.why} ⇒ 维持改动前判据(锁龄/存活),不据此抢占`,
-        )
+        log(`[git-lock] 身份无法核对(pid=${meta?.pid ?? ''}):${verdict.why} ${tail}`)
       }
       seen.set(key, verdict)
     }
@@ -753,11 +824,14 @@ async function acquire({
       // 现由 lib 那一份实现收口:唯一 pending 目录 → 写全 meta → 原子 rename 成正式锁。
       // 未取到 ⇒ 抛哨兵错误,落到下面**既有**的"锁已存在"判读块(那一整块的缩进与结构被
       // 镜像测试 ⑤ 逐字钉着;搬动它等于改判据形状)。判读一律从 readMeta 现取,不读这个错误。
-      acquireLockDirectoryOrThrow({
+      const made = acquireLockDirectoryOrThrow({
         dir,
         writePayload: (staged) =>
           writeMeta(staged, unitId, identityRun ? { run: identityRun } : {}),
       })
+      // G-397:记下本进程为**这个目录**写下的租约凭据 ⇒ 同进程 acquire⇒release 无需显式带 token
+      // (键按最终目录,不是 pending 暂存路径;多把锁互不串)。
+      rememberLeaseToken(dir, made?.payload?.leaseToken)
       recordWait('acquired')
       return true
     } catch (e) {
@@ -868,15 +942,47 @@ async function acquire({
 }
 
 /**
- * 释放锁(仅当锁属于当前 unitId;同 unitId 可重入多次 acquire 需配平 release)。
+ * 释放锁(仅当**证明得出**"这把是我的"才删;同 unitId 可重入多次 acquire 需配平 release)。
  *
  * 2026-09-26 收紧:旧写法是"拿不到 meta 也删" + "unitId 为空 ⇒ 无条件删",于是
  * 一条不带 `--unit` 的 `git-lock.mjs release` 就能删掉**别人正在用的活锁**。
- * 现在必须拿得出归属凭据:unitId 与 meta 全等,或 meta 记的就是本进程 pid。
- * 拿不出凭据 ⇒ 拒绝并说明出路(抢占走 acquire / `clean`)。
- * @param {{unitId?:string, dir?:string}} [opts]
+ *
+ * ⚠️ 2026-10-26 G-397 再收紧(本轮修的正是这一格):上一版留了两条归属档,其中
+ * `meta.pid === process.pid` 那条是**一个裸 pid 事实**,而 pid 会被系统复用 ——
+ * 实测夹具(见 `.ihui-agent/tmp/s6-lease/gitlock-gap-evidence.mjs` 与 `.../s10-gitlock/progress.md`):
+ * 同一份 meta 让生产判据问一次 `verifyHolder`,答 `mismatch`(记录 1793028782 vs 现测 1793032382
+ * ⇒ 该 pid 已被复用);而当时的 release 一个字没问它,照样报 `{"released":true,"why":"本进程 pid 匹配"}`
+ * 并把控制文件删成 null。**迟到的一次 finish 只要 pid 撞上就能删掉别人正在用的活锁**,
+ * 而 `unitId` 又救不了场:它是调用方自取的公开名(`check` 一眼就能看见再照抄),
+ * 证明的是"我领了这枚号",不是"这把锁归我"。
+ *
+ * 现口径 = 四档,顺序固定(每档各自点名,合起来才既不放开误删、也不制造谁也释放不了):
+ *  ① **身份档**(仅当 `meta.pid === process.pid` 才问,且只经既有取用闸门 `makeIdentityProbe`,
+ *     本文件里 `verifyHolder` 的落点因此仍在镜像反向锁的白名单内,快路径也没多一次派生):
+ *     - `match` ⇒ 本进程确是当初写入这把锁的那个进程 ⇒ 放行(这是"属主本人"的正解,不再靠裸 pid);
+ *     - `mismatch` ⇒ **硬拒且优先于一切档**:一条"确证不是持锁进程"的结论,不能被公开名 unitId
+ *       或一枚可从锁文件里抄来的凭据翻回来;锁目录逐字节不动,交抢占通道处置(带现场归档);
+ *     - `unverifiable` ⇒ 按未判定处理,**绝不折成 match 放行**(§0.3"没判绝不写成判过"),
+ *       落 ②③ 继续问 —— 这一档不得变成"谁也释放不了"(见下)。
+ *  ② **租约凭据档**:`callerToken`(显式 `--token` > 进程内备忘 > `IHUI_GIT_LOCK_TOKEN`)与
+ *     锁内 `leaseToken` 逐字节等值 ⇒ 放行。它正是身份档失效时的那条合法出路:
+ *     探针不可达 / 别机持有 / 锁没记 pidStart 时,属主仍凭自己 acquire 时那枚凭据交得了锁。
+ *  ③ **unitId 兼容档**:`meta.unitId === unitId`(逐字相等、非空)⇒ 放行。
+ *     **为什么必须留着**:`safe-commit.mjs` / `safe-gc.mjs` / `lib/post-commit-hook.js` 的
+ *     acquire 与 release 是**两个不同进程**(CLI 子进程拿锁后即退出,meta.pid 是那个已死的子进程),
+ *     身份档对它们结构上永远打不到、凭据档又需要调用方先学会带 token;摘掉 ③ = 每枚提交都要
+ *     等 hardStale 1800s 被别人抢占才能继续 = G-193 那种"冻结"的复现(§12e 恒红门同型)。
+ *     留着它不等于承认它是凭据:调用方 unitId 与锁内不等时,这一档一条也不放行(旧缺陷走的
+ *     正是"unitId 不等 + 裸 pid 撞"那一格,现已由 ① 堵死),且新锁带 leaseToken 而调用方没带
+ *     凭据时每进程报名一次迁移提示。
+ *  ④ 皆不成立 ⇒ 拒绝,`why` 里逐档点名 + 给出命令级出路(守卫必须带出自己的出路)。
+ *
+ * @param {{unitId?:string,dir?:string,token?:string,identityOpts?:{run?:Function,host?:string,highPrecision?:boolean},log?:(m:string)=>void}} [opts]
  */
-function release({ unitId, dir = lockDir() } = {}) {
+let compatReleaseNoted = false
+let legacyLockNoted = false
+
+function release({ unitId, dir = lockDir(), token, identityOpts, log = (m) => console.log(m) } = {}) {
   if (!existsSync(dir)) return { released: false, why: '无锁目录' }
   const meta = readMeta(dir)
   if (!meta) {
@@ -886,18 +992,99 @@ function release({ unitId, dir = lockDir() } = {}) {
     )
     return { released: false, why: '无法判定归属(无 meta.json)' }
   }
-  const ownsByToken = !!unitId && meta.unitId === unitId
-  const ownsByPid = Number(meta.pid) === process.pid
-  if (!ownsByToken && !ownsByPid) {
-    console.error(
-      `[git-lock] ❌ 拒绝释放:锁由 unit=${meta.unitId} pid=${meta.pid} 持有,` +
-        `本次调用既无匹配 unitId(--unit ${JSON.stringify(unitId ?? '')})也非本进程 ⇒ 不代删别人的锁。`,
-    )
-    return { released: false, why: '非持有者' }
+  const holder = `unit=${meta.unitId ?? ''} pid=${meta.pid ?? ''} ts=${meta.ts ? new Date(meta.ts).toISOString() : ''}`
+  const 出路 =
+    '出路:① 确是本锁持有者 ⇒ 带上 acquire 时给出的凭据 `node scripts/git-lock.mjs release --unit <id> --token <t>`' +
+    '(或环境变量 IHUI_GIT_LOCK_TOKEN);② 判定这把该被回收 ⇒ 走抢占通道 `node scripts/git-lock.mjs clean`' +
+    '(先归档现场、再原子改名,绝不直接删原路径),或让下一次 acquire 按 stale/身份判据抢占;' +
+    '③ 报的是"未判定" ⇒ 先让本机探针可用(PowerShell/CIM 可达),再按 ① 或 ② 处置。'
+  const leaseToken = typeof meta.leaseToken === 'string' ? meta.leaseToken : ''
+  const callerToken = resolveLeaseToken(token, dir)
+
+  // 放行结论只在一个变量里成形,删除动作全函数只有一处出口(镜像反向锁 ⑤ 逐字数
+  // `removeLock(` 的出现次数:定义 + 持有者自释这一处 = 2,多一处即红)。
+  let releaseWhy = null
+
+  // ── ① 身份档:裸 pid 不再单独构成放行,必须问成对身份(pid + pidStart)────────────
+  let identityUnverifiable = null
+  if (Number(meta.pid) === process.pid) {
+    const probe = makeIdentityProbe(identityOpts ?? {}, log, 'release')
+    const identityVerdict = probe(meta)
+    if (identityVerdict.kind === 'mismatch') {
+      console.error(
+        `[git-lock] ❌ 拒绝释放:锁里的 pid=${meta.pid} 与本进程**同号但不同一进程** ⇒ ` +
+          `身份三元组确证该 pid 已被复用(${identityVerdict.why})。这把锁的持有者(${holder})` +
+          '不是本次调用,删它就是在删别人正在用的活锁。\n' +
+          `[git-lock] ${出路}`,
+      )
+      return {
+        released: false,
+        why: `身份 mismatch:${identityVerdict.why}(裸 pid 巧合,拒绝代删别人的锁)`,
+      }
+    }
+    if (identityVerdict.kind === 'match') {
+      releaseWhy = '身份三元组核对本进程即持锁进程'
+    } else {
+      // unverifiable ⇒ 未判定:不得当 match 放行,继续走 ②③(结论跟着走账,不静默)
+      identityUnverifiable = `身份未判定(unverifiable:${identityVerdict.why ?? '未给原因'})`
+    }
   }
-  // 持有者自释:不存在竞态(内容凭据已验明这把就是我的),按原语义直接删
+
+  // ── ② 租约凭据档 ────────────────────────────────────────────────────────────
+  if (releaseWhy === null && leaseToken !== '' && callerToken !== '' && callerToken === leaseToken) {
+    releaseWhy = identityUnverifiable
+      ? `lease token 匹配(凭租约凭据放行;${identityUnverifiable})`
+      : 'lease token 匹配'
+  }
+
+  // ── ③ unitId 兼容档(公开名,非凭据;摘它就是把提交链冻死,见头注)──────────────
+  if (releaseWhy === null && unitId && meta.unitId === unitId) {
+    if (leaseToken === '' && !legacyLockNoted) {
+      legacyLockNoted = true
+      log(
+        '[git-lock] ⚠️ 这把锁的 meta 无 leaseToken(旧格式,归属凭据无从比对)⇒ 按既有 unitId 判据处置;' +
+          '新 acquire 写的锁均带 leaseToken,旧锁随下一次抢占/重写自然绝迹。',
+      )
+    } else if (leaseToken !== '' && callerToken === '' && !compatReleaseNoted) {
+      compatReleaseNoted = true
+      log(
+        '[git-lock] ℹ️ 本次释放走的是 unitId 兼容档(公开名,非凭据),没带 leaseToken ⇒ 跨进程调用方' +
+          '(safe-commit/safe-gc/post-commit)下一步可改带 --token / IHUI_GIT_LOCK_TOKEN 换 ② 档;' +
+          '同一进程内只提示这一次。',
+      )
+    }
+    releaseWhy = identityUnverifiable ? `unitId 匹配(${identityUnverifiable})` : 'unitId 匹配'
+  }
+
+  // ── ④ 三档皆不成立 ⇒ 拒绝并逐档点名 ──────────────────────────────────────────
+  if (releaseWhy === null) {
+    const whyParts = []
+    if (Number(meta.pid) === process.pid) {
+      whyParts.push(identityUnverifiable ?? '身份档未给出 match')
+    } else {
+      whyParts.push(`身份档不适用(meta.pid=${meta.pid ?? '未记'} 非本进程 pid=${process.pid})`)
+    }
+    whyParts.push(
+      leaseToken === ''
+        ? '凭据档不适用(旧锁无 leaseToken 可比)'
+        : `凭据档不匹配(调用方=${maskLeaseToken(callerToken)} 锁内=${maskLeaseToken(leaseToken)})`,
+    )
+    whyParts.push(
+      unitId
+        ? `unitId 不等(锁内=${JSON.stringify(meta.unitId ?? '')} 调用=${JSON.stringify(unitId)})`
+        : '未带 unitId',
+    )
+    console.error(
+      `[git-lock] ❌ 拒绝释放:锁由 ${holder} 持有 ⇒ ${whyParts.join(';')} ⇒ 三档(身份/凭据/unitId)皆不成立,` +
+        `不代删别人的锁(锁目录一字未动)。\n[git-lock] ${出路}`,
+    )
+    return { released: false, why: `非持有者:${whyParts.join(';')}` }
+  }
+
+  // 唯一删除出口:三档里任何一档放行都只落到这里一次。
   removeLock(dir)
-  return { released: true, why: ownsByToken ? 'unitId 匹配' : '本进程 pid 匹配' }
+  forgetLeaseToken(dir)
+  return { released: true, why: releaseWhy }
 }
 
 /**
@@ -950,6 +1137,10 @@ async function heartbeat({ unitId, intervalMs = 5_000, parentPid }) {
           ts: Date.now(),
           host: meta.host,
           pidStart: meta.pidStart,
+          // G-397:凭据同样**只搬不测** —— 心跳每 5s 重写一次 meta.json,若不带这一格,
+          // 第一次续期就把属主自己的租约凭据洗掉 ⇒ 身份档又判不出来时,这把锁谁也释放不了
+          // (正是 G-193 那种"冻结"的反向复现)。旧 meta 没这格 ⇒ undefined ⇒ JSON 丢键 ⇒ 形态不变。
+          leaseToken: meta.leaseToken,
         }),
       )
     } catch {
@@ -1018,7 +1209,12 @@ export function tryAcquireSingleInstance({
       dir,
       writePayload: (staged) => writeMeta(staged, unitId, idOpts),
     })
-    if (made.ok) return 'ok'
+    if (made.ok) {
+      // G-397:同 acquire —— 把本进程刚写下的租约凭据记在**最终目录**上,
+      // 否则 `release: () => release({ unitId, dir })` 那个闭包只能凭 unitId 兼容档交锁。
+      rememberLeaseToken(dir, made.payload?.leaseToken)
+      return 'ok'
+    }
     // mkdir 成功即持锁;EEXIST 才进入下面的判读,其它错误如实上报(不做"猜无锁"继续)。
     if (made.kind === 'contended') return 'exists'
     return `fail:${made.code ?? 'unknown'}`
@@ -1142,7 +1338,7 @@ async function main() {
       // G-262:只检不删的原生锁读数 + git 进程数 + 锁等待 P95(账本累积)
       scanCommand()
     } else if (cmd === 'release') {
-      const r = release({ unitId: getOpt('--unit') ?? '' })
+      const r = release({ unitId: getOpt('--unit') ?? '', token: getOpt('--token') })
       console.log(r.released ? 'released' : `未释放:${r.why}`)
       if (!r.released && r.why !== '无锁目录') process.exit(1)
     } else if (cmd === 'check') {

@@ -233,7 +233,15 @@ export default function AccountCancel() {
     }
     setSubmitting(true)
     try {
-      await api.post('/auth/cancel-account', { phone, code, confirmText })
+      // A 档改接真端点(2026-10-26 守门 8 存量代裁):`POST /api/auth/cancel-account` 在两后端
+      // HEAD 面零注册(死调用),注销真身 = `POST /api/settings/delete-account`
+      // (apps/api/src/routes/user/settings-routes.ts:383 → missingUserRoutes,index.ts:1081 prefix '/api'),
+      // 与 @ihui/api-client 的 deleteAccount()(packages/api-client/src/endpoints/system.ts:478)
+      // 及 RN AccountCancelScreen:92 同一条路径 —— 三端同一真值,小程序此前是唯一打错的一腿。
+      // 只上行 code:身份由令牌在承载层解析(userAuthPreHandler → request.userId),手机号取库侧
+      // user.phone 后 verifyCode(user.phone, code),不信客户端自报 phone(§5 认证不等于授权);
+      // confirmText 后端 schema 不消费,继续留作端内二次确认闸门(上面的校验一条没减)。
+      await api.post('/settings/delete-account', { code })
       Taro.showToast({ title: t('accountCancel.cancelled'), icon: 'success' })
       setTimeout(goToLogin, 800)
     } catch (e) {
