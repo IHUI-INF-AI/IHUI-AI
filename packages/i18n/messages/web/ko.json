@@ -9383,6 +9383,8 @@
       "delete": "삭제",
       "exportMd": "Markdown으로 내보내기",
       "exportTxt": "TXT로 내보내기",
+      "exportSubmenu": "내보내기 / 공유",
+      "compressSubmenu": "압축",
       "menu": "더 보기",
       "rename": "이름 변경",
       "unarchive": "보관 해제",
@@ -11422,7 +11424,8 @@
       "roleAssistant": "어시스턴트",
       "exportCard": "이미지 카드 공유",
       "shareCardUser": "사용자",
-      "exportPdf": "PDF 내보내기"
+      "exportPdf": "PDF 내보내기",
+      "compression": "대화 압축"
     },
     "fallbackNotice": "백업 모델 {backup}(으)로 전환됨(원본 모델 {primary} 일시 사용 불가)",
     "fallbackNoticeQuota": "이번 답변은 {backup} 모델이 생성했습니다({primary} 모델의 제공사 계정 한도가 모두 소진되어 동일 계열의 사용 가능한 모델로 자동 전환했습니다).",
