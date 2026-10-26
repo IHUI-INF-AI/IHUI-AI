@@ -605,6 +605,11 @@
       "shared": "packages/app/src/features/agent-review-list/AgentReviewListScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgentReviewListScreen.tsx",
       "miniapp": "pkg-user/agent-review-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-setting/AgentSettingScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentSettingScreen.tsx",
+      "miniapp": "pkg-user/agent-setting/index"
     }
   ]
 }

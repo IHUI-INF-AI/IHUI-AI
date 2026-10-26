@@ -4997,5 +4997,15 @@
     "empty": "暂无评价",
     "loadFailed": "加载评价失败",
     "title": "用户评价"
+  },
+  "agentSetting": {
+    "title": "智能体设置",
+    "name": "名称",
+    "model": "模型",
+    "temperature": "温度",
+    "enabled": "启用",
+    "save": "保存",
+    "loadFailed": "加载设置失败",
+    "saved": "保存成功"
   }
 }

@@ -4997,5 +4997,15 @@
     "empty": "리뷰가 없습니다",
     "loadFailed": "리뷰 불러오기 실패",
     "title": "사용자 리뷰"
+  },
+  "agentSetting": {
+    "title": "에이전트 설정",
+    "name": "이름",
+    "model": "모델",
+    "temperature": "온도",
+    "enabled": "활성화",
+    "save": "저장",
+    "loadFailed": "설정 불러오기 실패",
+    "saved": "저장되었습니다"
   }
 }

@@ -4997,5 +4997,15 @@
     "empty": "暫無評價",
     "loadFailed": "載入評價失敗",
     "title": "使用者評價"
+  },
+  "agentSetting": {
+    "title": "智能體設定",
+    "name": "名稱",
+    "model": "模型",
+    "temperature": "溫度",
+    "enabled": "啟用",
+    "save": "儲存",
+    "loadFailed": "載入設定失敗",
+    "saved": "儲存成功"
   }
 }
