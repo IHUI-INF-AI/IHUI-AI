@@ -11,8 +11,16 @@
  *     租约算交代(它已机器可读地指名持有者),侧车记录算交代(它结构化地指名持有者或等待条件),
  *     两者皆无才是 P1 要收的那种"靠散文猜"的新账 —— 存量一律只报数(下面 stock),
  *     因为 237 行历史账不可能在上线当天补齐:那是一台与任何提交都无关的恒红门(§12e)。
- *  A2 行内投影标头与侧车不一致:读不回(malformed)或投影 `renderHeader(侧车)` 与行内标头**不逐字相等** ⇒ 点名。
- *     逐字相等,不是"包含":标头文本恰好出现在正文别处、而行内标头写了另一个人,那种形态不得蒙过。
+ *  A2 行内投影标头与侧车不一致:读不回(malformed)或投影 `renderHeader(侧车)` 与行内标头**读数不同** ⇒ 点名。
+ *     比较走单源 `lib/plan-field-line.mjs` 的 `headerEquivalence()`,它把等式拆成三档(2026-10-26 修):
+ *       · `exact`   —— 逐字相等;
+ *       · `midform` —— **语义相同、形态未收敛**:行内读回的 owner 与等段文案与记录逐字相等,只是多写了
+ *          渲染器从不产出的形态(实测 `〔归:X｜等:—〕` —— 显式空等占位)。这一型**不是归属说错**
+ *          (parseHeader 把 `等:—` 读回 waiting=none,dispositionOf 同判,派单桶零影响),所以进入
+ *          `midform=` 维**点名但不判红**,并逐行打出收敛出路(投影器物 `plan-fields-project`);
+ *          判红它就是与提交内容无关的恒红门(§12e:那 4 行不是任何席本次提交带进来的,而台账不归门改)。
+ *       · `mismatch` —— 读得回但读数不同(owner 换人 / 等段换事)⇒ 这才是 A2 要拦的"标头说错了"。
+ *     逐字相等仍居首,不使用"包含":标头文本恰好出现在正文别处、而行内标头写了另一个人,那种形态不得蒙过。
  *     投影本身属 P2,所以今天 A2 的射程只有"手工写了个不对的标头"这一型 —— 正是必须现在就拦的那型。
  *     **例外(2026-10-24 补)**:该键位若落在 A3 的矛盾组上,期望标头本身就不可判(见下),
  *     那一行 A2 **不判**并计入 `blind=` 点名 —— "没判"绝不写成"判过"(§0.3),也绝不因为
@@ -35,21 +43,27 @@
  * 等于把"没判"报成"判过"(§0.3),所以那一档明写 `a1=NA`/`a3=NA` 且不参与 verdict。
  *
  * 为什么可以 blocking(§12e/票 G-965):本门的 verdict **只由差值维构成** —— A1 仅在拿得到基准面时
- * 数"本次新带入"的行,A3 仅在拿得到基准侧车面时数"本次新带入"的矛盾键组,A2 只数被审面上标头与侧车
- * 不一致的枚数;存量 stock / dup / conflict 只报数、不进判定。
+ * 数"本次新带入"的行,A3 仅在拿得到基准侧车面时数"本次新带入"的矛盾键组,A2 只数被审面上**读数真的
+ * 不同**的标头(midform 这一型只点名不计入);存量 stock / dup / conflict / midform 只报数、不进判定。
  * 于是全量档存量 153 枚缺侧车 + 34 组矛盾仍是 exit 0 —— 不构成与提交内容无关的恒红门;存量维
  * (哪天把 stock/dup 也判红)仍未升档,那一步的前置才是存量归零。
  *
  * 机读末行:`PLAN-FIELDS-RESULT state=clean|warn|red|undetermined a1=<n|NA> a2=<n> a3=<n|NA>
- *  dup=<n> conflict=<n> blind=<n> orphan=<n> stock=<n> face=<head|staged|worktree>`
+ *  dup=<n> conflict=<n> blind=<n> midform=<n> orphan=<n> stock=<n> face=<head|staged|worktree>`
  * 退出码:0 = clean/warn / 1 = red / 2 = 未判定(取不到台账或侧车面,含 A3 的基准侧车面)。
- * `orphan`(侧车记录在台账里找不到对应行)只报数、不进 verdict(规格 §1)。
+ * `orphan`(侧车记录在台账里找不到对应行)与 `midform`(语义同、形态未收敛)都只报数、不进 verdict。
  */
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { MAX as HEADER_MAX } from './lib/plan-field-line.mjs'
-import { parseHeader, renderHeader, resolveSidecar } from './lib/plan-field-line.mjs'
+import {
+  HEADER_KIND,
+  headerEquivalence,
+  parseHeader,
+  renderHeader,
+  resolveSidecar,
+} from './lib/plan-field-line.mjs'
 import { fieldsFor } from './lib/plan-fields.mjs'
 import { claimMarkOf, compositeKeyOf, locateSidecarHeader, parseTaskRows, titleOf } from './lib/plan-task-index.mjs'
 import { readFieldsFace, readPlan } from './plan-tasks.mjs'
@@ -122,6 +136,7 @@ export function judge(
 
   const a1List = []
   const a2List = []
+  const midformList = []
   const blindList = []
   let stock = 0
   // 孤儿记录(规格 §1):侧车记录在台账里找不到对应行 ⇒ **只报数、不判红**。
@@ -159,11 +174,16 @@ export function judge(
     } else if (p.malformed) {
       a2List.push(`  L${r.line}  标头读不回(malformed):${clip(headerOf(line))}`)
     } else if (p.rec && rec) {
-      const want = renderHeader(rec)
-      // 逐字相等,不是包含(A2 契约):行内标头那一段必须与投影完全是同一串字符。
-      if (want !== '' && headerOf(line) !== want)
+      const eq = headerEquivalence(line, rec)
+      // 逐字相等是首选;语义相等而形态未收敛(`等:—` 显式空占位这类)只点名不判红 ——
+      // 它不是"归属说错",而是投影器物还没重渲染过(2026-10-26:4 枚 A2 恒红实测为此型)。
+      if (eq.kind === HEADER_KIND.MISMATCH)
         a2List.push(
-          `  L${r.line}  标头 ⇄ 侧车不一致 行内=${clip(headerOf(line))} 侧车=${clip(want)}`,
+          `  L${r.line}  标头 ⇄ 侧车不一致 行内=${clip(eq.said ?? headerOf(line))} 侧车=${clip(eq.want)}`,
+        )
+      else if (eq.kind === HEADER_KIND.MIDFORM)
+        midformList.push(
+          `  L${r.line}  ${key}  中间态(语义同、形态未收敛) 行内=${clip(eq.said)} 投影=${clip(eq.want)} —— 出路:node scripts/plan-fields-project.mjs --dry-run → --emit → live-doc-edit`,
         )
     }
   }
@@ -174,6 +194,7 @@ export function judge(
     dup,
     conflict: conflicts.length,
     blind: blindList.length,
+    midform: midformList.length,
     stock,
     orphan,
     hasBase: !!baseRowTexts,
@@ -181,6 +202,7 @@ export function judge(
     a1List,
     a2List,
     a3List,
+    midformList,
     conflictList,
     blindList,
     orphanList,
@@ -246,6 +268,7 @@ export function readFaces(root = ROOT, face = 'head') {
 export function verdict(v, face) {
   const a1Text = v.hasBase ? String(v.a1) : 'NA'
   const a3Text = v.hasBaseSide ? String(v.a3) : 'NA'
+  // midform(语义同、形态未收敛)只报数:它不是归属说错,判红就是与提交内容无关的恒红门(§12e)。
   const red = v.a2 > 0 || (v.hasBase && v.a1 > 0) || (v.hasBaseSide && v.a3 > 0)
   const state = red ? 'red' : v.stock > 0 ? 'warn' : 'clean'
   return {
@@ -253,7 +276,7 @@ export function verdict(v, face) {
     code: red ? 1 : 0,
     line:
       `PLAN-FIELDS-RESULT state=${state} a1=${a1Text} a2=${v.a2} a3=${a3Text} dup=${v.dup} ` +
-      `conflict=${v.conflict} blind=${v.blind} orphan=${v.orphan} stock=${v.stock} face=${face}`,
+      `conflict=${v.conflict} blind=${v.blind} midform=${v.midform} orphan=${v.orphan} stock=${v.stock} face=${face}`,
   }
 }
 
@@ -280,8 +303,9 @@ function run({ root = ROOT, face = 'head' } = {}) {
     `A1 新增行缺交代 ${v.hasBase ? v.a1 : 'NA'} 枚 / A2 标头不一致 ${v.a2} 枚 / ` +
       `A3 新增矛盾键组 ${v.hasBaseSide ? v.a3 : 'NA'} 组 / ` +
       `同键同读数 dup ${v.dup} 组 / 全量矛盾 ${v.conflict} 组 / A2 盲区点名 ${v.blind} 枚 / ` +
+      `中间态 ${v.midform} 枚(语义同、形态未收敛;点名不判红) / ` +
       `孤儿记录 ${v.orphan} 条(只报数,不判红) / ` +
-      `存量缺侧车记录 ${v.stock} 枚(dup/conflict/blind/orphan/存量只报数)`,
+      `存量缺侧车记录 ${v.stock} 枚(dup/conflict/blind/midform/orphan/存量只报数)`,
   )
   for (const l of v.a1List.slice(0, 20)) console.log(`  · A1 ${l}`)
   if (v.a1List.length > 20) console.log(`  · A1 …另 ${v.a1List.length - 20} 枚同型未逐条打印`)
@@ -289,6 +313,9 @@ function run({ root = ROOT, face = 'head' } = {}) {
   if (v.a2List.length > 20) console.log(`  · A2 …另 ${v.a2List.length - 20} 枚同型未逐条打印`)
   for (const l of v.a3List.slice(0, 20)) console.log(`  · A3 ${l}`)
   if (v.a3List.length > 20) console.log(`  · A3 …另 ${v.a3List.length - 20} 组同型未逐条打印`)
+  for (const l of v.midformList.slice(0, 20)) console.log(`  · 中间态 ${l}`)
+  if (v.midformList.length > 20)
+    console.log(`  · 中间态 …另 ${v.midformList.length - 20} 枚同型未逐条打印`)
   for (const l of v.conflictList.slice(0, 20)) console.log(`  · 矛盾组 ${l}`)
   if (v.conflictList.length > 20)
     console.log(`  · 矛盾组 …另 ${v.conflictList.length - 20} 组同型未逐条打印`)
@@ -413,12 +440,35 @@ function selfTest() {
   const v21 = judge([mk(fresh)], { map: new Map([[rec.key, rec]]), allRecords: [rec] })
   ok('S21 记录有对应行 ⇒ orphan=0', v21.orphan === 0)
 
+  // A2 中间态(2026-10-26):语义同、形态未收敛 ⇒ 点名、不判红。这是 4 枚 A2 恒红实测出来的那一型。
+  const holderRec = { key: compositeKeyOf('- [ ] G-7 庚 细节'), owner: '机主运维面', waiting: 'none' }
+  const midLine = `- [ ] 〔归:机主运维面｜等:—〕 G-7 庚 细节`
+  const v22 = judge([mk(midLine)], { map: new Map([[holderRec.key, holderRec]]) })
+  ok(
+    'S22 行内多写 `｜等:—`(语义同)⇒ 计入 midform、A2=0、不判红',
+    v22.a2 === 0 && v22.midform === 1 && verdict(v22, 'staged').code === 0,
+  )
+  const wrongOwner = '- [ ] 〔归:另一个面｜等:—〕 G-7 庚 细节'
+  const v23 = judge([mk(wrongOwner)], { map: new Map([[holderRec.key, holderRec]]) })
+  ok(
+    'S23 同形但 owner 换人 ⇒ 仍是 A2 红(中间态不得把"说错了"一起放过)',
+    v23.a2 === 1 && v23.midform === 0 && verdict(v23, 'staged').code === 1,
+  )
+  const wrongWait = '- [ ] 〔归:机主运维面｜等:机主核隧道〕 G-7 庚 细节'
+  const v24 = judge([mk(wrongWait)], { map: new Map([[holderRec.key, holderRec]]) })
+  ok('S24 同 owner 但等段写成了真等待 ⇒ A2 红(等段也算读数)', v24.a2 === 1 && v24.midform === 0)
+  ok(
+    'S25 摘掉中间态判据即翻红(成对夹具:三档等式不存在时同一行必落 A2)',
+    headerEquivalence(midLine, holderRec).kind === 'midform' &&
+      renderHeader(holderRec) !== headerOf(midLine),
+  )
+
   // A2 的"逐字相等":want 若只是出现在正文别处,不得把行内那块错标头蒙过去。
   const sneakyTitle = '- [ ] 〔归:另一个人〕 G-1 甲 细节'
   const sneaky = `${sneakyTitle} —— 备注里写了 ${want}`
   const skey = compositeKeyOf(sneaky)
   ok(
-    'S22 标头必须逐字相等(正文里包含同一串不算)',
+    'S26 标头必须逐字相等(正文里包含同一串不算)',
     judge([mk(sneaky)], { map: new Map([[skey, { ...rec, key: skey }]]) }).a2 === 1,
   )
 

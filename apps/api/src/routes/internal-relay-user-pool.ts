@@ -74,6 +74,20 @@ function cosyToImportKeys(deviceMap: Record<string, unknown>): Record<string, st
   return out
 }
 
+/**
+ * 设备证明密钥对(2026-10-26 补链):签到侧 device_map 里带 pool_device_key_pem /
+ * pool_device_pub_pem 时透进导入器,由 mapTraeImport 收进 secretsEnc。
+ * 缺任一键 ⇒ 不带(桌面渠道签发的票将只能等客户端在场时回灌,行为同旧)。
+ */
+function deviceKeysToImportKeys(deviceMap: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {}
+  const priv = strField(deviceMap, 'pool_device_key_pem')
+  const pub = strField(deviceMap, 'pool_device_pub_pem')
+  if (priv) out.deviceKeyPem = priv
+  if (pub) out.devicePubPem = pub
+  return out
+}
+
 const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
   const requireInternal = (request: { headers: Record<string, unknown> }): string | null => {
     const secret = config.AI_CALLBACK_SECRET
@@ -118,6 +132,7 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
             cookies: body.cookies,
             enabled: body.enabled,
             ...(body.platform === 'qoder' ? cosyToImportKeys(dm) : {}),
+            ...(body.platform === 'trae' ? deviceKeysToImportKeys(dm) : {}),
           },
         ],
         body.ownerUserId,
@@ -185,4 +200,7 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
 export default fp(internalRelayUserPoolRoutes, {
   name: 'internal-relay-user-pool',
 })
+
+/** 供镜像测试直用生产判据(§22c:禁止在测试里复制第二份映射) */
+export const __test__ = { cosyToImportKeys, deviceKeysToImportKeys, strField }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

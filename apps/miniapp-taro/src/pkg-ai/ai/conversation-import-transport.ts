@@ -10,13 +10,19 @@
  *      测「选文件/解析响应」这类判序必须把 React 一起拖进夹具。
  *   ② 行数 —— AGENTS.md §4「每个页面 < 250 行」,页面只该留「取词 + 编排 + 状态」。
  *
- * 与端内既有上传(upload-image.ts)同口径:`joinUrl(BASE_URL, path)` 拼地址、
- * `getToken()` 取 Bearer 头 —— 合法域名白名单是按 BASE_URL 配的,自己拼域名必翻车。
+ * 与端内既有上传(upload-image.ts)同口径:`joinUrl(BASE_URL, path)` 拼地址、Bearer 头与
+ * 凭据新鲜度/重试判据都**直接复用** upload-image 导出的那一份兜带(合法域名白名单是按
+ * BASE_URL 配的,自己拼域名必翻车;判据自己再写一份必然漂移)。
  */
 import Taro from '@tarojs/taro'
 import { joinUrl } from '@ihui/shared/utils/image-helpers'
 import { BASE_URL } from '@/utils/api-config'
 import { getToken } from '@/utils/auth'
+import {
+  freshUploadToken,
+  isCredentialRejectedReply,
+  refreshedTokenAfterRejection,
+} from '@/utils/upload-image'
 import type { ConversationImportSource } from '@ihui/api-client'
 
 /** /parse 端点(与 api-client 同一串;/api 前缀由 BASE_URL 自带) */
@@ -102,28 +108,47 @@ export function readParseResponse(payload: { statusCode: number; data: string })
   }
 }
 
-/** 上传并解析;传输层失败与响应异常都抛出可展示原因(不静默返回空预览) */
+/**
+ * 上传并解析;传输层失败与响应异常都抛出可展示原因(不静默返回空预览)。
+ *
+ * 凭据这一格(2026-10-26 修):`Taro.uploadFile` 不经 api-client 的 401 重放,原先直传
+ * `getToken()` 快照 —— access token 15 分钟过期后每次都撞 401 且永不自愈。现在复用
+ * `utils/upload-image` 那一份兜带(新鲜度前置 + 被否定只重试一次),**判据不在本文件重写**
+ * (§0.6:同类判据第二份必然漂移);本文件只保留自己那发 `uploadFile`(字段/超时不同)。
+ */
 export async function uploadAndParse(args: {
   file: PickedImportFile
   source: ConversationImportSource
   networkErrorText: string
 }): Promise<unknown> {
   const { file, source, networkErrorText } = args
-  const raw = await new Promise<{ statusCode: number; data: string }>((resolve, reject) => {
-    const token = getToken()
-    Taro.uploadFile({
-      url: PARSE_URL,
-      filePath: file.path,
-      name: 'file',
-      // 不设 Content-Type:带 boundary 的头由 uploadFile 自己生成,手设会破坏分片
-      formData: { source },
-      header: token ? { Authorization: `Bearer ${token}` } : {},
-      timeout: PARSE_TIMEOUT_MS,
-      success: (res) => resolve({ statusCode: res.statusCode, data: res.data }),
-      fail: (e) => reject(new Error(String(e?.errMsg || networkErrorText))),
+
+  // 一次 uploadFile(callback → promise):状态码原样带出,由兜带判"是不是凭据被否定"
+  const once = (token: string) =>
+    new Promise<{ statusCode: number; data: string }>((resolve, reject) => {
+      Taro.uploadFile({
+        url: PARSE_URL,
+        filePath: file.path,
+        name: 'file',
+        // 不设 Content-Type:带 boundary 的头由 uploadFile 自己生成,手设会破坏分片
+        formData: { source },
+        header: token ? { Authorization: `Bearer ${token}` } : {},
+        timeout: PARSE_TIMEOUT_MS,
+        success: (res) => resolve({ statusCode: res.statusCode, data: res.data }),
+        fail: (e) => reject(new Error(String(e?.errMsg || networkErrorText))),
+      })
     })
-  })
-  return readParseResponse(raw)
+
+  // 本机没有凭据时不必发这一发(服务端必回 401,而那个 401 会被读成"凭据被否定"去刷续期)。
+  // 取值仍走端内唯一源;身份判据不在本文件另写一份。
+  if (!getToken()) throw new Error('not-logged-in')
+
+  const first = await once(await freshUploadToken())
+  if (!isCredentialRejectedReply(first)) return readParseResponse(first)
+
+  // 只重试一次:续期后重发,仍失败就交给 readParseResponse 抛可见原因(不静默、不第三发)
+  const second = await once(await refreshedTokenAfterRejection())
+  return readParseResponse(second)
 }
 // PLACEHOLDER-TAIL
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

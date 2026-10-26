@@ -1,8 +1,9 @@
 {
   "counts": {
     "AgentRuntimePanel": 1,
-    "BottomActionBar": 16,
+    "BottomActionBar": 13,
     "Carousel": 6,
+    "CategoryBar": 1,
     "DrawerComponent": 12,
     "InputArea": 15,
     "IntelligentAssistant": 6,
@@ -78,8 +79,12 @@
     "VideoPlayer": 0
   },
   "waivers": {
+    "CategoryBar": {
+      "reason": "两端同档 4,只是写法不同、门只读到一侧:RN 腿 packages/app/src/components/category/CategoryInlineBar.tsx 的 badge.paddingHorizontal 取 rnSpacing.xs(SPACING_STEPS.xs = 4,3d8a7a3355 token 化产物),小程序腿 apps/miniapp-taro/src/components/CategoryBar.css 的 .category-bar__badge 取 `padding: 0 8rpx`(=4px);本门几何维只解数字字面量 / 具名 *_PX 档 / geometry.*,不解析 rnSpacing 档表 ⇒ 只在小程序一侧读到 4。不是同元素取不同档,禁止给 RN 补裸数字(那会把 token 化退回去、并制造第二份真相)。复验:node scripts/check-cross-end-ui-parity.mjs --json 的 findings[CategoryBar].geometry.onlyMiniapp 应为 [4] 且 onlyRn 为空。",
+      "until": "2027-03-27"
+    },
     "BottomActionBar": {
-      "reason": "两端不是同一套子元素:小程序把功能卡内联在条内(rpx(150)×rpx(160) 卡盒 + 35 墨迹),RN 走 AddPanel 滑出面板;RN 另有 actions 旧模式行(44,OrderDetailScreen:245 真传 actions)与图片预览角标(2/16/48,该元素在小程序侧属 InputArea 文件)。派生 lineHeight 20/22 与生长/截断上限 100/200 不是元素档。现读:git grep \"actions=\" apps/mobile-rn/src 命中 OrderDetailScreen:245。",
+      "reason": "O02 票④(2026-10-25)复核并下调 16→13:卡盒 80×75 / 卡内墨迹 35 / 标文字号 10 / 图文距 6 / 行衬 0-10-5 已从端内搬进 packages/shared/src/ui/bottom-action-bar-spec.ts 并由 bottom-action-bar-core 渲染,两端壳不再各持一份(证据:两端组件都 import @ihui/shared/ui 的同一核心;两壳内已无 rpx(160)/rpx(150)/'0 20rpx 10rpx' 与卡盒数字,别的文件里的同值属别的元素)。余 13 全属一端多元素、非同一元素双值:小程序 6 = 切换 chip 纵向衬(12rpx),RN 用固定高 TOGGLE_CHIP_HEIGHT=32 表达,机制不同;RN 独有 2/3(图片预览删除钮偏移、录音浮层波形条)、18(emoji 图标档)、20(次级按钮 lineHeight)、24(面板项图标墨迹,小程序同功能是 AddPanel 内联 PNG 卡)、28(模型条高 + 配置钮)、36(rnGeometry.tapBox 次级按钮)、44(actions 旧模式行 ACTION_BUTTON_HEIGHT/ICON_BUTTON_SIZE/INPUT_MIN_HEIGHT;OrderDetailScreen:245 真传 actions)、48(IMAGE_PREVIEW_SIZE,小程序该元素属 InputArea)、100(多行输入生长上限,机制量非档)、200(面板 maxWidth);10 在 HEAD 被小程序 '0 20rpx 10rpx' 的同值遮住,该串收编后显形,是 RN 独有行的 gap:10,不是新增端内数字。",
       "until": "2027-03-27"
     },
     "NavBar": {

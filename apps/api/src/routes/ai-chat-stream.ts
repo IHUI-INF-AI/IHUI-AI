@@ -15,6 +15,7 @@ import {
   type SandboxModeId,
   type ApprovalPolicyId,
   type ReasoningEffort,
+  type ChatSyncTerminalReason,
   repairMessages,
 } from '@ihui/types'
 import {
@@ -71,6 +72,26 @@ const sseMetrics = {
   budgetRejects: 0, // 预算校验拦截次数
   retryAfterSent: 0, // Retry-After header 下发次数
   upstreamErrors: 0, // 上游 ai-service 错误次数
+}
+
+/**
+ * 票 B02 生产端终态切片(2026-10-26):上游 done 帧的 `finishReason` → 契约终态 reason。
+ *
+ * 只做**闭集内的映射**:length 家族折成 `length`、content_filter 折成 `content_filter`;
+ * 其余(含 tool_calls —— 工具循环后仍有最终答复)折叠为 `stop`。闭集外的值不臆造异常:
+ * 缺证据时按正常收尾处理,与"没判绝不写成判过"同向(不把未知谎报成 error)。
+ */
+function terminalReasonFromFinishReason(finishReason: string | undefined): ChatSyncTerminalReason {
+  if (
+    finishReason === 'length' ||
+    finishReason === 'max_tokens' ||
+    finishReason === 'max_output_tokens' ||
+    finishReason === 'model_context_window_exceeded'
+  ) {
+    return 'length'
+  }
+  if (finishReason === 'content_filter') return 'content_filter'
+  return 'stop'
 }
 
 /**
@@ -555,6 +576,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     // 服务端超时兜底:防 ai-service 卡死时连接无限挂起(5 分钟,正常对话远小于此)
     // timedOut 标记用于区分"服务端超时 abort" vs "客户端主动断开 abort"
     let timedOut = false
+    // 票 B02 生产端终态切片:三条终态出口在 try/catch/finally 里汇合到这一格 ——
+    // 正常收尾由末尾赋值、上游错误/异常由各自分支赋值;null = 本次不宣告终态。
+    let terminalReason: ChatSyncTerminalReason | null = null
     const serverTimeout = setTimeout(() => {
       timedOut = true
       sseMetrics.timeouts++
@@ -712,6 +736,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         }
         if (opts.agentId) errChunk.agentId = opts.agentId
         emitEvent(session, JSON.stringify(errChunk))
+        // 上游未建连/HTTP 错误 ⇒ 生成期错误(不是客户端中止),终态按 error 宣告。
+        terminalReason = 'error'
         return
       }
 
@@ -735,6 +761,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // D1(2026-09-19 立):命名事件配对缓冲 —— `event: usage` 行的事件名暂存,
       // 下一行 `data:` 配对为编号命名帧(emitNamedEvent:编号 + 进回放缓冲)。
       let pendingNamedEvent: string | null = null
+      // 票 B02 生产端终态切片:上游 done 帧携带的 finishReason(G-425,llm_gateway 收尾帧)。
+      // 预筛按带引号的键匹配,OpenAI 风格的 `"finish_reason":null` 是另一种拼写、不命中,
+      // 故热路径只在真正的收尾帧上付一次 JSON.parse。
+      let upstreamFinishReason: string | undefined
+      // 重放窗口放弃 ⇒ 服务端主动中止透传;此时 loop 是正常 break 退出,
+      // 但收尾原因不是 stop,须单独记,不能把"半截流"宣告成正常结束。
+      let streamAbandoned = false
       for (;;) {
         const { done, value } = await reader.read()
         // G-998168 票5:首次 read 返回即停 firstByte 段(空流时 done 分支同样停表 ——
@@ -759,6 +792,21 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         while ((nl = streamBuffer.indexOf('\n')) !== -1) {
           const line = streamBuffer.slice(0, nl).replace(/\r$/, '')
           streamBuffer = streamBuffer.slice(nl + 1)
+          // 终态 reason 的唯一证据源:done 帧的 finishReason(见上方 upstreamFinishReason 注释)。
+          // 只取 `type==='done'` 的帧;chunk 里同名字段(若有)不参与收尾判定。
+          if (line.startsWith('data:') && line.includes('"finishReason"')) {
+            try {
+              const doneFrame = JSON.parse(line.slice(5).replace(/^\s/, '')) as {
+                type?: unknown
+                finishReason?: unknown
+              }
+              if (doneFrame.type === 'done' && typeof doneFrame.finishReason === 'string') {
+                upstreamFinishReason = doneFrame.finishReason
+              }
+            } catch {
+              /* 非 JSON data 行,透传,不取收尾原因 */
+            }
+          }
           // D1(2026-09-19 立):usage 命名帧透传 —— `event: usage` 已暂存事件名时,
           // 将紧随的 `data:` 行配对为编号命名帧(emitNamedEvent:编号 + 进回放缓冲,
           // 重放后仍是合法命名帧,与 compaction 首事件同源机制)。usage 来自主聊天链路,
@@ -874,10 +922,16 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             '[SSEReplay] 重放窗口已放弃 ⇒ 停止透传,等待客户端全量重取',
           )
           controller.abort()
+          streamAbandoned = true
           break
         }
       }
       if (streamBuffer && session.raw) session.raw.write(streamBuffer)
+      // 正常收尾:done 帧的 finishReason 是唯一证据;缺失(老上游/降级)按 stop,
+      // 而重放窗口放弃是服务端侧中止,不能伪装成正常结束(aborted 是闭集里唯一的"停止"档)。
+      terminalReason = streamAbandoned
+        ? 'aborted'
+        : terminalReasonFromFinishReason(upstreamFinishReason)
     } catch (e) {
       const msg =
         (e as Error).name === 'AbortError'
@@ -888,6 +942,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       const errChunk: Record<string, unknown> = { error: msg }
       if (opts.agentId) errChunk.agentId = opts.agentId
       emitEvent(session, JSON.stringify(errChunk))
+      // AbortError:客户端主动停止 ⇒ aborted;服务端超时不是用户意图,按 error 宣告。
+      // 其余异常 = 生成期错误(上游/网关),同样 error。
+      terminalReason = (e as Error).name === 'AbortError' && !timedOut ? 'aborted' : 'error'
     } finally {
       raw.off('close', onClose)
       clearTimeout(serverTimeout)
@@ -896,6 +953,36 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       if (livePrevious && !livePrevious.controller.signal.aborted) livePrevious.controller.abort()
       finishSession(session)
       ;(session.raw ?? raw).end()
+      // 票 B02 生产端终态切片:终态帧走 WS 房间广播(at-least-once),与 SSE 字节流正交,
+      // 故在响应收尾之后 fire-and-forget。坐标缺一(降级流 / 无 metadata)⇒ 本就不参与
+      // chat-sync(与 replayKey 同一条门槛),不发帧;发射失败只出声,绝不回写已完成的响应。
+      if (terminalReason !== null && replayKey) {
+        const conversationId = opts.metadata?.conversationId
+        const messageId = opts.metadata?.messageId
+        const memberUserId = opts.metadata?.userId ?? request.userId
+        // 运行期护栏:本路由的既有单测/裁剪部署可能未注册 ws-broadcast 插件,
+        // 此时终态帧无处可发 —— 跳过,不得让收尾路径抛错。
+        if (
+          conversationId &&
+          messageId &&
+          memberUserId &&
+          typeof server.broadcastChatMessageTerminal === 'function'
+        ) {
+          void server
+            .broadcastChatMessageTerminal({
+              conversationId,
+              memberUserIds: [memberUserId],
+              messageId,
+              reason: terminalReason,
+            })
+            .catch((err: unknown) => {
+              request.log.warn(
+                { err, conversationId, messageId, reason: terminalReason },
+                'chat 消息终态房间广播发射失败(流已收尾,另一端退回打开会话时拉取)',
+              )
+            })
+        }
+      }
     }
   }
 

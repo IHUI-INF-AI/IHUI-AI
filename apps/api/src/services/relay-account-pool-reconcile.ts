@@ -30,6 +30,7 @@ import {
   clearCheckinSyncPending,
   extractCosy,
   markCheckinSyncPending,
+  pemFromSecrets,
   pushPoolState,
   pushPoolSync,
   type CheckinPlatform,
@@ -441,6 +442,8 @@ export async function reconcileCheckinSync(opts?: {
               deviceId: full.deviceId,
               machineId: full.machineId,
               cosy: extractCosy(full.extraMetadata),
+              deviceKeyPem: pemFromSecrets(creds.secrets, 'deviceKeyPem'),
+              devicePubPem: pemFromSecrets(creds.secrets, 'devicePubPem'),
               tokenExpiresAt: full.tokenExpiresAt,
             }),
           )

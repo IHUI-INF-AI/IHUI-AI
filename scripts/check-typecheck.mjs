@@ -41,7 +41,6 @@
  *       .husky/pre-push 本体不在本改动允许范围内,改由编排/手动走本包装)。
  */
 import { spawn, spawnSync } from 'node:child_process' // spawnSync:2026-09-20 超时杀进程树/定向快通道用
-import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 // 硬超时上限(2026-09-20 根治推送挂起;定义前置是因为定向快通道也要用同一上限):
 // 事故实证:某次 push 挂起 62 分钟零产出 —— 本脚本原先对 typecheck 子进程既无 timeout
@@ -63,6 +62,7 @@ import {
 // 本门只**消费** lib 的反向依赖闭包判据,不自己再实现一遍边判定(2026-10-18 L14546 后,
 // 通用判据 widenFilesOverDependents 已提升到 lib,本门固定 face='worktree' 薄封装)。
 import { buildFileGraph, widenFilesOverDependents } from './lib/import-graph.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -73,11 +73,8 @@ const SELF_TEST = process.argv.includes('--self-test')
 /** 取暂存文件列表(仓库根相对路径,统一为 /);git 不可用返回 null(降级路径不可用,维持原失败行为) */
 function getStagedFiles() {
   try {
-    const out = execFileSync('git', ['-C', ROOT, 'diff', '--cached', '--name-only'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(层内已拼 -C ROOT,剥掉显式 -C;stderr ignore→pipe 两态成功路径均丢弃,等价)
+    const out = gitRaw(['diff', '--cached', '--name-only'], ROOT)
     return out
       .split(/\r?\n/)
       .map((l) => l.trim().replaceAll('\\', '/'))
@@ -123,11 +120,8 @@ function getScopeFiles() {
 /** origin/main..HEAD 已提交差集(仓库根相对路径,统一 /);git 失败返回 null */
 function getHeadDiffFiles() {
   try {
-    const out = execFileSync('git', ['-C', ROOT, 'diff', '--name-only', 'origin/main', 'HEAD'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(同上,剥掉显式 -C ROOT)
+    const out = gitRaw(['diff', '--name-only', 'origin/main', 'HEAD'], ROOT)
     return out
       .split(/\r?\n/)
       .map((l) => l.trim().replaceAll('\\', '/'))

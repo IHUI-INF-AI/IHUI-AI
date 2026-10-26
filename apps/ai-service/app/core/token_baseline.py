@@ -14,6 +14,9 @@
 - prompt 下降(压缩)⇒ 基线**下移**到新值,历史累计不回扣 ——
   否则压缩后再涨回来的那一段会被整段重复计入;
 - session 为空 ⇒ 无从判定同链,每条自成一链(不扣减,等同旧行为)。
+- 来源链 = (上下文链别, 工具/模型):上下文链别只认 CHAIN_MAIN / CHAIN_SUBAGENT /
+  CHAIN_WORKFLOW 三值(G-941,2026-10-22),缺失或表外值在读面归入"未判定"桶,
+  绝不静默并入主链。
 """
 
 from __future__ import annotations
@@ -21,7 +24,35 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-__all__ = ["PromptTokenSample", "incremental_prompt_tokens"]
+__all__ = [
+    "CHAIN_MAIN",
+    "CHAIN_SUBAGENT",
+    "CHAIN_UNKNOWN_LABEL",
+    "CHAIN_WORKFLOW",
+    "CONTEXT_CHAINS",
+    "PromptTokenSample",
+    "chain_bucket",
+    "incremental_prompt_tokens",
+]
+
+# G-941(2026-10-22):上下文链别枚举的唯一常量源。生产者(agent_loop_v2 的
+# 主/子代理构造点、engine 主循环工厂)只许引用这三个常量,不得各写一份字面量;
+# 新增链别必须先落到这里,再同步读面分桶。
+CHAIN_MAIN = "main"
+CHAIN_SUBAGENT = "subagent"
+CHAIN_WORKFLOW = "workflow"
+CONTEXT_CHAINS: tuple[str, ...] = (CHAIN_MAIN, CHAIN_SUBAGENT, CHAIN_WORKFLOW)
+# 缺链别(存量条目/未改造生产者)与表外值在读面的可见桶名。
+CHAIN_UNKNOWN_LABEL = "未判定"
+
+
+def chain_bucket(chain: str) -> str:
+    """链别 → 读面桶键:三枚举值原样返回,其余(含空串)一律归入"未判定"。
+
+    只做读面归一,不回写条目:条目里的原始链别保留供审计。
+    """
+    text = str(chain or "").strip()
+    return text if text in CONTEXT_CHAINS else CHAIN_UNKNOWN_LABEL
 
 
 @dataclass(frozen=True)

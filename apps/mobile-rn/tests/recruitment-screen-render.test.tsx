@@ -7,15 +7,15 @@
  *
  * 这一屏此前有三份互不相同的实现:RN 端自带一份静态宣传页、共享层躺着一份**没人渲染的招聘列表屏**、
  * 小程序端又是一份 API 驱动的招募信息页(其 privileges/incomeEstimates 字段与 POST /recruitment/apply
- * 后端都不存在)。本套件把能机判的四件事钉住,第五件(迁移门判据)由门体镜像测试对 HEAD 全屏承担:
+ * 后端都不存在)。本套件把能机判的五件事钉住:
  *  ① RN 那一屏渲染的**就是**共享层 packages/app/src/features/recruitment/RecruitmentScreen.tsx
  *     —— 卡与二维码的 testID 只住在共享屏,壳里与小程序端都没有(阳性对照同批给出);
  *  ② 上屏段落的构成与顺序 = 跨端单一源 TRADER_PLAN_SEGMENTS(RN 与小程序读同一张表);
  *  ③ 六个取词键五语言齐备、取到的是真文案而不是键名;
  *  ④ 购买 CTA 真跳到在册屏 VipTrader,长按二维码真调系统相册保存 —— 两枚都不是假按钮;
- *  ⑤ 迁移门判据由门体镜像测试 scripts/tests/check-rn-app-migration.test.mjs T3 对 HEAD 全屏
- *     承担(§22c 同源 import 门体,不复制判据);本文件不再越层 import repo-tooling —— 端内测试
- *     相对路径穿透 scripts/ 命中架构政策 D1/D2(无豁免通道),按屏断言与 T3 是重复覆盖。
+ *  ⑤ 迁移门(守门 check-rn-app-migration)对本壳的判据断言(零违规、白名单被摘掉后链子仍有牙、
+ *     抹掉 import 必翻 V1 红)住在 `scripts/tests/check-rn-app-migration.test.mjs` T11;端内不 import
+ *     门体,以免留下 apps/mobile-rn(rank 40)→ repo-tooling(rank 90) 的反向依赖(门 103 判 D1+D2)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement } from 'react'
@@ -186,17 +186,29 @@ describe('两枚按钮都不是假的:CTA 跳在册屏,二维码长按落相册'
     renderScreen()
     const qr = screen.getByLabelText(val(TRADER_PLAN_PROMO_KEYS.qrcodeHint))
     fireEvent.contextMenu(qr)
-    // 保存链是 async(权限 → 资源 → 写库),必须等它真跑完再判 —— 同步断言判的是"还没轮到"
-    await waitFor(() => expect(media.requestPermissionsAsync).toHaveBeenCalled())
-    await waitFor(() => expect(media.saveToLibraryAsync, '没真落到相册').toHaveBeenCalled())
-    await waitFor(() => expect(pops.appAlert).toHaveBeenCalledWith(val('imageGen.saveSuccess')))
+    // 保存链是 async(权限 → 资源 → 写库 → 回执),而回执是整条链的**终点**:链上每一步都 await,
+    // 终点发生即证明前面各步都发生过 ⇒ 只等一次,不串三段 waitFor。
+    // 立因(2026-10-24 实测):三段各带一份等待预算,在并发跑 200+ 道守门的同机上会被事件循环
+    // 饿死打成假红 —— 同步占死事件循环 1200ms ⇒ fireEvent 到首跳实测 1201ms > waitFor 默认
+    // 1000ms(空闲档同一条链 3ms 即通)。预算抬到 8s(仍低于 vitest.config 的 testTimeout 10s),
+    // 断言一个不减:见下一条的"没落到相册就不许算过"与权限被拒那条的反向断言。
+    await waitFor(() => expect(pops.appAlert).toHaveBeenCalledWith(val('imageGen.saveSuccess')), {
+      timeout: 8_000,
+    })
+    expect(media.requestPermissionsAsync, '没问过权限就写库 = 资格链是假的').toHaveBeenCalled()
+    expect(media.saveToLibraryAsync, '没真落到相册').toHaveBeenCalled()
   })
 
   it('相册权限被拒时不写库、给出到人提示(失效方向不是静默)', async () => {
     media.requestPermissionsAsync.mockResolvedValueOnce({ granted: false })
     renderScreen()
     fireEvent.contextMenu(screen.getByLabelText(val(TRADER_PLAN_PROMO_KEYS.qrcodeHint)))
-    await waitFor(() => expect(pops.appAlert).toHaveBeenCalledWith(val('imageGen.needPermission')))
+    await waitFor(
+      () => expect(pops.appAlert).toHaveBeenCalledWith(val('imageGen.needPermission')),
+      {
+        timeout: 8_000,
+      },
+    )
     expect(media.saveToLibraryAsync).not.toHaveBeenCalled()
   })
 })

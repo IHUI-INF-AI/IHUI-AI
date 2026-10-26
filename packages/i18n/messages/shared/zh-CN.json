@@ -500,6 +500,7 @@
     "agreementNoticeTitle": "请先同意协议"
   },
   "chat": {
+    "approvalExpiredNotice": "工具 {toolName} 的审批已因连接中断失效,该操作未执行;如需继续请重新发起",
     "mcp": {
       "state": {
         "connecting": "正在连接 {server}…",

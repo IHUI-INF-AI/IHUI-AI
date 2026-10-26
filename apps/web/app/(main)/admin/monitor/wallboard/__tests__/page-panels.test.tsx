@@ -1,0 +1,431 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 大屏两块「使用数据」面板的渲染取证(2026-10-26 立)。
+ *
+ * 钉的是数据绑定而不是像素:给定 overview 里的 `traffic.pageTop` / `traffic.scopeSplit` /
+ * `engagement`,屏上必须真的出现页面排行、前台/后台/登录页读数与事件分布 —— 这三格是
+ * 「多少人用了多少次 / 点了什么 / 停了多久」在监控面的唯一出口,静默消失就等于监控失明。
+ *
+ * 只 mock 网络与图表画布:ECharts 走 canvas,jsdom 里没有绘图上下文。
+ */
+// @vitest-environment jsdom
+import * as React from 'react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+vi.mock('next-intl', async () => {
+  const fs = await import('node:fs')
+  const path = await import('node:path')
+  const file = path.resolve(process.cwd(), '../../packages/i18n/messages/web/zh-CN.json')
+  const messages = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+    admin: { wallboard: Record<string, string> }
+  }
+  const ns = messages.admin.wallboard
+  return {
+    useTranslations: () => (key: string, vars?: Record<string, unknown>) => {
+      const raw = ns[key] ?? key
+      return vars ? raw.replace(/\{(\w+)\}/g, (_m, k: string) => String(vars[k] ?? '')) : raw
+    },
+    useLocale: () => 'zh-CN',
+  }
+})
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
+}))
+
+vi.mock('next-themes', () => ({
+  useTheme: () => ({ resolvedTheme: 'light', setTheme: vi.fn() }),
+}))
+
+vi.mock('@/components/charts/EChart', () => ({ EChart: () => null }))
+
+vi.mock('@/lib/api', () => ({ fetchApi: vi.fn() }))
+
+import { fetchApi } from '@/lib/api'
+import { WallboardView } from '../page'
+
+const overview = {
+  generatedAt: '2026-10-26T00:00:00.000Z',
+  prometheusUrl: 'http://127.0.0.1:8815',
+  sources: { prometheus: 'up', alertmanager: 'up', database: 'up', edge: 'up' },
+  host: null,
+  services: null,
+  http: null,
+  redis: null,
+  pg: null,
+  bridge: null,
+  business: {
+    usersTotal: 12,
+    usersTodayNew: 1,
+    usersActive: 3,
+    ordersTodayPaid: 2,
+    ordersTodayAmountCents: 9900,
+    ordersYesterdayPaid: 1,
+    apiCallsToday: 1200,
+    apiErrRate: 0.4,
+    apiAvgLatencyMs: 85,
+    topEndpoints: [{ path: '/api/chat/send', method: 'POST', calls: 300 }],
+    llmCallsToday: 40,
+    llmTokensToday: 120000,
+    llmCostCentsToday: 320,
+    llmErrRate: 1.2,
+    llmP95LatencyMs: 2400,
+    llmTopModels: [{ model: 'gpt-4o-mini', calls: 25 }],
+    signIn: {
+      todayUsers: 3,
+      todayRewardPoints: 30,
+      maxStreakDays: 5,
+      unsignedActiveUsers: 1,
+      last7d: [{ date: '2026-10-25', users: 3 }],
+    },
+    userGrowth: [{ date: '2026-10-25', count: 1 }],
+    usersVip: 2,
+    usersTrader: 0,
+    usersInvited: 1,
+    usersInvited7d: 0,
+    usersByLevel: [10, 1, 1, 0],
+    activeUsers7d: 4,
+  },
+  alerts: { promActiveCount: 1, promActive: [], firingTotal: 1, firingNames: ['disk'], recent: [] },
+  events: [],
+  traffic: {
+    pv24h: 4321,
+    uv24h: 321,
+    pv1h: 120,
+    uv1h: 45,
+    humanPv24h: 3800,
+    botPv24h: 521,
+    families: [{ family: 'chrome', pv: 2000 }],
+    aggregationAgeSec: 2,
+    truncated: false,
+    pageTop: [
+      { url: '/ecosystem', scope: 'public', platform: 'web', pv: 90, uv: 60 },
+      { url: '/admin/monitor/wallboard', scope: 'admin', platform: 'web', pv: 12, uv: 2 },
+      { url: '/login', scope: 'auth', platform: 'web', pv: 8, uv: 8 },
+      // 移动端那一行:四端同表,排行里会与网站页面并列 ⇒ 前缀必须能一眼分开
+      { url: '/rn/Chat', scope: 'public', platform: 'rn', pv: 30, uv: 20 },
+    ],
+    // 24h 同口径总 PV:排行占比的分母(没有分母就画不出占比条)
+    pageTotalPv: 500,
+    scopeSplit: [
+      { scope: 'public', pv: 4200, uv: 300 },
+      { scope: 'admin', pv: 101, uv: 2 },
+      { scope: 'auth', pv: 20, uv: 18 },
+    ],
+    platformSplit: [
+      { platform: 'web', pv: 4000, uv: 280, pv90d: 9200, lastSeenAt: '2026-10-26T00:00:00Z' },
+      { platform: 'rn', pv: 120, uv: 20, pv90d: 300, lastSeenAt: '2026-10-26T00:00:00Z' },
+      // 小程序:90 日内一条都没有 ⇒ 该端"未上报",而不是"今天没人用"
+      { platform: 'mp', pv: 0, uv: 0, pv90d: 0, lastSeenAt: null },
+      // 插件:近 90 日有量、今日 0 ⇒ "今日静默"
+      { platform: 'ex', pv: 0, uv: 0, pv90d: 5, lastSeenAt: '2026-10-20T00:00:00Z' },
+    ],
+    online5m: 3,
+    pv5m: 12,
+    // 会话质量(2026-10-26):来了之后看了几屏、从哪一页落地
+    sessionQuality: {
+      sessions: 6,
+      singlePageSessions: 4,
+      singlePageRate: 0.6667,
+      avgPvPerSession: 1.8,
+      depth: [
+        { bucket: '1', sessions: 4 },
+        { bucket: '2-3', sessions: 1 },
+        { bucket: '4-7', sessions: 1 },
+        { bucket: '8+', sessions: 0 },
+      ],
+      entryPages: [
+        // 落地页路径刻意不与页面排行的 fixture 重名:重名会让 getByText 命中两处而歧义
+        { url: '/pricing', sessions: 2, singlePageSessions: 1 },
+        { url: '/docs', sessions: 1, singlePageSessions: 0 },
+      ],
+    },
+    // 访问来源(2026-10-26):流量从哪来 —— 分类桶 + 主机榜
+    visitSource: {
+      totalPv: 500,
+      buckets: [
+        { kind: 'direct', pv: 300 },
+        { kind: 'local', pv: 90 },
+        { kind: 'internal', pv: 40 },
+        { kind: 'external', pv: 70 },
+      ],
+      hosts: [
+        { host: 'github.com', kind: 'external', pv: 120 },
+        { host: 'localhost', kind: 'local', pv: 90 },
+        { host: 'aizhs.top', kind: 'internal', pv: 40 },
+      ],
+      splitInternal: true,
+    },
+    // 页面流转(2026-10-26):同一会话内相邻两页
+    visitTransition: {
+      totalMoves: 57,
+      distinctPairs: 8,
+      top: [
+        { fromUrl: '/', toUrl: '/sso/login', n: 12 },
+        { fromUrl: '/sso/login', toUrl: '/', n: 11 },
+        { fromUrl: '/', toUrl: '/chat', n: 10 },
+      ],
+    },
+  },
+  engagement: {
+    events: [
+      { event: 'page_view', n: 652 },
+      { event: 'click', n: 245 },
+    ],
+    clickTop: [{ label: '打开设置', n: 40 }],
+    avgPageTimeSec: 47.5,
+    totalEvents: 897,
+    computedAtMs: 0,
+  },
+  audience: {
+    newUv: 28,
+    returningUv: 11,
+    activeUv: 39,
+    returningRate: 0.2821,
+    computedAtMs: 0,
+  },
+  relayPool: null,
+  edge: null,
+}
+
+const trend = {
+  startEpochMs: 0,
+  endEpochMs: 0,
+  stepSeconds: 30,
+  minutes: 90,
+  qps: [],
+  errRate: [],
+  cpuPct: [],
+  memPct: [],
+  p95Ms: [],
+  hourlyCalls: [],
+}
+
+function renderWallboard() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <WallboardView headerExtra={null} />
+    </QueryClientProvider>,
+  )
+}
+
+describe('WallboardView 使用数据面板', () => {
+  beforeEach(() => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : { success: true, data: overview }) as never)
+  })
+
+  it('渲染页面访问热度:排行 URL 与前台/后台/登录页分桶都在屏上', async () => {
+    renderWallboard()
+    await waitFor(() => expect(screen.getAllByText('页面访问热度').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('热门页面(近24h)').length).toBeGreaterThan(0)
+    // 标题是静态的,数据要等 query 落地 —— 这里等的是「数据真的绑上屏」。
+    await waitFor(() => expect(screen.getByText('/ecosystem')).toBeTruthy())
+    // 每行同时给「多少次 / 多少人」:fixture 里 /ecosystem = PV 90 / UV 60
+    expect(document.body.textContent).toContain('90 / 60')
+    // 实时在线(近 5 分钟去重会话)在面板头
+    expect(screen.getAllByText(/在线/).length).toBeGreaterThan(0)
+    expect(screen.getByText('/admin/monitor/wallboard')).toBeTruthy()
+    expect(screen.getAllByText('前台').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('后台').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('登录页').length).toBeGreaterThan(0)
+    // 四端同表,排行里网站页面与移动端页面并列 ⇒ 端前缀必须单独成元素并着色,
+    // 否则「这个页面是谁在用」在大屏上读不出来。
+    const prefix = screen.getByText('/rn/')
+    expect(prefix.textContent).toBe('/rn/')
+    expect(prefix.className).toContain('violet')
+    // 占比条:90 PV / 500 总 PV = 18%(分母取不到时不得画条 —— 那是把"没判"画成"零")
+    expect(document.querySelector('div[style*="18%"]')).toBeTruthy()
+  })
+
+  it('渲染交互热度:事件分布、热门点击与平均停留', async () => {
+    renderWallboard()
+    await waitFor(() => expect(screen.getAllByText('交互热度').length).toBeGreaterThan(0))
+    expect(screen.getByText('page_view')).toBeTruthy()
+    expect(screen.getByText('打开设置')).toBeTruthy()
+    expect(screen.getByText(/平均停留/)).toBeTruthy()
+  })
+
+  it('渲染各端使用量:网站/移动端/小程序/浏览器插件四行都按接口字段绑定', async () => {
+    renderWallboard()
+    await waitFor(() => expect(screen.getAllByText('各端使用量').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('网站').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('移动端').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('小程序').length).toBeGreaterThan(0)
+    // 插件端行(2026-10-26 补):新增一端时必须在这里被点名,漏挂一行就是漏统计一整端
+    expect(screen.getAllByText('浏览器插件').length).toBeGreaterThan(0)
+    // web 行读数 PV 4000 / UV 280(读数走 fmtInt,千分位)
+    await waitFor(() => expect(document.body.textContent).toContain('4,000'))
+    expect(document.body.textContent).toContain('/ 280')
+  })
+
+  it('渲染访客构成:新访客/回访/回访率三行按接口字段绑定', async () => {
+    renderWallboard()
+    await waitFor(() => expect(screen.getAllByText('访客构成').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('新访客').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('回访访客').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('回访率').length).toBeGreaterThan(0)
+    // 逐行绑值:11 / 39 = 28.21% ⇒ 界面读 28%;面板头给出窗口访客总数 39
+    expect(screen.getAllByText('新访客')[0]?.parentElement?.textContent).toBe('新访客28')
+    expect(screen.getAllByText('回访访客')[0]?.parentElement?.textContent).toBe('回访访客11')
+    expect(screen.getAllByText('回访率')[0]?.parentElement?.textContent).toBe('回访率28%')
+    await waitFor(() => expect(document.body.textContent).toContain('窗口访客 39'))
+  })
+
+  it('访客构成这条腿取不到时读数落“—”,不得兜成 0', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : { success: true, data: { ...overview, audience: null } }) as never)
+    // 本仓 RTL 不自动 cleanup ⇒ 前一例的 DOM 仍在 body 里,必须按本次 container 取范围
+    const view = renderWallboard()
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('访客构成').length).toBeGreaterThan(0),
+    )
+    // 按行断言(整屏 textContent 会被别处的百分比干扰)
+    expect(within(view.container).getAllByText('回访率')[0]?.parentElement?.textContent).toBe(
+      '回访率—',
+    )
+    expect(within(view.container).getAllByText('新访客')[0]?.parentElement?.textContent).toBe(
+      '新访客—',
+    )
+  })
+
+  it('各端零量时分"今日静默"与"90日未上报"两种说法(不把未接入读成没人用)', async () => {
+    const { container } = renderWallboard()
+    // 面板标题与四行是静态铺出来的(traffic 未到也画)⇒ 必须等真读数上屏再判标记
+    await waitFor(() => expect(within(container).getByText(/4,000/)).toBeTruthy())
+    const exRow = within(container).getAllByText('浏览器插件')[0]?.parentElement?.textContent ?? ''
+    expect(exRow).toContain('今日静默')
+    const mpRow = within(container).getAllByText('小程序')[0]?.parentElement?.textContent ?? ''
+    expect(mpRow).toContain('90日未上报')
+    // 有量的端不打状态标记:标记只属于"这一行零量"的情况
+    const webRow = within(container).getAllByText('网站')[0]?.parentElement?.textContent ?? ''
+    expect(webRow).not.toContain('今日静默')
+  })
+
+  it('渲染会话质量:会话数/单页占比/人均页数/深度分档/落地页都在屏上', async () => {
+    const { container } = renderWallboard()
+    await waitFor(() =>
+      expect(within(container).getAllByText('会话质量').length).toBeGreaterThan(0),
+    )
+    // 单页会话占比 4/6 = 66.67% ⇒ 界面读 67%(不是 0.67,也不是"—")
+    await waitFor(() =>
+      expect(within(container).getAllByText('单页会话占比')[0]?.parentElement?.textContent).toBe(
+        '单页会话占比67%',
+      ),
+    )
+    // 人均浏览页数 1.8
+    expect(within(container).getAllByText('人均浏览页数')[0]?.parentElement?.textContent).toBe(
+      '人均浏览页数1.8',
+    )
+    // 深度四档图例(服务端分档,前端只渲染)
+    expect(within(container).getAllByText('1 屏').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('2-3 屏').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('4-7 屏').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('8+ 屏').length).toBeGreaterThan(0)
+    // 落地页行 = 会话数 / 其中只停这一页的会话数
+    const pricing = within(container).getAllByText('/pricing')
+    expect(pricing.some((el) => (el.parentElement?.textContent ?? '').includes('2 / 1'))).toBe(true)
+    // 面板头给出窗口会话总数
+    expect(within(container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0)
+  })
+
+  it('会话质量这条腿取不到时读数落"—",不得兜成 0', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: { ...overview.traffic, sessionQuality: null },
+            },
+          }) as never)
+    const view = renderWallboard()
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('会话质量').length).toBeGreaterThan(0),
+    )
+    expect(within(view.container).getAllByText('单页会话占比')[0]?.parentElement?.textContent).toBe(
+      '单页会话占比—',
+    )
+    expect(within(view.container).getAllByText('人均浏览页数')[0]?.parentElement?.textContent).toBe(
+      '人均浏览页数—',
+    )
+  })
+
+  it('渲染访问来源:四类来源与主机榜都按接口字段绑定', async () => {
+    const { container } = renderWallboard()
+    // 面板标题是静态铺出来的 ⇒ 等**真实读数**上屏(主机榜有行)才判,否则会早一步
+    await waitFor(() =>
+      expect(within(container).getAllByText('github.com').length).toBeGreaterThan(0),
+    )
+    // 分类桶四行(本机开发必须与外部来源分开 —— 它是本机流量,不是渠道)
+    expect(within(container).getAllByText('直接访问').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('本机开发').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('站内').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('外部来源').length).toBeGreaterThan(0)
+    // 面板头给出窗口总访问
+    expect(within(container).getAllByText('近24h 访问 500').length).toBeGreaterThan(0)
+  })
+
+  it('访问来源这条腿取不到时一个来源格都不画(不得兜成 0)', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: { ...overview.traffic, visitSource: null },
+            },
+          }) as never)
+    const view = renderWallboard()
+    // 先等**别的** traffic 腿落地(证明是来源腿取不到,不是整块数据没到)
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0),
+    )
+    // 取不到 ⇒ 桶行与主机行都不渲染(画成 0 就是把「没判」说成「没有流量」)
+    expect(within(view.container).queryAllByText('直接访问')).toHaveLength(0)
+    expect(within(view.container).queryAllByText('github.com')).toHaveLength(0)
+  })
+
+  it('渲染页面流转:相邻页对按「从哪页到哪页 + 次数」绑定', async () => {
+    const { container } = renderWallboard()
+    await waitFor(() =>
+      expect(within(container).getAllByText('/sso/login').length).toBeGreaterThan(0),
+    )
+    // 面板头给出窗口跳转总次数
+    expect(within(container).getAllByText('近24h 跳转 57 次').length).toBeGreaterThan(0)
+    // 次数与页对在同一行里(12 次的那一跳)
+    const sso = within(container).getAllByText('/sso/login')
+    expect(sso.some((el) => (el.parentElement?.textContent ?? '').includes('12'))).toBe(true)
+  })
+
+  it('页面流转这条腿取不到时不画任何页对(不得兜成 0)', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: { ...overview.traffic, visitTransition: null },
+            },
+          }) as never)
+    const view = renderWallboard()
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0),
+    )
+    expect(within(view.container).queryAllByText('/sso/login')).toHaveLength(0)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -68,6 +68,16 @@ export async function setDesktopRefreshToken(token: string | null): Promise<void
   }
   // seal 返回 null = 本会话拿不到可用密钥 ⇒ 写明文(等价改造前),下次轮转再补加密
   const sealed = await sealVaultText('refresh-token', token)
-  await writeVaultEntry(STORE_FILE, REFRESH_TOKEN_KEY, sealed ?? token)
+  const value = sealed ?? token
+  const ok = await writeVaultEntry(STORE_FILE, REFRESH_TOKEN_KEY, value)
+  // 2026-10-26:写失败此前被丢弃。桌面端"下次启动能不能自动登录"全押在这颗键上,
+  // 静默失败的用户可见表现就是"我明明登录过,重启却要重登"。先重试一次(本机瞬时 I/O 锁
+  // 与 EPERM 是已知常态),仍失败必须喊出来 —— 不伪造成功,也不改既有返回类型。
+  if (!ok) {
+    const retried = await writeVaultEntry(STORE_FILE, REFRESH_TOKEN_KEY, value)
+    if (!retried) {
+      console.error('[desktop-vault] 保存 refreshToken 失败:本次会话仍可用,但下次启动需要重新登录')
+    }
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

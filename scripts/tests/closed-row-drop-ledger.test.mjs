@@ -73,13 +73,19 @@ test('①b 留痕:空集不落盘、也绝不写空条目(台账里不许出现�
 })
 
 test('①c 留痕必须在落地成功之后——先写台账后落地会把"面上还在"说成"已删"(方向反了)', () => {
+  // 锁形状更新(随 5588819fa8 留痕腿重构):留痕不再排在 refused 上报之后,而是
+  // **落地派发之后、被 if (advanced) 门控**(HEAD 真的推进才写;exit≠0 但已推进照写)。
   const rejectedAt = SWEEPER_SRC.indexOf("why: 'landing-rejected-'")
+  const landAt = SWEEPER_SRC.indexOf("'scripts/object-space-land.mjs'")
+  const advancedAt = SWEEPER_SRC.indexOf('if (advanced)')
   const ledgerAt = SWEEPER_SRC.indexOf('appendDropLedger(part.strippable')
   assert.ok(rejectedAt > 0, '源码里必须还有落地被拒那一支(找不到说明契约被改,本锁要跟着改)')
+  assert.ok(landAt > 0, '源码里必须有落地器派发(找不到说明契约被改,本锁要跟着改)')
+  assert.ok(advancedAt > 0, '源码里必须有 if (advanced) 门控——留痕凭据是 HEAD 推进,不是退出码')
   assert.ok(ledgerAt > 0, '源码里必须有留痕调用(被别席删了 ⇒ 这里红)')
   assert.ok(
-    ledgerAt > rejectedAt,
-    `留痕(${ledgerAt})必须排在落地被拒分支(${rejectedAt})之后:落地失败而先写台账 = 教复洁器去剔别人的行`,
+    landAt < advancedAt && advancedAt < ledgerAt,
+    `留痕(${ledgerAt})必须排在落地派发(${landAt})之后且被 if (advanced)(${advancedAt})门控:落地失败而先写台账 = 教复洁器去剔别人的行`,
   )
   assert.ok(
     /复洁器误剔/.test(SWEEPER_SRC) && /丢别人的行/.test(SWEEPER_SRC),

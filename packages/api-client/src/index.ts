@@ -1,5 +1,9 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+export * from './endpoints/ai-world.js'
+export * from './endpoints/edu-ai.js'
+export * from './endpoints/student.js'
+export * from './endpoints/pdf-service.js'
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 export {
@@ -133,7 +137,7 @@ export type {
   ToolApprovalExecEnvironment,
   ToolApprovalNetworkTarget,
 } from './client.js'
-export { projectToolApprovalEnvFacts } from './client.js'
+export { projectToolApprovalEnvFacts, projectToolApprovalExpiredFact } from './client.js'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
 export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
@@ -340,6 +344,8 @@ export * from './endpoints/subscription.js'
 export * from './endpoints/system.js'
 // 公开状态页端点(2026-10-21 立,守门 check-direct-backend-calls 新增违规收口)
 export * from './endpoints/status.js'
+// 工作流域端点(2026-10-26 Wave1 补屏立,workflows 域 web→RN 对齐)
+export * from './endpoints/workflows.js'
 export * from './endpoints/voice-stt.js'
 export * from './endpoints/teacher.js'
 export * from './endpoints/token.js'
@@ -420,6 +426,8 @@ export * from './endpoints/patrol.js'
 export * from './endpoints/admin-github-app.js'
 // D43 语音笔记端点(2026-10-18,第②格):各端不得再在端内裸 fetch /api/voice-notes。
 export * from './endpoints/voice-note.js'
+export * from './endpoints/visit-tracking.js'
+export * from './endpoints/analytics.js'
 
 // D77(2026-09-25 立):FormRequestEvent 对话流业务表单请求帧 —— 入口漏列则
 // @ihui/shared 的 sse-parse.ts 具名 import 悬空(守门 98)。独立行落地:本导出
@@ -430,3 +438,6 @@ export * from './endpoints/voice-note.js'
 // ⇒ 本行是**全模块唯一**的那一条;任何席要加同名导出,先 `grep -n` 本行再动手,
 // 不得"看着上面没有就再加一行"(旁证:守门 98 判的是悬空,不判重复 —— 这一型在它射程外)。
 export type { FormRequestEvent } from './client.js'
+export * from './endpoints/support.js'
+export * from './endpoints/tags.js'
+export * from './endpoints/teams.js'

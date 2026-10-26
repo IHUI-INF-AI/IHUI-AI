@@ -97,4 +97,23 @@ P4 可审计治理                                →  让无人状态可控可�
 - P2：新模块缺 E2E 测试时被守门拦下；金丝雀发布异常自动回滚实测成功。
 - P3：一次真实事故后 24h 内自动生成经验条目并合入 memory/AGENTS。
 - P4：任意一次自动变更可追溯到"决策理由 + 改动 diff + 验证结果"。
+
+## 7. 装车状态（器物 → 载体，2026-10-26 核）
+
+> 「造好没装车 = 没有」：本节只记**已接线**的事实，未接线的写在最后一列。频率可用括号内环境变量覆盖（排障用）。
+
+| 器物 | 载体（谁在调度） | 频率 | 读写面 | 备注 |
+|---|---|---|---|---|
+| `auto-evolve.mjs` | `scripts/git-guardian.mjs` → `dispatchAutoEvolve()` | 60min（`IHUI_AUTO_EVOLVE_INTERVAL_MS`） | 写：派单台账 / 派发子会话 | 前置闸：`auto-evolve-gates.json` 的 `enabled` / 日预算 / 成本熔断 / 单实例锁 |
+| `auto-triage.mjs` | `dispatchAutoTriage()` | 30min（`IHUI_AUTO_TRIAGE_INTERVAL_MS`） | 写：台账登记（经 `live-doc-edit`） | 五源分诊（邮件失败 / 索引未合 / API 日志 / 告警 / 用户反馈） |
+| `dep-advisory-radar.mjs` | `dispatchDepAdvisoryRadar()` | 24h（`IHUI_DEP_RADAR_INTERVAL_MS`） | 写：通告台账 + `--register` 登票 | 依赖树升级本身仍是人工阀面（本器只派票，不跑 install/update） |
+| `check-gate-rot.mjs` | `dispatchGateRot()` | 6h（`IHUI_GATE_ROT_INTERVAL_MS`） | 只读 | `--ratchet` 差值档：只把相对基线**新增**的腐烂喊人；基线只能人工 `--write-baseline` 认账 |
+| `evolution-retro.mjs` | 被 `auto-evolve.mjs` 以 `--apply` 调用 | 随自进化轮 | 写：`lessons.jsonl` + digest | 失败票归因沉淀；决策台账缺失时如实记「未判定」，不冒充 |
+| `deploy-decision.mjs` | `deploy/win/ihui-deploy.ps1` | 每次部署 | 写：`.ihui-agent/deploy-decisions.jsonl` | 出口固定六值闭集（pass / pass-unproven / pass-entry-broken / rollback / manual-rollback / build-fail） |
+| `scripts/lib/judgement-libs.json` | `scripts/root-guard.mjs`（O6501 根护栏） | 每次改动 | 封存哈希 | 改动须 `--unlock --reason` → 改 → `--seal --reason`，否则部署环 fail-closed |
+
+调度挂点有两处，语义同格（健康轮次内 + 非提交窗口）：`main()` 的**单轮**路径与本机实际载体
+`startDaemon().tick()`；本机 nssm 服务 `IHUI-GIT-GUARD` 跑的是 `--daemon`，只挂 `main()` 等于永不执行，
+故两条腿都必须接（2026-10-26 补齐 daemon 腿）。节流戳两腿共用，不会重复派发。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

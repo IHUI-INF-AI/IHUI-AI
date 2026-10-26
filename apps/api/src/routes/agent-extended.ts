@@ -342,7 +342,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         parsed.data.id,
         bodyParsed.data,
       )
-      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
+      // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+      return reply.send(
+        success(row ? { ...row, updated: true } : { id: parsed.data.id, updated: false }),
+      )
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '更新需求任务失败'))
@@ -486,7 +489,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         return reply.status(403).send(error(403, '无权操作他人记录'))
       }
       const row = await rawUpdate('agent_upload', uploadCols, parsed.data.id, bodyParsed.data)
-      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
+      // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+      return reply.send(
+        success(row ? { ...row, updated: true } : { id: parsed.data.id, updated: false }),
+      )
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '更新上传记录失败'))
@@ -1278,7 +1284,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         parsed.data.id,
         bodyParsed.data,
       )
-      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
+      // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+      return reply.send(
+        success(row ? { ...row, updated: true } : { id: parsed.data.id, updated: false }),
+      )
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '更新规则参数失败'))

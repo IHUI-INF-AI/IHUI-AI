@@ -19,7 +19,14 @@
 // 全程只读真仓;临时物一律落 .ihui-agent/tmp/p2-13-diag/,删除前校验路径前缀。
 // =============================================================================
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { delimiter, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
@@ -273,7 +280,9 @@ test('T5 采集库产三件输入,且不吃掉失败退出码', (t) => {
     `ihui_diag_result failed "unit" '带"引号" 和\\反斜杠'`,
     // 健康检查脚本不存在 → 必须在日志里留一行痕迹,不得静默
     `ihui_diag_health_json "${dir}/nope.sh" "${dir}/h.json"`,
-    'IHUI_AI_KEY= ihui_diag_run "无 key 必须静默跳过"',
+    // IHUI_DIAG_NOTIFY_EXTRA=--dry-run:走**真出口**但不碰网络、不写出口台账(出口的 dry-run 档)。
+    // 没有这一档,自检每跑一次就真寄一封运维邮件(§5e 唯一到人通道)。
+    'IHUI_DIAG_NOTIFY_EXTRA=--dry-run IHUI_AI_KEY= ihui_diag_run "无 key 必须静默跳过"',
     'echo DONE',
   ].join('\n')
   const r = bash(script)

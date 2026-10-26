@@ -10,7 +10,7 @@
 // - 两轴成员/默认档:SANDBOX_MODES / APPROVAL_POLICIES / *_DEFAULT
 // - 预设三档:APPROVAL_PRESETS
 // - 单轴 → 双轴:PERMISSION_MODE_TO_AXIS(**null = 无等价档,fail-closed 不伪造**)
-// 本文件只做"显式优先、缺省派生、认不出就不发"的优先级拼装,不新增任何字面量档位。
+// 本文件只做"显式就发、缺省就不发、认不出就不发"的拼装,不新增任何字面量档位。
 //
 // 优先级与后端裁决器(`apps/ai-service/app/core/permission_axis_gate.py` 的
 // resolve_axis_resolution)同序:显式双轴 > config profile > 单轴映射 > 都没有。
@@ -18,6 +18,12 @@
 //
 // 方向纪律(与后端同一条):**不补默认档**。只声明一轴时另一轴保持未指定(undefined),
 // 把"我没选沙箱"补成 read-only 会把"只要不弹审批"读成"禁止一切写操作"。
+//
+// 2026-10-25 订正(79 号票前端接线席):**未显式选择 ⇒ 请求里一条双轴字段都不发**,
+// 由后端"两根轴都缺省才接管"的裁决器自己按单轴派生。此前本文件在前端替后端把
+// 单轴映射派生好再发出去 —— 值虽等价,但契约上等于前端抢占了下游缺省语义
+// (后端 profile / 部署级配置一旦参与,前端这份派生就把它顶掉了)。界面展示仍按同一张
+// PERMISSION_MODE_TO_AXIS 派生(见 effectiveAxisPair),所以"显示的"与"后端将采用的"仍一致。
 
 import {
   PERMISSION_MODE_TO_AXIS,
@@ -39,34 +45,34 @@ export interface RequestAxisFields {
  * 本次请求实际要发出的双轴字段。
  *
  * - `explicit` 非空 ⇒ 用户在新面板里显式选过,两轴齐发(后端以显式双轴为准);
- * - `explicit` 为空 ⇒ 按单轴模式经 PERMISSION_MODE_TO_AXIS 派生。
- *   **与后端逐字节等价**:不带双轴时裁决器自己就会走同一张表(LEGACY_MODE 来源),
- *   故这里派生出去不改变任何既有行为,只是把"界面显示的"与"实际生效的"对齐;
- * - 单轴映射为 null(acceptEdits / manual)⇒ 返回 `{}`(一条也不发),
- *   绝不回退到任一预设 —— 伪造映射会把"编辑免审批"静默放宽,"全人工"静默放宽。
+ * - `explicit` 为空(未选 / 已清空)⇒ 返回 `{}`:**一条也不发**,把"缺省"留给后端
+ *   裁决器(它只在两轴都缺省时才按单轴 / config profile 接管)。前端不得替它钉死默认;
+ * - 第二个参数只为兼容既有调用点(`send-message.ts` 传的是单轴快照),请求侧不再使用:
+ *   展示侧要的派生结果见 `effectiveAxisPair`,两处共用 `PERMISSION_MODE_TO_AXIS` 同一张表。
  */
 export function resolveRequestAxes(
   explicit: AxisPair | null,
-  singleMode: unknown,
+  _singleMode?: unknown,
 ): RequestAxisFields {
+  if (!explicit) return {}
+  return { sandboxMode: explicit.sandboxMode, approvalPolicy: explicit.approvalPolicy }
+}
+
+/**
+ * 当前生效的两轴对(**展示用**);无任何可表达的取值 ⇒ null(界面须显式说明,不得假装)。
+ *
+ * 显式双轴优先;否则按单轴经 PERMISSION_MODE_TO_AXIS 派生(与后端缺省接管时的映射逐格一致)。
+ * 派生为 null(acceptEdits / manual)⇒ null,绝不回退到任一预设。
+ */
+export function effectiveAxisPair(explicit: AxisPair | null, singleMode: unknown): AxisPair | null {
   if (explicit) {
     return { sandboxMode: explicit.sandboxMode, approvalPolicy: explicit.approvalPolicy }
   }
   const modeId = normalizePermissionMode(singleMode)
-  if (modeId === null) return {}
+  if (modeId === null) return null
   const pair = PERMISSION_MODE_TO_AXIS[modeId]
-  if (!pair) return {}
+  if (!pair) return null
   return { sandboxMode: pair.sandboxMode, approvalPolicy: pair.approvalPolicy }
-}
-
-/** 当前生效的两轴对(展示用);无任何可表达的取值 ⇒ null(界面须显式说明,不得假装)。 */
-export function effectiveAxisPair(
-  explicit: AxisPair | null,
-  singleMode: unknown,
-): AxisPair | null {
-  const fields = resolveRequestAxes(explicit, singleMode)
-  if (fields.sandboxMode === undefined || fields.approvalPolicy === undefined) return null
-  return { sandboxMode: fields.sandboxMode, approvalPolicy: fields.approvalPolicy }
 }
 
 /**
@@ -75,10 +81,7 @@ export function effectiveAxisPair(
  * 只在用户**主动点某一轴**时用(点一轴 = 把两轴都定下来,另一轴沿用眼前显示的那档),
  * 默认档同样取自 @ihui/types,不在端内手写。
  */
-export function axisPairOrDefaults(
-  explicit: AxisPair | null,
-  singleMode: unknown,
-): AxisPair {
+export function axisPairOrDefaults(explicit: AxisPair | null, singleMode: unknown): AxisPair {
   return (
     effectiveAxisPair(explicit, singleMode) ?? {
       sandboxMode: SANDBOX_MODE_DEFAULT,

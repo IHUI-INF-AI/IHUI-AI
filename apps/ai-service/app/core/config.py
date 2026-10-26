@@ -77,6 +77,18 @@ class Settings(BaseSettings):
     # D120:每次续期追加的轮数(默认 +2)。env AGENT_BUDGET_RENEWAL_TURNS 可调;
     # 续期是显式、有限、可观测的预算追加,总成本/超时/取消信号仍由既有闸门生效。
     agent_budget_renewal_turns: int = 2
+
+    # 79 号票遗留格(2026-10-25):config profiles 读取面的配置源。对标 Codex config.toml
+    # 的 [profiles.NAME] 顶层键子集(approval_policy / sandbox_mode / model);本服务以
+    # Settings 承载原文,**不另造第二份设置仓库/DB 表**。JSON 或 TOML 文本均可:
+    #   {"profile": "review", "profiles": {"review": {"sandbox_mode": "read-only"}}}
+    #   [profiles.review]
+    #   sandbox_mode = "read-only"
+    # 留空 = 没有档案 = 双轴不介入(与接线前逐字节同)。坏文本/未知档位/非法轴值由
+    # core/config_profiles.py 记 warning 并整段跳过(fail-closed,绝不补默认档)。
+    # 选档:config_profile 非空时优先于文档顶层 profile 键。env CONFIG_PROFILES / CONFIG_PROFILE。
+    config_profiles: str = ""
+    config_profile: str = ""
     # Sliding window:系统消息始终保留 + 最近 N 轮 user/assistant + 当前输入
     # 默认 6 轮,总消息数 ≤ 13(1 system + 12 turn + 1 current,实际 N*2+1)
     chat_history_window: int = 6
@@ -233,6 +245,12 @@ class Settings(BaseSettings):
     # 配置后自动写入 os.environ[HTTP_PROXY/HTTPS_PROXY],litellm/httpx 自动读取
     # 格式:http://user:pass@host:port 或 http://host:port  空字符串=不使用代理
     llm_proxy_url: str = ""
+    # 模型同步出站代理(2026-10-26 立):SYNC_PROXY_URL 落地位。model_sync 拉取
+    # 上游 /v1/models 时经此代理出网——本机对 US/EU provider(Google/Mistral/
+    # HuggingFace/Azure-GitHub/Cloudflare)无直连出口(直连超时/本地 DNS 失败),
+    # 仅 Clash 7897 可通。空=直连。仅供 MODEL_SYNC 客户端显式使用,
+    # 不影响对话出网(llm_proxy_url)与内部调用。
+    sync_proxy_url: str = ""
 
     # P3-3 OpenRouter 403 代理 + failover(2026-07-30 立)
     # OpenRouter 对国内 IP / 非浏览器 UA 常返回 403 Forbidden(WAF 拦截),

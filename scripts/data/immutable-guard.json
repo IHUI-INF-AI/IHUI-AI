@@ -1,0 +1,38 @@
+[
+  {
+    "path": "scripts/guardian-runner.mjs",
+    "kind": "gate-registry",
+    "why": "全部守门的注册表：改一行就能把任何一道门降档/换脚本/放宽 skipEnv/整条抹掉，而没有任何一道门读自己（2026-10-21 core.hooksPath 指向不存在目录、静默跑 0 个钩子两天即此型）",
+    "reviewBy": "2027-06-30"
+  },
+  {
+    "path": "AGENTS.md",
+    "kind": "rule-doc",
+    "why": "全仓规则正文：铁律段被悄悄改写等于把判据连同判据的解释一起换掉，存量门只判代码不判规则文本",
+    "reviewBy": "2027-06-30"
+  },
+  {
+    "path": "scripts/lib/",
+    "kind": "judgement-lib",
+    "why": "判据库一族（含 scripts/lib/judgement-libs.json 与全部共享纯函数实现）：多道门 import 同一份判据，改一处等于同时改掉所有调用方的尺子，而各门自己的输出看不见这次改动",
+    "reviewBy": "2027-06-30"
+  },
+  {
+    "path": "scripts/data/*-exemptions.json",
+    "kind": "judgement-lib",
+    "why": "豁免台账一族：往里面加一条就等于让某道门对某个文件放行，而门本身仍全绿（§0.7 豁免必须验过才免、且会到期）",
+    "reviewBy": "2027-06-30"
+  },
+  {
+    "path": "scripts/check-*.mjs",
+    "kind": "gate-body",
+    "why": "门体一族：删判据、把断言改成空、或整枚删除脚本，注册表要么仍指向它、要么只留下一条失效注册，提交链上没有任何门喊",
+    "reviewBy": "2027-06-30"
+  },
+  {
+    "path": "scripts/data/immutable-guard.json",
+    "kind": "gate-registry",
+    "why": "本护栏自己的受保护面清单：删掉一条就等于悄悄缩小护栏射程，所以改清单本身也必须显式声明",
+    "reviewBy": "2027-06-30"
+  }
+]

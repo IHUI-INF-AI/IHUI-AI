@@ -12,6 +12,7 @@
 // + 调度状态徽章 + 一键全部签到(跳过今日已签 + 进度)
 // + Tabs(签到记录 | 积分历史 | 积分看板,按账号过滤/加载更多)+ 录入/更新JWT/分组/设备头对话框。
 
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
 import type {
   CheckinCreditsDailyResponse,
   CheckinDeviceMapUpdateResponse,
@@ -930,7 +931,7 @@ export default function CheckinPage() {
         cookie_checkin_ok?: boolean
       }
       try {
-        probe = JSON.parse(decodeURIComponent(raw.slice('#wb_import='.length)))
+        probe = JSON.parse(safeDecodeURIComponent(raw.slice('#wb_import='.length)))
       } catch {
         clearHash()
         return

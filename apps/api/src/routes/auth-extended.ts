@@ -74,6 +74,7 @@ import {
   findUserById,
   createUser,
   updateUser,
+  revokeAllUserRefreshTokens,
   checkPhoneExists,
   checkEmailExists,
   cancelUserAccount,
@@ -405,6 +406,10 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
     return { ok: false, status: 400, message: 'refresh_token 无效或已过期' }
   const user = await findUserById(payload.userId)
   if (!user) return { ok: false, status: 404, message: '用户不存在' }
+  // 2026-10-26:禁用账号不得经 OAuth 刷新通道续命。此前这条腿只判"用户存在",
+  // 而 POST /auth/refresh 判 status !== 1 —— 两套口径下被禁用的账号仍能换新 access token,
+  // 等于绕过登录侧的禁用判定(AGENTS §5「认证不等于授权」)。与 /auth/refresh 同口径拒绝。
+  if (user.status !== 1) return { ok: false, status: 403, message: '账号已被禁用' }
   await revokeRefreshToken(rawRefreshToken)
   const tokens = await buildTokenPair({
     ...user,
@@ -1089,6 +1094,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const updatedUser = await updateUser(request.userId!, {
         passwordHash: await hashPassword(newPwd),
       })
+      // 2026-10-26:改密必须吊销该用户全部 refresh token。此前只有"重置密码"
+      // (usercenter.ts)与小程序改密(routes/auth.ts)吊销,而 web 这条改密路径改完
+      // 旧会话照旧在线 —— 密码变更在会话面上等于什么都没发生(拿到过旧凭据的设备
+      // 继续续签)。与重置密码同一出口、同一口径:已签出的 access token 仍在
+      // 15 分钟自然过期窗口内,之后必须重新登录。
+      await revokeAllUserRefreshTokens(request.userId!)
       await recordSecurityEvent(request, 'password_change')
       // updated 由委托侧 UPDATE … RETURNING 的命中行存在性派生(守门 134),不再回字面量 true。
       return reply.send(success({ success: true, updated: Boolean(updatedUser.id) }))

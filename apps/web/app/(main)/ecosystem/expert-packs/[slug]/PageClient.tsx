@@ -9,6 +9,7 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
 
 import { ViewMoreLink } from '@/components/common/view-more-link'
 import { CountBadge } from '@/components/ecosystem/count-badge'
@@ -60,12 +61,7 @@ export default function ExpertPackDetailPageClient() {
   const params = useParams<{ slug?: string | string[] }>()
   const raw = Array.isArray(params.slug) ? params.slug[0] : params.slug
   // 动态段一般已解码,但畸形百分号编码(手改地址栏)不得崩掉整页 ⇒ 兜底回原值
-  let slug = raw ?? ''
-  try {
-    slug = decodeURIComponent(slug)
-  } catch {
-    /* 保持原值 */
-  }
+  const slug = safeDecodeURIComponent(raw ?? '')
 
   const pack = findExpertPack(slug)
 

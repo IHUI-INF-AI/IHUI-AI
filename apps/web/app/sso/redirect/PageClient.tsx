@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react'
 import { resolveApiBaseUrl } from '@/lib/api-base-url'
 import { isSafeNavigationTarget, parseAllowedOrigins } from '@/lib/sso-redirect-guard'
 import { buildSsoRedirectUrl } from '@ihui/shared'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
 
 /**
  * A 套壳:output:export 不支持 cookies() + await fetch() + redirect() + searchParams: Promise SSR
@@ -69,23 +70,35 @@ export default function SsoRedirectPageClient() {
     void (async () => {
       try {
         const base = resolveApiBaseUrl()
+        const fetchMe = () =>
+          // P2-18:登录态校验走 /auth/me(httpOnly cookie 自动附带),不读 document.cookie。
+          // 不直接用 fetchApi 是为了不让通用 401 出口在这里之外再叠一层语义(见下)。
+          fetch(`${base}/api/auth/me`, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'include',
+          })
 
-        // P2-18:登录态校验改走 /auth/me(httpOnly cookie 自动附带),不再读 document.cookie
-        // 2026-09-09 0-5-f 豁免确认:SSO 认证自举场景——401 即"未登录需跳登录页"的
-        // 业务信号,若走 fetchApi 会触发 401 自动续期(此场景无有效 refresh token,徒增
-        // 一次必失败的 /auth/refresh 请求);X-Requested-With 已显式满足后端 CSRF 校验。
-        const meRes = await fetch(`${base}/api/auth/me`, {
-          method: 'GET',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          credentials: 'include',
-        })
+        let meRes = await fetchMe()
+        // 2026-10-26:access JWT 只有 15 分钟,过期是常态而非"未登录"。旧实现把任意 401
+        // 直接跳登录页 ⇒ 桌面深链 / 子项目入口隔一会儿首跳必踩。先静默续期一次再问
+        // (后端 /auth/refresh 会续种 httpOnly auth_token),仍 401 才认定会话真失效。
+        if (meRes.status === 401) {
+          const fresh = await refreshAccessTokenOnce()
+          if (fresh) meRes = await fetchMe()
+        }
 
-        if (!meRes.ok) {
+        if (meRes.status === 401) {
           // 未登录:跳登录页,登录成功后带回 redirect 继续 SSO 流程
           const loginRedirect = encodeURIComponent(
             `/sso/redirect?redirect=${encodeURIComponent(targetUrl)}&client_id=${clientId}`,
           )
           router.replace(`/sso/login?redirect=${loginRedirect}`)
+          return
+        }
+        if (!meRes.ok) {
+          // 非 401(网络/5xx)不是"未登录":不得甩进 reauth 弹窗,给可重试错误
+          if (!cancelled) setError('unavailable')
           return
         }
 
@@ -130,8 +143,8 @@ export default function SsoRedirectPageClient() {
         }
       } catch {
         if (cancelled) return
-        const nextPath = `/sso/redirect?redirect=${encodeURIComponent(targetUrl)}&client_id=${clientId}`
-        router.replace(`/?reauth=1&next=${encodeURIComponent(nextPath)}`)
+        // 网络异常同样不是"未登录":旧实现会甩到 /?reauth=1 弹登录框(误判)
+        setError('unavailable')
       }
     })()
 
@@ -146,6 +159,17 @@ export default function SsoRedirectPageClient() {
         <div className="text-center space-y-2">
           <h1 className="text-xl font-semibold">{t('notAllowed')}</h1>
           <p className="text-muted-foreground text-sm">{t('notAllowedDesc')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error === 'unavailable') {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
+        <div className="text-center space-y-2">
+          <h1 className="text-xl font-semibold">{t('unavailable')}</h1>
+          <p className="text-muted-foreground text-sm">{t('unavailableDesc')}</p>
         </div>
       </div>
     )

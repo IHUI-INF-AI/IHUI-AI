@@ -282,6 +282,10 @@ describe('D136 ④ 帧认领与传输层:帧到设备不再静默丢弃', () => 
       'args_preview',
       'danger_level',
       'session_id',
+      // D-07(2026-10-26):失效留痕两键也属"两端必须同读"的集合 —— 少读一格,
+      // 本端就会把失效帧当新审批弹卡(api-client 腿走 projectToolApprovalExpiredFact)。
+      'expired',
+      'expired_reason',
     ] as const
     for (const key of wireKeys) {
       // api-client 的 chat-stream 解析腿(权威口径)必须还在读这个键
@@ -295,6 +299,20 @@ describe('D136 ④ 帧认领与传输层:帧到设备不再静默丢弃', () => 
       'utf8',
     )
     expect(sharedParse).not.toContain("'tool-approval'")
+  })
+
+  it('D-07:失效留痕帧透传 expired 标记与原因(端上才能分流成提示而非审批卡)', () => {
+    const expiredFrame = parseToolApprovalLine(
+      'data: {"type":"tool-approval","approval_id":"ap-x","tool_name":"run_command","tool_call_id":"tc-x","args_preview":"{}","danger_level":"high","session_id":"s-1","expired":true,"expired_reason":"stream_closed"}',
+    )
+    expect(expiredFrame?.expired).toBe(true)
+    expect(expiredFrame?.expiredReason).toBe('stream_closed')
+
+    // 反向:正常审批帧不得凭空长出失效标记(缺省不折叠成 false/true)
+    const normalFrame = parseToolApprovalLine(
+      'data: {"type":"tool-approval","approval_id":"ap-y","tool_name":"run_command","tool_call_id":"tc-y","args_preview":"{}","danger_level":"high","session_id":"s-1"}',
+    )
+    expect(normalFrame?.expired).toBeUndefined()
   })
 })
 

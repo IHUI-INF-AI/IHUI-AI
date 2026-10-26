@@ -973,6 +973,14 @@ export function remoteLedgerFace({ root = ROOT, gitRun = gitRead } = {}) {
 function main() {
   const apply = process.argv.includes('--apply')
   const absorb = process.argv.includes('--absorb')
+  // 只读探针档(2026-10-25 立):派生侧问"这一轮真会动几行"。
+  // 为什么走子进程而不是让派生层 `require()` 本器 —— 本器的传递依赖里就有派生层自己
+  // (purge → plan-tasks-merge → … → lib/post-merge-ledger-sync),在 `plan-tasks-merge --heal
+  // --commit` 这类生产入口里那条环**尚未求值完毕**,require 一个环内模块会抛
+  // ERR_REQUIRE_CYCLE_MODULE;而派生层的 `loadPurgeTool()` 把一切异常折成 null(§0.3 不许冒充 0),
+  // 于是实测每一轮都读成"处置维未判定"⇒ 复清永不再派生。那是把循环掐死换成了把眼睛蒙上,
+  // 不是修法。判据的家仍然只在本器(§0.6 单一真相源),派生层只是问它,不复制它。
+  const workCountOnly = process.argv.includes('--work-count')
   // ── 门 203 同源差值校验(纯函数):清偿后不得比 HEAD 面多出「同题多号」成员键。
   // 首版缺陷的实测形状:剥注记让 146 个键从"指针行(指纹 null,不进组)"变成"有指纹的行",
   // 门 203 的棘轮把它们读成这次带进来的第二次登记。分族已改为复合主键 ∪ 指纹同源,
@@ -992,12 +1000,21 @@ function main() {
     headText = ''
   }
   if (!headText) {
+    if (workCountOnly) {
+      console.log('PURGE-WORK unjudged')
+      return 2
+    }
     console.error('❌ 取不到 HEAD:PROJECT_PLAN.md ⇒ 无法判定,不落')
     process.exit(2)
   }
   const eol = headText.includes('\r\n') ? '\r\n' : '\n'
   const lines = headText.split(/\r?\n/)
   const plan = buildPlan(lines, { absorb })
+  if (workCountOnly) {
+    // 只出一行机器可读结论;判据就是落地闸那一把(realWorkRows),不得另算一套。
+    console.log(`PURGE-WORK ${realWorkRows(lines, plan).length}`)
+    return 0
+  }
   const { stats } = plan
   console.log(
     `分类: L1 外部持有行删除=${stats.L1} L2 族内归并删除=${stats.L2} L3 纯指针删除=${stats.L3} ` +

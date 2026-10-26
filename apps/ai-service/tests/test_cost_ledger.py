@@ -19,8 +19,8 @@
 - reset / 持久化写盘读回 / round 稳定性
 - G-821 按来源增量基线:多轮累加 / 压缩下移基线 / 三条来源链独立基线 /
   单条不扣减 / 聚合幂等 / 空 session 不成链 / llm_usage_service 共用同一实现
-- G-816021/G-941 链判别维度:聚合面双链独立基线 / 未标注链退化兼容 /
-  sync 透传 chain / 生产者(AgentLoopV2 chain=)端到端四环锁
+- G-816021/G-941 链判别维度:聚合面双链独立基线 / 链别三值常量源 /
+  未标注链归入"未判定"桶且读数可见 / sync 透传 chain / 生产者(AgentLoopV2 chain=)端到端四环锁
 """
 
 from __future__ import annotations
@@ -31,6 +31,13 @@ from pathlib import Path
 import pytest
 
 from app.core.ledger_merge import COLUMN_DIRECTIONS, merge_entry
+from app.core.token_baseline import (
+    CHAIN_MAIN,
+    CHAIN_SUBAGENT,
+    CHAIN_UNKNOWN_LABEL,
+    CHAIN_WORKFLOW,
+    chain_bucket,
+)
 from app.services.agent_step_recorder import AgentStepRecorder
 from app.services.cost_ledger import CostLedger, LedgerEntry
 
@@ -597,6 +604,13 @@ def test_g816021_subagent_and_main_chain_same_prompt_hold_independent_baselines(
     agg = ld.aggregate()
     assert agg["total_tokens_in"] == 1000 + 1000 + 500 + 500 == 3000
     assert agg["total_tokens_in"] < sum(p for _, p in plan)  # 跨轮去重仍然生效
+    # G-941 验收 a:同 session、同 tool_name="llm" 的两条链各落一桶,聚合不合并
+    by_chain = agg["by_chain"]
+    assert set(by_chain) == {CHAIN_MAIN, CHAIN_SUBAGENT}
+    assert by_chain[CHAIN_MAIN]["steps"] == 2
+    assert by_chain[CHAIN_SUBAGENT]["steps"] == 2
+    assert by_chain[CHAIN_MAIN]["tokens_in"] == 1500
+    assert by_chain[CHAIN_SUBAGENT]["tokens_in"] == 1500
     # 同 tool_name="llm" 的两链在 by_tool 里合桶(by_tool 按 tool_name),
     # 但 token 总量已按链独立持基线
     assert agg["by_tool"]["llm"]["tokens_in"] == 3000
@@ -612,7 +626,53 @@ def test_g816021_entries_without_chain_keep_g821_bucketing(tmp_path: Path):
             tokens_in=prompt, tokens_out=10,
             at=f"2026-10-14T00:00:{idx:02d}Z",
         ))
-    assert ld.aggregate()["total_tokens_in"] == 1000 + 500 == 1500
+    agg = ld.aggregate()
+    assert agg["total_tokens_in"] == 1000 + 500 == 1500
+    # G-941 验收 b:缺链别的历史条目归入"未判定"桶,读数里可见且不并进主链
+    assert set(agg["by_chain"]) == {CHAIN_UNKNOWN_LABEL}
+    assert agg["by_chain"][CHAIN_UNKNOWN_LABEL]["steps"] == 2
+    assert CHAIN_MAIN not in agg["by_chain"]
+
+
+def test_g941_chain_enum_single_source_and_workflow_bucket(tmp_path: Path):
+    """链别三值的唯一常量源:workflow 必须是可识别桶,表外值落"未判定"。"""
+    assert (CHAIN_MAIN, CHAIN_SUBAGENT, CHAIN_WORKFLOW) == ("main", "subagent", "workflow")
+    assert chain_bucket(CHAIN_WORKFLOW) == CHAIN_WORKFLOW
+    assert chain_bucket("subagent-v2") == CHAIN_UNKNOWN_LABEL
+
+    ld = _ledger(tmp_path)
+    for idx, chain in enumerate((CHAIN_MAIN, CHAIN_SUBAGENT, CHAIN_WORKFLOW, "ad-hoc")):
+        ld.append(_mk(
+            f"g941-enum-{idx}", tool_name="llm", chain=chain, session_id="s-g941-enum",
+            tokens_in=1000, tokens_out=10,
+            at=f"2026-10-22T00:00:{idx:02d}Z",
+        ))
+    by_chain = ld.aggregate()["by_chain"]
+    assert set(by_chain) == {
+        CHAIN_MAIN, CHAIN_SUBAGENT, CHAIN_WORKFLOW, CHAIN_UNKNOWN_LABEL,
+    }
+    assert by_chain[CHAIN_WORKFLOW]["tokens_in"] == 1000
+
+
+def test_g941_unlabeled_legacy_row_never_joins_main_bucket(tmp_path: Path):
+    """同 session 内 main 与缺链别的历史条目不得共用基线(未判定桶自成一条链)。"""
+    ld = _ledger(tmp_path)
+    plan = [
+        ("g941-mix-main-1", CHAIN_MAIN, 1000),
+        ("g941-mix-legacy", "", 1000),
+        ("g941-mix-main-2", CHAIN_MAIN, 1500),
+    ]
+    for idx, (rid, chain, prompt) in enumerate(plan):
+        ld.append(_mk(
+            rid, tool_name="llm", chain=chain, session_id="s-g941-mix",
+            tokens_in=prompt, tokens_out=10,
+            at=f"2026-10-22T00:01:{idx:02d}Z",
+        ))
+    agg = ld.aggregate()
+    # main 链 1000 + 500;未判定链首条 1000 照计(若并进 main 会读成 1500)
+    assert agg["total_tokens_in"] == 2500
+    assert agg["by_chain"][CHAIN_MAIN]["tokens_in"] == 1500
+    assert agg["by_chain"][CHAIN_UNKNOWN_LABEL]["tokens_in"] == 1000
 
 
 def test_g816021_sync_from_recorder_carries_chain(tmp_path: Path):

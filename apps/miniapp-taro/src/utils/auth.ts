@@ -16,6 +16,7 @@ import {
 import { requestLogin } from '../stores/login-intent'
 import {
   fetchApi,
+  refreshAccessTokenOnce,
   TransientRefreshError,
   type LoginResult as SharedLoginResult,
   type AuthUser,
@@ -33,6 +34,9 @@ import {
   classifyRefreshFailureStatus,
   SESSION_LOGGED_OUT_STORAGE_KEY,
 } from '@ihui/shared/auth/auto-login-policy'
+// 2026-10-26:子路径而非包根 —— 端内多处把 '@ihui/shared/auth' 整体 mock,
+// 新增导出从包根取会撞 mock;判据/工具模块一律走各自的子路径出口。
+import { createTokenAutoRefresh, type TokenAutoRefreshHandle } from '@ihui/shared/auth/auto-refresh'
 
 // legacy underscore key (read-only for migration); new key uses hyphen via USER_INFO_STORAGE_KEY
 const USER_INFO_KEY_LEGACY = 'ihui_user_info'
@@ -211,6 +215,31 @@ export function expireAuth(): void {
 }
 
 /** 是否已登录 */
+/**
+ * 主动续期(2026-10-26)。
+ *
+ * 此前小程序只有 401 兜底:空闲超过 15 分钟后的第一次操作必先失败一次,流式对话与
+ * ai-service 接口连这层兜底都没有。周期检查(默认 60s)在剩余寿命 ≤ 5 分钟时主动换新,
+ * 刷新实现复用 api-client 的全局单飞(与 401 拦截器共享 in-flight),不新增第二个刷新源。
+ * 小程序切后台时定时器会被暂停,回前台后的下一次检查自然补上错过的窗口。
+ */
+let autoRefresh: TokenAutoRefreshHandle | null = null
+
+export function startTokenAutoRefresh(): void {
+  if (autoRefresh) return
+  autoRefresh = createTokenAutoRefresh({
+    getToken,
+    refresh: () => refreshAccessTokenOnce(),
+    isSessionLoggedOut,
+  })
+  autoRefresh.start()
+}
+
+export function stopTokenAutoRefresh(): void {
+  autoRefresh?.stop()
+  autoRefresh = null
+}
+
 export function isLoggedIn(): boolean {
   return !!getToken()
 }
@@ -311,12 +340,19 @@ export async function refreshAccessToken(): Promise<string | null> {
     },
   )
   if (!res.success) {
-    if (classifyRefreshFailureStatus(res.status) === 'transient') throw new TransientRefreshError()
+    // 2026-10-26:陈旧副本(stale-sibling)回 401 但服务端未否定凭据 ⇒ 按瞬时失败处理
+    if (classifyRefreshFailureStatus(res.status, res.errorCode) === 'transient') {
+      throw new TransientRefreshError()
+    }
     return null
   }
   if (res.data?.accessToken) {
-    setToken(res.data.accessToken)
+    // 2026-10-26:先落 refreshToken 再落 access。两枚是两次同步写,中间被杀(小程序宿主
+    // 回收/崩溃)会留下"access 新、refresh 旧"的组合 —— 旧的已被服务端轮转吊销,之后每次
+    // 续期都撞 stale-sibling(只拒绝本次、不吊销),这条链再也换不出新凭据,只能重登。
+    // 反过来"refresh 新、access 旧"是能自愈的:access 过期后 401 拦截器拿新 refresh 续上。
     if (res.data.refreshToken) setRefreshToken(res.data.refreshToken)
+    setToken(res.data.accessToken)
     return res.data.accessToken
   }
   // success 但缺 accessToken:契约异常,保守按失败处理(不抛,不写凭据)

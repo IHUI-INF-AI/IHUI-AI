@@ -43,7 +43,7 @@ def client():
 
 
 def test_persona_contract_dataclass_fields():
-    """PersonaContract 含 input_schema + output_schema 两个字段。"""
+    """PersonaContract 含 input_schema + output_schema(以及 D01 新增的 tools)。"""
     c = PersonaContract(input_schema={"a": 1}, output_schema={"b": 2})
     assert c.input_schema == {"a": 1}
     assert c.output_schema == {"b": 2}
@@ -57,10 +57,87 @@ def test_persona_contract_is_dataclass():
 
 
 def test_persona_contract_field_count():
-    """PersonaContract 恰好 2 个字段。"""
+    """PersonaContract 恰好 3 个字段(input/output + D01 的工具白名单摘要)。"""
     import dataclasses
 
-    assert len(dataclasses.fields(PersonaContract)) == 2
+    assert len(dataclasses.fields(PersonaContract)) == 3
+
+
+def test_persona_contract_tools_default_empty():
+    """D01:tools 是可省略字段 —— 只给契约的旧调用点构造出来仍是空元组。"""
+    c = PersonaContract(input_schema={"a": 1}, output_schema={"b": 2})
+    assert c.tools == ()
+
+
+# =============================================================================
+# D01 对话内 Agent 选择器运行时并入(persona_catalog / chat hint / 工具并集)
+# =============================================================================
+
+
+def test_persona_catalog_is_projection_of_registry():
+    """目录投影与注册表一一对应:不新造名单,顺序/名字/工具都来自 PERSONAS_CONTRACTS。"""
+    from app.services.persona_registry import persona_catalog
+
+    catalog = persona_catalog()
+    assert [item["name"] for item in catalog] == list(PERSONAS_CONTRACTS.keys())
+    for item in catalog:
+        contract = PERSONAS_CONTRACTS[item["name"]]
+        assert item["description"] == contract.input_schema.get("description", "")
+        assert item["tools"] == list(contract.tools)
+        assert isinstance(item["tools"], list)
+
+
+def test_every_persona_declares_tools():
+    """D01:每个 persona 都要有非空工具白名单,否则选择器展示不出"工具摘要"。"""
+    for name, contract in PERSONAS_CONTRACTS.items():
+        assert contract.tools, f"{name} 缺工具白名单"
+
+
+def test_persona_chat_hint_mentions_persona_and_tools():
+    """选中的 persona 说明:点名 persona、带契约 required 与工具清单。"""
+    from app.services.persona_registry import build_persona_chat_hint
+
+    hint = build_persona_chat_hint("coder")
+    assert hint is not None
+    assert "Persona active: coder" in hint
+    assert "affectedFiles" in hint  # input required
+    assert "verification" in hint  # output required
+    assert "file_edit" in hint  # 工具白名单
+
+
+def test_persona_chat_hint_unknown_returns_none():
+    """未知 persona / 空串 ⇒ None(零行为变化)。"""
+    from app.services.persona_registry import build_persona_chat_hint
+
+    assert build_persona_chat_hint("nonexistent") is None
+    assert build_persona_chat_hint("") is None
+
+
+def test_merge_persona_tools_unions_without_duplicates():
+    """并集:调用方工具保留在前、persona 工具追加且去重。"""
+    from app.services.persona_registry import merge_persona_tools
+
+    merged = merge_persona_tools("coder", ["read_file", "web_search"])
+    assert merged[:2] == ["read_file", "web_search"]
+    assert "file_edit" in merged
+    assert merged.count("read_file") == 1
+
+
+def test_merge_persona_tools_none_input_still_yields_persona_tools():
+    """调用方没给工具 ⇒ 仍拿到 persona 白名单(用户显式选专家是明确意图)。"""
+    from app.services.persona_registry import merge_persona_tools
+
+    merged = merge_persona_tools("debugger", None)
+    assert merged is not None
+    assert "run_command" in merged
+
+
+def test_merge_persona_tools_unknown_persona_passthrough():
+    """未知 persona ⇒ 原样返回(None 仍是 None,不因拼错 id 突然给工具)。"""
+    from app.services.persona_registry import merge_persona_tools
+
+    assert merge_persona_tools("nonexistent", None) is None
+    assert merge_persona_tools("nonexistent", ["a"]) == ["a"]
 
 
 # =============================================================================

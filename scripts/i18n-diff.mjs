@@ -48,6 +48,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { execSync } from 'node:child_process'
 import { flagValue } from './lib/flag-value.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -286,13 +287,9 @@ function collectLeafEntries(obj, prefix = '') {
 
 function getStagedLocales() {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
-      cwd: ROOT,
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带绝对路径 git + safe.directory
+    // + core.quotepath=false + -C ROOT + windowsHide + 显式 stdio,原 cwd/stdio/windowsHide 选项撤除)
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
     const staged = output.split('\n').filter(Boolean)
     const locales = new Set()
     for (const f of staged) {

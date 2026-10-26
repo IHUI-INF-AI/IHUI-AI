@@ -27,13 +27,12 @@
  *   node scripts/check-rounded-full.mjs --staged   (pre-commit, 新增违规则 exit 1)
  *   node scripts/check-rounded-full.mjs             (全量扫描报告, exit 0)
  */
-import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { boxShape, boxDims, constsForLines, ownShortSidePx } from './lib/box-geometry.mjs'
 import { radiusLookup, radiusPxInLine } from './lib/radius-tokens.mjs'
-import { catBatch } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -323,12 +322,9 @@ function getStagedAddedLines() {
   const result = new Map()
   let output
   try {
-    output = execSync('git diff --cached -U0 --diff-filter=ACM --no-color', {
-      encoding: 'utf8',
-      cwd: ROOT,
+    // 派生统一走取材层(G-54):编码 / 显式 stdio / windowsHide / maxBuffer / timeout 由 gitRaw 提供。
+    output = gitRaw(['diff', '--cached', '-U0', '--diff-filter=ACM', '--no-color'], ROOT, {
       maxBuffer: 50 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
     })
   } catch {
     return result
@@ -374,12 +370,7 @@ function getStagedAddedLines() {
 
 function getStagedFiles() {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
     return output
       .split('\n')
       .filter(Boolean)
@@ -422,15 +413,11 @@ if (isStaged) {
    */
   let listing
   try {
-    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-    listing = execSync('git ls-tree -r --name-only HEAD', {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    encoding: 'utf8',
-    cwd: ROOT,
-    maxBuffer: 1 << 27,
-    windowsHide: true,
-    timeout: 120000,
-  })
+    // 枚举同走取材层(§0.4 清单与内容同面同轮;显式 stdio 由 gitRaw 统一提供,免 EBUSY 病窗)。
+    listing = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], ROOT, {
+      maxBuffer: 1 << 27,
+      timeout: 120000,
+    })
   } catch (e) {
     /**
      * git 问不到 ⇒ **"无法判定"**,不是"通过"。旧写法让未捕获异常直接 crash 并把整段

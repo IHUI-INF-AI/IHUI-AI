@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "note": "决策链审计器(scripts/audit-decision-chain.mjs)的唯一真相源:三本决策台账的路径与语义字段映射,字段数组按优先级排列。路径相对仓库根(--root 可改根)。任一源取不到/读不出 ⇒ 审计器判『未判定』并点名原因,不得当作空账本记绿(AGENTS §0.3)。新增台账必须在此登记,不得在脚本里再写一份路径/字段。",
+  "ticketNoPatterns": ["\\b([GDPW]-\\d{2,})\\b", "\\b(P[0-3])\\b"],
+  "sources": [
+    {
+      "id": "auto-evolve",
+      "label": "自进化派发台账",
+      "path": ".ihui-agent/state/auto-evolve-ledger.jsonl",
+      "fields": {
+        "at": ["ts"],
+        "kind": ["action"],
+        "actor": ["mode"],
+        "ticketKey": ["ticketKey"],
+        "ticketFace": ["ticketLine"],
+        "why": ["why", "note"],
+        "change": ["ticketLine", "action"],
+        "gateReadout": ["exitCode", "durationMs"],
+        "commit": []
+      }
+    },
+    {
+      "id": "safe-commit",
+      "label": "提交门台账",
+      "path": ".ihui-agent/state/safe-commit-attestation.jsonl",
+      "fields": {
+        "at": ["ts"],
+        "kind": ["kind"],
+        "actor": ["source"],
+        "ticketKey": ["ticketKey"],
+        "ticketFace": ["ticketLine", "ticket"],
+        "why": ["why", "reason"],
+        "change": ["commitFiles", "declaredFiles"],
+        "gateReadout": [
+          "executed",
+          "totalChecks",
+          "blockingFailed",
+          "gatesRan",
+          "hookSkipped",
+          "failedGates"
+        ],
+        "commit": ["landedSha"]
+      }
+    },
+    {
+      "id": "deploy",
+      "label": "部署决策台账",
+      "path": ".ihui-agent/deploy-decisions.jsonl",
+      "fields": {
+        "at": ["ts"],
+        "kind": ["action"],
+        "actor": ["host", "pid"],
+        "ticketKey": ["ticketKey"],
+        "ticketFace": ["ticketLine", "ticket"],
+        "why": ["reason"],
+        "change": ["action", "rollbackBuildId"],
+        "gateReadout": ["gateVerdict", "failDims", "shadowRc"],
+        "commit": ["sha", "prevSha"]
+      }
+    }
+  ]
+}

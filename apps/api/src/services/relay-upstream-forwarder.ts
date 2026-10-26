@@ -17,12 +17,30 @@
  * - 返回 ok:false = 有渠道但全部失败 → 调用方仍回退 ai-service(双通道韧性)
  * - 流式:仅在「首字节到达前」failover;一旦开始读流不再切换(OpenAI/OneAPI 同款语义)
  * - 模型名:传给上游的是 DB 原始 model_id(去 LiteLLM 前缀),与 ai_model_config_models 一致
+ *
+ * 2026-10-26 追加(静默回落必须被量到):上面那两条"→ 回退 ai-service"此前一行日志、
+ * 一个计数都没有 ⇒ "号池打光"与"上游一切正常"同形。现在三处回落点(渠道查询抛错 /
+ * key 池候选为 0 / 账号池没给出结果)各记一次
+ * `ihui_relay_upstream_fallback_total{reason}` + 一条 5 分钟节流的 warn(带 provider
+ * 与"为什么回落"与下一步)。**回落行为与返回值语义逐字未变**,缺的从来只是可见性。
+ * 账号池侧那处 `catch { return null }` 住在 relay-account-forwarder.ts(本次禁改文件),
+ * 所以那一格的可见性走两条侧路:本层量"结果=没结果"(reason=account_pool_declined),
+ * 加上 stats 层每 5 分钟按 provider 量容量归零(ihui_relay_account_pool_zero_capacity
+ * + warn),不需要动它一根手指。
  */
 import type { SelectedChannelKey } from './relay-channel-router.js'
 export type { SelectedChannelKey }
 import { selectChannelCandidates, recordChannelResult } from './relay-channel-router.js'
 // 账号池回落(2026-10-22):无渠道候选时尝试第三方 AI IDE 账号池(trae/workbuddy/codearts)
 import { forwardToAccountPool } from './relay-account-forwarder.js'
+// 静默回落的可观测面(2026-10-26):计数走业务指标族的唯一出口,provider 归属走号池快照
+// (同一把 isRelayPoolRowSchedulable 尺子,带 5 秒缓存,只在回落这一格里才问一次)
+import { logger } from '../utils/logger.js'
+import {
+  recordRelayUpstreamFallback,
+  type RelayUpstreamFallbackReason,
+} from '../plugins/business-metrics.js'
+import { getRelayPoolLiveSnapshot } from './relay-pool-stats-service.js'
 // 格②(2026-09-26)：耗时样本唯一出口——单调钟测量 × 墙钟交叉校验
 import { startStopwatch } from '../utils/elapsed-ms.js'
 // 插件系统(2026-09-17,补强 59):upstream_header_inject 解释器接线(带 30s 缓存,失败降级不注入)
@@ -137,6 +155,69 @@ function upstreamEndpointUrl(baseUrl: string, endpoint: 'chat' | 'images'): stri
 
 const MAX_CANDIDATES = 3 // 逐请求 failover 最多尝试的渠道数
 
+/**
+ * warn 日志的节流窗(2026-10-26)。
+ *
+ * 为什么计数器不节流、而日志必须节流:零渠道配置的站点(纯 ai-service 链路)**每个请求**
+ * 都会走 `candidates.length === 0` 这一格。计数每一次都要记(否则 `increase()` 读出的是
+ * 被压过的下界,不是回落次数);日志若每一条都发,就是把"回落"这种长期态变成刷屏,
+ * 而刷屏的正解从来不是"少打几条",是让人看得见第一次(AGENTS §5e-3 同一条反风暴纪律)。
+ */
+const FALLBACK_WARN_TTL_MS = 300_000
+/** 节流表基数帽:model 是开放集,超限时逐出最旧键(计数不受影响)。 */
+const FALLBACK_WARN_MAX_KEYS = 64
+const fallbackWarnedAt = new Map<string, number>()
+
+/** 该键在 TTL 窗内是否已经喊过;第一次喊(或已过窗)时登记并返回 true。 */
+function shouldWarnFallback(key: string, nowMs: number): boolean {
+  const prev = fallbackWarnedAt.get(key)
+  if (prev !== undefined && nowMs - prev < FALLBACK_WARN_TTL_MS) return false
+  fallbackWarnedAt.set(key, nowMs)
+  // 逐出最旧一条:Map 保持插入序,所以第一个 key 就是最旧的(与 relay-account-forwarder
+  // 的 providerCache 同一手法,不引第三方 LRU)。
+  while (fallbackWarnedAt.size > FALLBACK_WARN_MAX_KEYS) {
+    const oldest = fallbackWarnedAt.keys().next().value
+    if (oldest === undefined) break
+    fallbackWarnedAt.delete(oldest)
+  }
+  return true
+}
+
+/**
+ * 回落点的一次 warn:必须带 provider 与"为什么回落"。
+ * provider 归属在 key 池候选为 0 时**结构上拿不到**(没有渠道就没有 provider),
+ * 所以这里问号池快照(5 秒缓存,只在回落格里问);快照也取不到 ⇒ 显式写"未判定",
+ * 不编一个 provider 名、也不留空(AGENTS §0.3)。永不抛:观测层不许带崩业务链路。
+ */
+async function warnRelayFallback(
+  reason: RelayUpstreamFallbackReason,
+  rawModel: string,
+  why: string,
+  providerHint: string | null,
+): Promise<void> {
+  try {
+    const nowMs = Date.now()
+    if (!shouldWarnFallback(`${reason}|${rawModel}`, nowMs)) return
+    let providerText = providerHint ?? '未判定(承载层未给出 provider)'
+    if (providerHint === null) {
+      const snap = await getRelayPoolLiveSnapshot().catch(() => null)
+      providerText = snap
+        ? snap.accountByProvider.length > 0
+          ? snap.accountByProvider
+              .map((p) => `${p.provider}:total=${p.total}/schedulable=${p.schedulable}`)
+              .join(' ')
+          : '账号池当前无 provider 行(该站点没有账号池号)'
+        : '未判定(号池快照取不到)'
+    }
+    logger.warn(
+      `[relay-upstream] 静默回落 reason=${reason} model=${rawModel} provider=${providerText} —— ${why}`,
+      { reason, model: rawModel, provider: providerText },
+    )
+  } catch {
+    /* 观测层自身异常不影响转发返回值(本函数不改任何控制流) */
+  }
+}
+
 // =============================================================================
 // 转发主入口
 // =============================================================================
@@ -156,12 +237,59 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
       req.affinityKey,
       MAX_CANDIDATES,
     )
-  } catch {
+  } catch (err) {
+    // 渠道查询异常 → 回退 ai-service。**返回值一个字节没动**,加的只是可观测面:
+    // 此前这一支既无日志也无计数,"渠道表查不动了"与"站点压根没配渠道"在观面上同形。
+    recordRelayUpstreamFallback('channel_query_error')
+    await warnRelayFallback(
+      'channel_query_error',
+      rawModel,
+      `selectChannelCandidates 抛错(${err instanceof Error ? err.message : String(err)})` +
+        ` ⇒ key 池与账号池都没被探测,本请求直接回退 ai-service;` +
+        `下一步:查 ai_relay_channel_groups / ai_relay_key_pool 是否可读(库侧异常),以及渠道组是否还在`,
+      null,
+    )
     return null // 渠道查询异常 → 回退 ai-service
   }
   if (candidates.length === 0) {
     // 渠道未配置该模型 → 回落到第三方 AI IDE 账号池;仍无结果则照旧回退 ai-service(向后兼容)
-    const poolResult = await forwardToAccountPool(req, rawModel).catch(() => null)
+    recordRelayUpstreamFallback('no_key_pool_candidates')
+    await warnRelayFallback(
+      'no_key_pool_candidates',
+      rawModel,
+      'key 池侧一条候选都没选中(未配置渠道组 / key 全停用 / 全被熔断或配额剔除)⇒ 转投第三方账号池;' +
+        '下一步:后台「中转-渠道」为该模型配渠道,或看 ihui_relay_key_pool_schedulable_keys 是否已为 0',
+      null,
+    )
+    let poolThrew: unknown = null
+    const poolResult = await forwardToAccountPool(req, rawModel).catch((err) => {
+      // 承载层内部本就 catch{ return null };能在这一层看到的抛错是"账号池调用本身炸了"
+      poolThrew = err
+      return null
+    })
+    if (poolThrew !== null) {
+      recordRelayUpstreamFallback('account_pool_threw')
+      await warnRelayFallback(
+        'account_pool_threw',
+        rawModel,
+        `forwardToAccountPool 抛出 ${poolThrew instanceof Error ? poolThrew.message : String(poolThrew)}` +
+          ` ⇒ 本请求回退 ai-service;下一步:看 api 日志里同 model 的账号池异常栈`,
+        null,
+      )
+    } else if (!poolResult) {
+      // 这一格就是"账号池的静默回落":relay-account-forwarder 的 `catch { return null }`
+      // 与"没有 provider / 没有候选 / 参数不支持"四种 null 在这里合流,承载层不区分,
+      // 所以本侧只能量到"账号池没给出结果"这一结论 + provider 归属(号池快照现读)。
+      recordRelayUpstreamFallback('account_pool_declined')
+      await warnRelayFallback(
+        'account_pool_declined',
+        rawModel,
+        '账号池返回 null(无该模型的 provider / 候选为 0 / 参数不被账号池支持 / 池内异常被静默收口)' +
+          ` ⇒ 本请求回退 ai-service;下一步:核 ihui_relay_account_pool_zero_capacity 与 ` +
+          'ihui_relay_account_pool_schedulable_accounts(容量归零另有 warn)',
+        null,
+      )
+    }
     if (poolResult) return poolResult
     return null
   }

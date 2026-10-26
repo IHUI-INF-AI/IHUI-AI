@@ -14,6 +14,9 @@
  * 心跳:客户端发 'ping' 字符串,服务端回 'pong' 字符串
  */
 import type { WSNotification } from '@ihui/types'
+// 2026-10-26:换票失败(access 过期)时先续期一次。依赖方向 ws-client → client 单向
+// (client 不 import 本文件),不构成模块环;各端接入本客户端即自动获得,不新增注入点。
+import { refreshAccessTokenOnce } from './client.js'
 
 /**
  * WebSocket 子集接口(跨端适配)。
@@ -163,10 +166,38 @@ export class WebSocketClient<TMessage = WSNotification> {
     // 失败/未配置时降级为直连 access token(兼容旧服务端)
     let connectToken = token
     if (this.options.ticketProvider) {
+      let ticket: string | null = null
       try {
-        connectToken = (await this.options.ticketProvider(token)) || token
+        ticket = (await this.options.ticketProvider(token)) || null
       } catch {
-        connectToken = token
+        ticket = null
+      }
+      // 2026-10-26 收口:「access 过期(15 分钟)⇒ 续期一次再换票」有**两层**,各管一段:
+      // ① fetchWsTicket **内部**:换票端点返 401 ⇒ 续期一次重换(单源,直调
+      //    fetchWsTicket 的调用方 —— web 的 use-ai-ws-business —— 也自动获得,
+      //    它此前拿不到续期 ⇒ 拿旧 access 降级直连 ⇒ 服务端 4003 拒 ⇒ 重连循环);
+      // ② 本层(调用侧):换票**整体失败**(含自定义 ticketProvider 返回 null、
+      //    非 401 的网络/5xx 失败)⇒ 静默续期一次 ⇒ 用新 token 再换一次。
+      //    ① 已续期成功时端内 store 已持有新 access,② 这次续期是幂等复核
+      //    (refreshAccessTokenOnce 有单飞 + 失败冷却,不会打多次刷新端点),
+      //    换票用新 token 重试一次即达目的。
+      if (!ticket) {
+        const fresh = await refreshAccessTokenOnce()
+        if (fresh) {
+          try {
+            ticket = (await this.options.ticketProvider(fresh)) || null
+          } catch {
+            ticket = null
+          }
+          // 续期成功但重换仍失败 ⇒ 用**新** access 降级直连(拿过期 access 降级
+          // = 白续期)。fresh 即本次刷新的返回值(端内 refreshAccessToken 实现
+          // 也会自行持久化),它是权威的新凭据。
+          connectToken = ticket || fresh
+        } else {
+          connectToken = token
+        }
+      } else {
+        connectToken = ticket
       }
       // 换取期间被 disconnect 或换代(G-816007:原只判 closedByUser,漏了代际比对
       // ⇒ 换代发生在 await 窗口内时,这次建连照旧接管 this.ws,旧 socket 被顶出
@@ -359,17 +390,40 @@ export function buildNotificationWsUrl(baseUrl: string, token: string): string {
  * 返回 null 表示换票失败(网络/HTTP/JSON 解析/无全局 fetch),调用方应降级
  * 为直连 access token(服务端 wsAuth 兼容双 token)。
  *
+ * **401 ⇒ 续期一次再换**(2026-10-26 收口):access token 只有 15 分钟,过期时
+ * 换票端点恒 401。此前这个语义只住在 WebSocketClient.connectInternal 的调用侧
+ * (换票为空 ⇒ 续期 ⇒ 再换),于是**直调本函数的调用方**(web 的 use-ai-ws-business)
+ * 拿不到续期 —— 换票恒 401 ⇒ 拿旧 access 降级直连 ⇒ 服务端 4003 拒 ⇒ 重连循环。
+ * 现下沉到本函数:所有调用方(含直调方)自动获得同一语义。
+ * 非 401 的失败(网络/5xx/无全局 fetch)仍原样返回 null 走降级直连 ——
+ * 降级不是错误,不得因此中断建连。
+ *
  * 跨端:依赖全局 fetch(web/RN/extension 均有);小程序环境无全局 fetch 时
  * 返回 null 降级,各端也可通过 overrides.ticketProvider 注入自定义实现。
  */
 export async function fetchWsTicket(baseUrl: string, accessToken: string): Promise<string | null> {
   if (typeof fetch === 'undefined') return null
+  const url = `${baseUrl.replace(/\/$/, '')}/ws/ticket`
   try {
-    const res = await fetch(`${baseUrl.replace(/\/$/, '')}/ws/ticket`, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}` },
       signal: AbortSignal.timeout(10_000),
     })
+    if (res.status === 401) {
+      // access 过期 ⇒ 续期一次,用新 access 重换一次;续期失败或重换仍失败 ⇒ null(降级)
+      const fresh = await refreshAccessTokenOnce()
+      if (!fresh) return null
+      const retry = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${fresh}` },
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!retry.ok) return null
+      const retryBody = (await retry.json()) as { data?: { wsToken?: unknown } }
+      const retryToken = retryBody?.data?.wsToken
+      return typeof retryToken === 'string' && retryToken.length > 0 ? retryToken : null
+    }
     if (!res.ok) return null
     const body = (await res.json()) as { data?: { wsToken?: unknown } }
     const wsToken = body?.data?.wsToken

@@ -114,7 +114,7 @@ export function EduShopScreen({
           style={[styles.tab, tab === 'courses' && styles.tabOn]}
           accessibilityRole="tab"
         >
-          <Text style={tab === 'courses' ? styles.tabTextOn : styles.tabText}>
+          <Text style={tab === 'courses' ? styles.tabOnText : styles.tabText}>
             {t('eduShop.courses')}
           </Text>
         </Pressable>
@@ -123,7 +123,7 @@ export function EduShopScreen({
           style={[styles.tab, tab === 'orders' && styles.tabOn]}
           accessibilityRole="tab"
         >
-          <Text style={tab === 'orders' ? styles.tabTextOn : styles.tabText}>
+          <Text style={tab === 'orders' ? styles.tabOnText : styles.tabText}>
             {t('eduShop.orders')}
           </Text>
         </Pressable>
@@ -317,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tabOn: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    tabTextOn: { fontSize: rnType.body.size, color: tk.brand.ctaForeground, fontWeight: '600' },
+    tabOnText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground, fontWeight: '600' },
     body: { padding: rnSpacing.lg },
     list: { gap: rnSpacing.md },
     card: {

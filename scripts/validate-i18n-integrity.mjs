@@ -22,6 +22,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const I18N_MESSAGES_PREFIX = 'packages/i18n/messages/'
@@ -41,13 +42,9 @@ const MIN_DECREASE_LINES = 100
 
 function getStagedFiles() {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带绝对路径 git + safe.directory
+    // + core.quotepath=false + -C ROOT + windowsHide + 显式 stdio,原 cwd/stdio/windowsHide 选项撤除)
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT)
     return output.split('\n').filter(Boolean)
   } catch {
     return []

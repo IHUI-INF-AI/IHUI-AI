@@ -43,13 +43,22 @@ def test_default_chain_primary_and_fallback(monkeypatch):
 
 
 def test_default_chain_dedup_and_degenerate(monkeypatch):
-    """链去重保序;两键均空时回退历史硬编码档,不做单点空串。"""
+    """链去重保序;两键均空时回退末位兜底链,不做单点空串。
+
+    2026-10-26 stepfun 永久退役:兜底链**不得**再是 stepfun 档。
+    这里刻意不断言整条链的内容(上游一改就陈旧),只断「非空 + 不含退役档」;
+    退役判定走 core.default_model 的单一真相源,不另写前缀表。
+    """
+    from app.core.default_model import is_retired_model
+
     monkeypatch.setattr("app.core.config.settings.litellm_model", "@cf/x")
     monkeypatch.setattr("app.core.config.settings.litellm_fallback_model", "@cf/x")
     assert _default_model_chain() == ["@cf/x"]
     monkeypatch.setattr("app.core.config.settings.litellm_model", "")
     monkeypatch.setattr("app.core.config.settings.litellm_fallback_model", "")
-    assert _default_model_chain() == ["stepfun/step-3.7-flash"]
+    chain = _default_model_chain()
+    assert chain, "兜底链不得为空"
+    assert not any(is_retired_model(m) for m in chain), f"兜底链含已退役档:{chain}"
 
 
 def test_llm7_excluded_from_auto_route():

@@ -16,7 +16,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -30,8 +30,10 @@ import {
   formatTicketLine,
   isFixable,
   parseAudit,
+  registerTicket,
   selectTickets,
 } from '../dep-advisory-radar.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const SCRIPT = fileURLToPath(new URL('../dep-advisory-radar.mjs', import.meta.url))
 
@@ -116,6 +118,31 @@ test('机器行单行可解析;摘要 ≤8 行', () => {
 
   const s = formatSummary([c], { critical: 1, high: 2, moderate: 3, low: 4 }, { suppressed: 9 })
   assert.ok(s.split('\n').length <= MAX_SUMMARY_LINES)
+})
+
+test('登记通道:live-doc-edit 唯一入口 + 取号令牌(不得自己拼号)', () => {
+  const dir = mkScratch('dep-radar-reg-')
+  try {
+    let block = ''
+    const calls = []
+    const fakeSpawn = (_cmd, argv, opts) => {
+      calls.push({ argv, opts })
+      block = readFileSync(opts.env.LIVE_BLOCK_FILE, 'utf8')
+      return { status: 0, stdout: '✅ 回读:本块每一条非空行都在 HEAD 里', stderr: '' }
+    }
+    const cand = buildCandidates(parseAudit(auditDoc([adv()])).rows)[0]
+    const r = registerTicket(cand, { counts: { critical: 0, high: 3, moderate: 0, low: 0 }, spawn: fakeSpawn })
+    assert.equal(r.ok, true)
+    assert.equal(calls.length, 1)
+    assert.ok(String(calls[0].argv[0]).endsWith('live-doc-edit.mjs'), '登记必须走 live-doc-edit 唯一入口')
+    assert.equal(calls[0].opts.env.LIVE_DOC, 'PROJECT_PLAN.md')
+    assert.match(calls[0].opts.env.LIVE_MSG, /dep-advisory-radar/)
+    assert.match(block, /^- \[ \] \{\{NEXT_ID:G\}\} \[dep-advisory\] /, `登记行缺取号令牌:${block}`)
+    assert.ok(!/^- \[ \] G-\d+/.test(block), '不得自己拼号')
+    assert.ok(!/[0-9a-f]{7,64}/i.test(block), `登记行混入 hex 串会被 live-doc-edit 整块拒落:${block}`)
+  } finally {
+    rmScratch(dir)
+  }
 })
 
 test('CLI 真跑:离线读数 exit 0,坏读数/缺文件 exit 2', () => {

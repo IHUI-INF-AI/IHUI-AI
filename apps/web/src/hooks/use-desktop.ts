@@ -29,6 +29,7 @@ import {
   getSystemTheme,
   onSystemThemeChange,
   setTrayStatus,
+  setCaptionButtonTheme,
   type DesktopAppInfo,
 } from '@/lib/tauri-bridge'
 import {
@@ -117,7 +118,9 @@ export function useDesktop() {
   const [trayAlwaysVisible, setTrayAlwaysVisibleState] = React.useState(true)
   const [loading, setLoading] = React.useState(true)
   // 桌面偏好(2026-09-28 立):初值是默认档,拉到宿主真值前 UI 一律 disabled
-  const [desktopPrefs, setDesktopPrefsState] = React.useState<DesktopPrefs>(() => defaultDesktopPrefs())
+  const [desktopPrefs, setDesktopPrefsState] = React.useState<DesktopPrefs>(() =>
+    defaultDesktopPrefs(),
+  )
   const [desktopPrefsLoading, setDesktopPrefsLoading] = React.useState(true)
   // 这台机器的桌面端**到底有没有**这套偏好命令。读成功 / 收到宿主广播 / 写成功 任一条成立 ⇒ true。
   const [desktopPrefsSupported, setDesktopPrefsSupported] = React.useState(false)
@@ -327,6 +330,39 @@ export function useSystemTheme(): 'light' | 'dark' | null {
   }, [ipcReady])
 
   return systemTheme
+}
+
+/**
+ * useDesktopCaptionTheme — 把网页顶栏的深浅**上报给原生窗控按钮**(2026-10-26 立)
+ *
+ * 桌面端右上角三个钮由 Rust 分层窗自绘,网页侧同名按钮被注入 CSS 隐藏,
+ * 而 Rust 只能按加载地址粗判深浅(线上永远是同一个域名 ⇒ 恒判浅底)。
+ * 用户在应用内切暗色时,原生层**结构上看不到这件事** ⇒ 深字画在深底上,
+ * 实拍"暗色模式下这几个按钮根本看不清"。命令 `set_caption_button_theme`
+ * 早就注册了,但全仓零调用方(这条腿从来没接通)。
+ *
+ * 事实源取 `<html>` 的 `dark` class MutationObserver,而不是 next-themes 的
+ * `resolvedTheme`:
+ *  · `resolvedTheme` 在 `theme='system'` 下首帧可能是 undefined,会漏一帧;
+ *  · class 才是原生按钮真正压在后面那块像素的成因(顶栏 `dark:bg-shell-panel` 由它驱动),
+ *    OS 侧切主题、跨标签页同步、托盘 toggle_theme 三条通路最终都落到同一个 class 翻转上,
+ *    这里一个观察者全覆盖。
+ * 非 Tauri 环境 `ipcReady` 恒 false ⇒ 不注册观察者、不发 IPC。
+ */
+export function useDesktopCaptionTheme(): void {
+  const ipcReady = useTauriIpcReady()
+
+  React.useEffect(() => {
+    if (!ipcReady) return
+    const readDark = () => document.documentElement.classList.contains('dark')
+    // 挂载即同步一次:原生侧建窗时读到的是 slot 里的默认档,首帧必须纠偏。
+    void setCaptionButtonTheme(readDark())
+    const observer = new MutationObserver(() => {
+      void setCaptionButtonTheme(readDark())
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [ipcReady])
 }
 
 /**

@@ -82,7 +82,6 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch } from './lib/face-reader.mjs'
 import {
-  DUP_POINTER_RE,
   COPY_POINTER_ROW_RE,
   isClaimExcludedPointer,
   MERGE_NOTE_RE,
@@ -387,8 +386,10 @@ function main() {
 
   const rows = parseTaskRows(content)
   const { forks } = findForks(content)
+  // G-48(2026-10-26):与 `findForks`/`auditPlan` 同口径 —— 副本三族全集(派单出口那把尺),
+  // 不再只认 `DUP_POINTER_RE` 一族;被自述为副本的行不成正主候选,不该再被 ⑥ 当"分叉活行"保护。
   const forkOpenLines = new Set(
-    forks.flatMap((g) => g.open.filter((r) => !DUP_POINTER_RE.test(r.raw)).map((r) => r.line)),
+    forks.flatMap((g) => g.open.filter((r) => !isClaimExcludedPointer(r.raw)).map((r) => r.line)),
   )
   const f9 = f9Faces(content)
   const f9Keys = new Set(f9.collisions.map((g) => g.key))

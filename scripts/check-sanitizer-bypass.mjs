@@ -23,9 +23,9 @@
  *
  * 用法:node scripts/check-sanitizer-bypass.mjs [--staged]
  */
-import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -63,13 +63,8 @@ const WHITELIST = new Set([
 function getFilesToCheck() {
   if (isStaged) {
     try {
-      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-      const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        cwd: ROOT,
-        encoding: 'utf-8',
-        windowsHide: true,
-      })
+      // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带 safe.directory/quotepath/-C/stdio/windowsHide/timeout)
+      const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
       return output
         .trim()
         .split('\n')
@@ -88,12 +83,8 @@ function getFilesToCheck() {
     // 注意:不用 `git ls-files "apps/api/src/routes/**/*.ts"`。
     // Windows 上 PowerShell 会吞引号、git pathspec `**` 对深层子目录匹配不稳定,
     // 经常返回空列表导致 full 模式漏检。改为列目录 + JS 过滤更可靠。
-    const output = execSync('git ls-files apps/api/src/routes/', {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: ROOT,
-      encoding: 'utf-8',
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(args 数组形态,无 shell 引号问题,上面注释的教训仍成立)
+    const output = gitRaw(['ls-files', 'apps/api/src/routes/'], ROOT)
     return output
       .trim()
       .split('\n')

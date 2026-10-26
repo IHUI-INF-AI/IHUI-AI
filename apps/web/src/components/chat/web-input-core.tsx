@@ -8,6 +8,12 @@ import * as React from 'react'
 import { Brush } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import {
+  applyPredictedEditActions,
+  fetchPredictiveEdit,
+  PREDICTIVE_EDIT_LANGUAGE,
+  type PredictiveEditAction,
+} from '@/lib/predictive-edit-api'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { Tooltip } from '@/components/feedback'
 import { shouldSubmitOnEnter } from './enter-submit-policy'
@@ -21,6 +27,9 @@ import {
 export const MAX_LENGTH = 10000
 const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
 const MIN_HEIGHT_PX = 96 // rows=3 基础高度,与 hook threeLinePx 阈值一致
+// Predictive Edit(V3 #82,2026-10-25 接线):停笔 400ms 取一次建议。高频输入不打后端,
+// 与 FIM 内联补全的 300ms 同族(输入区比编辑器慢一拍,给用户一个完整词的时间)。
+const PREDICTIVE_EDIT_DEBOUNCE_MS = 400
 
 /** WebInputCore 句柄 — 与原 textareaRef 等价(主组件通过 inputCoreRef.current 访问) */
 export interface WebInputCoreHandle {
@@ -120,10 +129,68 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
       }),
       [resize],
     )
+    // Predictive Edit(V3 #82,2026-10-25 接线):停笔 400ms 请求一次结构化编辑动作。
+    // 降级纪律:失败/未判定(`no_action` / `undetermined` / `failed`)一律静默 —— 只让
+    // 建议不出现,绝不弹错、绝不阻塞输入与发送;请求随下一次输入 abort(不追旧快照)。
+    const [prediction, setPrediction] = React.useState<{
+      document: string
+      actions: PredictiveEditAction[]
+    } | null>(null)
+    React.useEffect(() => {
+      if (isStreaming || text.trim().length === 0) return
+      const snapshot = text
+      const controller = new AbortController()
+      const timer = setTimeout(() => {
+        const cursor = Math.min(
+          innerRef.current?.selectionStart ?? snapshot.length,
+          snapshot.length,
+        )
+        void fetchPredictiveEdit(
+          { content: snapshot, cursor, language: PREDICTIVE_EDIT_LANGUAGE },
+          { signal: controller.signal },
+        ).then((outcome) => {
+          if (controller.signal.aborted) return
+          // 三态原样消费:只有 suggested 上屏;其余三档都静默(undetermined 不冒充 no_action)。
+          if (outcome.status === 'suggested') {
+            setPrediction({ document: snapshot, actions: outcome.actions })
+          }
+        })
+      }, PREDICTIVE_EDIT_DEBOUNCE_MS)
+      return () => {
+        clearTimeout(timer)
+        controller.abort()
+      }
+    }, [text, isStreaming])
+    const applyPrediction = () => {
+      if (!prediction || prediction.document !== text) return
+      const next = applyPredictedEditActions(prediction.document, prediction.actions)
+      setPrediction(null)
+      if (next !== null && next !== text) onTextChange(next)
+    }
     // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,用 Brush 清洁刷图标,
     // 仅 hover textarea 容器时悬浮显示,避免占用 toolbar 槽位)
     return (
       <div className="group relative px-3 pt-2 pb-2">
+        {/* Predictive Edit 建议条(2026-10-25 接线):仅 suggested 且草稿未变时出现。
+            no_action / undetermined / failed 都不渲染任何东西 —— 预测失败对用户不可见。 */}
+        {prediction && prediction.document === text && !isStreaming ? (
+          <div
+            data-testid="predictive-edit-suggestion"
+            className="mb-1 flex items-center gap-2 rounded-sm border border-dashed border-border/60 px-2 py-1 text-[11px] text-muted-foreground"
+          >
+            <span aria-live="polite" className="min-w-0 flex-1 truncate">
+              {t('predictiveEditHint')}
+            </span>
+            <button
+              type="button"
+              aria-label={t('predictiveEditApply')}
+              onClick={applyPrediction}
+              className="shrink-0 rounded-sm px-1.5 py-0.5 text-primary transition-colors hover:bg-accent"
+            >
+              {t('predictiveEditApply')}
+            </button>
+          </div>
+        ) : null}
         <textarea
           ref={innerRef}
           value={text}

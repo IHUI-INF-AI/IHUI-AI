@@ -78,7 +78,31 @@ export interface ConfigFieldSource {
 }
 
 /**
- * G-395 请求档 vs 实得档留痕:仅当请求档未被原样采纳(降档/非法枚举损耗)时非空。
+ * G-395 快照修订号取不到的原因(机器码,`null` = 已取到)。
+ * 取不到一律写原因码并让 revision 落 `null`,**不得**用 0 / 空串冒充"取到了"。
+ */
+export type RevisionUnavailable = 'no-file-source' | 'stat-failed'
+
+/**
+ * G-395 单层快照修订号:该层在本轮解析中真实读过的来源文件的 mtime 语义。
+ * 本仓 role / persona 配置表是内存常量(`PERSONAS` / `DEFAULT_ROLES`),没有配置文件可 stat,
+ * 因此能给出真实修订号的只有它们指向的 `promptFile` / `instructionsFile`;
+ * 其余层(CLI 参数、父 session 继承)结构上无来源文件 ⇒ `file=null` + `unavailable='no-file-source'`。
+ */
+export interface LayerRevision {
+  /** 本轮解析中该层真实读取的来源文件绝对路径;非文件驱动 ⇒ null */
+  file: string | null
+  /** 来源文件 mtime 的 ISO 时刻(修订号语义);未取到 ⇒ null(绝不用 0 / 空串冒充) */
+  revision: string | null
+  /** `revision` 为 null 的显式原因;取到时 ⇒ null */
+  unavailable: RevisionUnavailable | null
+}
+
+/** G-395 四层快照修订号(键集合 = 层名清单,由 precedence.ts 的 Record 穷尽性钉住) */
+export type SourceRevisions = Record<PrecedenceLayer, LayerRevision>
+
+/**
+ * G-395 请求档 vs 实得档留痕:仅当请求档未被原样采纳(降档/升档/非法枚举损耗)时非空。
  * 'effective' 与 EffectiveRuntimeConfig.reasoningEffort 同值、同一出口生成(非第二份真相),
  * 打包进本记录只为让日志/状态面一次读全 requested ≠ effective。
  */
@@ -91,8 +115,8 @@ export interface EffortDowngradeTrace {
   effective?: ReasoningEffort
   /** 实得档出处(哪层/哪个配置项接手了) */
   effectiveSource: ConfigFieldSource
-  /** 'invalid-enum' = 请求档非法枚举被容错丢弃;'rank-lower' = 实得档档位低于请求档 */
-  reason: 'invalid-enum' | 'rank-lower'
+  /** 'invalid-enum' = 请求档非法枚举被容错丢弃;'rank-lower' = 实得档低于请求档(含落空);'rank-higher' = 实得档被抬高于请求档 */
+  reason: 'invalid-enum' | 'rank-lower' | 'rank-higher'
 }
 
 /** 解析后的有效运行时配置(四层短路链结果) */
@@ -123,6 +147,11 @@ export interface EffectiveRuntimeConfig {
   }
   /** G-395:请求档 vs 实得档留痕,仅降档发生时存在(消除静默降档) */
   effortDowngrade?: EffortDowngradeTrace
+  /**
+   * G-395:快照可读的四层修订号(哪一层的来源文件、mtime、取不到时的显式原因)。
+   * 消费方读 `precedence.ts` 的 `formatConfigSnapshot` / 默认留痕出口,不得自带第二份渲染。
+   */
+  sourceRevisions: SourceRevisions
 }
 
 /** persona 名 → persona 配置映射 */

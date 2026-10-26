@@ -17,6 +17,7 @@
  */
 import {
   fetchApi,
+  refreshAccessTokenOnce,
   setBaseUrl,
   setDeviceFingerprintProvider,
   setUserAgent,
@@ -37,6 +38,13 @@ import {
   createInMemoryTokenStore,
   type TokenStore,
 } from '@ihui/shared/auth'
+// 子路径而非包根:多处测试把 '@ihui/shared/auth' 整体 mock 了,新增导出从包根取会撞 mock;
+// 子路径由 vitest.config 的显式别名解析到真实源码(与 auto-login-policy 同型)。
+import {
+  createTokenAutoRefresh,
+  shouldRefreshNow,
+  type TokenAutoRefreshHandle,
+} from '@ihui/shared/auth/auto-refresh'
 
 /**
  * 内存缓存 TokenStore(工厂创建)
@@ -213,7 +221,10 @@ async function refreshAccessToken(): Promise<string | null> {
     },
   )
   if (!res.success) {
-    if (classifyRefreshFailureStatus(res.status) === 'transient') throw new TransientRefreshError()
+    // 2026-10-26:陈旧副本(stale-sibling)回 401 但服务端未否定凭据 ⇒ 按瞬时失败处理
+    if (classifyRefreshFailureStatus(res.status, res.errorCode) === 'transient') {
+      throw new TransientRefreshError()
+    }
     return null
   }
   // success 但缺 accessToken:契约异常,保守按失败处理(不抛,不写凭据)
@@ -242,23 +253,191 @@ async function refreshAccessToken(): Promise<string | null> {
  * 由守门 148(check-auth-handler-registration-parity)按**代码面**判,注释不算。
  */
 
+/**
+ * 冷启动初始化(2026-10-26 加失败兜底,审计定级 P1)。
+ *
+ * 病灶:`AuthProvider` 的 `initApi().then(() => { hydrateAuth(); setReady(true) })` **没有 catch**
+ * (src/context/AuthContext.tsx:48),而本函数原先直连 `getSecureItem()` —— iOS Keychain 在
+ * 设备恢复/系统升级后回 `errSecAuthFailed`、Android Keystore 失效、AsyncStorage 原生模块抖动,
+ * 任一抛错都会让 `ready` 永远停在 false ⇒ 用户看到的不是"要重新登录",而是**卡在启动页**
+ * (且是一条无人认领的 unhandled rejection)。
+ *
+ * 修法方向(刻意):存储读不出来 ⇒ 按「无凭据」分支继续启动,并把原因喊出来。
+ * **绝不顺手清盘/清凭据** —— 读失败不等于凭据失效(§0.3、§auto-login-policy 的失效方向:
+ * 判不出的一律不动会话),Keychain 只是这一轮读不出,下一次冷启动仍可能读出来。
+ * 同样不在此处调用 `expireSession()` / `clearToken()`:那会把一次 I/O 故障换成"用户被登出"。
+ */
 export async function initApi(): Promise<void> {
   setBaseUrl(API_BASE_URL)
   setUserAgent(APP_USER_AGENT)
   // 登出标记必须先于 ready 就位:RootNavigator 要等 initApi() 落定才渲染分支,
   // 而 LoginScreen 的自动登录 effect 就在这一帧里 —— 顺序错了就等于每次都按内存默认值判。
+  // `readLogoutMarker()` 自带 try/catch(读失败按"未登出"处理),不会让启动卡在这里。
   sessionLoggedOut = await readLogoutMarker()
-  const [stored, storedRefresh] = await Promise.all([
-    getSecureItem(TOKEN_STORAGE_KEY),
-    getSecureItem(REFRESH_TOKEN_STORAGE_KEY),
-  ])
-  // Hydrate 缓存:从 SecureStore 读取后只更新内存,不回写存储(避免循环触发)
-  memoryStore.setCachedWithoutPersist({
-    token: typeof stored === 'string' ? stored : null,
-    refreshToken: typeof storedRefresh === 'string' ? storedRefresh : null,
+
+  let stored: string | null = null
+  let storedRefresh: string | null = null
+  try {
+    ;[stored, storedRefresh] = await Promise.all([
+      getSecureItem(TOKEN_STORAGE_KEY),
+      getSecureItem(REFRESH_TOKEN_STORAGE_KEY),
+    ])
+  } catch (e) {
+    console.error(
+      `[rn-auth] initApi: credential storage is unreadable, continuing startup as "no credentials" ` +
+        `(tokens on disk are NOT touched — a read failure is not a credential invalidation; ` +
+        `the next cold start may read fine): ${e instanceof Error ? e.message : 'unknown error'}`,
+    )
+    stored = null
+    storedRefresh = null
+  }
+
+  try {
+    // Hydrate 缓存:从 SecureStore 读取后只更新内存,不回写存储(避免循环触发)
+    memoryStore.setCachedWithoutPersist({
+      token: typeof stored === 'string' ? stored : null,
+      refreshToken: typeof storedRefresh === 'string' ? storedRefresh : null,
+    })
+    bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })
+    setDeviceFingerprintProvider(mobileRnDeviceFingerprintCollector)
+    startTokenAutoRefresh()
+  } catch (e) {
+    // 绑定/调度这一段同样不许把启动卡死:宁可这一轮没有主动续期(401 拦截器仍在),
+    // 也不能让用户停在启动页;原因必须喊出来,不得静默降级(§0.3)。
+    console.error(
+      `[rn-auth] initApi: api-client binding failed, startup continues without proactive ` +
+        `token refresh scheduling: ${e instanceof Error ? e.message : 'unknown error'}`,
+    )
+  }
+}
+
+/**
+ * 端内「自己拿 token 直连」那条腿的凭据新鲜度兜带(2026-10-26 立)。
+ *
+ * 立项理由:access token 只有 15 分钟,而 401 自动续期住在 `@ihui/api-client` 的请求出口里
+ * (`fetchApi` / `fetchRaw` / `fetchText` / `fetchAiServiceJson`)。凡绕过这些出口、把
+ * `getToken()` 的快照自己塞进 header / URL 的腿(RN 的 `<Image headers>`、STT 上传、WS 建连),
+ * 过期后就**永久坏掉且不会自愈** —— 因为没有任何一层知道这次 401 是谁发的。
+ *
+ * 判据不新写一份:
+ * - "要不要现在就续期" = `@ihui/shared/auth/auto-refresh` 的 `shouldRefreshNow`(剩余 ≤ 5 分钟);
+ * - "怎么续期" = `refreshAccessTokenOnce()`(api-client 全局单飞,与 401 拦截器同一个刷新源);
+ * - "服务端这次否定的是不是凭据" = `classifyRefreshFailureStatus`(见 `runWithFreshToken`)。
+ *
+ * 失效方向:`refreshAccessTokenOnce()` 返回 null(被拒/瞬时/冷却)⇒ **照旧返回当前 token**,
+ * 由请求自己拿到那个 401 并交给 `runWithFreshToken` 的"只重试一次"。本函数绝不 clearToken /
+ * expireSession —— 瞬时失败不得销毁凭据(本仓 2026-10-09 / 10-20 两次收口的同一条红线)。
+ */
+export async function ensureFreshToken(): Promise<string | null> {
+  const current = memoryStore.getToken()
+  if (!current) return null
+  if (!shouldRefreshNow(current)) return current
+  const fresh = await refreshOnceLoudly()
+  // 续期成功时 refreshAccessToken 已把新值写进同一个 memoryStore;
+  // 取不到新值就退回本轮读到的 current —— 两个分支都不动存储。
+  return fresh ?? memoryStore.getToken() ?? current
+}
+
+/**
+ * 走 api-client 全局单飞续期一次;抛错只喊不留(单飞本体已把失败分型记在
+ * `wasLastRefreshTransient`,这里不重复判定,也不做任何"失败 ⇒ 清凭据"的动作)。
+ */
+async function refreshOnceLoudly(): Promise<string | null> {
+  try {
+    return await refreshAccessTokenOnce()
+  } catch (e) {
+    console.warn(
+      `[rn-auth] token refresh threw, proceeding with the current token (credentials untouched): ` +
+        `${e instanceof Error ? e.message : 'unknown error'}`,
+    )
+    return null
+  }
+}
+
+/**
+ * 从任意抛错对象里取 HTTP 状态码(不猜、不编造:取不到就是 undefined)。
+ *
+ * 覆盖面:`VoiceSttHttpError.status`、各端点自定义的 `statusCode`、`ApiError` 同族字段。
+ */
+function httpStatusOf(err: unknown): number | undefined {
+  if (typeof err !== 'object' || err === null) return undefined
+  const e = err as { status?: unknown; statusCode?: unknown; code?: unknown }
+  for (const v of [e.status, e.statusCode, e.code]) {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+  }
+  return undefined
+}
+
+/** 同上,取错误里携带的业务 errorCode(`/auth/refresh` 的 REFRESH_TOKEN_STALE 判据要用)。 */
+function errorCodeOf(err: unknown): string | undefined {
+  if (typeof err !== 'object' || err === null) return undefined
+  const e = err as { errorCode?: unknown }
+  return typeof e.errorCode === 'string' ? e.errorCode : undefined
+}
+
+/**
+ * 这次抛错是不是"服务端否定了发出去的凭据"(2026-10-26 立)。
+ *
+ * 判据单源 = `@ihui/shared/auth/auto-login-policy` 的 `classifyRefreshFailureStatus`:
+ * 401/403 ⇒ rejected;其余(含取不到状态码的网络异常、5xx、`REFRESH_TOKEN_STALE`)⇒ transient。
+ * 端内任何一条直连腿都不许再写第二份 401 口径(§0.6;本函数就是那一处唯一出口)。
+ */
+export function isCredentialRejected(err: unknown): boolean {
+  return classifyRefreshFailureStatus(httpStatusOf(err), errorCodeOf(err)) === 'rejected'
+}
+
+/**
+ * 跑一次「端内自持凭据直连」请求:先取新鲜凭据,服务端否定凭据时**只重试一次**。
+ *
+ * @param run 拿到本轮 access token(可能为 null = 未登录,由 run 自己决定怎么办)的闭包
+ * @returns run 的结果;第二次仍失败 ⇒ 原样抛出,**不吞、不冒充成功**
+ *
+ * "算不算服务端否定凭据" = `classifyRefreshFailureStatus(status, errorCode) === 'rejected'`
+ * (唯一出口在 `@ihui/shared/auth/auto-login-policy`:401/403 ⇒ rejected,其余含"取不到状态码"
+ * 与 `REFRESH_TOKEN_STALE` ⇒ transient)。取不到状态码 ⇒ transient ⇒ **不消耗**这一次重试,
+ * 网络抖动不该被当成凭据问题去刷 `/auth/refresh`。
+ */
+export async function runWithFreshToken<T>(run: (token: string | null) => Promise<T>): Promise<T> {
+  const token = await ensureFreshToken()
+  try {
+    return await run(token)
+  } catch (err) {
+    if (!isCredentialRejected(err)) {
+      // 网络抖动 / 5xx / 取不到状态码:不是凭据问题 ⇒ 一次都不重试,更不去刷 /auth/refresh
+      throw err
+    }
+    // 服务端否定的是刚发出去的那份 access token ⇒ 无条件续期一次、再发一次
+    // (与 api-client 401 拦截器同一动作:单飞 + 失败冷却已经把成本封住了,不会连打)。
+    // 总共两发,第二发仍失败就原样抛给调用方 —— 不许静默成功,也不许第三发。
+    const fresh = await refreshOnceLoudly()
+    return await run(fresh ?? memoryStore.getToken())
+  }
+}
+
+
+/**
+ * 主动续期(2026-10-26)。
+ *
+ * 此前 RN 只有 401 兜底:空闲超过 15 分钟后的第一条请求必先失败一次;而流式与 ai-service
+ * 通道连 401 兜底都走不到(聊天/能力上报直接报"登录过期")。周期检查把"到点续期"
+ * 从"等请求撞 401"改成"自己按时换",后台挂起错过的那一拍由下一次检查自然补上。
+ * 刷新实现复用 api-client 的全局单飞(与 401 拦截器共享 in-flight),不新增第二个刷新源。
+ */
+let autoRefresh: TokenAutoRefreshHandle | null = null
+
+export function startTokenAutoRefresh(): void {
+  if (autoRefresh) return
+  autoRefresh = createTokenAutoRefresh({
+    getToken,
+    refresh: () => refreshAccessTokenOnce(),
+    isSessionLoggedOut,
   })
-  bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })
-  setDeviceFingerprintProvider(mobileRnDeviceFingerprintCollector)
+  autoRefresh.start()
+}
+
+export function stopTokenAutoRefresh(): void {
+  autoRefresh?.stop()
+  autoRefresh = null
 }
 
 export function getToken(): string | null {

@@ -38,12 +38,13 @@
  * 退出码:0 无新增副本 / 1 判红 / 2 未判定
  */
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
-import { spawnSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 折叠判据只许有一份(§22c):住在 dedupe-live-doc.mjs,本门不复制形态算法
 import { __test__ as DEDUPE } from './dedupe-live-doc.mjs'
+// 被审面取材复用面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath + 数字 timeout)
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 /** 被审面:多会话共写的活文档 + 四语言 README(union 的射程就是重复的射程)。 */
@@ -61,6 +62,19 @@ export function duplicateCount(text) {
   return DEDUPE.planCollapse(text).drop.size
 }
 
+/**
+ * 取一份文档在某个 rev 规格上的正文(活文档可达数 MB,故缓冲给到 256MB)。
+ * 一律走面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath);取不到 ⇒ null,
+ * 由调用方落「未判定」—— 绝不回落另一个面,也不拿空串冒充"文档没内容"。
+ */
+function gitShowBlob(ref) {
+  try {
+    return gitRaw(['show', ref], ROOT, { binary: true, maxBuffer: 1 << 28 }).toString('utf8')
+  } catch {
+    return null
+  }
+}
+
 /** 面读取:全量档 HEAD blob、--staged 索引 blob、--worktree 盘上(人工逃生舱)。 */
 function readFace(relPath, face) {
   if (face === 'worktree') {
@@ -68,14 +82,7 @@ function readFace(relPath, face) {
     return existsSync(p) ? readFileSync(p, 'utf8') : null
   }
   const ref = face === 'staged' ? `:./${relPath}` : `HEAD:${relPath}`
-  const r = spawnSync('git', ['show', ref], {
-    cwd: ROOT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1 << 28,
-    encoding: 'buffer',
-  })
-  if (r.status !== 0) return null
-  return r.stdout.toString('utf8')
+  return gitShowBlob(ref)
 }
 
 /**
@@ -90,14 +97,7 @@ function anchorCount(relPath, face) {
 }
 
 function readFaceAt(ref) {
-  const r = spawnSync('git', ['show', ref], {
-    cwd: ROOT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1 << 28,
-    encoding: 'buffer',
-  })
-  if (r.status !== 0) return null
-  return r.stdout.toString('utf8')
+  return gitShowBlob(ref)
 }
 
 export function selfTest() {
@@ -141,13 +141,23 @@ function main() {
   const face = argv.includes('--staged') ? 'staged' : argv.includes('--worktree') ? 'worktree' : 'head'
   const docs = AUDITED_DOCS.filter((d) => {
     if (face === 'worktree') return existsSync(path.join(ROOT, d))
-    const r = spawnSync('git', ['ls-tree', face === 'staged' ? '--name-only' : '-r', '--name-only', face === 'staged' ? ':' : 'HEAD', d], {
-      cwd: ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
-      shell: false,
-    })
-    return r.status === 0 && r.stdout.trim() !== ''
+    // 枚举/存在性探测走面读取层(args 逐字保持原样,只换派生通道);git 非零退出 ⇒ 该文档不在这一面
+    let out
+    try {
+      out = gitRaw(
+        [
+          'ls-tree',
+          face === 'staged' ? '--name-only' : '-r',
+          '--name-only',
+          face === 'staged' ? ':' : 'HEAD',
+          d,
+        ],
+        ROOT,
+      )
+    } catch {
+      return false
+    }
+    return String(out).trim() !== ''
   })
   if (docs.length === 0) {
     console.error('❌ 被审文档枚举到 0 份 ⇒ 判死,不出具合格证(§0.3)')

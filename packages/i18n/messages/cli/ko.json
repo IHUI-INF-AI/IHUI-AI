@@ -423,8 +423,12 @@
     "undoSucceeded": "{count}개 파일을 복원했습니다. 작업 기록은 유지됩니다.",
     "undoPartialWarning": "일부 변경이 CLI 파일 체크포인트에 없어 롤백이 불완전할 수 있습니다.",
     "undoUnavailable": "파일 체크포인트를 사용할 수 없습니다. 작업 공간은 변경되지 않았습니다.",
+    "undoFailed": "CLI 파일 체크포인트를 일시적으로 사용할 수 없습니다. 작업 공간은 변경되지 않았습니다.",
     "undoFailedChanged": "롤백 미완료: 작업 공간이 변경되었습니다(확인됨). 계속하기 전에 아래 파일 목록을 확인하세요.",
     "undoFailedUnverifiable": "롤백 미완료. 작업 공간 변경 여부를 확인할 수 없습니다(일부 파일을 읽을 수 없음). 재시도 전에 수동으로 확인하세요.",
+    "undoFailedFilesTitle": "{count}개 파일 롤백 실패({turns} 라운드):",
+    "undoFailedFileLine": "  · {file} — {reason}",
+    "undoFailedFilesMore": "…외 {count}건",
     "undoDesc": "최근 N단계 파일 변경 되돌리기(기본 1, agent 세션 작업 공간에서 실행 필요)",
     "sessionOptDesc": "세션 ID(기본은 최근 세션)",
     "undoNothing": "되돌릴 변경이 없습니다",
@@ -477,7 +481,14 @@
     "goalCriteriaBadArg": "--goal-criteria 에는 파일 경로가 필요합니다",
     "goalCriteriaUnreadable": "--goal-criteria 파일 {file}을(를) 읽을 수 없습니다: {error}",
     "goalCriteriaNotAnArray": "{file}은(는) 빈 배열이 아닌 JSON 배열이어야 합니다",
-    "goalCriteriaBadEntry": "{index}번째 조건에 id 또는 statement가 없습니다"
+    "goalCriteriaBadEntry": "{index}번째 조건에 id 또는 statement가 없습니다",
+    "dangerGate": {
+      "denyNoPrompt": "위험한 작업이 거부되었습니다: --allow-dangerous가 제공되지 않았고 확인 채널도 없어 fail-closed로 거부합니다. 허용하려면 시작 시 --allow-dangerous를 추가하거나 대화형 터미널에서 다시 실행해 수동으로 확인하세요.",
+      "denyDeclined": "위험한 작업이 거부되었습니다: 확인 프롬프트에서 사용자가 명시적으로 거부했습니다. 허용하려면 다시 실행해 확인 프롬프트에서 허용을 선택하세요(무인 실행에는 묵인 우회 경로가 없습니다).",
+      "denyEmpty": "위험한 작업이 거부되었습니다: 확인 프롬프트가 명확한 답을 반환하지 않았습니다(비어 있음 또는 정의되지 않음). 허용하려면 대화형 터미널에서 다시 실행해 명시적으로 허용하세요.",
+      "denyError": "위험한 작업이 거부되었습니다: 확인 채널이 질의 중 오류가 발생해 거부를 우선합니다. 허용하려면 확인 채널(예: 편집기 연결)을 복구하거나 대화형 터미널에서 다시 실행해 수동으로 확인하세요.",
+      "denyContract": "위험한 작업이 거부되었습니다: 이 도구의 계약은 사람의 승인을 요구하므로 --allow-dangerous가 사람 대신 답할 권한이 없습니다. 허용하려면 대화형 터미널에서 다시 실행해 수동으로 확인하세요(이 등급에는 명령행 우회가 없습니다)."
+    }
   },
   "cliWorkflows": {
     "contextBadJson": "--context가 유효한 JSON이 아닙니다: {message}",

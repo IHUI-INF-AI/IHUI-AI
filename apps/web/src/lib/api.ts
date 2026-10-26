@@ -108,7 +108,12 @@ setTokenProvider({
         return res.data.accessToken
       }
       // 刷新失败:先按唯一判据出口落账(bootstrap 的 getLastRefreshFailure 依赖"先记录"这个顺序)。
-      lastRefreshFailure = classifyRefreshFailureStatus(res.status)
+      // 2026-10-26:带上 errorCode —— 陈旧副本(REFRESH_TOKEN_STALE)虽回 401,但服务端未否定凭据,
+      // 必须按瞬时失败处理,否则一次多窗口竞态就清 vault / 结束会话。
+      lastRefreshFailure = classifyRefreshFailureStatus(
+        res.status,
+        res.success ? undefined : res.errorCode,
+      )
       // 2026-10-09 分型:瞬时失败(网络/超时/5xx/无 status)抛 TransientRefreshError ——
       // refreshAccessTokenOnce 会 catch 住(进冷却 + 置 wasLastRefreshTransient,401 出口
       // 据此跳过 notifyUnauthorized),不外溢给调用方;同时**不能**清桌面 vault:凭据没被

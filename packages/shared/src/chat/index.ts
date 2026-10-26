@@ -120,6 +120,10 @@ export * from './element-pack-history'
 // 小程序端与 App(RN)端共用这一份实现,端内只留平台 adapter(取 token / WS 工厂 / 提示出口)。
 // 判据只吃 @ihui/types 的判别联合,本层不声明任何事件名清单 —— 名单抄进端内就是第二份真相。
 export * from './user-broadcast-store'
+// 票 B02 最后一格(2026-10-26)非 web 端 chat 消息面 store:`message:created` / `message:patched`
+// 帧 → 每会话消息面(幂等/四态/todo resync 全引用 @ihui/types 契约,本层零复算);
+// 小程序端 `stores/chat-sync.ts` 与 RN 端下一个 hook 包装共用这一份,端内不写第二套判据。
+export * from './chat-sync-store'
 // D76 产物归属 turn 派生层(分型判据 + originating turn 序列 + 轮次序号 + 产物锚点→轮下标;
 // 纯函数零平台依赖,web 渲染层 artifact-turn-badge 原样 re-export,残余票 2026-09-25 自端内提取)
 export * from './artifact-turn'

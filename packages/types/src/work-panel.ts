@@ -28,7 +28,20 @@ export type WebViewStatus =
  * proxy(2026-09-02):同源嵌入代理 —— 后端剥离 X-Frame-Options/CSP 后以同源响应喂给 iframe,
  * 真实 HTML 渲染(可交互/可选中/矢量清晰),失败降级 CDP 截图流
  */
-export type WebViewMode = 'iframe' | 'proxy' | 'screenshot' | 'native' | 'external' | 'cdp'
+export type WebViewMode =
+  | 'iframe'
+  | 'proxy'
+  | 'screenshot'
+  | 'native'
+  | 'external'
+  | 'cdp'
+  /**
+   * docked(2026-10-25):停靠内嵌浏览器 —— 页面画在原生 docked webview 里
+   * (Rust `embedded_browser_dock.rs`),前端只持一个占位 Tab 记录 url/title。
+   * 消费方 web-work-panel.tsx / GlobalTopBar.tsx 已在比 `=== 'docked'`,
+   * 此联合里没有它 ⇒ tsc 一律报非穷尽比较(TS2367)。
+   */
+  | 'docked'
 
 /** 工作展示区单个 Tab */
 export interface WorkPanelTab {

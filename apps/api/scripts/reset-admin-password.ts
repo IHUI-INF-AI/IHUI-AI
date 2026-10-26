@@ -23,6 +23,12 @@
  * 4. 查询目标用户名+邮箱确认,打印结果
  */
 import 'dotenv/config'
+// 带值旗标取值口径(G-322):紧邻 token 必须非空且不以 `-` 开头。本地副本与
+// scripts/lib/flag-value.mjs 的 isFlagValueToken 逐字同源 —— apps/api→repo-tooling 被
+// config/architecture-policy.yaml 禁止(D1/D2/D3),消依赖优先;语义变更须两处同改。
+function isFlagValueToken(token: unknown): boolean {
+  return typeof token === 'string' && token !== '' && !token.startsWith('-')
+}
 
 /**
  * CLI 参数解析。
@@ -77,12 +83,32 @@ function parseArgs(argv: string[]): CliOptions {
       case '-h':
         opts.help = true
         break
-      case '--account':
-        opts.account = argv[++i] ?? opts.account
+      case '--account': {
+        // G-322:`--account --generate` 不得把 --generate 吞成账号名并顺带把 --generate 丢掉,
+        // 值无效即 exit 2 点名(与"未知参数"同一退出档)。
+        const tok = argv[i + 1]
+        if (!isFlagValueToken(tok)) {
+          process.stderr.write(
+            `--account 需要一个账号名 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)\n`,
+          )
+          process.exit(2)
+        }
+        opts.account = tok
+        i++
         break
-      case '--password':
-        opts.password = argv[++i]
+      }
+      case '--password': {
+        const tok = argv[i + 1]
+        if (!isFlagValueToken(tok)) {
+          process.stderr.write(
+            `--password 需要一个明文密码 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)\n`,
+          )
+          process.exit(2)
+        }
+        opts.password = tok
+        i++
         break
+      }
       case '--generate':
       case '-g':
         opts.generate = true
