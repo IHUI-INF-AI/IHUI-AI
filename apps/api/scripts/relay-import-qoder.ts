@@ -44,6 +44,18 @@ function isFlagValueToken(token: unknown): boolean {
   return typeof token === 'string' && token !== '' && !token.startsWith('-')
 }
 
+/**
+ * 错误文案里的实得值只描述形状(守门 181 / G-998147):无值报固定短语;短值原样 quoting;
+ * 长值按 UTF-8 字节界截断 —— 错误文案会进错误信封/持久记录,整串回显会把它塞满。
+ * 与 scripts/lib/flag-value.mjs 的 describeFlagToken 同口径,本地副本理由同上(D1/D2/D3)。
+ */
+function describeArgToken(tok: string | undefined): string {
+  if (tok === undefined) return '(其后没有任何参数)'
+  const bytes = new TextEncoder().encode(tok).length
+  if (bytes <= 32) return JSON.stringify(tok)
+  return `${JSON.stringify(tok.slice(0, 20))}…(共 ${bytes} bytes)`
+}
+
 // =============================================================================
 // 类型与纯函数(单测覆盖)
 // =============================================================================
@@ -158,7 +170,7 @@ function parseArgs(argv: string[]): CliArgs {
     const takeValue = (tok: string | undefined): string => {
       if (!isFlagValueToken(tok)) {
         throw new Error(
-          `--${a.replace(/^--/, '')} 需要一个参数 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)`,
+          `--${a.replace(/^--/, '')} 需要一个参数 —— 紧邻的 token 实得:${describeArgToken(tok)}(不得吞掉相邻旗标)`,
         )
       }
       i++
