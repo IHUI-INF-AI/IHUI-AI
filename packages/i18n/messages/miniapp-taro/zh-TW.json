@@ -4982,5 +4982,20 @@
     "submit": "建立",
     "nameRequired": "請輸入名稱",
     "saveFailed": "儲存失敗"
+  },
+  "agentMarket": {
+    "empty": "暫無智慧體",
+    "free": "免費",
+    "loadFailed": "載入失敗",
+    "paid": "付費",
+    "searchPlaceholder": "搜尋智慧體",
+    "title": "智慧體市場",
+    "uses": "使用次數"
+  },
+  "agentReviewList": {
+    "author": "作者",
+    "empty": "暫無評價",
+    "loadFailed": "載入評價失敗",
+    "title": "使用者評價"
   }
 }

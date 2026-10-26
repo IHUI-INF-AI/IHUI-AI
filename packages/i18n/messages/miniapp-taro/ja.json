@@ -4982,5 +4982,20 @@
     "submit": "作成",
     "nameRequired": "名前を入力してください",
     "saveFailed": "保存に失敗しました"
+  },
+  "agentMarket": {
+    "empty": "エージェントがありません",
+    "free": "無料",
+    "loadFailed": "読み込みに失敗しました",
+    "paid": "有料",
+    "searchPlaceholder": "エージェントを検索",
+    "title": "エージェント市場",
+    "uses": "利用回数"
+  },
+  "agentReviewList": {
+    "author": "著者",
+    "empty": "レビューがありません",
+    "loadFailed": "レビューの読み込みに失敗",
+    "title": "ユーザーレビュー"
   }
 }
