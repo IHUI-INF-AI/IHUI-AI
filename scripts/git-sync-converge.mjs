@@ -1571,6 +1571,15 @@ function main() {
   const branch = getOpt('--branch', 'main')
   const maxRounds = Number(getOpt('--rounds', 3))
   const dryRun = argv.includes('--dry-run')
+  // `--no-proxy`(2026-10-26 立):显式临时绕开仓库配的代理。
+  // 立因:当天给的出路"手打 `git -c http.proxy= …`"在本器上**跑不通**(本器自己派生 git,不吃调用方的 argv),
+  // 违反 AGENTS §0.8「文档不得写跑不通的出路」。旗标只置 env(`IHUI_GIT_NO_PROXY=1`),
+  // 由唯一取材层 `lib/face-reader.mjs` 的 `isForceDirect()` 认 —— 本器零判定复算(§0.6),
+  // 且不写任何持久配置、不碰代理客户端。
+  if (argv.includes('--no-proxy')) {
+    process.env.IHUI_GIT_NO_PROXY = '1'
+    log(C.dim, '  ℹ️ --no-proxy:本轮所有 git 网络命令走直连(临时绕过,不改 git 配置、不动代理客户端)')
+  }
 
   const repoRoot = git(['rev-parse', '--show-toplevel'], { allowFail: true })
   if (!repoRoot) {
