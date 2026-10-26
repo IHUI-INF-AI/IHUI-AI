@@ -1223,20 +1223,38 @@ function Get-BuildSrcFingerprint {
     return ($parts -join '/')
 }
 function Test-BuildCooldown {
-    # 返回 $true 表示仍在 30 分钟冷却期内(上轮构建/门禁失败后跳过本轮重建)
-    # 判定顺序:①时间窗(原口径,不变) ②源码子树指纹 —— 与失败时记录的 head 现算
-    # 指纹对比,子树已变 ⇒ 放行。指纹任一侧取不到(异常面/浅克隆)时退回纯时间戳口径,
-    # 不把"没判成"当"判过"。
-    try {
-        $st = Get-Content $BuildCooldownFile -Raw -ErrorAction Stop | ConvertFrom-Json
-        $ageMin = ((Get-Date) - [datetime]$st.ts).TotalMinutes
-        if ($ageMin -lt 0 -or $ageMin -ge 30) { return $false }
-        $oldFp = Get-BuildSrcFingerprint ([string]$st.head)
-        $curHead = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    # 三态判定(G-37 格② 执行席 @2026-10-27,在 2026-09-29 指纹口径之上补齐"比对它自己记录的 head"):
+    #   $true  = 仍在 30 分钟冷却期内,本轮跳过重建(上轮构建/门禁失败后);
+    #   $false = 放行;
+    #   $null  = 未判定 —— 记录在位但其 ts/head 读不出、或当前 HEAD/源码子树指纹算不出。
+    #          调用方必须显式处置:既不默认放行(真失败的节流被整条关掉),也不默认压住
+    #          (新提交被旧冷却压住 = 08:24–08:35 白拦 9 轮的事故型)。§0.3:没判不许写成判过。
+    # 判定顺序:①无记录 = 判过的"没冷却"(放行,不是未判定) ②时间窗(原口径不变,30 分钟)
+    # ③比对它自己记录的 head:HEAD 未推进(与记录相等)⇒ 同一枚失败面,冷却照旧生效;
+    #   HEAD 已推进 ⇒ 旧冷却不该继续压住新构建 —— 但本机 HEAD 每 1-2 分钟被并发会话推进一次,
+    #   多为台账/文档提交,故按"源码子树指纹真变才放行"(头部注释与 mjs 镜像测试同口径);
+    #   推进了而指纹算不出 ⇒ 未判定(旧口径在此退回纯时间戳默认压住,本次改掉)。
+    if (-not (Test-Path -LiteralPath $BuildCooldownFile)) { return $false }
+    $raw = $null
+    try { $raw = Get-Content $BuildCooldownFile -Raw -ErrorAction Stop } catch { return $false }
+    $st = $null
+    try { $st = $raw | ConvertFrom-Json -ErrorAction Stop } catch { return $null }
+    if ($null -eq $st) { return $null }
+    $ageMin = $null
+    try { if ([string]$st.ts) { $ageMin = ((Get-Date) - [datetime]([string]$st.ts)).TotalMinutes } } catch { return $null }
+    if ($null -eq $ageMin) { return $null }
+    if ($ageMin -lt 0 -or $ageMin -ge 30) { return $false }
+    $recHead = ([string]$st.head).Trim()
+    $curHead = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    if ($recHead -notmatch '^[0-9a-fA-F]{7,40}$' -or $curHead -notmatch '^[0-9a-fA-F]{7,40}$') { return $null }
+    if ($curHead -ne $recHead) {
+        $oldFp = Get-BuildSrcFingerprint $recHead
         $curFp = Get-BuildSrcFingerprint $curHead
         if ($oldFp -and $curFp -and $curFp -ne $oldFp) { return $false }
-        return $true
-    } catch { return $false }
+        if ($oldFp -and $curFp) { return $true }
+        return $null
+    }
+    return $true
 }
 function Clear-BuildCooldown {
     if (Test-Path $BuildCooldownFile) { Remove-Item $BuildCooldownFile -Force -ErrorAction SilentlyContinue }
@@ -2081,10 +2099,11 @@ function Invoke-Diagnose {
     if (Test-Path $cdFile) {
         try {
             $cdSt = Get-Content $cdFile -Raw -ErrorAction Stop | ConvertFrom-Json
-            $cdAge = ((Get-Date) - [datetime]$cdSt.ts).TotalMinutes
-            $cdIn = if ($cdAge -ge 0 -and $cdAge -lt 30) { '是(behind=0 时跳过重试)' } else { '否(已过 30 分钟,下轮自动重试)' }
+            $cdAge = ((Get-Date) - [datetime]([string]$cdSt.ts)).TotalMinutes
+            $cdV = Test-BuildCooldown
+            $cdIn = if ($null -eq $cdV) { '未判定(ts/head 或当前 HEAD/子树指纹读不出 ⇒ 部署轮显式中止,既不默认放行也不默认压住)' } elseif ($cdV) { '是(behind=0 时跳过重试)' } else { '否(窗外或源码子树已变,下轮自动重试)' }
             DiagLog ("  构建失败冷却: 上次失败 {0:N0} 分钟前(head={1}) ⇒ 冷却中:{2}" -f $cdAge, $cdSt.head, $cdIn)
-        } catch { DiagLog ("  构建失败冷却: 状态文件存在但不可读({0})" -f $_.Exception.Message) }
+        } catch { DiagLog ("  构建失败冷却: 状态文件存在但不可读({0}) ⇒ 未判定(部署轮显式中止)" -f $_.Exception.Message) }
     } else { DiagLog "  构建失败冷却: 无(上次部署成功或从未失败)" }
 
     # ── [8] 判读提示 ──
@@ -2644,8 +2663,14 @@ if ($behind -eq 0 -and -not $deployLatest) {
     # 冷却拦截(2026-09-21 加):上轮构建/门禁失败后 30 分钟内不因「构建新鲜度」反复重试,
     # 防持续失败时每轮 10-20 分钟无效构建;30 分钟后自动重试,根因修复后无需人工干预。
     # behind>0(有新提交)不拦,push→部署及时性优先。
-    if (Test-BuildCooldown) {
-        Log "SKIP  前轮构建/门禁失败后冷却中(30 分钟内),本轮不重建;冷却结束自动重试,根因已修复则无需干预"
+    # G-37 格②(2026-10-27 执行席):判定升为三态 —— 冷却必须比对它自己记录的 head,
+    # 且"记录/HEAD 读不出"既不得默认放行也不得默认压住,未判定一律本轮显式中止。
+    $cdVerdict = Test-BuildCooldown
+    if ($null -eq $cdVerdict) {
+        Fail ("构建冷却未判定:{0} 在位但其 ts/head 读不出、或当前 HEAD/源码子树指纹算不出 —— 既不默认放行重建也不默认按冷却压住本轮(§0.3)。请手查该状态文件与 git rev-parse HEAD 后重试。" -f $BuildCooldownFile)
+    }
+    if ($cdVerdict) {
+        Log "SKIP  前轮构建/门禁失败后冷却中(30 分钟内且 HEAD/源码面未真变),本轮不重建;冷却结束或源码子树变化后自动重试,根因已修复则无需干预"
         Invoke-CleanBuildWorktreeSweep
         Release-DeployLock
         exit 0
