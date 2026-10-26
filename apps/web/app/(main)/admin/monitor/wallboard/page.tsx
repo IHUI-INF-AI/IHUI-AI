@@ -205,7 +205,15 @@ interface TrafficSnapshot {
   aggregationAgeSec: number | null
   truncated: boolean | null
   /** 近 24h 页面访问排行(visit_logs 口径);null = 页面热度腿取不到 */
-  pageTop: Array<{ url: string; scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
+  pageTop: Array<{
+    url: string
+    scope: 'public' | 'admin' | 'auth'
+    platform: 'web' | 'rn' | 'mp' | 'ex'
+    pv: number
+    uv: number
+  }> | null
+  /** 近 24h visit_logs 同口径总 PV(排行占比的分母);null = 页面热度腿取不到 */
+  pageTotalPv: number | null
   /** 近 24h 各访问面 PV/UV(前台/后台/登录页);null = 同一条腿取不到 */
   scopeSplit: Array<{ scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
   /** 近 24h 各端 PV/UV(web/RN/小程序/浏览器插件)+ 90 日接入史;null = 同一条腿取不到 */
@@ -221,6 +229,33 @@ interface TrafficSnapshot {
   online5m: number | null
   /** 近 5 分钟浏览量 */
   pv5m: number | null
+}
+
+/**
+ * 端前缀着色:四端埋点写同一张表,`/chat`(网站)与 `/rn/Chat`(移动端)在页面排行里
+ * 是并列两行,不给前缀上色就分不清「这一行是哪一端」。
+ *
+ * 刻意**不新增端徽章文案**:「各端使用量」面板已经逐行列了网站/移动端/小程序/浏览器插件,
+ * 再加一枚文字徽章既重复又会把窄列挤扁;前缀本来就是端身份的一部分(服务端
+ * `classifyVisitPlatform` 按同一组前缀分桶),给它上色即可,不引入第二套端说法。
+ */
+const PLATFORM_PREFIX_CLASS: Record<'rn' | 'mp' | 'ex', string> = {
+  rn: 'text-violet-600 dark:text-violet-400',
+  mp: 'text-green-700 dark:text-green-400',
+  ex: 'text-orange-700 dark:text-orange-400',
+}
+const PLATFORM_PREFIXES: Array<['rn' | 'mp' | 'ex', string]> = [
+  ['rn', '/rn/'],
+  ['mp', '/mp/'],
+  ['ex', '/ex/'],
+]
+
+/** 行首端前缀拆分:命中则返回 [前缀, 其余路径],未命中返回 null(web 裸路径)。 */
+function splitPlatformPrefix(url: string): ['rn' | 'mp' | 'ex', string, string] | null {
+  for (const [platform, prefix] of PLATFORM_PREFIXES) {
+    if (url.startsWith(prefix)) return [platform, prefix, url.slice(prefix.length)]
+  }
+  return null
 }
 
 interface RelayPoolSnapshot {
@@ -2694,19 +2729,44 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {t('pageUsageTop')}
               </div>
               <div className="space-y-1">
-                {(traffic?.pageTop ?? []).slice(0, 8).map((p) => (
-                  <div
-                    key={p.url}
-                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                  >
-                    <span className="truncate text-[10px] text-foreground">{p.url}</span>
-                    {/* 读数 = PV / UV:前者答「用了多少次」,后者答「多少人」 */}
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                      {fmtCompact(p.pv)}
-                      <span className="text-muted-foreground"> / {fmtCompact(p.uv)}</span>
-                    </span>
-                  </div>
-                ))}
+                {(traffic?.pageTop ?? []).slice(0, 8).map((p) => {
+                  // 占比条:这个页面占近 24h visit_logs 总 PV 的比例。
+                  // 分母取不到就不画条(绝不折 0 —— 那是把"没判"画成"零")。
+                  const sharePct =
+                    typeof traffic?.pageTotalPv === 'number' && traffic.pageTotalPv > 0
+                      ? Math.max(0, Math.min(100, (p.pv / traffic.pageTotalPv) * 100))
+                      : null
+                  const prefix = splitPlatformPrefix(p.url)
+                  return (
+                    <div
+                      key={p.url}
+                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      {sharePct !== null ? (
+                        <div
+                          aria-hidden
+                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
+                          style={{ width: `${sharePct}%` }}
+                        />
+                      ) : null}
+                      <span className="relative truncate text-[10px] text-foreground">
+                        {prefix ? (
+                          <>
+                            <span className={PLATFORM_PREFIX_CLASS[prefix[0]]}>{prefix[1]}</span>
+                            {prefix[2]}
+                          </>
+                        ) : (
+                          p.url
+                        )}
+                      </span>
+                      {/* 读数 = PV / UV:前者答「用了多少次」,后者答「多少人」 */}
+                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtCompact(p.pv)}
+                        <span className="text-muted-foreground"> / {fmtCompact(p.uv)}</span>
+                      </span>
+                    </div>
+                  )
+                })}
                 {traffic?.pageTop && traffic.pageTop.length === 0 ? (
                   <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
                     {t('pageUsageNoData')}

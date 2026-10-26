@@ -475,6 +475,12 @@ interface TrafficSnapshot {
    * 被用了多少次";本格与 `scopeSplit` 同源(同一次 24h 聚合),单腿失败只置 null。
    */
   pageTop: PageUsageLiveRow[] | null
+  /**
+   * 近 24h 同口径总 PV(visit_logs 口径,不是 api_logs 的流量)。
+   * 前端拿它算「这个页面占了多少」——排行里没有分母就只能比大小,看不出占比。
+   * null = 页面热度腿取不到。
+   */
+  pageTotalPv: number | null
   /** 近 24h 各访问面(前台/后台/登录页)的 PV/UV;null = 同一条腿取不到 */
   scopeSplit: ScopeUsageLiveRow[] | null
   /** 近 24h 各端(web/RN/小程序)PV/UV;null = 同一条腿取不到 */
@@ -508,6 +514,7 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       aggregationAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
       truncated: live.truncated,
       pageTop: pageUsage?.top ?? null,
+      pageTotalPv: pageUsage?.totalPv ?? null,
       scopeSplit: pageUsage?.scopes ?? null,
       platformSplit: pageUsage?.platforms ?? null,
       online5m: pageUsage?.online5m ?? null,
