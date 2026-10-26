@@ -11,7 +11,10 @@
 - 跟踪任务生命周期状态:pending → running → succeeded / failed / timeout / cancelled
 - 任务完成后(若 `notify_on_done`)经 `message_bus` 的 IM 通道给 `user_id` 推送完成通知
 - 并发上限 `MAX_CONCURRENT`,超限直接拒绝(返回 `{error: "too_many_background_tasks"}`)
-- 注册表为进程内存字典,不做 redis 持久化(登记遗留,后续批次补齐)
+- 注册表为进程内存字典;**G-244(2026-10-26)**起,每次 run 状态变更都走 append-only
+  journal(`data/background_task_runs.jsonl`),重启后由 `hydrate_from_journal()` 从行派生
+  终态重建注册表,`bg_task_status` 不再"查无此任务"。**journal 不可用 ⇒ 服务显式禁用
+  (禁用而非伪装,绝不退回纯内存接单)**;DB 建表迁移腿与 G-241 同属 §24 需人拍板,未做。
 
 V3 #51(2026-09-26)新增的三格(病根:「run_in_background 只有 sleep/echo」= 提交后什么都不跑):
 - `submit_typed(...)` / `run_in_background(arguments)`:按 `task_type` 分派到
@@ -39,6 +42,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Final
 
 from .branch_generation import (
@@ -58,6 +62,7 @@ from .task_executors import (
     kill_processes_for,
     supported_task_types,
 )
+from .task_run_journal import AppendOnlyRunJournal, derive_run_states
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +89,12 @@ MAX_CONCURRENT = max(1, int(os.environ.get("BACKGROUND_TASK_MAX_CONCURRENT", "10
 # 结果/错误摘要截断长度(防大对象撑爆内存与通知内容)
 _RESULT_TRUNCATE = 2000
 _ERROR_TRUNCATE = 1000
+
+# G-244:run 状态变更 append-only journal 的默认落点(与本目录其他数据文件同形态,
+# 锚定模块位置而非 cwd;`apps/ai-service/data/` 已被 gitignore,运行态数据不入库)。
+DEFAULT_RUN_JOURNAL_PATH: Final[Path] = (
+    Path(__file__).resolve().parents[2] / "data" / "background_task_runs.jsonl"
+)
 
 
 class TaskState(StrEnum):
@@ -120,6 +131,20 @@ def _truncate(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return text[:limit] + "...(truncated)"
+
+
+def _opt_str(value: object) -> str | None:
+    """journal payload 里的可选字符串(非字符串/空串 ⇒ None)。"""
+    return value if isinstance(value, str) and value else None
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 @dataclass
@@ -212,7 +237,7 @@ class BackgroundTaskManager:
     不会在检查与 create_task 之间被其他协程插入(单线程事件循环保证)。
     """
 
-    def __init__(self) -> None:
+    def __init__(self, journal: AppendOnlyRunJournal | None = None) -> None:
         # task_id -> 状态记录。已完成记录保留以支持 get_status 查询,
         # 不计入并发上限(见 _active_count)。
         self._tasks: dict[str, TaskRecord] = {}
@@ -222,6 +247,66 @@ class BackgroundTaskManager:
         self._cancel_events: dict[str, asyncio.Event] = {}
         # V3 #51:task_id -> 在跑的 asyncio.Task(供 cancel)
         self._handles: dict[str, asyncio.Task[None]] = {}
+        # G-244:run 状态变更的 append-only journal;路径在构造时读模块级
+        # DEFAULT_RUN_JOURNAL_PATH(测试经 conftest 重定向到 tmp)。
+        self._journal = journal if journal is not None else AppendOnlyRunJournal(
+            DEFAULT_RUN_JOURNAL_PATH
+        )
+        # G-244:"禁用而非伪装"的载体 —— journal 不可用时置显式禁用,
+        # 所有接单入口拒绝,绝不静默退回纯内存态。
+        self._disabled_reason: str | None = None
+
+    # ------------------------------------------------------------------
+    # G-244:journal + 显式禁用(禁用而非伪装)
+    # ------------------------------------------------------------------
+
+    def _disable(self, reason: str) -> None:
+        """显式禁用后台任务服务(结构化日志一次;幂等)。"""
+        if self._disabled_reason is None:
+            self._disabled_reason = reason
+            logger.error(
+                "[BackgroundTask] 后台任务服务显式禁用(禁用而非伪装,绝不退回内存 journal): %s",
+                reason,
+            )
+
+    def _disabled_result(self) -> dict[str, Any]:
+        """禁用态的统一拒绝回执(与 too_many 拒绝同形:ok=False + 具名 error)。"""
+        return {
+            "ok": False,
+            "error": "background_tasks_disabled",
+            "reason": self._disabled_reason,
+            "executed": False,
+            "analysis_depth": "none",
+            "message": "run journal 不可用,后台任务已显式禁用(不伪装成内存态继续接单)",
+        }
+
+    def _journal_append(
+        self,
+        record: TaskRecord,
+        kind: str,
+        *,
+        state: TaskState,
+        attempt: int | None = None,
+        error: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> bool:
+        """追加一行 journal;写不进 ⇒ 置显式禁用并返回 False(调用方据此拒绝接单)。"""
+        ev = self._journal.append(
+            kind=kind,
+            task_id=record.task_id,
+            attempt=record.attempt_count if attempt is None else attempt,
+            state=state.value,
+            error=error,
+            payload=payload,
+        )
+        if ev is None:
+            self._disable(self._journal.disabled_reason or "journal 已禁用")
+            return False
+        return True
+
+    def _journal_terminal(self, record: TaskRecord) -> None:
+        """终态行:claim_terminal 拿到名额后追加(状态/错误一律随行落盘,从行可派生)。"""
+        self._journal_append(record, "terminal", state=record.state, error=record.error)
 
     # ------------------------------------------------------------------
     # 并发计量(仅统计进行中任务)
@@ -265,8 +350,12 @@ class BackgroundTaskManager:
 
         Returns:
             str: 成功时的 task_id。
-            dict: 拒绝时 `{"error": "too_many_background_tasks", "active": int, "max": int}`。
+            dict: 拒绝时 `{"error": "too_many_background_tasks", ...}` 或
+                G-244 禁用态 `{"error": "background_tasks_disabled", ...}`。
         """
+        # G-244:journal 不可用 ⇒ 显式禁用,不伪装成内存态接单
+        if self._disabled_reason is not None:
+            return self._disabled_result()
         # 原子检查(此前无 await,保证单线程下检查与建任务不被插入)
         if self._active_count >= MAX_CONCURRENT:
             return {
@@ -287,6 +376,22 @@ class BackgroundTaskManager:
             timeout_s=timeout_s,
         )
         self._tasks[task_id] = record
+        # G-244:状态变更先落 journal 行再建任务;写不进 ⇒ 撤销登记并显式禁用
+        if not self._journal_append(
+            record,
+            "submit",
+            state=TaskState.PENDING,
+            payload={
+                "name": name,
+                "user_id": user_id,
+                "session_id": session_id,
+                "notify_on_done": notify_on_done,
+                "timeout_s": timeout_s,
+                "typed": False,
+            },
+        ):
+            self._tasks.pop(task_id, None)
+            return self._disabled_result()
         # G-815974:任务入队即按所属会话盖章(分支代际令牌),供完成时复校。
         if record.session_id:
             record.branch_generation_token = capture_branch_generation(record.session_id)
@@ -325,6 +430,9 @@ class BackgroundTaskManager:
 
         record.state = TaskState.RUNNING
         record.started_at = _now()
+        # G-244:running 变更落 journal 行。写不进 ⇒ 服务显式禁用(拒绝后续新单),
+        # 但本任务已在执行真实副作用,不谎称它没跑;其终态行随后续出口尽力追加。
+        self._journal_append(record, "start", state=TaskState.RUNNING)
         try:
             coro = coro_factory()
             result = await asyncio.wait_for(coro, timeout=record.timeout_s)
@@ -334,10 +442,12 @@ class BackgroundTaskManager:
             # G-815973:终态名额先到先得。此处与 await 返回之间无让出点,
             # 正常完成必然 claim 成功(行为逐字不变);claim 失败仅可能来自
             # 未来新增的并发入口,届时以先到终态为准。
-            record.claim_terminal(TaskState.SUCCEEDED)
+            if record.claim_terminal(TaskState.SUCCEEDED):
+                self._journal_terminal(record)  # G-244:终态行只在拿到名额的一侧落一次
         except TimeoutError:
             if current():
-                record.claim_terminal(TaskState.TIMEOUT)
+                if record.claim_terminal(TaskState.TIMEOUT):
+                    self._journal_terminal(record)
                 logger.warning(
                     "[BackgroundTask] 超时 task_id=%s timeout_s=%s", task_id, record.timeout_s
                 )
@@ -347,14 +457,16 @@ class BackgroundTaskManager:
             # 终态已被先写,不再变更(执行侧自己跳过,防二次改写)。
             # 已过栅栏的取消(换代后旧代解栈)一个字段都不写,见上方 current()。
             if current():
-                record.claim_terminal(TaskState.CANCELLED)
-                record.error = record.error or "任务被取消"
+                if record.claim_terminal(TaskState.CANCELLED):
+                    record.error = record.error or "任务被取消"
+                    self._journal_terminal(record)
             raise
         except Exception as e:  # noqa: BLE001 — 必须兜底,否则后台任务异常会污染事件循环
             if current():
-                record.claim_terminal(TaskState.FAILED)
-                record.error = _truncate(str(e), _ERROR_TRUNCATE)
-                logger.warning("[BackgroundTask] 执行异常 task_id=%s error=%s", task_id, record.error)
+                if record.claim_terminal(TaskState.FAILED):
+                    record.error = _truncate(str(e), _ERROR_TRUNCATE)
+                    self._journal_terminal(record)
+                    logger.warning("[BackgroundTask] 执行异常 task_id=%s error=%s", task_id, record.error)
         finally:
             if current():
                 record.finished_at = _now()
@@ -601,12 +713,24 @@ class BackgroundTaskManager:
         args = arguments if isinstance(arguments, dict) else {}
         key = str(idempotency_key or compute_idempotency_key(spec.task_type, args))
 
+        # G-244:journal 不可用 ⇒ 显式禁用,不伪装成内存态接单
+        if self._disabled_reason is not None:
+            return self._disabled_result()
+
         # ---- 以下到 create_task 之间不得出现 await(去重必须原子) ----
         existing_id = self._idempotency.get(key)
         if existing_id:
             existing = self._tasks.get(existing_id)
             if existing is not None:
                 if existing.state in _RESUMABLE_STATES:
+                    # G-244:续跑行先落盘再改内存;写不进 ⇒ 记录原样不动、显式禁用
+                    if not self._journal_append(
+                        existing,
+                        "resume",
+                        state=TaskState.PENDING,
+                        attempt=existing.attempt_count + 1,
+                    ):
+                        return self._disabled_result()
                     existing.attempt_count += 1
                     existing.state = TaskState.PENDING
                     # G-815973:复用同一记录续跑 ⇒ 终态名额一并复位,
@@ -664,6 +788,29 @@ class BackgroundTaskManager:
         )
         self._tasks[task_id] = record
         self._idempotency[key] = task_id
+        # G-244:提交行先落盘再启动;写不进 ⇒ 撤销登记、显式禁用,不伪装成"已提交"
+        if not self._journal_append(
+            record,
+            "submit",
+            state=TaskState.PENDING,
+            payload={
+                "name": record.name,
+                "user_id": user_id,
+                "session_id": session_id,
+                "notify_on_done": notify_on_done,
+                "timeout_s": record.timeout_s,
+                "typed": True,
+                "task_type": spec.task_type,
+                "idempotency_key": key,
+                "stub": spec.stub,
+                "analysis_depth": record.analysis_depth,
+                "checkpoint_key": key,
+            },
+        ):
+            self._tasks.pop(task_id, None)
+            self._idempotency.pop(key, None)
+            self._cancel_events.pop(task_id, None)
+            return self._disabled_result()
         logger.info(
             "[BackgroundTask] 已提交(typed) task_id=%s type=%s stub=%s key=%s active=%d/%d",
             task_id, spec.task_type, spec.stub, key, self._active_count, MAX_CONCURRENT,
@@ -689,6 +836,13 @@ class BackgroundTaskManager:
                 "executed": record.executed,
                 "analysis_depth": record.analysis_depth,
             }
+        # G-244:journal 不可用 ⇒ 显式禁用;续跑行先落盘再改内存,写不进记录原样不动
+        if self._disabled_reason is not None:
+            return self._disabled_result()
+        if not self._journal_append(
+            record, "resume", state=TaskState.PENDING, attempt=record.attempt_count + 1
+        ):
+            return self._disabled_result()
         record.attempt_count += 1
         record.state = TaskState.PENDING
         # G-815973:同 submit_typed 续跑分支 —— 终态名额复位。
@@ -725,6 +879,8 @@ class BackgroundTaskManager:
             ev.set()
         killed = kill_processes_for(task_id)
         record.error = record.error or "任务被取消"
+        # G-244:取消是减害动作,journal 坏了也照做;终态行尽力追加(追加失败 ⇒ 显式禁用新单)
+        self._journal_terminal(record)
         handle = self._handles.get(task_id)
         if handle is not None and not handle.done():
             handle.cancel()
@@ -758,6 +914,76 @@ class BackgroundTaskManager:
         ]
         items.sort(key=lambda r: r.created_at, reverse=True)
         return [r.to_dict() for r in items[: max(0, limit)]]
+
+    # ------------------------------------------------------------------
+    # G-244:重启回放(终态从行派生)
+    # ------------------------------------------------------------------
+
+    def hydrate_from_journal(self) -> dict[str, int]:
+        """把 journal 事件按序重铸、喂同一 reducer(`derive_run_states`),从行派生重建注册表。
+
+        治的病根:"重启后 `bg_task_status` 查无此任务"(run 看起来跑起来了,
+        进程退出时却把一切静默丢掉)。规则:
+        - 只补内存里没有的 task_id(不覆盖活记录);
+        - **终态一律从行派生**,不信任任何旁路;
+        - 无终态行(pending/running 遗留)⇒ 派生为 failed 并明写"服务重启中断",
+          **不伪装成仍在跑** —— 与"禁用而非伪装"同律;
+        - 畸形行点名(计数进返回值 + 日志),不静默吞。
+        """
+        events, malformed_lines = self._journal.read_events()
+        views = derive_run_states(events)
+        hydrated = 0
+        interrupted = 0
+        for task_id, view in views.items():
+            if task_id in self._tasks:
+                continue
+            try:
+                state = TaskState(view.state)
+            except ValueError:
+                logger.warning(
+                    "[BackgroundTask] journal 行含未知状态词 %r(task_id=%s),点名跳过",
+                    view.state,
+                    task_id,
+                )
+                continue
+            raw_timeout = view.payload.get("timeout_s", 300.0)
+            record = TaskRecord(
+                task_id=task_id,
+                name=_opt_str(view.payload.get("name")) or "",
+                user_id=_opt_str(view.payload.get("user_id")),
+                session_id=_opt_str(view.payload.get("session_id")),
+                state=state,
+                created_at=_parse_iso(view.created_at) or _now(),
+                started_at=_parse_iso(view.started_at),
+                finished_at=_parse_iso(view.finished_at),
+                error=view.error,
+                notify_on_done=bool(view.payload.get("notify_on_done", True)),
+                timeout_s=float(raw_timeout) if isinstance(raw_timeout, (int, float)) else 300.0,
+                task_type=_opt_str(view.payload.get("task_type")),
+                idempotency_key=_opt_str(view.payload.get("idempotency_key")),
+                stub=bool(view.payload.get("stub", False)),
+                analysis_depth=_opt_str(view.payload.get("analysis_depth")) or "none",
+                attempt_count=view.attempt,
+                checkpoint_key=_opt_str(view.payload.get("checkpoint_key")),
+            )
+            if state not in _TERMINAL_STATES:
+                record.state = TaskState.FAILED
+                record.error = "服务重启:journal 无终态行,任务中断(由回放派生,不伪装仍在跑)"
+                interrupted += 1
+            record._terminal_claimed = True
+            if record.started_at is not None and record.finished_at is not None:
+                record.duration_ms = (record.finished_at - record.started_at).total_seconds() * 1000.0
+            self._tasks[task_id] = record
+            if record.idempotency_key and record.idempotency_key not in self._idempotency:
+                self._idempotency[record.idempotency_key] = task_id
+            hydrated += 1
+        if malformed_lines:
+            logger.warning(
+                "[BackgroundTask] journal 畸形行 %d 处(点名跳过,前 20 个行号: %s)",
+                len(malformed_lines),
+                malformed_lines[:20],
+            )
+        return {"hydrated": hydrated, "interrupted": interrupted, "malformed": len(malformed_lines)}
 
 
 # 模块级单例
