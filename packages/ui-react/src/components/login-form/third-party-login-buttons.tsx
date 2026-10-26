@@ -92,7 +92,7 @@ export function ThirdPartyLoginButtons({
           {restProviders.length > 0 && (
             <>
               <div className="my-4 flex items-center justify-center gap-3 text-xs text-muted-foreground">
-                <span>{'或'}</span>
+                <span>{t('auth.or')}</span>
               </div>
               <ThirdPartyGrid
                 t={t}
