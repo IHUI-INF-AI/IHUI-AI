@@ -189,11 +189,19 @@ export function indexOpenRowsById(rows) {
   return openById
 }
 
+/** 行内 ✅(YYYY-MM-DD) 结清日期提取(归档行自带盖然日期;无 ⇒ null,不许猜)。 */
+export function settledDateOf(rowText) {
+  const m = /✅\((\d{4}-\d{2}-\d{2})\)/.exec(String(rowText ?? ''))
+  return m ? m[1] : null
+}
+
 /**
  * 归档面索引(纯函数,self-test 直测):吃 `[{ path, text }]`,交出台账归档件里的登记行。
  * 取材面由调用方按 `lib/plan-id-face.mjs` 的同一形状(`.ihui-agent/archive/PROJECT_PLAN*.md`)枚举,
  * 本函数**不自己找文件、不自己读盘** —— 归档读取全仓只有那一份。
  * 每行附 `title`/`composite`:`compositeKeyOf`(编号 + 题面前 24 字)唯一实现,供 ④c 逐字比对。
+ * done 行另附 `settledDate`(行内 ✅(日期) 逐字提取)—— ④c-陈旧快照档的时间序判据只认它,
+ * 文件头"归档(YYYY-MM-DD)"不作数(ARCHIVE.md 头是 2026-07-22 建档日,里面住着 10 月的结清行)。
  * `ok=false` 表示有归档件没读到正文 —— 判不出 ≠ 零份,调用方必须据此拒删。
  */
 export function buildArchiveIndex(files) {
@@ -211,8 +219,10 @@ export function buildArchiveIndex(files) {
         line: r.line,
         state: r.state,
         key: r.key,
+        raw: r.raw,
         title: titleOf(r.raw),
         composite: compositeKeyOf(r.raw),
+        settledDate: r.state === 'done' ? settledDateOf(r.raw) : null,
         // 归档里的"主行"(非副本自述行)—— 点名时优先指向它,别拿同族的另一枚指针当替身
         main: !isClaimExcludedPointer(r.raw),
       }
@@ -363,7 +373,7 @@ export function commitReceiptVerdict(row, pointed, opts2, noPointerCheck = false
  * ④d 需 `opts2 = { resolveSnapshot, ledgerFace, deletedRowLines }`(缺任 ⇒ 一律不启用,
  * 逐字退回 ④c 原判定;判不出恒落"不可删",失效方向只许拒删)。
  */
-export function pointerTargetVerdict(row, openById, archiveIndex, opts2 = null) {
+export function pointerTargetVerdict(row, openById, archiveIndex, opts2 = null, ledgerFaceArg = null) {
   if (!COPY_POINTER_ROW_RE.test(row.raw)) return { verdict: 'no-pointer', pointed: null }
   const pointed = pointedIdOf(row.raw)
   if (!pointed) return { verdict: 'no-pointer', pointed: null }
@@ -388,9 +398,48 @@ export function pointerTargetVerdict(row, openById, archiveIndex, opts2 = null) 
     return { verdict: 'archive-absent', pointed }
   }
   const live = hits.filter((x) => x.state !== 'done')
+  // ── ④c-陈旧快照档(2026-10-26/patrol4):archive-live 的"活证据"若全部来自**历史镜像快照**,
+  // 按"现行面为王+结清时间序"降级。全条件,任一不满足原样 archive-live 拒删:
+  //   (a) 台账现行面已无该编号的未勾登记行(非副本指针自述行;ledgerFace 必传入,缺 ⇒ 不降级);
+  //   (b) hits 含 ≥1 done 且其行内 ✅(YYYY-MM-DD) 全部可解析(无日期 ⇒ 判不出,不降级);
+  //   (c) done 的结清日期 **晚于** 每条 open 证据所在文件的文件名日期(文件名日期取不到 ⇒ 拒降;
+  //       ARCHIVE.md 头注"归档(2026-07-22)"不作数——里面住着 10 月的行,所以只比"open 证据在哪个件")。
+  // 病根:REN(2026-10-14 改号全量镜像)与同族 REN 快照按设计存"当时账面",旧 open 行是**化石**不是活证;
+  // 台账面上 P1-① 正主与 done✅ 已定,而旧尺把整仓归档当同权平面 ⇒ 陈旧指针永远摘不掉(实测)。
   if (live.length) {
-    // 点名优先取归档里的主行(非副本自述行),同族另有未勾指针时不至于指错条
-    return { verdict: 'archive-live', pointed, detail: [...live].sort((a, b) => Number(b.main) - Number(a.main)) }
+    const face = ledgerFaceArg ?? opts2?.ledgerFace ?? null
+    const archDone = hits.filter((x) => x.state === 'done')
+    const doneDs = archDone.map((x) => x.settledDate).filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+    const openMissingDate = archDone.length !== doneDs.length
+    const openFileDates = [...new Set(live.map((x) => (/(\d{4})-(\d{2})-(\d{2})/.exec(x.path ?? '') ?? [])[0] ?? null))]
+    const openLatest = openFileDates.filter(Boolean).sort().pop() ?? null
+    const latestDone = doneDs.slice().sort().pop() ?? null
+    const hasFaceOpen =
+      face &&
+      face.rows.some(
+        (r) =>
+          r.state === 'open' &&
+          r.line !== row.line &&
+          !isClaimExcludedPointer(r.raw) &&
+          String(r.raw).includes(pointed),
+      )
+    if (
+      face &&
+      !hasFaceOpen &&
+      archDone.length > 0 &&
+      !openMissingDate &&
+      openLatest &&
+      latestDone &&
+      latestDone > openLatest
+    ) {
+      hits = archDone
+    } else {
+      return {
+        verdict: 'archive-live',
+        pointed,
+        detail: [...live].sort((a, b) => Number(b.main) - Number(a.main)),
+      }
+    }
   }
   const done = hits.filter((x) => x.composite)
   if (!done.length) return { verdict: 'archive-absent', pointed, detail: hits }
