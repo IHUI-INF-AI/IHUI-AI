@@ -59,7 +59,7 @@ import { dirname, resolve } from 'node:path'
 import { renderPin, sha256Hex } from './lib/generated-input-pin.mjs'
 // 取材面的解析与读取一律复用守门那一份实现(§22c:同一件事不写第二套)——
 // `catBatch` 是"清单与内容同面同轮"的批量出口,`readWorktreeFile` 是磁盘面的 sanctioned 读法。
-import { catBatch, readWorktreeFile, FACE_LABEL } from './lib/face-reader.mjs'
+import { catBatch, readWorktreeFile, FACE_LABEL, gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 // 脚本在根 scripts/,仓库根在其上 1 级;消息源在 packages/i18n/messages
@@ -259,12 +259,10 @@ for (const locale of REMOTE_LOCALES) {
 // 不参与陈旧判据(判据只认 inputsSha256),所以「git 此刻不可用」绝不允许变成生成失败。
 function readSourceCommit() {
   try {
-    return execFileSync('git', ['-c', 'safe.directory=*', '-C', repoRoot, 'rev-parse', 'HEAD'], {
-      encoding: 'utf8',
-      windowsHide: true, // §5b:派生控制台程序必须带,否则弹可见窗口
-      timeout: 15000, // 守门 80:钩子/守护链可达的 git 只读调用必须有界
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带绝对路径 git + safe.directory
+    // + core.quotepath=false + -C repoRoot + windowsHide + 显式 stdio,原显式 -c/-C 剥掉避免重复;
+    // timeout 15000 按守门 80"钩子/守护链可达的 git 只读调用必须有界"显式保留)
+    return gitRaw(['rev-parse', 'HEAD'], repoRoot, { timeout: 15000 })
       .trim()
       .split('\n')[0]
   } catch {

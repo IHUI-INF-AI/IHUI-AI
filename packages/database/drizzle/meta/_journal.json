@@ -2384,6 +2384,13 @@
       "when": 1792996200000,
       "tag": "20261026143000_agent_thumbs_collects_unique",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 344,
+      "when": 1792998000000,
+      "tag": "20261026150000_ai_model_config_global_provider_base_uniq",
+      "breakpoints": true
     }
   ]
 }

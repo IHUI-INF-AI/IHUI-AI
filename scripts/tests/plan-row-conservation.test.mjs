@@ -13,10 +13,14 @@
  * / 旧行不是登记行(拿"没什么可守恒"蒙过) / 合法缩短正文必须放行(否则尺子过牙,谁都用不了)。
  *
  * 2026-10-23 补「挂牌放行档」的双向锁(承「台账挂牌没有合法通道」票):放行只认
- * 「旧行本来没牌 ∧ 新牌是完整租约 ∧ 剥掉那枚牌后与旧行逐字节相等」这一条窄缝,所以必须
+ * 「旧行本来没牌 ∧ 新牌是完整租约(日期不晚于今天) ∧ 剥掉那枚牌后与旧行逐字节相等」这一条窄缝,所以必须
  * **成对**钉 —— 加牌放行(结构位与行尾两种净差同形)对 摘约/换持有者/只改日期/裸牌/半牌/
- * 非法日期/加牌顺带改正文/加牌多打空格 全拒,且每条拒都要点名是①②③哪一条不满足
+ * 非法日期/未来日期/加牌顺带改正文/加牌多打空格 全拒,且每条拒都要点名是①②③哪一条不满足
  * (§0.10:失效方向恒为"多要一次定向说明");另钉 §0.3 那一格:牌的位置量不出来 ⇒ 未判定不放行。
+ * 2026-10-26 本票续席补条件②的最后一格:`@2099-01-01` 这类**未来日期**的"完整租约"是日历合法日,
+ * `parseLeaseForm` 那一把尺拦不住它,而它会把守门 109 CL1 的 72h 超龄兜底永远推到够不着
+ * (免死牌)⇒ 单独成 `add-future` 档;成对正控 = 按 `todayIso()` 现算的当天日期必须放行
+ * (证明这条是"不晚于今天"的边界,不是一刀切拒掉挂牌动作本身)。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -233,7 +237,36 @@ describe('登记行改写三维守恒', () => {
     assert.ok(v.length > 0, `2026-02-31 不是日历日,不该被当完整租约放行,实际:${JSON.stringify(v)}`)
   })
 
-  it('leaseTransitionOf 六档:same / add-complete / add-attached / add-incomplete / removed / changed', () => {
+  it('未来日期的完整租约 ⇒ 仍拒并点名条件②(日期不晚于今天;未来牌=免死牌,72h 超龄兜底永远够不着)', () => {
+    const v = C.assertRowRewriteConservation({
+      oldLine: '- [ ] G-10 标题 —— 正文',
+      newLine: '- [ ]（进行中@2099-01-01/乙） G-10 标题 —— 正文',
+      oldRec: null,
+      newRec: null,
+    })
+    assert.equal(v.length, 1, `只该有"未来日期"这一条违规,实际:${JSON.stringify(v)}`)
+    assert.match(v[0], /在未来/, '拒绝必须点名"日期在未来"这一维')
+    assert.match(v[0], /条件②/, '拒绝必须说是哪一条条件不满足(§0.10)')
+    assert.match(v[0], /出路/, '拒绝必须给下一步怎么做(§0.10:多要一次定向说明)')
+  })
+
+  it('当天日期挂完整租约 ⇒ 放行(正控:条件②是"不晚于今天"的边界,不是一刀切拒掉挂牌)', () => {
+    // today 一律借源层同一把尺现算(§22c:测试不自拼日期口径;摘掉 add-future 档不会让本例变红,
+    // 摘掉 add-complete 放行档会让上面「无牌 → 完整租约」与本例一起翻红 —— 双向锁成对在此)。
+    const t = C.todayIso()
+    assert.deepEqual(
+      C.assertRowRewriteConservation({
+        oldLine: '- [ ] G-10 标题 —— 正文',
+        newLine: `- [ ]（进行中@${t}/乙） G-10 标题 —— 正文`,
+        oldRec: null,
+        newRec: null,
+      }),
+      [],
+      `${t} 是今天,必须走 add-complete 放行档`,
+    )
+  })
+
+  it('leaseTransitionOf 七档:same / add-complete / add-attached / add-incomplete / add-future / removed / changed', () => {
     assert.equal(C.leaseTransitionOf('- [ ] G-1 正文', '- [ ] G-1 正文'), 'same')
     assert.equal(
       C.leaseTransitionOf('- [ ] G-1 正文', '- [ ]（进行中@2026-10-23/b） G-1 正文'),
@@ -246,6 +279,10 @@ describe('登记行改写三维守恒', () => {
     assert.equal(
       C.leaseTransitionOf('- [ ] G-1 正文', '- [ ]（进行中） G-1 正文'),
       'add-incomplete',
+    )
+    assert.equal(
+      C.leaseTransitionOf('- [ ] G-1 正文', '- [ ]（进行中@2099-01-01/b） G-1 正文'),
+      'add-future',
     )
     assert.equal(
       C.leaseTransitionOf('- [ ]（进行中@2026-10-23/b） G-1 正文', '- [ ] G-1 正文'),

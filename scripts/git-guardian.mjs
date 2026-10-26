@@ -5587,6 +5587,7 @@ function main() {
     // 属 §0.9「造好没装车 = 没有」。全部自带节流,判机器状态/产出台账 ⇒ 不进提交链(§12e)。
     // 顺序:先感知(分诊/腐烂/依赖)→ 再派发,同轮登记的票下一轮即可被自进化取到。
     if (!CHECK_ONLY) dispatchGateRot()
+    if (!CHECK_ONLY) dispatchRelayCapacity()
     if (!CHECK_ONLY) dispatchAutoTriage()
     if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
     if (!CHECK_ONLY) dispatchAutoEvolve()
@@ -5692,6 +5693,7 @@ function startDaemon() {
         // 节流戳与 main() 共用(同一 tick 文件),双执行体并存也只会有一边真跑;顺序先感知后派发,
         // 同轮登记的票下一轮即被自进化取到。仿 main() 同格:健康轮次内 + 提交窗口外(函数开头已让路)。
         dispatchGateRot()
+        dispatchRelayCapacity()
         dispatchAutoTriage()
         dispatchDepAdvisoryRadar()
         dispatchAutoEvolve()
@@ -5949,6 +5951,8 @@ const AUTO_EVOLVE_INTERVAL_MS = Number(process.env.IHUI_AUTO_EVOLVE_INTERVAL_MS 
 const AUTO_TRIAGE_INTERVAL_MS = Number(process.env.IHUI_AUTO_TRIAGE_INTERVAL_MS || 30 * 60 * 1000)
 const DEP_RADAR_INTERVAL_MS = Number(process.env.IHUI_DEP_RADAR_INTERVAL_MS || 24 * 60 * 60 * 1000)
 const GATE_ROT_INTERVAL_MS = Number(process.env.IHUI_GATE_ROT_INTERVAL_MS || 6 * 60 * 60 * 1000)
+/** 号池容量哨兵节拍(默认 5 分钟:容量归零是要立刻知道的事,而哨兵只读、零落地) */
+const RELAY_CAPACITY_INTERVAL_MS = Number(process.env.IHUI_RELAY_CAPACITY_INTERVAL_MS || 5 * 60 * 1000)
 const GUARDIAN_SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url))
 
 function dispatchDue(tickFile, now, intervalMs) {
@@ -6330,6 +6334,112 @@ export function dispatchGateRot(opts = {}) {
   return { ran: true, ok: false, why: '新增腐烂', known, fresh: newRot.length }
 }
 
+/**
+ * 号池容量哨兵轮(2026-10-26 装车,差值档同格 check-gate-rot):读
+ * `check-relay-capacity-zero --json --ratchet` 的三态结论 —— 只把**相对基线新增**的
+ * 归零喊人,存量只报数(治"存量天天喊、真新增反被淹")。
+ *
+ * 立因:号池"有 enabled 号但可调度 0"时,转发层会静默回落到 ai-service —— 观面上与
+ * "上游一切正常"同形(§0.9 造好没装车 = 没有的另一面:量得到但没人被通知)。
+ * 本器只读、零落地、不进提交链(判机器/库状态,§12e);节流戳与其它轮同格。
+ * 未判定(取不到库/psql/源文件漂移/基线坏)一律**不冒绿**并记日志,不猜。
+ * 器物输出缺 newBreaches(版本漂移)⇒ 按全量喊(失效方向 = 多喊一次,§0.10)。
+ * 邮件身份 = 类别 + 新增计数(§5e-3:不把会抖动的 provider 清单写进去重身份)。
+ */
+export function dispatchRelayCapacity(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = RELAY_CAPACITY_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'relay-capacity-dispatch-last.json'),
+    logger = log,
+    runner = null,
+    notifier = notifyGuardRed,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'check-relay-capacity-zero.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ 号池容量哨兵:器物不在位(scripts/check-relay-capacity-zero.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '容量哨兵缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--json', '--ratchet'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 5 * 60 * 1000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { ok: true, out: String(out ?? '') }
+      } catch (e) {
+        // exit 1 = breach(JSON 照常输出);exit 2 = 未判定,同样解析 stdout
+        return { ok: true, out: `${e?.stdout ?? ''}`, err: String(e?.message ?? e) }
+      }
+    })
+  const r = run()
+  let parsed = null
+  try {
+    parsed = JSON.parse(
+      String(r.out ?? '')
+        .trim()
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .pop(),
+    )
+  } catch {
+    parsed = null
+  }
+  if (!parsed || typeof parsed.state !== 'string') {
+    logger('❓ 号池容量哨兵:结论不可解析 ⇒ 本轮未判定(不记绿、不冒红)')
+    return { ran: true, ok: false, why: '结论不可解析' }
+  }
+  if (parsed.state === 'unjudged') {
+    logger(
+      `❓ 号池容量哨兵:未判定(${String(parsed.reason ?? '(尺子未给原因)').slice(0, 160)})⇒ 本轮没判,不等于容量正常`,
+    )
+    return { ran: true, ok: false, why: '未判定' }
+  }
+  const breaches = Array.isArray(parsed.breaches) ? parsed.breaches : []
+  if (breaches.length === 0) {
+    logger(`✅ 号池容量哨兵:未见归零(${String(parsed.reason ?? '').slice(0, 120)})`)
+    return { ran: true, ok: true, breaches: 0 }
+  }
+  const newBreaches = Array.isArray(parsed.newBreaches) ? parsed.newBreaches : breaches // 版本漂移⇒按全量喊(失效方向=多喊一次,§0.10)
+  if (newBreaches.length === 0) {
+    logger(
+      `✅ 号池容量哨兵:无新增归零(存量 ${breaches.length} 处只报数,差值为 0;显式认账:node scripts/check-relay-capacity-zero.mjs --write-baseline)`,
+    )
+    return { ran: true, ok: true, breaches: breaches.length, known: breaches.length }
+  }
+  const known = breaches.length - newBreaches.length
+  const names = newBreaches
+    .slice(0, 5)
+    .map((b) => `${b?.kind ?? '?'}:${b?.providerCode ?? '?'}`)
+    .join(', ')
+  logger(
+    `⚠️ 号池容量哨兵:新增归零 ${newBreaches.length} 处 ⇒ ${names}` +
+      `${newBreaches.length > 5 ? ` …(共 ${newBreaches.length})` : ''}(存量 ${known > 0 ? known : 0} 处只报数)`,
+  )
+  try {
+    notifier(
+      '号池容量归零(新增,静默回落中)',
+      `相对上轮新增 ${newBreaches.length} 处 provider 有 enabled 号但可调度为 0:\n${newBreaches
+        .map((b) => String(b?.detail ?? `${b?.kind}:${b?.providerCode}`))
+        .join('\n')}\n\n` +
+        '修法:后台「中转-号池」看该 provider 的号是冷却(temp_unschedulable,等或手工解除)还是被停用(is_enabled=false);' +
+        '若确属停用则容量归零是预期态,可跑 node scripts/check-relay-capacity-zero.mjs --write-baseline 显式认账(此后存量不再喊)。',
+      { severity: 'warning', dedupKey: `relay-capacity-zero:new:${newBreaches.length}` },
+    )
+  } catch {
+    /* 通知层失败只影响喊人,不改本轮判定 */
+  }
+  return { ran: true, ok: false, why: '新增容量归零', known, fresh: newBreaches.length }
+}
+
 // §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。
 // 不守卫的话 `node --test` 一 import 就会把整轮巡检(含真发信)跑起来,这正是 §22d 立的禁忌。
 const isDirectRun = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -6363,6 +6473,7 @@ export const __test__ = {
   dispatchAutoTriage,
   dispatchDepAdvisoryRadar,
   dispatchGateRot,
+  dispatchRelayCapacity,
   auditTunnelMetrics,
   bumpProbeStreak,
   parseNotifyState,

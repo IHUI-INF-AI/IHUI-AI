@@ -61,15 +61,16 @@
  *   - packages/eslint-config / packages/tsconfig (配置包, 无 .ts 源码)
  *   - 任何 staged .ts/.tsx 文件属于无 typecheck script 的 package
  *
- * 零依赖: 仅 child_process / fs / path / Node 内置。
+ * 零依赖: 仅 child_process / fs / path / Node 内置 + scripts/lib/face-reader.mjs(G-54 git 派生收口)。
  *
  * 集成位置(规划, 本任务不直接改 .husky/pre-commit):
  *   详见 AGENTS.md §20 守门脚本速查 + 本任务交付报告 "集成规划" 段。
  */
-import { execSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { existsSync, writeFileSync, unlinkSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, resolve, isAbsolute } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -258,13 +259,8 @@ function collectUsageErrors() {
  */
 function getStagedFiles() {
   try {
-    const out = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf8',
-      cwd: AUDIT_ROOT,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(root=AUDIT_ROOT,与原 cwd 语义一致)
+    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], AUDIT_ROOT)
     return out
       .split('\n')
       .filter(Boolean)

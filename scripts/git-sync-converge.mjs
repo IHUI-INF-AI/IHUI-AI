@@ -49,7 +49,7 @@ import {
 } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { resolveRemoteHead } from './lib/face-reader.mjs'
+import { gitRaw, resolveRemoteHead } from './lib/face-reader.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 // 旁路合并的"对侧独有新增必须 ∈ 结果"复量:判据一律 import 守门 100 自己那份 A1 实现,
 // 本器不复算第二份集合运算(AGENTS §0.6 单一真相源 / §22c 镜像测试纪律)。
@@ -235,15 +235,16 @@ export function preAdvanceDeletionResurrection({ mergeSha, parents, cwd }) {
 /** 双侧同改路径的行面复量上限:超过即记「未判完」(未判定,不记绿),绝不静默截断。 */
 const LOCAL_PRESERVED_MAX_CODE_FILES = 200
 
-/** 只读 git 读取(cwd 注入,§12g 显式 stdio):失败一律上抛,由调用方转「未判定」。 */
+/**
+ * 只读 git 读取(root 注入,统一层派生):失败一律上抛,由调用方转「未判定」。
+ * 2026-10-26 迁 scripts/lib/face-reader.mjs 的 gitRaw(型 B 收口)。错误面对账:层抛 Undetermined
+ * (消息 `git <cmd> 失败: <stderr 首行>`),调用方 tryBlob 按首行匹配 `does not exist in` 判删除档 ——
+ * git show 的 `fatal: path '…' does not exist in '…'` 正是 stderr 首行,原样进消息,匹配不漂;
+ * firstLineOf(e) 读不到 e.stderr 时退回 e.message,同一句话。层另带 safe.directory/quotepath=false/
+ * GIT_OPTIONAL_LOCKS=0/EBUSY 兜底(只读面净收益;本仓路径全 ASCII,quotepath 无输出形态差)。
+ */
 function readGit(cwd, args, { maxBuffer = 64 << 20 } = {}) {
-  return execFileSync('git', ['-C', cwd, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 120_000,
-    maxBuffer,
-  })
+  return gitRaw(args, cwd, { timeout: 120_000, maxBuffer })
 }
 
 const firstLineOf = (e) => String((e && (e.stderr || e.message)) || e || '未知原因').split('\n')[0].trim()
@@ -462,18 +463,26 @@ function waitForPushState(headSha, timeoutMs = 8 * 60 * 1000) {
   }
 }
 
-function git(args, { allowFail = false, timeout = 60_000, maxBuffer = 64 << 20 } = {}) {
+/**
+ * 主 git 助手(rev-parse/fetch/tag/pack-refs/commit-tree/update-ref/merge-base/show 读写混用)。
+ * 2026-10-26 迁 scripts/lib/face-reader.mjs 的 gitRaw(型 B 收口)。行为面对账:
+ *  - 旧实现基于 process.cwd() 且不带 -C ⇒ 新实现以 cwd=process.cwd() 显式入层(gitRaw 强制 root);
+ *    调用点需要别的 root 时经 opts.cwd 传(如 mergedPlanStateRegressions 的 blobOf)。
+ *  - **必须封顶**保留:本文件在提交链与守护链上跑,一次无界的 `ls-remote`/`fetch` 挂住
+ *    就等于"提交像死掉了"(守门 80 存在的原因;同一族实测挂过 80 分钟)⇒ timeout 默认 60s 原样。
+ *  - stdio 旧 ['ignore','pipe','pipe'](git 不吃 stdin)与层无 input 态逐字同形;windowsHide 同;
+ *    maxBuffer 旧默认 64MB 与层默认同值(显式透传,调用点覆盖照旧生效)。
+ *  - 错误面:原样抛改抛 Undetermined(消息 `git <cmd> 失败: <stderr 首行>`,带 .status)。
+ *    现有消费点逐一核过:allowFail→null 分支不看错误内容;fetch catch / backupOrphanMerge catch /
+ *    alignFailureNote 只读 message(或 stderr 首行,读不到退回 message)⇒ 兼容。
+ *    `rev-parse --verify --quiet` 无值时 rc=1:旧 throw→allowFail→null,层把 rc 带到
+ *    Undetermined.status 后仍走同一 null 出口 ⇒ 同形。commit-tree 的身份 -c 经 argv 注入,
+ *    与层前置的 -c 并存(git 多 -c 累积),顺序语义不变。
+ */
+function git(args, { allowFail = false, timeout = 60_000, maxBuffer = 64 << 20, cwd = process.cwd() } = {}) {
   try {
-    return execFileSync('git', args, {
-      encoding: 'utf8',
-      // 根治(2026-09-30): stdin 设 ignore,避开本会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin)。
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      // **必须封顶**:本文件在提交链与守护链上跑,一次无界的 `ls-remote`/`fetch` 挂住
-      // 就等于"提交像死掉了"(守门 80 存在的原因;同一族实测挂过 80 分钟)。
-      timeout,
-      maxBuffer,
-    }).trim()
+    // 根治(2026-09-30)的 stdin ignore 形态由层保证(gitRaw 无 input 态 stdio[0]='ignore')。
+    return gitRaw(args, cwd, { timeout, maxBuffer }).trim()
   } catch (e) {
     if (allowFail) return null
     throw e
@@ -817,7 +826,7 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
   const BASE_REL = 'scripts/plan-task-state-baseline.json'
   const blobOf = (rev, rel) => {
     try {
-      return git(['-C', repoRoot, 'show', `${rev}:${rel}`], { maxBuffer: 1 << 26 })
+      return git(['show', `${rev}:${rel}`], { cwd: repoRoot, maxBuffer: 1 << 26 })
     } catch {
       return ''
     }
@@ -946,14 +955,12 @@ export function recordAlignOutcome(repoRoot, ok, note, roundMerges) {
   }
 }
 
-/** a 是否为 b 的祖先(merge-base --is-ancestor 靠 exit code 判定) */
+/** a 是否为 b 的祖先(merge-base --is-ancestor 靠 exit code 判定;二态:非 0 一律 false) */
 function isAncestor(a, b) {
+  // 2026-10-26 迁 gitRaw(与 scripts/lib/bypass-git.mjs 已迁先例同型,但本器保持二态):
+  // 旧 stdio 'ignore' 三口全弃、无 stdout 消费 ⇒ 层 pipe 面无差;旧 60s 封顶原样保留。
   try {
-    execFileSync('git', ['merge-base', '--is-ancestor', a, b], {
-      stdio: 'ignore',
-      windowsHide: true,
-      timeout: 60_000,
-    })
+    gitRaw(['merge-base', '--is-ancestor', a, b], process.cwd(), { timeout: 60_000 })
     return true
   } catch {
     return false
@@ -997,21 +1004,12 @@ function parseLsTreeZ(output) {
   return map
 }
 
-/** 列出某 tree 的全部条目(cwd 注入, self-test 指向临时仓库) */
+/** 列出某 tree 的全部条目(root 注入, self-test 指向临时仓库) */
 function collectTreeEntries(treeish, cwd) {
-  // 真仓整树 ls-tree 输出 >1MB,必须放大 maxBuffer(默认 1MB 会 ENOBUFS 崩溃)
-  const out = execFileSync('git', ['ls-tree', '-r', '-z', treeish], {
-    encoding: 'buffer',
-    cwd,
-    windowsHide: true,
-    // 根治(2026-09-30):stdin 设 ignore,避开交互会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin;
-    // 同 git() 助手 176 行的修法——本函数在 assertNoSilentRevert 零丢失闸上,病会话里它一挂整条收敛就"未判定")。
-    stdio: ['ignore', 'pipe', 'pipe'],
-    // 只读枚举,可封顶(真仓整树 ls-tree 正常在秒级;无 timeout 时一旦撞上
-    // 病态挂起就是把整条收敛/守门链拖死)
-    timeout: 300_000,
-    maxBuffer: 64 * 1024 * 1024,
-  })
+  // 真仓整树 ls-tree 输出 >1MB,必须放大 maxBuffer(层默认 64MB 已覆盖,原注释语义保留);
+  // 2026-10-26 迁 gitRaw:binary 档取 Buffer(旧 encoding:'buffer' 同形),-z 分帧不经转义、
+  // 与 core.quotepath 无涉;旧 300s 封顶与 stdin-ignore 形态(层无 input 态)原样保留。
+  const out = gitRaw(['ls-tree', '-r', '-z', treeish], cwd, { binary: true, timeout: 300_000 })
   return parseLsTreeZ(out.toString('utf8'))
 }
 
@@ -1056,8 +1054,9 @@ function assertNoSilentRevert({ base, local, remote, mergedTree, cwd }) {
 
 /** 临时仓库 git 调用(身份/签名经 -c 注入,不依赖全局配置) */
 function tgit(cwd, args, opts = {}) {
-  return execFileSync(
-    'git',
+  // 2026-10-26 迁 gitRaw:身份三连 -c 经 argv 透传(与层前置的 -c 累积共存,git 语义不变);
+  // root=临时仓路径现成;旧调用无封顶(夹具秒级操作),随迁取层默认 60s —— 有界方向与守门 80 一致。
+  return gitRaw(
     [
       '-c',
       'user.name=ihui-test',
@@ -1067,19 +1066,15 @@ function tgit(cwd, args, opts = {}) {
       'commit.gpgsign=false',
       ...args,
     ],
-    { encoding: 'utf8', cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], ...opts },
+    cwd,
+    { timeout: opts.timeout, maxBuffer: opts.maxBuffer },
   ).trim()
 }
 
 /** 文本式 ls-tree 行(供 mktree 拼篡改树) */
 function lsTreeLines(treeish, cwd) {
-  return execFileSync('git', ['ls-tree', treeish], {
-    encoding: 'utf8',
-    cwd,
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 300_000,
-  })
+  // 2026-10-26 迁 gitRaw;夹具全 ASCII ⇒ quotepath 无输出形态差。旧 300s 封顶原样保留。
+  return gitRaw(['ls-tree', treeish], cwd, { timeout: 300_000 })
     .trim()
     .split('\n')
 }
@@ -1149,18 +1144,9 @@ function selfTest() {
   }
   let tmp = null
   try {
-    const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 60_000,
-      // 2026-10-04 补:本调用**独缺** stdio(文件内 git() 与 attemptUnionConverge 都写了)。
-      // 后果不是"慢",是本机派生 git 的 EBUSY 面 —— 实测 `node scripts/git-sync-converge.mjs
-      // --self-test` 直接 `❌ 自检异常:spawnSync git EBUSY` 崩在 :838,自测**根本跑不起来**,
-      // 于是这一整片判据的回归护栏是失效的,且失败信息(EBUSY)与真实原因毫无关系。
-      // 这正是 MEMORY 记的"411 处派生点、147 处同型未修"那一族:不写 stdio 时
-      // 失败**看起来**像随机故障,于是被当成"偶发"放过。
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim()
+    // 2026-10-26 迁 gitRaw(bootstrap:取 root 前尚无仓库,显式传 process.cwd(),与旧无 -C 同形)。
+    // 旧注释记过的 stdio 教训现由层保证(无 input 态 ['ignore','pipe','pipe'] + EBUSY 兜底)。
+    const root = gitRaw(['rev-parse', '--show-toplevel'], process.cwd(), { timeout: 60_000 }).trim()
     tmp = resolve(root, '.ihui-agent/tmp/converge-selftest')
     rmSync(tmp, { recursive: true, force: true })
     mkdirSync(tmp, { recursive: true })
@@ -1183,16 +1169,7 @@ function selfTest() {
     tgit(repo, ['add', '-A'])
     tgit(repo, ['commit', '-qm', 'remote add'])
     const base = tgit(repo, ['merge-base', 'side-local', 'side-remote'])
-    const goodTree = execFileSync(
-      'git',
-      ['merge-tree', '--write-tree', 'side-local', 'side-remote'],
-      {
-        encoding: 'utf8',
-        cwd: repo,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    )
+    const goodTree = gitRaw(['merge-tree', '--write-tree', 'side-local', 'side-remote'], repo)
       .trim()
       .split('\n')[0]
       .trim()
@@ -1285,16 +1262,7 @@ function selfTest() {
     tgit(repo, ['add', '-A'])
     tgit(repo, ['commit', '-qm', 'remote add'])
     const base2 = tgit(repo, ['merge-base', 'del-local', 'del-remote'])
-    const goodTree2 = execFileSync(
-      'git',
-      ['merge-tree', '--write-tree', 'del-local', 'del-remote'],
-      {
-        encoding: 'utf8',
-        cwd: repo,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    )
+    const goodTree2 = gitRaw(['merge-tree', '--write-tree', 'del-local', 'del-remote'], repo)
       .trim()
       .split('\n')[0]
       .trim()
@@ -1415,13 +1383,11 @@ function selfTest() {
     // "服务器已前移而本地无对象"必须用另一台机真的推一枚来造,只测注入会退化成把假设写成断言。
     const dir10 = resolve(tmp, 'obj-face')
     mkdirSync(dir10, { recursive: true })
+    // 2026-10-26 迁 gitRaw:身份经 -c argv 透传(与层前置 -c 累积共存);夹具全为 file 协议本地仓,
+    // 网络面零;旧 60s 封顶与 stdin-ignore 形态由层同形保留。
     const bg = (cwd, args) =>
-      execFileSync('git', ['-c', 'user.name=ihui-test', '-c', 'user.email=t@t.local', ...args], {
-        encoding: 'utf8',
-        cwd,
-        windowsHide: true,
+      gitRaw(['-c', 'user.name=ihui-test', '-c', 'user.email=t@t.local', ...args], cwd, {
         timeout: 60_000,
-        stdio: ['ignore', 'pipe', 'pipe'],
       }).trim()
     const bare10 = resolve(dir10, 'origin.git')
     mkdirSync(bare10, { recursive: true })
@@ -1843,6 +1809,13 @@ function main() {
       }
       const mergeBase = git(['merge-base', freshLocal, freshRemote])
       // 索引层合并树(worktree-preserving):冲突时 merge-tree 输出含冲突信息,tree 为 null 段
+      // ⚠️ 本处**有意保留裸派生**(2026-10-26 型 B 收口第 10 轮判不可迁,依据同 bypass-git.mjs
+      // 头注格式):catch 支的冲突噪声点名依赖失败调用的**完整 stdout**(下方 capText(e.stdout ??
+      // e.message) 取 merge-tree 的 CONFLICT 行清单并计截断账),而层的 Undetermined 刻意不带
+      // stdout(失败只回 stderr 首行)。改判据语义(退化到 message 一行)会丢掉点名冲突文件这一
+      // 真信号;补取道要再派生一次 merge-tree,是第二把尺子。写操作面(临时 merge 对象)不在层
+      // 的只读取材契约内。派生形态(stdio ignore/pipe/pipe + windowsHide)与层同;本调用无封顶
+      // 为**迁移前既有形态**,随保留原样一并保留(不在本票范围内改动)。
       let tree
       try {
         const out = execFileSync('git', ['merge-tree', '--write-tree', freshLocal, freshRemote], {

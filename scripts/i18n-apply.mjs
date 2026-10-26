@@ -57,7 +57,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
-import { execSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isCheck = process.argv.includes('--check')
@@ -806,13 +806,9 @@ function main() {
   // 原因:reorderToBase 重排 5 语言时,如果 base 顺序变更,4 语言整段 reorder 会产生大量 diff
   // 仅警告,不阻断;--strict 标志可升级为 blocking
   try {
-    const diffStat = execSync('git diff --stat -- packages/i18n/messages/', {
-      encoding: 'utf8',
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      // 返回值被消费(下面 diffStat.split)⇒ stdout 仍须 pipe,只把 stdin 切掉
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带绝对路径 git + safe.directory
+    // + core.quotepath=false + -C ROOT + windowsHide + 显式 stdio;原调用无 cwd,即 process.cwd()=ROOT)
+    const diffStat = gitRaw(['diff', '--stat', '--', 'packages/i18n/messages/'], ROOT)
     const totalLine = diffStat.split('\n').slice(-2, -1)[0] || ''
     const m = totalLine.match(/(\d+)\s+insertions?\(\+\)/)
     const insertions = m ? parseInt(m[1], 10) : 0
