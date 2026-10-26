@@ -28,10 +28,7 @@ import type { ChatActionContext } from './types'
 import type { SendMessageOptions } from './send-message'
 
 /** CustomEvent 触发面注册的发送函数(send-message.ts createSendMessage 产物) */
-export type SendMessageFn = (
-  content: string,
-  opts?: SendMessageOptions,
-) => Promise<boolean>
+type SendMessageFn = (content: string, opts?: SendMessageOptions) => Promise<boolean>
 
 /** 按 store 实例隔离的流式运行时记录(非响应式,不入 zustand 状态) */
 export interface ChatStreamRuntime {

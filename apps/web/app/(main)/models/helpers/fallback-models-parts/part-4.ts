@@ -145,25 +145,7 @@ export const FALLBACK_MODELS_PART_4: Model[] = [
     inputPrice: 0.05,
     features: ['Chinese-Optimized', 'Fast'],
   },
-  // === StepFun 阶跃星辰(2 个) ===
-  {
-    id: 'stepfun/step-3.7-flash',
-    name: 'Step 3.7 Flash',
-    provider: 'stepfun',
-    description: 'model.stepfun-3-7-flash.description',
-    contextLength: 128000,
-    inputPrice: 0,
-    features: ['Plan', 'Fast', 'Chinese-Optimized'],
-  },
-  {
-    id: 'stepfun/step-3.5-flash',
-    name: 'Step 3.5 Flash',
-    provider: 'stepfun',
-    description: 'model.stepfun-3-5-flash.description',
-    contextLength: 128000,
-    inputPrice: 0,
-    features: ['Plan', 'Fast'],
-  },
+  // 2026-10-26 stepfun 永久退役 ⇒ StepFun 两档(step-3.7-flash / step-3.5-flash)已摘除。
   // === Tencent Hunyuan 腾讯混元(2 个) ===
   {
     id: 'hunyuan-pro',

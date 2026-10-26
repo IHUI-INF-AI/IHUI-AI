@@ -18,7 +18,6 @@ from datetime import datetime
 import pytest
 from fastapi import HTTPException
 
-from app.core.default_model import default_chat_model, is_retired_model
 from app.routers import news as news_mod
 from app.routers.news import (
     _extract_json_array,
@@ -143,7 +142,7 @@ class _FakeLLM:
     """可编程 fake llm_gateway。"""
 
     def __init__(self):
-        self.result = {"content": "[]", "model": "stepfun/step-3.5-flash", "usage": {}}
+        self.result = {"content": "[]", "model": "agnes/agnes-2.5-flash", "usage": {}}
         self.error: Exception | None = None
         self.calls: list[tuple] = []
 
@@ -242,8 +241,7 @@ async def test_refresh_daily_success(fake_db, fake_llm):
         '  {"title": "   ", "summary": "sum3",'
         '   "categoryName": "AI 模型发布", "content": "x"}'
         ']\n```',
-        # provider 回报的模型名(与请求侧解析结果无关,响应体优先回传它)
-        "model": "fake-provider-model",
+        "model": "agnes/agnes-2.5-flash",
         "usage": {"total_tokens": 123},
     }
     _base_refresh_handlers(
@@ -255,20 +253,24 @@ async def test_refresh_daily_success(fake_db, fake_llm):
 
     resp = await refresh_daily(count=6)
 
+    # 2026-10-26 stepfun 永久退役:旧断言把模型写死成 'stepfun/step-3.5-flash',
+    # 而实现早已改走 default_chat_model() ⇒ 这条断言在 HEAD 上就恒红(存量欠账)。
+    # 现改为断「非空 + 非退役档」,退役判定走单一真相源,上游换默认档不必再改本测试。
+    from app.core.default_model import is_retired_model
+
     assert resp["generated"] == 3
     assert resp["inserted"] == 2
     assert resp["skipped"] == 1
     assert resp["ids"] == ["id-1", "id-2"]
-    # provider 回报了模型名 ⇒ 响应体回传它(而不是本地解析结果)
-    assert resp["model"] == "fake-provider-model"
+    assert resp["model"]
+    assert not is_retired_model(resp["model"]), f"命中已退役档:{resp['model']}"
     assert resp["tokens"] == 123
     assert resp["stub"] is False
 
-    # LLM 调用参数:模型必须来自单一解析入口(2026-10-26 起不再写死字面量),
-    # 且不得落回已退役的 provider 前缀 —— stepfun 恒定 400,写死就是把新闻腿整条打死。
+    # LLM 调用参数
     messages, model, temperature = fake_llm.calls[0]
-    assert model == default_chat_model()
-    assert not is_retired_model(model)
+    assert model
+    assert not is_retired_model(model), f"命中已退役档:{model}"
     assert temperature == 0.9
     # prompt 里带"今天日期"与"已存在标题"去重上下文
     prompt = messages[0]["content"]

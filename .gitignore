@@ -5,6 +5,9 @@ logs/
 tmp/
 # 浏览器自动化测试临时产物(截图 + ad-hoc 验证脚本,防回潮)
 browser_test_output/
+# 同一族的另一个落点:自动化会话在仓库根就地建的截图暂存目录(2026-10-26 现读:并发席位 16:33 在用,
+# 内仅 .tmp;登记进忽略层 = 守门 44 从"归属无从判定(exit 2)"落到只告警层,不删他人现场)
+.screenshots/
 # curl 导出的 Netscape cookie 文件(临时)
 cookies.txt
 apps/web/out/

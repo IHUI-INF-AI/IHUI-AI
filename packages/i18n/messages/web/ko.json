@@ -940,7 +940,20 @@
       "sessionQualitySinglePage": "단일 페이지 세션 비율",
       "sessionQualityAvgPv": "세션당 페이지 수",
       "sessionQualityEntryTop": "진입 페이지(세션/단일)",
-      "sessionQualityNoData": "24시간 내 세션 없음"
+      "sessionQualityNoData": "24시간 내 세션 없음",
+      "panelVisitSource": "방문 출처",
+      "visitSourceTotal": "24시간 방문 {count}",
+      "visitSourceBuckets": "출처 구분(24시간)",
+      "visitSourceHosts": "출처 호스트(24시간)",
+      "visitSourceDirect": "직접 방문",
+      "visitSourceLocal": "로컬 개발",
+      "visitSourceInternal": "사이트 내부",
+      "visitSourceExternal": "외부 출처",
+      "visitSourceNoData": "24시간 내 출처 데이터 없음",
+      "panelVisitTransition": "페이지 이동",
+      "visitTransitionMoves": "24시간 이동 {count}회",
+      "visitTransitionTop": "가장 많이 이동한 경로(24시간)",
+      "visitTransitionNoData": "24시간 내 페이지 이동 없음"
     },
     "aboutUs": {
       "add": "추가",
@@ -8769,6 +8782,10 @@
           "title": "현재 모델이 이 요청을 거부했습니다",
           "action": "모델 변경"
         },
+        "MODEL_RETIRED": {
+          "title": "이 모델은 영구적으로 사용이 중단되었습니다",
+          "action": "목록의 제공 중 모델로 변경"
+        },
         "MODEL_STREAM_IDLE": {
           "title": "응답 시간이 초과되었습니다",
           "action": "재시도"
@@ -9370,6 +9387,8 @@
       "delete": "삭제",
       "exportMd": "Markdown으로 내보내기",
       "exportTxt": "TXT로 내보내기",
+      "exportSubmenu": "내보내기 / 공유",
+      "compressSubmenu": "압축",
       "menu": "더 보기",
       "rename": "이름 변경",
       "unarchive": "보관 해제",
@@ -11034,6 +11053,8 @@
     },
     "bindIssue": "이슈 연결",
     "unbindIssue": "독립 작업으로 전환",
+    "bindIssueHint": "이 대화를 GitHub 또는 Linear 이슈에 연결하세요 — 버그·요청 사항 추적이 있는 대화에 유용합니다. 검색해 선택하면 대화 옆에 클릭 가능한 배지가 표시됩니다. 연결하지 않아도 다른 기능에는 영향이 없습니다.",
+    "searchIssueAction": "검색",
     "issueBinding": "연결된 이슈",
     "searchIssues": "이슈 ID, 제목 또는 프로젝트 검색",
     "noIssues": "연결할 수 있는 이슈가 아직 없습니다",
@@ -11409,7 +11430,8 @@
       "roleAssistant": "어시스턴트",
       "exportCard": "이미지 카드 공유",
       "shareCardUser": "사용자",
-      "exportPdf": "PDF 내보내기"
+      "exportPdf": "PDF 내보내기",
+      "compression": "대화 압축"
     },
     "fallbackNotice": "백업 모델 {backup}(으)로 전환됨(원본 모델 {primary} 일시 사용 불가)",
     "fallbackNoticeQuota": "이번 답변은 {backup} 모델이 생성했습니다({primary} 모델의 제공사 계정 한도가 모두 소진되어 동일 계열의 사용 가능한 모델로 자동 전환했습니다).",
@@ -15025,7 +15047,7 @@
       "elapsed": "소요 시간",
       "error": "편성 실패",
       "materialResult": "소재",
-      "modelPlaceholder": "모델 (선택, 기본 stepfun/step-3.7-flash)",
+      "modelPlaceholder": "모델 (선택, 기본 agnes/agnes-2.5-flash)",
       "noTasks": "아직 작업이 없습니다",
       "optional": "(선택)",
       "promptLabel": "프롬프트",
@@ -18617,7 +18639,7 @@
           "datasetName": "데이터셋",
           "datasetNamePlaceholder": "데이터셋 이름 선택",
           "model": "모델",
-          "modelPlaceholder": "모델 이름 입력 (예: stepfun/step-3.7-flash)",
+          "modelPlaceholder": "모델 이름 입력 (예: agnes/agnes-2.5-flash)",
           "promptName": "프롬프트",
           "promptNamePlaceholder": "프롬프트 이름 입력",
           "running": "평가 중...",
@@ -23243,6 +23265,9 @@
     "authorizeAndRedirect": "인증 및 리디렉션",
     "authorizing": "{clientId}에 대한 인증 진행 중…",
     "desktopHandoffHint": "데스크톱 앱으로 돌아가 로그인을 완료했습니다. 이 페이지는 닫아도 됩니다.",
+    "miniappHandoffTitle": "인증 완료",
+    "miniappHandoffHint": "로그인 자격증명을 미니프로그램에 전달했습니다. 왼쪽 위 '뒤로'를 눌러 미니프로그램으로 돌아가 로그인을 완료하세요.",
+    "miniappHandoffFailed": "미니프로그램 전달에 실패했습니다. 다시 시도하거나 직접 돌아가 주세요.",
     "desktopHandoffTitle": "인증 완료",
     "code": "인증 코드",
     "codePlaceholder": "인증 코드를 입력하세요",

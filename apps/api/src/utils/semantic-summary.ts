@@ -19,6 +19,7 @@ import type { FastifyRequest } from 'fastify'
 import type { ChatMessage } from '@ihui/context-compaction'
 import { aiServiceFetch } from './ai-service-fetch.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
+import { resolveDefaultChatModel } from './retired-providers.js'
 
 /** 与共享包 DEFAULT_KEEP_RECENT(6) 对齐:只摘要"除最近 6 条非 system 外"的消息 */
 const KEEP_RECENT = 6
@@ -26,8 +27,13 @@ const KEEP_RECENT = 6
 const SUMMARY_MAX_TOKENS = 300
 /** 摘要 LLM 调用超时(ms):压缩在请求关键路径上,超时即降级 */
 const SUMMARY_TIMEOUT_MS = 3_000
-/** 兜底模型(与 services/crew-llm-adapter.ts DEFAULT_MODEL 同源:.env LITELLM_MODEL) */
-const FALLBACK_MODEL = process.env.LITELLM_MODEL || 'stepfun/step-3.7-flash'
+/**
+ * 兜底模型(与 services/crew-llm-adapter.ts DEFAULT_MODEL 同源):
+ * 经 utils/retired-providers.ts 的唯一解析入口取 —— 调用方显式模型 → .env LITELLM_MODEL
+ * → 非退役的末位兜底链。stepfun 已于 2026-10-26 永久退役,任何入口都不得再解析出退役档,
+ * 故此处不再写死任何 provider 档。
+ */
+const FALLBACK_MODEL = resolveDefaultChatModel()
 
 // 后台预压缩缓存层(代差能力 A,2026-09-01 立):
 // 路由层在 70% 占用阈值(CONTEXT_BUDGET_THRESHOLD)时 fire-and-forget 调

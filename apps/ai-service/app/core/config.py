@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 if TYPE_CHECKING:
@@ -251,6 +252,8 @@ class Settings(BaseSettings):
     # 仅 Clash 7897 可通。空=直连。仅供 MODEL_SYNC 客户端显式使用,
     # 不影响对话出网(llm_proxy_url)与内部调用。
     sync_proxy_url: str = ""
+    # 按 provider 指定同步出网代理(2026-10-26 增补):可选。环境变量 SYNC_PROXY_URL_<PROVIDER>(PROVIDER=provider_code 大写,如 SYNC_PROXY_URL_HUGGINGFACE / SYNC_PROXY_URL_GITHUB_MODELS)。model_sync 拉该 provider 上游时优先用专用代理,缺省回退 sync_proxy_url。空 dict=全部走全局/直连。
+    sync_proxy_url_by_provider: dict[str, str] = {}
 
     # P3-3 OpenRouter 403 代理 + failover(2026-07-30 立)
     # OpenRouter 对国内 IP / 非浏览器 UA 常返回 403 Forbidden(WAF 拦截),
@@ -347,6 +350,30 @@ class Settings(BaseSettings):
                 + "\n  - ".join(missing_paths)
                 + "\n请配置正确的证书路径,或设置 MTLS_ENABLED=false 进入降级模式(仅开发环境)"
             )
+
+    @model_validator(mode="after")
+    def _parse_sync_proxy_by_provider(self) -> "Settings":
+        """2026-10-26 增补:从 os.environ 读取 SYNC_PROXY_URL_<PROVIDER> 系列变量,
+        小写化 PROVIDER 段得到 provider_code,写入 sync_proxy_url_by_provider。
+
+        裸键 SYNC_PROXY_URL(无末尾下划线后的 PROVIDER 段)不属于此模式,跳过;
+        仅对非空值写入。缺省行为不变(空 dict=全部走全局/直连)。
+        """
+        mapping: dict[str, str] = {}
+        prefix = "SYNC_PROXY_URL_"
+        for key, value in os.environ.items():
+            if not key.startswith(prefix):
+                continue
+            provider_code = key[len(prefix):].lower()
+            if not provider_code:
+                # 裸键 SYNC_PROXY_URL(末尾下划线后无 PROVIDER 段)→ 跳过
+                continue
+            if value:
+                mapping[provider_code] = value
+        # 不覆盖已在字段声明中显式传入的 dict(本特性仅由环境变量驱动,
+        # 这里以环境变量解析结果为准填充)。
+        self.sync_proxy_url_by_provider = mapping
+        return self
 
     def get_provider_config(self, name: str) -> "ProviderConfig":
         """读取 provider 配置(阶段 3 主体:只走 JSON 路径,扁平字段已删除)。

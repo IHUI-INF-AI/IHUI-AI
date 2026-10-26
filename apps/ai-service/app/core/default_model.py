@@ -36,10 +36,38 @@ import os
 from typing import Any
 
 # ---------------------------------------------------------------------------
-# 永久退役的 provider 前缀(与 model_sync.RETIRED_PROVIDERS 同源语义)
+# 永久退役的 provider 名单(本模块 = 退役名单的**唯一权威**)
 # ---------------------------------------------------------------------------
 # 2026-10-26:stepfun 订阅失效(余额 -0.09 CNY,chat 恒定 400)且机主明确不再续费。
+#
+# 为什么权威要放在 core 而不是 services/model_sync.py:
+#   退役这件事要同时管住**三个面** —— 同步面(不拉它的清单)、可用性面(不 ping、
+#   不进模型列表、不出现在管理端面板)、调用面(不再当默认模型)。
+#   名单若留在 services 层,core 想用就得 services ← core 反向依赖 ⇒ 循环导入;
+#   于是另外两面只能各抄一份前缀表 ⇒ 两份名单必然漂移(新增退役厂商时漏改一面,
+#   表现成"面板里还挂着一个已退役厂商"这类极难查的故障)。
+#   故权威下沉到 core.default_model,services/model_sync 反过来从这儿取,
+#   三面共用同一份 ⇒ 退役名单只可能有一份。
+RETIRED_PROVIDERS: dict[str, str] = {
+    "stepfun": (
+        "2026-10-26 永久退役:阶跃星辰订阅失效(余额 -0.09 CNY),"
+        "/v1/chat/completions 恒定 400 'you have no active step plan subscription';"
+        "机主明确不再续费。不得再加回 COMBO_CHAINS / LITELLM_MODEL。"
+    ),
+}
+
+# 模型前缀表:与上面的 provider 名单**必须一一对应**。
+# 刻意写成字面量(而不是派生表达式),是为了让退役名单在源码里一眼可见;
+# 一致性由紧随其后的运行期自检强制 —— 漂移会在 import 期炸,不会静默生效。
 RETIRED_MODEL_PREFIXES: tuple[str, ...] = ("stepfun/",)
+
+# 运行期自检:provider 名单与模型前缀表必须一一对应。
+# 漂移 ⇒ 立即抛错(而不是等某天某一面漏改后表现为"已退役厂商还在面板里")。
+if {f"{code}/" for code in RETIRED_PROVIDERS} != set(RETIRED_MODEL_PREFIXES):
+    raise RuntimeError(
+        "退役名单漂移:RETIRED_PROVIDERS 与 RETIRED_MODEL_PREFIXES 不一致"
+        f"(providers={sorted(RETIRED_PROVIDERS)}, prefixes={sorted(RETIRED_MODEL_PREFIXES)})"
+    )
 
 # 末位兜底链(2026-10-26 实测直连 200 的两家;与 COMBO_CHAINS.maximize-free 同族同序)
 _LAST_RESORT_CHAIN: tuple[str, ...] = (
@@ -55,6 +83,21 @@ def is_retired_model(model: str | None) -> bool:
         return False
     m = model.strip().lower()
     return any(m.startswith(p) for p in RETIRED_MODEL_PREFIXES)
+
+
+def is_retired_provider(provider_code: str | None) -> bool:
+    """provider_code 是否属于已永久退役的厂商。
+
+    与 is_retired_model 同源(同一份 RETIRED_PROVIDERS / RETIRED_MODEL_PREFIXES,
+    两者的一致性由本模块顶层的运行期自检强制)——**不许在调用方另写一份前缀表**。
+
+    用途:可用性面(不 ping、不进模型列表)与面板面(不列已退役厂商)按 provider_code
+    判定,而不是靠「模型 id 带 stepfun/ 前缀」这种间接推断。
+    """
+    if not provider_code:
+        return False
+    code = provider_code.strip().lower()
+    return any(p.rstrip("/").lower() == code for p in RETIRED_MODEL_PREFIXES)
 
 
 def _combo_chain_head() -> str | None:

@@ -940,7 +940,20 @@
       "sessionQualitySinglePage": "単一ページのセッション比率",
       "sessionQualityAvgPv": "セッションあたりのページ数",
       "sessionQualityEntryTop": "エントリーページ(セッション/単一)",
-      "sessionQualityNoData": "24時間にセッションなし"
+      "sessionQualityNoData": "24時間にセッションなし",
+      "panelVisitSource": "アクセス元",
+      "visitSourceTotal": "24時間 アクセス {count}",
+      "visitSourceBuckets": "参照元の区分(24時間)",
+      "visitSourceHosts": "参照元ホスト(24時間)",
+      "visitSourceDirect": "直接アクセス",
+      "visitSourceLocal": "ローカル開発",
+      "visitSourceInternal": "サイト内",
+      "visitSourceExternal": "外部参照",
+      "visitSourceNoData": "24時間にアクセス元データなし",
+      "panelVisitTransition": "ページ遷移",
+      "visitTransitionMoves": "24時間 遷移 {count} 回",
+      "visitTransitionTop": "よく踏む経路(24時間)",
+      "visitTransitionNoData": "24時間にページ遷移なし"
     },
     "aboutUs": {
       "add": "追加",
@@ -8769,6 +8782,10 @@
           "title": "現在のモデルがこのリクエストを拒否しました",
           "action": "モデルを変更"
         },
+        "MODEL_RETIRED": {
+          "title": "このモデルは永久に提供終了しました",
+          "action": "モデル一覧の提供中モデルに変更"
+        },
         "MODEL_STREAM_IDLE": {
           "title": "応答がタイムアウトしました",
           "action": "再試行"
@@ -9370,6 +9387,8 @@
       "delete": "削除",
       "exportMd": "Markdown形式でエクスポート",
       "exportTxt": "TXT形式でエクスポート",
+      "exportSubmenu": "エクスポート / 共有",
+      "compressSubmenu": "圧縮",
       "menu": "その他の操作",
       "rename": "名前変更",
       "unarchive": "アーカイブ解除",
@@ -11034,6 +11053,8 @@
     },
     "bindIssue": "Issueを紐付け",
     "unbindIssue": "独立タスクにする",
+    "bindIssueHint": "この会話を GitHub / Linear の Issue に紐付けます——バグや要件の追跡に便利です。検索して選ぶと、会話の横にリンク付きバッジが表示されます。紐付けなくても他の機能はそのまま使えます。",
+    "searchIssueAction": "検索",
     "issueBinding": "関連Issue",
     "searchIssues": "IssueのID・タイトル・プロジェクトを検索",
     "noIssues": "紐付けできるIssueはまだありません",
@@ -11409,7 +11430,8 @@
       "roleAssistant": "アシスタント",
       "exportCard": "画像カードを共有",
       "shareCardUser": "ユーザー",
-      "exportPdf": "PDF をエクスポート"
+      "exportPdf": "PDF をエクスポート",
+      "compression": "会話を圧縮"
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
     "fallbackNoticeQuota": "今回の回答は {backup} が生成しました（{primary} を提供する事業者のアカウント利用枠が上限に達したため、同一系列の利用可能なモデルに自動で切り替えました）。",
@@ -15025,7 +15047,7 @@
       "elapsed": "所要時間",
       "error": "編成失敗",
       "materialResult": "素材",
-      "modelPlaceholder": "モデル（任意、デフォルト stepfun/step-3.7-flash）",
+      "modelPlaceholder": "モデル（任意、デフォルト agnes/agnes-2.5-flash）",
       "noTasks": "タスクはまだありません",
       "optional": "（任意）",
       "promptLabel": "プロンプト",
@@ -18617,7 +18639,7 @@
           "datasetName": "データセット",
           "datasetNamePlaceholder": "データセット名を選択",
           "model": "モデル",
-          "modelPlaceholder": "モデル名を入力 (例: stepfun/step-3.7-flash)",
+          "modelPlaceholder": "モデル名を入力 (例: agnes/agnes-2.5-flash)",
           "promptName": "プロンプト",
           "promptNamePlaceholder": "プロンプト名を入力",
           "running": "評価中...",
@@ -23243,6 +23265,9 @@
     "authorizeAndRedirect": "してリダイレクト",
     "authorizing": "{clientId} へのをっています…",
     "desktopHandoffHint": "デスクトップアプリに戻り、ログインが完了しました。このページは閉じて構いません。",
+    "miniappHandoffTitle": "認証が完了しました",
+    "miniappHandoffHint": "ログイン資格をミニプログラムに引き渡しました。左上の「戻る」でミニプログラムに戻り、ログインを完了してください。",
+    "miniappHandoffFailed": "ミニプログラムへの引き渡しに失敗しました。再試行するか、手動で戻ってください。",
     "desktopHandoffTitle": "認証が完了しました",
     "code": "認証コード",
     "codePlaceholder": "認証コードを入力してください",

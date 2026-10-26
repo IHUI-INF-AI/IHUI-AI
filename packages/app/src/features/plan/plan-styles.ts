@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnTokens } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -14,7 +14,7 @@ import type { AppThemeTokens } from '../../theme/tokens'
 const SLATE = { bg: 'rgba(100,116,139,0.12)', fg: '#475569', dot: '#64748b' }
 const BLUE = { bg: 'rgba(59,130,246,0.12)', fg: '#1d4ed8', dot: '#3b82f6' }
 const EMERALD = { bg: 'rgba(16,185,129,0.10)', fg: '#059669', dot: '#10b981' }
-const AMBER = { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: '#f59e0b' }
+const AMBER = { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: rnTokens.warning.amber }
 const ROSE = { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48', dot: '#f43f5e' }
 
 /** 计划状态 / 步骤状态 / 优先级 / diff 类型 → 语义色(键名与 @ihui/shared/plan 枚举一致)。 */
@@ -69,14 +69,14 @@ export function createPlanStyles(tk: AppThemeTokens) {
       gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
     },
     filterChipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     filterChipText: { fontSize: 13, color: tk.text.secondary },
-    filterChipTextActive: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    filterChipActiveText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -119,7 +119,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
     tagRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
     tagChip: {
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 6,
       paddingVertical: 2,
     },
@@ -171,7 +171,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 12,
       paddingVertical: 8,
       fontSize: 14,
@@ -190,7 +190,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
     stepCard: {
       gap: 8,
       padding: 10,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,

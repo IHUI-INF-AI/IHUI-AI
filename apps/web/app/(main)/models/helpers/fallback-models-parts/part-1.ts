@@ -5,16 +5,8 @@
 import type { Model } from '../../types'
 
 export const FALLBACK_MODELS_PART_1: Model[] = [
-  // === 默认主力(与 ai-service default_models.json 第 1 位对齐)===
-  {
-    id: 'stepfun/step-router-v1',
-    name: 'Step Router v1',
-    provider: 'stepfun',
-    description: 'model.stepfun-router-v1.description',
-    contextLength: 128000,
-    inputPrice: 0,
-    features: ['Plan', 'Auto-Route'],
-  },
+  // 2026-10-26 stepfun 永久退役 ⇒ 原「默认主力」stepfun/step-router-v1 已摘除
+  // (与 ai-service app/data/default_models.json 同批摘除,两侧口径一致)。
   // === OpenAI(7 个) ===
   {
     id: 'openrouter/auto',

@@ -249,7 +249,7 @@ export function tryHandleChatModeSlash(
 //   ③ 收集失败 / diff 为空要**明说**(交给模型转述),不静默发一轮空审查。
 
 /** 审查目标:未提交改动 / 指定分支对比 HEAD / 指定 commit。 */
-export type ReviewTargetKind = 'uncommitted' | 'branch' | 'commit'
+type ReviewTargetKind = 'uncommitted' | 'branch' | 'commit'
 
 export interface ReviewTargetSpec {
   kind: ReviewTargetKind

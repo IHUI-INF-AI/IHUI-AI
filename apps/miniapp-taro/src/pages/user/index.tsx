@@ -31,6 +31,8 @@ import DrawerComponent, {
 } from '@/components/DrawerComponent'
 import UserInfoCard from '@/components/UserInfoCard'
 import LoginPopUp from '@/components/LoginPopUp'
+import { getSsoLoginUrl, SSO_REDIRECT_URI } from '@/utils/sso'
+import { navigateToWebView } from '@/pages/webview/index'
 import StudyBar from '@/components/StudyBar'
 import { FloatBox, VideoPlayer } from '@/components'
 import { rpx } from '@/utils/rpx'
@@ -960,6 +962,17 @@ export default function UserIndex() {
           }
           onClose={() => setShowLoginPopup(false)}
           onUpgrade={goVipDetail}
+          onWebAuthLogin={() => {
+            // 网页授权登录(G-957):打开 web 中转页 /sso/login(client_id=miniapp-taro),
+            // web 端签发一次性 sso_code 后经 wx.miniProgram.postMessage 回传,由
+            // pages/webview 的 onMessage 换登录态后 reLaunch 首页(回传腿已接管)。
+            // 收弹窗再跳,避免返回时弹窗还挂在「我的」页上。
+            setShowLoginPopup(false)
+            navigateToWebView(
+              getSsoLoginUrl(SSO_REDIRECT_URI),
+              tf('login.webAuthLogin', '网页授权登录'),
+            )
+          }}
           onOneClickLogin={async ({ loginCode, phoneCode }) => {
             try {
               // 一键登录:两个 code 一次交给后端,手机号由微信侧验证后换回(客户端不自报字段)。

@@ -15,6 +15,9 @@
    - 检查表在 TS schema 中是否有定义(未定义 = 数据孤岛风险)
 3. 关键字段缺失时 ERROR,普通字段缺失 WARNING,多余字段 INFO
 4. 枚举到 0 张表时判"无法判定"exit 2,不记绿(扫描器失效的静默绿是假阴性)
+5. sqlite 侧资产按**驱动事实**排除,两级:文件级(引 sqlite3 且未引 asyncpg ⇒ 整文件不是
+   PG 侧实现)+ 表级(建表 DDL 的归属,票 G-17)——后者补的是"借来的连接"这一型:SQL 文本
+   住在没有驱动事实的文件里,连接从 sqlite 持久层模块借来,只看文件级事实会把它漏成 PG 表
 
 校验时机:
 1. 应用启动时(lifespan 注入,字段缺失仅 warning,不阻塞启动)
@@ -188,6 +191,18 @@ def _cte_names(sql: str) -> set[str]:
 
 # SQLite 驱动的直接/缩进导入(函数内 import 也算 —— browser_hub.py 就是函数内连库)
 _SQLITE_DRIVER_RE = re.compile(r"^\s*(?:import\s+sqlite3\b|from\s+sqlite3\s+import\b)", re.MULTILINE)
+
+# 建表 DDL 的归属事实(票 G-17):`CREATE TABLE [IF NOT EXISTS] <name>` 抓到表名。
+# 「这张表是谁建的」是可测量的静态事实,不靠文件名清单。
+_CREATE_TABLE_RE = re.compile(
+    r"""CREATE\s+TABLE(?:\s+(?:OR\s+REPLACE\s+)?(?:IF\s+NOT\s+EXISTS))?\s+[`"']?(\w+)""",
+    re.IGNORECASE,
+)
+
+# sqlite 专有方言标记:Postgres 没有 AUTOINCREMENT(PG 侧是 SERIAL / GENERATED ... AS IDENTITY),
+# 一条 CREATE TABLE 里出现它 ⇒ 这张表**不可能**是 Postgres 表(语句级事实,与文件里有没有
+# 同时出现 asyncpg 无关 —— 这正是"混合驱动文件"那一型的判据)。
+_SQLITE_ONLY_DDL_RE = re.compile(r"\bAUTOINCREMENT\b", re.IGNORECASE)
 
 # 常见非表词(注释/伪代码/日志中的占位符,非真实表引用)— 启发式扫描误报过滤
 _NON_TABLE_WORDS = frozenset({
@@ -364,11 +379,80 @@ def _strip_string_delimiters(raw: str) -> str:
     return raw
 
 
+def _iter_scannable_sources(app_dir: Path) -> list[tuple[Path, str]]:
+    """扫描面取材的唯一口径:app_dir 下可判的 .py 源文件(路径, 内容)。
+
+    排除下划线开头文件与 schema_check.py 自身(它自己的 information_schema 查询不是业务表),
+    读不出内容的文件跳过而不是让整把尺子崩。两处判据(SQL 表名扫描 / 建表归属扫描)
+    必须共用这一份取材口径,否则两面不同形就会出现"一面认得这张表、另一面不认得"
+    (AGENTS §0.4 同面同轮 / §0.6 单一真相源)。
+    """
+    sources: list[tuple[Path, str]] = []
+    for py_file in sorted(app_dir.rglob("*.py")):
+        if py_file.name.startswith("_") or py_file.name == "schema_check.py":
+            continue
+        try:
+            content = py_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        sources.append((py_file, content))
+    return sources
+
+
+def _ddl_statement_scope(content: str, start: int, end: int) -> str:
+    """从 CREATE TABLE 关键字起截到第一个分号 —— 一条建表语句的作用域。
+
+    方言标记只在**这条 DDL 自己**的范围内才算数:整文件里出现过 AUTOINCREMENT
+    不能证明另一条 CREATE TABLE 是 sqlite 侧的(那会把不相干的真 PG 表一起剔掉)。
+    """
+    semi = content.find(";", end)
+    return content[start:] if semi == -1 else content[start:semi]
+
+
+def scan_sqlite_owned_tables(app_dir: Path = _APP_DIR) -> dict[str, str]:
+    """量出「sqlite 侧资产表」:表名 → 建表文件(相对 app_dir)。
+
+    立因(票 G-17,原登记 G-40,2026-09-29 普查):`scan_ai_service_sql_tables` 的
+    sqlite 侧排除是**整文件**的("import 了 sqlite3 且没引 asyncpg ⇒ 跳过")。这条驱动
+    事实看不见"借来的连接"这一型 —— SQL 文本住在 A 文件(路由层),连接是从 B 持久层模块
+    借来的(`approval_persistence._get_conn()`),A 自己既无 sqlite3 也无 asyncpg ⇒
+    A 不跳过 ⇒ B 自建的 approval_grants 被当成本服务的 Postgres 表,CI 报"表不存在 — 数据孤岛"。
+
+    补的规则不是"多跳几个文件",而是把**属主**量成一条独立事实:一张表由谁建,就归谁管。
+    命中任一即算 sqlite 侧资产:
+      ① 建表 DDL 住在"纯 sqlite 侧文件"(import sqlite3 且没引 asyncpg)—— 与既有整文件
+         跳过同一条驱动事实,只是从"文件级"抬到"表级",故对借连接文件同样生效;
+      ② 该条 DDL 自带 sqlite 专有方言 AUTOINCREMENT —— 覆盖"混合驱动文件"(同文件既
+         sqlite3 又 asyncpg)里那半张真 sqlite 表,语句级判定,不牵连同文件里的 PG 表。
+
+    方向纪律(AGENTS §0.1/§12e):本函数只**加**一条归属事实,不削既有判据;
+    引用面剔除时另有"TS Drizzle 正面事实优先"的护栏(见 scan_ai_service_sql_tables)。
+    """
+    owned: dict[str, str] = {}
+    for py_file, content in _iter_scannable_sources(app_dir):
+        if not _SQLITE_DRIVER_RE.search(content):
+            continue
+        pure_sqlite_side = "asyncpg" not in content
+        for match in _CREATE_TABLE_RE.finditer(content):
+            table = match.group(1).lower()
+            if not (pure_sqlite_side or _SQLITE_ONLY_DDL_RE.search(_ddl_statement_scope(content, match.start(), match.end()))):
+                continue
+            owned.setdefault(table, str(py_file.relative_to(app_dir)))
+    return owned
+
+
 def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
-    """扫描 ai-service/app 下所有 .py 文件,提取 SQL 中引用的表名。
+    """扫描 ai-service/app 下所有 .py 文件,提取**本服务 Postgres 侧**引用的表名。
 
     只在包含 SQL 关键字(SELECT/INSERT/UPDATE/DELETE)的字符串字面量中匹配,
     避免误匹配 import 语句和日志文本。排除系统表和 schema_check.py 自身。
+
+    两道 sqlite 侧排除(都是驱动事实,没有一条靠文件名清单):
+      ① 整文件跳过(既有,判据未削):import sqlite3 且没引 asyncpg 的文件不是 PG 侧实现;
+      ② 表级属主剔除(票 G-17 补):①看不见"借来的连接"这一型(SQL 文本住在路由层、
+         连接从持久层模块借来 ⇒ 该文件没有驱动事实),故按"建表 DDL 住在哪"量出属主,
+         sqlite 侧资产表任何文件引用都不算 PG 表。护栏:该名字同时是 TS Drizzle 里
+         声明过的表(正面 PG 事实)时 PG 面优先、**不剔除**,覆盖面只增不减。
 
     Returns:
         { table_name, ... }(小写)
@@ -395,13 +479,7 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
     # 现判据:文件里 import 了 sqlite3 **且**没引 asyncpg ⇒ 它不是 Postgres 侧的实现,整文件跳过。
     # 安全性(实测 app/ 全量):引 sqlite3 的文件共 6 个,其中同时引 asyncpg 的 **0 个**
     # ⇒ 按驱动排除不损失任何 Postgres 覆盖面,且原有两个名字被自然包含。
-    for py_file in app_dir.rglob("*.py"):
-        if py_file.name.startswith("_") or py_file.name == "schema_check.py":
-            continue
-        try:
-            content = py_file.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
+    for _py_file, content in _iter_scannable_sources(app_dir):
         if _SQLITE_DRIVER_RE.search(content) and "asyncpg" not in content:
             continue
         # 只在字符串字面量中匹配 SQL 表名(避免 FROM __future__ import 误匹配)
@@ -442,6 +520,32 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
                 if table in _NON_TABLE_WORDS:
                     continue
                 tables.add(table)
+
+    # ② 表级属主剔除(票 G-17):"借来的连接"这一型的 SQL 文本住在**没有** sqlite3
+    # 驱动事实的文件里(当年 llm.py 用 approval_persistence._get_conn() 跑
+    # "SELECT ... FROM approval_grants WHERE kind='exec_prefix'"),①对这种文件不成立
+    # ⇒ approval_grants 混进"本服务 Postgres 表"集合,CI 报"表不存在 — 数据孤岛"。
+    # 归属按"建表 DDL 住在哪"量(scan_sqlite_owned_tables),不看文件名、不看引用它的文件。
+    if tables:
+        owned = scan_sqlite_owned_tables(app_dir)
+        if owned:
+            # PG 正面事实优先:Drizzle schema 里声明过的表**绝不**因为"某处有同名建表 DDL"
+            # 就被剔出校验面(那是削覆盖面,AGENTS §12e 恒红门的反面 —— 静默漏检)。
+            drizzle_tables = parse_ts_all_table_names(_SCHEMA_DIR)
+            for name in sorted(tables & set(owned)):
+                if name in drizzle_tables:
+                    logger.warning(
+                        "[schema_check] %s: 同名建表 DDL 在 sqlite 侧文件 %s,但它由 TS Drizzle 管理 ⇒ 按 Postgres 侧保留校验",
+                        name,
+                        owned[name],
+                    )
+                    continue
+                tables.discard(name)
+                logger.info(
+                    "[schema_check] %s: 属 sqlite 侧资产(建表源 %s),不计入本服务 Postgres 校验",
+                    name,
+                    owned[name],
+                )
     return tables
 
 
@@ -544,6 +648,9 @@ async def check_schema(
     try:
         # 1. 自动扫描 ai-service SQL 引用的表
         sql_tables = scan_ai_service_sql_tables()
+        # 1b. sqlite 侧资产表(建表 DDL 归属,票 G-17)—— 只作账面可见性:
+        # 它们已在 1 里被按属主剔除,不报出来就等于把"借来的连接"那一格又判成静默。
+        sqlite_side_tables = scan_sqlite_owned_tables()
         # 2. 从 TS schema 源码解析所有表名
         ts_table_names = parse_ts_all_table_names(_SCHEMA_DIR)
 
@@ -616,6 +723,7 @@ async def check_schema(
             "tables": table_results,
             "total_tables": len(sql_tables),
             "critical_missing": sorted(critical_missing),
+            "sqlite_side_tables": dict(sorted(sqlite_side_tables.items())),
             "schema_dir": str(_SCHEMA_DIR) if _SCHEMA_DIR.is_dir() else "(not found, using fallback)",
         }
     finally:
@@ -630,6 +738,15 @@ def log_report(result: dict[str, Any]) -> None:
     schema_dir = result.get("schema_dir", "?")
 
     logger.info("[schema_check] 扫描到 %d 张表,schema 源: %s", total, schema_dir)
+
+    sqlite_side = result.get("sqlite_side_tables") or {}
+    if sqlite_side:
+        # 判据不静默:被按属主划到 sqlite 侧的表逐张点名 + 建表源,便于人复核归属
+        logger.info(
+            "[schema_check] sqlite 侧资产表 %d 张(建表源,不参与 Postgres 校验): %s",
+            len(sqlite_side),
+            ", ".join(f"{name}<-{owner}" for name, owner in sqlite_side.items()),
+        )
 
     if not tables:
         # 枚举到 0 张表 ⇒ "无法判定"而非记绿(与守门 117/157 的"枚举到 0 判死"口径同形):
@@ -719,6 +836,7 @@ async def main() -> int:
     if result.get("total_tables", 0) == 0:
         print("  inconclusive: true (枚举到 0 张表,无法判定)")
     print(f"  schema_dir: {result['schema_dir']}")
+    print(f"  sqlite_side_tables: {len(result.get('sqlite_side_tables') or {})} 张(按建表 DDL 归属划到 sqlite 侧,不参与 Postgres 校验)")
     print(f"  critical_missing: {result['critical_missing']}")
     print("  tables:")
     for table, info in result.get("tables", {}).items():

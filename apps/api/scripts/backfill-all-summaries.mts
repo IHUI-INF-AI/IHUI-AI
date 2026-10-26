@@ -9,6 +9,7 @@ import Parser from 'rss-parser'
 import { aiWorldItems } from '@ihui/database'
 import { db } from '../src/db/index.js'
 import { getSystemAccessToken } from '../src/utils/system-access-token.js'
+import { resolveDefaultChatModel } from '../src/utils/retired-providers.js'
 import { config } from '../src/config/index.js'
 
 const CONCURRENCY = 2
@@ -52,9 +53,13 @@ async function callLlm(prompt: string, content: string): Promise<string | null> 
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        // 显式指定 stepfun 模型:llm_gateway 的 auto-route 会把长文本判为 complex
-        // 并升级到 gpt-4o(api.openai.com 在本机网络被墙,Connection error),必须绕开
-        model: 'stepfun/step-3.7-flash',
+        // 显式指定档位以绕开 llm_gateway 的 auto-route:长文本会被判为 complex
+        // 并升级到 gpt-4o(api.openai.com 在本机网络被墙,Connection error),必须绕开。
+        // 2026-10-26 stepfun 永久退役 ⇒ 原来写死的那一档不得再用;
+        // 改走 utils/retired-providers.ts 的统一解析入口(与 crew-llm-adapter /
+        // conversation-title / semantic-summary / ai-feed-service 同源)。
+        // 显式指定仍非 auto ⇒ 依然绕开 auto-route,原意不变。
+        model: resolveDefaultChatModel(),
         messages: [
           { role: 'system', content: prompt },
           { role: 'user', content },

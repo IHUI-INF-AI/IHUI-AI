@@ -773,8 +773,9 @@ function report(a, face) {
   // 上面那行的基数混着两千多行"已标副本指针/当次算出的同题副本",所以它的"等人拍板"是**行数**
   // 而不是**事项数**(实测 70 行 → 20 个独立事项)。派单/提问一律看下面这行,它已扣副本。
   console.log(
-    `  └ 同一分层按**派单口径**重算(基数 ${c.claimable} 行,已扣同题副本/作废/分叉):` +
+    `  └ 同一分层按**派单口径**重算(基数 ${c.claimable} 行,已扣同题副本/作废/分叉;分桶尺=v2 侧车优先、无侧车回落散文,与 --dispatchable 过滤同尺):` +
       `现在可做 ${c.dispClaimActionable} / 等人拍板 ${c.dispClaimWaitingHuman} / 等条件 ${c.dispClaimWaitingEnv} / 归他人 ${c.dispClaimOwnedElsewhere}` +
+      ` [散文影子 可做 ${c.dispClaimActionableProse}/归他人 ${c.dispClaimOwnedElsewhereProse} —— 与正读数之差=侧车迁移进度,派单不得消费影子]` +
       ` —— 两行不得互相顶结论:上行答"账面有几行挂着",下行答"真有几件事"`,
   )
   if (c.dispWaitingHuman > 0 || c.dispClaimWaitingHuman > 0)
@@ -2326,6 +2327,91 @@ function selfTest() {
       f7d.counts.dispClaimOwnedElsewhere
     } vs claimable ${f7d.counts.claimable}`,
   )
+  // ── F7e 派单面与过滤面同尺(票 G-1182552,2026-10-26)──
+  // 立因是本席现读的真仓缺陷:文本 `--open --dispatchable` 报"可做 0",同一瞬间 JSON 的
+  // counts.dispClaimActionable=5 —— 那 5 行侧车 owner 全部命中(归他人),照 JSON 派单的会话
+  // 会把别人持有的票再领一遍(§1 认领即租约要防的"两席领同一张票";机主 2026-10-26 明令
+  // 不允许两个 agent 打架重复做同一件任务)。这里把"派单桶 = v2 尺"与"v1 只准当影子"钉成契约:
+  // 摘掉 v2 接线(换回裸 dispositionOf)必红,散文尺影子不报数也必红 —— 正反都钉死。
+  const F7EFIX = [
+    // 复刻 HEAD 面 G-957/G-863 那一型:散文一个归属字没写(v1 兜底算"可做"),侧车记着"归他人"。
+    // 编号必须取本尺认得的族形态(实测裸 `T11` 取不到复合主键 ⇒ 夹具自己先被尺否证)。
+    '- [ ] **D-11 侧车有主而散文沉默**:把登录页的按钮换成图标。',
+    // 阳性对照:两侧都没说归属 ⇒ 两把尺必须一致判"可做"(证明 F7e 不是把派单面整体掐死)。
+    '- [ ] **D-12 真无人认领的活**:明文字段加掩码,今晚可做。',
+    '',
+  ].join('\n')
+  const t11Line = F7EFIX.split('\n')[0]
+  const t11Key = compositeKeyOf(t11Line)
+  ok(
+    !!t11Key,
+    `F7e 夹具的 D-11 必须能取到复合主键(取不到=夹具写法与本尺脱节),实测 ${t11Key}`,
+  )
+  // 夹具侧车刻意不落盘(§15b:判据夹具走 loadFields 的 text 入参,不碰真台账侧车)
+  const f7efixFields = loadFields(
+    ROOT,
+    [
+      JSON.stringify({
+        key: t11Key,
+        owner: 'fixture web 前端持有人',
+        waiting: 'none',
+        updatedAt: '2026-10-26T00:00:00.000Z',
+        updatedBy: 'selftest-fixture',
+      }),
+      '',
+    ].join('\n'),
+  )
+  const f7e = auditPlan(F7EFIX, { fields: f7efixFields })
+  // 分母锁:侧车记录必须**真的命中**这一行(键对不上 ⇒ v2 静默回落散文,整组断言全部空转)
+  ok(f7efixFields.map.get(t11Key)?.owner === 'fixture web 前端持有人', 'F7e 夹具侧车必须命中的 D-11 的复合主键')
+  ok(
+    // 反证:同一夹具不给侧车 ⇒ v2 回落散文 ⇒ 与 v1 影子同读数(证明正读数的变化全部来自侧车,不是换尺附带)
+    (() => {
+      const noFields = auditPlan(F7EFIX)
+      return (
+        noFields.counts.dispClaimActionable === 2 &&
+        noFields.counts.dispClaimActionable === noFields.counts.dispClaimActionableProse
+      )
+    })(),
+    '不给侧车时 v2 必须逐字回落散文尺(与影子同读数)',
+  )
+  ok(
+    // 正读数(v2 尺):D-11 必须被剔出"可做"——否则"照 JSON 派单领别人票"的通道又开了
+    f7e.counts.dispClaimActionable === 1 &&
+      f7e.dispClaimBuckets.actionable.length === 1 &&
+      f7e.dispClaimBuckets.actionable[0].raw.includes('D-12') &&
+      f7e.counts.dispClaimOwnedElsewhere === 1 &&
+      f7e.dispClaimBuckets['owned-elsewhere'][0].raw.includes('D-11'),
+    `派单桶必须按 v2 尺把侧车有主的 D-11 记"归他人"、只把 D-12 留"可做",实测 可做=${f7e.counts.dispClaimActionable} 归他人=${f7e.counts.dispClaimOwnedElsewhere}`,
+  )
+  ok(
+    // 影子读数(v1 尺):D-11 在散文尺下仍落"可做"(差值=侧车迁移进度),影子必须逐字报数,
+    // 把影子删成 0/删键 = 拆掉迁移进度尺(§12f 不移别人锚点的另一面:也不许把自己的尺藏起来)。
+    f7e.counts.dispClaimActionableProse === 2 &&
+      f7e.counts.dispClaimOwnedElsewhereProse === 0 &&
+      f7e.counts.dispClaimActionableProse - f7e.counts.dispClaimActionable === 1,
+    `v1 影子必须如实报出散文尺读数(侧车不表态时兜底 actionable),实测 影子可做=${f7e.counts.dispClaimActionableProse} 影子归他人=${f7e.counts.dispClaimOwnedElsewhereProse}`,
+  )
+  ok(
+    f7e.counts.dispClaimActionable +
+      f7e.counts.dispClaimWaitingHuman +
+      f7e.counts.dispClaimWaitingEnv +
+      f7e.counts.dispClaimOwnedElsewhere ===
+      f7e.counts.claimable,
+    `换尺后四桶闭合必须照旧:相加=${
+      f7e.counts.dispClaimActionable +
+      f7e.counts.dispClaimWaitingHuman +
+      f7e.counts.dispClaimWaitingEnv +
+      f7e.counts.dispClaimOwnedElsewhere
+    } vs claimable ${f7e.counts.claimable}`,
+  )
+  // 与过滤面的同尺性由形状锁保证(§0.6):过滤用 dispositionOfV2(dispatchable 档 :3285),
+  // 桶用同一个 dispositionOfV2 —— 两消费点共读一个出口,任何一侧换尺都不会偷偷发生在这里。
+  // 账面口径(F7 的 dispActionable*)不受本切换影响:它必须继续量"散文怎么说"(§12f)。
+  ok(
+    f7e.counts.dispActionable === 2 && f7e.counts.dispOwnedElsewhere === 0,
+    `账面口径必须仍是 v1 散文尺(换尺只动派单桶),实测 账面可做=${f7e.counts.dispActionable} 账面归他人=${f7e.counts.dispOwnedElsewhere}`,
+  )
   // F8a 只在差值档有意义:全量档它算不出来,必须显式"未判定"而不是悄悄当 0
   const headFace = auditPlan(F7FIX)
   const withNew = auditPlan(`${F7FIX}- [ ] **T8 本次新登记**:没有任何交代。`)
@@ -3278,6 +3364,7 @@ function main() {
   if (o.open) {
     // `--open --dispatchable`:把"现在就能做的活"从"等着别人/等环境的账"里分出来。
     // 默认口径不变 —— 分层只在这条显式旗标下生效,免得一次正则误判把真活踢出派单面。
+    // 过滤面按 v2 尺逐行剔(票 G-1182552:JSON 的 dispClaim* 已改为同尺,两不再各说各话)。
     const F = fieldsFace
     const bucketV2 = (r) => dispositionOfV2({ line: r.raw, fields: F }).bucket
     const rows = o.dispatchable
@@ -3286,8 +3373,8 @@ function main() {
     if (o.dispatchable) {
       console.log(
         `── 派单口径中"现在可做" ${rows.length} / ${a.claimableRows.length} 行` +
-          `(剔除:待人拍板 ${a.counts.dispWaitingHuman} / 等条件 ${a.counts.dispWaitingEnv} / 归他人 ${a.counts.dispOwnedElsewhere};` +
-          `剔除按正文推导,拿不准的**留在清单里**而不是踢掉)──`,
+          `(剔除计数:待人拍板 ${a.counts.dispWaitingHuman} / 等条件 ${a.counts.dispWaitingEnv} / 归他人 ${a.counts.dispOwnedElsewhere} —— 这一组是**账面口径 v1 散文尺**的计数;` +
+          `过滤面本身按 **v2 尺(侧车优先)** 逐行剔,拿不准的**留在清单里**而不是踢掉)──`,
       )
       // 判定来源必须自己报名:侧车一旦开始有记录,上行那组"按正文推导"的剔除数就会与过滤面分开,
       // 而分开的方向是" fewer 活被踢出清单" —— 不报名就会被当成读数错乱(规格 §2)。
