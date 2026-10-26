@@ -117,10 +117,195 @@ export function buildWorkbuddyModelRows(
   return rows
 }
 
+/** 登记表 workbuddy 行供给的登记字段(与号池登记器同一份口径,禁止第二处字面量)。 */
+export interface WorkbuddyRegistrationContract {
+  providerCode: string
+  configName: string
+  baseUrl: string
+  apiFormat: string
+  enabled: boolean
+  isRelayPublic: boolean
+}
+
+export interface SqlStatement {
+  sql: string
+  params: unknown[]
+}
+
+/**
+ * 从登记表 jsonl 文本取 workbuddy 档位。取不到 / 不可信 ⇒ `{ok:false, why}` 且 why 写明出路
+ * (失效方向恒为"多要一次定向说明",绝不回落硬编码档位、绝不静默跳写)。
+ */
+export function parseWorkbuddyRegistration(
+  registryText: string,
+): { ok: true; contract: WorkbuddyRegistrationContract } | { ok: false; why: string } {
+  const hits: Array<Record<string, unknown>> = []
+  const bad: string[] = []
+  String(registryText ?? '')
+    .split('\n')
+    .forEach((line, i) => {
+      if (!line.trim()) return
+      let o: unknown
+      try {
+        o = JSON.parse(line)
+      } catch (e) {
+        bad.push(`第 ${i + 1} 行不是合法 JSON(${e instanceof Error ? e.message : String(e)})`)
+        return
+      }
+      const rec = o as Record<string, unknown>
+      if (rec?.providerCode === WORKBUDDY_PROVIDER_CODE) hits.push(rec)
+    })
+  if (bad.length) return { ok: false, why: `登记表不可信:${bad.join(' · ')}` }
+  if (hits.length === 0)
+    return {
+      ok: false,
+      why: `登记表 scripts/data/relay-upstream-models.jsonl 无 providerCode=${WORKBUDDY_PROVIDER_CODE} 登记行 ⇒ 拒写 ai_model_config/ai_model_config_models;出路:先按登记器口径登记该档位`,
+    }
+  if (hits.length > 1)
+    return {
+      ok: false,
+      why: `providerCode=${WORKBUDDY_PROVIDER_CODE} 有 ${hits.length} 枚登记行,不得猜该用哪一条`,
+    }
+  const e = hits[0]
+  if (!e)
+    return {
+      ok: false,
+      why: `providerCode=${WORKBUDDY_PROVIDER_CODE} 命中计数与索引不一致(内部不变式被破坏),不猜`,
+    }
+  const miss: string[] = []
+  for (const k of ['configName', 'baseUrl', 'apiFormat'] as const)
+    if (typeof e[k] !== 'string' || !e[k]) miss.push(k)
+  for (const k of ['enabled', 'isRelayPublic'] as const)
+    if (typeof e[k] !== 'boolean') miss.push(`${k}(必须布尔)`)
+  if (!Array.isArray(e.models) || e.models.length === 0) miss.push('models(必须非空数组)')
+  if (miss.length)
+    return { ok: false, why: `workbuddy 登记行缺字段:${miss.join(' · ')}(不回落硬编码档位)` }
+  return {
+    ok: true,
+    contract: {
+      providerCode: WORKBUDDY_PROVIDER_CODE,
+      configName: e.configName as string,
+      baseUrl: e.baseUrl as string,
+      apiFormat: e.apiFormat as string,
+      enabled: e.enabled as boolean,
+      isRelayPublic: e.isRelayPublic as boolean,
+    },
+  }
+}
+
+/** 配置行匹配键与登记器 readSnapshot 同源:(provider_code, base_url, owner_uuid IS NULL)。 */
+export function buildConfigMatchStatement(contract: WorkbuddyRegistrationContract): SqlStatement {
+  return {
+    sql: `select id from ai_model_config
+     where provider_code=$1 and base_url=$2 and owner_uuid is null order by id limit 1`,
+    params: [contract.providerCode, contract.baseUrl],
+  }
+}
+
+/**
+ * 配置行落库语句。既有行只回写双方共源的 name/api_format/enabled 与动态侧自有的
+ * provider_group/group_label;base_url(匹配键)与 description(登记器 insert-only)不覆盖。
+ */
+export function buildConfigSyncStatements(
+  contract: WorkbuddyRegistrationContract,
+  display: { description: string; providerGroup: string; groupLabel: string },
+  existingId: number | null,
+): SqlStatement {
+  if (existingId !== null)
+    return {
+      sql: `update ai_model_config set name=$1, api_format=$2, enabled=$3,
+         provider_group=$4, group_label=$5, updated_at=now()
+       where id=$6 and provider_code=$7 and owner_uuid is null returning id`,
+      params: [
+        contract.configName,
+        contract.apiFormat,
+        contract.enabled,
+        display.providerGroup,
+        display.groupLabel,
+        existingId,
+        contract.providerCode,
+      ],
+    }
+  return {
+    sql: `insert into ai_model_config (name, provider_code, base_url, api_format, enabled, description, provider_group, group_label, is_builtin)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,false) returning id`,
+    params: [
+      contract.configName,
+      contract.providerCode,
+      contract.baseUrl,
+      contract.apiFormat,
+      contract.enabled,
+      display.description,
+      display.providerGroup,
+      display.groupLabel,
+    ],
+  }
+}
+
+/** 模型行落库语句:enabled / is_relay_public 取登记表档位;能力/定价列归动态同步器。 */
+export function buildModelSyncStatements(
+  contract: WorkbuddyRegistrationContract,
+  configId: number,
+  row: WorkbuddyPoolModelRow,
+  existingId: number | null,
+): SqlStatement {
+  const metadata = JSON.stringify(row.metadata)
+  if (existingId !== null)
+    return {
+      sql: `update ai_model_config_models set display_name=$1, context_length=$2, max_output_tokens=$3,
+         input_price_per_1k=0, output_price_per_1k=0, enabled=$4, is_relay_public=$5,
+         supports_tool_call=$6, supports_vision=$7, supports_streaming=true,
+         tags=$8::text[], vendor=$9, description=$10, sort_order=$11, metadata=$12::jsonb,
+         updated_at=now() where id=$13`,
+      params: [
+        row.displayName,
+        row.contextLength,
+        row.maxOutputTokens,
+        contract.enabled,
+        contract.isRelayPublic,
+        row.supportsToolCall,
+        row.supportsVision,
+        row.tags,
+        row.vendor,
+        row.description,
+        row.sortOrder,
+        metadata,
+        existingId,
+      ],
+    }
+  return {
+    sql: `insert into ai_model_config_models
+       (config_id, model_id, display_name, context_length, max_output_tokens, input_price_per_1k, output_price_per_1k,
+        enabled, is_relay_public, supports_tool_call, supports_vision, supports_streaming, tags, vendor, description, sort_order, metadata)
+     values ($1,$2,$3,$4,$5,0,0,$6,$7,$8,$9,true,$10::text[],$11,$12,$13,$14::jsonb)`,
+    params: [
+      configId,
+      row.modelId,
+      row.displayName,
+      row.contextLength,
+      row.maxOutputTokens,
+      contract.enabled,
+      contract.isRelayPublic,
+      row.supportsToolCall,
+      row.supportsVision,
+      row.tags,
+      row.vendor,
+      row.description,
+      row.sortOrder,
+      metadata,
+    ],
+  }
+}
+
 export const __test__ = {
   WORKBUDDY_MODEL_PREFIX,
+  WORKBUDDY_PROVIDER_CODE,
   isChatCapableModel,
   toPoolModelId,
   buildWorkbuddyModelRows,
+  parseWorkbuddyRegistration,
+  buildConfigMatchStatement,
+  buildConfigSyncStatements,
+  buildModelSyncStatements,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
