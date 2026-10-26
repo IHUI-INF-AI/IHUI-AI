@@ -268,6 +268,7 @@ export function runGitLog({ root = ROOT, commits = 0, spawn = spawnSync } = {}) 
     cwd: root,
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r && r.error) return { ok: false, why: `git 不可用:${r.error.message}`, commits: [] }
   if (!r || r.status !== 0) {
