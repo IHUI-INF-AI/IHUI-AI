@@ -152,17 +152,21 @@ from ..core.mcp_tool_approval import (
 from ..core.mcp_tool_approval import (
     requires_mcp_tool_approval as _requires_mcp_tool_approval,
 )
+
+# A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
+from ..core.retry_after import hint_from_error, resolve_retry_delay_s
+
 # P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
 from ..core.session_taint import TaintSource as _TaintSource
 from ..services.session_security import (
     args_contain_resolvable_vault as _args_contain_resolvable_vault,
+)
+from ..services.session_security import (
     get_session_taint_store as _get_session_taint_store,
-    get_vault_store as _get_vault_store,
+)
+from ..services.session_security import (
     taint_gate_requires_approval as _taint_gate_requires_approval,
 )
-
-# A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
-from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 from .agent_security_prefs import (
     apply_prefs,
     get_agent_security_prefs,
