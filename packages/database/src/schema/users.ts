@@ -52,8 +52,9 @@ export const users = pgTable(
     passwordHash: text('password_hash'),
     nickname: varchar('nickname', { length: 64 }),
     // 默认头像与 packages/shared/src/constants/default-avatar.ts 的 DEFAULT_USER_AVATAR_URL 同值;
-    // database 包不依赖 shared,故此处字面量重复一份(迁移 20261027090000 同步)。
-    avatar: text('avatar').default('https://aizhs.top/images/default-avatar.jpg'),
+    // database 包不依赖 shared,故此处字面量重复一份(迁移 20261027090000 引入、
+    // 20261027091500 收敛到 www 域名)。
+    avatar: text('avatar').default('https://www.aizhs.top/images/default-avatar.jpg'),
     bio: text('bio'),
     gender: integer('gender').default(0).notNull(), // 0=未知 1=男 2=女
     birthday: date('birthday'),
