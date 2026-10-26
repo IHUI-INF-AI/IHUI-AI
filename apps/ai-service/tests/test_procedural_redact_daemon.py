@@ -260,7 +260,7 @@ async def test_enabled_latch_is_idempotent_and_stop_resets(monkeypatch: pytest.M
     assert not first.done()
     await asyncio.sleep(0)
     await asyncio.sleep(0)
-    assert calls >= 1, "先扫后睡:装载即完成首次点名,重启风暴也拦不住"
+    assert calls == 0, "先睡后扫(与 expiry_janitor 同形):短命 lifespan(测试)全程不得碰真库"
 
     daemon.stop()
     assert daemon._task is None
