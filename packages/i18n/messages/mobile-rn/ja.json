@@ -634,6 +634,22 @@
     "runtimeStop": "停止",
     "runtimeSend": "送信"
   },
+  "quickNotes": {
+    "menuEntry": "クイックノート",
+    "title": "クイックノート",
+    "new": "新規ノート",
+    "edit": "編集",
+    "search": "ノートを検索",
+    "insert": "チャットに挿入",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "archived": "アーカイブ済み",
+    "showArchived": "アーカイブを表示",
+    "empty": "ノートはまだありません",
+    "titlePlaceholder": "タイトル",
+    "contentPlaceholder": "本文",
+    "groupPlaceholder": "グループ(任意)"
+  },
   "chat": {
     "modelSwitchStopped": "{model} に切り替えたため、この回答を終了しました",
     "meta": {

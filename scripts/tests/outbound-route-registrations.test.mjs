@@ -34,6 +34,7 @@ import {
   buildFastifyRegistrations,
   buildGraphInfos,
   mountedFunctionNames,
+  runSelfTest,
 } from '../lib/outbound-route-registrations.mjs'
 
 /** 工厂实现体(名字刻意不是 registerCrud):路径形参 + `${形参}/:id` 两型 */
@@ -285,5 +286,70 @@ test('H11 动态 import 边可解 ⇒ 先前解析不到文件的子树读到(�
   ])
   const reg = buildFastifyRegistrations(files)
   assert.ok(reg.paths.has('api/dyn/x'), `动态导入的挂载目标必须走到,got ${[...reg.paths].join(', ')}`)
+})
+
+/* ── O87g 先决补格@2026-10-26:同文件本地插件函数的挂载边(真仓六档 17 条 unresolved 的成因) ── */
+
+test('L1 同文件直调型本地函数(`auditRoutes(server)`):体内工厂调用按累积前缀产出(摘掉识别式即翻红)', () => {
+  const files = map([
+    [FASTIFY_ENTRY, "import { r } from './routes/t.js'\nserver.register(r, { prefix: '/api' })\n"],
+    [
+      'apps/api/src/routes/t.ts',
+      "import { mountThings } from './_shared.js'\nexport const r = async (server) => {\n  registerAudit(server)\n}\nfunction registerAudit(server) {\n  mountThings(server, '/audit', audits, {})\n}\n",
+    ],
+    ['apps/api/src/routes/_shared.ts', SHARED_FACTORY],
+  ])
+  const reg = buildFastifyRegistrations(files)
+  assert.ok(reg.paths.has('api/audit'), `本地函数体内工厂必须读到,got ${[...reg.paths].join(', ')}`)
+  assert.ok(reg.paths.has('api/audit/*'), '`${basePath}/:id` 腿同样代入')
+  assert.ok(
+    !reg.unresolved.some((l) => /register\(registerAudit\) 解析不到文件/.test(l)),
+    '该型不得再落「解析不到文件」误报名(真边取代盲区)',
+  )
+})
+
+test('L2 同文件具名裸 register(`server.register(localFn)`)⇒ 节点走到、工厂产出(反向对照 L3)', () => {
+  const files = map([
+    [FASTIFY_ENTRY, "import { r } from './routes/t2.js'\nserver.register(r, { prefix: '/api' })\n"],
+    [
+      'apps/api/src/routes/t2.ts',
+      "import { mountThings } from './_shared.js'\nconst sub = async (server) => {\n  mountThings(server, '/sub', rows, {})\n}\nexport const r = async (server) => {\n  server.register(sub)\n}\n",
+    ],
+    ['apps/api/src/routes/_shared.ts', SHARED_FACTORY],
+  ])
+  const reg = buildFastifyRegistrations(files)
+  assert.ok(reg.paths.has('api/sub') && reg.paths.has('api/sub/*'))
+})
+
+test('L3 边界锁(成对反牙):带前缀的同文件具名注册不得被洗成确信(守门 127 F4/F4b 裁决面)', () => {
+  const files = map([
+    [FASTIFY_ENTRY, 'const crudRoutes = async (app) => {\n  app.get("/crud/:id", async () => ({}))\n}\nserver.register(crudRoutes, { prefix: \'/api/v1\' })\n'],
+  ])
+  const reg = buildFastifyRegistrations(files)
+  assert.ok([...reg.opaque].includes('/api/v1'), '带前缀同文件具名注册的前缀必须仍记不透明')
+  assert.ok(!reg.paths.has('api/v1/crud/*'), '其子树不得被本层读成"已注册"(那是门 127 钉住的未判定桶)')
+})
+
+test('L4 节点键含挂载符号:同文件两插件函数共用前缀时,归因窄口径不得互相顶掉访问面', () => {
+  // (rel, prefix) 旧键会让先到的 X 节点吃掉后到的 Y 节点 ⇒ Y 体内工厂永远不产出。
+  // 键加 mountedSymbol 一维后两节点各走各的(纯增访问面;⊇ 由 L1/L2 与既有 H 族共证)。
+  const files = map([
+    [FASTIFY_ENTRY, "import { aRoutes, bRoutes } from './routes/ab.js'\nserver.register(aRoutes, { prefix: '/api' })\nserver.register(bRoutes, { prefix: '/api' })\n"],
+    [
+      'apps/api/src/routes/ab.ts',
+      "import { mountThings } from './_shared.js'\nexport const aRoutes = async (server) => {\n  registerInlineA(server)\n}\nexport const bRoutes = async (server) => {\n  mountThings(server, '/b-only', rows, {})\n}\nfunction registerInlineA(server) {\n  mountThings(server, '/a-only', rows, {})\n}\n",
+    ],
+    ['apps/api/src/routes/_shared.ts', SHARED_FACTORY],
+  ])
+  const reg = buildFastifyRegistrations(files)
+  assert.ok(reg.paths.has('api/b-only'), 'bRoutes 直写工厂必须产出')
+  assert.ok(reg.paths.has('api/a-only'), 'aRoutes 经本地函数间接的工厂也必须产出(旧键同前缀相撞即丢这一条)')
+})
+
+test('L5 lib --self-test 出口成对夹具全绿(无调度点判据=没有:此档即调度点之一)', () => {
+  const results = runSelfTest()
+  assert.ok(results.length >= 8, `self-test 例数必须 ≥8,实得 ${results.length}`)
+  const failed = results.filter((r) => !r.pass)
+  assert.deepEqual(failed.map((r) => r.name), [], 'SELF-TEST 不得有未过例')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

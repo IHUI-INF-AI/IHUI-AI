@@ -153,6 +153,8 @@ import {
 import { NavBar } from '../components/NavBar'
 import { AgentSelector } from '../components/chat/AgentSelector'
 import { NotesPanel } from '../components/chat/NotesPanel'
+import { QuickNotesOverlay } from './QuickNotesScreen'
+import { composeInsertText } from '@ihui/shared/stores'
 import { createVoiceSession, closeVoiceSession, turnVoiceSession } from '../lib/engine-voice'
 import useVoiceRecorder from '../hooks/use-voice-recorder'
 import { ImageAnnotator } from '../components/chat/ImageAnnotator'
@@ -559,6 +561,8 @@ export function ChatScreen() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined)
   // D43③ 语音笔记面板 / D124 图片标注编辑器(从图片全屏预览进入)
   const [notesVisible, setNotesVisible] = useState(false)
+  // D03 会话内快捷笔记(文字纵切片)弹窗可见性
+  const [quickNotesVisible, setQuickNotesVisible] = useState(false)
   const [annotatorUri, setAnnotatorUri] = useState<string | null>(null)
   // D126 实时语音(回合式 engine_voice):会话/回合/播放编排;面板只发按压事件,录音走 useVoiceRecorder 原始模式
   const [realtimeVoiceState, setRealtimeVoiceState] = useState<
@@ -1936,6 +1940,16 @@ export function ChatScreen() {
       },
     },
     {
+      key: 'quick-notes',
+      label: t('quickNotes.menuEntry'),
+      Icon: PenLine,
+      onPress: () => {
+        // D03:快捷笔记面板(可建/可编/可归档/可搜索,选一条插入输入框)
+        setSourcePanelVisible(false)
+        setQuickNotesVisible(true)
+      },
+    },
+    {
       key: 'web-link',
       label: t('chat.menuWebLink'),
       Icon: Link,
@@ -3219,6 +3233,17 @@ export function ChatScreen() {
           toggleVoiceInput()
         }}
         onClose={() => setNotesVisible(false)}
+      />
+
+      {/* D03 快捷笔记面板:可建/可编/可归档/可搜索,选一条经 composeInsertText 回填输入框 */}
+      <QuickNotesOverlay
+        visible={quickNotesVisible}
+        onClose={() => setQuickNotesVisible(false)}
+        onInsert={(note) => {
+          const text = note.content.trim() || note.title
+          setPrompt((p) => composeInsertText(p, text))
+          setQuickNotesVisible(false)
+        }}
       />
 
       {/* P1.4 网页链接输入 Modal */}

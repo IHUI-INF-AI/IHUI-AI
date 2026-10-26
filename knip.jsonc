@@ -42,7 +42,14 @@
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/extension": {
-      "entry": ["src/i18n/index.tsx"],
+      // 2026-10-26(Knip 棘轮归因):此前只把 src/i18n/index.tsx 当入口,漏了 wxt 的装载入口
+      // entrypoints/{background,content,popup,sidepanel} —— wxt 按目录约定装载这些文件(见
+      // apps/extension/entrypoints/ 与 package.json 的 `wxt` 脚本),knip 静态面看不见该装载形态,
+      // 于是「仅被 entrypoints import」的件整簇连带判成未引用文件(实测 entrypoints/popup/main.tsx
+      // 与 tests/visit-tracker.test.ts 都 import lib/visit-tracker.ts,却因入口缺位而不可达)。
+      // 这是修配置盲区,不是白名单遮盖:补入口后 knip 仍照常判「入口可达但没人用」的导出。
+      // 到期复核:启用 @knip/wxt 插件(能按 wxt 约定发现入口)后应删本条 entry 通配。
+      "entry": ["src/i18n/index.tsx", "entrypoints/**/*.{ts,tsx}"],
       "project": ["**/*.{ts,tsx}"]
     },
     "apps/mobile-rn": {
@@ -92,7 +99,39 @@
         "src/pkg-about/about/aboutSections.ts",
         "src/components/Collapsible.tsx",
         "src/components/Sheet.tsx",
-        "src/components/Tabs.tsx"
+        "src/components/Tabs.tsx",
+        // 2026-10-26(Knip 棘轮 files 超基线,归因席 s27-knip 逐条现读后登记,分两族):
+        // 族① 14 枚页面 = Taro `app.config.ts` 的 pages/subPackages 按**字符串路径**装载,
+        // knip 静态 import 面看不见(与上面 2026-10-20/10-25 两批同族)。逐条核过登记面:
+        // 每页在 app.config.ts 内以 `<尾段>/index` 形态命中 1 次(如 'edu-shop/index'),
+        // 且 pkg-user/edu-child/records-page.tsx 实测有 10 个引用方(六枚 edu-child 页等),
+        // 它进 files 判定纯因引用它的页面本身不可达而连带。
+        // 族② 六枚地基组件(Card/Button/Switch/Input/Badge/VipBadge,入库 f885df8472 goal 地基批)
+        // 现读**零消费方**(全仓 import 语句命中 0,components/index.ts 也未再导出)——
+        // 属"先落组件、消费页未接"半成品族,对齐 apps/mobile-rn 的 AutomationCard/MetricCard 先例,
+        // 不是"被页面 import"那一族;到期复核若确认不接,应删除而非续挂白名单。
+        // 到期复核:启用能解析 Taro pages 字符串的插件后删族①;族② 复核期 2027-01-31。
+        "src/pkg-shop/edu-shop/index.tsx",
+        "src/pkg-user/edu-mgmt-attendance/index.tsx",
+        "src/pkg-user/edu-mgmt-finance/index.tsx",
+        "src/pkg-user/edu-mgmt-grades/index.tsx",
+        "src/pkg-user/edu-parent/index.tsx",
+        "src/pkg-user/llm-settings/index.tsx",
+        "src/pkg-user/user-public/index.tsx",
+        "src/pkg-about/about/agreement/index.tsx",
+        "src/pkg-user/edu-child/attendance/index.tsx",
+        "src/pkg-user/edu-child/bills/index.tsx",
+        "src/pkg-user/edu-child/grades/index.tsx",
+        "src/pkg-user/edu-child/meals/index.tsx",
+        "src/pkg-user/edu-child/schedule/index.tsx",
+        "src/pkg-user/edu-child/study-plans/index.tsx",
+        "src/pkg-user/edu-child/records-page.tsx",
+        "src/components/Badge.tsx",
+        "src/components/Button.tsx",
+        "src/components/Card.tsx",
+        "src/components/Input.tsx",
+        "src/components/Switch.tsx",
+        "src/components/VipBadge.tsx"
       ]
     },
     "packages/database": {
