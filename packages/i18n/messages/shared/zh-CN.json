@@ -2152,6 +2152,7 @@
       "autoSkipApproval": "自动批准(免审批)",
       "bypassSkipApproval": "已跳过审批",
       "mcpRequiresApproval": "MCP 标注要求确认",
+      "taintEgressGate": "会话污点:出网需确认",
       "policyRequiresApproval": "策略要求审批",
       "policySkipsApproval": "策略免审批",
       "guardianReviewSuggested": "复核建议改用更安全路径",

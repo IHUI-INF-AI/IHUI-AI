@@ -12,11 +12,13 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import CategoryBar from '@/components/CategoryBar'
 // 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
+// 注意:CategoryBar 需在其上(票 G-948 同型)——多数入口 CategoryBar.css 先于
+// ScreenStates.taro.css 进 common chunk,此处反序会让 mini-css-extract 报 Conflicting order。
 import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import LineIcon from '@/components/LineIcon'
 import SearchBar from '@/components/SearchBar'
-import CategoryBar from '@/components/CategoryBar'
 
 const PAGE_SIZE = 20
 
