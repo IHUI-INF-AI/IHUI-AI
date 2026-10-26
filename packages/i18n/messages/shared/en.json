@@ -2152,6 +2152,7 @@
       "autoSkipApproval": "Auto-approved (no approval needed)",
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
+      "taintEgressGate": "Session taint: network access needs approval",
       "policyRequiresApproval": "Policy requires approval",
       "policySkipsApproval": "Policy skips approval",
       "guardianReviewSuggested": "Review suggests a safer alternative",
