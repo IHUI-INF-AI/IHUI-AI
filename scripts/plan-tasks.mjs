@@ -76,6 +76,7 @@ import {
   isDispatchKeptSlot,
   nextTaskIdLabel,
   ownerLabelOf,
+  OWNER_EVIDENCE_COMMIT_WINDOW,
   parseTaskRows,
   usedIdsOfPrefix,
   LEDGER_TTL_DAYS,
@@ -380,8 +381,8 @@ function repoToplevel(root) {
   }
 }
 
-/** 归属证据尺 ② 的取材面:最近多少枚提交信息。与任务书同值(200),改这里就同时改判据射程。 */
-export const OWNER_EVIDENCE_COMMITS = 200
+/** ② 的取材窗口 = 判据层那一份(§0.6:窗口只有一个出处,CLI 不复写数字)。 */
+export const OWNER_EVIDENCE_COMMITS = OWNER_EVIDENCE_COMMIT_WINDOW
 /**
  * 最近 N 枚提交信息(②「持有者短名出现在提交史里」的**唯一**取材出口)。
  * 取不到(不是仓 / git 不可问 / 空输出)⇒ **null**,判据据此落"未判定"。
