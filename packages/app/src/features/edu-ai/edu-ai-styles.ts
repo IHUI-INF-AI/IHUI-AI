@@ -56,7 +56,8 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       borderColor: tk.brand.cta,
     },
     tabText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
-    tabTextActive: { color: tk.brand.ctaForeground },
+    // 配对前景键必须与底键同前缀(tabActive × tabActiveText),门 83 R3 才认得到兄弟对
+    tabActiveText: { color: tk.brand.ctaForeground },
     scroll: { padding: 12, paddingBottom: 32, gap: 12 },
     hero: { gap: 4 },
     heroTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
@@ -83,7 +84,8 @@ export function createEduAiStyles(tk: AppThemeTokens) {
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
-    chipTextActive: { color: tk.brand.ctaForeground },
+    // 同上:底键与前景键同前缀才成对(chipActive × chipActiveText)
+    chipActiveText: { color: tk.brand.ctaForeground },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
