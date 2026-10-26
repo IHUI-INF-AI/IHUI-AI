@@ -49,6 +49,8 @@ import {
 import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
 import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
+// 号池体检判据单源在 @ihui/shared(web 管理页与 CLI 同源,绝不各自抄一份枚举/阈值,§0.6)
+import { relayAccountIdleDays, resolveRelayAccountVerdict } from '@ihui/shared'
 import { markAccountAuthRejected } from '../../services/relay-account-pool-scheduler.js'
 import {
   buildPoolSyncAccount,
@@ -194,6 +196,12 @@ const safeProjection = {
   machineId: aiRelayAccountPool.machineId,
   tokenExpiresAt: aiRelayAccountPool.tokenExpiresAt,
   refreshExpiresAt: aiRelayAccountPool.refreshExpiresAt,
+  // 只回"有无 refreshToken"的布尔,永不 SELECT *Enc 值本身(脱敏投影不破;供 verdict 判
+  // expired-renewable / expired-dead 之分)。
+  hasRefreshToken:
+    sql<boolean>`case when ${aiRelayAccountPool.refreshTokenEnc} is not null and ${aiRelayAccountPool.refreshTokenEnc} <> '' then true else false end`.as(
+      'has_refresh_token',
+    ),
   priority: aiRelayAccountPool.priority,
   weight: aiRelayAccountPool.weight,
   isEnabled: aiRelayAccountPool.isEnabled,
@@ -328,15 +336,31 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           ),
       ])
       const summaries = await getAccountUsageSummaries(list.map((r) => r.id))
-      const enriched = list.map((row) => ({
-        ...row,
-        expiresSoon:
-          row.tokenExpiresAt !== null &&
-          row.tokenExpiresAt.getTime() > now.getTime() &&
-          row.tokenExpiresAt.getTime() - now.getTime() <= EXPIRES_SOON_MS,
-        circuitBreakReason: deriveCircuitBreakReason(row),
-        usageSummary: summaries.get(row.id) ?? { calls24h: 0, tokens24h: 0, failRate24h: 0 },
-      }))
+      const enriched = list.map((row) => {
+        const verdict = resolveRelayAccountVerdict(
+          {
+            tokenExpiryMs: row.tokenExpiresAt ? row.tokenExpiresAt.getTime() : null,
+            hasCredential: true,
+            hasRefreshCredential: row.hasRefreshToken === true,
+          },
+          now.getTime(),
+        )
+        return {
+          ...row,
+          verdict: verdict.verdict,
+          tokenRemainingDays: verdict.tokenRemainingDays,
+          idleDays: relayAccountIdleDays(
+            { lastUsedAt: row.lastUsedAt, lastRefreshAt: row.lastRefreshAt },
+            now.getTime(),
+          ),
+          expiresSoon:
+            row.tokenExpiresAt !== null &&
+            row.tokenExpiresAt.getTime() > now.getTime() &&
+            row.tokenExpiresAt.getTime() - now.getTime() <= EXPIRES_SOON_MS,
+          circuitBreakReason: deriveCircuitBreakReason(row),
+          usageSummary: summaries.get(row.id) ?? { calls24h: 0, tokens24h: 0, failRate24h: 0 },
+        }
+      })
       const availableCount = availableRows[0]?.c ?? 0
       return reply.send(
         success({
