@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnTokens } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -16,7 +16,7 @@ export const TICKET_STATUS_PALETTE = {
   open: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
   resolved: { bg: 'rgba(16,185,129,0.10)', fg: '#059669' },
   closed: { bg: 'rgba(249,115,22,0.12)', fg: '#ea580c' },
-  rejected: { bg: 'rgba(239,68,68,0.12)', fg: '#dc2626' },
+  rejected: { bg: 'rgba(239,68,68,0.12)', fg: rnTokens.danger.DEFAULT },
 } as const
 
 /** 优先级色板(与 web 端 amber/sky/red 语义同源)。 */
@@ -24,11 +24,11 @@ export const TICKET_PRIORITY_PALETTE = {
   low: { bg: 'rgba(107,114,128,0.12)', fg: '#6b7280' },
   medium: { bg: 'rgba(14,165,233,0.10)', fg: '#0284c7' },
   high: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
-  urgent: { bg: 'rgba(239,68,68,0.12)', fg: '#dc2626' },
+  urgent: { bg: 'rgba(239,68,68,0.12)', fg: rnTokens.danger.DEFAULT },
 } as const
 
-/** 服务评价星标琥珀色(web fill-amber-500 同源)。 */
-export const RATING_AMBER = '#f59e0b'
+/** 服务评价星标琥珀色(web fill-amber-500 同源,取 design-tokens 的 warning.amber 单一真相源)。 */
+export const RATING_AMBER = rnTokens.warning.amber
 
 export function createSupportStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
@@ -127,7 +127,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: 12, color: tk.text.secondary },
-    chipTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
+    chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     formErr: { fontSize: 12, color: tk.danger.DEFAULT },
     formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
     primaryBtn: {

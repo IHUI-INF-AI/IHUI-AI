@@ -24,10 +24,12 @@ export type InputProps = ComponentProps<typeof TaroInput>
 export function Input({ className, style, onFocus, onBlur, ...props }: InputProps) {
   const ff = useFieldFocus()
   // 聚焦态描边只在 focused 时介入(与 RN `style={[style, focused ? {borderColor} : null]}` 同语义);
-  // 复用 useFieldFocus 的 focusStyle,不在此重写 var(--color-primary) 取色。
-  const mergedStyle = ff.focusStyle
+  // 取色仍只来自 useFieldFocus(全端唯一聚焦描边取色点),本文件不再手写墨档取色 ——
+  // 第二份取色正是 AGENTS §4 单一真相源要拦的形态。
+  const focusBorder = ff.focusStyle?.borderColor
+  const mergedStyle = focusBorder
     ? typeof style === 'string'
-      ? `${style};border-color:var(--color-primary)`
+      ? `${style};border-color:${focusBorder}`
       : { ...(style as object), ...ff.focusStyle }
     : style
 
