@@ -11052,8 +11052,8 @@
       "send": "发送预览"
     },
     "bindIssue": "绑定 Issue",
-    "unbindIssue": "改为独立任务",    "unbindIssue": "改为独立任务",
-    "bindIssueHint": "把这条对话绑定到 GitHub 或 Linear 的任务票上——适合跟进 bug、需求类聊天:搜索并选中 Issue 即可关联,之后会话旁会出现可跳转的 Issue 徽章。不绑定也完全不影响使用。",    "bindIssueHint": "把这条对话绑定到 GitHub 或 Linear 的任务票上——适合跟进 bug、需求类聊天:搜索并选中 Issue 即可关联,之后会话旁会出现可跳转的 Issue 徽章。不绑定也完全不影响使用。",
+    "unbindIssue": "改为独立任务",
+    "bindIssueHint": "把这条对话绑定到 GitHub 或 Linear 的任务票上——适合跟进 bug、需求类聊天:搜索并选中 Issue 即可关联,之后会话旁会出现可跳转的 Issue 徽章。不绑定也完全不影响使用。",
     "searchIssueAction": "搜索",
     "issueBinding": "关联 Issue",
     "searchIssues": "搜索 Issue 标识、标题或项目",
