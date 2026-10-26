@@ -19,9 +19,10 @@ router 原先住在 ``app/services/keepalive/router.py``,与实现同包看着�
 
 from __future__ import annotations
 
-import importlib.util
+from pathlib import Path
 
 from app.routers import keepalive as keepalive_router
+from app.services import keepalive as keepalive_pkg
 
 EXPECTED_ENDPOINTS: set[tuple[str, str]] = {
     ("GET", "/api/keepalive/status"),
@@ -53,11 +54,23 @@ def test_router_module_lives_under_app_routers() -> None:
 
 
 def test_no_second_router_under_services() -> None:
-    """① 反向:services 包里不许再留一份 router(两份注册面 = 迟早漂移)。"""
-    assert importlib.util.find_spec("app.services.keepalive.router") is None, (
-        "app/services/keepalive/router.py 又出现了 —— 同一组端点两份 import 路径,"
-        "迟早一份被改另一份没改。删掉它,只留 app/routers/keepalive.py"
-    )
+    """① 反向:services 包里不许再留一份 router(两份注册面 = 迟早漂移)。
+
+    判**文件系统**而不是 ``importlib.util.find_spec``:后者在模块已被别处 import 过时会直接返回
+    ``sys.modules`` 里的 spec,合跑整包测试时会被前面的用例污染(实测:单跑绿、与 test_api_v1 同批跑红,
+    那种"看脸色"的判据本身就不合格)。源文件与 pyc 都要判 —— 只留 ``__pycache__`` 里那份
+    同样是"两份注册面的种子"。
+    """
+    pkg_dir = Path(keepalive_pkg.__file__).parent
+    for name in ("router.py", "router.pyc"):
+        assert not (pkg_dir / name).exists(), (
+            f"app/services/keepalive/{name} 又出现了 —— 同一组端点两份 import 路径,"
+            "迟早一份被改另一份没改。删掉它,只留 app/routers/keepalive.py"
+        )
+    cache_dir = pkg_dir / "__pycache__"
+    if cache_dir.is_dir():
+        stale = sorted(p.name for p in cache_dir.glob("router.*.pyc"))
+        assert stale == [], f"__pycache__ 里还留着旧 router 的字节码:{stale} —— 删掉,别让旧模块有机会被 import"
 
 
 def test_prefix_is_api_keepalive() -> None:
