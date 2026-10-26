@@ -3,36 +3,8 @@
   "_doc_2026_07_31": "本文件是兜底模型清单,仅在 DB(ai_model_config_models 表)无数据时使用。实际模型清单由 ModelSyncService(apps/ai-service/app/services/model_sync.py)每 6 小时从厂商 /v1/models 端点自动同步到 DB。新增 provider 只需在 free_provider_registry.py 登记 + 配置 api_key,模型清单会自动同步,无需手动改本文件。",
   "_note": "运行时由 llm.py 按需加载,按 id 去重;修改本文件无需重启 Python 进程。每个 provider 仅保留 1-2 个推荐模型作为兜底(用户首次启动时能看到模型,不会被空列表吓到),完整模型清单由 ModelSyncService 从 DB 动态提供。默认主力 gemini/gemini-3.8-flash(D208 2026-10-01,原 step-router-v1 经 auto-route 落 llm7 上游 500,对普通用户断裂)。",
   "_doc_d208_2026_10_01": "退役档处理(D150 真机探针取证):gemini/gemini-2.5-flash 对新账号 Google 404(no longer available to new users),已替换为 gemini-3.8-flash;gemini-2.0-flash / gemini-2.0-flash-lite 同型探针确证 404,名称标⚠️;llm7/gpt-oss:20b 上游 InternalServerError,条目保留但名称标⚠️并从 auto-route 候选集排除(_AUTO_ROUTE_EXCLUDED)。其余条目无当轮探针证据,不做静默清理;DB 同步面(ModelSyncService)仍会列出 Google /v1/models 广告的退役档,属同步层盲区,本票不动。",
+  "_doc_retired_2026_10_26": "stepfun 永久退役(机主 2026-10-26:订阅失效、明确不再续费)⇒ 本兜底清单里的两条 stepfun 档(step-router-v1 / step-3.7-flash)已摘除:留着就是让用户在模型列表里选到一个必然失败的档位。退役名单单一真相源在 app/core/default_model.py(RETIRED_PROVIDERS),本清单与前端共享 FALLBACK_MODELS 同口径摘除。",
   "models": [
-    {
-      "id": "stepfun/step-router-v1",
-      "name": "Step Router v1",
-      "provider": "stepfun",
-      "context_length": 128000,
-      "input_price": 0,
-      "caps": {
-        "supports_stream_usage": false,
-        "supports_tools": true,
-        "supports_vision": false,
-        "max_context": 128000,
-        "protocol": "openai_chat"
-      },
-      "model_tier": "latest"
-    },
-    {
-      "id": "stepfun/step-3.7-flash",
-      "name": "Step 3.7 Flash",
-      "provider": "stepfun",
-      "context_length": 128000,
-      "input_price": 0,
-      "caps": {
-        "supports_stream_usage": false,
-        "supports_tools": true,
-        "supports_vision": false,
-        "max_context": 128000,
-        "protocol": "openai_chat"
-      }
-    },
     {
       "id": "agnes/agnes-2.5-flash",
       "name": "Agnes 2.5 Flash (Agnes Plan,轻量快速)",

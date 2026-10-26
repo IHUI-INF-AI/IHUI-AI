@@ -7766,6 +7766,13 @@ async def list_providers_health() -> dict[str, Any]:
     for name in providers_json:
         if not isinstance(providers_json.get(name), dict):
             continue
+        # 2026-10-26 永久退役厂商不进管理端面板(名单与可用性面/同步面同源):
+        # 面板里挂着一个已退役厂商 = 每隔一阵又提醒一次「这家不行了」,
+        # 与机主「永久除名、不提充值」正相反。
+        from ..core.default_model import is_retired_provider
+
+        if is_retired_provider(name):
+            continue
         # H3:复用 settings.get_provider_config(code) 获取强类型配置
         cfg = settings.get_provider_config(name)
         api_key = (cfg.api_key or "").strip()

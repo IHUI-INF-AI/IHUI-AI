@@ -23,6 +23,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 
 // ===== 类型 =====
 
@@ -465,7 +466,9 @@ export const openclawRoutes: FastifyPluginAsync = async (server) => {
       success({
         maxConcurrentSessions: 100,
         sessionTimeout: 1800,
-        defaultModel: 'stepfun/step-3.7-flash',
+        // 2026-10-26 stepfun 永久退役 ⇒ 不再写死已退役档;经 utils/retired-providers.ts
+        // 的唯一解析入口取(显式 → .env LITELLM_MODEL → 非退役的末位兜底链)。
+        defaultModel: resolveDefaultChatModel(),
         features: {
           memory: true,
           skills: true,
