@@ -9383,6 +9383,8 @@
       "delete": "刪除",
       "exportMd": "導出為 Markdown",
       "exportTxt": "導出為 TXT",
+      "exportSubmenu": "匯出 / 分享",
+      "compressSubmenu": "壓縮",
       "menu": "更多操作",
       "rename": "重命名",
       "unarchive": "取消歸檔",
@@ -11422,7 +11424,8 @@
       "roleAssistant": "助理",
       "exportCard": "分享圖片卡",
       "shareCardUser": "使用者",
-      "exportPdf": "匯出 PDF"
+      "exportPdf": "匯出 PDF",
+      "compression": "壓縮會話"
     },
     "fallbackNotice": "已切換到備用模型 {backup}(原模型 {primary} 暫時不可用)",
     "fallbackNoticeQuota": "本次由 {backup} 作答({primary} 所屬廠商帳號額度已用盡,已自動改道同族可用模型)",

@@ -9383,6 +9383,8 @@
       "delete": "Delete",
       "exportMd": "Export as Markdown",
       "exportTxt": "Export as TXT",
+      "exportSubmenu": "Export / Share",
+      "compressSubmenu": "Compress",
       "menu": "More actions",
       "rename": "Rename",
       "unarchive": "Unarchive",
@@ -11422,7 +11424,8 @@
       "roleAssistant": "Assistant",
       "exportCard": "Share as image card",
       "shareCardUser": "User",
-      "exportPdf": "Export PDF"
+      "exportPdf": "Export PDF",
+      "compression": "Compress conversation"
     },
     "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
     "fallbackNoticeQuota": "This answer was written by {backup}. The provider account behind {primary} ran out of quota, so the platform routed to an equivalent model in the same family.",
