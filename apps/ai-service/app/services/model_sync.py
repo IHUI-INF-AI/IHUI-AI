@@ -118,6 +118,24 @@ _PLACEHOLDER_KEYS: frozenset[str] = frozenset({
     "",
 })
 
+
+def _is_placeholder_key(api_key: str) -> bool:
+    """key 是否等于"未配置"(空 / 白名单占位符 / 含 placeholder 字样)。
+
+    2026-10-26 实测:ai_model_config 里 github_models / cloudflare_workers_ai /
+    huggingface 三行的密文解出来全是 `sk-placeholder-…`(28 字符)—— 精确匹配的
+    `_PLACEHOLDER_KEYS` 拦不住这种变体,于是三家被当成"已配置 key"拉进同步:
+    cloudflare 缺 account_id 拼出 404 端点、github/hf 直连被墙 ConnectError,
+    连续 3 次后 F4.7 永久禁用 + `model_sync_provider_health==0` ⇒
+    LlmProviderUnhealthy 对三家**账户侧未配置**的厂商长期 firing。
+    机主定案:未配置凭据的厂商不进到人告警通道。判据按"失败原因=未配置凭据"
+    收敛在选取层(根本不进同步),而不是在告警侧打补丁。
+    """
+    if not api_key or api_key in _PLACEHOLDER_KEYS:
+        return True
+    return "placeholder" in api_key.lower()
+
+
 # ---------------------------------------------------------------------------
 # 2026-10-26 永久退役 provider
 # ---------------------------------------------------------------------------
@@ -555,7 +573,7 @@ class ModelSyncService:
         api_base = cfg.api_base or provider.default_base_url
 
         if not api_base or (
-            (not api_key or api_key in _PLACEHOLDER_KEYS)
+            _is_placeholder_key(api_key)
             and not provider.keyless_model_list
         ):
             self._status.is_syncing = False
@@ -687,10 +705,14 @@ class ModelSyncService:
             if not api_key:
                 api_key = (await self._db_api_key_for(code)) or ""
             api_base = cfg.api_base or provider.default_base_url
-            # keyless_model_list(token6688 等):目录端点免鉴权,无 key 也可同步清单
-            key_ok = bool(api_key) and api_key not in _PLACEHOLDER_KEYS
+            # keyless_model_list(token6688/huggingface 等):目录端点免鉴权,无 key 也可同步清单
+            # 2026-10-26:key_ok 判据从"精确匹配占位符表"换成 _is_placeholder_key
+            # (库里 sk-placeholder-… 变体拦不住是 LlmProviderUnhealthy 长期 firing 的根因);
+            # 占位 key 即便放行(免鉴权厂商)也**不带出去**——发 `Bearer sk-placeholder-…`
+            # 可能被上游判成失效凭据 401,不如干净地空 key 请求。
+            key_ok = not _is_placeholder_key(api_key)
             if api_base and (key_ok or provider.keyless_model_list):
-                result.append((code, api_base, api_key))
+                result.append((code, api_base, api_key if key_ok else ""))
         return result
 
     async def _sync_single_provider(

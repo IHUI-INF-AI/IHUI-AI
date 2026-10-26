@@ -377,6 +377,9 @@ _REGISTRY: list[FreeProvider] = [
         # (直连超时、经代理 TLS reset 实测),官方推理入口迁至 router.huggingface.co,
         # 拼 /v1/models 免鉴权 200 实测可达。
         default_base_url="https://router.huggingface.co",
+        # 目录端点免鉴权(router /v1/models 无 key 200 实测)⇒ 未配 key 也同步清单,
+        # 不再因库里残留的 sk-placeholder 被拉进"有 key"档反复失败进人告警。
+        keyless_model_list=True,
         key_env_vars=["HUGGINGFACE_API_KEY", "HF_API_TOKEN"],
         default_models=["meta-llama/Llama-3.3-70B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3"],
         docs_url="https://huggingface.co/docs/api-inference",
