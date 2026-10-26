@@ -873,6 +873,8 @@
       "platformRn": "모바일 앱",
       "platformMp": "미니프로그램",
       "platformEx": "브라우저 확장",
+      "platformQuiet": "오늘 접속 없음",
+      "platformNever": "90일 내 보고 없음",
       "platformNoData": "최근 24시간 플랫폼별 데이터 없음",
       "panelAudience": "방문자 구성",
       "audienceNew": "신규 방문자",

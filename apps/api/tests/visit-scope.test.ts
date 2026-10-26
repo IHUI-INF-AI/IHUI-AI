@@ -20,6 +20,7 @@ import {
   visitScopeFilter,
   visitPlatformFilter,
   classifyVisitPlatform,
+  mergePlatformRows,
   VISIT_PLATFORM_PATH_PREFIXES,
   VISIT_SCOPE_VALUES,
   VISIT_PLATFORM_VALUES,
@@ -105,6 +106,33 @@ describe('classifyVisitPlatform', () => {
   it('插件路径不得被误算进后台或登录面(scope 仍 public)', () => {
     expect(classifyVisitScope('/ex/sidepanel/settings')).toBe('public')
     expect(classifyVisitScope('/ex/popup')).toBe('public')
+  })
+})
+
+describe('mergePlatformRows(端接入史合并)', () => {
+  it('90 日无量的端也要留在表上,并把 lastSeenAt 带过来', () => {
+    const rows = mergePlatformRows(
+      [{ platform: 'web', pv: '4000', uv: '280' }],
+      [
+        { platform: 'web', pv90d: '9200', lastSeenAt: '2026-10-26T00:00:00Z' },
+        { platform: 'ex', pv90d: '5', lastSeenAt: '2026-10-20T00:00:00Z' },
+      ],
+    )
+    const web = rows.find((r) => r.platform === 'web')
+    const ex = rows.find((r) => r.platform === 'ex')
+    const mp = rows.find((r) => r.platform === 'mp')
+    expect(web).toMatchObject({ pv: 4000, uv: 280, pv90d: 9200 })
+    // 24h 零量但 90 日有量:这正是"今日静默"那一格
+    expect(ex).toMatchObject({ pv: 0, uv: 0, pv90d: 5 })
+    // 两向都零:是"从未上报",不能与上一条混成同一个读数
+    expect(mp).toMatchObject({ pv: 0, pv90d: 0, lastSeenAt: null })
+    expect(rows[0]?.platform).toBe('web')
+  })
+
+  it('两腿都空时仍返回四端零行(表不会整块消失)', () => {
+    const rows = mergePlatformRows([], [])
+    expect(rows.map((r) => r.platform).sort()).toEqual(['ex', 'mp', 'rn', 'web'])
+    expect(rows.every((r) => r.pv === 0 && r.pv90d === 0 && r.lastSeenAt === null)).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -13,7 +13,9 @@ import { computeAudience, computeBrowserUsage } from '../services/audience-stats
 import {
   classifyVisitPlatform,
   visitPlatformCaseSql,
+  visitScopeCaseSql,
   type VisitPlatform,
+  type VisitScope,
 } from '../db/visit-tracking-queries.js'
 
 /** 30 天内活跃用户数:users 表无登录时间字段(2026-08-31 修复 500),
@@ -86,6 +88,8 @@ async function buildBiPayload() {
     audience,
     browsers,
     platforms,
+    faces,
+    cities,
   ] = await Promise.all([
     dbRead.select({ total: count() }).from(users),
     dbRead
@@ -190,6 +194,29 @@ async function buildBiPayload() {
       .where(sql`${visitLogs.createdAt} >= now() - make_interval(days => ${WINDOW_DAYS})`)
       .groupBy(visitPlatformCaseSql())
       .orderBy(sql`count(*) desc`),
+    // 访问面(前台/后台/登录页)占比:判据与监控大屏 scopeSplit 同一份投影
+    dbRead
+      .select({
+        scope: visitScopeCaseSql(),
+        pv: sql<number>`count(*)::int`,
+        uv: sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`,
+      })
+      .from(visitLogs)
+      .where(sql`${visitLogs.createdAt} >= now() - make_interval(days => ${WINDOW_DAYS})`)
+      .groupBy(visitScopeCaseSql())
+      .orderBy(sql`count(*) desc`),
+    // 地域 TOP(服务端按 IP 反查的 city):回答"这些人从哪来"
+    dbRead
+      .select({
+        city: sql<string>`coalesce(nullif(${visitLogs.city}, ''), '(未知)')`,
+        pv: sql<number>`count(*)::int`,
+        uv: sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`,
+      })
+      .from(visitLogs)
+      .where(sql`${visitLogs.createdAt} >= now() - make_interval(days => ${WINDOW_DAYS})`)
+      .groupBy(sql`1`)
+      .orderBy(sql`count(*) desc`)
+      .limit(6),
   ])
 
   return {
@@ -242,6 +269,18 @@ async function buildBiPayload() {
     /** 近 7 日各端使用量(网站/移动端/小程序/浏览器插件;分桶判据与监控大屏同源) */
     platforms: platforms.map((r) => ({
       platform: String(r.platform) as VisitPlatform,
+      pv: Number(r.pv ?? 0),
+      uv: Number(r.uv ?? 0),
+    })),
+    /** 近 7 日访问面(前台/后台/登录页):后台与登录页被用了多少次,过去只能靠前端"丢弃"来保证纯净 */
+    faces: faces.map((r) => ({
+      scope: String(r.scope) as VisitScope,
+      pv: Number(r.pv ?? 0),
+      uv: Number(r.uv ?? 0),
+    })),
+    /** 近 7 日地域 TOP(服务端按 IP 反查;取不到写 (未知),不猜) */
+    cities: cities.map((r) => ({
+      city: String(r.city),
       pv: Number(r.pv ?? 0),
       uv: Number(r.uv ?? 0),
     })),

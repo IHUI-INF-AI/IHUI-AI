@@ -3423,9 +3423,9 @@ const OPS_PATROL_INTERVAL_MS = Number(process.env.IHUI_OPS_PATROL_INTERVAL_MS ||
 // 2026-10-26 由 180s 提到 300s:整轮巡检本机实测 ≈101s(其中 HEAD 类型检查 ≈64s 跑 20 个端),
 // 180s 在共享 git 争用/他席并发 tsc 时不够 ⇒ 巡检被 SIGTERM,守护只拿到 `ETIMEDOUT`、
 // 拿不到任何一维读数,于是每轮寄一封「元运维巡检红」——报的是巡检自己没跑完,不是哪一维坏了。
-// 300s 仍是有界上限(守门 80),且**大于**内层 runHeadTypecheck 的 180s(嵌套超时纪律:
+// 360s 仍是有界上限(守门 80),且**大于**内层 runHeadTypecheck 的 240s(嵌套超时纪律:
 // 内层先超时只会把 P12 降成未判定,不会连根拔掉整轮结论)。
-const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 300_000)
+const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 360_000)
 // ── 巡检发信的持续性门槛(2026-10-16 立,与 auditPublicPathProbe 共用 `bumpProbeStreak` 同一份实现)──
 // 门槛取 **3 轮 ≈ 45 分钟**,这个数不是拍的,是当天量出来的:P4a(Temp 条目越阈)今天两场风暴
 // 各只持续了 2 轮就自己回绿(05:21Z 64,205>60,000、05:36Z 64,289 ⇒ 05:51Z 已绿;07:52Z 又一模一样),
