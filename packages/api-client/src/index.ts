@@ -347,6 +347,8 @@ export * from './endpoints/subscription.js'
 export * from './endpoints/system.js'
 // 公开状态页端点(2026-10-21 立,守门 check-direct-backend-calls 新增违规收口)
 export * from './endpoints/status.js'
+// 工作流域端点(2026-10-26 Wave1 补屏立,workflows 域 web→RN 对齐)
+export * from './endpoints/workflows.js'
 export * from './endpoints/voice-stt.js'
 export * from './endpoints/teacher.js'
 export * from './endpoints/token.js'
@@ -439,3 +441,6 @@ export * from './endpoints/analytics.js'
 // ⇒ 本行是**全模块唯一**的那一条;任何席要加同名导出,先 `grep -n` 本行再动手,
 // 不得"看着上面没有就再加一行"(旁证:守门 98 判的是悬空,不判重复 —— 这一型在它射程外)。
 export type { FormRequestEvent } from './client.js'
+export * from './endpoints/support.js'
+export * from './endpoints/tags.js'
+export * from './endpoints/teams.js'
