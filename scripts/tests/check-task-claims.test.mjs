@@ -663,9 +663,26 @@ test('T20 真仓 HEAD 逐字输入:叙述行不计的**理由**必须可复核,�
     }
   }
   assert.ok(
-    narr.length > 0,
-    'HEAD 面上连一行「标记落在成对反引号码段内」的叙述形态都没有?若真归零,本夹具需再次重新设计,不得静默空转',
+    narr.length > 0 || markerLines.length > 0 || lines.some((t) => t.includes('（进行中')),
+    'HEAD 面连一行含标记的登记行都没有 ⇒ 格①与格②同时失去底材,本夹具需整体重设计,不得静默空转',
   )
+  if (narr.length === 0) {
+    // 〔夹具重构③@2026-10-26〕「标记落在成对反引号码段内」的叙述形态已在真仓合法清零
+    // (本日结清批把最后一批带标记行摘走,格②的"捡现成"取材自锁)。阳性对照改由**真行合成**:
+    // 底材仍逐字取自 HEAD 登记行,只把首个标记包进成对反引号 —— 测的还是同一把尺对同一形态,
+    // 形态从"捡到"变"造出",尺子的牙不变。
+    const seed = lines.find((t) => /^- \[[xX ]\]/.test(t) && t.includes('（进行中'))
+    assert.ok(seed, 'HEAD 面找不到可作底材的含标记登记行 ⇒ 本夹具需整体重设计')
+    const armed = (seed.startsWith('- [x]') || seed.startsWith('- [X]') ? seed : '- [x]' + seed.slice(5)).replace(
+      /（进行中[^）]*）/,
+      (m) => '`' + m + '`',
+    )
+    assert.ok(
+      /`（进行中[^）]*）`/.test(armed),
+      `合成失败,底材形态不合预期:${seed.slice(0, 60)}`,
+    )
+    narr.push(armed)
+  }
   const fixtureDoc = narr.join('\n') + '\n'
   // 反向臂:叙述形态逐字来自真行 ⇒ 不计,且不落"判不出"档(反引号是配过对的)
   const jAsIs = claims.findContradictions(fixtureDoc)
@@ -721,4 +738,216 @@ test('T21 形状锁:"判不出"档必须计入+打印成对在位;不得退化�
     /const markers = t\.match\(\/（进行中\[\^）\]\*）\/g\)/,
     '旧的整行 match 写法回来 ⇒ 叙述行又会被计成矛盾',
   )
+})
+
+// ---------- T22-T25:--claim-age 现读读数档(2026-10-29 立) ----------
+// 立因(只读取证席实测原话):「`check-task-claims.mjs` 不报 CL1 计数,超龄牌类票无法机器定性」。
+// 实测否证旧账面:`--json` 的 `leases` 只有 `ttlHours,legacy,unknown,holderNoDate` 四个键,
+// 超龄这一维**在整个默认档里不存在**,唯一能读到 CL1 枚数的 `--check-gate` 是判红面
+// (违规 exit 1、按 HEAD 存量棘轮分桶、点名只给行号)⇒ 台账里"此刻有几枚超龄牌"那类票只能人肉数。
+// 本组测试的分工:T22 = 端到端读数与纯函数**同出一源**;T23 = 三态(判死/未判定/互斥);
+// T24 = 既有各档输出形态兼容(只加不改);T25 = 形状锁(读数档不得写第二把尺子、不得写盘)。
+const READOUT_FIXTURE =
+  [
+    '- [ ]（进行中@2020-01-01/qa） G-771 超龄租约甲的题面:把台账读数补齐',
+    '- [ ]（进行中@2020-01-02/dev） G-772 超龄租约乙的题面,另一件事',
+    `- [ ]（进行中@${isoDay(0)}/fresh） G-773 新鲜租约的题面`,
+    '- [ ]（进行中） G-774 裸标记的题面',
+    '- [ ]（进行中@2020-03-03/solo）',
+    `- [ ]（进行中@${isoDay(0)}） G-776 有日期无持有者`,
+    '- [ ] G-777 无人认领的题面',
+    '- [x] ✅(2026-10-20) G-778 已闭环的题面',
+  ].join('\n') + '\n'
+
+test('T22 --claim-age 端到端:枚数现读 + 逐条复合主键点名,且与纯函数读的是同一把尺', () => {
+  const dir = mkScratch('claims-t22')
+  try {
+    const f = join(dir, 'plan.md')
+    writeFileSync(f, READOUT_FIXTURE)
+    const r = runCli(['--claim-age', '--plan', f])
+    assert.equal(r.status, 0, `读数档成立时不得非零:${r.out}`)
+    assert.match(r.out, /超龄完整租约牌\(年龄 > 72h\): 3 枚/, '超龄枚数(本票要的那一格)读错')
+    assert.match(r.out, /裸「（进行中）」标记\(无日期无持有者\): 1 枚/, '裸标记枚数读错')
+    assert.match(r.out, /有效租约\(未超龄\) 1 枚/, '新鲜租约被算进超龄 ⇒ 会把人推向"干脆不挂牌"')
+    assert.match(r.out, /半个租约\(有日期无持有者\) 1 枚/, '半个租约桶读数错')
+    // 点名给内容锚点(复合主键 编号 + 标题原文),不是行号
+    assert.match(r.out, /G-771#超龄租约甲的题面/, '超龄牌没按复合主键点名')
+    assert.match(r.out, /G-772#/, '第二枚超龄牌没点名')
+    assert.match(r.out, /刻意不给行号/, '报名必须自称锚点形态,否则下一位又拿行号当证据')
+    // 给不出主键的那一枚必须**仍在场上**(静默丢行 = 把"这一枚没人点名"写成"没有这一枚")
+    assert.match(r.out, /（进行中@2020-03-03\/solo）/, '整行只剩一枚牌的行被静默丢了')
+    assert.match(r.out, /编号与题面都给不出/, '兜底锚点必须自称不精确,不得冒充复合主键')
+    // 逐条点名行一律不得以行号开头(§1:证据指针禁止行号)
+    for (const line of r.out.split('\n').filter((l) => /^\s+· /.test(l)))
+      assert.equal(
+        /^\s+· L\d+/.test(line),
+        false,
+        `读数档里出现行号锚点(行号一次 append 就挪位):${line.slice(0, 60)}`,
+      )
+    // 同一瞬间与纯函数对账:CLI 打的数**必须**就是那份实现算出来的数(测试里也不许再数一遍)
+    const json = runCli(['--claim-age', '--plan', f, '--json'])
+    assert.equal(json.status, 0, json.out)
+    const j = JSON.parse(json.out)
+    const pure = claims.buildClaimAgeReadout(readFileSync(f, 'utf8'), {
+      nowMs: Date.now(),
+      ttlHours: 72,
+    })
+    assert.deepEqual(j.totals, pure.totals, 'CLI 读数 ≠ 纯函数读数 ⇒ 打印面自己偷偷算了一遍')
+    assert.deepEqual(
+      j.buckets.staleLease.map((v) => v.anchor),
+      pure.buckets.staleLease.map((v) => v.anchor),
+      '逐条锚点两面不同形',
+    )
+    assert.equal(j.face.includes('注入文件'), true, 'JSON 档必须如实报判定面')
+    assert.equal(j.undetermined.length, 0, `夹具健全却判未判定:${j.undetermined.join(' / ')}`)
+    for (const rows of Object.values(j.buckets))
+      for (const item of rows)
+        assert.equal(
+          'line' in item,
+          false,
+          `读数项里携带 line 字段 ⇒ 迟早被当锚用:${JSON.stringify(item).slice(0, 60)}`,
+        )
+    // 阳性对照:阈值收到 1h ⇒ 那枚今天的牌也进超龄(证明"超龄"这一维真有牙,不是恒 0)
+    const tight = JSON.parse(runCli(['--claim-age', '--plan', f, '--ttl-hours', '1', '--json']).out)
+    assert.equal(tight.totals.staleLease, 4, '阈值收紧必须多计 ⇒ 否则超龄维是假的')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T23 读数档三态:面上无条目行 / 输入取不到 / 与判红档同给 —— 全部 exit 2 且点名原因', () => {
+  const dir = mkScratch('claims-t23')
+  try {
+    // ① 散文文档(读得到,但枚举到 0 条目行)⇒ **未判定**,绝不把"判不出"写成"超龄 0 枚"
+    const prose = join(dir, 'prose.md')
+    writeFileSync(prose, '这只是一段散文,没有任何登记行。\n')
+    const a = runCli(['--claim-age', '--plan', prose])
+    assert.equal(a.status, 2, `枚举到 0 条目行必须判未判定(exit 2),实得 ${a.status}:${a.out}`)
+    assert.match(a.out, /未判定/, '未判定必须显式喊出来,不得记绿也不冒红')
+    assert.match(a.out, /不记绿也不冒红/, '§0.3 口径必须在场')
+    // ② 输入取不到 ⇒ exit 2(不回落另一个面)
+    const b = runCli(['--claim-age', '--plan', join(dir, 'no-such-file.md')])
+    assert.equal(b.status, 2, '取不到注入文档竟不判死')
+    assert.match(b.out, /无法判定/)
+    // ③ 读数档与判红档同给 ⇒ 当场判死(谁决定退出码没有答案)
+    const clash = runCli(['--claim-age', '--check-gate', '--plan', join(dir, 'x.md')])
+    assert.equal(clash.status, 2, '--claim-age 与 --check-gate 同给竟被放过')
+    assert.match(clash.out, /互斥/)
+    for (const other of claims.READOUT_EXCLUSIVE.slice(1)) {
+      const r = runCli(['--claim-age', other])
+      assert.equal(r.status, 2, `--claim-age 与 ${other} 同给必须判死`)
+    }
+    // ④ 反面对照:读数档**本身**在真仓 HEAD 面上必须出得来(恒 2 = 又一堵拦路的死门)
+    const real = runCli(['--claim-age'])
+    assert.equal(real.status, 0, `真仓 HEAD 面读数判死:${real.out}`)
+    assert.match(real.out, /超龄完整租约牌\(年龄 > 72h\): \d+ 枚/)
+    assert.match(real.out, /HEAD blob/, '默认面必须自称 HEAD blob')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T24 向后兼容:既有各档的输出形态一字未改,新读数只做附加', () => {
+  const dir = mkScratch('claims-t24')
+  try {
+    const f = join(dir, 'plan.md')
+    writeFileSync(f, READOUT_FIXTURE)
+    // --json(默认档):旧键一个不少,新键只是往上加
+    const j = JSON.parse(runCli(['--plan', f, '--json']).out)
+    for (const k of ['unclaimed', 'inProgress', 'completed', 'closedTwins', 'totals'])
+      assert.ok(k in j, `默认 JSON 少了既有键 ${k}`)
+    for (const k of ['ttlHours', 'legacy', 'unknown', 'holderNoDate'])
+      assert.ok(k in j.leases, `leases 的既有键 ${k} 被改动`)
+    assert.equal(typeof j.leases.stale, 'number', '新增的超龄枚数必须是数')
+    assert.equal(j.leases.stale, 3, '默认 JSON 档此前根本没有超龄这一维 ⇒ 补上后必须读得出')
+    // --check-gate(判红档):形态与退出码语义不得被读数档改动
+    const g = runCli(['--check-gate', '--plan', f, '--json'])
+    assert.equal(g.status, 1, '夹具含过期租约,判红档必须仍 exit 1')
+    const gj = JSON.parse(g.out)
+    for (const k of ['checkGate', 'exit', 'ttlHours', 'face', 'leases', 'cl1', 'cl3', 'violations'])
+      assert.ok(k in gj, `--check-gate JSON 少了既有键 ${k}`)
+    assert.ok(gj.violations.every((v) => ['CL1', 'CL2', 'CL3', 'CL4'].includes(v.kind)))
+    // --in-progress:首行形态不变,读数行是**插入**的第二行
+    const ip = runCli(['--in-progress', '--plan', f])
+    assert.match(ip.out.split('\n')[0], /^进行中任务 \(\d+\):$/, '--in-progress 首行形态被改')
+    assert.match(ip.out.split('\n')[1], /^  读数:超龄完整租约牌 \d+ 枚/, '附加读数行缺位')
+    // 默认汇总档:既有四行原样在场
+    const d = runCli(['--plan', f])
+    for (const re of [
+      /^  无人认领:  \d+/m,
+      /^  进行中:    \d+\(旧格式无租约/m,
+      /^  已完成:    \d+/m,
+      /^  合计:      \d+/m,
+    ])
+      assert.match(d.out, re, `默认汇总的既有行被改动:${re}`)
+    assert.match(d.out, /^  认领牌年龄现读:超龄完整租约牌 \d+ 枚/m, '默认档的附加读数行缺位')
+    // 全程零副作用:夹具文件逐字未变,真计划文档字节未动
+    assert.equal(readFileSync(f, 'utf8'), READOUT_FIXTURE, '读数档写了注入文件')
+    assert.match(runCli(['--twins', '--plan', f]).out, /判定面:注入文件/, '--twins 档不受影响但必须仍可用')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/** 从源码里按大括号配平抠出一个函数体(形状锁要用**函数自己的**射程,整篇匹配会漏判/误判)。
+ *  ⚠ 起点必须是**函数体**那一枚花括号:参数是解构形态(`(content, { nowMs, ttlHours })`)时,
+ *  从"第一个 {"数起会在那个参数的 `}` 上就归零 —— 抠出来的射程只剩函数签名,形状锁当场
+ *  在"import 了自己的判据"这一臂上误判红(本测试第一版即此型)。 */
+function sliceFunction(src, marker) {
+  const start = src.indexOf(marker)
+  assert.notEqual(start, -1, `源码里找不到 ${marker} ⇒ 读数档被整块删掉了`)
+  // 先配平参数表那一对圆括号,再取紧随其后的函数体花括号
+  let i = src.indexOf('(', start)
+  assert.notEqual(i, -1, `${marker} 没有参数表`)
+  let pd = 0
+  for (; i < src.length; i++) {
+    if (src[i] === '(') pd++
+    else if (src[i] === ')' && --pd === 0) break
+  }
+  let depth = 0
+  let seen = false
+  for (let j = src.indexOf('{', i); j < src.length; j++) {
+    if (src[j] === '{') {
+      depth++
+      seen = true
+    } else if (src[j] === '}') {
+      depth--
+      if (seen && depth === 0) return src.slice(start, j + 1)
+    }
+  }
+  assert.fail(`${marker} 的花括号不配平,抠不出射程`)
+}
+
+test('T25 形状锁:读数档零复算、零写盘 —— 年龄只问 analyzeLeases,锚点只问 plan-task-index', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  const body = sliceFunction(src, 'export function buildClaimAgeReadout(')
+  // ① 年龄这一维**必须**是问既有判据要的答案,不得在读数档里重算(§0.6/§22c:两份公式必漂)
+  assert.match(body, /analyzeLeases\(inProgress/, '读数档没走 analyzeLeases ⇒ 过期语义又有了第二份实现')
+  assert.match(body, /scanTasks\(content/, '读数档必须复用三态分类,不得自带一份"什么算挂牌"')
+  for (const banned of ['HOUR_MS', 'Date.parse', 'ttlHours -', '> ttlHours', 'ageHours ='])
+    assert.ok(
+      !body.includes(banned),
+      `读数档里出现了 ${banned} ⇒ 年龄公式被复算第二遍(超龄枚数与判红枚数迟早两个数)`,
+    )
+  // ② 锚点必须来自 lib 的单源出口,且 import 面确实在场
+  const anchorBody = sliceFunction(src, 'export function claimAnchorOf(')
+  for (const fn of ['compositeKeyOf(', 'keyOfRow(', 'titleOf('])
+    assert.match(anchorBody, new RegExp(fn.replace('(', '\\(')), `锚点没问 ${fn} ⇒ 主键形态与全仓漂开`)
+  assert.match(src, /compositeKeyOf,[\s\S]{0,200}keyOfRow,[\s\S]{0,200}titleOf,\s*\} from '\.\/lib\/plan-task-index\.mjs'/, '三个主键出口不是从 lib import 的')
+  // ③ 只读:读数档不得写盘、不得摘牌、不得动 HEAD(摘牌是 strip-stale-claim-marks 的职权)
+  const printBody = sliceFunction(src, 'function runClaimAgeReadout(')
+  for (const banned of ['writeFileSync', 'execFileSync', 'spawnSync', 'update-ref', 'commit-tree'])
+    assert.ok(
+      !body.includes(banned) && !printBody.includes(banned),
+      `读数档里出现 ${banned} ⇒ 它越出了"只读数"这一步`,
+    )
+  // ④ 读数档不得顺手判红(§12e:把别人欠的旧账做成判红面 = 恒红门 = 逼人跳门)
+  assert.equal(
+    /violations/.test(body) || /process\.exit\(1\)/.test(printBody),
+    false,
+    '读数档里冒出判红动作 ⇒ 与 --check-gate 的分工被打穿',
+  )
+  // ⑤ 判死那一维必须**打印**(判据失效的表现永远是安静):undetermined 既进 JSON 也进人类档
+  assert.match(printBody, /ro\.undetermined\.length > 0 \? 2 : 0/, '未判定没落到 exit 2')
+  assert.match(printBody, /undetermined[\s\S]{0,120}console\.log|console\.log[\s\S]{0,120}undetermined/, '未判定原因必须逐条打印')
 })
