@@ -242,3 +242,49 @@ async def test_retired_provider_not_in_providers_health_panel(monkeypatch):
     assert "stepfun" not in codes, f"管理端面板仍列着退役厂商:{codes}"
     assert "groq" in codes, "非退役厂商必须仍在面板里(否则本断言恒真)"
     assert "stepfun" not in checked, "退役厂商仍被主动预检"
+
+
+def test_ping_resolves_sync_proxy(monkeypatch):
+    """ping 必须与同步同用一套出网判据:专用代理表→全局 SYNC_PROXY_URL→直连。
+
+    立测背景(2026-10-26):huggingface 直连被网络封锁(curl 超时)、经 7897 可达(200),
+    但 _ping_provider_v2 建 AsyncClient 时没传 proxy,把可达厂商误判 DOWN→
+    LlmProviderUnhealthy 误报。此测钉住判据,变异自证:删 proxy= 传参即红。
+    """
+    import httpx as _httpx
+
+    from app.services import model_availability as ma
+
+    captured: dict = {}
+
+    class _BoomClient:
+        def __init__(self, **kw):
+            captured.clear()
+            captured.update(kw)
+
+        async def __aenter__(self):
+            raise _httpx.ConnectError("boom")
+
+        async def __aexit__(self, *a):
+            return False
+
+    monkeypatch.setattr(ma.httpx, "AsyncClient", _BoomClient)
+    monkeypatch.setattr(ma.settings, "sync_proxy_url", "http://127.0.0.1:7897")
+    monkeypatch.setattr(
+        ma.settings, "sync_proxy_url_by_provider", {"huggingface": "http://127.0.0.1:7898"}
+    )
+
+    svc = ma.ModelAvailabilityService()
+
+    import asyncio
+
+    h = asyncio.run(svc._ping_provider_v2("huggingface", "k", "https://huggingface.co"))
+    assert captured.get("proxy") == "http://127.0.0.1:7898", "命中专用代理表却没用专用代理"
+    assert h.status == ma.ProviderHealthStatus.DOWN  # ConnectError 语义不变
+
+    h2 = asyncio.run(svc._ping_provider_v2("openrouter", "k", "https://openrouter.ai"))
+    assert captured.get("proxy") == "http://127.0.0.1:7897", "未命中专用表应回退全局代理"
+
+    monkeypatch.setattr(ma.settings, "sync_proxy_url", "")
+    h3 = asyncio.run(svc._ping_provider_v2("groq", "k", "https://api.groq.com"))
+    assert captured.get("proxy") is None, "全局为空必须直连(None),不得传空串"
