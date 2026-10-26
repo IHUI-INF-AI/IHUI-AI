@@ -44,6 +44,9 @@ CONTRACT_TS = ROOT / "packages" / "shared" / "src" / "sse" / "contract.ts"
 WEB_SEND = ROOT / "apps" / "web" / "src" / "hooks" / "use-chat" / "send-message.ts"
 RN_SCREEN = ROOT / "apps" / "mobile-rn" / "src" / "screens" / "ChatScreen.tsx"
 MINIAPP_CHAT = ROOT / "apps" / "miniapp-taro" / "src" / "pkg-ai" / "ai" / "chat.tsx"
+EXTENSION_CHAT = (
+    ROOT / "apps" / "extension" / "entrypoints" / "sidepanel" / "pages" / "ChatPage.tsx"
+)
 
 _SESSION = "d07v-sess-1"
 _OWNER = "user-A"
@@ -165,11 +168,13 @@ def test_optional_keys_are_not_in_required_payload_fields() -> None:
 # ── ⑤ 三端接线锁:解析层递出后,端上必须真的分流(不许再静默) ─────────────────
 
 
-def test_three_clients_branch_on_expired_before_any_dialog_enqueue() -> None:
+def test_all_clients_branch_on_expired_before_any_dialog_enqueue() -> None:
+    """web / RN / 小程序 / extension 四处消费面同批分流;desktop 复用 web(无独立审批面)。"""
     for path, branch in (
         (WEB_SEND, "if (event.expired)"),
         (RN_SCREEN, "if (event.expired)"),
         (MINIAPP_CHAT, "if (evt.expired)"),
+        (EXTENSION_CHAT, "if (event.expired)"),
     ):
         src = path.read_text(encoding="utf-8", errors="ignore")
         assert branch in src, f"{path.name} 没有 expired 分流 ⇒ 端上仍会把失效帧当审批弹窗"
