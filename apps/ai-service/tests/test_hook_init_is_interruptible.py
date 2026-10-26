@@ -97,6 +97,7 @@ async def test_cancel_during_session_start_hook_interrupts_within_poll_window(
 ) -> None:
     """反例:session.start 钩子总线发射在飞时置取消 ⇒ 轮询窗口级中断,不进 LLM 轮。"""
     state: dict[str, Any] = {"entered": 0, "inner_cancelled": False}
+    lag: dict[str, float] = {}
     llm_calls: list[int] = []
     loop = _make_loop(llm_calls)
 
@@ -106,17 +107,19 @@ async def test_cancel_during_session_start_hook_interrupts_within_poll_window(
         state["entered"] += 1
         # 真实形态:会话初始化钩子(如外部脚本)在飞时用户按停止
         loop._cancel_requested = True
+        t_flag = time.perf_counter()
         try:
-            await asyncio.sleep(2.0)  # 远大于 0.25s 轮询窗口
+            await asyncio.sleep(3.0)  # 远大于 0.25s 轮询窗口
         except asyncio.CancelledError:
             state["inner_cancelled"] = True
+            # 只量"置标志 → 内部钩子被取消"这一段:整轮墙钟含建 loop 等与本判据
+            # 无关的排队时间,-n auto 满载时会放大成假红。
+            lag["seconds"] = time.perf_counter() - t_flag
             raise
 
     monkeypatch.setattr(hook_engine, "emit", fake_emit)
 
-    started = time.perf_counter()
     result = await loop.run(_messages())
-    elapsed = time.perf_counter() - started
 
     assert state["entered"] == 1, "session.start 钩子须确实在飞,否则本判据退化为空断言"
     assert state["inner_cancelled"] is True, "包裹层必须取消内部钩子任务(不悬挂)"
@@ -124,8 +127,8 @@ async def test_cancel_during_session_start_hook_interrupts_within_poll_window(
     assert result.stop_reason == "cancelled"
     assert result.success is False
     assert llm_calls == [], "取消后不得再进 LLM 轮"
-    # ≤0.25s 轮询窗口级返回:fake 睡 2.0s,裸 await 会跑满 2s
-    assert elapsed < 1.5
+    # 0.25s 轮询窗口 + 调度/清理余量;裸 await 会一直等到 3s 的 sleep 跑完
+    assert lag.get("seconds", float("inf")) <= 0.6, f"取消延迟过长: {lag}"
 
 
 async def test_session_start_hook_completion_passthrough(
@@ -160,6 +163,7 @@ async def test_session_start_hook_completion_passthrough(
 async def test_cancel_during_pre_tool_hook_interrupts_within_poll_window() -> None:
     """反例:PRE_TOOL_USE 钩子运行在飞时置取消 ⇒ 中断直通,工具不执行。"""
     state: dict[str, Any] = {"entered": False, "inner_cancelled": False}
+    lag: dict[str, float] = {}
     executed: list[str] = []
     llm_calls: list[int] = []
     rt = HookRuntime()
@@ -168,19 +172,21 @@ async def test_cancel_during_pre_tool_hook_interrupts_within_poll_window() -> No
     async def slow_hook(payload: dict[str, Any]) -> None:
         state["entered"] = True
         box["loop"]._cancel_requested = True
+        t_flag = time.perf_counter()
         try:
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(3.0)
         except asyncio.CancelledError:
             state["inner_cancelled"] = True
+            # 只量"置标志 → 内部钩子被取消"这一段:整轮墙钟含建 loop/首次 LLM
+            # 等与本判据无关的排队时间,-n auto 满载时会把它们放大成假红。
+            lag["seconds"] = time.perf_counter() - t_flag
             raise
 
     rt.register(HookKind.PRE_TOOL_USE, slow_hook, name="slow", timeout=10.0)
     loop = _make_loop(llm_calls, hook_runtime=rt, executed=executed)
     box["loop"] = loop
 
-    started = time.perf_counter()
     result = await loop.run(_messages())
-    elapsed = time.perf_counter() - started
 
     assert state["entered"] is True, "PRE_TOOL_USE 钩子须确实在飞"
     assert state["inner_cancelled"] is True, "包裹层必须取消内部钩子任务(不悬挂)"
@@ -188,7 +194,8 @@ async def test_cancel_during_pre_tool_hook_interrupts_within_poll_window() -> No
     assert result.stop_reason == "cancelled"
     assert result.success is False
     assert len(llm_calls) == 1, "取消发生在工具执行前,不得再发第二次 LLM"
-    assert elapsed < 1.5
+    # 0.25s 轮询窗口 + 调度/清理余量;裸 await 会一直等到 3s 的 sleep 跑完
+    assert lag.get("seconds", float("inf")) <= 0.6, f"取消延迟过长: {lag}"
 
 
 async def test_pre_tool_hook_completion_passthrough() -> None:

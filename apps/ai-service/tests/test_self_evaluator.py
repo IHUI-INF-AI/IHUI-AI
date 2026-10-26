@@ -196,6 +196,25 @@ class TestFormatTrace:
         text = SelfEvaluator._format_trace_for_llm(task_result)
         assert "success=True" in text
 
+    def test_handles_integer_iteration_count(self):
+        """iterations 为轮数整数时不崩溃,且计数原样进 trace(2026-10-26 立)。
+
+        agent_loop / langgraph_service / mcp_server 的生产方把该字段记成 int,
+        旧实现按 list 取 len() ⇒ TypeError,而后台自评是 fire-and-forget 任务,
+        异常只留 "never retrieved" 警告、评分静默丢失。
+        """
+        task_result = {
+            "success": True,
+            "stop_reason": "completed",
+            "iterations": 7,
+            "final_response": "",
+            "total_duration_ms": 0,
+            "total_tokens_used": 0,
+        }
+        text = SelfEvaluator._format_trace_for_llm(task_result)
+        assert "iterations=7" in text
+        assert "[0]" not in text  # 没有逐轮明细,不得伪造空轮
+
 
 # =============================================================================
 # _parse_llm_output

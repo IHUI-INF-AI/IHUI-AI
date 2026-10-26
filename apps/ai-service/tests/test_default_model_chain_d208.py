@@ -49,7 +49,9 @@ def test_default_chain_dedup_and_degenerate(monkeypatch):
     assert _default_model_chain() == ["@cf/x"]
     monkeypatch.setattr("app.core.config.settings.litellm_model", "")
     monkeypatch.setattr("app.core.config.settings.litellm_fallback_model", "")
-    assert _default_model_chain() == ["stepfun/step-3.7-flash"]
+    # 2026-10-26:末位兜底由 stepfun/step-3.7-flash 换成实测直连 200 的两条腿
+    # (stepfun 订阅失效、chat 恒定 400,已进 RETIRED_MODEL_PREFIXES 永久退役)。
+    assert _default_model_chain() == ["agnes/agnes-2.5-flash", "pollinations/openai-fast"]
 
 
 def test_llm7_excluded_from_auto_route():

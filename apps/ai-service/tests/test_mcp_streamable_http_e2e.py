@@ -90,6 +90,21 @@ def _serve(app: Any, port: int) -> uvicorn.Server:
     raise RuntimeError(f"E2E MCP 服务器无法启动 127.0.0.1:{port}")
 
 
+def _assert_capabilities_probed(client: MCPClient) -> None:
+    """能力探测必须是"结构化读取",而不是只记了几个键名。
+
+    刻意不钉 `experimental`:它只是某个 mcp SDK 版本恰好会声明的扩展键,SDK 升级后
+    不再下发(2026-10-26 实测 capabilities 只剩 tools/prompts/resources),
+    钉它等于钉第三方实现细节 —— 红在已入库面上,却与本项目的能力探测无关。
+    这里钉规范稳定面:三项核心能力都在、每项都是对端下发的对象,且
+    `tools.listChanged` 是布尔(只有真解析了 initialize result 才给得出这个类型)。
+    """
+    caps = client.capabilities()
+    assert {"tools", "prompts", "resources"} <= set(caps), caps
+    assert all(isinstance(v, dict) for v in caps.values()), caps
+    assert isinstance(caps["tools"].get("listChanged"), bool), caps
+
+
 def _make_config(url: str, **overrides: Any) -> MCPClientConfig:
     defaults: dict[str, Any] = {
         "name": "e2e-server",
@@ -127,8 +142,7 @@ async def test_e2e_transport_connect_list_call(e2e_mcp_url: str) -> None:
         assert client.negotiated_protocol() == DEFAULT_PROTOCOL_VERSION
         assert client.negotiated_protocol() == "2025-03-26"
         assert client.server_info()["name"] == "e2e-server"
-        assert "tools" in client.capabilities()
-        assert "experimental" in client.capabilities()
+        _assert_capabilities_probed(client)
 
         tools = await client.list_tools()
         assert {t.name for t in tools} == {"echo", "add"}
@@ -173,11 +187,7 @@ async def test_e2e_protocol_negotiation_to_higher_version(e2e_mcp_url: str) -> N
         # 官方 SDK 服务器在客户端打招呼 2025-11-25 时回告同版本 → 真实提高协商版本
         assert client.negotiated_protocol() == "2025-11-25"
         # 能力探测:初始化 result 的 capabilities/serverInfo 已结构化读取
-        caps = client.capabilities()
-        assert caps.get("tools") is not None
-        assert caps.get("prompts") is not None
-        assert caps.get("resources") is not None
-        assert "experimental" in caps
+        _assert_capabilities_probed(client)
         assert client.server_info()["name"] == "e2e-server"
         # 协商到更高版本后工具仍可正常调用(不回归)
         echo_resp = await client.call_tool("echo", {"text": "hi"})
