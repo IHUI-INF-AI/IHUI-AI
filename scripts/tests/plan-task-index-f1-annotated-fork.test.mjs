@@ -25,7 +25,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { findForks, DUP_POINTER_RE } from '../lib/plan-task-index.mjs'
+import { findForks, DUP_POINTER_RE, isClaimExcludedPointer } from '../lib/plan-task-index.mjs'
 
 /** 归并器写的副本注记(逐字取自 `DUP_POINTER_RE` 认的那一句)。 */
 const DUP = '〔【归并】重复登记副本(2026-09-27):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕'
@@ -180,6 +180,84 @@ test('T11 档 A 的豁免面不得扩大到"任何带【归并】字样的行"',
   assert.ok(
     !DUP_POINTER_RE.test(topicOnly),
     '`【归并】重复登记副本` 与 `〔【归并】…〕指针` 是两句不同的话,判据必须逐字区分',
+  )
+})
+
+/**
+ * ── G-48(2026-10-26):副本剔除口径扩到派单出口的三族全集 ──────────────────────
+ *
+ * 票面:同一个"重复登记副本"注记,F4 侧(派单出口 `isClaimExcludedPointer`、诊断桶
+ * `dupPointerRows`)认"这是副本",F1 的 `liveOpenOf` 改前只认 `DUP_POINTER_RE` 一族 ⇒
+ * 裸自述族(`重复登记副本:` 行首 ∧ 行内"不进派单/以主行为准")与 `副本指针(编号 …` 行首族
+ * 在 F1 里仍当正主候选 —— 同一注记两条判据含义相反。修法=与派单出口同一把尺。
+ * 三族都是**行首机器可读锚**(findForks 头注档 B 段写下的前置:"持有行标记要机器可读,
+ * 不从散文猜语义"),T15/T16 钉住"正文仅提及措辞的真活票仍被报出"这一半。
+ */
+/** 裸自述族副本行(双锚齐备:行首 `重复登记副本:` ∧ 行内"不进派单口径/以主行为准")。
+ *  ⚠ 编号必须紧跟冒号(`keyOfRow` 在题面段内取号,写在句号之后取不到 ⇒ composite=null ⇒
+ *  夹具散组,读数 0 就成了假绿 —— 本条第一版即此形,靠 T12 的成组断言当场翻红抓出)。 */
+const BARE = '重复登记副本:G-900021 本行与同主键登记 L9000210(枚 aaaa11111)是同一件事,本行不进派单口径,活账以主行为准。'
+const bareCopyOpen = () => `- [ ] ${BARE} —— 指针行(未翻勾是指针的本性)。`
+const bareCopyDone = () => `- [x] ✅(2026-10-20) ${BARE} —— 同一指针行的已完成态。`
+/** `副本指针(编号 …` 行首族(G-1058653 立的第二族)。 */
+const PTR = '副本指针(编号 62):同主键第二份未勾选副本,只加指针不动勾选,当前状态见 G-900023 那条'
+const ptrHead = '**G-900023 某条待办的标题占位,长度足够让主键前缀稳定下来**'
+const ptrOpen = () => `- [ ] ${PTR} ${ptrHead} —— 指针行。`
+const ptrDone = () => `- [x] ✅(2026-10-20) ${PTR} ${ptrHead} —— 同一指针行的已完成态。`
+
+test('T12 裸自述族副本行不成正主候选:它是组内唯一 open ∧ 同主键有 done ⇒ 退出 F1(改前报 1 组)', () => {
+  const r = findForks([bareCopyOpen(), bareCopyDone()].join('\n'))
+  // 先钉"夹具真的成了组"(composite key 相同)—— 否则 0 组是夹具散了,不是判据放过了。
+  assert.equal(
+    r.groups.filter((g) => g.open.length === 1 && g.done.length === 1).length,
+    1,
+    '裸自述 open 与同题 done 必须落进同一个主键组,否则本条读 0 无意义',
+  )
+  assert.ok(isClaimExcludedPointer(bareCopyOpen()), '夹具必须被派单出口的三族尺认成副本')
+  assert.equal(r.forks.length, 0, 'open 全是自述副本 ⇒ 没有正主候选 ⇒ 不该报分叉')
+})
+
+test('T13 反向防线:行首写「重复登记副本:」却没有行内自述锚的行是真活票,必须仍被报出(双锚缺一不认)', () => {
+  // G-1058653 立项时明写:只写行首标记而没有行内"不进派单/以主行为准"自述的行,
+  // 可能是**正要修这一病型的真活票**,不得吞。
+  const HEAD = '**G-900022 台账里行首写重复登记副本却没有自述锚的行必须被识别为待修对象**'
+  const open = `- [ ] 重复登记副本:${HEAD.slice(2, -1)} —— 本行是要修这一病型的真活票,带验收。`
+  const done = `- [x] ✅(2026-10-20) 重复登记副本:${HEAD.slice(2, -1)} —— 上一轮只登记了现象。`
+  assert.ok(!isClaimExcludedPointer(open), '行内没有自述锚 ⇒ 三族尺不得认它(认了就吞真活票)')
+  assert.equal(findForks([open, done].join('\n')).forks.length, 1, '双锚缺一不认:仍必须是正主候选')
+})
+
+test('T14 副本指针(编号 …) 行首族同样不成正主候选(与 T12 同型,第二族)', () => {
+  const r = findForks([ptrOpen(), ptrDone()].join('\n'))
+  assert.equal(
+    r.groups.filter((g) => g.open.length === 1 && g.done.length === 1).length,
+    1,
+    '夹具必须成组(否则 0 组是散了不是放过)',
+  )
+  assert.ok(isClaimExcludedPointer(ptrOpen()), '夹具必须被三族尺认成副本')
+  assert.equal(r.forks.length, 0, '行首自述"只加指针不动勾选"的行不是正主状态载体')
+})
+
+test('T15 反向防线:正文里**提及**"重复登记副本:"/"副本指针(编号"措辞的真活票必须仍被报出', () => {
+  // 锚在行首标记而不是关键词命中 —— 正文讨论这一病型的票(本测试文件所立之票即是此形)
+  // 不得被三族尺吞掉。
+  const HEAD = '**G-900024 台账里"重复登记副本:"与"副本指针(编号 …"两族行首要被归并器识别**'
+  const open = `- [ ]${HEAD} —— 现读实证:正文提到这些措辞的行本身是真活票,带验收。`
+  const done = `- [x]${HEAD} —— 已登记现象。`
+  assert.ok(!isClaimExcludedPointer(open), '行首不是标记 ⇒ 三族尺不得命中')
+  const forks = findForks([open, done].join('\n')).forks
+  assert.equal(forks.length, 1, '正文提及措辞的真活票必须仍被 F1 报出')
+})
+
+test('T16 地雷防线(T6 同型,扩到新增两族):剔副本只改 forks 判定,groups/dupOpen 数据原样', () => {
+  const r = findForks([bareCopyOpen(), bareCopyDone(), ptrOpen(), ptrDone()].join('\n'))
+  assert.equal(r.forks.length, 0, '两组 open 全是指针/副本 ⇒ 都不该报分叉')
+  const allOpen = r.groups.flatMap((g) => g.open)
+  assert.equal(allOpen.length, 2, 'groups 必须原样保留两条指针 open 行(判定不删数据)')
+  assert.equal(
+    allOpen.filter((x) => isClaimExcludedPointer(x.raw)).length,
+    2,
+    '被三族尺认出的副本行仍留在 groups 原始数据里',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

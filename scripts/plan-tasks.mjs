@@ -1632,13 +1632,90 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
         `ℹ F9 基线缺项 ${f9Stock.length} 组此刻已在 HEAD 面 ⇒ 不记在本次提交头上(问责档 --strict/全量面照旧判红)`,
       )
   }
-  // else 臂保留字面调用给镜像 M20 的源码锁(f9Filter=false 时与改前逐字等价)
-  const vsBase = f9Filter
-    ? ratchetViolations(base, items, {
-        ...a,
-        collisions: (a.collisions ?? []).filter((g) => f9Attributed.includes(g.key)),
-      })
-    : ratchetViolations(base, items, a)
+  // G-45 出口乙补全(2026-10-26,§24 代裁):把上面 G-681 的"存量归属"从 F9 一维扩到
+  // F11/F12 键集臂与整数臂(F1–F4/F4b/F6/F8)—— 同一条纪律、同一型盲档:差值档(有 before
+  // ∧ 非 strict)下,"基线缺 ∧ HEAD 已有"= 别人跳门塞进 HEAD 的存量 ⇒ ℹ 报名而不记在本次
+  // 提交头上;"基线缺 ∧ HEAD 也没有"仍 ❌;基准面缺该维明细 ⇒ 分不清存量与新增 ⇒ exit 2
+  // (既不冒红也不记绿,与 M681-B 同型)。--strict/全量档不过滤 —— 票面(乙)要的"别人跳门
+  // 塞进 HEAD 的增长必须仍被另一层看到"由这两腿承担。拦点仍在差值棘轮,一行未放宽。
+  const attribOn = Boolean(before) && !strict
+  // F11 归属(键集臂,与 F9 同型;盲档判据与 f11Ratchet 的 blind 同形:有行数没名单)。
+  const f11Filter = attribOn && f11b.added.length > 0
+  let f11Attributed = f11b.added
+  if (f11Filter) {
+    if (!Array.isArray(before.waitingHumanRows) && (before.counts?.waitingHuman ?? 0) > 0) {
+      console.log(
+        '⚠️ 无法判定 —— F11 归属:差值基准面给了等人拍板行数却没带逐行名单 ⇒ 分不清"HEAD 已有存量"与"本次新增"(既不冒红也不记绿)',
+      )
+      return 2
+    }
+    const f11HeadKeys = new Set(f11KeySetOf(before))
+    f11Attributed = f11b.added.filter((k) => !f11HeadKeys.has(k))
+    if (f11b.added.length > f11Attributed.length)
+      console.log(
+        `ℹ F11 基线缺项 ${f11b.added.length - f11Attributed.length} 条此刻已在 HEAD 面 ⇒ 不记在本次提交头上(问责档 --strict/全量面照旧判红)`,
+      )
+  }
+  // F12 归属(键集臂,与 F11 同型)。
+  const f12Filter = attribOn && f12b.added.length > 0
+  let f12Attributed = f12b.added
+  if (f12Filter) {
+    if (!Array.isArray(before.waitingEnvRows) && (before.counts?.waitingEnv ?? 0) > 0) {
+      console.log(
+        '⚠️ 无法判定 —— F12 归属:差值基准面给了等条件行数却没带逐行名单 ⇒ 分不清"HEAD 已有存量"与"本次新增"(既不冒红也不记绿)',
+      )
+      return 2
+    }
+    const f12HeadKeys = new Set(f12KeySetOf(before))
+    f12Attributed = f12b.added.filter((k) => !f12HeadKeys.has(k))
+    if (f12b.added.length > f12Attributed.length)
+      console.log(
+        `ℹ F12 基线缺项 ${f12b.added.length - f12Attributed.length} 条此刻已在 HEAD 面 ⇒ 不记在本次提交头上(问责档 --strict/全量面照旧判红)`,
+      )
+  }
+  // 整数臂归属:F1–F8 的读数本身就是明细(组数/行数),基准面缺该维读数 ⇒ 同样按盲档 exit 2。
+  const intStockKeys = new Set()
+  if (attribOn) {
+    const bCounts = new Map(probe(before).map(([k, , n]) => [k, n]))
+    for (const [k, label, n] of items) {
+      if (k === 'F9' || typeof base?.[k] !== 'number' || !(n > base[k])) continue
+      const bk = bCounts.get(k)
+      if (typeof bk !== 'number') {
+        console.log(
+          `⚠️ 无法判定 —— ${k} 归属:差值基准面没给该维读数 ⇒ 分不清"HEAD 已有存量"与"本次新增"(既不冒红也不记绿)`,
+        )
+        return 2
+      }
+      if (bk >= n) {
+        intStockKeys.add(k)
+        console.log(
+          `ℹ ${k} ${label} 由基线 ${base[k]} 涨到 ${n} —— 此刻已在 HEAD 面 ⇒ 不记在本次提交头上(问责档 --strict/全量面照旧判红)`,
+        )
+      }
+    }
+  }
+  // 把摘除存量后的面喂给基线棘轮;else 臂保留字面调用给镜像 M20 的源码锁(无过滤时与改前逐字等价)
+  let baselineFace = a
+  if (f9Filter)
+    baselineFace = {
+      ...baselineFace,
+      collisions: (a.collisions ?? []).filter((g) => f9Attributed.includes(g.key)),
+    }
+  if (f11Filter)
+    baselineFace = {
+      ...baselineFace,
+      waitingHumanRows: (a.waitingHumanRows ?? []).filter((r) => f11Attributed.includes(f11KeyOf(r))),
+    }
+  if (f12Filter)
+    baselineFace = {
+      ...baselineFace,
+      waitingEnvRows: (a.waitingEnvRows ?? []).filter((r) => f12Attributed.includes(f12KeyOf(r))),
+    }
+  const baselineItems = intStockKeys.size ? items.filter(([k]) => !intStockKeys.has(k)) : items
+  const vsBase =
+    baselineFace !== a || baselineItems !== items
+      ? ratchetViolations(base, baselineItems, baselineFace)
+      : ratchetViolations(base, items, a)
   if (vsBase.length) {
     console.log(`❌ 基线棘轮:${vsBase.join(';')}`)
     console.log(`   差值判据看不见"别人跳门把增长塞进 HEAD"那一型,这一层就是为它留的。`)
@@ -1648,8 +1725,9 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
     for (const g of a?.collisions ?? [])
       if (addedKeys.has(g.key)) console.log(`   F9 基线新增撞号:${f9GroupLine(g)}`)
     // F11 基线层点名(跳门塞进 HEAD 那一型):红只可能是基线外的键,名单即出口。
+    // G-45 出口乙补全:摘除"HEAD 已有"的存量键后,名单只剩真新增 —— 存量键不得被点名在本次头上。
     if (f11b.kind === 'red') {
-      const f11Added = new Set(f11b.added)
+      const f11Added = new Set(f11Attributed)
       for (const r of a?.waitingHumanRows ?? [])
         if (f11Added.has(f11KeyOf(r))) console.log(`   F11 ${f11RowLine(r)}`)
       console.log(
@@ -1678,12 +1756,27 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
   // F5 与上面同层但方向相反:基线记的是"至少要有这么多条落账注记",**掉了**才判红。
   // 这一维专治"四条状态判据全绿而内容已被旧副本顶掉"(2026-09-26 一小时内实测发生两次)。
   if (typeof base?.F5 === 'number' && a.counts.mergeNotes < base.F5) {
-    console.log(`❌ 存续性棘轮:归并落账注记由基线 ${base.F5} 条掉到 ${a.counts.mergeNotes} 条`)
-    console.log(
-      '   成因只会是"按内存里那份旧计划文档整文件提交"或跳门回写;出路是重放那批注记,不是下调基线。',
-    )
-    if (absoluteLayerBlocks({ strict, before })) return 1
-    console.log('   ↑ 同上:绝对层在提交链只报数,问责档 --strict 判红。')
+    // G-45 出口乙补全:同一条归属纪律 —— HEAD 面此刻已低于基线水位 ⇒ 掉账是别人塞的存量,
+    // ℹ 报名不记在本次头上;基准面没给该维读数 ⇒ 分不清 ⇒ exit 2(与整数臂/F9 盲档同型)。
+    const bMerge = before?.counts?.mergeNotes
+    if (attribOn && typeof bMerge !== 'number') {
+      console.log(
+        '⚠️ 无法判定 —— F5 归属:差值基准面没给归并落账注记读数 ⇒ 分不清"HEAD 已掉账的存量"与"本次抹掉"(既不冒红也不记绿)',
+      )
+      return 2
+    }
+    if (attribOn && bMerge < base.F5) {
+      console.log(
+        `ℹ 存续性棘轮:归并落账注记此刻在 HEAD 面已只剩 ${bMerge} 条(基线 ${base.F5})⇒ 掉账存量不记在本次提交头上(问责档 --strict/全量面照旧判红)`,
+      )
+    } else {
+      console.log(`❌ 存续性棘轮:归并落账注记由基线 ${base.F5} 条掉到 ${a.counts.mergeNotes} 条`)
+      console.log(
+        '   成因只会是"按内存里那份旧计划文档整文件提交"或跳门回写;出路是重放那批注记,不是下调基线。',
+      )
+      if (absoluteLayerBlocks({ strict, before })) return 1
+      console.log('   ↑ 同上:绝对层在提交链只报数,问责档 --strict 判红。')
+    }
   }
   // ── F8b 到期清单 ─────────────────────────────────────────────
   // 默认档**只报数并报名**,`--strict` 才判红。理由是这一维与其余六条不同:

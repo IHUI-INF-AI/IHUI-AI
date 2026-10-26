@@ -2152,6 +2152,133 @@ test('M681-B 盲基准面:差值基准面有组数没明细 ⇒ F9 归属判不�
     throw new Error(`基准面有明细时归属可判,必须 rc 0,实测 ${withDetail.rc}:${JSON.stringify(withDetail.cap.slice(-2))}`)
 })
 
+/**
+ * M45 族(2026-10-26,G-45 出口乙补全,§24 代裁):把 M681 的"存量归属"从 F9 一维扩到
+ * 整数臂(F1–F4/F4b/F6/F8)、F11/F12 键集臂与 F5 存续性臂。
+ * 票面症状(F1 由基线 0 涨到 105;F4 由基线 0 涨到 423 而差值档说"未新增")的根形是:
+ * 基线档把"别人跳门塞进 HEAD 的存量"打成 ❌ 挂在每个碰台账的人头上。出口乙:漂移只报名
+ * (ℹ)、不记在本次提交头上;拦点仍在差值棘轮;"另一层必须仍看到增长"由 --strict/全量两腿
+ * 承担(不过滤)。盲档纪律与 M681-B 同型:基准面缺该维明细 ⇒ exit 2,既不冒红也不记绿。
+ * 全部跑构造面 + baseOverride(§22c 两向证明,不读实盘基线)。
+ */
+const mk45 = (over = {}) => ({
+  counts: {
+    forks: 0,
+    voidRows: 0,
+    rotatedAuto: 0,
+    dupOpenCopies: 0,
+    verbatimDupCopies: 0,
+    dupBlocks: 0,
+    newUndisposed: 0,
+    collisionGroups: 0,
+    newWaitingHuman: 0,
+    newWaitingEnv: 0,
+    mergeNotes: 9e6,
+    waitingHuman: 0,
+    waitingEnv: 0,
+    ...over,
+  },
+  collisions: [],
+  waitingHumanRows: [],
+  waitingEnvRows: [],
+  staleRows: [],
+})
+const BASE45 = { F1: 0, F2: 0, F3: 0, F4: 0, F4b: 0, F6: 0, F8: 0, F9: [], F11: [], F12: [] }
+
+test('M45-A 整数臂存量归属:HEAD 已有的基线缺项在提交链打 ℹ 不进 ❌ 名单;--strict/全量不过滤;基准面缺该维读数 ⇒ exit 2', () => {
+  const face5 = mk45({ forks: 5 })
+  // ① 提交链(差值档):HEAD 面同为 5 ⇒ 存量,ℹ 报名且**不得**再进 ❌ 基线棘轮名单。
+  const stock = capture(() => gate(face5, false, ROOT, face5, null, BASE45))
+  if (stock.rc !== 0)
+    throw new Error(`存量整数臂在提交链必须只报数,实测 exit ${stock.rc}:${JSON.stringify(stock.cap.slice(-2))}`)
+  if (!stock.cap.some((x) => x.includes('F1 同主键两态并存(组) 由基线 0 涨到 5') && x.includes('不记在本次提交头上')))
+    throw new Error(`必须大声打印"存量不记在本次提交头上"(静默等于放行),实测 ${JSON.stringify(stock.cap)}`)
+  if (stock.cap.some((x) => x.includes('❌ 基线棘轮')))
+    throw new Error(`F1 存量不得再进基线棘轮的 ❌ 文案(那是把别人的账记在本次头上),实测 ${JSON.stringify(stock.cap)}`)
+  // ② 问责腿一 --strict:逐字文案照旧红(降级只发生在提交链,不拆门)。
+  const strict = capture(() => gate(face5, true, ROOT, face5, null, BASE45))
+  if (strict.rc !== 1)
+    throw new Error(`--strict 必须照判红,实测 exit ${strict.rc}`)
+  if (!strict.cap.some((x) => x.includes('❌ 基线棘轮') && x.includes('F1 同主键两态并存(组) 由基线 0 涨到 5')))
+    throw new Error('--strict 的基线棘轮文案必须仍含该维逐字读数')
+  // ③ 问责腿二 全量档(无 before):同样不过滤。
+  const full = capture(() => gate(face5, false, ROOT, null, null, BASE45))
+  if (full.rc !== 1)
+    throw new Error(`全量档必须照判红,实测 exit ${full.rc}`)
+  // ④ 盲基准面:该维没读数 ⇒ 分不清存量与新增,exit 2(既不冒红也不记绿)。
+  const blindBefore = mk45()
+  delete blindBefore.counts.forks
+  const und = capture(() => gate(face5, false, ROOT, blindBefore, null, BASE45))
+  if (und.rc !== 2)
+    throw new Error(`盲基准面必须 exit 2,实测 ${und.rc}:${JSON.stringify(und.cap.slice(-2))}`)
+  if (!und.cap.some((x) => x.includes('无法判定') && x.includes('F1 归属')))
+    throw new Error(`必须报"无法判定 —— F1 归属",实测 ${JSON.stringify(und.cap.slice(-2))}`)
+})
+
+test('M45-B F12 键集臂存量归属:HEAD 已有的等条件行 ⇒ ℹ 且名单摘除;等量换键的真新增仍进 ❌;--strict 不过滤;盲基准面 ⇒ exit 2', () => {
+  const base = { F12: [] }
+  const rowOf = (id) => ({
+    line: 1,
+    raw: `- [ ] **${id} 等条件夹具标题占位,长度足够让主键前缀稳定下来** —— 等外部凭据。`,
+  })
+  const A = rowOf('G-900041')
+  const B = rowOf('G-900042')
+  const faceOf = (rows) => ({ ...mk45({ waitingEnv: rows.length }), waitingEnvRows: rows })
+  const face = faceOf([A, B])
+  // ① 存量:HEAD 面同样带着这两行 ⇒ ℹ,❌ 名单必须摘除。
+  const stock = capture(() => gate(face, false, ROOT, face, null, base))
+  if (stock.rc !== 0)
+    throw new Error(`F12 存量在提交链必须只报数,实测 exit ${stock.rc}:${JSON.stringify(stock.cap.slice(-2))}`)
+  if (!stock.cap.some((x) => x.includes('ℹ F12 基线缺项 2 条此刻已在 HEAD 面')))
+    throw new Error(`必须打印 F12 存量归属 ℹ(静默等于放行),实测 ${JSON.stringify(stock.cap)}`)
+  if (stock.cap.some((x) => x.includes('❌ 基线棘轮') && x.includes('F12')))
+    throw new Error('F12 存量不得进 ❌ 基线棘轮(别人的账不记在本次头上)')
+  // ② 问责腿 --strict:不过滤。
+  const strict = capture(() => gate(face, true, ROOT, face, null, base))
+  if (strict.rc !== 1)
+    throw new Error(`--strict 必须照判红,实测 exit ${strict.rc}`)
+  if (!strict.cap.some((x) => x.includes('F12 等条件') && x.includes('未勾行 2 条')))
+    throw new Error('--strict 的 F12 红文案必须原样在')
+  // ③ 等量换键(与 M681-A④ 同型):HEAD 面 [A,B],本次面 [A,B,D] 而 newWaitingEnv=0
+  //    (差值臂读的是新增计数,构造面持平)⇒ 归属只能按键集判:D 不在 HEAD ⇒ 真新增仍进 ❌。
+  const D = rowOf('G-900043')
+  const mine = capture(() => gate(faceOf([A, B, D]), false, ROOT, face, null, base))
+  if (mine.rc !== 0)
+    throw new Error(`真新增走"只报数"定级(M-ABS 管辖),实测 exit ${mine.rc}`)
+  if (!mine.cap.some((x) => x.includes('F12 等条件') && x.includes('未勾行 1 条')))
+    throw new Error(`真新增必须仍进 ❌ 且只数它自己(归属过滤不得洗绿本次),实测 ${JSON.stringify(mine.cap)}`)
+  if (!mine.cap.some((x) => x.includes('ℹ F12 基线缺项 2 条')))
+    throw new Error('A/B 两条存量仍须 ℹ 报名')
+  // ④ 盲基准面:有等条件行数却没带逐行名单 ⇒ exit 2。
+  const blindBefore = { ...mk45({ waitingEnv: 2 }), staleRows: [] }
+  delete blindBefore.waitingEnvRows
+  const und = capture(() => gate(face, false, ROOT, blindBefore, null, base))
+  if (und.rc !== 2)
+    throw new Error(`盲基准面必须 exit 2,实测 ${und.rc}:${JSON.stringify(und.cap.slice(-2))}`)
+  if (!und.cap.some((x) => x.includes('无法判定') && x.includes('F12 归属')))
+    throw new Error('必须报"无法判定 —— F12 归属"')
+})
+
+test('M45-C F5 存续性臂存量归属:HEAD 面已低于基线水位 ⇒ ℹ 不记本次;--strict 照旧 ❌;基准面缺该维读数 ⇒ exit 2', () => {
+  const base = { F5: 5 }
+  const face3 = mk45({ mergeNotes: 3 })
+  const stock = capture(() => gate(face3, false, ROOT, face3, null, base))
+  if (stock.rc !== 0)
+    throw new Error(`F5 掉账存量在提交链必须只报数,实测 exit ${stock.rc}:${JSON.stringify(stock.cap.slice(-2))}`)
+  if (!stock.cap.some((x) => x.includes('ℹ 存续性棘轮') && x.includes('不记在本次提交头上')))
+    throw new Error('必须打印 F5 存量归属 ℹ')
+  if (stock.cap.some((x) => x.includes('❌ 存续性棘轮')))
+    throw new Error('F5 存量不得再打 ❌(那是把别人的掉账记在本次头上)')
+  const strict = capture(() => gate(face3, true, ROOT, face3, null, base))
+  if (strict.rc !== 1 || !strict.cap.some((x) => x.includes('❌ 存续性棘轮')))
+    throw new Error(`--strict 必须照判红(降级不得拆门),实测 exit ${strict.rc}`)
+  const blindBefore = mk45()
+  delete blindBefore.counts.mergeNotes
+  const und = capture(() => gate(face3, false, ROOT, blindBefore, null, base))
+  if (und.rc !== 2 || !und.cap.some((x) => x.includes('无法判定') && x.includes('F5 归属')))
+    throw new Error(`盲基准面必须 exit 2 并报"F5 归属",实测 ${und.rc}:${JSON.stringify(und.cap.slice(-2))}`)
+})
+
 // ── MC 族:派单叠层「这行点名的文件此刻正被别的会话占着」(2026-10-09 立) ──
 // 判据本体是纯函数(集合注入),所以这四臂完全不碰 git —— 真仓那条读数由 CLI 冒烟另证。
 test('MC1 冲突命中:行内点名的路径在飞 ⇒ 该行进叠层并逐条报名', () => {
