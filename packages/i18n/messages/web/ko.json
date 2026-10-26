@@ -929,7 +929,18 @@
       "accountRefreshAge": "계정 갱신 지연",
       "poolRowsUnclassified": "미분류 상태",
       "srcEdge": "엣지 탐지",
-      "panelUptime": "프로세스 가동 시간"
+      "panelUptime": "프로세스 가동 시간",
+      "panelSessionQuality": "세션 품질",
+      "sessionQualitySessions": "24시간 세션 {count}",
+      "sessionQualityDepth": "세션 깊이 분포",
+      "sessionDepth1": "1 화면",
+      "sessionDepth23": "2-3 화면",
+      "sessionDepth47": "4-7 화면",
+      "sessionDepth8Plus": "8+ 화면",
+      "sessionQualitySinglePage": "단일 페이지 세션 비율",
+      "sessionQualityAvgPv": "세션당 페이지 수",
+      "sessionQualityEntryTop": "진입 페이지(세션/단일)",
+      "sessionQualityNoData": "24시간 내 세션 없음"
     },
     "aboutUs": {
       "add": "추가",

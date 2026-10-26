@@ -929,7 +929,18 @@
       "accountRefreshAge": "アカウント更新遅延",
       "poolRowsUnclassified": "未分類の状態",
       "srcEdge": "エッジ検出",
-      "panelUptime": "プロセス稼働時間"
+      "panelUptime": "プロセス稼働時間",
+      "panelSessionQuality": "セッション品質",
+      "sessionQualitySessions": "24時間 セッション {count}",
+      "sessionQualityDepth": "セッション深度の分布",
+      "sessionDepth1": "1画面",
+      "sessionDepth23": "2-3画面",
+      "sessionDepth47": "4-7画面",
+      "sessionDepth8Plus": "8+画面",
+      "sessionQualitySinglePage": "単一ページのセッション比率",
+      "sessionQualityAvgPv": "セッションあたりのページ数",
+      "sessionQualityEntryTop": "エントリーページ(セッション/単一)",
+      "sessionQualityNoData": "24時間にセッションなし"
     },
     "aboutUs": {
       "add": "追加",
