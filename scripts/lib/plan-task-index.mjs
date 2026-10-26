@@ -2815,13 +2815,31 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
   // 把同一件事问七遍。这一组才是派单人该看的那一组。
   // 刻意**不替换**上面那组:两把口径都有人读,而把既有读数改名/换基数,下一次没人能证明
   // 它量的是同一件事(§12f:修红不得顺手移动别人的锚点)。两行一起印,基数写在行内。
+  // **分尺切换(票 G-1182552,2026-10-26 goal-c 席)**:派单桶改用 **v2 尺(侧车优先、散文回落)** ——
+  // 理由不是偏好,是撞票:派单过滤器(`plan-tasks.mjs --dispatchable`)早已按 `dispositionOfV2`
+  // 剔行,而 JSON 的 dispClaim* 一直按 v1 散文尺计数。实测 HEAD 面:文本视图报"可做 0",
+  // JSON 同一瞬间报 dispClaimActionable=5,而那 5 行(G-957/G-863/G-329/G-1182551/G-941)
+  // 侧车 owner 全部命中"归他人" ⇒ 照 JSON 派单的会话会把 4 张别人持有的票再派一遍 ——
+  // 正是 §1"认领即租约"与机主 2026-10-26 令"不允许两个 agent 打架重复做同一件任务"要防的形态。
+  // **派单面与过滤面必须同一把尺**(§0.6:同一判据第二份实现必然漂移,这里漂的是"尺的版本")。
+  // v1 散文读数不删除,降级为 `dispClaimProseBuckets`/`counts.dispClaim*Prose` 诊断影子键:
+  // 迁移进度靠"影子与正读数差几个"来量,一键删掉旧尺反而把进度尺也拆了(§12f:不移别人锚点)。
   const dispClaimBuckets = {
     actionable: [],
     'waiting-human': [],
     'waiting-env': [],
     'owned-elsewhere': [],
   }
-  for (const r of claimableRows) dispClaimBuckets[dispositionOf(r.raw)].push(r)
+  const dispClaimProseBuckets = {
+    actionable: [],
+    'waiting-human': [],
+    'waiting-env': [],
+    'owned-elsewhere': [],
+  }
+  for (const r of claimableRows) {
+    dispClaimBuckets[dispositionOfV2({ line: r.raw, fields }).bucket].push(r)
+    dispClaimProseBuckets[dispositionOf(r.raw)].push(r)
+  }
   return {
     rows: rows.length,
     /** 当前面上所有条目行的原文集合 —— 调用方用它算"本次新增的行"(逐字不在基准面上)。
@@ -2862,8 +2880,10 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
      *  照那个数派单就是把正在做的事再派一遍(§1 认领标记存在的理由)。
      *  F4 这一维是第二版才补上的:副本行各算一条 ⇒ 同一件活被派两遍,而报告里只飘着一个组数。 */
     claimableRows,
-    /** F7b 名单:派单口径的逐桶行(与 counts.dispClaim* 同源一份,不得两处各算)。 */
+    /** F7b 名单:派单口径的逐桶行(**v2 尺**,与 `--dispatchable` 过滤器同一把尺;与 counts.dispClaim* 同源一份,不得两处各算)。 */
     dispClaimBuckets,
+    /** F7b 影子名单:派单口径按 v1 散文尺的逐桶行 —— 只供"侧车迁移进度=两读数之差"的诊断,禁止用作派单输入。 */
+    dispClaimProseBuckets,
     counts: {
       open: openRows.length,
       claimed: openRows.filter((r) => r.claim).length,
@@ -2952,12 +2972,19 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
       /** F11 存量读数(v2 尺全体未勾行)—— 差值档的 newWaitingHuman 由调用方(plan-tasks)算。 */
       waitingHuman: waitingHumanRows.length,
       waitingEnv: waitingEnvRows.length,
-      // ── F7b 同一分层在派单口径上的读数(基数 = claimable,已扣副本/作废/分叉)──
+      // ── F7b 同一分层在派单口径上的读数(**v2 尺侧车优先**,基数 = claimable,已扣副本/作废/分叉)──
       // 四桶相加必须等于 claimable,与上面四条"相加等于 unclaimed"是两条独立的闭合判据。
+      // ⚠ 这组数与 `--dispatchable` 的过滤面**必须同尺**(票 G-1182552,2026-10-26):此前它是 v1 散文尺,
+      // 实测把 4 张侧车已记"归他人"的票报成"现在可做",人读视图报 0 —— 照 JSON 派单必撞票。
       dispClaimActionable: dispClaimBuckets.actionable.length,
       dispClaimWaitingHuman: dispClaimBuckets['waiting-human'].length,
       dispClaimWaitingEnv: dispClaimBuckets['waiting-env'].length,
       dispClaimOwnedElsewhere: dispClaimBuckets['owned-elsewhere'].length,
+      /** F7b 影子(v1 散文尺同一基数):与正读数之差 = 侧车迁移进度。**派单不得消费这一组。** */
+      dispClaimActionableProse: dispClaimProseBuckets.actionable.length,
+      dispClaimWaitingHumanProse: dispClaimProseBuckets['waiting-human'].length,
+      dispClaimWaitingEnvProse: dispClaimProseBuckets['waiting-env'].length,
+      dispClaimOwnedElsewhereProse: dispClaimProseBuckets['owned-elsewhere'].length,
       // ── F8 寿命两档 ──
       // 无交代:全部未勾选行里既没租约、也没说等什么、又没有日期的 —— 这批才是"只会涨的账"。
       undisposed: undisposed.length,
