@@ -179,7 +179,7 @@ export function LlmSettingsScreen({
                     style={[styles.chip, selectedCode === p.code && styles.chipOn]}
                     accessibilityRole="button"
                   >
-                    <Text style={selectedCode === p.code ? styles.chipTextOn : styles.chipText}>
+                    <Text style={selectedCode === p.code ? styles.chipOnText : styles.chipText}>
                       {p.name}
                     </Text>
                   </Pressable>
@@ -346,7 +346,7 @@ function createStyles(tk: AppThemeTokens) {
     wizardContainer: { flex: 1, backgroundColor: tk.surface.bg, paddingTop: rnSpacing.xl },
     stepRow: { flexDirection: 'row', gap: rnSpacing.sm, paddingHorizontal: rnSpacing.lg },
     stepDot: { flex: 1, height: 4, borderRadius: rnRadius.xs, backgroundColor: tk.surface.muted },
-    stepDotOn: { backgroundColor: tk.brand.cta },
+    stepDotOn: { backgroundColor: tk.brandAccent.deep },
     wizardBody: { padding: rnSpacing.lg },
     stepTitle: { ...rnType.title, color: tk.text.primary, marginBottom: rnSpacing.md },
     formCard: { gap: rnSpacing.md },
@@ -374,7 +374,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     chipOn: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    chipTextOn: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
+    chipOnText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
     centerRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     minorBtn: {
       flexDirection: 'row',

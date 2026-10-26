@@ -4,6 +4,7 @@
 
 import { View, Text, TouchableOpacity } from 'react-native'
 import { Check, X, ShieldCheck, Smartphone, Monitor, Clock } from 'lucide-react-native'
+import { rnTokens as tokens } from '@ihui/design-tokens'
 import type { DelegationApprovalState, TaskDispatch } from '@ihui/shared/tasks/dispatch'
 import { delegationApprovalAudienceOf } from '@ihui/shared/tasks/delegation-approval'
 
@@ -18,36 +19,41 @@ import { delegationApprovalAudienceOf } from '@ihui/shared/tasks/delegation-appr
 
 const STATE_META: Record<
   DelegationApprovalState,
-  { label: string; badge: string; text: string; icon: typeof Check }
+  { label: string; badge: string; text: string; iconColor: string; icon: typeof Check }
 > = {
   awaiting: {
     label: '待审批',
     badge: 'bg-amber-100 dark:bg-amber-900/40',
     text: 'text-amber-700 dark:text-amber-300',
+    iconColor: tokens.warning.amberText,
     icon: Clock,
   },
   approved: {
     label: '已放行',
     badge: 'bg-emerald-100 dark:bg-emerald-900/40',
     text: 'text-emerald-700 dark:text-emerald-300',
+    iconColor: tokens.success.deepText,
     icon: Check,
   },
   denied: {
     label: '已拒绝',
     badge: 'bg-rose-100 dark:bg-rose-900/40',
     text: 'text-rose-700 dark:text-rose-300',
+    iconColor: tokens.danger.DEFAULT,
     icon: X,
   },
   stopped: {
     label: '已停止',
     badge: 'bg-neutral-200 dark:bg-neutral-700',
     text: 'text-neutral-600 dark:text-neutral-300',
+    iconColor: tokens.gray[600],
     icon: X,
   },
   expired: {
     label: '已过期',
     badge: 'bg-neutral-200 dark:bg-neutral-700',
     text: 'text-neutral-600 dark:text-neutral-300',
+    iconColor: tokens.gray[600],
     icon: Clock,
   },
 }
@@ -72,27 +78,16 @@ export function TaskApprovalCard({ task, deviceId, onAnswer, busy }: TaskApprova
   const StateIcon = meta.icon
 
   return (
-    <View className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-3.5 mb-2.5">
+    <View className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-3.5 mb-2.5">
       <View className="flex-row items-center justify-between mb-2">
         <View className="flex-row items-center gap-1.5">
-          <ShieldCheck size={16} color="#0ea5e9" />
+          <ShieldCheck size={16} color={tokens.brandAccent.deep} />
           <Text className="text-[13px] font-semibold text-gray-900 dark:text-neutral-100">
             跨设备委派审批
           </Text>
         </View>
         <View className={`flex-row items-center gap-1 px-2 py-0.5 rounded-full ${meta.badge}`}>
-          <StateIcon
-            size={12}
-            color={
-              meta.text.includes('amber')
-                ? '#b45309'
-                : meta.text.includes('emerald')
-                  ? '#047857'
-                  : meta.text.includes('rose')
-                    ? '#be123c'
-                    : '#525252'
-            }
-          />
+          <StateIcon size={12} color={meta.iconColor} />
           <Text className={`text-[11px] font-medium ${meta.text}`}>{meta.label}</Text>
         </View>
       </View>
@@ -106,13 +101,13 @@ export function TaskApprovalCard({ task, deviceId, onAnswer, busy }: TaskApprova
 
       <View className="flex-row items-center gap-4 mb-2.5">
         <View className="flex-row items-center gap-1">
-          <Smartphone size={13} color="#6b7280" />
+          <Smartphone size={13} color={tokens.text.secondary} />
           <Text className="text-[12px] text-gray-500 dark:text-neutral-400">
             发起 {task.fromDevice}
           </Text>
         </View>
         <View className="flex-row items-center gap-1">
-          <Monitor size={13} color="#6b7280" />
+          <Monitor size={13} color={tokens.text.secondary} />
           <Text className="text-[12px] text-gray-500 dark:text-neutral-400">
             执行 {task.toDevice}
           </Text>
@@ -132,7 +127,7 @@ export function TaskApprovalCard({ task, deviceId, onAnswer, busy }: TaskApprova
             onPress={() => onAnswer(task.id, true)}
             className={`flex-1 flex-row items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-600 ${busy ? 'opacity-50' : 'active:bg-emerald-700'}`}
           >
-            <Check size={16} color="#ffffff" />
+            <Check size={16} color={tokens.surface.light} />
             <Text className="text-[14px] font-semibold text-white">放行</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -140,7 +135,7 @@ export function TaskApprovalCard({ task, deviceId, onAnswer, busy }: TaskApprova
             onPress={() => onAnswer(task.id, false)}
             className={`flex-1 flex-row items-center justify-center gap-1.5 py-2 rounded-lg bg-rose-600 ${busy ? 'opacity-50' : 'active:bg-rose-700'}`}
           >
-            <X size={16} color="#ffffff" />
+            <X size={16} color={tokens.surface.light} />
             <Text className="text-[14px] font-semibold text-white">拒绝</Text>
           </TouchableOpacity>
         </View>
