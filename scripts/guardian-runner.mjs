@@ -4070,7 +4070,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS',
-    stagedTriggers: ['apps/api/src/plugins,apps/api/src/routes,apps/api/src/utils'],
+    stagedTriggers: ['apps/api/src/plugins', 'apps/api/src/routes', 'apps/api/src/utils'],
     onFailHint: [
       '',
       '  💡 出路只有两条:行内 credential-presence-exempt: <原因>,或台账 scripts/data/credential-presence-exemptions.json 带 file+anchor+reason+reviewBy。不得为消红放宽判据。',
@@ -4181,7 +4181,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_INBOUND_SCHEMA_STRICT',
-    stagedTriggers: ['apps/api/src/,apps/cli/src/,apps/extension/,apps/desktop/'],
+    stagedTriggers: ['apps/api/src/', 'apps/cli/src/', 'apps/extension/', 'apps/desktop/'],
     onFailHint: [
       '',
       '入站 Zod 契约未对未知字段表态:补 .strict()/z.strictObject,或写行内 inbound-strict-exempt: <原因>(该族已挂守门 108 存活期);存量按该文件 HEAD 自身锚点只报数,--strict 才问责',
@@ -4672,7 +4672,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_TXN_CANCEL_BOUNDARY',
-    stagedTriggers: ['apps/,packages/'],
+    stagedTriggers: ['apps/', 'packages/'],
     onFailHint: [
       '',
       '取消检查必须落在事务边界外;紧急跳过 HUSKY_SKIP_TXN_CANCEL_BOUNDARY=1(跳过即放弃 G-815960 那格不变量,须在提交信息写明理由)',
