@@ -16,6 +16,7 @@
  * 仅 cookie 的写入方从「前端 JS」变为「后端 Set-Cookie」。
  */
 import type { FastifyReply } from 'fastify'
+import { SESSION_HINT_COOKIE_NAME } from '@ihui/shared/auth/auto-login-policy'
 
 const AUTH_TOKEN_COOKIE = 'auth_token'
 const REFRESH_TOKEN_COOKIE = 'refresh_token'
@@ -104,11 +105,12 @@ function buildCookie(
   maxAge: number | undefined,
   secure: boolean,
   domain: string | undefined,
+  httpOnly = true,
 ): { name: string; value: string; options: Record<string, unknown> } {
   const options: Record<string, unknown> = {
     path: '/',
     sameSite: 'lax',
-    httpOnly: true,
+    httpOnly,
   }
   if (secure) options.secure = true
   if (domain) options.domain = domain
@@ -133,6 +135,11 @@ export function setAuthCookies(
   const cookies = [
     buildCookie(AUTH_TOKEN_COOKIE, payload.accessToken, maxAge, secure, domain),
     buildCookie(REFRESH_TOKEN_COOKIE, payload.refreshToken, REMEMBER_MAX_AGE, secure, domain),
+    // 会话提示 Cookie(2026-10-27):两条凭据都是 httpOnly、JS 读不到,而 localStorage 的
+    // ihui-session-established 会被一次被动失效清掉 —— 都看不见时前端冷启动闸门把「cookie
+    // 还在」的老用户判成匿名,连 /auth/refresh 都不发。值恒 '1'、不含凭据、必须非 httpOnly;
+    // 寿命取 refresh 的 30d(能不能静默续期只取决于 refresh cookie),不是 auth_token 那档。
+    buildCookie(SESSION_HINT_COOKIE_NAME, '1', REMEMBER_MAX_AGE, secure, domain, false),
   ]
   // 使用 reply.setCookie() 设置多个 cookie，避免 reply.header('Set-Cookie', ...)
   // 覆盖同名 header（Fastify 的 reply.header 对同名 header 会覆盖而非追加）。
@@ -146,22 +153,19 @@ export function clearAuthCookies(reply: FastifyReply): void {
   const secure = isSecure(reply.request)
   // 摘除必须与下发共用同一个域判据:host-only Cookie 摘不掉带 Domain 的,反之亦然。
   const domain = resolveCookieDomain(requestRawHost(reply.request))
+  const clearOptions = (httpOnly: boolean): Record<string, unknown> => ({
+    path: '/',
+    sameSite: 'lax',
+    httpOnly,
+    secure,
+    ...(domain ? { domain } : {}),
+    maxAge: 0,
+  })
   // 使用 reply.setCookie() 清除 cookie，避免 reply.header('Set-Cookie', ...) 覆盖
-  reply.setCookie(AUTH_TOKEN_COOKIE, '', {
-    path: '/',
-    sameSite: 'lax',
-    httpOnly: true,
-    secure,
-    ...(domain ? { domain } : {}),
-    maxAge: 0,
-  })
-  reply.setCookie(REFRESH_TOKEN_COOKIE, '', {
-    path: '/',
-    sameSite: 'lax',
-    httpOnly: true,
-    secure,
-    ...(domain ? { domain } : {}),
-    maxAge: 0,
-  })
+  reply.setCookie(AUTH_TOKEN_COOKIE, '', clearOptions(true))
+  reply.setCookie(REFRESH_TOKEN_COOKIE, '', clearOptions(true))
+  // 提示 Cookie 必须同批摘:留着它,前端下一次冷启动会对着没有凭据的浏览器发一次
+  // /auth/refresh(400 噪声 + 把已登出的浏览器判成"还能救")。
+  reply.setCookie(SESSION_HINT_COOKIE_NAME, '', clearOptions(false))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
