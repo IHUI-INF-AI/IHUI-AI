@@ -5546,6 +5546,27 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- .ps1 BOM(差值棘轮)(1 项,blocking)---
+  {
+    id: '251',
+    label:
+      '📄 .ps1 必须带 UTF-8 BOM(差值棘轮:只拦本次新增/弄掉的)',
+    script: 'check-ps1-bom.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PS1_BOM',
+    onFailHint: [
+      '',
+      '给这些文件补 3 字节 UTF-8 BOM(正文一字节不动):',
+      '  node scripts/lib/ps1-add-bom.mjs <文件...>',
+      '为什么要管:AGENTS.md:319 规定 .ps1 用 UTF-8 with BOM 写。无 BOM 的中文脚本在 5.1 引擎上按 GBK 解码,',
+      '报「意外的标记」并连累整模块「缺少右 }」 —— 2026-10-26 deploy-window-common.ps1 就是这样让 main 恒红的。',
+      '判据是差值棘轮:HEAD 也没有的存量只报数不判红,只拦「本次新增」与「本次把 BOM 弄掉」。',
+      '阈值与读数:node scripts/check-ps1-bom.mjs 末行;逐条列存量加 --list-existing。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
