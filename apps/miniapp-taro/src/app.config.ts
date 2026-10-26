@@ -310,6 +310,8 @@ export default defineAppConfig({
         'message-chat/index',
         'more-course/index',
         'home/index',
+        'ai-world-detail/index',
+        'ai-world-edit/index',
       ],
     },
     {

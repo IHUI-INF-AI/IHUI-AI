@@ -985,6 +985,16 @@
       "shared": "packages/app/src/features/home/HomeScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgentScreen.tsx",
       "miniapp": "pkg-mirror2/home/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-world/AiWorldDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiWorldDetailScreen.tsx",
+      "miniapp": "pkg-mirror2/ai-world-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-world/AiWorldEditScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiWorldEditScreen.tsx",
+      "miniapp": "pkg-mirror2/ai-world-edit/index"
     }
   ]
 }

@@ -5906,5 +5906,35 @@
   },
   "resources": {
     "loadMore": "載入更多"
+  },
+  "aiWorldDetailPage": {
+    "title": "條目詳情",
+    "fetchFailed": "條目載入失敗",
+    "createdLabel": "發佈於",
+    "updatedLabel": "更新時間",
+    "favorited": "已收藏",
+    "favoriteFailed": "收藏操作失敗,請稍後重試"
+  },
+  "aiWorldEditPage": {
+    "title": "編輯 AI 世界條目",
+    "subtitle": "修改條目資訊",
+    "formTitle": "條目資訊",
+    "nameLabel": "名稱",
+    "namePlaceholder": "條目名稱",
+    "descLabel": "描述",
+    "descPlaceholder": "介紹這個條目的內容",
+    "categoryLabel": "分類",
+    "noCategory": "不自訂分類",
+    "categoryEmpty": "暫無分類",
+    "categoryLoadFailed": "分類載入失敗",
+    "coverLabel": "封面圖網址",
+    "coverPlaceholder": "https://…(選填)",
+    "save": "儲存",
+    "submitting": "儲存中…",
+    "errNameRequired": "請輸入名稱",
+    "nameTooLong": "名稱最多 {max} 個字元",
+    "coverTooLong": "封面網址最多 {max} 個字元",
+    "saveFailed": "儲存失敗,請稍後重試",
+    "fetchFailed": "條目載入失敗"
   }
 }
