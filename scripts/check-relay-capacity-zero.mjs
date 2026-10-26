@@ -193,9 +193,7 @@ export async function loadPoolJudges({ repo = REPO } = {}) {
   }
   let mod
   try {
-    mod = await import(
-      `data:text/javascript;charset=utf-8,${encodeURIComponent(js)}`
-    )
+    mod = await import(`data:text/javascript;charset=utf-8,${encodeURIComponent(js)}`)
   } catch (e) {
     return { ok: false, why: `抽出的判据无法求值:${String(e?.message ?? e)}` }
   }
@@ -343,8 +341,22 @@ export function judgeCapacity({ judges, accountRows, keyRows, sentinel, allowEmp
   const breaches = []
   const notes = []
 
+  /** 按 provider 定制的「凭据死亡复活出口」(§5e-1 收信人要能当场做一件事;§0.8 出路必须真跑得通):
+   *  客户端为主策略的平台,凭据死了不是去后台找按钮——把客户端重登一次,回灌链自己顶上。
+   *  与「冷却解除」出口分列,免得收信人对着 temp_unschedulable 文案去做重登、或反之。 */
+  const providerReauthExit = Object.freeze({
+    trae:
+      '若系 Trae 凭据已死(auth 类失败/refresh 失效):在本机重新打开 Trae 客户端登录一次即可——' +
+      'worker 的 trae-session-sync 每 10 分钟自动把新会话回灌入池(含 refreshToken 与设备材料),' +
+      '无需手动跑命令;手头暂时没有 Trae 客户端,才走后台「中转-号池-账号池」导入账号 JSON',
+    workbuddy:
+      '若系 WorkBuddy 凭据已死:本机打开桌面版并登录后跑' +
+      ' `node scripts/relay-account-pool.mjs --from workbuddy` 重新提取(密钥只存在于桌面主进程)',
+  })
+
   // S1:有 enabled 号但可调度 = 0(两池都扫)
   for (const c of zeroCapacityProviders(accountCap)) {
+    const reauth = providerReauthExit[c.providerCode]
     breaches.push({
       kind: 'account_provider_zero_capacity',
       providerCode: c.providerCode,
@@ -353,7 +365,8 @@ export function judgeCapacity({ judges, accountRows, keyRows, sentinel, allowEmp
         ` —— 该 provider 的账号池回退每次都在静默落回 ai-service`,
       nextStep:
         '后台「中转-号池-账号池」解除 temp_unschedulable(冷却到点会自愈,先看该号 consecutive_failures 是否还在涨),' +
-        '或直接补入可用号',
+        '或直接补入可用号' +
+        (reauth ? `;${reauth}` : ''),
     })
   }
   for (const c of zeroCapacityProviders(keyCap)) {
@@ -449,12 +462,20 @@ export function readBaseline(file, readFile = (p) => readFileSync(p, 'utf8')) {
   try {
     doc = JSON.parse(readFile(file))
   } catch (e) {
-    return { status: 'undetermined', keys: [], why: `基线读不到或非法 JSON(${file}):${e?.message ?? e}` }
+    return {
+      status: 'undetermined',
+      keys: [],
+      why: `基线读不到或非法 JSON(${file}):${e?.message ?? e}`,
+    }
   }
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.keys)) {
     return { status: 'undetermined', keys: [], why: `基线形状坏(缺 keys 数组):${file}` }
   }
-  return { status: 'ok', keys: doc.keys.filter((k) => typeof k === 'string' && k.trim()), at: doc.at ?? null }
+  return {
+    status: 'ok',
+    keys: doc.keys.filter((k) => typeof k === 'string' && k.trim()),
+    at: doc.at ?? null,
+  }
 }
 
 /** 写基线(只有人显式 --write-baseline 才走这里;自动追认会把新增 breach 吞掉)。 */
@@ -462,7 +483,11 @@ export function writeBaseline(file, keys, { now = new Date() } = {}) {
   const dir = dirname(file)
   if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true })
   const uniq = [...new Set(keys.map(String))].sort()
-  writeFileSync(file, `${JSON.stringify({ v: SCHEMA_VERSION, at: now.toISOString(), keys: uniq }, null, 1)}\n`, 'utf8')
+  writeFileSync(
+    file,
+    `${JSON.stringify({ v: SCHEMA_VERSION, at: now.toISOString(), keys: uniq }, null, 1)}\n`,
+    'utf8',
+  )
   return { written: uniq.length, file }
 }
 
@@ -675,7 +700,11 @@ export async function runSelfTest() {
 
   // 差值档族(照 check-gate-rot --ratchet 同格的语义,逐条钉死"只拦新增、坏基线多喊"):
   const bTrae = { kind: 'account_provider_zero_capacity', providerCode: 'trae', detail: '旧读数' }
-  const bTrae2 = { kind: 'account_provider_zero_capacity', providerCode: 'trae', detail: '新读数会抖' }
+  const bTrae2 = {
+    kind: 'account_provider_zero_capacity',
+    providerCode: 'trae',
+    detail: '新读数会抖',
+  }
   const bGem = { kind: 'key_provider_zero_capacity', providerCode: 'gemini', detail: 'x' }
   t(
     'R1 breach 稳定身份=kind|provider,detail 抖动不换身份',
@@ -833,7 +862,8 @@ async function main() {
       )
     }
     const w = writeBaseline(baselineFile, (verdict.breaches ?? []).map(breachKeyOf))
-    if (json) console.log(JSON.stringify({ written: w.written, file: w.file, state: verdict.state }))
+    if (json)
+      console.log(JSON.stringify({ written: w.written, file: w.file, state: verdict.state }))
     else console.log(`已写基线:${w.written} 条 ⇒ ${w.file}(此后 --ratchet 只拦新增)`)
     process.exit(0)
     return
@@ -855,7 +885,12 @@ async function main() {
       ratchetState: rState,
       newBreaches: ratch.newBreaches,
       fixed: ratch.fixed,
-      baseline: { file: baselineFile, status: base.status, count: base.keys.length, why: base.why ?? null },
+      baseline: {
+        file: baselineFile,
+        status: base.status,
+        count: base.keys.length,
+        why: base.why ?? null,
+      },
     }
     if (!json) {
       const known = (verdict.breaches ?? []).length - ratch.newBreaches.length
@@ -864,8 +899,12 @@ async function main() {
           `${base.status === 'ok' ? '' : ` baseline=${base.status}`}`,
       )
       for (const k of ratch.fixed) console.log(`✅ 已修(基线有、本轮无):${k}`)
-      if (rState === 'known') console.log(`ℹ 存量 breach ${(verdict.breaches ?? []).length} 处只报数(差值档只拦新增;认账 --write-baseline)`)
-      if (base.status !== 'ok') console.log(`ℹ 基线${base.status}:${base.why ?? baselineFile} ⇒ 当下 breach 一律按新增报出`)
+      if (rState === 'known')
+        console.log(
+          `ℹ 存量 breach ${(verdict.breaches ?? []).length} 处只报数(差值档只拦新增;认账 --write-baseline)`,
+        )
+      if (base.status !== 'ok')
+        console.log(`ℹ 基线${base.status}:${base.why ?? baselineFile} ⇒ 当下 breach 一律按新增报出`)
     }
     return emit(payload, rState === 'unjudged' ? 2 : rState === 'new' ? 1 : 0)
   }
