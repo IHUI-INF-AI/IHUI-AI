@@ -18,18 +18,23 @@
  */
 
 import Taro from '@tarojs/taro'
-import { recordVisitLog } from '@ihui/api-client'
+import { recordAnalyticsEvents, recordVisitLog } from '@ihui/api-client'
 
 /** 同屏 3 秒内只报一次(与 web / RN 同档)。 */
 export const MP_VISIT_DEBOUNCE_MS = 3000
 /** 页面栈轮询间隔。 */
 export const MP_VISIT_POLL_MS = 2000
+/** 停留低于 1 秒不报(按整秒四舍五入后):轮询抖动产生的"零点几秒停留"进均值只会把数字拉向 0。 */
+export const MP_MIN_PAGE_TIME_SEC = 1
 
 /** 进程内会话 id(冷启动一个值,与 web 的 sessionStorage 语义对齐)。 */
 const SESSION_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 
 let lastPath = ''
 let lastAt = 0
+/** 当前页与进入时刻:换页时结算上一页停留(与去抖状态分列,互不影响)。 */
+let enterPath = ''
+let enterAt = 0
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 /** route → 上报路径。空 route 不报(不造 `/mp/undefined`)。 */
@@ -54,6 +59,30 @@ export function currentPageRoute(): string | null {
 export function reportPageView(route: string | null | undefined, now = Date.now()): boolean {
   const path = pageViewPath(route)
   if (!path) return false
+  // 换页 ⇒ 先结算上一页停留(轮询发现的是"页已经换了",与 3 秒去抖无关)
+  if (path !== enterPath) {
+    if (enterPath) {
+      const seconds = Math.round((now - enterAt) / 1000)
+      if (seconds >= MP_MIN_PAGE_TIME_SEC) {
+        try {
+          void recordAnalyticsEvents([
+            {
+              name: 'page_time',
+              category: 'user_engagement',
+              label: enterPath,
+              value: seconds,
+            },
+          ]).catch(() => {
+            /* 埋点失败静默 */
+          })
+        } catch {
+          /* 埋点失败静默 */
+        }
+      }
+    }
+    enterPath = path
+    enterAt = now
+  }
   if (path === lastPath && now - lastAt < MP_VISIT_DEBOUNCE_MS) return false
   lastPath = path
   lastAt = now
@@ -91,6 +120,8 @@ export function startPageViewTracking(pollMs: number = MP_VISIT_POLL_MS): () => 
 export function __resetPageViewTrackingForTest(): void {
   lastPath = ''
   lastAt = 0
+  enterPath = ''
+  enterAt = 0
   stopPageViewTracking()
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
