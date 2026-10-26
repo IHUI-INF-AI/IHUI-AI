@@ -297,7 +297,12 @@
     "calendarBtn": "📅 Calendar",
     "mySubscriptionBtn": "🔔 My Subscriptions",
     "startLiveBtn": "📺 Go Live",
-    "empty": "No live streams yet"
+    "empty": "No live streams yet",
+    "title": "Live",
+    "viewerCount": "{count} viewers",
+    "lecturer": "Lecturer",
+    "startAt": "Starts at",
+    "loadFailed": "Failed to load live"
   },
   "liveHost": {
     "statusIdle": "Not Started",
@@ -3496,7 +3501,17 @@
     "code": "Invite Code:",
     "saveImage": "Save Image",
     "shareNow": "Share Now",
-    "inviteSuffix": "invites you to join"
+    "inviteSuffix": "invites you to join",
+    "inviteCode": "Invite Code",
+    "totalInvited": "Total Invited",
+    "totalReward": "Total Rewards",
+    "share": "Invite Now",
+    "sectionTitle": "Invitation Records",
+    "empty": "No invitations yet",
+    "statusCompleted": "Completed",
+    "statusPending": "Pending",
+    "loadFailed": "Failed to load invitation",
+    "shareText": "Join ZHIHUI AI and let's learn together!"
   },
   "qrcode": {
     "loading": "QR Code Loading",
@@ -4914,7 +4929,18 @@
     "confirmDelete": "Delete this connector?",
     "syncFailed": "Sync failed",
     "loadFailed": "Failed to load connectors",
-    "actionFailed": "Action failed, please retry"
+    "actionFailed": "Action failed, please retry",
+    "title": "Connectors",
+    "configured": "Configured",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "lastSync": "Last sync",
+    "neverSync": "Never",
+    "delete": "Delete",
+    "empty": "No connectors",
+    "items": "Docs",
+    "enable": "Enable",
+    "disable": "Disable"
   },
   "mcpStore": {
     "title": "MCP Store",
@@ -5097,5 +5123,375 @@
     "default": "Default",
     "holder": "Cardholder",
     "loadFailed": "Failed to load bank cards"
+  },
+  "bookmark": {
+    "empty": "No bookmarks",
+    "loadFailed": "Failed to load",
+    "remove": "Remove",
+    "title": "My Bookmarks",
+    "type": {
+      "article": "Article",
+      "course": "Course",
+      "note": "Note",
+      "other": "Other",
+      "post": "Post"
+    }
+  },
+  "certApply": {
+    "title": "Lecturer Certification",
+    "name": "Name",
+    "placeholder": "Enter your real information",
+    "idCard": "ID Number",
+    "submit": "Submit",
+    "success": "Submitted. Please wait for review",
+    "submitting": "Submitting..."
+  },
+  "certDetail": {
+    "certNo": "Certificate No.",
+    "expiredAt": "Valid until",
+    "holder": "Holder",
+    "issuedAt": "Issue date",
+    "issuer": "Issued by",
+    "loadFailed": "Failed to load certificate",
+    "score": "Score",
+    "title": "Certificate Details",
+    "verify": "Verify"
+  },
+  "certList": {
+    "empty": "No certificates",
+    "issuedAt": "Issue date",
+    "issuer": "Issued by",
+    "loadFailed": "Failed to load",
+    "title": "Certificates"
+  },
+  "certVerify": {
+    "certNo": "Certificate No.",
+    "failed": "Verification failed",
+    "holder": "Holder",
+    "invalid": "Invalid",
+    "issuedAt": "Issue date",
+    "issuer": "Issued by",
+    "placeholder": "Enter certificate number",
+    "title": "Certificate Verification",
+    "valid": "Valid",
+    "verify": "Verify"
+  },
+  "certificate": {
+    "empty": "No certificates",
+    "expiryDate": "Expiry date",
+    "issuedDate": "Issue date",
+    "status": {
+      "expired": "Expired",
+      "issued": "Issued",
+      "revoked": "Revoked"
+    },
+    "title": "My Certificates"
+  },
+  "circleChat": {
+    "empty": "No messages",
+    "loadFailed": "Failed to load messages",
+    "placeholder": "Say something...",
+    "send": "Send",
+    "sendFailed": "Failed to send"
+  },
+  "circleMember": {
+    "empty": "No members",
+    "loadFailed": "Failed to load members",
+    "title": "Circle Members"
+  },
+  "connectedAccounts": {
+    "title": "Connected Accounts",
+    "subtitle": "Manage third-party account bindings",
+    "boundAt": "Bound at",
+    "unbound": "Not bound",
+    "unbind": "Unbind",
+    "bindOnWeb": "Bind on web",
+    "unbindTitle": "Unbind account",
+    "unbindConfirm": "Unbind \"{platform}\"?",
+    "unbindFailed": "Failed to unbind",
+    "refresh": "Refresh",
+    "loadFailed": "Failed to load",
+    "retry": "Retry",
+    "webBindHint": "Binding must be completed on the web. Come back and refresh when done.",
+    "openBrowserFailed": "Unable to open the browser"
+  },
+  "context": {
+    "title": "Context Engine",
+    "loadFailed": "Failed to load stats",
+    "totalEvents": "Compactions",
+    "avgRatio": "Avg Compression",
+    "avgQuality": "Avg Quality",
+    "recentEvents": "Recent Compaction Events",
+    "tokensRange": "{{before}} → {{after}} tokens · compressed {{ratio}} · quality {{quality}}",
+    "mentionsSearch": "Context Mention Search",
+    "mentionsPlaceholder": "Search files/tables/symbols…",
+    "empty": "No matches"
+  },
+  "courseAnnex": {
+    "title": "Course Attachments",
+    "empty": "No attachments yet",
+    "size": "Size",
+    "download": "Download",
+    "loadFailed": "Failed to load annex"
+  },
+  "courseCatalog": {
+    "duration": "Duration",
+    "empty": "No catalog",
+    "loadFailed": "Failed to load catalog",
+    "title": "Catalog"
+  },
+  "courseChapter": {
+    "title": "Chapters",
+    "lessons": "{count} lessons",
+    "loadFailed": "Failed to load chapter"
+  },
+  "courseComment": {
+    "title": "Course Reviews",
+    "empty": "No reviews yet",
+    "loadFailed": "Failed to load comments"
+  },
+  "courseEnroll": {
+    "title": "Enroll in Courses",
+    "subtitle": "Pick a course and start learning",
+    "searchPlaceholder": "Search courses",
+    "empty": "No courses yet",
+    "enrolled": "Enrolled",
+    "enroll": "Enroll Now",
+    "free": "Free",
+    "instructor": "Instructor",
+    "level": "Level",
+    "lessons": "Lessons",
+    "students": "Students",
+    "enrollFailed": "Enrollment failed",
+    "enrollSuccess": "Enrolled successfully",
+    "loadFailed": "Failed to load"
+  },
+  "courseFilter": {
+    "title": "Filter Courses",
+    "subtitle": "Find the right course for you",
+    "categoryRange": "Category",
+    "difficultyRange": "Difficulty",
+    "priceRange": "Price Range",
+    "reset": "Reset",
+    "apply": "Apply",
+    "retry": "Retry",
+    "empty": "No courses match the filters",
+    "instructor": "Instructor",
+    "free": "Free",
+    "loadFailed": "Failed to load filter",
+    "loadingMore": "Loading more",
+    "price_all": "All",
+    "noCategories": "No categories available"
+  },
+  "courseQAAsk": {
+    "title": "Ask a Question",
+    "question": "Your Question",
+    "placeholder": "Ask anything. The instructor will answer soon",
+    "success": "Submitted successfully",
+    "submit": "Submit",
+    "submitting": "Submitting..."
+  },
+  "courseQAList": {
+    "answers": "Answers",
+    "ask": "Ask",
+    "asker": "Asker",
+    "empty": "No Q&A",
+    "loadFailed": "Failed to load",
+    "title": "Course Q&A"
+  },
+  "courseResource": {
+    "title": "Course Resources",
+    "empty": "No resources yet",
+    "type": "Type",
+    "size": "Size",
+    "open": "Open",
+    "loadFailed": "Failed to load resources"
+  },
+  "courseScreen": {
+    "title": "All Courses",
+    "searchPlaceholder": "Search courses",
+    "empty": "No courses yet",
+    "free": "Free",
+    "studentCount": "{count} learners",
+    "nextPage": "Next"
+  },
+  "customerService": {
+    "title": "Customer Service",
+    "empty": "Failed to load service info",
+    "status": "Status",
+    "online": "Online",
+    "offline": "Offline",
+    "workingHours": "Working Hours",
+    "phone": "Phone",
+    "email": "Email",
+    "loadFailed": "Failed to load customer service"
+  },
+  "examHistory": {
+    "empty": "No history",
+    "failed": "Failed",
+    "passed": "Passed",
+    "title": "Exam History"
+  },
+  "feedbackDetail": {
+    "content": "Content",
+    "empty": "No feedback",
+    "loadFailed": "Failed to load",
+    "reply": "Reply",
+    "title": "Feedback Details"
+  },
+  "feedbackHistory": {
+    "createdAt": "Created at",
+    "empty": "No history",
+    "loadFailed": "Failed to load",
+    "title": "Feedback History"
+  },
+  "history": {
+    "empty": "No history",
+    "refresh": "Refresh",
+    "title": "History",
+    "type": {
+      "article": "Article",
+      "course": "Course",
+      "live": "Live",
+      "note": "Note",
+      "post": "Post"
+    }
+  },
+  "imageGenGallery": {
+    "title": "Public Gallery",
+    "subtitle": "Images created by the community",
+    "empty": "No works yet",
+    "loadFailed": "Failed to load the gallery",
+    "retry": "Retry",
+    "noImage": "No image URL",
+    "noImageTitle": "Preview unavailable",
+    "noImageHint": "This record stores no image URL; only the prompt is available.",
+    "noMore": "No more items"
+  },
+  "imageGen": {
+    "title": "Image Gen",
+    "historyEmpty": "No generation history",
+    "favoritesEmpty": "No favorites",
+    "promptFallback": "Untitled",
+    "create": "Create",
+    "tabHistory": "History",
+    "tabFavorites": "Favorites"
+  },
+  "imageGenTemplates": {
+    "title": "Prompt Templates",
+    "subtitle": "Pick a template to generate images quickly",
+    "all": "All",
+    "empty": "No templates yet",
+    "loadFailed": "Failed to load templates",
+    "retry": "Retry",
+    "use": "Tap to use",
+    "previewTitle": "Template preview",
+    "contentLabel": "Prompt",
+    "copy": "Copy prompt",
+    "copied": "Copied. Paste it on the create page.",
+    "copyFailed": "Copy failed. Long-press the text to copy manually.",
+    "goCreate": "Copy and open create",
+    "uncategorized": "Uncategorized"
+  },
+  "knowledgeBase": {
+    "title": "Knowledge Base",
+    "add": "Add",
+    "loadFailed": "Failed to load knowledge base",
+    "retry": "Retry",
+    "empty": "No documents",
+    "emptyHint": "Tap \"Add\" to ingest text knowledge",
+    "chunks": "chunks",
+    "delete": "Delete",
+    "deleteTitle": "Delete document",
+    "deleteConfirm": "Delete this document?",
+    "deleteFailed": "Delete failed"
+  },
+  "knowledgeCreate": {
+    "title": "New Document",
+    "submit": "Save",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Enter document title",
+    "textLabel": "Content",
+    "textPlaceholder": "Paste or type text content",
+    "hint": "Content will be chunked and searchable",
+    "required": "Title and content are required",
+    "successTitle": "Ingested",
+    "successMessage": "Document added to knowledge base",
+    "failedTitle": "Ingest failed",
+    "failedMessage": "Please retry later"
+  },
+  "knowledgeDoc": {
+    "loadFailed": "Failed to load document",
+    "retry": "Retry",
+    "chunksTotal": "chunks",
+    "source": "Source",
+    "preview": "Preview",
+    "noChunks": "No chunk content"
+  },
+  "liveChat": {
+    "title": "Live Chat",
+    "empty": "No messages yet. Say hi!",
+    "placeholder": "Say something...",
+    "send": "Send",
+    "loadFailed": "Failed to load live chat",
+    "sendFailed": "Failed to send"
+  },
+  "livePlayback": {
+    "duration": "Duration",
+    "empty": "No replays",
+    "ended": "Ended",
+    "lecturer": "Lecturer",
+    "loadFailed": "Failed to load replay",
+    "noReplay": "No replay available",
+    "play": "Play replay",
+    "replayTitle": "Replay",
+    "retry": "Retry",
+    "startAt": "Start time",
+    "subtitle": "Watch replay",
+    "title": "Live Replay",
+    "viewerCount": "Viewers"
+  },
+  "livePreview": {
+    "empty": "No previews",
+    "lecturer": "Lecturer",
+    "loadFailed": "Failed to load",
+    "startAt": "Start time",
+    "subscribe": "Subscribe",
+    "subscribed": "Subscribed",
+    "subscribing": "Subscribing...",
+    "title": "Live Preview"
+  },
+  "memory": {
+    "detail": "Details",
+    "title": "My Memory",
+    "empty": "No memories",
+    "emptyHint": "Long-term conversation memories with AI are kept here",
+    "loadFailed": "Failed to load memories",
+    "delete": "Delete",
+    "deleteTitle": "Delete memory",
+    "deleteConfirm": "Delete this memory?",
+    "deleteFailed": "Delete failed",
+    "source": "Source",
+    "updatedAt": "Updated",
+    "loginRequired": "Please sign in",
+    "all": "All",
+    "searchPlaceholder": "Search memory text / category…",
+    "create": "New",
+    "createTitle": "New Memory",
+    "textPlaceholder": "Memory text (required, max 2000 chars)…",
+    "categoryPlaceholder": "Category (e.g. UI preference)",
+    "typeLabel": "Type",
+    "scopeLabel": "Scope",
+    "save": "Save",
+    "saveFailed": "Save failed",
+    "textRequired": "Memory text is required",
+    "uncategorized": "Uncategorized"
+  },
+  "messageChat": {
+    "empty": "No messages yet",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "loadFailed": "Failed to load messages",
+    "sendFailed": "Failed to send"
   }
 }
