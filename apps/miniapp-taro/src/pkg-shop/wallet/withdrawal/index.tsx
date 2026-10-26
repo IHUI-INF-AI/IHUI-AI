@@ -114,7 +114,7 @@ export default function WithdrawalPage() {
           >
             <Text className="text-base font-semibold text-foreground">¥</Text>
             <Input
-              className="flex-1 text-base text-foreground ml-1.5"
+              className="flex-1 text-base text-foreground ml-[12rpx]"
               {...ffAmount.spread}
               type="digit"
               value={amount}

@@ -1256,8 +1256,8 @@ export default function Index() {
         {/* ===== FloatBox 悬浮侧边栏(对齐原项目 float-box) ===== */}
         <FloatBox />
 
-        {/* ===== container 主容器(对齐原项目 container) ===== */}
-        <View className="container" style={{ padding: 0 }}>
+        {/* ===== 主容器(对齐原项目主容器:该类在 weapp 侧不生成规则 ⇒ 以满宽表达) ===== */}
+        <View className="w-full" style={{ padding: 0 }}>
           {/* ===== NavBar(导航栏,对齐原项目 navigation-bars) ===== */}
           <NavBar
             variant="ai-home"
