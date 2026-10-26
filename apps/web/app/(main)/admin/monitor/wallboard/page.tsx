@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
   Bell,
   Clock3,
   Cpu,
@@ -29,6 +30,7 @@ import {
   Gauge,
   Globe,
   HardDrive,
+  Layers,
   Maximize2,
   Minimize2,
   MousePointerClick,
@@ -205,7 +207,15 @@ interface TrafficSnapshot {
   aggregationAgeSec: number | null
   truncated: boolean | null
   /** 近 24h 页面访问排行(visit_logs 口径);null = 页面热度腿取不到 */
-  pageTop: Array<{ url: string; scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
+  pageTop: Array<{
+    url: string
+    scope: 'public' | 'admin' | 'auth'
+    platform: 'web' | 'rn' | 'mp' | 'ex'
+    pv: number
+    uv: number
+  }> | null
+  /** 近 24h visit_logs 同口径总 PV(排行占比的分母);null = 页面热度腿取不到 */
+  pageTotalPv: number | null
   /** 近 24h 各访问面 PV/UV(前台/后台/登录页);null = 同一条腿取不到 */
   scopeSplit: Array<{ scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
   /** 近 24h 各端 PV/UV(web/RN/小程序/浏览器插件)+ 90 日接入史;null = 同一条腿取不到 */
@@ -217,10 +227,126 @@ interface TrafficSnapshot {
     pv90d?: number
     lastSeenAt?: string | null
   }> | null
+  /** 近 24h 会话质量(来了之后看了几屏 / 落地页排行);null = 同一条腿取不到 */
+  sessionQuality: {
+    /** 窗口内会话数(标签页级口径:一个标签页一个 session) */
+    sessions: number
+    /** 只停留在一个页面的会话数 */
+    singlePageSessions: number
+    /** 单页会话占比 0..1;会话数为 0 ⇒ null(「没判」不是「零」) */
+    singlePageRate: number | null
+    /** 平均每会话 PV;会话数为 0 ⇒ null */
+    avgPvPerSession: number | null
+    /** 会话深度分档(1 / 2-3 / 4-7 / 8+ 屏) */
+    depth: Array<{ bucket: '1' | '2-3' | '4-7' | '8+'; sessions: number }>
+    /** 落地页 TOP(进来的会话最多的页面)+ 其中「只停这一页」的会话数 */
+    entryPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
+  } | null
+  /** 近 24h 访问来源(直接访问/本机开发/站内/外部 + 主机 TOP);null = 同一条腿取不到 */
+  visitSource: {
+    /** 窗口内总 PV(所有来源之和) */
+    totalPv: number
+    /** 来源分类桶(未配自有域时不含 internal) */
+    buckets: Array<{
+      kind: 'direct' | 'local' | 'internal' | 'external'
+      pv: number
+    }>
+    /** 来源主机 TOP(按 PV 降序) */
+    hosts: Array<{
+      host: string
+      kind: 'direct' | 'local' | 'internal' | 'external'
+      pv: number
+    }>
+    /** 是否做了站内/外部二分(配了自有域才有) */
+    splitInternal: boolean
+  } | null
+  /** 近 24h 页面流转(相邻页对 TOP);null = 同一条腿取不到 */
+  visitTransition: {
+    /** 相邻跳转总次数(已排除同页刷新) */
+    totalMoves: number
+    /** 发生过的不同页对数 */
+    distinctPairs: number
+    top: Array<{ fromUrl: string; toUrl: string; n: number }>
+  } | null
   /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
   online5m: number | null
   /** 近 5 分钟浏览量 */
   pv5m: number | null
+}
+
+/**
+ * 端前缀着色:四端埋点写同一张表,`/chat`(网站)与 `/rn/Chat`(移动端)在页面排行里
+ * 是并列两行,不给前缀上色就分不清「这一行是哪一端」。
+ *
+ * 刻意**不新增端徽章文案**:「各端使用量」面板已经逐行列了网站/移动端/小程序/浏览器插件,
+ * 再加一枚文字徽章既重复又会把窄列挤扁;前缀本来就是端身份的一部分(服务端
+ * `classifyVisitPlatform` 按同一组前缀分桶),给它上色即可,不引入第二套端说法。
+ */
+const PLATFORM_PREFIX_CLASS: Record<'rn' | 'mp' | 'ex', string> = {
+  rn: 'text-violet-600 dark:text-violet-400',
+  mp: 'text-green-700 dark:text-green-400',
+  ex: 'text-orange-700 dark:text-orange-400',
+}
+const PLATFORM_PREFIXES: Array<['rn' | 'mp' | 'ex', string]> = [
+  ['rn', '/rn/'],
+  ['mp', '/mp/'],
+  ['ex', '/ex/'],
+]
+
+/** 行首端前缀拆分:命中则返回 [前缀, 其余路径],未命中返回 null(web 裸路径)。 */
+function splitPlatformPrefix(url: string): ['rn' | 'mp' | 'ex', string, string] | null {
+  for (const [platform, prefix] of PLATFORM_PREFIXES) {
+    if (url.startsWith(prefix)) return [platform, prefix, url.slice(prefix.length)]
+  }
+  return null
+}
+
+/**
+ * 会话深度分档 → 文案键。
+ *
+ * 桶**不是**前端自己数的:服务端 `services/session-quality-stats-service.ts` 按 PV 数
+ * 分好四档回传(判据单一真相源),前端只负责把桶渲染出来 + 配文案。
+ * 档位边界(1 / 2-3 / 4-7 / 8+)不许在前端另写一份 —— 那样两侧早晚会漂。
+ */
+const SESSION_DEPTH_LABEL_KEY: Record<
+  '1' | '2-3' | '4-7' | '8+',
+  'sessionDepth1' | 'sessionDepth23' | 'sessionDepth47' | 'sessionDepth8Plus'
+> = {
+  '1': 'sessionDepth1',
+  '2-3': 'sessionDepth23',
+  '4-7': 'sessionDepth47',
+  '8+': 'sessionDepth8Plus',
+}
+
+/**
+ * 深度分档堆叠条的档位配色(同色系递减,不引入告警色)。
+ * 刻意不给「单屏会话占比高」染红 —— 那是事实不是故障,染成告警会让面板天天报警。
+ */
+const SESSION_DEPTH_BAR_CLASS = ['bg-info', 'bg-info/70', 'bg-info/45', 'bg-info/25'] as const
+
+/**
+ * 来源类别 → 文案键(判据在服务端 `services/visit-source-stats-service.ts`,
+ * 前端只按 kind 渲染,不自己判来源)。
+ */
+const VISIT_SOURCE_KIND_LABEL_KEY: Record<
+  'direct' | 'local' | 'internal' | 'external',
+  'visitSourceDirect' | 'visitSourceLocal' | 'visitSourceInternal' | 'visitSourceExternal'
+> = {
+  direct: 'visitSourceDirect',
+  local: 'visitSourceLocal',
+  internal: 'visitSourceInternal',
+  external: 'visitSourceExternal',
+}
+
+/**
+ * 来源主机的着色:本机开发压成灰(不是渠道),站内用 info,外部用前景色。
+ * 刻意不给外部用告警色 —— 外部来源量大是事实,不是故障,染成告警会让面板天天报警。
+ */
+const VISIT_SOURCE_HOST_CLASS: Record<'direct' | 'local' | 'internal' | 'external', string> = {
+  direct: 'text-foreground',
+  local: 'text-muted-foreground',
+  internal: 'text-info-text',
+  external: 'text-foreground',
 }
 
 interface RelayPoolSnapshot {
@@ -2694,19 +2820,44 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {t('pageUsageTop')}
               </div>
               <div className="space-y-1">
-                {(traffic?.pageTop ?? []).slice(0, 8).map((p) => (
-                  <div
-                    key={p.url}
-                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
-                  >
-                    <span className="truncate text-[10px] text-foreground">{p.url}</span>
-                    {/* 读数 = PV / UV:前者答「用了多少次」,后者答「多少人」 */}
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                      {fmtCompact(p.pv)}
-                      <span className="text-muted-foreground"> / {fmtCompact(p.uv)}</span>
-                    </span>
-                  </div>
-                ))}
+                {(traffic?.pageTop ?? []).slice(0, 8).map((p) => {
+                  // 占比条:这个页面占近 24h visit_logs 总 PV 的比例。
+                  // 分母取不到就不画条(绝不折 0 —— 那是把"没判"画成"零")。
+                  const sharePct =
+                    typeof traffic?.pageTotalPv === 'number' && traffic.pageTotalPv > 0
+                      ? Math.max(0, Math.min(100, (p.pv / traffic.pageTotalPv) * 100))
+                      : null
+                  const prefix = splitPlatformPrefix(p.url)
+                  return (
+                    <div
+                      key={p.url}
+                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      {sharePct !== null ? (
+                        <div
+                          aria-hidden
+                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
+                          style={{ width: `${sharePct}%` }}
+                        />
+                      ) : null}
+                      <span className="relative truncate text-[10px] text-foreground">
+                        {prefix ? (
+                          <>
+                            <span className={PLATFORM_PREFIX_CLASS[prefix[0]]}>{prefix[1]}</span>
+                            {prefix[2]}
+                          </>
+                        ) : (
+                          p.url
+                        )}
+                      </span>
+                      {/* 读数 = PV / UV:前者答「用了多少次」,后者答「多少人」 */}
+                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtCompact(p.pv)}
+                        <span className="text-muted-foreground"> / {fmtCompact(p.uv)}</span>
+                      </span>
+                    </div>
+                  )
+                })}
                 {traffic?.pageTop && traffic.pageTop.length === 0 ? (
                   <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
                     {t('pageUsageNoData')}
@@ -2771,6 +2922,279 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               ) : traffic && (traffic.platformSplit?.length ?? 0) === 0 ? (
                 <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
                   {t('platformNoData')}
+                </div>
+              ) : null}
+            </div>
+          </Panel>
+
+          {/* 会话质量(2026-10-26):visit_logs 的 session_id 族 —— 来了之后看了几屏、从哪一页落地。
+              口径 = 标签页级会话(web 端写在 sessionStorage,一个标签页一个 sid),不是 30 分钟
+              滚动窗口 ⇒ 文案照实说,不包装成行业通用定义。分档判据在服务端,前端只渲染。 */}
+          <Panel
+            title={t('panelSessionQuality')}
+            icon={<Layers className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={
+              traffic === null || traffic.sessionQuality === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('sessionQualitySessions', { count: fmtInt(traffic.sessionQuality.sessions) })}
+                </span>
+              )
+            }
+            bodyClassName="wb-split wb-split-c3"
+          >
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('sessionQualityDepth')}
+              </div>
+              {/* 深度堆叠条:分母为 0(窗口内没有会话)时整条不画 ——
+                  把"没判"画成"零"是本仓明令禁止。 */}
+              <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                {(traffic?.sessionQuality?.depth ?? []).map((d, i) => {
+                  const total = traffic?.sessionQuality?.sessions ?? 0
+                  const w = total > 0 ? (d.sessions / total) * 100 : 0
+                  if (w <= 0) return null
+                  return (
+                    <div
+                      key={d.bucket}
+                      className={SESSION_DEPTH_BAR_CLASS[i]}
+                      style={{ width: `${w}%` }}
+                    />
+                  )
+                })}
+              </div>
+              <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
+                {(traffic?.sessionQuality?.depth ?? []).map((d, i) => (
+                  <div key={d.bucket} className="flex min-w-0 items-center gap-1">
+                    <span
+                      className={cn('h-1.5 w-1.5 shrink-0 rounded-sm', SESSION_DEPTH_BAR_CLASS[i])}
+                    />
+                    <span className="truncate text-[9px] text-muted-foreground">
+                      {t(SESSION_DEPTH_LABEL_KEY[d.bucket])}
+                    </span>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-foreground">
+                      {fmtInt(d.sessions)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1.5 space-y-1">
+                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
+                  <span className="text-[10px] text-foreground">
+                    {t('sessionQualitySinglePage')}
+                  </span>
+                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                    {isNum(traffic?.sessionQuality?.singlePageRate)
+                      ? `${Math.round((traffic?.sessionQuality?.singlePageRate ?? 0) * 100)}%`
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
+                  <span className="text-[10px] text-foreground">{t('sessionQualityAvgPv')}</span>
+                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                    {isNum(traffic?.sessionQuality?.avgPvPerSession)
+                      ? (traffic?.sessionQuality?.avgPvPerSession ?? 0).toFixed(1)
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+              {traffic?.sessionQuality === null ? (
+                <div className="flex justify-center px-2 py-2">
+                  <SourceGap text={t('sourceUnreachable')} />
+                </div>
+              ) : null}
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('sessionQualityEntryTop')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.sessionQuality?.entryPages ?? []).map((p) => (
+                  <div
+                    key={p.url}
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="truncate text-[10px] text-foreground">{p.url}</span>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                      {fmtInt(p.sessions)}
+                      <span className="text-muted-foreground">
+                        {' '}
+                        / {fmtInt(p.singlePageSessions)}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+                {traffic?.sessionQuality && traffic.sessionQuality.entryPages.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('sessionQualityNoData')}
+                  </div>
+                ) : null}
+                {traffic?.sessionQuality === null ? (
+                  <div className="flex justify-center px-2 py-2">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Panel>
+
+          {/* 访问来源(2026-10-26):流量从哪来 —— 直接访问 / 本机开发 / 站内 / 外部 + 主机 TOP。
+              生产实测 GitHub 是最大入口,而本机开发流量占着约三成 ⇒ 不分类就分不清推广渠道。
+              只给 PV:来源维度上访客数无法精确去重(同一访客既从外部进来又在站内点了两页),
+              与其给一个看着准、实际重复计的数字,不如少给一格。 */}
+          <Panel
+            title={t('panelVisitSource')}
+            icon={<Globe className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={
+              traffic === null || traffic.visitSource === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('visitSourceTotal', { count: fmtInt(traffic.visitSource.totalPv) })}
+                </span>
+              )
+            }
+            bodyClassName="wb-split wb-split-c3"
+          >
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('visitSourceBuckets')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.visitSource?.buckets ?? []).map((b) => {
+                  const total = traffic?.visitSource?.totalPv ?? 0
+                  // 分母取不到就不画条、也不写百分比:把"没判"画成"零"是本仓明令禁止
+                  const pct = total > 0 ? (b.pv / total) * 100 : null
+                  return (
+                    <div
+                      key={b.kind}
+                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      {pct !== null ? (
+                        <div
+                          aria-hidden
+                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
+                          style={{ width: `${pct}%` }}
+                        />
+                      ) : null}
+                      <span className="relative truncate text-[10px] text-foreground">
+                        {t(VISIT_SOURCE_KIND_LABEL_KEY[b.kind])}
+                      </span>
+                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtInt(b.pv)}
+                        {pct !== null ? (
+                          <span className="text-muted-foreground"> · {Math.round(pct)}%</span>
+                        ) : null}
+                      </span>
+                    </div>
+                  )
+                })}
+                {traffic?.visitSource && traffic.visitSource.buckets.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('visitSourceNoData')}
+                  </div>
+                ) : null}
+                {traffic?.visitSource === null ? (
+                  <div className="flex justify-center px-2 py-2">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('visitSourceHosts')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.visitSource?.hosts ?? []).map((h) => {
+                  const total = traffic?.visitSource?.totalPv ?? 0
+                  const pct = total > 0 ? (h.pv / total) * 100 : null
+                  return (
+                    <div
+                      key={h.host}
+                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      {pct !== null ? (
+                        <div
+                          aria-hidden
+                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
+                          style={{ width: `${pct}%` }}
+                        />
+                      ) : null}
+                      <span
+                        className={cn(
+                          'relative truncate text-[10px]',
+                          VISIT_SOURCE_HOST_CLASS[h.kind],
+                        )}
+                      >
+                        {h.host}
+                      </span>
+                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtInt(h.pv)}
+                      </span>
+                    </div>
+                  )
+                })}
+                {traffic?.visitSource && traffic.visitSource.hosts.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('visitSourceNoData')}
+                  </div>
+                ) : null}
+                {traffic?.visitSource === null ? (
+                  <div className="flex justify-center px-2 py-2">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Panel>
+
+          {/* 页面流转(2026-10-26):同一标签页会话内相邻两页 —— 人从哪走到哪。
+              排行只说"哪个页面热"、会话质量只说"看了几屏",都不答这一句;
+              生产实测最大的一跳是 `/ → /sso/login` 与 `/sso/login → /`(登录↔首页打转)。
+              同页刷新不算流转(服务端已剔除),箭头用矢量图标,不用字符箭头。 */}
+          <Panel
+            title={t('panelVisitTransition')}
+            icon={<ArrowRight className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={
+              traffic === null || traffic.visitTransition === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('visitTransitionMoves', { count: fmtInt(traffic.visitTransition.totalMoves) })}
+                </span>
+              )
+            }
+          >
+            <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+              {t('visitTransitionTop')}
+            </div>
+            <div className="space-y-1">
+              {(traffic?.visitTransition?.top ?? []).map((row) => (
+                <div
+                  key={`${row.fromUrl}->${row.toUrl}`}
+                  className="flex items-center gap-1.5 rounded-md bg-muted/50 px-2 py-1"
+                >
+                  <span className="truncate text-[10px] text-foreground">{row.fromUrl}</span>
+                  <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="truncate text-[10px] text-foreground">{row.toUrl}</span>
+                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                    {fmtInt(row.n)}
+                  </span>
+                </div>
+              ))}
+              {traffic?.visitTransition && traffic.visitTransition.top.length === 0 ? (
+                <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                  {t('visitTransitionNoData')}
+                </div>
+              ) : null}
+              {traffic?.visitTransition === null ? (
+                <div className="flex justify-center px-2 py-2">
+                  <SourceGap text={t('sourceUnreachable')} />
                 </div>
               ) : null}
             </div>

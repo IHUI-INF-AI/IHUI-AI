@@ -104,10 +104,14 @@ const overview = {
     aggregationAgeSec: 2,
     truncated: false,
     pageTop: [
-      { url: '/ecosystem', scope: 'public', pv: 90, uv: 60 },
-      { url: '/admin/monitor/wallboard', scope: 'admin', pv: 12, uv: 2 },
-      { url: '/login', scope: 'auth', pv: 8, uv: 8 },
+      { url: '/ecosystem', scope: 'public', platform: 'web', pv: 90, uv: 60 },
+      { url: '/admin/monitor/wallboard', scope: 'admin', platform: 'web', pv: 12, uv: 2 },
+      { url: '/login', scope: 'auth', platform: 'web', pv: 8, uv: 8 },
+      // 移动端那一行:四端同表,排行里会与网站页面并列 ⇒ 前缀必须能一眼分开
+      { url: '/rn/Chat', scope: 'public', platform: 'rn', pv: 30, uv: 20 },
     ],
+    // 24h 同口径总 PV:排行占比的分母(没有分母就画不出占比条)
+    pageTotalPv: 500,
     scopeSplit: [
       { scope: 'public', pv: 4200, uv: 300 },
       { scope: 'admin', pv: 101, uv: 2 },
@@ -123,6 +127,50 @@ const overview = {
     ],
     online5m: 3,
     pv5m: 12,
+    // 会话质量(2026-10-26):来了之后看了几屏、从哪一页落地
+    sessionQuality: {
+      sessions: 6,
+      singlePageSessions: 4,
+      singlePageRate: 0.6667,
+      avgPvPerSession: 1.8,
+      depth: [
+        { bucket: '1', sessions: 4 },
+        { bucket: '2-3', sessions: 1 },
+        { bucket: '4-7', sessions: 1 },
+        { bucket: '8+', sessions: 0 },
+      ],
+      entryPages: [
+        // 落地页路径刻意不与页面排行的 fixture 重名:重名会让 getByText 命中两处而歧义
+        { url: '/pricing', sessions: 2, singlePageSessions: 1 },
+        { url: '/docs', sessions: 1, singlePageSessions: 0 },
+      ],
+    },
+    // 访问来源(2026-10-26):流量从哪来 —— 分类桶 + 主机榜
+    visitSource: {
+      totalPv: 500,
+      buckets: [
+        { kind: 'direct', pv: 300 },
+        { kind: 'local', pv: 90 },
+        { kind: 'internal', pv: 40 },
+        { kind: 'external', pv: 70 },
+      ],
+      hosts: [
+        { host: 'github.com', kind: 'external', pv: 120 },
+        { host: 'localhost', kind: 'local', pv: 90 },
+        { host: 'aizhs.top', kind: 'internal', pv: 40 },
+      ],
+      splitInternal: true,
+    },
+    // 页面流转(2026-10-26):同一会话内相邻两页
+    visitTransition: {
+      totalMoves: 57,
+      distinctPairs: 8,
+      top: [
+        { fromUrl: '/', toUrl: '/sso/login', n: 12 },
+        { fromUrl: '/sso/login', toUrl: '/', n: 11 },
+        { fromUrl: '/', toUrl: '/chat', n: 10 },
+      ],
+    },
   },
   engagement: {
     events: [
@@ -189,6 +237,13 @@ describe('WallboardView 使用数据面板', () => {
     expect(screen.getAllByText('前台').length).toBeGreaterThan(0)
     expect(screen.getAllByText('后台').length).toBeGreaterThan(0)
     expect(screen.getAllByText('登录页').length).toBeGreaterThan(0)
+    // 四端同表,排行里网站页面与移动端页面并列 ⇒ 端前缀必须单独成元素并着色,
+    // 否则「这个页面是谁在用」在大屏上读不出来。
+    const prefix = screen.getByText('/rn/')
+    expect(prefix.textContent).toBe('/rn/')
+    expect(prefix.className).toContain('violet')
+    // 占比条:90 PV / 500 总 PV = 18%(分母取不到时不得画条 —— 那是把"没判"画成"零")
+    expect(document.querySelector('div[style*="18%"]')).toBeTruthy()
   })
 
   it('渲染交互热度:事件分布、热门点击与平均停留', async () => {
@@ -255,6 +310,122 @@ describe('WallboardView 使用数据面板', () => {
     // 有量的端不打状态标记:标记只属于"这一行零量"的情况
     const webRow = within(container).getAllByText('网站')[0]?.parentElement?.textContent ?? ''
     expect(webRow).not.toContain('今日静默')
+  })
+
+  it('渲染会话质量:会话数/单页占比/人均页数/深度分档/落地页都在屏上', async () => {
+    const { container } = renderWallboard()
+    await waitFor(() =>
+      expect(within(container).getAllByText('会话质量').length).toBeGreaterThan(0),
+    )
+    // 单页会话占比 4/6 = 66.67% ⇒ 界面读 67%(不是 0.67,也不是"—")
+    await waitFor(() =>
+      expect(within(container).getAllByText('单页会话占比')[0]?.parentElement?.textContent).toBe(
+        '单页会话占比67%',
+      ),
+    )
+    // 人均浏览页数 1.8
+    expect(within(container).getAllByText('人均浏览页数')[0]?.parentElement?.textContent).toBe(
+      '人均浏览页数1.8',
+    )
+    // 深度四档图例(服务端分档,前端只渲染)
+    expect(within(container).getAllByText('1 屏').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('2-3 屏').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('4-7 屏').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('8+ 屏').length).toBeGreaterThan(0)
+    // 落地页行 = 会话数 / 其中只停这一页的会话数
+    const pricing = within(container).getAllByText('/pricing')
+    expect(pricing.some((el) => (el.parentElement?.textContent ?? '').includes('2 / 1'))).toBe(true)
+    // 面板头给出窗口会话总数
+    expect(within(container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0)
+  })
+
+  it('会话质量这条腿取不到时读数落"—",不得兜成 0', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: { ...overview.traffic, sessionQuality: null },
+            },
+          }) as never)
+    const view = renderWallboard()
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('会话质量').length).toBeGreaterThan(0),
+    )
+    expect(within(view.container).getAllByText('单页会话占比')[0]?.parentElement?.textContent).toBe(
+      '单页会话占比—',
+    )
+    expect(within(view.container).getAllByText('人均浏览页数')[0]?.parentElement?.textContent).toBe(
+      '人均浏览页数—',
+    )
+  })
+
+  it('渲染访问来源:四类来源与主机榜都按接口字段绑定', async () => {
+    const { container } = renderWallboard()
+    // 面板标题是静态铺出来的 ⇒ 等**真实读数**上屏(主机榜有行)才判,否则会早一步
+    await waitFor(() =>
+      expect(within(container).getAllByText('github.com').length).toBeGreaterThan(0),
+    )
+    // 分类桶四行(本机开发必须与外部来源分开 —— 它是本机流量,不是渠道)
+    expect(within(container).getAllByText('直接访问').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('本机开发').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('站内').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('外部来源').length).toBeGreaterThan(0)
+    // 面板头给出窗口总访问
+    expect(within(container).getAllByText('近24h 访问 500').length).toBeGreaterThan(0)
+  })
+
+  it('访问来源这条腿取不到时一个来源格都不画(不得兜成 0)', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: { ...overview.traffic, visitSource: null },
+            },
+          }) as never)
+    const view = renderWallboard()
+    // 先等**别的** traffic 腿落地(证明是来源腿取不到,不是整块数据没到)
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0),
+    )
+    // 取不到 ⇒ 桶行与主机行都不渲染(画成 0 就是把「没判」说成「没有流量」)
+    expect(within(view.container).queryAllByText('直接访问')).toHaveLength(0)
+    expect(within(view.container).queryAllByText('github.com')).toHaveLength(0)
+  })
+
+  it('渲染页面流转:相邻页对按「从哪页到哪页 + 次数」绑定', async () => {
+    const { container } = renderWallboard()
+    await waitFor(() =>
+      expect(within(container).getAllByText('/sso/login').length).toBeGreaterThan(0),
+    )
+    // 面板头给出窗口跳转总次数
+    expect(within(container).getAllByText('近24h 跳转 57 次').length).toBeGreaterThan(0)
+    // 次数与页对在同一行里(12 次的那一跳)
+    const sso = within(container).getAllByText('/sso/login')
+    expect(sso.some((el) => (el.parentElement?.textContent ?? '').includes('12'))).toBe(true)
+  })
+
+  it('页面流转这条腿取不到时不画任何页对(不得兜成 0)', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: { ...overview.traffic, visitTransition: null },
+            },
+          }) as never)
+    const view = renderWallboard()
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0),
+    )
+    expect(within(view.container).queryAllByText('/sso/login')).toHaveLength(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

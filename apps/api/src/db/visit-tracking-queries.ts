@@ -6,6 +6,8 @@ import { and, gte, lte, isNotNull, desc, sql, asc } from 'drizzle-orm'
 import { bizDayKey } from '../utils/biz-day.js'
 import { db } from './index.js'
 import { visitLogs, type VisitLog } from '@ihui/database'
+import { normalizeVisitPath } from '@ihui/shared/utils/visit-url'
+import { stripUrlCredentialSegments } from '@ihui/shared/utils/sanitize-url'
 
 // =============================================================================
 // 访问记录写入
@@ -58,10 +60,30 @@ function isVisitUserIdFkViolation(err: unknown): boolean {
 }
 
 /**
+ * referer 入库前的凭据剥离(2026-10-26 立)。
+ *
+ * 客户端(web `VisitTracker`)已经剥过一次 query/hash,但**服务端不能只靠客户端自律**:
+ * 任一端回归、或非 web 端直接调这个公开端点,`?code=…&state=…` 这类授权凭据就会
+ * 落进 `visit_logs.referer`,而它会出现在管理端「访问来源」面板上。
+ * 剥的是 query/hash 段,**host 保留** ⇒「访问来源」按主机分桶的口径不受影响。
+ */
+function sanitizeVisitReferer(raw: string | null | undefined): string | null {
+  const value = (raw ?? '').trim()
+  if (!value) return null
+  const stripped = stripUrlCredentialSegments(value).trim()
+  return stripped ? stripped.slice(0, 512) : null
+}
+
+/**
  * 保存访问记录。visitDate 由服务端按业务日界算出(不再有入参通道:
  * 2026-10-25 摘掉 `visitDate?` 字段 —— 路由层 schema 已不收客户端自报日期,留这个字段
  * 就是给下一个"照着类型写"的人留一条把日键交回客户端的路)。
  * ip / user_agent 一律取 `observed`(服务端观测面),客户端自报值不进这一层。
+ *
+ * url / referer 也在这里归一(2026-10-26):客户端剥过凭据只是**第一道**,服务端这层
+ * 才是真防线 —— 判据单一真相源 = `@ihui/shared/utils/visit-url`(写入面、存量清洗、
+ * 只读覆盖面尺共用同一份),不在此处另写一份正则。
+ * 归一不出来(静态资源 / 路由组形态)⇒ url 置 null:行仍写 ⇒ PV 不丢,但不进页面排行。
  *
  * 带用户 id 时若撞外键(用户已不存在),**降级为匿名重插一次**;其它错误照抛 ——
  * 降级只覆盖"身份失效"这一型,不掩盖真正的写库故障。
@@ -72,8 +94,8 @@ export async function saveVisitLog(input: SaveVisitLogInput): Promise<VisitLog> 
   const base = {
     ip: input.observed.ip,
     city: input.city,
-    url: input.url,
-    referer: input.referer,
+    url: normalizeVisitPath(input.url),
+    referer: sanitizeVisitReferer(input.referer),
     userAgent: input.observed.userAgent,
     sessionId: input.sessionId,
     visitDate,
@@ -416,6 +438,8 @@ export function visitScopeCaseSql() {
 export interface PageUsageLiveRow {
   url: string
   scope: VisitScope
+  /** 该页面归属的端(按 url 前缀现算,与访问追踪页同一把尺:见 classifyVisitPlatform) */
+  platform: VisitPlatform
   pv: number
   uv: number
 }
@@ -619,6 +643,7 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
     top: topRows.map((r) => ({
       url: r.url ?? '',
       scope: classifyVisitScope(r.url),
+      platform: classifyVisitPlatform(r.url),
       pv: Number(r.pv ?? 0),
       uv: Number(r.uv ?? 0),
     })),

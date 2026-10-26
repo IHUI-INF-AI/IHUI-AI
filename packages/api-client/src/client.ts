@@ -961,8 +961,19 @@ export async function fetchApi<T>(
       const maxRetries = 1
       let lastError = '网络异常'
       let authRetried = false
+      // 2026-10-26 修「循环预算洞」:网络重试与 401 续期重放**各花各的预算**。
+      // 原实现两者共用循环计数 `attempt` ⇒「先网络异常、后 401、续期成功」这一格里,
+      // 续期重放的 `continue` 把计数推过上限,循环直接退出 ⇒ 新 token 与 401 结果双双
+      // 丢弃,还返回**上一跳的网络错误文案** —— 刷新明明成功了,这次请求却失败
+      // (用户侧表现为"又要重新登录")。改成两个独立闸:
+      //   · networkRetries:网络异常仍只重试 maxRetries 次(既有语义一字不动);
+      //   · authRetried:401 续期重放仍恰好一次(既有语义一字不动);
+      // 两者不再互相挤掉。循环上界相应放宽到 attempt <= maxRetries+1
+      // (⇒ 共 maxRetries+2 次尝试:首发 + 网络重试 + 续期重放),仍是有界循环 ——
+      // 免得不可达代码告警与"无界"疑虑。
+      let networkRetries = 0
 
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      for (let attempt = 0; attempt <= maxRetries + 1; attempt++) {
         try {
           const result = await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           // 401 自动续期(2026-08-06):access token 过期 → 静默刷新 → 重试一次
@@ -1010,8 +1021,16 @@ export async function fetchApi<T>(
             return result as ApiResult<T>
           }
           // 网络异常:重试或返回 lastError
+          // 2026-10-26:网络重试有**自己的**预算闸(networkRetries < maxRetries),
+          // 不再与 401 续期重放共用循环计数 —— 共用时「先网络异常、后 401」会把
+          // 续期成功的新 token 与 401 结果一起丢掉(见上方 for 循环处注)。
           lastError = result.error
-          if (attempt < maxRetries) continue
+          if (networkRetries < maxRetries) {
+            networkRetries++
+            continue
+          }
+          // 预算耗尽 ⇒ 跳出循环,交由循环后的兜底 return 落账(与改动前同形)
+          break
         }
       }
 
@@ -3588,7 +3607,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
   // 2026-10-26:401 续期只做一次(与各条 REST 腿同一口径)
-  let sseAuthRefreshed = false
+  // 「只续一次」这道闸住在 runResumableSSEStream 内(其 authRefreshed 变量):
+  // runner 是本函数内唯一的流式执行体,401 续期后仍 401 ⇒ runner 不再回调本处。
+  // 本处原先另持一道 sseAuthRefreshed 闸 —— 与 runner 的闸语义重复,且因 runner
+  // 根本不会发起第二次 refreshAuth 调用,那道闸恒为 false(死代码)。
+  // 2026-10-26 收口:两道闸并存的形态已撤,单一真相源 = runner 的 authRefreshed。
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
 
@@ -5281,9 +5304,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       onReconnect: (retryAttempt, delayMs) => opts.onReconnect?.(retryAttempt, delayMs),
       // 2026-10-26:流式通道遇 401(access 15 分钟过期)续期一次并改写本次请求头;
       // runner 在原地重试,不需要调用方重开会话。
+      // 「只续一次」由 runner 的 authRefreshed 闸保证(见上方声明),本回调不再自持闸。
       refreshAuth: async () => {
-        if (sseAuthRefreshed) return false
-        sseAuthRefreshed = true
         const fresh = await refreshAccessTokenOnce()
         if (!fresh) return false
         headers['Authorization'] = `Bearer ${fresh}`

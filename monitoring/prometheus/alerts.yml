@@ -95,7 +95,7 @@ groups:
           severity: critical
         annotations:
           summary: '模型清单同步连续失败(provider 已标记 unhealthy)'
-          description: 'provider_code={{ $labels.provider_code }} 连续 3 次拉取 /v1/models 失败,已标记 unhealthy(后续同步自动跳过)。⚠ 触发面(2026-10-26 收窄):**仅真实基础设施故障**——网络不通 / 5xx / 厂商端点 404;**401/403(key 失效/过期)已改为静默跳过、不计入 unhealthy、不触发本告警**(机主明确 key 由自己补充,属预期状态,补 key 后自动恢复)。第一步查 ai-service 日志里 [ModelSyncService] 的真实报错(超时=网络,5xx=厂商故障,404=端点不存在需改 base_url);若同时出现调用失败,另见 AiLlmHighFailureRate。'
+          description: 'provider_code={{ $labels.provider_code }} 连续 3 次拉取 /v1/models 失败,已标记 unhealthy(后续同步自动跳过)。⚠ 触发面(2026-10-26 收窄):**仅真实基础设施故障**——网络不通 / 5xx / 厂商端点 404;**厂商鉴权类(401/403)已改为静默跳过、不计入 unhealthy、不触发本告警**(属预期状态,不在本告警整改面,厂商账户恢复后自动恢复)。第一步查 ai-service 日志里 [ModelSyncService] 的真实报错(超时=网络,5xx=厂商故障,404=端点不存在需改 base_url);若同时出现调用失败,另见 AiLlmHighFailureRate。'
 
       # LLM provider 错误突增(402/5xx 等): 15 分钟窗口内出现 provider 错误。
       # `ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,

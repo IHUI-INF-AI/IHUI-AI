@@ -63,7 +63,38 @@ const ENV_VALUE_ALLOWED_HOLDERS = [
   'apps/api/tests/payment-usdt-address-format.test.ts',
 ]
 
+/**
+ * 服务端 src 内「非代币合约声明」的 0x+40hex **豁免登记表**(本门唯一出口)。
+ *
+ * 四字段齐全(file + anchor + reason + reviewBy),缺任一即当空表用;anchor 是**代码里的
+ * 引用文本**(命中行所属声明的标识符),不是行号 —— 行号一次 append 就挪位。
+ * 被审面上不再命中的条目按「清单腐烂」判红;reviewBy 过期同样判红。
+ *
+ * 为什么要这张表:0x+40hex 只是**形状**,它既可能是 EVM 地址,也可能是十六进制编码的大数
+ * (密码学常数)。本门只认**代币合约声明**这一形态(收款地址不得写回常量),形状认不出语义时,
+ * 由这张表逐条登记「它不是收款地址」并写明原因,而不是把门放宽成恒真。
+ * 本表只放**数值型**(BigInt 初始化)命中:地址字符串永远不在射程内。
+ */
+const API_SRC_EVM_LITERAL_EXEMPTIONS: ReadonlyArray<{
+  file: string
+  anchor: string
+  reason: string
+  reviewBy: string
+}> = [
+  {
+    file: 'apps/api/src/services/upstream-adapters/trae-protocol.ts',
+    anchor: 'P256_ORDER',
+    reason:
+      'NIST P-256 曲线阶(ECDSA 签名低 s 归一化用)是**数值**常量,既不是代币合约、也不是收款地址',
+    reviewBy: '2027-04-26',
+  },
+]
+
 const EVM_LITERAL = /0x[0-9a-fA-F]{40}/
+
+/** 声明头:标识符 + 初始化形态(用于认「这枚 0x+40hex 是数值常量还是地址字符串」) */
+const DECL_HEAD_RE =
+  /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*(.*)$/
 
 // ---------- 小判据(只读,零写入) ----------
 
@@ -213,16 +244,67 @@ function frontendFilesWithEvmLiteral(): string[] {
   return Array.from(new Set(hits)).sort()
 }
 
-/** api 服务端 src(不含夹具)里逐行扫 0x+40hex,返回持有该字面量的行 */
-function apiSrcEvmLiteralLines(): Array<{ rel: string; line: string }> {
-  const found: Array<{ rel: string; line: string }> = []
+/** api 服务端 src(不含夹具)里逐行扫 0x+40hex,返回持有该字面量的行 + 该行所属声明的上下文 */
+function apiSrcEvmLiteralLines(): Array<{
+  rel: string
+  line: string
+  /** 命中行所属声明的标识符(向上最近一条 const/let/var 声明) */
+  decl: string
+  /** 该声明是不是 BigInt 初始化(数值常量 vs 地址字符串) */
+  declIsBigInt: boolean
+  /** 命中行是不是该声明的初始化式本身(同一行或紧邻的下一行) */
+  declAdjacent: boolean
+}> {
+  const found: Array<{
+    rel: string
+    line: string
+    decl: string
+    declIsBigInt: boolean
+    declAdjacent: boolean
+  }> = []
   for (const file of walkSourceFiles(join(API_ROOT, 'src'), false)) {
     const rel = repoRel(file)
-    for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
-      if (EVM_LITERAL.test(line)) found.push({ rel, line: line.trim() })
+    let decl = ''
+    let declIsBigInt = false
+    let declLine = 0
+    let lineNo = 0
+    for (const rawLine of readFileSync(file, 'utf8').split(/\r?\n/)) {
+      lineNo += 1
+      const m = DECL_HEAD_RE.exec(rawLine)
+      if (m && m[1] !== undefined) {
+        decl = m[1]
+        declIsBigInt = /^\s*BigInt\(/.test(m[2] ?? '')
+        declLine = lineNo
+      }
+      if (EVM_LITERAL.test(rawLine)) {
+        found.push({
+          rel,
+          line: rawLine.trim(),
+          decl,
+          declIsBigInt,
+          declAdjacent: lineNo - declLine <= 1,
+        })
+      }
     }
   }
   return found
+}
+
+/**
+ * 某枚命中是否落在豁免登记表里:四件事同时成立才算命中 ⇒
+ * 同一文件里另起的收款地址字面量(不同声明、不同形态)不在射程内。
+ */
+function isExemptEvmLiteral(hit: {
+  rel: string
+  decl: string
+  declIsBigInt: boolean
+  declAdjacent: boolean
+}): boolean {
+  return (
+    hit.declIsBigInt &&
+    hit.declAdjacent &&
+    API_SRC_EVM_LITERAL_EXEMPTIONS.some((e) => e.file === hit.rel && e.anchor === hit.decl)
+  )
 }
 
 /** 产品码 + 夹具面里逐字(大小写不敏感)持有某枚权威值的文件 */
@@ -356,13 +438,30 @@ describe('G-944② 服务端只有一处读 env,且不得另持收款常量', ()
 
   it('src 内 0x+40hex 字面量只准是代币合约声明(收款地址不得写回常量)', () => {
     const offenders = apiSrcEvmLiteralLines().filter(
-      (h) => !/const\s+[A-Z0-9_]*CONTRACT\s*=\s*'0x[0-9a-fA-F]{40}'/.test(h.line),
+      (h) =>
+        !/const\s+[A-Z0-9_]*CONTRACT\s*=\s*'0x[0-9a-fA-F]{40}'/.test(h.line) &&
+        !isExemptEvmLiteral(h),
     )
     expect(
       offenders.map((o) => `${o.rel}:${o.line.slice(0, 48)}`),
       '服务端源码出现非代币合约声明的 EVM 地址字面量 ⇒ 收款地址被硬编码回服务层',
     ).toEqual([])
     expect(existsSync(SERVICE_FILE), `缺服务端实现文件:${SERVICE_FILE}`).toBe(true)
+  })
+
+  it('豁免登记表不腐烂:每条都仍命中被审面,且未过复核期', () => {
+    const hits = apiSrcEvmLiteralLines()
+    const today = new Date().toISOString().slice(0, 10)
+    for (const e of API_SRC_EVM_LITERAL_EXEMPTIONS) {
+      expect(
+        hits.some((h) => isExemptEvmLiteral(h) && h.rel === e.file && h.decl === e.anchor),
+        `豁免条目已不再命中被审面(${e.file} / ${e.anchor})⇒ 清单腐烂(不是通过):${e.reason}`,
+      ).toBe(true)
+      expect(
+        today <= e.reviewBy,
+        `豁免条目已过复核期(${e.file} / ${e.anchor},reviewBy=${e.reviewBy})⇒ 须重读代码后再登记`,
+      ).toBe(true)
+    }
   })
 })
 

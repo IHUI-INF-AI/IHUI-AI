@@ -31,6 +31,19 @@ export * from '../../../../packages/types/src/enum-coerce.js'
 // 账面 "Tests no tests",覆盖存在而实际为零(守门 114 点名的那一枚只是其中一格)。
 // 同条纪律(见本文件头):转传真源,不抄第二份实现 —— 抄一份就是给"两处算同一件事必漂移"开门。
 export * from '../../../../packages/types/src/chat-sync-contract.js'
+// 票71 chat-sync 帧族(2026-10-26):本替身漏转发 chat-sync-contract ⇒ 消费方按值取
+// CHAT_SYNC_EVENT_NAMES 拿到 undefined ⇒ packages/shared/src/chat/chat-sync-store.ts 的
+// **顶层 const** CHAT_FRAME_TYPES 在**模块求值期**就炸 "Cannot read properties of undefined
+// (reading 'MESSAGE_CREATED')" ⇒ 凡经 @ihui/shared/chat barrel(@ihui/shared/chat 别名直指
+// 真实 packages/shared/src/chat/index.ts,见 vitest.config.ts)的套件**一条断言都没跑**
+// (实测 18 个 RN 文件收集期失败、0 test)。同条纪律:转传真源,不抄第二份实现。
+// 本模块零 import(纯判据内核),转发无副作用。
+// user-broadcast 同批补齐(2026-10-26):它按值提供 parseUserBroadcastFrame
+// (api-client/src/broadcast-client.ts 取用)与 isMcpConnectionState / isNewerThan
+// (shared/src/chat/user-broadcast-store.ts 取用)。漏转发 ⇒ 这两处调用点炸
+// "xxx is not a function"(与上一条同型的第二格,同 enum-coerce 那次的形态)。
+// 本模块只 import ./chat-sync-contract.js,零平台依赖。
+export * from '../../../../packages/types/src/user-broadcast.js'
 export const API_KEY_PERMISSIONS = {} as const
 export const PILLARS = [] as const
 export const PILLAR_EVENT_TYPES = [] as const

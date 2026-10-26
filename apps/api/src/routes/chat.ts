@@ -81,6 +81,7 @@ import { readCollabLock, resolveFloorGate } from '../db/chat-collab-write-querie
 // B02 第三切片(2026-10-25):resync 权威快照读(内容 + rev 同库同读,契约 §7 第 3 项)
 import { findChatSyncSnapshot } from '../db/chat-sync-rev-queries.js'
 import { success, error } from '../utils/response.js'
+import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 import { generateSemanticSummary, getCachedSemanticSummary } from '../utils/semantic-summary.js'
 import {
   generateConversationTitle,
@@ -99,9 +100,10 @@ import {
 } from '../db/user-preferences-queries.js'
 
 // 压缩调用兜底模型(2026-09-12 去硬编码):优先取请求上下文的对话模型,
-// 其次读环境变量 LITELLM_MODEL(与 utils/semantic-summary.ts 同源,最终默认值由部署环境 .env 决定);
-// 二者皆空时不传 model,由 ai-service 网关按自身默认模型处理。
-const FALLBACK_MODEL = process.env.LITELLM_MODEL
+// 其次经 utils/retired-providers.ts 的唯一解析入口取(与 utils/semantic-summary.ts /
+// services/crew-llm-adapter.ts 同源):.env LITELLM_MODEL → 非退役的末位兜底链。
+// 2026-10-26 stepfun 永久退役 ⇒ 本入口不得再解析出退役档(故不再直接读 env)。
+const FALLBACK_MODEL = resolveDefaultChatModel()
 
 // =============================================================================
 // Coze conversation_id 自动管理（迁移自 coze_zhs_py/api/chat.py）

@@ -1674,9 +1674,19 @@ class FreeProviderRegistry:
         ]
 
     def to_dashboard_dict(self) -> list[dict[str, Any]]:
-        """转为 Dashboard 展示用的 list[dict](含 status 字段)。"""
+        """转为 Dashboard 展示用的 list[dict](含 status 字段)。
+
+        2026-10-26:永久退役的 provider **不进面板**(名单与可用性面/同步面/调用面同源)。
+        实测依据:该端点(GET /llm/free-providers)无鉴权且 web 端有转发 ⇒ 是**用户可见**的
+        「免费 provider 矩阵」;留着已退役厂商 = 用户仍看得到它的申请入口与默认模型档,
+        选中后必然失败(与机主「永久除名、不提充值」正相反)。
+        """
+        from ..core.default_model import is_retired_provider
+
         result: list[dict[str, Any]] = []
         for p in self._registry:
+            if is_retired_provider(p.provider_code):
+                continue
             result.append({
                 "provider_code": p.provider_code,
                 "display_name": p.display_name,
