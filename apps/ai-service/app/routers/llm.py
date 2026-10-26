@@ -2758,6 +2758,39 @@ def _is_restricted_model(model: str | None) -> bool:
     return any(m.startswith(p) for p in RESTRICTED_PREFIXES)
 
 
+def _retired_model_error(model: str | None) -> JSONResponse | None:
+    """入站显式指定已永久退役的 provider ⇒ 直接拒绝(2026-10-26 立)。
+
+    为什么这一层必须存在(实测依据,不是推演):
+    2026-10-26 生产现读发现,退役除名只在「默认模型解析」层(app/core/default_model.py
+    的 default_chat_model)设了守卫 —— 而**入站请求显式指定 model=stepfun/xxx** 这条路径
+    完全绕过了它:llm_gateway.complete() 的 `used_model = model` 分支照旧把退役档发往上游。
+    实测线上表现:ai-service 日志持续出现
+      `LLM 链路失败(provider=stepfun, status=5xx, model=stepfun/step-3.7-flash)`
+    且 Prometheus `ihui_llm_provider_errors_total{provider="stepfun",status="5xx"}`
+    持续增长(30 分钟 +18.5)⇒ 退役厂商仍在消耗真实调用额度并污染告警面。
+
+    与「默认模型解析」守卫的分工:
+      - 默认模型解析(core/default_model.py):候选档位命中退役 ⇒ 顺延到下一条可用腿。
+        方向 = 「多要一次定向说明」。
+      - 本函数(入站显式档):调用方点名要一个已永久退役的 provider ⇒ 明确拒绝并告知,
+        **不静默换成别的模型**(静默换档会让调用方拿到不是自己要的东西),
+        也不把它当「key 缺失/需要充值」—— 那是厂商账户状态,不在本路径的整改面。
+
+    返回 None 表示放行;返回 JSONResponse 表示应当直接回给调用方。
+    """
+    from ..core.default_model import is_retired_model
+
+    if not is_retired_model(model):
+        return None
+    return _error_json(
+        f"模型 {model} 已永久退役,不再提供调用;请改用模型列表中在架的档位。",
+        410,
+        errorCode="MODEL_RETIRED",
+        model=model,
+    )
+
+
 async def _ensure_restricted_model_access(request: Request, model: str | None) -> None:
     """受限模型仅系统管理员可用;非管理员抛 403。"""
     if not _is_restricted_model(model):
@@ -2937,6 +2970,11 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
     if req.model:
         req.model = to_official_model_name(req.model)
+    # 2026-10-26 立:入站显式指定已永久退役的 provider ⇒ 直接拒绝,不得发往上游。
+    # (守卫在默认模型解析层之外 —— 那层管的是"解析出哪一档",管不到"调用方点名要哪一档")
+    retired_err = _retired_model_error(req.model)
+    if retired_err is not None:
+        return retired_err
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
     # P3 3-4-A(2026-09-17 拍板):新用户免费试用额度检查(env USER_TRIAL_DAILY_TOKENS,0=关闭)
@@ -3477,6 +3515,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
     if req.model:
         req.model = to_official_model_name(req.model)
+    # 2026-10-26 立:与 /llm/complete 同源 —— 入站显式指定已永久退役的 provider ⇒ 直接拒绝。
+    # 流式端点必须在**进入流之前**拒绝(流一旦开始 yield,HTTP 状态码已锁定 200,
+    # 无法中途改成 410),故放在 StreamingResponse 构造之前。
+    retired_err = _retired_model_error(req.model)
+    if retired_err is not None:
+        return retired_err
     # D159 接手修复(2026-09-30):前一代理在本文件合入 D130 档位改动时**误删了这行初始化**,
     # 导致 complete_stream 全程 `name 'accumulated' is not defined`(stream gen 直接崩,
     # D158 的 4 个 grant 测试因此整片红)。恢复 HEAD 原形,位置与 HEAD 逐字一致。
