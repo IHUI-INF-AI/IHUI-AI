@@ -5041,5 +5041,39 @@
     "votes": "Votes",
     "rankLoadFailed": "Failed to load rankings",
     "rankEmpty": "No data for this leaderboard"
+  },
+  "aigcCover": {
+    "applied": {
+      "title": "Cover Applied",
+      "message": "Cover applied for \"{title}\": {label}"
+    },
+    "aiGen": {
+      "title": "AI Cover Generation",
+      "message": "Feature under development"
+    },
+    "aiGenBtn": "AI-generate cover",
+    "confirmBtn": "Confirm",
+    "empty": "No covers",
+    "loadFailed": "Failed to load",
+    "subtitle": "Choose or generate a cover",
+    "title": "Cover",
+    "workTitleDefault": "Untitled work"
+  },
+  "assistant": {
+    "actionOffline": "Take offline",
+    "actionReedit": "Re-edit",
+    "actionSettings": "Settings",
+    "badgeDraft": "Draft",
+    "badgeOffline": "Offline",
+    "badgePublished": "Published",
+    "badgeRejected": "Rejected",
+    "badgeReviewing": "In review",
+    "empty": "No assistants",
+    "metaAudience": "Visibility",
+    "metaCategory": "Category",
+    "metaCycleForever": "Forever",
+    "metaPublishTime": "Published",
+    "searchPlaceholder": "Search assistants",
+    "title": "My Assistants"
   }
 }

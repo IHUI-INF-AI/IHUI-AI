@@ -153,6 +153,8 @@ export default defineAppConfig({
         'agent-stat/index',
         'ai-multimodal/index',
         'ai-world/index',
+        'aigc-cover/index',
+        'assistant/index',
       ],
     },
     {

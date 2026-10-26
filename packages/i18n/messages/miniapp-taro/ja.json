@@ -5041,5 +5041,39 @@
     "votes": "票数",
     "rankLoadFailed": "ランキングの読み込みに失敗しました",
     "rankEmpty": "このランキングにはデータがありません"
+  },
+  "aigcCover": {
+    "applied": {
+      "title": "カバーを適用しました",
+      "message": "「{title}」にカバーを適用しました:{label}"
+    },
+    "aiGen": {
+      "title": "AI カバー生成",
+      "message": "機能開発中"
+    },
+    "aiGenBtn": "AI で表紙を生成",
+    "confirmBtn": "確定",
+    "empty": "表紙がありません",
+    "loadFailed": "読み込みに失敗しました",
+    "subtitle": "表紙を選択または生成",
+    "title": "表紙",
+    "workTitleDefault": "名称未設定の作品"
+  },
+  "assistant": {
+    "actionOffline": "オフラインにする",
+    "actionReedit": "再編集",
+    "actionSettings": "設定",
+    "badgeDraft": "下書き",
+    "badgeOffline": "オフライン",
+    "badgePublished": "公開済み",
+    "badgeRejected": "却下",
+    "badgeReviewing": "レビュー中",
+    "empty": "アシスタントがありません",
+    "metaAudience": "公開範囲",
+    "metaCategory": "カテゴリ",
+    "metaCycleForever": "永久",
+    "metaPublishTime": "公開日時",
+    "searchPlaceholder": "アシスタントを検索",
+    "title": "マイアシスタント"
   }
 }

@@ -5041,5 +5041,39 @@
     "votes": "票数",
     "rankLoadFailed": "榜单加载失败",
     "rankEmpty": "该榜单暂无数据"
+  },
+  "aigcCover": {
+    "applied": {
+      "title": "封面已应用",
+      "message": "已为「{title}」应用封面:{label}"
+    },
+    "aiGen": {
+      "title": "AI 生成封面",
+      "message": "功能开发中"
+    },
+    "aiGenBtn": "AI 生成封面",
+    "confirmBtn": "确定",
+    "empty": "暂无封面",
+    "loadFailed": "加载失败",
+    "subtitle": "选择或生成封面",
+    "title": "封面",
+    "workTitleDefault": "未命名作品"
+  },
+  "assistant": {
+    "actionOffline": "下线",
+    "actionReedit": "重新编辑",
+    "actionSettings": "设置",
+    "badgeDraft": "草稿",
+    "badgeOffline": "已下线",
+    "badgePublished": "已发布",
+    "badgeRejected": "已拒绝",
+    "badgeReviewing": "审核中",
+    "empty": "暂无智能体",
+    "metaAudience": "可见范围",
+    "metaCategory": "分类",
+    "metaCycleForever": "永久有效",
+    "metaPublishTime": "发布时间",
+    "searchPlaceholder": "搜索智能体",
+    "title": "我的助理"
   }
 }

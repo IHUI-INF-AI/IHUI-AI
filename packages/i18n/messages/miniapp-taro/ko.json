@@ -5041,5 +5041,39 @@
     "votes": "투표수",
     "rankLoadFailed": "랭킹 로드 실패",
     "rankEmpty": "이 랭킹에 데이터가 없습니다"
+  },
+  "aigcCover": {
+    "applied": {
+      "title": "표지 적용 완료",
+      "message": "「{title}」에 표지를 적용했습니다:{label}"
+    },
+    "aiGen": {
+      "title": "AI 표지 생성",
+      "message": "기능 개발 중"
+    },
+    "aiGenBtn": "AI 표지 생성",
+    "confirmBtn": "확인",
+    "empty": "표지가 없습니다",
+    "loadFailed": "불러오기 실패",
+    "subtitle": "표지 선택 또는 생성",
+    "title": "표지",
+    "workTitleDefault": "이름 없는 작품"
+  },
+  "assistant": {
+    "actionOffline": "오프라인",
+    "actionReedit": "재편집",
+    "actionSettings": "설정",
+    "badgeDraft": "초안",
+    "badgeOffline": "오프라인",
+    "badgePublished": "게시됨",
+    "badgeRejected": "거부됨",
+    "badgeReviewing": "검토 중",
+    "empty": "어시스턴트가 없습니다",
+    "metaAudience": "공개 범위",
+    "metaCategory": "카테고리",
+    "metaCycleForever": "영구",
+    "metaPublishTime": "게시 시간",
+    "searchPlaceholder": "어시스턴트 검색",
+    "title": "내 어시스턴트"
   }
 }

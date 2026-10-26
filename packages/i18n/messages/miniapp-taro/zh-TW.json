@@ -5041,5 +5041,39 @@
     "votes": "票數",
     "rankLoadFailed": "榜單載入失敗",
     "rankEmpty": "該榜單暫無資料"
+  },
+  "aigcCover": {
+    "applied": {
+      "title": "封面已套用",
+      "message": "已為「{title}」套用封面:{label}"
+    },
+    "aiGen": {
+      "title": "AI 生成封面",
+      "message": "功能開發中"
+    },
+    "aiGenBtn": "AI 生成封面",
+    "confirmBtn": "確定",
+    "empty": "暫無封面",
+    "loadFailed": "載入失敗",
+    "subtitle": "選擇或生成封面",
+    "title": "封面",
+    "workTitleDefault": "未命名作品"
+  },
+  "assistant": {
+    "actionOffline": "下線",
+    "actionReedit": "重新編輯",
+    "actionSettings": "設定",
+    "badgeDraft": "草稿",
+    "badgeOffline": "已下線",
+    "badgePublished": "已發布",
+    "badgeRejected": "已拒絕",
+    "badgeReviewing": "審核中",
+    "empty": "暫無智慧體",
+    "metaAudience": "可見範圍",
+    "metaCategory": "分類",
+    "metaCycleForever": "永久有效",
+    "metaPublishTime": "發布時間",
+    "searchPlaceholder": "搜尋智慧體",
+    "title": "我的助理"
   }
 }
