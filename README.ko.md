@@ -2198,6 +2198,47 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🚀 기능/개선:号池对标 workbuddy-switch 三件套——①外来格式自适应导入(别名搬运+秒/毫秒量纲归一,立修 expires_at 被当秒折成 5138 年永不失明) / ②空闲保活档(greatest(last_used,last_refresh) 防闲置 invalid_grant,client-first 让位本机,env RELAY_ACCOUNT_KEEPALIVE_DAYS) / ③号体检速查 CLI relay:inspect(六态结论+下一步,零DB零上游不回显凭据) -- AGENTS §21 docs/README 同步(本批仅 docs;两张活文档归并不在本笔);测试 typecheck8/8+vitest69+格式棘轮+水印verify,端范围 api/worker/CLI 平台独占豁免见 PLAN (79d39e8365)
+- 🚀 기능/개선:账号保活中心统一两条保活线 + 密钥路径锚定治静默失效第8例 (f541169ba4)
+- 🐞 수정:结清翻勾 3 枚僵尸票(G-22/G-34/git-guardian前提腐烂)——机主令接管;结清事实由 b8r1/b10r1/b13r1 注记+引用枚落定,本批翻勾并盖接管戳,正文逐字守恒 (eb3a7b66da)
+- 🚀 기능/개선:check-task-claims 补超龄认领牌现读枚数口——判据一律 import 挂牌单源零复算,新读数只做附加不改既有各档形态;同枚按其自注重新设计 T20 夹具(真仓叙述形态已合法归零,阳性对照改由真行合成,尺子的牙不变)(执行席 claims-cl1 交回;主席复跑镜像测试廿五例全绿) (9db07eae77)
+- 🐞 수정:G-1182551 结清——机主令接管僵尸票(持牌 g2-alltasks 近48h零活动),ssh 隧道处置(deploy 10-21 实证档)+生产日志 strict-UTF8 终验全绿 (398c711c3b)
+- 🐞 수정:监控侧告警去重身份改走单源出口——不再整条文本自拼身份,证据锁进 harness 与镜像测试;抖动门现读零新增(执行席 monitor-identity 交回;主席复跑镜像测试十九例全绿与守门 224 现读) (b9162299c8)
+- 🐞 수정:守门115 认跨文件转发豁免并钉依据链——hub adapter 的转发点名校验出口与两处调用点,演示路径真缺口保留点名不一起消掉;同枚修复该文件工作树副本的 JSDoc 断头(语法坏件会让整门解析失败)(执行席 gate115-forward 交回,主席补齐注释开头并复跑读数:命中一候选三,转发豁免一带依据链) (56497242c4)
+- 🔧 기타:给四枚零测试共享工具补真用例——base64、number-format、token-estimate、dangerous-command-detector(执行席 shared-utils-tests 交回;主席复跑 vitest 五十三例 GREEN 且 shared 包 typecheck 过) (552bb5d058)
+- 📚 문서:四枚二次复跑 PASS 结清——G-397 锁租约认 token(反向验收四例含迟到 finish 不改控制文件)、G-53 lint-staged 三态分档三针已打补丁、G-63 safe-commit 发令数组无 pathspec 且 env-blocked 四条十五天零复发、G-863 附件容量写前 CAS 与跨批用例均在 HEAD(执行席 zombie-recheck-B 换角度独立复跑,主席按其现读末行摘行) (bc0c7ceb69)
+
+**2026-10-26**
+- 🚀 기능/개선:票面 G-941 写账侧最后两格——计划链构造点带主链别、koubo 工作流复用引擎唯一出口入账(链别在出口处本文件零字面量);自证抓出两处真错(增量基线逐条相加断言、账本路径自算致零副作用断言恒真)已由该席改正(执行席 api-plan-chain 交回;主席复跑该族 pytest 册十六例 GREEN) (39b7c18110)
+- 📚 문서:G-1200042 挂牌认领——本席按票面把 Knip 残余债切两席裁决(5 枚零引用文件 / 23 枚零消费导出),§7 三问逐枚答完才动手;基线收紧一格按 §12e 留 owner,不在本票射程 (dfa48b8d67)
+- 🔧 기타:菜单层级 e2e 补历史页 /chat/history 同型用例——一线≤7/导出子菜单2项/压缩子菜单2项,main#main 作用域消歧侧栏同名 testid;run9 4 passed (3fc3f73066)
+- 📚 문서:登记票 G-1200042 Knip 棘轮残余债(5 枚零引用文件 + 23 枚零消费导出的接线或删除裁决),判词与复算材料落 .ihui-agent/tmp/s27-knip;本票可派单,不阻塞 CI 现绿面 (47853a52d8)
+- 📚 문서:Knip 棘轮收口与 RN 文字快捷笔记切片两条行级注记落账(证据在枚 8ab7f67b86/31a2b3cb45 提交信息;D03 行只记事实与未裁关系,不翻勾不代裁) (d469a45e5b)
+- 📚 문서:修我刚写坏的那行兜底口径(反引号被转义成反斜杠 + 短语重复一遍) (67b79c811b)
+- 📚 문서:G-44 结清摘牌——去重身份已含病因维且抖动读数归一(枚 714efaa19196b077947206f4ee62213f81586600 入库),席 g44-alertdedup 双对照取证:异病因异键成立、轮次/条数/时刻/sha 漂移同键;票面行号 257 已腐烂(现读调用侧 459 与 486)。残余一格(监控侧自拼身份未走单源)另派他席,不在本票射程 (bf25ef478d)
+
+**2026-10-26**
+- 🚀 기능/개선:票面 G-941 写账侧补 workflow 生产者并把 chain 缺省收成必填语义——工作流不再静默落未判定桶,漏传当场点名;bench 与越权用例补传主链别(执行席 g941c-workflow 交回;主席复跑该族 pytest 册六十二例 GREEN,被删的 data/cost_ledger.json 经现读属 gitignored 残留) (7faee0fb1b)
+- 🔧 기타:守门98 镜像 D4 计数行的假牙改形态锁——只报数维不再把一次性读数钉成下限,补两条变异自证(摘行必红、读数归零不红),pass 由廿五增到廿六(执行席 gate98-softcount 交回;上一枚因并发清索引落成空提交,本枚重试) (e65492b6e2)
+- 📚 문서:git 出网兜底口径对齐实现 —— 换腿双向(代理↔直连)、网络形状含挂死零回显、方向由 plan.useDirectArgs 单点给 (b1b1fd08a7)
+- 🐞 수정:把换腿兜底补成对称的两臂,并治好它自己的两处失真 —— ① 旧判据只兜"代理→直连"单向:显式绕过(--no-proxy)后若只剩代理腿能用,仍把"我有腿"判成"无法判定远端位置"(rc=2;当天 09:20 实测 Failed to connect to github.com:443 + 200s 挂死各一次)。现按 usedDirect/alreadyDirect 双向换腿,方向由 plan.useDirectArgs 单点给出(写死任一方向=只兜一条腿的偏判) ② 挂死到超时既无退出码也无回显,旧判据 `status!==128` 直接不兜 ⇒ 又成安静失效(§12f);新增 isTransportEgress 统一口径(128+传输回显 ∨ 挂死/零回显) ③ 无腿可换那一支也留痕,且先过动词表(实测曾把 for-each-ref 的本地失败记成 both-failed 往账本造脏行,该 1 行已清) ④ 用例 25 例(对称两臂+挂死+服务器裁决四型不得换腿+源码形状锁),face-reader 35 / git-push-guard 32 / safe-commit-triage 5 合跑 97/97 (f23d935e54)
+- 🐞 수정:免鉴权目录空 key 不再发 "Bearer " —— 占位 key 判未配置后 huggingface 以空 key 出网,默认分支仍无条件拼 Bearer ⇒ httpx LocalProtocolError Illegal header value,本该 200 的 router /v1/models 变失败又把 health 打成0;三处 Bearer 分支配 api_key 守卫空则不设 header,并加回归用例钉住(无 key ⇒ 无 Authorization);pytest 224 全绿 (f52f4580c7)
+- 🐞 수정:占位 key=未配置⇒未配凭据厂商不进人告警(机主定案)——实测 ai_model_config 三家密文解出 sk-placeholder-… 变体,精确匹配的 _PLACEHOLDER_KEYS 拦不住⇒github_models/cloudflare_workers_ai 被拉进同步连败3次永久禁用、huggingface 直连被墙 ConnectError,三家 gauge 钉死0⇒LlmProviderUnhealthy 长期 firing;新增 _is_placeholder_key(空/白名单/含placeholder 大小写不敏感)收敛在选取层:占位 key 厂商不进同步也不进启动恢复(无序列⇒告警自愈),免鉴权放行时不带占位 key 出网;huggingface 标 keyless_model_list(router /v1/models 无key 200 实测)换域后照常同步转健康;pytest 5 例新增+233 例全绿,变异自证(摘判据⇒2例咬红) (352731df85)
+
+**2026-10-26**
+- 🔧 기타:侧栏会话菜单层级 e2e 冒烟 spec 入库——真浏览器验证一线10项/导出子菜单7项/压缩子菜单2项/MD导出真下载/Issue白话提示上屏(run7 3 passed);随重构补装回归防线 (7db240fbd0)
+
+**2026-10-26**
+- 🐞 수정:还原收编器抢先入库的过窄状态——零使用符号不得被去 export 背景:收编器在 8ab7f67b86 把我席在树的 Knip 第二轮收窄整片提交,而那一刻我尚未跑完 全量 typecheck 的修复轮,HEAD 因此带着 tsc 立刻点名的错误(未用局部量/未用类型)。 判据:去 export 只对「本文件内确有使用」的符号成立;若该符号在本文件内也零使用且 全仓零消费方,去掉 export 会让它变成 tsc 眼里的死局部量。这类不得由我单方面删除 (§7 三问无人背书),故一律还原为原导出形态。 还原面 48 文件:api 服务层 __reset*ForTest 与账本条目类型、miniapp-taro 的 canvasToTempFilePath/rpxToPx/imagesToBase64/writeFileFromBase64/useChatSyncMessages/ stopTokenAutoRefresh/readFileAsBase64 别名腿、mobile-rn token 与 web useAIWebSocket、 shared hands 契约两枚、topic-detail 样式类型等。 验证:turbo typecheck 全量 32/32 任务 0 错误(还原后现跑);knip 复量待干净检出。 (31a2b3cb45)
+- 🔧 기타:守门98 镜像 D4 计数行的假牙改形态锁——只报数维不再把一次性读数钉成下限,补两条变异自证(摘行必红、读数归零不红),pass 由廿五增到廿六(执行席 gate98-softcount 交回,主席复跑同条命令绿) (3a1c07ed0a)
+- 📚 문서:两枚结清——G-17 schema_check 认借来的连接(席 g17-schemacheck,主席复跑 pytest 五十九例 GREEN,枚 8ab7f67b86 入库);G-39 判为守门98 D6 同题重复登记(门体早于批基线在 HEAD,席 g39-shadow-js 现读 self-test 四十例全绿、真仓 RC=0,按僵尸票摘行通道结清) (b49b38ec62)
+
+**2026-10-26**
+- 🚀 기능/개선:票面 G-941 第二读面补链维——用量基线来源键按链别分桶,未判定桶独立可见不并入主链(执行席 g941b-usage 交回;主席独立复跑该族 pytest 廿七例 GREEN) (1727fb92d3)
+- 🐞 수정:折叠 web 五语词包的同行逐字重复键——门 2 / 2e-dupns 由红转绿(全仓提交链解堵) (bec5acc3e8)
+- 🚀 기능/개선:绑定Issue对话框加普通用户用法提示——副标题改白话说明(bindIssueHint)、搜索按钮长句改短动词键(searchIssueAction),五语言同批补键parity 19260 OK;对话框测试12/12、web typecheck全绿;顺带prettier对齐该文件存量格式欠账 (edaa348b22)
+
+**2026-10-26**
 - 🐞 수정:退化留痕账本自身学会老化,并把我上一轮探针注进真账的假历史单独清掉(chore) —— ① pruneEgressLedger(30 天窗,行首 ISO 切分刻意写成 slice(0,tab):写成 slice(0,slice(0,i)) 会把字符串当长度传进去恒 NaN,老化形同虚设——这一格由用例 ⑤ 钉住) ② 被裁条数写进账本自己的 cad=prune marker,共享层不打 stdout/stderr(否则污染几百把尺子的逐字基线) ③ 注入口 isForceDirect/pruneEgressLedger/KEEP_DAYS/noteEgressDegradation 进 __test__ 供镜像测试消费 ④ 新增 ③e/③f(绕过通道 env→第一趟直连→不叠第二趟 三段接线锁)与 ⑤/⑤a/⑤b/⑤c(端到端真写盘,夹具落 mkScratch 不碰真账);另把真账里 verb=probe｜依据=夹具 那 1 行删除(我自己造的假历史,其余 105 行一字未动) —— 用例 21/21 全绿 (939f7ff30e)
 - 🐞 수정:离线语言包随 G-957 新键重生成——门 105 由红转绿 (d1b79b8411)
 - 🔧 기타:G-1102638 批1 同主键副本行物理归并 — 删 2 行(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;复跑auditPlan对账F1=0/F9不增;逐行留痕 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-26.md) (125a0d4a3c)
@@ -2279,48 +2320,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:原生窗控三钮基准改客户区 + 暗色主题接通(上报腿与像素实测双路) (8298c3522b)
 - 🚀 기능/개선:数据大屏页面排行与停留 TOP 标注访问面,停留窗口与 WINDOW_DAYS 同源 (99a533eb6b)
 - 🐞 수정:原生窗控配色对齐网页 + 渲染链路可诊断 (bbaa8f5ef5)
-
-**2026-10-26**
-- 🔧 기타:L28794 同键去重票风险注记——迁移ca69d3a984(idx=344)随部署环自动应用生产库,DELETE硬编码id=46系dev编号生产未实测,点名误删合法行风险+机主三条只读核验查询与三档裁决 (ae2a8d4cdc)
-- 🔧 기타:G-1102638 批1 同主键副本行物理归并 — 删 7 行(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;复跑auditPlan对账F1=0/F9不增;逐行留痕 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-26.md) (83e85a18eb)
-
-**2026-10-26**
-- 🐞 수정:明文 doom_loop 审计守护改回先睡后扫 —— 现读 .env 有真 DSN 且 config 导入即同步 os.environ,先扫后睡会让 TestClient lifespan 用例装载瞬间真连库(§5 铁律,2026-09-12/10-24 两案同型);与 expiry_janitor 同形后短命进程全程不碰真库,闩用例改钉 calls==0;130 全绿,ruff/mypy/watermark 过 (01b11df130)
-- 🚀 기능/개선:明文 doom_loop 审计守护接线装车 —— main.py lifespan 装载 ensure_started(默认开,先扫后睡)+shutdown 步骤入列;守护用例 13 例钉死:零写盘绊线/undetermined 不带计数/待改写与撞键点名 --apply/装载闩幂等/间隔回落夹下限 (e5ef306822)
-- 🚀 기능/개선:明文 doom_loop 存量审计守护装车(清洗器定时批量 dry-run 触发点) —— 判据单源复用 scripts/redact_legacy_procedural_patterns.py 本体(importlib 按路径加载,零写盘,apply_updates 绊线钉死);缺DSN/连不上/schema不符一律 undetermined 不读成 0 行;待改写或撞键>0 即 warning 点名手动 --apply;默认开,PROCEDURAL_REDACT_AUDIT_ENABLED/_INTERVAL_SECONDS(86400s,下限300s),先扫后睡;随 lifespan 装载+shutdown 步骤入列;新测试 13 例,关联四套 130 全绿,mypy strict/ruff check 过 (0f28000c95)
-- 🔧 기타:重生成 ui-routes 产物对齐 Input.tsx 最新输入 —— 自述钉 581462972f0a，四端 ui-routes 全 matched；门 105 工作树档绿 (1a78651672)
-- 🔧 기타:结清门94 R4射程票 —— 16 处状态直转收敛 coerceKnownOr 入库 1ef438970e;R4a 0 处/R4b 通过 11 未判定 0 RC=0,typecheck 8/8,两颗测试 19+7 全绿 (26dcd5c0e3)
-- 📚 문서:新登记一票 goal-20261026-b9r1 —— lint-staged stdio 三针补丁打在 node_modules 内,postinstall 不重打、无守门盯针,重装依赖即失效(未取号:G 族号池已满属既成事实;归属:pre-commit 钩子持有人) (386f111090)
-- 📚 문서:结清注记 goal-20261026-b9r1 —— G-706 注记(四格全在位:worktree EEXIST 原子互斥+reused、提交后解除武装、对账三态;证据枚 9e5d56cf20/5cc0e0debc/2c9d2d57ee 均 merge-base 验讫;测试 11/11 绿)+ G-59 现读更正(误映射枚 c08c71f7e7 实为门83 R4,services 直转 19→16 未消解,不注结清);注记不动勾不摘牌 (80063723ee)
-- 📚 문서:结清注记 goal-20261026-b8r1 —— G-22 注记(FM 维 F9b 落地接进收敛闸,现读 malformedIds=0;证据枚 ed0c8f671e merge-base --is-ancestor 验讫;注记不动勾不摘牌) (fbc85771ad)
-
-**2026-10-26**
-- 🚀 기능/개선:明文 doom_loop 存量审计守护装车(清洗器定时批量 dry-run 触发点) —— 判据单源复用 scripts/redact_legacy_procedural_patterns.py 本体(importlib 按路径加载,零写盘,apply_updates 绊线钉死);缺DSN/连不上/schema不符一律 undetermined 不读成 0 行;待改写或撞键>0 即 warning 点名手动 --apply;默认开,PROCEDURAL_REDACT_AUDIT_ENABLED/_INTERVAL_SECONDS(86400s,下限300s),先扫后睡;随 lifespan 装载+shutdown 步骤入列;新测试 13 例,关联四套 130 全绿,mypy strict/ruff check 过 (0f28000c95)
-- 🔧 기타:重生成 ui-routes 产物对齐 Input.tsx 最新输入 —— 自述钉 581462972f0a，四端 ui-routes 全 matched；门 105 工作树档绿 (1a78651672)
-- 🔧 기타:结清门94 R4射程票 —— 16 处状态直转收敛 coerceKnownOr 入库 1ef438970e;R4a 0 处/R4b 通过 11 未判定 0 RC=0,typecheck 8/8,两颗测试 19+7 全绿 (26dcd5c0e3)
-- 📚 문서:新登记一票 goal-20261026-b9r1 —— lint-staged stdio 三针补丁打在 node_modules 内,postinstall 不重打、无守门盯针,重装依赖即失效(未取号:G 族号池已满属既成事实;归属:pre-commit 钩子持有人) (386f111090)
-- 📚 문서:结清注记 goal-20261026-b9r1 —— G-706 注记(四格全在位:worktree EEXIST 原子互斥+reused、提交后解除武装、对账三态;证据枚 9e5d56cf20/5cc0e0debc/2c9d2d57ee 均 merge-base 验讫;测试 11/11 绿)+ G-59 现读更正(误映射枚 c08c71f7e7 实为门83 R4,services 直转 19→16 未消解,不注结清);注记不动勾不摘牌 (80063723ee)
-- 📚 문서:结清注记 goal-20261026-b8r1 —— G-22 注记(FM 维 F9b 落地接进收敛闸,现读 malformedIds=0;证据枚 ed0c8f671e merge-base --is-ancestor 验讫;注记不动勾不摘牌) (fbc85771ad)
-
-**2026-10-26**
-- 📚 문서:结清注记批 goal-20261026-b7r1 —— G-941/G-24/G-37① 注记(G-752 已被他席翻勾不再注;证据枚 merge-base --is-ancestor 验讫;注记不动勾不摘牌,摘牌归守门109) (88728a5899)
-
-**2026-10-26**
-- 🔧 기타:结清 G-752 能力面板 —— 现读已走 readCredentialStoreSnapshot 报 readFault 状态,专项 3 例真跑全绿 (66c2a7cef2)
-- 🐞 수정:web zh-TW 三处简体字残留改繁体 —— 前台→前臺、後台→後臺、任一台→任一臺；门 2b 复跑绿 (2c2699be79)
-- 📚 문서:守门 207 体积清偿 —— 三份近重复块(R4 补记旧版×2 + 完成即删短版×1)逐字移入 .ihui-agent/archive/AGENTS_trim-2026-10-26.md，保留含 CI 问责腿与 10-23 补遗的最全版；99,501→94,458 字节(余量 1,542)；门 89 R4 文档未点名 0、水印 2/2 (a232db41f1)
-- 🔧 기타:G-395 摘禁令措辞 + 归属写法归一(2026-10-25 禁令桶;正文与租约未动),解锁分叉收敛 (9148fe1271)
-- 🔧 기타:D-07 新词条重生成离线包与 ui-routes 派生产物 (a6360212bc)
-- 🔧 기타:结清回捞副本三条 —— 门149 两行同题副本(实测 barrels=36/hits=0/undetermined=0 RC=0)+ 流中切模型(18 例单测绿;真浏览器留痕未做如实登记) (6e5f06d17d)
-- 🔧 기타:结清门149四行同题副本(实测 barrels=36/hits=0/undetermined=0 RC=0)与流中切模型(18例单测绿;真浏览器留痕未做如实登记) (12878807bb)
-- 📚 문서:结清注记批6 goal-20261026-b5r2——自进化系列 7 行注记(需求发现器/反馈闭环落账枚、r5 四行接线腿已落+租约可解、金丝雀已交付锚点);证据枚全部 merge-base --is-ancestor 验讫;注记不动勾不摘牌,摘牌归守门109 (3ecde818bc)
-- ♻️ 리팩터:门 103 C1 终格 —— git-guardian 6562→5969，71 块注释逐字归档 scripts-comment-archive-2026-10-26.md（anchor 可追）；非注释行遮罩折叠后逐字节相等 PASS，git-guardian 族 259/259 绿，门 103 工作树档 0 违规 (f00a45e958)
-- 🔧 기타:结清 face-reader 棘轮票 —— 第19枚定位为 check-analytics-page-coverage.mjs,已迁 gitRaw 入库 d951ede3a2;35/35 全绿 RC=0,基线未下调 (65d0772319)
-- 🚀 기능/개선:Wave1 gap 屏补齐 — legal/workflows/teams/tags/agreement/support 六域 13 条路由 gap→aligned (e693d3fc32)
-
-**2026-10-26**
-- 🐞 수정:root-guard P0 漂移复封 —— 人工复核枚29764ed0cc(门103 C1腾行,diff纯注释:15归档指针行新增/127注释空行删除/零代码行变动,非注释行与封存版逐字节一致)正当,合并枚bedc2a599c/735e171a62 blob未变、哨兵枚ccae5cc198/6409142643未动runner;manifest期望2cc6486652c5→76db26e5ced6,--check verdict=pass (25f618b960)
-- 🚀 기능/개선:D-07 失效审批在侧栏也走提示条,四端接线锁补齐 (a87dc98068)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
