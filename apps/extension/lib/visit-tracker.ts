@@ -7,11 +7,12 @@
  *
  * popup 与 sidepanel 是两套独立 UI,此前一次都不上报 —— 后台「各端使用量」里插件端
  * 永远读 0,而漏报在监控面上的表现是「这个端没人在用」(最难被发现的一型)。
+ * 除 PV 外,侧栏换视图时结算上一页 `page_time` 停留(web/RN/小程序同口径)。
  *
  * 路径前缀 `/ex/` 是服务端分桶的唯一判据(见 apps/api/src/db/visit-tracking-queries.ts
  * 的 `VISIT_PLATFORM_PATH_PREFIXES`),不得改成查询参数或换前缀。
  */
-import { recordVisitLog, setBaseUrl } from '@ihui/api-client'
+import { recordAnalyticsEvents, recordVisitLog, setBaseUrl } from '@ihui/api-client'
 import { getApiBaseUrl, initApiBaseUrl } from './config'
 
 export const EXT_VIEW_PREFIX = '/ex'
@@ -59,11 +60,46 @@ export function extensionViewPath(view: string | null | undefined): string | nul
 }
 
 const lastReportAt = new Map<string, number>()
+/** 当前视图与进入时刻:换视图时结算上一页停留(与去抖状态分列,互不影响)。 */
+let enterView = ''
+let enterAt = 0
 
-/** 上报一次视图访问;返回是否真的发出(被去抖或空名 ⇒ false)。失败静默,绝不影响 UI。 */
+/**
+ * 停留低于 1 秒(四舍五入后)不报:侧栏切页动画与 AI 操控指令引起的路由抖动
+ * 不是"看了多久",报上去只会把数据大屏的停留均值拉向 0。
+ * popup 是瞬时面板,关闭时上下文已销毁,不产停留 —— 只结算侧栏的逐页停留。
+ */
+export const EXT_MIN_VIEW_TIME_SEC = 1
+
+/** 上报一次视图访问;返回是否真的发出 PV(被去抖或空名 ⇒ false)。失败静默,绝不影响 UI。 */
 export function reportExtensionView(view: string | null | undefined, now = Date.now()): boolean {
   const path = extensionViewPath(view)
   if (!path) return false
+  if (path !== enterView) {
+    if (enterView) {
+      const seconds = Math.round((now - enterAt) / 1000)
+      // 先按值取走上一页路径:回调是异步的,直接引用 enterView 会读到换页之后的新视图
+      const leftView = enterView
+      if (seconds >= EXT_MIN_VIEW_TIME_SEC) {
+        void ensureApiBaseUrl()
+          .then(() =>
+            recordAnalyticsEvents([
+              {
+                name: 'page_time',
+                category: 'user_engagement',
+                label: leftView,
+                value: seconds,
+              },
+            ]),
+          )
+          .catch(() => {
+            /* 埋点失败静默 */
+          })
+      }
+    }
+    enterView = path
+    enterAt = now
+  }
   const last = lastReportAt.get(path)
   if (last !== undefined && now - last < EXT_VIEW_DEBOUNCE_MS) return false
   lastReportAt.set(path, now)
@@ -77,6 +113,8 @@ export function reportExtensionView(view: string | null | undefined, now = Date.
 
 export function __resetExtensionViewTrackingForTest(): void {
   lastReportAt.clear()
+  enterView = ''
+  enterAt = 0
   apiBaseUrlReady = null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
