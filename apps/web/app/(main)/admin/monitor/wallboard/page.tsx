@@ -29,6 +29,7 @@ import {
   Gauge,
   Globe,
   HardDrive,
+  Layers,
   Maximize2,
   Minimize2,
   MousePointerClick,
@@ -225,6 +226,21 @@ interface TrafficSnapshot {
     pv90d?: number
     lastSeenAt?: string | null
   }> | null
+  /** 近 24h 会话质量(来了之后看了几屏 / 落地页排行);null = 同一条腿取不到 */
+  sessionQuality: {
+    /** 窗口内会话数(标签页级口径:一个标签页一个 session) */
+    sessions: number
+    /** 只停留在一个页面的会话数 */
+    singlePageSessions: number
+    /** 单页会话占比 0..1;会话数为 0 ⇒ null(「没判」不是「零」) */
+    singlePageRate: number | null
+    /** 平均每会话 PV;会话数为 0 ⇒ null */
+    avgPvPerSession: number | null
+    /** 会话深度分档(1 / 2-3 / 4-7 / 8+ 屏) */
+    depth: Array<{ bucket: '1' | '2-3' | '4-7' | '8+'; sessions: number }>
+    /** 落地页 TOP(进来的会话最多的页面)+ 其中「只停这一页」的会话数 */
+    entryPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
+  } | null
   /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
   online5m: number | null
   /** 近 5 分钟浏览量 */
@@ -257,6 +273,29 @@ function splitPlatformPrefix(url: string): ['rn' | 'mp' | 'ex', string, string] 
   }
   return null
 }
+
+/**
+ * 会话深度分档 → 文案键。
+ *
+ * 桶**不是**前端自己数的:服务端 `services/session-quality-stats-service.ts` 按 PV 数
+ * 分好四档回传(判据单一真相源),前端只负责把桶渲染出来 + 配文案。
+ * 档位边界(1 / 2-3 / 4-7 / 8+)不许在前端另写一份 —— 那样两侧早晚会漂。
+ */
+const SESSION_DEPTH_LABEL_KEY: Record<
+  '1' | '2-3' | '4-7' | '8+',
+  'sessionDepth1' | 'sessionDepth23' | 'sessionDepth47' | 'sessionDepth8Plus'
+> = {
+  '1': 'sessionDepth1',
+  '2-3': 'sessionDepth23',
+  '4-7': 'sessionDepth47',
+  '8+': 'sessionDepth8Plus',
+}
+
+/**
+ * 深度分档堆叠条的档位配色(同色系递减,不引入告警色)。
+ * 刻意不给「单屏会话占比高」染红 —— 那是事实不是故障,染成告警会让面板天天报警。
+ */
+const SESSION_DEPTH_BAR_CLASS = ['bg-info', 'bg-info/70', 'bg-info/45', 'bg-info/25'] as const
 
 interface RelayPoolSnapshot {
   keyTotal: number | null
@@ -2833,6 +2872,119 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   {t('platformNoData')}
                 </div>
               ) : null}
+            </div>
+          </Panel>
+
+          {/* 会话质量(2026-10-26):visit_logs 的 session_id 族 —— 来了之后看了几屏、从哪一页落地。
+              口径 = 标签页级会话(web 端写在 sessionStorage,一个标签页一个 sid),不是 30 分钟
+              滚动窗口 ⇒ 文案照实说,不包装成行业通用定义。分档判据在服务端,前端只渲染。 */}
+          <Panel
+            title={t('panelSessionQuality')}
+            icon={<Layers className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={
+              traffic === null || traffic.sessionQuality === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('sessionQualitySessions', { count: fmtInt(traffic.sessionQuality.sessions) })}
+                </span>
+              )
+            }
+            bodyClassName="wb-split wb-split-c3"
+          >
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('sessionQualityDepth')}
+              </div>
+              {/* 深度堆叠条:分母为 0(窗口内没有会话)时整条不画 ——
+                  把"没判"画成"零"是本仓明令禁止。 */}
+              <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                {(traffic?.sessionQuality?.depth ?? []).map((d, i) => {
+                  const total = traffic?.sessionQuality?.sessions ?? 0
+                  const w = total > 0 ? (d.sessions / total) * 100 : 0
+                  if (w <= 0) return null
+                  return (
+                    <div
+                      key={d.bucket}
+                      className={SESSION_DEPTH_BAR_CLASS[i]}
+                      style={{ width: `${w}%` }}
+                    />
+                  )
+                })}
+              </div>
+              <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
+                {(traffic?.sessionQuality?.depth ?? []).map((d, i) => (
+                  <div key={d.bucket} className="flex min-w-0 items-center gap-1">
+                    <span
+                      className={cn('h-1.5 w-1.5 shrink-0 rounded-sm', SESSION_DEPTH_BAR_CLASS[i])}
+                    />
+                    <span className="truncate text-[9px] text-muted-foreground">
+                      {t(SESSION_DEPTH_LABEL_KEY[d.bucket])}
+                    </span>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-foreground">
+                      {fmtInt(d.sessions)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1.5 space-y-1">
+                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
+                  <span className="text-[10px] text-foreground">
+                    {t('sessionQualitySinglePage')}
+                  </span>
+                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                    {isNum(traffic?.sessionQuality?.singlePageRate)
+                      ? `${Math.round((traffic?.sessionQuality?.singlePageRate ?? 0) * 100)}%`
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
+                  <span className="text-[10px] text-foreground">{t('sessionQualityAvgPv')}</span>
+                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                    {isNum(traffic?.sessionQuality?.avgPvPerSession)
+                      ? (traffic?.sessionQuality?.avgPvPerSession ?? 0).toFixed(1)
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+              {traffic?.sessionQuality === null ? (
+                <div className="flex justify-center px-2 py-2">
+                  <SourceGap text={t('sourceUnreachable')} />
+                </div>
+              ) : null}
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('sessionQualityEntryTop')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.sessionQuality?.entryPages ?? []).map((p) => (
+                  <div
+                    key={p.url}
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="truncate text-[10px] text-foreground">{p.url}</span>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                      {fmtInt(p.sessions)}
+                      <span className="text-muted-foreground">
+                        {' '}
+                        / {fmtInt(p.singlePageSessions)}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+                {traffic?.sessionQuality && traffic.sessionQuality.entryPages.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('sessionQualityNoData')}
+                  </div>
+                ) : null}
+                {traffic?.sessionQuality === null ? (
+                  <div className="flex justify-center px-2 py-2">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : null}
+              </div>
             </div>
           </Panel>
 
