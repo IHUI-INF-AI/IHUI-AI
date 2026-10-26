@@ -90,6 +90,18 @@ export function shouldAttemptAutoLogin(deps: AutoLoginDeps): boolean {
 export type RefreshFailureKind = 'rejected' | 'transient'
 
 /**
+ * 会话提示 Cookie 的名字(2026-10-27 立,下发方与读取方共用同一条)。
+ *
+ * 后端 `setAuthCookies`/`clearAuthCookies` 用它写,web `getSessionHintCookie` 用它读。
+ * 名字一旦漂移,这条链不会报错 —— 只会静默回到「老用户冷启动被判成匿名」的旧行为,
+ * 而那正是它要治的病(§0.6:同类取值全仓只许一份)。
+ *
+ * 它回答的只是"这台浏览器有没有过一条 30 天会话",不含任何凭据,因此**必须是非
+ * httpOnly**(否则 JS 读不到,整条链失去意义)。
+ */
+export const SESSION_HINT_COOKIE_NAME = 'ihui_session_hint'
+
+/**
  * 「陈旧 refresh token 副本」的稳定错误码(2026-10-26)。
  *
  * 后端 `POST /auth/refresh` 的重放裁决有三档(race / stale-sibling / reuse):

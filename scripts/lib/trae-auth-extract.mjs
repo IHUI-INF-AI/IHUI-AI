@@ -171,7 +171,50 @@ export function extractDeviceMaterial(storeJson) {
   return { deviceId, machineId, privateKeyPem, publicKeyPem }
 }
 
-/** Trae 数据目录候选:`IHUI_TRAE_DIR` 覆盖 > Trae CN > TRAE SOLO CN > Trae */
+/** Users 根候选(跨 profile 兜底扫描用):系统盘\Users > %USERPROFILE% 的父目录 > homedir 盘根\Users。
+ *  全部来自显式输入(env / homedir),不吃 cwd;取不到的根由 listSubDirs 归空。 */
+export function traeUsersRoots(env = process.env, homedir = os.homedir()) {
+  const roots = []
+  const drive = String(env.SystemDrive ?? '')
+    .trim()
+    .replace(/[\\/]+$/, '')
+  if (drive) roots.push(path.join(drive, 'Users'))
+  const up = String(env.USERPROFILE ?? '').trim()
+  if (up) roots.push(path.dirname(path.resolve(up)))
+  try {
+    roots.push(path.join(path.parse(path.resolve(homedir)).root, 'Users'))
+  } catch {
+    // homedir 形态解析不了 ⇒ 这条候选不要,不影响其它根
+  }
+  const seen = new Set()
+  return roots.filter((r) => {
+    const k = path.resolve(r)
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+}
+
+/** 列子目录名(junction/symlink 在 Windows readdir 里不呈 directory,天然避开 "All Users" 环);读不到 ⇒ 空 */
+function listSubDirs(dir) {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Trae 数据目录候选:`IHUI_TRAE_DIR` 覆盖 > 当前 %APPDATA% 三档 > 跨 profile 兜底扫描。
+ * 跨 profile 一档治的是"跑提取的 shell 不是登录用户账户"(服务账户/沙箱身份下
+ * %APPDATA% 指向别处,本机真登录的 Trae 在 C:\Users\<别的用户>\AppData\Roaming,
+ * 2026-10-26 实测就栽在这:首跑只试沙箱 APPDATA 三候选 ⇒ no-envelope,靠手工
+ * IHUI_TRAE_DIR 才救回)。次序即优先级:显式覆盖最先、当前用户先于他人 profile,
+ * 所以永远不会拿别人的旧信封覆盖本机现役会话。`IHUI_TRAE_SCAN_USERS=0` 可关扫描档。
+ */
 export function traeUserDataDirs(env = process.env, homedir = os.homedir()) {
   const appdata = env.APPDATA || path.join(homedir, 'AppData', 'Roaming')
   const override = env.IHUI_TRAE_DIR?.trim()
@@ -179,7 +222,16 @@ export function traeUserDataDirs(env = process.env, homedir = os.homedir()) {
   const list = override
     ? [override, ...names.map((n) => path.join(appdata, n))]
     : names.map((n) => path.join(appdata, n))
-  return list.map((p) => path.resolve(p))
+  if (String(env.IHUI_TRAE_SCAN_USERS ?? '').trim() !== '0') {
+    for (const usersRoot of traeUsersRoots(env, homedir)) {
+      for (const profile of listSubDirs(usersRoot)) {
+        for (const n of names) {
+          list.push(path.join(usersRoot, profile, 'AppData', 'Roaming', n))
+        }
+      }
+    }
+  }
+  return Array.from(new Set(list.map((p) => path.resolve(p))))
 }
 
 /**
@@ -300,6 +352,7 @@ export const __test__ = {
   encryptEnvelope,
   pickAuthEnvelopeKeys,
   traeUserDataDirs,
+  traeUsersRoots,
   toPoolAccount,
   fingerprintOf,
   ExtractError,

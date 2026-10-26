@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { isSessionLoggedOut } from '@/lib/session-marker'
 
 /**
@@ -47,6 +48,11 @@ const FULL_BLEED_PREFIXES = ['/admin/monitor/panels', '/admin/monitor/wallboard'
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const userRoleId = useAuthStore((s) => s.user?.roleId)
+  // 守卫等的是「bootstrap 判完了」,不是「挂载了」:两把宽限计时器都从本 effect 起算,
+  // 而冷启动那次静默刷新实测 2–4s(生产日志里有单条 12.5s 的 refresh_token 查询,API 重启
+  // 窗口只会更久)。刷新还在飞的时候先超时,就会把「凭据完好、再等两秒就接回来」的会话
+  // 弹到登录页,留下一轮无谓重登。失效方向恒为「多等一轮 ready」,绝不是「多弹一次」。
+  const { ready: authReady } = useAuthBootstrap()
   const router = useRouter()
   const pathname = usePathname()
   const [checked, setChecked] = React.useState(false)
@@ -66,6 +72,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   React.useEffect(() => {
     if (!hydrated) return // 等 hydration 完成后再判断,避免 SSR 初始值导致的误重定向
+    if (!authReady) return // 等 bootstrap 落定(见上方 authReady 那条),否则宽限计时会被慢刷新顶穿
     // 延迟一帧再导航(2026-08-29):hydration 完成瞬间同步 replace 会命中
     // Next.js Router 初始化窗口("Router action dispatched before initialization"),
     // 且 dev 下与 middleware/proxy 的 307 形成双重守卫竞态。下一帧 Router 必已就绪;
@@ -116,7 +123,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return () => cancelAnimationFrame(raf)
     }
     setChecked(true)
-  }, [hydrated, isAuthenticated, userRoleId, router])
+  }, [hydrated, authReady, isAuthenticated, userRoleId, router])
 
   if (!checked) {
     return (

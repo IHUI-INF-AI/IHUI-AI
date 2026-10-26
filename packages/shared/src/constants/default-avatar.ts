@@ -7,6 +7,10 @@
  *
  * 必须是**绝对地址**：小程序端不会把 `/images/...`、`/uploads/...` 解析成远端资源，
  * 会当成本地包内路径而加载失败。资源真实落点为 Web `apps/web/public/images/default-avatar.jpg`，
- * 经 `https://aizhs.top/images/default-avatar.jpg` 对外提供。
+ * 经 `https://www.aizhs.top/images/default-avatar.jpg` 对外提供。
+ *
+ * 域名固定为 **www**：`aizhs.top` 走 Cloudflare(境内无 PoP,边缘 301 跳 www 实测 1.13s),
+ * `www.aizhs.top` 走腾讯 EO 国内节点且 `/images/**` 为命中常路径(实测 200 / 0.16s)。
+ * 迁移 20261027091500 同步库内已落地的存量值。
  */
-export const DEFAULT_USER_AVATAR_URL = 'https://aizhs.top/images/default-avatar.jpg' as const
+export const DEFAULT_USER_AVATAR_URL = 'https://www.aizhs.top/images/default-avatar.jpg' as const

@@ -43,7 +43,8 @@ const HELP = `反代账号池导入
 说明:
   - 同一 provider+uid 重复导入 = 覆盖凭证并重置健康状态(用于换 token/刷新);
   - WorkBuddy 需要桌面版正在运行且已登录(密钥只存在于主进程);
-  - Trae 只读 %APPDATA%\\<Trae CN|TRAE SOLO CN>\\User\\globalStorage\\storage.json 的信封,客户端不必在跑;
+   - Trae 读 %APPDATA%\\<Trae CN|TRAE SOLO CN|Trae>\\User\\globalStorage\\storage.json 的信封
+     (进程不是登录用户账户时自动兜底扫本机各用户 profile;IHUI_TRAE_SCAN_USERS=0 可关),客户端不必在跑;
   - 任何输出都不包含令牌明文。
 `
 
