@@ -58,6 +58,10 @@ interface BiDashboardData {
   }
   /** 近 7 日各端使用量(分桶判据与监控大屏同源:前缀表单源) */
   platforms: Array<{ platform: 'web' | 'rn' | 'mp' | 'ex'; pv: number; uv: number }>
+  /** 近 7 日访问面(前台/后台/登录页)PV/UV */
+  faces: Array<{ scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }>
+  /** 近 7 日地域 TOP(city 由服务端按 IP 反查;反查不到写 (未知)) */
+  cities: Array<{ city: string; pv: number; uv: number }>
   /** 近 7 日页面停留 TOP(page_time 均值;样本数 = 停留事件条数) */
   stays: Array<{
     page: string
@@ -90,6 +94,8 @@ const EMPTY: BiDashboardData = {
   sources: [],
   visits: { pv: 0, uv: 0, pages: [], daily: [] },
   platforms: [],
+  faces: [],
+  cities: [],
   stays: [],
   audience: null,
   browsers: null,
@@ -121,6 +127,18 @@ const PLATFORM_BADGE_CLASS: Record<'web' | 'rn' | 'mp' | 'ex', string> = {
   ex: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
 }
 
+/** 访问面(前台/后台/登录页)——与后端 visitScopeCaseSql 同一套分桶值。 */
+const FACE_LABEL: Record<'public' | 'admin' | 'auth', string> = {
+  public: '前台',
+  admin: '后台',
+  auth: '登录页',
+}
+const FACE_BADGE_CLASS: Record<'public' | 'admin' | 'auth', string> = {
+  public: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  admin: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  auth: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+}
+
 const STAT_CARDS = [
   { key: 'totalRevenue' as const, label: '总营收', icon: TrendingUp, color: 'text-emerald-600' },
   { key: 'totalOrders' as const, label: '总订单', icon: ShoppingCart, color: 'text-teal-600' },
@@ -150,6 +168,8 @@ export default function BiDashboardPage() {
   const audience = d.audience ?? null
   const browsers = d.browsers ?? null
   const platforms = d.platforms ?? []
+  const faces = d.faces ?? []
+  const cities = d.cities ?? []
 
   const visitTrendOption: EChartsOption = {
     tooltip: { trigger: 'axis' },
@@ -562,6 +582,84 @@ export default function BiDashboardPage() {
                     <span className="w-16 text-right font-mono text-xs tabular-nums">
                       {pv}
                       <span className="text-muted-foreground"> / {row?.uv ?? 0}</span>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">访问面占比</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            近 7 日 · 前台 / 后台 / 登录页各被打开多少次
+          </p>
+        </CardHeader>
+        <CardContent>
+          {faces.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {isLoading ? '加载中…' : '暂无访问面数据'}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {(['public', 'admin', 'auth'] as const).map((key) => {
+                const row = faces.find((f) => f.scope === key)
+                const max = Math.max(...faces.map((f) => f.pv), 1)
+                return (
+                  <div key={key} className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex w-[22%] shrink-0 items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${FACE_BADGE_CLASS[key]}`}
+                    >
+                      {FACE_LABEL[key]}
+                    </span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                      <div
+                        className="h-full rounded-sm bg-primary/60"
+                        style={{ width: `${Math.round(((row?.pv ?? 0) / max) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="w-16 shrink-0 text-right font-mono text-xs tabular-nums">
+                      {row?.pv ?? 0}
+                      <span className="text-muted-foreground"> / {row?.uv ?? 0}</span>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">地域 TOP</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            近 7 日 · 服务端按 IP 反查（反查不到记为未知）
+          </p>
+        </CardHeader>
+        <CardContent>
+          {cities.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {isLoading ? '加载中…' : '暂无地域数据'}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {cities.map((c) => {
+                const max = cities[0]?.pv || 1
+                return (
+                  <div key={c.city} className="flex items-center gap-2">
+                    <span className="w-[26%] truncate text-xs text-foreground">{c.city}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                      <div
+                        className="h-full rounded-sm bg-primary/60"
+                        style={{ width: `${Math.round((c.pv / max) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="w-16 shrink-0 text-right font-mono text-xs tabular-nums">
+                      {c.pv}
+                      <span className="text-muted-foreground"> / {c.uv}</span>
                     </span>
                   </div>
                 )

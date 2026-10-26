@@ -208,8 +208,15 @@ interface TrafficSnapshot {
   pageTop: Array<{ url: string; scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
   /** 近 24h 各访问面 PV/UV(前台/后台/登录页);null = 同一条腿取不到 */
   scopeSplit: Array<{ scope: 'public' | 'admin' | 'auth'; pv: number; uv: number }> | null
-  /** 近 24h 各端 PV/UV(web/RN/小程序/浏览器插件);null = 同一条腿取不到 */
-  platformSplit: Array<{ platform: 'web' | 'rn' | 'mp' | 'ex'; pv: number; uv: number }> | null
+  /** 近 24h 各端 PV/UV(web/RN/小程序/浏览器插件)+ 90 日接入史;null = 同一条腿取不到 */
+  platformSplit: Array<{
+    platform: 'web' | 'rn' | 'mp' | 'ex'
+    pv: number
+    uv: number
+    /** 近 90 日 PV:用来把"这端从没上报过"与"今天恰好没人用"分开 */
+    pv90d?: number
+    lastSeenAt?: string | null
+  }> | null
   /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
   online5m: number | null
   /** 近 5 分钟浏览量 */
@@ -2732,12 +2739,24 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 ] as const
               ).map(([key, labelKey]) => {
                 const row = (traffic?.platformSplit ?? []).find((p) => p.platform === key)
+                // 24h 零量时,靠 90 日接入史区分"今天没人用"与"这端根本没接入"——两者在 24h 口径下逐字同形
+                const statusKey =
+                  (row?.pv ?? 0) > 0
+                    ? null
+                    : (row?.pv90d ?? 0) > 0
+                      ? 'platformQuiet'
+                      : 'platformNever'
                 return (
                   <div
                     key={key}
                     className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
                   >
                     <span className="text-[10px] text-foreground">{t(labelKey)}</span>
+                    {statusKey && traffic !== null ? (
+                      <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">
+                        {t(statusKey)}
+                      </span>
+                    ) : null}
                     <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
                       {fmtInt(row?.pv)}
                       <span className="text-muted-foreground"> / {fmtInt(row?.uv)}</span>

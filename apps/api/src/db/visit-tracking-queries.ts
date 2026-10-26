@@ -401,8 +401,9 @@ const PAGE_USAGE_TOP_N = 8
 /**
  * scope 的 SQL 投影:与 `classifyVisitScope` 共用同一组前缀常量。
  * 前缀词表只在文件顶部定义一次,这里不重抄(§0.6 单一真相源)。
+ * 导出给数据大屏复用:监控面与前台/后台/登录页分桶必须是同一份判据。
  */
-function scopeCaseSql() {
+export function visitScopeCaseSql() {
   const path = sql<string>`coalesce(${visitLogs.url}, '')`
   const admin = sql`${path} like ${`${ADMIN_PATH_PREFIX}%`}`
   const auth = sql`(${sql.join(
@@ -430,8 +431,53 @@ export type VisitPlatform = 'web' | 'rn' | 'mp' | 'ex'
 
 export interface PlatformUsageLiveRow {
   platform: VisitPlatform
+  /** 近 24h(大屏窗口)PV/UV */
   pv: number
   uv: number
+  /** 近 90 日 PV —— 用来把"这端从没上报过"与"今天恰好没人用"分开 */
+  pv90d: number
+  /** 这端最后一次被记到的时刻(ISO 文本);90 日内无记录 ⇒ null */
+  lastSeenAt: string | null
+}
+
+/** 端接入史的窗口天数。 */
+export const PLATFORM_HISTORY_DAYS = 90
+
+/**
+ * 24h 端计数与 90 日接入史合并成大屏那一块。
+ * 两腿的分组表达式同源(`visitPlatformCaseSql`),所以键一定是同一套端值。
+ * 排序按 24h PV 降序,并列时按 90 日 PV 降序 —— 一条都没的端也要留在表上,
+ * 否则"这端零接入"会被读成"这端不存在"。
+ */
+export function mergePlatformRows(
+  live: Array<{ platform: VisitPlatform; pv: number | string; uv: number | string }>,
+  history: Array<{ platform: VisitPlatform; pv90d: number | string; lastSeenAt: string | null }>,
+): PlatformUsageLiveRow[] {
+  const byEnd = new Map<VisitPlatform, PlatformUsageLiveRow>()
+  const blank = (platform: VisitPlatform): PlatformUsageLiveRow => ({
+    platform,
+    pv: 0,
+    uv: 0,
+    pv90d: 0,
+    lastSeenAt: null,
+  })
+  // 先把四端铺满:一条都没的端也要留在表上,否则"这端零接入"会被读成"这端不存在"
+  for (const end of [...Object.keys(VISIT_PLATFORM_PATH_PREFIXES), 'web'] as VisitPlatform[]) {
+    byEnd.set(end, blank(end))
+  }
+  for (const r of history) {
+    const row = byEnd.get(r.platform) ?? blank(r.platform)
+    row.pv90d = Number(r.pv90d ?? 0)
+    row.lastSeenAt = r.lastSeenAt ?? null
+    byEnd.set(r.platform, row)
+  }
+  for (const r of live) {
+    const row = byEnd.get(r.platform) ?? blank(r.platform)
+    row.pv = Number(r.pv ?? 0)
+    row.uv = Number(r.uv ?? 0)
+    byEnd.set(r.platform, row)
+  }
+  return [...byEnd.values()].sort((a, b) => b.pv - a.pv || b.pv90d - a.pv90d)
 }
 
 /** 端筛选:端值 + 'all'。 */
@@ -523,9 +569,9 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
   const inWindow = sql`${visitLogs.createdAt} >= ${start}`
   const pvExpr = sql<number>`count(*)::int`
   const uvExpr = sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`
-  const scopeExpr = scopeCaseSql()
+  const scopeExpr = visitScopeCaseSql()
   const platformExpr = visitPlatformCaseSql()
-  const [topRows, scopeRows, platformRows, onlineRows] = await Promise.all([
+  const [topRows, scopeRows, platformRows, platformHistoryRows, onlineRows] = await Promise.all([
     db
       .select({ url: visitLogs.url, pv: pvExpr, uv: uvExpr })
       .from(visitLogs)
@@ -543,6 +589,21 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
       .select({ platform: platformExpr, pv: pvExpr, uv: uvExpr })
       .from(visitLogs)
       .where(inWindow)
+      .groupBy(platformExpr)
+      .orderBy(sql`count(*) desc`),
+    // 端接入史(90 日):回答"这一端到底有没有在产数据"。零行的端与"今天没人用"在 24h 口径下
+    // 逐字同形,不补这一腿就只能靠人去猜(小程序/插件/RN 接入初期尤其如此)。
+    // 走 visit_date(有索引)而不是 created_at(无索引),字符串界与写入侧同用上海业务日。
+    db
+      .select({
+        platform: platformExpr,
+        pv90d: sql<number>`count(*)::int`,
+        lastSeenAt: sql<string | null>`max(${visitLogs.createdAt})::text`,
+      })
+      .from(visitLogs)
+      .where(
+        sql`${visitLogs.visitDate} >= to_char(now() - make_interval(days => ${PLATFORM_HISTORY_DAYS}) at time zone 'Asia/Shanghai', 'YYYY-MM-DD')`,
+      )
       .groupBy(platformExpr)
       .orderBy(sql`count(*) desc`),
     // 实时在线:近 5 分钟的去重会话(UV 口径)与浏览量 —— 大屏"此刻多少人在用"
@@ -566,11 +627,7 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
       pv: Number(r.pv ?? 0),
       uv: Number(r.uv ?? 0),
     })),
-    platforms: platformRows.map((r) => ({
-      platform: r.platform,
-      pv: Number(r.pv ?? 0),
-      uv: Number(r.uv ?? 0),
-    })),
+    platforms: mergePlatformRows(platformRows, platformHistoryRows),
     online5m: Number(onlineRows[0]?.online ?? 0),
     pv5m: Number(onlineRows[0]?.pv ?? 0),
     totalPv: scopeRows.reduce((sum, r) => sum + Number(r.pv ?? 0), 0),

@@ -32,9 +32,9 @@
  *   通用组件时不会重新声明它们 —— 把它们算进分母会让还原度恒低,进而逼出恒红(§12e/§12f)。
  *   GENERIC_NS 单源在 gen-miniapp-mirror.mjs(与生成器同一份清单),本门 import,不复制第二份。
  *
- * 棘轮(唯一 blocking 维):锚点 = **HEAD 面**同一 spec 的缺口集(§0.5「棘轮锚点 = 该文件
- *   HEAD 自身的违规数」)。只拦「本次改动把 HEAD 上已还原的键又丢掉」;存量缺口只报数(§12e);
- *   HEAD 面尚无镜像对的新增页不拦(那是收口,不是倒退)。
+ * 棘轮(唯一 blocking 维):锚点 = **基线面**同一 spec 的缺口集(默认 HEAD 面,§0.5「棘轮锚点 =
+ *   该文件 HEAD 自身的违规数」;CI 问责腿用 --base=<ref> 显式指定基线)。只拦「本次改动把基线上
+ *   已还原的键又丢掉」;存量缺口只报数(§12e);基线面尚无镜像对的新增页不拦(那是收口,不是倒退)。
  *   为什么不拿人工基线 JSON 当锚点:coverage 已实证「补 47 条镜像后基线仍是旧读数 ⇒ 删任意
  *   一条标记门都判绿 = 假绿」。故一律 git 读 HEAD 面,免维护、不过期。
  *
@@ -45,10 +45,19 @@
  * 退出码:0 = 通过(含存量缺口只报数);1 = 判出倒退(blocking);2 = 未判定(取不到被审面、
  *   当前面 0 个镜像对 ⇒ 按 §0.3 不记绿也不冒红)。
  *
+ * 接线(2026-10-26 定,AGENTS R4 补记 ② 同批):
+ *   · 本机面 = 只读尺子:根 package.json `check:mirror-fidelity` + git-guardian 巡检轮派发,
+ *     **不进提交链** —— 存量缺口 avg≈24.4% 若进链即恒红,恒红门的唯一结局是逼人 --no-verify
+ *     (§12e/§12f,连带废掉全部守门)。
+ *   · CI 面 = 不可旁路问责腿:ci-monorepo.yml build 矩阵 miniapp-taro 档直跑
+ *     `--base=<基线>`(PR 判 base.sha,push 判 HEAD^1)。三档面在 CI 干净检出上全部退化
+ *     (staged/worktree==HEAD ⇒ 倒退恒空),故问责必须走 --base 显式基线,否则这一步是假接线。
+ *
  * Usage:
  *   node scripts/check-miniapp-mirror-fidelity.mjs              # 默认判 HEAD 面
  *   node scripts/check-miniapp-mirror-fidelity.mjs --staged     # 提交链档(索引 blob)
  *   node scripts/check-miniapp-mirror-fidelity.mjs --worktree   # 人工逃生舱(磁盘)
+ *   node scripts/check-miniapp-mirror-fidelity.mjs --base=<ref> # 显式基线(CI 问责腿,任意 git 可解析 ref)
  *   node scripts/check-miniapp-mirror-fidelity.mjs --json       # 机读(喂缺口账本)
  *   node scripts/check-miniapp-mirror-fidelity.mjs --top=10     # 列出缺口最大的 10 对
  *   node scripts/check-miniapp-mirror-fidelity.mjs --quiet      # 仅输出结论与失败
@@ -86,7 +95,7 @@ export function batchReadTexts(face, rels) {
     }
     return out
   }
-  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const prefix = face === 'staged' ? ':' : `${face === 'head' ? 'HEAD' : face}:`
   if (keys.length === 0) return new Map()
   const got = catBatch(ROOT, keys.map((k) => prefix + k), { maxBuffer: 1 << 28 })
   const out = new Map()
@@ -177,7 +186,7 @@ export function computeFidelity(face) {
   }
 }
 
-/** 棘轮:当前面相对 HEAD 面**新增**的缺口(存量不拦)。返回 [{spec, route, added}]。 */
+/** 棘轮:当前面相对基线面(默认 HEAD,CI 腿为 --base=<ref>)**新增**的缺口(存量不拦)。返回 [{spec, route, added}]。 */
 export function regressions(now, base) {
   const baseMissing = new Map()
   const basePaired = new Set()
@@ -199,10 +208,12 @@ function parseArgs(argv) {
   const staged = argv.includes('--staged')
   const worktree = argv.includes('--worktree')
   const topArg = argv.find((a) => a.startsWith('--top='))
+  const baseArg = argv.find((a) => a.startsWith('--base='))
   const top = topArg ? Number(topArg.slice('--top='.length)) : 0
   return {
     staged,
     worktree,
+    baseRef: baseArg ? baseArg.slice('--base='.length) : '',
     json: argv.includes('--json'),
     quiet: argv.includes('--quiet'),
     top: Number.isFinite(top) && top > 0 ? Math.floor(top) : 0,
@@ -235,11 +246,29 @@ function run() {
     return 2
   }
 
-  const base = face === 'head' ? now : computeFidelity('head')
+  let base
+  try {
+    base = opts.baseRef
+      ? computeFidelity(opts.baseRef)
+      : face === 'head'
+        ? now
+        : computeFidelity('head')
+  } catch (e) {
+    console.error(`❌ 未判定(基线面 ${opts.baseRef || 'head'} 取材异常):${e?.message ?? e}`)
+    return 2
+  }
   const reg = regressions(now, base)
   const state = reg.length > 0 ? 'regressed' : 'ok'
+  const baseLabel = opts.baseRef || (face === 'head' ? 'self' : 'head')
+  // 基线护栏:faceList/faceRead 把"ref 不可解析"吞成空清单 ⇒ 基线空 ⇒ 倒退恒空 ⇒ 静默冒绿。
+  // 0 个共享屏只可能是坏 ref 或该面无共享层 ⇒ 当场未判定(§0.3),绝不拿空基线判通过。
+  if (base.sharedCount === 0) {
+    console.error(`❌ 未判定:基线面 ${baseLabel} 枚举到 0 个共享屏(ref 不可解析或该面无共享层 ⇒ 不记绿)`)
+    return 2
+  }
   const summary = {
     face,
+    base: baseLabel,
     state,
     pairs: now.pairs,
     avg: now.avg,
@@ -255,7 +284,7 @@ function run() {
     return reg.length > 0 ? 1 : 0
   }
 
-  const head = `FIDELITY-RESULT face=${face} pairs=${now.pairs} avg=${pct(now.avg)} missing=${now.totalMissing} regressions=${reg.length} state=${state}`
+  const head = `FIDELITY-RESULT face=${face} base=${baseLabel} pairs=${now.pairs} avg=${pct(now.avg)} missing=${now.totalMissing} regressions=${reg.length} state=${state}`
   console.log(head)
   if (reg.length > 0) {
     console.log('❌ 还原度倒退(本次丢掉的键):')

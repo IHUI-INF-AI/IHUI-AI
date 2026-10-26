@@ -11,7 +11,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { setBaseUrl, setTokenProvider, type ToolDeltaEvent } from '@ihui/api-client';
+import { setBaseUrl, type ToolDeltaEvent } from '@ihui/api-client';
+import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import type { ToolResultDisplaySource } from '@ihui/types';
 import {
   createToolDeltaBridge,
@@ -122,9 +123,9 @@ export class AgentCore {
   constructor(opts: AgentCoreOptions) {
     this.opts = opts;
     setBaseUrl(opts.apiUrl);
-    if (opts.apiKey) {
-      setTokenProvider({ getToken: () => opts.apiKey ?? null });
-    }
+    // 凭据续期单点:`ihui serve` 是长驻进程,不带 refreshAccessToken 就等于
+    // 每 15 分钟把整个服务打成 401(且结构上无法自愈)
+    registerCliTokenProvider({ baseUrl: opts.apiUrl, startupToken: opts.apiKey });
   }
 
   private async ensureAgent(): Promise<{ systemPrompt: string; ctx: ToolContext }> {

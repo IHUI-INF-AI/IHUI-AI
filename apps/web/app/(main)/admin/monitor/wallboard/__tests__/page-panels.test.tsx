@@ -114,10 +114,12 @@ const overview = {
       { scope: 'auth', pv: 20, uv: 18 },
     ],
     platformSplit: [
-      { platform: 'web', pv: 4000, uv: 280 },
-      { platform: 'rn', pv: 120, uv: 20 },
-      { platform: 'mp', pv: 80, uv: 15 },
-      { platform: 'ex', pv: 12, uv: 4 },
+      { platform: 'web', pv: 4000, uv: 280, pv90d: 9200, lastSeenAt: '2026-10-26T00:00:00Z' },
+      { platform: 'rn', pv: 120, uv: 20, pv90d: 300, lastSeenAt: '2026-10-26T00:00:00Z' },
+      // 小程序:90 日内一条都没有 ⇒ 该端"未上报",而不是"今天没人用"
+      { platform: 'mp', pv: 0, uv: 0, pv90d: 0, lastSeenAt: null },
+      // 插件:近 90 日有量、今日 0 ⇒ "今日静默"
+      { platform: 'ex', pv: 0, uv: 0, pv90d: 5, lastSeenAt: '2026-10-20T00:00:00Z' },
     ],
     online5m: 3,
     pv5m: 12,
@@ -240,6 +242,19 @@ describe('WallboardView 使用数据面板', () => {
     expect(within(view.container).getAllByText('新访客')[0]?.parentElement?.textContent).toBe(
       '新访客—',
     )
+  })
+
+  it('各端零量时分"今日静默"与"90日未上报"两种说法(不把未接入读成没人用)', async () => {
+    const { container } = renderWallboard()
+    // 面板标题与四行是静态铺出来的(traffic 未到也画)⇒ 必须等真读数上屏再判标记
+    await waitFor(() => expect(within(container).getByText(/4,000/)).toBeTruthy())
+    const exRow = within(container).getAllByText('浏览器插件')[0]?.parentElement?.textContent ?? ''
+    expect(exRow).toContain('今日静默')
+    const mpRow = within(container).getAllByText('小程序')[0]?.parentElement?.textContent ?? ''
+    expect(mpRow).toContain('90日未上报')
+    // 有量的端不打状态标记:标记只属于"这一行零量"的情况
+    const webRow = within(container).getAllByText('网站')[0]?.parentElement?.textContent ?? ''
+    expect(webRow).not.toContain('今日静默')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

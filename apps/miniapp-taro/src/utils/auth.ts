@@ -353,8 +353,12 @@ export async function refreshAccessToken(): Promise<string | null> {
     return null
   }
   if (res.data?.accessToken) {
-    setToken(res.data.accessToken)
+    // 2026-10-26:先落 refreshToken 再落 access。两枚是两次同步写,中间被杀(小程序宿主
+    // 回收/崩溃)会留下"access 新、refresh 旧"的组合 —— 旧的已被服务端轮转吊销,之后每次
+    // 续期都撞 stale-sibling(只拒绝本次、不吊销),这条链再也换不出新凭据,只能重登。
+    // 反过来"refresh 新、access 旧"是能自愈的:access 过期后 401 拦截器拿新 refresh 续上。
     if (res.data.refreshToken) setRefreshToken(res.data.refreshToken)
+    setToken(res.data.accessToken)
     return res.data.accessToken
   }
   // success 但缺 accessToken:契约异常,保守按失败处理(不抛,不写凭据)
