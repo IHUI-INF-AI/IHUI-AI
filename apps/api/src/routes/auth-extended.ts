@@ -379,7 +379,7 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
   if (!stored) return { ok: false, status: 400, message: 'refresh_token 无效' }
   if (isRefreshTokenReused(stored)) {
     // 三档裁决的唯一出口在 services/refresh-replay-policy.ts(与 routes/auth.ts 的
-    // /refresh 同一把尺子):race 放行轮转 / stale-sibling 只拒绝本次 / reuse 吊销整族。
+    // /refresh 同一把尺子):race 放行轮转 / stale-sibling 也放行轮转 / reuse 吊销整族。
     // 此前这里一律吊销整族,与 /refresh 的 30s 宽限期口径不同 —— 同一次竞态在两条
     // 端点上一个放行一个全族打死,用户侧表现就是"关掉再打开要重新登录"(2026-10-20)。
     const revokedAt = stored.revokedAt ? new Date(stored.revokedAt) : null
@@ -393,13 +393,9 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
           message: 'refresh_token 已被重用,该 token family 已全部撤销',
         }
       }
-      if (replay.verdict === 'stale-sibling') {
-        return {
-          ok: false,
-          status: 400,
-          message: 'refresh_token 已被轮转(存在更新的会话),请用最新凭据重试',
-        }
-      }
+      // stale-sibling(超宽限但族内仍有活 token):2026-10-27 起放行正常轮转。
+      // 族还活着即会话未死,迟到的是旧副本;此前返回 400 会把调用方永久锁死
+      // (与 /auth/refresh 同尺,真正的攻击面由上面的 reuse 覆盖)。
     }
   }
   if (isRefreshTokenExpired(stored))
@@ -410,7 +406,9 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
   // 而 POST /auth/refresh 判 status !== 1 —— 两套口径下被禁用的账号仍能换新 access token,
   // 等于绕过登录侧的禁用判定(AGENTS §5「认证不等于授权」)。与 /auth/refresh 同口径拒绝。
   if (user.status !== 1) return { ok: false, status: 403, message: '账号已被禁用' }
-  await revokeRefreshToken(rawRefreshToken)
+  // 已是吊销态(race / stale-sibling 放行)不再重复 revoke:否则 revokedAt 被刷成 now,
+  // 30s 窗口随每次重放滑动 —— 与 /auth/refresh 第 4 步同一条纪律。
+  if (!stored.revokedAt) await revokeRefreshToken(rawRefreshToken)
   const tokens = await buildTokenPair({
     ...user,
     familyId: payload.familyId || user.familyId || createFamilyId(),
