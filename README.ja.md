@@ -2198,6 +2198,25 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🐞 修正:登记器同键对账判据两步落地(L28830)——plan 层键=(provider_code,base_url) 且同键行只认本器出处标记:带标记⇒复用/update,不带⇒既不复用也不改、--check 打 BREACH 点名「两条路径抢同一行」exit 1 零落库;出处字面量单源 plan 层 PROVENANCE_MARK(库层 import,禁自拼);快照补读 description。镜像新增⑧-⑫(复用/异键 insert/无出处 breach/CLI 真跑 breach 不落库/单源形状锁),既有断言③原样保留。15/15 绿;真库现读:qoder 4 行 matched,trae id=48(他路径写)按设计报 BREACH 待人工裁决 (36e9329ba4)
+- 🔧 その他:认领 L28136 号池可观测三档(dev 库已见真网关落库行,补 pytest 全量验收) (4d93e4a975)
+- 🚀 機能/改善:移动端与小程序换屏即上报页面停留(page_time),补齐两端在停留时长维度上的盲区 (53e5419e9d)
+- 🐞 修正:401/403(key失效)静默跳过,不再误报 [replay of 4c4ae154d44 onto origin/main] (87f6b3ad51)
+
+**2026-10-26**
+- 🔧 その他:结清 L28670 僵尸实例——本机 release 包双实例现场实验:第二实例 632ms 移交退出,最小化态 siw 仍应答,未复现常驻僵尸态 (af29f7a395)
+- 📚 ドキュメント:E2E 自动补测进展补记——门 250 triggers 含判据层、镜像测试 4/4 (54962915b6)
+- 🔧 その他:结清 L28073（挂牌合法通道已由 a664d3e5be 落地,126 测试+今日实挂牌为证）;L28072 记残余两格已落+生产取证待办 (a3da906b19)
+- 🔧 その他:门 250 镜像测试(§22c __test__ 形状锁 + HEAD 面装车证明 + 补测两半射程单源) (7b416b3b00)
+- 🔧 その他:登记 relay 收口 3 条(对账判据两步设计/dev 库违反部分唯一索引/容量哨兵零派发点)——设计含被打回的镜像教训,防丢 (8d8dffebfe)
+- 🚀 機能/改善:数据大屏新增页面停留时长 TOP(近7日 page_time 均值) (02acbb124d)
+- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cb27559abd)
+- 🚀 機能/改善:页面排行支持按次数/按人数排序 (7609a637a6)
+- 🚀 機能/改善:页面访问热度面板显示实时在线人数(近5分钟去重会话) (1021c1e51e)
+- 🚀 機能/改善:页面排行支持按端筛选(网站/移动端/小程序),与大屏分端同源 (877da141ee)
+- 🚀 機能/改善:stepfun 永久退役 + 上游模型自动更新替换 + 默认模型收敛单一入口 (b20279c2f2)
+
+**2026-10-26**
 - ♻️ リファクタ:断流计数并入 ihui_* 指标家族(单一真相源)+ 封闭集护栏测试 (9319968a74)
 - 🔧 その他:门 250 触发面补入判据层(scripts/lib/e2e-coverage-gap.mjs 改动也触发复跑)+ 根护栏同步重封存 (cb0202d083)
 - 🚀 機能/改善:会话级污点追踪 + 凭据保险库内核(P0-2) (84a73a1a7b)
@@ -2290,22 +2309,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:用户 id 失效(外键违约)时降级匿名重插,不再丢整条访问 (d365f2fe82)
 - ♻️ リファクタ:G-54 第 5 轮 4 门 git 派生收口 face-reader (af6b584786)
 - 🔧 その他:恢复被并发合并清理误删的访问面分桶测试(内容与原件 sha 一致) (06338cf4a5)
-
-**2026-10-26**
-- 🔧 その他:结清三端 ui-routes/离线包重钉(五钉 HEAD 面全 matched) + O6511 候选器交付与真源结构发现 + B02 terminal/resync 契约第二刀 + G-965 P2 投影器增强 (394e7717f6)
-- 🔧 その他:重钉 web/taro ui-routes 自述钉(随 bi-dashboard 与 taro app/auth 输入变更重算,G-816040 四端现读全 matched) (09a79ced04)
-- 🚀 機能/改善:新增 catBatchTypes 原语(G-54)并让 audit-decision-log 的提交存在性取材走层 —— 清型 C 自拼 batch 债务,判据语义不变 (894943173e)
-- 📚 ドキュメント:结清 G-927(镜像棘轮:裸 git 派生的生产文件只减不增) —— 现读差集 0 枚(判据 headDerivationScan,对基线提交 14a04f013f 逐枚求差)。经过:上席已迁 1 枚(strip-banned-buckets,字节 4,705,595 EQUAL)、第四批 10 枚由 0ff78d7fda 整批迁完(本席复核逐枚裸派生 0 处)、本席再迁 2 枚镜像测试读真仓的裸 execFileSync(对照 512B/1088/53/346/261B 全 EQUAL),棘轮读数 71→70→49→46。逐枚复跑:6 绿(biz-day/guarded-write/identity/live-doc/readout/token-literal),2 红在射程外(ai-task 9/10 的 llm.py 裸 create_task、money 2/3 的 DeveloperConversationsScreen centsToYuan,系门 247/248 存量债,迁移前后同判),10 枚 --self-test 全绿,21 项新旧通道同 blob 对照 17 EQUAL + 4 项仅 core.quotepath 转义差异。如实登记剩余:① 现读 46 vs 基线 45 的 +1 是 scripts/audit-decision-log.mjs(7de326e39b,自进化票,晚于降档 1 分钟入库,型 A 1 处 + 型 C 自拼 batch 1 处)—— 不属本票射程,由该票席位迁移后回调基线;② HEAD 面 45 枚存量债(G-998191 族)按只减不增口径继续逐票收 (90a27b1e8a)
-- 🚀 機能/改善:页面排行每行同时给 PV/UV(多少次/多少人) (95ca2af0fb)
-- 🚀 機能/改善:页面访问埋点接入(React Navigation 切屏上报 visit_logs) (7cf9b2e8ad)
-- 🐞 修正:WS 换票与小程序 SSE 接入 401 续期 (dba8f63d4f)
-
-**2026-10-26**
-- 🚀 機能/改善:三端 ui-routes/离线包重钉 + chat-sync terminal/resync 契约 + gate-grow 候选器 + G-965 P2 投影器增强 (fa9d1ad423)
-- 🔧 その他:侧车 enrich 1 条(G-63 补 blocking),抽取器 --apply 现读 changed=1 bucketsDrift=0、回读 129 条 —— 由 seat-sidecar2 的 --check 点名的唯一一条待办,主席执行;门 234 复跑 state=warn(midform 3→0 / a2=0 / conflict=0 / blind=0),孤儿 80 条只报数 (6b942ede52)
-- 🔧 その他:拆除 31 枚已退役零引用残影(deploy/cf-preferred-ip 2026-10-22 整链退役、qoder 探针退役、plugins-data 已下沉 packages/shared、零引用测试收口) (f80b0bb34e)
-- 🔧 その他:中间态标头归一(门 234 midform 3→0) —— 三条机主面行(G-957 / G-329 / G-1182551)的行内标头带 ｜等:— 属未渲染完的中间态(语义已等价:parseHeader 读回 waiting=none、dispositionOf 同判),按 §1「标头是投影」归一成 renderHeader 产物形态;只动这三行标头,正文与归属语义逐字不变,三维守恒由 live-doc-edit 当场断言(上一版误带第四行被守恒拒落,已剔除) (f1439785cb)
-- ♻️ リファクタ:audit-decision-log 两处裸 git 派生改走 face-reader.gitBinary()(G-54:棘轮新增拦截即修,行为逐字不变) (1c0938e1d3)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

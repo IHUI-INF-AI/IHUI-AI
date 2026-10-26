@@ -22,9 +22,9 @@
  * 守门范围,由 .gitignore 与各自的临时产物目录语义兜底。
  */
 import { readdirSync, statSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
 import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 /**
  * 仓库根。生产路径 = 调用方所在目录(与本门历史上完全一致,不改语义);
@@ -78,18 +78,10 @@ const isStaged = process.argv.includes('--staged')
 /** 索引里出现过的根级条目名(含"目录下有已跟踪文件"的目录名)。git 问不到 ⇒ 空集(退回原拦截行为) */
 function getIndexedRootNames() {
   try {
-    // 与本文件另外两处 git 调用同形(裸 'git' + windowsHide + timeout)。刻意不 import
-    // scripts/lib/face-reader.mjs 的 gitBinary():守门 118 把"引了取材层却自己散写 git 读"判成
-    // 半接线红,而本函数只做**枚举**(ls-files 列名字,不取任何正文)——为一个二进制名
-    // 把自己推进那一档不划算。绝对路径化属本文件既有欠账(两处老调用同样裸 'git'),另计。
-    const out = execFileSync('git', ['-C', ROOT, 'ls-files', '-z'], {
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true,
-      timeout: 60_000,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader。老注释记的"刻意不 import face-reader"
+    // 只针对当时"引二进制名而不引派生"的半接线档(守门 118);本票把派生本身收口,顾虑消解,
+    // 绝对路径化欠账一并清掉。
+    const out = gitRaw(['ls-files', '-z'], ROOT)
     const names = new Set()
     for (const p of out.split('\0')) {
       if (!p) continue
@@ -124,14 +116,8 @@ function getIndexedRootNames() {
  */
 function getHeadRootNames() {
   try {
-    const out = execFileSync('git', ['-C', ROOT, 'ls-tree', '--name-only', '-z', 'HEAD'], {
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true,
-      timeout: 60_000,
-      // 派生 git 必须显式接管 stdio(§12g);不吃的子进程给 ignore 否则本机报 EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(§12g 的显式 stdio 接管由 gitRaw 内部保证)
+    const out = gitRaw(['ls-tree', '--name-only', '-z', 'HEAD'], ROOT)
     const names = new Set()
     for (const p of out.split('\0')) {
       if (!p) continue
@@ -355,12 +341,9 @@ const ALLOWED_HIDDEN_DIRS = new Set([
 /** git 已忽略的一级条目(.gitignore 覆盖 → 不参与跟踪,不该阻塞 commit) */
 function getIgnoredEntries(names) {
   try {
-    const out = execFileSync('git', ['-C', ROOT, 'check-ignore', '--stdin', '-z'], {
-      input: names.join('\0'),
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 带 opts.input 时 stdio[0] 自动为 'pipe',
+    // 喂入语义与原调用一致;无匹配 exit 1 经 err.status 抛 Undetermined,由下方 catch 兜住)
+    const out = gitRaw(['check-ignore', '--stdin', '-z'], ROOT, { input: names.join('\0') })
     return new Set(out.split('\0').filter(Boolean))
   } catch {
     // check-ignore 无匹配时 exit 1;git 不可用同理 → 空集合(维持原拦截行为)
@@ -371,11 +354,9 @@ function getIgnoredEntries(names) {
 /** git worktree 注册目录(仅取一级子目录,主 worktree 自身不计) */
 function getWorktreeDirNames() {
   try {
-    const out = execFileSync('git', ['-C', ROOT, 'worktree', 'list', '--porcelain'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(原 stderr 为 ignore,gitRaw 改捕获进异常对象,
+    // 成功路径 stderr 本就为空,失败路径由下方 catch 吞掉 ⇒ 对外输出不变)
+    const out = gitRaw(['worktree', 'list', '--porcelain'], ROOT)
     const rootPosix = ROOT.split('\\').join('/')
     const names = new Set()
     for (const line of out.split('\n')) {
