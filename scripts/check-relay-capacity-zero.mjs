@@ -352,6 +352,13 @@ export function judgeCapacity({ judges, accountRows, keyRows, sentinel, allowEmp
     workbuddy:
       '若系 WorkBuddy 凭据已死:本机打开桌面版并登录后跑' +
       ' `node scripts/relay-account-pool.mjs --from workbuddy` 重新提取(密钥只存在于桌面主进程)',
+    qoder:
+      'Qoder 池内通用巡检自动换票(适配器已实现 refresh 通道),多数"归零"是冷却或摘除;若换票一并失效,' +
+      ' 需在 Qoder 客户端/官网重新授权后走后台「中转-号池-账号池」导入账号 JSON' +
+      '(本机会话提取器未装车:--from qoder 会明示未判定,不会静默假成功)',
+    codearts:
+      'CodeArts 池内适配器已实现 refresh_token 刷新,先按摘除/冷却面处置;' +
+      ' 彻底失效需回华为云侧重新取凭据后走后台导入账号 JSON(该平台无签到引擎,映射即拦截,不要求签到动作)',
   })
 
   // S1:有 enabled 号但可调度 = 0(两池都扫)
