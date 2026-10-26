@@ -4262,6 +4262,54 @@ const CROSS_END_DRIFT_INTERVAL_MS = Number(
 )
 
 /**
+ * 跨端三条腿(漂移尺 / 声明链自愈 / 造页闭环)的「这一轮没判」必须有**存续性门槛 + 到人**。
+ *
+ * 立因(2026-10-26 实测):`gen-miniapp-mirror.mjs` 里一枚未定义标识符把造页闭环打成
+ * ReferenceError,daemon 每 30 分钟撞一次、连撞 8 小时,账面只有日志里同一行 ⚠️ —— 没有人被
+ * 叫过,也没有任何一层把"这条腿瞎了"量出来(§5e-3 的教训同型:能看见的才谈得上修)。
+ * 单轮取不到输入多半是并发争用 ⇒ 不寄信;连满门槛(默认 3 小时 ≈ 造页 6 轮 / 漂移尺 3 轮)
+ * 才按结构性故障到人。取到**任何**确定结论(含倒退)⇒ 起点清零,不背着旧账到人。
+ * 判机器状态 ⇒ 不进提交链(§12e)。
+ */
+const CROSS_END_UNDET_HORIZON_MS = Number(
+  process.env.IHUI_CROSS_END_UNDET_HORIZON_MS || 3 * 60 * 60 * 1000,
+)
+const CROSS_END_LEGS = new Set(['drift', 'mirror-heal', 'shell-land'])
+const crossEndUndetFile = (leg) =>
+  join(WORKTREE, '.ihui-agent', 'state', `cross-end-${leg}-undetermined-first.json`)
+
+export function noteCrossEndUndetermined(leg, detail, opts = {}) {
+  const {
+    logger = log,
+    notify = notifyGuardRed,
+    horizonMs = CROSS_END_UNDET_HORIZON_MS,
+    // 只为成对夹具开(测试不得碰真 .ihui-agent/state 的起点件):生产调用一律走默认值
+    file = crossEndUndetFile(leg),
+  } = opts
+  if (!CROSS_END_LEGS.has(leg)) return { mailed: false, why: `未知腿 ${leg}(不代人决定谁该喊)` }
+  return notifyEnvUndetermined(
+    `跨端对齐·${leg} 这轮取不到结论`,
+    detail,
+    notify,
+    logger,
+    file,
+    horizonMs,
+    `cross-end-${leg}-undet`,
+  )
+}
+
+export function settleCrossEndLeg(leg, opts = {}) {
+  const { logger = log, file = crossEndUndetFile(leg) } = opts
+  if (!CROSS_END_LEGS.has(leg)) return false
+  // 常态(没有连击在册)⇒ 一声不出:三条腿每 30~60 分钟各取一次结论,
+  // 每轮都写一行"已清零"会把日志淹成噪声,而这格真正要被看见的是"清掉了一次在册的瞎"
+  if (!existsSync(file)) return false
+  clearUndeterminedStreak(file)
+  logger(`ℹ️ 跨端对齐·${leg} 取到确定结论 ⇒ 撤掉在册的未判定连击起点(${file})`)
+  return true
+}
+
+/**
  * 跨端对齐漂移巡检(2026-10-26 立):尺子 `check-cross-end-parity-drift.mjs` 的头注自述
  * 「供 git-guardian 巡检轮派发」,而全仓此前**零派发** —— 判据齐全却无人调度,失效形态是安静
  * (§0.9「造好没装车」= 没有)。本函数是它唯一的调度器。
@@ -4279,6 +4327,8 @@ export function auditCrossEndParityDrift(opts = {}) {
     logger = log,
     runner = null,
     notify = notifyGuardRed,
+    undetFile = crossEndUndetFile('drift'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-cross-end-parity-drift.mjs')
   if (!existsSync(script)) {
@@ -4341,6 +4391,13 @@ export function auditCrossEndParityDrift(opts = {}) {
       `⚠️ 跨端漂移巡检:尺子结论不可用:未判定 —— ${stderr.slice(0, 120) || '未取到 JSON'}` +
         ` ⇒ 本轮没判,不等于"没有倒退"`,
     )
+    noteCrossEndUndetermined(
+      'drift',
+      `派生 rc=${r.status ?? '?'};stderr 前 120:${stderr.slice(0, 120) || '(空)'}\n` +
+        `这表示**漂移尺这一格现在是瞎的**(对齐倒退没人量得到),不是"没有倒退"。\n` +
+        `出路:node scripts/check-cross-end-parity-drift.mjs(只读复跑,看它实际报什么)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
     return { ran: true, ok: false, state: 'unparsed' }
   }
   const cur = parsed.cur ?? {}
@@ -4350,8 +4407,15 @@ export function auditCrossEndParityDrift(opts = {}) {
       `⚠️ 跨端漂移巡检:未判定(${parsed.why ?? '子对账器取不到结论'})⇒ 本轮没判,` +
         `既不算"对齐了"也不算"倒退了"(§0.3)`,
     )
+    noteCrossEndUndetermined(
+      'drift',
+      `尺子自己报未判定:${String(parsed.why ?? '未附原因').slice(0, 200)}\n` +
+        `出路:node scripts/check-cross-end-parity-drift.mjs --json(看三态与 reasons 是否取不到输入)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
     return { ran: true, ok: false, state: 'undetermined', why: parsed.why ?? null }
   }
+  settleCrossEndLeg('drift', { logger, file: undetFile })
   if (parsed.state === 'regressed') {
     const dims = reasons.map((x) => x?.dim).filter(Boolean)
     const detail =
@@ -4417,6 +4481,9 @@ export function sweepCrossEndShellPages(opts = {}) {
     tickFile = join(dirname(LOG), 'cross-end-shell-pages-last.json'),
     logger = log,
     runner = null,
+    notify = notifyGuardRed,
+    undetFile = crossEndUndetFile('shell-land'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'land-cross-end-shell-pages.mjs')
   if (!existsSync(script)) {
@@ -4483,8 +4550,16 @@ export function sweepCrossEndShellPages(opts = {}) {
       `⚠️ 跨端造页闭环:结论不可用:未判定 —— ${stderr.slice(0, 120) || '未取到 JSON'}` +
         ` ⇒ 本轮没判,不等于"缺口已清零"`,
     )
+    noteCrossEndUndetermined(
+      'shell-land',
+      `派生 rc=${r.status ?? '?'};stderr 前 120:${stderr.slice(0, 120) || '(空)'}\n` +
+        `这表示**自动造页这一格是瞎的**(小程序缺页不会自己长回来),不是"缺口已清零"。\n` +
+        `出路:node scripts/land-cross-end-shell-pages.mjs(只读预演,看它实际报什么)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
     return { ran: true, ok: false, state: 'unparsed' }
   }
+  settleCrossEndLeg('shell-land', { logger, file: undetFile })
   const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
   const counts =
     `待产 ${n(summary.planned)} / 本轮 ${n(summary.batch)} / blob ${n(summary.blobs)} / ` +
@@ -4515,6 +4590,9 @@ export function healCrossEndMirror(opts = {}) {
     tickFile = join(dirname(LOG), 'cross-end-mirror-last.json'),
     logger = log,
     runner = null,
+    notify = notifyGuardRed,
+    undetFile = crossEndUndetFile('mirror-heal'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'repair-cross-end-mirror.mjs')
   if (!existsSync(script)) {
@@ -4577,8 +4655,16 @@ export function healCrossEndMirror(opts = {}) {
       `⚠️ 跨端镜像自愈:结论不可用:未判定 —— ${stderr.slice(0, 120) || '未取到 JSON'}` +
         ` ⇒ 本轮没判,不等于"声明链一致"`,
     )
+    noteCrossEndUndetermined(
+      'mirror-heal',
+      `派生 rc=${r.status ?? '?'};stderr 前 120:${stderr.slice(0, 120) || '(空)'}\n` +
+        `这表示**声明链自愈这一格是瞎的**(镜像标记被合并削掉后没人接回),不是"声明链一致"。\n` +
+        `出路:node scripts/repair-cross-end-mirror.mjs --json(只读预演)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
     return { ran: true, ok: false, state: 'unparsed' }
   }
+  settleCrossEndLeg('mirror-heal', { logger, file: undetFile })
   const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
   const findings = num(summary.findings) ?? 0
   const applied = num(summary.applied) ?? 0

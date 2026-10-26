@@ -22,12 +22,25 @@ import { THEME_EVENT, getThemePreference, resolveTheme, setThemePreference } fro
 type ThemeMode = 'light' | 'dark' | 'system'
 type ResolvedTheme = 'light' | 'dark'
 
+/**
+ * RN 侧的三档 ('system'|'light'|'dark') ⇄ 端内偏好的三档 ('auto'|'light'|'dark') 的显式对照。
+ * 端内真相源没有 'system' 这个名字,也不是同一套措辞 ⇒ 必须在这里翻译一次,
+ * 而不是把 RN 的字面量直接塞进 setThemePreference(那会让 'system' 落进"存进去但没人认"的死档)。
+ */
+function toPreference(mode: ThemeMode): 'auto' | 'light' | 'dark' {
+  return mode === 'system' ? 'auto' : mode
+}
+
+function toThemeMode(preference: 'auto' | 'light' | 'dark'): ThemeMode {
+  return preference === 'auto' ? 'system' : preference
+}
+
 export function useTheme(): {
   themeMode: ThemeMode
   resolvedTheme: ResolvedTheme
   setThemeMode: (next: ThemeMode) => void
 } {
-  const [themeMode, setMode] = useState<ThemeMode>(() => getThemePreference() as ThemeMode)
+  const [themeMode, setMode] = useState<ThemeMode>(() => toThemeMode(getThemePreference()))
   const [resolvedTheme, setResolved] = useState<ResolvedTheme>(() =>
     resolveTheme(getThemePreference()),
   )
@@ -37,12 +50,16 @@ export function useTheme(): {
       if (next === 'dark' || next === 'light') setResolved(next)
     }
     Taro.eventCenter.on(THEME_EVENT, handler)
-    return () => Taro.eventCenter.off(THEME_EVENT, handler)
+    // 清理函数必须返回 void:Taro.eventCenter.off 自己返回 Events 对象,
+    // 直接 `return () => off(...)` 会把那个返回值当成 cleanup 的产物(React 判 EffectCallback 不合法)
+    return () => {
+      Taro.eventCenter.off(THEME_EVENT, handler)
+    }
   }, [])
 
   const setThemeMode = useCallback((next: ThemeMode) => {
     setMode(next)
-    setResolved(setThemePreference(next))
+    setResolved(setThemePreference(toPreference(next)))
   }, [])
 
   return { themeMode, resolvedTheme, setThemeMode }
@@ -58,8 +75,8 @@ export const themeStore = {
     selector: (state: { theme: ThemeMode; setTheme: (t: ThemeMode) => void }) => T,
   ): T =>
     selector({
-      theme: getThemePreference() as ThemeMode,
-      setTheme: (t: ThemeMode) => setThemePreference(t),
+      theme: toThemeMode(getThemePreference()),
+      setTheme: (t: ThemeMode) => setThemePreference(toPreference(t)),
     }),
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

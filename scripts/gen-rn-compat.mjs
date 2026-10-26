@@ -135,7 +135,9 @@ function renderSource(names, rows) {
   const declared = rows
     .map((r) => /^  '([A-Za-z0-9]+)':/.exec(r)?.[1])
     .filter(Boolean)
-    .map((name) => `export const ${name} = makeIcon(${JSON.stringify(name)}, S[${JSON.stringify(name)}])`)
+    // 走 src(name) 而不是 S[name]:本仓 ts 开了 noUncheckedIndexedAccess ⇒ 直接索引会读成
+    // string | undefined,而 makeIcon 的入参是 string ⇒ 216 处类型错全落在这一行模板上(2026-10-26 实测)
+    .map((name) => `export const ${name} = makeIcon(${JSON.stringify(name)}, src(${JSON.stringify(name)}))`)
   return `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 /**
  * ⚠️ 生成物,请勿手改 —— 重新生成:\`node scripts/gen-rn-compat.mjs --write\`
@@ -152,10 +154,21 @@ import { makeIcon } from './icons-runtime'
 import type { CompatIconProps } from './icons-runtime'
 
 /** lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,这个类型位也必须在这里 */
-export type LucideIcon = (props: CompatIconProps) => JSX.Element
+export type LucideIcon = (props: CompatIconProps) => ReturnType<typeof makeIcon>
 
-const S: Record<string, string> = {
+const S = {
 ${rows.join('\n')}
+} as const
+
+/**
+ * 按图标名取 SVG。名字与表同批生成 ⇒ 正常跑不会缺;真缺了(手动改过本文件/生成器漏名)
+ * **大声告警并画占位**,而不是把 undefined 交给 makeIcon —— 那既过不了类型,也会在运行期静默少一枚图标。
+ */
+function src(name: string): string {
+  const hit: string | undefined = S[name as keyof typeof S]
+  if (hit === undefined)
+    console.warn(\`[rn-compat] 图标表里没有 '\${name}' ⇒ 渲染为占位,请重跑 node scripts/gen-rn-compat.mjs --write\`)
+  return hit ?? ''
 }
 
 ${declared.join('\n')}

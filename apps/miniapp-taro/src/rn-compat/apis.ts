@@ -155,7 +155,10 @@ class AnimatedValue {
   }
   removeListener(id: string) {
     const i = Number(id) - 1
-    if (i >= 0) this.listeners.delete([...this.listeners][i])
+    // Set 按下标取值在 noUncheckedIndexedAccess 下是 T | undefined ⇒ 先取进变量再判,
+    // 否则 delete(undefined) 既是类型错也是"删了个不存在的东西"的静默失败
+    const victim = [...this.listeners][i]
+    if (i >= 0 && victim !== undefined) this.listeners.delete(victim)
   }
   removeAllListeners() {
     this.listeners.clear()
@@ -166,7 +169,8 @@ class AnimatedValue {
     // 落终值:取 outputRange 末位(数字档),字符串档原样交给样式层
     const last = out[out.length - 1]
     target.value = typeof last === 'number' ? last : 0
-    ;(target as unknown as { __css: string | number }).__css = last
+    // outputRange 为空 ⇒ 不写 __css(写了 undefined 反而把"没给终值"说成"终值是 undefined")
+    if (last !== undefined) (target as unknown as { __css: string | number }).__css = last
     void cfg.inputRange
     return target
   }
@@ -233,7 +237,7 @@ export const Animated = {
     return runToEnd(config)
   },
   spring: (
-    value: Animatable,
+    _value: Animatable,
     config?: { toValue?: unknown; callback?: (r: { finished: boolean }) => void },
   ) => runToEnd(config),
   decay: (

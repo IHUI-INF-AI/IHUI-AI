@@ -202,6 +202,17 @@ export default defineConfig(async (merge) => {
       'react-native-restart$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
       'expo-file-system$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
       nativewind$: path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+      // 2026-10-26 补齐:这三枚是 RN 壳闭包里的最后缺口(Audio 录音/播放、DocumentPicker 附件、Asset 静态资源)
+      // 承载实现见 src/rn-compat/native-audio.ts / native-document.ts / native-asset.ts(每处降级都在文件头点名)
+      'expo-audio$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-audio.ts'),
+      'expo-document-picker$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'rn-compat',
+        'native-document.ts',
+      ),
+      'expo-asset$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-asset.ts'),
       'react-native-svg$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-svg.tsx'),
       'react-native-webview$': path.resolve(
         __dirname,
@@ -297,6 +308,17 @@ export default defineConfig(async (merge) => {
         'react-native-restart$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
         'expo-file-system$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
         nativewind$: path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-extras'),
+        // 2026-10-26 补齐:这三枚是 RN 壳闭包里的最后缺口(Audio 录音/播放、DocumentPicker 附件、Asset 静态资源)
+        // 承载实现见 src/rn-compat/native-audio.ts / native-document.ts / native-asset.ts(每处降级都在文件头点名)
+        'expo-audio$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-audio.ts'),
+        'expo-document-picker$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'rn-compat',
+          'native-document.ts',
+        ),
+        'expo-asset$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-asset.ts'),
         'react-native-svg$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'native-svg.tsx'),
         'react-native-webview$': path.resolve(
           __dirname,
