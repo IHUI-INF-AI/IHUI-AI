@@ -32,10 +32,10 @@
  *
  * 守门集成:guardian-runner.mjs(blocking 模式,阻塞 commit)
  */
-import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -74,13 +74,8 @@ const SOLITO_IMPORT_REGEX = /\bfrom\s+['"]solito(?:\/[^'"]*)?['"]/
 
 function getStagedFiles() {
   try {
-    const out = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带 safe.directory/quotepath/-C/stdio/windowsHide/timeout)
+    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
     return out.split('\n').filter(Boolean)
   } catch {
     return []

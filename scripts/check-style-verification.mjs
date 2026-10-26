@@ -18,7 +18,7 @@
  * 跳过:HUSKY_SKIP_STYLE_VERIFY=1(紧急 commit 时使用,但建议补验证)
  */
 import { readFileSync } from 'node:fs'
-import { execSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 
@@ -35,14 +35,8 @@ if (!msgFile) {
 
 let stagedCssFiles = []
 try {
-  const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-    encoding: 'utf8',
-    cwd: ROOT,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    // 返回值被消费(下面 output.split)⇒ stdout 仍须 pipe,只把 stdin 切掉
-    stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+  // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带 safe.directory/quotepath/-C/stdio/windowsHide/timeout)
+  const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
   stagedCssFiles = output
     .split('\n')
     .filter(Boolean)
