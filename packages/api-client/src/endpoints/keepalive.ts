@@ -5,7 +5,7 @@
 /**
  * 账号保活中心 API 端点(2026-10-26 新增)。
  *
- * 对应后端 `app/services/keepalive/router.py`(前缀 /api/keepalive)。
+ * 对应后端 `app/routers/keepalive.py`(前缀 /api/keepalive)。
  * 与 publish.ts 里那组 `/publish/cookie-refresh/*` 的关系:那组只覆盖发布线 Cookie,
  * 本组是**三条线(cookie / 密钥到期 / 签到凭证)的统一状态面** —— 账号页只读本组,
  * 不必再分别问两个来源。

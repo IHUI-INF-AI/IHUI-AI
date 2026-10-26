@@ -1195,8 +1195,10 @@ def create_app() -> FastAPI:
 
     # 2026-10-26 立:账号保活中心(统一 Cookie / 密钥到期 / 签到凭证三条线的状态面)。
     # router 自带 /api/keepalive 前缀,鉴权用 require_request_user_id。
-    from app.services.keepalive.router import router as keepalive_router
-    app.include_router(keepalive_router, tags=["keepalive"])
+    # 落点必须在 app/routers/ —— 门 8 的注册面只枚举 app/routers/** 与 app/api/**,
+    # 放在 app/services/keepalive/ 里那 6 条端点对它是不可见的(只落"未判定"桶)。
+    from app.routers import keepalive as keepalive_router
+    app.include_router(keepalive_router.router, tags=["keepalive"])
 
     # W4(Phase 0):Plan Mode 计划模式端点族(对标 Claude Code Plan Mode,全新端点 /api/agent-plan*)
     from app.routers import agent_plan as agent_plan_router
