@@ -193,6 +193,8 @@
     "check:miniapp-css-landing:report": "node scripts/check-miniapp-css-landing.mjs --min-coverage 0",
     "check:sdk-publish": "node --test packages/sdk/tests/publish-ready.test.mjs",
     "check:sheet-flex": "node scripts/check-sheet-flex-contract.mjs",
+    "check:dispatch-board": "node scripts/dispatch-board.mjs --seats 6",
+    "check:lint-staged-pin": "node scripts/check-lint-staged-stdio-pin.mjs",
     "qoder:import": "pnpm --filter @ihui/api qoder:import",
     "relay:inspect": "pnpm --filter @ihui/api relay:inspect"
   },
