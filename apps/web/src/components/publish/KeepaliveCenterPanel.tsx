@@ -114,7 +114,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
   if (loading) {
     return (
       <div
-        className={`rounded-lg border border-border p-4 text-sm text-muted-foreground ${className ?? ''}`}
+        className={`rounded-xl border border-border p-4 text-sm text-muted-foreground ${className ?? ''}`}
         data-testid="keepalive-center-loading"
       >
         {t('loading')}
@@ -216,7 +216,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
                     type="button"
                     onClick={() => void trigger(item.ref)}
                     disabled={busy}
-                    className="rounded border border-border px-1.5 py-0.5 hover:bg-muted disabled:opacity-50"
+                    className="rounded-sm border border-border px-1.5 py-0.5 hover:bg-muted disabled:opacity-50"
                   >
                     {t('retry')}
                   </button>
