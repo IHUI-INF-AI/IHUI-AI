@@ -15,6 +15,9 @@
  *   node scripts/lib/ps1-add-bom.mjs <文件...>
  *   node scripts/lib/ps1-add-bom.mjs --all-existing     # 把守门报的存量全部补上(修存量用)
  *   node scripts/lib/ps1-add-bom.mjs --check <文件...>  # 只判不改:exit 1 = 有文件缺 BOM
+ *   node scripts/lib/ps1-add-bom.mjs --check --all-existing
+ *                                                      # 全仓体检:exit 0 且打印"全仓 0 枚缺 BOM"
+ *                                                      # 就是"真的全补完了",不是用法错
  *
  * 设计口径:
  *   · **只加前缀,不重写正文** —— 用 Buffer 拼,不经 utf8 字符串往返,不会顺手改变行尾或编码;
@@ -49,6 +52,14 @@ const files = argv.filter((a) => !a.startsWith('--'))
 
 if (allExisting) files.push(...existingMissingBom())
 if (files.length === 0) {
+  // 空清单有两种成因,必须分开说:① 没给任何参数(用法错,exit 1);② `--all-existing` 但守门
+  // 现读 0 枚缺 BOM(全仓已清零,成功)。把 ② 报成 ① 的代价不是"少一句话" —— 下一个人看到
+  // "用法:..." 会以为工具坏了,转身去手搓 `node -e` 拼字节,而那正是本工具存在要消灭的东西
+  // (头注 §12f:文档里写的出路必须真跑得通)。2026-10-26 实测踩到:存量清零后本命令 exit 1。
+  if (allExisting) {
+    console.log('全仓没有缺 UTF-8 BOM 的 .ps1 / .psm1(守门 check-ps1-bom.mjs 现读 0 枚)')
+    process.exit(0)
+  }
   console.error('用法:node scripts/lib/ps1-add-bom.mjs <文件...> [--check] [--all-existing]')
   process.exit(1)
 }
