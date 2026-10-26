@@ -122,6 +122,32 @@ test('M5 S1:有 enabled 号但可调度 0 ⇒ breach 并点名 provider 与下�
   assert.ok(b.nextStep.length >= 10, '到人正文必须给得出可执行下一步(§5e-1)')
 })
 
+test('M5b S1 复活出口按 provider 定制:trae/workbuddy 点名客户端重登链,无定制者不硬塞(§0.8)', () => {
+  const s1Of = (providerCode) =>
+    __test__
+      .judgeCapacity({
+        judges,
+        accountRows: [{ providerCode, isEnabled: true, tempUnschedulable: true }],
+        keyRows: [],
+        sentinel: { accountCount: 1, keyCount: 0 },
+      })
+      .breaches.find((x) => x.kind === 'account_provider_zero_capacity')
+  const t = s1Of('trae')
+  assert.ok(
+    t.nextStep.includes('trae-session-sync'),
+    'trae 必须点名 10 分钟自动回灌链,不是让人找后台按钮',
+  )
+  assert.ok(t.nextStep.includes('重新打开 Trae 客户端'), 'trae 的当场动作 = 客户端重登一次')
+  const w = s1Of('workbuddy')
+  assert.ok(w.nextStep.includes('--from workbuddy'), 'workbuddy 必须点名重提取命令')
+  const o = s1Of('openai')
+  assert.ok(
+    !o.nextStep.includes('trae-session-sync') && !o.nextStep.includes('--from workbuddy'),
+    '没定制出口的 provider 不得被硬塞别的平台文案(出路必须真跑得通)',
+  )
+  assert.ok(o.nextStep.includes('temp_unschedulable'), '通用出口(解除摘除/补号)仍在')
+})
+
 test('M6 S2 两型:整池 0 行 / 有行但无一条 enabled', () => {
   const empty = __test__.judgeCapacity({
     judges,
