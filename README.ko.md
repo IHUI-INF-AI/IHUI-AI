@@ -2198,6 +2198,20 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🐞 수정:阶段审计改用 incident-cluster.identityOf 单源,修与信号生产端身份分家 (0e9087add7)
+
+**2026-10-26**
+- 🔧 기타:L28812 三器端到端联合测试(失败链/成功链/去重链+真实状态目录零写入) (f7c5c659b9)
+- 📚 문서:G-965 余面进展注记(尾括号归一解锁 3 条,undetermined 22→19) (0335e37619)
+- 📚 문서:G-965 末批投影 3 条(G-242/G-244/G-863,尾括号归一后等价成立) (b354e8585b)
+
+**2026-10-26**
+- 🐞 수정:cleanOwner 剥净尾括号噪声,解锁 G-242/G-244/G-863 三条标头投影(G-965 余面) (d6befae230)
+- 🔧 기타:结清 G-1142551——门 105 [G5] 四端 ui-routes 与离线包钉全 matched(mobile-rn 本席重钉 b8c6621af5,taro 他席 09a79ced04+3ef408ce1b),G3/孤儿 2 处非本行射程 (5bca3fd9a3)
+- 🔧 기타:登记 relay 容量接线的 4 条真工作残项(对账门/索引对齐/公开档位/生产接入;均未取号因 G 池满) (86bffb81ec)
+- 🐞 수정:补齐被 auto 收编拆断的判据层与哨兵件(号池容量可见性 + 上游模型登记器) (7c130d7b36)
+
+**2026-10-26**
 - 📚 문서:G-1142551 记进展——mobile-rn 端已重钉入库(b8c6621af5,门105读 matched),taro 端点仍红待其输入删除入库,离线包钉未判定,保留未勾 (748ad3cfa8)
 - 📚 문서:G-965 余面复核 —— 可投影 0 条(前批已尽),侧车 superseded 20/孤儿 62 的 drop 声明缺出口,保留未勾 (86c96e1c4c)
 
@@ -2299,69 +2313,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (59145cf2f0)
 - 🐞 수정:探针取证面从单文件改为页面族 —— 修 71 条空壳的假阴性 (7c8d5b9e82)
 - 🐞 수정:流式/AI 服务/raw 通道 401 自动续期 + RN/小程序主动续期 (831baf7200)
-
-**2026-10-26**
-- ♻️ 리팩터:G-927 第五席复核——票面 10 枚已由 0ff78d7fda 迁完(求差 0),本轮收口两枚镜像测试读真仓的裸 git (8d7cbb701e)
-- 🚀 기능/개선:签到设备号 9074 自愈——换新设备号重签一次并持久化 rotated 标记 (529b9879d6)
-- 🚀 기능/개선:安全停机状态机与 haltctl(自进化票:安全停机而非硬失败) (94751a0845)
-- 🔧 기타:5 枚结清行被并集收敛回捞,按原凭据再结一次(G-62/G-01/G-03/G-07/O88)——回捞根因=declaredDropCaps 只认整行逐字而翻勾会追加注记,已记入项目记忆 (047f746b15)
-- 🚀 기능/개선:金丝雀观察窗上线——源站直探量错误率/P95 与滚动基线比对,异常自动回滚 (9add3a32fe)
-- ♻️ 리팩터:G-54 第4轮 —— 4 枚守门裸 git 派生收编 face-reader.gitRaw(按钮高度自检夹具/事件闭包/staged 取材/单分支 6 处) (cca944cc6a)
-- 🚀 기능/개선:Trae 设备证明通道对齐并超越开源——产品线组合兜底(IDE_PC→SOLO_PC)+设备展示字段可覆盖+端点可覆写联调 (adf5ebc6d9)
-- 🐞 수정:更正 G-962 参数段覆盖注记的转档计数——三轮转档实为 8 条(7 alive + 1 dead),13 条是笔误 (7feaa2d0a4)
-- 🔧 기타:登记三端 ui-routes 自述钉与离线包钉重钉(承 G-1142551 复量) (3c281d1983)
-- 🔧 기타:参数段覆盖 last-mile——4 条转 alive,最终 21 alive / 54 dead / 7 human-review(82/82) (9723b0c004)
-- 📚 문서:第 3 期进化回流三副本收敛(两份同题副本结清,主行保留余面) (c458c8350b)
-- 🔧 기타:参数段覆盖 human-review 二轮转档 5 条 + 记一条双端契约缺口(82/82 结论更新为 18 alive / 54 dead / 10 human-review) (8d9e7ff12a)
-- 🐞 수정:补齐四处"消费方已入库、被 import 的模块却缺失"的断链(门 98 五处清零) (6b167b2a9f)
-- 🔧 기타:G-54 型 A 基线 53→49(紧贴入库后现读,不留余量)—— 4 枚枚举面迁移已入库 7634c0cbb7b,HEAD 面现读 49 与钉数齐 (6f130e29e5)
-- 🚀 기능/개선:旁路落地器对新建路径注入溯源水印(G-04) (247ca68459)
-- ♻️ 리팩터:G-54 批次第 3 轮 4 枚枚举面裸 git 进 face-reader 层(check-i18n-namespace-passing / check-input-border-var / check-permission-mode-vocabulary / check-portal-fixed)—— argv/stdio/timeout/status 语义由 gitRaw 统一,判据零变化 (7634c0cbb7)
-- 🚀 기능/개선:判据面不可变护栏(自进化票:不可变护栏) (62fc34e0a9)
-- 📚 문서:结清 G-964 P1 与 decode 家族单源;G-1142551 记进展保留未勾 (5128ce1fd5)
-- 🚀 기능/개선:人工阀清单与安全停机判据(自进化票:人工阀清单/安全停机而非硬失败) (1b22f3bb9b)
-- 🚀 기능/개선:web→RN 缺口分诊探针 + 小程序镜像还原度门(两枚只读尺子,均不进提交链) (45dd89e4e4)
-- ♻️ 리팩터:decode 家族 D2 9→0 折到共享 safe-decode-uri(9 处调用点)+miniapp ui-routes 产物重钉 (899f8c8871)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4f81fc23bd)
-- 🔧 기타:G-54 型 A 基线 57→53(紧贴入库后现读,不留余量)—— 4 枚枚举面迁移已入库 3e8b864094,HEAD 面现读 53 与钉数齐 (12d2573ca2)
-- 🐞 수정:access 过期不再 307 打回登录页，守卫认 refresh 并自动续种回跳 (c8815af713)
-- ♻️ 리팩터:G-54 批次续迁 4 枚枚举面裸 git 进 face-reader 层(check-i18n-keys / check-i18n-messages-exist / check-z-index-guard / check-rounded-overflow)—— argv/stdio/timeout 由 gitRaw 统一,判据零变化 (3e8b864094)
-- 🐞 수정:补入 D01 人设选择器整条依赖链 5 文件——修 HEAD 断链(干净检出 TS2307) (d5a27ded0f)
-- 🐞 수정:收编 agent-picker/agent-notice-bar 两模块——修 HEAD 断链(干净检出无法构建) (442f00dad7)
-- 🚀 기능/개선:大屏新增交互热度面板(事件分布/平均停留/热门点击) (578e038dcb)
-- 🐞 수정:收编 agent-picker/agent-notice-bar 两模块——修 HEAD 断链(干净检出无法构建) (f07c4c0d40)
-- 🐞 수정:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (29cb1e9aef)
-- 🔧 기타:守门 8 参数段覆盖 82/82 逐条定性——余 49 条 = 7 alive / 30 dead / 10 human-review (27b860b725)
-- 📚 문서:L28120 失败广播票结清(落点与双镜像在 HEAD,5/5 绿) (07a4f28cc9)
-- 🔧 기타:G-54 型 A 基线 60→57(紧贴入库后现读,不留余量)—— 3 枚枚举面迁移已入库 9b7439eee1,HEAD 面现读 57 与钉数齐 (77e7e6d7aa)
-- 🔧 기타:G-1222559 结清——索引面 PROJECT_PLAN.md 无暂存改动(git diff --cached 空),推送收敛 origin=PUSHED,滞台副本形态消失 (98967f3831)
-- 🔧 기타:票→提交环读侧 round-trip 镜像(正证可选绑票键,缺席不写空串) (6adfb2909b)
-- 🔧 기타:G-1222556 结清——CSRF 的 Gemini ?key= 载体已由存在性豁免改为 hasVerifiedApiKeyCarrier 验真(三载体逐个交 isRegisteredUsableApiKey,fail-closed),票面三选一的『实证验真』已由更前置一档满足 (cf50864de4)
-- 🐞 수정:G-54 批次 3 枚裸 git 枚举迁 gitRaw(check-brand-foreground / check-rounded-full / check-capability-catalog)—— 型 A 存量 60→57,自检与全量行为面等值 (9b7439eee1)
-- 🚀 기능/개선:大屏新增页面访问热度面板(TOP 页面 + 前台/后台/登录页使用量) (344cda7701)
-- 🔧 기타:G-858 结清——union-converge 镜像 58/58 全绿(登记时 10 红→接手 1 红→0),根因两套口径相反已由 0a3defae5a 收口,三套镜像+端到端探针作证 (a2f356e63d)
-- 🐞 수정:通配归档占位不构成移出凭据——修 union-converge 唯一那条镜像红 (0a3defae5a)
-- 🚀 기능/개선:全站页面埋点补齐后台/登录页 + 访问统计前后台口径与页面使用排行 (9cde533655)
-- 🚀 기능/개선:收编失败席半成品——G-395 配置分层出处标签(source + sourceRevisions) —— 该席撞今日用量上限停摆;主席自审:apps/cli 跑 subagent-precedence + subagent-precedence-flag ⇒ Tests 83 passed。落点 precedence.ts(+140)与 types.ts(新增 RevisionUnavailable='no-file-source'|'stat-failed' 与 SourceRevisions=Record<PrecedenceLayer,LayerRevision>):每个生效配置对象带 source 标签、快照带 sourceRevisions,四层短路优先级与生效值零变化。未完成面:sourceRevisions 的生产消费者与'取不到⇒null 不冒充'夹具,该席未及交付,已记入残余清单 (de2f6504dd)
-- 🚀 기능/개선:O6505 三源适配器(api-logs/grafana-alerts/user-feedback)+签名归一+聚类阈值+dry-run (58d7f4fcee)
-- 🚀 기능/개선:Trae 上游服务器自续票(设备证明)——桌面渠道签发的票由池自续,不再依赖本机客户端 (3f5fd52be7)
-- 🐞 수정:收编失败席半成品——归因层差分面按提交面取材(commit-gate-attribution +70/−?) —— 该席撞今日用量上限停摆,主席自审:node --test scripts/tests/commit-payload-attribution.test.mjs ⇒ tests 18 pass 18 fail 0。改动面=归因层差分复跑不再读'还原后的索引',避免并发共享索引里的历史 blob 把无关提交钉红;未完成面:该席未及补'取不到面⇒未判定'的第三条夹具,已记录在残余清单 (fba4ed7968)
-- 🔧 기타:r5 认领自进化两票(金丝雀发布/需求与异常自动发现器)——牌插在复选框后,正文一字未动 (4277abb873)
-- 📚 문서:G-964 更正注记重新落账(上一步为消 union 双行先对齐成远端同文本,事实一条不丢)——三件载体现读全在仓,残余改为存量迁移 101 枚+72 条孤儿 (bdb6bef481)
-- 🔧 기타:登记 Trae 服务器自续票(设备证明)已完成(未取号:号池满) (79cb796af5)
-- 🔧 기타:撤回 G-962 批15 的 20 条参数段覆盖裁决(按陈旧守卫出口②显式放行,删的是本席上一枚自己加的条目) (29dd4876f8)
-- 📚 문서:r5 自进化四票进展注——代码已交付(56855eb75f:自治决策模型/决策链审计/E2E 补测器/经验写回腿),未接线格逐条点名,租约保留不翻勾 (85788c457e)
-- 🔧 기타:G-964 行文本对齐远端同文本(消除活文档 union 双行:F4 0→1 的机械成因)——更正注记随后单独落一次,事实不丢 (489ce34618)
-
-**2026-10-26**
-- 🐞 수정:G-927 第四批 10 枚裸 git 派生迁入 lib/face-reader(gitRaw/catBatch)—— 棘轮 HEAD 面 70→60 与基线 60 对齐;check-cross-end-screen-coverage 正文同时改走 catBatch/readWorktreeFile 满足门 118 取材面纪律 (0ff78d7fda)
-- 📚 문서:G-964 行内更正——『侧车抽取器与新守门未建』已不成立(三件载体现读全在仓 36,986/27,192/24,595 B);残余改为存量迁移 101 枚 + 72 条孤儿记录治理,凭 check-plan-fields 末行 state=warn stock=101 orphan=72 (491c8b3321)
-- 🔧 기타:F9 双档两枚结清(G-455/G-681)——判据已收窄到声明位口径,现读 --gate F9 存量 0 组、宽口径 0 组、引用图 0、差值 F9=0 无 ❌ 行 (620d74f861)
-
-**2026-10-25**
-- 🐞 수정:修复预存 typecheck 错误以通过推送门（App/ModelConfigDialog/TokenValueScreen） (7d0831bc66)
-- 🐞 수정:摘除被 chore 收尾提交复活的死测试 organization.test.ts(恢复 d35827d96c8 的摘除决定;该文件 import ../organization.js 解析不到任何文件,是 HEAD 上全量 typecheck 唯一报错文件 ⇒ 阻塞所有推送;全仓仅此文件引用 organizationRoutes) (ccf42c74ff)
-- 🔧 기타:收尾提交本地未提交改动（registry-sync / qoder 桥接 / 移动端与 Web 插件 / 部署脚本 / 文档） (821ce8e621)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
