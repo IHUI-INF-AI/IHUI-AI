@@ -16919,3 +16919,26 @@ A: Yes. ~14839+ tests / 3213 test files / 67 e2e spec / 4561 API 路由 / 608 �
 - 📚 文档:给侧边栏收敛批次补进展注记(六大域第二批已入库,余跨端对齐) (f7910fb15d)
 - 🔧 工程/其他:侧边栏档位对账锁 —— 逐条钉住 HEAD 直标 31 枚在收敛后仍为 27 枚直标加 4 枚经继承,有效可见集逐字相等 (7de6d11fe4)
 - 🐞 修复:工作区存续自愈加"删除意图到期档"——摘标超两小时仍缺的文件回盘,意图逐字转进同一本账 (09a647d761)
+| **账号池调度巡检**          | `POST /admin/relay/account-pool/sweep`                        | `apps/api/src/workers/relay-account-pool-worker.ts` 的 BullMQ repeat job(cron `*/5 * * * *`,每 5 分钟一轮 sweepAccountPool):①access token 距过期 <15 分钟且有 refreshToken → 刷新回写;②healthStatus=unknown → checkHealth 定级;③down 且可续期且刷新失败未超限 → 再试一次后回 unknown 等下轮复检;单轮 ≤50 号、并发 5、Redis 分布式锁(租约 10 分钟),连续刷新失败 3 次自动 tempUnschedulable(原因 admin 可见);admin 可手动触发同一轮并透传 scheduler 结果                                                                                            |
+**2026-10-23**
+- 🐞 修复:余额自愈改由上游鉴权标志触发,并以真号回包量出库里到期字段不可信 (11e5dc625e)
+- 📚 文档:收编 README 四语面 —— §21 域页导航覆盖(/domains/ai、/domains/personal 按域速览) + 发丝分隔线清理配套 + FAQ/Keywords 改挂 docs/engineering 索引 + 生成块数字对齐现算(2026-10-23) (237864c1d5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (fde93239bf)
+- 🐞 修复:门105 web ui-routes.generated.ts 自述钉重生成收stale (0166dd30b5)
+- 🐞 修复:settings notifications/privacy 登录态三态门 —— ready 未就绪显加载而非误踢未登录(与签到助手/favorites 同型,useAuthGate.ready HEAD 已导出) (f9b56e4278)
+- 📚 文档:门207瘦身——守门历史/取证叙述与收敛带回重复副本整区归档(AGENTS_trim-2026-10-23b) (8307ff098c)
+- 🔧 工程/其他:收编死席遗留守门/测试簇 —— G-322 flag-value 单源断言补全(R3 CLI 档) + 新增只读尺 hairline-separator/plan-fragment-rows(未接提交链,§12e 设计) + 11 门体/lib 与 7 镜像测试更新,逐件自测/镜像测试全绿 (ea0fb180f0)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b4be005b4a)
+- 📚 文档:翻勾背景色发丝线判据票(分割线守门族4/6形状重载补档已落地) (086fe3491c)
+- 🚀 新功能/改进:分割线守门补背景色发丝线判据(族4/6形状重载·L29015)——三型结构件机械排除+RN对象块档并入差值棘轮 (c45c9c0bb8)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (285b0f5b69)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c0462af2b)
+- 📚 文档:族归并 + 立因叙述压缩,体积 102,084→85,755 字节(余量 10,245) (0f47cbeed6)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f3c07eb17e)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0cd065958d)
+- 📚 文档:结清 G-924 小程序远程图标注册表死键滞留行(四条现读凭据) (8c67ae715c)
+| API 路由 | 4562 | `apiRoutes` |
+| 路由文件 | 628 | `apiRouteFiles` |
+| 测试文件 | 3334 | `testFiles` |
+| 跟踪文件 | 16615 | `trackedFiles` |
+> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 4 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 2 个 .py 取不到内容)
