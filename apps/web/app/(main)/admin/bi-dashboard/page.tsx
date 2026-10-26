@@ -50,6 +50,8 @@ interface BiDashboardData {
     pages: Array<{
       url: string
       platform: 'web' | 'rn' | 'mp' | 'ex'
+      /** 访问面(前台/后台/登录页):判据与「访问面占比」同源,前端不再靠"看着像后台"猜 */
+      scope: 'public' | 'admin' | 'auth'
       pv: number
       uv: number
     }>
@@ -66,6 +68,7 @@ interface BiDashboardData {
   stays: Array<{
     page: string
     platform: 'web' | 'rn' | 'mp' | 'ex'
+    scope: 'public' | 'admin' | 'auth'
     avgSec: number
     samples: number
   }>
@@ -137,6 +140,21 @@ const FACE_BADGE_CLASS: Record<'public' | 'admin' | 'auth', string> = {
   public: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   admin: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   auth: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+}
+
+/**
+ * 页面行上的访问面徽章:前台是该表的默认形态,只标「后台 / 登录页」两类,
+ * 否则每行两个徽章把路径挤到截断。未标即前台(判据来自后端 classifyVisitScope,不是前端猜)。
+ */
+function FaceBadge({ scope }: { scope: 'public' | 'admin' | 'auth' }) {
+  if (scope === 'public') return null
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${FACE_BADGE_CLASS[scope]}`}
+    >
+      {FACE_LABEL[scope]}
+    </span>
+  )
 }
 
 const STAT_CARDS = [
@@ -369,7 +387,7 @@ export default function BiDashboardPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">页面访问排行</CardTitle>
           <p className="text-xs text-muted-foreground">
-            近 7 日 · 每个页面被打开了多少次、多少去重访客
+            近 7 日 · 每个页面被打开了多少次、多少去重访客（后台/登录页另标，未标的即前台）
           </p>
         </CardHeader>
         <CardContent>
@@ -389,6 +407,7 @@ export default function BiDashboardPage() {
                     >
                       {PLATFORM_LABEL[p.platform]}
                     </span>
+                    <FaceBadge scope={p.scope} />
                     <span className="w-[34%] truncate text-xs text-foreground">{p.url}</span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
                       <div
@@ -412,7 +431,7 @@ export default function BiDashboardPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">页面停留时长 TOP</CardTitle>
           <p className="text-xs text-muted-foreground">
-            近 7 日 · 平均每次停留秒数（括号内为样本数）
+            近 7 日 · 平均每次停留秒数（括号内为样本数；开着不动的后台页会顶高自己）
           </p>
         </CardHeader>
         <CardContent>
@@ -432,6 +451,7 @@ export default function BiDashboardPage() {
                     >
                       {PLATFORM_LABEL[s.platform]}
                     </span>
+                    <FaceBadge scope={s.scope} />
                     <span className="w-[34%] truncate text-xs text-foreground">{s.page}</span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
                       <div

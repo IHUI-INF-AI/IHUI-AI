@@ -62,6 +62,22 @@
 - **Alertmanager**(:9093):告警路由 + 噪音抑制
 - **monitoring/alertmanager/noise-rules.yml**:告警噪音抑制规则(单一源,旧根目录副本已合并)
 
+#### 厂商账户侧错误不进到人通道(2026-10-26 机主令)
+
+机主定案:「模型厂商的 key 我想配自然会配,别总说,也别报警」。据此,**厂商账户状态**
+(api_key 缺失/失效/过期 = 401/403)一律不进到人告警通道,也不在任何交付报告/台账里
+被列为"待用户操作"。两侧各有装车点,缺一即失效:
+
+| 面               | 落点                                        | 行为                                                                                  |
+| ---------------- | ------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 清单同步侧       | `apps/ai-service/app/services/model_sync.py` | 401/403 静默跳过:不计入 unhealthy、不触发 `LlmProviderUnhealthy`、不永久禁用,补 key 后自愈 |
+| 调用侧(单源判据) | `apps/ai-service/app/middleware/llm_metrics.py` 的 `llm_error_status` | 401/403 单列为 `auth`(不是 `4xx` 的一部分),失败次数仍在指标与调用日志里可查 |
+| 到人告警         | `monitoring/prometheus/alerts.yml` 的 `LlmProviderErrorBurst` | 分子带 `status!="auth"` ⇒ 厂商账户状态不触发该规则                              |
+
+接线锁:`monitoring/prometheus/tests/llm-provider-error-burst.test.yml`(promtool 正反用例,
+由运维巡检 P11 真跑)+ `apps/ai-service/tests/test_llm_metrics.py` 的分类夹具。
+告警文案里不得出现"充值/补 key"这类把机主推去改厂商账户的出路(§5e-1 可整改性准入)。
+
 ### 健康检查
 
 | 端点                    | 用途                          |
