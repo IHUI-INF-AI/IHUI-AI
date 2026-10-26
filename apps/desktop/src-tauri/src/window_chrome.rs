@@ -689,23 +689,28 @@ unsafe fn render_overlay(overlay: HWND) {
                 // 矩形必须至少有 1/255 alpha 保证整块 36×36 都可命中;
                 // 1/255 肉眼不可见。四角超出圆角的部分由下方圆角遮罩统一压到
                 // 1/255(既保住命中,又不画出直角)。
+                // 配色与网页逐项对齐(2026-10-26):
+                //  · close hover = Tailwind red-600 #DC2626 / active = red-700 #B91C1C
+                //    (旧值 #C42B1C 是 Windows 系统标题栏的红,与网页 hover:bg-red-600 不同色)
+                //  · 普通钮 hover = tokens.css 浅色 --color-accent hsl(0 0% 88%) ≈ 12% 黑
+                //    (旧值 5% 黑在白底上只有 #F2F2F2,比网页的 #E0E0E0 淡一档)
                 let bg = if is_close && (hovered || pressed) {
                     if pressed {
-                        0xDC_C42B1C_u32
+                        0xFF_B91C1C_u32
                     } else {
-                        0xFF_C42B1C_u32
+                        0xFF_DC2626_u32
                     }
                 } else if pressed {
                     if state.dark_bg {
-                        0x23_FF_FF_FF_u32
+                        0x29_FF_FF_FF_u32
                     } else {
-                        0x1A_000000_u32
+                        0x29_000000_u32
                     }
                 } else if hovered {
                     if state.dark_bg {
-                        0x1A_FF_FF_FF_u32
+                        0x1D_FF_FF_FF_u32
                     } else {
-                        0x0D_000000_u32
+                        0x1F_000000_u32
                     }
                 } else {
                     // 1/255 填充:肉眼不可见,但保证整块 36×36 可命中。
@@ -787,7 +792,6 @@ unsafe fn render_overlay(overlay: HWND) {
     }
 
     // 圆角遮罩 + 预乘 alpha。
-    //
     // ① 圆角(2026-10-26 立):设计要求 `rounded-md` = 6px 圆角,GDI+ 这里用的是
     //    `GdipFillRectangle`(直角),故在提交前对像素做圆角裁剪 —— 四角落在
     //    「圆心到像素距离 > r」的像素按覆盖率衰减 alpha(0.5px 外扩做抗锯齿),
@@ -869,7 +873,7 @@ unsafe fn render_overlay(overlay: HWND) {
         SourceConstantAlpha: 255,
         AlphaFormat: AC_SRC_ALPHA as u8,
     };
-    let _ = UpdateLayeredWindow(
+    let upd = UpdateLayeredWindow(
         overlay,
         Some(screen_dc),
         Some(&dst as *const POINT),
@@ -879,6 +883,21 @@ unsafe fn render_overlay(overlay: HWND) {
         COLORREF(0),
         Some(&blend as *const BLENDFUNCTION),
         ULW_ALPHA,
+    );
+
+    // 2026-10-26 诊断:自绘链路每一步的实测返回值。沙箱/合成器环境下曾出现
+    // 「窗口在位、内存参数全对、屏幕却一个像素都没有」—— 只有把 font/format/
+    // UpdateLayeredWindow 的成败打出来,才能分清是"没画"还是"画了没提交"。
+    log::debug!(
+        "[window-chrome] render w={w} h={h} btn={}x{} gap={} radius={} glyph={} font_ok={} format_ok={} upd_ok={}",
+        m.btn_w,
+        m.btn_h,
+        m.gap,
+        m.radius,
+        m.glyph_px,
+        !font.is_null(),
+        !format.is_null(),
+        upd.is_ok()
     );
 
     let _ = SelectObject(mem_dc, old_obj);
