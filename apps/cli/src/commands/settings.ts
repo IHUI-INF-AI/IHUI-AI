@@ -51,7 +51,7 @@ export interface SandboxSettings {
  * (与 Python 侧 permission_axis.py 逐字对账);本类型只声明"可以写哪些键",
  * 不在 CLI 侧重述取值域或默认档 —— 第二份判定必然漂移(§0.6)。
  */
-export interface ConfigProfileSettings {
+interface ConfigProfileSettings {
   sandbox_mode?: string;
   approval_policy?: string | { granular?: Record<string, boolean> };
   model?: string;

@@ -25,11 +25,11 @@ export function isRelayProviderCode(v: string): v is RelayProviderCode {
 }
 
 /** 导入接口单批上限(与 admin 路由 Zod 的 .max(500) 同值;改这里必须同改路由) */
-export const IMPORT_MAX_ACCOUNTS = 500
+const IMPORT_MAX_ACCOUNTS = 500
 /** 临期阈值:导入预检把 24h 内到期单独点名 */
-export const IMPORT_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000
+const IMPORT_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000
 /** WebKit epoch(1601-01-01)与 Unix epoch(1970-01-01)的毫秒差 */
-export const WEBKIT_EPOCH_OFFSET_MS = 11_644_473_600_000
+const WEBKIT_EPOCH_OFFSET_MS = 11_644_473_600_000
 
 // =============================================================================
 // JWT / Cookie 纯解析
@@ -135,7 +135,7 @@ export function buildCookieHeader(cookies: Array<Record<string, unknown>>): stri
 // 导入预检
 // =============================================================================
 
-export type ImportIssueLevel = 'error' | 'warning'
+type ImportIssueLevel = 'error' | 'warning'
 
 /**
  * 凭证字符串录入归一化(2026-10-23 立,dev 库实测根因)。
@@ -182,13 +182,13 @@ export function credentialShapeIssue(
   return null
 }
 
-export interface ImportIssue {
+interface ImportIssue {
   level: ImportIssueLevel
   code: string
   message: string
 }
 
-export interface AccountValidation {
+interface AccountValidation {
   index: number
   name: string
   uid: string | null

@@ -13,14 +13,14 @@ import type { PERMISSION_MODE_WIRE_VALUES } from '@ihui/types'
 
 export type CollabTierWire = (typeof PERMISSION_MODE_WIRE_VALUES)[number]
 
-export const COLLAB_TIER_LABEL_KEYS: Record<CollabTierWire, string> = {
+const COLLAB_TIER_LABEL_KEYS: Record<CollabTierWire, string> = {
   default: 'tierDefault',
   plan: 'tierPlan',
   'accept-edits': 'tierAcceptEdits',
   'bypass-permissions': 'tierBypassPermissions',
 }
 
-export const COLLAB_STATUS_LABEL_KEYS: Record<'pending' | 'accepted' | 'revoked', string> = {
+const COLLAB_STATUS_LABEL_KEYS: Record<'pending' | 'accepted' | 'revoked', string> = {
   pending: 'statusPending',
   accepted: 'statusAccepted',
   revoked: 'statusRevoked',

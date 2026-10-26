@@ -71,7 +71,7 @@ const DENY_REASON_KEY: Record<DangerGateDenyCause, string> = {
  * 拒绝路径的可读拒因唯一出口:每种 cause 一条「为什么拒 + 怎么放行」。
  * 原文住 `packages/i18n/messages/cli/*.json` 五语,调用方只消费本函数的结果。
  */
-export function dangerGateDenialReason(cause: DangerGateDenyCause): string {
+function dangerGateDenialReason(cause: DangerGateDenyCause): string {
   return t(DENY_REASON_KEY[cause])
 }
 
