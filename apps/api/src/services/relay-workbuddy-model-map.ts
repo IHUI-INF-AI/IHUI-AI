@@ -127,7 +127,7 @@ export interface WorkbuddyRegistrationContract {
   isRelayPublic: boolean
 }
 
-export interface SqlStatement {
+interface SqlStatement {
   sql: string
   params: unknown[]
 }

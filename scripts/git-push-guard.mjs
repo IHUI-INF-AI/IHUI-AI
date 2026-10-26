@@ -41,7 +41,13 @@ import {
   statfsSync,
 } from 'node:fs'
 import { resolve } from 'node:path'
-import { catBatchCheck, resolveRemoteHead } from './lib/face-reader.mjs'
+import {
+  catBatchCheck,
+  resolveRemoteHead,
+  egressFallbackPlan,
+  proxyConfiguredFor,
+  GIT_EGRESS_DIRECT_ARGS,
+} from './lib/face-reader.mjs'
 import { isAncestor } from './lib/bypass-git.mjs'
 import { triagePushAttempt, describeVerdict, CONVERGE_COMMAND } from './lib/push-attempt-triage.mjs'
 
@@ -102,6 +108,71 @@ function findCredentialShapes(fromSha, toSha) {
   return found
 }
 
+/**
+ * ─── 代理腿退化 ⇒ 直连兜底(2026-10-26 立;判据本体在 lib/face-reader.mjs,这里只接线) ───
+ * 当天实测:仓库级 http.proxy 指向本机 verge-mihomo 的 7897,该腿 20/20 回
+ * `Recv failure: Connection was aborted`,同一条 URL 摘掉代理直连 200 ⇒ 19 枚提交积压推不上去。
+ * 三条边界与共享层逐字同尺:只碰网络动词、只在传输形态上兜、只多跑一次;
+ * 远端拒收 / 分支保护 / ref 竞态 / 钩子失败各有专档(lib/push-attempt-triage.mjs),这里绝不洗成"换腿重试"。
+ */
+
+/**
+ * 取代理配置用的仓根。⚠️ **不得**直接引用下面 L~240 的 `repoRoot` 常量:本助手第一次被调用时
+ * 它还没赋值(2026-10-26 实测 node 抛 `Cannot access 'repoRoot' before initialization` ⇒
+ * 兜底自己崩在判据之前,比"没有兜底"更坏)。§15:不用 cwd 定根,由脚本自身位置推。
+ */
+const EGRESS_ROOT = resolve(import.meta.dirname, '..')
+/** 最后一次兜底的诊断串(写进 push-state 的 reason,免得读数又只剩"128 无特征")。 */
+let lastEgressNote = ''
+
+/** 从 git 命令串里取动词(`git ls-remote origin …` → `ls-remote`);取不到 ⇒ 空串 ⇒ 不兜。 */
+function networkVerbOf(cmd) {
+  const toks = String(cmd)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  const i = toks.findIndex((t) => /(^|[\\/])git(\.exe)?$/i.test(t))
+  if (i < 0) return ''
+  for (const t of toks.slice(i + 1)) {
+    if (t.startsWith('-')) continue
+    return t
+  }
+  return ''
+}
+
+/** 把摘代理配置插在 `git` 之后(argv 空值 = 该层取消代理;env 传空值在 Windows 会被吃掉)。 */
+function withDirectArgs(cmd) {
+  const s = String(cmd)
+  if (s.includes('http.proxy=')) return s
+  return s.replace(
+    /(^|[\\/])git(\.exe)?(\s)/i,
+    (_m, p, exe, sp) => `${p ?? 'git'}${exe ?? ''}${' ' + GIT_EGRESS_DIRECT_ARGS.join(' ')}${sp}`,
+  )
+}
+
+/**
+ * 该不该摘代理重跑。返回兜底依据串(表示"该跑"),否则 null(表示不兜)。
+ * 顺带把"两条腿都不通"这句留给 push-state 的 reason —— 读数不该再退化成"退出码 128 且无可辨认特征"。
+ * @param {{verb:string, status:number|null, errText:string, alreadyRetried?:boolean}}
+ */
+function egressRetryFor({ verb, status, errText, alreadyRetried = false }) {
+  const plan = egressFallbackPlan({
+    verb,
+    errText,
+    status,
+    proxyUrl: proxyConfiguredFor(EGRESS_ROOT),
+    alreadyDirect: alreadyRetried,
+    attempt: alreadyRetried ? 1 : 0,
+  })
+  if (plan.apply && alreadyRetried) {
+    lastEgressNote =
+      ` —— 出网代理腿退化(${plan.why}),摘代理重跑仍失败 ⇒ 两条腿都不通` +
+      ';临时出路:`git -c http.proxy= -c https.proxy= push origin main` 或 `node scripts/git-sync-converge.mjs --no-proxy`' +
+      ';留痕:.ihui-agent/state/git-egress-degradation.log'
+  }
+  return plan.apply ? plan.why : null
+}
+
 function run(cmd, opts = {}) {
   try {
     // timeout 兜底(2026-09-19 根治):网络类 git 操作(ls-remote/push)可能无限挂起,
@@ -117,6 +188,24 @@ function run(cmd, opts = {}) {
       ...opts,
     }).trim()
   } catch (e) {
+    // ── 代理腿退化 ⇒ 摘代理重跑一次(2026-10-26) ──
+    // 判据与常数只在 `lib/face-reader.mjs` 一份(§0.6);这里只负责把"这一趟"接进去。
+    // 立因:当天 `git ls-remote` 走死代理 20/20 失败 ⇒ 本守卫在"远端位置都量不到"这一步
+    // 就退出,连推送那一趟都跑不到 —— 只修 pushOnce 修不到这一格。
+    const fb = egressRetryFor({
+      verb: networkVerbOf(cmd),
+      status: e?.status,
+      errText: `${e?.stderr ?? ''}${e?.message ?? ''}`,
+      alreadyRetried: Boolean(opts.egressRetried),
+    })
+    if (fb) {
+      try {
+        log('warn', `代理腿退化,摘代理重跑:${fb}`)
+        return run(withDirectArgs(cmd), { ...opts, egressRetried: true })
+      } catch {
+        // 两条腿都不通 ⇒ 回吐第一次的错误(与共享层同一失效方向:多要一次说明,不多放一次门)
+      }
+    }
     if (opts.allowFail) return null
     throw e
   }
@@ -932,9 +1021,9 @@ const PUSH_TIMEOUT_MS = 900_000
  * 另给 64MB maxBuffer(守门 123 记的"node 默认 1MB、超限抛错并丢已缓冲输出"那一型)。
  * @param {boolean} noVerify
  */
-function pushOnce(noVerify) {
+function pushOnce(noVerify, egressRetried = false) {
   const args = noVerify ? ['push', '--no-verify', 'origin', branch] : ['push', 'origin', branch]
-  const r = spawnSync('git', args, {
+  const r = spawnSync('git', egressRetried ? [...GIT_EGRESS_DIRECT_ARGS, ...args] : args, {
     stdio: ['inherit', 'pipe', 'pipe'],
     encoding: 'utf8',
     cwd: repoRoot,
@@ -945,6 +1034,19 @@ function pushOnce(noVerify) {
   })
   const raw = `${r.stdout || ''}${r.stderr || ''}`
   if (raw.trim()) process.stdout.write(raw.endsWith('\n') ? raw : `${raw}\n`)
+  // ── 代理腿退化 ⇒ 摘代理再推一次(判据同一份,见文件顶部 egressRetryFor) ──
+  if (r.status !== 0 && !egressRetried) {
+    const fb = egressRetryFor({
+      verb: 'push',
+      status: r.status,
+      errText: `${r.stdout || ''}${r.stderr || ''}`,
+      alreadyRetried: false,
+    })
+    if (fb) {
+      log('warn', `代理腿退化,摘代理重推一趟:${fb}`)
+      return pushOnce(noVerify, true)
+    }
+  }
   return r
 }
 
@@ -969,7 +1071,7 @@ if (attempt.kind === 'non-fast-forward') {
   log('info', `  出路(唯一入口):${C.cyan}${nextCmd}${C.reset}`)
   writePushState('diverged', localHead, {
     kind: attempt.kind,
-    reason: attempt.why,
+    reason: attempt.why + lastEgressNote,
     nextCommand: nextCmd,
   })
   process.exit(1)
@@ -1027,7 +1129,7 @@ if (pushResult.status !== 0) {
     // 也绝不把这一型落到下面的"可能原因"里 —— 那正是每个人都去查一遍代理和凭据的成因。
     writePushState('diverged', localHead, {
       kind: attempt.kind,
-      reason: attempt.why,
+      reason: attempt.why + lastEgressNote,
       nextCommand: attempt.nextCommand ?? CONVERGE_COMMAND,
     })
     log('info', `  出路(唯一入口):${C.cyan}${attempt.nextCommand ?? CONVERGE_COMMAND}${C.reset}`)

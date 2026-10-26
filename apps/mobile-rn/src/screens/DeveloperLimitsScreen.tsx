@@ -26,7 +26,7 @@ interface LimitItem {
   unit?: string
 }
 
-export function DeveloperLimitsScreen() {
+function DeveloperLimitsScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

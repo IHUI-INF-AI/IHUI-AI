@@ -121,6 +121,7 @@
     "login": "登录",
     "logging": "登录中…",
     "passwordLogin": "密码登录",
+    "webAuthLogin": "网页授权登录",
     "phonePlaceholder": "请输入手机号",
     "codeSent": "验证码已发送",
     "passwordPlaceholder": "请输入密码",

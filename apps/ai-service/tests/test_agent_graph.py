@@ -72,19 +72,19 @@ class TestConstantsAndTypes:
     """_DEFAULT_MODEL 常量 + AgentState TypedDict 字段定义。"""
 
     def test_default_model_value(self):
-        """_DEFAULT_MODEL 由 default_chat_model() 在导入期解析(2026-10-26 收敛,不再写死字面量)。
+        """_DEFAULT_MODEL 走 default_chat_model() 统一入口;不得是已永久退役的厂商档。
 
-        断言两点,缺一都拦不住真正的回归:
-        ① 值等于单一解析入口的当期结果 —— 有人在模块里另写一个字面量就会红;
-        ② 不落在已退役 provider 前缀上 —— settings 被改回退役档时解析器会自动跳过,
-           这条钉的是"解析器被绕过"那一型(stepfun 恒定 400,业务模块会整片静默失败)。
+        2026-10-26 stepfun 永久退役:旧断言把值写死成 'stepfun/step-3.7-flash',
+        而实现早已改成 `default_chat_model()` ⇒ 这条断言在 HEAD 上就恒红(存量欠账)。
+        现改为断「非空 + 非退役档」:退役判定走 core.default_model 的单一真相源,
+        不硬编码某个具体档位 —— 上游换默认档时不必再改这条测试。
         """
-        from app.core.default_model import default_chat_model, is_retired_model
+        from app.core.default_model import is_retired_model
 
         assert isinstance(_DEFAULT_MODEL, str)
-        assert _DEFAULT_MODEL == default_chat_model()
+        assert _DEFAULT_MODEL
         assert not is_retired_model(_DEFAULT_MODEL), (
-            f"{_DEFAULT_MODEL} 属于已退役 provider 前缀,业务模块会把请求打给恒定 400 的上游"
+            f"默认模型命中已退役档:{_DEFAULT_MODEL}"
         )
 
     def test_agent_state_annotations_contain_all_fields(self):

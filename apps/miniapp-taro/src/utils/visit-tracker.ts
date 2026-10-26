@@ -23,9 +23,9 @@ import { recordAnalyticsEvents, recordVisitLog } from '@ihui/api-client'
 /** 同屏 3 秒内只报一次(与 web / RN 同档)。 */
 export const MP_VISIT_DEBOUNCE_MS = 3000
 /** 页面栈轮询间隔。 */
-export const MP_VISIT_POLL_MS = 2000
+const MP_VISIT_POLL_MS = 2000
 /** 停留低于 1 秒不报(按整秒四舍五入后):轮询抖动产生的"零点几秒停留"进均值只会把数字拉向 0。 */
-export const MP_MIN_PAGE_TIME_SEC = 1
+const MP_MIN_PAGE_TIME_SEC = 1
 
 /** 进程内会话 id(冷启动一个值,与 web 的 sessionStorage 语义对齐)。 */
 const SESSION_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`

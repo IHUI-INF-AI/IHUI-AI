@@ -1129,8 +1129,9 @@ export default function AiAssistantN8nScreen() {
 
   // 模型选择器(对齐 Uniapp modelList + pitch + pitchHandle)
   // 路由参数 modelId 优先初始化(对齐 Uniapp onLoad options.modelNamea)
+  // 2026-10-26 stepfun 永久退役 ⇒ 末位兜底不再写死已退役档(改用共享兜底链首档)。
   const [selectedModelId, setSelectedModelId] = useState<string>(
-    route.params?.modelId ?? FALLBACK_MODELS[0]?.value ?? 'stepfun/step-router-v1',
+    route.params?.modelId ?? FALLBACK_MODELS[0]?.value ?? 'agnes/agnes-2.5-flash',
   )
   // 2026-08-27 修复:模型选择列表只展示后端 /llm/models 过滤后的可用模型
   // (可用性+配额由后端保证);null=加载中/失败 → 降级 FALLBACK_MODELS(真实可用主力)

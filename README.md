@@ -16885,3 +16885,53 @@ A: Yes. ~14839+ tests / 3213 test files / 67 e2e spec / 4561 API 路由 / 608 �
 - 📚 文档:结清 G-955(取号器声明位两档,--check RC=0 主会话复跑实证) (3cd980434f)
 - 📚 文档:守门134①复验释放(hops=18命中0,未达即不做)+认领 G-922 (f70fc1ef78)
 - 号池只读尺子(2026-10-26 装车,**不进提交链**;判机器/库状态,§12e): `check-relay-capacity-zero.mjs`(逐 provider 两池容量三态 ok/breach/unjudged;差值档只把相对基线新增的 breach 判红、存量只报数;接线 = git-guardian 巡检轮 dispatchRelayCapacity,5 分钟节流)
+| API 路由 | 4562 | `apiRoutes` |
+| 路由文件 | 628 | `apiRouteFiles` |
+| 入库模型清单 | 99 | `llmModels` |
+| 测试文件 | 3334 | `testFiles` |
+| CI 工作流 | 49 | `ciWorkflows` |
+| — blocking | 260 | `guardianBlocking` |
+| 跟踪文件 | 16615 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-26。
+> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 4 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 2 个 .py 取不到内容)
+**2026-10-26**
+- 🔧 工程/其他:合并落地后重生成 web ui-routes 钉(union-converge 对生成物留下的本侧副本须立即重跑生成器,门 105 现读 web 行 stale⇒heal 后待入库;miniapp 端他席在飞 taro-ws-ticket.ts 由 heal 档正确拒写不背书) (c411929340)
+- 🐞 修复:G-1200041 按 2026-10-25 机主令出等条件桶——两格真卡点归机主控制台/运维动作面,存在句改归属句(事实未动),清合并回潮的 F12 基线违例 (3c6956763c)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9ae2dd7013)
+- 🐞 修复:健康 ping 与同步同用出网判据(专用代理表→SYNC_PROXY_URL→直连)——huggingface 直连被封经代理可达却被误判 DOWN,系 LlmProviderUnhealthy 误报根因;钉测含变异自证 (ce76fff2c1)
+**2026-10-26**
+- ♻️ 重构:侧栏/历史页会话菜单按钮层级重构——导出7格式与压缩2档位收进二级子菜单,一线16项收敛为9项(48项菜单测试/typecheck/prettier现读绿,i18n五语言补键parity OK) (09b5462b8f)
+- 🐞 修复:推送腿兜底两处收尾 —— ① 探针取根改用脚本自身位置 EGRESS_ROOT,不再引用尚未赋值的 repoRoot(实测:兜底自己崩在判据之前,Cannot access 'repoRoot' before initialization,比没兜底更坏) ② 两条腿都不通时把诊断写进 push-state reason,读数不再退化成'退出码 128 且无可辨认特征'(AGENTS §5e-3 量得到/§12f 失效不许安静),并给出单次绕过的可跑通道 --no-proxy ③ withDirectArgs 保住 git.exe 与尾随空格形态。回归 git-push-guard.test 32 例 + push-attempt-triage 自跑全绿 (5999fa708e)
+**2026-10-26**
+- 🐞 修复:把'代理腿死'的出路做成真跑得通的通道(AGENTS §0.8) —— converge 加 --no-proxy、face-reader 加 isForceDirect 与 opts.forceDirect(第一趟就直连,不再先烧一次代理超时),alreadyDirect 认 forceDirect 不叠第二趟;两腿都不通时 push-state reason 点名两腿与各自动作;兜底探针取根不再碰未赋值的 repoRoot;直连实测新形态 'Connection was reset' 补进传输特征串。接线锁 scripts/tests/git-egress-fallback.test.mjs 16 例(含 HTTP 403 / not-a-git-repository 两条成对反证);face-reader.test 35 例同跑 51/51 全绿 (362addb4d8)
+- 🐞 修复:git-lock 落 G-397 租约凭据四档释放(单一删除出口承镜像反向锁⑤)并接 CLI --token;fix(ui): edu-ai tabActiveText 配对补全消费点(门83 R3) (b0f575b666)
+- 📚 文档:登记 O 族派单面同尺票 v2 接线(结清注记,第二步摘行) (4dc4effa68)
+- 🐞 修复:mypy 归零——_version_sort_key 恢复完整泛型注解(收口上一枚带入的裸 tuple),parent_child_chunking 删多余 import-not-found ignore(本venv已装 tiktoken,unused-ignore 判红) (f28c7ace34)
+- 📚 文档:G-241 与 O87g 记进展不翻勾——认领 CAS+终态封闭集已入库(journal 345,applied 回环 dev),门8 提取式第①步 ⊇ 自证主席复跑(4357→4648/回归 0/未判定点名 62→170);两行各自写明剩余格,不开假账 (fb54ff62f0)
+- 🚀 新功能/改进:窗控 overlay 深浅判定拆出纯函数 classify_topbar_luminances+10 组单测,新增几何/深浅真机自证日志(note_chrome_state,节流三闸);本机无 MSVC 链接器未编译验证,以门为准 (654ade932e)
+- 🐞 修复:派单口径分桶切到 v2 尺与 --dispatchable 过滤面同尺(票 G-1182552) (2f0830e8ee)
+- 🚀 新功能/改进:cf-preferred-ip 优选 IP 守护脚本落库(PROJECT_PLAN 已登记该交付物,此前仅存生产机未入库;.env 本体仍由 gitignore 屏蔽) (bf805b6551)
+- 🚀 新功能/改进:模型同步按 provider 指定出网代理(SYNC_PROXY_URL_<PROVIDER> 环境变量驱动,缺省回退全局);收口 httpx proxy= 三处测试替身欠账 (b30f56aa66)
+- 🐞 修复:ai-world 收藏前景键改 favBtnActiveText 与底键同前缀(门83 R3 兄弟对);chore(miniapp): llm-settings 空态补 key-round 图标,ui-routes 派生产物随源同步 (d184010664)
+- 🚀 新功能/改进:[cross-domain] safe-commit 两处停摆根治 + intentional-delete 摘净国内代码镜像残留 + 根目录 .screenshots/ 入忽略层 —— ① 本进程取不到 user.email 时按 lib/bypass-git.mjs 的 REPO_GIT_IDENTITY_ARGS 唯一出口补署名(问不到当作有身份,绝不伪造作者);② 裸 exit 128 不再冒充索引锁争用(本机实测:身份缺失被当锁连烧 10 轮守门链 ≈100 分钟),确定性致命因有专档且不退 --no-verify;③ 删 mirror-to-cn.yml + scripts/setup-mirror-repos.mjs(机主 2026-10-23 弃用令被并发 union 带回,gitee 残留远端同批已摘;桌面端 Gitee 附件分发与 release-desktop.yml 不受影响);④ .screenshots/ 入忽略层 ⇒ 守门 44 从"归属无从判定 exit 2"落到只告警层,不删并发席位现场。接线锁 scripts/tests/safe-commit-failure-triage.test.mjs 5 例 + git-egress-fallback.test.mjs 14 例;回归 face-reader 35 / safe-commit 20 / git-push-guard 32 全绿 (2f9def0ddd)
+- 🔧 工程/其他:RAG_PARENT_CHILD_ENABLED 登记能力矩阵(开关类,默认关;放量判据=金标集真实库 on/off 对照) (63cf7dbfd3)
+- 🐞 修复:cross-publish-v2ex 用法文案漂移(参数→值)对齐单源措辞,g322 第二十批探针 29/29 转绿 (f0b3e47c3c)
+- 🐞 修复:补 stepfun 除名最后两处漏网(入站显式档 + 用户可见面板) (9d01bc93a8)
+- 🐞 修复:部署脚本 git 调用一律钉 -C $Root(取源/定 tip/算 behind/快进不再读错仓库) (85eeb326a7)
+- 🔧 工程/其他:三端 ui-routes 派生产物重生成(大屏「会话质量/访问来源/页面流转」三块面板改动 ⇒ 自述钉 inputsSha256 须同步;派生产物由生成器产出,不得手改) (e3138d8057)
+- 🚀 新功能/改进:大屏新增「访问来源」与「页面流转」两格(流量从哪来 + 人往哪走) (bc28df94c1)
+- 🐞 修复:清零 shared/api 两包 lint 错误 (f78f79461f)
+- 🚀 新功能/改进:KB 检索金标集入库(264 条问答 + schema 校验常驻尺子) (0451cb1e18)
+- 🚀 新功能/改进:检索指标模块(Recall/Precision/MRR/nDCG/HitRate/ContextPrecision) (a7701fa00e)
+- 🚀 新功能/改进:父子块 small-to-big 摄取/检索接线(RAG_PARENT_CHILD_ENABLED 默认关) (9e7923d0fd)
+- 🔧 工程/其他:守门44白名单登记 .screenshots(只登记、不搬不删,归属并行会话产物) (308d4c57d7)
+- 🐞 修复:永久退役厂商(stepfun)在同步/可用性/面板/调用/清单五面统一除名 (535dfe6d92)
+- 🔧 工程/其他:三端 ui-routes 派生产物重生成(墙板页面改动 + 并发侧 bi-dashboard 变更 ⇒ 自述钉 inputsSha256 须同步;派生产物由生成器产出,不得手改) (7694177548)
+- 🚀 新功能/改进:大屏新增会话质量腿(会话数/单页会话占比/人均浏览页数/会话深度分档/落地页TOP) (9d6fbb62ee)
+- 🐞 修复:修「网络异常 × 401 续期」预算互挤 + 补 fetchText 续期契约;RN 替身补转发;api 三例存量红收口 (40f18df5fe)
+- 🐞 修复:LlmProviderUnhealthy 文案去「补 key」出路措辞 + 接线锁文案层射程扩到全部 LLM 告警规则 (af69efdde8)
+- 🔧 工程/其他:三端 ui-routes 派生产物重生成(墙板页面改动 + 合并带入的路由源变更 ⇒ 自述钉 inputsSha256 须同步;派生产物由生成器产出,不得手改) (f43a72e73f)
+- 📚 文档:G-1200041 压行至 388 字(≤400 合规),主键与归属桶逐字不动 (11c70b4ac4)
+- 📚 文档:G-1200041 登记 sso.aizhs.top 502 剩余两格(归:机主控制台面);本机 Keycloak 已对齐 8850 (e4a65ab104)
+- 🐞 修复:三条通道的 401 续期收口 —— SSE 双闸收敛为一道 / WS 换票 401 语义下沉 / 小程序通知 WS 票据化 (de1a3c2902)
+- 🐞 修复:页面路径归一单源 + 授权凭据落库防线;大屏排行补端前缀与占比 (0c50f20838)

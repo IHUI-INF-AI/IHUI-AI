@@ -30,6 +30,7 @@ import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { fetchPublicAsset, formatPublicAssetFailure } from '../utils/public-asset-fetch.js'
 import { getSystemAccessToken } from '../utils/system-access-token.js'
+import { isRetiredModel, resolveDefaultChatModel } from '../utils/retired-providers.js'
 import { fetchWithinDeadline, type FetchDeadlineImpl } from '../utils/fetch-deadline.js'
 import {
   aiFeedSource,
@@ -587,7 +588,7 @@ async function callLlm(
   if (!baseUrl) return null
   const models = feedModels()
   // 2026-09-06 加速:候选模型按序 fallback。前一个模型并发限流/失败时
-  // 自动切下一个(默认 stepfun → deepseek),避免批量翻译整批 502 空转。
+  // 自动切下一个(默认档由 utils/retired-providers.ts 解析给出),避免批量翻译整批 502 空转。
   for (const model of models) {
     try {
       const controller = new AbortController()
@@ -1223,19 +1224,27 @@ const llmSummaryBatchSize = () => readPositiveIntEnv('LLM_SUMMARY_BATCH_SIZE', 1
 const llmDrainStaggerMs = () => readPositiveIntEnv('LLM_DRAIN_STAGGER_MS', 3000)
 const llmDrainMaxIterations = () => readPositiveIntEnv('LLM_DRAIN_MAX_ITERATIONS', 5)
 // AI 资讯批处理锁定的候选模型(逗号分隔,按序 fallback)。
-// 默认 stepfun/step-3.7-flash(官方套餐,额度正常)。其 litellm 并发上限常在 8 左右,
-// 被实时用户请求抢占时批量翻译会 502,故保留多候选可扩展;当前已验证有余额的
-// 仅 stepfun,其余(deepseek/siliconflow/bailian)经实测无余额或 4xx,不引入避免白耗一次请求。
+// 默认档不再写死任何 provider:经 utils/retired-providers.ts 的唯一解析入口取
+// (调用方显式 → .env LITELLM_MODEL → 非退役的末位兜底链),退役 provider 恒被守卫跳过。
+// 2026-10-26:stepfun 订阅失效(余额 -0.09 CNY)后已被机主永久除名,旧注释里
+// 「当前已验证有余额的仅 stepfun」随之失真,不再作为候选依据,故整段重写。
+// 并发上限:litellm 并发常在 8 左右,被实时用户请求抢占时批量翻译会 502,
+// 故保留多候选可扩展;deepseek/siliconflow/bailian 经实测无余额或 4xx,不引入避免白耗一次请求。
 // 环境变量 LLM_FEED_MODEL 可覆盖(逗号分隔,留空用默认)。
 const feedModels = (): string[] => {
   const raw = env.LLM_FEED_MODEL
   if (raw && raw.trim() !== '') {
-    return raw
+    const picked = raw
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean)
+      // 2026-10-26:退役档(stepfun)恒被剔除 —— 运维把 LLM_FEED_MODEL 写成退役档时,
+      // 也不能让批量翻译去调一个必然 400 的 provider。
+      .filter((m) => !isRetiredModel(m))
+    // 全被过滤掉(只填了退役档)⇒ 回落统一解析入口,不许出现"零候选"的空转。
+    if (picked.length) return picked
   }
-  return ['stepfun/step-3.7-flash']
+  return [resolveDefaultChatModel()]
 }
 
 function sleep(ms: number): Promise<void> {
@@ -1349,7 +1358,7 @@ export async function processLlmBatch(limit?: number): Promise<LlmBatchResult> {
     let llmSucceeded = false
     // 把 sourceCode 拼到 content 里,让 LLM 看到信源信息以便正确分类(arxiv→paper 等)
     const llmContent = `信源: ${item.sourceCode}\n标题: ${item.title}`
-    // 不传 max_tokens:StepFun step-3.7-flash 是推理模型,reasoning 字段会消耗大量 token
+    // 不传 max_tokens:部分推理型模型(如已退役的 stepfun 档)reasoning 字段会消耗大量 token
     // (实测 ~760 token),限制 max_tokens=20/200 会导致 reasoning 未完成 content 为空。
     // 不限制时,content 是 markdown 文档(含 "### Classification result: paper" 等),
     // 由 extractCategory 正则提取类别名。
@@ -1465,7 +1474,7 @@ export async function translateTitles(limit?: number): Promise<LlmBatchResult> {
   // 2026-09-06 加速:由串行改为受控并发(默认 4,低于 litellm 8 上限)。
   // 串行仅能 ~4-16 条/分钟,而多个并行 drain job 又会把 litellm 并发打爆到
   // limit=8 → 502 风暴 → 成功率 <10%。单 worker 受控并发可在不打爆上限的
-  // 前提下把吞吐提到 ~40-80 条/分钟,回退显式锁定 stepfun 模型后基本稳定成功。
+  // 前提下把吞吐提到 ~40-80 条/分钟,回退显式锁定单一模型后基本稳定成功。
   let processed = 0
   let failed = 0
   await mapLimit(pending, llmConcurrency(), async (item) => {

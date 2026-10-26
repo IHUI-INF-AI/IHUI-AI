@@ -33,7 +33,11 @@ from ..core.model_pricing import (
     cost_micro_usd,
     cost_micro_usd_from_per_1m,
 )
-from ..core.token_baseline import PromptTokenSample, incremental_prompt_tokens
+from ..core.token_baseline import (
+    PromptTokenSample,
+    chain_bucket,
+    incremental_prompt_tokens,
+)
 
 # 默认配额(每月 token 上限)
 DEFAULT_QUOTA_LIMIT = 10_000_000
@@ -56,6 +60,11 @@ class UsageRecord:
     estimated_cost: float  # 美元
     timestamp: float
     session_id: str = ""
+    # G-941 残余(2026-10-26 第二读面):上下文链标签(main/subagent/workflow;
+    # 空=未知链)。增量基线的真判别维度 —— 同 session 同 provider/model 下,
+    # 子代理/workflow 与主链若不按链分桶会共用基线而少计。链别常量单源
+    # core.token_baseline(与 cost_ledger 同形),空/表外值读面归"未判定"桶。
+    chain: str = ""
 
 
 def _estimate_cost(
@@ -93,8 +102,13 @@ class LLMUsageService:
         input_tokens: int,
         output_tokens: int,
         session_id: str = "",
+        chain: str = "",
     ) -> UsageRecord:
-        """记录一次 LLM 调用用量。"""
+        """记录一次 LLM 调用用量。
+
+        G-941 残余(2026-10-26):chain 为上下文链标签(main/subagent/workflow;
+        空串保持旧行为,读面归"未判定"桶,不并入主链)。
+        """
         cost = _estimate_cost(provider, input_tokens, output_tokens, model=model)
         record = UsageRecord(
             id=uuid.uuid4().hex[:12],
@@ -106,14 +120,15 @@ class LLMUsageService:
             estimated_cost=cost,
             timestamp=time.time(),
             session_id=session_id,
+            chain=chain,
         )
         self._records.append(record)
         # 限制内存记录数
         if len(self._records) > self._max_records:
             self._records = self._records[-self._max_records:]
         logger.info(
-            "record_usage: user=%s provider=%s model=%s input=%d output=%d cost=%.4f",
-            user_id, provider, model, input_tokens, output_tokens, cost,
+            "record_usage: user=%s provider=%s model=%s chain=%s input=%d output=%d cost=%.4f",
+            user_id, provider, model, chain_bucket(chain), input_tokens, output_tokens, cost,
         )
         return record
 
@@ -123,13 +138,18 @@ class LLMUsageService:
         G-821(2026-09-29):input tokens 走「按 (来源链, session) 增量基线」,
         逐条相加会把同一会话的上下文按轮次重复计入(平方级虚高)。
         算法只在 core.token_baseline 那一份里,与 cost_ledger.aggregate 共用。
+        G-941 残余(2026-10-26 第二读面):来源链补齐链别维 —— 此前本读数键为
+        provider/model + session,同 session 同模型下主链与子代理/workflow 共用
+        一条基线而少计。链别先经 chain_bucket 归一(与 cost_ledger._baseline_samples
+        同形 f"{chain}:{source}"),空/表外值归"未判定"桶,可见且不并入主链;
+        新增 chain_breakdown 按链别分桶输出。
         """
         cutoff = time.time() - days * 86400
         user_records = [r for r in self._records if r.user_id == user_id and r.timestamp >= cutoff]
         increments = incremental_prompt_tokens(
             [
                 PromptTokenSample(
-                    source=f"{r.provider}/{r.model}",
+                    source=f"{chain_bucket(r.chain)}:{r.provider}/{r.model}",
                     session_id=r.session_id,
                     prompt_tokens=r.input_tokens,
                 )
@@ -177,6 +197,19 @@ class LLMUsageService:
             provider_breakdown[p]["cost"] += r.estimated_cost
             provider_breakdown[p]["calls"] += 1
 
+        # 按链别汇总(G-941 残余):桶键经 chain_bucket 归一,
+        # "未判定"桶独立可见,绝不与 main/subagent/workflow 混桶。
+        chain_breakdown: dict[str, dict[str, int | float]] = {}
+        for r, increment in zip(user_records, increments, strict=True):
+            c = chain_bucket(r.chain)
+            if c not in chain_breakdown:
+                chain_breakdown[c] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0, "calls": 0}
+            chain_breakdown[c]["input_tokens"] += increment
+            chain_breakdown[c]["output_tokens"] += r.output_tokens
+            chain_breakdown[c]["total_tokens"] += increment + r.output_tokens
+            chain_breakdown[c]["cost"] += r.estimated_cost
+            chain_breakdown[c]["calls"] += 1
+
         # 每日 breakdown 排序
         daily_sorted = dict(sorted(daily.items()))
 
@@ -191,6 +224,7 @@ class LLMUsageService:
             "daily_breakdown": daily_sorted,
             "model_breakdown": model_breakdown,
             "provider_breakdown": provider_breakdown,
+            "chain_breakdown": chain_breakdown,
         }
 
     def get_global_stats(self, days: int = 7) -> dict[str, Any]:

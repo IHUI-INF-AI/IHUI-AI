@@ -121,6 +121,7 @@
     "login": "Login",
     "logging": "Logging in…",
     "passwordLogin": "Password login",
+    "webAuthLogin": "Sign in via web authorization",
     "phonePlaceholder": "Enter phone number",
     "codeSent": "Code sent",
     "passwordPlaceholder": "Enter password",

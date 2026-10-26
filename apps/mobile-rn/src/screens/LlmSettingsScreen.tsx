@@ -109,7 +109,7 @@ interface UserLlmProvider {
   enabled: boolean
 }
 
-export function LlmSettingsScreen() {
+function LlmSettingsScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

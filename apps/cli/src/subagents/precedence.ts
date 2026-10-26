@@ -115,19 +115,19 @@ function src(layer: PrecedenceLayer, origin: string): ConfigFieldSource {
 }
 
 /** 单文件修订号读取结果:`revision=null` 时 `reason` 必给(不得用 0 / 空串冒充"取到了") */
-export interface FileRevision {
+interface FileRevision {
   revision: string | null
   reason: RevisionUnavailable | null
 }
 
 /** 修订号读取器(注入点,只为可测 `stat-failed` 一臂;生产一律用 `readFileRevision`) */
-export type RevisionReader = (file: string) => FileRevision
+type RevisionReader = (file: string) => FileRevision
 
 /**
  * 默认修订号读取:来源文件 mtime 的 ISO 时刻。
  * stat 拿不到 ⇒ `{revision:null, reason:'stat-failed'}`(不猜、不回落"当前时刻")。
  */
-export function readFileRevision(file: string): FileRevision {
+function readFileRevision(file: string): FileRevision {
   try {
     return { revision: fs.statSync(file).mtime.toISOString(), reason: null }
   } catch {
@@ -487,7 +487,7 @@ export function formatConfigSnapshot(config: EffectiveRuntimeConfig): string {
  * 快照留痕出口(默认 stderr,`IHUI_SUBAGENT_CONFIG_TRACE=0` 或 `sink=null` 关闭)。
  * 写失败只吞自身,绝不让诊断把一次正常解析带崩。
  */
-export function emitConfigSnapshotTrace(
+function emitConfigSnapshotTrace(
   config: EffectiveRuntimeConfig,
   sink?: ((line: string) => void) | null,
 ): void {

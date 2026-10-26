@@ -37,7 +37,7 @@ const todayIso = (): string => new Date().toISOString().slice(0, 10)
 const statusTone = (s: string): ConsoleBadgeTone =>
   s === 'present' ? 'ok' : s === 'late' ? 'warn' : s === 'absent' ? 'danger' : 'muted'
 
-export function EduAttendanceScreen() {
+function EduAttendanceScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

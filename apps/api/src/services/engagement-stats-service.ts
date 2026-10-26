@@ -23,9 +23,9 @@ import { db } from '../db/index.js'
 import { analyticsEvents } from '@ihui/database'
 
 /** 窗口小时数(有界常量,SQL 只吃它,不吃外部字符串)。 */
-export const ENGAGEMENT_WINDOW_HOURS = 24
+const ENGAGEMENT_WINDOW_HOURS = 24
 /** 进程内快照 TTL:事件表无 created_at 索引,放宽到 15 秒压库负载。 */
-export const ENGAGEMENT_LIVE_TTL_MS = 15_000
+const ENGAGEMENT_LIVE_TTL_MS = 15_000
 
 const EVENTS_LIMIT = 8
 const CLICKS_LIMIT = 6
@@ -49,7 +49,7 @@ export interface EngagementLiveSnapshot {
 }
 
 /** 现算一份;任一 SQL 抛错整块上抛(调用方折 null,绝不兜成 0)。 */
-export async function computeEngagementLiveSnapshot(): Promise<EngagementLiveSnapshot> {
+async function computeEngagementLiveSnapshot(): Promise<EngagementLiveSnapshot> {
   const start = sql`now() - make_interval(hours => ${ENGAGEMENT_WINDOW_HOURS})`
   const inWindow = sql`${analyticsEvents.createdAt} >= ${start}`
   const clickLabel = sql<string>`coalesce(${analyticsEvents.properties}->>'label', '(no label)')`

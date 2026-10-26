@@ -73,7 +73,7 @@ export interface AnnotationText {
  * 标注结果契约(D124 回传形状)。
  * 坐标一律为画布归一化前的 px 偏移;上层若需与原始位图对齐,按渲染时的 contain 缩放比换算即可。
  */
-export interface AnnotationData {
+interface AnnotationData {
   readonly strokes: readonly AnnotationStroke[]
   readonly texts?: readonly AnnotationText[]
 }
