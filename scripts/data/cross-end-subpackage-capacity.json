@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "measuredAtSha": "c898912a64b0",
+  "measuredAt": "2026-10-26",
+  "face": "隔离 worktree 在 c898912a64b0 上 `pnpm --filter @ihui/miniapp-taro build:weapp` 的真实产物(apps/miniapp-taro/dist),体积由 check-artifact-budget 同一把尺子量",
+  "limitBytes": 2097152,
+  "safetyRatio": 0.95,
+  "bytesPerShellPage": 28760,
+  "notes": [
+    "limitBytes = 微信平台硬限制:主包与**每个分包**各 2 MiB(总 20 MiB)。旧口径只判主包,分包是盲区。",
+    "bytesPerShellPage = 2026-10-26 实测:隔离树一次性落 78 枚壳承载页,pkg-user 1,525,850 → 3,769,041 B ⇒ 边际 28,760 B/页(含该包 sub-common 增长)。",
+    "chunkReserveBytes = 该包**首次**引入共享闭包时要吃下的一枚 sub-common 实测值(707,273 B)。已经带大 sub-common 的包(=实测 ≥1 MB)记 0。",
+    "pkg-content 的 chunkReserveBytes 取 312,000:那一批 78 页里它一页没接,体积仍从 1,801,421 涨到 2,113,602 B(chunk 重排),⇒ 该包按'零增长'封口。",
+    "maxMirrorEntries 由 lib/cross-end-subpackage-capacity.mjs 现算(不在此手写):floor((limit×safety−bytes−reserve)/bytesPerShellPage) + 该包在册镜像条数。",
+    "该表是**测量快照**,不是豁免:重建产物后按新读数重跑更新(sha/时间/bytes 三项一起换)。取不到本表 ⇒ 造页器整轮 blocked,不猜。"
+  ],
+  "roots": {
+    "pages": { "bytes": 1719822, "mirrorEntriesAtMeasure": 2, "chunkReserveBytes": 0 },
+    "pages/ask": { "bytes": 37052, "mirrorEntriesAtMeasure": 3, "chunkReserveBytes": 707000 },
+    "pages/circle": { "bytes": 70138, "mirrorEntriesAtMeasure": 2, "chunkReserveBytes": 707000 },
+    "pages/distribution": { "bytes": 75359, "mirrorEntriesAtMeasure": 5, "chunkReserveBytes": 707000 },
+    "pages/exam": { "bytes": 58046, "mirrorEntriesAtMeasure": 4, "chunkReserveBytes": 707000 },
+    "pages/forgot-password": { "bytes": 21908, "mirrorEntriesAtMeasure": 0, "chunkReserveBytes": 707000 },
+    "pages/member": { "bytes": 442864, "mirrorEntriesAtMeasure": 4, "chunkReserveBytes": 707000 },
+    "pages/register": { "bytes": 23354, "mirrorEntriesAtMeasure": 1, "chunkReserveBytes": 707000 },
+    "pages/setting": { "bytes": 34514, "mirrorEntriesAtMeasure": 2, "chunkReserveBytes": 707000 },
+    "pages/study": { "bytes": 83563, "mirrorEntriesAtMeasure": 5, "chunkReserveBytes": 707000 },
+    "pages/webview": { "bytes": 2782, "mirrorEntriesAtMeasure": 0, "chunkReserveBytes": 707000 },
+    "pkg-about": { "bytes": 332897, "mirrorEntriesAtMeasure": 10, "chunkReserveBytes": 707000 },
+    "pkg-ai": { "bytes": 1305553, "mirrorEntriesAtMeasure": 21, "chunkReserveBytes": 0 },
+    "pkg-content": { "bytes": 1801421, "mirrorEntriesAtMeasure": 15, "chunkReserveBytes": 312000 },
+    "pkg-learn": { "bytes": 290237, "mirrorEntriesAtMeasure": 10, "chunkReserveBytes": 707000 },
+    "pkg-shop": { "bytes": 263367, "mirrorEntriesAtMeasure": 13, "chunkReserveBytes": 707000 },
+    "pkg-user": { "bytes": 1525850, "mirrorEntriesAtMeasure": 26, "chunkReserveBytes": 0 }
+  }
+}
