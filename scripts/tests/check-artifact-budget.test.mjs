@@ -214,6 +214,35 @@ test('C5 分包目录不得计入主包(构造面正反同夹具对照)', () => 
 })
 
 /**
+ * AB4 整档总量:微信 20 MiB 是**整档**上限,逐包都绿也可能整档传不上去。
+ * 夹具刻意把量摊到 12 个分包、每个 1.9 MiB —— 于是 AB1(主包)与 AB3(单分包)都必须仍判绿,
+ * 红的只有 AB4。若哪天有人把总量维并进主包那一维、或把上限写错,这条就会露馅。
+ */
+test('C10 整档总量超 20 MiB ⇒ 判红并点名总量维(主包与逐包仍必须绿)', () => {
+  const dir = mkFakeRepo('ab-c10-')
+  try {
+    const per = 1_900_000
+    const files = {}
+    const subs = []
+    for (let i = 0; i < 12; i += 1) {
+      files[`pkg-b${i}/blob.js`] = per
+      subs.push({ root: `pkg-b${i}`, pages: ['a'] })
+    }
+    makeDist(dir, 'apps/miniapp-taro/dist', files, JSON.stringify({ pages: ['pages/index/index'], subpackages: subs }))
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 1, `总量超限没判红:\n${r.stdout}`)
+    assert.match(r.stdout, /AB4 整档总量/)
+    assert.match(r.stdout, /整档总量超 20 MiB/)
+    const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j.ab4Fail, true)
+    assert.equal(j.ab3Fail, false, '每个分包都只有 1.9 MiB ⇒ AB3 必须仍绿,红的只能是总量维')
+    assert.equal(j.status, 'ok', '主包必须仍报 ok,否则测不出"只有总量红"这一型')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
  * AB3:单个分包超 2 MiB 必须判红 —— 主包可能完全正常(实测形态:pkg-user 3.77 MB 而主包 82%)。
  * 这条同时是"主包绿 ⇒ 能上传"这个旧假设的反证。
  */
