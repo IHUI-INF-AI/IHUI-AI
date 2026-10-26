@@ -3071,7 +3071,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 > ③ **保守设定未按 CI 复评**:workers=1 源于本地 10 并发压垮 Turbopack dev server 的教训(2026-08-29 实锤),但 CI 跑的是 `next start` 生产服务器,该约束不必然适用于 CI。
 >
 > 修复路线(按序,验收=e2e 回绿且连续 3 次 main push 稳定绿):
-- [ ] 副本指针(编号 4·观察期):同主键第二份未勾选副本,只加指针不动勾选;当前状态见下方完整原文那条(其紧邻上一行是 2026-09-27 观察期重开注记)。本行与注记行原是并发插入把正文拦腰截断的产物,2026-09-28 现读归正:正文归还完整副本,注记独立成行。
+- [x] 〔结清@2026-10-26/gb16-chair:本行是副本指针,非任务:主键第二份副本只加指针不动勾选,当前状态由承载行表达;指针注记存量按 AGENTS §1 已于 2026-10-14 定为零基线,故本行按完成即删处置〕 副本指针(编号 4·观察期):同主键第二份未勾选副本,只加指针不动勾选;当前状态见下方完整原文那条(其紧邻上一行是 2026-09-27 观察期重开注记)。本行与注记行原是并发插入把正文拦腰截断的产物,2026-09-28 现读归正:正文归还完整副本,注记独立成行。
   - **2026-09-27 观察期重开(连红回归根因已修)**:9-26 深夜 `aa83eb70198` 把 7 个包 exports 从 src 改 dist,但 e2e.yml 的两个构建步骤仍排在 seed 之后 ⇒ seed 步 `ERR_MODULE_NOT_FOUND: @ihui/types/dist/index.js`,每轮 ~2 分钟即败(2026-09-27 实测 gh 连查 8/8 failure)。修复 = 「Build database package」+「Build workspace deps(topological closure)」两步移到「Run database migrations / Seed」之前(YAML 解析校验通过,本批提交);连续 3 次绿后按本条原判据收官。
 
 > 备注:main 无分支保护,e2e 非必需门禁;HEAD `8d54a432d8` 其余 7 个 workflow(CI/CI (Monorepo)/Real DB Integration Tests/Build Docker/Knip/Mirror to CN/OpenAPI Check)全 success,业务合并门禁不受 e2e 阻塞。
@@ -6288,7 +6288,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **抽取口径**：本条数字取自 `node scripts/plan-tasks.mjs --json` 的 `collisions[]`（每组 `titles[].lines`）与 `open[]`，两态判定 = 该组全部行号是否命中 `open` 集合；基线键集取 `scripts/plan-task-state-baseline.json` 的 `F9` 数组（73 键）。**数字是当次现读，下一个人复核请重跑，勿照抄**。
 <!-- ↓↓↓ 并发旧基线回捞区(2026-10-09):以下 78 条为本会话提交 065412d709 误用滞后工作树覆盖掉、而其父提交 fdd172cad5 里仍在位的登记行,逐字取回,未翻勾、未删改、未并抄;正文来源 = git show fdd172cad5:PROJECT_PLAN.md(该提交是 065412d709 的直接父提交)。全部为 - [ ] 活账(无一条是已完成行),落此只为不丢别人的活;归并与裁决仍归台账持有人。另有 25 条因当前 HEAD 面已出现同题孪生(并发会话的守门 71 自愈层补回)而**不落副本**,按 §1 F4 口径「同一件事只许有一行当前状态」。 -->
 ### 并发旧基线回捞区(2026-10-09 · 出处 065412d709 的父提交 fdd172cad5)
-- [ ] 副本指针(编号 P1-①):本行折叠自旧形态行 **P1-① 扩共享层首批(在等:逐屏清单裁决,量级 10–20 人日)** —— 那整句已被实测否证(两端同名导出只有 4 件,不是 10–20 人日的一批),当前状态见 ## O92 里「P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件」那条;按 §1 F4 只加指针、不动勾选,也不无声删行。〔旧形态行是第七十三批的并发 union 按「每行重数取 max」从**改写前**的副本补回来的,不是新增工作;归并出口 `node scripts/plan-tasks-merge.mjs --heal`。〕
+- [x] 〔结清@2026-10-26/gb16-chair:本行是副本指针,非任务:折叠自旧形态行 P1-①,承载行在册;指针注记存量按 AGENTS §1 已于 2026-10-14 定为零基线,故本行按完成即删处置〕 副本指针(编号 P1-①):本行折叠自旧形态行 **P1-① 扩共享层首批(在等:逐屏清单裁决,量级 10–20 人日)** —— 那整句已被实测否证(两端同名导出只有 4 件,不是 10–20 人日的一批),当前状态见 ## O92 里「P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件」那条;按 §1 F4 只加指针、不动勾选,也不无声删行。〔旧形态行是第七十三批的并发 union 按「每行重数取 max」从**改写前**的副本补回来的,不是新增工作;归并出口 `node scripts/plan-tasks-merge.mjs --heal`。〕
 
   **本线自己的两枚旁路提交因此都在提交链外补跑过权威入口**:`check-gate-wiring` rc=0(接线 170 / R4 0)、`check-plan-line-loss` rc=0、`check-shared-nonde-node-purity` rc=0、`check-no-conflict-markers` rc=0;`check-project-plan-archive` 当时 rc=1 红在 **A1 两枚归档锚点从未入库**(`PROJECT_PLAN_*.md` / `2026-09-23_bulk-archive.md`)—— 这是一台挡**所有**会话的恒红门(13c 无 skipEnv),按其给出的唯一出路补交,已随 `d0beedb1bc0` 入库并复跑归零;文件非本会话产生,提交信息里已明写代交属性。
 - **⑦ 顺手关掉一处会让别人跳门的红**:`check-watermark-coverage --no-fix` 现读唯一缺口是并发提交 `3dc77484be7` 新建的台账去重归档件 `.ihui-agent/archive/PROJECT_PLAN_*.md`(缺溯源横幅)。只走 `watermark.mjs inject`(禁对含载荷文件做文本级批量改写,§5c),`verify` 覆盖 1/1、残迹 0、损坏 0,该门由 exit 1 转 exit 0。
