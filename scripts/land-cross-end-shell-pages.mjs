@@ -13,8 +13,11 @@
  * 接缝内容一律按 **HEAD blob ⊕ 本批行** 构造(不读工作树一字节),走 object-space-land 提交。
  *
  * 与安全边界的三条同时约束:
- *  1) 每轮上限 `--cap`(默认 5 枚):造页会改包体,一次灌 96 枚会把主包顶过微信 2MB 硬上限
- *     (现读主包余量只有几百 KB,config 注释里那笔同名相撞的账还在)⇒ 逐轮推进可回退,一把梭不可回退。
+ *  1) 每轮上限 `--cap`(默认 5 枚)只是**节拍**,不是容量判据;真判据是**单分包 2 MiB**
+ *     (2026-10-26 实测更正:旧注释说"造页增大主包"是错的 —— 78 枚页只让主包涨 46 KB,
+ *      pkg-user 却从 1.53 MB 涨到 3.77 MB,超微信单个分包硬上限 1.8 倍)。
+ *     容量闸 = `lib/cross-end-subpackage-capacity.mjs`(判据单源),到量即 `blocked`,
+ *     不再静默把交付物做成传不上去的形态。
  *  2) 只产 **壳承载形制**(端内零布局零样式):造页器自己判定三腿不齐(spec/RN 腿/词包)即 refuse,
  *     本器不替它放宽(§12e:不得为消红削判据)。
  *  3) 任一接缝插入失败 ⇒ 整批不落(不留"有页无路由"的孤儿),结论行点名是哪条接缝、哪一屏。
@@ -39,6 +42,7 @@ import {
   mergeJsonMembers,
   planBatch,
 } from './gen-miniapp-mirror.mjs'
+import { CAPACITY_REL, admitByCapacity, parseCapacity } from './lib/cross-end-subpackage-capacity.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const R = (...p) => join(ROOT, ...p)
@@ -283,6 +287,31 @@ function run(opts = {}) {
   return foldDocResult(r, doc)
 }
 
+/**
+ * 容量闸(2026-10-26 立):造页前按**上一份真实产物**的测量快照判"这个分包还装得下几屏"。
+ * 取不到容量表/registry ⇒ 整轮 blocked(失效方向是"多要一次定向说明",不是"多放一次跳门")。
+ * 判定公式只有一份:lib/cross-end-subpackage-capacity.mjs(本器零复算)。
+ */
+function capacityGate(planned, { cap, headOf = headBlob } = {}) {
+  let modelText
+  try {
+    modelText = headOf(CAPACITY_REL)
+  } catch {
+    return { ok: false, why: `HEAD 面取不到容量表 ${CAPACITY_REL} ⇒ 本轮不放行(先按新产物更新它)` }
+  }
+  if (typeof modelText !== 'string') return { ok: false, why: `HEAD 面取不到容量表 ${CAPACITY_REL} ⇒ 本轮不放行(先按新产物更新它)` }
+  const parsed = parseCapacity(modelText)
+  if (!parsed.ok) return { ok: false, why: `${parsed.why} ⇒ 本轮不放行` }
+  let registryText
+  try {
+    registryText = headOf(REGISTRY)
+  } catch {
+    return { ok: false, why: `HEAD 面取不到 ${REGISTRY} ⇒ 本轮不放行` }
+  }
+  if (typeof registryText !== 'string') return { ok: false, why: `HEAD 面取不到 ${REGISTRY} ⇒ 本轮不放行` }
+  return admitByCapacity(planned, { model: parsed.model, registryText, cap })
+}
+
 function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
   const { planned, refused, undetermined } = planBatch(ROOT, { form: 'shell' })
   if (!planned) return { state: 'undetermined', why: '批量计划读不到 planned 集' }
@@ -295,15 +324,31 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
       note: '本轮没有可产的屏(缺口要么已落、要么被造页器按三腿判据拒/未判定)',
     }
   }
-  const batch = planned.slice(0, cap)
+  const gate = capacityGate(planned.slice(0, cap), { cap })
+  if (!gate.ok) return { state: 'blocked', why: gate.why, planned: planned.length, held: [] }
+  const batch = gate.admitted
+  const held = gate.held ?? []
+  if (batch.length === 0) {
+    return {
+      state: 'blocked',
+      planned: planned.length,
+      held,
+      refused: refused?.length ?? 0,
+      why:
+        `容量闸挡下本批全部 ${held.length} 枚 —— ` +
+        (held[0]?.why ?? '各 root 均无余量') +
+        `。出路:重建产物后更新 ${CAPACITY_REL}(或给新屏开新分包),不要靠加 cap 硬灌`,
+    }
+  }
   const built = assembleBlobs(batch, { headOf: headBlob, watermarkOf: (n, t) => hashBytes(watermarkBytesOf(n, t)) })
-  if (!built.ok) return { state: 'blocked', why: built.why, planned: planned.length }
+  if (!built.ok) return { state: 'blocked', why: built.why, planned: planned.length, held }
 
   if (!apply || headless) {
     return {
       state: 'pending',
       planned: planned.length,
       batch: batch.map((p) => p.route),
+      held,
       blobs: built.files.length,
       note: apply ? 'headless 档:只算不落' : '预演模式:加 --apply 落地',
     }
@@ -314,7 +359,7 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
   const msg = [
     `chore(cross-end): 自动落 ${batch.length} 枚小程序壳承载页(共 ${planned.length} 枚待产)`,
     '',
-    `器物:node scripts/land-cross-end-shell-pages.mjs --apply(cap=${cap},每轮上限,防一次灌爆主包)`,
+    `器物:node scripts/land-cross-end-shell-pages.mjs --apply(cap=${cap},每轮节拍;容量判据 = 单分包 2 MiB,见 data/cross-end-subpackage-capacity.json)`,
     '形制:端内零布局零样式 —— 渲染源 = packages/app 共享屏(经 src/rn-compat),数据与交互 = 同名 RN 壳。',
     '接缝:app.config 路由行 + 跨端登记表 + 词包(两档:全新命名空间按行插,已在册转并键档,不覆盖既有值)。',
     '内容构造法:全部 blob = git show HEAD:<file> ⊕ 本批行,由造页器自己的插入函数产;工作树一字节未读',
@@ -342,31 +387,43 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
       state: ok ? 'landed' : 'undetermined',
       planned: planned.length,
       batch: batch.map((p) => p.route),
+      held,
       blobs: built.files.length,
       note: ok ? 'CAS 成功且按被审面回读在树' : `落地器输出未自证成功,末行:${out.split('\n').filter(Boolean).slice(-1)[0] ?? ''}`,
     }
   } catch (error) {
-    return { state: 'undetermined', why: `落地失败:${String(error?.message ?? error).slice(0, 160)}`, planned: planned.length }
+    return { state: 'undetermined', why: `落地失败:${String(error?.message ?? error).slice(0, 160)}`, planned: planned.length, held }
   }
 }
 
 /** 自检:用**真 HEAD 面**当底 + 构造屏计划,证明三件事:齐则出 blob、面取不到则整批不落、重复插则自拒 */
 function selfTest() {
   const stamp = (name, text) => hashBytes(`${text}\n// selftest:${name}\n`)
-  const fakePlan = (route) => ({
+  const fakePlan = (route, subRoot = 'pkg-user') => ({
     spec: `packages/app/src/features/${route}/${route}Screen.tsx`,
-    route: `pkg-user/${route}/index`,
-    subRoot: 'pkg-user',
+    route: `${subRoot}/${route}/index`,
+    subRoot,
     page: `${route}/index`,
-    pageRel: `apps/miniapp-taro/src/pkg-user/${route}/index.tsx`,
+    pageRel: `apps/miniapp-taro/src/${subRoot}/${route}/index.tsx`,
     pageText: `// 镜像 packages/app/src/features/${route}/${route}Screen.tsx\nexport default function P(){return null}\n`,
     registryEntry: {
       shared: `packages/app/src/features/${route}/${route}Screen.tsx`,
       rn: `apps/mobile-rn/src/screens/${route}Screen.tsx`,
-      miniapp: `pkg-user/${route}/index`,
+      miniapp: `${subRoot}/${route}/index`,
     },
     langBlocks: [],
   })
+  // 容量表的测试替身:公式本身在 lib 里测,这里只证"闸接上了、取不到不放行、到量挡下"
+  const capModel = ({ bytes = 0, entry = 0 } = {}) =>
+    JSON.stringify({
+      schema: 1,
+      limitBytes: 2097152,
+      safetyRatio: 0.95,
+      bytesPerShellPage: 1000,
+      roots: { 'pkg-user': { bytes, mirrorEntriesAtMeasure: entry, chunkReserveBytes: 0 } },
+    })
+  const capRegistry = (n = 0) =>
+    JSON.stringify({ entries: Array.from({ length: n }, (_, i) => ({ shared: `s${i}`, rn: `r${i}`, miniapp: `pkg-user/p${i}/index` })) })
   const okHead = (rel) => (rel === MP_CONFIG || rel === REGISTRY ? headBlob(rel) : '')
   const cases = [
     {
@@ -540,6 +597,56 @@ function selfTest() {
         return /账本有差异但没落地/.test(o.note ?? '') ? 1 : 0
       },
     },
+    // ---------- 接缝④ 单行 pages 数组(2026-10-26 实测会永久停摆的那型) ----------
+    {
+      name: '接缝④:单行 pages 数组也能插(仓内 8 个 root 是这种形态,旧实现整批拒 ⇒ 链永久停摆)',
+      want: 'ok/true',
+      got: () => {
+        const r = insertConfigPage(headBlob(MP_CONFIG), 'pages/setting', 'selftest-inline/index')
+        return `${r.ok ? 'ok' : 'fail'}/${String(r.text ?? '').includes(`'selftest-inline/index'`)}`
+      },
+    },
+    {
+      name: '接缝④:多行 pages 数组仍按行插(不许把既有形态改成单行)',
+      want: 'ok/multiline',
+      got: () => {
+        const r = insertConfigPage(headBlob(MP_CONFIG), 'pkg-user', 'selftest-multi/index')
+        return `${r.ok ? 'ok' : 'fail'}/${r.shape}`
+      },
+    },
+    // ---------- 容量闸(单分包 2 MiB)----------
+    {
+      name: '容量闸:容量表取不到 ⇒ 整轮不放行(不猜,§0.10 失效方向是多要一次说明)',
+      want: false,
+      got: () => capacityGate([fakePlan('capA')], { cap: 5, headOf: () => null }).ok,
+    },
+    {
+      name: '容量闸:有余额 ⇒ 放行(registry 在册数未到上限)',
+      want: '1/0',
+      got: () => {
+        const headOf = (rel) => (rel === CAPACITY_REL ? capModel({ entry: 0 }) : rel === REGISTRY ? capRegistry(1) : null)
+        const g = capacityGate([fakePlan('capB')], { cap: 5, headOf })
+        return `${g.admitted.length}/${g.held.length}`
+      },
+    },
+    {
+      name: '容量闸:到量 ⇒ 本枚 held 并点名原因(不再静默超灌分包)',
+      want: '0/1',
+      got: () => {
+        const headOf = (rel) => (rel === CAPACITY_REL ? capModel({ bytes: 1992294 }) : rel === REGISTRY ? capRegistry(1) : null)
+        const g = capacityGate([fakePlan('capC')], { cap: 5, headOf })
+        return `${g.admitted.length}/${g.held.length}`
+      },
+    },
+    {
+      name: '容量闸:root 无测量 ⇒ held(未知分包不许当"容量很足")',
+      want: '0/1',
+      got: () => {
+        const headOf = (rel) => (rel === CAPACITY_REL ? capModel({ entry: 0 }) : rel === REGISTRY ? capRegistry(0) : null)
+        const g = capacityGate([fakePlan('capD', 'pkg-unknown')], { cap: 5, headOf })
+        return `${g.admitted.length}/${g.held.length}`
+      },
+    },
   ]
   let pass = 0
   for (const c of cases) {
@@ -573,6 +680,9 @@ if (isDirectRun) {
       blobs: r.blobs ?? 0,
       refused: r.refused ?? 0,
       cap: capArg ? Number(capArg.slice(6)) : DEFAULT_CAP,
+      // 容量闸挡下几枚、为什么挡:到量时这是唯一能解释"为什么不再往前"的读数
+      held: r.held?.length ?? 0,
+      heldWhy: r.held?.[0]?.why ?? '',
       doc: r.doc ?? 'skipped',
       why: r.why ?? '',
       note: r.note ?? '',
@@ -591,5 +701,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { assembleBlobs, writePackText, run, runPages, syncParityDoc, foldDocResult, PARITY_DOC, DEFAULT_CAP }
+export const __test__ = { assembleBlobs, writePackText, run, runPages, capacityGate, syncParityDoc, foldDocResult, PARITY_DOC, CAPACITY_REL, DEFAULT_CAP }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
