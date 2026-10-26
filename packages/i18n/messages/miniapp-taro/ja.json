@@ -121,6 +121,7 @@
     "login": "ログイン",
     "logging": "ログイン中…",
     "passwordLogin": "パスワードログイン",
+    "webAuthLogin": "Web認証ログイン",
     "phonePlaceholder": "電話番号を入力",
     "codeSent": "認証コードを送信しました",
     "passwordPlaceholder": "パスワードを入力",

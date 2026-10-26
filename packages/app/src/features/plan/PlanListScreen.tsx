@@ -198,13 +198,13 @@ export function PlanListScreen({
                 accessibilityRole="button"
                 onPress={() => onFilterChange(f.value)}
               >
-                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                <Text style={[styles.filterChipText, active && styles.filterChipActiveText]}>
                   {t(f.labelKey)}
                 </Text>
                 <Text
                   style={[
                     styles.filterChipText,
-                    active && styles.filterChipTextActive,
+                    active && styles.filterChipActiveText,
                     { fontSize: 11 },
                   ]}
                 >
