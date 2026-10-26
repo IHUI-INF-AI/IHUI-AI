@@ -1199,7 +1199,7 @@ class SessionStore:
             row = self._conn.execute(
                 "SELECT thread_id FROM threads"
                 " WHERE json_extract(metadata, '$.conversationId') = ?"
-                " ORDER BY updated_at DESC LIMIT 1",
+                " ORDER BY updated_at DESC, rowid DESC LIMIT 1",
                 (conversation_id,),
             ).fetchone()
         return _row_str(row, "thread_id") if row is not None else None
@@ -1312,7 +1312,7 @@ class SessionStore:
                 f"SELECT COUNT(*) AS c FROM threads{where}", args
             ).fetchone()
             rows = self._conn.execute(
-                f"SELECT * FROM threads{where} ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+                f"SELECT * FROM threads{where} ORDER BY updated_at DESC, rowid DESC LIMIT ? OFFSET ?",
                 [*args, max(0, int(limit)), max(0, int(offset))],
             ).fetchall()
         threads = [_row_to_thread(r) for r in rows]
@@ -1353,7 +1353,7 @@ class SessionStore:
         cap = max(1, min(int(limit), 200))
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT * FROM threads{where} ORDER BY updated_at DESC LIMIT ?",
+                f"SELECT * FROM threads{where} ORDER BY updated_at DESC, rowid DESC LIMIT ?",
                 [*args, cap],
             ).fetchall()
         out: list[tuple[Thread, dict[str, Any]]] = []

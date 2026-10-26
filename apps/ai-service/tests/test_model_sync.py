@@ -1312,7 +1312,11 @@ class TestToken6688KeylessSync:
         capture: dict[str, Any] = {}
         original = ms_mod.httpx.AsyncClient
         ms_mod.httpx.AsyncClient = (  # type: ignore[assignment]
-            lambda timeout=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+            # **_kwargs:生产侧 2026-10-26 起还传 proxy=SYNC_PROXY_URL;mock 只关心
+            # 请求本身,代理透传由 test_fetch_passes_sync_proxy_to_httpx 单独钉。
+            lambda timeout=None, **_kwargs: _Token6688MockClient(
+                _TOKEN6688_MODELS_PAYLOAD, capture
+            )
         )
         try:
             svc = ModelSyncService()
@@ -1335,7 +1339,11 @@ class TestToken6688KeylessSync:
         capture: dict[str, Any] = {}
         original = ms_mod.httpx.AsyncClient
         ms_mod.httpx.AsyncClient = (  # type: ignore[assignment]
-            lambda timeout=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+            # **_kwargs:生产侧 2026-10-26 起还传 proxy=SYNC_PROXY_URL;mock 只关心
+            # 请求本身,代理透传由 test_fetch_passes_sync_proxy_to_httpx 单独钉。
+            lambda timeout=None, **_kwargs: _Token6688MockClient(
+                _TOKEN6688_MODELS_PAYLOAD, capture
+            )
         )
         try:
             svc = ModelSyncService()
@@ -1355,7 +1363,11 @@ class TestToken6688KeylessSync:
         capture: dict[str, Any] = {}
         original = ms_mod.httpx.AsyncClient
         ms_mod.httpx.AsyncClient = (  # type: ignore[assignment]
-            lambda timeout=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+            # **_kwargs:生产侧 2026-10-26 起还传 proxy=SYNC_PROXY_URL;mock 只关心
+            # 请求本身,代理透传由 test_fetch_passes_sync_proxy_to_httpx 单独钉。
+            lambda timeout=None, **_kwargs: _Token6688MockClient(
+                _TOKEN6688_MODELS_PAYLOAD, capture
+            )
         )
         try:
             svc = ModelSyncService()
@@ -1370,6 +1382,34 @@ class TestToken6688KeylessSync:
         assert by_id["gpt-image-2"]["metadata"] == {"is_chat": False, "modality": "image"}
         # display_name → name 字段(供 _extract_display_name 用)
         assert by_id["gpt-5.4"]["name"] == "GPT-5.4"
+
+    @pytest.mark.asyncio
+    async def test_fetch_passes_sync_proxy_to_httpx(self, monkeypatch) -> None:
+        """SYNC_PROXY_URL 必须透传给 httpx;空白配置归一成 None(直连)。
+
+        2026-10-26 立:本机对 US/EU provider 无直连出口,同步腿经代理出网。
+        这条钉的是"配置到 httpx 的那一段"——mock 不吞 kwargs 也不代表它传对了。
+        """
+        import app.services.model_sync as ms_mod
+
+        capture: dict[str, Any] = {}
+        seen: dict[str, Any] = {}
+
+        def _factory(**kwargs: Any) -> _Token6688MockClient:
+            seen.update(kwargs)
+            return _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+
+        monkeypatch.setattr(ms_mod.httpx, "AsyncClient", _factory)
+        svc = ModelSyncService()
+
+        monkeypatch.setattr(ms_mod.settings, "sync_proxy_url", "http://127.0.0.1:7897")
+        await svc._fetch_upstream_models("token6688", "https://k.token6688.com", "")
+        assert seen["proxy"] == "http://127.0.0.1:7897"
+
+        seen.clear()
+        monkeypatch.setattr(ms_mod.settings, "sync_proxy_url", "   ")
+        await svc._fetch_upstream_models("token6688", "https://k.token6688.com", "")
+        assert seen["proxy"] is None, "空白配置必须归一成 None(直连),空串不是代理地址"
 
     def test_registry_token6688_keyless_flag(self) -> None:
         """registry 中 token6688 必须标记 keyless_model_list=True。"""
