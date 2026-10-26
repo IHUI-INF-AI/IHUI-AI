@@ -44,6 +44,9 @@ vi.mock('../src/db/queries.js', () => ({
   revokeAllUserRefreshTokens: vi.fn(),
   findRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
+  // /sso/refresh 的重放裁决经 refresh-replay-policy 真实现,其 db 依赖命名导出必须齐备
+  revokeRefreshTokenFamily: vi.fn(async () => 0),
+  findLiveFamilyToken: vi.fn(async () => null),
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({ getUserPermissions: vi.fn() }))
