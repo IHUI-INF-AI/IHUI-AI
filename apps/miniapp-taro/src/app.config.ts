@@ -303,6 +303,7 @@ export default defineAppConfig({
         'live-chat/index',
         'live-playback/index',
         'live-preview/index',
+        'message-detail/index',
       ],
     },
     {

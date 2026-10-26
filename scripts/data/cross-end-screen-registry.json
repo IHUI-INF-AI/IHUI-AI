@@ -840,6 +840,11 @@
       "shared": "packages/app/src/features/message-chat/MessageChatScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/MessageChatScreen.tsx",
       "miniapp": "pkg-mirror2/message-chat/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-detail/MessageDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageDetailScreen.tsx",
+      "miniapp": "pkg-mirror/message-detail/index"
     }
   ]
 }
