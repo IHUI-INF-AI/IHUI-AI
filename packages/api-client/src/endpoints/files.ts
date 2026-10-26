@@ -13,7 +13,7 @@
  * RN 与浏览器均原生支持 FormData + multipart 自动 boundary。
  */
 import type { ApiResult, ApiResponse } from '@ihui/types'
-import { fetchApi, getToken, normalizeUrlPublic } from '../client.js'
+import { fetchApi, fetchWithAuthRefresh, normalizeUrlPublic } from '../client.js'
 
 /** 后端 /api/files/upload/form 返回的文件信息 */
 export interface UploadedFile {
@@ -78,13 +78,9 @@ function getFileSize(file: RnFormDataFile | File): number | undefined {
 export async function getUploadFormInfo(): Promise<ApiResult<UploadFormInfo>> {
   try {
     const url = normalizeUrlPublic('/api/files/upload/form')
-    const token = getToken()
-    const headers: Record<string, string> = {}
-    if (token) headers['Authorization'] = `Bearer ${token}`
-
-    const resp = await fetch(url, {
+    // 2026-10-26:走包内唯一裸 fetch 出口(注入 Bearer + 401 续期后重放一次)。
+    const resp = await fetchWithAuthRefresh(url, {
       method: 'GET',
-      headers,
       credentials: 'include',
     })
     const json = (await resp.json()) as ApiResponse<UploadFormInfo>
@@ -138,14 +134,12 @@ export async function uploadFileMultipart(
     formData.append('file', file as never)
 
     const url = normalizeUrlPublic('/api/files/upload/form')
-    const token = getToken()
-    const headers: Record<string, string> = {}
-    if (token) headers['Authorization'] = `Bearer ${token}`
-    // 不设置 Content-Type,让 fetch 自动生成 multipart boundary
-
-    const resp = await fetch(url, {
+    // 2026-10-26:走包内唯一裸 fetch 出口。multipart 的 FormData 是"条目记录"而不是
+    // 一次性流(浏览器/undici/RN 原生 fetch 每次请求都重新序列化一遍),因此可安全重放;
+    // 出口内还有一条红线:**不覆盖**已存在的 Content-Type,交给 fetch 生成 multipart boundary。
+    // signal 是同一个 AbortSignal.timeout ⇒ 两次尝试共用这一条 120s 预算(不翻倍)。
+    const resp = await fetchWithAuthRefresh(url, {
       method: 'POST',
-      headers,
       body: formData,
       credentials: 'include',
       signal: AbortSignal.timeout(120_000),
