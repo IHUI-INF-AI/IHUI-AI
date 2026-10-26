@@ -630,9 +630,11 @@ describe('auth routes', () => {
       expect(mockRevokeRefreshTokenFamily).toHaveBeenCalledWith('fam-1')
     })
 
-    it('超出宽限期但族里仍有活 token:只拒绝本次,不吊销整族(2026-10-20)', async () => {
-      // 真实症状:桌面 vault 里的旧值 / 停在旧页签的上下文迟到重放。
-      // 吊销整族会把另一个正常上下文刚拿到的活 token 一起打死 → 三端同时被迫重登。
+    it('超出宽限期但族里仍有活 token:放行轮转,不吊销整族(2026-10-27 改判)', async () => {
+      // 真实症状:桌面 vault 里的旧值 / 停在旧页签的上下文 / API 重启打断刷新响应后
+      // 浏览器仍留着旧 cookie —— 迟到的是旧副本,而这一族还有活 token。
+      // 改判前只拒绝本次(401),合法用户每次冷启动撞一次,只能手登并新建 family;
+      // 吊销整族(原 2026-10-20 之前的行为)更会把另一个正常上下文刚拿到的活 token 打死。
       mockVerifyRefreshToken.mockResolvedValueOnce({
         userId: 'user-001',
         familyId: 'fam-1',
@@ -641,14 +643,18 @@ describe('auth routes', () => {
         revokedAt: new Date(Date.now() - 120_000),
       })
       mockFindLiveFamilyToken.mockResolvedValueOnce({ id: 'live-sibling' })
+      mockFindUserById.mockResolvedValueOnce(makeUser())
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/refresh',
         payload: { refreshToken: 'stale-sibling-token' },
       })
-      expect(res.statusCode).toBe(401)
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.accessToken).toBe('access-token')
+      expect(res.json().errorCode).toBeUndefined()
       expect(mockFindLiveFamilyToken).toHaveBeenCalledWith('fam-1')
       expect(mockRevokeRefreshTokenFamily).not.toHaveBeenCalled()
+      // 固定窗口:旧 token 已吊销,重复 revoke 会把 revokedAt 刷成 now
       expect(mockRevokeRefreshToken).not.toHaveBeenCalled()
     })
     it('用户不存在或被禁用返回 401', async () => {

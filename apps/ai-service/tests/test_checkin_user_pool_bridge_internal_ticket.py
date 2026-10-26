@@ -39,6 +39,11 @@ OWNER = "00000000-0000-4000-8000-00000000000c"
 def with_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "jwt_secret", SECRET, raising=False)
     monkeypatch.delenv("JWT_SECRET", raising=False)
+    # _post 的凭据闸读 settings.ai_callback_secret(由 8e6f8fe101dde44910d4cd3d7768bf5af16675ee
+    # 「号池双池并存 + 签到助手双向同步(后端)」引入);缺它则用例随本机 .env 有没有配这个键
+    # 而时过时败 —— 测试不得依赖环境供值,在此显式供。
+    monkeypatch.setattr(settings, "ai_callback_secret", LEGACY, raising=False)
+    monkeypatch.delenv("AI_CALLBACK_SECRET", raising=False)
 
 
 def decode(token: str) -> dict[str, Any]:
@@ -84,7 +89,7 @@ async def test_出站链路_post_真把头带上了(monkeypatch: pytest.MonkeyPa
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
 
-        async def __aenter__(self) -> "FakeClient":
+        async def __aenter__(self) -> FakeClient:
             return self
 
         async def __aexit__(self, *args: Any) -> None:
