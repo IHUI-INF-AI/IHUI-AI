@@ -1,0 +1,32 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+import type { LoginTab } from '@ihui/ui-react'
+
+/**
+ * 海外登录口径(2026-10-26 立):非简体中文界面即视为海外。
+ *
+ * 不用 IP/GeoIP 判定:登录页不能依赖外部地理库的可用性,VPN/企业代理/跨境出差
+ * 会造成误杀;而海外号码本身已被前端 isValidPhone 与后端 ^1[3-9]\d{9}$ 拒绝。
+ */
+export function isOverseasLocale(locale: string): boolean {
+  return locale !== 'zh-CN'
+}
+
+/** 海外默认 tab:桌面原本不传 tabs,共享层默认含 phone,必须显式给一份不含 phone 的。 */
+const OVERSEAS_DEFAULT_TABS: LoginTab[] = ['email', 'password', 'qr']
+
+/**
+ * 按 locale 过滤登录方式:
+ * - 国内:原样返回(undefined 继续让共享层用默认 4 tab)。
+ * - 海外:剔除 phone;若调用方只传了 phone,兜底为 ['email'],避免空 tab 列表。
+ */
+export function loginTabsForLocale(
+  tabs: LoginTab[] | undefined,
+  locale: string,
+): LoginTab[] | undefined {
+  if (!isOverseasLocale(locale)) return tabs
+  const base = tabs ?? OVERSEAS_DEFAULT_TABS
+  const filtered = base.filter((t) => t !== 'phone')
+  return filtered.length > 0 ? filtered : ['email']
+}
