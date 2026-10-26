@@ -66,7 +66,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: 14,
       paddingVertical: 8,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

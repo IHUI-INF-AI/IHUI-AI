@@ -7,21 +7,22 @@
     "DrawerComponent": 12,
     "InputArea": 15,
     "IntelligentAssistant": 6,
-    "LoginPopUp": 8,
+    "LoginPopUp": 9,
     "ModelConfigDialog": 6,
-    "ModelList": 6,
+    "ModelList": 7,
     "NavBar": 7,
     "ScreenStates": 1,
-    "UserInfoCard": 4,
+    "UserInfoCard": 3,
     "VideoPlayer": 5,
     "VoiceInput": 8
   },
   "radiusCounts": {
-    "AgentRuntimePanel": 1,
-    "BottomActionBar": 2,
+    "AgentRuntimePanel": 0,
+    "BottomActionBar": 3,
     "Carousel": 0,
+    "CategoryBar": 0,
     "DrawerComponent": 2,
-    "InputArea": 1,
+    "InputArea": 2,
     "IntelligentAssistant": 1,
     "LoginPopUp": 0,
     "ModelConfigDialog": 0,
@@ -36,6 +37,7 @@
     "AgentRuntimePanel": 0,
     "BottomActionBar": 0,
     "Carousel": 0,
+    "CategoryBar": 0,
     "DrawerComponent": 0,
     "InputArea": 0,
     "IntelligentAssistant": 0,
@@ -43,41 +45,36 @@
     "ModelConfigDialog": 0,
     "ModelList": 0,
     "NavBar": 0,
+    "ScreenStates": 0,
     "UserInfoCard": 0,
     "VideoPlayer": 0,
     "VoiceInput": 0
   },
   "webCounts": {
-    "AgentRuntimePanel": 0,
-    "Avatar": 0,
+    "AgentRuntimePanel": 6,
+    "BusinessFormCard": 0,
     "CategoryBar": 0,
-    "ConfirmDialog": 0,
-    "CountdownTimer": 0,
-    "EmptyState": 0,
+    "EmptyState": 6,
     "ProgressBar": 0,
-    "SearchBar": 0,
-    "Tooltip": 0,
-    "VideoPlayer": 0
+    "SearchBar": 4,
+    "VideoPlayer": 6
   },
   "webRadiusCounts": {
     "AgentRuntimePanel": 1,
+    "BusinessFormCard": 0,
     "CategoryBar": 0,
     "EmptyState": 1,
     "ProgressBar": 0,
     "SearchBar": 2,
-    "Tooltip": 0,
     "VideoPlayer": 1
   },
   "webElementRadiusCounts": {
     "AgentRuntimePanel": 0,
-    "Avatar": 0,
+    "BusinessFormCard": 0,
     "CategoryBar": 0,
-    "ConfirmDialog": 0,
-    "CountdownTimer": 0,
     "EmptyState": 0,
     "ProgressBar": 0,
     "SearchBar": 0,
-    "Tooltip": 0,
     "VideoPlayer": 0
   },
   "waivers": {
@@ -143,10 +140,6 @@
     }
   },
   "webWaivers": {
-    "ConfirmDialog": {
-      "reason": "两端盒档同值,只是住在不同文件:web 弹窗壳 = `git show HEAD:packages/ui-react/src/components/dialog.tsx` :98 `min-[640px]:rounded-xl`(panel→xl=12),小程序壳 = apps/miniapp-taro/src/components/ConfirmDialog.tsx:35 `borderRadius: rnRadiusFor.panel`(RADIUS_ROLES 现读 panel→xl=12,同值);按钮档 web 走 <Button> 基座 rounded-sm(packages/ui-react/src/components/button.tsx:30),小程序 :49/:57 自写 rounded-sm,两端同取 control→sm=4。本腿不跟 .tsx 的包 import ⇒ 把\"没读到\"读成\"该侧无档\",即 G-16 登记的 SL 维第二格,扩一跳即抵掉;禁止为凑集合给 web 壳再补一层圆角。",
-      "until": "2027-03-30"
-    },
     "AgentRuntimePanel": {
       "reason": "web 面板本体刻意无壳:卡片圆角由消费页外包,现读 `git grep -n \"rounded-lg\" HEAD:\"apps/web/app/(main)/agents/[id]/PageClient.tsx\"` 命中 :375(=8,与小程序根容器 :28 ui-card rounded-lg 同档),而组件文件自身 rounded 计数 小程序 1 / web 0 ⇒ 差的是档值住在哪个文件,不是取值分叉。禁止为凑集合给 web 组件根补圆角(会和消费页壳叠两层)。",
       "until": "2027-03-30"
@@ -162,13 +155,9 @@
     "VideoPlayer": {
       "reason": "票 G-978049① 的复裁判据之二(带理由接管),不是为消红:舞台档三端已同值 —— 现读 `git show HEAD:apps/web/src/components/media/VideoPlayer.tsx` :122 `overflow-hidden rounded-lg`(=8)、`git show HEAD:apps/miniapp-taro/src/components/VideoPlayer.tsx` :69/:71 rounded-lg、`git show HEAD:apps/mobile-rn/src/components/VideoPlayer.tsx` :222 `borderRadius: rnRadius.lg`;本族 web 腿残档只有 4,来自 7 处自绘控制条 `rounded-sm`(:165/:180/:186/:193/:200/:207/:217),而小程序走原生 `<Video controls>`(同文件 controls 引用 4 处、rounded-sm 0 处)⇒ 结构上没有这些节点,与主腿 `waivers.VideoPlayer` 是同一条理由的两面,不是同一元素取了不同档。档集合实测 mp=[8] / web=[4,8] / rn=[8]。禁止为凑集合给小程序补一层自绘控件(那是拿假节点抵数字)。",
       "until": "2027-03-30"
-    },
-    "VoiceInput": {
-      "reason": "两端不是同一个界面元素,不是同元素取了不同档:小程序 apps/miniapp-taro/src/components/VoiceInput.tsx 是**占满一行的录音条**(:98 min-h-12 rounded-lg px-4 py-3;:18 WAVE_BARS 共 7 条;:116 条宽 w-1、间距 mx-[4rpx];动画 animate-pulse 固定高度脉冲),web apps/web/src/components/ai/voice-input.tsx 是**输入框旁的麦克风按钮 + 按钮内 4 条波形 + 状态徽章**(:347 h-8 w-8 rounded-sm;:357-360 [0,1,2,3] 四条、w-0.5、gap-0.5;animation voice-wave 逐条相位差 0.12s;:334 徽章 px-1.5 py-0.5 text-[10px])。条数/条宽/间距/高度包络/动画通道五项全不同形,补任何一端数字都是给不存在的节点描数。跨端同源那部分(小程序↔RN)住在 packages/shared/src/ui/voice-input-spec.ts,其头注列出的分叉项也是这两端,与本腿无关。",
-      "until": "2027-03-30"
     }
   },
-  "ledgerVersion": "2026-10-19 VerifyCodeModal 三键撤登(随 557fce49c2c 的收口修正):108d1fe6434 录入 counts 3/radiusCounts 0/elementRadiusCounts 0 后,默认档报「台账腐烂」——腐烂判据的 seen 集合只从 findings 推导,而 waivers 分支也只在 findings 内遍历(verdictOf 2838-2843),默认档把小程序腿零引用的孤儿族整体剔出配对射程(端入口不可达),findings 无该族 ⇒ 无论怎么登记 waivers 都算「台账钉着而本轮无记录」。机械结论:默认档不可达的族,counts 三键是「永远不可能被问责的免费额度」,正是该判据要拦的形态;而 waivers 键不在腐烂判据射程、且在 --pair-all 人工档照常生效(findings 含该族 ⇒ waived 记账)。故撤三键、只留 waivers 一条(reason 记明小程序接线/删副本的了结判据,until 2027-03-27)。这不是放宽判据:人工档的问责面(几何/圆角/同名元素三锚点)与本族差异记录一文未少,只是默认档的射程事实(孤儿不可达)不再靠账本掩盖。上一版:2026-10-19 VerifyCodeModal waivers 登记(随 4c0dbc10212 同批):三键入账后默认档报「台账腐烂」——台账钉着 VerifyCodeModal 而默认档实测无该族记录(小程序腿零引用孤儿 ⇒ 端入口不可达被剔,族只活在人工 --pair-all 档)。按判据口径豁免族亦算有记录(它被 waived 记账,不是没扫到),故补 waivers 一条带 reason+until 2027-03-27;语义不是豁免两端差异(几何差已由 counts=3 收纳),是登记「此族暂时只可在人工档问责 + 待小程序接线/删副本决策」。pair-all 档该族 3 处单侧几何随之计入 waived,超锚点判红维持 0。上一版:2026-10-19 VerifyCodeModal 收编共享源(枚 4c0dbc10212,packages/shared/src/ui/verify-code-modal-spec.ts + 两端薄壳):该族此前从未入账 ⇒ 三键齐补 counts 3 / radiusCounts 0 / elementRadiusCounts 0。counts=3 是收敛后仅剩的单侧几何档(仅 RN:1px 隐藏键盘接收器 G-978007、phone 行 marginTop 4、关闭钮 24),按 O81 规则6 承载机制差异保留、RE 维零判据不判红;radiusCounts=0 = 小程序按钮 rounded-md→rounded-sm 后与 RN rnRadiusFor.control 同为 control 档,原 RD 分叉 1 已消。几何差 12→3 的收敛 = 格子 48→36×44(RN 向小程序靠,48×6+8×5=328px 在小程序卡内 303px 会溢出)、卡片 360→320、padding 24→20、标题 18→16、格内字 20→16、按钮隐式高→40 显式,两端同源引用 spec(_PX 档名,门 specTiers 计入档集合)。SL 维 VerifyCodeModal 4 个单侧 spec 档(phone 行/×钮盒/×字形/隐藏 Input)按规则6 只报数不判红,不设锚点。--emit-baseline 整体重锚被 web 腿 anchorRegression 拒落(webCounts 上升),故按门内 :3007 口径「新族先入账再收口」手工登记三键:无 waivers、无豁免、不动其他 13 族任何读数。上一版:2026-10-19 票G-277②(第②格落地席,裸档升进档位集合):**锚点一枚未改** —— counts/radiusCounts/elementRadiusCounts/webCounts/webRadiusCounts/webElementRadiusCounts 全部保持原值,因为改判据前后 HEAD 面逐字段读数相同(全量档 RC=0,报告里唯一变的一行是 RE ModelList 的 unnamed 报名 mp=16→18,它不是锚点维)。真读:配对射程内带裸档的只有 apps/miniapp-taro/src/components/ModelList.tsx:573/:574 两处,折进档集合后 8 早已在该族 mp 侧集合内 ⇒ 不产生新分叉;读数没动却去改锚点就是本仓禁的\"为过门补数字\",故只记这一笔。同时按 import 面**复裁掉立项前提**:上一版(2026-10-11)写\"补认裸档会同时移动 77/150/128 三本账、必须同枚提交各自重锚\",实测不成立 —— 守门 77 不 import radius-tokens(自己的 B 族判据只扫字面量与 rounded-[…]),守门 150 走 lib/radius-roles.mjs 自带提取式且其 1b) 支早已认裸 rounded(同样从档位表取 DEFAULT),两本账不可能被本刀顶动;真会移动的只有本门 128 的 RD/RE 与守门 11 的 radiusPxInLine 消费面(11 无锚点台账:全量档 warn-only、暂存档只看新增行,不会替无关提交造红)。另更正上一条的一处现读数字:web 腿裸档是 **0 处不是 1 处** —— packages/ui-react/src/components/category-bar.tsx 的 HEAD blob 里没有任何裸 rounded(:34 逐字读为 BADGE 常量内的 rounded-md,门 11 档集 [6]),按 bareRoundedOccurrences 现读 count=0;上一条把这一处记成 1 处属登记时点读数,后续以本条为准。落地形态:唯一实现 scripts/lib/radius-tokens.mjs 的 radiusItemsInLine 末尾新增裸档一支(识别式仍复用 BARE_ROUNDED_RE / BARE_RADIUS_VAR_RE 两枚常量,门体零抄第二份正则,由自检 KZ③ 钉住);放末尾是为了保住 radiusAliasMapOf 取 [0] 的既有优先级(前置会把除法/字面量解值挤掉)。成对用例 KY/KZ 共 2 例(121→123,末行 --self-test:123 通过 / 0 失败),阳性对照已做:把该支临时短路后恰好这 2 例翻红(121 通过 / 2 失败)、还原后全绿,证明新增的是裸档那一对正反例而不是凑数。bareRoundedAudit 保留为报名维,语义从\"看不见多少\"改成\"这一族有几处 8 是靠裸档字形认来的\",打印与门内头注同步改写(旧句\"未计进档集合\"已成假话,按 §0.9 不得留)。上一版:2026-10-11 票G-978049(值守席,三格逐格复裁):① web 腿残档 VideoPlayer 由 webWaivers 带理由接管(票面复裁判据之二成立)——**未动任何锚点**:该族 webRadiusCounts 旧读=新读=锚点=1(mp 档集 [8] / web [4,8] / rn [8],舞台档 8 三端已同,残档 4 属 web 自绘控制 chrome),重锚正当性因此不依赖\"只降不升\",而由 --json 前后逐字段等值证明(本轮唯一新增字段是 bareRounded)。② 裸档盲区**未补认**:票面落地判据要求 77/150/128 三本账同一枚提交各自重锚,而 77 的 radius-single-source-baseline.json 与 150 的 radius-role-conformance-baseline.json 不在本票文件清单 ⇒ 硬停手;改把\"看不见多少\"跟着读数印出 —— 唯一实现 `scripts/lib/radius-tokens.mjs` 的 bareRoundedOccurrences(不并进 radiusItemsInLine,所以三本账读数一字未动)+ 门内 bareRoundedAudit(web/main 两腿各报名、不进判据、不进退出码);真仓 HEAD 现读 web 腿 1 处(packages/ui-react/src/components/category-bar.tsx:34 ⇒ 8)、主腿 2 处(apps/miniapp-taro/src/components/ModelList.tsx:573/:574 ⇒ 8),全 HEAD 面出现裸档字形的跟踪文件 459 个 / 993 行(未遮噪口径,给下一票当规模而不是当债务)。③ 复核:web 腿端入口可达性剔除机制在位(SEED_DIRS.web=apps/web/app、@ 别名按 web tsconfig 解析、剔 6 对逐条点名、种子缺席时整维挂起留痕),门内头注那句\"未做端入口可达性剔除\"是③落地前的旧声称,已按现状改写。上一版:2026-10-08 票G-978049③:守门128 web腿加装端入口可达性剔除(双侧判据+逐条点名+可选端挂起语义);僵尸对 Avatar/ConfirmDialog/CountdownTimer(小程序侧文件已死、web活)的 webRadiusCounts 锚点与 webWaivers 豁免随之手编清除;Loading/VoiceInput 两条 web 腿拆对声明撤除改由机制接管。上一版:2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名 ‖ 2026-10-19 销「台账腐烂:VerifyCodeModal」:该族随枚 4c0dbc10212 入账(三键 + 一条 waivers),但小程序腿已从端入口不可达 ⇒ 被默认档配对射程剔除 ⇒ 该族不在 findings 里;而本门判据(verdictOf)只认「仍在 findings 里」或「findings 里且豁免合格」的族为有记录 ⇒ 补 waivers 消不掉本项(那条豁免只在人工 --pair-all 档该族仍在 findings 时才生效)。按门体自带的出路「删掉这些键,或让它重新有读数;不得先放着」⇒ 本枚删掉该族在 counts / radiusCounts / elementRadiusCounts 三键组与 waivers 里的条目(其余 13 族读数一字未动)。**与该族登记自述不冲突**:其 reason 的了结判据是「小程序侧接线注册流或删除孤儿副本,届时按默认档实测重新登记」⇒ 键删掉之后,那条重新登记就是新增而非覆盖;若该族重新可达(端入口接线)或被复活,按默认档实测重新登记三键即可,不得把本条的删除读成「该族已了结」。",
+  "ledgerVersion": "2026-10-26 G-16 收口席(S1 守门判据修复席):票面两格 SL 判据缺口现读复裁均已消解 ——(i) 门自 d135b5f412 起按被审面解析 export const X = GEOMETRY_PX.g 与 A_PX = B_PX 纯投影做等价归一(INPUT_AREA_IN_SHELL_BTN_PX 不再被算单侧,镜像 T37-T40/T49-T54 钉住);(ii) 类臂解析维自 3570211ffd 起读被审面全部 miniapp/web css(含 app.css),「唯一无覆盖定义+无条件使用」的声明体并入几何(现读 7 份),读不到的按未判定逐条点名(票面五枚类名现读全部以「多处定义」未判定点名在案),镜像 T42/T45/T46 钉住。两格前提已不成立 ⇒ 按票面规则不再修门,只收台账:d135b5f412 半成品遗留的 LoginPopUp 8→9 / ModelList 6→7 / UserInfoCard 4→3 三处锚点位移,前两族为带有效豁免的惰性记账(verdictOf 从不比较)、第三枚是下降;其余主腿/web 腿六键组由门自身 emitBaseline + anchorRegression 出口机械重锚(上升仅出现在带豁免的族上,经门自带的豁免短路放行,未豁免零上升零消失)。手编清除仅限僵尸死锚点:webCounts 与 webElementRadiusCounts 的 Avatar/CountdownTimer/Tooltip 及 webRadiusCounts.Tooltip —— 这三族现读为「⊘ WD …… 从小程序端入口不可达」(默认档端入口可达性判据把它们剔出 web 配对射程,报告行逐条点名;同类先例 = a36b0a3a34 手编清除同族死锚点),清除值全为 0,非零一枚未动。同时 emitBaseline 按其既有口径撤下本轮本腿零差异的 webWaivers:ConfirmDialog / VoiceInput(若复活按实测重新登记,不得读成已了结)。CategoryBar/DrawerComponent 两枚 aliases 与 FloatBox pairingRejects 逐字带走。取证:.ihui-agent/tmp/s1-gate128/(reanchor.mjs 逐字复刻 main 的 emit 分支、判据零复算;baseline.before.json 为改前台账全件)。上一版:2026-10-19 VerifyCodeModal 三键撤登(随 557fce49c2c 的收口修正):108d1fe6434 录入 counts 3/radiusCounts 0/elementRadiusCounts 0 后,默认档报「台账腐烂」——腐烂判据的 seen 集合只从 findings 推导,而 waivers 分支也只在 findings 内遍历(verdictOf 2838-2843),默认档把小程序腿零引用的孤儿族整体剔出配对射程(端入口不可达),findings 无该族 ⇒ 无论怎么登记 waivers 都算「台账钉着而本轮无记录」。机械结论:默认档不可达的族,counts 三键是「永远不可能被问责的免费额度」,正是该判据要拦的形态;而 waivers 键不在腐烂判据射程、且在 --pair-all 人工档照常生效(findings 含该族 ⇒ waived 记账)。故撤三键、只留 waivers 一条(reason 记明小程序接线/删副本的了结判据,until 2027-03-27)。这不是放宽判据:人工档的问责面(几何/圆角/同名元素三锚点)与本族差异记录一文未少,只是默认档的射程事实(孤儿不可达)不再靠账本掩盖。上一版:2026-10-19 VerifyCodeModal waivers 登记(随 4c0dbc10212 同批):三键入账后默认档报「台账腐烂」——台账钉着 VerifyCodeModal 而默认档实测无该族记录(小程序腿零引用孤儿 ⇒ 端入口不可达被剔,族只活在人工 --pair-all 档)。按判据口径豁免族亦算有记录(它被 waived 记账,不是没扫到),故补 waivers 一条带 reason+until 2027-03-27;语义不是豁免两端差异(几何差已由 counts=3 收纳),是登记「此族暂时只可在人工档问责 + 待小程序接线/删副本决策」。pair-all 档该族 3 处单侧几何随之计入 waived,超锚点判红维持 0。上一版:2026-10-19 VerifyCodeModal 收编共享源(枚 4c0dbc10212,packages/shared/src/ui/verify-code-modal-spec.ts + 两端薄壳):该族此前从未入账 ⇒ 三键齐补 counts 3 / radiusCounts 0 / elementRadiusCounts 0。counts=3 是收敛后仅剩的单侧几何档(仅 RN:1px 隐藏键盘接收器 G-978007、phone 行 marginTop 4、关闭钮 24),按 O81 规则6 承载机制差异保留、RE 维零判据不判红;radiusCounts=0 = 小程序按钮 rounded-md→rounded-sm 后与 RN rnRadiusFor.control 同为 control 档,原 RD 分叉 1 已消。几何差 12→3 的收敛 = 格子 48→36×44(RN 向小程序靠,48×6+8×5=328px 在小程序卡内 303px 会溢出)、卡片 360→320、padding 24→20、标题 18→16、格内字 20→16、按钮隐式高→40 显式,两端同源引用 spec(_PX 档名,门 specTiers 计入档集合)。SL 维 VerifyCodeModal 4 个单侧 spec 档(phone 行/×钮盒/×字形/隐藏 Input)按规则6 只报数不判红,不设锚点。--emit-baseline 整体重锚被 web 腿 anchorRegression 拒落(webCounts 上升),故按门内 :3007 口径「新族先入账再收口」手工登记三键:无 waivers、无豁免、不动其他 13 族任何读数。上一版:2026-10-19 票G-277②(第②格落地席,裸档升进档位集合):**锚点一枚未改** —— counts/radiusCounts/elementRadiusCounts/webCounts/webRadiusCounts/webElementRadiusCounts 全部保持原值,因为改判据前后 HEAD 面逐字段读数相同(全量档 RC=0,报告里唯一变的一行是 RE ModelList 的 unnamed 报名 mp=16→18,它不是锚点维)。真读:配对射程内带裸档的只有 apps/miniapp-taro/src/components/ModelList.tsx:573/:574 两处,折进档集合后 8 早已在该族 mp 侧集合内 ⇒ 不产生新分叉;读数没动却去改锚点就是本仓禁的\"为过门补数字\",故只记这一笔。同时按 import 面**复裁掉立项前提**:上一版(2026-10-11)写\"补认裸档会同时移动 77/150/128 三本账、必须同枚提交各自重锚\",实测不成立 —— 守门 77 不 import radius-tokens(自己的 B 族判据只扫字面量与 rounded-[…]),守门 150 走 lib/radius-roles.mjs 自带提取式且其 1b) 支早已认裸 rounded(同样从档位表取 DEFAULT),两本账不可能被本刀顶动;真会移动的只有本门 128 的 RD/RE 与守门 11 的 radiusPxInLine 消费面(11 无锚点台账:全量档 warn-only、暂存档只看新增行,不会替无关提交造红)。另更正上一条的一处现读数字:web 腿裸档是 **0 处不是 1 处** —— packages/ui-react/src/components/category-bar.tsx 的 HEAD blob 里没有任何裸 rounded(:34 逐字读为 BADGE 常量内的 rounded-md,门 11 档集 [6]),按 bareRoundedOccurrences 现读 count=0;上一条把这一处记成 1 处属登记时点读数,后续以本条为准。落地形态:唯一实现 scripts/lib/radius-tokens.mjs 的 radiusItemsInLine 末尾新增裸档一支(识别式仍复用 BARE_ROUNDED_RE / BARE_RADIUS_VAR_RE 两枚常量,门体零抄第二份正则,由自检 KZ③ 钉住);放末尾是为了保住 radiusAliasMapOf 取 [0] 的既有优先级(前置会把除法/字面量解值挤掉)。成对用例 KY/KZ 共 2 例(121→123,末行 --self-test:123 通过 / 0 失败),阳性对照已做:把该支临时短路后恰好这 2 例翻红(121 通过 / 2 失败)、还原后全绿,证明新增的是裸档那一对正反例而不是凑数。bareRoundedAudit 保留为报名维,语义从\"看不见多少\"改成\"这一族有几处 8 是靠裸档字形认来的\",打印与门内头注同步改写(旧句\"未计进档集合\"已成假话,按 §0.9 不得留)。上一版:2026-10-11 票G-978049(值守席,三格逐格复裁):① web 腿残档 VideoPlayer 由 webWaivers 带理由接管(票面复裁判据之二成立)——**未动任何锚点**:该族 webRadiusCounts 旧读=新读=锚点=1(mp 档集 [8] / web [4,8] / rn [8],舞台档 8 三端已同,残档 4 属 web 自绘控制 chrome),重锚正当性因此不依赖\"只降不升\",而由 --json 前后逐字段等值证明(本轮唯一新增字段是 bareRounded)。② 裸档盲区**未补认**:票面落地判据要求 77/150/128 三本账同一枚提交各自重锚,而 77 的 radius-single-source-baseline.json 与 150 的 radius-role-conformance-baseline.json 不在本票文件清单 ⇒ 硬停手;改把\"看不见多少\"跟着读数印出 —— 唯一实现 `scripts/lib/radius-tokens.mjs` 的 bareRoundedOccurrences(不并进 radiusItemsInLine,所以三本账读数一字未动)+ 门内 bareRoundedAudit(web/main 两腿各报名、不进判据、不进退出码);真仓 HEAD 现读 web 腿 1 处(packages/ui-react/src/components/category-bar.tsx:34 ⇒ 8)、主腿 2 处(apps/miniapp-taro/src/components/ModelList.tsx:573/:574 ⇒ 8),全 HEAD 面出现裸档字形的跟踪文件 459 个 / 993 行(未遮噪口径,给下一票当规模而不是当债务)。③ 复核:web 腿端入口可达性剔除机制在位(SEED_DIRS.web=apps/web/app、@ 别名按 web tsconfig 解析、剔 6 对逐条点名、种子缺席时整维挂起留痕),门内头注那句\"未做端入口可达性剔除\"是③落地前的旧声称,已按现状改写。上一版:2026-10-08 票G-978049③:守门128 web腿加装端入口可达性剔除(双侧判据+逐条点名+可选端挂起语义);僵尸对 Avatar/ConfirmDialog/CountdownTimer(小程序侧文件已死、web活)的 webRadiusCounts 锚点与 webWaivers 豁免随之手编清除;Loading/VoiceInput 两条 web 腿拆对声明撤除改由机制接管。上一版:2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名 ‖ 2026-10-19 销「台账腐烂:VerifyCodeModal」:该族随枚 4c0dbc10212 入账(三键 + 一条 waivers),但小程序腿已从端入口不可达 ⇒ 被默认档配对射程剔除 ⇒ 该族不在 findings 里;而本门判据(verdictOf)只认「仍在 findings 里」或「findings 里且豁免合格」的族为有记录 ⇒ 补 waivers 消不掉本项(那条豁免只在人工 --pair-all 档该族仍在 findings 时才生效)。按门体自带的出路「删掉这些键,或让它重新有读数;不得先放着」⇒ 本枚删掉该族在 counts / radiusCounts / elementRadiusCounts 三键组与 waivers 里的条目(其余 13 族读数一字未动)。**与该族登记自述不冲突**:其 reason 的了结判据是「小程序侧接线注册流或删除孤儿副本,届时按默认档实测重新登记」⇒ 键删掉之后,那条重新登记就是新增而非覆盖;若该族重新可达(端入口接线)或被复活,按默认档实测重新登记三键即可,不得把本条的删除读成「该族已了结」。",
   "pairingRejects": {
     "FloatBox": {
       "reason": "同名不同物:小程序端是右下角悬浮功能盒(赚米/客服/反馈三按钮,right 20rpx、收起推到 -240rpx),RN 端是顶部悬浮消息提示 toast(TOP_OFFSET 居中、duration 3000ms、4 种 type、多实例由 Toast Portal 堆叠)—— 两端头注逐字读自 HEAD,不是同一个界面元素",
