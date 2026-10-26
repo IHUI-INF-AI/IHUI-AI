@@ -155,7 +155,8 @@ const smsLoginSchema = z.object({
   phone: z
     .string()
     .length(11, '手机号必须为 11 位')
-    .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+    // 2026-10-26 海外登录策略:手机验证码登录仅限中国大陆号码,海外用户走 Google 授权。
+    .regex(/^1[3-9]\d{9}$/, '仅支持中国大陆手机号登录，海外用户请使用 Google 登录'),
   code: z.string().length(6, '验证码必须为 6 位'),
 })
 
