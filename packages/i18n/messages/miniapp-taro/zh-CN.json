@@ -297,7 +297,12 @@
     "calendarBtn": "📅 日历",
     "mySubscriptionBtn": "🔔 我的订阅",
     "startLiveBtn": "📺 我要开播",
-    "empty": "暂无直播"
+    "empty": "暂无直播",
+    "title": "直播",
+    "viewerCount": "{count} 人观看",
+    "lecturer": "讲师",
+    "startAt": "开始时间",
+    "loadFailed": "加载直播失败"
   },
   "liveHost": {
     "statusIdle": "未开始",
@@ -3496,7 +3501,17 @@
     "code": "邀请码:",
     "saveImage": "保存图片",
     "shareNow": "立即分享",
-    "inviteSuffix": "邀请你加入"
+    "inviteSuffix": "邀请你加入",
+    "inviteCode": "邀请码",
+    "totalInvited": "累计邀请",
+    "totalReward": "累计奖励",
+    "share": "立即邀请",
+    "sectionTitle": "邀请记录",
+    "empty": "暂无邀请记录",
+    "statusCompleted": "已完成",
+    "statusPending": "待完成",
+    "loadFailed": "加载邀请失败",
+    "shareText": "加入智汇 AI,一起学习进步"
   },
   "qrcode": {
     "loading": "二维码加载中",
@@ -4914,7 +4929,18 @@
     "confirmDelete": "确认删除该连接器?",
     "syncFailed": "同步失败",
     "loadFailed": "加载连接器失败",
-    "actionFailed": "操作失败,请重试"
+    "actionFailed": "操作失败,请重试",
+    "title": "连接器",
+    "configured": "已配置",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "lastSync": "最近同步",
+    "neverSync": "从未同步",
+    "delete": "删除",
+    "empty": "暂无连接器",
+    "items": "文档数",
+    "enable": "启用",
+    "disable": "停用"
   },
   "mcpStore": {
     "title": "MCP 商店",
@@ -5097,5 +5123,375 @@
     "default": "默认",
     "holder": "持卡人",
     "loadFailed": "加载银行卡失败"
+  },
+  "bookmark": {
+    "empty": "暂无收藏",
+    "loadFailed": "加载失败",
+    "remove": "移除",
+    "title": "我的收藏",
+    "type": {
+      "article": "文章",
+      "course": "课程",
+      "note": "笔记",
+      "other": "其他",
+      "post": "帖子"
+    }
+  },
+  "certApply": {
+    "title": "讲师认证",
+    "name": "姓名",
+    "placeholder": "请输入真实信息",
+    "idCard": "身份证号",
+    "submit": "提交认证",
+    "success": "提交成功,请等待审核",
+    "submitting": "提交中..."
+  },
+  "certDetail": {
+    "certNo": "证书编号",
+    "expiredAt": "有效期至",
+    "holder": "持证人",
+    "issuedAt": "颁发日期",
+    "issuer": "颁发机构",
+    "loadFailed": "加载证书失败",
+    "score": "成绩",
+    "title": "证书详情",
+    "verify": "查看验真"
+  },
+  "certList": {
+    "empty": "暂无证书",
+    "issuedAt": "颁发时间",
+    "issuer": "颁发机构",
+    "loadFailed": "加载失败",
+    "title": "证书列表"
+  },
+  "certVerify": {
+    "certNo": "证书编号",
+    "failed": "验证失败",
+    "holder": "持证人",
+    "invalid": "无效",
+    "issuedAt": "颁发日期",
+    "issuer": "颁发机构",
+    "placeholder": "请输入证书编号",
+    "title": "证书验真",
+    "valid": "有效",
+    "verify": "验证"
+  },
+  "certificate": {
+    "empty": "暂无证书",
+    "expiryDate": "到期时间",
+    "issuedDate": "颁发时间",
+    "status": {
+      "expired": "已过期",
+      "issued": "有效",
+      "revoked": "已撤销"
+    },
+    "title": "我的证书"
+  },
+  "circleChat": {
+    "empty": "暂无消息",
+    "loadFailed": "加载消息失败",
+    "placeholder": "说点什么...",
+    "send": "发送",
+    "sendFailed": "发送失败"
+  },
+  "circleMember": {
+    "empty": "暂无成员",
+    "loadFailed": "加载成员失败",
+    "title": "圈子成员"
+  },
+  "connectedAccounts": {
+    "title": "已连接账号",
+    "subtitle": "管理第三方账号绑定",
+    "boundAt": "绑定时间",
+    "unbound": "未绑定",
+    "unbind": "解绑",
+    "bindOnWeb": "去网页端绑定",
+    "unbindTitle": "解绑账号",
+    "unbindConfirm": "确定解绑「{platform}」吗？",
+    "unbindFailed": "解绑失败",
+    "refresh": "刷新",
+    "loadFailed": "加载失败",
+    "retry": "重试",
+    "webBindHint": "绑定需在网页端完成，完成后返回本页刷新。",
+    "openBrowserFailed": "无法打开浏览器"
+  },
+  "context": {
+    "title": "上下文引擎",
+    "loadFailed": "统计加载失败",
+    "totalEvents": "压缩次数",
+    "avgRatio": "平均压缩率",
+    "avgQuality": "平均质量分",
+    "recentEvents": "最近压缩事件",
+    "tokensRange": "{{before}} → {{after}} tokens · 压缩 {{ratio}} · 质量 {{quality}}",
+    "mentionsSearch": "上下文提及检索",
+    "mentionsPlaceholder": "搜索文件/表/符号…",
+    "empty": "暂无匹配结果"
+  },
+  "courseAnnex": {
+    "title": "课程附件",
+    "empty": "暂无附件",
+    "size": "大小",
+    "download": "下载",
+    "loadFailed": "加载附件失败"
+  },
+  "courseCatalog": {
+    "duration": "时长",
+    "empty": "暂无目录",
+    "loadFailed": "加载目录失败",
+    "title": "目录"
+  },
+  "courseChapter": {
+    "title": "课程章节",
+    "lessons": "共 {count} 节课",
+    "loadFailed": "加载章节失败"
+  },
+  "courseComment": {
+    "title": "课程评论",
+    "empty": "暂无评论",
+    "loadFailed": "加载评论失败"
+  },
+  "courseEnroll": {
+    "title": "报名课程",
+    "subtitle": "选课报名,开启学习之旅",
+    "searchPlaceholder": "搜索课程",
+    "empty": "暂无课程",
+    "enrolled": "已报名",
+    "enroll": "立即报名",
+    "free": "免费",
+    "instructor": "讲师",
+    "level": "难度",
+    "lessons": "节数",
+    "students": "学员",
+    "enrollFailed": "报名失败",
+    "enrollSuccess": "报名成功",
+    "loadFailed": "加载失败"
+  },
+  "courseFilter": {
+    "title": "筛选课程",
+    "subtitle": "按条件找到适合你的课",
+    "categoryRange": "分类",
+    "difficultyRange": "难度",
+    "priceRange": "价格区间",
+    "reset": "重置",
+    "apply": "确定",
+    "retry": "重试",
+    "empty": "没有符合条件的课程",
+    "instructor": "讲师",
+    "free": "免费",
+    "loadFailed": "加载筛选失败",
+    "loadingMore": "正在加载更多",
+    "price_all": "全部",
+    "noCategories": "暂无可选分类"
+  },
+  "courseQAAsk": {
+    "title": "课程提问",
+    "question": "问题描述",
+    "placeholder": "输入你的疑问,讲师会尽快解答",
+    "success": "提交成功",
+    "submit": "提交问题",
+    "submitting": "提交中..."
+  },
+  "courseQAList": {
+    "answers": "回答",
+    "ask": "提问",
+    "asker": "提问者",
+    "empty": "暂无问答",
+    "loadFailed": "加载失败",
+    "title": "课程问答"
+  },
+  "courseResource": {
+    "title": "课程资源",
+    "empty": "暂无资源",
+    "type": "类型",
+    "size": "大小",
+    "open": "打开",
+    "loadFailed": "加载资料失败"
+  },
+  "courseScreen": {
+    "title": "全部课程",
+    "searchPlaceholder": "搜索课程",
+    "empty": "暂无课程",
+    "free": "免费",
+    "studentCount": "{count} 人学过",
+    "nextPage": "下一页"
+  },
+  "customerService": {
+    "title": "联系客服",
+    "empty": "客服信息加载失败",
+    "status": "服务状态",
+    "online": "在线",
+    "offline": "离线",
+    "workingHours": "服务时间",
+    "phone": "客服电话",
+    "email": "客服邮箱",
+    "loadFailed": "加载客服失败"
+  },
+  "examHistory": {
+    "empty": "暂无考试记录",
+    "failed": "未通过",
+    "passed": "已通过",
+    "title": "考试记录"
+  },
+  "feedbackDetail": {
+    "content": "反馈内容",
+    "empty": "暂无反馈",
+    "loadFailed": "加载失败",
+    "reply": "回复",
+    "title": "反馈详情"
+  },
+  "feedbackHistory": {
+    "createdAt": "提交时间",
+    "empty": "暂无反馈记录",
+    "loadFailed": "加载失败",
+    "title": "反馈记录"
+  },
+  "history": {
+    "empty": "暂无记录",
+    "refresh": "刷新",
+    "title": "浏览历史",
+    "type": {
+      "article": "文章",
+      "course": "课程",
+      "live": "直播",
+      "note": "笔记",
+      "post": "帖子"
+    }
+  },
+  "imageGenGallery": {
+    "title": "公开画廊",
+    "subtitle": "社区创作的图片作品",
+    "empty": "暂无作品",
+    "loadFailed": "画廊加载失败",
+    "retry": "重试",
+    "noImage": "未存图片地址",
+    "noImageTitle": "无法预览",
+    "noImageHint": "该作品记录中没有图片地址，仅保留了提示词。",
+    "noMore": "没有更多了"
+  },
+  "imageGen": {
+    "title": "图像生成",
+    "historyEmpty": "暂无生成历史",
+    "favoritesEmpty": "暂无收藏",
+    "promptFallback": "未命名作品",
+    "create": "生成",
+    "tabHistory": "生成历史",
+    "tabFavorites": "我的收藏"
+  },
+  "imageGenTemplates": {
+    "title": "提示词模板",
+    "subtitle": "选择模板快速生成图片",
+    "all": "全部",
+    "empty": "暂无模板",
+    "loadFailed": "模板加载失败",
+    "retry": "重试",
+    "use": "点击使用",
+    "previewTitle": "模板预览",
+    "contentLabel": "提示词",
+    "copy": "复制提示词",
+    "copied": "已复制，去生成页粘贴即可",
+    "copyFailed": "复制失败，请长按文本手动复制",
+    "goCreate": "复制并去生成",
+    "uncategorized": "未分类"
+  },
+  "knowledgeBase": {
+    "title": "知识库",
+    "add": "新建",
+    "loadFailed": "知识库加载失败",
+    "retry": "重试",
+    "empty": "暂无文档",
+    "emptyHint": "点击右上角\"新建\"添加文本知识",
+    "chunks": "个切片",
+    "delete": "删除",
+    "deleteTitle": "删除文档",
+    "deleteConfirm": "确定删除该文档吗?",
+    "deleteFailed": "删除失败"
+  },
+  "knowledgeCreate": {
+    "title": "新建文档",
+    "submit": "保存",
+    "titleLabel": "标题",
+    "titlePlaceholder": "输入文档标题",
+    "textLabel": "正文",
+    "textPlaceholder": "粘贴或输入文本内容",
+    "hint": "内容将自动切片入库,支持语义检索",
+    "required": "标题和正文不能为空",
+    "successTitle": "入库成功",
+    "successMessage": "文档已加入知识库",
+    "failedTitle": "入库失败",
+    "failedMessage": "请稍后重试"
+  },
+  "knowledgeDoc": {
+    "loadFailed": "文档加载失败",
+    "retry": "重试",
+    "chunksTotal": "个切片",
+    "source": "来源",
+    "preview": "内容预览",
+    "noChunks": "暂无切片内容"
+  },
+  "liveChat": {
+    "title": "直播间互动",
+    "empty": "暂无互动,来抢个沙发吧",
+    "placeholder": "说点什么...",
+    "send": "发送",
+    "loadFailed": "加载直播聊天失败",
+    "sendFailed": "发送失败"
+  },
+  "livePlayback": {
+    "duration": "时长",
+    "empty": "暂无回放",
+    "ended": "已结束",
+    "lecturer": "讲师",
+    "loadFailed": "加载回放失败",
+    "noReplay": "暂无回放",
+    "play": "播放回放",
+    "replayTitle": "直播回放",
+    "retry": "重试",
+    "startAt": "开始时间",
+    "subtitle": "观看直播回放",
+    "title": "直播回放",
+    "viewerCount": "观看人数"
+  },
+  "livePreview": {
+    "empty": "暂无预告",
+    "lecturer": "讲师",
+    "loadFailed": "加载失败",
+    "startAt": "开始时间",
+    "subscribe": "预约直播",
+    "subscribed": "已预约",
+    "subscribing": "预约中...",
+    "title": "直播预告"
+  },
+  "memory": {
+    "detail": "详情",
+    "title": "我的记忆",
+    "empty": "暂无记忆",
+    "emptyHint": "与 AI 的长期对话记忆会保存在这里",
+    "loadFailed": "记忆加载失败",
+    "delete": "删除",
+    "deleteTitle": "删除记忆",
+    "deleteConfirm": "确定删除这条记忆吗?",
+    "deleteFailed": "删除失败",
+    "source": "来源",
+    "updatedAt": "更新时间",
+    "loginRequired": "请先登录",
+    "all": "全部",
+    "searchPlaceholder": "搜索记忆内容 / 分类…",
+    "create": "新建",
+    "createTitle": "新建记忆",
+    "textPlaceholder": "输入记忆内容(必填,最多 2000 字)…",
+    "categoryPlaceholder": "分类(如 UI 偏好)",
+    "typeLabel": "类型",
+    "scopeLabel": "作用域",
+    "save": "保存",
+    "saveFailed": "保存失败",
+    "textRequired": "请输入记忆内容",
+    "uncategorized": "未分类"
+  },
+  "messageChat": {
+    "empty": "暂无消息",
+    "placeholder": "输入消息...",
+    "send": "发送",
+    "loadFailed": "加载消息失败",
+    "sendFailed": "发送失败"
   }
 }
