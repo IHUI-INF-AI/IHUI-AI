@@ -172,6 +172,42 @@ T '12e 构建失败调用点真的带 reason(票面那一格)' ($src -match 'Fai
 T '12f ff 未归类调用点真的带 reason' ($src -match 'Fail "git merge --ff-only 失败\(成因见紧邻上一行\)[^\r\n]*-Reason \$ffErrFp') '通用文案没病因'
 T '12g 连败 throw 带末次报错指纹(-Reason "$_" 的病因来源)' ($src -match 'next build 连续 \$MaxTries 次失败[^\r\n]*末次报错') 'throw 不带因 ⇒ reason 仍是通用文案,换病因照样被压'
 
+Write-Output '[13] 部署窗口 runId 命名空间:同一身份各起各的锚,清理只碰目标轮次'
+Fresh
+$sigWin = 'web(8801) 未监听'
+# 普通去重身份(非 grace 锚点)必须在下面所有清理后仍在
+$null = Test-AlertDueByIdentity -Sig $sigDb -StateFile $tmp -RepeatHours 4
+$gA = Test-AlertSuppressionGrace -Sig $sigWin -StateFile $tmp -GraceMinutes 20 -RunId 'run-A'
+$gB = Test-AlertSuppressionGrace -Sig $sigWin -StateFile $tmp -GraceMinutes 20 -RunId 'run-B'
+$gN = Test-AlertSuppressionGrace -Sig $sigWin -StateFile $tmp -GraceMinutes 20
+T '13a 同一身份在 run-A / run-B / 无 runId 下都被抑制' ($gA.Suppressed -and $gB.Suppressed -and $gN.Suppressed) "A=$($gA.Suppressed) B=$($gB.Suppressed) N=$($gN.Suppressed)"
+T '13a 三个 Key 互不相同(否则旧窗口的锚会压住新窗口)' (($gA.Key -ne $gB.Key) -and ($gA.Key -ne $gN.Key) -and ($gB.Key -ne $gN.Key)) "A=$($gA.Key) B=$($gB.Key) N=$($gN.Key)"
+
+$clA = Clear-AlertGraceAnchors -StateFile $tmp -RunId 'run-A'
+T '13b 不带 -Keep 清 run-A ⇒ Ok 且 Cleared=1' ($clA.Ok -and $clA.Cleared -eq 1) "Ok=$($clA.Ok) Cleared=$($clA.Cleared) Error=$($clA.Error)"
+T '13b Labels 含 run-A|web(8801) 未监听' (@($clA.Labels) -contains "run-A|$sigWin") "Labels=$(@($clA.Labels) -join ',')"
+
+$st = Read-AlertDedupState -StateFile $tmp
+T '13c run-B 锚点仍在' ($st.Map.ContainsKey($gB.Key)) 'run-B 被误清'
+T '13c 无 runId 的普通 grace 锚点仍在' ($st.Map.ContainsKey($gN.Key)) '无 runId 锚点被误清'
+T '13c run-A 的键已消失' (-not $st.Map.ContainsKey($gA.Key)) 'run-A 仍残留'
+
+$gC = Test-AlertSuppressionGrace -Sig $sigWin -StateFile $tmp -GraceMinutes 20 -RunId 'run-C'
+$clB = Clear-AlertGraceAnchors -StateFile $tmp -RunId 'run-B' -Keep
+T '13d -Keep 只清旧轮次 ⇒ Ok 且 Cleared=1(run-C)' ($clB.Ok -and $clB.Cleared -eq 1) "Ok=$($clB.Ok) Cleared=$($clB.Cleared) Error=$($clB.Error)"
+T '13d Labels 含 run-C|web(8801) 未监听' (@($clB.Labels) -contains "run-C|$sigWin") "Labels=$(@($clB.Labels) -join ',')"
+
+$st = Read-AlertDedupState -StateFile $tmp
+T '13e run-B 锚点仍在' ($st.Map.ContainsKey($gB.Key)) '当前窗 run-B 被误清'
+T '13e 无 runId 的普通 grace 锚点仍在' ($st.Map.ContainsKey($gN.Key)) '实现规定 -Keep 不碰无 runId 前缀的条目'
+T '13e run-C 的键已消失' (-not $st.Map.ContainsKey($gC.Key)) 'run-C 仍残留'
+T '13f 普通去重身份条目未被误删' ($st.Map.ContainsKey((Get-AlertDedupKey -Sig $sigDb))) 'DB 迁移条目被清理越界删掉'
+
+Fresh
+[System.IO.File]::WriteAllText($tmp, '{ "alerts": { 此文件已被并发写坏')
+$clG = Clear-AlertGraceAnchors -StateFile $tmp -RunId 'run-A'
+T '13g 坏档案 ⇒ Ok=false / Cleared=0 / Error 非空' ((-not $clG.Ok) -and $clG.Cleared -eq 0 -and $clG.Error) "Ok=$($clG.Ok) Cleared=$($clG.Cleared) Error=$($clG.Error)"
+
 if (Test-Path $tmp) { Remove-Item $tmp -Force }
 Write-Output ''
 Write-Output ("RESULT pass={0} fail={1}" -f $pass, $fail)
