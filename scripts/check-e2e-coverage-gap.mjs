@@ -16,7 +16,7 @@
  *
  * 退出码:0 无新增缺口 / 1 有新增缺口 / 2 未判定(取不到面、坏清单、空扫、未知形态)。
  * **接线(2026-10-26,机主授权)**:guardian-runner id 250,**warn 档观察**(只喊话不拦提交);
- * `stagedTriggers` = 三个射程根 + 本文件 + 射程清单;`--staged` 判索引、无旗判 HEAD。
+ * `stagedTriggers` = 三个射程根 + 本文件 + 射程清单 + 判据层;`--staged` 判索引、无旗判 HEAD。
  * 跳过 `HUSKY_SKIP_E2E_COVERAGE_GAP=1`;不进 package.json。升 blocking 前置 = 存量缺口归零。
  *
  * 用法:node scripts/check-e2e-coverage-gap.mjs [--staged|--worktree] [--json] [--self-test]
