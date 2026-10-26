@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@ihui/design-tokens": "workspace:*",
+    "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "class-variance-authority": "^0.7.1"
   },
