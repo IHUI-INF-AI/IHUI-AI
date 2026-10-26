@@ -754,8 +754,27 @@ export function resolveRegistrationLoss(
   }
   // textOnly 档同样要豁免:批⑤的四行真实形态(`- [ ] **G-580 …` 粗体头带空格)headIdOf 给 null,
   // 全走 textOnly —— 只豁免带 id 的组循环等于对这批真实事故行不生效(2026-10-09 端到端探针实证)。
+  // G-948:multiset 档同样给这一族**名额账**(加粗族没有编号,名额只能按 marker 在被审面的行首
+  // 出现次数数),否则"同一题面的 N 行被写成 N-1 行"在这一族照旧报绿。budget 只影响
+  // "还活着"的判定次数,不新增任何豁免;名额用尽的那几份仍逐条过四道豁免。
+  const textBudget = multiset
+    ? targetSrc
+        .split(/\r?\n/)
+        .reduce((m, l) => {
+          const mk = markerOf(l)
+          if (mk) m.set(mk, (m.get(mk) || 0) + 1)
+          return m
+        }, new Map())
+    : null
   for (const { e, idx } of textOnly) {
-    if (targetSrc.includes(e.marker) || declaredExempt(e) || retiredExempt(e) || pointerExempt(e)) continue
+    const aliveCount = textBudget ? textBudget.get(e.marker) || 0 : null
+    if (textBudget) {
+      if (aliveCount > 0) {
+        textBudget.set(e.marker, aliveCount - 1)
+        continue
+      }
+    } else if (targetSrc.includes(e.marker)) continue
+    if (declaredExempt(e) || retiredExempt(e) || pointerExempt(e)) continue
     // 加粗族(题面文本判活)的收拢件若把编号写成 `G-855〔旧号〕` 这类形态,marker 逐字断链
     // ⇒ 老口径直接判缺(a 族实测);第三形态按题面认它。
     if (collectedExempt(e)) continue
@@ -779,7 +798,10 @@ export function resolveRegistrationLoss(
         present += 1
       } else if (collectedExempt(e)) continue // 已收拢进漂移注释(第三形态)⇒ 不判丢、不回捞
       else if (retiredExempt(e)) continue // 窗口外已结清(短留痕)⇒ 不判丢、不回捞
-      else if (pointerExempt(e)) continue // 合法摘号/改号(全文归一逐字相等)⇒ 不判丢、不点名、不回捞
+      // 合法摘号/改号(全文归一逐字相等)⇒ 不判丢、不点名、不回捞。
+      // `dupSlot` 复制份**不得**走这一道:它的正文之所以"在面上逐字找得到",恰恰因为孪生的那一份
+      // 还在 —— 拿它当豁免证就是让本维(名额)在"同题多行"这一型上恒绿,而那正是本票的事故型。
+      else if (!e.dupSlot && pointerExempt(e)) continue
       // 已声明摘除**不在这里 continue**:它必须占住 absent 的位置但不消耗 slack,
       // 否则同组后面那条真删行会被 slack 吞掉(2026-10-22 审计实测:台账空报 1、有台账报 0)。
       else absent.push(declaredExempt(e) ? { ...e, idx, declared: true } : { ...e, idx })
@@ -808,7 +830,8 @@ export function resolveRegistrationLoss(
     // 已声明摘除的条目不得随同 marker 被带进回捞集(同号多行时 lost 是条目级集合,
     // 不过滤就会把已声明的行一起插回去 —— 2026-10-22 审计指出的同组吞行面)。
     if (declaredExempt(e) || retiredExempt(e)) return
-    out.push(multiSlot.has(idx) ? { ...e, multiSlot: true } : e)
+    // `dupSlot`(历史面按名额展开出来的复制份,G-948)一律折成 `multiSlot`:只点名、绝不回捞。
+    out.push(multiSlot.has(idx) || e.dupSlot ? { ...e, multiSlot: true } : e)
   })
   return out
 }
@@ -1684,8 +1707,24 @@ export function missingFrom(seen, targetSrc, archived = archivedCopy, declared =
   const liveBodies = map
     ? [...target.matchAll(/^\s*[-*]\s[^\n]*/gm)].map((m) => bodyKeyOf(m[0])).filter(Boolean)
     : null
-  // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"
-  const lost = resolveRegistrationLoss(entries, target, declared, collectedSink, retired)
+  // G-948 第二格补完(2026-10-26):基线条目按 marker 去重 ⇒ 同题面的 N 行在 `seen` 里只剩一份,
+  // 判活那句 `head.has(marker)` 于是"这一族还剩一行"就报绿 —— 这正是本票现场(滞后副本整文件回写
+  // 把同一题面的 15 行写成 11 行、门报"无登记行丢失")。这里按条目自带的名额(`openCount`,
+  // `historyMarkers` 的配平状态机现算)展开成 N 份,再让判活层按**名额逐个消耗**(`multiset`)。
+  // 展开出来的复制份一律 `dupSlot`:它们与另一份逐字同题,机器无从判断是"被吞"还是"正当归并",
+  // 故由判活层统一折成 `multiSlot`(只点名/只报数,绝不回捞) —— 插回去就是替台账长重复登记(§1)。
+  const expanded = []
+  for (const e of entries) {
+    if (!e) continue
+    expanded.push(e)
+    const n = Math.max(1, Number(e.openCount) || 1)
+    for (let i = 1; i < n; i++) expanded.push({ ...e, dupSlot: true })
+  }
+  // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"。
+  // `multiset` 只在这一档打开(历史面);提交链那一档的名额差值归 `foldedSlots` 管,不双计债。
+  const lost = resolveRegistrationLoss(expanded, target, declared, collectedSink, retired, {
+    multiset: true,
+  })
   // sink 里躺着的是**折算后**的编号;报名必须给读台账的人看面上的原号(与返回集同一口径)。
   if (collectedSink && map)
     for (const s of collectedSink) if (back.has(s.marker)) s.marker = back.get(s.marker)

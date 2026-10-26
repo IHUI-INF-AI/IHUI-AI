@@ -4,19 +4,12 @@
 
 import { useMemo, useState } from 'react'
 import { Clock, ListChecks, Plus, Workflow, Zap } from 'lucide-react-native'
-import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { rnRadius } from '@ihui/design-tokens'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 触发类型(与后端 /workflows triggerType 同域)。 */
 export type WfTriggerType = 'manual' | 'schedule' | 'event' | 'webhook'
@@ -183,7 +176,8 @@ export function WorkflowListScreen({
             <Text style={styles.formDesc}>{t('workflowsPage.createDesc')}</Text>
 
             <Text style={styles.fieldLabel}>{t('workflowsPage.fieldName')}</Text>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={styles.input}
               value={name}
               onChangeText={setName}
@@ -192,7 +186,8 @@ export function WorkflowListScreen({
             />
 
             <Text style={styles.fieldLabel}>{t('workflowsPage.fieldDesc')}</Text>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={[styles.input, styles.inputMultiline]}
               value={desc}
               onChangeText={setDesc}
@@ -219,7 +214,8 @@ export function WorkflowListScreen({
             </View>
 
             <Text style={styles.fieldLabel}>{t('workflowsPage.fieldSteps')}</Text>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={[styles.input, styles.stepsInput]}
               value={stepsJson}
               onChangeText={setStepsJson}
