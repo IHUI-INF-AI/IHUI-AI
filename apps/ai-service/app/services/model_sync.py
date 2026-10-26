@@ -719,6 +719,7 @@ class ModelSyncService:
                 skip_upsert = False
 
                 # F1.2 重试循环(只重试网络/超时/5xx 错误,4xx 不重试)
+                expected_key_skip = False
                 for attempt, delay in enumerate(_RETRY_BASE_DELAYS, start=1):
                     try:
                         upstream_models, skip_upsert = await self._fetch_upstream_models(
@@ -752,36 +753,25 @@ class ModelSyncService:
                             )
                             break
                         elif last_error_type == SyncErrorType.INVALID_KEY.value:
-                            # 401:key 失效,累加失败计数(连续 3 次后永久禁用)
-                            self._bump_failure(provider_code)
-                            logger.warning(
-                                "[ModelSyncService] %s 返回 401(key 失效),失败计数 %d/%d",
+                            # 401:key 失效/过期。这是"用户侧待补充有效 key"的预期状态(非事故):
+                            # 不计入 unhealthy 失败计数、不触发 LlmProviderUnhealthy 告警、不永久禁用;
+                            # 补充有效 key 后下一轮同步自动恢复。记 INFO 即可(2026-10-26 按机主指示)。
+                            expected_key_skip = True
+                            logger.info(
+                                "[ModelSyncService] %s 返回 401(key 失效/过期),跳过同步"
+                                "(预期状态,补充有效 key 后自动恢复)",
                                 provider_code,
-                                self._provider_failure_counter.get(provider_code, 0),
-                                FAILURE_THRESHOLD,
                             )
-                            if self._provider_failure_counter.get(provider_code, 0) >= FAILURE_THRESHOLD:
-                                self._permanently_disabled_providers.add(provider_code)
-                                logger.warning(
-                                    "[ModelSyncService] %s 连续 401 失败 >= %d 次,已永久禁用",
-                                    provider_code, FAILURE_THRESHOLD,
-                                )
                             break
                         elif last_error_type == SyncErrorType.FORBIDDEN.value:
-                            # 403:无权限,累加失败计数
-                            self._bump_failure(provider_code)
-                            logger.warning(
-                                "[ModelSyncService] %s 返回 403(无权限),失败计数 %d/%d",
+                            # 403:无权限/配额受限。同 401,属用户侧待补充有效 key 的预期状态,
+                            # 静默跳过(不计入 unhealthy、不告警、不永久禁用);补充 key 后自动恢复。
+                            expected_key_skip = True
+                            logger.info(
+                                "[ModelSyncService] %s 返回 403(无权限/配额受限),跳过同步"
+                                "(预期状态,补充有效 key 后自动恢复)",
                                 provider_code,
-                                self._provider_failure_counter.get(provider_code, 0),
-                                FAILURE_THRESHOLD,
                             )
-                            if self._provider_failure_counter.get(provider_code, 0) >= FAILURE_THRESHOLD:
-                                self._permanently_disabled_providers.add(provider_code)
-                                logger.warning(
-                                    "[ModelSyncService] %s 连续 403 失败 >= %d 次,已永久禁用",
-                                    provider_code, FAILURE_THRESHOLD,
-                                )
                             break
                         elif last_error_type == SyncErrorType.RATE_LIMIT.value:
                             # 429:速率限制,长退避(60s)后重试 1 次
@@ -822,9 +812,20 @@ class ModelSyncService:
                 latency_s = latency_ms / 1000.0
 
                 if last_exc is not None:
-                    # F4.6 Prometheus metrics 失败埋点
-                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "failure").inc()
                     SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    if expected_key_skip:
+                        # 预期状态(key 失效/过期):静默跳过,不计入 unhealthy、不触发告警。
+                        # 指标记 skipped(与 304 增量跳过同口径),health 保持 1。
+                        SYNC_OPERATIONS_TOTAL.labels(provider_code, "skipped").inc()
+                        PROVIDER_HEALTH.labels(provider_code).set(1)
+                        return SyncResult(
+                            provider_code=provider_code, success=False,
+                            error=f"{type(last_exc).__name__}: {str(last_exc)[:200]}",
+                            latency_ms=latency_ms, skipped=True,
+                            error_type=last_error_type,
+                        )
+                    # F4.6 Prometheus metrics 失败埋点(真实故障:网络/5xx/404/未知)
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "failure").inc()
                     failures = self._provider_failure_counter.get(provider_code, 0)
                     PROVIDER_HEALTH.labels(provider_code).set(
                         1 if failures < FAILURE_THRESHOLD else 0
@@ -994,9 +995,9 @@ class ModelSyncService:
         try:
             async with pool.acquire() as conn:
                 rows = await conn.fetch(
-                    """SELECT provider_code, success
+                    """SELECT provider_code, success, error
                          FROM (
-                           SELECT provider_code, success, sync_finished_at,
+                           SELECT provider_code, success, error, sync_finished_at,
                                   ROW_NUMBER() OVER (
                                     PARTITION BY provider_code
                                     ORDER BY sync_finished_at DESC
@@ -1017,9 +1018,11 @@ class ModelSyncService:
             )
             return {}
 
-        by_provider: dict[str, list[bool]] = {}
+        by_provider: dict[str, list[tuple[bool, str]]] = {}
         for r in rows:
-            by_provider.setdefault(r["provider_code"], []).append(bool(r["success"]))
+            by_provider.setdefault(r["provider_code"], []).append(
+                (bool(r["success"]), r["error"] or "")
+            )
 
         # 收敛到"本服务实际会同步的 provider"。注意此刻两个集合仍为空,
         # 所以 _get_configured_providers() 返回的是未剔除禁用项的完整清单。
@@ -1029,12 +1032,22 @@ class ModelSyncService:
         for code in sorted(configured):
             seq = by_provider.get(code, [])
             streak = 0
-            for ok in seq:
+            for ok, err in seq:
                 if ok:
+                    break
+                # 2026-10-26:认证失败(401/403 key 失效/过期)属**预期状态**,
+                # 不计入连续失败、不置 unhealthy、不触发 LlmProviderUnhealthy 告警。
+                # 补充有效 key 后下一轮同步即自动恢复为健康。
+                if (
+                    "401" in err
+                    or "403" in err
+                    or "key" in err.lower()
+                    or "权限" in err
+                ):
                     break
                 streak += 1
             # 关键:无论恢复出几,都给 gauge 打点 —— 这样重启后序列立刻有样本,
-            # 盲区(无样本 == 不告警)被彻底消除。
+            # 盲区(无样本 == 不告警)被彻底消除。认证类失败一律按健康(=1)打点。
             PROVIDER_HEALTH.labels(code).set(1 if streak < FAILURE_THRESHOLD else 0)
             if streak:
                 restored[code] = min(streak, FAILURE_THRESHOLD)
@@ -2400,6 +2413,14 @@ class ModelSyncService:
         self, result: SyncResult, started_at: datetime, finished_at: datetime
     ) -> None:
         """F1.3 写入同步历史到 ai_model_sync_log 表(表不存在时静默跳过)。"""
+        # 2026-10-26:认证失败(401/403=key 失效/过期)属"用户侧待补 key"的预期状态,
+        # 落库记为 success=True(跳过态),不计入连续失败、不触发 LlmProviderUnhealthy 告警、
+        # 启动恢复也不据此永久禁用。补 key 后下一轮同步自动恢复。
+        db_success = bool(result.success) or (
+            bool(result.skipped)
+            and result.error_type
+            in (SyncErrorType.INVALID_KEY.value, SyncErrorType.FORBIDDEN.value)
+        )
         try:
             pool = await get_shared_pool()
             async with pool.acquire() as conn:
@@ -2412,7 +2433,7 @@ class ModelSyncService:
                     result.provider_code,
                     started_at,
                     finished_at,
-                    result.success,
+                    db_success,
                     result.total_models,
                     result.new_models,
                     result.removed_models,
