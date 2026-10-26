@@ -18,18 +18,11 @@ import {
   Subtitles,
   XCircle,
 } from 'lucide-react-native'
-import {
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 import { createEduAiStyles, EDU_AI_PALETTE, type EduAiTone } from './edu-ai-styles'
 
 /** 步骤名/状态与 packages/api-client/src/endpoints/edu-ai.ts VideoComposeStep* 逐字段同形(结构兼容,薄壳直传)。 */
@@ -325,7 +318,8 @@ export function EduAiVideoComposeScreen({
         {/* 创建区 */}
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>{t('eduAiPage.videoPromptLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.textarea}
             value={prompt}
             onChangeText={onPromptChange}
@@ -337,7 +331,8 @@ export function EduAiVideoComposeScreen({
           />
           <Text style={styles.counter}>{`${prompt.length}/300`}</Text>
           <View style={styles.row}>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={styles.input}
               value={model}
               onChangeText={onModelChange}
