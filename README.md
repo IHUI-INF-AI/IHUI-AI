@@ -15511,6 +15511,7 @@ A: Yes. ~14839+ tests / 3205 test files / 67 e2e spec / 4558 API 路由 / 608 �
 > A: Yes. ~14839+ tests / 3205 test files / 67 e2e spec / 4558 API 路由 / 608 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 
 ## 守门脚本点名索引(内部参考)
+- 守门 251 `check-ps1-bom.mjs`(runner id 251,**blocking**,跳过变量 `HUSKY_SKIP_PS1_BOM=1`):判 `.ps1` / `.psm1` 必须以 **UTF-8 with BOM**(`EF BB BF`)写入。立因是实证不是假想——`AGENTS.md` §27 早规定这条,但全仓曾没有任何尺子校验它,76 个 `.ps1` 里 40 个没 BOM 而无人知;真害在 Windows 自带的 5.1 引擎按系统代码页(zh-CN=GBK)解码满篇中文的无 BOM 脚本,当场报「表达式或语句中包含意外的标记」并连累整模块「缺少右 }」,而受害模块被 `alert-dedup.ps1` 与 `ihui-monitor.ps1` dot-source ⇒ 生产上只要走一次 5.1,部署窗口控制与告警去重整条功能就是坏的(同批自带的 harness T2 专门断言「5.1 也要能加载」,因此在 main 上恒红)。取证:`node scripts/check-ps1-bom.mjs --self-test` 末行「自检通过(判据六例 + 端到端三例,正反两向都真跑)」;`deploy/**` 的 `.ps1` 不吃 `#requires` pragma 那条口径见 `check-pwsh-version.mjs`。
 
 > 2026-10-25 由 `AGENTS.md` 整体迁入(守门 207 体积预算;R4 的文档面 = `AGENTS.md` ∪ `README.md`,故迁到这里仍满足「每道已接线门必须被点名」)。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。原文逐字留档 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`。
 
