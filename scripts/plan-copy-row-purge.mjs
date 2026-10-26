@@ -398,40 +398,44 @@ export function pointerTargetVerdict(row, openById, archiveIndex, opts2 = null, 
     return { verdict: 'archive-absent', pointed }
   }
   const live = hits.filter((x) => x.state !== 'done')
-  // ── ④c-陈旧快照档(2026-10-26/patrol4):archive-live 的"活证据"若全部来自**历史镜像快照**,
-  // 按"现行面为王+结清时间序"降级。全条件,任一不满足原样 archive-live 拒删:
-  //   (a) 台账现行面已无该编号的未勾登记行(非副本指针自述行;ledgerFace 必传入,缺 ⇒ 不降级);
-  //   (b) hits 含 ≥1 done 且其行内 ✅(YYYY-MM-DD) 全部可解析(无日期 ⇒ 判不出,不降级);
-  //   (c) done 的结清日期 **晚于** 每条 open 证据所在文件的文件名日期(文件名日期取不到 ⇒ 拒降;
-  //       ARCHIVE.md 头注"归档(2026-07-22)"不作数——里面住着 10 月的行,所以只比"open 证据在哪个件")。
-  // 病根:REN(2026-10-14 改号全量镜像)与同族 REN 快照按设计存"当时账面",旧 open 行是**化石**不是活证;
-  // 台账面上 P1-① 正主与 done✅ 已定,而旧尺把整仓归档当同权平面 ⇒ 陈旧指针永远摘不掉(实测)。
+  // ── ④c-陈旧快照档(2026-10-26/patrol4,票 patrol4 接管批):archive-live 的"活证据"若全部住在
+  // **历史改号镜像快照**(RENENUMBER/YIELD 系列——按设计存"当时账面",不是现在的账),按
+  // "现行面为王 + 结清时间序 + 唯一锚不拆"三重闸降级。全条件,任一不满足原样 archive-live 拒删:
+  //   (a) ledgerFace 必传入(判不出=不降);
+  //   (b) 台账现行面**没有指向该事项的未勾登记行**(任何 open 行含该编号 ⇒ 指针是唯一活锚,不拆);
+  //   (c) hits 含 ≥1 done 行且**每条 open 证据**都有行内 ✅(YYYY-MM-DD) 可解析(拿不到 ⇒ 判不出不降);
+  //   (d) done 的最新结清日期 **晚于** 每条 open 证据所在快照文件的文件名日期(化石必须比对得开;
+  //       相等或更早 ⇒ 拒——P1-① 实测:快照 10-14 而最后结清 10-10 ⇒ 拒,防"结清后重开被快照假降")。
+  // 立因:旧尺把 46 份归档件当同权平面,REN 化石里的旧 open 让陈旧指针永远摘不掉(实测 L6291 族)。
   if (live.length) {
     const face = ledgerFaceArg ?? opts2?.ledgerFace ?? null
     const archDone = hits.filter((x) => x.state === 'done')
-    const doneDs = archDone.map((x) => x.settledDate).filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
-    const openMissingDate = archDone.length !== doneDs.length
-    const openFileDates = [...new Set(live.map((x) => (/(\d{4})-(\d{2})-(\d{2})/.exec(x.path ?? '') ?? [])[0] ?? null))]
-    const openLatest = openFileDates.filter(Boolean).sort().pop() ?? null
-    const latestDone = doneDs.slice().sort().pop() ?? null
-    const hasFaceOpen =
-      face &&
-      face.rows.some(
-        (r) =>
-          r.state === 'open' &&
-          r.line !== row.line &&
-          !isClaimExcludedPointer(r.raw) &&
-          String(r.raw).includes(pointed),
-      )
-    if (
-      face &&
-      !hasFaceOpen &&
-      archDone.length > 0 &&
-      !openMissingDate &&
-      openLatest &&
-      latestDone &&
-      latestDone > openLatest
-    ) {
+    let downgrade = false
+    if (face && archDone.length) {
+      // 活锚 = 台账面上**别人**指着该编号的未勾行(指针行自身不算——它正是本次要裁决的对象)
+      const faceHasAnchor = face.rows.some((r) => r.state === 'open' && r.line !== row.line && String(r.raw ?? '').includes(pointed))
+      const openFileDates = live.map((x) => (/(\d{4}-\d{2}-\d{2})/.exec(x.path ?? '') ?? [])[0] ?? '')
+      const openLatest = openFileDates.filter(Boolean).sort().pop() ?? ''
+      const doneDs = archDone.map((x) => x.settledDate).filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+      // 台账面上的结清凭据也算一路(归档退役后,最终结清住在 `<!-- 已归档(…:✅(YYYY-MM-DD…) -->`
+      // 注记行里;只取**含该编号**的行的行内日期,不拿无关日期凑数)
+      const ledgerDs = []
+      for (const r of face.rows) {
+        if (!String(r.raw ?? '').includes(pointed)) continue
+        const m = /✅\((\d{4}-\d{2}-\d{2})\)/.exec(String(r.raw ?? ''))
+        if (m) ledgerDs.push(m[1])
+      }
+      for (const l of face.lines) {
+        if (!String(l).includes(pointed)) continue
+        const m = /✅\((\d{4}-\d{2}-\d{2})\)/.exec(String(l))
+        if (m) ledgerDs.push(m[1])
+      }
+      const allDs = [...doneDs, ...ledgerDs].sort()
+      const latestDone = allDs.pop() ?? ''
+      const everyOpenHasDoneDate = allDs.length > 0
+      downgrade = !faceHasAnchor && everyOpenHasDoneDate && !!openLatest && !!latestDone && latestDone > openLatest
+    }
+    if (downgrade) {
       hits = archDone
     } else {
       return {
@@ -441,7 +445,7 @@ export function pointerTargetVerdict(row, openById, archiveIndex, opts2 = null, 
       }
     }
   }
-  const done = hits.filter((x) => x.composite)
+  const done = archiveIndex.byKey.has(id) ? hits.filter((x) => x.composite && x.state === 'done') : hits.filter((x) => x.state === 'done')
   if (!done.length) return { verdict: 'archive-absent', pointed, detail: hits }
   return {
     verdict: 'archive-done',
@@ -510,7 +514,8 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
     const pointed = COPY_POINTER_ROW_RE.test(r.raw) ? pointedIdOf(r.raw) : null
     if (pointed) {
       // ④a 行首指针族:接收方在**新面**,缺席时再查归档面(④c),归档面也缺席时问枚回执(④d,见 pointerTargetVerdict)
-      const v = pointerTargetVerdict(r, openById, archiveIndex, receipt)
+      // ledgerFace 显式第五参:④c-陈旧快照档要"现行面为王"判定,不靠 receipt 通道携带(无 sha 行 receipt 可为 null)
+      const v = pointerTargetVerdict(r, openById, archiveIndex, receipt, receipt?.ledgerFace ?? opts.ledgerFace ?? null)
       if (v.verdict === 'ledger-open') {
         deletes.push({
           row: r,
@@ -773,6 +778,38 @@ function selfTest() {
   const brokenFace = buildArchiveIndex([{ path: '.ihui-agent/archive/PROJECT_PLAN_x.md' }])
   d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本。')], { archiveIndex: brokenFace, rejectLog: rej })
   ok(d.length === 0 && rej[0]?.verdict === 'archive-undetermined', '④c 归档面没取全 ⇒ 判不出≠零份,拒删')
+  // —— ④c-陈旧快照档(2026-10-26/patrol4):REN 化石里的旧 open 不得永挡陈旧指针 ——
+  const REN_ARCH = [
+    '# REN(2026-10-14 改号全量镜像)',
+    '- [ ] **P1-① 扩共享层首批**:当时账面未勾(化石)。',
+    '- [x] ✅(2026-10-09) **P1-① 扩共享层首批 —— 前提已否证,剩余 4 件**。',
+    '',
+  ].join('\n')
+  const ARCH_DONE09 = ['# a', '- [x] ✅(2026-10-11) **P1-① 扩共享层首批** 结清。', ''].join('\n')
+  const multiArch = (texts) => buildArchiveIndex(texts.map((t, i) => ({ path: i === 0 ? 'PROJECT_PLAN_RENUMBER_2026-10-14.md' : `PROJECT_PLAN_X${i}.md`, text: t })))
+  const FACE_NO_ANCHOR = { rows: [], lines: ['<!-- 已归档(2026-10-15:✅(2026-10-15) **P1-① 扩共享层首批** -->'], ok: true }
+  const PTR_P1 = '- [ ] 副本指针(编号 P1-①):折叠自旧形态行,状态见 O92 那条。'
+  d = selectCopyRowsToPurge([mk(1, PTR_P1)], {
+    archiveIndex: multiArch([REN_ARCH, ARCH_DONE09]),
+    ledgerFace: FACE_NO_ANCHOR,
+  })
+  ok(
+    d.length === 1 && d[0].receiver === 'archive' && d[0].key === 'P1-①',
+    '④c-陈旧快照:台账无活锚 + 结清日期(10-15)晚于化石(10-14) ⇒ 降级 archive-done 可删',
+  )
+  d = selectCopyRowsToPurge([mk(1, PTR_P1)], {
+    archiveIndex: multiArch([REN_ARCH, ARCH_DONE09]),
+    ledgerFace: { rows: [{ line: 9, state: 'open', raw: '- [ ] **P1-① 扩共享层首批** 台账活主行', key: null }], lines: ['- [ ] **P1-① 扩共享层首批** 台账活主行'], ok: true },
+  })
+  ok(d.length === 0, '④c-陈旧快照反例:台账面仍有活锚(别人未勾行含该编号)⇒ 指针是唯一锚邻证,拒拆(archive-live)')
+  const FACE_NO_DATE = { rows: [], lines: [], ok: true }
+  d = selectCopyRowsToPurge([mk(1, PTR_P1)], {
+    archiveIndex: multiArch([REN_ARCH.replace('2026-10-11', '2026-09-01'), ARCH_DONE09.replace('2026-10-11', '2026-09-01')]),
+    ledgerFace: FACE_NO_DATE,
+  })
+  ok(d.length === 0, '④c-陈旧快照反例:最新结清(09-01)早于化石(10-14)⇒ 拒降,防"结清后重开"被假降')
+  d = selectCopyRowsToPurge([mk(1, PTR_P1)], { archiveIndex: multiArch([REN_ARCH, ARCH_DONE09]), ledgerFace: null })
+  ok(d.length === 0, '④c-陈旧快照反例:不传 ledgerFace ⇒ 判不出,逐字退回 archive-live 拒删')
   rej = []
   d = selectCopyRowsToPurge([mk(1, '- [ ] 副本指针(编号 P1-①)：同主键第二份未勾选副本。')], {
     archiveIndex: archOf('# 归档件\n- [ ] P1-①扩共享层首批:等容器运行时。\n'),
@@ -1025,6 +1062,7 @@ function main() {
     staleLeaseLines,
     archiveIndex,
     rejectLog,
+    ledgerFace,
     receipt: orphanPointers.length ? { resolveSnapshot, ledgerFace } : null,
   }).filter((d) => {
     if (forkOpenLines.has(d.row.line)) return false // ⑥
@@ -1164,10 +1202,13 @@ function main() {
     const id = d.family.startsWith('pointer') ? d.key : d.row.key
     if (!id) continue
     if (d.receiver === 'archive') {
-      const doneComposites = new Set(
-        (archiveIndex?.byKey.get(id) ?? []).filter((x) => x.state === 'done' && x.composite).map((x) => x.composite),
-      )
-      if (!doneComposites.size) {
+      const scope = archiveIndex?.byKey.get(id) ?? []
+      // 无 key 族(P1-① 这类圈字号)byKey 恒空 ⇒ 判活口径与 ④c 同步退到"题面逐字起头且 done"档
+      const doneRows = scope.filter((x) => x.state === 'done' && x.composite)
+      const noKeyFamily = !archiveIndex?.byKey.has(id)
+      const titleDone = noKeyFamily ? (archiveIndex?.rows ?? []).filter((x) => x.state === 'done' && typeof x.title === 'string' && x.title.startsWith(id)) : []
+      const doneComposites = new Set([...doneRows, ...titleDone].filter((x) => x.composite).map((x) => x.composite))
+      if (!doneComposites.size && !titleDone.length) {
         newFaceMissing.push(`L${d.row.line} ${id}(归档面也没有已勾主行 ⇒ 接收方两处皆空)`)
         continue
       }
