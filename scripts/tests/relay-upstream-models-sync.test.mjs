@@ -247,4 +247,29 @@ test('④b DSN 面只含 host:port/db;取法顺序 --dsn > .env > 进程环境',
   )
   assert.match(plan.resolveDsn([], '', {}).error, /DSN 取不到/)
 })
+
+// ⑤ 并发同键(2026-10-26 票面第二半格):快照判 missing 与真正 insert 之间,另一事务可能已写入
+// 同键行。裸 insert 会把整笔事务打成 23505(真库正控实测),故两处 insert 都必须 on conflict
+// 复选。形状锁:摘掉任一处的 on conflict 或复选 select ⇒ 本用例当场翻红。
+test('⑤ 库层 insert 带 on conflict 复选(形状锁:摘掉即翻红)', () => {
+  const src = readFileSync(new URL('../lib/relay-upstream-models-db.mjs', import.meta.url), 'utf8')
+  assert.match(
+    src,
+    /insert into ai_model_config\s[\s\S]{0,400}?on conflict do nothing/,
+    'insertConfig 的 SQL 必须带 on conflict do nothing',
+  )
+  assert.match(
+    src,
+    /insert into ai_model_config_models\s[\s\S]{0,500}?on conflict do nothing/,
+    'insertModel 的 SQL 必须带 on conflict do nothing',
+  )
+  assert.match(src, /insertConfig 撞唯一约束后复选不到同键行/, '配置行复选失败必须点名,不猜')
+  assert.match(src, /insertModel 撞唯一约束后复选不到同键行/, '模型行复选失败必须点名,不猜')
+  assert.match(
+    src,
+    /coalesce\(base_url, ''\) = \$\{a\.baseUrl \?\? ''\}/,
+    '配置行复选键必须与唯一索引同形(COALESCE base_url)',
+  )
+  assert.match(src, /lower\(model_id\) = lower\(\$\{a\.alias\}\)/, '模型行复选必须吃大小写不敏感那把尺子')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
