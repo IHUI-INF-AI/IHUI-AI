@@ -5,9 +5,12 @@
 /**
  * 号池上游登记的**库面适配层**(纯 IO,零判据):连接守卫复用 scripts/lib/db-probe-client.mjs 的
  * guardDbDsn,写动作全部参数化,只碰 provider_code ∈ 登记表且 owner_uuid IS NULL 的行。
- * 判据(三态与写动作集)住在 `scripts/relay-upstream-models-sync.mjs`,本层不复制第二份(§0.6)。
+ * 判据(三态 / 写动作集 / 同键归属)住在 `scripts/lib/relay-upstream-models-plan.mjs` 与
+ * `scripts/relay-upstream-models-sync.mjs`,本层不复制第二份(§0.6)。
+ * description 是"这行是谁写的"唯一取证面:写侧只用 plan 层的 `provenanceDescription` 生成它。
  */
 import { loadPostgresDriver } from '../check-migration-ledger-drift.mjs'
+import { provenanceDescription } from './relay-upstream-models-plan.mjs'
 
 /** 只允许本机回环库 + 拒生产隧道口;取不到驱动/被守卫拦下 ⇒ {ok:false, why}(调用方落未判定)。 */
 export async function openDevClient(dsn) {
@@ -21,11 +24,12 @@ export async function openDevClient(dsn) {
  * 快照:全局配置行 + 其模型行。codes 先剥掉数组字面量分隔符,防把清单串拼成非法字面量。
  * 别名必须带双引号:postgres-js 会把未加引号的返回列名整体小写(providerCode → providercode),
  * 判据层按驼峰取键会静默读成 undefined ⇒ 每一行都被判成"缺登记"(假红)。
+ * description 必须一起读:同键行是不是本器写的,判据层只认它(读不到 ⇒ 不认领,不动)。
  */
 export async function readSnapshot(sql, codes) {
   const literal = `{${codes.map((c) => String(c).replace(/[",{}\\]/g, '')).join(',')}}`
   const configs = await sql`select id, provider_code as "providerCode", name, base_url as "baseUrl",
-       api_format as "apiFormat", enabled
+       api_format as "apiFormat", enabled, description
      from ai_model_config
      where owner_uuid is null and provider_code = any(${literal}::text[]) order by id`
   const ids = configs.map((c) => String(c.id).replace(/[^0-9]/g, '')).filter(Boolean)
@@ -51,7 +55,7 @@ export async function applyActions(sql, actions) {
         const ins = await tx`insert into ai_model_config
              (name, provider_code, base_url, api_format, enabled, is_builtin, description)
            values (${a.name}, ${a.providerCode}, ${a.baseUrl}, ${a.apiFormat}, ${a.enabled}, false,
-             ${`号池上游登记 · 由 scripts/relay-upstream-models-sync.mjs 依 scripts/data/relay-upstream-models.jsonl 落库(${a.reason})`})
+             ${provenanceDescription(a.reason)})
            returning id`
         configIdByProvider.set(a.providerCode, Number(ins[0].id))
         written.push(

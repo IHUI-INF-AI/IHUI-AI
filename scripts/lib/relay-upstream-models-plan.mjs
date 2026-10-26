@@ -8,15 +8,35 @@
  * 为什么单独一层:CLI 会被 IO 拖住(镜像测试就得连库才能跑);分层后判据只此一份(§0.6),库面读写在
  * `scripts/lib/relay-upstream-models-db.mjs`,测试钉的是判据本身。
  *
- * 三条不显然的口径:
+ * 四条不显然的口径:
  *  1. `isRelayPublic` 是登记器的写面之一,且恒按登记表(false):渠道路由
  *     `relay-channel-router#selectChannelCandidates` 的入口谓词要求 is_relay_public=true,登记成
  *     true 会把「只有账号池适配器能服务」的 provider 冒充成 OpenAI 兼容渠道去直连不存在的端点。
- *  2. 既有行的 name / display_name / description 属其它生产者 ⇒ 只在缺失时写、绝不覆盖;漂移只比 enabled 与 api_format(这两项决定反查能不能命中)。
- *  3. model_id 有两把唯一索引(逐字节与 lower(model_id)):先按逐字节找、再按大小写变体找 —— 只有
+ *  2. **同键判据 = (provider_code, COALESCE(base_url,''))**:同 provider 不同 base_url 是两行
+ *     (库里 `uq_ai_model_config_global_provider_base` 就是这个键),plan 层不靠库索引也表达同一关系。
+ *     同键行只有当 description 带本器出处标记(`PROVENANCE_MARK`)才算"自己写的" —— 不带 ⇒
+ *     **两条路径抢同一行**,既不复用也不改(进 `breaches`,不落任何动作),交人工裁决。
+ *     只按 provider 判同键会造成"同 provider 另一端点行被判成 insert/update",那正是 23505 与
+ *     "悄悄接管别人路径写的行"两个事故的共同入口。
+ *  3. 既有行的 name / display_name / description 属其它生产者 ⇒ 只在缺失时写、绝不覆盖;漂移只比 enabled 与 api_format(这两项决定反查能不能命中)。
+ *  4. model_id 有两把唯一索引(逐字节与 lower(model_id)):先按逐字节找、再按大小写变体找 —— 只有
  *     大小写变体那种"看着是同一条、插进去必撞索引"必须当场拒绝并点名,不得自动改名。
  */
+
 import { requireFlagValue } from './flag-value.mjs'
+
+/** 本器出处标记:写侧落进 description、读侧据此认领,两处必须同一枚常量(§0.6)。 */
+export const PROVENANCE_MARK = '号池上游登记 · 由 scripts/relay-upstream-models-sync.mjs'
+
+/** 本器写的配置行 description:出处标记 + 登记表里的定向说明。 */
+export function provenanceDescription(reason) {
+  return `${PROVENANCE_MARK} 依 scripts/data/relay-upstream-models.jsonl 落库(${reason})`
+}
+
+/** 该配置行是不是本器写的。取不到 description ⇒ false(不认领 = 不动别人行,失效方向恒为"多要一次人工裁决")。 */
+export function isOurs(cfg) {
+  return String(cfg?.description ?? '').includes(PROVENANCE_MARK)
+}
 
 /** 展示用 DSN 面:只留 host:port/db —— 用户名与密码段整段丢弃(比逐位打 *** 更严,§5d)。 */
 export function dsnFace(raw) {
@@ -96,13 +116,15 @@ export function parseRegistry(text, providerCodes, today = new Date().toISOStrin
 
 /**
  * 登记计划(纯判据):登记表 + 库快照 ⇒ 三态读数 + 写动作集。
- * 快照形状 `{ configs:[{id,providerCode,baseUrl,apiFormat,enabled}],
+ * 快照形状 `{ configs:[{id,providerCode,baseUrl,apiFormat,enabled,description}],
  *              models:[{id,configId,modelId,enabled,isRelayPublic}] }`。
+ * `breaches` = 判得出的"不许动"(同键行是别的路径写的):这类条目不产任何动作,整轮拒绝落库。
  */
 export function planRegistration(entries, snapshot) {
   const actions = []
   const rows = []
   const problems = []
+  const breaches = []
   const push = (providerCode, alias, state, why) => rows.push({ providerCode, alias, state, why })
   for (const e of entries) {
     const cfgs = (snapshot.configs ?? []).filter(
@@ -116,6 +138,14 @@ export function planRegistration(entries, snapshot) {
       continue
     }
     const cfg = cfgs[0] ?? null
+    if (cfg && !isOurs(cfg)) {
+      // 同键行已存在但不带本器出处 ⇒ 别的路径先占了这一行。复用或改它 = 悄悄接管别人的行,
+      // 唯一合法结局是点名交人工(既不复用也不改)。
+      breaches.push(
+        `provider=${e.providerCode} base_url=${e.baseUrl} 两条路径抢同一行:id=${cfg.id} 已占该键但 description 不带本器出处标记(${PROVENANCE_MARK})⇒ 既不复用也不改`,
+      )
+      continue
+    }
     const configId = cfg ? Number(cfg.id) : null
     let state = 'matched'
     if (!cfg) {
@@ -202,7 +232,7 @@ export function planRegistration(entries, snapshot) {
   }
   const count = { missing: 0, matched: 0, drift: 0 }
   for (const r of rows) count[r.state]++
-  return { rows, actions, problems, count }
+  return { rows, actions, problems, breaches, count }
 }
 
 /** 把动作集渲染成一行预览(CLI 写前打印与测试断言共用同一出口,不各写一份)。 */
@@ -238,6 +268,9 @@ export function touchesOnlyRegistered(actions, registeredCodes) {
 }
 
 export const __test__ = {
+  PROVENANCE_MARK,
+  isOurs,
+  provenanceDescription,
   dsnFace,
   relayProviderCodes,
   parseRegistry,
