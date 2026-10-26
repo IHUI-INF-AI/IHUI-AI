@@ -45,6 +45,7 @@ import {
   type ScopeUsageLiveRow,
 } from '../db/visit-tracking-queries.js'
 import { getEngagementLiveSnapshot } from '../services/engagement-stats-service.js'
+import { getAudienceLiveSnapshot } from '../services/audience-stats-service.js'
 import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
@@ -1099,6 +1100,7 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
       traffic,
       relayPool,
       engagement,
+      audience,
     ] = await Promise.all([
       buildHost(),
       buildServices(),
@@ -1113,6 +1115,8 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
       buildRelayPool(),
       // 事件热度是独立腿:取不到只让这一格 null(渲染"—"),不拖垮整页。
       getEngagementLiveSnapshot().catch(() => null),
+      // 访客构成(近 24h 新访客/回访)同样是独立腿:首现聚合要扫全表分组,失败只让这一格空。
+      getAudienceLiveSnapshot().catch(() => null),
     ])
     const edge = buildEdge()
     return reply.send(
@@ -1137,6 +1141,7 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
         traffic,
         relayPool,
         engagement,
+        audience,
         edge,
       }),
     )
