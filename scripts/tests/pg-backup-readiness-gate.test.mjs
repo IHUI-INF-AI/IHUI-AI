@@ -18,11 +18,21 @@
 //    旧形态只有一句 exit=1,两种原因同形;④ 尺子缺件(psql.exe 不在位)只能 fail-open **并大声报名**,
 //    静默跳过会让下一个人以为门一直在生效。
 //
-// 门的现行形态(2026-10-13 加固,本测试按此 shape 钉):探测从 pg_isready(120s 预算 5s 轮询)换成
-// psql `SELECT 1` 退避重试 —— 连接方式与 pg_dump 完全一致,不新造任何连接参数;单探测挂死防护走
-// libpq 环境变量 $env:PGCONNECT_TIMEOUT='5'(psql 18 已移除 --connect-timeout 命令行开关,当年留下的
-// 那个写法让门恒判「未就绪」、备份自 10-13 03:00 起断链,反向锁 legacyConnectTimeoutBanned 就是
-// 钉住它不许回来的);失败后按 15s/30s/60s/120s/120s 退避,有上限,全部失败才走告警 + exit 1。
+// 门的现行形态(2026-10-13 加固 + 2026-10-25 工具定位改造;本测试 2026-10-27 按现读 shape 钉):
+// 探测从 pg_isready(120s 预算 5s 轮询)换成 psql `SELECT 1` 退避重试 —— 连接方式与 pg_dump 完全一致,
+// 不新造任何连接参数;单探测挂死防护走 libpq 环境变量 $env:PGCONNECT_TIMEOUT='5'(psql 18 已移除
+// --connect-timeout 命令行开关,当年留下的那个写法让门恒判「未就绪」、备份自 10-13 03:00 起断链,
+// 反向锁 legacyConnectTimeoutBanned 就是钉住它不许回来的);失败后按 15s/30s/60s/120s/120s 退避,
+// 有上限,全部失败才走告警 + exit 1。
+// 2026-10-25 起 psql/pg_dump 的落点**不再在文件头写死**:历史落点只登记为候选②($legacyPgBinDir,
+// 仍从 $DevEnvRoot 派生),真实落点由候选序探测(IHUI_PG_BIN_DIR → 历史落点 → 运行中服务 ImagePath
+// 反查 → %ProgramFiles%\PostgreSQL → PATH)取第一个真有 pg_dump.exe 的目录作 $pgBinDir,全落空必须
+// 告警(原因=备份工具不在位)+ exit 1 —— 此前写死路径正是「备份链静默零产物」的元凶(现读:该目录
+// 整体不存在)。$DevEnvRoot 本身 = IHUI_DEVENV_ROOT 覆盖优先、否则按仓根所在盘派生(G-298 口径,
+// 与调度器 pg-backup-scheduler.ps1 / apps/api/scripts/pg-backup.mjs 三方同形)。
+// 就绪结论仍**只能**由退出码判定得出 —— 现形有两处合法的 `if ($readyLastCode -eq 0)` 护栏:
+// 循环内 break 形与「专用角色认证失败 → 回退 .env 应用账号重探」形(2026-10-25 立),两形都被
+// neverAssumeReady 的护栏式剥离覆盖;护栏之外任何 `$readyOk = $true` 都是「当作已就绪」。
 // 每条都配变异对照:把门摘掉 / 把等待换成「当作已就绪」,判据必须翻假 —— 只证明「函数会返回」不等于证明「有人问它」。
 //
 // 运行:`node --test scripts/tests/pg-backup-readiness-gate.test.mjs`
@@ -69,10 +79,11 @@ const has = {
     /\$readyWaitSteps\s*=\s*@\(\s*15\s*,\s*30\s*,\s*60\s*,\s*120\s*,\s*120\s*\)/.test(g) &&
     /if\s*\(\$retryNo\s+-gt\s+\$readyWaitSteps\.Count\)\s*\{\s*break\s*\}/.test(g),
   perProbeBounded: (g) => /\$env:PGCONNECT_TIMEOUT\s*=\s*'5'/.test(g),
-  // 就绪结论**只能**由退出码判定得出:先把「`if ($readyLastCode -eq 0) { $readyOk = $true; break }`」
-  // 这一合法形态整式摘掉,剩下的任何 `$readyOk = $true` 都是「当作已就绪」。
+  // 就绪结论**只能**由退出码判定得出:先把**所有** `if ($readyLastCode -eq 0) { …$readyOk = $true… }`
+  // 护栏式整块摘掉(2026-10-25 现形两处:循环内单行 break 形 + 认证失败回退重探的多行形,
+  // 剥掉护栏之外任何 `$readyOk = $true` 都是「当作已就绪」)。
   neverAssumeReady: (g) => {
-    const guarded = g.replace(/if\s*\(\$readyLastCode\s*-eq\s+0\)\s*\{\s*\$readyOk\s*=\s*\$true;?\s*break\s*\}/g, '')
+    const guarded = g.replace(/if\s*\(\$readyLastCode\s*-eq\s+0\)\s*\{[^{}]*\$readyOk\s*=\s*\$true[^{}]*\}/g, '')
     return !/\$readyOk\s*=\s*\$true/.test(guarded)
   },
   probeCallsPsql: (g) => /&\s*\$psql\s+-w\s+-h\s+localhost\s+-p\s+\$dbPort/.test(g),
@@ -88,13 +99,40 @@ const has = {
   successSingleLine: (g) => /\[OK\]\s*就绪门/.test(g),
 }
 
-// 整文件判据(量 CODE 全文,不是门区):① 探测二进制的兄弟路径解析住在门区外
-// (ps1 顶部 `Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'`),门区里只许看到对 $psql 的调用;
+// 整文件判据(量 CODE 全文,不是门区):① PG 工具落点在门区外解析,2026-10-25 起现行形态是
+// 「候选序探测 ⇒ $pgBinDir ⇒ 兄弟路径」——psql/pg_dump 的路径必须取自探测结果而不是写死盘符,
+// 探测必须验存在(Test-Path pg_dump.exe)才取,全落空必须显式未判定(fail-closed:告警 + exit 1),
+// DevEnv 根本身必须走「env 覆盖优先、否则仓根所在盘派生」而非字面量;
 // ② 旧开关禁令整文件量——`--connect-timeout` 是 2026-10-13 那起「门恒判未就绪、备份断链」事故的元凶形态
 // (psql 18 已移除该开关 ⇒ 每次探测必 exit=1),它以任何代码形态回来都判红;
 // 头注里那句历史说明是注释行,剥注释后天然看不见,不会被本锁误伤。
 const hasFile = {
-  probeSibling: (code) => /\$psql\s*=\s*Join-Path\s+\$DevEnvRoot\s+'runtimes\\pgsql\\bin\\psql\.exe'/.test(code),
+  // psql/pg_dump 路径 = 探测结果($pgBinDir)的兄弟路径;写回 DevEnv/盘符直赋(旧形态,该目录
+  // 现读整体不存在 ⇒ 静默零产物的元凶)即判红。
+  psqlFromProbedDir: (code) =>
+    /\$psql\s*=\s*Join-Path\s+\$pgBinDir\s+'psql\.exe'/.test(code) &&
+    /\$pgDump\s*=\s*Join-Path\s+\$pgBinDir\s+'pg_dump\.exe'/.test(code),
+  // $pgBinDir 必须从 $null 起步、只取「Test-Path 验过真有 pg_dump.exe」的第一个候选——
+  // 不验存在直取候选表首位,等于把探测退化成又一次写死。
+  pgBinProbedWithExistence: (code) => {
+    if (!/\$pgBinDir\s*=\s*\$null/.test(code)) return false
+    const s = code.indexOf('foreach ($d in $pgCandidates)')
+    if (s < 0) return false
+    return /Test-Path\s+-LiteralPath\s*\(Join-Path\s+\$d\s+'pg_dump\.exe'\)/.test(code.slice(s, s + 300))
+  },
+  // 候选全落空 = 取不到输入 ⇒ 必须显式未判定(fail-closed):Send-FailureAlert 点名原因 + exit 1,
+  // 不许静默回落裸程序名或另一个面(§0.3)。
+  pgBinFailClosed: (code) => {
+    const s = code.indexOf('if (-not $pgBinDir)')
+    if (s < 0) return false
+    const seg = code.slice(s, s + 1500)
+    return /Send-FailureAlert/.test(seg) && /exit 1/.test(seg)
+  },
+  // DevEnv 根走「IHUI_DEVENV_ROOT 覆盖优先、否则按仓根所在盘派生」单点解析(G-298),备份目录从它
+  // 派生。候选兜底表里仍有绝对路径字面量(那是候选落点,不是配置读取值),本判据不扩量到那一段。
+  devEnvRootDerived: (code) =>
+    /\$DevEnvRoot\s*=\s*if\s*\(\$env:IHUI_DEVENV_ROOT\)/.test(code) &&
+    /\$backupDir\s*=\s*Join-Path\s+\$DevEnvRoot\s+'backups\\pg'/.test(code),
   legacyConnectTimeoutBanned: (code) => !/--connect-timeout/.test(code),
 }
 
@@ -155,8 +193,11 @@ test('G5 变异对照:摘掉门 / 换成「当作已就绪」/ 去掉退避上�
   assert.ok(s >= 0 && e > s, '夹具自证:摘门面确实动过文本')
   assert.equal(gateHealth(CODE.slice(0, s) + CODE.slice(e)).ok, false, '摘门后仍判绿 ⇒ 本测试读的是文字,不是判据')
 
-  // 臂 B:外壳留着、把「退出码判定」换成「当作已就绪」⇒ 两条相关判据必须同时翻假
-  const assumeReady = CODE.replace(/if\s*\(\$readyLastCode\s*-eq\s+0\)\s*\{\s*\$readyOk\s*=\s*\$true;?\s*break\s*\}/, 'if ($true) { $readyOk = $true; break }')
+  // 臂 B:外壳留着、把**每一处**「退出码判定」护栏换成无条件放行 ⇒ 两条相关判据必须同时翻假。
+  // 必须全局替换:2026-10-25 现形有两处 `if ($readyLastCode -eq 0)`(循环 break + 认证失败回退重探),
+  // 只变异一处时另一处还会替 exitCodeJudged 顶绿——那是"判据靠残留同形苟活",不是判据在工作。
+  const assumeReady = CODE.replace(/if\s*\(\$readyLastCode\s*-eq\s+0\)\s*\{/g, 'if ($true) {')
+  assert.notEqual(assumeReady, CODE, '夹具自证:臂 B 确实动过退出码判定')
   const fb = gateHealth(assumeReady).failed
   assert.ok(fb.includes('neverAssumeReady'), `「当作已就绪」必须被 neverAssumeReady 抓到,实际:${fb.join(',')}`)
   assert.ok(fb.includes('exitCodeJudged'), `「当作已就绪」也必须被 exitCodeJudged 抓到,实际:${fb.join(',')}`)
@@ -172,7 +213,9 @@ test('G5 变异对照:摘掉门 / 换成「当作已就绪」/ 去掉退避上�
   const gs = CODE.indexOf(GATE_START)
   const ge = CODE.indexOf(DUMP_LOOP)
   const region = CODE.slice(gs, ge)
-  const mutatedRegion = region.replace(/Send-FailureAlert[\s\S]*?\)\n(\s*)exit 1/, 'exit 1')
+  // 2026-10-25 现形的调用是单行 `Send-FailureAlert -Reason … -Details $readyDetails`(裸参数表,
+  // 不带收尾圆括号)⇒ 变异锚点按「调用行 + 紧随其后的 exit 1」取,不再要求旧写法的 `)` 收尾。
+  const mutatedRegion = region.replace(/Send-FailureAlert[^\r\n]*\r?\n\s*exit 1/, 'exit 1')
   assert.ok(
     region.includes('Send-FailureAlert') && !mutatedRegion.includes('Send-FailureAlert'),
     '夹具自证:臂 C 必须确实摘掉**门内**的告警出口(摘到别处去等于没做变异)',
@@ -184,6 +227,39 @@ test('G5 变异对照:摘掉门 / 换成「当作已就绪」/ 去掉退避上�
   const legacyFlag = CODE.replace(/&\s*\$psql\s+-w\s+-h\s+localhost\s+-p\s+\$dbPort/, '& $psql -w --connect-timeout=5 -h localhost -p $dbPort')
   assert.notEqual(legacyFlag, CODE, '夹具自证:臂 D 确实动过探测行')
   assert.ok(gateHealth(legacyFlag).failed.includes('legacyConnectTimeoutBanned'), '旧开关回来必须被禁令抓到')
+
+  // 臂 E:把 psql 的赋值写回「$DevEnvRoot 派生直赋」(2026-10-25 之前的形态——该目录在本机现读
+  // 整体不存在,正是"备份链静默零产物"的元凶)⇒ 「路径必须是探测结果」这一锁必须翻假
+  const hardcodedPsql = CODE.replace(
+    /\$psql = Join-Path \$pgBinDir 'psql\.exe'/,
+    String.raw`$psql = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'`,
+  )
+  assert.notEqual(hardcodedPsql, CODE, '夹具自证:臂 E 确实动过 psql 赋值')
+  assert.ok(gateHealth(hardcodedPsql).failed.includes('psqlFromProbedDir'), 'psql 路径退回直赋派生必须被抓到')
+
+  // 臂 F:摘掉「验存在才取」——候选表首位不经 Test-Path 直接落 $pgBinDir ⇒ 探测退化成又一次写死,
+  // pgBinProbedWithExistence 必须翻假
+  const unprobedPick = CODE.replace(
+    /if \(Test-Path -LiteralPath \(Join-Path \$d 'pg_dump\.exe'\)\) \{ \$pgBinDir = \$d; break \}/,
+    '$pgBinDir = $d; break',
+  )
+  assert.notEqual(unprobedPick, CODE, '夹具自证:臂 F 确实摘掉了存在性验证')
+  assert.ok(gateHealth(unprobedPick).failed.includes('pgBinProbedWithExistence'), '候选未经 Test-Path 直取必须被抓到')
+
+  // 臂 G:把「全落空 ⇒ 告警 + exit 1」的 fail-closed 块整段摘掉 ⇒ 取不到输入被读成"照常往下跑"
+  // (§0.3 禁止的正是这一型),pgBinFailClosed 必须翻假
+  const silentMiss = CODE.replace(/if \(-not \$pgBinDir\) \{[\s\S]*?\r?\n\}/, '')
+  assert.notEqual(silentMiss, CODE, '夹具自证:臂 G 确实摘掉了 fail-closed 块')
+  assert.ok(gateHealth(silentMiss).failed.includes('pgBinFailClosed'), '工具定位全落空静默续跑必须被抓到')
+
+  // 臂 H:备份目录写回盘符字面量(DevEnv 搬迁/换卷后每轮把档写到不存在路径的旧风险)⇒
+  // devEnvRootDerived 必须翻假
+  const literalBackupDir = CODE.replace(
+    /\$backupDir = Join-Path \$DevEnvRoot 'backups\\pg'/,
+    String.raw`$backupDir = 'D:\DevEnv\backups\pg'`,
+  )
+  assert.notEqual(literalBackupDir, CODE, '夹具自证:臂 H 确实把备份目录改成了字面量')
+  assert.ok(gateHealth(literalBackupDir).failed.includes('devEnvRootDerived'), '备份目录退回盘符字面量必须被抓到')
 })
 
 test('G6 影子副本(生产真正执行的那一份)逐字节等值 —— 不在位则记未判定', (t) => {

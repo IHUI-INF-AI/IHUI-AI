@@ -9,9 +9,12 @@
 #       清单 = ihui_dev + keycloak(2026-09-28 起;为何是这两个、为何不含测试库,见下方 $backupDatabases 注释)
 # 清理:本地与云侧同窗轮转(最近 7 天);识别式只认 ihui*/keycloak* 的 .dump/.sql.gz,
 #       所以同目录里的 pg_hba 现场存档与 backup.log 不会被顺手带走
-# 用法(手动): powershell -ExecutionPolicy Bypass -File deploy\prod-bundle\pg-backup.ps1
-# 调度:由 nssm 服务 IHUI-PG-BACKUP 常驻跑同级 pg-backup-scheduler.ps1 —— **不是** Windows 任务计划程序
-#       (实测 schtasks 全量列表里没有备份任务);调度器启动即备份一次,之后每天 03:00 一轮。
+# 用法(手动): pwsh.exe -NoProfile -ExecutionPolicy Bypass -File deploy\win\ihui-pg-backup.ps1
+#       (§27:deploy/** 的 .ps1 不吃 #requires 声明,调用侧必须显式 pwsh —— 本行就是调用侧登记)
+# 调度:由 Windows 计划任务 \IHUI-PG-BACKUP(SYSTEM;触发器=开机 + 每日 03:00,多实例策略=IgnoreNew)
+#       常驻运行同级 ihui-pg-backup-scheduler.ps1 —— 调度器启动即备份一次,之后每天 03:00 一轮,
+#       失败轮 30 分钟重试最多 4 次。历史形态为 nssm 服务 IHUI-PG-BACKUP;2026-10-27 本机实测
+#       nssm.exe、同名服务与同名计划任务条目全部不在(换机后未复注册),现以计划任务载体复注册。
 # =============================================================================
 
 # ── 失败必须到人:邮件是唯一通道(AGENTS.md §5e)─────────────────────────────
@@ -89,7 +92,8 @@ $cloudDir = "D:\BaiduSyncdisk\IHUI-PG-BACKUP"
 if ($env:IHUI_BACKUP_CLOUD_DIR) { $cloudDir = $env:IHUI_BACKUP_CLOUD_DIR }
 
 function Resolve-NodeExe {
-    # 本脚本由 nssm 服务 IHUI-PG-BACKUP 以 LocalSystem 身份跑,而**机器级 PATH 里那串 node 目录是死的**
+    # 本脚本由计划任务 IHUI-PG-BACKUP 以 SYSTEM 身份跑(2026-10-27 复注册实测;历史形态为 nssm 服务,
+    # 同为 LocalSystem),而**机器级 PATH 里那串 node 目录是死的**
     # (实测 HKLM\...\Environment\Path 含 `D:\nodejs\`,而该目录不存在;node 真身在用户级 PATH 的
     # `D:\DevEnv\runtimes\node\node.exe`,服务身份读不到 ⇒ 只靠 Get-Command 会在自动轮次里静默落空,
     # 表现为"手动跑用专用角色、服务跑退回应用账号")。候选与 ihui-deploy.ps1:120 / ihui-monitor.ps1:108
@@ -212,14 +216,15 @@ function Send-FailureAlert {
     $lines = @()
     # 报"实际被执行的那一份":生产跑的是 deploy/prod-bundle/pg-backup.ps1(被 gitignore 的影子副本),
     # 写死入库源路径会让人去改一份根本不执行的文件。
-    $lines += "来源: $PSCommandPath(服务 IHUI-PG-BACKUP)"
+    $lines += "来源: $PSCommandPath(计划任务 IHUI-PG-BACKUP)"
     $lines += "时刻: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz'))"
     $lines += "结论: $Reason"
     if ($Details -and $Details.Count -gt 0) {
         $lines += '明细:'
         foreach ($d in $Details) { $lines += "  - $d" }
     }
-    $lines += '下一步: 看日志 D:\DevEnv\logs\pg-backup-scheduler.log;审计节拍跑 node scripts/pg-backup-cadence-audit.mjs'
+    # 日志落点不写死盘符(2026-10-27 实测:本机 DevEnv 根 = 仓根所在盘派生位,D:\ 字面量是旧机残留)
+    $lines += "下一步: 看日志 $DevEnvRoot\logs\pg-backup-scheduler.log;审计节拍跑 node scripts/pg-backup-cadence-audit.mjs"
     $body = $lines -join "`n"
     if (Invoke-BrandAlertMail -Subject $AlertTitle -BodyText $body) {
         if ($AlertDryRun) {
