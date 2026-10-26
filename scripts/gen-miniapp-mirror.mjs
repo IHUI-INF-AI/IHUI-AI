@@ -58,6 +58,7 @@ import { catBatch, listFaceFiles, readWorktreeFile } from './lib/face-reader.mjs
 import { shellExportShapeOf } from './lib/rn-shell-refs.mjs'
 import { walkClosure, aliasKeysOf, uncoveredNativePackages } from './lib/rn-shell-closure.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
+import { VERDICTS_PATH, indexVerdicts, parseVerdictRows } from './lib/cross-end-verdicts.mjs'
 
 const LANGS = ['en', 'ja', 'ko', 'zh-CN', 'zh-TW']
 const SHARED_DIR = 'packages/app/src/features'
@@ -686,6 +687,11 @@ function makeContext(rootDir) {  const miniapp = listMiniappPages(rootDir)
   // 每个文件只读一次;面不变 ⇒ 同一次批量里内容恒等(§0.4 同面同轮)。
   const closureCache = new Map()
   const taroCfgText = faceReadMap(rootDir, [TARO_CONFIG_REL]).get(TARO_CONFIG_REL)
+  // 判决台账(2026-10-26 接线):这张表早就在判「不承载」,但**只有报告器读它、造页器不读**
+  // ⇒ 人判过不该由小程序单独承载的屏(通用杠杆屏、机主定档"端上不该有登录页")被一轮轮再造回来。
+  // 取不到只当"没有判决",不拦别的屏(它是判据的输入之一,不是本器的存活条件)。
+  const verdictsText = faceReadMap(rootDir, [VERDICTS_PATH]).get(VERDICTS_PATH)
+  const verdicts = typeof verdictsText === 'string' ? indexVerdicts(parseVerdictRows(verdictsText).rows) : new Map()
   const packObjs = {}
   let packError = null
   for (const l of LANGS) {
@@ -705,6 +711,7 @@ function makeContext(rootDir) {  const miniapp = listMiniappPages(rootDir)
     // 闭包档的两处批级输入(见 makeContext 头注:不接出来就是死变量,慢的那一格还在)
     closureCache,
     taroCfgText,
+    verdicts,
   }
 }
 
@@ -763,6 +770,14 @@ export function planGeneration(rootDir, opts, ctx = null) {
   const shape = screenShapeOf(screenRel)
   if (!shape) return { kind: 'undetermined', why: `--screen 不是尺子认得的共享屏形制(${SHARED_DIR}/<domain>/<Name>Screen.tsx)` }
   const c = ctx || makeContext(rootDir)
+  // 判决优先于一切造页动作:人已判「不承载」的屏不重造(理由逐条带证据回显,可复核)
+  const verdict = c.verdicts?.get?.(shape.spec)
+  if (verdict && verdict.verdict === 'not-applicable') {
+    return {
+      kind: 'refuse',
+      why: `判决台账已判「不承载」(${VERDICTS_PATH}):${String(verdict.evidence ?? '(未附证据)').slice(0, 200)}`,
+    }
+  }
   const screenText = faceReadMap(rootDir, [shape.spec]).get(shape.spec)
   if (screenText === null) return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${shape.spec}` }
 
