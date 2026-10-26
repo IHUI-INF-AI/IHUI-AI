@@ -3588,7 +3588,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
   // 2026-10-26:401 续期只做一次(与各条 REST 腿同一口径)
-  let sseAuthRefreshed = false
+  // 「只续一次」这道闸住在 runResumableSSEStream 内(其 authRefreshed 变量):
+  // runner 是本函数内唯一的流式执行体,401 续期后仍 401 ⇒ runner 不再回调本处。
+  // 本处原先另持一道 sseAuthRefreshed 闸 —— 与 runner 的闸语义重复,且因 runner
+  // 根本不会发起第二次 refreshAuth 调用,那道闸恒为 false(死代码)。
+  // 2026-10-26 收口:两道闸并存的形态已撤,单一真相源 = runner 的 authRefreshed。
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
 
@@ -5281,9 +5285,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       onReconnect: (retryAttempt, delayMs) => opts.onReconnect?.(retryAttempt, delayMs),
       // 2026-10-26:流式通道遇 401(access 15 分钟过期)续期一次并改写本次请求头;
       // runner 在原地重试,不需要调用方重开会话。
+      // 「只续一次」由 runner 的 authRefreshed 闸保证(见上方声明),本回调不再自持闸。
       refreshAuth: async () => {
-        if (sseAuthRefreshed) return false
-        sseAuthRefreshed = true
         const fresh = await refreshAccessTokenOnce()
         if (!fresh) return false
         headers['Authorization'] = `Bearer ${fresh}`
