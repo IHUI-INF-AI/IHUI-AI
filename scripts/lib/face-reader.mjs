@@ -26,6 +26,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
+  appendFileSync,
   closeSync,
   existsSync,
   mkdirSync,
@@ -85,6 +86,127 @@ export function gitBinary() {
   return GIT
 }
 
+// ─── 代理腿退化 ⇒ 直连兜底(2026-10-26 立;判据唯一出口,消费点只有下面的 gitRaw) ───
+/**
+ * 立因(本机当次实测,不是推断):仓库级 `http.proxy=http://127.0.0.1:7897`(verge-mihomo 在听),
+ * 成组对照 20 次 = 20 次 `Recv failure: Connection was aborted`,而**同一条 URL 摘掉代理直连回 200**
+ * ⇒ 本地 19 枚提交积压推不出去、与远端双向分叉,`push-state.json` 只留下一句"退出码 128 且无
+ * 可辨认特征"(§12f:失效的表现永远是安静)。
+ *
+ * 为什么收在这一层而不是 git-push-guard:全仓 git 派生都从 `gitRaw` 走(converge 的 `git()`、
+ * guardian 自愈轮、post-commit 推送腿、各类尺子的取材面)。只修推送那一格,fetch 当天照样在死
+ * (§0.6 单一真相源:两处各写一份判据必然漂移)。
+ *
+ * 三条边界(缺一条就退化成"多放一次跳门"那一型,§0.10):
+ *  ① 只碰**网络动词** —— `cat-file` / `rev-parse` 这类本地失败绝不补第二趟派生,
+ *     否则等于把"仓库本身坏了"洗成"第二次也失败"。
+ *  ② 只在**传输形态**的错误上兜 —— 远端拒收/分支保护/竞态/钩子失败各有专档
+ *     (判序在 `lib/push-attempt-triage.mjs`),这里绝不把服务器裁决换成"换个腿再试一次"。
+ *  ③ **只多跑一次**,兜底仍失败就抛**第一次**的错误 —— 失效方向是多要一次定向说明(留痕),
+ *     不是多放一次。特征串刻意不含 `[rejected]` 这类服务器侧用语。
+ *
+ * 零持久改动:不碰机主的 git 配置、不碰代理客户端,只在**这一趟派生**用 `-c http.proxy=` 覆盖
+ * (argv 传空值合法;env 传空值在 Windows 会被吃掉 —— 当天实测)。
+ */
+export const GIT_EGRESS_NETWORK_VERBS = Object.freeze([
+  'fetch',
+  'pull',
+  'push',
+  'ls-remote',
+  'clone',
+  'fetch-pack',
+  'archive',
+])
+
+/** 摘代理重跑时注入的配置串(与 gitRaw 前置的 safe.directory 并列,git 多 -c 累积)。 */
+export const GIT_EGRESS_DIRECT_ARGS = Object.freeze(['-c', 'http.proxy=', '-c', 'https.proxy='])
+
+/**
+ * 传输形态特征串:逐条取自 git/curl 对"连不上/链路被切"的原话形态,含本机当天实测的
+ * `Recv failure: Connection was aborted` 与 `unable to access`。**不含**服务器裁决用语。
+ */
+export const GIT_EGRESS_TRANSPORT_RE =
+  /(recv failure|send failure|connection was aborted|could not connect|failed to connect|connection reset by peer|connection timed out|tls connect error|ssl connection|empty reply from server|proxy (?:auth|unreachable)|unable to access)/i
+
+/**
+ * 纯判据(零 IO,便于镜像测试逐格钉):这一趟该不该摘代理重跑。
+ * @param {{verb?:string, errText?:string, status?:number|null, proxyUrl?:string,
+ *          alreadyDirect?:boolean, attempt?:number}}
+ * @returns {{apply:boolean, why:string}}
+ */
+export function egressFallbackPlan({
+  verb = '',
+  errText = '',
+  status = null,
+  proxyUrl = '',
+  alreadyDirect = false,
+  attempt = 0,
+} = {}) {
+  if (!GIT_EGRESS_NETWORK_VERBS.includes(verb)) {
+    return { apply: false, why: `动词 ${verb || '(空)'} 不碰网络 ⇒ 不补第二趟` }
+  }
+  if (attempt > 0) {
+    return { apply: false, why: '兜底只多跑一次 ⇒ 第二次仍失败就如实上报,不得连环重试' }
+  }
+  if (alreadyDirect) {
+    return { apply: false, why: '这一趟已经带了摘代理配置 ⇒ 不再叠加' }
+  }
+  const proxy = String(proxyUrl ?? '').trim()
+  if (!proxy) {
+    return { apply: false, why: '没配 http.proxy ⇒ 不存在"退化腿"可摘,失败就是失败' }
+  }
+  if (status !== 128) {
+    return { apply: false, why: `退出码 ${String(status)} ≠ 128 ⇒ 不是 git 网络层失败形态` }
+  }
+  if (!GIT_EGRESS_TRANSPORT_RE.test(errText)) {
+    return { apply: false, why: '错误文本不是传输形态 ⇒ 交既有分档(拒收/策略/竞态/钩子)处理' }
+  }
+  return { apply: true, why: `配了代理 ${proxy} 且回显是传输形态 ⇒ 摘代理直连重跑一次` }
+}
+
+/** 该 root 生效中的 http.proxy(每进程缓存一次;读不到 ⇒ 空串 ⇒ 不兜,绝不猜)。 */
+const egressProxyCache = new Map()
+export function proxyConfiguredFor(root) {
+  if (egressProxyCache.has(root)) return egressProxyCache.get(root)
+  let value = ''
+  try {
+    value = String(
+      batchExecFileSync(
+        GIT,
+        ['-c', 'safe.directory=*', '-C', root, 'config', '--get', 'http.proxy'],
+        {
+          cwd: root,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10000,
+          maxBuffer: 1 << 20,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      ),
+    ).trim()
+  } catch {
+    value = ''
+  }
+  egressProxyCache.set(root, value)
+  return value
+}
+
+/** 退化留痕:兜住了也要看得见(写不动不影响判定,只回 null)。 */
+function noteEgressDegradation({ root, verb, plan, ok }) {
+  try {
+    const file = path.join(root, '.ihui-agent', 'state', 'git-egress-degradation.log')
+    mkdirSync(path.dirname(file), { recursive: true })
+    appendFileSync(
+      file,
+      `${new Date().toISOString()}\tverb=${verb}\tfallback=${ok ? 'recovered' : 'both-failed'}\t依据=${plan?.why ?? '(无)'}\n`,
+      'utf8',
+    )
+    return file
+  } catch {
+    return null
+  }
+}
+
 /**
  * 统一 git 派生:绝对路径 + safe.directory + quotepath(中文路径)+ windowsHide + 数字 timeout
  * + **显式 stdio**。
@@ -100,10 +222,10 @@ export function gitRaw(args, root, opts = {}) {
   // 'ignore' 时喂进去的清单被丢弃,而 git 不报错,只是"每个对象都取不到"。
   // 两态都写死,不给调用方留"顺手删掉 stdio"的空间。
   const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  try {
-    return batchExecFileSync(
+  const runOnce = (extraArgs) =>
+    batchExecFileSync(
       GIT,
-      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, ...args],
+      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...extraArgs, '-C', root, ...args],
       {
         cwd: root,
         encoding: opts.binary ? 'buffer' : 'utf8',
@@ -114,6 +236,8 @@ export function gitRaw(args, root, opts = {}) {
         ...(opts.input === undefined ? {} : { input: opts.input }),
       },
     )
+  try {
+    return runOnce([])
   } catch (e) {
     /**
      * ENOENT 有两种成因,Node 的文本只点名**二进制**("spawnSync <git.exe> ENOENT"),
@@ -121,12 +245,35 @@ export function gitRaw(args, root, opts = {}) {
      * 写反就得到同一句,于是排查方向被整个带去"IDE 自带 git 被升级烂掉了"。两种都点名,
      * 只改可诊断性,不改判定(仍然抛 Undetermined,不会因此少判一次)。
      */
+    // ── 代理腿退化 ⇒ 摘代理直连重跑一次(判据与三条边界见 egressFallbackPlan 的头注) ──
+    const plan = egressFallbackPlan({
+      verb: String(args[0] ?? ''),
+      errText: gitErrText(e),
+      status: typeof e?.status === 'number' ? e.status : null,
+      proxyUrl: proxyConfiguredFor(root),
+      alreadyDirect: args.includes('http.proxy='),
+      attempt: opts.egressAttempt ?? 0,
+    })
+    if (plan.apply) {
+      try {
+        const out = runOnce(GIT_EGRESS_DIRECT_ARGS)
+        const log = noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: true })
+        if (log) e.egressNote = log
+        return out
+      } catch {
+        // 两条腿都断了 ⇒ 落到下面,回吐**第一次**的 git 原话(失效方向是如实报第一次失败,
+        // 不是"再多放一次");留痕照写,让"代理坏了+直连也不通"这件事看得见。
+        noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: false })
+      }
+    }
     const hint = e?.code === 'ENOENT' ? `(git 二进制或该 root 不可达:root=${root})` : ''
     const err = new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}${hint}`)
     // **退出码必须带上来**:`git grep` 无命中、`git diff --quiet` 无差异这类是 git 的正常非零结论,
     // 调用方要能区分"git 说没有"与"git 没跑成"。只给一句错误文本会逼调用方去 parse 自己的异常消息
     // (把结论建立在字符串上),而 e.status 是 Node 直接给的机器事实。
     if (typeof e?.status === 'number') err.status = e.status
+    // 兜底为什么没生效,原样带在异常上:问责时不用重新猜(只增诊断,不改任何判定)。
+    err.egressPlan = plan
     throw err
   }
 }
@@ -850,7 +997,6 @@ export function resolveRemoteHead(branch, { root, fetchedNow = false, run } = {}
     : ';跟踪 ref 也取不到'
   return { sha: null, source: null, stale, reason: `${netReason}${tail}` }
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 /**
  * 裸 git 派生的计数尺子。⚠️ 必须同时覆盖两个维度,少一个都会让棘轮"看起来在收口、实际没量到":
  *  · 入口:`execFileSync` / `execSync` / `spawnSync` / `spawn` 四种(`git-push-guard` 用的就是 spawnSync);
@@ -930,3 +1076,16 @@ export function hideComments(src) {
   return out.join('\n')
 }
 
+/**
+ * §22c:暴露给镜像测试的核心判据(`scripts/tests/git-egress-fallback.test.mjs` 直接 import 这一份,
+ * **不得**在测试里再抄一份动词表/正则/判序 —— 两处算同一件事必漂移)。
+ * 命名导出与此处指向**同一批函数对象**,不是副本。
+ */
+export const __test__ = {
+  egressFallbackPlan,
+  GIT_EGRESS_NETWORK_VERBS,
+  GIT_EGRESS_DIRECT_ARGS,
+  GIT_EGRESS_TRANSPORT_RE,
+  proxyConfiguredFor,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
