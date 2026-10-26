@@ -38,7 +38,7 @@ beforeAll(async () => {
  * ——那会测出"没建连"的假红。替身后换票在纯微任务里就落定,既有断言一条不动。
  * 默认按"换票失败"处理(降级直连 access token),这是修复前既有断言所依赖的形态。
  */
-const fetchMock = vi.fn(async () => {
+const fetchMock = vi.fn(async (): Promise<{ ok: boolean; json: () => Promise<unknown> }> => {
   throw new Error('offline in tests')
 })
 beforeEach(() => {
