@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { __test__ as S } from '../strip-stale-closed-rows.mjs'
 import { staleClosedVerdict } from '../check-plan-closed-stock.mjs'
@@ -404,5 +404,115 @@ test('M11 H3 基线口径:摘完后"刚翻勾的宽现行"不得被读成滞留(
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
+})
+
+// ── 差集两档(2026-10-27 立,取证 .ihui-agent/tmp/g63-debt/evidence.md:16 枚 undetermined 全假阳性)
+// 档① removedRowsBetween 行尾符/末空行归一;档② 未勾行差集先过两问(同题存续 / 台账-归档凭据)。
+// 红线:真丢失(无留痕、无归档、同题形态不在面上)**照旧** undetermined —— 这两条是本族的形状锁。
+const D_PARENT = 'f'.repeat(40)
+const D_COMMIT = 'e'.repeat(40)
+const D_R1 = '- [x] ✅(2026-10-26/甲) G-9101 两档镜像夹具:一枚滞留已勾行用来验证回捞腿补账'
+const D_R2 = '- [x] ✅(2026-10-26/乙) G-9102 两档镜像夹具:二枚滞留已勾行用来验证回捞腿补账'
+const D_OPEN = '- [ ] G-9103 两档镜像夹具:别人的活,内容零丢失时不得冒充前提破了'
+const D_HEAD = [D_OPEN, D_R1, D_R2].join('\n') + '\n'
+
+function debtGitFor(landedFace, subject = undefined) {
+  return (args) => {
+    if (args[0] === 'log')
+      return `${D_COMMIT}\u001f${D_PARENT}\u001f${subject ?? S.sweepCommitSubject(2, 0)}\n`
+    const spec = String(args[2] ?? '')
+    if (spec === `${D_PARENT}:PROJECT_PLAN.md`) return D_HEAD
+    if (spec === `${D_COMMIT}:PROJECT_PLAN.md`) return landedFace
+    throw new Error(`夹具没有这一面:${spec}`) // HEAD 面 / ls-files 一律取不到 ⇒ 通道零认
+  }
+}
+
+test('D1 档① 正向对照:仅行尾符/末空行差异 ⇒ 差集不再冒出「非已勾行」,回捞腿不再 undetermined', () => {
+  const eolParent = [D_OPEN, D_R1 + '\r', D_R2].join('\n') + '\n\n'
+  const eolLanded = [D_OPEN, D_R2].join('\n') + '\n'
+  const diff = S.removedRowsBetween(eolParent, eolLanded)
+  assert.deepEqual(diff.closed, [D_R1], '行尾归一后只剩真摘掉的已勾行')
+  assert.equal(diff.unexpected.length, 0, '`\r` 尾与末空行不得留在「非已勾行」计数里')
+  const dir = mkScratch('strip-closed-d1-')
+  let rec = null
+  try {
+    rec = S.reconcileDropLedgerDebt({
+      root: dir,
+      gitRun: debtGitFor(eolLanded, S.sweepCommitSubject(1, 0)),
+    })
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+  assert.equal(rec.state, 'recovered', `行尾差异不得再拦补账,实得 state=${rec.state} why=${rec.why}`)
+  assert.equal(rec.written, 1)
+  assert.equal(rec.undetermined.length, 0)
+})
+
+test('D2 档② 正向对照:未勾行换形存续(问a)/有台账或归档凭据(问b) ⇒ 记已付并点名哪一问接住', () => {
+  const pool = S.buildSubjectPool([D_OPEN + '〔注记换了形态但题面未动〕'])
+  const adj = S.adjudicateUnexpectedOpenRows([D_OPEN], {
+    landedText: [D_OPEN + '〔注记换了形态但题面未动〕'].join('\n'),
+    headText: null,
+    ledgerPool: null,
+    archivePool: null,
+  })
+  assert.equal(adj.lost.length, 0, '同题形态仍在被审面 ⇒ 不是真丢失')
+  assert.match(adj.paid[0].via, /问a/, '必须点名是哪一问接住的')
+  assert.ok(pool.fps.size >= 1, '池子必须真算出了指纹(不是逐字碰巧)')
+})
+
+test('D3 红线反证:已勾行被摘且未勾行**真被吞**(无留痕/无归档/同题不在面上)⇒ 照旧 undetermined 且零写入', () => {
+  const landed = '# 台账\n- [ ] G-8888 无关题:与夹具票既不同题也不同号\n'
+  const diff = S.removedRowsBetween(D_HEAD, landed)
+  assert.deepEqual(
+    diff.unexpected,
+    [D_OPEN],
+    '档②不吞判据输入:未勾行仍在差集里,只是要再过两问',
+  )
+  const dir = mkScratch('strip-closed-d3-')
+  let rec = null
+  try {
+    rec = S.reconcileDropLedgerDebt({ root: dir, gitRun: debtGitFor(landed) })
+    assert.equal(rec.state, 'undetermined', `真丢失必须仍判得出来,实得 state=${rec.state}`)
+    assert.equal(rec.written, 0, 'undetermined 档一条不写(§0.10:假凭据会教复洁器剔别人的行)')
+    assert.equal(rec.undetermined.length, 1)
+    assert.match(rec.undetermined[0].why, /前提破了/)
+    assert.match(rec.undetermined[0].why, /真丢失候选 1/, '必须点名 lost 枚数,不得与"非登记行"混桶')
+    assert.equal(
+      existsSync(dir + '/.ihui-agent/state/plan-row-drop.jsonl'),
+      false,
+      '整枚不补 ⇒ 台账文件都不该被创建',
+    )
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('D4 单源锁:档②三面判据(指纹/主键/台账凭据)import 既有单源,本器不得抄第二份(§0.6/§22c)', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../strip-stale-closed-rows.mjs', import.meta.url), 'utf8')
+  assert.match(
+    src,
+    /import\s*\{\s*extractTaskFingerprint\s*\}\s*from\s*'\.\/check-plan-task-duplicates\.mjs'/,
+    '题面指纹必须 import 守门 203 的 extractTaskFingerprint',
+  )
+  assert.match(
+    src,
+    /import\s*\{[^}]*\bkeyOfRow\b[^}]*\}\s*from\s*'\.\/lib\/plan-task-index\.mjs'/,
+    '复合主键必须 import lib/plan-task-index 的 keyOfRow',
+  )
+  assert.match(
+    src,
+    /import\s*\{\s*declaredRows\s*\}\s*from\s*'\.\/scrub-declared-removals\.mjs'/,
+    '台账凭据必须 import scrub-declared-removals 的 declaredRows',
+  )
+  // 反证方向:档②本体里不得再出现第二份"什么算同一件事"的手写归一(指纹的算法只许在单源里)
+  const at = src.indexOf('export function adjudicateUnexpectedOpenRows')
+  assert.ok(at >= 0, 'adjudicateUnexpectedOpenRows 必须存在且已导出进判据路径')
+  let rest = src.slice(at)
+  const nextDoc = rest.indexOf('\n/**\n', 10)
+  if (nextDoc > 0) rest = rest.slice(0, nextDoc)
+  assert.ok(!/toLowerCase\(\)/.test(rest), '档②里出现 toLowerCase = 抄了第二份指纹归一(必然漂移)')
+  assert.ok(!/weight\s*[<>]/.test(rest), '档②里出现权重门槛 = 抄了第二份指纹可靠性判据')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
