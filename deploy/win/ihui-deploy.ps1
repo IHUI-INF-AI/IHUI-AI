@@ -76,6 +76,25 @@ try {
 # $WebDir/$ApiDir 等均由 $Root 派生,随动即可,无需逐个改。
 . (Join-Path $PSScriptRoot 'ihui-root-common.ps1')
 $Root       = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
+
+# ── 部署窗口状态(2026-10-26 立)──────────────────────────────────────────────
+# 部署侧显式写、监控侧只读的唯一信号:窗口内及成功后 settle 期抑制部署相关告警,
+# 失败/回滚/心跳失联立即放行。立因与判定表见 deploy-window-common.ps1 头注。
+# 模块缺失时只警告、不阻断部署(窗口是增强项,不能让一次文件缺失把生产发布停掉);
+# 监控侧看到状态文件不存在会自动退回旧启发式判据。
+$script:DeployWindowEnabled = $false
+$script:DeployWindowFile = ''
+$script:DeployWindowRunId = ''
+$script:DeployWindowLastHeartbeat = [datetime]::MinValue
+$DeployWindowModule = Join-Path $PSScriptRoot 'deploy-window-common.ps1'
+if (Test-Path -LiteralPath $DeployWindowModule) {
+    . $DeployWindowModule
+    $script:DeployWindowEnabled = $true
+    $script:DeployWindowFile = Get-IhuiDeployWindowPath
+} else {
+    Write-Output '[WINDOW] WARN 缺少 deploy-window-common.ps1,部署窗口功能禁用(监控退回旧判据,部署不受影响)'
+}
+
 $WebDir     = "$Root\apps\web"
 $ApiDir     = "$Root\apps\api"
 # ── 构建取源码面:干净导出(worktree @ 目标 SHA)而**不再是共享工作树**(2026-09-29 机主拍板)──
@@ -270,7 +289,15 @@ function Release-DeployLock {
 # ── 日志时间戳带时区(2026-09-21 根治,实测):生产机时钟为 UTC,旧格式 'HH:mm:ss'
 #    裸时间曾导致人工排查时误判「日志停更 7.5 小时」(实为 UTC 02:33=本地 10:33)。
 #    所有日志时间一律带 +偏移,人眼即可分辨时区,杜绝同类误判。
-function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss zzz')] $m" }
+function Log   {
+    param([string]$m)
+    Write-Host "[$(Get-Date -Format 'HH:mm:ss zzz')] $m"
+    # 任何一行日志都顺带续一次部署窗口心跳(模块内部按 15s 节流)。
+    # 这样构建/门禁/重启即使长时间没有专门的心跳调用,窗口也不会被判 Stale。
+    if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+        Update-IhuiDeployWindowHeartbeat -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -MinIntervalSeconds 15 | Out-Null
+    }
+}
 function Ok    { param([string]$m) Log "OK    $m" }
 
 # 去重实现与监控侧共用同一份模块(路径按 $PSScriptRoot 推导,不写死盘符 —— AGENTS 顶部
@@ -533,6 +560,13 @@ function Fail {
     # 旧写法只 Log + exit 1 ⇒ 净面留在盘上,下一轮 add 撞 already registered。
     # **必须在释放锁之前**:放锁后再回收,下一轮可能已经起来并重建了净面,这条会把它删掉。
     try { Invoke-CleanBuildWorktreeSweep } catch {}
+    # 窗口收口同样是"失败必须响"的一半:先关窗(failed),监控下一轮就不再按"部署中"抑制;
+    # 随后才放锁 —— 放锁后新起的一轮会写自己的 runId,旧窗口不得再被这条改成 failed。
+    if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+        try {
+            Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'failed' -Reason $m | Out-Null
+        } catch { Log "WARN  部署窗口收口失败(不影响失败告警):$_" }
+    }
     try { Release-DeployLock } catch {}
     exit 1
 }
@@ -1830,7 +1864,15 @@ function Do-Rollback {
     Remove-Item $rb -Recurse -Force -ErrorAction SilentlyContinue
     Start-Web
     Start-Sleep -Seconds 8
-    if (Test-HealthGate) { Ok "回滚完成,健康检查通过" } else { Fail "回滚后健康仍异常,需人工介入" }
+    if (Test-HealthGate) {
+        Ok "回滚完成,健康检查通过"
+        # 回滚=本轮未切流:窗口按 rolledback 收口,监控立即放行(不再把回滚后的真实故障当"部署中"压住)。
+        if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+            try {
+                Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'rolledback' -Reason '回滚完成' | Out-Null
+            } catch { Log "WARN  回滚窗口收口失败(不影响回滚结果):$_" }
+        }
+    } else { Fail "回滚后健康仍异常,需人工介入" }
 }
 
 # =============================================================================
@@ -2612,6 +2654,23 @@ if ($behind -eq 0 -and -not $deployLatest) {
 }
 if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到本轮远端 tip=$($remoteTip.Substring(0,10))"; Release-DeployLock; exit 0 }
 
+# ── 部署窗口开始(2026-10-26 立)──────────────────────────────────────────────
+# 位置刻意在 dryrun / behind=0 / 冷却 / 分叉跳过之后:只有走到这里才真的可能停服务、换构建。
+# 窗口状态是监控侧唯一可信的"部署进行中"信号;写失败时禁用本轮窗口(监控退回旧判据),
+# 但绝不阻断部署。ExpectedMinutes=60 对应部署环 45 分钟墙钟预算 + 余量。
+if ($script:DeployWindowEnabled) {
+    $script:DeployWindowRunId = "deploy-$((Get-Date).ToString('yyyyMMdd-HHmmss'))-$PID"
+    $headAtStart = (& git -C $Root rev-parse --short HEAD 2>$null | Out-String).Trim()
+    $winStart = Start-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'merge' -ExpectedMinutes 60 -Head $headAtStart
+    if ($winStart.Ok) {
+        $winNote = if ($winStart.Note) { " | $($winStart.Note)" } else { '' }
+        Log "WINDOW 开始 runId=$($script:DeployWindowRunId) phase=merge expected=60m$winNote"
+    } else {
+        Log "WARN  部署窗口写不出($($winStart.Error)),本轮禁用窗口抑制(监控按旧判据)"
+        $script:DeployWindowRunId = ''
+    }
+}
+
 if ($behind -gt 0) {
     Log "本地落后远端 $behind 个提交,进行 fast-forward merge(本轮钉住的显式 sha)"
     # 前置现场对齐(实现见 Invoke-WorktreeAlign):脏工作树是 ff-only 最常见的失败原因,其中一部分
@@ -2649,6 +2708,10 @@ if ($behind -gt 0) {
             Log "BLOCKED-DIVERGED 背景(非成因):工作树另有 $($stillDirty.Count) 个未提交被跟踪文件。"
             if ($streak -lt $DivergedAlertStreak) {
                 Log "SKIP  本轮不切流(自动收敛在途),优雅退出不报警,下一轮外壳复检;未切流、未动线上"
+                # 窗口已开但本轮没动线上 ⇒ 按 noop 收口,避免监控把"跳过的窗口"当部署中抑制。
+                if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+                    try { Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'noop' -Reason 'ff 分叉,自动收敛在途,本轮不切流' | Out-Null } catch {}
+                }
                 try { Release-DeployLock } catch {}
                 exit 0
             }
@@ -2734,6 +2797,9 @@ if ($behind -gt 0) {
 
 # 1) 备份当前 web 构建 → .rollback(web 保持在线,只读复制)
 Update-DeployLockHeartbeat   # merge/seed 之后、构建之前的阶段边界(见 :980 那条注释)
+if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+    Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'build' -ExpectedMinutes 60 | Out-Null
+}
 Log "备份当前 web 构建 → .rollback"
 $curNext = "$WebDir\.next"
 if (Test-Path "$curNext\BUILD_ID") {
@@ -2780,6 +2846,9 @@ try {
 
 # 3) 秒级交换:停 web → 用新构建替换 .next → 起 web
 Log "交换 staging → 线上(.next),重启 web"
+if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+    Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'swap' -ExpectedMinutes 60 | Out-Null
+}
 Stop-Web
 Remove-Item "$WebDir\.next" -Recurse -Force -ErrorAction SilentlyContinue
 Move-Item "$WebDir\.next-staging" "$WebDir\.next"
@@ -2874,6 +2943,9 @@ try {
 }
 
 # 4) 健康门禁(web + api + llm)
+if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+    Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'gate' -ExpectedMinutes 60 | Out-Null
+}
 Log "健康门禁检查"
 if (-not (Test-HealthGate)) {
     if ($force) { Log "force=true,忽略门禁直接切流(违规操作,请确认)" }
@@ -2968,6 +3040,10 @@ if (-not (Test-HealthGate)) {
     # `Copy-Item`)会把整份回滚点替换掉,最多多留一份整包副本。
 
     # ── 重启 api(2026-09-13 加):api 为源码直跑,pull 后需重载才能吃到后端新代码 ──
+    # 阶段标记放在重启之前:api/ai 重启是监控最容易被叫醒的那一段。
+    if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+        Update-IhuiDeployWindowPhase -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Phase 'restart' -ExpectedMinutes 60 | Out-Null
+    }
     # 服务名不确定,按候选精确匹配;找不到则跳过(tsx watch 形态会自动重载)
     $apiName = @('IHUI-API','ihui-api','svc-api','IHUI-API-SVC') |
         Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
@@ -3041,6 +3117,15 @@ Write-Host ""
 $deployDoneSha = (& git -C $Root rev-parse --short HEAD 2>&1 | Out-String).Trim()
 if ($deployDoneSha -notmatch '^[0-9a-f]{7,40}$') { $deployDoneSha = "未判定(实得:$deployDoneSha)" }
 Log "=== 部署完成,HEAD=$deployDoneSha 活跃组=win(8801/8802/8803) ==="
+# 成功收口要写在"部署完成"这一行之后、清偿告警身份之前:监控从这一刻起进入 15 分钟 settle,
+# 期间仍抑制部署相关告警;settle 结束后如果服务真的坏了,下一轮巡检会立即寄信。
+if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
+    try {
+        $winClose = Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'success' -Head $deployDoneSha -SettleMinutes 15
+        if ($winClose.Ok) { Log "WINDOW 收口 success settle=15m head=$deployDoneSha" }
+        else { Log "WARN  部署窗口收口未写成($($winClose.Error)) —— 监控下一轮按 Stale/失败放行" }
+    } catch { Log "WARN  部署窗口收口异常(不影响本轮发布):$_" }
+}
 # 成功切流就是"本轮未切流"类告警的**终态**:把这些身份从去重档案里摘掉,下一次再挡按新故障重计。
 # 不清这一格,已恢复的故障会按 4h 周期一直寄下去(2026-10-10 现读同一身份 repeatNo=40,而这期间
 # 日志里有 92 行"部署完成")。档案读不出时只喊"未清偿 + 原因",绝不把"没清成"写成"已清"。
