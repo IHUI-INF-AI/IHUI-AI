@@ -7,10 +7,10 @@ import { test, expect, type Page } from '../e2e/fixtures'
 /**
  * 侧栏会话菜单层级重构(2026-10-26)的真浏览器冒烟验证。
  *
- * 触发规则: sidebar-chat-history.tsx 菜单结构改动必须跑此测试。
+ * 触发规则: sidebar-chat-history.tsx / chat/conversation-list.tsx 菜单结构改动必须跑此测试。
  * 守护目标:
- *   1. 一线只留高频动作(≤10 个 menuitem),导出/压缩收进二级子菜单
- *   2. 悬停「导出 / 分享」→ 向右展开 7 项;悬停「压缩」→ 展开 2 项
+ *   1. 一线只留高频动作(侧栏 ≤10 / 历史页 ≤7 个 menuitem),导出/压缩收进二级子菜单
+ *   2. 悬停「导出 / 分享」→ 向右展开(侧栏 7 项 / 历史页 2 项);「压缩」→ 展开 2 项
  *   3. 点击「导出为 Markdown」实际触发下载(证据链: response/download 事件)
  *   4. 「绑定 Issue」对话框副标题出现 bindIssueHint 白话文案
  *   5. 每个关键态截图落 apps/web/test-results/menu-hierarchy-*.png
@@ -148,6 +148,61 @@ test.describe('侧栏会话菜单层级(重构后)', () => {
     expect(desc).toContain('GitHub')
     expect(desc).toContain('不绑定')
     await page.screenshot({ path: 'test-results/menu-hierarchy-4-issue-hint.png' })
+    await page.keyboard.press('Escape')
+  })
+
+  test('历史页 /chat/history 同型菜单:一线收敛 + 两枚子菜单', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/chat/history', { waitUntil: 'domcontentloaded', timeout: 60000 })
+    // 限定主内容区:侧栏常驻同名 testid 为 hover 才显示(opacity-0),取 history 那份
+    const main = page.locator('main#main')
+    const more = main.getByTestId('conversation-more-menu').last()
+    await expect(more).toBeVisible({ timeout: 30000 })
+    await more.click()
+    const menu = page.getByRole('menu').first()
+    await expect(menu).toBeVisible()
+
+    const topLabels = (await menu.getByRole('menuitem').allInnerTexts()).map((s) => s.trim())
+    console.log('[menu-hierarchy] 历史页一线:', JSON.stringify(topLabels))
+    expect(topLabels.length).toBeLessThanOrEqual(7)
+    for (const must of ['重命名', '导出 / 分享', '压缩', '删除']) {
+      expect(
+        topLabels.some((s) => s.includes(must)),
+        `历史页一线应含「${must}」`,
+      ).toBeTruthy()
+    }
+    for (const gone of ['导出为 Markdown', '导出为 TXT', '20 万', '100 万']) {
+      expect(
+        topLabels.some((s) => s.includes(gone)),
+        `历史页一线不应平铺「${gone}」`,
+      ).toBeFalsy()
+    }
+
+    // 导出子菜单 2 项(MD/TXT);侧栏那份触发器在 DOM 更前且同为可见态,取最后一个
+    await page.getByTestId('conversation-export-submenu').filter({ visible: true }).last().click()
+    const exportSub = page.getByRole('menu').nth(1)
+    await expect(exportSub).toBeVisible({ timeout: 15000 })
+    const exportLabels = (await exportSub.getByRole('menuitem').allInnerTexts()).map((s) =>
+      s.trim(),
+    )
+    console.log('[menu-hierarchy] 历史页导出子菜单:', JSON.stringify(exportLabels))
+    expect(exportLabels.length).toBe(2)
+    await page.screenshot({ path: 'test-results/menu-hierarchy-5-history-export-sub.png' })
+
+    // 压缩子菜单 2 项
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page
+      .waitForFunction(() => !document.querySelector('[role="menu"]'), undefined, { timeout: 5000 })
+      .catch(() => {})
+    await more.click()
+    await page.getByTestId('conversation-compress-submenu').filter({ visible: true }).last().click()
+    const compSub = page.getByRole('menu').nth(1)
+    await expect(compSub).toBeVisible({ timeout: 15000 })
+    const compLabels = (await compSub.getByRole('menuitem').allInnerTexts()).map((s) => s.trim())
+    console.log('[menu-hierarchy] 历史页压缩子菜单:', JSON.stringify(compLabels))
+    expect(compLabels.length).toBe(2)
     await page.keyboard.press('Escape')
   })
 })
