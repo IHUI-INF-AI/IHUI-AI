@@ -255,23 +255,33 @@ test('④ 接线锁:gitRaw 必须真的消费这套判据(摘线即红)', () => 
   assert.match(body, /egressFallbackPlan\(\{/, 'gitRaw 没调用判据(函数在而无人用 = §0.9 那一型)')
   assert.match(body, /proxyConfiguredFor\(root\)/, 'gitRaw 没现读代理配置 ⇒ 判据永远拿不到输入')
   // 两个方向都要由 plan.useDirectArgs 决定(写死任一方向 = 只兜一条腿的偏判)
+  assert.match(body, /return runOnce\(forceDirect \? GIT_EGRESS_DIRECT_ARGS : \[\]\)/, '绕过旗标没作用到第一趟')
+  assert.match(body, /const egressErrText = gitErrText\(e\)/, '兜底没有统一取错误文本(两处各取必漂移)')
   assert.match(
     body,
-    /runOnce\(plan\.useDirectArgs \? GIT_EGRESS_DIRECT_ARGS : \[\]\)/,
-    'gitRaw 的换腿方向不是由判据给的 ⇒ 对称格是假的',
+    /const timedOut =\n\s*e\?\.code === 'ETIMEDOUT'[\s\S]{0,120}!egressErrText/,
+    '挂死/零回显没算进网络形状 ⇒ 挂死那一型又是安静的(§12f)',
+  )
+  assert.match(body, /err\.egressPlan = plan/, '兜底为什么没生效必须随异常带出来,不许静默')
+  // 两腿都不通 / 无腿可换也必须留痕(显式绕过时 plan.apply=false,不写就又把失效做成安静);
+  // 且这一支必须先过动词表 —— 否则本地动词失败会往账本里造脏行(当天实测 `verb=for-each-ref`)。
+  const tail = body.slice(body.indexOf('} else if ('))
+  // 两支锁:①这一支第一件事必须是"过动词表"(否则本地动词失败会往账本造脏行 —— 当天实测
+  //    `verb=for-each-ref fallback=both-failed`);②它必须真写 ok:false 留痕(§12f 失效不许安静)。
+  assert.match(
+    tail,
+    /^\} else if \(\s*GIT_EGRESS_NETWORK_VERBS\.includes\(String\(args\[0\] \?\? ''\)\)\s*&&/,
+    '无腿可换那一支没过动词表 ⇒ 本地动词的失败会被记成"两条腿都不通"',
+  )
+  // 两支留痕都必须真写 ok:false:一条"换过腿还是不通",一条"没有另一条腿可换"
+  assert.ok(
+    (body.match(/ok: false \}\)/g) || []).length >= 2,
+    '两腿不通 / 无腿可换其中一支不再留痕 = §12f"失效表现为安静"那一型',
   )
   assert.match(
     body,
     /firstTriedDirect = forceDirect \|\| args\.includes\('http\.proxy='\)/,
     '没把"第一趟走的哪条腿"传进判据 ⇒ 直连趟失败会被再摘一次代理',
-  )
-  assert.match(body, /return runOnce\(forceDirect \? GIT_EGRESS_DIRECT_ARGS : \[\]\)/, '绕过旗标没作用到第一趟')
-  assert.match(body, /err\.egressPlan = plan/, '兜底为什么没生效必须随异常带出来,不许静默')
-  // 两腿都不通也必须留痕(显式绕过时 plan.apply=false,不写就又把失效做成了安静)
-  assert.match(
-    body,
-    /else if \(firstTriedDirect && GIT_EGRESS_TRANSPORT_RE\.test\(gitErrText\(e\)\)\)[\s\S]{0,220}noteEgressDegradation/,
-    '显式绕过又没腿可换时不留痕 = §12f 那个"失效表现为安静"的老坑',
   )
   // 判序锁:兜底块必须在抛 Undetermined **之前**(抛完再兜就是死代码)
   assert.ok(
@@ -292,6 +302,31 @@ test('④a 传输特征串必须命中本机实测原文,且不命中服务器�
  * ⑤ 退化留痕账本自身必须会老化(§0.7 同纪律:只增不减的账本迟早没人看),
  *   且"被裁条数"只能写进账本自己 —— 共享层往 stdout/stderr 打一行,就会混进几百把尺子的逐字基线比对。
  */
+test('①e 挂死到超时(没有退出码也没有回显)也算网络形状 —— 两臂都必须换腿', () => {
+  // 当天 09:20 与 09:47 实测:`--no-proxy` 第一趟 200s 零输出被 timeout 杀掉 ⇒ status=null + errText 空。
+  // 旧判据先看 `status !== 128` 就直接不兜,把"腿挂死"做成了静默失效(§12f)。
+  for (const [name, args] of [
+    ['代理臂', { alreadyDirect: false, usedDirect: false }],
+    ['直连臂', { alreadyDirect: true, usedDirect: true }],
+  ]) {
+    const r = E.egressFallbackPlan({
+      verb: 'ls-remote',
+      errText: '',
+      status: null,
+      timedOut: true,
+      proxyUrl: PROXY,
+      ...args,
+    })
+    assert.equal(r.apply, true, `${name}: 挂死必须换腿 (${r.why})`)
+    assert.equal(r.useDirectArgs, name === '代理臂', `${name}: 换腿方向不能写死`)
+  }
+  assert.equal(
+    E.isTransportEgress({ errText: 'remote: error: GH006: Protected branch update failed', status: 128 }),
+    false,
+    '挂死口径不得把服务器裁决一起放进来',
+  )
+})
+
 test('⑤ 留痕老化:超窗裁、窗内留、认不出时刻的一律保留', () => {
   const now = Date.parse('2026-10-26T12:00:00.000Z')
   const fresh = `2026-10-26T09:00:00.000Z\tverb=push\tfallback=recovered\n`

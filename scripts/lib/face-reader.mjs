@@ -201,9 +201,6 @@ export function egressFallbackPlan({
         useDirectArgs: true,
       }
     }
-    if (status !== 128) {
-      return { apply: false, why: `退出码 ${String(status)} ≠ 128 ⇒ 不是 git 网络层失败形态`, useDirectArgs: true }
-    }
     if (!proxy) {
       return {
         apply: false,
@@ -373,11 +370,17 @@ export function gitRaw(args, root, opts = {}) {
      */
     // ── 网络腿退化 ⇒ 换腿重跑一次(判据与三条边界见 egressFallbackPlan 的头注) ──
     // 第一趟走的是直连(forceDirect / 调用方自带摘代理)⇒ 这趟要换回代理腿;反之换直连。
+    // timedOut:挂死到超时没有退出码也没有回显,必须同样算"网络形状"(2026-10-26 实测 200s 零输出)。
+    const egressErrText = gitErrText(e)
+    const egressStatus = typeof e?.status === 'number' ? e.status : null
+    const timedOut =
+      e?.code === 'ETIMEDOUT' || /ETIMEDOUT/i.test(String(e?.message ?? '')) || !egressErrText
     const firstTriedDirect = forceDirect || args.includes('http.proxy=')
     const plan = egressFallbackPlan({
       verb: String(args[0] ?? ''),
-      errText: gitErrText(e),
-      status: typeof e?.status === 'number' ? e.status : null,
+      errText: egressErrText,
+      status: egressStatus,
+      timedOut,
       proxyUrl: proxyConfiguredFor(root),
       alreadyDirect: firstTriedDirect,
       usedDirect: firstTriedDirect,
@@ -394,8 +397,13 @@ export function gitRaw(args, root, opts = {}) {
         // 不是"再多放一次");留痕照写,让"两条腿都断"这件事看得见。
         noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: false })
       }
-    } else if (firstTriedDirect && GIT_EGRESS_TRANSPORT_RE.test(gitErrText(e))) {
-      // 显式绕过(--no-proxy)且没有另一条腿可换 ⇒ 这件事也必须留痕,不得静默。
+    } else if (
+      GIT_EGRESS_NETWORK_VERBS.includes(String(args[0] ?? '')) &&
+      isTransportEgress({ errText: egressErrText, status: egressStatus, timedOut })
+    ) {
+      // 网络形状成立但没有另一条腿可换(没配代理 / 显式绕过 / 已换过一次)⇒ 也必须留痕,不得静默。
+      // ⚠️ 必须先过动词表:本地动词(`for-each-ref` 等)失败时 stderr 也可能撞出"connection reset"字样
+      //    (当天实测把 `fallback=both-failed 依据=动词不碰网络` 记进了账本) —— 那是在账上造脏行。
       noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: false })
     }
     const hint = e?.code === 'ENOENT' ? `(git 二进制或该 root 不可达:root=${root})` : ''
@@ -1220,6 +1228,7 @@ export const __test__ = {
   GIT_EGRESS_TRANSPORT_RE,
   proxyConfiguredFor,
   isForceDirect,
+  isTransportEgress,
   pruneEgressLedger,
   EGRESS_LEDGER_KEEP_DAYS,
   noteEgressDegradation,
