@@ -139,7 +139,7 @@ export function AiWorldDetailScreen({
                 <Text
                   style={[
                     styles.favBtnText,
-                    favorited ? styles.favBtnTextActive : null,
+                    favorited ? styles.favBtnActiveText : null,
                     favoritePending ? styles.favBtnTextPending : null,
                   ]}
                 >
