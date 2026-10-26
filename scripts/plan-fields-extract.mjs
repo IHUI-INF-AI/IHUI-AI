@@ -33,7 +33,8 @@
  * 不搬侧车键;抽取器又按新号补写 —— 同一件事两把键,旧号键从此成孤儿(门 234 现读 orphan=97
  * 的主因)。本器是"认领"的唯一判据与唯一迁移出口(`--apply` 同批落地),两支:
  *  · **搬**(目标键空):孤儿记录 re-key 到新号键。受同一道守恒闸(目标行归属桶零变化),
- *    已禁形态(waiting-human / blocking 拍板残留)一律不搬 —— 把禁令形态搬到新键 = 扩散禁令。
+ *    已禁形态(**整族**:waiting-human 待拍板 / waiting-env 等条件 / blocking 拍板残留)一律不搬
+ *    —— 把禁令形态搬到新键 = 扩散禁令,凭空造出一枚真 F11/F12 活票(判据单源 `rotReasonsOf`)。
  *  · **退场**(目标键已被抽取器按新号补写):旧记录的非空语义字段必须被新记录**逐字覆盖**
  *    (删旧键不丢任何信息)才许退;否则点名交 `--reclassify`,绝不代裁。
  *  · 标题锚点命中多行(同题不同号同时在册)⇒ 归属歧义,一条都不动(失效方向恒为"少搬")。
@@ -59,6 +60,10 @@ import {
   waitingEnvRe,
   waitingEnvSlotRe,
 } from './lib/plan-task-index.mjs'
+// 违禁桶族的唯一读数出口(门 234 的侧车已禁形态判据:waiting-human / waiting-env / blocking 拍板残留)。
+// 与 `check-plan-fields` 互为 import 是**刻意**的:归并档与判据必须读同一把尺子(§0.6),
+// 而不是各自保有一份桶名清单;两支都是函数声明,ESM 循环在实例化期即完成绑定,无运行期缺口。
+import { rotReasonsOf } from './check-plan-fields.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 /** 只取归属声明后面的**值**;词表(整族判据)在 `plan-task-index`,这里不复制。
@@ -553,8 +558,9 @@ export function planFromRows(lines, sideMap) {
  *    ∧ 号段不同** —— 键本身仍单源 `compositeKeyOf`,这里只按 `#` 分段,不写第二把键解析。
  *  · 目标键已有记录 ⇒ **退场**支:旧记录的非空语义字段被新记录逐字覆盖(删旧键零信息丢失)才许退;
  *    否则点名交 `--reclassify`,绝不代裁。
- *  · 目标键空 ⇒ **搬**支:re-key 到新号键;已禁形态(waiting-human / blocking 拍板残留)不搬,
- *    搬动前过同一道守恒闸(目标行归属桶零变化,`batchBucketDrift`)。
+ *  · 目标键空 ⇒ **搬**支:re-key 到新号键;已禁形态整族(`rotReasonsOf` 非空 ⇒ waiting-human /
+ *    waiting-env / blocking 拍板残留)不搬,搬动前过同一道守恒闸(目标行归属桶零变化,`batchBucketDrift`)。
+ *    拒搬不改数据:留在 `skipped` 并点名原因,改判唯一出口 = `--reclassify`(这一支无权裁决归属语义)。
  *  · 标题锚点命中多行 ⇒ 归属歧义,一条都不动;台账已无同锚点行(完成即删)⇒ 真孤儿,保持只报数。
  * 纯函数(除 `nowIso` 打戳)。`rows` 需要 `{state, raw}` 形(`parseTaskRows` 的产物)。
  */
@@ -614,12 +620,15 @@ export function adoptMovesOf(records, rows, sideMap, nowIso = new Date().toISOSt
       skipped.push({ key: fromKey, why: `同锚点已有一条搬往 ${toKey},多条只搬一条 ⇒ 其余交人工` })
       continue
     }
-    if (bucketFromFields(rec) === 'waiting-human') {
-      skipped.push({ key: fromKey, why: '已禁形态(waiting-human 待拍板桶)⇒ 先 --reclassify 改判再搬' })
-      continue
-    }
-    if (String(rec?.blocking ?? '').includes('拍板')) {
-      skipped.push({ key: fromKey, why: '已禁形态(blocking 拍板残留)⇒ 先 --reclassify 改判再搬' })
+    // 已禁形态**整族**不搬(2026-10-27 补洞):这一支只做"搬 + 退场",无权裁决归属语义;
+    // 把违禁值搬到活键上 = 归并自己凭空造出一枚真 F11/F12 活票(台账面上本来干净的行,一次 --apply
+    // 就带上 waiting=env —— 洞在生产者一侧,不在判据一侧)。原实现只拒 waiting-human 与 blocking
+    // 拍板残留,**漏了 waiting-env(F12 等条件桶)**。判据单源 import 门 234 的 `rotReasonsOf`
+    // (§0.6:与机主两条例令同一把尺子,本器不写第二份桶名/词表);失效方向 = 留在 `skipped` 并
+    // 点名原因(沿用既有 moves/retires/skipped 三态),绝不是顺手把违禁值改掉。
+    const banned = rotReasonsOf(rec)
+    if (banned.length > 0) {
+      skipped.push({ key: fromKey, why: `已禁形态(${banned.join(' ∧ ')})⇒ 先 --reclassify 改判再搬` })
       continue
     }
     // 守恒闸:搬到新号键后,目标行的归属桶必须零变化(与抽取候选同一道闸,不绕开)。
@@ -866,6 +875,15 @@ function selfTest() {
     new Map(),
   )
   ok('S14 已禁形态(waiting-human 待拍板桶)不搬 —— 搬=扩散禁令', a14.moves.length === 0 && /已禁形态/.test(a14.skipped[0]?.why ?? ''))
+  const a14b = adoptMovesOf(
+    [{ key: compositeKeyOf('- [ ] G-81 备份链重建 在等:上游镜像源同步'), waiting: 'env', updatedAt: '2026-10-22T00:00:00.000Z' }],
+    [{ line: 1, state: 'open', raw: '- [ ] G-70 备份链重建 在等:上游镜像源同步' }],
+    new Map(),
+  )
+  ok(
+    'S14b 已禁形态整族:waiting-env(等条件桶)同样不搬(2026-10-27 补洞,搬=凭空造真 F12 活票;判据单源 rotReasonsOf)',
+    a14b.moves.length === 0 && /已禁形态/.test(a14b.skipped[0]?.why ?? ''),
+  )
   const a15 = adoptMovesOf([oldRec], [openRow, { line: 2, state: 'open', raw: '- [ ] G-80 备份链重建 —— 归属:备份链持有人' }], new Map())
   ok('S15 标题锚点命中两行在册 ⇒ 归属歧义,一条都不动', a15.moves.length === 0 && /歧义/.test(a15.skipped[0]?.why ?? ''))
   const dir = mkScratch('pf-extract-adopt')
