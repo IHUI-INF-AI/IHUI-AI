@@ -2319,8 +2319,10 @@ class SubagentDispatchService {
       return { dispatchId: id, resumed: false, skippedSteps: [], error: '派单不存在' }
     }
     const dispatch = runtime.dispatch
-    // 读侧收敛:下列白名单里 **'failed' 是放行档**,故未知/未来值兜 'pending'(不在白名单内 ⇒
-    // 直接走 resume 拒绝分支,不产生"把未知态重置成 running 再执行"的副作用;兜 'failed' 反而会放行)
+    // 读侧收敛:放行档只有 failed / preempted / quota_exceeded。未知/未来值兜**终态**
+    // 'cancelled'(同样落到下方 resume 拒绝分支,不产生"把未知态重置成 running 再执行"的副作用)。
+    // 不兜 'pending':门 205 的口径是"未知值不许落可写/初始档";也不兜 'failed'(它是放行档,
+    // 兜它会把未知态当可恢复放行执行)。
     const status = coerceKnownOr(
       dispatch.status,
       [
@@ -2333,7 +2335,7 @@ class SubagentDispatchService {
         'preempted',
         'quota_exceeded',
       ],
-      'pending',
+      'cancelled',
     )
     if (status !== 'failed' && status !== 'preempted' && status !== 'quota_exceeded') {
       return {

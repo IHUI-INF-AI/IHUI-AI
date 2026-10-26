@@ -12,7 +12,7 @@
   **同形** `tool-approval` 帧 + `expired: true` + `expired_reason`;
 - 键名单源在 `sse_contract.py` 的两个常量,TS 侧在
   `packages/shared/src/sse/contract.ts` 逐字同值(本文件读源码钉同值);
-- 端上三处(web / mobile-rn / miniapp)按 expired 分流:不弹窗、只给一条可读提示。
+- 端上四处(web / mobile-rn / miniapp / extension)按 expired 分流:不弹窗、只给一条可读提示。
 
 失效方向与既有判据同族:属主不等 ⇒ 零帧(存在性隔离)、账本空 ⇒ 零帧、
 重连 N 次 ⇒ 同一集合且账本行数不变(只读投递)。
@@ -165,7 +165,7 @@ def test_optional_keys_are_not_in_required_payload_fields() -> None:
     assert SSE_APPROVAL_EXPIRED_REASON_PAYLOAD_KEY not in contract.payload_fields
 
 
-# ── ⑤ 三端接线锁:解析层递出后,端上必须真的分流(不许再静默) ─────────────────
+# ── ⑤ 四端接线锁:解析层递出后,端上必须真的分流(不许再静默) ─────────────────
 
 
 def test_all_clients_branch_on_expired_before_any_dialog_enqueue() -> None:
