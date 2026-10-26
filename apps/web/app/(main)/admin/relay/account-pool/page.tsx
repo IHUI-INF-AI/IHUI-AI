@@ -22,6 +22,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Eye,
+  EyeOff,
   FileText,
   Input,
   Label,
@@ -42,6 +44,7 @@ import {
   SheetHeader,
   SheetTitle,
   ShieldAlert,
+  ShieldCheck,
   Switch,
   Plus,
   Tabs,
@@ -63,6 +66,28 @@ const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs'
+
+// 账号级私有出口与代理池同口径:只接受 http(s)/socks5
+const PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])
+
+function isSupportedProxyUrl(raw: string): boolean {
+  try {
+    return PROXY_PROTOCOLS.has(new URL(raw).protocol)
+  } catch {
+    return false
+  }
+}
+
+/** 代理池列表脱敏展示:只留协议+主机,账密不渲染、不进 title */
+function maskProxyDisplay(raw?: string | null): string {
+  if (!raw) return '-'
+  try {
+    const u = new URL(raw)
+    return `${u.protocol}//${u.username || u.password ? '***@' : ''}${u.host}`
+  } catch {
+    return '已隐藏'
+  }
+}
 
 const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
 type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
@@ -107,6 +132,8 @@ interface AccountRow {
   refreshFailureCount: number
   consecutiveFailures: number
   hasProxy: boolean
+  /** 后端脱敏投影:scheme://***@host:port;明文账密/路径/查询串不返回前端 */
+  proxyUrlMasked: string | null
   totalCalls: number
   extraMetadata: unknown
   createdAt: string
@@ -360,14 +387,56 @@ export default function AdminRelayAccountPoolPage() {
   const [importProvider, setImportProvider] = React.useState<ProviderCode | ''>('')
   const [importText, setImportText] = React.useState('')
   const [importResult, setImportResult] = React.useState<ImportResult | null>(null)
+  // ⑤ 拖拽/点选文件(2026-10-26,机主「更傻瓜」):第三方工具导出的备份 .json 拖进来即可
+  const importFileRef = React.useRef<HTMLInputElement | null>(null)
+  const [importDragOver, setImportDragOver] = React.useState(false)
+  const [importFileName, setImportFileName] = React.useState('')
+  // 读文件只填文本框,解析/入库仍走同一条 submitImport 通道(不另起第二份导入判据)
+  const applyImportFile = (file: File | null | undefined): void => {
+    if (!file) return
+    const name = file.name || 'pasted.json'
+    if (!/\.(json|txt)$/i.test(name)) {
+      toast.error('只接受 .json / .txt 账号导出文件')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error(`文件过大(${Math.round(file.size / 1048576)}MB),单次上限 8MB`)
+      return
+    }
+    file
+      .text()
+      .then((t) => {
+        if (!t.trim()) {
+          toast.error('文件是空的')
+          return
+        }
+        setImportText(t)
+        setImportFileName(name)
+        toast.success(`已读取「${name}」,点「提交导入」入池`)
+      })
+      .catch(() => toast.error('读取文件失败,请改用「粘贴」'))
+  }
+  // 导出包顶层自带 providerCode 时自动选平台(用户手选过则尊重手选)
+  const autofillProviderFromPayload = (parsed: unknown): void => {
+    if (importProvider) return
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return
+    const raw = (parsed as { providerCode?: unknown }).providerCode
+    const alt = (parsed as { provider?: unknown }).provider
+    const v = typeof raw === 'string' ? raw : typeof alt === 'string' ? alt : ''
+    if ((PROVIDER_OPTIONS as readonly string[]).includes(v)) setImportProvider(v as ProviderCode)
+  }
+
   const [editing, setEditing] = React.useState<AccountRow | null>(null)
   const [editForm, setEditForm] = React.useState({
     name: '',
     priority: '0',
     weight: '1',
     tempUnschedulable: false,
-    proxyUrl: '',
   })
+  // 私有出口:keep=不改动(默认),set=替换,clear=移除;避免打开编辑即把已有代理清空
+  const [proxyMode, setProxyMode] = React.useState<'keep' | 'set' | 'clear'>('keep')
+  const [proxyDraft, setProxyDraft] = React.useState('')
+  const [proxyVisible, setProxyVisible] = React.useState(false)
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [usageAccountId, setUsageAccountId] = React.useState<string | null>(null)
   const [tab, setTab] = React.useState<PoolTab>('accounts')
@@ -589,6 +658,7 @@ export default function AdminRelayAccountPoolPage() {
     },
     onSuccess: (d) => {
       setImportResult(d)
+      setImportFileName('')
       toast.success(
         `导入完成:新增 ${d.imported} / 更新 ${d.updated} / 跳过 ${d.skipped} / 失败 ${d.failed}`,
       )
@@ -645,8 +715,10 @@ export default function AdminRelayAccountPoolPage() {
       priority: String(k.priority),
       weight: String(k.weight),
       tempUnschedulable: k.tempUnschedulable,
-      proxyUrl: '',
     })
+    setProxyMode('keep')
+    setProxyDraft('')
+    setProxyVisible(false)
   }
 
   const submitEdit = (e: React.FormEvent) => {
@@ -662,39 +734,57 @@ export default function AdminRelayAccountPoolPage() {
       weight: Number(editForm.weight) || 1,
       tempUnschedulable: editForm.tempUnschedulable,
     }
-    const proxy = editForm.proxyUrl.trim()
-    body.proxyUrl = proxy ? proxy : null
+    // 只有显式更换/清除才带 proxyUrl;keep 状态绝不提交,防止覆盖已有私有出口
+    if (proxyMode === 'set') {
+      const proxy = proxyDraft.trim()
+      if (!proxy) {
+        toast.error('请输入代理地址')
+        return
+      }
+      if (!isSupportedProxyUrl(proxy)) {
+        toast.error('代理地址必须是 http(s)/socks5 协议')
+        return
+      }
+      body.proxyUrl = proxy
+    } else if (proxyMode === 'clear') {
+      body.proxyUrl = null
+    }
     editMut.mutate({ id: editing.id, body })
   }
 
   const submitImport = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!importProvider) {
-      toast.error('请选择平台')
-      return
-    }
     const raw = importText.trim()
     if (!raw) {
-      toast.error('请粘贴账号导出 JSON')
+      toast.error('把 .json 拖进来、点「选文件」,或直接粘贴账号导出 JSON')
       return
     }
     let accounts: unknown[]
+    let parsedTop: unknown
     try {
-      const parsed: unknown = JSON.parse(raw)
-      if (Array.isArray(parsed)) {
-        accounts = parsed
+      parsedTop = JSON.parse(raw)
+      if (Array.isArray(parsedTop)) {
+        accounts = parsedTop
       } else if (
-        parsed &&
-        typeof parsed === 'object' &&
-        Array.isArray((parsed as { accounts?: unknown }).accounts)
+        parsedTop &&
+        typeof parsedTop === 'object' &&
+        Array.isArray((parsedTop as { accounts?: unknown }).accounts)
       ) {
-        accounts = (parsed as { accounts: unknown[] }).accounts
+        accounts = (parsedTop as { accounts: unknown[] }).accounts
+      } else if (parsedTop && typeof parsedTop === 'object' && !Array.isArray(parsedTop)) {
+        // 单条账号对象也吃(最傻瓜:workbuddy-switch 等工具常一文件一号)
+        accounts = [parsedTop]
       } else {
-        toast.error('JSON 需为账号数组或 { accounts: [...] } 整包')
+        toast.error('JSON 需为账号数组、{ accounts: [...] } 整包或单条对象')
         return
       }
     } catch {
       toast.error('JSON 解析失败,请检查格式')
+      return
+    }
+    autofillProviderFromPayload(parsedTop)
+    if (!importProvider) {
+      toast.error('请选择平台(或让导出 JSON 顶层带 providerCode)')
       return
     }
     if (accounts.length === 0) {
@@ -720,6 +810,8 @@ export default function AdminRelayAccountPoolPage() {
     setImportResult(null)
     setImportText('')
     setImportProvider('')
+    setImportFileName('')
+    setImportDragOver(false)
   }
 
   return (
@@ -1128,7 +1220,20 @@ export default function AdminRelayAccountPoolPage() {
                           <td className="px-3 py-2 text-right tabular-nums">
                             {k.refreshFailureCount}
                           </td>
-                          <td className="px-3 py-2 text-xs">{k.hasProxy ? '是' : '否'}</td>
+                          <td className="px-3 py-2 text-xs">
+                            {k.hasProxy ? (
+                              <Tooltip
+                                content={`私有出口：${k.proxyUrlMasked ?? '已配置（脱敏）'}`}
+                              >
+                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  私有
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-muted-foreground">直连</span>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">
                             {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
                           </td>
@@ -1391,14 +1496,135 @@ export default function AdminRelayAccountPoolPage() {
                 临时摘除(暂不参与调度)
               </Label>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="a-proxy">代理地址</Label>
-              <Input
-                id="a-proxy"
-                value={editForm.proxyUrl}
-                onChange={(e) => setEditForm({ ...editForm, proxyUrl: e.target.value })}
-                placeholder="http://127.0.0.1:7890(留空则清除)"
-              />
+            <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium leading-none">私有出口代理</div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      仅对该账号生效，不进入共享代理池
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={
+                    editing?.hasProxy
+                      ? 'shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-600 dark:text-emerald-400'
+                      : 'shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground'
+                  }
+                >
+                  {editing?.hasProxy ? '已配置' : '直连'}
+                </span>
+              </div>
+
+              {editing?.hasProxy && proxyMode === 'keep' ? (
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs">
+                    {editing.proxyUrlMasked ?? '已配置（脱敏）'}
+                  </code>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setProxyMode('set')
+                      setProxyDraft('')
+                      setProxyVisible(false)
+                    }}
+                  >
+                    更换
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    onClick={() => setProxyMode('clear')}
+                  >
+                    清除
+                  </Button>
+                </div>
+              ) : null}
+
+              {!editing?.hasProxy && proxyMode === 'keep' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setProxyMode('set')
+                    setProxyVisible(false)
+                  }}
+                >
+                  设置代理
+                </Button>
+              ) : null}
+
+              {proxyMode === 'set' ? (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Input
+                      id="a-proxy"
+                      type={proxyVisible ? 'text' : 'password'}
+                      value={proxyDraft}
+                      onChange={(e) => setProxyDraft(e.target.value)}
+                      placeholder="http://user:pass@host:port 或 socks5://host:port"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="pr-9 font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() => setProxyVisible((v) => !v)}
+                      aria-label={proxyVisible ? '隐藏代理地址' : '显示代理地址'}
+                    >
+                      {proxyVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    支持 http(s):// 与 socks5://，保存后聊天、换票、巡检都走该出口。
+                  </p>
+                  {editing?.hasProxy ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      当前：{editing.proxyUrlMasked ?? '已配置（脱敏）'}
+                    </p>
+                  ) : null}
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setProxyMode('keep')
+                        setProxyDraft('')
+                        setProxyVisible(false)
+                      }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              {proxyMode === 'clear' ? (
+                <div className="space-y-2">
+                  <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                    保存后将移除该账号的私有出口，回落到共享代理池或直连。
+                  </p>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setProxyMode('keep')}
+                    >
+                      撤销
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
@@ -1443,18 +1669,54 @@ export default function AdminRelayAccountPoolPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="a-import-json">账号导出 JSON</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="a-import-json">账号导出 JSON</Label>
+                <div className="flex items-center gap-1">
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept=".json,.txt,application/json,text/plain"
+                    className="hidden"
+                    onChange={(e) => applyImportFile(e.target.files?.[0])}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="px-2 text-xs"
+                    onClick={() => importFileRef.current?.click()}
+                  >
+                    <FileText className="mr-1 h-3 w-3" />
+                    选文件
+                  </Button>
+                </div>
+              </div>
               <textarea
                 id="a-import-json"
                 rows={10}
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder='支持整包 { "accounts": [...] } 或裸数组 [ ... ]'
-                className={textareaClass}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  setImportDragOver(true)
+                }}
+                onDragLeave={() => setImportDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setImportDragOver(false)
+                  applyImportFile(e.dataTransfer.files?.[0])
+                }}
+                placeholder='把 .json 备份文件拖进来 / 点「选文件」;也支持粘贴整包 { "accounts": [...] }、裸数组、单条,以及 workbuddy-switch 等第三方导出(access_token 形状由服务端自动归一)'
+                className={
+                  textareaClass +
+                  ' transition-colors' +
+                  (importDragOver ? ' border-primary bg-primary/5 ring-1 ring-primary/40' : '')
+                }
               />
               <p className="text-xs text-muted-foreground">
-                字段:name / token / refreshToken / deviceId / machineId / enabled / cookies(proxyUrl
-                可选)。示例:
+                {importFileName
+                  ? `已载入文件 ${importFileName}（点「提交导入」才写进号池）`
+                  : '字段:name / token / refreshToken / deviceId / machineId / enabled / cookies(proxyUrl 可选);第三方导出自动识别。示例:'}
               </p>
               <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
                 {EXAMPLE_JSON}
@@ -1805,9 +2067,9 @@ function ProxyPoolPanel() {
                     <tr key={p.id}>
                       <td
                         className="max-w-[18rem] truncate px-3 py-2 font-mono text-xs"
-                        title={p.proxyUrl ?? undefined}
+                        title={p.proxyUrl ? maskProxyDisplay(p.proxyUrl) : undefined}
                       >
-                        {p.proxyUrl ?? '-'}
+                        {maskProxyDisplay(p.proxyUrl)}
                       </td>
                       <td className="px-3 py-2 text-xs">{p.providerCode ?? '-'}</td>
                       <td
