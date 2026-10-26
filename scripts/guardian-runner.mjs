@@ -136,15 +136,7 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // --- 2g-web (2026-07-27 新增,i18n 命名空间传递守门,warn-only 起步) ---
-  // 检测"useTranslations('xxx') 限定命名空间 + 把 t 传给 @ihui/ui-react 共享登录组件"bug 模式
-  // 背景:LoginFormContent.tsx 曾用 useTranslations('auth') 限定命名空间后把 t 传给共享 LoginForm,
-  //   共享组件内部调用 t('auth.emailLogin') 长 key 路径,实际查找 auth.auth.emailLogin 失败,
-  //   导致弹窗内全部显示 key 名。已修复(改用 useTranslations() 无命名空间),本守门防复发。
-  // 检测目标:apps/web/src/ 下所有 .tsx(8 个共享登录组件:LoginForm/EmailCodeLoginForm/
-  //   PhoneCodeLoginForm/PasswordLoginForm/AgreementCheckbox/AgreementNoticeDialog/
-  //   ThirdPartyLoginButtons/QrTab)
-  // 升级 blocking 评估:观察期已满 —— 2026-09-28 全量档实测 803 个文件 0 违规,已翻 blocking
+// 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l139(门 103 C1 收口)〉首意: --- 2g-web (2026-07-27 新增,i18n 命名空间传递守门,warn-only 起步) ---
   {
     id: '2g-web',
     label: '🔍 i18n 命名空间传递(web→共享组件)',
@@ -526,15 +518,7 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // --- 35 (2026-07-26 新增,mypy 防回归守门,防 ai-service Python 类型回退) ---
-  // blocking:项目刚完成 mypy 全库清零(4 批次 256→0 errors,226 source files),
-  //   但 mypy 检查只在 pnpm typecheck:full 手工运行,无 pre-commit 守门。
-  //   typecheck:full 可能被 --no-verify 跳过 → mypy errors 回退。本守门在 staged
-  //   涉及 apps/ai-service/**/*.py 时触发 mypy 检查,0 errors 才通过。
-  // 失败含义:staged 的 Python 代码引入类型错误,需修复后重新 commit。
-  // id 说明:任务原话要求 id '31',但 '31' 已被 verify-auth-shell.mjs 占用
-  //   (同日 2026-07-26 新增),'34' 也被 check-ts-ignore.mjs 占用,故用下一个可用
-  //   编号 '35'。插入位置:30a 之后、2d(warn-only 区)之前(blocking 区末尾)。
+// 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l529(门 103 C1 收口)〉首意: --- 35 (2026-07-26 新增,mypy 防回归守门,防 ai-service Python 类型回退) ---
   {
     id: '35',
     label: '🐍 mypy 类型检查(防 ai-service Python 类型回退)',
@@ -549,13 +533,7 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // --- 36 (2026-07-27 新增,miniapp-taro token 同步守门,防 app.css 与 tokens.css 漂移) ---
-  // blocking:Taro 4 + Tailwind v3 不兼容 v4 @theme 语法,app.css 由 scripts/sync-miniapp-tokens.mjs
-  //   (2026-09-25 由端内 apps/miniapp-taro/scripts/sync-design-tokens.mjs 搬来,原因见该文件头注)
-  //   自动生成 :root/.dark 块。若手动编辑 app.css 或 tokens.css 改后未运行 sync 脚本,
-  //   会导致 miniapp-taro 视觉与 web 端不一致。本守门在 pre-commit 校验,发现漂移阻塞 commit。
-  // 失败含义:app.css 的 --color-* 变量与 tokens.css 不一致,需运行:
-  //   pnpm --filter @ihui/miniapp-taro sync-tokens 重新同步后重新 commit。
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l552(门 103 C1 收口)〉首意: --- 36 (2026-07-27 新增,miniapp-taro token 同步守门,防 app.css 与 tokens.css 漂移) ---
   {
     id: '36',
     label: '🎨 [miniapp-taro] design-tokens 同步(防 app.css 漂移)',
@@ -661,13 +639,7 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // --- 41 (2026-08-02 新增,单分支开发守门,AGENTS.md §9b 落地) ---
-  // blocking:仓库曾积累 12 个分支(本地 6 + 远程 7 + 1 upstream),教训:分支不是"工作单元",
-  //   是"协作单元"——单 agent 单任务无需分支,直接 main 提交即可。
-  // 本守门检测 git branch -a 中除 main / origin/main / upstream/main 外的分支;
-  // goal/ 前缀 + .ihui-agent/goal-runtime/STATE.md 标注 active 的 goal 模式临时分支豁免。
-  // 失败含义:检测到滞留超过在飞窗口且不在豁免内(in-flight/backup/goal/worktree 四类豁免见门体)的旁支,
-  // 处置以 onFailHint 与门体现读输出为准,禁止按旧口径直接删分支。
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l664(门 103 C1 收口)〉首意: --- 41 (2026-08-02 新增,单分支开发守门,AGENTS.md §9b 落地) ---
   {
     id: '41',
     label: '🌿 单分支开发守门(blocking,AGENTS.md §9b)',
@@ -776,14 +748,7 @@ const checks = [
     args: ['zh-TW', '--target=shared'],
     mode: 'blocking',
   },
-  // --- 2026-10-05 补:zh-TW / ko 的**分面射程** —— 此前这两个 blocking 档只守
-  // web(默认面)+ extension + shared 三面,api / cli / miniapp-taro / mobile-rn 四面
-  // 从未进过门。实证不是推演:2026-10-05 首次分面现读就在这四面里量到 7 处 zh-TW 简体残留
-  // (api 5 处「平台」、miniapp-taro 2 处「平台」「托管」),而默认档(web)当时同样报红 4 处,
-  // 说明残留是**全仓通病**、只是另外四面没人看。同日已修复并把修复器
-  // (fix-zh-tw-residue.mjs)从 2026-07-25 迁移前的 apps/* 旧址拉回 packages/i18n/messages/,
-  // 现七面 zh-TW 与 ko 全绿 ⇒ 此刻升 blocking 不误伤任何在途提交。
-  // 面的清单与路径拼法与扫描器共用 scripts/lib/i18n-message-faces.mjs 一份。
+// 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l779(门 103 C1 收口)〉首意: --- 2026-10-05 补:zh-TW / ko 的**分面射程** —— 此前这两个 blocking 档只守
   {
     id: '2p-api',
     label: '🔍 [api] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
@@ -874,18 +839,7 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // --- 2n-web (2026-07-26 新增,web 端 5 语言 i18n parity 强制校验, warn-only 起步 1 周后升级 blocking) ---
-  // 与 item 2 区别:item 2 现有逻辑仅在 staged messages 改动时跑 parity,源码改动不触发
-  // (避免每次 commit 都跑 parity 影响性能);本项强制每次 commit 都跑 5 语言 parity
-  // (只做 parity,不扫源文件,耗时 < 100ms),防止"i18n JSON 没动但 parity 漂移漏检"。
-  // 触发场景:有人手动编辑 zh-TW.json 误删键/合并冲突/三方工具破坏 JSON,
-  //          item 2 检测不到但下次 commit 会因 parity 漂移阻塞主流程,
-  //          提前到本次 commit 给出 warn 提示,降低主流程阻塞概率。
-  // 升级 blocking 时间表:2026-08-02 (1 周后) 评估,期间观察误报率 → 改 mode: 'blocking'。
-  // 2026-08-02 升级 blocking ✅(提前至 2026-07-26 收口,1 周观察期无误报)
-  // --parity-only 标志作用:跳过源文件扫描 + 强制跑 parity(即使 staged 无 messages 改动)。
-  // 任务原话"第 32 项"已被 32-web/32-miniapp-taro/32-mobile-rn/32-extension(同日 2026-07-26 死 key 扫描)占用,
-  //   2n-web 延续 2* i18n 系列命名,与 item 2 同源。
+// 〈原 12 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l877(门 103 C1 收口)〉首意: --- 2n-web (2026-07-26 新增,web 端 5 语言 i18n parity 强制校验, warn-only 起步 1 周后升级 blocking) ---
   {
     id: '2n-web',
     label: '🌐 [web] 5 语言 i18n parity 强制校验 (blocking,2026-08-02 升级,兜底 item 2 漏检场景)',
@@ -900,14 +854,7 @@ const checks = [
     // 应急放行:HUSKY_SKIP_I18N_PARITY=1 git commit ...(commit message 写明责任归属)
     skipEnv: 'HUSKY_SKIP_I18N_PARITY',
   },
-  // --- 2f-mobile-rn (2026-07-28 新增,mobile-rn 端 5 语言 i18n parity 守门) ---
-  // mobile-rn 是 5 端中唯一无显式 parity 守门的端(仅靠死 key 扫描内置 5 语言 JSON 加载做隐式校验)。
-  // ⚠️ 已知限制(2026-07-28 验证):check-i18n-keys.mjs 当前 MESSAGES_DIR 分支只识别
-  //   web/extension/shared/cli 四种 target,mobile-rn 会 fall through 到默认 web 分支,
-  //   实际检查的是 packages/i18n/messages/web/ 而非 mobile-rn/。
-  //   要让本守门真正生效,需在 check-i18n-keys.mjs 增加 mobile-rn 分支(类似 cli 分支),
-  //   当前为占位项,warn-only 不阻塞 commit。修复后此项才有实际防护意义。
-  // 升级 blocking 评估:该前置早已满足 —— check-i18n-keys.mjs 有 mobile-rn 分支,mobile-rn 的 parity-only 档
+// 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l903(门 103 C1 收口)〉首意: --- 2f-mobile-rn (2026-07-28 新增,mobile-rn 端 5 语言 i18n parity 守门) ---
   {
     id: '2f-mobile-rn',
     label: '🌐 mobile-rn i18n parity 守门(blocking,2026-09-28 由 warn 升档;立票 2026-07-28)',
@@ -1048,16 +995,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 42 (2026-08-12 新增,React SyntheticEvent 闭包陷阱守门,AGENTS.md §42 配套) ---
-  // blocking:apps/web/src/components/chat/model-selector.tsx 原实现 onMouseLeave 内
-  //   setTimeout 闭包访问已失效的 e.currentTarget(React 17+ SyntheticEvent 在 handler
-  //   返回后 currentTarget 置 null),导致 popover 常驻显示。本守门禁止在 setTimeout /
-  //   setInterval / requestAnimationFrame / requestIdleCallback / queueMicrotask 的
-  //   回调闭包内访问 e.currentTarget / e.target / e.preventDefault / e.stopPropagation
-  //   等 React SyntheticEvent 属性/方法。
-  // 失败含义:在异步回调闭包内访问了 React 事件对象属性,会在 React 17+ 下产生不可预测的
-  //   行为(如 setPopoverAnchor 永远不进关闭分支)。需将 event 属性在同步阶段缓存到变量,
-  //   或用 useRef 管理 DOM 元素。
+// 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1051(门 103 C1 收口)〉首意: --- 42 (2026-08-12 新增,React SyntheticEvent 闭包陷阱守门,AGENTS.md §42 配套) ---
   {
     id: '42',
     label: '🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发)',
@@ -1313,13 +1251,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 54 (2026-09-21 新增,B14 未提交源码改动「年龄」守门,warn 级起步) ---
-  // 背景:同日两次功能丢失 —— 并行会话执行 git checkout/reset,把另一会话**已验证但
-  //   尚未 commit** 的工作树改动整体还原(一次要重做,一次连带丢失两条常驻防漂移测试)。
-  //   stash 侧已有 30b 兜住,「留在工作树里没提交」这一整类此前无任何机制覆盖。
-  // warn-only 理由:共享工作树里并行会话常态存在超龄未提交改动(实测本仓当前 21 个,
-  //   最老 21 天),一上来 blocking 会把别人未完成的工作变成我的提交阻塞;先观察一轮,
-  //   等并行会话收敛后再评估升级。判据/阈值见 scripts/check-uncommitted-age.mjs 头注释。
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1316(门 103 C1 收口)〉首意: --- 54 (2026-09-21 新增,B14 未提交源码改动「年龄」守门,warn 级起步) ---
   {
     id: '54',
     label: '⏳ 未提交源码改动年龄守门(warn-only,B14 防工作树改动被并行 checkout 抹掉)',
@@ -1502,16 +1434,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 62 (2026-09-22 接入 pre-commit,NSIS 安装器模板漂移守门,blocking) ---
-  // 背景:apps/desktop/src-tauri/windows/installer.nsi 是「Tauri CLI 内置模板 + IHUI 补丁集」
-  //   的副本(Tauri v2 只暴露四个 Section 内宏,改不了向导页面结构,唯一官方接管方式是
-  //   bundle.nsis.template 整体替换)。2026-09-22 实测:该文件里累积了 11 段历史上**直接手改、
-  //   从未登记进 PATCHES / 侧车 JSON** 的定制,于是 --check 恒绿而 --write 会把这些定制整体
-  //   抹掉 —— 已真实发生过一次回退。--check 正是拦这一类的,但此前同样零自动执行点。
-  // 已核实的宽松兜底(保持不改、不改成阻塞):工作区未安装 @tauri-apps/cli 原生模块时,脚本
-  //   打印「未找到 @tauri-apps/cli 原生模块,跳过校验」并 exit 0(源码 desktop-nsis-template.mjs
-  //   第 373-381 行)。干净 checkout / 部分 CI 属正常态,该项在这些环境**自动放行**;
-  //   本机已装 @tauri-apps/cli 2.11.4 → 实测走的是真比对(命中 20+ 处 IHUI 补丁)。
+// 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1505(门 103 C1 收口)〉首意: --- 62 (2026-09-22 接入 pre-commit,NSIS 安装器模板漂移守门,blocking) ---
   {
     id: '62',
     label: '🧩 桌面 NSIS 安装器模板漂移(blocking,installer.nsi == 上游模板 + 已登记补丁)',
@@ -2015,13 +1938,7 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // 主题接线对账(2026-09-24 立)。起因是真机实测:广场页顶栏/底栏 #1a1a1a 而正文
-  // #f5f5f5 —— 同一屏幕两套档案。根因在共享层:packages/app 里 213 个组件形参默认
-  // `colorScheme = 'light'` 并据此 getTokens(),调用方只要漏传或写字面量,整棵子树
-  // 就静默按该档案渲染,而端内 chrome 跟着真主题走。首轮实测命中 118 处 / 117 文件,
-  // 已修 108 处;余 9 处(他人 M 在制的 7 个屏 + study-publish 需整文件主题化改造)
-  // 冻结在 scripts/theme-prop-wiring-baseline.json,棘轮只减不增。
-  // 组件清单由源码自动推导、不维护手工名单 —— 手工清单正是上一版判据漏东西的原因。
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2018(门 103 C1 收口)〉首意: 主题接线对账(2026-09-24 立)。起因是真机实测:广场页顶栏/底栏 #1a1a1a 而正文
   {
     id: '91',
     label: '🌗 主题接线对账(blocking,theme-driven 共享组件必须拿到调用方解析出的主题)',
@@ -2112,13 +2029,7 @@ const checks = [
       '     单独复验:node scripts/check-brand-foreground.mjs;自检:node scripts/check-brand-foreground.mjs --self-test',
     ].join('\n'),
   },
-  // 反回退守门(2026-09-23 立)。成因实测:共享工作区 + converge 只推进 HEAD/index 不 checkout,
-  // 工作区曾整体落后 HEAD 486 个提交(503 个文件);此时 `git add <file>` 提交的是旧基线,
-  // 对该文件等于把别人后续改动静默回滚,而 diff 看着"只动几行"。守门 71 只护 PLAN 登记行,
-  // 源码/配置面无闸,故补此闸。判据 = 暂存内容 != HEAD 且**字节级等于该路径某祖先提交的版本**;
-  // merge/cherry-pick/revert 上下文整轮豁免,暂存删除只 warn(真删是合法 git rm),
-  // >300 文件跳过(性能护栏,避免逼人 --no-verify 把全部守门一起关)。
-  // 演练:node scripts/check-stale-revert.mjs --self-test(8 例,含"写回 v1 必判红"阳性对照)。
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2115(门 103 C1 收口)〉首意: 反回退守门(2026-09-23 立)。成因实测:共享工作区 + converge 只推进 HEAD/index 不 checkout,
   {
     id: '84',
     label: '🧬 反回退守门(blocking,暂存内容等于历史版本 = 静默回滚他人改动)',
@@ -2180,16 +2091,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // 热路径 git 只读调用超时封顶(2026-09-23 立,守门 80)。成因实测:check-port-registry 里
-  // 一处 execSync('git ls-files') 没有 timeout,在共享工作区挂住 80 分钟而 CPU 只用了 2.84s
-  // —— 等锁/等 IO 型挂起,表现是"提交像死掉了",而 git status 与 typecheck 全看不出异常。
-  // 全仓首参锚定实测 159 处 git 派生调用无一带 timeout,即"没有约束"而非"个别疏忽"。
-  // 口径刻意收窄(宁漏不误报,与门 52 同取向):① 只判钩子/守护链可达的 HOT 文件;
-  // ② 只判动词为字面量的调用(包装器动词未知,整体加超时会把写操作一并 bound,
-  //    而 commit/add/reset 中途被 SIGTERM 可能留下 .git/index.lock,把挂起换成全局阻塞);
-  // ③ 只判只读动词。写动词/包装器不判但如实计数。字符串与注释内的命中一律丢弃
-  // (自检抓到过判据把测试夹具源码字符串当真调用误红,已按 markHidden 修掉)。
-  // 存量已随本门一并清零(runner 3 处 + converge 4 处 + commit-loss-guard 默认值),不留基线债。
+// 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2183(门 103 C1 收口)〉首意: 热路径 git 只读调用超时封顶(2026-09-23 立,守门 80)。成因实测:check-port-registry 里
   {
     id: '80',
     label: '⏱  热路径 git 只读调用必须带 timeout(blocking,拦无界挂起拖死守门链)',
@@ -2210,15 +2112,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // 提交内容含 Git 冲突标记(2026-09-23 立)。成因实测:.git 被宿主清除后的恢复期,某会话在
-  // 共享工作区跑了真实 `git merge`,留下 103 个未合并路径 + 94 个带字面标记的工作区文件,而
-  // 全链守门**没有一道**看"被提交的内容含 <<<<====>>>> 标记",于是带标记的文件一路进 HEAD 树,
-  // 整轮 merge 结束都无人察觉。判据 = 同文件内**成对**的行首 `<<<<<<< ` 与 `>>>>>>> `
-  // (中间可夹整行 `=======`);单行不判(`=======` 在 setext 标题/表格/ASCII 图里合法,
-  // 只判单行会满天假红)。三模式:--staged 判索引内容(git show :<path>,取不到退回工作区;
-  // 未合并 U 路径也在清单内)、缺省判全量跟踪文件工作区内容、--rev 判提交树。护栏:自豁免
-  // (本门脚本与测试必含字面量)/ >2MB / 二进制,三类均如实计数不静默。
-  // 自检:node scripts/check-no-conflict-markers.mjs --self-test(26 例含正反成对对照 + E1 豁免与混搭反例 + 真实 merge 未合并路径现场)。
+// 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2213(门 103 C1 收口)〉首意: 提交内容含 Git 冲突标记(2026-09-23 立)。成因实测:.git 被宿主清除后的恢复期,某会话在
   {
     id: '79',
     label: '🔀 提交内容含 Git 冲突标记(blocking,成对 <<<<====>>>> 标记一旦入树即拦)',
@@ -2376,13 +2270,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // C 盘污染实地扫描(2026-09-23 立,守门 90,warn-only)。成因:§15/§26 的三道旧门没有
-  // 一道真去看文件系统 —— check-c-drive-paths 只扫 staged 源码里的字面量 C:\temp,看不见
-  // os.tmpdir() 派生的写入;check-parent-pollution 只扫项目父目录(D:\);check-root-dir-clean
-  // 只扫项目根。于是 C 盘实攒 13.2G .next 构建备份 + 单日 45 个 git 夹具而全链恒绿。
-  // 本门实地扫 C 盘根 + C:\tmp + 活 TEMP,并单独判"TEMP 漂移"(注册表已指 D、活进程仍拿 C,
-  // 即残骸天天新增的机制)。只读、不删文件;定级 warn 而非 blocking,因为盘根多数条目
-  // 不属本仓,拦提交只会逼人 --no-verify 连带废掉其余守门(与守门 77/52 同取向)。
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2379(门 103 C1 收口)〉首意: C 盘污染实地扫描(2026-09-23 立,守门 90,warn-only)。成因:§15/§26 的三道旧门没有
   {
     id: '92',
     label: '💽 C 盘污染实地扫描(warn,拦"源码没写死但东西真掉在 C 盘")',
