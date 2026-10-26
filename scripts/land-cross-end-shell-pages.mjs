@@ -37,12 +37,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
   insertConfigPage,
+  insertConfigRoot,
   insertJsonMembers,
   insertRegistryEntry,
   mergeJsonMembers,
+  parseMiniappRoutes,
   planBatch,
 } from './gen-miniapp-mirror.mjs'
-import { CAPACITY_REL, admitByCapacity, parseCapacity } from './lib/cross-end-subpackage-capacity.mjs'
+import { CAPACITY_REL, parseCapacity, routePlanned } from './lib/cross-end-subpackage-capacity.mjs'
 // 声明件派生口径取生成器那一份(§0.6:本器不另写"引用→declare"的第二套算式)
 import { __test__ as shellTypes } from './gen-rn-shell-types.mjs'
 
@@ -92,7 +94,9 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
   if (typeof cfg0 !== 'string') return { ok: false, why: `HEAD 面取不到 ${MP_CONFIG} ⇒ 未判定,整批不落(§0.3)` }
   let cfg = cfg0
   for (const p of planned) {
-    const r = insertConfigPage(cfg, p.subRoot, p.page)
+    // 改道后目标 root 可能还不存在(溢出分包是容量判据现开出来的)⇒ 交给 insertConfigRoot 建块。
+    // 它内部对"root 已在册"退回 insertConfigPage,所以两种情形一条路。
+    const r = insertConfigRoot(cfg, p.subRoot, p.page)
     if (!r.ok) return { ok: false, why: `app.config 插路由 ${p.route}:${r.why}` }
     cfg = r.text
   }
@@ -405,7 +409,12 @@ function capacityGate(planned, { cap, headOf = headBlob } = {}) {
     return { ok: false, why: `HEAD 面取不到 ${REGISTRY} ⇒ 本轮不放行` }
   }
   if (typeof registryText !== 'string') return { ok: false, why: `HEAD 面取不到 ${REGISTRY} ⇒ 本轮不放行` }
-  return admitByCapacity(planned, { model: parsed.model, registryText, cap })
+  return routePlanned(planned, {
+    model: parsed.model,
+    registryText,
+    cap,
+    estimates: parsed.model.pageEstimates,
+  })
 }
 
 function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
@@ -424,6 +433,7 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
   if (!gate.ok) return { state: 'blocked', why: gate.why, planned: planned.length, held: [] }
   const batch = gate.admitted
   const held = gate.held ?? []
+  const moves = gate.moves ?? []
   if (batch.length === 0) {
     return {
       state: 'blocked',
@@ -445,6 +455,7 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
       planned: planned.length,
       batch: batch.map((p) => p.route),
       held,
+      moves,
       blobs: built.files.length,
       note: apply ? 'headless 档:只算不落' : '预演模式:加 --apply 落地',
     }
@@ -460,6 +471,13 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
     '接缝:app.config 路由行 + 跨端登记表 + 词包(两档:全新命名空间按行插,已在册转并键档,不覆盖既有值)。',
     '内容构造法:全部 blob = git show HEAD:<file> ⊕ 本批行,由造页器自己的插入函数产;工作树一字节未读',
     `(那是为了不在他人未提交改动上落我的行 —— §12 防吞现场;旁路落地不自跑钩子,故守门 251/128/237 在下一轮提交或巡检里复量)。`,
+    ...(moves.length
+      ? [
+          '',
+          `容量改道(${moves.length} 枚;语义分包装不下 ⇒ 按 overflowRoots 改道,接缝同批按新 root 建块):`,
+          ...moves.map((m) => `  ${m.spec} → ${m.from} ⇒ ${m.to}(约 ${m.estimate} B)`),
+        ]
+      : []),
     '',
     `页面:${batch.map((p) => `${p.spec} → ${p.route}`).join('; ')}`,
   ].join('\n')
@@ -484,11 +502,12 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
       planned: planned.length,
       batch: batch.map((p) => p.route),
       held,
+      moves,
       blobs: built.files.length,
       note: ok ? 'CAS 成功且按被审面回读在树' : `落地器输出未自证成功,末行:${out.split('\n').filter(Boolean).slice(-1)[0] ?? ''}`,
     }
   } catch (error) {
-    return { state: 'undetermined', why: `落地失败:${String(error?.message ?? error).slice(0, 160)}`, planned: planned.length, held }
+    return { state: 'undetermined', why: `落地失败:${String(error?.message ?? error).slice(0, 160)}`, planned: planned.length, held, moves }
   }
 }
 
@@ -743,6 +762,47 @@ function selfTest() {
         return `${g.admitted.length}/${g.held.length}`
       },
     },
+    // ---------- 接缝④b 新建分包 root(容量改道的前提)----------
+    {
+      name: '接缝④b:目标 root 不在册 ⇒ 建块并回读自证(溢出分包是容量判据现开出来的)',
+      want: 'ok/true/true',
+      got: () => {
+        const cfg = `export default defineAppConfig({\n  pages: ['pages/index/index'],\n  subPackages: [\n    {\n      root: 'pkg-user',\n      pages: [\n        'a/index',\n      ],\n    },\n  ],\n})\n`
+        const r = insertConfigRoot(cfg, 'pkg-mirror', 'x/index')
+        const again = parseMiniappRoutes(r.text ?? '').blocks.some((m) => m[1] === 'pkg-mirror')
+        return `${r.ok ? 'ok' : 'fail'}/${String(r.text ?? '').includes("root: 'pkg-mirror'")}/${again}`
+      },
+    },
+    {
+      name: '接缝④b:整批装配时目标 root 不存在也不拒(assembleBlobs 走建块腿)',
+      want: true,
+      got: () => {
+        const r = assembleBlobs([fakePlan('selftestNewRoot', 'pkg-selftest-new')], { headOf: okHead, watermarkOf: stamp })
+        if (!r.ok) return false
+        const cfgBlob = r.files.find((f) => f.path === MP_CONFIG)?.blob
+        return /pkg-selftest-new/.test(git(['cat-file', 'blob', cfgBlob]))
+      },
+    },
+    {
+      name: '容量改道:语义包装不下 ⇒ 本批这枚改落到 overflow 分包(路由四字段一起改)',
+      want: 'pkg-mirror/mv1/index',
+      got: () => {
+        const model = JSON.stringify({
+          schema: 1,
+          limitBytes: 2097152,
+          safetyRatio: 0.95,
+          bytesPerShellPage: 1000,
+          overflowRoots: ['pkg-mirror'],
+          roots: {
+            'pkg-user': { bytes: 1992000, mirrorEntriesAtMeasure: 0, chunkReserveBytes: 0 },
+            'pkg-mirror': { bytes: 0, mirrorEntriesAtMeasure: 0, chunkReserveBytes: 0 },
+          },
+        })
+        const headOf = (rel) => (rel === CAPACITY_REL ? model : rel === REGISTRY ? capRegistry(0) : null)
+        const g = capacityGate([fakePlan('mv1')], { cap: 5, headOf })
+        return g.admitted?.[0]?.route
+      },
+    },
   ]
   let pass = 0
   for (const c of cases) {
@@ -779,6 +839,9 @@ if (isDirectRun) {
       // 容量闸挡下几枚、为什么挡:到量时这是唯一能解释"为什么不再往前"的读数
       held: r.held?.length ?? 0,
       heldWhy: r.held?.[0]?.why ?? '',
+      // 改道几枚(语义分包装不下 → 溢出分包),让日志能解释"这屏怎么落到 pkg-mirror 去了"
+      moved: r.moves?.length ?? 0,
+      movedTo: [...new Set((r.moves ?? []).map((m) => m.to))].join(','),
       doc: r.doc ?? 'skipped',
       why: r.why ?? '',
       note: r.note ?? '',

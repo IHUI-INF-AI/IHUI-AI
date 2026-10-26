@@ -402,6 +402,54 @@ export function insertConfigPage(text, root, page) {
   return { ok: true, text: text.slice(0, lineStart) + inserted + text.slice(lineStart), insertedLine: `${indent}'${page}',`, shape: 'multiline' }
 }
 
+/**
+ * 接缝④b:在 subPackages 数组末尾**新建一个分包 root**(2026-10-26 立)。
+ *
+ * 为什么需要:单分包 2 MiB 是微信硬上限,而 pkg-user 只剩几百 KB —— 82 枚待产屏里的大多数
+ * 按语义都落 pkg-user,再灌就超限(实测 78 枚把它顶到 3.77 MB)。容量判据把溢出屏路由到
+ * 新分包(`pkg-mirror*`),但那一刻 app.config 里还没有这个 root,`insertConfigPage` 会拒。
+ * 本函数只做"建块 + 首屏入册",并且**用同一张 parseMiniappRoutes 回读自证**后才返回。
+ */
+export function insertConfigRoot(text, root, page) {
+  const { blocks } = parseMiniappRoutes(text)
+  if (blocks.some((m) => m[1] === root)) return insertConfigPage(text, root, page)
+  const subIdx = text.indexOf('subPackages')
+  if (subIdx < 0) return { ok: false, why: 'app.config.ts 里找不到 subPackages' }
+  const openIdx = text.indexOf('[', subIdx)
+  if (openIdx < 0) return { ok: false, why: 'subPackages 缺数组字面量' }
+  let depth = 0
+  let closeIdx = -1
+  for (let i = openIdx; i < text.length; i += 1) {
+    if (text[i] === '[') depth += 1
+    else if (text[i] === ']') {
+      depth -= 1
+      if (depth === 0) {
+        closeIdx = i
+        break
+      }
+    }
+  }
+  if (closeIdx < 0) return { ok: false, why: 'subPackages 数组括号不配平' }
+  let lineStart = closeIdx
+  while (lineStart > 0 && text[lineStart - 1] !== '\n') lineStart -= 1
+  const gap = text.slice(lineStart, closeIdx)
+  if (gap.trim() !== '') return { ok: false, why: 'subPackages 闭括号行形态异常(同行有别的内容)' }
+  const indent = `${gap}  `
+  const block = [
+    `${indent}{`,
+    `${indent}  root: '${root}',`,
+    `${indent}  pages: [`,
+    `${indent}    '${page}',`,
+    `${indent}  ],`,
+    `${indent}},`,
+    '',
+  ].join('\n')
+  const next = text.slice(0, lineStart) + block + text.slice(lineStart)
+  const back = parseMiniappRoutes(next).blocks.find((m) => m[1] === root)
+  if (!back || !back[2].includes(`'${page}'`)) return { ok: false, why: `新建 root '${root}' 后回读不到该页(不落盘)` }
+  return { ok: true, text: next, insertedLine: `${indent}{ root: '${root}', pages: ['${page}'] }`, shape: 'new-root' }
+}
+
 /** 接缝⑤:registry entries 数组末尾按行插三元组(前一条目闭行补逗号)。 */
 export function insertRegistryEntry(text, entry) {
   const lines = text.split('\n')
