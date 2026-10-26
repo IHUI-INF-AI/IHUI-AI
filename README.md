@@ -127,7 +127,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 285 | `guardianGates` |
 | — blocking | 260 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 16663 | `trackedFiles` |
+| 跟踪文件 | 16664 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-26。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5254,6 +5254,39 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 - `GET /api/circles/users/recommend`(RN `CircleIndexScreen`):`users.nickname/avatar/bio` 左连 `user_follows` 出 `followed`,过滤用真列 `users.status = 1`(schema/users.ts:64 注明 0 禁用 / 3 注销)——**没有发明条件**;排序为粉丝数倒序 + id 升序 tie-break(确定性,禁 `RANDOM()`,翻页不重不漏);`followed` 一次 `inArray` 批量查,不逐行。
 - 两条整条要登录(插件级 `preHandler` + `checkAuth`,与 `/edu/courses/:id` 同档),SQL 留在查询层(`social-queries.ts` 新增 `findRecommendedUsers`/`findFollowingIds`),路由不重写一遍;鉴权型读面加了 `z.strictObject({})`,自报 `?userId=` 直接 400 且零查询。
 - 取证:`pnpm --filter @ihui/api exec tsc --noEmit` RC=0;`vitest run tests/user-security-routes.test.ts tests/circle-mobile-routes.test.ts` 末行 `Tests 18 passed (18)`,含"无凭据 401 且一次查询都不发""自报 userId 无效""非法分页 400 且零查询"三组反向断言,以及"注册即装车"双向对照(`circleMobileRoutes`/`userSecurityRoutes` HEAD 面 false、本枚面 true,正控 `courseMobileRoutes` 两面 true 证取材面非空)。
+
+### 账号保活中心(2026-10-26 立：两条互不相识的保活线收成一份状态)
+
+- **为什么要它**:发布线 Cookie 探活(`services/publish/cookie_refresh_daemon.py`)与 AI 平台签到凭证(`services/checkin_scheduler.py`)此前各有一套开关、各自统计、各自表达失败 ⇒「这些账号到底还活着吗」在系统里**没有单一答案**:发布页看到的是角标、签到页看到的是记录,两边都不回答"哪个号快死了"。本中心(`apps/ai-service/app/services/keepalive/`)把 **cookie 探活 / 凭证(api_key、oauth)到期检测 / 签到凭证健康(只读 JWT `exp`,不代签)** 收成一套调度、两张表、一份健康度口径、一个告警出口。
+- **边界(不许混成一件)**:只判**凭证存活**,不代做业务动作 —— 发内容仍归发布调度器、每日签到仍归 `checkin_scheduler`,否则同一账号被两处同时访问,签到与发布互相踩。中心启用时旧 Cookie 守护循环**不再启动**(单一调度源)。
+- **端点(6 条,前缀 `/api/keepalive`,全部需登录 `require_request_user_id`,响应外壳统一 `{code,message,data}`)**:
+
+| 方法 | 路径 | 一句话用途 |
+| ---- | ---- | ---------- |
+| GET | `/api/keepalive/status` | 自检面:「到底开没开」的唯一权威答案(启用理由、调度是否真活着、上轮摘要、探针清单),不靠读配置猜 |
+| GET | `/api/keepalive/overview` | 健康度总览:四档计数、按来源分组、需人处理清单、临期清单、近 7 天成功率、生效配置 |
+| GET | `/api/keepalive/accounts` | 逐账号明细,可按 `?source=` 与 `?health=` 过滤 |
+| GET | `/api/keepalive/events` | 探活流水,可按 `?ref=` 只看某账号、`?only_failures=true` 只看失败;`limit` 默认 50 上限 500 |
+| GET | `/api/keepalive/stats` | 近 N 天(`?days=`,1..90,默认 7)各来源 ok 失败 总数 成功率 |
+| POST | `/api/keepalive/run` | 手动触发一轮(后台执行并立即返回);`?ref=<source>:<id>` 只跑单账号,`?force=true` 无视退避;`ref` 不带冒号直接 400 |
+
+- **健康度四档(判据只在 `policy.health_of` 一处,前端不得自己再算一遍)**:
+
+| 档位 | 判据(自上而下,先命中先返回) |
+| ---- | -------------------------- |
+| `critical` | 上次失败分类是 `expired`(只能重录或重扫)、`expires_at` 已过、连续失败 ≥ `alert_after_failures`(默认 3) |
+| `warning` | 连续失败 > 0、进入临期窗口(≤ `expire_warn_days`,默认 3 天)、只看得到失败且从没成功过 |
+| `healthy` | 有成功记录、无连续失败、不在临期窗口 |
+| `unknown` | 既没成功过也没失败过(新账号还没跑过) |
+
+- **失败分类与重试语义**:结果分 `ok` / `expired` / `network` / `error` / `unsupported` / `skipped` 六类,`classify_message()` 是唯一归一化入口 —— 密文解不开(`InvalidTag`、`解密失败`、`凭证无法解密`)一律归 `expired`,因为密钥不匹配重试一万次仍是同一个错,只有重录能救;不认识的失败归 `error` 且可重试(宁可多试一次,也不要把新平台改版判死)。退避为 `base × 2^(n-1)` 封顶 `retry_cap`(默认 300 秒起、21600 秒封顶),`retry_max`(默认 3)之后不再排重试。`expired` 与环境类失败**当轮即告警**,其余攒到 `alert_after_failures` 轮,同类告警按 `alert_repeat_hours`(默认 24 小时)去重,**成功即清零**(否则恢复后下一次真出事会被旧戳静音)。`unsupported`(如 api_key 号无到期信息)**既不算成功也不算失败**,单列一档、不进 `failed` —— 否则"本就不需要保活"的号会把真红淹没。
+- **告警出口**:默认进全站通知中心(`notifications` 表,前端未读红点消费),**一轮一属主聚合成一条**(19 个号同时过期不发 19 条,否则用户关掉通知后再也看不见真告警);`notifications.user_id` 是 uuid 且有外键,`probe-user`、`system:relay-pool` 这类非 uuid 属主在此丢弃并计数(一条脏 owner 就能让整批 INSERT 失败,表现成"告警时有时无");表不存在时明确 warning 跳过,不假装已送达。另可配 `KEEPALIVE_ALERT_WEBHOOK` 追加投递。全程 fail-open:通知发不出去绝不反过来中断保活。
+- **数据落点(两张表,`ensure_tables()` 幂等建表,启动期 fail-open)**:`keepalive_account_state` 每账号一行回答"现在什么情况"(连续失败、下次重试时刻、到期时刻、预警与告警去重戳);`keepalive_events` 是追加流水,回答"过去发生过什么、成功率多少",按 `KEEPALIVE_EVENT_RETENTION_DAYS`(默认 90 天)老化。账号主键是跨来源稳定的 `<source>:<account_id>`,因为两张源表的自增 id 各自独立、裸 id 会撞号。
+- **开关(全部 `KEEPALIVE_*`,`resolve_config()` 每轮重解析,改 .env 下一轮即生效、不必重启)**:总开关 `KEEPALIVE_ENABLED`,**未设置时按既有开关继承**(`COOKIE_REFRESH_ENABLED` 或 `CHECKIN_CRON_ENABLED` 任一为 true 即视为启用);显式关闭时 `/status` 的 `enabled_reason` 会点名这三个键,不再"静默 off"。其余默认:`KEEPALIVE_INTERVAL_HOURS`=6、`RETRY_MAX`=3、`RETRY_BASE_SECONDS`=300、`RETRY_CAP_SECONDS`=21600、`ALERT_AFTER_FAILURES`=3、`ALERT_REPEAT_HOURS`=24、`EXPIRE_WARN_DAYS`=3、`ALERT_INAPP`=true、`PROBE_CONCURRENCY`=4(1..10,非法值回落)、`EVENT_RETENTION_DAYS`=90。
+- **并发口径**:同平台**串行**(避风控)、跨平台**并发**,信号量刻意放在平台锁外层(否则同平台排队者各占一槽干等);单账号探活结果一律经 `safe_probe()` 收敛(只放过 `CancelledError`),批量路径上任何协程都不得抛出(否则一批结果整批作废)。
+- **所属端**:后端 `apps/ai-service`(router 自带 `/api/keepalive` 前缀,挂载不再加 prefix);前端面板 `apps/web/src/components/publish/KeepaliveCenterPanel.tsx`,挂在发布账号页 `/publish/accounts`;端点封装 `packages/api-client/src/endpoints/keepalive.ts`(`getKeepaliveStatus`、`getKeepaliveOverview`、`listKeepaliveAccounts`、`listKeepaliveEvents`、`runKeepalive`;`/stats` 后端有、面板未消费,别写成面板在用)。
+- **凭证层顺带修掉的一处真缺陷(与本中心同批)**:发布与签到两侧的密钥文件路径原来是 `data/…` 的**cwd 相对**写法,换个启动目录就等于换一把密钥(历史密文全废,且文件缺失时会**静默新建一把**)。现改为锚定服务根(`Path(__file__).resolve().parents[N]`),并新增**只解不加密**的历史密钥环(`PUBLISH_CREDENTIALS_KEY_LEGACY` / `CHECKIN_FERNET_KEY_LEGACY`);解密异常双契约:无环时原样抛 `InvalidTag`,有环仍全不解时抛带"密钥不匹配"的 `ValueError` —— 不把"密钥换了"说成"密文坏了"。
+- 取证:`node scripts/check-readme-sync.mjs` 末行 `未描述` 由 131 降至 125,本节 6 条 `/api/keepalive/*` 从 `in-doc-window` 转入 `已覆盖`;`node scripts/check-api-routes.mjs` 对 `packages/api-client/src/endpoints/keepalive.ts` 的两条调用现读落在"未判定(前缀假设命中)"(注册面只枚举 `app/routers` 与 `app/api`,本模块在 `app/services`),不判红也不记绿 —— 迁移到 `app/routers/keepalive.py` 才进在册面,属后续笔。
 
 ## 运维与生产监控工具(2026-09-27 起)
 
