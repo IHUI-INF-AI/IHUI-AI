@@ -6,6 +6,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { AppIcon } from '@ihui/types'
 import {
   Receipt,
+  ScanLine,
   Undo2,
   CreditCard,
   ClipboardList,
@@ -148,7 +149,12 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'Referrer', labelKey: 'menu.referrer', icon: User, viaParent: true },
       { key: 'Invite', labelKey: 'menu.invite', icon: Mail, viaParent: true },
       { key: 'QrCode', labelKey: 'menu.qrCode', icon: QrCode, viaParent: true },
-      { key: 'DistributionCompany', labelKey: 'distributionCompany.title', icon: Users, viaParent: true },
+      {
+        key: 'DistributionCompany',
+        labelKey: 'distributionCompany.title',
+        icon: Users,
+        viaParent: true,
+      },
       { key: 'Activity', labelKey: 'menu.activity', icon: PartyPopper, viaParent: true },
     ],
   },
@@ -163,14 +169,34 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'KnowledgeBase', labelKey: 'menu.knowledgeBase', icon: BookOpen, viaParent: true },
       // M4.1(2026-08-26):RAG 知识库增强(搜索/切片)
       { key: 'KnowledgeRag', labelKey: 'menu.knowledgeRag', icon: Search, viaParent: true },
-      { key: 'KnowledgeRagManage', labelKey: 'knowledgeRagManage.title', icon: Files, viaParent: true },
-      { key: 'ChatTemplates', labelKey: 'chatTemplates.title', icon: MessagesSquare, viaParent: true },
+      {
+        key: 'KnowledgeRagManage',
+        labelKey: 'knowledgeRagManage.title',
+        icon: Files,
+        viaParent: true,
+      },
+      {
+        key: 'ChatTemplates',
+        labelKey: 'chatTemplates.title',
+        icon: MessagesSquare,
+        viaParent: true,
+      },
       { key: 'WrongQuestions', labelKey: 'wrongQuestions.title', icon: BookOpen, viaParent: true },
       { key: 'ImageGenGallery', labelKey: 'imageGenGallery.title', icon: Image, viaParent: true },
-      { key: 'ImageGenTemplates', labelKey: 'imageGenTemplates.title', icon: Palette, viaParent: true },
+      {
+        key: 'ImageGenTemplates',
+        labelKey: 'imageGenTemplates.title',
+        icon: Palette,
+        viaParent: true,
+      },
       { key: 'LearnMap', labelKey: 'learnMap.title', icon: Compass, viaParent: true },
       { key: 'LearnReview', labelKey: 'learnReview.title', icon: Repeat, viaParent: true },
-      { key: 'KnowledgeBaseEdit', labelKey: 'knowledgeBaseEdit.title', icon: PenLine, viaParent: true },
+      {
+        key: 'KnowledgeBaseEdit',
+        labelKey: 'knowledgeBaseEdit.title',
+        icon: PenLine,
+        viaParent: true,
+      },
       { key: 'MemoryNew', labelKey: 'memoryNew.title', icon: Brain, viaParent: true },
       { key: 'VoiceStt', labelKey: 'voiceStt.title', icon: Mic, viaParent: true },
       { key: 'MyPapers', labelKey: 'myPapers.title', icon: FileText, viaParent: true },
@@ -181,8 +207,18 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'Publish', labelKey: 'menu.publish', icon: Send, viaParent: true },
       { key: 'PublishNew', labelKey: 'publishNew.title', icon: Plus, viaParent: true },
       { key: 'PublishAccounts', labelKey: 'publishAccounts.title', icon: Store, viaParent: true },
-      { key: 'PublishCalendar', labelKey: 'publishCalendar.title', icon: Calendar, viaParent: true },
-      { key: 'PublishAnalytics', labelKey: 'publishAnalytics.title', icon: BarChart3, viaParent: true },
+      {
+        key: 'PublishCalendar',
+        labelKey: 'publishCalendar.title',
+        icon: Calendar,
+        viaParent: true,
+      },
+      {
+        key: 'PublishAnalytics',
+        labelKey: 'publishAnalytics.title',
+        icon: BarChart3,
+        viaParent: true,
+      },
       // M3 第三批(2026-09-05):规范/自媒体/上下文/文档转 Markdown
       { key: 'Spec', labelKey: 'menu.spec', icon: ScrollText, viaParent: true },
       { key: 'SelfMedia', labelKey: 'menu.selfMedia', icon: PenLine, viaParent: true },
@@ -276,13 +312,20 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'ArticleHot', labelKey: 'articleHot.title', icon: Trophy, viaParent: true },
       { key: 'AskEdit', labelKey: 'askEdit.title', icon: HelpCircle, viaParent: true },
       { key: 'PlazaNew', labelKey: 'plazaNew.title', icon: Plus, viaParent: true },
-      { key: 'BusinessCardEdit', labelKey: 'businessCardEdit.title', icon: IdCard, viaParent: true },
+      {
+        key: 'BusinessCardEdit',
+        labelKey: 'businessCardEdit.title',
+        icon: IdCard,
+        viaParent: true,
+      },
       { key: 'AiWorldCreate', labelKey: 'aiWorldCreate.title', icon: Earth, viaParent: true },
     ],
   },
   {
     titleKey: 'menu.sectionSettings',
     items: [
+      // PC 端「App 扫码登录」的移动端入口(扫 ticket → /auth/qr/confirm)
+      { key: 'ScanLogin', labelKey: 'scanLogin.menuTitle', icon: ScanLine },
       { key: 'Subscriptions', labelKey: 'menu.subscriptions', icon: Repeat },
       { key: 'Settings', labelKey: 'menu.settings', icon: Settings },
       // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
