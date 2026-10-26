@@ -1990,3 +1990,143 @@ test('端到端 全量档:同编号名额由 2 掉到 1 的历史存量不得判
     rmScratch(dir)
   }
 })
+
+// ── G-948(2026-10-26/27):活文档整文件回写又吞掉他席已入库登记行 ─────────────────────────
+// 票面现场:一席按滞后副本整文件回写,把同一题面的多行写成少数几行 ⇒ 旧判据报"无登记行丢失"。
+// 两处成因,逐条钉死:
+//  ① 侧车标头 `〔归:…〕` / 租约 + 粗体头的行拿不到行首编号 ⇒ 该行在防丢面、名额、复合主键三处隐身;
+//  ② `historyMarkers` 按 marker 去重 + 判活用 Set ⇒ "这一族还剩一行"就判活(15 → 11 也报绿)。
+// 判据一律 import 源脚本(§22c),夹具与源自测同形但**不复制任何实现**。
+const G948_ROW =
+  '- [ ] 〔归:web 聊天附件链〕 G-863 **附件容量 20→50,前端上传链三处改造,涉及组件与接口两层**'
+const G948_LEASE = '- [ ]（进行中@2026-10-26/g948） 〔归:x〕 **G-241 自动化"结算状态机"**'
+const G948_FILLER = '- **G-9001 无关登记行**:这一条与名额判据无关,只是让文档不像空壳,长度也够。'
+const G948_TWO = ['# 计划', '', G948_ROW, G948_ROW, G948_FILLER, ''].join('\n')
+const G948_ONE = ['# 计划', '', G948_ROW, G948_FILLER, ''].join('\n')
+/** 历史面条目 = `historyMarkers()` 的形状(带 `openCount` 名额);夹具不得自造第二份判据 */
+function g948Seen(openCount, row = G948_ROW) {
+  const reg = G.registrationOf(row)
+  return new Map([
+    [reg.marker, { line: row, marker: reg.marker, id: reg.id, shape: reg.shape, sha: 's', prev: null, openCount }],
+  ])
+}
+
+test('G-948 装车证明:侧车标头 / 租约+粗体头的行必须拿到行首编号(看不见 ⇒ 三处同时隐身)', () => {
+  const a = G.registrationOf(G948_ROW)
+  const b = G.registrationOf(G948_LEASE)
+  assert.equal(a?.id, 'G-863')
+  assert.equal(a?.shape, 'checkbox')
+  assert.equal(b?.id, 'G-241')
+  assert.equal(b?.shape, 'checkbox')
+  assert.equal(G.headIdOf(G948_ROW), 'G-863')
+  assert.equal(G.headIdOf(G948_LEASE), 'G-241')
+})
+
+test('G-948 历史面名额:同题两行写成一行 ⇒ 点名(旧集合判活在同一现场判"还活着")', () => {
+  // 旧谓词的读数(不是装饰):被审面 `[ ] G-863` 那一族仍在行首占着名额 ⇒ 集合口径判活
+  const slots = G.registrationSlots(G948_ONE)
+  assert.ok(slots.get('checkbox\u0000G-863')?.count > 0, '前提:同编号在被审面仍有登记点')
+  const missing = G.missingFrom(g948Seen(2), G948_ONE, () => null, new Set(), null, new Set())
+  assert.equal(missing.length, 1)
+  assert.equal(missing[0].marker, 'G-863')
+  assert.equal(missing[0].multiSlot, true, '同题缺口只许点名,绝不进自动回捞')
+})
+
+test('G-948 反向锁:两行都在 / 名额本就 1(别人新加了一行)⇒ 一条都不报', () => {
+  assert.deepEqual(G.missingFrom(g948Seen(2), G948_TWO, () => null, new Set(), null, new Set()), [])
+  assert.deepEqual(G.missingFrom(g948Seen(1), G948_TWO, () => null, new Set(), null, new Set()), [])
+  assert.deepEqual(G.missingFrom(g948Seen(1), G948_ONE, () => null, new Set(), null, new Set()), [])
+})
+
+test('G-948 回捞侧:名额缺口只点名、一个字节都不写', () => {
+  const missing = G.missingFrom(g948Seen(2), G948_ONE, () => null, new Set(), null, new Set())
+  const healed = G.healContent(G948_ONE, missing)
+  assert.equal(healed.inserted, 0)
+  assert.equal(healed.appended, 0)
+  assert.equal(healed.out, G948_ONE)
+})
+
+test('G-948 两条腿各管一格:提交链归 foldedSlots、历史面归 multiset,不得互相顶名额', () => {
+  assert.deepEqual(G.lostMarkers(G948_TWO, G948_ONE), [], '提交链不得与名额维双计债')
+  const folded = G.foldedSlots(G948_TWO, G948_ONE)
+  assert.equal(folded.length, 1)
+  assert.equal(folded[0].id, 'G-863')
+  assert.deepEqual([folded[0].from, folded[0].to], [2, 1])
+})
+
+test('G-948 声明豁免:台账在册(本侧 0 份)⇒ 判"在册"、不回捞;台账空 ⇒ 照旧判缺', () => {
+  const declared = new Set([G948_ROW])
+  assert.deepEqual(G.missingFrom(g948Seen(2), G948_ONE, () => null, declared, null, new Set()), [])
+  assert.equal(G.missingFrom(g948Seen(2), G948_ONE, () => null, new Set(), null, new Set()).length, 1)
+})
+
+test('端到端 G-948(①整文件回写真吞行):--staged 吞掉同题第二行 ⇒ exit 1;补回 ⇒ exit 0', () => {
+  const dir = tempPlanRepo(G948_TWO)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), G948_ONE, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const r = runGate(dir, ['--staged'])
+    assert.equal(r.status, 1, `同题两行被写成一行必须判红,实测 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(r.stderr, /G-863/)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), G948_TWO, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const ok = runGate(dir, ['--staged'])
+    assert.equal(ok.status, 0, `补回后应 exit 0,实测 ${ok.status}\n${ok.stdout}${ok.stderr}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 G-948(②只有工作树滞后):HEAD 无缺 ⇒ 全量档不得红,差值只作旁证', () => {
+  const dir = tempPlanRepo(G948_TWO)
+  try {
+    // 工作树按滞后副本整文件回写(只剩一行),但一次也没 add/commit
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), G948_ONE, 'utf8')
+    const r = runGate(dir, [])
+    assert.equal(r.status, 0, `HEAD 面没丢行时不得判红,实测 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(r.stdout, /无登记行丢失/)
+    // 同一现场走人工逃生舱(--worktree 才按磁盘判):判据**看见**这条缺口(点名 + 只报数),
+    // 但不进退出码 —— 证明差的只是取材面,且"存量缺口"在任何档位都不许变成恒红。
+    const wt = runGate(dir, ['--worktree'])
+    assert.equal(wt.status, 0, `存量名额缺口不得判红(§12e),实测 ${wt.status}\n${wt.stdout}${wt.stderr}`)
+    assert.match(wt.stderr, /G-863/)
+    assert.match(wt.stderr, /只报数/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 G-948(③被审面取不到):HEAD 里没有方案文档 ⇒ exit 2 未判定,不得冒绿也不得冒红', () => {
+  const dir = mkScratch('planloss-noplan-')
+  try {
+    copyGateClosure(dir)
+    git(dir, 'init', '-q', '-b', 'main')
+    writeFileSync(join(dir, 'README.md'), '# 空壳仓\n', 'utf8')
+    git(dir, 'add', 'README.md')
+    git(dir, 'commit', '-m', 'no plan')
+    const r = runGate(dir, [])
+    assert.equal(r.status, 2, `取不到被审面必须 exit 2,实测 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(`${r.stdout}\n${r.stderr}`, /无法判定/)
+    assert.doesNotMatch(`${r.stdout}${r.stderr}`, /无登记行丢失/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 G-948(④全量档看见但不判红):历史面名额缺口只报数,--strict 才判红', () => {
+  const dir = tempPlanRepo(G948_TWO)
+  try {
+    // 第二枚提交 = 按滞后副本整文件回写(旁路落地不跑钩子 ⇒ 提交链那一档结构上看不见)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), G948_ONE, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'stale whole-file rewrite without hook')
+    const def = runGateEnv(dir, [], { IHUI_PLAN_LINE_LOSS_HISTORY_DEPTH: '20' })
+    assert.equal(def.status, 0, `存量缺口不得判红(§12e),实测 ${def.status}\n${def.stdout}${def.stderr}`)
+    assert.match(def.stdout, /同编号仍占名额只报数 1/, '看见了必须报数,静默省略等于把没判写成判过了')
+    const strict = runGateEnv(dir, ['--strict'], { IHUI_PLAN_LINE_LOSS_HISTORY_DEPTH: '20' })
+    assert.equal(strict.status, 1, `--strict 必须问责,实测 ${strict.status}\n${strict.stdout}${strict.stderr}`)
+    assert.match(strict.stderr, /G-863/)
+  } finally {
+    rmScratch(dir)
+  }
+})
