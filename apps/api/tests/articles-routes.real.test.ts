@@ -143,5 +143,39 @@ describe('articles-routes — 路由层真实 DB 集成测试', () => {
     expect(typeof body.message).toBe('string')
     expect(Array.isArray(body.data)).toBe(true)
   })
+
+  // 2026-10-26:RN ArticleDetailScreen 一直在打 /api/articles/:id,而这条路由此前不存在
+  // (详情 100% 404)。下面三条钉住「路由存在 + RN 契约字段 + 边界」,摘掉任一条即翻红。
+  it('GET /api/articles/:id — 详情返回 RN 契约字段(author/views/publishedAt)', async () => {
+    const cat = await createCategory('科技')
+    const row = await createArticle({ title: '详情A', content: '正文A', categoryId: cat.id })
+    const res = await server.inject({ method: 'GET', url: `/api/articles/${row.id}` })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.code).toBe(0)
+    expect(body.data.id).toBe(row.id)
+    expect(body.data.content).toBe('正文A')
+    expect(body.data.author).toBe('')
+    expect(body.data.views).toBe(0)
+    expect(typeof body.data.publishedAt).toBe('string')
+    expect(body.data.categoryName).toBe('科技')
+  })
+
+  it('GET /api/articles/:id — 未发布与不存在均 404', async () => {
+    const draft = await createArticle({ title: '草稿', isPublished: false })
+    const r1 = await server.inject({ method: 'GET', url: `/api/articles/${draft.id}` })
+    expect(r1.statusCode).toBe(404)
+    const r2 = await server.inject({
+      method: 'GET',
+      url: '/api/articles/00000000-0000-4000-8000-000000000000',
+    })
+    expect(r2.statusCode).toBe(404)
+  })
+
+  it('GET /api/articles/:id — 非法 id 返回 400', async () => {
+    const res = await server.inject({ method: 'GET', url: '/api/articles/not-a-uuid' })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().code).toBe(400)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
