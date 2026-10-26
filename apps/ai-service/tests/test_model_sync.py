@@ -2372,3 +2372,130 @@ class TestToken6688CatalogSummarize:
 
         assert summarize_params_for_agent("junk") == {"params": []}
 
+
+# =============================================================================
+# 2026-10-26 占位 key = 未配置:未配凭据厂商不进人告警(机主定案)
+# 根因:ai_model_config 里 sk-placeholder-… 变体绕过精确匹配的 _PLACEHOLDER_KEYS,
+# github_models/cloudflare_workers_ai 被拉进同步连败 3 次 ⇒ 永久禁用 + health=0 ⇒
+# LlmProviderUnhealthy 长期 firing。判据收敛在选取层,不在告警侧打补丁。
+# =============================================================================
+
+
+class _FakeProviderCfg:
+    def __init__(self, api_key: str = "", api_base: str | None = None) -> None:
+        self.api_key = api_key
+        self.api_base = api_base
+
+
+class _FakeSettings:
+    def __init__(self, mapping: dict[str, _FakeProviderCfg]) -> None:
+        self._mapping = mapping
+
+    def get_provider_config(self, name: str) -> _FakeProviderCfg:
+        return self._mapping.get(name, _FakeProviderCfg())
+
+
+class TestPlaceholderKeySilence:
+    """_is_placeholder_key 判据 + 选取层静音(不进同步/不带占位 key 出网)。"""
+
+    def test_is_placeholder_key_matrix(self) -> None:
+        from app.services.model_sync import _is_placeholder_key
+
+        # 视为未配置:空 / 白名单占位符 / 含 placeholder 字样(大小写不敏感)
+        assert _is_placeholder_key("")
+        assert _is_placeholder_key("<your-xxx-api-key>")
+        assert _is_placeholder_key("sk-placeholder-key-2026")
+        assert _is_placeholder_key("SK-PLACEHOLDER-ABC")
+        # 视为已配置:真实 key 形状不得误杀
+        assert not _is_placeholder_key("sk-abc123def456")
+        assert not _is_placeholder_key("nvapi-realkey")
+
+    def test_registry_huggingface_keyless_flag(self) -> None:
+        """huggingface 目录端点免鉴权(router /v1/models 无 key 200 实测)⇒ 必须标 keyless。"""
+        from app.services.free_provider_registry import free_provider_registry
+
+        provider = free_provider_registry.get_by_code("huggingface")
+        assert provider is not None
+        assert provider.keyless_model_list is True
+        assert provider.default_base_url == "https://router.huggingface.co"
+
+    @pytest.mark.asyncio
+    async def test_selection_drops_placeholder_key_providers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """占位 key 的 github_models/cloudflare_workers_ai 不进同步;huggingface 以空 key 放行。"""
+        import app.services.model_sync as ms_mod
+
+        fake = _FakeSettings({
+            "github": _FakeProviderCfg(api_key="sk-placeholder-key-2026"),
+            "cloudflare": _FakeProviderCfg(api_key="sk-placeholder-key-2026"),
+        })
+        monkeypatch.setattr(ms_mod, "settings", fake)
+
+        async def _no_db_key(self: ModelSyncService, code: str) -> str | None:
+            return None
+
+        monkeypatch.setattr(ModelSyncService, "_db_api_key_for", _no_db_key)
+        svc = ModelSyncService()
+        result = await svc._get_configured_providers()
+        codes = {c for c, _b, _k in result}
+        assert "github_models" not in codes
+        assert "cloudflare_workers_ai" not in codes
+        # keyless 放行且**不带占位 key 出网**(Bearer sk-placeholder-… 可能被判 401)
+        hf = [t for t in result if t[0] == "huggingface"]
+        assert hf, "huggingface 应因 keyless_model_list 进同步清单"
+        assert hf[0][1] == "https://router.huggingface.co"
+        assert hf[0][2] == ""
+
+    @pytest.mark.asyncio
+    async def test_selection_real_key_still_included(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """真实 key 的厂商照常入选,且 key 原样带出(判据不得反向误杀)。"""
+        import app.services.model_sync as ms_mod
+
+        fake = _FakeSettings({
+            "github": _FakeProviderCfg(api_key="ghu_real_token_123"),
+        })
+        monkeypatch.setattr(ms_mod, "settings", fake)
+
+        async def _no_db_key(self: ModelSyncService, code: str) -> str | None:
+            return None
+
+        monkeypatch.setattr(ModelSyncService, "_db_api_key_for", _no_db_key)
+        svc = ModelSyncService()
+        result = await svc._get_configured_providers()
+        gh = [t for t in result if t[0] == "github_models"]
+        assert gh and gh[0][2] == "ghu_real_token_123"
+
+    def test_single_provider_sync_rejects_placeholder_key(self) -> None:
+        """单厂同步入口同判据:占位 key 直接 ValueError,不发请求。"""
+        import inspect
+
+        src = inspect.getsource(ModelSyncService.sync_single_provider)
+        assert "_is_placeholder_key" in src
+
+    @pytest.mark.asyncio
+    async def test_empty_key_sends_no_authorization_header(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """空 key 的免鉴权目录请求不得带 Authorization。
+
+        2026-10-26 生产实测:huggingface 换 router 域、占位 key 判未配置后以空 key 出网,
+        但默认分支仍无条件拼 `Bearer {api_key}` ⇒ httpx 抛
+        LocalProtocolError: Illegal header value b'Bearer ',本该免鉴权 200 的目录
+        成了失败,反手把 health 又打成 0。故此处钉住"无 key ⇒ 无该 header"。
+        """
+        import app.services.model_sync as ms_mod
+
+        capture: dict[str, Any] = {}
+        monkeypatch.setattr(
+            ms_mod.httpx,
+            "AsyncClient",
+            lambda timeout=None, proxy=None: _Token6688MockClient({"data": []}, capture),
+        )
+        svc = ModelSyncService()
+        await svc._fetch_upstream_models("huggingface", "https://router.huggingface.co", "")
+        assert capture.get("url", "").endswith("/v1/models")
+        assert "Authorization" not in (capture.get("headers") or {})
+
