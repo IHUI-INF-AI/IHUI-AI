@@ -97,7 +97,7 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
     // 改道后目标 root 可能还不存在(溢出分包是容量判据现开出来的)⇒ 交给 insertConfigRoot 建块。
     // 它内部对"root 已在册"退回 insertConfigPage,所以两种情形一条路。
     const r = insertConfigRoot(cfg, p.subRoot, p.page)
-    if (!r.ok) return { ok: false, why: `app.config 插路由 ${p.route}:${r.why}` }
+    if (!r.ok) return { ok: false, why: `app.config 插路由 ${p.route}:${r.why}`, culprit: p.route }
     cfg = r.text
   }
   files.push({ path: MP_CONFIG, blob: hashBytes(cfg) })
@@ -107,7 +107,7 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
   let reg = reg0
   for (const p of planned) {
     const r = insertRegistryEntry(reg, p.registryEntry)
-    if (!r.ok) return { ok: false, why: `registry 插条目 ${p.registryEntry.shared}:${r.why}` }
+    if (!r.ok) return { ok: false, why: `registry 插条目 ${p.registryEntry.shared}:${r.why}`, culprit: p.route }
     reg = r.text
   }
   files.push({ path: REGISTRY, blob: hashBytes(reg) })
@@ -121,12 +121,32 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
         packs.set(lb.packRel, t0)
       }
       const r = writePackText(packs.get(lb.packRel), lb.groups, lb.members)
-      if (!r.ok) return { ok: false, why: `词包 ${lb.packRel}(${p.route}):${r.why}` }
+      if (!r.ok) return { ok: false, why: `词包 ${lb.packRel}(${p.route}):${r.why}`, culprit: p.route }
       packs.set(lb.packRel, r.text)
     }
   }
   for (const [rel, text] of packs) files.push({ path: rel, blob: hashBytes(text) })
   return { ok: true, files, packs: packs.size }
+}
+
+/**
+ * 一屏接缝失败不许拖死整批(2026-10-26 实测:home 的词包缺键落在嵌套子对象里,并键档不并
+ * ⇒ 整批 blocked ⇒ 队列停在这一屏,与"单行 pages 数组"同一型的安静停摆)。
+ * 做法:装配失败时只摘掉**肇事那一屏**(assembleBlobs 回带的 culprit),其余照落;
+ * 被摘的逐条点名,跳过必须可见。上限 8 次 —— 再多说明不是"个别屏"的问题,整批放弃并点名。
+ */
+export function buildWithDrops(batch, assemble) {
+  const work = [...batch]
+  const dropped = []
+  let built = assemble(work)
+  for (let guard = 0; !built.ok && built.culprit && guard < 8; guard += 1) {
+    const idx = work.findIndex((p) => p.route === built.culprit)
+    if (idx < 0) break
+    const [out] = work.splice(idx, 1)
+    dropped.push({ route: out.route, spec: out.spec, why: built.why })
+    built = assemble(work)
+  }
+  return { built, batch: work, dropped }
 }
 
 /** 新源文件必须带溯源水印(§5c):在临时件上注入后取字节,不动工作树的真文件 */
@@ -446,16 +466,31 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
         `。出路:重建产物后更新 ${CAPACITY_REL}(或给新屏开新分包),不要靠加 cap 硬灌`,
     }
   }
-  const built = assembleBlobs(batch, { headOf: headBlob, watermarkOf: (n, t) => hashBytes(watermarkBytesOf(n, t)) })
-  if (!built.ok) return { state: 'blocked', why: built.why, planned: planned.length, held }
+  // 一屏接缝失败不许拖死整批(2026-10-26 实测:home 的词包缺键落在嵌套子对象里,并键档不并
+  // ⇒ 整批 blocked ⇒ 队列停在这一屏,和"单行 pages 数组"同一型的安静停摆)。做法:装配失败时
+  // 只摘掉肇事那一屏,其余照落,被摘的逐条点名进 dropped —— 跳过必须可见,不许静默。
+  const { built, batch: finalBatch, dropped } = buildWithDrops(batch, (arr) =>
+    assembleBlobs(arr, { headOf: headBlob, watermarkOf: (n, t) => hashBytes(watermarkBytesOf(n, t)) }),
+  )
+  if (!built.ok) return { state: 'blocked', why: built.why, planned: planned.length, held, dropped }
+  if (finalBatch.length === 0) {
+    return {
+      state: 'blocked',
+      planned: planned.length,
+      held,
+      dropped,
+      why: `本批 ${dropped.length} 枚全部因接缝失败被摘(${dropped[0]?.why ?? '未附原因'})⇒ 无可落之物`,
+    }
+  }
 
   if (!apply || headless) {
     return {
       state: 'pending',
       planned: planned.length,
-      batch: batch.map((p) => p.route),
+      batch: finalBatch.map((p) => p.route),
       held,
       moves,
+      dropped,
       blobs: built.files.length,
       note: apply ? 'headless 档:只算不落' : '预演模式:加 --apply 落地',
     }
@@ -464,7 +499,7 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
   mkdirSync(dirname(manifest), { recursive: true })
   writeFileSync(manifest, JSON.stringify({ files: built.files }, null, 1), 'utf8')
   const msg = [
-    `chore(cross-end): 自动落 ${batch.length} 枚小程序壳承载页(共 ${planned.length} 枚待产)`,
+    `chore(cross-end): 自动落 ${finalBatch.length} 枚小程序壳承载页(共 ${planned.length} 枚待产)`,
     '',
     `器物:node scripts/land-cross-end-shell-pages.mjs --apply(cap=${cap},每轮节拍;容量判据 = 单分包 2 MiB,见 data/cross-end-subpackage-capacity.json)`,
     '形制:端内零布局零样式 —— 渲染源 = packages/app 共享屏(经 src/rn-compat),数据与交互 = 同名 RN 壳。',
@@ -479,7 +514,7 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
         ]
       : []),
     '',
-    `页面:${batch.map((p) => `${p.spec} → ${p.route}`).join('; ')}`,
+    `页面:${finalBatch.map((p) => `${p.spec} → ${p.route}`).join('; ')}`,
   ].join('\n')
   try {
     const out = execFileSync(process.execPath, [R('scripts', 'object-space-land.mjs')], {
@@ -500,9 +535,10 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
     return {
       state: ok ? 'landed' : 'undetermined',
       planned: planned.length,
-      batch: batch.map((p) => p.route),
+      batch: finalBatch.map((p) => p.route),
       held,
       moves,
+      dropped,
       blobs: built.files.length,
       note: ok ? 'CAS 成功且按被审面回读在树' : `落地器输出未自证成功,末行:${out.split('\n').filter(Boolean).slice(-1)[0] ?? ''}`,
     }
@@ -803,6 +839,28 @@ function selfTest() {
         return g.admitted?.[0]?.route
       },
     },
+    // ---------- 一屏接缝失败不许拖死整批 ----------
+    {
+      name: '摘屏:一屏接缝失败 ⇒ 只摘肇事那屏,其余照落(跳过的必须点名)',
+      want: '2/1/bad',
+      got: () => {
+        const plans = [fakePlan('okA'), fakePlan('bad'), fakePlan('okB')]
+        const r = buildWithDrops(plans, (arr) =>
+          arr.some((p) => p.route.endsWith('/bad/index'))
+            ? { ok: false, why: '词包并键档不支持', culprit: 'pkg-user/bad/index' }
+            : { ok: true, files: [] },
+        )
+        return `${r.batch.length}/${r.dropped.length}/${r.dropped[0]?.route.includes('bad') ? 'bad' : '?'}`
+      },
+    },
+    {
+      name: '摘屏:失败不带 culprit ⇒ 一枚都不摘(不猜肇事者,整批照旧 blocked)',
+      want: '0/0',
+      got: () => {
+        const r = buildWithDrops([fakePlan('okC')], () => ({ ok: false, why: 'HEAD 面取不到' }))
+        return `${r.dropped.length}/${r.batch.length - r.batch.length}`
+      },
+    },
   ]
   let pass = 0
   for (const c of cases) {
@@ -842,6 +900,9 @@ if (isDirectRun) {
       // 改道几枚(语义分包装不下 → 溢出分包),让日志能解释"这屏怎么落到 pkg-mirror 去了"
       moved: r.moves?.length ?? 0,
       movedTo: [...new Set((r.moves ?? []).map((m) => m.to))].join(','),
+      // 因接缝失败被摘掉几枚(如词包并键档不支持的屏);跳过必须可见,不许静默
+      dropped: r.dropped?.length ?? 0,
+      droppedWhy: r.dropped?.[0]?.why ?? '',
       doc: r.doc ?? 'skipped',
       why: r.why ?? '',
       note: r.note ?? '',
@@ -860,5 +921,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { assembleBlobs, writePackText, run, runPages, capacityGate, syncParityDoc, foldDocResult, syncShellTypes, foldShellTypesResult, SHELL_DECL, PARITY_DOC, CAPACITY_REL, DEFAULT_CAP }
+export const __test__ = { buildWithDrops, assembleBlobs, writePackText, run, runPages, capacityGate, syncParityDoc, foldDocResult, syncShellTypes, foldShellTypesResult, SHELL_DECL, PARITY_DOC, CAPACITY_REL, DEFAULT_CAP }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
