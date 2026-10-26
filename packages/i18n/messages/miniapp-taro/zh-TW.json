@@ -5015,5 +5015,31 @@
     "tokens": "Token 消耗",
     "avgRating": "平均評分",
     "loadFailed": "載入統計失敗"
+  },
+  "aiMultimodal": {
+    "clear": "清空",
+    "empty": "暫無訊息",
+    "error": "出錯了",
+    "inputPlaceholder": "輸入訊息...",
+    "noModels": "暫無可用模型",
+    "send": "發送",
+    "subtitle": "多模態對話",
+    "switchModel": "切換模型",
+    "title": "多模態"
+  },
+  "aiWorld": {
+    "title": "AI 世界",
+    "empty": "暫無內容",
+    "emptyHint": "AI 世界的精彩內容正在路上",
+    "favorites": "收藏",
+    "history": "瀏覽歷史",
+    "kindLabel": "類型",
+    "loadFailed": "載入失敗",
+    "viewCount": "瀏覽",
+    "searchPlaceholder": "搜尋 AI 工具 / 應用 / 資訊…",
+    "categoryAll": "全部",
+    "votes": "票數",
+    "rankLoadFailed": "榜單載入失敗",
+    "rankEmpty": "該榜單暫無資料"
   }
 }
