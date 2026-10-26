@@ -430,6 +430,11 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'MODEL_REFUSED.action',
     category: 'runtimeException',
   },
+  MODEL_RETIRED: {
+    titleKey: 'MODEL_RETIRED.title',
+    actionKey: 'MODEL_RETIRED.action',
+    category: 'resourceNotFound',
+  },
   MODEL_STREAM_IDLE: {
     titleKey: 'MODEL_STREAM_IDLE.title',
     actionKey: 'MODEL_STREAM_IDLE.action',

@@ -8782,6 +8782,10 @@
           "title": "현재 모델이 이 요청을 거부했습니다",
           "action": "모델 변경"
         },
+        "MODEL_RETIRED": {
+          "title": "이 모델은 영구적으로 사용이 중단되었습니다",
+          "action": "목록의 제공 중 모델로 변경"
+        },
         "MODEL_STREAM_IDLE": {
           "title": "응답 시간이 초과되었습니다",
           "action": "재시도"
