@@ -22,6 +22,7 @@ import * as React from 'react'
 import { AudioLines, Volume2, VolumeX } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { IconButton } from '@ihui/ui-react'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useWebAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
@@ -363,7 +364,8 @@ export function VoiceStreamSpeaker() {
   // 票60 长尾(2026-10-21):朗读腿随输入框进非根窗格 ⇒ 播的是本窗格那次流式,不是根窗格的
   const chatStore = usePaneChatStore()
   const isStreaming = chatStore((s) => s.isStreaming)
-  const accessToken = useWebAuthStore((s) => s.token)
+  // 2026-10-26:这里**不再**订阅 token(旧写法把 render 期那一枚带进 15 分钟后仍照发),
+  // 改为建连时 useWebAuthStore.getState() 现取,见下方 speakStream。
   // 只订阅叶子值:最后一条 assistant 内容(字符串引用稳定)
   const content = chatStore((s) => {
     const msgs = s.messages
@@ -529,17 +531,40 @@ export function VoiceStreamSpeaker() {
     }
 
     const speakStream = async (): Promise<void> => {
-      try {
-        const res = await fetch(getTtsEndpoint(), {
+      // 凭据每次建连现取:render 期订阅到的那一枚可能已经躺了超过 15 分钟(access 寿命)。
+      const openOnce = (): Promise<Response> => {
+        const credential = useWebAuthStore.getState().token
+        return fetch(getTtsEndpoint(), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            ...(credential ? { Authorization: `Bearer ${credential}` } : {}),
           },
           body: JSON.stringify({ text: speech, voice: 'zh-CN-XiaoxiaoNeural' }),
           signal: controller.signal,
         })
-        if (!res.ok || !res.body || !isLive()) return
+      }
+      try {
+        let res = await openOnce()
+        // 401 = access 过期。整轮播报至多续期一次并重放一次(HTTP 层尚未读任何音频帧,
+        // 重放不会播两遍);续期失败或重放仍非 2xx ⇒ 走下面的可见报错出口,不再重试。
+        // 红线:这里不做任何登出动作(判不出/网络抖动都不是会话终结)。
+        if (res.status === 401) {
+          const fresh = await refreshAccessTokenOnce()
+          if (fresh && !controller.signal.aborted) res = await openOnce()
+        }
+        if (!isLive()) return
+        if (!res.ok || !res.body) {
+          // 立因修复:此前 401(以及一切非 2xx)被下面的空 catch 吞掉 ⇒ 用户只看到
+          // "就是没声音",而界面/控制台零线索。朗读是辅助通道可以不响用户,
+          // 但不能**连日志都不响**(§5e:失败必须响)。
+          console.error(
+            `[voice-stream-speaker] TTS stream failed: HTTP ${res.status}${
+              res.status === 401 ? ' (auth-refresh-exhausted)' : ''
+            }`,
+          )
+          return
+        }
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
@@ -557,8 +582,11 @@ export function VoiceStreamSpeaker() {
         }
         if (buffer.trim()) handleEvent(buffer)
         await playChain
-      } catch {
-        /* abort / 网络失败:辅助通道静默;abort 后队列里的段由 isLive 拦住 */
+      } catch (err) {
+        // abort(用户打断/切走/卸载)= 预期内静默;其余(网络异常、读环抛错)**必须响** ——
+        // 空 catch 把"整条 TTS 挂了"读成"这轮没有语音",是 §12f 那条"失效总是安静的"的现场。
+        if (controller.signal.aborted) return
+        console.error('[voice-stream-speaker] TTS stream failed', err)
       } finally {
         if (abortRef.current === controller) {
           abortRef.current = null

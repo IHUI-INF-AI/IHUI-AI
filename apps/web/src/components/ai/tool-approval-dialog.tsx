@@ -20,7 +20,11 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Check, Globe, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react'
-import { postToolApprovalResponse, sendToolApprovalResponse } from '@ihui/api-client'
+import {
+  postToolApprovalResponse,
+  refreshAccessTokenOnce,
+  sendToolApprovalResponse,
+} from '@ihui/api-client'
 import type { ToolApprovalRequest, ToolApprovalScope } from '@ihui/types'
 import { AGENT_TASK_EVENTS, parseToolApprovalEvent } from '@ihui/shared'
 import { Modal, confirmDialog } from '@/components/feedback'
@@ -299,6 +303,10 @@ export function ToolApprovalDialog() {
   const [state, setState] = React.useState<ApprovalDialogState>(INITIAL_STATE)
   const stateRef = React.useRef(state)
   stateRef.current = state
+  /** 续期成功后重建 EventSource 的扳机(bump ⇒ 本 effect 重跑,cleanup 先关掉死流) */
+  const [approvalStreamNonce, setApprovalStreamNonce] = React.useState(0)
+  /** 「本次挂载已用过那唯一一次续期」的账(跨 effect 重跑存活,组件卸载即作废) */
+  const approvalStreamRetryRef = React.useRef(false)
 
   // 把"现在正等谁决策"发布给同页订阅者(D71 徽章的 waitingConfirm)。
   // 卸载时必须清一次:弹窗被路由切换摘掉而审批还没答完时,留着旧值会让徽章永远显示
@@ -383,6 +391,15 @@ export function ToolApprovalDialog() {
   )
 
   // 通道 1:EventSource 订阅 /api/agents/tasks/stream(tool-approval SSE 事件)
+  //
+  // 2026-10-26 修「审批流静默死透」:EventSource 只靠同源 cookie 鉴权,而 cookie 里是
+  // 同一枚 15 分钟 JWT。onerror 有两种互斥成因,旧实现一律"交给内置重连":
+  //   - CONNECTING ⇒ 瞬态抖动,浏览器**正在**自动重连 ⇒ 不许续期、不许报错;
+  //   - CLOSED     ⇒ 致命失败(401/403/410、内容类型不符),浏览器**不再**重连。
+  // 旧代码把第二档当第一档处理 ⇒ 高危审批事件从此不再送达,而界面一句错都不报(比报错更危险:
+  // 用户以为"没人发起审批")。致命档 ⇒ 续期一次(cookie 随之重写)并重建一次;
+  // 续期失败或重建仍致命 ⇒ 大声记一行并停手(绝不无限重建,那等于拿同一枚死凭据刷握手)。
+  // 同一条分档口径另见 use-admin-insights-stream.ts / use-agent-runtime.ts / useAgentSSE.ts。
   React.useEffect(() => {
     if (typeof window === 'undefined' || !('EventSource' in window)) return
     const es = new EventSource('/api/agents/tasks/stream')
@@ -395,11 +412,30 @@ export function ToolApprovalDialog() {
       enqueue({ ...evt, dangerLevel: evt.dangerLevel as ToolApprovalRequest['dangerLevel'] })
     }
     es.addEventListener(AGENT_TASK_EVENTS.TOOL_APPROVAL, onApproval)
-    // 网络错误不 close,让 EventSource 内置自动重连生效(与 use-agent-runtime 同模式)
+    es.onerror = () => {
+      if (es.readyState !== EventSource.CLOSED) return
+      void (async () => {
+        if (approvalStreamRetryRef.current) {
+          console.error(
+            '[tool-approval] approval stream dead: unauthorized-after-refresh (no more approvals will arrive)',
+          )
+          return
+        }
+        approvalStreamRetryRef.current = true
+        const fresh = await refreshAccessTokenOnce()
+        if (fresh) {
+          setApprovalStreamNonce((n) => n + 1)
+          return
+        }
+        console.error(
+          '[tool-approval] approval stream dead: refresh-failed (no more approvals will arrive)',
+        )
+      })()
+    }
     return () => {
       es.close()
     }
-  }, [enqueue])
+  }, [enqueue, approvalStreamNonce])
 
   // 通道 2:window 自定义事件(executeAgentStream 等消费方桥接)
   React.useEffect(() => {

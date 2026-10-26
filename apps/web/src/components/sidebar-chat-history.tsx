@@ -510,7 +510,27 @@ export function SidebarChatHistory({
   // 2026-09-02 修复:bootstrap 未就绪时,即使 localStorage 残留 isAuthenticated=true,
   // token 仍为 null,直接渲染对话列表会导致 401 或空状态闪现。
   // 等待 ready 后再按真实登录态渲染。
-  if (!ready || !isAuthenticated) {
+  // 2026-10-26 收窄:「还没查完」≠「确认未登录」(与 admin/layout 同口径)——!ready 这一格
+  // 只给"校验中"加载态,绝不渲染「请先登录」,否则冷启动静默续期中的已登录用户被画成被踢出。
+  if (!ready) {
+    return (
+      <div
+        role="region"
+        aria-label={t('title')}
+        className="mb-1 w-full rounded-lg border border-border bg-card p-1.5"
+      >
+        <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <span>{tc('history')}</span>
+        </div>
+        <div className="flex items-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+          <span className="min-w-0 flex-1 truncate">{t('loading')}</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
     return (
       <div
         role="region"

@@ -15,8 +15,9 @@
  * - disconnect 不触发重连(status=closed)
  * - 多订阅者都收到回调
  * - 无 token 时 status=error,不连接
+ * - 2026-10-26 新增(审计第 1 条):建连前换 WS ticket;重连取的是**当前**凭据而非快照
  */
-import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll, afterEach, vi } from 'vitest'
 
 /**
  * 冷装载预算:2026-09-29 起 '@ihui/api-client' 别名直指真实 barrel
@@ -30,6 +31,22 @@ import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
 beforeAll(async () => {
   await import('../src/lib/ws/chat-client')
 }, 60_000)
+
+/**
+ * 换票走的是包内 `fetchWsTicket` → 全局 fetch。不替身就会真打 localhost:8801:
+ * 真 IO 要跨多个宏任务才落定,而既有各例只给一跳 `setTimeout(0)` 的预算
+ * ——那会测出"没建连"的假红。替身后换票在纯微任务里就落定,既有断言一条不动。
+ * 默认按"换票失败"处理(降级直连 access token),这是修复前既有断言所依赖的形态。
+ */
+const fetchMock = vi.fn(async () => {
+  throw new Error('offline in tests')
+})
+beforeEach(() => {
+  vi.stubGlobal('fetch', fetchMock)
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 /** 简易可控 WebSocket mock(支持手动 open / message / close) */
 class FakeWebSocket {
@@ -336,6 +353,112 @@ describe('lib/ws/chat-client', () => {
     client.connect('r')
     await new Promise((r) => setTimeout(r, 0))
     expect(instances).toHaveLength(1)
+    client.disconnect()
+  })
+
+  /* ---------------- 2026-10-26 审计第 1 条:换票 + 当前凭据 ---------------- */
+
+  it('默认接上包内换票:URL 带的是 ws ticket,access token 不进 URL', async () => {
+    fetchMock.mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ data: { wsToken: 'ws-ticket-9' } }),
+    }))
+    const { LiveChatClient } = await import('../src/lib/ws/chat-client')
+    const client = new LiveChatClient({
+      baseUrl: 'http://localhost:8801',
+      tokenProvider: () => 'tk-123',
+      webSocketFactory: factory,
+    })
+    client.connect('room-T')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(instances).toHaveLength(1)
+    expect(instances[0]!.url).toContain('token=ws-ticket-9')
+    // 反向锁:access token 一旦进 URL,就会落进访问日志/代理日志(换票的立项理由)
+    expect(instances[0]!.url).not.toContain('tk-123')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    client.disconnect()
+  })
+
+  it('正向对照:显式关掉换票时退回直连 access token(证明上一例的差异来自 ticketProvider)', async () => {
+    fetchMock.mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ data: { wsToken: 'ws-ticket-9' } }),
+    }))
+    const { LiveChatClient } = await import('../src/lib/ws/chat-client')
+    const client = new LiveChatClient({
+      baseUrl: 'http://localhost:8801',
+      tokenProvider: () => 'tk-123',
+      webSocketFactory: factory,
+      ticketProvider: async () => null,
+    })
+    client.connect('room-T')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(instances[0]!.url).toContain('token=tk-123')
+    expect(fetchMock).not.toHaveBeenCalled()
+    client.disconnect()
+  })
+
+  it('重连取的是**当前**凭据,不是 connect 那一刻的快照(旧实现把 token 抄进字段后永不更新)', async () => {
+    vi.useFakeTimers()
+    let current = 'tk-old'
+    const { LiveChatClient } = await import('../src/lib/ws/chat-client')
+    const client = new LiveChatClient({
+      baseUrl: 'http://localhost:8801',
+      tokenProvider: () => current,
+      webSocketFactory: factory,
+      ticketProvider: async () => null,
+      maxReconnectDelay: 5000,
+    })
+    client.connect('room-R')
+    await vi.runOnlyPendingTimersAsync()
+    expect(instances[0]!.url).toContain('token=tk-old')
+
+    // 15 分钟后凭据轮转(续期写回唯一凭据源),然后服务端断了一刀
+    current = 'tk-new'
+    instances[0]!.simulateClose()
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(instances.length).toBeGreaterThanOrEqual(2)
+    expect(instances[instances.length - 1]!.url).toContain('token=tk-new')
+    client.disconnect()
+    vi.useRealTimers()
+  })
+
+  it('凭据被续期换掉后,再次 connect 同房间也会用新凭据(快照型实现会一直卡在旧票)', async () => {
+    let current = 'tk-1'
+    const { LiveChatClient } = await import('../src/lib/ws/chat-client')
+    const client = new LiveChatClient({
+      baseUrl: 'http://localhost:8801',
+      tokenProvider: () => current,
+      webSocketFactory: factory,
+      ticketProvider: async () => null,
+    })
+    client.connect('room-S')
+    await new Promise((r) => setTimeout(r, 0))
+    current = 'tk-2'
+    client.disconnect()
+    client.connect('room-S')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(instances).toHaveLength(2)
+    expect(instances[1]!.url).toContain('token=tk-2')
+    client.disconnect()
+  })
+
+  it('换票请求抛错时降级直连、不炸建连(旧服务端/离线场景仍要能连)', async () => {
+    fetchMock.mockImplementation(async () => {
+      throw new Error('ECONNREFUSED')
+    })
+    const { LiveChatClient } = await import('../src/lib/ws/chat-client')
+    const client = new LiveChatClient({
+      baseUrl: 'http://localhost:8801',
+      tokenProvider: () => 'tk-fallback',
+      webSocketFactory: factory,
+    })
+    const statuses: string[] = []
+    client.subscribe({ onStatusChange: (s) => statuses.push(s) })
+    client.connect('room-F')
+    await vi.waitFor(() => expect(instances.length).toBeGreaterThanOrEqual(1))
+    expect(instances[0]!.url).toContain('token=tk-fallback')
+    expect(statuses).toContain('connecting')
     client.disconnect()
   })
 })
