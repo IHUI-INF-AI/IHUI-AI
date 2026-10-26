@@ -14,7 +14,7 @@
 // @vitest-environment jsdom
 import * as React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('next-intl', async () => {
@@ -132,6 +132,13 @@ const overview = {
     totalEvents: 897,
     computedAtMs: 0,
   },
+  audience: {
+    newUv: 28,
+    returningUv: 11,
+    activeUv: 39,
+    returningRate: 0.2821,
+    computedAtMs: 0,
+  },
   relayPool: null,
   edge: null,
 }
@@ -201,6 +208,38 @@ describe('WallboardView 使用数据面板', () => {
     // web 行读数 PV 4000 / UV 280(读数走 fmtInt,千分位)
     await waitFor(() => expect(document.body.textContent).toContain('4,000'))
     expect(document.body.textContent).toContain('/ 280')
+  })
+
+  it('渲染访客构成:新访客/回访/回访率三行按接口字段绑定', async () => {
+    renderWallboard()
+    await waitFor(() => expect(screen.getAllByText('访客构成').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('新访客').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('回访访客').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('回访率').length).toBeGreaterThan(0)
+    // 逐行绑值:11 / 39 = 28.21% ⇒ 界面读 28%;面板头给出窗口访客总数 39
+    expect(screen.getAllByText('新访客')[0]?.parentElement?.textContent).toBe('新访客28')
+    expect(screen.getAllByText('回访访客')[0]?.parentElement?.textContent).toBe('回访访客11')
+    expect(screen.getAllByText('回访率')[0]?.parentElement?.textContent).toBe('回访率28%')
+    await waitFor(() => expect(document.body.textContent).toContain('窗口访客 39'))
+  })
+
+  it('访客构成这条腿取不到时读数落“—”,不得兜成 0', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : { success: true, data: { ...overview, audience: null } }) as never)
+    // 本仓 RTL 不自动 cleanup ⇒ 前一例的 DOM 仍在 body 里,必须按本次 container 取范围
+    const view = renderWallboard()
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('访客构成').length).toBeGreaterThan(0),
+    )
+    // 按行断言(整屏 textContent 会被别处的百分比干扰)
+    expect(within(view.container).getAllByText('回访率')[0]?.parentElement?.textContent).toBe(
+      '回访率—',
+    )
+    expect(within(view.container).getAllByText('新访客')[0]?.parentElement?.textContent).toBe(
+      '新访客—',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
