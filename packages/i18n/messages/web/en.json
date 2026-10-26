@@ -11052,8 +11052,8 @@
       "send": "Send preview"
     },
     "bindIssue": "Bind issue",
-    "unbindIssue": "Make standalone task",    "unbindIssue": "Make standalone task",
-    "bindIssueHint": "Link this conversation to a GitHub or Linear issue — handy for chats that track a bug or feature. Search, pick an issue, and a clickable badge appears next to the conversation. Skipping it changes nothing else.",    "bindIssueHint": "Link this conversation to a GitHub or Linear issue — handy for chats that track a bug or feature. Search, pick an issue, and a clickable badge appears next to the conversation. Skipping it changes nothing else.",
+    "unbindIssue": "Make standalone task",
+    "bindIssueHint": "Link this conversation to a GitHub or Linear issue — handy for chats that track a bug or feature. Search, pick an issue, and a clickable badge appears next to the conversation. Skipping it changes nothing else.",
     "searchIssueAction": "Search",
     "issueBinding": "Linked issue",
     "searchIssues": "Search issues by ID, title, or project",
