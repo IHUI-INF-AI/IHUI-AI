@@ -6038,7 +6038,9 @@ class AgentLoopV2:
                 _net = False
                 if self._axis_resolution is not None and _tool_def is not None:
                     try:
-                        _w, _net = _axis_dims_from_mcp_annotations(_ann)
+                        _w, _net_axis = _axis_dims_from_mcp_annotations(_ann)
+                        # 双轴推不出时返回 None ⇒ 按下游默认(false)落,不把"判不出"写进 bool
+                        _net = bool(_net_axis)
                     except Exception:  # noqa: BLE001
                         _net = False
                 if _taint_gate_requires_approval(

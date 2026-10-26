@@ -503,6 +503,7 @@
     "agreementNoticeTitle": "먼저 약관에 동의해 주십시오"
   },
   "chat": {
+    "approvalExpiredNotice": "연결이 끊겨 {toolName} 도구의 승인이 만료되었습니다. 해당 작업은 실행되지 않았습니다. 계속하려면 다시 요청하세요.",
     "mcp": {
       "state": {
         "connecting": "{server} 연결 중…",
