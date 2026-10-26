@@ -1369,7 +1369,9 @@ function copyHeaders(headers: RequestInit['headers']): Record<string, string> {
   if (Array.isArray(headers)) {
     for (const [key, value] of headers) out[key] = String(value)
   } else if (typeof Headers !== 'undefined' && headers instanceof Headers) {
-    headers.forEach((value, key) => {
+    // 2026-10-26:本包 tsconfig 下 `Headers` 解析不到 DOM 声明(`headers` 被收敛成 any)⇒
+    // forEach 回调的 value/key 落 TS7006 隐式 any。显式标注参数类型,不改运行期行为。
+    headers.forEach((value: string, key: string) => {
       out[key] = value
     })
   } else if (headers && typeof headers === 'object') {
