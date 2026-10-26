@@ -281,6 +281,10 @@ describe('登记行改写三维守恒', () => {
       'add-incomplete',
     )
     assert.equal(
+      C.leaseTransitionOf('- [ ] G-1 正文', '- [ ]（进行中@2099-01-01/b） G-1 正文'),
+      'add-future',
+    )
+    assert.equal(
       C.leaseTransitionOf('- [ ]（进行中@2026-10-23/b） G-1 正文', '- [ ] G-1 正文'),
       'removed',
     )

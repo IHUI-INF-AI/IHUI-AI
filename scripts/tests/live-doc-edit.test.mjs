@@ -23,6 +23,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ } from '../live-doc-edit.mjs'
+import { todayIso } from '../lib/plan-row-conservation.mjs'
 import { LEASE_POOL_MAX } from '../lib/plan-id-lease.mjs'
 import { git, headBlobOf, indexBlobOf, landsLedger, writeBlob } from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -2603,8 +2604,8 @@ test('RS8 端到端·改写档两臂:before 干净而 after 带裸令牌 ⇒ rc=
 // ── G965 族:整行改写档的三维守恒接线(2026-10-22 立,规格 §2)────────────────────────
 // 判据唯一实现在 `scripts/lib/plan-row-conservation.mjs`,本文件只做端到端接线自证:
 // 只 spawn 生产 CLI(不复算判据),且一律打临时 LIVE_ROOT,绝不碰真台账。
-// 七条成对:删归属句 ⇒ 拒 / 只缩短正文 ⇒ 放 / 摘租约 ⇒ 拒 / 翻勾 ⇒ 不被守恒拦 / 违规时零写盘 /
-// 批量新增完整租约 ⇒ 放(AGENTS §1 认领动作,本票立因) / 换持有者 ⇒ 拒。
+// 八条成对:删归属句 ⇒ 拒 / 只缩短正文 ⇒ 放 / 摘租约 ⇒ 拒 / 翻勾 ⇒ 不被守恒拦 / 违规时零写盘 /
+// 批量新增完整租约 ⇒ 放(AGENTS §1 认领动作,本票立因) / 换持有者 ⇒ 拒 / 未来日期牌 ⇒ 拒(条件②,2026-10-26 补)。
 const CONSERVATION_LINES = [
   '# 标题',
   '- [ ] G-900 修登录（归属:api 线）',
@@ -2784,6 +2785,33 @@ test('G965-7 端到端·换牌上的持有者(改约)⇒ 拒写(exit 1),零写�
     `改约(换持有者)不得被"新增完整租约"档混放,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 600)}`,
   )
   assert.match(`${r.stdout}${r.stderr}`, /租约形态变化/, '违规条目必须点名租约这一维')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '拒写时 HEAD 必须原地不动')
+})
+
+test('G965-8 端到端·给未勾行新增"未来日期"租约 ⇒ 拒写(exit 1),零写盘(条件②)', (t) => {
+  const { dir, inputs } = makeDocRepo(t, CONSERVATION_LINES.join('\n'))
+  const head0 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const future = new Date(`${todayIso()}T00:00:00Z`)
+  future.setUTCDate(future.getUTCDate() + 1)
+  const futureIso = future.toISOString().slice(0, 10)
+  const rep = join(inputs, 'rc8.json')
+  writeFileSync(
+    rep,
+    JSON.stringify([
+      {
+        before: '- [ ] G-900 修登录（归属:api 线）',
+        after: `- [ ]（进行中@${futureIso}/主会话） G-900 修登录（归属:api 线）`,
+      },
+    ]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(
+    r.status,
+    1,
+    `未来日期牌不得被"新增完整租约"档混放,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 600)}`,
+  )
+  assert.match(`${r.stdout}${r.stderr}`, /挂牌日期在未来/, '违规条目必须点名未来日期这一维')
   assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '拒写时 HEAD 必须原地不动')
 })
 
