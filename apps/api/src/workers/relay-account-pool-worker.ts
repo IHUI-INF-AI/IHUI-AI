@@ -144,15 +144,17 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
         return null
       }
       const result = await sweepAccountPool()
-      // 日志取值面 = sweepAccountPool 的产出面(AccountPoolSweepResult 的 6 枚键),不得多读:
-      // 签到对账 / 断链待推重推当前不在 sweep 产出里(sweep 单轮只做临期刷新 + unknown 定级
-      // + down 恢复),读它们只会得到 undefined。要恢复该族埋点,先让生产端真发键(见本票回报)。
+      // 日志取值面 = sweepAccountPool 的产出面(AccountPoolSweepResult 的 7 枚键),不得多读:
+      // 签到对账 / 断链待推重推当前不在 sweep 产出里(sweep 单轮做 空闲保活 + 临期刷新
+      // + unknown 定级 + down 恢复),读它们只会得到 undefined。要恢复该族埋点,
+      // 先让生产端真发键(见 relay-account-pool-sweep-result 契约测试的加键顺序)。
       server.log.info(
         {
           skipped: result.skipped,
           refreshed: result.refreshed,
           refreshFailed: result.refreshFailed,
           refreshSkipped: result.refreshSkipped,
+          keepalive: result.keepalive,
           healthChecked: result.healthChecked,
           healthRecovered: result.healthRecovered,
         },

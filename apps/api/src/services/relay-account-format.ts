@@ -35,6 +35,29 @@ const WEBKIT_EPOCH_OFFSET_MS = 11_644_473_600_000
 // JWT / Cookie 纯解析
 // =============================================================================
 
+/**
+ * 时刻量纲判据(2026-10-26 立):秒/毫秒混传的过期时刻按「量纲」归一为毫秒。
+ *
+ * 立因:`parseFlexibleExpiry` 对裸数字一律 ×1000 当 epoch **秒**。第三方账号工具
+ * (workbuddy-switch 等)导出的 `expires_at` 是 epoch **毫秒**(Keycloak 惯例,如
+ * 1795356026000)→ 放大成 5138 年的"永不过期"时刻随 CAS 版本推给签到副本,所有
+ * 临期/摘除/保活判据对它集体失明。
+ *
+ * 阈值取 1e11:秒制要越过该线得等到公元 5138 年 — 真实世界无此数据;而 ms 制在
+ * 1973 年后就恒大于 1e11。故 ≥1e11 判毫秒、否则判秒,两侧现网输入均不受影响。
+ * 返回 null = 不是合法时刻(调用方继续回落 JWT exp / ISO 解析)。
+ */
+export function expireEpochToMs(v: unknown): number | null {
+  const n =
+    typeof v === 'number'
+      ? v
+      : typeof v === 'string' && /^\d+$/.test(v.trim())
+        ? Number(v.trim())
+        : NaN
+  if (!Number.isFinite(n) || n <= 0) return null
+  return n >= 1e11 ? n : n * 1000
+}
+
 /** 解 JWT payload(**不验签**,只取声明)。非三段式/非 base64url JSON → null */
 export function parseJwtClaims(token: string): Record<string, unknown> | null {
   const parts = token.split('.')
@@ -240,6 +263,175 @@ function hasAny(obj: Record<string, unknown>, keys: string[]): boolean {
   return keys.some((k) => cstr(obj[k]) !== '')
 }
 
+// =============================================================================
+// 外来格式自适应(2026-10-26 立)
+// =============================================================================
+
+/**
+ * 我方导入契约的规范字段集(单源:归一化、未知字段透传、路由白名单校验共用)。
+ * 除此之外的键 → 原样进 `extraMetadata`(兑现 RELAY_ACCOUNT_IMPORT_FORMAT.md §2
+ * 「其他字段原样透传」的承诺 —— 此前服务端并没有真做透传,外来格式的
+ * access_token/expires_at/uid 会在入口被整体丢弃,判成「缺少 token」)。
+ */
+export const IMPORT_CANONICAL_KEYS = [
+  'name',
+  'uid',
+  'token',
+  'refreshToken',
+  'deviceId',
+  'machineId',
+  'deviceKeyPem',
+  'devicePubPem',
+  'enabled',
+  'cookies',
+  'proxyUrl',
+  'expiresAt',
+  'refreshTokenExpiresAt',
+] as const
+
+const FOREIGN_TOKEN_ALIASES = ['access_token', 'accessToken', 'id_token', 'idToken']
+const FOREIGN_REFRESH_ALIASES = ['refresh_token', 'refresh', 'rt']
+const FOREIGN_UID_ALIASES = ['userId', 'user_id', 'account_id', 'accountId']
+const FOREIGN_NAME_ALIASES = ['nickname', 'accountName', 'user_name', 'username', 'phone']
+/** 过期时刻的字段名族;值统一走 expireEpochToMs(秒/毫秒自适应)或 ISO */
+const FOREIGN_EXPIRES_ALIASES = ['expires_at', 'expired_time', 'expiry']
+const FOREIGN_REFRESH_EXPIRES_ALIASES = ['refresh_expires_at', 'refresh_token_expires_at']
+const FOREIGN_DEVICE_ID_ALIASES = ['device_id']
+const FOREIGN_MACHINE_ID_ALIASES = ['machine_id']
+/** 标记键:归一化发生过;同时列入不透传集,免得混进 extraMetadata */
+const FOREIGN_MARKER = 'foreignShape'
+const FOREIGN_META_NOISE = new Set([
+  ...IMPORT_CANONICAL_KEYS,
+  FOREIGN_MARKER,
+  ...FOREIGN_TOKEN_ALIASES,
+  ...FOREIGN_REFRESH_ALIASES,
+  ...FOREIGN_UID_ALIASES,
+  ...FOREIGN_NAME_ALIASES,
+  ...FOREIGN_EXPIRES_ALIASES,
+  ...FOREIGN_REFRESH_EXPIRES_ALIASES,
+  ...FOREIGN_DEVICE_ID_ALIASES,
+  ...FOREIGN_MACHINE_ID_ALIASES,
+])
+
+/** ISO 串(非法时刻 → null),供归一化结果继续走既有 parseFlexibleExpiry 通道 */
+function isoOrNull(ms: number | null): string | null {
+  if (ms === null || !Number.isFinite(ms) || ms <= 0) return null
+  const d = new Date(ms)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
+}
+
+function parseIsoMs(v: unknown): number | null {
+  if (typeof v !== 'string') return null
+  const d = new Date(v)
+  return Number.isNaN(d.getTime()) ? null : d.getTime()
+}
+
+/** 把一行里所有过期时刻候选(规范键存数值 + 别名字段)折成最早的有效毫秒值 */
+function resolveExplicitExpiryMs(
+  row: Record<string, unknown>,
+  canonicalKey: string,
+  aliases: string[],
+): number | null {
+  const values: unknown[] = [row[canonicalKey], ...aliases.map((k) => row[k])]
+  let min: number | null = null
+  for (const v of values) {
+    if (v === undefined || v === null || v === '') continue
+    const ms = typeof v === 'number' ? expireEpochToMs(v) : (expireEpochToMs(v) ?? parseIsoMs(v))
+    if (ms === null) continue
+    if (min === null || ms < min) min = ms
+  }
+  return min
+}
+
+/**
+ * 把第三方账号工具的导出条目归一成我方形状;**非外来形状原样返回**。
+ *
+ * 判据:条目没有规范 `token`,但命中 `access_token`/`accessToken` 族别名 ⇒ 认定是
+ * 外来导出(典型:workbuddy-switch 的 `workbuddy-<uid>-<id>.json`,字段为
+ * access_token/refresh_token/expires_at(ms)/uid/nickname/payment_type/checkin_streak…)。
+ * 只做**字段搬运与量纲归一**,不改任何语义;canonical 值优先,别名只补空缺。
+ *
+ * 过期时刻统一折成 ISO 串后再交还既有通道(规范键若被外来数据存成裸毫秒/秒数值,
+ * 同样在此收编 —— `parseFlexibleExpiry` 把裸数字当秒,毫秒值会折成 5138 年的
+ * "永不过期")。显式值仅当**早于** JWT exp 才采信:保守取早,宁可多刷一次,
+ * 绝不冒充长效。归一结果带 `foreignShape: true` 标记(预检/落库两侧可观测),
+ * 未知字段不删 —— 由服务端按 IMPORT_CANONICAL_KEYS 差集原样落 `extraMetadata`。
+ * 输出对象仍可能含明文凭证:调用方不得打印、不得入库以外的落盘。
+ */
+export function normalizeForeignAccountShape(row: unknown): Record<string, unknown> {
+  if (!isRecord(row)) return {}
+  if (cstr(row['token'])) return row
+  const token = FOREIGN_TOKEN_ALIASES.map((k) => cstr(row[k])).find(Boolean)
+  if (!token) return row
+
+  const out: Record<string, unknown> = { ...row }
+  out['token'] = token
+  const fillFrom = (canonical: string, aliases: string[]): void => {
+    if (cstr(out[canonical])) return
+    const v = aliases.map((k) => row[k]).find((x) => cstr(x) !== '')
+    if (v !== undefined) out[canonical] = v
+  }
+  fillFrom('refreshToken', FOREIGN_REFRESH_ALIASES)
+  fillFrom('uid', FOREIGN_UID_ALIASES)
+  fillFrom('name', FOREIGN_NAME_ALIASES)
+  fillFrom('deviceId', FOREIGN_DEVICE_ID_ALIASES)
+  fillFrom('machineId', FOREIGN_MACHINE_ID_ALIASES)
+
+  const jwtExpMs = extractTokenExpiry(token)?.getTime() ?? null
+  const explicitMs = resolveExplicitExpiryMs(row, 'expiresAt', FOREIGN_EXPIRES_ALIASES)
+  const finalExpMs =
+    explicitMs !== null && (jwtExpMs === null || explicitMs < jwtExpMs) ? explicitMs : jwtExpMs
+  if (finalExpMs !== null) out['expiresAt'] = isoOrNull(finalExpMs)
+
+  const refreshTokenVal = cstr(out['refreshToken'])
+  const jwtRtExpMs = refreshTokenVal
+    ? (extractTokenExpiry(refreshTokenVal)?.getTime() ?? null)
+    : null
+  const rtExplicitMs = resolveExplicitExpiryMs(
+    row,
+    'refreshTokenExpiresAt',
+    FOREIGN_REFRESH_EXPIRES_ALIASES,
+  )
+  const finalRtMs =
+    rtExplicitMs !== null && (jwtRtExpMs === null || rtExplicitMs < jwtRtExpMs)
+      ? rtExplicitMs
+      : jwtRtExpMs
+  if (finalRtMs !== null) out['refreshTokenExpiresAt'] = isoOrNull(finalRtMs)
+
+  out[FOREIGN_MARKER] = true
+  return out
+}
+
+/**
+ * 外来条目里未被我方规范消费的键(含别名之外的全部未知键)→ 供服务端原样落
+ * extraMetadata。值只收标量与短数组/对象(JSON.stringify 后 ≤1024),防爆库。
+ */
+export function foreignPassthroughMetadata(acc: Record<string, unknown>): Record<string, unknown> {
+  const extra: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(acc)) {
+    if (FOREIGN_META_NOISE.has(k)) continue
+    if (v === undefined || v === null) continue
+    if (typeof v === 'number' || typeof v === 'boolean') {
+      extra[k] = v
+      continue
+    }
+    if (typeof v === 'string') {
+      if (v.length > 0 && v.length <= 1024) extra[k] = v
+      continue
+    }
+    if (Array.isArray(v) || typeof v === 'object') {
+      let s = ''
+      try {
+        s = JSON.stringify(v)
+      } catch {
+        s = ''
+      }
+      if (s && s.length <= 1024) extra[k] = v
+    }
+  }
+  return extra
+}
+
 /**
  * 校验一份账号导出 JSON。接受 `{accounts:[...]}` 或裸数组。
  * 不修改入参、不读写文件、不发网络。
@@ -296,7 +488,10 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
       return
     }
 
-    const acc = row
+    // 外来格式自适应:第三方账号工具导出(access_token/expires_at 等)先归一成规范形状
+    // 再进入校验;我方原生形状(token 在场)原样通过。判据单源,服务端 importAccounts 调
+    // 同一个函数,不允许任何调用方自己抄别名表。
+    const acc = normalizeForeignAccountShape(row)
     const isCodearts = opts.providerCode === 'codearts'
     const codeartsAccount = isCodearts && isRecord(acc['account']) ? acc['account'] : undefined
     const name =
@@ -452,8 +647,11 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
             ),
           )
         }
-        uid = extractUid(token)
-        expiresAt = extractTokenExpiry(token)
+        // 显式 uid / expiresAt 优先(与服务端 importAccounts 的去重口径一致;
+        // 归一化已把外来 expires_at(ms) 折成 ISO 串,非法 ISO 时 parseFlexibleExpiry
+        // 返回 null 自然回退 JWT exp)
+        uid = cstr(acc['uid']) || extractUid(token)
+        expiresAt = parseFlexibleExpiry(acc['expiresAt']) ?? extractTokenExpiry(token)
       }
     }
 

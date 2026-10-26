@@ -3115,8 +3115,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     '/auth/login/phone-code',
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
     async (request, reply) => {
+      // 2026-10-26 海外登录策略:手机验证码登录仅限中国大陆号码,海外用户走 Google 授权。
       const parsed = z
-        .object({ phone: z.string().min(1), code: z.string().length(6) })
+        .object({
+          phone: z
+            .string()
+            .regex(/^1[3-9]\d{9}$/, '仅支持中国大陆手机号登录，海外用户请使用 Google 登录'),
+          code: z.string().length(6),
+        })
         .safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
