@@ -131,6 +131,22 @@ if (-not (Test-Path -LiteralPath $LockCommon)) {
 function LogLine { param([string]$m) ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'), $m) }
 function Log     { param([string]$m) Add-Content -Path $LogFile -Value (LogLine $m) }
 
+# ── 部署窗口(2026-10-26 立)──────────────────────────────────────────────────
+# 子进程 ihui-deploy.ps1 负责写 start/phase/close;本环只做两件事:
+#   ① 子进程长时间无输出时替活动窗口续心跳(否则监控 10 分钟判 Stale);
+#   ② 子进程退出后兜底收口 —— 即使子进程漏掉某个退出路径,窗口也不会留在"部署中"永久抑制。
+# 模块缺失只警告,不阻断部署(窗口是增强项;监控看到无状态文件会退回旧判据)。
+$script:DeployWindowEnabled = $false
+$script:DeployWindowFile = ''
+$DeployWindowModule = Join-Path $PSScriptRoot 'deploy-window-common.ps1'
+if (Test-Path -LiteralPath $DeployWindowModule) {
+    . $DeployWindowModule
+    $script:DeployWindowEnabled = $true
+    $script:DeployWindowFile = Get-IhuiDeployWindowPath
+} else {
+    Log "WARN  缺少 deploy-window-common.ps1,部署窗口功能禁用(监控退回旧判据,部署不受影响)"
+}
+
 # ── 日志轮转(2026-10-13 改为 .N 顺移方案):deploy-loop.log 只增不滚,两个月积到
 #    53MB,排查时 -Tail 变慢且历史噪音淹没有效信息。每轮部署轮询前检查:超过
 #    $DeployLogMaxBytes 即顺移重命名 deploy-loop.log → .1,已有 .1 则依次 .1→.2
@@ -503,6 +519,11 @@ function Invoke-PollOnce {
                 # 上限 45 分钟的推导见 deploy-lock-common.ps1 头注。函数内部按 15s 节流,
                 # 所以这里每拍(≈700ms)调用只多做一次"要不要写盘"的判断。
                 Update-IhuiDeployLockHeartbeat -Path $LockFile -OwnerKind 'loop' | Out-Null
+                # 窗口心跳:子进程构建时可能长时间不输出,不续就会被监控判 Stale。
+                # RunId 留空 = 续当前活动窗口;模块内部按 15s 节流。
+                if ($script:DeployWindowEnabled) {
+                    Update-IhuiDeployWindowHeartbeat -Path $script:DeployWindowFile -MinIntervalSeconds 15 | Out-Null
+                }
                 if ((Get-Date) -gt $deadline) {
                     $timedOut = $true
                     Log "FAIL  本轮超墙钟预算 $RunBudgetMin 分钟,判挂死 → taskkill /T 整树(pid=$($child.Id))"
@@ -528,6 +549,9 @@ function Invoke-PollOnce {
                     # 这一支是无界等待(异常兜底路径),更要保持心跳:它可能长时间只有零星
                     # 输出行,不续心跳就会被 C4 判陈旧 ⇒ 与正常轮并发构建。
                     Update-IhuiDeployLockHeartbeat -Path $LockFile -OwnerKind 'loop' | Out-Null
+                    if ($script:DeployWindowEnabled) {
+                        Update-IhuiDeployWindowHeartbeat -Path $script:DeployWindowFile -MinIntervalSeconds 15 | Out-Null
+                    }
                     Log "[deploy] $_"
                 }
         } finally {
@@ -540,6 +564,27 @@ function Invoke-PollOnce {
         # 完成时刻不早于本轮开始(排掉"上一轮的完成标记被本轮 behind=0 误读成自己的战果")。
         # 金丝雀观察窗与绿色态都只在这一个判据成立时才有意义。
         $deployDoneThisRound = ($roundRc -eq 0 -and $null -ne $script:LastDeployDoneAt -and $script:LastDeployDoneAt -ge $roundStart)
+        # ---- 部署窗口兜底收口(2026-10-26 立)----
+        # 子进程自己写 success/failed/rolledback/noop;这里只处理"它漏了某个退出路径"的情况。
+        # 判据与金丝雀同一套:只有本轮确实完成才记 success;exit=0 但没完成记 noop;其余 failed。
+        # 已完成收口的窗口 Active=false,这里不会覆盖(Close 对已关闭窗口返回 Skipped)。
+        if ($script:DeployWindowEnabled) {
+            try {
+                $winNow = Get-IhuiDeployWindowState -Path $script:DeployWindowFile
+                if ($winNow.Active -and $winNow.RunId) {
+                    $winResult = if ($deployDoneThisRound) { 'success' } elseif ($roundRc -eq 0) { 'noop' } else { 'failed' }
+                    $winHead = if ($script:LastDeploySha) { [string]$script:LastDeploySha } else { '' }
+                    $winClose = Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $winNow.RunId -Result $winResult -Head $winHead -SettleMinutes 15 -Reason "deploy-loop exit=$roundRc"
+                    if ($winClose.Ok -and -not $winClose.Skipped) {
+                        Log "WINDOW 兜底收口 $winResult runId=$($winNow.RunId) exit=$roundRc"
+                    } elseif (-not $winClose.Ok) {
+                        Log "WARN  部署窗口兜底收口失败($($winClose.Error))"
+                    }
+                }
+            } catch {
+                Log "WARN  部署窗口兜底收口异常(不影响部署环):$_"
+            }
+        }
         # ---- 2b) 记账与绿色态(O65 O6502 记账腿 / O6503 记号腿)----
         # 记账条件 = 本轮墙钟 ≥1 分钟(真的动过构建/部署);behind=0 的秒退不进账,否则额度被空转吃光。
         if ($roundMinutes -ge 1) {
