@@ -250,27 +250,38 @@ export function mergeJsonMembers(text, members) {
       refusedNested.push(`${ns}(既有同名键不是对象,无法并键)`)
       continue
     }
-    // 只并"既有块里没有的键";不覆盖任何既有值
+    // 只并"既有块里没有的键";不覆盖任何既有值。2026-10-26 把"新增子树"也纳入射程:
+    // 旧档以"本档只并顶层直接子键"为由整支拒写,代价是最后一枚屏(home)永久 blocked ——
+    // 而"新增一个既有块里不存在的键"与"新增一个嵌套子树"在不变式上是同一件事:都不碰既有值。
+    // 仍然拒的只有一种:同一路径两侧类型打架(既有是字符串而新来是对象,或反之) —— 那才是须人工。
     let merged = 0
-    let nested = 0
-    for (const [k, v] of Object.entries(payload)) {
-      if (k in cur) continue // 既有键:一律不覆盖
-      if (v && typeof v === 'object' && !Array.isArray(v)) {
-        // 新键的值是嵌套对象 ⇒ 它在既有块里不存在,但本档只并顶层直接子键 ⇒ 不并
-        nested++
-        continue
+    const conflicts = []
+    const deepAdd = (curObj, payloadObj, path) => {
+      for (const [k, v] of Object.entries(payloadObj)) {
+        if (!(k in curObj)) {
+          const isPlainObj = v && typeof v === 'object' && !Array.isArray(v)
+          curObj[k] = isPlainObj ? JSON.parse(JSON.stringify(v)) : v
+          merged += 1
+          continue
+        }
+        const curV = curObj[k]
+        const curIsObj = curV && typeof curV === 'object' && !Array.isArray(curV)
+        const vIsObj = v && typeof v === 'object' && !Array.isArray(v)
+        if (curIsObj && vIsObj) deepAdd(curV, v, `${path}.${k}`)
+        else if (curIsObj !== vIsObj || Array.isArray(curV) !== Array.isArray(v))
+          conflicts.push(`${path}.${k}(既有 ${curIsObj ? '对象' : Array.isArray(curV) ? '数组' : '标量'} vs 新来 ${vIsObj ? '对象' : Array.isArray(v) ? '数组' : '标量'})`)
+        // 同形且都非对象:既有键一律不覆盖,静默跳过
       }
-      cur[k] = v
-      merged++
     }
-    if (nested > 0) refusedNested.push(`${ns}(缺键落在嵌套子对象里 ${nested} 处,本档不并)`)
+    deepAdd(cur, payload, ns)
     if (merged > 0) added.push(`${ns}(并入 ${merged} 键)`)
-    else if (nested === 0) skipped.push(`${ns}(键已全在册,幂等跳过)`)
+    else if (!conflicts.length) skipped.push(`${ns}(键已全在册,幂等跳过)`)
+    if (conflicts.length) refusedNested.push(`${ns}(类型打架 ${conflicts.length} 处:${conflicts.slice(0, 3).join(' , ')})`)
   }
   if (refusedNested.length) {
     return {
       ok: false,
-      why: `并键档不能处理这些命名空间(须人工):${refusedNested.join(' / ')}`,
+      why: `并键档遇到同路径类型打架(须人工):${refusedNested.join(' / ')}`,
       added,
       skipped,
     }
