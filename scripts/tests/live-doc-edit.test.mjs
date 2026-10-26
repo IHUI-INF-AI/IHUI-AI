@@ -23,6 +23,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ } from '../live-doc-edit.mjs'
+import { todayIso } from '../lib/plan-row-conservation.mjs'
 import { LEASE_POOL_MAX } from '../lib/plan-id-lease.mjs'
 import { git, headBlobOf, indexBlobOf, landsLedger, writeBlob } from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -2603,13 +2604,15 @@ test('RS8 端到端·改写档两臂:before 干净而 after 带裸令牌 ⇒ rc=
 // ── G965 族:整行改写档的三维守恒接线(2026-10-22 立,规格 §2)────────────────────────
 // 判据唯一实现在 `scripts/lib/plan-row-conservation.mjs`,本文件只做端到端接线自证:
 // 只 spawn 生产 CLI(不复算判据),且一律打临时 LIVE_ROOT,绝不碰真台账。
-// 五条成对:删归属句 ⇒ 拒 / 只缩短正文 ⇒ 放 / 摘租约 ⇒ 拒 / 翻勾 ⇒ 不被守恒拦 / 违规时零写盘。
+// 八条成对:删归属句 ⇒ 拒 / 只缩短正文 ⇒ 放 / 摘租约 ⇒ 拒 / 翻勾 ⇒ 不被守恒拦 / 违规时零写盘 /
+// 批量新增完整租约 ⇒ 放(AGENTS §1 认领动作,本票立因) / 换持有者 ⇒ 拒 / 未来日期牌 ⇒ 拒(条件②,2026-10-26 补)。
 const CONSERVATION_LINES = [
   '# 标题',
   '- [ ] G-900 修登录（归属:api 线）',
   '- [ ] G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）',
   '- [ ] G-902 （进行中@2026-10-20/张三） 修复上传超时',
   '- [ ] G-903 修复导出按钮',
+  '- [ ] G-904 修复同步冲突',
   '',
 ]
 
@@ -2729,6 +2732,87 @@ test('G965-5 端到端·批次里任一项违规 ⇒ 零写盘(文件字节与 H
     1,
     '合法项也不许半落地',
   )
+})
+
+test('G965-6 端到端·批量给未勾行新增完整租约(4 行)⇒ 放行并逐行落地(承「台账挂牌没有合法通道」票)', (t) => {
+  const { dir, inputs } = makeDocRepo(t, CONSERVATION_LINES.join('\n'))
+  const rep = join(inputs, 'rc6.json')
+  const lease = '（进行中@2026-10-26/主会话）'
+  const pairs = [
+    { before: '- [ ] G-900 修登录（归属:api 线）', after: `- [ ]${lease} G-900 修登录（归属:api 线）` },
+    {
+      before: '- [ ] G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）',
+      after: `- [ ]${lease} G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）`,
+    },
+    { before: '- [ ] G-903 修复导出按钮', after: `- [ ]${lease} G-903 修复导出按钮` },
+    { before: '- [ ] G-904 修复同步冲突', after: `- [ ]${lease} G-904 修复同步冲突` },
+  ]
+  writeFileSync(rep, JSON.stringify(pairs), 'utf8')
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(
+    r.status,
+    0,
+    `加完整租约必须是合法认领动作,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 600)}`,
+  )
+  const out = `${r.stdout}${r.stderr}`
+  const notes = (out.match(/新增完整租约\(无牌 → @日期\/持有者\)⇒ 放行/g) || []).length
+  assert.equal(notes, 4, `逐条放行必须逐条出声,不得静默,实际 ${notes} 条`)
+  const landed = norm(runGit(dir, ['show', 'HEAD:DOC.md']))
+  for (const p of pairs) {
+    assert.ok(landed.includes(p.after), `加约后的整行必须真落地:\n${p.after}`)
+    assert.ok(!landed.includes(p.before), `旧行不该还在:\n${p.before}`)
+  }
+})
+
+test('G965-7 端到端·换牌上的持有者(改约)⇒ 拒写(exit 1),零写盘', (t) => {
+  const { dir, inputs } = makeDocRepo(t, CONSERVATION_LINES.join('\n'))
+  const head0 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const rep = join(inputs, 'rc7.json')
+  writeFileSync(
+    rep,
+    JSON.stringify([
+      {
+        before: '- [ ] G-902 （进行中@2026-10-20/张三） 修复上传超时',
+        after: '- [ ] G-902 （进行中@2026-10-20/李四） 修复上传超时',
+      },
+    ]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(
+    r.status,
+    1,
+    `改约(换持有者)不得被"新增完整租约"档混放,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 600)}`,
+  )
+  assert.match(`${r.stdout}${r.stderr}`, /租约形态变化/, '违规条目必须点名租约这一维')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '拒写时 HEAD 必须原地不动')
+})
+
+test('G965-8 端到端·给未勾行新增"未来日期"租约 ⇒ 拒写(exit 1),零写盘(条件②)', (t) => {
+  const { dir, inputs } = makeDocRepo(t, CONSERVATION_LINES.join('\n'))
+  const head0 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const future = new Date(`${todayIso()}T00:00:00Z`)
+  future.setUTCDate(future.getUTCDate() + 1)
+  const futureIso = future.toISOString().slice(0, 10)
+  const rep = join(inputs, 'rc8.json')
+  writeFileSync(
+    rep,
+    JSON.stringify([
+      {
+        before: '- [ ] G-900 修登录（归属:api 线）',
+        after: `- [ ]（进行中@${futureIso}/主会话） G-900 修登录（归属:api 线）`,
+      },
+    ]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(
+    r.status,
+    1,
+    `未来日期牌不得被"新增完整租约"档混放,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 600)}`,
+  )
+  assert.match(`${r.stdout}${r.stderr}`, /挂牌日期在未来/, '违规条目必须点名未来日期这一维')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '拒写时 HEAD 必须原地不动')
 })
 
 test('RS9 接线锁 + 单一实现锁:闸必须真挂在 CAS 循环之前,匹配式全器只许一份', () => {

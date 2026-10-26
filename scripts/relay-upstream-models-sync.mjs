@@ -23,6 +23,13 @@
  * 既不记绿也不冒红(AGENTS §0.3):登记表形状非法、provider 白名单单源解析失败、reviewBy 已到期、
  * DSN 取不到、非本机回环库、连不上库、同 (provider_code, base_url) 多行、alias 仅大小写撞索引。
  *
+ * 归属判据(同键归属):键 = (provider_code, COALESCE(base_url,''))。同 provider 不同 base_url 是
+ * 两行(库里 `uq_ai_model_config_global_provider_base` 正是这个键),按新增处理;同键行已存在但
+ * description 不带本器出处标记(`号池上游登记 · 由 scripts/relay-upstream-models-sync.mjs`)⇒
+ * **两条路径抢同一行**:既不复用也不改,打 BREACH 并点名,一条也不落库(exit 1)。
+ * 试过"同键行存在 ⇒ 复用并 update"的那版被镜像断言③(只碰登记 provider:他人行不出动作)打红 ——
+ * 那条断言防的正是登记器悄悄接管别人路径写的行,遇红改设计不改断言。
+ *
  * 归属边界:本器只写 ai_model_config + ai_model_config_models 两张表。`ai_relay_model_catalog`
  * (对外别名 → 上游真名)是管理面/其它生产者的面,刻意不碰:qoder/trae 适配器在出网前自行剥掉
  * `provider/` 前缀(见 upstream-adapters/qoder-adapter.ts#upstreamModelName),缺 catalog 映射不影响
@@ -35,8 +42,8 @@
  * 判据分层:形状判定与三态计划在 scripts/lib/relay-upstream-models-plan.mjs,库面读写在
  * scripts/lib/relay-upstream-models-db.mjs;镜像测试 import 前者的 __test__,不复制判据(§22c)。
  *
- * 退出码:0 = 无缺口 / 落地并自证幂等成功;1 = 有缺登记或漂移(check)、落地后复算仍要写(apply);
- * 2 = 未判定。
+ * 退出码:0 = 无缺口 / 落地并自证幂等成功;1 = 有缺登记或漂移(check)、有 BREACH(两条路径抢同一行)、
+ * 落地后复算仍要写(apply);2 = 未判定。
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -71,7 +78,7 @@ function printPlan(plan) {
 
 function summarize(plan) {
   console.log(
-    `SUMMARY missing=${plan.count.missing} drift=${plan.count.drift} matched=${plan.count.matched} writes=${plan.actions.length}`,
+    `SUMMARY missing=${plan.count.missing} drift=${plan.count.drift} matched=${plan.count.matched} breaches=${plan.breaches.length} writes=${plan.actions.length}`,
   )
 }
 
@@ -81,7 +88,18 @@ function reportProblems(kind, problems) {
   for (const p of problems) console.error(`  ${p}`)
 }
 
-export async function runMain(argv, env = process.env) {
+/** BREACH = 判得出的"不许动"(同键行是别的路径写的):不落库、不吃未判定,exit 1 交人工。 */
+function reportBreaches(breaches) {
+  console.error(`❌ BREACH ${breaches.length} 条(两条路径抢同一行 / 一条也不落库)`)
+  for (const b of breaches) console.error(`  ${b}`)
+}
+
+export async function runMain(argv, env = process.env, deps = {}) {
+  const {
+    openDevClient: openDb = openDevClient,
+    readSnapshot: read = readSnapshot,
+    applyActions: apply = applyActions,
+  } = deps
   const mode = argv.includes('--apply')
     ? 'apply'
     : argv.includes('--dry-run')
@@ -131,7 +149,7 @@ export async function runMain(argv, env = process.env) {
     miss(`拒绝连库:${guarded.why} · DSN面=${dsnFace(dsn.dsn) ?? '(不可解析)'}`)
     return 2
   }
-  const opened = await openDevClient(dsn.dsn)
+  const opened = await openDb(dsn.dsn)
   if (!opened.ok) {
     miss(opened.why)
     return 2
@@ -143,10 +161,15 @@ export async function runMain(argv, env = process.env) {
   )
   const sql = opened.postgres(dsn.dsn, { max: 2, prepare: false, connect_timeout: 8 })
   try {
-    const plan0 = planRegistration(parsed.entries, await readSnapshot(sql, codes))
+    const plan0 = planRegistration(parsed.entries, await read(sql, codes))
     if (plan0.problems.length) {
       reportProblems('库面形状冲突', plan0.problems)
       return 2
+    }
+    if (plan0.breaches.length) {
+      reportBreaches(plan0.breaches)
+      summarize(plan0)
+      return 1
     }
     if (!touchesOnlyRegistered(plan0.actions, codes)) {
       miss('计划里出现非登记 provider 的写动作(自证不过,拒绝执行)')
@@ -166,8 +189,8 @@ export async function runMain(argv, env = process.env) {
     }
     console.log('将要写入的每一行:')
     for (const a of plan0.actions) console.log(`  ${describeAction(a)}`)
-    for (const w of await applyActions(sql, plan0.actions)) console.log(`  已写 ${w}`)
-    const plan1 = planRegistration(parsed.entries, await readSnapshot(sql, codes))
+    for (const w of await apply(sql, plan0.actions)) console.log(`  已写 ${w}`)
+    const plan1 = planRegistration(parsed.entries, await read(sql, codes))
     console.log(
       `IDEMPOTENT-CHECK recheck_missing=${plan1.count.missing} recheck_drift=${plan1.count.drift} recheck_actions=${plan1.actions.length}`,
     )

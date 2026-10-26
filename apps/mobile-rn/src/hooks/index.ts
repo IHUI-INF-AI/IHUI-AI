@@ -30,6 +30,11 @@ export type { Fetcher, PaginatedListResult } from '@ihui/shared/hooks'
 
 export { useNotificationWebSocket } from '@ihui/shared/notifications'
 
+// 跨端任务接收 + 审批卡(2026-10-26 立,对标 web use-task-receiver):
+// 设备注册/心跳、toDevice 定向、增量补拉、pendingApprovals / answerApproval。
+export { useTaskReceiver } from './useTaskReceiver'
+export type { UseTaskReceiverReturn } from './useTaskReceiver'
+
 // 微信 APP 支付共享 Hook(平台独占:依赖 RN react-native-wechat-lib,抽自 VipScreen pay 函数)
 export { useWechatPayment } from './useWechatPayment'
 export type {

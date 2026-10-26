@@ -10,7 +10,8 @@
  * 取不到不得记为通过,也不得记为另一种结论。**
  *
  * 真机零副作用(本票最高红线):
- *   - 所有用例的锁目录都取自 `mkScratch()`(工作树同盘的 DevEnv/Temp,结构上不在仓库树内),
+ *   - 所有用例的锁目录都取自 `mkScratch()`(落点合法性由唯一判据 `isAllowedScratchRoot` 裁定,
+ *     G-158 后批准根为仓内 `.DevEnv/Temp`,git 面外),
  *     绝不 acquire/release 真实项目根的 `.deploy.lock`(那是并发会话正在用的锁);
  *   - 抢占会写"现场归档",故本文件在**任何用例之前**把 `IHUI_DEPLOY_LOCK_ARCHIVE_DIR`
  *     指进夹具,否则测试会往仓库 `.ihui-agent/tmp/` 里堆归档目录。
@@ -26,7 +27,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, utimesSy
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { isAllowedScratchRoot, mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as L } from '../deploy-lock.mjs'
 // G-653:两条锁 + 巡检状态件共用的那一个原子写出口。**判据住在 lib 里**,本文件只引它,
 // 不在测试里再抄一份"什么叫合规写盘"(§22c:测试复制判据 = 判据漂了测试还绿)。
@@ -767,14 +768,20 @@ test('默认锁目录仍是项目根 .deploy.lock(CLI 语义未变)', () => {
   assert.equal(L.lockDir(), join(L.repoRoot, '.deploy.lock'))
 })
 
-test('红线:夹具落点结构上不在仓库树内 ⇒ 用例不可能碰到真锁', () => {
+test('红线:夹具落点必须过唯一判据 isAllowedScratchRoot ⇒ 用例不可能碰到真锁', () => {
+  // G-158 把批准 scratch 根迁入仓内 `.DevEnv`(工作树目录内、git 面外)后,
+  // 旧判据"不得在仓库树内"已与设计的单一真相源脱节(红在尺子不在落点,同
+  // check-service-binary-paths F3 前例)⇒ 改接 `isAllowedScratchRoot`:
+  // 仓外任意位置,或仓内唯一批准的 `.DevEnv`。不得在本文件另写一份判据(§22c)。
   const base = mkScratch('dl-redline-')
-  const norm = (p) => resolve(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
   try {
-    assert.ok(!norm(base).startsWith(`${norm(L.repoRoot)}/`), `夹具落在仓库树内:${base}`)
     assert.ok(
-      !norm(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).startsWith(`${norm(L.repoRoot)}/`),
-      '归档落点必须也在仓库外',
+      isAllowedScratchRoot(base),
+      `夹具落点不合法(既非仓外,也非批准的 .DevEnv):${base}`,
+    )
+    assert.ok(
+      isAllowedScratchRoot(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR),
+      `归档落点必须同样过唯一判据:${process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR}`,
     )
   } finally {
     rmScratch(base)

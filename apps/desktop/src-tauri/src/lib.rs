@@ -51,6 +51,9 @@ mod minimax_reset;
 // 2026-10-17 立:Windows DWM sheet-of-glass 原生窗控按钮——让右上角最小化/最大化/
 // 关闭随窗口壳即时出现(OS 绘制),不再等网页 React 渲染。配套注入 CSS 隐藏 HTML 窗控。
 mod window_chrome;
+// 2026-10-26 立:屏幕即手(Hands)operator——截屏 → 界面状态 → 纯决策 → 键鼠执行的最小可用回路。
+// 判据纯函数(decide_actions)可独立单测,执行层才碰 enigo/screenshots;Tauri 胶水只注册两条命令。
+mod operator;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -3950,7 +3953,11 @@ pub fn run() {
     minimax_reset::minimax_reset_history,
     minimax_reset::checkin_audit_minimax_residual,
     checkin_capture::checkin_one_click_reset_all,
-    workbuddy_reset::workbuddy_reset_factory
+    workbuddy_reset::workbuddy_reset_factory,
+    // 2026-10-26 立:屏幕即手 operator。operator_decide=纯决策预览(不碰屏幕);
+    // operator_execute=真实截屏→决策→键鼠执行。判据纯函数见 operator.rs。
+    operator::operator_decide,
+    operator::operator_execute
         ])
         // 用 build + run(而不是 run(context)):退出时要补一次同步写盘 ——
         // 历史记录走 500ms 去抖写(见 browser_store::save_soon),窗口关得太快时

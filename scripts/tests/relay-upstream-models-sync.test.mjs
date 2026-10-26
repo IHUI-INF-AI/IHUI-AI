@@ -4,12 +4,14 @@
 
 // 镜像测试:号池上游登记器(AGENTS §22c —— 判据一律 import 源实现,零复算)。
 // 锁:①登记表形状非法⇒未判定 ②幂等(同表两次⇒行数不变) ③只碰登记 provider ④取不到库⇒exit 2
-// ⑤⑥⑦ 三把形状锁在同目录 companion relay-upstream-models-plan.test.mjs(单文件 <250 行)。
+// ⑤⑥⑦⑧–⑫ 形状锁与同键归属三档(复用/新增/breach)在同目录 companion relay-upstream-models-plan.test.mjs
+// (单文件 <250 行)。夹具里的 description 一律取 plan 层的 PROVENANCE_MARK —— 不抄字面量。
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { applyActions } from '../lib/relay-upstream-models-db.mjs'
 import {
+  PROVENANCE_MARK,
   __test__ as plan,
   parseRegistry,
   planRegistration,
@@ -39,6 +41,7 @@ const cfg = (id, providerCode, over = {}) => ({
   baseUrl: BASE_URL,
   apiFormat: 'openai_chat',
   enabled: true,
+  description: `${PROVENANCE_MARK} 依 scripts/data/relay-upstream-models.jsonl 落库(测试夹具)`,
   ...over,
 })
 const mdl = (id, configId, modelId, over = {}) => ({
@@ -128,7 +131,10 @@ test('②b 漂移量得到:enabled / is_relay_public 与登记表不符 ⇒ drif
 })
 
 test('③ 只碰登记 provider:他人行不出动作,emit 的 SQL 也碰不到它们', async () => {
-  const foreign = cfg(555, 'deepseek', { baseUrl: 'https://api.deepseek.com/v1' })
+  const foreign = cfg(555, 'deepseek', {
+    baseUrl: 'https://api.deepseek.com/v1',
+    description: '模型同步自动建行(另一条路径)',
+  })
   const foreignModel = mdl(777, 555, 'deepseek-chat', { isRelayPublic: true })
   const before = structuredClone({ foreign, foreignModel })
   const p = planRegistration([entry()], snap([foreign], [foreignModel]))
@@ -240,5 +246,30 @@ test('④b DSN 面只含 host:port/db;取法顺序 --dsn > .env > 进程环境',
     '给了旗标没给值 ⇒ 点名,不静默回落',
   )
   assert.match(plan.resolveDsn([], '', {}).error, /DSN 取不到/)
+})
+
+// ⑤ 并发同键(2026-10-26 票面第二半格):快照判 missing 与真正 insert 之间,另一事务可能已写入
+// 同键行。裸 insert 会把整笔事务打成 23505(真库正控实测),故两处 insert 都必须 on conflict
+// 复选。形状锁:摘掉任一处的 on conflict 或复选 select ⇒ 本用例当场翻红。
+test('⑤ 库层 insert 带 on conflict 复选(形状锁:摘掉即翻红)', () => {
+  const src = readFileSync(new URL('../lib/relay-upstream-models-db.mjs', import.meta.url), 'utf8')
+  assert.match(
+    src,
+    /insert into ai_model_config\s[\s\S]{0,400}?on conflict do nothing/,
+    'insertConfig 的 SQL 必须带 on conflict do nothing',
+  )
+  assert.match(
+    src,
+    /insert into ai_model_config_models\s[\s\S]{0,500}?on conflict do nothing/,
+    'insertModel 的 SQL 必须带 on conflict do nothing',
+  )
+  assert.match(src, /insertConfig 撞唯一约束后复选不到同键行/, '配置行复选失败必须点名,不猜')
+  assert.match(src, /insertModel 撞唯一约束后复选不到同键行/, '模型行复选失败必须点名,不猜')
+  assert.match(
+    src,
+    /coalesce\(base_url, ''\) = \$\{a\.baseUrl \?\? ''\}/,
+    '配置行复选键必须与唯一索引同形(COALESCE base_url)',
+  )
+  assert.match(src, /lower\(model_id\) = lower\(\$\{a\.alias\}\)/, '模型行复选必须吃大小写不敏感那把尺子')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

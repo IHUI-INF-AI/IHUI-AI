@@ -11,19 +11,15 @@
  * 本脚本只做一件事:把 HEAD 里有、工作树里缺的块原样搬回来(纯新增),并断言搬运前后
  * "工作树 ⊇ HEAD"成立。绝不删除、绝不重排已有条目。
  */
-import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const FILE = 'scripts/guardian-runner.mjs'
 const ANCHOR = '  // --- info (1 项) ---'
-const g = (a) =>
-  execFileSync('git', ['-c', 'safe.directory=*', ...a], {
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+// 本脚本以相对路径读工作树(隐含 cwd=仓根),git 派生基准与之保持一致
+const ROOT = process.cwd()
+// 2026-10-26 G-54:git 派生收口到 face-reader(回补器 g())
+const g = (a) => gitRaw(a, ROOT)
 
 const head = g(['show', `HEAD:${FILE}`])
 const wtPath = FILE

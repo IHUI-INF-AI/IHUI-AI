@@ -19,7 +19,7 @@
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { SignJWT, exportJWK, importPKCS8, importSPKI, jwtVerify, type JWK } from 'jose'
 import type IORedis from 'ioredis'
-import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri' // arch-exempt: safeDecodeURIComponent 已收敛为 packages/shared 唯一真相源（auth 原私有实现已删），单向收敛不可回退；正解=把该纯函数下沉 contract 层后消除 until 2027-01-31
 import { ACCESS_TOKEN_TTL_SECONDS, AUDIENCE, getJwtSecret } from './jwt'
 
 // ---------------------------------------------------------------------------
