@@ -15,6 +15,7 @@ import asyncio
 from app.core.session_taint import SessionTaint, TaintSource
 from app.services import mcp_server as mcp
 from app.services import session_security as ss
+from app.services.mcp_server import _build_subprocess_env
 from app.services.session_security import (
     EGRESS_UNKNOWN,
     args_contain_resolvable_vault,
@@ -24,7 +25,6 @@ from app.services.session_security import (
     taint_gate_requires_approval,
     tool_egress_target,
 )
-from app.services.mcp_server import _build_subprocess_env
 
 
 # ── 单例接线 ────────────────────────────────────────────────────────────

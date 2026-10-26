@@ -13,12 +13,14 @@
  * 覆盖矩阵(每条都是"有副作用 / 无副作用"成对,摘掉对应判据必翻红):
  *  A. POST /sso/refresh 的重放三档裁决(routes/auth-sso.ts,与 /auth/refresh 同形):
  *     - race(宽限期内)⇒ 200 轮转,且不重复 revoke(固定窗口)、不查同族、不吊家族
- *     - stale-sibling(超宽限但族内有活 token)⇒ 401 + errorCode=REFRESH_TOKEN_STALE,
- *       不吊销家族、不签发
+ *     - stale-sibling(超宽限但族内有活 token)⇒ 200 正常轮转(2026-10-27 改判:族还活着
+ *       即会话未死,迟到的只是旧副本;此前 401 会把唯一合法用户永久锁在门外),
+ *       不吊家族、不重复 revoke、不带 stale 码
  *     - reuse(超宽限且族内无活 token)⇒ 吊销家族 + 401,不带 stale 码
  *     - 对照组:未吊销 ⇒ 200 且 revokeRefreshToken 恰好一次;禁用用户 ⇒ 403 不签发
  *     ⇒ 把 auth-sso.ts 的 assessRefreshReplay 分支摘掉(退回"revokedAt 一律 401")
  *       ⇒ race 例与 stale 例同时翻红。
+ *     ⇒ 把 stale-sibling 那支改回"只拒绝本次" ⇒ A-2 的状态码与签发断言翻红。
  *  B. rotateRefreshTokenFlow 的 status!==1 ⇒ 403 且不签发(auth-extended.ts):
  *     ⇒ 摘掉该判定 ⇒ 403 例拿到 ok:true 翻红;把判据写反(≠1 放行)⇒ 对照组翻红。
  *  C. PUT /admin/users/:id:status 改成非 1 ⇒ revokeAllUserRefreshTokens;
@@ -198,7 +200,6 @@ vi.mock('../src/utils/password-crypto.js', () => ({
 import { authSsoRoutes } from '../src/routes/auth-sso.js'
 import { authExtendedRoutes, rotateRefreshTokenFlow } from '../src/routes/auth-extended.js'
 import { userRoutes } from '../src/routes/admin-extended/user-routes.js'
-import { REFRESH_TOKEN_STALE_ERROR_CODE } from '@ihui/shared/auth/auto-login-policy'
 
 const baseUser = {
   id: USER_ID,
@@ -336,7 +337,10 @@ describe('会话吊销面 · 四条判据成对行为用例', () => {
       expect(m.findLiveFamilyToken).not.toHaveBeenCalled() // race 短路,不该查同族活 token
     })
 
-    it('A-2 stale-sibling(超宽限但族内有活 token)⇒ 401 + REFRESH_TOKEN_STALE,不吊族不签发', async () => {
+    it('A-2 stale-sibling(超宽限但族内有活 token)⇒ 200 正常轮转,不吊族、不重复 revoke、不带 stale 码', async () => {
+      // 2026-10-27 改判依据:能走到这一档的前提是同族还有活 token ⇒ 会话没死,迟到的
+      // 只是调用方手里那份旧副本(桌面 vault 旧值 / 旧页签 / 另一台设备 / API 重启打断
+      // 刷新响应)。此前只拒绝本次,合法用户每冷启动一次撞一次 401,只能手登并新建 family。
       m.findRefreshToken.mockResolvedValue({
         token: 'fixture-refresh-token',
         userId: USER_ID,
@@ -346,14 +350,17 @@ describe('会话吊销面 · 四条判据成对行为用例', () => {
       })
       m.findLiveFamilyToken.mockResolvedValue({ id: 'sibling-live' })
       const res = await ssoRefresh()
-      expect(res.statusCode).toBe(401)
+      expect(res.statusCode).toBe(200)
       const body = res.json()
-      expect(body.errorCode).toBe(REFRESH_TOKEN_STALE_ERROR_CODE)
-      // 只拒本次:副作用两侧都断言
+      expect(body.data.accessToken).toBe('at-new')
+      expect(body.data.refreshToken).toBe('rt-new')
+      // 服务端不再否定这次刷新 ⇒ 端上分型用的 stale 码不得再出现(出现即说明改判被回退)
+      expect(body.errorCode).toBeUndefined()
+      expect(m.findLiveFamilyToken).toHaveBeenCalledWith(FAMILY_ID)
+      // 活着的族不能被打死;旧 token 已是吊销态,再刷一次 revokedAt 就是滑动窗口
       expect(m.revokeRefreshTokenFamily).not.toHaveBeenCalled()
       expect(m.revokeRefreshToken).not.toHaveBeenCalled()
-      expect(m.signAccessToken).not.toHaveBeenCalled()
-      expect(m.saveRefreshToken).not.toHaveBeenCalled()
+      expect(m.saveRefreshToken).toHaveBeenCalledTimes(1)
     })
 
     it('A-3 reuse(超宽限且族内无活 token)⇒ 吊销整族 + 401,**不带** stale 码', async () => {
