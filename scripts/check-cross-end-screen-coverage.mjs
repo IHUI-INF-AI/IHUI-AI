@@ -68,7 +68,8 @@ const FACE_LABEL = {
   worktree: '工作树(磁盘,人工逃生舱)',
 }
 
-/** 当前面上的文件清单(仓库相对路径,正斜杠) */
+/** 当前面上的文件清单(仓库相对路径,正斜杠)。face 除三档外可传任意 git 可解析 ref
+ *  (还原度门的 CI 问责腿 --base=<ref> 用;'head' 仍映射 HEAD,三档行为一字不变)。 */
 function faceList(face, dirPrefix) {
   if (face === 'worktree') {
     const base = R(dirPrefix)
@@ -80,7 +81,7 @@ function faceList(face, dirPrefix) {
   const args =
     face === 'staged'
       ? ['ls-files', '-c', '--', dirPrefix]
-      : ['ls-tree', '-r', '--name-only', 'HEAD', '--', dirPrefix]
+      : ['ls-tree', '-r', '--name-only', face === 'head' ? 'HEAD' : face, '--', dirPrefix]
   try {
     return gitRaw(args, ROOT, { maxBuffer: 64 * 1024 * 1024 })
       .split('\n')
@@ -104,7 +105,7 @@ function faceRead(face, rel) {
       return null
     }
   }
-  const spec = face === 'staged' ? `:${key}` : `HEAD:${key}`
+  const spec = face === 'staged' ? `:${key}` : `${face === 'head' ? 'HEAD' : face}:${key}`
   try {
     return catBatch(ROOT, [spec], { maxBuffer: 64 * 1024 * 1024 }).get(spec) ?? null
   } catch {
