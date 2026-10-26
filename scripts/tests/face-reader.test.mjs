@@ -530,7 +530,20 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 行为对账:各枚固定索引快照下逐字零差(clean-garbage 的 gc 系写操作,按票只做静态核对)。
 // quotepath 收口既定副作用:check-port-registry --all 首扫 18 个中文名文件,暴露 1 处既有违规
 // (已发布内容记忆.json:124 引用 127.0.0.1:50749),门 24b warn 档计警不判红。
-const BARE_GIT_BASELINE = 19 // 紧贴现读(2026-10-26 第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
+// 2026-10-26 G-54 批次第 9 轮(三子席并发):restore-runner-gates.mjs 回补器 g() 1 处迁 gitRaw
+// 入库 `f3d76aa3fb`(探针四例固定索引逐字零差:show HEAD 257,856B、rev-parse、两例异常对照
+// status=128 同值;异常类名 Error→Undetermined 系收口设计内差异,调用点无 catch 不改控制流)。
+// git-push-guard.mjs 判**不可迁**留账 2 处:L937 pushOnce(push=写操作+网络透传、stdio[0] 走
+// inherit 供凭证交互、显式 env:process.env 而 gitRaw opts 无 env 形态、失败三通道 status/stdout/
+// stderr 是 triagePushAttempt 的正常输入而 gitRaw 非零抛 Undetermined 丢 stdout)与 L252
+// checkDanglingRefs(松散坏 ref 只活在 stderr 的 `ignoring broken ref`,gitRaw 成功路径不回 stderr)
+// ——同 lib/bypass-git.mjs git() "env 维度不可迁"先例族。git-sync-converge.mjs 评估票成文:
+// 棘轮尺实测该文件 13 处,不可迁 2(mktree:1113 stdin 必须数字 fd,本机 Node 建管道 20×2 全败
+// EBUSY 留档;ggit:1492 用例价值在剥 GIT_CONFIG_*/GIT_*_NAME 复刻 LocalSystem 现场,无 env 形态)、
+// 需改造后可迁 2(git():467 系 cwd 基须显式传 root;:1848 merge-tree catch 依赖 e.stdout 取冲突
+// 清单)、可迁 9(readGit/isAncestor/collectTreeEntries/tgit/lsTreeLines/:1152/:1186/:1288/bg,
+// 其中 isAncestor 与 bypass-git 先例逐字同型优先迁)。后续批按该票清单推进,quotepath 面逐字对账。
+const BARE_GIT_BASELINE = 18 // 紧贴现读(2026-10-26 第 9 轮 19→18;第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
 // check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。
