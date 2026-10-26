@@ -11,6 +11,9 @@
 
 刻意**不**在这里 import ``router``:router 依赖 FastAPI 应用装配,而本包也会被
 测试与脚本直接 import。把 APIRouter 的构造副作用挡在门外,包才能被单测裸 import。
+(2026-10-26 起 router 已迁到 ``app/routers/keepalive.py`` —— 注册面门 8 只认
+``app/routers/**`` 与 ``app/api/**``,留在本包里那 6 条端点对它是不可见的。
+本包现在**只**有实现,没有任何 HTTP 装配件。)
 """
 
 from app.services.keepalive.center import (

@@ -6627,5 +6627,17 @@
     "pickFailed": "파일 선택에 실패했습니다",
     "tooLarge": "파일이 10MB 제한을 초과합니다",
     "uploadFailed": "파일 업로드에 실패했습니다"
+  },
+  "scanLogin": {
+    "menuTitle": "스캔",
+    "title": "스캔하여 로그인",
+    "hint": "컴퓨터 화면의 QR 코드를 프레임 안에 맞추세요",
+    "submitting": "확인 중…",
+    "permissionHint": "스캔하려면 카메라 권한이 필요합니다",
+    "grant": "카메라 허용",
+    "invalidCode": "이 사이트의 로그인 QR 코드를 스캔하세요",
+    "success": "로그인이 확인되었습니다",
+    "failed": "확인에 실패했습니다. 다시 시도하세요.",
+    "needLogin": "스캔하기 전에 로그인하세요"
   }
 }

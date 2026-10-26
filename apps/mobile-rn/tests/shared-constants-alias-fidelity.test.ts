@@ -29,7 +29,7 @@
  *
  * 失效方向:红着逼人回来改。给替身再抄一个字面量、或把别名指回替身,本文件必红。
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { readFileSync, existsSync, readdirSync, statSync, type Dirent } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -315,6 +315,18 @@ describe('K3 · 替身面:六个常量名只许转发、不得自述', () => {
 })
 
 describe('K4 · 运行时:别名拿到的是真实常量表本身,不是空表', () => {
+  /**
+   * 冷装载预算:真实 constants barrel 带 17 个子模块,`@ihui/shared` 替身再逐个转发其中三个。
+   * 全量套件(134 个文件并发)下第一次 import 会越过全局 10s testTimeout —— 实测
+   * `Test timed out in 10000ms`,而同一文件单跑 K4 只用 2112ms ⇒ 那一刻红的是机器负载,
+   * 不是别名被指回替身。把冷装载收进带 120s 预算的 beforeAll,各 it 的断言一字不动
+   * (同 api-client-alias-fidelity.test.ts A5 与 chat-client.test.ts 的处置)。
+   */
+  beforeAll(async () => {
+    await import('@ihui/shared/constants')
+    await import('@ihui/shared')
+  }, 120_000)
+
   it('经 @ihui/shared/constants 与经 @ihui/shared 拿到同一引用,且值非虚构', async () => {
     const viaAlias = (await import('@ihui/shared/constants')) as Record<string, unknown>
     const viaStub = (await import('@ihui/shared')) as Record<string, unknown>

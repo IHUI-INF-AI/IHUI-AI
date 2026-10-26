@@ -234,20 +234,34 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
 // ==================== 纪律 B:带截止时间的生产入口惰性加载 ====================
 
 /**
- * 10s < vitest 配置里的 `testTimeout: 15_000`:装配图若再挂死,先落的是**下面这条点名到
- * 原因的失败**,而不是 vitest 那句谁也不知道发生了什么's "Test timed out in 15000ms"。
+ * 装配图冷加载的**挂死检测**预算 —— 它不是性能闸,只判"永不解算"。
+ *
+ * 两件事必须分清:
+ *   · 它防的是 2026-10-21 那型**永久**死锁(mock 工厂里的模块环):那时文件一条用例都收不到,
+ *     只留下 `Worker exited unexpectedly`。有这条截止时间,至少落一条点名到原因的失败。
+ *   · 它**不判**"加载有多快"。实测(2026-10-26)同一文件冷加载:空载 3.4s;24 个 CPU burner
+ *     把 20 核打满后 transform 10.65s(3.1×);主席那次 turbo 全量(8 包并发,同批日志里连
+ *     `--help` 这种子进程都要 5–17s)直接越过旧值 10s ⇒ 10 例一起红,而根因只有一条:
+ *     **旧值把"慢"读成了"挂死"(§12f 失效方向:判据自己假报),再被下面的粘性错误
+ *     放大成 9 条 1ms 的连带失败**(判据在真跑它的那一刻不成立)。
+ * 因此定值的判据是"远大于任何可解释的慢加载 ∧ 严格小于用例自身超时":
+ *   120_000 = 空载实测的 35×、饱和负载实测的 11×;`WIRING_TIMEOUT_MS` 再垫 30s
+ *   ⇒ 真挂死时先落本文件的点名失败,而不是 vitest 那句无信息的 "Test timed out"。
+ * 收紧这个数值不会加强判据,只会把负载噪声重新变回红(§12e);本文件末尾有回归锁。
  */
-const ENTRY_DEADLINE_MS = 10_000
+const ENTRY_DEADLINE_MS = 120_000
+/** 用例自身超时:必须 > `ENTRY_DEADLINE_MS`(否则先落 vitest 那句无信息的超时,判据绕开本文件)。 */
+const WIRING_TIMEOUT_MS = ENTRY_DEADLINE_MS + 30_000
 
 const DEADLOCK_HINT =
   `装配图在 ${ENTRY_DEADLINE_MS}ms 内没有 resolve:本文件加载的是 ` +
   'src/commands/chat-subcommands.js + src/commands/history-read-ops.js。' +
-  '最可能的形态是 vi.mock 异步工厂里 await 了一个又运行时引回被 mock 包的模块' +
-  '(实测环:@ihui/shared/chat → render-model → @ihui/api-client → 工厂 → shared/chat)。' +
-  '这不是"机器慢",重跑无用 —— 去看两个 mock 工厂里的 import。'
+  '真死锁永不 resolve(重跑无用),而单纯慢加载会在这条线之前完成 —— 先看两个 mock 工厂里的 ' +
+  'import:2026-10-21 那型环(实测 @ihui/shared/chat → render-model → @ihui/api-client → ' +
+  '工厂 → shared/chat)是这条路径上唯一被测出过的死因。'
 
 let loadedGraph: { ops: HistoryReadOpsModule; chat: ChatSubcommandsModule } | null = null
-/** 粘性失败:一次挂死就足够定性,其余用例立刻复用同一条信息,不再各烧 10s(× retry 更久)。 */
+/** 粘性失败:一次挂死就足够定性,其余用例立刻复用同一条信息,不再各烧一整份截止时间(× retry 更久)。 */
 let graphLoadError: Error | null = null
 
 /** 给一次模块加载套上截止时间;计时器必清(不留句柄 ⇒ 不会把下一轮用例拖成假挂死)。 */
@@ -376,7 +390,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       expect(harness.resumeSpyCalls).toEqual([])
       expect(process.exitCode).toBe(0)
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -390,7 +404,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
         { id: CONV_ID, direction: 'newest', cursorOrdinal: null, limit: 100 },
       ])
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -420,7 +434,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
         limit: 5,
       })
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -445,7 +459,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       expect(outcome.stop).toBe('exhausted')
       expect(textOf()).toContain('span=1..12')
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -481,7 +495,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       expect(outcome.tally.receivedMessages).toBe(TURN_COUNT * 2)
       expect(outcome.tally.receivedBytes).toBe(TURN_COUNT * 2 * CONTENT_BYTES)
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -507,7 +521,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       expect(payload.initial.resumeCursor).toBe(historyResumeCursor(outcome.projectionState))
       expect(payload.initial.boundary.oldestTurnOrdinal).toBe(1)
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -551,7 +565,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       // 所以这处形参类型错要等 `tsc -p tsconfig.tests.json` 才现形(见交付报告)。
       expect(textOf()).toContain(formatHistoryReplayCheckLine(resumed.tally, firstRead().tally).line)
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -567,7 +581,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       expect(textOf()).toContain('ok=false stop=denied')
       expect(process.exitCode).toBe(1)
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -590,7 +604,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       expect(textOf()).toContain('--turns-per-page must be a positive integer')
       expect(process.exitCode).toBe(1)
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -627,7 +641,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       expect(textOf()).toContain(CONV_ID.slice(0, 8))
       expect(process.exitCode).toBe(0)
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -652,7 +666,7 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       expect(code).toMatch(/readConversationHistory\s*\(\s*\{/)
       expect(code).toMatch(/resumeConversationHistory\s*\(\s*\{/)
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
   )
 
   it(
@@ -681,7 +695,43 @@ describe('装车锁:子命令分派真调用到 history-read-ops 的导出', () 
       expect(code).toMatch(/actual\.readConversationHistory\(/)
       expect(code).toMatch(/actual\.resumeConversationHistory\(/)
     },
-    30_000,
+    WIRING_TIMEOUT_MS,
+  )
+
+  it(
+    '预算回归锁:挂死检测的截止时间不得退回负载噪声档,且用例超时必须比它长',
+    async () => {
+      const { readFileSync } = await import('node:fs')
+      const here = new URL('.', import.meta.url)
+      const src = readFileSync(new URL('./chat-history-read-ops-wiring.test.ts', here), 'utf8')
+      const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/[^\n]*/g, '$1')
+
+      // ① 地板:实测饱和负载下冷加载已用掉 10.65s(turbo 8 包并发更慢),60s 是"远大于慢加载"。
+      //    退回 10_000 那档 ⇒ 本用例红,原缺陷(把慢读成挂死、再放大成 10 例)立刻回来。
+      const deadline = Number(
+        /const ENTRY_DEADLINE_MS = ([\d_]+)/.exec(code)?.[1]?.replace(/_/g, '') ?? Number.NaN,
+      )
+      expect(Number.isFinite(deadline)).toBe(true)
+      expect(deadline).toBeGreaterThanOrEqual(60_000)
+
+      // ② 用例超时必须以截止时间为基数再加垫,不许写死绝对值:写死的绝对值和截止时间各自被
+      //    改一次就会翻成"超时 < 截止时间" ⇒ 真挂死时先落 vitest 那句无信息的超时,判据绕开本文件。
+      const addend = Number(
+        /const WIRING_TIMEOUT_MS = ENTRY_DEADLINE_MS \+ ([\d_]+)/.exec(code)?.[1]?.replace(/_/g, '') ??
+          Number.NaN,
+      )
+      expect(Number.isFinite(addend)).toBe(true)
+      // 垫至少 10s:保证"点名到原因的失败"永远先于 vitest 的泛化超时落地。
+      expect(addend).toBeGreaterThanOrEqual(10_000)
+
+      // ③ 每个用例都吃同一档超时(枚举到 0 判死,§0.3):裸数字一律不许再出现 ——
+      //    本文件这次红的直接成因就是一个写死的 30_000 坐着等加载,比加载成本还小。
+      const cases = [...code.matchAll(/\bit\(/g)].length
+      const budgeted = [...code.matchAll(/\bWIRING_TIMEOUT_MS,/g)].length
+      expect(cases).toBeGreaterThan(0)
+      expect(budgeted).toBe(cases)
+    },
+    WIRING_TIMEOUT_MS,
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

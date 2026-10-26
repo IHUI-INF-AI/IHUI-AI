@@ -511,11 +511,13 @@ class AgentLoopRuntime {
               content: `登记工具调用 ${toolName}（未执行：本路径无结构化工具入参，不代为执行）`,
               tool: toolName,
             })
-            const tmpProbe = await tool.execute({})
+            // 只登记不执行：这里**不得**调 tool.execute（空参形态既绕过入参校验，又会落到
+            // write_file 落盘 / run_command 起子进程这类有真实副作用的工具上）。结果行由本路径
+            // 自陈"未执行 + 为什么"，与上面那条 tool_call 成对，消费方形态不变。
             task.steps.push({
               iteration: i + 1,
               type: 'tool_result',
-              content: tmpProbe,
+              content: `工具 ${toolName} 未执行：本路径无结构化工具入参，不代为执行（只登记调用意图）`,
               tool: toolName,
             })
           }

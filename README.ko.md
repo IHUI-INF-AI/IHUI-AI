@@ -2198,6 +2198,24 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 📚 문서:12 枚僵尸票批量结清——前提在 HEAD 逐条不成立:桌面 ANR 残行 55 字、G-195 三个入口脚本全在 HEAD、take_loop_v2_handoff 生产面 18 处已装车、O87g 精确挂载图已装车(本轮另补 compositeDelta 报数)、三枚归并副本指向行已归档、G-8 为副本套娃 31 层的一次性快照、G-242 残行且属禁用的等条件形态、G-948 被吞行已回补、G-66 为单点读数加等条件形态、cloudflared 运行副本与入库源逐字节等值 (9be4bfd2bb)
+
+**2026-10-26**
+- 🔧 기타:fix(scripts)+test(deploy): 两批判据补强——① 门 8 组合前缀 compositeDelta 报数(票面第 4 格少判组合必须报名,此前无机器断言;现读少判 877654 条,只报数不判红,兜底档返回 null)② 人跑健康清单补 cdn 80 端口三态(原本只查 8801/8802/8803/8810/8811;取不到记 null 且仅未判定 exit 2),附两枚镜像各含摘掉即翻红用例 (0b0f033dec)
+- 🐞 수정:补齐部署窗口线三枚新文件的溯源水印 (c4da901e2a)
+- 📚 문서:AGENTS.md 重复登记副本清偿批的逐字迁出件(先入库立凭据) (7d5e7474e5)
+- 📚 문서:三枚已结清未翻勾行由主席复验后翻勾——G-706 证据件三枚在 HEAD 且夹具 11/11 通过、G-42 架构策略表相对 HEAD diff 0 行、G-56 索引 D 前缀 0 条;原行内"不翻勾/不动勾"注记经当场复验解除,按完成即删口径处置 (5e5b788612)
+- 📚 문서:§21 补登「账号保活中心」——两条保活线收成一份状态,6 条 /api/keepalive/* 从 in-doc-window 清零 (094dd7f730)
+- 📚 문서:号池 workbuddy-switch 三件套活文档补账——PROJECT_PLAN 加 2026-10-26 本批节(三件判据/成对对照端/验绿末行/端范围平台独占豁免/推送分叉如实登记仅别两席两 ps1 真冲突与这两枚无关);README 号池表 3 处(账号池调度巡检扩为四档含空闲保活、新增号池导入格式自适应、号体检速查 CLI) —— 以权威 HEAD 基面叠加我的新增,自检 HEAD 逐行零丢失(唯一差异=该表行按'一编号一行当前状态'就地改写,旧①②③文本原样保留在新版内),活文档归并走 object-space-land 带行级复活守卫 (49e67301c1)
+- 📚 문서:归档件说明头补改号映射句(G-39⇒G-36 新号形态) (6ffbbff6b9)
+- 🔧 기타:union 合并落地后按合并树重派 8 枚派生件 (66e547dcb7)
+- 📚 문서:G-39→G-36 改号留痕归档件(守门 71 出路②凭据) (62c1800e06)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (892b2349c2)
+- 🐞 수정:部署窗口显式化 —— 部署期间只暂存部署相关告警,成功后留 15 分钟 settle,失败/回滚立即放行 (370d9f26c7)
+- 🐞 수정:聊天流程 taintEgressGate 全端同步 + 两处存量 build 红清偿 (100038acb4)
+- 🐞 수정:全量 pytest 清零——生产两处真修复 + 测试判据去假红 (56ac086fab)
+
+**2026-10-26**
 - 🐞 수정:部署面按「取对侧(已声明+可复核)」导入 origin 的部署窗口线 + 两处归并与两处修红 (c02b88bc63)
 - 📚 문서:G-5 结清——超龄认领牌存量现读归零(代摘器干跑 SWEEP-RESULT state=clean stale=0 held=40 stripped=0 @22:51),且 2026-10-25 机主令已禁止等条件桶 ⇒ 原"等持有人处置"的出路由器物 strip-stale-claim-marks 接手,本行无剩余动作 (ebf8f7d516)
 - 🐞 수정:门41 认「退役远端的残留跟踪引用」为一档(orphan)—— gitee 远端 2026-10-23 摘配后 packed-refs 里 4 条 refs/remotes/gitee/* 掉出 mirror 档、又不属 origin 的 stale 档,被判成超窗旁支,而本门给的四条出路对它全部不成立(A 删的是别的 remote / B 对远程跟踪引用无效 / D 只 prune origin)⇒ 无解恒红挂每次提交(§12e/§12f);判据改为按 git remote 现配清单分档,configuredRemotes 取不到时一律不判 orphan(失效方向仍是多拦),T21 端到端锁正例 + 自检四例反向对照;同批门150 三族圆角归位(KeepaliveCenterPanel panel→rounded-xl / control→rounded-sm,quick-notes archivedDot tiny→rnRadius.xs),工作树面复跑判红 0 族 (bf63f8c40b)
@@ -2315,15 +2333,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 📚 문서:G-1200041 登记 sso.aizhs.top 502 剩余两格(归:机主控制台面);本机 Keycloak 已对齐 8850 (e4a65ab104)
 - 🐞 수정:三条通道的 401 续期收口 —— SSE 双闸收敛为一道 / WS 换票 401 语义下沉 / 小程序通知 WS 票据化 (de1a3c2902)
 - 🐞 수정:页面路径归一单源 + 授权凭据落库防线;大屏排行补端前缀与占比 (0c50f20838)
-
-**2026-10-26**
-- 📚 문서:G-16 门128 两格按前提腐烂结清(全量 40 位 sha 指针,镜像 pass 58);argument-validation 记进展不翻勾(①裁不接线有据、②腐烂、③演示路径仍开) (4ca4467caa)
-- 🐞 수정:mobile-rn zh-TW 一处简体残留改繁(平台→平臺，工具中心副标题)；按注册参数跑全 17 个 zh-TW/ko/ja × 各端 target 均 rc=0，键集 parity 19237 键 5 语言 OK (f78992c3d7)
-
-**2026-10-26**
-- 🔧 기타:锁租约负向验收用例钉住不相等凭据不得删他人锁(承 G397,含变异自证与畸形凭据九形);chore(cli): 参数修复环裁决为不接线并加覆盖面对照用例;chore(ui): 门128 跨端基线重锚并清除僵尸死锚 (26d7fedb53)
-- 📚 문서:goal-20261026-b14 三票状态注记 G-863结清/G-941取证腿消解/G-24接线消解(注记不动勾不摘牌,证据枚 merge-base 验讫) (33f6f0d96c)
-- 📚 문서:死端点簇票结清——票面二段式判据当场复跑(六条 RN 屏调用两后端均有承接:/api/resources、/api/edu/qa 在 edu-frontend-routes.ts:632/648 以前缀 /api 注册、/api/agent-reviews、/api/wallet/bank-cards、/api/messages/private/list),整串 git grep 的 0 命中正是票面自预言的『前缀拆段』假 0;门 8 现读『新增 0 处死调用』;唯一剩余 wallet/bank-cards 无绑定表⇒handler 恒返空数组+屏诚实空态,真绑卡属新建能力,按『严禁扩展需求』不代做 (ffd60c735e)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
