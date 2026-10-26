@@ -12,12 +12,14 @@
 //   POST http://127.0.0.1:8801/api/auth/logout
 //   set-cookie: auth_token=; Max-Age=0; Domain=.aizhs.top; Path=/; HttpOnly; SameSite=Lax
 //
-// 本套件钉四件事(正反各一 + 接线 + 降级方向,全程 app.inject 不连库/不连 Redis §5):
+// 本套件钉五件事(正反各一 + 接线 + 降级方向,全程 app.inject 不连库/不连 Redis §5):
 //   ① 单元:域本身 / 子域 ⇒ 发共享域;IP / localhost / 后缀形似而实非的域 ⇒ 退回 host-only
 //   ② 接线:同一份 setAuthCookies,Host=bsm.aizhs.top ⇒ 带 Domain;Host=127.0.0.1:8801 ⇒ 不带
 //   ③ 摘除与下发共用同一判据(clearAuthCookies 不得把域挂回来)
 //   ④ 方向锁:host 取不到 ⇒ **维持**配置值(不得拿畸形输入把生产降级成 host-only);
 //      未配置 COOKIE_DOMAIN ⇒ 两条链路都恒 host-only(与本配置落地前逐字相同)
+//   ⑤ 会话提示 Cookie(2026-10-27):与两条 httpOnly 凭据同批下发/同批摘除,同域同寿命,
+//      但**不得带 HttpOnly** —— 带上了前端就读不到,冷启动闸门依旧把老用户判成匿名
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
@@ -101,27 +103,45 @@ describe('resolveCookieDomain —— 域作用域判据', () => {
 
 describe('setAuthCookies / clearAuthCookies —— 接线', () => {
   const mod = { setAuthCookies, clearAuthCookies }
+  /** 只挑出两条 httpOnly 凭据 Cookie(提示 Cookie 的性质相反,断言必须分开写)。 */
+  const credentialCookies = (list: string[]) => list.filter((c) => !/ihui_session_hint=/.test(c))
+  const hintCookie = (list: string[]) => list.find((c) => /^ihui_session_hint=/.test(c))
+
   it('公网 host 下发带 Domain 的共享域 Cookie,本机 host 下发 host-only Cookie', async () => {
     const instance = await buildApp(mod)
     const prod = await cookiesFor(instance, '/set', 'bsm.aizhs.top')
     const local = await cookiesFor(instance, '/set', '127.0.0.1:8801')
 
-    expect(prod).toHaveLength(2)
+    expect(prod).toHaveLength(3)
     expect(prod.every((c) => c.includes('Domain=.aizhs.top'))).toBe(true)
-    expect(local).toHaveLength(2)
+    expect(local).toHaveLength(3)
     expect(local.some((c) => /Domain=/i.test(c))).toBe(false)
     // 除 Domain 之外的属性不得顺手改掉(httpOnly/SameSite 是 P2-18 的立命之本)
-    expect(local.every((c) => /HttpOnly/i.test(c) && /SameSite=Lax/i.test(c))).toBe(true)
+    const creds = credentialCookies(local)
+    expect(creds).toHaveLength(2)
+    expect(creds.every((c) => /HttpOnly/i.test(c) && /SameSite=Lax/i.test(c))).toBe(true)
+    // 会话提示 Cookie 的存在意义就是"JS 看得见",因此它必须**不带** HttpOnly;
+    // 其余属性与凭据同形(同域同寿命),否则前端读到的信号与浏览器实有的凭据两套口径。
+    const hint = hintCookie(local)
+    expect(hint).toBeDefined()
+    expect(hint as string).toMatch(/^ihui_session_hint=1;/)
+    expect(hint).toContain('Path=/')
+    expect(hint).toContain('Max-Age=2592000')
+    expect(/HttpOnly/i.test(hint as string)).toBe(false)
+    expect(/SameSite=Lax/i.test(hint as string)).toBe(true)
   })
 
-  it('登出摘除与下发共用同一判据:本机档不得把 Domain 挂回来', async () => {
+  it('登出摘除与下发共用同一判据:本机档不得把 Domain 挂回来,提示 Cookie 也同批摘', async () => {
     const instance = await buildApp(mod)
     const prod = await cookiesFor(instance, '/clear', 'bsm.aizhs.top')
     const local = await cookiesFor(instance, '/clear', '127.0.0.1:8801')
 
+    expect(prod).toHaveLength(3)
     expect(prod.every((c) => c.includes('Domain=.aizhs.top') && /Max-Age=0/.test(c))).toBe(true)
     expect(local.every((c) => /Max-Age=0/.test(c))).toBe(true)
     expect(local.some((c) => /Domain=/i.test(c))).toBe(false)
+    expect(hintCookie(local)).toBeDefined()
+    expect(/HttpOnly/i.test(hintCookie(local) as string)).toBe(false)
   })
 
   it('可信代理透传的 X-Forwarded-Host 决定域(公网访客经反代的真实形态)', async () => {
@@ -148,7 +168,7 @@ describe('setAuthCookies / clearAuthCookies —— 接线', () => {
       headers: { host: 'evil.example.com', 'x-forwarded-host': 'bsm.aizhs.top' },
     })
     const setCookies = res.headers['set-cookie'] as string[]
-    expect(setCookies).toHaveLength(2)
+    expect(setCookies).toHaveLength(3)
     expect(setCookies.some((c) => /Domain=/i.test(c))).toBe(false)
   })
 })
@@ -168,7 +188,7 @@ describe('未配置 COOKIE_DOMAIN —— 行为与本配置落地前逐字相同
 
     const instance = await buildApp(fresh)
     const prod = await cookiesFor(instance, '/set', 'bsm.aizhs.top')
-    expect(prod).toHaveLength(2)
+    expect(prod).toHaveLength(3)
     expect(prod.some((c) => /Domain=/i.test(c))).toBe(false)
   })
 })

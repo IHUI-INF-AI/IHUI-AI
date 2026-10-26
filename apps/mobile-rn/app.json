@@ -49,6 +49,13 @@
           "savePhotosPermission": "允许 App 保存二维码到您的相册",
           "isAccessMediaLocationEnabled": false
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "允许使用相机扫描二维码，以确认电脑端登录",
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "extra": {
