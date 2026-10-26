@@ -53,7 +53,7 @@ test('T1 clean ⇒ 绿行并报读数', () => {
   const r = sweepCrossEndShellPages({
     ...fixture(),
     logger,
-    runner: runnerOf({ summary: { state: 'clean', planned: 0, batch: 0, blobs: 0, refused: 8, cap: 2 } }),
+    runner: runnerOf({ summary: { state: 'clean', planned: 0, batch: 0, blobs: 0, refused: 8, cap: 2, doc: 'clean' } }),
   })
   assert.equal(r.ran, true)
   assert.equal(r.ok, true)
@@ -61,6 +61,7 @@ test('T1 clean ⇒ 绿行并报读数', () => {
   const line = logs.find((l) => /跨端造页闭环/.test(l))
   assert.ok(line, 'clean 也要留一行读数(否则"没跑"和"跑了且无缺口"长得一样)')
   assert.match(line, /拒 8/, '要点名造页器拒掉的枚数 —— 缺口清零与全被拒是两件事')
+  assert.match(line, /账本 clean/, '账本自刷腿的结论必须进读数(它不进,只刷账本那一轮就读成零写)')
   assert.doesNotMatch(line, /⚠️/, '无缺口不该报警')
 })
 
@@ -268,7 +269,7 @@ test('C1 契约锁:调度器读的 summary 键真存在于造页器 --json 现�
   const b = out.lastIndexOf('}')
   assert.ok(a >= 0 && b > a, `造页器 --json 没吐 JSON,末行:${out.split('\n').filter(Boolean).slice(-1)[0] ?? ''}`)
   const summary = JSON.parse(out.slice(a, b + 1)).summary
-  for (const k of ['state', 'planned', 'batch', 'blobs', 'refused', 'cap']) {
+  for (const k of ['state', 'planned', 'batch', 'blobs', 'refused', 'cap', 'doc']) {
     assert.ok(Object.hasOwn(summary, k), `造页器 --json 的 summary 缺键 ${k} ⇒ 调度器读的是手抄形状`)
   }
   assert.ok(
