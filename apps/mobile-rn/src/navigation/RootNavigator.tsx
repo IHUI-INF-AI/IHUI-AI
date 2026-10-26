@@ -106,6 +106,22 @@ import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
 import { StatusScreen } from '../screens/StatusScreen'
+import { AiWorldDetailScreen } from '../screens/AiWorldDetailScreen'
+import { AiWorldEditScreen } from '../screens/AiWorldEditScreen'
+import { AiWorldFavoritesScreen } from '../screens/AiWorldFavoritesScreen'
+import { AiWorldHistoryScreen } from '../screens/AiWorldHistoryScreen'
+import { EduAiHubScreen } from '../screens/EduAiHubScreen'
+import { EduAiVideoComposeScreen } from '../screens/EduAiVideoComposeScreen'
+import { PlanScreen } from '../screens/PlanScreen'
+import { PlanDetailScreen } from '../screens/PlanDetailScreen'
+import { PlanNewScreen } from '../screens/PlanNewScreen'
+import { StudentCenterScreen } from '../screens/StudentCenterScreen'
+import { MyCommentsScreen } from '../screens/MyCommentsScreen'
+import { MyLessonsScreen } from '../screens/MyLessonsScreen'
+import { MyResourcesScreen } from '../screens/MyResourcesScreen'
+import { OfflineRecordsScreen } from '../screens/OfflineRecordsScreen'
+import { ToolsScreen } from '../screens/ToolsScreen'
+import { PdfToolsHubScreen } from '../screens/PdfToolsHubScreen'
 import { AgreementByTypeScreen } from '../screens/AgreementByTypeScreen'
 import { LegalDocScreen } from '../screens/LegalDocScreen'
 import { SupportScreen } from '../screens/SupportScreen'
@@ -479,6 +495,22 @@ export type RootStackParamList = {
   Agreement: undefined
   About: undefined
   Status: undefined
+  AiWorldDetail: { id: string }
+  AiWorldEdit: { id: string }
+  AiWorldFavorites: undefined
+  AiWorldHistory: undefined
+  EduAi: { tab?: 'aigc' | 'cert' | 'courses' | 'policy' } | undefined
+  EduAiVideoCompose: undefined
+  Plan: undefined
+  PlanDetail: { id: string }
+  PlanNew: undefined
+  Student: undefined
+  MyComments: undefined
+  MyLessons: undefined
+  MyResources: undefined
+  OfflineRecords: undefined
+  Tools: undefined
+  PdfToolsHub: { tab?: 'merge' | 'split' | 'watermark' } | undefined
   AgreementByType: { type: string }
   LegalDoc:
     { doc?: 'terms' | 'usagePolicy' | 'supportedRegions' | 'serviceSpecificTerms' } | undefined
@@ -966,6 +998,22 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />
             <RootStack.Screen name="Status" component={StatusScreen} />
+            <RootStack.Screen name="AiWorldDetail" component={AiWorldDetailScreen} />
+            <RootStack.Screen name="AiWorldEdit" component={AiWorldEditScreen} />
+            <RootStack.Screen name="AiWorldFavorites" component={AiWorldFavoritesScreen} />
+            <RootStack.Screen name="AiWorldHistory" component={AiWorldHistoryScreen} />
+            <RootStack.Screen name="EduAi" component={EduAiHubScreen} />
+            <RootStack.Screen name="EduAiVideoCompose" component={EduAiVideoComposeScreen} />
+            <RootStack.Screen name="Plan" component={PlanScreen} />
+            <RootStack.Screen name="PlanDetail" component={PlanDetailScreen} />
+            <RootStack.Screen name="PlanNew" component={PlanNewScreen} />
+            <RootStack.Screen name="Student" component={StudentCenterScreen} />
+            <RootStack.Screen name="MyComments" component={MyCommentsScreen} />
+            <RootStack.Screen name="MyLessons" component={MyLessonsScreen} />
+            <RootStack.Screen name="MyResources" component={MyResourcesScreen} />
+            <RootStack.Screen name="OfflineRecords" component={OfflineRecordsScreen} />
+            <RootStack.Screen name="Tools" component={ToolsScreen} />
+            <RootStack.Screen name="PdfToolsHub" component={PdfToolsHubScreen} />
             <RootStack.Screen name="AgreementByType" component={AgreementByTypeScreen} />
             <RootStack.Screen name="LegalDoc" component={LegalDocScreen} />
             <RootStack.Screen name="Support" component={SupportScreen} />
