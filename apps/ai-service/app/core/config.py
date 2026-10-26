@@ -493,6 +493,14 @@ def _sync_env_file_to_os() -> None:
                 # ⚠️ 这里必须是显式元组:括号内是 startswith 的参数表,裸双字符串会把
                 # 第二个前缀当 start 下标(TypeError: slice indices must be integers)。
                 "COOKIE_REFRESH_",
+                # 账号保活中心(2026-10-26):services/keepalive/center.py 以 os.environ
+                # 直读 KEEPALIVE_* 十键(总开关/间隔/重试/告警/流水保留期)。不进白名单
+                # → .env 里写了 KEEPALIVE_ENABLED=true 也读不到 → 中心恒判"未启用",
+                # 而且它的自检会把原因写成"未设置 KEEPALIVE_ENABLED"——**看起来像没配,
+                # 实际是配了读不到**,比静默 off 更难查。
+                # 这一型本文件已记录 6 次(DB_SYNC_ / COOKIE_REFRESH_ / CHECKIN 各自一次),
+                # 本条是第 7 例。用前缀而非逐个列键:后续新增 KEEPALIVE_* 自动覆盖。
+                "KEEPALIVE_",
             )
         ):
             os.environ.setdefault(key, value)
