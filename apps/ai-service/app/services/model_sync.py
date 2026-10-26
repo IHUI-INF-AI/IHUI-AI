@@ -1731,7 +1731,7 @@ class ModelSyncService:
         return stem, version
 
     @staticmethod
-    def _version_sort_key(version: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
+    def _version_sort_key(version: str) -> tuple:
         """把版本串转成可比较的 key,用于判定"谁更新"。
 
         数字段按数值比较(3.10 > 3.9),非数字段按字符串比较;
@@ -1780,7 +1780,7 @@ class ModelSyncService:
         # 不比非数字段:gpt-4o 与 gpt-4o-mini 数字段相同(都是 4),
         # 那是"尺寸变体"不是"版本迭代",认作后继会把大模型错替成 mini。
         pool = [c for c in candidate_ids if c != old_id and c not in already_taken]
-        best: tuple[tuple[tuple[int, ...], tuple[str, ...]], str] | None = None
+        best: tuple[tuple, str] | None = None
         for cand in pool:
             c_stem, c_ver = cls._split_stem_version(cand)
             if c_stem != old_stem:
