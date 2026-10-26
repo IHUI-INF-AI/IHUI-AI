@@ -17,7 +17,7 @@
  *   IHUI_ADMIN_JWT=<token> node scripts/relay-prod-ingest.mjs \
  *     --payload .ihui-agent/state/prod-ingest/trae-account.json \
  *     --base https://api.aizhs.top [--dry-run]
- * 退出码:0 成功 / 1 上游拒绝或校验失败 / 2 未判定(缺凭据/缺载荷/网络不可达)。
+ * 退出码(现读):0 成功 / 1 上游拒绝或校验失败 / 2 未判定(缺凭据/缺载荷/网络不可达)。
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
