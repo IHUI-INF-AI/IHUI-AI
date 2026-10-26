@@ -6,7 +6,6 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { type JWTPayload, verifyRefreshToken } from '@ihui/auth'
 import { isSameOriginRelativePath } from '@ihui/shared/auth/sso-core'
-import { REFRESH_TOKEN_STALE_ERROR_CODE } from '@ihui/shared/auth/auto-login-policy'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
@@ -398,25 +397,28 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
           return reply.code(401).send(error(401, 'refresh_token 无效或已被吊销'))
         }
         if (replay.verdict === 'stale-sibling') {
-          // 超出宽限期但这一族还有活 token:迟到的是陈旧副本 ⇒ 只拒绝本次,
-          // 不签发、不吊销,并带稳定错误码供端上分型(与 /auth/refresh 同码)。
+          // 超出宽限期但这一族还有活 token:迟到的是陈旧副本 ⇒ 2026-10-27 起放行正常轮转
+          // (与 /auth/refresh 同尺)。此前这里 401,把「凭据在、族也活着」的调用方永久锁死;
+          // 族还活着即会话未死,真正的攻击面由 reuse 覆盖。留 warn 便于观测旧副本频率。
           request.log.warn(
             {
               familyId: payload.familyId,
               userId: payload.userId,
               revokedAgeMs: replay.revokedAgeMs,
             },
-            '[security] SSO stale refresh token replay while family still alive, rejected without revoking',
+            '[sso] stale refresh token replay recovered by rotation (family still alive)',
           )
-          return reply
-            .code(401)
-            .send(error(401, 'refresh_token 无效或已被吊销', REFRESH_TOKEN_STALE_ERROR_CODE))
+        } else {
+          // race:宽限期内竞态放行(记 info 便于观测),不吊销家族,继续下方正常轮转
+          request.log.info(
+            {
+              familyId: payload.familyId,
+              userId: payload.userId,
+              revokedAgeMs: replay.revokedAgeMs,
+            },
+            '[sso] refresh token replay within leeway, treated as multi-context race',
+          )
         }
-        // race:宽限期内竞态放行(记 info 便于观测),不吊销家族,继续下方正常轮转
-        request.log.info(
-          { familyId: payload.familyId, userId: payload.userId, revokedAgeMs: replay.revokedAgeMs },
-          '[sso] refresh token replay within leeway, treated as multi-context race',
-        )
       }
 
       // 3. 确认用户仍然存在且启用
