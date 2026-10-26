@@ -111,7 +111,13 @@ describe('tryHandleToolSlash — D117 工具型命令分发', () => {
 
   it('/compact:委托 runManualCompact(带 conversationId)', async () => {
     await expect(tryHandleToolSlash('/compact', t)).resolves.toBe(true)
-    expect(mockRunCompact).toHaveBeenCalledWith('conv-1', expect.any(Function))
+    // 第三参是调用方传入的窗格 store(票60 步序四,发送链窗格寻址后新增),
+    // 断言锚定前两参 + 第三参含 getState,不锁死整对象形状。
+    expect(mockRunCompact).toHaveBeenCalledWith(
+      'conv-1',
+      expect.any(Function),
+      expect.objectContaining({ getState: expect.any(Function) }),
+    )
   })
 
   it('/compact:流式中 → store 守卫短路,不调 compact 端点路径(仍委托单一实现)', async () => {

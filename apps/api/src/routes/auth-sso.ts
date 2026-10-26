@@ -6,14 +6,17 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { type JWTPayload, verifyRefreshToken } from '@ihui/auth'
 import { isSameOriginRelativePath } from '@ihui/shared/auth/sso-core'
+import { REFRESH_TOKEN_STALE_ERROR_CODE } from '@ihui/shared/auth/auto-login-policy'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
+import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
 import { setAuthCookies } from '../utils/auth-cookies.js'
 import {
   findUserById,
   revokeAllUserRefreshTokens,
   findRefreshToken,
   revokeRefreshToken,
+  revokeRefreshTokenFamily,
 } from '../db/queries.js'
 import { getUserPermissions } from '../db/rbac-queries.js'
 import { success, error } from '../utils/response.js'
@@ -357,10 +360,57 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
         return reply.code(401).send(error(401, 'refresh_token 无效或已过期'))
       }
 
-      // 2. 查库确认未被吊销
+      // 2. 查库确认未被吊销;已被吊销的重放走三档裁决唯一出口
+      //    (services/refresh-replay-policy.ts,与 routes/auth.ts 的 /refresh 同一把尺子,
+      //    AGENTS §0.6 单一真相源)。此前这里"只要被轮转过就一律 401",多窗口/外部集成
+      //    的正常并发刷新会被端内当成"凭据被服务端明确否定"而清掉本地凭据 —— 本端点是
+      //    对外 API,状态码维持 401 不变,仅新增 errorCode=REFRESH_TOKEN_STALE 分型。
       const record = await findRefreshToken(token)
-      if (!record || record.revokedAt) {
+      if (!record) {
         return reply.code(401).send(error(401, 'refresh_token 无效或已被吊销'))
+      }
+      if (record.revokedAt) {
+        const replay = await assessRefreshReplay(new Date(record.revokedAt), payload.familyId)
+        if (replay.verdict === 'reuse') {
+          // 超出宽限期且整族已无活 token:保留 RFC 6749 §10.4 的家族吊销与审计留痕。
+          if (payload.familyId) {
+            try {
+              const revokedCount = await revokeRefreshTokenFamily(payload.familyId)
+              request.log.warn(
+                {
+                  familyId: payload.familyId,
+                  userId: payload.userId,
+                  revokedCount,
+                  revokedAgeMs: replay.revokedAgeMs,
+                },
+                '[security] SSO refresh token reuse detected, family revoked',
+              )
+            } catch (e) {
+              request.log.error({ err: e }, '[security] SSO family revocation failed')
+            }
+          }
+          return reply.code(401).send(error(401, 'refresh_token 无效或已被吊销'))
+        }
+        if (replay.verdict === 'stale-sibling') {
+          // 超出宽限期但这一族还有活 token:迟到的是陈旧副本 ⇒ 只拒绝本次,
+          // 不签发、不吊销,并带稳定错误码供端上分型(与 /auth/refresh 同码)。
+          request.log.warn(
+            {
+              familyId: payload.familyId,
+              userId: payload.userId,
+              revokedAgeMs: replay.revokedAgeMs,
+            },
+            '[security] SSO stale refresh token replay while family still alive, rejected without revoking',
+          )
+          return reply
+            .code(401)
+            .send(error(401, 'refresh_token 无效或已被吊销', REFRESH_TOKEN_STALE_ERROR_CODE))
+        }
+        // race:宽限期内竞态放行(记 info 便于观测),不吊销家族,继续下方正常轮转
+        request.log.info(
+          { familyId: payload.familyId, userId: payload.userId, revokedAgeMs: replay.revokedAgeMs },
+          '[sso] refresh token replay within leeway, treated as multi-context race',
+        )
       }
 
       // 3. 确认用户仍然存在且启用
@@ -373,7 +423,12 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 4. 吊销旧 refresh token（轮转）
-      await revokeRefreshToken(token)
+      // 宽限期竞态放行的 token 已处于"被吊销"状态,重复 revoke 只会把 revokedAt 刷成
+      // now(窗口滑动,多次重放可不断续窗)—— 跳过,保持首次吊销时间,固定窗口
+      // (与 routes/auth.ts 的 /refresh 轮转步同形)。
+      if (!record.revokedAt) {
+        await revokeRefreshToken(token)
+      }
 
       // 5. 用同一 familyId 签发新 token 对
       const tokens = await buildTokenPair(

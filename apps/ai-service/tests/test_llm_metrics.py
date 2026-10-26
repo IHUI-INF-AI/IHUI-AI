@@ -8,6 +8,7 @@
 - 4 个指标对象存在 + 类型正确(Counter / Histogram / Gauge)
 - record_llm_call 成功路径(input + output token 计数累加)
 - record_llm_call 失败路径(4xx / 5xx / timeout / connection 错误计数)
+- llm_error_status 分类:401/403 → 'auth'(厂商鉴权类,单列不进到人告警通道),其余 4xx/5xx/timeout/connection 各归各位
 - record_llm_call 异常吞掉(指标 API 抛异常时不向上抛、不阻塞业务)
 - record_llm_call 边界(0 token / 0 耗时 / None error)
 - Gauge inc/dec/set 操作
@@ -25,6 +26,7 @@ import pytest
 from prometheus_client import REGISTRY, Counter, Histogram
 
 from app.middleware.llm_metrics import (
+    llm_error_status,
     llm_provider_errors_total,
     llm_request_duration_seconds,
     llm_tokens_total,
@@ -131,6 +133,45 @@ def test_record_successful_call_with_zero_tokens():
         duration_seconds=0.0,
     )
     # 不抛异常即通过
+
+
+# =============================================================================
+# llm_error_status — 失败分类(2026-10-26 新增 auth 一档)
+# =============================================================================
+
+
+class _StatusCarrier(Exception):
+    """带 status_code 的上游异常(仿 LiteLLM 异常形态)。"""
+
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"upstream status {status_code}")
+        self.status_code = status_code
+
+
+@pytest.mark.parametrize("status_code", [401, 403])
+def test_auth_errors_are_classified_as_auth(status_code):
+    """厂商鉴权类失败(401/403)必须归成 'auth',**不能**归成 '4xx'。
+
+    立因(机主令「厂商 key 我想配自然会配,别总说,也别报警」):'auth' 是单列的一档,
+    监控/prometheus/alerts.yml 的 LlmProviderErrorBurst 靠 status!="auth" 把它排除在
+    到人告警通道之外。若这一格退化成 '4xx',厂商账户状态就会重新开始寄信。
+    """
+    assert llm_error_status(_StatusCarrier(status_code)) == "auth"
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected"),
+    [(400, "4xx"), (404, "4xx"), (429, "4xx"), (402, "4xx"), (500, "5xx"), (503, "5xx")],
+)
+def test_non_auth_status_codes_keep_their_class(status_code, expected):
+    """非鉴权类状态码分类不变(401/403 之外一律按码段)。"""
+    assert llm_error_status(_StatusCarrier(status_code)) == expected
+
+
+def test_timeout_and_connection_still_classified_by_text():
+    """无状态码时仍退到文案判 timeout / connection(不能被 auth 档吞掉)。"""
+    assert llm_error_status("ReadTimeout: request timed out") == "timeout"
+    assert llm_error_status("ConnectionError: connection refused") == "connection"
 
 
 # =============================================================================

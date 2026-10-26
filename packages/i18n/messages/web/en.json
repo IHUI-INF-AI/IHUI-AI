@@ -22715,16 +22715,22 @@
         "filter": {
           "all": "All",
           "configured": "Configured",
+          "invalidKey": "Invalid Key",
           "local": "Local",
-          "notConfigured": "Not Configured"
+          "notConfigured": "Not Configured",
+          "ok": "Available",
+          "unreachable": "Unreachable"
         },
         "models": "models",
         "refresh": "Refresh",
         "summary": {
           "configured": "Configured",
+          "invalidKey": "Invalid Key",
           "local": "Local",
           "notConfigured": "Not Configured",
-          "total": "Total"
+          "ok": "Available",
+          "total": "Total",
+          "unreachable": "Unreachable"
         }
       },
       "subtitle": "Provider health, Combo chain management, Token compaction demo",

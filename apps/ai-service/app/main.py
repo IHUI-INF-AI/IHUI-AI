@@ -413,6 +413,18 @@ async def lifespan(app: FastAPI) -> Any:
 
     _ensure_expiry_janitor()
 
+    # 历史遗留明文 doom_loop 定时批量审计守护(2026-10-26 立)。清洗器
+    # scripts/redact_legacy_procedural_patterns.py 此前全仓调用面只有它自己的测试 ⇒ 存量脏
+    # pattern 永不被清("造好没装车"型)。本守护**只跑 dry-run、零写盘**(写盘仍须部署机
+    # 交互终端手动 --apply --confirm 再答库名),发现待改写/撞键行即点名告警。
+    # 默认开;PROCEDURAL_REDACT_AUDIT_ENABLED=0 关档,PROCEDURAL_REDACT_AUDIT_INTERVAL_SECONDS
+    # 调间隔(默认 86400s,下限 300s)。判据复用清洗器本体,不在守护重造。
+    from app.services.procedural_redact_daemon import (
+        ensure_started as _ensure_procedural_redact_audit,
+    )
+
+    _ensure_procedural_redact_audit()
+
     # 模型可用性服务(2026-07-31 立,用户规则:只显示可完美接通调用的模型)
     # 启动时后台跑首次 ping(不阻塞 FastAPI 启动)+ 每 5 分钟定时刷新 provider 健康状态。
     # /llm/models 端点调用 model_availability.get_available_models() 过滤不可用模型。
@@ -786,6 +798,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         expiry_janitor.stop()
 
+    async def _s_procedural_redact_daemon() -> None:
+        from app.services import procedural_redact_daemon
+
+        procedural_redact_daemon.stop()
+
     async def _s_skill_evolution() -> None:
         from app.services.skill_evolution_scheduler import skill_evolution_scheduler
 
@@ -907,6 +924,7 @@ async def lifespan(app: FastAPI) -> Any:
         ("im_bridge_service", lambda: im_bridge_service.shutdown()),
         ("dream_scheduler", _s_dream_scheduler),
         ("expiry_janitor", _s_expiry_janitor),
+        ("procedural_redact_daemon", _s_procedural_redact_daemon),
         ("skill_evolution_scheduler", _s_skill_evolution),
         ("meta_learner_scheduler", _s_meta_learner),
         # L5 关闭 A/B 测试调度器(等待进行中的显著性检验任务完成)

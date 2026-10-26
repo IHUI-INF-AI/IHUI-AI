@@ -29,7 +29,15 @@ vi.mock('@ihui/ui-react', () => ({
   IconButton: () => null,
 }))
 vi.mock('@/stores/auth-store', () => ({
-  useWebAuthStore: (sel: (s: { token: string | null }) => unknown) => sel({ token: null }),
+  // 真 store 是 zustand hook,带 getState;voice-stream-speaker 建连时用
+  // useWebAuthStore.getState().token 现取凭据(2026-10-26 改),mock 缺 getState
+  // ⇒ 测的是 mock 缺面,不是被测逻辑。
+  useWebAuthStore: Object.assign(
+    (sel: (s: { token: string | null }) => unknown) => sel({ token: null }),
+    {
+      getState: () => ({ token: null }),
+    },
+  ),
 }))
 
 const fetchCalls: string[][] = []
