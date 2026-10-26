@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import codecs
 import contextlib
 import difflib
 import hashlib
@@ -301,6 +302,61 @@ _EXEC_BUFFER_HEAD = 4_000
 _EXEC_BUFFER_TAIL = 16_000
 # unified_exec 会话空闲回收(秒;超时且进程已退出才真正移除)
 _EXEC_SESSION_TTL = 600.0
+
+
+def _shell_stream_codec() -> str:
+    """持久 shell 会话 stdin/stdout 的编解码器(2026-10-26 实测立)。
+
+    Windows 的控制台 I/O 走 **OEM 代码页**(中文机 cp936、英文机 cp437/850),
+    与 Python 侧的 UTF-8 不是同一套,两边都必须跟它走:
+    - 按 UTF-8 把含中文路径的命令写进 cmd.exe 的 stdin ⇒ cmd 按 OEM 解码成乱码,
+      报「系统找不到指定的路径」且**不执行任何东西**(实测 has_RED=False);
+      按 OEM 写则完全正常。
+    - 按 UTF-8 解码 cmd 的输出 ⇒ 中文提示/报错全成替换符(U+FFFD)。
+
+    取不到控制台代码页时(无控制台的服务进程)退回 OEM 代码页;仍是 65001 或
+    该代码页名不被 Python 认识时用 utf-8 —— 后者与 65001 语义一致。
+    """
+    if os.name != "nt":
+        return "utf-8"
+    cp = 0
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        cp = int(kernel32.GetConsoleCP() or 0) or int(kernel32.GetOEMCP() or 0)
+    except Exception:  # noqa: BLE001 - 探测失败不得拖垮会话创建
+        cp = 0
+    if cp <= 0 or cp == 65001:
+        return "utf-8"
+    name = f"cp{cp}"
+    try:
+        codecs.lookup(name)
+    except LookupError:
+        return "utf-8"
+    return name
+
+
+_SHELL_STREAM_CODEC = _shell_stream_codec()
+
+
+def _encode_shell_input(text: str) -> bytes | None:
+    """把一条命令按 `_SHELL_STREAM_CODEC` 编码成写进 stdin 的字节(含行尾)。
+
+    编不出来的字符(如当前代码页没有的 emoji)返回 None,由调用方显式报错 ——
+    绝不 `errors="replace"`:把命令悄悄改写成另一条再执行,比明确失败危险得多。
+    """
+    try:
+        return text.encode(_SHELL_STREAM_CODEC) + b"\n"
+    except UnicodeEncodeError:
+        return None
+
+
+def _shell_input_encoding_error(codec: str) -> str:
+    return (
+        f"命令包含当前控制台代码页({codec})无法表示的字符,已拒绝执行 —— "
+        "请改写命令、改用文件或先切换到支持该字符的代码页后重试。"
+    )
 # elicitation 用户提问默认超时(ms)(对标 Codex elicitation)
 _DEFAULT_ELICITATION_TIMEOUT_MS = 30_000
 # auto-compact 默认触发阈值(估算 token;对标 Codex compact_token_budget)
@@ -6394,11 +6450,18 @@ class AgentEngine:
         async def _reader(session: dict[str, Any]) -> None:
             proc = session["proc"]
             assert proc.stdout is not None
+            # 增量解码:多字节字符正落在 4096 字节边界上时,逐块 decode 会各分成
+            # 半个字符并各自变成替换符 —— 中文提示每 4KB 就可能出现一处乱码。
+            decoder = codecs.getincrementaldecoder(_SHELL_STREAM_CODEC)(errors="replace")
             while True:
                 chunk = await proc.stdout.read(4096)
                 if not chunk:
                     break
-                _append_output(session, chunk.decode("utf-8", errors="replace"))
+                # 输出同样跟控制台代码页走:按 UTF-8 解码中文提示/报错会全成替换符
+                _append_output(session, decoder.decode(chunk))
+            tail = decoder.decode(b"", final=True)
+            if tail:
+                _append_output(session, tail)
 
         def _prune_sessions() -> None:
             now = time.time()
@@ -6494,8 +6557,11 @@ class AgentEngine:
                 existing["last_active"] = time.time()
                 proc_stdin = existing["proc"].stdin
                 if proc_stdin is not None and proc_stdin.is_closing() is False:
+                    payload = _encode_shell_input(command)
+                    if payload is None:
+                        return {"error": _shell_input_encoding_error(_SHELL_STREAM_CODEC)}
                     before = len(existing["buffer"])
-                    proc_stdin.write((command + "\n").encode("utf-8"))
+                    proc_stdin.write(payload)
                     with contextlib.suppress(Exception):
                         await proc_stdin.drain()
                     return await _wait_settled(existing, before, timeout_s)
@@ -6528,6 +6594,13 @@ class AgentEngine:
                 if os.name == "nt"
                 else ["bash", "--noprofile", "--norc"]
             )
+            # 编码检查排在起进程之前:编不出来就当场拒绝,不留一个空转的常驻会话。
+            first_payload = _encode_shell_input(command)
+            bootstrap_payload = (
+                _encode_shell_input(bootstrap_cmd) if bootstrap_cmd else None
+            )
+            if first_payload is None or (bootstrap_cmd and bootstrap_payload is None):
+                return {"error": _shell_input_encoding_error(_SHELL_STREAM_CODEC)}
             try:
                 proc = await asyncio.create_subprocess_exec(
                     *shell_argv,
@@ -6556,12 +6629,13 @@ class AgentEngine:
             thread.touch()
             before = len(new_session["buffer"])
             if proc.stdin is not None:
-                # 先 source 快照重建用户环境(批 55),再注入真实命令
-                if bootstrap_cmd:
-                    proc.stdin.write((bootstrap_cmd + "\n").encode("utf-8"))
+                # 先 source 快照重建用户环境(批 55),再注入真实命令;
+                # 两者都按控制台代码页编码(见 _shell_stream_codec 的实测说明)
+                if bootstrap_payload is not None:
+                    proc.stdin.write(bootstrap_payload)
                     with contextlib.suppress(Exception):
                         await proc.stdin.drain()
-                proc.stdin.write((command + "\n").encode("utf-8"))
+                proc.stdin.write(first_payload)
                 with contextlib.suppress(Exception):
                     await proc.stdin.drain()
             return await _wait_settled(new_session, before, timeout_s)

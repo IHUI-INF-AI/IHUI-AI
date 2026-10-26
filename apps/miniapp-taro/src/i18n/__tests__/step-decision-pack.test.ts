@@ -26,7 +26,7 @@ const load = (dir: string, locale: string) =>
   ) as Record<string, unknown>
 
 describe('stepDecision 词包在 taro 合并视图可达(D55②)', () => {
-  it.each(LOCALES)('%s:15 个步骤决策 + allow/ask/deny 全部本地化,且不回显键名/原始码', (locale) => {
+  it.each(LOCALES)('%s:全部步骤决策 + allow/ask/deny 全部本地化,且不回显键名/原始码', (locale) => {
     const merged = mergeMessages(
       load('shared', locale) as never,
       load('miniapp-taro', locale) as never,
