@@ -873,6 +873,8 @@
       "platformRn": "行動端",
       "platformMp": "小程式",
       "platformEx": "瀏覽器擴充功能",
+      "platformQuiet": "今日靜默",
+      "platformNever": "90日未上報",
       "platformNoData": "近24h 暫無分端資料",
       "panelAudience": "訪客構成",
       "audienceNew": "新訪客",

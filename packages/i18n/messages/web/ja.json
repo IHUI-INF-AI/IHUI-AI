@@ -873,6 +873,8 @@
       "platformRn": "モバイルアプリ",
       "platformMp": "ミニプログラム",
       "platformEx": "ブラウザ拡張",
+      "platformQuiet": "本日アクセスなし",
+      "platformNever": "90日以内に報告なし",
       "platformNoData": "24時間以内の端末別データなし",
       "panelAudience": "訪問者構成",
       "audienceNew": "新規訪問者",
