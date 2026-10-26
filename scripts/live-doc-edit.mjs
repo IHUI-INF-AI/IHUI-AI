@@ -128,7 +128,22 @@
  *            编号形状编译不出 ⇒ 无法证明"不在位" / **新行里的 sha 形态指针当场问不到 commit**(G-1079146
  *            取值档;注意"git 问不到"不落这一档 —— 那一档是未判定 ⇒ 放行并打印原因));
  *        2 = 用法或环境错(缺必填 env / 锚点或正文块为空 / 根不可当仓库问 /
- *            本次内容残留消费不掉的取号令牌字面量或该档取不到判定输入(G-15107 格①;反引号引述放过));
+ *            本次内容残留消费不掉的取号令牌字面量或该档取不到判定输入(G-15107 格①;反引号引述放过))/
+ *            **结清留痕未判定**(2026-10-26:整行改写把 `- [ ]` 翻成 `- [x]` 而两形态没能进
+ *            `plan-row-drop.jsonl` —— 台账读不到/写不进、或 HEAD 取不到因而证不了"HEAD 被推进";
+ *            内容是**已落地**的,这一档只表示"这行本侧已处置过"没留下凭据);
+ *
+ * 结清留痕自动腿(2026-10-26 立;写口住 `lib/plan-drop-record.mjs`,本器只交事实):
+ *  整行改写档里 after 是已勾形态而 before 是未勾形态的项,自动把**两形态逐字**追写进
+ *  `.ihui-agent/state/plan-row-drop.jsonl`(kind=`closed-row-reclose-open-form`,沿用既有族)。
+ *  四条硬次序:① 排在落地成功之后(回读已证明 after 在位、before 归零);② 凭据是**HEAD 有没有被推进**
+ *  (`isAncestor(landed, head)` 三态),不是本器退出码;③ 只在这条形状上写 —— 纯注记改写、翻回未勾、
+ *  非登记行一律零入账;④ 幂等(逐字已在账 ⇒ 不重复追加)。取不到输入(台账不可写 / HEAD 取不到)
+ *  ⇒ 显式未判定 + 打印 + exit 2,不静默跳过。`LIVE_SEAT` 可覆盖台账里的 `seat`(缺省 `live-doc-edit`)。
+ *
+ * 已知边界(如实登记,别读成"结清留痕已全覆盖"):本器之外还有 12 个结清入口直接改台账/直交
+ *  (实测 `noTrace=182/434`),它们不写留痕;本腿只收"走本器整行改写档"这一条通道。`all:true`
+ *  的孪生副本项按**声明项**入账一次(两形态各一条),不按命中行数重复入账。
  *
  * 已知边界(如实登记,别读成"重复落地这一族已被全覆盖"):
  *  - **EOF 追加档不在幂等射程**:票面 ① 的判据定义在"锚点之后紧邻 N 行"上,EOF 档没有锚点可点名。
@@ -191,6 +206,7 @@ import {
   commitTreeWithIndex,
   git,
   headBlobOf,
+  isAncestor,
   resolveHeadRef,
   sameLines,
   writeBlob,
@@ -209,6 +225,13 @@ import {
 } from './lib/plan-task-index.mjs'
 import { collectIdFace, scanFamilyIdHits } from './lib/plan-id-face.mjs'
 
+// 结清留痕自动腿(2026-10-26 立):`- [ ]` → `- [x]` 的两形态逐字入 `plan-row-drop.jsonl`。
+// 写口/幂等/凭据判定只有一份实现(住 lib),本器只交事实(落地 sha / 父提交 / 当下 HEAD / 祖先关系)。
+import {
+  recordFlipDrops,
+  selfTestCases as planDropSelfTestCases,
+  DROP_SEAT_DEFAULT,
+} from './lib/plan-drop-record.mjs'
 // 守门 194 同题查重(2026-10-13):指纹判据只此一份,取号器不另写"什么算同题"
 import { extractTaskFingerprint, findSameFingerprint } from './check-plan-task-duplicates.mjs'
 // 复合主键判据的唯一实现(台账层与归并器共用同一份;本器不得再抄一份 —— 两处算同一个键必漂移)。
@@ -2703,6 +2726,47 @@ async function main() {
     )
   } else console.log('✅ 回读:本块每一条非空行都在 HEAD 里')
 
+  /**
+   * ── 结清留痕自动腿(2026-10-26 立)────────────────────────────────────────────────
+   * 立因(主席当日两次实测):`plan-row-drop.jsonl` 是"这行本侧已处置过"的唯一凭据,
+   * `scrub-declared-removals` 的 `declaredRows` 与 `union-converge` 的 `declaredDropCaps` 都读它;
+   * 而结清入口 15 个里 12 个不写留痕(`noTrace=182/434` = 42%)⇒ 摘一次、union 回捞一次。
+   * 本器是唯一合法的活文档写盘入口,结清动作在此天然知道 before/after 两形态,故留痕腿挂这里。
+   *
+   * 位置=判据(AGENTS §1):这一段**必须**在回读通过之后 —— 回读证明 after 在位且 before 归零,
+   * 此刻起"改了"才是既成事实;而凭据取的是**HEAD 有没有被推进**(landed 是当下 HEAD 的祖先),
+   * 不是本器退出码(实测过 CAS 成功推进 HEAD 而落地器因回读未判定返 exit 2 的形态)。
+   * 留痕失败不改上面的落地结论,也不跳过后面的 G-725 留痕/守门 71 补跑/索引对齐(它们是各自独立的账);
+   * 未判定由尾部把它落成 exit 2 —— 大声,且绝不静默跳过(§0.3:没判不写"判过")。
+   */
+  let dropRecord = null
+  if (replacements) {
+    let headNow = null
+    let ancestor = null
+    try {
+      headNow = git(['rev-parse', 'HEAD'], { root, allowFail: true })
+      ancestor = headNow ? isAncestor(landed, headNow, { root }) : null
+    } catch (e) {
+      console.error(`⚠️ 结清留痕的落地凭据取不到:${String(e?.message ?? e).split(/\r?\n/)[0].slice(0, 160)}`)
+      headNow = null
+      ancestor = null
+    }
+    dropRecord = recordFlipDrops({
+      root,
+      doc,
+      pairs: effReplacements ?? [],
+      landed,
+      parent: parentSha,
+      head: headNow,
+      ancestor,
+      seat: process.env.LIVE_SEAT || DROP_SEAT_DEFAULT,
+    })
+    for (const l of dropRecord.lines) {
+      if (l.level === 'error') console.error(l.text)
+      else console.log(l.text)
+    }
+  }
+
   // G-725 留痕的**原始落地那一枚**(P1b,2026-10-25 修):回读已证明它带着期望内容进了 HEAD ⇒ 从这
   // 一刻起它就是既成事实。位置必须在期末对账之前 —— 让号会再产一枚 c2;旧版尾部只记 `landed`
   // (= 若让号过就是 c2)且沿用了原始父提交,结果 c1 没有记录、c2 被记两次且尾部父绑定错。
@@ -2878,6 +2942,19 @@ async function main() {
   // 退出码与措辞的唯一出口是纯函数 `alignOutcome`(构造面上双向钉:没落地仍判 1)。
   const verdict = alignOutcome({ landedSha: landed, doc, align })
   for (const line of verdict.lines) console.log(line)
+  // 结清留痕未判定 ⇒ 非零退出(§0.3:取不到输入不得静默跳过)。内容已落地,但"这行本侧已处置过"
+  // 没进账 ⇒ 下游 scrub/union 结构上认不出它,摘一次、回捞一次。措辞必须同时说清这两件事,
+  // 否则调用方会把"账没写"读成"没落地"(G-321② 明令禁的那一型)。
+  if (dropRecord && dropRecord.unjudged) {
+    console.error(
+      `❌ 结清留痕未判定 ⇒ exit 2:内容已落地 HEAD=${String(landed).slice(0, 11)},但本次 ` +
+        `${dropRecord.flips.length} 项「未勾→已勾」形态未进 plan-row-drop.jsonl,` +
+        '下游 scrub-declared-removals 与 union declaredDropCaps 认不出"这行本侧已处置过" ⇒ 会被回捞。\n' +
+        '   修法:让 .ihui-agent/state/plan-row-drop.jsonl 可写(或让 HEAD 可读)后重跑本器 —— 幂等,' +
+        '不会重复追加,也不会把已落地的行再改一遍。',
+    )
+    process.exit(2)
+  }
   process.exit(verdict.code)
 }
 
@@ -2948,6 +3025,10 @@ export const __test__ = {
   residualIdTokenReport,
   inlineCodeSpansOf,
   RESIDUAL_ID_TOKEN_RE,
+  // 结清留痕自动腿(2026-10-26):判据与写口都住 lib(单一真相源),本器只转出接线面,
+  // 镜像测试从这里取,禁止在测试里另写一份"什么算未勾→已勾"。
+  recordFlipDrops,
+  planDropSelfTestCases,
 }
 
 /**
@@ -3312,6 +3393,9 @@ function selfTest() {
       return a.length === 1 && a[0][0] === 3 && b.length === 1 && c.length === 1 && c[0][0] === 4
     })(),
   )
+  // 结清留痕自动腿:判据与写口住 lib/plan-drop-record.mjs(本器不自抄第二份),
+  // --self-test 收编它的用例族 —— 形态挑取/两形态入账/幂等/凭据三态/台账不可写 五维。
+  for (const c of planDropSelfTestCases()) ok(c.name, c.pass === true)
   let fail = 0
   for (const g of got) {
     if (g.pass) console.log(`  ✅ ${g.name}`)

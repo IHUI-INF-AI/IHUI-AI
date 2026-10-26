@@ -68,11 +68,14 @@ import { blobInAncestry } from './heal-worktree-tracked.mjs'
 import {
   auditPlan,
   compositeKeyOf,
+  dispatchSlotOf,
   dispositionOfV2,
   findReopenedFlipCandidates,
   FLIPPED_ROW_RE,
   isDeclarationRow,
+  isDispatchKeptSlot,
   nextTaskIdLabel,
+  ownerLabelOf,
   parseTaskRows,
   usedIdsOfPrefix,
   LEDGER_TTL_DAYS,
@@ -240,11 +243,7 @@ export function sameTitleDispatchGroups(rows) {
 }
 
 export function fileConflictOverlay({ rows, dirtySet, headSet, lagJudge = null }) {
-  const hasAnyUnder = (set, key) => {
-    const pre = key + '/'
-    for (const p of set) if (p === key || p.startsWith(pre)) return true
-    return false
-  }
+  const hasAnyUnder = (set, key) => hasPathUnder(set, key)
   const list = []
   const absentList = []
   let refsTotal = 0
@@ -320,6 +319,15 @@ export function fileConflictOverlay({ rows, dirtySet, headSet, lagJudge = null }
   }
 }
 
+/** 台账里点名的是**目录**时(`deploy/prod-bundle/`),脏面按"任一路径以其为前缀"命中。
+ *  抽成模块级函数是因为归属证据尺(③ 脏面)与文件叠层问的是同一件事 —— 两处各写一遍必然漂。 */
+function hasPathUnder(set, key) {
+  if (!set || !key) return false
+  const pre = key + '/'
+  for (const p of set) if (p === key || p.startsWith(pre)) return true
+  return false
+}
+
 /**
  * 在飞路径集合(索引/工作树与 HEAD 不一致 + 未跟踪新文件)。
  * 取不到 ⇒ 返回 null,由调用方喊"未判定" —— 把没量到写成"都没有在飞"就是替打架发合格证。
@@ -369,6 +377,60 @@ function repoToplevel(root) {
     return out === '' ? null : out.replace(/\\/g, '/')
   } catch {
     return null
+  }
+}
+
+/** 归属证据尺 ② 的取材面:最近多少枚提交信息。与任务书同值(200),改这里就同时改判据射程。 */
+export const OWNER_EVIDENCE_COMMITS = 200
+/**
+ * 最近 N 枚提交信息(②「持有者短名出现在提交史里」的**唯一**取材出口)。
+ * 取不到(不是仓 / git 不可问 / 空输出)⇒ **null**,判据据此落"未判定"。
+ * 绝不返回空串冒充"最近没人提交":那会把每一枚散文标签都盖上"无证据"的章,
+ * 而盖章的后果是这些行被**放回派单面** —— 拿"没量到"当"量到没有"就是给打架发合格证(§0.3)。
+ */
+export function readRecentCommitText(root, n = OWNER_EVIDENCE_COMMITS) {
+  const top = repoToplevel(root)
+  if (!top) return null
+  try {
+    const raw = gitRaw(['log', `-${n}`, '--format=%s%n%b'], top, { maxBuffer: 1 << 28 })
+    if (typeof raw !== 'string' || raw.trim() === '') return null
+    return raw
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 归属证据的三条输入里需要 IO 的那两条(② 提交史 / ③ 脏面),一次装配、同面同轮。
+ * 判据本体在 `lib/plan-task-index.mjs` 的 `ownershipEvidenceOf`(纯函数,输入注入),本函数只取数。
+ * 任一路取不到 ⇒ 对应字段为 null,由判据落 `undetermined` 并**点名是哪一路** ——
+ * 禁止在这里回落成空集合/空串(§0.3:取不到不等于量到没有)。
+ */
+export function ownerEvidenceFace(root) {
+  const recentCommitText = readRecentCommitText(root)
+  const dirtySet = collectDirtyPaths(root)
+  const dirtyRefs = (line) => {
+    if (!dirtySet) return null
+    const refs = extractRefs(String(line ?? ''), PLAN_REL)
+    const hits = []
+    for (const [key, rec] of refs) {
+      const dirty = rec.form === 'dir' ? hasPathUnder(dirtySet, key) : dirtySet.has(key)
+      if (dirty) hits.push(key)
+    }
+    return hits
+  }
+  return {
+    recentCommitText,
+    dirtyRefs,
+    now: new Date(),
+    why:
+      recentCommitText === null && dirtySet === null
+        ? '最近 200 枚提交信息与 git status 脏面都取不到'
+        : recentCommitText === null
+          ? '最近 200 枚提交信息取不到'
+          : dirtySet === null
+            ? 'git status 脏面取不到'
+            : null,
   }
 }
 
@@ -3367,14 +3429,23 @@ function main() {
     // 过滤面按 v2 尺逐行剔(票 G-1182552:JSON 的 dispClaim* 已改为同尺,两不再各说各话)。
     const F = fieldsFace
     const bucketV2 = (r) => dispositionOfV2({ line: r.raw, fields: F }).bucket
+    // 归属证据尺(2026-10-26 立,任务书「v2 归属尺只在有真实归属证据时才剔」):
+    // `dispositionOfV2` 说"归他人"之后**还要问一句"这份归属现在还立得住吗"** ——
+    // ① ≤72h 完整租约 / ② 持有者短名在最近 200 枚提交信息里 / ③ 点名文件此刻在脏面。
+    // 三条皆不成立 ⇒ `stale-owner-label`,**默认保留在出单面并逐条点名**(不是静默剔除:
+    // 一个不会过期的散文标签冒充"现在有人在动",正是派单面读成 0 行的成因)。
+    // 判据本体在 `lib/plan-task-index.mjs`,这里只取数(提交史 / 脏面),取不到即"未判定"。
+    const EV = o.dispatchable ? ownerEvidenceFace(o.root) : null
+    const slotOf = (r) => dispatchSlotOf({ line: r.raw, fields: F, evidence: EV ?? {} })
+    const slots = o.dispatchable ? a.claimableRows.map((r) => ({ row: r, v: slotOf(r) })) : null
     const rows = o.dispatchable
-      ? a.claimableRows.filter((r) => bucketV2(r) === 'actionable')
+      ? slots.filter((s) => isDispatchKeptSlot(s.v.slot)).map((s) => s.row)
       : a.claimableRows
     if (o.dispatchable) {
       console.log(
         `── 派单口径中"现在可做" ${rows.length} / ${a.claimableRows.length} 行` +
           `(剔除计数:待人拍板 ${a.counts.dispWaitingHuman} / 等条件 ${a.counts.dispWaitingEnv} / 归他人 ${a.counts.dispOwnedElsewhere} —— 这一组是**账面口径 v1 散文尺**的计数;` +
-          `过滤面本身按 **v2 尺(侧车优先)** 逐行剔,拿不准的**留在清单里**而不是踢掉)──`,
+          `过滤面本身按 **v2 尺(侧车优先)**,**归他人一档再经归属证据尺核验**;拿不准的**留在清单里**而不是踢掉)──`,
       )
       // 判定来源必须自己报名:侧车一旦开始有记录,上行那组"按正文推导"的剔除数就会与过滤面分开,
       // 而分开的方向是" fewer 活被踢出清单" —— 不报名就会被当成读数错乱(规格 §2)。
@@ -3390,6 +3461,37 @@ function main() {
           `   按 v2 重算的剔除面:待人拍板 ${v2c['waiting-human']} / 等条件 ${v2c['waiting-env']} / 归他人 ${v2c['owned-elsewhere']}` +
             `(与上行不同即两侧都在报数,不静默取其一)`,
         )
+      }
+      // ── 归属证据尺的四档读数(必须与上面三行**对得上账**:出单 + 仍归他人 + 未判定 + 等人 + 等条件 = claimable)──
+      const tally = {}
+      for (const s of slots) tally[s.v.slot] = (tally[s.v.slot] ?? 0) + 1
+      const owned = slots.filter((s) => s.v.slot === 'owned-elsewhere')
+      const heldBy = (k) => owned.filter((s) => s.v.by === k).length
+      console.log(
+        `── 归属证据尺(2026-10-26):出单 ${rows.length} = 可做 ${tally.actionable ?? 0} + stale-owner-label ${tally['stale-owner-label'] ?? 0};` +
+          `仍归他人 ${owned.length} 枚 = 机主面 ${heldBy('human-action-face')} / 侧车 ${heldBy('sidecar')} / 租约 ${heldBy('lease')} / 提交史 ${heldBy('commit')} / 在飞 ${heldBy('dirty')};` +
+          `归属未判定 ${tally.undetermined ?? 0} 枚 ──`,
+      )
+      if (EV?.why)
+        console.log(
+          `   ⚠ 证据输入未判定(${EV.why})⇒ 这几枚**既不派也不冒充归他人**,先修取材再派单`,
+        )
+      const stale = slots.filter((s) => s.v.slot === 'stale-owner-label')
+      if (stale.length > 0) {
+        console.log(
+          `  stale-owner-label ${stale.length} 行:票面挂了归属标签,但**无租约 ∧ 持有者不在最近 ${OWNER_EVIDENCE_COMMITS} 枚提交信息里 ∧ 点名文件不脏**` +
+            ' ⇒ 按"没人认领的真活"派单。**派前先看标签点名的持有人是否还在动**:在动就让他续租(写 `（进行中@日期/短名）`),不在动就照常领。',
+        )
+        for (const s of stale)
+          console.log(
+            `    L${s.row.line}  「${s.v.holder ?? ownerLabelOf(s.row.raw)?.owner ?? '(标签无持有人)'}」 —— ${s.v.detail}`,
+          )
+      }
+      const undet = slots.filter((s) => s.v.slot === 'undetermined')
+      if (undet.length > 0) {
+        console.log(`  归属未判定 ${undet.length} 行(输入取不到,**不出单也不记成归他人**):`)
+        for (const s of undet)
+          console.log(`    L${s.row.line}  ${s.v.detail}  「${s.v.holder ?? ownerLabelOf(s.row.raw)?.owner ?? ''}」`)
       }
       // 行内自述"不再单独派单/走持有行"的副本:勾选一字未动(§1 F4 口径),但不再占派单名额。
       // 必须报名而不只报数 —— 拿数字的人会去 grep【归并】字面并据此判定"这一族不存在"。
