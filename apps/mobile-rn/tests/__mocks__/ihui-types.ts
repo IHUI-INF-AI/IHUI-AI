@@ -19,6 +19,18 @@ export * from '../../../../packages/types/src/agent-runtime.js'
 // payment.test.tsx 9 条用例在 renderItem 内炸 "coerceKnownOr is not a function",
 // 订单列表永远渲染不出来(错误/空态用例却绿,极具迷惑性)。同条纪律:不抄第二份实现。
 export * from '../../../../packages/types/src/enum-coerce.js'
+// 票 B02(2026-10-26):chat-sync-contract 同上转传真源。共享层
+// `packages/shared/src/chat/chat-sync-store.ts` 在**模块顶层**按值取
+// CHAT_SYNC_EVENT_NAMES / CHAT_SYNC_PROTOCOL_VERSION(第 46 行的 CHAT_FRAME_TYPES 数组),
+// 而 `@ihui/shared/chat` 的 barrel 第 126 行把该文件导出了出去 ⇒ 凡经本别名取 @ihui/types
+// 而本桩没这个名字的,拿到的都是 undefined,顶层求值当场炸
+// `TypeError: Cannot read properties of undefined (reading 'MESSAGE_CREATED')`。
+// 真包根 barrel(packages/types/src/index.ts:216)本就 `export * from './chat-sync-contract.js'`,
+// 所以这是**测试替身欠导出**,不是产品缺陷 —— Metro 侧走真包,线上不受影响。
+// 后果不是报错而是静默:实测本端 `vitest run` 出现 18 枚套件在收集期失败、
+// 账面 "Tests no tests",覆盖存在而实际为零(守门 114 点名的那一枚只是其中一格)。
+// 同条纪律(见本文件头):转传真源,不抄第二份实现 —— 抄一份就是给"两处算同一件事必漂移"开门。
+export * from '../../../../packages/types/src/chat-sync-contract.js'
 export const API_KEY_PERMISSIONS = {} as const
 export const PILLARS = [] as const
 export const PILLAR_EVENT_TYPES = [] as const

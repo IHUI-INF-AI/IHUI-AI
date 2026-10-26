@@ -13,10 +13,9 @@ import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
-interface VipPriceData {
-  amount: number
-}
-
+// (2026-10-26 守门 8 代裁)原 `interface VipPriceData { amount: number }` 随死调用一并摘除:
+// 它描述的是从未存在过的 GET /api/vip/price 响应形,真端点 GET /api/vip/levels 的返回形
+// 由 @ihui/api-client 的 VipLevel 单源声明,端内不再抄第二份。
 interface TraderProfile {
   nickname: string
   title: string
@@ -160,10 +159,21 @@ export default function VipTraderIndexPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await api.get<VipPriceData>('/vip/price')
-      if (res && typeof res.amount === 'number' && res.amount > 0) {
-        setAmount(res.amount)
-      }
+      // A 档改接真端点(2026-10-26 守门 8 存量代裁):`GET /api/vip/price` 在两后端 HEAD 面零注册
+      // —— apps/api/src/routes/vip.ts(挂 prefix '/api',index.ts:744)在册的只有 /vip/levels、
+      // /vip/products、/vip-compare、/vip/my、/vip/purchase、/vip/faqs、/vip/order…,从无 /vip/price。
+      // 操盘手会员在库里确有真身:vip_levels('操盘手', level_value=2, price 以分计)
+      // (种子 packages/database/drizzle/0037_vip_captcha.sql:55-59),档位口径
+      // 「-1游客/0普通/1VIP/2操盘手」见 apps/api/src/routes/auth.ts:263 与
+      // services/commission-service.ts:175(`parent.isVip === 2`)。
+      // 故改打公开的 GET /api/vip/levels(getVipLevels(),与 pkg-shop/vip/index.tsx:161、
+      // vip/upgrade.tsx:37 同一个出口),取该档 price 换算成元,换算写法与同族页
+      // 的 `l.price / 100`(index.tsx:172 / upgrade.tsx:41)逐字一致。
+      // 库里没有该档 / 值非正 / 请求失败 ⇒ 保留端内兜底常量 DEFAULT_AMOUNT 并如实记日志:
+      // 兜底值不冒充服务端真值,失败也不静默吞掉。
+      const res = await api.getVipLevels()
+      const trader = (res.items || []).find((lv) => lv.levelValue === 2 && lv.price > 0)
+      if (trader) setAmount(trader.price / 100)
     } catch (e) {
       logger.error('vip-trader', t('viptrader.q1'), e)
     }
