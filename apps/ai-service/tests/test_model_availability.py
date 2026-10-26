@@ -282,9 +282,9 @@ def test_ping_resolves_sync_proxy(monkeypatch):
     assert captured.get("proxy") == "http://127.0.0.1:7898", "命中专用代理表却没用专用代理"
     assert h.status == ma.ProviderHealthStatus.DOWN  # ConnectError 语义不变
 
-    h2 = asyncio.run(svc._ping_provider_v2("openrouter", "k", "https://openrouter.ai"))
+    asyncio.run(svc._ping_provider_v2("openrouter", "k", "https://openrouter.ai"))
     assert captured.get("proxy") == "http://127.0.0.1:7897", "未命中专用表应回退全局代理"
 
     monkeypatch.setattr(ma.settings, "sync_proxy_url", "")
-    h3 = asyncio.run(svc._ping_provider_v2("groq", "k", "https://api.groq.com"))
+    asyncio.run(svc._ping_provider_v2("groq", "k", "https://api.groq.com"))
     assert captured.get("proxy") is None, "全局为空必须直连(None),不得传空串"

@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
 from typing import Any
 
 from app.core.session_taint import SessionTaint, TaintSource, requires_egress_approval
@@ -34,7 +33,7 @@ from app.core.vault import (
 _REDIS_KEY_PREFIX = "session:taint:"
 
 
-def _decode(value: "str | bytes") -> str:
+def _decode(value: str | bytes) -> str:
     return value.decode() if isinstance(value, bytes) else value
 
 
@@ -45,7 +44,7 @@ class SessionTaintStore:
     ``SessionTaintStore(memory={})``(内存后端,零依赖)。
     """
 
-    def __init__(self, redis: "Any | None" = None, *, memory: "dict[str, Any] | None" = None) -> None:
+    def __init__(self, redis: Any | None = None, *, memory: dict[str, Any] | None = None) -> None:
         self._redis = redis
         self._memory = memory if memory is not None else {}
 
@@ -61,14 +60,14 @@ class SessionTaintStore:
             egress_allowlist=frozenset(raw.get("allowlist", []) or []),
         )
 
-    def mark(self, session_id: str, source: "str | TaintSource") -> SessionTaint:
+    def mark(self, session_id: str, source: str | TaintSource) -> SessionTaint:
         """标记一次污点来源(会话读私密数据/凭据),持久化并返回新风。"""
         src = source.value if isinstance(source, TaintSource) else source
         tainted = self.get(session_id).mark(src)
         self._save(session_id, tainted)
         return tainted
 
-    def set_allowlist(self, session_id: str, allow: "Iterable[str]") -> SessionTaint:
+    def set_allowlist(self, session_id: str, allow: Iterable[str]) -> SessionTaint:
         """设置本会话出网免批白名单,持久化并返回新风。"""
         updated = self.get(session_id).with_allowlist(allow)
         self._save(session_id, updated)
@@ -82,7 +81,7 @@ class SessionTaintStore:
     def _key(self, session_id: str) -> str:
         return _REDIS_KEY_PREFIX + session_id
 
-    def _load(self, session_id: str) -> "dict[str, Any] | None":
+    def _load(self, session_id: str) -> dict[str, Any] | None:
         if self._redis is not None:
             raw = self._redis.hgetall(self._key(session_id))
             if not raw:
@@ -124,7 +123,7 @@ class SessionVault:
         """工具输出命中真值 ⇒ ``[REDACTED:NAME]``(入库/落日志前)。"""
         return redact_vault_values(text, self._store)
 
-    def filter_env(self, env: Mapping[str, str]) -> "dict[str, str]":
+    def filter_env(self, env: Mapping[str, str]) -> dict[str, str]:
         """子进程环境:剔除凭据形环境变量(绝不外带真值)。"""
         return filter_vault_env(env, self._store)
 
@@ -166,10 +165,10 @@ def get_session_vault() -> SessionVault:
 
 def tool_egress_target(
     tool_name: str,
-    args: "dict[str, Any] | None" = None,
+    args: dict[str, Any] | None = None,
     *,
-    mcp_annotations: "dict[str, Any] | None" = None,
-) -> "str | None":
+    mcp_annotations: dict[str, Any] | None = None,
+) -> str | None:
     """工具出网目标判定(纯函数,可单测)。
 
     返回:
@@ -194,9 +193,9 @@ def tool_egress_target(
 def taint_gate_requires_approval(
     taint: SessionTaint,
     tool_name: str,
-    args: "dict[str, Any] | None" = None,
+    args: dict[str, Any] | None = None,
     *,
-    mcp_annotations: "dict[str, Any] | None" = None,
+    mcp_annotations: dict[str, Any] | None = None,
     network_axis: bool = False,
 ) -> bool:
     """污点会话出网抬升需批(纯函数,可单测)。返回是否应抬升为需批。
@@ -218,7 +217,7 @@ def taint_gate_requires_approval(
     return _requires_egress_approval(taint, target)
 
 
-def args_contain_resolvable_vault(args: "dict[str, Any] | None") -> "list[str]":
+def args_contain_resolvable_vault(args: dict[str, Any] | None) -> list[str]:
     """工具入参是否含可解析的凭据保险库占位符;返回命中的凭据名列表(空=无)。
 
     用于会话污点标记:模型把 ``{{vault:NAME}}`` 写进工具入参且保险库确有

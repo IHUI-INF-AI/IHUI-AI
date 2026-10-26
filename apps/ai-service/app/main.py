@@ -416,7 +416,8 @@ async def lifespan(app: FastAPI) -> Any:
         logger.info("[keepalive] keepalive_* 表确认/创建完成")
     except Exception as e:
         logger.warning("[keepalive] 建表异常(忽略,保活中心降级为不可用): %s", e)
-    from app.services.keepalive import keepalive_center, resolve_config as _keepalive_cfg
+    from app.services.keepalive import keepalive_center
+    from app.services.keepalive import resolve_config as _keepalive_cfg
 
     _keepalive_on = _keepalive_cfg().enabled
     # 单一调度源:中心已接管 Cookie 探活时,旧守护自己的循环不再启动 ——
