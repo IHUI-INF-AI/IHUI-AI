@@ -302,9 +302,27 @@ if (isDirectRun) {
     process.exit(2)
   }
   const read = makeFaceReader(face)
-  const files = listFiles(face, SCAN_GLOBS, ['py'])
-  const fFiles = listFiles(face, FORWARD_GLOBS, ['ts'])
+  // 2026-10-27 补:清单取材(`ls-tree` / `ls-files`)此前**没有任何兜底** —— 层抛 `Undetermined`
+  // 时它一路崩栈到进程外 ⇒ Node 以 **exit 1** 收场,而 exit 1 在本仓正是"判据判红"的退出码
+  // (`decideGateOutcome` 只把 0/75/128+/崩溃指纹分出去)。也就是说"git 派生一过性失败"被
+  // 原样交付成一道红门 —— §0.3 明令禁止的"把没判写成判过"的镜像那一侧(把没判写成"有缺陷")。
+  // 现在与正文取材同通道:折进 `undetermined` 并**点名面与动词**,由 `decide()` 落 exit 2 未判定。
+  let files = []
+  let fFiles = []
   const undetermined = []
+  for (const [kind, globs, exts, sink] of [
+    ['被审面', SCAN_GLOBS, ['py'], (v) => (files = v)],
+    ['上游透传面', FORWARD_GLOBS, ['ts'], (v) => (fFiles = v)],
+  ]) {
+    try {
+      sink(listFiles(face, globs, exts))
+    } catch (e) {
+      undetermined.push(
+        `${kind} 清单取材失败(${face} 面, ${globs.join(' , ')} ⇒ *.${exts.join('|')}):` +
+          `${String(e?.message ?? e).slice(0, 160)} ⇒ 未判定,不记绿也不冒红`,
+      )
+    }
+  }
   const bindings = []
   for (const rel of files) {
     let src
