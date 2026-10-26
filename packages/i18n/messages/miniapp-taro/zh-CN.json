@@ -5906,5 +5906,35 @@
   },
   "resources": {
     "loadMore": "加载更多"
+  },
+  "aiWorldDetailPage": {
+    "title": "条目详情",
+    "fetchFailed": "条目加载失败",
+    "createdLabel": "发布于",
+    "updatedLabel": "更新时间",
+    "favorited": "已收藏",
+    "favoriteFailed": "收藏操作失败,请稍后重试"
+  },
+  "aiWorldEditPage": {
+    "title": "编辑 AI 世界条目",
+    "subtitle": "修改条目信息",
+    "formTitle": "条目信息",
+    "nameLabel": "名称",
+    "namePlaceholder": "条目名称",
+    "descLabel": "描述",
+    "descPlaceholder": "介绍这个条目的内容",
+    "categoryLabel": "分类",
+    "noCategory": "不选择分类",
+    "categoryEmpty": "暂无分类",
+    "categoryLoadFailed": "分类加载失败",
+    "coverLabel": "封面图地址",
+    "coverPlaceholder": "https://…(选填)",
+    "save": "保存",
+    "submitting": "保存中…",
+    "errNameRequired": "请输入名称",
+    "nameTooLong": "名称最多 {max} 个字符",
+    "coverTooLong": "封面地址最多 {max} 个字符",
+    "saveFailed": "保存失败,请稍后重试",
+    "fetchFailed": "条目加载失败"
   }
 }

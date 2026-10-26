@@ -5906,5 +5906,35 @@
   },
   "resources": {
     "loadMore": "もっと読み込む"
+  },
+  "aiWorldDetailPage": {
+    "title": "詳細",
+    "fetchFailed": "項目の読み込みに失敗しました",
+    "createdLabel": "公開日",
+    "updatedLabel": "更新日時",
+    "favorited": "お気に入り済み",
+    "favoriteFailed": "操作に失敗しました。後でもう一度お試しください"
+  },
+  "aiWorldEditPage": {
+    "title": "AI ワールド項目を編集",
+    "subtitle": "項目情報を修正",
+    "formTitle": "項目情報",
+    "nameLabel": "名前",
+    "namePlaceholder": "項目名",
+    "descLabel": "説明",
+    "descPlaceholder": "この項目の内容を紹介します",
+    "categoryLabel": "カテゴリ",
+    "noCategory": "カテゴリを指定しない",
+    "categoryEmpty": "カテゴリがありません",
+    "categoryLoadFailed": "カテゴリの読み込みに失敗しました",
+    "coverLabel": "カバー画像 URL",
+    "coverPlaceholder": "https://…(任意)",
+    "save": "保存",
+    "submitting": "保存中…",
+    "errNameRequired": "名前を入力してください",
+    "nameTooLong": "名前は最大 {max} 文字です",
+    "coverTooLong": "カバー URL は最大 {max} 文字です",
+    "saveFailed": "保存に失敗しました。後でもう一度お試しください",
+    "fetchFailed": "項目の読み込みに失敗しました"
   }
 }

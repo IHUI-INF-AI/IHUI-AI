@@ -5906,5 +5906,35 @@
   },
   "resources": {
     "loadMore": "Load more"
+  },
+  "aiWorldDetailPage": {
+    "title": "Details",
+    "fetchFailed": "Failed to load this item",
+    "createdLabel": "Published",
+    "updatedLabel": "Updated",
+    "favorited": "Favorited",
+    "favoriteFailed": "Favorite action failed, please try again later"
+  },
+  "aiWorldEditPage": {
+    "title": "Edit AI World Item",
+    "subtitle": "Update this item's information",
+    "formTitle": "Item Info",
+    "nameLabel": "Name",
+    "namePlaceholder": "Item name",
+    "descLabel": "Description",
+    "descPlaceholder": "Describe this item",
+    "categoryLabel": "Category",
+    "noCategory": "No category",
+    "categoryEmpty": "No categories",
+    "categoryLoadFailed": "Failed to load categories",
+    "coverLabel": "Cover image URL",
+    "coverPlaceholder": "https://… (optional)",
+    "save": "Save",
+    "submitting": "Saving…",
+    "errNameRequired": "Please enter a name",
+    "nameTooLong": "Name must be at most {max} characters",
+    "coverTooLong": "Cover URL must be at most {max} characters",
+    "saveFailed": "Save failed, please try again later",
+    "fetchFailed": "Failed to load this item"
   }
 }
