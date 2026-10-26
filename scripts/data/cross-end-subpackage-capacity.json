@@ -6,6 +6,10 @@
   "limitBytes": 2097152,
   "safetyRatio": 0.95,
   "bytesPerShellPage": 28760,
+  "overflowRoots": [
+    "pkg-mirror",
+    "pkg-mirror2"
+  ],
   "notes": [
     "limitBytes = 微信平台硬限制:主包与**每个分包**各 2 MiB(总 20 MiB)。旧口径只判主包,分包是盲区。",
     "bytesPerShellPage = 2026-10-26 实测:隔离树一次性落 78 枚壳承载页,pkg-user 1,525,850 → 3,769,041 B ⇒ 边际 28,760 B/页(含该包 sub-common 增长)。",
@@ -15,22 +19,181 @@
     "该表是**测量快照**,不是豁免:重建产物后按新读数重跑更新(sha/时间/bytes 三项一起换)。取不到本表 ⇒ 造页器整轮 blocked,不猜。"
   ],
   "roots": {
-    "pages": { "bytes": 1719822, "mirrorEntriesAtMeasure": 2, "chunkReserveBytes": 0 },
-    "pages/ask": { "bytes": 37052, "mirrorEntriesAtMeasure": 3, "chunkReserveBytes": 707000 },
-    "pages/circle": { "bytes": 70138, "mirrorEntriesAtMeasure": 2, "chunkReserveBytes": 707000 },
-    "pages/distribution": { "bytes": 75359, "mirrorEntriesAtMeasure": 5, "chunkReserveBytes": 707000 },
-    "pages/exam": { "bytes": 58046, "mirrorEntriesAtMeasure": 4, "chunkReserveBytes": 707000 },
-    "pages/forgot-password": { "bytes": 21908, "mirrorEntriesAtMeasure": 0, "chunkReserveBytes": 707000 },
-    "pages/member": { "bytes": 442864, "mirrorEntriesAtMeasure": 4, "chunkReserveBytes": 707000 },
-    "pages/register": { "bytes": 23354, "mirrorEntriesAtMeasure": 1, "chunkReserveBytes": 707000 },
-    "pages/setting": { "bytes": 34514, "mirrorEntriesAtMeasure": 2, "chunkReserveBytes": 707000 },
-    "pages/study": { "bytes": 83563, "mirrorEntriesAtMeasure": 5, "chunkReserveBytes": 707000 },
-    "pages/webview": { "bytes": 2782, "mirrorEntriesAtMeasure": 0, "chunkReserveBytes": 707000 },
-    "pkg-about": { "bytes": 332897, "mirrorEntriesAtMeasure": 10, "chunkReserveBytes": 707000 },
-    "pkg-ai": { "bytes": 1305553, "mirrorEntriesAtMeasure": 21, "chunkReserveBytes": 0 },
-    "pkg-content": { "bytes": 1801421, "mirrorEntriesAtMeasure": 15, "chunkReserveBytes": 312000 },
-    "pkg-learn": { "bytes": 290237, "mirrorEntriesAtMeasure": 10, "chunkReserveBytes": 707000 },
-    "pkg-shop": { "bytes": 263367, "mirrorEntriesAtMeasure": 13, "chunkReserveBytes": 707000 },
-    "pkg-user": { "bytes": 1525850, "mirrorEntriesAtMeasure": 26, "chunkReserveBytes": 0 }
-  }
+    "pages": {
+      "bytes": 1719822,
+      "mirrorEntriesAtMeasure": 2,
+      "chunkReserveBytes": 0
+    },
+    "pages/ask": {
+      "bytes": 37052,
+      "mirrorEntriesAtMeasure": 3,
+      "chunkReserveBytes": 707000
+    },
+    "pages/circle": {
+      "bytes": 70138,
+      "mirrorEntriesAtMeasure": 2,
+      "chunkReserveBytes": 707000
+    },
+    "pages/distribution": {
+      "bytes": 75359,
+      "mirrorEntriesAtMeasure": 5,
+      "chunkReserveBytes": 707000
+    },
+    "pages/exam": {
+      "bytes": 58046,
+      "mirrorEntriesAtMeasure": 4,
+      "chunkReserveBytes": 707000
+    },
+    "pages/forgot-password": {
+      "bytes": 21908,
+      "mirrorEntriesAtMeasure": 0,
+      "chunkReserveBytes": 707000
+    },
+    "pages/member": {
+      "bytes": 442864,
+      "mirrorEntriesAtMeasure": 4,
+      "chunkReserveBytes": 707000
+    },
+    "pages/register": {
+      "bytes": 23354,
+      "mirrorEntriesAtMeasure": 1,
+      "chunkReserveBytes": 707000
+    },
+    "pages/setting": {
+      "bytes": 34514,
+      "mirrorEntriesAtMeasure": 2,
+      "chunkReserveBytes": 707000
+    },
+    "pages/study": {
+      "bytes": 83563,
+      "mirrorEntriesAtMeasure": 5,
+      "chunkReserveBytes": 707000
+    },
+    "pages/webview": {
+      "bytes": 2782,
+      "mirrorEntriesAtMeasure": 0,
+      "chunkReserveBytes": 707000
+    },
+    "pkg-about": {
+      "bytes": 332897,
+      "mirrorEntriesAtMeasure": 10,
+      "chunkReserveBytes": 707000
+    },
+    "pkg-ai": {
+      "bytes": 1305553,
+      "mirrorEntriesAtMeasure": 21,
+      "chunkReserveBytes": 0
+    },
+    "pkg-content": {
+      "bytes": 1801421,
+      "mirrorEntriesAtMeasure": 15,
+      "chunkReserveBytes": 312000
+    },
+    "pkg-learn": {
+      "bytes": 290237,
+      "mirrorEntriesAtMeasure": 10,
+      "chunkReserveBytes": 707000
+    },
+    "pkg-shop": {
+      "bytes": 263367,
+      "mirrorEntriesAtMeasure": 13,
+      "chunkReserveBytes": 707000
+    },
+    "pkg-user": {
+      "bytes": 1525850,
+      "mirrorEntriesAtMeasure": 26,
+      "chunkReserveBytes": 0
+    },
+    "pkg-mirror": {
+      "bytes": 0,
+      "mirrorEntriesAtMeasure": 0,
+      "chunkReserveBytes": 707000
+    },
+    "pkg-mirror2": {
+      "bytes": 0,
+      "mirrorEntriesAtMeasure": 0,
+      "chunkReserveBytes": 707000
+    }
+  },
+  "pageEstimates": {
+    "packages/app/src/features/automations/AutomationsScreen.tsx": 27193,
+    "packages/app/src/features/bank-card/BankCardScreen.tsx": 20432,
+    "packages/app/src/features/bookmark/BookmarkScreen.tsx": 21102,
+    "packages/app/src/features/cert-apply/CertApplyScreen.tsx": 20496,
+    "packages/app/src/features/cert-detail/CertDetailScreen.tsx": 20500,
+    "packages/app/src/features/cert-list/CertListScreen.tsx": 20583,
+    "packages/app/src/features/cert-verify/CertVerifyScreen.tsx": 20474,
+    "packages/app/src/features/certificate/CertificateScreen.tsx": 21001,
+    "packages/app/src/features/circle-chat/CircleChatScreen.tsx": 21054,
+    "packages/app/src/features/circle-member/CircleMemberScreen.tsx": 20946,
+    "packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx": 36261,
+    "packages/app/src/features/connectors/ConnectorsScreen.tsx": 31249,
+    "packages/app/src/features/context/ContextScreen.tsx": 29914,
+    "packages/app/src/features/course-annex/CourseAnnexScreen.tsx": 20750,
+    "packages/app/src/features/course-catalog/CourseCatalogScreen.tsx": 20617,
+    "packages/app/src/features/course-chapter/CourseChapterScreen.tsx": 20992,
+    "packages/app/src/features/course-comment/CourseCommentScreen.tsx": 20574,
+    "packages/app/src/features/course-enroll/CourseEnrollScreen.tsx": 58636,
+    "packages/app/src/features/course-filter/CourseFilterScreen.tsx": 44540,
+    "packages/app/src/features/course-qa-ask/CourseQAAskScreen.tsx": 20536,
+    "packages/app/src/features/course-qa-list/CourseQAListScreen.tsx": 20899,
+    "packages/app/src/features/course-resource/CourseResourceScreen.tsx": 20681,
+    "packages/app/src/features/course-screen/CourseScreen.tsx": 77854,
+    "packages/app/src/features/customer-service/CustomerServiceScreen.tsx": 20543,
+    "packages/app/src/features/exam-history/ExamHistoryScreen.tsx": 20655,
+    "packages/app/src/features/feedback-detail/FeedbackDetailScreen.tsx": 20419,
+    "packages/app/src/features/feedback/FeedbackHistoryScreen.tsx": 20583,
+    "packages/app/src/features/history/HistoryScreen.tsx": 20842,
+    "packages/app/src/features/home/HomeScreen.tsx": 474463,
+    "packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx": 39685,
+    "packages/app/src/features/image-gen-history/ImageGenHistoryScreen.tsx": 23026,
+    "packages/app/src/features/image-gen-templates/ImageGenTemplatesScreen.tsx": 33333,
+    "packages/app/src/features/invite/InviteScreen.tsx": 20853,
+    "packages/app/src/features/knowledge-base/KnowledgeBaseScreen.tsx": 58679,
+    "packages/app/src/features/knowledge-base/KnowledgeCreateScreen.tsx": 58235,
+    "packages/app/src/features/knowledge-base/KnowledgeDocScreen.tsx": 49445,
+    "packages/app/src/features/live-chat/LiveChatScreen.tsx": 20846,
+    "packages/app/src/features/live-playback-screen/LivePlaybackScreen.tsx": 60610,
+    "packages/app/src/features/live-preview/LivePreviewScreen.tsx": 20633,
+    "packages/app/src/features/live/LiveScreen.tsx": 71419,
+    "packages/app/src/features/memory/MemoryScreen.tsx": 62166,
+    "packages/app/src/features/message-chat/MessageChatScreen.tsx": 21238,
+    "packages/app/src/features/message-detail/MessageDetailScreen.tsx": 20625,
+    "packages/app/src/features/message-direct/MessageDirectScreen.tsx": 20636,
+    "packages/app/src/features/message-group/MessageGroupScreen.tsx": 20490,
+    "packages/app/src/features/message-system/MessageSystemScreen.tsx": 20664,
+    "packages/app/src/features/more-course/MoreCourseScreen.tsx": 70193,
+    "packages/app/src/features/note-create/NoteCreateScreen.tsx": 20765,
+    "packages/app/src/features/note-detail/NoteDetailScreen.tsx": 20459,
+    "packages/app/src/features/note-list/NoteListScreen.tsx": 20517,
+    "packages/app/src/features/note/NoteScreen.tsx": 60719,
+    "packages/app/src/features/notification/NotificationListScreen.tsx": 21738,
+    "packages/app/src/features/order-log/OrderLogScreen.tsx": 20414,
+    "packages/app/src/features/order-track/OrderTrackScreen.tsx": 20420,
+    "packages/app/src/features/payment/PaymentScreen.tsx": 46129,
+    "packages/app/src/features/point-rule/PointRuleScreen.tsx": 20411,
+    "packages/app/src/features/points-mall/PointsMallScreen.tsx": 40873,
+    "packages/app/src/features/points-record/PointsRecordScreen.tsx": 39998,
+    "packages/app/src/features/points/PointsScreen.tsx": 32296,
+    "packages/app/src/features/profile-edit/ProfileEditScreen.tsx": 68535,
+    "packages/app/src/features/promote/PromoteScreen.tsx": 31179,
+    "packages/app/src/features/promotion/PromotionScreen.tsx": 20592,
+    "packages/app/src/features/qr-code/QrCodeScreen.tsx": 20468,
+    "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx": 21176,
+    "packages/app/src/features/referrer/ReferrerScreen.tsx": 20821,
+    "packages/app/src/features/refund-detail/RefundDetailScreen.tsx": 20403,
+    "packages/app/src/features/security-settings/SecuritySettingsScreen.tsx": 20520,
+    "packages/app/src/features/self-media/SelfMediaScreen.tsx": 30515,
+    "packages/app/src/features/settings-account/SettingsAccountScreen.tsx": 20867,
+    "packages/app/src/features/spec/SpecScreen.tsx": 31342,
+    "packages/app/src/features/status/StatusScreen.tsx": 21063,
+    "packages/app/src/features/study-progress/StudyProgressScreen.tsx": 20426,
+    "packages/app/src/features/team-detail/TeamDetailScreen.tsx": 31005,
+    "packages/app/src/features/topup-fail/TopupFailScreen.tsx": 20202,
+    "packages/app/src/features/usage/UsageScreen.tsx": 26159,
+    "packages/app/src/features/vip-level/VipLevelScreen.tsx": 20386,
+    "packages/app/src/features/wallet/WalletScreen.tsx": 20890,
+    "packages/app/src/features/workflows/WorkflowsScreen.tsx": 21016
+  },
+  "pageEstimatesNote": "由 node scripts/measure-cross-end-page-sizes.mjs --write 生成(RATIO=0.5,clamp 12000..4000000,面=HEAD)"
 }
