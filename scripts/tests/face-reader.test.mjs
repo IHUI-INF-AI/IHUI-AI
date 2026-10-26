@@ -514,7 +514,14 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 1 枚 scripts/feedback-loop-status.mjs(自带裸派生)计入现读,不在本票射程、不替它放宽。
 // 行为对账:两枚各在固定索引快照下迁移前版与迁移版逐字同输出同 rc(capability 全量 0/0、
 // next-env 全量与 --staged 两态 0/0);capability 自带 --self-test PASS。
-const BARE_GIT_BASELINE = 40 // 紧贴现读(2026-10-26 第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
+// 2026-10-26 G-54 批次第 7 轮(staged 清单门 + diff 解析门):4 枚 6 处迁 gitRaw(check-multi-end-sync
+// 的 diff --cached ACDMR / check-sidebar-width-consistency 的 ACMR(原动态 import execSync)/
+// check-miniapp-replace-antipattern 的 name-only + -U0 文本解析 2 处 / check-native-title-tooltip 的
+// -U0 文本解析 + name-only 2 处),经落地提交 `744ed0e4bc` 入库;入库后 HEAD 面现读打出
+// 「◽ 裸 git 存量已降到 36(基线 40)」⇒ 40 → 36,紧贴现读不留余量。
+// 行为对账:四枚各在固定索引快照下迁移前版与迁移版逐字同输出同 rc(multi-end 两态 rc=1 warn 出口、
+// sidebar 两态 rc=0、miniapp 两态 rc=0、native 两态 rc=0,含 -U0 diff 文本解析路径)。
+const BARE_GIT_BASELINE = 36 // 紧贴现读(2026-10-26 第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
 // check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。
