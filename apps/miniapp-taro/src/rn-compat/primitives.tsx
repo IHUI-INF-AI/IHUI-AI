@@ -14,7 +14,7 @@
  *  2. `numberOfLines` 在 RN 是排版能力,小程序只能靠 CSS line-clamp(style.ts 承接)。
  *  3. RN `Image` 默认 `resizeMode: cover`,Taro 默认 `scaleToFill` ⇒ 不显式映射会拉伸变形。
  */
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import {
   Image as TaroImage,
   Input,
@@ -56,15 +56,32 @@ function merged(style: unknown, base: ViewStyle): ViewStyle {
   return { ...base, ...flattenStyle(style) }
 }
 
-type EventHandler = ((...args: never[]) => void) | undefined
+// 事件位形状一律**从 Taro 组件自己的 props 反解**(ComponentProps),不自己写签名:
+// 旧写法 `(...args: never[]) => void` 在 strictFunctionTypes 下把参数折成 never,与上游任何具体
+// 事件类型都不兼容 ⇒ 4 处 TS2769(2026-10-26 现读)。名字对上号,改档时编译器会替我们追。
+type TaroViewProps = ComponentProps<typeof TaroView>
+type TaroScrollViewProps = ComponentProps<typeof TaroScrollView>
+type TaroImageProps = ComponentProps<typeof TaroImage>
+type TaroInputProps = ComponentProps<typeof Input>
 
-function clickHandler(props: RNBaseProps, extra?: () => void): (() => void) | undefined {
+type EventHandler = NonNullable<TaroViewProps['onLongPress']> | undefined
+type ScrollEventHandler = NonNullable<TaroScrollViewProps['onScroll']> | undefined
+type ScrollToLowerEventHandler = NonNullable<TaroScrollViewProps['onScrollToLower']> | undefined
+
+/**
+ * RN 的 onPress 收的是原生事件对象,而端内点击位由 Taro 提供 ⇒ 把事件**透传**过去，
+ * 而不是像旧写法那样 call 零参(改成从 Taro props 反解的事件签名后，零参调用当场编不过)。
+ */
+function clickHandler(
+  props: RNBaseProps,
+  extra?: () => void,
+): ((event: Parameters<NonNullable<EventHandler>>[0]) => void) | undefined {
   const onPress = props.onPress as EventHandler
   if (props.disabled === true) return undefined
   if (!onPress && !extra) return undefined
-  return () => {
+  return (event) => {
     extra?.()
-    onPress?.()
+    onPress?.(event)
   }
 }
 
@@ -114,7 +131,8 @@ export function Pressable(props: RNBaseProps) {
   )
 }
 
-const RESIZE_MODE_TO_TARO: Record<string, string> = {
+// 值档直接取 Image 组件自己的 mode 键集 ⇒ 写错一个模式名当场编不过(而不是运行时静默按默认档)
+const RESIZE_MODE_TO_TARO: Record<string, NonNullable<TaroImageProps['mode']>> = {
   cover: 'aspectFill',
   contain: 'aspectFit',
   stretch: 'scaleToFill',
@@ -138,9 +156,31 @@ export function Image(props: RNBaseProps) {
   )
 }
 
+/**
+ * 按 handler 引用记"上一次放行的时刻"(小程序无原生滚动节流档 ⇒ 这一层自己收口)。
+ * 用 WeakMap:页面卸载后不留下任何引用，不会把已销毁的回调钉在内存里。
+ */
+const lastScrollAt = new WeakMap<object, number>()
+
+function throttledScroll(
+  handler: ScrollEventHandler | undefined,
+  ms: number,
+): ScrollEventHandler | undefined {
+  if (!handler) return undefined
+  const gate = Number.isFinite(ms) && ms >= 0 ? ms : 16
+  return (event) => {
+    const now = Date.now()
+    const prev = lastScrollAt.get(handler)
+    if (prev !== undefined && now - prev < gate) return
+    lastScrollAt.set(handler, now)
+    handler(event)
+  }
+}
+
 export function ScrollView(props: RNBaseProps) {
   const horizontal = props.horizontal === true
   const base: ViewStyle = horizontal ? { flexDirection: 'row' } : {}
+  const throttleMs = typeof props.scrollEventThrottle === 'number' ? props.scrollEventThrottle : 16
   return (
     <TaroScrollView
       scrollX={horizontal}
@@ -148,10 +188,11 @@ export function ScrollView(props: RNBaseProps) {
       enhanced
       showScrollbar={false}
       style={toTaroStyle(merged(props.style, { ...VIEW_BASE, ...base }))}
-      onScroll={props.onScroll as EventHandler}
-      scrollEventThrottle={16}
+      // RN 的 scrollEventThrottle 在小程序没有原生对应档(旧写法把它当 Taro prop 直传,组件不认 ⇒ TS2769)
+      // ⇒ 由这一层按同样的节奏收口:两次回调之间至少隔 throttleMs,超出窗口的直接吞掉
+      onScroll={throttledScroll(props.onScroll as ScrollEventHandler, throttleMs)}
       lowerThreshold={props.onEndThreshold as number | undefined}
-      onScrollToLower={props.onEndReached as EventHandler}
+      onScrollToLower={props.onEndReached as ScrollToLowerEventHandler}
     >
       {props.refreshControl as ReactNode}
       <View style={props.contentContainerStyle as ViewStyle}>{props.children}</View>
@@ -213,12 +254,14 @@ export function FlatList(props: RNBaseProps) {
 export function TextInput(props: RNBaseProps) {
   const multiline = props.multiline === true
   const keyboardType = (props.keyboardType as string) ?? 'default'
-  const typeMap: Record<string, string> = {
-    'email-address': 'email',
+  const typeMap: Record<string, NonNullable<TaroInputProps['type']>> = {
+    // 微信 input 的 type 只有 text/number/idcard/digit/safe-password/nickname ⇒ email/url/tel 无原生键盘档,
+    // 落最接近的一档(数字类落 number),而不是把一个平台不认的值传下去
+    'email-address': 'text',
     number: 'number',
     'decimal-pad': 'digit',
-    'phone-pad': 'tel',
-    url: 'url',
+    'phone-pad': 'number',
+    url: 'text',
   }
   const common = {
     value: (props.value as string) ?? '',
