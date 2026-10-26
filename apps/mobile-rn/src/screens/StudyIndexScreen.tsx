@@ -176,7 +176,7 @@ function TipBanner({ onPressMyModel }: { onPressMyModel: () => void }) {
   )
 }
 
-export function StudyIndexScreen() {
+function StudyIndexScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const { user } = useAuth()

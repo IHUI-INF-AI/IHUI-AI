@@ -22,7 +22,16 @@
 //       真正被执行的落点;
 //     · 影子档命中 = 该站点所在文件里有影子档入口 `shadowValidateToolArguments(` 的**调用行**,
 //       且接线行号 < 站点行号(静态行序,不是可达性分析 —— 已知限制写在 auditShadowCoverage 头注);
-//     · 未覆盖 = 其余站点,逐条 `rel:line` 点名;
+//     · 未覆盖 = 其余站点,逐条 `rel:line` 点名,并逐条写明**为什么没给豁免**;
+//     · 跨文件转发豁免(2026-10-26 立,gate115-forward)= 未覆盖里那一型"本文件把执行对象原样
+//       `return recv.execute(...)` 转出去、而收它的消费者自己带校验出口"的站点;**五条正面事实**
+//       (纯转发形 ∧ recv 是外层 `export function` 的形参且本文件从不绑定它 ∧ 消费者具名导入并
+//       真调用它 ∧ 消费者自带影子档接线 ∧ 消费者自身站点全部校后执行)齐备才分这一格,
+//       逐条打印证据行号;它**不并进命中率**,也不写清单/台账(清单式豁免= 第二份真相源,§0.6)。
+//       立因(票面):`apps/cli/src/tools/hub/adapter.ts:36` 是 wrapTool 的转发,同一次调用已在
+//       `apps/cli/src/tools/index.ts` 的 hub 分支(原文 1408 → 校验出口 1256)校过,静态"同文件行序"
+//       看不见跨文件的一手 ⇒ 误报。真缺口那一型(`apps/api/.../workspace-ai-service.ts:505` 的
+//       `const result = await tool.execute({})`,tool 由本文件 497 行自己查表绑定)必须留在未覆盖。
 //     · 早退分支 = 影子档接线点所在函数体内、**位于接线点之前**的 `return` 行 —— 这就是票面要的
 //       "本轮应被记录而因早退未记录的调用数",同样逐条点名。
 //   三态必须不同形:**量得出**(命中 X / 候选 Y) / **候选站点 0**(读数为空,不得读作"全覆盖") /
@@ -40,7 +49,7 @@
 //   --root <dir>  显式仓库根(测试通道;生产不带)
 // 退出码:0 通过 / 1 判据违规 / 2 无法判定或脚本自身异常
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, posix, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -84,6 +93,12 @@ export const GUARDIAN_ID_EXPECTED = '115'
  * 已知限制(如实登记):状态机不认**正则字面量**,所以 `/'/` 这类串里的引号会让它多抹一段代码。
  * 失误方向是"把真调用抹掉 ⇒ V1 假红",而不是"把注释当调用 ⇒ 假绿";候选文件只有个位数,
  * 且真仓现在没有任何候选文件用这种写法(跑 `--self-test` 的 A1/A2 成对项即可复核)。
+ *
+ * 〔修@2026-10-26,gate115-forward〕**字符串面内的换行一律原样保留**(此前模板串里的 `\n` 被抹成
+ * 空格)。立因:本函数唯一的对外承诺就是"行结构不变",而多行模板串会把其后所有行的**编号整体前移**
+ * —— 真仓 `apps/cli/src/tools/index.ts` 实测前移 35 行(校验出口原文 1256 ⇒ 门报 1221、执行站点
+ * 原文 1783 ⇒ 门报 1748),点名行号指向了别人的行(且正好指到解释注释上)。同一次判定里
+ * `findEarlyReturnLines` 又拿这个错位行号去索引正文基准 ⇒ 基准撕裂。取证 = 自检 M1/M2 成对项。
  */
 export function maskNoise(text) {
   const out = []
@@ -135,7 +150,8 @@ export function maskNoise(text) {
     // 保守方向是"串内一律不算调用",而 `${}` 插值里真去调校验器在本仓不存在)。
     const quote = state === 'sq' ? "'" : state === 'dq' ? '"' : '`'
     if (c === '\\') {
-      out.push(' ', text[i + 1] === '\n' ? '\n' : ' ')
+      const nx = text[i + 1]
+      out.push(' ', nx === '\n' || nx === '\r' ? nx : ' ')
       i += 2
       continue
     }
@@ -145,10 +161,12 @@ export function maskNoise(text) {
       i += 1
       continue
     }
-    if ((state === 'sq' || state === 'dq') && (c === '\n' || c === '\r')) {
+    if (c === '\n' || c === '\r') {
+      // 换行永远原样保留(行结构是本函数对外的唯一承诺,见上方头注)。
       // 单行引号串里出现裸换行 = 该文件的词法已不可信(或本状态机没认出续行)⇒ 退回 code,
-      // 宁可随后把这一行当 caller 交人工看,也不允许"抹多了"把红洗成绿。
-      state = 'code'
+      // 宁可随后把这一行当 caller 交人工看,也不允许"抹多了"把红洗成绿。模板串的多行是合法的,
+      // 所以只有 sq/dq 需要退态,tpl 保持串态。
+      if (state !== 'tpl') state = 'code'
       out.push(c)
       i += 1
       continue
@@ -275,19 +293,281 @@ export function findEarlyReturnLines(text, lineIdx) {
 }
 
 /**
- * 影子档**覆盖面读数**(纯函数,取材在它外面 —— 与 decide 同款,self-test/镜像测试都构造面直喂)。
+ * 跨文件**转发豁免**判据(2026-10-26 立,gate115-forward)。
  *
+ * 立因(票面原话):行序启发式把 `apps/cli/src/tools/hub/adapter.ts:36` 的
+ * `return tool.execute(args, ctx)` 读成"未覆盖"。那是 `wrapTool()` 的**转发**——被包的那个 Tool
+ * 是同一次调用在 `apps/cli/src/tools/index.ts` 的 hub 分支里已经过 `applyToolArgValidation()`
+ * (内部 `shadowValidateToolArguments()`,原文 1256 / 调用点 1408)校验过的那一个。静态"同文件行序"
+ * 看不见跨文件的一手,所以它**既会把转发误报成缺口,也绝不能反过来把任意"看着像包装"的旁路洗白**:
+ * 豁免只在五条正面事实同时成立时给出,任一不成立(或证据文件取不到)⇒ 留在未覆盖,并把拒因写在这一条上。
+ *
+ * 五条正面事实(全部现算在被审面上,不读清单、不读口头状态):
+ *   F1 站点自身是 `return [await] recv.execute(...)` 纯转发(结果原样交回,本文件对它没有处置);
+ *   F2 `recv` 在本文件里**从未被绑定或赋值**(没有 `const/let/var recv`、没有 `recv =`),
+ *      即"要执行的那个对象是外面递进来的",不是本文件自己查出来的;
+ *   F3 站点所在最外层函数是 `export function W(recv: …)` 形,且 `recv` 就是它的形参;
+ *   F4 存在生产面消费者 G:具名导入里有 W(允许经过**一枚** barrel 中转,G→M→F,再多跳不豁免),
+ *      并在 G 里真的有 `W(` 调用行;
+ *   F5 G 自己带校验出口(`shadowValidateToolArguments(` 调用行),且 G 的执行站点**至少一枚**
+ *      并且**全部**落在其接线行之后 —— 证明 G 是"真校过的执行器",不是又一个未接线的转发席。
+ *
+ * 已知限制(如实登记,方向一律保守 = 多要一次点名):
+ *   · 认 `export function`,不认箭头/默认导出/`class` 方法形态的包装器;
+ *   · 具名导入不认 `import * as ns`;中转只认具名 `export {W} from` 与整桶 `export * from`;
+ *   · 校验是否**按同一份 args** 发生,静态判据证不到(运行时语义),本门只把这一型从"未覆盖"
+ *     分桶到"转发豁免"并逐条打印证据行号,命中率仍按 covered/total 算 —— 覆盖面不因豁免变大。
+ *
+ * @param {{rel:string,line:number}} site 未覆盖的执行站点
+ * @param {Array<{rel:string,text:string|null}>} prodFiles 同面的生产面正文(text 为 null 的会被跳过)
+ * @param {Array<{rel:string,line:number}>} shadowSites 全面校验出口接线点
+ * @param {Array<{rel:string,line:number}>} execSites 全面执行站点
+ * @param {Set<string>} coveredKeys 已覆盖站点 `rel@line`
+ * @param {(rel:string) => string|null} [readExtra] 同面补读(barrel 中转文件不在候选集里);取不到 ⇒ 该跳不成立
+ */
+export function forwardingExemption(site, prodFiles, shadowSites, execSites, coveredKeys, readExtra) {
+  const own = prodFiles.find((f) => f.rel === site.rel)
+  if (!own || own.text === null)
+    return { exempt: false, why: '该文件正文取不到 ⇒ 转发无从证明(不豁免)' }
+  const masked = maskNoise(own.text)
+  const lines = masked.split(/\r?\n/)
+  const line = lines[site.line - 1]
+  if (line === undefined)
+    return { exempt: false, why: `点名行 ${site.line} 在该面不存在 ⇒ 不豁免` }
+  const recv = forwardingReceiver(line)
+  if (!recv)
+    return {
+      exempt: false,
+      why: '站点不是 `return [await] recv.execute(...)` 纯转发 ⇒ 本文件对结果有自己的处置(不豁免)',
+    }
+  if (isLocallyBound(masked, recv))
+    return {
+      exempt: false,
+      why: `${recv} 由本文件自己绑定/赋值 ⇒ 执行对象不是外面递进来的(不豁免)`,
+    }
+  const fn = outermostExportedFunction(masked, site.line)
+  if (!fn)
+    return {
+      exempt: false,
+      why: '站点所在最外层函数不是 `export function` 形 ⇒ 包装器身份不可证(不豁免)',
+    }
+  if (!paramNames(fn.params).includes(recv))
+    return {
+      exempt: false,
+      why: `${recv} 不是 ${fn.name}() 的形参 ⇒ 执行对象来源不明(不豁免)`,
+    }
+  const refuse = []
+  for (const g of prodFiles) {
+    if (g.rel === site.rel || g.text === null) continue
+    const chain = importChainOf(g, site.rel, fn.name, readExtra)
+    if (!chain) continue
+    const callLines = findCallLines(g.text, `${fn.name}(`).filter(
+      (c) => !isDeclarationLine(c.text, `${fn.name}(`),
+    )
+    if (callLines.length === 0) {
+      refuse.push(`${g.rel} 导入了 ${fn.name} 却没有调用行`)
+      continue
+    }
+    const wires = shadowSites.filter((s) => s.rel === g.rel)
+    if (wires.length === 0) {
+      refuse.push(`${g.rel} 调用了 ${fn.name} 但自己没有校验出口`)
+      continue
+    }
+    const gExec = execSites.filter((s) => s.rel === g.rel)
+    if (gExec.length === 0) {
+      refuse.push(`${g.rel} 自己一个执行站点都没有 ⇒ 证不了它是校过的执行器`)
+      continue
+    }
+    const loose = gExec.filter((s) => !coveredKeys.has(`${s.rel}@${s.line}`))
+    if (loose.length > 0) {
+      refuse.push(`${g.rel} 自身仍有未覆盖站点 ${loose.map((s) => s.line).join('/')}`)
+      continue
+    }
+    return {
+      exempt: true,
+      evidence: {
+        wrapper: fn.name,
+        receiver: recv,
+        consumer: g.rel,
+        viaBarrel: chain.via ?? null,
+        importLine: chain.line,
+        callLines: callLines.map((c) => c.line),
+        wireLines: wires.map((w) => w.line),
+        consumerExecLines: gExec.map((s) => s.line),
+      },
+    }
+  }
+  return {
+    exempt: false,
+    why: refuse.length
+      ? `候选消费者逐条不合格:${refuse.join(';')}`
+      : `没有任何生产文件具名导入 ${site.rel} 的 ${fn.name}( 并自带校验出口 ⇒ 转发目标未被证明校过(不豁免)`,
+  }
+}
+
+/** 站点行必须是纯转发 `return [await] recv.execute(...)`;不是则 null。 */
+export function forwardingReceiver(maskedLine) {
+  const m = /^\s*return\s+(?:await\s+)?([A-Za-z_$][\w$]*)\.execute\(/.exec(maskedLine)
+  return m ? m[1] : null
+}
+
+/** `recv` 在本文件里被声明或赋值过 ⇒ 它不是外面递进来的。 */
+export function isLocallyBound(masked, recv) {
+  const name = recv.replace(/\$/g, '\\$')
+  return (
+    new RegExp(`\\b(?:const|let|var)\\s+${name}\\b`).test(masked) ||
+    new RegExp(`\\b${name}\\s*=[^=]`).test(masked) ||
+    new RegExp(`\\b${name}\\s*:[^,)]*=>`).test(masked)
+  )
+}
+
+/** 形参表里的标识符清单(只取名,类型标注丢掉)。 */
+export function paramNames(params) {
+  return params
+    .split(',')
+    .map((p) => /^\s*([A-Za-z_$][\w$]*)/.exec(p)?.[1])
+    .filter(Boolean)
+}
+
+/** 一次扫完的花括号配对(掩噪后文本),返回所有 `{start,end}` 区间。 */
+export function braceSpans(text) {
+  const spans = []
+  const stack = []
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === '{') stack.push(i)
+    else if (c === '}') {
+      const s = stack.pop()
+      if (s !== undefined) spans.push({ start: s, end: i })
+    }
+  }
+  return spans
+}
+
+function offsetOfLine(text, lineIdx) {
+  const lines = text.split(/\r?\n/)
+  let pos = 0
+  for (let i = 0; i < lineIdx - 1 && i < lines.length; i++) pos += lines[i].length + 1
+  return pos
+}
+
+/**
+ * 站点所在**最外层** `export function` 的函数头(自外向内第一个能对上头形的区间)。
+ * @returns {{name:string,params:string,start:number,end:number}|null}
+ */
+export function outermostExportedFunction(masked, lineIdx) {
+  const offset = offsetOfLine(masked, lineIdx)
+  const containing = braceSpans(masked)
+    .filter((s) => s.start < offset && offset <= s.end)
+    .sort((a, b) => a.start - b.start)
+  for (const s of containing) {
+    const head = masked.slice(Math.max(0, s.start - 800), s.start).trimEnd()
+    const m = /export\s+(?:async\s+)?function\s+([A-Za-z0-9_$]+)\s*\(([^()]*)\)\s*[^{};]*$/.exec(
+      head,
+    )
+    if (m) return { name: m[1], params: m[2], start: s.start, end: s.end }
+  }
+  return null
+}
+
+/**
+ * 相对规格符 → 本仓相对路径候选(正斜杠)。只认相对路径;裸模块名不在射程(保守 ⇒ 不豁免)。
+ * @returns {string[]}
+ */
+export function moduleCandidates(fromRel, spec) {
+  if (!spec.startsWith('./') && !spec.startsWith('../')) return []
+  const base = posix.normalize(posix.join(posix.dirname(fromRel), spec))
+  // 规格符解出仓库外(`../..` 顶穿仓根)⇒ 不是本仓模块,不给候选(保守 ⇒ 不豁免)
+  if (base === '..' || base.startsWith('../')) return []
+  const stripped = base.replace(/\.(?:js|mjs|cjs|jsx)$/, '')
+  return ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.jsx', '/index.ts', '/index.js']
+    .map((e) => stripped + e)
+    .filter((p, i, a) => a.indexOf(p) === i)
+}
+
+/**
+ * 从 raw 正文里取 import/export 从句(规格符在掩噪面上会被抹成空格,所以这一步**必须读原文**;
+ * 从句体用 `[^;]*?` 收口,避免跨语句假匹配)。
+ * @returns {Array<{names:string[],star:boolean,spec:string,line:number}>}
+ */
+export function importClauses(rawText) {
+  const out = []
+  const re = /(?:^|[;\n])\s*(?:import|export)\s+(?:type\s+)?([^;]*?)\s*from\s*['"]([^'"]+)['"]/g
+  let m
+  while ((m = re.exec(rawText))) {
+    const clause = m[1]
+    const spec = m[2]
+    const braces = /\{([^}]*)\}/.exec(clause)
+    const names = braces
+      ? braces[1]
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s && !s.startsWith('type '))
+          .filter((s) => !/\bas\b/.test(s))
+      : []
+    out.push({
+      names,
+      star: /\*/.test(clause) || names.length === 0,
+      spec,
+      line: rawText.slice(0, m.index).split(/\r?\n/).length,
+    })
+  }
+  return out
+}
+
+/**
+ * G 是否(直接或经**一枚** barrel)把 F 的导出 W 引进来。
+ * @returns {{line:number,via:string|null}|null}
+ */
+export function importChainOf(g, targetRel, wrapper, readExtra) {
+  for (const c of importClauses(g.text)) {
+    const cands = moduleCandidates(g.rel, c.spec)
+    if (cands.includes(targetRel)) {
+      if (c.names.includes(wrapper)) return { line: c.line, via: null }
+      continue
+    }
+    if (!readExtra) continue
+    for (const mid of cands) {
+      const midText = readExtra(mid)
+      if (midText === null || midText === undefined) continue
+      if (classifyPath(mid) !== 'prod') continue
+      if (reexports(mid, midText, targetRel, wrapper)) return { line: c.line, via: mid }
+    }
+  }
+  return null
+}
+
+/**
+ * M 是否把 W 从 F 重导出(`export * from '<相对 F 的路径>'` 或 `export {W} from '…'`)。
+ * 规格符按 M 自己的目录解析 —— 这是 barrel 中转最容易解错的一格。
+ */
+export function reexports(midRel, midText, targetRel, wrapper) {
+  const strip = (p) => p.replace(/\.(?:ts|tsx|mts|cts|js|mjs|jsx)$/, '')
+  const target = strip(targetRel)
+  for (const c of importClauses(midText)) {
+    const cands = moduleCandidates(midRel, c.spec).map(strip)
+    if (!cands.includes(target)) continue
+    if (c.star || c.names.includes(wrapper)) return true
+  }
+  return false
+}
+
+/**
  * @param {Array<{rel:string,text:string|null}>} files 同面读到的正文(规则内自行判 prod 面)
+ * @param {(rel:string) => string|null} [readExtra] **同一判定面**的补读口(barrel 中转文件既不含
+ *        校验器串也不含执行串,不在候选集里;只允许同面补读,绝不回落另一个面 —— §0.4 同面同轮)
  * @returns {{state:string,total:number,coveredCount:number,shadowSites:Array,execSites:Array,
- *            covered:Array,uncovered:Array,earlyReturns:Array,undetermined:Array}}
+ *            covered:Array,uncovered:Array,forwarded:Array,earlyReturns:Array,undetermined:Array}}
  *
  * state 三态(输出必须不同形):
- *   'measured'     量出来了:命中 X / 候选 Y + 未覆盖清单 + 早退分支清单
+ *   'measured'     量出来了:命中 X / 候选 Y + 未覆盖清单 + 转发豁免清单 + 早退分支清单
  *   'no-sites'     影子档有接线,但面上一个候选站点都没有 ⇒ 读数为空(读作"无站点可覆盖",
  *                  **不得**读作"全覆盖")
  *   'undetermined' 取不到正文 / 面上根本没有影子档接线点 ⇒ 不可考,**不折 0、不折绿**
+ *
+ * 恒等式(自检与镜像测试都钉它):`covered + forwarded + uncovered === total`。
  */
-export function auditShadowCoverage(files) {
+export function auditShadowCoverage(files, readExtra) {
   const shadowSites = []
   const execSites = []
   const undetermined = []
@@ -308,10 +588,24 @@ export function auditShadowCoverage(files) {
   }
   const covered = []
   const uncovered = []
+  const coveredKeys = new Set()
   for (const site of execSites) {
     const wired = shadowSites.some((s) => s.rel === site.rel && s.line < site.line)
-    if (wired) covered.push(site)
-    else uncovered.push(site)
+    if (wired) {
+      covered.push(site)
+      coveredKeys.add(`${site.rel}@${site.line}`)
+    } else uncovered.push(site)
+  }
+  // 未覆盖里再分一格:**跨文件转发给已校的包装器**(正面事实齐备才免,见 forwardingExemption 头注)。
+  // 这一格**不并进 coveredCount** —— 命中率仍按 covered/total 算,覆盖面不因豁免而变大;
+  // 它只是把"真未校"与"同一次调用在别的文件里校过"两种形态分开点名。
+  const forwarded = []
+  const stillUncovered = []
+  const prodForForward = prodFiles.filter((f) => f.text !== null)
+  for (const site of uncovered) {
+    const res = forwardingExemption(site, prodForForward, shadowSites, execSites, coveredKeys, readExtra)
+    if (res.exempt) forwarded.push({ ...site, ...res.evidence })
+    else stillUncovered.push({ ...site, whyNotExempt: res.why })
   }
   const earlyReturns = []
   const seen = new Set()
@@ -319,8 +613,11 @@ export function auditShadowCoverage(files) {
     const key = `${s.rel}@${s.line}`
     if (seen.has(key)) continue
     seen.add(key)
-    for (const r of findEarlyReturnLines(files.find((f) => f.rel === s.rel)?.text ?? '', s.line))
-      earlyReturns.push({ rel: s.rel, ...r })
+    const own = prodFiles.find((f) => f.rel === s.rel)
+    // 基准必须与行号同源(掩噪面):拿掩噪行号去索引原文,注释里的花括号会把函数体取歪。
+    const maskedText = own && own.text !== null ? maskNoise(own.text) : null
+    if (maskedText === null) continue
+    for (const r of findEarlyReturnLines(maskedText, s.line)) earlyReturns.push({ rel: s.rel, ...r })
   }
   let state = 'measured'
   if (shadowSites.length === 0)
@@ -337,7 +634,8 @@ export function auditShadowCoverage(files) {
     shadowSites,
     execSites,
     covered,
-    uncovered,
+    uncovered: stillUncovered,
+    forwarded,
     earlyReturns,
     undetermined,
   }
@@ -465,12 +763,26 @@ export function analyze(root, face) {
   const coverageFiles = unionRels.map(
     (rel) => byRel.get(rel) ?? { rel, text: readOnFace(root, face, rel) },
   )
+  // 转发豁免的 barrel 中转证据:**同一面**补读(readOnFace 不变,只是多问几个路径),
+  // 取不到一律返回 null ⇒ 那一跳不成立、站点留在未覆盖(失效方向 = 多要一次点名,不是多放一次)。
+  const extraCache = new Map()
+  const readExtra = (rel) => {
+    if (extraCache.has(rel)) return extraCache.get(rel)
+    let text = null
+    try {
+      text = readOnFace(root, face, rel)
+    } catch {
+      text = null
+    }
+    extraCache.set(rel, text)
+    return text
+  }
   return {
     face,
     scanned: rels.length,
     candidateRels: rels,
     modeSourceAvailable: modeSource !== null,
-    coverage: auditShadowCoverage(coverageFiles),
+    coverage: auditShadowCoverage(coverageFiles, readExtra),
     ...verdict,
   }
 }
@@ -486,6 +798,9 @@ function printVerdict(res, root) {
   )
   for (const v of res.violations) console.log(`  ❌ ${v}`)
   console.log(formatCoverage(res.coverage))
+  // 未覆盖的每一条附上"为什么不能免"——点名之外还要给可整改的下一步(§5e-1 可整改性)
+  for (const s of res.coverage?.uncovered ?? [])
+    console.log(`     · ${s.rel}:${s.line} 未豁免依据:${s.whyNotExempt ?? '(未评估)'}`)
   if (res.violations.length === 0)
     console.log(
       res.coverage && res.coverage.state === 'undetermined'
@@ -501,6 +816,17 @@ function siteList(sites) {
   return `${names.slice(0, 6).join(', ')} …等 ${names.length} 个`
 }
 
+/** 转发豁免站点:必须把"凭哪两行免的"一起打出来(豁免可追责,不是一句"看起来像包装")。 */
+function forwardedList(sites) {
+  const names = sites.map(
+    (s) =>
+      `${s.rel}:${s.line}←${s.wrapper}(由 ${s.consumer}:${s.callLines.join('/')} 调用,` +
+      `该校校验出口 ${s.consumer}:${s.wireLines.join('/')}${s.viaBarrel ? `,经 ${s.viaBarrel} 中转` : ''})`,
+  )
+  if (names.length <= 4) return names.join('; ')
+  return `${names.slice(0, 4).join('; ')} …等 ${names.length} 个`
+}
+
 /** 覆盖面读数行(三态不同形:量得出 / 候选 0 / 未判定)。 */
 export function formatCoverage(cov) {
   if (!cov) return '  ❓ 影子档覆盖面:未判定 —— 本轮没产覆盖面读数(不折 0、不折绿)'
@@ -513,13 +839,17 @@ export function formatCoverage(cov) {
   const pct = cov.total === 0 ? '0.0' : ((cov.coveredCount / cov.total) * 100).toFixed(1)
   const un =
     cov.uncovered.length === 0 ? '无' : `${cov.uncovered.length} [${siteList(cov.uncovered)}]`
+  const fwd =
+    cov.forwarded.length === 0
+      ? '0'
+      : `${cov.forwarded.length} [${forwardedList(cov.forwarded)}]`
   const early =
     cov.earlyReturns.length === 0
       ? '0'
       : `${cov.earlyReturns.length} [${siteList(cov.earlyReturns)}]`
   return (
     `  📏 影子档覆盖面(读数,不判红):命中 ${cov.coveredCount} / 候选 ${cov.total} (${pct}%) · ` +
-    `未覆盖 ${un} · 早退分支 ${early}`
+    `未覆盖 ${un} · 跨文件转发豁免 ${fwd} · 早退分支 ${early}`
   )
 }
 

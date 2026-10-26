@@ -30,6 +30,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.config import settings
+from app.core.default_model import is_retired_model
 from app.main import app
 
 # =============================================================================
@@ -54,12 +55,17 @@ def _real_providers_json() -> dict[str, Any]:
 # 顺序 = 自家 ihui 中转优先(产品自有链路,MiniMax-M2.7 原生 FC,配额自控),其次 stepfun。
 # 环境变量 NATIVE_FC_E2E_OPENAI_COMPAT_MODEL 仍可强制指定单个模型(优先级最高)。
 _PREFIX_TO_PROVIDER = {
+    "agnes": "agnes",
     "stepfun": "stepfun",
     "openrouter": "openrouter",
     "nvidia": "nvidia",
     "gemini": "gemini",
 }
+# 2026-10-26:stepfun 订阅失效(chat 恒定 400 / no active step plan subscription)已
+# 永久退役,候选首位换成实测返回 tool_calls 的 agnes 聚合端点。stepfun 条目**故意留着**:
+# 下面的退役过滤要有一条真对象可拦,删了这条判据就成了空转。
 _ALL_OPENAI_COMPAT_CANDIDATES = [
+    ("agnes/agnes-2.5-flash", "agnes"),
     ("openrouter/deepseek/deepseek-chat", "openrouter"),
     ("gemini/gemini-3.6-flash", "gemini"),
     ("stepfun/step-3.7-flash", "stepfun"),
@@ -74,11 +80,14 @@ if _FORCED_E2E_MODEL:
     ]
 else:
     _OPENAI_COMPAT_CANDIDATES = _ALL_OPENAI_COMPAT_CANDIDATES
-# 仅保留 llm_providers JSON 里确有 key 的候选(无 key 的候选不参与,避免必失败重试)
+# 仅保留 llm_providers JSON 里确有 key、且**未退役**的候选:
+# 有 key 但上游已永久下线的档(stepfun)放进来只会把真网用例固定跑成红。
 _OPENAI_COMPAT_MODELS = [
     model
     for model, provider_entry in _OPENAI_COMPAT_CANDIDATES
-    if provider_entry and (_real_providers_json().get(provider_entry) or {}).get("api_key")
+    if provider_entry
+    and (_real_providers_json().get(provider_entry) or {}).get("api_key")
+    and not is_retired_model(model)
 ]
 _HAS_OPENAI_COMPAT_KEY = bool(_OPENAI_COMPAT_MODELS)
 

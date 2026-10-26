@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -35,6 +36,8 @@ WorkflowStatus = Literal["pending", "running", "completed", "failed", "cancelled
 
 from ..core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL
 from ..core.llm_gateway import llm_gateway
+from ..core.token_baseline import CHAIN_WORKFLOW
+from ..core.usage_cache import normalize_usage
 from .session_store import owner_scoped_allows
 from .skills import skill_registry
 
@@ -139,7 +142,7 @@ class WorkflowLog:
 class WorkflowEngine:
     """工作流引擎(进程内单例)。"""
 
-    def __init__(self) -> None:
+    def __init__(self, *, ledger: Any = None) -> None:
         self._workflows: dict[str, Workflow] = {}
         self._instances: dict[str, WorkflowInstance] = {}
         self._tasks: dict[str, list[WorkflowTask]] = {}
@@ -150,6 +153,12 @@ class WorkflowEngine:
         self._running_instances: set[str] = set()
         # 创建序号(单调递增,作为 createdAt 同微秒时的排序 tiebreaker)
         self._create_seq = 0
+        # G-941 写账侧(2026-10-26):成本账本注入位。None ⇒ 记账时取全局单例
+        # (与 BestOfNRunner 同形状:生产默认直连,测试显式注入 tmp 账本),
+        # 缺省**不是**「不写账」—— 不写账正是本票要修的那个洞。
+        self._ledger: Any = ledger
+        # 同实例的 LLM 用量序号(账本 record_id 的幂等键后缀;实例内单调)
+        self._llm_usage_seq: dict[str, int] = {}
 
     # =========================================================================
     # Workflow CRUD
@@ -304,6 +313,98 @@ class WorkflowEngine:
         logs = self._logs.setdefault(instance_id, [])
         logs.append(log)
 
+    # =========================================================================
+    # 写账生产者(G-941 写账侧,2026-10-26 立)
+    # =========================================================================
+
+    def _cost_ledger(self) -> Any:
+        """账本取用唯一入口:注入优先,否则取全局单例(延迟 import 防环)。"""
+        if self._ledger is not None:
+            return self._ledger
+        from .cost_ledger import cost_ledger
+
+        return cost_ledger
+
+    def _record_llm_usage(
+        self,
+        *,
+        instance_id: str,
+        step_name: str,
+        resp: dict[str, Any],
+        user_id: str | None,
+        duration_ms: float,
+    ) -> None:
+        """把一次 workflow LLM 调用写进成本账本,链别取 CHAIN_WORKFLOW(唯一常量源)。
+
+        存在理由:读面(cost_ledger.aggregate / llm_usage_service)自 G-941 起就有
+        "workflow" 桶,但全仓**没有任何生产者往里写** —— 工作流用量只能落"未判定"桶,
+        增量基线按 (链别, tool_name) 分桶因此永远看不见 workflow 链。
+
+        纪律:
+        - 链别一律 `CHAIN_WORKFLOW`,绝不写字面量、绝不留空(空 = 未判定,正是本洞);
+        - 成本不在此自估:`append` 的 `_normalize` 在 cost_usd 缺省时走统一估算口径,
+          本层不复算第二份判据;
+        - 写账失败(账本不可用/字段异常)⇒ 只 warning,绝不阻塞工作流主链路,
+          也不把"没写上"说成"写好了"(与 agent_loop_v2 的录制降级同纪律)。
+        """
+        try:
+            ledger = self._cost_ledger()
+            usage = normalize_usage(resp.get("usage"))
+            tokens_in = int(usage.get("prompt_tokens") or 0)
+            tokens_out = int(usage.get("completion_tokens") or 0)
+            seq = self._llm_usage_seq.get(instance_id, 0) + 1
+            self._llm_usage_seq[instance_id] = seq
+            has_error = bool(resp.get("error"))
+            ledger.append(
+                {
+                    "record_id": f"{instance_id}:llm:{seq}",
+                    "user_id": str(user_id or ""),
+                    "session_id": instance_id,
+                    "run_id": instance_id,
+                    "tool_name": f"workflow:{step_name}",
+                    "chain": CHAIN_WORKFLOW,
+                    "model": str(resp.get("model") or ""),
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
+                    "total_tokens": tokens_in + tokens_out,
+                    "cached_tokens": int(usage.get("cached_tokens") or 0),
+                    "cache_creation_tokens": int(usage.get("cache_creation_tokens") or 0),
+                    "duration_ms": round(float(duration_ms or 0.0), 2),
+                    "status": "error" if has_error else "ok",
+                    "at": datetime.now(UTC).isoformat(),
+                }
+            )
+        except Exception as e:  # noqa: BLE001 - 可观测面故障不许打断执行链
+            logger.warning("workflow_engine 写账失败(降级,不阻塞): %s", e)
+
+    async def _complete_and_record(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        instance_id: str,
+        step_name: str,
+        user_id: str | None,
+        temperature: float,
+        max_tokens: int,
+    ) -> dict[str, Any]:
+        """workflow 链唯一的 LLM 出口:调用 + 写账同笔,漏传即无从"静默不落账"。
+
+        异常原样向上抛(调用方的 try/except 语义一字未改);抛出去时没有响应可测,
+        故不写账 —— 宁可少一行,也不把"没量到"写成"量到了"。
+        """
+        started = time.perf_counter()
+        resp = await llm_gateway.complete(
+            messages, temperature=temperature, max_tokens=max_tokens
+        )
+        self._record_llm_usage(
+            instance_id=instance_id,
+            step_name=step_name,
+            resp=resp if isinstance(resp, dict) else {},
+            user_id=user_id,
+            duration_ms=(time.perf_counter() - started) * 1000,
+        )
+        return resp
+
     async def _execute_instance(self, inst: WorkflowInstance, wf: Workflow) -> None:
         """后台执行工作流实例。"""
         inst.status = "running"
@@ -411,21 +512,34 @@ class WorkflowEngine:
             pass
         return {"input": s}
 
-    async def _judge_condition(self, rendered: str) -> bool:
+    async def _judge_condition(
+        self,
+        rendered: str,
+        *,
+        instance_id: str,
+        step_name: str,
+        user_id: str | None = None,
+    ) -> bool:
         """用 LLM 判断条件表达式真假。
 
         LLM 调用失败/返回错误/返回空内容时降级为"条件为真"(执行 thenSteps)。
+
+        instance_id / step_name 是**必填关键字**(G-941 写账侧):条件判断同样烧 token,
+        少一个传参点就意味着少一格账;宁可当场 TypeError,也不要它静默走无账路径。
         """
         if not rendered:
             return True
         try:
-            result = await llm_gateway.complete(
+            result = await self._complete_and_record(
                 [
                     {
                         "role": "user",
                         "content": f"以下条件为真还是假,只回答 true 或 false:\n{rendered}",
                     }
                 ],
+                instance_id=instance_id,
+                step_name=step_name,
+                user_id=user_id,
                 temperature=0.0,
                 max_tokens=10,
             )
@@ -468,6 +582,9 @@ class WorkflowEngine:
         step_type = str(step.get("type", "llm"))
         step_input = str(step.get("input", ""))
         step_skill = str(step.get("skill", ""))
+        # G-941 写账侧:账本 tool_name 用 "workflow:<步名>",步名缺省回退类型名
+        # (取不到名字不等于没有用量,不能因此跳过写账)。
+        step_name = str(step.get("name") or step_type)
 
         if step_type == "echo":
             return {"output": step_input or json.dumps(context, ensure_ascii=False)}
@@ -483,8 +600,11 @@ class WorkflowEngine:
             except Exception as e:
                 return {"error": f"skill 模板渲染失败: {e}"}
             try:
-                result = await llm_gateway.complete(
+                result = await self._complete_and_record(
                     [{"role": "user", "content": rendered}],
+                    instance_id=instance_id,
+                    step_name=step_name,
+                    user_id=user_id,
                     temperature=0.7,
                     max_tokens=2000,
                 )
@@ -499,8 +619,11 @@ class WorkflowEngine:
 
         if step_type == "llm":
             try:
-                result = await llm_gateway.complete(
+                result = await self._complete_and_record(
                     [{"role": "user", "content": step_input or "请执行此步骤"}],
+                    instance_id=instance_id,
+                    step_name=step_name,
+                    user_id=user_id,
                     temperature=0.7,
                     max_tokens=2000,
                 )
@@ -516,7 +639,12 @@ class WorkflowEngine:
             then_steps = step.get("thenSteps") or []
             else_steps = step.get("elseSteps") or []
             rendered = self._render_template(condition_expr, context)
-            is_true = await self._judge_condition(rendered)
+            is_true = await self._judge_condition(
+                rendered,
+                instance_id=instance_id,
+                step_name=step_name,
+                user_id=user_id,
+            )
             branch = then_steps if is_true else else_steps
             branch_results: list[dict[str, Any]] = []
             for sub_step in branch:

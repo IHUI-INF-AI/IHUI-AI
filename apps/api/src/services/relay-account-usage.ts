@@ -43,7 +43,7 @@ export interface RecordAccountUsageInput {
  * latency_ms 是 integer 列,而转发层给的是浮点耗时(如 761.6792)——
  * 直接写会让 PostgreSQL 整行拒收,台账静默丢空。落库前统一归一为整数毫秒。
  */
-export function normalizeLedgerLatencyMs(value: number): number {
+function normalizeLedgerLatencyMs(value: number): number {
   const n = Number(value)
   if (!Number.isFinite(n) || n <= 0) return 0
   return Math.round(n)

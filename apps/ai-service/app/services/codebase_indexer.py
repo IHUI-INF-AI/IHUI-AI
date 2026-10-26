@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+from ..core.internal_ticket import internal_service_headers
 from ..core.llm_gateway import llm_gateway
 from . import rg_fallback_parity as _rgp
 from .rg_fallback_parity import EnumerationProvenance
@@ -207,8 +208,10 @@ class CodebaseIndexer:
 
         优先级:
         1. api_token(用户 JWT,Bearer 认证)——Web/会话链路显式传入时使用
-        2. 内部服务通道(AI_CALLBACK_SECRET + X-User-Id)——MCP 工具/服务端
-           触发索引时使用,与 api 侧 internal-service-token 中间件契约一致
+        2. 内部服务通道 —— MCP 工具/服务端触发索引时使用,与 api 侧
+           internal-service-token 中间件契约一致;经 internal_ticket 唯一出口构造,
+           dual 兼容窗内旧 x-internal-service-token 照发、x-internal-service-ticket
+           短期票同带(主体 = internal_user_id,scope='codebase-index')。
         两者皆无 → 空 headers(写入会被 401 拒绝,调用方按错误降级处理)。
         """
         if api_token:
@@ -219,10 +222,9 @@ class CodebaseIndexer:
             and internal_user_id
             and re.fullmatch(r"[a-zA-Z0-9-]{1,128}", internal_user_id)
         ):
-            return {
-                "x-internal-service-token": secret,
-                "x-user-id": internal_user_id,
-            }
+            return internal_service_headers(
+                internal_user_id, "codebase-index", legacy_token=secret
+            )
         return {}
 
     def _check_tree_sitter(self) -> bool:

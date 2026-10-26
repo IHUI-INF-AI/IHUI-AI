@@ -29,7 +29,7 @@ const myCouponsQuerySchema = z
   .strict()
 
 /** 投影出的行:字段名与 web `member/coupons` 页既有读取集逐字一致,新增键只加不改 */
-export interface MyCouponRow {
+interface MyCouponRow {
   id: string
   code: string
   name: string
@@ -43,10 +43,7 @@ export interface MyCouponRow {
 }
 
 /** `unused` 但券已过期 ⇒ 读成 `expired`(库里靠清扫任务落状态,展示层不等它) */
-function toMyCouponRow(
-  r: UserCoupon & { coupon: PromoCoupon },
-  now = new Date(),
-): MyCouponRow {
+function toMyCouponRow(r: UserCoupon & { coupon: PromoCoupon }, now = new Date()): MyCouponRow {
   const expired = new Date(r.coupon.expiresAt) < now
   return {
     id: r.id,

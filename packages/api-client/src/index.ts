@@ -398,6 +398,8 @@ export * from './endpoints/legacy-public.js'
 
 // 多平台一键发布(账号 + 任务 + 扫码登录,2026-07-30 新增)
 export * from './endpoints/publish.js'
+// 账号保活中心(2026-10-26):三条保活线的统一状态面,账号页只读本组。
+export * from './endpoints/keepalive.js'
 
 // Coze 平台 API 端点(2026-07-27 立,PAT 直连 Coze 官方 API,跨端共享)
 export * from './endpoints/coze.js'

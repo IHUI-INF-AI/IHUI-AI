@@ -68,7 +68,7 @@ export interface CheckinSideRow {
   poolPendingCred: { attempts: number; at: string | null } | null
 }
 
-export type ReconcileAction =
+type ReconcileAction =
   | { kind: 'push'; pool: PoolSideRow; reason: 'missing' | 'version_behind' }
   | {
       kind: 'disable'

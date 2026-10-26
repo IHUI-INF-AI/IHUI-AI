@@ -820,7 +820,7 @@ export const BACKGROUND_TASK_REARM_FACE = {
   settledBy: 'reset',
 } as const satisfies Record<keyof BackgroundTask, 'preserve' | 'reset' | 'renew'>;
 
-export type BackgroundTaskRearmRejection = 'not-terminal' | 'id-mismatch' | 'generation-not-renewed' | 'not-live';
+type BackgroundTaskRearmRejection = 'not-terminal' | 'id-mismatch' | 'generation-not-renewed' | 'not-live';
 
 /**
  * 重臂的结论:成功档交出**新条目**(已在注册表原位替换),四档拒绝互不相通 ——

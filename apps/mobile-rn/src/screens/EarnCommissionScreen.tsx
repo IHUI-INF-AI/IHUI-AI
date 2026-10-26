@@ -14,7 +14,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-export function EarnCommissionScreen() {
+function EarnCommissionScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const { t } = useI18n()

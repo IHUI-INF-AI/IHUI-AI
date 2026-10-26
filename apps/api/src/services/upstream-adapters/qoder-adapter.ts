@@ -115,7 +115,7 @@ export const QODER_CHAT_CONTRACT_UNVERIFIED =
   'QODER_CHAT_CONTRACT_UNVERIFIED: Qoder chat 必须经本机桥(executeChat)执行,三件套直连通道未实证'
 
 /** Qoder 上游非鉴权失败(带 HTTP 状态码;消息截断防泄漏) */
-export class QoderUpstreamError extends Error {
+class QoderUpstreamError extends Error {
   readonly statusCode: number
   constructor(statusCode: number, message: string) {
     super(message.slice(0, 500))

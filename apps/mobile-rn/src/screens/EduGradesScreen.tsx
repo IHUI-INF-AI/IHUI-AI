@@ -33,7 +33,7 @@ interface EduExamScore {
   examDate: string
 }
 
-export function EduGradesScreen() {
+function EduGradesScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()
