@@ -331,6 +331,12 @@ export function prefixMatches(clipped, raw, { min = 20 } = {}) {
   return i >= min
 }
 
+/** 抽成纯函数(可测):占位符路径(`<x>`、通配、含空白)不构成互斥凭据。 */
+export function splitConcretePaths(paths) {
+  const isPh = (p) => /[<>|*?]/.test(p) || /\s/.test(p)
+  return { concrete: paths.filter((p) => !isPh(p)), placeholder: paths.filter(isPh) }
+}
+
 /** 一行登记行的作用域:点名路径 ∪ 命中的热文件档(热文件之间互为冲突)。 */
 export function scopeOfRow(raw) {
   const paths = []
@@ -435,7 +441,7 @@ export function spinVerdict({ dispatchFaceCount, waveCount, dropped, anchorMisma
   if (waveCount > 0) return { state: 'dispatchable', red: false }
   const blockedByOverlap = dropped.filter((d) => ['path-overlap', 'hot-file', 'held-by-seat', 'held-ticket-by-seat'].includes(d.why)).length
   if (blockedByOverlap > 0 || anchorMismatch > 0) return { state: 'spinning', red: true }
-  if (dropped.some((d) => d.why === 'scope-unknown'))
+  if (dropped.some((d) => d.why === 'scope-unknown' || d.why === 'scope-placeholder'))
     return { state: 'needs-scope', red: true }
   return { state: 'idle-seats-exhausted', red: false }
 }
@@ -514,6 +520,7 @@ export function buildBoard(root, opts = {}) {
   const candidates = []
   const anchorMismatch = []
   const undeterminedRefs = []
+  const placeholders = []
   for (const f of faceLines) {
     const row = rowsByLine.get(f.line)
     if (!row || !prefixMatches(f.clipped, row.raw)) {
@@ -522,7 +529,14 @@ export function buildBoard(root, opts = {}) {
     }
     const sc = scopeOfRow(row.raw)
     if (sc.extractFailed) undeterminedRefs.push({ line: row.line, reason: 'extractRefs 抛错' })
-    const paths = sc.paths
+    // 占位符路径不是作用域:`packages/shared/src/ui/<x>-spec/` 这类票面写法指的是"待命名的新文件",
+    // 拿它当互斥凭据等于给一条不存在的路径发合格证(2026-10-27 实测:一席据此领到过假路径)。
+    const { concrete, placeholder } = splitConcretePaths(sc.paths)
+    if (concrete.length === 0) {
+      placeholders.push({ line: row.line, ticketId: keyOfRow(row.raw) ?? '(无号)', why: 'scope-placeholder', detail: placeholder.slice(0, 4) })
+      continue
+    }
+    const paths = concrete
     const dirtyHit =
       dirty === null ? [] : paths.filter((p) => (p.endsWith('/') ? [...dirty].some((d) => d === p.slice(0, -1) || d.startsWith(p)) : dirty.has(p)))
     const absentInHead =
@@ -546,10 +560,11 @@ export function buildBoard(root, opts = {}) {
     externalTickets: flattenSeatTickets(claimsRes.claims),
   })
   const heldBySeat = dropped.filter((d) => d.why === 'held-by-seat' || d.why === 'held-ticket-by-seat').length
+  const droppedAll = [...dropped, ...placeholders]
   const spin = spinVerdict({
     dispatchFaceCount: faceLines.length,
     waveCount: wave.length,
-    dropped,
+    dropped: droppedAll,
     anchorMismatch: anchorMismatch.length,
   })
   return {
@@ -566,7 +581,8 @@ export function buildBoard(root, opts = {}) {
       rowsOpenInHead: rowsByLine.size,
       candidateCount: candidates.length,
       wave: wave.map((w) => ({ line: w.line, ticketId: w.ticketId, title: w.title, paths: w.paths, hot: w.hot, raw: String(w.raw ?? '').slice(0, 900) })),
-      dropped: dropped.map((d) => ({ line: d.line, ticketId: d.ticketId, why: d.why, detail: d.detail ?? null })),
+      dropped: droppedAll.map((d) => ({ line: d.line, ticketId: d.ticketId, why: d.why, detail: d.detail ?? null })),
+      scopePlaceholder: placeholders.length,
       anchorMismatch,
       dirtyFace: dirty === null ? 'undetermined' : dirty.size,
       headFace: headSet === null ? 'undetermined' : headSet.size,
@@ -638,6 +654,9 @@ function selfTest() {
   const br = briefOf({ line: 1, ticketId: 'G-9', title: '示例票', paths: ['apps/api/src/x.ts'], hot: [] }, { seat: 's1', ticketRow: '- [ ] G-9 示例票正文' })
   t('㉗ 派单书必须自带今晚踩过的三条硬约束(严禁 worktree / 先自核勾选态 / 执行席不 commit)', /严禁 git worktree/.test(br) && /先自核票面勾选态/.test(br) && /git add/.test(br) && /--claim s1 --ticket G-9 --scope apps\/api\/src\/x\.ts/.test(br))
   t('㉘ 派单书把作用域与票面原文逐条列全(不靠主席手抄漏项)', br.includes('apps/api/src/x.ts') && br.includes('G-9 示例票正文'))
+  const sp = splitConcretePaths(['apps/web/src/a.ts', 'packages/shared/src/ui/<x>-spec/', 'docs/UI GUIDELINES.md', 'apps/api/src/z.ts'])
+  t('㉚ 占位符/含空白路径不算作用域(拿不存在的路径发互斥合格证=假凭据)', sp.concrete.length === 2 && sp.placeholder.length === 2 && sp.concrete[0] === 'apps/web/src/a.ts')
+  t('㉛ 全占位符的票要落 scope-placeholder 并判红(不是"没活")', spinVerdict({ dispatchFaceCount: 1, waveCount: 0, dropped: [{ why: 'scope-placeholder' }], anchorMismatch: 0 }).state === 'needs-scope')
   t('㉙ 他席未提交的脏面必须压住(dirty-inflight)——这是"不打架"的另一半', (() => {
     const dirty = [{ line: 7, ticketId: 'D-7', title: 'd', paths: ['apps/api/src/x.ts'], hot: [], dirtyHit: ['apps/api/src/x.ts'] }, { line: 8, ticketId: 'D-8', title: 'e', paths: ['packages/auth/src/y.ts'], hot: [], dirtyHit: [] }]
     const w = buildWave(dirty, { maxSeats: 6 })
@@ -727,8 +746,9 @@ function main() {
       if (b.dropped.length > 12) console.log(`    …另 ${b.dropped.length - 12} 枚(同口径重跑可全量点名)`)
     }
     const scopeUnknown = b.dropped.filter((d) => d.why === 'scope-unknown').length
-    if (scopeUnknown > 0)
-      console.log(`  ⚠ 作用域未点名 ${scopeUnknown} 枚 ⇒ 本器不替它们发互斥合格证;唯一出路 = 主席按票面正文补出点名文件后重跑`)
+    const ph = b.scopePlaceholder ?? 0
+    if (scopeUnknown + ph > 0)
+      console.log(`  ⚠ 作用域不可用 ${scopeUnknown + ph} 枚(未点名 ${scopeUnknown} / 占位符路径 ${ph})⇒ 本器不替它们发互斥合格证;唯一出路 = 主席按票面正文补出真实路径后重跑`)
     console.log(`  结论 state=${b.state}${b.red ? ' ⇒ 有可派票却一枚排不进,主席须重排(不是没活)' : ''}`)
   }
   if (a.brief) {

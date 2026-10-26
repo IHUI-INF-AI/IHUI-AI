@@ -188,6 +188,16 @@ test('⑬ 直执行档:--self-test 真跑一次并取末行(接线锁,不是把�
 })
 
 // ── 席位作用域台账(跨会话那一格的往返取证;夹具走正牌 scratch 根,不落仓库树) ──
+test('⑰b 占位符路径不构成互斥凭据(不存在的路径不能发"这块地没人占"的合格证)', () => {
+  const sp = BOARD.splitConcretePaths(['apps/web/src/a.ts', 'packages/shared/src/ui/<x>-spec/', 'docs/UI GUIDELINES.md', 'apps/api/src/*.ts'])
+  assert.deepEqual(sp.concrete, ['apps/web/src/a.ts'], `只该留真路径,实得:${JSON.stringify(sp.concrete)}`)
+  assert.equal(sp.placeholder.length, 3, '<x> 形 / 含空白 / 通配 三种都必须归占位符')
+  // 全占位符的票到了 buildWave 这一层必须已是空作用域 ⇒ 落 scope-unknown,绝不带假凭据排席
+  const w = BOARD.buildWave([cand(9, 'P-9', sp.concrete)], { maxSeats: 6 })
+  assert.equal(w.wave.length, 0)
+  assert.equal(w.dropped[0].why, 'scope-unknown')
+})
+
 test('⑰ 他席未提交的脏面必须压住(dirty-inflight)——"不打架"的另一半', () => {
   const dirtyCand = { line: 7, ticketId: 'D-7', title: 'd', paths: ['apps/api/src/x.ts'], hot: [], dirtyHit: ['apps/api/src/x.ts'] }
   const cleanCand = { line: 8, ticketId: 'D-8', title: 'e', paths: ['packages/auth/src/y.ts'], hot: [], dirtyHit: [] }
