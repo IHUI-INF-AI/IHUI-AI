@@ -19,6 +19,8 @@ import {
   classifyVisitScope,
   visitScopeFilter,
   visitPlatformFilter,
+  classifyVisitPlatform,
+  VISIT_PLATFORM_PATH_PREFIXES,
   VISIT_SCOPE_VALUES,
   VISIT_PLATFORM_VALUES,
 } from '../src/db/visit-tracking-queries.js'
@@ -69,14 +71,40 @@ describe('visitPlatformFilter', () => {
     expect(visitPlatformFilter(undefined)).toBeUndefined()
   })
 
-  it('三端各自产出条件', () => {
+  it('四端各自产出条件', () => {
     expect(visitPlatformFilter('web')).toBeDefined()
     expect(visitPlatformFilter('rn')).toBeDefined()
     expect(visitPlatformFilter('mp')).toBeDefined()
+    expect(visitPlatformFilter('ex')).toBeDefined()
   })
 
-  it('枚举覆盖四档,新增一端必须同步判据', () => {
-    expect([...VISIT_PLATFORM_VALUES]).toEqual(['web', 'rn', 'mp', 'all'])
+  it('枚举覆盖五档,新增一端必须同步判据', () => {
+    expect([...VISIT_PLATFORM_VALUES]).toEqual(['web', 'rn', 'mp', 'ex', 'all'])
+  })
+
+  it('前缀词表与枚举配对:除 web 外每端都有前缀,web 不登记(按"不落在任何前缀"归桶)', () => {
+    expect(Object.keys(VISIT_PLATFORM_PATH_PREFIXES).sort()).toEqual(['ex', 'mp', 'rn'])
+    for (const platform of VISIT_PLATFORM_VALUES) {
+      if (platform === 'all') continue
+      const hasPrefix = Object.prototype.hasOwnProperty.call(VISIT_PLATFORM_PATH_PREFIXES, platform)
+      expect(hasPrefix, `${platform} 端的前缀登记`).toBe(platform !== 'web')
+    }
+  })
+})
+
+describe('classifyVisitPlatform', () => {
+  it('按端前缀归桶', () => {
+    expect(classifyVisitPlatform('/rn/Home')).toBe('rn')
+    expect(classifyVisitPlatform('/mp/pages/index/index')).toBe('mp')
+    expect(classifyVisitPlatform('/ex/sidepanel/chat')).toBe('ex')
+    expect(classifyVisitPlatform('/agents')).toBe('web')
+    expect(classifyVisitPlatform(null)).toBe('web')
+    expect(classifyVisitPlatform('   ')).toBe('web')
+  })
+
+  it('插件路径不得被误算进后台或登录面(scope 仍 public)', () => {
+    expect(classifyVisitScope('/ex/sidepanel/settings')).toBe('public')
+    expect(classifyVisitScope('/ex/popup')).toBe('public')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

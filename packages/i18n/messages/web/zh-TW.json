@@ -872,6 +872,7 @@
       "platformWeb": "網站",
       "platformRn": "行動端",
       "platformMp": "小程式",
+      "platformEx": "瀏覽器擴充功能",
       "platformNoData": "近24h 暫無分端資料",
       "panelEngagement": "互動熱度",
       "engagementAvgStay": "平均停留",
@@ -23212,7 +23213,9 @@
     "redirect": {
       "notAllowed": "跳轉地址不被允許",
       "notAllowedDesc": "出於安全考慮，僅允許白名單內的跳轉目標。",
-      "title": "統一登錄跳轉"
+      "title": "統一登錄跳轉",
+      "unavailable": "暫時無法完成跳轉",
+      "unavailableDesc": "網路或服務暫時無法使用，請稍後重試。"
     },
     "redirecting": "正在跳轉授權…",
     "redirectingDesc": "即將打開 {platform} 授權頁",
