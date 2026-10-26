@@ -585,6 +585,7 @@ async def _new_v2_loop(
     """
     from app.core.model_context_window import resolve_with_env_priority
 
+    from ..core.token_baseline import CHAIN_MAIN
     from ..services.agent_loop_v2 import AgentLoopV2
 
     return AgentLoopV2(
@@ -614,7 +615,8 @@ async def _new_v2_loop(
         # 账本增量基线按 (chain, tool_name) 分桶(G-816021),此前生产无传参点导致
         # 条目 chain 恒空、子代理与主链共用 llm 桶而少计。run_id 不可作判别维度:
         # recorder 的 run 键回退 session_id,子代理经编排共享父会话 ⇒ 同键不可分。
-        chain="main",
+        # G-941 取证收口(goal-20261026-b14r2):取唯一常量源,不落字面量。
+        chain=CHAIN_MAIN,
     )
 
 
