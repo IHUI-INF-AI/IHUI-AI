@@ -4958,5 +4958,29 @@
     "weeklyReport": "每周报告",
     "versionUpdate": "版本更新",
     "billingReminder": "账单提醒"
+  },
+  "agentChat": {
+    "empty": "暂无消息,发送第一条开始对话吧",
+    "placeholder": "输入消息...",
+    "send": "发送",
+    "loadFailed": "加载聊天失败",
+    "sendFailed": "发送失败"
+  },
+  "agentCreate": {
+    "title": "创建智能体",
+    "name": "名称",
+    "namePlaceholder": "给智能体起个名字",
+    "category": "分类",
+    "categoryPlaceholder": "如:办公助手",
+    "description": "描述",
+    "descPlaceholder": "介绍一下这个智能体",
+    "systemPrompt": "系统提示词",
+    "promptPlaceholder": "定义智能体的角色和行为",
+    "isPublic": "是否公开",
+    "public": "公开",
+    "private": "私有",
+    "submit": "创建",
+    "nameRequired": "请输入名称",
+    "saveFailed": "保存失败"
   }
 }

@@ -145,6 +145,8 @@ export default defineAppConfig({
         'domain-hub/index',
         'login/index',
         'mcp-store/index',
+        'agent-chat/index',
+        'agent-create/index',
       ],
     },
     {
