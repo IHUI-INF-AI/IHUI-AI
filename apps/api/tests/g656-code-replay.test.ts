@@ -72,6 +72,9 @@ vi.mock('../src/db/queries.js', () => ({
   revokeAllUserRefreshTokens: vi.fn(),
   findRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
+  // /sso/refresh 的重放裁决经 refresh-replay-policy 真实现,其 db 依赖命名导出必须齐备
+  revokeRefreshTokenFamily: vi.fn(async () => 0),
+  findLiveFamilyToken: vi.fn(async () => null),
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({
@@ -119,7 +122,10 @@ describe('G-656 sso_code 同码连 exchange 两次,第二次必失败(先烧再�
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
-    app.decorate('redis', mockRedis)
+    // Fastify 装饰器类型要求与真实 Redis 同形,测试替身只实现 4 个方法;
+    // 按仓内既有写法(cache-resilience-null.test.ts:56)走 string 通道 decorate。
+    const decorable = app as unknown as { decorate(name: string, value: unknown): void }
+    decorable.decorate('redis', mockRedis)
     await app.register(cookie)
     await app.register(authSsoRoutes, { prefix: '/api/auth' })
     await app.ready()
