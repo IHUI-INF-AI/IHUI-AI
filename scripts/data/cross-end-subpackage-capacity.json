@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "measuredAtSha": "29479d1f7049",
+  "measuredAtSha": "7abd2be3baec",
   "measuredAt": "2026-10-26",
-  "face": "隔离 worktree 在 29479d1f7049(第一批 38 枚壳承载页已落)上 `pnpm --filter @ihui/miniapp-taro build:weapp` 的真实产物,由 check-artifact-budget 同一把尺子逐包量",
+  "face": "隔离 worktree 在 7abd2be3baec(待产队列已清空、含 home)上 `pnpm --filter @ihui/miniapp-taro build:weapp` 的真实产物,由 check-artifact-budget 同一把尺子逐包量;合计 18,016,705 B",
   "limitBytes": 2097152,
   "totalLimitBytes": 20971520,
   "totalSafetyRatio": 0.88,
@@ -21,109 +21,109 @@
     "chunkReserveBytes = 一个分包**首次**接收壳承载页时要吃下的固定共享块。2026-10-26 实测同一枚 sub-common(3b9e6393…,707,273 B)在 pkg-user / pkg-mirror / pkg-mirror2 各存一份,外加 117,204 B 等小块 ⇒ 合计取 900,000 B。已经带大块(实测 ≥1 MB)的包记 0。",
     "bytesPerShellPage = 页代码本体边际(已带共享块的包里实测约 30 KB);闭包大的屏由 pageEstimates 逐屏覆盖。",
     "pageEstimates = 由 `node scripts/measure-cross-end-page-sizes.mjs --write` 现算(键 = 共享屏 spec 全路径),RATIO=0.65 —— 0.5 那一版把整批低估 25%,当场造成 pkg-user 超限。",
-    "pkg-user 记 2,110,263 B / 44 条:摘除让位后 delta 为负 ⇒ 该包按\"不再收新壳页\"封口,新屏一律走 overflow 链。",
+    "pkg-user 记 1916558 B / 36 条:该包已摘除让位并实测到 1.92 MB,水位下几乎无余量 ⇒ 新屏一律走 overflow 链。",
     "该表是**测量快照**不是豁免:重建产物后按新读数重跑更新(sha/时间/bytes/条数一起换);取不到本表 ⇒ 造页器整轮 blocked,不猜。"
   ],
   "roots": {
     "pages": {
-      "bytes": 1683105,
+      "bytes": 1702630,
       "mirrorEntriesAtMeasure": 2,
       "chunkReserveBytes": 0
     },
     "pages/ask": {
-      "bytes": 37160,
+      "bytes": 37088,
       "mirrorEntriesAtMeasure": 3,
       "chunkReserveBytes": 900000
     },
     "pages/circle": {
-      "bytes": 70228,
+      "bytes": 70156,
       "mirrorEntriesAtMeasure": 2,
       "chunkReserveBytes": 900000
     },
     "pages/distribution": {
-      "bytes": 75643,
+      "bytes": 75433,
       "mirrorEntriesAtMeasure": 5,
       "chunkReserveBytes": 900000
     },
     "pages/exam": {
-      "bytes": 58226,
+      "bytes": 58106,
       "mirrorEntriesAtMeasure": 4,
       "chunkReserveBytes": 900000
     },
     "pages/forgot-password": {
-      "bytes": 21938,
+      "bytes": 21914,
       "mirrorEntriesAtMeasure": 0,
       "chunkReserveBytes": 900000
     },
     "pages/member": {
-      "bytes": 443014,
+      "bytes": 442894,
       "mirrorEntriesAtMeasure": 4,
       "chunkReserveBytes": 900000
     },
     "pages/register": {
-      "bytes": 23382,
+      "bytes": 23360,
       "mirrorEntriesAtMeasure": 1,
       "chunkReserveBytes": 900000
     },
     "pages/setting": {
-      "bytes": 34664,
-      "mirrorEntriesAtMeasure": 2,
-      "chunkReserveBytes": 900000
+      "bytes": 1280861,
+      "mirrorEntriesAtMeasure": 3,
+      "chunkReserveBytes": 0
     },
     "pages/study": {
-      "bytes": 83827,
+      "bytes": 83635,
       "mirrorEntriesAtMeasure": 5,
       "chunkReserveBytes": 900000
     },
     "pages/webview": {
-      "bytes": 2812,
+      "bytes": 2788,
       "mirrorEntriesAtMeasure": 0,
       "chunkReserveBytes": 900000
     },
     "pkg-about": {
-      "bytes": 335058,
+      "bytes": 337321,
       "mirrorEntriesAtMeasure": 10,
       "chunkReserveBytes": 900000
     },
     "pkg-ai": {
-      "bytes": 1307808,
+      "bytes": 1307046,
       "mirrorEntriesAtMeasure": 21,
       "chunkReserveBytes": 0
     },
     "pkg-content": {
-      "bytes": 1980566,
+      "bytes": 2061218,
       "mirrorEntriesAtMeasure": 15,
       "chunkReserveBytes": 0
     },
     "pkg-learn": {
-      "bytes": 1543328,
+      "bytes": 1624128,
       "mirrorEntriesAtMeasure": 11,
       "chunkReserveBytes": 0
     },
     "pkg-shop": {
-      "bytes": 263899,
-      "mirrorEntriesAtMeasure": 13,
-      "chunkReserveBytes": 900000
+      "bytes": 1508524,
+      "mirrorEntriesAtMeasure": 14,
+      "chunkReserveBytes": 0
     },
     "pkg-user": {
-      "bytes": 2110263,
-      "mirrorEntriesAtMeasure": 44,
+      "bytes": 1916558,
+      "mirrorEntriesAtMeasure": 36,
       "chunkReserveBytes": 0
     },
     "pkg-mirror": {
-      "bytes": 1760369,
-      "mirrorEntriesAtMeasure": 24,
+      "bytes": 1962214,
+      "mirrorEntriesAtMeasure": 30,
       "chunkReserveBytes": 0
     },
     "pkg-mirror2": {
-      "bytes": 1218864,
-      "mirrorEntriesAtMeasure": 2,
+      "bytes": 1675099,
+      "mirrorEntriesAtMeasure": 4,
       "chunkReserveBytes": 0
     },
     "pkg-mirror3": {
-      "bytes": 0,
-      "mirrorEntriesAtMeasure": 0,
-      "chunkReserveBytes": 900000
+      "bytes": 1825732,
+      "mirrorEntriesAtMeasure": 27,
+      "chunkReserveBytes": 0
     },
     "pkg-mirror4": {
       "bytes": 0,
