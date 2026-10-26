@@ -5555,6 +5555,9 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_PS1_BOM',
+    // 2026-10-27 补:判据面是**任意位置的** .ps1/.psm1(BOM 与目录无关),所以触发器不能只写
+    // 某个端目录,否则改了别处的 .ps1 落地器不会复跑本门。
+    stagedTriggers: ['**/*.ps1', '**/*.psm1'],
     onFailHint: [
       '',
       '给这些文件补 3 字节 UTF-8 BOM(正文一字节不动):',
@@ -5867,6 +5870,10 @@ const pushGateChecks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GIT_STDIO_DISCIPLINE',
+    // 2026-10-27 补:本门判的是 scripts/ 下的 JS 派生面,不声明触发器 ⇒ 绕过落地器
+    // (object-space-land)时它**不会进"受影响门"复跑集**。实测代价:新门 check-ps1-bom.mjs
+    // 两处裸被派生 git 一路带到 push 才被 pre-push 拦下 —— 落地报"19 臂全绿"却是盲绿。
+    stagedTriggers: ['scripts/'],
     onFailHint: [
       '',
       '  💡 病根(2026-10-03 实测):options 里**不写** `stdio` ⇒ 派生 git 抛 EBUSY(0/30);',
