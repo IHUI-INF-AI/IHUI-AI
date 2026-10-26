@@ -21,16 +21,27 @@
  *   - 解析后仍不过 ⇒ 上报**解析后对象**上的路径级违规 —— 模型面前已是解码对象,
  *     报"expected object, got string"只会让它反复加引号或退化 `{}`(票面根因注释)。
  *
- * 装车现状(2026-10-25 现读;取代此前那句"该文件当前被并发会话冻结,接线归该持有人"——
- * 该说法已失效,apps/cli 工作树现读为净,而它正是本件十天没动的原因):生产面 import 方 0
- * (仅 `tests/argument-repair.test.ts`)。未接线的真阻塞是**两套 repair 账是否并口**尚未裁决
- * —— 执行器 enforce 分支(`tools/index.ts` 的 `applyToolArgValidation` → `enforceValidateToolArguments`)
- * 已按工具名连续窗计数(`noteEnforceRepairRejection` + `TOOL_ARG_REPAIR_MAX_ATTEMPTS`),与本模块
- * 的会话级双预算同职(§0.6 同类判据全仓只许一份);裁决归 argval 线票面
- * 「argument-validation 装车后的覆盖面三格缺口」① 持有人。
- * 另有一条**结构性**障碍:入参在到达 enforce 判定之前已由 `parseToolArguments` 收敛成
- * `Record<string, unknown>`,故本模块 `normalizeSubmit` 的"原值是 string"一支(票面夹具①)在该
- * 站点不可达 ⇒ 就地接线只会添上第二份预算,救不回票面要的那条腿。
+ * 装车现状(2026-10-26/s8-argval 代裁定档:**维持不接线**,票面① 选 B 案;此前那句
+ * "该文件当前被并发会话冻结,接线归该持有人"与 2026-10-25 的"两套账并口尚未裁决"均已被本段取代):
+ *   - 生产面 import 方仍为 0(`git grep -n "createArgumentRepairSession" HEAD` 只命中本定义与
+ *     `tests/argument-repair.test.ts`;`git grep argument-repair-loop HEAD -- apps packages scripts` 除自身与那枚测试外零命中),
+ *     守门 115 的判据串是 `validateToolArguments(` / `shadowValidateToolArguments(` / `tool.execute(`,
+ *     射程不含本模块 ⇒ 不接线不顶任何一道已装车的门。
+ *   - 不接线的**实质依据**是覆盖面与预算两条都成立,而非"没人动":
+ *     ① 覆盖面不缺口 —— 入参在到达 enforce 判定之前已由 `parseToolArguments`(`tools/index.ts`)收敛成
+ *        `Record<string, unknown>`,故本模块 `normalizeSubmit` 的"原值是 string ⇒ 一次 JSON.parse"一支
+ *        (票面夹具①)在该站点结构上不可达;而 object 位的 stringify 由第②步出口
+ *        `enforceValidateToolArguments` 内的 schema-aware 容错解析接住。再挂一份 = §0.6 第二份判律。
+ *     ② 回喂已发生且在唯一落点 —— 拒绝文案带单行路径级违规清单供模型下一轮重投,有界窗是
+ *        `noteEnforceRepairRejection` + `TOOL_ARG_REPAIR_MAX_ATTEMPTS`(按工具名连续计数)。
+ *     ③ 两套预算互斥 —— 同一次失败,窗侧第 4 次即 `arg_validation_exhausted` 硬失败,会话侧此时还在出
+ *        `reject`(乃至 `nudge`)帧 ⇒ 就地接线只会让模型面前同时出现两个打脸的计数器。
+ *     ④ 会话独有的 `cancelAsk`(每帧先取消挂着的用户 ask)在执行器站点没有对应物理量 ——
+ *        拒绝刻意发生在权限/批准弹窗**之前**,此刻无 ask 可 cancel,也没有第二帧的发送通道。
+ *   - 本模块的真实宿主是头注自述的上游 `dynamic-workflow/src/engine/scheduler-submit.ts`,该路径在本仓
+ *     现读不存在(`packages/` 无 dynamic-workflow)⇒ 它是一枚"等宿主"的移植件,不是执行器的缺失半边。
+ *   - 退役(删文件)属破坏性动作,§7 三问归主席;本席只交证据。接线与否若被重开,
+ *     `tests/argument-repair-loop-adjudication.test.ts` 的 ④ 探测器会当场翻红,强制再判一次并口。
  * 本模块的判定全部复用第①步出口,不新增第二份校验实现。
  */
 
