@@ -188,6 +188,19 @@ test('⑬ 直执行档:--self-test 真跑一次并取末行(接线锁,不是把�
 })
 
 // ── 席位作用域台账(跨会话那一格的往返取证;夹具走正牌 scratch 根,不落仓库树) ──
+test('⑰ 他席未提交的脏面必须压住(dirty-inflight)——"不打架"的另一半', () => {
+  const dirtyCand = { line: 7, ticketId: 'D-7', title: 'd', paths: ['apps/api/src/x.ts'], hot: [], dirtyHit: ['apps/api/src/x.ts'] }
+  const cleanCand = { line: 8, ticketId: 'D-8', title: 'e', paths: ['packages/auth/src/y.ts'], hot: [], dirtyHit: [] }
+  const r = BOARD.buildWave([dirtyCand, cleanCand], { maxSeats: 6 })
+  assert.equal(r.wave.length, 1)
+  assert.equal(r.wave[0].ticketId, 'D-8')
+  assert.equal(r.dropped[0].why, 'dirty-inflight')
+  assert.deepEqual(r.dropped[0].detail, ['apps/api/src/x.ts'], '必须点名是被哪条脏路径压住的,不能只说"排不进"')
+  // 反向:脏集为空时同一票必须能排进来(证明这一维不是恒拒)
+  const r2 = BOARD.buildWave([{ ...dirtyCand, dirtyHit: [] }], { maxSeats: 6 })
+  assert.equal(r2.wave.length, 1, 'dirtyHit 为空却仍被挡 ⇒ 这一维变成了恒拒,不可接受')
+})
+
 test('⑭ claim 往返:他席装载为"已占"、本席自载排除、过期自动失效', () => {
   const dir = mkScratch('board-claim-')
   try {
