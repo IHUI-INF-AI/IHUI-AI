@@ -12,7 +12,7 @@
 // @vitest-environment jsdom
 import * as React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('@/components/charts/EChart', () => ({ EChart: () => null }))
@@ -35,8 +35,9 @@ const payload = {
     pv: 120,
     uv: 45,
     pages: [
-      { url: '/', pv: 84, uv: 73 },
-      { url: '/sso/login', pv: 51, uv: 37 },
+      { url: '/', platform: 'web', pv: 84, uv: 73 },
+      { url: '/sso/login', platform: 'web', pv: 51, uv: 37 },
+      { url: '/rn/Home', platform: 'rn', pv: 9, uv: 4 },
     ],
     daily: [
       { date: '2026-10-20', pv: 30, uv: 20 },
@@ -49,6 +50,12 @@ const payload = {
     { page: '/', avgSec: 63.5, samples: 12 },
   ],
   audience: { newUv: 31, returningUv: 14, activeUv: 45, returningRate: 0.3111 },
+  platforms: [
+    { platform: 'web', pv: 120, uv: 45 },
+    { platform: 'rn', pv: 8, uv: 3 },
+    { platform: 'mp', pv: 5, uv: 2 },
+    { platform: 'ex', pv: 2, uv: 1 },
+  ],
   browsers: [
     { family: 'chrome', pv: 42, uv: 30 },
     { family: 'wechat', pv: 1, uv: 1 },
@@ -94,6 +101,25 @@ describe('BI 数据大屏', () => {
     await waitFor(() => expect(screen.getAllByText('页面停留时长 TOP').length).toBeGreaterThan(0))
     await waitFor(() => expect(document.body.textContent).toContain('120.4s'))
     expect(document.body.textContent).toContain('n=12')
+  })
+
+  it('各端使用量四行齐备,且排行行按接口 platform 字段标端', async () => {
+    const { container } = renderPage()
+    // 全部查询都限定在本次 container 内:前一例的 DOM 还挂在 body 上,
+    // 用 screen/body 全局查会拿旧渲染当证据(waitFor 会当场通过而读到空态)。
+    await waitFor(() =>
+      expect(within(container).getAllByText('各端使用量').length).toBeGreaterThan(0),
+    )
+    // 标题是静态文案,必须等读数出现再断言(否则读到的是"暂无分端数据"空态)
+    // '网站'会在分端卡与页面排行徽章里各出现一次 ⇒ 一律用 getAllByText
+    await waitFor(() => expect(within(container).getAllByText('网站').length).toBeGreaterThan(0))
+    for (const label of ['移动端', '小程序', '浏览器插件']) {
+      expect(within(container).getAllByText(label).length).toBeGreaterThan(0)
+    }
+    await waitFor(() => expect(within(container).getByText('/rn/Home')).toBeTruthy())
+    const rnRow = within(container).getByText('/rn/Home').parentElement
+    expect(rnRow?.textContent).toContain('移动端')
+    expect(within(container).getByText('浏览器插件').parentElement?.textContent).toContain('2 / 1')
   })
 
   it('访客构成与浏览器分布按接口字段渲染(回访率取整、UA 家族有中文档)', async () => {

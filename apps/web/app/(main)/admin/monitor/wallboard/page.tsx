@@ -301,6 +301,14 @@ interface OverviewPayload {
     totalEvents: number
     computedAtMs: number
   } | null
+  /** 访客构成 24h 快照(visit_logs 身份口径);null = 该腿取不到 */
+  audience?: {
+    newUv: number
+    returningUv: number
+    activeUv: number
+    returningRate: number | null
+    computedAtMs: number
+  } | null
   relayPool?: RelayPoolSnapshot | null
   edge: EdgeSnapshot | null
 }
@@ -736,6 +744,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const events = ov?.events ?? null
   const traffic = ov?.traffic ?? null
   const engagement = ov?.engagement ?? null
+  const audience = ov?.audience ?? null
   const relayPool = ov?.relayPool ?? null
   const edge = ov?.edge ?? null
 
@@ -2743,6 +2752,56 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               ) : traffic && (traffic.platformSplit?.length ?? 0) === 0 ? (
                 <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
                   {t('platformNoData')}
+                </div>
+              ) : null}
+            </div>
+          </Panel>
+
+          {/* 访客构成(2026-10-26):近 24h「第一次来的人」与「回头客」各多少。
+              身份口径与 UV/实时在线同一把尺(coalesce(session_id, ip)),所以新访客 + 回访 = 窗口访客。 */}
+          <Panel
+            title={t('panelAudience')}
+            icon={<Users className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={
+              audience === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('audienceTotal', { count: fmtInt(audience.activeUv) })}
+                </span>
+              )
+            }
+          >
+            <div className="space-y-1">
+              {(
+                [
+                  ['audienceNew', isNum(audience?.newUv) ? fmtInt(audience?.newUv) : '—'],
+                  [
+                    'audienceReturning',
+                    isNum(audience?.returningUv) ? fmtInt(audience?.returningUv) : '—',
+                  ],
+                  [
+                    'audienceRevisitRate',
+                    isNum(audience?.returningRate)
+                      ? `${Math.round((audience?.returningRate ?? 0) * 100)}%`
+                      : '—',
+                  ],
+                ] as const
+              ).map(([labelKey, value]) => (
+                <div
+                  key={labelKey}
+                  className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                >
+                  <span className="text-[10px] text-foreground">{t(labelKey)}</span>
+                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                    {value}
+                  </span>
+                </div>
+              ))}
+              {audience === null ? (
+                <div className="flex justify-center px-2 py-2">
+                  <SourceGap text={t('sourceUnreachable')} />
                 </div>
               ) : null}
             </div>
