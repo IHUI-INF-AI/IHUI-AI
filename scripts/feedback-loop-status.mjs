@@ -47,6 +47,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { extractTicketNo, loadSourcesConfig, normalizeAt, SOURCES_PATH } from './audit-decision-chain.mjs'
+import { identityOf } from './lib/incident-cluster.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -87,9 +88,6 @@ export const NON_DISPATCH_ACTIONS = Object.freeze(['no-ticket', 'no-whitelist-hi
 
 const MAX_TEXT = 400
 const FULL_SHA_RE = /^[0-9a-f]{7,40}$/
-const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
-const LONG_HEX_RE = /\b[0-9a-f]{16,}\b/gi
-const ISO_TS_RE = /\d{4}-\d{2}-\d{2}[t ]\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(z|[+-]\d{2}:?\d{2})?/gi
 
 export class InputError extends Error {}
 
@@ -174,39 +172,10 @@ export function resolvePaths({ root = ROOT, stateDir = null } = {}) {
   }
 }
 
-/** 契约 route 归一:去 query/hash/主机,UUID/长 hex/数字段折成占位符。 */
-export function normalizeRoute(v) {
-  let s = textOf(v)
-  if (!s) return ''
-  try {
-    s = new URL(s).pathname
-  } catch {
-    s = s.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '')
-    s = s.split(/[?#]/)[0]
-  }
-  s = s.split(/[?#]/)[0]
-  s = s.replace(/\/{2,}/g, '/')
-  s = s.replace(UUID_RE, ':uuid')
-  s = s.replace(LONG_HEX_RE, ':hex')
-  s = s.replace(/\b\d+\b/g, ':n')
-  return s
-}
-
-/** 契约 message 归一:URL/UUID/时间戳/长 hex/数字折叠成占位符(批次计数不得变成新身份)。 */
-export function normalizeMessage(v) {
-  let s = textOf(v).toLowerCase()
-  if (!s) return ''
-  s = s.replace(/https?:\/\/\S+/g, ':url')
-  s = s.replace(UUID_RE, ':uuid')
-  s = s.replace(LONG_HEX_RE, ':hex')
-  s = s.replace(ISO_TS_RE, ':ts')
-  s = s.replace(/\d+/g, ':n')
-  s = s.replace(/\s+/g, ' ').trim()
-  return s.length > 200 ? s.slice(0, 200) : s
-}
-
 /**
- * 信号身份(契约 identity):显式字段优先;否则按 source|kind|route:/code:/msg: 推导。
+ * 信号身份:显式字段优先;否则一律复用 `scripts/lib/incident-cluster.mjs` 的 `identityOf`
+ * (全仓唯一身份判据,与 intake/deploy-feedback 同一把尺子)。
+ * 本函数只做槽取值与「取不到身份时返回 why」的适配,不在此另写第二套格式。
  * 两段源键都缺 ⇒ identity 为空并由 why 点名,调用方不得用消息相似度补身份。
  */
 export function signalIdentityOf(raw) {
@@ -215,13 +184,10 @@ export function signalIdentityOf(raw) {
   const source = textOf(pickSlot(raw, ['source', 'producer', 'channel']))
   const kind = textOf(pickSlot(raw, ['kind', 'type', 'category']))
   if (!source || !kind) return { identity: '', basis: '', why: '缺 identity 且缺 source/kind 键' }
-  const route = normalizeRoute(pickSlot(raw, ['route', 'path', 'endpoint']))
-  if (route) return { identity: `${source}|kind:${kind}|route:${route}`, basis: 'derived', why: '' }
-  const code = textOf(pickSlot(raw, ['code', 'errorCode', 'statusCode']))
-  if (code) return { identity: `${source}|kind:${kind}|code:${code}`, basis: 'derived', why: '' }
-  const msg = normalizeMessage(pickSlot(raw, ['message', 'msg', 'text', 'title', 'summary']))
-  if (msg) return { identity: `${source}|kind:${kind}|msg:${msg}`, basis: 'derived', why: '' }
-  return { identity: '', basis: '', why: '缺 identity 且缺 route/code/message 键' }
+  const route = textOf(pickSlot(raw, ['route', 'path', 'endpoint']))
+  const message = textOf(pickSlot(raw, ['message', 'msg', 'text', 'title', 'summary']))
+  if (!route && !message) return { identity: '', basis: '', why: '缺 identity 且缺 route/code/message 键' }
+  return { identity: identityOf({ source, kind, route, message }), basis: 'derived', why: '' }
 }
 
 export function normalizeSignal(raw) {
@@ -936,6 +902,22 @@ export function selfTest() {
       }
       if (!text.includes('阶段表')) throw new Error('缺阶段表')
     })
+    t('⑨ 派生身份与 incident-cluster.identityOf 同一把尺子', () => {
+      const raw = {
+        at: at(1),
+        source: 'deploy_outcome',
+        kind: 'alert_firing',
+        severity: 'error',
+        message: 'deploy_outcome action=rollback reason="健康门禁未过"',
+        route: 'deploy/rollback',
+      }
+      const expected = identityOf(raw)
+      if (!expected) throw new Error('identityOf 返回空身份')
+      const derived = signalIdentityOf(raw)
+      if (derived.identity !== expected) throw new Error(`派生身份与 identityOf 不一致:${derived.identity} ≠ ${expected}`)
+      if (normalizeSignal(raw).identity !== expected) throw new Error('normalizeSignal 身份与 identityOf 不一致')
+      if (signalIdentityOf({ at: at(1), message: 'boom' }).identity !== '') throw new Error('缺 source/kind 时不得自造身份')
+    })
   } catch (e) {
     checks.push({ name: '夹具准备', ok: false, why: e?.message ?? String(e) })
   } finally {
@@ -1015,8 +997,6 @@ export const __test__ = {
   readJsonl,
   resolvePaths,
   normalizeAt,
-  normalizeRoute,
-  normalizeMessage,
   signalIdentityOf,
   normalizeSignal,
   normalizeFeedback,

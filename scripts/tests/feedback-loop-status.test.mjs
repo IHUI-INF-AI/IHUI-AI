@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { after, test } from 'node:test'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { identityOf } from '../lib/incident-cluster.mjs'
 
 const SRC = fileURLToPath(new URL('../feedback-loop-status.mjs', import.meta.url))
 const ROOT = resolve(dirname(SRC), '..')
@@ -134,7 +135,7 @@ test('④ --json 结构 + 末行机器行', () => {
 test('⑤ --self-test 全过且不写真实状态目录', () => {
   const run = spawnSync(process.execPath, [SRC, '--self-test'], { cwd: ROOT, encoding: 'utf8' })
   assert.equal(run.status, 0, run.stdout + run.stderr)
-  assert.match(run.stdout, /# self-test 8\/8/)
+  assert.match(run.stdout, /# self-test 9\/9/)
   assert.ok(!run.stdout.includes('FAIL'))
 })
 
@@ -172,5 +173,29 @@ test('⑧ 只读与形态锁:双形态入口、无写盘调用、元数据字段
   assert.equal(parsed.state, 'missing')
   assert.ok(parsed.why.includes('文件不存在'))
   assert.ok(renderHuman(buildStatus({ stateDir: happyBox(), now: NOW })).includes('阶段表'))
+})
+
+test('⑨ 派生身份以 incident-cluster.identityOf 为唯一尺子', () => {
+  const row = {
+    at: at(1),
+    source: 'deploy_outcome',
+    kind: 'alert_firing',
+    severity: 'error',
+    message: 'deploy_outcome action=rollback reason="健康门禁未过"',
+    route: 'deploy/rollback',
+  }
+  const expected = identityOf(row)
+  assert.ok(expected, 'identityOf 不得返回空身份')
+  assert.equal(__test__.signalIdentityOf(row).identity, expected)
+  assert.equal(__test__.normalizeSignal(row).identity, expected)
+
+  const box = makeBox()
+  writeLines(join(box, SOURCE_FILES.signals), [row])
+  for (const f of [SOURCE_FILES.feedback, SOURCE_FILES.dispatch, SOURCE_FILES.decisions]) {
+    writeFileSync(join(box, f), '', 'utf8')
+  }
+  const r = buildStatus({ stateDir: box, now: NOW })
+  assert.deepEqual(r.incidents.map((i) => i.identity), [expected])
+  assert.equal(r.incidents[0].stages.perceived, 'yes')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
