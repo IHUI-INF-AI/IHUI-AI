@@ -11,12 +11,19 @@
  *   pnpm relay:inspect -- --file f.json --json   # 机器可读
  *
  * 判据单源:字段别名/量纲归一走 relay-account-format(与导入、预检同一份),
- * 这里只做「状态 → 人话结论」的投影,不复制第二份到期/去重口径。
- * 输出永不回显凭据明文(只给 uid/剩余天数/形态标记)。
+ * 「六态结论 + 下一步 + 闲置时钟」的枚举与话术走 @ihui/shared 的 relay-account-verdict
+ * (admin 列表/详情同源消费),这里只做「各自面的到期毫秒折算 → 共用判据」的适配层,
+ * 不复制第二份枚举或阈值。输出永不回显凭据明文(只给 uid/剩余天数/形态标记)。
  * 退出码:0 全部可用 / 1 存在不可用或临期 / 2 参数或输入不可读(未判定)。
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
+
+import {
+  resolveRelayAccountVerdict,
+  relayAccountRemainingDays,
+  type RelayAccountVerdictKind,
+} from '@ihui/shared'
 
 import {
   extractTokenExpiry,
@@ -27,15 +34,7 @@ import {
   expireEpochToMs,
 } from '../src/services/relay-account-format.js'
 
-const EXPIRING_SOON_DAYS = 1
-
-export type AccountVerdictKind =
-  | 'usable' // 可用且窗口充裕
-  | 'expiring-soon' // 还活着,但 ≤1 天内到期,尽快处理
-  | 'expired-renewable' // 已过期,但有 refreshToken → 号池/客户端能自续
-  | 'expired-dead' // 已过期且无自续通道,必须重新登录/重新导出
-  | 'envelope-only' // WorkBuddy 5.6+ 加密信封:只能同机解回,本机体检读不了到期
-  | 'indeterminate' // 取不到到期信息 ≠ 已过期(§0.3 不得冒判)
+export type AccountVerdictKind = RelayAccountVerdictKind
 
 export interface AccountVerdict {
   label: string
@@ -49,20 +48,9 @@ export interface AccountVerdict {
   nextAction: string
 }
 
-const VERDICT_ACTION: Record<AccountVerdictKind, string> = {
-  usable: '无需处理;号池临期档/空闲保活会自动续票',
-  'expiring-soon': '1 天内到期:确认号池在线(调度会自动刷)或本机开一次客户端续票',
-  'expired-renewable': '已过期,但带 refreshToken:导入号池即可由调度器救回,本机需重启客户端换票',
-  'expired-dead': '已过期且无 refreshToken:只能重新登录/重新导出,别指望它自愈',
-  'envelope-only':
-    '加密信封($wbEncrypted):仅同机 WorkBuddy 能解回明文,跨机/查积分皆不可用,需在有客户端的机器上重导一份明文',
-  indeterminate: '读不到到期时刻(非 JWT 且无显式 expiresAt):不代表过期,能不能用以上游健康检查为准',
-}
-
-/** 剩余天数(保留 1 位小数;负数=已过期天数, null=不知道) */
-export function remainingDays(ms: number | null, now: number): number | null {
-  if (ms === null || !Number.isFinite(ms)) return null
-  return Math.round(((ms - now) / 86_400_000) * 10) / 10
+/** 剩余天数:委托 @ihui/shared 单源(保函数名,main/测试不破坏) */
+export function remainingDays(ms: number | null | undefined, now: number): number | null {
+  return relayAccountRemainingDays(ms, now)
 }
 
 function isEnvelopeValue(v: unknown): boolean {
@@ -97,44 +85,31 @@ export function inspectEntry(
     uid ??
     (typeof tokenVal === 'string' ? ((parseJwtClaims(tokenVal)?.['sub'] as string) ?? null) : null)
 
-  if (isEnvelopeValue(tokenVal) || isEnvelopeValue(rtVal)) {
-    return {
-      label,
-      uid: uidResolved,
-      providerCode,
-      foreignShape,
-      tokenRemainingDays: null,
-      refreshRemainingDays: null,
-      canSelfRenew: false,
-      verdict: 'envelope-only',
-      nextAction: VERDICT_ACTION['envelope-only'],
-    }
-  }
-
-  const tokenExpMs = expiryOf(tokenVal, row['expiresAt'])
-  const refreshExpMs = expiryOf(rtVal, row['refreshTokenExpiresAt'])
-  const tokenDays = remainingDays(tokenExpMs, now)
-  const refreshDays = remainingDays(refreshExpMs, now)
+  const envelope = isEnvelopeValue(tokenVal) || isEnvelopeValue(rtVal)
+  const tokenExpMs = envelope ? null : expiryOf(tokenVal, row['expiresAt'])
+  const refreshExpMs = envelope ? null : expiryOf(rtVal, row['refreshTokenExpiresAt'])
   const hasCred = typeof tokenVal === 'string' && tokenVal.length > 0
   const canSelfRenew = typeof rtVal === 'string' && rtVal.length > 0
-
-  let verdict: AccountVerdictKind
-  if (!hasCred) verdict = 'indeterminate'
-  else if (tokenDays === null) verdict = 'indeterminate'
-  else if (tokenDays < 0) verdict = canSelfRenew ? 'expired-renewable' : 'expired-dead'
-  else if (tokenDays <= EXPIRING_SOON_DAYS) verdict = 'expiring-soon'
-  else verdict = 'usable'
+  const decided = resolveRelayAccountVerdict(
+    {
+      tokenExpiryMs: tokenExpMs,
+      envelope,
+      hasCredential: hasCred,
+      hasRefreshCredential: canSelfRenew,
+    },
+    now,
+  )
 
   return {
     label,
     uid: uidResolved,
     providerCode,
     foreignShape,
-    tokenRemainingDays: tokenDays,
-    refreshRemainingDays: refreshDays,
-    canSelfRenew,
-    verdict,
-    nextAction: VERDICT_ACTION[verdict],
+    tokenRemainingDays: decided.tokenRemainingDays,
+    refreshRemainingDays: envelope ? null : remainingDays(refreshExpMs, now),
+    canSelfRenew: envelope ? false : canSelfRenew,
+    verdict: decided.verdict,
+    nextAction: decided.nextAction,
   }
 }
 
