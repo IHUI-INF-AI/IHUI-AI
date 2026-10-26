@@ -9,6 +9,8 @@ import { authenticate } from '../plugins/auth.js'
 import { isSystemAdmin } from './require-permission.js'
 import { error } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
+// 号池 provider 的封闭集单一真相源(不在本文件重写一份列表 —— §0.6)
+import { RELAY_PROVIDERS } from '../services/relay-account-format.js'
 import { PROVIDER_HEALTH_STATUSES, type ProviderHealthStatus } from '@ihui/types'
 import {
   classifyClientFamily,
@@ -98,6 +100,7 @@ import {
  *     - ihui_relay_account_pool_accounts{provider_code}                    (每 provider 账号行数,含停用)
  *     - ihui_relay_account_pool_zero_capacity{provider_code}               (1 = 有 enabled 号但可调度 0 ⇒ 账号池回落正在静默发生)
  *     - ihui_relay_upstream_fallback_total{reason}                          (静默回落计数;reason 封闭四档,见 RELAY_UPSTREAM_FALLBACK_REASONS)
+ *     - ihui_relay_stream_interrupt_total{provider_code}                    (上游流没说完就断的计数;provider 封闭四档=RELAY_PROVIDERS)
  *     - ihui_relay_account_pool_consecutive_failures{provider_code,account}
  *     - ihui_relay_account_pool_total_calls{provider_code,account}         (累计转发调用)
  *     - ihui_relay_account_pool_token_expires_in_seconds{provider_code,account} (可为负 = 已过期)
@@ -901,6 +904,8 @@ const ihuiState = {
   relayAccountZeroCapacityByProvider: new Map<string, number>(),
   /** key: reason —— 静默回落计数(封闭四档,见 RELAY_UPSTREAM_FALLBACK_REASONS;逐值开零基线) */
   relayUpstreamFallbackTotal: new Map<string, number>(),
+  /** key: provider_code —— 上游流未正常收尾的计数(封闭四档=RELAY_PROVIDERS;断流不得算健康) */
+  relayStreamInterruptTotal: new Map<string, number>(),
   /** key: provider_code|account(uid)—— 连续转发失败次数(转发层熔断计数) */
   relayAccountFailures: new Map<string, number>(),
   /** key: provider_code|account(uid)—— 累计转发调用次数(bigint → number) */
@@ -986,6 +991,11 @@ function seedIhuiClosedEnumBaseline(): void {
   // 这一档不开 0 就等于没装 —— "从来没回落过"与"埋点没接"在面板上会同形(本次要根治的正是它)。
   for (const reason of RELAY_UPSTREAM_FALLBACK_REASONS) {
     ihuiCounterInc(ihuiState.relayUpstreamFallbackTotal, reason, 0)
+  }
+  // 上游断流计数:provider 同属封闭集(RELAY_PROVIDERS,单一真相源在 relay-account-format)。
+  // 不开 0 的话,"从没断过流"与"埋点没接"在面板上同形 —— 与回落计数同一批立的规矩。
+  for (const provider of RELAY_PROVIDERS) {
+    ihuiCounterInc(ihuiState.relayStreamInterruptTotal, provider, 0)
   }
   // traffic 3(PV/UV 聚合 Gauge):窗口 × 来源 × (族) 全组合预先开线。
   // **只开 0,不开任何"看起来像数据"的值** —— gauge 的 0 在这里表示"还没测到/确实为 0",
@@ -1346,6 +1356,27 @@ export function recordRelayUpstreamFallback(reason: RelayUpstreamFallbackReason)
 }
 
 /**
+ * Counter:记一次**上游流未正常收尾**(2026-10-26)。
+ *
+ * provider 用封闭集 RELAY_PROVIDERS(单一真相源在 relay-account-format);不在集内的入参
+ * 丢弃并计基数丢弃,不让任意字符串进标签。判据(什么算断流)住转发层,这里只管记账。
+ */
+export function recordRelayStreamInterrupt(providerCode: string): void {
+  safeRecord('recordRelayStreamInterrupt', () => {
+    if (!(RELAY_PROVIDERS as readonly string[]).includes(providerCode)) {
+      ihuiState.seriesDroppedTotal++
+      return
+    }
+    ihuiCounterInc(ihuiState.relayStreamInterruptTotal, providerCode)
+  })
+}
+
+/** 断流计数现读(观测面/测试用;结构上取不到就是空,不用 0 冒充"没量过") */
+export function snapshotRelayStreamInterrupts(): Record<string, number> {
+  return Object.fromEntries(ihuiState.relayStreamInterruptTotal.entries())
+}
+
+/**
  * Gauge:写入一次中转号池快照(两个池子,set 语义)。
  *
  * 与 `setTrafficGaugeSample` 的三条同源纪律,逐条对应:
@@ -1675,6 +1706,7 @@ export function resetIhuiState(): void {
   ihuiState.relayAccountTokenExpiresIn.clear()
   ihuiState.relayAccountRefreshAge.clear()
   ihuiState.relayUpstreamFallbackTotal.clear()
+  ihuiState.relayStreamInterruptTotal.clear()
   ihuiState.relayKeyRowsSkipped = 0
   ihuiState.relayAccountRowsSkipped = 0
   ihuiState.relayKeyLabelCollisions = 0
@@ -2982,6 +3014,16 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE ihui_relay_upstream_fallback_total counter')
     for (const [k, v] of ihuiState.relayUpstreamFallbackTotal) {
       lines.push(`ihui_relay_upstream_fallback_total{reason="${k}"} ${v}`)
+    }
+
+    // 上游断流计数(2026-10-26 由并行写席的进程内 Map 并入本家族,§0.6 单一真相源):
+    // 判据住转发层(什么算"没说完"),记账出口住这里 —— 与 ihui_relay_upstream_fallback_total 同族同节拍。
+    lines.push(
+      '# HELP ihui_relay_stream_interrupt_total Times an upstream relay stream ended before a terminal frame (provider: trae | workbuddy | codearts | qoder)',
+    )
+    lines.push('# TYPE ihui_relay_stream_interrupt_total counter')
+    for (const [k, v] of ihuiState.relayStreamInterruptTotal) {
+      lines.push(`ihui_relay_stream_interrupt_total{provider_code="${k}"} ${v}`)
     }
 
     // 横切:基数上限丢弃计数
