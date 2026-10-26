@@ -14,10 +14,12 @@
 //   ④ 接线锁(§0.9 造好没装车=没有):判据与两个常数必须真被 `gitRaw` 消费,摘线即红。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 唯一入口:源脚本的 __test__ 导出(§22c 第 2 步)。禁止在这里复制判据。
 import { __test__ as E } from '../lib/face-reader.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -138,23 +140,46 @@ test('③d 实测补因:直连腿自己也会断,且断法是 "Connection was re
   )
 })
 
-test('③d 实测补因:直连腿自己也会断,断法是 "Connection was reset"(不能只认 aborted)', () => {
-  // 当天 09:43 实测:摘掉代理直连回 `Recv failure: Connection was reset` ⇒ 两腿都不通时
-  // 判据仍要认得这一型;而 "not a git repository"(确定性)与 HTTP 403(权限/凭据)绝不许兜。
-  const RESET = "fatal: unable to access 'https://github.com/x/y.git/': Recv failure: Connection was reset"
-  assert.ok(E.GIT_EGRESS_TRANSPORT_RE.test(RESET), 'Connection was reset 未被认成传输形态')
-  assert.equal(E.egressFallbackPlan({ verb: 'ls-remote', errText: RESET, status: 128, proxyUrl: PROXY }).apply, true)
-  assert.equal(
-    E.egressFallbackPlan({ verb: 'fetch', errText: 'fatal: not a git repository: /nope/.git', status: 128, proxyUrl: PROXY }).apply,
-    false,
-    '"not a git repository" 被兜底 = 拿重试赌仓根本不存在',
+test('③e 显式绕过通道:IHUI_GIT_NO_PROXY=1 ⇒ isForceDirect 为真,且不叠第二趟', () => {
+  const prev = process.env.IHUI_GIT_NO_PROXY
+  try {
+    delete process.env.IHUI_GIT_NO_PROXY
+    assert.equal(E.isForceDirect(), false, '没设 env 时不得凭空直连')
+    process.env.IHUI_GIT_NO_PROXY = '1'
+    assert.equal(E.isForceDirect(), true, '设了 IHUI_GIT_NO_PROXY=1 却读不到 ⇒ --no-proxy 是空旗标')
+    // 第一趟已经直连过 ⇒ 判据必须拒叠第二趟(否则一次失败打两遍 21s 超时,还照样失败)
+    assert.equal(
+      E.egressFallbackPlan({ verb: 'push', errText: REAL_TRANSPORT_STDERR, status: 128, proxyUrl: PROXY, alreadyDirect: true })
+        .apply,
+      false,
+    )
+  } finally {
+    if (prev === undefined) delete process.env.IHUI_GIT_NO_PROXY
+    else process.env.IHUI_GIT_NO_PROXY = prev
+  }
+})
+
+test('③f 通道接线锁:converge 的 --no-proxy 必须落到 env,face-reader 第一趟就用上', () => {
+  const conv = readFileSync(join(here, '..', 'git-sync-converge.mjs'), 'utf8')
+  assert.match(
+    conv,
+    /argv\.includes\('--no-proxy'\)[\s\S]{0,260}process\.env\.IHUI_GIT_NO_PROXY = '1'/,
+    '--no-proxy 只报名不置 env ⇒ 空旗标(AGENTS §0.8:文档里的出路必须真跑得通)',
   )
-  assert.equal(
-    E.egressFallbackPlan({ verb: 'push', errText: 'The requested URL returned error: 403', status: 128, proxyUrl: PROXY }).apply,
-    false,
-    'HTTP 403 属权限/凭据档,不得换腿再试',
+  const src = readFileSync(join(here, '..', 'lib', 'face-reader.mjs'), 'utf8')
+  assert.match(
+    src,
+    /const forceDirect = Boolean\(opts\.forceDirect\) \|\| isForceDirect\(\)/,
+    'gitRaw 没读绕过旗标',
+  )
+  assert.match(src, /runOnce\(forceDirect \? GIT_EGRESS_DIRECT_ARGS : \[\]\)/, '第一趟没用上绕过参数')
+  assert.match(
+    src,
+    /alreadyDirect: forceDirect \|\| args\.includes\('http\.proxy='\)/,
+    '绕过时没记 first-try ⇒ 会白烧第二次超时',
   )
 })
+
 
 test('④ 接线锁:gitRaw 必须真的消费这套判据(摘线即红)', () => {
   const src = readFileSync(join(here, '..', 'lib', 'face-reader.mjs'), 'utf8')
@@ -178,6 +203,74 @@ test('④a 传输特征串必须命中本机实测原文,且不命中服务器�
   assert.ok(E.GIT_EGRESS_TRANSPORT_RE.test('Failed to connect to 127.0.0.1 port 7897'))
   assert.ok(!E.GIT_EGRESS_TRANSPORT_RE.test('(non-fast-forward)'))
   assert.ok(!E.GIT_EGRESS_TRANSPORT_RE.test('protected branch hook declined'))
+})
+
+/**
+ * ⑤ 退化留痕账本自身必须会老化(§0.7 同纪律:只增不减的账本迟早没人看),
+ *   且"被裁条数"只能写进账本自己 —— 共享层往 stdout/stderr 打一行,就会混进几百把尺子的逐字基线比对。
+ */
+test('⑤ 留痕老化:超窗裁、窗内留、认不出时刻的一律保留', () => {
+  const now = Date.parse('2026-10-26T12:00:00.000Z')
+  const fresh = `2026-10-26T09:00:00.000Z\tverb=push\tfallback=recovered\n`
+  const stale31 = `2026-09-25T09:00:00.000Z\tverb=fetch\tfallback=both-failed\n`
+  const stale29 = `2026-09-27T09:00:00.000Z\tverb=fetch\tfallback=both-failed\n`
+  const noTs = `没有时刻的一行(取证时手敲的)\n`
+  const r = E.pruneEgressLedger(`${stale31}${stale29}${fresh}${noTs}`, { nowMs: now })
+  assert.equal(r.dropped, 1, '只该裁超 30 天那一条(29 天窗内)')
+  assert.ok(r.text.includes('verb=fetch\tboth') === false)
+  assert.ok(r.text.includes('fallback=both-failed') === false || !r.text.includes(stale31.trim()))
+  assert.ok(r.text.includes('verb=push'), '窗内行不得被裁')
+  assert.ok(r.text.includes(noTs.trim()), '解析不出时刻的行必须保留(多留 > 静默删证据)')
+  assert.equal(E.EGRESS_LEDGER_KEEP_DAYS, 30, '存活期常量被人改了要报名')
+})
+
+test('⑤a 老化写法:报数进账本,不打进 stdout/stderr', () => {
+  const src = readFileSync(join(here, '..', 'lib', 'face-reader.mjs'), 'utf8')
+  const at = src.indexOf('const pruned = pruneEgressLedger(raw)')
+  assert.ok(at > 0, '写入器没真的调老化判据(造好没装车)')
+  const body = src.slice(at, src.indexOf('return file', at))
+  assert.match(body, /cad=prune/, '被裁条数必须写进账本自己')
+  assert.doesNotMatch(body, /console\.(log|error|warn)\(/, '共享层打印会污染几百把尺子的基线比对')
+  assert.doesNotMatch(body, /process\.stdout|process\.stderr/, '同上:不得直接写标准流')
+})
+
+test('⑤b 老化只在真裁了的时候才写(空裁不得改文件、不得追加 marker)', () => {
+  const now = Date.parse('2026-10-26T12:00:00.000Z')
+  const r = E.pruneEgressLedger(
+    '2026-10-26T09:00:00.000Z\tverb=push\tfallback=recovered\n',
+    { nowMs: now },
+  )
+  assert.equal(r.dropped, 0)
+  assert.equal(r.kept, 1)
+})
+
+/**
+ * ⑤c 端到端:老化**随写入触发**(不另立调度器 —— 本仓教训:关键自愈别挂到会自己消失的东西上)。
+ * 健康期账本本来就不长 ⇒ 不老化不是缺陷;真发生退化时,超窗行必须当场被裁并留下报数 marker。
+ * 写盘落点用 mkScratch(§15b),不碰真账本。
+ */
+test('⑤c 写入器真会老化并留 marker(端到端,不只看纯函数)', () => {
+  const root = mkScratch('egress-ledger-e2e')
+  try {
+    const stateDir = join(root, '.ihui-agent', 'state')
+    mkdirSync(stateDir, { recursive: true })
+    const file = join(stateDir, 'git-egress-degradation.log')
+    const old = `${new Date(Date.now() - 31 * 86400_000).toISOString()}\tverb=fetch\tfallback=both-failed\t依据=夹具\n`
+    writeFileSync(file, old, 'utf8')
+    const wrote = E.noteEgressDegradation({
+      root,
+      verb: 'push',
+      plan: { why: '夹具:配了代理且回显是传输形态 ⇒ 摘代理直连重跑一次' },
+      ok: false,
+    })
+    assert.ok(wrote, '写入器返回 null ⇒ 留痕根本没落地')
+    const after = readFileSync(file, 'utf8')
+    assert.ok(!after.includes('依据=夹具\nverb') && !after.includes(old.trim()), '超窗 31 天的旧行必须被裁掉')
+    assert.match(after, /verb=push\tfallback=both-failed/, '本次留痕必须写下')
+    assert.match(after, /cad=prune\tdropped=1\tkept=1\tkeepDays=\d+/, '被裁条数必须报进账本自己(静默丢行=账本看着一直完整)')
+  } finally {
+    rmScratch(root)
+  }
 })
 
 test('④b 镜像测试没复制判据(§22c:两处算同一件事必漂移)', () => {
