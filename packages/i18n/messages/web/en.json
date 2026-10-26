@@ -929,7 +929,18 @@
       "accountRefreshAge": "Account refresh lag",
       "poolRowsUnclassified": "Unclassified states",
       "srcEdge": "Edge probe",
-      "panelUptime": "Process uptime"
+      "panelUptime": "Process uptime",
+      "panelSessionQuality": "Session quality",
+      "sessionQualitySessions": "{count} sessions / 24h",
+      "sessionQualityDepth": "Session depth",
+      "sessionDepth1": "1 screen",
+      "sessionDepth23": "2-3 screens",
+      "sessionDepth47": "4-7 screens",
+      "sessionDepth8Plus": "8+ screens",
+      "sessionQualitySinglePage": "Single-page sessions",
+      "sessionQualityAvgPv": "Pages per session",
+      "sessionQualityEntryTop": "Entry page (sessions/single)",
+      "sessionQualityNoData": "No sessions in 24h"
     },
     "aboutUs": {
       "add": "Add",

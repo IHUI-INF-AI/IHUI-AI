@@ -46,6 +46,10 @@ import {
 } from '../db/visit-tracking-queries.js'
 import { getEngagementLiveSnapshot } from '../services/engagement-stats-service.js'
 import { getAudienceLiveSnapshot } from '../services/audience-stats-service.js'
+import {
+  getSessionQualityLiveSnapshot,
+  type SessionQualitySnapshot,
+} from '../services/session-quality-stats-service.js'
 import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
@@ -489,6 +493,13 @@ interface TrafficSnapshot {
   online5m: number | null
   /** 近 5 分钟浏览量 */
   pv5m: number | null
+  /**
+   * 近 24h 会话质量(来了之后看了几屏 / 落地页排行);null = 同一条腿取不到。
+   * 2026-10-26 立:页面热度说「/chat 被打开 N 次」,不回答「打开的人里有多少顺手又翻了别的
+   * 页面」—— 这一格补的就是那句没答的话。口径 = session_id(标签页级),见
+   * `services/session-quality-stats-service.ts` 头注。
+   */
+  sessionQuality: SessionQualitySnapshot | null
 }
 
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
@@ -498,6 +509,13 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
     pageUsage = await getPageUsageLiveSnapshot()
   } catch {
     pageUsage = null
+  }
+  // 会话质量也是独立腿:失败只把这一格置 null(渲染"—"),不拖垮其它腿。
+  let sessionQuality: SessionQualitySnapshot | null = null
+  try {
+    sessionQuality = await getSessionQualityLiveSnapshot()
+  } catch {
+    sessionQuality = null
   }
   try {
     // 现算(带 5 秒进程内缓存):三条限窗 SQL 走 api_logs_created_at_idx,合计 ≈ 46 ms。
@@ -519,6 +537,7 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       platformSplit: pageUsage?.platforms ?? null,
       online5m: pageUsage?.online5m ?? null,
       pv5m: pageUsage?.pv5m ?? null,
+      sessionQuality,
     }
   } catch {
     return null
