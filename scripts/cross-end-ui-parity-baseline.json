@@ -3,6 +3,7 @@
     "AgentRuntimePanel": 1,
     "BottomActionBar": 13,
     "Carousel": 6,
+    "CategoryBar": 1,
     "DrawerComponent": 12,
     "InputArea": 15,
     "IntelligentAssistant": 6,
@@ -81,7 +82,7 @@
   },
   "waivers": {
     "CategoryBar": {
-      "reason": "两端同档 4,只是写法不同、门只读到一侧:RN 端 apps/mobile-rn 侧同族件 packages/app/src/components/category/CategoryInlineBar.tsx 的 badge.paddingHorizontal 取 rnSpacing.xs(SPACING_STEPS.xs = 4,commit 3d8a7a3355 的 token 化产物),小程序 apps/miniapp-taro/src/components/CategoryBar.css 的 .category-bar__badge 取 `padding: 0 8rpx`(=4px);本门几何维只解数字字面量 / 具名 *_PX 档 / geometry.*,不解析 rnSpacing 档表 ⇒ 只在小程序一侧读到 4。不是同元素取不同档,禁止给 RN 补裸数字(那会把 token 化退回去、并制造第二份真相)。复验:node scripts/check-cross-end-ui-parity.mjs --json 的 red/findings 里 CategoryBar.geometry.onlyMiniapp 应为 [4] 且 onlyRn 为空。",
+      "reason": "两端同档 4,只是写法不同、门只读到一侧:RN 腿 packages/app/src/components/category/CategoryInlineBar.tsx 的 badge.paddingHorizontal 取 rnSpacing.xs(SPACING_STEPS.xs = 4,3d8a7a3355 token 化产物),小程序腿 apps/miniapp-taro/src/components/CategoryBar.css 的 .category-bar__badge 取 `padding: 0 8rpx`(=4px);本门几何维只解数字字面量 / 具名 *_PX 档 / geometry.*,不解析 rnSpacing 档表 ⇒ 只在小程序一侧读到 4。不是同元素取不同档,禁止给 RN 补裸数字(那会把 token 化退回去、并制造第二份真相)。复验:node scripts/check-cross-end-ui-parity.mjs --json 的 findings[CategoryBar].geometry.onlyMiniapp 应为 [4] 且 onlyRn 为空。",
       "until": "2027-03-27"
     },
     "BottomActionBar": {
