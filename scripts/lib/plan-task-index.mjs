@@ -752,8 +752,13 @@ export function findForks(content) {
     groups.get(k)[r.state].push(r)
   }
   const all = [...groups.values()]
-  // 与 F4(`findDupOpenCopies`:472)同形的剔副本口径 —— **同一件事只在一个地方判**。
-  const liveOpenOf = (g) => g.open.filter((r) => !DUP_POINTER_RE.test(r.raw))
+  // G-48(2026-10-26):副本剔除口径 = 派单出口的「本行已被标注/自述为副本」全集
+  // (`isClaimExcludedPointer` 三族:【归并】原族 ∪ `副本指针(编号 …` 行首族 ∪ 裸自述族),
+  // 与 F4 侧的副本语义对齐 —— 副本行不成正主候选、不计新增分叉。三族都是**行首机器可读锚**
+  // (档 B 被否证的那条前置"持有行标记要机器可读,不从散文猜语义"在本族成立;
+  // 正文仅**提及**"重复登记副本"/"副本指针"字样的真活票仍不命中,见镜像 T15/T16)。
+  // F4 判据本体(`findDupOpenCopies` 的幸存者选择)照旧只吃 `DUP_POINTER_RE` —— 不动它的锚点(§12f)。
+  const liveOpenOf = (g) => g.open.filter((r) => !isClaimExcludedPointer(r.raw))
   return {
     groups: all,
     forks: all.filter((g) => liveOpenOf(g).length > 0 && g.done.length > 0),
@@ -2734,8 +2739,10 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
   // 改前取 `g.open` 全量,于是 12 条已被归并器正确标注的副本行也顶上了"F1 分叉行"身份,
   // 被`isClaimable` 从派单口径里剔除 —— 与它下面那道独立的 `!DUP_POINTER_RE` 判据重复。
   // 两道判据同口径后,剔除只发生一次、且理由唯一(不是"既是副本又是分叉")。
+  // G-48(2026-10-26):口径随 `findForks` 一起扩到 `isClaimExcludedPointer` 三族(同一条理由:
+  // 副本行不成正主候选;三族与派单出口同一把尺,不在此处再抄一份判据)。
   const forkOpenLines = new Set(
-    forks.flatMap((g) => g.open.filter((r) => !DUP_POINTER_RE.test(r.raw)).map((r) => r.line)),
+    forks.flatMap((g) => g.open.filter((r) => !isClaimExcludedPointer(r.raw)).map((r) => r.line)),
   )
   const voidLines = new Set(voidRows.map((r) => r.line))
   // "真·无人认领"必须**同时**扣掉带租约的行 —— 第一版没扣,于是 146 条"无人认领"里
