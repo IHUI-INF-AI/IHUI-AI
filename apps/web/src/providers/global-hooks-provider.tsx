@@ -15,7 +15,12 @@ import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
 import { useGlobalNotification } from '@/hooks/use-global-notification'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
-import { useDesktopEvents, useDesktopDeepLink, useTrayStatus } from '@/hooks/use-desktop'
+import {
+  useDesktopEvents,
+  useDesktopDeepLink,
+  useTrayStatus,
+  useDesktopCaptionTheme,
+} from '@/hooks/use-desktop'
 import { useAgentControl } from '@/hooks/use-agent-control'
 import { useUiControlBridge } from '@/hooks/use-ui-control-bridge'
 import { useNativePushRegister } from '@/hooks/use-native-push'
@@ -146,6 +151,10 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   useDesktopEvents()
   // 桌面端 deep-link 监听:ihui:// scheme 回调,自动完成 SSO 闭环(浏览器端 no-op)
   useDesktopDeepLink()
+  // 原生窗控按钮深浅同步(2026-10-26 立,浏览器端 no-op):右上角三个钮是 Rust
+  // 分层窗自绘、网页同名按钮被 CSS 隐藏,Rust 侧只看得到加载地址、看不到用户主题。
+  // 不在此处挂,暗色模式下原生按钮就是"深字压深底"(用户实拍"根本看不清")。
+  useDesktopCaptionTheme()
   // 桌面端 agent-control 桥:上报 computer 能力 + 消费 agent.action 推送(浏览器端 no-op)
   useAgentControl()
   // 托盘 tooltip + 任务栏未读徽章(2026-07-29 立的 useTrayStatus **一直没有挂载点**,
