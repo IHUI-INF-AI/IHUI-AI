@@ -1853,7 +1853,9 @@ function Invoke-Diagnose {
     $script:diagDivergent = $false
 
     function GitText { param([string[]]$a)
-        $o = & git @a 2>&1 | Out-String
+        # 钉 -C $Root:诊断面也必须对着生产签出那一本仓读,不能读当前工作目录那一本
+        # (同样的"读错仓库 ⇒ behind/ahead 归因全错"事故,2026-10-26 实测)。
+        $o = & git -C $Root @a 2>&1 | Out-String
         return $o.Trim()
     }
     function DiagLog { param([string]$m) Write-Host $m }
@@ -1911,7 +1913,7 @@ function Invoke-Diagnose {
             $srcs = @('origin', 'D:/IHUI-AI-git-repo')
             $diagOriginTip = $null
             foreach ($s in $srcs) {
-                $o = & git @gitNet fetch $s main 2>&1 | Out-String
+                $o = & git -C $Root @gitNet fetch $s main 2>&1 | Out-String
                 if ($LASTEXITCODE -eq 0) {
                     DiagLog ("fetch {0} → OK" -f $s)
                     $script:diagFetched = $true
@@ -2506,8 +2508,17 @@ if ($env:IHUI_DEPLOY_LOCAL_SOURCES) {
 }
 
 $fetchSource = $null
+# 取源必须钉在 $Root(2026-10-26 实测事故):旧写法是**当前工作目录相对**的 git 调用,
+# 手工从别处(如主仓 D:\IHUI-AI)起脚本时,fetch 打进了主仓的 origin(SSH 通道),
+# 写的是主仓的 FETCH_HEAD;而 behind 的 HEAD 也是主仓的 HEAD ⇒ behind=0 ⇒
+# ff-only 整段被跳过 ⇒ 生产签出(prod,$Root)根本没被推进 ⇒ 随后按 `$Root` 的 HEAD
+# 构建 ⇒ **静默把旧版本切了流**(实测 2026-10-26 16:21 那轮:日志"部署完成,HEAD=76941775480",
+# 而本轮要上的是 e3138d80576)。这正是本文件段头注"behind>0 才继续"想防的那一型,
+# 却在 CWD≠$Root 时把 behind 算成了另一个仓库的 behind。
+# 处置:本段所有 git 调用一律 `-C $Root`,并把取源仓库打进日志(可一眼看出打到了谁)。
+Log "取源仓库 = $Root"
 Log "fetch origin main ..."
-$r = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('fetch', 'origin', 'main')) -TimeoutSec 25
+$r = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('-C', $Root, 'fetch', 'origin', 'main')) -TimeoutSec 25
 $r.Output.Trim() | Write-Host
 if ($r.ExitCode -eq 0 -and -not $r.TimedOut -and -not ($r.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
     $fetchSource = 'origin'
@@ -2521,7 +2532,7 @@ if (-not $fetchSource) {
             continue
         }
         Log "fetch $local main ..."
-        $lr = Invoke-GitWithTimeout -GitArgs @('fetch', $local, 'main') -TimeoutSec 120
+        $lr = Invoke-GitWithTimeout -GitArgs @('-C', $Root, 'fetch', $local, 'main') -TimeoutSec 120
         $lr.Output.Trim() | Write-Host
         if ($lr.ExitCode -eq 0 -and -not $lr.TimedOut -and -not ($lr.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
             $fetchSource = "local:$local"
@@ -2555,7 +2566,9 @@ Log "本轮取源 = $fetchSource"
 # 与 §5b 那句"origin/main 以 FETCH_HEAD 为准"不冲突:那一局否的是**嵌套跟踪 ref 的残值**,
 # 这一行做的是把"刚 fetch 到的那一枚"从可被别人改写的共享文件里取出来、定格成变量。
 # 下游三处决策(behind / 挡路路径清单 / merge)一律只认这个变量,不再回头看 FETCH_HEAD。
-$remoteTipRaw = (& git rev-parse FETCH_HEAD 2>&1 | Out-String).Trim()
+# 且必须**读 $Root 这一份** FETCH_HEAD(不是当前工作目录那一份):FETCH_HEAD 是**每个仓库各有一份**的
+# 文件,读错仓库就等于读了一枚与生产签出无关的 tip(见上方取源段的事故注)。
+$remoteTipRaw = (& git -C $Root rev-parse FETCH_HEAD 2>&1 | Out-String).Trim()
 if ($remoteTipRaw -notmatch '^[0-9a-f]{40}$') {
     Log "git rev-parse FETCH_HEAD 未给出 40 位十六进制(实得:'$(($remoteTipRaw -split "`n")[0])'),无法判定远端在哪"
     # Fail 文案刻意不含变量:告警按整条文案去重(:230 `$sig = 文案本身`),把 sha/计数写进去
@@ -2565,16 +2578,16 @@ if ($remoteTipRaw -notmatch '^[0-9a-f]{40}$') {
 $remoteTip = $remoteTipRaw
 # 对象必须在当轮真的在本地:并发进程可能把 FETCH_HEAD 换成一枚尚未下载对象的 sha,那样下游
 # rev-list/merge 会以 `Not a valid object name` 崩在调用栈里而不是给出结论(G-209 同一口径)。
-& git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
+& git -C $Root cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Log "远端 sha $remoteTip 的对象不在本地对象库:定向 fetch 一次后复核"
     # 同样带墙钟:这是唯一一处"按 sha 定向补对象"的网络调用,挂死会重演上面那 18 分钟停更。
-    $rr = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('fetch', 'origin', $remoteTip)) -TimeoutSec 45
+    $rr = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('-C', $Root, 'fetch', 'origin', $remoteTip)) -TimeoutSec 45
     $rr.Output.Trim() | Write-Host
-    & git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
+    & git -C $Root cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "本轮远端 sha 的对象取不到,无法判定是否落后 ⇒ 本轮不部署、不切流" }
 }
-$behindRaw = (& git @gitNet rev-list --count "HEAD..$remoteTip" 2>&1 | Out-String).Trim()
+$behindRaw = (& git -C $Root @gitNet rev-list --count "HEAD..$remoteTip" 2>&1 | Out-String).Trim()
 if ($behindRaw -notmatch '^\d+$') { Fail "无法计算 behind(本轮远端 sha 无效),本轮不部署" }
 $behind = [int]$behindRaw
 
@@ -2615,7 +2628,7 @@ if ($behind -gt 0) {
         $dirtyAfter = Get-TrackedDirtyEntry
         Log "ff-only 前置:对齐后剩余 $($dirtyAfter.Count) 个未提交被跟踪文件(本轮对齐掉 $($dirtyBefore.Count - $dirtyAfter.Count) 个)"
     }
-    $mergeOut = (& git merge --ff-only $remoteTip 2>&1 | Out-String)
+    $mergeOut = (& git -C $Root merge --ff-only $remoteTip 2>&1 | Out-String)
     Write-Host $mergeOut
     $ffRecovered = $false
     if ($LASTEXITCODE -ne 0) {
@@ -2661,7 +2674,7 @@ if ($behind -gt 0) {
             # 但 2026-09-28 它把生产挡了 4.5 小时,而那两个文件里根本没有人在写的东西。
             if (Invoke-LiveDocStaleRecovery -Blockers $blockers) {
                 Log "LIVE-DOC 复原后重试一次 ff-only"
-                $mergeOut = (& git merge --ff-only $remoteTip 2>&1 | Out-String)
+                $mergeOut = (& git -C $Root merge --ff-only $remoteTip 2>&1 | Out-String)
                 Write-Host $mergeOut
                 if ($LASTEXITCODE -eq 0) {
                     $ffRecovered = $true
@@ -2708,15 +2721,15 @@ if ($behind -gt 0) {
     # 备份/重建/切流(那等于用一条写着成功的日志替旧版本背书)。
     # 用 is-ancestor 而不是字符串等值:并发会话在 tip 之上又本地提交一枚时,HEAD 是 tip 的
     # **后代**,那种情况确实包含 tip ⇒ 必须放过,否则会把正常并发误判成故障。
-    & git merge-base --is-ancestor $remoteTip HEAD 2>&1 | Out-Null
+    & git -C $Root merge-base --is-ancestor $remoteTip HEAD 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        Log ("ff 返回成功但 HEAD 未包含本轮远端 tip:期望包含 {0} 实得 HEAD={1};git 原文尾 3 行:" -f $remoteTip, (& git rev-parse HEAD 2>&1 | Out-String).Trim())
+        Log ("ff 返回成功但 HEAD 未包含本轮远端 tip:期望包含 {0} 实得 HEAD={1};git 原文尾 3 行:" -f $remoteTip, (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim())
         @($mergeOut -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 3) | ForEach-Object { Log "  [git] $_" }
         # 文案同样保持与 sha 无关(理由见上面 :230 去重那三条注释):sha 已在 Log 里逐轮点名。
         Fail "git merge --ff-only 未真正推进到本轮远端 tip,不按未推进的提交切流(未动任何在途改动)"
     }
     Reset-DivergedStreak   # 能走到这里 = ff 成功 ⇒ 连续计数归零(否则一次抖动会永久累加到阈值)
-    Ok "merge 完成,HEAD=$(git rev-parse --short HEAD | Out-String)"
+    Ok "merge 完成,HEAD=$(git -C $Root rev-parse --short HEAD | Out-String)"
 }
 
 # 1) 备份当前 web 构建 → .rollback(web 保持在线,只读复制)
