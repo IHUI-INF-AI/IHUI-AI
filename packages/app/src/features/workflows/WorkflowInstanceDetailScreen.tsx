@@ -287,7 +287,7 @@ export function WorkflowInstanceDetailScreen({
                 accessibilityRole="button"
                 onPress={() => setLogLevel(lv)}
               >
-                <Text style={[styles.chipText, logLevel === lv && styles.chipTextActive]}>
+                <Text style={[styles.chipText, logLevel === lv && styles.chipActiveText]}>
                   {lv === 'all' ? t('workflowsPage.allLevels') : lv}
                 </Text>
               </TouchableOpacity>
@@ -376,7 +376,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     typeTag: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     typeTagText: { fontSize: 10, color: tk.text.secondary },
@@ -400,7 +400,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: 11, color: tk.text.secondary },
-    chipTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
+    chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     logRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
     logTime: { fontSize: 10, color: tk.text.tertiary, fontFamily: 'monospace' },
     logLevel: { fontSize: 10, fontWeight: '700', width: 44 },
