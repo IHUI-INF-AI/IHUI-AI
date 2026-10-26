@@ -9,12 +9,15 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
 import { guardEscKeyDown, mergeEscStackRef, useEscStackId } from '../lib/use-esc-stack'
 import { cn } from '../lib/utils'
+import { DIALOG_MAX_WIDTH_TIER } from '@ihui/shared/ui/dialog-spec'
 
 // 2026-09-16 修复:静态导出预渲染偶发 "`DialogTrigger` must be used within `Dialog`"
 // (CI 实证:/models 与 /developer/api-docs 两页在 4-worker prerender 中触发,dev SSR 不复现)。
 // 方案:用自有 InDialogContext 跟踪 Root 包裹状态——Trigger 渲染时若不在 Dialog Root 内
 // (游离/条件渲染分支缺失),降级为纯 children 渲染(无 Radix 行为但 HTML 一致,不会 hydration mismatch),
 // 而非抛错导致整页 prerender 失败。所有合法用法(Dialog 内 Trigger)行为完全不变。
+const MAX_WIDTH_CLASS: Record<typeof DIALOG_MAX_WIDTH_TIER, string> = { lg: 'max-w-lg' }
+
 const InDialogContext = React.createContext(false)
 /** sheet.tsx / drawer.tsx 等 Dialog 家族共用同一 Radix 原语,需复用本 context 实现同款安全降级。 */
 export { InDialogContext }
@@ -95,7 +98,9 @@ const DialogContent = React.forwardRef<
           // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
           //   - 默认(移动端):p-3 gap-3,sm(≥375px)及以上:p-3 gap-4
           //   - max-w-lg + w-full 在小屏会撑满视口减去边距,避免内容溢出
-          'fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-3 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-xl min-[640px]:gap-4',
+          'fixed left-[50%] top-[50%] z-modal grid w-full ' +
+            MAX_WIDTH_CLASS[DIALOG_MAX_WIDTH_TIER] +
+            ' translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-3 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-xl min-[640px]:gap-4',
           className,
         )}
         {...props}
