@@ -20,23 +20,47 @@ Set-Location $ProjectRoot
 function Check { param([string]$name, [bool]$ok, [string]$detail) }
 $results = @()
 
-function Test-Port($port) {
-  return [bool](netstat -ano | Select-String ":$port\s" | Select-String "LISTENING")
+# 端口存活三态(票 G-37③,2026-10-26):ok / breach / unjudged。
+# 旧形 `return [bool](netstat -ano | ...)` 在 netstat 取不到输入(命令不在 / 抛错 / 空输出)时
+# 返回 $false ⇒ 把"没探测到"写成"服务已死",§0.3 明令禁止。三态判据:
+#   · netstat 有输出且该端口 LISTENING ⇒ ok
+#   · netstat 有输出但该端口无 LISTENING ⇒ breach
+#   · netstat 取不到任何输出 ⇒ unjudged(既不记绿也不判红,汇总里单列并 exit 2)
+function Get-PortState($port) {
+  $table = @()
+  try { $table = @(netstat -ano 2>$null | Where-Object { $_ -and "$_".Trim() }) } catch { return 'unjudged' }
+  if ($table.Count -eq 0) { return 'unjudged' }
+  $hit = @($table | Select-String ":$port\s" | Select-String "LISTENING")
+  if ($hit.Count -gt 0) { return 'ok' }
+  return 'breach'
 }
 
-# 1. 基础服务端口
+# 1. 基础服务端口 + 图片 CDN 源站
 $ports = @(
   @{n="PostgreSQL"; p=8810; tip="pg_ctl -D D:\DevEnv\data\pgdata start"},
   @{n="Redis";      p=8811; tip="redis-server --port 8811"},
   @{n="web";        p=8801; tip="cd apps\web; pnpm dev"},
   @{n="api";        p=8802; tip="cd apps\api; pnpm dev"},
-  @{n="ai-service"; p=8803; tip="cd apps\ai-service; .venv\Scripts\python -m uvicorn app.main:app --port 8803"}
+  @{n="ai-service"; p=8803; tip="cd apps\ai-service; .venv\Scripts\python -m uvicorn app.main:app --port 8803"},
+  # :80 = 图片 CDN 源站(cdn-server.js),与 88xx 应用端口语义不同:**不归任何 nssm 服务**,
+  # 所以只问"这个端口有没有人应答",不拿服务名去查宿主。这条链用户可见:apps/web/next.config.ts
+  # 把 /remote-images/* 反代到 http://localhost:80,源站一挂公网页面图片全断,而本清单此前
+  # 只查 8801/8802/8803/8810/8811 ⇒ 正是 G-37③ 记的"80 不在任何一班的眼里"。
+  # 载体 = 看门狗任务 IHUI-ImageCDN-Watch(开机 + 每分钟守活,见 deploy/win/cdn-watchdog.ps1)。
+  @{n="cdn";        p=80;   tip="计划任务 IHUI-ImageCDN-Watch(deploy\win\cdn-watchdog.ps1)守活;手工:node deploy\cdn-server.js"}
 )
 foreach ($c in $ports) {
-  $on = Test-Port $c.p
-  if ($on) { Write-Host "[PASS] $($c.n) ($($c.p))" -ForegroundColor Green }
-  else { Write-Host "[FAIL] $($c.n) ($($c.p)) 未监听 — $($c.tip)" -ForegroundColor Red }
-  $results += ,@($c.n, $on)
+  $st = Get-PortState $c.p
+  if ($st -eq 'ok') {
+    Write-Host "[PASS] $($c.n) ($($c.p))" -ForegroundColor Green
+    $results += ,@($c.n, $true)
+  } elseif ($st -eq 'breach') {
+    Write-Host "[FAIL] $($c.n) ($($c.p)) 未监听 — $($c.tip)" -ForegroundColor Red
+    $results += ,@($c.n, $false)
+  } else {
+    Write-Host "[SKIP] $($c.n) ($($c.p)) 未判定 — netstat 取不到输入,既不记绿也不判红" -ForegroundColor Yellow
+    $results += ,@($c.n, $null)
+  }
 }
 
 # 2. cloudflared Windows 服务
@@ -164,15 +188,21 @@ if ($cfPath -match "--protocol http2") {
   $results += ,@("cf-protocol", $false)
 }
 
-# 汇总
-$passCount = ($results | Where-Object { $_[1] }).Count
+# 汇总(三态:未判定不得折算成通过或失败,§0.3)
+$passCount = @($results | Where-Object { $_[1] -eq $true }).Count
+$failCount = @($results | Where-Object { $_[1] -eq $false }).Count
+$unjudgedCount = @($results | Where-Object { $null -eq $_[1] }).Count
 $total = $results.Count
 Write-Host "`n==========================================" -ForegroundColor Cyan
-Write-Host "  裸机健康检查汇总: PASS $passCount / $total" -ForegroundColor Cyan
+Write-Host "  裸机健康检查汇总: PASS $passCount / FAIL $failCount / 未判定 $unjudgedCount / 共 $total" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
-if ($passCount -eq $total) {
+if ($failCount -eq 0 -and $unjudgedCount -eq 0) {
   Write-Host " 全部通过 ✅" -ForegroundColor Green
   exit 0
+} elseif ($failCount -eq 0) {
+  # 只取不到输入、没有任何一条判红 ⇒ 显式"未判定",不记绿也不冒红
+  Write-Host " 全部已探测项通过,但有 $unjudgedCount 项未判定(取不到输入),按未判定返回" -ForegroundColor Yellow
+  exit 2
 } else {
   Write-Host " 存在未通过项,按上方 FAIL/WARN 排查" -ForegroundColor Yellow
   exit 1
