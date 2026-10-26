@@ -373,7 +373,10 @@ _REGISTRY: list[FreeProvider] = [
         signup_url="https://huggingface.co/register",
         free_quota="免费层 1000 requests/天 / Serverless Inference",
         rate_limit="1000 RPD(免费层)",
-        default_base_url="https://api-inference.huggingface.co",
+        # 2026-10-26 换域:api-inference.huggingface.co 已被网络封锁不可达
+        # (直连超时、经代理 TLS reset 实测),官方推理入口迁至 router.huggingface.co,
+        # 拼 /v1/models 免鉴权 200 实测可达。
+        default_base_url="https://router.huggingface.co",
         key_env_vars=["HUGGINGFACE_API_KEY", "HF_API_TOKEN"],
         default_models=["meta-llama/Llama-3.3-70B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3"],
         docs_url="https://huggingface.co/docs/api-inference",
