@@ -1268,6 +1268,12 @@ export function createSendMessage(
         onToolApproval: (event: ToolApprovalEvent) => {
           // D151 前置:同 onToolDelegate —— 审批帧的 sessionId 就是本轮流会话 ID。
           if (event.sessionId) chatStore.getState().noteStreamSessionId(event.sessionId)
+          // D-07(2026-10-26):失效留痕帧**不弹窗** —— 该 approvalId 已随上一条连接失效、
+          // 没有活等待者(回传决策只会被服务端具名拒绝),只把"丢过什么"给用户看见。
+          if (event.expired) {
+            toast.warning(t('approvalExpiredNotice', { toolName: event.toolName }))
+            return
+          }
           dispatchToolApprovalRequest({
             approvalId: event.approvalId,
             toolName: event.toolName,
