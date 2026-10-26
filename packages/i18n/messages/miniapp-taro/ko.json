@@ -5906,5 +5906,35 @@
   },
   "resources": {
     "loadMore": "더 보기"
+  },
+  "aiWorldDetailPage": {
+    "title": "항목 상세",
+    "fetchFailed": "항목을 불러오지 못했습니다",
+    "createdLabel": "게시일",
+    "updatedLabel": "업데이트",
+    "favorited": "즐겨찾기됨",
+    "favoriteFailed": "즐겨찾기 작업에 실패했습니다. 나중에 다시 시도해 주세요"
+  },
+  "aiWorldEditPage": {
+    "title": "AI 월드 항목 편집",
+    "subtitle": "항목 정보 수정",
+    "formTitle": "항목 정보",
+    "nameLabel": "이름",
+    "namePlaceholder": "항목 이름",
+    "descLabel": "설명",
+    "descPlaceholder": "이 항목의 내용을 소개하세요",
+    "categoryLabel": "카테고리",
+    "noCategory": "카테고리 없음",
+    "categoryEmpty": "카테고리 없음",
+    "categoryLoadFailed": "카테고리를 불러오지 못했습니다",
+    "coverLabel": "커버 이미지 URL",
+    "coverPlaceholder": "https://…(선택)",
+    "save": "저장",
+    "submitting": "저장 중…",
+    "errNameRequired": "이름을 입력해 주세요",
+    "nameTooLong": "이름은 최대 {max}자입니다",
+    "coverTooLong": "커버 URL은 최대 {max}자입니다",
+    "saveFailed": "저장에 실패했습니다. 나중에 다시 시도해 주세요",
+    "fetchFailed": "항목을 불러오지 못했습니다"
   }
 }
