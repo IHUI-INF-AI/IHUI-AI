@@ -45,7 +45,7 @@ const ROOT = resolve(import.meta.dirname, '..')
 
 function git(args, { cwd = ROOT, allowFail = false } = {}) {
   try {
-    return execFileSync('git', args, { cwd, maxBuffer: 512 * 1024 * 1024, encoding: 'buffer' })
+    return execFileSync('git', args, { cwd, maxBuffer: 512 * 1024 * 1024, encoding: 'buffer', windowsHide: true })
   } catch (e) {
     if (allowFail) return null
     throw e
@@ -199,7 +199,7 @@ function selfTest() {
   // 端到端:临时仓里真跑扫描,红/绿两向都必须真的出现(不然就是恒绿装饰)
   const tmp = mkdtempSync(join(tmpdir(), 'ps1bom-'))
   try {
-    const run = (args) => execFileSync('git', args, { cwd: tmp, encoding: 'utf8' })
+    const run = (args) => execFileSync('git', args, { cwd: tmp, encoding: 'utf8', windowsHide: true })
     run(['init', '-q'])
     run(['config', 'user.email', 't@t'])
     run(['config', 'user.name', 't'])
