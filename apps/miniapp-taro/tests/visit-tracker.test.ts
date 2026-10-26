@@ -18,12 +18,18 @@ const h = vi.hoisted(() => {
     recordVisitLog: vi.fn((_payload: { url: string; sessionId: string }) =>
       Promise.resolve({ success: true, data: {} }),
     ),
+    recordAnalyticsEvents: vi.fn((_events: unknown[]) =>
+      Promise.resolve({ success: true, data: {} }),
+    ),
   }
   return { state, taro, api }
 })
 
 vi.mock('@tarojs/taro', () => ({ default: h.taro }))
-vi.mock('@ihui/api-client', () => ({ recordVisitLog: h.api.recordVisitLog }))
+vi.mock('@ihui/api-client', () => ({
+  recordVisitLog: h.api.recordVisitLog,
+  recordAnalyticsEvents: h.api.recordAnalyticsEvents,
+}))
 
 import {
   __resetPageViewTrackingForTest,
@@ -41,6 +47,7 @@ const lastPayload = () => h.api.recordVisitLog.mock.calls.at(-1)![0]
 beforeEach(() => {
   h.state.stack = []
   h.api.recordVisitLog.mockClear()
+  h.api.recordAnalyticsEvents.mockClear()
   __resetPageViewTrackingForTest()
 })
 
@@ -91,6 +98,26 @@ describe('reportPageView', () => {
     expect(reportPageView('pages/index/index', 10_000 + MP_VISIT_DEBOUNCE_MS - 1)).toBe(false)
     expect(reportPageView('pages/chat/index', 10_000 + 1)).toBe(true)
     expect(callCount()).toBe(2)
+  })
+
+  it('换页即结算上一页停留:page_time 带上一页路径与整秒数', () => {
+    reportPageView('pages/index/index', 0)
+    reportPageView('pages/chat/index', 9_000)
+    expect(h.api.recordAnalyticsEvents).toHaveBeenCalledTimes(1)
+    const events = h.api.recordAnalyticsEvents.mock.calls[0]![0] as Array<{
+      name: string
+      label?: string
+      value?: number
+    }>
+    expect(events[0]!.name).toBe('page_time')
+    expect(events[0]!.label).toBe('/mp/pages/index/index')
+    expect(events[0]!.value).toBe(9)
+  })
+
+  it('不足一秒的换页不报停留(轮询抖动不得进停留均值)', () => {
+    reportPageView('pages/index/index', 0)
+    reportPageView('pages/chat/index', 300)
+    expect(h.api.recordAnalyticsEvents).not.toHaveBeenCalled()
   })
 
   it('空 route 不上报', () => {
