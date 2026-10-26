@@ -45,6 +45,8 @@ const R = (...p) => join(ROOT, ...p)
 const TMP = join(ROOT, '.ihui-agent', 'tmp', 'land-cross-end-shell-pages')
 const MP_CONFIG = 'apps/miniapp-taro/src/app.config.ts'
 const REGISTRY = 'scripts/data/cross-end-screen-registry.json'
+// 缺口账本(漂移尺 doc-stale 那一维的正文)—— 落完页必须按新 HEAD 再刷一次,否则每批都留一格旧数叫人来看
+const PARITY_DOC = 'docs/engineering/rn-miniapp-parity-matrix.md'
 const DEFAULT_CAP = 5
 
 const git = (args, input) =>
@@ -130,7 +132,141 @@ function watermarkBytesOf(name, text) {
   return bytes
 }
 
-function run({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
+/**
+ * 账本自刷(2026-10-26 立)—— 造页闭环每落一批,`docs/engineering/rn-miniapp-parity-matrix.md`
+ * 自述的「镜像 N / 共享屏 M / 缺口 K」就旧一格,而漂移尺把 doc-stale 判成 regressed 并到人。
+ * 那一格的"收信人动作"只有重跑器物(§5e-1:不能整改的判据不该进到人通道),所以由本器自己跑。
+ *
+ * 三条同时成立才落:① 取文恒走生成器(本器零复算算式,§0.6),且生成器默认面 = HEAD;
+ * ② 产文与 HEAD blob 逐字节不同(相同 ⇒ 零写零推);③ 产文含水位横幅(缺横幅就落,等于把
+ *    §5c 的覆盖面自己洗掉)。任一取不到 ⇒ state=undetermined,不记绿。
+ */
+function syncParityDoc(deps = {}) {
+  const generate =
+    deps.generate ??
+    (() => {
+      const tmp = join(TMP, 'parity-matrix.md')
+      try {
+        mkdirSync(dirname(tmp), { recursive: true })
+      } catch {
+        /* 目录已在 */
+      }
+      try {
+        execFileSync(process.execPath, [R('scripts', 'report-rn-miniapp-gaps.mjs'), '--write', tmp], {
+          cwd: ROOT,
+          encoding: 'utf8',
+          windowsHide: true, // §5b
+          timeout: 4 * 60 * 1000, // 守门 80
+          maxBuffer: 1 << 24,
+          stdio: ['ignore', 'pipe', 'pipe'], // §12g
+        })
+      } catch (e) {
+        return { ok: false, err: `生成器没跑成:${String(e?.stderr ?? e?.message ?? e).slice(0, 140)}` }
+      }
+      try {
+        return { ok: true, text: readFileSync(tmp, 'utf8') }
+      } catch (e) {
+        return { ok: false, err: `生成后读不回临时件:${String(e?.message ?? e).slice(0, 100)}` }
+      } finally {
+        try {
+          rmSync(tmp, { force: true })
+        } catch {
+          /* 临时件清不掉只影响工作区卫生 */
+        }
+      }
+    })
+  const headOf = deps.headOf ?? headBlob
+  const landOf =
+    deps.landOf ??
+    ((text, nums) => {
+      const oid = hashBytes(text)
+      const manifest = join(TMP, 'doc-blob.json')
+      writeFileSync(manifest, JSON.stringify({ files: [{ path: PARITY_DOC, blob: oid }] }, null, 1), 'utf8')
+      try {
+        const out = execFileSync(process.execPath, [R('scripts', 'object-space-land.mjs')], {
+          cwd: ROOT,
+          encoding: 'utf8',
+          maxBuffer: 1 << 26,
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: {
+            ...process.env,
+            LAND_PATHS: PARITY_DOC,
+            LAND_BLOBS: manifest,
+            LAND_BLOB_PROOF: 'blob = 生成器按 HEAD 面产出的全文(本器零复算算式);与 HEAD blob 逐字节比过才落',
+            LAND_MSG: [
+              `docs(cross-end): 自动同步缺口账本到现读口径(${nums})`,
+              '',
+              '器物:node scripts/report-rn-miniapp-gaps.mjs --write <file>(由 land-cross-end-shell-pages 的账本自刷腿调起)',
+              '为什么必须自动:造页闭环每落一批,文档自述的镜像/缺口数就旧一格,而漂移尺按 doc-stale 判 regressed 到人 ——',
+              '叫人来做的唯一动作就是重跑这条命令,那是器物能自己做的(§5e-1 可整改性准入)。',
+            ].join('\n'),
+          },
+        })
+        return /CAS 成功|提交面回读/.test(out) ? { ok: true } : { ok: false, why: '落地器未自证成功' }
+      } catch (e) {
+        return { ok: false, why: `账本落地失败:${String(e?.message ?? e).slice(0, 140)}` }
+      }
+    })
+
+  const gen = generate()
+  if (!gen?.ok) return { state: 'undetermined', why: gen?.err ?? '生成器未返回结论' }
+  const fresh = gen.text
+  if (!/\[IHUI-AI-PROVENANCE\]:/.test(fresh)) {
+    return { state: 'undetermined', why: '产文缺水位横幅 ⇒ 不落(落了就是洗载荷)' }
+  }
+  let headText = null
+  try {
+    headText = headOf(PARITY_DOC)
+  } catch {
+    return { state: 'undetermined', why: `HEAD 面取不到 ${PARITY_DOC}` }
+  }
+  if (headText === null || headText === undefined) return { state: 'undetermined', why: `HEAD 面取不到 ${PARITY_DOC}` }
+  if (headText === fresh) return { state: 'clean' }
+  const landed = landOf(fresh, (fresh.match(/镜像[^\n]*/) || ['?'])[0].slice(0, 40))
+  if (!landed?.ok) return { state: 'pending', why: landed?.why ?? '未落地' }
+  return { state: 'landed' }
+}
+
+/**
+ * 折叠口径单独抽成纯函数(判据只有一份,自检直接打它 —— 不为了测它去跑 136 秒的批量计划):
+ *  · 账本落了 ⇒ 这一轮**写了东西**,绝不能报成 clean(调度器读到 clean 就是"零写零推");
+ *  · 账本有差异但没落地(pending)⇒ 保持原 state,只在 note 里点名,下轮再试;
+ *  · 页面本来没缺口而账本取不到结论 ⇒ 整轮降级为未判定(§0.3 不冒绿);
+ *  · 页面已 landed/其它态 ⇒ 不被账本的 clean 改回去。
+ */
+export function foldDocResult(r, doc) {
+  const out = { ...r, doc: doc.state }
+  if (doc.state === 'landed') {
+    out.blobs = (typeof out.blobs === 'number' ? out.blobs : 0) + 1
+    out.state = 'landed'
+    out.note = `${out.batch ? `本轮 ${out.batch.length} 页` : '本轮无新页'} + 账本已刷进 HEAD`
+  } else if (doc.state === 'pending') {
+    out.note = `${out.note ?? ''} ｜ 账本有差异但没落地(多为 CAS 撞上并发推进),下轮再试`.trim()
+  } else if (doc.state === 'undetermined' && r.state === 'clean') {
+    out.state = 'undetermined'
+    out.why = doc.why ?? '账本自刷未判定'
+  }
+  return out
+}
+
+/**
+ * run 的最外层包装:页面批 + 账本自刷。
+ * 账本只在真落地档(--apply 且非 headless)刷 —— 预演档不该动 HEAD。
+ */
+function run(opts = {}) {
+  const r = runPages(opts)
+  if (!opts.apply || opts.headless) return r
+  let doc
+  try {
+    doc = syncParityDoc()
+  } catch (e) {
+    doc = { state: 'undetermined', why: String(e?.message ?? e).slice(0, 140) }
+  }
+  return foldDocResult(r, doc)
+}
+
+function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
   const { planned, refused, undetermined } = planBatch(ROOT, { form: 'shell' })
   if (!planned) return { state: 'undetermined', why: '批量计划读不到 planned 集' }
   if (planned.length === 0) {
@@ -242,6 +378,115 @@ function selfTest() {
         return assembleBlobs([fakePlan('selftestCc')], { headOf: (rel) => after[rel] ?? okHead(rel), watermarkOf: stamp }).ok
       },
     },
+    // ---------- 账本自刷腿(注入替身:不为测试去跑真生成器,也不让测试碰真 HEAD) ----------
+    {
+      name: '账本自刷:产文 == HEAD ⇒ clean 且一枚都不落(常态零写)',
+      want: 'clean/0',
+      got: () => {
+        const text = '// [IHUI-AI-PROVENANCE]:x\n镜像 120 / 共享屏 218\n'
+        let calls = 0
+        const r = syncParityDoc({
+          generate: () => ({ ok: true, text }),
+          headOf: () => text,
+          landOf: () => {
+            calls += 1
+            return { ok: true }
+          },
+        })
+        return `${r.state}/${calls}`
+      },
+    },
+    {
+      name: '账本自刷:产文 ≠ HEAD ⇒ 恰好落一次并 landed',
+      want: 'landed/1',
+      got: () => {
+        let calls = 0
+        const r = syncParityDoc({
+          generate: () => ({ ok: true, text: '// [IHUI-AI-PROVENANCE]:x\n镜像 122 / 共享屏 218\n' }),
+          headOf: () => '// [IHUI-AI-PROVENANCE]:x\n镜像 120 / 共享屏 218\n',
+          landOf: () => {
+            calls += 1
+            return { ok: true }
+          },
+        })
+        return `${r.state}/${calls}`
+      },
+    },
+    {
+      name: '账本自刷:产文缺水位横幅 ⇒ 未判定,一枚都不落(落了就是洗载荷,§5c)',
+      want: 'undetermined/0',
+      got: () => {
+        let calls = 0
+        const r = syncParityDoc({
+          generate: () => ({ ok: true, text: '镜像 120 / 共享屏 218\n' }),
+          headOf: () => '// [IHUI-AI-PROVENANCE]:x\n旧\n',
+          landOf: () => {
+            calls += 1
+            return { ok: true }
+          },
+        })
+        return `${r.state}/${calls}`
+      },
+    },
+    {
+      name: '账本自刷:落地器未自证成功 ⇒ pending(绝不读成"已同步")',
+      want: 'pending/1',
+      got: () => {
+        let calls = 0
+        const r = syncParityDoc({
+          generate: () => ({ ok: true, text: '// [IHUI-AI-PROVENANCE]:x\n新\n' }),
+          headOf: () => '// [IHUI-AI-PROVENANCE]:x\n旧\n',
+          landOf: () => {
+            calls += 1
+            return { ok: false, why: 'CAS 撞上并发推进' }
+          },
+        })
+        return `${r.state}/${calls}`
+      },
+    },
+    {
+      name: '账本自刷:生成器没跑成 ⇒ 未判定(取不到产文不冒充判过)',
+      want: 'undetermined/0',
+      got: () => {
+        let calls = 0
+        const r = syncParityDoc({
+          generate: () => ({ ok: false, err: 'boom' }),
+          headOf: () => 'x',
+          landOf: () => {
+            calls += 1
+            return { ok: true }
+          },
+        })
+        return `${r.state}/${calls}`
+      },
+    },
+    // ---------- 折叠口径(页面批 × 账本腿)----------
+    {
+      name: '折叠:页面 clean + 账本 landed ⇒ 整轮 landed 且 blob+1(写了东西不许报"零写零推")',
+      want: 'landed/1',
+      got: () => {
+        const o = foldDocResult({ state: 'clean', planned: 0, blobs: 0, note: '无缺口' }, { state: 'landed' })
+        return `${o.state}/${o.blobs}`
+      },
+    },
+    {
+      name: '折叠:页面 clean + 账本未判定 ⇒ 整轮降级未判定(§0.3 不冒绿)',
+      want: 'undetermined',
+      got: () => foldDocResult({ state: 'clean', planned: 0 }, { state: 'undetermined', why: '取不到产文' }).state,
+    },
+    {
+      name: '折叠:页面 landed + 账本 clean ⇒ 保持 landed(账本一致不许把落页读回 clean)',
+      want: 'landed',
+      got: () => foldDocResult({ state: 'landed', planned: 3, batch: ['a', 'b'], blobs: 6 }, { state: 'clean' }).state,
+    },
+    {
+      name: '折叠:页面 clean + 账本 pending ⇒ 仍 clean 但 note 点名(没落地不等于没差异)',
+      want: 1,
+      got: () => {
+        const o = foldDocResult({ state: 'clean', planned: 0, note: '本轮没有可产的屏' }, { state: 'pending', why: 'CAS' })
+        return /账本有差异但没落地/.test(o.note ?? '') ? 1 : 0
+      },
+    },
   ]
   let pass = 0
   for (const c of cases) {
@@ -275,6 +520,7 @@ if (isDirectRun) {
       blobs: r.blobs ?? 0,
       refused: r.refused ?? 0,
       cap: capArg ? Number(capArg.slice(6)) : DEFAULT_CAP,
+      doc: r.doc ?? 'skipped',
       why: r.why ?? '',
       note: r.note ?? '',
     }
@@ -292,5 +538,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { assembleBlobs, writePackText, run, DEFAULT_CAP }
+export const __test__ = { assembleBlobs, writePackText, run, runPages, syncParityDoc, foldDocResult, PARITY_DOC, DEFAULT_CAP }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

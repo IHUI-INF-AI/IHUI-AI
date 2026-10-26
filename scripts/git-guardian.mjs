@@ -4563,7 +4563,7 @@ export function sweepCrossEndShellPages(opts = {}) {
   const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
   const counts =
     `待产 ${n(summary.planned)} / 本轮 ${n(summary.batch)} / blob ${n(summary.blobs)} / ` +
-    `拒 ${n(summary.refused)}(cap=${n(summary.cap)})`
+    `拒 ${n(summary.refused)}(cap=${n(summary.cap)}) / 账本 ${String(summary.doc ?? '?')}`
   if (summary.state === 'clean') logger(`🧭 跨端造页闭环:clean ${counts} —— 无缺口即零写零推`)
   else if (summary.state === 'landed')
     logger(`🧭 跨端造页闭环:landed ${counts} ✅ 已落 HEAD(推送由 post-commit 腿负责)`)
