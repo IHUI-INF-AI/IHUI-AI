@@ -374,6 +374,7 @@ import githubAppRoutes from './github-app.js'
 // 该 router 自带 HMAC 校验,不依赖 cookie 会话 ⇒ 无需 CSRF token(豁免见 plugins/csrf.ts 的同一条精确路径)。
 import githubWebhookRoutes from './github-webhook.js'
 import { createAgentRunRoutes } from './agent-runs.js'
+import { createCommandAckRoutes } from './command-acks.js'
 import { createKvFromRedis } from '../services/run-idempotency.js'
 
 // R81 补建：D 盘 coze_zhs_py 代理类路由
@@ -1464,5 +1465,10 @@ export function registerRoutes(server: FastifyInstance) {
       'O10 agent-runs 面未挂载:缺 AGENT_RUN_HANDLE_SECRET / JWT_SECRET,句柄无签名根可取',
     )
   }
+
+  // G-40 A/E:跨会话 ack 事实的写侧端点(POST /api/command-acks + GET /alive/*,全部 authenticated,零公开面)。
+  server.register(createCommandAckRoutes({ kv: createKvFromRedis(server.redis) }), {
+    prefix: '/api/command-acks',
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
