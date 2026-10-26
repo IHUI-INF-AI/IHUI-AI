@@ -5,9 +5,13 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { reportExtensionView } from '../../lib/visit-tracker'
 import { I18nProvider } from '../../src/i18n'
 import '../sidepanel/globals.css'
 import '../sidepanel/style.css'
+
+// popup 是单视图(没有路由),挂在入口一次即覆盖这一端的全部打开动作(2026-10-26 立)。
+reportExtensionView('popup')
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
