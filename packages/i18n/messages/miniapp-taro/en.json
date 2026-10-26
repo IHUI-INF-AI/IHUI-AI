@@ -5493,5 +5493,13 @@
     "send": "Send",
     "loadFailed": "Failed to load messages",
     "sendFailed": "Failed to send"
+  },
+  "messageDetail": {
+    "title": "Message Details",
+    "reply": "Reply",
+    "notFound": "Message not found or deleted",
+    "from": "From",
+    "createdAt": "Time",
+    "loadFailed": "Failed to load message"
   }
 }

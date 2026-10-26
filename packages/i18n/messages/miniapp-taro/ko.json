@@ -5493,5 +5493,13 @@
     "send": "보내기",
     "loadFailed": "메시지 불러오기 실패",
     "sendFailed": "전송 실패"
+  },
+  "messageDetail": {
+    "title": "메시지 상세",
+    "reply": "답장",
+    "notFound": "메시지를 찾을 수 없거나 삭제되었습니다",
+    "from": "보낸 사람",
+    "createdAt": "시간",
+    "loadFailed": "메시지 상세 불러오기 실패"
   }
 }
