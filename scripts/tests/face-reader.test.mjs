@@ -521,7 +521,16 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 「◽ 裸 git 存量已降到 36(基线 40)」⇒ 40 → 36,紧贴现读不留余量。
 // 行为对账:四枚各在固定索引快照下迁移前版与迁移版逐字同输出同 rc(multi-end 两态 rc=1 warn 出口、
 // sidebar 两态 rc=0、miniapp 两态 rc=0、native 两态 rc=0,含 -U0 diff 文本解析路径)。
-const BARE_GIT_BASELINE = 36 // 紧贴现读(2026-10-26 第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
+// 2026-10-26 G-54 批次第 8 轮(三子席并发,17 枚 25 处迁 gitRaw):甲批 i18n/openapi 6 枚
+// (i18n-diff/i18n-apply/scan-i18n-zh-residue/validate-i18n-integrity/gen-i18n-compressed/
+// openapi-check)入库 `6f768e7e99`;乙批 staged 清单 7 枚 12 处(style-verification/port-registry/
+// ts-ignore/staged-typecheck/solito-residue/sanitizer-bypass/root-dir-clean)与丙批 diff 解析
+// 4 枚 7 处(commit-scope-consistency/tailwind-class-conflict/typecheck/clean-garbage)经收编提交
+// `d1c1915234` 入库;两枚夹具改 copyScriptWithClosure 闭包拷贝入库 `038e25d854`(42/0)。
+// 行为对账:各枚固定索引快照下逐字零差(clean-garbage 的 gc 系写操作,按票只做静态核对)。
+// quotepath 收口既定副作用:check-port-registry --all 首扫 18 个中文名文件,暴露 1 处既有违规
+// (已发布内容记忆.json:124 引用 127.0.0.1:50749),门 24b warn 档计警不判红。
+const BARE_GIT_BASELINE = 19 // 紧贴现读(2026-10-26 第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
 // check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。
