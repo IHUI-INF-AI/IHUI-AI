@@ -25,6 +25,7 @@ const m = vi.hoisted(() => ({
   findRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
   revokeRefreshTokenFamily: vi.fn(),
+  findLiveFamilyToken: vi.fn(),
   revokeAllUserRefreshTokens: vi.fn(),
   saveRefreshToken: vi.fn(),
   getUserPermissions: vi.fn(),
@@ -71,6 +72,8 @@ vi.mock('../src/db/queries.js', () => ({
   findRefreshToken: m.findRefreshToken,
   revokeRefreshToken: m.revokeRefreshToken,
   revokeRefreshTokenFamily: m.revokeRefreshTokenFamily,
+  // /sso/refresh 的重放裁决经 refresh-replay-policy 真实现,其 db 依赖命名导出必须齐备
+  findLiveFamilyToken: m.findLiveFamilyToken,
   revokeAllUserRefreshTokens: m.revokeAllUserRefreshTokens,
   saveRefreshToken: m.saveRefreshToken,
 }))
@@ -171,7 +174,9 @@ beforeEach(() => {
     const list: { id: string; key: string; value: string | null }[] = []
     for (const [k, v] of store) {
       const [u, g, key] = k.split('|')
-      if (u === userId && (!group || g === group)) list.push({ id: k, key, value: v })
+      // rowKey 恒为 `${userId}|${group}|${key}` 三段 ⇒ key 必存在;
+      // noUncheckedIndexedAccess 下解构出的是 string | undefined,显式收敛。
+      if (u === userId && (!group || g === group)) list.push({ id: k, key: key ?? '', value: v })
     }
     return { list, total: list.length }
   })

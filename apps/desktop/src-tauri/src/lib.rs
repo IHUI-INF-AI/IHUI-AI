@@ -3254,12 +3254,13 @@ pub fn run() {
                     MAIN_PAGE_READY.store(true, std::sync::atomic::Ordering::SeqCst);
                 }
                 if label == "main" || label == "admin" {
-                    // 2026-10-18:按 URL 切原生窗控按钮深浅(离线/壳占位页深底白字、
-                    // 线上浅顶栏深字),在窗口点亮前完成首帧即正确。
-                    window_chrome::set_caption_theme(
-                        &label,
-                        window_chrome::theme_is_dark_for_url(payload.url().as_str()),
-                    );
+                    // 2026-10-18 立 / 2026-10-26 改判序:深浅以**网页上报**为准(前端切主题会
+                    // invoke set_caption_button_theme),没上报过才按 URL 粗判(离线兜底页 /
+                    // 壳占位页深底白字、线上首帧浅顶栏深字),在窗口点亮前完成首帧即正确。
+                    // 改判序的因:此前每次 page_load 都无条件按 URL 粗判覆盖,而线上
+                    // https://aizhs.top 恒被判成浅顶栏 ⇒ 用户切暗色后原生侧仍把深字画在深底上
+                    // (实拍"暗色模式下这几个按钮根本看不清"),且刷新会把自己上报过的值冲掉。
+                    window_chrome::apply_theme_on_page_load(&label, payload.url().as_str());
                     // 仅在 Rust 侧确认原生窗控(自绘 overlay)已启用时隐藏
                     // HTML 按钮(创建失败则保留网页按钮兜底,不能两边都没有)。
                     if window_chrome::native_controls_active(&label) {

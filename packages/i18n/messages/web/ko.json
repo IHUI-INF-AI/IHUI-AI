@@ -22718,16 +22718,22 @@
         "filter": {
           "all": "전체",
           "configured": "설정됨",
+          "invalidKey": "잘못된 키",
           "local": "로컬",
-          "notConfigured": "미설정"
+          "notConfigured": "미설정",
+          "ok": "사용 가능",
+          "unreachable": "연결 불가"
         },
         "models": "개 모델",
         "refresh": "새로고침",
         "summary": {
           "configured": "설정됨",
+          "invalidKey": "잘못된 키",
           "local": "로컬",
           "notConfigured": "미설정",
-          "total": "전체"
+          "ok": "사용 가능",
+          "total": "전체",
+          "unreachable": "연결 불가"
         }
       },
       "subtitle": "Provider 상태, Combo 체인 관리, Token 압축 데모",

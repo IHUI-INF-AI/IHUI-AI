@@ -136,7 +136,10 @@ describe('79 双轴前端接线 · 缺省不下发', () => {
 describe('79 双轴前端接线 · 刷新后恢复', () => {
   it('冷启动读回本机记忆(真 hook + 真控件),改选后写回同一键', async () => {
     // 键名沿用仓内 ihui_ 前缀风格
-    expect(PERMISSION_AXES_STORAGE_KEY).toMatch(/^ihui_[a-z_]+$/)
+    // 仓内 localStorage 键名本就是混族(ihui-permission-axes / ihui-device-id 连字符,
+    // ihui_voice_playback / ihui_web_search_enabled 下划线),没有单一分隔符规范;
+    // 断言按前缀 + 分隔符两族皆可收敛,不改源键名(改了会让已存记忆失效)。
+    expect(PERMISSION_AXES_STORAGE_KEY).toMatch(/^ihui[-_][a-z_-]+$/)
 
     const remembered = contractPair()
     writeStoredPermissionAxes(remembered)

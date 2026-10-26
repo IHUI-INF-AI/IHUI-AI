@@ -35,9 +35,10 @@ const payload = {
     pv: 120,
     uv: 45,
     pages: [
-      { url: '/', platform: 'web', pv: 84, uv: 73 },
-      { url: '/sso/login', platform: 'web', pv: 51, uv: 37 },
-      { url: '/rn/Home', platform: 'rn', pv: 9, uv: 4 },
+      { url: '/', platform: 'web', scope: 'public', pv: 84, uv: 73 },
+      { url: '/sso/login', platform: 'web', scope: 'auth', pv: 51, uv: 37 },
+      { url: '/admin/users', platform: 'web', scope: 'admin', pv: 7, uv: 3 },
+      { url: '/rn/Home', platform: 'rn', scope: 'public', pv: 9, uv: 4 },
     ],
     daily: [
       { date: '2026-10-20', pv: 30, uv: 20 },
@@ -46,8 +47,9 @@ const payload = {
     ],
   },
   stays: [
-    { page: '/chat', platform: 'web', avgSec: 120.4, samples: 5 },
-    { page: '/rn/Home', platform: 'rn', avgSec: 63.5, samples: 12 },
+    { page: '/admin/bi-dashboard', platform: 'web', scope: 'admin', avgSec: 1840.2, samples: 2 },
+    { page: '/chat', platform: 'web', scope: 'public', avgSec: 120.4, samples: 5 },
+    { page: '/rn/Home', platform: 'rn', scope: 'public', avgSec: 63.5, samples: 12 },
   ],
   audience: { newUv: 31, returningUv: 14, activeUv: 45, returningRate: 0.3111 },
   platforms: [
@@ -147,6 +149,28 @@ describe('BI 数据大屏', () => {
     expect(within(container).getAllByText('登录页').length).toBeGreaterThan(0)
     // 反查不到地域时诚实写 (未知),不编一个城市名
     expect(within(container).getAllByText('(未知)').length).toBeGreaterThan(0)
+  })
+
+  it('页面排行与停留 TOP 按接口 scope 标出后台/登录页(前台行不挂徽章)', async () => {
+    const { container } = renderPage()
+    await waitFor(() =>
+      expect(within(container).getAllByText('/admin/bi-dashboard').length).toBeGreaterThan(0),
+    )
+    const rowTexts = (t: string) =>
+      within(container)
+        .getAllByText(t)
+        .map((el) => el.parentElement?.textContent ?? '')
+    // 后台页是「页面访问排行」里的常客:不标出来就没法区分"后台被刷"和"前台热页"
+    for (const t of ['/admin/users', '/admin/bi-dashboard']) {
+      expect(rowTexts(t).some((r) => r.includes('后台'))).toBe(true)
+    }
+    expect(rowTexts('/sso/login').some((r) => r.includes('登录页'))).toBe(true)
+    // 前台是默认形态 ⇒ 不挂徽章(两枚徽章会把路径挤到截断);未标即前台
+    for (const r of rowTexts('/rn/Home')) {
+      expect(r).not.toContain('后台')
+      expect(r).not.toContain('登录页')
+      expect(r).not.toContain('前台')
+    }
   })
 
   it('访客构成与浏览器分布按接口字段渲染(回访率取整、UA 家族有中文档)', async () => {
