@@ -610,6 +610,11 @@
       "shared": "packages/app/src/features/agent-setting/AgentSettingScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgentSettingScreen.tsx",
       "miniapp": "pkg-user/agent-setting/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-stat/AgentStatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentStatScreen.tsx",
+      "miniapp": "pkg-user/agent-stat/index"
     }
   ]
 }

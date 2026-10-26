@@ -5007,5 +5007,13 @@
     "save": "保存",
     "loadFailed": "設定の読み込みに失敗",
     "saved": "保存しました"
+  },
+  "agentStat": {
+    "title": "エージェント統計",
+    "conversations": "会話数",
+    "messages": "メッセージ数",
+    "tokens": "トークン消費",
+    "avgRating": "平均評価",
+    "loadFailed": "統計の読み込みに失敗"
   }
 }
