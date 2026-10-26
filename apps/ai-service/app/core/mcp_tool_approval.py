@@ -34,6 +34,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from app.core.session_taint import SessionTaint, requires_egress_approval
+
 
 class AppToolApproval(StrEnum):
     """工具审批模式(对标 AppToolApproval)。"""
@@ -161,4 +163,31 @@ class McpToolApprovalCache:
     def clear_all(self) -> None:
         self._session_grants.clear()
         self._persistent_grants.clear()
+
+
+# ---------------------------------------------------------------------------
+# 污点维度叠加(P0-2,2026-10-26,对标 nanoMuse taint tracking)
+# ---------------------------------------------------------------------------
+def requires_approval_with_taint(
+    base_requires: bool,
+    taint: SessionTaint,
+    url: "str | None",
+) -> bool:
+    """把会话级污点维度叠加到既有工具审批判定(审批层统一入口)。
+
+    判据:
+    - 基础审批已要求(注解/模式/策略层)⇒ 直接 True,无需叠加;
+    - 污点会话对任意非 allowlist 出网 URL ⇒ 即使 base 为 False 也抬升为
+      需批(**auto 模式也不例外**,这是防 prompt injection 的实用防线);
+    - 否则沿用 base。
+
+    调用方(如 agent_loop_v2 工具批准判定处)在拿到 ``_requires_mcp_tool_approval``
+    结果后,用本函数叠加污点闸门;``url`` 为该工具本次调用涉及的出网目标
+    (无出网语义的工具传 ``None`` 即不参与污点叠加)。
+    """
+    if base_requires:
+        return True
+    if url is not None and requires_egress_approval(taint, url):
+        return True
+    return False
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
