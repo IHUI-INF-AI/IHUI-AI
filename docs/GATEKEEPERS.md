@@ -329,12 +329,12 @@ git commit
 
 | 维度 | 说明 |
 |------|------|
-| 用途 | README 同步守门,检测功能代码改动但 README 未更新 |
-| 检测 | staged 中 `apps/*/src` 或 `packages/*/src` 功能代码改动但 `README.md` 未在 staged 中 |
-| 失败原因 | 无(始终 exit 0,只 warn) |
-| 修复 | 按 [AGENTS.md §22](../AGENTS.md) 同步更新 `README.md`,与本任务代码同 commit |
-| 豁免 | bug 修复 / 重构 / 测试 / 配置 / 单端内部优化 / 文档 / 守门脚本本身 |
-| 立规依据 | 2026-07-22 P3 深度层交付后 README 未同步教训 |
+| 用途 | README 对外能力同步守门:窗口内新增的对外能力,逐条问 `README.md` 有没有描述 |
+| 检测 | 窗口起点 = 「`README.md` 最后一次被提交」与「滚动回看点(默认 -7d)」里**更旧**的一枚 ⇒ 取该窗口内新增的对外能力(后端端点走守门 8 的唯一提取式 `lib/route-registration-extract.mjs`;web 页面走 App Router `page.tsx`),逐条在 README 面找**路径身份**;三态:已覆盖 / 未判定(别称·写法不同)/ 未描述。2026-10-23 重做——旧判据只看 `git diff --cached` 且"README 在改动集里就 return 0",历史欠账结构上审不到 |
+| 失败原因 | 现测「未描述」**超出棘轮额度**(`scripts/readme-sync-baseline.json`,现 125 枚)⇒ exit 1;基线件读不懂 / 取不到被审面 / 锚点解不出 ⇒ exit 2 未判定。warn 档,**不阻塞提交**(§12e:存量未清不许上 blocking) |
+| 修复 | 按 `--json` 的 `gaps[]` 在 README 对应能力段补路径身份(如 `/api/goods/select`);清一批后跑 `--update-baseline` 把额度压下去(**只许降,抬不动**),额度归零才谈升 blocking |
+| 豁免 | 纯内部重构 / 修复 / 测试 / 配置 / 文档 / 守门脚本本身。本门只验"路径身份出现过",§21 要求的功能说明 / 使用方式 / 所属端仍需人写,不得据本门全绿断言 README 已达标 |
+| 立规依据 | [AGENTS.md §21](../AGENTS.md) 功能开发同步更新 README 规则 |
 
 ### 第 23 项 check-staged-files.mjs(info-only)
 
