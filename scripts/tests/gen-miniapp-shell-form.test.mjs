@@ -25,8 +25,9 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
-import { __test__ as G } from '../gen-miniapp-mirror.mjs'
+import { __test__ as G, planGeneration } from '../gen-miniapp-mirror.mjs'
 
+const REPO = resolve(import.meta.dirname, '..', '..')
 const SRC = readFileSync(resolve(import.meta.dirname, '..', 'gen-miniapp-mirror.mjs'), 'utf8')
 const shell = (name) => ({ spec: `packages/app/src/features/x/${name}Screen.tsx`, base: name })
 
@@ -61,5 +62,36 @@ test('B4 接线:同名壳先验、壳文取现读面、导出形态判据是单�
   assert.match(SRC, /shellText: rnMap\.get\(shellRel\)/, '壳文必须来自现读面,不许留空串默认值')
   assert.match(SRC, /from '\.\/lib\/rn-shell-refs\.mjs'/, '导出形态判据不得在本器里再写一份')
   assert.equal(/function shellExportShapeOf\s*\(/.test(SRC), false, '本器不得自带第二份壳出口形态判据')
+})
+
+/**
+ * 判决台账接线(2026-10-26 立)。这张 jsonl 早就在判「不承载」,但**只有缺口报告器读它,
+ * 造页器不读** ⇒ 人判过不该由小程序单独承载的屏(通用杠杆屏、机主定档"端上不该有登录页")
+ * 被一轮轮再造回来:实测摘掉的 login / dashboard / domain-hub / mcp-store 四枚,
+ * 下一轮就会凭"缺口还在"重新产出。判过的结论必须有消费者,否则等于没判(§0.9)。
+ */
+test('B5 判过「不承载」的屏不许被重造;没有判决时不走这一支(不把"没判"当"判过")', () => {
+  const spec = 'packages/app/src/features/login/LoginScreen.tsx'
+  const base = {
+    miniapp: { pages: [], cfgText: '' },
+    regText: '{"entries":[]}',
+    rnRels: [],
+    rnMap: new Map(),
+    indexText: '',
+    packObjs: {},
+    packError: null,
+    closureCache: new Map(),
+    taroCfgText: '',
+  }
+  const r = planGeneration(REPO, { screenRel: spec, form: 'shell' }, {
+    ...base,
+    verdicts: new Map([[spec, { shared: spec, verdict: 'not-applicable', evidence: '机主定档:端上不该有登录页' }]]),
+  })
+  assert.equal(r.kind, 'refuse')
+  assert.match(r.why, /不承载/)
+  assert.match(r.why, /机主定档/, '拒绝理由必须把台账里的证据带出来,人才复核得了')
+
+  const r2 = planGeneration(REPO, { screenRel: spec, form: 'shell' }, { ...base, verdicts: new Map() })
+  assert.doesNotMatch(String(r2.why ?? ''), /不承载/, '无判决时不许凭空拒这一支')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
