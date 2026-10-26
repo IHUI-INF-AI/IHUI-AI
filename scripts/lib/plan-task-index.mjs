@@ -2084,8 +2084,9 @@ export function dispositionOfV2({ line, fields }) {
  *
  * ## 病(两席独立复现,2026-10-26 现读)
  * `〔归:桌面端持有人〕` / `归属:…部署环告警去重持有人` / `由那份副本的持有者…` 这类**散文标签**
- * 不是租约,却照样把行剔出派单面:实测 46 枚未勾行的 `claimMarkOf` **全部为 null**,
- * 却被 v2 尺整批读成"归他人" ⇒ `--open --dispatchable --exclude-inflight` 出单 **0 行**。
+ * 不是租约,却照样把行剔出派单面:实测(HEAD `04c556d` 面,2026-10-26)未勾行 46 枚的
+ * `claimMarkOf` **全部为 null**,却被 v2 尺整批读成"归他人" ⇒ `--open --dispatchable
+ * --exclude-inflight` 出单 **0 行**。
  * 两个方向同时坏:① 账面把"没人认领的真活"读成"别人的活",并发上不去(收工);
  * ② 另一面别的会话会凭旧账面重复做已完成的事(打架)。机主 2026-10-26 令"不允许两个 agent
  * 打架重复做同一件任务"要防的正是这个读数,而读数本身就在打架。
@@ -2123,17 +2124,13 @@ export function dispositionOfV2({ line, fields }) {
  *  会让调整其一顺手改掉另一。取更短的方向只会让**更多**行落 `stale`(多要一次定向说明),
  *  与本判据的失效方向一致。 */
 export const OWNER_LEASE_TTL_HOURS = 72
+/** ② 的取材窗口(最近多少枚提交信息)。**唯一出处**:CLI 的取材器从这里取,判据文案也从这里取,
+ *  两处各写一个 200 就会出现"判的是 200 枚、说的是 500 枚"。 */
+export const OWNER_EVIDENCE_COMMIT_WINDOW = 200
 /** 三条证据的稳定名字(输出面与测试共用,禁在别处手写字符串)。 */
 export const OWNER_EVIDENCE_BASIS = ['lease', 'commit', 'dirty']
-/** 出单面保留哪几档(唯一实现:过滤面与自检都问它,别在两处各写一份 `=== 'actionable'`)。 */
-export const DISPATCH_SLOTS = [
-  'actionable',
-  'stale-owner-label',
-  'waiting-human',
-  'waiting-env',
-  'owned-elsewhere',
-  'undetermined',
-]
+/** 出单面保留哪几档(**唯一**实现:过滤面与自检都问它,别在两处各写一份 `=== 'actionable'`)。
+ *  刻意不另立一份"档位词表":词表一旦与这里分家,`--dispatchable` 的射程就会在没人察觉时缩一档。 */
 export function isDispatchKeptSlot(slot) {
   return slot === 'actionable' || slot === 'stale-owner-label'
 }
@@ -2169,34 +2166,36 @@ function cleanOwnerLabel(raw) {
  * 顺序:标头 `〔归:…〕`(票号/租约可挡在复选框与标头之间)⇒ `归属[:：]…` ⇒ `归[:：]…`
  *      ⇒ `由 X 持有` ⇒ `持有者:X`。
  */
+/**
+ * 行里的归属对象(散文或侧车投影标头)。`from` 自报出处 —— 标头与散文在报告里必须能分开数,
+ * 否则"标签来自侧车投影"与"纯散文标签"会被读成同一件事。
+ * 顺序:标头 `〔归:…〕`(票号/租约可挡在复选框与标头之间)⇒ `归属[:：]…` ⇒ `归[:：]…`
+ *      ⇒ `由 X 持有` ⇒ `持有者:X`。
+ *
+ * ⚠️ **命中即定**:某一档的措辞命中了但抽不出实义归属(`归属未查明` / `〔归:待认领〕`)⇒ 返回 null,
+ * **不往更弱的那几档回落**。回落会让抽词器去抓同一行里毫不相干的 `由…持有` / `持有者:` 残句,
+ * 实测把 `归属未查明,不得写成已定` 这一行抽成了「守护」(纯噪声):报告里点名一个**不存在**的
+ * 持有人,比不点名更坏 —— 读的人会去核一个不存在的席位。
+ */
 export function ownerLabelOf(line) {
   const text = String(line ?? '')
   const head = /〔\s*归[:：]([^〕｜|]*)/.exec(text)
-  if (head) {
-    const owner = cleanOwnerLabel(head[1])
-    if (owner) return { owner, from: 'header' }
-  }
+  if (head) return labelFrom(head[1], 'header')
   const prose = /归属[:：]?\s*([^\n]{1,80})/.exec(text)
-  if (prose) {
-    const owner = cleanOwnerLabel(prose[1])
-    if (owner) return { owner, from: 'prose' }
-  }
+  if (prose) return labelFrom(prose[1], 'prose')
   const short = /归[:：]\s*([^〕\n｜|]{1,60})/.exec(text)
-  if (short) {
-    const owner = cleanOwnerLabel(short[1])
-    if (owner) return { owner, from: 'prose' }
-  }
+  if (short) return labelFrom(short[1], 'prose')
   const by = /由\s*([^,，。;\n]{1,24}?)\s*持有/.exec(text)
-  if (by) {
-    const owner = cleanOwnerLabel(by[1])
-    if (owner) return { owner, from: 'prose' }
-  }
+  if (by) return labelFrom(by[1], 'prose')
   const keeper = /持有[者人][:：]\s*([^,，。;\n]{1,24})/.exec(text)
-  if (keeper) {
-    const owner = cleanOwnerLabel(keeper[1])
-    if (owner) return { owner, from: 'prose' }
-  }
+  if (keeper) return labelFrom(keeper[1], 'prose')
   return null
+}
+
+/** 抽取器各档的唯一出口:抽不出实义 ⇒ null(占位不是归属,见 `ownerLabelOf` 的"命中即定")。 */
+function labelFrom(raw, from) {
+  const owner = cleanOwnerLabel(raw)
+  return owner ? { owner, from } : null
 }
 
 /**
@@ -2271,9 +2270,13 @@ export function ownershipEvidenceOf({ line, evidence = {} }) {
     verdict: 'stale',
     by: null,
     holder,
-    detail: holder
-      ? `短名「${holder}」不在最近 200 枚提交信息里 ∧ 点名文件不脏`
-      : '标签里没有可用提交史核验的席位短名',
+    // 三型逐条写进 detail(任务书要求"每条附它属于哪一型"),文案取自同一份判据而不是别处复述
+    detail:
+      `${claim ? `租约不完整(${claim.form})` : '无租约'} ∧ ` +
+      (holder
+        ? `无提交史(短名「${holder}」不在最近 ${OWNER_EVIDENCE_COMMIT_WINDOW} 枚提交信息里)`
+        : '无提交史(标签里没有可核验的席位短名,纯中文短语/占位不算)') +
+      ' ∧ 文件不脏(点名路径 0 条命中脏面)',
   }
 }
 
