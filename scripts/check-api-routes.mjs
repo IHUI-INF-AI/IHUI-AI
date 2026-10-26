@@ -3024,12 +3024,69 @@ if (GRAPH_AVAILABLE) {
   for (const e of assumptionPathSet) backendPathSet.add(e)
 }
 
+/**
+ * 「少判组合」报数(票 O87g 步骤④,2026-10-26 立):精确档相对旧笛卡尔「前缀假设」面
+ * **少判**了哪些组合。票面原话:"若精确面比笛卡尔积窄,必须统计少判了哪些组合、为什么
+ * 结构上不存在" —— 少判本身是修复的目的(那批组合本来就不存在),但**报数必须报名**,
+ * 否则拿到数字的人分不清少掉的是"笛卡尔伪造"还是"图漏读"。
+ * 分类**按源文件**问挂载图(不按路径尾段猜 —— 尾段法近乎恒真:任何一条同尾路由都会把
+ * 「图没追到这个文件」错报成「结构上不存在」,实测 `admin/_shared.ts` 那三型就被误标):
+ *  · `crossPrefix`:源文件在挂载图里有条目(图知道它真实挂在哪些前缀下,py 条目也在图里)
+ *    ⇒ 该组合是「任一 localPath × 任一绝对前缀」拼出来的,结构上不存在(票面点名的 /api/courses 型)。
+ *  · `unmappedFile`:源文件在图里**零条目**(工厂/模板/barrel 未追到,或该 localPath 本就是
+ *    旧提取式留下的未展开模板)⇒ 这是**图盲区**,不得读成"结构上不存在";本块只报数点名,
+ *    前端真打它们的调用走「未判定(前缀假设命中)」出口,不记绿。
+ * 本块只**报数**,不判红也不改任何对账结果(RC 面零变化);兜底档不计算(那一档 composite
+ * 就是绿档,谈不上"少判")。
+ */
+const compositeDelta = (() => {
+  if (!GRAPH_AVAILABLE) return null
+  const graphFiles = new Set()
+  for (const e of regGraph.entries) graphFiles.add(e.file)
+  // 图对该文件**零条目**、或只产出 `unreached` 兜底条目(前缀是猜的,不是走到的)⇒ 仍属盲区。
+  // 这两型的组合都只能报数,不得标成"结构上不存在"(尾段法就是这么把 `admin/_shared.ts`
+  // 的未展开模板错标成 crossPrefix 的)。
+  const unreachedFiles = new Set(regGraph.unreached.map((u) => String(u).split('#')[0]))
+  // FastAPI 面子树:条目来自旧提取式(它本来就把 prefix 与装饰器路径拼成完整路径,不是笛卡尔),
+  // 其源文件按"图已知"计 —— 它们的 localPath 已是绝对路径,再与 TS 前缀相乘纯粹是旧面产物。
+  for (const r of pyBackendRoutes) graphFiles.add(r.file)
+  const seenKey = new Set()
+  const crossPrefix = []
+  const unmappedFile = []
+  for (const r of backendRoutes) {
+    const fileTracked = graphFiles.has(r.file) && !unreachedFiles.has(r.file)
+    for (const p of compositePrefixes) {
+      const key = `${r.method} ${normalizePath(p, r.localPath)}`
+      if (seenKey.has(key)) continue
+      if (backendPathSet.has(key)) continue
+      seenKey.add(key)
+      ;(fileTracked ? crossPrefix : unmappedFile).push(key)
+    }
+  }
+  return { total: crossPrefix.length + unmappedFile.length, crossPrefix, unmappedFile }
+})()
+
 /** `--dump-undetermined` 的落盘点在主对账之后(要等「前缀假设命中」桶成形才写,见报名块) */
 const undeterminedDumpPath = dumpFlagValue('--dump-undetermined')
 if (GRAPH_AVAILABLE) {
   console.log(
     `${C.dim}[API 路由比对] 后端注册路由: 精确挂载图 ${backendPathSet.size} 条（图 ${regGraph.entries.length} + FastAPI ${pyBackendRoutes.length} + 边缘改写派生 ${edgeRewriteDerived.length};TS ${regGraph.stats.tsFilesAnalyzed} 文件 / 工厂 ${regGraph.stats.factories} 个 / 走到节点 ${regGraph.stats.touchedNodes} 个）${C.reset}`,
   )
+  if (compositeDelta) {
+    // 票面④「少判组合必须报名」:数字默读可复现(`--dump-backend` 给精确面,旧面由
+    // `backendRoutes × compositePrefixes` 现算),样例各给 5 条,全量见下面的分组计数。
+    // 两桶的名字就是判据:crossPrefix 的源文件在图里有条目(得证"该组合不存在"),
+    // unmappedFile 的源文件在图里零条目(只能报"图没走到",不得冒充前一类)。
+    console.log(
+      `${C.dim}[API 路由比对] 精确档相对笛卡尔「前缀假设」面少判 ${compositeDelta.total} 个组合（crossPrefix 结构上不存在 ${compositeDelta.crossPrefix.length} / unmappedFile 图未追到该源文件 ${compositeDelta.unmappedFile.length}）${C.reset}`,
+    )
+    for (const k of compositeDelta.crossPrefix.slice(0, 5)) {
+      console.log(`${C.dim}  · 少判(crossPrefix,该源文件在图里、该组合结构上不存在): ${k}${C.reset}`)
+    }
+    for (const k of compositeDelta.unmappedFile.slice(0, 5)) {
+      console.log(`${C.dim}  · 少判(unmappedFile,该源文件在挂载图里零条目=图盲区): ${k}${C.reset}`)
+    }
+  }
   /**
    * 报数必须报名(票面③):图产出里的三格盲区逐条点名,默认档各截前 20 条,
    * 全量走 `--dump-undetermined`。这些格子**不判红也不记绿** —— 判据看不见 ≠ 没有。
@@ -3506,28 +3563,48 @@ function backendHasRoute(method, callPath) {
   return backendCoverage(method, callPath) !== 'none'
 }
 /**
- * 「这条路径只在『前缀假设』面里命中吗」—— 精确档降级判据专用(O87g)。
- * 匹配器与主判据同一份(matchSegs/matchStar),只是索引换成笛卡尔面;
- * 兜底档恒 false(那一档笛卡尔面**就是**绿档,不存在降级)。
+ * 「这条路径在『前缀假设』面里命中的是哪一档」—— 精确档降级判据专用(O87g)。
+ * 匹配器与主判据同一份(`classifyRouteCoverage`/`matchStar`),只是索引换成笛卡尔面;
+ * 兜底档恒 null(那一档笛卡尔面**就是**绿档,不存在降级)。
+ *
+ * 两档必须分开报(2026-10-26 补,票 O87g「报数必须报名」)——合并成一句
+ * 「挂载图走不到但前缀假设拼得出」会让两种完全不同的东西共用一个称谓:
+ *  · `exact` —— 旧面里**有这条完整路径的静态键**(某条 localPath 拼上某个前缀
+ *    正好等于它)。它可能是图未追到的真挂载链(re-export barrel 等),也可能是笛卡尔串台,
+ *    两型静态不可分辨 ⇒ 未判定。
+ *  · `param` —— 旧面里**没有任何同形静态键**,只是被一条**参数段路由按段数吞下**
+ *    (实测:前端 `GET /api/keepalive/status` 被 `/api/:type/:id` 吞掉,而 `/api/:type/:id`
+ *    本身就是「`admin/content/**` 的 localPath 拼到 `/api` 上」造出的笛卡尔产物)。
+ *    这一档**不是**"图未追到的真挂载链",把它混进 exact 的桶里,票面那条假绿只是换了
+ *    个名字继续隐身。两档都不判红(§12e),但读数与逐条点名必须分家。
  */
-function assumptionHasRoute(method, callPath) {
-  if (!assumptionIndex) return false
+function assumptionHitKind(method, callPath) {
+  if (!assumptionIndex) return null
   const f = callPath.replace(/\/$/, '')
   const fParts = f.split('/')
-  if (assumptionIndex.exactKeys.has(`${method} ${f}`)) return true
+  if (assumptionIndex.exactKeys.has(`${method} ${f}`)) return 'exact'
+  let swallowed = false
   const byMethodMap = assumptionIndex.segBuckets.get(fParts.length)
   if (byMethodMap) {
     const buckets =
       method === 'ANY' ? [...byMethodMap.values()] : [byMethodMap.get(method)].filter(Boolean)
     for (const arr of buckets) {
-      for (const bParts of arr) if (matchSegs(fParts, bParts)) return true
+      for (const bParts of arr) {
+        const kind = classifyRouteCoverage(fParts, bParts)
+        if (kind === 'literal') return 'exact'
+        if (kind === 'param') swallowed = true
+      }
     }
   }
   for (const e of assumptionIndex.starEntries) {
     const methodOk = method === 'ANY' || e.method === method
-    if (methodOk && matchStar(fParts, e.parts)) return true
+    if (methodOk && matchStar(fParts, e.parts)) swallowed = true
   }
-  return false
+  return swallowed ? 'param' : null
+}
+/** 布尔投影(单一真相源,§0.6):BP 腿只问"在不在『前缀假设』面里",不分档 */
+function assumptionHasRoute(method, callPath) {
+  return assumptionHitKind(method, callPath) !== null
 }
 /**
  * 不透明挂载前缀 —— ai-service 的 MCP 导出面用 `mount_to_app(app)` 挂载,不是装饰器注册
@@ -3595,10 +3672,13 @@ for (const call of allCalls) {
       opaqueUndetermined.push({ ...call, evidence: op.evidence })
       continue
     }
-    if (assumptionHasRoute(call.method, call.path)) {
+    const assumptionKind = assumptionHitKind(call.method, call.path)
+    if (assumptionKind) {
       // 命中旧笛卡尔面 ≠ 在册:可能是图未追到的真挂载链,也可能是 O87g 点名的假路径。
       // 两型在静态判据里不可分辨 ⇒ 既不冒红也不记绿,落未判定并逐条报名(票面③)。
-      assumptionUndetermined.push(call)
+      // `exact` / `param` 两档必须分开点名(见 `assumptionHitKind` 头注):后者是"只被参数段
+      // 吞并",与"图未追到的真挂载链"不是同一件事,混报等于让假绿隐身。
+      assumptionUndetermined.push({ ...call, assumptionKind })
       continue
     }
     missing.push(call)
@@ -4339,11 +4419,18 @@ if (paramCovered.length > 0) {
   )
 }
 if (GRAPH_AVAILABLE && assumptionUndetermined.length > 0) {
+  // 报数必须报名(票面③):这一桶里有两种结构上完全不同的东西,合并成一句话就会让后者
+  // 冒充前者。`exact` = 旧面有同形静态键(可能是图未追到的真挂载链);`param` = 只被参数段
+  // 吞并(旧面里没有任何同形静态键,典型如 `/api/keepalive/status` 被笛卡尔产物
+  // `/api/:type/:id` 吞掉)。两档都不判红(§12e),但读数与逐条点名必须分家。
+  const assumptionExact = assumptionUndetermined.filter((c) => c.assumptionKind === 'exact')
+  const assumptionParam = assumptionUndetermined.filter((c) => c.assumptionKind === 'param')
   console.log(
-    `${C.yellow}[API 路由比对] ⚠️ 未判定(前缀假设命中)${assumptionUndetermined.length} 处调用:挂载图走不到,但旧笛卡尔「前缀假设」拼得出 —— 可能是图未追到的真挂载链(re-export barrel 等),也可能是票 O87g 点名的 /api/courses 型假路径;两型静态不可分辨 ⇒ 不记绿也不判红,逐条报名:${C.reset}`,
+    `${C.yellow}[API 路由比对] ⚠️ 未判定(前缀假设命中)${assumptionUndetermined.length} 处调用 = 同形静态键 ${assumptionExact.length} + 仅参数段吞并 ${assumptionParam.length}:挂载图走不到,但旧笛卡尔「前缀假设」面接得住 —— 可能是图未追到的真挂载链(re-export barrel 等),也可能是票 O87g 点名的 /api/courses 型假路径;两型静态不可分辨 ⇒ 不记绿也不判红,逐条报名(带「仅参数段吞并」标记的那批连同形静态键都没有,是本票假绿最可能藏身处):${C.reset}`,
   )
   for (const c of assumptionUndetermined.slice(0, 20)) {
-    console.log(`${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}${C.reset}`)
+    const tag = c.assumptionKind === 'param' ? '[仅参数段吞并] ' : '[同形静态键] '
+    console.log(`${C.dim}    ${tag}${c.method} ${c.path} @ ${c.file}:${c.line}${C.reset}`)
   }
   if (assumptionUndetermined.length > 20) {
     console.log(
