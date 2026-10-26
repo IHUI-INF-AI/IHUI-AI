@@ -36,7 +36,7 @@ function hasBom(buf) {
 }
 
 function existingMissingBom() {
-  const out = execFileSync('node', ['scripts/check-ps1-bom.mjs', '--json'], { cwd: ROOT, encoding: 'utf8' })
+  const out = execFileSync('node', ['scripts/check-ps1-bom.mjs', '--json'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
   const lines = out.trim().split('\n')
   // --json 档末尾还有一行"末行";前面才是 JSON 体
   const jsonEnd = lines.findIndex((l) => l.startsWith('[ps1-bom] 末行'))
