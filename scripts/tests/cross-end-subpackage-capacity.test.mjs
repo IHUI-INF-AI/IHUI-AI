@@ -170,4 +170,39 @@ test('K8 每屏估算表:大屏按表里的字节计,不让它把整包额度吃
   })
   assert.deepEqual(r.admitted.map((p) => p.route), ['pkg-mirror/home/index', 'pkg-user/x/index'])
 })
+
+/**
+ * K11 总量维(2026-10-26 加):微信对**整档**还有 20 MiB 上限。
+ * 只判逐包会漏"每个包都还装得下、整档传不上去"这一型 —— 实测落完 219 屏后合计已 18.0 MB(86%)。
+ */
+test('K11 各包都还有余量但整档顶到总量上限 ⇒ held,且点名的是"总量"不是"包满"', () => {
+  const m = model()
+  m.limitBytes = 5_000_000 // 把逐包上限放到足够宽,让"总量"成为唯一会咬人的那一维
+  m.totalLimitBytes = 2_000_000
+  m.safetyRatio = 0.9
+  m.bytesPerShellPage = 900_000
+  m.roots = {
+    'pkg-user': { bytes: 100_000, mirrorEntriesAtMeasure: 0, chunkReserveBytes: 0 },
+    'pkg-mirror': { bytes: 100_000, mirrorEntriesAtMeasure: 0, chunkReserveBytes: 0 },
+  }
+  m.overflowRoots = ['pkg-mirror']
+  const reg = JSON.stringify({ entries: [] })
+  const plans = [
+    { spec: 'a/A.tsx', subRoot: 'pkg-user', page: 'a/index', route: 'pkg-user/a/index' },
+    { spec: 'b/B.tsx', subRoot: 'pkg-user', page: 'b/index', route: 'pkg-user/b/index' },
+  ]
+  const r = cap.routePlanned(plans, { model: m, registryText: reg, cap: 5 })
+  assert.deepEqual(r.admitted.map((p) => p.route), ['pkg-user/a/index'], '第一枚必须能落(否则这是恒红闸)')
+  assert.equal(r.held.length, 1)
+  assert.match(r.held[0].why, /总量/, '点名必须是总量这一维,不能报成"包满"误导人去换包')
+  assert.equal(r.totalUsage, 1_100_000)
+})
+
+test('K12 总量水位可单独设:造页器必须停在产物门 AB4 告警线(90%)之前,而不是共用 0.92', () => {
+  const bad = JSON.stringify({ ...model(), totalLimitBytes: 20_971_520, totalSafetyRatio: 1.5 })
+  assert.equal(cap.parseCapacity(bad).ok, false, '水位给到 (0,1] 之外必须整表判坏')
+  const ok = cap.parseCapacity(JSON.stringify({ ...model(), totalLimitBytes: 20_971_520, totalSafetyRatio: 0.88 }))
+  assert.equal(ok.ok, true)
+  assert.equal(ok.model.totalSafetyRatio, 0.88)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

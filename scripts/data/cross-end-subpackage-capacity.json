@@ -4,6 +4,8 @@
   "measuredAt": "2026-10-26",
   "face": "隔离 worktree 在 29479d1f7049(第一批 38 枚壳承载页已落)上 `pnpm --filter @ihui/miniapp-taro build:weapp` 的真实产物,由 check-artifact-budget 同一把尺子逐包量",
   "limitBytes": 2097152,
+  "totalLimitBytes": 20971520,
+  "totalSafetyRatio": 0.88,
   "safetyRatio": 0.92,
   "bytesPerShellPage": 30000,
   "overflowRoots": [
@@ -13,7 +15,8 @@
     "pkg-mirror4"
   ],
   "notes": [
-    "limitBytes = 微信硬限制:主包与**每个分包**各 2 MiB(总 20 MiB)。门 110 的 AB1 只判主包,AB3 逐分包判。",
+    "limitBytes = 微信硬限制:主包与**每个分包**各 2 MiB(总 20 MiB)。门 110 的 AB1 只判主包,AB3 逐分包判,AB4 判总量。",
+    "totalLimitBytes = 20 MiB 整档上限。2026-10-26 落完 219 屏后实测合计 18,016,705 B(86%),只剩约 2.9 MB —— 这一维现在是真的会咬人的。",
     "safetyRatio 由 0.95 收到 0.92:上一版按 0.95 + 闭包×0.5 估,pkg-user 落在 2,110,263 B —— 超硬上限 13,111 B。低估 25% 的那格必须由水位兜住,方向只能是早收手,不能是晚发现。",
     "chunkReserveBytes = 一个分包**首次**接收壳承载页时要吃下的固定共享块。2026-10-26 实测同一枚 sub-common(3b9e6393…,707,273 B)在 pkg-user / pkg-mirror / pkg-mirror2 各存一份,外加 117,204 B 等小块 ⇒ 合计取 900,000 B。已经带大块(实测 ≥1 MB)的包记 0。",
     "bytesPerShellPage = 页代码本体边际(已带共享块的包里实测约 30 KB);闭包大的屏由 pageEstimates 逐屏覆盖。",
