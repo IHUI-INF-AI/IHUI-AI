@@ -5075,5 +5075,27 @@
     "metaPublishTime": "公開日時",
     "searchPlaceholder": "アシスタントを検索",
     "title": "マイアシスタント"
+  },
+  "automations": {
+    "empty": "自動化タスクはまだありません",
+    "loadFailed": "自動化の読み込みに失敗しました",
+    "active": "有効",
+    "paused": "一時停止",
+    "scheduleOnce": "一回限り",
+    "scheduleRecurring": "繰り返し",
+    "lastRun": "前回の実行",
+    "nextRun": "次回の実行",
+    "prompt": "プロンプト",
+    "noResult": "実行結果はまだありません",
+    "rrule": "スケジュール (RRULE)",
+    "timezone": "タイムゾーン",
+    "schedule": "実行タイミング"
+  },
+  "bankCard": {
+    "title": "銀行カード",
+    "empty": "銀行カードはまだありません",
+    "default": "デフォルト",
+    "holder": "カード名義人",
+    "loadFailed": "銀行口座の読み込みに失敗"
   }
 }

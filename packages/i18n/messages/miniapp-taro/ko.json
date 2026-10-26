@@ -5075,5 +5075,27 @@
     "metaPublishTime": "게시 시간",
     "searchPlaceholder": "어시스턴트 검색",
     "title": "내 어시스턴트"
+  },
+  "automations": {
+    "empty": "자동화 작업이 없습니다",
+    "loadFailed": "자동화를 불러오지 못했습니다",
+    "active": "활성",
+    "paused": "일시중지",
+    "scheduleOnce": "한 번",
+    "scheduleRecurring": "반복",
+    "lastRun": "마지막 실행",
+    "nextRun": "다음 실행",
+    "prompt": "프롬프트",
+    "noResult": "실행 결과가 없습니다",
+    "rrule": "일정 (RRULE)",
+    "timezone": "시간대",
+    "schedule": "실행 주기"
+  },
+  "bankCard": {
+    "title": "은행 카드",
+    "empty": "등록된 은행 카드가 없습니다",
+    "default": "기본",
+    "holder": "카드 소유자",
+    "loadFailed": "은행 계좌 불러오기 실패"
   }
 }
