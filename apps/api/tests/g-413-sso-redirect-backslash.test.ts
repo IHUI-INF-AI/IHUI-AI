@@ -44,6 +44,9 @@ vi.mock('../src/db/queries.js', () => ({
   revokeAllUserRefreshTokens: vi.fn(),
   findRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
+  // /sso/refresh 的重放裁决经 refresh-replay-policy 真实现,其 db 依赖命名导出必须齐备
+  revokeRefreshTokenFamily: vi.fn(async () => 0),
+  findLiveFamilyToken: vi.fn(async () => null),
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({ getUserPermissions: vi.fn() }))
@@ -93,7 +96,12 @@ beforeEach(() => {
     request.userId = 'user-001'
   })
   mockFindUserById.mockReset()
-  mockFindUserById.mockResolvedValue({ id: 'user-001', phone: '13800000001', roleId: 0, familyId: 'fam-001' })
+  mockFindUserById.mockResolvedValue({
+    id: 'user-001',
+    phone: '13800000001',
+    roleId: 0,
+    familyId: 'fam-001',
+  })
   mockRedisSet.mockReset()
   mockRedisGet.mockReset()
   mockRedisDel.mockReset()
@@ -147,7 +155,9 @@ describe('G-413① 签发侧必须拒掉的反斜杠 / 协议形态(断言副作
     expect(res.statusCode).toBe(400)
     // 副作用判据:签发 = redis.set('sso:code:<code>');只断 400 会放过"先落库再报错"
     expect(issuedCount()).toBe(0)
-    expect(mockRedisSet.mock.calls.every(([key]) => !String(key).startsWith('sso:code:'))).toBe(true)
+    expect(mockRedisSet.mock.calls.every(([key]) => !String(key).startsWith('sso:code:'))).toBe(
+      true,
+    )
   })
 
   it('反斜杠形态的拒绝消息点名它是"站内相对路径"档的判据(不是被别的档误伤)', async () => {

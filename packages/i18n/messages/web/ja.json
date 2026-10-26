@@ -22718,16 +22718,22 @@
         "filter": {
           "all": "全て",
           "configured": "設定済み",
+          "invalidKey": "無効なキー",
           "local": "ローカル",
-          "notConfigured": "未設定"
+          "notConfigured": "未設定",
+          "ok": "利用可能",
+          "unreachable": "到達不可"
         },
         "models": "個モデル",
         "refresh": "更新",
         "summary": {
           "configured": "設定済み",
+          "invalidKey": "無効なキー",
           "local": "ローカル",
           "notConfigured": "未設定",
-          "total": "合計"
+          "ok": "利用可能",
+          "total": "合計",
+          "unreachable": "到達不可"
         }
       },
       "subtitle": "Provider状態、Comboチェーン管理、Token圧縮デモ",

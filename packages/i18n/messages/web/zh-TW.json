@@ -22690,16 +22690,22 @@
         "filter": {
           "all": "全部",
           "configured": "已配置",
+          "invalidKey": "金鑰無效",
           "local": "本地",
-          "notConfigured": "未配置"
+          "notConfigured": "未配置",
+          "ok": "可用",
+          "unreachable": "無法連線"
         },
         "models": "個模型",
         "refresh": "刷新",
         "summary": {
           "configured": "已配置",
+          "invalidKey": "金鑰無效",
           "local": "本地",
           "notConfigured": "未配置",
-          "total": "總計"
+          "ok": "可用",
+          "total": "總計",
+          "unreachable": "無法連線"
         }
       },
       "subtitle": "Provider 健康狀態、Combo 鏈管理、Token 壓縮演示",

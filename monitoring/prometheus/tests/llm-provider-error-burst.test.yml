@@ -1,0 +1,65 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+# promtool 单元测试 —— LlmProviderErrorBurst 规则的正反用例(2026-10-26 立,P11)。
+# 目的不是"多覆盖",是把"厂商鉴权类失败(401/403)**不得**寄到人通道"变成可机器证明的东西:
+#   这条规则的分子带 status!="auth"(分类单源在 ai-service 的 llm_error_status),
+#   若哪次改动把排除条件删掉或把 auth 重新并回 4xx,本用例立刻红。
+# 三格:
+#   ① 反例:只有鉴权类错误(量大)⇒ 不 firing(厂商账户状态不是平台故障);
+#   ② 反例:鉴权类占绝大多数 + 少量 5xx(未达阈值)⇒ 不 firing(证明 auth 不被计入分子,
+#      否则分子会被 auth 撑到阈值以上而误响);
+#   ③ 正例:真实 5xx 突增 ⇒ 必须 firing(排掉"把整条规则废掉"这种假修)。
+# 时间语义:promtool unit test 的时钟自 epoch 起算,窗口用 increase(...[15m]);
+#   条件在第 10 分钟起成立(15m 窗口累计 ≥10 次),`for: 15m` ⇒ 第 25 分钟起 firing,故取 45m 判定。
+# 运行:promtool test rules monitoring/prometheus/tests/llm-provider-error-burst.test.yml
+rule_files:
+  - ../alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ── 反例一:只有厂商鉴权类错误(401/403)⇒ 绝不 firing ──
+  - interval: 1m
+    input_series:
+      - series: 'ihui_llm_provider_errors_total{job="ai-service",provider="p-auth-only",status="auth"}'
+        values: '0+1x60'
+      - series: 'ihui_llm_calls_total{job="ai-service",provider="p-auth-only",model="m",status="error"}'
+        values: '0+1x60'
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: LlmProviderErrorBurst
+        exp_alerts: []
+
+  # ── 反例二:鉴权类压倒性 + 少量 5xx(未达阈值)⇒ 绝不 firing ──
+  # 这一格才是"排除真的生效"的证明:若 status!="auth" 被删,分子会变成 65(≥10)
+  # 且占比 100% ⇒ 误响;排除生效时分子只剩 5(<10)⇒ 不响。
+  - interval: 1m
+    input_series:
+      - series: 'ihui_llm_provider_errors_total{job="ai-service",provider="p-mixed",status="auth"}'
+        values: '0+1x60'
+      - series: 'ihui_llm_provider_errors_total{job="ai-service",provider="p-mixed",status="5xx"}'
+        values: '0+0.1x60'
+      - series: 'ihui_llm_calls_total{job="ai-service",provider="p-mixed",model="m",status="error"}'
+        values: '0+1.1x60'
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: LlmProviderErrorBurst
+        exp_alerts: []
+
+  # ── 正例:真实 5xx 突增 ⇒ 必须 firing ──
+  - interval: 1m
+    input_series:
+      - series: 'ihui_llm_provider_errors_total{job="ai-service",provider="p-5xx",status="5xx"}'
+        values: '0+1x60'
+      - series: 'ihui_llm_calls_total{job="ai-service",provider="p-5xx",model="m",status="error"}'
+        values: '0+1x60'
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: LlmProviderErrorBurst
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: 'LLM provider 错误突增'
+              description: '15 分钟内 LLM provider 非鉴权类错误 15 次且占比超 20%(厂商鉴权类 401/403 已单列,不计入本规则、不进到人通道;2026-10-26 起)。下一步:查 ai-service 日志里 [LLMGateway] 的真实报错分类——超时/连接=网络不通,5xx=厂商故障,404=端点不存在需改 base_url;单次零星 4xx 不再触发本规则。'

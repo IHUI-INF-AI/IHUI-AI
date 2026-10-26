@@ -12,6 +12,7 @@ import { computeAudience, computeBrowserUsage } from '../services/audience-stats
 // 端分桶判据的唯一真相源(前缀表 + 逐行归类 + SQL 表达式),不在路由里重抄一份
 import {
   classifyVisitPlatform,
+  classifyVisitScope,
   visitPlatformCaseSql,
   visitScopeCaseSql,
   type VisitPlatform,
@@ -174,7 +175,7 @@ async function buildBiPayload() {
       })
       .from(analyticsEvents)
       .where(
-        sql`${analyticsEvents.event} = 'page_time' and ${analyticsEvents.createdAt} >= now() - interval '7 days'`,
+        sql`${analyticsEvents.event} = 'page_time' and ${analyticsEvents.createdAt} >= now() - make_interval(days => ${WINDOW_DAYS})`,
       )
       .groupBy(sql`1`)
       .having(sql`count(${PAGE_TIME_SEC}) > 0`)
@@ -238,6 +239,7 @@ async function buildBiPayload() {
       pages: pages.map((r) => ({
         url: r.url,
         platform: classifyVisitPlatform(r.url),
+        scope: classifyVisitScope(r.url),
         pv: Number(r.pv ?? 0),
         uv: Number(r.uv ?? 0),
       })),
@@ -251,6 +253,7 @@ async function buildBiPayload() {
     stays: stayRows.map((r) => ({
       page: r.page,
       platform: classifyVisitPlatform(r.page),
+      scope: classifyVisitScope(r.page),
       avgSec: Number(r.avgSec ?? 0),
       samples: Number(r.samples ?? 0),
     })),
