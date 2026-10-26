@@ -17,7 +17,7 @@
  * 3. **失败静默**:埋点永远不阻塞导航、不弹错误、不重试;连不上就是这条丢了。
  */
 
-import { recordVisitLog } from '@ihui/api-client'
+import { recordAnalyticsEvents, recordVisitLog } from '@ihui/api-client'
 
 /** 进程内会话 id:一次冷启动一个值(与 web 的 sessionStorage 语义对齐,不落盘)。 */
 const SESSION_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -25,13 +25,24 @@ const SESSION_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slic
 /** 同屏 3 秒内只报一次(与 web VisitTracker 同档)。 */
 export const SCREEN_VIEW_DEBOUNCE_MS = 3000
 
+/**
+ * 停留上报的最小秒数(按整秒四舍五入后):低于 1 秒的"停留"基本都是导航动画/重渲染抖动,
+ * 报上去会把均值拉向 0(数据大屏「页面停留时长 TOP」取的是平均值)。
+ */
+export const MIN_SCREEN_TIME_SEC = 1
+
 let lastPath = ''
 let lastAt = 0
+/** 当前所在屏与进入时刻;换屏时才结算上一屏的停留(与去抖状态分开,互不影响)。 */
+let enterScreen = ''
+let enterAt = 0
 
-/** 供测试重置模块级去抖状态。 */
+/** 供测试重置模块级去抖与停留状态。 */
 export function __resetScreenViewThrottleForTest(): void {
   lastPath = ''
   lastAt = 0
+  enterScreen = ''
+  enterAt = 0
 }
 
 /** React Navigation 的 route 名 → 上报路径。空名不报(不造 `/rn/undefined`)。 */
@@ -50,6 +61,26 @@ export function reportScreenView(
 ): boolean {
   const path = screenViewPath(screenName)
   if (!path) return false
+  // 换屏 ⇒ 先结算上一屏停留(与 3 秒去抖无关:抖掉的是重复 PV,不是真实离开)
+  if (path !== enterScreen) {
+    if (enterScreen) {
+      const seconds = Math.round((now - enterAt) / 1000)
+      if (seconds >= MIN_SCREEN_TIME_SEC) {
+        void recordAnalyticsEvents([
+          {
+            name: 'page_time',
+            category: 'user_engagement',
+            label: enterScreen,
+            value: seconds,
+          },
+        ]).catch(() => {
+          /* 埋点失败静默 */
+        })
+      }
+    }
+    enterScreen = path
+    enterAt = now
+  }
   if (path === lastPath && now - lastAt < SCREEN_VIEW_DEBOUNCE_MS) return false
   lastPath = path
   lastAt = now
