@@ -1376,7 +1376,8 @@ class ModelSyncService:
             if url.endswith("/v1"):
                 url = url[:-3]
             url = f"{url}/models/search"
-            headers["Authorization"] = f"Bearer {api_key}"
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
         elif is_anthropic:
             # F4.4 Anthropic: /v1/models,header 用 x-api-key + anthropic-version
             url = f"{url}/models" if url.endswith("/v1") else f"{url}/v1/models"
@@ -1393,14 +1394,19 @@ class ModelSyncService:
                 url = f"{url}?key={api_key}"
             elif url.endswith("/openai") or url.endswith("/v1"):
                 url = f"{url}/models"
-                headers["Authorization"] = f"Bearer {api_key}"
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
             else:
                 url = f"{url}/v1beta/models"
                 # key 通过 query param 传递
                 url = f"{url}?key={api_key}"
         else:
             # 默认 OpenAI 兼容: /v1/models
-            headers["Authorization"] = f"Bearer {api_key}"
+            # 2026-10-26:空 key(免鉴权目录端点 huggingface 等)不设 Authorization —— 发
+            # "Bearer " 会被 httpx 判 LocalProtocolError(Illegal header value),
+            # 本该免鉴权的目录因此变成失败,反而又把 health 打成 0。
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
             url = f"{url}/models" if url.endswith("/v1") else f"{url}/v1/models"
 
         # F4.8 增量同步:带 If-None-Match / If-Modified-Since header

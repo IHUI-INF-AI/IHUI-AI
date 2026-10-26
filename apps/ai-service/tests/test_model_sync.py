@@ -2475,3 +2475,27 @@ class TestPlaceholderKeySilence:
         src = inspect.getsource(ModelSyncService.sync_single_provider)
         assert "_is_placeholder_key" in src
 
+    @pytest.mark.asyncio
+    async def test_empty_key_sends_no_authorization_header(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """空 key 的免鉴权目录请求不得带 Authorization。
+
+        2026-10-26 生产实测:huggingface 换 router 域、占位 key 判未配置后以空 key 出网,
+        但默认分支仍无条件拼 `Bearer {api_key}` ⇒ httpx 抛
+        LocalProtocolError: Illegal header value b'Bearer ',本该免鉴权 200 的目录
+        成了失败,反手把 health 又打成 0。故此处钉住"无 key ⇒ 无该 header"。
+        """
+        import app.services.model_sync as ms_mod
+
+        capture: dict[str, Any] = {}
+        monkeypatch.setattr(
+            ms_mod.httpx,
+            "AsyncClient",
+            lambda timeout=None, proxy=None: _Token6688MockClient({"data": []}, capture),
+        )
+        svc = ModelSyncService()
+        await svc._fetch_upstream_models("huggingface", "https://router.huggingface.co", "")
+        assert capture.get("url", "").endswith("/v1/models")
+        assert "Authorization" not in (capture.get("headers") or {})
+
