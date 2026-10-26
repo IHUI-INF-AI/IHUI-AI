@@ -114,4 +114,30 @@ test('T8 真仓冒烟:--worktree 面跑得起来且结论行成形(不钉死计�
   assert.ok(/FIDELITY-RESULT|未判定:/.test(out), `结论行缺失:${out.slice(0, 400)}`)
   assert.ok([0, 1, 2].includes(r.status), `退出码越界:${r.status}`)
 })
+
+// —— --base=<ref>(CI 问责腿,2026-10-26 立)——
+// 三档面在干净检出上全部退化(staged/worktree==HEAD ⇒ 倒退恒空),CI 必须走显式基线;
+// 而 faceList/faceRead 把坏 ref 吞成空清单 ⇒ 若无基线护栏,"基线空 ⇒ 无倒退"会静默冒绿。
+// T10/T11 一正一反钉死这两格。
+test('T10 --base=HEAD 自比 ⇒ 倒退恒空、exit 0、结论行带 base= 字段', () => {
+  const r = spawnSync(process.execPath, [GATE, '--base=HEAD', '--quiet'], {
+    cwd: join(HERE, '..', '..'),
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.equal(r.status, 0, `退出码应为 0:${out.slice(0, 400)}`)
+  assert.match(out, /FIDELITY-RESULT face=head base=HEAD /)
+})
+
+test('T11 --base=坏 ref ⇒ 基线护栏出声 exit 2(空基线不得静默冒绿)', () => {
+  const r = spawnSync(process.execPath, [GATE, '--base=__definitely_not_a_ref__'], {
+    cwd: join(HERE, '..', '..'),
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.equal(r.status, 2, `应为未判定 exit 2:${out.slice(0, 400)}`)
+  assert.match(out, /未判定:基线面 __definitely_not_a_ref__ 枚举到 0 个共享屏/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
