@@ -2401,20 +2401,6 @@
     },
     {
       "version": "7",
-      "idx": 346,
-      "when": 1793007000000,
-      "tag": "20261026170000_sms_delivery_compliance",
-      "breakpoints": true
-    },
-    {
-      "version": "7",
-      "idx": 347,
-      "when": 1793010600000,
-      "tag": "20261026180000_sms_phone_protection",
-      "breakpoints": true
-    },
-    {
-      "version": "7",
       "idx": 348,
       "when": 1793064600000,
       "tag": "20261027090000_default_user_avatar",
