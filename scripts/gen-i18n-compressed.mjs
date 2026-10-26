@@ -47,10 +47,10 @@
 //      结构性校验(解码失败一律回落,不进缓存)。
 
 import { createRequire } from 'node:module'
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 
 // 正解 = 把本生成器搬到根 scripts/(与 sync-miniapp-tokens.mjs 同一条先例;D2 只比 rank,
 // 所以只改说明符照样红),前置 = 等两台机的分叉裁决定后再搬,避免刚搬完就被并回旧路径。
@@ -59,7 +59,9 @@ import { dirname, resolve } from 'node:path'
 import { renderPin, sha256Hex } from './lib/generated-input-pin.mjs'
 // 取材面的解析与读取一律复用守门那一份实现(§22c:同一件事不写第二套)——
 // `catBatch` 是"清单与内容同面同轮"的批量出口,`readWorktreeFile` 是磁盘面的 sanctioned 读法。
-import { catBatch, readWorktreeFile, FACE_LABEL } from './lib/face-reader.mjs'
+import { catBatch, readWorktreeFile, FACE_LABEL, listFaceFiles } from './lib/face-reader.mjs'
+// 承载层可达键的**唯一算式**(门 251 判"键可解析"时 import 同一份,§0.6)
+import { carriedKeysFromRepo, subsetMissing } from './lib/rn-carried-keys.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 // 脚本在根 scripts/,仓库根在其上 1 级;消息源在 packages/i18n/messages
@@ -180,6 +182,80 @@ function loadJson(...parts) {
   return loadJsonInto(pinInputs, ...parts)
 }
 
+// ── 承载层(2026-10-26 立)──────────────────────────────────────────────────
+// 小程序端承载 RN 壳/共享屏的页面会用到的 i18n 键,由闭包尺算出(`scripts/lib/rn-carried-keys.mjs`
+// 与门 251 的判据同一份实现,§0.6)。此前这些键只在 `mobile-rn/*.json` 里,端内包取不到;
+// 它们"看起来有字"靠的是把 RN 词包整包内联进每一页(实测每页 +1.36 MB)——那是用体积换文字。
+// 现在:可达键作为第三层并入 ⇒ 只补端内没有的键(端内包是译文真相源,顺序不能反),零新译。
+const faceReadSource = (rel) => {
+  if (FACE === 'worktree') {
+    // 闭包解析要"探路"(同一个 rel 会被当目录、当无扩展名基名反复试);readWorktreeFile 对
+    // 目录/特殊文件是抛错而非返回 null,这里必须把它折算成 null,否则判据尺一遇目录就整轮崩。
+    try {
+      return readWorktreeFile(repoRoot, rel)
+    } catch {
+      return null
+    }
+  }
+  const spec = specOf(rel)
+  if (FACE_BATCH.has(spec)) return FACE_BATCH.get(spec) ?? null
+  // 闭包涉及的源码文件不在预声明的输入清单里 ⇒ 就地在**同一个面**上单份补读;
+  // 绝不回落磁盘面(§0.4),代价是这一档比 worktree 慢(约 120 次 git 调用)。
+  try {
+    return catBatch(repoRoot, [spec], { timeout: 60000 }).get(spec) ?? null
+  } catch {
+    return null
+  }
+}
+const faceListSources = (prefix) => {
+  if (FACE === 'worktree') {
+    const out = []
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name)
+        if (e.isDirectory()) walk(p)
+        else out.push(relative(repoRoot, p).replace(/\\/g, '/'))
+      }
+    }
+    walk(join(repoRoot, prefix))
+    return out
+  }
+  return listFaceFiles(repoRoot, FACE, { paths: [prefix] })
+}
+const CARRIED = carriedKeysFromRepo({ readFile: faceReadSource, listFiles: faceListSources })
+// 承载层是**增强层**:它的源(mobile-rn/*.json)在被审面上缺席时,不能让整轮构建死在增强层上
+// (那是"文档写了出路却跑不通");改成显式跳过 + 在产物里记 carried:skipped,由门 251 C10 判缺键。
+function carriedSourceFor(locale, pinList) {
+  const rel = `${MESSAGES_REL}/mobile-rn/${locale}.json`
+  let text
+  if (FACE === 'worktree') {
+    try {
+      text = readWorktreeFile(repoRoot, rel)
+    } catch {
+      text = null
+    }
+  } else {
+    text = FACE_BATCH.has(specOf(rel)) ? FACE_BATCH.get(specOf(rel)) : null
+  }
+  if (text === null || text === undefined) return null
+  pinList.push({ rel, text })
+  return JSON.parse(text)
+}
+function carriedSubsetFor(locale, haveRoots, pinList) {
+  const rn = carriedSourceFor(locale, pinList)
+  if (rn === null) {
+    carriedSkipped.push(locale)
+    return {}
+  }
+  return subsetMissing(haveRoots, CARRIED.keys, rn)
+}
+const carriedSkipped = []
+const countLeaves = (o) => Object.values(o).reduce((a, v) => a + (isPlainObject(v) ? countLeaves(v) : 1), 0)
+const carriedLog = []
+console.log(
+  `[gen:i18n] 承载层:承载页 ${CARRIED.carriers.length} 枚 / 可达文件 ${CARRIED.files.length} 枚 / 可达键 ${CARRIED.keys.size} 个(闭包尺现读)`,
+)
+
 console.log(
   `[gen:i18n] 取材面 = ${FACE_LABEL[FACE]}(${ALL_INPUT_RELS.length} 份输入${FACE === 'worktree' ? ',逐份读磁盘' : ',一次批量读满'})`,
 )
@@ -207,7 +283,10 @@ let totalB64 = 0
 for (const locale of REMOTE_LOCALES) {
   const shared = loadJson('shared', `${locale}.json`)
   const miniapp = loadJson('miniapp-taro', `${locale}.json`)
-  const merged = mergeMessages(shared, miniapp)
+  // 第三层 = 承载页可达而端内缺失的键(取自 mobile-rn 包,逐语同键 ⇒ 零新译;已有键一律不覆盖)
+  const carried = carriedSubsetFor(locale, [shared, miniapp], pinInputs)
+  const merged = mergeMessages(mergeMessages(shared, miniapp), carried)
+  carriedLog.push(`${locale} +${countLeaves(carried)}`)
   const json = JSON.stringify(merged) // 无缩进,与运行时 JSON.parse 对称
   // mtime:0 强制确定性(否则 fflate 默认写入当前时间戳到 gzip 头,跨进程运行产物不一致)
   const gz = gzipSync(strToU8(json), { level: 9, mtime: 0 })
@@ -226,13 +305,21 @@ for (const locale of REMOTE_LOCALES) {
 console.log(
   `[gen:i18n] 合计: 原始 ${totalOriginal.toFixed(1)}KB → b64 ${totalB64.toFixed(1)}KB (净省 ${(totalOriginal - totalB64).toFixed(1)}KB)`,
 )
+console.log(`[gen:i18n] 承载层补键(remote 各语):${carriedLog.join(' / ') || '无'} —— 只补端内没有的键,已有措辞一律不覆盖`)
+if (carriedSkipped.length > 0) {
+  console.log(
+    `[gen:i18n] ⚠️ 承载层在 ${carriedSkipped.join(', ')} 上被跳过:${FACE_LABEL[FACE]} 取不到 mobile-rn 词包 ⇒ 本产物不含可达补键` +
+      `(构建继续,但门 251 C10 会按差值棘轮判这些缺键;等该面词包入库后重跑本脚本即自动补上)`,
+  )
+}
 
 // ── 产物④:zh-CN 内联包(回落语 ⇒ 随包内联,不走 CDN;选项 A,2026-10-15)──
 // 合并口径与 remote 各语言完全一致(shared 为 base,miniapp-taro 覆盖),b64 规约也一致
 // (gzip level 9 + mtime:0 ⇒ 跨进程逐字节确定)。
 const zhShared = loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json')
 const zhMiniapp = loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json')
-const zhMerged = mergeMessages(zhShared, zhMiniapp)
+const zhCarried = carriedSubsetFor('zh-CN', [zhShared, zhMiniapp], zhPinInputs)
+const zhMerged = mergeMessages(mergeMessages(zhShared, zhMiniapp), zhCarried)
 const zhJson = JSON.stringify(zhMerged) // 无缩进,与运行时 JSON.parse 对称
 const zhGz = gzipSync(strToU8(zhJson), { level: 9, mtime: 0 })
 const zhB64 = Buffer.from(zhGz).toString('base64')

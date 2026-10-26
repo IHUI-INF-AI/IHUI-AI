@@ -37,6 +37,14 @@ import { shellRefsOf, shellTargetRel, mismatchedShellBinding } from './lib/rn-sh
 import { parseMiniappRoutes } from './gen-miniapp-mirror.mjs'
 // C9 判的是"壳承载的编译期契约"与面上引用是否逐字同步 ⇒ 判据取生成器那一份(§0.6,同一条算式不许两处各写)。
 import { __test__ as shellTypes } from './gen-rn-shell-types.mjs'
+// 可达键与词包解码同一份实现(生成器补键时 import 的是同一条算式,§0.6)
+import {
+  carriedKeysFromRepo,
+  decodePackB64,
+  extractLocaleB64,
+  extractStringConst,
+  flattenKeys,
+} from './lib/rn-carried-keys.mjs'
 import { __test__ as gen } from './gen-rn-compat.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 
@@ -52,8 +60,9 @@ const MP_CONFIG_REL = 'apps/miniapp-taro/src/app.config.ts'
 const MP_SRC = 'apps/miniapp-taro/src'
 /** 一条在册路由可能指向的页文件后缀(C8 逐条探存在性用;顺序即 Taro 的解析候选)。 */
 const PAGE_EXTS = ['.tsx', '.ts', '.jsx', '.js']
-/** 壳承载页的 `@rn-shells/<X>` 按名字指到这里(C5 判的就是它真不真存在)。 */
-const RN_SCREENS = 'apps/mobile-rn/src/screens'
+/** 端内生成的词包(解包核对可达键用;zh-CN 内联档 + 4 语 CDN 载荷档) */
+const ZH_PACK_REL = 'apps/miniapp-taro/src/i18n/generated/zh-cn-pack.gen.ts'
+const REMOTE_PACK_REL = 'apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts'
 /** 标记载体:与 cov.MARK_RE 同形(顶行 `// 镜像 packages/app/...`) */
 const MIRROR_MARK_RE = /^\/\/ ?镜像 (packages\/app\/src\/\S+)/m
 /** 真复用的两种形态:直接渲染共享屏,或承载 RN 壳 */
@@ -170,7 +179,7 @@ function effectiveExports(contents) {
   const resolveStar = (spec) => {
     for (const ext of ['', '.ts', '.tsx', '.js', '.jsx']) {
       const key = `${COMPAT_DIR}/${spec}${ext}`
-      if (contents.get(key) != null) return key
+      if (contents.get(key) !== null && contents.get(key) !== undefined) return key
     }
     return null
   }
@@ -208,7 +217,7 @@ function c7Fixture(explicit) {
   }
 }
 export function judge(reader) {
-  const findings = { c1: [], c2: [], c3: [], c4: [], c5: [], c6: [], c7: [], c8: [], c9: [] }
+  const findings = { c1: [], c2: [], c3: [], c4: [], c5: [], c6: [], c7: [], c8: [], c9: [], c10: [] }
   let files
   try {
     files = reader.listFiles(CONSUMERS)
@@ -218,6 +227,7 @@ export function judge(reader) {
   if (files.length === 0) return { state: 'undetermined', reason: '消费面枚举到 0 个文件(判据面异常,不记绿)', findings }
 
   let declaredRoutes = []
+  let c10Measured = null
   try {
     declaredRoutes = cov
       .collectMiniapp(faceOf(reader))
@@ -233,7 +243,7 @@ export function judge(reader) {
   let pageRoutes = []
   try {
     const cfgPre = reader.readMany([MP_CONFIG_REL]).get(MP_CONFIG_REL)
-    if (cfgPre != null) pageRoutes = parseMiniappRoutes(cfgPre).routes
+    if (cfgPre !== null && cfgPre !== undefined) pageRoutes = parseMiniappRoutes(cfgPre).routes
   } catch {
     pageRoutes = [] // 取不到 ⇒ 主批里仍会因 config 缺失落到「未判定」,这里不抢先定论
   }
@@ -249,6 +259,8 @@ export function judge(reader) {
       // C8 的候选后缀一次批齐(同面同轮):一条路由可能落在 .tsx/.ts/.jsx/.js 任一种
       ...pageRoutes.flatMap((r) => PAGE_EXTS.map((e) => `${MP_SRC}/${r}${e}`)),
       shellTypes.OUT_REL,
+      ZH_PACK_REL,
+      REMOTE_PACK_REL,
     ])
   } catch (error) {
     return { state: 'undetermined', reason: `取材失败:${String(error?.message ?? error).slice(0, 120)}`, findings }
@@ -368,7 +380,7 @@ export function judge(reader) {
     for (const [rel, set] of shellTargets) {
       for (const x of set) {
         const target = shellTargetRel(x)
-        if (got.get(target) == null) findings.c5.push(`${rel} → ${target}(被审面上不存在 ⇒ 该页编不过)`)
+        if (got.get(target) === null || got.get(target) === undefined) findings.c5.push(`${rel} → ${target}(被审面上不存在 ⇒ 该页编不过)`)
       }
     }
   }
@@ -403,7 +415,7 @@ export function judge(reader) {
     findings.c8.push(`${MP_CONFIG_REL}:在册路由枚举到 0 条 ⇒ 这一维没看,不得记绿(判据面异常或路由解析坏)`)
   } else {
     findings.c8 = pageRoutes
-      .filter((r) => !PAGE_EXTS.some((e) => contents.get(`${MP_SRC}/${r}${e}`) != null))
+      .filter((r) => !PAGE_EXTS.some((e) => contents.get(`${MP_SRC}/${r}${e}`) !== null && contents.get(`${MP_SRC}/${r}${e}`) !== undefined))
       .map((r) => `app.config 在册 /${r} ⇒ ${MP_SRC}/${r}{${PAGE_EXTS.join(',')}} 在被审面上一个都不存在`)
   }
 
@@ -413,10 +425,10 @@ export function judge(reader) {
   // 正是造页器 C6 取用形态判据在编译期丢掉的那一半兜底。
   {
     const declSrc = contents.get(shellTypes.OUT_REL)
-    if (declSrc == null) {
+    if (declSrc === null || declSrc === undefined) {
       findings.c9.push(`${shellTypes.OUT_REL}:被审面上没有这份派生件 ⇒ 壳承载页在 tsc 里等于 any(跑 node scripts/gen-rn-shell-types.mjs --write)`)
     } else {
-      const pageTexts = pageRoutes.map((r) => PAGE_EXTS.map((e) => contents.get(`${MP_SRC}/${r}${e}`)).find((t) => t != null) ?? '')
+      const pageTexts = pageRoutes.map((r) => PAGE_EXTS.map((e) => contents.get(`${MP_SRC}/${r}${e}`)).find((t) => t !== null && t !== undefined) ?? '')
       const targets = [...new Set(shellTypes.specsOfPages(pageTexts).map((s) => shellTypes.targetOfSpecifier(s)).filter(Boolean))]
       let tmap
       try {
@@ -434,6 +446,63 @@ export function judge(reader) {
     }
   }
 
+  // C10 功能轴维:承载页可达的 t() 键必须能在**端内生成的词包**里解出来(解 b64 复核 —— 源文件里有不算,
+  // 交付物里没有就没有)。立因(2026-10-26 现读):承载页闭包用到的键里有一批只住在
+  // `packages/i18n/messages/mobile-rn/*`,端内包取不到 ⇒ 页面上是原始键名(HEAD 面现读 26 条,如
+  // `common.gotIt`);此前它们"有字"靠的是把 RN 词包整包内联进每一页(每页 +1.36 MB),那是用体积换文字。
+  // 档位 = **差值棘轮**(锚点 = HEAD 面自己的缺键集):那批 RN 词包尚未入库,绝对零容忍就是恒红门(§12e);
+  // 只拦"本次把承载页带进来却没补键"这一型。锚点取不到 ⇒ 未判定,不猜也不记绿。
+  let c10Stock = 0
+  {
+    const carrierCount = pageRoutes.filter((r) => {
+      const rel = PAGE_EXTS.map((e) => `${MP_SRC}/${r}${e}`).find((x) => contents.get(x) !== null && contents.get(x) !== undefined)
+      return rel !== null && rel !== undefined && /@rn-shells\/|@ihui\/rn-app\//.test(String(contents.get(rel)))
+    }).length
+    if (carrierCount > 0) {
+      const carriedMissingOn = (rd) => {
+        const zh = rd.readMany([ZH_PACK_REL]).get(ZH_PACK_REL) ?? null
+        const remote = rd.readMany([REMOTE_PACK_REL]).get(REMOTE_PACK_REL) ?? null
+        if (zh === null || zh === undefined || remote === null || remote === undefined) return { undetermined: `端内词包取不到(${[zh, remote].filter((v) => v === null || v === undefined).length} 份)` }
+        let carried
+        try {
+          carried = carriedKeysFromRepo({
+            readBatch: (rels) => rd.readMany(rels),
+            listFiles: () => pageRoutes.flatMap((r) => PAGE_EXTS.map((e) => `${MP_SRC}/${r}${e}`)),
+          })
+        } catch (error) {
+          return { undetermined: `闭包取面失败:${String(error?.message ?? error).slice(0, 80)}` }
+        }
+        const packs = {}
+        try {
+          packs['zh-CN'] = flattenKeys(decodePackB64(extractStringConst(zh, 'ZH_CN_PACK_B64'), ROOT))
+          const enB64 = extractLocaleB64(remote, 'en')
+          if (enB64) packs.en = flattenKeys(decodePackB64(enB64, ROOT))
+        } catch (error) {
+          return { undetermined: `词包解不开:${String(error?.message ?? error).slice(0, 80)}` }
+        }
+        if (Object.keys(packs).length === 0) return { undetermined: '一件词包都解不开' }
+        const miss = new Set()
+        for (const [loc, have] of Object.entries(packs)) for (const k of carried.keys) if (!have.has(k)) miss.add(`${loc}::${k}`)
+        return { miss, measured: { carriers: carried.carriers.length, files: carried.files.length, keys: carried.keys.size, packs: Object.keys(packs).join(',') } }
+      }
+      const here = carriedMissingOn(reader)
+      if (here.undetermined) {
+        findings.c10.push(`承载页 ${carrierCount} 枚,但${here.undetermined} ⇒ 无从判可达键是否补齐,不记绿也不冒红`)
+      } else {
+        const anchor = carriedMissingOn(makeReader('head'))
+        if (anchor.undetermined) {
+          return { state: 'undetermined', reason: `C10:HEAD 面锚点${anchor.undetermined} ⇒ 差值棘轮不判,也不记绿`, findings }
+        }
+        c10Stock = anchor.miss.size
+        c10Measured = here.measured
+        for (const k of [...here.miss].sort()) {
+          if (anchor.miss.has(k)) continue
+          const [loc, key] = k.split('::')
+          findings.c10.push(`${loc} 包里没有可达键 ${key}(承载页 ${carrierCount} 枚;出路:node scripts/gen-i18n-compressed.mjs)`)
+        }
+      }
+    }
+  }
   return {
     state:
       findings.c1.length +
@@ -444,13 +513,14 @@ export function judge(reader) {
         findings.c6.length +
         findings.c7.length +
         findings.c8.length +
-        findings.c9.length >
+        findings.c9.length +
+        findings.c10.length >
         0
         ? 'red'
         : 'ok',   findings,
     staleIcons,
     staleReuse,
-    measured: { rnNames: rnNames.size, exported: exported.size, lucide: lucideTotal, routes: routeEntries.length, shells: shellTargets.size, files: files.length, declared: declaredRoutes.length, pageRoutes: pageRoutes.length },
+    measured: { rnNames: rnNames.size, exported: exported.size, lucide: lucideTotal, routes: routeEntries.length, shells: shellTargets.size, files: files.length, declared: declaredRoutes.length, pageRoutes: pageRoutes.length, c10: c10Measured, c10Stock },
   }
 }
 
@@ -489,6 +559,10 @@ function main() {
   console.log(`  C6 取用形态:与壳的真导出对不上的页 ${r.findings.c6.length} 条 / C7 桶歧义名 ${r.findings.c7.length} 个`)
   console.log(`  C8 路由↔页配对:在册路由 ${m.pageRoutes ?? 0} 条 / 页文件不在被审面上的 ${r.findings.c8.length} 条`)
   console.log(`  C9 编译期契约:declare 声明件与面上引用不同步 ${r.findings.c9.length} 条`)
+  const m10 = m.c10
+  console.log(
+    `  C10 功能轴词包:${m10 ? `承载页 ${m10.carriers} 枚 / 闭包文件 ${m10.files} 枚 / 可达键 ${m10.keys} 个 / 已核包 ${m10.packs}` : '无承载页(不适用)'} / 本次新增缺键 ${r.findings.c10.length} 条 / HEAD 存量 ${m.c10Stock ?? 0} 条(只报数)`,
+  )
   for (const [label, list] of [
     ['C1', r.findings.c1],
     ['C2', r.findings.c2],
@@ -499,6 +573,7 @@ function main() {
     ['C7', r.findings.c7],
     ['C8', r.findings.c8],
     ['C9', r.findings.c9],
+    ['C10', r.findings.c10],
   ]) {
     if (list.length > 0) console.log(`❌ ${label} 缺口逐条:${list.join('  ')}`)
   }
