@@ -5647,7 +5647,7 @@ const checks = [
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_E2E_COVERAGE_GAP',
-    stagedTriggers: ['apps/web/app/', 'apps/web/src/', 'apps/api/src/', 'scripts/check-e2e-coverage-gap.mjs', 'scripts/data/e2e-coverage-gap-scope.json'],
+    stagedTriggers: ['apps/web/app/', 'apps/web/src/', 'apps/api/src/', 'scripts/check-e2e-coverage-gap.mjs', 'scripts/data/e2e-coverage-gap-scope.json', 'scripts/lib/e2e-coverage-gap.mjs'],
     onFailHint: [
       '',
       '  💡 本次暂存带进了没有对应测试的新模块(判据:同目录 *.test.* / __tests__ 词边界前缀)。',
