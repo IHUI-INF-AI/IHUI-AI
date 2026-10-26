@@ -57,7 +57,6 @@ export function specifiersOf(text, lang = ts.ScriptKind.TSX) {
 }
 
 const isRel = (s) => s.startsWith('.') || s.startsWith('/')
-const isAliasish = (s) => s.startsWith('@') && !s.startsWith('@/')
 
 /**
  * 图遍历:roots = [{file, text}]。
@@ -65,64 +64,82 @@ const isAliasish = (s) => s.startsWith('@') && !s.startsWith('@/')
  * bareOf(spec) ⇒ 判定是否裸包(默认:非相对且非端内别名)。
  * 返回 {files, externals:Map<包名,{from:Set, names:Set}>, unresolved}。
  */
-export function walkClosure({ roots, readFile, toRel, isBare = (s) => !isRel(s) && !s.startsWith('@/'), barrelOf = null }) {
+export function walkClosure({ roots, readFile = null, readBatch = null, toRel, isBare = (s) => !isRel(s) && !s.startsWith('@/'), barrelOf = null }) {
   const files = new Set()
   const externals = new Map()
   const unresolved = []
-  const queue = [...roots]
-  const seen = new Set(queue.map((r) => r.file))
-  while (queue.length > 0) {
-    const { file, text } = queue.shift()
-    files.add(file)
-    if (text == null) {
-      unresolved.push({ from: file, spec: '(正文取不到)', note: 'readFile 返回空 ⇒ 该支路没走' })
-      continue
-    }
-    for (const { spec, names, kind } of specifiersOf(text, file.endsWith('.ts') && !file.endsWith('.d.ts') ? ts.ScriptKind.TS : ts.ScriptKind.TSX)) {
-      if (isBare(spec)) {
-        const key = pkgNameOf(spec)
-        const cur = externals.get(key) ?? { from: new Set(), names: new Set(), specs: new Set() }
-        cur.from.add(file)
-        for (const n of names) cur.names.add(n)
-        cur.specs.add(spec)
-        externals.set(key, cur)
-        void kind
+  const seen = new Set()
+  // 两种取面方式同一份遍历:
+  //   readFile —— 磁盘面(逐份读);readBatch —— git 面(整层一次 cat-file,122 个文件按 6~8 层批量取满,
+  //   逐份 spawn 会让这道门在 pre-commit 慢到没人跑,而门一慢就等于没装车)。
+  const batch = readBatch ?? ((rels) => new Map(rels.map((r) => [r, readFile ? readFile(r) : null])))
+  let layer = []
+  for (const r of roots) {
+    if (seen.has(r.file)) continue
+    seen.add(r.file)
+    layer.push(r)
+  }
+  while (layer.length > 0) {
+    const wanted = new Set()
+    const edges = []
+    for (const { file, text } of layer) {
+      files.add(file)
+      if (text === null || text === undefined) {
+        unresolved.push({ from: file, spec: '(正文取不到)', note: 'readBatch/readFile 返回空 ⇒ 该支路没走' })
         continue
       }
-      const rel = toRel(file, spec)
-      if (rel == null) {
-        unresolved.push({ from: file, spec, note: '射程内的说明符但落点算不出(别名映射缺条目)' })
-        continue
-      }
-      if (seen.has(rel)) continue
-      // 桶口展开:命中 barrelOf 时不整桶入图,只按本行取用的名字进对应特性文件
-      // (webpack 带 sideEffects:false 的摇树就是这么做的;整桶遍历会把 218 屏全拖进来,读数是虚高)
-      const expanded = barrelOf?.(file, spec, names) ?? null
-      const enqueued = []
-      if (expanded?.length) {
-        for (const r of expanded) {
-          if (seen.has(r)) continue
-          const t = readFile(r)
-          if (t == null) {
-            unresolved.push({ from: file, spec, note: `桶口展开到 ${r} 但面上取不到正文` })
-            continue
-          }
-          seen.add(r)
-          enqueued.push({ file: r, text: t })
-        }
-      } else if (expanded) {
-        continue // 桶口但一个名字都没取用(纯 side-effect)⇒ 不入图
-      } else {
-        const t = readFile(rel)
-        if (t == null) {
-          unresolved.push({ from: file, spec, note: `解析到 ${rel} 但面上取不到正文` })
+      const lang = file.endsWith('.ts') && !file.endsWith('.d.ts') ? ts.ScriptKind.TS : ts.ScriptKind.TSX
+      for (const { spec, names } of specifiersOf(text, lang)) {
+        if (isBare(spec)) {
+          const key = pkgNameOf(spec)
+          const cur = externals.get(key) ?? { from: new Set(), names: new Set(), specs: new Set() }
+          cur.from.add(file)
+          for (const n of names) cur.names.add(n)
+          cur.specs.add(spec)
+          externals.set(key, cur)
           continue
         }
-        seen.add(rel)
-        enqueued.push({ file: rel, text: t })
+        const expanded = barrelOf?.(file, spec, names) ?? null
+        if (expanded) {
+          for (const r of expanded) if (!seen.has(r)) wanted.add(r)
+          continue
+        }
+        let rel
+        try {
+          rel = toRel(file, spec)
+        } catch {
+          rel = null
+        }
+        if (rel === null || rel === undefined) {
+          unresolved.push({ from: file, spec, note: '射程内的说明符但落点算不出(别名映射缺条目)' })
+          continue
+        }
+        if (!seen.has(rel)) wanted.add(rel)
+        edges.push({ from: file, spec, rel })
       }
-      for (const e of enqueued) queue.push(e)
     }
+    const rels = [...wanted]
+    if (rels.length === 0) break
+    let got
+    try {
+      got = batch(rels)
+    } catch (error) {
+      unresolved.push({ from: '(本层)', spec: `readBatch 失败:${String(error?.message ?? error).slice(0, 80)}`, note: '整层未取到 ⇒ 不猜,点名' })
+      break
+    }
+    const next = []
+    for (const rel of rels) {
+      if (seen.has(rel)) continue
+      const t = got.get(rel) ?? null
+      if (t === null || t === undefined) {
+        const edge = edges.find((e) => e.rel === rel)
+        if (edge) unresolved.push({ from: edge.from, spec: edge.spec, note: `解析到 ${rel} 但面上取不到正文` })
+        continue
+      }
+      seen.add(rel)
+      next.push({ file: rel, text: t })
+    }
+    layer = next
   }
   return { files, externals, unresolved, TS_EXTS, INDEX_FILES }
 }
