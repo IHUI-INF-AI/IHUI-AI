@@ -5,8 +5,8 @@
 /**
  * 非 fetchApi 通道的 401 续期(2026-10-26 立)。
  *
- * 病灶:access JWT 只有 15 分钟,而 fetchAiServiceJson / fetchRaw / fetchText / SSE
- * 四条腿都只认 Bearer、遇 401 直接报错 ⇒ 签到、知识库、截图下载、聊天流在"待一会儿"
+ * 病灶:access JWT 只有 15 分钟,而 fetchAiServiceJson / fetchRaw / SSE
+ * 三条腿都只认 Bearer、遇 401 直接报错 ⇒ 签到、知识库、截图下载、聊天流在"待一会儿"
  * 之后表现为"功能突然不可用/聊一半提示登录过期",而 refresh(30 天)明明还能换。
  *
  * 本轮契约(逐条钉住):
@@ -14,6 +14,10 @@
  *  - 续期失败 ⇒ 原样返回/抛出 401,不得无限重放;
  *  - 非 401(5xx/403 等) ⇒ 不触发续期;
  *  - SSE 的续期只在 HTTP 层(还没读流)发生,由调用方改写 headers,runner 原地重试。
+ *
+ * 2026-10-26 更正:本文件头原写"四条腿"并把 fetchText 算在内,但 fetchText 当时
+ * **没有任何用例**(只有实现)—— 已把 fetchText 的 401 契约补到
+ * `tests/auth-retry-401-budget.test.ts`,本文件只覆盖上面实际列出的三条腿。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setTransport, type Transport, type TransportInit } from '../src/transport.js'
