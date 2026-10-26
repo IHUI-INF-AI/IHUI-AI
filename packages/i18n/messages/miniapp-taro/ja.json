@@ -183,7 +183,16 @@
     "more": "もっと見る",
     "livePreview": "ライブ予定",
     "startTime": "開始時間",
-    "pubTip": "お知らせ"
+    "pubTip": "お知らせ",
+    "welcome": "IHUI AI へようこそ",
+    "guest": "ゲスト",
+    "learningProgress": "学習進捗",
+    "progressLessons": "{completed}/{total} 節修了",
+    "progressEmpty": "まだ学習を始めていません。コースを選びましょう",
+    "recommend": "おすすめ",
+    "navMenu": "メニュー",
+    "matDeletedOk": "削除しました",
+    "notLoggedIn": "未ログイン"
   },
   "course": {
     "learningProgress": "学習進捗",
@@ -241,7 +250,9 @@
     "rating4": "良い",
     "rating5": "とても良い",
     "studentUnit": "名受講",
-    "moreTitle": "もっと見る"
+    "moreTitle": "もっと見る",
+    "studentCount": "{count} 人が学習",
+    "empty": "コースはまだありません"
   },
   "live": {
     "viewers": "{n} 人視聴",
@@ -304,7 +315,9 @@
     "viewerCount": "{count} 人が視聴中",
     "lecturer": "講師",
     "startAt": "開始時間",
-    "loadFailed": "ライブの読み込みに失敗"
+    "loadFailed": "ライブの読み込みに失敗",
+    "ongoing": "配信中",
+    "upcoming": "予定"
   },
   "liveHost": {
     "statusIdle": "未開始",
@@ -2500,7 +2513,8 @@
       "viewDetail": "詳細を見る",
       "identityTitle": "身分切替",
       "identityDemander": "発注者",
-      "identityDeveloper": "開発者"
+      "identityDeveloper": "開発者",
+      "untitledConv": "無題の会話"
     },
     "cover": {
       "entryTitle": "開発者になる",
@@ -4554,7 +4568,15 @@
     "vividTail": "、まもなくです"
   },
   "profile": {
-    "myCourses": "マイコース"
+    "myCourses": "マイコース",
+    "copyFailRetry": "コピーに失敗しました。再試行してください",
+    "deleteBtn": "削除",
+    "dlgDelConvTitle": "会話を削除",
+    "dlgDelConvBody": "この会話を削除しますか？",
+    "delFailedRetry": "削除に失敗しました。再試行してください",
+    "userCard": {
+      "loginRequired": "先にログインしてください"
+    }
   },
   "verify": {
     "phoneEmpty": "電話番号が入力されていません",
@@ -5869,5 +5891,20 @@
   "workflows": {
     "empty": "ワークフローはまだありません",
     "loadFailed": "ワークフローの読み込みに失敗しました"
+  },
+  "menu": {
+    "sectionDiscover": "発見"
+  },
+  "agentScreen": {
+    "loadFailed": "エージェントの読み込みに失敗",
+    "title": "エージェント"
+  },
+  "aiAssistant": {
+    "startChat": "チャット開始",
+    "vendorOther": "その他",
+    "copyOkToast": "リンクをクリップボードにコピーしました"
+  },
+  "resources": {
+    "loadMore": "もっと読み込む"
   }
 }
