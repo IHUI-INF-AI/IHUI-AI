@@ -86,7 +86,14 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         const signature = request.headers['wechatpay-signature'] as string
 
         const rawBody = JSON.stringify(request.body)
-        const body = request.body as Record<string, unknown>
+        // 无 body 的 POST(无 content-type 且 content-length 为 0)在 Fastify 里**根本不解析**
+        // (handle-request.js:「Request has no body to parse」直接放行)⇒ request.body 是 undefined。
+        // 原写法 `request.body as Record<string, unknown>` 把它当对象用,第一行属性访问就抛
+        // TypeError ⇒ 落进下面的 catch ⇒ 回 500「副作用处理失败,待重试」——
+        // 而这次请求**根本没有副作用可处理**(连 out_bill_no 都没有),500 还会让微信按重试曲线
+        // 反复重投一个永远不可能成功的请求(缺 body 是恒定的,不是瞬时故障)。
+        // 口径:缺 out_bill_no / 缺 state = 幂等空转 ⇒ 回 SUCCESS 不重投(见下面那个 guard)。
+        const body = (request.body ?? {}) as Record<string, unknown>
         const outBillNo = body.out_bill_no as string
         const state = body.state as string
 

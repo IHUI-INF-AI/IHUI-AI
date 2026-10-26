@@ -45,7 +45,12 @@ describe('Payment Extended API', () => {
       expect(body.message).toBe('OK')
     })
 
-    it('无 body 时被 catch 接住返回 SUCCESS', async () => {
+    // 用例名此前写「无 body 时被 catch 接住返回 SUCCESS」——那是 bddb7beaff4 之前的旧契约
+    // (当时 catch 回 SUCCESS);该批已把 catch 改成回 FAIL+500(守门 243 G2:通知回调的 catch
+    // 不得回服务商 ack SUCCESS),所以「被 catch 接住」这半句已经不成立。
+    // 现在断言不变(200 + SUCCESS),但路径是**幂等 guard**:无 body ⇒ 无 out_bill_no ⇒
+    // 空转回 SUCCESS,不进副作用处理、也不落 catch。
+    it('无 body 时按幂等守则回 SUCCESS(缺 out_bill_no ⇒ 空转,不进副作用处理)', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/withdrawal/notify',
