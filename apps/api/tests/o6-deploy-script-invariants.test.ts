@@ -194,7 +194,14 @@ describe('O6 部署脚本静态判据(deploy/win/ihui-deploy.ps1)', () => {
     // 旧锚点写死 FETCH_HEAD ⇒ 那次正当改动一落地,本条就红成"脚本不再识别 git 的分叉原话",
     // 把**测试的锚点过期**说成**脚本的回归** —— 两种错法后果相同(下一个人去改脚本而不是改锚点),
     // 所以这里既改锚,也把"锚点找不到"与"判据消失"分成两条不同的话。
-    const anchor = /&\s*git merge --ff-only\s+\$\w+|&\s*git merge --ff-only\s+FETCH_HEAD/
+    // ⚠️ 锚点 2026-10-27 跟着「git 调用一律钉 -C $Root」那次改动更新(85eeb326a7:取源 / 定 tip /
+    // 算 behind / 快进一律读 $Root 那一本仓,不再读当前工作目录那一本 —— 那修的是"读错仓库"的真实
+    // 缺陷,不是回归)。合并调用从此形如 `& git -C $Root merge --ff-only $remoteTip`;旧锚点写死
+    // `& git merge …`,于是这条判据在干净 HEAD 上恒红,而它量的三条语义(分叉原话 / WIP 交集 /
+    // 未归类 Fail)一条没少。所以这里只给"仓库选择器"放一格可选,`& git` + `merge --ff-only` +
+    // 显式 tip 三件仍必须齐在 —— 放宽的是"去哪读",不是"读什么"。
+    const anchor =
+      /&\s*git(?:\s+-C\s+\$\w+)?\s+merge --ff-only\s+\$\w+|&\s*git(?:\s+-C\s+\$\w+)?\s+merge --ff-only\s+FETCH_HEAD/
     const mAnchor = src.match(anchor)
     assert.ok(
       mAnchor,
