@@ -22,6 +22,7 @@ import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
 import { logAction } from '../../services/audit-service.js'
 import { isUuidString } from '../../utils/uuid.js'
+import { revokeAllUserRefreshTokens } from '../../db/queries.js'
 
 const updateUserSchema = z.strictObject({
   nickname: z.string().min(1).max(64).optional(),
@@ -142,6 +143,13 @@ export const userRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(users.id, id))
       .returning()
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    // 2026-10-26:把账号改成非启用态时必须同时吊销它全部 refresh token。
+    // 此前只写 users.status,而旧 refresh 仍能续签(登录侧 401、OAuth 侧刚补上 403,
+    // 但**已经发出去的 refresh** 还能被拿去换新凭据)——"禁用"在会话面上不生效。
+    // 吊销出口与重置密码/注销同一个(revokeAllUserRefreshTokens),不另写第二套。
+    if (typeof body.status === 'number' && body.status !== 1) {
+      await revokeAllUserRefreshTokens(id)
+    }
     return reply.send(success(row))
   })
   server.post('/admin/users/:id/review', { preHandler: requireAdmin }, async (request, reply) => {
