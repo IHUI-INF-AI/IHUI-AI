@@ -116,9 +116,14 @@ function findCredentialShapes(fromSha, toSha) {
  * 远端拒收 / 分支保护 / ref 竞态 / 钩子失败各有专档(lib/push-attempt-triage.mjs),这里绝不洗成"换腿重试"。
  */
 
-/** 取代理配置用**脚本自身位置**推根(§15:不依赖 cwd;也不用下面 L227 一带的 repoRoot ——
- *  本助手第一次被调用时它还没赋值,拿它会踩 TDZ)。 */
+/**
+ * 取代理配置用的仓根。⚠️ **不得**直接引用下面 L~240 的 `repoRoot` 常量:本助手第一次被调用时
+ * 它还没赋值(2026-10-26 实测 node 抛 `Cannot access 'repoRoot' before initialization` ⇒
+ * 兜底自己崩在判据之前,比"没有兜底"更坏)。§15:不用 cwd 定根,由脚本自身位置推。
+ */
 const EGRESS_ROOT = resolve(import.meta.dirname, '..')
+/** 最后一次兜底的诊断串(写进 push-state 的 reason,免得读数又只剩"128 无特征")。 */
+let lastEgressNote = ''
 
 /** 从 git 命令串里取动词(`git ls-remote origin …` → `ls-remote`);取不到 ⇒ 空串 ⇒ 不兜。 */
 function networkVerbOf(cmd) {
@@ -139,11 +144,15 @@ function networkVerbOf(cmd) {
 function withDirectArgs(cmd) {
   const s = String(cmd)
   if (s.includes('http.proxy=')) return s
-  return s.replace(/(^|[\\/])git(\.exe)?(\s)/i, (m, p, _x, sp) => `${p ?? 'git'}${GIT_EGRESS_DIRECT_ARGS.join(' ')}${sp}`)
+  return s.replace(
+    /(^|[\\/])git(\.exe)?(\s)/i,
+    (_m, p, exe, sp) => `${p ?? 'git'}${exe ?? ''}${' ' + GIT_EGRESS_DIRECT_ARGS.join(' ')}${sp}`,
+  )
 }
 
 /**
  * 该不该摘代理重跑。返回兜底依据串(表示"该跑"),否则 null(表示不兜)。
+ * 顺带把"两条腿都不通"这句留给 push-state 的 reason —— 读数不该再退化成"退出码 128 且无可辨认特征"。
  * @param {{verb:string, status:number|null, errText:string, alreadyRetried?:boolean}}
  */
 function egressRetryFor({ verb, status, errText, alreadyRetried = false }) {
@@ -155,6 +164,12 @@ function egressRetryFor({ verb, status, errText, alreadyRetried = false }) {
     alreadyDirect: alreadyRetried,
     attempt: alreadyRetried ? 1 : 0,
   })
+  if (plan.apply && alreadyRetried) {
+    lastEgressNote =
+      ` —— 出网代理腿退化(${plan.why}),摘代理重跑仍失败 ⇒ 两条腿都不通` +
+      ';临时出路:`git -c http.proxy= -c https.proxy= push origin main` 或 `node scripts/git-sync-converge.mjs --no-proxy`' +
+      ';留痕:.ihui-agent/state/git-egress-degradation.log'
+  }
   return plan.apply ? plan.why : null
 }
 
@@ -1056,7 +1071,7 @@ if (attempt.kind === 'non-fast-forward') {
   log('info', `  出路(唯一入口):${C.cyan}${nextCmd}${C.reset}`)
   writePushState('diverged', localHead, {
     kind: attempt.kind,
-    reason: attempt.why,
+    reason: attempt.why + lastEgressNote,
     nextCommand: nextCmd,
   })
   process.exit(1)
@@ -1114,7 +1129,7 @@ if (pushResult.status !== 0) {
     // 也绝不把这一型落到下面的"可能原因"里 —— 那正是每个人都去查一遍代理和凭据的成因。
     writePushState('diverged', localHead, {
       kind: attempt.kind,
-      reason: attempt.why,
+      reason: attempt.why + lastEgressNote,
       nextCommand: attempt.nextCommand ?? CONVERGE_COMMAND,
     })
     log('info', `  出路(唯一入口):${C.cyan}${attempt.nextCommand ?? CONVERGE_COMMAND}${C.reset}`)
