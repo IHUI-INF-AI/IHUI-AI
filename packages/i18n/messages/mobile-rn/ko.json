@@ -634,6 +634,22 @@
     "runtimeStop": "중지",
     "runtimeSend": "전송"
   },
+  "quickNotes": {
+    "menuEntry": "빠른 메모",
+    "title": "빠른 메모",
+    "new": "새 메모",
+    "edit": "편집",
+    "search": "메모 검색",
+    "insert": "대화에 삽입",
+    "archive": "보관",
+    "unarchive": "보관 해제",
+    "archived": "보관됨",
+    "showArchived": "보관 항목 표시",
+    "empty": "메모가 없습니다",
+    "titlePlaceholder": "제목",
+    "contentPlaceholder": "본문",
+    "groupPlaceholder": "그룹(선택)"
+  },
   "chat": {
     "assetCatText": "텍스트",
     "assetCatImage": "이미지",

@@ -634,6 +634,22 @@
     "runtimeStop": "Stop",
     "runtimeSend": "Send"
   },
+  "quickNotes": {
+    "menuEntry": "Quick notes",
+    "title": "Quick notes",
+    "new": "New note",
+    "edit": "Edit",
+    "search": "Search notes",
+    "insert": "Insert to chat",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archived": "Archived",
+    "showArchived": "Show archived",
+    "empty": "No notes yet",
+    "titlePlaceholder": "Title",
+    "contentPlaceholder": "Body",
+    "groupPlaceholder": "Group (optional)"
+  },
   "chat": {
     "modelSwitchStopped": "Switched to {model}. This response was stopped.",
     "meta": {

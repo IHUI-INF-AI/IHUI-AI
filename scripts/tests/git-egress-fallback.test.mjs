@@ -80,12 +80,55 @@ test('② 服务器裁决三型一律不兜(否则等于把 triage 判序洗掉)
 
 test('③ 兜底只多跑一次', () => {
   assert.equal(E.egressFallbackPlan({ ...base, attempt: 1 }).apply, false)
-  assert.match(E.egressFallbackPlan({ ...base, attempt: 1 }).why, /不得连环重试/)
+  assert.match(E.egressFallbackPlan({ ...base, attempt: 1 }).why, /不得连环换腿/)
 })
 
-test('③a 已带摘代理配置的趟不叠加', () => {
-  assert.equal(E.egressFallbackPlan({ ...base, alreadyDirect: true }).apply, false)
+test('③a 第一趟走的是代理 ⇒ 兜底只往直连换,不叠加别的', () => {
+  const r = E.egressFallbackPlan({ ...base })
+  assert.equal(r.apply, true, r.why)
+  assert.equal(r.useDirectArgs, true, '代理趟失败应换到直连腿(摘代理),不是再套一层代理')
 })
+
+/**
+ * 对称格(2026-10-26 当天实测逼出来的):`--no-proxy` 显式走直连后,**只剩代理腿可用**那一刻
+ * 必须换回去。不兜这一格 = "我明明有腿却判无法判定远端位置",收敛器整轮白跑
+ * (当天 09:20 直连腿 `Failed to connect to github.com:443` 就是这么把 rc 打成 2 的)。
+ */
+test('③a2 第一趟走的是直连 ⇒ 换回代理腿,且方向标必须反过来', () => {
+  const r = E.egressFallbackPlan({
+    ...base,
+    alreadyDirect: true,
+    usedDirect: true,
+    errText:
+      "fatal: unable to access 'https://github.com/x/y.git/': Failed to connect to github.com:443 after 21061 ms: Could not connect to server",
+  })
+  assert.equal(r.apply, true, r.why)
+  assert.equal(r.useDirectArgs, false, '直连趟失败必须换回代理腿(不能把摘代理参数再套一次)')
+  assert.match(r.why, /换回代理腿重跑一次/)
+})
+
+test('③a3 直连趟失败而仓内没配代理 ⇒ 确实没腿可换,判失败不硬造第二趟', () => {
+  const r = E.egressFallbackPlan({
+    ...base,
+    proxyUrl: '',
+    alreadyDirect: true,
+    usedDirect: true,
+  })
+  assert.equal(r.apply, false)
+  assert.match(r.why, /没有另一条腿可换/)
+})
+
+test('③a4 服务器裁决即便是直连趟也不许换腿(方向对称不等于放宽判据)', () => {
+  const r = E.egressFallbackPlan({
+    ...base,
+    verb: 'push',
+    alreadyDirect: true,
+    usedDirect: true,
+    errText: 'remote: error: GH006: Protected branch update failed for refs/heads/main.',
+  })
+  assert.equal(r.apply, false, r.why)
+})
+
 
 test('③b 注入形态必须是空值 argv(-c http.proxy=)', () => {
   assert.deepEqual([...E.GIT_EGRESS_DIRECT_ARGS], ['-c', 'http.proxy=', '-c', 'https.proxy='])
@@ -140,18 +183,36 @@ test('③d 实测补因:直连腿自己也会断,且断法是 "Connection was re
   )
 })
 
-test('③e 显式绕过通道:IHUI_GIT_NO_PROXY=1 ⇒ isForceDirect 为真,且不叠第二趟', () => {
+test('③e 显式绕过通道:IHUI_GIT_NO_PROXY=1 ⇒ isForceDirect 为真,失败后换回的腿必须是代理', () => {
   const prev = process.env.IHUI_GIT_NO_PROXY
   try {
     delete process.env.IHUI_GIT_NO_PROXY
     assert.equal(E.isForceDirect(), false, '没设 env 时不得凭空直连')
     process.env.IHUI_GIT_NO_PROXY = '1'
     assert.equal(E.isForceDirect(), true, '设了 IHUI_GIT_NO_PROXY=1 却读不到 ⇒ --no-proxy 是空旗标')
-    // 第一趟已经直连过 ⇒ 判据必须拒叠第二趟(否则一次失败打两遍 21s 超时,还照样失败)
+    // 第一趟已按绕过走过直连 ⇒ 兜底只能往回换(有代理才换),且 attempt>0 时绝不三度换腿
+    const r = E.egressFallbackPlan({
+      verb: 'push',
+      errText: REAL_TRANSPORT_STDERR,
+      status: 128,
+      proxyUrl: PROXY,
+      alreadyDirect: true,
+      usedDirect: true,
+    })
+    assert.equal(r.apply, true, r.why)
+    assert.equal(r.useDirectArgs, false, '把摘代理参数再套一次等于原地重试,修不了任何东西')
     assert.equal(
-      E.egressFallbackPlan({ verb: 'push', errText: REAL_TRANSPORT_STDERR, status: 128, proxyUrl: PROXY, alreadyDirect: true })
-        .apply,
+      E.egressFallbackPlan({
+        verb: 'push',
+        errText: REAL_TRANSPORT_STDERR,
+        status: 128,
+        proxyUrl: PROXY,
+        alreadyDirect: true,
+        usedDirect: true,
+        attempt: 1,
+      }).apply,
       false,
+      '换腿只多跑一次 ⇒ 两腿都失败就如实上报',
     )
   } finally {
     if (prev === undefined) delete process.env.IHUI_GIT_NO_PROXY
@@ -172,11 +233,15 @@ test('③f 通道接线锁:converge 的 --no-proxy 必须落到 env,face-reader 
     /const forceDirect = Boolean\(opts\.forceDirect\) \|\| isForceDirect\(\)/,
     'gitRaw 没读绕过旗标',
   )
-  assert.match(src, /runOnce\(forceDirect \? GIT_EGRESS_DIRECT_ARGS : \[\]\)/, '第一趟没用上绕过参数')
   assert.match(
     src,
-    /alreadyDirect: forceDirect \|\| args\.includes\('http\.proxy='\)/,
-    '绕过时没记 first-try ⇒ 会白烧第二次超时',
+    /return runOnce\(forceDirect \? GIT_EGRESS_DIRECT_ARGS : \[\]\)/,
+    '第一趟没用上绕过参数(旗标只置变量不改派生)⇒ --no-proxy 是空旗标',
+  )
+  assert.match(
+    src,
+    /usedDirect: firstTriedDirect/,
+    '没把"第一趟走的哪条腿"交给判据 ⇒ 直连趟失败会再摘一次代理(原地重试)',
   )
 })
 
@@ -189,14 +254,32 @@ test('④ 接线锁:gitRaw 必须真的消费这套判据(摘线即红)', () => 
   const body = src.slice(start, nextExport === -1 ? src.length : nextExport)
   assert.match(body, /egressFallbackPlan\(\{/, 'gitRaw 没调用判据(函数在而无人用 = §0.9 那一型)')
   assert.match(body, /proxyConfiguredFor\(root\)/, 'gitRaw 没现读代理配置 ⇒ 判据永远拿不到输入')
-  assert.match(body, /runOnce\(GIT_EGRESS_DIRECT_ARGS\)/, 'gitRaw 没真的用摘代理参数重跑')
+  // 两个方向都要由 plan.useDirectArgs 决定(写死任一方向 = 只兜一条腿的偏判)
+  assert.match(
+    body,
+    /runOnce\(plan\.useDirectArgs \? GIT_EGRESS_DIRECT_ARGS : \[\]\)/,
+    'gitRaw 的换腿方向不是由判据给的 ⇒ 对称格是假的',
+  )
+  assert.match(
+    body,
+    /firstTriedDirect = forceDirect \|\| args\.includes\('http\.proxy='\)/,
+    '没把"第一趟走的哪条腿"传进判据 ⇒ 直连趟失败会被再摘一次代理',
+  )
+  assert.match(body, /return runOnce\(forceDirect \? GIT_EGRESS_DIRECT_ARGS : \[\]\)/, '绕过旗标没作用到第一趟')
   assert.match(body, /err\.egressPlan = plan/, '兜底为什么没生效必须随异常带出来,不许静默')
+  // 两腿都不通也必须留痕(显式绕过时 plan.apply=false,不写就又把失效做成了安静)
+  assert.match(
+    body,
+    /else if \(firstTriedDirect && GIT_EGRESS_TRANSPORT_RE\.test\(gitErrText\(e\)\)\)[\s\S]{0,220}noteEgressDegradation/,
+    '显式绕过又没腿可换时不留痕 = §12f 那个"失效表现为安静"的老坑',
+  )
   // 判序锁:兜底块必须在抛 Undetermined **之前**(抛完再兜就是死代码)
   assert.ok(
     body.indexOf('if (plan.apply)') < body.indexOf('new Undetermined('),
     '兜底分支写在抛错之后 = 永远跑不到',
   )
 })
+
 
 test('④a 传输特征串必须命中本机实测原文,且不命中服务器用语', () => {
   assert.ok(E.GIT_EGRESS_TRANSPORT_RE.test(REAL_TRANSPORT_STDERR))

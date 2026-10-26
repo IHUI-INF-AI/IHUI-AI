@@ -142,10 +142,28 @@ export const GIT_EGRESS_TRANSPORT_RE =
   /(recv failure|send failure|connection was aborted|could not connect|failed to connect|connection reset by peer|connection timed out|tls connect error|ssl connection|empty reply from server|proxy (?:auth|unreachable)|unable to access)/i
 
 /**
- * 纯判据(零 IO,便于镜像测试逐格钉):这一趟该不该摘代理重跑。
+ * "网络形状"的统一判据(2026-10-26 第二次实测补):
+ *  - 快速失败:回显是传输形态 ∧ 退出码 128;
+ *  - **挂死到超时**:`status` 为 null / code=ETIMEDOUT 且**没有任何回显**(当天实测 `--no-proxy`
+ *    第一趟 200s 零输出被 timeout 杀掉)—— 这一型过去既不换腿也不留痕,把失效做成了安静(§12f)。
+ * 只认这两型;服务器裁决(403/GH006/`[rejected]`)与"仓库坏了"(`not a git repository`)仍落 false。
+ */
+export function isTransportEgress({ errText = '', status = null, timedOut = false } = {}) {
+  if (timedOut) return true
+  if (status !== 128) return false
+  return GIT_EGRESS_TRANSPORT_RE.test(errText)
+}
+
+/**
+ * 纯判据(零 IO,便于镜像测试逐格钉):这一趟该不该**换腿**重跑。
+ * 两个方向共用同一把尺子(缺对称格就是"只兜一个方向"的偏判):
+ *  - 第一趟走的是代理 ⇒ 失败时换**直连**(`useDirectArgs: true`,即摘代理);
+ *  - 第一趟走的是直连(`--no-proxy`,或调用方自己带了摘代理参数)⇒ 失败时换回**代理腿**
+ *    (`useDirectArgs: false`) —— 2026-10-26 实测:显式绕过后若只剩代理腿能用,不兜这一格
+ *    就把"我明明有腿"判成"无法判定远端位置",收敛器整轮白跑。
  * @param {{verb?:string, errText?:string, status?:number|null, proxyUrl?:string,
- *          alreadyDirect?:boolean, attempt?:number}}
- * @returns {{apply:boolean, why:string}}
+ *          alreadyDirect?:boolean, usedDirect?:boolean, timedOut?:boolean, attempt?:number}}
+ * @returns {{apply:boolean, why:string, useDirectArgs:boolean}}
  */
 export function egressFallbackPlan({
   verb = '',
@@ -153,28 +171,73 @@ export function egressFallbackPlan({
   status = null,
   proxyUrl = '',
   alreadyDirect = false,
+  usedDirect = false,
+  timedOut = false,
   attempt = 0,
 } = {}) {
   if (!GIT_EGRESS_NETWORK_VERBS.includes(verb)) {
-    return { apply: false, why: `动词 ${verb || '(空)'} 不碰网络 ⇒ 不补第二趟` }
+    return {
+      apply: false,
+      why: `动词 ${verb || '(空)'} 不碰网络 ⇒ 不补第二趟`,
+      useDirectArgs: false,
+    }
   }
   if (attempt > 0) {
-    return { apply: false, why: '兜底只多跑一次 ⇒ 第二次仍失败就如实上报,不得连环重试' }
-  }
-  if (alreadyDirect) {
-    return { apply: false, why: '这一趟已经带了摘代理配置 ⇒ 不再叠加' }
+    return {
+      apply: false,
+      why: '兜底只多跑一次 ⇒ 第二次仍失败就如实上报,不得连环换腿',
+      useDirectArgs: usedDirect,
+    }
   }
   const proxy = String(proxyUrl ?? '').trim()
+  // 网络形状只有一个口径(见 isTransportEgress):快速失败(128+传输回显)与挂死到超时同罪。
+  const networkShaped = isTransportEgress({ errText, status, timedOut })
+  // ── 方向 A:失败的那一趟走的是直连 ⇒ 唯一可换的腿是代理 ──
+  if (usedDirect || alreadyDirect) {
+    if (!networkShaped) {
+      return {
+        apply: false,
+        why: `退出码 ${String(status)} 且回显既非传输形态也非挂死 ⇒ 交既有分档处理`,
+        useDirectArgs: true,
+      }
+    }
+    if (status !== 128) {
+      return { apply: false, why: `退出码 ${String(status)} ≠ 128 ⇒ 不是 git 网络层失败形态`, useDirectArgs: true }
+    }
+    if (!proxy) {
+      return {
+        apply: false,
+        why: '直连这趟已失败,而仓内没配 http.proxy ⇒ 没有另一条腿可换,失败就是失败',
+        useDirectArgs: true,
+      }
+    }
+    return {
+      apply: true,
+      why: `直连腿不通(第一趟已走直连),而仓内配了代理 ${proxy} ⇒ 换回代理腿重跑一次`,
+      useDirectArgs: false,
+    }
+  }
+
+  // ── 方向 B:失败的那一趟走的是代理 ⇒ 唯一可换的腿是直连 ──
   if (!proxy) {
-    return { apply: false, why: '没配 http.proxy ⇒ 不存在"退化腿"可摘,失败就是失败' }
+    return {
+      apply: false,
+      why: '没配 http.proxy ⇒ 不存在"退化腿"可摘,失败就是失败',
+      useDirectArgs: false,
+    }
   }
-  if (status !== 128) {
-    return { apply: false, why: `退出码 ${String(status)} ≠ 128 ⇒ 不是 git 网络层失败形态` }
+  if (!networkShaped) {
+    return {
+      apply: false,
+      why: `退出码 ${String(status)} 且回显既非传输形态也非挂死 ⇒ 交既有分档(拒收/策略/竞态/钩子)处理`,
+      useDirectArgs: false,
+    }
   }
-  if (!GIT_EGRESS_TRANSPORT_RE.test(errText)) {
-    return { apply: false, why: '错误文本不是传输形态 ⇒ 交既有分档(拒收/策略/竞态/钩子)处理' }
+  return {
+    apply: true,
+    why: `配了代理 ${proxy} 且回显是网络失败形态 ⇒ 摘代理直连重跑一次`,
+    useDirectArgs: true,
   }
-  return { apply: true, why: `配了代理 ${proxy} 且回显是传输形态 ⇒ 摘代理直连重跑一次` }
 }
 
 /** 该 root 生效中的 http.proxy(每进程缓存一次;读不到 ⇒ 空串 ⇒ 不兜,绝不猜)。 */
@@ -308,27 +371,32 @@ export function gitRaw(args, root, opts = {}) {
      * 写反就得到同一句,于是排查方向被整个带去"IDE 自带 git 被升级烂掉了"。两种都点名,
      * 只改可诊断性,不改判定(仍然抛 Undetermined,不会因此少判一次)。
      */
-    // ── 代理腿退化 ⇒ 摘代理直连重跑一次(判据与三条边界见 egressFallbackPlan 的头注) ──
+    // ── 网络腿退化 ⇒ 换腿重跑一次(判据与三条边界见 egressFallbackPlan 的头注) ──
+    // 第一趟走的是直连(forceDirect / 调用方自带摘代理)⇒ 这趟要换回代理腿;反之换直连。
+    const firstTriedDirect = forceDirect || args.includes('http.proxy=')
     const plan = egressFallbackPlan({
       verb: String(args[0] ?? ''),
       errText: gitErrText(e),
       status: typeof e?.status === 'number' ? e.status : null,
       proxyUrl: proxyConfiguredFor(root),
-      // forceDirect 时第一趟就已经摘了代理 ⇒ 不再重复兜底(重复只多烧一次超时,修不了任何东西)
-      alreadyDirect: forceDirect || args.includes('http.proxy='),
+      alreadyDirect: firstTriedDirect,
+      usedDirect: firstTriedDirect,
       attempt: opts.egressAttempt ?? 0,
     })
     if (plan.apply) {
       try {
-        const out = runOnce(GIT_EGRESS_DIRECT_ARGS)
+        const out = runOnce(plan.useDirectArgs ? GIT_EGRESS_DIRECT_ARGS : [])
         const log = noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: true })
         if (log) e.egressNote = log
         return out
       } catch {
-        // 两条腿都断了 ⇒ 落到下面,回吐**第一次**的 git 原话(失效方向是如实报第一次失败,
-        // 不是"再多放一次");留痕照写,让"代理坏了+直连也不通"这件事看得见。
+        // 两条腿都不通 ⇒ 落到下面,回吐**第一次**的 git 原话(失效方向是如实报第一次失败,
+        // 不是"再多放一次");留痕照写,让"两条腿都断"这件事看得见。
         noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: false })
       }
+    } else if (firstTriedDirect && GIT_EGRESS_TRANSPORT_RE.test(gitErrText(e))) {
+      // 显式绕过(--no-proxy)且没有另一条腿可换 ⇒ 这件事也必须留痕,不得静默。
+      noteEgressDegradation({ root, verb: String(args[0] ?? ''), plan, ok: false })
     }
     const hint = e?.code === 'ENOENT' ? `(git 二进制或该 root 不可达:root=${root})` : ''
     const err = new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}${hint}`)

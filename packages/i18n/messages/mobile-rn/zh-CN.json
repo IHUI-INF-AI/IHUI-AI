@@ -634,6 +634,22 @@
     "runtimeStop": "停止",
     "runtimeSend": "发送"
   },
+  "quickNotes": {
+    "menuEntry": "快捷笔记",
+    "title": "快捷笔记",
+    "new": "新建笔记",
+    "edit": "编辑",
+    "search": "搜索笔记",
+    "insert": "插入对话",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "archived": "已归档",
+    "showArchived": "显示已归档",
+    "empty": "暂无笔记",
+    "titlePlaceholder": "标题",
+    "contentPlaceholder": "正文",
+    "groupPlaceholder": "分组(可选)"
+  },
   "chat": {
     "assetCatText": "文本",
     "assetCatImage": "图片",
