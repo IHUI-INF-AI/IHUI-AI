@@ -357,20 +357,49 @@ export function parseMiniappRoutes(cfgText) {
   return { routes: [...new Set(pages)], blocks }
 }
 
-/** 接缝④:往 subPackages 指定 root 的 pages 数组末尾插一行(缩进=闭括号行缩进+2)。 */
+/**
+ * 接缝④:往 subPackages 指定 root 的 pages 数组末尾插一行(缩进=闭括号行缩进+2)。
+ *
+ * 两种形态都要认(2026-10-26 实测):仓里有 8 个 root 写成单行 `pages: ['a', 'b']`,
+ * 旧实现只认多行 ⇒ 轮到落在那些 root 的屏时返回 `闭括号行形态异常` ⇒ 整批被拒。
+ * 那不是"这一屏跳过",而是**造页闭环永久停摆**(每轮同一批、同一句 why),失效形态是安静。
+ * 单行形态按**同形追加**处理(不把数组拉成多行,避免制造与本次改动无关的格式 diff)。
+ */
 export function insertConfigPage(text, root, page) {
   const { blocks } = parseMiniappRoutes(text)
   const blk = blocks.find((m) => m[1] === root)
   if (!blk) return { ok: false, why: `app.config.ts 里找不到 subPackages root '${root}'(可用 --subpackage 指定现成 root)` }
   if (blk[2].includes(`'${page}'`)) return { ok: false, skipped: true, why: `路由 ${root}/${page} 已在册` }
+  if (!blk[2].includes('\n')) {
+    const body = blk[2].trim()
+    const nextBody =
+      body === '' ? `'${page}'` : `${body}${body.endsWith(',') ? '' : ','} '${page}'`
+    const blockText = `root: '${root}', pages: [${nextBody}]`
+    return {
+      ok: true,
+      text: text.slice(0, blk.index) + blockText + text.slice(blk.index + blk[0].length),
+      insertedLine: blockText,
+      shape: 'inline',
+    }
+  }
   const closeIdx = blk.index + blk[0].length - 1
   let lineStart = closeIdx
   while (lineStart > 0 && text[lineStart - 1] !== '\n') lineStart--
   const gap = text.slice(lineStart, closeIdx)
-  if (gap.trim() !== '') return { ok: false, why: 'pages 数组闭括号行形态异常(同行有别的内容)' }
+  if (gap.trim() !== '') {
+    // 多行数组但闭括号收在最后一项同一行(`'b'],`)⇒ 就地追加,不拉成新行
+    const sep = gap.trim().endsWith(',') ? ' ' : ', '
+    const insertedInline = `${sep}'${page}'`
+    return {
+      ok: true,
+      text: text.slice(0, closeIdx) + insertedInline + text.slice(closeIdx),
+      insertedLine: `${gap.trimEnd()}${insertedInline},`.trim(),
+      shape: 'inline-tail',
+    }
+  }
   const indent = `${gap}  `
   const inserted = `${indent}'${page}',\n`
-  return { ok: true, text: text.slice(0, lineStart) + inserted + text.slice(lineStart), insertedLine: `${indent}'${page}',` }
+  return { ok: true, text: text.slice(0, lineStart) + inserted + text.slice(lineStart), insertedLine: `${indent}'${page}',`, shape: 'multiline' }
 }
 
 /** 接缝⑤:registry entries 数组末尾按行插三元组(前一条目闭行补逗号)。 */
