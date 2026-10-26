@@ -35,6 +35,7 @@ from ..core.approval_replay import (
     chat_expired_approval_notices,
     record_approval_expiry,
 )
+from ..core.background_tasks import spawn
 from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.jwt_auth import resolve_request_user_id
@@ -620,9 +621,17 @@ def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str
     **幂等**:同一待决条目重放 N 次 = N 次只读投递(每连接一次),不新增条目、不置
     event、不写 decision ⇒ 不制造第二个等待者;重复点击也只唤醒原等待一次(幂等键 =
     approval_id,判据见 tests/test_d690_reconnect_replay_idempotency.py)。
+
+    D-07(2026-10-26):随上一条连接一起**失效**的条目同样不重发弹窗(同上③),但每条
+    投影成一帧**同形** tool-approval + ``expired: true`` + ``expired_reason``(键名
+    见 sse_contract 的 ``SSE_APPROVAL_EXPIRED_*_PAYLOAD_KEY``),排在仍待决的 replay
+    帧之前。端上按 expired 分流:不弹窗、只给一条可读提示 —— "丢过什么"由服务端日志
+    升级为用户可见。纯只读:取名单不删账,同一重连问 N 次得同一集合。
     """
     from app.core.approval_replay import chat_pending_approval_replays
     from app.core.sse_contract import (  # 运行时 import 点(见 sse_contract 头注的 SSE-CONTRACT-IMPORT-SITES)
+        SSE_APPROVAL_EXPIRED_PAYLOAD_KEY,
+        SSE_APPROVAL_EXPIRED_REASON_PAYLOAD_KEY,
         SSE_APPROVAL_REPLAY_PAYLOAD_KEY,
     )
 
@@ -632,6 +641,7 @@ def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str
     # 判据见本函数头注③),但要在服务端点名 —— 断线丢弹窗此前是彻底的静默。
     # 纯只读:取名单不删账(幂等,同一重连问 N 次得同一集合),出账只走到期/上界两档。
     _expired_notices = chat_expired_approval_notices(session_id, owner_uuid)
+    _expired_frames: list[str] = []
     if _expired_notices:
         logger.warning(
             "reconnect replay: session=%s found %d approval(s) already expired with the "
@@ -641,8 +651,28 @@ def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str
             len(_expired_notices),
             sorted({str(_n.get("reason")) for _n in _expired_notices}),
         )
+        # D-07:把"丢过什么"做成端上可见的留痕帧(**同形** tool-approval + expired 标记)。
+        # 端上按 expired 分流 —— 不弹审批窗、只给一条可读提示;不重发弹窗的理由见头注③。
+        # 展示字段齐全性由 record_approval_expiry 的 _expiry_display_complete 保证。
+        for _n in _expired_notices:
+            _expired_frames.append(
+                _sse(
+                    _SSE_TOOL_APPROVAL,
+                    {
+                        "type": _SSE_TOOL_APPROVAL,
+                        "approval_id": _n["approval_id"],
+                        "tool_name": _n["tool_name"],
+                        "tool_call_id": _n["tool_call_id"],
+                        "args_preview": _n["args_preview"],
+                        "danger_level": _n["danger_level"],
+                        "session_id": session_id,
+                        SSE_APPROVAL_EXPIRED_PAYLOAD_KEY: True,
+                        SSE_APPROVAL_EXPIRED_REASON_PAYLOAD_KEY: str(_n.get("reason") or ""),
+                    },
+                )
+            )
     if not payloads:
-        return []
+        return _expired_frames
     now = datetime.now(UTC)
     frames: list[str] = []
     for _p in payloads:
@@ -671,7 +701,7 @@ def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str
                 },
             )
         )
-    return frames
+    return _expired_frames + frames
 
 
 def _scoped_exec_prefix_key(owner_uuid: str | None, prefix_tokens: list[str]) -> str | None:
@@ -4019,8 +4049,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             if _ext_usage and owner_uuid:
                                 _ext_tokens = int(_ext_usage.get("total_tokens", 0) or 0)
                                 if _ext_tokens > 0:
-                                    asyncio.create_task(
-                                        user_trial_quota.consume(owner_uuid, _ext_tokens)
+                                    spawn(
+                                        user_trial_quota.consume(owner_uuid, _ext_tokens),
+                                        name="trial-quota-consume-ext",
                                     )
                             if _ext_error:
                                 logger.warning(
@@ -5962,8 +5993,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     if isinstance(_usage_obj, dict) and owner_uuid:
                         _trial_tokens = int(_usage_obj.get("total_tokens", 0) or 0)
                         if _trial_tokens > 0:
-                            asyncio.create_task(
-                                user_trial_quota.consume(owner_uuid, _trial_tokens)
+                            spawn(
+                                user_trial_quota.consume(owner_uuid, _trial_tokens),
+                                name="trial-quota-consume",
                             )
                     accumulated["stub"] = event.get("stub", False)
                     # 在 done 事件中透传 metadata(D120:附上续期总结记录,无续期时原样)

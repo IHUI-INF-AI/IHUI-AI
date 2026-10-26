@@ -498,7 +498,7 @@ export function SupportScreen({
                 accessibilityRole="button"
                 onPress={() => setCategoryId('')}
               >
-                <Text style={[styles.chipText, !categoryId && styles.chipTextActive]}>
+                <Text style={[styles.chipText, !categoryId && styles.chipActiveText]}>
                   {t('supportPage.categoryNone')}
                 </Text>
               </TouchableOpacity>
@@ -510,7 +510,7 @@ export function SupportScreen({
                   accessibilityRole="button"
                   onPress={() => setCategoryId(c.id)}
                 >
-                  <Text style={[styles.chipText, categoryId === c.id && styles.chipTextActive]}>
+                  <Text style={[styles.chipText, categoryId === c.id && styles.chipActiveText]}>
                     {c.name}
                   </Text>
                 </TouchableOpacity>
@@ -527,7 +527,7 @@ export function SupportScreen({
                   accessibilityRole="button"
                   onPress={() => setPriority(p)}
                 >
-                  <Text style={[styles.chipText, priority === p && styles.chipTextActive]}>
+                  <Text style={[styles.chipText, priority === p && styles.chipActiveText]}>
                     {t(PRIORITY_KEYS[p])}
                   </Text>
                 </TouchableOpacity>

@@ -40,6 +40,10 @@
  *   - tests 目录与 test/spec 文件(mock 场景)
  *   - api.ts 注入的 refreshAccessToken 回调(它内部调 fetchApiShared,经 isAuthEndpoint 判断
  *     不递归,且是单例 refreshAccessTokenOnce 的唯一实现载体,合法)
+ *   - tokenProvider 对象字面量的方法简写定义行(如 CLI auth-refresh.ts 的
+ *     `async refreshAccessToken(): Promise<string | null> {`——空参括号后紧跟冒号是定义签名
+ *     而非调用(endpoint 函数必带 refreshToken 实参),同属「经 tokenProvider.refreshAccessToken
+ *     注入」的合法路径,2026-10-26 登记)
  *
  * Usage:
  *   node scripts/check-auth-refresh-singleton.mjs             # 全量(HEAD blob)
@@ -250,6 +254,9 @@ export function scanContent(repoRoot, rel, content) {
       // refreshAccessToken,经 bindTokenStoreToApiClient 注入 tokenProvider,web api.ts 同构)
       // 均豁免;真实直发 /auth/refresh 由规则 2 兜底
       if (/^(export\s+)?(async\s+)?function\s+refreshAccessToken\b/.test(trimmed)) continue
+      // tokenProvider 对象字面量的方法简写定义(空参括号后紧跟冒号 = 定义签名而非调用;
+      // endpoint 函数 refreshAccessToken 必带 refreshToken 实参,零参带返回注解只可能是注入形态)
+      if (/^(?:async\s+)?refreshAccessToken\s*\(\s*\)\s*:/.test(trimmed)) continue
       if (isTokenProviderInjection(p, line)) continue
       // MCP OAuth: refreshAccessToken(oauthConfig, refreshToken) 或 refreshAccessToken(makeOAuthConfig(), ...)
       // 特征是第一个实参是 oauthConfig/makeOAuthConfig/config 对象,而非用户登录态的单 refreshToken 字符串

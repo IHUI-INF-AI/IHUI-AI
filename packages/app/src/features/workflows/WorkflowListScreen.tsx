@@ -211,7 +211,7 @@ export function WorkflowListScreen({
                   accessibilityRole="button"
                   onPress={() => setTrigger(opt)}
                 >
-                  <Text style={[styles.chipText, trigger === opt && styles.chipTextActive]}>
+                  <Text style={[styles.chipText, trigger === opt && styles.chipActiveText]}>
                     {t(TRIGGER_KEYS[opt])}
                   </Text>
                 </TouchableOpacity>
@@ -419,7 +419,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: 12, color: tk.text.secondary },
-    chipTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
+    chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     formErr: { fontSize: 12, color: tk.danger.DEFAULT },
     errorText: { fontSize: 13, color: tk.danger.DEFAULT },
     formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },

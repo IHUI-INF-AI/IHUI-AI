@@ -31,8 +31,7 @@
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { execFileSync } from 'node:child_process'
-import { catBatch } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import {
   buildCoverage,
   extensionRoutesFromSource,
@@ -52,12 +51,9 @@ export const SOURCES = {
 
 function gitText(args) {
   try {
-    return execFileSync('git', args, {
-      encoding: 'utf8',
-      maxBuffer: 64000000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      cwd: ROOT,
-    })
+    // 走单一出口 gitRaw(绝对路径 + quotepath + windowsHide + 显式 stdio + 数字 timeout);
+    // 本尺子原先是裸 execFileSync('git'),被 face-reader 棘轮判为第 19 枚新增(基线 18)。
+    return gitRaw(args, ROOT, { maxBuffer: 64000000 })
   } catch {
     return null
   }
