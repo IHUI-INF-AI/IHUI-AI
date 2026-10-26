@@ -183,7 +183,16 @@
     "more": "More",
     "livePreview": "Upcoming live",
     "startTime": "Starts at",
-    "pubTip": "Notice"
+    "pubTip": "Notice",
+    "welcome": "Welcome to IHUI AI",
+    "guest": "Guest",
+    "learningProgress": "Learning Progress",
+    "progressLessons": "{completed}/{total} lessons completed",
+    "progressEmpty": "Not started yet. Pick a course!",
+    "recommend": "Recommended for You",
+    "navMenu": "Menu",
+    "matDeletedOk": "Deleted",
+    "notLoggedIn": "Not signed in"
   },
   "course": {
     "learningProgress": "Progress",
@@ -241,7 +250,9 @@
     "rating4": "Good",
     "rating5": "Excellent",
     "studentUnit": "Learners",
-    "moreTitle": "More courses"
+    "moreTitle": "More courses",
+    "studentCount": "{count} learners",
+    "empty": "No courses yet"
   },
   "live": {
     "viewers": "{n} viewers",
@@ -304,7 +315,9 @@
     "viewerCount": "{count} viewers",
     "lecturer": "Lecturer",
     "startAt": "Starts at",
-    "loadFailed": "Failed to load live"
+    "loadFailed": "Failed to load live",
+    "ongoing": "Live",
+    "upcoming": "Upcoming"
   },
   "liveHost": {
     "statusIdle": "Not Started",
@@ -2500,7 +2513,8 @@
       "viewDetail": "View detail",
       "identityTitle": "Switch identity",
       "identityDemander": "Demander",
-      "identityDeveloper": "Developer"
+      "identityDeveloper": "Developer",
+      "untitledConv": "Untitled conversation"
     },
     "cover": {
       "entryTitle": "Become a developer",
@@ -4554,7 +4568,15 @@
     "vividTail": ", almost there"
   },
   "profile": {
-    "myCourses": "My courses"
+    "myCourses": "My courses",
+    "copyFailRetry": "Copy failed, please retry",
+    "deleteBtn": "Delete",
+    "dlgDelConvTitle": "Delete conversation",
+    "dlgDelConvBody": "Delete this conversation?",
+    "delFailedRetry": "Delete failed, please retry",
+    "userCard": {
+      "loginRequired": "Please log in first"
+    }
   },
   "verify": {
     "phoneEmpty": "Phone number is empty",
@@ -5869,5 +5891,20 @@
   "workflows": {
     "empty": "No workflows yet",
     "loadFailed": "Failed to load workflows"
+  },
+  "menu": {
+    "sectionDiscover": "Discover"
+  },
+  "agentScreen": {
+    "loadFailed": "Failed to load agent",
+    "title": "Agent"
+  },
+  "aiAssistant": {
+    "startChat": "Start Chat",
+    "vendorOther": "Other",
+    "copyOkToast": "Link copied to clipboard"
+  },
+  "resources": {
+    "loadMore": "Load more"
   }
 }

@@ -183,7 +183,16 @@
     "more": "更多",
     "livePreview": "直播预告",
     "startTime": "开播时间",
-    "pubTip": "提示"
+    "pubTip": "提示",
+    "welcome": "欢迎使用智汇 AI",
+    "guest": "游客",
+    "learningProgress": "学习进度",
+    "progressLessons": "已学 {completed}/{total} 节",
+    "progressEmpty": "还没有开始学习,去挑一门课吧",
+    "recommend": "为你推荐",
+    "navMenu": "菜单",
+    "matDeletedOk": "已删除",
+    "notLoggedIn": "未登录"
   },
   "course": {
     "learningProgress": "学习进度",
@@ -241,7 +250,9 @@
     "rating4": "不错",
     "rating5": "很好",
     "studentUnit": "人学",
-    "moreTitle": "更多课程"
+    "moreTitle": "更多课程",
+    "studentCount": "{count} 人学过",
+    "empty": "暂无课程"
   },
   "live": {
     "viewers": "{n} 人观看",
@@ -304,7 +315,9 @@
     "viewerCount": "{count} 人观看",
     "lecturer": "讲师",
     "startAt": "开始时间",
-    "loadFailed": "加载直播失败"
+    "loadFailed": "加载直播失败",
+    "ongoing": "直播中",
+    "upcoming": "即将开播"
   },
   "liveHost": {
     "statusIdle": "未开始",
@@ -2500,7 +2513,8 @@
       "viewDetail": "查看详情",
       "identityTitle": "切换身份",
       "identityDemander": "需求方",
-      "identityDeveloper": "开发者"
+      "identityDeveloper": "开发者",
+      "untitledConv": "未命名对话"
     },
     "cover": {
       "entryTitle": "成为开发者",
@@ -4554,7 +4568,15 @@
     "vividTail": "，马上就好"
   },
   "profile": {
-    "myCourses": "我的课程"
+    "myCourses": "我的课程",
+    "copyFailRetry": "复制失败,请重试",
+    "deleteBtn": "删除",
+    "dlgDelConvTitle": "删除对话",
+    "dlgDelConvBody": "确认删除此对话?",
+    "delFailedRetry": "删除失败,请重试",
+    "userCard": {
+      "loginRequired": "请先登录"
+    }
   },
   "verify": {
     "phoneEmpty": "手机号为空",
@@ -5869,5 +5891,20 @@
   "workflows": {
     "empty": "暂无工作流",
     "loadFailed": "工作流加载失败"
+  },
+  "menu": {
+    "sectionDiscover": "发现"
+  },
+  "agentScreen": {
+    "loadFailed": "加载智能体失败",
+    "title": "智能体"
+  },
+  "aiAssistant": {
+    "startChat": "开始对话",
+    "vendorOther": "其他",
+    "copyOkToast": "链接已复制到剪贴板"
+  },
+  "resources": {
+    "loadMore": "加载更多"
   }
 }

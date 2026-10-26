@@ -183,7 +183,16 @@
     "more": "더 보기",
     "livePreview": "라이브 예정",
     "startTime": "시작 시간",
-    "pubTip": "알림"
+    "pubTip": "알림",
+    "welcome": "IHUI AI에 오신 것을 환영합니다",
+    "guest": "게스트",
+    "learningProgress": "학습 진도",
+    "progressLessons": "{completed}/{total}강 수강 완료",
+    "progressEmpty": "아직 학습을 시작하지 않았습니다. 강좌를 선택해 보세요",
+    "recommend": "추천 콘텐츠",
+    "navMenu": "메뉴",
+    "matDeletedOk": "삭제되었습니다",
+    "notLoggedIn": "로그인하지 않음"
   },
   "course": {
     "learningProgress": "학습 진행도",
@@ -241,7 +250,9 @@
     "rating4": "좋음",
     "rating5": "매우 좋음",
     "studentUnit": "명 수강",
-    "moreTitle": "강의 더보기"
+    "moreTitle": "강의 더보기",
+    "studentCount": "{count}명 학습",
+    "empty": "강좌가 없습니다"
   },
   "live": {
     "viewers": "{n}명 시청",
@@ -304,7 +315,9 @@
     "viewerCount": "{count}명 시청 중",
     "lecturer": "강사",
     "startAt": "시작 시간",
-    "loadFailed": "라이브 불러오기 실패"
+    "loadFailed": "라이브 불러오기 실패",
+    "ongoing": "방송 중",
+    "upcoming": "예정"
   },
   "liveHost": {
     "statusIdle": "시작 전",
@@ -2500,7 +2513,8 @@
       "viewDetail": "상세 보기",
       "identityTitle": "신분 전환",
       "identityDemander": "수요자",
-      "identityDeveloper": "개발자"
+      "identityDeveloper": "개발자",
+      "untitledConv": "제목 없는 대화"
     },
     "cover": {
       "entryTitle": "개발자 되기",
@@ -4554,7 +4568,15 @@
     "vividTail": ", 금방 끝납니다"
   },
   "profile": {
-    "myCourses": "내 강의"
+    "myCourses": "내 강의",
+    "copyFailRetry": "복사 실패, 다시 시도해 주세요",
+    "deleteBtn": "삭제",
+    "dlgDelConvTitle": "대화 삭제",
+    "dlgDelConvBody": "이 대화를 삭제할까요?",
+    "delFailedRetry": "삭제 실패, 다시 시도해 주세요",
+    "userCard": {
+      "loginRequired": "먼저 로그인하세요"
+    }
   },
   "verify": {
     "phoneEmpty": "휴대폰 번호가 비어 있습니다",
@@ -5869,5 +5891,20 @@
   "workflows": {
     "empty": "워크플로우가 없습니다",
     "loadFailed": "워크플로우를 불러오지 못했습니다"
+  },
+  "menu": {
+    "sectionDiscover": "발견"
+  },
+  "agentScreen": {
+    "loadFailed": "에이전트 불러오기 실패",
+    "title": "에이전트"
+  },
+  "aiAssistant": {
+    "startChat": "대화 시작",
+    "vendorOther": "기타",
+    "copyOkToast": "링크를 클립보드에 복사했습니다"
+  },
+  "resources": {
+    "loadMore": "더 보기"
   }
 }
