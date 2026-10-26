@@ -77,8 +77,11 @@ groups:
       #   不是数据库表 —— 曾经有运维拿这个名字去 psql 查表,当然查不到。
       # ⚠ 文案为什么改(2026-10-18 立):原文案写"LLM provider 不健康(疑似 402/配额超限)",
       #   但本条判据来源是 **model_sync 的同步健康度**,与"LLM 调用是否 402 欠费"不是一回事:
-      #     - 本条 = 拉不到厂商的"模型清单"端点(常见:key 无效 / 端点 404 / 网络不通 / 厂商挂);
+      #     - 本条 = 拉不到厂商的"模型清单"端点(常见:端点 404 / 网络不通 / 厂商挂);
       #       账号欠费时 /v1/models 往往照样能拉到,反而是 chat 端点 402 —— 即本条**不会**响;
+      #     - ⚠ 2026-10-26 收窄:key 失效/过期(401/403)已不再计入 unhealthy、不再触发本告警
+      #       (属用户侧待补 key 的预期状态,同步改为静默跳过,补 key 后自动恢复);本告警现只针对
+      #       真实基础设施故障(网络/5xx/404)。
       #     - "调用侧 402/配额/5xx"由 AiLlmHighFailureRate 与 LlmProviderErrorBurst 覆盖。
       #   原文案把收信人指去查配额费用 = 给出不对症的出路(AGENTS §0.8 禁),现按真实故障面改写。
       # ⚠ 盲区已修(2026-10-18):gauge / 失败计数 / 永久禁用名单**全是进程内存态**,
@@ -92,7 +95,7 @@ groups:
           severity: critical
         annotations:
           summary: '模型清单同步连续失败(provider 已标记 unhealthy)'
-          description: 'provider_code={{ $labels.provider_code }} 连续 3 次拉取 /v1/models 失败,已标记 unhealthy(后续同步自动跳过)。注意这不是"调用欠费"告警:常见原因是 key 无效 / 厂商端点 404 / 网络不通。第一步查 ai-service 日志里 [ModelSyncService] 的真实报错(401/403=key 无效,404=厂商无此端点,超时=网络),别先去查配额。确认 key 有效后调用 POST /llm/models/sync/reset?provider={{ $labels.provider_code }} 复位重同步。若同时出现调用失败,另见 AiLlmHighFailureRate。'
+          description: 'provider_code={{ $labels.provider_code }} 连续 3 次拉取 /v1/models 失败,已标记 unhealthy(后续同步自动跳过)。⚠ 触发面(2026-10-26 收窄):**仅真实基础设施故障**——网络不通 / 5xx / 厂商端点 404;**401/403(key 失效/过期)已改为静默跳过、不计入 unhealthy、不触发本告警**(机主明确 key 由自己补充,属预期状态,补 key 后自动恢复)。第一步查 ai-service 日志里 [ModelSyncService] 的真实报错(超时=网络,5xx=厂商故障,404=端点不存在需改 base_url);若同时出现调用失败,另见 AiLlmHighFailureRate。'
 
       # LLM provider 错误突增(402/5xx 等): 15 分钟窗口内出现 provider 错误。
       # `ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,
