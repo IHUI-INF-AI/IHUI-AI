@@ -543,6 +543,16 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 需改造后可迁 2(git():467 系 cwd 基须显式传 root;:1848 merge-tree catch 依赖 e.stdout 取冲突
 // 清单)、可迁 9(readGit/isAncestor/collectTreeEntries/tgit/lsTreeLines/:1152/:1186/:1288/bg,
 // 其中 isAncestor 与 bypass-git 先例逐字同型优先迁)。后续批按该票清单推进,quotepath 面逐字对账。
+// 2026-10-26 G-54 第 10 轮(git-sync-converge 迁移票,单席):8 处迁 gitRaw 入库 `50e3e2590fd`
+// (readGit/git() 主助手/isAncestor/collectTreeEntries(binary 档)/tgit/lsTreeLines/selfTest root/
+// merge-tree 自检两处/bg;镜像测试 73/73+self-test 20 例 rc=0;P1-P16 固定索引快照逐字零差,
+// HEAD 树非 ASCII 路径 0 枚⇒quotepath 无差面)。该文件棘轮命中 10→3,保留 3 处不可迁:
+// mktree(fd-stdin,层无 fd 形态)、ggit(env 剥离,层无 env 形态)、merge-tree 生产(:1821,catch
+// 依赖 e.stdout 取完整冲突清单,Undetermined 不带 stdout,退化到 message 丢真信号;论证已写入
+// 该处注释)。**基线口径是文件数**(bareGit=命中>0 的文件清单),该文件 3 处仍在⇒文件数不减,
+// 本轮基线不动。现读暂 19(+1 系他席 `e8f27d3ac9` 新增 check-analytics-page-coverage.mjs 一处裸,
+// 该文件已被他席 staged 删除中——analytics-coverage 重构在飞,与门 184 红同源;删除收敛⇒回 18)。
+// 本席不抬基线纳他席债、不碰他席在飞文件。
 const BARE_GIT_BASELINE = 18 // 紧贴现读(2026-10-26 第 9 轮 19→18;第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
