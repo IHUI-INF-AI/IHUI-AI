@@ -872,6 +872,7 @@
       "platformWeb": "웹",
       "platformRn": "모바일 앱",
       "platformMp": "미니프로그램",
+      "platformEx": "브라우저 확장",
       "platformNoData": "최근 24시간 플랫폼별 데이터 없음",
       "panelEngagement": "참여도",
       "engagementAvgStay": "평균 체류 시간",
@@ -23240,7 +23241,9 @@
     "redirect": {
       "notAllowed": "리디렉션 주소가 허용되지 않습니다",
       "notAllowedDesc": "보안을 위해 화이트리스트 내의 리디렉션 대상만 허용됩니다.",
-      "title": "통합 로그인 리디렉션"
+      "title": "통합 로그인 리디렉션",
+      "unavailable": "지금 리디렉션을 완료할 수 없습니다",
+      "unavailableDesc": "네트워크 또는 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도하세요."
     },
     "redirecting": "인증 페이지로 이동 중…",
     "redirectingDesc": "{platform} 인증 페이지를 엽니다",

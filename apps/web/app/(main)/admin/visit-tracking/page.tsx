@@ -61,6 +61,7 @@ interface PageList<T> {
 interface PageUsageRow {
   url: string
   scope: 'public' | 'admin' | 'auth'
+  platform: 'web' | 'rn' | 'mp' | 'ex'
   pv: number
   uv: number
 }
@@ -72,13 +73,14 @@ const SCOPE_OPTIONS: Array<{ value: VisitScope; label: string }> = [
   { value: 'auth', label: '登录页' },
   { value: 'all', label: '全部' },
 ]
-/** 端筛选:与 /ops-wallboard 的 platformSplit 同一分桶(web 裸路径 / rn / mp 前缀)。 */
-type VisitPlatform = 'all' | 'web' | 'rn' | 'mp'
+/** 端筛选:与 /ops-wallboard 的 platformSplit 同一分桶(web 裸路径 / rn / mp / ex 前缀)。 */
+type VisitPlatform = 'all' | 'web' | 'rn' | 'mp' | 'ex'
 const PLATFORM_OPTIONS: Array<{ value: VisitPlatform; label: string }> = [
   { value: 'all', label: '全部端' },
   { value: 'web', label: '网站' },
   { value: 'rn', label: '移动端' },
   { value: 'mp', label: '小程序' },
+  { value: 'ex', label: '插件端' },
 ]
 const SCOPE_LABEL: Record<PageUsageRow['scope'], string> = {
   public: '前台',
@@ -89,6 +91,19 @@ const SCOPE_BADGE_CLASS: Record<PageUsageRow['scope'], string> = {
   public: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   admin: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   auth: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+}
+/** 端徽章:与上面端筛选项同一套分桶(前缀判据在服务端 classifyVisitPlatform)。 */
+const PLATFORM_LABEL: Record<PageUsageRow['platform'], string> = {
+  web: '网站',
+  rn: '移动端',
+  mp: '小程序',
+  ex: '插件端',
+}
+const PLATFORM_BADGE_CLASS: Record<PageUsageRow['platform'], string> = {
+  web: 'bg-muted text-foreground',
+  rn: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  mp: 'bg-green-500/10 text-green-700 dark:text-green-400',
+  ex: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
 }
 
 function daysAgo(n: number): string {
@@ -331,6 +346,7 @@ export default function VisitTrackingPage() {
                   <TableRow>
                     <TableHead className="px-3 py-2">页面</TableHead>
                     <TableHead className="px-3 py-2">访问面</TableHead>
+                    <TableHead className="px-3 py-2">端</TableHead>
                     <TableHead className="px-3 py-2 text-right">PV</TableHead>
                     <TableHead className="px-3 py-2 text-right">UV</TableHead>
                     <TableHead className="w-1/3 px-3 py-2">占区间 PV</TableHead>
@@ -350,6 +366,13 @@ export default function VisitTrackingPage() {
                             className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${SCOPE_BADGE_CLASS[row.scope]}`}
                           >
                             {SCOPE_LABEL[row.scope]}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-3 py-2">
+                          <span
+                            className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${PLATFORM_BADGE_CLASS[row.platform]}`}
+                          >
+                            {PLATFORM_LABEL[row.platform]}
                           </span>
                         </TableCell>
                         <TableCell className="px-3 py-2 text-right font-mono tabular-nums">

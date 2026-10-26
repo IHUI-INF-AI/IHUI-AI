@@ -876,6 +876,7 @@
       "platformWeb": "网站",
       "platformRn": "移动端",
       "platformMp": "小程序",
+      "platformEx": "浏览器插件",
       "platformNoData": "近24h 暂无分端数据",
       "panelEngagement": "交互热度",
       "engagementAvgStay": "平均停留",
@@ -23241,7 +23242,9 @@
     "redirect": {
       "notAllowed": "跳转地址不被允许",
       "notAllowedDesc": "出于安全考虑，仅允许白名单内的跳转目标。",
-      "title": "统一登录跳转"
+      "title": "统一登录跳转",
+      "unavailable": "暂时无法完成跳转",
+      "unavailableDesc": "网络或服务暂时不可用，请稍后重试。"
     },
     "redirecting": "正在跳转授权…",
     "redirectingDesc": "即将打开 {platform} 授权页",
