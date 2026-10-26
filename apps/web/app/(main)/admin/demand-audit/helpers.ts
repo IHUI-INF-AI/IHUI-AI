@@ -3,13 +3,32 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { createWebSocketHook } from '@/hooks/create-websocket-hook'
+import { useAuthStore } from '@/stores/auth'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
+import { shouldRefreshNow } from '@ihui/shared/auth/auto-refresh'
 import type { WsChatMsg } from './types'
 
+/**
+ * 构造 /ws/chat 握手地址(每次建连/重连都会被 createWebSocketHook 现调一次)。
+ *
+ * 2026-10-26 修「access 过期后连不上、且永远不会换新」:
+ *  ① 凭据现取:hook 递进来的那一枚是它自己 render 时订阅到的,重连那一轮未必还是最新的;
+ *     以 store 当前值为准(store 一旦被别的路径续期,下一跳立刻用新凭据)。
+ *  ② 手里这枚已到期/即将到期 ⇒ **顺手发起一次续期**(全局单飞,不会重复打 /auth/refresh)。
+ *     urlBuilder 是同步契约,本跳仍带旧凭据(判不出/没换到一律原样放行 —— 失效方向是
+ *     "多损失一跳",绝不是把用户登出或干脆不连);新票写回 store 后 createWebSocketHook
+ *     的 token 订阅会自己带新凭据重连,于是一次过期最多丢一跳,而不是无限期拿旧 token 刷握手。
+ *  ③ 续期判据取共享层单源 `shouldRefreshNow`(与 web 的 setTimeout 调度、RN/Taro 的周期检查
+ *     同一把尺子),不在端内复算 exp(§0.6)。
+ */
 export function buildChatWsUrl(token: string | null): string {
-  if (typeof window === 'undefined' || !token) return ''
+  if (typeof window === 'undefined') return ''
+  const credential = useAuthStore.getState().token ?? token
+  if (!credential) return ''
+  if (shouldRefreshNow(credential)) void refreshAccessTokenOnce()
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const path = process.env.NEXT_PUBLIC_WS_CHAT_URL || '/ws/chat'
-  return `${proto}//${window.location.host}${path}?token=${encodeURIComponent(token)}`
+  return `${proto}//${window.location.host}${path}?token=${encodeURIComponent(credential)}`
 }
 
 export function isWsChatMsg(d: unknown): d is WsChatMsg {
