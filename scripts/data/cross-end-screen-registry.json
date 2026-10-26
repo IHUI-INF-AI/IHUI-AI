@@ -585,6 +585,16 @@
       "shared": "packages/app/src/features/activity-detail/ActivityDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ActivityDetailScreen.tsx",
       "miniapp": "pkg-content/activity-detail-shared/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-chat/AgentChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentChatScreen.tsx",
+      "miniapp": "pkg-user/agent-chat/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-create/AgentCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentCreateScreen.tsx",
+      "miniapp": "pkg-user/agent-create/index"
     }
   ]
 }
