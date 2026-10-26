@@ -121,6 +121,7 @@
     "login": "로그인",
     "logging": "로그인 중…",
     "passwordLogin": "비밀번호 로그인",
+    "webAuthLogin": "웹 인증 로그인",
     "phonePlaceholder": "휴대폰 번호 입력",
     "codeSent": "인증번호가 발송되었습니다",
     "passwordPlaceholder": "비밀번호 입력",

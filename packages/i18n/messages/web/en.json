@@ -8784,7 +8784,7 @@
         },
         "MODEL_RETIRED": {
           "title": "This model has been permanently retired",
-          "action": "Pick a currently listed model instead"
+          "action": "Switch to an available model in the list"
         },
         "MODEL_STREAM_IDLE": {
           "title": "Response timed out before completion",
@@ -23260,6 +23260,9 @@
     "authorizeAndRedirect": "Authorize & Redirect",
     "authorizing": "Authorizing for {clientId}…",
     "desktopHandoffHint": "Handed back to the desktop app to finish signing in. You can close this page now.",
+    "miniappHandoffTitle": "Authorization complete",
+    "miniappHandoffHint": "Your credentials were handed back to the mini program. Tap the back button to return and finish signing in.",
+    "miniappHandoffFailed": "Failed to hand off to the mini program. Please retry or go back manually.",
     "desktopHandoffTitle": "Authorization complete",
     "code": "Verification code",
     "codePlaceholder": "Enter verification code",
