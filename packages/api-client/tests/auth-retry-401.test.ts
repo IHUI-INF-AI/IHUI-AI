@@ -251,5 +251,32 @@ describe('runResumableSSEStream:HTTP 401 由调用方续期后原地重试', () 
     ).rejects.toThrow(/expired/)
     expect(round).toBe(1)
   })
+
+  it('续期后仍 401 ⇒ 不再续期(红线:一次流只续一次,新凭据也被拒=会话真死)', async () => {
+    const headers: Record<string, string> = { Authorization: `Bearer ${OLD}` }
+    let round = 0
+    let refreshCalls = 0
+    setStreamTransport((async () => {
+      round++
+      return unauthorized()
+    }) as StreamTransport)
+
+    await expect(
+      runResumableSSEStream({
+        url: 'https://example.test/api/ai/chat/stream',
+        headers,
+        onLine: () => {},
+        refreshAuth: async () => {
+          refreshCalls++
+          headers['Authorization'] = `Bearer ${NEW}`
+          return true
+        },
+      }),
+    ).rejects.toThrow(/expired/)
+
+    // 续期一次后重放的那一跳仍是 401 ⇒ 终态,不再发起第三次请求、不再续期
+    expect(round).toBe(2)
+    expect(refreshCalls).toBe(1)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
