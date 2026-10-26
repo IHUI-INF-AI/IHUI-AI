@@ -877,6 +877,8 @@
       "platformRn": "移动端",
       "platformMp": "小程序",
       "platformEx": "浏览器插件",
+      "platformQuiet": "今日静默",
+      "platformNever": "90日未上报",
       "platformNoData": "近24h 暂无分端数据",
       "panelAudience": "访客构成",
       "audienceNew": "新访客",
