@@ -48,7 +48,7 @@ export const TAG_FONT_TIERS = [
 ] as const
 
 /** usageCount 归一占比 [0,1] → 字号档索引;max===min 时 web 回退 16px ⇒ 取 title 档。 */
-export function tagFontTierIndex(ratio: number | null): number {
+function tagFontTierIndex(ratio: number | null): number {
   if (ratio === null) return 2
   const clamped = Math.min(1, Math.max(0, ratio))
   return Math.round(clamped * (TAG_FONT_TIERS.length - 1))

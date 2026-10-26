@@ -19,7 +19,7 @@
  */
 
 /** 命令类型:click 点击 / type 输入 / scroll 滚动 / back 返回 / snapshot 采集界面树。 */
-export type HandsCommandType = 'click' | 'type' | 'scroll' | 'back' | 'snapshot'
+type HandsCommandType = 'click' | 'type' | 'scroll' | 'back' | 'snapshot'
 
 /** 滚动方向(仅 scroll 命令使用)。 */
 export type ScrollDirection = 'up' | 'down' | 'left' | 'right'
@@ -75,7 +75,7 @@ export interface UiTreeSchema {
 }
 
 /** 执行结果状态。 */
-export type HandsStatus = 'success' | 'failure' | 'unsupported'
+type HandsStatus = 'success' | 'failure' | 'unsupported'
 
 /**
  * 一条命令的执行结果。

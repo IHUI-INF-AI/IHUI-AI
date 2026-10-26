@@ -65,9 +65,9 @@ export interface ImportAccountInput {
   [k: string]: unknown
 }
 
-export type ImportItemStatus = 'imported' | 'updated' | 'skipped' | 'failed'
+type ImportItemStatus = 'imported' | 'updated' | 'skipped' | 'failed'
 
-export interface ImportItemResult {
+interface ImportItemResult {
   index: number
   name: string
   uid: string | null

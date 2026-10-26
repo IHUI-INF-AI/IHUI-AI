@@ -44,11 +44,11 @@ import { db } from '../db/index.js'
 import type { CommandAckFact } from '@ihui/database'
 
 /** KV 镜像槽位的命名空间:与 `agent-run.create`、开放面响应缓存互不相交(键空间分段隔离)。 */
-export const COMMAND_ACK_KV_NAMESPACE = 'command-ack'
+const COMMAND_ACK_KV_NAMESPACE = 'command-ack'
 /** KV 镜像的存活时间:进程重放缓存,短于事实表保留期(表由 expires_at 单独管)。 */
-export const COMMAND_ACK_KV_TTL_MS = 24 * 3600 * 1000
+const COMMAND_ACK_KV_TTL_MS = 24 * 3600 * 1000
 /** 客户端可选保留期上限(秒):事实表行不设 TTL 默认值,给个上限防误传天文数字。 */
-export const COMMAND_ACK_TTL_MAX_SECONDS = 90 * 24 * 3600
+const COMMAND_ACK_TTL_MAX_SECONDS = 90 * 24 * 3600
 
 const ackSchema = z.object({
   /** 父会话作用域(上游 `v4_command_fact` 主键的 `child:<parent>:<cmd>` 前段)。 */
@@ -67,7 +67,7 @@ const ackSchema = z.object({
 })
 
 /** 事实 → 对外视图。owner_key 不出去(归属由鉴权层保证,客户端不需要也不该看到拼接规则)。 */
-export function toPublicCommandAckView(
+function toPublicCommandAckView(
   fact: CommandAckFact,
   extra: { replayed: boolean; kvMirrored: boolean },
 ): {
