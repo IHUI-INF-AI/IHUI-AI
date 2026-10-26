@@ -9,6 +9,12 @@ import { users, orders, userDevices, visitLogs, analyticsEvents } from '@ihui/da
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success } from '../utils/response.js'
 import { computeAudience, computeBrowserUsage } from '../services/audience-stats-service.js'
+// 端分桶判据的唯一真相源(前缀表 + 逐行归类 + SQL 表达式),不在路由里重抄一份
+import {
+  classifyVisitPlatform,
+  visitPlatformCaseSql,
+  type VisitPlatform,
+} from '../db/visit-tracking-queries.js'
 
 /** 30 天内活跃用户数:users 表无登录时间字段(2026-08-31 修复 500),
  * 改用 user_devices.last_seen_at 去重统计(Drizzle ORM 版,不依赖原生 SQL)。 */
@@ -79,6 +85,7 @@ async function buildBiPayload() {
     stayRows,
     audience,
     browsers,
+    platforms,
   ] = await Promise.all([
     dbRead.select({ total: count() }).from(users),
     dbRead
@@ -172,6 +179,17 @@ async function buildBiPayload() {
     // 访客构成(新/回访)与浏览器分布:这两条腿取不到时折成 null,不拖垮整页(其余块照常出)。
     computeAudience().catch(() => null),
     computeBrowserUsage().catch(() => null),
+    // 各端使用量(近 7 日):分桶表达式与大屏 platformSplit 同一份前缀表,不另写判据
+    dbRead
+      .select({
+        platform: visitPlatformCaseSql(),
+        pv: sql<number>`count(*)::int`,
+        uv: sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`,
+      })
+      .from(visitLogs)
+      .where(sql`${visitLogs.createdAt} >= now() - make_interval(days => ${WINDOW_DAYS})`)
+      .groupBy(visitPlatformCaseSql())
+      .orderBy(sql`count(*) desc`),
   ])
 
   return {
@@ -192,6 +210,7 @@ async function buildBiPayload() {
       uv: Number(visitTotals?.uv ?? 0),
       pages: pages.map((r) => ({
         url: r.url,
+        platform: classifyVisitPlatform(r.url),
         pv: Number(r.pv ?? 0),
         uv: Number(r.uv ?? 0),
       })),
@@ -219,6 +238,12 @@ async function buildBiPayload() {
           },
     /** 近 7 日浏览器分布(只算 web 裸路径);null = 取不到 */
     browsers: browsers,
+    /** 近 7 日各端使用量(网站/移动端/小程序/浏览器插件;分桶判据与监控大屏同源) */
+    platforms: platforms.map((r) => ({
+      platform: String(r.platform) as VisitPlatform,
+      pv: Number(r.pv ?? 0),
+      uv: Number(r.uv ?? 0),
+    })),
   }
 }
 

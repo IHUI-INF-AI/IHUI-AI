@@ -135,6 +135,33 @@ export async function computeBrowserUsage(
 }
 
 /**
- * 大屏实时档(24h 窗口 + 60 秒 TTL)的挂载点在下一批:那块要一次接齐"路由腿 + 面板读数 +
- * 五语言标签",单独留一个没人消费的 getter 只会变成悬空声明。
- */ // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+ * 大屏实时档(24h 窗口 + 60 秒 TTL)。
+ *
+ * 与页面热度那块不同窗不是疏忽:首现聚合要按身份分组扫全表,5 秒一档不值当;
+ * 60 秒对"今天来了多少新面孔"这个量足够新。取不到时上抛,由调用方折成 null
+ * (大屏渲染"—"),绝不兜成 0 —— 把"没判出来"读成"没有新访客"是本仓反复出现的失效型。
+ */
+export const AUDIENCE_LIVE_WINDOW_HOURS = 24
+export const AUDIENCE_LIVE_TTL_MS = 60_000
+
+let liveCache: { atMs: number; value: AudienceSnapshot } | null = null
+let liveInflight: Promise<AudienceSnapshot> | null = null
+
+export async function getAudienceLiveSnapshot(
+  ttlMs: number = AUDIENCE_LIVE_TTL_MS,
+): Promise<AudienceSnapshot> {
+  const nowMs = Date.now()
+  if (liveCache && nowMs - liveCache.atMs < ttlMs) return liveCache.value
+  if (liveInflight) return liveInflight
+  const current = (async () => {
+    try {
+      const value = await computeAudience(AUDIENCE_LIVE_WINDOW_HOURS)
+      liveCache = { atMs: value.computedAtMs, value }
+      return value
+    } finally {
+      liveInflight = null
+    }
+  })()
+  liveInflight = current
+  return current
+} // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
