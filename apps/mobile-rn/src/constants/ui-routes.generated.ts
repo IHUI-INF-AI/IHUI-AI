@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: b8c6621af5eb8f9039ae2a1f597f7a2403412a7f
-// inputsSha256: 2f5b6fa43f36fb8c3798499519cddd332977e557aa507c1a1fb2338a2d3117bf
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx b08a0cc377962860f41fe3d717476e9600e23aef273d481f36d409eb692d75e1
+// sourceCommit: a6360212bca8aac0a93f449c622fc147567633bc
+// inputsSha256: 23e3c1fb1de20277a598c77d9bce7c7be9447b7549339b06239185af10833620
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx a6d6e4feb224d3d0a23ab928a7c5a907dba6ada046101fefa292735f7cadad42
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-25T19:14:15.348Z
+// generatedAt: 2026-10-26T04:20:44.935Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 278 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 288 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -125,6 +125,16 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Agreement', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'About', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Status', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AgreementByType', tab: false, requiresParams: true, requiredParams: ['type'] },
+  { name: 'LegalDoc', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Support', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Tags', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'TagDetail', tab: false, requiresParams: true, requiredParams: ['slug'] },
+  { name: 'Teams', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'TeamWorkspace', tab: false, requiresParams: true, requiredParams: ['teamId'] },
+  { name: 'WorkflowList', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'WorkflowDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'WorkflowInstanceDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'Help', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Feedback', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CustomerService', tab: false, requiresParams: false, requiredParams: [] },
