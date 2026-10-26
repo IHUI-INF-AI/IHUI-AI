@@ -34,7 +34,7 @@ const DEFAULT_PREFS: DevPreferences = {
   errorReport: true,
 }
 
-export function DeveloperSettingsScreen() {
+function DeveloperSettingsScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

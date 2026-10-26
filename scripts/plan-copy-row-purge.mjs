@@ -242,16 +242,20 @@ function splitPointedId(pointed) {
  *  (e) 现行面该 token 的**每一处文字出现**要么落在本批删除行内,要么是 `<!--` 注释墓碑 ∧ 结清标记
  *      (✅/已归档)—— "正文逐字留在下方"的自述若已过期,证据就是那枚注释化墓碑。
  */
-export function commitReceiptVerdict(row, pointed, opts2) {
+export function commitReceiptVerdict(row, pointed, opts2, noPointerCheck = false) {
   if (!opts2?.resolveSnapshot || !opts2?.ledgerFace) return null
-  if (!/^L\d+$/.test(pointed)) return null
+  if (!noPointerCheck && !/^L\d+$/.test(pointed)) return null
   const token = receiptTokenOf(row.raw)
   if (!token) return null
   const snapshot = opts2.resolveSnapshot(token)
   if (typeof snapshot !== 'string' || snapshot === '') {
     return { verdict: 'archive-absent', pointed, detail: [`枚 ${token} 快照取不到(判不出)`] }
   }
-  const snapLine = Number(pointed.slice(1))
+  // 行号取材:指针行用括注 `（编号 L…）`;④b 自述副本行(没有括注形态)退到"同标题登记 LNNNN"字样 ——
+  // 两档都是**逐字**的行号 token,不是相似度(取不到 ⇒ null ⇒ 拒删)。
+  const pointedLineMatch = pointed ? Number(pointed.slice(1)) : Number((/同标题登记\s+L(\d+)/.exec(String(row.raw))?.[1] ?? Number.NaN))
+  if (!Number.isFinite(pointedLineMatch) || pointedLineMatch <= 0) return null
+  const snapLine = pointedLineMatch
   const snapRows = parseTaskRows(snapshot)
   const snapRow = snapRows.find((r) => r.line === snapLine)
   if (!snapRow) {
@@ -425,7 +429,13 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
   const archiveIndex = opts.archiveIndex ?? null
   // ④d 的"本批副本行"范围:按自述标记现算(行级判据,与 select 同把尺,不依赖删除时序)
   const receipt = opts.receipt
-    ? { ...opts.receipt, deletedRowLines: new Set(rows.filter((r) => r.state === 'open' && hasCopyMark(r.raw)).map((r) => r.line)) }
+    ? {
+        ...opts.receipt,
+        // 本批副本集与删除集**同形**(①∧②):批2 对象(带落账注记)不得被当成"已排除的正主"而放掉④d
+        deletedRowLines: new Set(
+          rows.filter((r) => r.state === 'open' && hasCopyMark(r.raw) && !hasSettledNote(r.raw)).map((r) => r.line),
+        ),
+      }
     : null
   const openRows = rows.filter((r) => r.state === 'open')
   // 组账:复合主键 → open 行(幸存者判定用)
@@ -492,16 +502,40 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
       // (主行本体留在账面不代摘,租约清账归持有者;登记信息不丢 ⇒ 接收方成立);
       // 在飞租约幸存者仍挡(宁可漏删不可误删)。批1/批2 expiredLease=false ⇒ 逐字原判。
       const k = r.key ?? compositeKeyOf(r.raw)
-      if (!k) continue
       const group = byKey.get(k) ?? []
-      const survivor = group.find(
-        (x) =>
-          x.line !== r.line &&
-          !hasCopyMark(x.raw) &&
-          !hasSettledNote(x.raw) &&
-          (!x.claim || (expiredLease && opts.staleLeaseLines?.has(x.line))),
-      )
-      if (!survivor) continue
+      const survivor = k
+        ? group.find(
+            (x) =>
+              x.line !== r.line &&
+              !hasCopyMark(x.raw) &&
+              !hasSettledNote(x.raw) &&
+              (!x.claim || (expiredLease && opts.staleLeaseLines?.has(x.line))),
+          )
+        : null
+      if (!survivor) {
+        // ④b-rc(2026-10-26,④d 同一条证据链):组内无幸存者(或键取不出)时,若本行**自带枚 sha**,
+        // 仍可用"快照已勾 + 账上编号无 open 正主 + 现面结清凭据"作接收方(L28744 型:keyOfRow 与
+        // compositeKeyOf 都被行首"重复登记副本:"措辞挡死,但首段加粗题面里的 G-351 可核)。
+        // 键一致纪律:k 给得出时必须与回执账上编号**逐字相等**(防拿着 A 号的回执删 B 号的行);
+        // k 取不出时以回执的 accountKey 为准(它自己过了四档取材+d/e 核验)。前提不齐 ⇒ 照旧整组保留。
+        // 本行带有效租约 ⇒ 不代裁(与③同口径;批1 下 claim 行根本进不到这里)
+        if (r.claim && !(expiredLease && opts.staleLeaseLines?.has(r.line))) continue
+        const rc = receipt ? commitReceiptVerdict({ line: r.line, raw: r.raw }, null, receipt, true) : null
+        if (rc && rc.verdict === 'commit-receipt' && rc.accountKey && (k === null || k === rc.accountKey)) {
+          deletes.push({
+            row: r,
+            family: includeSettled ? 'settled-note' : expiredLease ? 'merge-lease' : 'merge-note',
+            key: k ?? rc.accountKey,
+            survivorLine: rc.snapshotLine,
+            receiver: 'commit',
+            token: rc.token,
+            accountKey: rc.accountKey,
+            tombstones: rc.tombstones,
+          })
+          continue
+        }
+        continue
+      }
       deletes.push({
         row: r,
         family: includeSettled ? 'settled-note' : expiredLease ? 'merge-lease' : 'merge-note',
@@ -706,7 +740,11 @@ function selfTest() {
   // —— ④d 枚回执档(2026-10-26 立,goal-c 席现读实证:L28641 行号型指针被 ④c 结构性挡死)——
   // 夹具全走纯函数入参(快照经 resolveSnapshot 注入,判据不碰真 git 面 —— 与 ④c 不读盘同一条纪律)。
   // 行号用小号(L1/L2)钉同一形状:快照第 1 行不是登记行(拒删臂),第 2 行是已勾主行(可删臂)。
-  const SNAP_LEDGER = '# 快照\n- **散文头无复选框**\n- [x] ✅(2026-09-24) **污染守门补上"内容归因"第二维并同步文档**:细节。\n'
+  const SNAP_LEDGER =
+    '# 快照\n- **散文头无复选框**\n- [x] ✅(2026-09-24) **污染守门补上"内容归因"第二维并同步文档**:细节。\n' +
+    // ④b-rc 臂用真语料(指向 L6880):补一段空行把 done 主行垫到第 6880 行(6876 个空行)
+    '\n'.repeat(6876) +
+    '- [x] ✅(2026-09-24) **污染守门补上第二维并同步文档**(6880 号位)。\n'
   const snapOk = (token) => (/^[0-9a-f]{7,40}$/.test(token) ? SNAP_LEDGER : null)
   const RECEIPT_ROW_1 =
     '- [ ] 副本指针（编号 L6880）重复登记副本:本行与同标题登记 L6880(枚 290a26bc1)重复。 **G-351〔旧号〕. 分叉合并丢掉的东西**:① 丢的实现。'
@@ -727,11 +765,11 @@ function selfTest() {
     { archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空归档件\n' }]), receipt: rcOpt(snapOk) },
   )
   ok(
-    d.length === 1 && d[0].receiver === 'commit' && d[0].token === '290a26bc1' && d[0].accountKey === 'G-351' && d[0].survivorLine === 3,
-    '④d D型:行号+枚 token 指针 ∧ 快照 done ∧ 账已结清 ⇒ 可删(receiver=commit;同题无指针行走原 ④b,不混)',
+    d.length === 2 && d[0].receiver === 'commit' && d[0].token === '290a26bc1' && d[0].accountKey === 'G-351' && d[0].survivorLine === 3,
+    '④d D型:行号+枚 token 指针 ∧ 快照 done ∧ 账已结清 ⇒ 可删(两自述副本同批都收 —— pointer-row + merge-note,与真面 L28641/L28744 形状一致)',
   )
   ok(
-    d.length === 1 && d[0].tombstones.some((s) => s.line === 3),
+    d.length === 2 && d.every((x) => x.tombstones.length === 1 && x.tombstones[0].line === 3),
     '④d D型:结清墓碑逐处点名(证据进留痕,不只给布尔)',
   )
   // 反例组:每一臂都必须退回 archive-absent(拒删),失效方向恒为"少删"
@@ -791,6 +829,23 @@ function selfTest() {
     d.length === 1 && d[0].tombstones.length === 1 && d[0].tombstones[0].line === 4,
     '④d 正例:非结清注释/散文引用不拦,凭据只要 ≥1 条真墓碑(点名到那条)',
   )
+  // ④b-rc:自述副本行 keyOfRow/compositeKeyOf 双双交 null(与真行 L28744 同形:行首措辞挡正尺,
+  // 加粗题面在 48 字窗外),但首段加粗里的账上编号可核 ⇒ 枚回执接得住。夹具用真语料逐字。
+  const REAL_28744 =
+    '- [ ] 重复登记副本:本行与同标题登记 L6880(枚 290a26bc1)重复,并发归档/回捞把它复制到了不同编号下(编号一律不改、不删行、正文逐字留在下方)。本行不进派单口径,活账以主行为准。 **G-351〔旧号〕. 分叉合并这次"丢掉的东西"与"互相矛盾的两行文档",按归属交接,不由合并代裁**:① **丢的实现** —— `scripts/check-service-binary-paths.mjs` 与它的测试是同一票在两条分支各写一份(add/add),合并取的是 origin 那份(唯一理由:合并后的 guardian-runner 注册的是它,而只有它读 `HUSKY_SKIP_SERVICE_BINARY_PATHS`;留本侧就等于给提交链挂一条"文档写了但跑不通的出路"),本侧多出的三样探测随本次合并**没了**:服务 STATE 的 〔压缩@2026-10-22〕〔同题原号 G-337〔旧号〕〕〔同题原号 G-337〕〔进展@2026-10-25/取证席:本行为重复登记副本,不进派单口径;活账以 L6880 为准,不删行、编号不改〕'
+  d = selectCopyRowsToPurge([mk(1, REAL_28744), mk(2, LEDGER_TOMB.split('\n')[2])], {
+    archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]),
+    receipt: { resolveSnapshot: snapOk, ledgerFace: faceT },
+  })
+  ok(
+    d.length === 1 && d[0].row.line === 1 && d[0].receiver === 'commit' && d[0].family === 'merge-note' && d[0].accountKey === 'G-351',
+    '④b-rc:无幸存者的自述副本行凭"枚回执+结清凭据"可删(receiver=commit,merge-note 族)',
+  )
+  d = selectCopyRowsToPurge(
+    [mk(1, REAL_28744.replace(/L6880/g, 'L1')), mk(2, LEDGER_TOMB.split('\n')[2])],
+    { archiveIndex: buildArchiveIndex([{ path: 'x', text: '# 空\n' }]), receipt: { resolveSnapshot: snapOk, ledgerFace: faceT } },
+  )
+  ok(d.length === 0, '④b-rc 反例:枚快照该行不是登记行 ⇒ 证据不齐,拒删(逐字原判)')
   const LEDGER_PLAIN = [
     '- [ ] 副本指针（编号 L6880）重复登记副本:见 G-351 那条。',
     '<!-- 没结清的普通注释提了一嘴 **G-351** 但没有 ✅/已归档 -->',
