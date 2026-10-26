@@ -11,6 +11,7 @@ import { Loader2, ShieldCheck, ShieldAlert, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 
@@ -36,6 +37,9 @@ function AuthorizeContent() {
   const router = useRouter()
   const params = useSearchParams()
   const token = useAuthStore((s) => s.token)
+  // 「还没查完」≠「确认未登录」(2026-10-26,与 admin/layout 同口径):冷启动静默续期未落定前
+  // 不得弹登录框、不得 replace('/') —— 否则凭据有效的授权跳转会被画成"被踢回首页"。
+  const { ready } = useAuthBootstrap()
 
   const clientId = params.get('client_id') ?? ''
   const redirectUri = params.get('redirect_uri') ?? ''
@@ -66,6 +70,8 @@ function AuthorizeContent() {
   )
 
   React.useEffect(() => {
+    // 校验进行中:保持 loading 占位,不触发任何登录弹窗/跳转副作用
+    if (!ready) return
     if (!token) {
       useLoginDialogStore.getState().open('login', '/oauth/authorize')
       router.replace('/')
@@ -87,7 +93,7 @@ function AuthorizeContent() {
     return () => {
       cancelled = true
     }
-  }, [token, clientId, redirectUri, state, buildQuery, router])
+  }, [ready, token, clientId, redirectUri, state, buildQuery, router])
 
   const redirectTo = (url: string) => {
     if (typeof window !== 'undefined') window.location.href = url
