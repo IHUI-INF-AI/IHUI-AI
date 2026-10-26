@@ -179,5 +179,59 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
     // 即使 SSO 入口隐藏,只要页面可访问就算通过
     expect(hasSso || true).toBeTruthy()
   })
+
+  test('海外语言(en):不提供手机号登录,Google 主推;切回 zh-CN 恢复', async ({ page, context }) => {
+    // 本环境未配置 Google 凭据时 API 会报 google:false;本用例只验 UI 策略,
+    // 因此强制 oauth-status 返回 google:true,确保主推按钮可被渲染与断言。
+    await page.route('**/api/auth/oauth-status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'success',
+          data: { google: true },
+        }),
+      })
+    })
+
+    await page.goto('/sso/login')
+    // 默认 zh-CN:手机号 tab 必须在(证明改动没有误伤国内)
+    await expect(page.getByTestId('login-tab-phone')).toBeVisible({ timeout: 8000 })
+
+    // 语言偏好同时落 cookie + localStorage 后 reload,兼容 production build
+    // (production 下 window.__IHUI_LANGUAGE_STORE__ 不挂载)。
+    const switchLocale = async (locale: string) => {
+      const host = new URL(page.url()).hostname
+      await context.addCookies([
+        {
+          name: 'locale',
+          value: locale,
+          domain: host,
+          path: '/',
+          httpOnly: false,
+          secure: false,
+          sameSite: 'Lax',
+        },
+      ])
+      await page.evaluate((l) => {
+        localStorage.setItem(
+          'ihui-language',
+          JSON.stringify({ state: { locale: l, initialized: true }, version: 0 }),
+        )
+      }, locale)
+      await page.reload({ waitUntil: 'domcontentloaded' })
+    }
+
+    await switchLocale('en')
+    await expect(page.getByTestId('login-tab-phone')).toHaveCount(0, { timeout: 8000 })
+
+    const featuredGoogle = page.getByTestId('third-party-featured-google')
+    await expect(featuredGoogle).toBeVisible({ timeout: 5000 })
+
+    await switchLocale('zh-CN')
+    await expect(page.getByTestId('login-tab-phone')).toBeVisible({ timeout: 8000 })
+    await expect(page.getByTestId('third-party-featured-google')).toHaveCount(0)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
