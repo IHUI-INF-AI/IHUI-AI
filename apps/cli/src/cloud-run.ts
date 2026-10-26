@@ -30,6 +30,7 @@ import { randomUUID } from 'node:crypto';
 //  ② **不**复用 InflightLedger.run() —— 云写入每次都是新 runId,把某一次的失败固化 30s
 //    会让下一次本该真实发起的尝试被旧答案吞掉,等于用去重表再造一层静默。
 import { LEDGER_FAILURE_CODES } from './util/inflight-ledger.js';
+import { fetchWithCliAuthRefresh, isUnauthorized } from './lib/auth-refresh.js';
 
 export interface CloudRunStartInput {
   task: string;
@@ -127,15 +128,15 @@ export function resolveCloudRunBase(): string {
   return (process.env.AI_SERVICE_URL || 'http://localhost:8803').replace(/\/+$/, '');
 }
 
-function buildHeaders(apiKey?: string): Record<string, string> {
-  const headers: Record<string, string> = {
+/**
+ * 业务头(Authorization 不在此装配 —— 由 `fetchWithCliAuthRefresh` 单点装配,
+ * 它才知道 401 续期后该用哪一枚凭据重放)。
+ */
+function buildHeaders(): Record<string, string> {
+  return {
     Accept: 'application/json',
     'Content-Type': 'application/json',
   };
-  if (apiKey) {
-    headers.Authorization = `Bearer ${apiKey}`;
-  }
-  return headers;
 }
 
 type SendResult = { ok: true } | { ok: false; code: CloudRunFailureCode; message: string };
@@ -163,16 +164,29 @@ async function send(
     controller.abort();
   }, timeoutMs);
   try {
-    const res = await fetch(url, {
-      method,
-      headers: buildHeaders(apiKey),
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    const res = await fetchWithCliAuthRefresh(
+      url,
+      {
+        method,
+        headers: buildHeaders(),
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      },
+      { accessToken: apiKey ?? null },
+    );
     if (res.ok) return { ok: true };
-    // 401/403 = 登录态问题(处置=重新登录),其余非 2xx = 服务端拒绝(处置=查服务)——两档动作不同
-    const code: CloudRunFailureCode = res.status === 401 || res.status === 403 ? 'auth' : 'server';
-    return { ok: false, code, message: `HTTP ${res.status}` };
+    // 401/403 = 登录态问题(处置=重新登录),其余非 2xx = 服务端拒绝(处置=查服务)——两档动作不同。
+    // "什么算 401" 只问 isUnauthorized(单点判据),本腿不重写一遍。
+    // message 保持 ASCII 诊断文本(本文件的既有设计:降级喊话不落新的中文文案)。
+    const unauthorized = isUnauthorized(res) || res.status === 403;
+    const code: CloudRunFailureCode = unauthorized ? 'auth' : 'server';
+    return {
+      ok: false,
+      code,
+      message: unauthorized
+        ? `HTTP ${res.status} (token refresh attempted; re-login required)`
+        : `HTTP ${res.status}`,
+    };
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     if (timedOut) return { ok: false, code: 'timeout', message: `timeout after ${timeoutMs}ms: ${detail}` };
