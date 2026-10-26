@@ -47,7 +47,15 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = join(HERE, '..', 'check-api-routes.mjs')
-const SRC = readFileSync(SCRIPT, 'utf8')
+// 方法推导判据 2026-10-24 起搬到 lib 单源(§0.6);源码锁跟随判据本体,
+// 不再锁"门体里有没有第二份副本" —— 门体只剩 import。
+const LIB = readFileSync(join(HERE, '..', 'lib', 'api-route-method-infer.mjs'), 'utf8')
+// findBraceBlockEnd 2026-09 已先一步搬进 api-route-registration-expand.mjs;
+// 源码锁跟着判据本体走,不在门体里找一份已经不存在的定义。
+const EXPAND = readFileSync(
+  join(HERE, '..', 'lib', 'api-route-registration-expand.mjs'),
+  'utf8',
+)
 
 const BASELINE = JSON.stringify({ version: 1, perFileCount: {} })
 
@@ -474,10 +482,10 @@ test('T4 作用域段:函数体带空行时 method 仍取得到(空行不得让�
 
 test('S1 源码锁:向前段与作用域段的加固判据都在', () => {
   // 向前 3 行段:必须先判收尾行再判 method(顺序不能反 —— 反了就等于没加固)
-  const beforeAt = SRC.indexOf('// 向前搜索 path 之前的最近 method')
+  const beforeAt = LIB.indexOf('// 向前搜索 path 之前的最近 method')
   assert.ok(beforeAt > 0, '找不到"向前搜索"段的注释')
   // 按行取该段(固定窗口比 indexOf 边界稳 —— 段内本身就有 `if (!resolved) {`)
-  const seg = SRC.slice(beforeAt).split('\n').slice(0, 20).join('\n')
+  const seg = LIB.slice(beforeAt).split('\n').slice(0, 20).join('\n')
   // 两段的收尾行判据必须是**逐字同一条**。只锁 `.test(<var>)) break` 这个形态
   // (整条正则的转义在"源码当字符串匹配"时极易写歪 —— 实测踩过:`>` 与 `]` 的顺序
   // 一变就静默失配,源码锁自己变红)。真正的口径由上面的 T1/T2 用例钉。
@@ -493,40 +501,40 @@ test('S1 源码锁:向前段与作用域段的加固判据都在', () => {
   )
   // 作用域段:hook 对象块识别 + 整块跳过 + 块内含本调用时出循环
   assert.match(
-    SRC,
+    LIB,
     /const reactDataHookBlockRe =\n\s*\/\\buse\(\?:Mutation\|Queries\|Query\|SWR\|InfiniteQuery\|LazyQuery\)/,
     '作用域段缺 reactDataHookBlockRe —— `useMutation({` / `useQuery({` 这类别的 hook 对象块无法被识别',
   )
   assert.match(
-    SRC,
+    LIB,
     /const blockEnd = findBraceBlockEnd\(lines, i\)/,
     '作用域段必须用 findBraceBlockEnd 把 hook 块整块跳过(只判开头不跳块 = 块内的 method 照样借出去)',
   )
   assert.match(
-    SRC,
+    LIB,
     /if \(i >= idx\) break/,
     '作用域段必须处理"本调用就写在该块内"的情形(它自己的 queryFn/mutationFn 归因归向后段)',
   )
   assert.match(
-    SRC,
-    /function findBraceBlockEnd\(lines, openLine\)/,
+    EXPAND,
+    /export function findBraceBlockEnd\(lines, openLine\)/,
     'findBraceBlockEnd 不见了 —— hook 块跳过无实现',
   )
   // 已弃方案留档:通用深度记账的失败理由不得被删(否则下一个人会重走一遍并再踩空行那个坑)
-  assert.match(SRC, /试过,已弃/, '必须留着"通用嵌套深度记账试过已弃"这条留档')
+  assert.match(LIB, /试过,已弃/, '必须留着"通用嵌套深度记账试过已弃"这条留档')
 })
 
 test('S2 源码锁:加固的依据注释不得被删(否则下一个人要重查一遍)', () => {
-  assert.match(SRC, /for \(let i = -1; i >= -3; i--\)/, '向前段的 -3 窗口不得被改')
-  assert.match(SRC, /已实测 8 形态/, '必须留着"funcStartRe 限制 1 已实测 8 形态"这个否证结论')
-  assert.match(SRC, /对象方法简写/, '必须点明 funcStartRe 认不出对象方法简写这一形态')
+  assert.match(LIB, /for \(let i = -1; i >= -3; i--\)/, '向前段的 -3 窗口不得被改')
+  assert.match(LIB, /已实测 8 形态/, '必须留着"funcStartRe 限制 1 已实测 8 形态"这个否证结论')
+  assert.match(LIB, /对象方法简写/, '必须点明 funcStartRe 认不出对象方法简写这一形态')
   assert.match(
-    SRC,
+    LIB,
     /useCallback\(async \(\) => \{` 的 `\(` 后是 `async` 不是 `\{`/,
     '必须留着"hook 名只收数据/变更类且必须 ({ 起头"这条口径(含 useCallback 反例)',
   )
   assert.match(
-    SRC,
+    LIB,
     /use-analytics\.ts:181/,
     '必须点名 use-analytics.ts:181 这条被 A/B 抓到的由对变错记录',
   )
@@ -534,10 +542,10 @@ test('S2 源码锁:加固的依据注释不得被删(否则下一个人要重查
 
 test('S3 边界:「向后 4 行」段那处既有加固不得被改动(2026-09-17 已验,本票不动它)', () => {
   // 本票只加向前两段的加固;向后段若被动过,T1/T2 的结论就不再可信。
-  const afterAt = SRC.indexOf('// 向后搜索 path 之后的第一个 method')
+  const afterAt = LIB.indexOf('// 向后搜索 path 之后的第一个 method')
   assert.ok(afterAt > 0, '找不到"向后搜索"段的注释')
   // 按行取该段的 12 行(段很短,固定窗口比 indexOf 边界稳)
-  const seg = SRC.slice(afterAt).split('\n').slice(0, 14).join('\n')
+  const seg = LIB.slice(afterAt).split('\n').slice(0, 14).join('\n')
   assert.match(
     seg,
     /\.test\(afterLine\)\) break/,
