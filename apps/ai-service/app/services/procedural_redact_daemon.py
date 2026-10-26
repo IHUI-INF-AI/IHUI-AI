@@ -21,8 +21,9 @@
 
 装配:随 lifespan 挂载(见 ``app/main.py``),与过期清扫守护同一档但**默认开** —— 审计本身零副作用,
 关掉它只是把"存量没人量"留给下一次;提供 ``PROCEDURAL_REDACT_AUDIT_ENABLED=0`` 显式关档,以及
-``PROCEDURAL_REDACT_AUDIT_INTERVAL_SECONDS`` 调间隔(默认 86400s,下限 300s)。循环**先扫后睡**:
-进程活多久就至少审一次,频繁重启也不会让首次点名永远排不到。
+``PROCEDURAL_REDACT_AUDIT_INTERVAL_SECONDS`` 调间隔(默认 86400s,下限 300s)。循环**先睡后扫**
+(与 expiry_janitor 同形):短命进程(尤其跑 ``TestClient(app)`` 的用例)整个生命周期都碰不到
+真库 —— 测试隔离铁律(§5)优先于"每进程至少审一次"。
 """
 
 from __future__ import annotations
@@ -164,8 +165,8 @@ def _running_task() -> asyncio.Task[Any] | None:
 
 async def _loop(interval: float) -> None:
     while True:
-        await sweep_once()
         await asyncio.sleep(interval)
+        await sweep_once()
 
 
 def ensure_started() -> asyncio.Task[Any] | None:
