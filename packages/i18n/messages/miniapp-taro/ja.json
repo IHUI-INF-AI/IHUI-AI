@@ -182,7 +182,8 @@
   "home": {
     "more": "もっと見る",
     "livePreview": "ライブ予定",
-    "startTime": "開始時間"
+    "startTime": "開始時間",
+    "pubTip": "お知らせ"
   },
   "course": {
     "learningProgress": "学習進捗",
@@ -239,7 +240,8 @@
     "rating3": "普通",
     "rating4": "良い",
     "rating5": "とても良い",
-    "studentUnit": "名受講"
+    "studentUnit": "名受講",
+    "moreTitle": "もっと見る"
   },
   "live": {
     "viewers": "{n} 人視聴",
@@ -442,7 +444,14 @@
       "available": "出金可能コミッション",
       "records": "コミッション記録",
       "title": "コミッション明細"
-    }
+    },
+    "balance": "残高",
+    "frozen": "凍結金額",
+    "loadFailed": "ウォレットの読み込みに失敗",
+    "title": "マイウォレット",
+    "totalRecharge": "累計チャージ",
+    "totalWithdraw": "累計出金",
+    "withdraw": "出金"
   },
   "community": {
     "posts": "投稿",
@@ -2139,7 +2148,8 @@
     "deleteConfirm": "この商品を削除しますか?",
     "selectFirst": "商品を選択してください",
     "loadFailed": "読み込み失敗",
-    "total": "合計"
+    "total": "合計",
+    "checkoutConfirm": "選択した商品を確認して、WeChat Payで支払います"
   },
   "categoryDetail": {
     "categoryId": "カテゴリ {id}",
@@ -5313,7 +5323,9 @@
     "empty": "コースはまだありません",
     "free": "無料",
     "studentCount": "{count} 人が学習",
-    "nextPage": "次のページ"
+    "nextPage": "次のページ",
+    "popular": "人気コース",
+    "unknownInstructor": "不明な講師"
   },
   "customerService": {
     "title": "カスタマーサポートに連絡",
@@ -5501,5 +5513,361 @@
     "from": "送信者",
     "createdAt": "時間",
     "loadFailed": "メッセージ詳細の読み込みに失敗"
+  },
+  "messageDirect": {
+    "empty": "ダイレクトメッセージなし",
+    "loadFailed": "読み込みに失敗",
+    "title": "ダイレクトメッセージ"
+  },
+  "messageGroup": {
+    "empty": "グループチャットなし",
+    "loadFailed": "読み込みに失敗",
+    "title": "グループ"
+  },
+  "messageSystem": {
+    "empty": "システムメッセージなし",
+    "loadFailed": "読み込みに失敗",
+    "title": "システム"
+  },
+  "noteCreate": {
+    "title": "新しいノート",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "ノートのタイトルを入力",
+    "contentLabel": "内容",
+    "contentPlaceholder": "学習のメモを記録...",
+    "tagsLabel": "タグ",
+    "tagsPlaceholder": "複数のタグはカンマで区切ります",
+    "isPublic": "ノートを公開",
+    "submit": "保存",
+    "required": "内容を入力してください",
+    "saveFailed": "保存に失敗"
+  },
+  "noteDetail": {
+    "loadFailed": "ノートの読み込みに失敗",
+    "views": "閲覧数"
+  },
+  "noteList": {
+    "empty": "ノートがありません",
+    "loadFailed": "読み込みに失敗",
+    "title": "ノート"
+  },
+  "note": {
+    "title": "マイノート",
+    "subtitle": "好記性は口頭に勝る",
+    "empty": "ノートはまだありません。＋ボタンで作成を始めましょう",
+    "add": "ノートを新規作成",
+    "edit": "編集",
+    "updatedAt": "更新日:",
+    "titlePlaceholder": "ノートのタイトルを入力",
+    "placeholder": "学習のメモを記録...",
+    "deleteFailed": "削除に失敗",
+    "deleted": "削除済み",
+    "loadFailed": "読み込みに失敗",
+    "saveFailed": "保存に失敗",
+    "saved": "保存済み",
+    "titleRequired": "タイトルを入力"
+  },
+  "notificationList": {
+    "viewActive": "アクティブ",
+    "archived": "アーカイブ",
+    "loadFailed": "読み込みに失敗",
+    "title": "通知",
+    "type": {
+      "course": "コース",
+      "order": "注文",
+      "social": "ソーシャル",
+      "system": "システム"
+    }
+  },
+  "orderLog": {
+    "title": "注文動向",
+    "empty": "動向はありません",
+    "action": "操作",
+    "operator": "担当者",
+    "loadFailed": "注文ログの読み込みに失敗"
+  },
+  "orderTrack": {
+    "title": "配送追跡",
+    "empty": "配送情報はありません",
+    "location": "現在の場所",
+    "loadFailed": "追跡の読み込みに失敗"
+  },
+  "payment": {
+    "title": "支払い注文",
+    "subtitle": "支払い注文の確認と管理",
+    "retry": "再試行",
+    "empty": "支払い注文なし",
+    "orderNo": "注文番号",
+    "amount": "金額",
+    "method": "支払い方法",
+    "paidAt": "支払い時間",
+    "untitledOrder": "無題の注文",
+    "syncStatus": "ステータス同期",
+    "cancelOrder": "注文キャンセル",
+    "payNow": "支払う",
+    "payCancelled": "支払いキャンセル",
+    "payFailed": "支払い失敗",
+    "createFailed": "支払い注文作成失敗",
+    "wechatNotInstalled": "WeChatがインストールされていません",
+    "nativeUnavailable": "WeChat Pay利用不可,リビルドが必要"
+  },
+  "pointRule": {
+    "empty": "ポイントルールなし",
+    "loadFailed": "ルールの読み込みに失敗",
+    "title": "ポイントルール"
+  },
+  "pointsMall": {
+    "balance": "ポイント残高",
+    "empty": "商品がありません",
+    "insufficient": "ポイント不足",
+    "loadFailed": "商品の読み込みに失敗",
+    "pointsUnit": "ポイント",
+    "redeem": "交換",
+    "redeemFailed": "交換に失敗",
+    "redeemSuccess": "交換しました",
+    "retry": "再試行",
+    "stock": "在庫",
+    "subtitle": "ポイントで景品と交換",
+    "title": "ポイントモール"
+  },
+  "pointsRecord": {
+    "title": "トークン明細",
+    "tabAll": "すべて",
+    "tabEarn": "獲得",
+    "tabSpend": "消費",
+    "balance": "現在の残高",
+    "empty": "明細記録はありません",
+    "balanceAfter": "変更後の残高",
+    "loadFailed": "記録の読み込みに失敗"
+  },
+  "points": {
+    "title": "ポイントセンター",
+    "subtitle": "ポイント、レベル、チェックインを確認",
+    "current": "現在のポイント",
+    "totalEarned": "累計獲得",
+    "totalSpent": "累計消費",
+    "level": "レベル",
+    "nextLevel": "{name} まであと {points} ポイント",
+    "maxLevel": "最高レベルに到達しました",
+    "experience": "経験値",
+    "signIn": {
+      "title": "デイリーチェックイン",
+      "signedIn": "本日チェックイン済み",
+      "notSignedIn": "本日未チェックイン",
+      "consecutive": "{days} 日連続",
+      "todayReward": "本日の報酬",
+      "signInBtn": "チェックインする",
+      "signing": "チェックイン中...",
+      "signInSuccess": "チェックインしました。{points} ポイント獲得",
+      "signInFailed": "チェックインに失敗しました",
+      "alreadySigned": "本日はチェックイン済みです"
+    },
+    "mallLink": "ポイントモール",
+    "taskCenterLink": "タスクセンター",
+    "ruleLink": "ポイントルール",
+    "txTitle": "ポイント履歴",
+    "empty": "ポイント記録がありません",
+    "loadFailed": "ポイントの読み込みに失敗しました",
+    "balance": "残高",
+    "loadMore": "さらに読み込む"
+  },
+  "profileEdit": {
+    "avatarTip": "タップでアバターを変更",
+    "nicknamePlaceholder": "ニックネームを入力してください",
+    "bioPlaceholder": "自己紹介をしましょう",
+    "avatarModalTitle": "アバターの変更",
+    "avatarUrlLabel": "アバターURL",
+    "avatarUrlPlaceholder": "画像のURLを貼り付け",
+    "avatarUrlHint": "JPG / PNG 対応、200x200 推奨",
+    "bio": "自己紹介",
+    "gender": "性別",
+    "nickname": "ニックネーム",
+    "retry": "再試行",
+    "save": "保存",
+    "title": "プロフィール編集"
+  },
+  "promote": {
+    "title": "プロモーションセンター",
+    "subtitle": "専用リンクを共有して友達を招待",
+    "retry": "再試行",
+    "inviteCount": "招待人数",
+    "activeCount": "アクティブ人数",
+    "totalEarnings": "累計収益",
+    "referralLink": "専用プロモーションリンク",
+    "copyLink": "リンクをコピー",
+    "copySuccess": "コピーしました",
+    "shareBtn": "共有",
+    "referralCode": "プロモーションコード",
+    "rules": "プロモーション規則",
+    "inviteRecords": "招待記録",
+    "empty": "データなし",
+    "loadFailed": "プロモーションの読み込みに失敗"
+  },
+  "promotion": {
+    "title": "クーポン",
+    "empty": "利用可能なクーポンはありません",
+    "minSpend": "¥{minSpend} 以上で利用可能",
+    "expireDate": "有効期限",
+    "useNow": "今すぐ使う",
+    "loadFailed": "プロモーションの読み込みに失敗"
+  },
+  "qrCode": {
+    "title": "マイQRコード",
+    "scanTip": "上のQRコードをスキャンして、一緒に学び成長しましょう",
+    "share": "共有",
+    "loadFailed": "QR コードの読み込みに失敗"
+  },
+  "realNameAuth": {
+    "title": "実名認証",
+    "status": "認証状況",
+    "verifiedDesc": "実名認証が完了しました",
+    "unverifiedDesc": "実名認証を完了すると、より多くのサービスを利用できます",
+    "name": "本名",
+    "namePlaceholder": "本名を入力してください",
+    "idNumber": "身分証番号",
+    "idNumberPlaceholder": "身分証番号を入力してください",
+    "submit": "認証を提出",
+    "submitting": "送信中..."
+  },
+  "identityVerify": {
+    "loadFailed": "認証の読み込みに失敗"
+  },
+  "referrer": {
+    "title": "紹介者",
+    "current": "現在の紹介者",
+    "empty": "紹介者がまだ設定されていません",
+    "desc": "紹介者を設定すると、双方とも報酬を獲得できます",
+    "codeLabel": "紹介コード",
+    "codePlaceholder": "紹介コードを入力してください",
+    "submit": "設定",
+    "submitting": "設定中...",
+    "bindFailed": "バインドに失敗",
+    "bindSuccess": "バインドしました",
+    "codeRequired": "招待コードを入力",
+    "loadFailed": "紹介者の読み込みに失敗"
+  },
+  "refundDetail": {
+    "amount": "返金額",
+    "createdAt": "申請日時",
+    "empty": "返金なし",
+    "loadFailed": "返金詳細の読み込みに失敗",
+    "orderNo": "注文番号",
+    "reason": "理由",
+    "status": "ステータス",
+    "title": "返金詳細"
+  },
+  "securitySettings": {
+    "title": "セキュリティ設定",
+    "password": "パスワードログイン",
+    "biometric": "生体認証",
+    "twoFactor": "二段階認証",
+    "loginAlert": "ログイン通知",
+    "desc": "アカウントログインに関するスイッチを管理",
+    "loadFailed": "セキュリティ設定の読み込みに失敗"
+  },
+  "selfMedia": {
+    "title": "セルフメディアアシスタント",
+    "loadFailed": "読み込みに失敗しました",
+    "promptRequired": "生成内容を入力してください",
+    "promptPlaceholder": "作成したい内容を記述…",
+    "invoke": "スキルを呼び出して生成",
+    "invoking": "生成中…",
+    "invokeFailed": "スキルの呼び出しに失敗しました。再試行してください",
+    "duration": "所要 {{ms}} ms",
+    "share": "共有",
+    "empty": "生成/公開の記録がありません"
+  },
+  "spec": {
+    "empty": "テンプレートがありません",
+    "title": "規範テンプレート",
+    "loadFailed": "テンプレートの読み込みに失敗しました",
+    "desktopHint": "テンプレートの閲覧は参考用です。Spec 生成にはサーバー側の workspace パスが必要なため、Web/デスクトップで完全なフローをご利用ください",
+    "generateEntry": "Webで生成"
+  },
+  "settingsAccount": {
+    "title": "アカウント管理",
+    "name": "氏名",
+    "email": "メールアドレス",
+    "phone": "電話番号",
+    "save": "保存",
+    "loadFailed": "アカウント設定の読み込みに失敗",
+    "saved": "保存しました"
+  },
+  "statusPage": {
+    "title": "システムステータス",
+    "autoRefreshHint": "60秒ごとに自動更新",
+    "overallOperational": "全システム正常稼働",
+    "overallDegraded": "一部サービスが低下",
+    "overallOutage": "一部サービスが停止",
+    "uptimeLabel": "稼働時間",
+    "updatedAtLabel": "更新日時",
+    "services": "サービス状態",
+    "models": "モデル可用性",
+    "modelLatency": "P95 レイテンシ",
+    "modelErrorRate": "エラー率",
+    "incidents": "最近のインシデント",
+    "noIncidents": "過去30日間のインシデントはありません",
+    "incidentsUnavailable": "過去30日間のインシデントデータは一時的に取得できません",
+    "refresh": "更新",
+    "fetchFailed": "ステータスの取得に失敗しました。後ほど再試行してください",
+    "willAutoRetry": "自動的に再試行します"
+  },
+  "studyProgress": {
+    "title": "学習進捗",
+    "loadFailed": "学習進捗の読み込みに失敗しました",
+    "courses": "コース(完了/合計)",
+    "totalMinutes": "累計学習(分)",
+    "weekMinutes": "今週の学習(分)",
+    "streak": "連続学習(日)",
+    "courseProgress": "コース進捗"
+  },
+  "teamDetail": {
+    "title": "チームメンバー詳細",
+    "transactionVolume": "取引額",
+    "commission": "獲得コミッション",
+    "orderNum": "取引注文数",
+    "phone": "電話番号",
+    "joinedAt": "参加日",
+    "contact": "連絡",
+    "viewOrders": "注文を見る",
+    "empty": "メンバー情報がありません",
+    "loadFail": "読み込み失敗。再試行",
+    "noPhone": "このメンバーは番号未登録",
+    "callFail": "発信できません。端末を確認"
+  },
+  "topup": {
+    "failDefault": "チャージ未完了。後で再試行"
+  },
+  "usage": {
+    "title": "使用量",
+    "quotaTitle": "今月のクォータ",
+    "used": "使用済み",
+    "limit": "上限",
+    "remaining": "残り",
+    "usagePercent": "使用率",
+    "periodMonth": "集計期間：今月（暦月）",
+    "statsTitle": "使用量の概要（過去 30 日）",
+    "totalTokens": "総トークン",
+    "inputTokens": "入力",
+    "outputTokens": "出力",
+    "totalCost": "総コスト",
+    "totalCalls": "呼び出し回数",
+    "dailyTitle": "日別使用量",
+    "modelTitle": "モデル別使用量",
+    "noData": "データがありません",
+    "retry": "再試行"
+  },
+  "vipLevel": {
+    "benefits": "特典",
+    "days": "日数",
+    "duration": "期間",
+    "empty": "レベルなし",
+    "loadFailed": "レベルの読み込みに失敗",
+    "price": "価格",
+    "title": "会員レベル"
+  },
+  "workflows": {
+    "empty": "ワークフローはまだありません",
+    "loadFailed": "ワークフローの読み込みに失敗しました"
   }
 }

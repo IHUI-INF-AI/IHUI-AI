@@ -182,7 +182,8 @@
   "home": {
     "more": "更多",
     "livePreview": "直播预告",
-    "startTime": "开播时间"
+    "startTime": "开播时间",
+    "pubTip": "提示"
   },
   "course": {
     "learningProgress": "学习进度",
@@ -239,7 +240,8 @@
     "rating3": "一般",
     "rating4": "不错",
     "rating5": "很好",
-    "studentUnit": "人学"
+    "studentUnit": "人学",
+    "moreTitle": "更多课程"
   },
   "live": {
     "viewers": "{n} 人观看",
@@ -442,7 +444,14 @@
       "available": "可提现佣金",
       "records": "佣金记录",
       "title": "佣金明细"
-    }
+    },
+    "balance": "余额",
+    "frozen": "冻结金额",
+    "loadFailed": "加载钱包失败",
+    "title": "我的钱包",
+    "totalRecharge": "累计充值",
+    "totalWithdraw": "累计提现",
+    "withdraw": "提现"
   },
   "community": {
     "posts": "帖子",
@@ -2139,7 +2148,8 @@
     "deleteConfirm": "确定要删除该商品吗?",
     "selectFirst": "请选择商品",
     "loadFailed": "加载失败",
-    "total": "合计"
+    "total": "合计",
+    "checkoutConfirm": "请确认所选商品,将通过微信支付完成付款"
   },
   "categoryDetail": {
     "categoryId": "分类 {id}",
@@ -5313,7 +5323,9 @@
     "empty": "暂无课程",
     "free": "免费",
     "studentCount": "{count} 人学过",
-    "nextPage": "下一页"
+    "nextPage": "下一页",
+    "popular": "热门课程",
+    "unknownInstructor": "未知讲师"
   },
   "customerService": {
     "title": "联系客服",
@@ -5501,5 +5513,361 @@
     "from": "发件人",
     "createdAt": "时间",
     "loadFailed": "加载消息详情失败"
+  },
+  "messageDirect": {
+    "empty": "暂无私信",
+    "loadFailed": "加载失败",
+    "title": "私信"
+  },
+  "messageGroup": {
+    "empty": "暂无群聊",
+    "loadFailed": "加载失败",
+    "title": "群聊"
+  },
+  "messageSystem": {
+    "empty": "暂无系统消息",
+    "loadFailed": "加载失败",
+    "title": "系统消息"
+  },
+  "noteCreate": {
+    "title": "新建笔记",
+    "titleLabel": "标题",
+    "titlePlaceholder": "给笔记起个标题",
+    "contentLabel": "内容",
+    "contentPlaceholder": "记录你的学习心得...",
+    "tagsLabel": "标签",
+    "tagsPlaceholder": "多个标签用逗号分隔",
+    "isPublic": "公开笔记",
+    "submit": "保存",
+    "required": "请输入内容",
+    "saveFailed": "保存失败"
+  },
+  "noteDetail": {
+    "loadFailed": "加载笔记详情失败",
+    "views": "阅读量"
+  },
+  "noteList": {
+    "empty": "暂无笔记",
+    "loadFailed": "加载失败",
+    "title": "笔记"
+  },
+  "note": {
+    "title": "我的笔记",
+    "subtitle": "好记性不如烂笔头",
+    "empty": "暂无笔记,点击新增开始记录",
+    "add": "新增笔记",
+    "edit": "编辑",
+    "updatedAt": "更新于",
+    "titlePlaceholder": "给笔记起个标题",
+    "placeholder": "记录你的学习心得...",
+    "deleteFailed": "删除失败",
+    "deleted": "已删除",
+    "loadFailed": "加载失败",
+    "saveFailed": "保存失败",
+    "saved": "已保存",
+    "titleRequired": "请输入标题"
+  },
+  "notificationList": {
+    "viewActive": "返回动态",
+    "archived": "已归档",
+    "loadFailed": "加载通知失败",
+    "title": "通知",
+    "type": {
+      "course": "课程",
+      "order": "订单",
+      "social": "互动",
+      "system": "系统"
+    }
+  },
+  "orderLog": {
+    "title": "订单动态",
+    "empty": "暂无动态",
+    "action": "操作",
+    "operator": "操作人",
+    "loadFailed": "加载订单日志失败"
+  },
+  "orderTrack": {
+    "title": "物流跟踪",
+    "empty": "暂无物流信息",
+    "location": "当前位置",
+    "loadFailed": "加载订单跟踪失败"
+  },
+  "payment": {
+    "title": "支付订单",
+    "subtitle": "查看和管理你的支付订单",
+    "retry": "重试",
+    "empty": "暂无支付订单",
+    "orderNo": "订单号",
+    "amount": "金额",
+    "method": "支付方式",
+    "paidAt": "支付时间",
+    "untitledOrder": "未命名订单",
+    "syncStatus": "同步状态",
+    "cancelOrder": "取消订单",
+    "payNow": "去支付",
+    "payCancelled": "已取消支付",
+    "payFailed": "支付失败",
+    "createFailed": "创建支付订单失败",
+    "wechatNotInstalled": "未安装微信客户端",
+    "nativeUnavailable": "微信支付不可用,需重新构建应用"
+  },
+  "pointRule": {
+    "empty": "暂无积分规则",
+    "loadFailed": "加载规则失败",
+    "title": "积分规则"
+  },
+  "pointsMall": {
+    "balance": "当前积分",
+    "empty": "暂无商品",
+    "insufficient": "积分不足",
+    "loadFailed": "加载积分商品失败",
+    "pointsUnit": "积分",
+    "redeem": "兑换",
+    "redeemFailed": "兑换失败",
+    "redeemSuccess": "兑换成功",
+    "retry": "重试",
+    "stock": "库存",
+    "subtitle": "用积分兑换好礼",
+    "title": "积分商城"
+  },
+  "pointsRecord": {
+    "title": "智汇值明细",
+    "tabAll": "全部",
+    "tabEarn": "获取",
+    "tabSpend": "消耗",
+    "balance": "当前余额",
+    "empty": "暂无明细记录",
+    "balanceAfter": "变动后余额",
+    "loadFailed": "加载积分记录失败"
+  },
+  "points": {
+    "title": "积分中心",
+    "subtitle": "查看积分、等级与签到",
+    "current": "当前积分",
+    "totalEarned": "累计获得",
+    "totalSpent": "累计消费",
+    "level": "等级",
+    "nextLevel": "距离 {name} 还需 {points} 积分",
+    "maxLevel": "已达最高等级",
+    "experience": "经验值",
+    "signIn": {
+      "title": "每日签到",
+      "signedIn": "今日已签到",
+      "notSignedIn": "今日未签到",
+      "consecutive": "已连续签到 {days} 天",
+      "todayReward": "今日奖励",
+      "signInBtn": "立即签到",
+      "signing": "签到中...",
+      "signInSuccess": "签到成功,获得 {points} 积分",
+      "signInFailed": "签到失败",
+      "alreadySigned": "今日已签到"
+    },
+    "mallLink": "积分商城",
+    "taskCenterLink": "任务中心",
+    "ruleLink": "积分规则",
+    "txTitle": "积分流水",
+    "empty": "暂无积分记录",
+    "loadFailed": "积分加载失败",
+    "balance": "余额",
+    "loadMore": "加载更多"
+  },
+  "profileEdit": {
+    "avatarTip": "点击更换头像",
+    "nicknamePlaceholder": "请输入昵称",
+    "bioPlaceholder": "介绍一下自己吧",
+    "avatarModalTitle": "更换头像",
+    "avatarUrlLabel": "头像链接",
+    "avatarUrlPlaceholder": "粘贴图片链接",
+    "avatarUrlHint": "支持 JPG / PNG,建议 200x200",
+    "bio": "个人简介",
+    "gender": "性别",
+    "nickname": "昵称",
+    "retry": "重试",
+    "save": "保存",
+    "title": "编辑资料"
+  },
+  "promote": {
+    "title": "推广中心",
+    "subtitle": "分享专属链接,邀请好友加入",
+    "retry": "重试",
+    "inviteCount": "邀请人数",
+    "activeCount": "活跃人数",
+    "totalEarnings": "累计收益",
+    "referralLink": "专属推广链接",
+    "copyLink": "复制链接",
+    "copySuccess": "已复制",
+    "shareBtn": "分享",
+    "referralCode": "推广码",
+    "rules": "推广规则",
+    "inviteRecords": "邀请记录",
+    "empty": "暂无数据",
+    "loadFailed": "加载推广失败"
+  },
+  "promotion": {
+    "title": "优惠券",
+    "empty": "暂无可用优惠券",
+    "minSpend": "满 ¥{minSpend} 可用",
+    "expireDate": "有效期至",
+    "useNow": "去使用",
+    "loadFailed": "加载推广失败"
+  },
+  "qrCode": {
+    "title": "我的二维码",
+    "scanTip": "扫一扫上面的二维码,一起学习成长",
+    "share": "分享",
+    "loadFailed": "加载二维码失败"
+  },
+  "realNameAuth": {
+    "title": "实名认证",
+    "status": "认证状态",
+    "verifiedDesc": "已完成实名认证",
+    "unverifiedDesc": "完成实名认证,解锁更多服务",
+    "name": "真实姓名",
+    "namePlaceholder": "请输入真实姓名",
+    "idNumber": "身份证号",
+    "idNumberPlaceholder": "请输入身份证号",
+    "submit": "提交认证",
+    "submitting": "提交中..."
+  },
+  "identityVerify": {
+    "loadFailed": "加载认证失败"
+  },
+  "referrer": {
+    "title": "推荐人",
+    "current": "当前推荐人",
+    "empty": "暂未绑定推荐人",
+    "desc": "绑定推荐人后,双方均可获得奖励",
+    "codeLabel": "推荐码",
+    "codePlaceholder": "请输入推荐码",
+    "submit": "绑定",
+    "submitting": "绑定中...",
+    "bindFailed": "绑定失败",
+    "bindSuccess": "绑定成功",
+    "codeRequired": "请输入邀请码",
+    "loadFailed": "加载邀请人失败"
+  },
+  "refundDetail": {
+    "amount": "退款金额",
+    "createdAt": "申请时间",
+    "empty": "暂无退款",
+    "loadFailed": "加载退款详情失败",
+    "orderNo": "订单号",
+    "reason": "退款原因",
+    "status": "退款状态",
+    "title": "退款详情"
+  },
+  "securitySettings": {
+    "title": "安全设置",
+    "password": "密码登录",
+    "biometric": "生物识别",
+    "twoFactor": "两步验证",
+    "loginAlert": "登录提醒",
+    "desc": "管理账号安全相关的开关",
+    "loadFailed": "加载安全设置失败"
+  },
+  "selfMedia": {
+    "title": "自媒体助手",
+    "loadFailed": "加载失败",
+    "promptRequired": "请输入生成要求",
+    "promptPlaceholder": "描述你的创作需求…",
+    "invoke": "调用技能生成",
+    "invoking": "生成中…",
+    "invokeFailed": "技能调用失败,请重试",
+    "duration": "耗时 {{ms}} ms",
+    "share": "分享",
+    "empty": "暂无生成/发布记录"
+  },
+  "spec": {
+    "empty": "暂无模板",
+    "title": "规范模板库",
+    "loadFailed": "模板加载失败",
+    "desktopHint": "模板浏览仅作参考;Spec 生成需服务端 workspace 路径,请在 Web/桌面端使用完整生成流程",
+    "generateEntry": "去 Web 端生成"
+  },
+  "settingsAccount": {
+    "title": "账号管理",
+    "name": "姓名",
+    "email": "邮箱",
+    "phone": "手机号",
+    "save": "保存",
+    "loadFailed": "加载账户设置失败",
+    "saved": "已保存"
+  },
+  "statusPage": {
+    "title": "系统状态",
+    "autoRefreshHint": "每 60 秒自动刷新",
+    "overallOperational": "所有系统运行正常",
+    "overallDegraded": "部分服务性能降级",
+    "overallOutage": "部分服务中断",
+    "uptimeLabel": "运行时长",
+    "updatedAtLabel": "更新时间",
+    "services": "服务状态",
+    "models": "模型可用性",
+    "modelLatency": "P95 延迟",
+    "modelErrorRate": "错误率",
+    "incidents": "最近事件",
+    "noIncidents": "最近 30 天暂无事件记录",
+    "incidentsUnavailable": "最近 30 天的事件数据暂时取不到",
+    "refresh": "刷新",
+    "fetchFailed": "状态获取失败,请稍后重试",
+    "willAutoRetry": "将自动重试"
+  },
+  "studyProgress": {
+    "title": "学习进度",
+    "loadFailed": "加载学习进度失败",
+    "courses": "课程(已完成/总数)",
+    "totalMinutes": "累计学习(分钟)",
+    "weekMinutes": "本周学习(分钟)",
+    "streak": "连续打卡(天)",
+    "courseProgress": "课程进度"
+  },
+  "teamDetail": {
+    "title": "团队成员详情",
+    "transactionVolume": "成交额",
+    "commission": "获取佣金",
+    "orderNum": "成交订单数",
+    "phone": "手机号",
+    "joinedAt": "加入时间",
+    "contact": "联系",
+    "viewOrders": "查看订单",
+    "empty": "暂无成员信息",
+    "loadFail": "加载失败，请重试",
+    "noPhone": "该成员未提供手机号",
+    "callFail": "无法拨号，请检查设备"
+  },
+  "topup": {
+    "failDefault": "充值未完成，请稍后重试"
+  },
+  "usage": {
+    "title": "用量统计",
+    "quotaTitle": "本月配额",
+    "used": "已用",
+    "limit": "额度",
+    "remaining": "剩余",
+    "usagePercent": "使用率",
+    "periodMonth": "统计周期：本月（自然月）",
+    "statsTitle": "用量总览（近 30 天）",
+    "totalTokens": "总 Token",
+    "inputTokens": "输入",
+    "outputTokens": "输出",
+    "totalCost": "总花费",
+    "totalCalls": "调用次数",
+    "dailyTitle": "按日用量",
+    "modelTitle": "按模型用量",
+    "noData": "暂无数据",
+    "retry": "重试"
+  },
+  "vipLevel": {
+    "benefits": "权益",
+    "days": "天数",
+    "duration": "时长",
+    "empty": "暂无等级",
+    "loadFailed": "加载等级失败",
+    "price": "价格",
+    "title": "会员等级"
+  },
+  "workflows": {
+    "empty": "暂无工作流",
+    "loadFailed": "工作流加载失败"
   }
 }
