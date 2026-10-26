@@ -62,6 +62,11 @@ export function parseCapacity(text) {
       safetyRatio,
       bytesPerShellPage,
       roots,
+      // 溢出链:语义分包装不下时按顺序改道到这里(必须都在 roots 里有测量,否则那条候选会被判"无测量")
+      overflowRoots: Array.isArray(j.overflowRoots) ? j.overflowRoots.filter((r) => typeof r === 'string' && roots[r]) : [],
+      // 每屏估算字节(测量表;缺项退回 bytesPerShellPage)。键 = 共享屏 spec 全路径。
+      pageEstimates:
+        j.pageEstimates && typeof j.pageEstimates === 'object' && !Array.isArray(j.pageEstimates) ? j.pageEstimates : {},
     },
   }
 }
@@ -110,39 +115,68 @@ export function mirrorEntriesByRoot(registryText, roots) {
 }
 
 /**
- * 过闸:按计划顺序逐枚判,凑满本轮 cap 且不越各 root 容量的才放行。
- * 返回 held 逐条点名(哪一屏、哪个 root、为什么),供结论行与日志如实打印。
+ * 过闸 + **按容量改道**(2026-10-26 立):逐枚判它还能落在哪个分包,落不下就改道到溢出分包。
+ *
+ * 为什么必须能改道(而不是只会 blocked):pkg-user 只剩几百 KB,而 82 枚待产里大多数按语义都归它;
+ * 只挡不改道 ⇒ 闭环停在那儿等人工开分包。改道的判据只有这一处:按**每屏估算字节**(测量表缺失时
+ * 退回每页边际均值)把屏装进第一个装得下的分包,顺序 = ①语义分包 ②溢出链(model.overflowRoots)。
+ *
+ * 返回 planned 里的改动要能被调用方直接落到接缝上(只改 4 个路由字段,页正文与路由无关):
+ *   subRoot / page / route / pageRel / registryEntry.miniapp
+ * 落不下(所有候选都装不下,或候选 root 没有容量测量)⇒ 进 held 并逐条点名,绝不猜。
  */
-export function admitByCapacity(planned, { model, registryText, cap }) {
-  if (!model) return { ok: false, admitted: [], held: [], why: '容量模型未判定 ⇒ 整轮不放行(不猜)' }
+export function routePlanned(planned, { model, registryText, cap, estimates = {} }) {
+  if (!model) return { ok: false, admitted: [], held: [], moves: [], why: '容量模型未判定 ⇒ 整轮不放行(不猜)' }
   const roots = Object.keys(model.roots)
   const cnt = mirrorEntriesByRoot(registryText, roots)
-  if (!cnt.ok) return { ok: false, admitted: [], held: [], why: `${cnt.why} ⇒ 整轮不放行(不猜)` }
-  const used = { ...cnt.counts }
+  if (!cnt.ok) return { ok: false, admitted: [], held: [], moves: [], why: `${cnt.why} ⇒ 整轮不放行(不猜)` }
+  const target = model.limitBytes * model.safetyRatio
+  // 现读用量 = 测量字节 + 测量之后新落页的边际字节(按均值估,方向偏保守:估小了会让用量偏低)
+  const used = {}
+  for (const root of roots) {
+    const r = model.roots[root]
+    const delta = Math.max(0, (cnt.counts[root] ?? 0) - r.mirrorEntriesAtMeasure)
+    used[root] = r.bytes + r.chunkReserveBytes + delta * model.bytesPerShellPage
+  }
+  const overflow = Array.isArray(model.overflowRoots) ? model.overflowRoots : []
   const admitted = []
   const held = []
+  const moves = []
   const limit = Number.isFinite(cap) && cap > 0 ? cap : planned.length
   for (const p of planned) {
     if (admitted.length >= limit) break
-    const root = p.subRoot
-    const c = capacityOf(model, root)
-    if (!c) {
-      held.push({ route: p.route, root, why: `root '${root}' 无容量测量 ⇒ 不放行(先按新产物更新容量表)` })
+    const estimate = Number.isFinite(estimates[p.spec]) ? estimates[p.spec] : model.bytesPerShellPage
+    const chain = [p.subRoot, ...overflow.filter((r) => r !== p.subRoot)]
+    let picked = null
+    const why = []
+    for (const root of chain) {
+      if (!roots.includes(root)) {
+        why.push(`${root} 无容量测量`)
+        continue
+      }
+      if (used[root] + estimate <= target) {
+        picked = root
+        break
+      }
+      why.push(`${root} 余量不足(已用 ${Math.round(used[root])} B / 目标 ${Math.round(target)} B,本屏约 ${estimate} B)`)
+    }
+    if (!picked) {
+      held.push({ route: p.route, root: p.subRoot, why: why.join(';') })
       continue
     }
-    if ((used[root] ?? 0) >= c.maxMirrorEntries) {
-      held.push({
-        route: p.route,
-        root,
-        why: `${root} 已到容量上限 ${c.maxMirrorEntries} 条镜像(实测 ${c.measuredBytes} B,余量 ${c.headroomBytes} B,${c.bytesPerShellPage} B/页)`,
-      })
-      continue
+    used[picked] += estimate
+    if (picked !== p.subRoot) {
+      const route = `${picked}/${p.page}`
+      moves.push({ spec: p.spec, from: p.subRoot, to: picked, estimate })
+      p.subRoot = picked
+      p.route = route
+      p.pageRel = `apps/miniapp-taro/src/${route}.tsx`
+      if (p.registryEntry) p.registryEntry = { ...p.registryEntry, miniapp: route }
     }
-    used[root] = (used[root] ?? 0) + 1
     admitted.push(p)
   }
-  return { ok: true, admitted, held, used }
+  return { ok: true, admitted, held, moves, used }
 }
 
-export const __test__ = { parseCapacity, capacityOf, mirrorEntriesByRoot, admitByCapacity, CAPACITY_REL }
+export const __test__ = { parseCapacity, capacityOf, mirrorEntriesByRoot, routePlanned, CAPACITY_REL }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

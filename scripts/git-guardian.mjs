@@ -4517,7 +4517,9 @@ export function sweepCrossEndShellPages(opts = {}) {
                 cwd: WORKTREE,
                 encoding: 'utf8',
                 windowsHide: true, // §5b 派生进程纪律
-                timeout: 4 * 60 * 1000, // 守门 80
+                // 2026-10-26:240s → 600s。实测手动按同一参数真跑 199s(planBatch 随屏数增长),
+                // 距旧上限只剩 41s 余量 ⇒ 机器一忙就超时,而超时与"缺口清零"在日志里长得一样。
+                timeout: 10 * 60 * 1000,
                 maxBuffer: 1 << 22,
                 stdio: ['ignore', 'pipe', 'pipe'], // §12g 显式接管 stdio
               },
@@ -5468,7 +5470,12 @@ function registerTask() {
   const ps = [
     `$action = New-ScheduledTaskAction -Execute '${process.execPath.replace(/'/g, "''")}' -Argument '"${join(WORKTREE, 'scripts', 'git-guardian.mjs').replace(/'/g, "''")}"'`,
     `$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 2) -RepetitionDuration (New-TimeSpan -Days 3650)`,
-    `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 5)`,
+    // 2026-10-26:ExecutionTimeLimit 由 5 分钟改为**不限时**(-Seconds 0,与 dev-stack 安装器同档)。
+    // 立因实测:一轮巡检(含全部巡检腿)已经跑到 5 分钟以上,而计划任务到点由 Windows 直接终止进程
+    // ⇒ **排在巡检轮最后的腿永远跑不到**。跨端造页腿就是这么静默停摆的:节流台账写于 04:30:08、
+    // 进程 5 分钟被杀、既无结论行也无落地(11:55 后再没落过一页),而手动按同一参数真跑只要 199 秒。
+    // 这类"排在队尾 ⇒ 结构上永远跑不到"的失效形态是安静的,调时限比调腿顺序更根本。
+    `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Seconds 0)`,
     `$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Limited`,
     `Register-ScheduledTask -TaskName '${TASK_NAME}' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null`,
     `$p = (Get-ScheduledTask -TaskName '${TASK_NAME}').Principal`,
