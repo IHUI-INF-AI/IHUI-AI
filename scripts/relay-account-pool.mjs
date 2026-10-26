@@ -31,10 +31,11 @@ const IMPORTER = path.join(API_DIR, 'scripts', 'relay-account-import.ts')
 const HELP = `反代账号池导入
 
 用法:
-  node scripts/relay-account-pool.mjs --from workbuddy             # 取本机当前登录的 WorkBuddy 号并导入
   node scripts/relay-account-pool.mjs --from trae                  # 取本机 Trae 客户端会话(含 refreshToken)并导入
+  node scripts/relay-account-pool.mjs --from workbuddy             # 取本机 WorkBuddy 桌面版当前登录号并导入(需桌面在跑且已登录)
+  node scripts/relay-account-pool.mjs --from qoder|codearts        # 入账/换票/告警已建,本机会话提取器尚未装车 ⇒ 明示未判定(exit 2)并点名真出路
   node scripts/relay-account-pool.mjs --file <accounts.json>       # 直接导入标准账号 JSON
-    [--provider <trae|workbuddy|codearts>]   文件顶层无 providerCode 时必须给
+    [--provider <trae|workbuddy|qoder|codearts>]   文件顶层无 providerCode 时必须给
     [--dry-run]                              只校验预检,不写库
     [--no-health]                            跳过导入后的上游健康检查
     [--json]                                 机器可读摘要(提取信息走 stderr)
@@ -47,6 +48,18 @@ const HELP = `反代账号池导入
      (进程不是登录用户账户时自动兜底扫本机各用户 profile;IHUI_TRAE_SCAN_USERS=0 可关),客户端不必在跑;
   - 任何输出都不包含令牌明文。
 `
+
+/** 号池认的平台 ⇒ 本机会话提取器是否已装车。
+ *  值为 null ⇒ 该平台的入账/换票/轮转/告警都在跑,缺的只是「本机提取器」:
+ *  `--from` 一律明示未判定(exit 2)并点名当下真出路(§0.3 取不到输入不猜;§0.8 不指跑不通的路)。
+ *  新平台取证到落点后,在此登记适配器模块与函数名即完成接入 —— 单一入口,不留第二份口径(§0.6)。 */
+const FROM_PROVIDERS = Object.freeze({
+  trae: { module: 'trae-auth-extract.mjs', fn: 'extractTraeAccount' },
+  workbuddy: { module: 'workbuddy-auth-extract.mjs', fn: 'extractWorkbuddyAccount' },
+  qoder: null,
+  codearts: null,
+})
+const FROM_POOL_KEYS = Object.keys(FROM_PROVIDERS)
 
 function parseArgs(argv) {
   const options = {
@@ -72,11 +85,11 @@ function parseArgs(argv) {
   if (options.help) return { options, error: null }
   if (options.from && options.file) return { options: null, error: '--from 与 --file 只能二选一' }
   if (!options.from && !options.file)
-    return { options: null, error: '缺少输入:--from workbuddy|trae 或 --file <json>' }
-  if (options.from && !['workbuddy', 'trae'].includes(options.from)) {
+    return { options: null, error: `缺少输入:--from ${FROM_POOL_KEYS.join('|')} 或 --file <json>` }
+  if (options.from && !FROM_POOL_KEYS.includes(options.from)) {
     return {
       options: null,
-      error: `暂不支持的来源: ${options.from}(可选 workbuddy | trae;其他平台请用 --file)`,
+      error: `未知来源: ${options.from}(号池认的平台:${FROM_POOL_KEYS.join(' | ')};其他平台用 --file)`,
     }
   }
   return { options, error: null }
@@ -136,6 +149,16 @@ async function main(argv) {
 
   let payloadText
   let providerCode = options.providerCode || null
+
+  if (options.from && !FROM_PROVIDERS[options.from]) {
+    process.stderr.write(
+      `❌ 提取未装车(未判定):--from ${options.from} —— 该平台的入账/换票/轮转/告警均已建,` +
+        `本机会话提取器尚未开发(落点在取证,§0.3 绝不猜)。当下真跑得通的出路:` +
+        `①后台「中转-号池-账号池」导入账号 JSON;` +
+        `②node scripts/relay-account-pool.mjs --file <json> --provider ${options.from}。`,
+    )
+    return 2
+  }
 
   if (options.from === 'workbuddy') {
     const { extractWorkbuddyAccount } = await import(
@@ -223,5 +246,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { parseArgs }
+export const __test__ = { parseArgs, FROM_PROVIDERS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

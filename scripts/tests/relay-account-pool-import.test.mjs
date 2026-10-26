@@ -85,12 +85,15 @@ test('⑥ 指纹不得回显令牌本体', () => {
   assert.ok(!token.includes(fp))
 })
 
-test('⑦ 编排器参数面:两入口互斥 / 未知来源 / 缺输入一律未判定', () => {
+test('⑦ 编排器参数面:两入口互斥 / 登记与未装车分档 / 缺输入一律未判定', () => {
   assert.deepEqual(C.parseArgs(['--from', 'workbuddy']).error, null)
   assert.deepEqual(C.parseArgs(['--file', 'a.json', '--provider', 'trae']).error, null)
   assert.match(C.parseArgs(['--from', 'workbuddy', '--file', 'a.json']).error ?? '', /只能二选一/)
   assert.match(C.parseArgs([]).error ?? '', /缺少输入/)
-  assert.match(C.parseArgs(['--from', 'codearts']).error ?? '', /暂不支持/)
+  // 号池认的平台(qoder/codearts):parse 过,"提取未装车"由 main() 运行期落 exit 2 未判定 + 点名真出路
+  assert.deepEqual(C.parseArgs(['--from', 'codearts']).error, null)
+  assert.equal(C.FROM_PROVIDERS.codearts, null)
+  assert.match(C.parseArgs(['--from', 'nosuch']).error ?? '', /未知来源/)
   assert.match(C.parseArgs(['--bogus']).error ?? '', /未知参数/)
   assert.equal(C.parseArgs(['--help']).options.help, true)
 })

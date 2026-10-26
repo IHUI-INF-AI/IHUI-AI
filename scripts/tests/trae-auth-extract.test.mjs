@@ -201,10 +201,17 @@ test('⑬ 跨 profile 兜底:非登录用户 shell 下能在 <UsersRoot>\\<他�
   }
 })
 
-test('⑧ 编排器参数面:--from trae 已装车,未知来源仍算未判定', () => {
+test('⑧ 编排器参数面:登记面与未装车面分开点名(不再是笼统「暂不支持」)', () => {
   assert.deepEqual(Pool.parseArgs(['--from', 'trae']).error, null)
   assert.deepEqual(Pool.parseArgs(['--from', 'trae', '--dry-run']).options.from, 'trae')
-  assert.match(Pool.parseArgs(['--from', 'codearts']).error ?? '', /暂不支持/)
+  // 号池认的平台 parse 必须过,"未装车"的事实由 main() 运行期落 exit 2(未判定,不冒绿也不冒红)
+  assert.deepEqual(Pool.parseArgs(['--from', 'codearts']).error, null)
+  assert.deepEqual(Pool.parseArgs(['--from', 'qoder']).error, null)
+  assert.match(Pool.parseArgs(['--from', 'nosuch']).error ?? '', /未知来源/)
+  const R = Pool.FROM_PROVIDERS
+  assert.ok(R.trae?.module && R.workbuddy?.module, '已装车的两平台必须登记适配器模块')
+  assert.equal(R.qoder, null, 'qoder 提取器未装车必须如实登记为 null(取证后补登,不留口头账)')
+  assert.equal(R.codearts, null)
 })
 
 test('⑨ 全链取号:夹具目录里的信封能被真提取出来', () => {
