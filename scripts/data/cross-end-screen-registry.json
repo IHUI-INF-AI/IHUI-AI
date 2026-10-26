@@ -615,6 +615,16 @@
       "shared": "packages/app/src/features/agent-stat/AgentStatScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgentStatScreen.tsx",
       "miniapp": "pkg-user/agent-stat/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-multimodal/AIMultimodalScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AIMultimodalScreen.tsx",
+      "miniapp": "pkg-user/ai-multimodal/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-world/AiWorldScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiWorldScreen.tsx",
+      "miniapp": "pkg-user/ai-world/index"
     }
   ]
 }
