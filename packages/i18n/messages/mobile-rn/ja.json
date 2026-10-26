@@ -5981,5 +5981,33 @@
     "availability": "空き状況",
     "available": "空き",
     "busy": "埋まり"
+  },
+  "statusPage": {
+    "title": "システムステータス",
+    "autoRefreshHint": "60秒ごとに自動更新",
+    "overallOperational": "全システム正常稼働",
+    "overallDegraded": "一部サービスが低下",
+    "overallOutage": "一部サービスが停止",
+    "uptimeLabel": "稼働時間",
+    "updatedAtLabel": "更新日時",
+    "services": "サービス状態",
+    "serviceApi": "API",
+    "serviceDatabase": "データベース",
+    "serviceRedis": "キャッシュ",
+    "serviceOperational": "正常",
+    "serviceDegraded": "低下",
+    "serviceOutage": "停止",
+    "models": "モデル可用性",
+    "modelLatency": "P95 レイテンシ",
+    "modelErrorRate": "エラー率",
+    "incidents": "最近のインシデント",
+    "incidentSeverityMinor": "軽微",
+    "incidentSeverityMajor": "重大",
+    "incidentSeverityCritical": "致命的",
+    "noIncidents": "過去30日間のインシデントはありません",
+    "incidentsUnavailable": "過去30日間のインシデントデータは一時的に取得できません",
+    "refresh": "更新",
+    "fetchFailed": "ステータスの取得に失敗しました。後ほど再試行してください",
+    "willAutoRetry": "自動的に再試行します"
   }
 }

@@ -33,4 +33,41 @@ export interface PublicStatusModelsPayload {
 export async function getPublicStatusModels(): Promise<ApiResult<PublicStatusModelsPayload>> {
   return fetchApi<PublicStatusModelsPayload>('/api/public/status/models')
 }
+
+/** 单条事件(对齐后端 /api/public/status/incidents 的 incidents 行)。 */
+export interface PublicStatusIncident {
+  id: string
+  providerCode: string
+  modelId: string | null
+  startedAt: string
+  resolvedAt: string | null
+  severity: 'minor' | 'major' | 'critical'
+  description: string
+}
+
+/** /api/public/status/incidents 的信封 data 载荷。
+ * degraded=true 表示「查询失败所以列表为空」,必须优先于 incidents.length 判断(见 web 端 IncidentsUnavailableNotice)。 */
+export interface PublicStatusIncidentsPayload {
+  incidents: PublicStatusIncident[]
+  degraded: boolean
+}
+
+/** /api/public/status/overview 的信封 data 载荷(直接是 Overview,不嵌套)。 */
+export interface PublicStatusOverview {
+  platform: string
+  version: string
+  uptime: number
+  timestamp: string
+  services: Record<string, PublicStatusModelRow['status']>
+}
+
+/** 获取公开系统总览(公开端点)。 */
+export async function getPublicStatusOverview(): Promise<ApiResult<PublicStatusOverview>> {
+  return fetchApi<PublicStatusOverview>('/api/public/status/overview')
+}
+
+/** 获取公开事件列表(公开端点)。degraded 见 PublicStatusIncidentsPayload。 */
+export async function getPublicStatusIncidents(): Promise<ApiResult<PublicStatusIncidentsPayload>> {
+  return fetchApi<PublicStatusIncidentsPayload>('/api/public/status/incidents')
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
