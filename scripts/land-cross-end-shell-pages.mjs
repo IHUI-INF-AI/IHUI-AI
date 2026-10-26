@@ -118,9 +118,9 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
 }
 
 /** 新源文件必须带溯源水印(§5c):在临时件上注入后取字节,不动工作树的真文件 */
-function watermarkBytesOf(name, text) {
+function watermarkBytesOf(name, text, ext = '.tsx') {
   mkdirSync(TMP, { recursive: true })
-  const p = join(TMP, `${name.replace(/[\\/]/g, '_')}.tsx`)
+  const p = join(TMP, `${name.replace(/[\\/]/g, '_')}${ext}`)
   writeFileSync(p, text, 'utf8')
   execFileSync(process.execPath, [R('scripts', 'watermark.mjs'), 'inject', p], {
     cwd: ROOT,
@@ -211,9 +211,18 @@ function syncParityDoc(deps = {}) {
 
   const gen = generate()
   if (!gen?.ok) return { state: 'undetermined', why: gen?.err ?? '生成器未返回结论' }
-  const fresh = gen.text
+  let fresh = gen.text
+  // 生成器产的是纯正文(横幅由注入步负责)⇒ 缺载荷时**先注入再判**,注入完仍缺才算未判定。
+  // 不加这一格,自动腿每次产出的账本都会因"没横幅"被拒落 ⇒ 账本永远旧一格,doc-stale 长挂。
   if (!/\[IHUI-AI-PROVENANCE\]:/.test(fresh)) {
-    return { state: 'undetermined', why: '产文缺水位横幅 ⇒ 不落(落了就是洗载荷)' }
+    try {
+      fresh = (deps.watermarkOf ?? ((t) => watermarkBytesOf(PARITY_DOC, t, '.md')))(fresh)
+    } catch (e) {
+      return { state: 'undetermined', why: `横幅注入失败:${String(e?.message ?? e).slice(0, 140)}` }
+    }
+  }
+  if (!/\[IHUI-AI-PROVENANCE\]:/.test(fresh)) {
+    return { state: 'undetermined', why: '产文缺水位横幅(注入后仍缺)⇒ 不落(落了就是洗载荷)' }
   }
   let headText = null
   try {
@@ -413,13 +422,31 @@ function selfTest() {
       },
     },
     {
-      name: '账本自刷:产文缺水位横幅 ⇒ 未判定,一枚都不落(落了就是洗载荷,§5c)',
+      name: '账本自刷:产文缺横幅且注入也补不上 ⇒ 未判定,一枚都不落(落了就是洗载荷,§5c)',
       want: 'undetermined/0',
       got: () => {
         let calls = 0
         const r = syncParityDoc({
           generate: () => ({ ok: true, text: '镜像 120 / 共享屏 218\n' }),
+          watermarkOf: (t) => t, // 替身:注入器没补上横幅(真器物缺脚本时就是这个形状)
           headOf: () => '// [IHUI-AI-PROVENANCE]:x\n旧\n',
+          landOf: () => {
+            calls += 1
+            return { ok: true }
+          },
+        })
+        return `${r.state}/${calls}`
+      },
+    },
+    {
+      name: '账本自刷:产文没横幅但注入补上了 ⇒ 照常比对并落一次(不因此长挂 doc-stale)',
+      want: 'landed/1',
+      got: () => {
+        let calls = 0
+        const r = syncParityDoc({
+          generate: () => ({ ok: true, text: '镜像 124 / 共享屏 218\n' }),
+          watermarkOf: (t) => `// [IHUI-AI-PROVENANCE]:x\n${t}`,
+          headOf: () => '// [IHUI-AI-PROVENANCE]:x\n镜像 120 / 共享屏 218\n',
           landOf: () => {
             calls += 1
             return { ok: true }
