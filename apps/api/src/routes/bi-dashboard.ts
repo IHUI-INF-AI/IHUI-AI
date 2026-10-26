@@ -5,7 +5,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { count, sql } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
-import { users, orders, userDevices, visitLogs } from '@ihui/database'
+import { users, orders, userDevices, visitLogs, analyticsEvents } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success } from '../utils/response.js'
 
@@ -40,6 +40,13 @@ function recentDayKeys(days: number): string[] {
   return keys
 }
 
+/** `page_time` 事件里的停留秒数(非数字行不参与均值,不把脏行读成 0)。 */
+const PAGE_TIME_SEC = sql`case
+  when ${analyticsEvents.properties}->>'value' ~ '^[0-9]+(\\.[0-9]+)?$'
+  then (${analyticsEvents.properties}->>'value')::numeric
+  else null
+end`
+
 /**
  * BI 仪表板 payload(2026-10-26 重写)。
  *
@@ -68,6 +75,7 @@ async function buildBiPayload() {
     [visitTotals],
     pages,
     dailyVisitRows,
+    stayRows,
   ] = await Promise.all([
     dbRead.select({ total: count() }).from(users),
     dbRead
@@ -143,6 +151,21 @@ async function buildBiPayload() {
       .where(sql`${visitLogs.visitDate} >= ${recentDayKeys(WINDOW_DAYS)[0]}`)
       .groupBy(visitLogs.visitDate)
       .orderBy(visitLogs.visitDate),
+    // 页面停留 TOP:取 page_time 事件按页面(label=路径)求均值,样本数为 0 的页面不出现
+    dbRead
+      .select({
+        page: sql<string>`coalesce(${analyticsEvents.properties}->>'label', '(unknown)')`,
+        avgSec: sql<number>`round(avg(${PAGE_TIME_SEC}), 1)`,
+        samples: sql<number>`count(*)::int`,
+      })
+      .from(analyticsEvents)
+      .where(
+        sql`${analyticsEvents.event} = 'page_time' and ${analyticsEvents.createdAt} >= now() - interval '7 days'`,
+      )
+      .groupBy(sql`1`)
+      .having(sql`count(${PAGE_TIME_SEC}) > 0`)
+      .orderBy(sql`2 desc`)
+      .limit(8),
   ])
 
   return {
@@ -172,6 +195,12 @@ async function buildBiPayload() {
         return { date, pv: Number(row?.pv ?? 0), uv: Number(row?.uv ?? 0) }
       }),
     },
+    /** 近 7 日页面停留 TOP(page_time 事件均值;样本数 = 该页停留事件条数) */
+    stays: stayRows.map((r) => ({
+      page: r.page,
+      avgSec: Number(r.avgSec ?? 0),
+      samples: Number(r.samples ?? 0),
+    })),
   }
 }
 

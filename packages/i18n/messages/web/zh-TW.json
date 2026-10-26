@@ -867,6 +867,7 @@
       "level3": "鑽石",
       "panelTrafficRobot": "訪客與機器人",
       "panelPageUsage": "頁面訪問熱度",
+      "onlineNow": "線上 {count}",
       "panelPlatforms": "各端使用量",
       "platformWeb": "網站",
       "platformRn": "行動端",

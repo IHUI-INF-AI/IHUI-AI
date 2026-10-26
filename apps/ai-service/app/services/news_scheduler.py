@@ -25,6 +25,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.db_pool import get_shared_pool
+from app.core.default_model import default_chat_model
 from app.core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -250,7 +251,8 @@ class NewsScheduler:
             existing_titles=("\n  - " + "\n  - ".join(title_list[:30])) if title_list else "  (无)",
         )
         messages = [{"role": "user", "content": prompt}]
-        model = "stepfun/step-3.5-flash"
+        # 2026-10-26:原写死 "stepfun/step-3.5-flash"(stepfun 已永久退役),改走统一解析入口。
+        model = default_chat_model()
 
         try:
             result = await llm_gateway.complete(messages, model=model, temperature=0.9)
