@@ -193,7 +193,9 @@ test('⑰b 占位符路径不构成互斥凭据(不存在的路径不能发"这�
   assert.deepEqual(sp.concrete, ['apps/web/src/a.ts'], `只该留真路径,实得:${JSON.stringify(sp.concrete)}`)
   assert.equal(sp.placeholder.length, 3, '<x> 形 / 含空白 / 通配 三种都必须归占位符')
   // 全占位符的票到了 buildWave 这一层必须已是空作用域 ⇒ 落 scope-unknown,绝不带假凭据排席
-  const w = BOARD.buildWave([cand(9, 'P-9', sp.concrete)], { maxSeats: 6 })
+  const emptied = BOARD.splitConcretePaths(['packages/shared/src/ui/<x>-spec/', 'docs/UI GUIDELINES.md', 'apps/api/src/*.ts'])
+  assert.equal(emptied.concrete.length, 0, '三枚全该判占位符')
+  const w = BOARD.buildWave([cand(9, 'P-9', emptied.concrete)], { maxSeats: 6 })
   assert.equal(w.wave.length, 0)
   assert.equal(w.dropped[0].why, 'scope-unknown')
 })
