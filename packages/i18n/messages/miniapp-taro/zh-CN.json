@@ -5493,5 +5493,13 @@
     "send": "发送",
     "loadFailed": "加载消息失败",
     "sendFailed": "发送失败"
+  },
+  "messageDetail": {
+    "title": "消息详情",
+    "reply": "回复",
+    "notFound": "消息不存在或已删除",
+    "from": "发件人",
+    "createdAt": "时间",
+    "loadFailed": "加载消息详情失败"
   }
 }

@@ -5493,5 +5493,13 @@
     "send": "送信",
     "loadFailed": "メッセージの読み込みに失敗",
     "sendFailed": "送信に失敗"
+  },
+  "messageDetail": {
+    "title": "メッセージ詳細",
+    "reply": "返信",
+    "notFound": "メッセージが見つからないか、削除されました",
+    "from": "送信者",
+    "createdAt": "時間",
+    "loadFailed": "メッセージ詳細の読み込みに失敗"
   }
 }

@@ -5493,5 +5493,13 @@
     "send": "傳送",
     "loadFailed": "載入訊息失敗",
     "sendFailed": "發送失敗"
+  },
+  "messageDetail": {
+    "title": "訊息詳情",
+    "reply": "回覆",
+    "notFound": "訊息不存在或已刪除",
+    "from": "寄件者",
+    "createdAt": "時間",
+    "loadFailed": "載入訊息詳情失敗"
   }
 }
