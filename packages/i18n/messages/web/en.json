@@ -8782,6 +8782,10 @@
           "title": "The current model refused this request",
           "action": "Switch model"
         },
+        "MODEL_RETIRED": {
+          "title": "This model has been permanently retired",
+          "action": "Pick a currently listed model instead"
+        },
         "MODEL_STREAM_IDLE": {
           "title": "Response timed out before completion",
           "action": "Retry"
