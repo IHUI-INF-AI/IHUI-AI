@@ -5,12 +5,13 @@
 /**
  * 中转会话记录页(mobile-rn 端)—— 薄壳,复用通用控制台列表屏 ConsoleTableScreen。
  * 端点:GET /api/developer/conversations?page&pageSize ⇒ { items: Conversation[], total, page, pageSize }
- * (与 web developer/conversations 同源;金额分→元两位小数在薄壳换算)。
+ * (与 web developer/conversations 同源;金额分→元经共享 formatPrice 换算,端内不自算)。
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { fetchApi } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
+import { formatPrice } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -28,8 +29,6 @@ interface Conversation {
   lastMessageAt: string
   createdAt: string
 }
-
-const centsToYuan = (cents: number): string => (cents / 100).toFixed(2)
 
 export function DeveloperConversationsScreen() {
   const { t, locale } = useI18n()
@@ -74,7 +73,7 @@ export function DeveloperConversationsScreen() {
               c.totalTokens > 1000
                 ? `${(c.totalTokens / 1000).toFixed(1)}k`
                 : String(c.totalTokens),
-            cost: centsToYuan(c.totalCostCents),
+            cost: formatPrice(c.totalCostCents),
             last: fmtDate(c.lastMessageAt),
           },
         }))
