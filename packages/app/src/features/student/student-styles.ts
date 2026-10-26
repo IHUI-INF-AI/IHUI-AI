@@ -160,7 +160,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    progressFill: { height: '100%', borderRadius: rnRadius.sm, backgroundColor: tk.brand.DEFAULT },
+    progressFill: { height: '100%', borderRadius: rnRadius.sm, backgroundColor: tk.brandAccent.deep },
     // —— 操作按钮 ——
     iconBtn: { padding: 6, borderRadius: rnRadius.sm },
     dangerText: { fontSize: 12, fontWeight: '600', color: STUDENT_PALETTE.rejected.fg },
