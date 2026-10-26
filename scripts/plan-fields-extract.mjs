@@ -36,7 +36,7 @@
  *    已禁形态(**整族**:waiting-human 待拍板 / waiting-env 等条件 / blocking 拍板残留)一律不搬
  *    —— 把禁令形态搬到新键 = 扩散禁令,凭空造出一枚真 F11/F12 活票(判据单源 `rotReasonsOf`)。
  *  · **退场**(目标键已被抽取器按新号补写):旧记录的非空语义字段必须被新记录**逐字覆盖**
- *    (删旧键不丢任何信息)才许退;否则点名交 `--reclassify`,绝不代裁。
+ *    (删旧键不丢任何信息)才许退;否则点名交 `--reclassify`,绝不替人裁。
  *  · 标题锚点命中多行(同题不同号同时在册)⇒ 归属歧义,一条都不动(失效方向恒为"少搬")。
  * 判据出口 `adoptMovesOf` 同时供门 234(`check-plan-fields.mjs`)归并维 import,不写第二把匹配。
  */
@@ -557,7 +557,7 @@ export function planFromRows(lines, sideMap) {
  *    (`state==='open'`,已勾行不充当认领目标),其复合键与孤儿键**标题锚点(`#` 后段)逐字相等
  *    ∧ 号段不同** —— 键本身仍单源 `compositeKeyOf`,这里只按 `#` 分段,不写第二把键解析。
  *  · 目标键已有记录 ⇒ **退场**支:旧记录的非空语义字段被新记录逐字覆盖(删旧键零信息丢失)才许退;
- *    否则点名交 `--reclassify`,绝不代裁。
+ *    否则点名交 `--reclassify`,绝不替人裁。
  *  · 目标键空 ⇒ **搬**支:re-key 到新号键;已禁形态整族(`rotReasonsOf` 非空 ⇒ waiting-human /
  *    waiting-env / blocking 拍板残留)不搬,搬动前过同一道守恒闸(目标行归属桶零变化,`batchBucketDrift`)。
  *    拒搬不改数据:留在 `skipped` 并点名原因,改判唯一出口 = `--reclassify`(这一支无权裁决归属语义)。
@@ -857,7 +857,7 @@ function selfTest() {
   )
   const a12 = adoptMovesOf([{ ...oldRec, blocking: '旧记录独有的信息' }], [openRow], new Map([[newRec.key, newRec]]))
   ok(
-    'S12 旧记录有新记录没有的字段 ⇒ 不退场,点名交 --reclassify(绝不代裁)',
+    'S12 旧记录有新记录没有的字段 ⇒ 不退场,点名交 --reclassify(绝不替人裁)',
     a12.retires.length === 0 && a12.skipped.length === 1 && /reclassify/.test(a12.skipped[0].why),
   )
   const a13 = adoptMovesOf(
