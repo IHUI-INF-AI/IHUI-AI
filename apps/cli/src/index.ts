@@ -22,9 +22,10 @@ import chalk from 'chalk';
 import { readFileSync, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
+import { setBaseUrl, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
 import type { GoalHardCriterion } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
+import { registerCliTokenProvider } from './lib/auth-refresh.js';
 import {
   digestGateRejectionFor,
   grantDigestTrackedLeaseFromFlag,
@@ -593,12 +594,13 @@ program.hook('preAction', async () => {
     }),
     cfg.apiUrl,
   );
-  if (cfg.apiKey) {
-    if (opts.apiKey && process.env.IHUI_API_KEY !== opts.apiKey) {
-      console.warn(chalk.yellow(t('cliEntry.apiKeyExposedWarn')));
-    }
-    setTokenProvider({ getToken: () => cfg.apiKey });
+  // 明文凭据暴露告警(现状行为逐字保留):显式 --api-key 与环境变量不同值时提示
+  if (cfg.apiKey && opts.apiKey && process.env.IHUI_API_KEY !== opts.apiKey) {
+    console.warn(chalk.yellow(t('cliEntry.apiKeyExposedWarn')));
   }
+  // 凭据续期单点:provider 必须同时带 getToken(现读令牌管理器)与 refreshAccessToken,
+  // 否则包内 401 拦截器第一行就 return null ⇒ 长会话跑过 15 分钟后全体 401 且无法自愈。
+  registerCliTokenProvider({ baseUrl: cfg.apiUrl, startupToken: cfg.apiKey });
   // P1-15 异步触发更新检查(--no-update-check 或 IHUI_NO_UPDATE_CHECK=1 时跳过;offline 模式跳过)
   if (
     cfg.offline !== true &&

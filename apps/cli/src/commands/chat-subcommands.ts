@@ -35,7 +35,8 @@ import chalk from 'chalk';
 // 正文读取这条链的传输与鉴权都归 api-client(history-read-ops 内部用 getConversationHistory);
 // 全局注入点在 index.ts 的 preAction,这里再注入一次是为了让子命令级 --api-url / --api-key
 // 与 refresh 后的 access token 真正落到发请求的那一层(否则这条链会打到默认端口)。
-import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
+import { setBaseUrl } from '@ihui/api-client';
+import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
 import {
@@ -326,7 +327,8 @@ async function readHistoryForConversation(
   apiKey: string,
 ): Promise<void> {
   setBaseUrl(baseUrl);
-  setTokenProvider({ getToken: () => apiKey });
+  // 凭据续期单点:`ihui chat history` 读长会话正文时 token 可能已经过期
+  registerCliTokenProvider({ baseUrl, startupToken: apiKey });
 
   const turnsPerPage = parseHistoryFlag(opts.turnsPerPage, '--turns-per-page');
   const maxPages = parseHistoryFlag(opts.maxPages, '--max-pages');
