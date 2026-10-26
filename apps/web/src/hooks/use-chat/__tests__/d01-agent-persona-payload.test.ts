@@ -45,7 +45,7 @@ describe('D01 发送链路接线(宿主源码)', () => {
   })
 
   it('chat store 提供 selectedAgentId 状态与 setSelectedAgentId 动作', () => {
-    expect(useChatStore.getState().selectedAgentId).toBeDefined
+    expect(useChatStore.getState().selectedAgentId).toBeDefined()
     expect(typeof useChatStore.getState().setSelectedAgentId).toBe('function')
   })
 })
