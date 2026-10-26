@@ -508,7 +508,13 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 入库 `cca944cc6a`);入库后 HEAD 面现读打出「◽ 裸 git 存量已降到 45(基线 49)」⇒ 49 → 45,
 // 紧贴现读不留余量。行为对账:前 3 枚各在固定索引快照下 HEAD 版与迁移版逐字同输出同 rc,
 // 单分支在真仓直跑两面 0/0 且输出零差;三枚自带 --self-test 全过(18/18、8/8、37 例)。
-const BARE_GIT_BASELINE = 41 // 紧贴现读(2026-10-26 第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行";本轮降幅 4 系 G-927 那族在飞迁移入库所致,复跑现读 `裸 git 存量 41`)
+// 2026-10-26 G-54 批次第 6 轮(枚举面续迁):2 枚迁 gitRaw(check-capability-field-not-client-supplied
+// 的 ls-files / check-next-env-dist 的 diff --cached,经收编提交 `073bd769f8` 入库);入库后 HEAD 面
+// 现读打出「◽ 裸 git 存量已降到 40(基线 41)」⇒ 41 → 40,紧贴现读不留余量。账目:他席同轮新增
+// 1 枚 scripts/feedback-loop-status.mjs(自带裸派生)计入现读,不在本票射程、不替它放宽。
+// 行为对账:两枚各在固定索引快照下迁移前版与迁移版逐字同输出同 rc(capability 全量 0/0、
+// next-env 全量与 --staged 两态 0/0);capability 自带 --self-test PASS。
+const BARE_GIT_BASELINE = 40 // 紧贴现读(2026-10-26 第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
 // check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。
