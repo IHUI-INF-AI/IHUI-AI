@@ -137,15 +137,68 @@ test('⑥ 任何输出面不得回显凭据明文(指纹只给 sha256 前缀,met
 })
 
 test('⑦ 落点候选:显式覆盖排在最前,且不从 cwd 推导', () => {
-  const dirs = T.traeUserDataDirs({ APPDATA: 'C:/Base/AppData', IHUI_TRAE_DIR: 'D:/Custom/Trae' })
+  const dirs = T.traeUserDataDirs({
+    APPDATA: 'C:/Base/AppData',
+    IHUI_TRAE_DIR: 'D:/Custom/Trae',
+    IHUI_TRAE_SCAN_USERS: '0',
+  })
   assert.equal(dirs[0], path.resolve('D:/Custom/Trae'))
   assert.ok(dirs.some((d) => d === path.resolve('C:/Base/AppData/Trae CN')))
-  const fallback = T.traeUserDataDirs({ APPDATA: 'C:/Base/AppData' })
+  const fallback = T.traeUserDataDirs({ APPDATA: 'C:/Base/AppData', IHUI_TRAE_SCAN_USERS: '0' })
   assert.equal(fallback[0], path.resolve('C:/Base/AppData/Trae CN'))
   assert.ok(
     fallback.every((d) => path.isAbsolute(d)),
     '候选必须全是绝对路径',
   )
+})
+
+test('⑬ 跨 profile 兜底:非登录用户 shell 下能在 <UsersRoot>\\<他席>\\AppData\\Roaming 命中真信封', () => {
+  const scratch = mkScratch('trae-auth-extract-userscan')
+  try {
+    // 造一个假 Users 根:sandbox(当前进程)里没信封,Administrator 席才有
+    const usersRoot = path.join(scratch, 'Users')
+    const other = path.join(usersRoot, 'Administrator', 'AppData', 'Roaming', 'Trae CN')
+    const file = path.join(other, 'User', 'globalStorage', 'storage.json')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        'iCubeAuthInfo://icube.cloudide': T.encryptEnvelope(JSON.stringify(SESSION)),
+      }),
+    )
+    const env = {
+      APPDATA: path.join(scratch, 'Sandbox', 'AppData', 'Roaming'), // 沙箱身份:此路无信封
+      SystemDrive: scratch,
+      USERPROFILE: path.join(usersRoot, 'Sandbox'),
+      IHUI_TRAE_DIR: '',
+    }
+    const homedir = path.join(usersRoot, 'Sandbox')
+    const roots = T.traeUsersRoots(env, homedir)
+    assert.ok(
+      roots.includes(path.resolve(usersRoot)),
+      'Users 根必须由 SystemDrive 给出(扫描面的输入)',
+    )
+    const dirs = T.traeUserDataDirs(env, homedir)
+    assert.ok(
+      dirs.includes(path.resolve(file.replace(/[\\/]User[\\/].*$/, ''))),
+      '扫描档必须把 Administrator/Trae CN 列进候选',
+    )
+    // 优先级锁:当前 %APPDATA% 档必须排在扫描档之前(永远不会拿别人 profile 压本机现役)
+    const appdataTrae = path.resolve(path.join(env.APPDATA, 'Trae CN'))
+    assert.ok(dirs.indexOf(appdataTrae) < dirs.indexOf(path.resolve(other)))
+    // 真提取:全链在默认候选(含扫描)下能打穿 —— 这正是 2026-10-26 首跑栽掉的那型
+    const out = extractTraeAccount({ dirs: dirs.filter((d) => d.startsWith(path.resolve(other))) })
+    assert.equal(out.accounts[0].uid, SESSION.userId)
+    // 关扫描档 ⇒ 只剩沙箱候选,该型按"未判定不猜"处理
+    const noScan = T.traeUserDataDirs({ ...env, IHUI_TRAE_SCAN_USERS: '0' }, homedir)
+    assert.equal(
+      noScan.some((d) => d.startsWith(path.resolve(usersRoot))),
+      false,
+      'IHUI_TRAE_SCAN_USERS=0 必须整体绕开扫描档',
+    )
+  } finally {
+    rmScratch(scratch)
+  }
 })
 
 test('⑧ 编排器参数面:--from trae 已装车,未知来源仍算未判定', () => {
