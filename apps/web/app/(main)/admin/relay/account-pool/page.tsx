@@ -114,6 +114,10 @@ interface AccountRow {
   usageSummary?: UsageSummary | null
   circuitBreakReason?: string | null
   expiresSoon?: boolean | null
+  /** 体检结论机器枚(判据单源 @ihui/shared,UI 只映射文案不重写判据) */
+  verdict?: string | null
+  tokenRemainingDays?: number | null
+  idleDays?: number | null
   claimStatus?: string | null
   claimedBy?: string | null
   claimedAt?: string | null
@@ -210,6 +214,32 @@ const HEALTH_LABEL: Record<string, string> = {
   healthy: '健康',
   degraded: '降级',
   down: '异常',
+}
+
+// 体检徽章(admin 面写死中文映射即可,门 70 排除 admin;i18n  parity 不涉)
+const VERDICT_LABEL: Record<string, string> = {
+  usable: '可用',
+  'expiring-soon': '临期',
+  'expired-renewable': '可救回',
+  'expired-dead': '待重登',
+  'envelope-only': '仅同机',
+  indeterminate: '未知',
+}
+const VERDICT_CLASS: Record<string, string> = {
+  usable: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  'expiring-soon': 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  'expired-renewable': 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  'expired-dead': 'bg-red-500/10 text-red-600 dark:text-red-400',
+  'envelope-only': 'bg-muted text-muted-foreground',
+  indeterminate: 'bg-muted text-muted-foreground',
+}
+const VERDICT_HINT: Record<string, string> = {
+  'envelope-only': '信封凭据仅同机可解,号池无法代刷',
+  'expired-dead': '无 refreshToken,调度救不回,需重新登录/导出',
+  'expired-renewable': '过期但有票,临期/保活档会自动续',
+  usable: '',
+  'expiring-soon': '1 天内到期,保活档会兜住;本机用则开一次客户端',
+  indeterminate: '读不到到期,以健康检查为准',
 }
 
 const IMPORT_STATUS_LABEL: Record<string, string> = {
@@ -854,6 +884,7 @@ export default function AdminRelayAccountPoolPage() {
                     <th className="px-3 py-2 text-left">平台</th>
                     <th className="px-3 py-2 text-left">uid</th>
                     <th className="px-3 py-2 text-left">健康</th>
+                    <th className="px-3 py-2 text-left">体检</th>
                     <th className="px-3 py-2 text-left">熔断</th>
                     <th className="px-3 py-2 text-left">签到</th>
                     <th className="px-3 py-2 text-right">24h 用量</th>
@@ -875,20 +906,20 @@ export default function AdminRelayAccountPoolPage() {
                   {isLoading ? (
                     Array.from({ length: 8 }).map((_, i) => (
                       <tr key={`sk-${i}`}>
-                        <td colSpan={20} className="px-3 py-2">
+                        <td colSpan={21} className="px-3 py-2">
                           <Skeleton className="h-6 w-full" />
                         </td>
                       </tr>
                     ))
                   ) : isError ? (
                     <tr>
-                      <td colSpan={20} className="px-3 py-8 text-center text-red-500">
+                      <td colSpan={21} className="px-3 py-8 text-center text-red-500">
                         加载失败:{error instanceof Error ? error.message : '未知错误'}
                       </td>
                     </tr>
                   ) : list.length === 0 ? (
                     <tr>
-                      <td colSpan={20} className="px-3 py-8 text-center text-muted-foreground">
+                      <td colSpan={21} className="px-3 py-8 text-center text-muted-foreground">
                         暂无数据
                       </td>
                     </tr>
@@ -961,6 +992,34 @@ export default function AdminRelayAccountPoolPage() {
                             >
                               {HEALTH_LABEL[k.healthStatus] ?? k.healthStatus}
                             </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            {k.verdict ? (
+                              <Tooltip
+                                content={
+                                  VERDICT_HINT[k.verdict]
+                                    ? `${k.verdict}：${VERDICT_HINT[k.verdict]}`
+                                    : `剩余 ${k.tokenRemainingDays ?? '?'} 天`
+                                }
+                              >
+                                <span className="inline-flex items-center gap-1">
+                                  <span
+                                    className={`rounded-md px-2 py-0.5 text-xs ${
+                                      VERDICT_CLASS[k.verdict] ?? VERDICT_CLASS.indeterminate
+                                    }`}
+                                  >
+                                    {VERDICT_LABEL[k.verdict] ?? k.verdict}
+                                  </span>
+                                  {typeof k.idleDays === 'number' && (
+                                    <span className="text-xs tabular-nums text-muted-foreground">
+                                      闲置{Math.round(k.idleDays)}天
+                                    </span>
+                                  )}
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
                           </td>
                           <td className="px-3 py-2">
                             {k.circuitBreakReason ? (
