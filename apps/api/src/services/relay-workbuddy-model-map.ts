@@ -9,10 +9,18 @@
  * 大面积撞名(实测 swiftapi/zhipu/qwen 等已有同名模型),不前缀会被渠道路由先截走,
  * 账号池永远轮不到;前缀 + ai_relay_model_catalog 别名解析保证请求真正落到 WorkBuddy。
  *
- * 只做字符串/对象映射,不碰 DB/网络,便于单测与同步脚本共用同一份判据。
+ * 只做字符串/对象映射与 SQL 语句构造(不执行、不碰 DB/网络),便于单测与同步脚本共用同一份判据。
+ *
+ * 单源档位(票 L28826,2026-10-28):ai_model_config / ai_model_config_models 的**登记字段**
+ * (config_name / base_url / api_format / enabled / is_relay_public)唯一取值源 =
+ * `scripts/data/relay-upstream-models.jsonl` 的 workbuddy 登记行,由 `parseWorkbuddyRegistration`
+ * 读取;号池登记器 `scripts/relay-upstream-models-sync.mjs` 吃同一行。两路写字段互斥
+ * (能力/定价/catalog 只归动态同步器;points_multiplier 只归登记器;name/description 双方皆 insert-only),
+ * 且共用同一配置行匹配键 (provider_code, base_url, owner_uuid IS NULL) ⇒ 谁后跑不再决定结果。
  */
 
 export const WORKBUDDY_MODEL_PREFIX = 'workbuddy/'
+export const WORKBUDDY_PROVIDER_CODE = 'workbuddy'
 
 export interface WorkbuddyUpstreamModel {
   id: string
@@ -94,8 +102,7 @@ export function buildWorkbuddyModelRows(
       supportsVision: model.supportsImages === true,
       tags: [...new Set(tags)],
       vendor: typeof model.vendor === 'string' && model.vendor ? model.vendor : null,
-      description:
-        (model.descriptionZh || model.descriptionEn || '').slice(0, 500) || null,
+      description: (model.descriptionZh || model.descriptionEn || '').slice(0, 500) || null,
       metadata: {
         workbuddy: {
           upstreamModel: model.id,
@@ -110,5 +117,10 @@ export function buildWorkbuddyModelRows(
   return rows
 }
 
-export const __test__ = { WORKBUDDY_MODEL_PREFIX, isChatCapableModel, toPoolModelId, buildWorkbuddyModelRows }
+export const __test__ = {
+  WORKBUDDY_MODEL_PREFIX,
+  isChatCapableModel,
+  toPoolModelId,
+  buildWorkbuddyModelRows,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
