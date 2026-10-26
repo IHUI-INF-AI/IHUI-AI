@@ -33,10 +33,10 @@
  *   node scripts/check-native-title-tooltip.mjs --staged   (pre-commit, 新增违规则 exit 1)
  *   node scripts/check-native-title-tooltip.mjs             (全量扫描报告, exit 0)
  */
-import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -227,14 +227,8 @@ function getStagedAddedLines() {
   const result = new Map()
   let output
   try {
-    output = execSync('git diff --cached -U0 --diff-filter=ACM --no-color', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      maxBuffer: 50 * 1024 * 1024,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
+    output = gitRaw(['diff', '--cached', '-U0', '--diff-filter=ACM', '--no-color'], ROOT)
   } catch {
     return result
   }
@@ -279,13 +273,8 @@ function getStagedAddedLines() {
 
 function getStagedFiles() {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
     return output
       .split('\n')
       .filter(Boolean)
