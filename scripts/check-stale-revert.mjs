@@ -248,6 +248,19 @@ export function resolveBlobs(repoRoot, specs) {
  * 语义与旧出口一致:非 Undetermined 的派生失败折成空清单(浅历史同形,由调用方按"没抓到"处理),
  * Undetermined(读不到:超时/坏 ref)**照旧上抛** —— "没有祖先提交"与"这次没读到"是两件事。
  */
+/**
+ * 2026-10-27 补:本门的 `Undetermined` 此前只带 git 动词与错误文本,**不带路径** ——
+ * 守门 84 并发档判红时输出里只有一句 `git log 失败: …` 加一段堆栈,拿到的人既定位不到是哪个
+ * 文件、也复核不了"是真取不到还是并发下的一过性失败"(§0.3「未判定必须点名」的同一条要求)。
+ * 只加路径前缀,不改任何判定语义(仍然上抛,仍然由调用方落未判定)。
+ */
+function undeterminedFor(path, e, what) {
+  const msg = `路径 ${path} 的${what}取材失败: ${String(e?.message ?? e)}`
+  const err = new Undetermined(msg)
+  if (typeof e?.status === 'number') err.status = e.status
+  return err
+}
+
 export function ancestorWindow(repoRoot, path, { deep = false } = {}) {
   const window = windowFor(path)
   // 巡检档(G-806 ③):一次"逐路径祖先取材" = 一次 git log。meter 只在 audit 运行期非空,
@@ -272,7 +285,7 @@ export function ancestorWindow(repoRoot, path, { deep = false } = {}) {
     // 本门原先无界 —— 那正是守门 80 拦的那一型)。既然引入了"可能超时",就绝不能把它折成
     // `[]`:"没有祖先提交"与"这次没读到"是两件事,后者会被判成"没有回写"= 把红洗成绿。
     // 真·无历史(`git log` 对无匹配路径)是 exit 0 + 空输出,不走这条。
-    if (e instanceof Undetermined) throw e
+    if (e instanceof Undetermined) throw undeterminedFor(path, e, '祖先提交清单')
     return { shas: [], truncated: false, window }
   }
   const truncated = shas.length > window
@@ -308,7 +321,7 @@ export function ancestorWindow(repoRoot, path, { deep = false } = {}) {
       }
       return { shas: all, truncated: false, window }
     } catch (e) {
-      if (e instanceof Undetermined) throw e
+      if (e instanceof Undetermined) throw undeterminedFor(path, e, '祖先提交清单(深档全历史)')
       // 全历史取不到(超时/坏 ref):维持窗口态与 truncated 标记,由调用方按"未判定"处理。
     }
   }
@@ -1405,7 +1418,18 @@ function auditInner(repoRoot, { staged }) {
         staged ? 0 : violations.length,
       ),
     )
-  return { code: failed ? 1 : 0, lines }
+  // 2026-10-27 补:此前"有路径没判成"(`undetermined`)整轮仍返回 code 0 —— 结论行虽带着
+  // "N 处未判定"的尾注,但**退出码是绿的**,调用方(含批量执行器)按退出码记账 ⇒ 把"没判"
+  // 记成了"判过且通过",正是 §0.3 明令禁止的那一型。未判定档现在落 exit 2(既不记绿也不冒红,
+  // 与真判红的 exit 1 分开),并已在上面逐条点名路径。
+  const undeterminedCount = rr?.undetermined?.length ?? 0
+  if (!failed && undeterminedCount > 0) {
+    lines.push(
+      `❓ [未判定] ${undeterminedCount} 个路径没有取得结论 ⇒ 本门本次不出具合格证(exit 2,` +
+        `不是"检查过且干净",也不是判红),上面已逐条点名`,
+    )
+  }
+  return { code: failed ? 1 : undeterminedCount > 0 ? 2 : 0, lines }
 }
 
 /**
@@ -1965,6 +1989,15 @@ if (isDirectRun) {
       if (code) process.exit(code)
     })
     .catch((e) => {
+      // 2026-10-27 补:git 取材一过性失败(`Undetermined`)此前与真崩溃同形 —— 一律 `❌` 开头
+      // + 整段堆栈 ⇒ 汇总里读起来与"判据判红"无别,而它其实是**没判**(§0.3)。现在分两态说:
+      // 未判定档只报原因(已由 `undeterminedFor` 带上路径),不冒充红;真崩溃仍带堆栈以便排查。
+      if (e instanceof Undetermined) {
+        console.error(
+          `❓ [未判定·不记绿也不冒红] 反回退守门本次未取得结论 ⇒ exit 2:${String(e?.message ?? e)}`,
+        )
+        process.exit(2)
+      }
       console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
       process.exit(2)
     })
