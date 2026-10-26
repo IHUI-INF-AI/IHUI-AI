@@ -16,7 +16,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { maskComments } from '../../../scripts/lib/code-mask.mjs'
+import { maskComments } from '../../../scripts/lib/code-mask.mjs' // arch-exempt: 判据面必须与被审门共用同一份遮罩实现（§22c），属测试面而非生产依赖边；正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2027-01-31
 
 /** api-bridge 里"已经解过包"的 HTTP 助手 —— 它们的结果再进 unwrapApi 就是二次解包 */
 const BRIDGE_HELPERS = ['get', 'post', 'put', 'patch', 'del'] as const
