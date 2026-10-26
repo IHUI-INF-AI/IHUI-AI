@@ -872,6 +872,7 @@
       "platformWeb": "Web",
       "platformRn": "Mobile app",
       "platformMp": "Mini program",
+      "platformEx": "Browser extension",
       "platformNoData": "No per-platform data in 24h",
       "panelEngagement": "Engagement",
       "engagementAvgStay": "Avg. time on page",
@@ -23237,7 +23238,9 @@
     "redirect": {
       "notAllowed": "Redirect target is not allowed",
       "notAllowedDesc": "For security reasons, only whitelisted redirect targets are allowed.",
-      "title": "Unified Login Redirect"
+      "title": "Unified Login Redirect",
+      "unavailable": "Unable to complete the redirect right now",
+      "unavailableDesc": "The network or service is temporarily unavailable. Please try again later."
     },
     "redirecting": "Redirecting to authorization…",
     "redirectingDesc": "Opening {platform} authorization page",

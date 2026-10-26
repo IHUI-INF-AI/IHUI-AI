@@ -872,6 +872,7 @@
       "platformWeb": "Web",
       "platformRn": "モバイルアプリ",
       "platformMp": "ミニプログラム",
+      "platformEx": "ブラウザ拡張",
       "platformNoData": "24時間以内の端末別データなし",
       "panelEngagement": "エンゲージメント",
       "engagementAvgStay": "平均滞在時間",
@@ -23240,7 +23241,9 @@
     "redirect": {
       "notAllowed": "リダイレクトはされていません",
       "notAllowedDesc": "セキュリティのため、ホワイトリストのリダイレクトのみされます。",
-      "title": "ログインリダイレクト"
+      "title": "ログインリダイレクト",
+      "unavailable": "現在リダイレクトを完了できません",
+      "unavailableDesc": "ネットワークまたはサービスが一時的に利用できません。しばらくしてから再試行してください。"
     },
     "redirecting": "認可ページにリダイレクト中…",
     "redirectingDesc": "{platform} の認可ページを開きます",

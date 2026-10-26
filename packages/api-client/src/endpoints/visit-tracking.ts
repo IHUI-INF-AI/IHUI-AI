@@ -5,7 +5,7 @@
 /**
  * 访问埋点上报端点(2026-10-26 立)。
  *
- * 端内(RN / 小程序)的页面埋点必须走这里,不得各自手拼 baseUrl 直连后端 ——
+ * 端内(RN / 小程序 / 浏览器插件)的页面埋点必须走这里,不得各自手拼 baseUrl 直连后端 ——
  * 那是守门 184「端内绕过 @ihui/api-client」明令拦的形态。web 端仍用 sendBeacon
  * 独立直发(页面卸载场景要的是同步投递,共享 client 保证不了),本函数服务端内。
  */
@@ -13,7 +13,7 @@
 import { fetchApi } from '../client.js'
 
 export interface VisitLogPayload {
-  /** 页面路径;RN 为 `/rn/<screen>`,小程序为 `/mp/<route>` */
+  /** 页面路径;RN 为 `/rn/<screen>`,小程序为 `/mp/<route>`,插件为 `/ex/<view>` */
   url: string
   referer?: string
   sessionId?: string

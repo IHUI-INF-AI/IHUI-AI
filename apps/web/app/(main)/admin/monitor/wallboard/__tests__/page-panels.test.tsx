@@ -117,6 +117,7 @@ const overview = {
       { platform: 'web', pv: 4000, uv: 280 },
       { platform: 'rn', pv: 120, uv: 20 },
       { platform: 'mp', pv: 80, uv: 15 },
+      { platform: 'ex', pv: 12, uv: 4 },
     ],
     online5m: 3,
     pv5m: 12,
@@ -189,12 +190,14 @@ describe('WallboardView 使用数据面板', () => {
     expect(screen.getByText(/平均停留/)).toBeTruthy()
   })
 
-  it('渲染各端使用量:网站/移动端/小程序三行都按接口字段绑定', async () => {
+  it('渲染各端使用量:网站/移动端/小程序/浏览器插件四行都按接口字段绑定', async () => {
     renderWallboard()
     await waitFor(() => expect(screen.getAllByText('各端使用量').length).toBeGreaterThan(0))
     expect(screen.getAllByText('网站').length).toBeGreaterThan(0)
     expect(screen.getAllByText('移动端').length).toBeGreaterThan(0)
     expect(screen.getAllByText('小程序').length).toBeGreaterThan(0)
+    // 插件端行(2026-10-26 补):新增一端时必须在这里被点名,漏挂一行就是漏统计一整端
+    expect(screen.getAllByText('浏览器插件').length).toBeGreaterThan(0)
     // web 行读数 PV 4000 / UV 280(读数走 fmtInt,千分位)
     await waitFor(() => expect(document.body.textContent).toContain('4,000'))
     expect(document.body.textContent).toContain('/ 280')
