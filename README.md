@@ -108,9 +108,9 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 608 | `dbTables` |
 | schema 文件 | 235 | `dbSchemaFiles` |
-| API 路由 | 4562 | `apiRoutes` |
-| 路由文件 | 628 | `apiRouteFiles` |
-| AI 服务路由 | 597 | `aiServiceRoutes` |
+| API 路由 | 4564 | `apiRoutes` |
+| 路由文件 | 629 | `apiRouteFiles` |
+| AI 服务路由 | 603 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 99 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -121,18 +121,16 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3334 | `testFiles` |
+| 测试文件 | 3357 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 285 | `guardianGates` |
 | — blocking | 260 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 16615 | `trackedFiles` |
+| 跟踪文件 | 16663 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-26。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
-> ⚠️ 未判定 2 项:`apiSrc`(apps/api/src 有 4 个 .ts 在面上取不到内容);`aiServiceRoutes`(apps/ai-service/app 有 2 个 .py 取不到内容)
 
 <!-- END GENERATED NUMBERS -->
 
@@ -2027,7 +2025,9 @@ IHUI-AI/
 | **渠道管理入口**            | `/models/channels`                                            | 模型市场下的 Key 池管理页面(4 文件:`channels-api.ts` 封装 admin API + `PageClient.tsx` React Query 列表/筛选/分页/toggle/健康检查/删除 + `ChannelFormDialog.tsx` 添加/编辑 Key 对话框 + `page.tsx` server wrapper),对接 `/api/admin/relay/key-pool` CRUD                                                                                                                                                                                                                                                                                          |
 | **第三方 IDE 账号池 admin** | `/api/admin/relay/accounts` + `ai_relay_account_pool` 表      | 第三方 AI IDE 平台(trae / workbuddy / codearts / qoder)「完整账号会话凭证」号池,与 ai_relay_key_pool(只存上游 API Key)分表:tokenEnc/refreshTokenEnc/cookiesEnc/secretsEnc 走 encryptField AES-256-GCM 字段级加密,响应面永不回传密文与明文;`POST /admin/relay/accounts/import` 直接吃账号导出 JSON({accounts:[...]} 单批 1–500 条,同 provider 按 uid 唯一去重)、GET list 分页 + provider/enabled/health 筛选、GET `:id` 脱敏详情、PUT `:id` 改调度参数(name/priority/weight/tempUnschedulable/proxyUrl)、POST `:id/toggle` 启停、DELETE `:id` 删除 |
 | **账号池真实探活**          | `POST /admin/relay/accounts/:id/health`                       | 走平台适配器 checkHealth 做真实探测(账号级凭证 + 该号 proxyUrl 出口),回写 healthStatus(healthy/down)+ healthCheckedAt + lastErrorMessage(截断 500),成功即清零 consecutiveFailures;平台适配器未注册 ⇒ 400                                                                                                                                                                                                                                                                                                                                          |
-| **账号池调度巡检**          | `POST /admin/relay/account-pool/sweep`                        | `apps/api/src/workers/relay-account-pool-worker.ts` 的 BullMQ repeat job(cron `*/5 * * * *`,每 5 分钟一轮 sweepAccountPool):①access token 距过期 <15 分钟且有 refreshToken → 刷新回写;②healthStatus=unknown → checkHealth 定级;③down 且可续期且刷新失败未超限 → 再试一次后回 unknown 等下轮复检;单轮 ≤50 号、并发 5、Redis 分布式锁(租约 10 分钟),连续刷新失败 3 次自动 tempUnschedulable(原因 admin 可见);admin 可手动触发同一轮并透传 scheduler 结果                                                                                            |
+| **账号池调度巡检**          | `POST /admin/relay/account-pool/sweep`                        | 同上 BullMQ 每 5 分钟一轮 sweepAccountPool,四档:①临期(<15min)刷新回写;②unknown→checkHealth 定级(未判定保 unknown,§0.3);③down/degraded 且可续期未超限→再试一次;④**空闲保活**(2026-10-26):`greatest(last_used_at,last_refresh_at,created_at)` 超窗(默认 7 天,env `RELAY_ACCOUNT_KEEPALIVE_DAYS`,`0/off/false` 整档关、非法值回落默认)主动续票——上游会清理闲置的 refresh 会话(实测报 invalid_grant),只靠 ① 救不了长期没人用的号;client-first 平台让位本机客户端不被顶下线;单轮 ≤50、并发 5、Redis 分布式锁,连刷 3 败自动 tempUnschedulable(原因 admin 可见);产出面 7 枚标量键(worker 日志带 `keepalive`,契约测试两分支同键面)                                                                                          |
+| **号池导入格式自适应**      | `apps/api/src/services/relay-account-format.ts`               | 导入判据单源同时吃我方规范形状(`token`/`refreshToken`)与第三方账号工具导出形状(`access_token`/`accessToken`/`refresh_token`/`uid`/`nickname`/`expires_at`):条目无规范 token 而命中别名族 ⇒ 经 `normalizeForeignAccountShape` 搬运归一再进校验,canonical 值一律优先、别名只补空缺;`expireEpochToMs` 取 1e11 为界**秒/毫秒自适应**(毫秒自 1973 年起恒大于该线、秒制须到公元 5138 年才越过——现网无此数据),否则 Keycloak 惯例的毫秒到期会被当秒放大成"永不过期"、临期/保活/摘除三档集体失明;显式到期只采信**早于** JWT exp 的值(保守取早);归一后仍吃不进档的陌生键(`payment_type`/`checkin_streak`/`dosage_notify_code` 等)由 `foreignPassthroughMetadata`(标量与 stringify≤1024 的对象/数组)原样落 `extraMetadata`,兑现 `docs/RELAY_ACCOUNT_IMPORT_FORMAT.md` §2 的透传承诺;预检 CLI 与服务端 `importAccounts` 共用同一份别名表(§0.6 不抄第二处)                                     |
+| **号池账号体检速查 CLI**    | `pnpm relay:inspect -- --file x.json｜--local`                | `apps/api/scripts/relay-account-inspect.ts`(2026-10-26 立):把「这枚号还能不能用、还剩多久、下一步做什么」折成一行话,零 DB / 零上游请求 / **输出永不回显凭据明文**;六态结论 `usable` / `expiring-soon`(≤1 天) / `expired-renewable`(过期但带 refreshToken,进号池即由调度救回) / `expired-dead`(过期且无续期通道,只能重新登录重导) / `envelope-only`(值是 WorkBuddy 5.6 `$wbEncrypted` 信封:仅同机可解回,查积分/签到/跨机皆不可用,**不冒判过期也不冒判能用**) / `indeterminate`(三段读不到到期≠已失效,§0.3);`--local` 直读本机 `workbuddy-desktop{,-ai}.info` 当前登录态;退出码 `0` 全可用 / `1` 有需要处理 / `2` 未判定                                                               |
 | **账号池用量台账**          | `GET /admin/relay/account-pool/usage/:id?days=7`              | 表 `ai_relay_account_usage_ledger`:每次转发调用(成功与失败)由 recordAccountUsage 落一行,fire-and-forget(台账异常只记 warn,不影响转发主链路);list 侧批量聚合近 24h calls/tokens/failRate;本端点给 24h 汇总 + 按 days 窗口的分页明细与总条数;超保留期行由调度轮清理(24h 节流)                                                                                                                                                                                                                                                                       |
 | **补池认领工作流**          | `POST /admin/relay/accounts/:id/claim` + `:id/release`        | 运营认领账号维护:claimStatus unclaimed/claimed + claimedBy/claimedAt/claimNote;已被他人认领 ⇒ 409(点名认领人);释放默认只允许本人(非本人 409),`force=true` 供运维强制释放并留 warn 记录                                                                                                                                                                                                                                                                                                                                                            |
 | **模型别名目录**            | `/admin/relay/model-catalog` + `ai_relay_model_catalog` 表    | 上游模型(providerCode/upstreamModel)→ 平台别名(alias/displayName)映射的 list / 新建 / 删除;别名冲突 400、待删记录不存在 404                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -5511,6 +5511,13 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🐞 修复:部署面按「取对侧(已声明+可复核)」导入 origin 的部署窗口线 + 两处归并与两处修红 (c02b88bc63)
+- 📚 文档:G-5 结清——超龄认领牌存量现读归零(代摘器干跑 SWEEP-RESULT state=clean stale=0 held=40 stripped=0 @22:51),且 2026-10-25 机主令已禁止等条件桶 ⇒ 原"等持有人处置"的出路由器物 strip-stale-claim-marks 接手,本行无剩余动作 (ebf8f7d516)
+- 🐞 修复:门41 认「退役远端的残留跟踪引用」为一档(orphan)—— gitee 远端 2026-10-23 摘配后 packed-refs 里 4 条 refs/remotes/gitee/* 掉出 mirror 档、又不属 origin 的 stale 档,被判成超窗旁支,而本门给的四条出路对它全部不成立(A 删的是别的 remote / B 对远程跟踪引用无效 / D 只 prune origin)⇒ 无解恒红挂每次提交(§12e/§12f);判据改为按 git remote 现配清单分档,configuredRemotes 取不到时一律不判 orphan(失效方向仍是多拦),T21 端到端锁正例 + 自检四例反向对照;同批门150 三族圆角归位(KeepaliveCenterPanel panel→rounded-xl / control→rounded-sm,quick-notes archivedDot tiny→rnRadius.xs),工作树面复跑判红 0 族 (bf63f8c40b)
+- 📚 文档:G-397 双席同题对账入当前行—s6 席 deploy-lock 负向与本席 git-lock 迟到finish 验收互补,合跑6/6绿,auto 已收编 (bca2ffaeb7)
+- 🐞 修复:G-1182551 终验闭合二落——03:00 轮转档案当日 4 行 strict-UTF8+CJK 正常(mojibake=0)non-UTF8=0 成立;一次 CAS 被合批洗回 open 已如实注记 (93ff2c73dc)
+
+**2026-10-26**
 - 🔧 工程/其他:合并落地后重生成 web ui-routes 钉(union-converge 对生成物留下的本侧副本须立即重跑生成器,门 105 现读 web 行 stale⇒heal 后待入库;miniapp 端他席在飞 taro-ws-ticket.ts 由 heal 档正确拒写不背书) (c411929340)
 - 🐞 修复:G-1200041 按 2026-10-25 机主令出等条件桶——两格真卡点归机主控制台/运维动作面,存在句改归属句(事实未动),清合并回潮的 F12 基线违例 (3c6956763c)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9ae2dd7013)
@@ -5709,24 +5716,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:登记一条可派单票 —— 号池凭证到期字段与上游接受态背离(库里记未来时刻而上游当场回 401),出路是换票被拒时收敛该列并让巡检按同判据降级;余额档已改为不依赖该字段 (049f177588)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b926b99b36)
 - 📚 文档:就地更正号池可观测行里"按到期时刻触发刷新"那句 —— 真号实测该字段不可信(上游已回 401 code 1001 而库里记的是未来时刻),现行判据是上游当场判鉴权失效才换票重试一次 (a9215ca573)
-
-**2026-10-23**
-- 🐞 修复:余额自愈改由上游鉴权标志触发,并以真号回包量出库里到期字段不可信 (11e5dc625e)
-- 📚 文档:收编 README 四语面 —— §21 域页导航覆盖(/domains/ai、/domains/personal 按域速览) + 发丝分隔线清理配套 + FAQ/Keywords 改挂 docs/engineering 索引 + 生成块数字对齐现算(2026-10-23) (237864c1d5)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (fde93239bf)
-- 🐞 修复:门105 web ui-routes.generated.ts 自述钉重生成收stale (0166dd30b5)
-- 🐞 修复:settings notifications/privacy 登录态三态门 —— ready 未就绪显加载而非误踢未登录(与签到助手/favorites 同型,useAuthGate.ready HEAD 已导出) (f9b56e4278)
-- 📚 文档:门207瘦身——守门历史/取证叙述与收敛带回重复副本整区归档(AGENTS_trim-2026-10-23b) (8307ff098c)
-- 🔧 工程/其他:收编死席遗留守门/测试簇 —— G-322 flag-value 单源断言补全(R3 CLI 档) + 新增只读尺 hairline-separator/plan-fragment-rows(未接提交链,§12e 设计) + 11 门体/lib 与 7 镜像测试更新,逐件自测/镜像测试全绿 (ea0fb180f0)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b4be005b4a)
-- 📚 文档:翻勾背景色发丝线判据票(分割线守门族4/6形状重载补档已落地) (086fe3491c)
-- 🚀 新功能/改进:分割线守门补背景色发丝线判据(族4/6形状重载·L29015)——三型结构件机械排除+RN对象块档并入差值棘轮 (c45c9c0bb8)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (285b0f5b69)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c0462af2b)
-- 📚 文档:族归并 + 立因叙述压缩,体积 102,084→85,755 字节(余量 10,245) (0f47cbeed6)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f3c07eb17e)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0cd065958d)
-- 📚 文档:结清 G-924 小程序远程图标注册表死键滞留行(四条现读凭据) (8c67ae715c)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
