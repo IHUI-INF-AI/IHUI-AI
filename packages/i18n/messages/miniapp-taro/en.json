@@ -5015,5 +5015,31 @@
     "tokens": "Tokens Used",
     "avgRating": "Avg. Rating",
     "loadFailed": "Failed to load statistics"
+  },
+  "aiMultimodal": {
+    "clear": "Clear",
+    "empty": "No messages",
+    "error": "Something went wrong",
+    "inputPlaceholder": "Type a message...",
+    "noModels": "No models available",
+    "send": "Send",
+    "subtitle": "Multimodal chat",
+    "switchModel": "Switch model",
+    "title": "Multimodal"
+  },
+  "aiWorld": {
+    "title": "AI World",
+    "empty": "No content",
+    "emptyHint": "Great AI World content is on the way",
+    "favorites": "Favorites",
+    "history": "History",
+    "kindLabel": "Kind",
+    "loadFailed": "Failed to load",
+    "viewCount": "views",
+    "searchPlaceholder": "Search AI tools / apps / news…",
+    "categoryAll": "All",
+    "votes": "Votes",
+    "rankLoadFailed": "Failed to load rankings",
+    "rankEmpty": "No data for this leaderboard"
   }
 }

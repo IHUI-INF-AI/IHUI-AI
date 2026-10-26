@@ -5015,5 +5015,31 @@
     "tokens": "トークン消費",
     "avgRating": "平均評価",
     "loadFailed": "統計の読み込みに失敗"
+  },
+  "aiMultimodal": {
+    "clear": "クリア",
+    "empty": "メッセージがありません",
+    "error": "エラーが発生しました",
+    "inputPlaceholder": "メッセージを入力...",
+    "noModels": "利用可能なモデルがありません",
+    "send": "送信",
+    "subtitle": "マルチモーダル対話",
+    "switchModel": "モデルを切り替え",
+    "title": "マルチモーダル"
+  },
+  "aiWorld": {
+    "title": "AI ワールド",
+    "empty": "コンテンツがありません",
+    "emptyHint": "AI ワールドのコンテンツは近日公開",
+    "favorites": "お気に入り",
+    "history": "履歴",
+    "kindLabel": "種類",
+    "loadFailed": "読み込みに失敗",
+    "viewCount": "閲覧",
+    "searchPlaceholder": "AI ツール / アプリ / ニュースを検索…",
+    "categoryAll": "すべて",
+    "votes": "票数",
+    "rankLoadFailed": "ランキングの読み込みに失敗しました",
+    "rankEmpty": "このランキングにはデータがありません"
   }
 }

@@ -151,6 +151,8 @@ export default defineAppConfig({
         'agent-review-list/index',
         'agent-setting/index',
         'agent-stat/index',
+        'ai-multimodal/index',
+        'ai-world/index',
       ],
     },
     {

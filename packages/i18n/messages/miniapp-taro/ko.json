@@ -5015,5 +5015,31 @@
     "tokens": "Token 소비",
     "avgRating": "평균 평가",
     "loadFailed": "통계 불러오기 실패"
+  },
+  "aiMultimodal": {
+    "clear": "지우기",
+    "empty": "메시지 없음",
+    "error": "문제가 발생했습니다",
+    "inputPlaceholder": "메시지 입력...",
+    "noModels": "사용 가능한 모델 없음",
+    "send": "전송",
+    "subtitle": "멀티모달 채팅",
+    "switchModel": "모델 변경",
+    "title": "멀티모달"
+  },
+  "aiWorld": {
+    "title": "AI 월드",
+    "empty": "콘텐츠가 없습니다",
+    "emptyHint": "AI 월드의 멋진 콘텐츠가 곧 공개됩니다",
+    "favorites": "즐겨찾기",
+    "history": "기록",
+    "kindLabel": "유형",
+    "loadFailed": "로드 실패",
+    "viewCount": "조회",
+    "searchPlaceholder": "AI 도구 / 앱 / 뉴스 검색…",
+    "categoryAll": "전체",
+    "votes": "투표수",
+    "rankLoadFailed": "랭킹 로드 실패",
+    "rankEmpty": "이 랭킹에 데이터가 없습니다"
   }
 }
