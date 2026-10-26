@@ -59,9 +59,9 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **606 tables · 4562 API routes ·
-25 WebSocket endpoints · 101 catalogued LLMs · 38 platforms auto-publishing · 3163 test files ·
-273 engineering gates · 50 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+Headline claims (same source as the table below, all live-computed): **608 tables · 4564 API routes ·
+25 WebSocket endpoints · 99 catalogued LLMs · 38 platforms auto-publishing · 3362 test files ·
+286 engineering gates · 49 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
@@ -71,7 +71,7 @@ Headline claims (same source as the table below, all live-computed): **606 table
 | schema 文件 | 235 | `dbSchemaFiles` |
 | API 路由 | 4564 | `apiRoutes` |
 | 路由文件 | 630 | `apiRouteFiles` |
-| AI 服务路由 | 597 | `aiServiceRoutes` |
+| AI 服务路由 | 603 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 99 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -82,18 +82,16 @@ Headline claims (same source as the table below, all live-computed): **606 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3359 | `testFiles` |
+| 测试文件 | 3362 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 285 | `guardianGates` |
-| — blocking | 260 | `guardianBlocking` |
+| 工程守门 | 286 | `guardianGates` |
+| — blocking | 261 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 16670 | `trackedFiles` |
+| 跟踪文件 | 16681 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-26。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
-> ⚠️ 未判定 1 项:`aiServiceRoutes`(apps/ai-service/app 有 1 个 .py 取不到内容)
 
 <!-- END GENERATED NUMBERS -->
 
