@@ -54,6 +54,8 @@ const {
   mockRevokeAllUserRefreshTokens,
   mockFindRefreshToken,
   mockRevokeRefreshToken,
+  mockRevokeRefreshTokenFamily,
+  mockFindLiveFamilyToken,
   mockGetUserPermissions,
   mockIssueTokenPair,
 } = vi.hoisted(() => ({
@@ -61,6 +63,10 @@ const {
   mockRevokeAllUserRefreshTokens: vi.fn(),
   mockFindRefreshToken: vi.fn(),
   mockRevokeRefreshToken: vi.fn(),
+  // /sso/refresh 的重放三档裁决经 services/refresh-replay-policy.ts 真实现,
+  // 其对 db/queries 的两个依赖必须在此替身里齐备(缺命名导出 ⇒ import 即抛)
+  mockRevokeRefreshTokenFamily: vi.fn(),
+  mockFindLiveFamilyToken: vi.fn(),
   mockGetUserPermissions: vi.fn(),
   mockIssueTokenPair: vi.fn(),
 }))
@@ -70,6 +76,8 @@ vi.mock('../src/db/queries.js', () => ({
   revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
   findRefreshToken: mockFindRefreshToken,
   revokeRefreshToken: mockRevokeRefreshToken,
+  revokeRefreshTokenFamily: mockRevokeRefreshTokenFamily,
+  findLiveFamilyToken: mockFindLiveFamilyToken,
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({
@@ -126,7 +134,10 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
   beforeAll(async () => {
     app = Fastify({ logger: false })
     // 注入 mock redis(模拟 server.decorate('redis', ...))
-    app.decorate('redis', mockRedis)
+    // Fastify 的装饰器类型要求与真实 Redis 实例同形,测试替身只实现 4 个方法;
+    // 按仓内既有写法(cache-resilience-null.test.ts:56)走 string 通道 decorate。
+    const decorable = app as unknown as { decorate(name: string, value: unknown): void }
+    decorable.decorate('redis', mockRedis)
     // 注册真实 response-sanitizer,用于验证 skipResponseSanitization 实际生效
     await app.register(responseSanitizerPlugin)
     // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
@@ -158,6 +169,10 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
     })
     mockRevokeRefreshToken.mockReset()
     mockRevokeRefreshToken.mockResolvedValue(undefined)
+    mockRevokeRefreshTokenFamily.mockReset()
+    mockRevokeRefreshTokenFamily.mockResolvedValue(0)
+    mockFindLiveFamilyToken.mockReset()
+    mockFindLiveFamilyToken.mockResolvedValue(null)
     mockGetUserPermissions.mockReset()
     mockGetUserPermissions.mockResolvedValue(mockPermissions)
     mockIssueTokenPair.mockReset()

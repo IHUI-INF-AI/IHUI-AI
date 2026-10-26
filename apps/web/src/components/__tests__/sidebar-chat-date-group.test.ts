@@ -5,7 +5,7 @@
 // 侧栏会话日期分桶 — 纯函数单测(2026-10-25 判桶改批)。
 // 钉住的语义:① 标签与算法同源(本周=周一起,本月=1 号起,不再"其余全部");
 // ② lastMessageAt 缺失 ⇒ 归「更早」,不再 t=0 冒领「本月」;③ 空桶不渲染。
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { groupByDate, type ConversationItem } from '@/components/sidebar-chat-history'
 
@@ -33,10 +33,29 @@ describe('sidebar groupByDate(日历分桶)', () => {
     expect(g.map((x) => x.key)).toEqual(['today'])
   })
 
-  it('三天前 ⇒ 只允许落在 thisWeek 或更早,绝不进 thisMonth 以外的错位桶', () => {
-    const g = groupByDate([item('a', localDate(3))])
-    expect(['thisWeek', 'earlier']).toContain(g[0]?.key)
-    // (周初三天前可能跨月/跨周 ⇒ 两态皆合规,但绝不是"本月")
+  it('三天前 ⇒ 绝不落「今天」;具体桶随日历位置走(周一起算的本周内 ⇒ thisWeek)', () => {
+    // 本例此前按运行时刻相对推算 ⇒ 按星期抖:周一~周三时"三天前"落在上周(属 thisMonth),
+    // 周四~周日才落 thisWeek —— 一年里 128 天翻红(不是月初月末,是每周翻红 3 天)。
+    // 改为冻结系统时间,分别钉住两种真实日历位置(仓内既有惯例:vi.setSystemTime)。
+    vi.useFakeTimers()
+    try {
+      // 2026-10-26 是周一:三天前 = 10-23(上周五)⇒ 跨周未跨月 ⇒ thisMonth
+      vi.setSystemTime(new Date(2026, 9, 26, 12, 0, 0))
+      const wed = groupByDate([item('a', localDate(3))])
+      expect(wed.map((x) => x.key)).toEqual(['thisMonth'])
+
+      // 2026-11-02 是周一:三天前 = 10-30(上月最后一天)⇒ 跨月 ⇒ earlier
+      vi.setSystemTime(new Date(2026, 10, 2, 12, 0, 0))
+      const nov = groupByDate([item('a', localDate(3))])
+      expect(nov.map((x) => x.key)).toEqual(['earlier'])
+
+      // 2026-10-29 是周四:三天前 = 10-26(本周一)⇒ 本周内 ⇒ thisWeek
+      vi.setSystemTime(new Date(2026, 9, 29, 12, 0, 0))
+      const thu = groupByDate([item('a', localDate(3))])
+      expect(thu.map((x) => x.key)).toEqual(['thisWeek'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('一年前 ⇒ earlier(旧实现会把它标成「本月」)', () => {
