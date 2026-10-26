@@ -8778,6 +8778,10 @@
           "title": "当前模型拒绝了本次请求",
           "action": "换模型"
         },
+        "MODEL_RETIRED": {
+          "title": "该模型已永久退役",
+          "action": "改用模型列表中在架的档位"
+        },
         "MODEL_STREAM_IDLE": {
           "title": "连接超时,响应已中断",
           "action": "重试"
