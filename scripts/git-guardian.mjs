@@ -103,6 +103,7 @@ import {
   judgeRefsHealth,
   homeHealDue,
   classifyMergeLossOutcome,
+  parseMergeLossCount,
 } from './lib/git-guardian-pure.mjs'
 
 // 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
@@ -119,6 +120,7 @@ export {
   judgeRefsHealth,
   homeHealDue,
   classifyMergeLossOutcome,
+  parseMergeLossCount,
 }
 
 // 工作树 / 真实 gitdir / 备份目录动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
@@ -1938,7 +1940,10 @@ function auditMergeAdditionLoss() {
   }
   if (outcome.kind === 'breach') {
     clearMergeLossUndetermined()
-    const n = (res.match(/丢失新增路径\s+(\d+)/) || [])[1] || '?'
+    // 取数归 `parseMergeLossCount`(单一真相源):令牌优先、散文兜底。2026-10-26 前这里内联
+    // `丢失新增路径` 正则,而对账脚本措辞早已改成「丢失路径或回退内容」⇒ 恒取不到数,
+    // 判红信正文写「共 ? 个路径」。
+    const n = parseMergeLossCount(res)
     log(
       `⚠️ 合并吞并对账判红:发现合并抹掉对侧独有新增共 ${n} 个路径 —— 修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
     )
@@ -3415,7 +3420,12 @@ export function healUnresponsiveServices(opts = {}) {
 }
 
 const OPS_PATROL_INTERVAL_MS = Number(process.env.IHUI_OPS_PATROL_INTERVAL_MS || 15 * 60 * 1000)
-const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 180_000)
+// 2026-10-26 由 180s 提到 300s:整轮巡检本机实测 ≈101s(其中 HEAD 类型检查 ≈64s 跑 20 个端),
+// 180s 在共享 git 争用/他席并发 tsc 时不够 ⇒ 巡检被 SIGTERM,守护只拿到 `ETIMEDOUT`、
+// 拿不到任何一维读数,于是每轮寄一封「元运维巡检红」——报的是巡检自己没跑完,不是哪一维坏了。
+// 300s 仍是有界上限(守门 80),且**大于**内层 runHeadTypecheck 的 180s(嵌套超时纪律:
+// 内层先超时只会把 P12 降成未判定,不会连根拔掉整轮结论)。
+const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 300_000)
 // ── 巡检发信的持续性门槛(2026-10-16 立,与 auditPublicPathProbe 共用 `bumpProbeStreak` 同一份实现)──
 // 门槛取 **3 轮 ≈ 45 分钟**,这个数不是拍的,是当天量出来的:P4a(Temp 条目越阈)今天两场风暴
 // 各只持续了 2 轮就自己回绿(05:21Z 64,205>60,000、05:36Z 64,289 ⇒ 05:51Z 已绿;07:52Z 又一模一样),
@@ -6368,6 +6378,7 @@ export const __test__ = {
   // 而分家之后"该不该喊人"落在持续性起点件上 —— 这三格都是判据,不导出的话镜像测试只能
   // import 整模块起巡检(§22d 禁止)。
   classifyMergeLossOutcome,
+  parseMergeLossCount,
   noteMergeLossUndetermined,
   clearMergeLossUndetermined,
   // 到人节奏的通用尺子(2026-10-17 立):计数折档 + 持续档 + 未判定起点台账。
