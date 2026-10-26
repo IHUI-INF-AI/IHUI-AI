@@ -103,7 +103,7 @@ export function PlanProgressBlock({
   )
 }
 
-export function PlanStatusBadge({
+function PlanStatusBadge({
   status,
   t,
   styles,

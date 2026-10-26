@@ -21,7 +21,7 @@ const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as c
  * `@ihui/api-client` 也无 realtime/webrtc 封装,故本组件只做**契约 + 三态 UI**,
  * 真实连接由调用方(ChatScreen)拿到原生能力后接线,此处不臆造依赖。
  */
-export type RealtimeVoiceState = 'idle' | 'connecting' | 'live' | 'error'
+type RealtimeVoiceState = 'idle' | 'connecting' | 'live' | 'error'
 
 /** 实时语音按钮文案(硬编码中文,与 TTS 口径一致;不新增 i18n key) */
 const REALTIME_BTN_LABEL: Record<RealtimeVoiceState, string> = {

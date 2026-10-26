@@ -41,7 +41,7 @@ const BRIDGE_CWD =
 const READY_TIMEOUT_MS = Number(process.env.QODER_BRIDGE_READY_TIMEOUT_MS || 90_000)
 const MAX_START_ATTEMPTS = Number(process.env.QODER_BRIDGE_START_ATTEMPTS || 3)
 
-export const QODER_BRIDGE_UNAVAILABLE =
+const QODER_BRIDGE_UNAVAILABLE =
   'QODER_BRIDGE_UNAVAILABLE: 本机 Qoder chat 桥未就绪（需安装 Qoder CN 桌面端，或用 QODER_APP_DIR 指定安装根目录）'
 
 export interface QoderBridgeEndpoint {
