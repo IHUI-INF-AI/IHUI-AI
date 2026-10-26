@@ -104,10 +104,14 @@ const overview = {
     aggregationAgeSec: 2,
     truncated: false,
     pageTop: [
-      { url: '/ecosystem', scope: 'public', pv: 90, uv: 60 },
-      { url: '/admin/monitor/wallboard', scope: 'admin', pv: 12, uv: 2 },
-      { url: '/login', scope: 'auth', pv: 8, uv: 8 },
+      { url: '/ecosystem', scope: 'public', platform: 'web', pv: 90, uv: 60 },
+      { url: '/admin/monitor/wallboard', scope: 'admin', platform: 'web', pv: 12, uv: 2 },
+      { url: '/login', scope: 'auth', platform: 'web', pv: 8, uv: 8 },
+      // 移动端那一行:四端同表,排行里会与网站页面并列 ⇒ 前缀必须能一眼分开
+      { url: '/rn/Chat', scope: 'public', platform: 'rn', pv: 30, uv: 20 },
     ],
+    // 24h 同口径总 PV:排行占比的分母(没有分母就画不出占比条)
+    pageTotalPv: 500,
     scopeSplit: [
       { scope: 'public', pv: 4200, uv: 300 },
       { scope: 'admin', pv: 101, uv: 2 },
@@ -189,6 +193,13 @@ describe('WallboardView 使用数据面板', () => {
     expect(screen.getAllByText('前台').length).toBeGreaterThan(0)
     expect(screen.getAllByText('后台').length).toBeGreaterThan(0)
     expect(screen.getAllByText('登录页').length).toBeGreaterThan(0)
+    // 四端同表,排行里网站页面与移动端页面并列 ⇒ 端前缀必须单独成元素并着色,
+    // 否则「这个页面是谁在用」在大屏上读不出来。
+    const prefix = screen.getByText('/rn/')
+    expect(prefix.textContent).toBe('/rn/')
+    expect(prefix.className).toContain('violet')
+    // 占比条:90 PV / 500 总 PV = 18%(分母取不到时不得画条 —— 那是把"没判"画成"零")
+    expect(document.querySelector('div[style*="18%"]')).toBeTruthy()
   })
 
   it('渲染交互热度:事件分布、热门点击与平均停留', async () => {
