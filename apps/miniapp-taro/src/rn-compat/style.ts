@@ -36,13 +36,18 @@ const UNITLESS = new Set([
 function withAlpha(color: string | undefined, opacity: number | undefined): string {
   const alpha = opacity === undefined ? 1 : Math.max(0, Math.min(1, opacity))
   const base = color ?? '#000000'
-  const hex = /^#([0-9a-f]{6})$/i.exec(base)
-  if (hex)
-    return `rgba(${parseInt(hex[1].slice(0, 2), 16)},${parseInt(hex[1].slice(2, 4), 16)},${parseInt(hex[1].slice(4, 6), 16)},${alpha})`
-  if (/^#[0-9a-f]{3}$/i.test(base)) {
-    const r = parseInt(base[1] + base[1], 16)
-    const g = parseInt(base[2] + base[2], 16)
-    const b = parseInt(base[3] + base[3], 16)
+  // 命中的分组一律先取进具名变量再用:开 noUncheckedIndexedAccess 时 `hex[1]` 的类型是
+  // string | undefined,直接在模板里链式 slice/相加会整片报 TS2532(2026-10-26 现读 9 处即此型)
+  const six = /^#([0-9a-f]{6})$/i.exec(base)?.[1]
+  if (six)
+    return `rgba(${parseInt(six.slice(0, 2), 16)},${parseInt(six.slice(2, 4), 16)},${parseInt(six.slice(4, 6), 16)},${alpha})`
+  const three = /^#([0-9a-f]{3})$/i.exec(base)?.[1]
+  if (three) {
+    // 用 charAt 而不是 three[i]:charAt 恒返回 string,而字符串下标在 noUncheckedIndexedAccess
+    // 下是 string | undefined —— 长度已经正则证过也照样报 TS2532(尺子不继承我们的推理)
+    const r = parseInt(three.charAt(0) + three.charAt(0), 16)
+    const g = parseInt(three.charAt(1) + three.charAt(1), 16)
+    const b = parseInt(three.charAt(2) + three.charAt(2), 16)
     return `rgba(${r},${g},${b},${alpha})`
   }
   return base

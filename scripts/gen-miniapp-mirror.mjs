@@ -603,6 +603,12 @@ function makeContext(rootDir) {  const miniapp = listMiniappPages(rootDir)
   const rnMap = faceReadMap(rootDir, rnRels)
   const indexText = faceReadMap(rootDir, [APP_INDEX]).get(APP_INDEX)
   const rnPacks = faceReadMap(rootDir, LANGS.map((l) => `${RN_PACK_DIR}/${l}.json`))
+  // 闭包档的两处**批级**输入(2026-10-26 实测补):此前逐屏各读各的 ⇒ 218 屏 × 每屏 ~200 份
+  // `git cat-file` = 四万余次派生,单轮预演实测 616 秒,而调度器只给 240 秒超时 ——
+  // 就算崩溃修好了,这条腿也会被自己的耗时打死(又一型静默停摆)。缓存提到批级后
+  // 每个文件只读一次;面不变 ⇒ 同一次批量里内容恒等(§0.4 同面同轮)。
+  const closureCache = new Map()
+  const taroCfgText = faceReadMap(rootDir, [TARO_CONFIG_REL]).get(TARO_CONFIG_REL)
   const packObjs = {}
   let packError = null
   for (const l of LANGS) {
@@ -610,7 +616,19 @@ function makeContext(rootDir) {  const miniapp = listMiniappPages(rootDir)
     if (t === null) { packError = `未判定:HEAD 面取不到 ${RN_PACK_DIR}/${l}.json(mobile-rn 词包是取值唯一源)`; break }
     try { packObjs[l] = JSON.parse(t) } catch (e) { packError = `未判定:${l} 词包 JSON 解析不过:${e.message}`; break }
   }
-  return { rootDir, miniapp, regText, rnRels, rnMap, indexText, packObjs, packError }
+  return {
+    rootDir,
+    miniapp,
+    regText,
+    rnRels,
+    rnMap,
+    indexText,
+    packObjs,
+    packError,
+    // 闭包档的两处批级输入(见 makeContext 头注:不接出来就是死变量,慢的那一格还在)
+    closureCache,
+    taroCfgText,
+  }
 }
 
 /**
@@ -626,30 +644,40 @@ function makeContext(rootDir) {  const miniapp = listMiniappPages(rootDir)
  * 处理(它们自己发 JS,不经 RN 别名)。这一档够用是因为炸构建的包都由 RN 侧源码直接引;
  * 若哪天共享屏自己直引 RN 原生包,把 workspace 展开加进 barrelOf 即可(判据同一条,不另写)。
  */
-function shellClosureGaps(rootDir, shellRel, shellText, taroCfgText) {
+function shellClosureGaps(rootDir, shellRel, shellText, taroCfgText, readCache = null) {
   const aliasKeys = aliasKeysOf(taroCfgText)
-  const relCache = new Map()
-  const read = (rel) => {
-    if (relCache.has(rel)) return relCache.get(rel)
-    const t = faceReadMap(rootDir, [rel]).get(rel) ?? null
-    relCache.set(rel, t)
-    return t
+  // 缓存分两档:批量档传进来的是**全批共用**的那张表(单屏档各留一份,语义不变)。
+  // 2026-10-26 实测:此前每屏自建 + 逐份 `faceReadMap([rel])` ⇒ 218 屏 × 每屏 ~200 次 spawn
+  // = 单轮预演 616 秒,而调度器只给 240 秒超时 ⇒ 这条腿会被自己的耗时打死(又一型静默停摆)。
+  // 现在:① 跨屏共享一张表(闭包高度重叠);② 每层一次性 cat-file(readBatch),扩展名探测也走批量。
+  const cache = readCache ?? new Map()
+  const readBatch = (rels) => {
+    const list = [...new Set(rels)]
+    const missing = list.filter((r) => !cache.has(r))
+    if (missing.length > 0) {
+      const got = faceReadMap(rootDir, missing)
+      for (const r of missing) cache.set(r, got.get(r) ?? null)
+    }
+    return new Map(list.map((r) => [r, cache.get(r)]))
   }
   const toRel = (fromFile, spec) => {
     if (spec.startsWith('@rn-shells/')) return `${RN_SCREENS}/${spec.slice('@rn-shells/'.length)}.tsx`
     const base = spec.startsWith('.') ? new URL(spec, `file:///${fromFile}`).pathname.replace(/^\/+/, '') : null
-    if (base == null) return null
-    for (const e of ['.tsx', '.ts', '.jsx', '.js', '.json']) if (read(`${base}${e}`) !== null) return `${base}${e}`
-    for (const e of ['.tsx', '.ts', '.jsx', '.js']) if (read(`${base}/index${e}`) !== null) return `${base}/index${e}`
+    if (base === null) return null
+    const cands = [
+      ...['.tsx', '.ts', '.jsx', '.js', '.json'].map((e) => `${base}${e}`),
+      ...['.tsx', '.ts', '.jsx', '.js'].map((e) => `${base}/index${e}`),
+    ]
+    const m = readBatch(cands)
+    for (const c of cands) if (m.get(c) !== null && m.get(c) !== undefined) return c
     return null
   }
   const walk = walkClosure({
     roots: [{ file: shellRel, text: shellText }],
-    readFile: read,
+    readBatch,
     toRel,
     isBare: (s) => !s.startsWith('.') && !s.startsWith('@/') && !s.startsWith('@rn-shells/'),
   })
-  void INTERNAL_STOP
   return { gaps: uncoveredNativePackages(walk.externals, aliasKeys), files: walk.files.size, unresolved: walk.unresolved }
 }
 
@@ -696,10 +724,10 @@ export function planGeneration(rootDir, opts, ctx = null) {
   }
   // 壳承载前置③:闭包里的 RN 原生族包必须都已被端内别名承载(缺一枚 = weapp 构建当场停摆)
   if (opts.form === 'shell') {
-    const cfgMap = faceReadMap(rootDir, [TARO_CONFIG_REL])
-    const taroCfg = cfgMap.get(TARO_CONFIG_REL)
-    if (taroCfg === null) return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${TARO_CONFIG_REL}(别名表读不到就不判)` }
-    const g = shellClosureGaps(rootDir, shellRel, rnMap.get(shellRel) ?? '', taroCfg)
+    const taroCfg = c.taroCfgText ?? faceReadMap(rootDir, [TARO_CONFIG_REL]).get(TARO_CONFIG_REL)
+    if (taroCfg === null || taroCfg === undefined)
+      return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${TARO_CONFIG_REL}(别名表读不到就不判)` }
+    const g = shellClosureGaps(rootDir, shellRel, rnMap.get(shellRel) ?? '', taroCfg, c.closureCache)
     if (g.gaps.length > 0) {
       return {
         kind: 'refuse',
