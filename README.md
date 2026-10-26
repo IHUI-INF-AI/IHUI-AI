@@ -16935,3 +16935,44 @@ A: Yes. ~14839+ tests / 3213 test files / 67 e2e spec / 4561 API 路由 / 608 �
 - 📚 文档:G-1200041 登记 sso.aizhs.top 502 剩余两格(归:机主控制台面);本机 Keycloak 已对齐 8850 (e4a65ab104)
 - 🐞 修复:三条通道的 401 续期收口 —— SSE 双闸收敛为一道 / WS 换票 401 语义下沉 / 小程序通知 WS 票据化 (de1a3c2902)
 - 🐞 修复:页面路径归一单源 + 授权凭据落库防线;大屏排行补端前缀与占比 (0c50f20838)
+| API 路由 | 4564 | `apiRoutes` |
+| 路由文件 | 629 | `apiRouteFiles` |
+| AI 服务路由 | 603 | `aiServiceRoutes` |
+| 测试文件 | 3357 | `testFiles` |
+| 跟踪文件 | 16664 | `trackedFiles` |
+| **账号池调度巡检**          | `POST /admin/relay/account-pool/sweep`                        | 同上 BullMQ 每 5 分钟一轮 sweepAccountPool,四档:①临期(<15min)刷新回写;②unknown→checkHealth 定级(未判定保 unknown,§0.3);③down/degraded 且可续期未超限→再试一次;④**空闲保活**(2026-10-26):`greatest(last_used_at,last_refresh_at,created_at)` 超窗(默认 7 天,env `RELAY_ACCOUNT_KEEPALIVE_DAYS`,`0/off/false` 整档关、非法值回落默认)主动续票——上游会清理闲置的 refresh 会话(实测报 invalid_grant),只靠 ① 救不了长期没人用的号;client-first 平台让位本机客户端不被顶下线;单轮 ≤50、并发 5、Redis 分布式锁,连刷 3 败自动 tempUnschedulable(原因 admin 可见);产出面 7 枚标量键(worker 日志带 `keepalive`,契约测试两分支同键面)                                                                                          |
+| **号池导入格式自适应**      | `apps/api/src/services/relay-account-format.ts`               | 导入判据单源同时吃我方规范形状(`token`/`refreshToken`)与第三方账号工具导出形状(`access_token`/`accessToken`/`refresh_token`/`uid`/`nickname`/`expires_at`):条目无规范 token 而命中别名族 ⇒ 经 `normalizeForeignAccountShape` 搬运归一再进校验,canonical 值一律优先、别名只补空缺;`expireEpochToMs` 取 1e11 为界**秒/毫秒自适应**(毫秒自 1973 年起恒大于该线、秒制须到公元 5138 年才越过——现网无此数据),否则 Keycloak 惯例的毫秒到期会被当秒放大成"永不过期"、临期/保活/摘除三档集体失明;显式到期只采信**早于** JWT exp 的值(保守取早);归一后仍吃不进档的陌生键(`payment_type`/`checkin_streak`/`dosage_notify_code` 等)由 `foreignPassthroughMetadata`(标量与 stringify≤1024 的对象/数组)原样落 `extraMetadata`,兑现 `docs/RELAY_ACCOUNT_IMPORT_FORMAT.md` §2 的透传承诺;预检 CLI 与服务端 `importAccounts` 共用同一份别名表(§0.6 不抄第二处)                                     |
+| **号池账号体检速查 CLI**    | `pnpm relay:inspect -- --file x.json｜--local`                | `apps/api/scripts/relay-account-inspect.ts`(2026-10-26 立):把「这枚号还能不能用、还剩多久、下一步做什么」折成一行话,零 DB / 零上游请求 / **输出永不回显凭据明文**;六态结论 `usable` / `expiring-soon`(≤1 天) / `expired-renewable`(过期但带 refreshToken,进号池即由调度救回) / `expired-dead`(过期且无续期通道,只能重新登录重导) / `envelope-only`(值是 WorkBuddy 5.6 `$wbEncrypted` 信封:仅同机可解回,查积分/签到/跨机皆不可用,**不冒判过期也不冒判能用**) / `indeterminate`(三段读不到到期≠已失效,§0.3);`--local` 直读本机 `workbuddy-desktop{,-ai}.info` 当前登录态;退出码 `0` 全可用 / `1` 有需要处理 / `2` 未判定                                                               |
+### 账号保活中心(2026-10-26 立：两条互不相识的保活线收成一份状态)
+- **为什么要它**:发布线 Cookie 探活(`services/publish/cookie_refresh_daemon.py`)与 AI 平台签到凭证(`services/checkin_scheduler.py`)此前各有一套开关、各自统计、各自表达失败 ⇒「这些账号到底还活着吗」在系统里**没有单一答案**:发布页看到的是角标、签到页看到的是记录,两边都不回答"哪个号快死了"。本中心(`apps/ai-service/app/services/keepalive/`)把 **cookie 探活 / 凭证(api_key、oauth)到期检测 / 签到凭证健康(只读 JWT `exp`,不代签)** 收成一套调度、两张表、一份健康度口径、一个告警出口。
+- **边界(不许混成一件)**:只判**凭证存活**,不代做业务动作 —— 发内容仍归发布调度器、每日签到仍归 `checkin_scheduler`,否则同一账号被两处同时访问,签到与发布互相踩。中心启用时旧 Cookie 守护循环**不再启动**(单一调度源)。
+- **端点(6 条,前缀 `/api/keepalive`,全部需登录 `require_request_user_id`,响应外壳统一 `{code,message,data}`)**:
+| 方法 | 路径 | 一句话用途 |
+| ---- | ---- | ---------- |
+| GET | `/api/keepalive/status` | 自检面:「到底开没开」的唯一权威答案(启用理由、调度是否真活着、上轮摘要、探针清单),不靠读配置猜 |
+| GET | `/api/keepalive/overview` | 健康度总览:四档计数、按来源分组、需人处理清单、临期清单、近 7 天成功率、生效配置 |
+| GET | `/api/keepalive/accounts` | 逐账号明细,可按 `?source=` 与 `?health=` 过滤 |
+| GET | `/api/keepalive/events` | 探活流水,可按 `?ref=` 只看某账号、`?only_failures=true` 只看失败;`limit` 默认 50 上限 500 |
+| GET | `/api/keepalive/stats` | 近 N 天(`?days=`,1..90,默认 7)各来源 ok 失败 总数 成功率 |
+| POST | `/api/keepalive/run` | 手动触发一轮(后台执行并立即返回);`?ref=<source>:<id>` 只跑单账号,`?force=true` 无视退避;`ref` 不带冒号直接 400 |
+- **健康度四档(判据只在 `policy.health_of` 一处,前端不得自己再算一遍)**:
+| 档位 | 判据(自上而下,先命中先返回) |
+| ---- | -------------------------- |
+| `critical` | 上次失败分类是 `expired`(只能重录或重扫)、`expires_at` 已过、连续失败 ≥ `alert_after_failures`(默认 3) |
+| `warning` | 连续失败 > 0、进入临期窗口(≤ `expire_warn_days`,默认 3 天)、只看得到失败且从没成功过 |
+| `healthy` | 有成功记录、无连续失败、不在临期窗口 |
+| `unknown` | 既没成功过也没失败过(新账号还没跑过) |
+- **失败分类与重试语义**:结果分 `ok` / `expired` / `network` / `error` / `unsupported` / `skipped` 六类,`classify_message()` 是唯一归一化入口 —— 密文解不开(`InvalidTag`、`解密失败`、`凭证无法解密`)一律归 `expired`,因为密钥不匹配重试一万次仍是同一个错,只有重录能救;不认识的失败归 `error` 且可重试(宁可多试一次,也不要把新平台改版判死)。退避为 `base × 2^(n-1)` 封顶 `retry_cap`(默认 300 秒起、21600 秒封顶),`retry_max`(默认 3)之后不再排重试。`expired` 与环境类失败**当轮即告警**,其余攒到 `alert_after_failures` 轮,同类告警按 `alert_repeat_hours`(默认 24 小时)去重,**成功即清零**(否则恢复后下一次真出事会被旧戳静音)。`unsupported`(如 api_key 号无到期信息)**既不算成功也不算失败**,单列一档、不进 `failed` —— 否则"本就不需要保活"的号会把真红淹没。
+- **告警出口**:默认进全站通知中心(`notifications` 表,前端未读红点消费),**一轮一属主聚合成一条**(19 个号同时过期不发 19 条,否则用户关掉通知后再也看不见真告警);`notifications.user_id` 是 uuid 且有外键,`probe-user`、`system:relay-pool` 这类非 uuid 属主在此丢弃并计数(一条脏 owner 就能让整批 INSERT 失败,表现成"告警时有时无");表不存在时明确 warning 跳过,不假装已送达。另可配 `KEEPALIVE_ALERT_WEBHOOK` 追加投递。全程 fail-open:通知发不出去绝不反过来中断保活。
+- **数据落点(两张表,`ensure_tables()` 幂等建表,启动期 fail-open)**:`keepalive_account_state` 每账号一行回答"现在什么情况"(连续失败、下次重试时刻、到期时刻、预警与告警去重戳);`keepalive_events` 是追加流水,回答"过去发生过什么、成功率多少",按 `KEEPALIVE_EVENT_RETENTION_DAYS`(默认 90 天)老化。账号主键是跨来源稳定的 `<source>:<account_id>`,因为两张源表的自增 id 各自独立、裸 id 会撞号。
+- **开关(全部 `KEEPALIVE_*`,`resolve_config()` 每轮重解析,改 .env 下一轮即生效、不必重启)**:总开关 `KEEPALIVE_ENABLED`,**未设置时按既有开关继承**(`COOKIE_REFRESH_ENABLED` 或 `CHECKIN_CRON_ENABLED` 任一为 true 即视为启用);显式关闭时 `/status` 的 `enabled_reason` 会点名这三个键,不再"静默 off"。其余默认:`KEEPALIVE_INTERVAL_HOURS`=6、`RETRY_MAX`=3、`RETRY_BASE_SECONDS`=300、`RETRY_CAP_SECONDS`=21600、`ALERT_AFTER_FAILURES`=3、`ALERT_REPEAT_HOURS`=24、`EXPIRE_WARN_DAYS`=3、`ALERT_INAPP`=true、`PROBE_CONCURRENCY`=4(1..10,非法值回落)、`EVENT_RETENTION_DAYS`=90。
+- **并发口径**:同平台**串行**(避风控)、跨平台**并发**,信号量刻意放在平台锁外层(否则同平台排队者各占一槽干等);单账号探活结果一律经 `safe_probe()` 收敛(只放过 `CancelledError`),批量路径上任何协程都不得抛出(否则一批结果整批作废)。
+- **所属端**:后端 `apps/ai-service`(router 自带 `/api/keepalive` 前缀,挂载不再加 prefix);前端面板 `apps/web/src/components/publish/KeepaliveCenterPanel.tsx`,挂在发布账号页 `/publish/accounts`;端点封装 `packages/api-client/src/endpoints/keepalive.ts`(`getKeepaliveStatus`、`getKeepaliveOverview`、`listKeepaliveAccounts`、`listKeepaliveEvents`、`runKeepalive`;`/stats` 后端有、面板未消费,别写成面板在用)。
+- **凭证层顺带修掉的一处真缺陷(与本中心同批)**:发布与签到两侧的密钥文件路径原来是 `data/…` 的**cwd 相对**写法,换个启动目录就等于换一把密钥(历史密文全废,且文件缺失时会**静默新建一把**)。现改为锚定服务根(`Path(__file__).resolve().parents[N]`),并新增**只解不加密**的历史密钥环(`PUBLISH_CREDENTIALS_KEY_LEGACY` / `CHECKIN_FERNET_KEY_LEGACY`);解密异常双契约:无环时原样抛 `InvalidTag`,有环仍全不解时抛带"密钥不匹配"的 `ValueError` —— 不把"密钥换了"说成"密文坏了"。
+- 取证:`node scripts/check-readme-sync.mjs` 末行 `未描述` 由 131 降至 125,本节 6 条 `/api/keepalive/*` 从 `in-doc-window` 转入 `已覆盖`;`node scripts/check-api-routes.mjs` 对 `packages/api-client/src/endpoints/keepalive.ts` 的两条调用现读落在"未判定(前缀假设命中)"(注册面只枚举 `app/routers` 与 `app/api`,本模块在 `app/services`),不判红也不记绿 —— 迁移到 `app/routers/keepalive.py` 才进在册面,属后续笔。
+**2026-10-26**
+- 🐞 修复:部署面按「取对侧(已声明+可复核)」导入 origin 的部署窗口线 + 两处归并与两处修红 (c02b88bc63)
+- 📚 文档:G-5 结清——超龄认领牌存量现读归零(代摘器干跑 SWEEP-RESULT state=clean stale=0 held=40 stripped=0 @22:51),且 2026-10-25 机主令已禁止等条件桶 ⇒ 原"等持有人处置"的出路由器物 strip-stale-claim-marks 接手,本行无剩余动作 (ebf8f7d516)
+- 🐞 修复:门41 认「退役远端的残留跟踪引用」为一档(orphan)—— gitee 远端 2026-10-23 摘配后 packed-refs 里 4 条 refs/remotes/gitee/* 掉出 mirror 档、又不属 origin 的 stale 档,被判成超窗旁支,而本门给的四条出路对它全部不成立(A 删的是别的 remote / B 对远程跟踪引用无效 / D 只 prune origin)⇒ 无解恒红挂每次提交(§12e/§12f);判据改为按 git remote 现配清单分档,configuredRemotes 取不到时一律不判 orphan(失效方向仍是多拦),T21 端到端锁正例 + 自检四例反向对照;同批门150 三族圆角归位(KeepaliveCenterPanel panel→rounded-xl / control→rounded-sm,quick-notes archivedDot tiny→rnRadius.xs),工作树面复跑判红 0 族 (bf63f8c40b)
+- 📚 文档:G-397 双席同题对账入当前行—s6 席 deploy-lock 负向与本席 git-lock 迟到finish 验收互补,合跑6/6绿,auto 已收编 (bca2ffaeb7)
+- 🐞 修复:G-1182551 终验闭合二落——03:00 轮转档案当日 4 行 strict-UTF8+CJK 正常(mojibake=0)non-UTF8=0 成立;一次 CAS 被合批洗回 open 已如实注记 (93ff2c73dc)

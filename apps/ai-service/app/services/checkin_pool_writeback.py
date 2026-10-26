@@ -25,6 +25,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.core.internal_ticket import internal_service_headers
 from app.core.logging import get_logger
 from app.services.api_tools_bridge import api_base_url
 from app.services.checkin_store import _pool_cred_version_of
@@ -48,6 +49,24 @@ def cred_fingerprint(device_map: dict[str, Any]) -> tuple[str, str]:
     return (
         repr(device_map.get("refresh_token")),
         repr(device_map.get("expires_at")),
+    )
+
+
+def _auth_headers(secret: str) -> dict[str, str]:
+    """回写请求鉴权头(经 internal_ticket 唯一出口构造,不再手拼常驻密钥头)。
+
+    X-Internal-Secret 是本端点(/api/internal/relay/account-pool/credential)自己的
+    机机凭据,与内部票是两回事,经 extra 原样带上。回写是机器侧动作,调用链上拿不到
+    apps/api 用户主体(device_map 不载 owner_user_id)⇒ internal_service_headers 按
+    其自身口径不签票、只发旧头 —— 不伪造主体(验票侧会对主体做存在+活跃校验)。
+    要让这条链路真带上短期票,需先把 owner_user_id 从调用方
+    (checkin_scheduler.checkin_one / internal_checkin_pool.pool_cred_flush)串进来。
+    """
+    return internal_service_headers(
+        "",
+        "ai-callback",
+        legacy_token=secret,
+        extra={"Content-Type": "application/json", "X-Internal-Secret": secret},
     )
 
 
@@ -75,12 +94,7 @@ async def _post_writeback(
         resp = await client.post(
             url,
             json=payload,
-            headers={
-                "Content-Type": "application/json",
-                "X-Internal-Secret": secret,
-                # 网关 CSRF 机器调用豁免(与 internal-principal 的验真出口同源)
-                "X-Internal-Service-Token": secret,
-            },
+            headers=_auth_headers(secret),
         )
     if resp.status_code >= 400:
         raise RuntimeError(f"回写 HTTP {resp.status_code}: {resp.text[:200]}")

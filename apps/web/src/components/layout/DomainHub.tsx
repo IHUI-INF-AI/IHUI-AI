@@ -29,7 +29,7 @@ import { useNavVisibilityFilter } from '@/components/sidebar/use-nav-visibility'
 import type { NavItem } from '@/components/sidebar/types'
 import { cn } from '@/lib/utils'
 
-export interface DomainHubSection {
+interface DomainHubSection {
   /** 分组标题(已翻译);不传则无标题 */
   title?: string
   items: NavItem[]
@@ -100,9 +100,7 @@ function HubCard({ item }: { item: NavItem }) {
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium text-foreground">{label}</span>
         {item.children && item.children.length > 0 && (
-          <span className="mt-0.5 block text-xs text-muted-foreground">
-            {item.children.length}
-          </span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">{item.children.length}</span>
         )}
       </span>
     </Link>

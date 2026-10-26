@@ -30,7 +30,7 @@ interface ChildInfo {
   student: { id: string; username: string; nickname: string; avatar: string | null } | null
 }
 
-export function EduParentScreen() {
+function EduParentScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

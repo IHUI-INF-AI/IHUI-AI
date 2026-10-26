@@ -42,6 +42,7 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..', '..')
 const MODULE = join(repoRoot, 'deploy', 'win', 'alert-dedup.ps1')
+const MONITOR = join(repoRoot, 'deploy', 'win', 'ihui-monitor.ps1')
 
 // 解释器必须给绝对路径:本仓记过「裸 powershell 不在 PATH」这一坑(服务身份与交互终端的
 // PATH 不同),spawnSync 找不到可执行文件时返回的是 status=null 而不是报错 ——
@@ -640,5 +641,133 @@ test('T17 源码锁:时间戳进出档案只能经那一对规范化出口,不�
     /\[datetime\]\$(e|entry|p|obj)\.?(Value\.)?(sigTs|firstTs|lastSend)/,
     '档案边界又出现 [datetime] 裸 cast',
   )
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T19 / T20 票 G-44 的**监控腿**(2026-10-26)
+// 缺陷(现读):ihui-monitor.ps1 的 Send-Alert 里,逐项身份就是折叠过空白的**整条文案**,
+// 而部署侧同一天已改档为「类别 + 归一化病因」(Get-AlertIdentitySig)⇒ 全仓两把身份尺(§0.6)。
+// 两把尺的代价不是账面难看:监控这侧压抖动靠人记得调用 Get-*AlertSig 分档(散文,不是器物),
+// 下一个新增告警把轮次/条数/时刻/sha/盘符路径拼进文案,就又是一次"每轮换一槽 ⇒ 4h 窗结构上
+// 永不命中"(本模块头注的 48h/47 封、I1a 那型磁盘读数全族)。
+// T19 = 装车锁 + 反向锁(改回旧形即红);T20 = 行为对照(两病因不同键 / 换读数同键)。
+// ─────────────────────────────────────────────────────────────────────────────
+test('T19 监控腿装车锁:逐项身份只能经单源出口,旧形"整条文案当身份"不得回潮', () => {
+  const src = readFileSync(MONITOR, 'utf8')
+  // 注释里逐字写出旧形是**证据**不是违规(T7 的 pragma 教训同型),故反向锁只扫非注释行。
+  const code = src
+    .split(/\r?\n/)
+    .filter((l) => !l.trimStart().startsWith('#'))
+    .join('\n')
+  // ① 反向锁:身份面不得再由逐项文案自己拼出来
+  assert.doesNotMatch(
+    code,
+    /\$isig\s*=\s*\(\$item/,
+    '回潮:Send-Alert 又把整条逐项文案当去重身份(全仓第二把尺)',
+  )
+  // ② 正向锁:身份面真的调那个出口,且两型判定与在场清单都吃它(函数在、没人调 = 没有这道机制)
+  assert.match(
+    code,
+    /\$isig = Get-MonitorAlertIdentity -Item \$item/,
+    '身份面没经 Get-MonitorAlertIdentity 产出 ⇒ 本票等于没做',
+  )
+  assert.match(code, /Test-AlertDue -Sig \$isig/, '去重判定没吃身份面')
+  assert.match(
+    code,
+    /Test-AlertSuppressionGrace -Sig \$isig/,
+    '抑制锚点没吃身份面(锚点随措辞漂 ⇒ 每轮重新起锚,escalated 到不了)',
+  )
+  assert.match(
+    code,
+    /\$activeSigs = @\(\$alerts \| ForEach-Object \{ Get-MonitorAlertIdentity -Item \$_ \}/,
+    '在场清单没与身份面同一把尺 ⇒ 清偿档会把整本台账读成"本轮缺席",4h 抑制被拆掉、每轮重寄',
+  )
+  // ③ 展示面必须仍是逐项文案:归一后的 <n>/<ts> 占位符绝不许进主题(那是给人看的那一份)
+  assert.match(code, /\$dueItems \+= \$itemTxt/, '主题又吃身份面 ⇒ 收信人看到的会是 <n> 占位符')
+  assert.doesNotMatch(code, /\$dueItems \+= \$isig/, '身份面被当展示面用(同上一条,反向)')
+  // ④ 出口本体只许透传:体内出现 -replace 或字符串拼接 = 在监控侧又造了一把尺
+  const at = src.indexOf('function Get-MonitorAlertIdentity')
+  assert.ok(at >= 0, '抽不到 Get-MonitorAlertIdentity(改名/删除 ⇒ 本锁失去对象,判红不判绿)')
+  const next = src.indexOf('\nfunction ', at + 1)
+  const body = src
+    .slice(at, next < 0 ? src.length : next)
+    .split(/\r?\n/)
+    .filter((l) => !l.trimStart().startsWith('#'))
+    .join('\n')
+  const stitch = /-replace|\$\w+\s*\+|\+\s*\$\w/
+  assert.match(body, /Get-AlertIdentitySig/, '出口没透传模块单源')
+  assert.doesNotMatch(body, stitch, '出口体内又自己加工身份串(第二把尺)')
+  // 反证:同一把扫描必须抓得住自拼形态,否则上面那条 doesNotMatch 是恒真装饰(本套件 9c-反证 同规)
+  assert.match('  return "ID:" + ($Item -replace 1, 2).Trim()', stitch, 'stitch 扫描恒真')
+  // ⑤ 单源仍只有一份:监控侧不得再定义第二个 Get-AlertIdentitySig
+  assert.equal(
+    (code.match(/function Get-AlertIdentitySig/g) || []).length,
+    0,
+    'ihui-monitor.ps1 里又抄了一份 Get-AlertIdentitySig ⇒ §0.6 违例',
+  )
+})
+
+test('T20 监控腿行为对照:两病因不同键、换读数同键,且出口与模块单源逐字同形', () => {
+  const scratch = mkScratch('monitor-identity')
+  try {
+    const sf = join(scratch, 'state.json').replace(/\\/g, '/')
+    const monitor = readFileSync(MONITOR, 'utf8')
+    // 抽出口函数原文喂输入(§22c:不在测试里复制判据)。monitor 顶层起巡检循环 ⇒ 禁止 dot-source
+    // 整个文件(那会联网探站并按真实状态写盘 = 生产动作),只能按大括号配平取函数体。
+    const at = monitor.indexOf('function Get-MonitorAlertIdentity')
+    assert.ok(at >= 0, '未判定:抽不到 Get-MonitorAlertIdentity 的输入面')
+    let depth = 0
+    const open = monitor.indexOf('{', at)
+    let end = -1
+    for (let j = open; j < monitor.length; j++) {
+      if (monitor[j] === '{') depth++
+      else if (monitor[j] === '}') {
+        depth--
+        if (depth === 0) {
+          end = j + 1
+          break
+        }
+      }
+    }
+    assert.ok(end > 0, '未判定:Get-MonitorAlertIdentity 大括号不配平')
+    const fnSrc = monitor.slice(at, end)
+    const script = [
+      `$ErrorActionPreference='Stop'`,
+      `. '${MODULE.replace(/\\/g, '/')}'`,
+      fnSrc,
+      `$sf = '${sf}'`,
+      // (a) 出口 = 模块单源的逐字同形(不是第二把尺)
+      `$one = 'web(8801) 未监听'`,
+      `Write-Output ("SAME_SHAPE=" + ((Get-MonitorAlertIdentity -Item $one) -eq (Get-AlertIdentitySig -Message $one)))`,
+      `Write-Output ("PREFIX=" + ((Get-MonitorAlertIdentity -Item $one) -like '类别=*'))`,
+      // (b) 两病因 ⇒ 不同键(磁盘跨档)
+      `$k1 = Get-MonitorAlertIdentity -Item '磁盘剩余 档=1-10GB 卷=D'`,
+      `$k2 = Get-MonitorAlertIdentity -Item '磁盘剩余 档=lt1GB 卷=D'`,
+      `Write-Output ("DIFF_CAUSE=" + ($k1 -ne $k2))`,
+      // (c) 把轮次/条数/时刻/盘符路径/sha 换成另一组 ⇒ 同键(未分档的新告警由单源兜住)
+      `$j1 = Get-MonitorAlertIdentity -Item 'api(8802) 未监听 第 39 轮 2026-10-26 12:00:00 明细 D:\\DevEnv\\logs\\a.log sha=1a2b3c4d5e6f7890'`,
+      `$j2 = Get-MonitorAlertIdentity -Item 'api(8802) 未监听 第 41 轮 2026-10-26 12:35:00 明细 D:\\DevEnv\\logs\\b.log sha=9f8e7d6c5b4a3210'`,
+      `Write-Output ("SAME_KEY=" + ($j1 -eq $j2))`,
+      `Write-Output ("JKEY=" + $j1)`,
+      // (d) 台账层真的压住下一轮(键相等 + window-hit)
+      `$d1 = Test-AlertDueByIdentity -Sig $j1 -StateFile $sf -RepeatHours 4`,
+      `$d2 = Test-AlertDueByIdentity -Sig $j2 -StateFile $sf -RepeatHours 4`,
+      `Write-Output ("LEDGER=" + $d1.Decision + '/' + $d2.Decision + '/' + ($d1.Key -eq $d2.Key))`,
+      // (e) 跨类别不得并槽(一类没备份不许被另一类顶掉)
+      `Write-Output ("KIND_SPLIT=" + ((Get-MonitorAlertIdentity -Item '无数据库备份文件 类别=ihui_dev') -ne (Get-MonitorAlertIdentity -Item '无数据库备份文件 类别=keycloak')))`,
+    ].join('\n')
+    const { out, status } = pwsh(script)
+    requireShell(out)
+    assert.equal(status, 0, `pwsh 非零退出: ${out}`)
+    assert.match(out, /SAME_SHAPE=True/, '出口与模块单源不同形 ⇒ 监控侧另有一把尺')
+    assert.match(out, /PREFIX=True/, '身份面不是「类别=…」形 ⇒ 没落到单源的键形')
+    assert.match(out, /DIFF_CAUSE=True/, '两病因(磁盘跨档)必须不同键')
+    assert.match(out, /SAME_KEY=True/, '轮次/时刻/盘符/sha 换成另一组必须同键')
+    assert.ok(!/2026-10-26|1a2b3c4d|39|41/.test((out.match(/JKEY=(.+)/) || [])[1] || ''), '身份串里还留着读数:')
+    assert.match(out, /LEDGER=due-new\/window-hit\/True/, '同键没能在台账层压住下一轮:')
+    assert.match(out, /KIND_SPLIT=True/, '跨类别被并成一槽(一类会顶掉另一类):')
+  } finally {
+    rmScratch(scratch)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

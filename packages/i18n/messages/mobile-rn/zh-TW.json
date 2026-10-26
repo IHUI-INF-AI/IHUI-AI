@@ -634,6 +634,22 @@
     "runtimeStop": "停止",
     "runtimeSend": "傳送"
   },
+  "quickNotes": {
+    "menuEntry": "快捷筆記",
+    "title": "快捷筆記",
+    "new": "新建筆記",
+    "edit": "編輯",
+    "search": "搜尋筆記",
+    "insert": "插入對話",
+    "archive": "封存",
+    "unarchive": "取消封存",
+    "archived": "已封存",
+    "showArchived": "顯示已封存",
+    "empty": "暫無筆記",
+    "titlePlaceholder": "標題",
+    "contentPlaceholder": "內文",
+    "groupPlaceholder": "分組(可選)"
+  },
   "chat": {
     "assetCatText": "文本",
     "assetCatImage": "圖片",

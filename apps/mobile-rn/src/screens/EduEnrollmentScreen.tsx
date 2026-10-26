@@ -29,7 +29,7 @@ interface EduClass {
   grade: string | null
 }
 
-export function EduEnrollmentScreen() {
+function EduEnrollmentScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

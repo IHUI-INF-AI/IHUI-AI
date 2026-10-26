@@ -26,7 +26,7 @@ type NotificationPrefs = {
   billingReminder: boolean
 }
 
-export function DeveloperNotificationsScreen() {
+function DeveloperNotificationsScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

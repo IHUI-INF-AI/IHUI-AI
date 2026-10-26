@@ -37,7 +37,7 @@ import {
 
 import { createTaroZustandHook } from './helpers/create-taro-zustand-hook'
 
-export interface ChatSyncMiniappState {
+interface ChatSyncMiniappState {
   /** 共享 store 的变更序号:每次真实变更 +1(端内用它当"发布信号") */
   version: number
   /** 会话消息面(稳定引用;空会话返回同一个冻结空数组) */
@@ -69,7 +69,7 @@ chatSyncStore.subscribe(() => {
 })
 
 /** 端内 store(既能当 hook 调,也保留 getState/subscribe,与 zustand `create` 同形)。 */
-export const useChatSyncStore = createTaroZustandHook(chatSyncTaroStore)
+const useChatSyncStore = createTaroZustandHook(chatSyncTaroStore)
 
 /** 非 React 路径(广播适配器)使用的直读入口。 */
 export const chatSyncTaroStoreApi = chatSyncTaroStore
