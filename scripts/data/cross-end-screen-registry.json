@@ -595,6 +595,16 @@
       "shared": "packages/app/src/features/agent-create/AgentCreateScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AgentCreateScreen.tsx",
       "miniapp": "pkg-user/agent-create/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-market/AgentMarketScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentMarketScreen.tsx",
+      "miniapp": "pkg-user/agent-market/index"
+    },
+    {
+      "shared": "packages/app/src/features/agent-review-list/AgentReviewListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentReviewListScreen.tsx",
+      "miniapp": "pkg-user/agent-review-list/index"
     }
   ]
 }

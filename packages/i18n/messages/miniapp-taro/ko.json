@@ -4982,5 +4982,20 @@
     "submit": "생성",
     "nameRequired": "이름을 입력하세요",
     "saveFailed": "저장 실패"
+  },
+  "agentMarket": {
+    "empty": "에이전트가 없습니다",
+    "free": "무료",
+    "loadFailed": "불러오기 실패",
+    "paid": "유료",
+    "searchPlaceholder": "에이전트 검색",
+    "title": "에이전트 마켓",
+    "uses": "사용 횟수"
+  },
+  "agentReviewList": {
+    "author": "작성자",
+    "empty": "리뷰가 없습니다",
+    "loadFailed": "리뷰 불러오기 실패",
+    "title": "사용자 리뷰"
   }
 }
