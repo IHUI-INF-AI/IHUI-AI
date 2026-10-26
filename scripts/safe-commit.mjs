@@ -76,6 +76,11 @@ import {
   snapshotStagedDeleteIntent,
 } from './lib/staged-delete-intent.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// 2026-10-26:提交身份的唯一出口(与旁路落地器同源)。本机实测:`user.name/user.email` 只配在
+// 交互账户的 .gitconfig 里,而本脚本常由计划任务/服务/另一身份的会话派生 ⇒ git 报
+// `Author identity unknown` + exit 128;旧分诊把它当"索引锁争用",连跑 10 轮整条守门链
+// (本机 ≈100 分钟白烧)后仍然落不了地。修法不是关掉任何门,而是**用仓内既有身份出口补上**。
+import { REPO_GIT_IDENTITY_ARGS } from './lib/bypass-git.mjs'
 // G-1118437:sha 绑定正证的构造与落盘只住 `lib/commit-attestation.mjs` 那一份
 // (它同时是旁路留痕的写口与台账的读口;在这里另写一遍 appendFileSync = 第二份 schema,
 //  而两份 schema 的漂开会表现为"写了但统计器永远读不到")。
@@ -309,7 +314,20 @@ function recordClearedStagedDeletions({
  */
 const GIT_LOCK_MISS =
   /Unable to create .*index\.lock|Another git process|index\.lock'?: ?File exists|cannot lock ref/i
-const isGitLockFailure = (status, out) => status === 128 || GIT_LOCK_MISS.test(out)
+/**
+ * 分诊(2026-10-26 收窄)。旧判据写的是 `status === 128 || GIT_LOCK_MISS.test(out)` ——
+ * 把**任何** 128 都读成锁争用。当天本机实测把它打穿了两次:
+ *  ① 提交身份取不到(`Author identity unknown` + 128)⇒ 连跑 10 轮整条守门链(≈100 分钟)
+ *     而每一轮都在同一个确定性失败上重跑,最后仍然落不了地;
+ *  ② 出网代理腿死(`unable to access … Recv failure` + 128)同一族。
+ * 两者都不是锁:重试既修不了署名也修不了网络,却会掩盖真实归因。
+ * ⇒ **128 只是必要条件,锁特征才是判据**;认不出锁特征就照实归因退出(§0.10:失效方向
+ *   必须是"多要一次定向说明",绝不能是"多放一次跳门/多跑一轮全量门")。
+ */
+const isGitLockFailure = (status, out) => status === 128 && GIT_LOCK_MISS.test(out)
+/** 确定性致命因(重试修不了的那些) ⇒ 点名退出,不再烧一轮守门链去赌它自愈。 */
+const GIT_DETERMINISTIC_FATAL =
+  /Author identity unknown|unable to auto-detect email address|not a git repository|unable to access|Failed to connect|Permission denied|Repository not found/i
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 const LOCK_RETRIES = Number(process.env.IHUI_SAFE_COMMIT_LOCK_RETRIES || 10)
 /** 该路径是否已在索引里(= 已跟踪)。用于区分"已跟踪却被忽略"与"未跟踪的产物"。 */
@@ -911,6 +929,43 @@ const rejectIfForeignEnteredIndex = (phase) => {
  * 而旧流程把它与"pre-commit 判红"同形对待,立刻 `--no-verify` 重试并成功,交付看起来干净,
  * 实际所有质量门都被跳过且无人知晓。判据:lock 类失败重试;真·钩子失败才允许应急跳过。
  */
+/**
+ * 提交身份兜底(2026-10-26 立;值不在这里硬编码,唯一出口 = `scripts/lib/bypass-git.mjs` 的
+ * `REPO_GIT_IDENTITY_ARGS`,与旁路落地器/守护任务同源)。
+ * 立因:本机 `user.name/user.email` 只配在交互账户的 .gitconfig 里,而本脚本常由守护/计划任务/
+ * 另一身份的会话派生 ⇒ git 报 `Author identity unknown` + exit 128,旧分诊把它读成"索引锁争用",
+ * 于是整条守门链被同跑 10 遍(≈100 分钟)而问题一个没修。
+ * 方向刻意保守三条:① 只在 git 自己说取不到 user.email 时补;② 会话已有身份绝不覆盖
+ * (不得把别人的提交作者改成仓内身份);③ 探针本身跑不动 ⇒ 当作"有身份",保持改动前行为。
+ */
+/** 只问 git 一句话:当前身份下取不取到 user.email(判据零复算,值取自唯一出口)。 */
+function gitIdentityResolvable() {
+  try {
+    const r = spawnSync('git', ['-C', repoRoot, 'config', '--get', 'user.email'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 15000,
+      stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生 git 必须显式接管 stdio
+    })
+    if (r.status !== 0) return false
+    return String(r.stdout || '').trim().length > 0
+  } catch {
+    return true // 问不到 ⇒ 不代人署名,保持改动前行为
+  }
+}
+
+const IDENTITY_CFG_ARGS = gitIdentityResolvable() ? [] : [...REPO_GIT_IDENTITY_ARGS]
+if (IDENTITY_CFG_ARGS.length) {
+  log(
+    'warn',
+    `本进程身份下 git 取不到 user.email ⇒ 用仓内唯一出口补署名(${REPO_GIT_IDENTITY_ARGS[1]});` +
+      '要改这个值请改 scripts/lib/bypass-git.mjs,不要在这里抄第二份(§0.6 单一真相源)',
+  )
+}
+
+/** 把"钩子路径 + 身份 + 提交参数"拼成一枚完整 argv;两个发令点共用一份,禁止各拼各的。 */
+const commitArgv = (skipHooks, extraCfg = []) => [...extraCfg, ...IDENTITY_CFG_ARGS, ...commitArgs(skipHooks)]
+
 const commitArgs = (skipHooks) => [
   'commit',
   ...(skipHooks ? ['--no-verify'] : []),
@@ -1005,9 +1060,7 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
   )
   const r = await spawnStreaming(
     'git',
-    hookWindowGuard.hooksDir
-      ? ['-c', `core.hooksPath=${hookWindowGuard.hooksDir}`, ...commitArgs(false)]
-      : commitArgs(false),
+    commitArgv(false, hookWindowGuard.hooksDir ? ['-c', `core.hooksPath=${hookWindowGuard.hooksDir}`] : []),
     {
       encoding: 'utf8',
       cwd: repoRoot,
@@ -1036,6 +1089,20 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
     )
     sleep(3000)
     continue
+  }
+  // 2026-10-26:确定性致命因(署名取不到 / 远端连不上)⇒ 当场点名退出。
+  // 旧形态把它判成锁争用并重试 10 轮 ⇒ 每轮都把整条守门链跑一遍,既修不好问题也把归因洗白。
+  if (GIT_DETERMINISTIC_FATAL.test(out)) {
+    const first = String(out)
+      .split(/\r?\n/)
+      .find((l) => GIT_DETERMINISTIC_FATAL.test(l))
+    log(
+      'err',
+      `git 报**确定性致命因**(重试修不了,已停止重试,不冒充锁争用):${first}` +
+        (IDENTITY_CFG_ARGS.length ? '' : ' —— 身份若取不到,由 scripts/lib/bypass-git.mjs 的唯一出口补,不在端内硬编码'),
+    )
+    hookFailed = false // 没有任何门被跳过:钩子根本没轮到,绝不进入"跳门归因"那条链
+    process.exit(1)
   }
   hookFailed = true
   if (r.status === 129) {
@@ -1688,7 +1755,7 @@ if (hookFailed && commitResult.status !== 0) {
   }
   // 同上:跳门重试**也是**一次整索引提交,外来件一样会跟着走 ⇒ 同样先复量,不因为"要跳门了"就放行。
   rejectIfForeignEnteredIndex('--no-verify 重试')
-  const r = spawnSync('git', commitArgs(true), {
+  const r = spawnSync('git', commitArgv(true), {
     encoding: 'utf8',
     cwd: repoRoot,
     env: process.env,
