@@ -33,6 +33,13 @@
 //
 // 用法:node scripts/dedupe-live-doc.mjs <相对路径…> [--apply] [--json]
 // 退出码:0 无重复 / 1 有重复(--apply 已收敛则为 0) / 2 未判定或守恒不过
+//
+// —— 射程闸(2026-10-26 立,c8fee04806ea 事故锁)——
+// 只有 .md 活文档允许进入行折叠面。代码文件一律拒收:事故里"人工归并回灌"器物把
+// guardian-runner.mjs 当活文档按行 union 折叠,吃掉守门条目边界行,致 13 处结构损坏、
+// 调度器 node --check SyntaxError、挂在其上的全部守门静默失效(HEAD~1..~4 全坏)。
+// 行折叠对代码是结构性破坏(条目/括号/逗号被逐行摘走),守恒四档判不出这种坏 ——
+// A1/A2 只保"形态不丢",代码坏在"语法",所以必须在入口拒,而不是指望折叠后自证。
 // ─────────────────────────────────────────────────────────────────────────
 /* eslint-disable no-console -- 工具脚本需 console 输出 */
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -153,6 +160,11 @@ export function collapse(text) {
   }
 }
 
+/** 射程闸判定:只有 .md 活文档允许进入行折叠面(大小写不敏感);其余一律拒收。 */
+export function isLiveDocTarget(rel) {
+  return rel.toLowerCase().endsWith('.md')
+}
+
 /** 面读取(§0.4):全量档判 HEAD blob、--staged 判索引 blob、--worktree 判盘上。 */
 function readFace(relPath, face) {
   if (face === 'worktree') {
@@ -218,6 +230,15 @@ export function selfTest() {
   // 反向锁:改一行让它与首行不再同形态 ⇒ 不该被折(证明折的是副本,不是内容)
   const distinct = dup.replace('4558 API routes today?', '4558 API routes tomorrow?')
   ok('形态不同即两份都留(不误伤唯一内容)', collapse(distinct).dropped === 0)
+  // 射程闸锁(2026-10-26,c8fee04806ea 事故):代码文件不得进折叠面
+  ok(
+    '射程闸:非 .md 目标被拒(.mjs/.ts/rs 等)',
+    !isLiveDocTarget('scripts/guardian-runner.mjs') &&
+      !isLiveDocTarget('src/App.tsx') &&
+      !isLiveDocTarget('crates/hui-cli/src/main.rs') &&
+      !isLiveDocTarget('notes')
+  )
+  ok('射程闸:.md 目标放行(含大写后缀)', isLiveDocTarget('README.md') && isLiveDocTarget('docs/Guide.MD'))
   let rc = 0
   for (const x of cases) {
     console.log(`${x.pass ? '✅' : '❌'} ${x.name}`)
@@ -235,6 +256,17 @@ function main() {
   const targets = argv.filter((a) => !a.startsWith('--'))
   if (targets.length === 0) {
     console.error('❌ 未给出目标文档 ⇒ 未判定(不许"枚举到 0 个候选"记绿)')
+    return 2
+  }
+  // 射程闸(c8fee04806ea 事故锁):非 .md 目标一律拒执行 —— 行折叠对代码是结构性破坏,
+  // 守恒四档判不出"语法坏",只能靠入口拒。事故形态:guardian-runner.mjs 被按行 union
+  // 折叠,守门条目边界行被吃掉,13 处结构损坏,调度器 SyntaxError,全部守门静默失效。
+  const offRange = targets.filter((r) => !isLiveDocTarget(r))
+  if (offRange.length) {
+    console.error(`❌ 射程闸:${offRange.join(', ')} 不是 .md 活文档 ⇒ 拒执行(exit 2),整批不落。`)
+    console.error('   立闸依据:c8fee04806ea 把 guardian-runner.mjs 当活文档按行折叠,')
+    console.error('   致 13 处结构损坏、调度器 node --check SyntaxError、全部守门静默失效。')
+    console.error('   代码文件不得进活文档行 union 面;若需收敛代码重复,走结构级工具(eslint/格式化),不走本器。')
     return 2
   }
   let bad = 0
@@ -272,5 +304,5 @@ function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) process.exit(main())
 
-export const __test__ = { shapeOf, fencedFlags, planCollapse, collapse, MIN_SHAPE_LEN, BLOCK_MARKERS }
+export const __test__ = { shapeOf, fencedFlags, planCollapse, collapse, isLiveDocTarget, MIN_SHAPE_LEN, BLOCK_MARKERS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

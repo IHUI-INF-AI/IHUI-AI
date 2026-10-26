@@ -28,6 +28,11 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import { loadSettings } from './settings.js';
 import { ensureFreshAccessToken, missingTokenHint } from './token-manager.js';
+import {
+  fetchWithCliAuthRefresh,
+  isUnauthorized,
+  unauthorizedMessage,
+} from '../lib/auth-refresh.js';
 import type { V1ChatCompletionResponse, ApiKeyStatus } from '@ihui/types';
 import { attributeError } from '@ihui/shared/utils/error-attribution';
 
@@ -177,16 +182,17 @@ async function httpJson(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (options.bearer) {
-      headers.Authorization = `Bearer ${options.bearer}`;
-    }
-    const resp = await fetch(url, {
-      method: options.method ?? 'GET',
-      headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
-      signal: controller.signal,
-    });
+    // Bearer 由 401 续期出口装配(与 http-utils 同一条腿、同一份判据)
+    const resp = await fetchWithCliAuthRefresh(
+      url,
+      {
+        method: options.method ?? 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+        signal: controller.signal,
+      },
+      { accessToken: options.bearer ?? null },
+    );
     const text = await resp.text();
     let parsed: unknown;
     try {
@@ -195,10 +201,12 @@ async function httpJson(
       throw new Error(`HTTP ${resp.status} 响应非 JSON: ${text.slice(0, 200)}`);
     }
     if (!resp.ok) {
-      const msg =
-        (parsed && typeof parsed === 'object' && 'message' in parsed
-          ? String((parsed as { message: unknown }).message)
-          : `HTTP ${resp.status} ${resp.statusText}`) || `HTTP ${resp.status}`;
+      // 401 终局 ⇒ 报"该做什么"(续期没成 / 无 refresh 凭据),不拿服务端泛化文案顶过去
+      const msg = isUnauthorized(resp)
+        ? unauthorizedMessage(baseUrl)
+        : (parsed && typeof parsed === 'object' && 'message' in parsed
+            ? String((parsed as { message: unknown }).message)
+            : `HTTP ${resp.status} ${resp.statusText}`) || `HTTP ${resp.status}`;
       const err = new Error(msg) as Error & { status?: number };
       err.status = resp.status;
       throw err;

@@ -873,6 +873,8 @@
       "platformRn": "Mobile app",
       "platformMp": "Mini program",
       "platformEx": "Browser extension",
+      "platformQuiet": "Quiet today",
+      "platformNever": "No reports in 90d",
       "platformNoData": "No per-platform data in 24h",
       "panelAudience": "Audience mix",
       "audienceNew": "New visitors",
