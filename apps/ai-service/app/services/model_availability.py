@@ -44,6 +44,7 @@ import httpx
 
 from ..core.background_tasks import spawn
 from ..core.config import settings
+from ..core.default_model import is_retired_provider
 from ..middleware.llm_metrics import is_quota_exhaustion_error
 from .free_provider_registry import ProviderCategory, ProviderStatus, free_provider_registry
 
@@ -416,6 +417,11 @@ class ModelAvailabilityService:
         providers_to_ping: list[tuple[str, str, str]] = []  # [(code, api_key, api_base)]
         local_to_probe: list[tuple[str, str]] = []  # [(code, base_override)]
         for p in free_provider_registry.list_all():
+            # 2026-10-26 永久退役厂商不参与探测(名单与同步面/面板面同源):
+            # 不 ping ⇒ 不再每 5 分钟往日志与面板写「余额不足…需充值」这类出口,
+            # 也不进 _health ⇒ 面板与模型列表里列不出它(机主:永久除名,不提充值)。
+            if is_retired_provider(p.provider_code):
+                continue
             # 本地 LLM:2026-10-18(票85①)起不再"不 ping 直接标 LOCAL"——改走本地探针
             # 三态实证(available/unavailable/undetermined)。历史缺陷:没在跑的 ollama
             # 照样在模型列表里显示,用户选中才报错。undetermined(没探过/判不了)保持
@@ -572,8 +578,15 @@ class ModelAvailabilityService:
         recharge_url = free_provider_registry.get_recharge_url(code)
 
         start = time.monotonic()
+        # ping 与同步(model_sync)同用一套出网判据:huggingface 等直连被网络封锁、
+        # 经代理可达,不接代理会被误判 DOWN+NETWORK_ERROR(2026-10-26 实测:
+        # HF 直连 curl 超时、走 SYNC_PROXY_URL 200)。判据单源:专用代理表→全局→直连。
+        _ping_proxy = (
+            (settings.sync_proxy_url_by_provider.get(code)
+             or settings.sync_proxy_url or "").strip()
+        ) or None
         try:
-            async with httpx.AsyncClient(timeout=PING_TIMEOUT_S) as client:
+            async with httpx.AsyncClient(timeout=PING_TIMEOUT_S, proxy=_ping_proxy) as client:
                 if balance_endpoint:
                     balance, currency, err_type, err_msg = await self._query_balance(
                         client, code, balance_endpoint, api_key
@@ -1052,6 +1065,12 @@ class ModelAvailabilityService:
         code = _infer_provider_code(model_id)
         if not code:
             return False  # 未知 provider,不显示
+
+        # 2026-10-26 永久退役厂商的模型一律不显示(名单与同步面/面板面同源)。
+        # 不能只靠「没健康记录 ⇒ 宽松显示」那条默认:退役厂商本就不 ping,
+        # 永远没有健康记录,落进宽松分支反而会继续显示 —— 与「永久除名」正相反。
+        if is_retired_provider(code):
+            return False
 
         # LOCAL provider(本地 LLM):票85①起按探针实证分格——
         # DOWN(连接拒绝/HTTP 错)不显示;HEALTHY/LOCAL(在跑或没实证)显示。

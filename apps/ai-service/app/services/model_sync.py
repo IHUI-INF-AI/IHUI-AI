@@ -69,6 +69,7 @@ from prometheus_client import Counter, Gauge, Histogram
 from ..core.background_tasks import spawn
 from ..core.config import settings
 from ..core.db_pool import get_shared_pool
+from ..core.default_model import RETIRED_PROVIDERS
 from ..core.provider_caps import get_provider_cap
 from .free_provider_registry import ProviderCategory, free_provider_registry
 
@@ -117,6 +118,24 @@ _PLACEHOLDER_KEYS: frozenset[str] = frozenset({
     "",
 })
 
+
+def _is_placeholder_key(api_key: str) -> bool:
+    """key 是否等于"未配置"(空 / 白名单占位符 / 含 placeholder 字样)。
+
+    2026-10-26 实测:ai_model_config 里 github_models / cloudflare_workers_ai /
+    huggingface 三行的密文解出来全是 `sk-placeholder-…`(28 字符)—— 精确匹配的
+    `_PLACEHOLDER_KEYS` 拦不住这种变体,于是三家被当成"已配置 key"拉进同步:
+    cloudflare 缺 account_id 拼出 404 端点、github/hf 直连被墙 ConnectError,
+    连续 3 次后 F4.7 永久禁用 + `model_sync_provider_health==0` ⇒
+    LlmProviderUnhealthy 对三家**账户侧未配置**的厂商长期 firing。
+    机主定案:未配置凭据的厂商不进到人告警通道。判据按"失败原因=未配置凭据"
+    收敛在选取层(根本不进同步),而不是在告警侧打补丁。
+    """
+    if not api_key or api_key in _PLACEHOLDER_KEYS:
+        return True
+    return "placeholder" in api_key.lower()
+
+
 # ---------------------------------------------------------------------------
 # 2026-10-26 永久退役 provider
 # ---------------------------------------------------------------------------
@@ -124,13 +143,12 @@ _PLACEHOLDER_KEYS: frozenset[str] = frozenset({
 # 这里是**商务性**永久退役 —— 同步服务既不拉它的清单,也不允许它再被注册回来,
 # 且管理端 reset 接口**不能**把它解除(见 reset_provider 里的守卫)。
 # 机主 2026-10-26 明确:stepfun 不再续费,不得再以任何形式回到主聊链路。
-RETIRED_PROVIDERS: dict[str, str] = {
-    "stepfun": (
-        "2026-10-26 永久退役:阶跃星辰订阅失效(余额 -0.09 CNY),"
-        "/v1/chat/completions 恒定 400 'you have no active step plan subscription';"
-        "机主明确不再续费。不得再加回 COMBO_CHAINS / LITELLM_MODEL。"
-    ),
-}
+#
+# 名单本体在 app/core/default_model.py(RETIRED_PROVIDERS):退役要同时管住
+# 同步面(这里)、可用性面(model_availability 不 ping、不进模型列表)、
+# 面板面(管理端不列已退役厂商)、调用面(不再当默认模型)四个面;
+# 名单若只存在本模块,另外三个面就只剩各抄一份前缀表的命 —— 漂移即漏改。
+# 故本模块只**取用**同一份,不再另存一份。
 
 # ---------------------------------------------------------------------------
 # 2026-10-26 上游模型自动更新替换
@@ -555,7 +573,7 @@ class ModelSyncService:
         api_base = cfg.api_base or provider.default_base_url
 
         if not api_base or (
-            (not api_key or api_key in _PLACEHOLDER_KEYS)
+            _is_placeholder_key(api_key)
             and not provider.keyless_model_list
         ):
             self._status.is_syncing = False
@@ -687,10 +705,14 @@ class ModelSyncService:
             if not api_key:
                 api_key = (await self._db_api_key_for(code)) or ""
             api_base = cfg.api_base or provider.default_base_url
-            # keyless_model_list(token6688 等):目录端点免鉴权,无 key 也可同步清单
-            key_ok = bool(api_key) and api_key not in _PLACEHOLDER_KEYS
+            # keyless_model_list(token6688/huggingface 等):目录端点免鉴权,无 key 也可同步清单
+            # 2026-10-26:key_ok 判据从"精确匹配占位符表"换成 _is_placeholder_key
+            # (库里 sk-placeholder-… 变体拦不住是 LlmProviderUnhealthy 长期 firing 的根因);
+            # 占位 key 即便放行(免鉴权厂商)也**不带出去**——发 `Bearer sk-placeholder-…`
+            # 可能被上游判成失效凭据 401,不如干净地空 key 请求。
+            key_ok = not _is_placeholder_key(api_key)
             if api_base and (key_ok or provider.keyless_model_list):
-                result.append((code, api_base, api_key))
+                result.append((code, api_base, api_key if key_ok else ""))
         return result
 
     async def _sync_single_provider(
@@ -1354,7 +1376,8 @@ class ModelSyncService:
             if url.endswith("/v1"):
                 url = url[:-3]
             url = f"{url}/models/search"
-            headers["Authorization"] = f"Bearer {api_key}"
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
         elif is_anthropic:
             # F4.4 Anthropic: /v1/models,header 用 x-api-key + anthropic-version
             url = f"{url}/models" if url.endswith("/v1") else f"{url}/v1/models"
@@ -1371,14 +1394,19 @@ class ModelSyncService:
                 url = f"{url}?key={api_key}"
             elif url.endswith("/openai") or url.endswith("/v1"):
                 url = f"{url}/models"
-                headers["Authorization"] = f"Bearer {api_key}"
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
             else:
                 url = f"{url}/v1beta/models"
                 # key 通过 query param 传递
                 url = f"{url}?key={api_key}"
         else:
             # 默认 OpenAI 兼容: /v1/models
-            headers["Authorization"] = f"Bearer {api_key}"
+            # 2026-10-26:空 key(免鉴权目录端点 huggingface 等)不设 Authorization —— 发
+            # "Bearer " 会被 httpx 判 LocalProtocolError(Illegal header value),
+            # 本该免鉴权的目录因此变成失败,反而又把 health 打成 0。
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
             url = f"{url}/models" if url.endswith("/v1") else f"{url}/v1/models"
 
         # F4.8 增量同步:带 If-None-Match / If-Modified-Since header
@@ -1399,7 +1427,12 @@ class ModelSyncService:
         # 2026-10-26:经 SYNC_PROXY_URL 出网(本机对 US/EU provider 无直连出口,
         # 直连超时/本地 DNS 失败;Clash 7897 可通)。空值→None 即直连,
         # 国内系 provider 经代理侧 geo 规则直连,不受影响。
-        _sync_proxy = (settings.sync_proxy_url or "").strip() or None
+        # 增补:provider_code 命中 sync_proxy_url_by_provider 时优先用其专用代理
+        # (如 huggingface/github_models 经第二份不被封锁的订阅出网),否则回退全局。
+        _sync_proxy = (
+            (settings.sync_proxy_url_by_provider.get(provider_code)
+             or settings.sync_proxy_url or "").strip()
+        ) or None
         async with httpx.AsyncClient(timeout=SYNC_TIMEOUT_S, proxy=_sync_proxy) as client:
             resp = await client.get(url, headers=headers)
 

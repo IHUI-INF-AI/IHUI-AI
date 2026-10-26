@@ -315,7 +315,7 @@ export async function computeRelayPoolLiveSnapshot(
 }
 
 /** 实时快照 TTL:与大屏 overview 的 5 秒轮询同周期(理由同 traffic 侧)。 */
-export const RELAY_POOL_LIVE_TTL_MS = 5_000
+const RELAY_POOL_LIVE_TTL_MS = 5_000
 
 let liveCache: { atMs: number; value: RelayPoolLiveSnapshot } | null = null
 let liveInflight: Promise<RelayPoolLiveSnapshot> | null = null
@@ -366,9 +366,7 @@ function untilSeconds(at: Date | null, nowMs: number): number | null {
  * 跑一轮全量刷新:两张表各一条全量 SELECT ⇒ 折叠 ⇒ 一次性写入 gauge。
  * 任何一步抛错都向上抛(由 `refreshRelayPoolGauges` 收成 reason),**不写半个 gauge**。
  */
-export async function refreshRelayPoolGauges(
-  nowMs: number = Date.now(),
-): Promise<RelayPoolRefreshResult> {
+async function refreshRelayPoolGauges(nowMs: number = Date.now()): Promise<RelayPoolRefreshResult> {
   const { keyRows, accountRows } = await loadRelayPoolRows()
 
   const keys: RelayPoolKeySample[] = []

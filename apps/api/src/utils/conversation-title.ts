@@ -16,6 +16,7 @@
 import type { FastifyRequest } from 'fastify'
 import { aiServiceFetch } from './ai-service-fetch.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
+import { resolveDefaultChatModel } from './retired-providers.js'
 
 /** 标题最大生成 tokens(24 个中文字符 ≈ 40 tokens,留余量) */
 const TITLE_MAX_TOKENS = 60
@@ -25,8 +26,13 @@ const TITLE_TIMEOUT_MS = 3_000
 export const TITLE_MAX_CHARS = 24
 /** chat_conversations.title 的 schema 默认值(packages/database/src/schema/chat.ts) */
 export const DEFAULT_CONVERSATION_TITLE = '新对话'
-/** 兜底模型(与 utils/semantic-summary.ts FALLBACK_MODEL 同源:.env LITELLM_MODEL) */
-const FALLBACK_MODEL = process.env.LITELLM_MODEL || 'stepfun/step-3.7-flash'
+/**
+ * 兜底模型(与 utils/semantic-summary.ts / services/crew-llm-adapter.ts 同源):
+ * 经 utils/retired-providers.ts 的唯一解析入口取 —— 调用方显式模型 → .env LITELLM_MODEL
+ * → 非退役的末位兜底链。stepfun 已于 2026-10-26 永久退役,任何入口都不得再解析出退役档,
+ * 故此处不再写死任何 provider 档。
+ */
+const FALLBACK_MODEL = resolveDefaultChatModel()
 
 /**
  * 包裹引号集合(码点转义,规避源文件直书 CJK 引号的编码风险):

@@ -12,7 +12,7 @@ import { BASE_URL } from './api-config'
 import { getToken } from './auth'
 import { readFileToBase64 } from './file-utils'
 
-export interface UploadedPicture {
+interface UploadedPicture {
   base64: string
   fileName: string
 }

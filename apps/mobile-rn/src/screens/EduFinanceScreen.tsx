@@ -28,7 +28,7 @@ interface PaymentRecord {
   status: string
 }
 
-export function EduFinanceScreen() {
+function EduFinanceScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

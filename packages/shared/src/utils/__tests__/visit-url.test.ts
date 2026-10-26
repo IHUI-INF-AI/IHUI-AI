@@ -3,7 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, expect, it } from 'vitest'
-import { isVisitPathReportable, normalizeVisitPath } from '../visit-url.js'
+import {
+  classifyVisitSource,
+  extractVisitRefererHost,
+  isVisitPathReportable,
+  normalizeVisitPath,
+} from '../visit-url.js'
 
 /**
  * 页面路径归一唯一判据(2026-10-26 立)。
@@ -102,6 +107,79 @@ describe('normalizeVisitPath(页面路径唯一归一判据)', () => {
     expect(isVisitPathReportable('/chat?x=1')).toBe(true)
     expect(isVisitPathReportable('/claude.md')).toBe(false)
     expect(isVisitPathReportable(null)).toBe(false)
+  })
+})
+
+/**
+ * 访问来源判据(2026-10-26 立)。
+ *
+ * 样本全部取自**生产库现读**的 `visit_logs.referer` 真实值,不是编的:
+ * `https://github.com/IHUI-INF-AI/IHUI-AI`(148 PV)、`http://offline.localhost/`(110 PV)、
+ * `https://aizhs.top/settings`、`android-app://com.google.android.googlequicksearchbox/`、
+ * `http://localhost:8801/chat`。
+ */
+describe('extractVisitRefererHost(referer → 主机名)', () => {
+  it('同一来源的不同路径归到同一主机(否则一个来源被读成两个)', () => {
+    expect(extractVisitRefererHost('https://github.com/IHUI-INF-AI/IHUI-AI')).toBe('github.com')
+    expect(extractVisitRefererHost('https://github.com/')).toBe('github.com')
+    expect(extractVisitRefererHost('https://github.com/IHUI-INF-AI/IHUI-AI/tree/main')).toBe(
+      'github.com',
+    )
+  })
+
+  it('端口剥掉:来源按主机分桶,端口是本机开发细节', () => {
+    expect(extractVisitRefererHost('http://localhost:8801/chat')).toBe('localhost')
+  })
+
+  it('非 http 形态也能取出主机(安卓浏览器回传 android-app://)', () => {
+    expect(extractVisitRefererHost('android-app://com.google.android.googlequicksearchbox/')).toBe(
+      'com.google.android.googlequicksearchbox',
+    )
+  })
+
+  it('协议相对与裸 host 都能取', () => {
+    expect(extractVisitRefererHost('//aizhs.top/settings')).toBe('aizhs.top')
+    expect(extractVisitRefererHost('aizhs.top/settings')).toBe('aizhs.top')
+  })
+
+  it('userinfo 剥掉、主机名小写化', () => {
+    expect(extractVisitRefererHost('https://user:pass@GitHub.com/x')).toBe('github.com')
+  })
+
+  it('空值取不到主机(= 没有来源信息)', () => {
+    expect(extractVisitRefererHost(null)).toBeNull()
+    expect(extractVisitRefererHost(undefined)).toBeNull()
+    expect(extractVisitRefererHost('')).toBeNull()
+    expect(extractVisitRefererHost('   ')).toBeNull()
+  })
+})
+
+describe('classifyVisitSource(来源类别)', () => {
+  it('本机开发流量单列(生产实值:占有 referer 行约三成)', () => {
+    expect(classifyVisitSource('localhost')).toBe('local')
+    expect(classifyVisitSource('offline.localhost')).toBe('local')
+    expect(classifyVisitSource('127.0.0.1')).toBe('local')
+  })
+
+  it('自有域及其子域算站内', () => {
+    expect(classifyVisitSource('aizhs.top', 'aizhs.top')).toBe('internal')
+    expect(classifyVisitSource('www.aizhs.top', 'aizhs.top')).toBe('internal')
+    expect(classifyVisitSource('bsm.aizhs.top', 'aizhs.top')).toBe('internal')
+  })
+
+  it('没给自有域就不判站内(把「没判」与「判过」分开,不把站内悄悄说成外部)', () => {
+    expect(classifyVisitSource('aizhs.top')).toBe('external')
+    expect(classifyVisitSource('aizhs.top', '')).toBe('external')
+  })
+
+  it('没有主机 ⇒ 直接访问', () => {
+    expect(classifyVisitSource(null)).toBe('direct')
+    expect(classifyVisitSource('')).toBe('direct')
+  })
+
+  it('外部来源', () => {
+    expect(classifyVisitSource('github.com', 'aizhs.top')).toBe('external')
+    expect(classifyVisitSource('www.google.com', 'aizhs.top')).toBe('external')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

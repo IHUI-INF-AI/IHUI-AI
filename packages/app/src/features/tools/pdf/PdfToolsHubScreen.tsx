@@ -663,7 +663,7 @@ export function PdfToolsHubScreen({
                 strokeWidth={2}
                 color={active ? tk.brand.ctaForeground : tk.text.secondary}
               />
-              <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>
+              <Text style={[styles.tabText, active ? styles.tabActiveText : null]}>
                 {t(labelKey)}
               </Text>
             </TouchableOpacity>

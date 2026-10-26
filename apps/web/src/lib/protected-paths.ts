@@ -13,7 +13,7 @@
  * Edge Runtime 安全:`proxy.ts` 会 import 本文件,故只允许纯常量与纯函数,
  * 不得引入 node: 内建或浏览器 API。
  */
-export const PROTECTED_PATHS = ['/admin', '/edu/edu-management'] as const
+const PROTECTED_PATHS = ['/admin', '/edu/edu-management'] as const
 
 /** 逐字沿用 proxy.ts 的命中口径:`/admin` 与 `/admin/...` 都算,`/administrator` 不算。 */
 export function isProtectedPath(pathname: string): boolean {

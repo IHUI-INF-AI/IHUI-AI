@@ -701,7 +701,7 @@ export function isRelayPoolHealthState(value: unknown): value is RelayPoolHealth
  * - `account_pool_declined`    账号池返回 null(无 provider/无候选/参数不支持/内部异常)
  * - `account_pool_threw`       账号池调用在承载层直接抛错(被承载层 catch 收口)
  */
-export const RELAY_UPSTREAM_FALLBACK_REASONS = [
+const RELAY_UPSTREAM_FALLBACK_REASONS = [
   'channel_query_error',
   'no_key_pool_candidates',
   'account_pool_declined',

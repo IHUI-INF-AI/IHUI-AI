@@ -34,10 +34,10 @@ export const PREDICTIVE_EDIT_LANGUAGE = 'markdown'
  * 本次预测预算(ms)。后端 `resolve_budget_ms` 必有界(默认 1500 / 封顶 4000),
  * 这里给 2000:允许一次正常往返,又不会在网关退化时把输入区挂住。
  */
-export const PREDICTIVE_EDIT_TIMEOUT_MS = 2_000
+const PREDICTIVE_EDIT_TIMEOUT_MS = 2_000
 
 /** 编辑动作种类(与后端 `EDIT_ACTION_KINDS` 同一封闭集)。 */
-export type PredictiveEditActionKind = 'insert' | 'replace' | 'delete'
+type PredictiveEditActionKind = 'insert' | 'replace' | 'delete'
 
 /** 一条可执行动作;start/end 是**被审草稿**的绝对字符偏移(0 基,end 不含)。 */
 export interface PredictiveEditAction {
@@ -49,7 +49,7 @@ export interface PredictiveEditAction {
 }
 
 /** 后端 undetermined 的原因码(封闭集,逐项可分辨)。 */
-export type PredictiveEditUndeterminedReason =
+type PredictiveEditUndeterminedReason =
   | 'no_credentials'
   | 'model_unavailable'
   | 'model_timeout'

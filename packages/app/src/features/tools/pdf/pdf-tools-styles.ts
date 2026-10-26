@@ -33,7 +33,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     },
     tabActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     tabText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
-    tabTextActive: { color: tk.brand.ctaForeground },
+    tabActiveText: { color: tk.brand.ctaForeground },
     scroll: { padding: 12, paddingBottom: 32, gap: 12 },
     desc: { fontSize: 12, color: tk.text.secondary },
     uploadBox: {
@@ -66,7 +66,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: 14,
       paddingVertical: 8,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -134,7 +134,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    progressFill: { height: '100%', borderRadius: rnRadius.sm, backgroundColor: tk.brand.DEFAULT },
+    progressFill: { height: '100%', borderRadius: rnRadius.sm, backgroundColor: tk.brandAccent.deep },
     noticeBox: {
       flexDirection: 'row',
       gap: 10,

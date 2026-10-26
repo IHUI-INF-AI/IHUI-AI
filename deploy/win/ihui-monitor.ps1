@@ -90,9 +90,6 @@ $deployLockDir = Join-Path $Root '.deploy.lock'                    # 部署并�
 # "D:\IHUI-AI\.trae-cn\tmp\next-build-node22\logs" —— 该目录在本机从不存在,于是
 # Get-LastBuildTime 恒返回 $null,"最近构建于…"这条诊断分支**一直是死的**(不是偶尔不准)。
 $buildLogDir = EnvOr 'IHUI_MONITOR_BUILD_LOG_DIR' (Join-Path $Root '.ihui-agent/tmp/next-build-node22/logs')
-# 部署环自身的流水(build-next-prod 由部署环调用时才会写上面那个目录,而本机部署环写的是这份日志,
-# 所以取两者中更新的一个,否则该诊断分支在本机仍然恒死)。
-$deployLoopLog = Join-Path $Root 'deploy/win/deploy-loop.log'
 $webSvcName     = "IHUI-WEB"; $apiSvcName = "IHUI-API"; $aiSvcName = "IHUI-AI-SERVICE"
 
 # ── 邮件出口配置(与 ihui-deploy.ps1 / alert-webhook-bridge.cjs 同源)──────────────
@@ -154,6 +151,25 @@ if (-not (Test-Path -LiteralPath $LockCommon)) {
     exit 1
 }
 . $LockCommon
+
+# ── 部署窗口状态(2026-10-26 立)──────────────────────────────────────────────────
+# 部署侧显式写、本侧只读的唯一"部署进行中"信号。立因:锁 pid / build log mtime /
+# 服务进程 StartTime 三条旧判据都有盲区(见 deploy-window-common.ps1 头注),部署窗口内
+# 照样寄信。状态文件不存在 ⇒ 退回旧判据(新代码尚未部署过的机器);文件在盘上 ⇒
+# 以它为准,不再让旧判据把已失败/已回滚的部署误判成"部署中"。
+# 模块缺失只禁用窗口判定,不阻断监控启动 —— 监控沉默比多寄一封严重得多。
+$DeployWindowEnabled = $false
+$DeployWindowFile = ''
+$DeployWindowStaleMinutes = 10
+$DeploySettleMinutes = 15
+$DeployWindowModule = Join-Path $PSScriptRoot 'deploy-window-common.ps1'
+if (Test-Path -LiteralPath $DeployWindowModule) {
+  . $DeployWindowModule
+  $DeployWindowEnabled = $true
+  $DeployWindowFile = Get-IhuiDeployWindowPath
+} else {
+  Log "WARN  缺少 deploy-window-common.ps1,部署窗口判定禁用(退回锁/构建/进程三条旧判据)"
+}
 
 function Resolve-NodeExe {
   # NSSM(LocalSystem)服务上下文的 PATH 常常没有 node,Get-Command 落空后必须按绝对路径兜底。
@@ -363,11 +379,9 @@ function Get-LastBuildTime {
   $log = Get-ChildItem "$buildLogDir\next-build-node22-*.log" -ErrorAction SilentlyContinue |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
   if ($log) { return $log.LastWriteTime.ToString("HH:mm") }
-  # 上面那个目录只有**直接**跑 scripts/build-next-prod.ps1 时才会写;本机部署环(IHUI-DEPLOYLOOP)
-  # 写的是自己的 deploy-loop.log。取两者中更新的一个,否则这条诊断分支在本机恒为 $null。
-  if (Test-Path $deployLoopLog) {
-    return (Get-Item $deployLoopLog).LastWriteTime.ToString("HH:mm")
-  }
+  # 2026-10-26 修正:旧实现在这里回落到 deploy-loop.log 的 mtime,而部署环**每 60 秒轮询一次
+  # 都要写那份日志** ⇒ "最近 15 分钟有构建"恒真,所有告警都被按部署中压住(09-28 事故同型)。
+  # 现只认 build log;部署环是否在跑由显式部署窗口回答,不再从日志 mtime 猜。
   return $null
 }
 
@@ -387,8 +401,29 @@ function Get-ServiceProcessStartTime {
 }
 
 function Get-Diagnosis {
+  param($WindowState = $null)
   $lines = @()
   $now = Get-Date
+
+  # 0) 显式部署窗口优先(2026-10-26 立):部署侧写、本侧只读。
+  #    Suppress  = 窗口进行中或成功后 settle 期 ⇒ 部署相关告警按预期现象暂存。
+  #    文件在盘上但不抑制 = 部署已失败/回滚/心跳失联/成功 settle 已过 ⇒ 这一轮**不得**再回落到
+  #    下面三条旧判据:失败部署同样会留下新锁、新 build log、刚启动的服务进程,旧判据会把
+  #    "该立刻喊人的失败"重新压成"部署中"。判据只有一个真相。
+  $win = $WindowState
+  if ($null -eq $win -and $DeployWindowEnabled) {
+    $win = Get-IhuiDeployWindowState -Path $DeployWindowFile -StaleMinutes $DeployWindowStaleMinutes
+  }
+  $legacyOk = $true
+  if ($win -and $win.Suppress) {
+    $lines += "[部署重启中-预期现象] $($win.Reason) | 部署相关告警暂存,失败/回滚/心跳失联会立即放行"
+    return ($lines -join "`n")
+  }
+  if ($win -and $win.Authoritative) {
+    $legacyOk = $false
+    $lines += "[部署窗口已结束不抑制] $($win.Reason) | 不再用锁/构建/进程启动时间推断部署状态,真实故障照报"
+  }
+
   $deployLockExists = Test-Path $deployLockDir
   $lastBuild = Get-LastBuildTime
   $buildAgeMin = $null
@@ -432,16 +467,16 @@ function Get-Diagnosis {
         $deployLockNote = "部署锁状态判不出($($_.Exception.Message)),本轮按无锁处理"
         $deployLockExists = $false
     }
-    if ($deployLockExists) {
+    if ($legacyOk -and $deployLockExists) {
         $lines += "[部署重启中-预期现象] 检测到部署锁(.deploy.lock),有构建/部署正在进行,服务重启导致的短暂不可用属正常,数分钟内自动恢复 | $deployLockNote"
         return ($lines -join "`n")
     }
-    if ($deployLockNote) {
+    if ($legacyOk -and $deployLockNote) {
         $lines += "[部署锁已判陈旧/无锁] $deployLockNote(不按'部署重启中'抑制,真故障照报)"
     }
 
   # 2) 最近 15 分钟内有构建完成 → 刚部署完,服务重启中
-  if ($lastBuild -and $buildAgeMin -le 15) {
+  if ($legacyOk -and $lastBuild -and $buildAgeMin -le 15) {
     $lines += "[部署重启中-预期现象] 最近构建于 $lastBuild(约 ${buildAgeMin} 分钟前)完成,服务重启中,预计很快恢复"
     return ($lines -join "`n")
   }
@@ -469,7 +504,7 @@ function Get-Diagnosis {
     $age = [math]::Round(((Get-Date) - $st).TotalMinutes, 1)
     if ($null -eq $youngest -or $age -lt $youngest.age) { $youngest = @{ svc = $sn; age = $age } }
   }
-  if ($youngest -and $youngest.age -le $restartGrace) {
+  if ($legacyOk -and $youngest -and $youngest.age -le $restartGrace) {
     $lines += "[部署重启中-预期现象] 服务 $($youngest.svc) 的进程于 $($youngest.age) 分钟前启动(≤$restartGrace 分钟),重启窗口内的短暂未监听属预期,数分钟内自动恢复"
     return ($lines -join "`n")
   }
@@ -510,6 +545,18 @@ function Get-Diagnosis {
   return ($lines -join "`n")
 }
 
+function Test-DeployAffectedAlertItem {
+  # 部署会让哪些告警项短暂成立:web/api/ai 三个端口、所有公网 URL、三个服务的进程状态。
+  # 刻意**不含** cdn(80)、prometheus/alertmanager/alertbridge、Cloudflared、磁盘、备份:
+  # 这些不是部署重启的对象,窗口内异常就是真异常,必须照常寄信。
+  param([string]$Item)
+  $s = ($Item -replace '\s+', ' ').Trim()
+  if ($s -match '^(web|api|ai)\(\d+\)') { return $true }
+  if ($s -match '^https?://') { return $true }
+  if ($s -match 'IHUI-(WEB|API|AI)') { return $true }
+  return $false
+}
+
 function Send-Alert($msg, $detail = '') {
   # [2026-10-17 身份档位化] 新增可选第二参数 $detail:**实时读数只进正文,绝不进身份**
   # (与 ihui-deploy.ps1:422 那条"$Detail 只能进正文、绝不进签名"同一条规矩;身份里放抖动量
@@ -523,7 +570,33 @@ function Send-Alert($msg, $detail = '') {
   #     仅 due 项被登记(Test-AlertDueByIdentity 判'该寄'时自带登记,未 due 项不触碰)。
   # 项内不含 " | " 分隔串(项形如 'web(8801) 未监听' / '<URL> → ERR'),拆分可靠。
   $items = @($msg -split '\s*\|\s*' | Where-Object { $_ })
-  $diag = Get-Diagnosis
+  # 部署窗口读一次,诊断与抑制共用同一份快照(两次读盘会在窗口收口的瞬间得出两个真相)。
+  $win = if ($DeployWindowEnabled) { Get-IhuiDeployWindowState -Path $DeployWindowFile -StaleMinutes $DeployWindowStaleMinutes } else { $null }
+  $diag = Get-Diagnosis -WindowState $win
+  $deployRunId = if ($win) { [string]$win.RunId } else { '' }
+  # 抑制上限按"窗口还剩多久"算,而不是固定 20 分钟:一轮部署 10-45 分钟,固定 20 分钟会在
+  # 部署中途就把同一条告警升级成正式邮件 —— 那正是这次要修的现象。窗口活动期 = 剩余时间 +
+  # settle + 10 分钟余量;settle 期 = 剩余 settle + 10 分钟;无窗口(旧判据)才用环境变量默认值。
+  $deployGraceMin = $ExpectedWindowGraceMinutes
+  if ($win -and $win.Active -and $win.ExpectedEndAt) {
+    $remain = [Math]::Max(1.0, ($win.ExpectedEndAt - [datetimeoffset]::Now).TotalMinutes)
+    $deployGraceMin = [int][Math]::Ceiling($remain) + $DeploySettleMinutes + 10
+    if ($deployGraceMin -lt 30) { $deployGraceMin = 30 }
+  } elseif ($win -and $win.Settle -and $win.SettleUntil) {
+    $remain = [Math]::Max(1.0, ($win.SettleUntil - [datetimeoffset]::Now).TotalMinutes)
+    $deployGraceMin = [int][Math]::Ceiling($remain) + 10
+    if ($deployGraceMin -lt 15) { $deployGraceMin = 15 }
+  }
+  # 旧窗口的抑制锚点每轮清一次(只留当前 runId):否则档案里会堆着历次部署的身份,
+  # 既让人读不出当前状态,也让 MaxEntries 把当前锚点挤掉。清理失败必须写日志,不得静默。
+  if ($deployRunId) {
+    $clr = Clear-AlertGraceAnchors -StateFile $MonitorStateFile -RunId $deployRunId -Keep
+    if (-not $clr.Ok) {
+      "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 旧窗口抑制锚点未清理: $($clr.Error)" | Add-Content $alertLog -Encoding utf8
+    } elseif ($clr.Cleared -gt 0) {
+      "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 清理旧窗口抑制锚点 $($clr.Cleared) 条(当前 runId=$deployRunId)" | Add-Content $alertLog -Encoding utf8
+    }
+  }
   # 诊断已判"部署重启中-预期现象"(部署锁在 / 15 分钟内有构建)⇒ 换流窗口的短暂拒连是
   # 预期内现象,只记日志不寄信。2026-09-28 实测:两天 30+ 封告警邮件全是这一种 —— 每轮部署
   # 窗口里 web/api/ai 与各公网域名各算一个不同告警身份,按身份去重拦不住。
@@ -537,12 +610,16 @@ function Send-Alert($msg, $detail = '') {
   foreach ($item in $items) {
     $isig = ($item -replace '\s+', ' ').Trim()
     if ($diag.Contains('[部署重启中-预期现象]')) {
-      $g = Test-AlertSuppressionGrace -Sig $isig -StateFile $MonitorStateFile -GraceMinutes $ExpectedWindowGraceMinutes
-      if ($g.Suppressed) {
-        $itemNotes += "[$isig] 预期窗口抑制: $($g.Note)"
-        continue
+      # 只暂存"部署会让它短暂成立"的项;磁盘/备份/Cloudflared/监控栈端口照常走发信路径。
+      # 用一个不影响外层源码锁结构的内层判断,保持 T14 的 `if ($diag.Contains(...)) {` 原文。
+      if (Test-DeployAffectedAlertItem $isig) {
+        $g = Test-AlertSuppressionGrace -Sig $isig -RunId $deployRunId -StateFile $MonitorStateFile -GraceMinutes $deployGraceMin
+        if ($g.Suppressed) {
+          $itemNotes += "[$isig] 预期窗口抑制: $($g.Note)"
+          continue
+        }
+        $graceNotes += "[$isig] $($g.Note)"
       }
-      $graceNotes += "[$isig] $($g.Note)"
     }
     $due = Test-AlertDue -Sig $isig
     if ($due.Due) {

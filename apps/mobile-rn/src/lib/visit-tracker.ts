@@ -29,7 +29,7 @@ export const SCREEN_VIEW_DEBOUNCE_MS = 3000
  * 停留上报的最小秒数(按整秒四舍五入后):低于 1 秒的"停留"基本都是导航动画/重渲染抖动,
  * 报上去会把均值拉向 0(数据大屏「页面停留时长 TOP」取的是平均值)。
  */
-export const MIN_SCREEN_TIME_SEC = 1
+const MIN_SCREEN_TIME_SEC = 1
 
 let lastPath = ''
 let lastAt = 0

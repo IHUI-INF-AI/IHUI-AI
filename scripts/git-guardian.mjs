@@ -80,6 +80,14 @@ import {
 // dedupKey,不再自己拼含计数的身份。模块有 §22d 直跑守卫,import 不会触发采样。
 import { classifyAlertIdentity } from './check-public-path-probe.mjs'
 import { auditProdForeignWork } from './git-guardian-prod-foreign.mjs'
+// G-24 事故归档回收器的调度接线臂(2026-10-26,席位 goal-20261026-b14r3):dry-run 只判不删、
+// 开关面默认关、读数写日志通道留痕;实现单源在 lib(守门 103 C1 行数上限,主文件只留挂点)。
+import {
+  archiveGcDryRun,
+  archiveGcArmDue,
+  loadArchiveGcArmConfig,
+  parseArchiveGcSummary,
+} from './lib/git-guardian-archive-gc.mjs'
 
 // 纯判据层(2026-10-21 原样搬出:守门 103 C1 行数上限;实现单源在 lib/git-guardian-pure.mjs)
 import {
@@ -5004,6 +5012,10 @@ function main() {
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
     // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
     if (!CHECK_ONLY) scrubTempFixtures()
+    // G-24 事故归档回收器调度接线(2026-10-26,席位 goal-20261026-b14r3):以 dry-run 调
+    // scripts/archive-gc.mjs 并把「保留/待删/未判定」读数写进本守护日志通道(留痕);
+    // 开关面 scripts/data/archive-gc-arm.json 默认关,真 --apply 由机主核过读数后按下。同一挂点语义。
+    if (!CHECK_ONLY) archiveGcDryRun()
     // 活 TEMP 落点回潮哨兵(尺子 = check-temp-landing.mjs)。那份尺子的文件头早就写着"唯一调度器
     // = 本文件的 auditTempLanding()",而那个函数**从来不存在** —— 判据齐全却无人在调度,
     // 失效形态是安静。与 scrubTempFixtures 同格(健康轮次早退之前 + !CHECK_ONLY),节流 24h。
@@ -5117,6 +5129,9 @@ function startDaemon() {
         // ⇒ 双执行体并存时只有先到那一个真删,不会把同一批夹具删两遍(第二遍也只是"无候选",
         // 但日志会多一行噪声,更重要的是节流语义必须与其余各层一致)。
         scrubTempFixtures()
+        // G-24 归档回收 dry-run 接线臂:与 main() 单轮路径同一挂点语义,共用
+        // .ihui-agent/state/archive-gc-arm-tick.iso 节流戳 ⇒ 双执行体并存只有一边真派生。
+        archiveGcDryRun()
         // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线;2026-10-26 补装 daemon 腿):
         // 这四个派发现在只挂在 main() 那条**单轮**路径上,而本机实际载体是 nssm 服务跑 `--daemon`
         // ⇒ main() 从不执行,四层器物等于装了个没有车跑的车站(§0.9「造好没装车 = 没有」再犯一次)。
@@ -5937,6 +5952,11 @@ export const __test__ = {
   tempScrubDue,
   parseScrubReport,
   scrubTempFixtures,
+  // G-24 归档回收接线臂(2026-10-26):实现单源在 lib,这里原路径再导出供镜像测试 import(§22c)。
+  archiveGcDryRun,
+  archiveGcArmDue,
+  loadArchiveGcArmConfig,
+  parseArchiveGcSummary,
   // 裸档自愈(2026-09-28 立):测试在临时仓库上取证,不碰活仓库
   readBareFlag,
   writeBareFalse,

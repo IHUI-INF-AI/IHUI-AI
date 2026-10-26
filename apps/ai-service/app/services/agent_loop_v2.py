@@ -103,7 +103,7 @@ from ..core.permission_mode import (
 from ..core.permission_mode import (
     tool_allowed_by_policy as _tool_allowed_by_policy,
 )
-from ..core.token_baseline import CHAIN_SUBAGENT
+from ..core.token_baseline import CHAIN_SUBAGENT, CHAIN_UNKNOWN_LABEL
 from ..core.turn_stop_reason import TurnStopReason
 from ..core.usage_cache import normalize_usage
 from .agent_checkpoint import (
@@ -2020,9 +2020,11 @@ class AgentLoopV2:
         # 不接入录制,默认路径与现状逐零差异;注入后每次工具调用 append 一步。
         recorder: Any | None = None,
         # G-816021(2026-10-14):本循环所属 context 链标签(main/subagent/workflow,…)。
-        # 随每条录制步骤透出,账本增量基线据此把同 session 的多链分开持基线;
-        # 缺省空串 = 未标注(账本侧与既有行为逐零一致)。
-        chain: str = "",
+        # 随每条录制步骤透出,账本增量基线据此把同 session 的多链分开持基线。
+        # G-941 写账侧收口(2026-10-26):缺省从「空串=未标注」收成「显式未判定」——
+        # None(漏传)不再是"和旧行为一样看不出来",而是当场点名 + 条目链别落"未判定"桶,
+        # 永不被读成主链;生产构造点必须显式给 CHAIN_MAIN / CHAIN_SUBAGENT / CHAIN_WORKFLOW。
+        chain: str | None = None,
         # 2026-09-18 第二批(对标 Codex model_reasoning 配置面):生成参数透传面
         # {temperature/top_p/max_tokens/reasoning_effort/...},每次 LLM 调用经
         # **kwargs 透传 llm_complete_fn(承载层闭包再透传 llm_gateway→litellm)。
@@ -2094,7 +2096,9 @@ class AgentLoopV2:
             recorder: AgentStepRecorder(或等价接口)实例,可选注入;None 时默认路径
                 与现状逐零差异(不产生任何 step 记录)。注入后每次工具调用 append 一步。
             chain: 本循环所属 context 链标签(G-816021;main/subagent/workflow,…),
-                随录制步骤透出供账本增量基线分链;缺省空串 = 未标注,逐零差异。
+                随录制步骤透出供账本增量基线分链。缺省 None = **漏传**,本实例当场
+                点名 warning 并把链别落成"未判定"(G-941 写账侧收口:显式未判定,
+                绝不静默并入主链);传空串同样按"未判定"处理。
             deny_tools: 调用方传入的基础负向集(G-998120;None = 无)。与轮次附加集
                 取并集后在本轮生效,本集合一个不少地保留(合并不做整体替换)。
             turn_denylist: 本轮派发来源的附加负向集(G-998120;None = 无)。只作用于
@@ -2415,8 +2419,22 @@ class AgentLoopV2:
         # G-816021(2026-10-14):上下文链标签(main/subagent/workflow,…;空=未标注)。
         # 本循环实例即一条 context 链;录制步骤带上链标签,账本读面的增量基线才能
         # 把同 session 内同为 tool_name="llm" 的主链与子代理分开持基线(不少计)。
-        # 缺省空串 = 未标注 = 账本侧退化为仅按 tool_name 分桶(与既有行为逐零一致)。
-        self._chain: str = str(chain or "")
+        # G-941 写账侧收口(2026-10-26):缺省 None = 漏传 ⇒ 显式落"未判定"桶并点名
+        # warning。账本读面(chain_bucket)对空串与"未判定"给同一个桶,所以这不改计量,
+        # 改的是"漏传到底存不存在"——以前看不出来,现在条目上写着"未判定"三个字。
+        _chain_arg = "" if chain is None else str(chain).strip()
+        if not _chain_arg:
+            if chain is None:
+                logger.warning(
+                    "AgentLoopV2 构造未传 chain ⇒ 本次 run(session=%s)的用量落「%s」桶,"
+                    "不计入主链;补传 CHAIN_MAIN/CHAIN_SUBAGENT/CHAIN_WORKFLOW 之一即出桶"
+                    "(G-941 写账侧)",
+                    self._session_id,
+                    CHAIN_UNKNOWN_LABEL,
+                )
+            self._chain: str = CHAIN_UNKNOWN_LABEL
+        else:
+            self._chain = _chain_arg
 
         # 1-5 事件流协作层(2026-09-08 立):run/_run_loop/审批等全部事件发射
         # 收敛到 AgentEventStream(fail-open 降级语义统一在层内)。

@@ -27,6 +27,12 @@
 - trace(每个阶段的耗时 + 命中数)
 - recall(每一路召回的状态/命中数/降级原因 + 融合参数 k + 被 top_k 截掉多少;
   §5e「失败必须响」:任何一路被跳过/出错都留计数与原因,禁止静默变短)
+
+父子块摄取/检索(small-to-big,默认关):env RAG_PARENT_CHILD_ENABLED=1/true 时
+add_document 逐子块 embed 入库(entry 携带 rag_doc_id/rag_parent_id/rag_parent_text/
+rag_child_text),向量路命中带父块文本的条目时把送入 LLM 上下文的 content 换为
+父块全文、子块命中证据保留在 RAGSource.rag_child_text;切分异常或子块数 ≤1 时
+诚实回落整篇路径(logger.warning 留痕)。开关关闭时行为与旧实现逐字节等价。
 """
 
 from __future__ import annotations
@@ -42,6 +48,7 @@ from typing import Any
 from ..core.llm_gateway import llm_gateway
 from . import reranker
 from .memory import memory_store
+from .parent_child_chunking import ChunkerConfig, ParentChildChunker
 from .vector_memory import vector_memory
 
 logger = logging.getLogger(__name__)
@@ -87,6 +94,19 @@ def resolve_rrf_k() -> int:
     return value
 
 
+# 父子块(small-to-big)摄取开关:env RAG_PARENT_CHILD_ENABLED,默认关。
+# 仅 "1"/"true"(不区分大小写、容忍首尾空白)开启;其余取值(含未设/空串)
+# 一律保持关闭,旧行为逐字节不变。切分预算由 KB_CHUNK_* 控制
+# (见 parent_child_chunking.ChunkerConfig.from_env)。
+PARENT_CHILD_ENABLED_ENV = "RAG_PARENT_CHILD_ENABLED"
+
+
+def resolve_parent_child_enabled() -> bool:
+    """父子块摄取/检索开关(env RAG_PARENT_CHILD_ENABLED,默认关)。"""
+    raw = os.environ.get(PARENT_CHILD_ENABLED_ENV, "").strip().lower()
+    return raw in {"1", "true"}
+
+
 def _record_recall_path(
     stats: dict[str, Any] | None,
     label: str,
@@ -128,6 +148,9 @@ class RAGSource:
     融合链路新增字段(均带默认值,旧构造点不受影响):
     - fused_from: 来源路标签(如 "vector" / "vector+keyword"),单路时为该路名
     - rrf_score:  RRF 融合分(单路降级时为 0.0),仅供 debug / trace
+    父子块(small-to-big)展开证据(同样带默认值,旧数据/旧构造点不受影响):
+    - rag_parent_id 非空表示 content 已被替换为父块全文
+    - rag_child_text 为子块命中的原样文本(保留命中证据供溯源/高亮)
     """
 
     session_id: str
@@ -137,6 +160,8 @@ class RAGSource:
     timestamp: str = ""
     fused_from: str = ""
     rrf_score: float = 0.0
+    rag_child_text: str = ""
+    rag_parent_id: str = ""
 
 
 @dataclass
@@ -309,7 +334,22 @@ class RAGService:
 
         O19:user_id 为可证明的上传方属主(路由层从请求解析);None 时条目属主未知,
         按用户裁剪的检索不可见(fail-closed),内部全量检索路径仍可见。
+
+        父子块开关(RAG_PARENT_CHILD_ENABLED,默认关)开启时先走子块逐条入库,
+        切分异常或子块 ≤1 则回落到下方整篇路径(与旧行为等价);开关关闭时
+        直接走整篇路径,逐字节等价于旧实现。
         """
+        if resolve_parent_child_enabled():
+            if await self._add_document_chunked(
+                session_id=session_id,
+                content=content,
+                role=role,
+                metadata=metadata,
+                user_id=user_id,
+            ):
+                await memory_store.add(session_id, role, content, metadata)
+                return
+            # 回落原因已由 _add_document_chunked 记日志,继续走整篇路径
         entry_id = _uuid.uuid4().hex
         entry: dict[str, Any] = {
             "session_id": session_id,
@@ -320,6 +360,61 @@ class RAGService:
         embedding = await vector_memory.embed(content)
         await vector_memory.add_entry(entry_id, entry, embedding, user_id=user_id)
         await memory_store.add(session_id, role, content, metadata)
+
+    async def _add_document_chunked(
+        self,
+        *,
+        session_id: str,
+        content: str,
+        role: str,
+        metadata: dict[str, Any] | None,
+        user_id: str | None,
+    ) -> bool:
+        """父子块摄取:逐子块 embed + 写入 vector_memory,entry 携带父块全文。
+
+        返回 True 表示子块已入库(调用方不得再走整篇路径);False 表示需要
+        回落整篇(切分异常或子块 ≤1,原因如实记日志,§5e 失败必须响)。
+        embed/add_entry 自身异常不在此拦截 —— 与旧整篇路径一致向上传播。
+        """
+        doc_id = _uuid.uuid4().hex
+        try:
+            chunker = ParentChildChunker(ChunkerConfig.from_env())
+            result = chunker.chunk_document(content, doc_id=doc_id, source=session_id)
+        except Exception as e:
+            logger.warning(
+                "rag.add_document 父子切分失败,回落整篇入库(doc_id=%s): %s",
+                doc_id, e, exc_info=True,
+            )
+            return False
+        if len(result.children) <= 1:
+            logger.info(
+                "rag.add_document 父子切分仅 %d 个子块,回落整篇入库(doc_id=%s)",
+                len(result.children), doc_id,
+            )
+            return False
+        parents_by_id = result.parents_by_id
+        for child in result.children:
+            child_text = child.text.strip()
+            parent_text = parents_by_id[child.parent_id or ""].text.strip()
+            entry_id = _uuid.uuid4().hex
+            entry: dict[str, Any] = {
+                "session_id": session_id,
+                "role": role,
+                "content": child_text,
+                **(metadata or {}),
+                # rag_* 键在 metadata 展开之后写入:结构键不允许被外部元数据覆盖
+                "rag_doc_id": doc_id,
+                "rag_parent_id": child.parent_id or "",
+                "rag_parent_text": parent_text,
+                "rag_child_text": child_text,
+            }
+            embedding = await vector_memory.embed(child_text)
+            await vector_memory.add_entry(entry_id, entry, embedding, user_id=user_id)
+        logger.info(
+            "rag.add_document 父子块入库完成: doc_id=%s parents=%d children=%d",
+            doc_id, len(result.parents), len(result.children),
+        )
+        return True
 
     async def retrieve_only(
         self,
@@ -446,16 +541,30 @@ class RAGService:
             )
             return []
         sources: list[RAGSource] = []
+        expanded = 0
         for _entry_id, entry, score in results:
             if session_id is not None and entry.get("session_id") != session_id:
                 continue
+            content = str(entry.get("content", ""))
+            # small-to-big:命中带父块全文的条目时,content 换为父块、子块命中
+            # 证据保留在 rag_child_text;旧条目(无该键)行为逐字节不变
+            parent_text = str(entry.get("rag_parent_text", "")).strip()
+            rag_child_text = ""
+            rag_parent_id = ""
+            if parent_text:
+                rag_child_text = content
+                rag_parent_id = str(entry.get("rag_parent_id", ""))
+                content = parent_text
+                expanded += 1
             sources.append(
                 RAGSource(
                     session_id=str(entry.get("session_id", "")),
                     role=str(entry.get("role", "")),
-                    content=str(entry.get("content", "")),
+                    content=content,
                     score=float(score),
                     timestamp=str(entry.get("timestamp", "")),
+                    rag_child_text=rag_child_text,
+                    rag_parent_id=rag_parent_id,
                 )
             )
             if len(sources) >= top_k:
@@ -467,6 +576,7 @@ class RAGService:
             raw_count=len(results),
             count=len(sources),
             reason="" if sources else "向量检索零命中(embed 降级或库为空)",
+            extra={"parent_expanded": expanded} if expanded else None,
         )
         return sources
 
@@ -709,7 +819,10 @@ class RAGService:
         parts: list[str] = []
         used = 0
         for i, s in enumerate(sources, 1):
-            snippet = s.content.strip()[:1000]
+            body = s.content.strip()
+            # small-to-big:父块展开来源(rag_parent_id 非空)送全文,否则
+            # 维持 1000 字符 snippet 上限 —— 旧数据不会带 rag_parent_id,零影响
+            snippet = body if s.rag_parent_id else body[:1000]
             block = f"[来源 {i}] (role={s.role}, session={s.session_id}, score={s.score:.3f})\n{snippet}"
             if used + len(block) > max_chars:
                 # 截断

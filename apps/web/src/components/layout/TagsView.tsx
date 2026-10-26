@@ -390,7 +390,7 @@ export function TagsView() {
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
-      if (e.key.toLowerCase() !== 'w') return
+      if ((e.key ?? '').toLowerCase() !== 'w') return // WebView2 偶发 key 为 undefined(IME/合成事件)
       const current = useTagsViewStore.getState().activePath
       if (!current) return
       e.preventDefault()

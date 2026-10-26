@@ -26,7 +26,7 @@
 import fs from 'node:fs';
 
 /** 检查点索引的可用性状态(结构化成字段,上层按它分派,不读日志)。 */
-export type UndoCheckpointStatus = 'available' | 'missing' | 'unreadable' | 'corrupt';
+type UndoCheckpointStatus = 'available' | 'missing' | 'unreadable' | 'corrupt';
 
 /** 撤销前探测到的事实。 */
 export interface UndoCheckpointProbe {

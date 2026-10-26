@@ -121,6 +121,7 @@
     "login": "登入",
     "logging": "登入中…",
     "passwordLogin": "密碼登入",
+    "webAuthLogin": "網頁授權登入",
     "phonePlaceholder": "請輸入手機號",
     "codeSent": "驗證碼已發送",
     "passwordPlaceholder": "請輸入密碼",
