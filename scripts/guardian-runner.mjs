@@ -5592,6 +5592,25 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 门注册表射程声明(1 项,blocking)---
+  {
+    id: '253',
+    label:
+      '📌 门注册表射程声明完备性(新增门必须写 stagedTriggers;摘射程判红;存量只报数)',
+    script: 'check-gate-triggers.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GATE_TRIGGERS',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '',
+      '补射程:在 scripts/guardian-runner.mjs 的对应条目上加 stagedTriggers: ["<这条门真正读的路径前缀或 glob>"]',
+      '要「任何提交都跑」也必须写出来(全匹配通配),不许留空 —— 留空在提交通道=任何提交都跑、在落地通道=永不复跑,两通道反义',
+      '存量缺射程的道数见末行「存量缺=」;要逐条列加 --list-existing;要全量判红加 --strict',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
