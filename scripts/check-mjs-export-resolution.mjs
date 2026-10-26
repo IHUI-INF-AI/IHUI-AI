@@ -20,6 +20,12 @@
  *      (出口集含 `export … from` 传递与 `export { a as b }` 别名)/ 默认导入而目标无默认出口;
  *   D2 生产方(只看本枚改动或删除的文件):上一面导出的名字本面不再导出,而射程内仍有文件按名取用
  *      —— 这一维才是 9fdbc207ba2e 那一型(实现被削、消费方一字未动)的唯一着力点;
+ *   D3 调用而不 import(只看本枚改动的文件):裸调用名正好是 scripts/lib 下某模块的导出名,而本文件
+ *      既没 import 它也没有自己的同名声明 ⇒ 跑到那一行必 ReferenceError。9fdbc207ba2e 同一笔还把
+ *      `check-api-routes.mjs` 回退成"自带旧副本 + 删掉 lib import",副本里调的 `findBraceBlockEnd`
+ *      早已搬进 `lib/api-route-registration-expand.mjs` ⇒ 门 8 一跑就
+ *      `ReferenceError: findBraceBlockEnd is not defined`(2026-10-26 实测),D1/D2 都在 import 面
+ *      上判,结构上看不见"没有 import 却在按名调用";
  *   解析不了的文件 ⇒ 记「未判定」点名,不折成绿(§0.3),也不折成"没问题";
  *   .json 目标不判(它的出口面不是 TS 语法),但计数照报,免得"跳过"被读成"验过"。
  * 【档位】D1/D2 都收在本枚改动集 ⇒ 结构性不可能因存量恒红(§12e),blocking 无需棘轮基线;
@@ -84,7 +90,7 @@ function makeReader(face) {
       const batch = catBatch(ROOT, chunk.map((r) => `${prefix}${r}`))
       for (const r of chunk) {
         const v = batch.get(`${prefix}${r}`)
-        if (v != null) got.set(r, v)
+        if (v !== null && v !== undefined) got.set(r, v)
       }
     }
     return got
@@ -205,7 +211,7 @@ export function judge(contents, opts = {}) {
   const findings = { missingModule: [], missingExport: [], missingDefault: [], unparsed: [], skippedJson: [] }
   const targetExports = (rel) => {
     const text = contents.get(rel)
-    if (text == null) return null
+    if (text === null || text === undefined) return null
     const rec = exportsOf(rel, text, expCache)
     if (rec.fail) return rec
     if (rec.starFrom.length === 0) return rec
@@ -214,7 +220,7 @@ export function judge(contents, opts = {}) {
     const walk = (p, depth) => {
       if (depth > starDepth) return
       const sub = contents.get(p)
-      if (sub == null) return
+      if (sub === null || sub === undefined) return
       const e = exportsOf(p, sub, expCache)
       for (const n of e.names) {
         if (merged.has(n)) continue
@@ -226,7 +232,7 @@ export function judge(contents, opts = {}) {
     return { names: merged, hasDefault, starFrom: [], fail: null }
   }
   for (const [path, text] of contents) {
-    if (text == null) continue
+    if (text === null || text === undefined) continue
     const { fail, list } = importsOf(path, text)
     if (fail) {
       findings.unparsed.push({ path, why: fail })
@@ -273,11 +279,11 @@ export function judge(contents, opts = {}) {
  */
 function amputations(contents, baseText, importIndex) {
   const out = []
-  for (const [rel, nowText] of baseText.entries()) {
+  for (const rel of baseText.keys()) {
     const wasText = baseText.get(rel)
     const curText = contents.get(rel)
-    if (wasText == null) continue // 本枚新建:没有"上一面",谈不上削掉出口
-    const now = curText == null ? { names: new Set(), hasDefault: false, fail: null } : exportsOf(rel, curText, new Map())
+    if (wasText === null || wasText === undefined) continue // 本枚新建:没有"上一面",谈不上削掉出口
+    const now = curText === null || curText === undefined ? { names: new Set(), hasDefault: false, fail: null } : exportsOf(rel, curText, new Map())
     const was = exportsOf(rel, wasText, new Map())
     if (now.fail || was.fail) continue
     const lost = [...was.names].filter((n) => !now.names.has(n))
@@ -291,6 +297,99 @@ function amputations(contents, baseText, importIndex) {
           if (takes) out.push({ producer: rel, name, consumer, at: imp.at, spec: imp.spec })
         }
       }
+    }
+  }
+  return out
+}
+
+/**
+ * D3:调用而不 import(见头注)。判据面 = "lib 的导出名 × 裸调用位",保守到不猜动态取值与属性调用;
+ * 本文件自己有同名声明就算有(与 lib 重名的那一型归镜像测试的接线锁,不在这一维判)。
+ */
+const D3_GLOBALS = new Set([
+  'AbortController', 'AbortSignal', 'AggregateError', 'Array', 'ArrayBuffer', 'Atomics', 'BigInt',
+  'BigInt64Array', 'BigUint64Array', 'Blob', 'Boolean', 'BroadcastChannel', 'Buffer', 'Bun',
+  'DataView', 'Date', 'Deno', 'Error', 'EvalError', 'Event', 'EventTarget', 'File', 'FinalizationRegistry',
+  'Float32Array', 'Float64Array', 'FormData', 'Function', 'Headers', 'Infinity', 'Int16Array', 'Int32Array',
+  'Int8Array', 'Intl', 'Iterator', 'JSON', 'Map', 'Math', 'MessageChannel', 'MessagePort', 'NaN', 'Number',
+  'Object', 'Promise', 'Proxy', 'RangeError', 'ReferenceError', 'Reflect', 'RegExp', 'Request', 'Response',
+  'Set', 'SharedArrayBuffer', 'String', 'SuppressedError', 'Symbol', 'SyntaxError', 'TextDecoder',
+  'TextEncoder', 'TypeError', 'URIError', 'URL', 'URLSearchParams', 'Uint16Array', 'Uint32Array',
+  'Uint8Array', 'Uint8ClampedArray', 'WeakMap', 'WeakRef', 'WeakSet', 'WebAssembly', 'WebSocket', 'Worker',
+  '__dirname', '__filename', 'afterAll', 'afterEach', 'atob', 'beforeAll', 'beforeEach', 'btoa', 'clearImmediate',
+  'clearInterval', 'clearTimeout', 'console', 'crypto', 'decodeURI', 'decodeURIComponent', 'describe', 'document',
+  'encodeURI', 'encodeURIComponent', 'eval', 'expect', 'exports', 'fetch', 'global', 'globalThis', 'isFinite',
+  'isNaN', 'it', 'localStorage', 'module', 'navigator', 'parseFloat', 'parseInt', 'performance', 'process',
+  'queueMicrotask', 'require', 'sessionStorage', 'setImmediate', 'setInterval', 'setTimeout', 'structuredClone',
+  'test', 'undefined', 'vi', 'window',
+])
+
+/** lib 导出名 → 导出方文件清单(解析不了的 lib 不进索引,不让"读不懂"变成"没导出")。 */
+function libExportIndex(contents) {
+  const index = new Map()
+  for (const [rel, text] of contents) {
+    if (!rel.startsWith(`${SCOPE_DIR}/lib/`) || text === null || text === undefined) continue
+    const ex = exportsOf(rel, text, new Map())
+    if (ex.fail) continue
+    for (const name of ex.names) {
+      if (!index.has(name)) index.set(name, [])
+      if (!index.get(name).includes(rel)) index.get(name).push(rel)
+    }
+  }
+  return index
+}
+
+function undeclaredLibCalls(contents, libIndex) {
+  const out = []
+  for (const [rel, text] of contents) {
+    if (text === null || text === undefined || !rel.endsWith('.mjs')) continue
+    const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.MJS)
+    if ((sf.parseDiagnostics ?? []).length > 0) continue
+    const declared = new Set()
+    const called = new Map()
+    const addBinding = (name) => {
+      if (ts.isIdentifier(name)) declared.add(name.text)
+      else if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name)) {
+        for (const el of name.elements) if (ts.isBindingElement(el)) addBinding(el.name)
+      }
+    }
+    const visit = (node) => {
+      if (ts.isImportDeclaration(node) && node.importClause) {
+        const ic = node.importClause
+        if (ic.name) declared.add(ic.name.getText(sf))
+        const nb = ic.namedBindings
+        if (nb) {
+          if (ts.isNamespaceImport(nb)) declared.add(nb.name.getText(sf))
+          else for (const el of nb.elements) declared.add(el.name.getText(sf))
+        }
+      } else if (
+        ts.isFunctionDeclaration(node) ||
+        ts.isFunctionExpression(node) ||
+        ts.isMethodDeclaration(node) ||
+        ts.isArrowFunction(node)
+      ) {
+        if (node.name && ts.isIdentifier(node.name)) declared.add(node.name.getText(sf))
+        for (const p of node.parameters) addBinding(p.name)
+      } else if (ts.isVariableDeclaration(node)) {
+        addBinding(node.name)
+      } else if (ts.isClassDeclaration(node) && node.name) {
+        declared.add(node.name.getText(sf))
+      } else if (ts.isCatchClause(node) && node.variableDeclaration) {
+        addBinding(node.variableDeclaration.name)
+      } else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+        const name = node.expression.getText(sf)
+        if (!called.has(name)) {
+          called.set(name, sf.getLineAndCharacterOfPosition(node.expression.getStart(sf)).line + 1)
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sf)
+    for (const [name, at] of called) {
+      if (declared.has(name) || D3_GLOBALS.has(name)) continue
+      const exporters = libIndex.get(name)
+      if (!exporters) continue
+      out.push({ path: rel, at, name, exporters })
     }
   }
   return out
@@ -332,7 +431,7 @@ function runFace() {
     return 2
   }
   const contents = reader.readMany(files)
-  const missingScope = files.filter((f) => contents.get(f) == null)
+  const missingScope = files.filter((f) => contents.get(f) === null || contents.get(f) === undefined)
   if (missingScope.length > 0) {
     console.log(`❌ 未判定:${missingScope.length} 枚射程内正文取不到(首 3:${missingScope.slice(0, 3).join(', ')})`)
     return 2
@@ -355,7 +454,7 @@ function runFace() {
     const next = new Set()
     for (const rel of frontier) {
       const text = contents.get(rel)
-      if (text == null) continue
+      if (text === null || text === undefined) continue
       const { list } = importsOf(rel, text)
       for (const imp of list) {
         const t = resolveSpec(rel, imp.spec)
@@ -365,7 +464,7 @@ function runFace() {
     frontier = [...next]
     if (frontier.length === 0) break
     const got = reader.readMany(frontier)
-    for (const [k, v] of got) if (v != null) contents.set(k, v)
+    for (const [k, v] of got) if (v !== null && v !== undefined) contents.set(k, v)
   }
   const r = judge(contents)
   const importIndex = new Map()
@@ -375,25 +474,30 @@ function runFace() {
   }
   const amp = amputations(contents, baseText, importIndex)
   const changedSet = new Set(changed)
+  const d3All = undeclaredLibCalls(contents, libExportIndex(contents))
+  const d3 = d3All.filter((f) => changedSet.has(f.path))
+  const d3Stock = d3All.length - d3.length
   const d1 = {
     missingModule: r.findings.missingModule.filter((f) => changedSet.has(f.path)),
     missingExport: r.findings.missingExport.filter((f) => changedSet.has(f.path)),
     missingDefault: r.findings.missingDefault.filter((f) => changedSet.has(f.path)),
   }
-  const blocking = d1.missingModule.length + d1.missingExport.length + d1.missingDefault.length + amp.length
+  const blocking =
+    d1.missingModule.length + d1.missingExport.length + d1.missingDefault.length + amp.length + d3.length
   for (const f of d1.missingExport) console.log(`D1 缺出口 ${f.path}:${f.at} 取 {${f.name}} ← ${f.spec}(目标 ${f.target} 现在没有这个出口)`)
   for (const f of d1.missingModule) console.log(`D1 悬空模块 ${f.path}:${f.at} ← ${f.spec}(解析为 ${f.resolved},被审面上没有)`)
   for (const f of d1.missingDefault) console.log(`D1 缺默认出口 ${f.path}:${f.at} 默认导入 ${f.name} ← ${f.spec}`)
   for (const f of amp) console.log(`D2 出口被削 ${f.producer} 不再导出 {${f.name}},而 ${f.consumer}:${f.at} 仍在按名取用 ⇒ 那一刻起它 import 即崩`)
+  for (const f of d3) console.log(`D3 用了却没 import ${f.path}:${f.at} 调用 ${f.name}( —— 该名由 ${f.exporters.join(',')} 导出,本文件既没 import 它也没有同名声明 ⇒ 跑到这一行必 ReferenceError`)
   for (const f of r.findings.unparsed) console.log(`? 未判定(解析不了)${f.path}:${f.why}`)
   const stock = r.total
   const stockOutside = stock - (d1.missingExport.length + d1.missingModule.length + d1.missingDefault.length)
   const head =
     blocking > 0
-      ? `❌ 本枚带进 ${blocking} 条(D1 ${d1.missingExport.length + d1.missingModule.length + d1.missingDefault.length} / D2 ${amp.length}),射程 ${contents.size} 枚,另有存量 ${stockOutside} 条不在本枚射程`
+      ? `❌ 本枚带进 ${blocking} 条(D1 ${d1.missingExport.length + d1.missingModule.length + d1.missingDefault.length} / D2 ${amp.length} / D3 ${d3.length}),射程 ${contents.size} 枚,另有存量 ${stockOutside} 条不在本枚射程`
       : r.findings.unparsed.length > 0
         ? `⚠️ 未判定:${r.findings.unparsed.length} 枚解析不了 ⇒ 不记绿(射程 ${contents.size} 枚,存量 ${stock} 条)`
-        : `✅ 本枚零缺口:改动 ${changed.length} 枚 .mjs,D1/D2 零命中(全数档存量 ${stock} 条)`
+        : `✅ 本枚零缺口:改动 ${changed.length} 枚 .mjs,D1/D2/D3 零命中(全数档存量 ${stock} 条,D3 射程外存量 ${d3Stock} 条)`
   console.log(head)
   if (argv.includes('--json')) {
     console.log(
@@ -404,6 +508,8 @@ function runFace() {
           changed: changed.length,
           d1: d1.missingExport.length + d1.missingModule.length + d1.missingDefault.length,
           d2: amp.length,
+          d3: d3.length,
+          d3Stock,
           unparsed: r.findings.unparsed.length,
           stock,
           blocking,
@@ -560,7 +666,61 @@ function selfTest() {
     console.log(`${ok ? '✓' : '✗'} ${c.name}(期望 ${JSON.stringify(c.want)},实得 ${JSON.stringify(got)})`)
     if (ok) pass += 1
   }
-  const all = cases.length + ampCases.length
+  // D3 单列:判据面是"lib 的导出名 × 裸调用位",不是 import 说明符
+  const d3Of = (obj) => {
+    const m = mk(obj)
+    return undeclaredLibCalls(m, libExportIndex(m)).length
+  }
+  const d3Cases = [
+    {
+      name: 'D3 正控:调 lib 导出的 findBraceBlockEnd 却没 import ⇒ 1 条(9fdbc207ba2e 那一型)',
+      want: 1,
+      got: () =>
+        d3Of({
+          'scripts/a.mjs': `const x = findBraceBlockEnd(lines, i)\nexport { x }\n`,
+          'scripts/lib/b.mjs': `export function findBraceBlockEnd(lines, openLine) { return openLine }\n`,
+        }),
+    },
+    {
+      name: 'D3 摘掉即翻红对照:同一文件改成 import ⇒ 0 条',
+      want: 0,
+      got: () =>
+        d3Of({
+          'scripts/a.mjs': `import { findBraceBlockEnd } from './lib/b.mjs'\nexport const x = findBraceBlockEnd(1, 2)\n`,
+          'scripts/lib/b.mjs': `export function findBraceBlockEnd(lines, openLine) { return openLine }\n`,
+        }),
+    },
+    {
+      name: 'D3 本文件自己有同名声明 ⇒ 不算漏 import(重名归镜像测试的接线锁)',
+      want: 0,
+      got: () =>
+        d3Of({
+          'scripts/a.mjs': `function findBraceBlockEnd(a, b) { return b }\nexport const x = findBraceBlockEnd(1, 2)\n`,
+          'scripts/lib/b.mjs': `export function findBraceBlockEnd(lines, openLine) { return openLine }\n`,
+        }),
+    },
+    {
+      name: 'D3 不属于任何 lib 导出的未声明名 ⇒ 不判(那是别的维/别的门的面)',
+      want: 0,
+      got: () =>
+        d3Of({
+          'scripts/a.mjs': `export const x = someRandomGlobal(1)\n`,
+          'scripts/lib/b.mjs': `export function findBraceBlockEnd(lines, openLine) { return openLine }\n`,
+        }),
+    },
+  ]
+  for (const c of d3Cases) {
+    let got
+    try {
+      got = c.got()
+    } catch (e) {
+      got = `throw:${String(e?.message ?? e).slice(0, 60)}`
+    }
+    const ok = got === c.want
+    console.log(`${ok ? '✓' : '✗'} ${c.name}(期望 ${JSON.stringify(c.want)},实得 ${JSON.stringify(got)})`)
+    if (ok) pass += 1
+  }
+  const all = cases.length + ampCases.length + d3Cases.length
   console.log(pass === all ? `自检 ${pass}/${all} 通过` : `❌ 自检 ${pass}/${all}`)
   process.exit(pass === all ? 0 : 1)
 }
