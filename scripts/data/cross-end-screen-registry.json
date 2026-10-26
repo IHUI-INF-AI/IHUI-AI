@@ -995,6 +995,16 @@
       "shared": "packages/app/src/features/ai-world/AiWorldEditScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiWorldEditScreen.tsx",
       "miniapp": "pkg-mirror2/ai-world-edit/index"
+    },
+    {
+      "shared": "packages/app/src/features/edu-ai/EduAiHubScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EduAiHubScreen.tsx",
+      "miniapp": "pkg-mirror2/edu-ai-hub/index"
+    },
+    {
+      "shared": "packages/app/src/features/edu-ai/EduAiVideoComposeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EduAiVideoComposeScreen.tsx",
+      "miniapp": "pkg-mirror2/edu-ai-video-compose/index"
     }
   ]
 }

@@ -312,6 +312,8 @@ export default defineAppConfig({
         'home/index',
         'ai-world-detail/index',
         'ai-world-edit/index',
+        'edu-ai-hub/index',
+        'edu-ai-video-compose/index',
       ],
     },
     {
