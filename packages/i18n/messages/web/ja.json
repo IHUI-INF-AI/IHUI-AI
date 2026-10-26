@@ -940,7 +940,20 @@
       "sessionQualitySinglePage": "単一ページのセッション比率",
       "sessionQualityAvgPv": "セッションあたりのページ数",
       "sessionQualityEntryTop": "エントリーページ(セッション/単一)",
-      "sessionQualityNoData": "24時間にセッションなし"
+      "sessionQualityNoData": "24時間にセッションなし",
+      "panelVisitSource": "アクセス元",
+      "visitSourceTotal": "24時間 アクセス {count}",
+      "visitSourceBuckets": "参照元の区分(24時間)",
+      "visitSourceHosts": "参照元ホスト(24時間)",
+      "visitSourceDirect": "直接アクセス",
+      "visitSourceLocal": "ローカル開発",
+      "visitSourceInternal": "サイト内",
+      "visitSourceExternal": "外部参照",
+      "visitSourceNoData": "24時間にアクセス元データなし",
+      "panelVisitTransition": "ページ遷移",
+      "visitTransitionMoves": "24時間 遷移 {count} 回",
+      "visitTransitionTop": "よく踏む経路(24時間)",
+      "visitTransitionNoData": "24時間にページ遷移なし"
     },
     "aboutUs": {
       "add": "追加",

@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
   Bell,
   Clock3,
   Cpu,
@@ -241,6 +242,32 @@ interface TrafficSnapshot {
     /** 落地页 TOP(进来的会话最多的页面)+ 其中「只停这一页」的会话数 */
     entryPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
   } | null
+  /** 近 24h 访问来源(直接访问/本机开发/站内/外部 + 主机 TOP);null = 同一条腿取不到 */
+  visitSource: {
+    /** 窗口内总 PV(所有来源之和) */
+    totalPv: number
+    /** 来源分类桶(未配自有域时不含 internal) */
+    buckets: Array<{
+      kind: 'direct' | 'local' | 'internal' | 'external'
+      pv: number
+    }>
+    /** 来源主机 TOP(按 PV 降序) */
+    hosts: Array<{
+      host: string
+      kind: 'direct' | 'local' | 'internal' | 'external'
+      pv: number
+    }>
+    /** 是否做了站内/外部二分(配了自有域才有) */
+    splitInternal: boolean
+  } | null
+  /** 近 24h 页面流转(相邻页对 TOP);null = 同一条腿取不到 */
+  visitTransition: {
+    /** 相邻跳转总次数(已排除同页刷新) */
+    totalMoves: number
+    /** 发生过的不同页对数 */
+    distinctPairs: number
+    top: Array<{ fromUrl: string; toUrl: string; n: number }>
+  } | null
   /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
   online5m: number | null
   /** 近 5 分钟浏览量 */
@@ -296,6 +323,31 @@ const SESSION_DEPTH_LABEL_KEY: Record<
  * 刻意不给「单屏会话占比高」染红 —— 那是事实不是故障,染成告警会让面板天天报警。
  */
 const SESSION_DEPTH_BAR_CLASS = ['bg-info', 'bg-info/70', 'bg-info/45', 'bg-info/25'] as const
+
+/**
+ * 来源类别 → 文案键(判据在服务端 `services/visit-source-stats-service.ts`,
+ * 前端只按 kind 渲染,不自己判来源)。
+ */
+const VISIT_SOURCE_KIND_LABEL_KEY: Record<
+  'direct' | 'local' | 'internal' | 'external',
+  'visitSourceDirect' | 'visitSourceLocal' | 'visitSourceInternal' | 'visitSourceExternal'
+> = {
+  direct: 'visitSourceDirect',
+  local: 'visitSourceLocal',
+  internal: 'visitSourceInternal',
+  external: 'visitSourceExternal',
+}
+
+/**
+ * 来源主机的着色:本机开发压成灰(不是渠道),站内用 info,外部用前景色。
+ * 刻意不给外部用告警色 —— 外部来源量大是事实,不是故障,染成告警会让面板天天报警。
+ */
+const VISIT_SOURCE_HOST_CLASS: Record<'direct' | 'local' | 'internal' | 'external', string> = {
+  direct: 'text-foreground',
+  local: 'text-muted-foreground',
+  internal: 'text-info-text',
+  external: 'text-foreground',
+}
 
 interface RelayPoolSnapshot {
   keyTotal: number | null
@@ -2985,6 +3037,166 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ) : null}
               </div>
+            </div>
+          </Panel>
+
+          {/* 访问来源(2026-10-26):流量从哪来 —— 直接访问 / 本机开发 / 站内 / 外部 + 主机 TOP。
+              生产实测 GitHub 是最大入口,而本机开发流量占着约三成 ⇒ 不分类就分不清推广渠道。
+              只给 PV:来源维度上访客数无法精确去重(同一访客既从外部进来又在站内点了两页),
+              与其给一个看着准、实际重复计的数字,不如少给一格。 */}
+          <Panel
+            title={t('panelVisitSource')}
+            icon={<Globe className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={
+              traffic === null || traffic.visitSource === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('visitSourceTotal', { count: fmtInt(traffic.visitSource.totalPv) })}
+                </span>
+              )
+            }
+            bodyClassName="wb-split wb-split-c3"
+          >
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('visitSourceBuckets')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.visitSource?.buckets ?? []).map((b) => {
+                  const total = traffic?.visitSource?.totalPv ?? 0
+                  // 分母取不到就不画条、也不写百分比:把"没判"画成"零"是本仓明令禁止
+                  const pct = total > 0 ? (b.pv / total) * 100 : null
+                  return (
+                    <div
+                      key={b.kind}
+                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      {pct !== null ? (
+                        <div
+                          aria-hidden
+                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
+                          style={{ width: `${pct}%` }}
+                        />
+                      ) : null}
+                      <span className="relative truncate text-[10px] text-foreground">
+                        {t(VISIT_SOURCE_KIND_LABEL_KEY[b.kind])}
+                      </span>
+                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtInt(b.pv)}
+                        {pct !== null ? (
+                          <span className="text-muted-foreground"> · {Math.round(pct)}%</span>
+                        ) : null}
+                      </span>
+                    </div>
+                  )
+                })}
+                {traffic?.visitSource && traffic.visitSource.buckets.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('visitSourceNoData')}
+                  </div>
+                ) : null}
+                {traffic?.visitSource === null ? (
+                  <div className="flex justify-center px-2 py-2">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('visitSourceHosts')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.visitSource?.hosts ?? []).map((h) => {
+                  const total = traffic?.visitSource?.totalPv ?? 0
+                  const pct = total > 0 ? (h.pv / total) * 100 : null
+                  return (
+                    <div
+                      key={h.host}
+                      className="relative flex items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1"
+                    >
+                      {pct !== null ? (
+                        <div
+                          aria-hidden
+                          className="absolute inset-y-0 left-0 rounded-md bg-info/10"
+                          style={{ width: `${pct}%` }}
+                        />
+                      ) : null}
+                      <span
+                        className={cn(
+                          'relative truncate text-[10px]',
+                          VISIT_SOURCE_HOST_CLASS[h.kind],
+                        )}
+                      >
+                        {h.host}
+                      </span>
+                      <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
+                        {fmtInt(h.pv)}
+                      </span>
+                    </div>
+                  )
+                })}
+                {traffic?.visitSource && traffic.visitSource.hosts.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('visitSourceNoData')}
+                  </div>
+                ) : null}
+                {traffic?.visitSource === null ? (
+                  <div className="flex justify-center px-2 py-2">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Panel>
+
+          {/* 页面流转(2026-10-26):同一标签页会话内相邻两页 —— 人从哪走到哪。
+              排行只说"哪个页面热"、会话质量只说"看了几屏",都不答这一句;
+              生产实测最大的一跳是 `/ → /sso/login` 与 `/sso/login → /`(登录↔首页打转)。
+              同页刷新不算流转(服务端已剔除),箭头用矢量图标,不用字符箭头。 */}
+          <Panel
+            title={t('panelVisitTransition')}
+            icon={<ArrowRight className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={
+              traffic === null || traffic.visitTransition === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('visitTransitionMoves', { count: fmtInt(traffic.visitTransition.totalMoves) })}
+                </span>
+              )
+            }
+          >
+            <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+              {t('visitTransitionTop')}
+            </div>
+            <div className="space-y-1">
+              {(traffic?.visitTransition?.top ?? []).map((row) => (
+                <div
+                  key={`${row.fromUrl}->${row.toUrl}`}
+                  className="flex items-center gap-1.5 rounded-md bg-muted/50 px-2 py-1"
+                >
+                  <span className="truncate text-[10px] text-foreground">{row.fromUrl}</span>
+                  <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="truncate text-[10px] text-foreground">{row.toUrl}</span>
+                  <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                    {fmtInt(row.n)}
+                  </span>
+                </div>
+              ))}
+              {traffic?.visitTransition && traffic.visitTransition.top.length === 0 ? (
+                <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                  {t('visitTransitionNoData')}
+                </div>
+              ) : null}
+              {traffic?.visitTransition === null ? (
+                <div className="flex justify-center px-2 py-2">
+                  <SourceGap text={t('sourceUnreachable')} />
+                </div>
+              ) : null}
             </div>
           </Panel>
 

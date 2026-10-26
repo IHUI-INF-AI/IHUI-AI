@@ -41,6 +41,8 @@
  * (`scripts/lib/analytics-coverage.mjs`)都从这里取,不再各写一份。
  */
 
+import { firstIndexOfAny } from './sanitize-url'
+
 /** 绝对 URL 的 scheme 段(`https://` / `http://`);协议相对(`//host/path`)另见下。 */
 const ABSOLUTE_URL_RE = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//
 
@@ -138,5 +140,107 @@ export function normalizeVisitPath(raw: string | null | undefined): string | nul
  */
 export function isVisitPathReportable(raw: string | null | undefined): boolean {
   return normalizeVisitPath(raw) !== null
+}
+
+// =============================================================================
+// 访问来源判据(2026-10-26 立)
+// =============================================================================
+
+/**
+ * referer → 主机名(来源分桶的唯一实现)。
+ *
+ * 立因(生产实测):`visit_logs.referer` 存的是**完整来源串**(路径也在里面),直接按整串
+ * 分组会把同一来源拆成多行(`https://github.com/IHUI-INF-AI/IHUI-AI` 与 `https://github.com/`
+ * 是两个来源,实测 148 PV 与 88 PV),读数上会读成「两个来源」而不是「一个来源的两条路径」。
+ *
+ * 要覆盖的形态(生产现读,不是臆想):
+ *  - `https://github.com/IHUI-INF-AI/IHUI-AI` —— 常规绝对 URL;
+ *  - `http://localhost:8801/chat` —— 带端口的本机;
+ *  - `https://aizhs.top/settings` —— 站内;
+ *  - `android-app://com.google.android.googlequicksearchbox/` —— **非 http 形态**
+ *    (安卓浏览器回传);scheme 正则按 RFC 允许 `-`,故 `android-app://` 也能解析出主机;
+ *  - `//host/path` —— 协议相对;
+ *  - 无 scheme 的裸 host —— 容错取出。
+ *
+ * 端口剥掉(`localhost:8801` ⇒ `localhost`):来源按**主机**分桶,端口是本机开发细节。
+ */
+export function extractVisitRefererHost(referer: string | null | undefined): string | null {
+  if (referer === null || referer === undefined) return null
+  const value = String(referer).trim()
+  if (!value) return null
+
+  let authority: string
+  if (ABSOLUTE_URL_RE.test(value)) {
+    authority = value.slice(value.indexOf('//') + 2)
+  } else if (PROTOCOL_RELATIVE_RE.test(value)) {
+    authority = value.slice(2)
+  } else {
+    authority = value
+  }
+
+  // authority 到第一个 `/` `?` `#` 为止
+  const cut = firstIndexOfAny(authority, ['/', '?', '#'])
+  if (cut !== -1) authority = authority.slice(0, cut)
+  if (!authority) return null
+
+  // 去掉 userinfo(`user:pass@host`)
+  const at = authority.lastIndexOf('@')
+  if (at !== -1) authority = authority.slice(at + 1)
+  if (!authority) return null
+
+  // 去掉端口;IPv6(`[::1]`)保留方括号
+  let host = authority
+  const bracketEnd = authority.indexOf(']')
+  if (bracketEnd !== -1) {
+    host = authority.slice(0, bracketEnd + 1)
+  } else {
+    const colon = authority.lastIndexOf(':')
+    if (colon !== -1) host = authority.slice(0, colon)
+  }
+
+  host = host.trim().toLowerCase()
+  return host.length > 0 ? host : null
+}
+
+/**
+ * 来源类别:
+ *  - `direct`   —— 没有 referer(直接访问 / 无来源信息);
+ *  - `local`    —— 本机开发流量(`localhost` / `*.localhost` / 回环地址);
+ *  - `internal` —— 站内(自有域本身或其子域);
+ *  - `external` —— 其它外部来源。
+ *
+ * `local` 单列的理由(生产实测):本机开发流量占有 referer 行的约三成
+ * (`offline.localhost` 110 PV + `localhost:8801` 87 PV),混进「外部来源」会把
+ * 真实推广渠道(实测 GitHub 合计 239 PV,是最大入口)的读数带偏。
+ *
+ * `internal` 依赖**自有域**(`selfHostSuffix`):仓内与生产 env 都**没有**站点基址配置
+ * (`PUBLIC_BASE_URL` / `BASE_URL` 均未配),所以调用方必须显式传进来;
+ * 传空 ⇒ 一律不判站内(把"没判"与"判过"分开,绝不把站内悄悄说成外部)。
+ */
+export type VisitSourceKind = 'direct' | 'local' | 'internal' | 'external'
+
+/** 本机开发主机名:回环地址与 `localhost` 域(含 `offline.localhost` 这类)。 */
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0'])
+
+/** 自有域列表 ⇒ 归一为小写、去前导点的非空数组。 */
+function normalizeSelfHosts(self: string | string[] | null | undefined): string[] {
+  const list = Array.isArray(self) ? self : self ? [self] : []
+  return list
+    .map((item) => String(item).trim().toLowerCase().replace(/^\.+/, ''))
+    .filter((item) => item.length > 0)
+}
+
+export function classifyVisitSource(
+  host: string | null | undefined,
+  selfHostSuffix?: string | string[] | null,
+): VisitSourceKind {
+  if (host === null || host === undefined) return 'direct'
+  const h = String(host).trim().toLowerCase()
+  if (!h) return 'direct'
+  if (LOCAL_HOSTS.has(h) || h.endsWith('.localhost')) return 'local'
+  for (const suffix of normalizeSelfHosts(selfHostSuffix)) {
+    if (h === suffix || h.endsWith(`.${suffix}`)) return 'internal'
+  }
+  return 'external'
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

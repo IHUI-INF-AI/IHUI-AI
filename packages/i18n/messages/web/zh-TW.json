@@ -940,7 +940,20 @@
       "sessionQualitySinglePage": "單頁會話佔比",
       "sessionQualityAvgPv": "人均瀏覽頁數",
       "sessionQualityEntryTop": "落地頁(會話/單頁)",
-      "sessionQualityNoData": "近24小時 暫無會話"
+      "sessionQualityNoData": "近24小時 暫無會話",
+      "panelVisitSource": "訪問來源",
+      "visitSourceTotal": "近24小時 訪問 {count}",
+      "visitSourceBuckets": "來源分類(近24小時)",
+      "visitSourceHosts": "來源主機(近24小時)",
+      "visitSourceDirect": "直接存取",
+      "visitSourceLocal": "本機開發",
+      "visitSourceInternal": "站內",
+      "visitSourceExternal": "外部來源",
+      "visitSourceNoData": "近24小時 無訪問來源資料",
+      "panelVisitTransition": "頁面流轉",
+      "visitTransitionMoves": "近24小時 跳轉 {count} 次",
+      "visitTransitionTop": "最常走的路徑(近24小時)",
+      "visitTransitionNoData": "近24小時 無頁面流轉"
     },
     "aboutUs": {
       "add": "新增",
