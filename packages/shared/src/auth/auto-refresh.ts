@@ -14,7 +14,9 @@
  * 各端薄封装实现:
  * - web: setTimeout 调度器(inFlightRefresh + refreshTimer)
  * - extension: chrome.alarms 调度器(scheduleOnce + clearSchedule)
- * - mobile-rn: 暂未实现(未来可基于 setInterval / BackgroundFetch)
+ * - mobile-rn / miniapp-taro: setInterval 轮询调度器(经 createTokenAutoRefresh 注入
+ *   getToken / refresh / isSessionLoggedOut;RN 见 apps/mobile-rn/src/lib/token.ts 的
+ *   startTokenAutoRefresh,小程序见 apps/miniapp-taro/src/utils/auth.ts 的同名出口)
  */
 import { readExp } from '../utils/jwt-utils'
 import { REFRESH_LEAD_MS } from '../constants'

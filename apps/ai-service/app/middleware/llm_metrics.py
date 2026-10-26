@@ -41,7 +41,9 @@ llm_request_duration_seconds = Histogram(
 llm_provider_errors_total = Counter(
     'ihui_llm_provider_errors_total',
     'Total LLM provider errors',
-    ['provider', 'status'],  # status: '4xx' | '5xx' | 'timeout' | 'connection'
+    # status: 'auth' | '4xx' | '5xx' | 'timeout' | 'connection'
+    # ('auth' = 厂商鉴权类 401/403,见 llm_error_status 的机主令注记)
+    ['provider', 'status'],
 )
 
 # LLM 调用次数(按 provider/model/status)—— 2026-10-17 立。
@@ -113,7 +115,7 @@ def record_llm_call(
         input_tokens: 输入 token 数(prompt_tokens)。
         output_tokens: 输出 token 数(completion_tokens)。
         duration_seconds: 调用耗时(秒)。
-        error: 错误类型(None=成功,'4xx'/'5xx'/'timeout'/'connection'=失败)。
+        error: 错误类型(None=成功,'auth'/'4xx'/'5xx'/'timeout'/'connection'=失败)。
     """
     try:
         llm_request_duration_seconds.labels(provider=provider, model=model).observe(
@@ -330,16 +332,30 @@ def _upstream_status_code(exc: BaseException | str) -> int | None:
     return raw if isinstance(raw, int) else None
 
 
-def llm_error_status(exc: BaseException | str) -> str:
-    """把一次失败归成 ihui_llm_provider_errors_total{status} 的四个取值之一。
+# 厂商鉴权类状态码(401/403)。它们表示"这把 key 此刻不被上游认",是**机主自主动作面**
+# (2026-10-26 机主令:"这些 key 我想配自然会配,别总说,也别报警")——
+# 不是平台基础设施故障,因此在 llm_error_status 里单列一类 'auth',
+# 由告警表达式(监控/prometheus/alerts.yml 的 LlmProviderErrorBurst)据此排除,
+# 使"厂商账户状态"永远不进到人告警通道,而失败次数仍在指标与调用日志里可查。
+_AUTH_STATUS_CODES: frozenset[int] = frozenset({401, 403})
 
-    '4xx' | '5xx' | 'timeout' | 'connection'。有状态码就按码段;没有则退到文案
+
+def llm_error_status(exc: BaseException | str) -> str:
+    """把一次失败归成 ihui_llm_provider_errors_total{status} 的取值之一。
+
+    'auth' | '4xx' | '5xx' | 'timeout' | 'connection'。有状态码就按码段;没有则退到文案
     (LiteLLM 的超时/连接异常不一定带 status_code,这类若只按码判会全部漏成 5xx)。
+
+    'auth'(401/403)是**单列的一类**,不是 '4xx' 的一部分(2026-10-26 机主令):
+    厂商 key 失效/过期属机主自主动作面,不进到人告警通道;要排除它只能在这一处
+    (单源)判,别在告警表达式里靠 '4xx' 猜。
     """
     status = _upstream_status_code(exc) if isinstance(exc, BaseException) else None
     if status is None and isinstance(exc, str):
         status = _upstream_status_code(exc)
     if status is not None:
+        if status in _AUTH_STATUS_CODES:
+            return 'auth'
         if 400 <= status < 500:
             return '4xx'
         if 500 <= status < 600:

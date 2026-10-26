@@ -6,8 +6,8 @@
 // 组件只断言**结构**(三档入口 / 受控上报 / 取消 / 展开输入),文案一律走 key
 // (真实词包五语言由词条文件本身保证,i18n parity 门另守)。REVIEW_DIFF_LIMIT
 // 从源模块 import 真值(§22c:测试不复制判据常量)。
-import { fireEvent, render } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -22,6 +22,12 @@ import {
 import { ReviewTargetSelector } from '../review-target-selector'
 
 type SelectorProps = Parameters<typeof ReviewTargetSelector>[0]
+
+// 本文件此前零 cleanup(vitest setupFiles 只 configure,不注册 cleanup)
+// ⇒ 前一用例的 DOM 残留到下一用例,getByTestId 撞上同 testid 的两份。
+afterEach(() => {
+  cleanup()
+})
 
 function renderSelector(props: Partial<SelectorProps> = {}) {
   const onChange = vi.fn()
@@ -140,9 +146,11 @@ describe('review-context(接口层纯函数)', () => {
     expect(out).toContain('snippet truncated at')
     expect(out).toContain('5 characters omitted')
     // 截断后围栏内正文恰好等于上限长度
+    // 实现用 join('\n')(review-context.ts:100),围栏内实为 body + '\n',
+    // 故取到围栏末尾时要减掉那个分隔换行,否则恒多 1。
     const open = out.indexOf('```\n') + '```\n'.length
     const close = out.lastIndexOf('```')
-    expect(out.slice(open, close).length).toBe(REVIEW_DIFF_LIMIT)
+    expect(out.slice(open, close).replace(/\n$/, '').length).toBe(REVIEW_DIFF_LIMIT)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

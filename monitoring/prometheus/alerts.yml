@@ -120,14 +120,20 @@ groups:
       #   的 route 按 alertname 分组 ⇒ 不同 alertname 永远不会并进同一封邮件。让 critical 那条
       #   先(或同时) firing,Alertmanager 的 inhibit 才有机会把 warning 这条压掉;若本条先响,
       #   抑制关系尚未成立,同一次故障就会寄出两封。
+      # ⚠ 2026-10-26 收窄(机主令「厂商 key 我想配自然会配,别总说,也别报警」):
+      #   厂商鉴权类失败(401/403)在 llm_error_status 里单列为 status='auth',
+      #   本规则的分子**排除 auth** ⇒ 厂商账户状态(哪家的 key 此刻不被认)不再寄到人通道;
+      #   失败次数仍在指标与调用日志里可查,不算被删判据。
+      #   分母仍是全部尝试(ihui_llm_calls_total 无 auth 这一维)⇒ 鉴权类尝试会稀释占比,
+      #   真实基础设施故障要同时满足"≥10 次 ∧ 占比 >20%"才会响 —— 宁可不响,不可误喊。
       - alert: LlmProviderErrorBurst
         expr: |
           (
             (
-              sum(increase(ihui_llm_provider_errors_total{job="ai-service"}[15m])) >= 10
+              sum(increase(ihui_llm_provider_errors_total{job="ai-service",status!="auth"}[15m])) >= 10
               and on()
               (
-                sum(increase(ihui_llm_provider_errors_total{job="ai-service"}[15m]))
+                sum(increase(ihui_llm_provider_errors_total{job="ai-service",status!="auth"}[15m]))
                 /
                 sum(increase(ihui_llm_calls_total{job="ai-service"}[15m]))
               ) > 0.2
@@ -139,7 +145,7 @@ groups:
           severity: warning
         annotations:
           summary: 'LLM provider 错误突增'
-          description: '15 分钟内 LLM provider 错误 {{ $value }} 次且占比超 20%(含 402 配额/超限/5xx)。请核查 LLM 网关日志与配额;单次零星 4xx 不再触发本规则。'
+          description: '15 分钟内 LLM provider 非鉴权类错误 {{ $value }} 次且占比超 20%(厂商鉴权类 401/403 已单列,不计入本规则、不进到人通道;2026-10-26 起)。下一步:查 ai-service 日志里 [LLMGateway] 的真实报错分类——超时/连接=网络不通,5xx=厂商故障,404=端点不存在需改 base_url;单次零星 4xx 不再触发本规则。'
 
       # LLM token/费用突增: 15 分钟 token 量超阈值(费用代理指标)。
       # `ihui_llm_tokens_total` 同为按需采样计数; 阈值 100k 需按真实基线校准(当前尚无采样, 规则已就位待指标出现即生效)。
@@ -202,7 +208,7 @@ groups:
           severity: warning
         annotations:
           summary: 'PostgreSQL 查询延迟超 5s'
-          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state=''active'' ORDER BY 2 DESC'
+          description: "最长活跃查询已运行 {{ $value | humanizeDuration }}(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state='active' ORDER BY 2 DESC"
       - alert: PgVerySlowQuery
         expr: max(pg_query_max_duration_seconds) > 30
         for: 1m
