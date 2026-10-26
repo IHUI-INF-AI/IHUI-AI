@@ -266,21 +266,71 @@ test('D4 真仓历史 blob 阳性对照:6bf657df86^ 那枚影子 .js 必须被�
   assert.equal(after.targeted, 0, '那个 .js 已不在库 ⇒ 连"字面命中"都不该成立(有向存在性判据)')
 })
 
-test('D4 端到端计数行:落点必须 > 0 而判红候选 = 0(把"没扫到"与"扫过且干净"分开)', () => {
-  const { out } = runGuard()
-  // 三数各钉一格,少一格都不行:
-  //  · 落点(scanned)= 采集口径 —— 0 ⇒ 门自己 exit 2,这一行压根不会被读到;
-  //  · 指向入库 .js(targeted) —— **允许 > 0**(本仓 8 个合规 .js 被字面命中),它不是判据;
-  //  · 判红候选 —— HEAD 上必须为 0。
+/**
+ * D4 端到端计数行断言的**唯一实现**(本文件两条测试与变异自证共用它,§0.6 单一真相源,
+ * 任何外部器物要复核这一格必须 import 本函数,不得另抄一份判据)。
+ *
+ * 〔2026-10-26 改判:数值下限有牙 → 形态有牙〕旧版把 `targeted > 0(本仓应有 8 个)` 钉成
+ * 硬下限,而门体两处注释(auditShadowJs 的 `scanned` 段、d4ChannelBlind 的"方向刻意是只认
+ * 采集口径、不认 targeted"段)都明写 **targeted === 0 是本仓常态而不是尺子失效** —— 那 8 枚
+ * 属"只报数"维度,不是判红维度。日后这些合规 `.js` 被合法移除,旧断言就会假红(测试红 = 挡
+ * 全仓落地,§12e 同型只是从门面挪到了测试面)。故现在钉的是:
+ *  · 计数行**存在**且四字段齐备、逐枚为数字串(形态牙);
+ *  · 落点(scanned)> 0 —— 这是真判据(采集口径,门体据此 exit 2,与成对夹具档互证);
+ *  · 判红候选 = 0 —— HEAD 面零容忍(真判据);
+ *  · "D4 未判定"不得常态挂着(真判据);
+ *  · targeted / deadPairs 的**数值**只报数(>= 0 且形态正确即可,不再挂下限)。
+ */
+function assertD4CountLine(out) {
   const m =
     /D4 影子 \.js:扫到的 '\.js' 说明符落点 (\d+) 个 \| 其中指向入库 \.js (\d+) 个 \| 判红候选 (\d+) 个 \| 只报数\(同名对无人指向\)(\d+) 个/.exec(
       out,
     )
   assert.ok(m, `报告缺 D4 计数行 ⇒ 这一维没上岗:${out.slice(0, 400)}`)
+  // 形态牙:四个字段逐枚必须是数字串(行在而字段缺/形态坏,同样算这一维没上岗)
+  for (const [i, name] of [
+    [1, '落点(scanned)'],
+    [2, '指向入库 .js(targeted,只报数)'],
+    [3, '判红候选'],
+    [4, '只报数同名对'],
+  ])
+    assert.match(String(m[i] ?? ''), /^\d+$/, `D4 计数行字段「${name}」缺失或非数字形态 ⇒ 计数行形状坏了`)
   assert.ok(Number(m[1]) > 0, `落点 0 个 ⇒ 采集通道没吃到真数据,那句"候选 0"不作数:${out}`)
-  assert.ok(Number(m[2]) > 0, `指向入库 .js 为 0 ⇒ 这一维在真仓上没碰到任何真实面(本仓应有 8 个):${out}`)
+  assert.ok(Number(m[2]) >= 0, `targeted 必须是可解析的非负数(数值本身只报数,不是判据)`)
+  assert.ok(Number(m[4]) >= 0, `只报数同名对必须是可解析的非负数(数值本身只报数,不是判据)`)
   assert.equal(Number(m[3]), 0, `HEAD 上出现 ${m[3]} 个影子 .js ⇒ 有人把 .ts 的实现写进了同名 .js`)
   assert.ok(!/D4 未判定/.test(out), `D4 未判定必须清零后只在个别场合点名,不能常态挂着:${out}`)
+  return { scanned: Number(m[1]), targeted: Number(m[2]), candidates: Number(m[3]), reportOnly: Number(m[4]) }
+}
+
+test('D4 端到端计数行:行在且四字段齐 / 落点 > 0 / 判红候选 = 0;targeted 数值只报数(2026-10-26 改判)', () => {
+  const { out } = runGuard()
+  // 现读报数留痕(只报数,不挂下限):targeted 变 0 不得让本测试翻红 —— 由下面变异②机器自证
+  console.log('   D4 计数行现读:', JSON.stringify(assertD4CountLine(out)))
+})
+
+/**
+ * 变异自证(2026-10-26,改判的承重证明):断言的牙必须在"形态"上,不能靠一次性读数。
+ * 两型都在**同一条缓存的门体输出**上做字符串变异,零额外全量扫描:
+ *  变异①:把 D4 计数行整条摘掉 ⇒ assertD4CountLine 必须抛(测试翻红 —— "缺行=没上岗"有牙);
+ *  变异②:把 targeted 读数改成 0 ⇒ 必须不抛(它不是判据 —— 旧的 `> 0` 下限正是这里会假红的牙)。
+ * 反向防呆:夹具本身若摘不到行/改不到数(正则烂了)也当场判失败,变异自证不许是空转。
+ */
+test('D4 计数行断言变异自证:摘行必翻红 / targeted 归零必不红(形态有牙,数值只报数)', () => {
+  const { out } = runGuard()
+  assert.doesNotThrow(() => assertD4CountLine(out), '基准面:真报告必须先过(否则下面两型都是空转)')
+  // 变异①:整行摘除
+  const noLine = out.replace(/^.*D4 影子 \.js:.*\n?/m, '')
+  assert.ok(noLine.length < out.length, '夹具失效:没摘到 D4 计数行(行形态漂了,先修正则再谈判据)')
+  assert.throws(() => assertD4CountLine(noLine), /缺 D4 计数行/, '摘掉计数行必须翻红 ⇒ 这一维"没上岗"要有牙')
+  // 变异②:targeted 读数 → 0(其余字段原样;用回调拼接,避免 '$10$2' 被解析成组 10 的字面量)
+  const zeroed = out.replace(/(其中指向入库 \.js )\d+( 个)/, (_, a, b) => `${a}0${b}`)
+  assert.match(zeroed, /其中指向入库 \.js 0 个/, '夹具失效:没把 targeted 改成 0')
+  assert.doesNotThrow(() => assertD4CountLine(zeroed), 'targeted=0 是门体明写的常态 ⇒ 断言不得为此翻红(假红=挡全仓落地)')
+  // 变异③:只报数字段(deadPairs)读数 → 0 同样不得翻红 —— "只报数"一族整族无数值下限
+  const zeroDead = zeroed.replace(/(只报数\(同名对无人指向\))\d+( 个)/, (_, a, b) => `${a}0${b}`)
+  assert.match(zeroDead, /只报数\(同名对无人指向\)0 个/, '夹具失效:没把只报数改成 0')
+  assert.doesNotThrow(() => assertD4CountLine(zeroDead), '只报数维不得挂数值下限')
 })
 
 /**
