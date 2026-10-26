@@ -150,11 +150,20 @@ class SelfEvaluator:
         final_resp = str(task_result.get("final_response", ""))[:500]
         total_ms = float(task_result.get("total_duration_ms", 0) or 0)
         tokens = int(task_result.get("total_tokens_used", 0) or 0)
-        iterations = task_result.get("iterations", []) or []
+        raw_iterations = task_result.get("iterations", []) or []
+        # 部分调用方(agent_loop / langgraph_service / mcp_server)把 iterations
+        # 记成"轮数整数"而非逐轮明细 —— 直接 len(int) 会抛 TypeError,而后台自评
+        # 是 fire-and-forget 任务,异常只落到 "never retrieved" 警告、评分静默丢失。
+        if isinstance(raw_iterations, (list, tuple)):
+            iterations: list[Any] = list(raw_iterations)
+            iteration_count = len(iterations)
+        else:
+            iterations = []
+            iteration_count = raw_iterations if isinstance(raw_iterations, int) else 0
 
         lines.append(
             f"success={success} stop_reason={stop_reason} "
-            f"duration_ms={total_ms:.0f} tokens={tokens} iterations={len(iterations)}"
+            f"duration_ms={total_ms:.0f} tokens={tokens} iterations={iteration_count}"
         )
         if final_resp:
             lines.append(f"final_response: {final_resp}")

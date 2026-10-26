@@ -2152,6 +2152,7 @@
       "autoSkipApproval": "자동 승인(심사 생략)",
       "bypassSkipApproval": "심사 건너뜀",
       "mcpRequiresApproval": "MCP 주석이 승인 필요",
+      "taintEgressGate": "세션 오염: 외부 통신 승인 필요",
       "policyRequiresApproval": "정책상 승인 필요",
       "policySkipsApproval": "정책상 승인 생략",
       "guardianReviewSuggested": "검토가 더 안전한 경로를 제안",
