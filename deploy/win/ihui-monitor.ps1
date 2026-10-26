@@ -652,15 +652,16 @@ function Send-Alert($msg, $detail = '') {
     $isig = Get-MonitorAlertIdentity -Item $item
     if ($diag.Contains('[部署重启中-预期现象]')) {
       # 只暂存"部署会让它短暂成立"的项;磁盘/备份/Cloudflared/监控栈端口照常走发信路径。
-      # 用一个不影响外层源码锁结构的内层判断,保持 T14 的 `if ($diag.Contains(...)) {` 原文。
+      # 用一个不影响外层源码锁结构的内层判断,保持 T14 的 if ($diag.Contains(...)) { 原文。
       if (Test-DeployAffectedAlertItem $isig) {
         $g = Test-AlertSuppressionGrace -Sig $isig -RunId $deployRunId -StateFile $MonitorStateFile -GraceMinutes $deployGraceMin
         if ($g.Suppressed) {
-          $itemNotes += "[$itemTxt] 预期窗口抑制: $($g.Note)"
+          $itemNotes += "[" + $itemTxt + "] 预期窗口抑制: " + $g.Note
           continue
         }
-        $graceNotes += "[$itemTxt] $($g.Note)"
+        $graceNotes += "[" + $itemTxt + "] " + $g.Note
       }
+
     }
     $due = Test-AlertDue -Sig $isig
     if ($due.Due) {
