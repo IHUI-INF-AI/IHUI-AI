@@ -14,9 +14,15 @@ const h = vi.hoisted(() => ({
   recordVisitLog: vi.fn((_payload: { url: string; sessionId: string }) =>
     Promise.resolve({ success: true, data: {} }),
   ),
+  recordAnalyticsEvents: vi.fn((_events: unknown[]) =>
+    Promise.resolve({ success: true, data: {} }),
+  ),
 }))
 
-vi.mock('@ihui/api-client', () => ({ recordVisitLog: h.recordVisitLog }))
+vi.mock('@ihui/api-client', () => ({
+  recordVisitLog: h.recordVisitLog,
+  recordAnalyticsEvents: h.recordAnalyticsEvents,
+}))
 
 import {
   __resetScreenViewThrottleForTest,
@@ -31,6 +37,8 @@ const lastPayload = () => h.recordVisitLog.mock.calls.at(-1)![0]
 beforeEach(() => {
   h.recordVisitLog.mockClear()
   h.recordVisitLog.mockImplementation(() => Promise.resolve({ success: true, data: {} }))
+  h.recordAnalyticsEvents.mockClear()
+  h.recordAnalyticsEvents.mockImplementation(() => Promise.resolve({ success: true, data: {} }))
   __resetScreenViewThrottleForTest()
 })
 
@@ -74,6 +82,28 @@ describe('reportScreenView', () => {
     expect(reportScreenView('Home', 20_000)).toBe(true)
     expect(reportScreenView('Home', 20_000 + SCREEN_VIEW_DEBOUNCE_MS)).toBe(true)
     expect(callCount()).toBe(2)
+  })
+
+  it('换屏即结算上一屏停留:page_time 带上一屏路径与整秒数', () => {
+    reportScreenView('Home', 0)
+    reportScreenView('Chat', 12_000)
+    expect(h.recordAnalyticsEvents).toHaveBeenCalledTimes(1)
+    const events = h.recordAnalyticsEvents.mock.calls[0]![0] as Array<{
+      name: string
+      label?: string
+      value?: number
+    }>
+    expect(events[0]!.name).toBe('page_time')
+    expect(events[0]!.label).toBe('/rn/Home')
+    expect(events[0]!.value).toBe(12)
+  })
+
+  it('亚秒级换屏不报停留(导航抖动不得进停留均值),同屏反复进入也不重复报', () => {
+    reportScreenView('Home', 0)
+    reportScreenView('Chat', 400)
+    reportScreenView('Chat', 40_000)
+    reportScreenView('Chat', 60_000)
+    expect(h.recordAnalyticsEvents).not.toHaveBeenCalled()
   })
 
   it('空名不上报', () => {
