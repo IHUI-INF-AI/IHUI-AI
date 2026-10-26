@@ -106,6 +106,16 @@ import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
 import { StatusScreen } from '../screens/StatusScreen'
+import { AgreementByTypeScreen } from '../screens/AgreementByTypeScreen'
+import { LegalDocScreen } from '../screens/LegalDocScreen'
+import { SupportScreen } from '../screens/SupportScreen'
+import { TagsScreen } from '../screens/TagsScreen'
+import { TagDetailScreen } from '../screens/TagDetailScreen'
+import { TeamsScreen } from '../screens/TeamsScreen'
+import { TeamWorkspaceScreen } from '../screens/TeamWorkspaceScreen'
+import { WorkflowListScreen } from '../screens/WorkflowListScreen'
+import { WorkflowDetailScreen } from '../screens/WorkflowDetailScreen'
+import { WorkflowInstanceDetailScreen } from '../screens/WorkflowInstanceDetailScreen'
 import { HelpScreen } from '../screens/HelpScreen'
 import { FeedbackScreen } from '../screens/FeedbackScreen'
 import { CustomerServiceScreen } from '../screens/CustomerServiceScreen'
@@ -469,6 +479,17 @@ export type RootStackParamList = {
   Agreement: undefined
   About: undefined
   Status: undefined
+  AgreementByType: { type: string }
+  LegalDoc:
+    { doc?: 'terms' | 'usagePolicy' | 'supportedRegions' | 'serviceSpecificTerms' } | undefined
+  Support: undefined
+  Tags: undefined
+  TagDetail: { slug: string }
+  Teams: undefined
+  TeamWorkspace: { teamId: string }
+  WorkflowList: undefined
+  WorkflowDetail: { id: string }
+  WorkflowInstanceDetail: { id: string }
   Help: undefined
   Feedback: undefined
   CustomerService: undefined
@@ -945,6 +966,19 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />
             <RootStack.Screen name="Status" component={StatusScreen} />
+            <RootStack.Screen name="AgreementByType" component={AgreementByTypeScreen} />
+            <RootStack.Screen name="LegalDoc" component={LegalDocScreen} />
+            <RootStack.Screen name="Support" component={SupportScreen} />
+            <RootStack.Screen name="Tags" component={TagsScreen} />
+            <RootStack.Screen name="TagDetail" component={TagDetailScreen} />
+            <RootStack.Screen name="Teams" component={TeamsScreen} />
+            <RootStack.Screen name="TeamWorkspace" component={TeamWorkspaceScreen} />
+            <RootStack.Screen name="WorkflowList" component={WorkflowListScreen} />
+            <RootStack.Screen name="WorkflowDetail" component={WorkflowDetailScreen} />
+            <RootStack.Screen
+              name="WorkflowInstanceDetail"
+              component={WorkflowInstanceDetailScreen}
+            />
             <RootStack.Screen name="Help" component={HelpScreen} />
             <RootStack.Screen name="Feedback" component={FeedbackScreen} />
             <RootStack.Screen name="CustomerService" component={CustomerServiceScreen} />
