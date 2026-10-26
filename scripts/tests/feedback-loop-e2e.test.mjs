@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url'
 import { after, test } from 'node:test'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { identityOf } from '../lib/incident-cluster.mjs'
 import { PLAN_PATH, runRound as feedbackRound } from '../deploy-feedback.mjs'
 import { SOURCE_FILES, signalIdentityOf } from '../feedback-loop-status.mjs'
 
@@ -219,9 +220,18 @@ test('③ 失败链:feedback-loop-status 阶段审计(perceived/ticketed=yes,sum
   writeFileSync(join(stateDir, SOURCE_FILES.dispatch), '', 'utf8')
 
   const rows = readRows(signals)
-  const identities = rows.map((row) => signalIdentityOf(row).identity)
+  // 前置夹具只认生产端口径:intake 落盘的每一行都走它用的同一个 identityOf。
+  const identities = rows.map((row) => identityOf(row))
   assert.ok(identities.every(Boolean), '信号身份不得未判定')
   assert.equal(new Set(identities).size, 2, '两条失败信号身份应互异')
+  // 跨器一致性回归钉子:intake 侧身份必须与阶段审计器自算出的身份逐字相等。
+  for (const row of rows) {
+    assert.equal(
+      signalIdentityOf(row).identity,
+      identityOf(row),
+      `status 与 intake 身份分家:${signalIdentityOf(row).identity} ≠ ${identityOf(row)}`,
+    )
+  }
 
   writeLines(
     join(stateDir, SOURCE_FILES.feedback),
