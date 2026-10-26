@@ -150,7 +150,7 @@ function FaceBadge({ scope }: { scope: 'public' | 'admin' | 'auth' }) {
   if (scope === 'public') return null
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${FACE_BADGE_CLASS[scope]}`}
+      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${FACE_BADGE_CLASS[scope]}`}
     >
       {FACE_LABEL[scope]}
     </span>
