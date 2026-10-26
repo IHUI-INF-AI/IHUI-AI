@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi, getToken, normalizeUrlPublic } from '../client.js'
+import { fetchApi, fetchWithAuthRefresh, normalizeUrlPublic } from '../client.js'
 
 /** 智能体角色配置 */
 export interface CrewAgentRole {
@@ -211,12 +211,15 @@ export async function getCrewRun(
  * 浏览器端可直接用 EventSource,但本端点需鉴权,建议用 fetch + ReadableStream。
  */
 export async function streamCrewRun(id: string): Promise<ReadableStream<Uint8Array> | null> {
-  // fetchApi 包装器对非 JSON 响应不友好,这里直接用原生 fetch + 共享 token
-  const token = getToken()
+  // fetchApi 包装器对非 JSON 响应不友好,这里走原生 fetch(见下方出口注释)
   const url = normalizeUrlPublic(`/crew/runs/${id}/stream`)
-  const resp = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  // 2026-10-26:启动这条腿此前只带一次 Bearer、401 直接抛"SSE 启动失败"。
+  // 现走包内唯一裸 fetch 出口:GET 不带 body ⇒ 重放安全;重放的是"再启动一次订阅",
+  // 不是把已建立的流重发,不存在重复消费。续期失败 ⇒ 未消费的 401 响应原样交回,
+  // 抛错文案与状态码一字未改。
+  // (本腿没有走 runResumableSSEStream,它只回 ReadableStream 给调用方自己解析,
+  //  因此没有 refreshAuth 钩子可用 —— 有钩子的那条腿是 streamChat,已经接过了。)
+  const resp = await fetchWithAuthRefresh(url)
   if (!resp.ok) throw new Error(`SSE 启动失败: ${resp.status}`)
   return resp.body
 }

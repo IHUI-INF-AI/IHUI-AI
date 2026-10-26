@@ -30,6 +30,8 @@
  *   调用方对 '' 显示"未识别到语音内容",对非空 stub 文字可原样透出
  */
 
+import { fetchWithAuthRefresh } from '../client.js'
+
 /** STT 响应结构(与 ai-service STTResponse 对齐)。 */
 export interface VoiceSttResponse {
   /** 转写文本(stub=true 时为占位提示) */
@@ -116,7 +118,12 @@ export async function voiceSttFromBlob(params: VoiceSttParams): Promise<string> 
   formData.append('file', audioBlob, filename)
   if (language) formData.append('language', language)
 
-  const res = await fetch(
+  // 2026-10-26:走包内唯一裸 fetch 出口。
+  // 凭据优先级不变:**调用方显式传的 token 第一**,它没传才回落到 provider 的当前 token
+  // (原实现里"没传 token"= 一个 Authorization 都不带,access 过期后只能 401)。
+  // FormData 是条目记录、不是一次性流 ⇒ 可重放;续期失败 ⇒ 原 401 响应交回,
+  // 抛出的仍是 VoiceSttHttpError(401)。
+  const res = await fetchWithAuthRefresh(
     // 支持完整 URL(如 http://localhost:8803)或同源代理路径(如 /api/voice/stt)
     aiServiceUrl.endsWith('/api/voice/stt')
       ? aiServiceUrl
@@ -125,8 +132,8 @@ export async function voiceSttFromBlob(params: VoiceSttParams): Promise<string> 
       method: 'POST',
       body: formData,
       // ai-service 启用 JWT 鉴权(2026-08 起),必须携带 Bearer token
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     },
+    { accessToken: token ?? undefined },
   )
 
   if (!res.ok) {
@@ -181,12 +188,17 @@ export async function voiceSttFromReactNative(
   fd.append('file', { uri: fileUri, type: mimeType, name: filename } as never)
   if (language) fd.append('language', language)
 
-  const res = await fetch(`${aiServiceUrl}/api/voice/stt`, {
-    method: 'POST',
-    body: fd,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    signal: AbortSignal.timeout(30_000),
-  })
+  // 2026-10-26:与 voiceSttFromBlob 同一条出口(凭据优先级/重放语义逐字同规)。
+  // signal 是同一个 AbortSignal.timeout ⇒ 两次尝试共用这一条 30s 预算(不翻倍)。
+  const res = await fetchWithAuthRefresh(
+    `${aiServiceUrl}/api/voice/stt`,
+    {
+      method: 'POST',
+      body: fd,
+      signal: AbortSignal.timeout(30_000),
+    },
+    { accessToken: token ?? undefined },
+  )
 
   if (!res.ok) {
     let body = ''

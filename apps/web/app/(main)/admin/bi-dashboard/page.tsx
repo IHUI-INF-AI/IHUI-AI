@@ -59,7 +59,12 @@ interface BiDashboardData {
   /** 近 7 日各端使用量(分桶判据与监控大屏同源:前缀表单源) */
   platforms: Array<{ platform: 'web' | 'rn' | 'mp' | 'ex'; pv: number; uv: number }>
   /** 近 7 日页面停留 TOP(page_time 均值;样本数 = 停留事件条数) */
-  stays: Array<{ page: string; avgSec: number; samples: number }>
+  stays: Array<{
+    page: string
+    platform: 'web' | 'rn' | 'mp' | 'ex'
+    avgSec: number
+    samples: number
+  }>
   /**
    * 近 7 日访客构成(新访客 / 回访)。身份 = coalesce(session_id, ip),与 UV 同一把尺,
    * 所以 newUv + returningUv 恒等于窗口内 UV。null = 后端那条腿取不到(渲染"暂无法统计")。
@@ -402,7 +407,12 @@ export default function BiDashboardPage() {
                 const pct = Math.round((s.avgSec / max) * 100)
                 return (
                   <div key={s.page} className="flex items-center gap-2">
-                    <span className="w-[46%] truncate text-xs text-foreground">{s.page}</span>
+                    <span
+                      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${PLATFORM_BADGE_CLASS[s.platform]}`}
+                    >
+                      {PLATFORM_LABEL[s.platform]}
+                    </span>
+                    <span className="w-[34%] truncate text-xs text-foreground">{s.page}</span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
                       <div
                         className="h-full rounded-sm bg-primary/60"

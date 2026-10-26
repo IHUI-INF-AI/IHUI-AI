@@ -25,6 +25,7 @@ import { useTranslations } from 'next-intl'
 import { MessageSquare, Sparkles } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/auth'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useMounted } from '@/hooks/use-mounted'
 import { useChatStore } from '@/stores/chat'
@@ -54,21 +55,25 @@ function ChatConversationSync() {
 
 export default function ChatPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  // 「还没查完」≠「确认未登录」(2026-10-26,与 admin/layout 同口径):冷启动 auth bootstrap
+  // 是异步的(httpOnly refresh cookie 静默续期),ready=false 这一格绝不弹登录框、
+  // 绝不渲染「请登录」引导,否则凭据有效的用户被画成被踢出 → 手动重登。
+  const { ready } = useAuthBootstrap()
   const open = useLoginDialogStore((s) => s.open)
   const mounted = useMounted()
   const t = useTranslations('chat')
   const tc = useTranslations('common')
 
-  // 未登录:挂载后自动打开 LoginDialog
+  // 未登录(终态):挂载且 auth 校验完成后才自动打开 LoginDialog
   // 守卫:openGuard 在 @/lib/login-dialog-trigger 中已实现(全局去重,防并发弹窗)
   React.useEffect(() => {
-    if (mounted && !isAuthenticated) {
+    if (mounted && ready && !isAuthenticated) {
       open('login')
     }
-  }, [mounted, isAuthenticated, open])
+  }, [mounted, ready, isAuthenticated, open])
 
-  // hydration-safe:挂载前显示极简占位,避免 SSR/CSR 不一致
-  if (!mounted) {
+  // hydration/校验-safe:未挂载或未就绪显示极简占位,避免 SSR/CSR 不一致与"假未登录"闪念
+  if (!mounted || !ready) {
     return <div className="px-4 flex h-[calc(100vh-58px)] items-center justify-center" />
   }
 

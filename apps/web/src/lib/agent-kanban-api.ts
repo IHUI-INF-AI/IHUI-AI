@@ -99,7 +99,18 @@ export async function deleteKanbanTask(taskId: string): Promise<void> {
   if (!res.success) throw new Error(res.error)
 }
 
-/** SSE 流地址(带 token query 参数,因 EventSource 不支持自定义 header) */
+/**
+ * SSE 流地址(带 token query 参数,因 EventSource 不支持自定义 header)。
+ *
+ * 契约:**每次建连/重连都要现调本函数取地址**,调用方不得把返回值 memo 固化
+ * (2026-10-26 实测缺陷:KanbanBoard 曾用 `useMemo(..., [])` 冻结首轮那枚 access token,
+ * 15 分钟后每一次重连带的都是同一枚过期凭据 ⇒ 永久失败且零报错)。
+ * 传给 `useAgentSSE(getKanbanStreamUrl)`(供给器形态)即为正确用法。
+ *
+ * 为什么不换成 `POST /ws/ticket` 的短期票:`verifyWsToken` 明确拒绝把 access token
+ * 复用为 WS token,反之 type='ws' 的票也只被 `wsAuth`(Socket/WS 握手)接受 ——
+ * REST/SSE 侧 `authenticate()` 只认 Bearer 头或 auth_token cookie,换票会把这条腿判成 401。
+ */
 export function getKanbanStreamUrl(): string {
   const token = useAuthStore.getState().token
   const params = token ? `?token=${encodeURIComponent(token)}` : ''

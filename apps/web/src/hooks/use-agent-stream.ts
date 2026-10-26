@@ -23,6 +23,7 @@ import {
   describeFaultTier,
   shouldSkipResumeLadder,
 } from '@ihui/shared/chat'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
 import { getStreamBaseUrl, getToken } from '@/lib/api'
 
 /**
@@ -212,6 +213,15 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
   const lastInputRef = useRef<Record<string, unknown> | undefined>(undefined)
   const reconnectAttemptRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /**
+   * 本轮 flight 已因 401 放弃重连(access token 续期失败,或续期后仍被拒)。
+   *
+   * 立因:401 此前落进"瞬态"桶 ⇒ 指数退避把**同一枚过期 token** 再发 5 次,
+   * 每次都 401,用户看到的是永久失败而账面全是绿的。续期这条腿归零后重连不再有任何
+   * 意义(凭据问题不由退避解决),必须停在"多要一次定向说明"那一侧:报错并停。
+   * 每次**用户主动** start(非重连)复位。
+   */
+  const authGaveUpRef = useRef(false)
   // G-102:本 flight(一次 start→收尾)的失败分档账。内容故障一旦出现过,
   // 终态就归内容故障(后续瞬态不得洗白)—— 判据与洗白锁都在 shared 的
   // stream-fault-tier,这里只持有账本并按它的结论放行/拒发重连。
@@ -269,6 +279,9 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       // 沿用才能让"先内容后瞬态 ⇒ 终态归内容"的洗白锁在跨重连时依然成立)。
       if (reconnectAttemptRef.current === 0) {
         faultTrackerRef.current = createStreamFaultTracker()
+        // 用户主动起的新 flight 才清"鉴权已放弃"牌;重连那轮必须留着(它正是上一轮鉴权
+        // 失败派生的,清了等于把同一枚过期 token 再放行 5 轮)。
+        authGaveUpRef.current = false
       }
       lastInputRef.current = input
       // 主动 start 时重置重连计数(但重连内部调用 start 时不重置)
@@ -379,6 +392,8 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         if (!autoReconnectRef.current) return
         if (userStoppedRef.current) return
         if (receivedDoneRef.current) return
+        // 鉴权放弃牌:401 且续期这条腿已经走过一次仍失败 ⇒ 退避重连修不了凭据,停。
+        if (authGaveUpRef.current) return
         // G-102:内容故障闸门。本次 flight 出现过确定性内容故障 ⇒ 拒发重连:
         // resume 阶梯只会把同一批被拒的 delta 再投一遍,必然再被拒(上游
         // conversationProjectionStore.ts:785-790 同型结论)。纯瞬态/无失败 ⇒ 放行。
@@ -407,15 +422,34 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         try {
           // 2026-09-09 0-5-f 豁免确认:SSE 流式直接消费 res.body reader 逐行解析,
           // fetchApi 是一次性 JSON 解析通道,不适用流式;自实现指数退避重连。
-          const headers: Record<string, string> = { Accept: 'text/event-stream' }
-          const token = getToken()
-          if (token) headers['Authorization'] = `Bearer ${token}`
-          const res = await fetch(url, {
-            method: 'GET',
-            signal: controller.signal,
-            headers,
-            credentials: 'include',
-          })
+          // 凭据在**每次建连时现取**(不是闭包里那一枚):续期成功后的那一次重放拿到的
+          // 就是新 token,退避重连那轮也各自重读一次,不再把旧凭据发第二遍。
+          const openOnce = (): Promise<Response> => {
+            const headers: Record<string, string> = { Accept: 'text/event-stream' }
+            const token = getToken()
+            if (token) headers['Authorization'] = `Bearer ${token}`
+            return fetch(url, {
+              method: 'GET',
+              signal: controller.signal,
+              headers,
+              credentials: 'include',
+            })
+          }
+
+          let res = await openOnce()
+
+          // 401 = access token 过期(15 分钟)。本轮 HTTP 尝试至多续期一次:
+          // 成功 ⇒ 就地重放一次(GET 尚未消费任何帧,重放不产生重复内容);
+          // 失败或重放仍 401 ⇒ 亮鉴权放弃牌(下面的 tryReconnect 自行让路),
+          // 错误仍由既有 `HTTP <status>` 出口报给用户,不静默、也不落登出标记
+          // (会话终结是 bootstrap 的职权,这里只负责"换新凭据再试一次")。
+          if (res.status === 401) {
+            const fresh = await refreshAccessTokenOnce()
+            if (fresh && !controller.signal.aborted) {
+              res = await openOnce()
+            }
+            if (res.status === 401) authGaveUpRef.current = true
+          }
 
           if (!res.ok || !res.body) {
             const msg = `HTTP ${res.status}`

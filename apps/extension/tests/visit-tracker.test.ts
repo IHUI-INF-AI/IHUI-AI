@@ -21,11 +21,13 @@ const h = vi.hoisted(() => ({
   initApiBaseUrl: vi.fn(async () => {
     // 模拟真实 storage 读取是异步的:晚于 report 调用点
   }),
+  recordAnalyticsEvents: vi.fn(async (_events: unknown[]) => ({ success: true, data: {} })),
 }))
 
 vi.mock('@ihui/api-client', () => ({
   recordVisitLog: (payload: Record<string, unknown>) => h.recordVisitLog(payload),
   setBaseUrl: (url: string) => h.setBaseUrl(url),
+  recordAnalyticsEvents: (events: unknown[]) => h.recordAnalyticsEvents(events),
 }))
 
 vi.mock('../lib/config', () => ({
@@ -44,6 +46,7 @@ beforeEach(() => {
   h.recordVisitLog.mockClear()
   h.setBaseUrl.mockClear()
   h.initApiBaseUrl.mockClear()
+  h.recordAnalyticsEvents.mockClear()
   __resetExtensionViewTrackingForTest()
 })
 
@@ -96,6 +99,37 @@ describe('reportExtensionView', () => {
     expect(reportExtensionView('', 30_000)).toBe(false)
     await Promise.resolve()
     expect(h.recordVisitLog).not.toHaveBeenCalled()
+  })
+
+  it('换视图结算上一页停留:page_time 带上一页路径与整秒数', async () => {
+    reportExtensionView('sidepanel/chat', 60_000)
+    reportExtensionView('sidepanel/me', 85_000)
+    await vi.waitFor(() => expect(h.recordAnalyticsEvents).toHaveBeenCalledTimes(1))
+    const events = h.recordAnalyticsEvents.mock.calls[0]![0] as Array<{
+      name: string
+      label?: string
+      value?: number
+    }>
+    expect(events[0]!.name).toBe('page_time')
+    expect(events[0]!.label).toBe('/ex/sidepanel/chat')
+    expect(events[0]!.value).toBe(25)
+  })
+
+  it('同视图重复进入不结算停留;距上次换视图仍按进入时刻算一次;不足一秒不报', async () => {
+    reportExtensionView('sidepanel/chat', 100_000)
+    reportExtensionView('sidepanel/chat', 120_000)
+    expect(h.recordAnalyticsEvents).not.toHaveBeenCalled()
+    // enterAt 记的是"进入 chat 的时刻"(100_000),换走时结算 20 秒,而不是 0.3 秒
+    reportExtensionView('sidepanel/me', 120_300)
+    await vi.waitFor(() => expect(h.recordAnalyticsEvents).toHaveBeenCalledTimes(1))
+    const events = h.recordAnalyticsEvents.mock.calls[0]![0] as Array<{ value?: number }>
+    expect(events[0]!.value).toBe(20)
+    // 快速划过(四舍五入后不足 1 秒)不产第二条
+    __resetExtensionViewTrackingForTest()
+    reportExtensionView('sidepanel/me', 200_000)
+    reportExtensionView('sidepanel/chat', 200_300)
+    await Promise.resolve()
+    expect(h.recordAnalyticsEvents).toHaveBeenCalledTimes(1)
   })
 
   it('storage 读失败仍然上报(用运行时默认地址),不静默丢整端', async () => {

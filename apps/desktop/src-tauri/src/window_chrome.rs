@@ -36,6 +36,15 @@
 //! - 失败只 warn,不阻塞启动;原生按钮缺失时网页侧隐藏 CSS 不注入,
 //!   HTML 按钮继续兜底。
 //!
+//! ## 几何:唯一真相源是网页设计要求,不是 Win11 系统标题栏(2026-10-26 订正)
+//! 原生自绘只是"把网页那套按钮提前画出来",**不是另立一套皮肤**。故尺寸/圆角/
+//! 边距必须与 `GlobalTopBar` 的 `[data-window-controls]` 逐项等值:
+//! 单钮 36×36、圆角 6px、钮间 2px、容器 112、右避让 8、顶偏移 8。
+//! 旧口径抄的是系统标题栏(46×32 直角、右避让 7、最大化贴角 0),用户实拍
+//! "长方形没圆角 + 关闭按钮贴右边"就是两套规格打架的表现。改动这几项数值时,
+//! 必须同步核对 `apps/web/src/components/layout/GlobalTopBar.tsx` 与
+//! `apps/web/e2e/desktop-window-controls-dim.spec.ts`。
+//!
 //! ## 平台
 //! 仅 Windows。macOS 走 `titleBarStyle:Overlay`(tauri.conf 已配),Linux 无此 API。
 
@@ -108,31 +117,55 @@ const GLYPH_RESTORE: u16 = 0xE923; // 双叠方框
 #[cfg(target_os = "windows")]
 const GLYPH_CLOSE: u16 = 0xE8BB;
 
-// 100% DPI 基准几何(逻辑像素),与 Win11 系统标题栏一致:
-// 单按钮 46×32,右侧圆角避让 7;字形 10px(实测 Chrome/系统标题栏
-// 字形外接盒 10×10 @96DPI)。
+// 100% DPI 基准几何(逻辑像素)。
+//
+// 【2026-10-26 订正:对齐项目设计要求,不再照抄 Win11 系统标题栏】
+// 设计要求的唯一真相源 = 网页侧 `apps/web/src/components/layout/GlobalTopBar.tsx`
+// 的 `[data-window-controls]`(窗口按钮容器的原始设计,守门 e2e
+// `apps/web/e2e/desktop-window-controls-dim.spec.ts` 也按它断言):
+//   · 单钮 36×36 正方形  ← `TOPBAR_BTN_BASE` h-full + `TOPBAR_BTN_W9` w-9,内层行 h-9=36
+//   · 圆角 6px          ← `rounded-md`
+//   · 钮间 2px          ← 容器 `gap-0.5`
+//   · 容器总宽 112      ← 36×3 + 2×2(与 HTML 实测 getBoundingClientRect 112 逐字一致)
+//   · 右避让 8px        ← 顶栏外层 `pr-2`,**最大化时同样 8px**(CSS padding 不随最大化消失)
+//   · 顶偏移 8px        ← 顶栏外层 `pt-2`,按钮行占 y=8..44
+// 此前这套原生参数写的是 Win11 系统标题栏口径(46×32 长方形、直角、右避让 7、
+// 最大化归 0 贴角),与网页自绘设计要求是两套规格,用户实拍"长方形没圆角 + 关闭
+// 按钮贴右边"即由此而来。原生自绘保留(用户要求按钮随壳即时出现、不等网页渲染),
+// 但几何/圆角/边距必须与 HTML 设计规格逐项等值。
 #[cfg(target_os = "windows")]
-const BASE_BTN_W: i32 = 46;
+const BASE_BTN_W: i32 = 36;
 #[cfg(target_os = "windows")]
-const BASE_BTN_H: i32 = 32;
+const BASE_BTN_H: i32 = 36;
+/// 钮间距(HTML `gap-0.5` = 2px)。该列在绘制上留空,但保持 1/255 alpha 以可命中。
 #[cfg(target_os = "windows")]
-const BASE_EDGE_GAP: i32 = 7;
+const BASE_BTN_GAP: i32 = 2;
+/// 容器右缘到窗口右缘(HTML 顶栏 `pr-2` = 8px)。**最大化态不归零**:
+/// 网页侧 pr-2 在最大化时依然生效,归零会让原生按钮比 HTML 多贴 8px(用户可见跳变)。
+#[cfg(target_os = "windows")]
+const BASE_EDGE_GAP: i32 = 8;
+/// 圆角半径(HTML `rounded-md` = 6px)。
+#[cfg(target_os = "windows")]
+const BASE_RADIUS: i32 = 6;
 #[cfg(target_os = "windows")]
 const BASE_GLYPH_PX: i32 = 10;
-// 顶部 Y 偏移(逻辑像素),把 32px 原生按钮的字形对回原 HTML 按钮的图标中心:
-// apps/web GlobalTopBar 外层桌面端 pt-2=8,内层 h-9=36 的按钮行在 y=8..44;
-// 14px 图标中心 y=26(实测物理像素与搜索/Plus/网格图标 cy=139.5 一致)。
-// Segoe Fluent Icons 字形在 32px 盒内光学中心约在 14.5(非盒中心 16),故
-// 偏移 = 26 - 14.5 ≈ 12(实测:偏移 10 时 max/close 字形 cy=137.5,差 2)。
-// 最大化时窗口 rect.top=-8(8px 边框溢出),CSS 原点随之在 -8,同一公式仍成立。
+// 顶部 Y 偏移(逻辑像素)= 顶栏外层 pt-2。36px 盒顶落在 y=8,与 HTML 按钮盒
+// (y=8..44)严格重合,故偏移直接取 8(旧口径 32px 盒要用 12 才能把字形顶到 y=26,
+// 那是"盒矮一截、靠偏移凑中心"的补丁,盒高对齐后不再需要)。
 #[cfg(target_os = "windows")]
-const BASE_TOP_OFFSET: i32 = 12;
+const BASE_TOP_OFFSET: i32 = 8;
+// 字形光学居中微调(逻辑像素):Segoe Fluent Icons 的 ink 在行盒内偏上约 1.5px
+// (旧实现实测 32px 盒内 ink 中心 14.5 而非 16)。36px 盒内行盒中心 18 ⇒ ink 16.5,
+// 下移 1.5 后 ink 中心 = 18 ⇒ 绝对 y = 8 + 18 = 26,与 HTML 14px 图标中心 26 重合。
+#[cfg(target_os = "windows")]
+const BASE_GLYPH_NUDGE_Y: f32 = 1.5;
 
 #[cfg(target_os = "windows")]
 struct OverlayState {
     owner: HWND,
     btn_w: i32,
     btn_h: i32,
+    gap: i32,
     total_w: i32,
     hover: i32,
     pressed: i32,
@@ -150,9 +183,12 @@ const WM_THEME_CHANGED: u32 = 0x8001;
 struct Metrics {
     btn_w: i32,
     btn_h: i32,
+    gap: i32,
+    radius: i32,
     total_w: i32,
     edge_gap: i32,
     glyph_px: i32,
+    glyph_nudge_y: f32,
     top_offset: i32,
 }
 
@@ -166,15 +202,23 @@ fn metrics_for(owner: HWND) -> Metrics {
     let dpi = unsafe { GetDpiForWindow(owner) }.max(96);
     let btn_w = scale(BASE_BTN_W, dpi);
     let btn_h = scale(BASE_BTN_H, dpi);
+    let gap = scale(BASE_BTN_GAP, dpi);
     let edge_gap = scale(BASE_EDGE_GAP, dpi);
     let glyph_px = scale(BASE_GLYPH_PX, dpi);
     let top_offset = scale(BASE_TOP_OFFSET, dpi);
+    // 圆角至少 1px,且不得超过半边长(极端 DPI 下避免算出退化圆角)。
+    let radius = scale(BASE_RADIUS, dpi).clamp(1, btn_h.min(btn_w) / 2);
+    let glyph_nudge_y = BASE_GLYPH_NUDGE_Y * (dpi as f32 / 96.0);
     Metrics {
         btn_w,
         btn_h,
-        total_w: btn_w * 3,
+        gap,
+        radius,
+        // 与 HTML 容器逐字等宽:36×3 + 2×2 = 112 @96DPI。
+        total_w: btn_w * 3 + gap * 2,
         edge_gap,
         glyph_px,
+        glyph_nudge_y,
         top_offset,
     }
 }
@@ -460,6 +504,7 @@ unsafe fn create_overlay(owner: HWND, dark_bg: bool) -> Option<HWND> {
         owner,
         btn_w: m.btn_w,
         btn_h: m.btn_h,
+        gap: m.gap,
         total_w: m.total_w,
         hover: -1,
         pressed: -1,
@@ -482,6 +527,7 @@ unsafe fn sync_overlay(overlay: HWND, resize: bool) {
     let m = metrics_for(owner);
     state.btn_w = m.btn_w;
     state.btn_h = m.btn_h;
+    state.gap = m.gap;
     state.total_w = m.total_w;
 
     let mut rect = RECT::default();
@@ -490,13 +536,11 @@ unsafe fn sync_overlay(overlay: HWND, resize: bool) {
         return;
     }
     let maximized = IsZoomed(owner).as_bool();
-    let gap = if maximized { 0 } else { m.edge_gap };
-    let x = rect.right - m.total_w - gap;
-    // 对回原 HTML 按钮行,见 BASE_TOP_OFFSET。注意最大化时窗口 rect 会向上溢出一个
-    // resize 边框(实测 rect.top=-8 物理 @96DPI),但 webview 可见内容从显示器顶边
-    // rcMonitor.top 起算(实测最大化时 HTML 图标 cy=26,即可见顶边 +26);还原态
-    // rect.top 即可见顶边。故 y 基准取"可见顶边",最大化用显示器顶边。
-    let visible_top = if maximized {
+    // 可见顶边/右缘:最大化时窗口 rect 会向四周溢出一个 resize 边框(实测
+    // rect.top=-8、rect.right=显示器右缘+8 物理 @96DPI),但 webview 可见内容
+    // 从显示器工作区外沿起算。故最大化时取 rcMonitor 的 top/right 作基准,
+    // 还原态直接用 rect —— 否则右缘会多算 8px,按钮组整体被推出屏幕右沿。
+    let (visible_top, visible_right) = if maximized {
         let mut mi = MONITORINFO {
             cbSize: std::mem::size_of::<MONITORINFO>() as u32,
             rcMonitor: RECT::default(),
@@ -505,13 +549,16 @@ unsafe fn sync_overlay(overlay: HWND, resize: bool) {
         };
         let hmon = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
         if GetMonitorInfoW(hmon, &mut mi).as_bool() {
-            mi.rcMonitor.top
+            (mi.rcMonitor.top, mi.rcMonitor.right)
         } else {
-            rect.top
+            (rect.top, rect.right)
         }
     } else {
-        rect.top
+        (rect.top, rect.right)
     };
+    // 右避让恒定 = 顶栏 pr-2(8px)。**最大化不归零**:网页侧 padding 在最大化态
+    // 依然存在,归零会让原生按钮比 HTML 多贴 8px(用户实拍"关闭按钮贴右侧程序的边")。
+    let x = visible_right - m.total_w - m.edge_gap;
     let y = visible_top + m.top_offset;
 
     let flags = SWP_NOACTIVATE | SWP_NOZORDER;
@@ -631,15 +678,17 @@ unsafe fn render_overlay(overlay: HWND) {
             let maximized = IsZoomed(owner).as_bool();
 
             for i in 0..3i32 {
-                let x = i * m.btn_w;
+                // 钮间留 gap(HTML gap-0.5 = 2px),三钮 + 两道缝 = 容器总宽 112。
+                let x = i * (m.btn_w + m.gap);
                 let is_close = i == 2;
                 let hovered = state.hover == i;
                 let pressed = state.pressed == i;
 
                 // 背景态。注意:UpdateLayeredWindow 下全透明像素会被
                 // WindowFromPoint 视为穿透(点击落到下方网页),所以每个按钮
-                // 矩形必须至少有 1/255 alpha 保证整块 46×32 都可命中;
-                // 1/255 肉眼不可见。
+                // 矩形必须至少有 1/255 alpha 保证整块 36×36 都可命中;
+                // 1/255 肉眼不可见。四角超出圆角的部分由下方圆角遮罩统一压到
+                // 1/255(既保住命中,又不画出直角)。
                 let bg = if is_close && (hovered || pressed) {
                     if pressed {
                         0xDC_C42B1C_u32
@@ -659,7 +708,7 @@ unsafe fn render_overlay(overlay: HWND) {
                         0x0D_000000_u32
                     }
                 } else {
-                    // 1/255 填充:肉眼不可见,但保证整块 46×32 可命中。
+                    // 1/255 填充:肉眼不可见,但保证整块 36×36 可命中。
                     if state.dark_bg {
                         0x01_FF_FF_FF_u32
                     } else {
@@ -705,9 +754,11 @@ unsafe fn render_overlay(overlay: HWND) {
                 {
                     let mut buf = [glyph, 0];
                     let text = PCWSTR(buf.as_mut_ptr());
+                    // Y 加光学微调:让 Segoe Fluent Icons 的 ink 中心落在 36px 盒
+                    // 的几何中心(y=18),与 HTML 14px 图标中心逐像素重合。
                     let rect = RectF {
                         X: x as f32,
-                        Y: 0.0,
+                        Y: m.glyph_nudge_y,
                         Width: m.btn_w as f32,
                         Height: m.btn_h as f32,
                     };
@@ -735,20 +786,69 @@ unsafe fn render_overlay(overlay: HWND) {
         let _ = GdipDeleteFontFamily(family);
     }
 
-    // 预乘 alpha(实测 2026-10-18):GDI+ 对外部 scan0 的 PARGB 位图**不做**
-    // 预乘(低 alpha 白色仍写 RGB=255,A=1);UpdateLayeredWindow(AC_SRC_ALPHA)
-    // 按预乘值合成,会把它当不透明白块。黑色因为预乘后仍是 0 掩盖了这个问题。
-    // 提交前统一把 BGRA 逐像素预乘,保证深浅两套配色都正确。
+    // 圆角遮罩 + 预乘 alpha。
+    //
+    // ① 圆角(2026-10-26 立):设计要求 `rounded-md` = 6px 圆角,GDI+ 这里用的是
+    //    `GdipFillRectangle`(直角),故在提交前对像素做圆角裁剪 —— 四角落在
+    //    「圆心到像素距离 > r」的像素按覆盖率衰减 alpha(0.5px 外扩做抗锯齿),
+    //    视觉与 CSS border-radius 一致。遮罩按**每个按钮自己的盒子**算,不动钮间
+    //    缝隙(gap 属于相邻按钮的命中区,不参与圆角)。
+    // ② 命中兜底:任何像素 alpha 至少 1/255。UpdateLayeredWindow 下 alpha=0 会被
+    //    WindowFromPoint 判为穿透,四角/缝隙若归零,点击会漏到下方网页。
+    // ③ 预乘(实测 2026-10-18):GDI+ 对外部 scan0 的 PARGB 位图**不做**预乘
+    //    (低 alpha 白色仍写 RGB=255,A=1);UpdateLayeredWindow(AC_SRC_ALPHA)
+    //    按预乘值合成,会把它当不透明白块。黑色因为预乘后仍是 0 掩盖了这个问题。
+    //    提交前统一把 BGRA 逐像素预乘,保证深浅两套配色都正确。
     {
         let total = (w * h) as usize;
         let base = bits as *mut u8;
         let premul = |c: u8, a: u8| ((c as u32 * a as u32 + 127) / 255) as u8;
+        let bw = m.btn_w;
+        let bh = m.btn_h;
+        let stride = m.btn_w + m.gap;
+        let r = m.radius as f32;
+        // 盒内右/下边缘的最后一个像素坐标(圆角圆心所在)
+        let max_x = (bw - 1) as f32 - r;
+        let max_y = (bh - 1) as f32 - r;
         for n in 0..total {
+            let px = (n as i32) % w;
+            let py = (n as i32) / w;
             let p = base.add(n * 4);
-            let a = *p.add(3);
+            let mut a = *p.add(3) as f32;
+
+            // 定位到所属按钮的局部坐标(缝隙列归左边按钮,与 hit_test 同口径)。
+            let idx = (px / stride).min(2);
+            let lx = (px - idx * stride) as f32;
+            if lx < bw as f32 && py < bh {
+                let fx = lx;
+                let fy = py as f32;
+                let dx = if fx < r {
+                    r - fx
+                } else if fx > max_x {
+                    fx - max_x
+                } else {
+                    0.0
+                };
+                let dy = if fy < r {
+                    r - fy
+                } else if fy > max_y {
+                    fy - max_y
+                } else {
+                    0.0
+                };
+                if dx > 0.0 && dy > 0.0 {
+                    // 覆盖率:圆心距离在 r 处为 1,r+0.5 处为 0。
+                    let dist = (dx * dx + dy * dy).sqrt();
+                    let cov = (r + 0.5 - dist).clamp(0.0, 1.0);
+                    a *= cov;
+                }
+            }
+
+            let a: u8 = if a < 1.0 { 1 } else { a.round() as u8 };
             *p = premul(*p, a);
             *p.add(1) = premul(*p.add(1), a);
             *p.add(2) = premul(*p.add(2), a);
+            *p.add(3) = a;
         }
     }
 
@@ -823,7 +923,9 @@ unsafe fn hit_test(state: &OverlayState, x: i32, y: i32) -> i32 {
     if y < 0 || y >= state.btn_h || x < 0 || x >= state.total_w {
         return -1;
     }
-    let i = x / state.btn_w;
+    // 三钮之间有 gap(2px)。缝隙列归左边按钮:整块 caption 区都可点,
+    // 与 Windows 原生标题栏"整条可点"的语义一致(点缝不会漏到网页)。
+    let i = x / (state.btn_w + state.gap);
     if (0..3).contains(&i) {
         i
     } else {
@@ -987,15 +1089,17 @@ pub fn refresh_on_maximize_toggle<W>(_window: &W) {}
 ///
 /// 在 on_page_load Finished 时 eval 执行(仅当 Rust 侧确认原生按钮已启用)。
 /// 用 `visibility:hidden` 而非 `display:none`:容器保留占位,标签栏/搜索框不会
-/// 滑到原生按钮下方被盖住。min-width 138px = Win11 三按钮总宽(46×3 逻辑像素,
-/// 原生宿主按 DPI 缩放,CSS 侧恒为 138);pointer-events:none 双保险。
+/// 滑到原生按钮下方被盖住。min-width = **112px**,与 HTML 容器自身设计宽度逐字
+/// 等值(36×3 + gap-0.5×2 = 112,2026-10-26 订正:此前写 138 是旧原生 46×3 口径,
+/// 比 HTML 容器宽 26px,会在顶栏右侧凭空多留一截空白);原生宿主按 DPI 缩放,
+/// CSS 侧恒为 112。pointer-events:none 双保险。
 /// 每次导航都重注(幂等,靠 __ihuiHtmlControlsHidden 去重)。
 pub const HIDE_HTML_WINDOW_CONTROLS_JS: &str = r#"
 (function(){
   try {
     if (window.__ihuiHtmlControlsHidden) return;
     var s = document.createElement('style');
-    s.textContent = '[data-window-controls]{visibility:hidden !important;min-width:138px !important;pointer-events:none !important;}';
+    s.textContent = '[data-window-controls]{visibility:hidden !important;min-width:112px !important;pointer-events:none !important;}';
     document.head.appendChild(s);
     window.__ihuiHtmlControlsHidden = true;
   } catch(e) {}

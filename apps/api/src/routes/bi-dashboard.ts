@@ -223,6 +223,7 @@ async function buildBiPayload() {
     /** 近 7 日页面停留 TOP(page_time 事件均值;样本数 = 该页停留事件条数) */
     stays: stayRows.map((r) => ({
       page: r.page,
+      platform: classifyVisitPlatform(r.page),
       avgSec: Number(r.avgSec ?? 0),
       samples: Number(r.samples ?? 0),
     })),
