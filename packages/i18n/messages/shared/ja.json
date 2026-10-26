@@ -2152,6 +2152,7 @@
       "autoSkipApproval": "自動承認(承認スキップ)",
       "bypassSkipApproval": "承認をスキップ",
       "mcpRequiresApproval": "MCP 注釈が承認を要求",
+      "taintEgressGate": "セッション汚染:外部通信に承認が必要",
       "policyRequiresApproval": "ポリシーが承認を要求",
       "policySkipsApproval": "ポリシーにより承認省略",
       "guardianReviewSuggested": "レビューがより安全な手順を提案",
