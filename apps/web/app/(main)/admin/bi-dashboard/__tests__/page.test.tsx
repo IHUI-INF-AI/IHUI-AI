@@ -56,6 +56,15 @@ const payload = {
     { platform: 'mp', pv: 5, uv: 2 },
     { platform: 'ex', pv: 2, uv: 1 },
   ],
+  faces: [
+    { scope: 'public', pv: 120, uv: 44 },
+    { scope: 'admin', pv: 12, uv: 3 },
+    { scope: 'auth', pv: 3, uv: 3 },
+  ],
+  cities: [
+    { city: '杭州市', pv: 96, uv: 30 },
+    { city: '(未知)', pv: 39, uv: 20 },
+  ],
   browsers: [
     { family: 'chrome', pv: 42, uv: 30 },
     { family: 'wechat', pv: 1, uv: 1 },
@@ -126,6 +135,18 @@ describe('BI 数据大屏', () => {
     expect(rnRows.length).toBeGreaterThanOrEqual(2)
     for (const row of rnRows) expect(row).toContain('移动端')
     expect(within(container).getByText('浏览器插件').parentElement?.textContent).toContain('2 / 1')
+  })
+
+  it('访问面占比与地域 TOP 按接口字段渲染(后台/登录页被用了多少次看得见)', async () => {
+    const { container } = renderPage()
+    await waitFor(() => expect(within(container).getAllByText('杭州市').length).toBeGreaterThan(0))
+    const rows = within(container)
+      .getAllByText('后台')
+      .map((el) => el.parentElement?.textContent ?? '')
+    expect(rows.some((r) => r.includes('12'))).toBe(true)
+    expect(within(container).getAllByText('登录页').length).toBeGreaterThan(0)
+    // 反查不到地域时诚实写 (未知),不编一个城市名
+    expect(within(container).getAllByText('(未知)').length).toBeGreaterThan(0)
   })
 
   it('访客构成与浏览器分布按接口字段渲染(回访率取整、UA 家族有中文档)', async () => {
