@@ -474,7 +474,10 @@ class TestRefreshSingle:
             mock_conn.return_value = mock_conn_obj
             result = await d.refresh_single(1, "wechat")
             assert result.success is False
-            assert "加载凭证失败" in result.message
+            # 2026-10-26:文案从"加载凭证失败: InvalidTag"改成带动作的
+            # "凭证无法解密(...),需重新扫码录入该账号" —— 这句话会原样进告警,
+            # 用户需要看到"该做什么",而不是一个异常类名。
+            assert "需重新扫码录入" in result.message
 
 
 # =============================================================================
