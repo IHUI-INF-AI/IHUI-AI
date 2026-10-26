@@ -327,7 +327,7 @@ export function WorkflowDetailScreen({
                     accessibilityRole="button"
                     onPress={() => setEditTrigger(opt)}
                   >
-                    <Text style={[styles.chipText, editTrigger === opt && styles.chipTextActive]}>
+                    <Text style={[styles.chipText, editTrigger === opt && styles.chipActiveText]}>
                       {t(TRIGGER_KEYS[opt])}
                     </Text>
                   </TouchableOpacity>
@@ -756,7 +756,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: 12, color: tk.text.secondary },
-    chipTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
+    chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     tabRow: { flexDirection: 'row', gap: 8 },
     tab: {
       paddingHorizontal: 14,

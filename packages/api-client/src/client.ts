@@ -2518,6 +2518,32 @@ export interface ToolApprovalEvent {
   networkTarget?: ToolApprovalNetworkTarget
   /** 已被静态策略判死的目标清单("还没有规则覆盖它"不算被拦) */
   blockedNetworkTargets?: ToolApprovalNetworkTarget[]
+  /**
+   * D-07(2026-10-26):断线失效留痕标记。带本字段的事件**不是**新的审批请求 ——
+   * 消费方不得弹窗/入待决队列,只给用户一条"该审批已随连接中断失效"的可读提示;
+   * 该 approvalId 已无活等待者,回传决策只会被服务端具名拒绝。
+   */
+  expired?: true
+  /** D-07:失效原因(stream_closed / cancelled / timeout),只读展示用 */
+  expiredReason?: string
+}
+
+/**
+ * D-07(2026-10-26):失效留痕标记的投影(与 D159 的 env 投影同族、同一条纪律)。
+ *
+ * `expired === true` 才带键 —— "正常审批帧"和"失效留痕帧"在消费形态上必须可区分;
+ * 缺省不折叠成 false(消费方按 truthy 判,造默认值会把"没丢"写成"丢了")。
+ * 原因只在服务端给了非空 string 时透传,不猜、不补默认档。
+ */
+export function projectToolApprovalExpiredFact(json: {
+  expired?: unknown
+  expired_reason?: unknown
+}): Pick<ToolApprovalEvent, 'expired' | 'expiredReason'> {
+  if (json.expired !== true) return {}
+  return {
+    expired: true,
+    ...(typeof json.expired_reason === 'string' ? { expiredReason: json.expired_reason } : {}),
+  }
 }
 
 /** D159 执行环境(camelCase 消费形态;内层键与线格式逐字同,故只是投影) */
@@ -4107,6 +4133,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           // D159:执行环境/网络目标事实必须随帧递出 —— 解析层不递 ⇒ 弹窗那一块
           // 结构上永远是"字段缺席=整块不渲染",组件测得再全也到不了端。
           ...projectToolApprovalEnvFacts(json),
+          // D-07(2026-10-26):失效留痕帧原样递出 expired 标记,消费方据此分流成提示
+          // 而不是弹窗。与 replay 同理 —— 解析层不递,端上就永远看不到"丢过什么"。
+          ...projectToolApprovalExpiredFact(json),
         })
       } catch {
         /* 非 JSON 或非 tool-approval 事件忽略 */

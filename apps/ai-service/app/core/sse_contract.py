@@ -220,6 +220,20 @@ SSE_CAPABILITIES_FRAME: str = "done"
 # 都不同:replay 是"乘特定形态的可选标记",只登记常量)。
 SSE_APPROVAL_REPLAY_PAYLOAD_KEY: str = "replay"
 
+# ── D-07(2026-10-26,承 D131 / D1047 / D690)──────────────────────────────────
+#
+# 断线失效的审批**端上可见**标记。等待方随连接被回收时摘掉的待决条目不会重发弹窗
+# (无活等待者 = 僵尸 run,判据见 llm.py::_approval_replay_frames 头注③),但重连流
+# 要把它投影成一帧**同形** tool-approval,带 `expired: true` + `expired_reason`,
+# 让端上按 expired 分流:不弹窗、只给一条可读提示(web/RN/小程序同批消费)。
+# 与 replay 同理**不进 payload_fields**:那份清单被 `_sse()` 当必填查,而本键
+# 只出现在失效留痕帧上。TS 侧对应在
+# packages/shared/src/sse/contract.ts::SSE_APPROVAL_EXPIRED_PAYLOAD_KEY,
+# 两侧同值由 apps/ai-service/tests/test_d07_approval_expired_visibility.py 钉住。
+SSE_APPROVAL_EXPIRED_PAYLOAD_KEY: str = "expired"
+#: 失效原因封闭集见 app/core/approval_replay.py::APPROVAL_LOSS_REASONS。
+SSE_APPROVAL_EXPIRED_REASON_PAYLOAD_KEY: str = "expired_reason"
+
 
 @dataclass(frozen=True)
 class SSEEventContract:
