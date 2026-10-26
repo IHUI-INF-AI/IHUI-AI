@@ -533,7 +533,7 @@ class ModelAvailabilityService:
         # 非健康的把死因一并打出(余额端点判不出来时,推理 ping 的 4xx 原文就在 error 里)。
         # 字符纪律:只打 ASCII + GBK 覆盖字符,避免 Windows cp936 日志静默丢整行。
         if down or degraded:
-            def _fmt(code: str, h) -> str:
+            def _fmt(code: str, h: ProviderHealth) -> str:
                 err = (getattr(h, "error", "") or "").replace("\n", " ")
                 err = err[:120]
                 et = getattr(getattr(h, "error_type", None), "value", "") or ""

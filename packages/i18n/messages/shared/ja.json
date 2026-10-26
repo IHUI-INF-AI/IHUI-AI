@@ -503,6 +503,7 @@
     "agreementNoticeTitle": "先に規約に同意してください"
   },
   "chat": {
+    "approvalExpiredNotice": "接続が切断されたため {toolName} の承認は失効しました。この操作は実行されていません。必要なら再度リクエストしてください。",
     "mcp": {
       "state": {
         "connecting": "{server} に接続中…",
