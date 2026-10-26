@@ -775,6 +775,7 @@ export const __test__ = {
   releaseSeatClaims,
   flattenSeatClaims,
   flattenSeatTickets,
+  splitConcretePaths,
   briefOf,
   seatLedgerPath,
   SEAT_LEDGER_REL,
