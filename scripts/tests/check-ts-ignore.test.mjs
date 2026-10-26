@@ -5,16 +5,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync, copyFileSync, readFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
+// 2026-10-26 G-54:门体 git 派生收口到 face-reader 后,夹具必须连相对 import 闭包一起拷
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 // §22c:判据真相只在门体一份 —— 测试导入生产判据,不再用注释复述正则/白名单
 import { __test__ as gate } from '../check-ts-ignore.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const SOURCE_SCRIPT = join(__dirname, '..', 'check-ts-ignore.mjs')
 
 // ─── 辅助:创建临时 git 仓库 + 复制脚本 ─────────────────────
 // check-ts-ignore.mjs 用 import.meta.dirname 推导 ROOT(path.resolve(dirname, '..')),
@@ -31,9 +32,11 @@ function createTempRepo() {
   execSync('git config user.name test', { cwd: dir, stdio: 'ignore' })
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'ignore' })
-  // 复制脚本到 <dir>/scripts/check-ts-ignore.mjs(不改源脚本)
+  // 复制脚本及其相对 import 闭包到 <dir>/scripts/(不改源脚本)
   mkdirSync(join(dir, 'scripts'), { recursive: true })
-  copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-ts-ignore.mjs'))
+  copyScriptWithClosure(join(__dirname, '..'), 'check-ts-ignore.mjs', join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+  ])
   // 初始 commit(git diff --cached 需要 HEAD 作为参照)
   writeFileSync(join(dir, 'README.md'), '# init\n')
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
