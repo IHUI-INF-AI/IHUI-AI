@@ -1142,7 +1142,7 @@ async function main() {
   console.log(
     `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失路径或回退内容 ${nLost} / 已被后手补回 ${nRepaired}(照常点名,不计丢失) / 引用位移 ${moveAudit.judged} 次(判红 ${badMoves.length})${
       moveAudit.swept === undefined ? '' : ` / 位移游标扫描 ${moveAudit.swept} 对(游标 ${String(moveAudit.cursor || '').slice(0, 11)})`
-    }`,
+    } / RESULT lost=${nLost} merges=${rows.length} moved=${badMoves.length}`,
   )
   for (const r of [...rows, ...moveRows]) for (const l of r.repaired || []) console.log(`  ↻ ${l.path}  —— ${r.rev.slice(0, 11)} 曾吞掉,后手已在 ${l.restoredAt} 面补回`)
   for (const r of [...rows, ...moveRows]) if (r.atRefUndetermined) console.log(`  ⚠️ ${r.rev.slice(0, 11)}: ${r.atRefUndetermined}`)

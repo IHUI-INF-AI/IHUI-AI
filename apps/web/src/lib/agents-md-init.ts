@@ -5,7 +5,9 @@
 /**
  * D07 残余②:web 空态「一键生成 AGENTS.md」数据面(2026-10-24)。
  *
- * 链路:POST /mcp/tools/call → ai-service init_agents_md 工具。
+ * 链路:POST /api/tools/init-agents-md → ai-service `init_agents_md` 工具
+ * (2026-10-25 改走专属 HTTP 端点,与 /api/tools/* 同族;端点内部仍复用
+ * MCP 的 workspace 白名单守卫,web 不直连 MCP 协议)。
  * **只取草稿**:本模块从不传 output_path,后端因此不会落盘;写盘由调用方在
  * 二次显式确认后走浏览器 File System Access 保存链(workspace-file-save.ts)。
  *
@@ -14,7 +16,6 @@
 
 import { fetchAiServiceJson } from '@ihui/api-client'
 
-export const INIT_AGENTS_MD_TOOL = 'init_agents_md'
 export const AGENTS_MD_FILENAME = 'AGENTS.md'
 
 export interface AgentsMdDraftResult {
@@ -23,7 +24,7 @@ export interface AgentsMdDraftResult {
   error?: string
 }
 
-interface ToolCallEnvelope {
+interface InitAgentsMdEnvelope {
   ok?: boolean
   draft?: string
   error?: string
@@ -45,13 +46,10 @@ export async function generateAgentsMdDraft(
 ): Promise<AgentsMdDraftResult> {
   const root = workspaceRoot.trim()
   if (!root) return { ok: false, error: copy.emptyWorkspace }
-  const res = await fetchAiServiceJson<ToolCallEnvelope>('/mcp/tools/call', {
+  const res = await fetchAiServiceJson<InitAgentsMdEnvelope>('/api/tools/init-agents-md', {
     method: 'POST',
-    body: JSON.stringify({
-      name: INIT_AGENTS_MD_TOOL,
-      // 刻意不带 output_path:草稿只回传,写盘入口只有一个(人工二次确认)。
-      arguments: { workspace_root: root },
-    }),
+    // 刻意不带 output_path:草稿只回传,写盘入口只有一个(人工二次确认)。
+    body: JSON.stringify({ workspace_root: root }),
   })
   if (!res.success) return { ok: false, error: res.error ?? copy.requestFailed }
   const data = res.data

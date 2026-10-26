@@ -25,15 +25,17 @@ import IORedis, { type Redis } from 'ioredis'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { config } from '../config/index.js'
-import { allocateChatSyncRev } from '../db/chat-sync-rev-queries.js'
+import { allocateChatSyncRev, readChatSyncRev } from '../db/chat-sync-rev-queries.js'
 // 票71 第二切片:帧载荷的构造器唯一源在 @ihui/types(与契约事件逐字同源,不另造形状)。
 // 2026-10-25(票 B02 余面①)同批把 role / kind 两个封闭集也改取契约类型 —— 本文件此前
 // 各写了一份同值字面量联合,是契约 §2 封闭集的第二个真相源(§0.6)。
 import {
   messageCreatedEvent,
   messagePatchedEvent,
+  messageTerminalEvent,
   type ChatPatchKind,
   type ChatSyncRole,
+  type ChatSyncTerminalReason,
 } from '@ihui/types'
 
 declare module 'fastify' {
@@ -55,6 +57,13 @@ declare module 'fastify' {
      */
     broadcastChatMessagePatched(
       input: ChatMessagePatchedBroadcastInput,
+    ): Promise<ChatSyncBroadcastResult>
+    /**
+     * 票 B02 生产端终态切片(2026-10-26):消息/流终态的房间广播。
+     * rev 只读账本链头(终态不新增修订号),因此是异步的。
+     */
+    broadcastChatMessageTerminal(
+      input: ChatMessageTerminalBroadcastInput,
     ): Promise<ChatSyncBroadcastResult>
   }
 }
@@ -169,6 +178,18 @@ export interface ChatMessagePatchedBroadcastInput {
   content?: string
   textDelta?: string
   reasoning?: string
+  at?: Date | string
+}
+
+/**
+ * `message:terminal` 的发射入参;rev 从账本链头只读(终态不新增修订号)。
+ * reason 必须由生产面按流的真实收尾推导,不得回落成"看起来正常"的 stop。
+ */
+export interface ChatMessageTerminalBroadcastInput {
+  conversationId: string
+  memberUserIds: readonly string[]
+  messageId: string
+  reason: ChatSyncTerminalReason
   at?: Date | string
 }
 
@@ -512,7 +533,10 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
   const fanoutToConversationRoom = (input: {
     conversationId: string
     memberUserIds: readonly string[]
-    evt: ReturnType<typeof messageCreatedEvent> | ReturnType<typeof messagePatchedEvent>
+    evt:
+      | ReturnType<typeof messageCreatedEvent>
+      | ReturnType<typeof messagePatchedEvent>
+      | ReturnType<typeof messageTerminalEvent>
   }): ChatSyncBroadcastResult => {
     const roomOfFrame = input.evt.data.room.conversationId
     if (roomOfFrame !== input.conversationId) {
@@ -576,6 +600,27 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
         kind,
         ...(kind === 'delta' ? { textDelta: input.textDelta } : { content: input.content }),
         ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+        ...(input.at !== undefined ? { at: input.at } : {}),
+      })
+      return fanoutToConversationRoom({
+        conversationId: input.conversationId,
+        memberUserIds: input.memberUserIds,
+        evt,
+      })
+    },
+  )
+
+  server.decorate(
+    'broadcastChatMessageTerminal',
+    async (input: ChatMessageTerminalBroadcastInput) => {
+      // 终态是状态位:rev = 终结时已到达的链头(只读),不 allocate —— 分配会凭空推进 rev,
+      // 端侧按「rev > lastAppliedRev ⇒ gap」拒收,恰是终态最需要送达的一格。
+      const rev = await readChatSyncRev(input.messageId)
+      const evt = messageTerminalEvent({
+        conversationId: input.conversationId,
+        messageId: input.messageId,
+        rev,
+        reason: input.reason,
         ...(input.at !== undefined ? { at: input.at } : {}),
       })
       return fanoutToConversationRoom({

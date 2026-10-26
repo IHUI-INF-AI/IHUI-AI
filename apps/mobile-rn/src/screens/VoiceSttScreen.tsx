@@ -21,7 +21,7 @@ import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { useI18n } from '../i18n'
-import { getToken } from '../lib/token'
+import { runWithFreshToken } from '../lib/token'
 import { WEB_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -108,15 +108,24 @@ export default function VoiceSttScreen() {
     setError('')
     setResult(null)
     try {
-      const text = await voiceSttFromReactNative(file.uri, {
-        // 空串 = 省略 language,交给服务端自动检测(helper 的缺省是 'zh')
-        language: language === 'auto' ? '' : language,
-        aiServiceUrl: WEB_BASE_URL,
-        token: getToken() ?? undefined,
-      })
+      // 2026-10-26:这一腿原先直传 `getToken()` 快照(15 分钟就过期,且不经 api-client 出口
+      // ⇒ 没人替它续期)。改走 lib/token 的新鲜度兜带:上传前到点先续期,被否定则续期后
+      // **只重试一次**;仍失败就落下面那条可见错误(不静默、不清凭据)。
+      const text = await runWithFreshToken((token) =>
+        voiceSttFromReactNative(file.uri, {
+          // 空串 = 省略 language,交给服务端自动检测(helper 的缺省是 'zh')
+          language: language === 'auto' ? '' : language,
+          aiServiceUrl: WEB_BASE_URL,
+          token: token ?? undefined,
+        }),
+      )
       setResult(text)
-    } catch {
+    } catch (e) {
       setError(t('voiceStt.transcribeFailed'))
+      console.warn(
+        `[rn-voice] VoiceSttScreen transcribe failed: ` +
+          `${e instanceof Error ? e.message : 'unknown error'}`,
+      )
     } finally {
       setBusy(false)
     }

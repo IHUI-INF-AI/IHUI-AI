@@ -14,8 +14,8 @@ import LineIcon from '@/components/LineIcon'
  * 对齐点(API / 结构 / 视觉):
  * - `CollapsibleProps` 同 RN:`open?: boolean`(默认 false)、`children?: ReactNode`、`className?: string`。
  * - 容器 `View className="w-full ${className}"`,与 RN `<View className={cn('w-full', className)}>` 一致。
- * - 箭头用矢量 `LineIcon name="chevron-right"`(32rpx = text-base 16px,`var(--color-foreground)` 同色)——
- *   文本字形当图标随字号移位(GA1 禁),RN 孪生 `packages/ui-native/src/collapsible.tsx` 仍用文本字形(端外既有)。
+ * - 箭头走矢量共享源 `LineIcon name="chevron-right"`(size 32rpx = 原 `text-base` 档,color 原 `text-foreground`)
+ *   —— 守门 102 禁止把字形字符当图标;与 RN 侧 `<Text>` 字形不同,光学尺寸/颜色与改动前同档。
  * - 展开态箭头旋转 90deg(对应 RN Animated 的 `rotate: 0deg → 90deg`)。
  *
  * 与 RN 的分歧(刻意、gate-clean 优先):

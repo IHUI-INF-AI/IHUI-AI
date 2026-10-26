@@ -13,6 +13,7 @@
  * 5. ExchangeToken 请求体形状(ClientID 常量等)
  * 另:创建请求体形状、401 自愈错误、非流式本地聚合。
  */
+import { generateKeyPairSync, verify } from 'node:crypto'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   classifyUpstreamFailure,
@@ -23,18 +24,26 @@ import {
 } from '../src/services/upstream-adapters/trae-adapter.js'
 import {
   buildExchangeTokenBody,
+  buildExchangeTokenProofBody,
+  buildTraeProofCanonical,
   buildQueryBlocks,
   buildTraeCustomModel,
   createStopSequenceFilter,
   deriveBizSessionId,
+  deviceMaterialFromSecrets,
   extractTokenPayload,
   extractUsage,
   flattenQuery,
   normalizeEventName,
+  p1363ToDerLowS,
+  P256_ORDER,
   parseExpiresAt,
   resolveReasoningEffortLevel,
   responseFormatHint,
+  signTraeDeviceProof,
   splitSseBlocks,
+  TRAE_EXCHANGE_TOKEN_PROOF_PATH,
+  TRAE_IDE_VERSION,
   TRAE_JSON_OBJECT_HINT,
 } from '../src/services/upstream-adapters/trae-protocol.js'
 import type {
@@ -550,6 +559,129 @@ describe('ExchangeToken 请求形状', () => {
     })
   })
 })
+
+// ---------------------------------------------------------------------------
+// 新版 ExchangeToken 设备证明(2026-10-25 立;桌面渠道签发的票只认这条路)
+// ---------------------------------------------------------------------------
+describe('Trae 设备证明(DeviceProof)', () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
+  const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+  const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString()
+  const material = { deviceId: '4355605738307003', machineId: 'mid', privateKeyPem, publicKeyPem }
+  const fixed = {
+    clientId: 'ono9krqynydwx5',
+    refreshToken: 'rt-x',
+    timestamp: 1700000000,
+    nonce: 'a1b2',
+  }
+
+  it('canonical 逐字形状 = POST\\n<path>\\n<clientId>\\n<rt>\\n<ts>\\n<nonce>', () => {
+    expect(buildTraeProofCanonical(fixed)).toBe(
+      ['POST', TRAE_EXCHANGE_TOKEN_PROOF_PATH, 'ono9krqynydwx5', 'rt-x', '1700000000', 'a1b2'].join(
+        '\n',
+      ),
+    )
+    expect(TRAE_EXCHANGE_TOKEN_PROOF_PATH).toBe('/trae/api/v3/oauth/ExchangeToken')
+  })
+
+  it('签名可用公钥验签(ECDSA/SHA-256, base64 DER)', () => {
+    const canonical = buildTraeProofCanonical(fixed)
+    const sig = Buffer.from(signTraeDeviceProof(privateKeyPem, canonical), 'base64')
+    expect(
+      verify(
+        'sha256',
+        Buffer.from(canonical, 'utf8'),
+        { key: publicKeyPem, dsaEncoding: 'der' },
+        sig,
+      ),
+    ).toBe(true)
+  })
+
+  it('签名低 s 归一化(s <= n/2)', () => {
+    for (let i = 0; i < 12; i++) {
+      const canonical = buildTraeProofCanonical({ ...fixed, nonce: `n${i}` })
+      const der = Buffer.from(signTraeDeviceProof(privateKeyPem, canonical), 'base64')
+      const s = readDerInt(der, 1)
+      expect(s <= P256_ORDER / 2n).toBe(true)
+    }
+  })
+
+  it('p1363 输入长度非 64B 直接报错(不吞半成品)', () => {
+    expect(() => p1363ToDerLowS(Buffer.alloc(63))).toThrow(/64B/)
+  })
+
+  it('报文形状:ClientID/RefreshToken/DeviceInfo/DeviceProof/IDEVersion', () => {
+    const body = buildExchangeTokenProofBody({ ...material, ...fixed }) as Record<string, any>
+    expect(body.ClientID).toBe('ono9krqynydwx5')
+    expect(body.ClientSecret).toBe('')
+    expect(body.RefreshToken).toBe('rt-x')
+    expect(body.IDEVersion).toBe(TRAE_IDE_VERSION)
+    expect(body.DeviceInfo).toMatchObject({
+      DeviceID: '4355605738307003',
+      MachineID: 'mid',
+      PlatformCode: 'IDE_PC',
+      DeviceType: 'PC',
+      DevicePublicKey: publicKeyPem,
+      ClientVersion: TRAE_IDE_VERSION,
+    })
+    expect(body.DeviceProof).toEqual({
+      Timestamp: 1700000000,
+      Nonce: 'a1b2',
+      Signature: expect.any(String),
+    })
+  })
+
+  it('deviceMaterialFromSecrets:齐三件才成立,缺一项 → null(适配器退回旧通道)', () => {
+    expect(
+      deviceMaterialFromSecrets(
+        { deviceKeyPem: privateKeyPem, devicePubPem: publicKeyPem },
+        '123',
+        'm',
+      ),
+    ).toEqual({
+      deviceId: '123',
+      machineId: 'm',
+      privateKeyPem: privateKeyPem.trim(),
+      publicKeyPem: publicKeyPem.trim(),
+    })
+    expect(deviceMaterialFromSecrets({ deviceKeyPem: privateKeyPem }, '123', 'm')).toBeNull()
+    expect(
+      deviceMaterialFromSecrets(
+        { deviceKeyPem: privateKeyPem, devicePubPem: publicKeyPem },
+        '',
+        null,
+      ),
+    ).toBeNull()
+    expect(deviceMaterialFromSecrets(null, '123', null)).toBeNull()
+    // 可选展示字段覆盖(secrets.deviceName/Model/Brand),供与客户端真实 DeviceInfo 对齐
+    expect(
+      deviceMaterialFromSecrets(
+        {
+          deviceKeyPem: privateKeyPem,
+          devicePubPem: publicKeyPem,
+          deviceName: 'DESKTOP-X',
+          deviceModel: 'M1',
+          deviceBrand: 'BR',
+        },
+        '123',
+        'm',
+      ),
+    ).toMatchObject({ deviceName: 'DESKTOP-X', deviceModel: 'M1', deviceBrand: 'BR' })
+  })
+})
+
+/** 从 DER SEQUENCE 里读第 idx 个 INTEGER(0=r, 1=s) */
+function readDerInt(der: Buffer, idx: number): bigint {
+  let i = 2 // 跳过 0x30 + 短长度
+  for (let k = 0; k <= idx; k++) {
+    if (der[i] !== 0x02) throw new Error(`DER 第 ${k} 项不是 INTEGER`)
+    const len = der[i + 1]
+    const v = der.subarray(i + 2, i + 2 + len)
+    if (k === idx) return BigInt(`0x${v.toString('hex')}`)
+    i += 2 + len
+  }
+  throw new Error('unreachable')
+}
 
 // ---------------------------------------------------------------------------
 // 6. 单段式三件套与 isAuthFailure

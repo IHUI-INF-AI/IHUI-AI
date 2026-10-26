@@ -37,6 +37,24 @@ import {
   type ImportAccountInput,
 } from '../src/services/relay-account-pool-service.js'
 import { RELAY_PROVIDERS, type RelayProviderCode } from '../src/services/relay-account-format.js'
+// 带值旗标取值口径(G-322):紧邻 token 必须非空且不以 `-` 开头。本地副本与
+// scripts/lib/flag-value.mjs 的 isFlagValueToken 逐字同源 —— apps/api→repo-tooling 被
+// config/architecture-policy.yaml 禁止(D1/D2/D3),消依赖优先;语义变更须两处同改。
+function isFlagValueToken(token: unknown): boolean {
+  return typeof token === 'string' && token !== '' && !token.startsWith('-')
+}
+
+/**
+ * 错误文案里的实得值只描述形状(守门 181 / G-998147):无值报固定短语;短值原样 quoting;
+ * 长值按 UTF-8 字节界截断 —— 错误文案会进错误信封/持久记录,整串回显会把它塞满。
+ * 与 scripts/lib/flag-value.mjs 的 describeFlagToken 同口径,本地副本理由同上(D1/D2/D3)。
+ */
+function describeArgToken(tok: string | undefined): string {
+  if (tok === undefined) return '(其后没有任何参数)'
+  const bytes = new TextEncoder().encode(tok).length
+  if (bytes <= 32) return JSON.stringify(tok)
+  return `${JSON.stringify(tok.slice(0, 20))}…(共 ${bytes} bytes)`
+}
 
 // =============================================================================
 // 类型与纯函数(单测覆盖)
@@ -145,11 +163,24 @@ function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { provider: 'qoder', dryRun: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--file') args.file = argv[++i]
-    else if (a === '--session-file') args.sessionFile = argv[++i]
+    // G-322:带值旗标的值被紧邻旗标顶掉(`--file --dry-run`)或结尾无值时,旧写法
+    // `argv[++i]` 无条件吞掉并顺带跳过那枚旗标 —— 现在统一经 isFlagValueToken 校验,
+    // 值无效即抛错点名(与"未知参数"同一退出档),禁复制判据(§22c 单源 flag-value.mjs)。
+    // @ts-expect-error scripts/*.mjs 无类型声明,apps/api tsconfig include 只收 src/**(脚本面不进 typecheck)
+    const takeValue = (tok: string | undefined): string => {
+      if (!isFlagValueToken(tok)) {
+        throw new Error(
+          `--${a.replace(/^--/, '')} 需要一个参数 —— 紧邻的 token 实得:${describeArgToken(tok)}(不得吞掉相邻旗标)`,
+        )
+      }
+      i++
+      return tok
+    }
+    if (a === '--file') args.file = takeValue(argv[i + 1])
+    else if (a === '--session-file') args.sessionFile = takeValue(argv[i + 1])
     else if (a === '--dry-run') args.dryRun = true
     else if (a === '--provider') {
-      const v = argv[++i] ?? ''
+      const v = takeValue(argv[i + 1])
       if (!(RELAY_PROVIDERS as readonly string[]).includes(v)) {
         throw new Error(`不支持的 provider: ${v}(可选 ${RELAY_PROVIDERS.join('|')})`)
       }
@@ -175,6 +206,8 @@ function captureLocalSessions(): QoderSession[] {
     {
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
+      // §12g:派生必须显式接管 stdio(不吃 stdin ⇒ 首通道 ignore,stdout 要回读 JSON ⇒ 管道)
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     },
   )

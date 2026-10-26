@@ -24,6 +24,11 @@ const chromeAlarmsCreate = vi.fn()
 const chromeAlarmsClear = vi.fn(async () => true)
 const chromeAlarmsOnAlarmAdd = vi.fn()
 const chromeAlarmsOnAlarmRemove = vi.fn()
+// 2026-10-26:具名出来供"不清任何凭据"反例断言用(clearAllTokens 的三键删除全部经过这里)
+const chromeStorageLocalRemove = vi.fn(async (keys: string | string[]) => {
+  const keyArr = Array.isArray(keys) ? keys : [keys]
+  for (const k of keyArr) delete chromeStorage[k]
+})
 
 ;(globalThis as unknown as { chrome: unknown }).chrome = {
   storage: {
@@ -37,13 +42,15 @@ const chromeAlarmsOnAlarmRemove = vi.fn()
       set: vi.fn(async (obj: Record<string, unknown>) => {
         Object.assign(chromeStorage, obj)
       }),
-      remove: vi.fn(async (keys: string | string[]) => {
-        const keyArr = Array.isArray(keys) ? keys : [keys]
-        for (const k of keyArr) delete chromeStorage[k]
-      }),
+      remove: chromeStorageLocalRemove,
       onChanged: {
         addListener: vi.fn(),
       },
+    },
+    // initApi() 的跨标签页同步走 chrome.storage.onChanged(browser-platform chrome-impl.ts)
+    // —— 2026-10-26:doRefresh 现在会先 await 就绪判据(initApi),缺这层 mock 会让回填整轮失败。
+    onChanged: {
+      addListener: vi.fn(),
     },
   },
   alarms: {
@@ -62,12 +69,16 @@ const chromeAlarmsOnAlarmRemove = vi.fn()
 // === Mock @ihui/api-client 的 refreshAccessToken ===
 // 2026-10-09 分型:补真实 TransientRefreshError —— token-utils doRefresh 的瞬时分支会 new 它,
 // 断言侧的 instanceof 也必须是同一个类对象(替身类会让断言空转)。
+// 2026-10-26:补 setDeviceFingerprintProvider / setUnauthorizedHandler —— doRefresh 现在会先
+// await 就绪判据(initApi),这两枚是 initApi 尾部要调的注册口;缺 mock 会把"回填失败"伪装成用例环境坏。
 const mockRefreshAccessToken = vi.fn()
 vi.mock('@ihui/api-client', async () => {
   const actual = await vi.importActual<typeof ApiClientModule>('@ihui/api-client')
   return {
     setBaseUrl: vi.fn(),
     setTokenProvider: vi.fn(),
+    setDeviceFingerprintProvider: vi.fn(),
+    setUnauthorizedHandler: vi.fn(),
     refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
     TransientRefreshError: actual.TransientRefreshError,
   }
@@ -93,6 +104,8 @@ async function loadFreshModules() {
     return {
       setBaseUrl: vi.fn(),
       setTokenProvider: vi.fn(),
+      setDeviceFingerprintProvider: vi.fn(),
+      setUnauthorizedHandler: vi.fn(),
       refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
       TransientRefreshError: actual.TransientRefreshError,
     }
@@ -118,6 +131,7 @@ describe('Extension refresh token 流程', () => {
     chromeAlarmsClear.mockClear()
     chromeAlarmsOnAlarmAdd.mockClear()
     chromeAlarmsOnAlarmRemove.mockClear()
+    chromeStorageLocalRemove.mockClear()
     mockRefreshAccessToken.mockReset()
   })
 
@@ -287,25 +301,114 @@ describe('Extension refresh token 流程', () => {
       expect(token.getRefreshToken()).toBe('refresh-old')
     })
 
-    it('异常路径:refreshAccessToken 抛异常时清 token + 返回 false', async () => {
+    // ─── 2026-10-26 成对锁:只有服务端明确否定凭据才许销毁 ───
+    // 立因:扩展端"账号总是要重新登录"的三条真销毁通道——①异常/无 status 被兜底 catch 清光;
+    // ②内存镜像未回填被当成"没登录"清光;③alarm/interval 续期不过就绪判据撞上①②。
+    // 摘掉 token-utils 里对应判据,以下每条必须翻红(先跑旧实现确认过红)。
+
+    it('正例:rejected(403)→ 清 token + 返回 false', async () => {
       const { token, tokenUtils } = await loadFreshModules()
       await token.setTokenPair({
         accessToken: 'access-old',
         refreshToken: 'refresh-old',
         expiresIn: 3600,
       })
-      mockRefreshAccessToken.mockRejectedValueOnce(new Error('network error'))
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: false,
+        status: 403,
+        error: 'forbidden',
+      })
+      const result = await tokenUtils.doRefresh()
+      expect(result).toBe(false)
+      expect(token.getToken()).toBeNull()
+      expect(token.getRefreshToken()).toBeNull()
+    })
+
+    it('正例:rejected(401 且 errorCode 非 STALE)→ 清 token(判据第二参数 errorCode 必须被透传)', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: false,
+        status: 401,
+        errorCode: 'REFRESH_TOKEN_REVOKED',
+        error: 'refresh token reuse detected',
+      })
       const result = await tokenUtils.doRefresh()
       expect(result).toBe(false)
       expect(token.getToken()).toBeNull()
     })
 
-    it('无 refreshToken 时返回 false(不调 refreshAccessToken)', async () => {
+    it('反例:401 但 errorCode=REFRESH_TOKEN_STALE(陈旧副本,服务端未否定凭据)→ 抛瞬时分型,一条不清', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      const { TransientRefreshError } = await import('@ihui/api-client')
+      const { REFRESH_TOKEN_STALE_ERROR_CODE } = await import('@ihui/shared/auth/auto-login-policy')
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: false,
+        status: 401,
+        errorCode: REFRESH_TOKEN_STALE_ERROR_CODE,
+        error: 'stale sibling copy',
+      })
+      await expect(tokenUtils.doRefresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(token.getToken()).toBe('access-old')
+      expect(token.getRefreshToken()).toBe('refresh-old')
+    })
+
+    it('反例:refreshAccessToken 抛异常(网络层异常≠服务端否定)→ 按瞬时分型外抛,一条凭据都不清', async () => {
+      // 旧实现这里"清 token + 返回 false"——一次网络抖动洗光登录态,是本票要根治的销毁通道之一。
+      const { token, tokenUtils } = await loadFreshModules()
+      const { TransientRefreshError } = await import('@ihui/api-client')
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockRejectedValueOnce(new Error('network error'))
+      await expect(tokenUtils.doRefresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(token.getToken()).toBe('access-old')
+      expect(token.getRefreshToken()).toBe('refresh-old')
+      expect(chromeStorageLocalRemove).not.toHaveBeenCalled()
+    })
+
+    it('反例:内存镜像未回填(chrome.storage 有凭据)→ 先 await 就绪回填再续期,不得清光', async () => {
+      // SW 冷启动第一拍:initApi 还没跑,同步读镜像必为 null——旧实现当成"没登录"直接
+      // clearAllTokens()(三把 key 全删),这就是"扩展端账号总要重新登录"的主通道。
+      const { token, tokenUtils } = await loadFreshModules()
+      // 只写存储、不碰内存镜像(绕开 setTokenPair 的"两面同写",复刻回填未完成的时序)
+      chromeStorage['ihui_token'] = 'access-stored'
+      chromeStorage['ihui_refresh_token'] = 'refresh-stored'
+      expect(token.getRefreshToken()).toBeNull() // 前置自证:此刻镜像确实没回填
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: true,
+        data: {
+          accessToken: 'new-access',
+          refreshToken: 'new-refresh',
+          expiresIn: 3600,
+          refreshExpiresIn: 604800,
+          user: { id: 'u1' },
+        },
+      })
+      const result = await tokenUtils.doRefresh()
+      expect(result).toBe(true)
+      expect(mockRefreshAccessToken).toHaveBeenCalledWith('refresh-stored')
+      expect(chromeStorage['ihui_refresh_token']).toBe('new-refresh')
+    })
+
+    it('反例:回填落定后确实无 refreshToken → 返回 false 等下一次 tick;不清、不发续期', async () => {
       const { tokenUtils } = await loadFreshModules()
-      // 不 setTokenPair,refreshToken 为 null
+      // 不 setTokenPair,chromeStorage 也归零:两面都真的没有凭据
       const result = await tokenUtils.doRefresh()
       expect(result).toBe(false)
       expect(mockRefreshAccessToken).not.toHaveBeenCalled()
+      expect(chromeStorageLocalRemove).not.toHaveBeenCalled()
     })
 
     it('并发去重:同时调用两次,refreshAccessToken 只被调用一次', async () => {

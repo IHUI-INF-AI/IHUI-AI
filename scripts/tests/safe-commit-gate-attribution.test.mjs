@@ -2071,10 +2071,35 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
     assert.match(v.reason, /禁止 --no-verify/)
   })
 
-  test('G-420①-兼容锁:调用方未注入观察面 ⇒ 行为与旧版逐字同形(接线属下一批,不得先改判据默认值)', () => {
+  test('G-420①-兼容锁:调用方未提供观察面 ⇒ 落旧行为(mine),不得被臆造成"面上有东西"来求绿', () => {
     const v = classifyHookFailure({ ...base })
-    assert.equal(v.kind, 'mine', `未注入时必须与旧版同形,实得 ${v.kind}`)
-    assert.equal(v.delta.foreignOnFaceCount, 0, '未注入不得被臆造成"面上有东西"来求绿')
+    assert.equal(v.kind, 'mine', `未提供时必须与旧版同形(更严的一侧),实得 ${v.kind}`)
+    assert.equal(v.delta.foreignOnFaceCount, 0, '未提供不得被臆造成"面上有东西"来求绿')
+    assert.equal(v.delta.replayFaceUnverified, 0, '未提供不是"面自证失败" —— 两型必须可机读区分')
+  })
+
+  // ── 票 G-420① 第三条(2026-10-25 立):"没判"不得写成"是我的",也不得写成"不是我的" ──
+  // 实测形态:生产取不到面 = `gitStagedPaths` 跑不动返回 `[]`;空清单让轮次守卫的集合为空 ⇒
+  // 守卫静默不触发 ⇒ 落 introduced ⇒ 判 mine。那是把"没判"写成"是我的"(§0.3 同型反向)。
+  test('G-420① 第三条:面清单取不到(生产形态 [])⇒ 未判定,既不判 mine 也不判 not-ours', () => {
+    const v = classifyHookFailure({ ...base, myFaceStaged: [] })
+    assert.equal(v.kind, 'undetermined-red', `取不到面时不得判"是本枚引入",实得 ${v.kind}:${v.reason}`)
+    assert.equal(v.delta.replayFaceUnverified, 1, '自证失败档必须可机读')
+    assert.equal(v.delta.introduced, 0, '面不可信时 introduced 必须为 0')
+    assert.match(v.reason, /不含本票声明集 1 项中的 1 项/, '必须点名缺了声明集里的哪几项')
+    assert.match(v.reason, /commit-gate-attribution\.mjs/, '缺项清单必须逐条点名')
+    const line = verdictLine(v)
+    assert.ok(!/引入了红|改红/.test(line), `不得写成"是我的",实得:${line}`)
+    assert.ok(!/不在本次提交内容里|与本次无关\(已证\)/.test(line), '也不得写成"不是我的"(甩锅型失效)')
+    assert.match(line, /^⚠️/, '警示口吻,不得读起来像已过门')
+  })
+
+  test('G-420① 第三条:面清单缺声明集(部分)⇒ 未判定,且优先于"含他人项"那一档', () => {
+    const v = classifyHookFailure({ ...base, myFaceStaged: [...foreignOnFace] })
+    assert.equal(v.kind, 'undetermined-red', `缺声明集的面不得参与归因,实得 ${v.kind}`)
+    assert.equal(v.delta.replayFaceUnverified, 1, '先自证面再数他人项 —— 顺序反了就会拿错面数因果')
+    assert.equal(v.delta.replayForeignUndetermined, 0, '面未自证时不得冒称已进轮次绑定判据')
+    assert.match(v.reason, /证明不了"我的面"是哪一轮索引态/, '必须写清为什么这一面不可用')
   })
 
   test('G-420①-透传锁:自跑分支必须接同一把铰链(他人面与观察面都不得在自跑那一轮失踪)', () => {

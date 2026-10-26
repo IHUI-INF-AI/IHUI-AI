@@ -5,12 +5,15 @@
 
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息 */
 /** 〈原 36 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L7〉 git-guardian.mjs — `.git` 存活守护 + 秒级自愈(2026-09-12 立)。 */
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import {
+  appendFileSync,
+  closeSync,
   cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -32,11 +35,7 @@ import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
 // 连同守护本身一起杀掉**(RC=143 = 128+SIGTERM,try/catch 救不了)。计划任务的存在性与
 // XML 改走 Get-ScheduledTask / Export-ScheduledTask,形态判据仍是 lib/schtasks-form.mjs 那一份。
 import { pickPowerShell } from './check-service-binary-paths.mjs'
-// 死值分流必须与 `git-refs-heal.mjs` **共用同一份实现**。本文件原先有一份同名同实现的私有
-// `writeLooseRef`,而 `healRefs()` 直接遍历 broken 无校验地写 —— 于是"修好的那一份"只在人工
-// 按文档敲 `node scripts/git-refs-heal.mjs` 时生效,**每 2 分钟真跑的这一个恰恰是无校验的那份**。
-// 写出指向不存在对象的 ref 会让每一次 `git fetch` 直接 fatal(§5b:当日 fsck 坏链 83,108 条
-// 即这一型),等于把一次 ref 抖动升级成整条推送链死亡。
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l38(门 103 C1 收口)〉首意: 死值分流必须与 `git-refs-heal.mjs` **共用同一份实现**。本文件原先有一份同名同实现的私有
 import { splitDeadRefs, objectExists } from './git-refs-heal.mjs'
 import {
   HOME_HEAL_FIXER_TIMEOUT_MS,
@@ -58,6 +57,25 @@ import {
 // 两份实现必漂移是本仓记过最多次的失效型,而这一族的失败形态是安静的 —— 漂了的一侧只会让
 // 某些告警少打码或多打码,没有任何门会喊。`redactChildOutput` 在本文件里已不再有实现。
 import { redactChildOutput } from './lib/secret-shape-redact.mjs'
+// AI 自进化调度层(第 0 期)的接线锚点:取票面/闸门/台账/锁全部 import 自器物本身(§0.6 单一真相源),
+// 派发层不另写"什么算可派/今日已派几轮/成本还剩多少"的第二份判据 —— 两处各算一次必漂移。
+import {
+  COST_LEDGER as AE_COST_LEDGER,
+  DISPATCH_ARGS as AE_DISPATCH_ARGS,
+  LEDGER as AE_LEDGER,
+  LOCK_FILE as AE_LOCK_FILE,
+  PLAN_TASKS as AE_PLAN_TASKS,
+  isPidAlive as isAutoEvolvePidAlive,
+  loadGates as loadAutoEvolveGates,
+  matchWhitelist as matchAutoEvolveWhitelist,
+  parseTicketRows as parseAutoEvolveTicketRows,
+  todayKey as autoEvolveTodayKey,
+} from './auto-evolve.mjs'
+import {
+  evaluate as evaluateCostBudget,
+  loadCaps as loadCostCaps,
+  parseLedger as parseCostLedger,
+} from './cost-breaker.mjs'
 // 公网探测的**告警身份归一**住在尺子那侧(§0.6 单一真相源,2026-10-17 立):派发层只负责把它填进
 // dedupKey,不再自己拼含计数的身份。模块有 §22d 直跑守卫,import 不会触发采样。
 import { classifyAlertIdentity } from './check-public-path-probe.mjs'
@@ -81,6 +99,7 @@ import {
   judgeRefsHealth,
   homeHealDue,
   classifyMergeLossOutcome,
+  parseMergeLossCount,
 } from './lib/git-guardian-pure.mjs'
 
 // 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
@@ -97,11 +116,8 @@ export {
   judgeRefsHealth,
   homeHealDue,
   classifyMergeLossOutcome,
+  parseMergeLossCount,
 }
-import { tempScrubDue, parseScrubReport, scrubTempFixtures, auditTempLanding } from './lib/git-guardian-temp-sweepers.mjs'
-import { log, LOG } from './lib/git-guardian-log.mjs'
-// 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
-export { tempScrubDue, parseScrubReport, scrubTempFixtures, auditTempLanding, log }
 
 // 工作树 / 真实 gitdir / 备份目录动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
 export const WORKTREE = resolveWorktree()
@@ -109,15 +125,11 @@ const GITDIR = resolveGitdir(WORKTREE)
 const BACKUP = resolveBackupDir(WORKTREE)
 /** origin = GitHub SSH(仓库唯一权威源;严禁改回 https,见 AGENTS.md §5b 铁律) */
 const GITHUB_SSH_URL = 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'
-// 2026-10-23 机主令:GitCode/Gitee **代码镜像仓早已弃用**,此处不再保留任何镜像远端常量。
-// 曾经的 gitee/gitcode 两个 URL 常量 + restoreRemoteConfig 里的写回循环,作用是在每次
-// gitdir 自愈后把这两个远端**重新加回**仓库配置 —— 那正是"弃用后仍留痕迹"的活体来源:
-// 只要自愈跑一轮,`git remote -v` 就又长出两条指向死镜像的远端,后续 fetch/push 会
-// 拿它们当候选源,把 HEAD 拖进另一条线。现改为只认 origin(GitHub)一个远端。
-/** GitHub 部署私钥;服务账户/交互账户都要用它,故写入仓库级 core.sshCommand */
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l132(门 103 C1 收口)〉首意: 2026-10-23 机主令:GitCode/Gitee **代码镜像仓早已弃用**,此处不再保留任何镜像远端常量。
 const SSH_COMMAND =
   'ssh -i C:/Users/Administrator/.ssh/id_ed25519_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20'
 const TASK_NAME = 'IHUI-AI git-guardian'
+const LOG = join(WORKTREE, '.ihui-agent', 'state', 'git-guardian.log')
 const POINTER = join(WORKTREE, '.git')
 const EXPECTED_POINTER = `gitdir: ${GITDIR}\n`
 // 嵌套 ref( depth>=2 )的期望值清单 —— gitdir 顶层文件,宿主清理不到(2026-09-12 立)
@@ -155,19 +167,10 @@ const CONVERGE_ALIGN_STATE = join(WORKTREE, '.ihui-agent', 'state', 'converge-al
 const ALIGN_STALL_DEFAULT_FAILS = 3
 const ALIGN_STALL_DEFAULT_AGE_MS = 10 * 60 * 1000
 
-// —— 自动修复的节流与熔断(2026-10-04 立,回应"要自动修复而不是等人提")——
-//
-// 立因是实测的一次真停摆:10-03 07:41 失败后 **24.8 小时零动作**,而这段代码
-// 原本只负责"喊人"。更糟的是告警文案给的唯一出路在结构上解不掉它
-// (`alignWorktreeAfterHeadMove` 只在真推进 HEAD 后才调 ⇒ 本地已同步时跑收敛是空转,
-// 台账永不归零)。也就是**这一格既不自愈、给出的出路也不自愈**,只剩人在中间。
-//
-// 修法是把它接进本守护已有的自愈链(与 heal*/healRefs 同挂点、同分支),顺序固定为
-// **先自己修 → 修不好才喊**,且两道护栏:
-//   ① 节流 `ALIGN_HEAL_THROTTLE_MS`:对齐器本机实测 40–51 秒(真仓),本守护每 2 分钟一轮,
-//      不节流会在一次长故障里反复派生对齐器,把"修"本身变成新的负载源。
-//   ② 熔断 `ALIGN_HEAL_MAX_ATTEMPTS`:自愈本身失败也要有上限,否则就是每轮重试一次的
-//      无限循环 —— 那与"只喊人"只是换了个更吵的形态。
+// —— 自动修复的节流与熔断(2026-10-04 立,立因与两道护栏明细移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md)——
+// 接进本守护已有自愈链(与 heal*/healRefs 同挂点),顺序固定为**先自己修 → 修不好才喊**,两道护栏:
+//   ① 节流 ALIGN_HEAL_THROTTLE_MS(对齐器单跑 40–51 秒,每 2 分钟一轮不节流会把「修」变成新负载源);
+//   ② 熔断 ALIGN_HEAL_MAX_ATTEMPTS(自愈失败也要有上限,否则只是换更吵的形态)。
 // 两道都可用 env 调;设 ALIGN_HEAL_DISABLED=1 可整体关掉自愈(回到纯喊人),便于取证对照。
 const ALIGN_HEAL_THROTTLE_MS = Number(process.env.IHUI_ALIGN_HEAL_THROTTLE_MS || 30 * 60 * 1000)
 const ALIGN_HEAL_MAX_ATTEMPTS = Number(process.env.IHUI_ALIGN_HEAL_MAX_ATTEMPTS || 3)
@@ -189,13 +192,8 @@ export const AUTO_HEAL_LEDGER = {
     why: '派发时已带 --apply,且动作自带 .stale-<stamp> 现场归档',
   },
   'merge-addition-loss': {
-    // ⚠ 2026-10-04 复核改判:本条原先登记为 auto 且理由写「派发时已带 --apply」——
-    //   **与代码事实相反**。全文件 `union-converge` 零处 execFileSync/spawnSync 派发,
-    //   auditMergeAdditionLoss(:1717)只派 `[script, '--all-new']`,而 :1539 的设计注释
-    //   白纸黑字写着「**只判不修**:自动重做合并的风险远大于收益;出口是
-    //   `scripts/union-converge.mjs --apply`(**人来点**)」⇒ 该格真实形态是「只喊人 + 人来点」。
-    //   这次错判能溜过,是因为台账的测试只校验**已登记项的形状**,不与代码对账
-    //   (见 test 里 why 的正则:写得"对"而"错"的文案完全合规)。已同时补上对账测试。
+    // ⚠ 2026-10-04 复核改判(历史叙述移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):
+    //   该格真实形态是「只喊人 + 人来点」(union-converge --apply 由人执行),并已补对账测试。
     mode: 'manual',
     where: 'auditMergeAdditionLoss → check-merge-addition-loss.mjs --all-new(只判);出口由人点 union-converge.mjs --apply',
     why: '代码只判不修、出口由人点(:1539 明写"自动重做合并的风险远大于收益");而 union-converge --apply 实测一次 2–13 分钟且会**改写历史合并内容** —— 误自动执行等于在不可回滚的动作上拿别人的合并赌一把(需人判)',
@@ -274,6 +272,16 @@ const STATUS_ONLY = process.argv.includes('--status')
 const INSTALL = process.argv.includes('--install')
 const DAEMON = process.argv.includes('--daemon')
 
+export function log(msg) {
+  const line = `[${new Date().toISOString()}] ${msg}`
+  console.log(line)
+  try {
+    mkdirSync(dirname(LOG), { recursive: true })
+    appendFileSync(LOG, line + '\n')
+  } catch {
+    /* 日志失败不影响守护 */
+  }
+}
 
 // —— git 可执行文件解析:复用共享库(不依赖 PATH,服务账户如 LocalSystem 仍可定位 PortableGit) ——
 // 解析结果缓存于共享库;本处仅镜像 GIT_BIN / GIT_VERSION 供日志与 status() 展示。
@@ -284,18 +292,10 @@ function syncGitMeta() {
   GIT_VERSION = gitVersion()
 }
 
-/**
- * 每次 git 调用显式带 `-c safe.directory=*`:
- * 服务账户(如 LocalSystem)与本机账户的 safe.directory 配置互不相通,
- * 显式传入可从根上消除 "dubious ownership" 这一整类失败。git ≥ 2.35.1 均支持。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l304(门 103 C1 收口)〉首意: 每次 git 调用显式带 `-c safe.directory=*`:
 const GIT_SAFE_ARGS = ['-c', 'safe.directory=*']
 
-/**
- * 守护派生 git 的输出预算(256MB)。取名而不逐点写数字:`for-each-ref` 这类**整表枚举**的输出
- * 体积随 tag 数长(本仓现读 2.3MB,而 `lost-commit/*`+`backup/*` 只会越来越多),任何写死在
- * 调用点的数字都会随时间腐烂成一条假告警。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l311(门 103 C1 收口)〉首意: 守护派生 git 的输出预算(256MB)。取名而不逐点写数字:`for-each-ref` 这类**整表枚举**的输出
 const GIT_ENUM_MAX_BUFFER = 256 * 1024 * 1024
 
 function git(args, allowFail = false) {
@@ -311,18 +311,9 @@ function git(args, allowFail = false) {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 180000,
       windowsHide: true,
-      // 2026-10-16 立:缺省 maxBuffer = 1MiB,而 `for-each-ref refs/heads refs/tags refs/remotes`
-      // 在本仓现读 2,321,794 字节(23,695 条)⇒ 必然 ENOBUFS。allowFail 那一支把它吞成 null,
-      // 于是"读不到 ref 面"在账面长成"清单里 7149 个 ref 全部缺失"——守护每 2 分钟据此自我修复
-      // 一次(按清单撒 7149 枚松散 ref 再 pack),而盘上 ref 其实一枚没少。
-      // 与门 99 那次同族:**缓冲区溢出不是"没有",它必须有自己的名字**(见 currentRefs 的 null 档)。
+      // 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l331(门 103 C1 收口)〉首意: 2026-10-16 立:缺省 maxBuffer = 1MiB,而 `for-each-ref refs/heads refs/tags refs/remotes`
       maxBuffer: GIT_ENUM_MAX_BUFFER,
-      // 2026-10-22 立:**守护的 git 派生一律不抢"可选锁"**。
-      // 病灶:本守护每 12 秒巡检一轮,`git status`/`diff` 会"顺手"刷新索引 stat 缓存 ⇒ 抢
-      // index.lock;而提交链在钩子窗口期(实测 31 门约 30s)一直持有索引 ⇒ 两者反复相撞,
-      // safe-commit 撞锁后重试会**重跑整条 pre-commit**(实测同一枚提交出现两轮 31 门,
-      // 端到端从 60s 涨到 3 分钟)。
-      // GIT_OPTIONAL_LOCKS=0 只关"可选锁",add/commit/checkout 的必需锁不受影响 ⇒ 写路径语义不变。
+      // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l337(门 103 C1 收口)〉首意: 2026-10-22 立:**守护的 git 派生一律不抢"可选锁"**。
       env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
     }).trim()
   } catch (e) {
@@ -331,13 +322,7 @@ function git(args, allowFail = false) {
   }
 }
 
-/**
- * `.git` 指针文件是否与期望一致。
- * 关键(2026-09-15):常规仓库的 `.git` 是**真实目录**(非指针文件),此时绝不可按
- * separate-git-dir 逻辑去校验/重建指针,否则 healPointer 会 rm -rf 整个 `.git` 目录 → 删库。
- * 判定:needsGitdirPointer()=true(`.git` 本应是指针)才校验指针内容;
- *       否则只要 `.git` 目录存在即视为 OK。
- */
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l351(门 103 C1 收口)〉首意: `.git` 指针文件是否与期望一致。
 function pointerOk() {
   if (!needsGitdirPointer()) {
     // 常规仓库:`.git` 即 gitdir 目录,存在即可
@@ -365,32 +350,12 @@ function gitUsable() {
   return !!head
 }
 
-/**
- * 工作树视角是否可用 —— 与 gitUsable() **不是同一件事**,这一格此前无人看守。
- *
- * 实测事故(2026-09-28 18:29):`D:/IHUI-AI-git-repo/config` 的 `core.bare` 被翻成 `true`,
- * 于是守护自评 `pointerOk:true / gitdirOk:true / gitUsable:true / dirty:0`,而工作树里
- * **每一条** git 命令都报 `fatal: this operation must be run in a work tree` ——
- * 提交、钩子、落地器、推送门全部不可用,而账面全绿。`rev-parse HEAD` 在裸仓库下照样成功,
- * 所以"git 可用"从来推不出"这个仓库还能被工作树使用"。
- *
- * 为什么会带上裸档:§5b 的恢复是 `cpSync(BACKUP → GITDIR)`,而备份是整份 gitdir 副本 ——
- * 它自己的 `core.bare=true` 会随任何一次恢复**注回**活仓库。故本自愈同时归一两侧,
- * 只修活仓库等于留一颗定时炸弹。
- */
+// 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l385(门 103 C1 收口)〉首意: 工作树视角是否可用 —— 与 gitUsable() **不是同一件事**,这一格此前无人看守。
 function worktreeUsable() {
   return git(['rev-parse', '--is-inside-work-tree'], true) === 'true'
 }
 
-/**
- * 核心健康判据 —— main 与 daemon **共用这一份实现**(两处各写必然漂移)。
- *
- * 漂移的实证:`core.bare=true` 时 `pointerOk / gitdirOk / gitUsable` **三条全绿**
- * (`rev-parse` 在裸档下照样成功),所以旧表达式把这一型判成"健康"、直接进健康分支早退,
- * `remediate()` 结构上到不了 —— 我先前落进 `remediate()` 的自愈**在提交链上生效次数为 0**,
- * 实测活仓库带裸档跑了数小时而守护每 2 分钟一趟、每趟都把其余 heal* 跑完再 return 0。
- * "函数在、判据对、调度路径不经过它"与本仓反复登记的「造好没装车」是同一型(守门 70/76/81)。
- */
+// 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l402(门 103 C1 收口)〉首意: 核心健康判据 —— main 与 daemon **共用这一份实现**(两处各写必然漂移)。
 function coreHealthy(s) {
   return Boolean(s.pointerOk && s.gitdirOk && s.gitUsable && s.worktreeUsable)
 }
@@ -427,13 +392,7 @@ function writeBareFalse(gitdir = GITDIR) {
   }
 }
 
-/**
- * 把"活仓库 + 本地恢复源"两侧的 `core.bare` 一起归一为 false。
- * 恢复源不修:下一次 cpSync 恢复就把裸档注回来,同一故障必然复发。
- * `gitdir` / `backup` / `probeUsable` 仅供镜像测试在临时仓库上取证 —— 生产调用一律走默认值。
- * `captureAudit` 同为测试通道:传 null 档可避免在临时仓库取证时真去派生 PowerShell /
- * 往运行态目录写件;生产调用不传即走默认的 `captureBareFlipAudit`。
- */
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l447(门 103 C1 收口)〉首意: 把"活仓库 + 本地恢复源"两侧的 `core.bare` 一起归一为 false。
 function healWorktreeBare({
   gitdir = GITDIR,
   backup = BACKUP,
@@ -473,17 +432,11 @@ function healWorktreeBare({
   return usable && liveOk && backupOk
 }
 
-// 〔归档@2026-10-25/门103 C1〕原 18 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l531-起-18-行
-
-/** 现场审计落点(在 `.ihui-agent/state/` 下,已被 .gitignore 整目录覆盖 —— 实测 `git check-ignore` 命中,故不需要也不应改 .gitignore) */
+// 〈原 20 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l493(门 103 C1 收口)〉首意: core.bare 翻车的现场取证件(2026-09-29 立)
 const BARE_AUDIT_DIR = join(WORKTREE, '.ihui-agent', 'state', 'git-bare-flip-audit')
 /** 只留最新 20 份(每小时一次翻车也够看近两天,而运行态目录不得无限长) */
 const BARE_AUDIT_KEEP = 20
-/**
- * 人读报告里"只被时间窗命中"的条目上限。真机实测一次快照 351 进程 / 83 条时间窗命中,
- * 全打印会把**规则①那一条精确嫌疑**淹掉;件内 candidates 始终是完整清单。
- * 截断必须报名(见 formatBareFlipAuditReport 的"另有 N 条未打印"),静默截断与"没有嫌疑人"同形。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l516(门 103 C1 收口)〉首意: 人读报告里"只被时间窗命中"的条目上限。真机实测一次快照 351 进程 / 83 条时间窗命中,
 const BARE_AUDIT_REPORT_TIME_ONLY_CAP = 15
 /** 规则②时间窗:进程生日落在 config mtime ±10 分钟内即算嫌疑人 */
 const BARE_AUDIT_WINDOW_MS = 10 * 60 * 1000
@@ -513,17 +466,7 @@ function resolvePowerShellBin() {
   return null
 }
 
-/**
- * 取进程清单的 PowerShell 脚本。**必须纯 ASCII**(§26:控制台代码页会把非 ASCII 命令串吃掉),
- * 且刻意**不带**任何中文。输出每行 `Name|ProcessId|ParentProcessId|CreationDate|CommandLine`。
- *
- * 两处由真机探测(`.ihui-agent/tmp/bare-sentinel/probe.mjs`)逼出来的写法,都不是审美:
- *  ① CreationDate **原样吐 CIM 字符串**(`yyyyMMddHHmmss.ffffff±zzz`),不在 PS 侧转换 ——
- *     第一版用 `[System.Management.ManagementDateTimeConverter]`,在本机实测 336 个进程里
- *     **只有 1 个**转成功(该类型在 PowerShell 7 下没被加载),规则②因此整维空转;
- *  ② 命令行内的换行折成空格 —— 否则一条多行命令行会把后面几行变成"没有四个分隔符"的碎片,
- *     实测一次快照 51 行被判 malformed(记录本身还在,但白丢一半可读性)。
- */
+// 〈原 11 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l550(门 103 C1 收口)〉首意: 取进程清单的 PowerShell 脚本。**必须纯 ASCII**(§26:控制台代码页会把非 ASCII 命令串吃掉),
 const PS_PROCESS_SNAPSHOT = [
   'try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }',
   'Get-CimInstance Win32_Process | ForEach-Object {',
@@ -537,11 +480,7 @@ const PS_PROCESS_SNAPSHOT = [
   '}',
 ].join('\n')
 
-/**
- * 跑一次进程快照。返回值刻意是**三态**(不是"要么数组要么空数组"):
- * `spawn.state = ok | failed | timeout | enoent | not-win32 | no-powershell`,
- * 三种失败各有各的文案 —— 实现收尾时把"超时"标成"派生失败"就是把没量到写成量到了(§22c)。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l574(门 103 C1 收口)〉首意: 跑一次进程快照。返回值刻意是**三态**(不是"要么数组要么空数组"):
 function snapshotProcesses() {
   if (process.platform !== 'win32') {
     return { state: 'not-win32', reason: `非 win32 平台(${process.platform}),Windows 进程清单无从取`, stdout: '' }
@@ -580,12 +519,7 @@ function snapshotProcesses() {
   }
 }
 
-/**
- * 解析进程 CreationDate。**必须同时认两种形态**:
- *  - Windows CIM 原样串 `yyyyMMddHHmmss.ffffff±zzz`(真机实际输出的就是这个,`+480` = 分钟偏移);
- *  - ISO-8601(测试夹具与跨平台取数用)。
- * 解析不出 ⇒ `ms:null` 且把**原文留着**,绝不把"量不到"写成"不在窗口内"(那是两件事)。
- */
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l617(门 103 C1 收口)〉首意: 解析进程 CreationDate。**必须同时认两种形态**:
 function parseProcessCreationDate(raw) {
   const s = String(raw === null || raw === undefined ? '' : raw).trim()
   if (!s) return { iso: null, ms: null }
@@ -705,15 +639,7 @@ function bareAuditSelfCheck({ spawn, processes, malformedCount, cmdlineMissing, 
   }
 }
 
-/** 某一侧 gitdir 的现场读数(path + bare 现值 + config 的 mtime/ctime);取不到的字段一律点名原因 */
-/**
- * 某个 gitdir 的 `config` **全文**指纹(2026-10-16 补,G-111 机主拍板出路②的那半格)。
- * 为什么要全文哈希而不是只记 `core.bare` 的值:翻写者若同时动了别的键(实测有人连 `[core]`
- * 段一起改),只看 bare 一档永远看不见"还改了谁";而 SACL 那条机器级路被机主否了,
- * 邻居名单就只能靠"归一那一刻自己留下前后全文哈希"去对。
- * 三态:读不到 ⇒ `{sha256:null, bytes:null, reason}` —— **绝不**把读不到折成空串哈希
- * (那是 §0.3 明令禁止的"把没判写成判过")。
- */
+// 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l742(门 103 C1 收口)〉首意: 某一侧 gitdir 的现场读数(path + bare 现值 + config 的 mtime/ctime);取不到的字段一律点名原因 */
 export function configFingerprint(gitdir) {
   const configFile = gitdir ? join(gitdir, 'config') : null
   if (!configFile || !existsSync(configFile)) {
@@ -766,11 +692,7 @@ function bareAuditSide(gitdir, { readBare = readBareFlag } = {}) {
   return side
 }
 
-/**
- * 保留期决策 —— **纯函数**,输入是目录条目(名字 + 是否普通文件 + 是否重解析点)。
- * 只允许删 `flip-*.json` 且必须是普通文件、且 lstat 不是链接;其余一律进 `skipped` 并点名原因。
- * 名字按 UTC 时间戳字典序即时间序(`flip-YYYYMMDDTHHmmss...Z.json`)。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l803(门 103 C1 收口)〉首意: 保留期决策 —— **纯函数**,输入是目录条目(名字 + 是否普通文件 + 是否重解析点)。
 function decideBareFlipRetention(entries, keep = BARE_AUDIT_KEEP) {
   const matched = []
   const skipped = []
@@ -938,11 +860,7 @@ function captureBareFlipAudit({
   }
 }
 
-/**
- * **打印面**的命令行脱敏。落盘的审计件留在 `.ihui-agent/state/`(gitignored、不出机)保留原文 ——
- * 那是取证价值所在;而人读报告会被贴进日志/台账/聊天,§5d"凭据不入日志"这一条管的是这一面。
- * 只替值、不替键名,`core.bare true` 这类判据字样逐字保留。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l975(门 103 C1 收口)〉首意: **打印面**的命令行脱敏。落盘的审计件留在 `.ihui-agent/state/`(gitignored、不出机)保留原文 ——
 function redactCmdlineForPrint(cl) {
   return String(cl || '')
     .replace(/((?:token|secret|password|passwd|api[_-]?key|access[_-]?key|authorization|bearer)[\w-]*\s*[=:]\s*)\S+/gi, '$1***')
@@ -1034,11 +952,7 @@ function bareAuditReportMain(json) {
   return 0
 }
 
-/**
- * 重建 `.git` 指针文件(原子写 + 回读校验)。
- * 安全护栏(2026-09-15):仅当 needsGitdirPointer()=true(separate-git-dir 形态)才执行。
- * 常规仓库的 `.git` 是真实目录,若误执行会删除整个 gitdir → 不可逆删库,故直接跳过。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1071(门 103 C1 收口)〉首意: 重建 `.git` 指针文件(原子写 + 回读校验)。
 function healPointer() {
   if (!needsGitdirPointer()) {
     log('修复跳过: 当前为常规仓库(.git 即 gitdir 目录),无需也不应重建指针文件')
@@ -1057,11 +971,7 @@ function healPointer() {
   return ok
 }
 
-/**
- * 环境自愈:`git=true` 之外的唯一分支 —— pointer/gitdir 都在但 git 命令不可用。
- * 两个根因:① git 可执行文件不在 PATH ② 账户级 safe.directory 缺失。
- * ① 由 resolveGitBin() 绝对路径兜住;② 在此幂等补写 system/global 配置。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1094(门 103 C1 收口)〉首意: 环境自愈:`git=true` 之外的唯一分支 —— pointer/gitdir 都在但 git 命令不可用。
 function healEnv() {
   syncGitMeta()
   const bin = GIT_BIN
@@ -1120,19 +1030,7 @@ function healHead() {
   return gitUsable()
 }
 
-// ─────────── 嵌套 ref 存续(2026-09-12 立) ───────────
-//
-// 事故:`refs/remotes/origin/main` 反复变 `[gone]`、`refs/tags/backup/push4-*` 反复"仅远端",
-// 使守门 #30a(commit 丢失防护,blocking)**抖动性阻塞** —— 刚 fetch 完是绿的,宿主一清理又红。
-// 机理(对照实验):宿主清理层会删除 gitdir 下 **depth >= 2** 的嵌套命名空间目录
-//   refs/heads/main / refs/tags/<tag>     → depth1 文件 → 存活
-//   refs/remotes/origin/main / refs/tags/backup/<tag> → depth2 目录 → 被删
-//   (且 `git update-ref` 对这类 ref 返回 0 却不落盘 —— 静默失败)
-// 解法:把嵌套 ref 固化进 `packed-refs`(gitdir 顶层单文件 → 存活),期望值另存
-// `refs-manifest.json`(同为顶层文件),任一时点缺失即可**离线**重建 + 重新 pack。
-// 详见 scripts/git-refs-heal.mjs(支持 --refresh-remote 联网校准)。
-
-/** depth>=2 的命名空间才需要固化(refs/heads/* 天然存活) */
+// 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1157(门 103 C1 收口)〉首意: ─────────── 嵌套 ref 存续(2026-09-12 立) ───────────
 function isNestedRef(ref) {
   return !ref.startsWith('refs/heads/') && ref.split('/').length >= 4
 }
@@ -1146,11 +1044,7 @@ function readRefsManifest() {
   }
 }
 
-/**
- * 当前全部 ref(name → sha),含 packed 与松散。
- * **三态**:`{}` = 面上真的没有 ref(判过);`null` = 这一面问不到(子进程失败/输出溢出)⇒ 未判定。
- * 把后者折成前者,就是"7149 个 ref 全部缺失"这类假告警的成因(见 git() 里 maxBuffer 那条注)。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1183(门 103 C1 收口)〉首意: 当前全部 ref(name → sha),含 packed 与松散。
 function currentRefs() {
   const out = git(
     [
@@ -1183,13 +1077,7 @@ function packRefs() {
   git(['pack-refs', '--all', '--prune'], true)
 }
 
-/**
- * 直写松散 ref:`git update-ref` 对嵌套命名空间静默不落盘,故用 node fs。
- * **写之前必须证明对象存在** —— 指向不存在对象的 ref 会让每一次 `git fetch` 直接 fatal,
- * 而清单值可能因宿主抹掉 `objects/xx/` 变成死值(§5b 当日实测坏链 83,108 条)。
- * 这道闸与 `healRefs()` 里的 `splitDeadRefs` 是双层防御:分流管"别反复重试",本闸管
- * "任何后来调用者都不能亲手造死指针"。
- */
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1220(门 103 C1 收口)〉首意: 直写松散 ref:`git update-ref` 对嵌套命名空间静默不落盘,故用 node fs。
 function writeLooseRef(ref, sha) {
   if (!objectExists(sha)) {
     log(`  ⚠️ 拒绝写 ${ref} = ${String(sha).slice(0, 12)}:该对象不可解析(写下去就是一次 fetch 全死)`)
@@ -1224,12 +1112,7 @@ function fetchHeadMain() {
   return m ? m[1] : null
 }
 
-/**
- * ref 自愈:①把当前可见的嵌套 ref 纳入清单(自维护,含 manifest 缺失时的 bootstrap)
- *          ②origin/main 以 FETCH_HEAD 为准(松散 ref 被 1s 内清理,packed 可能留旧值)
- *          ③清单里有、当前解析不到或值不符的 → 按清单重建并 pack
- * 返回:true = 清单内全部可解析且与清单一致
- */
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1261(门 103 C1 收口)〉首意: ref 自愈:①把当前可见的嵌套 ref 纳入清单(自维护,含 manifest 缺失时的 bootstrap)
 function healRefs() {
   const cur = currentRefs()
   if (cur === null) {
@@ -1344,26 +1227,11 @@ function refsOk() {
   return refsVerdict().ok
 }
 
-/**
- * 工作区已跟踪文件存续自愈(2026-09-23 立)。宿主清理层会成批删除工作区目录
- * (实测同日三轮:137 个 → 27 个 → 1 个,命中 tests/ 与 __tests__/ 整目录、
- * installer-assets 下 assets-NNN 的 bmp、4 个在役守门脚本)。`.git` 与嵌套 ref 早有分层自愈,
- * 工作区存续性此前无人管:缺失只体现为 `git status` 一片 ` D`,下一次提交就把它们从版本树删掉
- * (= 静默回滚)。判据与恢复动作在 scripts/heal-worktree-tracked.mjs:只恢复
- * "索引 blob == HEAD blob 且文件不在"的项,他人已暂存的删除一律不碰。
- * 不改 status()/退出码语义 —— 纯多一层自愈,失败也只记日志不阻断其余守护。
- * 第二层 `--align-drift`(幻影漂移对齐 + 落后索引刷新)在同一趟里跟着跑:只等
- * git-sync-converge 的成功出口才对齐,会让"无人收敛"期间索引一直停在祖先版本,
- * 下一次 `git add <file>` 就交旧基线(实测一次积到 503 文件落后 486 提交)。
- * 逃生舱 IHUI_SKIP_DRIFT_ALIGN=1 只关第二层,不影响恢复层。
- */
+// 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1381(门 103 C1 收口)〉首意: 工作区已跟踪文件存续自愈(2026-09-23 立)。宿主清理层会成批删除工作区目录
 function healWorktreeTracked() {
-  // 2026-10-04 复核补节流:本函数**每轮都跑**,而收敛对齐的自愈(healConvergeAlignStall →
-  // git-sync-converge.mjs --align-only → heal-worktree-tracked.mjs --align-drift --json)
-  // 在**同一轮 tick 里排在本函数之后**,两者写的是同一个索引、跑的是同一个脚本
-  // (复核实测:本函数 :1324 与收敛器 :1391 派同一组参数)。
-  // 无节流时:一轮跑两遍写索引动作 ⇒ 抢 index.lock + 白白多花一次 40–51 秒。
-  // 判据用"对齐层跑过的窗口"而不是随便加个时间戳 —— 节流必须对齐真实动作面。
+  // 2026-10-04 复核补节流(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):本函数与收敛对齐
+  // 自愈同轮写同一索引,无节流会抢 index.lock 并多花一次 40–51 秒;节流判据用「对齐层跑过的窗口」,
+  // 对齐真实动作面而不是随便加个时间戳。
   const now = Date.now()
   let lastAlign = 0
   try {
@@ -1468,7 +1336,25 @@ function healWorktreeTracked() {
  *  —— 与盘根封口同一个道理(见 healRootSeal 上方 §26 说明)。
  *  两条节流:① 判定用门 96(它把体积遍历封在 8000 条内,便宜),修复器只在判红时才跑;
  *  ② 被进程占用而失败的项目记 30 分钟冷却,避免每轮都重抄一遍 108MB 再去撞 EBUSY。 */
-// 〔归档@2026-10-25/门103 C1〕原 19 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l1543-起-19-行
+/**
+ * 家目录改道自愈(§26)。**2026-09-24 重做节流**,起因是实测到的死循环:
+ *   守护每 2 分钟一趟 ⇒ 每趟都调修复器 `--apply`;而修复器被给的超时是 **240 秒**,
+ *   待搬的最大一项是 `.trae-cn`(实测 371MB / 13973 个文件),robocopy 在 240 秒内搬不完
+ *   ⇒ 子进程被 SIGTERM 掐死。冷却文件 `.ihui-agent/state/home-junctions-cooldown.json` 是修复器
+ *   **正常结束时才写**的,被杀就等于"没失败也没成功",于是下一轮从头再搬 ——
+ *   实测门 96 连续判红 11 分钟、日志里每 2 分钟一条"修复后仍判红",且当时**只有 1 项**
+ *   没治好(其余 10 项 16:41 那轮已改道成功),冷却表还是空的 `{}` ⇒ 不是 EBUSY。
+ *   而 C 盘上留下了一个半完成现场:`.trae-cn` 是实体目录、`.trae-cn.pre-junction-<08:41:30Z>`
+ *   却是指向 `G:\DevEnv\cache\userhome\.trae-cn`(15871 文件)的 junction —— 数据没丢,
+ *   但"源已改名 / 链接已建 / 结论没落"这种状态正是 §26 警告过的那一类。
+ *
+ * 三条改法:
+ *  ① **单实例锁**:一轮没跑完前,后来的 tick 直接跳过(2 分钟节奏 × 25 分钟工作量必然重叠,
+ *     而重叠就是上面那个半完成现场的制造者)。锁里带 pid + 起始时间,持锁进程已死或超 TTL 才抢。
+ *  ② **超时给到能搬完**(240s → 25min),并区分"被掐死"与"修复器自己报错"。
+ *  ③ **如实报因**:旧文案写"多为进程占用(EBUSY)",是猜的且方向不对(实测冷却表为空)。
+ *     改为统计修复器自己打的 action 标签,并显式区分 timed-out / copy-failed / EBUSY 类。
+ */
 const HOME_HEAL_LOCK = join(WORKTREE, '.ihui-agent', 'state', 'home-junctions.heal.lock')
 const HOME_HEAL_STAMP = join(WORKTREE, '.ihui-agent', 'state', 'home-junctions.last-heal.txt')
 
@@ -1477,14 +1363,7 @@ function healHomeJunctions() {
   const judge = join(dir, 'check-home-junctions.mjs')
   const fixer = join(dir, 're-home-junctions.mjs')
   if (!existsSync(judge) || !existsSync(fixer)) return
-  // ── ⓪ 身份闸(2026-09-27,排在节流与锁之前)──
-  // 常驻守护是 NSSM 服务,身份 LocalSystem,它的家目录是 `C:\Windows\System32\config\systemprofile`,
-  // 于是 §26 那 16 项登记路径在**这一身份下解析成另一批路径** —— 而那批路径里实测真有一个
-  // `AppData\Local\pnpm-cache` 实体目录,门因此恒判红,守护遂每 10 秒叫修复器去把**系统账户的目录**
-  // robocopy 进**真人正在用的缓存树**。这不是噪音问题,是"搬运工具拿错了搬运对象"。
-  // 判据住在 check-home-junctions.mjs 的 isInteractiveUserHome,此处只调用 —— 不得抄第二份。
-  // 静默返回是刻意的:这里 skip 的是"一轮调度",不是一个判定;判定结论仍在修复流程的日志里。
-  // 若为 skip 也打日志,就等于用另一种文案把同一条刷屏复制回来。
+  // 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1529(门 103 C1 收口)〉首意: ── ⓪ 身份闸(2026-09-27,排在节流与锁之前)──
   if (!isInteractiveUserHome(homedir())) return
   // ── ⓪b 墙钟节流 ──
   let lastRaw = ''
@@ -1621,26 +1500,7 @@ function healHomeJunctions() {
   }
 }
 
-/** 守门 100 的"别人造好再推来"面(2026-09-24 立)。
- *  提交链上那道门按设计只判 `origin/main..HEAD`(把已入库历史纳入默认面 = 之后每次提交恒红
- *  = 逼人绕过钩子,见其头注"口径是生命线"),而 `git-sync-converge` / `plan-union-merge` /
- *  手工 commit-tree **都不跑钩子** ⇒ "判据存在但永不被调用"这一型必须由守护补一层。
- *  用增量台账(`--all-new`):每枚合并只判一次,老提交不会反复红。
- *  **只判不修**:自动重做合并的风险远大于收益;出口是 `scripts/union-converge.mjs --apply`(人来点)。 */
-/**
- * 主机时区漂移问责(2026-09-30 立,尺子本体 = `scripts/check-host-timezone.mjs`)。
- *
- * 为什么必须挂在这一格:2026-09-04 本机时区被一次未登记的改动从东八区改成 UTC,持续 25 天,
- * 期间支付宝网关签名早 8 小时、异常检测把北京高峰当"凌晨可疑"、全库导出落在上午 11:00,
- * 而**没有任何一个执行体问过这台机的时区是什么**。提交链上的门只在有人提交时跑;判的是机器状态,
- * 所以出口只能是这里(守护 tick,每 2 分钟一轮)。
- *
- * 三条不可漂的写法:
- *  ① 挂点带 `!CHECK_ONLY` —— 本文件已两次踩过"挂进 CHECK_ONLY 路径等于永不执行";
- *  ② 节流(默认 30 分钟)且**取不到读数就不发信**:主机时区判不出 ≠ 漂移,把"没判"寄成告警就是
- *     制造噪声(§5e 失败必须响,但响的是量到的红,不是尺子失效);
- *  ③ 发信只经 notify()(→ notify-deploy-failure.ts),不得在本文件自拼 SMTP(守门 81 硬拦)。
- */
+// 〈原 20 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1673(门 103 C1 收口)〉首意: 守门 100 的"别人造好再推来"面(2026-09-24 立)。
 const TZ_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'host-timezone-audit-tick.ts')
 const TZ_AUDIT_INTERVAL_MS = 30 * 60 * 1000
 
@@ -1713,30 +1573,11 @@ function auditHostTimezone() {
   }
 }
 
-/**
- * 盘根卫生巡检(2026-09-30 立,尺子本体 = `scripts/check-disk-root-hygiene.mjs`)。
- *
- * 为什么必须挂在这一格:用户拍板"项目产物不外流"(盘根除声明白名单外不允许有项目产物)。
- * 提交链上的门只判仓库根一级(check-root-dir-clean),盘根与 worktree 登记面无人看守
- * ⇒ 清完必回潮(2026-09-30 实测:刚删净的 .pytest_tmp_runs 数小时内被重建)。
- * 判的是磁盘/机器状态 ⇒ 出口只能是守护 tick(warn 尺子,绝不进提交链,§12e)。
- *
- * 三条不可漂的写法(与 auditHostTimezone 同源):
- *  ① 挂点带 `!CHECK_ONLY` —— 挂进 CHECK_ONLY 路径等于永不执行;
- *  ② 节流(默认 30 分钟)且**未判定不发信**:量不到 ≠ 外流,把"没判"寄成告警是制造噪声;
- *  ③ 发信只经 notifyGuardRed(),不得在本文件自拼 SMTP(守门 81 硬拦)。
- */
+// 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1765(门 103 C1 收口)〉首意: 盘根卫生巡检(2026-09-30 立,尺子本体 = `scripts/check-disk-root-hygiene.mjs`)。
 const DISK_ROOT_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'disk-root-hygiene-audit-tick.ts')
 const DISK_ROOT_AUDIT_INTERVAL_MS = 30 * 60 * 1000
 
-/**
- * 告警去重的**计数分档**:档内抖动不重报,跨档才算真恶化/真缓解。
- * 为什么必须分档而不是直接用计数 —— 见 auditDiskRootHygiene() 里 dedupKey 的注释。
- * 0 单独成档:"缓解到 0"必须重报一次(那是终态变化,不是抖动)。
- * 2026-10-18 收口:这里原先有第二份实现(`function tier(n)` 返回 0/1/2/3/4,边界与
- * `alertCountTier` 逐字相同),同一把尺子两副面孔正是 §0.6/§22c 立的"第二份必然漂移"。
- * 盘根那一格现在直接调 `alertCountTier`,不再另立一档。
- */
+// 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1781(门 103 C1 收口)〉首意: 告警去重的**计数分档**:档内抖动不重报,跨档才算真恶化/真缓解。
 function auditDiskRootHygiene() {
   try {
     let last = 0
@@ -1813,16 +1654,7 @@ function auditDiskRootHygiene() {
           `手动问责:node scripts/check-disk-root-hygiene.mjs --strict`,
         {
           severity: 'warning',
-          // 去重身份只取"违规类别 + **计数分档**",明细行不进指纹(2026-10-03 立;
-          // 2026-10-05 把"计数"改成"分档")。实测 09-30 至 10-05 同一原因寄出 **34 封**,
-          // 其中 10-04 20:59 / 21:29 / 21:59 三封**只隔 30 分钟** —— 4 小时窗口形同虚设。
-          // 真因不是明细抖动而是**计数本身在抖**:旧判据把"外置 gitdir 被误判成落点外"
-          // 恒记 1,再叠加别人在飞的 0~3 个 worktree ⇒ 每轮巡检至少有一个数在变
-          // ⇒ shouldAlert 判"新故障"立即重报。分档语义:档内抖动不重报,
-          // **跨档才算真恶化/真缓解**;信文照旧逐条点名(信息量没降),判据一字未动(§12e)。
-          // 真变化(违规类别或计数变了)仍立即重报。**2026-10-18 再补持续档**:10-16 以来该族 13 封
-          // 全是 4h 平窗重发 —— 分档只解决了"计数在抖",没解决"同一批外流条目每隔 4h 再寄一次"。
-          // 跨 6h/24h/72h 才重报,清零即摘起点(与隧道腿、部署停摆同一把尺子,§0.6)。
+          // 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1865(门 103 C1 收口)〉首意: 去重身份只取"违规类别 + **计数分档**",明细行不进指纹(2026-10-03 立;
           dedupKey: `stray=${alertCountTier(c.diskRootStray)};wtOutside=${alertCountTier(c.worktreeOutside)};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'disk-root-stray-first.json')).firstMs).tier}`,
         },
       )
@@ -1844,11 +1676,7 @@ function auditDiskRootHygiene() {
 }
 
 const MERGE_LOSS_UNDET_FILE = join(WORKTREE, '.ihui-agent', 'state', 'merge-loss-undetermined-first.json')
-// "这一轮取不到结论"与"对账层真的坏了"在到人信上必须是两件事。2026-10-17 上午共享 git 争用让该
-// 对账连续几趟取不到,守护当场寄出一封 critical 说"对账层自己没在跑"——而同一枚对账手工复跑
-// 0.46 秒即绿(审计 0 枚吞并)。持续性门槛取现读量纲:正常一趟 0.46s、派生上限 240s、守护 2 分钟
-// 一趟 ⇒ 连满 30 分钟(≈15 趟)全部取不到才够格按结构性故障喊人;单轮只报名(方向是"多要一次
-// 说明",绝不是"多放一次跳门":§0.3)。
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1896(门 103 C1 收口)〉首意: "这一轮取不到结论"与"对账层真的坏了"在到人信上必须是两件事。2026-10-17 上午共享 git 争用让该
 const MERGE_LOSS_UNDET_HORIZON_MS = Number(process.env.IHUI_MERGE_LOSS_UNDET_HORIZON_MS || 30 * 60 * 1000)
 
 
@@ -1891,7 +1719,10 @@ function auditMergeAdditionLoss() {
   }
   if (outcome.kind === 'breach') {
     clearMergeLossUndetermined()
-    const n = (res.match(/丢失新增路径\s+(\d+)/) || [])[1] || '?'
+    // 取数归 `parseMergeLossCount`(单一真相源):令牌优先、散文兜底。2026-10-26 前这里内联
+    // `丢失新增路径` 正则,而对账脚本措辞早已改成「丢失路径或回退内容」⇒ 恒取不到数,
+    // 判红信正文写「共 ? 个路径」。
+    const n = parseMergeLossCount(res)
     log(
       `⚠️ 合并吞并对账判红:发现合并抹掉对侧独有新增共 ${n} 个路径 —— 修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
     )
@@ -1921,12 +1752,7 @@ function auditMergeAdditionLoss() {
   }
 }
 
-/** 本地恢复源的增量刷新层(§5b 里那条"唯一空白层")。
- *  原设计挂在计划任务 `IHUI Git Backup Refresh`(每 15 分钟),但 2026-09-24 实测
- *  `Get-ScheduledTask` 全量列表里**已经没有它**(与 §26 记的 `IHUI C-Drive AutoMaintain`
- *  凭空消失同型)—— 恢复源因此又落后了 100+ 枚提交,而这正是"宿主再删一次 .git 就等价
- *  回滚 100+ 枚"的那个风险本身。判据不能挂在一个会自己消失的东西上,故并入本守护的 tick:
- *  先 `--check`(零副作用、便宜)早退,只有判后落后才跑增量刷新。 */
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1976(门 103 C1 收口)〉首意: 本地恢复源的增量刷新层(§5b 里那条"唯一空白层")。
 function refreshRecoverySource() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'git-backup-refresh.mjs')
   if (!existsSync(script)) return
@@ -1964,33 +1790,14 @@ function refreshRecoverySource() {
   notifyGuardRed(
     '本地恢复源刷新失败',
     `git-backup-refresh.mjs 刷新 exit ${applied.code} ⇒ 本地恢复源正在落后于 main,宿主清除 .git 后从它恢复等价回滚。手动:node scripts/git-backup-refresh.mjs`,
-    // 21 封全部落在 4h 窗口之外一点(实测间隔 4.00~4.62h,均值 4.05h)⇒ 指纹其实**稳定**
-    // (exit 码已被数字归一),这一格是"稳定指纹 × 零有效出口":出口那条命令本身不含
-    // 任何创建备份的代码,重跑 = 同一段代码重跑同一个失败(2026-10-03 审计)。
-    // 身份带上出口形态,便于将来判据换出口时能分辨"还是那个故障"vs "换了个出口"。
-    // 身份带上**已持续档**(2026-10-17):这一格是"稳定指纹 × 零有效出口",原形态是每 4 小时
-    // 平铺一封同样的话(实测 21 封,间隔均值 4.05h)——既不打扰到新人,也不告诉收信人"已经拖多久了"。
-    // 带档之后:6h / 24h / 72h 各升级一次(跨档即新身份 ⇒ 立即到人),同档内由窗口压住。
-    // 起点件在追平成功时清除,不会拿上一场故障的账续命。
+    // 身份带出口形态与**已持续档**(2026-10-17;实测 21 封平铺、间隔均值 4.05h,细节移
+    // .ihui-agent/archive/AGENTS_trim-2026-10-25.md):6h/24h/72h 各升级一次(跨档即新身份 ⇒ 立即到人),
+    // 同档内由窗口压住;起点件在追平成功时清除,不拿上一场故障的账续命。
     { severity: 'critical', dedupKey: `backup-refresh-fail;exit=${applied.code};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'backup-refresh-fail-first.json')).firstMs).tier}` },
   )
 }
 
-// ══ 判红 → 邮件到人层(2026-09-24 立,§5e 唯一通道)═══════════════════════════════
-// 此前守护判红只写 .ihui-agent/state/git-guardian.log:实测"合并吞并对账"抓到 38 个路径被合并抹掉
-// 那类事,只有去翻日志的人才知道,而它的后果是**已入库功能被静默回滚**。发信不在此文件自拼
-// SMTP/Resend(守门 81 硬拦),唯一出口 = 派生 apps/api/scripts/notify-deploy-failure.ts;
-// 形态照抄 scripts/check-credential-health.mjs(同为 scripts/ 下 .mjs 的现役生产者)。
-// 纯判据(指纹/去重/状态读写/argv)export 给镜像测试离线取证(§22c/§22d)。
-
-
-/**
- * 计数折档(型③通用尺子)。边界 0 / 1 / 2-3 / 4-7 / 8+ 沿用本仓 2026-10-05 已验证过的那一档
- * (盘根卫生那格从"原始计数进指纹"改成档位即此边界),**不另拍新数**。
- * 规矩:凡会随并发抖动而变的量(命中条数、红了几个格、拉起几台、腿几条)一律不许直接进
- * 告警名或去重身份 —— 名称里带计数 = 每轮新身份 = 窗口形同虚设(实测:元运维巡检 34 封/5 天、
- * 服务自愈与隧道腿同型)。实时数字照旧进正文,它属于诊断,不属于身份。
- */
+// 〈原 15 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2026(门 103 C1 收口)〉首意: ══ 判红 → 邮件到人层(2026-09-24 立,§5e 唯一通道)═══════════════════════════════
 export function alertCountTier(n) {
   const v = Number(n)
   if (!Number.isFinite(v) || v <= 0) return '0'
@@ -2049,16 +1856,7 @@ export function buildGuardMailArgv({ to, title, severity, messageFile, dryRun = 
   ]
 }
 
-/**
- * 子进程输出转诊断文本:逐行脱敏 + 截断。
- *
- * **实现已迁到 `lib/secret-shape-redact.mjs`(G-334 / G-400 合派一枚)。**
- * 本文件原先自带一份逐字相同的实现(同一条 `SECRETISH_RE` 字面量、同一个 `limit = 300`),
- * 而两侧消费面不同 ⇒ 漂移表现不同:一侧拼进到人邮件正文,一侧写守护日志与 UNDELIVERED 标记。
- * 这条链的失败形态是**安静**的 —— 漂了的一侧只会让某些告警少打码或多打码,没有任何门会喊。
- * 现在改调那一份;下面这行 `export` 只为保住既有出口(镜像测试与外部消费面仍按原路径取这个名字),
- * 实现本身一个字都不在这里 —— 规则字面量再次出现在本文件,就是又抄了一份。
- */
+// 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2099(门 103 C1 收口)〉首意: 子进程输出转诊断文本:逐行脱敏 + 截断。
 export { redactChildOutput }
 
 /** dry-run 通道判定:派发器自报"至少一条通道齐备"才算可用(与 check-credential-health 同判据) */
@@ -2114,22 +1912,7 @@ function writeNotifyJson(file, obj) {
   writeFileSync(file, JSON.stringify(obj, null, 1), 'utf8')
 }
 
-/**
- * 守护判红时的唯一出口。**旁路通知,不改自愈行为本身**:整个函数体裹 try,
- * 落盘/派发/状态任一环节炸掉都只降级为日志一行,原调用方(三个自愈层)照常走完。
- * 所有依赖(时间/派发/路径/日志)可注入,离线取证见镜像测试。
- * @returns {{sent:boolean, suppressed?:boolean, why:string}}
- */
-/**
- * 派发点身份覆盖自检(纯函数,§22c 由镜像测试直接消费,不在测试里重写一份判据)。
- *
- * 每个 `notify(` / `notifyGuardRed(` 派发点的 options 必须**显式**给出二者之一:
- *   · `dedupKey` —— 稳定语义身份(类×折档),措辞与实时读数只进正文;
- *   · `force: true` —— 主动通道自测(`--notify-test`),按设计绕过当轮窗口。
- * 两者都没有的,身份退回 `alertFingerprint(name, detail)`:那把尺子把 detail 归一成指纹,
- * 今天 detail 恰好是常量时碰巧稳定,但**任何一次改措辞都会静默换身份**、窗口当场作废再寄一轮
- * (§5e-1 型②)。2026-10-19 全量派发点审计实测抓到一枚(`.env 漂移巡检没装车`),已补。
- */
+// 〈原 16 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2164(门 103 C1 收口)〉首意: 守护判红时的唯一出口。**旁路通知,不改自愈行为本身**:整个函数体裹 try,
 export function auditDispatchSites(src) {
   const lines = String(src || '').split('\n')
   const sites = []
@@ -2209,12 +1992,7 @@ export function notifyGuardRed(name, detail, opts = {}) {
       // 人工核验入口(--notify-test):不读写去重状态(一次手工测试不该污染或抢占窗口)
       const r = callDispatch()
       if (r.ok) {
-        // **自测成功也清 UNDELIVERED 标记**(2026-10-03 补)。原先只有真实告警那条路径清,
-        // 于是「跑一次 --notify-test 证明通道是好的」之后,P8「投递失败标记」仍红 ——
-        // 那格判的是"有故障从未被人看见",而人刚亲眼验过通道通,标记却留着,
-        // 等于**唯一能自证清白的那条路被设计堵死**(实测:真投递成功后 P8 仍 findings=1)。
-        // 清它不等于承认某条真欠账已还:欠账的真值在 notify-state 的 `delivered` 维,
-        // 由 P10 读;这个文件只是"最近一次投递失败"的**瞬时标记**。
+        // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2259(门 103 C1 收口)〉首意: **自测成功也清 UNDELIVERED 标记**(2026-10-03 补)。原先只有真实告警那条路径清,
         try {
           rmSync(undelFile, { force: true })
         } catch {
@@ -2301,11 +2079,7 @@ function alignStallThresholds(cfg = {}) {
   }
 }
 
-/**
- * 该不该喊人:**连续失败 ≥ minFails 且 最后失败距今 ≥ minAgeMs** 才 alert。
- * 状态缺失 / 坏 JSON / consecutiveFailures 不是有限数 ⇒ "无法判定",一律不喊
- * (绝不因为"状态文件不存在"喊人;恢复成功后计数归零,同样不喊)。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2351(门 103 C1 收口)〉首意: 该不该喊人:**连续失败 ≥ minFails 且 最后失败距今 ≥ minAgeMs** 才 alert。
 export function shouldAlertAlignStall(state, nowMs, cfg = {}) {
   const { minFails, minAgeMs } = alignStallThresholds(cfg)
   if (
@@ -2340,11 +2114,7 @@ export function shouldAlertAlignStall(state, nowMs, cfg = {}) {
   }
 }
 
-/**
-/**
- * 自愈尝试台账(跨轮):读不出/坏 JSON 一律当"空台账"重新开始,**不得**因此永久禁用自愈
- * (fail-closed 的方向是"宁可多试",不是"从此不修")。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2390(门 103 C1 收口)〉首意: 自愈尝试台账(跨轮):读不出/坏 JSON 一律当"空台账"重新开始,**不得**因此永久禁用自愈
 export function readAlignHealAttempts(p = ALIGN_HEAL_ATTEMPT_LOG) {
   try {
     const v = JSON.parse(readFileSync(p, 'utf8'))
@@ -2368,18 +2138,7 @@ export function writeAlignHealAttempts(map, p = ALIGN_HEAL_ATTEMPT_LOG) {
   }
 }
 
-/**
- * 纯判据(导出以便独立钉死):这一轮该不该派一次对齐自愈。
- *
- * 提成纯函数而不是埋在 tick 里:这四道判据(总开关 / 已有停摆 / 节流 / 熔断)任意一道写反,
- * 症状都是"要么永不修、要么每 2 分钟重试一次",而这两种在日志上都不报错 ——
- * 只有把判据单独拎出来测,才钉得住。
- *
- * @param state  收敛器写的对齐台账(converge-align-state.json 解析结果)
- * @param ledger 本守护的自愈尝试台账(上一次自愈时间戳 + 已用次数)
- * @param now    当前时刻(ms)
- * @param cfg    测试注入口(阈值/节流/熔断/禁用)
- */
+// 〈原 12 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2418(门 103 C1 收口)〉首意: 纯判据(导出以便独立钉死):这一轮该不该派一次对齐自愈。
 export function decideAlignHeal(state, ledger, now, cfg = {}) {
   const throttleMs = Number.isFinite(cfg.throttleMs) ? cfg.throttleMs : ALIGN_HEAL_THROTTLE_MS
   const maxAttempts = Number.isFinite(cfg.maxAttempts) ? cfg.maxAttempts : ALIGN_HEAL_MAX_ATTEMPTS
@@ -2400,19 +2159,7 @@ export function decideAlignHeal(state, ledger, now, cfg = {}) {
   return { heal: true, why: `失败 ${fails} 次且可自愈(第 ${used + 1}/${maxAttempts} 次)`, used }
 }
 
-/**
- * 收尾对齐停摆的**自愈**(2026-10-04 立)。
- *
- * 派 `git-sync-converge.mjs --align-only`(只跑收尾对齐,不 fetch/不合并/不推送 ——
- * 那个旗标是 2026-10-04 同批加的,正是为了让这一格有"不会顺手做别的事"的最小动作面)。
- *
- * **成败不靠退出码判,靠回读台账**:子进程退出 0 只说明"它跑完了",而这一格真正要的证据是
- * `converge-align-state.json` 的 consecutiveFailures 归零。只信 rc 的话,一个"跑完但没归零"的
- * 状态会被记成已修好,下一轮又去修,于是熔断计数被无意义地消耗光 —— 那就退化成每 2 分钟
- * 试一次,正是本条要防的东西。
- *
- * 返回 `{ healed, ok, why, attempts }`:`ok` = 这次自愈后确实归零。
- */
+// 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2450(门 103 C1 收口)〉首意: 收尾对齐停摆的**自愈**(2026-10-04 立)。
 export function healConvergeAlignStall(opts = {}) {
   const {
     now = Date.now(),
@@ -2433,16 +2180,7 @@ export function healConvergeAlignStall(opts = {}) {
     return { healed: false, ok: false, why: d.why, attempts: ledger.attempts ?? 0 }
   }
 
-  // 先落"已尝试",再跑:这样即使派发器本身把本进程带走(超时/异常),也不会留下一条
-  // "从没试过"的记录而在下一轮立刻再派一次(那会让节流形同虚设)。
-  //
-  // ⚠ 2026-10-04 复核补一个**反直觉但必须**的分支:台账写失败时**仍然继续跑**。
-  // 直觉上"记不上账就别动手",但那样更糟:台账写不下去(磁盘满 / .ihui-agent/state 权限)时
-  // attempts 永远读成 0、lastAttemptAt 永远为空 ⇒ **节流与熔断双双永不触发**
-  // ⇒ 每 2 分钟派发一次(每轮都真跑一个 40–51 秒的对齐器),正是本条要防的那件事。
-  // 写失败只意味着"本轮记不上账",下轮照旧会派 —— 与其在没护栏的情况下猛跑,
-  // 不如把"台账写不进去"这件事喊出来(下面 ok=false + why 点名),让熔断余量不至于
-  // 被无声烧光。**判据:哪个方向的失败更危险,选哪个。**
+  // 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2483(门 103 C1 收口)〉首意: 先落"已尝试",再跑:这样即使派发器本身把本进程带走(超时/异常),也不会留下一条
   const nextAttempts = (d.used ?? 0) + 1
   const ledgerWritten = writeAlignHealAttempts(
     { lastAttemptAt: now, attempts: nextAttempts, lastWhy: d.why },
@@ -2517,12 +2255,7 @@ function readAlignStateSafe(p) {
   }
 }
 
-/**
- * 每轮 tick 的收尾对齐停摆检查。notify 出口可注入(镜像测试用假派发器断言参数,
- * 绝不在测试里真发邮件);检查层自身任何异常只降级为一行日志,不改守护自愈与退出码。
- * detail 里的数字(次数/分钟)会被 alertFingerprint 归一为 '#' ⇒ 停摆期间同指纹,
- * 由 notifyGuardRed 的 4h 窗口压住重复轰炸;恢复后计数归零,自然不再触发。
- */
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2567(门 103 C1 收口)〉首意: 每轮 tick 的收尾对齐停摆检查。notify 出口可注入(镜像测试用假派发器断言参数,
 export function checkConvergeAlignStall(opts = {}) {
   const {
     now = Date.now(),
@@ -2557,14 +2290,9 @@ export function checkConvergeAlignStall(opts = {}) {
           }
         }
       } else if (h && h.why) {
-        // 2026-10-04 复核补:原实现只在 `h.healed` 为真时写 healNote,于是**熔断/节流**
-        // (decideAlignHeal 返回 healed:false,why=「自愈已用满 3/3 次 ⇒ 熔断,转人工」/
-        //  「距上次自愈 N 分钟 < 节流 M 分钟」)这两档的 why 被整段丢弃 ——
-        // 收信人看到的是一条「从没说有人试过」的告警,与本文件头注
-        // 「收信人第一眼就要知道机器已经自己试过几次」**方向相反**。
-        // 而熔断恰恰是**最该让人看见**的一档:它意味着"自动修已经停手,等人"。
-        // 附带修掉一个静默区间:节流档(fails=1..2 时达不倒告警阈值)原先既不修也不喊,
-        // 现在至少把"为什么这次没修"写进日志与正文,不再是一个无声的静默重试。
+        // 2026-10-04 复核补(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):熔断/节流两档的 why
+        // 也要写进 healNote —— 熔断是「自动修已停手,等人」,最该让人看见;节流档原先既不修也不喊,
+        // 现在至少把「为什么这次没修」写进日志与正文,不再是静默重试。
         healNote = `\n自动修复:本轮未派发(${h.why}) ⇒ 机器已自愈 ${h.attempts ?? 0} 次;仍需人工`
         log(`ℹ️ 收尾对齐自愈未派发:${h.why}`)
       }
@@ -2746,11 +2474,7 @@ function runEnvDriftProbe() {
   }
 }
 
-/**
- * 告警正文的唯一拼装处。**只写键名与所用对照面的文件名/mtime**,一个值都不写(§5d)。
- * 数字会被 alertFingerprint 归一为 '#',所以同一次清空在多轮 tick 里同指纹(4h 窗口压住重复),
- * 而"又漂了一个新键"是指纹变化 ⇒ 立即重报,不会被上一条同因告警挡住。
- */
+// 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2791(门 103 C1 收口)〉首意: 告警正文的唯一拼装处。**只写键名与所用对照面的文件名/mtime**,一个值都不写(§5d)。
 function envDriftDetail(parsed, kindLabel) {
   const lines = [
     `判定面:${parsed.face || '磁盘运行态'}`,
@@ -2780,7 +2504,26 @@ function envDriftDetail(parsed, kindLabel) {
   )
 }
 
-// 〔归档@2026-10-25/门103 C1〕原 20 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l2873-起-20-行
+/**
+ * 家宽公网出口 IPv4 ↔ EdgeOne 源站期望 的巡检 + 到人(2026-10-21 立)。
+ *
+ * 立因(现读):2026-10 起公网链路改为 EdgeOne **源站直填家宽公网 IPv4**(取代 Cloudflare Tunnel
+ * 跨境回源,实测回源 ttfb 10~45s → 0.28~0.34s)。该地址是动态的 —— 一变即全公网 5xx,而此前
+ * 全仓无任何尺子看守。本机无 EO API 凭据 ⇒ 只能"量到 + 到人",信里给人工出口(EO 控制台改
+ * 源站那一格);期望值住台账 scripts/data/eo-origin-expectation.json,判据住
+ * scripts/check-egress-ip-drift.mjs(与 auditEnvDrift 同构:判机器状态 ⇒ 绝不进提交链 §12e,
+ * 唯一调度器 = 本守护)。
+ *
+ * 三态分流(与尺子退出码同形,互不顶掉):
+ *   drift     ⇒ log ❌ + notifyGuardRed(critical)。身份 = `egress-drift;faces=<漂的面>;tier=<持续档>`
+ *              —— §5e-1:类别+主体,不含 sha/时刻/原始计数(门 224 射程);起点件钉住起始形状
+ *              (§5e-1 型②,同 deploy-stall 教训),4h 窗口 + 跨 6h/24h/72h 档即新身份 ⇒ 同一漂移
+ *              不会每轮(2 分钟)重寄,只会越拖越响。
+ *   unjudged  ⇒ 走 notifyEnvUndetermined 持续门槛(探测公网有瞬时抖动,单轮不可达不是故障;
+ *              连满 30 分钟 ≈ 15 趟才按"这一格瞎了"到人 —— 与 env-drift 同一把量过的尺子,不自拍新数)。
+ *   ok        ⇒ 安静,并清掉两本起点账(不得拿上一场抖动的账续命)。
+ * run/notify/logger 全可注入(§22c:镜像测试用假派发器断言"哪种结论发哪种身份",绝不真发信)。
+ */
 const EGRESS_UNDET_FILE = join(WORKTREE, '.ihui-agent', 'state', 'egress-ip-drift-undetermined-first.json')
 const EGRESS_DRIFT_FILE = join(WORKTREE, '.ihui-agent', 'state', 'egress-ip-drift-first.json')
 const EGRESS_UNDET_HORIZON_MS = Number(process.env.IHUI_EGRESS_UNDET_HORIZON_MS || 30 * 60 * 1000)
@@ -2885,24 +2628,7 @@ export function auditEgressIpDrift(opts = {}) {
   return { state: 'clean' }
 }
 
-/**
- * 生产签出外来工作巡检已外置至 scripts/git-guardian-prod-foreign.mjs
- * (2026-10-21 拆分:本文件加完巡检后 6088 行 > 守门 [103] C1 上限 6000;判据语义零改动,
- * 只换文件归属。挂点仍在本文件 main()/startDaemon() 两处 !CHECK_ONLY 分支。)
- */
-
-/**
- * 追加型运行日志的保留期回收(机制对标 ZCode desktop 的 logRetention:双上限 + 稳定窗 + 留痕)。
- *
- * 实测动因:`.ihui-agent/state/hook-logs/pre-commit.log` 现读 93,344,342 B、`.ihui-agent/state/git-guardian.log`
- * 13,610,246 B,两处都只有追加没有死亡;全仓此前只有 `deploy/win/ihui-deploy-loop.ps1` 一处轮转
- * (53MB 事故后加的),即"同类日志各自腐烂"。
- *
- * 挂点必须在**健康轮次的早退之前、且带 !CHECK_ONLY** —— 与 healWorktreeTracked / healRootSeal
- * 同一格(本文件已两次踩过"挂进 CHECK_ONLY 路径等于永不执行")。
- * 为什么不在钩子内自己滚:钩子日志是 `hook-run-hidden.vbs` 用 `cmd … >> log` 打开句柄后才启动
- * node 的,node 改名自己正被追加的文件必撞 Windows 共享冲突;巡检撞上了也只是本轮跳过。
- */
+// 〈原 18 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2949(门 103 C1 收口)〉首意: 生产签出外来工作巡检已外置至 scripts/git-guardian-prod-foreign.mjs
 function rotateRunLogs() {
   const targets = [LOG, join(WORKTREE, '.ihui-agent', 'state', 'hook-logs', 'pre-commit.log')]
   const hookDir = join(WORKTREE, '.ihui-agent', 'state', 'hook-logs')
@@ -2963,16 +2689,7 @@ function healRootSeal() {
     log(`⚠️ 盘根封口重封后体检仍非 0(exit ${after.code})⇒ 需人工看 seal-c-root-stray 输出`)
 }
 
-/**
- * 看门人的看守(2026-09-23 立)。凭据/部署停摆巡检靠 schtasks 每 6 小时自跑,而它的故障
- * 形态是**安静**:任务被删/被停、node 路径失效、计划任务账户看不到代理 —— 任何一种都会让
- * "本该报警的那条链"静默消失,与今天"生产冻结两天无人知"同构。本守护每 2 分钟一趟且自身
- * 分层自愈,由它盯心跳是成本最低的闭环。
- * 心跳 = 巡检 --json 模式写的 .ihui-agent/state/credential-health-last.json(内含 ts)。
- * 超时(18h = 标称周期 3 倍,避开机器休眠/夜间空档误报)时:① 重跑 --install 找回任务
- * (脚本自带"注册前用 cscript 实跑一次 vbs 预检"的护栏),② 就地拉起一轮(它会自己走
- * 邮件单通道告警)。kick 标记落盘做 6h 冷却,避免每 2 分钟重复拉起。
- */
+// 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3027(门 103 C1 收口)〉首意: 看门人的看守(2026-09-23 立)。凭据/部署停摆巡检靠 schtasks 每 6 小时自跑,而它的故障
 const WATCHDOG_HEARTBEAT = join(WORKTREE, '.ihui-agent', 'state', 'credential-health-last.json')
 const WATCHDOG_KICK = join(WORKTREE, '.ihui-agent', 'state', 'credential-health-kick.ts')
 const WATCHDOG_STALL_MS = 18 * 3600 * 1000
@@ -3024,7 +2741,24 @@ function watchWatchdog() {
   }
 }
 
-// 〔归档@2026-10-25/门103 C1〕原 18 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l3136-起-18-行
+/**
+ * 元运维巡检的**心跳消费者**(2026-10-17 立)。
+ *
+ * 盲区:巡检由本文件的 `auditOpsPatrol()` 派发,并每轮落 `.ihui-agent/state/ops-patrol-last.json`。
+ * 但那份心跳**一直只有写入者、没有读者** —— 巡检自己停摆时(调度器瞎了、auditOpsPatrol
+ * 被并发提交整份写回而静默消失、脚本抛错早退),账面没有任何一格会红:它判的是"别的任务
+ * 没在跑",而"它自己没在跑"没有任何判据。这正是本仓反复记的那一型:故障形态是**安静**。
+ *
+ * 与 watchWatchdog 同一条挂点语义、同一套处置:心跳超时(3× 派发周期 = 45 分钟,
+ * 避开机器休眠/夜间空档误报)⇒ 写日志 + 当场起跳一轮 `--json`(它自己会决定报不报红),
+ * 起跳标记落盘做 6h 冷却,避免每 2 分钟重复拉起。
+ *
+ * 三态纪律(与 §12 同规矩,**不从"读不到"推"坏了"**):
+ *   - 文件不存在 / 内容不可解析 / `at` 不是合法时间 ⇒ 记「未判定」并点名原因,**不喊人**
+ *     (新装的机器还没跑过第一轮,那是"没发生"而非"坏了";喊了就是噪音);
+ *   - 判定为超时 ⇒ 日志 + 起跳自愈,同样**不直接发信**(起跳那一轮跑完会自己按尺度报);
+ *   - 任何异常只写日志,不改本守护退出码(它是调度层,不是判据)。
+ */
 const PATROL_HEARTBEAT = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-last.json')
 const PATROL_KICK = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-kick.ts')
 // 阈值在**函数内**按 `OPS_PATROL_INTERVAL_MS` 惰性求值:那个常量定义在本文件更下方(派发点那一节),
@@ -3094,23 +2828,7 @@ export function watchPatrolHeartbeat(opts = {}) {
   }
 }
 
-/**
- * 公网路径与换流窗口的**常驻**探测派发点(台账票 G-301;尺子本体 = `scripts/check-public-path-probe.mjs`)。
- *
- * 为什么挂在这里而不是新建计划任务:该机有明令"注册计划任务属影响全机的自动动作,须机主授权",
- * 而本守护已经是全部运维告警的派发点(每 2 分钟一趟、自身分层自愈、已升 S4U)。
- * 挂点语义与 healWorktreeTracked / watchWatchdog 同一条:**健康轮次的早退之前 + `!CHECK_ONLY`** ——
- * 挂进 CHECK_ONLY 分支等于永不执行(本文件已两次踩过,见上方注释)。
- *
- * 三条不可漂的写法:
- *  ① **节流而非封量**:两次真实探测之间隔 `PUBLIC_PROBE_INTERVAL_MS`(默认 30 分钟),
- *     这是"别每 2 分钟打一次公网"的**节奏**控制,**不是**每日封顶 —— §5e 写死了
- *     "第三方额度是别人的配额,自设上限等于把告警静默再复制一遍"。
- *  ② 告警一律经 `notifyGuardRed()`:按 alert 身份 + 内容指纹去重、失败写 UNDELIVERED 标记、
- *     **不在此文件自拼 SMTP/Resend**(守门 81 硬拦的就是这个)。
- *  ③ 判"未判定"与"没跑到"**不得静默**:尺子 exit 3 或 JSON 取不到时只写日志、不发信 ——
- *     发一封"我什么都没量到"的邮件是把噪音冒充成告警;但日志必须点名原因,不得沉默。
- */
+// 〈原 17 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3175(门 103 C1 收口)〉首意: 公网路径与换流窗口的**常驻**探测派发点(台账票 G-301;尺子本体 = `scripts/check-public-path-probe.mjs`)。
 const PUBLIC_PROBE_TICK = join(WORKTREE, '.ihui-agent', 'state', 'public-path-probe-tick.ts')
 const PUBLIC_PROBE_LAST = join(WORKTREE, '.ihui-agent', 'state', 'public-path-probe-last.json')
 const PUBLIC_PROBE_INTERVAL_MS = Number(process.env.IHUI_PUBLIC_PROBE_INTERVAL_MS || 30 * 60 * 1000)
@@ -3118,12 +2836,7 @@ const PUBLIC_PROBE_INTERVAL_MS = Number(process.env.IHUI_PUBLIC_PROBE_INTERVAL_M
 const PUBLIC_PROBE_TIMEOUT_MS = Number(process.env.IHUI_PUBLIC_PROBE_TIMEOUT_MS || 240_000)
 /** 持续性门槛的状态件:按身份记"同一结论连了几轮" */
 const PUBLIC_PROBE_STREAK_FILE = join(WORKTREE, '.ihui-agent', 'state', 'public-path-probe-streak.json')
-/**
- * 同一身份连续第几轮越阈才到人。**默认 2 = 最长约 30 分钟**(一轮节流 30 分钟)。
- * 这个数不是拍的:2026-10-16 现读的健康轮里,公网 10 次采样已出现 1 条 9971ms(慢样本率正好
- * 压在 10% 这条线上),而同轮本地对照组 9–47ms ⇒ 单轮尖峰既不足以判"持续故障",又足以寄一封
- * 收信人下不了手的信(§5e-1)。设 0/1 = 恢复"越阈即寄"的老语义。
- */
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3199(门 103 C1 收口)〉首意: 同一身份连续第几轮越阈才到人。**默认 2 = 最长约 30 分钟**(一轮节流 30 分钟)。
 const PUBLIC_PROBE_STREAK_REQUIRED = Number(process.env.IHUI_PUBLIC_PROBE_STREAK || 2)
 /** 身份本轮没再出现(改名/换段/不再越阈)时,streak 条目超过这个年龄即回收 —— 工作队列必须有死亡机制 */
 const PUBLIC_PROBE_STREAK_TTL_MS = Number(process.env.IHUI_PUBLIC_PROBE_STREAK_TTL_MS || 24 * 60 * 60 * 1000)
@@ -3135,19 +2848,7 @@ const PUBLIC_PROBE_STREAK_TTL_MS = Number(process.env.IHUI_PUBLIC_PROBE_STREAK_T
 const OPS_PATROL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-tick.ts')
 const SERVICE_HEAL_INTERVAL_MS = Number(process.env.IHUI_SERVICE_HEAL_INTERVAL_MS || 30 * 60 * 1000)
 
-/**
- * 工作区写索引动作的节流(2026-10-04 复核补)。
- *
- * 成因:守护自己的 `healWorktreeTracked()` **每轮都跑**,而收敛对齐的自愈
- * (`healConvergeAlignStall → git-sync-converge.mjs --align-only → heal-worktree-tracked
- * .mjs --align-drift --json`)在同一轮 tick 里排在它之后 —— 两者写同一个索引、跑同一个
- * 脚本(实测派发参数相同)。无节流时一轮跑两遍写索引动作:抢 index.lock(heal-worktree-tracked
- * 虽对锁有让路逻辑,但让路只保证不硬拼,不保证不浪费)+ 白白多花一次 40–51 秒。
- *
- * 两侧共用这一个戳(读也写),少任何一边都等于半拉:只写不读 = 永远不跳;只读不写 = 永远跳。
- * 取值 5 分钟:对齐器本机实测 40–51 秒,5 分钟足够隔开两次真动作,又不会让"工作区被删"
- * (§12d 静默回滚温床)迟迟不修。env 可调。
- */
+// 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3216(门 103 C1 收口)〉首意: 工作区写索引动作的节流(2026-10-04 复核补)。
 const WORKTREE_HEAL_INTERVAL_MS = Number(process.env.IHUI_WORKTREE_HEAL_INTERVAL_MS || 5 * 60 * 1000)
 const WORKTREE_ALIGN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'worktree-align-tick')
 const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS || 420_000)
@@ -3218,16 +2919,29 @@ export function healUnresponsiveServices(opts = {}) {
         // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
         '服务自愈动作',
         `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
-        // 2026-10-04 复核补:原写 `{ alertName: … }`,而 notifyGuardRed 的 opts 解构里
-        // **没有 alertName 这个键**(见其签名:severity/now/dispatch/stateFile/undFile/
-        // windowMs/failCooldownMs/dedupKey/force/logger)⇒ 该值被**静默丢弃**,这一格
-        // 实际只吃了默认的内容指纹去重。症状:同一个"服务 A 重启失败"与"服务 B 重启失败"
-        // 归成同一身份,B 恢复了 A 还在失败时,B 的新事实被压成旧指纹不重报。
-        // 改传 dedupKey(那才是真正被消费的字段),身份取"哪些服务"集合、有序无关。
+        // 2026-10-04 复核补(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):原传 alertName 被
+        // notifyGuardRed 静默丢弃 ⇒ 改传 dedupKey(真正被消费的字段),身份取「哪些服务」集合、有序无关。
         { dedupKey: `service-heal;svcs=${[...acted, ...failed].map((x) => x.name).sort().join('+') || 'fail'};acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}` },
       )
     }
-    // 〔归档@2026-10-25/门103 C1〕原 18 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l3379-起-18-行
+    // ── "自愈只能交人"这一型终态必须到人(2026-10-21 实测)────────────────────────────
+    // 现场:IHUI-API 因 Fastify 重复路由声明在 boot 期抛错,崩溃循环 126 次、8802 从未监听、
+    // 登录全量 500 持续 45 分钟,而**一封信都没有**。原因是上面的发信条件只认
+    // `restarted` / `restart-failed`,而自愈按 60 分钟窗口最多拉两次(`maxRestartsPerWindow: 2`),
+    // 两次都无效之后就进入 `window-capped` —— 既不在 acted 也不在 failed,从此只往日志写一行
+    // "请人看"。于是**越是不重启能解决的故障越安静**,恰好把最该喊人的那一型留成静默。
+    // 同型的第二个入口是**名单外故障**(`not-in-list` 且真坏了):排除台账的 reason 通篇写着
+    // "只喊人",而"只喊人"从来没有生产者 —— 门 153 只是提交链上的 warn,几天没人提交就几天不响。
+    // 2026-10-21 现读:IHUI-OLLAMA `STATE=STOPPED`、Application 路径已不存在、11434 无应答,
+    // 全仓无一行发信代码看得到它。
+    // 两个入口共用一件器物(§0.6 单一真相源):身份 = 服务名集合 × 持续档(跨档即新身份 ⇒
+    // 越拖越响,不会被窗口压成静音),解除即摘起点状态件,正文必须带可执行出路(§5e-1)。
+    //
+    // `firstAlertAfterMs` 是给**第三个入口(量不到)**用的:一轮未判定必须只报名(§0.3 —— 把
+    // "没判"读成"坏了"等于让一把量不到的尺子获得重启权与发信权),但"连续六小时量不到"本身
+    // 就是一起事故:**看守层瞎了**。这一档原先只写日志,于是"门 153 整个坏了"这件事恰好落在
+    // 唯一能发现它的那封信根本没发出来的位置上。门槛取 6h 不另拍新数 = `alertHeldTier` 的第一
+    // 条已登记档界(6h/24h/72h),到点第一封就是 6-24h 档,之后照常跨档升级。
     const alertTerminalHeld = ({ list, kind, file, titleFor, intro, steps, firstAlertAfterMs = 0 }) => {
       if (list.length === 0) {
         // 终态必须会清:恢复应答、不再封顶、或重新量到了,都把起点摘掉,
@@ -3329,13 +3043,13 @@ export function healUnresponsiveServices(opts = {}) {
 }
 
 const OPS_PATROL_INTERVAL_MS = Number(process.env.IHUI_OPS_PATROL_INTERVAL_MS || 15 * 60 * 1000)
-const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 180_000)
-// ── 巡检发信的持续性门槛(2026-10-16 立,与 auditPublicPathProbe 共用 `bumpProbeStreak` 同一份实现)──
-// 门槛取 **3 轮 ≈ 45 分钟**,这个数不是拍的,是当天量出来的:P4a(Temp 条目越阈)今天两场风暴
-// 各只持续了 2 轮就自己回绿(05:21Z 64,205>60,000、05:36Z 64,289 ⇒ 05:51Z 已绿;07:52Z 又一模一样),
-// 而真待修的那一族(备份停摆 63 小时、规则没上岗、副本没出机)一红就是几十轮。
-// ⇒ 3 轮掐得掉"下一轮就没了"的尖峰,压不住真故障;单轮/两轮尖峰只逐轮报名(红档与原因照旧每轮打印、
-// 每轮落 `.ihui-agent/state/ops-patrol-last.json`),**不发信 ≠ 不留痕**(§5e-1:红了要能答"收信人能做什么")。
+// 2026-10-26 由 180s 提到 300s:整轮巡检本机实测 ≈101s(其中 HEAD 类型检查 ≈64s 跑 20 个端),
+// 180s 在共享 git 争用/他席并发 tsc 时不够 ⇒ 巡检被 SIGTERM,守护只拿到 `ETIMEDOUT`、
+// 拿不到任何一维读数,于是每轮寄一封「元运维巡检红」——报的是巡检自己没跑完,不是哪一维坏了。
+// 360s 仍是有界上限(守门 80),且**大于**内层 runHeadTypecheck 的 240s(嵌套超时纪律:
+// 内层先超时只会把 P12 降成未判定,不会连根拔掉整轮结论)。
+const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 360_000)
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3429(门 103 C1 收口)〉首意: ── 巡检发信的持续性门槛(2026-10-16 立,与 auditPublicPathProbe 共用 `bumpProbeStreak` 同一份实现)──
 const OPS_PATROL_STREAK_FILE = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-streak.json')
 const OPS_PATROL_STREAK_REQUIRED = Number(process.env.IHUI_OPS_PATROL_STREAK || 3)
 const OPS_PATROL_STREAK_TTL_MS = Number(process.env.IHUI_OPS_PATROL_STREAK_TTL_MS || 24 * 60 * 60 * 1000)
@@ -3346,7 +3060,25 @@ export function publicProbeDue(nowMs, tickMs, intervalMs = PUBLIC_PROBE_INTERVAL
   return nowMs - tickMs >= intervalMs
 }
 
-// 〔归档@2026-10-25/门103 C1〕原 19 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l3515-起-19-行
+/**
+ * 元运维巡检的**常驻**派发点(尺子本体 = `scripts/check-ops-patrol.mjs`)。
+ *
+ * 为什么必须挂在这里:这把尺子判的是"某件事**没有发生**"(任务消失、规则没上岗、运行副本漂了、
+ * 时钟 13 小时没同步、备份不产出、云同步那条腿的同步客户端根本没开)。这类故障不产生任何一行错误日志,
+ * 而它按设计**不能进提交链** —— 判据落在机器状态上,提交者结构上满足不了,挂 blocking 就是每台每次
+ * 被逼 `--no-verify`、连带链上全部守门对该提交作废(§12e/§12f)。"留作手动问责"的实际含义是
+ * **只有人在跑、没有班次在跑**,而本仓对这一型的名字就叫"造好没装车"。本守护是唯一的调度器。
+ *
+ * 2026-09-29 实录(本条目自身被这一型咬过,故把教训写在装它的函数头上):本派发点曾于
+ * `2dfb456fce` 装好并实测发信成功,一小时内被并发提交 `a3ad07092f`(一枚"扫码死链修复")
+ * **按旧基线整份写回** `git-guardian.mjs` 而抹掉(净删 1552 行)—— 尺子还在、判据还对、
+ * 账面全绿,而它已经无人调度。镜像测试 T1/T2/T4 就是为抓住这一次而存在的。
+ *
+ * 三个执行体细节,漏一个都会变成"看起来在跑":
+ * - 节流戳与 `--apply` **两个执行体共用**:谁先到谁干活,同窗口内另一个直接跳过;
+ * - 红经 `notifyGuardRed` 走邮件,沿用"身份 + 内容指纹 4h 去重",无总量封顶;
+ * - 未判定**只写日志不喊人**(与 auditPublicPathProbe 同规矩),但必须报名。
+ */
 export function auditOpsPatrol(opts = {}) {
   const {
     now = Date.now(),
@@ -3465,14 +3197,7 @@ export function auditOpsPatrol(opts = {}) {
           `\n连击账本:.ihui-agent/state/ops-patrol-streak.json;盲区与逐格读数:.ihui-agent/state/ops-patrol-last.json`,
         {
           severity: 'warning',
-          // dedupKey(§5e-1 配套,24 封):聚合告警的正文是**逐格 detail 清单**,而每格 detail
-          // 都含实时读数(条目数 67595、时钟距今 N 小时)⇒ 指纹逐轮变 ⇒ 窗口失效。
-          // 2026-10-19 再收一格:**"哪几格红了"这个集合本身也是会抖的量**。现读 17:49 / 18:05 / 18:35
-          // 三封在 46 分钟内,起因是 P4a 与 P5b 里有一格先愈合了 ⇒ 集合从 `P4a+P5b` 变 `P5b`
-          // ⇒ 旧窗口作废、当场再寄一封。"好了一半"不是新故障,按 §5e-1 不该重报。
-          // 新身份 = 本段**起点**的格集合(钉住,先到先得)× 起点与本轮里**较坏**的那档计数 × 持续档;
-          // 只有"起点里没有的新格红了"(`new=`)才会立刻另开身份 —— 那才是真新增的一一个问题。
-          // 逐格明细照旧全量进正文(信息量不降),实时读数照旧不进身份。
+          // 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3582(门 103 C1 收口)〉首意: dedupKey(§5e-1 配套,24 封):聚合告警的正文是**逐格 detail 清单**,而每格 detail
           dedupKey: (() => {
             const epFile = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-episode-first.json')
             const idsArr = findings.map((x) => x.id).sort()
@@ -3500,22 +3225,7 @@ export function auditOpsPatrol(opts = {}) {
   }
 }
 
-/**
- * 持续性门槛的判据(纯函数,镜像测试直接调它,不在测试里复制第二份判据 §22c)。
- *
- * 一条身份每被量到一次 breach 就 +1;达到门槛才允许到人。三种结论各有各的账,**不得并桶**:
- *   · `breach` ⇒ 连击 +1(同身份同语义才算连着,换了段就是另一件事);**但距上一次 breach 不足
- *              `minGapMs` 的那一轮算"重复测量",只报名不推进** —— 本机守护有两个执行体共用一个
- *              节流戳,"轮"这个单位必须是时间,否则一次尖峰会被 60 秒内的两次采样凑成"连续两轮"
- *              (2026-10-16 13:19/13:20 实测,门槛就是这么被绕过的);
- *   · `ok`     ⇒ 清零并报名"从第几轮断的"(恢复必须是可见的终态,不是悄悄不留痕);
- *   · `unjudged` ⇒ **不推进也不清零**,且**不刷新 lastSeenAt**:本轮没量到有效结论,
- *                  既不能替故障续命,也不能替它收尸(拿不到输入时永远多要一次,绝不少要)。
- * 本轮没出现的旧条目(改名/换段)按 `ttlMs` 回收 —— 台账不能只进不出。
- * @param {{[k:string]:{streak?:number,firstAt?:string,lastSeenAt?:string}}} prev
- * @param {{[k:string]:{verdict?:string}}} results
- * @returns {{state:object, info:object, cleared:{key:string,from:number}[], pruned:{key:string,streak:number,ageAnchor:string|null,lastSeenAt:string|null}[]}}
- */
+// 〈原 16 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3617(门 103 C1 收口)〉首意: 持续性门槛的判据(纯函数,镜像测试直接调它,不在测试里复制第二份判据 §22c)。
 export function bumpProbeStreak(prev, results, opt = {}) {
   const now = opt.now ?? Date.now()
   const required = Number.isFinite(Number(opt.required)) ? Math.max(0, Number(opt.required)) : 2
@@ -3626,12 +3336,7 @@ export function auditPublicPathProbe(opts = {}) {
   try {
     mkdirSync(dirname(tickFile), { recursive: true })
     writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-    // 判序(2026-10-03 补修,此前是本仓**唯一没修**的一处同型):`runner || (iife())` 在
-    // 传入函数时会让 `call` **等于那个函数本身**(短路掉调用),而不是它的返回值 ——
-    // 于是 `readProbeVerdict(call)` 读到 `status=undefined`,恒报「探针未产出 stdout」。
-    // 本函数 2751 行的注释早就写明了这个坑并点名「auditPublicPathProbe 此刻就是这一型」,
-    // 但只修了同族的 checkBaselineFreshness,这一处漏了;它此前无镜像测试 ⇒ 一直没暴露。
-    // 镜像测试补上后立刻撞红(2026-10-03),按同族正确写法改成"显式注入优先调用"。
+    // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3743(门 103 C1 收口)〉首意: 判序(2026-10-03 补修,此前是本仓**唯一没修**的一处同型):`runner || (iife())` 在
     const call =
       typeof runner === 'function'
         ? runner()
@@ -3702,17 +3407,7 @@ export function auditPublicPathProbe(opts = {}) {
       const reasons = Array.isArray(r?.reasons) ? r.reasons : []
       if (verdict === 'breach') {
         breaches += 1
-        // alert 身份**按序列+目标分开**:A(换流窗口)与 B(常态公网)是两个不同的故障,
-        // 合并成一个身份会让先响的那条把后响的那条压掉 —— 正是票面禁止的"互相掩盖"。
-        //
-        // **B/本地 这一格不得用「公网路径探测」的名义到人(2026-10-03 立,28 封审计)**。
-        // 尺子头注(:769)自己写明「公网是被测对象,本地是对照组」;对照组失真 = 本机服务
-        // 没起(实测那 16 封报的是 `127.0.0.1:8801` connRefused,而 8801 = Web/IHUI-WEB,
-        // 由 `heal-unresponsive-services.mjs` 那层负责),**与公网可用性无关**。
-        // 收信人读着"公网探测越阈值"去查公网永远查不到 ⇒ 这一格是"告的不是信里说的那件事",
-        // 属 §5e-1 答不上来就不许挂。正解:本地组只进日志(它是对照组的自检面,不是故障面),
-        // 真故障(本机服务没起)归服务自愈层 —— 那层若自己坏了(`check-service-binary-paths`
-        // rc=2 派生失败)该修的是它,不是让公网判据替它喊人。
+        // 〈原 11 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3819(门 103 C1 收口)〉首意: alert 身份**按序列+目标分开**:A(换流窗口)与 B(常态公网)是两个不同的故障,
         if (key.includes('本地')) {
           logger(
             `⚠️ 公网探测对照组失真(${key}):${String(r?.numbers || '').slice(0, 160)} —— 本地服务未起,不按公网故障到人(§5e-1);真故障归服务自愈层`,
@@ -3742,14 +3437,7 @@ export function auditPublicPathProbe(opts = {}) {
                   : leg === 'undetermined'
                     ? '出路:本轮**定位拿不到**(对照组没样本)⇒ 先问对照组为什么没采到(尺子被掐/8801 未监听/取证未跑完),别按"公网坏了"动手。'
                     : '出路:先用 --report 确认是**目标端**慢/失败(而非探针机抖动);目标真不可用时查该服务自身健康' + '(本机 web/api/ai-service 由 heal-unresponsive-services 自愈;外部目标查其服务端与链路)。'
-        // 身份 = **成因 × 严重度档 × 已持续档**(归一住在尺子那侧,§0.6),而不是"序列+结论"。
-        // 原写法 `seq;verdict` 仍会每 4 小时重寄同一句话:这件事的成因(跨境段 + 全落 lax 边缘 PoP)
-        // 机主短期不会动 ⇒ 同因同档持续 = 同一身份 ⇒ 由下面的日级窗口压住;一旦跨档(恶化到断流级、
-        // 或成因从入口段换成服务段)身份即变 ⇒ 立刻重报。绝不靠静音,只靠"没有新事实就别刷屏"。
-        // 派发契约里的 `stat` 是**严重度档的唯一输入**(classifyAlertIdentity 只从它取
-        // unavailable/longestRunMs/runs/slowRatio)。尺子哪天不带它 ⇒ 档恒 0、断流级恶化不再变成
-        // 新身份 ⇒ 24h 窗口把"更坏了"压成"同一件事"。这必须当场喊出来:静默降级成 `{}` 就是
-        // 把"没量到"写成"量到了且没问题"(§0.3),而它上一版正是这么无声失效了两周。
+        // 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3859(门 103 C1 收口)〉首意: 身份 = **成因 × 严重度档 × 已持续档**(归一住在尺子那侧,§0.6),而不是"序列+结论"。
         const hasStat = !!r?.stat && typeof r.stat === 'object'
         if (!hasStat)
           logger(`⚠️ 公网探测越阈但身份缺少 stat(尺子未出口序列读数)⇒ 严重度档只能按档 0,本轮「恶化即重报」失明:${key}`)
@@ -3787,44 +3475,13 @@ export function auditPublicPathProbe(opts = {}) {
   }
 }
 
-/**
- * 隧道腿健康哨的**常驻**派发点(尺子本体 = `scripts/check-tunnel-leg-health.mjs`)。
- *
- * 为什么必须挂在这里(2026-10-16 立项,当天实测到一次真险):cloudflared 的 4 条已建立腿**全部**吊在
- * 同一个已进入 deprecated 的临时 IPv6 源地址上(`首选寿命 0s`)。该地址一旦被系统删除,4 条腿同时断
- * ⇒ 公网入口直接 530,而当天**没有任何一门会提前喊**:监控只会事后报"公网 ERR",公网探测会把这
- * 一跳归进"入口段/出口段"的延迟读数里,谁都不会去看源地址的寿命。这台机是生产机,入口就是这一条隧道。
- *
- * 三条不可漂的写法照抄 `auditPublicPathProbe`:节流而非封量、告警一律经 `notifyGuardRed()`、
- * 未判定只写日志并点名原因(发一封"我什么都没量到"的信是把噪音冒充成告警)。
- *
- * 与公网探测**刻意不同**的一处:这里**不设"连几轮才到人"的持续性门槛**。理由是量纲,不是省事:
- * 公网延迟是**会抖的样本量**(健康轮也会出现 1/10 条 ≥8s,单轮尖峰寄信 = 噪音);而"源地址已废弃 /
- * 进程在而腿数 0"是**状态量**,一轮就是一次事实,而且它是**事前**信号 —— 等第二轮就等于多开 15 分钟
- * "随时可能整组断腿"的危险窗口。
- */
+// 〈原 16 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3904(门 103 C1 收口)〉首意: 隧道腿健康哨的**常驻**派发点(尺子本体 = `scripts/check-tunnel-leg-health.mjs`)。
 const TUNNEL_LEG_TICK = join(WORKTREE, '.ihui-agent', 'state', 'tunnel-leg-tick.ts')
 const TUNNEL_LEG_LAST = join(WORKTREE, '.ihui-agent', 'state', 'tunnel-leg-health-last.json')
 const TUNNEL_LEG_INTERVAL_MS = Number(process.env.IHUI_TUNNEL_LEG_INTERVAL_MS || 15 * 60 * 1000)
 const TUNNEL_LEG_TIMEOUT_MS = Number(process.env.IHUI_TUNNEL_LEG_TIMEOUT_MS || 90_000)
 
-/**
- * 隧道指标落台账的**常驻**派发点(尺子本体 = `scripts/record-tunnel-metrics.mjs`)。
- *
- * 为什么单立一格而不是塞进隧道腿哨(2026-10-16 实测出来的缺口):
- * 腿哨判的是"此刻"的状态(腿在不在 / 源地址退没退化 / 落点在哪个 PoP),它**不留时间轴**;
- * 而 cloudflared 服务没有 --logfile、monitoring/prometheus 里也没有 cloudflared job ⇒
- * 今天定位"公网入口慢"时只能当场临时抓一次 metrics,回答不了"什么时候开始劣化的、
- * 落点什么时候换的、回源错误率怎么走的"。这一格只做一件事:每 15 分钟把白名单指标
- * **追加一行**到 `.ihui-agent/state/tunnel-metrics.jsonl`,让下次事故有得回放。
- *
- * 三条纪律(与腿哨同格):
- *  ① **只落盘与报数,不判红、不寄信** —— 累计值本身不构成告警语义,落点变化/进程重启
- *     才是有意义的信号,那两档也只进日志;
- *  ② **取不到就点名**(进程不在 / 端口没枚举到 / HTTP 失败 / 抽不出指标)⇒ 写未判定,
- *     绝不落一行"全 0"充数 —— 假台账比没台账更害人;
- *  ③ 节流而非封量,与其余派发点同语义。
- */
+// 〈原 17 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3925(门 103 C1 收口)〉首意: 隧道指标落台账的**常驻**派发点(尺子本体 = `scripts/record-tunnel-metrics.mjs`)。
 const TUNNEL_METRICS_TICK = join(WORKTREE, '.ihui-agent', 'state', 'tunnel-metrics-tick.ts')
 const TUNNEL_METRICS_LAST = join(WORKTREE, '.ihui-agent', 'state', 'tunnel-metrics-last.json')
 const TUNNEL_METRICS_INTERVAL_MS = Number(process.env.IHUI_TUNNEL_METRICS_INTERVAL_MS || 15 * 60 * 1000)
@@ -3905,77 +3562,6 @@ export function auditTunnelMetrics(opts = {}) {
 }
 
 // 〈原 21 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l4089(门 103 C1 收口)〉首意: 
-/** 违禁桶兜底清扫派发层(2026-10-25,与 sweepStaleClosedRows 同型):5 分钟节流 + 器物不在位
- *  明报"跳过不记为已探测"(§0.3),三态读数只认器物自己的 SWEEP-RESULT 结论行。 */
-export function sweepBannedBuckets(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = 5 * 60 * 1000,
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'banned-bucket-sweep-last.json'),
-    logger = log,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'strip-banned-buckets.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ 违禁桶清扫:器物不在位(scripts/strip-banned-buckets.mjs)⇒ 本轮跳过,不记为已探测')
-    return { ran: false, why: '清扫器不在位' }
-  }
-  let last = NaN
-  try {
-    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
-  } catch (e) {
-    logger(`⚠️ 违禁桶清扫:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
-  }
-  const run =
-    typeof runner === 'function'
-      ? runner
-      : () => {
-          try {
-            const out = execFileSync(process.execPath, [script, '--apply'], {
-              cwd: WORKTREE,
-              encoding: 'utf8',
-              windowsHide: true,
-              timeout: 10 * 60 * 1000,
-              maxBuffer: 1 << 22,
-              stdio: ['ignore', 'pipe', 'pipe'],
-            })
-            return { ok: true, out: String(out ?? '') }
-          } catch (e) {
-            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
-          }
-        }
-  const r = run()
-  const rows = String(r.out ?? '').split(/\r?\n/)
-  const resultLine = rows.map((l) => l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/)).find(Boolean)
-  const state = resultLine ? resultLine[1] : null
-  const kv = (key) => {
-    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
-    return m ? m[1] : null
-  }
-  if (state === 'clean') {
-    logger('ℹ️ 违禁桶清扫:干净(waiting-env/waiting-human 未勾行 0,读数来自器物)')
-    return { ran: true, judged: true, ok: true, state }
-  }
-  if (state === 'stripped' && Number(kv('stripped')) > 0) {
-    logger(`✅ 违禁桶清扫:摘除 ${kv('stripped')} 条(留痕 f12-purge;禁令循环回潮已自动收敛)`)
-    return { ran: true, judged: true, ok: true, state, stripped: Number(kv('stripped')) }
-  }
-  if (state === 'undetermined') {
-    logger('⚠️ 违禁桶清扫:未判定(取材取不到/落地被拒)——不记通过,下轮重试')
-    return { ran: true, judged: true, ok: false, state }
-  }
-  // stripped=0 且非 clean(pending 型 dry-run 语义不应出现在 --apply 档;记一笔不猜)
-  logger(`ℹ️ 违禁桶清扫:结论 state=${state ?? '读不到'}(stripped=${kv('stripped') ?? '?'})`)
-  return { ran: true, judged: state !== null, ok: state !== null, state }
-}
-
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -4059,12 +3645,7 @@ export function sweepStaleClosedRows(opts = {}) {
   return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
 }
 
-/**
- * 超龄认领牌代摘轮(2026-10-22 立,同日补回:这一层曾被一枚已入库的提交整段删掉而无人发现
- * —— 代摘器物 `strip-stale-claim-marks.mjs` 仍在仓里,但没有派发点就是"造好没装车"(§0.9),
- * 表现是超龄牌永不自清、派单面虚低。接线锁见 scripts/tests/strip-stale-claim-marks.test.mjs)。
- * 只认器物自己打的机读行 `SWEEP-RESULT state=…`,中文文案不参与判定;取不到那一行一律未判定。
- */
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4105(门 103 C1 收口)〉首意: 超龄认领牌代摘轮(2026-10-22 立,同日补回:这一层曾被一枚已入库的提交整段删掉而无人发现
 export function sweepStaleClaimMarks(opts = {}) {
   const {
     now = Date.now(),
@@ -4152,23 +3733,7 @@ export function sweepStaleClaimMarks(opts = {}) {
 
 const SWEEP_LIVENESS_INTERVAL_MS = Number(process.env.IHUI_SWEEP_LIVENESS_INTERVAL_MS || 30 * 60 * 1000)
 
-/**
- * 清扫背离巡检(2026-10-23 立,机主令"要"):判"派发在动、留痕静默"这一族空转 ——
- * 上面两把清扫器的节流台账都在刷新(只证明"被叫醒过"),而摘除留痕台账最后一条 at
- * 静默超过 2 小时,同时 HEAD 面上还有这一轮真正会动手的可清存量 ⇒ 器物在仓、派发点在、
- * 就是干不成活。两度实证的形态:10-22 护栏③ 整批让路(45 枚超龄牌一枚未摘)、
- * 10-23 摘除成功落地却一行留痕都不写(复洁器与 union 同时瞎掉)。
- *
- * 三条刻意(与 reportBaselineFreshness 同族):
- *  ① **只读探针**:判的是"守护自己的巡检层空转",与提交内容无关 ⇒ 不 notifyGuardRed、
- *     不改任何退出码(§12e 恒红门禁令)。先证明自己不是狼来了,再谈别的。
- *  ② 30 分钟节流:closed 族存量要跑守门 71 尺子(H4 分档),不宜 5 分钟档;间隔内不派生
- *     子进程(本守护每 2 分钟一趟,便宜档零成本)。
- *  ③ 挂在 sweepStaleClaimMarks() 之后:两族 tick 刚被那一轮刷新 ⇒ 同轮即可验证健康。
- *
- * 结论只认尺子自己打的机读行/JSON(`overall` + 逐族 `state`),中文文案不参与判定;
- * 取不到结论一律写"未判定"并带上原因,不读成绿(§0.3)。
- */
+// 〈原 17 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4198(门 103 C1 收口)〉首意: 清扫背离巡检(2026-10-23 立,机主令"要"):判"派发在动、留痕静默"这一族空转 ——
 export function auditSweeperLiveness(opts = {}) {
   const {
     now = Date.now(),
@@ -4697,14 +4262,7 @@ export function healCrossEndMirror(opts = {}) {
 
 const INDEX_UNMERGED_INTERVAL_MS = Number(process.env.IHUI_INDEX_UNMERGED_INTERVAL_MS || 15 * 60 * 1000)
 
-/**
- * index 烂尾(unmerged 条目)滞留哨兵(2026-10-24 立):凌晨一次违规 stash + rebase +
- * stash pop 冲突会话逃逸,index 挂 2 枚 unmerged + 91 个被删文件 12 小时无人察觉,最终靠
- * foreign-work 对账间接发现。本层把这一格变成专职判据(尺子 = scripts/check-index-unmerged-age.mjs):
- *   clean 静默;fresh(未超龄,正常合并进行中)只写 ℹ️;stale(同批条目滞留 ≥15 分钟)
- *   到人(§5e-1:文案自带可执行下一步);undetermined 只写 ⚠️ 不猜(§0.3)。
- * 判机器状态 ⇒ 不进提交链;不改本守护退出码(§12e)。15 分钟节流,间隔内零派生。
- */
+// 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4305(门 103 C1 收口)〉首意: index 烂尾(unmerged 条目)滞留哨兵(2026-10-24 立):凌晨一次违规 stash + rebase +
 export function auditIndexUnmerged(opts = {}) {
   const {
     now = Date.now(),
@@ -4963,13 +4521,7 @@ export function auditDeployStall(opts = {}) {
       logger(`✅ 部署停摆:绿(线上 ${String(p.liveSha || '(无)').slice(0, 9)},最近成功 ${p.lastSuccessIso || '?'})`)
       return { ran: true, judged: true, ok: true }
     }
-    // 类别只取"人能做的动作"不同的那两种:标记缺失要先查线上产物,落后要先查环为什么不切流。
-    // 其余一切读数(tip、live sha、成功时刻、落后小时数)都只进正文。
-    // **身份用起始类别,不用本轮类别**(2026-10-19 现读改正):今晚一次 rebuild 把线上标记
-    // `IHUI_BUILD_SHA` 洗掉 ⇒ 同一场停摆的类别从 `behind` 翻成 `no-marker`,而类别在身份里
-    // ⇒ 4h 窗当场作废,同一件事换来 3 封(14:35 behind / 16:43 与 19:23 no-marker)。
-    // 类别 flipping 是**同一段故障的表征变化**,不是新故障;真要报新的,由持续档(6h/24h/72h)
-    // 与起点清除(线上追平)那两格负责。正文照旧写本轮读数,信息量不降。
+    // 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4571(门 103 C1 收口)〉首意: 类别只取"人能做的动作"不同的那两种:标记缺失要先查线上产物,落后要先查环为什么不切流。
     const classNow = String(p.liveSha || '').trim() ? 'behind' : 'no-marker'
     const streak = noteUndeterminedStreak(firstFile, now, { stallClass: classNow })
     const stallClass = String(streak.meta.stallClass || classNow)
@@ -4993,7 +4545,24 @@ export function auditDeployStall(opts = {}) {
   }
 }
 
-// 〔归档@2026-10-25/门103 C1〕原 18 行注释逐字移入 .ihui-agent/archive/scripts-comment-git-guardian-2026-10-25.md#原-l4691-起-18-行
+/**
+ * 孤儿删除引用巡检的**常驻**派发点(尺子本体 = `scripts/check-orphan-deletion-refs.mjs`)。
+ *
+ * 为什么必须挂在这里而不是"留作手动问责":这把尺子判的是**此刻索引与 HEAD 的错位**
+ * (HEAD 有该路径、索引与磁盘都没有、而树内仍有源码 import 它)—— 它按设计不能进提交链
+ * (与某次提交内容无关的 blocking 红 = 每台每次被逼 --no-verify,§12e/§12f),而"手动问责入口"
+ * 的实际含义是**只有人在跑、没有班次在跑**:2026-09-29 现读该尺子的五个权威接线点零命中,
+ * 而同一型缺陷(HEAD 有 / 索引与磁盘都无 / 源码仍 import)当晚已两次炸构建。挂本守护是
+ * 唯一不改提交链、又保证每 30 分钟必有一次现读的落点。
+ * 挂点语义与 healWorktreeTracked / auditPublicPathProbe 同一条:**健康轮次的早退之前 + `!CHECK_ONLY`**。
+ *
+ * 三条不可漂的写法(照抄 auditPublicPathProbe):
+ *  ① **节流而非封量**:两次真实巡检之间隔 `ORPHAN_AUDIT_INTERVAL_MS`(默认 30 分钟)是节奏控制,
+ *     不是每日封顶 —— §5e 明令不得自设总量上限把"告警静默"再复制一遍。
+ *  ② 告警一律经 `notifyGuardRed()`:按 alert 身份 + 内容指纹去重,不在本文件自拼 SMTP(守门 81)。
+ *  ③ **判"未判定"不得静默也不得喊人**:尺子 rc=2 / JSON 取不到 ⇒ 只写日志并点名原因 ——
+ *     发一封"我什么都没量到"的信是把噪音冒充成告警;但日志必须报名,不得沉默成"跑过了"。
+ */
 const ORPHAN_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'orphan-audit-tick.ts')
 const ORPHAN_AUDIT_INTERVAL_MS = Number(process.env.IHUI_ORPHAN_AUDIT_INTERVAL_MS || 30 * 60 * 1000)
 /** 尺子是纯只读 git 问答,正常 <1s;给 2 分钟硬上限只为"一次守护绝不被它拖死"(守门 80 同取向) */
@@ -5114,14 +4683,7 @@ const MIGRATION_GAPS_TICK = join(WORKTREE, '.ihui-agent', 'state', 'migration-ga
 const MIGRATION_GAPS_INTERVAL_MS = Number(process.env.IHUI_MIGRATION_GAPS_INTERVAL_MS || 30 * 60 * 1000)
 const MIGRATION_GAPS_TIMEOUT_MS = Number(process.env.IHUI_MIGRATION_GAPS_TIMEOUT_MS || 120_000)
 
-/**
- * 迁移账本「中间缺口」巡检(尺子 = `scripts/check-db-migration-gaps.mjs`,2026-10-25 立)。
- *
- * 为什么必须常驻: `drizzle-kit migrate` 只应用 `when > max(账本.created_at)` 的迁移,一个带旧 when
- * 的迁移晚到(并发合并/重排)会被**永久跳过**且 migrate 仍 exit 0;部署侧只看条数差,把“永不补的
- * 中间缺口”与“下轮会补的待应用”混成一档。实测 2026-10-25:D125 协作两表在生产缺建表,日志只报
- * “1-3 档”。本格 30 分钟量一次,缺口集合进 dedupKey(新缺口=新事实该重报,单纯条数抖动不重报)。
- */
+// 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4739(门 103 C1 收口)〉首意: 迁移账本「中间缺口」巡检(尺子 = `scripts/check-db-migration-gaps.mjs`,2026-10-25 立)。
 export function migrationGapsDue(nowMs, tickMs, intervalMs = MIGRATION_GAPS_INTERVAL_MS) {
   if (!Number.isFinite(tickMs)) return true
   return nowMs - tickMs >= intervalMs
@@ -5231,16 +4793,7 @@ export function auditRegistrySyncHealth(opts = {}) {
   })
 }
 
-/**
- * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
- * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
- * 于是 .git 存续守护与凭据告警会在"机器重启后没人登录"这段时间里同时静默 ——
- * 正是今天两天冻结的同族形态。切 S4U 的两条常规路在本机都走不通
- * (`schtasks /RU <u> /NP` 会交互索要密码;pwsh 无 ScheduledTasks cmdlet),
- * 唯一可行形态是 Schedule.Service COM + `NewTask(0)` 可写 XmlText + SID/Null/2,
- * 已由 `scripts/task-set-s4u.vbs` 封装并在真任务上验证(切后 Last Result=0、探针显示
- * HKCU 的用户级环境变量与同步盘凭据文件在 S4U 下依然可读)。
- */
+// 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4856(门 103 C1 收口)〉首意: 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
 function ensureS4u() {
   const vbs = join(dirname(fileURLToPath(import.meta.url)), 'task-set-s4u.vbs')
   if (!existsSync(vbs)) return
@@ -5384,12 +4937,7 @@ function healFromRemote() {
   return gitUsable()
 }
 
-/**
- * 把 origin(GitHub SSH)+ 部署私钥 sshCommand 写回仓库配置。
- * 幂等:已存在则 set-url,不存在才 add。用于远端重建后的配置收口。
- * 2026-10-23:只收口 origin 一个远端 —— gitee/gitcode 镜像已弃用,写回它们等于每次
- * 自愈都重新制造两条指向死镜像的远端(见本文件 GITEE_URL/GITCODE_URL 删除处的说明)。
- */
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5009(门 103 C1 收口)〉首意: 把 origin(GitHub SSH)+ 部署私钥 sshCommand 写回仓库配置。
 function restoreRemoteConfig() {
   git(['remote', 'set-url', 'origin', GITHUB_SSH_URL], true)
   if (!git(['remote', 'get-url', 'origin'], true))
@@ -5454,13 +5002,7 @@ function anomalyLine(h) {
   return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable} worktree=${h.worktreeUsable}${hint}${refsHint}${bareHint}`
 }
 
-// —— 计划任务必须跑在非交互会话(2026-09-22 立「任务漂移自检」,2026-09-23 换 S4U 根治) ——
-// 本守护自己就是「弹窗」的高频嫌疑:它以独立进程跑,而计划任务若注册成 InteractiveToken +
-// 直跑控制台程序(node.exe)时 Windows 会显示控制台 → 用户桌面每 2 分钟闪一扇黑窗
-// (2026-09-20 实测踩坑;2026-09-22 复发:安装器早已修对,但活任务仍是直跑 node.exe 的旧版,
-// 没人重注册)。因此除 --install 外,常规巡检也核对活任务的 LogonType,漂移即自动重注册,不靠人记。
-// 2026-09-23 起形态改为 S4U(见 registerTask):任务跑在 session 0,没有桌面,弹窗这件事
-// 从"每个派生点都要记得隐藏"变成"结构上不可能"。
+// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5079(门 103 C1 收口)〉首意: —— 计划任务必须跑在非交互会话(2026-09-22 立「任务漂移自检」,2026-09-23 换 S4U 根治) ——
 
 function registerTask() {
   // 2026-09-23:改注 S4U 非交互任务(session 0,无桌面)取代 InteractiveToken + wscript/VBS。
@@ -5502,23 +5044,7 @@ function registerTask() {
   return true
 }
 
-/**
- * 活任务形态判定 —— 2026-09-23 首立,2026-10-25 换主通道(判定口径不动)。
- *
- * 判定口径仍只有一份(`lib/schtasks-form.mjs`):承认**两种合法形态** ——
- *   · S4U(session 0,结构上开不出窗口)—— 首选;
- *   · InteractiveToken + wscript + 我们的 ASCII .vbs —— 回退形态,同样无弹窗,不是漂移。
- * 只有"InteractiveToken 且直跑 node.exe"(必闪黑窗)或任务消失才叫漂移。拿不到数据一律 unknown,
- * 绝不在信息不足时改动任务(§5b 的"宁可不动也不误动")。
- *
- * 2026-10-25 换"怎么读":本机安全策略把 `schtasks.exe` 列入黑名单(与
- * `check-c-drive-pollution.mjs` 同一起事故),而守护是每 2 分钟一 tick 的常驻体 —— 在这里
- * spawn 一个被策略拦的可执行文件,失败形态不是"报错",而是把守护一起带走。计划任务的存在性
- * 与形态改由 PowerShell 的 `Get-ScheduledTask` / `Export-ScheduledTask` 读(同一份任务存储,
- * 只是不碰那个 exe);`schtasks.exe` 降为**默认关**的兜底通道。
- * @returns {'ok'|'ok-vbs'|'missing'|'drift'|'unknown'}
- */
-/** schtasks.exe 兜底通道(**默认关**,理由见 taskForm 头注):黑名单机器上 spawn 它会把守护本身带走。 */
+// 〈原 17 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5122(门 103 C1 收口)〉首意: 活任务形态判定 —— 2026-09-23 首立,2026-10-25 换主通道(判定口径不动)。
 const ALLOW_SCHTASKS_EXE = process.env.IHUI_ALLOW_SCHTASKS_EXE === '1'
 
 /** 跑一段 PowerShell,拿不到(解释器不在位/报错/超时/空输出)一律返回 null ⇒ 调用方落 unknown。 */
@@ -5603,19 +5129,7 @@ function taskActionOk() {
   return taskFormAcceptable(taskForm())
 }
 
-/**
- * 把"探针跑出了结论"与"探针没跑起来"分成三态,退出码**不参与**前者判定:
- *  ① stdout 是可解析对象 ⇒ 采用结论,哪怕 rc=1;
- *  ② stdout 为空 ⇒ 未判定,并点名 rc 与 stderr;
- *  ③ stdout 有内容但不是 JSON / 顶层不是对象 ⇒ 未判定,同样点名 rc。
- *
- * 为什么 rc=1 必须走①:探针轴①②判红时 `process.exit(1)`,而结论整份在 stdout 的 JSON 里。
- * 旧实现只有成功分支能拿到 stdout(execFileSync 在非零退出时抛异常),于是守护每每逢它说出
- * 最响的一条结论,就把整块扔掉、并往日志写"账不可用:未判定"。实测(2026-09-27 现读):
- * 便宜档 rc=1 + stdout 1530 B 合法 JSON,其中 `upstream.status='red'`/`behind=3` ——
- * "本地落后主线 3 个提交"这条信号被这台守护结构上看不见,而它正是值守最该先看的一维。
- * 失效方向照旧是"多写一行未判定",绝不是"顺手当它绿了"。
- */
+// 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5223(门 103 C1 收口)〉首意: 把"探针跑出了结论"与"探针没跑起来"分成三态,退出码**不参与**前者判定:
 export function readProbeVerdict({ status, stdout, stderr } = {}) {
   const text = String(stdout ?? '')
   const rc = status ?? '?'
@@ -5637,19 +5151,7 @@ export function readProbeVerdict({ status, stdout, stderr } = {}) {
   }
 }
 
-/**
- * 开工前基线新鲜度的**只报数**账(机制规格 MECHANISM-SPEC-2 §2 的守护侧挂点)。
- *
- * 三条刻意:
- *  ① **只 log 数字,不 notifyGuardRed、不改任何退出码、不改自愈语义。** ③轴(共享工作树相对 HEAD
- *     的漂移)量的是并行会话的未提交状态,**提交者结构上无法满足**;把它接进任何判定面就等于
- *     让每一次提交恒红 ⇒ 逼人 --no-verify ⇒ 全部守门作废(§12e/§4 反复登记的那一型)。
- *  ② 祖先比对是**逐文件 `git log`**(实测 56 个漂移路径约 8s),而本守护每 2 分钟一趟 ⇒ 不节流
- *     就是一台自造 fork 风暴的机器(§5b 的 24.6 万 cmd/2min 同型)。故 30 分钟才跑一次全账,
- *     间隔内走 `--skip-drift-analysis` 的便宜账(漂移面计数照报,旧基线子集不比对)。
- *  ③ 挂点在**健康轮次的早退之前**、且带 `!CHECK_ONLY`(写节流戳是副作用)。本仓已两次踩过
- *     "挂错位置 = 永不执行"(工作区自愈层、盘根封口层各一次)。
- */
+// 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5257(门 103 C1 收口)〉首意: 开工前基线新鲜度的**只报数**账(机制规格 MECHANISM-SPEC-2 §2 的守护侧挂点)。
 function reportBaselineFreshness() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-baseline-freshness.mjs')
   if (!existsSync(script)) return
@@ -5732,19 +5234,7 @@ function reportBaselineFreshness() {
   if (noteworthy) log(`ℹ️ 基线新鲜度(只报数,不进提交链)${full ? '全账' : '便宜账'}:${parts.join(';')}`)
 }
 
-/**
- * 提交窗口期静默(2026-10-22 立,机主要求"提交稳定在 1 分钟内")。
- *
- * 病灶:本守护由 2 分钟计划任务驱动,每轮派生 `git status` / `diff` / `for-each-ref`,
- * 与提交链抢 CPU 与索引锁。实测**同一份守门代码**耗时在 40s / 69s / 166s / 63.8s 间波动,
- * 波动源就是它 —— 而 `schtasks` 在安全黑名单里停不掉,所以让守护**自己**让路。
- *
- * 判据用既有的 `.git/ihui-git-write.lock`(safe-commit 全程持有),不引入新协调机制:
- *   - 锁不存在            ⇒ 不在窗口期,正常巡检
- *   - 锁存在且持有 PID 活着 ⇒ 在窗口期,本轮静默(跳过,不报错)
- *   - 锁存在但 PID 已死    ⇒ stale 锁,**不**静默(否则一次崩溃能让守护永久闭嘴)
- *   - 读不出 pid / 任何异常 ⇒ 保守当作窗口期,代价只是少跑一轮巡检
- */
+// 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5352(门 103 C1 收口)〉首意: 提交窗口期静默(2026-10-22 立,机主要求"提交稳定在 1 分钟内")。
 function inCommitWindow() {
   try {
     const dotGit = join(process.cwd(), '.git')
@@ -5882,10 +5372,6 @@ function main() {
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
-    // 违禁桶兜底清扫(2026-10-25,等条件/待拍板两道机主禁令的执行器物化):union 收敛器与
-    // 复翻席不走提交链 ⇒ F11/F12 基线棘轮拦不到"主动写回";本层派发 strip-banned-buckets
-    // 自动摘 HEAD 面违禁未勾行并留痕,循环回潮 5 分钟级自动收敛(判据 import 单源,零复算)。
-    if (!CHECK_ONLY) sweepBannedBuckets()
     // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
     if (!CHECK_ONLY) healRootSeal()
     // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
@@ -5977,6 +5463,14 @@ function main() {
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
     if (!CHECK_ONLY) watchWatchdog()
+    // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线):四层器物此前零派发点,
+    // 属 §0.9「造好没装车 = 没有」。全部自带节流,判机器状态/产出台账 ⇒ 不进提交链(§12e)。
+    // 顺序:先感知(分诊/腐烂/依赖)→ 再派发,同轮登记的票下一轮即可被自进化取到。
+    if (!CHECK_ONLY) dispatchGateRot()
+    if (!CHECK_ONLY) dispatchRelayCapacity()
+    if (!CHECK_ONLY) dispatchAutoTriage()
+    if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
+    if (!CHECK_ONLY) dispatchAutoEvolve()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     if (!CHECK_ONLY) ensureS4u()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
@@ -6074,6 +5568,16 @@ function startDaemon() {
         // ⇒ 双执行体并存时只有先到那一个真删,不会把同一批夹具删两遍(第二遍也只是"无候选",
         // 但日志会多一行噪声,更重要的是节流语义必须与其余各层一致)。
         scrubTempFixtures()
+        // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线;2026-10-26 补装 daemon 腿):
+        // 这四个派发现在只挂在 main() 那条**单轮**路径上,而本机实际载体是 nssm 服务跑 `--daemon`
+        // ⇒ main() 从不执行,四层器物等于装了个没有车跑的车站(§0.9「造好没装车 = 没有」再犯一次)。
+        // 节流戳与 main() 共用(同一 tick 文件),双执行体并存也只会有一边真跑;顺序先感知后派发,
+        // 同轮登记的票下一轮即被自进化取到。仿 main() 同格:健康轮次内 + 提交窗口外(函数开头已让路)。
+        dispatchGateRot()
+        dispatchRelayCapacity()
+        dispatchAutoTriage()
+        dispatchDepAdvisoryRadar()
+        dispatchAutoEvolve()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
@@ -6084,7 +5588,715 @@ function startDaemon() {
 }
 
 // 〈原 19 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l5738(门 103 C1 收口)〉首意: 
+const TEMP_SCRUB_TICK = join(WORKTREE, '.ihui-agent', 'state', 'temp-scrub-tick.iso')
+const TEMP_SCRUB_INTERVAL_MS = Number(process.env.IHUI_TEMP_SCRUB_INTERVAL_MS || 24 * 60 * 60 * 1000)
+const TEMP_SCRUB_MIN_AGE_DAYS = Number(process.env.IHUI_TEMP_SCRUB_MIN_AGE_DAYS || 7)
+/** 清扫器要遍历整个 TEMP(实测这台机 4.6 万个条目);给 5 分钟硬上限,超时只算"本轮没跑成"。 */
+const TEMP_SCRUB_TIMEOUT_MS = Number(process.env.IHUI_TEMP_SCRUB_TIMEOUT_MS || 300_000)
 
+/** 节流判定(纯函数):取不到戳 ⇒ 视为**该跑了**(与 `orphanAuditDue` 同一条失效方向)。 */
+export function tempScrubDue(nowMs, tickMs, intervalMs = TEMP_SCRUB_INTERVAL_MS) {
+  if (!Number.isFinite(tickMs)) return true
+  return nowMs - tickMs >= intervalMs
+}
+
+/** 从清扫器的人类报告里取三个数(不重抄判据,只读它已经大声报出来的结论)。 */
+export function parseScrubReport(text) {
+  const s = String(text || '')
+  // 清扫器现在按"多根并集"跑,每个根各打一行明细、最后一行打汇总。
+  // 取首条匹配会只读到**第一个根**的数字 ⇒ 把"另一个根还有 18 GB"读成"只剩这一点"。
+  // 所以汇总行优先,且只在它存在时才覆盖;没有汇总行(旧输出/崩在半路)照旧走明细正则。
+  const agg = /^汇总 ·.*$/m.exec(s)
+  if (agg) {
+    const cand = /候选 (\d+)/.exec(agg[0])
+    const del = /已删 (\d+) 条 \/ 失败 (\d+) 条/.exec(agg[0])
+    const err = /取不到 (\d+)/.exec(agg[0])
+    const root = /root=(\S+)/.exec(s)
+    return {
+      candidates: cand ? Number(cand[1]) : null,
+      deleted: del ? Number(del[1]) : null,
+      failed: del ? Number(del[2]) : null,
+      root: root ? root[1] : null,
+      aggregate: true,
+      unreadableRoots: err ? Number(err[1]) : 0,
+    }
+  }
+  const cand = /候选 (\d+)/.exec(s)
+  const del = /已删 (\d+) 条 \/ 失败 (\d+)/.exec(s)
+  const root = /root=(\S+)/.exec(s)
+  return {
+    candidates: cand ? Number(cand[1]) : null,
+    deleted: del ? Number(del[1]) : null,
+    failed: del ? Number(del[2]) : null,
+    root: root ? root[1] : null,
+    aggregate: false,
+    unreadableRoots: 0,
+  }
+}
+
+export function scrubTempFixtures(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = TEMP_SCRUB_INTERVAL_MS,
+    minAgeDays = TEMP_SCRUB_MIN_AGE_DAYS,
+    tickFile = TEMP_SCRUB_TICK,
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'scrub-temp-fixtures.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ TEMP 夹具清扫:清扫器不在位(scripts/scrub-temp-fixtures.mjs)⇒ 本轮跳过,不记为已清扫')
+    return { ran: false, why: '清扫器不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!tempScrubDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+  } catch (_e) {
+    /* 戳写失败只意味着下轮多跑一遍清扫,不影响判定 */
+  }
+  const call =
+    typeof runner === 'function'
+      ? runner()
+      : (() => {
+          try {
+            const out = execFileSync(
+              process.execPath,
+              [script, '--apply', '--older-than', String(minAgeDays)],
+              {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+                timeout: TEMP_SCRUB_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 24,
+                stdio: ['ignore', 'pipe', 'pipe'],
+              },
+            )
+            return { status: 0, stdout: String(out || ''), stderr: '' }
+          } catch (e) {
+            return {
+              status: typeof e.status === 'number' ? e.status : 2,
+              stdout: String(e.stdout || ''),
+              stderr: String(e.stderr || e?.message || ''),
+            }
+          }
+        })()
+  const p = parseScrubReport(`${call.stdout}\n${call.stderr}`)
+  if (call.status === 2 || (p.candidates === null && p.deleted === null)) {
+    logger(
+      `⚠️ TEMP 夹具清扫未跑成(rc=${call.status}):${String(call.stderr || call.stdout).replace(/\s+/g, ' ').slice(0, 160)}` +
+        ' —— 未跑成不等于没有残留,下轮重试(不改本守护退出码)',
+    )
+    return { ran: true, ok: false, why: '未跑成', status: call.status }
+  }
+  if (p.failed) {
+    logger(
+      `⚠️ TEMP 夹具清扫:删了 ${p.deleted ?? 0} 条但有 ${p.failed} 条失败(多为在句柄中的夹具,属正常)` +
+        ` · root=${p.root} · 候选 ${p.candidates}` +
+        (p.deleted ? '' : ' —— 一条都没删掉,残留仍在,下轮重试') +
+        (p.unreadableRoots ? ` · 取不到的根 ${p.unreadableRoots}` : ''),
+    )
+    return { ran: true, ok: true, partial: true, ...p }
+  }
+  if (p.deleted) {
+    logger(`✅ TEMP 夹具清扫:释放 ${p.deleted} 条(账龄闸 ${minAgeDays} 天,root=${p.root},候选 ${p.candidates})`)
+  }
+  return { ran: true, ok: true, ...p }
+}
+
+/**
+ * 活 TEMP 落点回潮哨兵的**唯一调度器**(尺子本体 = `scripts/check-temp-landing.mjs`)。
+ *
+ * 为什么必须补这一格(2026-10-17):那份尺子的文件头早就写下"派生出面的唯一调度器 =
+ * 本文件健康轮次 `!CHECK_ONLY` 巡检格(auditTempLanding())",而这个函数**从来不存在** ——
+ * 判据、声明表、镜像测试全在,脚本却没有任何人调度 ⇒ 典型"造好没装车"。它的失效形态与
+ * 元运维巡检同一类:安静(不是报错,是根本不跑)。
+ *
+ * 为什么不能进提交链:它读的是**本机注册表 + 本机进程环境**(TEMP/TMP 指向哪),提交者
+ * 结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`,连带废掉全部守门(§12e/§12f)。
+ * 它的文件头也是这么定级的(warn/告警档)。
+ *
+ * 三态纪律:尺子 exit 3 / JSON 取不到 / 字段缺失 ⇒ 写日志点名、**不发信**(发一封"我什么都
+ * 没量到"是把噪音冒充成告警);只有真 drift 或近窗内仍在往旧落点写 >0 才喊人。
+ * 节流 24h:落点配置一天也不会变两次,每 2 分钟读一遍注册表纯属白烧。
+ */
+const TEMP_LANDING_INTERVAL_MS = Number(
+  process.env.IHUI_TEMP_LANDING_INTERVAL_MS || 24 * 60 * 60 * 1000,
+)
+const TEMP_LANDING_TIMEOUT_MS = 60_000
+const TEMP_LANDING_TICK = join(WORKTREE, '.ihui-agent', 'state', 'temp-landing-tick.ts')
+
+export function auditTempLanding(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = TEMP_LANDING_INTERVAL_MS,
+    tickFile = TEMP_LANDING_TICK,
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-temp-landing.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ TEMP 落点哨兵:尺子脚本不在位(scripts/check-temp-landing.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(lastTick) && now - lastTick < intervalMs) return { ran: false, why: '未到节流窗口' }
+  const call =
+    typeof runner === 'function'
+      ? runner()
+      : (() => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: TEMP_LANDING_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { status: 0, stdout: String(out || ''), stderr: '' }
+          } catch (e) {
+            return {
+              status: typeof e.status === 'number' ? e.status : 2,
+              stdout: String(e.stdout || ''),
+              stderr: String(e.stderr || e?.message || ''),
+            }
+          }
+        })()
+  let parsed
+  try {
+    parsed = JSON.parse(String(call.stdout || '').trim())
+  } catch (e) {
+    logger(
+      `⚠️ TEMP 落点哨兵未判定(rc=${call.status},JSON 取不到):` +
+        `${String(call.stderr || call.stdout || e?.message).replace(/\s+/g, ' ').slice(0, 160)}` +
+        ' —— 未判定不等于合规,下轮重试(不改本守护退出码)',
+    )
+    return { ran: true, ok: false, why: '未判定' }
+  }
+  // 判定有效才推进节流戳:取不到读数时不能把 24h 窗口白占掉(否则一次失败就瞎一整天)。
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+  } catch {
+    /* 戳写失败只意味着下轮多跑一遍,不影响判定 */
+  }
+  const c = parsed.counts || {}
+  const drift = Number(c.drift ?? 0)
+  const undetermined = Number(c.undetermined ?? 0)
+  // 生产者那份 counts 里这一维叫 `writing`(check-temp-landing.mjs 的 probeCounts 四态)。
+  // 原先读的是 `recentWrites`/`probeHits` —— 两个**从未被发射过**的键名 ⇒ 恒 0,
+  // 于是"注册表看着对、进程照旧在写"这条证据支结构上永不触发(与今天修掉的 firstAt/stat 同一型)。
+  const recentWrites = Number(c.writing ?? 0)
+  if (drift > 0) {
+    const names = (parsed.tiers || [])
+      .filter((t) => t.judged && t.state === 'drift')
+      .map((t) => t.label || t.name)
+      .join(' / ')
+    logger(
+      `🚨 TEMP 落点回潮:${drift} 层与声明表(config/temp-landing.json)不一致 —— ${names}` +
+        ' · 清理归既有清扫器(scrubTempFixtures,24h 档),本格只判不动手',
+    )
+  } else if (recentWrites > 0) {
+    logger(
+      `🚨 TEMP 落点回潮证据:近窗内有 ${recentWrites} 个条目仍写在非批准落点(注册表看着对,进程照旧在写)` +
+        ' —— 清理归既有清扫器',
+    )
+  } else if (undetermined > 0) {
+    logger(`ℹ️ TEMP 落点哨兵:${undetermined} 层未判定(注册表取不到)⇒ 不记通过,下轮重试`)
+  }
+  return { ran: true, ok: drift === 0 && recentWrites === 0, drift, undetermined, recentWrites }
+}
+
+
+// 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5942(门 103 C1 收口)〉首意: ─── AI 自进化调度层派发点(2026-10-26 接线:第 0 期 + 第 1 期 + 第 3 期②③) ───────────
+const AUTO_EVOLVE_INTERVAL_MS = Number(process.env.IHUI_AUTO_EVOLVE_INTERVAL_MS || 60 * 60 * 1000)
+const AUTO_TRIAGE_INTERVAL_MS = Number(process.env.IHUI_AUTO_TRIAGE_INTERVAL_MS || 30 * 60 * 1000)
+const DEP_RADAR_INTERVAL_MS = Number(process.env.IHUI_DEP_RADAR_INTERVAL_MS || 24 * 60 * 60 * 1000)
+const GATE_ROT_INTERVAL_MS = Number(process.env.IHUI_GATE_ROT_INTERVAL_MS || 6 * 60 * 60 * 1000)
+/** 号池容量哨兵节拍(默认 5 分钟:容量归零是要立刻知道的事,而哨兵只读、零落地) */
+const RELAY_CAPACITY_INTERVAL_MS = Number(process.env.IHUI_RELAY_CAPACITY_INTERVAL_MS || 5 * 60 * 1000)
+const GUARDIAN_SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url))
+
+function dispatchDue(tickFile, now, intervalMs) {
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  return !(Number.isFinite(last) && now - last < intervalMs)
+}
+
+function stampDispatchTick(tickFile, now, logger) {
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠ 派发节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})—— 下轮照旧派发`)
+  }
+}
+
+// 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5977(门 103 C1 收口)〉首意: 自进化派发(第 0 期装车):取票面/白名单/预算/成本/单实例锁全部复用器物判据,
+export function dispatchAutoEvolve(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = AUTO_EVOLVE_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'auto-evolve-dispatch-last.json'),
+    ledgerFile = AE_LEDGER,
+    lockFile = AE_LOCK_FILE,
+    costLedgerFile = AE_COST_LEDGER,
+    logger = log,
+    readFile = (p) => readFileSync(p, 'utf8'),
+    exists = existsSync,
+    probe = null,
+    launcher = null,
+    gatesLoader = null,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'auto-evolve.mjs')
+  if (!exists(script)) {
+    logger('ℹ 自进化派发:器物不在位(scripts/auto-evolve.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '自进化器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+
+  let gates
+  try {
+    gates = (gatesLoader ?? (() => loadAutoEvolveGates((p) => readFile(p))))()
+  } catch (e) {
+    logger(`❓ 自进化派发:闸门配置未判定(${String(e?.message ?? e).slice(0, 160)})⇒ 本轮不派发(§0.3)`)
+    return { ran: true, ok: false, why: '闸门配置未判定' }
+  }
+  if (!gates.enabled) {
+    logger('⏸ 自进化派发:auto-evolve-gates.json enabled=false ⇒ 不派发(观察期)')
+    return { ran: true, ok: true, why: '未启用' }
+  }
+
+  // ① 今日预算:只认器物自己的派发台账(同一判据,不另算)
+  let todayDispatched = 0
+  try {
+    const dayKey = autoEvolveTodayKey(new Date(now))
+    for (const line of readFile(ledgerFile).split(/\r?\n/)) {
+      if (!line.trim()) continue
+      let e
+      try {
+        e = JSON.parse(line)
+      } catch {
+        continue
+      }
+      if (e?.action === 'dispatched' && String(e.ts ?? '').startsWith(dayKey)) todayDispatched += 1
+    }
+  } catch {
+    /* 台账不存在 = 今日 0 轮(器物首跑同口径) */
+  }
+  if (todayDispatched >= gates.dailyDispatchBudget) {
+    logger(
+      `⏸ 自进化派发:今日已派 ${todayDispatched}/${gates.dailyDispatchBudget} 轮达上限 ⇒ 不 spawn` +
+        '(否则 runOnce 每小时寄一封「预算耗尽」逃生邮件)',
+    )
+    return { ran: true, ok: true, why: '预算耗尽' }
+  }
+
+  // ② 成本熔断:判据 import 自 cost-breaker 同一份(单源,不在此处另写阈值)
+  try {
+    const caps = loadCostCaps(readFile(join(WORKTREE, 'scripts', 'data', 'cost-caps.json')))
+    const events = exists(costLedgerFile) ? parseCostLedger(readFile(costLedgerFile)) : []
+    const cost = evaluateCostBudget({ caps, events, kind: 'session', now })
+    if (!cost.allowed) {
+      logger(`⏸ 自进化派发:成本熔断(${cost.breaches.join(';')})⇒ 本轮不 spawn`)
+      return { ran: true, ok: true, why: '成本熔断' }
+    }
+  } catch (e) {
+    logger(`❓ 自进化派发:成本熔断判不了(${String(e?.message ?? e).slice(0, 160)})⇒ 本轮不派发(§0.3)`)
+    return { ran: true, ok: false, why: '成本熔断未判定' }
+  }
+
+  // ③ 单实例闸:器物锁在且持有者活着 ⇒ 让路(不让第二个会话抢同一张票)
+  try {
+    const { pid } = JSON.parse(readFile(lockFile))
+    if (isAutoEvolvePidAlive(pid)) {
+      logger(`⏭ 自进化派发:上一轮仍在跑(pid=${pid})⇒ 本轮让路`)
+      return { ran: true, ok: true, why: '上一轮在跑' }
+    }
+  } catch {
+    /* 无锁/锁坏 = 无有效持有者,继续 */
+  }
+
+  // ④ 取票面:plan-tasks 唯一入口 + 器物自己的白名单判据
+  let rows = []
+  let candidates = []
+  try {
+    const p = probe
+      ? probe()
+      : spawnSync(process.execPath, [AE_PLAN_TASKS, ...AE_DISPATCH_ARGS], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 120_000,
+          maxBuffer: 1 << 24,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+    if (p?.error) throw new Error(p.error?.message ?? String(p.error))
+    rows = parseAutoEvolveTicketRows(p?.stdout)
+    if (rows.length === 0 && Number(p?.status) !== 0) {
+      throw new Error(`派单面未判定(status=${p?.status ?? '?'}):${String(p?.stderr ?? p?.stdout ?? '').slice(-160)}`)
+    }
+    candidates = rows.filter((r) => matchAutoEvolveWhitelist(r.text, gates.ticketWhitelist))
+  } catch (e) {
+    logger(`❓ 自进化派发:派单面未判定(${String(e?.message ?? e).slice(0, 160)})⇒ 本轮不派发`)
+    return { ran: true, ok: false, why: '派单面未判定' }
+  }
+  if (candidates.length === 0) {
+    logger(`✅ 自进化派发:派单面 ${rows.length} 行、白名单命中 0 ⇒ 无活可派(零落地零推送)`)
+    return { ran: true, ok: true, why: '无票可派', rows: rows.length }
+  }
+
+  // ⑤ 异步 spawn(§12g:显式 stdio + windowsHide;detached 让子进程活过本轮 tick)
+  let child
+  let logFd = null
+  try {
+    child = launcher
+      ? launcher({ script, args: [script, '--once', '--no-triage'] })
+      : (() => {
+          const logFile = join(WORKTREE, '.ihui-agent', 'state', 'auto-evolve-run.log')
+          mkdirSync(dirname(logFile), { recursive: true })
+          logFd = openSync(logFile, 'a')
+          return spawn(process.execPath, [script, '--once', '--no-triage'], {
+            cwd: WORKTREE,
+            detached: true,
+            windowsHide: true,
+            stdio: ['ignore', logFd, logFd],
+          })
+        })()
+    if (typeof child?.unref === 'function') child.unref()
+  } catch (e) {
+    logger(`⚠ 自进化派发:spawn 失败(${String(e?.message ?? e).slice(0, 160)})`)
+    return { ran: true, ok: false, why: 'spawn 失败' }
+  } finally {
+    if (logFd !== null) {
+      try {
+        closeSync(logFd)
+      } catch {
+        /* 已关 */
+      }
+    }
+  }
+  logger(
+    `🚀 自进化派发:白名单命中 ${candidates.length} 枚(派单面 ${rows.length} 行,今日已派 ${todayDispatched}/${gates.dailyDispatchBudget})` +
+      ' ⇒ 已异步起一轮(日志 .ihui-agent/state/auto-evolve-run.log)',
+  )
+  return { ran: true, ok: true, spawned: true, candidates: candidates.length }
+}
+
+/**
+ * 感知层分诊轮(第 1 期装车):分诊与自进化拆成两个派发点,理由 = 自进化的 spawn 会被
+ * 「预算耗尽 / 成本熔断」前置闸按住,而分诊恰恰要在那种时候照常感知(它只写自己的台账 +
+ * 受每日登记配额约束,不花会话额度)。
+ */
+export function dispatchAutoTriage(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = AUTO_TRIAGE_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'auto-triage-dispatch-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'auto-triage.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ 感知层分诊:器物不在位(scripts/auto-triage.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '分诊器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--once'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10 * 60 * 1000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { ok: true, out: String(out ?? '') }
+      } catch (e) {
+        return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+      }
+    })
+  const r = run()
+  const text = String(r.out ?? '')
+  const registered = (text.match(/已登记[:：]/g) ?? []).length
+  const undetermined = (text.match(/未判定/g) ?? []).length
+  const keep = text
+    .split(/\r?\n/)
+    .filter((l) => /登记|未判定|配额|可派单|观察|无发现|❌|⏸/.test(l))
+    .slice(-2)
+    .join(' / ')
+  logger(
+    `${r.ok ? '✅' : '⚠️'} 感知层分诊轮:登记 ${registered} 枚 / 未判定 ${undetermined} 处` +
+      `${keep ? ` ｜ ${keep.slice(0, 220)}` : ''}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`,
+  )
+  return { ran: true, ok: r.ok, registered, undetermined }
+}
+
+/** 依赖安全通告派发(第 3 期③装车):每日一轮,`--register` 走 live-doc-edit 唯一登记入口。 */
+export function dispatchDepAdvisoryRadar(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = DEP_RADAR_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'dep-radar-dispatch-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'dep-advisory-radar.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ 依赖安全通告:器物不在位(scripts/dep-advisory-radar.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '依赖通告器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--json', '--register', '--max-tickets', '3'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10 * 60 * 1000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { ok: true, out: String(out ?? '') }
+      } catch (e) {
+        return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+      }
+    })
+  const r = run()
+  const text = String(r.out ?? '').trim()
+  const line = text
+    .split(/\r?\n/)
+    .reverse()
+    .find((l) => l.trim().startsWith('{'))
+  let parsed = null
+  try {
+    parsed = line ? JSON.parse(line) : null
+  } catch {
+    parsed = null
+  }
+  if (!parsed) {
+    logger(
+      `${r.ok ? '⚠️' : '❓'} 依赖安全通告轮:结论不可解析 ⇒ 本轮未判定(不改结论、不冒充已检查)` +
+        `${r.err ? ` ｜ ${r.err.slice(0, 120)}` : ''}`,
+    )
+    return { ran: true, ok: false, why: '结论不可解析' }
+  }
+  if (parsed.overall === 'undetermined') {
+    logger(`❓ 依赖安全通告轮:未判定 —— ${String(parsed.why ?? '(尺子未给原因)').slice(0, 200)}(不改结论,下轮再试)`)
+    return { ran: true, ok: false, why: '尺子未取到' }
+  }
+  const reg = Array.isArray(parsed.registered) ? parsed.registered.length : 0
+  logger(
+    `✅ 依赖安全通告轮:通告 ${parsed.advisories ?? '?'} 条 / 可修候选 ${parsed.candidates ?? '?'} 枚 / 本轮票 ` +
+      `${(parsed.tickets ?? []).length} 枚(受日配额截断 ${parsed.suppressed ?? 0})/ 已登记 ${reg} 枚`,
+  )
+  return { ran: true, ok: true, tickets: (parsed.tickets ?? []).length, registered: reg }
+}
+
+/**
+ * 守门判据腐烂轮(第 3 期②装车):读 `check-gate-rot --json --ratchet` 的机读结论,
+ * **只把相对基线新增的腐烂**当失败喊人(存量只报数,§12e 同族);未判定不冒绿。
+ * 本器不进提交链(判机器状态),邮件身份 = 类别 + 新增计数(§5e-1,明细不进指纹)。
+ */
+export function dispatchGateRot(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = GATE_ROT_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'gate-rot-dispatch-last.json'),
+    logger = log,
+    runner = null,
+    notifier = notifyGuardRed,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'check-gate-rot.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ 判据腐烂自检:器物不在位(scripts/check-gate-rot.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '判据腐烂器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--json', '--ratchet'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 5 * 60 * 1000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { ok: true, out: String(out ?? '') }
+      } catch (e) {
+        // exit 1 = 有新增腐烂(JSON 照常输出),不是「跑不起来」;照常解析 stdout
+        return { ok: true, out: `${e?.stdout ?? ''}`, err: String(e?.message ?? e) }
+      }
+    })
+  const r = run()
+  let parsed = null
+  try {
+    parsed = JSON.parse(
+      String(r.out ?? '')
+        .trim()
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .pop(),
+    )
+  } catch {
+    parsed = null
+  }
+  if (!parsed || typeof parsed.overall !== 'string') {
+    logger('❓ 判据腐烂自检:结论不可解析 ⇒ 本轮未判定(不记绿、不冒红)')
+    return { ran: true, ok: false, why: '结论不可解析' }
+  }
+  if (parsed.overall === 'undetermined') {
+    const why = (parsed.undetermined ?? []).map((u) => u?.why).filter(Boolean).join(' / ')
+    logger(`❓ 判据腐烂自检:未判定(${String(why || '(尺子未给原因)').slice(0, 200)})⇒ 本轮没判,不等于清单干净`)
+    return { ran: true, ok: false, why: '未判定' }
+  }
+  const rot = Array.isArray(parsed.rot) ? parsed.rot : []
+  const newRot = Array.isArray(parsed.newRot) ? parsed.newRot : []
+  const known = rot.length - newRot.length
+  if (newRot.length === 0) {
+    logger(`✅ 判据腐烂自检:无新增腐烂(存量 ${known} 条只报数,差值为 0)`)
+    return { ran: true, ok: true, known }
+  }
+  const names = newRot.map((x) => x?.resolved ?? x?.ref ?? '?').slice(0, 5)
+  logger(
+    `⚠️ 判据腐烂自检:新增腐烂 ${newRot.length} 条 ⇒ ${names.join(', ')}` +
+      `${newRot.length > names.length ? ` …(共 ${newRot.length})` : ''}(存量 ${known} 条只报数)`,
+  )
+  try {
+    notifier(
+      '守门判据腐烂(新增)',
+      `相对基线新增 ${newRot.length} 条判据指向不存在的路径:\n${names.join('\n')}\n\n` +
+        `修法:node scripts/check-gate-rot.mjs --suggest。存量 ${known} 条不喊(差值档只拦新增)。`,
+      { severity: 'warning', dedupKey: `gate-rot:new:${newRot.length}` },
+    )
+  } catch {
+    /* 通知层失败只影响喊人,不改本轮判定 */
+  }
+  return { ran: true, ok: false, why: '新增腐烂', known, fresh: newRot.length }
+}
+
+// 〈原 12 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l6337(门 103 C1 收口)〉首意: 号池容量哨兵轮(2026-10-26 装车,差值档同格 check-gate-rot):读
+export function dispatchRelayCapacity(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = RELAY_CAPACITY_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'relay-capacity-dispatch-last.json'),
+    logger = log,
+    runner = null,
+    notifier = notifyGuardRed,
+  } = opts
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'check-relay-capacity-zero.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ 号池容量哨兵:器物不在位(scripts/check-relay-capacity-zero.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '容量哨兵缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--json', '--ratchet'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 5 * 60 * 1000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { ok: true, out: String(out ?? '') }
+      } catch (e) {
+        // exit 1 = breach(JSON 照常输出);exit 2 = 未判定,同样解析 stdout
+        return { ok: true, out: `${e?.stdout ?? ''}`, err: String(e?.message ?? e) }
+      }
+    })
+  const r = run()
+  let parsed = null
+  try {
+    parsed = JSON.parse(
+      String(r.out ?? '')
+        .trim()
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .pop(),
+    )
+  } catch {
+    parsed = null
+  }
+  if (!parsed || typeof parsed.state !== 'string') {
+    logger('❓ 号池容量哨兵:结论不可解析 ⇒ 本轮未判定(不记绿、不冒红)')
+    return { ran: true, ok: false, why: '结论不可解析' }
+  }
+  if (parsed.state === 'unjudged') {
+    logger(
+      `❓ 号池容量哨兵:未判定(${String(parsed.reason ?? '(尺子未给原因)').slice(0, 160)})⇒ 本轮没判,不等于容量正常`,
+    )
+    return { ran: true, ok: false, why: '未判定' }
+  }
+  const breaches = Array.isArray(parsed.breaches) ? parsed.breaches : []
+  if (breaches.length === 0) {
+    logger(`✅ 号池容量哨兵:未见归零(${String(parsed.reason ?? '').slice(0, 120)})`)
+    return { ran: true, ok: true, breaches: 0 }
+  }
+  const newBreaches = Array.isArray(parsed.newBreaches) ? parsed.newBreaches : breaches // 版本漂移⇒按全量喊(失效方向=多喊一次,§0.10)
+  if (newBreaches.length === 0) {
+    logger(
+      `✅ 号池容量哨兵:无新增归零(存量 ${breaches.length} 处只报数,差值为 0;显式认账:node scripts/check-relay-capacity-zero.mjs --write-baseline)`,
+    )
+    return { ran: true, ok: true, breaches: breaches.length, known: breaches.length }
+  }
+  const known = breaches.length - newBreaches.length
+  const names = newBreaches
+    .slice(0, 5)
+    .map((b) => `${b?.kind ?? '?'}:${b?.providerCode ?? '?'}`)
+    .join(', ')
+  logger(
+    `⚠️ 号池容量哨兵:新增归零 ${newBreaches.length} 处 ⇒ ${names}` +
+      `${newBreaches.length > 5 ? ` …(共 ${newBreaches.length})` : ''}(存量 ${known > 0 ? known : 0} 处只报数)`,
+  )
+  try {
+    notifier(
+      '号池容量归零(新增,静默回落中)',
+      `相对上轮新增 ${newBreaches.length} 处 provider 有 enabled 号但可调度为 0:\n${newBreaches
+        .map((b) => String(b?.detail ?? `${b?.kind}:${b?.providerCode}`))
+        .join('\n')}\n\n` +
+        '修法:后台「中转-号池」看该 provider 的号是冷却(temp_unschedulable,等或手工解除)还是被停用(is_enabled=false);' +
+        '若确属停用则容量归零是预期态,可跑 node scripts/check-relay-capacity-zero.mjs --write-baseline 显式认账(此后存量不再喊)。',
+      { severity: 'warning', dedupKey: `relay-capacity-zero:new:${newBreaches.length}` },
+    )
+  } catch {
+    /* 通知层失败只影响喊人,不改本轮判定 */
+  }
+  return { ran: true, ok: false, why: '新增容量归零', known, fresh: newBreaches.length }
+}
 
 // §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。
 // 不守卫的话 `node --test` 一 import 就会把整轮巡检(含真发信)跑起来,这正是 §22d 立的禁忌。
@@ -6114,8 +6326,15 @@ export const __test__ = {
   sweepCrossEndShellPages,
   auditIndexUnmerged,
   sweepStaleClosedRows,
-  sweepBannedBuckets,
   sweepStaleClaimMarks,
+  // AI 自进化调度层派发点(2026-10-26 导出):镜像测试据此逐条钉「节流 / 无票不 spawn /
+  // 预算耗尽不 spawn / 锁在让路 / 结论不可解析落未判定」—— 不导出的话只能读源码字符串,
+  // 钉不住行为,而这一族的失效形态全是安静(多 spawn 一次 = 多派一个会话)。
+  dispatchAutoEvolve,
+  dispatchAutoTriage,
+  dispatchDepAdvisoryRadar,
+  dispatchGateRot,
+  dispatchRelayCapacity,
   auditTunnelMetrics,
   bumpProbeStreak,
   parseNotifyState,
@@ -6131,6 +6350,7 @@ export const __test__ = {
   // 而分家之后"该不该喊人"落在持续性起点件上 —— 这三格都是判据,不导出的话镜像测试只能
   // import 整模块起巡检(§22d 禁止)。
   classifyMergeLossOutcome,
+  parseMergeLossCount,
   noteMergeLossUndetermined,
   clearMergeLossUndetermined,
   // 到人节奏的通用尺子(2026-10-17 立):计数折档 + 持续档 + 未判定起点台账。

@@ -41,6 +41,9 @@ mod minimax_reset;
 // 2026-10-17 立:Windows DWM sheet-of-glass 原生窗控按钮——让右上角最小化/最大化/
 // 关闭随窗口壳即时出现(OS 绘制),不再等网页 React 渲染。配套注入 CSS 隐藏 HTML 窗控。
 mod window_chrome;
+// 2026-10-26 立:屏幕即手(Hands)operator——截屏 → 界面状态 → 纯决策 → 键鼠执行的最小可用回路。
+// 判据纯函数(decide_actions)可独立单测,执行层才碰 enigo/screenshots;Tauri 胶水只注册两条命令。
+mod operator;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -3226,12 +3229,13 @@ pub fn run() {
                     MAIN_PAGE_READY.store(true, std::sync::atomic::Ordering::SeqCst);
                 }
                 if label == "main" || label == "admin" {
-                    // 2026-10-18:按 URL 切原生窗控按钮深浅(离线/壳占位页深底白字、
-                    // 线上浅顶栏深字),在窗口点亮前完成首帧即正确。
-                    window_chrome::set_caption_theme(
-                        &label,
-                        window_chrome::theme_is_dark_for_url(payload.url().as_str()),
-                    );
+                    // 2026-10-18 立 / 2026-10-26 改判序:深浅以**网页上报**为准(前端切主题会
+                    // invoke set_caption_button_theme),没上报过才按 URL 粗判(离线兜底页 /
+                    // 壳占位页深底白字、线上首帧浅顶栏深字),在窗口点亮前完成首帧即正确。
+                    // 改判序的因:此前每次 page_load 都无条件按 URL 粗判覆盖,而线上
+                    // https://aizhs.top 恒被判成浅顶栏 ⇒ 用户切暗色后原生侧仍把深字画在深底上
+                    // (实拍"暗色模式下这几个按钮根本看不清"),且刷新会把自己上报过的值冲掉。
+                    window_chrome::apply_theme_on_page_load(&label, payload.url().as_str());
                     // 仅在 Rust 侧确认原生窗控(自绘 overlay)已启用时隐藏
                     // HTML 按钮(创建失败则保留网页按钮兜底,不能两边都没有)。
                     if window_chrome::native_controls_active(&label) {
@@ -3259,18 +3263,23 @@ pub fn run() {
         // 2026-07-29: 替代裸 println!/eprintln!,线上问题可追溯 + 设置项可一键导出
         // 12546(2026-09-28):上一版只有 .level(Info) 而**没声明任何 target** —— 本行注释
         // 说的"写文件"从未成立(实测本机无任何 desktop 日志文件),"卡死但不退出"这类事后
-        // 只能靠读 runtime 源码定性(台账 12546 的立因)。现把注释兑现:显式双 target,
-        // Webview(开发控制台,原默认形态)+ LogDir(插件原生写文件 target,append 打开)。
+        // 只能靠读 runtime 源码定性(台账 12546 的立因)。现把注释兑现:显式三 target,
+        // Stdout(壳进程 stdout,保留插件原默认面)+ Webview(开发控制台)+
+        // LogDir(插件原生写文件 target,append 打开)。
         // 落点与依据:LogDir = tauri app_log_dir ⇒ Windows 解析为
         // %LOCALAPPDATA%\com.ihui.desktop\logs\ihui-desktop.log(identifier 见
-        // tauri.conf.json;属应用自身运行态数据目录,非 §15b 管控的"我们的产物"落点;
-        // 插件 2.9.0 源码考据详见 log_retention.rs 头注)。2026-10-07 勘误:旧注
+        // tauri.conf.json)。§15b 复核(2026-10-25/票 L7645):该目录在本机是 junction,
+        // 实落 G:\IHUI-AI\.DevEnv\cache\userhome\appdata-local-com.ihui.desktop\logs,
+        // 即 §15b 批准的 DevEnv 缓存根(2026-09-30 由 G:\DevEnv 同卷搬入仓内 .DevEnv,
+        // G-50/G-158;.gitignore:593 已整根忽略),不新增项目外落点。
+        // 插件 2.9.0 源码考据详见 log_retention.rs 头注。2026-10-07 勘误:旧注
         // "与崩溃现场 crash-*.log 同根(com.ihui.ai/logs)"是误读 —— crash handler 落
         // %APPDATA%\com.ihui.ai\logs,与本日志根分属两个 hive + 两个 identifier,不同根。
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
                 .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
                         // 2026-10-21(票 L7220 P1):文件名取 `APP_LOG_FILE_STEM` 单源 ——
@@ -3866,7 +3875,11 @@ pub fn run() {
     minimax_reset::minimax_reset_history,
     minimax_reset::checkin_audit_minimax_residual,
     checkin_capture::checkin_one_click_reset_all,
-    workbuddy_reset::workbuddy_reset_factory
+    workbuddy_reset::workbuddy_reset_factory,
+    // 2026-10-26 立:屏幕即手 operator。operator_decide=纯决策预览(不碰屏幕);
+    // operator_execute=真实截屏→决策→键鼠执行。判据纯函数见 operator.rs。
+    operator::operator_decide,
+    operator::operator_execute
         ])
         .run(context)
         .unwrap_or_else(|e| {

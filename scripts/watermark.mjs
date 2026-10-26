@@ -367,6 +367,84 @@ function makeBanner(style, extra) {
   return `${style.open}\n${inner}\n  [${BANNER_ID}]:${zw}\n${style.close}\n`
 }
 
+/**
+ * 文本级注入 —— **唯一构造处**(横幅 / L2 载荷 / L3 尾行三段只在这一处算一次)。
+ *
+ * 为什么必须抽出来(G-04,2026-10-25 立):旁路落地器按「HEAD blob → 内存改写 → commit-tree → CAS」
+ * 产出,刻意**从不写工作树**(§1/§12 要求),于是 §5c 的「writeFileSync 后必须紧随注入」那条纪律
+ * 在对象空间通道上结构上不可能触发 —— 新建的归档台账曾以"无水印"形态直接进 HEAD
+ * (2026-10-15 实测 `plan-pointer-purge-2026-10-14-5.md`)。让落地器自己再拼一份横幅/载荷就是
+ * §0.6 禁止的第二份真相(零宽编码只有 `encodePayload` 一份,拼第二次必漂移),所以抽取到本出口,
+ * **`injectFile` 只是"读盘 → injectText → 写盘"**,两条通道共用同一段构造。
+ *
+ * 纯文本进出(不碰磁盘):落地器据此在**不写工作树**的前提下拿到带载荷的新版本。
+ * 政策档(第三方台账 / 上游工具生成物 / 二进制)仍留在调用方:它们各自有唯一的判据出处,
+ * 本出口只回答"这段文本的注释风格下,带水印的形态长什么样"。
+ *
+ * @param {string} text 原始正文
+ * @param {{rel?: string, style?: object|null, reseatTail?: boolean}} [opts]
+ *   - `rel`:仓库相对路径(按扩展名选注释风格);`style` 优先于它
+ *   - `reseatTail`:`inject --reseat-tail` 同义(追加型产物把 L3 请回末行)
+ * @returns {{text: string, action: 'injected'|'skip-done'|'skip-type'|'reseated'|'reseat-refused'}}
+ *   `action !== 'injected' && action !== 'reseated'` 时 `text` 原样回传(调用方**不得**写盘)。
+ */
+export function injectText(text, { rel = '', style = null, reseatTail = false } = {}) {
+  const src = String(text ?? '')
+  const st = style ?? (rel ? styleFor(rel) : null)
+  if (!st) return { text: src, action: 'skip-type' }
+  let body = src.replace(/^\uFEFF/, '') // strip BOM, 避免 shebang 检测失败
+  // 载荷存在**且可解码** → 通常就是"已完成"。但"在而不对"有两种,旧实现在这里直接返回,
+  // 于是它们永远不会被修:
+  //   ① 可见横幅整块不见了 —— 横幅是归属主张,它没了等于作品失去署名(2026-09-29 实测两份
+  //      归档件即此型,而当时 verify 把它们算进"完好",L3 的用途被反过来用成了免检理由);
+  //   ② 尾部隐写行被后来的追加内容顶离末行 —— 仅当调用方带 --reseat-tail(追加型生成器)。
+  // ① 落到下面的"清洗重注"通道(必须整块重写才补得回横幅);
+  // ② **不走清洗重注**:那条通道会跑 cleanText 的块注释状态机,而它删掉的行**不止**隐写行 ——
+  //    实测一次带旗注入把紧随其后的条目标题一起吞了(13MB 归档件的第二轮追加)。归位只做一件事:
+  //    把纯隐写行摘掉、在末尾补一条,其余行按序列原样送回;自证不过就拒写。
+  if (INVISIBLE_RE.test(body) && payloadIntact(body) && hasVisibleCopyright(body)) {
+    if (!reseatTail || tailIsSeated(body, st)) return { text: src, action: 'skip-done' }
+    const seated = reseatText(body, st)
+    return seated === null
+      ? { text: src, action: 'reseat-refused' }
+      : { text: seated, action: 'reseated' }
+  }
+  // 残迹态(只有横幅文本、载荷被剥离)与**载荷损坏**(存在但解码不符)统一走清洗重注。
+  // 2026-09-22 补第三类触发:横幅文本存在但**从未有过载荷**(裸两行版权头)。旧实现只在
+  // "见到 BANNER_ID 或零宽字符"时才清洗 ⇒ 这类文件被直接前置一条新横幅,留下**双横幅**,
+  // 而此后载荷已完整 ⇒ 恒走 skip-done ⇒ 重复头永久冻结(实测 141 个已跟踪文件,119 个已入 main)。
+  if (body.includes(BANNER_ID) || INVISIBLE_RE.test(body) || body.split('\n').some(isBannerLine)) {
+    body = cleanText(body)
+  }
+  // XML 声明必须位于文档首位: 提取后置于横幅之前, 而不是跳过
+  let xmlDecl = ''
+  const xmlMatch = body.match(/^\s*<\?xml[\s\S]*?\?>\r?\n?/)
+  if (xmlMatch) {
+    xmlDecl = xmlMatch[0]
+    body = body.slice(xmlMatch[0].length)
+  }
+
+  // 保留 shebang 行在最前
+  let shebang = ''
+  const nl = body.startsWith('#!') ? (body.indexOf('\n') >= 0 ? '\n' : '') : null
+  if (nl !== null) {
+    const idx = body.indexOf('\n')
+    shebang = idx >= 0 ? body.slice(0, idx + 1) : body + '\n'
+    body = idx >= 0 ? body.slice(idx + 1) : ''
+  }
+
+  const banner = makeBanner(st)
+  // L3: 文件末尾独立隐形行(注释包裹, 避免裸零宽字符导致 JS/TS/CSS 等解析报错)
+  const tail = tailFor(st)
+
+  // 统一去末尾换行再追加,保证注入时 L3 恒为独立末行(绝不与末行内容拼接,也不落在中间空行)
+  // **末尾必须自带换行**:少这个 \n,下一次 append 会把新内容直接粘到水印行后面 ——
+  // 那行既不再是"独立隐写行",而清洗它时会连带把粘在后面的正文一起吃掉(实测把条目标题弄丢)。
+  const sep = body.startsWith('\n') ? '' : '\n'
+  const outBody = (shebang + xmlDecl + banner + sep + body).replace(/\r?\n$/, '')
+  return { text: outBody + '\n' + tail + '\n', action: 'injected' }
+}
+
 function injectFile(absPath, { reseatTail = false } = {}) {
   const style = styleFor(absPath)
   if (!style) return 'skip-type'
@@ -377,81 +455,29 @@ function injectFile(absPath, { reseatTail = false } = {}) {
   if (exclusion().isExcluded(relOfTarget)) return 'skip-third-party'
   const buf = readFileSync(absPath)
   if (isBinary(buf)) return 'skip-binary'
-  let text = buf.toString('utf8').replace(/^\uFEFF/, '') // strip BOM, 避免 shebang 检测失败
-  // 载荷存在**且可解码** → 通常就是"已完成"。但"在而不对"有两种,旧实现在这里直接返回,
-  // 于是它们永远不会被修:
-  //   ① 可见横幅整块不见了 —— 横幅是归属主张,它没了等于作品失去署名(2026-09-29 实测两份
-  //      归档件即此型,而当时 verify 把它们算进"完好",L3 的用途被反过来用成了免检理由);
-  //   ② 尾部隐写行被后来的追加内容顶离末行 —— 仅当调用方带 --reseat-tail(追加型生成器)。
-  // ① 落到下面的"清洗重注"通道(必须整块重写才补得回横幅);
-  // ② **不走清洗重注**:那条通道会跑 cleanFile 的块注释状态机,而它删掉的行**不止**隐写行 ——
-  //    实测一次带旗注入把紧随其后的条目标题一起吞了(13MB 归档件的第二轮追加)。归位只做一件事:
-  //    把纯隐写行摘掉、在末尾补一条,其余行按序列原样送回;自证不过就拒写。
-  if (INVISIBLE_RE.test(text) && payloadIntact(text)) {
-    const withBanner = hasVisibleCopyright(text)
-    if (!withBanner) {
-      // 继续往下走清洗重注
-    } else if (!reseatTail || tailIsSeated(text, style)) {
-      return 'skip-done'
-    } else {
-      return reseatInPlace(absPath, text, style) ? 'reseated' : 'reseat-refused'
-    }
-  }
-  // 注意: 本工具自身源码包含横幅常量定义, clean 会"自噬", 故跳过自身
-  if (absPath === fileURLToPath(import.meta.url)) return 'skip-self'
-  // 残迹态(只有横幅文本、载荷被剥离)与**载荷损坏**(存在但解码不符)统一走清洗重注。
-  // 2026-09-22 补第三类触发:横幅文本存在但**从未有过载荷**(裸两行版权头)。旧实现只在
-  // "见到 BANNER_ID 或零宽字符"时才清洗 ⇒ 这类文件被直接前置一条新横幅,留下**双横幅**,
-  // 而此后载荷已完整 ⇒ 恒走 skip-done ⇒ 重复头永久冻结(实测 141 个已跟踪文件,119 个已入 main)。
-  if (text.includes(BANNER_ID) || INVISIBLE_RE.test(text) || text.split('\n').some(isBannerLine)) {
-    try {
-      cleanFile(absPath)
-      text = readFileSync(absPath, 'utf8').replace(/^\uFEFF/, '')
-    } catch {
-      /* clean 失败则继续按残迹处理 */
-    }
-  }
-  // XML 声明必须位于文档首位: 提取后置于横幅之前, 而不是跳过
-  let xmlDecl = ''
-  const xmlMatch = text.match(/^\s*<\?xml[\s\S]*?\?>\r?\n?/)
-  if (xmlMatch) {
-    xmlDecl = xmlMatch[0]
-    text = text.slice(xmlMatch[0].length)
-  }
-
-  // 保留 shebang 行在最前
-  let shebang = ''
-  const nl = text.startsWith('#!') ? (text.indexOf('\n') >= 0 ? '\n' : '') : null
-  if (nl !== null) {
-    const idx = text.indexOf('\n')
-    shebang = idx >= 0 ? text.slice(0, idx + 1) : text + '\n'
-    text = idx >= 0 ? text.slice(idx + 1) : ''
-  }
-
-  const banner = makeBanner(style)
-  // L3: 文件末尾独立隐形行(注释包裹, 避免裸零宽字符导致 JS/TS/CSS 等解析报错)
-  const tail = tailFor(style)
-
-  // 统一去末尾换行再追加,保证注入时 L3 恒为独立末行(绝不与末行内容拼接,也不落在中间空行)
-  // **末尾必须自带换行**:少这个 \n,下一次 append 会把新内容直接粘到水印行后面 ——
-  // 那行既不再是"独立隐写行",而清洗它时会连带把粘在后面的正文一起吃掉(实测把条目标题弄丢)。
-  const sep = text.startsWith('\n') ? '' : '\n'
-  const body = (shebang + xmlDecl + banner + sep + text).replace(/\r?\n$/, '')
-  const out = body + '\n' + tail + '\n'
-  writeFileSync(absPath, out, 'utf8')
-  return 'injected'
+  // 判据与构造全部交给 injectText(唯一实现);本函数只负责策略档与读写。
+  const r = injectText(buf.toString('utf8'), { style, reseatTail })
+  // 注意: 本工具自身源码包含横幅常量定义, clean 会"自噬", 故跳过自身。
+  // 只拦"会整块重写自身"的那一支('injected');skip-done 与归位(reseated)在旧实现里
+  // 本来就走得到,这里一字不改地保留。
+  if (r.action === 'injected' && absPath === fileURLToPath(import.meta.url)) return 'skip-self'
+  if (r.action === 'injected' || r.action === 'reseated') writeFileSync(absPath, r.text, 'utf8')
+  return r.action
 }
 
 /**
  * 只做"把纯隐写行移到末行"这一件事,并**自证其它行一字未动**;不过就拒写。
  *
- * 为什么不能借道 cleanFile:它是块注释状态机,删的是"横幅块 + 隐写行",而归档件里隐写行的
+ * 为什么不能借道 cleanText:它是块注释状态机,删的是"横幅块 + 隐写行",而归档件里隐写行的
  * **下一行往往是正文**(追加时没有空行隔开),状态机把两者一起吞过一次(实测丢掉一个条目标题)。
  * 归位要的是最小动作:摘掉纯隐写行 → 末尾补一条 → 其余行按原序列原样写回。
  *
- * @returns {boolean}  true = 已归位;false = 自证不过(调用方必须看见这个失败,不得静默)
+ * 文本级实现(与 injectText 共用;写盘由 `injectFile` 那一侧做 —— `--reseat-tail` 的调用方
+ * 只有它,两条通道不再各自写一遍"算出文本 → 写盘")。
+ *
+ * @returns {string|null} null = 自证不过(调用方必须看见这个失败,不得静默)
  */
-function reseatInPlace(absPath, text, style) {
+function reseatText(text, style) {
   const lines = String(text).split('\n')
   const kept = lines.filter((l) => !isInvisibleMarkLine(l))
   const moved = lines.length - kept.length
@@ -459,7 +485,7 @@ function reseatInPlace(absPath, text, style) {
     console.error(
       `[watermark:reseat] 拒绝归位:发现 ${moved} 行纯隐写行(只预期 1 行)⇒ 交人工看,不猜哪行该删`,
     )
-    return false
+    return null
   }
   const bodyText = kept.join('\n').replace(/\r?\n$/, '')
   const out = bodyText + '\n' + tailFor(style) + '\n'
@@ -473,10 +499,9 @@ function reseatInPlace(absPath, text, style) {
   }
   if (!sameExceptMarks(text, out)) {
     console.error('[watermark:reseat] 拒绝归位:重写后"非隐写行"与原文件不等值 ⇒ 一个字节都不写')
-    return false
+    return null
   }
-  writeFileSync(absPath, out, 'utf8')
-  return true
+  return out
 }
 
 /**
@@ -530,7 +555,16 @@ function payloadIntact(text) {
 }
 
 function cleanFile(absPath) {
-  const text = readFileSync(absPath, 'utf8')
+  writeFileSync(absPath, cleanText(readFileSync(absPath, 'utf8')), 'utf8')
+}
+
+/**
+ * 清洗的**文本级**实现(injectText 复用;`cleanFile` 只是"读盘 → cleanText → 写盘")。
+ * 判据一行未改,只是把"写盘"这一步从构造里摘出去 —— 对象空间通道拿不到盘,但需要同一把
+ * 清洗尺子(残迹/载荷损坏/裸两行版权头三种触发都靠它)。
+ */
+function cleanText(input) {
+  const text = String(input)
   const lines = text.split('\n')
   const keep = []
   let inBanner = false
@@ -577,7 +611,7 @@ function cleanFile(absPath) {
     .replace(/^\s*<!--\s*$/, '')
     .replace(/^\n+/, '')
     .replace(/\n+$/, '\n')
-  writeFileSync(absPath, out, 'utf8')
+  return out
 }
 
 function findMarks(text) {
@@ -993,6 +1027,8 @@ export const __test__ = {
   tailFor,
   tailIsSeated,
   injectableRel,
+  // G-04:文本级注入出口(对象空间落地器复用同一份构造;镜像测试直接用生产实现,不复制判据)
+  injectText,
   WATERMARK_TEXT,
   BANNER_ID,
   INVISIBLE_MARK,

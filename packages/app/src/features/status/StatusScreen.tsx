@@ -59,7 +59,10 @@ export interface StatusScreenProps {
 }
 
 /** 服务名 → i18n 键(api/database/redis 由 web 端 SERVICE_LABELS 沿用;其余回退到原始键)。 */
-const SERVICE_LABELS: Record<string, 'statusPage.serviceApi' | 'statusPage.serviceDatabase' | 'statusPage.serviceRedis'> = {
+const SERVICE_LABELS: Record<
+  string,
+  'statusPage.serviceApi' | 'statusPage.serviceDatabase' | 'statusPage.serviceRedis'
+> = {
   api: 'statusPage.serviceApi',
   database: 'statusPage.serviceDatabase',
   redis: 'statusPage.serviceRedis',
@@ -101,7 +104,9 @@ function formatDateTime(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function serviceLabelKey(status: StatusServiceStatus): 'statusPage.serviceOperational' | 'statusPage.serviceDegraded' | 'statusPage.serviceOutage' {
+function serviceLabelKey(
+  status: StatusServiceStatus,
+): 'statusPage.serviceOperational' | 'statusPage.serviceDegraded' | 'statusPage.serviceOutage' {
   return status === 'operational'
     ? 'statusPage.serviceOperational'
     : status === 'degraded'
@@ -109,7 +114,12 @@ function serviceLabelKey(status: StatusServiceStatus): 'statusPage.serviceOperat
       : 'statusPage.serviceOutage'
 }
 
-function severityLabelKey(severity: StatusSeverity): 'statusPage.incidentSeverityMinor' | 'statusPage.incidentSeverityMajor' | 'statusPage.incidentSeverityCritical' {
+function severityLabelKey(
+  severity: StatusSeverity,
+):
+  | 'statusPage.incidentSeverityMinor'
+  | 'statusPage.incidentSeverityMajor'
+  | 'statusPage.incidentSeverityCritical' {
   return severity === 'minor'
     ? 'statusPage.incidentSeverityMinor'
     : severity === 'major'

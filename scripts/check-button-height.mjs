@@ -705,18 +705,9 @@ async function runSelfTest() {
 
     // ── 三面分叉真 git 正控(项目外 mkScratch,§15b;同一仓三个面必须给出三种结论) ──
     GITFIX = mkScratch('button-height-git-')
-    const git = (...args) => {
-      const r = spawnSync('git', ['-c', 'safe.directory=*', ...args], {
-        cwd: GITFIX,
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 60000,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      if (r.status !== 0)
-        throw new Error(`git ${args.join(' ')} 失败: ${r.stderr || r.error || ''}`)
-      return r.stdout
-    }
+    // 2026-10-26：夹具里的裸 git 也走 face-reader.gitRaw(绝对 git + safe.directory + quotepath
+    //   + stdio 两态都在层内)。失败时抛 Undetermined(仍是 Error 子类),自检断言只看 stdout。
+    const git = (...args) => gitRaw(args, GITFIX)
     git('init', '-q')
     git('config', 'user.email', 'selftest@example.invalid')
     git('config', 'user.name', 'selftest')

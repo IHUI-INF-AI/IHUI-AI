@@ -22,9 +22,10 @@ import chalk from 'chalk';
 import { readFileSync, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
+import { setBaseUrl, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
 import type { GoalHardCriterion } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
+import { registerCliTokenProvider } from './lib/auth-refresh.js';
 import {
   digestGateRejectionFor,
   grantDigestTrackedLeaseFromFlag,
@@ -593,12 +594,13 @@ program.hook('preAction', async () => {
     }),
     cfg.apiUrl,
   );
-  if (cfg.apiKey) {
-    if (opts.apiKey && process.env.IHUI_API_KEY !== opts.apiKey) {
-      console.warn(chalk.yellow(t('cliEntry.apiKeyExposedWarn')));
-    }
-    setTokenProvider({ getToken: () => cfg.apiKey });
+  // 明文凭据暴露告警(现状行为逐字保留):显式 --api-key 与环境变量不同值时提示
+  if (cfg.apiKey && opts.apiKey && process.env.IHUI_API_KEY !== opts.apiKey) {
+    console.warn(chalk.yellow(t('cliEntry.apiKeyExposedWarn')));
   }
+  // 凭据续期单点:provider 必须同时带 getToken(现读令牌管理器)与 refreshAccessToken,
+  // 否则包内 401 拦截器第一行就 return null ⇒ 长会话跑过 15 分钟后全体 401 且无法自愈。
+  registerCliTokenProvider({ baseUrl: cfg.apiUrl, startupToken: cfg.apiKey });
   // P1-15 异步触发更新检查(--no-update-check 或 IHUI_NO_UPDATE_CHECK=1 时跳过;offline 模式跳过)
   if (
     cfg.offline !== true &&
@@ -1031,7 +1033,7 @@ program
   .option('--dry-run', t('cliEntry.undoDryRunDesc'))
   .action(async (stepsArg: string | undefined, opts: { session?: string; dryRun?: boolean }) => {
     const { UndoRedoManager } = await import('./commands/undo-redo.js');
-    const { selectUndoClaimKey, renderUndoClaim } = await import('./commands/undo-claim-copy.js');
+    const { renderUndoReport } = await import('./commands/undo-claim-copy.js');
     const steps = Number(stepsArg) || 1;
     const sessionId =
       opts.session ?? getMostRecentSession()?.id ?? 'adhoc';
@@ -1058,24 +1060,61 @@ program
     const result = await mgr.undo(sessionId, steps);
     // D163:那句"工作区未发生变化"由 verdict 驱动,不由"回滚应该会成功"这个
     // 假设驱动 —— 半途失败的撤回已经把工作区改了一部分,照旧说就是安慰话。
-    const claimInput = {
-      verdict: result.verdict,
-      partial: result.partial,
-      undoneSteps: result.undoneSteps,
-    };
-    const claimKey = selectUndoClaimKey(claimInput);
-    console.info(
-      claimKey === 'undoSucceeded'
-        ? chalk.green(renderUndoClaim(claimInput, t))
-        : chalk.yellow(renderUndoClaim(claimInput, t)),
+    // D22046:整段输出(结论 + 成功清单 + 失败清单)交给渲染层组装,这里只上色打印。
+    const report = renderUndoReport(
+      {
+        verdict: result.verdict,
+        partial: result.partial,
+        undoneSteps: result.undoneSteps,
+        attemptedSteps: result.attemptedSteps,
+        // D22046 通道②:检查点可用性参与选句,不由"试没试过"反推。
+        checkpointStatus: result.checkpoint.status,
+        remaining: result.remaining,
+        changes: result.changes,
+        failedFiles: result.failedFiles,
+        failedReasons: result.failedReasons,
+        // 失败清单要给两个数:文件数(影响面)与轮次(要重试几次)。
+        failedSteps: result.failedSteps,
+      },
+      t,
     );
-    if (result.undoneSteps > 0) {
-      console.info(
-        chalk.dim(t('cliEntry.undoDone', { undoneSteps: result.undoneSteps, remaining: result.remaining })),
+    // D22046:无头/脚本调用走结构化事件 —— 检查点可用性与判定结论必须以字段
+    // 形式到达上层,而不是只能从终端句子里猜。
+    if (program.opts().json === true) {
+      process.stdout.write(
+        `${JSON.stringify(
+          {
+            type: 'undo_result',
+            sessionId,
+            requestedSteps: steps,
+            undoneSteps: result.undoneSteps,
+            attemptedSteps: result.attemptedSteps,
+            failedSteps: result.failedSteps,
+            remaining: result.remaining,
+            verdict: result.verdict,
+            workspaceUnchanged: result.workspaceUnchanged,
+            partial: result.partial,
+            checkpoint: result.checkpoint,
+            changedFiles: result.changedFiles,
+            failedFiles: result.failedFiles,
+            failedReasons: result.failedReasons,
+            claimKey: report.claimKey,
+          },
+          null,
+          2,
+        )}\n`,
       );
-      for (const c of result.changes) {
-        console.info(chalk.dim(`  · ${c.toolName} → ${c.filePath}`));
-      }
+      return;
+    }
+    console.info(
+      report.claimIsSuccess ? chalk.green(report.claim) : chalk.yellow(report.claim),
+    );
+    for (const line of report.succeededLines) {
+      console.info(chalk.dim(line));
+    }
+    // 失败文件逐条点名(至多 10 条 + "另有 N 条"),否则"部分失败"只剩一句空话。
+    for (const line of report.failureLines) {
+      console.info(chalk.yellow(line));
     }
   });
 

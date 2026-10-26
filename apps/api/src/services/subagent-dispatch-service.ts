@@ -93,6 +93,15 @@ const ALL_ROLES: SubagentRole[] = ['researcher', 'coder', 'reviewer', 'architect
 /** 扩展 dispatch 状态(增加 preempted / quota_exceeded) */
 export type ExtendedDispatchStatus = DispatchStatus | 'preempted' | 'quota_exceeded'
 
+/**
+ * 写侧状态视图:`SubagentDispatch.status` 的声明面是基础联合(不含 preempted / quota_exceeded),
+ * 而本服务确实写这两个扩展值 —— 经这个已声明为**扩展域**的视图写回同一个对象,让 TS 按扩展域判
+ * 字面量合法性;不再用类型断言把越域字面量掩盖成合法(守门 94 R4 同族的写侧形态)。
+ */
+function statusWriteView(dispatch: SubagentDispatch): { status: ExtendedDispatchStatus } {
+  return dispatch
+}
+
 /** 派单优先级(调度队列排序) */
 export type DispatchPriority = 'low' | 'normal' | 'high' | 'urgent'
 
@@ -1664,7 +1673,8 @@ class SubagentDispatchService {
       .sort((a, b) => PRIORITY_SCORE[a.priority] - PRIORITY_SCORE[b.priority])
     if (candidates.length === 0) return false
     const target = candidates[0]!
-    target.dispatch.status = 'preempted' as DispatchStatus
+    // 'preempted' 不在 DispatchStatus 内,真实域是 ExtendedDispatchStatus ⇒ 经扩展域视图写回
+    statusWriteView(target.dispatch).status = 'preempted'
     target.dispatch.updatedAt = nowIso()
     target.completedAt = Date.now()
     void this._persistDispatch(target.dispatch.id)
@@ -1765,8 +1775,8 @@ class SubagentDispatchService {
           tokenUsage: tokenUsage.total,
           durationMs: stepDuration,
         })
-        // 标记 dispatch 为 quota_exceeded
-        dispatch.status = 'quota_exceeded' as DispatchStatus
+        // 标记 dispatch 为 quota_exceeded(同 'preempted':扩展值,走扩展域视图写入)
+        statusWriteView(dispatch).status = 'quota_exceeded'
         dispatch.result = quotaError
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
@@ -1996,7 +2006,7 @@ class SubagentDispatchService {
           const shouldContinue = evaluateCondition(edge.condition, nodeResult)
           if (!shouldContinue) {
             // 条件不满足 → 标记下游节点为 cancelled(跳过)
-            runtime.dagNodeStatus.set(edge.to, 'cancelled' as ExtendedDispatchStatus)
+            runtime.dagNodeStatus.set(edge.to, 'cancelled')
             await this._persistLog(id, {
               ts: nowIso(),
               level: 'info',
@@ -2230,7 +2240,20 @@ class SubagentDispatchService {
     const totalTokens = runtime.steps.reduce((acc, s) => acc + s.tokenUsage.total, 0)
     return {
       dispatchId: id,
-      status: d.status as ExtendedDispatchStatus,
+      status: coerceKnownOr(
+        d.status,
+        [
+          'pending',
+          'running',
+          'completed',
+          'failed',
+          'cancelled',
+          'paused',
+          'preempted',
+          'quota_exceeded',
+        ],
+        'failed',
+      ),
       totalDurationMs,
       totalTokens,
       estimatedCost: Math.round(totalTokens * COST_PER_TOKEN_USD * 1e6) / 1e6,
@@ -2257,7 +2280,21 @@ class SubagentDispatchService {
       dispatchId: id,
       nodes: dag.nodes.map((n) => ({
         ...n,
-        status: (runtime.dagNodeStatus.get(n.id) ?? 'pending') as ExtendedDispatchStatus,
+        // 读侧收敛:map 里只有已写过的已知档,未知/未来值兜 'failed'(终态,不暗示可继续调度)
+        status: coerceKnownOr(
+          runtime.dagNodeStatus.get(n.id) ?? 'pending',
+          [
+            'pending',
+            'running',
+            'completed',
+            'failed',
+            'cancelled',
+            'paused',
+            'preempted',
+            'quota_exceeded',
+          ],
+          'failed',
+        ),
         result: undefined, // 简化:不暴露中间结果
       })),
       edges: dag.edges,
@@ -2275,7 +2312,24 @@ class SubagentDispatchService {
       return { dispatchId: id, resumed: false, skippedSteps: [], error: '派单不存在' }
     }
     const dispatch = runtime.dispatch
-    const status = dispatch.status as ExtendedDispatchStatus
+    // 读侧收敛:放行档只有 failed / preempted / quota_exceeded。未知/未来值兜**终态**
+    // 'cancelled'(同样落到下方 resume 拒绝分支,不产生"把未知态重置成 running 再执行"的副作用)。
+    // 不兜 'pending':门 205 的口径是"未知值不许落可写/初始档";也不兜 'failed'(它是放行档,
+    // 兜它会把未知态当可恢复放行执行)。
+    const status = coerceKnownOr(
+      dispatch.status,
+      [
+        'pending',
+        'running',
+        'completed',
+        'failed',
+        'cancelled',
+        'paused',
+        'preempted',
+        'quota_exceeded',
+      ],
+      'cancelled',
+    )
     if (status !== 'failed' && status !== 'preempted' && status !== 'quota_exceeded') {
       return {
         dispatchId: id,
@@ -2337,14 +2391,41 @@ class SubagentDispatchService {
   getQueue(): QueueEntry[] {
     const entries = Array.from(this.runtimes.values())
       .filter((r) => {
-        const s = r.dispatch.status as ExtendedDispatchStatus
+        // 队列准入:未知/未来值兜 'failed'(不在准入集内 ⇒ 不会被当可调度项排进队列)
+        const s = coerceKnownOr(
+          r.dispatch.status,
+          [
+            'pending',
+            'running',
+            'completed',
+            'failed',
+            'cancelled',
+            'paused',
+            'preempted',
+            'quota_exceeded',
+          ],
+          'failed',
+        )
         return s === 'pending' || s === 'running' || s === 'preempted'
       })
       .sort((a, b) => PRIORITY_SCORE[b.priority] - PRIORITY_SCORE[a.priority])
     return entries.map((r, idx) => ({
       dispatchId: r.dispatch.id,
       priority: r.priority,
-      status: r.dispatch.status as ExtendedDispatchStatus,
+      status: coerceKnownOr(
+        r.dispatch.status,
+        [
+          'pending',
+          'running',
+          'completed',
+          'failed',
+          'cancelled',
+          'paused',
+          'preempted',
+          'quota_exceeded',
+        ],
+        'failed',
+      ),
       goal: r.dispatch.goal,
       createdAt: r.dispatch.createdAt,
       position: idx + 1,
@@ -2443,6 +2524,21 @@ class SubagentDispatchService {
     for (const d of all) {
       const role = d.agentRole ?? 'coder'
       const mode = d.orchestration ?? 'parallel'
+      // 拓扑的 dispatchStatus(d.status)读侧收敛:未知/未来值兜 'failed'(终态,不当可继续调度)
+      const dispatchStatus = coerceKnownOr(
+        d.status,
+        [
+          'pending',
+          'running',
+          'completed',
+          'failed',
+          'cancelled',
+          'paused',
+          'preempted',
+          'quota_exceeded',
+        ],
+        'failed',
+      )
       const runtime = this.runtimes.get(d.id)
       const nodeStatus: TopologyNode['status'] =
         d.status === 'pending'
@@ -2466,6 +2562,21 @@ class SubagentDispatchService {
         const dag = runtime.dag
         for (const dagNode of dag.nodes) {
           const dagStatus = runtime.dagNodeStatus.get(dagNode.id) ?? 'pending'
+          // 读侧收敛:未知/未来值兜 'failed'(节点显示失败,不伪装成等待/进行中)
+          const dagStatusSafe = coerceKnownOr(
+            dagStatus,
+            [
+              'pending',
+              'running',
+              'completed',
+              'failed',
+              'cancelled',
+              'paused',
+              'preempted',
+              'quota_exceeded',
+            ],
+            'failed',
+          )
           nodes.push({
             id: `${d.id}:${dagNode.id}`,
             label: `${ROLE_LABELS[dagNode.agentRole] ?? dagNode.agentRole}`,
@@ -2478,11 +2589,11 @@ class SubagentDispatchService {
                   : dagStatus === 'failed'
                     ? 'failed'
                     : 'waiting',
-            dispatchStatus: dagStatus as ExtendedDispatchStatus,
+            dispatchStatus: dagStatusSafe,
             durationMs,
             tokenUsage,
             isDagNode: true,
-            dagNodeStatus: dagStatus as ExtendedDispatchStatus,
+            dagNodeStatus: dagStatusSafe,
           })
         }
         for (const dagEdge of dag.edges) {
@@ -2501,7 +2612,7 @@ class SubagentDispatchService {
           label: '批判仲裁',
           role: 'arbiter',
           status: nodeStatus,
-          dispatchStatus: d.status as ExtendedDispatchStatus,
+          dispatchStatus,
           durationMs,
           tokenUsage,
           isArbiter: true,
@@ -2513,7 +2624,7 @@ class SubagentDispatchService {
             label: ROLE_LABELS[r] ?? r,
             role: r,
             status: nodeStatus,
-            dispatchStatus: d.status as ExtendedDispatchStatus,
+            dispatchStatus,
           })
           edges.push({
             from: agentNodeId,
@@ -2531,7 +2642,7 @@ class SubagentDispatchService {
             label: ROLE_LABELS[r] ?? r,
             role: r,
             status: nodeStatus,
-            dispatchStatus: d.status as ExtendedDispatchStatus,
+            dispatchStatus,
           })
         }
         // 通信边(从 messages 推导)
@@ -2557,7 +2668,7 @@ class SubagentDispatchService {
           label: mode === 'debate' ? '辩论仲裁' : '投票仲裁',
           role: 'arbiter',
           status: nodeStatus,
-          dispatchStatus: d.status as ExtendedDispatchStatus,
+          dispatchStatus,
           durationMs,
           tokenUsage,
           isArbiter: true,
@@ -2569,7 +2680,7 @@ class SubagentDispatchService {
             label: ROLE_LABELS[r] ?? r,
             role: r,
             status: nodeStatus,
-            dispatchStatus: d.status as ExtendedDispatchStatus,
+            dispatchStatus,
           })
           edges.push({
             from: agentNodeId,
@@ -2585,7 +2696,7 @@ class SubagentDispatchService {
           label: ROLE_LABELS[role] ?? role,
           role,
           status: nodeStatus,
-          dispatchStatus: d.status as ExtendedDispatchStatus,
+          dispatchStatus,
           durationMs,
           tokenUsage,
         })

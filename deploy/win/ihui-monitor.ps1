@@ -372,6 +372,20 @@ function Get-LastBuildTime {
 }
 
 # 生成【原因诊断】段:根据当前状态推断最可能原因
+function Get-ServiceProcessStartTime {
+  # 取服务当前进程的启动时刻;取不到(服务没跑 / pid 为 0 / 进程已退出)一律返回 $null,
+  # 由调用方按"判不出"处理 —— 判不出不得当成"刚重启过",否则等于给真故障发免死金牌。
+  param([string]$ServiceName)
+  try {
+    $svc = Get-CimInstance Win32_Service -Filter "Name='$ServiceName'" -ErrorAction Stop
+    if (-not $svc -or -not $svc.ProcessId -or [int]$svc.ProcessId -eq 0) { return $null }
+    $p = Get-Process -Id ([int]$svc.ProcessId) -ErrorAction Stop
+    return $p.StartTime
+  } catch {
+    return $null
+  }
+}
+
 function Get-Diagnosis {
   $lines = @()
   $now = Get-Date
@@ -429,6 +443,34 @@ function Get-Diagnosis {
   # 2) 最近 15 分钟内有构建完成 → 刚部署完,服务重启中
   if ($lastBuild -and $buildAgeMin -le 15) {
     $lines += "[部署重启中-预期现象] 最近构建于 $lastBuild(约 ${buildAgeMin} 分钟前)完成,服务重启中,预计很快恢复"
+    return ($lines -join "`n")
+  }
+
+  # 2b) 服务进程自己刚启动过 ⇒ 重启窗口内(2026-10-26 补)
+  #
+  # 立因:10-25 21:23 部署环起部署,21:35 / 21:58 / 22:40 连报 "api(8802) 未监听"
+  # "ai(8803) 未监听" 并各寄一封邮件。而当时的两条判据都没盖住:
+  #   · 分支 1 的四条判据把部署锁判成 stale —— 部署是 pwsh → tsx → node 多层派生,
+  #     锁里记的 pid 与真正干活的进程对不上,ShouldHold 判不出来;
+  #   · 分支 2 只看"构建**完成**时间",而一轮部署是 迁移 → build → 重启服务,
+  #     重启那一拍往往已经超出 15 分钟窗口。
+  # 于是"部署正在重启服务"这一最该抑制的窗口反而成了裸奔区。
+  #
+  # 这里补一条**直接看进程**的判据:服务进程自己的 StartTime 就是"刚被重启过"的最硬证据,
+  # 既不依赖锁文件、也不依赖日志文本。刻意不采用"deploy-loop.log 最近有写入" —— 部署循环
+  # 每 60 秒轮询一次都要写日志,那个判据恒真,会把 09-28 那次"真故障被假理由压住"的事故
+  # 原样复制一遍。
+  # 进程不在(未监听且进程也没了)时取不到 StartTime,那种情况落到分支 3 照常报,不静默。
+  $restartGrace = [int](EnvOr 'IHUI_MONITOR_SVC_RESTART_GRACE_MIN' '10')
+  $youngest = $null
+  foreach ($sn in @($webSvcName, $apiSvcName, $aiSvcName)) {
+    $st = Get-ServiceProcessStartTime -ServiceName $sn
+    if ($null -eq $st) { continue }
+    $age = [math]::Round(((Get-Date) - $st).TotalMinutes, 1)
+    if ($null -eq $youngest -or $age -lt $youngest.age) { $youngest = @{ svc = $sn; age = $age } }
+  }
+  if ($youngest -and $youngest.age -le $restartGrace) {
+    $lines += "[部署重启中-预期现象] 服务 $($youngest.svc) 的进程于 $($youngest.age) 分钟前启动(≤$restartGrace 分钟),重启窗口内的短暂未监听属预期,数分钟内自动恢复"
     return ($lines -join "`n")
   }
 
@@ -600,10 +642,15 @@ while ($true) {
     if ($null -eq $code1) { continue }   # 第一轮正常
 
     # 第一轮异常 → 立即重测一次确认
+    # 2026-10-26:重测超时 15s → 40s。理由:本机公网入口是 Cloudflare 隧道回源,
+    # 实测回源吞吐 ~600 B/s,首页 291KB 首帧回源要 10~45s —— 用 15s 去判"公网挂了"
+    # 等于把**已知的回源慢**判成故障(当天 14 封告警里 10 封是这一型,本地 8801/8802/8803
+    # 全绿)。首次探测仍保持 15s(快失败、快进重测),只放宽确认那一拍。
+    # 真故障不受影响:端口不通/进程不在是秒级失败,不会等满 40s。
     Start-Sleep -Seconds 3
     $code2 = $null
     try {
-      $r2 = Invoke-WebRequest -Uri $u -Method Head -TimeoutSec 15 -ErrorAction Stop
+      $r2 = Invoke-WebRequest -Uri $u -Method Head -TimeoutSec 40 -ErrorAction Stop
       if ($r2.StatusCode -ge 400) { $code2 = "HTTP $($r2.StatusCode)" }
     } catch {
       $code2 = "ERR"; if ($_.Exception.Response) { $code2 = [int]$_.Exception.Response.StatusCode }

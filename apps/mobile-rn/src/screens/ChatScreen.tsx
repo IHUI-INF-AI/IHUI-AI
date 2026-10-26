@@ -1260,6 +1260,12 @@ export function ChatScreen() {
       // (api-client tryParseToolApproval,与 web 同一投影),这里只交给审批队列;
       // 不注册回调 ⇒ 帧照旧静默丢弃(本票立因:手机上高危操作没有任何弹窗)。
       onToolApproval: (event) => {
+        // D-07(2026-10-26):失效留痕帧不弹审批浮层 —— 该 approvalId 已无活等待者,
+        // 只给用户一条可读提示(与 web 同一条共享键,端内不抄第二份措辞)。
+        if (event.expired) {
+          showToast('info', t('chat.approvalExpiredNotice', { toolName: event.toolName }))
+          return
+        }
         toolApproval.onToolApproval(event)
       },
       // G-248 R2:帧级 traceId 的端内消费出口(值=本轮第一个被判为合法的帧带的那个,只认一次)。

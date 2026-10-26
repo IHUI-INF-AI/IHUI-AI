@@ -208,7 +208,10 @@ function registerCategoryDictionaryRoutes(server: FastifyInstance) {
         parsed.data.id,
         req.body as Record<string, unknown>,
       )
-      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
+      // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+      return reply.send(
+        success(row ? { ...row, updated: true } : { id: parsed.data.id, updated: false }),
+      )
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '更新字典项失败'))

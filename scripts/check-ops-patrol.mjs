@@ -2120,8 +2120,20 @@ export async function checkBackupReplicaPresence({
 export const HEAD_TYPECHECK_WINDOW_MS = 6 * 3600 * 1000
 const HEAD_TYPECHECK_LINE_RE = /判定=(\S+) \| 端 (\d+)\(通过 (\d+) \/ 已入库红 (\d+) \/ 疑似在飞 (\d+) \/ 未判定 (\d+)\)/
 
-/** 默认派生：跑门体本身，只取它的 stdout（门体自己负责三态归因，这里不重算）。 */
-export function runHeadTypecheck({ repoRoot, timeoutMs = 600_000 } = {}) {
+/**
+ * 默认派生：跑门体本身，只取它的 stdout（门体自己负责三态归因，这里不重算）。
+ *
+ * **嵌套超时纪律（2026-10-26 立）**：这一层的上限必须**小于**调用方的墙钟上限，
+ * 否则慢一步就把整个巡检连根拔掉。现场：本函数默认 600s，而 git-guardian 派发整轮巡检
+ * 只给 180s ⇒ 共享 git 争用下巡检被 SIGTERM，守护只拿到 `spawnSync … ETIMEDOUT`，
+ * 既没有可解析结论、也没有任何一维读数，于是每轮寄一封「元运维巡检红」——
+ * 报的是"巡检自己没跑完"，与"哪一维坏了"完全无关。
+ * 现在：本层 240s（超时即由 checkHeadTypecheckLanded 的 catch 落 P12=未判定，单维降级），
+ * 外层 360s（OPS_PATROL_TIMEOUT_MS），两层都留足余量且内 < 外。
+ * 240 不是拍的：部署构建那 19 分钟会把 CPU 打满，20 个端的 tsc 实测从 ~65s 涨到 >180s，
+ * 180 会让 P12 在「部署每 30 分钟一轮、构建占 19 分钟」的常态下长期掉进未判定（=这一维常瞎）。
+ */
+export function runHeadTypecheck({ repoRoot, timeoutMs = 240_000 } = {}) {
   return execFileSync(process.execPath, [join(repoRoot, 'scripts', 'check-head-typecheck.mjs')], {
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,

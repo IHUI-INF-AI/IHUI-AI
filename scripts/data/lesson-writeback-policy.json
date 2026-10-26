@@ -1,0 +1,28 @@
+{
+  "$comment": "经验自动提炼(教训写回)单一真相源:目标白名单 / 去重指纹口径 / 条数上限。改本文件即改判据,禁止在脚本里再写一份(§0.6)。",
+  "version": 1,
+  "sandboxRoots": [".ihui-agent"],
+  "targets": {
+    "lessons": ".ihui-agent/state/lessons.jsonl",
+    "digest": ".ihui-agent/state/lessons-digest.md"
+  },
+  "neverWrite": [
+    "AGENTS.md",
+    "PROJECT_PLAN.md",
+    "scripts/data/root-guard-manifest.json",
+    "scripts/data/lesson-writeback-policy.json",
+    "scripts/root-guard.mjs",
+    "scripts/guardian-runner.mjs"
+  ],
+  "fingerprint": {
+    "algorithm": "sha256",
+    "length": 16,
+    "normalize": ["bom-strip", "crlf-lf", "collapse-whitespace", "trim", "lowercase"]
+  },
+  "limits": {
+    "maxLessons": 500,
+    "maxDigestEntries": 200,
+    "maxLessonChars": 320
+  },
+  "kinds": ["deploy-retro"]
+}

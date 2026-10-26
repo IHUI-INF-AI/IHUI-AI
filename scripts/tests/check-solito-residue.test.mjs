@@ -5,15 +5,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
+// 2026-10-26 G-54:门体 git 派生收口到 face-reader 后,夹具必须连相对 import 闭包一起拷
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { __test__ as gate } from '../check-solito-residue.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const SOURCE_SCRIPT = join(__dirname, '..', 'check-solito-residue.mjs')
 
 // ============================================================
 // 源脚本核心规则(scripts/check-solito-residue.mjs)
@@ -47,7 +48,9 @@ function createTempRepo() {
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'ignore' })
   mkdirSync(join(dir, 'scripts'), { recursive: true })
-  copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-solito-residue.mjs'))
+  copyScriptWithClosure(join(__dirname, '..'), 'check-solito-residue.mjs', join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+  ])
   writeFileSync(join(dir, 'README.md'), '# init\n')
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   execSync('git add README.md', { cwd: dir, stdio: 'ignore' })

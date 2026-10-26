@@ -34,18 +34,22 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash, createHmac, randomUUID } from 'node:crypto'
 import { loadCaps, parseLedger, evaluate, chargeLine } from './cost-breaker.mjs'
 import { loadHumanGates, summarize as summarizeHumanGates } from './human-gates.mjs'
+import { loadPolicy, decide, POLICY_PATH } from './autonomy-decision.mjs'
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json')
+export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+/** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
+export const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json')
 /** O6504 人工阀清单 / O6502 成本熔断(调度层读同一份真源,不另写第二份判据) */
 const HUMAN_GATES_JSON = join(ROOT, 'scripts', 'data', 'human-gates.json')
 const COST_CAPS_JSON = join(ROOT, 'scripts', 'data', 'cost-caps.json')
-const COST_LEDGER = join(ROOT, '.ihui-agent', 'state', 'cost-ledger.jsonl')
-const LEDGER = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-ledger.jsonl')
-const LOCK_FILE = join(ROOT, '.ihui-agent', 'state', 'auto-evolve.lock')
+export const COST_LEDGER = join(ROOT, '.ihui-agent', 'state', 'cost-ledger.jsonl')
+export const LEDGER = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-ledger.jsonl')
+export const LOCK_FILE = join(ROOT, '.ihui-agent', 'state', 'auto-evolve.lock')
 const ESCAPE_TICK = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-escape-tick.json')
 const TMP_DIR = join(ROOT, '.ihui-agent', 'tmp', 'auto-evolve')
-const PLAN_TASKS = join(ROOT, 'scripts', 'plan-tasks.mjs')
+export const PLAN_TASKS = join(ROOT, 'scripts', 'plan-tasks.mjs')
+/** 自治决策候选评估(第 2 期接线):id = ticketKey,由 AI 会话写;本器不替 AI 编因子 */
+const AUTONOMY_CANDIDATES = join(ROOT, '.ihui-agent', 'state', 'autonomy-candidates.json')
 const MAIL_SCRIPT = join(ROOT, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
 const TSX_ENTRY = join(ROOT, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs')
 const API_ENV = join(ROOT, 'apps', 'api', '.env')
@@ -141,6 +145,49 @@ export function parseTicketRows(stdout) {
   return rows
 }
 
+/**
+ * 自治决策排序(第 2 期接线):候选评估文件由 AI 会话写(见 AUTONOMY_CANDIDATES),
+ * 本器只按模型排期,不替 AI 编因子 —— "没评估"就是没评估,不补默认值。
+ * 有文件 ⇒ 只放行模型判为可排期的票;压后/未收录的票本轮不派(逐条点名原因)。
+ * 无文件 ⇒ 保持现值行为:台账序 + 白名单闸。
+ */
+export function rankTicketRows(rows, { policyText, candidatesText, keyOf = ticketKeyOf } = {}) {
+  if (typeof candidatesText !== 'string' || candidatesText.trim() === '') {
+    return { rows, mode: 'ledger-order', why: '无候选评估文件', ranked: [], skipped: [] }
+  }
+  let input
+  try {
+    input = JSON.parse(candidatesText)
+  } catch (e) {
+    throw new Error(`自治决策候选不是合法 JSON:${e?.message ?? e}`)
+  }
+  const policy = loadPolicy(policyText)
+  const result = decide({ policy, candidates: Array.isArray(input) ? input : input?.candidates })
+  const deferredById = new Map(result.deferred.map((d) => [d.id, d.reason]))
+  const byKey = new Map(rows.map((r) => [keyOf(r.text), r]))
+  const ranked = []
+  const used = new Set()
+  for (const item of result.ranked) {
+    const row = byKey.get(item.id)
+    if (!row) continue // 模型排了台账里没有的票:不凭空造行
+    used.add(item.id)
+    ranked.push({ ...row, decision: { rank: item.rank, score: item.score, reason: item.reason } })
+  }
+  const skipped = []
+  for (const r of rows) {
+    const key = keyOf(r.text)
+    if (used.has(key)) continue
+    skipped.push({ line: r.line, key, reason: deferredById.get(key) ?? '未评估(候选文件未收录本票)' })
+  }
+  return {
+    rows: ranked,
+    mode: 'decision',
+    why: `模型 ${result.state}:可排期 ${ranked.length} / 压后 ${result.deferred.length}`,
+    ranked,
+    skipped,
+  }
+}
+
 /** {promptFile}/{ticketLine}/{ticketKey} 占位填充;未知占位原样保留(不猜) */
 export function fillTemplate(tpl, { promptFile, ticketLine, ticketKey }) {
   return String(tpl)
@@ -179,7 +226,7 @@ export function parseSessionUsage(stdout) {
   return { tokens: 0, costUsd: 0, measured: false }
 }
 
-function todayKey(now = new Date()) {
+export function todayKey(now = new Date()) {
   const y = now.getFullYear()
   const m = String(now.getMonth() + 1).padStart(2, '0')
   const d = String(now.getDate()).padStart(2, '0')
@@ -461,6 +508,8 @@ function dispatchSession(gates, ticket, dryRun) {
       `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
       ``,
       `按 AGENTS.md 全部强制条款执行本票;只 add 本任务文件;走 safe-commit 五步法;`,
+      `提交时绑票键(决策链审计口):PowerShell 先 $env:IHUI_TICKET_KEY='${key}';`,
+      `$env:IHUI_TICKET_LINE='<票面前 120 字>';再跑 safe-commit —— 审计器靠它把提交接回本票。`,
       `验证齐绿(typecheck/test/守门末行现读)后才可声明完成;完成即翻勾。`,
       ``,
       `完成判定(硬性,防半成品):`,
@@ -501,7 +550,7 @@ function dispatchSession(gates, ticket, dryRun) {
   return { action: 'session-ok', exitCode: 0, durationMs, why: '', tokens, tokensMeasured, costUsd }
 }
 
-async function runOnce({ dryRun = false } = {}) {
+async function runOnce({ dryRun = false, noDecide = false } = {}) {
   let gates
   try {
     gates = loadGates()
@@ -555,13 +604,36 @@ async function runOnce({ dryRun = false } = {}) {
     return
   }
   try {
-    const rows = pickTickets()
+    const allRows = pickTickets()
+    let rows = allRows
+    let decisionReadout = '台账序(无候选评估文件)'
+    if (!noDecide && existsSync(AUTONOMY_CANDIDATES)) {
+      try {
+        const ranked = rankTicketRows(allRows, {
+          policyText: readFileSync(POLICY_PATH, 'utf8'),
+          candidatesText: readFileSync(AUTONOMY_CANDIDATES, 'utf8'),
+        })
+        rows = ranked.rows
+        decisionReadout = `自治决策(${ranked.why})`
+        for (const s of ranked.skipped.slice(0, 8)) console.log(`⏭ L${s.line} 不入本轮:${s.reason}`)
+        if (ranked.skipped.length > 8) console.log(`⏭ 另有 ${ranked.skipped.length - 8} 枚压后/未评估(见候选文件)`)
+      } catch (e) {
+        record({
+          mode: dryRun ? 'dryrun' : 'dispatch',
+          action: 'decision-undetermined',
+          why: `自治决策排序不可用:${String(e?.message ?? e).slice(0, 220)}`,
+        })
+        console.error(`❌ 未判定:自治决策排序不可用(${e?.message ?? e}) ⇒ 本轮不派(不回落成台账序冒充已评估)`)
+        process.exitCode = 2
+        return
+      }
+    }
     const ledger = readLedger()
     let dispatched = 0
     for (const e of ledger) {
       if (e.action === 'dispatched' && String(e.ts ?? '').startsWith(todayKey())) dispatched++
     }
-    const summary = `派单面现读 ${rows.length} 行 / 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮`
+    const summary = `派单面现读 ${allRows.length} 行 / 判期 ${decisionReadout} / 本轮候选 ${rows.length} 行 / 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮`
     if (rows.length === 0) {
       record({ mode: dryRun ? 'dryrun' : 'dispatch', action: 'no-ticket', note: summary })
       console.log(`✅ ${summary} ⇒ 无票可派,本轮结束`)
@@ -905,8 +977,8 @@ async function main(args) {
     }
     return probeSession({ gates, dryRun: args.includes('--dry-run') })
   }
-  if (args.includes('--dry-run')) return runOnce({ dryRun: true })
-  const out = await runOnce({ dryRun: false })
+  if (args.includes('--dry-run')) return runOnce({ dryRun: true, noDecide: args.includes('--no-decide') })
+  const out = await runOnce({ dryRun: false, noDecide: args.includes('--no-decide') })
   // 感知层顺带轮(第 1 期 auto-triage):派发轮完成后独立进程跑一次分诊;
   // 它的失败不顶红派发轮(未判定记它自己的台账),产出受它自己的每日配额约束。
   if (!args.includes('--no-triage')) {
@@ -920,6 +992,28 @@ async function main(args) {
     const tOut = String(tr.stdout ?? '').trim()
     if (tOut) console.log(`── 感知层分诊轮 ──\n${tOut}`)
   }
+  // 进化回流写回轮(第 3 期):把部署环反复出现的失败桶提炼成教训并落 lessons.jsonl。
+  // 台账尚未产生过决策时 retro 按设计判「未判定」;这里显式跳过并点名原因,不把"还没部署过"读成故障,
+  // 也不让 missing 台账每小时刷一条假红。台单一就位,本腿即自动生效。
+  if (!args.includes('--no-retro')) {
+    const decisionsPath = join(ROOT, '.ihui-agent', 'deploy-decisions.jsonl')
+    if (!existsSync(decisionsPath)) {
+      console.log(`── 进化回流写回轮 ──\nℹ 跳过:部署决策台账尚未产生(${decisionsPath}),无可提炼的失败桶`)
+    } else {
+      const rr = spawnSync(process.execPath, [join(ROOT, 'scripts', 'evolution-retro.mjs'), '--apply'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: ROOT,
+        windowsHide: true,
+        timeout: 120_000,
+        encoding: 'utf8',
+      })
+      const rOut = String(rr.stdout ?? '').trim()
+      if (rOut) console.log(`── 进化回流写回轮 ──\n${rOut}`)
+      if (rr.status !== 0) {
+        console.error(`⚠ 进化回流写回未判定(rc=${rr.status ?? '?'}):${String(rr.stderr ?? '').trim().slice(-300)}`)
+      }
+    }
+  }
   return out
 }
 
@@ -929,6 +1023,7 @@ export const __test__ = {
   ticketKeyOf,
   matchWhitelist,
   parseTicketRows,
+  rankTicketRows,
   fillTemplate,
   parseSessionUsage,
   failureStreakOf,

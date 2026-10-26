@@ -587,6 +587,13 @@ export default function ChatPage() {
       // V3 #58 同族:高危工具执行前的审批帧。注册即打开 api-client 的解析开关;
       // 决策经 postToolApprovalResponse 回到 llm.py 的流级注册表(与 agent 任务流那套互不相通)。
       onToolApproval: (event) => {
+        // D-07(2026-10-26):失效留痕帧**不弹审批横幅** —— 该 approvalId 已随上一条
+        // 连接失效、没有活等待者(回传决策会被服务端具名拒绝)。走本页既有 notice 条
+        // (与 onCompaction/onPartialDone 同一出口,不新立 UI;文案键来自 shared)。
+        if (event.expired) {
+          setNotice(t('chat.approvalExpiredNotice', { toolName: event.toolName }))
+          return
+        }
         setPendingApproval(event)
       },
       // 工具调用汇总:流末尾一次性写入 message.toolCallSummary

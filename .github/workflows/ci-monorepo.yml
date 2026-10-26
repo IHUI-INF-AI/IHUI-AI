@@ -273,6 +273,26 @@ jobs:
         id: artifact-budget
         if: matrix.app == 'miniapp-taro'
         run: node scripts/check-artifact-budget.mjs --target miniapp
+      # 镜像还原度尺子只在 CI 问责(同 artifact-budget 先例):本机不进提交链,避免存量缺口(当前 avg≈24.4%)
+      # 恒红逼出 --no-verify;但提交链拦不住"声明了镜像却把正文键删掉"的倒退 —— CI 这一腿补不可旁路问责面。
+      # 判据必须走 --base=<显式基线>:三档面在干净检出上全部退化(staged/worktree==HEAD ⇒ 倒退恒空),
+      # 直跑等于假接线。基线取法:PR 判 base.sha(需显式 fetch,浅克隆默认 depth=1 拿不到),push 判 HEAD^1
+      # (对同一 sha 以 depth=2 加深浅边界即可拿到父提交)。只拦倒退,存量只报数,不会恒红。
+      - name: 镜像还原度对账(仅 miniapp 档,只读尺子,防 --no-verify 旁路)
+        id: mirror-fidelity
+        if: matrix.app == 'miniapp-taro'
+        env:
+          PR_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          if [ -n "$PR_BASE" ]; then
+            git fetch --no-tags --depth=1 origin "$PR_BASE"
+            BASE="$PR_BASE"
+          else
+            git fetch --no-tags --depth=2 origin "$PUSH_SHA"
+            BASE="$(git rev-parse HEAD^1)"
+          fi
+          node scripts/check-miniapp-mirror-fidelity.mjs --base="$BASE"
       - uses: actions/upload-artifact@v4
         id: upload
         with:
@@ -288,11 +308,12 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install turbo-build artifact-budget upload
+          TRIAGE_IDS: checkout install turbo-build artifact-budget mirror-fidelity upload
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
           O_TURBO_BUILD: ${{ steps.turbo-build.outcome }}
           O_ARTIFACT_BUDGET: ${{ steps.artifact-budget.outcome }}
+          O_MIRROR_FIDELITY: ${{ steps.mirror-fidelity.outcome }}
           O_UPLOAD: ${{ steps.upload.outcome }}
         run: bash scripts/ci-failure-triage.sh
 

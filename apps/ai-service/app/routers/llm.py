@@ -30,6 +30,12 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..core.approval_replay import (
+    approval_expiry_notice,
+    chat_expired_approval_notices,
+    record_approval_expiry,
+)
+from ..core.background_tasks import spawn
 from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.jwt_auth import resolve_request_user_id
@@ -104,6 +110,11 @@ from ..services.agent_events import (
 from ..services.async_gen_close import aclose_async_gen
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
+from ..services.expert_route import frame_payload as _expert_frame_payload
+from ..services.expert_route import merge_tools as _merge_expert_tools
+from ..services.expert_route import plan_route as _plan_expert_route
+from ..services.expert_route import resolve_mode as _resolve_expert_route_mode
+from ..services.expert_route import system_hint as _expert_system_hint
 from ..services.form_responses import (
     list_form_responses,
     persist_form_response,
@@ -112,6 +123,8 @@ from ..services.form_responses import (
 from ..services.mcp_server import (
     _FORM_REQUEST_TOOL_NAME,
     _TOOL_ALIASES,
+    _subagent_handoff_event,
+    _subagent_handoff_kind,
     _tool_dispatch_subagent,
     _tool_vision_analyze,
     build_form_request_frame,
@@ -120,6 +133,11 @@ from ..services.mcp_server import (
     set_terminal_stream_context,
     settle_terminal_input,
 )
+
+# D01(2026-10-25):对话内 Agent 选择器 —— persona 提示词与工具白名单的运行时并入,
+# 数据面仍是 services/persona_registry.py 的唯一注册表。
+from ..services.persona_registry import build_persona_chat_hint as _persona_chat_hint
+from ..services.persona_registry import merge_persona_tools as _merge_persona_tools
 from ..services.project_memory import build_system_prompt
 from ..services.user_quota import user_trial_quota
 
@@ -313,20 +331,35 @@ _PREVIEW_MAX_CHARS = 32 * 1024
 # 或旧名 LLM_ITERATION_EXTEND_LIMIT 均可调,0 = 关闭);每次续期追加
 # settings.agent_budget_renewal_turns 轮(默认 +2,env AGENT_BUDGET_RENEWAL_TURNS)。
 # 成本守门(预算门/扣费)不因续期绕过 —— 进度总结走 llm_gateway.astream 同一通道。
-_ITERATION_EXTEND_LIMIT = max(
-    0,
-    int(
-        os.getenv(
-            "MAX_AGENT_BUDGET_RENEWALS",
-            os.getenv("LLM_ITERATION_EXTEND_LIMIT", str(settings.agent_budget_renewals)),
-        )
-    ),
-)
-# 每次续期追加的轮数。下限 1:续期必须是真实预算,不允许"续了等于没续"的空转。
-_ITERATION_EXTEND_TURNS = max(
-    1,
-    int(os.getenv("AGENT_BUDGET_RENEWAL_TURNS", str(settings.agent_budget_renewal_turns))),
-)
+def _resolve_extension_limits() -> tuple[int, int]:
+    """D120 续期参数的唯一 env 读取出口 —— 返回 (续期次数上限, 每次追加轮数)。
+
+    供模块级常量在 import 时求值(运行期改 env 仍需重启,与本文件其余 env 档位
+    同口径);抽成函数只为让「env 可调次数」这条验收能在不 reload 整个 router 的
+    前提下被单测覆盖。别名优先级:MAX_AGENT_BUDGET_RENEWALS > AGENT_BUDGET_RENEWALS
+    > LLM_ITERATION_EXTEND_LIMIT > settings.agent_budget_renewals。
+    """
+    limit = max(
+        0,
+        int(
+            os.getenv(
+                "MAX_AGENT_BUDGET_RENEWALS",
+                os.getenv(
+                    "AGENT_BUDGET_RENEWALS",
+                    os.getenv("LLM_ITERATION_EXTEND_LIMIT", str(settings.agent_budget_renewals)),
+                ),
+            )
+        ),
+    )
+    # 每次续期追加的轮数。下限 1:续期必须是真实预算,不允许"续了等于没续"的空转。
+    turns = max(
+        1,
+        int(os.getenv("AGENT_BUDGET_RENEWAL_TURNS", str(settings.agent_budget_renewal_turns))),
+    )
+    return limit, turns
+
+
+_ITERATION_EXTEND_LIMIT, _ITERATION_EXTEND_TURNS = _resolve_extension_limits()
 # 进度总结提示词的识别标记(测试替身据此区分"总结调用"与主循环轮次调用)
 _D120_SUMMARY_MARKER = "[D120_PROGRESS_SUMMARY]"
 
@@ -423,13 +456,16 @@ async def _d120_generate_progress_summary(
     owner_uuid: str | None,
     billing_kwargs: dict[str, Any],
     rounds: int,
-) -> tuple[str | None, dict[str, Any] | None, str | None]:
+) -> tuple[str | None, dict[str, Any] | None, str | None, str | None]:
     """D120 进度总结的唯一模型调用出口。
 
     走 `llm_gateway.astream`(与主链路同一个模型选择/计费/流水/限额通道),
     不为总结另开直连:限流、退避重试、provider 配额守门与主链路完全一致。
-    返回 (summary, usage, error);error 非空表示总结失败,由调用方按
+    返回 (summary, usage, error, error_code);error 非空表示总结失败,由调用方按
     "限额收口 ⇒ 不续期 / 普通失败 ⇒ 本地兜底总结"两档处置。
+    error_code 单列返回是必需的:`_is_budget_exhaustion_error` 的码面白名单
+    认的是**原始错误码**(如 apps/api 成本守门的 `BUDGET_EXHAUSTED`),把它拼进
+    消息串会被消息面模式漏判 ⇒ 限额收口后仍续期、额度继续被烧。
     流内 chunk 只收集不 yield —— 总结只经交代帧与 messages 呈现。
     """
     digest = _d120_activity_digest(tool_calls_history)
@@ -458,13 +494,23 @@ async def _d120_generate_progress_summary(
             elif etype == "done":
                 usage = evt.get("usage")
             elif etype == "error":
-                return (None, usage, f"{evt.get('errorCode')}: {evt.get('message')}")
+                return (
+                    None,
+                    usage,
+                    f"{evt.get('errorCode')}: {evt.get('message')}",
+                    str(evt.get("errorCode") or "") or None,
+                )
             elif etype == "fallback" and str(evt.get("reason") or "").startswith("quota"):
-                return (None, usage, f"PROVIDER_QUOTA_EXHAUSTED: {evt.get('reason')}")
+                return (
+                    None,
+                    usage,
+                    f"PROVIDER_QUOTA_EXHAUSTED: {evt.get('reason')}",
+                    "PROVIDER_QUOTA_EXHAUSTED",
+                )
     except Exception as e:  # noqa: BLE001 - 总结失败不打断主链,由调用方降级
-        return (None, usage, str(e))
+        return (None, usage, str(e), None)
     text = "".join(parts).strip()
-    return (text or None, usage, None)
+    return (text or None, usage, None, None)
 
 
 def _metadata_with_iteration_extensions(
@@ -575,15 +621,58 @@ def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str
     **幂等**:同一待决条目重放 N 次 = N 次只读投递(每连接一次),不新增条目、不置
     event、不写 decision ⇒ 不制造第二个等待者;重复点击也只唤醒原等待一次(幂等键 =
     approval_id,判据见 tests/test_d690_reconnect_replay_idempotency.py)。
+
+    D-07(2026-10-26):随上一条连接一起**失效**的条目同样不重发弹窗(同上③),但每条
+    投影成一帧**同形** tool-approval + ``expired: true`` + ``expired_reason``(键名
+    见 sse_contract 的 ``SSE_APPROVAL_EXPIRED_*_PAYLOAD_KEY``),排在仍待决的 replay
+    帧之前。端上按 expired 分流:不弹窗、只给一条可读提示 —— "丢过什么"由服务端日志
+    升级为用户可见。纯只读:取名单不删账,同一重连问 N 次得同一集合。
     """
     from app.core.approval_replay import chat_pending_approval_replays
     from app.core.sse_contract import (  # 运行时 import 点(见 sse_contract 头注的 SSE-CONTRACT-IMPORT-SITES)
+        SSE_APPROVAL_EXPIRED_PAYLOAD_KEY,
+        SSE_APPROVAL_EXPIRED_REASON_PAYLOAD_KEY,
         SSE_APPROVAL_REPLAY_PAYLOAD_KEY,
     )
 
     payloads = chat_pending_approval_replays(_approval_sessions.get(session_id), owner_uuid)
+    # D-07(2026-10-26)重连时刻的"丢过什么"必须量得到:仍待决的走下面的帧重放,而
+    # 随上一条连接一起失效的条目**不再重发弹窗**(无活等待者 = 空头支票 = 僵尸 run,
+    # 判据见本函数头注③),但要在服务端点名 —— 断线丢弹窗此前是彻底的静默。
+    # 纯只读:取名单不删账(幂等,同一重连问 N 次得同一集合),出账只走到期/上界两档。
+    _expired_notices = chat_expired_approval_notices(session_id, owner_uuid)
+    _expired_frames: list[str] = []
+    if _expired_notices:
+        logger.warning(
+            "reconnect replay: session=%s found %d approval(s) already expired with the "
+            "disconnected stream (reasons=%s); not re-armed, late answers will be rejected "
+            "by name",
+            session_id,
+            len(_expired_notices),
+            sorted({str(_n.get("reason")) for _n in _expired_notices}),
+        )
+        # D-07:把"丢过什么"做成端上可见的留痕帧(**同形** tool-approval + expired 标记)。
+        # 端上按 expired 分流 —— 不弹审批窗、只给一条可读提示;不重发弹窗的理由见头注③。
+        # 展示字段齐全性由 record_approval_expiry 的 _expiry_display_complete 保证。
+        for _n in _expired_notices:
+            _expired_frames.append(
+                _sse(
+                    _SSE_TOOL_APPROVAL,
+                    {
+                        "type": _SSE_TOOL_APPROVAL,
+                        "approval_id": _n["approval_id"],
+                        "tool_name": _n["tool_name"],
+                        "tool_call_id": _n["tool_call_id"],
+                        "args_preview": _n["args_preview"],
+                        "danger_level": _n["danger_level"],
+                        "session_id": session_id,
+                        SSE_APPROVAL_EXPIRED_PAYLOAD_KEY: True,
+                        SSE_APPROVAL_EXPIRED_REASON_PAYLOAD_KEY: str(_n.get("reason") or ""),
+                    },
+                )
+            )
     if not payloads:
-        return []
+        return _expired_frames
     now = datetime.now(UTC)
     frames: list[str] = []
     for _p in payloads:
@@ -612,7 +701,7 @@ def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str
                 },
             )
         )
-    return frames
+    return _expired_frames + frames
 
 
 def _scoped_exec_prefix_key(owner_uuid: str | None, prefix_tokens: list[str]) -> str | None:
@@ -2318,6 +2407,24 @@ def _inject_system_prefix(messages: list[dict[str, Any]], prefix: str) -> list[d
     return new_messages
 
 
+def _append_system_note(messages: list[dict[str, Any]], note: str | None) -> list[dict[str, Any]]:
+    """把一段说明**追加**到 system 消息尾部(与 ``_inject_system_prefix`` 的置顶语义相反)。
+
+    D09:专家包的系统提示属于"辅助说明"——会话级自定义指令与 ChatMode 引导优先,
+    故不置顶;无 system 消息时新插一条。
+    """
+    if not note:
+        return messages
+    new_messages = list(messages)
+    if new_messages and new_messages[0].get("role") == "system":
+        existing = new_messages[0].get("content", "")
+        merged = f"{existing}\n\n{note}" if existing else note
+        new_messages[0] = {**new_messages[0], "content": merged}
+    else:
+        new_messages.insert(0, {"role": "system", "content": note})
+    return new_messages
+
+
 def _inject_custom_system_prompt(
     messages: list[dict[str, Any]], prefix: str | None
 ) -> list[dict[str, Any]]:
@@ -2384,6 +2491,63 @@ def _build_subagent_orchestration_prompt() -> str:
     不在每轮 iteration 重复注入。返回模块级常量,避免每次请求重新构造。
     """
     return _SUBAGENT_ORCHESTRATION_PROMPT
+
+
+def _build_subagent_end_event(
+    subagent_id: str,
+    ok: bool,
+    exec_result: dict[str, Any],
+    *,
+    ts: str | None = None,
+) -> dict[str, Any]:
+    """D08②:构造 subagent_end 帧载荷(复用既有帧族,禁新帧)。
+
+    原有 id/status/timestamp/failureReason 语义一字不动,仅**加键**:
+    kind(done|blocked|help) / agent_id / summary / [token_usage] / ts。
+    三档判定与字段拼装唯一来源是 mcp_server 的 `_subagent_handoff_kind` /
+    `_subagent_handoff_event`,此处只负责把工具结果接到既有帧上。
+    """
+    _now = ts or datetime.now(UTC).isoformat()
+    if ok:
+        _summary = (
+            exec_result.get("summary")
+            or exec_result.get("output")
+            or exec_result.get("message")
+            or ""
+        )
+    else:
+        _summary = (
+            exec_result.get("summary")
+            or exec_result.get("error")
+            or exec_result.get("message")
+            or "subagent 执行失败(无详细错误信息)"
+        )
+    _raw_usage = exec_result.get("token_usage") or exec_result.get("tokenUsage")
+    _usage = _raw_usage if isinstance(_raw_usage, dict) and _raw_usage else None
+    _evt: dict[str, Any] = {
+        "type": "subagent_end",
+        "id": subagent_id,
+        "status": "done" if ok else "failed",
+        "timestamp": _now,
+        **_subagent_handoff_event(
+            _subagent_handoff_kind(
+                ok=ok,
+                needs_help=bool(exec_result.get("needs_help") or exec_result.get("needsHelp")),
+            ),
+            subagent_id,
+            str(_summary),
+            token_usage=_usage,
+            ts=_now,
+        ),
+    }
+    if not ok:
+        # 旧行为逐字保留:失败原因优先取 error,其次 message,最后给默认文案。
+        _evt["failureReason"] = str(
+            exec_result.get("error")
+            or exec_result.get("message")
+            or "subagent 执行失败(无详细错误信息)"
+        )[:500]
+    return _evt
 
 
 def _load_default_models() -> list[dict[str, Any]]:
@@ -2538,6 +2702,20 @@ class LLMCompleteRequest(BaseModel):
     # 丢弃并落通知 —— Pydantic 直接 422 会把「用户选了个不支持的档」打成整轮请求失败。
     reasoning_effort: str | None = Field(
         None, description="推理强度档位:minimal/low/medium/high(封闭集,非法值丢弃并回报回落)"
+    )
+    # D09(2026-10-24 立):意图自动路由专家包的三档开关。
+    # 默认(None)= hint:只把分类结果作为 injection_applied 帧交代给用户,**不改工具、
+    # 不改提示词**(票面"默认温和提示不强切");auto = 命中时并入专家包工具白名单与系统提示;
+    # off = 不分类、不发帧。值域不写 Literal:写错值只该回落默认档并留日志,不该 422 掉整轮。
+    expert_auto_route: str | None = Field(
+        None, description="意图自动路由专家包:'off'/'hint'(默认)/'auto'"
+    )
+    # D01(2026-10-25 立):对话内 Agent 选择器选中的 persona/专家包 id。
+    # 字段名沿用网关/传输层的 camelCase 契约(与 autoContext / streamSessionId 同族),
+    # 值域 = PERSONAS_CONTRACTS 的键;未知 id 一律忽略(零行为变化,不 422 掉整轮)。
+    # 命中的 persona 在 chat 流里并入:① 契约摘要 system 说明;② 工具白名单并集。
+    agentId: str | None = Field(
+        None, description="对话内选中的 persona id(researcher/coder/reviewer/architect/debugger)"
     )
 
 
@@ -3392,6 +3570,18 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         messages.insert(0, {"role": "system", "content": _ac_block})
         except Exception as _ac_err:  # 静默降级,绝不阻塞主聊天
             logger.warning("auto_context inject skipped: %s", _ac_err)
+    # D01(2026-10-25 立):对话内 Agent 选择器 —— 用户显式选中的 persona 优先于 D09 的
+    # 自动路由结果,故它的 system 说明排在 D09 之前追加(同一 system 消息里越靠前越优先)。
+    # 未知 id ⇒ hint 为 None,与接线前逐字节一致。
+    _persona_id = (req.agentId or "").strip() or None
+    messages = _append_system_note(
+        messages, _persona_chat_hint(_persona_id) if _persona_id else None
+    )
+    # D09(2026-10-24 立):发送前轻量意图分类 → 专家包。规则分类纯函数、零 LLM、零 IO。
+    # 默认 hint 档只发交代帧,不改 tools/messages;auto 档才追加系统提示(工具白名单在 gen()
+    # 内按同一 decision 并入,位置在 chat_mode 过滤之前)。off 档连分类都不做。
+    _expert_route = _plan_expert_route(_last_user_text(messages), req.expert_auto_route)
+    messages = _append_system_note(messages, _expert_system_hint(_expert_route))
     # D34(2026-09-22,G-40):把"本轮到底给模型注入了什么"交代成帧,在 gen() 首帧前发出。
     # 判定只复用注入器既有的去重 marker 与请求字段,不给任何注入器加新状态:
     # 手动 wiki `<!-- repo_wiki:{repo} -->` / 自动 wiki `<!-- repo-wiki-auto -->` /
@@ -3457,6 +3647,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 "count": auto_context_hits,
             }
         )
+    # D09:意图自动路由的交代帧(未命中/off 档 = None ⇒ 不发空帧,与 D34 口径一致)。
+    _expert_frame = _expert_frame_payload(_expert_route)
+    if _expert_frame:
+        injection_frames.append(_expert_frame)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
@@ -3708,6 +3902,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 # READONLY_TOOLS 交集(与 AgentLoopV2 plan 档同源同语义)。
                 # 必须在 augment 之后过滤:服务端自主补全的浏览器/电脑控制族同样受约束。
                 # ask 模式上游 if 已置 None(不进 tool loop),无需再过滤。
+                # D09:专家包工具白名单并入放在**过滤之前** —— auto 档加进来的写类工具
+                # 同样受 (mode × permission_mode) 收窄,不能绕过 plan/review 的只读承诺。
+                # D01:对话内选中的 persona 白名单同理,先并入再统一过滤。
+                if _persona_id:
+                    agent_tools = _merge_persona_tools(_persona_id, agent_tools)
+                agent_tools = _merge_expert_tools(_expert_route, agent_tools)
                 agent_tools = _filter_agent_tools_for_chat_mode(
                     chat_mode, agent_tools, req.permission_mode
                 )
@@ -3837,7 +4037,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # D120:续期前先让模型做一次进度总结。走 llm_gateway.astream
                             # (与主循环同一模型/计费/流水/限额通道),不新增直连;
                             # 总结调用本身撞限额 ⇒ 本轮不续期(原语义停,不再开模型请求)。
-                            _ext_summary, _ext_usage, _ext_error = (
+                            _ext_summary, _ext_usage, _ext_error, _ext_error_code = (
                                 await _d120_generate_progress_summary(
                                     tool_calls_history=tool_calls_history,
                                     model=req.model,
@@ -3849,14 +4049,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             if _ext_usage and owner_uuid:
                                 _ext_tokens = int(_ext_usage.get("total_tokens", 0) or 0)
                                 if _ext_tokens > 0:
-                                    asyncio.create_task(
-                                        user_trial_quota.consume(owner_uuid, _ext_tokens)
+                                    spawn(
+                                        user_trial_quota.consume(owner_uuid, _ext_tokens),
+                                        name="trial-quota-consume-ext",
                                     )
                             if _ext_error:
                                 logger.warning(
                                     "D120 进度总结失败(round=%s): %s", _tool_iter, _ext_error
                                 )
-                                if _is_budget_exhaustion_error(None, _ext_error):
+                                if _is_budget_exhaustion_error(_ext_error_code, _ext_error):
                                     # G-815971:总结调用撞限额 ⇒ 本轮惜不续期。
                                     _budget_exhausted_this_turn = True
                             if not _budget_exhausted_this_turn:
@@ -4939,6 +5140,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # SSE 注释行(": ...")对所有解析器透明,专治此症。
                                 _decision: str | None = None
                                 _scope = "once"
+                                # D-07(2026-10-26 立,承 D131 取证 / D1047 diff② / D690 方案 A):
+                                # 这一格记的是"条目为什么在无人应答的情况下离开待决表"。三种走法
+                                # 都要区分开(等待方 `finally` 一视同仁地 pop ⇒ 断线丢弹窗这件事
+                                # 此前**完全没有留痕**,运维与用户都只能看到"什么都没发生"):
+                                #   stream_closed = GeneratorExit 从 keep-alive 那个 yield 抛入(客户端断线)
+                                #   cancelled     = 任务被取消(网关 abort 原上游 / 显式 aclose)
+                                #   timeout       = while 条件走完(120s 窗口耗尽)且无人应答
+                                # 判据与落账一律住在 app/core/approval_replay.py(取数侧唯一出口,
+                                # 见 tests/test_d1047_chat_entry_shape_replay_gate.py T6 的"接线不旁落")。
+                                _loss_reason: str | None = None
                                 try:
                                     _waited = 0.0
                                     while _waited < _APPROVAL_TIMEOUT:
@@ -4959,10 +5170,64 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             _decision = str(_entry.get("decision") or "")
                                             _scope = str(_entry.get("scope") or "once")
                                         break
+                                    else:
+                                        # while 未 break 即走完 ⇒ 窗口耗尽、无人应答(break 走不到这里)
+                                        _loss_reason = "timeout"
+                                except GeneratorExit:
+                                    _loss_reason = "stream_closed"
+                                    raise
+                                except asyncio.CancelledError:
+                                    _loss_reason = "cancelled"
+                                    raise
                                 finally:
                                     # 条目清理(决策/超时后都不残留,与 agent_loop_v2
                                     # _approval_registry 同语义,防内存泄漏)
-                                    _approval_sessions.get(session_id, {}).pop(_approval_id, None)
+                                    _popped_entry = _approval_sessions.get(session_id, {}).pop(
+                                        _approval_id, None
+                                    )
+                                    # D-07 过期即失效并留痕:只在"无人应答"那一型落账
+                                    # (decision 已写 或 event 已置 ⇒ 用户答过了,不是丢失)。
+                                    if (
+                                        _loss_reason is not None
+                                        and isinstance(_popped_entry, dict)
+                                        and _popped_entry.get("decision") is None
+                                        and not _approval_ev.is_set()
+                                    ):
+                                        try:
+                                            _expiry_record = record_approval_expiry(
+                                                session_id,
+                                                _approval_id,
+                                                _popped_entry,
+                                                reason=_loss_reason,
+                                            )
+                                            if _expiry_record is None:
+                                                # 判不出 ⇒ 点名为什么判不出,不静默(§0.3)
+                                                logger.warning(
+                                                    "approval expiry ledger refused entry "
+                                                    "(session=%s approval=%s reason=%s): "
+                                                    "字段不齐或原因不在封闭集,未留痕",
+                                                    session_id,
+                                                    _approval_id,
+                                                    _loss_reason,
+                                                )
+                                            else:
+                                                logger.warning(
+                                                    "tool approval lost with the connection "
+                                                    "(session=%s approval=%s tool=%s reason=%s): "
+                                                    "未执行,迟到的应答将被具名拒绝",
+                                                    session_id,
+                                                    _approval_id,
+                                                    _popped_entry.get("tool_name"),
+                                                    _loss_reason,
+                                                )
+                                        except Exception as _expiry_err:  # 记账失败绝不影响收尾
+                                            logger.warning(
+                                                "approval expiry ledger failed (session=%s "
+                                                "approval=%s): %s",
+                                                session_id,
+                                                _approval_id,
+                                                _expiry_err,
+                                            )
                                 if _decision == "approve" and _scope in ("session", "always"):
                                     # 落会话内授权缓存(once 不落,下次同工具仍弹窗)
                                     _grant_record(
@@ -5261,9 +5526,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "phase": evt.get("phase", ""),
                                         "timestamp": datetime.now(UTC).isoformat(),
                                     }
-                                    for _fk in ("iteration", "tool", "ok", "output_preview"):
+                                    for _fk in (
+                                        "iteration", "tool", "ok", "output_preview",
+                                        # D08②:换手消息字段 —— 复用 subagent_progress 帧下发。
+                                        "kind", "summary", "token_usage", "ts",
+                                    ):
                                         if _fk in evt:
                                             _sse_evt[_fk] = evt[_fk]
+                                    # agent_id 以本流真实子代理实例 id 为准(mcp 层只有角色名)。
+                                    if "kind" in _sse_evt:
+                                        _sse_evt["agent_id"] = _sa_id
                                     if _agent_name:
                                         _sse_evt["agentName"] = _agent_name
                                     _progress_queue.put_nowait(_sse_evt)
@@ -5445,23 +5717,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # 重复调用分支(dedup)不发 end 事件:subagent 在首次调用时已发过 spawn+end,
                             # 重复调用只是 LLM 决策被去重跳过,不应重复触发前端生命周期展示。
                             if tool_name == "dispatch_subagent" and _spawned_sub_ids:
-                                _sa_status = "done" if ok else "failed"
-                                _sa_error_msg = None
-                                if not ok:
-                                    # 2026-08-02 补充默认错误信息:当 error/message 都为空时,
-                                    # 前端 markSubagentEnd 会显示"执行失败"(无原因),用户无法排查
-                                    _sa_error_msg = exec_result.get("error") or exec_result.get("message") or "subagent 执行失败(无详细错误信息)"
                                 _end_now = datetime.now(UTC).isoformat()
                                 for _sa_id in _spawned_sub_ids:
-                                    _end_evt = {
-                                        "type": "subagent_end",
-                                        "id": _sa_id,
-                                        "status": _sa_status,
-                                        "timestamp": _end_now,
-                                    }
-                                    if _sa_error_msg:
-                                        _end_evt["failureReason"] = str(_sa_error_msg)[:500]
-                                    yield _sse(SSE_SUBAGENT_END, _end_evt)
+                                    # D08②:完成/受阻/求助换手消息与结束帧**同帧**下发
+                                    # (复用 subagent_end,不新造帧;失败原因默认文案在 helper 内保留)。
+                                    yield _sse(
+                                        SSE_SUBAGENT_END,
+                                        _build_subagent_end_event(
+                                            _sa_id, ok, exec_result, ts=_end_now
+                                        ),
+                                    )
 
                             # 回灌工具结果(失败时显式标注,防止 LLM 幻觉"已完成")
                             result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
@@ -5728,8 +5993,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     if isinstance(_usage_obj, dict) and owner_uuid:
                         _trial_tokens = int(_usage_obj.get("total_tokens", 0) or 0)
                         if _trial_tokens > 0:
-                            asyncio.create_task(
-                                user_trial_quota.consume(owner_uuid, _trial_tokens)
+                            spawn(
+                                user_trial_quota.consume(owner_uuid, _trial_tokens),
+                                name="trial-quota-consume",
                             )
                     accumulated["stub"] = event.get("stub", False)
                     # 在 done 事件中透传 metadata(D120:附上续期总结记录,无续期时原样)
@@ -6028,8 +6294,45 @@ async def post_delegated_tool_result(session_id: str, body: dict[str, Any] = Bod
     return {"ok": True}
 
 
+def _approval_settle_rejection(
+    session_id: str,
+    approval_id: str,
+    caller_uuid: str | None,
+    generic_error: str,
+) -> dict[str, Any]:
+    """D-07(2026-10-26 立)审批应答**未能结算**的统一回包 —— 失效方向 = 拒绝并点名。
+
+    两条"结算不了"的路径必须分开,但**只有属主本人**能听到具体那一条:
+
+    - 账里没有该条目 / 属主不精确相等 ⇒ 原样回落通用文本(与改前逐字同形)。
+      "这条审批曾经存在且是你的"与"根本没这条"对第三方长得一模一样 ⇒ 端点不可能
+      被当成存在性探针(与 `_form_settle_rejected` 同一条纪律)。
+    - 属主本人 ∧ 失效账里有留痕 ⇒ 点名"随断线/超时失效、原因、涉及哪个工具"。
+      改前这一格只会吐一句 `approval not found or expired`,用户点了"批准"却没有任何
+      一处说明"为什么没执行"—— 静默丢弃的正身。
+
+    身份只从承载层入参进来(`request` → `_resolve_owner_uuid`,JWT 派生),绝不读
+    请求体里的 userId 之类客户端自报字段(AGENTS §5 认证不等于授权)。**零副作用**:
+    本函数不写条目、不置 Event、不落库;拒绝路径一行状态都不改。
+    """
+    if approval_id:
+        notice = approval_expiry_notice(session_id, approval_id, caller_uuid)
+        if notice is not None:
+            return {
+                "ok": False,
+                "error": (
+                    "approval expired with its stream before your answer "
+                    f"(reason={notice.get('reason')}, tool={notice.get('tool_name')}): "
+                    "not executed"
+                ),
+            }
+    return {"ok": False, "error": generic_error}
+
+
 @router.post("/llm/complete/stream/{session_id}/approval-response", response_model=None)
-async def post_tool_approval_response(session_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+async def post_tool_approval_response(
+    request: Request, session_id: str, body: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
     """V3 #58(2026-09-26 立):主对话流工具审批决策回传端点。
 
     前端弹窗(ToolApprovalDialog,channel='chat-stream')收到 tool-approval SSE 帧
@@ -6037,14 +6340,22 @@ async def post_tool_approval_response(session_id: str, body: dict[str, Any] = Bo
     与 agent 任务流的 /agents/approval-response 注册表互相独立(两套 session 域,
     主对话流审批条目在 _approval_sessions,agent 任务流在 agent_loop_v2 注册表)。
     兼容 camelCase(approvalId,与网关 /agent/approval-response 同款双写法)。
+
+    D-07(2026-10-26):断线窗口里已失效的审批,应答经 `_approval_settle_rejection`
+    **具名拒绝**(仅属主本人能听到具体原因),其余形态仍逐字回落原有两条通用文本;
+    回包键集仍是 `{ok, error}` 一个没加 ⇒ 跨端零改动。live 条目的结算路径一字未动
+    (没有借本票给既有路径新增/放宽任何判定 —— 只可能更严,不可能更松)。
     """
+    caller_uuid = _resolve_owner_uuid(request)
+    approval_id = str(body.get("approval_id") or body.get("approvalId") or "")
     session = _approval_sessions.get(session_id)
     if not session:
-        return {"ok": False, "error": "session not found or expired"}
-    approval_id = str(body.get("approval_id") or body.get("approvalId") or "")
+        return _approval_settle_rejection(session_id, approval_id, caller_uuid, "session not found or expired")
     entry = session.get(approval_id)
     if not entry or not isinstance(entry.get("event"), asyncio.Event):
-        return {"ok": False, "error": "approval not found or expired"}
+        return _approval_settle_rejection(
+            session_id, approval_id, caller_uuid, "approval not found or expired"
+        )
     decision = str(body.get("decision", "")).strip().lower()
     if decision not in ("approve", "reject"):
         return {"ok": False, "error": "decision must be approve/reject"}
@@ -7314,6 +7625,19 @@ async def gemini_stream_generate_content_endpoint(
     return _gemini_streaming_response(messages, model_name, kwargs, request)
 
 
+@router.get("/llm/expert-route", response_model=None)
+async def get_expert_route_mode() -> dict[str, Any]:
+    """D09(2026-10-24 立)设置项只读镜像:部署侧意图路由档位 + 是否被 env 硬关。
+
+    web 设置页据此把 ``expert_auto_route`` 选择项置灰并说明原因 —— 部署方用
+    ``IHUI_EXPERT_AUTO_ROUTE=off`` 钉死时,请求字段一概被 ``resolve_mode`` 丢弃,
+    界面上再让用户拨档就是谎报可改。只回档位与布尔,不摊开 env(最小暴露面,
+    也不把部署配置变成客户端可探测的清单)。
+    """
+    mode = _resolve_expert_route_mode(None)
+    return _wrap_ok({"mode": mode, "envLocked": mode == "off"})
+
+
 @router.get("/llm/free-providers", response_model=None)
 async def list_free_providers() -> dict[str, Any]:
     """免费 provider 注册表(对齐 OmniRoute 免费 provider 矩阵 + 超越)。
@@ -7441,6 +7765,13 @@ async def list_providers_health() -> dict[str, Any]:
     not_configured_results: list[dict[str, Any]] = []
     for name in providers_json:
         if not isinstance(providers_json.get(name), dict):
+            continue
+        # 2026-10-26 永久退役厂商不进管理端面板(名单与可用性面/同步面同源):
+        # 面板里挂着一个已退役厂商 = 每隔一阵又提醒一次「这家不行了」,
+        # 与机主「永久除名、不提充值」正相反。
+        from ..core.default_model import is_retired_provider
+
+        if is_retired_provider(name):
             continue
         # H3:复用 settings.get_provider_config(code) 获取强类型配置
         cfg = settings.get_provider_config(name)

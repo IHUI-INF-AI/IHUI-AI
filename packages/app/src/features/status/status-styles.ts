@@ -2,17 +2,18 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnTokens } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
-/** 状态语义色板(与 web 端 emerald/amber/rose/sky 同源,固定语义色,不随主题换档)。 */
+/** 状态语义色板(与 web 端 emerald/amber/rose/sky 同源,固定语义色,不随主题换档)。
+ *  amber / danger 两档直接取 design-tokens(单一真相源),不再手抄同值 hex。 */
 export const STATUS_PALETTE = {
   operational: { bg: 'rgba(16,185,129,0.10)', fg: '#059669', dot: '#10b981' },
-  degraded: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: '#f59e0b' },
+  degraded: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: rnTokens.warning.amber },
   outage: { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48', dot: '#f43f5e' },
   minor: { bg: 'rgba(14,165,233,0.10)', fg: '#0284c7', dot: '#0ea5e9' },
-  major: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: '#f59e0b' },
+  major: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: rnTokens.warning.amber },
   critical: { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48', dot: '#f43f5e' },
 } as const
 
@@ -39,7 +40,12 @@ export function createStatusStyles(tk: AppThemeTokens) {
       padding: 12,
       gap: 10,
     },
-    cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+    cardHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
     cardTitle: { fontSize: 16, fontWeight: '700', color: tk.text.primary },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -91,7 +97,12 @@ export function createStatusStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     refreshText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
-    skeletonTitle: { height: 20, width: 160, borderRadius: rnRadius.sm, backgroundColor: tk.border.light },
+    skeletonTitle: {
+      height: 20,
+      width: 160,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.border.light,
+    },
     skeletonRow: { height: 44, borderRadius: rnRadius.lg, backgroundColor: tk.border.light },
   })
 }

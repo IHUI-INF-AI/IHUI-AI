@@ -77,8 +77,11 @@ groups:
       #   不是数据库表 —— 曾经有运维拿这个名字去 psql 查表,当然查不到。
       # ⚠ 文案为什么改(2026-10-18 立):原文案写"LLM provider 不健康(疑似 402/配额超限)",
       #   但本条判据来源是 **model_sync 的同步健康度**,与"LLM 调用是否 402 欠费"不是一回事:
-      #     - 本条 = 拉不到厂商的"模型清单"端点(常见:key 无效 / 端点 404 / 网络不通 / 厂商挂);
+      #     - 本条 = 拉不到厂商的"模型清单"端点(常见:端点 404 / 网络不通 / 厂商挂);
       #       账号欠费时 /v1/models 往往照样能拉到,反而是 chat 端点 402 —— 即本条**不会**响;
+      #     - ⚠ 2026-10-26 收窄:key 失效/过期(401/403)已不再计入 unhealthy、不再触发本告警
+      #       (属用户侧待补 key 的预期状态,同步改为静默跳过,补 key 后自动恢复);本告警现只针对
+      #       真实基础设施故障(网络/5xx/404)。
       #     - "调用侧 402/配额/5xx"由 AiLlmHighFailureRate 与 LlmProviderErrorBurst 覆盖。
       #   原文案把收信人指去查配额费用 = 给出不对症的出路(AGENTS §0.8 禁),现按真实故障面改写。
       # ⚠ 盲区已修(2026-10-18):gauge / 失败计数 / 永久禁用名单**全是进程内存态**,
@@ -92,7 +95,7 @@ groups:
           severity: critical
         annotations:
           summary: '模型清单同步连续失败(provider 已标记 unhealthy)'
-          description: 'provider_code={{ $labels.provider_code }} 连续 3 次拉取 /v1/models 失败,已标记 unhealthy(后续同步自动跳过)。注意这不是"调用欠费"告警:常见原因是 key 无效 / 厂商端点 404 / 网络不通。第一步查 ai-service 日志里 [ModelSyncService] 的真实报错(401/403=key 无效,404=厂商无此端点,超时=网络),别先去查配额。确认 key 有效后调用 POST /llm/models/sync/reset?provider={{ $labels.provider_code }} 复位重同步。若同时出现调用失败,另见 AiLlmHighFailureRate。'
+          description: 'provider_code={{ $labels.provider_code }} 连续 3 次拉取 /v1/models 失败,已标记 unhealthy(后续同步自动跳过)。⚠ 触发面(2026-10-26 收窄):**仅真实基础设施故障**——网络不通 / 5xx / 厂商端点 404;**厂商鉴权类(401/403)已改为静默跳过、不计入 unhealthy、不触发本告警**(属预期状态,不在本告警整改面,厂商账户恢复后自动恢复)。第一步查 ai-service 日志里 [ModelSyncService] 的真实报错(超时=网络,5xx=厂商故障,404=端点不存在需改 base_url);若同时出现调用失败,另见 AiLlmHighFailureRate。'
 
       # LLM provider 错误突增(402/5xx 等): 15 分钟窗口内出现 provider 错误。
       # `ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,
@@ -117,14 +120,20 @@ groups:
       #   的 route 按 alertname 分组 ⇒ 不同 alertname 永远不会并进同一封邮件。让 critical 那条
       #   先(或同时) firing,Alertmanager 的 inhibit 才有机会把 warning 这条压掉;若本条先响,
       #   抑制关系尚未成立,同一次故障就会寄出两封。
+      # ⚠ 2026-10-26 收窄(机主令「厂商 key 我想配自然会配,别总说,也别报警」):
+      #   厂商鉴权类失败(401/403)在 llm_error_status 里单列为 status='auth',
+      #   本规则的分子**排除 auth** ⇒ 厂商账户状态(哪家的 key 此刻不被认)不再寄到人通道;
+      #   失败次数仍在指标与调用日志里可查,不算被删判据。
+      #   分母仍是全部尝试(ihui_llm_calls_total 无 auth 这一维)⇒ 鉴权类尝试会稀释占比,
+      #   真实基础设施故障要同时满足"≥10 次 ∧ 占比 >20%"才会响 —— 宁可不响,不可误喊。
       - alert: LlmProviderErrorBurst
         expr: |
           (
             (
-              sum(increase(ihui_llm_provider_errors_total{job="ai-service"}[15m])) >= 10
+              sum(increase(ihui_llm_provider_errors_total{job="ai-service",status!="auth"}[15m])) >= 10
               and on()
               (
-                sum(increase(ihui_llm_provider_errors_total{job="ai-service"}[15m]))
+                sum(increase(ihui_llm_provider_errors_total{job="ai-service",status!="auth"}[15m]))
                 /
                 sum(increase(ihui_llm_calls_total{job="ai-service"}[15m]))
               ) > 0.2
@@ -136,7 +145,7 @@ groups:
           severity: warning
         annotations:
           summary: 'LLM provider 错误突增'
-          description: '15 分钟内 LLM provider 错误 {{ $value }} 次且占比超 20%(含 402 配额/超限/5xx)。请核查 LLM 网关日志与配额;单次零星 4xx 不再触发本规则。'
+          description: '15 分钟内 LLM provider 非鉴权类错误 {{ $value }} 次且占比超 20%(厂商鉴权类 401/403 已单列,不计入本规则、不进到人通道;2026-10-26 起)。下一步:查 ai-service 日志里 [LLMGateway] 的真实报错分类——超时/连接=网络不通,5xx=厂商故障,404=端点不存在需改 base_url;单次零星 4xx 不再触发本规则。'
 
       # LLM token/费用突增: 15 分钟 token 量超阈值(费用代理指标)。
       # `ihui_llm_tokens_total` 同为按需采样计数; 阈值 100k 需按真实基线校准(当前尚无采样, 规则已就位待指标出现即生效)。
@@ -199,7 +208,7 @@ groups:
           severity: warning
         annotations:
           summary: 'PostgreSQL 查询延迟超 5s'
-          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state=''active'' ORDER BY 2 DESC'
+          description: "最长活跃查询已运行 {{ $value | humanizeDuration }}(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state='active' ORDER BY 2 DESC"
       - alert: PgVerySlowQuery
         expr: max(pg_query_max_duration_seconds) > 30
         for: 1m

@@ -34,7 +34,7 @@
 import { readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { execFileSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 import { mkScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -109,18 +109,10 @@ function judgeFile(relPath, content, fields) {
 
 /** 默认扫描面:packages 与 apps 各端 src 下的 .ts/.tsx/.py(排除 node_modules/dist/tests)。 */
 function listRepoFiles() {
-  const out = execFileSync(
-    'git',
+  // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/maxBuffer 统一)。
+  const out = gitRaw(
     ['ls-files', 'packages/*/src/**/*.ts', 'packages/*/src/**/*.tsx', 'apps/*/src/**/*.py'],
-    // 本机交互会话下 node 给子进程建 stdin 管道会 EBUSY(根治记录见技能
-    // ihui-spawn-ebusy-fix):本调用不消费 stdin,一律 ignore 掉。
-    {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    },
+    REPO_ROOT,
   )
   return out
     .split('\n')

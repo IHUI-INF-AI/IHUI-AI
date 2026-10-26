@@ -15,12 +15,12 @@
 import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import * as bg from '../lib/bypass-git.mjs'
-import { ledgerPath, readLedgerRecords } from '../lib/commit-attestation.mjs'
+import { buildCommittedRecord, ledgerPath, readLedgerRecords } from '../lib/commit-attestation.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 
@@ -669,5 +669,30 @@ test('L4 例外通道必须"开关 + 理由"同时给:只给开关不给理由 �
     if (oldReason === undefined) delete process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON
     else process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON = oldReason
   }
+})
+
+// ===== 票→提交环(2026-10-26):正证可选绑定票键,读侧 round-trip 不得抹掉 =====
+test('T21 票键绑定:给了才记、不给不写空串;读侧 round-trip 保留', (t) => {
+  const dir = makeRepo(t)
+  const base = {
+    landedSha: 'a'.repeat(40),
+    headBefore: 'b'.repeat(40),
+    commitFiles: ['x.txt'],
+    declaredFiles: ['x.txt'],
+    gatesRan: true,
+    nowIso: '2026-10-26T00:00:00.000Z',
+  }
+  const plain = buildCommittedRecord(base)
+  assert.equal('ticketKey' in plain, false, '未给票键时不得写空串(缺席 = 无票提交)')
+  const bound = buildCommittedRecord({ ...base, ticketKey: 'abc123abc123abcd', ticketLine: '票面'.repeat(200) })
+  assert.equal(bound.ticketKey, 'abc123abc123abcd')
+  assert.equal(bound.ticketLine.length, 200, '票面只留前 200 字,避免台账被长行撑爆')
+  // 走同一份读侧出口把两条都读回来(写侧字段与读侧白名单必须成对,否则审计器看不到票键)
+  mkdirSync(dirname(ledgerPath(dir)), { recursive: true })
+  appendFileSync(ledgerPath(dir), JSON.stringify(bound) + '\n')
+  const recs = ledgerRecordsOf(dir)
+  assert.equal(recs.length, 1)
+  assert.equal(recs[0].ticketKey, bound.ticketKey, '读侧必须保留 ticketKey')
+  assert.equal(recs[0].ticketLine, bound.ticketLine, '读侧必须保留 ticketLine')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

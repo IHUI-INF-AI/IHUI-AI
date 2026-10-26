@@ -68,6 +68,7 @@ from prometheus_client import Counter, Gauge, Histogram
 
 from ..core.config import settings
 from ..core.db_pool import get_shared_pool
+from ..core.default_model import RETIRED_PROVIDERS
 from ..core.provider_caps import get_provider_cap
 from .free_provider_registry import ProviderCategory, free_provider_registry
 
@@ -115,6 +116,41 @@ _PLACEHOLDER_KEYS: frozenset[str] = frozenset({
     "nvapi-<your-key>",
     "",
 })
+
+# ---------------------------------------------------------------------------
+# 2026-10-26 永久退役 provider
+# ---------------------------------------------------------------------------
+# 与 F4.7「连续失败自动 unhealthy」不同:那是**技术性**临时跳过key 修好还能自己回来;
+# 这里是**商务性**永久退役 —— 同步服务既不拉它的清单,也不允许它再被注册回来,
+# 且管理端 reset 接口**不能**把它解除(见 reset_provider 里的守卫)。
+# 机主 2026-10-26 明确:stepfun 不再续费,不得再以任何形式回到主聊链路。
+
+# 名单本体在 app/core/default_model.py(RETIRED_PROVIDERS):退役要同时管住
+# 同步面(这里)、可用性面(model_availability 不 ping、不进模型列表)、
+# 面板面(管理端不列已退役厂商)、调用面(不再当默认模型)四个面;
+# 名单若只存在本模块,另外三个面就只剩各抄一份前缀表的命 —— 漂移即漏改。
+# 故本模块只**取用**同一份,不再另存一份。
+
+# ---------------------------------------------------------------------------
+# 2026-10-26 上游模型自动更新替换
+# ---------------------------------------------------------------------------
+# 背景:同步服务此前只做"新增注册 + 消失下架",且下架只置 is_relay_public=false,
+# enabled 仍为 true ⇒ 上游已 EOL 的模型(如 nvidia_nim 一批 410、sambanova 404)
+# 依然可被前端选中,一调用就炸,且没有任何自动修复路径 —— 只能人工去库里改。
+# 现补上"自动替换":上游消失的旧模型在同族里找后继,找到就把引用点整体切过去
+# (is_default / ai_model_config.default_model_id / model_id_for_test),
+# 找不到才把旧行彻底停用,并留下可追溯的 replaced_by / retired_reason。
+_AUTO_REPLACE_ENABLED = True
+
+# 安全阀:单轮下架数 / 该 provider 库内已有行数 超过此比例时,
+# 判定为"上游清单异常或部分返回",本轮**只下架不硬禁用**,避免整家被误伤。
+_AUTO_DISABLE_MAX_REMOVAL_RATIO = 0.5
+
+# 安全阀的绝对下限:下架条数 <= 该值时**不看比例**,一律执行替换/停用。
+# 2026-10-26 实测:小目录 provider(mimo 只有 3 行、下架 2 条 ⇒ 67%)会被 50% 比例
+# 误判成"上游清单异常",结果本该停用的模型只被摘下中继市场、enabled 仍为 true。
+# 目录小的时候比例天然失真,故用绝对条数兜底:2 条以内一律照常处理。
+_AUTO_DISABLE_ABS_FLOOR = 2
 
 # provider_code → LLM_PROVIDERS JSON name 映射
 # (与 model_availability._PROVIDER_CODE_TO_LLM_PROVIDERS_NAME 对齐,需保持同步)
@@ -221,6 +257,14 @@ SYNC_REMOVED_MODELS = Gauge(
     "model_sync_removed_models",
     "Number of models removed in last sync per provider",
     ["provider_code"],
+)
+
+# 2026-10-26:自动替换计数 —— 上游下架旧模型后引用点切到同族后继的次数。
+# 分两类:replaced=找到后继并改写引用;retired=上游消失且无后继,只能停用。
+SYNC_REPLACED_MODELS = Counter(
+    "model_sync_model_replacements_total",
+    "Models auto-replaced/retired after upstream delisting, by provider and outcome",
+    ["provider_code", "outcome"],  # outcome: replaced / retired
 )
 
 PROVIDER_HEALTH = Gauge(
@@ -402,7 +446,7 @@ class ModelSyncService:
             self._status.is_syncing = True
 
         start_time = datetime.now(UTC)
-        providers_to_sync = self._get_configured_providers()
+        providers_to_sync = await self._get_configured_providers()
 
         if not providers_to_sync:
             logger.info("[ModelSyncService] 无已配置 key 的 provider,跳过同步")
@@ -556,7 +600,42 @@ class ModelSyncService:
         )
         return self.get_status()
 
-    def _get_configured_providers(self) -> list[tuple[str, str, str]]:
+    async def _db_api_key_for(self, code: str) -> str | None:
+        """从 ai_model_config 读并解密该 provider 的 key(2026-10-26 新增)。
+
+        为什么必须有这一格:`settings.get_provider_config()` 只认 LLM_PROVIDERS JSON /
+        .env 明文,**不看库**。而库里 ai_model_config 那 28 行 key 在 2026-10-26 用旧密钥
+        重解 + 用当前密钥重加密之后已经**全部可解密**(此前 26 行解不开)。
+        同步服务只走 env 那条路 ⇒ 24 家拿不到 key ⇒ 从未同步过
+        (Prometheus 里 model_sync_operations_total 长期只有 stepfun / token6688 /
+        agnes / openrouter 四家各 1 次),于是模型清单永远停在入库那一刻的历史快照:
+        上游早已 EOL 的模型(nvidia_nim 410、sambanova 404、siliconflow "模型不存在" …)
+        一直 enabled 着,用户选了才在调用时报 410。
+
+        这里与 llm_gateway._resolve_from_db 取同一张表、同一把密钥,保证
+        "能调得通的 provider" 与 "能同步清单的 provider" 是同一个集合 —— 否则就会出现
+        "这家其实能用,但清单从不更新"的半死状态。
+        """
+        try:
+            # 延迟导入:llm_gateway 与本模块存在潜在循环引用
+            from ..core.llm_gateway import _decrypt_api_key, _get_pool
+
+            pool = await _get_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT api_key_enc FROM ai_model_config "
+                    "WHERE enabled = true AND owner_uuid IS NULL AND provider_code = $1 "
+                    "ORDER BY id LIMIT 1",
+                    code,
+                )
+            if not row:
+                return None
+            return _decrypt_api_key(row["api_key_enc"], code)
+        except Exception as e:  # noqa: BLE001 - 取不到 key 只是少同步一家,不得拖垮整轮
+            logger.debug("[ModelSyncService] %s 库内 key 读取失败: %s", code, e)
+            return None
+
+    async def _get_configured_providers(self) -> list[tuple[str, str, str]]:
         """获取已配置 key 的 provider 列表(从 settings + free_provider_registry)。
 
         过滤规则:
@@ -575,6 +654,13 @@ class ModelSyncService:
             code = provider.provider_code
             # zero_cost / LOCAL provider 不需要同步模型清单
             if provider.zero_cost or provider.category == ProviderCategory.LOCAL:
+                continue
+            # 2026-10-26 永久退役 provider 跳过(商务原因,不因 key 恢复而回来)
+            if code in RETIRED_PROVIDERS:
+                logger.info(
+                    "[ModelSyncService] %s 已永久退役,跳过同步(原因:%s)",
+                    code, RETIRED_PROVIDERS[code],
+                )
                 continue
             # F4.7 永久禁用 provider 跳过
             if code in self._permanently_disabled_providers:
@@ -595,6 +681,10 @@ class ModelSyncService:
             cfg_name = _to_cfg_name(code)
             cfg = settings.get_provider_config(cfg_name)
             api_key = cfg.api_key
+            # 2026-10-26:env/LLM_PROVIDERS 取不到时回落到库内密文(见 _db_api_key_for 的注释)。
+            # 顺序不改:env 仍优先 —— 运维在 .env 显式覆盖的 key 必须说了算。
+            if not api_key:
+                api_key = (await self._db_api_key_for(code)) or ""
             api_base = cfg.api_base or provider.default_base_url
             # keyless_model_list(token6688 等):目录端点免鉴权,无 key 也可同步清单
             key_ok = bool(api_key) and api_key not in _PLACEHOLDER_KEYS
@@ -628,6 +718,7 @@ class ModelSyncService:
                 skip_upsert = False
 
                 # F1.2 重试循环(只重试网络/超时/5xx 错误,4xx 不重试)
+                expected_key_skip = False
                 for attempt, delay in enumerate(_RETRY_BASE_DELAYS, start=1):
                     try:
                         upstream_models, skip_upsert = await self._fetch_upstream_models(
@@ -661,36 +752,25 @@ class ModelSyncService:
                             )
                             break
                         elif last_error_type == SyncErrorType.INVALID_KEY.value:
-                            # 401:key 失效,累加失败计数(连续 3 次后永久禁用)
-                            self._bump_failure(provider_code)
-                            logger.warning(
-                                "[ModelSyncService] %s 返回 401(key 失效),失败计数 %d/%d",
+                            # 401:key 失效/过期。这是"用户侧待补充有效 key"的预期状态(非事故):
+                            # 不计入 unhealthy 失败计数、不触发 LlmProviderUnhealthy 告警、不永久禁用;
+                            # 补充有效 key 后下一轮同步自动恢复。记 INFO 即可(2026-10-26 按机主指示)。
+                            expected_key_skip = True
+                            logger.info(
+                                "[ModelSyncService] %s 返回 401(key 失效/过期),跳过同步"
+                                "(预期状态,补充有效 key 后自动恢复)",
                                 provider_code,
-                                self._provider_failure_counter.get(provider_code, 0),
-                                FAILURE_THRESHOLD,
                             )
-                            if self._provider_failure_counter.get(provider_code, 0) >= FAILURE_THRESHOLD:
-                                self._permanently_disabled_providers.add(provider_code)
-                                logger.warning(
-                                    "[ModelSyncService] %s 连续 401 失败 >= %d 次,已永久禁用",
-                                    provider_code, FAILURE_THRESHOLD,
-                                )
                             break
                         elif last_error_type == SyncErrorType.FORBIDDEN.value:
-                            # 403:无权限,累加失败计数
-                            self._bump_failure(provider_code)
-                            logger.warning(
-                                "[ModelSyncService] %s 返回 403(无权限),失败计数 %d/%d",
+                            # 403:无权限/配额受限。同 401,属用户侧待补充有效 key 的预期状态,
+                            # 静默跳过(不计入 unhealthy、不告警、不永久禁用);补充 key 后自动恢复。
+                            expected_key_skip = True
+                            logger.info(
+                                "[ModelSyncService] %s 返回 403(无权限/配额受限),跳过同步"
+                                "(预期状态,补充有效 key 后自动恢复)",
                                 provider_code,
-                                self._provider_failure_counter.get(provider_code, 0),
-                                FAILURE_THRESHOLD,
                             )
-                            if self._provider_failure_counter.get(provider_code, 0) >= FAILURE_THRESHOLD:
-                                self._permanently_disabled_providers.add(provider_code)
-                                logger.warning(
-                                    "[ModelSyncService] %s 连续 403 失败 >= %d 次,已永久禁用",
-                                    provider_code, FAILURE_THRESHOLD,
-                                )
                             break
                         elif last_error_type == SyncErrorType.RATE_LIMIT.value:
                             # 429:速率限制,长退避(60s)后重试 1 次
@@ -731,9 +811,20 @@ class ModelSyncService:
                 latency_s = latency_ms / 1000.0
 
                 if last_exc is not None:
-                    # F4.6 Prometheus metrics 失败埋点
-                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "failure").inc()
                     SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    if expected_key_skip:
+                        # 预期状态(key 失效/过期):静默跳过,不计入 unhealthy、不触发告警。
+                        # 指标记 skipped(与 304 增量跳过同口径),health 保持 1。
+                        SYNC_OPERATIONS_TOTAL.labels(provider_code, "skipped").inc()
+                        PROVIDER_HEALTH.labels(provider_code).set(1)
+                        return SyncResult(
+                            provider_code=provider_code, success=False,
+                            error=f"{type(last_exc).__name__}: {str(last_exc)[:200]}",
+                            latency_ms=latency_ms, skipped=True,
+                            error_type=last_error_type,
+                        )
+                    # F4.6 Prometheus metrics 失败埋点(真实故障:网络/5xx/404/未知)
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "failure").inc()
                     failures = self._provider_failure_counter.get(provider_code, 0)
                     PROVIDER_HEALTH.labels(provider_code).set(
                         1 if failures < FAILURE_THRESHOLD else 0
@@ -903,9 +994,9 @@ class ModelSyncService:
         try:
             async with pool.acquire() as conn:
                 rows = await conn.fetch(
-                    """SELECT provider_code, success
+                    """SELECT provider_code, success, error
                          FROM (
-                           SELECT provider_code, success, sync_finished_at,
+                           SELECT provider_code, success, error, sync_finished_at,
                                   ROW_NUMBER() OVER (
                                     PARTITION BY provider_code
                                     ORDER BY sync_finished_at DESC
@@ -926,24 +1017,36 @@ class ModelSyncService:
             )
             return {}
 
-        by_provider: dict[str, list[bool]] = {}
+        by_provider: dict[str, list[tuple[bool, str]]] = {}
         for r in rows:
-            by_provider.setdefault(r["provider_code"], []).append(bool(r["success"]))
+            by_provider.setdefault(r["provider_code"], []).append(
+                (bool(r["success"]), r["error"] or "")
+            )
 
         # 收敛到"本服务实际会同步的 provider"。注意此刻两个集合仍为空,
         # 所以 _get_configured_providers() 返回的是未剔除禁用项的完整清单。
-        configured = {code for code, _base, _key in self._get_configured_providers()}
+        configured = {code for code, _base, _key in await self._get_configured_providers()}
 
         restored: dict[str, int] = {}
         for code in sorted(configured):
             seq = by_provider.get(code, [])
             streak = 0
-            for ok in seq:
+            for ok, err in seq:
                 if ok:
+                    break
+                # 2026-10-26:认证失败(401/403 key 失效/过期)属**预期状态**,
+                # 不计入连续失败、不置 unhealthy、不触发 LlmProviderUnhealthy 告警。
+                # 补充有效 key 后下一轮同步即自动恢复为健康。
+                if (
+                    "401" in err
+                    or "403" in err
+                    or "key" in err.lower()
+                    or "权限" in err
+                ):
                     break
                 streak += 1
             # 关键:无论恢复出几,都给 gauge 打点 —— 这样重启后序列立刻有样本,
-            # 盲区(无样本 == 不告警)被彻底消除。
+            # 盲区(无样本 == 不告警)被彻底消除。认证类失败一律按健康(=1)打点。
             PROVIDER_HEALTH.labels(code).set(1 if streak < FAILURE_THRESHOLD else 0)
             if streak:
                 restored[code] = min(streak, FAILURE_THRESHOLD)
@@ -1004,7 +1107,21 @@ class ModelSyncService:
 
         Returns:
             含 provider_code / reset=True / previous_failures / was_disabled 的字典。
+
+        2026-10-26:永久退役 provider(RETIRED_PROVIDERS)拒绝解除 ——
+        reset 只用于"技术性故障修好后恢复",不能绕过商务性退役。
         """
+        if provider_code in RETIRED_PROVIDERS:
+            logger.warning(
+                "[ModelSyncService] provider %s 已永久退役,reset 被拒绝(原因:%s)",
+                provider_code, RETIRED_PROVIDERS[provider_code],
+            )
+            return {
+                "provider_code": provider_code,
+                "reset": False,
+                "retired": True,
+                "reason": RETIRED_PROVIDERS[provider_code],
+            }
         previous_failures = self._provider_failure_counter.pop(provider_code, 0)
         was_disabled = provider_code in self._permanently_disabled_providers
         self._permanently_disabled_providers.discard(provider_code)
@@ -1278,7 +1395,11 @@ class ModelSyncService:
         # 拉取失败降级为仅 skills/models(不阻塞同步主流程)。
         logical_index: dict[str, dict[str, Any]] = {}
 
-        async with httpx.AsyncClient(timeout=SYNC_TIMEOUT_S) as client:
+        # 2026-10-26:经 SYNC_PROXY_URL 出网(本机对 US/EU provider 无直连出口,
+        # 直连超时/本地 DNS 失败;Clash 7897 可通)。空值→None 即直连,
+        # 国内系 provider 经代理侧 geo 规则直连,不受影响。
+        _sync_proxy = (settings.sync_proxy_url or "").strip() or None
+        async with httpx.AsyncClient(timeout=SYNC_TIMEOUT_S, proxy=_sync_proxy) as client:
             resp = await client.get(url, headers=headers)
 
             # F4.8 304 Not Modified:命中缓存,跳过 upsert
@@ -1570,6 +1691,226 @@ class ModelSyncService:
         )
         return int(row["id"])
 
+    # ------------------------------------------------------------------
+    # 2026-10-26 上游模型自动更新替换(后继识别)
+    # ------------------------------------------------------------------
+
+    # 版本号 token 形态:纯数字(3/4/3p5)、v 前缀(v2/v2.5)、日期(2024-08-06)、
+    # 数字+尾缀(4o、3-5、2-0、16k、32k、1m)
+    _VERSION_TOKEN_RE = re.compile(
+        r"^(?:\d{4}-\d{2}-\d{2}|v?\d+(?:[._-]\d+)*[a-z]?|\d+[km])$", re.IGNORECASE
+    )
+
+    @classmethod
+    def _split_stem_version(cls, model_id: str) -> tuple[str, str]:
+        """把模型 id 拆成 (主干 stem, 版本 version)。
+
+        例:
+          step-3.5-flash       -> ("step", "3.5-flash")
+          gpt-4o-2024-08-06    -> ("gpt", "4o-2024-08-06")
+          qwen2.5-72b-instruct -> ("qwen", "2.5-72b-instruct")
+          agnes-2.5-flash      -> ("agnes", "2.5-flash")
+          llama-3.3-70b        -> ("llama", "3.3-70b")
+        主干相同的两个 id 视为**同族**,可比较版本先后。
+        """
+        # 去 provider 前缀(qwen/xxx、openrouter/xxx …)
+        body = model_id.split("/", 1)[1] if "/" in model_id else model_id
+        tokens = body.split("-")
+        # 从后往前?不行:版本在中间(step-3.5-flash),必须从前往后找第一个版本 token
+        cut = len(tokens)
+        for i, tok in enumerate(tokens):
+            if tok and cls._VERSION_TOKEN_RE.match(tok):
+                cut = i
+                break
+        if cut == 0:
+            # 首 token 即版本(罕见):主干留空串,整串当版本
+            return "", body
+        stem = "-".join(tokens[:cut]).lower()
+        version = "-".join(tokens[cut:]).lower()
+        return stem, version
+
+    @staticmethod
+    def _version_sort_key(version: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
+        """把版本串转成可比较的 key,用于判定"谁更新"。
+
+        数字段按数值比较(3.10 > 3.9),非数字段按字符串比较;
+        含日期段的追加到末尾参与比较。无法解析时退回字符串序。
+        """
+        parts = re.split(r"[-._]", version)
+        nums: list[int] = []
+        rest: list[str] = []
+        for p in parts:
+            if p.isdigit():
+                nums.append(int(p))
+            else:
+                # "4o" -> 4 + "o";"16k" -> 16 + "k";"v1"/"v2.5" -> 1 / 2
+                m = re.match(r"^(\d+)([a-z]+)$", p)
+                mv = re.match(r"^[vV](\d+)$", p)
+                if m:
+                    nums.append(int(m.group(1)))
+                    rest.append(m.group(2))
+                elif mv:
+                    nums.append(int(mv.group(1)))
+                else:
+                    rest.append(p)
+        return (tuple(nums), tuple(rest))
+
+    @classmethod
+    def _find_successor(
+        cls,
+        old_id: str,
+        candidate_ids: set[str],
+        already_taken: set[str],
+    ) -> str | None:
+        """在候选 id 里找 old_id 的同族后继(主干相同、版本更新)。
+
+        找不到同族时,用 difflib 做一次高阈值模糊匹配(>=0.82 且版本更高),
+        覆盖改名型迭代(如 xxx-turbo -> xxx-turbo-preview 之外的小改)。
+        一个候选只能被一个旧模型认领(already_taken),避免多个旧模型挤到同一个后继。
+        """
+        import difflib
+
+        old_stem, old_ver = cls._split_stem_version(old_id)
+        old_nums = cls._version_sort_key(old_ver)[0]
+        if not old_stem:
+            return None
+
+        # 只按**数字段**判定先后(3.10 > 3.9、2024-11-20 > 2024-08-06)。
+        # 不比非数字段:gpt-4o 与 gpt-4o-mini 数字段相同(都是 4),
+        # 那是"尺寸变体"不是"版本迭代",认作后继会把大模型错替成 mini。
+        pool = [c for c in candidate_ids if c != old_id and c not in already_taken]
+        best: tuple[tuple[tuple[int, ...], tuple[str, ...]], str] | None = None
+        for cand in pool:
+            c_stem, c_ver = cls._split_stem_version(cand)
+            if c_stem != old_stem:
+                continue
+            c_key = cls._version_sort_key(c_ver)
+            if c_key[0] <= old_nums:
+                continue
+            if best is None or c_key > best[0]:
+                best = (c_key, cand)
+
+        if best is not None:
+            return best[1]
+
+        # 模糊兜底:主干不同但整体高度相似(上游改名/加后缀)
+        old_body = old_id.lower()
+        scored: list[tuple[float, str]] = []
+        for cand in pool:
+            c_body = cand.lower()
+            ratio = difflib.SequenceMatcher(None, old_body, c_body).ratio()
+            if ratio < 0.82:
+                continue
+            _cs, c_ver = cls._split_stem_version(cand)
+            if cls._version_sort_key(c_ver)[0] <= old_nums:
+                continue
+            scored.append((ratio, cand))
+        if not scored:
+            return None
+        scored.sort(key=lambda t: (-t[0], t[1]))
+        return scored[0][1]
+
+    async def _apply_model_replacement(
+        self,
+        conn: Any,
+        config_id: int,
+        provider_code: str,
+        old_id: str,
+        new_id: str | None,
+        has_metadata_column: bool,
+    ) -> None:
+        """把"上游已下架"的旧模型及其引用点整体切到后继(2026-10-26)。
+
+        new_id 非空(找到后继):
+          - 旧行 enabled=false / is_relay_public=false,metadata 记 replaced_by
+          - 旧行的 is_default 转移给后继行
+          - ai_model_config.default_model_id / model_id_for_test 指向旧 id 的改成新 id
+        new_id 为空(无后继):
+          - 旧行 enabled=false / is_relay_public=false,metadata 记 retired_reason
+
+        为什么必须改 enabled 而不只是 is_relay_public:
+          is_relay_public=false 只摘出中继市场,模型行仍是 enabled=true,
+          前端 /api/llm/models 照样把它列为可选,用户一选就 410/404。
+        """
+        now_iso = datetime.now(UTC).isoformat()
+        if new_id:
+            note = (
+                f"上游已下架 {old_id},自动替换为 {new_id}"
+                f"(auto-replaced at {now_iso})"
+            )
+            replace_meta = {
+                "replaced_by": new_id,
+                "replaced_at": now_iso,
+                "replace_reason": "upstream_absent",
+                "replace_source": "model_sync",
+            }
+            outcome = "replaced"
+        else:
+            note = (
+                f"上游已下架 {old_id} 且未找到同族后继,自动停用"
+                f"(auto-retired at {now_iso})"
+            )
+            replace_meta = {
+                "retired_reason": "upstream_absent_no_successor",
+                "retired_at": now_iso,
+                "replace_source": "model_sync",
+            }
+            outcome = "retired"
+
+        # 1) 旧行停用 + 留痕
+        if has_metadata_column:
+            await conn.execute(
+                """UPDATE ai_model_config_models
+                      SET enabled = false,
+                          is_relay_public = false,
+                          metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb,
+                          updated_at = now()
+                    WHERE config_id = $1 AND model_id = $2""",
+                config_id, old_id, json.dumps(replace_meta),
+            )
+        else:
+            await conn.execute(
+                """UPDATE ai_model_config_models
+                      SET enabled = false,
+                          is_relay_public = false,
+                          updated_at = now()
+                    WHERE config_id = $1 AND model_id = $2""",
+                config_id, old_id,
+            )
+
+        if new_id:
+            # 2) is_default 转移(旧行曾是默认 ⇒ 后继接管默认)
+            await conn.execute(
+                """UPDATE ai_model_config_models
+                      SET is_default = true, updated_at = now()
+                    WHERE config_id = $1 AND model_id = $2""",
+                config_id, new_id,
+            )
+            await conn.execute(
+                """UPDATE ai_model_config_models
+                      SET is_default = false
+                    WHERE config_id = $1 AND model_id = $2""",
+                config_id, old_id,
+            )
+            # 3) provider 级引用点跟随
+            await conn.execute(
+                """UPDATE ai_model_config
+                      SET default_model_id = $2,
+                          updated_at = now()
+                    WHERE id = $1 AND default_model_id = $3""",
+                config_id, new_id, old_id,
+            )
+            await conn.execute(
+                """UPDATE ai_model_config
+                      SET model_id_for_test = $2,
+                          updated_at = now()
+                    WHERE id = $1 AND model_id_for_test = $3""",
+                config_id, new_id, old_id,
+            )
+
+        SYNC_REPLACED_MODELS.labels(provider_code=provider_code, outcome=outcome).inc()
+        logger.warning("[ModelSyncService] %s/%s %s", provider_code, old_id, note)
+
     async def _upsert_models_to_db(
         self,
         provider_code: str,
@@ -1760,19 +2101,61 @@ class ModelSyncService:
                                 metadata=metadata_json,
                             )
 
-                # 4. 下架移除的模型(DB 已上架但上游不再返回)
-                for mid, is_public in existing_map.items():
-                    if mid not in upstream_ids and is_public:
+                # 4. 下架的模型(DB 有、上游不再返回)
+                #    2026-10-26 改为"自动更新替换":
+                #    ① 同族里找后继 → 旧行停用 + 引用点(is_default / default_model_id /
+                #       model_id_for_test)整体切到后继;
+                #    ② 找不到后继 → 旧行停用并留 retired_reason;
+                #    ③ 单轮下架比例超阈值 → 判定上游清单异常,只下架不硬禁用(安全阀)。
+                stale_ids = [
+                    mid for mid, is_public in existing_map.items()
+                    if mid not in upstream_ids and is_public
+                ]
+                if stale_ids:
+                    total_existing = max(len(existing_map), 1)
+                    ratio = len(stale_ids) / total_existing
+                    # 绝对下限:2 条以内不看比例(小目录比例天然失真,见常量注释)
+                    anomalous = (
+                        len(stale_ids) > _AUTO_DISABLE_ABS_FLOOR
+                        and ratio > _AUTO_DISABLE_MAX_REMOVAL_RATIO
+                    )
+                    if anomalous:
+                        logger.warning(
+                            "[ModelSyncService] %s 本轮下架 %d/%d(%.0f%%) 超过 %.0f%% 安全阀,"
+                            "判定上游清单异常或部分返回,本轮只置 is_relay_public=false 不硬禁用",
+                            provider_code, len(stale_ids), total_existing,
+                            ratio * 100, _AUTO_DISABLE_MAX_REMOVAL_RATIO * 100,
+                        )
+
+                    # 候选后继 = 本轮上游返回的、且库里此前没有的"新增"id,
+                    # 再补上已存在但同族版本更高的 id(上游改名后旧行仍在的情况)
+                    candidate_ids: set[str] = set(upstream_ids)
+                    taken: set[str] = set()
+
+                    for mid in stale_ids:
                         if dry_run:
                             preview_removed.append(mid)
-                        else:
+                            removed_count += 1
+                            continue
+                        removed_count += 1
+                        successor: str | None = None
+                        if _AUTO_REPLACE_ENABLED and not anomalous:
+                            successor = self._find_successor(mid, candidate_ids, taken)
+                            if successor:
+                                taken.add(successor)
+                        if anomalous:
+                            # 安全阀生效:保持原有只下架行为,不动 enabled
                             await conn.execute(
                                 """UPDATE ai_model_config_models
                                    SET is_relay_public = false, updated_at = now()
                                    WHERE config_id = $1 AND model_id = $2""",
                                 config_id, mid,
                             )
-                        removed_count += 1
+                            continue
+                        await self._apply_model_replacement(
+                            conn, config_id, provider_code, mid, successor,
+                            bool(columns.get("metadata", False)),
+                        )
 
         # v4:token6688 目录消费层(TTL 缓存)即时失效,新元数据立即可见
         if provider_code == "token6688" and not dry_run:
@@ -2033,6 +2416,14 @@ class ModelSyncService:
         self, result: SyncResult, started_at: datetime, finished_at: datetime
     ) -> None:
         """F1.3 写入同步历史到 ai_model_sync_log 表(表不存在时静默跳过)。"""
+        # 2026-10-26:认证失败(401/403=key 失效/过期)属"用户侧待补 key"的预期状态,
+        # 落库记为 success=True(跳过态),不计入连续失败、不触发 LlmProviderUnhealthy 告警、
+        # 启动恢复也不据此永久禁用。补 key 后下一轮同步自动恢复。
+        db_success = bool(result.success) or (
+            bool(result.skipped)
+            and result.error_type
+            in (SyncErrorType.INVALID_KEY.value, SyncErrorType.FORBIDDEN.value)
+        )
         try:
             pool = await get_shared_pool()
             async with pool.acquire() as conn:
@@ -2045,7 +2436,7 @@ class ModelSyncService:
                     result.provider_code,
                     started_at,
                     finished_at,
-                    result.success,
+                    db_success,
                     result.total_models,
                     result.new_models,
                     result.removed_models,

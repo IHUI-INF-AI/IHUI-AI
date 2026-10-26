@@ -49,12 +49,13 @@
  * 用法:node scripts/check-guarded-write-affected.mjs [--staged|--worktree] [--json] [--self-test]
  * 退出码:0 无判红 / 1 判红 / 2 未判定(含"锚点取不到")
  */
-import { spawnSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { findWriteChains, findFunctionBodies, maskText, closeParen, closeBrace } from './lib/batch-write-lexer.mjs'
 import { maskComments } from './lib/code-mask.mjs'
+// 被审面取材一律走面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath + 数字 timeout)
+import { gitRaw, gitErrText } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPE = 'apps/api/src'
@@ -308,9 +309,18 @@ export function makeLocator(src) {
   }
 }
 
+/**
+ * 薄壳:把本门既有的 `{status, stdout, stderr}` 调用形状接到面读取层上。
+ * 层内 `gitRaw` 抛 `Undetermined`(绝对 git 取不到 / 非零退出 / 超时 / ENOBUFS),这里折回
+ * 「git 说没有」的返回形态,由调用方落 err ⇒ 未判定;绝不在此回落另一个面(§0.4)。
+ */
 function git(args, opts = {}) {
-  const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  return spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio, timeout: 60_000 })
+  try {
+    const stdout = gitRaw(args, ROOT, opts.input === undefined ? {} : { input: opts.input })
+    return { status: 0, stdout, stderr: '' }
+  } catch (e) {
+    return { status: typeof e.status === 'number' ? e.status : 1, stdout: '', stderr: gitErrText(e) }
+  }
 }
 
 function faceFiles(face) {
@@ -321,7 +331,8 @@ function faceFiles(face) {
         ? ['ls-files', '-s', '--', SCOPE]
         : ['ls-files', '--', SCOPE]
   const r = git(args)
-  if (r.status !== 0) return { err: `${args[0]} 失败: ${r.stderr.trim()}` }
+  // 层内 gitErrText 的消息已自带 `git <子命令> 失败:` 前缀,这里不再叠第二层前缀(只折文本,不改判定)
+  if (r.status !== 0) return { err: r.stderr.trim() }
   return {
     files: r.stdout
       .split('\n')

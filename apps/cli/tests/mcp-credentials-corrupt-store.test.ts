@@ -66,6 +66,8 @@ import {
   type McpCredentialStoreSnapshot,
 } from '../src/tools/mcp-credentials.js';
 import { acquireLock, getRefreshLockPath, releaseLock } from '../src/tools/mcp-oauth.js';
+import { Command } from 'commander';
+import { registerCapabilitiesCommand } from '../src/commands/capabilities.js';
 
 const URL_A = 'https://a.example.com/mcp';
 const URL_B = 'https://b.example.com/mcp';
@@ -341,6 +343,73 @@ describe('G-709 ⑥:变更锁覆盖 setCredential 的"读 → 改 → 原子替�
   it('锁释放干净:setCredential 成功之后 mcp-refresh.lock 不在位(不留幽灵锁给下一个进程)', async () => {
     await setCredential(URL_A, { accessToken: SENTINEL_A, obtainedAt: 1 });
     await expect(fs.access(getRefreshLockPath())).rejects.toThrow();
+  });
+});
+
+/**
+ * G-752(票面验收的新增例):能力面板在存储损坏时**报状态**,不抛穿。
+ * 旧形态两件事都不对:`loadMcpCredentials()` 抛 ⇒ 面板整个报错(handleError 的 ✗ + exitCode=1);
+ * 更早的静默 `{}` ⇒ 面板冒充"已授权 0 条"。正解 = 走 `readCredentialStoreSnapshot()`,
+ * 把 corrupt/unreadable/undecryptable 打进状态输出。
+ */
+describe('G-752 面板:损坏存储报故障态,不抛穿也不冒充 0 条', () => {
+  /** 跑一次 `ihui capabilities [--json]`,返回面板全部 console 输出(故障判据在输出形态里)。 */
+  async function runCapabilitiesPanel(json: boolean): Promise<string> {
+    const program = new Command();
+    program.name('ihui-test').exitOverride().configureOutput({ writeOut: () => {}, writeErr: () => {} });
+    registerCapabilitiesCommand(program);
+    logged = [];
+    const savedExitCode = process.exitCode;
+    try {
+      await program.parseAsync(['node', 'ihui', 'capabilities', ...(json ? ['--json'] : [])]);
+      expect(process.exitCode ?? 0).toBe(0); // 状态命令不因机器状态而红
+    } finally {
+      process.exitCode = savedExitCode;
+    }
+    return logged.join('\n');
+  }
+
+  it('半截 JSON ⇒ --json 输出 credentialReadFault(state=corrupt/reasonCode/路径),不抛穿、哨兵不进 stdout', async () => {
+    await seedTwoCredentials();
+    const intact = await readStoreFile();
+    await writeStoreFile(intact.slice(0, Math.floor(intact.length / 2)));
+
+    const out = await runCapabilitiesPanel(true);
+    expect(out).not.toContain('✗');
+    const json = JSON.parse(out.slice(out.indexOf('{'))) as {
+      ok?: boolean;
+      credentialReadFault?: { state?: string; reasonCode?: string; storePath?: string } | null;
+    };
+    expect(json.ok).toBe(true);
+    expect(json.credentialReadFault?.state).toBe('corrupt');
+    expect(json.credentialReadFault?.reasonCode).toBe('payload-not-json');
+    expect(json.credentialReadFault?.storePath).toBe(storePathOf());
+    expect(out).not.toContain(SENTINEL_A);
+    expect(out).not.toContain(SENTINEL_B);
+  });
+
+  it('半截 JSON ⇒ 人读档打印故障态,且不得出现"已授权 0 条"的冒充', async () => {
+    await seedTwoCredentials();
+    const intact = await readStoreFile();
+    await writeStoreFile(intact.slice(0, Math.floor(intact.length / 2)));
+
+    const out = await runCapabilitiesPanel(false);
+    expect(out).not.toContain('✗');
+    expect(out).toContain('corrupt');
+    expect(out).not.toContain('已授权 0 条');
+    expect(out).not.toContain(SENTINEL_A);
+  });
+
+  it('正向对照:完好存储照常报"已授权 2 条"、credentialReadFault=null(故障档不是恒红)', async () => {
+    await seedTwoCredentials();
+
+    const out = await runCapabilitiesPanel(true);
+    const json = JSON.parse(out.slice(out.indexOf('{'))) as {
+      credentialReadFault?: unknown;
+      storedCredentials?: unknown[];
+    };
+    expect(json.credentialReadFault).toBeNull();
+    expect(json.storedCredentials).toHaveLength(2);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

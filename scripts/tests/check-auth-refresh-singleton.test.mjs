@@ -176,4 +176,33 @@ test('M10 承重对照必须留在门体自测里:未跟踪不判 + 同一份内
     '必须真有把该副本**只放进索引**的那一步',
   )
 })
+
+test('M11 tokenProvider 方法简写定义豁免成对:简写判绿、裸调用与零参无冒号调用仍判红(防恒真)', () => {
+  const repo = '/tmp/ihui-mock-root'
+  // 正例:对象字面量方法简写(逐字取自 CLI auth-refresh.ts:88 的正当注入形态)
+  const green = gate.scanContent(
+    repo,
+    'apps/cli/src/lib/auth-refresh.ts',
+    '    async refreshAccessToken(): Promise<string | null> {\n' +
+      '      const next = await ensureFreshAccessToken(spec.baseUrl)\n' +
+      '      return next\n    },\n',
+  )
+  assert.equal(green.length, 0, `provider 方法简写定义是合法注入路径,不得判红:${JSON.stringify(green)}`)
+  // 反例 1:带实参的裸 endpoint 调用仍必红(豁免不得吞掉真调用)
+  const red1 = gate.scanContent(
+    repo,
+    'apps/cli/src/lib/auth-refresh.ts',
+    '  const t = await refreshAccessToken(token)\n',
+  )
+  assert.equal(red1.length, 1, 'await refreshAccessToken(token) 必须仍判红')
+  assert.equal(red1[0].rule, 'bare-refreshAccessToken')
+  // 反例 2:零参调用形态(括号后无冒号跟随)仍必红
+  const red2 = gate.scanContent(
+    repo,
+    'apps/cli/src/lib/auth-refresh.ts',
+    '  return refreshAccessToken()\n',
+  )
+  assert.equal(red2.length, 1, 'refreshAccessToken() 无冒号跟随的零参调用必须仍判红')
+  assert.equal(red2[0].rule, 'bare-refreshAccessToken')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -6,6 +6,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import SidepanelApp from './SidepanelApp'
+import { ExtensionViewTracker } from '../../lib/extension-view-tracker'
 import { I18nProvider } from '../../src/i18n'
 import { initExtUiListener } from './ext-ui-listener'
 import './globals.css'
@@ -18,6 +19,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <I18nProvider>
       <MemoryRouter>
+        <ExtensionViewTracker />
         <SidepanelApp />
       </MemoryRouter>
     </I18nProvider>

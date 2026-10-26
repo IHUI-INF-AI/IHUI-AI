@@ -12,9 +12,12 @@ from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, StateGraph
 
+from app.core.default_model import default_chat_model
 from app.core.llm_gateway import llm_gateway
 
-_DEFAULT_MODEL = "stepfun/step-3.7-flash"
+# 2026-10-26:原写死 "stepfun/step-3.7-flash"(stepfun 已永久退役,chat 恒定 400),
+# 改走统一解析入口,随运行期配置自动跟随上游换档。
+_DEFAULT_MODEL = default_chat_model()
 
 
 class AgentState(TypedDict, total=False):

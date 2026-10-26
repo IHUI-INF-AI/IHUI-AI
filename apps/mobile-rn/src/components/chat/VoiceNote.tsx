@@ -24,9 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,9 +32,9 @@ import {
   View,
 } from 'react-native'
 import { Mic, Square, Trash2, X } from 'lucide-react-native'
-import { createVoiceNote, deleteVoiceNote, listVoiceNotes } from '@ihui/api-client'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
+import { createVoiceNote, deleteVoiceNote, listVoiceNotes } from '@ihui/api-client'
+import { rnRadius } from '@ihui/design-tokens'
 import type { VoiceNoteGroupFacet } from '@ihui/types'
 import {
   formatVoiceNoteDuration,
@@ -54,7 +52,7 @@ import {
 } from '@ihui/shared/chat/voice-note'
 import { useI18n } from '../../i18n'
 import { useVoiceRecorder } from '../../hooks/use-voice-recorder'
-import { tokens, currentRnTheme } from '../../theme/active-tokens'
+import { currentRnTheme, tokens } from '../../theme/active-tokens'
 
 /** RN locale → whisper 语言提示(兜底 zh,与 VoiceInput/useVoiceRecorder 默认同档) */
 const STT_LANGUAGE: Record<string, string> = {
@@ -259,227 +257,216 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={closePanel}>
-        {/* RN 原生 Modal 自成窗口,键盘不会连带外层 KAV —— 面板内搜索框(searchInput)在
-            iOS/小屏安卓弹键盘会把"完成/取消"操作行顶出可视区。避让必须装在 Modal 内侧。 */}
-        <KeyboardAvoidingView
-          style={styles.kavWrap}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={styles.backdrop}>
-            <Pressable style={StyleSheet.absoluteFill} onPress={closePanel} />
-            <View style={styles.panel} testID="voice-note-panel">
-              <View style={styles.panelHeader}>
-                <Text style={styles.panelTitle}>{t('chat.voiceNote.title')}</Text>
+        <View style={styles.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closePanel} />
+          <View style={styles.panel} testID="voice-note-panel">
+            <View style={styles.panelHeader}>
+              <Text style={styles.panelTitle}>{t('chat.voiceNote.title')}</Text>
+              <Pressable
+                onPress={closePanel}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('chat.voiceNote.action.dismiss')}
+                testID="voice-note-close"
+              >
+                <X size={16} color={tokens.text.secondary} />
+              </Pressable>
+            </View>
+
+            {/* phase 徽章(12 相文案全量走 i18n,与 web 同命名空间) */}
+            {showPhaseLabel && (
+              <View style={styles.phaseBadge} testID="voice-note-phase">
+                <Text style={styles.phaseText}>{t(`chat.voiceNote.phase.${phase}`)}</Text>
+                {(recording || isVoiceNoteTranscriptPending(phase)) && (
+                  <Text style={styles.phaseDuration}>
+                    {formatVoiceNoteDuration(durationSecRef.current * 1000)}
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {errorCode && (
+              <Text style={styles.errorText} testID="voice-note-error">
+                {t(`chat.voiceNote.errors.${errorCode}`)}
+              </Text>
+            )}
+
+            {phase === 'completed' && transcript && (
+              <ScrollView style={styles.transcriptBox} testID="voice-note-transcript">
+                <Text style={styles.transcriptText}>{transcript}</Text>
+              </ScrollView>
+            )}
+
+            {/* 降级文案:waitingTranscript 停留 pending(端点缺失) */}
+            {isVoiceNoteTranscriptPending(phase) && !sttEnabled && (
+              <Text style={styles.pendingText} testID="voice-note-stt-pending">
+                {t('chat.voiceNote.errors.sttPending')}
+              </Text>
+            )}
+
+            <View style={styles.actionRow}>
+              {phase === 'ready' && (
                 <Pressable
-                  onPress={closePanel}
-                  hitSlop={8}
+                  style={styles.primaryBtn}
+                  onPress={startRecording}
                   accessibilityRole="button"
-                  accessibilityLabel={t('chat.voiceNote.action.dismiss')}
-                  testID="voice-note-close"
+                  testID="voice-note-start"
                 >
-                  <X size={16} color={tokens.text.secondary} />
+                  <Mic size={14} color={tokens.brand.ctaForeground} />
+                  <Text style={styles.primaryBtnText}>{t('chat.voiceNote.action.start')}</Text>
                 </Pressable>
-              </View>
-
-              {/* phase 徽章(12 相文案全量走 i18n,与 web 同命名空间) */}
-              {showPhaseLabel && (
-                <View style={styles.phaseBadge} testID="voice-note-phase">
-                  <Text style={styles.phaseText}>{t(`chat.voiceNote.phase.${phase}`)}</Text>
-                  {(recording || isVoiceNoteTranscriptPending(phase)) && (
-                    <Text style={styles.phaseDuration}>
-                      {formatVoiceNoteDuration(durationSecRef.current * 1000)}
-                    </Text>
+              )}
+              {busy && (
+                <Pressable
+                  style={styles.stopBtn}
+                  onPress={stopRecording}
+                  accessibilityRole="button"
+                  disabled={!recording}
+                  testID="voice-note-stop"
+                >
+                  {transcribing ? (
+                    <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                  ) : (
+                    <Square size={12} color={tokens.brand.ctaForeground} />
                   )}
-                </View>
+                  <Text style={styles.primaryBtnText}>{t('chat.voiceNote.action.stop')}</Text>
+                </Pressable>
               )}
-
-              {errorCode && (
-                <Text style={styles.errorText} testID="voice-note-error">
-                  {t(`chat.voiceNote.errors.${errorCode}`)}
-                </Text>
+              {/* 转写 pending 中用户显式存盘(dismiss → completed) */}
+              {isVoiceNoteTranscriptPending(phase) && sttEnabled && (
+                <Pressable
+                  style={styles.outlineBtn}
+                  onPress={saveAudioOnly}
+                  accessibilityRole="button"
+                  testID="voice-note-save-audio-only"
+                >
+                  <Text style={styles.outlineBtnText}>
+                    {t('chat.voiceNote.action.saveAudioOnly')}
+                  </Text>
+                </Pressable>
               )}
-
-              {phase === 'completed' && transcript && (
-                <ScrollView style={styles.transcriptBox} testID="voice-note-transcript">
-                  <Text style={styles.transcriptText}>{transcript}</Text>
-                </ScrollView>
+              {isVoiceNotePhaseTerminal(phase) && (
+                <Pressable
+                  style={styles.outlineBtn}
+                  onPress={resetToReady}
+                  accessibilityRole="button"
+                  testID="voice-note-retry"
+                >
+                  <Text style={styles.outlineBtnText}>{t('chat.voiceNote.action.retry')}</Text>
+                </Pressable>
               )}
+            </View>
 
-              {/* 降级文案:waitingTranscript 停留 pending(端点缺失) */}
-              {isVoiceNoteTranscriptPending(phase) && !sttEnabled && (
-                <Text style={styles.pendingText} testID="voice-note-stt-pending">
-                  {t('chat.voiceNote.errors.sttPending')}
-                </Text>
-              )}
+            <TextField
+              colorScheme={currentRnTheme()}
+              style={styles.searchInput}
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t('chat.voiceNote.searchPlaceholder')}
+              placeholderTextColor={tokens.text.tertiary}
+              testID="voice-note-search"
+            />
 
-              <View style={styles.actionRow}>
-                {phase === 'ready' && (
+            {groups.length > 0 && (
+              <View style={styles.groupRow} testID="voice-note-filters">
+                <Pressable
+                  style={[styles.chip, groupKey === null ? styles.chipActive : null]}
+                  onPress={() => setGroupKey(null)}
+                  accessibilityRole="button"
+                  testID="voice-note-group-chip-all"
+                >
+                  <Text style={[styles.chipText, groupKey === null && styles.chipActiveText]}>
+                    {t('chat.voiceNote.groupAll')}
+                  </Text>
+                </Pressable>
+                {groups.map((facet) => (
                   <Pressable
-                    style={styles.primaryBtn}
-                    onPress={startRecording}
+                    key={facet.groupKey}
+                    style={[styles.chip, groupKey === facet.groupKey ? styles.chipActive : null]}
+                    onPress={() => setGroupKey(facet.groupKey)}
                     accessibilityRole="button"
-                    testID="voice-note-start"
+                    testID="voice-note-group-chip"
                   >
-                    <Mic size={14} color={tokens.brand.ctaForeground} />
-                    <Text style={styles.primaryBtnText}>{t('chat.voiceNote.action.start')}</Text>
-                  </Pressable>
-                )}
-                {busy && (
-                  <Pressable
-                    style={styles.stopBtn}
-                    onPress={stopRecording}
-                    accessibilityRole="button"
-                    disabled={!recording}
-                    testID="voice-note-stop"
-                  >
-                    {transcribing ? (
-                      <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
-                    ) : (
-                      <Square size={12} color={tokens.brand.ctaForeground} />
-                    )}
-                    <Text style={styles.primaryBtnText}>{t('chat.voiceNote.action.stop')}</Text>
-                  </Pressable>
-                )}
-                {/* 转写 pending 中用户显式存盘(dismiss → completed) */}
-                {isVoiceNoteTranscriptPending(phase) && sttEnabled && (
-                  <Pressable
-                    style={styles.outlineBtn}
-                    onPress={saveAudioOnly}
-                    accessibilityRole="button"
-                    testID="voice-note-save-audio-only"
-                  >
-                    <Text style={styles.outlineBtnText}>
-                      {t('chat.voiceNote.action.saveAudioOnly')}
-                    </Text>
-                  </Pressable>
-                )}
-                {isVoiceNotePhaseTerminal(phase) && (
-                  <Pressable
-                    style={styles.outlineBtn}
-                    onPress={resetToReady}
-                    accessibilityRole="button"
-                    testID="voice-note-retry"
-                  >
-                    <Text style={styles.outlineBtnText}>{t('chat.voiceNote.action.retry')}</Text>
-                  </Pressable>
-                )}
-              </View>
-
-              {/* G-978007:裸 TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);
-                  style 自带 1px 常态描边排在 RESTING_BORDER 后原样生效,聚焦只换色不改宽 */}
-              <TextField
-                colorScheme={currentRnTheme()}
-                style={styles.searchInput}
-                value={query}
-                onChangeText={setQuery}
-                placeholder={t('chat.voiceNote.searchPlaceholder')}
-                placeholderTextColor={tokens.text.tertiary}
-                testID="voice-note-search"
-              />
-
-              {groups.length > 0 && (
-                <View style={styles.groupRow} testID="voice-note-filters">
-                  <Pressable
-                    style={[styles.chip, groupKey === null ? styles.chipActive : null]}
-                    onPress={() => setGroupKey(null)}
-                    accessibilityRole="button"
-                    testID="voice-note-group-chip-all"
-                  >
-                    <Text style={[styles.chipText, groupKey === null && styles.chipActiveText]}>
-                      {t('chat.voiceNote.groupAll')}
-                    </Text>
-                  </Pressable>
-                  {groups.map((facet) => (
-                    <Pressable
-                      key={facet.groupKey}
-                      style={[styles.chip, groupKey === facet.groupKey ? styles.chipActive : null]}
-                      onPress={() => setGroupKey(facet.groupKey)}
-                      accessibilityRole="button"
-                      testID="voice-note-group-chip"
+                    <Text
+                      style={[
+                        styles.chipText,
+                        groupKey === facet.groupKey && styles.chipActiveText,
+                      ]}
                     >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          groupKey === facet.groupKey && styles.chipActiveText,
-                        ]}
-                      >
-                        {facet.groupKey} {facet.count}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
+                      {facet.groupKey} {facet.count}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
 
-              {listError && (
-                <Text style={styles.errorText} testID="voice-note-list-error">
-                  {t('chat.voiceNote.errors.loadFailed')}
-                </Text>
-              )}
+            {listError && (
+              <Text style={styles.errorText} testID="voice-note-list-error">
+                {t('chat.voiceNote.errors.loadFailed')}
+              </Text>
+            )}
 
-              {/* 归档列表(服务端事实源:新建→落库→插入对话→删除) */}
-              <ScrollView style={styles.archiveList}>
-                {archived
-                  .slice()
-                  .reverse()
-                  .map((note) => (
-                    <View key={note.id} style={styles.archiveItem} testID="voice-note-archive-item">
-                      <Text style={styles.archiveDuration}>
-                        {formatVoiceNoteDuration(note.durationMs)}
-                      </Text>
-                      <Text style={styles.archiveText} numberOfLines={1}>
-                        {/* 无转写=只存了音频,给命名空间自带的「语音笔记」文案,不猜任何相 */}
-                        {note.transcript ?? t('chat.voiceNote.title')}
-                      </Text>
-                      {voiceNoteHasInsertableText(note) && (
-                        <Pressable
-                          onPress={() => onInsert(note.transcript ?? '')}
-                          hitSlop={6}
-                          accessibilityRole="button"
-                          accessibilityLabel={t('chat.voiceNote.action.insertToInput')}
-                          testID="voice-note-insert"
-                        >
-                          <Text style={styles.archiveAction}>
-                            {t('chat.voiceNote.action.insertToInput')}
-                          </Text>
-                        </Pressable>
-                      )}
+            {/* 归档列表(服务端事实源:新建→落库→插入对话→删除) */}
+            <ScrollView style={styles.archiveList}>
+              {archived
+                .slice()
+                .reverse()
+                .map((note) => (
+                  <View key={note.id} style={styles.archiveItem} testID="voice-note-archive-item">
+                    <Text style={styles.archiveDuration}>
+                      {formatVoiceNoteDuration(note.durationMs)}
+                    </Text>
+                    <Text style={styles.archiveText} numberOfLines={1}>
+                      {/* 无转写=只存了音频,给命名空间自带的「语音笔记」文案,不猜任何相 */}
+                      {note.transcript ?? t('chat.voiceNote.title')}
+                    </Text>
+                    {voiceNoteHasInsertableText(note) && (
                       <Pressable
-                        onPress={() => void removeNote(note.id)}
+                        onPress={() => onInsert(note.transcript ?? '')}
                         hitSlop={6}
                         accessibilityRole="button"
-                        accessibilityLabel={t('chat.voiceNote.action.dismiss')}
-                        testID="voice-note-archive-delete"
+                        accessibilityLabel={t('chat.voiceNote.action.insertToInput')}
+                        testID="voice-note-insert"
                       >
-                        <Trash2 size={14} color={tokens.text.secondary} />
+                        <Text style={styles.archiveAction}>
+                          {t('chat.voiceNote.action.insertToInput')}
+                        </Text>
                       </Pressable>
-                    </View>
-                  ))}
-              </ScrollView>
-            </View>
+                    )}
+                    <Pressable
+                      onPress={() => void removeNote(note.id)}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('chat.voiceNote.action.dismiss')}
+                      testID="voice-note-archive-delete"
+                    >
+                      <Trash2 size={14} color={tokens.text.secondary} />
+                    </Pressable>
+                  </View>
+                ))}
+            </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  trigger: { paddingHorizontal: rnSpacing.xs, paddingVertical: rnSpacing.xs },
-  // Modal 内键盘避让容器:flex:1 让 backdrop 的 flex-end 贴底语义原样保持
-  kavWrap: { flex: 1 },
+  trigger: { paddingHorizontal: 4, paddingVertical: 4 },
   backdrop: { flex: 1, backgroundColor: tokens.overlay.modal, justifyContent: 'flex-end' },
   panel: {
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl, // panel 档 xl(12)
     borderTopRightRadius: rnRadius.xl,
-    padding: rnSpacing.md,
+    padding: 12,
     maxHeight: '70%',
   },
   panelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: rnSpacing.sm,
+    marginBottom: 8,
   },
   panelTitle: { fontSize: 13, fontWeight: '500', color: tokens.text.primary },
   phaseBadge: {
@@ -488,40 +475,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.md, // chip 档 md(6)
-    paddingHorizontal: rnSpacing.sm,
-    paddingVertical: rnSpacing.xs,
-    marginBottom: rnSpacing.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 8,
   },
-  phaseText: { fontSize: rnType.label.size, color: tokens.text.secondary },
-  phaseDuration: {
-    marginLeft: rnSpacing.sm,
-    fontSize: rnType.label.size,
-    color: tokens.text.secondary,
-  },
-  errorText: {
-    fontSize: rnType.label.size,
-    color: tokens.danger.DEFAULT,
-    marginBottom: rnSpacing.sm,
-  },
-  pendingText: {
-    fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
-    marginBottom: rnSpacing.sm,
-  },
+  phaseText: { fontSize: 12, color: tokens.text.secondary },
+  phaseDuration: { marginLeft: 8, fontSize: 12, color: tokens.text.secondary },
+  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginBottom: 8 },
+  pendingText: { fontSize: 12, color: tokens.text.tertiary, marginBottom: 8 },
   transcriptBox: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    padding: rnSpacing.sm,
-    marginBottom: rnSpacing.sm,
+    padding: 8,
+    marginBottom: 8,
     maxHeight: 128,
   },
-  transcriptText: { fontSize: rnType.label.size, color: tokens.text.primary },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: rnSpacing.sm },
+  transcriptText: { fontSize: 12, color: tokens.text.primary },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rnSpacing.xs,
+    gap: 4,
     backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.sm, // control 档 sm(4)
     paddingHorizontal: 10,
@@ -530,13 +505,13 @@ const styles = StyleSheet.create({
   stopBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rnSpacing.xs,
+    gap: 4,
     backgroundColor: tokens.danger.DEFAULT,
     borderRadius: rnRadius.sm, // control 档 sm(4)
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  primaryBtnText: { fontSize: rnType.label.size, color: tokens.brand.ctaForeground },
+  primaryBtnText: { fontSize: 12, color: tokens.brand.ctaForeground },
   outlineBtn: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -544,35 +519,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  outlineBtnText: { fontSize: rnType.label.size, color: tokens.text.secondary },
+  outlineBtnText: { fontSize: 12, color: tokens.text.secondary },
   searchInput: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm, // control 档 sm(4)
-    paddingHorizontal: rnSpacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 6,
-    fontSize: rnType.label.size,
+    fontSize: 12,
     color: tokens.text.primary,
-    marginBottom: rnSpacing.sm,
+    marginBottom: 8,
   },
-  groupRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: rnSpacing.xs,
-    marginBottom: rnSpacing.sm,
-  },
+  groupRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
   chip: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.md, // chip 档 md(6)
-    paddingHorizontal: rnSpacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 3,
   },
   // 选中胶囊走 RN 既有范式(ChatTemplatesScreen/ArticleEditScreen 同尺):brand.cta 底 +
   // ctaForeground 字,两态自适应;不得用 surface.light(两态恒白 ⇒ 白卡上选中态不可见)
   chipActive: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
   chipActiveText: { color: tokens.brand.ctaForeground },
-  chipText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
+  chipText: { fontSize: 11, color: tokens.text.secondary },
   archiveList: { maxHeight: 220 },
   archiveItem: {
     flexDirection: 'row',
@@ -581,10 +551,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 2,
   },
-  archiveDuration: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
-  archiveText: { flex: 1, fontSize: rnType.label.size, color: tokens.text.primary },
-  archiveAction: { fontSize: rnType.caption.size, color: tokens.text.secondary },
+  archiveDuration: { fontSize: 11, color: tokens.text.tertiary },
+  archiveText: { flex: 1, fontSize: 12, color: tokens.text.primary },
+  archiveAction: { fontSize: 11, color: tokens.text.secondary },
 })
 
-export default VoiceNote
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

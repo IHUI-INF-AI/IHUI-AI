@@ -12,7 +12,11 @@
 //   {"web":"settings/llm","rn":"packages/app/src/features/.../XScreen.tsx","status":"aligned","note":"...","at":"2026-10-24"}
 //   {"web":"admin/users","status":"excluded","reason":"管理端,App 不承载","at":"2026-10-24"}
 //   {"web":"admin/**","status":"excluded","reason":"管理后台整段,App 不承载","at":"2026-10-24"}   ← 段级豁免(最大化减少登记量)
-// 未登记的 web 路由 = unmapped(功能缺口候选),报告按首段分组计数并附启发式 RN 候选(仅建议,不判定)。
+//   {"web":"agent-plan","status":"gap","note":"<判过:RN 该内容域零承载,含证据文件:行>","at":"2026-10-26"}
+// 未登记的 web 路由 = unmapped(功能缺口**候选** = 没人判过),报告按首段分组计数并附启发式 RN 候选(仅建议,不判定)。
+// 四桶分档(2026-10-26 补 gap 档):aligned / excluded / gap(判过确缺) / unmapped(未判定)。
+// 为什么必须有 gap 档:落地器此前 `if (verdict==='gap') continue` ⇒ 判过的缺口一行不留,
+// 下轮重扫又变回 unmapped —— "判过"与"没人判"结构上分不开(§0.3 的对称另一半:判过不能丢成没判)。
 // 登记腐烂(aligned 指向不存在的文件 / web 键不在路由集 / excluded 缺 reason / 段级豁免命中 0 条路由)
 // 逐条点名 —— 豁免必须"验过才免";前缀豁免与逐条登记重叠时逐条优先(更具体的判定赢)。
 //
@@ -143,27 +147,25 @@ function loadMap(face = FACE) {
   }
 }
 
-function run() {
-  const webRoutes = collectWebRoutes(FACE)
-  const rnScreens = collectRnScreens(FACE)
-  if (webRoutes.length === 0 || rnScreens.length === 0) {
-    console.error(
-      `❌ 未判定:取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length}),不记绿也不冒红`,
-    )
-    process.exit(2)
-  }
+/** 登记表 × web 路由集 → 四桶(aligned/excluded/gap/unmapped)+ 段级豁免命中 + 登记腐烂清单(纯函数)。
+ * 抽出来(2026-10-26)是为了让下游探针 `probe-web-rn-gap.mjs` 复用同一把尺子:「未映射集」的
+ * 定义全仓只能有一处(§0.6 单一真相源)。下游若各自按「web 路由 − 已登记」复算,段级豁免
+ * 与「逐条优先于段级」这两条规则一改,就会出现「对账尺报 229、探针报 231」的两把尺子,
+ * 而那 2 条差额是没有任何一档认领的幽灵缺口。
+ */
+function evaluateMap(webRoutes, map, rnScreens, face) {
   const webByRoute = new Map(webRoutes.map((r) => [r.route, r]))
   // 登记表可以指向共享屏(真相源)或端内薄壳任一层:屏名去重只服务「候选建议」,
   // 不能让同名的端内屏在归属面被判"不存在"(2026-10-25 实测 UserPublic/LlmSettings/EduShop 三屏误报 ——
   // 共享层有同名屏时 byName 记的是共享层 rel,而登记表写的是端内路径)。
   const rnByRel = new Map()
-  for (const s of cov.collectShared(FACE)) rnByRel.set(s.rel, s)
-  for (const r of cov.collectRn(FACE)) rnByRel.set(r.file, { rel: r.file, name: r.name })
-  const map = loadMap()
+  for (const s of cov.collectShared(face)) rnByRel.set(s.rel, s)
+  for (const r of cov.collectRn(face)) rnByRel.set(r.file, { rel: r.file, name: r.name })
 
   const rot = []
   const aligned = []
   const excluded = []
+  const judgedGap = []
   const prefixRows = []
   for (const row of map) {
     if (row.bad) {
@@ -199,10 +201,17 @@ function run() {
       aligned.push(row)
       continue
     }
+    // gap = 判过「RN 该内容域零承载」。证据必填:没有证据的 gap 与"没人判"不可区分。
+    // 这一档只减少 unmapped(未判定面),不进 aligned —— 缺口存量仍单独报数,不冒充已对齐。
+    if (row.status === 'gap') {
+      if (!row.note) rot.push({ line: row.line, why: 'gap 缺 note(判过必有证据,否则与未判定不可区分)' })
+      else judgedGap.push(row)
+      continue
+    }
     rot.push({ line: row.line, why: `未知 status:${String(row.status)}` })
   }
 
-  const mappedRoutes = new Set([...aligned, ...excluded].map((r) => r.web))
+  const mappedRoutes = new Set([...aligned, ...excluded, ...judgedGap].map((r) => r.web))
   const prefixHits = new Map()
   const prefixExcludedRoutes = new Set()
   for (const p of prefixRows) {
@@ -217,8 +226,25 @@ function run() {
     }
     if (!prefixHits.has(p.web)) rot.push({ line: p.line, why: `段级豁免命中 0 条路由:${p.web}` })
   }
-  const prefixExcluded = prefixHits.size
   const unmapped = webRoutes.filter((r) => !mappedRoutes.has(r.route) && !prefixExcludedRoutes.has(r.route))
+  return { aligned, excluded, judgedGap, rot, prefixHits, prefixRows, prefixExcludedRoutes, unmapped, rnScreens }
+}
+
+function run() {
+  const webRoutes = collectWebRoutes(FACE)
+  const rnScreens = collectRnScreens(FACE)
+  if (webRoutes.length === 0 || rnScreens.length === 0) {
+    console.error(
+      `❌ 未判定:取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length}),不记绿也不冒红`,
+    )
+    process.exit(2)
+  }
+  const map = loadMap()
+  // 未映射集的判据只有一处(§0.6):抽出来的 evaluateMap 同时供本尺与探针 probe-web-rn-gap 使用,
+  // 保证「对账尺报多少条,探针就分诊多少条」永远相等。
+  const ev = evaluateMap(webRoutes, map, rnScreens, FACE)
+  const { aligned, excluded, judgedGap, rot, prefixHits, prefixRows, unmapped } = ev
+  const prefixExcluded = prefixHits.size
   const usedRn = new Set(aligned.map((r) => r.rn))
   const rnOnly = rnScreens.filter((s) => !usedRn.has(s.rel))
 
@@ -237,6 +263,7 @@ function run() {
     rnAppOnly: rnScreens.filter((s) => s.layer === 'rn-app').length,
     aligned: aligned.length,
     excluded: excluded.length,
+    judgedGap: judgedGap.length,
     prefixExcluded,
     prefixHits: [...prefixHits.entries()],
     unmapped: unmapped.length,
@@ -260,7 +287,8 @@ function run() {
   log(`RN 屏              : ${rnScreens.length}(共享屏真相源 ${json.shared} + 端内独有 ${json.rnAppOnly})`)
   log(`已对齐(aligned)   : ${json.aligned}`)
   log(`已豁免(excluded)  : ${json.excluded}(逐条) + ${json.prefixExcluded}(段级 ${prefixRows.length} 个前缀)`)
-  log(`未映射 web 路由    : ${json.unmapped}  ← 功能缺口候选(逐屏登记后收敛)`)
+  log(`已判缺口(gap)     : ${json.judgedGap}  ← 判过「RN 零承载」,不再重复判定`)
+  log(`未映射 web 路由    : ${json.unmapped}  ← 功能缺口候选(**无人判过**;逐屏登记后收敛)`)
   log(`RN 独有屏         : ${json.rnOnly}`)
   log('')
   log('未映射按首段分组(前 25):')
@@ -284,5 +312,5 @@ if (isDirectRun) {
   run()
 }
 
-export const __test__ = { collectWebRoutes, collectRnScreens, screenTokens, routeTokens, suggestCandidates, loadMap, LANG_SEGS }
+export const __test__ = { collectWebRoutes, collectRnScreens, screenTokens, routeTokens, suggestCandidates, loadMap, evaluateMap, LANG_SEGS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

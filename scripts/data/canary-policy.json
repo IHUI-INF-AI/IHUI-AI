@@ -1,0 +1,51 @@
+{
+  "$comment": "金丝雀发布观察窗的唯一真源(O65 第 2 期 · 2026-10-26 立)。口径:只有 kind=origin 的端点参与回滚判据(本机 127.0.0.1,不经 Cloudflare,量得出真错误率/延迟);kind=public 的端点只记录、只报告,不参与判定 —— 公网腿经隧道,一次抖动就会把好构建判成坏构建(§12e 恒红门禁令,与 ihui-deploy.ps1 Test-HealthGate 的 entry-broken 同一条理由)。阈值与样本窗口只改本文件,scripts/canary-verdict.mjs 不内置第二份数值。",
+  "version": 1,
+  "issuedAt": "2026-10-26",
+  "window": {
+    "ticks": 8,
+    "gapMs": 5000,
+    "timeoutMs": 5000
+  },
+  "thresholds": {
+    "minSamples": 5,
+    "maxErrorRate": 0.05,
+    "maxErrorRateDelta": 0.05,
+    "maxP95Ms": 1500,
+    "maxP95Ratio": 1.5,
+    "maxP95DeltaMs": 500,
+    "minBaselineP95Ms": 50,
+    "maxUnknownRatio": 0.5
+  },
+  "endpoints": [
+    {
+      "id": "web-origin",
+      "kind": "origin",
+      "url": "http://127.0.0.1:8801",
+      "contains": "<!DOCTYPE html"
+    },
+    {
+      "id": "api-origin",
+      "kind": "origin",
+      "url": "http://127.0.0.1:8802/api/health",
+      "contains": "\"status\":\"ok\""
+    },
+    {
+      "id": "llm-origin",
+      "kind": "origin",
+      "url": "http://127.0.0.1:8803/health"
+    },
+    {
+      "id": "web-public",
+      "kind": "public",
+      "url": "https://www.aizhs.top",
+      "contains": "<!DOCTYPE html"
+    },
+    {
+      "id": "api-public",
+      "kind": "public",
+      "url": "https://www.aizhs.top/api/health",
+      "contains": "\"status\":\"ok\""
+    }
+  ]
+}

@@ -16,7 +16,7 @@
  */
 import { getToken } from '../utils/auth'
 import { STREAM_READ_TIMEOUT_MS } from '@ihui/shared/constants'
-import { runResumableSSEStream } from '@ihui/api-client'
+import { refreshAccessTokenOnce, runResumableSSEStream } from '@ihui/api-client'
 import {
   parseSSEChunk,
   SseMonotonicReplayGuard,
@@ -186,5 +186,13 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
       }
     },
     onReconnect,
+    // 2026-10-26:HTTP 401(access 15 分钟过期)续期一次并改写本次请求头,runner 原地重试。
+    // 续期实现与各 REST 腿共用 api-client 的全局单飞;失败即维持旧行为(401 终态)。
+    refreshAuth: async () => {
+      const fresh = await refreshAccessTokenOnce()
+      if (!fresh) return false
+      headers['Authorization'] = `Bearer ${fresh}`
+      return true
+    },
   })
 }

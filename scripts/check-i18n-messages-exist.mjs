@@ -43,8 +43,9 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { requireFlagValue } from './lib/flag-value.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const SELF_DIR = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(SELF_DIR, '..')
@@ -108,13 +109,9 @@ function resolveRoot(argv, env) {
   } else {
     // G-322:给了 --root 却没收到合法值(被下一个旗标顶掉/结尾无值/空串)⇒ 与等号缺值同型,
     // 必须抛错点名,不得把 `--staged` 之类当路径吃掉、更不得静默折回仓库根假装没给过。
-    const i = argv.indexOf('--root')
-    const raw = i >= 0 ? argv[i + 1] : undefined
-    if (i >= 0 && (typeof raw !== 'string' || raw === '' || raw.startsWith('-'))) {
-      const got = raw === undefined ? '(其后没有任何参数)' : JSON.stringify(raw)
-      throw new Error(`--root 需要一个目录参数 —— 紧邻的 token 实得:${got}(不得静默退回仓库根)`)
-    }
-    cli = raw ?? null
+    const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+    if (rootFlag.error) throw new Error(rootFlag.error)
+    cli = rootFlag.value
   }
   const fromEnv = String(env[ROOT_ENV_KEY] || '').trim() || null
   return path.resolve(cli || fromEnv || REPO_ROOT)
@@ -205,7 +202,14 @@ function scanLoaders(root) {
 function main() {
   const argv = process.argv
   const isStaged = argv.includes('--staged')
-  const root = resolveRoot(argv, process.env)
+  let root
+  try {
+    root = resolveRoot(argv, process.env)
+  } catch (e) {
+    // 用法错(--root 坏值)走干净出口:rc 2 + 点名实得 token,不以裸栈当用法错出口(§12f)。
+    console.error(`❌ ${e?.message ?? e}`)
+    return 2
+  }
 
   // 判不了就红,绝不静默 exit 0(与"空暂存恒绿""扫不到包就报绿"同族反例)
   if (EXPECTED_ITEM_COUNT === 0) {
@@ -241,15 +245,8 @@ function main() {
   if (isStaged) {
     let stagedFiles
     try {
-      // execFileSync + 参数数组:不经 cmd.exe(既避开 shell 元字符,也少一层派生窗口)
-      const staged = execFileSync('git', ['diff', '--cached', '--name-only'], {
-        encoding: 'utf8',
-        cwd: root,
-        windowsHide: true,
-        timeout: 15000,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      // 枚举走取材层:绝对 git + 参数数组(不经 cmd.exe)+ 显式 stdio + timeout 由 gitRaw 统一提供
+      const staged = gitRaw(['diff', '--cached', '--name-only'], root, { timeout: 15000 })
       stagedFiles = staged.split('\n').filter(Boolean)
     } catch {
       console.error(

@@ -22,6 +22,8 @@ import { autoResumeAfterHistory, resumePendingMessage } from '../resume-stream'
 vi.mock('@ihui/api-client', () => ({
   getModelContextCapacity: () => 128_000,
   parseStreamLine: (): string | null => null,
+  // 本用例的失败注入是 500(不是 401)⇒ 续期这条腿一次都不该被走到
+  refreshAccessTokenOnce: vi.fn(async () => null),
 }))
 
 vi.mock('@/lib/api', () => ({

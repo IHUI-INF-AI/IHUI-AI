@@ -24,7 +24,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, getModelContextCapacity, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
+import { streamChat, setBaseUrl, formatSSEError, getModelContextCapacity, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
+import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 // 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
@@ -893,14 +894,20 @@ export function buildAgentDangerGate(opts: {
     // 于是"关提示"与"关落链"两件事被物理分开(落链在包装器里,先于这段判序)。
     silent: true,
     auditSessionId: opts.sessionId,
-    onDecision: ({ route, tool, args }) => {
+    onDecision: ({ route, tool, args, reason }) => {
       if (opts.silent) return;
       if (route === 'flag') {
         console.info(
           chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`),
         );
       } else if (route === 'denied') {
-        console.error(chalk.red(`  ✗ 危险操作被拒绝(需 --allow-dangerous): ${tool.name}`));
+        // 拒因正文由唯一出口给出(为什么拒 + 怎么放行),本处只负责挂到终端。
+        console.error(
+          chalk.red(
+            `  ✗ 危险操作被拒绝(需 --allow-dangerous): ${tool.name}` +
+              (reason ? `\n    ${reason}` : ''),
+          ),
+        );
       }
     },
   });
@@ -2746,9 +2753,10 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   }
 
   setBaseUrl(opts.apiUrl);
-  if (opts.apiKey) {
-    setTokenProvider({ getToken: () => opts.apiKey ?? null });
-  }
+  // 凭据续期单点(与 index.ts / acp/server.ts / server/agent-core.ts / tools/subagent.ts
+  // 共用同一份 provider 判据):长会话跑过 access token 的 15 分钟后,包内 401 拦截器
+  // 必须能拿到 refreshAccessToken 才可能自愈。
+  registerCliTokenProvider({ baseUrl: opts.apiUrl, startupToken: opts.apiKey });
 
   // P1-5 输出格式:outputFormat 优先(显式 --output-format),否则按 jsonMode 决定(text / json)
   const outputFormat: OutputFormat = opts.outputFormat ?? (opts.jsonMode === true ? 'json' : 'text');

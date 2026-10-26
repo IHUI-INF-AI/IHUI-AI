@@ -40,7 +40,6 @@
  *   --parity-only: 仅做 5 语言 parity 校验,跳过源文件扫描;与 --staged 一起用时强制跑 parity
  *   无参数:        全量检查(CI 用, 历史遗留问题标 warning, exit 0)
  */
-import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { createRequire } from 'node:module'
@@ -888,13 +887,8 @@ let messagesChanged = false
 
 if (isStaged) {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
-      windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 枚举走取材层:绝对 git / 显式 stdio(§12g,EBUSY 病窗)/ windowsHide / timeout 由 gitRaw 统一提供。
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], REPO_ROOT)
     const staged = output.split('\n').filter(Boolean)
     messagesChanged = staged.some(
       (f) => f.endsWith('.json') && STAGED_MESSAGES_PREFIXES.some((p) => f.startsWith(p)),

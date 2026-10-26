@@ -336,6 +336,18 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[media_tasks] 建表异常(忽略,落库降级为不持久化): %s", e)
 
+    # G-244(2026-10-26 立):后台任务 run 状态 journal 回放 —— 重启后 bg_task_status
+    # 从行派生终态,不再"查无此任务"。失败只告警不阻塞启动;journal 真不可写时
+    # manager 会在第一次接单处显式禁用(禁用而非伪装)。
+    try:
+        from app.services.background_tasks import background_task_manager
+
+        _journal_stats = background_task_manager.hydrate_from_journal()
+        if _journal_stats["hydrated"] or _journal_stats["malformed"]:
+            logger.info("[BackgroundTask] run journal 回放完成: %s", _journal_stats)
+    except Exception as e:
+        logger.warning("[BackgroundTask] run journal 回放异常(忽略): %s", e)
+
     # 代码索引出域同意表启动自愈(2026-10-03 数据出域合规整改)。
     # 同意表在 .data/code_index_consent.json(本进程内),容器重建即丢 ⇒ 已 opt-out
     # 的用户被静默重置成"未表态",在 IHUI_CODE_INDEX_EGRESS=1 的部署上会**恢复代码
@@ -401,6 +413,18 @@ async def lifespan(app: FastAPI) -> Any:
 
     _ensure_expiry_janitor()
 
+    # 历史遗留明文 doom_loop 定时批量审计守护(2026-10-26 立)。清洗器
+    # scripts/redact_legacy_procedural_patterns.py 此前全仓调用面只有它自己的测试 ⇒ 存量脏
+    # pattern 永不被清("造好没装车"型)。本守护**只跑 dry-run、零写盘**(写盘仍须部署机
+    # 交互终端手动 --apply --confirm 再答库名),发现待改写/撞键行即点名告警。
+    # 默认开;PROCEDURAL_REDACT_AUDIT_ENABLED=0 关档,PROCEDURAL_REDACT_AUDIT_INTERVAL_SECONDS
+    # 调间隔(默认 86400s,下限 300s)。判据复用清洗器本体,不在守护重造。
+    from app.services.procedural_redact_daemon import (
+        ensure_started as _ensure_procedural_redact_audit,
+    )
+
+    _ensure_procedural_redact_audit()
+
     # 模型可用性服务(2026-07-31 立,用户规则:只显示可完美接通调用的模型)
     # 启动时后台跑首次 ping(不阻塞 FastAPI 启动)+ 每 5 分钟定时刷新 provider 健康状态。
     # /llm/models 端点调用 model_availability.get_available_models() 过滤不可用模型。
@@ -449,31 +473,32 @@ async def lifespan(app: FastAPI) -> Any:
 
     # 配置 FallbackRouter 故障转移
     from app.core.llm_gateway import fallback_router
-    # StepFun 主路由故障转移(2026-07-24 立,2026-09-05 修订):
-    # 原 stepfun -> agnes/gpt-4o 兜底已移除——agnes 聚合端点对本部署 key 无 gpt-4o 通道
-    # ("No available channel for model gpt-4o under group default",实测 502),属死配置。
-    # 改为 stepfun 双模型互备(同 provider,均实测稳定),避免无效升级失败。
+    # 2026-10-26 【stepfun 永久退役】:本段原为 stepfun 双模型互备 + gpt-4o -> stepfun
+    # 兜底。stepfun 订阅失效(余额 -0.09 CNY,/v1/chat/completions 恒定 400
+    # "you have no active step plan subscription"),机主明确不再续费 ⇒ 三条腿全部换掉。
+    # 现改为 agnes 双档互备(agnes 2026-10-26 实测直连 200,与 COMBO_CHAINS 同族),
+    # gpt-4o 显式指定失败时也落到 agnes,不再落到任何 stepfun 档。
     fallback_router.configure(
-        "stepfun/step-3.7-flash",
+        "agnes/agnes-2.5-flash",
         {
-            "fallbacks": ["stepfun/step-router-v1"],
+            "fallbacks": ["agnes/agnes-2.0-flash", "pollinations/openai-fast"],
             "triggerOnError": ["timeout", "overloaded", "rate_limited"],
         },
     )
     fallback_router.configure(
-        "stepfun/step-router-v1",
+        "agnes/agnes-2.0-flash",
         {
-            "fallbacks": ["stepfun/step-3.7-flash"],
+            "fallbacks": ["agnes/agnes-2.5-flash", "pollinations/openai-fast"],
             "triggerOnError": ["timeout", "overloaded", "rate_limited"],
         },
     )
     # gpt-4o(openai 官方端点)兜底(2026-09-04 立):auto-route 已显式排除 gpt-4o 作为
-    # premium 候选(本部署 openai key 无余额 + agnes 无 gpt-4o 通道);但若调用方显式
-    # 指定 gpt-4o,失败(LLM_ERROR/timeout 等)时切 stepfun/step-3.7-flash 保证不整体失败。
+    # premium 候选(本部署 openai key 无余额 + agnes 无 gpt-4o 通道);若调用方显式
+    # 指定 gpt-4o,失败(LLM_ERROR/timeout 等)时落到 agnes 保证不整体失败。
     fallback_router.configure(
         "gpt-4o",
         {
-            "fallbacks": ["stepfun/step-3.7-flash"],
+            "fallbacks": ["agnes/agnes-2.5-flash", "pollinations/openai-fast"],
             "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
         },
     )
@@ -495,8 +520,9 @@ async def lifespan(app: FastAPI) -> Any:
         },
     )
     logger.info(
-        "[fallback_router] configured: stepfun 双模型互备 + gpt-4o -> stepfun/step-3.7-flash"
-        " + 默认链 gemini-3.8-flash <-> @cf/glm-4.7-flash 互备(D208)"
+        "[fallback_router] configured: agnes 双档互备(2.5 <-> 2.0,末位 pollinations)"
+        " + gpt-4o -> agnes 兜底 + 默认链 gemini-3.8-flash <-> @cf/glm-4.7-flash 互备(D208)"
+        " [2026-10-26 stepfun 已永久退役,全部腿已换掉]"
     )
 
     # 启动时从 Redis 加载历史向量记忆(进程重启不丢)
@@ -772,6 +798,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         expiry_janitor.stop()
 
+    async def _s_procedural_redact_daemon() -> None:
+        from app.services import procedural_redact_daemon
+
+        procedural_redact_daemon.stop()
+
     async def _s_skill_evolution() -> None:
         from app.services.skill_evolution_scheduler import skill_evolution_scheduler
 
@@ -893,6 +924,7 @@ async def lifespan(app: FastAPI) -> Any:
         ("im_bridge_service", lambda: im_bridge_service.shutdown()),
         ("dream_scheduler", _s_dream_scheduler),
         ("expiry_janitor", _s_expiry_janitor),
+        ("procedural_redact_daemon", _s_procedural_redact_daemon),
         ("skill_evolution_scheduler", _s_skill_evolution),
         ("meta_learner_scheduler", _s_meta_learner),
         # L5 关闭 A/B 测试调度器(等待进行中的显著性检验任务完成)

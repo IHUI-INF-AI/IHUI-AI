@@ -28,11 +28,25 @@ def loop(monkeypatch):
     yield mod
 
 
+def _fake_request(user_id: str | None = None):
+    """承载层身份入参的最小替身(D-07 起端点第一个形参是 `request: Request`)。
+
+    `_resolve_owner_uuid` 只读 `request.state.user_id`,故替身只需要那一格;
+    不给 user_id ⇒ 与"未启用 JWT 的开发态"同形(身份 None),不新增判定。
+    """
+    from types import SimpleNamespace
+
+    state = SimpleNamespace()
+    if user_id is not None:
+        state.user_id = user_id
+    return SimpleNamespace(state=state)
+
+
 async def _submit(loop_mod, session_id: str, approval_id: str, decision: str, scope: str = "once", grant_rule=None):
     body: dict = {"approval_id": approval_id, "decision": decision, "scope": scope}
     if grant_rule:
         body["grant_rule"] = grant_rule
-    return await loop_mod.post_tool_approval_response(session_id, body)
+    return await loop_mod.post_tool_approval_response(_fake_request(), session_id, body)
 
 
 async def test_端点接受grant_rule扩展并原样入entry(loop):

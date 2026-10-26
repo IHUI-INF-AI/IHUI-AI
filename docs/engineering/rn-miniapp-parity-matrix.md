@@ -11,38 +11,153 @@
 > 候选列只是名字 token 线索(不判定),落地时须按该屏实际字段/接口核实。
 
 - 判定面: **HEAD blob**
-- 共享屏(真相源): **219**
-- 已被小程序显式镜像: **198**
-- 缺口合计: **21**(其中已判定 21 / 未判定 0)
-- 判定台账: **105** 行 — 路径与口径单源 `scripts/lib/cross-end-verdicts.mjs`
-- 台账三档: **缺页待造 98** / **已造页待补数据钩子 0** / **不承载 7**
+- 共享屏(真相源): **218**
+- 已被小程序显式镜像: **79**
+- 缺口(未判定镜像): **139**
 
 ## 缺口清单
 
-| # | 共享屏(域) | RN 候选屏 | 小程序既有页线索 | 状态 | 判定依据 |
-|---|---|---|---|---|---|
-| 1 | `agent-chat/AgentChatScreen` | ★AgentChatScreen / AgentCategoriesScreen | pkg-ai/ai/chat / pkg-ai/ai/agent | 🧱 缺页(已判定) | packages/app/src/features/agent-chat/AgentChatScreen.tsx:98 用 t('agentChat.placeholder'),RN 壳 apps/mobile-rn/src/screens/AgentChatScreen.tsx:39 读写 /api/agents/{id}/messages;小程序 apps/miniapp-taro/src/pkg-ai/ai/chat.tsx 的命名空间为 ai/chat(已镜像 chat/ChatScreen)且无 agentChat 键、无 /api/agents/{id}/messages 端点,功能面不同,故该造页。 |
-| 2 | `agent-review-detail/AgentReviewDetailScreen` | AgentDetailScreen / AgentReviewListScreen | pkg-ai/ai/agent-detail / pkg-user/agent-review-list/index | 🧱 缺页(已判定) | packages/app/src/features/agent-review-detail/AgentReviewDetailScreen.tsx:32 用 t('agentReviewDetail.title');apps/mobile-rn/src/screens 下无任何屏 import AgentReviewDetailScreen(全仓 RN 消费方为空),小程序端亦无 agentReviewDetail 命名空间与评价详情页,评价详情功能两面皆缺,故该造页。 |
-| 3 | `ai-world/AiWorldScreen` | ★AiWorldCreateScreen / ★AiWorldScreen | pkg-ai/ai/chat / pkg-ai/ai/history | 🧱 缺页(已判定) | packages/app/src/features/ai-world/AiWorldScreen.tsx:177 用 t('aiWorld.title'),RN 壳 apps/mobile-rn/src/screens/AiWorldScreen.tsx:169 读 GET /api/ai-world(含 /tools /apps /news /rankings);小程序 apps/miniapp-taro/src 全文检索 /api/ai-world 命中 0 处,AI 世界页缺失,故该造页。 |
-| 4 | `assistant/AssistantScreen` | ★AiAssistantN8nScreen / ★AiAssistantScreen | pkg-ai/ai-assistant/index / pkg-ai/ai-assistant-n8n/index | 🧱 缺页(已判定) | packages/app/src/features/assistant/AssistantScreen.tsx:24 用 labelKey 'assistant.tabDraft'/'assistant.tabReviewing' 与 SUB_TABS 'assistant.subTabRejected';最接近的 apps/miniapp-taro/src/pkg-ai/developer/index.tsx:57 同用 assistant.tabDraft/subTabRejected/subTabOffline,但该页头注 apps/miniapp-taro/src/pkg-ai/developer/index.tsx:7 明示其 RN 同物是 DevEnterScreen、且键级重合为 0(仅通用 common.*),不足以判 declare,该造页。 |
-| 5 | `connectors/ConnectorsScreen` | ★ConnectorsScreen | — | 🧱 缺页(已判定) | packages/app/src/features/connectors/ConnectorsScreen.tsx:22 文案键为 connectors.*,RN 壳 apps/mobile-rn/src/screens/ConnectorsScreen.tsx:62 调 getConnectors;小程序 apps/miniapp-taro/src 全文检索 connectors 命中 0 处,也无 connectors 命名空间,连接器管理页缺失,故该造页。 |
-| 6 | `console-table/ConsoleTableScreen` | — | — | 🚫 不承载(已判定) | packages/app/src/features/console-table/ConsoleTableScreen.tsx:21-25 注释明写「通用控制台列表屏 —— 61 条控制台类页面(models/developer 网关族)的规模化杠杆」,是列配置驱动的通用 UI 杠杆而非一个具体页面;其 RN 消费方为 20 个 edu/developer 薄壳(如 apps/mobile-rn/src/screens/EduGradesScreen.tsx),小程序对应页 apps/miniapp-taro/src/pkg-user/edu-mgmt-grades/index.tsx:5 已各自对齐其 RN 薄壳,不存在也不该造一个「控制台表」页。 |
-| 7 | `dashboard/DashboardScreen` | ★DashboardScreen | — | 🚫 不承载(已判定) | packages/app/src/features/dashboard/DashboardScreen.tsx:24 是全注入式指标看板(items/renderLoading/renderEmpty 全靠平台注入),RN 壳 apps/mobile-rn/src/screens/DashboardScreen.tsx:60 的数据源是 /api/admin/error-dashboard/stats 管理端错误看板;小程序 app.config.ts 无 admin 页,不由小程序承载,判 not-applicable。 |
-| 8 | `domain-hub/DomainHubScreen` | ★DomainHubScreen | — | 🚫 不承载(已判定) | packages/app/src/features/domain-hub/DomainHubScreen.tsx:16 头注自述跨端共享域入口二级屏(G-921),条目全靠平台注入(DomainHubItem key/label/icon),RN 壳 apps/mobile-rn/src/screens/DomainHubScreen.tsx:19 是 P3 侧边栏收敛用的域入口;小程序 app.config.ts:260-303 只有 5 tab+分包、无侧边栏形态,判通用导航组件屏 not-applicable。 |
-| 9 | `favorites/FavoritesScreen` | ★FavoritesScreen | pkg-user/favorites/index | 🧱 缺页(已判定) | packages/app/src/features/favorites/FavoritesScreen.tsx:27 是收藏列表(RN 壳 apps/mobile-rn/src/screens/FavoritesScreen.tsx:10 同用 getFavorites/deleteFavorite);小程序唯一收藏页 apps/miniapp-taro/src/pkg-user/favorites/index.tsx:5 已声明镜像同域近亲 favorite/FavoriteScreen.tsx,同一页不可二次登记,本屏无独立在册页,证据不足需人工确认。 |
-| 10 | `finance/FinanceScreen` | ★EduFinanceScreen | pkg-user/edu-mgmt-finance/index | 🧱 缺页(已判定) | packages/app/src/features/finance/FinanceScreen.tsx:16 是财务汇总四卡(余额/今日收入/累计收入/累计支出);RN 端无壳消费该符号(apps/mobile-rn/src/screens/EduFinanceScreen.tsx:15 只 import ConsoleTableScreen);小程序 pkg-user/edu-mgmt-finance/index.tsx:5 是教育缴费记录(对齐 EduFinanceScreen),pkg-shop 只有充值/提现/佣金/余额(app.config.ts:66-88),无财务汇总页,故该造页。 |
-| 11 | `following/FollowingScreen` | — | pkg-user/following/index | 🧱 缺页(已判定) | packages/app/src/features/following/FollowingScreen.tsx:32 是关注列表,但 apps/mobile-rn/src/screens 下无壳 import FollowingScreen(仅 packages/app/src/index.ts:103 导出);小程序唯一关注页 apps/miniapp-taro/src/pkg-user/following/index.tsx:5 已声明镜像 follow/FollowScreen(带粉丝 Tab),本屏两端均无承载,证据不足需人工确认。 |
-| 12 | `help-detail/HelpDetailScreen` | ActivityDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🧱 缺页(已判定) | packages/app/src/features/help-detail/HelpDetailScreen.tsx:16 是帮助详情页,但 apps/mobile-rn/src/screens 下无壳 import HelpDetailScreen;小程序在册 pkg-about/about/help(apps/miniapp-taro/src/pkg-about/about/help.tsx:4 镜像 help/HelpScreen,app.config.ts:171)只有帮助列表,无帮助详情路由,故该造页。 |
-| 13 | `knowledge-planet/KnowledgePlanetScreen` | ★KnowledgePlanetScreen / CoursePlanetScreen | pkg-learn/course-planet/index / pkg-mirror/knowledge-base/index | 🧱 缺页(已判定) | 共享屏渲染知识星球资讯列表(packages/app/src/features/knowledge-planet/KnowledgePlanetScreen.tsx:45),RN 壳取 /api/knowledge-planet/news(apps/mobile-rn/src/screens/KnowledgePlanetScreen.tsx:28);小程序端 api 层虽已备 getKnowledgePlanetNews(apps/miniapp-taro/src/api/index.ts:1479)但无任何在册页调用,最接近的 pkg-learn/course-planet/index 已被 course-planet 镜像占用 => 缺口,需补页 |
-| 14 | `learn/LearnScreen` | ★LearnDevelopScreen / ★LearnMapScreen | pkg-learn/course/list / pkg-learn/course/detail | 🧱 缺页(已判定) | 共享屏是学习分类首页(CATEGORIES 含抖音运营/私域运营等,packages/app/src/features/learn/LearnScreen.tsx:29);小程序端无学习分类页,首页课程入口直达 /pkg-learn/course/list(apps/miniapp-taro/src/pages/index/index.tsx:961),该页已被 course-tab 镜像占用 => 缺口 |
-| 15 | `legal-doc/LegalDocScreen` | KnowledgeDocScreen | pkg-mirror/knowledge-doc/index | 🚫 不承载(已判定) | 头注自述为通用静态页(隐私政策/用户协议/Cookie 政策等,packages/app/src/features/legal-doc/LegalDocScreen.tsx:16),是多页共用杠杆而非具体页面,RN 侧亦无壳;小程序端每个具体法律页各有专属共享屏并已镜像(apps/miniapp-taro/src/pkg-about/about/privacy.tsx:4 镜像 privacy)=> 不由小程序端单独承载 |
-| 16 | `login/LoginScreen` | ★LoginScreen | — | 🚫 不承载(已判定) | 机主定档小程序端不该有登录页,login 页已整个删除,登录只剩我的 tab 上的弹窗一个宿主(apps/miniapp-taro/src/app.config.ts:17);共享屏是 RN 端 4-tab 完整版(packages/app/src/features/login/LoginScreen.tsx:43),本就不由小程序承载 => not-applicable |
-| 17 | `mcp-store/McpStoreScreen` | ★McpStoreScreen | — | 🚫 不承载(已判定) | 该屏是 MCP Server 管理与安装能力,对应 Web /mcp-store(apps/mobile-rn/src/screens/McpStoreScreen.tsx:24),RN 侧入口全在开发者工作台屏(PatrolScreen/RepoWikiScreen/SelfHealingScreen/TeamMemoryScreen),小程序端无对应工作台域,apps/miniapp-taro/src/api/index.ts 无 mcp 端点 => 桌面/开发端专属 |
-| 18 | `publish/PublishScreen` | ★AigcPublishScreen / ★PublishAccountsScreen | pkg-ai/aigc/publish / pages/study/publish/index | 🧱 缺页(已判定) | 共享屏 packages/app/src/features/publish/PublishScreen.tsx:24 是内容发布中心,RN 壳 apps/mobile-rn/src/screens/PublishScreen.tsx:54 调 listPublishTasks(/api/publish/tasks);小程序 api/index.ts 无 publish/tasks 出口(仅 :1408 publishAigc → /aigc/publish),在册的两个发布页 pkg-ai/aigc/publish.tsx:5 与 pages/study/publish/index.tsx:5 分别已镜像 aigc-publish 与 study-publish ⇒ 缺发布任务中心页。 |
-| 19 | `square/SquareScreen` | — | — | 🧱 缺页(已判定) | RN 壳 apps/mobile-rn/src/screens/NewsScreen.tsx:45 以 SquareScreen as SharedSquareScreen 渲染、:420 落地,共享屏 packages/app/src/features/square/SquareScreen.tsx:29 收 articles+categories 分类内联栏列表;小程序端 pages/share/index.tsx:5 已镜像 share/ShareScreen、pkg-content/news/list.tsx:5 已镜像 article-list/ArticleListScreen —— 两页均被别屏占用声明,端内暂无 Square 屏 ⇒ 判 missing。 |
-| 20 | `sub-package-index/SubPackageIndexScreen` | ★SubPackageIndexScreen | — | 🧱 缺页(已判定) | 共享屏 packages/app/src/features/sub-package-index/SubPackageIndexScreen.tsx:24 是子包功能入口聚合网格,RN 壳 apps/mobile-rn/src/screens/SubPackageIndexScreen.tsx:33-79 的 ENTRIES 全指向 RN 专属路由(MoreCourse/DevEnterCover/PlazaCover/AppTopup/Learn/StudyIndex/AiGroup/AigcList);小程序 app.config.ts:28-248 的 subPackages 是构建期清单、端内只有 5 个 tabBar 页,无同型运行时聚合页 ⇒ 该造页。 |
-| 21 | `switch-prefs/SwitchPrefsScreen` | — | — | 🚫 不承载(已判定) | 头注自述为通用杠杆屏:packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx:13-14「通用开关偏好屏 —— 开关型设置页(developer/notifications、developer/settings、settings/preferences 等)的规模化杠杆…本屏纯 UI」;RN 端无同名屏,只有薄壳 apps/mobile-rn/src/screens/DeveloperSettingsScreen.tsx:107 与 DeveloperNotificationsScreen.tsx:90 传 items,故该通用组件屏不该由小程序单页承载。 |
+| # | 共享屏(域) | RN 候选屏 | 小程序既有页线索 | 状态 |
+|---|---|---|---|---|
+| 1 | `activity-detail/ActivityDetailScreen` | ActivityScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 |
+| 2 | `agent-chat/AgentChatScreen` | ★AgentChatScreen / AgentCategoriesScreen | pkg-ai/ai/chat / pkg-ai/ai/agent | 🔲 |
+| 3 | `agent-create/AgentCreateScreen` | ★AgentCreateScreen / AgentCategoriesScreen | pkg-ai/ai/agent / pkg-ai/ai/agent-detail | 🔲 |
+| 4 | `agent-detail/AgentDetailScreen` | ★AgentDetailScreen / AgentCategoriesScreen | pkg-ai/ai/agent-detail / pkg-ai/ai/agent | 🔲 |
+| 5 | `agent-market/AgentMarketScreen` | ★AgentMarketScreen / AgentCategoriesScreen | pkg-ai/ai/agent / pkg-ai/ai/agent-detail | 🔲 |
+| 6 | `agent-review-detail/AgentReviewDetailScreen` | AgentDetailScreen / AgentReviewListScreen | pkg-ai/ai/agent-detail / pkg-ai/ai/agent | 🔲 |
+| 7 | `agent-review-list/AgentReviewListScreen` | ★AgentReviewListScreen / AgentCategoriesScreen | pkg-ai/ai/agent / pkg-ai/ai/agent-detail | 🔲 |
+| 8 | `agent-screen/AgentScreen` | ★AgentCategoriesScreen / ★AgentChatScreen | pkg-ai/ai/agent / pkg-ai/ai/agent-detail | 🔲 |
+| 9 | `agent-setting/AgentSettingScreen` | ★AgentSettingScreen / AgentCategoriesScreen | pkg-ai/ai/agent / pkg-ai/ai/agent-detail | 🔲 |
+| 10 | `agent-stat/AgentStatScreen` | ★AgentStatScreen / AgentCategoriesScreen | pkg-ai/ai/agent / pkg-ai/ai/agent-detail | 🔲 |
+| 11 | `agreement/AgreementScreen` | ★AgreementScreen | — | 🔲 |
+| 12 | `aigc-cover/AigcCoverScreen` | ★AigcCoverScreen / AigcListScreen | pkg-ai/aigc/list / pkg-ai/aigc/publish | 🔲 |
+| 13 | `ai-multimodal/AIMultimodalScreen` | ★AIMultimodalScreen | — | 🔲 |
+| 14 | `ai-world/AiWorldScreen` | ★AiWorldCreateScreen / ★AiWorldScreen | pkg-ai/ai/chat / pkg-ai/ai/history | 🔲 |
+| 15 | `api-settings/ApiSettingsScreen` | ★ApiSettingsScreen / ApiKeysScreen | pkg-about/about/api-settings/index / pkg-user/user/settings | 🔲 |
+| 16 | `app-permission/AppPermissionScreen` | ★AppPermissionScreen | pkg-about/about/app-permission/index | 🔲 |
+| 17 | `app-topup/AppTopupScreen` | ★AppTopupScreen / ★TopupFailScreen | — | 🔲 |
+| 18 | `assistant/AssistantScreen` | ★AiAssistantN8nScreen / ★AiAssistantScreen | pkg-ai/ai-assistant/index / pkg-ai/ai-assistant-n8n/index | 🔲 |
+| 19 | `automations/AutomationsScreen` | ★AutomationsScreen | — | 🔲 |
+| 20 | `bank-card/BankCardScreen` | ★BankCardScreen / BusinessCardEditScreen | pkg-ai/business-card/index | 🔲 |
+| 21 | `bookmark/BookmarkScreen` | ★BookmarkScreen | — | 🔲 |
+| 22 | `cert-apply/CertApplyScreen` | ★CertApplyScreen / CertDetailScreen | — | 🔲 |
+| 23 | `cert-detail/CertDetailScreen` | ★CertDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 |
+| 24 | `certificate/CertificateScreen` | ★CertificateScreen | — | 🔲 |
+| 25 | `cert-list/CertListScreen` | ★CertListScreen / AgentReviewListScreen | pkg-ai/aigc/list / pkg-shop/order/list | 🔲 |
+| 26 | `cert-verify/CertVerifyScreen` | ★CertVerifyScreen / CertApplyScreen | — | 🔲 |
+| 27 | `change-phone/ChangePhoneScreen` | ★ChangePhoneScreen / ChangePwdScreen | pkg-user/user/phone | 🔲 |
+| 28 | `change-pwd/ChangePwdScreen` | ★ChangePwdScreen / ChangePhoneScreen | — | 🔲 |
+| 29 | `chat-room/ChatRoomScreen` | AgentChatScreen / ChatScreen | pkg-ai/ai/chat / pkg-ai/ai-chat-detail/index | 🔲 |
+| 30 | `chat/ChatScreen` | ★AgentChatScreen / ★ChatScreen | pkg-ai/ai/chat / pkg-ai/ai-chat-detail/index | 🔲 |
+| 31 | `circle-chat/CircleChatScreen` | ★CircleChatScreen / AgentChatScreen | pkg-ai/ai/chat / pkg-ai/ai-circle/index | 🔲 |
+| 32 | `circle-member/CircleMemberScreen` | ★CircleMemberScreen / CircleChatScreen | pkg-ai/ai-circle/index / pages/distribution/member-detail/index | 🔲 |
+| 33 | `connected-accounts/ConnectedAccountsScreen` | ★ConnectedAccountsScreen / PublishAccountsScreen | — | 🔲 |
+| 34 | `connectors/ConnectorsScreen` | ★ConnectorsScreen | — | 🔲 |
+| 35 | `console-table/ConsoleTableScreen` | — | — | 🔲 |
+| 36 | `context/ContextScreen` | ★ContextScreen | — | 🔲 |
+| 37 | `conversation-import/ConversationImportScreen` | ★ConversationImportScreen | pkg-ai/ai/conversation-import | 🔲 |
+| 38 | `coupon/CouponScreen` | ★CouponScreen | pages/member/coupon / pages/member/coupon-list | 🔲 |
+| 39 | `course-annex/CourseAnnexScreen` | ★CourseAnnexScreen / CourseCatalogScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 40 | `course-catalog/CourseCatalogScreen` | ★CourseCatalogScreen / CourseAnnexScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 41 | `course-chapter/CourseChapterScreen` | ★CourseChapterScreen / CourseAnnexScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 42 | `course-comment/CourseCommentScreen` | ★CourseCommentScreen / CourseAnnexScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 43 | `course-enroll/CourseEnrollScreen` | ★CourseEnrollScreen / CourseAnnexScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 44 | `course-filter/CourseFilterScreen` | ★CourseFilterScreen / CourseAnnexScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 45 | `course-qa-ask/CourseQAAskScreen` | ★CourseQAAskScreen / CourseAnnexScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 46 | `course-qa-list/CourseQAListScreen` | ★CourseQAListScreen / CourseAnnexScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 47 | `course-resource/CourseResourceScreen` | ★CourseResourceScreen / CourseAnnexScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 48 | `course-screen/CourseScreen` | ★CourseAnnexScreen / ★CourseCatalogScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 49 | `course-tab/CourseTabScreen` | CourseAnnexScreen / CourseCatalogScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 50 | `customer-service/CustomerServiceScreen` | ★CustomerServiceScreen | — | 🔲 |
+| 51 | `dashboard/DashboardScreen` | ★DashboardScreen | — | 🔲 |
+| 52 | `domain-hub/DomainHubScreen` | ★DomainHubScreen | — | 🔲 |
+| 53 | `earn-commission/EarnCommissionScreen` | ★EarnCommissionScreen | pkg-shop/wallet/commission/index / pages/distribution/commission | 🔲 |
+| 54 | `exam-history/ExamHistoryScreen` | ★ExamHistoryScreen / ExamQuestionScreen | pkg-ai/ai/history / pkg-learn/live/history | 🔲 |
+| 55 | `exam-question/ExamQuestionScreen` | ★ExamQuestionScreen / ExamHistoryScreen | pages/exam/list / pages/exam/detail | 🔲 |
+| 56 | `exam/ExamScreen` | ★ExamHistoryScreen / ★ExamQuestionScreen | pages/exam/list / pages/exam/detail | 🔲 |
+| 57 | `favorites/FavoritesScreen` | ★FavoritesScreen | pkg-user/favorites/index | 🔲 |
+| 58 | `feedback-detail/FeedbackDetailScreen` | ★FeedbackDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 |
+| 59 | `feedback/FeedbackHistoryScreen` | ★FeedbackHistoryScreen / ExamHistoryScreen | pkg-ai/ai/history / pkg-learn/live/history | 🔲 |
+| 60 | `feedback/FeedbackScreen` | ★FeedbackDetailScreen / ★FeedbackHistoryScreen | pkg-user/user/feedback | 🔲 |
+| 61 | `finance/FinanceScreen` | ★EduFinanceScreen | pkg-user/edu-mgmt-finance/index | 🔲 |
+| 62 | `following/FollowingScreen` | — | pkg-user/following/index | 🔲 |
+| 63 | `help-detail/HelpDetailScreen` | AgentDetailScreen / AiSkillDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 |
+| 64 | `help/HelpScreen` | ★HelpScreen | pkg-about/about/help | 🔲 |
+| 65 | `history/HistoryScreen` | ★ExamHistoryScreen / ★FeedbackHistoryScreen | pkg-ai/ai/history / pkg-learn/live/history | 🔲 |
+| 66 | `home/HomeScreen` | ★HomeScreen | — | 🔲 |
+| 67 | `identity-verify/IdentityVerifyScreen` | ★IdentityVerifyScreen / CertVerifyScreen | — | 🔲 |
+| 68 | `image-gen-gallery/ImageGenGalleryScreen` | ★ImageGenGalleryScreen / ImageGenCreateScreen | pkg-ai/ai/image | 🔲 |
+| 69 | `image-gen-history/ImageGenHistoryScreen` | ★ImageGenHistoryScreen / ImageGenCreateScreen | pkg-ai/ai/history / pkg-ai/ai/image | 🔲 |
+| 70 | `image-gen-templates/ImageGenTemplatesScreen` | ★ImageGenTemplatesScreen / ImageGenCreateScreen | pkg-ai/ai/image | 🔲 |
+| 71 | `income/IncomeScreen` | ★IncomeScreen / ★ModelIncomeScreen | pkg-ai/developer/income | 🔲 |
+| 72 | `invite/InviteScreen` | ★InviteScreen | — | 🔲 |
+| 73 | `knowledge-base/KnowledgeBaseScreen` | ★KnowledgeBaseEditScreen / ★KnowledgeBaseScreen | — | 🔲 |
+| 74 | `knowledge-base/KnowledgeCreateScreen` | ★KnowledgeCreateScreen / AgentCreateScreen | pkg-content/community/create/index / pages/circle/create | 🔲 |
+| 75 | `knowledge-base/KnowledgeDocScreen` | ★KnowledgeDocScreen / KnowledgeBaseEditScreen | — | 🔲 |
+| 76 | `knowledge-planet/KnowledgePlanetScreen` | ★KnowledgePlanetScreen / CoursePlanetScreen | pkg-learn/course-planet/index | 🔲 |
+| 77 | `learn/LearnScreen` | ★LearnDevelopScreen / ★LearnMapScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 78 | `legal-doc/LegalDocScreen` | KnowledgeDocScreen | — | 🔲 |
+| 79 | `live-chat/LiveChatScreen` | ★LiveChatScreen / AgentChatScreen | pkg-ai/ai/chat / pkg-ai/ai-chat-detail/index | 🔲 |
+| 80 | `live-playback/LivePlaybackListScreen` | ★LivePlaybackListScreen / LiveListScreen | pkg-learn/live/list / pkg-ai/aigc/list | 🔲 |
+| 81 | `live-playback-screen/LivePlaybackScreen` | ★LivePlaybackListScreen / ★LivePlaybackScreen | pkg-learn/live/list / pkg-learn/live/detail | 🔲 |
+| 82 | `live-preview/LivePreviewScreen` | ★LivePreviewScreen / LiveChatScreen | pkg-learn/live/list / pkg-learn/live/detail | 🔲 |
+| 83 | `live/LiveScreen` | ★LiveChatScreen / ★LiveDetailScreen | pkg-learn/live/list / pkg-learn/live/detail | 🔲 |
+| 84 | `login/LoginScreen` | ★LoginScreen | — | 🔲 |
+| 85 | `mcp-store/McpStoreScreen` | ★McpStoreScreen | — | 🔲 |
+| 86 | `memory/MemoryScreen` | ★MemoryNewScreen / ★MemoryScreen | — | 🔲 |
+| 87 | `message-center/MessageCenterScreen` | ★MessageCenterScreen / MessageChatScreen | pkg-user/message/index / pkg-user/task-center/index | 🔲 |
+| 88 | `message-chat/MessageChatScreen` | ★MessageChatScreen / AgentChatScreen | pkg-ai/ai/chat / pkg-ai/ai-chat-detail/index | 🔲 |
+| 89 | `message-detail/MessageDetailScreen` | ★MessageDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 |
+| 90 | `message-direct/MessageDirectScreen` | ★MessageDirectScreen / MessageCenterScreen | pkg-user/message/index | 🔲 |
+| 91 | `message-group/MessageGroupScreen` | ★MessageGroupScreen / AiGroupScreen | pkg-ai/ai-group/index / pkg-user/message/index | 🔲 |
+| 92 | `message-system/MessageSystemScreen` | ★MessageSystemScreen / MessageCenterScreen | pkg-user/message/index | 🔲 |
+| 93 | `model-income/ModelIncomeScreen` | ★ModelIncomeScreen / IncomeScreen | pkg-ai/model-plaza/index / pkg-ai/developer/income | 🔲 |
+| 94 | `more-course/MoreCourseScreen` | ★MoreCourseScreen / CourseAnnexScreen | pkg-learn/course/list / pkg-learn/course/detail | 🔲 |
+| 95 | `note-create/NoteCreateScreen` | ★NoteCreateScreen / AgentCreateScreen | pkg-content/community/create/index / pages/circle/create | 🔲 |
+| 96 | `note-detail/NoteDetailScreen` | ★NoteDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 |
+| 97 | `note-list/NoteListScreen` | ★NoteListScreen / AgentReviewListScreen | pkg-ai/aigc/list / pkg-shop/order/list | 🔲 |
+| 98 | `note/NoteScreen` | ★NoteCreateScreen / ★NoteDetailScreen | — | 🔲 |
+| 99 | `notification/NotificationListScreen` | ★NotificationListScreen / AgentReviewListScreen | pkg-ai/aigc/list / pkg-shop/order/list | 🔲 |
+| 100 | `order-log/OrderLogScreen` | ★OrderLogScreen / DistributionOrderListScreen | pkg-shop/order/list / pkg-shop/order/detail | 🔲 |
+| 101 | `order/OrderScreen` | ★DistributionOrderListScreen / ★OrderDetailScreen | pkg-shop/order/list / pkg-shop/order/detail | 🔲 |
+| 102 | `order-track/OrderTrackScreen` | ★OrderTrackScreen / DistributionOrderListScreen | pkg-shop/order/list / pkg-shop/order/detail | 🔲 |
+| 103 | `payment/PaymentScreen` | ★PaymentScreen | — | 🔲 |
+| 104 | `point-history/PointHistoryScreen` | ★PointHistoryScreen / ExamHistoryScreen | pkg-ai/ai/history / pkg-learn/live/history | 🔲 |
+| 105 | `point-rule/PointRuleScreen` | ★PointRuleScreen / PointHistoryScreen | — | 🔲 |
+| 106 | `points-mall/PointsMallScreen` | ★PointsMallScreen / PointsRecordScreen | — | 🔲 |
+| 107 | `points-record/PointsRecordScreen` | ★PointsRecordScreen / IcpRecordScreen | pkg-about/about/icp-record/index / pkg-about/about/model-record/index | 🔲 |
+| 108 | `points/PointsScreen` | ★PointsMallScreen / ★PointsRecordScreen | — | 🔲 |
+| 109 | `privacy/PrivacyScreen` | ★PrivacyScreen | pkg-about/about/privacy / pages/setting/privacy | 🔲 |
+| 110 | `profile-edit/ProfileEditScreen` | ★ProfileEditScreen / ArticleEditScreen | pkg-ai/dev-enter/model-edit/index / pkg-user/user/profile | 🔲 |
+| 111 | `profile/ProfileScreen` | ★ProfileEditScreen / ★ProfileScreen | pkg-user/user/profile | 🔲 |
+| 112 | `promote/PromoteScreen` | ★PromoteScreen | — | 🔲 |
+| 113 | `promotion/PromotionScreen` | ★PromotionScreen | — | 🔲 |
+| 114 | `publish/PublishScreen` | ★AigcPublishScreen / ★PublishAccountsScreen | pkg-ai/aigc/publish / pages/study/publish/index | 🔲 |
+| 115 | `qr-code/QrCodeScreen` | ★QrCodeScreen | — | 🔲 |
+| 116 | `real-name-auth/RealNameAuthScreen` | ★RealNameAuthScreen | — | 🔲 |
+| 117 | `referrer/ReferrerScreen` | ★ReferrerScreen | — | 🔲 |
+| 118 | `refund-detail/RefundDetailScreen` | ★RefundDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 |
+| 119 | `refund-history/RefundHistoryScreen` | ★RefundHistoryScreen / ExamHistoryScreen | pkg-ai/ai/history / pkg-shop/order/refund | 🔲 |
+| 120 | `security-settings/SecuritySettingsScreen` | ★SecuritySettingsScreen / ApiSettingsScreen | pkg-user/user/settings / pkg-user/llm-settings/index | 🔲 |
+| 121 | `self-media/SelfMediaScreen` | ★SelfMediaScreen / SelfHealingScreen | — | 🔲 |
+| 122 | `settings-account/SettingsAccountScreen` | ★SettingsAccountScreen / AccountCancelScreen | pkg-user/user/settings / pkg-user/llm-settings/index | 🔲 |
+| 123 | `spec/SpecScreen` | ★SpecScreen | — | 🔲 |
+| 124 | `square/SquareScreen` | — | — | 🔲 |
+| 125 | `study-index/StudyIndexScreen` | ★EduChildStudyPlansScreen / ★StudyIndexScreen | pkg-user/edu-child/study-plans/index / pages/study/index | 🔲 |
+| 126 | `study-progress/StudyProgressScreen` | ★StudyProgressScreen / EduChildStudyPlansScreen | pkg-user/edu-child/study-plans/index / pages/study/index | 🔲 |
+| 127 | `sub-package-index/SubPackageIndexScreen` | ★SubPackageIndexScreen | — | 🔲 |
+| 128 | `switch-prefs/SwitchPrefsScreen` | — | — | 🔲 |
+| 129 | `team-detail/TeamDetailScreen` | ★TeamDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 |
+| 130 | `topup-fail/TopupFailScreen` | ★TopupFailScreen / AppTopupScreen | — | 🔲 |
+| 131 | `topup-success/TopupSuccessScreen` | ★TopupSuccessScreen / AppTopupScreen | pkg-shop/vip/success | 🔲 |
+| 132 | `usage/UsageScreen` | ★UsageRulesScreen / ★UsageScreen | pkg-about/about/usage-rules/index | 🔲 |
+| 133 | `video-player/VideoPlayerScreen` | ★VideoPlayerScreen | pkg-ai/ai/video / pages/study/video-detail/index | 🔲 |
+| 134 | `vip-compare/VipCompareScreen` | ★VipCompareScreen / VipBenefitScreen | pkg-shop/vip/index / pkg-shop/vip/privilege | 🔲 |
+| 135 | `vip-level/VipLevelScreen` | ★VipLevelScreen / VipBenefitScreen | pkg-shop/vip/index / pkg-shop/vip/privilege | 🔲 |
+| 136 | `wallet/WalletScreen` | ★WalletScreen | pkg-shop/wallet/recharge/index / pkg-shop/wallet/top-up/index | 🔲 |
+| 137 | `withdraw/WithdrawScreen` | ★WithdrawScreen | pages/distribution/withdraw | 🔲 |
+| 138 | `workflows/WorkflowsScreen` | ★WorkflowsScreen | — | 🔲 |
+| 139 | `wrong-questions/WrongQuestionsScreen` | ★WrongQuestionsScreen | pages/exam/wrong-list/index | 🔲 |
 
-> 合计 21 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。
-> 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页);**🏗 已造页** = 页已按声明链造出,数据钩子待补。
+> 合计 139 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

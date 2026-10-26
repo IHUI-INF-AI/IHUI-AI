@@ -500,6 +500,7 @@
     "agreementNoticeTitle": "Please agree to the agreement first"
   },
   "chat": {
+    "approvalExpiredNotice": "Approval for {toolName} expired after the connection dropped; the action was not executed. Send the request again if you still need it.",
     "mcp": {
       "state": {
         "connecting": "Connecting to {server}…",

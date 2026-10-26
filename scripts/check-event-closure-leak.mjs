@@ -42,9 +42,15 @@
  *   1 = 发现反模式(阻塞)
  */
 
-import { execFileSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
+
+// §22d(G-239)双形态入口:此前顶层裸调 process.exit(main()),任何 import 都会当场终结宿主进程。
+// 守卫只决定何时点火,不改判什么;须经 pathToFileURL():Windows 下 argv[1] 带反斜杠,手拼永不相等。
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 // 异步回调触发器
 const ASYNC_TRIGGERS = [
@@ -69,11 +75,11 @@ const FORBIDDEN_EVENT_ACCESS = [
 
 function getStagedFiles() {
   try {
-    const out = execFileSync(
-      'git',
+    // 2026-10-26：裸 git 派生收编进 face-reader.gitRaw(绝对 git + safe.directory + quotepath
+    //   + stdio/EBUSY 兜底都在层内)。取不到面仍按原语义吞成空集(本门没有判定面,只做尽力取材)。
+    const out = gitRaw(
       ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
+      process.cwd(),
     )
     return out
       .split('\n')
@@ -87,11 +93,7 @@ function getStagedFiles() {
 
 function getAllWebFiles() {
   try {
-    const out = execFileSync(
-      'git',
-      ['ls-files', 'apps/web/src'],
-      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
-    )
+    const out = gitRaw(['ls-files', 'apps/web/src'], process.cwd())
     return out
       .split('\n')
       .map((s) => s.trim())
@@ -346,5 +348,18 @@ function main() {
   return 1
 }
 
-process.exit(main())
+if (isDirectRun) {
+  process.exit(main())
+}
+
+// §22c/§22d(G-239):导出判据单元,镜像测试可走「调生产入口」通道,不必再抄一份材料。
+// 导入本模块(经 isDirectRun 守卫)不触发 CLI、不 process.exit。
+export const __test__ = {
+  ASYNC_TRIGGERS,
+  FORBIDDEN_EVENT_ACCESS,
+  findAsyncCallbacks,
+  findForbiddenAccessInCallback,
+  findViolations,
+  main,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

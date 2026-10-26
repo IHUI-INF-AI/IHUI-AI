@@ -34,11 +34,10 @@
  * 用法:node scripts/check-money-display-single-source.mjs [--staged|--worktree] [--self-test]
  * 退出码:0 无判红 / 1 判红 / 2 未判定
  */
-import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, gitErrText } from './lib/face-reader.mjs'
+import { catBatch, gitErrText, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SURFACES = ['apps/web', 'apps/miniapp-taro', 'apps/mobile-rn', 'packages/app']
@@ -94,26 +93,26 @@ export function countInlineCentsFormats(src) {
 
 function listScopeFiles(face) {
   if (face === 'worktree') {
-    const r = spawnSync('git', ['ls-files', '--', ...SURFACES], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 1 << 28,
-    })
-    if (r.status !== 0) return null
-    return r.stdout.split(/\r?\n/).filter((s) => /\.(ts|tsx)$/.test(s) && !RE_TESTISH.test(s))
+    // 取材统一走层(scripts/lib/face-reader.mjs):cwd / encoding / windowsHide 由 gitRaw 提供;
+    // maxBuffer 与原调用一致。取不到(非零退出/异常)仍返回 null。
+    let stdout
+    try {
+      stdout = gitRaw(['ls-files', '--', ...SURFACES], ROOT, { maxBuffer: 1 << 28 })
+    } catch {
+      return null
+    }
+    return stdout.split(/\r?\n/).filter((s) => /\.(ts|tsx)$/.test(s) && !RE_TESTISH.test(s))
   }
   const args =
     face === 'staged' ? ['ls-files', '--', ...SURFACES] : ['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SURFACES]
-  const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1 << 28,
-  })
-  if (r.status !== 0) return null
-  return r.stdout
+  // 同上:absolute git / safe.directory / quotepath / stdio 全由层接管;maxBuffer 不变。
+  let stdout
+  try {
+    stdout = gitRaw(args, ROOT, { maxBuffer: 1 << 28 })
+  } catch {
+    return null
+  }
+  return stdout
     .split(/\r?\n/)
     .filter(Boolean)
     .map((l) => (face === 'head' ? l : l.trim()))
@@ -211,9 +210,18 @@ function main() {
   // 锚点面:HEAD 计数(staged/worktree 档也要 HEAD 锚 ⇒ 一次读齐缺的)
   const anchor = new Map()
   {
-    const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, 'ls-tree', '-r', '--name-only', 'HEAD', '--', ...SURFACES], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28 })
-    if (r.status === 0) {
-      const arels = r.stdout.split(/\r?\n/).filter((s) => /\.(ts|tsx)$/.test(s) && !RE_TESTISH.test(s))
+    // 锚点面清单同样走层;原来 spawnSync 只看 status===0 才继续,这里 catch 走同一分支。
+    let arels = null
+    try {
+      arels = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SURFACES], ROOT, {
+        maxBuffer: 1 << 28,
+      })
+        .split(/\r?\n/)
+        .filter((s) => /\.(ts|tsx)$/.test(s) && !RE_TESTISH.test(s))
+    } catch {
+      arels = null
+    }
+    if (arels !== null) {
       let agot
       try {
         agot = catBatch(ROOT, arels.map((x) => 'HEAD:' + x), { maxBuffer: 1 << 29 })

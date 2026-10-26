@@ -64,7 +64,9 @@ describe('compat 路由收口:读写都取自常量、形状对齐端上 list、
   it('GET 回 { list } 而非 { settings }(端上契约形状)', () => {
     expect(src).toContain('success({ list })')
     // 该路由体里不得再有 Object.fromEntries 造 settings 的旧形状
-    expect(src).not.toContain("const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))")
+    expect(src).not.toContain(
+      'const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))',
+    )
   })
 
   it('PUT 用 .returning 回库确认集合并回 missedIds(守门 134)', () => {
@@ -82,19 +84,35 @@ describe('compat 路由收口:读写都取自常量、形状对齐端上 list、
 
 describe('权威腿 settings-routes 与 compat 共用同一常量出口', () => {
   const src = readSrc(settingsPath)
+  /**
+   * 判"调用形态"用的归一:压掉全部空白,并去掉闭括号前的尾逗号。
+   *
+   * 原因:prettier printWidth=100,而
+   * `findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.notifications)` 单行是 101 列
+   * ⇒ prettier 必然把它折成多行(现读 settings-routes.ts:42-45 就是折行形态,折行后源码里
+   * 留下 `notifications,)` 这种带尾逗号的写法)⇒ 拿单行子串去判,判到的是**排版**不是**语义**。
+   * 反向断言更吃亏:裸字面量只要折行就判不出来 ⇒ 漏放(判据自己先失效)。
+   * 归一后判的仍是同一件事:通知读腿取的是常量、不是裸字面量。
+   */
+  const flat = (s: string): string => s.replace(/\s+/g, '').replace(/,\)/g, ')')
+  const flatSrc = flat(src)
 
   it('import 了 USER_PREFERENCE_GROUPS', () => {
     expect(src).toContain('USER_PREFERENCE_GROUPS')
   })
 
   it('通知读腿取复数常量,旧裸字面量调用形态已消除', () => {
-    expect(src).toContain('findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.notifications)')
-    expect(src).not.toContain("findUserPreferences(request.userId!, 'notifications')")
+    expect(flatSrc).toContain(
+      flat('findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.notifications)'),
+    )
+    expect(flatSrc).not.toContain(flat("findUserPreferences(request.userId!, 'notifications')"))
   })
 
   it('清数据腿对通知族取常量,不再写裸复数字面量', () => {
-    expect(src).toContain('deleteUserPreferencesByGroup(userId, USER_PREFERENCE_GROUPS.notifications)')
-    expect(src).not.toContain("deleteUserPreferencesByGroup(userId, 'notifications')")
+    expect(flatSrc).toContain(
+      flat('deleteUserPreferencesByGroup(userId, USER_PREFERENCE_GROUPS.notifications)'),
+    )
+    expect(flatSrc).not.toContain(flat("deleteUserPreferencesByGroup(userId, 'notifications')"))
   })
 })
 
@@ -108,7 +126,7 @@ describe('查询层常量文件与迁移件/journal 齐备', () => {
 
   it('迁移件存在,并把冲突规则(较新者胜)与三计数写死', () => {
     const sqlText = readSrc(migrationPath)
-    expect(sqlText).toContain("WHERE \"group\" = 'notification'")
+    expect(sqlText).toContain('WHERE "group" = \'notification\'')
     expect(sqlText).toContain("'notifications'")
     // 冲突裁决:严格比较 updated_at,较新者胜
     expect(sqlText).toMatch(/r\.updated_at > n\.updated_at/)
@@ -124,7 +142,9 @@ describe('查询层常量文件与迁移件/journal 齐备', () => {
       entries: { idx: number; when: number; tag: string }[]
     }
     const entries = journal.entries
-    const mine = entries.find((e) => e.tag === '20261018150000_user_preferences_notification_group_plural')
+    const mine = entries.find(
+      (e) => e.tag === '20261018150000_user_preferences_notification_group_plural',
+    )
     expect(mine).toBeTruthy()
     const prev = entries[entries.indexOf(mine!) - 1]
     expect(mine!.when).toBeGreaterThan(prev.when)

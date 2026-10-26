@@ -16,15 +16,24 @@ import { describe, expect, it } from 'vitest'
 
 import {
   applyChatSyncEvent,
+  CHAT_SYNC_EVENT_NAMES,
   CHAT_SYNC_PROTOCOL_VERSION,
+  CHAT_SYNC_TERMINAL_PROTOCOL_VERSION,
+  CHAT_SYNC_TERMINAL_REASONS,
   chatPatchKey,
   chatSyncIdempotencyKey,
   EMPTY_CHAT_SYNC_STATE,
+  isChatSyncTerminalReason,
+  mergeChatSyncResyncSnapshot,
+  planChatSyncResync,
   type ChatMessageCreatedEvent,
   type ChatMessagePatchedEvent,
+  type ChatMessageTerminalEvent,
   type ChatSyncEvent,
+  type ChatSyncMessageSnapshot,
   type ChatSyncMessageSurface,
   type ChatSyncState,
+  type ChatSyncTerminalReason,
 } from '../src/chat-sync-contract.js'
 
 const ROOM = { kind: 'conversation' as const, conversationId: 'conv-1' }
@@ -82,6 +91,34 @@ function surfaceOf(state: ChatSyncState, messageId = 'm1'): ChatSyncMessageSurfa
   const surface = state.messages.get(messageId)
   expect(surface, '消息面应存在(created 先行)').toBeDefined()
   return surface as ChatSyncMessageSurface
+}
+
+function terminalEvent(
+  rev: number,
+  reason: ChatSyncTerminalReason = 'stop',
+  overrides: Partial<ChatMessageTerminalEvent> = {},
+): ChatMessageTerminalEvent {
+  return {
+    type: 'message:terminal',
+    protocolVersion: CHAT_SYNC_TERMINAL_PROTOCOL_VERSION,
+    channel: 'sse',
+    room: ROOM,
+    messageId: 'm1',
+    rev,
+    reason,
+    ...overrides,
+  }
+}
+
+function snapshotOf(overrides: Partial<ChatSyncMessageSnapshot> = {}): ChatSyncMessageSnapshot {
+  return {
+    conversationId: 'conv-1',
+    messageId: 'm1',
+    rev: 2,
+    role: 'assistant',
+    content: '全量',
+    ...overrides,
+  }
 }
 
 describe('票71 同一消息 patch 幂等契约', () => {
@@ -252,6 +289,288 @@ describe('票71 同一消息 patch 幂等契约', () => {
     expect(chatPatchKey({ messageId: 'm1', rev: 3 })).toBe('m1#3')
     expect(chatSyncIdempotencyKey(deltaEvent(3, ''))).toBe('m1#3')
     expect(chatSyncIdempotencyKey(createdEvent())).toBe('m1#created')
+  })
+
+  it('⑪ terminal 帧形态逐字锁定:独立帧 type、v2 信封、原因封闭集、幂等键仍为 (messageId, rev)', () => {
+    const event = terminalEvent(3)
+    expect(event.type).toBe('message:terminal')
+    expect(CHAT_SYNC_EVENT_NAMES.MESSAGE_TERMINAL).toBe('message:terminal')
+    expect(event.protocolVersion).toBe('chat-sync.v2')
+    expect(CHAT_SYNC_TERMINAL_PROTOCOL_VERSION).toBe('chat-sync.v2')
+    expect(CHAT_SYNC_PROTOCOL_VERSION).toBe('chat-sync.v1')
+    // 只把 terminal 升 v2,既有两枚线格式不动(在飞的他席代码仍按 v1 消费)
+    expect(createdEvent().protocolVersion).toBe(CHAT_SYNC_PROTOCOL_VERSION)
+    expect(deltaEvent(1, '').protocolVersion).toBe(CHAT_SYNC_PROTOCOL_VERSION)
+    expect(snapshotEvent(1, '').protocolVersion).toBe(CHAT_SYNC_PROTOCOL_VERSION)
+    expect(CHAT_SYNC_TERMINAL_REASONS).toEqual([
+      'stop',
+      'length',
+      'content_filter',
+      'error',
+      'aborted',
+    ])
+    expect(isChatSyncTerminalReason('stop')).toBe(true)
+    expect(isChatSyncTerminalReason('done')).toBe(false)
+    expect(isChatSyncTerminalReason(42)).toBe(false)
+    expect(isChatSyncTerminalReason(undefined)).toBe(false)
+    expect(chatSyncIdempotencyKey(event)).toBe('m1#3')
+  })
+
+  it('⑫ terminal 复用四态裁定:落在链头应用(不推进 rev)、重投 duplicate、低 rev stale、超前 gap', () => {
+    let state = applyChatSyncEvent(EMPTY_CHAT_SYNC_STATE, createdEvent()).state
+    state = applyChatSyncEvent(state, deltaEvent(1, '你')).state
+    state = applyChatSyncEvent(state, deltaEvent(2, '好')).state
+
+    const applied = applyChatSyncEvent(state, terminalEvent(2, 'stop'))
+    expect(applied.result).toEqual({ applied: true, messageId: 'm1', rev: 2 })
+    // 终态是状态位,不新增修订号
+    expect(applied.state.appliedRevs.get('m1')).toBe(2)
+    expect(surfaceOf(applied.state).terminal).toEqual({ rev: 2, reason: 'stop' })
+    // 终态不携带内容
+    expect(surfaceOf(applied.state).content).toBe('你好')
+
+    const replay = applyChatSyncEvent(applied.state, terminalEvent(2, 'stop', { channel: 'ws' }))
+    expect(replay.result).toMatchObject({ applied: false, reason: 'duplicate', rev: 2 })
+    expect(replay.state).toBe(applied.state)
+
+    const late = applyChatSyncEvent(applied.state, terminalEvent(1, 'stop'))
+    expect(late.result).toMatchObject({
+      applied: false,
+      reason: 'stale',
+      rev: 1,
+      lastAppliedRev: 2,
+    })
+    expect(late.state).toBe(applied.state)
+
+    const early = applyChatSyncEvent(applied.state, terminalEvent(3, 'stop'))
+    expect(early.result).toMatchObject({ applied: false, reason: 'gap', rev: 3, lastAppliedRev: 2 })
+    expect(early.state).toBe(applied.state)
+  })
+
+  it('⑬ terminal 只落在已应用链头:缺行/内容未补齐判 gap,补齐后原帧重投收敛', () => {
+    const orphan = applyChatSyncEvent(EMPTY_CHAT_SYNC_STATE, terminalEvent(0))
+    expect(orphan.result).toEqual({
+      applied: false,
+      reason: 'gap',
+      messageId: 'm1',
+      rev: 0,
+      lastAppliedRev: 0,
+    })
+    expect(orphan.state).toBe(EMPTY_CHAT_SYNC_STATE)
+
+    let state = applyChatSyncEvent(EMPTY_CHAT_SYNC_STATE, createdEvent()).state
+    state = applyChatSyncEvent(state, deltaEvent(1, '半截')).state
+    const ahead = applyChatSyncEvent(state, terminalEvent(2, 'error'))
+    expect(ahead.result).toMatchObject({ applied: false, reason: 'gap', rev: 2, lastAppliedRev: 1 })
+    // 缺的内容 rev 补达后,同一 terminal 帧原样重投即收敛(不需重组载荷)
+    state = applyChatSyncEvent(ahead.state, deltaEvent(2, '完')).state
+    const retry = applyChatSyncEvent(state, terminalEvent(2, 'error'))
+    expect(retry.result).toEqual({ applied: true, messageId: 'm1', rev: 2 })
+    expect(surfaceOf(retry.state).terminal).toEqual({ rev: 2, reason: 'error' })
+    expect(surfaceOf(retry.state).content).toBe('半截完')
+  })
+
+  it('⑭ 终态粘性:收尾后 delta 判 gap;snapshot 可推进内容但不清终态;更高链头 terminal 可替换宣告', () => {
+    let state = applyChatSyncEvent(EMPTY_CHAT_SYNC_STATE, createdEvent()).state
+    state = applyChatSyncEvent(state, deltaEvent(1, '首段')).state
+    state = applyChatSyncEvent(state, terminalEvent(1, 'stop')).state
+
+    // rev 恰好 = last+1 也不接:流已收尾,续写应是一条新消息
+    const resumed = applyChatSyncEvent(state, deltaEvent(2, '续写'))
+    expect(resumed.result).toMatchObject({
+      applied: false,
+      reason: 'gap',
+      rev: 2,
+      lastAppliedRev: 1,
+    })
+    expect(resumed.state).toBe(state)
+
+    // snapshot 是服务端权威修正:内容可推进,终态标记保留(不打回「进行中」)
+    const repaired = applyChatSyncEvent(state, snapshotEvent(5, '修正后的全量'))
+    expect(repaired.result).toEqual({ applied: true, messageId: 'm1', rev: 5 })
+    expect(surfaceOf(repaired.state).content).toBe('修正后的全量')
+    expect(surfaceOf(repaired.state).terminal).toEqual({ rev: 1, reason: 'stop' })
+
+    // 更高链头上重新宣告终态:同 rev 未终态 ⇒ 应用,终态标记随链头推进
+    const redeclared = applyChatSyncEvent(repaired.state, terminalEvent(5, 'length'))
+    expect(redeclared.result).toEqual({ applied: true, messageId: 'm1', rev: 5 })
+    expect(surfaceOf(redeclared.state).terminal).toEqual({ rev: 5, reason: 'length' })
+  })
+
+  it('⑮ planChatSyncResync 只对 gap 发起:applied/duplicate/stale 一律不发', () => {
+    let state = applyChatSyncEvent(EMPTY_CHAT_SYNC_STATE, createdEvent()).state
+    const first = applyChatSyncEvent(state, deltaEvent(1, 'A'))
+    state = first.state
+    expect(planChatSyncResync({ conversationId: 'conv-1', result: first.result })).toEqual({
+      needed: false,
+    })
+
+    const dup = applyChatSyncEvent(state, deltaEvent(1, 'A'))
+    expect(dup.result).toMatchObject({ applied: false, reason: 'duplicate' })
+    expect(planChatSyncResync({ conversationId: 'conv-1', result: dup.result })).toEqual({
+      needed: false,
+    })
+
+    state = applyChatSyncEvent(state, deltaEvent(2, 'B')).state
+    const stale = applyChatSyncEvent(state, deltaEvent(1, 'A'))
+    expect(stale.result).toMatchObject({ applied: false, reason: 'stale' })
+    expect(planChatSyncResync({ conversationId: 'conv-1', result: stale.result })).toEqual({
+      needed: false,
+    })
+
+    const gap = applyChatSyncEvent(state, deltaEvent(4, 'D'))
+    expect(gap.result).toMatchObject({ applied: false, reason: 'gap' })
+    expect(planChatSyncResync({ conversationId: 'conv-1', result: gap.result })).toEqual({
+      needed: true,
+      request: { conversationId: 'conv-1', messageId: 'm1', lastAppliedRev: 2 },
+    })
+  })
+
+  it('⑯ resync 并回 duplicate 路径:同快照二次合并零变化;带 terminal 快照先补终态、再并全 duplicate', () => {
+    const first = mergeChatSyncResyncSnapshot(
+      EMPTY_CHAT_SYNC_STATE,
+      snapshotOf({ rev: 2, content: '全量' }),
+    )
+    expect(first.created?.applied).toBe(true)
+    expect(first.content).toEqual({ applied: true, messageId: 'm1', rev: 2 })
+    expect(first.terminal).toBeNull()
+    expect(first.applied).toBe(true)
+    expect(surfaceOf(first.state).content).toBe('全量')
+
+    const again = mergeChatSyncResyncSnapshot(first.state, snapshotOf({ rev: 2, content: '全量' }))
+    expect(again.created).toBeNull()
+    expect(again.content).toMatchObject({ applied: false, reason: 'duplicate', rev: 2 })
+    expect(again.terminal).toBeNull()
+    expect(again.applied).toBe(false)
+    expect(again.state).toBe(first.state)
+
+    // 内容已到位但终态缺失:只补终态一步(同 rev,不新增修订号)
+    const withTerminal = mergeChatSyncResyncSnapshot(
+      first.state,
+      snapshotOf({ rev: 2, content: '全量', terminal: 'stop' }),
+    )
+    expect(withTerminal.content).toMatchObject({ applied: false, reason: 'duplicate', rev: 2 })
+    expect(withTerminal.terminal).toEqual({ applied: true, messageId: 'm1', rev: 2 })
+    expect(withTerminal.applied).toBe(true)
+    expect(surfaceOf(withTerminal.state).terminal).toEqual({ rev: 2, reason: 'stop' })
+
+    const replay = mergeChatSyncResyncSnapshot(
+      withTerminal.state,
+      snapshotOf({ rev: 2, content: '全量', terminal: 'stop' }),
+    )
+    expect(replay.content).toMatchObject({ applied: false, reason: 'duplicate' })
+    expect(replay.terminal).toMatchObject({ applied: false, reason: 'duplicate', rev: 2 })
+    expect(replay.applied).toBe(false)
+    expect(replay.state).toBe(withTerminal.state)
+  })
+
+  it('⑰ resync 并回 stale 路径:低 rev 快照的内容与终态都判 stale,零回退', () => {
+    const head = mergeChatSyncResyncSnapshot(
+      EMPTY_CHAT_SYNC_STATE,
+      snapshotOf({ rev: 5, content: '权威全量', terminal: 'stop' }),
+    )
+    expect(head.applied).toBe(true)
+
+    const stale = mergeChatSyncResyncSnapshot(
+      head.state,
+      snapshotOf({ rev: 3, content: '旧全量', terminal: 'error' }),
+    )
+    expect(stale.created).toBeNull()
+    expect(stale.content).toMatchObject({
+      applied: false,
+      reason: 'stale',
+      rev: 3,
+      lastAppliedRev: 5,
+    })
+    expect(stale.terminal).toMatchObject({
+      applied: false,
+      reason: 'stale',
+      rev: 3,
+      lastAppliedRev: 5,
+    })
+    expect(stale.applied).toBe(false)
+    expect(stale.state).toBe(head.state)
+    expect(surfaceOf(stale.state).content).toBe('权威全量')
+    expect(surfaceOf(stale.state).terminal).toEqual({ rev: 5, reason: 'stop' })
+  })
+
+  it('⑱ gap → resync → 收敛:断链帧给出坐标,权威快照(含终态)一次补齐,重并不再发请求', () => {
+    let state = applyChatSyncEvent(EMPTY_CHAT_SYNC_STATE, createdEvent()).state
+    state = applyChatSyncEvent(state, deltaEvent(1, 'A')).state
+    const gap = applyChatSyncEvent(state, deltaEvent(3, 'C'))
+    expect(gap.result).toMatchObject({ applied: false, reason: 'gap', rev: 3, lastAppliedRev: 1 })
+
+    const plan = planChatSyncResync({ conversationId: 'conv-1', result: gap.result })
+    expect(plan).toEqual({
+      needed: true,
+      request: { conversationId: 'conv-1', messageId: 'm1', lastAppliedRev: 1 },
+    })
+
+    // 服务端权威面已到 rev6 且已收尾:内容与终态一次补齐(snapshot 自包含,跨 gap 安全)
+    const merged = mergeChatSyncResyncSnapshot(
+      gap.state,
+      snapshotOf({ rev: 6, content: 'ABC服务端权威', terminal: 'length' }),
+    )
+    expect(merged.content).toEqual({ applied: true, messageId: 'm1', rev: 6 })
+    expect(merged.terminal).toEqual({ applied: true, messageId: 'm1', rev: 6 })
+    expect(merged.applied).toBe(true)
+    expect(surfaceOf(merged.state).content).toBe('ABC服务端权威')
+    expect(merged.state.appliedRevs.get('m1')).toBe(6)
+    expect(surfaceOf(merged.state).terminal).toEqual({ rev: 6, reason: 'length' })
+
+    // 重并同一快照:全 duplicate,且该结果不再触发 resync
+    const replay = mergeChatSyncResyncSnapshot(
+      merged.state,
+      snapshotOf({ rev: 6, content: 'ABC服务端权威', terminal: 'length' }),
+    )
+    expect(replay.applied).toBe(false)
+    expect(replay.state).toBe(merged.state)
+    expect(planChatSyncResync({ conversationId: 'conv-1', result: replay.content })).toEqual({
+      needed: false,
+    })
+  })
+
+  it('⑲ resync 并回边界:缺行由 created 先补达;rev=0 = created 即权威;坏快照判 gap 零写入', () => {
+    // 缺行 + rev=0:created 先落面,snapshot 与链头同 rev ⇒ duplicate(不伪造修订号)
+    const seed = mergeChatSyncResyncSnapshot(
+      EMPTY_CHAT_SYNC_STATE,
+      snapshotOf({ rev: 0, content: '初面' }),
+    )
+    expect(seed.created?.applied).toBe(true)
+    expect(seed.content).toMatchObject({ applied: false, reason: 'duplicate', rev: 0 })
+    expect(seed.terminal).toBeNull()
+    expect(seed.applied).toBe(true)
+    expect(surfaceOf(seed.state).content).toBe('初面')
+    expect(seed.state.appliedRevs.get('m1')).toBeUndefined()
+
+    // 缺行 + rev>0 + 终态:created → snapshot → terminal 三步一次补达
+    const full = mergeChatSyncResyncSnapshot(
+      EMPTY_CHAT_SYNC_STATE,
+      snapshotOf({ rev: 4, content: '全量', terminal: 'aborted' }),
+    )
+    expect(full.created?.applied).toBe(true)
+    expect(full.content).toEqual({ applied: true, messageId: 'm1', rev: 4 })
+    expect(full.terminal).toEqual({ applied: true, messageId: 'm1', rev: 4 })
+    expect(full.applied).toBe(true)
+    expect(surfaceOf(full.state).terminal).toEqual({ rev: 4, reason: 'aborted' })
+
+    // 坏 rev:非非负整数 ⇒ gap 零写入(拿坏快照写状态 = 新的分叉源)
+    const badRev = mergeChatSyncResyncSnapshot(EMPTY_CHAT_SYNC_STATE, snapshotOf({ rev: -1 }))
+    expect(badRev.created).toBeNull()
+    expect(badRev.content).toMatchObject({ applied: false, reason: 'gap', lastAppliedRev: 0 })
+    expect(badRev.terminal).toBeNull()
+    expect(badRev.applied).toBe(false)
+    expect(badRev.state).toBe(EMPTY_CHAT_SYNC_STATE)
+
+    // 坏终态:不在封闭集 ⇒ gap 零写入(不能把未知档静默渲染成空白)
+    const badTerminal = mergeChatSyncResyncSnapshot(
+      EMPTY_CHAT_SYNC_STATE,
+      snapshotOf({ terminal: 'done' as unknown as ChatSyncTerminalReason }),
+    )
+    expect(badTerminal.content).toMatchObject({ applied: false, reason: 'gap' })
+    expect(badTerminal.terminal).toBeNull()
+    expect(badTerminal.applied).toBe(false)
+    expect(badTerminal.state).toBe(EMPTY_CHAT_SYNC_STATE)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

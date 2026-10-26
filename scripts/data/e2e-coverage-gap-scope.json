@@ -1,0 +1,20 @@
+{
+  "_note": "E2E 自动补测门(check-e2e-coverage-gap.mjs)的射程清单。每条 root 必须有定向 reason 与 reviewBy(到期即 exit 2 逼重审);射程外的源码模块不判缺口,也不当测试用。",
+  "roots": [
+    {
+      "root": "apps/web/app",
+      "reason": "Next.js App Router 页面/路由模块,仓库约定同目录或 __tests__ 内放 *.test.*",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "root": "apps/web/src",
+      "reason": "web 端组件与状态层,同目录 __tests__ 命名约定稳定,是缺口主来源",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "root": "apps/api/src",
+      "reason": "API 服务端源码按同目录 __tests__ 约定判测,存量缺口只报数不拦本次",
+      "reviewBy": "2027-01-31"
+    }
+  ]
+}

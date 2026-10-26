@@ -41,6 +41,8 @@ import { wechatAppCode2session, isWechatAppConfigured } from '../services/oauth-
 import { findThirdPartyAccount, createThirdPartyBinding } from '../db/oauth-queries.js'
 import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
+// 陈旧副本的稳定错误码与端内判据单源(shared 一份,后端只发码、不复刻分型)
+import { REFRESH_TOKEN_STALE_ERROR_CODE } from '@ihui/shared/auth/auto-login-policy'
 import {
   getCodeEntry,
   putCodeEntry,
@@ -1412,7 +1414,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             },
             '[security] stale refresh token replay while family still alive, rejected without revoking',
           )
-          return reply.status(401).send(error(401, 'Invalid refresh token'))
+          return reply
+            .status(401)
+            .send(error(401, 'Invalid refresh token', REFRESH_TOKEN_STALE_ERROR_CODE))
         }
         // race:宽限期内竞态放行,记 info 便于观测,不吊销家族,继续下方正常轮转流程
         request.log.info(

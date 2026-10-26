@@ -14,6 +14,7 @@
  * 401 → ExchangeToken 换票、error 帧 → 风控分类。
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { generateKeyPairSync } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
@@ -33,6 +34,8 @@ let eventsFrames: 'ok' | 'risk' | 'real' = 'ok'
 /** 健康检查端点剧本(测三态定级):500 = 上游故障,401 = 凭据被拒 */
 let modelListStatus = 200
 let userTokenStatus = 200
+/** 设备证明通道剧本(测产品线组合兜底):ide-ok = 首发即成功 / solo-only = 仅 SOLO 线可续 / reject = 全拒 */
+let proofMode: 'ide-ok' | 'solo-only' | 'reject' = 'ide-ok'
 
 /** 线上真形状帧(2026-10-23 真号抓帧实证):正文住 thought(累积快照,可重复),
  * 推理增量住 reasoning_content;usage 帧字段为 input/output/prompt_tokens/completion_tokens。 */
@@ -139,6 +142,23 @@ beforeAll(async () => {
         Result: { Token: 'jwt-rotated', RefreshToken: 'rt-2', ExpiredAt: 1_893_456_000 },
       })
     }
+    // 新版设备证明换票:按剧本模拟"产品线不匹配"(10101)与成功
+    if (url.startsWith('/trae/api/v3/oauth/ExchangeToken')) {
+      const parsed = JSON.parse(body || '{}') as { ClientID?: string; DeviceInfo?: { PlatformCode?: string } }
+      if (proofMode === 'reject') {
+        return json(res, 400, {
+          ResponseMetadata: { Error: { Code: 10101, Message: 'refresh token is not matched to the client' } },
+        })
+      }
+      if (proofMode === 'solo-only' && parsed.DeviceInfo?.PlatformCode !== 'SOLO_PC') {
+        return json(res, 400, {
+          ResponseMetadata: { Error: { Code: 10101, Message: 'refresh token is not matched to the client' } },
+        })
+      }
+      return json(res, 200, {
+        Result: { Token: proofMode === 'solo-only' ? 'jwt-proof-solo' : 'jwt-proof-ide', RefreshToken: 'rt-proof-2', TokenExpireAt: 1_893_456_000 },
+      })
+    }
     // web 官网 cookie 换票(线上实证:credentials:'include',无 body;有 cookie → 新 JWT)
     if (url.endsWith('/common/GetUserToken') && req.method === 'POST') {
       const cookie = req.headers.cookie
@@ -196,6 +216,7 @@ beforeAll(async () => {
   process.env.TRAE_REMOTE_BASE = `${base}/api/remote/v1`
   process.env.TRAE_MODEL_LIST_URL = `${base}/api/ide/v1/model_list?type=chat`
   process.env.TRAE_EXCHANGE_TOKEN_URL = `${base}/oauth/ExchangeToken`
+  process.env.TRAE_EXCHANGE_TOKEN_PROOF_URL = `${base}/trae/api/v3/oauth/ExchangeToken`
   process.env.TRAE_GET_USER_TOKEN_URL = `${base}/cloudide/api/v3/common/GetUserToken`
   process.env.TRAE_ENT_USAGE_URL = `${base}/trae/api/v2/pay/web_user_ent_usage`
 })
@@ -205,6 +226,7 @@ afterAll(async () => {
   delete process.env.TRAE_REMOTE_BASE
   delete process.env.TRAE_MODEL_LIST_URL
   delete process.env.TRAE_EXCHANGE_TOKEN_URL
+  delete process.env.TRAE_EXCHANGE_TOKEN_PROOF_URL
   delete process.env.TRAE_GET_USER_TOKEN_URL
   delete process.env.TRAE_ENT_USAGE_URL
 })
@@ -343,6 +365,68 @@ describe('Trae 协议层 · 真 HTTP 往返(本机假上游)', () => {
     const ctx = makeCtx('jwt-stale')
     ;(ctx.credentials as { refreshToken: string | null }).refreshToken = null
     await expect(traeAdapter.refreshToken!(ctx, {})).resolves.toBeNull()
+  })
+
+  it('设备证明通道:IDE 线 10101 → SOLO 线组合重试命中(产品线兜底)', async () => {
+    const { traeAdapter } = await loadAdapter()
+    seen.length = 0
+    proofMode = 'solo-only'
+    try {
+      const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
+      const ctx = makeCtx('jwt-stale')
+      ;(ctx.row as unknown as { deviceId: string }).deviceId = '4355605738307003'
+      ;(ctx.credentials as { secrets: Record<string, unknown> }).secrets = {
+        deviceKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+        devicePubPem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+      }
+      const res = await traeAdapter.refreshToken!(ctx, {})
+      expect(res).toBeTruthy()
+      expect(res!.token).toBe('jwt-proof-solo')
+      expect(res!.refreshToken).toBe('rt-proof-2')
+
+      const proofReqs = seen.filter((s) => s.path.startsWith('/trae/api/v3/oauth/ExchangeToken'))
+      expect(proofReqs).toHaveLength(2)
+      const first = JSON.parse(proofReqs[0]!.body) as {
+        ClientID: string
+        DeviceInfo: { PlatformCode: string }
+        DeviceProof: { Signature: string }
+      }
+      const second = JSON.parse(proofReqs[1]!.body) as {
+        ClientID: string
+        DeviceInfo: { PlatformCode: string }
+      }
+      // 首发默认 IDE 线,失败后换 SOLO 线(ClientID 与 PlatformCode 成对切换)
+      expect(first.DeviceInfo.PlatformCode).toBe('IDE_PC')
+      expect(first.ClientID).toBe('ono9krqynydwx5')
+      expect(first.DeviceProof.Signature).toBeTruthy()
+      expect(second.DeviceInfo.PlatformCode).toBe('SOLO_PC')
+      expect(second.ClientID).toBe('en1oxy7wnw8j9n')
+      // 旧通道不应被用到(设备证明已成功)
+      expect(seen.some((s) => s.path.startsWith('/oauth/ExchangeToken'))).toBe(false)
+    } finally {
+      proofMode = 'ide-ok'
+    }
+  })
+
+  it('设备证明全组合被拒(10101) → 落回旧 ExchangeToken 并以其错误口径抛出', async () => {
+    const { traeAdapter } = await loadAdapter()
+    seen.length = 0
+    proofMode = 'reject'
+    try {
+      const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
+      const ctx = makeCtx('jwt-stale')
+      ;(ctx.row as unknown as { deviceId: string }).deviceId = '4355605738307003'
+      ;(ctx.credentials as { secrets: Record<string, unknown> }).secrets = {
+        deviceKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+        devicePubPem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+      }
+      await expect(traeAdapter.refreshToken!(ctx, {})).resolves.toBeTruthy()
+      // 旧通道(假上游恒 200)兜底成功 —— 证明全拒时确实落回旧通道
+      expect(seen.filter((s) => s.path.startsWith('/trae/api/v3/oauth/ExchangeToken'))).toHaveLength(2)
+      expect(seen.some((s) => s.path.startsWith('/oauth/ExchangeToken'))).toBe(true)
+    } finally {
+      proofMode = 'ide-ok'
+    }
   })
 
   it('请求指纹:Cloud-IDE-JWT + web 渠道头,且不得带 x-user-region', async () => {
