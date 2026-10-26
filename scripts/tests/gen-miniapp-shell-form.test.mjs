@@ -94,4 +94,47 @@ test('B5 判过「不承载」的屏不许被重造;没有判决时不走这一�
   const r2 = planGeneration(REPO, { screenRel: spec, form: 'shell' }, { ...base, verdicts: new Map() })
   assert.doesNotMatch(String(r2.why ?? ''), /不承载/, '无判决时不许凭空拒这一支')
 })
+
+/**
+ * 并键档(mergeJsonMembers)的四条对照。
+ * 立因(2026-10-26 实测):旧档以"本档只并顶层直接子键"为由,把**新增嵌套子树**整支拒写,
+ * 于是待产队列的最后一枚(home,缺键落在 profile 的子对象里)每轮都 blocked ——
+ * 而"新增既有块里不存在的键"与"新增一棵子树"在同一条不变式(一律不覆盖既有值)上是同一件事。
+ * 现在只有**同路径类型打架**才拒,并把打架的键路径点名出来。
+ */
+const canon = (o) => `${JSON.stringify(o, null, 2)}\n`
+
+test('M1 并键档:新增顶层标量键并入,既有值一律不动', () => {
+  const text = canon({ profile: { title: '既有标题', keep: 1 } })
+  const r = G.mergeJsonMembers(text, [{ ns: 'profile', obj: { title: '新标题会被忽略', addedKey: '新值' } }])
+  assert.equal(r.ok, true, r.why)
+  const out = JSON.parse(r.text)
+  assert.equal(out.profile.title, '既有标题', '既有键不许被覆盖')
+  assert.equal(out.profile.addedKey, '新值')
+})
+
+test('M2 并键档:新增嵌套子树(旧档正是卡死在这一支)⇒ 现在并入且仍可解析', () => {
+  const text = canon({ profile: { home: { existing: 'a' } } })
+  const r = G.mergeJsonMembers(text, [{ ns: 'profile', obj: { home: { existing: 'b', fresh: { deep: 'v' } } } }])
+  assert.equal(r.ok, true, `不该再因"嵌套不并"而拒:${r.why}`)
+  const out = JSON.parse(r.text)
+  assert.equal(out.profile.home.existing, 'a', '既有叶子不许被覆盖')
+  assert.equal(out.profile.home.fresh.deep, 'v', '缺的嵌套子树必须补进来')
+})
+
+test('M3 反向对照:同路径类型打架仍拒,并把键路径点名', () => {
+  const text = canon({ profile: { banner: '我是字符串' } })
+  const r = G.mergeJsonMembers(text, [{ ns: 'profile', obj: { banner: { title: '我要变成对象' } } }])
+  assert.equal(r.ok, false, '类型打架必须拒,不能静默覆盖')
+  assert.match(r.why, /profile\.banner/, '拒写要能指出是哪一条路径打架')
+})
+
+test('M4 幂等与形态闸:键全在册⇒内容不变;非 canonical 输入⇒拒写', () => {
+  const text = canon({ profile: { a: 1 } })
+  const idem = G.mergeJsonMembers(text, [{ ns: 'profile', obj: { a: 2 } }])
+  assert.equal(idem.ok, true)
+  assert.equal(idem.text, text, '幂等档必须逐字节不改写')
+  const notCanon = '{ "profile": { "a": 1 } }'
+  assert.equal(G.mergeJsonMembers(notCanon, [{ ns: 'profile', obj: { b: 2 } }]).ok, false, '非 canonical 形态重渲染会排他人文件,须拒')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
