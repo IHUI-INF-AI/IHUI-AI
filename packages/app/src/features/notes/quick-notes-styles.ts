@@ -58,7 +58,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
     archivedDot: {
       width: 14,
       height: 14,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.xs,
       borderWidth: 1,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.card,

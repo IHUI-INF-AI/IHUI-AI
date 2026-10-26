@@ -30,8 +30,14 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const GATE_SRC = readFileSync(join(HERE, '..', 'check-single-branch.mjs'), 'utf8')
 const RUNNER_SRC = readFileSync(join(HERE, '..', 'guardian-runner.mjs'), 'utf8')
 
-const { branchTipTimes, inFlightExempt, mirrorRemoteSet, nonLocalExempt, remoteHeadNames, staleExempt } =
-  __test__
+const {
+  branchTipTimes,
+  inFlightExempt,
+  mirrorRemoteSet,
+  nonLocalExempt,
+  remoteHeadNames,
+  staleExempt,
+} = __test__
 const HOUR = 3600000
 const NOW = 1_800_000_000_000
 
@@ -60,7 +66,11 @@ function entryOf(source, scriptName) {
 test('T1 装车证明：守门 41 在注册表里是 blocking，且本门编号在 runner 中恰好出现一次', () => {
   const entry = entryOf(RUNNER_SRC, 'check-single-branch.mjs')
   assert.ok(entry, '注册表里取不到 check-single-branch.mjs ⇒ 门没接进提交链（不是"通过"）')
-  assert.match(entry, /mode:\s*'blocking'/, '本门定级被改动：它必须是 blocking（§9b 的拦截力就在这）')
+  assert.match(
+    entry,
+    /mode:\s*'blocking'/,
+    '本门定级被改动：它必须是 blocking（§9b 的拦截力就在这）',
+  )
   const ids = [...RUNNER_SRC.matchAll(/^\s*id:\s*'41',/gm)].length
   assert.equal(ids, 1, `id '41' 在 runner 中出现 ${ids} 次（撞号会串 skipEnv 与失败归属）`)
 })
@@ -89,8 +99,16 @@ test('T3 形状锁：两条豁免判据必须由门体导出，供本文件与�
     typeof branchTipTimes === 'function' && typeof inFlightExempt === 'function',
     '豁免逻辑若不再经 __test__ 导出，镜像测试就只能复制一份判据 —— 复制的那份必然跟着漂（§22c）',
   )
-  assert.match(GATE_SRC, /export const __test__ = \{[^}]*inFlightExempt[^}]*\}/, '__test__ 丢了 inFlightExempt')
-  assert.equal(inFlightExempt('backup/x', new Map(), NOW, 48), 'backup', '导出对象里的必须是那一份实现')
+  assert.match(
+    GATE_SRC,
+    /export const __test__ = \{[^}]*inFlightExempt[^}]*\}/,
+    '__test__ 丢了 inFlightExempt',
+  )
+  assert.equal(
+    inFlightExempt('backup/x', new Map(), NOW, 48),
+    'backup',
+    '导出对象里的必须是那一份实现',
+  )
 })
 
 test('T4 在飞窗口边界：窗口内豁免、超窗必判（豁免不得变成永久放行）', () => {
@@ -102,8 +120,16 @@ test('T4 在飞窗口边界：窗口内豁免、超窗必判（豁免不得变�
     ].join('\n'),
   )
   assert.equal(inFlightExempt('fresh', tips, NOW, 48), 'in-flight')
-  assert.equal(inFlightExempt('edge', tips, NOW, 48), 'in-flight', '恰好等于窗口应按"仍在飞"（实现用 <=）')
-  assert.equal(inFlightExempt('over', tips, NOW, 48), null, '超窗必须回到原判据 —— 这条红就是本门存在的理由')
+  assert.equal(
+    inFlightExempt('edge', tips, NOW, 48),
+    'in-flight',
+    '恰好等于窗口应按"仍在飞"（实现用 <=）',
+  )
+  assert.equal(
+    inFlightExempt('over', tips, NOW, 48),
+    null,
+    '超窗必须回到原判据 —— 这条红就是本门存在的理由',
+  )
 })
 
 test('T5 origin/ 镜像与本地同名分支同视（否则只豁免了一半）', () => {
@@ -112,23 +138,37 @@ test('T5 origin/ 镜像与本地同名分支同视（否则只豁免了一半）
   // 表里只记了本地那份时，origin 那份取不到时刻 ⇒ 不豁免（宁误拦，不静默放行）
   assert.equal(inFlightExempt('origin/ci-fix/x', tips, NOW, 48), null)
   const both = branchTipTimes(
-    [`ci-fix/y ${Math.floor((NOW - 3 * HOUR) / 1000)}`, `origin/ci-fix/y ${Math.floor((NOW - 3 * HOUR) / 1000)}`].join('\n'),
+    [
+      `ci-fix/y ${Math.floor((NOW - 3 * HOUR) / 1000)}`,
+      `origin/ci-fix/y ${Math.floor((NOW - 3 * HOUR) / 1000)}`,
+    ].join('\n'),
   )
   assert.equal(inFlightExempt('origin/ci-fix/y', both, NOW, 48), 'in-flight')
 })
 
 test('T6 备份引用永不判红且不看时刻（§5b 禁删备份 / §22 要求双留，门不得喊人删它们）', () => {
   const ancient = branchTipTimes('backup/ancient 1700000000')
-  assert.equal(inFlightExempt('backup/ancient', ancient, NOW, 0), 'backup', '窗口收到 0 也不得把备份引用判红')
+  assert.equal(
+    inFlightExempt('backup/ancient', ancient, NOW, 0),
+    'backup',
+    '窗口收到 0 也不得把备份引用判红',
+  )
   assert.equal(inFlightExempt('origin/ihui-backup/main-x', new Map(), NOW, 48), 'backup')
-  assert.equal(inFlightExempt('feature/other', new Map([['feature/other', 1700000000]]), NOW, 48), null)
+  assert.equal(
+    inFlightExempt('feature/other', new Map([['feature/other', 1700000000]]), NOW, 48),
+    null,
+  )
 })
 
 test('T7 取不到时刻一律不豁免（失效方向必须是"多拦"，绝不是"多放"）', () => {
   const tips = branchTipTimes(`listed ${Math.floor((NOW - 1 * HOUR) / 1000)}`)
   assert.equal(inFlightExempt('never-listed', tips, NOW, 48), null)
   assert.equal(inFlightExempt('listed', tips, Number.NaN, 48), null, 'nowMs 不是有限数 ⇒ 不豁免')
-  assert.equal(inFlightExempt('listed', new Map(), NOW, 48), null, '整表取不到 ⇒ 在飞豁免必须整体失效')
+  assert.equal(
+    inFlightExempt('listed', new Map(), NOW, 48),
+    null,
+    '整表取不到 ⇒ 在飞豁免必须整体失效',
+  )
 })
 
 test('T8 时刻表解析：坏行跳过不猜（一次坏行不得把别的分支的豁免顶掉）', () => {
@@ -148,15 +188,30 @@ test('T8 时刻表解析：坏行跳过不猜（一次坏行不得把别的分�
 
 test('T9 报名锁：两类豁免都必须逐条点名，静默豁免等于没有这一维', () => {
   const printed = (GATE_SRC.match(/不判但如实报数/g) || []).length
-  assert.ok(printed >= 3, `门体只在结论里打印了 ${printed} 处"不判但如实报数"（应含镜像/幻影/在飞/备份各档）`)
-  assert.match(GATE_SRC, /exempt\['in-flight'\]\.length/, '在飞豁免没有报名分支 ⇒ 有人会把"绿"读成"没有旁支"')
+  assert.ok(
+    printed >= 3,
+    `门体只在结论里打印了 ${printed} 处"不判但如实报数"（应含镜像/幻影/在飞/备份各档）`,
+  )
+  assert.match(
+    GATE_SRC,
+    /exempt\['in-flight'\]\.length/,
+    '在飞豁免没有报名分支 ⇒ 有人会把"绿"读成"没有旁支"',
+  )
   assert.match(GATE_SRC, /exempt\.backup\.length/, '备份豁免没有报名分支 ⇒ 同上')
   assert.match(GATE_SRC, /提交时刻取不到/, '取不到时刻必须喊出来，不得静默降级成"没有旁支"')
 })
 
 test('T10 反白名单锁：豁免必须由"前缀 + 提交时刻"算出，不得抄当前那几条分支名', () => {
-  for (const banned of ['ci-green-sweep', 'star-thank-autoclose', 'nightly-single-tracker', 'api-n8n-ownership']) {
-    assert.ok(!GATE_SRC.includes(banned), `门体里出现了具体分支名 ${banned} ⇒ 有人用白名单消红，名单必然腐烂`)
+  for (const banned of [
+    'ci-green-sweep',
+    'star-thank-autoclose',
+    'nightly-single-tracker',
+    'api-n8n-ownership',
+  ]) {
+    assert.ok(
+      !GATE_SRC.includes(banned),
+      `门体里出现了具体分支名 ${banned} ⇒ 有人用白名单消红，名单必然腐烂`,
+    )
   }
   assert.match(GATE_SRC, /BACKUP_REF_PREFIXES\s*=\s*\[[^\]]*'backup\/'/, '备份豁免应按键名前缀判')
 })
@@ -164,11 +219,19 @@ test('T10 反白名单锁：豁免必须由"前缀 + 提交时刻"算出，不�
 test('T11 在飞窗口取值：环境变量坏值不得变成 Infinity 或负数（那等于关掉判据）', () => {
   assert.match(GATE_SRC, /IHUI_SINGLE_BRANCH_GRACE_HOURS/, '窗口必须可调（CI 与本地节奏不同）')
   assert.match(GATE_SRC, /GRACE_HOURS_DEFAULT\s*=\s*48/, '缺省值写在源码里，文档不得另抄一份')
-  assert.match(GATE_SRC, /Number\.isFinite\(n\)\s*&&\s*n\s*>=\s*0/, '坏值必须回落默认，而不是让 `--grace=abc` 变成永不判红')
+  assert.match(
+    GATE_SRC,
+    /Number\.isFinite\(n\)\s*&&\s*n\s*>=\s*0/,
+    '坏值必须回落默认，而不是让 `--grace=abc` 变成永不判红',
+  )
 })
 
 test('T12 既有豁免族不得被新判据吞掉：goal 分支仍要 STATE.md 标注才合法', () => {
-  assert.match(GATE_SRC, /isActiveGoalBranch/, 'goal/ 豁免通道被摘 ⇒ 正在跑 /goal 的会话会被本门顶红')
+  assert.match(
+    GATE_SRC,
+    /isActiveGoalBranch/,
+    'goal/ 豁免通道被摘 ⇒ 正在跑 /goal 的会话会被本门顶红',
+  )
   assert.match(GATE_SRC, /goal-runtime\/STATE\.md/, 'goal 豁免的凭据是那份 STATE.md，不是前缀本身')
   assert.ok(
     typeof mirrorRemoteSet === 'function' && typeof nonLocalExempt === 'function',
@@ -185,19 +248,27 @@ test('T13 反向锁：self-test 的登记函数必须对"函数形态用例"求�
     /const t = \(name, ok\) => cases\.push\(\[name, !!ok\]\)/,
     'self-test 退化成"收函数就报绿"—— 这一整维看守当场失效且毫无声响',
   )
-  assert.match(GATE_SRC, /typeof ok === 'function' \? Boolean\(ok\(\)\)/, '登记函数必须真的求值用例')
+  assert.match(
+    GATE_SRC,
+    /typeof ok === 'function' \? Boolean\(ok\(\)\)/,
+    '登记函数必须真的求值用例',
+  )
   assert.equal(selfTestReturnsZero(), 0, 'self-test 现读必须真通过（返回码非 0 = 有用例真红）')
 })
 
 /** 跑门自带的 self-test，只取其返回码（它自己打印到 stdout，本测试不转述内容）。 */
 function selfTestReturnsZero() {
-  const r = spawnSync(process.execPath, [join(HERE, '..', 'check-single-branch.mjs'), '--self-test'], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 60000,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const r = spawnSync(
+    process.execPath,
+    [join(HERE, '..', 'check-single-branch.mjs'), '--self-test'],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
   return r.status === 0 ? 0 : 1
 }
 
@@ -237,7 +308,11 @@ test('T15 stale 判据四向：远端无⇒豁免 / 远端有⇒仍判 / 问不�
   const q = { remoteHeads: heads, remoteQueryable: true }
   assert.equal(staleExempt('origin/wip/gone', q), 'stale')
   assert.equal(staleExempt('upstream/wip/gone', q), 'stale', 'origin 的历史别名问的是同一上游')
-  assert.equal(staleExempt('origin/wip/real', q), null, '远端真有的滞留旁支必须仍判（§9b 拦的就是它）')
+  assert.equal(
+    staleExempt('origin/wip/real', q),
+    null,
+    '远端真有的滞留旁支必须仍判（§9b 拦的就是它）',
+  )
   assert.equal(staleExempt('origin/main', q), null)
   assert.equal(staleExempt('wip/gone', q), null, '本地分支永远要判')
   assert.equal(staleExempt('gh/wip/gone', q), null, '镜像远端归 mirror 档，不得由 stale 抢')
@@ -251,12 +326,21 @@ test('T15 stale 判据四向：远端无⇒豁免 / 远端有⇒仍判 / 问不�
  * stale 必须出现在"决定违规清单"的那一段，而不是只活在 self-test 里。
  */
 test('T16 装车锁：stale 判据必须接进主流程的违规清单，且只在"本来要判红"时才联网', () => {
-  const mainBody = GATE_SRC.slice(GATE_SRC.indexOf('function main()'), GATE_SRC.indexOf('export function selfTest'))
+  const mainBody = GATE_SRC.slice(
+    GATE_SRC.indexOf('function main()'),
+    GATE_SRC.indexOf('export function selfTest'),
+  )
   assert.ok(mainBody.includes('staleExempt('), '主流程没调用 staleExempt ⇒ 这一档豁免结构上不存在')
-  assert.ok(mainBody.includes('probeRemoteHeads('), '主流程没问远端真值 ⇒ staleExempt 永远拿不到集合')
+  assert.ok(
+    mainBody.includes('probeRemoteHeads('),
+    '主流程没问远端真值 ⇒ staleExempt 永远拿不到集合',
+  )
   assert.ok(mainBody.includes('exempt.stale.push('), '判出的 stale 必须进豁免清单并报名')
   // 成本方向：这道门挂在每次提交上，无条件联网会把全队提交拖慢（§12e 的成本口径同门 195）。
-  const callSite = mainBody.slice(mainBody.indexOf('probeRemoteHeads(') - 260, mainBody.indexOf('probeRemoteHeads('))
+  const callSite = mainBody.slice(
+    mainBody.indexOf('probeRemoteHeads(') - 260,
+    mainBody.indexOf('probeRemoteHeads('),
+  )
   assert.match(callSite, /if\s*\(\s*illegal\.length/, 'ls-remote 必须只在有候选红的路径上调用')
 })
 
@@ -264,7 +348,11 @@ test('T17 出路锁：修复提示必须给出 prune 这条正解，并明写 pu
   // 本门当时的失效方式不是"多放"，而是**给一条必然失败的出路** —— 对它跑 push --delete 报
   // "remote ref does not exist"，人于是认定门坏了，走 --no-verify（当天 safe-commit 的归因行就是这么写的）。
   assert.match(GATE_SRC, /git fetch origin --prune/, '失败提示里没有唯一正解 ⇒ 等于没有出路')
-  assert.match(GATE_SRC, /push --delete[^\n]*必然失败|对一条远端不存在的分支/, '必须点名旧出路对这一型不成立')
+  assert.match(
+    GATE_SRC,
+    /push --delete[^\n]*必然失败|对一条远端不存在的分支/,
+    '必须点名旧出路对这一型不成立',
+  )
   assert.match(GATE_SRC, /远端已无此分支/, '报名行要能让人认出这是哪一型，而不是含糊的"幻影"')
 })
 
@@ -273,15 +361,23 @@ function makeStalenessFixture(t) {
   const dir = mkScratch('single-branch-stale')
   t.after(() => rmScratch(dir))
   const git = (cwd, args, env = {}) => {
-    const r = spawnSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@e.t', '-c', 'user.name=T', ...args], {
-      cwd,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 120000,
-      env: { ...process.env, ...env },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    assert.equal(r.status, 0, `git ${args.join(' ')} 失败：${(r.stderr || r.stdout || '').slice(0, 400)}`)
+    const r = spawnSync(
+      'git',
+      ['-c', 'safe.directory=*', '-c', 'user.email=t@e.t', '-c', 'user.name=T', ...args],
+      {
+        cwd,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        env: { ...process.env, ...env },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    assert.equal(
+      r.status,
+      0,
+      `git ${args.join(' ')} 失败：${(r.stderr || r.stdout || '').slice(0, 400)}`,
+    )
     return r.stdout
   }
   const origin = join(dir, 'origin.git')
@@ -292,7 +388,10 @@ function makeStalenessFixture(t) {
   git(a, ['init', '-q', '-b', 'main', '.'])
   writeFileSync(join(a, 'f.txt'), 'x\n')
   git(a, ['add', 'f.txt'])
-  git(a, ['commit', '-q', '-m', 'init'], { GIT_AUTHOR_DATE: OLD_DATE, GIT_COMMITTER_DATE: OLD_DATE })
+  git(a, ['commit', '-q', '-m', 'init'], {
+    GIT_AUTHOR_DATE: OLD_DATE,
+    GIT_COMMITTER_DATE: OLD_DATE,
+  })
   git(a, ['remote', 'add', 'origin', origin])
   git(a, ['push', '-q', 'origin', 'main'])
   git(a, ['branch', 'wip/gone'])
@@ -303,19 +402,34 @@ function makeStalenessFixture(t) {
   // A 把远端分支删掉（本机跟踪引用随之消失，但 B 的那份留着 —— 正是 2026-10-09 那台机的形态）
   git(a, ['push', '-q', 'origin', '--delete', 'wip/gone'])
   const shown = git(b, ['branch', '-a'])
-  assert.match(shown, /remotes\/origin\/wip\/gone/, '夹具没造出"远端已无、本机仍挂"的形态（后续断言全部无效）')
+  assert.match(
+    shown,
+    /remotes\/origin\/wip\/gone/,
+    '夹具没造出"远端已无、本机仍挂"的形态（后续断言全部无效）',
+  )
   // 对象在 B 里必须**仍可解析** —— 否则这一型会落进 phantom 档，本测试测的就不是 stale
-  const resolvable = spawnSync('git', ['-C', b, 'rev-parse', '--verify', 'refs/remotes/origin/wip/gone^{commit}'], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 30000,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  assert.equal(resolvable.status, 0, '夹具里那条 ref 的 sha 必须可解析，否则测的是 phantom 而不是 stale')
+  const resolvable = spawnSync(
+    'git',
+    ['-C', b, 'rev-parse', '--verify', 'refs/remotes/origin/wip/gone^{commit}'],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+  assert.equal(
+    resolvable.status,
+    0,
+    '夹具里那条 ref 的 sha 必须可解析，否则测的是 phantom 而不是 stale',
+  )
   // 把门体连它的 import 闭包拷进 B（ROOT 由脚本自身位置推导 ⇒ 落在 B 的仓根）
-  const copied = copyScriptWithClosure(join(HERE, '..'), 'check-single-branch.mjs', join(b, 'scripts'), [
-    'lib/face-reader.mjs',
-  ])
+  const copied = copyScriptWithClosure(
+    join(HERE, '..'),
+    'check-single-branch.mjs',
+    join(b, 'scripts'),
+    ['lib/face-reader.mjs'],
+  )
   assert.ok(copied.includes('check-single-branch.mjs'), '门体没拷进去')
   return { dir, origin, a, b, gate: join(b, 'scripts', 'check-single-branch.mjs') }
 }
@@ -333,7 +447,11 @@ test('T18 端到端正向：远端已无、本机仍挂 ⇒ 判绿并逐条点�
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   const out = `${r.stdout || ''}${r.stderr || ''}`
-  assert.equal(r.status, 0, `远端已无该分支时本门必须放行，实得 rc=${r.status}\n${out.slice(0, 1200)}`)
+  assert.equal(
+    r.status,
+    0,
+    `远端已无该分支时本门必须放行，实得 rc=${r.status}\n${out.slice(0, 1200)}`,
+  )
   assert.match(out, /origin\/wip\/gone/, '豁免必须报名，静默放行等于没有这一维')
   assert.match(out, /git fetch origin --prune/, '报告里要给出唯一正解')
 })
@@ -342,12 +460,16 @@ test('T19 端到端反向：远端真有的超窗旁支必须仍判红（开了�
   const { origin, b, gate } = makeStalenessFixture(t)
   // 在 B 里造一条**远端确实存在**的旁支：先推上去，再把 B 的本地分支删掉只留跟踪引用，
   // 使候选面里出现 origin/wip/real（提交时刻压到 2020 年，保证超出任何在飞窗口）。
-  spawnSync('git', ['-C', b, 'push', '-q', 'origin', 'refs/remotes/origin/main:refs/heads/wip/real'], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 120000,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  spawnSync(
+    'git',
+    ['-C', b, 'push', '-q', 'origin', 'refs/remotes/origin/main:refs/heads/wip/real'],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
   spawnSync('git', ['-C', b, 'fetch', '-q', 'origin'], {
     encoding: 'utf8',
     windowsHide: true,
@@ -365,8 +487,10 @@ test('T19 端到端反向：远端真有的超窗旁支必须仍判红（开了�
   const out = `${r.stdout || ''}${r.stderr || ''}`
   assert.equal(r.status, 1, `远端真在的旁支必须判红，实得 rc=${r.status}\n${out.slice(0, 1200)}`)
   assert.match(out, /origin\/wip\/real/, '红点必须点名那条真分支')
-  assert.ok(!/不判但如实报数:1 个"远端已无此分支"/.test(out) || out.includes('origin/wip/real'),
-    '真分支不得被 stale 档吞掉（吞掉的那条会从报告里消失，而不是变成红）')
+  assert.ok(
+    !/不判但如实报数:1 个"远端已无此分支"/.test(out) || out.includes('origin/wip/real'),
+    '真分支不得被 stale 档吞掉（吞掉的那条会从报告里消失，而不是变成红）',
+  )
   // 夹具自证：origin 里确实有那条分支（否则 T19 只是在测一条空规则）
   const ls = spawnSync('git', ['-C', b, 'ls-remote', '--heads', origin], {
     encoding: 'utf8',
@@ -395,7 +519,48 @@ test('T20 端到端失效方向：远端问不到 ⇒ 不豁免，照旧判红�
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   const out = `${r.stdout || ''}${r.stderr || ''}`
-  assert.equal(r.status, 1, `问不到远端时必须回到原判据，实得 rc=${r.status}\n${out.slice(0, 1200)}`)
+  assert.equal(
+    r.status,
+    1,
+    `问不到远端时必须回到原判据，实得 rc=${r.status}\n${out.slice(0, 1200)}`,
+  )
   assert.match(out, /取不到/, '必须喊出"远端清单取不到"，不得静默按"都没有"处理')
+})
+
+/**
+ * T21 端到端正向(2026-10-26):**退役远端的残留跟踪引用**必须放行并报名。
+ * 复现的真实现场:`gitee` 远端 2026-10-23 弃用并从 `git remote` 摘掉,而 `packed-refs` /
+ * `refs-manifest.json` 里 4 条 `refs/remotes/gitee/*` 还在 ⇒ 旧判据把它当"超窗旁支"判红,
+ * 而本门给出的四条出路对它全部不成立(A 删的是别的 remote、B 对远程跟踪引用无效、
+ * C 是 goal 专用、D 只 prune origin)⇒ 无解恒红挂在每次提交上(§12e/§12f)。
+ */
+test('T21 端到端正向:远端已摘配(退役镜像)的跟踪引用 ⇒ 判绿并点名,不得按超窗旁支判红', (t) => {
+  const { b, gate } = makeStalenessFixture(t)
+  /** 本用例自己起进程(fixture 里的 `git` 辅助是它函数内的局部量,不外借) */
+  const run = (cwd, args) =>
+    spawnSync('git', ['-C', cwd, ...args], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  // 造一条"远端名已不在 git remote 清单里"的跟踪引用(`gitee` 从未在 b 里配过)
+  const made = run(b, ['update-ref', 'refs/remotes/gitee/nightly', 'refs/remotes/origin/main'])
+  assert.equal(made.status, 0, `夹具没造出退役远端的跟踪引用:${made.stderr || made.stdout}`)
+  const shown = run(b, ['branch', '-a']).stdout
+  assert.match(shown, /remotes\/gitee\/nightly/, '夹具反向对照:该引用必须出现在 branch -a 里')
+
+  const r = spawnSync(process.execPath, [gate], {
+    cwd: b,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180000,
+    env: { ...process.env, IHUI_SINGLE_BRANCH_GRACE_HOURS: '0' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.equal(r.status, 0, `退役远端的跟踪引用必须放行,实得 rc=${r.status}\n${out.slice(0, 1200)}`)
+  assert.match(out, /退役远端的残留跟踪引用/, '必须单独报这一档(只豁免不报数 = 与漏判不可区分)')
+  assert.match(out, /gitee\/nightly/, '豁免必须逐条点名')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
