@@ -12,7 +12,7 @@
  * - rejected rose   → 资源已驳回(status=3)
  * 品牌色(进度条/进行中数值/快捷入口图标底)一律走 tk.brand token,不硬编码。
  */
-import { rnRadius } from '@ihui/design-tokens'
+import { rnDarkTokens, rnRadius } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -20,7 +20,7 @@ import type { AppThemeTokens } from '../../theme/tokens'
 export const STUDENT_PALETTE = {
   pending: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
   completed: { bg: 'rgba(16,185,129,0.10)', fg: '#059669' },
-  muted: { bg: 'rgba(115,115,115,0.12)', fg: '#737373' },
+  muted: { bg: 'rgba(115,115,115,0.12)', fg: rnDarkTokens.text.tertiary },
   rejected: { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48' },
 } as const
 
