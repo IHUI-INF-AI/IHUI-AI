@@ -22,6 +22,16 @@ import { logger } from '../utils/logger.js'
 /** 连续失败阈值:达到即转 exhausted(暂冷,成功上报可回升 active) */
 const PROXY_FAIL_LIMIT = 5
 
+/** 日志脱敏:代理地址只留协议+主机,账密/路径/查询串一律不落日志 */
+function maskProxyUrlForLog(raw: string): string {
+  try {
+    const u = new URL(raw)
+    return `${u.protocol}//${u.host}`
+  } catch {
+    return '***'
+  }
+}
+
 /** 安全提取 db.execute 结果为数组(兼容 postgres.js RowList / {rows} 两种形态)。 */
 function toRows(raw: unknown): Record<string, unknown>[] {
   if (Array.isArray(raw)) return raw as Record<string, unknown>[]
@@ -95,7 +105,7 @@ export async function reportProxyFailure(proxyUrl: string): Promise<void> {
       .where(eq(aiRelayProxyPool.id, row.id))
   } catch (e) {
     logger.warn('[relay-proxy-pool] 代理失败计数上报失败(已吞)', {
-      proxyUrl,
+      proxyUrl: maskProxyUrlForLog(proxyUrl),
       error: e instanceof Error ? e.message : String(e),
     })
   }
@@ -122,7 +132,7 @@ export async function reportProxySuccess(proxyUrl: string): Promise<void> {
       .where(eq(aiRelayProxyPool.id, row.id))
   } catch (e) {
     logger.warn('[relay-proxy-pool] 代理成功计数上报失败(已吞)', {
-      proxyUrl,
+      proxyUrl: maskProxyUrlForLog(proxyUrl),
       error: e instanceof Error ? e.message : String(e),
     })
   }
@@ -145,7 +155,7 @@ export async function markProxyChecked(proxyUrl: string, alive: boolean): Promis
       .where(eq(aiRelayProxyPool.proxyUrl, proxyUrl))
   } catch (e) {
     logger.warn('[relay-proxy-pool] 代理活性标记失败(已吞)', {
-      proxyUrl,
+      proxyUrl: maskProxyUrlForLog(proxyUrl),
       error: e instanceof Error ? e.message : String(e),
     })
   }
@@ -223,7 +233,7 @@ export async function createProxy(input: CreateProxyInput): Promise<CreateProxyR
     if ((e as { code?: string } | null)?.code === '23505') {
       return { ok: false, reason: 'duplicate' }
     }
-    logProxyError('代理新增', e, { proxyUrl: input.proxyUrl })
+    logProxyError('代理新增', e, { proxyUrl: maskProxyUrlForLog(input.proxyUrl) })
     return { ok: false, reason: 'error' }
   }
 }

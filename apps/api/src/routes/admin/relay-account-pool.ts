@@ -116,7 +116,18 @@ const updateBodySchema = z.object({
   priority: z.number().int().optional(),
   weight: z.number().int().min(1).optional(),
   tempUnschedulable: z.boolean().optional(),
-  proxyUrl: z.string().max(512).nullable().optional(),
+  // 账号级私有出口:仅允许 http(s)/socks5;空串按清除处理,避免无效值进库
+  proxyUrl: z
+    .string()
+    .trim()
+    .max(512)
+    .nullable()
+    .optional()
+    .transform((v) => (v === '' ? null : v))
+    .refine(
+      (v) => v === null || v === undefined || isSupportedProxyUrl(v),
+      '代理地址必须是 http(s)/socks5 协议',
+    ),
 })
 
 // --- 出口代理池(2026-10-22 补写入入口;管理员可见 proxyUrl 原样,含内嵌账密) ---
@@ -217,6 +228,15 @@ const safeProjection = {
     sql<boolean>`case when ${aiRelayAccountPool.proxyUrl} is null then false else true end`.as(
       'has_proxy',
     ),
+  // 私有出口只回脱敏值(scheme://***@host:port),明文账密/路径/查询串绝不进响应
+  proxyUrlMasked: sql<string | null>`case
+    when ${aiRelayAccountPool.proxyUrl} is null or ${aiRelayAccountPool.proxyUrl} = '' then null
+    when ${aiRelayAccountPool.proxyUrl} ~ '://' then regexp_replace(
+      regexp_replace(${aiRelayAccountPool.proxyUrl}, '://[^@/]*@', '://***@'),
+      '^(.*://[^/]+).*$', '\\1'
+    )
+    else null
+  end`.as('proxy_url_masked'),
   totalCalls: aiRelayAccountPool.totalCalls,
   claimStatus: aiRelayAccountPool.claimStatus,
   claimedBy: aiRelayAccountPool.claimedBy,
