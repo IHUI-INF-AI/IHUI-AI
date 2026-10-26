@@ -805,6 +805,181 @@
       "shared": "packages/app/src/features/message-detail/MessageDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/MessageDetailScreen.tsx",
       "miniapp": "pkg-mirror/message-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-direct/MessageDirectScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageDirectScreen.tsx",
+      "miniapp": "pkg-mirror/message-direct/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-group/MessageGroupScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageGroupScreen.tsx",
+      "miniapp": "pkg-mirror/message-group/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-system/MessageSystemScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageSystemScreen.tsx",
+      "miniapp": "pkg-mirror/message-system/index"
+    },
+    {
+      "shared": "packages/app/src/features/more-course/MoreCourseScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MoreCourseScreen.tsx",
+      "miniapp": "pkg-mirror2/more-course/index"
+    },
+    {
+      "shared": "packages/app/src/features/note-create/NoteCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NoteCreateScreen.tsx",
+      "miniapp": "pkg-mirror/note-create/index"
+    },
+    {
+      "shared": "packages/app/src/features/note-detail/NoteDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NoteDetailScreen.tsx",
+      "miniapp": "pkg-mirror/note-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/note-list/NoteListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NoteListScreen.tsx",
+      "miniapp": "pkg-mirror3/note-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/note/NoteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NoteScreen.tsx",
+      "miniapp": "pkg-mirror3/note/index"
+    },
+    {
+      "shared": "packages/app/src/features/notification/NotificationListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NotificationListScreen.tsx",
+      "miniapp": "pages/setting/notification-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/order-log/OrderLogScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OrderLogScreen.tsx",
+      "miniapp": "pkg-mirror3/order-log/index"
+    },
+    {
+      "shared": "packages/app/src/features/order-track/OrderTrackScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OrderTrackScreen.tsx",
+      "miniapp": "pkg-mirror3/order-track/index"
+    },
+    {
+      "shared": "packages/app/src/features/payment/PaymentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CartScreen.tsx",
+      "miniapp": "pkg-mirror3/payment/index"
+    },
+    {
+      "shared": "packages/app/src/features/point-rule/PointRuleScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointRuleScreen.tsx",
+      "miniapp": "pkg-mirror3/point-rule/index"
+    },
+    {
+      "shared": "packages/app/src/features/points-mall/PointsMallScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointsMallScreen.tsx",
+      "miniapp": "pkg-mirror3/points-mall/index"
+    },
+    {
+      "shared": "packages/app/src/features/points-record/PointsRecordScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointsRecordScreen.tsx",
+      "miniapp": "pkg-mirror3/points-record/index"
+    },
+    {
+      "shared": "packages/app/src/features/points/PointsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointsScreen.tsx",
+      "miniapp": "pkg-mirror3/points/index"
+    },
+    {
+      "shared": "packages/app/src/features/profile-edit/ProfileEditScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ProfileEditScreen.tsx",
+      "miniapp": "pkg-mirror3/profile-edit/index"
+    },
+    {
+      "shared": "packages/app/src/features/promote/PromoteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PromoteScreen.tsx",
+      "miniapp": "pkg-mirror3/promote/index"
+    },
+    {
+      "shared": "packages/app/src/features/promotion/PromotionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PromotionScreen.tsx",
+      "miniapp": "pkg-mirror3/promotion/index"
+    },
+    {
+      "shared": "packages/app/src/features/qr-code/QrCodeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/QrCodeScreen.tsx",
+      "miniapp": "pkg-mirror3/qr-code/index"
+    },
+    {
+      "shared": "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/IdentityVerifyScreen.tsx",
+      "miniapp": "pkg-mirror3/real-name-auth/index"
+    },
+    {
+      "shared": "packages/app/src/features/referrer/ReferrerScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ReferrerScreen.tsx",
+      "miniapp": "pkg-mirror3/referrer/index"
+    },
+    {
+      "shared": "packages/app/src/features/refund-detail/RefundDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RefundDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/refund-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/security-settings/SecuritySettingsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SecuritySettingsScreen.tsx",
+      "miniapp": "pkg-mirror3/security-settings/index"
+    },
+    {
+      "shared": "packages/app/src/features/self-media/SelfMediaScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SelfMediaScreen.tsx",
+      "miniapp": "pkg-mirror3/self-media/index"
+    },
+    {
+      "shared": "packages/app/src/features/settings-account/SettingsAccountScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SettingsAccountScreen.tsx",
+      "miniapp": "pkg-mirror3/settings-account/index"
+    },
+    {
+      "shared": "packages/app/src/features/spec/SpecScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SpecScreen.tsx",
+      "miniapp": "pkg-mirror3/spec/index"
+    },
+    {
+      "shared": "packages/app/src/features/status/StatusScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StatusScreen.tsx",
+      "miniapp": "pkg-mirror3/status/index"
+    },
+    {
+      "shared": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudyProgressScreen.tsx",
+      "miniapp": "pkg-mirror3/study-progress/index"
+    },
+    {
+      "shared": "packages/app/src/features/team-detail/TeamDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeamDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/team-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/topup-fail/TopupFailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TopupFailScreen.tsx",
+      "miniapp": "pkg-mirror3/topup-fail/index"
+    },
+    {
+      "shared": "packages/app/src/features/usage/UsageScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PointsScreen.tsx",
+      "miniapp": "pkg-mirror3/usage/index"
+    },
+    {
+      "shared": "packages/app/src/features/vip-level/VipLevelScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VipLevelScreen.tsx",
+      "miniapp": "pkg-mirror3/vip-level/index"
+    },
+    {
+      "shared": "packages/app/src/features/wallet/WalletScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WalletScreen.tsx",
+      "miniapp": "pkg-shop/wallet/index"
+    },
+    {
+      "shared": "packages/app/src/features/workflows/WorkflowsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WorkflowsScreen.tsx",
+      "miniapp": "pkg-mirror3/workflows/index"
     }
   ]
 }

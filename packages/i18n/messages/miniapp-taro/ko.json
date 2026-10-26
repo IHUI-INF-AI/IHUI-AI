@@ -182,7 +182,8 @@
   "home": {
     "more": "더 보기",
     "livePreview": "라이브 예정",
-    "startTime": "시작 시간"
+    "startTime": "시작 시간",
+    "pubTip": "알림"
   },
   "course": {
     "learningProgress": "학습 진행도",
@@ -239,7 +240,8 @@
     "rating3": "보통",
     "rating4": "좋음",
     "rating5": "매우 좋음",
-    "studentUnit": "명 수강"
+    "studentUnit": "명 수강",
+    "moreTitle": "강의 더보기"
   },
   "live": {
     "viewers": "{n}명 시청",
@@ -442,7 +444,14 @@
       "available": "출금 가능 수수료",
       "records": "수수료 기록",
       "title": "수수료 상세"
-    }
+    },
+    "balance": "잔액",
+    "frozen": "동결 금액",
+    "loadFailed": "지갑 불러오기 실패",
+    "title": "내 지갑",
+    "totalRecharge": "누적 충전",
+    "totalWithdraw": "누적 출금",
+    "withdraw": "출금"
   },
   "community": {
     "posts": "게시물",
@@ -2139,7 +2148,8 @@
     "deleteConfirm": "이 상품을 삭제하시겠습니까?",
     "selectFirst": "상품을 선택하세요",
     "loadFailed": "로딩 실패",
-    "total": "합계"
+    "total": "합계",
+    "checkoutConfirm": "선택한 상품을 확인하고 위챗페이로 결제합니다"
   },
   "categoryDetail": {
     "categoryId": "카테고리 {id}",
@@ -5313,7 +5323,9 @@
     "empty": "강좌가 없습니다",
     "free": "무료",
     "studentCount": "{count}명 학습",
-    "nextPage": "다음 페이지"
+    "nextPage": "다음 페이지",
+    "popular": "인기 강좌",
+    "unknownInstructor": "알 수 없는 강사"
   },
   "customerService": {
     "title": "고객 지원 문의",
@@ -5501,5 +5513,361 @@
     "from": "보낸 사람",
     "createdAt": "시간",
     "loadFailed": "메시지 상세 불러오기 실패"
+  },
+  "messageDirect": {
+    "empty": "쪽지가 없습니다",
+    "loadFailed": "불러오기 실패",
+    "title": "쪽지"
+  },
+  "messageGroup": {
+    "empty": "단체 채팅 없음",
+    "loadFailed": "불러오기 실패",
+    "title": "그룹 채팅"
+  },
+  "messageSystem": {
+    "empty": "시스템 메시지 없음",
+    "loadFailed": "불러오기 실패",
+    "title": "시스템 메시지"
+  },
+  "noteCreate": {
+    "title": "새 노트",
+    "titleLabel": "제목",
+    "titlePlaceholder": "노트 제목을 지어주세요",
+    "contentLabel": "내용",
+    "contentPlaceholder": "학습 메모를 기록하세요...",
+    "tagsLabel": "태그",
+    "tagsPlaceholder": "여러 태그는 쉼표로 구분",
+    "isPublic": "공개 노트",
+    "submit": "저장",
+    "required": "내용을 입력하세요",
+    "saveFailed": "저장 실패"
+  },
+  "noteDetail": {
+    "loadFailed": "노트 불러오기 실패",
+    "views": "조회수"
+  },
+  "noteList": {
+    "empty": "노트가 없습니다",
+    "loadFailed": "불러오기 실패",
+    "title": "노트"
+  },
+  "note": {
+    "title": "내 노트",
+    "subtitle": "좋은 기억보다 빠른 기록",
+    "empty": "노트가 없습니다. 새로 추가해 기록을 시작하세요",
+    "add": "노트 추가",
+    "edit": "편집",
+    "updatedAt": "업데이트",
+    "titlePlaceholder": "노트 제목을 지어주세요",
+    "placeholder": "학습 메모를 기록하세요...",
+    "deleteFailed": "삭제 실패",
+    "deleted": "삭제됨",
+    "loadFailed": "불러오기 실패",
+    "saveFailed": "저장 실패",
+    "saved": "저장됨",
+    "titleRequired": "제목을 입력하세요"
+  },
+  "notificationList": {
+    "viewActive": "활성",
+    "archived": "보관됨",
+    "loadFailed": "불러오기 실패",
+    "title": "알림",
+    "type": {
+      "course": "강좌",
+      "order": "주문",
+      "social": "소셜",
+      "system": "시스템"
+    }
+  },
+  "orderLog": {
+    "title": "주문 동향",
+    "empty": "내역이 없습니다",
+    "action": "작업",
+    "operator": "작업자",
+    "loadFailed": "주문 로그 불러오기 실패"
+  },
+  "orderTrack": {
+    "title": "배송 조회",
+    "empty": "배송 정보가 없습니다",
+    "location": "현재 위치",
+    "loadFailed": "추적 불러오기 실패"
+  },
+  "payment": {
+    "title": "결제 주문",
+    "subtitle": "결제 주문 조회 및 관리",
+    "retry": "재시도",
+    "empty": "결제 주문 없음",
+    "orderNo": "주문 번호",
+    "amount": "금액",
+    "method": "결제 방법",
+    "paidAt": "결제 시간",
+    "untitledOrder": "제목 없는 주문",
+    "syncStatus": "상태 동기화",
+    "cancelOrder": "주문 취소",
+    "payNow": "결제하기",
+    "payCancelled": "결제 취소됨",
+    "payFailed": "결제 실패",
+    "createFailed": "결제 주문 생성 실패",
+    "wechatNotInstalled": "위챗이 설치되지 않음",
+    "nativeUnavailable": "위챗페이 사용 불가, 재빌드 필요"
+  },
+  "pointRule": {
+    "empty": "포인트 규칙 없음",
+    "loadFailed": "규칙 불러오기 실패",
+    "title": "포인트 규칙"
+  },
+  "pointsMall": {
+    "balance": "포인트 잔액",
+    "empty": "상품이 없습니다",
+    "insufficient": "포인트 부족",
+    "loadFailed": "상품 불러오기 실패",
+    "pointsUnit": "포인트",
+    "redeem": "교환",
+    "redeemFailed": "교환 실패",
+    "redeemSuccess": "교환되었습니다",
+    "retry": "재시도",
+    "stock": "재고",
+    "subtitle": "포인트로 상품 교환",
+    "title": "포인트 몰"
+  },
+  "pointsRecord": {
+    "title": "포인트 내역",
+    "tabAll": "전체",
+    "tabEarn": "획득",
+    "tabSpend": "소비",
+    "balance": "현재 잔액",
+    "empty": "내역이 없습니다",
+    "balanceAfter": "변동 후 잔액",
+    "loadFailed": "기록 불러오기 실패"
+  },
+  "points": {
+    "title": "포인트 센터",
+    "subtitle": "포인트, 레벨, 출석을 확인하세요",
+    "current": "현재 포인트",
+    "totalEarned": "누적 획득",
+    "totalSpent": "누적 사용",
+    "level": "레벨",
+    "nextLevel": "{name}까지 {points} 포인트 남음",
+    "maxLevel": "최고 레벨에 도달했습니다",
+    "experience": "경험치",
+    "signIn": {
+      "title": "매일 출석",
+      "signedIn": "오늘 출석 완료",
+      "notSignedIn": "오늘 미출석",
+      "consecutive": "{days}일 연속",
+      "todayReward": "오늘 보상",
+      "signInBtn": "출석하기",
+      "signing": "출석 중...",
+      "signInSuccess": "출석했습니다. {points} 포인트 획득",
+      "signInFailed": "출석에 실패했습니다",
+      "alreadySigned": "오늘은 이미 출석했습니다"
+    },
+    "mallLink": "포인트 몰",
+    "taskCenterLink": "작업 센터",
+    "ruleLink": "포인트 규칙",
+    "txTitle": "포인트 내역",
+    "empty": "포인트 기록이 없습니다",
+    "loadFailed": "포인트를 불러오지 못했습니다",
+    "balance": "잔액",
+    "loadMore": "더 불러오기"
+  },
+  "profileEdit": {
+    "avatarTip": "탭하여 프로필 이미지 변경",
+    "nicknamePlaceholder": "닉네임을 입력하세요",
+    "bioPlaceholder": "자기소개를 해보세요",
+    "avatarModalTitle": "프로필 이미지 변경",
+    "avatarUrlLabel": "이미지 링크",
+    "avatarUrlPlaceholder": "이미지 링크 붙여넣기",
+    "avatarUrlHint": "JPG / PNG 지원, 200x200 권장",
+    "bio": "자기소개",
+    "gender": "성별",
+    "nickname": "닉네임",
+    "retry": "재시도",
+    "save": "저장",
+    "title": "프로필 편집"
+  },
+  "promote": {
+    "title": "홍보 센터",
+    "subtitle": "전용 링크를 공유해 친구를 초대하세요",
+    "retry": "재시도",
+    "inviteCount": "초대 인원",
+    "activeCount": "활성 인원",
+    "totalEarnings": "누적 수익",
+    "referralLink": "전용 홍보 링크",
+    "copyLink": "링크 복사",
+    "copySuccess": "복사 완료",
+    "shareBtn": "공유",
+    "referralCode": "홍보 코드",
+    "rules": "홍보 규칙",
+    "inviteRecords": "초대 기록",
+    "empty": "데이터 없음",
+    "loadFailed": "프로모션 불러오기 실패"
+  },
+  "promotion": {
+    "title": "쿠폰",
+    "empty": "사용 가능한 쿠폰이 없습니다",
+    "minSpend": "¥{minSpend} 이상 사용 가능",
+    "expireDate": "유효 기간",
+    "useNow": "사용하기",
+    "loadFailed": "프로모션 불러오기 실패"
+  },
+  "qrCode": {
+    "title": "내 QR코드",
+    "scanTip": "QR코드를 스캔하여 함께 학습하며 성장하세요",
+    "share": "공유",
+    "loadFailed": "QR 코드 불러오기 실패"
+  },
+  "realNameAuth": {
+    "title": "실명 인증",
+    "status": "인증 상태",
+    "verifiedDesc": "실명 인증이 완료되었습니다",
+    "unverifiedDesc": "실명 인증을 완료해 더 많은 서비스를 이용하세요",
+    "name": "실명",
+    "namePlaceholder": "실명을 입력하세요",
+    "idNumber": "주민등록번호",
+    "idNumberPlaceholder": "주민등록번호를 입력하세요",
+    "submit": "인증 제출",
+    "submitting": "제출 중..."
+  },
+  "identityVerify": {
+    "loadFailed": "인증 불러오기 실패"
+  },
+  "referrer": {
+    "title": "추천인",
+    "current": "현재 추천인",
+    "empty": "추천인이 아직 등록되지 않았습니다",
+    "desc": "추천인을 등록하면 양측 모두 보상을 받을 수 있습니다",
+    "codeLabel": "추천 코드",
+    "codePlaceholder": "추천 코드를 입력하세요",
+    "submit": "등록",
+    "submitting": "등록 중...",
+    "bindFailed": "연결 실패",
+    "bindSuccess": "연결되었습니다",
+    "codeRequired": "초대 코드 입력",
+    "loadFailed": "추천인 불러오기 실패"
+  },
+  "refundDetail": {
+    "amount": "환불 금액",
+    "createdAt": "신청 시간",
+    "empty": "환불 없음",
+    "loadFailed": "환불 상세 불러오기 실패",
+    "orderNo": "주문 번호",
+    "reason": "사유",
+    "status": "상태",
+    "title": "환불 상세"
+  },
+  "securitySettings": {
+    "title": "보안 설정",
+    "password": "비밀번호 로그인",
+    "biometric": "생체 인식",
+    "twoFactor": "2단계 인증",
+    "loginAlert": "로그인 알림",
+    "desc": "계정 보안 관련 설정 관리",
+    "loadFailed": "보안 설정 불러오기 실패"
+  },
+  "selfMedia": {
+    "title": "셀프미디어 어시스턴트",
+    "loadFailed": "로드 실패",
+    "promptRequired": "생성 요청을 입력하세요",
+    "promptPlaceholder": "만들고 싶은 내용을 설명…",
+    "invoke": "스킬 호출 생성",
+    "invoking": "생성 중…",
+    "invokeFailed": "스킬 호출 실패, 다시 시도하세요",
+    "duration": "소요 {{ms}} ms",
+    "share": "공유",
+    "empty": "생성/게시 기록 없음"
+  },
+  "spec": {
+    "empty": "템플릿 없음",
+    "title": "스펙 템플릿",
+    "loadFailed": "템플릿 로드 실패",
+    "desktopHint": "템플릿 열람은 참고용입니다. Spec 생성은 서버 측 workspace 경로가 필요하므로 Web/데스크톱에서 전체 흐름을 사용하세요",
+    "generateEntry": "웹에서 생성"
+  },
+  "settingsAccount": {
+    "title": "계정 관리",
+    "name": "이름",
+    "email": "이메일",
+    "phone": "휴대폰 번호",
+    "save": "저장",
+    "loadFailed": "계정 설정 불러오기 실패",
+    "saved": "저장되었습니다"
+  },
+  "statusPage": {
+    "title": "시스템 상태",
+    "autoRefreshHint": "60초마다 자동 새로고침",
+    "overallOperational": "모든 시스템 정상 작동",
+    "overallDegraded": "일부 서비스 성능 저하",
+    "overallOutage": "일부 서비스 중단",
+    "uptimeLabel": "가동 시간",
+    "updatedAtLabel": "업데이트",
+    "services": "서비스 상태",
+    "models": "모델 가용성",
+    "modelLatency": "P95 지연",
+    "modelErrorRate": "오류율",
+    "incidents": "최근 사고",
+    "noIncidents": "최근 30일간 사고 기록 없음",
+    "incidentsUnavailable": "최근 30일 사고 데이터를 일시적으로 가져올 수 없습니다",
+    "refresh": "새로고침",
+    "fetchFailed": "상태를 불러오지 못했습니다. 나중에 다시 시도하세요",
+    "willAutoRetry": "자동으로 재시도합니다"
+  },
+  "studyProgress": {
+    "title": "학습 진도",
+    "loadFailed": "학습 진도 로드 실패",
+    "courses": "강좌(완료/전체)",
+    "totalMinutes": "누적 학습(분)",
+    "weekMinutes": "이번 주 학습(분)",
+    "streak": "연속 출석(일)",
+    "courseProgress": "강좌 진도"
+  },
+  "teamDetail": {
+    "title": "팀 멤버 상세",
+    "transactionVolume": "거래액",
+    "commission": "획득 커미션",
+    "orderNum": "거래 주문 수",
+    "phone": "휴대폰 번호",
+    "joinedAt": "가입 시간",
+    "contact": "연락",
+    "viewOrders": "주문 보기",
+    "empty": "멤버 정보가 없습니다",
+    "loadFail": "불러오기 실패, 재시도",
+    "noPhone": "이 멤버는 번호 미등록",
+    "callFail": "통화 불가, 단말 확인"
+  },
+  "topup": {
+    "failDefault": "충전 미완료, 잠시 후 재시도"
+  },
+  "usage": {
+    "title": "사용량",
+    "quotaTitle": "이번 달 할당량",
+    "used": "사용",
+    "limit": "한도",
+    "remaining": "남음",
+    "usagePercent": "사용률",
+    "periodMonth": "집계 기간: 이번 달(역월)",
+    "statsTitle": "사용량 개요(최근 30일)",
+    "totalTokens": "총 토큰",
+    "inputTokens": "입력",
+    "outputTokens": "출력",
+    "totalCost": "총 비용",
+    "totalCalls": "호출 횟수",
+    "dailyTitle": "일별 사용량",
+    "modelTitle": "모델별 사용량",
+    "noData": "데이터가 없습니다",
+    "retry": "다시 시도"
+  },
+  "vipLevel": {
+    "benefits": "혜택",
+    "days": "일수",
+    "duration": "기간",
+    "empty": "등급 없음",
+    "loadFailed": "등급 불러오기 실패",
+    "price": "가격",
+    "title": "회원 등급"
+  },
+  "workflows": {
+    "empty": "워크플로우가 없습니다",
+    "loadFailed": "워크플로우를 불러오지 못했습니다"
   }
 }
