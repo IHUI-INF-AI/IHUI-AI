@@ -5981,5 +5981,33 @@
     "availability": "可用性",
     "available": "可用",
     "busy": "已佔"
+  },
+  "statusPage": {
+    "title": "系統狀態",
+    "autoRefreshHint": "每 60 秒自動刷新",
+    "overallOperational": "所有系統運行正常",
+    "overallDegraded": "部分服務效能降級",
+    "overallOutage": "部分服務中斷",
+    "uptimeLabel": "運行時長",
+    "updatedAtLabel": "更新時間",
+    "services": "服務狀態",
+    "serviceApi": "API 服務",
+    "serviceDatabase": "資料庫",
+    "serviceRedis": "快取",
+    "serviceOperational": "正常運行",
+    "serviceDegraded": "效能降級",
+    "serviceOutage": "服務中斷",
+    "models": "模型可用性",
+    "modelLatency": "P95 延遲",
+    "modelErrorRate": "錯誤率",
+    "incidents": "最近事件",
+    "incidentSeverityMinor": "輕微",
+    "incidentSeverityMajor": "嚴重",
+    "incidentSeverityCritical": "嚴重故障",
+    "noIncidents": "最近 30 天暫無事件記錄",
+    "incidentsUnavailable": "最近 30 天的事件資料暫時取不到",
+    "refresh": "刷新",
+    "fetchFailed": "狀態獲取失敗,請稍後重試",
+    "willAutoRetry": "將自動重試"
   }
 }

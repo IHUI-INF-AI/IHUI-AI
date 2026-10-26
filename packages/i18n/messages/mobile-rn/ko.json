@@ -5981,5 +5981,33 @@
     "availability": "가용 여부",
     "available": "가능",
     "busy": "불가"
+  },
+  "statusPage": {
+    "title": "시스템 상태",
+    "autoRefreshHint": "60초마다 자동 새로고침",
+    "overallOperational": "모든 시스템 정상 작동",
+    "overallDegraded": "일부 서비스 성능 저하",
+    "overallOutage": "일부 서비스 중단",
+    "uptimeLabel": "가동 시간",
+    "updatedAtLabel": "업데이트",
+    "services": "서비스 상태",
+    "serviceApi": "API",
+    "serviceDatabase": "데이터베이스",
+    "serviceRedis": "캐시",
+    "serviceOperational": "정상",
+    "serviceDegraded": "성능 저하",
+    "serviceOutage": "중단",
+    "models": "모델 가용성",
+    "modelLatency": "P95 지연",
+    "modelErrorRate": "오류율",
+    "incidents": "최근 사고",
+    "incidentSeverityMinor": "경미",
+    "incidentSeverityMajor": "심각",
+    "incidentSeverityCritical": "치명적",
+    "noIncidents": "최근 30일간 사고 기록 없음",
+    "incidentsUnavailable": "최근 30일 사고 데이터를 일시적으로 가져올 수 없습니다",
+    "refresh": "새로고침",
+    "fetchFailed": "상태를 불러오지 못했습니다. 나중에 다시 시도하세요",
+    "willAutoRetry": "자동으로 재시도합니다"
   }
 }
