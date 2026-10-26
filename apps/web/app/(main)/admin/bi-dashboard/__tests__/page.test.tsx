@@ -46,8 +46,8 @@ const payload = {
     ],
   },
   stays: [
-    { page: '/chat', avgSec: 120.4, samples: 5 },
-    { page: '/', avgSec: 63.5, samples: 12 },
+    { page: '/chat', platform: 'web', avgSec: 120.4, samples: 5 },
+    { page: '/rn/Home', platform: 'rn', avgSec: 63.5, samples: 12 },
   ],
   audience: { newUv: 31, returningUv: 14, activeUv: 45, returningRate: 0.3111 },
   platforms: [
@@ -116,9 +116,15 @@ describe('BI 数据大屏', () => {
     for (const label of ['移动端', '小程序', '浏览器插件']) {
       expect(within(container).getAllByText(label).length).toBeGreaterThan(0)
     }
-    await waitFor(() => expect(within(container).getByText('/rn/Home')).toBeTruthy())
-    const rnRow = within(container).getByText('/rn/Home').parentElement
-    expect(rnRow?.textContent).toContain('移动端')
+    await waitFor(() =>
+      expect(within(container).getAllByText('/rn/Home').length).toBeGreaterThan(0),
+    )
+    // '/rn/Home' 同时出现在「页面访问排行」与「页面停留 TOP」两行 —— 两处都必须挂移动端徽章
+    const rnRows = within(container)
+      .getAllByText('/rn/Home')
+      .map((el) => el.parentElement?.textContent ?? '')
+    expect(rnRows.length).toBeGreaterThanOrEqual(2)
+    for (const row of rnRows) expect(row).toContain('移动端')
     expect(within(container).getByText('浏览器插件').parentElement?.textContent).toContain('2 / 1')
   })
 

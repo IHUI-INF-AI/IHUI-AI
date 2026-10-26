@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth'
-import { hasSessionEstablished, isSessionLoggedOut } from '@/lib/session-marker'
+import { isSessionLoggedOut } from '@/lib/session-marker'
 
 /**
  * Admin 布局:客户端鉴权守卫(迁移自 D 盘 edu/admin/admin/src/router/guard.js L260-307 addDynamicRoute)。
@@ -76,7 +76,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const toLogin = () => {
         router.replace('/sso/login?redirect=' + encodeURIComponent(window.location.pathname))
       }
-      const recoverable = hasSessionEstablished() && !isSessionLoggedOut()
+      // 服务端守卫(middleware)只有在 refresh cookie 也在场时才会放行到这里,所以
+      // "未登录"只可能是本地 isAuthenticated 落成 false(persist 值 / 一次被动失效)。
+      // 2026-10-26:判据不再依赖 hasSessionEstablished —— 它会被 expireSession() 清掉,
+      // 而那次 expireSession 可能正是一次误判;只要用户没显式登出,就给恢复宽限。
+      const recoverable = !isSessionLoggedOut()
       if (!recoverable) {
         const raf = requestAnimationFrame(toLogin)
         return () => cancelAnimationFrame(raf)

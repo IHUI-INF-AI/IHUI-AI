@@ -21,6 +21,7 @@ import { autoResumeAfterHistory, findPendingResume, resumePendingMessage } from 
 
 vi.mock('@ihui/api-client', () => ({
   getModelContextCapacity: () => 128_000,
+  refreshAccessTokenOnce: vi.fn(async () => null),
   parseStreamLine: (line: string): string | null => {
     if (!line.startsWith('data:')) return null
     try {

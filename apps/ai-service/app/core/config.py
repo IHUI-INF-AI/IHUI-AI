@@ -245,6 +245,12 @@ class Settings(BaseSettings):
     # 配置后自动写入 os.environ[HTTP_PROXY/HTTPS_PROXY],litellm/httpx 自动读取
     # 格式:http://user:pass@host:port 或 http://host:port  空字符串=不使用代理
     llm_proxy_url: str = ""
+    # 模型同步出站代理(2026-10-26 立):SYNC_PROXY_URL 落地位。model_sync 拉取
+    # 上游 /v1/models 时经此代理出网——本机对 US/EU provider(Google/Mistral/
+    # HuggingFace/Azure-GitHub/Cloudflare)无直连出口(直连超时/本地 DNS 失败),
+    # 仅 Clash 7897 可通。空=直连。仅供 MODEL_SYNC 客户端显式使用,
+    # 不影响对话出网(llm_proxy_url)与内部调用。
+    sync_proxy_url: str = ""
 
     # P3-3 OpenRouter 403 代理 + failover(2026-07-30 立)
     # OpenRouter 对国内 IP / 非浏览器 UA 常返回 403 Forbidden(WAF 拦截),

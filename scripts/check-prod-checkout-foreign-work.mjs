@@ -771,6 +771,28 @@ export function verdictLine(state, c, { surface = 'none', undet = [] } = {}) {
   return `PROBE-RESULT state=${state} foreign=${c.foreign} duplicate=${c.duplicate} staged=${c.staged} untracked=${c.untracked} unjudged=${c.unjudged} surface=${surface} undet=${codes}`
 }
 
+/**
+ * 这个根是不是**本项目**的签出?判据 = 两个仓标记同在(`apps/api/package.json` ∧
+ * `packages/database/package.json`)。**两个都要**,一个不算(镜像测试反向对照钉死)。
+ *
+ * 为什么需要它(2026-10-26 立):发现器按"服务名带 IHUI"收根,于是 `IHUI-RSSHUB` 指向的第三方克隆
+ * (`D:/DevEnv/tools/rsshub/RSSHub`:origin 是 DIYgod/RSSHub、只有 master、没有 origin/main)
+ * 也进了判定面 ⇒ `ls-tree origin/main` 失败 ⇒ **整轮**判未判定,守护每轮寄一封
+ * 「生产签出外来工作巡检未判定」。那封信报的是"别人的仓没有 main",与本仓存续性风险无关。
+ *
+ * 失效方向(为什么是"跳过"而不是"未判定"):第三方仓不是判定面缺失,把它算成未判定等于
+ * 让一个与本仓无关的目录获得"每轮都能喊人"的权力;而"判据过紧 ⇒ 真签出被静默跳过"这一格
+ * 由镜像测试的反向对照兜住(带两个标记的根必须入面,入面后问不到 origin/main 仍是未判定)。
+ */
+export function isProjectCheckout(root, { exists = existsSync } = {}) {
+  const markers = ['apps/api/package.json', 'packages/database/package.json']
+  try {
+    return markers.every((m) => exists(join(root, m)))
+  } catch {
+    return false
+  }
+}
+
 /** 多根合并判定(2026-10-24 立:发现器可能解出多枚独立签出,折成一串计数却看不出是谁 = 新盲区)。
  *  合并语义(§0.3,单列绝不并桶):
  *    任一根真出现 foreign/staged ⇒ 整轮 dirty(存续性风险的信号必须压过"另一根判不出");
@@ -780,8 +802,16 @@ export function verdictLine(state, c, { surface = 'none', undet = [] } = {}) {
 export function probeAllRoots(roots, opts = {}) {
   const empty = { foreign: 0, duplicate: 0, staged: 0, unjudged: 0, untracked: 0 }
   const counts = { ...empty }
-  const merged = { state: 'clean', counts, foreign: [], staged: [], duplicates: [], unjudged: [], causes: [], roots: [] }
+  const merged = { state: 'clean', counts, foreign: [], staged: [], duplicates: [], unjudged: [], causes: [], roots: [], notProject: [] }
+  // 身份闸(2026-10-26):第三方仓不进判定面、也不记成因 —— 它是"与本仓无关",不是"判不出"。
+  // 夹具用 `opts.isProject` 显式声明身份(最小 git 仓没有仓标记,不该被读成第三方)。
+  const isProject = opts.isProject ?? ((dir) => isProjectCheckout(dir))
   for (const r of roots) {
+    if (!isProject(r.value)) {
+      merged.roots.push({ root: r.value, via: r.via, state: 'not-project', counts: { ...empty }, line: null, why: '不是本项目签出(缺仓标记 apps/api/package.json ∧ packages/database/package.json)' })
+      merged.notProject.push(r.value)
+      continue
+    }
     const res = probeProdCheckout(r.value, opts)
     merged.roots.push({ root: r.value, via: r.via, state: res.state, counts: res.counts, line: res.line, why: res.why ?? null })
     for (const k of Object.keys(empty)) counts[k] += Number(res.counts?.[k] || 0)
@@ -918,6 +948,7 @@ export const __test__ = {
   conventionalProdRoots,
   surveyProdCheckouts,
   probeAllRoots,
+  isProjectCheckout,
   verdictLine,
   verdictFromSurvey,
 }

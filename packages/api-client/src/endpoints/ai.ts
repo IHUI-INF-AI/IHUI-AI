@@ -10,7 +10,7 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi, getToken, normalizeUrlPublic } from '../client.js'
+import { fetchApi, fetchWithAuthRefresh, normalizeUrlPublic } from '../client.js'
 import { buildQs, type PageData } from '../utils.js'
 
 // ===================== 类型定义 =====================
@@ -499,13 +499,11 @@ export type CareerReportFormat = 'pdf' | 'word' | 'ppt'
 export async function exportCareerReport(
   input: CareerAdviceInput & { format: CareerReportFormat; content: string },
 ): Promise<Response> {
-  const token = getToken()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const url = normalizeUrlPublic('/api/ai/career-advice/export')
-  return fetch(url, {
+  // 2026-10-26:与 exportMyReport 同一条腿同一种病(401 只显示"导出失败")。
+  // 走包内唯一裸 fetch 出口:补凭据 + 401 续期后重放一次。
+  return fetchWithAuthRefresh(normalizeUrlPublic('/api/ai/career-advice/export'), {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
     credentials: 'include',
   })

@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useIsMobile } from '@/hooks/use-media-query'
 
@@ -32,6 +33,9 @@ import { useIsMobile } from '@/hooks/use-media-query'
  */
 export function MobileLoginGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  // 「还没查完」≠「确认未登录」(2026-10-26,与 admin/layout 同口径):bootstrap 异步续期
+  // (httpOnly refresh cookie)落定前不得开登录框 —— 否则凭据有效的老用户冷启动就被墙进登录页。
+  const { ready } = useAuthBootstrap()
   const isMobile = useIsMobile()
 
   // SSR 安全:仅客户端探测。纯浏览器无 window.Capacitor → false,守卫短路。
@@ -44,18 +48,26 @@ export function MobileLoginGate({ children }: { children: React.ReactNode }) {
     )
   })
 
-  const shouldGate = isNativeApp && isMobile && !isAuthenticated
+  const shouldGate = ready && isNativeApp && isMobile && !isAuthenticated
 
   React.useEffect(() => {
+    // 校验中(ready=false)不开框、不关框:失效方向是"多等一次",绝不是"多弹一次"
+    if (!ready || !isNativeApp || !isMobile) return
     if (shouldGate) {
       // redirectUrl 缺省:登录成功留在当前页(工作区随之透出),不强制跳转
       useLoginDialogStore.getState().open('login', undefined)
-    } else if (isNativeApp && isMobile && isAuthenticated) {
+    } else if (isAuthenticated) {
       // bootstrap 异步恢复登录态时,自动关闭守卫早先打开的登录框,避免残留
       const s = useLoginDialogStore.getState()
       if (s.isOpen && s.redirectUrl === null) s.close()
     }
-  }, [shouldGate, isNativeApp, isMobile, isAuthenticated])
+  }, [ready, shouldGate, isNativeApp, isMobile, isAuthenticated])
+
+  // 移动 App 冷启动校验中:与门禁期同样不挂载 children(自身"请先登录"文案/未登录请求
+  // 统统不出现),也不开登录框;ready 落定后才按真实登录态走下方分支。
+  if (isNativeApp && isMobile && !ready) {
+    return <>{/* 正在校验登录态:不渲染 children,不弹登录框 */}</>
+  }
 
   // 移动 App 未登录时:不渲染 children(对话/工作区/营销内容统统不挂载,避免闪烁与
   // 未登录 API 请求),只渲染一个空壳,由全屏 LoginDialog 作为实际首屏。登录成功后

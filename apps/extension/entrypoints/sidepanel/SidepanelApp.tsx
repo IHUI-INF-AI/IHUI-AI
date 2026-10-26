@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { Bell, Bot, BookOpen, MessageCircle, Settings, User } from 'lucide-react'
 import { NavLink, Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { getProfile, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
+import { classifyRefreshFailureStatus } from '@ihui/shared/auth/auto-login-policy'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import {
   initApi,
@@ -81,9 +82,16 @@ const TABS = [
   { to: '/settings', labelKey: 'nav.settings', icon: Settings },
 ]
 
-function isUnauthorized(res: { success: false; error: string; status?: number }): boolean {
-  if (res.status === 401) return true
-  return /401|未授权|unauthorized/i.test(res.error)
+/**
+ * 身份探测失败是否等于「服务端明确否定凭据」。
+ * 2026-10-26:判据收编到全仓唯一出口 classifyRefreshFailureStatus——旧实现是端内自写的第二份
+ * 判定(裸状态码比较 + 拿 error 文案做正则匹配冒充判据):漏 403、把含"未授权"字样的
+ * 瞬时错误(5xx 文案/超时)误判成否定凭据,连带触发下方 clearAllTokens 的销毁通道,
+ * 正是扩展端「账号总是要重新登录」的 sidepanel 腿(§0.6 同类判据全仓只许一份)。
+ * errorCode 一并透传(REFRESH_TOKEN_STALE = 陈旧副本,服务端未否定 ⇒ 瞬时)。
+ */
+function isUnauthorized(res: { status?: number; errorCode?: string }): boolean {
+  return classifyRefreshFailureStatus(res.status, res.errorCode) === 'rejected'
 }
 
 function SidepanelInner() {

@@ -15,7 +15,7 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi, getToken, normalizeUrlPublic } from '../client.js'
+import { fetchApi, fetchWithAuthRefresh, normalizeUrlPublic } from '../client.js'
 
 export type ReportFormat = 'pdf' | 'excel' | 'json'
 
@@ -37,13 +37,12 @@ export async function exportMyReport(
   config: ReportConfig,
   init?: { signal?: AbortSignal },
 ): Promise<Response> {
-  const token = getToken()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const url = normalizeUrlPublic('/api/edu/my-report/export')
-  return fetch(url, {
+  // 2026-10-26:此前只注入一次 Bearer、遇 401 直接回 401 响应 ⇒ 调用方只看得到"导出失败"。
+  // 走包内唯一裸 fetch 出口:补凭据 + 401 续期后重放一次(body 是 JSON string,可重放;
+  // 未消费的 401 响应仍原样交回,调用方的失败分支一字未改)。
+  return fetchWithAuthRefresh(normalizeUrlPublic('/api/edu/my-report/export'), {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(config),
     credentials: 'include',
     signal: init?.signal,

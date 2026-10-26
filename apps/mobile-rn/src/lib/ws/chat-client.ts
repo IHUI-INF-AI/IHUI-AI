@@ -7,7 +7,10 @@
  *
  * 功能:
  * - 复用共享层 @ihui/api-client 的 WebSocketClient(框架无关,断线指数退避重连 + 心跳)
- * - 端点:GET /ws/live-chat?roomId=<id>&token=<access_token>
+ * - 端点:GET /ws/live-chat?roomId=<id>&token=<ws_ticket>
+ *   建连前先 POST /ws/ticket 用 access token 换 5 分钟短期票(access 不进 URL);
+ *   换票失败时底层会先续期一次再降级直连 —— 这条腿因此不会被"access 已过期"卡死
+ *   (2026-10-26 前本端没传 ticketProvider,重连永远用 mount 时那份 token 快照)
  * - 消息协议(与服务端约定):
  *   服务端推送 { type: 'chat', data: ChatMessage }
  *   客户端发送 { type: 'send', content: string }
@@ -29,7 +32,12 @@
  * unsub()
  * ```
  */
-import { WebSocketClient, type WebSocketLike, type WebSocketClientHandlers } from '@ihui/api-client'
+import {
+  fetchWsTicket,
+  WebSocketClient,
+  type WebSocketLike,
+  type WebSocketClientHandlers,
+} from '@ihui/api-client'
 
 export interface ChatMessage {
   id: string
@@ -44,6 +52,14 @@ export type ChatStatus = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'clos
 
 export interface LiveChatClientOptions {
   baseUrl: string
+  /**
+   * 取**当前** access token(每次建连/重连都会重新调用一次)。
+   *
+   * 2026-10-26:这里必须是"取值函数"而不是"取值结果"——此前本类在 connect 时把 token 抄进
+   * `currentToken` 字段,之后所有重连都用那份快照;access token 15 分钟过期后,断线重连
+   * 永远拿旧票去握手 ⇒ 服务端 4003 拒绝 ⇒ 无限重连且**不会自愈**(它连"过期"这个事实都
+   * 传不到任何一层,因为建连不经过 api-client 的 401 出口)。
+   */
   tokenProvider: () => string | null
   /** 心跳间隔 ms,默认 30000 */
   heartbeatInterval?: number
@@ -54,6 +70,15 @@ export interface LiveChatClientOptions {
    * 不传时走默认 new WebSocket。
    */
   webSocketFactory?: (url: string) => WebSocketLike
+  /**
+   * 建连前用 access token 换 5 分钟短期 WS ticket(测试/特殊宿主可覆盖)。
+   *
+   * 默认 = 包内 `fetchWsTicket(baseUrl, accessToken)`:POST /ws/ticket,access token 走
+   * Authorization 头而不进 URL;换票失败时 `WebSocketClient` 内部会先
+   * `refreshAccessTokenOnce()` 续期一次再换/降级直连(2026-10-26 包内补的那条腿)。
+   * 传 `undefined` 用默认;传 `async () => null` 可显式关掉换票(旧行为)。
+   */
+  ticketProvider?: (accessToken: string) => Promise<string | null | undefined>
 }
 
 export interface LiveChatHandlers {
@@ -91,7 +116,6 @@ export class LiveChatClient {
   private currentRoomId: string | null = null
   private listeners = new Set<LiveChatHandlers>()
   private status: ChatStatus = 'idle'
-  private currentToken: string | null = null
 
   constructor(private readonly options: LiveChatClientOptions) {}
 
@@ -141,13 +165,13 @@ export class LiveChatClient {
       this.client = null
     }
     this.currentRoomId = roomId
-    const token = this.options.tokenProvider()
-    if (!token) {
+    // 只做"有没有登录"的门禁判断;建连用的凭据由底层 WebSocketClient 每次现取
+    // (见 options.tokenProvider 的注释),不在这里留快照。
+    if (!this.options.tokenProvider()) {
       this.setStatus('error')
       this.emitError('未登录,无法连接聊天')
       return
     }
-    this.currentToken = token
     this.setStatus('connecting')
 
     const handlers: WebSocketClientHandlers<unknown> = {
@@ -187,8 +211,14 @@ export class LiveChatClient {
 
     this.client = new WebSocketClient<unknown>(
       {
-        urlBuilder: () => buildChatWsUrl(this.options.baseUrl, roomId, this.currentToken ?? ''),
-        tokenProvider: () => this.currentToken,
+        // token / ticket 由 WebSocketClient 在**每次建连与每次重连**时现取现换:
+        // - tokenProvider 每次调用都回到端内唯一凭据源(调用方传入的取值函数)
+        // - ticketProvider 默认走包内 fetchWsTicket(POST /ws/ticket,access 不进 URL);
+        //   换票失败时 WebSocketClient 内部先 refreshAccessTokenOnce() 续期一次再换票/降级
+        urlBuilder: (token) => buildChatWsUrl(this.options.baseUrl, roomId, token),
+        tokenProvider: () => this.options.tokenProvider(),
+        ticketProvider:
+          this.options.ticketProvider ?? ((accessToken) => fetchWsTicket(this.options.baseUrl, accessToken)),
         // 接受所有消息,具体类型解析在 onMessage 回调中按外壳分支处理
         messageGuard: (_data: unknown): _data is unknown => true,
         heartbeatInterval: this.options.heartbeatInterval,
@@ -217,7 +247,6 @@ export class LiveChatClient {
       this.client = null
     }
     this.currentRoomId = null
-    this.currentToken = null
     this.setStatus('closed')
   }
 }
