@@ -182,7 +182,8 @@
   "home": {
     "more": "More",
     "livePreview": "Upcoming live",
-    "startTime": "Starts at"
+    "startTime": "Starts at",
+    "pubTip": "Notice"
   },
   "course": {
     "learningProgress": "Progress",
@@ -239,7 +240,8 @@
     "rating3": "Average",
     "rating4": "Good",
     "rating5": "Excellent",
-    "studentUnit": "Learners"
+    "studentUnit": "Learners",
+    "moreTitle": "More courses"
   },
   "live": {
     "viewers": "{n} viewers",
@@ -442,7 +444,14 @@
       "available": "Available commission",
       "records": "Commission records",
       "title": "Commission Details"
-    }
+    },
+    "balance": "Balance",
+    "frozen": "Frozen",
+    "loadFailed": "Failed to load wallet",
+    "title": "My Wallet",
+    "totalRecharge": "Total recharge",
+    "totalWithdraw": "Total withdrawal",
+    "withdraw": "Withdraw"
   },
   "community": {
     "posts": "Posts",
@@ -2139,7 +2148,8 @@
     "deleteConfirm": "Delete this item?",
     "selectFirst": "Please select items",
     "loadFailed": "Load failed",
-    "total": "Total"
+    "total": "Total",
+    "checkoutConfirm": "Confirm the selected items and pay with WeChat Pay"
   },
   "categoryDetail": {
     "categoryId": "Category {id}",
@@ -5313,7 +5323,9 @@
     "empty": "No courses yet",
     "free": "Free",
     "studentCount": "{count} learners",
-    "nextPage": "Next"
+    "nextPage": "Next",
+    "popular": "Popular Courses",
+    "unknownInstructor": "Unknown instructor"
   },
   "customerService": {
     "title": "Customer Service",
@@ -5501,5 +5513,361 @@
     "from": "From",
     "createdAt": "Time",
     "loadFailed": "Failed to load message"
+  },
+  "messageDirect": {
+    "empty": "No direct messages",
+    "loadFailed": "Failed to load",
+    "title": "Direct messages"
+  },
+  "messageGroup": {
+    "empty": "No group chats",
+    "loadFailed": "Failed to load",
+    "title": "Group chats"
+  },
+  "messageSystem": {
+    "empty": "No system messages",
+    "loadFailed": "Failed to load",
+    "title": "System messages"
+  },
+  "noteCreate": {
+    "title": "New Note",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Title your note",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Write down your thoughts...",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Separate tags with commas",
+    "isPublic": "Public",
+    "submit": "Save",
+    "required": "Content is required",
+    "saveFailed": "Failed to save"
+  },
+  "noteDetail": {
+    "loadFailed": "Failed to load note",
+    "views": "Views"
+  },
+  "noteList": {
+    "empty": "No notes",
+    "loadFailed": "Failed to load",
+    "title": "Notes"
+  },
+  "note": {
+    "title": "My Notes",
+    "subtitle": "Notes worth keeping",
+    "empty": "No notes yet. Tap \"New\" to start",
+    "add": "New Note",
+    "edit": "Edit",
+    "updatedAt": "Updated",
+    "titlePlaceholder": "Title your note",
+    "placeholder": "Write down your thoughts...",
+    "deleteFailed": "Failed to delete",
+    "deleted": "Deleted",
+    "loadFailed": "Failed to load",
+    "saveFailed": "Failed to save",
+    "saved": "Saved",
+    "titleRequired": "Please enter a title"
+  },
+  "notificationList": {
+    "viewActive": "Active",
+    "archived": "Archived",
+    "loadFailed": "Failed to load",
+    "title": "Notifications",
+    "type": {
+      "course": "Course",
+      "order": "Order",
+      "social": "Social",
+      "system": "System"
+    }
+  },
+  "orderLog": {
+    "title": "Order Activity",
+    "empty": "No activity yet",
+    "action": "Action",
+    "operator": "Operator",
+    "loadFailed": "Failed to load order log"
+  },
+  "orderTrack": {
+    "title": "Order Tracking",
+    "empty": "No tracking updates yet",
+    "location": "Current Location",
+    "loadFailed": "Failed to load tracking"
+  },
+  "payment": {
+    "title": "Payment Orders",
+    "subtitle": "View and manage your payment orders",
+    "retry": "Retry",
+    "empty": "No payment orders",
+    "orderNo": "Order No.",
+    "amount": "Amount",
+    "method": "Payment method",
+    "paidAt": "Paid at",
+    "untitledOrder": "Untitled order",
+    "syncStatus": "Sync status",
+    "cancelOrder": "Cancel order",
+    "payNow": "Pay now",
+    "payCancelled": "Payment cancelled",
+    "payFailed": "Payment failed",
+    "createFailed": "Failed to create payment order",
+    "wechatNotInstalled": "WeChat is not installed",
+    "nativeUnavailable": "WeChat Pay unavailable, rebuild required"
+  },
+  "pointRule": {
+    "empty": "No points rules",
+    "loadFailed": "Failed to load rules",
+    "title": "Points Rules"
+  },
+  "pointsMall": {
+    "balance": "Points balance",
+    "empty": "No products",
+    "insufficient": "Insufficient points",
+    "loadFailed": "Failed to load products",
+    "pointsUnit": "points",
+    "redeem": "Redeem",
+    "redeemFailed": "Redemption failed",
+    "redeemSuccess": "Redeemed successfully",
+    "retry": "Retry",
+    "stock": "Stock",
+    "subtitle": "Redeem gifts with points",
+    "title": "Points Mall"
+  },
+  "pointsRecord": {
+    "title": "Token Value Details",
+    "tabAll": "All",
+    "tabEarn": "Earned",
+    "tabSpend": "Spent",
+    "balance": "Current Balance",
+    "empty": "No records yet",
+    "balanceAfter": "Balance After",
+    "loadFailed": "Failed to load records"
+  },
+  "points": {
+    "title": "Points center",
+    "subtitle": "Points, level and daily check-in",
+    "current": "Current points",
+    "totalEarned": "Total earned",
+    "totalSpent": "Total spent",
+    "level": "Level",
+    "nextLevel": "{points} points to {name}",
+    "maxLevel": "Highest level reached",
+    "experience": "Experience",
+    "signIn": {
+      "title": "Daily check-in",
+      "signedIn": "Checked in today",
+      "notSignedIn": "Not checked in today",
+      "consecutive": "{days}-day streak",
+      "todayReward": "Today's reward",
+      "signInBtn": "Check in",
+      "signing": "Checking in...",
+      "signInSuccess": "Checked in and earned {points} points",
+      "signInFailed": "Check-in failed",
+      "alreadySigned": "Already checked in today"
+    },
+    "mallLink": "Points mall",
+    "taskCenterLink": "Task center",
+    "ruleLink": "Points rules",
+    "txTitle": "Points history",
+    "empty": "No points records",
+    "loadFailed": "Failed to load points",
+    "balance": "Balance",
+    "loadMore": "Load more"
+  },
+  "profileEdit": {
+    "avatarTip": "Tap to change avatar",
+    "nicknamePlaceholder": "Enter a nickname",
+    "bioPlaceholder": "Tell us about yourself",
+    "avatarModalTitle": "Change Avatar",
+    "avatarUrlLabel": "Avatar URL",
+    "avatarUrlPlaceholder": "Paste an image link",
+    "avatarUrlHint": "JPG / PNG, 200x200 recommended",
+    "bio": "Bio",
+    "gender": "Gender",
+    "nickname": "Nickname",
+    "retry": "Retry",
+    "save": "Save",
+    "title": "Edit profile"
+  },
+  "promote": {
+    "title": "Promotion Center",
+    "subtitle": "Share your link and invite friends",
+    "retry": "Retry",
+    "inviteCount": "Invited",
+    "activeCount": "Active",
+    "totalEarnings": "Total Earnings",
+    "referralLink": "Your Referral Link",
+    "copyLink": "Copy Link",
+    "copySuccess": "Copied",
+    "shareBtn": "Share",
+    "referralCode": "Referral Code",
+    "rules": "Promotion Rules",
+    "inviteRecords": "Invitation Records",
+    "empty": "No data",
+    "loadFailed": "Failed to load promote"
+  },
+  "promotion": {
+    "title": "Coupons",
+    "empty": "No coupons available",
+    "minSpend": "Min. spend ¥{minSpend}",
+    "expireDate": "Valid until",
+    "useNow": "Use Now",
+    "loadFailed": "Failed to load promotion"
+  },
+  "qrCode": {
+    "title": "My QR Code",
+    "scanTip": "Scan the QR code to learn and grow with me",
+    "share": "Share",
+    "loadFailed": "Failed to load QR code"
+  },
+  "realNameAuth": {
+    "title": "Real-Name Verification",
+    "status": "Status",
+    "verifiedDesc": "Real-name verification completed",
+    "unverifiedDesc": "Complete verification to unlock more services",
+    "name": "Real Name",
+    "namePlaceholder": "Enter your real name",
+    "idNumber": "ID Number",
+    "idNumberPlaceholder": "Enter your ID number",
+    "submit": "Submit",
+    "submitting": "Submitting..."
+  },
+  "identityVerify": {
+    "loadFailed": "Failed to load"
+  },
+  "referrer": {
+    "title": "Referrer",
+    "current": "Current Referrer",
+    "empty": "No referrer bound yet",
+    "desc": "Both of you will get rewards after binding",
+    "codeLabel": "Referral Code",
+    "codePlaceholder": "Enter a referral code",
+    "submit": "Bind",
+    "submitting": "Binding...",
+    "bindFailed": "Failed to bind",
+    "bindSuccess": "Bound successfully",
+    "codeRequired": "Please enter invite code",
+    "loadFailed": "Failed to load referrer"
+  },
+  "refundDetail": {
+    "amount": "Refund amount",
+    "createdAt": "Applied at",
+    "empty": "No refunds",
+    "loadFailed": "Failed to load refund",
+    "orderNo": "Order No.",
+    "reason": "Reason",
+    "status": "Status",
+    "title": "Refund Details"
+  },
+  "securitySettings": {
+    "title": "Security Settings",
+    "password": "Password Login",
+    "biometric": "Biometric Unlock",
+    "twoFactor": "Two-Factor Authentication",
+    "loginAlert": "Login Alerts",
+    "desc": "Manage your account security options",
+    "loadFailed": "Failed to load"
+  },
+  "selfMedia": {
+    "title": "Self-Media Assistant",
+    "loadFailed": "Failed to load",
+    "promptRequired": "Please enter your request",
+    "promptPlaceholder": "Describe what you want to create…",
+    "invoke": "Invoke Skill",
+    "invoking": "Generating…",
+    "invokeFailed": "Skill invocation failed, please retry",
+    "duration": "Took {{ms}} ms",
+    "share": "Share",
+    "empty": "No generation/publish records"
+  },
+  "spec": {
+    "empty": "No templates",
+    "title": "Spec Templates",
+    "loadFailed": "Failed to load templates",
+    "desktopHint": "Template browsing is for reference only; Spec generation requires a server-side workspace path — use the full flow on Web/Desktop",
+    "generateEntry": "Generate on Web"
+  },
+  "settingsAccount": {
+    "title": "Account Management",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "save": "Save",
+    "loadFailed": "Failed to load",
+    "saved": "Saved"
+  },
+  "statusPage": {
+    "title": "System Status",
+    "autoRefreshHint": "Auto-refresh every 60s",
+    "overallOperational": "All systems operational",
+    "overallDegraded": "Partial degradation",
+    "overallOutage": "Partial outage",
+    "uptimeLabel": "Uptime",
+    "updatedAtLabel": "Updated",
+    "services": "Services",
+    "models": "Model availability",
+    "modelLatency": "P95 latency",
+    "modelErrorRate": "Error rate",
+    "incidents": "Recent incidents",
+    "noIncidents": "No incidents in the last 30 days",
+    "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable",
+    "refresh": "Refresh",
+    "fetchFailed": "Failed to load status, please retry later",
+    "willAutoRetry": "Will auto-retry"
+  },
+  "studyProgress": {
+    "title": "Study Progress",
+    "loadFailed": "Failed to load study progress",
+    "courses": "Courses (done/total)",
+    "totalMinutes": "Total Minutes",
+    "weekMinutes": "This Week (min)",
+    "streak": "Day Streak",
+    "courseProgress": "Course Progress"
+  },
+  "teamDetail": {
+    "title": "Team Member Details",
+    "transactionVolume": "Sales Volume",
+    "commission": "Commission Earned",
+    "orderNum": "Orders Closed",
+    "phone": "Phone",
+    "joinedAt": "Joined",
+    "contact": "Contact",
+    "viewOrders": "View Orders",
+    "empty": "No member info",
+    "loadFail": "Load failed. Retry.",
+    "noPhone": "No phone provided by this member",
+    "callFail": "Cannot dial. Check device."
+  },
+  "topup": {
+    "failDefault": "Top-up not completed. Try again later."
+  },
+  "usage": {
+    "title": "Usage",
+    "quotaTitle": "Monthly quota",
+    "used": "Used",
+    "limit": "Limit",
+    "remaining": "Remaining",
+    "usagePercent": "Usage rate",
+    "periodMonth": "Period: current calendar month",
+    "statsTitle": "Usage overview (last 30 days)",
+    "totalTokens": "Total tokens",
+    "inputTokens": "Input",
+    "outputTokens": "Output",
+    "totalCost": "Total cost",
+    "totalCalls": "Calls",
+    "dailyTitle": "Daily usage",
+    "modelTitle": "Usage by model",
+    "noData": "No data",
+    "retry": "Retry"
+  },
+  "vipLevel": {
+    "benefits": "Benefits",
+    "days": "Days",
+    "duration": "Duration",
+    "empty": "No levels",
+    "loadFailed": "Failed to load levels",
+    "price": "Price",
+    "title": "VIP Levels"
+  },
+  "workflows": {
+    "empty": "No workflows yet",
+    "loadFailed": "Failed to load workflows"
   }
 }
