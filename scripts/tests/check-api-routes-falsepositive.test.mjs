@@ -40,6 +40,9 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = join(HERE, '..', 'check-api-routes.mjs')
 const SRC = readFileSync(SCRIPT, 'utf8')
+// 机制④(嵌套 register 展开)的定义与依据注释随 10-23 抽 lib 迁至该 lib 文件,门体只留
+// import+调用 ⇒ S1/S2 对④的两枚锚点双锁"门体+lib"合并面:任一处有即过、两处皆删才红。
+const LIB_EXPAND = readFileSync(join(HERE, '..', 'lib', 'api-route-registration-expand.mjs'), 'utf8')
 
 const BASELINE = JSON.stringify({ version: 1, perFileCount: {} })
 
@@ -716,8 +719,12 @@ test('S1 源码锁:五个机制各自的判据入口都在,且未被静默去掉
     !declLine.includes('cliShapes'),
     `③ 的 cliShapes 限死回来了(判据本体不该变,覆盖面才放开)\n${declLine}`,
   )
-  // ④ 嵌套 register 展开
-  assert.match(SRC, /function expandNestedRegisterRoutes\(/, '④ 的展开函数不见了')
+  // ④ 嵌套 register 展开(定义 10-23 起住 lib ⇒ 双锁门体+lib,见文件头 LIB_EXPAND 注释)
+  assert.match(
+    SRC + '\n' + LIB_EXPAND,
+    /function expandNestedRegisterRoutes\(/,
+    '④ 的展开函数不见了(门体与 lib 两处都没有)',
+  )
   assert.match(
     SRC,
     /routes\.push\(\.\.\.expandNestedRegisterRoutes\(src, rel\)\)/,
@@ -739,7 +746,11 @@ test('S2 源码锁:五个机制的判据依据注释不得被删(否则下一个
   assert.match(SRC, /形态 A 影响面为 0/, '① 必须留着"独立 params 影响面为 0"这个立判依据')
   assert.match(SRC, /全仓 7 处 `?@router\.get\(""`?/, '② 必须点名 7 处空路径')
   assert.match(SRC, /与端无关/, '③ 必须点明"片段不是调用点"与端无关这条依据')
-  assert.match(SRC, /尾部带 `?\{ prefix \}`? 的 \*\*4 处\*\*/, '④ 必须留着 4 处同型形态的实测数')
+  assert.match(
+    SRC + '\n' + LIB_EXPAND,
+    /尾部带 `?\{ prefix \}`? 的 \*\*4 处\*\*/,
+    '④ 必须留着 4 处同型形态的实测数(门体与 lib 两处都没有)',
+  )
   assert.match(
     SRC,
     /会把 \*\*2,623 条\*\*判成非调用点/,
