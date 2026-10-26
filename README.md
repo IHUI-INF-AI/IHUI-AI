@@ -50,8 +50,6 @@
 <p align="center">
   <sub>
     <a href="README.md">简体中文</a> · <a href="README.en.md">英文</a> · <a href="README.ko.md">韩文</a> · <a href="README.ja.md">日文</a>
-    &nbsp;&nbsp;|&nbsp;&nbsp;
-    <strong>国内镜像</strong> · <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> · <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
   </sub>
 </p>
 
@@ -457,13 +455,6 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
     <a href="README.en.md">英文</a> ·
     <a href="README.ko.md">韩文</a> ·
     <a href="README.ja.md">日文</a>
-</p>
-<p align="center">
-  <strong>国内镜像</strong> ·
-  <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> ·
-  <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
-  <br/>
-  <sub>国内用户克隆/下载更快，与 GitHub 自动同步</sub>
 </p>
 <p align="center">
   <strong>📬 快速联系 · 合作咨询</strong>
