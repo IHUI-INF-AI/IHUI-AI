@@ -236,7 +236,7 @@ export async function ensureQoderBridge(): Promise<QoderBridgeEndpoint | null> {
         endpoint = ep
         consecutiveFailures = 0
         lastError = ''
-        console.log(`[qoder-bridge] ready pid=${ep.pid} ${ep.baseUrl}`)
+        console.info(`[qoder-bridge] ready pid=${ep.pid} ${ep.baseUrl}`)
         return ep
       } catch (e) {
         lastError = e instanceof Error ? e.message : String(e)
