@@ -73,7 +73,7 @@ def _make_fake_httpx(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, di
         def __init__(self, **kwargs: Any) -> None:
             return None
 
-        async def __aenter__(self) -> "_FakeClient":
+        async def __aenter__(self) -> _FakeClient:
             return self
 
         async def __aexit__(self, *exc: Any) -> bool:
