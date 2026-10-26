@@ -21,18 +21,11 @@ import {
   Users,
   Wrench,
 } from 'lucide-react-native'
-import {
-  Linking,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Linking, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import type { TFunction } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 import { createEduAiStyles, EDU_AI_PALETTE, type EduAiTone } from './edu-ai-styles'
 
 /** 与 web /edu-ai 四目录页同构的四个入口(aigc-tools / certification / courses / policy)。 */
@@ -523,7 +516,8 @@ export function EduAiHubScreen({
   const searchBox = (tab: EduAiTab, placeholder: string, value: string) => (
     <View style={styles.searchBox}>
       <Search size={15} color={tk.text.tertiary} strokeWidth={2} />
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.searchInput}
         value={value}
         onChangeText={(v) => onKeywordChange(tab, v)}

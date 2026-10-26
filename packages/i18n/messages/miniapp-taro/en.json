@@ -4815,7 +4815,10 @@
       "pending": "Pending"
     }
   },
-  "agreement": {"subtitle":"Please read this agreement carefully","title":"User Agreement"},
+  "agreement": {
+    "subtitle": "Please read this agreement carefully",
+    "title": "User Agreement"
+  },
   "agreementSections": {
     "sectionObligations": "User Obligations",
     "sectionObligationsBody": "You must comply with applicable laws and regulations, and shall not publish illegal, non-compliant, or harmful content, nor infringe upon the legitimate rights and interests of others.",
@@ -4823,5 +4826,17 @@
     "sectionRightsBody": "You have the right to access services in accordance with the law, manage your personal information, and report non-compliant content.",
     "sectionTerms": "Terms of Service",
     "sectionTermsBody": "This agreement is made between you and ZHIHUI AI regarding your use of the platform services. Please read it carefully before use. By using the platform, you agree to all terms of this agreement."
+  },
+  "scanLogin": {
+    "menuTitle": "Scan",
+    "title": "Scan to sign in",
+    "hint": "Align the QR code on your computer within the frame",
+    "submitting": "Confirming…",
+    "permissionHint": "Camera access is required to scan",
+    "grant": "Allow camera",
+    "invalidCode": "Please scan the sign-in QR code from this site",
+    "success": "Sign-in confirmed",
+    "failed": "Confirmation failed. Please try again.",
+    "needLogin": "Please sign in before scanning"
   }
 }

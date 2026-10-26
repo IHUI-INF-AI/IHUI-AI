@@ -13,11 +13,16 @@ import {
 
 vi.mock('lucide-react-native', () => {
   const icon = (name: string) => () => createElement('i', { 'data-icon': name })
+  // 白名单要跟实现同步:EmptyState 未传 icon 时渲染默认中性图标 Circle(见
+  // src/components/ScreenStates.tsx 的 `icon ?? <Circle/>`)—— 少了它,空态那两格里
+  // 整屏在 render 阶段就抛「No "Circle" export is defined on the mock」,
+  // 而失败信息会落在本例的断言之外(报错栈在 ScreenStates,与"入口渲染条件"无关)。
   return {
     Plus: icon('Plus'),
     Wallet: icon('Wallet'),
     CalendarCheck: icon('CalendarCheck'),
     Trash2: icon('Trash2'),
+    Circle: icon('Circle'),
   }
 })
 

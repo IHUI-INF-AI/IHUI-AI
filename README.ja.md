@@ -2198,6 +2198,24 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 📚 ドキュメント:12 枚僵尸票批量结清——前提在 HEAD 逐条不成立:桌面 ANR 残行 55 字、G-195 三个入口脚本全在 HEAD、take_loop_v2_handoff 生产面 18 处已装车、O87g 精确挂载图已装车(本轮另补 compositeDelta 报数)、三枚归并副本指向行已归档、G-8 为副本套娃 31 层的一次性快照、G-242 残行且属禁用的等条件形态、G-948 被吞行已回补、G-66 为单点读数加等条件形态、cloudflared 运行副本与入库源逐字节等值 (9be4bfd2bb)
+
+**2026-10-26**
+- 🔧 その他:fix(scripts)+test(deploy): 两批判据补强——① 门 8 组合前缀 compositeDelta 报数(票面第 4 格少判组合必须报名,此前无机器断言;现读少判 877654 条,只报数不判红,兜底档返回 null)② 人跑健康清单补 cdn 80 端口三态(原本只查 8801/8802/8803/8810/8811;取不到记 null 且仅未判定 exit 2),附两枚镜像各含摘掉即翻红用例 (0b0f033dec)
+- 🐞 修正:补齐部署窗口线三枚新文件的溯源水印 (c4da901e2a)
+- 📚 ドキュメント:AGENTS.md 重复登记副本清偿批的逐字迁出件(先入库立凭据) (7d5e7474e5)
+- 📚 ドキュメント:三枚已结清未翻勾行由主席复验后翻勾——G-706 证据件三枚在 HEAD 且夹具 11/11 通过、G-42 架构策略表相对 HEAD diff 0 行、G-56 索引 D 前缀 0 条;原行内"不翻勾/不动勾"注记经当场复验解除,按完成即删口径处置 (5e5b788612)
+- 📚 ドキュメント:§21 补登「账号保活中心」——两条保活线收成一份状态,6 条 /api/keepalive/* 从 in-doc-window 清零 (094dd7f730)
+- 📚 ドキュメント:号池 workbuddy-switch 三件套活文档补账——PROJECT_PLAN 加 2026-10-26 本批节(三件判据/成对对照端/验绿末行/端范围平台独占豁免/推送分叉如实登记仅别两席两 ps1 真冲突与这两枚无关);README 号池表 3 处(账号池调度巡检扩为四档含空闲保活、新增号池导入格式自适应、号体检速查 CLI) —— 以权威 HEAD 基面叠加我的新增,自检 HEAD 逐行零丢失(唯一差异=该表行按'一编号一行当前状态'就地改写,旧①②③文本原样保留在新版内),活文档归并走 object-space-land 带行级复活守卫 (49e67301c1)
+- 📚 ドキュメント:归档件说明头补改号映射句(G-39⇒G-36 新号形态) (6ffbbff6b9)
+- 🔧 その他:union 合并落地后按合并树重派 8 枚派生件 (66e547dcb7)
+- 📚 ドキュメント:G-39→G-36 改号留痕归档件(守门 71 出路②凭据) (62c1800e06)
+- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (892b2349c2)
+- 🐞 修正:部署窗口显式化 —— 部署期间只暂存部署相关告警,成功后留 15 分钟 settle,失败/回滚立即放行 (370d9f26c7)
+- 🐞 修正:聊天流程 taintEgressGate 全端同步 + 两处存量 build 红清偿 (100038acb4)
+- 🐞 修正:全量 pytest 清零——生产两处真修复 + 测试判据去假红 (56ac086fab)
+
+**2026-10-26**
 - 🐞 修正:部署面按「取对侧(已声明+可复核)」导入 origin 的部署窗口线 + 两处归并与两处修红 (c02b88bc63)
 - 📚 ドキュメント:G-5 结清——超龄认领牌存量现读归零(代摘器干跑 SWEEP-RESULT state=clean stale=0 held=40 stripped=0 @22:51),且 2026-10-25 机主令已禁止等条件桶 ⇒ 原"等持有人处置"的出路由器物 strip-stale-claim-marks 接手,本行无剩余动作 (ebf8f7d516)
 - 🐞 修正:门41 认「退役远端的残留跟踪引用」为一档(orphan)—— gitee 远端 2026-10-23 摘配后 packed-refs 里 4 条 refs/remotes/gitee/* 掉出 mirror 档、又不属 origin 的 stale 档,被判成超窗旁支,而本门给的四条出路对它全部不成立(A 删的是别的 remote / B 对远程跟踪引用无效 / D 只 prune origin)⇒ 无解恒红挂每次提交(§12e/§12f);判据改为按 git remote 现配清单分档,configuredRemotes 取不到时一律不判 orphan(失效方向仍是多拦),T21 端到端锁正例 + 自检四例反向对照;同批门150 三族圆角归位(KeepaliveCenterPanel panel→rounded-xl / control→rounded-sm,quick-notes archivedDot tiny→rnRadius.xs),工作树面复跑判红 0 族 (bf63f8c40b)
@@ -2308,19 +2326,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 **2026-10-26**
 - 📚 ドキュメント:G-16 门128 两格按前提腐烂结清(全量 40 位 sha 指针,镜像 pass 58);argument-validation 记进展不翻勾(①裁不接线有据、②腐烂、③演示路径仍开) (4ca4467caa)
 - 🐞 修正:mobile-rn zh-TW 一处简体残留改繁(平台→平臺，工具中心副标题)；按注册参数跑全 17 个 zh-TW/ko/ja × 各端 target 均 rc=0，键集 parity 19237 键 5 语言 OK (f78992c3d7)
-
-**2026-10-26**
-- 🔧 その他:锁租约负向验收用例钉住不相等凭据不得删他人锁(承 G397,含变异自证与畸形凭据九形);chore(cli): 参数修复环裁决为不接线并加覆盖面对照用例;chore(ui): 门128 跨端基线重锚并清除僵尸死锚 (26d7fedb53)
-- 📚 ドキュメント:goal-20261026-b14 三票状态注记 G-863结清/G-941取证腿消解/G-24接线消解(注记不动勾不摘牌,证据枚 merge-base 验讫) (33f6f0d96c)
-- 📚 ドキュメント:死端点簇票结清——票面二段式判据当场复跑(六条 RN 屏调用两后端均有承接:/api/resources、/api/edu/qa 在 edu-frontend-routes.ts:632/648 以前缀 /api 注册、/api/agent-reviews、/api/wallet/bank-cards、/api/messages/private/list),整串 git grep 的 0 命中正是票面自预言的『前缀拆段』假 0;门 8 现读『新增 0 处死调用』;唯一剩余 wallet/bank-cards 无绑定表⇒handler 恒返空数组+屏诚实空态,真绑卡属新建能力,按『严禁扩展需求』不代做 (ffd60c735e)
-
-**2026-10-26**
-- 🐞 修正:未知派单状态兜终态而非初始态(门 205 归零) (5296a9b85a)
-- 🐞 修正:G-70 备份链换机自愈——backup-pg-local 落点与 pg_dump 改探测式(样板:ihui-pg-backup 的 G-298 派生+候选链);旧写死 D:\\DevEnv\\backups\\pg 与 D:\\ihui-pg\\16 在换机后整卷失踪,守卫只剩'请更新本文件路径'死路。新增盘符字面/候选链/守卫留痕/旁族命名四锁(3/3 绿);本机实跑 rc=0 产出 191,307,104B dump+backup.log 留痕;check-c-drive-paths rc=0。readiness-gate 2 红为既有(目标与测试均与 HEAD 一致,不属本腿) (ebadd784a6)
-- 🔧 その他:goal-20261026 结清 L5360 四道门红僵尸票(门77/83/7全绿+门103判红0) (2f77e64d8c)
-- 🔧 その他:本席 goal-20261026-b11r1 结清注记 G-64/G-42/G-56(题面现读命中,不动勾不摘牌,证据枚已 merge-base 验讫) (342f092364)
-- 🐞 修正:feedback-loop-status 的 git log 派生补 stdio —— 门 193 既存红点清零 (5475c79df6)
-- 🚀 機能/改善:Wave2 补屏 21 条 gap 路由 —— student/edu-ai/ai-world/tools/plan 五域 (aa0dab1a59)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

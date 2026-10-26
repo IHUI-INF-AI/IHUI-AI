@@ -2079,6 +2079,230 @@ export function dispositionOfV2({ line, fields }) {
   }
 }
 
+/**
+ * ── 归属证据尺(2026-10-26 立):`owned-elsewhere` 只在**有真实归属证据**时才剔出派单面 ──
+ *
+ * ## 病(两席独立复现,2026-10-26 现读)
+ * `〔归:桌面端持有人〕` / `归属:…部署环告警去重持有人` / `由那份副本的持有者…` 这类**散文标签**
+ * 不是租约,却照样把行剔出派单面:实测 46 枚未勾行的 `claimMarkOf` **全部为 null**,
+ * 却被 v2 尺整批读成"归他人" ⇒ `--open --dispatchable --exclude-inflight` 出单 **0 行**。
+ * 两个方向同时坏:① 账面把"没人认领的真活"读成"别人的活",并发上不去(收工);
+ * ② 另一面别的会话会凭旧账面重复做已完成的事(打架)。机主 2026-10-26 令"不允许两个 agent
+ * 打架重复做同一件任务"要防的正是这个读数,而读数本身就在打架。
+ *
+ * ## 判据(三选一,三条皆不成立 ⇒ `stale-owner-label`,默认保留在出单面并单独报数)
+ *  ① 同行有 **≤72h 完整租约**(`claimMarkOf` 的 `form==='lease'` ∧ 带 `@日期`);
+ *  ② 标签里的**持有者短名**出现在**最近 200 枚提交信息**里;
+ *  ③ 票面点名的文件此刻在 `git status` 脏面。
+ * 取不到输入(提交史 / 脏面读不到)⇒ `undetermined`,**既不折成"归他人"也不折成"可派"**(§0.3)。
+ *
+ * ## 为什么必须核验而不是照标签剔(两把尺子的差就是本仓最贵的那种失效)
+ * 散文标签是**登记时刻**的一句话,它不会随持有者离开而失效 —— 台账里点名"XX 端持有人"的行,
+ * 那个持有人可能三个月前就没在这条线上;而派单面的口径是"现在谁能动手"。一个不会过期的标签
+ * 冒充"现在有人在动",与"已勾行没删"是同一型(账面看起来正常,病在时间里)。
+ *
+ * ## 为什么 ② 要求"席位短名"含拉丁记号(实测,不是偏好)
+ * 朴素子串匹配的假阳性率是 6/25(2026-10-26 现读 25 枚散文归属行 × `git log -200`):
+ * `桌面端`(命中 1 次,出处是"…桌面端 Gitee 附件分发…")、`cloudflared`、`守门`/`98`、
+ * `web`、`钩子`、甚至整句标签 `机主控制台面`(出处是别的提交在复述台账)全部"出现在提交信息里",
+ * 而它们**都不是持有人**——它们是平台名/工具名/普通名词。若照子串算证据,`桌面端持有人` 这条
+ * 本判据要治的行会被判"有证据、继续剔",修了等于没修。
+ * ⇒ 短名 = 标签里剥掉 `持有者/持有人/持有席` 与引导词后、**含字母**的记号(本仓席位短名全是
+ * 这种形态:`owner-scale-r2` / `relay-prod` / `D03`)。纯中文短语在提交信息里只能以普通名词出现,
+ * 拿它当"持有者在动"的证据是假阳性;它们落 `stale-owner-label`(仍出单,但**报数并点名**),
+ * 这正是本仓 §0.10 要的失效方向:多要一次定向说明,不是多放一次跳门,也不是静默剔除。
+ *
+ * ## 两条**不吃**证据的恒定豁免(任务书点名,缺一条即返工)
+ *  - **机主动作面**(`归:机主XX面`:控制台/凭据/真机/DNS/收款/白名单…)—— 机主职权动作不是
+ *    "有没有人在动"的证据问题,任何证据都不该把它派给 agent(`humanActionOwnerOf`);
+ *  - **侧车有记录**的行 —— 侧车是结构化表态,按侧车判,散文只作旁证(`dispositionOfV2` 的 `source`).
+ */
+
+/** 租约存活口径:与 AGENTS §1 的 72h 成文口径同值。刻意不读门 109 的 `TTL_ENV`:
+ *  那道尺子判的是"代摘超龄牌",这里判的是"标签背后的人在不在动";两者不同量纲,共用一只旋钮
+ *  会让调整其一顺手改掉另一。取更短的方向只会让**更多**行落 `stale`(多要一次定向说明),
+ *  与本判据的失效方向一致。 */
+export const OWNER_LEASE_TTL_HOURS = 72
+/** 三条证据的稳定名字(输出面与测试共用,禁在别处手写字符串)。 */
+export const OWNER_EVIDENCE_BASIS = ['lease', 'commit', 'dirty']
+/** 出单面保留哪几档(唯一实现:过滤面与自检都问它,别在两处各写一份 `=== 'actionable'`)。 */
+export const DISPATCH_SLOTS = [
+  'actionable',
+  'stale-owner-label',
+  'waiting-human',
+  'waiting-env',
+  'owned-elsewhere',
+  'undetermined',
+]
+export function isDispatchKeptSlot(slot) {
+  return slot === 'actionable' || slot === 'stale-owner-label'
+}
+
+/** 机主动作面的锚:归属标签里出现"机主"即视为机主职权域(控制台/凭据/真机/DNS/收款/白名单)。 */
+const HUMAN_ACTION_OWNER_RE = /机主/
+/** 不表态归谁的占位词(`〔归:待认领〕` / `归属:未查明`):它们本来就该留在派单面。 */
+const OWNER_PLACEHOLDER_RE = /^(?:—|-|–|未派|待认领|未查明|未知|无主|无人|他人|别人|本线|本票|本会话|待定|无|n\/a)$/i
+/** 席位短名的形态门:必须含拉丁字母(实测理由见头注"为什么 ② 要求席位短名含拉丁记号")。 */
+const SEAT_NAME_RE = /[A-Za-z]/
+/** 归属标签的截断符:标签后面常紧跟一句说明,不截会把整句当持有人。 */
+const OWNER_LABEL_CUT_RE = /[,，;；。、]/
+
+/** 标签清洗:遮反引号码段、去强调、去引导词、去首尾引号。抽不出实义 ⇒ null(占位不是归属)。 */
+function cleanOwnerLabel(raw) {
+  const t = String(raw ?? '')
+    .replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
+    .replace(/\*\*/g, '')
+    .replace(/[「『"'“]+/g, ' ')
+    .replace(/[」』"'”]+/g, ' ')
+    .split(OWNER_LABEL_CUT_RE)[0]
+    .replace(/^(?:应为|应当为|为|是|在|于|由|归给|交给)\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!t) return null
+  if (OWNER_PLACEHOLDER_RE.test(t)) return null
+  return t
+}
+
+/**
+ * 行里的归属对象(散文或侧车投影标头)。`from` 自报出处 —— 标头与散文在报告里必须能分开数,
+ * 否则"标签来自侧车投影"与"纯散文标签"会被读成同一件事。
+ * 顺序:标头 `〔归:…〕`(票号/租约可挡在复选框与标头之间)⇒ `归属[:：]…` ⇒ `归[:：]…`
+ *      ⇒ `由 X 持有` ⇒ `持有者:X`。
+ */
+export function ownerLabelOf(line) {
+  const text = String(line ?? '')
+  const head = /〔\s*归[:：]([^〕｜|]*)/.exec(text)
+  if (head) {
+    const owner = cleanOwnerLabel(head[1])
+    if (owner) return { owner, from: 'header' }
+  }
+  const prose = /归属[:：]?\s*([^\n]{1,80})/.exec(text)
+  if (prose) {
+    const owner = cleanOwnerLabel(prose[1])
+    if (owner) return { owner, from: 'prose' }
+  }
+  const short = /归[:：]\s*([^〕\n｜|]{1,60})/.exec(text)
+  if (short) {
+    const owner = cleanOwnerLabel(short[1])
+    if (owner) return { owner, from: 'prose' }
+  }
+  const by = /由\s*([^,，。;\n]{1,24}?)\s*持有/.exec(text)
+  if (by) {
+    const owner = cleanOwnerLabel(by[1])
+    if (owner) return { owner, from: 'prose' }
+  }
+  const keeper = /持有[者人][:：]\s*([^,，。;\n]{1,24})/.exec(text)
+  if (keeper) {
+    const owner = cleanOwnerLabel(keeper[1])
+    if (owner) return { owner, from: 'prose' }
+  }
+  return null
+}
+
+/**
+ * 归属对象 → **可核验的席位短名**;抽不出(纯中文短语/占位/泛指)⇒ null。
+ * null 不是"没有归属",而是"这个标签里的持有人**无法用提交史核验**"——由调用方落
+ * `stale-owner-label` 并报数,绝不静默当成"有归属"。
+ */
+export function holderShortNameOf(owner) {
+  if (!owner) return null
+  const t = String(owner)
+    .replace(/\*\*/g, '')
+    .replace(/(?:的)?(?:持有者|持有人|持有席|持有票|持有)$/, '')
+    .replace(/的$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!t || OWNER_PLACEHOLDER_RE.test(t)) return null
+  if (!SEAT_NAME_RE.test(t)) return null
+  return t
+}
+
+/** 机主动作面的归属对象;不是 ⇒ null。调用方据此**恒剔**(不吃任何证据)。 */
+export function humanActionOwnerOf(line) {
+  const lab = ownerLabelOf(line)
+  return lab && HUMAN_ACTION_OWNER_RE.test(lab.owner) ? lab.owner : null
+}
+
+const HOUR_MS = 3600000
+/**
+ * 三条证据的裁决(纯判据,输入注入;§22b 同源取向 —— 判据层不做 IO)。
+ * @param {{line:string, evidence?:{recentCommitText?:string|null, dirtyRefs?:(line:string)=>string[]|null, now?:Date}}} p
+ * @returns {{verdict:'held'|'stale'|'undetermined', by:string|null, holder:string|null, detail:string}}
+ */
+export function ownershipEvidenceOf({ line, evidence = {} }) {
+  const now = evidence.now instanceof Date ? evidence.now : null
+  // ① 完整租约 ∧ ≤72h。只有 `form==='lease'`(带 @日期)才算"完整":裸 `（进行中）`
+  //    是无主体的状态牌,不是"某个人此刻在动"(门 109 CL4 同口径)。
+  const claim = claimMarkOf(line)
+  if (claim && claim.form === 'lease' && claim.date && now) {
+    const day = parseDay(claim.date)
+    if (day) {
+      const hours = (now.getTime() - day.getTime()) / HOUR_MS
+      if (hours >= 0 && hours <= OWNER_LEASE_TTL_HOURS)
+        return { verdict: 'held', by: 'lease', holder: claim.holder ?? null, detail: `租约 ${claim.date}${claim.holder ? `/${claim.holder}` : ''}` }
+    }
+  }
+  const label = ownerLabelOf(line)
+  const holder = holderShortNameOf(label?.owner ?? null)
+  const commits = typeof evidence.recentCommitText === 'string' ? evidence.recentCommitText : null
+  let dirty = null
+  if (typeof evidence.dirtyRefs === 'function') {
+    try {
+      dirty = evidence.dirtyRefs(line)
+    } catch {
+      dirty = null
+    }
+  }
+  // ② 持有者短名出现在最近 N 枚提交信息里
+  if (holder && commits !== null && commits.includes(holder))
+    return { verdict: 'held', by: 'commit', holder, detail: `「${holder}」在最近提交信息里` }
+  // ③ 票面点名的文件此刻在脏面
+  if (Array.isArray(dirty) && dirty.length > 0)
+    return { verdict: 'held', by: 'dirty', holder, detail: `点名文件在飞 ${dirty.length} 条` }
+  // 输入取不到 ⇒ 未判定(既不冒"归他人",也不冒"可派")。
+  if (commits === null || dirty === null)
+    return {
+      verdict: 'undetermined',
+      by: null,
+      holder,
+      detail: commits === null ? '最近 200 枚提交信息取不到' : 'git status 脏面取不到',
+    }
+  return {
+    verdict: 'stale',
+    by: null,
+    holder,
+    detail: holder
+      ? `短名「${holder}」不在最近 200 枚提交信息里 ∧ 点名文件不脏`
+      : '标签里没有可用提交史核验的席位短名',
+  }
+}
+
+/**
+ * 派单面的一行 → 出单档位。**唯一出口**:`plan-tasks.mjs --dispatchable` 的过滤、报告与自检
+ * 都问它(§0.6;两处各写一份必然漂成"清单剔了、报告没数")。
+ *  - 非 `owned-elsewhere` ⇒ 原桶原样透传(等人/等条件/可做三档不动);
+ *  - `owned-elsewhere` ∧ 机主面 ⇒ 恒 `owned-elsewhere`;
+ *  - `owned-elsewhere` ∧ 侧车有记录 ⇒ 恒 `owned-elsewhere`(侧车优先,散文只作旁证);
+ *  - `owned-elsewhere` ∧ 只有散文标签 ⇒ 三条证据:held ⇒ `owned-elsewhere`;
+ *    stale ⇒ `stale-owner-label`(出单+报数);输入取不到 ⇒ `undetermined`(不出单也不冒充归他人)。
+ */
+export function dispatchSlotOf({ line, fields, evidence = {} }) {
+  const d = dispositionOfV2({ line, fields })
+  const base = { bucket: d.bucket, source: d.source, conflict: d.conflict, disposition: d }
+  if (d.bucket !== 'owned-elsewhere')
+    return { ...base, slot: d.bucket, by: null, holder: null, detail: null }
+  const human = humanActionOwnerOf(line)
+  if (human) return { ...base, slot: 'owned-elsewhere', by: 'human-action-face', holder: human, detail: '机主动作面,恒剔' }
+  if (d.source === 'fields')
+    return { ...base, slot: 'owned-elsewhere', by: 'sidecar', holder: holderShortNameOf(ownerLabelOf(line)?.owner ?? null), detail: '侧车表态归他人' }
+  const ev = ownershipEvidenceOf({ line, evidence })
+  if (ev.verdict === 'held')
+    return { ...base, slot: 'owned-elsewhere', by: ev.by, holder: ev.holder, detail: ev.detail }
+  if (ev.verdict === 'undetermined')
+    return { ...base, slot: 'undetermined', by: null, holder: ev.holder, detail: ev.detail }
+  return { ...base, slot: 'stale-owner-label', by: null, holder: ev.holder, detail: ev.detail }
+}
+
 /** 行内最后一个日期。取**最后**而不是第一个:进展注记按本仓写法追加在行尾,
  *  而括号里的引用日期(`(2026-09-21 逐条实测)`)可能是旧读数。 */
 const DATE_RE = /20\d{2}-\d{2}-\d{2}/g

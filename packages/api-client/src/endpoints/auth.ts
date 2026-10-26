@@ -318,6 +318,20 @@ export async function wecomLogin(code: string): Promise<ApiResult<LoginResult>> 
   )
 }
 
+/**
+ * 本站 App 扫码登录 — 手机端确认(需已登录态)。
+ *
+ * PC 展示二维码 → 手机扫码拿到 ticket → 调本端点把 ticket 置为 confirmed,
+ * PC 轮询 /auth/qr/status 取 token 对。ticket 的解析判据走
+ * `@ihui/shared/auth/qr-login-ticket` 的 parseQrLoginTicket,端内不另写正则。
+ */
+export async function confirmQrLogin(ticket: string): Promise<ApiResult<{ confirmed: boolean }>> {
+  return fetchApi<{ confirmed: boolean }>('/api/auth/qr/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ ticket }),
+  })
+}
+
 // =============================================================================
 // 用户名登录 / 邮箱验证码 / 重置密码 / 注册邮箱
 // (2026-07-27 补建:消除 web 端 login 表单直 fetch,统一走 api-client)

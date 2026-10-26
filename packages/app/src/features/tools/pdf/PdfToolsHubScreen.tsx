@@ -15,10 +15,11 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react-native'
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import type { TFunction } from '../../../types'
 import { getTokens } from '../../../theme/tokens'
 import { BackChevron } from '../../../components/BackChevron'
+import { TextField } from '../../../components/TextField'
 import { createPdfToolsStyles } from './pdf-tools-styles'
 
 /** 三入口(对齐 web /tools/pdf/{merge,split,watermark} 三路由)。 */
@@ -469,7 +470,8 @@ export function PdfToolsHubScreen({
       {mode === 'range' ? (
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>{t('pdfToolsPage.rangesLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={ranges}
             onChangeText={setRanges}
@@ -482,7 +484,8 @@ export function PdfToolsHubScreen({
       {mode === 'every' ? (
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>{t('pdfToolsPage.everyLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={every}
             onChangeText={setEvery}
@@ -527,7 +530,8 @@ export function PdfToolsHubScreen({
         : uploadBox(t('pdfToolsPage.wmUploadLabel'), () => void onPickWm())}
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>{t('pdfToolsPage.wmText')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={wmText}
           onChangeText={setWmText}
@@ -540,7 +544,8 @@ export function PdfToolsHubScreen({
         <Text style={styles.fieldLabel}>
           {t('pdfToolsPage.wmFontSize')}: {fontSizeNum}
         </Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={wmFontSize}
           onChangeText={setWmFontSize}
@@ -549,7 +554,8 @@ export function PdfToolsHubScreen({
       </View>
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>{t('pdfToolsPage.wmColor')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={wmColor}
           onChangeText={setWmColor}
@@ -562,7 +568,8 @@ export function PdfToolsHubScreen({
         <Text style={styles.fieldLabel}>
           {t('pdfToolsPage.wmOpacity')}: {opacityNum}%
         </Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={wmOpacity}
           onChangeText={setWmOpacity}
@@ -573,7 +580,8 @@ export function PdfToolsHubScreen({
         <Text style={styles.fieldLabel}>
           {t('pdfToolsPage.wmRotation')}: {rotationNum}°
         </Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={wmRotation}
           onChangeText={setWmRotation}

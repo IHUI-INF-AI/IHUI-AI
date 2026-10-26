@@ -152,6 +152,7 @@ import { PointsMallScreen } from '../screens/PointsMallScreen'
 import { PointsRecordScreen } from '../screens/PointsRecordScreen'
 import { TaskCenterScreen } from '../screens/TaskCenterScreen'
 import { CheckInScreen } from '../screens/CheckInScreen'
+import { ScanLoginScreen } from '../screens/ScanLoginScreen'
 import CheckinAssistantScreen from '../screens/CheckinAssistantScreen'
 import AccountPoolScreen from '../screens/AccountPoolScreen'
 import { RankingScreen } from '../screens/RankingScreen'
@@ -353,6 +354,8 @@ export type VipPopupType =
 
 export type RootStackParamList = {
   Login: undefined
+  // PC 端 App 扫码登录的移动端确认屏(扫码 → /auth/qr/confirm)
+  ScanLogin: undefined
   Main: NavigatorScreenParams<MainStackParamList>
   Home: undefined
   // P3 侧边栏收敛:教育/交易/社区域入口二级屏,params.domain 指定域单源(navigation/domain-hub)
@@ -918,6 +921,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="PointsRecord" component={PointsRecordScreen} />
             <RootStack.Screen name="TaskCenter" component={TaskCenterScreen} />
             <RootStack.Screen name="CheckIn" component={CheckInScreen} />
+            <RootStack.Screen name="ScanLogin" component={ScanLoginScreen} />
             <RootStack.Screen name="CheckinAssistant" component={CheckinAssistantScreen} />
             <RootStack.Screen name="AccountPool" component={AccountPoolScreen} />
             <RootStack.Screen name="Ranking" component={RankingScreen} />
