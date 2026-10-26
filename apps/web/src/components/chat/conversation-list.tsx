@@ -46,6 +46,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
@@ -700,34 +704,54 @@ export function ConversationList({
                         </>
                       )}
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleExport(item, 'md')}
-                      disabled={busyId === item.id}
-                    >
-                      <FileCode className="mr-2 h-3.5 w-3.5" />
-                      <span>{tc('actions.exportMd')}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleExport(item, 'txt')}
-                      disabled={busyId === item.id}
-                    >
-                      <FileText className="mr-2 h-3.5 w-3.5" />
-                      <span>{tc('actions.exportTxt')}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleCompress(item, 200000)}
-                      disabled={busyId === item.id}
-                    >
-                      <Shrink className="mr-2 h-3.5 w-3.5" />
-                      <span>{tc('actions.compressTo200k')}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleCompress(item, 1000000)}
-                      disabled={busyId === item.id}
-                    >
-                      <Shrink className="mr-2 h-3.5 w-3.5" />
-                      <span>{tc('actions.compressTo1m')}</span>
-                    </DropdownMenuItem>
+                    {/* 按钮层级重构(2026-10-26):与侧栏 sidebar-chat-history 同步——
+                        导出格式与压缩档位收进二级子菜单，一线只留高频动作。 */}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger data-testid="conversation-export-submenu">
+                        <FileCode className="mr-2 h-3.5 w-3.5" />
+                        <span>{tc('actions.exportSubmenu')}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-48">
+                        <DropdownMenuItem
+                          onClick={() => handleExport(item, 'md')}
+                          disabled={busyId === item.id}
+                        >
+                          <FileCode className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.exportMd')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleExport(item, 'txt')}
+                          disabled={busyId === item.id}
+                        >
+                          <FileText className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.exportTxt')}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger data-testid="conversation-compress-submenu">
+                        <Shrink className="mr-2 h-3.5 w-3.5" />
+                        <span>{tc('actions.compressSubmenu')}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-48">
+                        <DropdownMenuItem
+                          onClick={() => handleCompress(item, 200000)}
+                          disabled={busyId === item.id}
+                        >
+                          <Shrink className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.compressTo200k')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleCompress(item, 1000000)}
+                          disabled={busyId === item.id}
+                        >
+                          <Shrink className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.compressTo1m')}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => setPendingDeleteId(item.id)}
                       disabled={busyId === item.id}
