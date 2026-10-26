@@ -527,11 +527,15 @@ class TestOwnership:
         # 不是身份自报 —— 本断言锁的是"请求体里没有任何可代充身份的字段"。
         # durable_horizon_seconds 是 V3 #84 生产者侧(2026-10-07)的耐久视野声明,
         # 同样不是身份字段 —— 它只决定"这行 checkpoint 要活多久",与"我是谁"无关。
+        # 2026-10-25 「79 号票」:双轴(sandbox_mode / approval_policy)与 AgentResumeRequest
+        # 同步落格 —— 三条 resume 出口的字段面必须同形;二者是策略轴,不是身份。
         assert set(AgentSessionResumeRequest.model_fields) == {
             "model",
             "max_iterations",
             "tools",
             "permission_mode",
+            "sandbox_mode",
+            "approval_policy",
             "durable_horizon_seconds",
         }
 
