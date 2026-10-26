@@ -983,7 +983,13 @@ class CheckinScheduler:
         # O64:凭证回写号池(签到刷新 → 号池 CAS 回流;失败落 device_map.pool_pending_cred
         # 下次重试,故 dirty 时需再持久化一次)。maybe_writeback 自身不抛,外层 try 双保险。
         try:
-            dirty = await checkin_pool_writeback.maybe_writeback(device_map, cred_before)
+            dirty = await checkin_pool_writeback.maybe_writeback(
+                device_map,
+                cred_before,
+                # 票主体 = account 上的 owner(run_checkin_now 由入参补齐;批量调度
+                # 的 list_enabled_accounts 不 SELECT 该列 ⇒ None ⇒ 只发旧头)。
+                owner_user_id=account.get("owner_user_id"),
+            )
             if dirty:
                 try:
                     await checkin_store.save_device_map(account["id"], device_map)
@@ -1082,6 +1088,10 @@ class CheckinScheduler:
         account = await checkin_store.get_decrypted_jwt(account_id, owner_user_id)
         if account is None:
             raise LookupError(f"账号不存在: {account_id}")
+        # 号池凭证回写要内部票主体:owner 是本方法入参(承载层显式传入的真实值),
+        # 原样带进 account 往下传 —— checkin_store.get_decrypted_jwt 的 SELECT 不含
+        # 该列,故在调用点补齐,不在回写层编造/兜底身份。
+        account = {**account, "owner_user_id": owner_user_id}
         try:
             cooldowns = await checkin_store.get_active_cooldowns()
         except Exception as e:
