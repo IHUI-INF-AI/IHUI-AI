@@ -35,9 +35,16 @@ describe('isAppleKeyboardPlatform', () => {
   })
 
   it('UA 兜底(platform 缺失或谎报时)', () => {
-    expect(isAppleKeyboardPlatform({ platform: '', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X)' })).toBe(true)
+    expect(
+      isAppleKeyboardPlatform({
+        platform: '',
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X)',
+      }),
+    ).toBe(true)
     expect(isAppleKeyboardPlatform({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS)' })).toBe(true)
-    expect(isAppleKeyboardPlatform({ platform: 'Win32', userAgent: 'Chrome/1 Windows' })).toBe(false)
+    expect(isAppleKeyboardPlatform({ platform: 'Win32', userAgent: 'Chrome/1 Windows' })).toBe(
+      false,
+    )
   })
 })
 
@@ -53,24 +60,40 @@ describe('matchesPrimaryShortcut', () => {
   })
 
   it('Ctrl+Meta 同按不触发(双平台)', () => {
-    expect(matchesPrimaryShortcut(keyEvent({ key: 'b', ctrlKey: true, metaKey: true }), 'b', MAC)).toBe(false)
-    expect(matchesPrimaryShortcut(keyEvent({ key: 'b', ctrlKey: true, metaKey: true }), 'b', WIN)).toBe(false)
+    expect(
+      matchesPrimaryShortcut(keyEvent({ key: 'b', ctrlKey: true, metaKey: true }), 'b', MAC),
+    ).toBe(false)
+    expect(
+      matchesPrimaryShortcut(keyEvent({ key: 'b', ctrlKey: true, metaKey: true }), 'b', WIN),
+    ).toBe(false)
   })
 
   it('Shift/Option 参与的组合不触发主快捷键', () => {
-    expect(matchesPrimaryShortcut(keyEvent({ key: 'B', metaKey: true, shiftKey: true }), 'b', MAC)).toBe(false)
-    expect(matchesPrimaryShortcut(keyEvent({ key: 'b', metaKey: true, altKey: true }), 'b', MAC)).toBe(false)
+    expect(
+      matchesPrimaryShortcut(keyEvent({ key: 'B', metaKey: true, shiftKey: true }), 'b', MAC),
+    ).toBe(false)
+    expect(
+      matchesPrimaryShortcut(keyEvent({ key: 'b', metaKey: true, altKey: true }), 'b', MAC),
+    ).toBe(false)
   })
 
   it('key 被布局改写时经 code 兜底命中(⌥ 参与改写 key 的场景在 code 匹配层命中)', () => {
     // 某些布局/Option 组合会把 event.key 改写成非拉丁字符,物理 code 不变
     expect(matchesShortcutKeyCode({ key: '∫', code: 'KeyB' }, 'b')).toBe(true)
     // 修饰键层允许(meta 独占)时的完整命中路径
-    expect(matchesPrimaryShortcut(keyEvent({ key: '∫', code: 'KeyB', metaKey: true }), 'b', MAC)).toBe(true)
+    expect(
+      matchesPrimaryShortcut(keyEvent({ key: '∫', code: 'KeyB', metaKey: true }), 'b', MAC),
+    ).toBe(true)
   })
 
   it('Option 参与的组合不进主快捷键判据(⌥⌘B 整体不触发)', () => {
-    expect(matchesPrimaryShortcut(keyEvent({ key: '∫', code: 'KeyB', metaKey: true, altKey: true }), 'b', MAC)).toBe(false)
+    expect(
+      matchesPrimaryShortcut(
+        keyEvent({ key: '∫', code: 'KeyB', metaKey: true, altKey: true }),
+        'b',
+        MAC,
+      ),
+    ).toBe(false)
   })
 
   it('code 兜底覆盖字母/数字/方括号', () => {
@@ -84,14 +107,33 @@ describe('matchesPrimaryShortcut', () => {
   it('code 缺失时不误命中', () => {
     expect(matchesShortcutKeyCode({ key: '∫' }, 'b')).toBe(false)
   })
+
+  it('key 为 undefined 不崩(Tauri WebView2 合成/IME 事件实崩回归),code 兜底仍命中', () => {
+    expect(() => matchesShortcutKeyCode({ code: 'KeyQ' }, 'q')).not.toThrow()
+    expect(matchesShortcutKeyCode({ code: 'KeyQ' }, 'q')).toBe(true)
+    expect(matchesShortcutKeyCode({}, 'q')).toBe(false)
+    expect(
+      matchesPrimaryShortcut(
+        { code: 'KeyQ', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false },
+        'q',
+        WIN,
+      ),
+    ).toBe(true)
+  })
 })
 
 describe('matchesCtrlShortcut', () => {
   it('Ctrl 独占命中,meta/shift/alt 同按不命中', () => {
     expect(matchesCtrlShortcut(keyEvent({ key: 'k', ctrlKey: true }), 'k')).toBe(true)
-    expect(matchesCtrlShortcut(keyEvent({ key: 'k', ctrlKey: true, metaKey: true }), 'k')).toBe(false)
-    expect(matchesCtrlShortcut(keyEvent({ key: 'k', ctrlKey: true, shiftKey: true }), 'k')).toBe(false)
-    expect(matchesCtrlShortcut(keyEvent({ key: 'k', ctrlKey: true, altKey: true }), 'k')).toBe(false)
+    expect(matchesCtrlShortcut(keyEvent({ key: 'k', ctrlKey: true, metaKey: true }), 'k')).toBe(
+      false,
+    )
+    expect(matchesCtrlShortcut(keyEvent({ key: 'k', ctrlKey: true, shiftKey: true }), 'k')).toBe(
+      false,
+    )
+    expect(matchesCtrlShortcut(keyEvent({ key: 'k', ctrlKey: true, altKey: true }), 'k')).toBe(
+      false,
+    )
   })
 })
 

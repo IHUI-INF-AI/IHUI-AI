@@ -54,7 +54,9 @@ export function useNativeShortcuts(handler: (id: MenuActionId) => void) {
     }
 
     const onKey = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase()
+      // WebView2 偶发 keydown 的 e.key 为 undefined(IME/合成事件),直接 toLowerCase 会崩;
+      // 兜空串后不命中任何分支,Ctrl+Q 仍走 matchesShortcutKeyCode 的物理 code 兜底。
+      const key = (e.key ?? '').toLowerCase()
       const ctrl = e.ctrlKey || e.metaKey // Mac 用 cmd,Windows/Linux 用 ctrl
       const shift = e.shiftKey
       const alt = e.altKey
