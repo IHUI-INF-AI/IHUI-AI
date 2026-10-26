@@ -268,6 +268,13 @@ test('R6 静态抽查:11 个调用方 dot-source 唯一实现,全部脚本可执
   // dot-source 形态有两种:直接 `. (Join-Path ... 'ihui-root-common.ps1')` 与
   // 先算变量再 `. $RootCommon`(deploy-loop / run-* 的大声死护栏写法),两者都认。
   const dotSourcePat = /^\s*\.\s+(?:\(Join-Path|\$)/m
+  // 旧根 `D:\IHUI-AI` 的判据。**右边界不能省**:`D:/IHUI-AI-git-repo` 是本机真 gitdir
+  // (ihui-deploy.ps1 的取源候选之一),它与旧根是两个目录,前缀相同但不是它 ——
+  // 缺右边界会把这三处判成"脚本里还写着旧根",而消息模板又写死了 `D:\IHUI-AI` ⇒
+  // 报红却与被指文件的实际内容不符(2026-10-23 `5a3cedfd40` 起恒红的假阳)。
+  // 判据本身有问题就修判据,不修被指文件(§5e-1);收窄的是"哪些串不算旧根",
+  // 不是"旧根可以不查",牙口由下面消息回显真实命中来保。
+  const LEGACY_ROOT = /D:[\\/]IHUI-AI(?![\w.-])/i
   const ps1Callers = [
     'deploy/win/ihui-deploy.ps1',
     'deploy/win/ihui-deploy-loop.ps1',
@@ -293,12 +300,14 @@ test('R6 静态抽查:11 个调用方 dot-source 唯一实现,全部脚本可执
     assert.match(src, dotSourcePat, `${rel}: 未 dot-source helper`)
     assert.match(src, /Resolve-IhuiProjectRoot\s+-StartDir/, `${rel}: 未调用 Resolve-IhuiProjectRoot`)
     const exec = stripCommentLines(src)
-    assert.ok(!/D:[\\/]IHUI-AI/i.test(exec), `${rel}: 可执行代码里仍有 D:\\IHUI-AI 字面量(注释外)`)
+    const hit = exec.match(LEGACY_ROOT)
+    assert.ok(!hit, `${rel}: 可执行代码里仍有旧根字面量 ${hit ? hit[0] : ''}(注释外)`)
   }
   for (const rel of cmdCallers) {
     const src = readFileSync(join(REPO, rel), 'utf8')
     const exec = stripCommentLines(src)
-    assert.ok(!/D:[\\/]IHUI-AI/i.test(exec), `${rel}: 可执行代码里仍有 D:\\IHUI-AI 字面量(注释外)`)
+    const hit = exec.match(LEGACY_ROOT)
+    assert.ok(!hit, `${rel}: 可执行代码里仍有旧根字面量 ${hit ? hit[0] : ''}(注释外)`)
   }
 })
 
