@@ -980,6 +980,11 @@
       "shared": "packages/app/src/features/workflows/WorkflowsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/WorkflowsScreen.tsx",
       "miniapp": "pkg-mirror3/workflows/index"
+    },
+    {
+      "shared": "packages/app/src/features/home/HomeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentScreen.tsx",
+      "miniapp": "pkg-mirror2/home/index"
     }
   ]
 }

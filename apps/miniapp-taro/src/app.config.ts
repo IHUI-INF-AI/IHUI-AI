@@ -309,6 +309,7 @@ export default defineAppConfig({
         'memory/index',
         'message-chat/index',
         'more-course/index',
+        'home/index',
       ],
     },
     {
