@@ -29,14 +29,13 @@ vi.mock('../src/i18n', () => {
   return { useI18n: () => ({ t, locale: 'zh-CN', setLocale: async () => {} }) }
 })
 
-// 端级别名把 '@ihui/types' 指到 tests/__mocks__/ihui-types.ts,而那份替身没有广播符号
-// (`mcpStatusEvent` 等)⇒ 照现状跑测的是虚构 API。与同目录 user-broadcast-pull-only.test.ts
-// 同一处置:**只在本用例内**指回真实源码,不动端级别名(改别名影响全部套件,属该配置持有者的一票)。
-vi.mock('@ihui/types', async () => {
-  const mod = await import('../../../packages/types/src/index')
-  return { default: mod, ...mod }
-})
-
+// 2026-10-26:本文件原先带一条本地 `vi.mock('@ihui/types')` 把别名指回真实源码,
+// 理由是「端级别名指向的替身没有广播符号(mcpStatusEvent 等)」。
+// 那条理由**已不成立**:端级别名指向的 tests/__mocks__/ihui-types.ts 已补转发
+// chat-sync-contract 与 user-broadcast 两个真源模块(见该文件的转发行注),
+// 本用例要的 mcpStatusEvent / toUserBroadcastFrame 由替身按值转发 ⇒
+// 本地 mock 已成冗余(本地 override 优先,会盖掉替身这条真实路径),故删除。
+// 删掉后本用例走的就是「端级别名 → 替身 → 真源」这条生产同形路径。
 import { mcpStatusEvent, toUserBroadcastFrame } from '@ihui/types'
 import { feedUserBroadcastFrame, resetUserBroadcastHub } from '@ihui/api-client'
 import { mcpStatusLedger } from '@ihui/shared/chat'
