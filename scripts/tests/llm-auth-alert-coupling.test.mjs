@@ -66,12 +66,26 @@ const PROVIDER_ERROR_METRIC = 'ihui_llm_provider_errors_total'
 
 /**
  * 层3 的出路措辞黑名单:出现即表示「把收信人推去改厂商账户」。
- * 只认**指令式**出现:前面 6 字里有否定词(不需要/不用/别/勿/…)时不算出路(否则一句
+ * 只认**指令式**出现:紧邻前面(≤2 字)有否定词(不需要/不用/别/勿/…)时不算出路(否则一句
  * 「厂商账户侧错误由机主自行处置,不需要重新配置」会被误判成出路 —— 误判方向是逼人改文案,
  * 那是本仓 §12e 说的恒红门方向)。
+ * 否定窗口取 2 字而不是更长:「请勿忘记充值」里「充值」前面是「忘记」不含否定词 ⇒ 仍判出路;
+ * 窗口放宽到 6 字会把「请勿忘记充值」误放行(漏判方向更危险)。
  */
-const ACTION_WORDS = ['充值', '补 key', '补key', '重新配置', '重新申请']
+const ACTION_WORDS = ['充值', '补 key', '补key', '重新配置', '重新申请', '续费']
 const NEGATIONS = ['不', '无需', '不用', '别', '勿', '非', '禁']
+
+/**
+ * 文案层判据的**射程**:全部 LLM 相关告警规则(不止一条)。
+ * 逐条列明而不是用前缀通配:通配会把将来新增的无关规则一并纳入射程,
+ * 让「文案不许出现出路措辞」变成一把越用越宽的钝刀。
+ */
+const WORDING_RULES = [
+  { file: 'alerts', name: 'LlmProviderUnhealthy' },
+  { file: 'alerts', name: 'LlmProviderErrorBurst' },
+  { file: 'alerts', name: 'LlmTokenCostSurge' },
+  { file: 'alertsAi', name: 'AiLlmHighFailureRate' },
+]
 
 // ──────────── 判据(纯函数:只读不写) ────────────
 
@@ -155,7 +169,7 @@ function actionWordHits(text, word) {
   const hits = []
   let idx = text.indexOf(word)
   while (idx >= 0) {
-    const before = text.slice(Math.max(0, idx - 6), idx)
+    const before = text.slice(Math.max(0, idx - 2), idx)
     if (!NEGATIONS.some((n) => before.includes(n))) hits.push(word)
     idx = text.indexOf(word, idx + word.length)
   }
@@ -300,44 +314,50 @@ export function judge(root = ROOT) {
     }
   }
 
-  // ── 层3:文案层(alerts-ai.yml / AiLlmHighFailureRate) ──
-  // 射程只到这一条 description:alerts.yml 的 LlmProviderUnhealthy 文案里含「补 key 后自动恢复」
-  // 那类**现状说明**,判它是另一票的事(在这里一并判 ⇒ 恒红门)。
-  const blockAi = ruleBlockOf(texts.alertsAi, 'AiLlmHighFailureRate')
-  if (!blockAi) {
-    violations.push({ layer: 'wording', why: 'alerts-ai.yml 里读不到 AiLlmHighFailureRate 规则(未判定)' })
+  // ── 层3:文案层(全部 LLM 告警规则的 description) ──
+  // 射程 2026-10-26 扩到 LlmProviderUnhealthy / LlmProviderErrorBurst / LlmTokenCostSurge:
+  // 「厂商账户状态不进到人通道」是**告警文案整体**的约定,不是单条规则的属性 ——
+  // 只判一条,下一条新告警照样能把收信人推去改厂商账户。
+  const retired = retiredProvidersOf(texts.modelSync)
+  if (retired === null) {
+    violations.push({ layer: 'wording', why: 'model_sync.py 里读不到 RETIRED_PROVIDERS(未判定)' })
+  } else if (retired.length === 0) {
+    violations.push({
+      layer: 'wording',
+      why: 'RETIRED_PROVIDERS 解析出 0 个厂商(解析失效 ⇒ 退役厂商名这一格会恒真)',
+    })
   } else {
-    const desc = descriptionOf(blockAi)
+    facts.retiredProviders = retired
+  }
+  facts.descriptions = {}
+  for (const { file, name } of WORDING_RULES) {
+    const block = ruleBlockOf(texts[file], name)
+    if (!block) {
+      violations.push({ layer: 'wording', why: `${file} 里读不到 ${name} 规则(未判定)` })
+      continue
+    }
+    const desc = descriptionOf(block)
     if (desc === null) {
-      violations.push({ layer: 'wording', why: 'AiLlmHighFailureRate 读不到 description(未判定)' })
-    } else {
-      facts.description = desc
-      for (const word of ACTION_WORDS) {
-        const hits = actionWordHits(desc, word)
-        if (hits.length) {
-          violations.push({
-            layer: 'wording',
-            why: `AiLlmHighFailureRate 的 description 含出路措辞「${hits[0]}」—— 厂商账户状态不进到人通道,文案不得把收信人推去改厂商账户`,
-          })
-        }
-      }
-      const retired = retiredProvidersOf(texts.modelSync)
-      if (retired === null) {
-        violations.push({ layer: 'wording', why: 'model_sync.py 里读不到 RETIRED_PROVIDERS(未判定)' })
-      } else if (retired.length === 0) {
+      violations.push({ layer: 'wording', why: `${name} 读不到 description(未判定)` })
+      continue
+    }
+    facts.descriptions[name] = desc
+    for (const word of ACTION_WORDS) {
+      const hits = actionWordHits(desc, word)
+      if (hits.length) {
         violations.push({
           layer: 'wording',
-          why: 'RETIRED_PROVIDERS 解析出 0 个厂商(解析失效 ⇒ 退役厂商名这一格会恒真)',
+          why: `${name} 的 description 含出路措辞「${hits[0]}」—— 厂商账户状态不进到人通道,文案不得把收信人推去改厂商账户`,
         })
-      } else {
-        facts.retiredProviders = retired
-        for (const p of retired) {
-          if (desc.toLowerCase().includes(p.toLowerCase())) {
-            violations.push({
-              layer: 'wording',
-              why: `AiLlmHighFailureRate 的 description 点名了已退役厂商「${p}」`,
-            })
-          }
+      }
+    }
+    if (facts.retiredProviders) {
+      for (const p of facts.retiredProviders) {
+        if (desc.toLowerCase().includes(p.toLowerCase())) {
+          violations.push({
+            layer: 'wording',
+            why: `${name} 的 description 点名了已退役厂商「${p}」`,
+          })
         }
       }
     }
@@ -360,8 +380,15 @@ test('C2 告警层:LlmProviderErrorBurst 的两处选择器都必须带 status!=
   assert.deepEqual(ofLayer('alert'), [], `告警层判据被破坏:\n${fmt(ofLayer('alert'))}`)
 })
 
-test('C3 文案层:AiLlmHighFailureRate 的 description 无出路措辞、无退役厂商名', () => {
+test('C3 文案层:全部 LLM 告警规则的 description 无出路措辞、无退役厂商名', () => {
   assert.deepEqual(ofLayer('wording'), [], `文案层判据被破坏:\n${fmt(ofLayer('wording'))}`)
+})
+
+test('C7 射程覆盖自证:射程里的每条规则都真读到了 description(不许有规则静默跳过)', () => {
+  const missing = WORDING_RULES.filter((r) => !verdict.facts.descriptions?.[r.name]).map(
+    (r) => r.name,
+  )
+  assert.deepEqual(missing, [], `这些规则没读到 description ⇒ 文案层射程有空洞:${JSON.stringify(missing)}`)
 })
 
 test('C4 耦合层:代码侧产出的标签/指标名与告警表达式逐字对得上', () => {
@@ -541,6 +568,27 @@ test('M4 变异④:把 auth 判定挪到 4xx 码段之后 ⇒ 子进程必须红
     assert.ok(r.status !== null, `子进程没跑起来\n${r.out}`)
     assert.notEqual(r.status, 0, `auth 判定排在 4xx 之后必须红\n${r.out}`)
     assert.match(r.out, /4xx 码段判在/, `红的原因必须点名判定顺序\n${r.out}`)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('M5 变异⑤:LlmProviderUnhealthy 的 description 里塞回「补 key」⇒ 子进程必须红(扩射程才抓得住)', { skip: MUTATION_SKIP }, () => {
+  const dir = makeFixture((d) => {
+    const rel = REL.alerts
+    const before = fixtureRead(d, rel)
+    const after = mutateRuleDescription(before, 'LlmProviderUnhealthy', (line) => {
+      const next = line.replace('厂商账户恢复后自动恢复', '补 key 后自动恢复')
+      if (next === line) throw new Error('变异⑤没改成(锚点字面量漂了)')
+      return next
+    })
+    fixtureWrite(d, rel, after)
+  })
+  try {
+    const r = runSelfAgainst(dir)
+    assert.ok(r.status !== null, `子进程没跑起来\n${r.out}`)
+    assert.notEqual(r.status, 0, `LlmProviderUnhealthy 文案塞回 key 出路必须红\n${r.out}`)
+    assert.match(r.out, /含出路措辞/, `红的原因必须点名出路措辞\n${r.out}`)
   } finally {
     cleanup(dir)
   }
