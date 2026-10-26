@@ -2391,6 +2391,13 @@
       "when": 1792998000000,
       "tag": "20261026150000_ai_model_config_global_provider_base_uniq",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 345,
+      "when": 1793003400000,
+      "tag": "20261026163000_automation_claim_and_terminal_state",
+      "breakpoints": true
     }
   ]
 }
