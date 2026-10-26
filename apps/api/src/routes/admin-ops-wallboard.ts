@@ -50,6 +50,14 @@ import {
   getSessionQualityLiveSnapshot,
   type SessionQualitySnapshot,
 } from '../services/session-quality-stats-service.js'
+import {
+  getVisitSourceLiveSnapshot,
+  type VisitSourceSnapshot,
+} from '../services/visit-source-stats-service.js'
+import {
+  getVisitTransitionLiveSnapshot,
+  type VisitTransitionSnapshot,
+} from '../services/visit-transition-stats-service.js'
 import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
@@ -500,6 +508,20 @@ interface TrafficSnapshot {
    * `services/session-quality-stats-service.ts` 头注。
    */
   sessionQuality: SessionQualitySnapshot | null
+  /**
+   * 近 24h 访问来源(直接访问 / 本机开发 / 站内 / 外部 + 主机 TOP);null = 同一条腿取不到。
+   * 2026-10-26 立:此前大屏只说"多少人用了多少次",不说"他们从哪来"——
+   * 生产实测 GitHub 是最大入口,本机开发流量却占着约三成,不分类就分不清推广渠道。
+   * 只给 PV(来源维度上访客数无法精确去重),见 `services/visit-source-stats-service.ts` 头注。
+   */
+  visitSource: VisitSourceSnapshot | null
+  /**
+   * 近 24h 页面流转(相邻页对 TOP:从哪一页走到了哪一页);null = 同一条腿取不到。
+   * 2026-10-26 立:排行只说"哪个页面热"、会话质量只说"看了几屏",
+   * 这两格都不答「进来之后走到了哪一步」—— 生产实测最大的一跳是
+   * `/ → /sso/login` 与 `/sso/login → /`(未登录用户在登录↔首页之间打转)。
+   */
+  visitTransition: VisitTransitionSnapshot | null
 }
 
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
@@ -516,6 +538,20 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
     sessionQuality = await getSessionQualityLiveSnapshot()
   } catch {
     sessionQuality = null
+  }
+  // 访问来源同样独立:失败只置 null,不拖垮其它腿。
+  let visitSource: VisitSourceSnapshot | null = null
+  try {
+    visitSource = await getVisitSourceLiveSnapshot()
+  } catch {
+    visitSource = null
+  }
+  // 页面流转同样独立:失败只置 null。
+  let visitTransition: VisitTransitionSnapshot | null = null
+  try {
+    visitTransition = await getVisitTransitionLiveSnapshot()
+  } catch {
+    visitTransition = null
   }
   try {
     // 现算(带 5 秒进程内缓存):三条限窗 SQL 走 api_logs_created_at_idx,合计 ≈ 46 ms。
@@ -538,6 +574,8 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       online5m: pageUsage?.online5m ?? null,
       pv5m: pageUsage?.pv5m ?? null,
       sessionQuality,
+      visitSource,
+      visitTransition,
     }
   } catch {
     return null
