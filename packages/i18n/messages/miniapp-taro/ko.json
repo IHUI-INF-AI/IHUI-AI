@@ -5007,5 +5007,13 @@
     "save": "저장",
     "loadFailed": "설정 불러오기 실패",
     "saved": "저장되었습니다"
+  },
+  "agentStat": {
+    "title": "에이전트 통계",
+    "conversations": "대화 수",
+    "messages": "메시지 수",
+    "tokens": "Token 소비",
+    "avgRating": "평균 평가",
+    "loadFailed": "통계 불러오기 실패"
   }
 }
