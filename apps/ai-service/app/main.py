@@ -336,6 +336,18 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[media_tasks] 建表异常(忽略,落库降级为不持久化): %s", e)
 
+    # G-244(2026-10-26 立):后台任务 run 状态 journal 回放 —— 重启后 bg_task_status
+    # 从行派生终态,不再"查无此任务"。失败只告警不阻塞启动;journal 真不可写时
+    # manager 会在第一次接单处显式禁用(禁用而非伪装)。
+    try:
+        from app.services.background_tasks import background_task_manager
+
+        _journal_stats = background_task_manager.hydrate_from_journal()
+        if _journal_stats["hydrated"] or _journal_stats["malformed"]:
+            logger.info("[BackgroundTask] run journal 回放完成: %s", _journal_stats)
+    except Exception as e:
+        logger.warning("[BackgroundTask] run journal 回放异常(忽略): %s", e)
+
     # 代码索引出域同意表启动自愈(2026-10-03 数据出域合规整改)。
     # 同意表在 .data/code_index_consent.json(本进程内),容器重建即丢 ⇒ 已 opt-out
     # 的用户被静默重置成"未表态",在 IHUI_CODE_INDEX_EGRESS=1 的部署上会**恢复代码
