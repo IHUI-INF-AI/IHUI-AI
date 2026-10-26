@@ -11052,7 +11052,9 @@
       "send": "プレビューを送信"
     },
     "bindIssue": "Issueを紐付け",
-    "unbindIssue": "独立タスクにする",
+    "unbindIssue": "独立タスクにする",    "unbindIssue": "独立タスクにする",
+    "bindIssueHint": "この会話を GitHub / Linear の Issue に紐付けます——バグや要件の追跡に便利です。検索して選ぶと、会話の横にリンク付きバッジが表示されます。紐付けなくても他の機能はそのまま使えます。",    "bindIssueHint": "この会話を GitHub / Linear の Issue に紐付けます——バグや要件の追跡に便利です。検索して選ぶと、会話の横にリンク付きバッジが表示されます。紐付けなくても他の機能はそのまま使えます。",
+    "searchIssueAction": "検索",
     "issueBinding": "関連Issue",
     "searchIssues": "IssueのID・タイトル・プロジェクトを検索",
     "noIssues": "紐付けできるIssueはまだありません",
