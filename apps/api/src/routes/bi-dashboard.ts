@@ -8,6 +8,7 @@ import { dbRead } from '../db/index.js'
 import { users, orders, userDevices, visitLogs, analyticsEvents } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success } from '../utils/response.js'
+import { computeAudience, computeBrowserUsage } from '../services/audience-stats-service.js'
 
 /** 30 天内活跃用户数:users 表无登录时间字段(2026-08-31 修复 500),
  * 改用 user_devices.last_seen_at 去重统计(Drizzle ORM 版,不依赖原生 SQL)。 */
@@ -76,6 +77,8 @@ async function buildBiPayload() {
     pages,
     dailyVisitRows,
     stayRows,
+    audience,
+    browsers,
   ] = await Promise.all([
     dbRead.select({ total: count() }).from(users),
     dbRead
@@ -166,6 +169,9 @@ async function buildBiPayload() {
       .having(sql`count(${PAGE_TIME_SEC}) > 0`)
       .orderBy(sql`2 desc`)
       .limit(8),
+    // 访客构成(新/回访)与浏览器分布:这两条腿取不到时折成 null,不拖垮整页(其余块照常出)。
+    computeAudience().catch(() => null),
+    computeBrowserUsage().catch(() => null),
   ])
 
   return {
@@ -201,6 +207,18 @@ async function buildBiPayload() {
       avgSec: Number(r.avgSec ?? 0),
       samples: Number(r.samples ?? 0),
     })),
+    /** 近 7 日访客构成:新访客 / 回访访客(身份 = coalesce(session_id, ip),与 UV 同尺);null = 取不到 */
+    audience:
+      audience === null
+        ? null
+        : {
+            newUv: audience.newUv,
+            returningUv: audience.returningUv,
+            activeUv: audience.activeUv,
+            returningRate: audience.returningRate,
+          },
+    /** 近 7 日浏览器分布(只算 web 裸路径);null = 取不到 */
+    browsers: browsers,
   }
 }
 

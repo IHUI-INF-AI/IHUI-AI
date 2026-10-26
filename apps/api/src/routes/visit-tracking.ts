@@ -499,7 +499,7 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
             platform: {
               type: 'string',
               enum: [...VISIT_PLATFORM_VALUES],
-              description: '端:all(默认)/web/rn/mp',
+              description: '端:all(默认)/web/rn/mp/ex',
             },
             sort: { type: 'string', enum: ['pv', 'uv'], description: '排序键(默认 pv)' },
           },

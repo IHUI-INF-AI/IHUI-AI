@@ -53,6 +53,18 @@ interface BiDashboardData {
   }
   /** 近 7 日页面停留 TOP(page_time 均值;样本数 = 停留事件条数) */
   stays: Array<{ page: string; avgSec: number; samples: number }>
+  /**
+   * 近 7 日访客构成(新访客 / 回访)。身份 = coalesce(session_id, ip),与 UV 同一把尺,
+   * 所以 newUv + returningUv 恒等于窗口内 UV。null = 后端那条腿取不到(渲染"暂无法统计")。
+   */
+  audience: {
+    newUv: number
+    returningUv: number
+    activeUv: number
+    returningRate: number | null
+  } | null
+  /** 近 7 日浏览器分布(只算 web 裸路径,RN/小程序/插件另见「各端使用量」);null = 取不到 */
+  browsers: Array<{ family: string; pv: number; uv: number }> | null
 }
 
 /** 加载失败时的诚实空态(全 0/空数组),避免用假数字冒充真实运营数据 */
@@ -66,6 +78,20 @@ const EMPTY: BiDashboardData = {
   sources: [],
   visits: { pv: 0, uv: 0, pages: [], daily: [] },
   stays: [],
+  audience: null,
+  browsers: null,
+}
+
+/** UA 家族 → 界面文案。`unknown` 主要是探活/脚本类上报(不带 UA),明写出来免得读成"埋点坏了"。 */
+const BROWSER_LABEL: Record<string, string> = {
+  chrome: 'Chrome',
+  edge: 'Edge',
+  safari: 'Safari',
+  firefox: 'Firefox',
+  opera: 'Opera',
+  wechat: '微信内置浏览器',
+  unknown: '未知(探针/脚本)',
+  other: '其他',
 }
 
 const STAT_CARDS = [
@@ -94,6 +120,8 @@ export default function BiDashboardPage() {
   const visitPages = d.visits?.pages ?? []
   const visitDaily = d.visits?.daily ?? []
   const stays = d.stays ?? []
+  const audience = d.audience ?? null
+  const browsers = d.browsers ?? null
 
   const visitTrendOption: EChartsOption = {
     tooltip: { trigger: 'axis' },
@@ -358,6 +386,101 @@ export default function BiDashboardPage() {
                     </span>
                     <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
                       n={s.samples}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">访客构成</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            近 7 日 · 新访客与回访（与访客数同一身份口径）
+          </p>
+        </CardHeader>
+        <CardContent>
+          {audience === null ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {isLoading ? '加载中…' : '暂无法统计'}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-semibold tabular-nums">{audience.newUv}</span>
+                <span className="text-xs text-muted-foreground">新访客</span>
+                <span className="ml-auto text-2xl font-semibold tabular-nums">
+                  {audience.returningUv}
+                </span>
+                <span className="text-xs text-muted-foreground">回访</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
+                <div
+                  className="h-full rounded-sm bg-primary/60"
+                  style={{
+                    width: `${
+                      audience.returningRate === null ? 0 : Math.round(audience.returningRate * 100)
+                    }%`,
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  回访率{' '}
+                  <span className="font-mono tabular-nums text-foreground">
+                    {audience.returningRate === null
+                      ? '—'
+                      : `${Math.round(audience.returningRate * 100)}%`}
+                  </span>
+                </span>
+                <span>
+                  窗口内访客{' '}
+                  <span className="font-mono tabular-nums text-foreground">
+                    {audience.activeUv}
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">浏览器分布</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            近 7 日 · 仅网站裸路径（各端用量另见访问统计）
+          </p>
+        </CardHeader>
+        <CardContent>
+          {browsers === null ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {isLoading ? '加载中…' : '暂无法统计'}
+            </p>
+          ) : browsers.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">暂无浏览器数据</p>
+          ) : (
+            <div className="space-y-1.5">
+              {browsers.map((b) => {
+                const max = browsers[0]?.pv || 1
+                const pct = Math.round((b.pv / max) * 100)
+                return (
+                  <div key={b.family} className="flex items-center gap-2">
+                    <span className="w-[38%] truncate text-xs text-foreground">
+                      {BROWSER_LABEL[b.family] ?? b.family}
+                    </span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                      <div
+                        className="h-full rounded-sm bg-primary/60"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="w-10 text-right font-mono text-xs tabular-nums">{b.pv}</span>
+                    <span className="w-14 text-right text-xs tabular-nums text-muted-foreground">
+                      人 {b.uv}
                     </span>
                   </div>
                 )
