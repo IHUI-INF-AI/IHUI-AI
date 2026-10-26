@@ -2398,6 +2398,13 @@
       "when": 1793003400000,
       "tag": "20261026163000_automation_claim_and_terminal_state",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 348,
+      "when": 1793064600000,
+      "tag": "20261027090000_default_user_avatar",
+      "breakpoints": true
     }
   ]
 }
