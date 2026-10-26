@@ -81,7 +81,7 @@
 {"key":"D17#云端沙箱agent","waiting":"human","blocking":"机主授权装 docker","updatedAt":"2026-10-24T19:44:15.384Z","updatedBy":"plan-fields-extract"}
 {"key":"G-99#机主2026-09-28拍板四条","waiting":"human","blocking":"机主真机窗口","updatedAt":"2026-10-24T19:44:15.384Z","updatedBy":"plan-fields-extract"}
 {"key":"D19#电脑使用画中画","waiting":"env","blocking":"Computer-Use 会话可视化立项","updatedAt":"2026-10-24T22:54:50.439Z","updatedBy":"plan-fields-reclassify"}
-{"key":"H01#冷启动抢跑全仓盘点余量","waiting":"env","blocking":"外部条件","updatedAt":"2026-10-25T06:22:52.576Z","updatedBy":"plan-fields-extract"}
+{"key":"H01#冷启动抢跑全仓盘点余量","waiting":"none","blocking":"外部条件","updatedAt":"2026-10-26T18:18:29.681Z","updatedBy":"plan-fields-reclassify","owner":"机主微信扫码会话面"}
 {"key":"64#AI消息可编辑+消息级pin/书签","waiting":"human","updatedAt":"2026-10-24T19:22:46.705Z","updatedBy":"plan-fields-extract"}
 {"key":"H02#承G-427第②步","waiting":"none","blocking":"","updatedAt":"2026-10-24T22:54:50.439Z","updatedBy":"plan-fields-reclassify"}
 {"key":"D18#多端遥控配对+每会话浏览器Tab状态","waiting":"human","blocking":"机主双端在线","updatedAt":"2026-10-24T19:44:15.388Z","updatedBy":"plan-fields-extract"}
