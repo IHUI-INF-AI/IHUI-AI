@@ -8,14 +8,13 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 9e0f5aedb033ddbbd732134769ab1bbf002899bd
-// inputsSha256: d31cb1b6659f4c26597f9edd2672e7c7087bf6dff9cb0e824a1334301969fdfb
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 98b2ff8a1a1db2d1cb96c822d8b2eb4b7b5d8487f811fc728dbf38bb3170de1e
+// sourceCommit: 6eb206cf399783408e18ef05ad6b92d891ae6b59
+// inputsSha256: bbb7c13edbbb2755f330f9c3f5f3f3dcd4f4b4d90684c2f838b6b6dd4e57127f
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 664b34ae04d2172e5eefc9051fbe1020fd310906096531e979d70e58c06155b8
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-26T15:51:59.383Z
+// generatedAt: 2026-10-26T16:33:07.477Z
 // IHUI-GEN-PIN-END
-
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
@@ -29,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 304 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 305 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -52,6 +51,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'PointsRecord', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'TaskCenter', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CheckIn', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ScanLogin', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CheckinAssistant', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AccountPool', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Ranking', tab: false, requiresParams: false, requiredParams: [] },

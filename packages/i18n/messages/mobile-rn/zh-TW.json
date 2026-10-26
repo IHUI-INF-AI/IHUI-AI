@@ -6627,5 +6627,17 @@
     "pickFailed": "檔案選擇失敗",
     "tooLarge": "檔案超過 10MB 限制",
     "uploadFailed": "檔案上傳失敗"
+  },
+  "scanLogin": {
+    "menuTitle": "掃一掃",
+    "title": "掃一掃登入",
+    "hint": "將電腦上的二維碼放入框內",
+    "submitting": "正在確認…",
+    "permissionHint": "需要相機權限才能掃碼",
+    "grant": "允許使用相機",
+    "invalidCode": "請掃本站登入二維碼",
+    "success": "已確認登入",
+    "failed": "確認失敗，請重試",
+    "needLogin": "請先登入後再掃碼"
   }
 }

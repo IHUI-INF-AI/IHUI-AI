@@ -6627,5 +6627,17 @@
     "pickFailed": "文件选择失败",
     "tooLarge": "文件超过 10MB 限制",
     "uploadFailed": "文件上传失败"
+  },
+  "scanLogin": {
+    "menuTitle": "扫一扫",
+    "title": "扫一扫登录",
+    "hint": "将电脑上的二维码放入框内",
+    "submitting": "正在确认…",
+    "permissionHint": "需要相机权限才能扫码",
+    "grant": "允许使用相机",
+    "invalidCode": "请扫本站登录二维码",
+    "success": "已确认登录",
+    "failed": "确认失败，请重试",
+    "needLogin": "请先登录后再扫码"
   }
 }
