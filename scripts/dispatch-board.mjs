@@ -379,6 +379,13 @@ export function buildWave(candidates, { maxSeats, externalClaims = new Map(), ex
       dropped.push({ ...c, why: 'seat-cap' })
       continue
     }
+    // 他席**未提交**的在飞面也必须压住:唯一入口的 --exclude-inflight 只按"票面点名的路径此刻是否
+    // 被在飞改动占着"移票,而它用的清单是台账行自带的引用;本器的 dirtyHit 是按 extractRefs 逐条比
+    // 索引/工作树脏集算出来的,比那一档更准。今晚实测到派出去的席撞上别人 59 枚脏面里的同一文件。
+    if (Array.isArray(c.dirtyHit) && c.dirtyHit.length > 0) {
+      dropped.push({ ...c, why: 'dirty-inflight', detail: c.dirtyHit.slice(0, 4) })
+      continue
+    }
     // 同一枚票只能有一席在干(票号维,排在作用域维之前):今天实测到对席会话在同一分钟把
     // 本席已派出的两枚票翻勾结清 —— 那两枚票票面没写路径,只靠路径维永远看不见这种撞。
     const byTicket = externalTickets.get(c.ticketId)
@@ -631,6 +638,11 @@ function selfTest() {
   const br = briefOf({ line: 1, ticketId: 'G-9', title: '示例票', paths: ['apps/api/src/x.ts'], hot: [] }, { seat: 's1', ticketRow: '- [ ] G-9 示例票正文' })
   t('㉗ 派单书必须自带今晚踩过的三条硬约束(严禁 worktree / 先自核勾选态 / 执行席不 commit)', /严禁 git worktree/.test(br) && /先自核票面勾选态/.test(br) && /git add/.test(br) && /--claim s1 --ticket G-9 --scope apps\/api\/src\/x\.ts/.test(br))
   t('㉘ 派单书把作用域与票面原文逐条列全(不靠主席手抄漏项)', br.includes('apps/api/src/x.ts') && br.includes('G-9 示例票正文'))
+  t('㉙ 他席未提交的脏面必须压住(dirty-inflight)——这是"不打架"的另一半', (() => {
+    const dirty = [{ line: 7, ticketId: 'D-7', title: 'd', paths: ['apps/api/src/x.ts'], hot: [], dirtyHit: ['apps/api/src/x.ts'] }, { line: 8, ticketId: 'D-8', title: 'e', paths: ['packages/auth/src/y.ts'], hot: [], dirtyHit: [] }]
+    const w = buildWave(dirty, { maxSeats: 6 })
+    return w.wave.length === 1 && w.wave[0].ticketId === 'D-8' && w.dropped[0].why === 'dirty-inflight'
+  })())
   console.log(`[dispatch-board] self-test ${ok.length}/${n} 通过${bad.length ? ` ⇒ 失败:${bad.join(', ')}` : ''}`)
   return bad.length === 0 ? 0 : 1
 }
