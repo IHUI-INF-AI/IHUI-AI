@@ -110,6 +110,10 @@ beforeEach(async () => {
   mockPurgeAccountUsage.mockClear()
   __test__.resetUsagePurgeThrottle()
   await sharedState.reset()
+  // 本文件既有断言全部专注「临期刷新 / unknown 定级 / down 恢复」三档;本桩的 select
+  // 无视 WHERE(查什么回同一行),空闲保活档(2026-10-26 新增)若开着会把同一行再算一遍,
+  // 计数与意图混淆。故整文件默认关档,由「空闲保活档在 sweep 里真的执行」一节显式开档对照。
+  process.env.RELAY_ACCOUNT_KEEPALIVE_DAYS = 'off'
 })
 
 describe('sweepAccountPool 分布式锁', () => {
@@ -553,4 +557,113 @@ describe('可调度判据:巡检 down ⇒ 调度当场排除', () => {
     expect(String(written.lastErrorMessage)).toContain('401')
   })
 })
+
+/**
+ * 空闲保活(2026-10-26 立,对标 workbuddy-switch 桌面端的「每日保活」)。
+ * 为什么单独锁:上游会清理闲置的 refresh 会话(实测 invalid_grant),而临期档只救
+ * 「将过期」的号 —— 一池号若整周没被转发用过,临期档一条都不会命中,整池静默等死。
+ * 这一档的全部价值只能在 WHERE 形状上证明,所以渲染生产同一份条件对象
+ * (§0.6 不在测试里复制第二份判据);env 档锁「失效方向 = 照默认保活」而非静默关档。
+ */
+describe('空闲保活:窗口 env 与 WHERE 形状', () => {
+  const render = (frag: unknown) => {
+    const q = new PgDialect().sqlToQuery(frag as never)
+    return { text: q.sql.toLowerCase(), params: (q.params as unknown[]).map(String) }
+  }
+
+  it('env 矩阵:缺省=默认窗口;数字生效;0/off/false 整档关;非法值回落默认(不得静默关掉保活)', async () => {
+    const { keepaliveIdleDays, KEEPALIVE_DEFAULT_DAYS } =
+      await import('../src/services/relay-account-pool-scheduler.js')
+    expect(keepaliveIdleDays({})).toBe(KEEPALIVE_DEFAULT_DAYS)
+    expect(keepaliveIdleDays({ RELAY_ACCOUNT_KEEPALIVE_DAYS: '3' })).toBe(3)
+    expect(keepaliveIdleDays({ RELAY_ACCOUNT_KEEPALIVE_DAYS: '0' })).toBeNull()
+    expect(keepaliveIdleDays({ RELAY_ACCOUNT_KEEPALIVE_DAYS: 'off' })).toBeNull()
+    expect(keepaliveIdleDays({ RELAY_ACCOUNT_KEEPALIVE_DAYS: 'FALSE' })).toBeNull()
+    expect(keepaliveIdleDays({ RELAY_ACCOUNT_KEEPALIVE_DAYS: 'abc' })).toBe(KEEPALIVE_DEFAULT_DAYS)
+    expect(keepaliveIdleDays({ RELAY_ACCOUNT_KEEPALIVE_DAYS: '-1' })).toBe(KEEPALIVE_DEFAULT_DAYS)
+    expect(KEEPALIVE_DEFAULT_DAYS).toBeGreaterThanOrEqual(3)
+  })
+
+  it('WHERE:三面闸(启用/未摘除/未判死)+ 自救通道 + 闲置时钟', async () => {
+    const m = await import('../src/services/relay-account-pool-scheduler.js')
+    const { text, params } = render(m.keepaliveIdleWhere(new Date('2026-10-26T00:00:00Z')))
+    expect(text).toContain('is_enabled')
+    expect(text).toContain('temp_unschedulable')
+    expect(text).toContain('health_status')
+    expect(text).toContain('refresh_token_enc')
+    expect(text).toContain('cookies_enc')
+    expect(params.length).toBeGreaterThan(0)
+  })
+
+  it('闲置时钟必须同吃 last_used_at 与 last_refresh_at(只看使用 = 每轮重刷同一批号的续票风暴)', async () => {
+    const m = await import('../src/services/relay-account-pool-scheduler.js')
+    const { text } = render(m.accountIdleClock())
+    expect(text).toContain('greatest(')
+    expect(text).toContain('coalesce')
+    expect(text).toContain('last_used_at')
+    expect(text).toContain('last_refresh_at')
+    expect(text).toContain('created_at')
+  })
+})
+
+/**
+ * 空闲保活档在 sweep 里真的执行(2026-10-26 立,开关侧成对对照)。
+ * 为什么成对:本桩 select 无视 WHERE,「档有没有被接线」不能靠形状证,只能靠
+ * 开/关两次产出差分 —— 只跑开档一侧,档被摘掉测试也不会红(§0.9 造好没装车=没有)。
+ */
+describe('空闲保活档在 sweep 里真的执行(开关成对对照)', () => {
+  const DAY = 86_400_000
+
+  function adapterWith(refreshToken: ReturnType<typeof vi.fn>) {
+    return {
+      providerCode: 'workbuddy',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c: unknown, body: unknown) => (body ?? {}) as Record<string, unknown>,
+      checkHealth: async () => ({ ok: true }),
+      isAuthFailure: (status: number) => status === 401,
+      refreshToken,
+    }
+  }
+
+  /**
+   * 为什么必须成对:本桩 select 无视 WHERE ⇒ 同一行会被临期/恢复档重复派发,「保活档
+   * 有没有接线」无法靠形状证明;只有「开档 = 关档 + 恰好 1 次派发」这个差值能证明
+   * 它真的挂在 sweep 上(§0.9 造好没装车=没有;只测开档一侧,摘掉档也不会红)。
+   * 每侧都用全新 spy:registerRelayAdapter 是覆盖注册,复用同一 spy 会把两档计数混在一起。
+   */
+  async function dispatchCount(days: string): Promise<{ keepalive: number; calls: number }> {
+    const refreshToken = vi.fn(async () => ({
+      token: 'new-jwt',
+      refreshToken: 'new-rt',
+      expiresAt: new Date(Date.now() + 30 * DAY),
+    }))
+    registerRelayAdapter(adapterWith(refreshToken) as never)
+    accountRows = [
+      sweepRow({
+        providerCode: 'workbuddy',
+        refreshTokenEnc: 'enc:rt',
+        healthStatus: 'healthy',
+        tokenExpiresAt: new Date(Date.now() + 30 * DAY),
+      }),
+    ]
+    process.env.RELAY_ACCOUNT_KEEPALIVE_DAYS = days
+    const out = await sweepAccountPool()
+    return { keepalive: out.keepalive, calls: refreshToken.mock.calls.length }
+  }
+
+  it('关档 keepalive=0;开档 keepalive=1 且派发次数恰为关档 + 1(差值只可能来自这一档)', async () => {
+    const off = await dispatchCount('off')
+    const on = await dispatchCount('3')
+    try {
+      expect(off.keepalive).toBe(0)
+      expect(on.keepalive).toBe(1)
+      expect(off.calls).toBeGreaterThan(0) // 桩会把它塞进临期档:非零才说明对照成立
+      expect(on.calls).toBe(off.calls + 1)
+    } finally {
+      process.env.RELAY_ACCOUNT_KEEPALIVE_DAYS = 'off'
+    }
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

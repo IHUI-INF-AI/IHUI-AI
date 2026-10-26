@@ -10,9 +10,12 @@ import { describe, it, expect } from 'vitest'
 import {
   buildCookieHeader,
   earliestCookieExpiry,
+  expireEpochToMs,
   extractTenantId,
   extractTokenExpiry,
   extractUid,
+  foreignPassthroughMetadata,
+  normalizeForeignAccountShape,
   parseJwtClaims,
   toImportRequestBody,
   validateAccountExport,
@@ -289,6 +292,126 @@ describe('validateAccountExport', () => {
     expect(body.providerCode).toBe('trae')
     expect(body.accounts).toHaveLength(1)
     expect(Object.keys(raw)).toEqual(['accounts'])
+  })
+})
+
+/**
+ * 外来格式自适应(2026-10-26 立)。
+ * 立因:第三方账号工具(workbuddy-switch 等)的备份是 access_token/refresh_token/
+ * expires_at(毫秒)/uid/nickname 这套蛇形字段,而我方契约是 token/refreshToken 驼峰;
+ * 判据只认驼峰 ⇒ 别人家的备份拖进来直接判「缺少 token」。判据单源在这份文件,
+ * 服务端 importAccounts 与 CLI 预检共用同一函数,这里锁的就是那一份。
+ */
+describe('expireEpochToMs:秒/毫秒量纲自适应', () => {
+  it('10 位 epoch 秒按秒;13 位毫秒按毫秒;字符串数字同判;非正值 null', () => {
+    expect(expireEpochToMs(1_795_356_026)).toBe(1_795_356_026_000)
+    expect(expireEpochToMs(1_795_356_026_000)).toBe(1_795_356_026_000)
+    expect(expireEpochToMs('1795356026')).toBe(1_795_356_026_000)
+    expect(expireEpochToMs('1795356026000')).toBe(1_795_356_026_000)
+    expect(expireEpochToMs(0)).toBeNull()
+    expect(expireEpochToMs(-5)).toBeNull()
+    expect(expireEpochToMs('not-a-number')).toBeNull()
+    expect(expireEpochToMs(undefined)).toBeNull()
+  })
+
+  it('回归:毫秒值不得被当秒放大成公元 5138 年的"永不过期"(临期/保活失明即源于此)', () => {
+    const ms = expireEpochToMs(1_795_356_026_000)!
+    // 旧实现(裸数字一律 ×1000)会得到 1.79e15 ≈ 58857 年
+    expect(new Date(ms).getUTCFullYear()).toBe(2026)
+    expect(ms).toBeLessThan(4_102_444_800_000) // 2100 年上限 sanity
+  })
+})
+
+describe('normalizeForeignAccountShape:第三方备份字段搬运', () => {
+  it('我方规范形状原样通过(不加标记、不改字段)', () => {
+    const mine = account()
+    expect(normalizeForeignAccountShape(mine)).toBe(mine)
+  })
+
+  it('裸数组条目(access_token/expires_at 毫秒)→ 补 canonical + foreignShape 标记与 ISO 到期', () => {
+    const out = normalizeForeignAccountShape({
+      access_token: jwt({ sub: 'u-keycloak', exp: FUTURE }),
+      refresh_token: 'rt-k',
+      nickname: '192****0269',
+      expires_at: 1_795_356_026_000,
+    })
+    expect(out.foreignShape).toBe(true)
+    expect(out.token).toContain('sig')
+    expect(out.refreshToken).toBe('rt-k')
+    expect(out.name).toBe('192****0269')
+    // ISO 串(不是裸毫秒):把量纲归一折在入口,下游通道一律只见 ISO
+    expect(typeof out.expiresAt).toBe('string')
+    expect(String(out.expiresAt).endsWith('Z')).toBe(true)
+  })
+
+  it('uid 别名补位;显式 expiresAt 仅当早于 JWT exp 才采信(保守取早,绝不冒充长效)', () => {
+    const late = normalizeForeignAccountShape({
+      access_token: jwt({ sub: 'u-1', exp: FUTURE }),
+      expires_at: Math.floor(new Date('2027-01-01T00:00:00Z').getTime() / 1000) * 1000,
+    })
+    // 显式值比 JWT 晚 3 年?不,FUTURE=11-01 < 2027-01,显式更晚 ⇒ 必须取 JWT exp(更早),显式被弃
+    expect(new Date(String(late.expiresAt)).getTime()).toBe(FUTURE * 1000)
+
+    const early = normalizeForeignAccountShape({
+      access_token: jwt({ sub: 'u-1', exp: FUTURE }),
+      expires_at: Math.floor(NOW.getTime()) + 3_600_000, // 一小时内(早于 FUTURE)
+    })
+    expect(new Date(String(early.expiresAt)).getTime()).toBe(NOW.getTime() + 3_600_000)
+  })
+
+  it('没有 token 别名也命中不上 ⇒ 原样返回(不把坏数据伪装成"已归一")', () => {
+    const junk = { foo: 'bar' }
+    expect(normalizeForeignAccountShape(junk)).toBe(junk)
+    expect(normalizeForeignAccountShape(null)).toEqual({})
+  })
+})
+
+describe('foreignPassthroughMetadata:未知字段原样进档(兑现导入格式文档 §2)', () => {
+  it('canonical 与别名集一律不吃;陌生标量/短对象留着,超长值丢掉防爆库', () => {
+    const extra = foreignPassthroughMetadata({
+      token: 't',
+      refreshToken: 'r',
+      access_token: 't',
+      foreignShape: true,
+      payment_type: 'p1',
+      dosage_notify_code: '',
+      checkin_streak: 3,
+      meta: { a: 1 },
+      huge: 'x'.repeat(1025),
+    })
+    expect(extra).toEqual({ payment_type: 'p1', checkin_streak: 3, meta: { a: 1 } })
+  })
+})
+
+describe('validateAccountExport 吃外来备份形状', () => {
+  it('裸数组 + access_token + 毫秒 expires_at:结构通过,到期如实(不是 5138 年)', () => {
+    const report = validateAccountExport(
+      [
+        {
+          access_token: jwt({ sub: 'u-keycloak', exp: FUTURE }),
+          refresh_token: 'rt-k',
+          uid: 'u-keycloak',
+          nickname: '手机号账号',
+          expires_at: FUTURE * 1000,
+        },
+      ],
+      { providerCode: 'workbuddy', now: NOW },
+    )
+    expect(report.ok).toBe(true)
+    expect(report.valid).toBe(1)
+    const acc = report.accounts[0]
+    expect(acc.uid).toBe('u-keycloak')
+    expect(acc.hasRefreshToken).toBe(true)
+    expect(acc.tokenExpiresAt).toBe(new Date(FUTURE * 1000).toISOString())
+  })
+
+  it('归一后仍按 canonical 面工作:token 在场 ⇒ 零漂移(既有形状零回归)', () => {
+    const report = validateAccountExport(
+      { accounts: [account()] },
+      { providerCode: 'trae', now: NOW },
+    )
+    expect(report.ok).toBe(true)
+    expect(report.accounts[0].uid).toBe('501')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -69,6 +69,35 @@
 | `proxyUrl` | string ≤512 | 否 | 账号级出口代理,`http(s)://` 或 `socks5://` |
 | 其他字段 | any | 否 | 原样透传进 `extraMetadata`(平台扩展用) |
 
+### 2.1 第三方工具导出形状(2026-10-26 立,自适应)
+
+条目**没有**规范 `token` 而命中下列别名 ⇒ 判为外来导出(典型:workbuddy-switch 的
+`workbuddy-<uid>-<id>.json`),先搬运归一再进校验;归一结果带 `foreignShape: true`,
+canonical 值一律优先、别名只补空缺。判据单源在
+[relay-account-format.ts](../apps/api/src/services/relay-account-format.ts) 的
+`normalizeForeignAccountShape`(预检 CLI 与服务端 `importAccounts` 共用同一函数)。
+
+| 规范字段 | 接受的别名 | 量纲/取值规则 |
+| --- | --- | --- |
+| `token` | `access_token` / `accessToken` / `id_token` / `idToken` | 非空字符串 |
+| `refreshToken` | `refresh_token` / `refresh` / `rt` | 非空字符串 |
+| `uid` | `userId` / `user_id` / `account_id` / `accountId`(其次 JWT `sub`) | 非空字符串 |
+| `name` | `nickname` / `accountName` / `user_name` / `username` / `phone` | 截断 128 |
+| `expiresAt` | `expires_at` / `expired_time` / `expiry` | 秒/毫秒/ISO 自适应折成 ISO;**只采信早于 JWT exp 的值**(保守取早,绝不冒充长效) |
+| `refreshTokenExpiresAt` | `refresh_expires_at` / `refresh_token_expires_at` | 同上;无显式值时取 refreshToken 的 JWT `exp` |
+| `deviceId` / `machineId` | `device_id` / `machine_id` | 截断 128 |
+| `cookies` / `enabled` / `proxyUrl` | 同名 | 与 §1.1 一致 |
+
+**量纲陷阱**(`expireEpochToMs` 专治):`expires_at: 1795356026000` 是 epoch **毫秒**
+(Keycloak 惯例)。裸数字一律当秒的旧读法会把它折成公元 5138 年 ⇒ 号池认定"永不过期",
+临期刷新 / 空闲保活 / 到期摘除三档集体失明。判据取 1e11 为分界:秒制要越过该线得等到
+公元 5138 年(现网无此数据),毫秒制自 1973 年起恒大于该线。
+
+**别名之外的键**(如 `payment_type`、`checkin_streak`、`dosage_notify_code`)由
+`foreignPassthroughMetadata` 原样落 `extraMetadata`(标量与 JSON.stringify 后 ≤1024
+字符的对象/数组;`domain`、`token_type` 这类我方契约不消费的键不再整枚丢弃)。
+`foreignShape` 标记本身不进档。
+
 ## 3. 非 JWT 平台专用字段
 
 以下两族的凭证都不是三段式 JWT,uid/过期时刻必须显式传入(缺省退化为哈希 uid + 无过期时间)。
@@ -142,6 +171,9 @@ Unix 毫秒 = floor(expires_utc / 1000) - 11644473600000
    `tempUnschedulable=true`(诚实标记,不冒充可用);有 `refreshToken` 则交给调度器续期。
 5. **不探测上游**:导入只做本地解析,账号是否真的可用由健康检查/转发链路判定。
 6. **逐条独立**:一条坏不影响整批,返回 `imported` / `updated` / `skipped` / `failed` 计数与逐条原因。
+7. **先归一再落库**(2026-10-26):服务端与预检共用 `normalizeForeignAccountShape` ⇒ 第三方
+   导出形状在两个面得到同一结论(不在任何一面另写别名表);`tokenExpiresAt` 取值顺序 =
+   平台映射 → JWT `exp` → 显式 `expiresAt`(ISO),三面同口径。
 
 ## 6. 导入前预检
 
@@ -215,4 +247,47 @@ pnpm qoder:import -- --dry-run
 - **退出码**:`0` 全部成功 / `1` 有失败或缺可导账号 / `2` 参数或输入读取失败(未判定)。
 - 模式 A 需要 PowerShell 7+(`pwsh`)且本机已登录 Qoder 客户端;不满足时走模式 C 降级:
   在能解密的机器上 `pwsh -File qoder-capture.ps1 -OutFile session.json`,再加 `--session-file` 导入。
+
+## 9. 号体检速查 `relay:inspect`(2026-10-26 立)
+
+回答「这枚号还能不能用、还剩多久、下一步该做什么」——零 DB / 零上游请求 / 不回显凭据:
+
+```bash
+# 体检一个导出/备份 JSON(我方形状与 §2.1 外来形状都吃)
+pnpm relay:inspect -- --file accounts.json --provider workbuddy
+# 体检本机 WorkBuddy 桌面当前登录态(workbuddy-desktop{,-ai}.info)
+pnpm relay:inspect -- --local
+# 机器可读
+pnpm relay:inspect -- --file accounts.json --json
+```
+
+结论枚举与下一步(单源 `relay-account-inspect.ts` 的 `VERDICT_ACTION`):
+
+| 结论 | 含义 | 下一步 |
+| --- | --- | --- |
+| `usable` | 剩余 >1 天 | 无需处理,调度(临期档 / 空闲保活档)自动续 |
+| `expiring-soon` | ≤1 天到期 | 号池在线即会刷;纯本机用则开一次客户端续票 |
+| `expired-renewable` | 已过期但带 refreshToken | 导入号池由调度器救回;本机需重启客户端 |
+| `expired-dead` | 已过期且无续费通道 | 只能重新登录 / 重新导出,不会自愈 |
+| `envelope-only` | 值是 `$wbEncrypted` 加密信封 | 仅同机 WorkBuddy 能解回;查积分/签到/跨机均不可用,需在有客户端的机器重导明文 |
+| `indeterminate` | 读不到到期时刻 | 不代表过期(§0.3「没判」不写成「判过」),可用性以健康检查为准 |
+
+退出码:`0` 全部可用 / `1` 存在不可用或临期 / `2` 参数或输入不可读(未判定)。
+
+## 10. 空闲保活档与账号有效期(2026-10-26 立)
+
+导入时的 `expiresAt` / `refreshTokenExpiresAt` 会落 `token_expires_at` /
+`refresh_expires_at` 两列,调度器(`relay-account-pool-scheduler.ts`)两档据此工作:
+
+1. **临期档**:距过期 <15 分钟 → 刷新回写(涨 `cred_version`,签到侧按版本差补推)。
+2. **空闲保活档**:`greatest(coalesce(last_used_at, created_at), coalesce(last_refresh_at,
+   created_at))` 早于窗口(默认 7 天,`RELAY_ACCOUNT_KEEPALIVE_DAYS` 可调,`0/off/false`
+   整档关,非法值回落默认)→ 主动续一次票。
+
+第 2 档存在的理由:上游会清理**闲置**的 refresh 会话,长期没被转发用过的号即便离过期还远,
+也会在真要用时报 `invalid_grant`。必须并入 `last_refresh_at` 作时钟:只看 `last_used_at`
+会让一次保活刷新无法把号请出候选集,每 5 分钟一轮的 sweep 就变成同一批号的续票风暴。
+`trae` 属 client-first 平台(本机客户端持有同一枚 rt),该档同样走 `shouldDeferRefresh`
+让位本机,不把客户端顶下线。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
