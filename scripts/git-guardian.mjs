@@ -6335,13 +6335,16 @@ export function dispatchGateRot(opts = {}) {
 }
 
 /**
- * 号池容量哨兵轮(2026-10-26 装车):读 `check-relay-capacity-zero --json` 的三态结论。
+ * 号池容量哨兵轮(2026-10-26 装车,差值档同格 check-gate-rot):读
+ * `check-relay-capacity-zero --json --ratchet` 的三态结论 —— 只把**相对基线新增**的
+ * 归零喊人,存量只报数(治"存量天天喊、真新增反被淹")。
  *
  * 立因:号池"有 enabled 号但可调度 0"时,转发层会静默回落到 ai-service —— 观面上与
  * "上游一切正常"同形(§0.9 造好没装车 = 没有的另一面:量得到但没人被通知)。
  * 本器只读、零落地、不进提交链(判机器/库状态,§12e);节流戳与其它轮同格。
- * 未判定(取不到库/psql/源文件漂移)一律**不冒绿**并记日志,不猜。
- * 邮件身份 = 类别 + 命中条数(§5e-3:不把会抖动的 provider 清单写进去重身份)。
+ * 未判定(取不到库/psql/源文件漂移/基线坏)一律**不冒绿**并记日志,不猜。
+ * 器物输出缺 newBreaches(版本漂移)⇒ 按全量喊(失效方向 = 多喊一次,§0.10)。
+ * 邮件身份 = 类别 + 新增计数(§5e-3:不把会抖动的 provider 清单写进去重身份)。
  */
 export function dispatchRelayCapacity(opts = {}) {
   const {
@@ -6363,7 +6366,7 @@ export function dispatchRelayCapacity(opts = {}) {
     runner ??
     (() => {
       try {
-        const out = execFileSync(process.execPath, [script, '--json'], {
+        const out = execFileSync(process.execPath, [script, '--json', '--ratchet'], {
           cwd: WORKTREE,
           encoding: 'utf8',
           windowsHide: true,
@@ -6405,28 +6408,36 @@ export function dispatchRelayCapacity(opts = {}) {
     logger(`✅ 号池容量哨兵:未见归零(${String(parsed.reason ?? '').slice(0, 120)})`)
     return { ran: true, ok: true, breaches: 0 }
   }
-  const names = breaches
+  const newBreaches = Array.isArray(parsed.newBreaches) ? parsed.newBreaches : breaches // 版本漂移⇒按全量喊(失效方向=多喊一次,§0.10)
+  if (newBreaches.length === 0) {
+    logger(
+      `✅ 号池容量哨兵:无新增归零(存量 ${breaches.length} 处只报数,差值为 0;显式认账:node scripts/check-relay-capacity-zero.mjs --write-baseline)`,
+    )
+    return { ran: true, ok: true, breaches: breaches.length, known: breaches.length }
+  }
+  const known = breaches.length - newBreaches.length
+  const names = newBreaches
     .slice(0, 5)
     .map((b) => `${b?.kind ?? '?'}:${b?.providerCode ?? '?'}`)
     .join(', ')
   logger(
-    `⚠️ 号池容量哨兵:${breaches.length} 处容量归零 ⇒ ${names}` +
-      `${breaches.length > 5 ? ` …(共 ${breaches.length})` : ''}`,
+    `⚠️ 号池容量哨兵:新增归零 ${newBreaches.length} 处 ⇒ ${names}` +
+      `${newBreaches.length > 5 ? ` …(共 ${newBreaches.length})` : ''}(存量 ${known > 0 ? known : 0} 处只报数)`,
   )
   try {
     notifier(
-      '号池容量归零(静默回落中)',
-      `${breaches.length} 处 provider 有 enabled 号但可调度为 0:\n${breaches
+      '号池容量归零(新增,静默回落中)',
+      `相对上轮新增 ${newBreaches.length} 处 provider 有 enabled 号但可调度为 0:\n${newBreaches
         .map((b) => String(b?.detail ?? `${b?.kind}:${b?.providerCode}`))
         .join('\n')}\n\n` +
         '修法:后台「中转-号池」看该 provider 的号是冷却(temp_unschedulable,等或手工解除)还是被停用(is_enabled=false);' +
-        '若确属停用则容量归零是预期态,可在哨兵台账登记豁免。',
-      { severity: 'warning', dedupKey: `relay-capacity-zero:${breaches.length}` },
+        '若确属停用则容量归零是预期态,可跑 node scripts/check-relay-capacity-zero.mjs --write-baseline 显式认账(此后存量不再喊)。',
+      { severity: 'warning', dedupKey: `relay-capacity-zero:new:${newBreaches.length}` },
     )
   } catch {
     /* 通知层失败只影响喊人,不改本轮判定 */
   }
-  return { ran: true, ok: false, why: '容量归零', fresh: breaches.length }
+  return { ran: true, ok: false, why: '新增容量归零', known, fresh: newBreaches.length }
 }
 
 // §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。
