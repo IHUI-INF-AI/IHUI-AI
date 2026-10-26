@@ -48,6 +48,11 @@ const payload = {
     { page: '/chat', avgSec: 120.4, samples: 5 },
     { page: '/', avgSec: 63.5, samples: 12 },
   ],
+  audience: { newUv: 31, returningUv: 14, activeUv: 45, returningRate: 0.3111 },
+  browsers: [
+    { family: 'chrome', pv: 42, uv: 30 },
+    { family: 'wechat', pv: 1, uv: 1 },
+  ],
 }
 
 function renderPage() {
@@ -89,6 +94,30 @@ describe('BI 数据大屏', () => {
     await waitFor(() => expect(screen.getAllByText('页面停留时长 TOP').length).toBeGreaterThan(0))
     await waitFor(() => expect(document.body.textContent).toContain('120.4s'))
     expect(document.body.textContent).toContain('n=12')
+  })
+
+  it('访客构成与浏览器分布按接口字段渲染(回访率取整、UA 家族有中文档)', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText('访客构成').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('新访客').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('回访').length).toBeGreaterThan(0)
+    // 14 / 45 = 31.11% ⇒ 界面读 31%;这一档漂了说明字段名或算式被动过
+    expect(document.body.textContent).toContain('31%')
+    expect(screen.getAllByText('浏览器分布').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Chrome').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('微信内置浏览器').length).toBeGreaterThan(0)
+  })
+
+  it('访客构成/浏览器两块取不到时给"暂无法统计",不塌成 0 也不白屏', async () => {
+    vi.mocked(fetchApi).mockImplementation((async () => ({
+      success: true,
+      data: { ...payload, audience: null, browsers: null },
+    })) as never)
+    renderPage()
+    // 标题是静态文案,数据未到就先渲染 ⇒ 必须等读数本身出现
+    await waitFor(() => expect(screen.getAllByText('暂无法统计').length).toBeGreaterThanOrEqual(2))
+    // 其余块照常出:两腿为 null 不得把访问卡一起打死
+    expect(screen.getAllByText('近 7 日访客数').length).toBeGreaterThan(0)
   })
 
   it('接口失败时给诚实错误态而不是白屏', async () => {
