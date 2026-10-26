@@ -2198,6 +2198,10 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🔧 その他:L28794 同键去重票风险注记——迁移ca69d3a984(idx=344)随部署环自动应用生产库,DELETE硬编码id=46系dev编号生产未实测,点名误删合法行风险+机主三条只读核验查询与三档裁决 (ae2a8d4cdc)
+- 🔧 その他:G-1102638 批1 同主键副本行物理归并 — 删 7 行(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;复跑auditPlan对账F1=0/F9不增;逐行留痕 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-26.md) (83e85a18eb)
+
+**2026-10-26**
 - 🐞 修正:明文 doom_loop 审计守护改回先睡后扫 —— 现读 .env 有真 DSN 且 config 导入即同步 os.environ,先扫后睡会让 TestClient lifespan 用例装载瞬间真连库(§5 铁律,2026-09-12/10-24 两案同型);与 expiry_janitor 同形后短命进程全程不碰真库,闩用例改钉 calls==0;130 全绿,ruff/mypy/watermark 过 (01b11df130)
 - 🚀 機能/改善:明文 doom_loop 审计守护接线装车 —— main.py lifespan 装载 ensure_started(默认开,先扫后睡)+shutdown 步骤入列;守护用例 13 例钉死:零写盘绊线/undetermined 不带计数/待改写与撞键点名 --apply/装载闩幂等/间隔回落夹下限 (e5ef306822)
 - 🚀 機能/改善:明文 doom_loop 存量审计守护装车(清洗器定时批量 dry-run 触发点) —— 判据单源复用 scripts/redact_legacy_procedural_patterns.py 本体(importlib 按路径加载,零写盘,apply_updates 绊线钉死);缺DSN/连不上/schema不符一律 undetermined 不读成 0 行;待改写或撞键>0 即 warning 点名手动 --apply;默认开,PROCEDURAL_REDACT_AUDIT_ENABLED/_INTERVAL_SECONDS(86400s,下限300s),先扫后睡;随 lifespan 装载+shutdown 步骤入列;新测试 13 例,关联四套 130 全绿,mypy strict/ruff check 过 (0f28000c95)
@@ -2336,19 +2340,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🔧 その他:认领 L28136 号池可观测三档(dev 库已见真网关落库行,补 pytest 全量验收) (4d93e4a975)
 - 🚀 機能/改善:移动端与小程序换屏即上报页面停留(page_time),补齐两端在停留时长维度上的盲区 (53e5419e9d)
 - 🐞 修正:401/403(key失效)静默跳过,不再误报 [replay of 4c4ae154d44 onto origin/main] (87f6b3ad51)
-
-**2026-10-26**
-- 🔧 その他:结清 L28670 僵尸实例——本机 release 包双实例现场实验:第二实例 632ms 移交退出,最小化态 siw 仍应答,未复现常驻僵尸态 (af29f7a395)
-- 📚 ドキュメント:E2E 自动补测进展补记——门 250 triggers 含判据层、镜像测试 4/4 (54962915b6)
-- 🔧 その他:结清 L28073（挂牌合法通道已由 a664d3e5be 落地,126 测试+今日实挂牌为证）;L28072 记残余两格已落+生产取证待办 (a3da906b19)
-- 🔧 その他:门 250 镜像测试(§22c __test__ 形状锁 + HEAD 面装车证明 + 补测两半射程单源) (7b416b3b00)
-- 🔧 その他:登记 relay 收口 3 条(对账判据两步设计/dev 库违反部分唯一索引/容量哨兵零派发点)——设计含被打回的镜像教训,防丢 (8d8dffebfe)
-- 🚀 機能/改善:数据大屏新增页面停留时长 TOP(近7日 page_time 均值) (02acbb124d)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cb27559abd)
-- 🚀 機能/改善:页面排行支持按次数/按人数排序 (7609a637a6)
-- 🚀 機能/改善:页面访问热度面板显示实时在线人数(近5分钟去重会话) (1021c1e51e)
-- 🚀 機能/改善:页面排行支持按端筛选(网站/移动端/小程序),与大屏分端同源 (877da141ee)
-- 🚀 機能/改善:stepfun 永久退役 + 上游模型自动更新替换 + 默认模型收敛单一入口 (b20279c2f2)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
