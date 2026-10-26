@@ -5007,5 +5007,13 @@
     "save": "儲存",
     "loadFailed": "載入設定失敗",
     "saved": "儲存成功"
+  },
+  "agentStat": {
+    "title": "智能體統計",
+    "conversations": "對話數",
+    "messages": "訊息數",
+    "tokens": "Token 消耗",
+    "avgRating": "平均評分",
+    "loadFailed": "載入統計失敗"
   }
 }

@@ -5007,5 +5007,13 @@
     "save": "Save",
     "loadFailed": "Failed to load settings",
     "saved": "Saved successfully"
+  },
+  "agentStat": {
+    "title": "Agent Stats",
+    "conversations": "Conversations",
+    "messages": "Messages",
+    "tokens": "Tokens Used",
+    "avgRating": "Avg. Rating",
+    "loadFailed": "Failed to load statistics"
   }
 }
