@@ -61,6 +61,7 @@ import {
 import { db, dbRead } from '../db/index.js'
 import { encryptField } from '../utils/crypto.js'
 import { startStopwatch } from '../utils/elapsed-ms.js'
+import { recordRelayStreamInterrupt, snapshotRelayStreamInterrupts } from '../plugins/business-metrics.js'
 import { logger } from '../utils/logger.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
 import { accountSchedulableCondition } from './relay-account-pool-scheduler.js'
@@ -157,24 +158,12 @@ function judgeStreamOutcome(tapError: unknown, terminal?: StreamTerminal): Strea
 }
 
 /**
- * 流式断流计数(进程内,按 provider_code 分桶;名 relay_stream_interrupt_total{provider_code})。
- *
- * 落点在转发层而非 `plugins/business-metrics.ts`:后者由并行会话在写(本任务禁改清单),
- * 等它稳定后由后续批次并进 `ihui_*` 家族同族计数器。先例同形态见 `routes/ai-chat-stream.ts`
- * 的 `sseMetrics` 细分计数器(进程内、admin 端点现读,不进 Prometheus)。
+ * 流式断流计数:记账出口在 `plugins/business-metrics.ts`(家族 `ihui_relay_stream_interrupt_total{provider_code}`,
+ * 与 `ihui_relay_upstream_fallback_total` 同族同节拍)。本文件只留**判据**(什么算"没说完")与现读转发,
+ * 不再自持一份 Map(§0.6 单一真相源;上一版因并行写席禁改 metrics 才临时落在这里)。
  */
-const streamInterruptByProvider = new Map<string, number>()
-
-function countStreamInterrupt(providerCode: string): void {
-  streamInterruptByProvider.set(
-    providerCode,
-    (streamInterruptByProvider.get(providerCode) ?? 0) + 1,
-  )
-}
-
-/** 断流计数现读(观测面/测试用;从未断流 ⇒ 空对象,不用 0 冒充"没量过") */
 export function getStreamInterruptCounts(): Record<string, number> {
-  return Object.fromEntries(streamInterruptByProvider.entries())
+  return snapshotRelayStreamInterrupts()
 }
 
 type FailureKind =
@@ -1551,7 +1540,7 @@ export async function forwardToAccountPool(
           // 不:relay_stream_interrupt_total 量的是「上游没把话说完」,客户端断开混进去会顶掉
           // 这一格的可归因性,故断开只归还额度、不进任何账。
           if (req.signal?.aborted === true) return
-          countStreamInterrupt(row.providerCode)
+          recordRelayStreamInterrupt(row.providerCode)
           const kind = kindForStreamInterrupt(adapter, terminal?.error)
           const detail =
             terminal?.error instanceof Error
@@ -1565,7 +1554,7 @@ export async function forwardToAccountPool(
             providerCode: row.providerCode,
             model: rawModel,
             kind,
-            interruptTotal: streamInterruptByProvider.get(row.providerCode) ?? 0,
+            interruptTotal: snapshotRelayStreamInterrupts()[row.providerCode] ?? 0,
             reason: detail,
           })
           // 断流属代理/网络级证据:代理腿半途断了不能被记成"这路子好走"
