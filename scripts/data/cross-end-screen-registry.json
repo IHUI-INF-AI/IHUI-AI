@@ -562,34 +562,9 @@
       "miniapp": "pkg-shop/vip/details"
     },
     {
-      "shared": "packages/app/src/features/dashboard/DashboardScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/DashboardScreen.tsx",
-      "miniapp": "pkg-user/dashboard/index"
-    },
-    {
-      "shared": "packages/app/src/features/domain-hub/DomainHubScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ConnectorsScreen.tsx",
-      "miniapp": "pkg-user/domain-hub/index"
-    },
-    {
-      "shared": "packages/app/src/features/login/LoginScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/LoginScreen.tsx",
-      "miniapp": "pkg-user/login/index"
-    },
-    {
-      "shared": "packages/app/src/features/mcp-store/McpStoreScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AgentRuntimeScreen.tsx",
-      "miniapp": "pkg-user/mcp-store/index"
-    },
-    {
       "shared": "packages/app/src/features/activity-detail/ActivityDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ActivityDetailScreen.tsx",
       "miniapp": "pkg-content/activity-detail-shared/index"
-    },
-    {
-      "shared": "packages/app/src/features/agent-chat/AgentChatScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AgentChatScreen.tsx",
-      "miniapp": "pkg-user/agent-chat/index"
     },
     {
       "shared": "packages/app/src/features/agent-create/AgentCreateScreen.tsx",
@@ -622,19 +597,9 @@
       "miniapp": "pkg-user/ai-multimodal/index"
     },
     {
-      "shared": "packages/app/src/features/ai-world/AiWorldScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AiWorldScreen.tsx",
-      "miniapp": "pkg-user/ai-world/index"
-    },
-    {
       "shared": "packages/app/src/features/aigc-cover/AigcCoverScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AigcCoverScreen.tsx",
       "miniapp": "pkg-user/aigc-cover/index"
-    },
-    {
-      "shared": "packages/app/src/features/assistant/AssistantScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AssistantScreen.tsx",
-      "miniapp": "pkg-user/assistant/index"
     },
     {
       "shared": "packages/app/src/features/automations/AutomationsScreen.tsx",
@@ -690,11 +655,6 @@
       "shared": "packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ConnectedAccountsScreen.tsx",
       "miniapp": "pkg-user/connected-accounts/index"
-    },
-    {
-      "shared": "packages/app/src/features/connectors/ConnectorsScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ConnectorsScreen.tsx",
-      "miniapp": "pkg-user/connectors/index"
     },
     {
       "shared": "packages/app/src/features/context/ContextScreen.tsx",
