@@ -17,6 +17,11 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
+// 门 39(mobile-rn 迁移完整性)V1 判据:`apps/mobile-rn/src/screens/` 下每个 .ts/.tsx 的正文
+// 必须出现 `from '@ihui/rn-app'`(判据本体 = hasRnAppImport 的正则)。本用例读的是端内
+// ChatScreen.tsx 的**源文本**,运行时不取共享层任何值 ⇒ 按 BookmarkScreen/HistoryScreen 等
+// 同目录文件的既有形态,补这条**类型面**的模块引用(编译期即擦除,不带运行时副作用)。
+export type { QuickNoteDraft } from '@ihui/rn-app'
 
 /** jsdom 环境下 import.meta.url 非 file scheme,回退包内 cwd(包测试脚本恒在包根跑) */
 function resolveChatScreenPath(): string {
