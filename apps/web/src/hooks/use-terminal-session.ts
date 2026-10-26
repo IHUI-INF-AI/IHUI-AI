@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { useTerminalStore } from '@/stores/terminal'
 import type { TerminalSplitDirection } from '@/stores/terminal'
@@ -291,6 +292,8 @@ export function useTerminalSession() {
       // 导致 "已达最大重连次数" 死锁,服务恢复后终端永远连不上)。
       // 改为无限重连(指数退避封顶 30s),仅在永久性失败(用户主动关闭/后端拒绝)时停止。
       let permanentClosed = false
+      /** 本轮鉴权事故是否已用过那唯一一次"续期+重连"(成功连上后复位) */
+      let authRetried = false
 
       // 后端 terminal-ws.ts 永久性关闭码 — 重连无济于事,停止并给出明确原因:
       //   1000=进程退出/客户端关闭  4001=JWT 鉴权失败  4003=无权访问  4004=会话不存在
@@ -379,8 +382,18 @@ export function useTerminalSession() {
       }
 
       const connect = () => {
+        // 凭据每次建连现取(不是 connectWS 那一轮闭包里的旧值):access 是 15 分钟一枚,
+        // 旧写法让自动重连那一串永远带着过期 token 去握手,后端回 4001 后本连接被判"永久性失败"。
+        const credential = useAuthStore.getState().token ?? token
+        if (!credential) {
+          // 凭据已不在(用户登出/被清)⇒ 停手,不再拿空 token 刷握手;
+          // 也不在这里报一句新文案(登出的可见反馈归 auth 链路,不是这条流的职权)。
+          permanentClosed = true
+          clearReconnectTimer()
+          return
+        }
         try {
-          ws = new WebSocket(buildWsUrl(sessionId, token))
+          ws = new WebSocket(buildWsUrl(sessionId, credential))
           // 同步更新 handle.ws,保证调用方拿到的始终是当前活跃连接
           handle.ws = ws
         } catch (e) {
@@ -393,6 +406,9 @@ export function useTerminalSession() {
         ws.onopen = () => {
           handle.readyState = WebSocket.OPEN
           reconnectAttempt = 0
+          // 连上了 ⇒ 这一轮"鉴权事故"结清,下一次再被 4001 拒仍可续期一次
+          // (失效方向是多要一次定向说明,不是多放一次跳门:两档之间必须有成功连接隔开)
+          authRetried = false
           handlers.onOpen?.()
         }
 
@@ -409,6 +425,29 @@ export function useTerminalSession() {
           handle.readyState = WebSocket.CLOSED
           handlers.onClose?.()
           if (closedByUser) return
+          // 4001 = 后端 wsAuth 明确拒了这一枚凭据(access 过期最常见)。
+          // 旧实现直接归"永久性失败"⇒ 终端整条实时通道哑掉,而用户手里的会话其实还好。
+          // 现在:续期一次 ⇒ 成功就立刻用新凭据重连一次;续期失败(或本轮已续过一次仍被拒)
+          // ⇒ 落回既有永久失败口径(报错文案沿用同一份 PERMANENT_CLOSE_REASONS,不新造话术)。
+          // 这里绝不调 logout/expireSession:网络抖动与"判不出"都不构成登出的理由。
+          if (e.code === 4001 && !authRetried) {
+            authRetried = true
+            void (async () => {
+              const fresh = await refreshAccessTokenOnce()
+              if (closedByUser || permanentClosed) return
+              if (fresh) {
+                clearReconnectTimer()
+                reconnectAttempt = 0
+                connect()
+                return
+              }
+              permanentClosed = true
+              clearReconnectTimer()
+              const expiredReason = PERMANENT_CLOSE_REASONS[4001]
+              if (expiredReason) handlers.onError?.(expiredReason)
+            })()
+            return
+          }
           // 永久性失败:重连无济于事,停止并给出明确原因(UI 可提供手动重连按钮)
           const reason = PERMANENT_CLOSE_REASONS[e.code]
           if (reason) {

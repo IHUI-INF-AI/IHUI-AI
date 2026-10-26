@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
 import { voiceSttFromReactNative } from '@ihui/api-client'
-import { getToken } from '../lib/token'
+import { isCredentialRejected, runWithFreshToken } from '../lib/token'
 
 const RECORD_MAX_SECONDS = 60
 // 授权请求兜底超时:内嵌/无麦克风的浏览器里 getUserMedia 系授权可能永远 pending
@@ -33,6 +33,16 @@ export interface UseVoiceRecorderOptions {
    *  2026-10-15:此前 start() 的两条失败路径都只回调 onComplete(''),界面零反馈,
    *  web 预览长按麦克风表现为「点了没反应」(用户报障)。 */
   onUnavailable?: (reason: 'permission-denied' | 'record-failed') => void
+  /**
+   * STT 转写失败的用户可见原因(2026-10-26 立)。
+   *
+   * 立项理由:`onComplete('')` 把"没说话"与"上传被服务端拒了"压成同一个信号,界面上
+   * 永远是静默;而续期+只重试一次都失败之后,除了把原因递出去没有任何出路(不许静默成功)。
+   * `'credential'` = 续期后重试仍被服务端否定凭据(判据单源见 lib/token 的
+   * `isCredentialRejected`,端内不写第二份 401 口径);`'other'` = 其余(网络/5xx/超时)。
+   * 不接线时退化为 console.warn,行为与本钩子改造前一致(空串回填),不破坏现有调用方。
+   */
+  onSttFailed?: (reason: 'credential' | 'other') => void
   /**
    * 原始录音回调(transcribe=false 时生效):松开后把本地录音 uri + 时长(秒)交出,
    * 供调用方上传并发语音气泡消息。转写模式下不触发。
@@ -52,6 +62,7 @@ export interface UseVoiceRecorderOptions {
 export function useVoiceRecorder({
   onComplete,
   onUnavailable,
+  onSttFailed,
   onRecorded,
   transcribe = true,
   aiServiceUrl = 'http://localhost:8803',
@@ -129,18 +140,33 @@ export function useVoiceRecorder({
     // 录音 URI → ai-service STT 转文字(空串 = 失败,调用方自行忽略)
     setTranscribing(true)
     try {
-      const text = await voiceSttFromReactNative(uri, {
-        language,
-        aiServiceUrl,
-        token: getToken() ?? undefined,
-      })
+      // 2026-10-26:这一腿原先把 `getToken()` 的快照直接塞进 Bearer 头 —— access token 只有
+      // 15 分钟,过期后 ai-service 恒 401,而这次 401 不经过 api-client 的出口,没有任何一层
+      // 会替它续期 ⇒ "录了半天每次都白录"且不自愈。改走 lib/token 的新鲜度兜带
+      // (上传前到点先续期;被否定则续期后**只重试一次**)。
+      const text = await runWithFreshToken((token) =>
+        voiceSttFromReactNative(uri, {
+          language,
+          aiServiceUrl,
+          token: token ?? undefined,
+        }),
+      )
       onComplete?.(text)
-    } catch {
+    } catch (e) {
+      // 失败要可归因:此前"空录音/无权限/上传被拒"在界面上是同一个"没说话"。
+      // reason 走 isCredentialRejected(判据单源在 lib/token,端内不再写第二份 401 口径);
+      // 未接线时退化为 console.warn —— 两条分支都不清凭据、都不结束会话。
+      const reason: 'credential' | 'other' = isCredentialRejected(e) ? 'credential' : 'other'
+      console.warn(
+        `[rn-voice] useVoiceRecorder STT failed reason=${reason} ` +
+          `detail=${e instanceof Error ? e.message : 'unknown error'}`,
+      )
+      onSttFailed?.(reason)
       onComplete?.('')
     } finally {
       setTranscribing(false)
     }
-  }, [onComplete, onRecorded, recorder, transcribe, language, aiServiceUrl])
+  }, [onComplete, onRecorded, onSttFailed, recorder, transcribe, language, aiServiceUrl])
 
   const start = useCallback(() => {
     if (recordingRef.current) return

@@ -28,6 +28,14 @@ const mocks = vi.hoisted(() => ({
   stop: vi.fn(),
   voiceSttFromReactNative: vi.fn(),
   getToken: vi.fn(() => 'test-token'),
+  /**
+   * lib/token 的凭据兜带(2026-10-26 立)。本套件只把它当**替身出口**:
+   * 默认把 run 用 getToken() 的值喂回去(等价修复前所见),个别用例改写它来证明
+   * "STT 拿的是兜带给的凭据,不是 hook 自己快照的那一份"。
+   * 判据本体(该不该续期 / 算不算凭据被否定)住在 lib/token,单测在 tests/token.test.ts。
+   */
+  runWithFreshToken: vi.fn(),
+  isCredentialRejected: vi.fn(() => false),
 }))
 
 vi.mock('expo-audio', () => {
@@ -54,6 +62,8 @@ vi.mock('@ihui/api-client', () => ({
 
 vi.mock('../src/lib/token', () => ({
   getToken: mocks.getToken,
+  runWithFreshToken: mocks.runWithFreshToken,
+  isCredentialRejected: mocks.isCredentialRejected,
 }))
 
 import { useVoiceRecorder } from '../src/hooks/use-voice-recorder'
@@ -63,13 +73,15 @@ type HarnessApi = ReturnType<typeof useVoiceRecorder>
 function Harness({
   onComplete,
   onUnavailable,
+  onSttFailed,
   apiRef,
 }: {
   onComplete?: (text: string) => void
   onUnavailable?: (reason: 'permission-denied' | 'record-failed') => void
+  onSttFailed?: (reason: 'credential' | 'other') => void
   apiRef: { current: HarnessApi | null }
 }) {
-  const state = useVoiceRecorder({ onComplete, onUnavailable })
+  const state = useVoiceRecorder({ onComplete, onUnavailable, onSttFailed })
   apiRef.current = state
   return createElement('div', { 'data-recording': String(state.recording) })
 }
@@ -92,6 +104,11 @@ describe('useVoiceRecorder — 失败路径必须有用户可见反馈(不再静
     mocks.stop.mockResolvedValue(undefined)
     mocks.voiceSttFromReactNative.mockResolvedValue('转写文本')
     mocks.getToken.mockReturnValue('test-token')
+    // 兜带默认:把当前凭据喂回 run(与修复前 hook 自己取到的那一份同值,既有断言一条不动)
+    mocks.runWithFreshToken.mockImplementation((run: (t: string | null) => Promise<string>) =>
+      run(mocks.getToken()),
+    )
+    mocks.isCredentialRejected.mockReturnValue(false)
   })
 
   it('挂载预请求被拒后,长按懒补办仍被拒 → onUnavailable("permission-denied") + onComplete("")', async () => {
@@ -200,6 +217,118 @@ describe('useVoiceRecorder — 失败路径必须有用户可见反馈(不再静
     expect(onUnavailable).toHaveBeenCalledWith('record-failed')
     expect(onComplete).toHaveBeenCalledWith('')
     expect(recordingAttr(container)).toBe('false')
+  })
+})
+
+/**
+ * 2026-10-26 审计第 3 条:STT 这一腿此前直传 `getToken()` 快照 —— access token 15 分钟过期后
+ * ai-service 恒 401,而这次 401 不经过 api-client 的出口,没有任何一层替它续期。
+ * 现在它必须经过 lib/token 的兜带(新鲜度前置 + 只重试一次),且失败必须可归因。
+ *
+ * 分工纪律:兜带**本体**的判据用例在 tests/token.test.ts(测的是实现);本套件只测调用点
+ * ——「走没走兜带」「拿的是谁给的凭据」「失败有没有递出原因」。
+ */
+describe('useVoiceRecorder — STT 走凭据兜带 + 失败可归因', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mocks.setAudioModeAsync.mockResolvedValue(undefined)
+    mocks.prepareToRecordAsync.mockResolvedValue(undefined)
+    mocks.stop.mockResolvedValue(undefined)
+    mocks.requestRecordingPermissionsAsync.mockResolvedValue({ granted: true })
+    mocks.voiceSttFromReactNative.mockResolvedValue('转写文本')
+    mocks.getToken.mockReturnValue('test-token')
+    mocks.runWithFreshToken.mockImplementation((run: (t: string | null) => Promise<string>) =>
+      run(mocks.getToken()),
+    )
+    mocks.isCredentialRejected.mockReturnValue(false)
+  })
+
+  /** 渲染 → 长按 → 松开(让 stop 里的转写链跑完) */
+  async function recordAndRelease(apiRef: { current: HarnessApi | null }) {
+    await flushMicrotasks()
+    act(() => {
+      apiRef.current?.start()
+    })
+    await flushMicrotasks()
+    await act(async () => {
+      await apiRef.current?.stop()
+    })
+    await flushMicrotasks()
+  }
+
+  it('转写用的凭据来自兜带,不是 hook 自己取的 getToken() 快照', async () => {
+    mocks.runWithFreshToken.mockImplementation((run: (t: string | null) => Promise<string>) =>
+      run('fresh-from-wrapper'),
+    )
+    const apiRef: { current: HarnessApi | null } = { current: null }
+    render(createElement(Harness, { apiRef }))
+    await recordAndRelease(apiRef)
+
+    expect(mocks.runWithFreshToken).toHaveBeenCalledTimes(1)
+    expect(mocks.voiceSttFromReactNative).toHaveBeenCalledWith(
+      'file:///mock/recording.m4a',
+      expect.objectContaining({ token: 'fresh-from-wrapper' }),
+    )
+    // 反向锁:调用点不再自己摸凭据源(第二份取值必然漂移)
+    expect(mocks.getToken).not.toHaveBeenCalled()
+  })
+
+  it('续期后仍被否定 ⇒ onSttFailed("credential") + onComplete(""),不冒充成功', async () => {
+    mocks.runWithFreshToken.mockRejectedValue(
+      Object.assign(new Error('401 Unauthorized'), { status: 401 }),
+    )
+    mocks.isCredentialRejected.mockReturnValue(true)
+    const onComplete = vi.fn()
+    const onSttFailed = vi.fn()
+    const apiRef: { current: HarnessApi | null } = { current: null }
+    render(createElement(Harness, { onComplete, onSttFailed, apiRef }))
+    await recordAndRelease(apiRef)
+
+    expect(onSttFailed).toHaveBeenCalledTimes(1)
+    expect(onSttFailed).toHaveBeenCalledWith('credential')
+    expect(onComplete).toHaveBeenCalledTimes(1)
+    expect(onComplete).toHaveBeenCalledWith('')
+    expect(mocks.voiceSttFromReactNative).not.toHaveBeenCalled()
+  })
+
+  it('非凭据类失败(网络/5xx)⇒ onSttFailed("other") —— 归因不由界面猜', async () => {
+    mocks.runWithFreshToken.mockRejectedValue(new Error('fetch failed'))
+    mocks.isCredentialRejected.mockReturnValue(false)
+    const onSttFailed = vi.fn()
+    const onComplete = vi.fn()
+    const apiRef: { current: HarnessApi | null } = { current: null }
+    render(createElement(Harness, { onComplete, onSttFailed, apiRef }))
+    await recordAndRelease(apiRef)
+
+    expect(onSttFailed).toHaveBeenCalledWith('other')
+    expect(onComplete).toHaveBeenCalledWith('')
+  })
+
+  it('调用方没接 onSttFailed 也不炸(退化成 console.warn + onComplete(""))', async () => {
+    mocks.runWithFreshToken.mockRejectedValue(new Error('boom'))
+    const onComplete = vi.fn()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const apiRef: { current: HarnessApi | null } = { current: null }
+    render(createElement(Harness, { onComplete, apiRef }))
+    await recordAndRelease(apiRef)
+
+    expect(onComplete).toHaveBeenCalledWith('')
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('原始录音模式(transcribe=false)不碰兜带(那条腿不发 STT 请求)', async () => {
+    const onRecorded = vi.fn()
+    const apiRef: { current: HarnessApi | null } = { current: null }
+    function Raw() {
+      apiRef.current = useVoiceRecorder({ transcribe: false, onRecorded })
+      return null
+    }
+    render(createElement(Raw))
+    await recordAndRelease(apiRef)
+
+    expect(onRecorded).toHaveBeenCalledWith('file:///mock/recording.m4a', 0)
+    expect(mocks.runWithFreshToken).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

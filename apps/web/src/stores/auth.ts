@@ -156,12 +156,13 @@ export const useAuthStore = create<AuthState>()(
         void (async () => {
           const vaultToken = isDesktopEnv() ? await getDesktopRefreshToken() : null
           const rt = refreshToken ?? vaultToken
-          if (rt) {
-            try {
-              await apiLogout(rt)
-            } catch {
-              // 吊销失败(如已离线)不阻塞本地登出
-            }
+          // 2026-10-26:即使内存/vault 都取不到 rt 也要调一次 —— 浏览器模式下 httpOnly
+          // refresh_token cookie 在 JS 里不可见,只有后端能吊销并清 cookie。旧写法 `if (rt)`
+          // 会让服务端会话在登出后仍残留 30 天(客户端只靠持久标记压着不自动登回)。
+          try {
+            await apiLogout(rt ?? undefined)
+          } catch {
+            // 吊销失败(如已离线)不阻塞本地登出
           }
           if (isDesktopEnv()) await setDesktopRefreshToken(null)
         })()

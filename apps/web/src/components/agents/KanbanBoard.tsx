@@ -121,8 +121,10 @@ export function KanbanBoard() {
   })
   const teams = myTeams ?? []
 
-  const streamUrl = React.useMemo(() => getKanbanStreamUrl(), [])
-  const { connected } = useAgentSSE(streamUrl)
+  // 2026-10-26:把**供给器**交给 useAgentSSE,而不是 mount 时算好的固定字符串。
+  // 旧写法 `useMemo(() => getKanbanStreamUrl(), [])` 把带 ?token= 的 URL 冻在首轮渲染上
+  // ⇒ access(15 分钟)过期后,每一次重连发的都是那一枚旧凭据,看板实时流永久连不上且不报错。
+  const { connected } = useAgentSSE(getKanbanStreamUrl)
 
   const [selectedTask, setSelectedTask] = React.useState<KanbanTask | null>(null)
   const [detailOpen, setDetailOpen] = React.useState(false)

@@ -86,7 +86,14 @@ export default function MemberHistoryPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      {!ready || !isAuthenticated ? (
+      {!ready ? (
+        // 「还没查完」≠「确认未登录」(2026-10-26,与 admin/layout 同口径):校验中只给"正在校验…"
+        // 同形占位,绝不渲染「请先登录」,否则冷启动静默续期中的已登录用户被画成被踢出。
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
+          <span className="whitespace-nowrap">正在校验登录状态...</span>
+        </div>
+      ) : !isAuthenticated ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <LogIn className="h-8 w-8 opacity-40" />
           <p className="text-sm">请先登录后查看浏览历史</p>

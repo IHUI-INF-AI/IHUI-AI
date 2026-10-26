@@ -10,6 +10,8 @@ import { findPendingResume, autoResumeAfterHistory } from './resume-stream'
 vi.mock('@ihui/api-client', () => ({
   // @/lib/model-context-capacity 只是本包的一层 re-export,必须一并给出
   getModelContextCapacity: () => 128_000,
+  // 既有用例一律 200 ⇒ 续期这条腿不该被走到(由 auth-refresh 那份新用例单独钉)
+  refreshAccessTokenOnce: vi.fn(async () => null),
   parseStreamLine: (line: string): string | null => {
     if (!line.startsWith('data:')) return null
     try {

@@ -33,7 +33,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { AlertCircle, QrCode, Trash2, X } from 'lucide-react-native'
-import { fetchApi, getToken } from '@ihui/api-client'
+import { fetchApi } from '@ihui/api-client'
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -41,6 +41,7 @@ import { NavChrome } from '../components/NavChrome'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { API_BASE_URL } from '../lib/config'
+import { ensureFreshToken } from '../lib/token'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -93,6 +94,22 @@ export default function PublishAccountsScreen() {
   const [starting, setStarting] = useState(false)
   const scanRef = useRef<ScanTask | null>(null)
   scanRef.current = scan
+
+  /**
+   * 二维码这一腿的凭据(2026-10-26 修,审计第 2 条)。
+   *
+   * 取舍(写在实现里,免得下一个人以为是漏改):审计给的**首选**出路是"改走包内已带
+   * 401 重放的通道(`fetchRaw` 取 blob)"。本端做不到 —— RN 的 `<Image>` 只吃
+   * `{ uri, headers }`,Hermes 既没有 `URL.createObjectURL` 也没有 `FileReader`,
+   * `fetchRaw` 返回的 Blob 到不了渲染层(要它就得再引 base64/落盘依赖,把一次凭据修复
+   * 扩散成原生依赖变更)。所以走审计给的第二条出路:**过期先续期再渲染**,外加一次
+   * "取不到 → 续期 → 换 ?r= 重取"(RN 的 Image 按 uri 缓存,不换批次号不会真的重发)。
+   * 判据仍然复用同一处:`ensureFreshToken()` / 只重试一次,不吞错、不清凭据。
+   */
+  const [qrToken, setQrToken] = useState<string | null>(null)
+  const [qrReload, setQrReload] = useState(0)
+  /** 已用过"续期 + 重取"额度的那一帧(qr_updated_at 变一帧就给一次新额度) */
+  const qrRetryFrameRef = useRef<string>('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -166,6 +183,42 @@ export default function PublishAccountsScreen() {
     }, 2500)
     return () => clearInterval(timer)
   }, [scan, t, load])
+
+  /**
+   * 出图前把凭据取新鲜(剩余 ≤ 5 分钟 ⇒ 先 await 续期,再落 headers)。
+   * 续期实现复用 api-client 的全局单飞,与轮询用的 fetchApi 401 拦截器同一个刷新源。
+   */
+  useEffect(() => {
+    if (!scan?.has_qr || !scan.task_id) return
+    let cancelled = false
+    void (async () => {
+      const fresh = await ensureFreshToken()
+      if (!cancelled) setQrToken(fresh)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [scan?.has_qr, scan?.task_id, scan?.qr_updated_at, qrReload])
+
+  /**
+   * 取不到图:换批次号重取一次(只一次),仍取不到就把原因上屏。
+   *
+   * `<Image>` 的 onError 不给状态码,所以这一格判不了"是不是 401"—— 按"最可能且最便宜"
+   * 处理:重取 + 失败冷却由取址 effect 与单飞出口自己拦住连打;真不是凭据问题,
+   * 第二发照样失败 ⇒ 落到可见错误,不会变成无限重取。
+   * 2026-10-26:这里**不再自己刷凭据** —— 取址 effect 本来就会在拿 URL 前刷一次,
+   * 两处各刷一次等于一次失败打两回(实测调用数 1→3)。刷凭据的职责只留在 effect 那一处。
+   */
+  const onQrError = useCallback(() => {
+    const frame = `${scan?.task_id ?? ''}@${scan?.qr_updated_at ?? 0}`
+    if (qrRetryFrameRef.current === frame) {
+      setScanError(t('common.failed'))
+      console.warn(`[rn-publish] scan QR image load failed frame=${frame}`)
+      return
+    }
+    qrRetryFrameRef.current = frame
+    setQrReload((n) => n + 1)
+  }, [scan?.task_id, scan?.qr_updated_at, t])
 
   const canScan = (platform: string) => scanPlatforms === null || scanPlatforms.has(platform)
 
@@ -245,9 +298,8 @@ export default function PublishAccountsScreen() {
   const qrUrl = scan?.task_id
     ? `${API_BASE_URL}/api/publish/scan-login/${encodeURIComponent(scan.task_id)}/qr?v=${
         scan.qr_updated_at ?? 0
-      }`
+      }&r=${qrReload}`
     : ''
-  const token = getToken()
   const styles = makeStyles()
 
   return (
@@ -330,14 +382,17 @@ export default function PublishAccountsScreen() {
             {scan ? (
               <View style={styles.scanBox}>
                 <Text style={styles.muted}>{scan.message || t('publishAccounts.scanWaiting')}</Text>
-                {scan.has_qr && qrUrl ? (
+                {scan.has_qr && qrUrl && qrToken ? (
                   <Image
                     source={{
                       uri: qrUrl,
-                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      // headers 用的是"渲染这一帧之前刚取过新鲜"的那份凭据(见上方 qrToken 的
+                      // 取舍注释):不再是 mount 快照,也不再是过期后无人负责的直连。
+                      headers: { Authorization: `Bearer ${qrToken}` },
                     }}
                     style={styles.qr}
                     resizeMode="contain"
+                    onError={onQrError}
                   />
                 ) : (
                   <ActivityIndicator color={tokens.text.tertiary} />
