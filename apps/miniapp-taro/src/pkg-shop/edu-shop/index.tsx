@@ -172,7 +172,7 @@ export default function EduShopPage() {
           coursesLoading && courses.length === 0 ? (
             <ScreenSkeleton variant="card" />
           ) : courses.length === 0 ? (
-            <EmptyState title={t('eduShop.emptyCourses')} />
+            <EmptyState icon="package" title={t('eduShop.emptyCourses')} />
           ) : (
             <View className="space-y-4">
               {courses.map((c) => (

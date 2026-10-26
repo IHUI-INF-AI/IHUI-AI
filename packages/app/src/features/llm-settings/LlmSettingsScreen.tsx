@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from 'react-native'
-import { Check, Wand2, X } from 'lucide-react-native'
+import { Check, KeyRound, Wand2, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -128,7 +128,7 @@ export function LlmSettingsScreen({
           />
         ) : providers.length === 0 ? (
           <EmptyState
-            glyph="⚿"
+            icon={<KeyRound size={26} color={tk.text.tertiary} />}
             title={t('llmSettings.empty')}
             desc={t('llmSettings.emptyDesc')}
             colorScheme={colorScheme}

@@ -121,7 +121,7 @@ export default function UserPublicPage() {
             </Button>
           </View>
         ) : !user ? (
-          <EmptyState title={t('userPublic.notFound')} />
+          <EmptyState icon="user" title={t('userPublic.notFound')} />
         ) : (
           <View className="rounded-lg border border-border bg-card p-4 flex flex-col gap-3">
             <View className="flex items-start gap-4">

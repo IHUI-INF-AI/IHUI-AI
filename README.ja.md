@@ -2198,6 +2198,15 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 📚 ドキュメント:G-16 门128 两格按前提腐烂结清(全量 40 位 sha 指针,镜像 pass 58);argument-validation 记进展不翻勾(①裁不接线有据、②腐烂、③演示路径仍开) (4ca4467caa)
+- 🐞 修正:mobile-rn zh-TW 一处简体残留改繁(平台→平臺，工具中心副标题)；按注册参数跑全 17 个 zh-TW/ko/ja × 各端 target 均 rc=0，键集 parity 19237 键 5 语言 OK (f78992c3d7)
+
+**2026-10-26**
+- 🔧 その他:锁租约负向验收用例钉住不相等凭据不得删他人锁(承 G397,含变异自证与畸形凭据九形);chore(cli): 参数修复环裁决为不接线并加覆盖面对照用例;chore(ui): 门128 跨端基线重锚并清除僵尸死锚 (26d7fedb53)
+- 📚 ドキュメント:goal-20261026-b14 三票状态注记 G-863结清/G-941取证腿消解/G-24接线消解(注记不动勾不摘牌,证据枚 merge-base 验讫) (33f6f0d96c)
+- 📚 ドキュメント:死端点簇票结清——票面二段式判据当场复跑(六条 RN 屏调用两后端均有承接:/api/resources、/api/edu/qa 在 edu-frontend-routes.ts:632/648 以前缀 /api 注册、/api/agent-reviews、/api/wallet/bank-cards、/api/messages/private/list),整串 git grep 的 0 命中正是票面自预言的『前缀拆段』假 0;门 8 现读『新增 0 处死调用』;唯一剩余 wallet/bank-cards 无绑定表⇒handler 恒返空数组+屏诚实空态,真绑卡属新建能力,按『严禁扩展需求』不代做 (ffd60c735e)
+
+**2026-10-26**
 - 🐞 修正:未知派单状态兜终态而非初始态(门 205 归零) (5296a9b85a)
 - 🐞 修正:G-70 备份链换机自愈——backup-pg-local 落点与 pg_dump 改探测式(样板:ihui-pg-backup 的 G-298 派生+候选链);旧写死 D:\\DevEnv\\backups\\pg 与 D:\\ihui-pg\\16 在换机后整卷失踪,守卫只剩'请更新本文件路径'死路。新增盘符字面/候选链/守卫留痕/旁族命名四锁(3/3 绿);本机实跑 rc=0 产出 191,307,104B dump+backup.log 留痕;check-c-drive-paths rc=0。readiness-gate 2 红为既有(目标与测试均与 HEAD 一致,不属本腿) (ebadd784a6)
 - 🔧 その他:goal-20261026 结清 L5360 四道门红僵尸票(门77/83/7全绿+门103判红0) (2f77e64d8c)
@@ -2325,16 +2334,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:#157/#161/#195 stagedTriggers 逗号拼串拆形修复(案B首批·root-guard 复封) (0bdadcf8a1)
 - ♻️ リファクタ:restore-runner-gates 回补器 g() 裸 git 派生收口 face-reader gitRaw(第9轮,对账零差) (f3d76aa3fb)
 - 🔧 その他:安装器视觉选型票落地翻勾——代裁A「墨光·续」全帧目审18/18过·换入90枚·门禁RC0·verify-cand全过(枚3a1f2a462f) (f1320d9d68)
-
-**2026-10-26**
-- 📚 ドキュメント:生产导入器物退出码注记与实跑对齐(2=未判定含 401/403) (9bdbe27fe5)
-- 🚀 機能/改善:安装器视觉选型落地——换入A版「墨光·续」氛围资产90枚(18×5档,控件12枚不动;全帧目审18/18过,check-installer-assets RC0,verify-cand 150/150×3+正式面90/90) (3a1f2a462f)
-
-**2026-10-26**
-- 🔧 その他:G-54 第8轮 裸 git 基线 36→19(紧贴现读,不留余量;17 枚 25 处迁移已入库 6f768e7e99/d1c1915234/038e25d854) (05a6a7a346)
-- 🔧 その他:人工阀四行注记——D-07 代裁A/去重取证/可见性维持不可见/G-866 边缘缓存现读HIT (7bca467a6c)
-- 🚀 機能/改善:生产号池接入器物(带设备证明的 Trae 票跨环境投递)——凭据只走 env,投递前先自检 (2fa8e9fc8f)
-- 🔧 その他:G-54 第8轮 两枚夹具改 copyScriptWithClosure 闭包拷贝(门体迁 face-reader 后单文件复制断链,照单源先例修;42/0 全绿) (038e25d854)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
