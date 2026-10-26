@@ -440,7 +440,7 @@ export const VISIT_PLATFORM_VALUES = ['web', 'rn', 'mp', 'ex', 'all'] as const
 
 /**
  * 非 web 端的 url 前缀词表 —— 分桶判据的唯一真相源。
- * web 不列在这里:它按「不落在任何登记前缀里」现算(见 visitPlatformFilter / platformCaseSql),
+ * web 不列在这里:它按「不落在任何登记前缀里」现算(见 visitPlatformFilter / visitPlatformCaseSql),
  * 所以新增一端只改这张表,筛选面与大屏聚合面会同时跟着走,不可能出现两边口径漂移。
  */
 export const VISIT_PLATFORM_PATH_PREFIXES = { rn: '/rn/', mp: '/mp/', ex: '/ex/' } as const
@@ -462,7 +462,7 @@ function anyNonWebPrefixCond() {
 }
 
 /**
- * platform → SQL 条件。与 `platformCaseSql`(大屏快照那一段)同语义:web = 不落在任何登记前缀。
+ * platform → SQL 条件。与 `visitPlatformCaseSql`(大屏快照那一段)同语义:web = 不落在任何登记前缀。
  * 缺省/'all' 不加条件。
  */
 export function visitPlatformFilter(platform?: VisitPlatformQuery | null) {
@@ -474,8 +474,8 @@ export function visitPlatformFilter(platform?: VisitPlatformQuery | null) {
   return sql`not ${anyNonWebPrefixCond()}`
 }
 
-/** 大屏「各端使用量」的分桶表达式:命中登记前缀归该端,其余归 web。 */
-function platformCaseSql() {
+/** 端分桶表达式:命中登记前缀归该端,其余归 web。大屏快照与数据大屏「各端使用量」共用这一份。 */
+export function visitPlatformCaseSql() {
   const path = sql<string>`coalesce(${visitLogs.url}, '')`
   const whens = Object.entries(VISIT_PLATFORM_PATH_PREFIXES).map(
     ([platform, prefix]) => sql`when ${path} like ${likePattern(prefix)} then ${platform}`,
@@ -484,7 +484,7 @@ function platformCaseSql() {
 }
 
 /**
- * 单条 url 的端归属(与 `platformCaseSql` 共用 `VISIT_PLATFORM_PATH_PREFIXES`)。
+ * 单条 url 的端归属(与 `visitPlatformCaseSql` 共用 `VISIT_PLATFORM_PATH_PREFIXES`)。
  * 排行列表要在每一行上标出「这条页面属于哪一端」,而 SQL 分桶只给聚合值,故需要这份逐行判据。
  */
 export function classifyVisitPlatform(url: string | null | undefined): VisitPlatform {
@@ -524,7 +524,7 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
   const pvExpr = sql<number>`count(*)::int`
   const uvExpr = sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`
   const scopeExpr = scopeCaseSql()
-  const platformExpr = platformCaseSql()
+  const platformExpr = visitPlatformCaseSql()
   const [topRows, scopeRows, platformRows, onlineRows] = await Promise.all([
     db
       .select({ url: visitLogs.url, pv: pvExpr, uv: uvExpr })

@@ -47,10 +47,17 @@ interface BiDashboardData {
   visits: {
     pv: number
     uv: number
-    pages: Array<{ url: string; pv: number; uv: number }>
+    pages: Array<{
+      url: string
+      platform: 'web' | 'rn' | 'mp' | 'ex'
+      pv: number
+      uv: number
+    }>
     /** 近 7 日逐日 PV/UV(缺失日已由后端补 0) */
     daily: Array<{ date: string; pv: number; uv: number }>
   }
+  /** 近 7 日各端使用量(分桶判据与监控大屏同源:前缀表单源) */
+  platforms: Array<{ platform: 'web' | 'rn' | 'mp' | 'ex'; pv: number; uv: number }>
   /** 近 7 日页面停留 TOP(page_time 均值;样本数 = 停留事件条数) */
   stays: Array<{ page: string; avgSec: number; samples: number }>
   /**
@@ -77,6 +84,7 @@ const EMPTY: BiDashboardData = {
   categories: [],
   sources: [],
   visits: { pv: 0, uv: 0, pages: [], daily: [] },
+  platforms: [],
   stays: [],
   audience: null,
   browsers: null,
@@ -92,6 +100,20 @@ const BROWSER_LABEL: Record<string, string> = {
   wechat: '微信内置浏览器',
   unknown: '未知(探针/脚本)',
   other: '其他',
+}
+
+/** 端标签与徽章配色:与「访问统计」页同一套分桶语义(web 裸路径 / rn / mp / ex 前缀)。 */
+const PLATFORM_LABEL: Record<'web' | 'rn' | 'mp' | 'ex', string> = {
+  web: '网站',
+  rn: '移动端',
+  mp: '小程序',
+  ex: '浏览器插件',
+}
+const PLATFORM_BADGE_CLASS: Record<'web' | 'rn' | 'mp' | 'ex', string> = {
+  web: 'bg-muted text-foreground',
+  rn: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  mp: 'bg-green-500/10 text-green-700 dark:text-green-400',
+  ex: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
 }
 
 const STAT_CARDS = [
@@ -122,6 +144,7 @@ export default function BiDashboardPage() {
   const stays = d.stays ?? []
   const audience = d.audience ?? null
   const browsers = d.browsers ?? null
+  const platforms = d.platforms ?? []
 
   const visitTrendOption: EChartsOption = {
     tooltip: { trigger: 'axis' },
@@ -336,7 +359,12 @@ export default function BiDashboardPage() {
                 const pct = Math.round((p.pv / max) * 100)
                 return (
                   <div key={p.url} className="flex items-center gap-2">
-                    <span className="w-[46%] truncate text-xs text-foreground">{p.url}</span>
+                    <span
+                      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${PLATFORM_BADGE_CLASS[p.platform]}`}
+                    >
+                      {PLATFORM_LABEL[p.platform]}
+                    </span>
+                    <span className="w-[34%] truncate text-xs text-foreground">{p.url}</span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
                       <div
                         className="h-full rounded-sm bg-primary/60"
@@ -481,6 +509,49 @@ export default function BiDashboardPage() {
                     <span className="w-10 text-right font-mono text-xs tabular-nums">{b.pv}</span>
                     <span className="w-14 text-right text-xs tabular-nums text-muted-foreground">
                       人 {b.uv}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">各端使用量</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            近 7 日 · 网站 / 移动端 / 小程序 / 浏览器插件（次数 与 人数）
+          </p>
+        </CardHeader>
+        <CardContent>
+          {platforms.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {isLoading ? '加载中…' : '暂无分端数据'}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {(['web', 'rn', 'mp', 'ex'] as const).map((key) => {
+                const row = platforms.find((p) => p.platform === key)
+                const max = Math.max(...platforms.map((p) => p.pv), 1)
+                const pv = row?.pv ?? 0
+                return (
+                  <div key={key} className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex w-[26%] items-center rounded-sm px-1.5 py-0.5 text-xs font-medium ${PLATFORM_BADGE_CLASS[key]}`}
+                    >
+                      {PLATFORM_LABEL[key]}
+                    </span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                      <div
+                        className="h-full rounded-sm bg-primary/60"
+                        style={{ width: `${Math.round((pv / max) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="w-16 text-right font-mono text-xs tabular-nums">
+                      {pv}
+                      <span className="text-muted-foreground"> / {row?.uv ?? 0}</span>
                     </span>
                   </div>
                 )
