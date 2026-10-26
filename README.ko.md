@@ -2198,6 +2198,10 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-26**
+- 🔧 기타:L28794 同键去重票风险注记——迁移ca69d3a984(idx=344)随部署环自动应用生产库,DELETE硬编码id=46系dev编号生产未实测,点名误删合法行风险+机主三条只读核验查询与三档裁决 (ae2a8d4cdc)
+- 🔧 기타:G-1102638 批1 同主键副本行物理归并 — 删 7 行(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;复跑auditPlan对账F1=0/F9不增;逐行留痕 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-26.md) (83e85a18eb)
+
+**2026-10-26**
 - 🐞 수정:明文 doom_loop 审计守护改回先睡后扫 —— 现读 .env 有真 DSN 且 config 导入即同步 os.environ,先扫后睡会让 TestClient lifespan 用例装载瞬间真连库(§5 铁律,2026-09-12/10-24 两案同型);与 expiry_janitor 同形后短命进程全程不碰真库,闩用例改钉 calls==0;130 全绿,ruff/mypy/watermark 过 (01b11df130)
 - 🚀 기능/개선:明文 doom_loop 审计守护接线装车 —— main.py lifespan 装载 ensure_started(默认开,先扫后睡)+shutdown 步骤入列;守护用例 13 例钉死:零写盘绊线/undetermined 不带计数/待改写与撞键点名 --apply/装载闩幂等/间隔回落夹下限 (e5ef306822)
 - 🚀 기능/개선:明文 doom_loop 存量审计守护装车(清洗器定时批量 dry-run 触发点) —— 判据单源复用 scripts/redact_legacy_procedural_patterns.py 本体(importlib 按路径加载,零写盘,apply_updates 绊线钉死);缺DSN/连不上/schema不符一律 undetermined 不读成 0 行;待改写或撞键>0 即 warning 点名手动 --apply;默认开,PROCEDURAL_REDACT_AUDIT_ENABLED/_INTERVAL_SECONDS(86400s,下限300s),先扫后睡;随 lifespan 装载+shutdown 步骤入列;新测试 13 例,关联四套 130 全绿,mypy strict/ruff check 过 (0f28000c95)
@@ -2338,10 +2342,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🚀 기능/개선:上游模型双写路径只读对账尺子 L28825(check-relay-model-dual-writers:provider 级交集点名,face-reader 统一取材,自检15/15+镜像9/9,真仓 overlap=0) (8d8ca9935f)
 - 🔧 기타:G-54 第6轮 裸 git 基线 41→40(紧贴现读,不留余量;2 枚迁移已入库 073bd769f8) (bbf9b8e52e)
 - 🐞 수정:前向回捞被 replay 抹掉的插件端埋点与数据大屏访客构成(逐行核对:仅HEAD那侧的 26 行全是我自己被回滚的旧版;i18n 里夹带他席 SSO 文案已五语齐,不含其代码) (81fdaa1f4e)
-
-**2026-10-26**
-- 🚀 기능/개선:上游模型双写路径只读对账尺子 L28825(check-relay-model-dual-writers:provider 级交集点名,face-reader 统一取材,自检15/15+镜像9/9,真仓 overlap=0) (8d8ca9935f)
-- 🔧 기타:G-54 第6轮 裸 git 基线 41→40(紧贴现读,不留余量;2 枚迁移已入库 073bd769f8) (bbf9b8e52e)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
