@@ -569,6 +569,29 @@ def _isolate_approval_persistence(monkeypatch, tmp_path):
     _apm.close()  # 关闭指向 tmp 的连接;_DB_PATH 由 monkeypatch 还原为默认
 
 
+@pytest.fixture(autouse=True)
+def _isolate_run_journal(monkeypatch, tmp_path):
+    """G-244:后台任务 run journal 重定向到每测试独立 tmp(与 _isolate_approval_persistence 同型)。
+
+    两格职责:
+    1. 测试不得写真实 `apps/ai-service/data/background_task_runs.jsonl`(工作区卫生 §15,
+       且跨测试文件共享 journal 会让 hydrate 读到上一测试的行);
+    2. 模块级单例 `background_task_manager` 在 import 时已按默认路径建好 journal 对象,
+       仅 patch 模块常量对它无效 ⇒ 一并把单例的 `_journal` 换成 tmp 实例。
+    用例里自建 BackgroundTaskManager() 的测试(terminal latch 等)在夹具之后构造,
+    读到的已是 patch 过的 DEFAULT_RUN_JOURNAL_PATH。
+    """
+    from app.services import background_tasks as _bt
+    from app.services.task_run_journal import AppendOnlyRunJournal
+
+    journal_path = tmp_path / "background_task_runs.jsonl"
+    monkeypatch.setattr(_bt, "DEFAULT_RUN_JOURNAL_PATH", journal_path)
+    monkeypatch.setattr(
+        _bt.background_task_manager, "_journal", AppendOnlyRunJournal(journal_path)
+    )
+    yield
+
+
 # =============================================================================
 # tool loop 端到端测试 fixtures(2026-07-24 立,提取自 .ihui-agent/tmp/mock_extension.py)
 # =============================================================================

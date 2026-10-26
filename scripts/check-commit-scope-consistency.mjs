@@ -73,9 +73,13 @@
  *
  * 集成位置: .husky/commit-msg
  */
-import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
+
+// 2026-10-26 G-54:git 派生收口到 face-reader — 仓库根沿用本文件原调用的 cwd 语义(process.cwd())
+const ROOT = process.cwd()
 
 const C = {
   red: '\x1b[31m',
@@ -103,13 +107,9 @@ if (process.env.HUSKY_SKIP_SCOPE_CHECK === '1') {
 //    整个测试文件在"仓库正好处于合并中"时**静默零用例**(判据失效表现为绿)。
 function isMergeCommit() {
   try {
-    const p = execSync('git rev-parse --git-path MERGE_HEAD', {
-      encoding: 'utf8',
-      timeout: 15000,
-      windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim()
+    // 2026-10-26 G-54:git 派生收口到 face-reader(-C ROOT 与原 execSync 默认 cwd=process.cwd() 同基准,
+    // --git-path 输出的相对路径解析基准不变;保留原显式 15s 超时)
+    const p = gitRaw(['rev-parse', '--git-path', 'MERGE_HEAD'], ROOT, { timeout: 15000 }).trim()
     return p ? existsSync(p) : false
   } catch {
     return false // 取不到一律按"非合并"判,宁可不豁免,也不让判据静默失效
@@ -348,13 +348,8 @@ export function detectPollution(staged, scope) {
  */
 function getStagedFiles() {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACDMR', {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(原 cwd: process.cwd() 即 ROOT,等价)
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACDMR'], ROOT)
     return output
       .split('\n')
       .filter(Boolean)

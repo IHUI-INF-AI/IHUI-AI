@@ -508,7 +508,52 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 入库 `cca944cc6a`);入库后 HEAD 面现读打出「◽ 裸 git 存量已降到 45(基线 49)」⇒ 49 → 45,
 // 紧贴现读不留余量。行为对账:前 3 枚各在固定索引快照下 HEAD 版与迁移版逐字同输出同 rc,
 // 单分支在真仓直跑两面 0/0 且输出零差;三枚自带 --self-test 全过(18/18、8/8、37 例)。
-const BARE_GIT_BASELINE = 41 // 紧贴现读(2026-10-26 第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行";本轮降幅 4 系 G-927 那族在飞迁移入库所致,复跑现读 `裸 git 存量 41`)
+// 2026-10-26 G-54 批次第 6 轮(枚举面续迁):2 枚迁 gitRaw(check-capability-field-not-client-supplied
+// 的 ls-files / check-next-env-dist 的 diff --cached,经收编提交 `073bd769f8` 入库);入库后 HEAD 面
+// 现读打出「◽ 裸 git 存量已降到 40(基线 41)」⇒ 41 → 40,紧贴现读不留余量。账目:他席同轮新增
+// 1 枚 scripts/feedback-loop-status.mjs(自带裸派生)计入现读,不在本票射程、不替它放宽。
+// 行为对账:两枚各在固定索引快照下迁移前版与迁移版逐字同输出同 rc(capability 全量 0/0、
+// next-env 全量与 --staged 两态 0/0);capability 自带 --self-test PASS。
+// 2026-10-26 G-54 批次第 7 轮(staged 清单门 + diff 解析门):4 枚 6 处迁 gitRaw(check-multi-end-sync
+// 的 diff --cached ACDMR / check-sidebar-width-consistency 的 ACMR(原动态 import execSync)/
+// check-miniapp-replace-antipattern 的 name-only + -U0 文本解析 2 处 / check-native-title-tooltip 的
+// -U0 文本解析 + name-only 2 处),经落地提交 `744ed0e4bc` 入库;入库后 HEAD 面现读打出
+// 「◽ 裸 git 存量已降到 36(基线 40)」⇒ 40 → 36,紧贴现读不留余量。
+// 行为对账:四枚各在固定索引快照下迁移前版与迁移版逐字同输出同 rc(multi-end 两态 rc=1 warn 出口、
+// sidebar 两态 rc=0、miniapp 两态 rc=0、native 两态 rc=0,含 -U0 diff 文本解析路径)。
+// 2026-10-26 G-54 批次第 8 轮(三子席并发,17 枚 25 处迁 gitRaw):甲批 i18n/openapi 6 枚
+// (i18n-diff/i18n-apply/scan-i18n-zh-residue/validate-i18n-integrity/gen-i18n-compressed/
+// openapi-check)入库 `6f768e7e99`;乙批 staged 清单 7 枚 12 处(style-verification/port-registry/
+// ts-ignore/staged-typecheck/solito-residue/sanitizer-bypass/root-dir-clean)与丙批 diff 解析
+// 4 枚 7 处(commit-scope-consistency/tailwind-class-conflict/typecheck/clean-garbage)经收编提交
+// `d1c1915234` 入库;两枚夹具改 copyScriptWithClosure 闭包拷贝入库 `038e25d854`(42/0)。
+// 行为对账:各枚固定索引快照下逐字零差(clean-garbage 的 gc 系写操作,按票只做静态核对)。
+// quotepath 收口既定副作用:check-port-registry --all 首扫 18 个中文名文件,暴露 1 处既有违规
+// (已发布内容记忆.json:124 引用 127.0.0.1:50749),门 24b warn 档计警不判红。
+// 2026-10-26 G-54 批次第 9 轮(三子席并发):restore-runner-gates.mjs 回补器 g() 1 处迁 gitRaw
+// 入库 `f3d76aa3fb`(探针四例固定索引逐字零差:show HEAD 257,856B、rev-parse、两例异常对照
+// status=128 同值;异常类名 Error→Undetermined 系收口设计内差异,调用点无 catch 不改控制流)。
+// git-push-guard.mjs 判**不可迁**留账 2 处:L937 pushOnce(push=写操作+网络透传、stdio[0] 走
+// inherit 供凭证交互、显式 env:process.env 而 gitRaw opts 无 env 形态、失败三通道 status/stdout/
+// stderr 是 triagePushAttempt 的正常输入而 gitRaw 非零抛 Undetermined 丢 stdout)与 L252
+// checkDanglingRefs(松散坏 ref 只活在 stderr 的 `ignoring broken ref`,gitRaw 成功路径不回 stderr)
+// ——同 lib/bypass-git.mjs git() "env 维度不可迁"先例族。git-sync-converge.mjs 评估票成文:
+// 棘轮尺实测该文件 13 处,不可迁 2(mktree:1113 stdin 必须数字 fd,本机 Node 建管道 20×2 全败
+// EBUSY 留档;ggit:1492 用例价值在剥 GIT_CONFIG_*/GIT_*_NAME 复刻 LocalSystem 现场,无 env 形态)、
+// 需改造后可迁 2(git():467 系 cwd 基须显式传 root;:1848 merge-tree catch 依赖 e.stdout 取冲突
+// 清单)、可迁 9(readGit/isAncestor/collectTreeEntries/tgit/lsTreeLines/:1152/:1186/:1288/bg,
+// 其中 isAncestor 与 bypass-git 先例逐字同型优先迁)。后续批按该票清单推进,quotepath 面逐字对账。
+// 2026-10-26 G-54 第 10 轮(git-sync-converge 迁移票,单席):8 处迁 gitRaw 入库 `50e3e2590fd`
+// (readGit/git() 主助手/isAncestor/collectTreeEntries(binary 档)/tgit/lsTreeLines/selfTest root/
+// merge-tree 自检两处/bg;镜像测试 73/73+self-test 20 例 rc=0;P1-P16 固定索引快照逐字零差,
+// HEAD 树非 ASCII 路径 0 枚⇒quotepath 无差面)。该文件棘轮命中 10→3,保留 3 处不可迁:
+// mktree(fd-stdin,层无 fd 形态)、ggit(env 剥离,层无 env 形态)、merge-tree 生产(:1821,catch
+// 依赖 e.stdout 取完整冲突清单,Undetermined 不带 stdout,退化到 message 丢真信号;论证已写入
+// 该处注释)。**基线口径是文件数**(bareGit=命中>0 的文件清单),该文件 3 处仍在⇒文件数不减,
+// 本轮基线不动。现读暂 19(+1 系他席 `e8f27d3ac9` 新增 check-analytics-page-coverage.mjs 一处裸,
+// 该文件已被他席 staged 删除中——analytics-coverage 重构在飞,与门 184 红同源;删除收敛⇒回 18)。
+// 本席不抬基线纳他席债、不碰他席在飞文件。
+const BARE_GIT_BASELINE = 18 // 紧贴现读(2026-10-26 第 9 轮 19→18;第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
 // check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。

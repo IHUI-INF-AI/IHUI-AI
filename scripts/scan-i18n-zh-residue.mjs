@@ -45,11 +45,11 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { execSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as OpenCC from 'opencc-js'
 import { I18N_MESSAGE_FACES, faceMessageRelPath, isKnownFace } from './lib/i18n-message-faces.mjs'
 import { properNounSetFromRaw } from './lib/i18n-script-families.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 // locale 配置表：mode 决定检测策略，localRe 为该语言的本地字符范围
 // 未列出的非中文 locale 走默认 charRange 模式，localRe 为 null (任何汉字即纯残留)
@@ -159,13 +159,9 @@ function parseArgs(argv) {
 
 function isFileStaged(relPath) {
   try {
-    const staged = execSync('git diff --cached --name-only', {
-      cwd: process.cwd(),
-      encoding: 'utf8',
-      windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带绝对路径 git + safe.directory
+    // + core.quotepath=false + -C + windowsHide + 显式 stdio;原 cwd 即 process.cwd(),root 沿用)
+    const staged = gitRaw(['diff', '--cached', '--name-only'], process.cwd())
     return staged.split('\n').some((l) => l.trim() === relPath)
   } catch {
     return false

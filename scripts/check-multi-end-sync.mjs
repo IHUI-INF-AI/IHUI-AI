@@ -37,10 +37,10 @@
  * 集成位置: .husky/pre-commit 第 21 项
  */
 import { readFileSync } from 'node:fs'
-import { execSync } from 'node:child_process'
 import { join } from 'node:path'
 // AGENTS.md §22d: Windows 反斜杠路径须经 pathToFileURL 归一化后才能与 import.meta.url 比对
 import { pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 
@@ -72,14 +72,8 @@ const ALL_ENDS = Object.values(END_MAP)
 /** 获取 staged 文件列表 (相对路径, 含 Added/Modified/Deleted/Renamed/Copied) */
 function getStagedFiles() {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACDMR', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      // 返回值被消费(下面 output.split)⇒ stdout 仍须 pipe,只把 stdin 切掉
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACDMR'], ROOT)
     return output
       .split('\n')
       .filter(Boolean)

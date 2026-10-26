@@ -405,6 +405,9 @@ modules:
     managed: true
     roots:
       - 'packages/auth'
+    # 2026-10-26:oauth2 的 safeDecodeURIComponent 已收敛到 '@ihui/shared/utils/safe-decode-uri'
+    # (唯一真相源,auth 原私有实现已删)。这条边是 platform 20 → composite 30 的反向依赖,
+    # **不得**写进 requires(T1 会判"层序自相矛盾"),由该 import 行的 arch-exempt 单独定性。
     requires: []
     public_entrypoints:
       - '.'
@@ -597,6 +600,9 @@ modules:
     requires:
       - 'packages/design-tokens'
       - 'packages/types'
+      # 2026-10-26(门 103 D1 清偿):跨端 UI 契约下沉二期(b766fd234a)后 8 族 spec 走
+      # '@ihui/shared/ui/*-spec';composite 30 → composite 30 同层,只缺声明这条真实边。
+      - 'packages/shared'
     public_entrypoints:
       - '.'
 
@@ -712,7 +718,10 @@ modules:
     managed: true
     roots:
       - 'apps/desktop'
-    requires: []
+    requires:
+      # 2026-10-26(门 103 D1 清偿):任务接收/审批卡真 import '@ihui/shared/tasks/{dispatch,delegation-approval}'
+      # (auto-collect d1c1915234 入库);product 40 → composite 30 合法,表只缺这条真实边。
+      - 'packages/shared'
     public_entrypoints: []
 
   - id: 'apps/mobile-cap'
