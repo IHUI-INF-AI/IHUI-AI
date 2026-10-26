@@ -4815,7 +4815,10 @@
       "pending": "확인 대기"
     }
   },
-  "agreement": {"subtitle":"본 약관을 주의 깊게 읽어주세요","title":"이용약관"},
+  "agreement": {
+    "subtitle": "본 약관을 주의 깊게 읽어주세요",
+    "title": "이용약관"
+  },
   "agreementSections": {
     "sectionObligations": "이용자의 의무",
     "sectionObligationsBody": "관련 법률 및 규정을 준수해야 하며 불법, 위반, 유해한 정보를 게시해서는 안 되며 타인의 합법적 권익을 침해해서는 안 됩니다.",
@@ -4823,5 +4826,17 @@
     "sectionRightsBody": "법률에 따라 서비스에 접근할 권리, 개인 정보를 관리할 권리, 위반 콘텐츠를 신고할 권리를 가집니다.",
     "sectionTerms": "서비스 약관",
     "sectionTermsBody": "본 약관은 본 플랫폼 서비스 이용에 관하여 귀하와 지혜 AI 간에 체결됩니다. 이용 전에 주의 깊게 읽어 주세요. 본 플랫폼을 이용하면 본 약관의 모든조항에 동의하고 수락한 것으로 간주됩니다."
+  },
+  "scanLogin": {
+    "menuTitle": "스캔",
+    "title": "스캔하여 로그인",
+    "hint": "컴퓨터 화면의 QR 코드를 프레임 안에 맞추세요",
+    "submitting": "확인 중…",
+    "permissionHint": "스캔하려면 카메라 권한이 필요합니다",
+    "grant": "카메라 허용",
+    "invalidCode": "이 사이트의 로그인 QR 코드를 스캔하세요",
+    "success": "로그인이 확인되었습니다",
+    "failed": "확인에 실패했습니다. 다시 시도하세요.",
+    "needLogin": "스캔하기 전에 로그인하세요"
   }
 }
