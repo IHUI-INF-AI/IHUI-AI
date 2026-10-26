@@ -5570,6 +5570,28 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- lint-staged stdio 三针盯针(1 项,warn:判机器状态 ⇒ §12e 只能 warn,与门 153 同型)---
+  {
+    id: '252',
+    label:
+      '📌 lint-staged stdio 三针盯针(判机器状态:node_modules 里三针还在不在;§12e 只能 warn)',
+    script: 'check-lint-staged-stdio-pin.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_LINT_STAGED_PIN',
+    onFailHint: [
+      '',
+      '  💡 三针注在 node_modules 里(patch-lint-staged-stdio.mjs 写进去),一次 pnpm install 就没了,',
+      '     而失效方向是安静的:钩子照跑,只在下次提交时以 errno 面目复现(G-53/G-63 消解过的死法)。',
+      '     重打:node scripts/lib/patch-lint-staged-stdio.mjs(幂等,已打则零写盘);本门只读不修。',
+      '     三档:0 三针齐 / 1 有缺口(逐针点名 file:mode) / 2 未判定(安装副本不在或版本目录漂移,不记绿也不冒红)。',
+      '     判机器状态 ⇒ 挂 blocking 就是恒红门(§12e);另有 git-guardian 巡检轮 45 分钟派发一次',
+      '     (实现 scripts/lib/lint-staged-pin-audit.mjs),两处共用同一把尺子。',
+      '     紧急跳过:HUSKY_SKIP_LINT_STAGED_PIN=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
