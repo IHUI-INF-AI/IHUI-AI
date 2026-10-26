@@ -940,7 +940,20 @@
       "sessionQualitySinglePage": "단일 페이지 세션 비율",
       "sessionQualityAvgPv": "세션당 페이지 수",
       "sessionQualityEntryTop": "진입 페이지(세션/단일)",
-      "sessionQualityNoData": "24시간 내 세션 없음"
+      "sessionQualityNoData": "24시간 내 세션 없음",
+      "panelVisitSource": "방문 출처",
+      "visitSourceTotal": "24시간 방문 {count}",
+      "visitSourceBuckets": "출처 구분(24시간)",
+      "visitSourceHosts": "출처 호스트(24시간)",
+      "visitSourceDirect": "직접 방문",
+      "visitSourceLocal": "로컬 개발",
+      "visitSourceInternal": "사이트 내부",
+      "visitSourceExternal": "외부 출처",
+      "visitSourceNoData": "24시간 내 출처 데이터 없음",
+      "panelVisitTransition": "페이지 이동",
+      "visitTransitionMoves": "24시간 이동 {count}회",
+      "visitTransitionTop": "가장 많이 이동한 경로(24시간)",
+      "visitTransitionNoData": "24시간 내 페이지 이동 없음"
     },
     "aboutUs": {
       "add": "추가",

@@ -940,7 +940,20 @@
       "sessionQualitySinglePage": "Single-page sessions",
       "sessionQualityAvgPv": "Pages per session",
       "sessionQualityEntryTop": "Entry page (sessions/single)",
-      "sessionQualityNoData": "No sessions in 24h"
+      "sessionQualityNoData": "No sessions in 24h",
+      "panelVisitSource": "Visit sources",
+      "visitSourceTotal": "{count} visits / 24h",
+      "visitSourceBuckets": "Source mix (24h)",
+      "visitSourceHosts": "Source hosts (24h)",
+      "visitSourceDirect": "Direct",
+      "visitSourceLocal": "Local dev",
+      "visitSourceInternal": "Internal",
+      "visitSourceExternal": "External",
+      "visitSourceNoData": "No source data in 24h",
+      "panelVisitTransition": "Page transitions",
+      "visitTransitionMoves": "{count} moves / 24h",
+      "visitTransitionTop": "Most travelled paths (24h)",
+      "visitTransitionNoData": "No transitions in 24h"
     },
     "aboutUs": {
       "add": "Add",

@@ -145,6 +145,32 @@ const overview = {
         { url: '/docs', sessions: 1, singlePageSessions: 0 },
       ],
     },
+    // 访问来源(2026-10-26):流量从哪来 —— 分类桶 + 主机榜
+    visitSource: {
+      totalPv: 500,
+      buckets: [
+        { kind: 'direct', pv: 300 },
+        { kind: 'local', pv: 90 },
+        { kind: 'internal', pv: 40 },
+        { kind: 'external', pv: 70 },
+      ],
+      hosts: [
+        { host: 'github.com', kind: 'external', pv: 120 },
+        { host: 'localhost', kind: 'local', pv: 90 },
+        { host: 'aizhs.top', kind: 'internal', pv: 40 },
+      ],
+      splitInternal: true,
+    },
+    // 页面流转(2026-10-26):同一会话内相邻两页
+    visitTransition: {
+      totalMoves: 57,
+      distinctPairs: 8,
+      top: [
+        { fromUrl: '/', toUrl: '/sso/login', n: 12 },
+        { fromUrl: '/sso/login', toUrl: '/', n: 11 },
+        { fromUrl: '/', toUrl: '/chat', n: 10 },
+      ],
+    },
   },
   engagement: {
     events: [
@@ -334,6 +360,72 @@ describe('WallboardView 使用数据面板', () => {
     expect(within(view.container).getAllByText('人均浏览页数')[0]?.parentElement?.textContent).toBe(
       '人均浏览页数—',
     )
+  })
+
+  it('渲染访问来源:四类来源与主机榜都按接口字段绑定', async () => {
+    const { container } = renderWallboard()
+    // 面板标题是静态铺出来的 ⇒ 等**真实读数**上屏(主机榜有行)才判,否则会早一步
+    await waitFor(() =>
+      expect(within(container).getAllByText('github.com').length).toBeGreaterThan(0),
+    )
+    // 分类桶四行(本机开发必须与外部来源分开 —— 它是本机流量,不是渠道)
+    expect(within(container).getAllByText('直接访问').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('本机开发').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('站内').length).toBeGreaterThan(0)
+    expect(within(container).getAllByText('外部来源').length).toBeGreaterThan(0)
+    // 面板头给出窗口总访问
+    expect(within(container).getAllByText('近24h 访问 500').length).toBeGreaterThan(0)
+  })
+
+  it('访问来源这条腿取不到时一个来源格都不画(不得兜成 0)', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: { ...overview.traffic, visitSource: null },
+            },
+          }) as never)
+    const view = renderWallboard()
+    // 先等**别的** traffic 腿落地(证明是来源腿取不到,不是整块数据没到)
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0),
+    )
+    // 取不到 ⇒ 桶行与主机行都不渲染(画成 0 就是把「没判」说成「没有流量」)
+    expect(within(view.container).queryAllByText('直接访问')).toHaveLength(0)
+    expect(within(view.container).queryAllByText('github.com')).toHaveLength(0)
+  })
+
+  it('渲染页面流转:相邻页对按「从哪页到哪页 + 次数」绑定', async () => {
+    const { container } = renderWallboard()
+    await waitFor(() =>
+      expect(within(container).getAllByText('/sso/login').length).toBeGreaterThan(0),
+    )
+    // 面板头给出窗口跳转总次数
+    expect(within(container).getAllByText('近24h 跳转 57 次').length).toBeGreaterThan(0)
+    // 次数与页对在同一行里(12 次的那一跳)
+    const sso = within(container).getAllByText('/sso/login')
+    expect(sso.some((el) => (el.parentElement?.textContent ?? '').includes('12'))).toBe(true)
+  })
+
+  it('页面流转这条腿取不到时不画任何页对(不得兜成 0)', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: { ...overview.traffic, visitTransition: null },
+            },
+          }) as never)
+    const view = renderWallboard()
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0),
+    )
+    expect(within(view.container).queryAllByText('/sso/login')).toHaveLength(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
