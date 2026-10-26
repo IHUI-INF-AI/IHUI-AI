@@ -6,6 +6,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { AppIcon } from '@ihui/types'
 import {
   Receipt,
+  ScanLine,
   Undo2,
   CreditCard,
   ClipboardList,
@@ -283,6 +284,8 @@ export const MENU_SECTIONS: MenuSection[] = [
   {
     titleKey: 'menu.sectionSettings',
     items: [
+      // PC 端「App 扫码登录」的移动端入口(扫 ticket → /auth/qr/confirm)
+      { key: 'ScanLogin', labelKey: 'scanLogin.menuTitle', icon: ScanLine },
       { key: 'Subscriptions', labelKey: 'menu.subscriptions', icon: Repeat },
       { key: 'Settings', labelKey: 'menu.settings', icon: Settings },
       // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)

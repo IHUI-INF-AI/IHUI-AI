@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
-import { localMonthKey } from '@ihui/shared'
+import { localMonthKey, parseQrLoginTicket } from '@ihui/shared'
 import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
@@ -130,6 +130,13 @@ const menus: ReadonlyArray<{ icon: string; key: string; path: string; fallback?:
     icon: 'users',
     key: 'userFans.title',
     path: '/pkg-user/fans/index',
+  },
+  // 扫一扫:PC 端「App 扫码登录」的移动端一半(扫 ticket → /auth/qr/confirm)。
+  // path 用伪协议 'scan-login' 走本页 handler,不新开页面;ticket 判据走 @ihui/shared。
+  {
+    icon: 'maximize',
+    key: 'scanLogin.menuTitle',
+    path: 'scan-login',
   },
 ]
 
@@ -429,7 +436,40 @@ export default function UserIndex() {
     setShowLoginPopup(true)
   }
 
+  /**
+   * 扫一扫确认 PC 登录:扫到 ticket → POST /auth/qr/confirm。
+   * 取消扫码属常态(用户点了返回),静默返回不弹错;判据与 RN 端共用 @ihui/shared。
+   */
+  async function handleScanLogin() {
+    if (!isLoggedIn()) {
+      Taro.showToast({ title: t('scanLogin.needLogin'), icon: 'none' })
+      return
+    }
+    let raw = ''
+    try {
+      const res = await Taro.scanCode({ scanType: ['qrCode'] })
+      raw = res.result
+    } catch {
+      return
+    }
+    const ticket = parseQrLoginTicket(raw)
+    if (!ticket) {
+      Taro.showToast({ title: t('scanLogin.invalidCode'), icon: 'none' })
+      return
+    }
+    try {
+      await api.confirmQrLogin(ticket)
+      Taro.showToast({ title: t('scanLogin.success'), icon: 'success' })
+    } catch {
+      Taro.showToast({ title: t('scanLogin.failed'), icon: 'none' })
+    }
+  }
+
   function goPage(path: string) {
+    if (path === 'scan-login') {
+      void handleScanLogin()
+      return
+    }
     Taro.navigateTo({ url: path })
   }
 
