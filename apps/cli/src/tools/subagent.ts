@@ -20,7 +20,8 @@
  *   - SubagentStart/SubagentStop hook 埋点(与 hooks/index.ts 协同)
  */
 
-import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
+import { setBaseUrl } from '@ihui/api-client';
+import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import { setupAgentTools, runToolLoop } from '../commands/agent.js';
 import type { Tool, ToolResult } from './index.js';
 import { createAuditedDangerGate } from './danger-gate-audit.js';
@@ -487,9 +488,9 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
       let detachedToBackground = false;
       try {
         setBaseUrl(parentOpts.apiUrl);
-        if (parentOpts.apiKey) {
-          setTokenProvider({ getToken: () => parentOpts.apiKey ?? null });
-        }
+        // 凭据续期单点:子代理会覆写全局 provider,这里不接上 refreshAccessToken,
+        // dispatch_subagent 之后主会话的 401 自愈就跟着一起没了(六个注册点必须同源)
+        registerCliTokenProvider({ baseUrl: parentOpts.apiUrl, startupToken: parentOpts.apiKey });
 
         const { systemPrompt, ctx } = await setupAgentTools({
           workspacePath: effectiveWorkspace,

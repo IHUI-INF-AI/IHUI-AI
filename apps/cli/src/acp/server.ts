@@ -22,7 +22,8 @@
 import { Readable, Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import * as acp from '@agentclientprotocol/sdk';
-import { setBaseUrl, setTokenProvider, type ToolDeltaEvent } from '@ihui/api-client';
+import { setBaseUrl, type ToolDeltaEvent } from '@ihui/api-client';
+import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import {
   createToolDeltaPreviewStore,
   pickToolDeltaPreviewText,
@@ -1150,9 +1151,8 @@ function castParams<T>(): (params: unknown) => T {
 
 function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
   setBaseUrl(opts.apiUrl);
-  if (opts.apiKey) {
-    setTokenProvider({ getToken: () => opts.apiKey ?? null });
-  }
+  // 凭据续期单点:ACP 会话同样要带 refreshAccessToken,否则 15 分钟后全体 401 无法自愈
+  registerCliTokenProvider({ baseUrl: opts.apiUrl, startupToken: opts.apiKey });
 
   const agent = new IhuiAcpAgent(opts);
   return acp

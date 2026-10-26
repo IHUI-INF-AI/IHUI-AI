@@ -20,6 +20,11 @@
 import chalk from 'chalk';
 import { loadSettings } from './settings.js';
 import { ensureFreshAccessToken } from './token-manager.js';
+import {
+  fetchWithCliAuthRefresh,
+  isUnauthorized,
+  unauthorizedMessage,
+} from '../lib/auth-refresh.js';
 import { attributeError } from '@ihui/shared/utils/error-attribution';
 
 /** 解析 baseUrl:CLI flag > settings.json > 默认值 http://localhost:8802(api 端口)。 */
@@ -64,16 +69,17 @@ export function createApiRequest(prefix: string, defaultTimeoutMs: number) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? defaultTimeoutMs);
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (options.apiKey) {
-        headers.Authorization = `Bearer ${options.apiKey}`;
-      }
-      const resp = await fetch(url, {
-        method: options.method ?? 'GET',
-        headers,
-        body: options.body ? JSON.stringify(options.body) : undefined,
-        signal: controller.signal,
-      });
+      // Bearer 由 401 续期出口装配(它才知道该用哪一枚凭据重放);这里只带业务头。
+      const resp = await fetchWithCliAuthRefresh(
+        url,
+        {
+          method: options.method ?? 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          body: options.body ? JSON.stringify(options.body) : undefined,
+          signal: controller.signal,
+        },
+        { accessToken: options.apiKey ?? null },
+      );
       const text = await resp.text();
       let parsed: unknown;
       try {
@@ -82,10 +88,13 @@ export function createApiRequest(prefix: string, defaultTimeoutMs: number) {
         throw new Error(`HTTP ${resp.status} 响应非 JSON: ${text.slice(0, 200)}`);
       }
       if (!resp.ok) {
-        const msg =
-          (parsed && typeof parsed === 'object' && 'message' in parsed
-            ? String((parsed as { message: unknown }).message)
-            : `HTTP ${resp.status} ${resp.statusText}`) || `HTTP ${resp.status}`;
+        // 401 走到终局(续期没成 / 重放仍被拒)⇒ 报"该做什么",不是服务端那句泛化文案;
+        // 判据与文案出口都在 lib/auth-refresh,本腿不另写一份。
+        const msg = isUnauthorized(resp)
+          ? unauthorizedMessage(baseUrl)
+          : (parsed && typeof parsed === 'object' && 'message' in parsed
+              ? String((parsed as { message: unknown }).message)
+              : `HTTP ${resp.status} ${resp.statusText}`) || `HTTP ${resp.status}`;
         const err = new Error(msg) as Error & { status?: number };
         err.status = resp.status;
         throw err;
