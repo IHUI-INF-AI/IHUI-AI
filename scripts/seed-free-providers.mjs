@@ -260,7 +260,7 @@ const FREE_PROVIDERS = [
   {
     provider_code: 'huggingface',
     display_name: 'Hugging Face Inference(免费层)',
-    base_url: 'https://api-inference.huggingface.co',
+    base_url: 'https://router.huggingface.co', // 2026-10-26 换域:api-inference 已被封锁不可达(实测),官方入口迁 router
     api_key: 'sk-placeholder-need-real-key',
     sort_order: 64,
     models: [
