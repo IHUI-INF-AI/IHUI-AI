@@ -430,6 +430,14 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'MODEL_REFUSED.action',
     category: 'runtimeException',
   },
+  // 2026-10-26 入站 410 守卫产出点:apps/ai-service/app/routers/llm.py(_guard_retired_model_inbound)。
+  // 分类取 capabilityNotOffered(与 TOOL_MODE_UNAVAILABLE 同档):这是商务性永久退役,
+  // 不是执行失败(runtimeException),也不是资源从未存在(resourceNotFound)。
+  MODEL_RETIRED: {
+    titleKey: 'MODEL_RETIRED.title',
+    actionKey: 'MODEL_RETIRED.action',
+    category: 'capabilityNotOffered',
+  },
   MODEL_STREAM_IDLE: {
     titleKey: 'MODEL_STREAM_IDLE.title',
     actionKey: 'MODEL_STREAM_IDLE.action',
