@@ -297,7 +297,12 @@
     "calendarBtn": "📅 カレンダー",
     "mySubscriptionBtn": "🔔 マイサブスクリプション",
     "startLiveBtn": "📺 配信を開始",
-    "empty": "ライブ配信はまだありません"
+    "empty": "ライブ配信はまだありません",
+    "title": "ライブ",
+    "viewerCount": "{count} 人が視聴中",
+    "lecturer": "講師",
+    "startAt": "開始時間",
+    "loadFailed": "ライブの読み込みに失敗"
   },
   "liveHost": {
     "statusIdle": "未開始",
@@ -3496,7 +3501,17 @@
     "code": "招待コード:",
     "saveImage": "画像保存",
     "shareNow": "今すぐ共有",
-    "inviteSuffix": "あなたを招待します"
+    "inviteSuffix": "あなたを招待します",
+    "inviteCode": "招待コード",
+    "totalInvited": "累計招待",
+    "totalReward": "累計報酬",
+    "share": "今すぐ招待",
+    "sectionTitle": "招待記録",
+    "empty": "招待記録はありません",
+    "statusCompleted": "完了",
+    "statusPending": "待機中",
+    "loadFailed": "招待の読み込みに失敗",
+    "shareText": "生慧 AI 一緒に学びましょう!"
   },
   "qrcode": {
     "loading": "QRコード読込中",
@@ -4914,7 +4929,18 @@
     "confirmDelete": "このコネクターを削除しますか?",
     "syncFailed": "同期に失敗",
     "loadFailed": "コネクターの読み込みに失敗",
-    "actionFailed": "操作に失敗しました"
+    "actionFailed": "操作に失敗しました",
+    "title": "コネクター",
+    "configured": "設定済み",
+    "enabled": "有効",
+    "disabled": "無効",
+    "lastSync": "最終同期",
+    "neverSync": "未同期",
+    "delete": "削除",
+    "empty": "コネクターはありません",
+    "items": "ドキュメント数",
+    "enable": "有効化",
+    "disable": "無効化"
   },
   "mcpStore": {
     "title": "MCPストア",
@@ -5097,5 +5123,375 @@
     "default": "デフォルト",
     "holder": "カード名義人",
     "loadFailed": "銀行口座の読み込みに失敗"
+  },
+  "bookmark": {
+    "empty": "しおりがありません",
+    "loadFailed": "読み込みに失敗",
+    "remove": "削除",
+    "title": "マイしおり",
+    "type": {
+      "article": "記事",
+      "course": "コース",
+      "note": "ノート",
+      "other": "その他",
+      "post": "投稿"
+    }
+  },
+  "certApply": {
+    "title": "講師認証",
+    "name": "氏名",
+    "placeholder": "正確な情報を入力してください",
+    "idCard": "身分証番号",
+    "submit": "認証を提出",
+    "success": "提出しました。審査をお待ちください",
+    "submitting": "送信中..."
+  },
+  "certDetail": {
+    "certNo": "証明書番号",
+    "expiredAt": "有効期限",
+    "holder": "保有者",
+    "issuedAt": "発行日",
+    "issuer": "発行機関",
+    "loadFailed": "証明書の読み込みに失敗",
+    "score": "スコア",
+    "title": "証明書詳細",
+    "verify": "検証"
+  },
+  "certList": {
+    "empty": "証明書がありません",
+    "issuedAt": "発行日",
+    "issuer": "発行機関",
+    "loadFailed": "読み込みに失敗",
+    "title": "証明書一覧"
+  },
+  "certVerify": {
+    "certNo": "証明書番号",
+    "failed": "検証に失敗",
+    "holder": "保有者",
+    "invalid": "無効",
+    "issuedAt": "発行日",
+    "issuer": "発行機関",
+    "placeholder": "証明書番号を入力",
+    "title": "証明書検証",
+    "valid": "有効",
+    "verify": "検証"
+  },
+  "certificate": {
+    "empty": "証明書がありません",
+    "expiryDate": "有効期限",
+    "issuedDate": "発行日",
+    "status": {
+      "expired": "期限切れ",
+      "issued": "有効",
+      "revoked": "取り消されました"
+    },
+    "title": "マイ証明書"
+  },
+  "circleChat": {
+    "empty": "メッセージがありません",
+    "loadFailed": "メッセージの読み込みに失敗",
+    "placeholder": "メッセージを入力...",
+    "send": "送信",
+    "sendFailed": "送信に失敗"
+  },
+  "circleMember": {
+    "empty": "メンバーがいません",
+    "loadFailed": "メンバーの読み込みに失敗",
+    "title": "サークルメンバー"
+  },
+  "connectedAccounts": {
+    "title": "連携アカウント",
+    "subtitle": "サードパーティアカウントの連携を管理します",
+    "boundAt": "連携日時",
+    "unbound": "未連携",
+    "unbind": "連携解除",
+    "bindOnWeb": "ウェブで連携",
+    "unbindTitle": "アカウントの連携解除",
+    "unbindConfirm": "「{platform}」の連携を解除しますか？",
+    "unbindFailed": "連携解除に失敗しました",
+    "refresh": "更新",
+    "loadFailed": "読み込みに失敗しました",
+    "retry": "再試行",
+    "webBindHint": "連携はウェブで完了してください。完了後にこの画面へ戻り更新してください。",
+    "openBrowserFailed": "ブラウザを開けませんでした"
+  },
+  "context": {
+    "title": "コンテキストエンジン",
+    "loadFailed": "統計の読み込みに失敗しました",
+    "totalEvents": "圧縮回数",
+    "avgRatio": "平均圧縮率",
+    "avgQuality": "平均品質スコア",
+    "recentEvents": "最近の圧縮イベント",
+    "tokensRange": "{{before}} → {{after}} tokens · 圧縮 {{ratio}} · 品質 {{quality}}",
+    "mentionsSearch": "コンテキスト記述検索",
+    "mentionsPlaceholder": "ファイル/テーブル/シンボルを検索…",
+    "empty": "一致する結果がありません"
+  },
+  "courseAnnex": {
+    "title": "コース添付資料",
+    "empty": "添付資料はありません",
+    "size": "サイズ",
+    "download": "ダウンロード",
+    "loadFailed": "添付の読み込みに失敗"
+  },
+  "courseCatalog": {
+    "duration": "長さ",
+    "empty": "カタログがありません",
+    "loadFailed": "カタログの読み込みに失敗",
+    "title": "カタログ"
+  },
+  "courseChapter": {
+    "title": "コースの章節",
+    "lessons": "全 {count} レッスン",
+    "loadFailed": "章の読み込みに失敗"
+  },
+  "courseComment": {
+    "title": "コースレビュー",
+    "empty": "レビューはありません",
+    "loadFailed": "コメントの読み込みに失敗"
+  },
+  "courseEnroll": {
+    "title": "コース申込",
+    "subtitle": "コースを選んで学習を始めましょう",
+    "searchPlaceholder": "コースを検索",
+    "empty": "コースはまだありません",
+    "enrolled": "申込済み",
+    "enroll": "今すぐ申し込む",
+    "free": "無料",
+    "instructor": "講師",
+    "level": "難易度",
+    "lessons": "レッスン数",
+    "students": "受講生",
+    "enrollFailed": "登録に失敗",
+    "enrollSuccess": "登録しました",
+    "loadFailed": "読み込みに失敗"
+  },
+  "courseFilter": {
+    "title": "コース絞り込み",
+    "subtitle": "条件に合うコースを探します",
+    "categoryRange": "カテゴリ",
+    "difficultyRange": "難易度",
+    "priceRange": "価格帯",
+    "reset": "リセット",
+    "apply": "確定",
+    "retry": "再試行",
+    "empty": "該当するコースがありません",
+    "instructor": "講師",
+    "free": "無料",
+    "loadFailed": "フィルターの読み込みに失敗",
+    "loadingMore": "読み込み中",
+    "price_all": "全て",
+    "noCategories": "利用可能なカテゴリがありません"
+  },
+  "courseQAAsk": {
+    "title": "コース質問",
+    "question": "質問の説明",
+    "placeholder": "ご質問を入力してください。講師ができる限り早く回答します",
+    "success": "送信成功",
+    "submit": "質問を送信",
+    "submitting": "送信中..."
+  },
+  "courseQAList": {
+    "answers": "回答",
+    "ask": "質問",
+    "asker": "質問者",
+    "empty": "質問がありません",
+    "loadFailed": "読み込みに失敗",
+    "title": "コース Q&A"
+  },
+  "courseResource": {
+    "title": "コース資料",
+    "empty": "資料はありません",
+    "type": "種類",
+    "size": "サイズ",
+    "open": "開く",
+    "loadFailed": "資料の読み込みに失敗"
+  },
+  "courseScreen": {
+    "title": "全コース",
+    "searchPlaceholder": "コースを検索",
+    "empty": "コースはまだありません",
+    "free": "無料",
+    "studentCount": "{count} 人が学習",
+    "nextPage": "次のページ"
+  },
+  "customerService": {
+    "title": "カスタマーサポートに連絡",
+    "empty": "カスタマーサポート情報の読み込みに失敗しました",
+    "status": "サービス状況",
+    "online": "オンライン",
+    "offline": "オフライン",
+    "workingHours": "サービス時間",
+    "phone": "サポート電話",
+    "email": "サポートメール",
+    "loadFailed": "カスタマーサービスの読み込みに失敗"
+  },
+  "examHistory": {
+    "empty": "受験履歴がありません",
+    "failed": "不合格",
+    "passed": "合格",
+    "title": "受験履歴"
+  },
+  "feedbackDetail": {
+    "content": "内容",
+    "empty": "フィードバックなし",
+    "loadFailed": "読み込みに失敗",
+    "reply": "返信",
+    "title": "フィードバック詳細"
+  },
+  "feedbackHistory": {
+    "createdAt": "作成日時",
+    "empty": "履歴がありません",
+    "loadFailed": "読み込みに失敗",
+    "title": "フィードバック履歴"
+  },
+  "history": {
+    "empty": "履歴がありません",
+    "refresh": "更新",
+    "title": "閲覧履歴",
+    "type": {
+      "article": "記事",
+      "course": "コース",
+      "live": "ライブ",
+      "note": "ノート",
+      "post": "投稿"
+    }
+  },
+  "imageGenGallery": {
+    "title": "公開ギャラリー",
+    "subtitle": "コミュニティが制作した画像作品",
+    "empty": "作品はまだありません",
+    "loadFailed": "ギャラリーの読み込みに失敗しました",
+    "retry": "再試行",
+    "noImage": "画像URLなし",
+    "noImageTitle": "プレビューできません",
+    "noImageHint": "この記録には画像URLが保存されておらず、プロンプトのみが残っています。",
+    "noMore": "これ以上ありません"
+  },
+  "imageGen": {
+    "title": "画像生成",
+    "historyEmpty": "生成履歴がありません",
+    "favoritesEmpty": "お気に入りがありません",
+    "promptFallback": "無題",
+    "create": "生成",
+    "tabHistory": "生成履歴",
+    "tabFavorites": "お気に入り"
+  },
+  "imageGenTemplates": {
+    "title": "プロンプトテンプレート",
+    "subtitle": "テンプレートを選んで画像をすぐに生成しましょう",
+    "all": "すべて",
+    "empty": "テンプレートはまだありません",
+    "loadFailed": "テンプレートの読み込みに失敗しました",
+    "retry": "再試行",
+    "use": "タップして使用",
+    "previewTitle": "テンプレートのプレビュー",
+    "contentLabel": "プロンプト",
+    "copy": "プロンプトをコピー",
+    "copied": "コピーしました。生成ページに貼り付けてください。",
+    "copyFailed": "コピーに失敗しました。テキストを長押しして手動でコピーしてください。",
+    "goCreate": "コピーして生成へ",
+    "uncategorized": "未分類"
+  },
+  "knowledgeBase": {
+    "title": "ナレッジベース",
+    "add": "新規",
+    "loadFailed": "ナレッジベースの読み込みに失敗",
+    "retry": "再試行",
+    "empty": "文書がありません",
+    "emptyHint": "右上の「新規」からテキストを追加",
+    "chunks": "チャンク",
+    "delete": "削除",
+    "deleteTitle": "文書を削除",
+    "deleteConfirm": "この文書を削除しますか?",
+    "deleteFailed": "削除に失敗"
+  },
+  "knowledgeCreate": {
+    "title": "新規文書",
+    "submit": "保存",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "文書タイトルを入力",
+    "textLabel": "本文",
+    "textPlaceholder": "テキストを貼り付けまたは入力",
+    "hint": "内容は自動でチャンク化され検索可能になります",
+    "required": "タイトルと本文は必須です",
+    "successTitle": "登録完了",
+    "successMessage": "文書を追加しました",
+    "failedTitle": "登録失敗",
+    "failedMessage": "後で再試行してください"
+  },
+  "knowledgeDoc": {
+    "loadFailed": "文書の読み込みに失敗",
+    "retry": "再試行",
+    "chunksTotal": "チャンク",
+    "source": "出典",
+    "preview": "プレビュー",
+    "noChunks": "チャンクがありません"
+  },
+  "liveChat": {
+    "title": "ライブチャット",
+    "empty": "まだメッセージはありません。最初の投稿をしましょう",
+    "placeholder": "何か話してください...",
+    "send": "送信",
+    "loadFailed": "ライブチャットの読み込みに失敗",
+    "sendFailed": "送信に失敗"
+  },
+  "livePlayback": {
+    "duration": "長さ",
+    "empty": "録画がありません",
+    "ended": "終了",
+    "lecturer": "講師",
+    "loadFailed": "録画の読み込みに失敗",
+    "noReplay": "録画はありません",
+    "play": "録画を再生",
+    "replayTitle": "録画再生",
+    "retry": "再試行",
+    "startAt": "開始時刻",
+    "subtitle": "録画を観る",
+    "title": "録画再生",
+    "viewerCount": "視聴者数"
+  },
+  "livePreview": {
+    "empty": "予告がありません",
+    "lecturer": "講師",
+    "loadFailed": "読み込みに失敗",
+    "startAt": "開始時刻",
+    "subscribe": "予約する",
+    "subscribed": "予約済み",
+    "subscribing": "予約中...",
+    "title": "ライブ予告"
+  },
+  "memory": {
+    "detail": "詳細",
+    "title": "メモリー",
+    "empty": "メモリーがありません",
+    "emptyHint": "AI との長期会話メモリーが保存されます",
+    "loadFailed": "メモリーの読み込みに失敗",
+    "delete": "削除",
+    "deleteTitle": "メモリーを削除",
+    "deleteConfirm": "このメモリーを削除しますか?",
+    "deleteFailed": "削除に失敗",
+    "source": "出典",
+    "updatedAt": "更新日",
+    "loginRequired": "ログインしてください",
+    "all": "すべて",
+    "searchPlaceholder": "記憶内容 / カテゴリを検索…",
+    "create": "新規作成",
+    "createTitle": "記憶を新規作成",
+    "textPlaceholder": "記憶内容を入力(必須、最大 2000 字)…",
+    "categoryPlaceholder": "分類(例: UI の好み)",
+    "typeLabel": "タイプ",
+    "scopeLabel": "スコープ",
+    "save": "保存",
+    "saveFailed": "保存に失敗しました",
+    "textRequired": "記憶内容を入力してください",
+    "uncategorized": "未分類"
+  },
+  "messageChat": {
+    "empty": "メッセージはありません",
+    "placeholder": "メッセージを入力...",
+    "send": "送信",
+    "loadFailed": "メッセージの読み込みに失敗",
+    "sendFailed": "送信に失敗"
   }
 }

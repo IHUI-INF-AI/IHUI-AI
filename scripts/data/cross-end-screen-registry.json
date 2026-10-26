@@ -645,6 +645,201 @@
       "shared": "packages/app/src/features/bank-card/BankCardScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/BankCardScreen.tsx",
       "miniapp": "pkg-user/bank-card/index"
+    },
+    {
+      "shared": "packages/app/src/features/bookmark/BookmarkScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/BookmarkScreen.tsx",
+      "miniapp": "pkg-user/bookmark/index"
+    },
+    {
+      "shared": "packages/app/src/features/cert-apply/CertApplyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertApplyScreen.tsx",
+      "miniapp": "pkg-user/cert-apply/index"
+    },
+    {
+      "shared": "packages/app/src/features/cert-detail/CertDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertDetailScreen.tsx",
+      "miniapp": "pkg-user/cert-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/cert-list/CertListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertListScreen.tsx",
+      "miniapp": "pkg-user/cert-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/cert-verify/CertVerifyScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertVerifyScreen.tsx",
+      "miniapp": "pkg-user/cert-verify/index"
+    },
+    {
+      "shared": "packages/app/src/features/certificate/CertificateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CertListScreen.tsx",
+      "miniapp": "pkg-user/certificate/index"
+    },
+    {
+      "shared": "packages/app/src/features/circle-chat/CircleChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CircleChatScreen.tsx",
+      "miniapp": "pkg-user/circle-chat/index"
+    },
+    {
+      "shared": "packages/app/src/features/circle-member/CircleMemberScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CircleMemberScreen.tsx",
+      "miniapp": "pkg-user/circle-member/index"
+    },
+    {
+      "shared": "packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ConnectedAccountsScreen.tsx",
+      "miniapp": "pkg-user/connected-accounts/index"
+    },
+    {
+      "shared": "packages/app/src/features/connectors/ConnectorsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ConnectorsScreen.tsx",
+      "miniapp": "pkg-user/connectors/index"
+    },
+    {
+      "shared": "packages/app/src/features/context/ContextScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ContextScreen.tsx",
+      "miniapp": "pkg-user/context/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-annex/CourseAnnexScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseAnnexScreen.tsx",
+      "miniapp": "pkg-user/course-annex/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-catalog/CourseCatalogScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseCatalogScreen.tsx",
+      "miniapp": "pkg-mirror/course-catalog/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-chapter/CourseChapterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseChapterScreen.tsx",
+      "miniapp": "pkg-mirror/course-chapter/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-comment/CourseCommentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseCommentScreen.tsx",
+      "miniapp": "pkg-mirror/course-comment/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-enroll/CourseEnrollScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseEnrollScreen.tsx",
+      "miniapp": "pkg-mirror/course-enroll/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-filter/CourseFilterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseFilterScreen.tsx",
+      "miniapp": "pkg-mirror/course-filter/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-qa-ask/CourseQAAskScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseQAAskScreen.tsx",
+      "miniapp": "pkg-mirror/course-qa-ask/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-qa-list/CourseQAListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseQAListScreen.tsx",
+      "miniapp": "pkg-mirror/course-qa-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-resource/CourseResourceScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseResourceScreen.tsx",
+      "miniapp": "pkg-mirror/course-resource/index"
+    },
+    {
+      "shared": "packages/app/src/features/course-screen/CourseScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseScreen.tsx",
+      "miniapp": "pkg-mirror/course/index"
+    },
+    {
+      "shared": "packages/app/src/features/customer-service/CustomerServiceScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CustomerServiceScreen.tsx",
+      "miniapp": "pkg-mirror/customer-service/index"
+    },
+    {
+      "shared": "packages/app/src/features/exam-history/ExamHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentMarketScreen.tsx",
+      "miniapp": "pkg-mirror/exam-history/index"
+    },
+    {
+      "shared": "packages/app/src/features/feedback-detail/FeedbackDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FeedbackDetailScreen.tsx",
+      "miniapp": "pkg-mirror/feedback-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/feedback/FeedbackHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FeedbackHistoryScreen.tsx",
+      "miniapp": "pkg-mirror/feedback-history/index"
+    },
+    {
+      "shared": "packages/app/src/features/history/HistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AgentMarketScreen.tsx",
+      "miniapp": "pkg-mirror/history/index"
+    },
+    {
+      "shared": "packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ImageGenGalleryScreen.tsx",
+      "miniapp": "pkg-mirror/image-gen-gallery/index"
+    },
+    {
+      "shared": "packages/app/src/features/image-gen-history/ImageGenHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ImageGenGalleryScreen.tsx",
+      "miniapp": "pkg-mirror/image-gen-history/index"
+    },
+    {
+      "shared": "packages/app/src/features/image-gen-templates/ImageGenTemplatesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ImageGenTemplatesScreen.tsx",
+      "miniapp": "pkg-mirror/image-gen-templates/index"
+    },
+    {
+      "shared": "packages/app/src/features/invite/InviteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/InviteScreen.tsx",
+      "miniapp": "pkg-mirror/invite/index"
+    },
+    {
+      "shared": "packages/app/src/features/knowledge-base/KnowledgeBaseScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeBaseScreen.tsx",
+      "miniapp": "pkg-mirror/knowledge-base/index"
+    },
+    {
+      "shared": "packages/app/src/features/knowledge-base/KnowledgeCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeCreateScreen.tsx",
+      "miniapp": "pkg-mirror/knowledge-create/index"
+    },
+    {
+      "shared": "packages/app/src/features/knowledge-base/KnowledgeDocScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeDocScreen.tsx",
+      "miniapp": "pkg-mirror/knowledge-doc/index"
+    },
+    {
+      "shared": "packages/app/src/features/live-chat/LiveChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LiveChatScreen.tsx",
+      "miniapp": "pkg-mirror/live-chat/index"
+    },
+    {
+      "shared": "packages/app/src/features/live-playback-screen/LivePlaybackScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LivePlaybackScreen.tsx",
+      "miniapp": "pkg-mirror/live-playback/index"
+    },
+    {
+      "shared": "packages/app/src/features/live-preview/LivePreviewScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LivePreviewScreen.tsx",
+      "miniapp": "pkg-mirror/live-preview/index"
+    },
+    {
+      "shared": "packages/app/src/features/live/LiveScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LiveScreen.tsx",
+      "miniapp": "pkg-learn/live/index"
+    },
+    {
+      "shared": "packages/app/src/features/memory/MemoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MemoryScreen.tsx",
+      "miniapp": "pkg-mirror2/memory/index"
+    },
+    {
+      "shared": "packages/app/src/features/message-chat/MessageChatScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MessageChatScreen.tsx",
+      "miniapp": "pkg-mirror2/message-chat/index"
     }
   ]
 }
