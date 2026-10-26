@@ -28,7 +28,9 @@ import {
   extractTenantId,
   extractTokenExpiry,
   extractUid,
+  foreignPassthroughMetadata,
   normalizeCredentialValue,
+  normalizeForeignAccountShape,
   parseFlexibleExpiry,
   type RelayProviderCode,
 } from './relay-account-format.js'
@@ -280,7 +282,10 @@ export async function importAccounts(
   const checkinPush: PoolSyncAccount[] = []
 
   for (let i = 0; i < accounts.length; i++) {
-    const acc = accounts[i] ?? {}
+    // 外来格式自适应(判据单源 relay-account-format,与 validateAccountExport 同一函数):
+    // workbuddy-switch 等第三方导出(access_token/expires_at 等)在这里归一成规范形状;
+    // 我方原生形状(token 在场)原样通过。
+    const acc = normalizeForeignAccountShape(accounts[i] ?? {}) as ImportAccountInput
     const accName = typeof acc.name === 'string' && acc.name ? acc.name : ''
     let displayName = accName || `#${i + 1}`
     try {
@@ -351,7 +356,12 @@ export async function importAccounts(
       }
       seenInBatch.add(uid)
 
-      const tokenExpiresAt = mapped ? mapped.expiresAt : extractTokenExpiry(token)
+      // 到期时刻:平台映射优先 → JWT exp → 显式 expiresAt(归一化已折成 ISO;
+      // 非 JWT 平台或 claims 无 exp 时不至于留 NULL 让临期刷新失明)
+      const tokenExpiresAt =
+        (mapped ? mapped.expiresAt : null) ??
+        extractTokenExpiry(token) ??
+        parseFlexibleExpiry(acc.expiresAt)
       const now = new Date()
       const expired = tokenExpiresAt !== null && tokenExpiresAt <= now
 
@@ -375,6 +385,10 @@ export async function importAccounts(
       if (cookieEarliest !== null)
         extra.cookieEarliestExpiry = new Date(cookieEarliest).toISOString()
       if (expired) extra.importedExpired = true
+      // 未知字段原样透传(兑现 RELAY_ACCOUNT_IMPORT_FORMAT.md §2 承诺;此前服务端
+      // 并没有真做透传 ⇒ 外来格式的 payment_type/checkin_streak 等平台侧键会整枚丢失)。
+      // canonical/别名集之外的键一律进 extraMetadata,单源判据见 foreignPassthroughMetadata。
+      Object.assign(extra, foreignPassthroughMetadata(acc))
 
       const values = {
         ownerUserId,
