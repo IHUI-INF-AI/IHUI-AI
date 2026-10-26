@@ -18,6 +18,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.core.default_model import default_chat_model
 from app.core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,8 @@ logger = logging.getLogger(__name__)
 _GITHUB_API = "https://api.github.com"
 
 # LLM 分析用的默认模型(与 agent_graph 同源,fast 便宜够用)
-_REVIEW_MODEL = "stepfun/step-3.7-flash"
+# 2026-10-26:原写死 "stepfun/step-3.7-flash"(stepfun 已永久退役),改走统一解析入口。
+_REVIEW_MODEL = default_chat_model()
 
 # diff 过长截断阈值(LLM 上下文有限,超出截断)
 _MAX_DIFF_CHARS = 12000

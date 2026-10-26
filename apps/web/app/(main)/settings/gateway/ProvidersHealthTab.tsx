@@ -53,13 +53,10 @@ import {
 
 import type { ModelSyncResult, ModelSyncHistoryRecord, SyncStatsResult } from './types'
 
-const FILTER_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'ok', label: 'OK' },
-  { value: 'invalid_key', label: 'Invalid Key' },
-  { value: 'unreachable', label: 'Unreachable' },
-  { value: 'not_configured', label: 'Not Configured' },
-] as const
+// 筛选项的**取值**是状态机(与后端 ProviderHealthStatus 对齐),**文案**走 i18n。
+// 2026-10-26:此前这里硬编码英文 All/OK/Invalid Key/Unreachable/Not Configured ——
+// 中文界面出现英文产品词,且与同页 ProviderStatusBadge 的中文文案不一致。
+// 文案键落在 settings.gateway.providers.filter.*(五语言齐备)。
 
 // F4.3 dry-run 预览结果聚合(供 Dialog 渲染)
 interface DryRunPreview {
@@ -155,6 +152,17 @@ export function ProvidersHealthTab() {
 
   const [filter, setFilter] = React.useState<'all' | ProviderHealthStatus>('all')
 
+  const filterOptions = React.useMemo(
+    () => [
+      { value: 'all' as const, label: t('filter.all') },
+      { value: 'ok' as const, label: t('filter.ok') },
+      { value: 'invalid_key' as const, label: t('filter.invalidKey') },
+      { value: 'unreachable' as const, label: t('filter.unreachable') },
+      { value: 'not_configured' as const, label: t('filter.notConfigured') },
+    ],
+    [t],
+  )
+
   const summary = React.useMemo(() => {
     if (!data) return { total: 0, ok: 0, invalid_key: 0, unreachable: 0, not_configured: 0 }
     const counts = { ok: 0, invalid_key: 0, unreachable: 0, not_configured: 0 }
@@ -185,10 +193,14 @@ export function ProvidersHealthTab() {
       {/* Summary + 最后检测时间(H4 Phase B) */}
       <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-5">
         <SummaryCard label={t('summary.total')} value={summary.total} />
-        <SummaryCard label="OK" value={summary.ok} tone="emerald" />
-        <SummaryCard label="Invalid Key" value={summary.invalid_key} tone="red" />
-        <SummaryCard label="Unreachable" value={summary.unreachable} tone="orange" />
-        <SummaryCard label="Not Configured" value={summary.not_configured} tone="muted" />
+        <SummaryCard label={t('summary.ok')} value={summary.ok} tone="emerald" />
+        <SummaryCard label={t('summary.invalidKey')} value={summary.invalid_key} tone="red" />
+        <SummaryCard label={t('summary.unreachable')} value={summary.unreachable} tone="orange" />
+        <SummaryCard
+          label={t('summary.notConfigured')}
+          value={summary.not_configured}
+          tone="muted"
+        />
       </div>
       {/* H4 Phase B:最后检测时间(checked_at) */}
       {data?.checked_at && (
@@ -201,7 +213,7 @@ export function ProvidersHealthTab() {
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap gap-1">
-          {FILTER_OPTIONS.map((opt) => (
+          {filterOptions.map((opt) => (
             <Button
               key={opt.value}
               size="xs"

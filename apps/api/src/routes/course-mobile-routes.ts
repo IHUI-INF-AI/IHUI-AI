@@ -50,6 +50,10 @@ export const courseMobileRoutes: FastifyPluginAsync = async (server) => {
     if ('invalid' in found) return reply.status(400).send(error(400, '无效的 ID'))
     if ('missing' in found) return reply.status(404).send(error(404, '课程不存在'))
     const rows = await loadChaptersWithSections(found.lesson.id)
+    // G-31 ①:付费内容不再经本端点裸发 CDN 直链 —— 与本仓详情/播放同一判据,只有
+    // 免费课或免费小节才透出 videoUrl;付费小节要地址请走 /api/learn/lessons/:id
+    // (已报名者拿到指向 /play 校验点的短时签名地址)。空值不打字段,响应形状不变。
+    const lessonFree = found.lesson.isFree
     return reply.send(
       success(
         rows.map(({ chapter, sections }) => ({
@@ -62,8 +66,9 @@ export const courseMobileRoutes: FastifyPluginAsync = async (server) => {
             title: section.title,
             type: 'section',
             duration: toMinutes(section.duration),
-            // 空值不打字段:老数据/未上传视频时保持既有响应形状(形状锁与端上兼容都按它)
-            ...(section.videoUrl ? { videoUrl: section.videoUrl } : {}),
+            ...(section.videoUrl && (lessonFree || section.isFree)
+              ? { videoUrl: section.videoUrl }
+              : {}),
           })),
         })),
       ),

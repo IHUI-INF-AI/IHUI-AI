@@ -47,6 +47,12 @@ export function buildPayload(extracted) {
     ...(a.refreshToken ? { refreshToken: a.refreshToken } : {}),
     ...(a.expiresAt ? { expiresAt: a.expiresAt } : {}),
     ...(a.refreshExpiresAt ? { refreshExpiresAt: a.refreshExpiresAt } : {}),
+    // 设备材料(2026-10-25):新版 ExchangeToken 用设备私钥签名换票;缺它池子只能走
+    // 旧通道,桌面渠道签发的票会被 10101 拒。随会话一起回灌,池侧自愈。
+    ...(a.deviceId ? { deviceId: a.deviceId } : {}),
+    ...(a.machineId ? { machineId: a.machineId } : {}),
+    ...(a.deviceKeyPem ? { deviceKeyPem: a.deviceKeyPem } : {}),
+    ...(a.devicePubPem ? { devicePubPem: a.devicePubPem } : {}),
   }))
   return { providerCode: 'trae', accounts, meta: extracted?.meta ?? {} }
 }

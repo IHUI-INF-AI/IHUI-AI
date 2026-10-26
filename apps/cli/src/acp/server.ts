@@ -22,7 +22,8 @@
 import { Readable, Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import * as acp from '@agentclientprotocol/sdk';
-import { setBaseUrl, setTokenProvider, type ToolDeltaEvent } from '@ihui/api-client';
+import { setBaseUrl, type ToolDeltaEvent } from '@ihui/api-client';
+import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import {
   createToolDeltaPreviewStore,
   pickToolDeltaPreviewText,
@@ -653,7 +654,7 @@ export class IhuiAcpAgent {
         // 86H:IDE 弹窗是"真人批准"的主通路,决策必须落审计链;会话取 ACP 的
         // params.sessionId,入参原文仍不上线(那是 86A 的 tool.invoke 行的事)。
         confirmDangerous: createAuditedDangerGate({
-          allowDangerous: this.opts.allowDangerous,
+          allowDangerous: this.opts.allowDangerous === true,
           silent: true,
           auditSessionId: params.sessionId,
           prompt: async (tool, args) => {
@@ -1150,9 +1151,8 @@ function castParams<T>(): (params: unknown) => T {
 
 function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
   setBaseUrl(opts.apiUrl);
-  if (opts.apiKey) {
-    setTokenProvider({ getToken: () => opts.apiKey ?? null });
-  }
+  // 凭据续期单点:ACP 会话同样要带 refreshAccessToken,否则 15 分钟后全体 401 无法自愈
+  registerCliTokenProvider({ baseUrl: opts.apiUrl, startupToken: opts.apiKey });
 
   const agent = new IhuiAcpAgent(opts);
   return acp

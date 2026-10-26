@@ -20,6 +20,12 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+// 带值旗标取值口径(G-322):紧邻 token 必须非空且不以 `-` 开头。本地副本与
+// scripts/lib/flag-value.mjs 的 isFlagValueToken 逐字同源 —— apps/api→repo-tooling 被
+// config/architecture-policy.yaml 禁止(D1/D2/D3),消依赖优先;语义变更须两处同改。
+function isFlagValueToken(token: unknown): boolean {
+  return typeof token === 'string' && token !== '' && !token.startsWith('-')
+}
 import {
   isRelayProviderCode,
   RELAY_PROVIDERS,
@@ -77,10 +83,28 @@ export function parseArgs(argv: string[]): CliParseResult {
     } else if (arg === '--json') {
       json = true
     } else if (arg === '--provider') {
-      provider = argv[++i] ?? ''
+      // G-322:值被紧邻旗标顶掉(`--provider --json`)不得吞,点名拒绝(与"未知开关"同档)。
+      const tok = argv[i + 1]
+      if (!isFlagValueToken(tok)) {
+        return {
+          help: false,
+          options: null,
+          error: `--provider 需要一个平台代码 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)`,
+        }
+      }
+      provider = tok
+      i++
     } else if (arg === '--emit-body') {
-      emitBody = argv[++i] ?? ''
-      if (!emitBody) return { help: false, options: null, error: '--emit-body 缺少输出路径' }
+      const tok = argv[i + 1]
+      if (!isFlagValueToken(tok)) {
+        return {
+          help: false,
+          options: null,
+          error: `--emit-body 需要一个输出路径 —— 紧邻的 token 实得:${tok === undefined ? '(其后没有任何参数)' : JSON.stringify(tok)}(不得吞掉相邻旗标)`,
+        }
+      }
+      emitBody = tok
+      i++
     } else if (arg.startsWith('-')) {
       return { help: false, options: null, error: `未知开关: ${arg}` }
     } else if (!file) {

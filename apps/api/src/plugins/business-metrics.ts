@@ -9,6 +9,8 @@ import { authenticate } from '../plugins/auth.js'
 import { isSystemAdmin } from './require-permission.js'
 import { error } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
+// 号池 provider 的封闭集单一真相源(不在本文件重写一份列表 —— §0.6)
+import { RELAY_PROVIDERS } from '../services/relay-account-format.js'
 import { PROVIDER_HEALTH_STATUSES, type ProviderHealthStatus } from '@ihui/types'
 import {
   classifyClientFamily,
@@ -93,6 +95,12 @@ import {
  *     - ihui_relay_key_pool_schedulable_keys{provider_code}        (每 provider 可用 key 数)
  *     - ihui_relay_account_pool_health_state{provider_code,account}        (0..3)
  *     - ihui_relay_account_pool_schedulable{provider_code,account}         (0/1)
+ *     - ihui_relay_account_pool_schedulable_accounts{provider_code}        (每 provider 可调度账号数,与 key 族 schedulable_keys 同族同节拍)
+ *     - ihui_relay_account_pool_enabled_accounts{provider_code}            (每 provider is_enabled 账号数 —— 没有它,"可调度 0"与"压根没号"同形)
+ *     - ihui_relay_account_pool_accounts{provider_code}                    (每 provider 账号行数,含停用)
+ *     - ihui_relay_account_pool_zero_capacity{provider_code}               (1 = 有 enabled 号但可调度 0 ⇒ 账号池回落正在静默发生)
+ *     - ihui_relay_upstream_fallback_total{reason}                          (静默回落计数;reason 封闭四档,见 RELAY_UPSTREAM_FALLBACK_REASONS)
+ *     - ihui_relay_stream_interrupt_total{provider_code}                    (上游流没说完就断的计数;provider 封闭四档=RELAY_PROVIDERS)
  *     - ihui_relay_account_pool_consecutive_failures{provider_code,account}
  *     - ihui_relay_account_pool_total_calls{provider_code,account}         (累计转发调用)
  *     - ihui_relay_account_pool_token_expires_in_seconds{provider_code,account} (可为负 = 已过期)
@@ -682,6 +690,42 @@ export function isRelayPoolHealthState(value: unknown): value is RelayPoolHealth
   )
 }
 
+/**
+ * 上游转发的**静默回落**原因(封闭四档,唯一份)。
+ *
+ * 立因:这两处回退点此前既无日志也无计数 —— "号池打光"与"上游一切正常"在观面上
+ * 同形(AGENTS §0.9 同型缺陷:判据没被真跑到就没有)。本枚举把"为什么回落"变成
+ * 有界标签:开放集(模型名/userId)一律不入标签,细节只在 warn 日志里带。
+ * - `channel_query_error`      selectChannelCandidates 抛错(key 池压根没探到)
+ * - `no_key_pool_candidates`   key 池候选为 0 ⇒ 转投账号池
+ * - `account_pool_declined`    账号池返回 null(无 provider/无候选/参数不支持/内部异常)
+ * - `account_pool_threw`       账号池调用在承载层直接抛错(被承载层 catch 收口)
+ */
+export const RELAY_UPSTREAM_FALLBACK_REASONS = [
+  'channel_query_error',
+  'no_key_pool_candidates',
+  'account_pool_declined',
+  'account_pool_threw',
+] as const
+export type RelayUpstreamFallbackReason = (typeof RELAY_UPSTREAM_FALLBACK_REASONS)[number]
+
+/**
+ * 一个池子里按 provider 折叠的容量三档(2026-10-26 立)。
+ * 唯一生产者 = `relay-pool-stats-service.ts` 的 `foldRelayPoolCapacity()`(直接吃原始行,
+ * 与 gauge 的样本折叠共用同一把 `isRelayPoolRowSchedulable` 尺子);本文件只渲染数值、
+ * 不再算第二遍(AGENTS §0.6)。三档缺一不可:`schedulable=0` 单独看不出是
+ * "号被临时摘光"(enabled>0 ⇒ 容量归零)还是"这个 provider 压根没号"(total=0)。
+ */
+export interface RelayPoolProviderCapacity {
+  providerCode: string
+  /** 该 provider 的池行数(含停用、含健康态脏值行) */
+  totalRows: number
+  /** is_enabled = true 的行数 */
+  enabledRows: number
+  /** 同 `isRelayPoolRowSchedulable` 口径的行数(启用 ∧ 未被临时摘除) */
+  schedulableRows: number
+}
+
 /** key 池一行的投影(标签是**未洗**的原始拼接,清洗与撞检在 setter 里做)。 */
 export interface RelayPoolKeySample {
   providerCode: string
@@ -715,6 +759,15 @@ export interface RelayPoolAccountSample {
 export interface RelayPoolGaugeSample {
   keys: RelayPoolKeySample[]
   accounts: RelayPoolAccountSample[]
+  /**
+   * 账号池按 provider 折叠的容量(2026-10-26 立,唯一生产者 = stats 侧
+   * `foldRelayPoolCapacity()`,它直接吃原始行 ⇒ 停用行/脏健康态行都算得进来,
+   * 而 `accounts` 样本只含健康态在词表内的行)。缺省 = 调用方没给 ⇒ **不发序列**
+   * (不拿 0 冒充"容量归零",也不冒充"有号";§0.3)。
+   * key 池的 provider 折叠仍在 setter 内现算(与既有 `ihui_relay_key_pool_keys` 同源,
+   * 不改它是为了不把已装车的折叠挪成两遍)。
+   */
+  accountCapacity?: RelayPoolProviderCapacity[]
   /** 刷新成功时刻(ms);两个池各推进自己的新鲜度戳 */
   refreshedAtMs?: number
   /** 调用方已判定的显式丢失(健康态脏值 / 标签撞车),原样加进计数器 */
@@ -841,6 +894,18 @@ const ihuiState = {
   relayAccountHealth: new Map<string, number>(),
   /** key: provider_code|account(uid)—— 1 = 选路选得到它 */
   relayAccountSchedulable: new Map<string, number>(),
+  /** key: provider_code —— 每 provider 可调度账号数(与 relayKeySchedulableByProvider 同族同节拍) */
+  relayAccountSchedulableByProvider: new Map<string, number>(),
+  /** key: provider_code —— 每 provider 的 is_enabled 账号数(没有它,"可调度 0"与"没号"同形) */
+  relayAccountEnabledByProvider: new Map<string, number>(),
+  /** key: provider_code —— 每 provider 的账号行数(含停用/脏健康态行) */
+  relayAccountRowsByProvider: new Map<string, number>(),
+  /** key: provider_code —— 1 = 有 enabled 号但可调度 0(账号池回落正在静默发生) */
+  relayAccountZeroCapacityByProvider: new Map<string, number>(),
+  /** key: reason —— 静默回落计数(封闭四档,见 RELAY_UPSTREAM_FALLBACK_REASONS;逐值开零基线) */
+  relayUpstreamFallbackTotal: new Map<string, number>(),
+  /** key: provider_code —— 上游流未正常收尾的计数(封闭四档=RELAY_PROVIDERS;断流不得算健康) */
+  relayStreamInterruptTotal: new Map<string, number>(),
   /** key: provider_code|account(uid)—— 连续转发失败次数(转发层熔断计数) */
   relayAccountFailures: new Map<string, number>(),
   /** key: provider_code|account(uid)—— 累计转发调用次数(bigint → number) */
@@ -921,6 +986,16 @@ function seedIhuiClosedEnumBaseline(): void {
     for (const kind of SCAN_PROBE_KINDS) {
       ihuiCounterInc(ihuiState.trafficScanHitsTotal, `${kind}|${family}`, 0)
     }
+  }
+  // relay 上游回落计数:reason 是源码里的封闭四档 ⇒ 逐值开 0。
+  // 这一档不开 0 就等于没装 —— "从来没回落过"与"埋点没接"在面板上会同形(本次要根治的正是它)。
+  for (const reason of RELAY_UPSTREAM_FALLBACK_REASONS) {
+    ihuiCounterInc(ihuiState.relayUpstreamFallbackTotal, reason, 0)
+  }
+  // 上游断流计数:provider 同属封闭集(RELAY_PROVIDERS,单一真相源在 relay-account-format)。
+  // 不开 0 的话,"从没断过流"与"埋点没接"在面板上同形 —— 与回落计数同一批立的规矩。
+  for (const provider of RELAY_PROVIDERS) {
+    ihuiCounterInc(ihuiState.relayStreamInterruptTotal, provider, 0)
   }
   // traffic 3(PV/UV 聚合 Gauge):窗口 × 来源 × (族) 全组合预先开线。
   // **只开 0,不开任何"看起来像数据"的值** —— gauge 的 0 在这里表示"还没测到/确实为 0",
@@ -1264,6 +1339,44 @@ function relayGaugeSet(map: Map<string, number>, key: string, value: number): vo
 }
 
 /**
+ * Counter:记一次**静默回落**(2026-10-26 立)。
+ *
+ * 只在 `RELAY_UPSTREAM_FALLBACK_REASONS` 这四档上记账:不在枚举内的入参一律丢弃并计入
+ * `ihui_series_dropped_total`(基数护栏 —— 回落点的 model/userId 都是开放集,
+ * 进了标签就是下一个炸基数面)。永不抛(safeRecord)。
+ */
+export function recordRelayUpstreamFallback(reason: RelayUpstreamFallbackReason): void {
+  safeRecord('recordRelayUpstreamFallback', () => {
+    if (!(RELAY_UPSTREAM_FALLBACK_REASONS as readonly string[]).includes(reason)) {
+      ihuiState.seriesDroppedTotal++
+      return
+    }
+    ihuiCounterInc(ihuiState.relayUpstreamFallbackTotal, reason)
+  })
+}
+
+/**
+ * Counter:记一次**上游流未正常收尾**(2026-10-26)。
+ *
+ * provider 用封闭集 RELAY_PROVIDERS(单一真相源在 relay-account-format);不在集内的入参
+ * 丢弃并计基数丢弃,不让任意字符串进标签。判据(什么算断流)住转发层,这里只管记账。
+ */
+export function recordRelayStreamInterrupt(providerCode: string): void {
+  safeRecord('recordRelayStreamInterrupt', () => {
+    if (!(RELAY_PROVIDERS as readonly string[]).includes(providerCode)) {
+      ihuiState.seriesDroppedTotal++
+      return
+    }
+    ihuiCounterInc(ihuiState.relayStreamInterruptTotal, providerCode)
+  })
+}
+
+/** 断流计数现读(观测面/测试用;结构上取不到就是空,不用 0 冒充"没量过") */
+export function snapshotRelayStreamInterrupts(): Record<string, number> {
+  return Object.fromEntries(ihuiState.relayStreamInterruptTotal.entries())
+}
+
+/**
  * Gauge:写入一次中转号池快照(两个池子,set 语义)。
  *
  * 与 `setTrafficGaugeSample` 的三条同源纪律,逐条对应:
@@ -1285,6 +1398,10 @@ export function setRelayPoolGaugeSample(sample: RelayPoolGaugeSample): void {
     ihuiState.relayKeySchedulableByProvider.clear()
     ihuiState.relayAccountHealth.clear()
     ihuiState.relayAccountSchedulable.clear()
+    ihuiState.relayAccountSchedulableByProvider.clear()
+    ihuiState.relayAccountEnabledByProvider.clear()
+    ihuiState.relayAccountRowsByProvider.clear()
+    ihuiState.relayAccountZeroCapacityByProvider.clear()
     ihuiState.relayAccountFailures.clear()
     ihuiState.relayAccountTotalCalls.clear()
     ihuiState.relayAccountTokenExpiresIn.clear()
@@ -1364,6 +1481,23 @@ export function setRelayPoolGaugeSample(sample: RelayPoolGaugeSample): void {
           relayGaugeInt(row.refreshAgeSeconds),
         )
       }
+    }
+
+    // 账号池按 provider 折叠的容量三档(值来自 stats 侧 foldRelayPoolCapacity,本处只渲染)。
+    // set 语义已由函数开头的 clear 兜住 ⇒ 上一轮有过、这一轮没出现的 provider 序列自动消失。
+    for (const row of sample.accountCapacity ?? []) {
+      const provider = sanitizeIhuiLabel(row.providerCode, 32)
+      const total = relayGaugeInt(row.totalRows)
+      const enabled = relayGaugeInt(row.enabledRows)
+      const schedulable = relayGaugeInt(row.schedulableRows)
+      relayGaugeSet(ihuiState.relayAccountRowsByProvider, provider, total)
+      relayGaugeSet(ihuiState.relayAccountEnabledByProvider, provider, enabled)
+      relayGaugeSet(ihuiState.relayAccountSchedulableByProvider, provider, schedulable)
+      relayGaugeSet(
+        ihuiState.relayAccountZeroCapacityByProvider,
+        provider,
+        enabled > 0 && schedulable === 0 ? 1 : 0,
+      )
     }
 
     ihuiState.relayKeyRowsSkipped += Math.max(0, Math.floor(sample.keyRowsSkipped ?? 0))
@@ -1563,10 +1697,16 @@ export function resetIhuiState(): void {
   ihuiState.relayKeySchedulableByProvider.clear()
   ihuiState.relayAccountHealth.clear()
   ihuiState.relayAccountSchedulable.clear()
+  ihuiState.relayAccountSchedulableByProvider.clear()
+  ihuiState.relayAccountEnabledByProvider.clear()
+  ihuiState.relayAccountRowsByProvider.clear()
+  ihuiState.relayAccountZeroCapacityByProvider.clear()
   ihuiState.relayAccountFailures.clear()
   ihuiState.relayAccountTotalCalls.clear()
   ihuiState.relayAccountTokenExpiresIn.clear()
   ihuiState.relayAccountRefreshAge.clear()
+  ihuiState.relayUpstreamFallbackTotal.clear()
+  ihuiState.relayStreamInterruptTotal.clear()
   ihuiState.relayKeyRowsSkipped = 0
   ihuiState.relayAccountRowsSkipped = 0
   ihuiState.relayKeyLabelCollisions = 0
@@ -2743,6 +2883,42 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
       )
     }
 
+    // 账号池按 provider 折叠的容量四连(2026-10-26 立,与 key 族 *_schedulable_keys 同族同节拍)。
+    // 为什么必须有 enabled/accounts 两档:光看 schedulable=0 判不出"号被临时摘光"还是"这个
+    // provider 压根没号",而这正是本次要消灭的"容量归零与一切正常同形"。
+    // zero_capacity 是合成档:enabled>0 ∧ schedulable=0 ⇒ 1(判据在 stats 侧的同一份折叠里)。
+    lines.push(
+      '# HELP ihui_relay_account_pool_schedulable_accounts Routable relay accounts per provider (same family as ihui_relay_key_pool_schedulable_keys; sum across providers = account pool headline number)',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_schedulable_accounts gauge')
+    for (const [k, v] of ihuiState.relayAccountSchedulableByProvider) {
+      lines.push(`ihui_relay_account_pool_schedulable_accounts{provider_code="${k}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_enabled_accounts Enabled relay accounts per provider (is_enabled=true, regardless of temp-unschedulable)',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_enabled_accounts gauge')
+    for (const [k, v] of ihuiState.relayAccountEnabledByProvider) {
+      lines.push(`ihui_relay_account_pool_enabled_accounts{provider_code="${k}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_accounts Relay account rows per provider (all rows, disabled and dirty-health ones included)',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_accounts gauge')
+    for (const [k, v] of ihuiState.relayAccountRowsByProvider) {
+      lines.push(`ihui_relay_account_pool_accounts{provider_code="${k}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_zero_capacity 1 when a provider has enabled accounts but zero schedulable ones (the account-pool fallback is silently degrading to ai-service)',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_zero_capacity gauge')
+    for (const [k, v] of ihuiState.relayAccountZeroCapacityByProvider) {
+      lines.push(`ihui_relay_account_pool_zero_capacity{provider_code="${k}"} ${v}`)
+    }
+
     lines.push(
       '# HELP ihui_relay_account_pool_consecutive_failures Consecutive forwarding failures per relay account (circuit-breaker counter; resets on success)',
     )
@@ -2829,6 +3005,27 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
       `ihui_relay_account_pool_label_collisions_total ${ihuiState.relayAccountLabelCollisions}`,
     )
 
+    // 静默回落计数(2026-10-26 立):此前这两处回退点(no key candidates / account pool 返回 null)
+    // 一声不响,healthy 号=0 与"上游一切正常"在观面上完全同形。封闭四档逐值开零基线
+    // (见 seedIhuiClosedEnumBaseline),所以"0"在这里读得出"真没回落",不是"埋点没接"。
+    lines.push(
+      '# HELP ihui_relay_upstream_fallback_total Times the relay upstream path fell back without a usable channel/account (reason: channel_query_error | no_key_pool_candidates | account_pool_declined | account_pool_threw)',
+    )
+    lines.push('# TYPE ihui_relay_upstream_fallback_total counter')
+    for (const [k, v] of ihuiState.relayUpstreamFallbackTotal) {
+      lines.push(`ihui_relay_upstream_fallback_total{reason="${k}"} ${v}`)
+    }
+
+    // 上游断流计数(2026-10-26 由并行写席的进程内 Map 并入本家族,§0.6 单一真相源):
+    // 判据住转发层(什么算"没说完"),记账出口住这里 —— 与 ihui_relay_upstream_fallback_total 同族同节拍。
+    lines.push(
+      '# HELP ihui_relay_stream_interrupt_total Times an upstream relay stream ended before a terminal frame (provider: trae | workbuddy | codearts | qoder)',
+    )
+    lines.push('# TYPE ihui_relay_stream_interrupt_total counter')
+    for (const [k, v] of ihuiState.relayStreamInterruptTotal) {
+      lines.push(`ihui_relay_stream_interrupt_total{provider_code="${k}"} ${v}`)
+    }
+
     // 横切:基数上限丢弃计数
     lines.push(
       '# HELP ihui_series_dropped_total ihui_* metric series writes dropped at the label cardinality cap',
@@ -2889,6 +3086,9 @@ export const __test__ = {
   RELAY_POOL_HEALTH_STATE_VALUE,
   isRelayPoolHealthState,
   setRelayPoolGaugeSample,
+  // 静默回落族:原因封闭四档 + 写入出口(同上,测试不抄第二份枚举)
+  RELAY_UPSTREAM_FALLBACK_REASONS,
+  recordRelayUpstreamFallback,
 }
 
 declare module 'fastify' {

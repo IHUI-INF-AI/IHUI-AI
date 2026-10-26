@@ -961,8 +961,19 @@ export async function fetchApi<T>(
       const maxRetries = 1
       let lastError = '网络异常'
       let authRetried = false
+      // 2026-10-26 修「循环预算洞」:网络重试与 401 续期重放**各花各的预算**。
+      // 原实现两者共用循环计数 `attempt` ⇒「先网络异常、后 401、续期成功」这一格里,
+      // 续期重放的 `continue` 把计数推过上限,循环直接退出 ⇒ 新 token 与 401 结果双双
+      // 丢弃,还返回**上一跳的网络错误文案** —— 刷新明明成功了,这次请求却失败
+      // (用户侧表现为"又要重新登录")。改成两个独立闸:
+      //   · networkRetries:网络异常仍只重试 maxRetries 次(既有语义一字不动);
+      //   · authRetried:401 续期重放仍恰好一次(既有语义一字不动);
+      // 两者不再互相挤掉。循环上界相应放宽到 attempt <= maxRetries+1
+      // (⇒ 共 maxRetries+2 次尝试:首发 + 网络重试 + 续期重放),仍是有界循环 ——
+      // 免得不可达代码告警与"无界"疑虑。
+      let networkRetries = 0
 
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      for (let attempt = 0; attempt <= maxRetries + 1; attempt++) {
         try {
           const result = await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           // 401 自动续期(2026-08-06):access token 过期 → 静默刷新 → 重试一次
@@ -1010,8 +1021,16 @@ export async function fetchApi<T>(
             return result as ApiResult<T>
           }
           // 网络异常:重试或返回 lastError
+          // 2026-10-26:网络重试有**自己的**预算闸(networkRetries < maxRetries),
+          // 不再与 401 续期重放共用循环计数 —— 共用时「先网络异常、后 401」会把
+          // 续期成功的新 token 与 401 结果一起丢掉(见上方 for 循环处注)。
           lastError = result.error
-          if (attempt < maxRetries) continue
+          if (networkRetries < maxRetries) {
+            networkRetries++
+            continue
+          }
+          // 预算耗尽 ⇒ 跳出循环,交由循环后的兜底 return 落账(与改动前同形)
+          break
         }
       }
 
@@ -1100,7 +1119,24 @@ function attachHttpErrorMeta(error: Error, status: number, bodyText: string): Er
 }
 
 export async function fetchText(url: string, options: RequestInit = {}): Promise<string> {
-  const token = tokenProvider.getToken()
+  try {
+    return await fetchTextOnce(url, options)
+  } catch (err) {
+    // access 只有 15 分钟:这条腿只认 Bearer,不续期就表现为"功能突然不可用"。
+    // 401 ⇒ 静默续期后重放一次;续期失败原样抛出,语义仍由调用方按 401 处理。
+    if ((err as { status?: number }).status !== 401) throw err
+    const refreshed = await refreshAccessTokenOnce()
+    if (!refreshed) throw err
+    return fetchTextOnce(url, options, refreshed)
+  }
+}
+
+async function fetchTextOnce(
+  url: string,
+  options: RequestInit,
+  tokenOverride?: string,
+): Promise<string> {
+  const token = tokenOverride ?? tokenProvider.getToken()
   const normalizedUrl = normalizeUrl(url)
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> | undefined),
@@ -1154,7 +1190,22 @@ export async function fetchAiServiceJson<T>(
   url: string,
   options: FetchApiOptions = {},
 ): Promise<ApiResult<T>> {
-  const token = tokenProvider.getToken()
+  const first = await fetchAiServiceJsonOnce<T>(url, options)
+  // 2026-10-26:ai-service 只认 Bearer access token,而 access 只有 15 分钟。
+  // 此前这条腿遇 401 只返回失败 ⇒ 签到/知识库/MCP 等全部表现为"用着用着突然不可用"。
+  // 401 ⇒ 静默续期后重放一次(与 fetchApi 的拦截器同语义);续期失败原样返回 401。
+  if (first.success || first.status !== 401) return first
+  const refreshed = await refreshAccessTokenOnce()
+  if (!refreshed) return first
+  return fetchAiServiceJsonOnce<T>(url, options, refreshed)
+}
+
+async function fetchAiServiceJsonOnce<T>(
+  url: string,
+  options: FetchApiOptions,
+  tokenOverride?: string,
+): Promise<ApiResult<T>> {
+  const token = tokenOverride ?? tokenProvider.getToken()
   const { params: rawParams, ...restOptions } = options
   // b76-08a:同 fetchApi —— 转发前摘除连接级能力位,客户端自报不出网(唯一出口见 @ihui/types)。
   const params = rawParams ? stripClientCapabilityFields(rawParams) : rawParams
@@ -1253,7 +1304,23 @@ export async function fetchAiServiceJson<T>(
 
 /** 拉取原始二进制响应(如 PNG 截图),自动加 Authorization 头。 */
 export async function fetchRaw(url: string, options: RequestInit = {}): Promise<Blob> {
-  const token = tokenProvider.getToken()
+  try {
+    return await fetchRawOnce(url, options)
+  } catch (err) {
+    // 同 fetchText:access 过期是常态,401 ⇒ 续期后重放一次,续期失败原样抛出。
+    if ((err as { status?: number }).status !== 401) throw err
+    const refreshed = await refreshAccessTokenOnce()
+    if (!refreshed) throw err
+    return fetchRawOnce(url, options, refreshed)
+  }
+}
+
+async function fetchRawOnce(
+  url: string,
+  options: RequestInit,
+  tokenOverride?: string,
+): Promise<Blob> {
+  const token = tokenOverride ?? tokenProvider.getToken()
   const normalizedUrl = normalizeUrl(url)
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> | undefined),
@@ -1287,6 +1354,137 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
   } finally {
     watchdog.clear()
   }
+}
+
+// ==================== 裸 fetch 腿的 401 续期(包内唯一出口) ====================
+
+/**
+ * 这条 body 能不能"再发一次"。判据只住这一处(§0.6 单一真相源),
+ * 各端点函数不得自己再判一遍 —— 自己判的那一份迟早会比这里松。
+ *
+ * 可重放:每次 `fetch()` 都会把这一份值**重新序列化**一遍的请求体
+ * (string / URLSearchParams / ArrayBuffer 及其视图 / Blob(含 File) / FormData ——
+ * 它们是"条目记录",不是被吃掉的流;浏览器、undici、RN 原生 fetch 都是按请求重建 body)。
+ *
+ * 不可重放:`ReadableStream` / AsyncIterable / `Request` 这类**一次性介质**。
+ * 对它们重放 = 第二次发的是空 body,而服务端会照单收下并回 200 ——
+ * 那就是"重放发了空 body 的假成功"(比不修更坏)。这一档宁可少做:
+ * 直接返回原 401 响应,既不续期也不重放,调用方看到的失败与改动前逐字一致。
+ */
+function isReplayableBody(body: BodyInit | null | undefined): boolean {
+  if (body === null || body === undefined) return true
+  if (typeof body === 'string') return true
+  if (typeof Blob !== 'undefined' && body instanceof Blob) return true
+  if (typeof FormData !== 'undefined' && body instanceof FormData) return true
+  if (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) return true
+  if (typeof ArrayBuffer !== 'undefined' && body instanceof ArrayBuffer) return true
+  if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(body)) return true
+  return false
+}
+
+/** 把 fetch 的三种 headers 形态收敛成一份**新**的 Record(绝不原地改调用方对象)。 */
+function copyHeaders(headers: RequestInit['headers']): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (Array.isArray(headers)) {
+    for (const [key, value] of headers) out[key] = String(value)
+  } else if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+    // 2026-10-26:本包 tsconfig 下 `Headers` 解析不到 DOM 声明(`headers` 被收敛成 any)⇒
+    // forEach 回调的 value/key 落 TS7006 隐式 any。显式标注参数类型,不改运行期行为。
+    headers.forEach((value: string, key: string) => {
+      out[key] = value
+    })
+  } else if (headers && typeof headers === 'object') {
+    Object.assign(out, headers as Record<string, string>)
+  }
+  return out
+}
+
+/** 调用方是否**自己写了** Authorization(大小写不敏感)。 */
+function hasOwnAuthorization(headers: RequestInit['headers']): boolean {
+  return Object.keys(copyHeaders(headers)).some((key) => key.toLowerCase() === 'authorization')
+}
+
+/**
+ * 把 access token 装配进请求头(不原地改调用方的 headers)。
+ *
+ * 三条不变量:
+ * 1. **没有 token ⇒ 一个 Authorization 头都不加** —— 绝不塞空 `Bearer `:
+ *    服务端把"带了个坏凭据"与"没带凭据(走 cookie 兜底)"是两条不同分支,
+ *    塞空串会把原本还能靠 cookie 走通的腿提前判死(红线:cookie 兜底路径不得被破坏);
+ * 2. 其余头逐字透传(含 multipart 的"不给 Content-Type,让 fetch 自己生成 boundary");
+ * 3. 调用方自己写了 Authorization ⇒ 不在这里覆盖(见 {@link hasOwnAuthorization},
+ *    那一格由 {@link fetchWithAuthRefresh} 整块让路,不做重放)。
+ */
+function withBearerHeader(
+  headers: RequestInit['headers'],
+  token: string | null,
+): Record<string, string> {
+  const out = copyHeaders(headers)
+  if (token) out['Authorization'] = `Bearer ${token}`
+  return out
+}
+
+/** {@link fetchWithAuthRefresh} 的可选入参 */
+export interface FetchWithAuthRefreshOptions {
+  /**
+   * 本趟要用的 access token。
+   * - 缺省(undefined)⇒ 取 `tokenProvider.getToken()`;
+   * - 显式传值(含 null / 空串)⇒ 用这一份,不再回读 provider
+   *   (调用方自己管凭据时判序由它定,但"空 ⇒ 不加头"仍由本处兜住);
+   * - 401 续期成功后的**重放**恒用刷新回来的新 token,不用这里的旧值。
+   *
+   * 为什么开这个口子而不让调用方直接写 `headers.Authorization`:
+   * 写进 headers 的凭据就不归本出口装配,续期回来的新 token 与它**不同源**,
+   * 拿它顶掉别人的凭据去重放等于"用另一个身份重试这次操作"(越权方向);
+   * 而走 `accessToken` 的,本出口知道它是谁,重放才安全。voice-stt 的 `params.token`
+   * 因此一律经这里进,不经 headers。
+   */
+  accessToken?: string | null
+}
+
+/**
+ * 包里**绕过 fetchApi 的裸 fetch 腿**共用的 401 续期出口(2026-10-26 立)。
+ *
+ * 病灶:access JWT 只有 15 分钟,而 ai-service 回传端点(审批/表单/工具结果/终端输入/
+ * goal)、放行规则、报告导出、上传、SSE 启动、STT 这几条腿各自 `fetch()`,
+ * 遇 401 直接抛错或返回 success:false —— 用户表现为"审批点了没反应 / 导出失败 / 上传失败",
+ * 而 refresh(30 天)明明还能换。fetchApi 的拦截器管不到它们,因为它们不走 transport。
+ *
+ * 语义(与 fetchApi 的 401 拦截器同一条契约,判序只此一份):
+ *  - 取当前 token 注入 Authorization;无 token 不加头(见 {@link withBearerHeader});
+ *  - `status !== 401` ⇒ **原对象逐字返回**(403/5xx/2xx 一律不碰,响应体不消费,
+ *    流式/blob 腿还能在它上面继续读);
+ *  - `status === 401` ⇒ `await refreshAccessTokenOnce()`(全局单飞 + 失败冷却,已实现,
+ *    这里不复制判据)→ 拿到新 token 就**带新 token 重放恰好一次**;
+ *  - 续期返回 null ⇒ 把**原 401 响应**(body 未消费)交回调用方,由它按既有语义报错;
+ *  - 重放后仍是 401 ⇒ 就地交回,不再续期、不再重放(绝不循环);
+ *  - body 不可重放 ⇒ 不续期不重放(见 {@link isReplayableBody});
+ *  - 调用方自带 Authorization ⇒ 不覆盖、不重放、不续期(那一格的凭据不归本出口管,
+ *    重放只会用同一枚被拒的凭据再吃一次 401,或更糟:拿别人的新凭据顶掉它)。
+ *
+ * 刻意**不**调 `notifyUnauthorized`:这些腿的 401 终局此前从不驱动端内登出,
+ * 接上会把"一次导出失败"升级成"会话被终结",属本票范围外的行为变化。
+ *
+ * @returns 与 `fetch` 同样的 `Response`(失败也返回响应,不抛;抛错语义留给调用方自己那一条腿)
+ */
+export async function fetchWithAuthRefresh(
+  url: string,
+  init: RequestInit = {},
+  options: FetchWithAuthRefreshOptions = {},
+): Promise<Response> {
+  const ownsAuth = hasOwnAuthorization(init.headers)
+  const token = options.accessToken === undefined ? getToken() : options.accessToken
+  const first = await fetch(url, {
+    ...init,
+    headers: ownsAuth ? copyHeaders(init.headers) : withBearerHeader(init.headers, token),
+  })
+  if (first.status !== 401) return first
+  if (!isReplayableBody(init.body)) return first
+  if (ownsAuth) return first
+  const refreshed = await refreshAccessTokenOnce()
+  if (!refreshed) return first
+  // 只重放这一次:第二次仍 401 也照样交回(循环重放=凭据死循环,fetchApi 同此红线)
+  return fetch(url, { ...init, headers: withBearerHeader(init.headers, refreshed) })
 }
 
 // ==================== SSE 流式对话 ====================
@@ -1582,6 +1780,14 @@ export interface StreamChatOptions {
   /** 绑定的 agent ID:透传到后端,后端在 SSE chunk 顶层注入 agentId。
    * 前端 onAgentDelta 据此分流到 subagent 卡片;缺失时降级为单 agent 模式。 */
   agentId?: string
+  /** D01(2026-10-25 立):对话内选中的 persona(专家)id。
+   *  传输层复用既有的 `agentId` 请求槽(网关 schema 只声明了这一个标识字段,
+   *  且在网关侧它同时承担"给每条 data 行贴 agentId"的职责 —— 见下条)。
+   *  与 `agentId` 的区别:persona 不是子代理,它的回包正文属于**主对话**,
+   *  不能被当成 subagent delta 分流,故传 personaId 时本函数把"回包 agentId
+   *  恰等于所选 persona"的 chunk 降级为普通 onDelta(不影响真正的 subagent 帧:
+   *  其 id 形如 subagent_*,不会与 persona 名相同)。 */
+  personaId?: string
   /** 多 agent 多路复用回调:chunk 带 agentId 时触发,与 onDelta 互斥(有 agentId 走此回调,无则走 onDelta)。 */
   onAgentDelta?: (agentId: string, delta: string) => void
   /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
@@ -2280,6 +2486,32 @@ export interface ToolApprovalEvent {
   networkTarget?: ToolApprovalNetworkTarget
   /** 已被静态策略判死的目标清单("还没有规则覆盖它"不算被拦) */
   blockedNetworkTargets?: ToolApprovalNetworkTarget[]
+  /**
+   * D-07(2026-10-26):断线失效留痕标记。带本字段的事件**不是**新的审批请求 ——
+   * 消费方不得弹窗/入待决队列,只给用户一条"该审批已随连接中断失效"的可读提示;
+   * 该 approvalId 已无活等待者,回传决策只会被服务端具名拒绝。
+   */
+  expired?: true
+  /** D-07:失效原因(stream_closed / cancelled / timeout),只读展示用 */
+  expiredReason?: string
+}
+
+/**
+ * D-07(2026-10-26):失效留痕标记的投影(与 D159 的 env 投影同族、同一条纪律)。
+ *
+ * `expired === true` 才带键 —— "正常审批帧"和"失效留痕帧"在消费形态上必须可区分;
+ * 缺省不折叠成 false(消费方按 truthy 判,造默认值会把"没丢"写成"丢了")。
+ * 原因只在服务端给了非空 string 时透传,不猜、不补默认档。
+ */
+export function projectToolApprovalExpiredFact(json: {
+  expired?: unknown
+  expired_reason?: unknown
+}): Pick<ToolApprovalEvent, 'expired' | 'expiredReason'> {
+  if (json.expired !== true) return {}
+  return {
+    expired: true,
+    ...(typeof json.expired_reason === 'string' ? { expiredReason: json.expired_reason } : {}),
+  }
 }
 
 /** D159 执行环境(camelCase 消费形态;内层键与线格式逐字同,故只是投影) */
@@ -3035,6 +3267,15 @@ export interface ResumableSSEStreamOptions {
   onLine: (line: string) => void | Promise<void>
   /** 重连前通知(指数退避,attempt 从 1 起) */
   onReconnect?: (attempt: number, delayMs: number) => void
+  /**
+   * HTTP 401 且尚未重试过时的续期钩子(2026-10-26)。
+   *
+   * 流式请求只认 Bearer access token(15 分钟),过期后此前直接按业务错误抛出 ⇒
+   * "聊到一半提示登录过期"。返回 true 表示已换到新凭据,**调用方必须同步改写
+   * `opts.headers` 里的 Authorization**;runner 随即原地重试一次。返回 false 或未注入
+   * 时维持旧行为(401 业务错误、不重连)。只在 HTTP 层(尚未读流)判定,流内 error 帧不在此列。
+   */
+  refreshAuth?: () => Promise<boolean>
 }
 
 /**
@@ -3051,6 +3292,8 @@ export async function runResumableSSEStream(opts: ResumableSSEStreamOptions): Pr
   // 断点续传游标:捕获 SSE id: 行,重连时经 appendResumeEventIdHeader 回传
   let lastEventId = ''
   let attempt = 0
+  // 凭据续期只做一次:续期后仍 401 = 新凭据也被拒(会话真死),不得无限重放
+  let authRefreshed = false
   for (;;) {
     try {
       opts.onAttemptStart?.(attempt)
@@ -3070,6 +3313,17 @@ export async function runResumableSSEStream(opts: ResumableSSEStreamOptions): Pr
       // 回带:服务端若把编号写回响应头,记为"本轮排查编号"(编号不上 UI,只留读取出口)。
       recordTraceIdFromResponse(resp.headers)
       if (!resp.ok || !resp.body) {
+        // 2026-10-26:access 过期(15 分钟)在流式通道上表现为"聊一半提示登录过期"。
+        // 401 且尚未续过 ⇒ 交给调用方换票(它负责改写 headers 里的 Authorization),成功则原地重试一次。
+        // 只在 HTTP 层判定:此时还没消费任何帧,重放不会产生重复内容。
+        if (resp.status === 401 && opts.refreshAuth && !authRefreshed) {
+          authRefreshed = true
+          const refreshed = await opts.refreshAuth()
+          if (refreshed) {
+            attempt++
+            continue
+          }
+        }
         const text = await resp.text().catch(() => '')
         // 与另两条腿共用同一个派生出口(空白 body 走兜底、message 优先于 detail、errorCode 一并取出),
         // 本腿只在出口之后追加 SSE 消费方约定的 `（status）` 后缀。
@@ -3301,6 +3555,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // 注入 X-Requested-With 配合后端 CSRF 防护(无 Bearer token 时走 cookie 兜底路径)
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
+  // 2026-10-26:401 续期只做一次(与各条 REST 腿同一口径)
+  // 「只续一次」这道闸住在 runResumableSSEStream 内(其 authRefreshed 变量):
+  // runner 是本函数内唯一的流式执行体,401 续期后仍 401 ⇒ runner 不再回调本处。
+  // 本处原先另持一道 sseAuthRefreshed 闸 —— 与 runner 的闸语义重复,且因 runner
+  // 根本不会发起第二次 refreshAuth 调用,那道闸恒为 false(死代码)。
+  // 2026-10-26 收口:两道闸并存的形态已撤,单一真相源 = runner 的 authRefreshed。
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
 
@@ -3316,7 +3576,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // P1 #26:仅显式关闭时传 false(undefined/true 走后端默认开,不注入该 key 减小请求体积)
   if (opts.knowledgeContext === false) body.knowledgeContext = false
   if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
-  if (opts.agentId) body.agentId = opts.agentId
+  // D01(2026-10-25 立):已绑 agentId 优先;未绑 agent 而选了对话内 persona 时,
+  // 用同一个传输槽把 persona id 送上行(ai-service 据此并入 system 提示与工具白名单)。
+  const boundAgentId = opts.agentId ?? opts.personaId
+  if (boundAgentId) body.agentId = boundAgentId
   if (opts.agentTools && opts.agentTools.length > 0) body.agentTools = opts.agentTools
   // V3 #58(2026-09-26 立):权限模式档位透传。api-client 仅在字段存在时写入 body;
   // 网关 schema 已声明 permissionMode(否则 zod strip 静默丢弃,链路掐断),
@@ -3837,6 +4100,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           // D159:执行环境/网络目标事实必须随帧递出 —— 解析层不递 ⇒ 弹窗那一块
           // 结构上永远是"字段缺席=整块不渲染",组件测得再全也到不了端。
           ...projectToolApprovalEnvFacts(json),
+          // D-07(2026-10-26):失效留痕帧原样递出 expired 标记,消费方据此分流成提示
+          // 而不是弹窗。与 replay 同理 —— 解析层不递,端上就永远看不到"丢过什么"。
+          ...projectToolApprovalExpiredFact(json),
         })
       } catch {
         /* 非 JSON 或非 tool-approval 事件忽略 */
@@ -4878,7 +5144,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
       const delta = parseStreamLine(line)
       if (delta) {
-        const agentId = hasAgentDelta ? extractAgentId(line) : undefined
+        const chunkAgentId = hasAgentDelta ? extractAgentId(line) : undefined
+        // D01(2026-10-25 立):persona 选择走 agentId 上行时,网关会给每条 data 行
+        // 回贴同一个 agentId(= 所选 persona)。那不是子代理,正文归属主对话 ——
+        // 同一 id 的 chunk 降级回 onDelta,避免整轮回复被塞进 subagent 卡片。
+        const echoedByPersona = chunkAgentId !== undefined && chunkAgentId === opts.personaId
+        const agentId = echoedByPersona ? undefined : chunkAgentId
         if (agentId) emitAgentDelta(agentId, delta)
         else emitDelta(delta)
         debugChunkTimer?.mark('delta', delta, line)
@@ -4921,6 +5192,15 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       },
       onLine: (line) => processLine(line),
       onReconnect: (retryAttempt, delayMs) => opts.onReconnect?.(retryAttempt, delayMs),
+      // 2026-10-26:流式通道遇 401(access 15 分钟过期)续期一次并改写本次请求头;
+      // runner 在原地重试,不需要调用方重开会话。
+      // 「只续一次」由 runner 的 authRefreshed 闸保证(见上方声明),本回调不再自持闸。
+      refreshAuth: async () => {
+        const fresh = await refreshAccessTokenOnce()
+        if (!fresh) return false
+        headers['Authorization'] = `Bearer ${fresh}`
+        return true
+      },
     })
     reportRecoveryGateLedger()
     opts.onDone?.()
@@ -5061,11 +5341,17 @@ export async function postToolResult(
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
-    resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/tool-result`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tool_call_id: toolCallId, result, error: toWireError(error) }),
-    })
+    // 2026-10-26:本腿此前**完全不带 Authorization**(只靠 15 分钟的 cookie 兜底),
+    // access 一过期就永久 401 ⇒ 用户表现为"工具执行完了但 AI 那边没反应"。
+    // 走包内唯一裸 fetch 出口:补 Bearer + 401 续期后重放一次(body 是 JSON string,可重放)。
+    resp = await fetchWithAuthRefresh(
+      `${aiServiceUrl}/llm/complete/stream/${sessionId}/tool-result`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool_call_id: toolCallId, result, error: toWireError(error) }),
+      },
+    )
   } catch (e) {
     throw new Error(
       `postToolResult network error (session=${sessionId}, tool=${toolCallId}): ${(e as Error).message}`,
@@ -5115,20 +5401,25 @@ export async function postToolApprovalResponse(input: {
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
-    resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${input.sessionId}/approval-response`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        approval_id: input.approvalId,
-        decision: input.decision,
-        ...(input.scope !== undefined ? { scope: input.scope } : {}),
-        // 空原因不携带(与"用户没说原因"区分于"说了个空原因")
-        ...(input.reason !== undefined && input.reason !== '' ? { reason: input.reason } : {}),
-        // D158:第四档批准时随 approve 一并上送(与后端 grant_rule 校验同形;
-        // 缺省不携带 = 旧客户端语义,不生成任何规则)
-        ...(input.grantRule ? { grant_rule: input.grantRule } : {}),
-      }),
-    })
+    // 2026-10-26:同 postToolResult —— 原实现不带 Authorization,access 过期后
+    // "点批准"永久 401(AI 侧审批协程一直等)。走包内唯一裸 fetch 出口续期并重放一次。
+    resp = await fetchWithAuthRefresh(
+      `${aiServiceUrl}/llm/complete/stream/${input.sessionId}/approval-response`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approval_id: input.approvalId,
+          decision: input.decision,
+          ...(input.scope !== undefined ? { scope: input.scope } : {}),
+          // 空原因不携带(与"用户没说原因"区分于"说了个空原因")
+          ...(input.reason !== undefined && input.reason !== '' ? { reason: input.reason } : {}),
+          // D158:第四档批准时随 approve 一并上送(与后端 grant_rule 校验同形;
+          // 缺省不携带 = 旧客户端语义,不生成任何规则)
+          ...(input.grantRule ? { grant_rule: input.grantRule } : {}),
+        }),
+      },
+    )
   } catch (e) {
     throw new Error(
       `postToolApprovalResponse network error (session=${input.sessionId}, approval=${input.approvalId}): ${(e as Error).message}`,
@@ -5200,18 +5491,22 @@ export async function postFormResponse(sessionId: string, event: FormResponseEve
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
-    resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/form-response`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        request_id: event.requestId,
-        kind: event.kind,
-        action: event.action,
-        ...(event.values ? { values: event.values } : {}),
-        ...(event.rejectReason ? { reject_reason: event.rejectReason } : {}),
-        ...(event.messageId ? { message_id: event.messageId } : {}),
-      }),
-    })
+    // 2026-10-26:同 postToolResult —— 补 Bearer + 401 续期后重放一次。
+    resp = await fetchWithAuthRefresh(
+      `${aiServiceUrl}/llm/complete/stream/${sessionId}/form-response`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: event.requestId,
+          kind: event.kind,
+          action: event.action,
+          ...(event.values ? { values: event.values } : {}),
+          ...(event.rejectReason ? { reject_reason: event.rejectReason } : {}),
+          ...(event.messageId ? { message_id: event.messageId } : {}),
+        }),
+      },
+    )
   } catch (e) {
     throw new Error(
       `postFormResponse network error (session=${sessionId}, request=${event.requestId}): ${(e as Error).message}`,
@@ -5253,14 +5548,19 @@ export async function postTerminalInput(
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
-    resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/terminal-input`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        terminal_id: input.terminalId,
-        text: input.text,
-      }),
-    })
+    // 2026-10-26:同 postToolResult —— 补 Bearer + 401 续期后重放一次。
+    // 重放安全:401 的那一趟**没有被服务端接受**(鉴权层就回了),不存在"键入送两遍"。
+    resp = await fetchWithAuthRefresh(
+      `${aiServiceUrl}/llm/complete/stream/${sessionId}/terminal-input`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          terminal_id: input.terminalId,
+          text: input.text,
+        }),
+      },
+    )
   } catch (e) {
     // 报错面同样不得带上 text —— 只报 id 与原因。
     throw new Error(
@@ -5323,7 +5623,8 @@ export async function postSessionGoal(
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
-    resp = await fetch(`${aiServiceUrl}/api/llm/sessions/${sessionId}/goal`, {
+    // 2026-10-26:同 postToolResult —— 补 Bearer + 401 续期后重放一次。
+    resp = await fetchWithAuthRefresh(`${aiServiceUrl}/api/llm/sessions/${sessionId}/goal`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -5456,7 +5757,8 @@ export async function listMyGoals(limit = 100): Promise<MyGoalRow[]> {
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
-    resp = await fetch(
+    // 2026-10-26:同族裸 fetch 腿 —— 补 Bearer + 401 续期后重放一次(GET 无 body,恒可重放)。
+    resp = await fetchWithAuthRefresh(
       `${aiServiceUrl}/api/sessions/goals?limit=${encodeURIComponent(String(limit))}`,
     )
   } catch (e) {

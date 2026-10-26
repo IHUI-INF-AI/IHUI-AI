@@ -12,6 +12,7 @@ import {
   refreshAccessToken,
   onUnrecoverableUnauthorized,
   isSessionLoggedOut,
+  startTokenAutoRefresh,
 } from './utils/auth'
 import { consumeSsoCode } from './utils/sso'
 import { initPrivacyGuard } from './utils/privacy'
@@ -39,6 +40,7 @@ import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import { initTheme } from './lib/theme'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import { initCrashReport } from './utils/crash-report'
+import { startPageViewTracking } from './utils/visit-tracker'
 import './app.css'
 
 // 初始化 api-client:注入 Taro transport + token provider + baseUrl
@@ -53,6 +55,8 @@ setBaseUrl(BASE_URL.replace(/\/api$/, ''))
 setTransport(createTaroTransport())
 setStreamTransport(createTaroStreamTransport())
 setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
+// 2026-10-26:主动续期(此前只有 401 兜底;空闲 15 分钟后首次操作必先失败一次)
+startTokenAutoRefresh()
 
 // 2026-08-06: 全局崩溃捕获上报(onError + onUnhandledRejection → /api/crash-reports)
 initCrashReport()
@@ -130,6 +134,12 @@ function NetworkStatusHandler() {
         Taro.showToast({ title: t('error.network'), icon: 'none', duration: 2000 })
       }
     })
+  })
+
+  // 页面访问埋点:小程序端没有全局路由钩子,用页面栈轮询(见 utils/visit-tracker 头注)。
+  // 单独一个 useLaunch:上面那块的守卫只覆盖网络监听,不应把埋点一起短路。
+  useLaunch(() => {
+    startPageViewTracking()
   })
   return null
 }

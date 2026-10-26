@@ -12,7 +12,7 @@
 // AI_HUB_ITEMS / PERSONAL_HUB_ITEMS,由域入口页(/domains/ai、/domains/personal)经
 // DomainHub → useNavVisibilityFilter 消费,档位判据照旧生效(两层过滤一处出口)。
 // 于是本锁分两面计量:① 侧边栏树(还留在 NAV_GROUPS 的项)/ ② AI 域清单。
-// 只量①的话,40 项档位归属搬到域页后这把尺子就会瞎掉 —— 那正是本锁立时要防的失效型。
+// 只量①的话,41 项档位归属搬到域页后这把尺子就会瞎掉 —— 那正是本锁立时要防的失效型。
 import { describe, it, expect } from 'vitest'
 import {
   AI_HUB_ITEMS,
@@ -35,7 +35,7 @@ describe('侧边栏简洁模式:可见项计量', () => {
     // role 过滤后 adminOnly / permission 项已剔除(管理分组整组不可见)。
     // 28 = 首页 1 + 热门 1 + AI 域入口 1 + 教育/内容/交易域入口 3 + 个人域入口 1
     //      + 开发者域(入口父项 + 20 子项,普通用户可见)21
-    // —— AI 域那 53 项 2026-10-23 起在域入口页面上,不在本面(见下面那一条)。
+    // —— AI 域那 54 项 2026-10-23 起在域入口页面上,不在本面(见下面那一条)。
     // 变更 NAV_GROUPS 时须同步更新本数字与本注释。
     expect(flattenNavItems(sidebarTree()).length).toBe(28)
   })
@@ -50,18 +50,19 @@ describe('侧边栏简洁模式:可见项计量', () => {
     expect(simplified).toBe(7)
   })
 
-  it('AI 域清单四档全隐藏后收掉 40 项(收敛没让档位判据失效)', () => {
-    // 40 = 中转站后台 16(/models 的 relayOps 子项)+ 高级 AI 工具 15(14 子项 + 父项 /memory)
-    //      + 实验性 9(agent-workbench/agent-canvas/web-tools/figma-import/voices/checkin
-    //        + 知识库里的 repo-wiki/knowledge-cards/team-knowledge)
+  it('AI 域清单四档全隐藏后收掉 41 项(收敛没让档位判据失效)', () => {
+    // 41 = 中转站后台 16(/models 的 relayOps 子项)+ 高级 AI 工具 15(14 子项 + 父项 /memory)
+    //      + 实验性 10(agent-workbench/agent-canvas/web-tools/figma-import/voices/checkin
+    //        + 知识库里的 repo-wiki/knowledge-cards/team-knowledge
+    //        + 个人号池 /account-pool,2026-10-23 随 b23f01cf21 入本域并标 experimental)
     // 手算极易漏掉那个"+父项":「高级 AI 工具」整组对用户无价值,故连父项一起隐藏;
     // 而 /models 恰恰相反,父项必须保留以承载 overview/usage,只能逐子项标注。
-    // 53 = AI_HUB_ITEMS flatten 全量(普通用户 role 过滤不掉任何一项,本域无权限点)。
+    // 54 = AI_HUB_ITEMS flatten 全量(普通用户 role 过滤不掉任何一项,本域无权限点)。
     const all = itemsForNormalUser(AI_HUB_ITEMS)
     const full = flattenNavItems(all).length
     const simplified = flattenNavItems(filterNavItemsByTier(all, ALL_NAV_TIERS)).length
-    expect(full).toBe(53)
-    expect(full - simplified).toBe(40)
+    expect(full).toBe(54)
+    expect(full - simplified).toBe(41)
     expect(simplified).toBe(13)
   })
 

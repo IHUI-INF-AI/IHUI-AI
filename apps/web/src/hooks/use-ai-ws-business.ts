@@ -6,7 +6,9 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { fetchWsTicket, refreshAccessTokenOnce } from '@ihui/api-client'
 import { toast } from '@/components/common'
+import { getStreamBaseUrl } from '@/lib/api'
 
 import { type AIWSProvider, PROVIDER_PATHS } from '@/hooks/use-ai-websocket'
 import { useAuthStore } from '@/stores/auth'
@@ -496,84 +498,129 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
     [modelName, onClearThinkingProcessLogic, t],
   )
 
-  /** 方法 3:浏览器 new WebSocket + onOpen/onMessage/onError/onClose */
+  /**
+   * 方法 3:浏览器 new WebSocket + onOpen/onMessage/onError/onClose
+   *
+   * 2026-10-26 修「access 过期后连不上、也永远不会换新」两条:
+   *  ① 凭据改为**短期 WS 票**(POST /ws/ticket;access 只走 Authorization 头,不再经 URL
+   *     落进访问日志)。换票失败按既有约定降级直连 access(服务端 wsAuth 兼容双 token)——
+   *     降级不是错误,不得因此报错。
+   *  ② "一次都没开成"的握手 = 鉴权被拒(4001/4003/1006 在这一层看不出区别)⇒ 续期一次
+   *     并用新凭据重连一次;续期失败、或重连那轮仍未开成 ⇒ 才落回既有可见报错。
+   *     红线:这里绝不调 logout/expireSession —— 网络抖动与"判不出"都不是会话终结的理由。
+   */
+  const connectInnerRef = React.useRef<
+    (param: WebSocketSendParam, newIndex: number, name: AiModelKey, afterAuthRetry: boolean) =>
+      Promise<void>
+  >(async () => {})
+
+  connectInnerRef.current = async (param, newIndex, name, afterAuthRetry) => {
+    if (typeof window === 'undefined') return
+    const token = useAuthStore.getState().token
+    if (!token) {
+      setLoading(false)
+      toast.error(tc('loginRequired'))
+      return
+    }
+    const provider = modelToProvider(name)
+    const path = wsPath !== DEFAULT_WS_PATH ? wsPath : PROVIDER_PATHS[provider]
+    // 换票内部已带 10s 超时与全链降级;null = 没换到,直连旧形态(服务端兼容)。
+    const ticket = await fetchWsTicket(getStreamBaseUrl(), token)
+    const socketUrl = buildWsUrl(path, ticket ?? token)
+
+    /** 可见失败出口(与改造前的 onerror 逐字同形,只是被两处复用) */
+    const reportConnectError = (): void => {
+      setTalking(false)
+      setLoading(false)
+      setAgentContentList((prev) => [
+        ...prev,
+        {
+          content: t('connectError'),
+          content1: '',
+          imgUrlList: [],
+          totalTokens: 0,
+          isHaveSikao: false,
+        },
+      ])
+      onClearThinkingProcessLogic?.()
+    }
+
+    let ws: WebSocket
+    try {
+      ws = new WebSocket(socketUrl)
+    } catch {
+      setLoading(false)
+      setAgentContentList((prev) => [
+        ...prev,
+        {
+          content: t('connectFailed'),
+          content1: '',
+          imgUrlList: [],
+          totalTokens: 0,
+          isHaveSikao: false,
+        },
+      ])
+      toast.error(t('connectFailedShort'))
+      return
+    }
+    // 2026-08-02 修复 P1 内存泄露:覆盖旧引用前先关闭旧 WebSocket,
+    // 避免用户快速点击多次发送创建多个未关闭 WS 导致内存泄露和消息混乱。
+    if (socketTaskRef.current) {
+      try {
+        socketTaskRef.current.close()
+      } catch {
+        /* ignore */
+      }
+    }
+    socketTaskRef.current = ws
+
+    // 「这一次连接有没有开成过」是判"握手被拒"与"开着开着断了"的唯一可观测事实,
+    // 不能拿 onerror/onclose 本身当分档依据(两者在两种成因下都会响)。
+    let opened = false
+
+    ws.onopen = () => {
+      opened = true
+      sendTask(param)
+    }
+
+    ws.onmessage = (event: MessageEvent) => {
+      handleWebSocketMessage({ data: event.data }, newIndex, name)
+    }
+
+    ws.onerror = () => {
+      // 握手期失败且本轮还没续过期 ⇒ 先让路给 onclose 那条"续期一次+重连一次",
+      // 现在报错等于把一次可自行恢复的过期渲染成"连接失败"。
+      if (!opened && !afterAuthRetry) return
+      reportConnectError()
+      try {
+        ws.close()
+      } catch {
+        /* ignore */
+      }
+    }
+
+    ws.onclose = () => {
+      if (!opened && !afterAuthRetry) {
+        void (async () => {
+          const fresh = await refreshAccessTokenOnce()
+          if (fresh) {
+            await connectInnerRef.current(param, newIndex, name, true)
+            return
+          }
+          reportConnectError()
+        })()
+        return
+      }
+      setTalking(false)
+      setLoading(false)
+    }
+  }
+
   const connectWebSocket = React.useCallback(
     (param: WebSocketSendParam, newIndex: number, name: AiModelKey) => {
-      if (typeof window === 'undefined') return
-      const token = useAuthStore.getState().token
-      if (!token) {
-        setLoading(false)
-        toast.error(tc('loginRequired'))
-        return
-      }
-      const provider = modelToProvider(name)
-      const path = wsPath !== DEFAULT_WS_PATH ? wsPath : PROVIDER_PATHS[provider]
-      const socketUrl = buildWsUrl(path, token)
-
-      let ws: WebSocket
-      try {
-        ws = new WebSocket(socketUrl)
-      } catch {
-        setLoading(false)
-        setAgentContentList((prev) => [
-          ...prev,
-          {
-            content: t('connectFailed'),
-            content1: '',
-            imgUrlList: [],
-            totalTokens: 0,
-            isHaveSikao: false,
-          },
-        ])
-        toast.error(t('connectFailedShort'))
-        return
-      }
-      // 2026-08-02 修复 P1 内存泄露:覆盖旧引用前先关闭旧 WebSocket,
-      // 避免用户快速点击多次发送创建多个未关闭 WS 导致内存泄露和消息混乱。
-      if (socketTaskRef.current) {
-        try {
-          socketTaskRef.current.close()
-        } catch {
-          /* ignore */
-        }
-      }
-      socketTaskRef.current = ws
-
-      ws.onopen = () => {
-        sendTask(param)
-      }
-
-      ws.onmessage = (event: MessageEvent) => {
-        handleWebSocketMessage({ data: event.data }, newIndex, name)
-      }
-
-      ws.onerror = () => {
-        setTalking(false)
-        setLoading(false)
-        setAgentContentList((prev) => [
-          ...prev,
-          {
-            content: t('connectError'),
-            content1: '',
-            imgUrlList: [],
-            totalTokens: 0,
-            isHaveSikao: false,
-          },
-        ])
-        onClearThinkingProcessLogic?.()
-        try {
-          ws.close()
-        } catch {
-          /* ignore */
-        }
-      }
-
-      ws.onclose = () => {
-        setTalking(false)
-        setLoading(false)
-      }
+      void connectInnerRef.current(param, newIndex, name, false)
     },
-    [wsPath, sendTask, handleWebSocketMessage, onClearThinkingProcessLogic, t, tc],
+    [],
   )
 
   /** 方法 1:WebSocket 入口 — 构建 param + sendTask/connectWebSocket */

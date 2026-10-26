@@ -48,106 +48,6 @@ vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: vi.fn(), goBack: vi.fn() }),
 }))
 
-vi.mock('react-native', async () => {
-  const { createElement } = await import('react')
-  const mk = (tag: string) =>
-    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-      const { style: rawStyle, onPress, ...rest } = props
-      const style = typeof rawStyle === 'function' ? rawStyle({ pressed: false }) : rawStyle
-      const mergedStyle = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style
-      // 真身按钮已收进「外层承槽位 + 内层承按压态」两层形态(8c2586781):
-      // children 是 ({pressed}) => ReactNode 渲染函数,桩不求值则按钮文本整体不渲染。
-      const children =
-        typeof props.children === 'function'
-          ? (props.children as (s: { pressed: boolean }) => ReactNode)({ pressed: false })
-          : props.children
-      return createElement(tag, { ...rest, onClick: onPress, style: mergedStyle }, children)
-    }
-  const FlatList = (props: {
-    data?: Array<Record<string, unknown>>
-    renderItem?: (info: { item: Record<string, unknown> }) => ReactNode
-    ListEmptyComponent?: ReactNode
-    keyExtractor?: (item: Record<string, unknown>) => string
-    [k: string]: unknown
-  }) => {
-    if (!props.data || props.data.length === 0) return props.ListEmptyComponent || null
-    return createElement(
-      'div',
-      null,
-      props.data.map((item, i) =>
-        createElement(
-          'div',
-          { key: props.keyExtractor?.(item) || i },
-          props.renderItem?.({ item }),
-        ),
-      ),
-    )
-  }
-  /**
-   * 屏幕状态四件套(ScreenStates,枚 d723f8bc9b37 起为共享屏的 Shimmer/按压动画)在渲染期
-   * 使用 Animated.loop/sequence/timing/spring/Value/View + Easing。内联 mock 缺这组导出
-   * ⇒ 整文件加载/渲染期抛「No "Animated" export is defined on the "react-native" mock」。
-   * 与真实 RN 的 Animated 面同形的 no-op 桩(start 回调带 finished:true,保证 useEffect 清理可达)。
-   */
-  const anim = {
-    start: (cb?: (r: { finished: boolean }) => void) => {
-      cb?.({ finished: true })
-      return anim
-    },
-    stop: () => {},
-  }
-  const mkAnimValue = () => ({
-    setValue: () => {},
-    interpolate: (cfg: { outputRange?: number[] }) => cfg.outputRange?.[0] ?? 1,
-  })
-  function AnimatedValue() {
-    return mkAnimValue()
-  }
-  const Animated = {
-    View: mk('div'),
-    Value: AnimatedValue,
-    timing: () => anim,
-    spring: () => anim,
-    loop: () => anim,
-    sequence: () => anim,
-    parallel: () => anim,
-  }
-  const Easing = {
-    ease: (t: number) => t,
-    linear: (t: number) => t,
-    in: (f: (t: number) => number) => f,
-    out: (f: (t: number) => number) => f,
-    inOut: (f: (t: number) => number) => f,
-  }
-  return {
-    Animated,
-    Easing,
-    // 本套件自建 react-native 替身,而共享替身里的 PixelRatio 不会自动带过来 —— MoreLink 经
-    // PixelRatio.getFontScale() 换算字号倍率,缺它则渲染即抛 "No PixelRatio export"。
-    PixelRatio: {
-      get: () => 1,
-      getFontScale: () => 1,
-      getPixelSizeForLayoutSize: (size: number) => size,
-      roundToNearestPixel: (size: number) => size,
-    },
-    // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
-    // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    DevSettings: { reload: () => {} },
-    View: mk('div'),
-    Text: mk('span'),
-    TouchableOpacity: mk('button'),
-    Pressable: mk('button'),
-    FlatList,
-    ActivityIndicator: () => createElement('div', null, 'loading'),
-    Modal: (props: { visible?: boolean; children?: ReactNode }) =>
-      props?.visible ? createElement('div', null, props.children) : null,
-    RefreshControl: () => null,
-    useColorScheme: () => 'light',
-    StyleSheet: { create: (s: Record<string, unknown>) => s },
-  }
-})
-
 vi.mock('@ihui/ui-native', () => ({
   Button: (props: {
     children?: ReactNode
@@ -225,8 +125,12 @@ describe('PaymentScreen 支付流程', () => {
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.syncStatus'))
-    await waitFor(() => expect(apiMocks.syncPaymentStatus).toHaveBeenCalledWith('ORD-001'))
-    await waitFor(() => expect(getByText('payment.syncSuccess')).toBeTruthy())
+    // 链:click → await syncPaymentStatus → setToast。成功 toast 是链终点(每步都 await,
+    // 终点出现即证明调用发生过)⇒ 只等终点一次,前序降级为同步断言(形态同先例 e4989cbb9e)。
+    await waitFor(() => expect(getByText('payment.syncSuccess')).toBeTruthy(), { timeout: 8_000 })
+    expect(apiMocks.syncPaymentStatus, '没调同步接口就出成功 toast = 假阳').toHaveBeenCalledWith(
+      'ORD-001',
+    )
   })
 
   it('同步支付状态失败:显示失败 toast', async () => {
@@ -254,8 +158,11 @@ describe('PaymentScreen 支付流程', () => {
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.cancelOrder'))
-    await waitFor(() => expect(apiMocks.cancelPaymentOrder).toHaveBeenCalledWith('ORD-001'))
-    await waitFor(() => expect(getByText('payment.cancelSuccess')).toBeTruthy())
+    // 链:click → await cancelPaymentOrder → setToast。只等终点 toast 一次,调用断言降级为同步。
+    await waitFor(() => expect(getByText('payment.cancelSuccess')).toBeTruthy(), { timeout: 8_000 })
+    expect(apiMocks.cancelPaymentOrder, '没调取消接口就出成功 toast = 假阳').toHaveBeenCalledWith(
+      'ORD-001',
+    )
   })
 
   it('取消订单失败:显示失败 toast', async () => {
@@ -339,18 +246,26 @@ describe('PaymentScreen 支付流程', () => {
     fireEvent.click(getByText('payment.payNow'))
     // ConfirmPurchasePopUp 弹窗,"确认支付"同时出现在 title 和 button 上,点击第二个(button)
     await waitFor(() => {
-      const confirmBtns = getAllByText('payment.confirm')
+      const confirmBtns = getAllByText('确认支付')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('payment.confirm')[1]!)
-    await waitFor(() =>
-      expect(apiMocks.createWechatAppPayment).toHaveBeenCalledWith({
+    fireEvent.click(getAllByText('确认支付')[1]!)
+    // 链:confirm → await createWechatAppPayment → await openWeChatPayment → setToast(paySuccess)。
+    // paySuccess toast 是整条链的唯一终点:每步都 await,终点出现即证明前两跳都发生过 ⇒ 只等一次。
+    // 立因与预算同先例 e4989cbb9e:多段串行 waitFor 各带一份等待预算,在并发跑 200+ 道守门的同机
+    // 上会被事件循环饿死打成假红;8s 仍低于 vitest.config 的 testTimeout 10s。断言一条不减,
+    // 前序各跳降级为同步断言(终点已保证它们发生过)。
+    await waitFor(() => expect(getByText('payment.paySuccess')).toBeTruthy(), { timeout: 8_000 })
+    expect(apiMocks.createWechatAppPayment, '没创建订单就出成功 toast = 假阳').toHaveBeenCalledWith(
+      {
         amount: 9950,
         description: '测试订单',
-      }),
+      },
     )
-    await waitFor(() => expect(wechatPayMock.openWeChatPayment).toHaveBeenCalled())
-    await waitFor(() => expect(getByText('payment.paySuccess')).toBeTruthy())
+    expect(
+      wechatPayMock.openWeChatPayment,
+      '没调起微信支付就出成功 toast = 假阳',
+    ).toHaveBeenCalled()
   })
 
   it('去支付:用户取消支付,显示取消 toast', async () => {
@@ -381,12 +296,14 @@ describe('PaymentScreen 支付流程', () => {
     fireEvent.click(getByText('payment.payNow'))
     // ConfirmPurchasePopUp 弹窗,点击"确认支付"按钮后用户取消微信支付
     await waitFor(() => {
-      const confirmBtns = getAllByText('payment.confirm')
+      const confirmBtns = getAllByText('确认支付')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('payment.confirm')[1]!)
-    await waitFor(() => expect(wechatPayMock.openWeChatPayment).toHaveBeenCalled())
-    await waitFor(() => expect(getByText('payment.payCancelled')).toBeTruthy())
+    fireEvent.click(getAllByText('确认支付')[1]!)
+    // 链:confirm → create 成功 → await openWeChatPayment(返回 false) → setToast(payCancelled)。
+    // 取消 toast 是终点,只等一次;openWeChatPayment 降级为同步断言。
+    await waitFor(() => expect(getByText('payment.payCancelled')).toBeTruthy(), { timeout: 8_000 })
+    expect(wechatPayMock.openWeChatPayment, '没调起支付就出取消 toast = 假阳').toHaveBeenCalled()
   })
 
   it('去支付:微信未安装,显示未安装 toast', async () => {
@@ -417,10 +334,10 @@ describe('PaymentScreen 支付流程', () => {
     fireEvent.click(getByText('payment.payNow'))
     // 先弹出 ConfirmPurchasePopUp,点击确认按钮后再触发微信支付
     await waitFor(() => {
-      const confirmBtns = getAllByText('payment.confirm')
+      const confirmBtns = getAllByText('确认支付')
       expect(confirmBtns.length).toBeGreaterThanOrEqual(2)
     })
-    fireEvent.click(getAllByText('payment.confirm')[1]!)
+    fireEvent.click(getAllByText('确认支付')[1]!)
     await waitFor(() => expect(getByText('payment.wechatNotInstalled')).toBeTruthy())
   })
 })

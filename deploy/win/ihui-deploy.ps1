@@ -31,6 +31,7 @@ param(
     [switch]$diagnose,        # 只读诊断:仓库状态/网络/服务/锁/日志/线上一致性,不做任何构建或迁移
     [switch]$deployLatest,    # 忽略是否落后,强制部署到当前 origin/main
     [switch]$rollbackOnly,    # 仅用上次 .rollback 恢复
+    [switch]$CanaryRollback,  # 配合 -rollbackOnly:本次回滚由 IHUI-DEPLOYLOOP 的金丝雀观察窗判死触发(记账/告警用词随之)
     [switch]$force            # 跳过健康门禁直接切流(谨慎)
 )
 
@@ -2021,13 +2022,22 @@ if (-not $dryrun) { Get-DeployLock }     # 仅实际构建占用;dryrun 只读�
 if ($rollbackOnly) {
     try {
         Do-Rollback
-        # 人工回滚同样进机读台账:事后必须可查"退回到了哪一枚包"。Do-Rollback 内部失败走 Fail/exit,
+        # 回滚同样进机读台账:事后必须可查"退回到了哪一枚包"。Do-Rollback 内部失败走 Fail/exit,
         # 结构上到不了这一行 ⇒ 这里只记成功出口(action 闭集见 scripts/deploy-decision.mjs)。
         $moSha = ''
         if (Test-Path "$WebDir\.next\IHUI_BUILD_SHA") {
             $moSha = ((Get-Content "$WebDir\.next\IHUI_BUILD_SHA" -Raw -ErrorAction SilentlyContinue) | Out-String).Trim()
         }
-        [void](Write-DeployDecision -Action 'manual-rollback' -PrevSha $moSha -GateVerdict 'not-run' -Reason '人工执行 -rollbackOnly,已恢复上一可用包')
+        # 自动回滚与人工回滚必须是两种 action(2026-10-26):金丝雀观察窗判死是机器做的决定,
+        # 记成 manual-rollback 会让复盘分不清"人动的手"还是"门自己退的"。
+        # 告警也只能走本脚本这一条既有出口:守护进程 ihui-deploy-loop.ps1 里**没有**
+        # Invoke-FailNotify(它只活在本文件),在那边直接调用只会抛"命令不存在"并被 catch 吞掉。
+        if ($CanaryRollback) {
+            [void](Write-DeployDecision -Action 'canary-rollback' -PrevSha $moSha -GateVerdict 'fail' -Reason '金丝雀观察窗判定异常,自动恢复上一可用包')
+            try { Invoke-FailNotify -Severity warning -m "金丝雀观察窗异常,已自动回滚:旧版本重新在线,需人工核查部署日志的 CANARY 行" -Detail "错误率/延迟比对明细见 .ihui-agent/deploy-decisions.jsonl 最近一条 action=canary-rollback" -Reason "canary-regression" } catch { Log "ALERT 金丝雀回滚告警发信异常(不影响已回滚):$_" }
+        } else {
+            [void](Write-DeployDecision -Action 'manual-rollback' -PrevSha $moSha -GateVerdict 'not-run' -Reason '人工执行 -rollbackOnly,已恢复上一可用包')
+        }
         exit 0
     } finally { Release-DeployLock }
 }
@@ -2893,7 +2903,12 @@ if (-not (Test-HealthGate)) {
         [void](Write-DeployDecision -Action 'pass' -Sha $buildSha -GateVerdict 'pass' -Reason '健康门禁三项全绿后切流' -ShadowRc $shadowRc)
     }
     Clear-BuildCooldown
-    Remove-Item "$WebDir\.rollback" -Recurse -Force -ErrorAction SilentlyContinue
+    # .rollback 保留到金丝雀观察窗结束(2026-10-26,O65 第 2 期):
+    # 旧写法在成功分支立刻删回滚点,于是守护进程那侧的观察窗一旦判异常就**无包可退**
+    # (`-rollbackOnly` 会以"无可用 .rollback 构建"失败),那条自动回滚腿等于写在纸上。
+    # 删除责任移到唯一知道观察窗结论的一方:ihui-deploy-loop.ps1 在校验通过时摘、
+    # 判死时用它回滚。稳态不会累积多份 —— 下一轮部署的备份步(上方 `Remove-Item $rb` →
+    # `Copy-Item`)会把整份回滚点替换掉,最多多留一份整包副本。
 
     # ── 重启 api(2026-09-13 加):api 为源码直跑,pull 后需重载才能吃到后端新代码 ──
     # 服务名不确定,按候选精确匹配;找不到则跳过(tsx watch 形态会自动重载)

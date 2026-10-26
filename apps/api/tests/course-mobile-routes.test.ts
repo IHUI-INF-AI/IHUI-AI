@@ -49,7 +49,7 @@ afterAll(async () => {
 beforeEach(() => {
   vi.clearAllMocks()
   q.checkAuth.mockResolvedValue(true)
-  q.findLessonById.mockResolvedValue({ id: LESSON_ID, isPublished: true })
+  q.findLessonById.mockResolvedValue({ id: LESSON_ID, isPublished: true, isFree: true })
   q.findLessonChapters.mockResolvedValue([
     { id: 'c1', title: '第一章' },
     { id: 'c2', title: '第二章' },
@@ -106,6 +106,42 @@ describe('GET /api/courses/:id/catalog', () => {
       videoUrl: 'https://cdn.example/a.mp4',
     })
     expect('videoUrl' in kids[1]).toBe(false)
+  })
+
+  it('付费课只给试看小节透出 videoUrl,付费小节不裸发直链(G-31 ①)', async () => {
+    q.findLessonById.mockResolvedValue({ id: LESSON_ID, isPublished: true, isFree: false })
+    q.findLessonSections.mockImplementation(async (chapterId: string) =>
+      chapterId === 'c1'
+        ? [
+            {
+              id: 's1',
+              title: '1.1',
+              duration: 60,
+              videoUrl: 'https://cdn.example/a.mp4',
+              isFree: true,
+            },
+            {
+              id: 's2',
+              title: '1.2',
+              duration: 120,
+              videoUrl: 'https://cdn.example/b.mp4',
+              isFree: false,
+            },
+          ]
+        : [],
+    )
+    const res = await app.inject({ method: 'GET', url: `/api/courses/${LESSON_ID}/catalog` })
+    expect(res.statusCode).toBe(200)
+    const kids = res.json().data[0].children
+    expect(kids[0]).toEqual({
+      id: 's1',
+      title: '1.1',
+      type: 'section',
+      duration: 1,
+      videoUrl: 'https://cdn.example/a.mp4',
+    })
+    expect('videoUrl' in kids[1]).toBe(false)
+    expect(res.body).not.toContain('cdn.example/b.mp4')
   })
 
   it('未发布课程返回 404 且不读章节', async () => {

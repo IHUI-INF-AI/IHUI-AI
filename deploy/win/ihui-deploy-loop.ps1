@@ -289,6 +289,96 @@ function Enter-IhuiLoopLock {
 # 守护重启即清零(首轮不节流)。只认子脚本输出里的 "部署完成,HEAD=" 行 —— behind=0
 # 优雅退出、构建失败都不刷新锚点,否则节流会把"没部署过"误判成"刚部署过"。
 $script:LastDeployDoneAt = $null
+# 本轮真实上线的 sha(从同一行 HEAD= 捕获),金丝雀决策台账按它绑定"哪一枚包被观察过"。
+$script:LastDeploySha = ''
+
+# =============================================================================
+# 金丝雀观察窗(O65 第 2 期「上线闭环」,2026-10-26 立)
+#
+# 补的是健康门禁答不出的那一格:门禁只回答"切流那一刻三项是否真绿",回答不了
+#  ① 新版本相对**上一版**有没有回归(错误率抬了、P95 慢了);
+#  ② 切流后持续几十秒里还稳不稳。
+# 本函数在子部署脚本成功退出后跑一个观察窗:先采候选(新版),与上一轮通过时留下的
+# 基线(旧版实测)按 scripts/data/canary-policy.json 的阈值比对;fail ⇒ 立即调
+# ihui-deploy.ps1 -rollbackOnly 退回上一可用包;unknown ⇒ 只喊不回滚(没证据不动手)。
+#
+# 边界(刻意,不得放宽):
+#  ① 判据只在 scripts/canary-verdict.mjs(纯函数 + 唯一策略文件);本函数只做调度与记账,
+#     不在这里写第二份阈值或"什么算异常";
+#  ② 判定只用源站直探(127.0.0.1):公网腿经 Cloudflare,一次隧道抖动就会把好构建判坏,
+#     等于给发布链加一道恒红门(§12e,与 Test-HealthGate 的 entry-broken 同一条理由);
+#  ③ 记账复用 scripts/deploy-decision.mjs 的唯一构造/追加实现(--record-decision),
+#     本文件不手拼台账 JSON;记账失败只喊,不改"是否回滚";
+#  ④ 返回值 = "本轮是否已经自动回滚"。为 $true 时调用方**不得**再刷绿色态 ——
+#     子脚本已经打过「部署完成」,但观察窗把它撤了,绿色态必须跟着撤。
+#  ⑤ 逃生舱:IHUI_DEPLOY_CANARY=0 时只跳过观察窗(不采样、不回滚),并在日志点名。
+# =============================================================================
+function Invoke-CanaryGate {
+    param([Parameter(Mandatory = $true)][string]$Node)
+    if ("$($env:IHUI_DEPLOY_CANARY)".Trim() -eq '0') {
+        Log "CANARY 跳过(IHUI_DEPLOY_CANARY=0):本轮不采观察窗,也不据此回滚"
+        return $false
+    }
+    $scriptPath = Join-Path $Root 'scripts\canary-verdict.mjs'
+    if (-not (Test-Path -LiteralPath $scriptPath)) {
+        Log "CANARY 未判定:$scriptPath 不存在 ⇒ 不采样、不回滚(部署本身已完成,但观察窗这一格没被看过)"
+        return $false
+    }
+    $policyPath = Join-Path $Root 'scripts\data\canary-policy.json'
+    if (-not (Test-Path -LiteralPath $policyPath)) {
+        Log "CANARY 未判定:策略文件 $policyPath 不存在 ⇒ 不采样、不回滚(判据缺失不回落默认值)"
+        return $false
+    }
+    $stateDir = Join-Path $Root '.ihui-agent\state\canary'
+    try { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null } catch {
+        Log "CANARY 未判定:样本目录写不了($stateDir):$_"
+        return $false
+    }
+    $ledger = Join-Path $Root '.ihui-agent\deploy-decisions.jsonl'
+    $baseline = Join-Path $stateDir 'last-good.jsonl'
+    $candidate = Join-Path $stateDir ("candidate-{0}.jsonl" -f (Get-Date).ToString('yyyyMMdd-HHmmss'))
+    Log "CANARY 观察窗开始(源站直探量错误率/P95;样本=$candidate)"
+    $sampleOut = (& $Node $scriptPath --sample --stage candidate --out $candidate 2>&1 | Out-String)
+    $sampleRc = $LASTEXITCODE
+    foreach ($ln in ($sampleOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [canary] $($ln.Trim())" } }
+    if ($sampleRc -ne 0) {
+        Log "CANARY 未判定:采样失败(rc=$sampleRc)⇒ 不回滚,也不冒充通过"
+        return $false
+    }
+    $dArgs = @($scriptPath, '--decide', '--candidate', $candidate, '--json', '--record-decision', '--deploy-sha', $script:LastDeploySha, '--ledger', $ledger)
+    # 首次运行没有基线 ⇒ 只按绝对阈值判(判断器内部如实记"无基线",本层不补默认值)。
+    if (Test-Path -LiteralPath $baseline) { $dArgs += @('--baseline', $baseline) }
+    $dOut = (& $Node @dArgs 2>&1 | Out-String)
+    $dRc = $LASTEXITCODE
+    foreach ($ln in ($dOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [canary] $($ln.Trim())" } }
+    if ($dRc -eq 0) {
+        # 放量完成:候选样本就是"当前在线版本"的实测 ⇒ 升为下一轮基线(滚动基线),
+        # 然后摘掉本轮回滚点。删除权归本层(子脚本成功分支已不再删,否则这里判死时无包可退);
+        # 下一轮部署的备份步也会整份替换它,所以"多留一会儿"不会累积多份。
+        try { Copy-Item -LiteralPath $candidate -Destination $baseline -Force } catch { Log "CANARY 基线未更新(不影响放量):$_" }
+        try { Remove-Item (Join-Path $Root 'apps\web\.rollback') -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+        Log "CANARY 通过 ⇒ 放量完成(错误率/P95 未超策略阈值,候选样本已升为下一轮基线)"
+        return $false
+    }
+    if ($dRc -eq 3) {
+        Log "CANARY 异常 ⇒ 自动回滚(调 ihui-deploy.ps1 -rollbackOnly -CanaryRollback 退回上一可用包)"
+        # -CanaryRollback 让子脚本按 canary-rollback 记账并发告警:本守护进程里**没有**
+        # Invoke-FailNotify(它只活在 ihui-deploy.ps1),在这里直调只会抛"命令不存在"被 catch 吞掉 ——
+        # 看起来发过信,实际零投递(2026-10-26 现读发现),故告警一律留在子脚本那一条唯一出口。
+        # 子脚本只有 -rollbackOnly 成功才 exit 0;失败走 Fail(自己发信)并 exit 非 0。
+        $rbOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $WinDir 'ihui-deploy.ps1') -rollbackOnly -CanaryRollback 2>&1 | Out-String)
+        $rbRc = $LASTEXITCODE
+        foreach ($ln in ($rbOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [rollback] $($ln.Trim())" } }
+        if ($rbRc -ne 0) {
+            Log "FAIL  金丝雀自动回滚失败(rc=$rbRc)⇒ 需人工介入,绿色态不得刷新"
+            return $true
+        }
+        Log "OK    金丝雀自动回滚完成,旧版本重新在线(告警与 canary-rollback 记账由子脚本出口完成)"
+        return $true
+    }
+    Log "CANARY 未判定(rc=$dRc)⇒ 不回滚、不冒充通过;下一轮部署会重新观察"
+    return $false
+}
 
 function Invoke-PollOnce {
     # ---- 0) 最小部署间隔节流(2026-10-16 根治,见 param 注) ----
@@ -394,7 +484,13 @@ function Invoke-PollOnce {
                                 if ($line.Trim()) { $lastLine = $line }
                                 # [2026-10-16 根治] 只认真实部署完成的标志行刷新节流锚
                                 # (ihui-deploy.ps1 健康门禁通过后打印;失败/behind=0 不含此行)。
-                                if ($line -match '部署完成,HEAD=') { $script:LastDeployDoneAt = Get-Date }
+                                # 同一行顺带取上线 sha(O65 第 2 期金丝雀记账用):与完成锚同源,
+                                # 不去另跑 git rev-parse(那会在子进程退出后再读一次 HEAD,可能已被并发提交换掉)。
+                                # 取到的原文直接交给判据模块做形状校验:读不出时会记成 undetermined(…),不冒充空。
+                                if ($line -match '部署完成,HEAD=') {
+                                    $script:LastDeployDoneAt = Get-Date
+                                    $script:LastDeploySha = (($line -split '部署完成,HEAD=', 2)[1] -replace '\s+活跃组=.*$', '').Trim()
+                                }
                             }
                         }
                         $seen = $sr.BaseStream.Position
@@ -440,17 +536,36 @@ function Invoke-PollOnce {
         }
         $roundRc = $LASTEXITCODE
         $roundMinutes = [Math]::Round(((Get-Date) - $roundStart).TotalMinutes, 2)
+        # 「本轮确实部署完成」的唯一判据:子进程打出「部署完成,HEAD=」且 exit=0,
+        # 完成时刻不早于本轮开始(排掉"上一轮的完成标记被本轮 behind=0 误读成自己的战果")。
+        # 金丝雀观察窗与绿色态都只在这一个判据成立时才有意义。
+        $deployDoneThisRound = ($roundRc -eq 0 -and $null -ne $script:LastDeployDoneAt -and $script:LastDeployDoneAt -ge $roundStart)
         # ---- 2b) 记账与绿色态(O65 O6502 记账腿 / O6503 记号腿)----
         # 记账条件 = 本轮墙钟 ≥1 分钟(真的动过构建/部署);behind=0 的秒退不进账,否则额度被空转吃光。
         if ($roundMinutes -ge 1) {
             $budgetOut = (& $guardNode (Join-Path $Root 'scripts\cost-breaker.mjs') --charge --kind deploy --minutes $roundMinutes --note "deploy-loop rc=$roundRc" 2>&1 | Out-String)
             foreach ($ln in ($budgetOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [budget] $($ln.Trim())" } }
         }
-        # 绿色态只在"本轮确实部署完成"时刷新:子进程打出「部署完成,HEAD=」且 exit=0;
-        # 用时刻比较排掉"上一轮的完成标记被本轮 behind=0 误读成自己的战果"。
-        if ($roundRc -eq 0 -and $null -ne $script:LastDeployDoneAt -and $script:LastDeployDoneAt -ge $roundStart) {
+        # ---- 2c) 金丝雀观察窗(O65 第 2 期「上线闭环」)----
+        # 只观察"刚上线的那一枚包":behind=0 秒退、构建失败、健康门禁回滚都没有新版本可观察。
+        # 判据全在 scripts/canary-verdict.mjs;本层只负责"什么时候观察"和"回滚后不许刷绿"。
+        $canaryRolledBack = $false
+        if ($deployDoneThisRound) {
+            try {
+                $canaryRolledBack = [bool](Invoke-CanaryGate -Node $guardNode)
+            } catch {
+                # 观察窗自己抛异常 ⇒ 说不清"到底回没回滚",按最保守的一侧收口:不刷绿。
+                # (green 记号是"上一个可运行态",在没证据时改写它等于把没量到写成量到了)
+                Log "CANARY 未判定:观察窗异常($($_.Exception.Message))⇒ 不回滚结论未知,本轮不刷新绿色态"
+                $canaryRolledBack = $true
+            }
+        }
+        # 绿色态只在"本轮确实部署完成、且金丝雀没把这一轮撤掉"时刷新。
+        if ($deployDoneThisRound -and -not $canaryRolledBack) {
             $greenOut = (& $guardNode (Join-Path $Root 'scripts\green-state.mjs') --mark --apply --note "deploy-loop ok" 2>&1 | Out-String)
             foreach ($ln in ($greenOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [green] $($ln.Trim())" } }
+        } elseif ($canaryRolledBack) {
+            Log "GREEN 跳过:金丝雀观察窗已撤下本轮(或结论未知),绿色记号保持上一可运行态不前进"
         }
         Log "———— 部署轮询结束(exit=$roundRc) ————"
     } finally {

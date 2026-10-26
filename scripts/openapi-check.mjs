@@ -65,6 +65,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(process.env.OPENAPI_CHECK_ROOT || resolve(__dirname, '..'))
@@ -597,12 +598,10 @@ function getStagedFiles() {
     return process.env.OPENAPI_CHECK_STAGED_FILES.split(/[\n,]/).map((s) => s.trim()).filter(Boolean)
   }
   try {
-    const out = execFileSync('git', ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带绝对路径 git + safe.directory
+    // + core.quotepath=false + -C ROOT + windowsHide + 显式 stdio;原调用无 -C 靠 cwd:ROOT,root 传 ROOT;
+    // 原 stdio[2]='ignore' 与 gitRaw 的 'pipe' 两路等价:成功 stderr 均不外漏,失败均抛错折成 null)
+    const out = gitRaw(['diff', '--cached', '--name-only'], ROOT)
     return out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
   } catch {
     return null

@@ -84,6 +84,19 @@ def bucket():
     _approval_sessions.pop(_SESSION, None)
 
 
+def _fake_request(user_id: str | None = None) -> Any:
+    """承载层身份入参替身(D-07 起 `post_tool_approval_response` 第一个形参是 Request)。
+
+    `_resolve_owner_uuid` 只读 `request.state.user_id`;不给 ⇒ 未启用 JWT 的开发态同形。
+    """
+    from types import SimpleNamespace
+
+    state = SimpleNamespace()
+    if user_id is not None:
+        state.user_id = user_id
+    return SimpleNamespace(state=state)
+
+
 def _payloads(frames: list[str]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for frame in frames:
@@ -122,7 +135,7 @@ def test_decided_approval_is_not_replayed_on_later_reconnect(bucket) -> None:
     entry = _entry()
     bucket[_APPR] = entry
     answered = asyncio.run(
-        post_tool_approval_response(_SESSION, {"approval_id": _APPR, "decision": "approve"})
+        post_tool_approval_response(_fake_request(), _SESSION, {"approval_id": _APPR, "decision": "approve"})
     )
     assert answered["ok"] is True
     assert entry["decision"] == "approve" and entry["event"].is_set()
@@ -171,14 +184,14 @@ def test_answering_after_repeated_reconnects_executes_exactly_once(bucket) -> No
         waiter = asyncio.create_task(_waiter())
         await asyncio.sleep(0)  # 让等待者先挂上 Event(与"断线前就已在下发帧后等待"同序)
         first = await post_tool_approval_response(
-            _SESSION, {"approval_id": _APPR, "decision": "approve"}
+            _fake_request(), _SESSION, {"approval_id": _APPR, "decision": "approve"}
         )
         executions = await asyncio.wait_for(waiter, timeout=1)
         # 生产 finally:决策/超时后条目由等待方摘除(防内存泄漏)
         bucket.pop(_APPR, None)
         # 迟到的第二次点击(用户对两张重放弹窗都点了)
         late = await post_tool_approval_response(
-            _SESSION, {"approval_id": _APPR, "decision": "reject"}
+            _fake_request(), _SESSION, {"approval_id": _APPR, "decision": "reject"}
         )
         return first, executions, late
 

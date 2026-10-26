@@ -9,14 +9,16 @@
  * ai-service 内部优先级:ai_model_config 表(ownerUuid/providerCode 匹配) > .env 环境变量 > stub 降级。
  *
  * .env 已配置的 provider(有真实 API key):
- * - STEPFUN_API_KEY + STEPFUN_API_BASE(OpenAI 兼容)→ 模型前缀 stepfun/*
  * - AGNES_API_KEY + AGNES_API_BASE(OpenAI 兼容)→ 模型前缀 agnes/*
- * 默认模型:LITELLM_MODEL(项目默认 stepfun/step-3.7-flash)
+ * - (stepfun 已于 2026-10-26 因订阅失效被永久除名,不再是可调用的 provider)
+ * 默认模型:经 utils/retired-providers.ts 的唯一解析入口取(调用方显式 → .env LITELLM_MODEL
+ * → 非退役的末位兜底链),本文件不再写死任何 provider 档。
  */
 import { config } from '../config/index.js'
 import { logger } from './clawdbot/logger.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
@@ -51,7 +53,7 @@ export interface ToolCall {
 }
 
 export interface LlmCallOptions {
-  /** 指定模型名(含 provider 前缀,如 stepfun/step-3.7-flash);留空用 LITELLM_MODEL 默认 */
+  /** 指定模型名(含 provider 前缀,如 agnes/agnes-2.5-flash);留空用解析出的默认模型 */
   modelId?: string
   messages: LlmMessage[]
   temperature?: number
@@ -75,8 +77,12 @@ export interface LlmCallResult {
   toolCalls?: ToolCall[]
 }
 
-/** 默认模型(与 .env LITELLM_MODEL 一致) */
-const DEFAULT_MODEL = process.env.LITELLM_MODEL || 'stepfun/step-3.7-flash'
+/**
+ * 默认模型(经 utils/retired-providers.ts 的唯一解析入口取):
+ * 调用方显式模型 → .env LITELLM_MODEL → 非退役的末位兜底链。
+ * stepfun 已于 2026-10-26 永久退役,这里不再写死任何退役档。
+ */
+const DEFAULT_MODEL = resolveDefaultChatModel()
 
 /**
  * 调用 ai-service 的 /api/llm/complete 端点。

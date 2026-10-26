@@ -43,18 +43,7 @@ export const HIGHLIGHT_MODEL_IDS = new Set<string>([
 ])
 
 export const MODEL_DESCRIPTIONS: Record<string, { description: string; features: string[] }> = {
-  'stepfun/step-router-v1': {
-    description: 'StepFun 智能路由,默认主力,适合 tool calling',
-    features: ['Plan', 'Auto-Route'],
-  },
-  'stepfun/step-3.7-flash': {
-    description: 'model.stepfun-3-7-flash.description',
-    features: ['Plan', 'Fast', 'Chinese-Optimized'],
-  },
-  'stepfun/step-3.5-flash': {
-    description: 'model.stepfun-3-5-flash.description',
-    features: ['Plan', 'Fast'],
-  },
+  // 2026-10-26 stepfun 永久退役 ⇒ 原先三档 stepfun 描述已摘除(不留"能选到死路"的档位)。
   'agnes/gpt-4o': {
     description: 'model.agnes-gpt-4o.description',
     features: ['Plan', 'Multimodal'],

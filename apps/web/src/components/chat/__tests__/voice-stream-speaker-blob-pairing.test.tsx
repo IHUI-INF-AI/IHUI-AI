@@ -34,7 +34,12 @@ vi.mock('@/stores/chat', () => ({
   useChatStore: (sel: (s: typeof store) => unknown) => sel(store),
 }))
 vi.mock('@/stores/auth-store', () => ({
-  useWebAuthStore: (sel: (s: { token: string | null }) => unknown) => sel({ token: null }),
+  // 2026-10-26:speakStream 改为建连时 getState() 现取凭据(不再用 render 期订阅到的旧值),
+  // 因此这份 mock 必须同时是"可订阅的 hook"与"可 getState() 的 store"。
+  useWebAuthStore: Object.assign(
+    (sel: (s: { token: string | null }) => unknown) => sel({ token: null }),
+    { getState: () => ({ token: null }) },
+  ),
 }))
 
 const created: string[] = []

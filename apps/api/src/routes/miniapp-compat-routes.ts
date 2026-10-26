@@ -28,8 +28,12 @@ import { z } from 'zod'
 import { eq, and, or, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新增 gte/lt(2026-07-26 /study/calendar 范围查询)
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
+// 绑定手机/邮箱要在写库前消费验证码(与 auth-extended 的 /auth/change-phone/confirm 同一份验证码存储)
+import { verifyCode } from '../utils/code-store.js'
 import { db, dbRead } from '../db/index.js'
-import { findPublishedVideoFeed, findLatestStudyPlanId } from '../db/learn-queries.js'
+import { deductToken } from '../db/commission-queries.js'
+import { findPublishedVideoFeed, findLatestStudyPlanId, findSignUp } from '../db/learn-queries.js'
+import { buildSignedVideoUrl } from '../services/video-sign.js'
 import { USER_PREFERENCE_GROUPS } from '../db/user-preferences-queries.js'
 import {
   lessons,
@@ -53,6 +57,7 @@ import {
   zhsAgentBuy,
   zhsAiUserModelChatHistory,
   userMargins,
+  userTokenBalance,
   tokenFlows,
   commissionFlows,
   withdrawalFlows,
@@ -607,7 +612,20 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /study/groups/:id — 学习分组详情(含小节视频列表)
+  //
+  // P1 收口:本端点此前**无鉴权**且把 lessonChapterSections.videoUrl 桶直链原样下发 ⇒
+  // 任何人按课程 id 即可批量抓走全部云存储直链,绕过 /api/learn/lessons/:id/sections/:sectionId/play
+  // 的签名校验。现在:
+  //  - 需登录(checkAuth,与本文件其它用户端点同一写法);
+  //  - 视频址一律换成指向 /play 的短时签名 URL(buildSignedVideoUrl,payload 与 learn 侧同源,
+  //    resourceId = 小节 id),响应体不再出现桶直链;
+  //  - 付费课的非免费小节按报名记录判(findSignUp,learn 侧既有判据),未报名 ⇒ url 为 null,
+  //    不伪造、不回退直链;
+  //  - 免费课/免费小节:登录即可播,同样只发签名地址(/play 对免费小节只验签名、不查报名);
+  //  - 草稿/未发布课 ⇒ 404(与 /learn/lessons/:id 详情及 /play 同一可见性判据)。
   server.get('/study/groups/:id', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -617,16 +635,20 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       .from(lessons)
       .where(eq(lessons.id, parsed.data.id))
       .limit(1)
-    if (!lessonRows[0]) {
+    if (!lessonRows[0] || !lessonRows[0].isPublished) {
       return reply.status(404).send(error(404, '分组不存在'))
     }
     const lesson = lessonRows[0]
+    // 付费课才查报名;免费课不存在"购买判定"
+    const signedUp = lesson.isFree ? true : Boolean(await findSignUp(lesson.id, userId))
     // 查所有章节的小节作为 videos 列表
     const chapters = await db
       .select()
       .from(lessonChapters)
       .where(eq(lessonChapters.lessonId, parsed.data.id))
       .orderBy(asc(lessonChapters.sortOrder))
+    const host = request.headers.host ?? 'localhost'
+    const origin = `${request.protocol ?? 'http'}://${host}`
     const videos: Array<{
       id: string
       title: string
@@ -642,11 +664,31 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
           url: lessonChapterSections.videoUrl,
           duration: lessonChapterSections.duration,
           chapterId: lessonChapterSections.chapterId,
+          isFree: lessonChapterSections.isFree,
         })
         .from(lessonChapterSections)
         .where(eq(lessonChapterSections.chapterId, ch.id))
         .orderBy(asc(lessonChapterSections.sortOrder))
-      videos.push(...secs)
+      videos.push(
+        ...secs.map((s) => {
+          // 无视频源 ⇒ 保持 null;有源但无权 ⇒ 也置 null(绝不回退桶直链)
+          let url: string | null = null
+          if (s.url && (lesson.isFree || s.isFree || signedUp)) {
+            url = buildSignedVideoUrl({
+              baseUrl: `${origin}/api/learn/lessons/${lesson.id}/sections/${s.id}/play`,
+              userId,
+              resourceId: s.id,
+            }).url
+          }
+          return {
+            id: s.id,
+            title: s.title,
+            url,
+            duration: s.duration,
+            chapterId: s.chapterId,
+          }
+        }),
+      )
     }
     return reply.send(
       success({
@@ -2216,32 +2258,29 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         relatedOrderNo: z.string().max(64).optional(),
       })
       .parse(request.body ?? {})
-    const [margin] = await dbRead
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, userId))
-      .limit(1)
-    const currentBalance = margin?.tokenQuantity ?? 0
-    const balanceAfter = Math.max(0, currentBalance - body.quantity)
-    const [flow] = await db
-      .insert(tokenFlows)
-      .values({
+    // 修前这一格有三重资金缺陷(2026-10-25 实测):
+    //  ① 余额从 **dbRead 副本**读,再在 JS 里算新值,最后 `.set({ tokenQuantity: 绝对值 })`
+    //     整字回写 ⇒ 这一读一写之间任何一笔充值/扣减都被抹掉(经典 lost update,钱会凭空消失);
+    //  ② `Math.max(0, currentBalance - quantity)`:余额不够时**静默清零并照样记全额流水、
+    //     照样回 200** ⇒ 用户被扣光还不算,流水上写的是他"付了"那么多;
+    //  ③ 查不到 margin 行时(`if (margin)`)只插流水、不扣钱 ⇒ 免费购买。
+    // 现复用仓内那一份**守卫式原子扣减**(条件 UPDATE 内联 `token_quantity >= quantity`
+    // + RETURNING,并同事务写流水),不再在本路由里保留第二套算法(§0.6 单一真相源)。
+    let deducted: { balanceAfter: number; flowId: string }
+    try {
+      deducted = await deductToken(
         userId,
-        opType: 1,
-        quantity: body.quantity,
-        balanceAfter,
-        remark: body.remark ?? `agent charge: ${body.agentId ?? 'unknown'}`,
-        relatedOrderNo: body.relatedOrderNo,
-      })
-      .returning()
-    if (!flow) return reply.status(500).send(error(500, '支付流水创建失败'))
-    if (margin) {
-      await db
-        .update(userMargins)
-        .set({ tokenQuantity: balanceAfter, updatedAt: new Date() })
-        .where(eq(userMargins.userId, userId))
+        body.quantity,
+        body.remark ?? `agent charge: ${body.agentId ?? 'unknown'}`,
+        body.relatedOrderNo,
+      )
+    } catch (e) {
+      const message = (e as Error).message || '扣减失败'
+      if (message.includes('Token 余额不足')) return reply.status(402).send(error(402, '余额不足'))
+      request.log.error({ err: e, userId, quantity: body.quantity }, '支付历史扣减失败')
+      return reply.status(500).send(error(500, message))
     }
-    return reply.send(success({ id: flow.id, balanceAfter }))
+    return reply.send(success({ id: deducted.flowId, balanceAfter: deducted.balanceAfter }))
   })
 
   server.put('/agents/charge', async (request, reply) => {
@@ -2364,6 +2403,86 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ nickname: parsed.data.nickname }))
   })
 
+  // POST /user/phone/bind — 绑定手机号(2026-10-25 补建)
+  // 立因:`pkg-user/user/phone.tsx` 与 `components/VerifyCodeModal.tsx` 都调
+  // `post('/user/phone/bind', { phone, code })`,而后端注册面从未有过这一条 ⇒ "绑定手机号"
+  // 这一步每次都是 404,用户点了没反应。判据逐字对齐 auth-extended 的
+  // `/auth/change-phone/confirm`(同一验证码存储 verifyCode 消费一次、同一 409 语义、同一限频);
+  // 差别只在绑定不要求"旧号验证码"—— 账号此前没有手机号,没有旧号可验。
+  server.post(
+    '/user/phone/bind',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const parsed = z
+        .object({
+          phone: z
+            .string()
+            .length(11, '手机号必须为 11 位')
+            .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+          code: z.string().length(6, '验证码必须为 6 位'),
+        })
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { phone, code } = parsed.data
+      if (!(await verifyCode(phone, code)))
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      // users.phone 是 unique:号被别的账号占着不能抢(先查后写,与 change-phone 同一把尺子)
+      const [occupied] = await dbRead
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.phone, phone))
+        .limit(1)
+      if (occupied && occupied.id !== request.userId)
+        return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+      const updated = await db
+        .update(users)
+        .set({ phone, updatedAt: new Date() })
+        .where(eq(users.id, request.userId!))
+        .returning({ id: users.id })
+      if (updated.length === 0) return reply.status(404).send(error(404, '用户不存在'))
+      return reply.send(success({ bound: true, phone }))
+    },
+  )
+
+  // POST /user/email/bind — 绑定邮箱(2026-10-25 补建)
+  // 立因同上:`pkg-user/user/email.tsx` 调 `post('/user/email/bind', { email, code })`,后端无此路由。
+  // 验证码必须与发送端同一份存储(/auth/email/code 写的是 identifier=邮箱的那一条),
+  // 否则就是"发出去的码永远验不过";users.email 也是 unique,占用检查与手机号同型。
+  server.post(
+    '/user/email/bind',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const parsed = z
+        .object({
+          email: z.string().email('邮箱格式不正确'),
+          code: z.string().length(6, '验证码必须为 6 位'),
+        })
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { email, code } = parsed.data
+      if (!(await verifyCode(email, code)))
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      const [occupied] = await dbRead
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1)
+      if (occupied && occupied.id !== request.userId)
+        return reply.status(409).send(error(409, '该邮箱已被其他账号绑定'))
+      const updated = await db
+        .update(users)
+        .set({ email, updatedAt: new Date() })
+        .where(eq(users.id, request.userId!))
+        .returning({ id: users.id })
+      if (updated.length === 0) return reply.status(404).send(error(404, '用户不存在'))
+      return reply.send(success({ bound: true, email }))
+    },
+  )
+
   server.post('/user/password', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = z
@@ -2387,9 +2506,11 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     }
     const passwordHash = await hashPassword(parsed.data.newPassword)
     // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+    // changed 形态(门 198 豁免出口):passwordHash 由 hashPassword 新算(盐随机)必变,恒为真变化。
+    const changed: { passwordHash: string } = { passwordHash }
     const updatedRows = await db
       .update(users)
-      .set({ passwordHash, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(users.id, request.userId!))
       .returning({ id: users.id })
     return reply.send(success({ success: true, updated: updatedRows.length > 0 }))
@@ -2765,27 +2886,41 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     }
     const orderNo = `ord_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`
     // 查询 user_token_balance 余额
-    const rows = await dbRead.execute(
-      sql`SELECT balance FROM user_token_balance WHERE user_uuid = ${userId} LIMIT 1`,
-    )
-    const row = rows[0] as { balance: string | number } | undefined
-    const currentBalance = row ? Number(row.balance) : 0
-    if (currentBalance < coursePrice) {
-      return reply.status(402).send(error(402, '余额不足'))
-    }
-    // 扣减余额
-    await db.execute(
-      sql`UPDATE user_token_balance SET balance = balance - ${coursePrice}, updated_at = now() WHERE user_uuid = ${userId}`,
-    )
-    // 记录 tokenFlows 流水(opType=1 扣减,quantity 取整)
-    await db.insert(tokenFlows).values({
-      userId,
-      opType: 1,
-      quantity: Math.round(coursePrice),
-      balanceAfter: Math.max(0, Math.round(currentBalance - coursePrice)),
-      remark: `course buy: ${course.title}`,
-      relatedOrderNo: orderNo,
+    // 修前:副本读余额 → JS 判够不够 → **无守卫**的 `balance = balance - price` 回写。
+    // 并发两笔可同时通过判定 ⇒ balance 扣成负数;流水里的 balanceAfter 又是拿陈旧读数
+    // 算的、还套了一层 Math.max(0,…) ⇒ 账面既不平也看不出哪一笔越了额。
+    // 现在:够才扣的单条条件语句 + RETURNING 取回真实新值,判定与扣减之间没有窗口。
+    let paidBalance: string | null = null
+    await db.transaction(async (tx) => {
+      // changed 形态(门 198 豁免出口):够才扣的条件语句保证扣成必变(balance sql 表达式)。
+      const changed = { balance: sql`${userTokenBalance.balance} - ${coursePrice}` }
+      const [deducted] = await tx
+        .update(userTokenBalance)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(
+          and(
+            eq(userTokenBalance.userUuid, userId),
+            // balance 是 numeric(20,4) ⇒ Drizzle 侧类型是 string,比较值必须同型传(传 number 直接不匹配重载)
+            gte(userTokenBalance.balance, String(coursePrice)),
+          ),
+        )
+        .returning({ balance: userTokenBalance.balance })
+      if (!deducted) {
+        // 0 行 = 余额不足或该用户还没有余额行 —— 一律按"没扣成"处理,不写流水、不给 paid 回执
+        paidBalance = null
+        return
+      }
+      paidBalance = deducted.balance
+      await tx.insert(tokenFlows).values({
+        userId,
+        opType: 1,
+        quantity: Math.round(coursePrice),
+        balanceAfter: Math.round(Number(deducted.balance)),
+        remark: `course buy: ${course.title}`,
+        relatedOrderNo: orderNo,
+      })
     })
+    if (paidBalance === null) return reply.status(402).send(error(402, '余额不足'))
     return reply.send(
       success({
         orderId: orderNo,

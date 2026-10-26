@@ -171,6 +171,10 @@ const mockChatStore = vi.hoisted(() => {
       // 聚合),message-item-parts.tsx 以叶子选择器订阅 `s.usageByMessageId[messageId]`;
       // 假 store 缺该字段会直接 TypeError(同上款炸法)。
       usageByMessageId: {} as Record<string, unknown>,
+      // 2026-10-24 补齐:D115(G-229)新增 reviewFindingsByMessageId(审查结论按 messageId
+      // 聚合),MessageItem 以叶子选择器订阅 `s.reviewFindingsByMessageId[m.id] ?? null`;
+      // 假 store 缺该字段会直接 TypeError(同上款炸法,本文件第 4 枚)。
+      reviewFindingsByMessageId: {} as Record<string, unknown[]>,
     },
     listeners: new Set<() => void>(),
   }

@@ -28,13 +28,19 @@ import * as path from 'node:path';
 // 当前既无处可说、也无事实可依。现在它由前后两份快照的比对结果驱动。
 // D163 收口刀(2026-10-18 第二轮):比对结论不再只躺在布尔里,而是升成三态
 // `verdict`(unchanged / changed / unknown)并由 `undo-claim-copy.ts` 分派到
-// 七句文案 —— "判不了"与"未变化"从此说不同的话(详见该文件头注)。
+// 八句文案 —— "判不了"与"未变化"从此说不同的话,且"没得撤"与"撤了全失败"
+// 也不再共用同一句(详见该文件头注)。
 import {
   classifyUndoVerdict,
   diffWorkspaceSnapshots,
   snapshotWorkspace,
   type UndoVerdict,
 } from './undo-workspace-state.js';
+// D22046 通道②:动手**之前**把"检查点能不能用"读成结构化事实。
+import {
+  probeUndoCheckpoint,
+  type UndoCheckpointProbe,
+} from './undo-checkpoint-state.js';
 
 /** 单次工具调用产生的文件改动 */
 export interface FileChange {
@@ -56,6 +62,14 @@ export interface UndoResult {
   changes: FileChange[];
   /** 剩余可 undo 的步数 */
   remaining: number;
+  /**
+   * D163 回退不可用原因分档:本轮回退实际**尝试**了几条。
+   *
+   * 0 = 检查点里本来就没有可回滚项(无快照 / 记录读不出来);
+   * >0 而 `undoneSteps===0` = 检查点有条目但回退动作全失败(暂时不可用)。
+   * 这两件事票面给了两句不同的话,靠本字段与 `undoneSteps` 分开选择。
+   */
+  attemptedSteps: number;
   /** D163:回滚**失败**的文件(记录时用的路径写法)。空 = 全部成功。 */
   failedFiles: string[];
   /** D163:撤销失败原因(与 failedFiles 一一对应,逐条点名,不合并成一个大桶)。 */
@@ -84,6 +98,31 @@ export interface UndoResult {
   changedFiles: string[];
   /** D163:部分失败 ⇒ 撤销结果不完整(对应票面 undoPartialWarning 那一态)。 */
   partial: boolean;
+  /** D22046:回退失败涉及的**步数/轮次**(与失败文件数不同:一轮可含多个文件)。 */
+  failedSteps: number;
+  /**
+   * D22046 通道②:撤销**之前**探测到的检查点可用性(结构化,不是日志)。
+   *
+   * 与 `attemptedSteps` 的分工:本字段说明"有没有得撤、索引能不能读",
+   * 后者说明"实际动了几次手"。`status!=='available'` 时本函数不动任何文件,
+   * 上层据此选择"先修检查点"而不是"重试";`available` 而 `undoneSteps===0`
+   * 才是"可用但执行失败",两档在文案与动作上都不许合并。
+   */
+  checkpoint: UndoCheckpointProbe;
+}
+
+/**
+ * D22046 通道③:回退观察器的依赖注入口。
+ *
+ * 生产默认值就是 HEAD 里那一套(快照 / 三态判定 / 差异清单 / 探测),
+ * 注入只为让测试能构造"比对恒真"的变异体 —— 变异必须改的是**注入的依赖**,
+ * 不许为了让用例变绿去改生产判据(§12e/§12f)。
+ */
+export interface UndoRedoDeps {
+  readonly snapshotWorkspace?: typeof snapshotWorkspace;
+  readonly classifyUndoVerdict?: typeof classifyUndoVerdict;
+  readonly diffWorkspaceSnapshots?: typeof diffWorkspaceSnapshots;
+  readonly probeCheckpoint?: (indexFile: string) => UndoCheckpointProbe;
 }
 
 /** /redo 返回 */
@@ -139,9 +178,17 @@ export class UndoRedoManager {
   private readonly workspacePath: string;
   /** 内存缓存:sessionId → history(首次访问时从磁盘 load) */
   private readonly cache: Map<string, SessionHistory> = new Map();
+  private readonly deps: Required<UndoRedoDeps>;
 
-  constructor(workspacePath: string) {
+  constructor(workspacePath: string, deps: UndoRedoDeps = {}) {
     this.workspacePath = workspacePath;
+    this.deps = {
+      snapshotWorkspace,
+      classifyUndoVerdict,
+      diffWorkspaceSnapshots,
+      probeCheckpoint: (indexFile: string) => probeUndoCheckpoint(indexFile),
+      ...deps,
+    };
   }
 
   /** 持久化目录:<workspacePath>/.ihui-agent/undo-history/ */
@@ -175,8 +222,28 @@ export class UndoRedoManager {
    * 从 undoStack 栈顶 pop,反向应用(beforeContent → 文件),push 到 redoStack。
    */
   async undo(sessionId: string, steps: number = 1): Promise<UndoResult> {
+    // D22046 通道②:先探测再动手。索引缺失 / 读不出来 / 条目残缺时,
+    // 一个文件都不碰,并把事实原样交给上层 —— 这条路径与"试了但失败"
+    // 在结果里必须是两种可分辨的形态,否则文案又会退回"一律同一句"。
+    const checkpoint = this.deps.probeCheckpoint(this.getHistoryFile(sessionId));
     this.load(sessionId);
     const history = this.cache.get(sessionId)!;
+    if (checkpoint.status !== 'available') {
+      return {
+        undoneSteps: 0,
+        changes: [],
+        remaining: history.undoStack.length,
+        attemptedSteps: 0,
+        failedFiles: [],
+        failedReasons: [],
+        workspaceUnchanged: true,
+        verdict: 'unchanged',
+        changedFiles: [],
+        partial: false,
+        failedSteps: 0,
+        checkpoint,
+      };
+    }
     const actualSteps = Math.min(steps, history.undoStack.length);
     if (actualSteps <= 0) {
       // 无步可撤:一个字节都没动过(连失败的写入都没发生)⇒ 那句承诺成立。
@@ -185,12 +252,15 @@ export class UndoRedoManager {
         undoneSteps: 0,
         changes: [],
         remaining: history.undoStack.length,
+        attemptedSteps: 0,
         failedFiles: [],
         failedReasons: [],
         workspaceUnchanged: true,
         verdict: 'unchanged',
         changedFiles: [],
         partial: false,
+        failedSteps: 0,
+        checkpoint,
       };
     }
     // 先取出待撤销的 N 条(栈顶 → 栈底),**刻意先不逐条 pop 再 catch**:
@@ -204,7 +274,7 @@ export class UndoRedoManager {
     // D163 第一刀:撤销**前**的快照。之后那句"工作区未发生变化"由这一份与
     // 撤销后的那一份比对得出,而不是由"回滚应该会成功"这个假设得出。
     const watchPaths = pending.map((c) => c.filePath);
-    const before = snapshotWorkspace(watchPaths, this.workspacePath);
+    const before = this.deps.snapshotWorkspace(watchPaths, this.workspacePath);
     const undone: FileChange[] = [];
     const failed: FileChange[] = [];
     const failedFiles: string[] = [];
@@ -228,18 +298,21 @@ export class UndoRedoManager {
       history.undoStack.push(change);
     }
     this.persist(sessionId);
-    const after = snapshotWorkspace(watchPaths, this.workspacePath);
-    const verdict = classifyUndoVerdict(before, after);
+    const after = this.deps.snapshotWorkspace(watchPaths, this.workspacePath);
+    const verdict = this.deps.classifyUndoVerdict(before, after);
     return {
       undoneSteps: undone.length,
       changes: undone,
       remaining: history.undoStack.length,
+      attemptedSteps: pending.length,
       failedFiles,
       failedReasons,
       workspaceUnchanged: verdict === 'unchanged',
       verdict,
-      changedFiles: diffWorkspaceSnapshots(before, after),
+      changedFiles: this.deps.diffWorkspaceSnapshots(before, after),
       partial: failed.length > 0,
+      failedSteps: failed.length,
+      checkpoint,
     };
   }
 

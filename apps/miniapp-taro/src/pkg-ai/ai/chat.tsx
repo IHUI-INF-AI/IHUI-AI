@@ -1116,6 +1116,19 @@ export default function ChatPage() {
             // 的认领层(parseToolApprovalLine)按 api-client 口径解析好,这里只入队去重;
             // 卡片渲染/三档/决议回传见 ToolApprovalCard(tool-approval-card.tsx)。
             onToolApproval: (evt) => {
+              // D-07(2026-10-26):失效留痕帧不弹审批卡 —— 该 approvalId 已无活等待者,
+              // 只给用户一条可读提示(与 web/RN 同一条共享键)。
+              if (evt.expired) {
+                Taro.showToast({
+                  title: tt(
+                    'chat.approvalExpiredNotice',
+                    '工具 {toolName} 的审批已因连接中断失效,该操作未执行;如需继续请重新发起',
+                    { toolName: evt.toolName },
+                  ),
+                  icon: 'none',
+                })
+                return
+              }
               const view: ApprovalRequestView = {
                 approvalId: evt.approvalId,
                 toolName: evt.toolName,

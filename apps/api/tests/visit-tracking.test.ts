@@ -30,6 +30,15 @@ vi.mock('../src/db/visit-tracking-queries.js', () => ({
   getDayPvList: vi.fn().mockResolvedValue([]),
   getDayUvList: vi.fn().mockResolvedValue([]),
   findIpCityList: vi.fn().mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 20 }),
+  getPageUsageList: vi
+    .fn()
+    .mockResolvedValue({ list: [], total: 0, totalPv: 0, page: 1, pageSize: 20 }),
+  visitScopeFilter: vi.fn().mockReturnValue(undefined),
+  VISIT_SCOPE_VALUES: ['public', 'admin', 'auth', 'all'],
+  // 路由的 query schema 直接吃这两个值:mock 少给一个导出,收集期就炸
+  // "No VISIT_PLATFORM_VALUES export is defined on the mock"(HEAD 实测即此型)。
+  visitPlatformFilter: vi.fn().mockReturnValue(undefined),
+  VISIT_PLATFORM_VALUES: ['web', 'rn', 'mp', 'ex', 'all'],
 }))
 
 import { visitTrackingRoutes, adminVisitTrackingRoutes } from '../src/routes/visit-tracking'
@@ -75,6 +84,19 @@ describe('visit-tracking routes', () => {
   it('GET /api/admin/visit-tracking/summary 未登录返回 401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/admin/visit-tracking/summary' })
     expect(res.statusCode).toBe(401)
+  })
+
+  it('端枚举四值成对:插件端合法(过校验后被鉴权挡下),非法端值 400', async () => {
+    const ok = await server.inject({
+      method: 'GET',
+      url: '/api/admin/visit-tracking/stats/page?platform=ex',
+    })
+    expect(ok.statusCode).toBe(401)
+    const bad = await server.inject({
+      method: 'GET',
+      url: '/api/admin/visit-tracking/stats/page?platform=ios',
+    })
+    expect(bad.statusCode).toBe(400)
   })
 
   it('GET /api/admin/visit-tracking/day/pv/list 未登录返回 401', async () => {

@@ -19,6 +19,7 @@
  * 聚合)与 deploy/saas/admin-api/src/routes/metrics.ts(promQuery 封装 + 超时降级 null)。
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { bizDayKey, bizDayStartUtc } from '../utils/biz-day.js'
 import { z } from 'zod'
 import { desc, eq, gte, lte, sql, and } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
@@ -37,6 +38,26 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import type { EdgeLegKey, EdgeLegSample, EdgeStats } from '../services/edge-access.js'
 import { edgeSeries, latestEdgeSnapshot } from '../services/edge-access.js'
 import { getTrafficLiveSnapshot } from '../services/traffic-stats-service.js'
+import {
+  getPageUsageLiveSnapshot,
+  type PageUsageLiveRow,
+  type PlatformUsageLiveRow,
+  type ScopeUsageLiveRow,
+} from '../db/visit-tracking-queries.js'
+import { getEngagementLiveSnapshot } from '../services/engagement-stats-service.js'
+import { getAudienceLiveSnapshot } from '../services/audience-stats-service.js'
+import {
+  getSessionQualityLiveSnapshot,
+  type SessionQualitySnapshot,
+} from '../services/session-quality-stats-service.js'
+import {
+  getVisitSourceLiveSnapshot,
+  type VisitSourceSnapshot,
+} from '../services/visit-source-stats-service.js'
+import {
+  getVisitTransitionLiveSnapshot,
+  type VisitTransitionSnapshot,
+} from '../services/visit-transition-stats-service.js'
 import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
@@ -125,6 +146,12 @@ function firstNum(list: PromSample[] | null): number | null {
   return sampleNum(list?.[0])
 }
 
+/** 百分比保留两位;无样本(SQL 聚合出 NULL)一律落 null ——
+ *  「今天还没有请求」写成 0.00% 会被大屏读成「零错误率」,那是 §0.3 禁止的顶替。 */
+function pct2(v: number | null | undefined): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? Number(v.toFixed(2)) : null
+}
+
 /** range 序列 → [[epochMs, value], …],值不合法的点直接丢弃。 */
 function rangeToSeries(list: PromRangeSample[] | null): Array<[number, number]> {
   const s = list?.[0]
@@ -137,17 +164,13 @@ function rangeToSeries(list: PromRangeSample[] | null): Array<[number, number]> 
   return out
 }
 
-// ===== 时区工具:Asia/Shanghai 日界(UTC 表示,口径与 relay-stats.ts 逐字一致)=====
-function shanghaiDayStartUtc(daysAgo = 0): Date {
-  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() - daysAgo,
-    ) -
-      8 * 3600 * 1000,
-  )
+// 业务日界唯一出口在 utils/biz-day.ts(守门 246 拦第二份副本)
+
+/** 上海日界的 YYYY-MM-DD 日期串(daysAgo=0 即上海今天)。与 usersTodayNew 同口径:
+ *  新增用户按上海日界切分,增长曲线若按 UTC 切日,16:00 后的注册会被算进"明天",
+ *  与同一张屏上的「今日新增」读数自相矛盾。算法本体在 utils/biz-day.ts(守门 246 拦第二份)。 */
+function bizDayKeyAgo(daysAgo = 0): string {
+  return bizDayKey(bizDayStartUtc(daysAgo))
 }
 
 // ===== 各数据面聚合(每块独立 try/catch ⇒ 失败置 null)=====
@@ -220,7 +243,7 @@ async function buildHost(): Promise<HostSnapshot | null> {
 
 interface ServicesSnapshot {
   windows: Array<{ name: string; state: string; retired: boolean }>
-  targets: Array<{ job: string; instance: string; up: number }>
+  targets: Array<{ job: string; instance: string; up: number | null }>
   windowsTotal: number
   windowsRunning: number
   /** 非退役服务总数(健康度分母;退役服务见 RETIRED_SERVICES) */
@@ -248,7 +271,9 @@ async function buildServices(): Promise<ServicesSnapshot | null> {
       .map((s) => ({
         job: s.metric?.job ?? '',
         instance: s.metric?.instance ?? '',
-        up: sampleNum(s) ?? 0,
+        // 取不到样本 ⇒ null(未判定),不得 `?? 0`:0 在大屏上会把「从没上报过的目标」
+        // 画成红色「down」,那是把「没量到」冒充成「量到了坏结论」。
+        up: sampleNum(s),
       }))
       .filter((t) => t.job)
       .sort((a, b) => a.job.localeCompare(b.job))
@@ -275,29 +300,30 @@ interface HttpSnapshot {
   uptimeSeconds: Array<{ job: string; seconds: number }>
   wsConnections: number | null
   activeConnections: number | null
-  aiActiveSessions: number | null
 }
 
 async function buildHttp(): Promise<HttpSnapshot | null> {
   try {
-    const [qps, errRate, p95Api, p95Ai, statusDist, uptime, ws, active, llmSessions] =
-      await Promise.all([
-        promQuery('sum(rate(http_requests_total[5m]))'),
-        promQuery(
-          'sum(rate(http_requests_by_status{status=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_by_status[5m])), 0.000001)',
-        ),
-        promQuery(
-          'histogram_quantile(0.95, sum by (le) (rate(http_response_time_ms_bucket{job="api"}[5m])))',
-        ),
-        promQuery(
-          'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="ai-service"}[5m]))) * 1000',
-        ),
-        promQuery('sum by (status) (rate(http_requests_by_status[5m]))'),
-        promQuery('process_uptime_seconds'),
-        promQuery('websocket_connections'),
-        promQuery('active_connections'),
-        promQuery('ihui_llm_active_sessions'),
-      ])
+    // 2026-10-25:原先这里还查 `ihui_llm_active_sessions`。该 gauge 在 ai-service 侧
+    // 已随"死 gauge 摘除"退役(生产零调用,面板恒空),墙板是最后一处残留消费点 ⇒
+    // 一并摘掉,否则大屏把"指标已不存在"画成"会话数为零"。号池健康已由
+    // `ihui_llm_pool_leg_*` 族承载,见 /admin/monitor/panels 的「号池冷却中的腿数」。
+    const [qps, errRate, p95Api, p95Ai, statusDist, uptime, ws, active] = await Promise.all([
+      promQuery('sum(rate(http_requests_total[5m]))'),
+      promQuery(
+        'sum(rate(http_requests_by_status{status=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_by_status[5m])), 0.000001)',
+      ),
+      promQuery(
+        'histogram_quantile(0.95, sum by (le) (rate(http_response_time_ms_bucket{job="api"}[5m])))',
+      ),
+      promQuery(
+        'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="ai-service"}[5m]))) * 1000',
+      ),
+      promQuery('sum by (status) (rate(http_requests_by_status[5m]))'),
+      promQuery('process_uptime_seconds'),
+      promQuery('websocket_connections'),
+      promQuery('active_connections'),
+    ])
     // 状态码 → 2xx/3xx/4xx/5xx 分桶
     const buckets = new Map<string, number>()
     for (const s of statusDist ?? []) {
@@ -319,7 +345,6 @@ async function buildHttp(): Promise<HttpSnapshot | null> {
         .map((s) => ({ job: s.metric.job!, seconds: sampleNum(s) ?? 0 })),
       wsConnections: firstNum(ws),
       activeConnections: firstNum(active),
-      aiActiveSessions: firstNum(llmSessions),
     }
   } catch {
     return null
@@ -456,9 +481,78 @@ interface TrafficSnapshot {
   aggregationAgeSec: number | null
   /** true = 族分解被 UA 种类预算截断,族值只是下界 */
   truncated: boolean | null
+  /**
+   * 近 24h 页面访问排行(visit_logs 口径,最多 8 条);null = 页面热度腿取不到。
+   * 2026-10-26 立:此前大屏只有 api_logs 的 PV/UV 与客户端族,回答不了"哪些页面
+   * 被用了多少次";本格与 `scopeSplit` 同源(同一次 24h 聚合),单腿失败只置 null。
+   */
+  pageTop: PageUsageLiveRow[] | null
+  /**
+   * 近 24h 同口径总 PV(visit_logs 口径,不是 api_logs 的流量)。
+   * 前端拿它算「这个页面占了多少」——排行里没有分母就只能比大小,看不出占比。
+   * null = 页面热度腿取不到。
+   */
+  pageTotalPv: number | null
+  /** 近 24h 各访问面(前台/后台/登录页)的 PV/UV;null = 同一条腿取不到 */
+  scopeSplit: ScopeUsageLiveRow[] | null
+  /** 近 24h 各端(web/RN/小程序)PV/UV;null = 同一条腿取不到 */
+  platformSplit: PlatformUsageLiveRow[] | null
+  /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
+  online5m: number | null
+  /** 近 5 分钟浏览量 */
+  pv5m: number | null
+  /**
+   * 近 24h 会话质量(来了之后看了几屏 / 落地页排行);null = 同一条腿取不到。
+   * 2026-10-26 立:页面热度说「/chat 被打开 N 次」,不回答「打开的人里有多少顺手又翻了别的
+   * 页面」—— 这一格补的就是那句没答的话。口径 = session_id(标签页级),见
+   * `services/session-quality-stats-service.ts` 头注。
+   */
+  sessionQuality: SessionQualitySnapshot | null
+  /**
+   * 近 24h 访问来源(直接访问 / 本机开发 / 站内 / 外部 + 主机 TOP);null = 同一条腿取不到。
+   * 2026-10-26 立:此前大屏只说"多少人用了多少次",不说"他们从哪来"——
+   * 生产实测 GitHub 是最大入口,本机开发流量却占着约三成,不分类就分不清推广渠道。
+   * 只给 PV(来源维度上访客数无法精确去重),见 `services/visit-source-stats-service.ts` 头注。
+   */
+  visitSource: VisitSourceSnapshot | null
+  /**
+   * 近 24h 页面流转(相邻页对 TOP:从哪一页走到了哪一页);null = 同一条腿取不到。
+   * 2026-10-26 立:排行只说"哪个页面热"、会话质量只说"看了几屏",
+   * 这两格都不答「进来之后走到了哪一步」—— 生产实测最大的一跳是
+   * `/ → /sso/login` 与 `/sso/login → /`(未登录用户在登录↔首页之间打转)。
+   */
+  visitTransition: VisitTransitionSnapshot | null
 }
 
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
+  // 页面热度是独立腿:失败只把两格置 null(渲染"—"),不拖垮访客块。
+  let pageUsage: Awaited<ReturnType<typeof getPageUsageLiveSnapshot>> | null = null
+  try {
+    pageUsage = await getPageUsageLiveSnapshot()
+  } catch {
+    pageUsage = null
+  }
+  // 会话质量也是独立腿:失败只把这一格置 null(渲染"—"),不拖垮其它腿。
+  let sessionQuality: SessionQualitySnapshot | null = null
+  try {
+    sessionQuality = await getSessionQualityLiveSnapshot()
+  } catch {
+    sessionQuality = null
+  }
+  // 访问来源同样独立:失败只置 null,不拖垮其它腿。
+  let visitSource: VisitSourceSnapshot | null = null
+  try {
+    visitSource = await getVisitSourceLiveSnapshot()
+  } catch {
+    visitSource = null
+  }
+  // 页面流转同样独立:失败只置 null。
+  let visitTransition: VisitTransitionSnapshot | null = null
+  try {
+    visitTransition = await getVisitTransitionLiveSnapshot()
+  } catch {
+    visitTransition = null
+  }
   try {
     // 现算(带 5 秒进程内缓存):三条限窗 SQL 走 api_logs_created_at_idx,合计 ≈ 46 ms。
     // 任何一条抛错都会上抛到下面的 catch ⇒ 整块 null ⇒ 大屏渲染"—",绝不折成 0 访客。
@@ -473,6 +567,15 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       families: live.families,
       aggregationAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
       truncated: live.truncated,
+      pageTop: pageUsage?.top ?? null,
+      pageTotalPv: pageUsage?.totalPv ?? null,
+      scopeSplit: pageUsage?.scopes ?? null,
+      platformSplit: pageUsage?.platforms ?? null,
+      online5m: pageUsage?.online5m ?? null,
+      pv5m: pageUsage?.pv5m ?? null,
+      sessionQuality,
+      visitSource,
+      visitTransition,
     }
   } catch {
     return null
@@ -499,6 +602,21 @@ interface RelayPoolSnapshot {
   accountRefreshAgeSec: number | null
   /** 健康态不在封闭词表内、无法折叠的行数(非 0 说明库里有脏值,必须看得见) */
   rowsUnclassified: number | null
+  /** Key 健康四态计数(unknown/healthy/degraded/down;与汇总字段同一把尺子) */
+  keyHealth: { unknown: number; healthy: number; degraded: number; down: number } | null
+  /** 按 provider 分组的 Key 分布(可调度/异常口径与汇总字段同一把尺子) */
+  keyByProvider: Array<{
+    provider: string
+    total: number
+    schedulable: number
+    abnormal: number
+  }> | null
+  /** 按 provider 分组的账号池分布 */
+  accountByProvider: Array<{ provider: string; total: number; schedulable: number }> | null
+  /** 余额 < 5 元且非"无限"(-1)的 Key 条数 —— 余额预警 */
+  keyBalanceLow: number | null
+  /** access token 将在 24 小时内过期的账号条数(含已过期) */
+  accountExpiring24h: number | null
 }
 
 async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
@@ -515,6 +633,11 @@ async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
       staleAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
       accountRefreshAgeSec: live.maxRefreshAgeSeconds,
       rowsUnclassified: live.rowsUnclassified,
+      keyHealth: live.keyHealth,
+      keyByProvider: live.keyByProvider,
+      accountByProvider: live.accountByProvider,
+      keyBalanceLow: live.keyBalanceLow,
+      accountExpiring24h: live.accountExpiring24h,
     }
   } catch {
     return null
@@ -552,23 +675,35 @@ interface BusinessSnapshot {
   ordersTodayAmountCents: number
   ordersYesterdayPaid: number
   apiCallsToday: number
-  apiErrRate: number
-  apiAvgLatencyMs: number
+  apiErrRate: number | null
+  apiAvgLatencyMs: number | null
   topEndpoints: Array<{ path: string; method: string; calls: number }>
   llmCallsToday: number
   llmTokensToday: number
   llmCostCentsToday: number
-  llmErrRate: number
-  llmP95LatencyMs: number
+  llmErrRate: number | null
+  llmP95LatencyMs: number | null
   llmTopModels: Array<{ model: string; calls: number }>
   signIn: SignInSnapshot | null
+  /** 近 14 日每日新增用户(上海日界,含今天,后端逐日补齐);查询失败为 null */
+  userGrowth: Array<{ date: string; count: number }> | null
+  /** 用户构成(全部即时计数,与 usersTotal 同一次查询):VIP 身份 / 操盘手身份 */
+  usersVip: number
+  usersTrader: number
+  /** 邀请注册用户(累计)与近 7 日邀请注册(parent_id 非空 = 经推荐人链接注册) */
+  usersInvited: number
+  usersInvited7d: number
+  /** 等级分布 [普通, 白银, 黄金, 钻石](users.level 0..3) */
+  usersByLevel: [number, number, number, number]
+  /** 近 7 日签到去重用户数(留存近似);查询失败为 null(不折成 0) */
+  activeUsers7d: number | null
 }
 
 async function buildBusiness(): Promise<BusinessSnapshot | null> {
   try {
-    const todayStart = shanghaiDayStartUtc(0)
-    const yestStart = shanghaiDayStartUtc(1)
-    // 签到口径:与写入口 gamification.ts 同源(UTC 日期,不是上面业务块的上海日界)
+    const todayStart = bizDayStartUtc(0)
+    const yestStart = bizDayStartUtc(1)
+    // 签到口径:与写入口 gamification.ts 同源 —— 两侧都走 utils/biz-day.ts 的业务日界(上海)
     const signInToday = todayString()
     const signInWeekAgo = shiftDate(signInToday, -6)
     const [
@@ -581,12 +716,24 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       llmModels,
       signToday,
       signWeek,
+      userGrowthRows,
+      activeUsers7dRows,
     ] = await Promise.all([
+      // 用户构成:与 usersTotal 同一次扫描上多加几个 filter 计数 ⇒ 零额外查询成本。
+      // is_vip 值域(-1 游客 / 0 普通 / 1 VIP / 2 操盘手)见 users schema 注释。
       dbRead
         .select({
           total: sql<number>`count(*)::int`,
           todayNew: sql<number>`count(*) filter (where ${users.createdAt} >= ${todayStart.toISOString()}::timestamptz)::int`,
           active: sql<number>`count(*) filter (where ${users.status} = 1)::int`,
+          vip: sql<number>`count(*) filter (where ${users.isVip} = 1)::int`,
+          trader: sql<number>`count(*) filter (where ${users.isVip} = 2)::int`,
+          invited: sql<number>`count(*) filter (where ${users.parentId} is not null)::int`,
+          invited7d: sql<number>`count(*) filter (where ${users.parentId} is not null and ${users.createdAt} >= ${bizDayStartUtc(6).toISOString()}::timestamptz)::int`,
+          level0: sql<number>`count(*) filter (where ${users.level} = 0)::int`,
+          level1: sql<number>`count(*) filter (where ${users.level} = 1)::int`,
+          level2: sql<number>`count(*) filter (where ${users.level} = 2)::int`,
+          level3: sql<number>`count(*) filter (where ${users.level} = 3)::int`,
         })
         .from(users),
       dbRead
@@ -609,8 +756,12 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       dbRead
         .select({
           calls: sql<number>`count(*)::int`,
-          errRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 500 then 1 else 0 end) * 100, 0)::float8`,
-          avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)::int`,
+          // 不得 coalesce 成 0:今天一条请求都没有时,0.00% 会被大屏读成「零错误率」(§0.3)。
+          // 无行 ⇒ avg 为 NULL ⇒ 大屏落「—/未判定」。
+          errRate: sql<
+            number | null
+          >`(avg(case when ${apiLogs.statusCode} >= 500 then 1 else 0 end) * 100)::float8`,
+          avgLatency: sql<number | null>`avg(${apiLogs.duration})::int`,
         })
         .from(apiLogs)
         .where(gte(apiLogs.createdAt, todayStart)),
@@ -630,8 +781,12 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
           calls: sql<number>`count(*)::int`,
           tokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
           costCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
-          errRate: sql<number>`coalesce(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100, 0)::float8`,
-          p95Latency: sql<number>`coalesce(percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int, 0)`,
+          errRate: sql<
+            number | null
+          >`(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100)::float8`,
+          p95Latency: sql<
+            number | null
+          >`percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int`,
         })
         .from(llmCallLogs)
         .where(gte(llmCallLogs.createdAt, todayStart)),
@@ -666,6 +821,27 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         .groupBy(signInRecords.signInDate)
         .orderBy(signInRecords.signInDate)
         .catch(() => null),
+      // 近 14 日每日新增用户(上海日界,与 usersTodayNew 同口径:createdAt + 8h 后按日切分)。
+      // 这张表出问题不拖垮整块业务纵深 ⇒ 同样单表独立 catch(null)。
+      dbRead
+        .select({
+          date: sql<string>`to_char(${users.createdAt} + interval '8 hours', 'YYYY-MM-DD')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(users)
+        .where(gte(users.createdAt, bizDayStartUtc(13)))
+        .groupBy(sql`1`)
+        .orderBy(sql`1`)
+        .catch(() => null),
+      // 近 7 日签到去重用户数(留存近似:一天都没签到的用户不进分母口径,报"活跃"而非"沉默")。
+      // sign_in_records 有 (user_id, sign_in_date) 唯一索引 ⇒ 这条 count distinct 走索引即可。
+      dbRead
+        .select({
+          users: sql<number>`count(distinct ${signInRecords.userId})::int`,
+        })
+        .from(signInRecords)
+        .where(gte(signInRecords.signInDate, signInWeekAgo))
+        .catch(() => null),
     ])
     const u = userRows[0]
     const o = orderToday[0]
@@ -694,16 +870,33 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         last7d,
       }
     }
+    // 用户增长:查询失败 ⇒ null(整块不渲染,不把"没量到"画成 14 根 0 柱);
+    // 查询成功 ⇒ 按上海日界逐日补齐 14 天 —— 无行的日期是"当天确实 0 注册"这一真实读数。
+    let userGrowth: BusinessSnapshot['userGrowth'] = null
+    if (userGrowthRows !== null) {
+      const byDate = new Map(userGrowthRows.map((r) => [r.date, r.count]))
+      userGrowth = []
+      for (let i = 13; i >= 0; i--) {
+        const date = bizDayKeyAgo(i)
+        userGrowth.push({ date, count: byDate.get(date) ?? 0 })
+      }
+    }
     return {
       usersTotal: u?.total ?? 0,
       usersTodayNew: u?.todayNew ?? 0,
       usersActive: u?.active ?? 0,
+      usersVip: u?.vip ?? 0,
+      usersTrader: u?.trader ?? 0,
+      usersInvited: u?.invited ?? 0,
+      usersInvited7d: u?.invited7d ?? 0,
+      usersByLevel: [u?.level0 ?? 0, u?.level1 ?? 0, u?.level2 ?? 0, u?.level3 ?? 0],
+      activeUsers7d: activeUsers7dRows?.[0]?.users ?? null,
       ordersTodayPaid: o?.paid ?? 0,
       ordersTodayAmountCents: o?.amountCents ?? 0,
       ordersYesterdayPaid: oy?.paid ?? 0,
       apiCallsToday: a?.calls ?? 0,
-      apiErrRate: Number((a?.errRate ?? 0).toFixed(2)),
-      apiAvgLatencyMs: a?.avgLatency ?? 0,
+      apiErrRate: pct2(a?.errRate),
+      apiAvgLatencyMs: a?.avgLatency ?? null,
       topEndpoints: apiTop.map((r) => ({
         path: r.path,
         method: r.method,
@@ -712,10 +905,11 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       llmCallsToday: l?.calls ?? 0,
       llmTokensToday: l?.tokens ?? 0,
       llmCostCentsToday: l?.costCents ?? 0,
-      llmErrRate: Number((l?.errRate ?? 0).toFixed(2)),
-      llmP95LatencyMs: l?.p95Latency ?? 0,
+      llmErrRate: pct2(l?.errRate),
+      llmP95LatencyMs: l?.p95Latency ?? null,
       llmTopModels: llmModels.map((r) => ({ model: r.model, calls: r.calls })),
       signIn,
+      userGrowth,
     }
   } catch (e) {
     console.error('[ops-wallboard] buildBusiness failed:', e)
@@ -897,7 +1091,7 @@ async function buildTrend(minutes: number, step: number): Promise<TrendSnapshot>
         calls: sql<number>`count(*)::int`,
       })
       .from(apiLogs)
-      .where(gte(apiLogs.createdAt, shanghaiDayStartUtc(0)))
+      .where(gte(apiLogs.createdAt, bizDayStartUtc(0)))
       .groupBy(sql`1`)
       .orderBy(sql`1`)
       .catch(() => [] as Array<{ hour: string; calls: number }>),
@@ -957,20 +1151,37 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
     // 字段名含 "token"(llmTokensToday 等)会被 response-sanitizer 遮蔽为 "***"(同 ai-cost);
     // 大屏为 requireAdmin 管理端点,可信上下文直接跳过整端点脱敏
     request.skipResponseSanitization = true
-    const [host, services, http, redis, pg, bridge, business, alerts, events, traffic, relayPool] =
-      await Promise.all([
-        buildHost(),
-        buildServices(),
-        buildHttp(),
-        buildRedis(),
-        buildPg(),
-        buildBridge(),
-        buildBusiness(),
-        buildAlerts(),
-        buildEvents(),
-        buildTraffic(),
-        buildRelayPool(),
-      ])
+    const [
+      host,
+      services,
+      http,
+      redis,
+      pg,
+      bridge,
+      business,
+      alerts,
+      events,
+      traffic,
+      relayPool,
+      engagement,
+      audience,
+    ] = await Promise.all([
+      buildHost(),
+      buildServices(),
+      buildHttp(),
+      buildRedis(),
+      buildPg(),
+      buildBridge(),
+      buildBusiness(),
+      buildAlerts(),
+      buildEvents(),
+      buildTraffic(),
+      buildRelayPool(),
+      // 事件热度是独立腿:取不到只让这一格 null(渲染"—"),不拖垮整页。
+      getEngagementLiveSnapshot().catch(() => null),
+      // 访客构成(近 24h 新访客/回访)同样是独立腿:首现聚合要扫全表分组,失败只让这一格空。
+      getAudienceLiveSnapshot().catch(() => null),
+    ])
     const edge = buildEdge()
     return reply.send(
       success({
@@ -993,6 +1204,8 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
         events,
         traffic,
         relayPool,
+        engagement,
+        audience,
         edge,
       }),
     )

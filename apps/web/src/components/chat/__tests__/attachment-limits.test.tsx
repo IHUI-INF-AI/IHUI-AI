@@ -355,4 +355,44 @@ describe('G-863 语音入口:拒绝接同一汇总出口(不再静默)', () => {
     expect(addedIdx).toBeGreaterThan(guardIdx)
   })
 })
+
+// ── G-863(2026-10-25):容量判定改"提交式"回归 —— 预筛即占位、提交写前 CAS,不再以屏时快照作数 ──
+describe('G-863 容量提交式:预筛占位 + 写前 CAS', () => {
+  it('同帧两批各 25(预筛后未提交,批间 await)⇒ 第二批只剩 5 个口子,合计收录不超过 30', async () => {
+    // 30 为票面口径的字面值(本用例刻意不引生产常量):旧"读屏时快照"实现里第二批按 0 起算
+    // ⇒ 两次预筛各收 25、合计 50;预筛占位后第二次只能再放 5。
+    const { result } = renderHook(() => useMessageReferences())
+    const mkBatch = (tag: string) =>
+      Array.from({ length: 25 }, (_, i) => mkFile(`${tag}-${i}.png`, 'image/png'))
+    let first: File[] = []
+    let second: File[] = []
+    let secondRejected = 0
+    await act(async () => {
+      first = result.current.screenAttachments(mkBatch('c1')).accepted
+      await Promise.resolve()
+      const screened = result.current.screenAttachments(mkBatch('c2'))
+      second = screened.accepted
+      secondRejected = screened.rejections.reduce((n, r) => n + r.fileNames.length, 0)
+      // 两批都提交:第一批的占位在预筛时即生效,第二批无法再借快照双收
+      for (const f of [...first, ...second]) result.current.commitFileReference(f)
+    })
+    expect(first.length + second.length).toBeLessThanOrEqual(30)
+    expect(first.length + second.length).toBe(result.current.references.length)
+    expect(secondRejected).toBe(25 - second.length)
+  })
+
+  it('未经预筛直接提交 31 个 ⇒ 写前 CAS 只放行 30,第 31 个返回 max_files 且不建 ref', () => {
+    const { result } = renderHook(() => useMessageReferences())
+    const rejected: ReturnType<typeof screenAttachmentFiles>['rejections'] = []
+    act(() => {
+      for (let i = 0; i < 31; i += 1) {
+        rejected.push(...result.current.commitFileReference(mkFile(`d${i}.png`, 'image/png')))
+      }
+    })
+    expect(result.current.references).toHaveLength(30)
+    expect(rejected).toHaveLength(1)
+    expect(rejected[0]!.code).toBe('max_files')
+    expect(rejected[0]!.fileNames).toEqual(['d30.png'])
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -269,6 +269,29 @@ export async function minimizeWindow(): Promise<void> {
   await invoke('plugin:window|minimize', { label })
 }
 
+/**
+ * 把网页顶栏的深浅上报给**原生窗控按钮**(2026-10-26 立)。
+ *
+ * 立因:桌面端右上角三个钮由 Rust 分层窗自绘(见 `apps/desktop/src-tauri/src/window_chrome.rs`),
+ * 网页侧同名按钮被注入 CSS 隐藏。Rust 只能按加载地址粗判深浅(线上恒判浅底),
+ * 用户在应用内切暗色时**结构上看不到** ⇒ 原生侧继续用深字画在深底上,实拍
+ * "暗色模式下这几个按钮根本看不清"。命令 `set_caption_button_theme` 早已注册,
+ * 但全仓 grep 无任何调用方 —— 这条腿从来没接通过。
+ *
+ * `darkBg=true` 表示网页顶栏是深底(暗色主题),原生侧改用浅色字 + 深档 hover 底色。
+ * 非 Tauri 环境(浏览器)静默忽略;宿主命令失败也不抛(窗控观感不应打断页面)。
+ */
+export async function setCaptionButtonTheme(darkBg: boolean): Promise<void> {
+  if (!isTauri()) return
+  try {
+    // tauri v2 命令入参按 camelCase 从 JS 侧取(Rust 侧签名是 `dark_bg`,与本仓
+    // `absolute:` / `delay:` / `format:` 同一写法);写成 `dark_bg` 会被判「缺参」。
+    await invoke('set_caption_button_theme', { label: getCurrentWindow().label, darkBg })
+  } catch {
+    // 宿主未注册/窗口已销毁:保持原生当前档,不制造二次故障
+  }
+}
+
 /** 最大化主窗口(已最大化则无变化)。非 Tauri 环境静默忽略。 */
 export async function maximizeWindow(): Promise<void> {
   if (!isTauri()) return

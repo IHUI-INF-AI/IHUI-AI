@@ -13,6 +13,7 @@ import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { fetchApi } from '@/lib/api'
 import { buildSsoRedirectUrl, SSO_CLIENT_IDS } from '@ihui/shared'
 import { ensureSsoRedirectAllowed, resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
+import { protectedPathOf } from '@/lib/protected-paths'
 import { resolvePostLoginLanding } from '@/lib/post-login-landing'
 import { Button } from '@ihui/ui-react'
 import { Loader2, ArrowRight } from 'lucide-react'
@@ -75,9 +76,16 @@ export default function SsoLoginPage() {
   )
 
   const { token, user } = useAuthStore()
+  // redirect 落在受保护路径 ⇒ 用户多半是从服务端守卫 307 打回本页(而不是主动来授权)。
+  // **必须同时不带 client_id**:守卫生成的 307 只有 `?redirect=`,带 client_id 的是子项目/桌面
+  // 显式授权请求(那份「用户在场才授权」的契约不能被自动跳转砍掉,e2e 已钉住)。
+  // forceAttempt 让 bootstrap 不看本地标记、直接问一次 /auth/refresh:httpOnly cookie 在 JS 里
+  // 看不见,而 ihui-session-established 可能已被上一次被动失效清掉(2026-10-26)。
+  const guardedRedirectPath = protectedPathOf(rawRedirect ?? '')
+  const autoReturnEligible = guardedRedirectPath !== '' && searchParams.get('client_id') === null
   // 取全局 auth bootstrap 的 ready(根 layout 的 GlobalHooksProvider 已触发副作用,此处仅读状态;
   // 竞态根因与渲染门详见下方 `if (!ready)` 注释)
-  const { ready } = useAuthBootstrap()
+  const { ready } = useAuthBootstrap({ forceAttempt: autoReturnEligible })
   const mode = useLoginDialogStore((s) => s.mode)
   const setMode = useLoginDialogStore((s) => s.setMode)
   const [exchanging, setExchanging] = React.useState(false)
@@ -210,6 +218,41 @@ export default function SsoLoginPage() {
       router.push(resolveSafeRedirectTarget(resolveLoginTarget(), { allowDeepLink: true }))
     }
   }, [fromOidc, token, user, resolveLoginTarget, router])
+
+  // 被登录守卫 307 打回本页后的自动闭环(2026-10-26 用户报「后台待一会儿就要重新登录」)。
+  // 守卫在 access JWT(15 分钟)过期时会 307 到这里,而旧实现只有企业 SSO(sso=oidc)回跳
+  // 才自动返回;普通打回停在本页的「授权并跳转」卡片 ⇒ 感知就是"被踢出、要再点一次授权"。
+  // 只对**受保护的同源相对 redirect**生效(那正是会被 307 的集合):主动访问授权页、子项目带
+  // 外站 redirect 进来时保持卡片,不改变它们「用户在场授权」的契约。
+  // 一次性 ref:自动尝试只做一次,失败留在本页给手动出口,禁止静默循环。
+  const autoReturnTriedRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!ready || !token || !user) return
+    if (fromOidc || isDesktopDeepLink) return // 各自已有回跳闭环
+    if (!autoReturnEligible) return
+    if (autoReturnTriedRef.current) return
+    autoReturnTriedRef.current = true
+    let cancelled = false
+    void (async () => {
+      const target = resolveSafeRedirectTarget(resolveLoginTarget(), { allowDeepLink: true })
+      // 探测 + 被拦时续种 cookie(后端 /auth/refresh 会重下 httpOnly auth_token)后复测。
+      const allowed = await ensureSsoRedirectAllowed(target)
+      if (cancelled || !allowed) return
+      router.push(target)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    ready,
+    token,
+    user,
+    fromOidc,
+    isDesktopDeepLink,
+    autoReturnEligible,
+    resolveLoginTarget,
+    router,
+  ])
 
   // 桌面深链"已登录自动签发"(2026-10-13,用户要求:已登录直接获取,不再手点授权)。
   // 桌面端"在浏览器中登录"打开的就是本页(client_id=desktop + redirect=ihui://sso):

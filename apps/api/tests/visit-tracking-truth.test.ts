@@ -22,6 +22,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import { bizDayKey } from '../src/utils/biz-day.js'
 
 vi.mock('../src/config/index.js', () => ({
   config: {
@@ -234,7 +235,9 @@ describe('B) /source/record 与 /page/record:此前根本不写 userAgent 的两
     })
     expect(res.statusCode).toBe(200)
     const row = await lastInserted()
-    expect(row.url).toBe('/agent/detail?id=1')
+    // 2026-10-26:落库前按页面路径唯一归一判据入库 ⇒ query 段(含凭据)不进表。
+    // 此前这里存的是原始串 '/agent/detail?id=1',页面排行会按原串分组,同一页面被拆成多行。
+    expect(row.url).toBe('/agent/detail')
     expect(row.sessionId).toBe('sid-2')
     expect(row.ip).toBe(REAL_IP)
     expect(row.userAgent).toBe('Mozilla/5.0 (compatible; GrokBot/1.0; +https://x.ai/)')
@@ -251,10 +254,96 @@ describe('B) /source/record 与 /page/record:此前根本不写 userAgent 的两
     })
     expect(a.statusCode).toBe(200)
     const row = await lastInserted()
-    expect(row.visitDate).toBe(new Date().toISOString().slice(0, 10))
+    // 业务日 = 上海日界(服务端 saveVisitLog 的口径);取 UTC 日期在上海 00:00-08:00
+    // 窗口里必然差一天,那是本用例原来的时区缺陷,不是服务端写错。
+    expect(row.visitDate).toBe(bizDayKey())
     expect(Object.keys(row).sort()).toEqual(
       ['city', 'ip', 'referer', 'sessionId', 'url', 'userId', 'userAgent', 'visitDate'].sort(),
     )
+  })
+})
+
+/**
+ * C) 落库前的页面路径归一(2026-10-26 立)。
+ *
+ * 立因(生产实测):`visit_logs.url` 此前存客户端上报的原始串 ⇒
+ *  ① 同一页面因 query 不同被拆成多行(`/chat` 与 `/chat?conversationId=…` 各一行),
+ *     「共 N 个页面」实测 235(真实约 30);
+ *  ② 历史行里留着授权凭据(`/?sso_code=…`、`/callback?…&code=…&state=…`),
+ *     它们会原样出现在管理端「页面访问排行」上。
+ *
+ * 判据单一真相源 = `@ihui/shared/utils/visit-url`(写入面 / 存量清洗 / 覆盖面尺共用)。
+ * 这里钉的是**真正进库的那一行**(harness 把 insert 的 values 原样记下来)。
+ */
+describe('C) 落库前页面路径归一:排名口径与凭据防线', () => {
+  it('C1 query 段不进库:同一页面的不同 query 归到同一路径', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/visit-tracking/visit-log',
+      remoteAddress: REAL_IP,
+      headers: { 'user-agent': REAL_UA },
+      body: { url: '/chat?conversationId=40c9df01-5fd3-4cb0-8b51-d1a98fe213a6' },
+    })
+    expect(res.statusCode).toBe(200)
+    const row = await lastInserted()
+    expect(row.url).toBe('/chat')
+  })
+
+  it('C2 授权凭据不进库:SSO code 与 OAuth code+state 随 query 一并剥掉', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/visit-tracking/visit-log',
+      remoteAddress: REAL_IP,
+      headers: { 'user-agent': REAL_UA },
+      body: { url: '/?sso_code=B-ZKi3yQwCUOS1LCKFw6XWvez-5Sx1JfJzRY5J-gkGE' },
+    })
+    expect(res.statusCode).toBe(200)
+    const row = await lastInserted()
+    expect(row.url).toBe('/')
+    // 反向对照:落库的这一行里一个授权码字节都不许剩
+    expect(JSON.stringify(row)).not.toContain('sso_code')
+    expect(JSON.stringify(row)).not.toContain('B-ZKi3yQwCUOS1LCKFw6XWvez')
+  })
+
+  it('C3 资源 id 归一为 :id:每个工作区/智能体不各占一行', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/visit-tracking/visit-log',
+      remoteAddress: REAL_IP,
+      headers: { 'user-agent': REAL_UA },
+      body: { url: '/workspace/8cc904a4-01b1-4613-96c7-0df824b338d2' },
+    })
+    expect(res.statusCode).toBe(200)
+    const row = await lastInserted()
+    expect(row.url).toBe('/workspace/:id')
+  })
+
+  it('C4 噪声路径(静态资源 / 路由组)不落成页面:url 置 null,行仍写 ⇒ PV 不丢', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/visit-tracking/visit-log',
+      remoteAddress: REAL_IP,
+      headers: { 'user-agent': REAL_UA },
+      body: { url: '/claude.md' },
+    })
+    expect(res.statusCode).toBe(200)
+    const row = await lastInserted()
+    expect(row.url).toBeNull()
+    // 行仍在:这次访问是发生过的,只是它不是一次「页面访问」
+    expect(row.visitDate).toBe(bizDayKey())
+  })
+
+  it('C5 referer 的凭据段不进库,host 保留(访问来源按主机分桶不受影响)', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/visit-tracking/visit-log',
+      remoteAddress: REAL_IP,
+      headers: { 'user-agent': REAL_UA },
+      body: { url: '/x', referer: 'https://github.com/IHUI-INF-AI/IHUI-AI?utm_source=chatgpt.com' },
+    })
+    expect(res.statusCode).toBe(200)
+    const row = await lastInserted()
+    expect(row.referer).toBe('https://github.com/IHUI-INF-AI/IHUI-AI')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

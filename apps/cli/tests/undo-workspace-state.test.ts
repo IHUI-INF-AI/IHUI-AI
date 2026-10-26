@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { UndoRedoManager } from '../src/commands/undo-redo.js';
+import { selectUndoClaimKey } from '../src/commands/undo-claim-copy.js';
 import {
   diffWorkspaceSnapshots,
   isWorkspaceUnchanged,
@@ -147,6 +148,7 @@ describe('/undo 失败面', () => {
     const res = await mgr.undo(SESSION, 2);
 
     expect(res.undoneSteps).toBe(0);
+    expect(res.attemptedSteps).toBe(2);
     expect(res.partial).toBe(true);
     expect(res.failedFiles.sort()).toEqual(['a.txt', 'b.txt']);
     // 这一条是本票的核心:承诺成立,且是比出来的
@@ -168,6 +170,7 @@ describe('/undo 失败面', () => {
     const res = await mgr.undo(SESSION, 2);
 
     expect(res.undoneSteps).toBe(1);
+    expect(res.attemptedSteps).toBe(2);
     expect(res.partial).toBe(true);
     expect(res.failedFiles).toEqual(['b.txt']);
     expect(res.failedReasons[0]).toBeTruthy();
@@ -187,6 +190,7 @@ describe('/undo 失败面', () => {
     const res = await mgr.undo(SESSION, 1);
 
     expect(res.undoneSteps).toBe(0);
+    expect(res.attemptedSteps).toBe(1);
     // 还在栈里,用户还能再试一次
     expect(res.remaining).toBe(1);
     expect(mgr.listUndoable(SESSION).map((e) => e.filePath)).toEqual(['b.txt']);
@@ -200,6 +204,7 @@ describe('/undo 失败面', () => {
     const res = await mgr.undo(SESSION, 1);
 
     expect(res.undoneSteps).toBe(1);
+    expect(res.attemptedSteps).toBe(1);
     expect(res.partial).toBe(false);
     expect(res.failedFiles).toEqual([]);
     expect(res.workspaceUnchanged).toBe(false);
@@ -210,8 +215,38 @@ describe('/undo 失败面', () => {
     const mgr = manager();
     const res = await mgr.undo(SESSION, 1);
     expect(res.undoneSteps).toBe(0);
+    expect(res.attemptedSteps).toBe(0);
     expect(res.workspaceUnchanged).toBe(true);
     expect(res.partial).toBe(false);
+  });
+
+  it('不可用原因分档:无条目 vs 两条全失败,选出的文案键必须不同', async () => {
+    const inputOf = (r: Awaited<ReturnType<UndoRedoManager['undo']>>) => ({
+      verdict: r.verdict,
+      partial: r.partial,
+      undoneSteps: r.undoneSteps,
+      attemptedSteps: r.attemptedSteps,
+    });
+
+    const empty = await manager().undo(SESSION, 1);
+    expect(selectUndoClaimKey(inputOf(empty))).toBe('undoUnavailable');
+
+    const mgr = manager();
+    write('a.txt', 'a2');
+    write('b.txt', 'b2');
+    freeze('a.txt');
+    freeze('b.txt');
+    recordModify(mgr, 'a.txt', 'a1', 'a2', 1);
+    recordModify(mgr, 'b.txt', 'b1', 'b2', 2);
+
+    const allFailed = await mgr.undo(SESSION, 2);
+    expect(allFailed.attemptedSteps).toBe(2);
+    expect(allFailed.undoneSteps).toBe(0);
+    expect(selectUndoClaimKey(inputOf(allFailed))).toBe('undoFailed');
+    // 这两档不许被并成同一句(票面 undoUnavailableDescription / undoFailedDescription)
+    expect(selectUndoClaimKey(inputOf(allFailed))).not.toBe(
+      selectUndoClaimKey(inputOf(empty)),
+    );
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

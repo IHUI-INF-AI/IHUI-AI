@@ -35,13 +35,13 @@
  *   取材面旗(仅作用于 P0/P1 的两份输入):默认 HEAD blob / --staged 索引 blob / --worktree 人工逃生舱,
  *   两面旗同给 ⇒ exit 2。扫描 corpus 的口径一字未动(仍按 cwd 的工作树读,见下方"为什么扫描面不迁")。
  */
-import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, statSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 // 两份登记表输入走统一取材层(守门 118:改了判据面不许散写 git / 不许按磁盘判被审内容)。
 // 刻意**不**把上面的 corpus 扫描也迁过去:那一扫的是"本次要提交的在途内容",本门立项理由
 // 就是看见尚未入库的端口引用;迁移它等于换判据(守门 70/103 那条"改判据必须同批改口径")。
-import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// 2026-10-26 G-54:本门裸 git 派生(diff --cached / ls-files)一并收口到 gitRaw。
+import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 // 2026-09-23 加固:单文件字节上限 + git 调用超时。成因见 main() 内注释。
 const MAX_SCAN_BYTES = 2 * 1024 * 1024
@@ -263,11 +263,8 @@ const EXEMPT_PATH_PATTERNS = [
 /** 获取 staged 文件列表 */
 function getStagedFiles() {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    // 2026-10-26 G-54:git 派生收口到 face-reader(原调用即按 process.cwd() 跑,root 语义不变)
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], process.cwd())
     return output.trim().split('\n').filter(Boolean)
   } catch {
     return []
@@ -476,14 +473,9 @@ function main() {
     // Get-Process 读数 CPU 2.84s / 墙钟 80min / Responding=True,即完全没在读文件)。
     // 超时后回退 staged 口径而不是静默 exit 0 —— 静默通过会让全量审计假绿。
     try {
-      const output = execSync('git ls-files', {
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-        encoding: 'utf-8',
-        windowsHide: true,
-        timeout: 60_000,
-        maxBuffer: 64 * 1024 * 1024,
-      })
+      // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 默认 60s 超时/64MB 缓冲,
+      // 与原显式值同档,挂死根治契约不变)
+      const output = gitRaw(['ls-files'], process.cwd())
       files = output.trim().split('\n').filter(Boolean)
     } catch {
       files = getStagedFiles()

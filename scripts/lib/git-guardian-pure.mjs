@@ -79,6 +79,33 @@ export function homeHealDue(raw, now, minIntervalMs = HOME_HEAL_MIN_INTERVAL_MS)
 }
 
 /**
+ * 从 `check-merge-addition-loss.mjs` 的 stdout 取"丢失路径数"。
+ *
+ * 为什么要有这个函数(2026-10-26 立):守护原先在调用点内联一条正则
+ * `丢失新增路径\s+(\d+)`,而对账脚本的结论行早已改写成「丢失路径或回退内容 N」——
+ * **散文措辞一漂,数字就恒取不到**,于是判红信的正文写着「共 ? 个路径」,
+ * 身份里的档位也恒为同一档(噪声信无法靠量级区分恶化)。这不是取不到结论,
+ * 是取到了却没读懂 —— 所以修法不是放宽正则,而是让生产者给**机器可读令牌**,
+ * 读侧优先认令牌、散文只作旧版兜底。
+ *
+ * 三档来源按可信度降序:① `RESULT lost=<n>`(机器令牌)② 现行散文措辞 ③ 旧版措辞。
+ * 三档全落空 ⇒ 返回 `'?'`(调用方照旧判红,但正文如实写"数不出来",绝不折成 0)。
+ */
+export function parseMergeLossCount(stdout) {
+  const s = String(stdout ?? '')
+  const patterns = [
+    /\bRESULT\s+lost=(\d+)/,
+    /丢失路径或回退内容\s*(\d+)/,
+    /丢失新增路径\s*(\d+)/,
+  ]
+  for (const re of patterns) {
+    const m = s.match(re)
+    if (m) return m[1]
+  }
+  return '?'
+}
+
+/**
  * 一趟派生的结论分档(纯函数,镜像测试钉契约)。三档:绿 / 判红 / 未判定。
  * "未判定"既不得读成"对账层坏了",也不得读成"没问题"(§0.3)——它只说明这一轮没有可采信的输入,
  * 该不该喊人由上面那个持续性门槛判。

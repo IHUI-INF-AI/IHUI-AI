@@ -974,4 +974,171 @@ export type {
   ImageGenTemplatesScreenProps,
   ImageTemplateItem,
 } from './features/image-gen-templates/ImageGenTemplatesScreen'
+export {
+  normalizeAgreementType,
+  agreementTitleKey,
+  AGREEMENT_TYPE_MAP,
+} from './features/agreement/agreement-type'
+export type {
+  AgreementContentView,
+  AgreementCurrentScreenProps,
+} from './features/agreement/AgreementScreen'
+export { LegalDocsHubScreen } from './features/legal-doc/LegalDocsHubScreen'
+export type { LegalDocKind, LegalDocsHubScreenProps } from './features/legal-doc/LegalDocsHubScreen'
+export type { LegalDocTagGroup, LegalDocScreenPropsEx } from './features/legal-doc/LegalDocScreen'
+export { SupportScreen } from './features/support/SupportScreen'
+export type {
+  SupportScreenProps,
+  SupportTicketRow,
+  SupportTicketStatus,
+  SupportTicketPriority,
+  SupportCategoryRow,
+  SupportTicketCommentRow,
+  SupportTicketRatingRow,
+  SupportTicketDetailData,
+  SupportTicketCreateInput,
+} from './features/support/SupportScreen'
+export { TagsScreen } from './features/tags/TagsScreen'
+export { TagDetailScreen } from './features/tags/TagDetailScreen'
+export type { TagCloudItem, TagsScreenProps } from './features/tags/TagsScreen'
+export type { TagDetailResourceItem, TagDetailScreenProps } from './features/tags/TagDetailScreen'
+export { TeamsScreen } from './features/teams/TeamsScreen'
+export type { TeamsScreenProps, TeamCreateForm, TeamCardItem } from './features/teams/TeamsScreen'
+export { TeamWorkspaceScreen } from './features/teams/TeamWorkspaceScreen'
+export type {
+  TeamWorkspaceScreenProps,
+  TeamWorkspaceTab,
+  TeamWorkspaceRole,
+  TeamWorkspaceInvitationStatus,
+  TeamWorkspaceInfo,
+  TeamWorkspaceMember,
+  TeamWorkspaceInvitation,
+  TeamWorkspaceSettingsForm,
+} from './features/teams/TeamWorkspaceScreen'
+export { WorkflowListScreen } from './features/workflows/WorkflowListScreen'
+export { WorkflowDetailScreen } from './features/workflows/WorkflowDetailScreen'
+export { WorkflowInstanceDetailScreen } from './features/workflows/WorkflowInstanceDetailScreen'
+export type {
+  WorkflowListScreenProps,
+  WorkflowListRow,
+  WorkflowCreateInput,
+  WfTriggerType,
+} from './features/workflows/WorkflowListScreen'
+export type {
+  WorkflowDetailScreenProps,
+  WorkflowInfoInput,
+} from './features/workflows/WorkflowDetailScreen'
+export type {
+  WorkflowInstanceDetailScreenProps,
+  WorkflowInstanceRow,
+  WorkflowTaskRow,
+  WorkflowLogRow,
+  WfInstanceStatus,
+  WfLogLevel,
+} from './features/workflows/WorkflowInstanceDetailScreen'
+
+export { AiWorldDetailScreen } from './features/ai-world/AiWorldDetailScreen'
+export type {
+  AiWorldDetailData,
+  AiWorldDetailScreenProps,
+} from './features/ai-world/AiWorldDetailScreen'
+export { AiWorldEditScreen } from './features/ai-world/AiWorldEditScreen'
+export type {
+  AiWorldEditFormState,
+  AiWorldEditCategoryOption,
+  AiWorldEditScreenProps,
+} from './features/ai-world/AiWorldEditScreen'
+export { AiWorldCollectionScreen } from './features/ai-world/AiWorldCollectionScreen'
+export type {
+  AiWorldCollectionRow,
+  AiWorldCollectionScreenProps,
+} from './features/ai-world/AiWorldCollectionScreen'
+export { EduAiHubScreen } from './features/edu-ai/EduAiHubScreen'
+export type {
+  EduAiTab,
+  EduAiListState,
+  EduAiAigcToolRow,
+  EduAiCertRow,
+  EduAiCourseRow,
+  EduAiPolicyRow,
+  EduAiHubScreenProps,
+} from './features/edu-ai/EduAiHubScreen'
+export { EduAiVideoComposeScreen } from './features/edu-ai/EduAiVideoComposeScreen'
+export type {
+  EduAiVideoStepName,
+  EduAiVideoStepStatus,
+  EduAiVideoStepRow,
+  EduAiVideoTaskRow,
+  EduAiVideoComposeScreenProps,
+} from './features/edu-ai/EduAiVideoComposeScreen'
+export { PlanListScreen } from './features/plan/PlanListScreen'
+export type {
+  PlanListScreenProps,
+  PlanListRow,
+  PlanFilterValue,
+} from './features/plan/PlanListScreen'
+export { PlanFormScreen } from './features/plan/PlanFormScreen'
+export type {
+  PlanFormScreenProps,
+  PlanFormValues,
+  PlanStepDraft,
+} from './features/plan/PlanFormScreen'
+export { PlanDetailScreen } from './features/plan/PlanDetailScreen'
+export type { PlanDetailScreenProps } from './features/plan/PlanDetailScreen'
+export { createPlanLocalStore, generateId, computePlanStats } from './features/plan/plan-store-core'
+export type {
+  PlanStorage,
+  PlanLocalStore,
+  PlanLocalStoreOptions,
+} from './features/plan/plan-store-core'
+export {
+  snapshotPlan,
+  signatureOf,
+  shouldRecordVersion,
+  appendVersion,
+  diffPlanVersions,
+  planVersionStorageKey,
+  isValidVersionSnapshot,
+  PLAN_VERSION_STORAGE_PREFIX,
+  PLAN_VERSION_MAX_KEPT,
+} from './features/plan/plan-version-core'
+export type {
+  PlanVersionSnapshot,
+  PlanVersionStepSnapshot,
+  PlanStepChange,
+  PlanStepChangeKind,
+  PlanStepFieldKey,
+  PlanVersionDiffResult,
+  PlanVersionDiffSummary,
+} from './features/plan/plan-version-core'
+export { StudentCenterScreen } from './features/student/StudentCenterScreen'
+export type {
+  StudentCenterScreenProps,
+  StudentReportData,
+  StudentReportFormat,
+  StudentQuickLinkKey,
+} from './features/student/StudentCenterScreen'
+export { MyCommentsScreen } from './features/student/MyCommentsScreen'
+export type { MyCommentsScreenProps, MyCommentItem } from './features/student/MyCommentsScreen'
+export { MyLessonsScreen } from './features/student/MyLessonsScreen'
+export type { MyLessonsScreenProps, MyLessonItem } from './features/student/MyLessonsScreen'
+export { MyResourcesScreen } from './features/student/MyResourcesScreen'
+export type { MyResourcesScreenProps, MyResourceItem } from './features/student/MyResourcesScreen'
+export { OfflineRecordsScreen } from './features/student/OfflineRecordsScreen'
+export type {
+  OfflineRecordsScreenProps,
+  OfflineRecordItem,
+  OfflineRecordFormState,
+  OfflineRecordAttachmentItem,
+} from './features/student/OfflineRecordsScreen'
+export { ToolsScreen } from './features/tools/ToolsScreen'
+export type { ToolCategory, ToolRow, ToolsScreenProps } from './features/tools/ToolsScreen'
+export { PdfToolsHubScreen } from './features/tools/pdf/PdfToolsHubScreen'
+export type {
+  PdfToolTab,
+  PdfPickedFile,
+  PdfProcessPayload,
+  PdfProcessOutcome,
+  PdfToolsHubScreenProps,
+} from './features/tools/pdf/PdfToolsHubScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

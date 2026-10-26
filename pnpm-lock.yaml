@@ -1376,6 +1376,9 @@ importers:
 
   packages/auth:
     dependencies:
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@simplewebauthn/server':
         specifier: ^13.3.2
         version: 13.3.2
@@ -4515,7 +4518,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {'0': node >=0.10.0}
+    engines: {node: '>=0.10.0'}
 
   '@expo/cli@57.0.15':
     resolution: {integrity: sha512-YIE5xgZlkwx6OyjjVq/zAfqtYvczsWLEkOukDJwaZDaMQl8x5/CjoqC/Oe670DFQc5xjqguH6cmZUWHHL7yH3g==}

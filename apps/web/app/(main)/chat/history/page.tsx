@@ -98,15 +98,20 @@ export default function ChatHistoryPage() {
         placeholder={t('searchPlaceholder')}
       />
 
-      {!ready || !isAuthenticated ? (
-        // 未登录/会话过期:登录引导,而非发注定 401 的请求再报「操作失败」
+      {!ready ? (
+        // 「还没查完」≠「确认未登录」(2026-10-26,与 admin/layout 同口径):冷启动静默续期
+        // 进行中的这一格只给加载态,绝不渲染「请先登录」、绝不触发登录弹窗副作用,
+        // 否则凭据有效的用户会被画成"被踢出"→ 手动重登。
+        <div className="py-10 text-center text-muted-foreground">
+          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+          {t('loading')}
+        </div>
+      ) : !isAuthenticated ? (
+        // 终态(ready 且未登录/会话确认过期):登录引导,而非发注定 401 的请求再报「操作失败」
         <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
           <LogIn className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('loginRequired')}</p>
-          <Button
-            size="sm"
-            onClick={() => openLoginDialogOnce('/chat/history')}
-          >
+          <Button size="sm" onClick={() => openLoginDialogOnce('/chat/history')}>
             {t('loginRequired')}
           </Button>
         </div>

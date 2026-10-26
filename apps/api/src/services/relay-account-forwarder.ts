@@ -22,7 +22,8 @@
  *   否则走通用单请求路径 buildChatRequest → fetch → translateStreamChunk/translateNonStream
  * - 401 自愈:鉴权失败 → 适配器 refreshToken → 回写号池 → 重试一次(对标码道 token 自动续期)
  * - 熔断分层(超越码道的单一冷却):
- *   · 连续 3 败 → 60s 冷却;rate → 60s;credit → 12h;risk(4015/4019/4010/4013)→ 30m 起、连续命中翻倍;
+ *   · 连续 3 败 → 60s 冷却;rate → max(60s, 上游 Retry-After/x-ratelimit-reset),封顶 1h;
+ *     credit → 12h;risk(4015/4019/4010/4013)→ 30m 起、连续命中翻倍;
  *     session_dead → 永久摘除(tempUnschedulable)
  *     冷却到期时间经 shared-state 跨实例共享(Redis 优先、内存兜底)
  *   · 请求级错误(参数非法/超长/审核)不罚号(直接透传失败,不计数不冷却)
@@ -32,6 +33,19 @@
  * - 流式:上游 SSE 帧逐帧 adapter.translateStreamChunk → OpenAI chunk 重封装 + [DONE];
  *   executeChat 的 chunk 序列合成同款 SSE Response,pipeChannelStream 原样消费
  * - 非流式:上游若强制流式(WorkBuddy),按 content-type 自动聚合 SSE → chat.completion
+ *
+ * 记账诚实性(2026-10-26 立,审计缺陷 1):流式的「成功」判定**不在拿到响应头时**。
+ * 头到 ≠ 号活着把答案说完——半包/断流曾被 recordSuccess 直接洗成 healthy,健康四档与
+ * 用量账本因此在读假数。现行口径:StreamTerminal(收尾句柄)由流构造器写入、由用量 tap
+ * 读取,判据只在这一处落(§0.6);正常收尾才记成功,断流走既有失败分类记 ok:false,
+ * 并计数 relay_stream_interrupt_total{provider_code}。断流坐实不了「凭据失效」:
+ * 无 HTTP 状态/业务码的文案匹配不得把号判成票死(见 kindForStreamInterrupt)。
+ * 非流式路径不变:body 在 finish 前已读完,那一刻就是「正常收尾」。
+ *
+ * 上游限流退避(2026-10-26 立,审计缺陷 2):429 的冷却时长改读上游自己的声明
+ * (`Retry-After` 秒数或 HTTP-date、`x-ratelimit-reset` 秒数或 epoch),
+ * 采用值 = max(RATE_COOLDOWN_MS, 上游秒数) 封顶 RATE_COOLDOWN_MAX_MS,采用的秒数写进
+ * 错误消息与日志便于归因;取不到头 ⇒ 保持常量(绝不读成 0,0 = 立刻放号回去再撞一次)。
  *
  * 永不抛错:一切异常折叠为 ForwardFailure/null,调用方继续回退 ai-service(双通道韧性)。
  */
@@ -47,6 +61,8 @@ import {
 import { db, dbRead } from '../db/index.js'
 import { encryptField } from '../utils/crypto.js'
 import { startStopwatch } from '../utils/elapsed-ms.js'
+import { recordRelayStreamInterrupt, snapshotRelayStreamInterrupts } from '../plugins/business-metrics.js'
+import { logger } from '../utils/logger.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
 import {
@@ -88,8 +104,10 @@ const CREDIT_COOLDOWN_MS = 12 * 60 * 60 * 1000
 /** 风控命中(4015/4019/4010/4013):30 分钟起冷却,连续命中翻倍,封顶 6h */
 const RISK_COOLDOWN_MS = 30 * 60 * 1000
 const RISK_COOLDOWN_MAX_MS = 6 * 60 * 60 * 1000
-/** 上游限流:60s 软冷却(对标 workbuddy CoolSoft) */
+/** 上游限流:60s 软冷却基线(对标 workbuddy CoolSoft);上游自己给了退避时刻就按更长的来 */
 const RATE_COOLDOWN_MS = 60_000
+/** 上游退避封顶:一句 `Retry-After: 31536000` 不该把号池锁一年(与 RISK_COOLDOWN_MAX_MS 同族) */
+const RATE_COOLDOWN_MAX_MS = 60 * 60 * 1000
 /** 会话亲和 TTL:30 分钟(同一会话在多轮间保持同号,降低跨号指纹漂移) */
 const AFFINITY_TTL_MS = 30 * 60 * 1000
 /** 单账号在途请求上限(可选 env 覆盖;超限时换号,不打满上游) */
@@ -105,6 +123,47 @@ const PROVIDER_CACHE_MAX = 1_000
 const PROXY_AGENT_MAX = 64
 /** 上游响应头超时:只约束「拿到响应」这一段,流式正文不受影响 */
 const UPSTREAM_TIMEOUT_MS = 120_000
+
+/**
+ * 流式收尾句柄(2026-10-26 记账诚实性的唯一载体)。
+ *
+ * 写入者 = 流构造器(`chunksToSseResponse` / `translateSseResponse`),读取者 = 用量 tap。
+ * 构造器在 enqueue 收尾帧 / 抛错**之前**先把结论写定,故 tap 观察到流终结时必读到定局。
+ * 判据只在这一处落(§0.6 单一真相源):tap 不另起一套「看到 [DONE] 才算好」的解析。
+ */
+interface StreamTerminal {
+  /** 收尾结论:null = 尚未定局(流还没读完);true = 上游给出合法收尾;false = 断流/半包 */
+  endedCleanly: boolean | null
+  /** 断流的原始异常(上游抛错才有;纯截断 ⇒ undefined,按网络级断流处理) */
+  error?: unknown
+}
+
+function newStreamTerminal(): StreamTerminal {
+  return { endedCleanly: null }
+}
+
+/** 流终结结论:成功记账只认这两档,没有第三种("没判"不写成"判过") */
+type StreamOutcome = 'clean' | 'interrupted'
+
+/**
+ * 「这轮算不算成功」的唯一判定(2026-10-26 把口径从「拿到响应头」挪到「流正常收尾」):
+ * ① tap 读流自身抛错 ⇒ interrupted;② 收尾句柄未定局或明确没看到收尾帧 ⇒ interrupted;
+ * ③ 其余(含非流式:body 已在内存,读完即定局)⇒ clean。
+ */
+function judgeStreamOutcome(tapError: unknown, terminal?: StreamTerminal): StreamOutcome {
+  if (tapError !== undefined) return 'interrupted'
+  if (!terminal) return 'clean'
+  return terminal.endedCleanly === true ? 'clean' : 'interrupted'
+}
+
+/**
+ * 流式断流计数:记账出口在 `plugins/business-metrics.ts`(家族 `ihui_relay_stream_interrupt_total{provider_code}`,
+ * 与 `ihui_relay_upstream_fallback_total` 同族同节拍)。本文件只留**判据**(什么算"没说完")与现读转发,
+ * 不再自持一份 Map(§0.6 单一真相源;上一版因并行写席禁改 metrics 才临时落在这里)。
+ */
+export function getStreamInterruptCounts(): Record<string, number> {
+  return snapshotRelayStreamInterrupts()
+}
 
 type FailureKind =
   | 'auth'
@@ -282,6 +341,123 @@ async function selectAccountCandidates(
 }
 
 // =============================================================================
+// 上游退避头(Retry-After / x-ratelimit-reset)
+// =============================================================================
+
+/** 秒数 ≥ 此值按「epoch 秒」解(GitHub 形 x-ratelimit-reset),否则按「距今 delta 秒」 */
+const EPOCH_SECONDS_FLOOR = 1_000_000_000
+
+/** 退避方案的归因短语(进 lastErrorMessage / ForwardResult.reason,便于事后问责) */
+export interface RateBackoff {
+  /** 最终采用的冷却毫秒 */
+  ms: number
+  /** 采用了多少秒 + 依据(上游给的真值 / 封顶 / 常量) */
+  note: string
+}
+
+/** 读一枚响应头:兼容 Headers 实例与纯对象(适配器错误上挂的原始头) */
+function headerOf(headers: unknown, name: string): string | null {
+  if (!headers) return null
+  const asHeaders = headers as { get?: (k: string) => string | null }
+  if (typeof asHeaders.get === 'function') {
+    try {
+      return asHeaders.get(name) ?? null
+    } catch {
+      return null
+    }
+  }
+  const rec = headers as Record<string, unknown>
+  for (const k of Object.keys(rec)) {
+    if (k.toLowerCase() !== name) continue
+    const v = rec[k]
+    if (typeof v === 'string') return v
+    if (Array.isArray(v) && typeof v[0] === 'string') return v[0]
+  }
+  return null
+}
+
+/**
+ * 单枚退避头 → 毫秒。
+ * 合法形态:`delay-seconds`(含小数)、HTTP-date、epoch 秒。
+ * 非法形态/已过期 ⇒ null(= 未判定),**不得读成 0**——0 会当场放号回去再撞一次限流。
+ */
+function parseBackoffSeconds(raw: string | null, nowMs: number): number | null {
+  if (raw === null) return null
+  const text = raw.trim()
+  if (!text) return null
+  if (/^\d+(?:\.\d+)?$/.test(text)) {
+    const n = Number(text)
+    if (!Number.isFinite(n) || n < 0) return null
+    if (n >= EPOCH_SECONDS_FLOOR) {
+      const deltaMs = n * 1000 - nowMs
+      return deltaMs > 0 ? deltaMs : null
+    }
+    return n * 1000
+  }
+  const at = Date.parse(text)
+  if (!Number.isFinite(at)) return null
+  const deltaMs = at - nowMs
+  return deltaMs > 0 ? deltaMs : null
+}
+
+/** 两张上游退避头取更长的那枚;一张可用都没有 ⇒ null(调用侧保持常量) */
+export function extractUpstreamBackoffMs(headers: unknown, nowMs = Date.now()): number | null {
+  const candidates = [
+    parseBackoffSeconds(headerOf(headers, 'retry-after'), nowMs),
+    parseBackoffSeconds(headerOf(headers, 'x-ratelimit-reset'), nowMs),
+  ].filter((v): v is number => v !== null)
+  if (candidates.length === 0) return null
+  return Math.max(...candidates)
+}
+
+/**
+ * 429 冷却方案:采用值 = `max(RATE_COOLDOWN_MS, 上游声明)` 封顶 `RATE_COOLDOWN_MAX_MS`。
+ * 上游没给/给了不可用的形态 ⇒ 常量,并在结论里写明依据(不静默、不谎报为上游意图)。
+ */
+export function planRateBackoff(headers: unknown, nowMs = Date.now()): RateBackoff {
+  const upstreamMs = extractUpstreamBackoffMs(headers, nowMs)
+  const constantNote = `退避=${RATE_COOLDOWN_MS / 1000}s(上游未给可用 Retry-After)`
+  if (upstreamMs === null) {
+    if (
+      headerOf(headers, 'retry-after') !== null ||
+      headerOf(headers, 'x-ratelimit-reset') !== null
+    )
+      logger.warn('[relay-account-forwarder] 上游退避头形态不可用,回落常量冷却', {
+        retryAfter: headerOf(headers, 'retry-after'),
+        ratelimitReset: headerOf(headers, 'x-ratelimit-reset'),
+      })
+    return { ms: RATE_COOLDOWN_MS, note: constantNote }
+  }
+  const ms = Math.min(Math.max(RATE_COOLDOWN_MS, upstreamMs), RATE_COOLDOWN_MAX_MS)
+  const upstreamS = Math.round(upstreamMs / 1000)
+  const adoptedS = Math.round(ms / 1000)
+  const clamped = ms < upstreamMs
+  logger.warn('[relay-account-forwarder] 按上游退避头冷却', {
+    upstreamSeconds: upstreamS,
+    adoptedSeconds: adoptedS,
+    clampedByCeiling: clamped,
+  })
+  return {
+    ms,
+    note: `退避=${adoptedS}s(上游声明 ${upstreamS}s${clamped ? `,按上限 ${RATE_COOLDOWN_MAX_MS / 1000}s 截断` : ''})`,
+  }
+}
+
+/** 仅 rate 类需要上游退避;其余类别返回 undefined(不替无关失败编造退避依据) */
+function rateBackoffFor(
+  kind: FailureKind,
+  headers: unknown,
+  nowMs = Date.now(),
+): RateBackoff | undefined {
+  return kind === 'rate' ? planRateBackoff(headers, nowMs) : undefined
+}
+
+/** 适配器抛错上若挂了原始响应头则取用;取不到 ⇒ null ⇒ 回落常量 */
+function headersOfThrown(err: unknown): unknown {
+  return (err as { headers?: unknown } | null | undefined)?.headers ?? null
+}
+
+// =============================================================================
 // 结果记录(熔断 + 亲和 + DB 计数)
 // =============================================================================
 
@@ -309,7 +485,12 @@ function recordSuccess(
     .catch(() => {})
 }
 
-function recordFailure(row: AiRelayAccountPool, kind: FailureKind, reason: string): void {
+function recordFailure(
+  row: AiRelayAccountPool,
+  kind: FailureKind,
+  reason: string,
+  backoff?: RateBackoff,
+): void {
   // 请求级错误(参数非法/超长/审核拦截):不罚号
   if (kind === 'request') return
   const now = Date.now()
@@ -326,7 +507,9 @@ function recordFailure(row: AiRelayAccountPool, kind: FailureKind, reason: strin
         row.id,
         now + Math.min(RISK_COOLDOWN_MS * Math.max(1, failures), RISK_COOLDOWN_MAX_MS),
       )
-    else if (kind === 'rate') void setAccountCooldown(row.id, now + RATE_COOLDOWN_MS)
+    else if (kind === 'rate')
+      // 上游说几秒就退避几秒(封顶 RATE_COOLDOWN_MAX_MS);上游没说 ⇒ 常量
+      void setAccountCooldown(row.id, now + (backoff?.ms ?? RATE_COOLDOWN_MS))
     else if (failures >= BREAKER_FAILURES)
       void setAccountCooldown(row.id, now + BREAKER_COOLDOWN_MS)
   }
@@ -416,6 +599,26 @@ function classifyThrownError(adapter: RelayUpstreamAdapter, err: unknown): Failu
     }
   }
   return 'network'
+}
+
+/**
+ * 断流的失败分类(2026-10-26):**沿用 classifyThrownError,不另造第二套分类**,
+ * 只补一条证据下限——「半途断流」证明不了「票死了」。
+ * 因此:结论是 auth / session_dead(两者会收敛 tokenExpiresAt、甚至写 healthStatus=down)
+ * 而错误既没带 HTTP 状态、也没带上游业务码时,一律降为 network:
+ * 那只是「这个号本轮失败」,不是「这张票作废」。
+ */
+function kindForStreamInterrupt(adapter: RelayUpstreamAdapter, err: unknown): FailureKind {
+  if (err === undefined) return 'network' // 纯截断(上游静默关连接):网络级断流
+  const kind = classifyThrownError(adapter, err)
+  if (kind !== 'auth' && kind !== 'session_dead') return kind
+  const statusCode =
+    typeof (err as { statusCode?: unknown })?.statusCode === 'number'
+      ? (err as { statusCode: number }).statusCode
+      : 0
+  const hasStructuredEvidence =
+    statusCode > 0 || (err as { upstreamCode?: unknown })?.upstreamCode !== undefined
+  return hasStructuredEvidence ? kind : 'network'
 }
 
 /** 区分「上游响应超时」与「客户端断开」:仅约束响应头阶段,流式正文不受限 */
@@ -573,7 +776,10 @@ function sseHeaders(): Record<string, string> {
 }
 
 /** executeChat 的 OpenAI chunk 序列 → 标准 SSE Response(供 pipeChannelStream 原样消费) */
-function chunksToSseResponse(stream: AsyncIterable<Record<string, unknown>>): Response {
+function chunksToSseResponse(
+  stream: AsyncIterable<Record<string, unknown>>,
+  terminal: StreamTerminal,
+): Response {
   const encoder = new TextEncoder()
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -581,8 +787,12 @@ function chunksToSseResponse(stream: AsyncIterable<Record<string, unknown>>): Re
         for await (const chunk of stream) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
         }
+        // 适配器生成器正常结束 = 这一轮说完了(唯一可用的收尾证据;抛错走下面 catch)
+        terminal.endedCleanly = true
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
+        terminal.endedCleanly = false
+        terminal.error = err
         controller.error(err)
         return
       }
@@ -597,7 +807,8 @@ function translateSseResponse(
   upstream: ReadableStream<Uint8Array>,
   adapter: RelayUpstreamAdapter,
   ctx: AdapterAccountContext,
-  stop?: string | string[],
+  stop: string | string[] | undefined,
+  terminal: StreamTerminal,
 ): Response {
   const encoder = new TextEncoder()
   const state: StreamState = {}
@@ -606,19 +817,31 @@ function translateSseResponse(
     async start(controller) {
       let stopped = false
       let flushed = false
+      // 上游是否给出了合法收尾([DONE] / finish_reason / 适配器判定 done / 命中 stop 序列)
+      let sawTerminalFrame = false
       let lastChunk: Record<string, unknown> | null = null
       const emit = (chunk: Record<string, unknown>) => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
       }
       try {
         for await (const line of readSseDataLines(upstream)) {
-          if (isSseDone(line)) break
+          if (isSseDone(line)) {
+            sawTerminalFrame = true
+            break
+          }
           const translated = adapter.translateStreamChunk(ctx, line, state)
           if (!translated) continue
           const chunk = translated.openaiChunk
           lastChunk = chunk
           const choices = Array.isArray(chunk.choices) ? chunk.choices : []
+          // 收尾帧判定与 stop 截断互不影响:任何一帧带非空 finish_reason 即「上游把话说完」
+          for (const raw of choices) {
+            const choice = asRecord(raw)
+            if (choice && typeof choice.finish_reason === 'string' && choice.finish_reason)
+              sawTerminalFrame = true
+          }
           let reachesEnd = translated.done === true
+          if (translated.done === true) sawTerminalFrame = true
           if (truncator) {
             for (const raw of choices) {
               const choice = asRecord(raw)
@@ -630,6 +853,8 @@ function translateSseResponse(
                 if (r.matched) {
                   choice.finish_reason = 'stop'
                   stopped = true
+                  // 命中 stop 序列 = 按协议收尾(不是断流),尾巴丢弃是预期截断
+                  sawTerminalFrame = true
                 }
               }
               if (typeof choice.finish_reason === 'string' && choice.finish_reason)
@@ -668,8 +893,13 @@ function translateSseResponse(
             })
           }
         }
+        // 收尾结论必须在 enqueue 合成 [DONE] 之前写定:tap 看到 DONE 就收手,再晚读不到证据。
+        // 上游没给收尾帧而流自己结束 = 半包(此前正是这一格被记成成功)。
+        terminal.endedCleanly = sawTerminalFrame
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
+        terminal.endedCleanly = false
+        terminal.error = err
         controller.error(err)
         return
       }
@@ -788,7 +1018,7 @@ async function safeText(resp: Response): Promise<string> {
 }
 
 // =============================================================================
-// 用量 tap:从响应流提取 OpenAI usage 字段(不消费主路径 body)
+// 用量 tap:从响应流提取 OpenAI usage 字段(不消费主路径 body)+ 流收尾结论
 // =============================================================================
 
 interface UsagePair {
@@ -835,31 +1065,38 @@ function parseDataLine(line: string): unknown {
 }
 
 /**
- * 包裹响应以提取 usage,onUsage **恰好调用一次**(取末帧/最终 usage;无 usage 则 0/0)。
+ * 包裹响应以提取 usage,onUsage **恰好调用一次**,并同时给出收尾结论
+ * (`clean` / `interrupted`,判据见 judgeStreamOutcome)。
  * - SSE:body.tee(),tap 支路异步解析,主路零延迟零消费;
  * - JSON(Response.json 构造,body 已在内存):clone().text() 解析,原响应直接透传。
- * tap 内部一切异常吞掉 —— 用量统计永不影响转发主链路。
+ * tap 自身的异常不再被吞成"成功"——它正是断流的证据,只影响结论、不影响主链路。
  */
-function tapAccountUsage(resp: Response, onUsage: (u: UsagePair) => void): Response {
+function tapAccountUsage(
+  resp: Response,
+  terminal: StreamTerminal | undefined,
+  onUsage: (u: UsagePair, outcome: StreamOutcome) => void,
+): Response {
   const ct = resp.headers.get('content-type') ?? ''
   if (ct.includes('text/event-stream')) {
     if (!resp.body) {
-      onUsage(ZERO_USAGE)
+      onUsage(ZERO_USAGE, judgeStreamOutcome(undefined, terminal))
       return resp
     }
     const [pass, tap] = resp.body.tee()
     void (async () => {
       let last: UsagePair | null = null
+      let tapError: unknown
       try {
         for await (const line of readSseDataLines(tap)) {
           if (isSseDone(line)) break
           const u = extractUsage(parseDataLine(line))
           if (u) last = u
         }
-      } catch {
-        /* tap 支路失败不影响主路径 */
+      } catch (err) {
+        // 断流证据(tap 支路抛错 = 主流同一处抛错);仍要回调一次,否则并发额度还不出去
+        tapError = err
       }
-      onUsage(last ?? ZERO_USAGE)
+      onUsage(last ?? ZERO_USAGE, judgeStreamOutcome(tapError, terminal))
     })()
     return new Response(pass, {
       status: resp.status,
@@ -878,9 +1115,9 @@ function tapAccountUsage(resp: Response, onUsage: (u: UsagePair) => void): Respo
       } catch {
         /* 非 JSON 体按 0/0 记 */
       }
-      onUsage(u)
+      onUsage(u, judgeStreamOutcome(undefined, terminal))
     })
-    .catch(() => onUsage(ZERO_USAGE))
+    .catch((err: unknown) => onUsage(ZERO_USAGE, judgeStreamOutcome(err, terminal)))
   return resp
 }
 
@@ -896,6 +1133,12 @@ interface AccountAttempt {
   latencyTrusted?: boolean
   reason?: string
   httpStatus?: number
+  /**
+   * 流式尝试的收尾句柄(非流式 = undefined)。
+   * 有它 ⇒ 「成功」记账必须等流正常收尾才落(见 forwardToAccountPool 的 settle);
+   * 没有 ⇒ body 已在内存/已读完,finish 当场记账就是诚实的。
+   */
+  terminal?: StreamTerminal
 }
 
 function toNormalized(req: UpstreamForwardRequest, rawModel: string): NormalizedChatRequest {
@@ -938,18 +1181,29 @@ async function attemptWithAccount(
   opts: { upstreamModel: string; proxy: string | null },
 ): Promise<AccountAttempt> {
   const started = startStopwatch()
-  const finish = (resp: Response): AccountAttempt => {
+  /**
+   * 非流式(不带 terminal):body 已读完/在内存 ⇒ 当场记成功,语义与改造前逐字一致。
+   * 流式(带 terminal):只交回收尾句柄,**不记成功** —— 「拿到响应头」不等于「号把话说完」,
+   * 成功判定挪到流正常收尾那一格(审计缺陷 1)。
+   */
+  const finish = (resp: Response, terminal?: StreamTerminal): AccountAttempt => {
     const sample = started.stop()
-    recordSuccess(row, req, rawModel)
+    if (!terminal) recordSuccess(row, req, rawModel)
     return {
       ok: true,
       response: resp,
       latencyMs: sample.perfMs,
       latencyTrusted: sample.trustworthy,
+      ...(terminal ? { terminal } : {}),
     }
   }
-  const fail = (kind: FailureKind, reason: string, httpStatus?: number): AccountAttempt => {
-    recordFailure(row, kind, reason)
+  const fail = (
+    kind: FailureKind,
+    reason: string,
+    httpStatus?: number,
+    backoff?: RateBackoff,
+  ): AccountAttempt => {
+    recordFailure(row, kind, reason, backoff)
     return { ok: false, kind, reason, httpStatus }
   }
 
@@ -969,7 +1223,10 @@ async function attemptWithAccount(
         proxyUrl: opts.proxy,
         fetchImpl: doFetch,
       })
-      if (result.stream) return finish(chunksToSseResponse(result.stream))
+      if (result.stream) {
+        const terminal = newStreamTerminal()
+        return finish(chunksToSseResponse(result.stream, terminal), terminal)
+      }
       if (result.completion) return finish(Response.json(result.completion))
       return fail('server', 'executeChat 返回空结果')
     } catch (err) {
@@ -986,15 +1243,21 @@ async function attemptWithAccount(
               normReq,
               { signal: retryTimed.signal, proxyUrl: refreshed.proxyUrl, fetchImpl: doFetch },
             )
-            if (retry.stream) return finish(chunksToSseResponse(retry.stream))
+            if (retry.stream) {
+              const retryTerminal = newStreamTerminal()
+              return finish(chunksToSseResponse(retry.stream, retryTerminal), retryTerminal)
+            }
             if (retry.completion) return finish(Response.json(retry.completion))
           } catch (err2) {
             if (retryTimed.timedOut()) {
               return fail('network', `刷新后上游响应超时(${UPSTREAM_TIMEOUT_MS}ms)`)
             }
+            const retryKind = classifyThrownError(adapter, err2)
             return fail(
-              classifyThrownError(adapter, err2),
+              retryKind,
               `刷新后重试仍失败: ${err2 instanceof Error ? err2.message : msg}`,
+              undefined,
+              rateBackoffFor(retryKind, headersOfThrown(err2)),
             )
           } finally {
             retryTimed.clear()
@@ -1003,7 +1266,8 @@ async function attemptWithAccount(
         }
         return fail('auth', `鉴权失败且刷新未成功: ${msg}`)
       }
-      return fail(classifyThrownError(adapter, err), msg)
+      const thrownKind = classifyThrownError(adapter, err)
+      return fail(thrownKind, msg, undefined, rateBackoffFor(thrownKind, headersOfThrown(err)))
     } finally {
       timed.clear()
     }
@@ -1076,10 +1340,13 @@ async function attemptWithAccount(
             )
           }
           const retryText = await safeText(retryResp)
+          const retryFailKind = classifyFailure(adapter, retryResp.status, retryText)
+          const retryBackoff = rateBackoffFor(retryFailKind, retryResp.headers)
           return fail(
-            classifyFailure(adapter, retryResp.status, retryText),
-            `刷新后仍失败: 上游 ${retryResp.status}`,
+            retryFailKind,
+            `刷新后仍失败: 上游 ${retryResp.status}${retryBackoff ? ` ${retryBackoff.note}` : ''}`,
             retryResp.status,
+            retryBackoff,
           )
         } catch (err) {
           if ((err as Error)?.name === 'AbortError' && !req.signal?.aborted) {
@@ -1087,14 +1354,23 @@ async function attemptWithAccount(
             return fail('network', `刷新后上游响应超时(${UPSTREAM_TIMEOUT_MS}ms)`)
           }
           if ((err as Error)?.name === 'AbortError') throw err
+          const thrownKind = classifyThrownError(adapter, err)
           return fail(
-            classifyThrownError(adapter, err),
+            thrownKind,
             `刷新后重试异常: ${err instanceof Error ? err.message : String(err)}`,
+            undefined,
+            rateBackoffFor(thrownKind, headersOfThrown(err)),
           )
         }
       }
     }
-    return fail(kind, `上游 ${resp.status}: ${bodyText.slice(0, 200) || '(空响应体)'}`, resp.status)
+    const backoff = rateBackoffFor(kind, resp.headers)
+    return fail(
+      kind,
+      `上游 ${resp.status}: ${bodyText.slice(0, 200) || '(空响应体)'}${backoff ? ` ${backoff.note}` : ''}`,
+      resp.status,
+      backoff,
+    )
   }
 
   return consumeUpstreamResponse(resp, adapter, ctx, req, rawModel, finish, fail)
@@ -1107,14 +1383,21 @@ async function consumeUpstreamResponse(
   ctx: AdapterAccountContext,
   req: UpstreamForwardRequest,
   rawModel: string,
-  finish: (r: Response) => AccountAttempt,
-  fail: (kind: FailureKind, reason: string, httpStatus?: number) => AccountAttempt,
+  finish: (r: Response, terminal?: StreamTerminal) => AccountAttempt,
+  fail: (
+    kind: FailureKind,
+    reason: string,
+    httpStatus?: number,
+    backoff?: RateBackoff,
+  ) => AccountAttempt,
 ): Promise<AccountAttempt> {
   const body = resp.body
   // 2xx 但不可消费/不可解析 = 上游服务异常,必须罚号(否则坏上游永远健康)
   if (!body) return fail('server', '上游响应无 body', resp.status)
   if (req.stream) {
-    return finish(translateSseResponse(body, adapter, ctx, req.stop))
+    // 流式:成功记账交回收尾句柄,不在这里落(半包/断流曾被这一格洗成 healthy)
+    const terminal = newStreamTerminal()
+    return finish(translateSseResponse(body, adapter, ctx, req.stop, terminal), terminal)
   }
   const ct = resp.headers.get('content-type') ?? ''
   if (ct.includes('text/event-stream')) {
@@ -1224,10 +1507,57 @@ export async function forwardToAccountPool(
         }
       }
       if (attempt.ok && attempt.response) {
-        if (proxy) void reportProxySuccess(proxy)
+        const terminal = attempt.terminal
+        const isStream = terminal !== undefined
+        // 非流式:代理成功照旧当场记(body 已读完,没有"之后才断"这一格)
+        if (proxy && !isStream) void reportProxySuccess(proxy)
         // 用量台账:tap 响应流提取 usage(恰好一次;无 usage 记 0/0),永不阻塞/影响主路径
-        const response = tapAccountUsage(attempt.response, (u) => {
+        // 流式的成功/失败记账与代理上报一并落在这一格:判据 = 收尾结论,不是响应头
+        const response = tapAccountUsage(attempt.response, terminal, (u, outcome) => {
           releaseOnce() // 流结束/断开时归还并发额度(tap 保证恰好一次)
+          if (!isStream || outcome === 'clean') {
+            if (isStream) {
+              // 「流正常收尾」才回血 + 续亲和(审计缺陷 1 的正解)
+              recordSuccess(row, req, rawModel)
+              if (proxy) void reportProxySuccess(proxy)
+            }
+            void recordAccountUsage({
+              accountId: row.id,
+              providerCode: row.providerCode,
+              model: rawModel,
+              promptTokens: u.promptTokens,
+              completionTokens: u.completionTokens,
+              reasoningTokens: u.reasoningTokens,
+              cachedTokens: u.cachedTokens,
+              ok: true,
+              latencyMs: attempt.latencyMs ?? 0,
+            })
+            return
+          }
+          // ── 断流 / 半包 ─────────────────────────────────────────────────────────
+          // 客户端主动断开不是号的账(与主循环 AbortError「不记失败账」同口径),但仍要计数?
+          // 不:relay_stream_interrupt_total 量的是「上游没把话说完」,客户端断开混进去会顶掉
+          // 这一格的可归因性,故断开只归还额度、不进任何账。
+          if (req.signal?.aborted === true) return
+          recordRelayStreamInterrupt(row.providerCode)
+          const kind = kindForStreamInterrupt(adapter, terminal?.error)
+          const detail =
+            terminal?.error instanceof Error
+              ? terminal.error.message
+              : terminal?.error !== undefined
+                ? String(terminal?.error)
+                : '上游未给收尾帧([DONE]/finish_reason)即结束 = 半包'
+          recordFailure(row, kind, `上游流中断(未正常收尾): ${detail}`)
+          logger.warn('[relay-account-forwarder] 流式断流:本轮改判失败,不记成功', {
+            accountId: row.id,
+            providerCode: row.providerCode,
+            model: rawModel,
+            kind,
+            interruptTotal: snapshotRelayStreamInterrupts()[row.providerCode] ?? 0,
+            reason: detail,
+          })
+          // 断流属代理/网络级证据:代理腿半途断了不能被记成"这路子好走"
+          if (proxy) void reportProxyFailure(proxy)
           void recordAccountUsage({
             accountId: row.id,
             providerCode: row.providerCode,
@@ -1236,7 +1566,7 @@ export async function forwardToAccountPool(
             completionTokens: u.completionTokens,
             reasoningTokens: u.reasoningTokens,
             cachedTokens: u.cachedTokens,
-            ok: true,
+            ok: false,
             latencyMs: attempt.latencyMs ?? 0,
           })
         })
@@ -1280,5 +1610,18 @@ export async function forwardToAccountPool(
   }
 }
 
-export const __test__ = { mergeToolCallDelta }
+export const __test__ = {
+  mergeToolCallDelta,
+  // ── 上游退避头(判据单源:镜像测试直接用生产实现,不复制第二份判据/常量)──
+  extractUpstreamBackoffMs,
+  planRateBackoff,
+  rateBackoffFor,
+  headerOf,
+  RATE_COOLDOWN_MS,
+  RATE_COOLDOWN_MAX_MS,
+  // ── 流式收尾诚实性 ──
+  newStreamTerminal,
+  judgeStreamOutcome,
+  kindForStreamInterrupt,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -2,23 +2,31 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import type { CSSProperties } from 'react'
 import { useTt, t } from '@/i18n'
-import { View, Text } from '@tarojs/components'
+import { View, Text, type ITouchEvent } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
-  BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
   BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
   BOTTOM_ACTION_BAR_TEXT_FONT_PX,
-  // 票⑤(2026-09-26):图标卡与模型提示条图章的墨迹档(位图退役后取数一律经这两枚)
-  BOTTOM_ACTION_BAR_ICON_GLYPH_PX,
+  // 票⑤(2026-09-26):模型提示条图章的墨迹档(位图退役后取数一律经这一枚)
   BOTTOM_ACTION_BAR_MODEL_BADGE_PX,
   // 票⑥(2026-09-26):默认变体的附件/发送键 —— 方块与墨迹的唯一档源(与 RN 端同读这两个常量)
   BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
   BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX,
   BOTTOM_ACTION_BAR_SEND_GLYPH_PX,
 } from '@ihui/shared/ui/bottom-action-bar-spec'
+// O02 票④(2026-10-25):条的**结构**与**行/卡/控件的几何**收进平台无关核心,本文件只留
+// className 适配 + 平台原语(照 BackChevron 的形态:一份源 + 两端注入 adapter)。
+import {
+  BottomActionBarControl,
+  BottomActionBarIconCardRow,
+  BottomActionBarInlineRow,
+  type BottomActionBarIconCardItem,
+  type BottomActionBarPlatform,
+} from '@ihui/shared/ui'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import InputArea, { type InputAreaProps } from './InputArea'
 // O81 票⑤(2026-09-26):这 5 个槽位此前指向 aizhs.top 的 CDN 位图。位图不能随主题反色、
@@ -98,6 +106,57 @@ export interface BottomActionBarProps {
  */
 const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 
+/**
+ * 注入给共享核心的平台原语(小程序这一端的适配器)。
+ * 这里**只**做"平台件怎么摆":盒子用 Taro View + className/CSS 长度串、可按压用 onClick +
+ * 静态 hoverClass、字形走 CSS mask 的 LineIcon。结构与几何一律由 core 供出,本文件不再各写一份。
+ * 无障碍名称这一端无通道(收编前本组件也没有该词条)⇒ 原语不落 aria 属性,不凭空造文案。
+ */
+const miniPlatform: BottomActionBarPlatform<string, CSSProperties, ITouchEvent> = {
+  toUnit,
+  // 字形墨迹:LineIcon 的数字 size 即 rpx(与收编前 `size={toUnit(...)}` 同值),H5 由组件内换算。
+  glyphUnit: (px) => px * TARO_RPX_PER_PX,
+  View: ({ className, style, boxStyle, children }) => (
+    <View className={className} style={{ ...boxStyle, ...style }}>
+      {children}
+    </View>
+  ),
+  Text: ({ className, style, fontSize, color, children }) => (
+    <Text className={className} style={{ fontSize, color, ...style }}>
+      {children}
+    </Text>
+  ),
+  Pressable: ({
+    onActivate,
+    disabled,
+    active,
+    className,
+    boxStyle,
+    style,
+    activeStyle,
+    disabledStyle,
+    children,
+  }) => (
+    <View
+      className={className}
+      style={{
+        ...boxStyle,
+        ...style,
+        ...(active === true ? activeStyle : null),
+        ...(disabled === true ? disabledStyle : null),
+      }}
+      onClick={(event) => {
+        if (disabled === true) return
+        onActivate?.(event)
+      }}
+      hoverClass={disabled === true ? 'none' : 'opacity-60'}
+    >
+      {children}
+    </View>
+  ),
+  Glyph: ({ name, size, color }) => <LineIcon name={name as IconName} size={size} color={color} />,
+}
+
 const DEFAULT_TOGGLE_BUTTONS: ToggleButtonItem[] = [
   { key: 'superAgent', label: t('index.feature.superAgent') },
   { key: 'mcp', label: t('index.feature.mcp') },
@@ -143,17 +202,10 @@ export default function BottomActionBar(props: BottomActionBarProps) {
     // ===== ai-home 模式:对齐原项目 BottomActionBar.vue(ToggleButtonGroup + InputArea + icon-button-group)=====
     return (
       <View className="bg-card">
-        {/* ToggleButtonGroup:4 个功能切换按钮(对齐原项目 .toggle-button)*/}
+        {/* ToggleButtonGroup:4 个功能切换按钮(对齐原项目 .toggle-button)
+            行衬与行间距由 core 的 `bottomActionBarInlineRowBoxStyle` 供出(三行同一份) */}
         {toggleButtons.length > 0 ? (
-          <View
-            className="flex"
-            style={{
-              padding: '0 20rpx 10rpx',
-              // chip 行间距取共享源(与 RN toggleRow 同档);图标行/模型行的 rpx(16)
-              // 是别的元素,RN 侧对应档分叉或在 AddPanel 内,不经本常数
-              gap: toUnit(BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX),
-            }}
-          >
+          <BottomActionBarInlineRow platform={miniPlatform} className="flex">
             {toggleButtons.map((btn) => {
               const active = btn.active
               return (
@@ -182,103 +234,67 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 </View>
               )
             })}
-          </View>
+          </BottomActionBarInlineRow>
         ) : null}
 
         {/* InputArea:ai-home 模式(padding 20rpx + bg #E6F3FA 圆角 30rpx + send 100rpx 圆角 30rpx)*/}
         <InputArea variant="ai-home" {...inputAreaProps} value={inputAreaProps?.value ?? ''} />
 
         {/* icon-button-group:4 个图标按钮 + 语音输入按钮(对齐原项目 .icon-button-group)。
-            这一组的卡盒 / 墨迹 / 标文字号保留端内数字:RN 侧同一功能的实现是**共享 AddPanel
-            滑出面板**(另一种媒介、另一种布局角色,不构成本组件里的同一元素),配对与裁档要到
-            AddPanel 那一票一并做,现在把这两端的数字强行对齐等于单方面改写小程序观感 */}
+            卡盒 / 墨迹 / 标文字号 / 图文距与行衬一律由 core 的 icon-card 一支供出;
+            这一组的「与 RN 的 AddPanel 面板同不同元素」问题仍挂在 spec 的【B 单端档】上,
+            等 AddPanel 那一票裁 —— 收编改的是"谁持有数字",不是把单端档粉饰成两端同档 */}
         {showIconButtons ? (
-          <View
+          <BottomActionBarIconCardRow
+            platform={miniPlatform}
             className="flex"
-            style={{
-              justifyContent: 'flex-start',
-              gap: rpx(16),
-              padding: '0 20rpx 10rpx',
+            cardClassName="flex flex-col items-center justify-center"
+            cardStyle={{
+              background: 'var(--color-muted)',
+              borderRadius: rnRadius.lg,
+              border: '6rpx solid var(--color-card)',
             }}
-          >
-            {iconButtons.map((btn) => (
-              <View
-                key={btn.key}
-                className="flex flex-col items-center justify-center"
-                style={{
-                  width: rpx(160),
-                  height: rpx(150),
-                  background: 'var(--color-muted)',
-                  borderRadius: rnRadius.lg,
-                  border: '6rpx solid var(--color-card)',
-                }}
-                onClick={() => onIconButtonClick?.(btn)}
-                hoverClass="opacity-60"
-              >
-                <LineIcon
-                  name={btn.icon}
-                  size={toUnit(BOTTOM_ACTION_BAR_ICON_GLYPH_PX)}
-                  color="var(--color-muted-foreground)"
-                  style={{ marginBottom: rpx(12) }}
-                />
-                <Text
-                  style={{
-                    fontSize: rpx(20),
-                    color: 'var(--color-foreground)',
-                  }}
-                >
-                  {btn.label}
-                </Text>
-              </View>
-            ))}
-            {/* 语音输入按钮(对齐原项目 toggle-voice-input) */}
-            <View
-              className="flex flex-col items-center justify-center"
-              style={{
-                width: rpx(160),
-                height: rpx(150),
-                background: isVoiceInput ? 'var(--color-brand)' : 'var(--color-muted)',
-                borderRadius: rnRadius.lg,
-                border: '6rpx solid var(--color-card)',
-              }}
-              onClick={onVoiceInputToggle}
-              hoverClass="opacity-60"
-            >
-              <LineIcon
-                name="mic"
-                size={toUnit(BOTTOM_ACTION_BAR_ICON_GLYPH_PX)}
-                color={
-                  isVoiceInput ? 'var(--color-primary-foreground)' : 'var(--color-muted-foreground)'
-                }
-                style={{ marginBottom: rpx(12) }}
-              />
-              <Text
-                style={{
-                  fontSize: rpx(20),
-                  color: isVoiceInput
-                    ? 'var(--color-primary-foreground)'
-                    : 'var(--color-foreground)',
-                }}
-              >
-                {isVoiceInput
+            activeCardStyle={{ background: 'var(--color-brand)' }}
+            glyphColor="var(--color-muted-foreground)"
+            activeGlyphColor="var(--color-primary-foreground)"
+            labelColor="var(--color-foreground)"
+            activeLabelColor="var(--color-primary-foreground)"
+            items={[
+              ...iconButtons.map((btn): BottomActionBarIconCardItem => ({
+                key: btn.key,
+                label: btn.label,
+                glyph: btn.icon,
+              })),
+              // 语音输入按钮(对齐原项目 toggle-voice-input):同一卡盒、选中态换 brand 底色
+              {
+                key: 'voice',
+                label: isVoiceInput
                   ? tt('BottomActionBar.p1', '语音输入中')
-                  : tt('BottomActionBar.p2', '语音输入')}
-              </Text>
-            </View>
-          </View>
+                  : tt('BottomActionBar.p2', '语音输入'),
+                glyph: 'mic',
+                active: isVoiceInput,
+              },
+            ]}
+            onActivate={(item) => {
+              if (item.key === 'voice') {
+                onVoiceInputToggle?.()
+                return
+              }
+              const hit = iconButtons.find((btn) => btn.key === item.key)
+              if (hit) onIconButtonClick?.(hit)
+            }}
+          />
         ) : null}
 
         {/* button-group-box:已选模型提示(对齐原项目 .button-group-box)。
-            文字字号取共享源(与 RN modelBar 同档);本行的 rpx(16) 间距与 24/8 的徽标图
-            是这一行自己的元素,RN 侧无对照(那端是 28 高的条 + 16 配置按钮),不经共享档 */}
+            文字字号取共享源(与 RN modelBar 同档);行内间距与行衬由 core 的行模型供出;
+            本行自己的元素只有前导图章(BOTTOM_ACTION_BAR_MODEL_BADGE_PX)与它的右衬,
+            RN 侧无对照(那端是 28 高的条 + 16 配置按钮),不经共享档 */}
         {modelName ? (
-          <View
+          <BottomActionBarInlineRow
+            platform={miniPlatform}
             className="flex justify-between items-center"
-            style={{
-              width: 'calc(100% - 100rpx)',
-              gap: rpx(16),
-              padding: '0 20rpx 10rpx',
-            }}
+            style={{ width: 'calc(100% - 100rpx)' }}
           >
             <View
               className="flex items-center"
@@ -308,7 +324,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
             >
               <Text>{tt('tail.11', '已选模型: {m}', { m: modelName })}</Text>
             </View>
-          </View>
+          </BottomActionBarInlineRow>
         ) : null}
       </View>
     )
@@ -317,21 +333,19 @@ export default function BottomActionBar(props: BottomActionBarProps) {
   // ===== 默认模式:兼容旧调用 =====
   return (
     <View className={cn('flex items-center px-3 py-2 bg-card mt-2')}>
+      {/* 附件入口:载体是 lucide `plus`(与 RN 端同名同形)。此前是把 `+` 这个字符当图标(Text 字形),
+          与 RN 端的 lucide `Plus` 同名不同载体 —— 这正是"两端图标不一样"的直接成因
+          (AGENTS §4:UI 图标一律用矢量图标库)。方块与墨迹与 RN 端同读
+          BOTTOM_ACTION_BAR_CONTROL_BOX_PX / _GLYPH_PX(web `Plus h-3.5` = 14)。 */}
       {showAttach && (
-        <View
+        <BottomActionBarControl
+          platform={miniPlatform}
+          boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
+          glyphPx={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX}
+          glyph="plus"
           className="flex items-center justify-center mr-2 rounded-sm bg-muted"
-          style={{
-            width: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
-            height: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
-          }}
-          onClick={onAttach}
-          hoverClass="opacity-60"
-        >
-          {/* 附件入口的载体:此前是把 `+` 这个字符当图标(Text 字形),与 RN 端的 lucide `Plus`
-              同名不同载体 —— 这正是"两端图标不一样"的直接成因(AGENTS §4:UI 图标一律用矢量图标库)。
-              墨迹档与 RN 端同读 BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX(= web `Plus h-3.5` = 14)。 */}
-          <LineIcon name="plus" size={toUnit(BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX)} />
-        </View>
+          onActivate={onAttach}
+        />
       )}
       <FocusInput
         className="flex-1 px-3 py-2 leading-5 bg-muted rounded-sm"
@@ -345,28 +359,25 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         onInput={(e) => onInput?.(e.detail.value)}
         onConfirm={() => onSend?.()}
       />
+      {/* 发送键(2026-10-15 再裁决):与 web 发送簇 ArrowUp 同形(RN 同票),墨迹取
+          BOTTOM_ACTION_BAR_SEND_GLYPH_PX(= web `h-4 w-4` = 16,落 glyphSm 箭头档)。
+          历史形态:字符 `↑` → lucide `send` 纸飞机 → ArrowUp(三端同形)。
+          方块 32 / 居中字形 / 按压与禁用通道由 core 的 control 一支供出,本端只给 className 与配色。 */}
       {showSend && (
-        <View
+        <BottomActionBarControl
+          platform={miniPlatform}
+          boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
+          glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
+          glyph="arrow-up"
+          glyphColor={value ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'}
           className={cn(
             'flex items-center justify-center ml-2 rounded-sm',
             value ? 'bg-cta text-cta-foreground' : 'bg-muted',
           )}
-          style={{
-            width: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
-            height: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
+          onActivate={() => {
+            if (value) onSend?.()
           }}
-          onClick={() => value && onSend?.()}
-          hoverClass="opacity-60"
-        >
-          {/* 发送键(2026-10-15 再裁决):与 web 发送簇 ArrowUp 同形(RN 同票),墨迹取
-              BOTTOM_ACTION_BAR_SEND_GLYPH_PX(= web `h-4 w-4` = 16,落 glyphSm 箭头档)。
-              历史形态:字符 `↑` → lucide `send` 纸飞机 → ArrowUp(三端同形)。 */}
-          <LineIcon
-            name="arrow-up"
-            size={toUnit(BOTTOM_ACTION_BAR_SEND_GLYPH_PX)}
-            color={value ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'}
-          />
-        </View>
+        />
       )}
     </View>
   )

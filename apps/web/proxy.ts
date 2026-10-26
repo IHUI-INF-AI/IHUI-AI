@@ -74,20 +74,15 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { verifyAccessTokenEdge } from '@/lib/auth-utils'
 import { evaluateOriginHostGuard } from '@/lib/origin-direct-host-guard'
+// 鉴权射程(2026-10-21 随 matcher 全站化迁入函数内,逐字等价于旧 matcher
+// `['/admin/:path*', '/edu/edu-management/:path*']` 的命中集,不多不少)。
+// 2026-10-26:判据迁到 lib/protected-paths 单一源 —— /sso/login 的自动回跳要问同一件事。
+import { isProtectedPath } from '@/lib/protected-paths'
 
 const AUTH_COOKIE = 'auth_token'
+const REFRESH_COOKIE = 'refresh_token'
 const LOGIN_PATH = '/sso/login'
 const UNAUTHORIZED_PATH = '/admin/unauthorized'
-
-/**
- * 鉴权射程(2026-10-21 随 matcher 全站化迁入函数内,逐字等价于旧 matcher
- * `['/admin/:path*', '/edu/edu-management/:path*']` 的命中集,不多不少)。
- */
-const PROTECTED_PATHS = ['/admin', '/edu/edu-management'] as const
-
-function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
-}
 
 export async function proxy(request: NextRequest) {
   // 源站直连守卫:只拒「Host 为裸公网 IP 字面量」;空/畸形/域名/私网一律放行。
@@ -114,7 +109,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 无 token 或验签失败 → 307 重定向到 SSO 登录页
+  // access JWT 只有 15 分钟,cookie 却活 30 天:过期是**常态**,不是登出。
+  // 此前这里直接 307,把用户扔进 /sso/login 的授权卡片(该页只有企业 SSO 回跳才自动回去),
+  // 表现就是「后台待一会儿,点什么都被要求重新登录/授权」(2026-10-26 用户实测)。
+  // refresh_token 仍在 ⇒ 会话可恢复 ⇒ 放行到页面,由客户端 bootstrap / 401 拦截器
+  // 静默刷新并续种 auth_token(后端 /auth/refresh 会 setAuthCookies)。
+  // 没有 refresh 的匿名访问照旧 307 —— 守卫不失效;数据面仍由 API 验签兜底。
+  if (request.cookies.get(REFRESH_COOKIE)?.value) {
+    return NextResponse.next()
+  }
+
+  // 无 token 且无 refresh → 307 重定向到 SSO 登录页
   const loginUrl = request.nextUrl.clone()
   loginUrl.pathname = LOGIN_PATH
   loginUrl.search = `?redirect=${encodeURIComponent(pathname + search)}`

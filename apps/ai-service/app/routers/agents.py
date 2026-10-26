@@ -1069,18 +1069,26 @@ def _resolved_axis_resolution(
     approval_policy: str | None,
     permission_mode: str | None = None,
 ) -> "_AxisResolution | None":
-    """双轴 wire 三输入 → AxisResolution;**两个轴字段都不给返回 None**(整段跳过)。
+    """双轴 wire 三输入 → AxisResolution;**两个轴字段都不给时取 config profiles**。
 
     与 _resolved_permission_mode 同一条规矩:认不出拒 400,绝不静默丢弃。
     区别只在失效形状 —— 双轴允许"只给一轴"(另一轴保持未指定,由上层/全局
     配置决定),而**不允许"给了但认不出"**:后者会把用户明确写的 read-only
     静默降级成"未指定"(方向相反的失真,与 G-161 同型)。
 
+    wire 未携带双轴时(79 号票遗留格,2026-10-25):按裁决器头注的优先级第 2 档
+    读 config profiles 的选中档案(core/config_profiles.py,来源设置
+    CONFIG_PROFILES/CONFIG_PROFILE)。未配置 / 空档案 / 档位不存在 / 轴值认不出
+    ⇒ 返回 None(整段跳过)= 接线前行为;配置面的坏文本不判请求 400 —— 那是
+    服务端配置告警,不是调用方请求错。
+
     返回类型写成 object(避免本模块 import 执行面类型):真正的类型是
     core.permission_axis_gate.AxisResolution,唯一的消费方是 AgentLoopV2。
     """
     if sandbox_mode is None and approval_policy is None:
-        return None
+        from ..core.config_profiles import configured_axis_resolution
+
+        return configured_axis_resolution()
     from ..core.permission_axis_gate import resolve_axis_resolution
 
     res = resolve_axis_resolution(
@@ -1114,6 +1122,19 @@ class AgentResumeRequest(BaseModel):
         None,
         description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
         "(历史别名自动归一;省略沿用 env 默认)",
+    )
+    # 79 号票遗留格(2026-10-25):与 AgentExecuteRequest 同格的显式双轴。此前 resume
+    # 链完全不读双轴,于是 config profiles 的选中档案在续跑时也不生效。两条 resume
+    # 出口共用 `_resume_run_from_checkpoint`,字段面必须同形;取值顺序与主执行链
+    # 一致:显式双轴优先,两轴都未携带时才由 config profiles 接管
+    # (core/config_profiles.py;无档案/坏配置 ⇒ 不介入)。
+    sandbox_mode: str | None = Field(
+        None,
+        description="沙箱轴:read-only / workspace-write / danger-full-access",
+    )
+    approval_policy: str | None = Field(
+        None,
+        description="审批轴:untrusted / on-failure / on-request / never",
     )
     # V3 #84 生产者侧(2026-10-07):与 AgentExecuteRequest 同格 —— 续跑重建的循环
     # 落新 checkpoint 时同样可声明耐久视野(两条 resume 出口共用
@@ -1775,6 +1796,7 @@ async def _resume_run_from_checkpoint(
     request: Request,
     current_user: str,
     permission_mode: str | None = None,
+    axis_resolution: "_AxisResolution | None" = None,
     durable_horizon_seconds: int | None = None,
 ) -> "AgentLoopResult":
     """构造与 execute/stream 同参的 AgentLoopV2 并从 checkpoint 续跑(**全仓唯一实现**)。
@@ -1782,6 +1804,11 @@ async def _resume_run_from_checkpoint(
     V3 #65(2026-09-28)从 `resume_agent_execute` 体内抽出:新增的"按会话续跑"出口要跑
     的是同一件事,复制一份构造参数就会长出第二个真相 —— 漏掉其中任一参数就是
     V3 #47 / V3 #55 那两条"resume 链上被静默降档"的洞的再版本(§3 共享层优先)。
+
+    Args:
+        axis_resolution: 79 号票双轴解析结果;None = 调用方未提供 ⇒ 按 config
+            profiles 的选中档案接管(冷恢复直调路径),仍无档案 ⇒ None(裁决门
+            整段跳过,与接线前逐字节同)。**必须经由本函数传入 `_new_v2_loop`**。
 
     Raises:
         ValueError: checkpoint 不存在 / 已过期,由 `resume_from_checkpoint` 抛出;
@@ -1791,6 +1818,14 @@ async def _resume_run_from_checkpoint(
     # 不允许各取各的 —— 两次读取之间若身份被改,就会出现"工具按 A 角色装配、
     # 执行按 B 角色判定"的分叉。
     resumed_role = resolve_request_role_id(request)
+
+    if axis_resolution is None:
+        # 79 号票遗留格(2026-10-25):resume 链此前整段不读 profiles。两个 HTTP 出口
+        # 先按"显式双轴优先"解析再传入;冷恢复直调本函数时由这里接管 —— 无档案 /
+        # 坏配置 ⇒ None(整段跳过,与接线前逐字节同),绝不补默认档。
+        from ..core.config_profiles import configured_axis_resolution
+
+        axis_resolution = configured_axis_resolution()
 
     # b76-11(2026-09-30):resume 站现在真的带上权限档 —— 由两条 resume 出口
     # (/agents/execute/resume、/agents/{session_id}/resume)各自从请求解析后传入,
@@ -1804,13 +1839,9 @@ async def _resume_run_from_checkpoint(
         current_user=current_user,
         user_role=resumed_role,
         permission_mode=permission_mode,
-        # 79 号票(如实登记,**不是遗漏**):断点续跑链本轮**不接**双轴
-        # (axis_resolution 走默认 None ⇒ 循环内裁决门整段跳过 ⇒ 零行为变化)。
-        # 为什么不做:这三条 resume 出口(/agents/execute/resume、
-        # /agents/{session_id}/resume 与冷恢复)共用的参数是逐个位置传进来的,
-        # 要接双轴就得给 AgentResumeRequest 与两条端点各补一份同形字段,
-        # 而 permission_mode 就是在其中一份参数表里被漏掉才有了 b76-11 那一课 ——
-        # 半新半旧比不改更糟。留作下一格,不做半成品。
+        # 79 号票:双轴与 permission_mode 同位置透传;三个 resume 出口共用本函数,
+        # 双轴只允许在这里接进循环(各自接就会长出第二个真相)。
+        axis_resolution=axis_resolution,
         # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
         durable_horizon_seconds=durable_horizon_seconds,
     )
@@ -1871,6 +1902,12 @@ async def resume_agent_execute(
     # b76-11(2026-09-30):档位在入口解析一次(认不出的值 400,绝不静默回落 default
     # —— G-161 立规),再贯通到 `_resume_run_from_checkpoint` → `_new_v2_loop`。
     resolved_mode = _resolved_permission_mode(req.permission_mode)
+    # 79 号票遗留格(2026-10-25):双轴同样在入口解析一次 —— 显式双轴优先,两轴都
+    # 未携带时才由 config profiles 接管;认不出的显式值 400。放在属主探测/存储 I/O
+    # 之前,与 permission_mode 同一条"请求写错了不伪装成资源没了"的纪律。
+    axis_resolution = _resolved_axis_resolution(
+        req.sandbox_mode, req.approval_policy, req.permission_mode
+    )
 
     # (V3 #65)AgentLoopV2 的构造已随续跑逻辑移入 `_resume_run_from_checkpoint`,
     # 本函数不再直接引它 —— 留着就是一句 F401,而它会让人误以为这里还有一份参数表。
@@ -1919,6 +1956,8 @@ async def resume_agent_execute(
             request=request,
             current_user=current_user,
             permission_mode=resolved_mode,
+            # 79 号票:显式双轴优先;都未携带时由上面解析出的 config profiles 决议接管。
+            axis_resolution=axis_resolution,
             # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
             durable_horizon_seconds=req.durable_horizon_seconds,
         )
@@ -1972,6 +2011,17 @@ class AgentSessionResumeRequest(BaseModel):
         None,
         description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
         "(历史别名自动归一;省略沿用 env 默认)",
+    )
+    # 79 号票遗留格(2026-10-25):与 AgentResumeRequest 同格,同因 —— 双轴取值面
+    # 三条 resume 出口必须同形。显式双轴优先,两轴都未携带时才由 config profiles
+    # 接管(无档案/坏配置 ⇒ 不介入)。
+    sandbox_mode: str | None = Field(
+        None,
+        description="沙箱轴:read-only / workspace-write / danger-full-access",
+    )
+    approval_policy: str | None = Field(
+        None,
+        description="审批轴:untrusted / on-failure / on-request / never",
     )
     # V3 #84 生产者侧(2026-10-07):与 AgentResumeRequest 同格,同因 —— 耐久视野
     # 声明面两条 resume 出口必须同形。省略 = 不声明 = 重建循环不写耐久键。
@@ -2107,6 +2157,12 @@ async def resume_agent_session(
     # (认不出的值 400),解析失败发生在动任何存储之前;不放进 _runner,那里把
     # 异常一律映射成 404/503,会把"请求写错了"伪装成"资源没了"。
     resolved_mode = _resolved_permission_mode(req.permission_mode)
+    # 79 号票遗留格(2026-10-25):与 /agents/execute/resume 同一口径 —— 双轴在入口
+    # 解析一次(显式双轴优先,两轴都未携带时才由 config profiles 接管;认不出的
+    # 显式值 400),与档位一起放在动任何存储之前。
+    axis_resolution = _resolved_axis_resolution(
+        req.sandbox_mode, req.approval_policy, req.permission_mode
+    )
 
     async def _runner(
         checkpoint: AgentLoopCheckpoint, requester: str
@@ -2120,6 +2176,8 @@ async def resume_agent_session(
                 request=request,
                 current_user=requester,
                 permission_mode=resolved_mode,
+                # 79 号票:显式双轴优先;都未携带时由 config profiles 决议接管。
+                axis_resolution=axis_resolution,
                 # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
                 durable_horizon_seconds=req.durable_horizon_seconds,
             )

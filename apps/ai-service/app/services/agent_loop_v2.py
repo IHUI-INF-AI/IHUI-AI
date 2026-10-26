@@ -103,6 +103,7 @@ from ..core.permission_mode import (
 from ..core.permission_mode import (
     tool_allowed_by_policy as _tool_allowed_by_policy,
 )
+from ..core.token_baseline import CHAIN_SUBAGENT
 from ..core.turn_stop_reason import TurnStopReason
 from ..core.usage_cache import normalize_usage
 from .agent_checkpoint import (
@@ -150,6 +151,14 @@ from ..core.mcp_tool_approval import (
 )
 from ..core.mcp_tool_approval import (
     requires_mcp_tool_approval as _requires_mcp_tool_approval,
+)
+# P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
+from ..core.session_taint import TaintSource as _TaintSource
+from ..services.session_security import (
+    args_contain_resolvable_vault as _args_contain_resolvable_vault,
+    get_session_taint_store as _get_session_taint_store,
+    get_vault_store as _get_vault_store,
+    taint_gate_requires_approval as _taint_gate_requires_approval,
 )
 
 # A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
@@ -3350,6 +3359,13 @@ class AgentLoopV2:
             return
         if not ctx:
             return
+        # P0-2 污点标记:本会话注入了用户跨会话私密记忆 ⇒ 标记 PRIVATE_DATA,
+        # 后续出网一律需批(auto 档也不例外)。失败降级不阻塞记忆注入。
+        if self._session_id:
+            try:
+                _get_session_taint_store().mark(self._session_id, _TaintSource.PRIVATE_DATA)
+            except Exception as e:  # noqa: BLE001
+                logger.debug("污点(PRIVATE_DATA)标记失败(降级跳过): %s", e)
         try:
             if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
                 existing = messages[0].get("content", "")
@@ -5989,6 +6005,41 @@ class AgentLoopV2:
                 "工具级审批策略 never:该工具免审批直接执行",
             )
 
+        # P0-2 污点标记(会话级):工具入参含可解析凭据占位符 ⇒ 标记 VAULT 污点
+        if self._session_id and isinstance(getattr(tc, "args", None), dict):
+            try:
+                if _args_contain_resolvable_vault(tc.args):
+                    _get_session_taint_store().mark(self._session_id, _TaintSource.VAULT)
+            except Exception as e:  # noqa: BLE001
+                logger.debug("污点(VAULT)标记失败(降级跳过): %s", e)
+
+        # P0-2 污点闸门(安全地板):污点会话对任意出网工具抬升为需批,
+        # acceptEdits(auto)档也不例外 —— 防 prompt-injection 借"已读私密数据"
+        # 的会话外送。置于审批策略覆盖之后,不被 "never" 配置降级;
+        # 未污点会话 / 非出网工具零行为变化(回归安全)。
+        if self._session_id and self._approval_enabled and not needs_approval:
+            _taint = _get_session_taint_store().get(self._session_id)
+            if _taint.tainted:
+                _tool_def = self._tools.get(tc.name)
+                _ann = getattr(_tool_def, "mcp_annotations", None) if _tool_def is not None else None
+                _net = False
+                if self._axis_resolution is not None and _tool_def is not None:
+                    try:
+                        _w, _net_axis = _axis_dims_from_mcp_annotations(_ann)
+                        # 双轴推不出时返回 None ⇒ 按下游默认(false)落,不把"判不出"写进 bool
+                        _net = bool(_net_axis)
+                    except Exception:  # noqa: BLE001
+                        _net = False
+                if _taint_gate_requires_approval(
+                    _taint, tc.name, getattr(tc, "args", None),
+                    mcp_annotations=_ann, network_axis=_net,
+                ):
+                    needs_approval = True
+                    self._decision_hints[tc.id] = (
+                        "taint_egress_gate",
+                        "污点会话出网:该工具被会话级污点闸门抬升为需人工审批",
+                    )
+
         if needs_approval:
             denial = await self._request_approval(tc)
             if denial is not None:
@@ -6740,9 +6791,9 @@ async def run_converged_agent(
             AUTOMATION_TURN_TOOL_DENYLIST if turn_source == "automation" else None
         ),
         # G-941(2026-10-22):本函数是子 agent 派发的协议信封构造点(见上方
-        # turn_source 注释),链标签标 "subagent" —— 使账本增量基线(G-816021)
-        # 把子代理 llm 步与主链 llm 步分桶,不再共用基线少计。
-        chain="subagent",
+        # turn_source 注释),链标签取 core.token_baseline 的唯一常量源 —— 使账本
+        # 增量基线(G-816021)把子代理 llm 步与主链 llm 步分桶,不再共用基线少计。
+        chain=CHAIN_SUBAGENT,
     )
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},

@@ -34,7 +34,7 @@ const STATUS_CONFIG: Record<ProviderHealthStatus, { dot: string; text: string; l
   invalid_key: {
     dot: 'bg-red-500',
     text: 'text-red-600 dark:text-red-400',
-    label: 'Key 无效',
+    label: '密钥无效',
   },
   unreachable: {
     dot: 'bg-orange-500',

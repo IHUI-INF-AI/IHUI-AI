@@ -43,6 +43,7 @@ from typing import Any
 import httpx
 
 from ..core.config import settings
+from ..core.default_model import is_retired_provider
 from ..middleware.llm_metrics import is_quota_exhaustion_error
 from .free_provider_registry import ProviderCategory, ProviderStatus, free_provider_registry
 
@@ -415,6 +416,11 @@ class ModelAvailabilityService:
         providers_to_ping: list[tuple[str, str, str]] = []  # [(code, api_key, api_base)]
         local_to_probe: list[tuple[str, str]] = []  # [(code, base_override)]
         for p in free_provider_registry.list_all():
+            # 2026-10-26 永久退役厂商不参与探测(名单与同步面/面板面同源):
+            # 不 ping ⇒ 不再每 5 分钟往日志与面板写「余额不足…需充值」这类出口,
+            # 也不进 _health ⇒ 面板与模型列表里列不出它(机主:永久除名,不提充值)。
+            if is_retired_provider(p.provider_code):
+                continue
             # 本地 LLM:2026-10-18(票85①)起不再"不 ping 直接标 LOCAL"——改走本地探针
             # 三态实证(available/unavailable/undetermined)。历史缺陷:没在跑的 ollama
             # 照样在模型列表里显示,用户选中才报错。undetermined(没探过/判不了)保持
@@ -527,6 +533,24 @@ class ModelAvailabilityService:
             "healthy=%d degraded=%d down=%d local=%d zero_cost=%d",
             len(providers_to_ping), healthy, degraded, down, local, zero_cost,
         )
+        # 2026-10-26 补:只有计数没有名单 ⇒ 出事时只能看到"down=1"却不知道是谁,
+        # 排查要靠人肉一家家 curl(10-25 stepfun 订阅失效那次就是这样熬过去的)。
+        # 非健康的把死因一并打出(余额端点判不出来时,推理 ping 的 4xx 原文就在 error 里)。
+        # 字符纪律:只打 ASCII + GBK 覆盖字符,避免 Windows cp936 日志静默丢整行。
+        if down or degraded:
+            def _fmt(code: str, h: ProviderHealth) -> str:
+                err = (getattr(h, "error", "") or "").replace("\n", " ")
+                err = err[:120]
+                et = getattr(getattr(h, "error_type", None), "value", "") or ""
+                return f"{code}[{et}{(': ' + err) if err else ''}]"
+            downs = [_fmt(c, h) for c, h in self._health.items()
+                     if h.status == ProviderHealthStatus.DOWN]
+            degs = [_fmt(c, h) for c, h in self._health.items()
+                    if h.status == ProviderHealthStatus.DEGRADED]
+            if downs:
+                logger.warning("[availability] DOWN(%d): %s", len(downs), ", ".join(downs))
+            if degs:
+                logger.info("[availability] DEGRADED(%d): %s", len(degs), ", ".join(degs))
 
 
     async def _ping_provider_v2(self, code: str, api_key: str, api_base: str) -> ProviderHealth:
@@ -1033,6 +1057,12 @@ class ModelAvailabilityService:
         code = _infer_provider_code(model_id)
         if not code:
             return False  # 未知 provider,不显示
+
+        # 2026-10-26 永久退役厂商的模型一律不显示(名单与同步面/面板面同源)。
+        # 不能只靠「没健康记录 ⇒ 宽松显示」那条默认:退役厂商本就不 ping,
+        # 永远没有健康记录,落进宽松分支反而会继续显示 —— 与「永久除名」正相反。
+        if is_retired_provider(code):
+            return False
 
         # LOCAL provider(本地 LLM):票85①起按探针实证分格——
         # DOWN(连接拒绝/HTTP 错)不显示;HEALTHY/LOCAL(在跑或没实证)显示。

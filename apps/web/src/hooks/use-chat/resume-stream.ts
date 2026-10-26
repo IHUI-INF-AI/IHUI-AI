@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import * as React from 'react'
-import { parseStreamLine } from '@ihui/api-client'
+import { parseStreamLine, refreshAccessTokenOnce } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 // 票60 片3(2026-10-21):store 化注入的类型口径与 stream-handlers 同一份出口
 // (chat-pane-context 的 ChatStore),不造第三套 store 类型。
@@ -210,43 +210,57 @@ export async function resumePendingMessage(
 
   try {
     const base = getStreamBaseUrl()
-    const token = getToken()
     // P1-7(2026-09-13 立):续接前快照会话级高级参数(全局默认 + 会话覆盖)
     const samplingParams = getSamplingParams(p.conversationId)
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      'X-Requested-With': 'XMLHttpRequest',
-    }
-    if (token) headers.Authorization = `Bearer ${token}`
+    // 凭据每次建连现取:续期后那一次重放拿的是新 token,不是闭包里那一枚过期的。
+    const openOnce = (): Promise<Response> => {
+      const token = getToken()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        'X-Requested-With': 'XMLHttpRequest',
+      }
+      if (token) headers.Authorization = `Bearer ${token}`
 
-    const resp = await fetch(`${base}/api/chat/resume`, {
-      method: 'POST',
-      headers,
-      signal: controller.signal,
-      body: JSON.stringify({
-        conversationId: p.conversationId,
-        messageId: p.messageId,
-        messages: buildResumeMessages(p, chatStore),
-        model: store.currentModel,
-        mode: getModeStoreForChatStore(chatStore).getState().currentMode,
-        // P1-7(2026-09-13):续接保持会话级高级参数,与 send-message/send-answer 一致
-        temperature: samplingParams.temperature,
-        topP: samplingParams.topP,
-        topK: samplingParams.topK,
-        maxTokens: samplingParams.maxTokens,
-        ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
-        // P1-8 Repo Wiki(2026-09-13 立):仓库名透传后端,注入该仓库最新 overview 文档到
-        // system prompt;无活跃工作区时为 undefined(JSON.stringify 自动省略该 key)。
-        repoName: useAiPanelStore.getState().activeWorkspace?.name,
-        contextLimit: getModelContextCapacity(store.currentModel),
-        metadata: {
+      return fetch(`${base}/api/chat/resume`, {
+        method: 'POST',
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify({
           conversationId: p.conversationId,
-          userId: useAuthStore.getState().user?.id ?? '',
           messageId: p.messageId,
-        },
-      }),
-    })
+          messages: buildResumeMessages(p, chatStore),
+          model: store.currentModel,
+          mode: getModeStoreForChatStore(chatStore).getState().currentMode,
+          // P1-7(2026-09-13):续接保持会话级高级参数,与 send-message/send-answer 一致
+          temperature: samplingParams.temperature,
+          topP: samplingParams.topP,
+          topK: samplingParams.topK,
+          maxTokens: samplingParams.maxTokens,
+          ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
+          // P1-8 Repo Wiki(2026-09-13 立):仓库名透传后端,注入该仓库最新 overview 文档到
+          // system prompt;无活跃工作区时为 undefined(JSON.stringify 自动省略该 key)。
+          repoName: useAiPanelStore.getState().activeWorkspace?.name,
+          contextLimit: getModelContextCapacity(store.currentModel),
+          metadata: {
+            conversationId: p.conversationId,
+            userId: useAuthStore.getState().user?.id ?? '',
+            messageId: p.messageId,
+          },
+        }),
+      })
+    }
+
+    let resp = await openOnce()
+
+    // 401 = access token 过期(15 分钟)。旧链路单次尝试直接判死 ⇒ "刷新页面后必踩"。
+    // 现在:HTTP 层(尚未读流,重放不会产生重复内容)至多续期一次并重放一次;
+    // 续期失败或重放仍 401 ⇒ 落进下面既有可见出口(toast + 「重新生成」),不再重试、
+    // 也不落登出标记(会话终结归 bootstrap,这里只负责"换新凭据再试一次")。
+    if (resp.status === 401) {
+      const fresh = await refreshAccessTokenOnce()
+      if (fresh && !controller.signal.aborted) resp = await openOnce()
+    }
 
     if (!resp.ok || !resp.body) {
       const text = await resp.text().catch(() => '')

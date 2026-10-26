@@ -15,6 +15,7 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useIsoLayoutEffect } from '@/hooks/use-iso-layout-effect'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
 
 /** 层栈 id(见 @/lib/overlay-stack):TagsView 搜索弹层的 Esc 只在栈顶时被消费 */
 const TAGS_VIEW_OVERLAY_ID = 'tags-view-search'
@@ -42,12 +43,7 @@ function deriveTitle(pathname: string): string {
   const seg = pathname.split('/').filter(Boolean).pop() ?? pathname
   // 移除 Next.js 动态路由占位符 [id]/[slug] 等
   const clean = seg.replace(/^\[.+\]$/, 'Detail')
-  let decoded = clean
-  try {
-    decoded = decodeURIComponent(clean)
-  } catch {
-    /* decode 失败就用 raw */
-  }
+  const decoded = safeDecodeURIComponent(clean)
   // kebab-case → Title Case (user-agent-audio → User Agent Audio)
   return decoded.split('-').map(toTitleCase).join(' ')
 }
@@ -485,17 +481,11 @@ export function TagsView() {
         // 2026-10-17 根治:四边 clamp(原只防右/下溢出,左/上贴死屏幕边缘)
         left: Math.max(
           8,
-          Math.min(
-            ctxMenu.x,
-            typeof window !== 'undefined' ? window.innerWidth - 160 : ctxMenu.x,
-          ),
+          Math.min(ctxMenu.x, typeof window !== 'undefined' ? window.innerWidth - 160 : ctxMenu.x),
         ),
         top: Math.max(
           8,
-          Math.min(
-            ctxMenu.y,
-            typeof window !== 'undefined' ? window.innerHeight - 140 : ctxMenu.y,
-          ),
+          Math.min(ctxMenu.y, typeof window !== 'undefined' ? window.innerHeight - 140 : ctxMenu.y),
         ),
       }
     : null

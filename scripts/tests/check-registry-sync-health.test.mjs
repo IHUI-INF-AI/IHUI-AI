@@ -34,7 +34,11 @@ test('J1 空账/非数组 ⇒ 未判定(不拿"没同步过"冒充健康,也不�
 
 test('J2a 最新一轮 fail(昨天还成功) ⇒ 当轮即 finding —— "静默报红"不许等它烂过陈旧档', () => {
   const v = H.judgeSyncHealth({
-    rows: [H_BAD(NOW - 1 * HR), { status: 'success', startedAt: new Date(NOW - 2 * HR).toISOString(), err: '' }, H_BAD(NOW - 40 * HR)],
+    rows: [
+      H_BAD(NOW - 1 * HR),
+      { status: 'success', startedAt: new Date(NOW - 2 * HR).toISOString(), err: '' },
+      H_BAD(NOW - 40 * HR),
+    ],
     nowMs: NOW,
   })
   assert.equal(v.state, 'finding')
@@ -46,7 +50,12 @@ test('J2a 最新一轮 fail(昨天还成功) ⇒ 当轮即 finding —— "静�
 
 test('J2b 最新一轮 success ⇒ ok,其前再大的 fail 洪也不回改结论(恢复即绿)', () => {
   const v = H.judgeSyncHealth({
-    rows: [H_OK(new Date(NOW - 1 * HR).toISOString()), H_BAD(NOW - 2 * HR), { status: 'skipped', startedAt: new Date(NOW - 3 * HR).toISOString(), err: '' }, H_BAD(NOW - 4 * HR)],
+    rows: [
+      H_OK(new Date(NOW - 1 * HR).toISOString()),
+      H_BAD(NOW - 2 * HR),
+      { status: 'skipped', startedAt: new Date(NOW - 3 * HR).toISOString(), err: '' },
+      H_BAD(NOW - 4 * HR),
+    ],
     nowMs: NOW,
   })
   assert.equal(v.state, 'ok')
@@ -60,7 +69,13 @@ test('J2c 最新 success 但陈旧超阈 ⇒ finding(全 success 却早停的形
 })
 
 test('J3 有轮次但从未 success ⇒ finding(never-success)', () => {
-  const v = H.judgeSyncHealth({ rows: [H_BAD(NOW - 1 * HR), { status: 'skipped', startedAt: new Date(NOW - 2 * HR).toISOString(), err: '' }], nowMs: NOW })
+  const v = H.judgeSyncHealth({
+    rows: [
+      H_BAD(NOW - 1 * HR),
+      { status: 'skipped', startedAt: new Date(NOW - 2 * HR).toISOString(), err: '' },
+    ],
+    nowMs: NOW,
+  })
   assert.equal(v.state, 'finding')
   assert.match(v.reason, /从未有过 success/)
   assert.equal(v.consecutiveBad, 2)
@@ -96,7 +111,9 @@ test('S1 buildSql:只收有限正整数,别的一律回落默认(注入面焊死
 })
 
 test('S2 parseRows:制表符切列、错误信息内嵌 tab 归一、空行与无状态行丢弃', () => {
-  const rows = H.parseRows("success\t2026-10-25 04:00:00+00\t\nfail\t2026-10-24 04:00:00+00\tbad\tthing\n\t\n")
+  const rows = H.parseRows(
+    'success\t2026-10-25 04:00:00+00\t\nfail\t2026-10-24 04:00:00+00\tbad\tthing\n\t\n',
+  )
   assert.equal(rows.length, 2)
   assert.equal(rows[1].err, 'bad\tthing')
 })
@@ -133,7 +150,14 @@ test('A1 尺子不在位 ⇒ ran=false,不记为已巡检(§0.3)', () => {
 })
 
 test('A2 ok 读数 ⇒ 一行✅零通知;undetermined ⇒ 不喊人(缺库机器不得恒响)', () => {
-  const h = harness({ stdout: JSON.stringify({ state: 'ok', reason: '最近一次 success 距今 2.0h', lastSuccessAt: 'x', consecutiveBad: 0 }) })
+  const h = harness({
+    stdout: JSON.stringify({
+      state: 'ok',
+      reason: '最近一次 success 距今 2.0h',
+      lastSuccessAt: 'x',
+      consecutiveBad: 0,
+    }),
+  })
   try {
     const r = AUDIT.runRegistrySyncHealth(h.opts)
     assert.equal(r.state, 'ok')
@@ -154,7 +178,14 @@ test('A2 ok 读数 ⇒ 一行✅零通知;undetermined ⇒ 不喊人(缺库机�
 })
 
 test('A3 finding ⇒ notify 一次且 identity 是「episode锚」不含会抖的连续数;同锚二次命中 suppressed', () => {
-  const h = harness({ stdout: JSON.stringify({ state: 'finding', reason: '最近一次 success 距今 40h,其后连续 fail/skipped=2', lastSuccessAt: '2026-10-23T04:00:00.000Z', consecutiveBad: 2 }) })
+  const h = harness({
+    stdout: JSON.stringify({
+      state: 'finding',
+      reason: '最近一次 success 距今 40h,其后连续 fail/skipped=2',
+      lastSuccessAt: '2026-10-23T04:00:00.000Z',
+      consecutiveBad: 2,
+    }),
+  })
   try {
     const r = AUDIT.runRegistrySyncHealth(h.opts)
     assert.equal(r.state, 'finding')
@@ -166,7 +197,11 @@ test('A3 finding ⇒ notify 一次且 identity 是「episode锚」不含会抖�
     const r2 = AUDIT.runRegistrySyncHealth({ ...h.opts, now: NOW + 31 * 60_000 })
     assert.equal(r2.state, 'finding')
     assert.equal(h.calls.length, 2, '第二次也调用 notify(压不压由通道按身份裁决)')
-    assert.match(h.calls[1][1], /check-registry-sync-health/, '正文必须给可执行取证出口(5e-1 可整改性)')
+    assert.match(
+      h.calls[1][1],
+      /check-registry-sync-health/,
+      '正文必须给可执行取证出口(5e-1 可整改性)',
+    )
   } finally {
     rmSync(h.dir, { recursive: true, force: true })
   }
@@ -205,7 +240,10 @@ test('W1 守护必须真派发本格:恰一处实调用,且排在迁移缺口审
   const mig = at('if (!CHECK_ONLY) auditMigrationGaps()')
   const mine = at('if (!CHECK_ONLY) auditRegistrySyncHealth()')
   assert.ok(mig >= 0 && mine > mig, '必须与迁移缺口审计同族排布(同一 DB 观测层)')
-  assert.ok(GUARDIAN_SRC.includes('runRegistrySyncHealth'), '守护接线必须调 lib 审计层(判据单源在住 lib)')
+  assert.ok(
+    GUARDIAN_SRC.includes('runRegistrySyncHealth'),
+    '守护接线必须调 lib 审计层(判据单源在住 lib)',
+  )
 })
 
 test('W2 接线薄度:guardian 里本格只做依赖注入,判定与文案不得回流(§0.6)', () => {

@@ -11,6 +11,10 @@ import {
   getDayPvList,
   getDayUvList,
   findIpCityList,
+  getPageUsageList,
+  visitScopeFilter,
+  VISIT_SCOPE_VALUES,
+  VISIT_PLATFORM_VALUES,
   type ObservedVisitorFields,
 } from '../db/visit-tracking-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -93,6 +97,9 @@ const saveVisitLogSchema = z
 const dateRangeQuery = z.object({
   startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  // 2026-10-25:采集面覆盖全站后,指标默认只算前台(public),后台/登录页单独可查;
+  // 'all' 只给明细取证面用。判定单一真相源 = visit-tracking-queries 的 visitScopeFilter。
+  scope: z.enum(VISIT_SCOPE_VALUES).default('public'),
 })
 
 const ipCityQuery = z.object({
@@ -100,6 +107,7 @@ const ipCityQuery = z.object({
   endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  scope: z.enum(VISIT_SCOPE_VALUES).default('public'),
 })
 
 const logListQuery = z.object({
@@ -113,6 +121,8 @@ const logListQuery = z.object({
     .pipe(z.string().min(1).max(512).optional()),
   startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  // 明细是取证面 ⇒ 默认 'all';指标面(summary/趋势/排行)默认 'public'。
+  scope: z.enum(VISIT_SCOPE_VALUES).default('all'),
 })
 
 const pageStatsQuery = z.object({
@@ -120,6 +130,11 @@ const pageStatsQuery = z.object({
   endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  scope: z.enum(VISIT_SCOPE_VALUES).default('public'),
+  // 2026-10-26:端筛选项。分桶判据与 /ops-wallboard 的 platformSplit 同源(visitPlatformFilter)。
+  platform: z.enum(VISIT_PLATFORM_VALUES).default('all'),
+  /** 排序键:pv=打开次数(默认) / uv=去重人数 */
+  sort: z.enum(['pv', 'uv']).default('pv'),
 })
 
 // 同上:ip / userAgent 不在客户端可写字段清单里(2026-10-23 真值化)。
@@ -163,6 +178,12 @@ const dataObjSchema = {
 const dateRangeProps = {
   startTime: { type: 'string', description: '开始时间 YYYY-MM-DD' },
   endTime: { type: 'string', description: '结束时间 YYYY-MM-DD' },
+  // Fastify 默认剥除未声明 query ⇒ scope 必须在这里声明,否则 Zod 永远读不到。
+  scope: {
+    type: 'string',
+    enum: [...VISIT_SCOPE_VALUES],
+    description: '访问面:public(默认)/admin/auth/all',
+  },
 } as const
 
 // =============================================================================
@@ -290,7 +311,11 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const summary = await getVisitSummary(parsed.data.startTime, parsed.data.endTime)
+      const summary = await getVisitSummary(
+        parsed.data.startTime,
+        parsed.data.endTime,
+        parsed.data.scope,
+      )
       return reply.send(success({ summary }))
     },
   )
@@ -317,7 +342,7 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const list = await getDayPvList(parsed.data.startTime, parsed.data.endTime)
+      const list = await getDayPvList(parsed.data.startTime, parsed.data.endTime, parsed.data.scope)
       return reply.send(success({ list }))
     },
   )
@@ -344,7 +369,7 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const list = await getDayUvList(parsed.data.startTime, parsed.data.endTime)
+      const list = await getDayUvList(parsed.data.startTime, parsed.data.endTime, parsed.data.scope)
       return reply.send(success({ list }))
     },
   )
@@ -383,6 +408,7 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
         endTime: parsed.data.endTime,
         page: parsed.data.page,
         pageSize: parsed.data.pageSize,
+        scope: parsed.data.scope,
       })
       return reply.send(success(result))
     },
@@ -409,6 +435,11 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
             url: { type: 'string' },
             startTime: { type: 'string', description: 'YYYY-MM-DD' },
             endTime: { type: 'string', description: 'YYYY-MM-DD' },
+            scope: {
+              type: 'string',
+              enum: [...VISIT_SCOPE_VALUES],
+              description: '访问面:all(默认)/public/admin/auth',
+            },
           },
         },
         response: {
@@ -425,12 +456,14 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { page, pageSize, userId, url, startTime, endTime } = parsed.data
+      const { page, pageSize, userId, url, startTime, endTime, scope } = parsed.data
       const conds = []
       if (userId) conds.push(eq(visitLogs.userId, userId))
       if (url) conds.push(like(visitLogs.url, `%${url}%`))
       if (startTime) conds.push(gte(visitLogs.visitDate, startTime.slice(0, 10)))
       if (endTime) conds.push(lte(visitLogs.visitDate, endTime.slice(0, 10)))
+      const scopeCond = visitScopeFilter(scope)
+      if (scopeCond) conds.push(scopeCond)
       const where = conds.length > 0 ? and(...conds) : undefined
       const offset = (page - 1) * pageSize
       const [list, totalRows] = await Promise.all([
@@ -463,6 +496,12 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
             ...dateRangeProps,
             page: { type: 'integer', minimum: 1, default: 1 },
             pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+            platform: {
+              type: 'string',
+              enum: [...VISIT_PLATFORM_VALUES],
+              description: '端:all(默认)/web/rn/mp/ex',
+            },
+            sort: { type: 'string', enum: ['pv', 'uv'], description: '排序键(默认 pv)' },
           },
         },
         response: {
@@ -479,31 +518,17 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { startTime, endTime, page, pageSize } = parsed.data
-      const conds = [isNotNull(visitLogs.url)]
-      if (startTime) conds.push(gte(visitLogs.visitDate, startTime.slice(0, 10)))
-      if (endTime) conds.push(lte(visitLogs.visitDate, endTime.slice(0, 10)))
-      const where = and(...conds)
-      const offset = (page - 1) * pageSize
-      const [list, totalRows] = await Promise.all([
-        db
-          .select({
-            url: visitLogs.url,
-            pv: sql<number>`count(${visitLogs.id})::int`,
-            uv: sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`,
-          })
-          .from(visitLogs)
-          .where(where)
-          .groupBy(visitLogs.url)
-          .orderBy(desc(sql`count(${visitLogs.id})`))
-          .limit(pageSize)
-          .offset(offset),
-        db
-          .select({ count: sql<number>`count(distinct ${visitLogs.url})::int` })
-          .from(visitLogs)
-          .where(where),
-      ])
-      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+      const { startTime, endTime, page, pageSize, scope, platform, sort } = parsed.data
+      const result = await getPageUsageList({
+        startTime,
+        endTime,
+        page,
+        pageSize,
+        scope,
+        platform,
+        sort,
+      })
+      return reply.send(success(result))
     },
   )
 

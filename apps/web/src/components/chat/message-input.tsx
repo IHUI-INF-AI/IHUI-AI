@@ -19,6 +19,8 @@ import { VoiceToolbar } from './voice-toolbar'
 import { VoiceNote } from './voice-note'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
+import { AgentPicker } from '@/components/chat/agent-picker'
+import { AgentNoticeBar } from '@/components/chat/agent-notice-bar'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import type { SelectedToolItem } from '@/components/chat/selected-tools-panel'
@@ -1139,6 +1141,9 @@ export function MessageInput({
           onModeChange={(mode: FollowUpMode) => chatStore.getState().setFollowUpQueueMode(mode)}
           onInterruptAndRun={handleInterruptAndRun}
         />
+        {/* D01(2026-10-25 立)对话内 Agent 选择器:输入卡上方的「已切换 XX 专家」交代条。
+            形态复用 steer-notice-bar 同族的 FoldableSection;未选专家时自渲染为 null。 */}
+        <AgentNoticeBar />
         <div ref={inputAreaRef} className="relative">
           <FileMentionPopover
             files={mentionFiles}
@@ -1289,6 +1294,10 @@ export function MessageInput({
                   // 上传/入列/移除全部复用既有附件 chip 体系,误录可在引用区删除
                   // G-863(2026-10-13):拒绝接同一汇总出口 —— 原实现忽略 addFileReference
                   // 返回值,容量满时静默失败还 toast"已添加";现被拒走三档聚合提示,成功才报。
+                  // 为何 webm 恒过扩展名白名单:webm 是 UPLOADABLE_EXTENSIONS 的正式成员
+                  // (服务端 EXT_MIME_MAP 亦放行),语音是自家 MediaRecorder 产出、非用户挑文件,
+                  // 故 accept 档对它恒放行是设计如此;数量/容量档仍在 addFileReference 内同一判据生效,
+                  // 满额时由其返回 max_files,走下方汇总出口。
                   const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' })
                   const rejections = addFileReference(file)
                   if (rejections.length > 0) {
@@ -1416,6 +1425,12 @@ export function MessageInput({
                 {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                     与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
                 <ModeSwitcher disabled={isStreaming} />
+                {/* D01(2026-10-25 立)对话内 Agent 选择器:紧挨模型选择器左侧,
+                    胶囊形态同规格(h-8 / rounded-sm);选中态写 chat store selectedAgentId,
+                    发送链路随请求透传 personaId → ai-service 并入 system 与工具白名单。
+                    流式中**不禁用**(与 ModelSelector 同一可达性口径):切换只影响下一轮载荷,
+                    禁掉会重演"机制齐但入口够不到"。 */}
+                <AgentPicker />
                 {/* 高级参数入口(P1-7)与推理强度轴收纳进模型弹层 footer,见 ModelSelector */}
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
                 {/* 模型选择器 + footer(推理强度轴 D130 + 采样参数 P1-7):

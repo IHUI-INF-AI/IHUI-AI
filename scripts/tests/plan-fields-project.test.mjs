@@ -181,11 +181,67 @@ describe('投影规划:判定面一根头发都不许动', () => {
     assert.equal(p.dims.bucketOldFields, p.dims.bucketNewFields, '侧车权威前后必须同桶')
   })
 
+  it('record 读数被切歪(owner 括号失配)⇒ 不投影(标头是给人读的,写畸形归属比不写更糟)', () => {
+    const line = '- [ ] **G-948 活文档整文件回写** 细节'
+    const p = P.planRow(line, rec({ key: compositeKeyOf(line), owner: '台账自愈层):一枚 bypass 落地' }))
+    assert.equal(p.action, 'skip')
+    assert.equal(p.undetermined, true)
+    assert.match(p.reason, /括号失配/)
+    // 配对括号不是本判据的打击面:即便被其它既有判据(散文⇄记录不等价,抽取器本就按 `(` 切)拦下,
+    // 报因也不得是"括号失配" —— 否则这条结构判据就在替归属判据做决定。
+    const okLine = '- [ ] **G-948 活文档整文件回写** 归属:甲(A组)持有人,细节'
+    const paired = P.planRow(okLine, rec({ key: compositeKeyOf(okLine), owner: '甲(A组)持有人' }))
+    assert.doesNotMatch(String(paired.reason ?? ''), /括号失配/)
+  })
+
   it('形状锁:规划器必须问守恒器物,不得自己判桶', () => {
     const src = readFileSync(new URL('../plan-fields-project.mjs', import.meta.url), 'utf8')
     assert.match(src, /assertRowRewriteConservation/, '整行改写必须先过三维守恒器物')
     assert.match(src, /renderHeader/, '标头只能由投影层渲染')
     assert.ok(!/归属\[:：\]\|本票不认领/.test(src), '不得出现第二份归属词表')
+  })
+})
+
+describe('无侧车记录的行不许被当成"记录为空"(2026-10-26 修)', () => {
+  it('无记录 + 有效标头 ⇒ hold(摘了就是丢全仓唯一的归属证据)', () => {
+    const line = '- [ ]（进行中@2026-10-26/r5）〔归:自进化〕(2026-10-25) 需求/异常自动发现器:x'
+    assert.equal(P.noRecordVerdict(line), 'hold')
+  })
+  it('无记录 + malformed 标头(…截断)⇒ strip(它永远渲染不回来,是门 234 A2 的恒红源)', () => {
+    const line = '- [ ] 〔归:某某某某…〕 **G-7 庚题** 细节'
+    assert.equal(P.noRecordVerdict(line), 'strip')
+  })
+  it('无记录 + 无标头 ⇒ nothing(这一行没有可管的投影)', () => {
+    assert.equal(P.noRecordVerdict('- [ ] **G-8 辛题** 细节'), 'nothing')
+  })
+  it('形状锁:caller 对无记录行必须问 noRecordVerdict,不得直接造空记录喂 planRow', () => {
+    const src = readFileSync(new URL('../plan-fields-project.mjs', import.meta.url), 'utf8')
+    assert.match(src, /noRecordVerdict\(r\.raw\)/, '无记录行的裁决必须走单源出口')
+  })
+})
+
+describe('无记录行分因出口(2026-10-26,G-965:疑点必须是可读点名,不是"101 行"一个总数)', () => {
+  it('四档各认一例:不可寻址 / 散文可做 / 归属抽不出值 / 复算可自愈', () => {
+    assert.equal(P.noRecordKind('- [ ] 副本指针(编号 62)：同主键第二份未勾选副本'), 'keyless')
+    assert.equal(P.noRecordKind('- [ ] **G-1 甲题** 可做'), 'prose-actionable')
+    assert.equal(
+      P.noRecordKind('- [ ] **G-2 乙题** 由安全线持有者接管这条线'),
+      'owner-unextractable',
+      '归属词族命中但无可搬值 ⇒ 抽取器宁缺,不能读成"可做"',
+    )
+    assert.equal(P.noRecordKind('- [ ] **G-3 丙题** 归属:甲持有人'), 'self-healable')
+  })
+
+  it('有编号但题面退化 ⇒ key-degenerate(侧车没有可寻址键,补题面要动判定面)', () => {
+    assert.equal(P.noRecordKind('- [ ] G-16（等守门 128 持有人拍两件事）门 128 的 SL 维'), 'key-degenerate')
+  })
+
+  it('形状锁:分因判据必须问既有单源,不得在本层另造桶/词表', () => {
+    const src = readFileSync(new URL('../plan-fields-project.mjs', import.meta.url), 'utf8')
+    assert.match(src, /extractFromLine/, '"现在抽不抽得出"必须问抽取器自己的出口')
+    assert.match(src, /dispositionOf,/, '桶必须问 plan-task-index 那一份')
+    assert.match(src, /export function noRecordKind/, '分因出口必须可被外部复核')
+    assert.match(src, /无记录行分因/, '报告面必须打印分因,否则读数仍是一团总数')
   })
 })
 

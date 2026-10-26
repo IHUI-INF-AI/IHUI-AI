@@ -47,6 +47,7 @@ import {
   clearCompactionPreview,
   createToolCallHandler,
   createToolSummaryHandler,
+  createReviewFindingHandler,
   createUsageHandler,
   createDeltaBatcher,
   createAgentDeltaBatcher,
@@ -216,6 +217,12 @@ export function createSendAnswer(
         // 同一条回复里"停止 / 重新生成 / 续答"三个动作会换档,两边都读不出错。
         // undefined = api-client 侧判空不写 body ⇒ 没碰过这条轴的用户零行为变化。
         reasoningEffort: samplingParams.reasoningEffort,
+        // D09(2026-10-24 立):专家包自动路由档位(与 sendMessage 对称;null = 未表态不发)
+        expertAutoRoute: chatStore.getState().expertAutoRoute ?? undefined,
+        // D01(2026-10-25 立):对话内选中的专家 —— 续答与首答**同一份发送时快照**。
+        // 不接这一格的话,首答带专家、用户回答完 AI 提问后那一轮静默回落默认助手,
+        // 界面胶囊仍显示已选(同 D130 那型"两边都读不出错")。
+        personaId: chatStore.getState().selectedAgentId ?? undefined,
         // P1 #26(2026-09-16 立):知识库默认注入开关(与 sendMessage 对称;
         // undefined = 后端默认开,false = 显式关闭)
         knowledgeContext: samplingParams.knowledgeContext,
@@ -403,6 +410,9 @@ export function createSendAnswer(
         },
         // 2026-07-31 立,与 sendMessage 对称:sendAnswer 续流同样发出 tool-summary 事件
         onToolSummary: createToolSummaryHandler(assistantId),
+        // D115(2026-10-24,与 sendMessage 对称):review 结论帧逐条落 store,
+        // MessageItem 按 message.id 订阅渲染 ReviewFindingsCard。
+        onReviewFinding: createReviewFindingHandler(assistantId),
         // 2026-08-01 Phase 4a:与 sendMessage 对称,消息级 plan/terminal 事件落地
         onPlanUpdate: (evt) => {
           if (!evt.messageId) return
@@ -476,7 +486,11 @@ export function createSendAnswer(
         // 2026-09-21:文件/代码意图条件携带文件工具族(与 sendMessage 对称),否则模型无法读改文件
         ...(() => {
           const agentTools = [
-            ...new Set([...mergeAgentTools(), ...eduToolsFor(answer), ...fileToolsFor(answer)]),
+            ...new Set([
+              ...mergeAgentTools(chatStore),
+              ...eduToolsFor(answer),
+              ...fileToolsFor(answer),
+            ]),
           ]
           return agentTools.length > 0 ? { agentTools } : {}
         })(),

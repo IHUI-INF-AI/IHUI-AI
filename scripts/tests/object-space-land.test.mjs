@@ -14,6 +14,10 @@
 //    T10 LAND_ALLOW_STALE=1 ⇒ 放行且大声留痕;T11 只复活不删除 ⇒ 只报不拦;
 //    T12 形状锁:判据只能 import 守门 84 那一份,不得在本器里出现第二份祖先判定;
 //    T13 lineDelta 纯函数面:多重集计数 / CRLF 不算删除 / 取不到正文不得折成 0。
+//  + G-04 新建路径载荷(T-WM-NEW-1/2/3):新建件两种取材通道都必须带可解码载荷,
+//    既有路径不得进注入射程(已存在路径语义一字不改)。
+//  + G-04 补牙@2026-10-26(T-WM-NEW-4/5/6):注入编排五桶各一且不并桶、already 臂端到端正控、
+//    形状锁钉「未判定 ⇒ exit 2」+「档内零写工作树」+「横幅构造只问 watermark.mjs 那一份」。
 // git 写操作只发生在 scripts/lib/scratch-dir.mjs 的临时仓内(§26/§15b 唯一夹具落点),绝不碰真仓。
 
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -28,6 +32,8 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ } from '../object-space-land.mjs'
 import { decideBanner } from '../object-space-land.mjs'
+// G-04 新建路径载荷维:载荷可解码性只问 watermark.mjs 那一份判据(§0.6,不在测试里重写解码)
+import { __test__ as WM } from '../watermark.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { git, headBlobOf, indexBlobOf, writeBlob } from '../lib/bypass-git.mjs'
 import { landsLedger } from '../lib/bypass-git.mjs'
@@ -827,6 +833,199 @@ test('T-BANNER-TEETH blob 模式把基线横幅抹掉仍必须拒绝(放宽只�
   assert.equal(r.status, 1, `抹横幅必须拦,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.match(r.stderr, /水印横幅未保持|横幅被抹/)
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '被拒时 HEAD 不得前进')
+})
+
+/**
+ * ── G-04 第二/三格(2026-10-25):新建路径必须在对象空间内补上溯源水印 ──────────────
+ *
+ * 票面事实:旁路落地器按「HEAD blob → 内存改写 → commit-tree → CAS」产出,刻意不写工作树
+ * (§1/§12 要求),于是 §5c 的「writeFileSync 后必须紧随注入」在它身上结构上不可能触发 ——
+ * 2026-10-15 实测一枚归档台账(`.ihui-agent/archive/plan-pointer-purge-2026-10-14-5.md`)
+ * 就这样以"无水印"形态进了 HEAD,而它正是 `plan-pointer-purge.mjs` 的产出。
+ *
+ * 三段成对:
+ *  - 新建件(两种取材通道)⇒ 入树内容必须带可解码载荷,且**工作树副本一个字节都不写**;
+ *  - 已存在路径 ⇒ 不进注入射程,入树内容必须与声明 oid 逐字节一致(既有语义不变)。
+ */
+test('T-WM-NEW-1 工作树模式:新建 .ts 落地后必须带可解码载荷,而盘上副本一字未动', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'brand'), { recursive: true })
+  const bare = 'export const fresh = 1\n'
+  writeFileSync(join(dir, 'brand', 'new.ts'), bare)
+  const r = runLand(dir, { paths: 'brand/new.ts', msg: 'feat: 新建件(须带水印)' })
+  assert.equal(r.status, 0, `新建件必须能落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.match(r.stdout, /新建路径已按 §5c 注入溯源水印/, '注入了就必须点名(静默改写比不注入更糟)')
+  const head = git(['rev-parse', 'HEAD'], { root: dir })
+  const landedOid = headBlobOf(head, 'brand/new.ts', { root: dir })
+  const landed = git(['cat-file', 'blob', landedOid], { root: dir, raw: true })
+  assert.ok(WM.payloadIntact(String(landed)), '入树的新建件必须带可解码载荷(§5c)')
+  assert.ok(String(landed).includes(bare.trim()), '正文一行都不能丢')
+  assert.equal(
+    readFileSync(join(dir, 'brand', 'new.ts'), 'utf8'),
+    bare,
+    '工作树副本不得被写(盘上那份可能是别人的在飞现场)',
+  )
+})
+
+test('T-WM-NEW-2 blob 模式新建件:判据面=对象库 blob,盘上根本没有该文件也能注入', (t) => {
+  const dir = makeRepo(t)
+  assert.equal(existsSync(join(dir, 'brand', 'ghost.ts')), false, '夹具前提:盘上无此文件')
+  const bareOid = hashText(dir, 'export const ghost = 1\n')
+  const mf = join(dir, 'mf-new-blob.json')
+  writeFileSync(mf, JSON.stringify({ files: [{ path: 'brand/ghost.ts', blob: bareOid }] }))
+  const r = runLandBlob(dir, { paths: 'brand/ghost.ts', manifest: mf })
+  assert.equal(r.status, 0, `新建件必须能落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  const head = git(['rev-parse', 'HEAD'], { root: dir })
+  const landedOid = headBlobOf(head, 'brand/ghost.ts', { root: dir })
+  assert.notEqual(landedOid, bareOid, '入树内容必须是注入后的新 blob,不是调用方那份无水印的')
+  const landed = git(['cat-file', 'blob', landedOid], { root: dir, raw: true })
+  assert.ok(WM.payloadIntact(String(landed)), 'blob 模式的新建件同样必须带可解码载荷')
+  assert.match(r.stdout, /水印预检通过\(新建路径 1\/1/, '新建路径载荷维必须在报告里可见')
+  assert.equal(existsSync(join(dir, 'brand', 'ghost.ts')), false, 'blob 模式绝不写工作树')
+})
+
+test('T-WM-NEW-3 已存在路径不受注入:入树内容必须与清单 oid 逐字节一致', (t) => {
+  const dir = makeRepo(t)
+  const plain = 'export const keep = 1\n' // 基线无横幅:本器只判"横幅保持",不逼既有文件长出横幅
+  writeFileSync(join(dir, 'keep.ts'), plain)
+  runGit(dir, ['add', '--', 'keep.ts'])
+  runGit(dir, ['commit', '-q', '-m', '基线:无横幅的既有文件'])
+  const want = hashText(dir, 'export const keep = 2\n')
+  const mf = join(dir, 'mf-existing.json')
+  writeFileSync(mf, JSON.stringify({ files: [{ path: 'keep.ts', blob: want }] }))
+  const r = runLandBlob(dir, { paths: 'keep.ts', manifest: mf })
+  assert.equal(r.status, 0, `既有路径的落地语义不得变,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.equal(/新建路径已按 §5c 注入/.test(r.stdout), false, '既有路径不得进注入射程')
+  assert.equal(git(['rev-parse', 'HEAD:keep.ts'], { root: dir }), want, '入树内容必须与清单 oid 逐字节一致')
+})
+
+/**
+ * T-WM-NEW-4 —— 注入编排的**纯函数面**(G-04 补牙@2026-10-26,本席实测缺口)。
+ *
+ * 上面三例只走通了 injected 一条臂。剩下四臂(skipped / already / refused / 原样保留)在 E2E 里
+ * 各要一次真派生才打得到,而 §0.3 要的恰恰是「取不到正文」与「无需注入」**必须是两个结论**:
+ * 没有这一例,把 refused 悄悄并进 skipped、或让 hashText 问不到时随手换个假 oid,三例照样全绿。
+ * 判据零复制:载荷完坏只问 `WM.payloadIntact`,横幅构造只问 `WM.injectText`(§22c)。
+ */
+test('T-WM-NEW-4 注入编排纯函数面:五桶各一且不并桶,入参 Map 不被改写,取不到新 oid 不得换号', () => {
+  const hex40 = (s) =>
+    [...s].map((c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('').padEnd(40, '0').slice(0, 40)
+  const 清单原值 = new Map([
+    ['brand-new-doc.md', hex40('brand-new-doc.md')],
+    ['seeded-note.md', hex40('seeded-note.md')],
+    ['hash-missterious.md', hex40('hash-missterious.md')],
+    ['never-declared.md', hex40('never-declared.md')],
+  ])
+  const 注入时看到的正文 = new Map()
+  const got = __test__.injectNewPathBlobs({
+    newPaths: [
+      'brand-new-doc.md',
+      'seeded-note.md',
+      'unknown-ext.qqq',
+      'raw-binary.bin',
+      'third-party-listed.md',
+      'unreadable-body.md',
+      'hash-missterious.md',
+    ],
+    blobs: 清单原值,
+    readText: (p) => {
+      if (p === 'unreadable-body.md') return { why: '夹具:这一条构造"正文取不到"的现场' }
+      if (p === 'raw-binary.bin') return { text: '甲\u0000乙' }
+      if (p === 'seeded-note.md')
+        return { text: WM.injectText('已有载荷的一行\n', { rel: 'seeded-note.md' }).text }
+      return { text: '待注入的一行\n' }
+    },
+    hashText: (text, p) => {
+      注入时看到的正文.set(p, text)
+      return p === 'hash-missterious.md' ? null : hex40('injected:' + p)
+    },
+    skip: (p) => (p === 'third-party-listed.md' ? '夹具:政策档说这一条不用带横幅' : null),
+  })
+  assert.deepEqual(got.injected, ['brand-new-doc.md'], '无载荷的新建件必须进 injected 桶')
+  assert.deepEqual(got.already, ['seeded-note.md'], '已带可解码载荷 ⇒ already 桶(幂等,不重复注入)')
+  assert.deepEqual(
+    got.skipped.map((s) => s.path).sort(),
+    ['raw-binary.bin', 'third-party-listed.md', 'unknown-ext.qqq'],
+    '二进制 / 类型不在口径 / 政策档豁免 三形各归 skipped,且一条都不许落进 injected',
+  )
+  assert.ok(
+    got.skipped.every((s) => typeof s.why === 'string' && s.why !== ''),
+    'skipped 必须逐条带原因(只报路径不报为什么 = 下一次没人敢动这一档)',
+  )
+  assert.deepEqual(
+    got.refused.map((x) => x.path).sort(),
+    ['hash-missterious.md', 'unreadable-body.md'],
+    '取不到正文 与 注入后取不到新 oid 都是 refused(未判定),不得与 skipped 并桶',
+  )
+  assert.equal(清单原值.get('brand-new-doc.md'), hex40('brand-new-doc.md'), '入参 Map 不得被就地改写')
+  assert.equal(got.blobs.get('never-declared.md'), hex40('never-declared.md'), '未列入 newPaths 的路径原样保留')
+  assert.equal(got.blobs.get('seeded-note.md'), hex40('seeded-note.md'), 'already 桶不得重取号')
+  assert.equal(got.blobs.get('hash-missterious.md'), hex40('hash-missterious.md'), '问不到新 oid 时不得换成假 oid')
+  assert.equal(got.blobs.get('brand-new-doc.md'), hex40('injected:brand-new-doc.md'), 'injected 必须换成注入后的新 oid')
+  assert.ok(
+    WM.payloadIntact(注入时看到的正文.get('brand-new-doc.md')),
+    '交给 hashText 的那一份必须已带可解码载荷(§5c:进 HEAD 的就是这一份字节)',
+  )
+  assert.ok(注入时看到的正文.get('brand-new-doc.md').includes('待注入的一行'), '正文一行都不许在注入中丢失')
+})
+
+/**
+ * T-WM-NEW-5 —— already 臂的端到端正控(G-04 补牙@2026-10-26):调用方交来的新建件**本来就带完整
+ * 载荷**时,落地器不得再注一遍(§5c「注入幂等」),更不得把它报成"本次注入过"。
+ * 这一臂与 T-WM-NEW-2 成对:同一通道、同一扩展名族,只差载荷在不在。
+ */
+test('T-WM-NEW-5 端到端 already 臂:新建件已自带完整载荷 ⇒ 不重复注入且入树 oid 就是清单那一份', (t) => {
+  const dir = makeRepo(t)
+  const seeded = WM.injectText('# 取证:这枚新建件交来时就有完整载荷\n', { rel: 'seeded-note.md' }).text
+  const seededOid = hashText(dir, seeded)
+  const mf = join(dir, 'mf-seeded-g04b.json')
+  writeFileSync(mf, JSON.stringify({ files: [{ path: 'notes/seeded-note.md', blob: seededOid }] }))
+  const r = runLandBlob(dir, { paths: 'notes/seeded-note.md', manifest: mf })
+  assert.equal(r.status, 0, `已带载荷的新建件必须照落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.match(r.stdout, /新建路径 1 个已自带可解码载荷 ⇒ 不重复注入/, 'already 桶必须在报告里可见')
+  assert.equal(
+    /新建路径已按 §5c 注入/.test(r.stdout),
+    false,
+    '没注入过就不许声称注入过(§0.3:没判绝不写成判过)',
+  )
+  assert.equal(
+    git(['rev-parse', 'HEAD:notes/seeded-note.md'], { root: dir }),
+    seededOid,
+    '入树内容必须逐字节等于调用方那份,落地器一字不改',
+  )
+})
+
+/**
+ * T-WM-NEW-6 —— 形状锁 + 函数体同源锁(G-04 补牙@2026-10-26):钉住"这一档只剩一条正牌通道"。
+ * 形状锁只能证明源码里没有第二份"形状",拷贝一份再改名可以绕过它 —— 所以 injectText 那一条
+ * 走 `String(函数)` 的函数体面(T18 同一性锁的同族写法),而不是只看 import 行。
+ */
+test('T-WM-NEW-6 形状锁:新建路径档只调那一份编排,未判定必须 exit 2,档内零写工作树,豁免面复用单源', () => {
+  const src = readFileSync(TOOL, 'utf8')
+  const code = maskCommentsAndStrings(src)
+  const from = src.indexOf('const newPaths = paths.filter')
+  const to = src.indexOf('  if (blobOf) {', from)
+  assert.ok(from > 0 && to > from, '新建路径档的两个边界必须能在源码里定位;被挪走 ⇒ 本锁必须红,不得静默不判')
+  const seg = src.slice(from, to)
+  assert.match(seg, /injectNewPathBlobs\s*\(/, '主流程必须真调编排(import 了不用 = 假接线)')
+  assert.equal((seg.match(/writeFileSync\s*\(/g) ?? []).length, 0, '档内不得出现任何写工作树的动作')
+  assert.ok(!/update-index|read-tree|checkout/.test(seg), '档内不得碰索引/检出(落地只走对象空间)')
+  const refusedArm = seg.slice(seg.indexOf('refused.length > 0'))
+  assert.match(refusedArm, /process\.exit\(2\)/, 'refused ⇒ exit 2(未判定,§0.3)')
+  assert.equal(refusedArm.includes('process.exit(1)'), false, '未判定不得被折成"判出缺口"那一档')
+  assert.match(
+    src,
+    /import\s*\{[^}]*\binjectText\b[^}]*\}\s*from\s*['"]\.\/watermark\.mjs['"]/,
+    '横幅/L2 载荷/L3 尾行的构造必须从 watermark.mjs 引那一份(§0.6)',
+  )
+  assert.match(code, /injectText\s*\(/, '引了 injectText 却不调用 = 判据仍是自写的')
+  const 编排函数体 = String(__test__.injectNewPathBlobs)
+  assert.match(编排函数体, /injectText\s*\(/, '编排内部必须真调 injectText')
+  for (const 第二份形状 of [/makeBanner/, /encodePayload/, /tailFor/, /INVISIBLE_MARK/, /© \d{4} IHUI/])
+    assert.ok(!第二份形状.test(编排函数体), `注入编排里出现第二份水印构造的形状:${第二份形状}`)
+  assert.match(seg, /createExclusionPredicate\s*\(/, '第三方豁免面必须问那份单源判据')
+  assert.match(seg, /judgeToolGenerated\s*\(/, '上游工具生成物豁免面必须问那份单源判据')
+  assert.ok(!/scripts\/data\//.test(seg), '豁免清单只住在 lib 的台账里,本器不得自持一张表')
 })
 
 

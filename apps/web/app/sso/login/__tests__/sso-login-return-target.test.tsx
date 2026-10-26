@@ -102,6 +102,7 @@ afterEach(() => {
   cleanup()
   restoreLocation?.()
   restoreLocation = null
+  vi.unstubAllGlobals()
 })
 
 function pushedTargets(): string[] {
@@ -169,6 +170,37 @@ describe('/sso/login 的 redirect 落点(OIDC 自动回跳)', () => {
     })
     const targets = [...pushedTargets(), ...locationHrefRef.writes]
     expect(targets.some((t) => t.includes('evil.example.com'))).toBe(false)
+  })
+})
+
+describe('/sso/login 被登录守卫 307 打回后的自动回跳(2026-10-26)', () => {
+  /** 守卫探测用 HEAD:这里给"会放行"的响应(非 opaqueredirect)。 */
+  function stubGuardPassing() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ type: 'basic', ok: true, status: 200 }) as unknown as Response),
+    )
+  }
+
+  it('redirect 落在受保护路径 + 已登录 ⇒ 自动回跳,不用手点授权', async () => {
+    // 非 sso=oidc、非桌面深链:正是普通 307 打回的形状
+    queryRef.current = 'redirect=%2Fadmin%2Fusers'
+    stubGuardPassing()
+    render(<SsoLoginPage />)
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/admin/users')
+    })
+  })
+
+  it('非受保护的站内 redirect ⇒ 不自动送走(主动访问授权页的契约不变)', async () => {
+    queryRef.current = 'redirect=%2Fagents'
+    stubGuardPassing()
+    render(<SsoLoginPage />)
+
+    // 自动回跳是异步的(探测 + 续期),给足一拍再断言"一次都没跳"
+    await new Promise<void>((resolve) => setTimeout(resolve, 80))
+    expect(pushMock).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

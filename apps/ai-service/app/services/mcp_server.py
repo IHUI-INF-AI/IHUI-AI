@@ -58,6 +58,12 @@ from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
 from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
+# P0-2 凭据保险库接线(2026-10-26):run_command 解析/脱敏/环境过滤经此单例
+from .session_security import (
+    get_session_vault as _get_session_vault,
+    get_vault_store as _get_vault_store,
+)
+from app.core.vault import filter_vault_env as _filter_vault_env
 
 # 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
 # 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。
@@ -2418,7 +2424,8 @@ def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
             if k.upper() in ("PATH", "HOME", "USERPROFILE"):
                 continue  # 不允许覆盖 PATH/HOME
             env[k] = str(v)
-    return env
+    # P0-2 凭据保险库:剔除凭据形环境变量(绝不外带给子进程)
+    return _filter_vault_env(env, _get_vault_store())
 
 
 _COMMAND_POLICY_DEFAULT: dict[str, Any] = {
@@ -2778,6 +2785,14 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
     ssh_user = arguments.get("ssh_user", "root")
     user_env = arguments.get("env")
 
+    # P0-2 凭据保险库:审批已通过 ⇒ 解析占位符为真值;子进程环境剔除凭据形变量。
+    # 模型视野里只有 {{vault:NAME}},此处(工具真正执行前)才交钥匙;未知 NAME
+    # 保留占位符(绝不泄漏/绝不编造)。
+    _vault = _get_session_vault()
+    command = _vault.resolve(command)
+    if isinstance(user_env, dict):
+        user_env = {k: _vault.resolve(str(v)) for k, v in user_env.items()}
+
     max_timeout = max(1, int(arguments.get("max_timeout", 600)))
     timeout = max(1, min(int(arguments.get("timeout", 60)), max_timeout))
     # 0-5 执行硬超时上限(env RUN_COMMAND_TIMEOUT_S,默认 120s):请求超时不得超过,
@@ -2929,8 +2944,8 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
         return {
             "tool": "run_command", "command": command,
             "backend": sandbox_backend,
-            "exit_code": result.exit_code, "stdout": _redact_secrets(result.stdout),
-            "stderr": _redact_secrets(result.stderr), "duration_ms": result.duration_ms,
+            "exit_code": result.exit_code, "stdout": _vault.redact(_redact_secrets(result.stdout)),
+            "stderr": _vault.redact(_redact_secrets(result.stderr)), "duration_ms": result.duration_ms,
             "timed_out": result.timed_out, "ok": result.exit_code == 0,
             "streamed": False,
             "message": f"backend={sandbox_backend} exit_code={result.exit_code}",
@@ -3071,8 +3086,8 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
         # 截断之后、回传之前统一盖掉已知凭据形态。
         from app.core.output_cleaning import redact_secrets as _redact_secrets
 
-        stdout = _redact_secrets(stdout)
-        stderr = _redact_secrets(stderr)
+        stdout = _vault.redact(_redact_secrets(stdout))
+        stderr = _vault.redact(_redact_secrets(stderr))
 
         _interaction_count = int(_inter_state.get("interactionCount") or 0)
         if timed_out:

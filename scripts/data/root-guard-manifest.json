@@ -1,21 +1,21 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-25T12:52:15.622Z",
+  "sealedAt": "2026-10-26T04:09:51.019Z",
   "sealedBy": "root-guard --seal",
-  "reason": "初始封存(O65 P0 落地)",
+  "reason": "人工复核:封存枚0bdadcf8a1(期望2cc6486652c5)至HEAD仅枚29764ed0cc(门103 C1腾行)实质改动runner,diff逐行审读=纯注释(15归档指针行新增/127注释空行删除/零代码行变动),非注释行与封存版逐字节一致,归档锚点guardian-l139/l2213抽查在档;合并枚bedc2a599c/735e171a62的runner blob与封存版同hash未引入改动;哨兵枚ccae5cc198/6409142643未动runner。漂移复封(前期望2cc6486652c5→现76db26e5ced6)",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "11063fe119b01f95dfb6d84ca1ae6291f064c7b20797313be98f0a43ce554137"
+      "sha256": "76db26e5ced681d4feee632793ef332079fb48eedc6ad3a2a6d5b0d44cf889be"
     },
     {
       "id": "judgement-libs",
       "path": "scripts/lib/judgement-libs.json",
       "mode": "file",
-      "sha256": "ba32b8680c403c61bfbd9955ba3171d437e60183d064f73b40448f411872c9c1"
+      "sha256": "265c3669b514884e1f07fa72a7a0e2b9889ead9b490ff51319f4b1e84b45ae5f"
     },
     {
       "id": "agents-ironlaw",

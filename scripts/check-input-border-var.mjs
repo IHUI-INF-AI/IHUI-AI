@@ -20,7 +20,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { execSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const isStaged = process.argv.includes('--staged')
 
@@ -47,11 +47,8 @@ const EXT_ALLOW = new Set(['.tsx', '.ts', '.jsx', '.js', '.css', '.scss', '.mjs'
 function getTargetFiles() {
   if (isStaged) {
     try {
-      const out = execSync(
-        'git diff --cached --name-only --diff-filter=ACMR',
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', windowsHide: true },
-      )
+      // 枚举走取材层:绝对 git / 显式 stdio(§12g,EBUSY 病窗)/ windowsHide / timeout 由 gitRaw 统一提供。
+      const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], process.cwd())
       return out
         .split('\n')
         .map((f) => f.trim())

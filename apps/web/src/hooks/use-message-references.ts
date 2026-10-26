@@ -195,7 +195,9 @@ const generateId = (): string => `${Date.now()}-${Math.random().toString(36).sli
  *   AttachmentRejection[] 聚合出**一条**提示,禁止逐文件 toast 风暴。
  * - commitFileReference 假定调用方已完成三档校验(如"先压缩图片再提交"的入口路径),
  *   直接创建 ref(uploadState:'uploading')+ 异步上传 /api/files/upload/form,
- *   按 ref.id 回写 fileId/serverUrl/uploadState(矩阵 A #19 断链修复语义不变)
+ *   按 ref.id 回写 fileId/serverUrl/uploadState(矩阵 A #19 断链修复语义不变);
+ *   G-863 起在建 ref **之前**做容量 CAS(预筛预留槽优先消耗),满额返回 max_files 拒绝
+ * - 容量累计只在本 hook 内(committed/reserved 两个 ref),不读渲染快照、不在渲染后归零
  * - addTextReference 自动 trim,空文本直接返回不创建 ref
  * - addCodeReference 接受代码 + 语言标签,沿用 'text' 类型存储(code 类型在
  *   ReferenceType 联合中未声明,后续若需要独立展示可扩展)
@@ -209,13 +211,15 @@ export function useMessageReferences(): {
   addFileReference: (file: File) => AttachmentRejection[]
   /** G-833:批量入口 —— 三档校验一次过,数量超额仍收前 capacity 个,返回被拒结构化名单 */
   addFileReferences: (files: readonly File[]) => AttachmentRejection[]
-  /** G-833:入口预筛(供"先做图片压缩再提交"的路径;容量按当前 references 数计) */
+  /** G-833:入口预筛(供"先做图片压缩再提交"的路径)。
+   *  G-863:通过项按"预留槽"登记,提交前占位即已生效,避免异步压缩窗口被他批绕过。 */
   screenAttachments: (files: readonly File[]) => {
     accepted: File[]
     rejections: AttachmentRejection[]
   }
-  /** G-833:提交已过三档校验的文件(不再校验,仅创建 ref + 异步上传) */
-  commitFileReference: (file: File) => void
+  /** G-833:提交已过三档校验的文件(仅创建 ref + 异步上传)。
+   *  G-863:写前 CAS 兜容量 —— 占位已满时**不建 ref**,返回 max_files 结构化拒绝(空数组=已提交)。 */
+  commitFileReference: (file: File) => AttachmentRejection[]
   /** b75-5#1:重传指定失败附件(配额 5 次,超配额置 terminal 终态) */
   retryReference: (id: string) => void
   addTextReference: (text: string) => void
@@ -261,16 +265,31 @@ export function useMessageReferences(): {
     })()
   }, [])
 
-  /** G-863(2026-10-23):"已提交但 refsRef 尚未反映"的未落账量 —— 预筛与批量共用,
-   *  渲染后 effect 清零。声明置于 commit 之前:commit(语音/单文件入口)也要计数,
-   *  否则同帧"拖入 30 + 语音 1"的预筛按 0 起算 ⇒ 静默超容 +1。 */
-  const pendingCommitRef = React.useRef(0)
+  /** G-863(2026-10-25):容量判据改为**提交式**,不再读 refsRef 渲染快照。
+   *  唯一累计源 = 已提交占位数 + 已预留未提交占位数,语义:
+   *  - committedCountRef:每建一个附件 ref **写前自增**(满则拒),删除/重置同步回收;
+   *  - reservedCountRef:预筛(screenAttachments)通过项先占位,提交时消耗 —— 图片压缩
+   *    的 await 期间他批按"已提交+已预留"判,跨批"先判后写"窗口在此收掉;
+   *  - 渲染后**不归零**(归零会把同帧下一批的累计判据打回 0,即原轻超容根源);
+   *  - 文本/代码引用不占附件槽:数量档只约束附件。
+   *  上限仍只由 CHAT_ATTACHMENT_MAX_FILES 单一处声明,此处不出现第二份数字。 */
+  const committedCountRef = React.useRef(0)
+  const reservedCountRef = React.useRef(0)
 
   /** G-833:提交已过三档校验的文件 —— 原 addFileReference 主体,类型/大小/数量判据
-   *  已上移到 screenAttachmentFiles,此处不再静默 return */
+   *  已上移到 screenAttachmentFiles;G-863 起写前 CAS 再兜一次容量,满则拒且不建 ref */
   const commitFileReference = React.useCallback(
-    (file: File) => {
-      pendingCommitRef.current += 1
+    (file: File): AttachmentRejection[] => {
+      if (reservedCountRef.current > 0) {
+        // 预筛已占位:预留槽转"已提交"(两个计数一减一增),占位总数不变
+        reservedCountRef.current -= 1
+        committedCountRef.current += 1
+      } else if (committedCountRef.current >= CHAT_ATTACHMENT_MAX_FILES) {
+        // 未经预筛的直提路径(语音/标注回填):写前 CAS 满额即拒,交回调用方走汇总出口
+        return [{ code: 'max_files', fileNames: [file.name] }]
+      } else {
+        committedCountRef.current += 1
+      }
       const isImage = file.type.startsWith('image/')
       const isVideo = file.type.startsWith('video/')
       const objectUrl = URL.createObjectURL(file)
@@ -287,6 +306,7 @@ export function useMessageReferences(): {
       pendingFiles.current.set(ref.id, file)
       setReferences((prev) => [...prev, ref])
       uploadRef(ref.id, file)
+      return []
     },
     [uploadRef],
   )
@@ -315,35 +335,39 @@ export function useMessageReferences(): {
     [uploadRef],
   )
 
-  /** G-833/G-863:入口预筛 —— 容量 = 已渲染 references + 同帧已提交未落账量 */
+  /** G-863:占位式预筛 —— 判据读"已提交 + 已预留"唯一累计源,通过项当场登记预留槽。
+   *  预筛与提交成对使用(选/拖入口 → routeScreenedFiles 全量提交;压缩路径 commit 时消耗)。 */
+  const screenAndReserve = React.useCallback((files: readonly File[]) => {
+    const result = screenAttachmentFiles(
+      files,
+      committedCountRef.current + reservedCountRef.current,
+    )
+    reservedCountRef.current += result.accepted.length
+    return result
+  }, [])
+
+  /** G-833/G-863:入口预筛 —— 占位在预筛时即生效(写前登记,不再读渲染快照) */
   const screenAttachments = React.useCallback(
-    (files: readonly File[]) =>
-      screenAttachmentFiles(files, refsRef.current.length + pendingCommitRef.current),
-    [],
+    (files: readonly File[]) => screenAndReserve(files),
+    [screenAndReserve],
   )
 
   /** G-833:批量添加 —— 三档校验一次过;数量超额时仍收前 capacity 个并回报被拒名单。
-   *  同帧多次调用以本地累计计数兜容量,避免 setState 异步导致超额文件钻空。
-   *  G-863(2026-10-13):归零时机从微任务改为渲染后 effect —— 微任务归零在
-   *  "React 重渲染前"留有空窗(refsRef 仍是旧快照),同帧跨批(批间隔一个 await)
-   *  各 25 个会双收 50>30;pendingCommitRef 语义为"已提交但 refsRef 尚未反映"的
-   *  未落账量,effect 在 refsRef 同步为真实计数后才清账,空窗闭合。 */
+   *  G-863(2026-10-25):同帧多次调用的累计由 committed/reserved 两个 ref 唯一承载 ——
+   *  预筛先占位、提交消耗预留槽,不依赖 setState 时序,故不再需要渲染后清零的 effect。 */
   const addFileReferences = React.useCallback(
     (files: readonly File[]): AttachmentRejection[] => {
-      const { accepted, rejections } = screenAttachmentFiles(
-        files,
-        refsRef.current.length + pendingCommitRef.current,
-      )
-      // 计数由 commitFileReference 逐文件自增(单文件入口走同一条),此处不再重复加
-      accepted.forEach((f) => commitFileReference(f))
+      const { accepted, rejections } = screenAndReserve(files)
+      accepted.forEach((f) => {
+        // 提交即消耗预留槽;写前 CAS 若仍拒(极端错配),把拒因并回同 code 条目,不静默
+        for (const r of commitFileReference(f)) {
+          for (const name of r.fileNames) pushRejection(rejections, r.code, name)
+        }
+      })
       return rejections
     },
-    [commitFileReference],
+    [commitFileReference, screenAndReserve],
   )
-  // 渲染后 refsRef.current 已同步为真实计数(函数体里逐渲染赋值),未落账部分清零
-  React.useEffect(() => {
-    pendingCommitRef.current = 0
-  })
 
   /** G-833:单文件入口 = 批量为 1 的特例;返回值给忽略它的旧调用方(void 兼容)无影响 */
   const addFileReference = React.useCallback(
@@ -379,6 +403,10 @@ export function useMessageReferences(): {
   }, [])
 
   const removeReference = React.useCallback((id: string) => {
+    // G-863:附件槽在删除调用那一刻回收(不等渲染),否则"删一个再加一个"同帧会被误判满额
+    if (pendingFiles.current.has(id)) {
+      committedCountRef.current = Math.max(0, committedCountRef.current - 1)
+    }
     setReferences((prev) => {
       const removed = prev.find((r) => r.id === id)
       if (removed?.thumbnail) URL.revokeObjectURL(removed.thumbnail)
@@ -400,7 +428,9 @@ export function useMessageReferences(): {
       return []
     })
     pendingFiles.current.clear()
-    pendingCommitRef.current = 0
+    // G-863:重置/发送后清空两类占位(含未消费的预筛预留),下次从 0 起算
+    committedCountRef.current = 0
+    reservedCountRef.current = 0
   }, [])
 
   // 2026-08-02 修复 P1 内存泄露:组件卸载时释放 references 中所有 objectURL。

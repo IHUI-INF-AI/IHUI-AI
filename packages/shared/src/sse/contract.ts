@@ -297,6 +297,23 @@ export type ToolApprovalNetworkTargetWire = {
 export const SSE_APPROVAL_REPLAY_PAYLOAD_KEY = 'replay'
 
 /**
+ * D-07(2026-10-26):断线失效审批**端上可见**标记键(值恒 true)。失效条目不再重发
+ * 弹窗(无活等待者 = 僵尸 run),而是以同形 tool-approval 帧 + 本标记到达,端上分流
+ * 成一条可读提示。与 Python 侧
+ * `apps/ai-service/app/core/sse_contract.py::SSE_APPROVAL_EXPIRED_PAYLOAD_KEY` 逐字同值
+ * (两侧同值由 apps/ai-service/tests/test_d07_approval_expired_visibility.py 现读钉)。
+ * 与 replay 同理**不进必填清单** —— 只出现在失效留痕帧上。
+ */
+export const SSE_APPROVAL_EXPIRED_PAYLOAD_KEY = 'expired'
+
+/**
+ * D-07:失效原因值键。取值封闭集与 Python 侧
+ * `app/core/approval_replay.py::APPROVAL_LOSS_REASONS` 同族
+ * (stream_closed / cancelled / timeout),端上只做只读展示,不据此分支决策。
+ */
+export const SSE_APPROVAL_EXPIRED_REASON_PAYLOAD_KEY = 'expired_reason'
+
+/**
  * SSE 判别联合(精确 payload 类型)。
  * 待收紧字段用 `Record<string, unknown>` + 注释标注;禁用 `any`。
  */
@@ -502,6 +519,14 @@ export type SSEEventPayload =
       blocked_network_targets?: ToolApprovalNetworkTargetWire[]
       /** D690:重放帧标记;正常下发的审批帧**没有**这一格(可选,不是必填) */
       replay?: true
+      /**
+       * D-07(2026-10-26):断线失效留痕标记。带本键的帧**不是**新的审批请求 ——
+       * 端上不得弹窗,只显示"该审批已随连接中断失效"的提示并忽略其 approval_id。
+       * 与 replay 互斥(失效条目不会同时是待决条目)。
+       */
+      expired?: true
+      /** D-07:失效原因(stream_closed / cancelled / timeout),只读展示用。 */
+      expired_reason?: string
     }>
   // 对话流业务表单请求(V3 #63:llm.py 的 request_business_form 拦截位发出;
   // 前端 BusinessFormSection 消费,应答经 form-response 端点回传)。

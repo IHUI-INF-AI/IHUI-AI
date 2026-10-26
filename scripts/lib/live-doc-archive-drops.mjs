@@ -34,6 +34,8 @@
  * 绝不把真吃掉的正文洗成"已归档")。这与 §0.10「失效方向必须是多要一次定向说明」同一条禁令。
  */
 import { archiveOwnerFor } from './live-doc-classify.mjs'
+import { parseArchivePlaceholders, placeholderKeyOfTitle } from './ledger-move-aware.mjs'
+import { parseCompletedTaskBlocks } from './plan-task-headings.mjs'
 
 /** 归档落点(§1 两步走),与门 76 同一个常量值;本库按**文件名**判族,不按目录判 ——
  *  目录里混着快照件,「在这个目录里 ⇒ 是移出批次」正是本库要否掉的过宽判据。 */
@@ -105,6 +107,15 @@ export function selectMovedOut(docRel, files, oursText) {
       .filter(Boolean),
   )
   const oursHeadings = new Set([...ours].filter((l) => l.startsWith('#')))
+  // 通配指针不构成可核验凭据:占位写成 `PROJECT_PLAN_*.md` 时,归档件里那段内容与台账里那枚
+  // 条目没有可核验的对应关系 ⇒ 该条目块的行一律不扣(失效方向=多留一份)。
+  // 判据只问占位解析器自己给出的 whyNot(不在此另写一份"什么算通配"——§0.6)。
+  const unverifiableKeys = new Set(
+    parseArchivePlaceholders(String(oursText ?? ''))
+      .filter((ph) => !ph.resolvable && /通配/.test(String(ph.whyNot ?? '')))
+      .map((ph) => placeholderKeyOfTitle(ph.title))
+      .filter(Boolean),
+  )
   let read = 0
   for (const f of sameFamily) {
     // 正文取不到 ⇒ 这一份不构成凭据,但也不否掉其它份(§0.3:取不到不猜,逐份点名)
@@ -130,13 +141,27 @@ export function selectMovedOut(docRel, files, oursText) {
       out.snapshots.push({ path: f.path, overlap: Number(overlap.toFixed(3)), headingHits })
       continue
     }
+    const rawLines = f.text.split(/\r?\n/)
+    const excludedRaw = new Set()
+    const excludedNorm = new Set()
+    if (unverifiableKeys.size) {
+      for (const b of parseCompletedTaskBlocks(f.text)) {
+        if (!unverifiableKeys.has(placeholderKeyOfTitle(b.titleText))) continue
+        for (let i = b.startLine; i <= b.endLine && i < rawLines.length; i++) {
+          if (norm(rawLines[i]) === '') continue
+          excludedRaw.add(rawLines[i])
+          excludedNorm.add(norm(rawLines[i]))
+        }
+      }
+    }
     let added = 0
     for (const l of rows) {
+      if (excludedRaw.has(l) || excludedNorm.has(norm(l))) continue
       out.raw.add(l)
       out.trimmed.add(norm(l))
       added += 1
     }
-    out.used.push({ path: f.path, lines: added })
+    if (added > 0) out.used.push({ path: f.path, lines: added })
   }
   out.ok = out.used.length > 0
   if (!out.ok) {

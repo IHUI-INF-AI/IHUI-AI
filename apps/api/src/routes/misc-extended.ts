@@ -193,7 +193,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         RETURNING *
       `)
       const row = (rows as Record<string, unknown>[])[0]
-      return reply.send(success(row ?? { id: p.data.id, updated: true }))
+      // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+      return reply.send(
+        success(row ? { ...row, updated: true } : { id: p.data.id, updated: false }),
+      )
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '更新远程代理失败'))

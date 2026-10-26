@@ -44,7 +44,6 @@
  * 用法:node scripts/check-biz-day-single-source.mjs [--staged|--worktree] [--self-test] [--json]
  * 退出码:0 无判红 / 1 判红 / 2 未判定
  */
-import { spawnSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -53,7 +52,7 @@ import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 // 括号配平同样复用那台分词器(§22c:分词只许一台)
 import { closeBrace } from './lib/batch-write-lexer.mjs'
 // 取材复用面读取层:清单与内容同面同轮,一次 cat-file --batch 读满(逐文件派生=fork 风暴)
-import { catBatch, gitErrText } from './lib/face-reader.mjs'
+import { catBatch, gitErrText, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPE = 'apps/api/src'
@@ -136,17 +135,16 @@ function listScope(face) {
     face === 'staged'
       ? ['ls-files', '--', SCOPE]
       : ['ls-tree', '-r', '--name-only', 'HEAD', '--', SCOPE]
-  const r = spawnSync('git', args, {
-    cwd: ROOT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    encoding: 'utf8',
-    shell: false,
-  })
-  if (r.status !== 0) return null
-  return r.stdout
-    .split(/\r?\n/)
-    .filter((s) => s.endsWith('.ts') && !s.includes('__tests__'))
-    .sort()
+  // 取材统一走层(scripts/lib/face-reader.mjs):cwd / encoding / 显式 stdio / windowsHide(§5f
+  // 不弹窗)由 gitRaw 提供,不再自拼裸 'git' 派生;取不到(非零退出/异常)仍返回 null。
+  try {
+    return gitRaw(args, ROOT)
+      .split(/\r?\n/)
+      .filter((s) => s.endsWith('.ts') && !s.includes('__tests__'))
+      .sort()
+  } catch {
+    return null
+  }
 }
 
 function listFiles(face) {

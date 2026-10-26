@@ -24,8 +24,11 @@
  * WS 重连(connected: false→true)时调 GET /api/tasks?since=<lastSeenTs> 补拉断线期间错过的任务,
  * 收到 task-cancelled 消息时把对应任务状态置为 cancelled。
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TaskDispatch, TaskResult, TaskWsMessage } from '@ihui/shared/tasks/dispatch'
+// 2026-10-26 立:审批跟人判据 —— 审批卡只推给提问方(origin)与执行方(target),
+// 同一用户的第三台设备看得见任务在跑,但拿不到答票权。
+import { delegationApprovalAudienceOf } from '@ihui/shared/tasks/delegation-approval'
 import { useWebSocket } from '@/hooks/use-websocket'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
@@ -44,6 +47,16 @@ export interface UseTaskReceiverReturn {
   deviceId: string
   /** 下载指定任务的附件。返回下载结果文案供 UI 显示。 */
   downloadAttachment: (taskId: string) => { ok: boolean; message: string }
+  /**
+   * 待我拍板的委派(2026-10-26 立)。**审批跟人**:仅当本设备是提问方或执行方时才出现,
+   * 且票仍在 `awaiting`。同一用户的第三台设备此处恒为空集(它无权替人拍板)。
+   */
+  pendingApprovals: TaskDispatch[]
+  /**
+   * 回答一张审批票。**先答者胜由服务端判据裁定**,本端只提交并如实回传裁定结果 ——
+   * 双端同时点也不会执行两次(后到者被判 duplicate)。
+   */
+  answerApproval: (taskId: string, decision: boolean) => Promise<{ ok: boolean; message: string }>
 }
 
 /** 生成或读取持久化 deviceId,兼容非 secure context(crypto.randomUUID 降级) */
@@ -224,7 +237,8 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
       kind !== 'task-dispatch' &&
       kind !== 'task-result' &&
       kind !== 'task-progress' &&
-      kind !== 'task-cancelled'
+      kind !== 'task-cancelled' &&
+      kind !== 'task-approval'
     )
       return
     const taskId = msg.taskId
@@ -264,6 +278,22 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
         return prev.map((x) =>
           x.id === taskId ? { ...x, status: 'cancelled', updatedAt: cancelledTask.updatedAt } : x,
         )
+      }
+      if (kind === 'task-approval') {
+        // 委派审批票(2026-10-26)。与 task-dispatch 不同:**不做 toDevice 过滤** ——
+        // 审批卡要同时出现在提问方与执行方两台设备上(这正是"审批跟人")。
+        // 但只有 audience = [origin, target] 内的设备能看到,第三台设备在此被挡掉。
+        const approvalTask = msg.payload as TaskDispatch
+        if (!approvalTask.approval) return prev
+        if (!delegationApprovalAudienceOf(approvalTask.approval).includes(deviceId)) return prev
+        const ats = Date.parse(approvalTask.updatedAt)
+        if (Number.isFinite(ats) && ats > lastSeenTsRef.current) {
+          lastSeenTsRef.current = ats
+          saveLastSeenTs(ats)
+        }
+        return prev.some((x) => x.id === approvalTask.id)
+          ? prev.map((x) => (x.id === approvalTask.id ? approvalTask : x))
+          : [approvalTask, ...prev]
       }
       const result = msg.payload as TaskResult
       const ts = Date.parse(result.finishedAt)
@@ -320,6 +350,55 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
     [tasks],
   )
 
-  return { tasks, isConnected: connected, deviceId, downloadAttachment }
+  /** 待我拍板的委派:票仍在 awaiting ∧ 本设备在 audience 内 */
+  const pendingApprovals = useMemo(
+    () =>
+      tasks.filter(
+        (t) =>
+          t.approval &&
+          t.approval.state === 'awaiting' &&
+          delegationApprovalAudienceOf(t.approval).includes(deviceId),
+      ),
+    [tasks, deviceId],
+  )
+
+  /** 回答审批票:提交 (decision, seq, deviceId),裁定由服务端判据给出 */
+  const answerApproval = useCallback(
+    async (taskId: string, decision: boolean): Promise<{ ok: boolean; message: string }> => {
+      const task = tasks.find((x) => x.id === taskId)
+      if (!task?.approval) {
+        return { ok: false, message: '该委派没有待审的票' }
+      }
+      const r = await fetchApi(`/api/tasks/${taskId}/approval`, {
+        method: 'POST',
+        body: JSON.stringify({
+          decision,
+          seq: task.approval.seq,
+          deviceId,
+        }),
+      })
+      if (!r.success) {
+        return { ok: false, message: r.error ?? '审批提交失败' }
+      }
+      // 服务端回推的 task-approval 帧会更新列表,此处不本地乐观改状态 ——
+      // 先答者胜必须以服务端那张票为准(本地乐观会出现"我点了但别人先答"的假象)。
+      const data = r.data as { verdict?: string; reason?: string } | null
+      const verdict = data?.verdict ?? ''
+      if (verdict && verdict !== 'applied') {
+        return { ok: false, message: data?.reason || `未生效(${verdict})` }
+      }
+      return { ok: true, message: decision ? '已放行' : '已拒绝' }
+    },
+    [tasks, deviceId],
+  )
+
+  return {
+    tasks,
+    isConnected: connected,
+    deviceId,
+    downloadAttachment,
+    pendingApprovals,
+    answerApproval,
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

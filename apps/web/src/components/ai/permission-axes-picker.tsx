@@ -141,6 +141,14 @@ export function PermissionAxesPicker({ disabled }: { disabled?: boolean }) {
         </button>
       </div>
       <p className="text-[10px] leading-snug text-muted-foreground">{t('axesHint')}</p>
+      {/* 79 号票(2026-10-25):显式选择落在本机(localStorage),刷新后自动恢复,
+          免去每次冷启动重选。用户看到"会记住"才敢把档位定在低风险档。 */}
+      <p
+        data-testid="permission-axes-persist-hint"
+        className="text-[10px] leading-snug text-muted-foreground/80"
+      >
+        {t('axesPersistHint')}
+      </p>
 
       <div className="flex flex-wrap gap-1" role="group" aria-label={t('axesTitle')}>
         {presets.map((preset) => {
