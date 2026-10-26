@@ -22,6 +22,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Eye,
+  EyeOff,
   FileText,
   Input,
   Label,
@@ -42,6 +44,7 @@ import {
   SheetHeader,
   SheetTitle,
   ShieldAlert,
+  ShieldCheck,
   Switch,
   Plus,
   Tabs,
@@ -63,6 +66,28 @@ const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs'
+
+// 账号级私有出口与代理池同口径:只接受 http(s)/socks5
+const PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])
+
+function isSupportedProxyUrl(raw: string): boolean {
+  try {
+    return PROXY_PROTOCOLS.has(new URL(raw).protocol)
+  } catch {
+    return false
+  }
+}
+
+/** 代理池列表脱敏展示:只留协议+主机,账密不渲染、不进 title */
+function maskProxyDisplay(raw?: string | null): string {
+  if (!raw) return '-'
+  try {
+    const u = new URL(raw)
+    return `${u.protocol}//${u.username || u.password ? '***@' : ''}${u.host}`
+  } catch {
+    return '已隐藏'
+  }
+}
 
 const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
 type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
@@ -107,6 +132,8 @@ interface AccountRow {
   refreshFailureCount: number
   consecutiveFailures: number
   hasProxy: boolean
+  /** 后端脱敏投影:scheme://***@host:port;明文账密/路径/查询串不返回前端 */
+  proxyUrlMasked: string | null
   totalCalls: number
   extraMetadata: unknown
   createdAt: string
@@ -366,8 +393,11 @@ export default function AdminRelayAccountPoolPage() {
     priority: '0',
     weight: '1',
     tempUnschedulable: false,
-    proxyUrl: '',
   })
+  // 私有出口:keep=不改动(默认),set=替换,clear=移除;避免打开编辑即把已有代理清空
+  const [proxyMode, setProxyMode] = React.useState<'keep' | 'set' | 'clear'>('keep')
+  const [proxyDraft, setProxyDraft] = React.useState('')
+  const [proxyVisible, setProxyVisible] = React.useState(false)
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [usageAccountId, setUsageAccountId] = React.useState<string | null>(null)
   const [tab, setTab] = React.useState<PoolTab>('accounts')
@@ -645,8 +675,10 @@ export default function AdminRelayAccountPoolPage() {
       priority: String(k.priority),
       weight: String(k.weight),
       tempUnschedulable: k.tempUnschedulable,
-      proxyUrl: '',
     })
+    setProxyMode('keep')
+    setProxyDraft('')
+    setProxyVisible(false)
   }
 
   const submitEdit = (e: React.FormEvent) => {
@@ -662,8 +694,21 @@ export default function AdminRelayAccountPoolPage() {
       weight: Number(editForm.weight) || 1,
       tempUnschedulable: editForm.tempUnschedulable,
     }
-    const proxy = editForm.proxyUrl.trim()
-    body.proxyUrl = proxy ? proxy : null
+    // 只有显式更换/清除才带 proxyUrl;keep 状态绝不提交,防止覆盖已有私有出口
+    if (proxyMode === 'set') {
+      const proxy = proxyDraft.trim()
+      if (!proxy) {
+        toast.error('请输入代理地址')
+        return
+      }
+      if (!isSupportedProxyUrl(proxy)) {
+        toast.error('代理地址必须是 http(s)/socks5 协议')
+        return
+      }
+      body.proxyUrl = proxy
+    } else if (proxyMode === 'clear') {
+      body.proxyUrl = null
+    }
     editMut.mutate({ id: editing.id, body })
   }
 
@@ -1128,7 +1173,20 @@ export default function AdminRelayAccountPoolPage() {
                           <td className="px-3 py-2 text-right tabular-nums">
                             {k.refreshFailureCount}
                           </td>
-                          <td className="px-3 py-2 text-xs">{k.hasProxy ? '是' : '否'}</td>
+                          <td className="px-3 py-2 text-xs">
+                            {k.hasProxy ? (
+                              <Tooltip
+                                content={`私有出口：${k.proxyUrlMasked ?? '已配置（脱敏）'}`}
+                              >
+                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  私有
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-muted-foreground">直连</span>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">
                             {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
                           </td>
@@ -1391,14 +1449,135 @@ export default function AdminRelayAccountPoolPage() {
                 临时摘除(暂不参与调度)
               </Label>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="a-proxy">代理地址</Label>
-              <Input
-                id="a-proxy"
-                value={editForm.proxyUrl}
-                onChange={(e) => setEditForm({ ...editForm, proxyUrl: e.target.value })}
-                placeholder="http://127.0.0.1:7890(留空则清除)"
-              />
+            <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium leading-none">私有出口代理</div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      仅对该账号生效，不进入共享代理池
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={
+                    editing?.hasProxy
+                      ? 'shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-600 dark:text-emerald-400'
+                      : 'shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground'
+                  }
+                >
+                  {editing?.hasProxy ? '已配置' : '直连'}
+                </span>
+              </div>
+
+              {editing?.hasProxy && proxyMode === 'keep' ? (
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs">
+                    {editing.proxyUrlMasked ?? '已配置（脱敏）'}
+                  </code>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setProxyMode('set')
+                      setProxyDraft('')
+                      setProxyVisible(false)
+                    }}
+                  >
+                    更换
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    onClick={() => setProxyMode('clear')}
+                  >
+                    清除
+                  </Button>
+                </div>
+              ) : null}
+
+              {!editing?.hasProxy && proxyMode === 'keep' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setProxyMode('set')
+                    setProxyVisible(false)
+                  }}
+                >
+                  设置代理
+                </Button>
+              ) : null}
+
+              {proxyMode === 'set' ? (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Input
+                      id="a-proxy"
+                      type={proxyVisible ? 'text' : 'password'}
+                      value={proxyDraft}
+                      onChange={(e) => setProxyDraft(e.target.value)}
+                      placeholder="http://user:pass@host:port 或 socks5://host:port"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="pr-9 font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() => setProxyVisible((v) => !v)}
+                      aria-label={proxyVisible ? '隐藏代理地址' : '显示代理地址'}
+                    >
+                      {proxyVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    支持 http(s):// 与 socks5://，保存后聊天、换票、巡检都走该出口。
+                  </p>
+                  {editing?.hasProxy ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      当前：{editing.proxyUrlMasked ?? '已配置（脱敏）'}
+                    </p>
+                  ) : null}
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setProxyMode('keep')
+                        setProxyDraft('')
+                        setProxyVisible(false)
+                      }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              {proxyMode === 'clear' ? (
+                <div className="space-y-2">
+                  <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                    保存后将移除该账号的私有出口，回落到共享代理池或直连。
+                  </p>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setProxyMode('keep')}
+                    >
+                      撤销
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
@@ -1805,9 +1984,9 @@ function ProxyPoolPanel() {
                     <tr key={p.id}>
                       <td
                         className="max-w-[18rem] truncate px-3 py-2 font-mono text-xs"
-                        title={p.proxyUrl ?? undefined}
+                        title={p.proxyUrl ? maskProxyDisplay(p.proxyUrl) : undefined}
                       >
-                        {p.proxyUrl ?? '-'}
+                        {maskProxyDisplay(p.proxyUrl)}
                       </td>
                       <td className="px-3 py-2 text-xs">{p.providerCode ?? '-'}</td>
                       <td
