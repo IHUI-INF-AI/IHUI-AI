@@ -30,7 +30,7 @@ interface MealItem {
   nutrition: string | null
 }
 
-export function EduChildMealsScreen() {
+function EduChildMealsScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

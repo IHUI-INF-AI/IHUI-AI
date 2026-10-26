@@ -200,7 +200,16 @@ export function buildFastifyRegistrations(files) {
   let guard = 0
   while (queue.length && guard++ < 20000) {
     const [rel, prefix, mountedSymbol, coarse] = queue.shift()
-    const key = `${rel}@@${prefix}`
+    /**
+     * 节点键必须带上「本节点挂的是哪个符号」(O87g 第①步补格@2026-10-26):同文件本地插件函数
+     * (`registerCourseAuditRoutes(server)` / `server.register(localFn, {prefix})` 两型,实测
+     * edu-extended/system-extended/zhs-organization/service-catalog/automations/
+     * user-agent-free-times 六档 17 条 unresolved 全是这一型)到达时若撞上「同文件同前缀但挂载符号
+     * 不同」的旧节点,旧键会整节点跳过 ⇒ 该函数体内的 helper 注册形态永远产不出(归因窄口径
+     * `candFns` 只认旧挂载符号)。键加一维 = 纯增访问面,⊇ 既有产出零变化(由 --self-test 的
+     * T0 构造面锁钉住)。
+     */
+    const key = `${rel}@@${prefix}@@${mountedSymbol || ''}`
     if (seen.has(key)) continue
     seen.add(key)
     const info = byFile.get(rel)
@@ -291,6 +300,25 @@ export function buildFastifyRegistrations(files) {
           }
           if (ep) opaque.add(joinPrefix(prefix, ep))
           unresolved.push(`${rel}: register(${edge.symbol}) → ${target} 不在面上`)
+          continue
+        }
+        /**
+         * **同文件本地插件函数**(O87g 先决补格@2026-10-26):边符号既不是 import 也不是动态导入
+         * 目标,却是本文件里真存在的函数(`registerCourseAuditRoutes(server)` 直调型 /
+         * `server.register(zhsOrganizationRoutes)` 具名型,后者的定义是 `const X: FastifyPluginAsync =
+         * async (server) => {…}` 同文件箭头函数)⇒ 它是图上一条**真实的自环边**,先前一律落
+         * 「解析不到文件」unresolved ⇒ 该函数子树的前缀不累加、helper 注册形态整片读不到。
+         * 判据仍只有图形层那一份(`gInfo.fnByName`,来自 route-registration-extract 的 analyzeTsFile,
+         * §0.6 不在此复算);命中才成边,不命中照旧走后面的文件名兜底。纯增:解得出前这些边
+         * 只产 unresolved 行,解得出后这些行消失、路径按累积前缀产出 —— 既有产出条目一条不减
+         * (真面实测 lost=0/added=0,170→153 条 unresolved 报名)。
+         * **带前缀的具名同文件注册不在此解**:`server.register(localFn, { prefix })` 那一型是
+         * 守门 127 自检 F4/F4b 钉住的既有裁决面(前缀记不透明、子树不得被洗成确信),改它得动
+         * 门文件本体 ⇒ 本席不越界,留给「换精确挂载图」第②步与门 127 同批收口。
+         * (真仓六档 17 条该型 unresolved 现读**全部不带前缀**,窄口径已全覆盖。)
+         */
+        if (ep === '' && gInfo && gInfo.fnByName.has(edge.symbol)) {
+          queue.push([rel, prefix, edge.symbol, coarse])
           continue
         }
         const localFile = pickExisting(byFile, [`${normalizePosix(`${info.dir}/${edge.symbol}`)}.ts`])
@@ -686,6 +714,172 @@ export function buildFastApiRegistrations(files) {
     }
   }
   return { paths, opaque, unresolved, filesAnalyzed: byFile.size }
+}
+
+/* ----------------------------- --self-test ----------------------------- */
+
+/**
+ * 合成夹具自证(不读磁盘、不碰 git —— 取材面纪律 §0.4 与本层「输入是 Map」一致)。
+ * 成对夹具纪律:每条**正向断言**都配一条「摘掉对应识别式必然翻红」的反向牙 ——
+ *  T1/T2/T3 钉住 helper 工厂族与同文件本地函数边(识别式被摘 ⇒ 该路径消失 ⇒ 红);
+ *  T4 钉住「不越界」(别名实例子树被误读进来 ⇒ 红);
+ *  T0 是 ⊇ 构造面锁(旧通道产出被新逻辑挤掉 ⇒ 红)。
+ */
+export function runSelfTest() {
+  const results = []
+  const ok = (name, cond, extra = '') => results.push({ name, pass: !!cond, extra })
+  const m = (entries) => new Map(entries)
+  const ENTRY = FASTIFY_ENTRY
+  const FACTORY = [
+    'export function registerCrud(server, basePath, table, opts) {',
+    '  server.get(basePath, async () => ([]))',
+    '  server.get(`${basePath}/:id`, async () => ({}))',
+    '  server.post(basePath, async () => ({}))',
+    '  server.delete(`${basePath}/:id`, async () => ({}))',
+    '}',
+    '',
+  ].join('\n')
+
+  /* T0 ⊇ 构造面锁:helper 层接入后,旧字面通道读到的条目一条不许丢 */
+  {
+    const reg = buildFastifyRegistrations(
+      m([
+        [ENTRY, "import { r } from './routes/t0.js'\nserver.register(r, { prefix: '/api' })\n"],
+        ['apps/api/src/routes/t0.ts', "import { registerCrud } from './_shared.js'\nexport const r = async (server) => {\n  server.get('/lit', async () => ({}))\n  registerCrud(server, '/things', t, {})\n}\n"],
+        ['apps/api/src/routes/_shared.ts', FACTORY],
+      ]),
+    )
+    ok('T0 ⊇ 锁:旧字面注册不因 helper 层而丢', reg.paths.has('api/lit') && reg.paths.has('api/things') && reg.paths.has('api/things/*'))
+  }
+
+  /* T1 registerCrud 族(票面点名):工厂调用点按实参代入,方法集与 :id 腿来自实现体 */
+  {
+    const reg = buildFastifyRegistrations(
+      m([
+        [ENTRY, "import { r } from './routes/t1.js'\nserver.register(r, { prefix: '/api/admin' })\n"],
+        ['apps/api/src/routes/t1.ts', "import { registerCrud } from './_shared.js'\nexport const r = async (server) => {\n  registerCrud(server, '/courses', lessons, {})\n}\n"],
+        ['apps/api/src/routes/_shared.ts', FACTORY],
+      ]),
+    )
+    ok(
+      'T1 registerCrud 族:basePath 与 `${basePath}/:id` 两腿都按调用点前缀产出',
+      reg.paths.has('api/admin/courses') && reg.paths.has('api/admin/courses/*') && !reg.paths.has('api/courses'),
+    )
+    ok('T1b 注释里的 registerCrud 调用不算注册(遮噪在位)', !buildFastifyRegistrations(
+      m([
+        [ENTRY, "import { r } from './routes/t1c.js'\nserver.register(r, { prefix: '/api' })\n"],
+        ['apps/api/src/routes/t1c.ts', "import { registerCrud } from './_shared.js'\nexport const r = async (server) => {\n  // registerCrud(server, '/fake', t, {})\n}\n"],
+        ['apps/api/src/routes/_shared.ts', FACTORY],
+      ]),
+    ).paths.has('api/fake'))
+  }
+
+  /* T2 同文件本地插件函数·直调型(`auditRoutes(server)`):本席补格,摘掉识别式 ⇒ api/audit* 消失 ⇒ 翻红 */
+  {
+    const reg = buildFastifyRegistrations(
+      m([
+        [ENTRY, "import { r } from './routes/t2.js'\nserver.register(r, { prefix: '/api' })\n"],
+        [
+          'apps/api/src/routes/t2.ts',
+          "import { registerCrud } from './_shared.js'\nexport const r = async (server) => {\n  registerAudit(server)\n}\nfunction registerAudit(server) {\n  registerCrud(server, '/audit', audits, {})\n}\n",
+        ],
+        ['apps/api/src/routes/_shared.ts', FACTORY],
+      ]),
+    )
+    ok(
+      'T2 同文件本地函数直调 ⇒ 其体内工厂调用按累积前缀产出',
+      reg.paths.has('api/audit') && reg.paths.has('api/audit/*'),
+    )
+    ok(
+      'T2b 该型不再落「解析不到文件」(旧 unresolved 出口必须已让位给真边)',
+      !reg.unresolved.some((l) => /register\(registerAudit\) 解析不到文件/.test(l)),
+    )
+  }
+
+  /* T3 同文件本地插件函数·具名 register 型(`server.register(localFn)` 裸边,真仓六档现读全是这一型) */
+  {
+    const reg = buildFastifyRegistrations(
+      m([
+        [ENTRY, "import { r } from './routes/t3.js'\nserver.register(r, { prefix: '/api' })\n"],
+        [
+          'apps/api/src/routes/t3.ts',
+          "import { registerCrud } from './_shared.js'\nconst orgRoutes = async (server) => {\n  registerCrud(server, '/orgs', orgs, {})\n}\nexport const r = async (server) => {\n  server.register(orgRoutes)\n}\n",
+        ],
+        ['apps/api/src/routes/_shared.ts', FACTORY],
+      ]),
+    )
+    ok('T3 同文件本地函数经具名裸 register ⇒ 节点按累积前缀走到,体内工厂产出', reg.paths.has('api/orgs') && reg.paths.has('api/orgs/*'))
+  }
+
+  /* T3b 边界锁:带前缀的同文件具名注册**不得**被子树洗成确信(守门 127 F4/F4b 既有裁决面不得被本席挪动) */
+  {
+    const reg = buildFastifyRegistrations(
+      m([[ENTRY, 'const crudRoutes = async (app) => {\n  app.get("/crud/:id", async () => ({}))\n}\nserver.register(crudRoutes, { prefix: \'/api/v1\' })\n']]),
+    )
+    ok(
+      'T3b 带前缀同文件具名注册仍记不透明、子树不产出(反向牙)',
+      [...reg.opaque].includes('/api/v1') && !reg.paths.has('api/v1/crud/*'),
+    )
+  }
+
+  /* T4 反向牙:别名实例子树**不得**被读成在册(越界即红,与镜像 H8 同判据) */
+  {
+    const reg = buildFastifyRegistrations(
+      m([[ENTRY, "server.register(async (child) => {\n  child.get('/deep/x', async () => ({}))\n}, { prefix: '/api/exam' })\n"]]),
+    )
+    ok(
+      'T4 反向牙:内联别名实例子树不产出、只点名',
+      !reg.paths.has('api/exam/deep/x') && [...reg.opaque].includes('/api/exam') && reg.unresolved.some((l) => /内联子树/.test(l)),
+    )
+  }
+
+  /* T5 FastAPI 侧不受本次扩展波及(挂载图仍走通) */
+  {
+    const py = buildFastApiRegistrations(
+      m([
+        ['apps/ai-service/app/main.py', "from app.routers import hooks\napp.include_router(hooks.router, prefix='/api')\n"],
+        ['apps/ai-service/app/routers/hooks.py', "router = APIRouter(prefix='/hooks')\n\n@router.post('/ping')\nasync def p():\n    pass\n"],
+      ]),
+    )
+    ok('T5 FastAPI 挂载图未受波及', py.paths.has('api/hooks/ping'))
+  }
+
+  return results
+}
+
+export function mainSelfTest() {
+  const results = runSelfTest()
+  let fails = 0
+  for (const r of results) {
+    if (!r.pass) fails += 1
+    console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
+  }
+  console.log(`SELF-TEST ${results.length - fails}/${results.length} 例通过`)
+  if (fails) {
+    console.log('❌ 存在未过例(摘掉识别式即翻红 —— 成对夹具)')
+    return 1
+  }
+  console.log('SELF-TEST RESULT=green')
+  return 0
+}
+
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun && process.argv.includes('--self-test')) {
+  process.exitCode = mainSelfTest()
+}
+
+export const __test__ = {
+  analyzeTsFile,
+  analyzePyFile,
+  buildFastifyRegistrations,
+  buildFastApiRegistrations,
+  buildGraphInfos,
+  analyzeHelperForms,
+  mountedFunctionNames,
+  runSelfTest,
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

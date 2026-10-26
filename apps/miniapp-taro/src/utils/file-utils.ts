@@ -29,7 +29,7 @@ export function writeFileFromBase64(base64Data: string, filePath: string): Promi
   })
 }
 
-export interface CanvasToTempFilePathOptions {
+interface CanvasToTempFilePathOptions {
   canvasId?: string
   x?: number
   y?: number

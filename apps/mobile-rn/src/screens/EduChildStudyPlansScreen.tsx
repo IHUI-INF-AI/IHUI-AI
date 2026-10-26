@@ -31,7 +31,7 @@ interface StudyPlanItem {
   status: string
 }
 
-export function EduChildStudyPlansScreen() {
+function EduChildStudyPlansScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

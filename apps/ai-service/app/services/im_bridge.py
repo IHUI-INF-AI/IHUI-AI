@@ -44,6 +44,7 @@ from enum import StrEnum
 from typing import Any
 
 from ..core.config import settings
+from ..core.internal_ticket import internal_service_headers
 
 logger = logging.getLogger(__name__)
 
@@ -607,12 +608,14 @@ class ImBridgeService:
             "text": reply_text,
         }
         headers: dict[str, str] = {"Content-Type": "application/json"}
-        # 内部服务鉴权:对齐 apps/api internal-service-token 契约
-        # x-internal-service-token = AI_CALLBACK_SECRET(与 config.AI_CALLBACK_SECRET 共用)
-        # x-user-id = 消息归属用户(适配器所有者,UUID 格式)
-        if settings.ai_callback_secret:
-            headers["x-internal-service-token"] = settings.ai_callback_secret
-            headers["x-user-id"] = str(user_id)
+        # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档:旧头
+        # x-internal-service-token = AI_CALLBACK_SECRET 照发 + 新短期票
+        # x-internal-service-ticket 同发;x-user-id = 消息归属用户,UUID 格式)
+        headers.update(
+            internal_service_headers(
+                user_id, "im-bridge", legacy_token=settings.ai_callback_secret
+            )
+        )
 
         try:
             from .api_client import get_api_client

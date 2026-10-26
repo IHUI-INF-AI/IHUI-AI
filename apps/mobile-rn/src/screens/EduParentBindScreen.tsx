@@ -29,7 +29,7 @@ interface BindingRecord {
   createdAt: string
 }
 
-export function EduParentBindScreen() {
+function EduParentBindScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()

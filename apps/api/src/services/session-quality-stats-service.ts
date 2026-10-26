@@ -37,15 +37,15 @@ const SESSION_ENTRY_TOP_N = 6
  * 所以第一档必须单独拎出来,否则 2-3 与 4-7 两档会把"进来即走"淹没在中间。
  */
 export const SESSION_DEPTH_BUCKETS = ['1', '2-3', '4-7', '8+'] as const
-export type SessionDepthBucket = (typeof SESSION_DEPTH_BUCKETS)[number]
+type SessionDepthBucket = (typeof SESSION_DEPTH_BUCKETS)[number]
 
-export interface SessionDepthSlice {
+interface SessionDepthSlice {
   bucket: SessionDepthBucket
   /** 该档会话数 */
   sessions: number
 }
 
-export interface SessionEntryPage {
+interface SessionEntryPage {
   /** 落地页路径(库里已是归一后的页面路径,见 @ihui/shared/utils/visit-url) */
   url: string
   /** 以该页为落地页的会话数 */
@@ -174,7 +174,7 @@ export function buildSessionQuality(
 }
 
 /** 现算一份会话质量快照;任一 SQL 抛错就整块上抛,由调用方折成 null(渲染"—"),绝不兜成 0。 */
-export async function computeSessionQuality(
+async function computeSessionQuality(
   hours: number = SESSION_QUALITY_WINDOW_HOURS,
 ): Promise<SessionQualitySnapshot> {
   // 子查询只建一次再复用:每次调用 perSession() 都会生成一个同名别名 `per_session`,
@@ -214,7 +214,7 @@ export async function computeSessionQuality(
  * 大屏实时档(24h 窗口 + 5 秒 TTL):会话族聚合要按 session_id 分组扫 visit_logs,
  * 与页面热度同一档节拍(多个观众共享一轮聚合)。取不到时上抛,由调用方折成 null。
  */
-export const SESSION_QUALITY_TTL_MS = 5_000
+const SESSION_QUALITY_TTL_MS = 5_000
 
 let liveCache: { atMs: number; value: SessionQualitySnapshot } | null = null
 let liveInflight: Promise<SessionQualitySnapshot> | null = null

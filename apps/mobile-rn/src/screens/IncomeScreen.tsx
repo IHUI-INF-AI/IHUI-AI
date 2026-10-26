@@ -59,7 +59,10 @@ function mapRecord(r: CommissionRecord, t: (key: string) => string): IncomeCommi
 }
 
 /** 提现记录 → 已结算条目(对齐 Uniapp accumulation「已结算=已提现」语义;仅 completed(status=2)计入) */
-function mapWithdrawRecord(r: CommissionWithdrawRecord, t: (key: string) => string): IncomeCommissionItem {
+function mapWithdrawRecord(
+  r: CommissionWithdrawRecord,
+  t: (key: string) => string,
+): IncomeCommissionItem {
   return {
     id: r.id,
     title: r.accountType === 'bank' ? t('income.withdrawBank') : t('income.withdrawRecord'),
@@ -71,7 +74,7 @@ function mapWithdrawRecord(r: CommissionWithdrawRecord, t: (key: string) => stri
   }
 }
 
-export function IncomeScreen() {
+function IncomeScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
@@ -104,7 +107,9 @@ export function IncomeScreen() {
       }
       // 「已结算」= 已成功提现的记录(completed status=2);佣金行与提现记录无字段关联,无法逐条标记
       const settledItems = withdrawRes.success
-        ? withdrawRes.data.list.filter((w) => String(w.status) === '2').map((w) => mapWithdrawRecord(w, t))
+        ? withdrawRes.data.list
+            .filter((w) => String(w.status) === '2')
+            .map((w) => mapWithdrawRecord(w, t))
         : []
       setData({
         totalEarnings: overviewRes.data.totalCommission,

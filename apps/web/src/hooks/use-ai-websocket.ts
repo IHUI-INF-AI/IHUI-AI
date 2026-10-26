@@ -19,13 +19,13 @@ export const PROVIDER_PATHS: Record<AIWSProvider, string> = {
   generic: '/v1/ai/capabilities/ws/stream',
 }
 
-export interface AIWSMessage {
+interface AIWSMessage {
   type: string
   data?: unknown
   [key: string]: unknown
 }
 
-export interface UseAIWebSocketReturn {
+interface UseAIWebSocketReturn {
   send: (data: unknown) => void
   close: () => void
   isConnected: boolean
