@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: a6360212bca8aac0a93f449c622fc147567633bc
-// inputsSha256: 23e3c1fb1de20277a598c77d9bce7c7be9447b7549339b06239185af10833620
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx a6d6e4feb224d3d0a23ab928a7c5a907dba6ada046101fefa292735f7cadad42
+// sourceCommit: de1a3c29025218f31d881c4c2583c5823121c752
+// inputsSha256: d31cb1b6659f4c26597f9edd2672e7c7087bf6dff9cb0e824a1334301969fdfb
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 98b2ff8a1a1db2d1cb96c822d8b2eb4b7b5d8487f811fc728dbf38bb3170de1e
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-26T04:20:44.935Z
+// generatedAt: 2026-10-26T06:09:05.621Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 288 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 304 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -125,6 +125,22 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Agreement', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'About', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Status', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AiWorldDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'AiWorldEdit', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'AiWorldFavorites', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AiWorldHistory', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduAi', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduAiVideoCompose', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Plan', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'PlanDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'PlanNew', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Student', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'MyComments', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'MyLessons', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'MyResources', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'OfflineRecords', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Tools', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'PdfToolsHub', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgreementByType', tab: false, requiresParams: true, requiredParams: ['type'] },
   { name: 'LegalDoc', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Support', tab: false, requiresParams: false, requiredParams: [] },
