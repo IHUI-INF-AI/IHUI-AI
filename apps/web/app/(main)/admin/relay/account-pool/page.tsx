@@ -1576,7 +1576,7 @@ export default function AdminRelayAccountPoolPage() {
                     />
                     <button
                       type="button"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
                       onClick={() => setProxyVisible((v) => !v)}
                       aria-label={proxyVisible ? '隐藏代理地址' : '显示代理地址'}
                     >
