@@ -478,6 +478,10 @@ interface TrafficSnapshot {
   scopeSplit: ScopeUsageLiveRow[] | null
   /** 近 24h 各端(web/RN/小程序)PV/UV;null = 同一条腿取不到 */
   platformSplit: PlatformUsageLiveRow[] | null
+  /** 近 5 分钟去重会话数(实时在线近似);null = 同一条腿取不到 */
+  online5m: number | null
+  /** 近 5 分钟浏览量 */
+  pv5m: number | null
 }
 
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
@@ -505,6 +509,8 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       pageTop: pageUsage?.top ?? null,
       scopeSplit: pageUsage?.scopes ?? null,
       platformSplit: pageUsage?.platforms ?? null,
+      online5m: pageUsage?.online5m ?? null,
+      pv5m: pageUsage?.pv5m ?? null,
     }
   } catch {
     return null

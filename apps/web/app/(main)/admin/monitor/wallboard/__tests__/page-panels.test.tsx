@@ -118,6 +118,8 @@ const overview = {
       { platform: 'rn', pv: 120, uv: 20 },
       { platform: 'mp', pv: 80, uv: 15 },
     ],
+    online5m: 3,
+    pv5m: 12,
   },
   engagement: {
     events: [
@@ -171,6 +173,8 @@ describe('WallboardView 使用数据面板', () => {
     await waitFor(() => expect(screen.getByText('/ecosystem')).toBeTruthy())
     // 每行同时给「多少次 / 多少人」:fixture 里 /ecosystem = PV 90 / UV 60
     expect(document.body.textContent).toContain('90 / 60')
+    // 实时在线(近 5 分钟去重会话)在面板头
+    expect(screen.getAllByText(/在线/).length).toBeGreaterThan(0)
     expect(screen.getByText('/admin/monitor/wallboard')).toBeTruthy()
     expect(screen.getAllByText('前台').length).toBeGreaterThan(0)
     expect(screen.getAllByText('后台').length).toBeGreaterThan(0)

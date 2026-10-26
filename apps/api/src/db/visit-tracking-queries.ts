@@ -318,6 +318,9 @@ export interface FindPageUsageOpts {
   startTime?: string
   endTime?: string
   scope?: VisitScopeQuery
+  platform?: VisitPlatformQuery
+  /** 排序键:'pv'=打开次数(默认),'uv'=去重访客数 */
+  sort?: 'pv' | 'uv'
   page: number
   pageSize: number
 }
@@ -339,9 +342,15 @@ export interface PageUsageResult {
 export async function getPageUsageList(opts: FindPageUsageOpts): Promise<PageUsageResult> {
   const where = and(
     dateRangeFilter(opts.startTime, opts.endTime, opts.scope),
+    visitPlatformFilter(opts.platform),
     isNotNull(visitLogs.url),
   )
   const uvExpr = sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`
+  // 排序键与聚合口径同源:按 PV 排 = count(*);按 UV 排 = 同一个 distinct 表达式
+  const orderExpr =
+    opts.sort === 'uv'
+      ? sql`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip})) desc`
+      : sql`count(${visitLogs.id}) desc`
   const [rows, totalRows, totalPvRows] = await Promise.all([
     db
       .select({
@@ -352,7 +361,7 @@ export async function getPageUsageList(opts: FindPageUsageOpts): Promise<PageUsa
       .from(visitLogs)
       .where(where)
       .groupBy(visitLogs.url)
-      .orderBy(desc(sql`count(${visitLogs.id})`))
+      .orderBy(orderExpr)
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
@@ -422,6 +431,22 @@ export interface PlatformUsageLiveRow {
   uv: number
 }
 
+/** 端筛选:端值 + 'all'。 */
+export type VisitPlatformQuery = VisitPlatform | 'all'
+export const VISIT_PLATFORM_VALUES = ['web', 'rn', 'mp', 'all'] as const
+
+/**
+ * platform → SQL 条件。与 `platformExpr`(大屏快照那一段)同语义:web = 非 `/rn/` 非 `/mp/`。
+ * 缺省/'all' 不加条件。
+ */
+export function visitPlatformFilter(platform?: VisitPlatformQuery | null) {
+  if (!platform || platform === 'all') return undefined
+  const path = sql<string>`coalesce(${visitLogs.url}, '')`
+  if (platform === 'rn') return sql`${path} like '/rn/%'`
+  if (platform === 'mp') return sql`${path} like '/mp/%'`
+  return sql`not (${path} like '/rn/%' or ${path} like '/mp/%')`
+}
+
 export interface PageUsageLiveSnapshot {
   /** 近 24h PV 最高的页面(降序,最多 PAGE_USAGE_TOP_N 条) */
   top: PageUsageLiveRow[]
@@ -429,6 +454,10 @@ export interface PageUsageLiveSnapshot {
   scopes: ScopeUsageLiveRow[]
   /** 近 24h 各端 PV/UV(web / RN / 小程序);分桶靠 url 前缀,与各端埋点约定一致 */
   platforms: PlatformUsageLiveRow[]
+  /** 近 5 分钟去重会话数(实时在线近似) */
+  online5m: number
+  /** 近 5 分钟浏览量 */
+  pv5m: number
   /** 近 24h 同口径总 PV(前端算占比) */
   totalPv: number
   computedAtMs: number
@@ -452,7 +481,7 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
     when ${pathCol} like '/mp/%' then 'mp'
     when ${pathCol} like '/rn/%' then 'rn'
     else 'web' end`
-  const [topRows, scopeRows, platformRows] = await Promise.all([
+  const [topRows, scopeRows, platformRows, onlineRows] = await Promise.all([
     db
       .select({ url: visitLogs.url, pv: pvExpr, uv: uvExpr })
       .from(visitLogs)
@@ -472,6 +501,14 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
       .where(inWindow)
       .groupBy(platformExpr)
       .orderBy(sql`count(*) desc`),
+    // 实时在线:近 5 分钟的去重会话(UV 口径)与浏览量 —— 大屏"此刻多少人在用"
+    db
+      .select({
+        online: sql<number>`count(distinct coalesce(${visitLogs.sessionId}, ${visitLogs.ip}))::int`,
+        pv: sql<number>`count(*)::int`,
+      })
+      .from(visitLogs)
+      .where(sql`${visitLogs.createdAt} >= now() - make_interval(mins => 5)`),
   ])
   return {
     top: topRows.map((r) => ({
@@ -490,6 +527,8 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
       pv: Number(r.pv ?? 0),
       uv: Number(r.uv ?? 0),
     })),
+    online5m: Number(onlineRows[0]?.online ?? 0),
+    pv5m: Number(onlineRows[0]?.pv ?? 0),
     totalPv: scopeRows.reduce((sum, r) => sum + Number(r.pv ?? 0), 0),
     computedAtMs: Date.now(),
   }

@@ -18,6 +18,7 @@ import logging
 import re
 from typing import Any
 
+from ..core.default_model import default_chat_model
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,10 @@ SUBJECT_VALID: set[str] = set(SUBJECT_PERSONAS.keys())
 # 原因:推理模型(step-router-v1)JSON 输出易混入非法 \\ 转义 → json.loads 抛
 # "Invalid \\escape" → ai_tutor explain/hint/quiz 返回空 answer(实测复现)。
 # step-3.7-flash 为指令跟随模型,JSON 输出干净(实测 13.9s 完整返回合法 JSON)。
-_DEFAULT_MODEL: str | None = "stepfun/step-3.7-flash"
+# 2026-10-26:stepfun 已永久退役(订阅失效,chat 恒定 400),不能再写死 step-3.7-flash。
+# 改走 app.core.default_model 统一解析入口:当前档位由 LITELLM_MODEL / COMBO_CHAINS
+# 决定,均为指令跟随型,JSON 输出同样干净;上游换档时本处自动跟随。
+_DEFAULT_MODEL: str | None = default_chat_model()
 
 # 匹配 ```json ... ``` 或 ``` ... ``` 代码块
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", re.DOTALL)

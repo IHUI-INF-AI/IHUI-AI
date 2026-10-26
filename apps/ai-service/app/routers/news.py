@@ -38,6 +38,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.core.config import settings
 from app.core.db_pool import get_shared_pool
+from app.core.default_model import default_chat_model
 from app.core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -221,8 +222,9 @@ async def refresh_daily(count: int = 6) -> dict[str, Any]:
     )
     messages = [{"role": "user", "content": prompt}]
 
-    # 用 step-3.5-flash 而非 step-router-v1(router 模型超时 30s,flash 模型 10s 内返回)
-    model = "stepfun/step-3.5-flash"
+    # 2026-10-26:原写死 "stepfun/step-3.5-flash"(stepfun 已永久退役,chat 恒定 400)。
+    # 改走统一解析入口:取当前首选对话档(同为 flash 级、10s 级返回)。
+    model = default_chat_model()
     logger.info("[news-refresh] 调用 LLM 生成 %d 条今日资讯, model=%s", count, model)
     try:
         result = await llm_gateway.complete(messages, model=model, temperature=0.9)
