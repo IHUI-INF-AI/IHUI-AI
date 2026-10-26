@@ -2405,6 +2405,13 @@
       "when": 1793064600000,
       "tag": "20261027090000_default_user_avatar",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 349,
+      "when": 1793065500000,
+      "tag": "20261027091500_default_avatar_www",
+      "breakpoints": true
     }
   ]
 }
