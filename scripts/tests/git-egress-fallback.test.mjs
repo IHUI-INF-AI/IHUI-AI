@@ -102,6 +102,60 @@ test('③c 网络动词集逐格点名(漏一个就少一格兜底)', () => {
   }
 })
 
+test('③d 实测补因:直连腿自己也会断,且断法是 "Connection was reset"(不能只认 aborted)', () => {
+  // 当天 09:43 实测:摘掉代理直连回 `fatal: unable to access …: Recv failure: Connection was reset`
+  // ⇒ 两腿都不通时判据仍要认得这一型(留痕要写"两条腿都不通",不得冒充"没配代理所以失败")
+  const RESET =
+    "fatal: unable to access 'https://github.com/x/y.git/': Recv failure: Connection was reset"
+  assert.ok(E.GIT_EGRESS_TRANSPORT_RE.test(RESET), 'Connection was reset 未被认成传输形态')
+  const r = E.egressFallbackPlan({
+    verb: 'ls-remote',
+    errText: RESET,
+    status: 128,
+    proxyUrl: PROXY,
+  })
+  assert.equal(r.apply, true, r.why)
+  // 成对反证:`not a git repository`(确定性,重试修不了)与 `HTTP 403`(凭据/权限)都不得兜
+  assert.equal(
+    E.egressFallbackPlan({
+      verb: 'fetch',
+      errText: "fatal: not a git repository: '/nope/.git'",
+      status: 128,
+      proxyUrl: PROXY,
+    }).apply,
+    false,
+    '"not a git repository" 被兜底 = 拿重试赌仓根本不存在',
+  )
+  assert.equal(
+    E.egressFallbackPlan({
+      verb: 'push',
+      errText: 'The requested URL returned error: 403',
+      status: 128,
+      proxyUrl: PROXY,
+    }).apply,
+    false,
+    'HTTP 403 属权限/凭据档,不得换腿再试',
+  )
+})
+
+test('③d 实测补因:直连腿自己也会断,断法是 "Connection was reset"(不能只认 aborted)', () => {
+  // 当天 09:43 实测:摘掉代理直连回 `Recv failure: Connection was reset` ⇒ 两腿都不通时
+  // 判据仍要认得这一型;而 "not a git repository"(确定性)与 HTTP 403(权限/凭据)绝不许兜。
+  const RESET = "fatal: unable to access 'https://github.com/x/y.git/': Recv failure: Connection was reset"
+  assert.ok(E.GIT_EGRESS_TRANSPORT_RE.test(RESET), 'Connection was reset 未被认成传输形态')
+  assert.equal(E.egressFallbackPlan({ verb: 'ls-remote', errText: RESET, status: 128, proxyUrl: PROXY }).apply, true)
+  assert.equal(
+    E.egressFallbackPlan({ verb: 'fetch', errText: 'fatal: not a git repository: /nope/.git', status: 128, proxyUrl: PROXY }).apply,
+    false,
+    '"not a git repository" 被兜底 = 拿重试赌仓根本不存在',
+  )
+  assert.equal(
+    E.egressFallbackPlan({ verb: 'push', errText: 'The requested URL returned error: 403', status: 128, proxyUrl: PROXY }).apply,
+    false,
+    'HTTP 403 属权限/凭据档,不得换腿再试',
+  )
+})
+
 test('④ 接线锁:gitRaw 必须真的消费这套判据(摘线即红)', () => {
   const src = readFileSync(join(here, '..', 'lib', 'face-reader.mjs'), 'utf8')
   const start = src.indexOf('export function gitRaw(')
@@ -156,3 +210,4 @@ test('④c 接线锁:git-push-guard 两处网络腿都必须问同一把尺子(�
   assert.doesNotMatch(src, /proxyConfiguredFor\(repoRoot\)/, '拿未赋值的 repoRoot 取代理配置会踩 TDZ')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+

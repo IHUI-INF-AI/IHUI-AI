@@ -74,6 +74,19 @@ const GIT_MAX_BUFFER = 64 << 20
  * 防溢出语义**没有放松**:超预算的老路径(按字节切、单条巨型自成一块、ENOBUFS 抛错)原样保留。
  */
 const CAT_BATCH_CHUNK = 2500
+
+/**
+ * 显式临时绕开代理(2026-10-26 立;`--no-proxy` 旗标的取值)。
+ * 立因:AGENTS §0.8「文档不得写跑不通的出路」——当天给的出路是"手打 `git -c http.proxy= …`",
+ * 而收敛器/推送守卫**不吃**这个参数,人照着敲只会再撞一次。这里给一条真跑得通的通道:
+ * 调用方设 `process.env.IHUI_GIT_NO_PROXY='1'`(或由 `--no-proxy` 旗标置上)⇒ 本层所有
+ * **网络动词**第一趟就带摘代理配置(仍然只碰网络动词、不改任何持久配置、不碰代理客户端)。
+ * ⚠️ 这是**单次进程内的临时绕过**,不是"把代理关掉"的开关 —— 长期修法仍是恢复代理节点或由机主改配置。
+ * (刻意**不**在此处引用 GIT_EGRESS_DIRECT_ARGS:那个常数在下面才定义,顶层引用会踩 TDZ。)
+ */
+export function isForceDirect() {
+  return process.env.IHUI_GIT_NO_PROXY === '1'
+}
 /**
  * 单块累计字节预算:必须小于默认 64MB,留出一条巨型 blob 也装得下的余量。
  * 2026-10-12:16MB → 48MB。单块 maxBuffer 取 `max(64MB, 本块字节+1MB)`(见 catBatchRaw),
@@ -222,6 +235,9 @@ export function gitRaw(args, root, opts = {}) {
   // 'ignore' 时喂进去的清单被丢弃,而 git 不报错,只是"每个对象都取不到"。
   // 两态都写死,不给调用方留"顺手删掉 stdio"的空间。
   const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
+  // 显式绕过(调用方 `--no-proxy` / `IHUI_GIT_NO_PROXY=1`)时**第一趟就直连**:
+  // 代理腿已确认死的情况下,再让它先烧一次 21s 超时纯属浪费(guardian 巡检轮当天实测每轮都付这笔)。
+  const forceDirect = Boolean(opts.forceDirect) || isForceDirect()
   const runOnce = (extraArgs) =>
     batchExecFileSync(
       GIT,
@@ -237,7 +253,7 @@ export function gitRaw(args, root, opts = {}) {
       },
     )
   try {
-    return runOnce([])
+    return runOnce(forceDirect ? GIT_EGRESS_DIRECT_ARGS : [])
   } catch (e) {
     /**
      * ENOENT 有两种成因,Node 的文本只点名**二进制**("spawnSync <git.exe> ENOENT"),
@@ -251,7 +267,8 @@ export function gitRaw(args, root, opts = {}) {
       errText: gitErrText(e),
       status: typeof e?.status === 'number' ? e.status : null,
       proxyUrl: proxyConfiguredFor(root),
-      alreadyDirect: args.includes('http.proxy='),
+      // forceDirect 时第一趟就已经摘了代理 ⇒ 不再重复兜底(重复只多烧一次超时,修不了任何东西)
+      alreadyDirect: forceDirect || args.includes('http.proxy='),
       attempt: opts.egressAttempt ?? 0,
     })
     if (plan.apply) {
@@ -1084,6 +1101,7 @@ export function hideComments(src) {
 export const __test__ = {
   egressFallbackPlan,
   GIT_EGRESS_NETWORK_VERBS,
+  isForceDirect,
   GIT_EGRESS_DIRECT_ARGS,
   GIT_EGRESS_TRANSPORT_RE,
   proxyConfiguredFor,
