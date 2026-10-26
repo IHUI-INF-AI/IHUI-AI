@@ -32,6 +32,7 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from ..core.default_model import default_chat_model
 from ..core.llm_gateway import llm_gateway
 from ..services.ai_tutor import _extract_json, _repair_escapes
 from ..services.vision_helper import (
@@ -48,7 +49,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/edu-canteen-receipt", tags=["edu-canteen-receipt"])
 
 # 纯文本比对用非推理模型(JSON 输出干净);vision 调用传 None 走 auto 路由
-_DEFAULT_MODEL: str | None = "stepfun/step-3.7-flash"
+# 2026-10-26:原写死 "stepfun/step-3.7-flash"(stepfun 已永久退役),改走统一解析入口。
+_DEFAULT_MODEL: str | None = default_chat_model()
 
 _ITEM_CATEGORIES = "蔬菜/肉禽蛋/水产/水果/粮油米面/调味品/冻品/干货/其他"
 

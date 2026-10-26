@@ -867,6 +867,7 @@
       "level3": "ダイヤ",
       "panelTrafficRobot": "訪問者とボット",
       "panelPageUsage": "ページ利用状況",
+      "onlineNow": "オンライン {count}",
       "panelPlatforms": "端末別利用量",
       "platformWeb": "Web",
       "platformRn": "モバイルアプリ",

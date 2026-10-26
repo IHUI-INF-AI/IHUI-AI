@@ -528,6 +528,24 @@ class ModelAvailabilityService:
             "healthy=%d degraded=%d down=%d local=%d zero_cost=%d",
             len(providers_to_ping), healthy, degraded, down, local, zero_cost,
         )
+        # 2026-10-26 补:只有计数没有名单 ⇒ 出事时只能看到"down=1"却不知道是谁,
+        # 排查要靠人肉一家家 curl(10-25 stepfun 订阅失效那次就是这样熬过去的)。
+        # 非健康的把死因一并打出(余额端点判不出来时,推理 ping 的 4xx 原文就在 error 里)。
+        # 字符纪律:只打 ASCII + GBK 覆盖字符,避免 Windows cp936 日志静默丢整行。
+        if down or degraded:
+            def _fmt(code: str, h) -> str:
+                err = (getattr(h, "error", "") or "").replace("\n", " ")
+                err = err[:120]
+                et = getattr(getattr(h, "error_type", None), "value", "") or ""
+                return f"{code}[{et}{(': ' + err) if err else ''}]"
+            downs = [_fmt(c, h) for c, h in self._health.items()
+                     if h.status == ProviderHealthStatus.DOWN]
+            degs = [_fmt(c, h) for c, h in self._health.items()
+                    if h.status == ProviderHealthStatus.DEGRADED]
+            if downs:
+                logger.warning("[availability] DOWN(%d): %s", len(downs), ", ".join(downs))
+            if degs:
+                logger.info("[availability] DEGRADED(%d): %s", len(degs), ", ".join(degs))
 
 
     async def _ping_provider_v2(self, code: str, api_key: str, api_base: str) -> ProviderHealth:
