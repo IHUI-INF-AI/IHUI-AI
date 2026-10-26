@@ -5,6 +5,9 @@
 import type { ComponentProps, ReactNode } from 'react'
 import { Modal, Pressable, Text, View } from 'react-native'
 import { cn } from '@ihui/design-tokens'
+import { DIALOG_MAX_WIDTH_TIER } from '@ihui/shared/ui/dialog-spec'
+
+const MAX_WIDTH_CLASS: Record<typeof DIALOG_MAX_WIDTH_TIER, string> = { lg: 'max-w-lg' }
 
 export interface DialogProps {
   visible: boolean
@@ -20,7 +23,9 @@ export function Dialog({ visible, onClose, children, className }: DialogProps) {
         <View
           onStartShouldSetResponder={() => true}
           className={cn(
-            'm-4 w-full max-w-lg rounded-lg border border-border bg-background p-6',
+            'm-4 w-full ' +
+              MAX_WIDTH_CLASS[DIALOG_MAX_WIDTH_TIER] +
+              ' rounded-lg border border-border bg-background p-6',
             className,
           )}
         >
