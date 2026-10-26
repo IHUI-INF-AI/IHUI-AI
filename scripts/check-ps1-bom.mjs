@@ -33,12 +33,16 @@
  *   node scripts/check-ps1-bom.mjs --strict        # 全量档:存量也判红(只在存量归零后才有意义)
  *   node scripts/check-ps1-bom.mjs --self-test     # 回归自检:判据六例 + 端到端三例,红绿两向都真跑
  *
+ * 镜像测试(§22c 第②步:判据一律 import 本文件末尾的 `__test__`,测试里不复制第二份判据):
+ *   node --test scripts/tests/check-ps1-bom.test.mjs
+ *
  * 退出码:0 = 新增违规 0;1 = 有新增违规(或 --strict 下有存量);2 = 判不了(未判定,不冒充通过)。
  */
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const BOM = Buffer.from([0xef, 0xbb, 0xbf])
 const ROOT = resolve(import.meta.dirname, '..')
@@ -174,7 +178,7 @@ function report(rows, { json = false, strict = false, listExisting = false, quie
     }
     if (newViolations.length > 0) {
       say('修复:给这些文件补 3 字节 UTF-8 BOM 前缀(正文一字节都不用动):')
-      say("  node scripts/lib/ps1-add-bom.mjs <文件...>   # 见本门旁的实现,幂等、已有 BOM 不动")
+      say('  node scripts/lib/ps1-add-bom.mjs <文件...>   # 见本门旁的实现,幂等、已有 BOM 不动')
     }
   }
 
@@ -241,18 +245,46 @@ function selfTest() {
     rmSync(tmp, { recursive: true, force: true })
   }
 
-  console.log(fail === 0 ? '\n自检通过(判据六例 + 端到端三例,正反两向都真跑)' : `\n自检失败:${fail} 例不符`)
+  console.log(
+    fail === 0 ? '\n自检通过(判据六例 + 端到端三例,正反两向都真跑)' : `\n自检失败:${fail} 例不符`,
+  )
   return fail === 0 ? 0 : 1
 }
 
-const argv = process.argv.slice(2)
-if (argv.includes('--self-test')) process.exit(selfTest())
-const surface = argv.includes('--staged') ? 'staged' : 'worktree'
-process.exit(
-  report(scan({ surface }), {
-    json: argv.includes('--json'),
-    strict: argv.includes('--strict'),
-    listExisting: argv.includes('--list-existing'),
-  }),
-)
+// §22d 入口守卫。本门同时是 §22c 镜像测试(scripts/tests/check-ps1-bom.test.mjs)的 import 源,
+// 而**没有这层守卫时测试一 import 就把宿主 process.exit 打死** —— 那等于"写了测试也跑不起来",
+// 自证据通道对整族结构性不可达(守门 194 头注那一型)。取值必须走 pathToFileURL:
+// 手拼 'file:///' + argv[1] 在 Windows 反斜杠下永不成立(§22d 红线)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  const argv = process.argv.slice(2)
+  if (argv.includes('--self-test')) process.exit(selfTest())
+  const surface = argv.includes('--staged') ? 'staged' : 'worktree'
+  process.exit(
+    report(scan({ surface }), {
+      json: argv.includes('--json'),
+      strict: argv.includes('--strict'),
+      listExisting: argv.includes('--list-existing'),
+    }),
+  )
+}
+
+/**
+ * §22c 第①步:核心判据的**唯一**导出口。镜像测试只 import 这一份、直接用生产判据,
+ * 不在测试里复制第二份常量(BOM 的三字节也由这里单源供给 —— 抄一份就是第二条真相,必漂移)。
+ * 导出的是判定链的真实函数本身,不是包装:摘掉任何一支,对应测试用例必翻红。
+ */
+export const __test__ = {
+  BOM,
+  hasBom,
+  firstBytes,
+  listTrackedScripts,
+  readSurface,
+  readHead,
+  classify,
+  scan,
+  report,
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
