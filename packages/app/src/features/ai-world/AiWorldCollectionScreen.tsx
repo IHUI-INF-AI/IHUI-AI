@@ -103,8 +103,10 @@ export function AiWorldCollectionScreen({
     return (
       <View style={styles.container}>
         {header}
+        {/* EmptyState 的 glyph 只收字符串(共享组件 API),字符当图标违反 §4「图标一律图标库」;
+            本态不传 glyph 走默认中性标记 —— 与 web 同态对齐(web 登录门用 AuthGatePrompt,
+            内部只有 LogIn 图标,同样没有星/钟)。收藏/历史的身份图标在列表头 hero 行(Icon)。 */}
         <EmptyState
-          glyph={variant === 'favorites' ? '★' : '◷'}
           title={loginRequiredText}
           actionLabel={loginLabel}
           onAction={onLogin}
@@ -162,13 +164,7 @@ export function AiWorldCollectionScreen({
             <Text style={styles.heroSubtitle}>{subtitle}</Text>
           </View>
         }
-        ListEmptyComponent={
-          <EmptyState
-            glyph={variant === 'favorites' ? '★' : '◷'}
-            title={emptyText}
-            colorScheme={colorScheme}
-          />
-        }
+        ListEmptyComponent={<EmptyState title={emptyText} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.rowCard}
