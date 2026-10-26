@@ -40,6 +40,14 @@ export function parseCapacity(text) {
     return { ok: false, why: '容量表 safetyRatio 必须落在 (0,1]' }
   if (bytesPerShellPage === null || bytesPerShellPage <= 0)
     return { ok: false, why: '容量表 bytesPerShellPage 取不到或非正数' }
+  // 总量上限可缺(旧表);给了就必须是正数 —— 缺了只关总量这一维,不静默当成"没有总量限制"
+  const totalLimitBytes = j.totalLimitBytes === undefined || j.totalLimitBytes === null ? null : num(j.totalLimitBytes)
+  if (totalLimitBytes !== null && totalLimitBytes <= 0) return { ok: false, why: '容量表 totalLimitBytes 给了但不是正数' }
+  // 总量水位单独可调:产物门 AB4 的告警水位是 90%,造页器必须**停在那条线之前**,
+  // 否则自动链每轮都在往一台 CI 已经会喊红的交付物里加东西。
+  const totalSafetyRatio = j.totalSafetyRatio === undefined || j.totalSafetyRatio === null ? null : num(j.totalSafetyRatio)
+  if (totalSafetyRatio !== null && (totalSafetyRatio <= 0 || totalSafetyRatio > 1))
+    return { ok: false, why: '容量表 totalSafetyRatio 必须落在 (0,1]' }
   if (!j.roots || typeof j.roots !== 'object' || Array.isArray(j.roots) || Object.keys(j.roots).length === 0)
     return { ok: false, why: '容量表 roots 为空' }
   const roots = {}
@@ -59,6 +67,8 @@ export function parseCapacity(text) {
       measuredAtSha: String(j.measuredAtSha ?? ''),
       measuredAt: String(j.measuredAt ?? ''),
       limitBytes,
+      totalLimitBytes,
+      totalSafetyRatio,
       safetyRatio,
       bytesPerShellPage,
       roots,
@@ -131,6 +141,14 @@ export function routePlanned(planned, { model, registryText, cap, estimates = {}
   const cnt = mirrorEntriesByRoot(registryText, roots)
   if (!cnt.ok) return { ok: false, admitted: [], held: [], moves: [], why: `${cnt.why} ⇒ 整轮不放行(不猜)` }
   const target = model.limitBytes * model.safetyRatio
+  // 总量维(2026-10-26 加):微信对**整档小程序**还有 20 MiB 总上限。实测落完 219 屏后合计已达
+  // 18,016,705 B(86% of 20 MiB)——只判逐包会把"最后一枚装得下这包、但整档传不上去"这一型漏掉。
+  const totalTarget =
+    model.totalLimitBytes && model.totalSafetyRatio !== null && model.totalSafetyRatio !== undefined
+      ? model.totalLimitBytes * model.totalSafetyRatio
+      : model.totalLimitBytes
+        ? model.totalLimitBytes * model.safetyRatio
+        : null
   // 现读用量 = 测量字节 + 测量之后新落页的边际字节(按均值估,方向偏保守:估小了会让用量偏低)
   const used = {}
   for (const root of roots) {
@@ -138,11 +156,15 @@ export function routePlanned(planned, { model, registryText, cap, estimates = {}
     const delta = Math.max(0, (cnt.counts[root] ?? 0) - r.mirrorEntriesAtMeasure)
     used[root] = r.bytes + r.chunkReserveBytes + delta * model.bytesPerShellPage
   }
+  let totalUsage = Object.values(used).reduce((a, b) => a + b, 0)
   const overflow = Array.isArray(model.overflowRoots) ? model.overflowRoots : []
   const admitted = []
   const held = []
   const moves = []
   const limit = Number.isFinite(cap) && cap > 0 ? cap : planned.length
+  // 真实总量:各包**实测**字节(不含还没用上的新包预留),落进一个还没带共享块的新包时才把预留计进去。
+  let realTotal = roots.reduce((a, r) => a + model.roots[r].bytes + Math.max(0, (cnt.counts[r] ?? 0) - model.roots[r].mirrorEntriesAtMeasure) * model.bytesPerShellPage, 0)
+  const intoRoot = {}
   for (const p of planned) {
     if (admitted.length >= limit) break
     const estimate = Number.isFinite(estimates[p.spec]) ? estimates[p.spec] : model.bytesPerShellPage
@@ -154,17 +176,27 @@ export function routePlanned(planned, { model, registryText, cap, estimates = {}
         why.push(`${root} 无容量测量`)
         continue
       }
-      if (used[root] + estimate <= target) {
-        picked = root
+      if (used[root] + estimate > target) {
+        why.push(`${root} 余量不足(已用 ${Math.round(used[root])} B / 目标 ${Math.round(target)} B,本屏约 ${estimate} B)`)
+        continue
+      }
+      const fresh = (cnt.counts[root] ?? 0) + (intoRoot[root] ?? 0) === 0
+      const reserveNow = fresh && model.roots[root].chunkReserveBytes > 0 ? model.roots[root].chunkReserveBytes : 0
+      if (totalTarget !== null && realTotal + estimate + reserveNow > totalTarget) {
+        held.push({ route: p.route, root, why: `小程序**总量**将超微信 20 MiB 上限(现读 ${Math.round(realTotal)} B + 本屏 ${estimate} B${reserveNow ? ` + 新包共享块预留 ${reserveNow} B` : ''} > 目标 ${Math.round(totalTarget)} B)—— 出路不是换包,是收屏` })
+        picked = false
         break
       }
-      why.push(`${root} 余量不足(已用 ${Math.round(used[root])} B / 目标 ${Math.round(target)} B,本屏约 ${estimate} B)`)
+      picked = root
+      break
     }
     if (!picked) {
-      held.push({ route: p.route, root: p.subRoot, why: why.join(';') })
+      if (!held.some((h) => h.route === p.route)) held.push({ route: p.route, root: p.subRoot, why: why.join(';') })
       continue
     }
     used[picked] += estimate
+    intoRoot[picked] = (intoRoot[picked] ?? 0) + 1
+    realTotal += estimate + ((cnt.counts[picked] ?? 0) + intoRoot[picked] === 1 && model.roots[picked].chunkReserveBytes > 0 ? model.roots[picked].chunkReserveBytes : 0)
     if (picked !== p.subRoot) {
       const route = `${picked}/${p.page}`
       moves.push({ spec: p.spec, from: p.subRoot, to: picked, estimate })
@@ -175,7 +207,7 @@ export function routePlanned(planned, { model, registryText, cap, estimates = {}
     }
     admitted.push(p)
   }
-  return { ok: true, admitted, held, moves, used }
+  return { ok: true, admitted, held, moves, used, totalUsage: Math.round(realTotal) }
 }
 
 export const __test__ = { parseCapacity, capacityOf, mirrorEntriesByRoot, routePlanned, CAPACITY_REL }
