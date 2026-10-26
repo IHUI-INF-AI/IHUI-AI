@@ -1312,7 +1312,7 @@ class TestToken6688KeylessSync:
         capture: dict[str, Any] = {}
         original = ms_mod.httpx.AsyncClient
         ms_mod.httpx.AsyncClient = (  # type: ignore[assignment]
-            lambda timeout=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+            lambda timeout=None, proxy=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
         )
         try:
             svc = ModelSyncService()
@@ -1335,7 +1335,7 @@ class TestToken6688KeylessSync:
         capture: dict[str, Any] = {}
         original = ms_mod.httpx.AsyncClient
         ms_mod.httpx.AsyncClient = (  # type: ignore[assignment]
-            lambda timeout=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+            lambda timeout=None, proxy=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
         )
         try:
             svc = ModelSyncService()
@@ -1355,7 +1355,7 @@ class TestToken6688KeylessSync:
         capture: dict[str, Any] = {}
         original = ms_mod.httpx.AsyncClient
         ms_mod.httpx.AsyncClient = (  # type: ignore[assignment]
-            lambda timeout=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+            lambda timeout=None, proxy=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
         )
         try:
             svc = ModelSyncService()
