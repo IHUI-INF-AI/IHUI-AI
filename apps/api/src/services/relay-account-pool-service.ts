@@ -32,7 +32,9 @@ import {
   normalizeCredentialValue,
   normalizeForeignAccountShape,
   parseFlexibleExpiry,
+  recognizeImportShape,
   resolveOverwriteRefresh,
+  resolveRelayCredentialSlots,
   type RelayProviderCode,
 } from './relay-account-format.js'
 import {
@@ -161,11 +163,15 @@ function parseJwkValue(v: unknown): Record<string, unknown> | null {
  */
 function mapCodeartsImport(acc: ImportAccountInput): CodeartsImportMapping | null {
   const a = acc as Record<string, unknown>
-  const token =
-    cstr(a['securitytoken']) || cstr(a['security_token']) || cstr(a['cloud_dragon_token'])
-  const accessKeyId = cstr(a['accessKey']) || cstr(a['access_key_id'])
-  const secretAccessKey = cstr(a['secretKey']) || cstr(a['secret_access_key'])
-  if (!token || !accessKeyId || !secretAccessKey) return null
+  // 凭据落点单源在 relay-account-format 的槽位表(STS 票 / AK / SK 三槽全命中才算一条)
+  const { hits } = resolveRelayCredentialSlots(a, 'codearts')
+  const sts = hits[0]
+  const ak = hits[1]
+  const sk = hits[2]
+  if (!sts || !ak || !sk) return null
+  const token = sts.value
+  const accessKeyId = ak.value
+  const secretAccessKey = sk.value
 
   const account = a['account'] as Record<string, unknown> | undefined
   const loginContext = a['loginContext'] as Record<string, unknown> | undefined
@@ -229,7 +235,8 @@ interface QoderImportMapping {
 
 function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
   const a = acc as Record<string, unknown>
-  const token = cstr(a['token'])
+  const { hits } = resolveRelayCredentialSlots(a, 'qoder')
+  const token = hits[0]?.value ?? ''
   if (!token) return null
   const user =
     a['user'] !== null && typeof a['user'] === 'object' && !Array.isArray(a['user'])
@@ -269,19 +276,12 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
 // 2026-10-27 扩容八平台导入映射(提取器 raw 直通 → 在此单一映射,§0.6)
 // =============================================================================
 
-/** 映射必选平台的导入失败点名(§0.3:取不到就报原因,不静默) */
-const MAPPED_PROVIDER_MISSING_REASONS: Partial<Record<RelayProviderCode, string>> = {
-  codearts: 'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)',
-  qoder: 'Qoder 导入缺少 token',
-  codex: 'Codex 导入缺少 tokens.access_token(auth.json 形状不符或 keyring 模式)',
-  opencode: 'OpenCode 导入条目缺 key/access 字段(auth.json 形状不符)',
-  minimax: 'MiniMax 导入缺少 accessToken(mcode auth.json 形状不符)',
-  zcode: 'ZCode 导入缺可用凭据(oauth:bigmodel:access_token / zcodejwttoken / project key 全缺)',
-  loomy: 'Loomy 导入条目缺 value(会话候选形状不符)',
-  doubao: '豆包导入条目缺 value(cookie 会话族形状不符)',
-  lingma: '灵码导入 raw 凭证无 token/accessToken/access_token 字段(字段级形状未实证)',
-  grokbot: 'GrokBot 本机凭证为 sandSealedFile 密封串,无明文 token 可导入(待解封方案取证)',
-}
+/**
+ * 映射必选平台的导入失败点名(§0.3:取不到就报原因,不静默)。
+ *
+ * 判据单源在 relay-account-format 的 RELAY_IMPORT_SHAPE_REASON —— 这里不再抄一份
+ * 文案(Web 路由闸门 / CLI 预检 / 服务端逐条报错共用同一句人话,抄一份就分叉一次)。
+ */
 
 /** uid 退化哈希(对齐 codearts 的 auto: 前缀形态) */
 function autoUid(seed: string): string {
@@ -324,7 +324,8 @@ function mapCodexImport(acc: ImportAccountInput): {
 } | null {
   const a = acc as Record<string, unknown>
   const tokens = objField(a, 'tokens')
-  const token = cstr(tokens?.['access_token'])
+  const { hits } = resolveRelayCredentialSlots(a, 'codex')
+  const token = hits[0]?.value ?? ''
   if (!token) return null
   const accountId = cstr(tokens?.['account_id'])
   return {
@@ -355,7 +356,8 @@ function mapOpencodeImport(acc: ImportAccountInput): {
 } | null {
   const a = acc as Record<string, unknown>
   const auth = objField(a, 'auth')
-  const token = cstr(auth?.['key']) || cstr(auth?.['access'])
+  const { hits } = resolveRelayCredentialSlots(a, 'opencode')
+  const token = hits[0]?.value ?? ''
   if (!token) return null
   const providerID = cstr(a['providerID'])
   return {
@@ -383,7 +385,8 @@ function mapMinimaxImport(acc: ImportAccountInput): {
   secrets: Record<string, unknown>
 } | null {
   const a = acc as Record<string, unknown>
-  const token = cstr(a['accessToken'])
+  const { hits } = resolveRelayCredentialSlots(a, 'minimax')
+  const token = hits[0]?.value ?? ''
   if (!token) return null
   const expMs = typeof a['expiresAtMs'] === 'number' ? (a['expiresAtMs'] as number) : null
   const region = cstr(a['region']) || null
@@ -418,15 +421,8 @@ function mapZcodeImport(acc: ImportAccountInput): {
 } | null {
   const a = acc as Record<string, unknown>
   const RESERVED = new Set(['region', 'regions', 'sourceRoot', 'sourcePath', 'fingerprint'])
-  const token =
-    cstr(a['oauth:bigmodel:access_token']) ||
-    cstr(a['zcodejwttoken']) ||
-    (() => {
-      for (const [k, v] of Object.entries(a)) {
-        if (k.startsWith('project-key-location:v1:') && typeof v === 'string' && v) return v
-      }
-      return ''
-    })()
+  const { hits } = resolveRelayCredentialSlots(a, 'zcode')
+  const token = hits[0]?.value ?? ''
   if (!token) return null
   const rawMap: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(a)) {
@@ -450,6 +446,7 @@ function mapZcodeImport(acc: ImportAccountInput): {
 
 /** Loomy/豆包共用:会话条目 {source,key,host,value} → token=value */
 function mapSessionEntryImport(
+  providerCode: 'loomy' | 'doubao',
   providerLabel: string,
   acc: ImportAccountInput,
 ): {
@@ -461,7 +458,8 @@ function mapSessionEntryImport(
   secrets: Record<string, unknown>
 } | null {
   const a = acc as Record<string, unknown>
-  const token = cstr(a['value'])
+  const { hits } = resolveRelayCredentialSlots(a, providerCode)
+  const token = hits[0]?.value ?? ''
   if (!token) return null
   const key = cstr(a['key'])
   return {
@@ -478,8 +476,8 @@ function mapSessionEntryImport(
   }
 }
 
-const mapLoomyImport = (acc: ImportAccountInput) => mapSessionEntryImport('loomy', acc)
-const mapDoubaoImport = (acc: ImportAccountInput) => mapSessionEntryImport('doubao', acc)
+const mapLoomyImport = (acc: ImportAccountInput) => mapSessionEntryImport('loomy', 'loomy', acc)
+const mapDoubaoImport = (acc: ImportAccountInput) => mapSessionEntryImport('doubao', 'doubao', acc)
 
 /** 灵码:raw 凭证记录(字段级形状未实证,token 按常见键名探测,取不到如实 null) */
 function mapLingmaImport(acc: ImportAccountInput): {
@@ -491,7 +489,8 @@ function mapLingmaImport(acc: ImportAccountInput): {
   secrets: Record<string, unknown>
 } | null {
   const a = acc as Record<string, unknown>
-  const token = cstr(a['token']) || cstr(a['accessToken']) || cstr(a['access_token'])
+  const { hits } = resolveRelayCredentialSlots(a, 'lingma')
+  const token = hits[0]?.value ?? ''
   if (!token) return null
   return {
     token,
@@ -551,6 +550,21 @@ export async function importAccounts(
     const accName = typeof acc.name === 'string' && acc.name ? acc.name : ''
     let displayName = accName || `#${i + 1}`
     try {
+      // 形状闸门(单源判据 relay-account-format.recognizeImportShape):只有本仓认得的
+      // 平台形状才放行;认不出就整条拒掉并点名缺哪个键 —— 绝不静默丢弃,也绝不把
+      // 认不出的东西塞成"无效账号"进库(Web 路由闸门 / CLI 预检共用同一判据)。
+      const shape = recognizeImportShape(providerCode, acc)
+      if (!shape.importable) {
+        result.failed++
+        result.items.push({
+          index: i,
+          name: displayName,
+          uid: null,
+          status: 'failed',
+          reason: shape.reason ?? `${providerCode} 导入缺少 token`,
+        })
+        continue
+      }
       // 非 JWT 平台映射分支:CodeArts(2026-10-22)STS 凭据包 / Qoder(2026-10-23)
       // opaque token 会话 / 2026-10-27 扩容八平台(codex/opencode/minimax/zcode/
       // loomy/doubao/lingma/grokbot)。各格式的 uid/expiresAt 都在映射层显式解析,
@@ -580,18 +594,6 @@ export async function importAccounts(
       // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
       const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       if (!accName && mapped?.name) displayName = mapped.name
-      const missingReason = mapped ? null : (MAPPED_PROVIDER_MISSING_REASONS[providerCode] ?? null)
-      if (missingReason && providerCode !== 'trae' && providerCode !== 'workbuddy') {
-        result.failed++
-        result.items.push({
-          index: i,
-          name: displayName,
-          uid: null,
-          status: 'failed',
-          reason: missingReason,
-        })
-        continue
-      }
       // 入口归一化:从 JSON 整段复制的粘贴值会带包裹引号,上游按前缀校验 ⇒ 一个多余字符
       // 就令号池自刷新与每日签到同时失败(dev 实测 `"drt-…` 那枚,详见 normalizeCredentialValue 头注)
       const token = normalizeCredentialValue(mapped ? mapped.token : acc.token) ?? ''
@@ -602,7 +604,7 @@ export async function importAccounts(
           name: displayName,
           uid: null,
           status: 'failed',
-          reason: '缺少 token',
+          reason: `${providerCode} 的凭据归一后为空(剥掉包裹引号/空白后没有内容)`,
         })
         continue
       }

@@ -5550,6 +5550,10 @@ class AgentLoopV2:
             # 分支产出,历史成对性由批 53 normalize_history 兜底。
             for idx, (tc, item) in enumerate(zip(tool_calls, gathered_raw, strict=False)):
                 if isinstance(item, _LoopInterrupted):
+                    # B04(2026-10-28):上抛前补录同批**已完成**兄弟调用的证据行。
+                    # 中断的 raise 发生在下面第二轮录制循环之前 ⇒ 同批已执行完的工具
+                    # 此前一行证据都进不了账(一中断整批蒸发),与"每次工具调用"直接冲突。
+                    self._ingest_settled_siblings(tool_calls, gathered_raw)
                     with contextlib.suppress(Exception):
                         await self._events.emit_plan_step(
                             self._session_id or "", idx, tc.name, "aborted",
@@ -5726,9 +5730,29 @@ class AgentLoopV2:
         except Exception as e:
             logger.warning("agent LLM step 录制失败(降级,不阻塞): %s", e)
 
+    def _ingest_settled_siblings(
+        self, tool_calls: list[ToolCall], gathered: list[Any]
+    ) -> None:
+        """B04(2026-10-28):并行批内中断时,补录**已完成**兄弟调用的证据行。
+
+        只补证据面(`_maybe_ingest_tool_ledger`),不补 step 录制 / 交付清单:
+        后两者属于被中断的这一轮,语义上不该再产出;而被取消/抛中断的那一枚不写
+        任何行 —— 权限词汇是封闭集,给它编一个 decision 就是冒认事实。
+        自身 fail-open:证据面任何异常都不许影响中断照常上抛。
+        """
+        try:
+            for sib_tc, sib_item in zip(tool_calls, gathered, strict=False):
+                if isinstance(sib_item, BaseException):
+                    continue
+                self._maybe_ingest_tool_ledger(
+                    sib_tc, sib_item, self._decision_hints.pop(sib_tc.id, None)
+                )
+        except Exception as e:
+            logger.warning("b04 中断批补录工具账失败(降级,不影响中断): %s", e)
+
     def _maybe_ingest_tool_ledger(
         self, tc: ToolCall, tr: ToolResult, hint: tuple[str, str] | None
-    ) -> None:
+    ) -> tuple[str, str | None, str]:
         """B04(2026-10-27 立):每次工具调用终态落证据级明细账(有界、失败不拖主循环)。
 
         账是证据面,不跟可观测录制开关走(`_pipeline_record_active` 关的是 step
@@ -5738,13 +5762,22 @@ class AgentLoopV2:
         includeRaw 不下发 ⇒ 服务端默认 false 只存摘要);权限词汇见
         `_ledger_permission_facts`。派发腿本体同 D154 mcp_status(create_task + 5s
         超时 + 吞异常计数);这里再包一层 try,保证证据面任何失败都不穿透主循环。
+
+        @returns `(permission_decision, permission_cause, invocation_id)` ——
+        2026-10-28 起把本次账行的事实投影交回调用方,供 step 录制面**回指同一行**
+        (此前 uuid4 现生成后即丢弃,两个证据面无法按编号对齐,"可追溯"只能靠
+        时间戳猜)。**只在派发腿收下这一行时**才返回 invocation_id;被拒(无 UUID
+        主体/词汇越界/无事件循环)降级空串 —— 录制面不得挂一个查不到账行的编号。
+        权限决策本身与派发成败无关(它是循环侧已发生的判定),故无论派发与否都返回;
+        整条链路异常时返回 `("", None, "")`,不冒充任何事实。
         """
         try:
             decision, cause = _ledger_permission_facts(tr, hint)
-            record_tool_invocation(
+            invocation_id = str(uuid.uuid4())
+            dispatched = record_tool_invocation(
                 user_id=self._user_id,
                 session_id=self._session_id or "",
-                invocation_id=str(uuid.uuid4()),
+                invocation_id=invocation_id,
                 tool_name=tr.name or tc.name or "",
                 permission_decision=decision,
                 permission_cause=cause,
@@ -5756,8 +5789,10 @@ class AgentLoopV2:
                 ),
                 trace_id=self._trace_id,
             )
+            return decision, cause, invocation_id if dispatched else ""
         except Exception as e:
             logger.warning("b04 工具账派发失败(降级,不阻塞): %s", e)
+            return "", None, ""
 
     def _maybe_record_step(self, tc: ToolCall, tr: ToolResult) -> None:
         """工具调用可观测录制(2026-09-03 立):每次工具执行后 append 一步。
@@ -5772,7 +5807,9 @@ class AgentLoopV2:
         # (pop 必须在短路之前:提示表是 per-tc 的,不弹就会漏给下一个同名 tc)
         hint = self._decision_hints.pop(tc.id, None)
         # B04:明细账摄入与 step 录制开关无关(证据面),挂在短路之前;内部有界 fail-open。
-        self._maybe_ingest_tool_ledger(tc, tr, hint)
+        ledger_decision, ledger_cause, ledger_invocation_id = (
+            self._maybe_ingest_tool_ledger(tc, tr, hint)
+        )
         if rec is None or not self._pipeline_record_active:
             return
         run_id = getattr(rec, "run_id", None) or self._session_id or ""
@@ -5798,6 +5835,13 @@ class AgentLoopV2:
                     ),
                     "status": "error" if tr.error else "ok",
                     "duration_ms": round(float(tr.duration_ms or 0.0), 2),
+                    # B04(2026-10-28):证据四要素回指 —— 录制行与账行按同一编号对齐,
+                    # 权限决策/操作者身份与账行同源(循环侧算一次、两处引用);输入/输出
+                    # 哈希只住服务端账行(单源),录制侧刻意不自算第二份。
+                    "invocation_id": ledger_invocation_id,
+                    "permission_decision": ledger_decision,
+                    "permission_cause": ledger_cause or "",
+                    "operator_id": self._user_id or "",
                     **self._tool_llm_usage_fields(tr.result),
                     "input": tc.args,
                     "decision": decision,

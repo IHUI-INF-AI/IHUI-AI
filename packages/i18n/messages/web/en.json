@@ -7785,7 +7785,9 @@
       "notifyCompletedTitle": "Task completed: {name}",
       "notifyFailedTitle": "Task failed: {name}",
       "runningCount": "{count} Running",
+      "takeover": "Take over",
       "title": "Background Agents",
+      "tokens": "Tokens",
       "total": "Total {count}",
       "viewResult": "View Result"
     },

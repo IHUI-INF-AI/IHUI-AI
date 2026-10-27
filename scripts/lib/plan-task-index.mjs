@@ -602,81 +602,6 @@ export function parseTaskRows(content) {
 }
 
 /**
- * F13「已勾被捣回未勾」判据本体(2026-10-27 装车补齐:plan-tasks.mjs 的 import 与
- * 自检样例先落了库,本实现一度缺席 ⇒ 全仓 `node scripts/plan-tasks.mjs` SyntaxError,
- * safe-commit 预检连带被卡 —— 判据与消费者必须同笔入库)。
- *
- * 输入:锚点面全文 / 被审面全文。输出(消费面 wireF13 与自检样例钉形):
- * - hits: 跨面回归 = 锚点面已勾 ∧ 被审面未勾 的复合主键集合,按 key 字典序,
- *   每枚带 { key, anchorDoneLines, faceOpenLines }(f13HitLine 用行号只做定位)
- * - anchorStockKeys: 锚点面**自身**两态并存(同主键既有 done 又有 open)的存量 ——
- *   差值棘轮的锚点;被审面==锚点时,它就是"HEAD 面自身的命中数"
- * - anchorDoneKeys / anchorRows / faceRows: 候选面读数(枚举到 0 不得被读成通过)
- *
- * "同一件事"的定义与全库同源:只认 parseTaskRows 的复合主键(keyOfRow),无编号行不参与。
- */
-export function findClosedToOpenRegressions(anchorText, faceText) {
-  const anchorRows = parseTaskRows(anchorText)
-  const faceRows = parseTaskRows(faceText)
-  // 分组键必须是**复合主键**(编号#标题前缀逐字),不是裸编号 —— 裸编号把"同号不同题"并成
-  // 一枚,回退点名与键集差集都会指错对象(单源锁测试 7ea94a13db9 的契约;545c2a0f0e1 落本体
-  // 时按裸 id 分组是缺口,门 98 消红后由本仓单测钉回复合键)。
-  const keyOf = (r) => compositeKeyOf(r.raw) ?? r.key
-  const doneBy = new Map()
-  const openBy = new Map()
-  for (const r of anchorRows) {
-    if (!r.key) continue
-    const k = keyOf(r)
-    if (!k) continue
-    const bucket = r.state === 'done' ? doneBy : openBy
-    if (!bucket.has(k)) bucket.set(k, [])
-    bucket.get(k).push(r.line)
-  }
-  const faceOpenBy = new Map()
-  for (const r of faceRows) {
-    if (!r.key || r.state !== 'open') continue
-    // 带【归并】副本指针的行不充"又变回未做"的证据 —— 与 findForks 的 liveOpenOf 同一把尺(§0.6)
-    if (isClaimExcludedPointer(r.raw)) continue
-    const k = keyOf(r)
-    if (!k) continue
-    if (!faceOpenBy.has(k)) faceOpenBy.set(k, [])
-    faceOpenBy.get(k).push(r.line)
-  }
-  const hits = []
-  for (const key of [...doneBy.keys()].sort((a, b) => (a < b ? -1 : 1))) {
-    const faceLines = faceOpenBy.get(key)
-    if (faceLines) hits.push({ key, anchorDoneLines: doneBy.get(key), faceOpenLines: faceLines })
-  }
-  const anchorStockKeys = [...doneBy.keys()].filter((k) => openBy.has(k)).sort((a, b) => (a < b ? -1 : 1))
-  return {
-    hits,
-    anchorStockKeys,
-    anchorDoneKeys: doneBy.size,
-    anchorRows: anchorRows.length,
-    faceRows: faceRows.length,
-  }
-}
-
-/**
- * F13 判据单源的分组面(2026-10-27 补齐,与 findClosedToOpenRegressions 同族):
- * 复合主键 → 该主键在面上的全部登记行(含两态并存的键)。
- * 立因:测试 plan-closed-row-regression 的单源锁以本 API 为契约先入库,本体缺席被
- * 门 98 D1 判红(与 545c2a0f0e1 补 findClosedToOpenRegressions 同一型)。
- * 只用 parseTaskRows/compositeKeyOf 分组,零新正则、不写第二套"什么算同一件事"(§0.6)。
- */
-export function stateGroupsOf(faceText) {
-  const groups = new Map()
-  for (const r of parseTaskRows(faceText)) {
-    if (!r.key) continue
-    const k = compositeKeyOf(r.raw) ?? r.key
-    if (!k) continue
-    if (!groups.has(k)) groups.set(k, [])
-    groups.get(k).push(r)
-  }
-  return groups
-}
-
-/**
  * ── 三条确定性判据(2026-09-26 实测定型)────────────────────────────────
  *
  * 立项时设计的第 4 条判据"open 行号 < 该编号首个 done 行号 ⇒ 陈旧副本"**已被实测否定并删除**
@@ -818,7 +743,13 @@ export function compositeKeyOf(line) {
  * 不会被"带注记"三个字静默放过(这与 `planPrefixNestedPointer` 的"holder 自身不带注记"
  * 口径一致,:670/:684/:686)。
  */
-export function findForks(content) {
+/**
+ * 按**复合主键**把一面分成 `{key, open[], done[]}` 的分组表 —— 全仓唯一的"什么算同一件事 +
+ * 它在这一面是什么状态"分组实现(F1 与 F13 共用它,§0.6;两处各写一遍必漂移)。
+ * 给不出复合主键的行(无编号 / 题面退化)不进表:宁可不算,也不拿一个会误配的键去做事
+ * (与 `compositeKeyOf` 头注同一条禁令)。
+ */
+export function stateGroupsOf(content) {
   const groups = new Map()
   for (const r of parseTaskRows(content)) {
     const k = compositeKeyOf(r.raw)
@@ -826,6 +757,11 @@ export function findForks(content) {
     if (!groups.has(k)) groups.set(k, { key: k, open: [], done: [] })
     groups.get(k)[r.state].push(r)
   }
+  return groups
+}
+
+export function findForks(content) {
+  const groups = stateGroupsOf(content)
   const all = [...groups.values()]
   // G-48(2026-10-26):副本剔除口径 = 派单出口的「本行已被标注/自述为副本」全集
   // (`isClaimExcludedPointer` 三族:【归并】原族 ∪ `副本指针(编号 …` 行首族 ∪ 裸自述族),
@@ -839,6 +775,81 @@ export function findForks(content) {
     forks: all.filter((g) => liveOpenOf(g).length > 0 && g.done.length > 0),
     dupOpen: all.filter((g) => g.open.length > 1),
     dupDone: all.filter((g) => g.done.length > 1),
+  }
+}
+
+/**
+ * F13「已勾行被捣回未勾」的**唯一判据**(2026-10-27 立项,主席 16:30 实测补牙)。
+ *
+ * ## 补的是哪一格(现读实测,不是推断)
+ * 台账是多人共写的活文档。反复出现的失效型 = **某席把工作树/索引里那份滞后副本交进提交**,
+ * 里面那条已结清的票是它的**未勾旧版** ⇒ 同一件事历史上已完成、账面上重新变成待办 ⇒ 两席领同一张票。
+ * 2026-10-27 实测:这种面在守门 130 的 `--gate --staged` 上报 `F1=0 / F4=0 / F4b=0 / F6=0`、
+ * 差值棘轮一行不涨、RC=0 —— 结构性零牙。原因是现有各维**全在"一面之内"数数**:
+ *   - F1 `findForks` 判同一主键在一面内 `- [x]` 与 `- [ ]` **并存**;滞后副本不是"并存",而是
+ *     "整组只剩未勾那一态" ⇒ 组里没有 done 行 ⇒ F1 恒 0(本函数头注 198 行写过同一格);
+ *   - F4/F4b/F6 判的是**变多 / 重复**;被审面内同一件事只剩一行时,它们量的是 0。
+ * 所以必须有一把**跨面**的尺子:同一枚复合主键,锚点面(HEAD)已勾、被审面未勾 ⇒ 状态倒退。
+ * 门 239(check-plan-archive-monotonic)判的是"已归档 ✅ 的票复活成未勾活行",锚在归档注释上,
+ * 也不是这一型(台账"完成即删"退役后,面上的已勾行本来就没有归档注释可对)。
+ *
+ * ## 判据(只用单源出口,零新正则)
+ * 主键 = `compositeKeyOf`(编号 + 标题前缀逐字等值);勾选态 = `parseTaskRows`(CHECKBOX_RE 唯一口径)。
+ * 命中(每枚主键一条):锚点面该主键 ≥1 行已勾 ∧ 被审面该主键 ≥1 行未勾。
+ * 副本指针行(`isClaimExcludedPointer` 三族)**不充被审侧证据** —— 与 `findForks` 的 liveOpenOf
+ * 同一条口径(G-48:那种行是"本行是副本"的自我标注,不是"这件事又变回未做"),复用同一出口、
+ * 不在这里抄第二份判据(§0.6 / 守门 191)。锚点侧的已勾行不做该过滤(它说的是"已完成"这个事实)。
+ * 分组走 `stateGroupsOf`(与 F1 同一把分组尺)。
+ *
+ * ## 档位:差值棘轮,锚点 = 锚点面自身的命中数(§0.2 / §12e)
+ * 同一把尺子跑 `(anchor, anchor)` 得到"锚点面内既已两态并存"的那批主键 = **存量**。存量没归零
+ * 之前对跨面命中做绝对零容忍,就是一台与任何提交都无关的恒红门(唯一结局是逼人 `--no-verify`、
+ * 连带废掉全部守门)。拦点住在 `plan-tasks.mjs` 的 `grewViolations`:被审面命中集**里不在锚点
+ * 面命中集里的键**才判红 —— 拿键集而不是只比个数,是因为"消掉一组长在主键的分叉 + 新带回一枚
+ * 回退"在计数上持平(等量换键那一型,F9 的 G-312 同一课),而这一型恰恰是本维要抓的。
+ *
+ * ## 取不到 ⇒ 未判定(§0.3)
+ * 调用方拿不到任何一面的内容时**不得**调本函数,更不得把 0 命中冒充"判过了且干净";
+ * 面取不到一律 exit 2 并点名原因(见 plan-tasks.mjs 的 Undetermined 通道)。
+ *
+ * @param anchorText 锚点面全文(提交链上 = HEAD blob;与面取同一轮)
+ * @param faceText   被审面全文(同一轮的索引 blob / HEAD blob)
+ * @returns {{hits:Array<{key,anchorDoneLines:number[],faceOpenLines:number[]}>, anchorStockKeys:string[],
+ *            anchorDoneKeys:number, faceRows:number, anchorRows:number}}
+ *   hits = 跨面命中(含存量键);anchorStockKeys = 锚点面自比命中(= 棘轮锚点,存量);
+ *   anchorDoneKeys / anchorRows / faceRows = 候选面读数,"枚举到 0 候选"绝不被读成通过。
+ */
+export function findClosedToOpenRegressions(anchorText, faceText) {
+  const asStr = (t) => (t === null || t === undefined ? '' : String(t))
+  const anchorGroups = stateGroupsOf(asStr(anchorText))
+  const faceGroups = stateGroupsOf(asStr(faceText))
+  // 副本指针行不充"又变回未做"的证据(与 findForks 的 liveOpenOf 同一把尺)
+  const liveOpenOf = (g) => g.open.filter((r) => !isClaimExcludedPointer(r.raw))
+  const hits = []
+  for (const [key, fg] of faceGroups) {
+    const ag = anchorGroups.get(key)
+    if (!ag || ag.done.length === 0) continue
+    const live = liveOpenOf(fg)
+    if (live.length === 0) continue
+    hits.push({
+      key,
+      anchorDoneLines: ag.done.map((r) => r.line),
+      faceOpenLines: live.map((r) => r.line),
+    })
+  }
+  hits.sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0))
+  // 锚点面自身命中数(差值棘轮的锚点):同一把尺子跑两遍 anchor,即"锚点面内既有已勾又有未勾"
+  const anchorStockKeys = []
+  for (const [key, g] of anchorGroups) {
+    if (g.done.length > 0 && liveOpenOf(g).length > 0) anchorStockKeys.push(key)
+  }
+  anchorStockKeys.sort()
+  return {
+    hits,
+    anchorStockKeys,
+    anchorDoneKeys: [...anchorGroups.values()].filter((g) => g.done.length > 0).length,
+    anchorRows: parseTaskRows(asStr(anchorText)).length,
+    faceRows: parseTaskRows(asStr(faceText)).length,
   }
 }
 

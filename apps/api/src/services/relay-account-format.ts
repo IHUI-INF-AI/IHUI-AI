@@ -37,8 +37,8 @@ export function isRelayProviderCode(v: string): v is RelayProviderCode {
   return (RELAY_PROVIDERS as readonly string[]).includes(v)
 }
 
-/** 导入接口单批上限(与 admin 路由 Zod 的 .max(500) 同值;改这里必须同改路由) */
-const IMPORT_MAX_ACCOUNTS = 500
+/** 导入接口单批上限(admin 路由与预检共用同一值,改这里路由同改) */
+export const IMPORT_MAX_ACCOUNTS = 500
 /** 临期阈值:导入预检把 24h 内到期单独点名 */
 const IMPORT_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000
 /** WebKit epoch(1601-01-01)与 Unix epoch(1970-01-01)的毫秒差 */
@@ -307,10 +307,6 @@ function issue(level: ImportIssueLevel, code: string, message: string): ImportIs
   return { level, code, message }
 }
 
-function hasAny(obj: Record<string, unknown>, keys: string[]): boolean {
-  return keys.some((k) => cstr(obj[k]) !== '')
-}
-
 // =============================================================================
 // 外来格式自适应(2026-10-26 立)
 // =============================================================================
@@ -480,6 +476,229 @@ export function foreignPassthroughMetadata(acc: Record<string, unknown>): Record
   return extra
 }
 
+// =============================================================================
+// 导入形状闸门(单源):平台原生提取器形状 → 凭据落点
+// =============================================================================
+
+/**
+ * 单个凭据槽位的落点(槽位 = 一组等价键,任一命中即该槽位满足)。
+ *
+ * - top:顶层键(如 minimax 的 accessToken);
+ * - nested:嵌套容器内的键(如 codex 的 tokens.access_token、opencode 的 auth.key);
+ * - prefix:前缀族键(如 zcode 的 project-key-location:v1:*)。
+ */
+export interface RelayCredentialSlot {
+  top?: string[]
+  nested?: { parent: string; keys: string[] }[]
+  prefix?: string[]
+  /**
+   * 密封凭据槽位:形状**认得**(键位在),但本机没有明文凭据可取(值恒空)——
+   * GrokBot 的 sandSealedFile 密封串:形状对,导不进号池(解封方案未取证前只能如实点名)。
+   */
+  sealed?: { parent: string; keys: string[] }
+}
+
+/**
+ * 12 平台原生提取器形状 → 凭据落点(**全仓唯一一份键位表**)。
+ *
+ * 立因(2026-10-27):Web 拖拽导入的路由闸门曾硬性要求每个账号有顶层 `token`,
+ * 而各平台原生提取器产出的形状彼此不同 —— codex 的 `tokens.access_token`、
+ * opencode 的 `auth.key`、minimax 的 `accessToken`、zcode 的
+ * `oauth:bigmodel:access_token`、loomy/doubao 的 `value`、codearts 的
+ * `securitytoken + accessKey + secretKey` ⇒ 12 平台里 10 个平台的原生载荷
+ * 连门都进不去(Web 拖拽导入全线被挡,只有 trae/workbuddy 的 `{token}` 能过);
+ * 而 CLI 直调 importAccounts 不过 Zod ⇒ CLI 能导、Web 不能导,两套口径割裂。
+ *
+ * 修复口径:键位表只此一份,三处共用(§0.6 不许各抄一份)——
+ * - Web 路由闸门(只判结构与体积,形状判据由本表承担);
+ * - CLI 预检(validateAccountExport);
+ * - 服务端落库映射(mapXxxImport 取凭据的唯一入口)。
+ */
+export const RELAY_IMPORT_CREDENTIAL_SLOTS: Record<RelayProviderCode, RelayCredentialSlot[]> = {
+  trae: [{ top: ['token'] }],
+  workbuddy: [{ top: ['token'] }],
+  // CodeArts 是复合凭据:STS 票 + AK + SK 三者全在才算一条完整账号
+  codearts: [
+    { top: ['securitytoken', 'security_token', 'cloud_dragon_token'] },
+    { top: ['accessKey', 'access_key_id'] },
+    { top: ['secretKey', 'secret_access_key'] },
+  ],
+  qoder: [{ top: ['token'] }],
+  codex: [{ nested: [{ parent: 'tokens', keys: ['access_token'] }] }],
+  opencode: [{ nested: [{ parent: 'auth', keys: ['key', 'access'] }] }],
+  minimax: [{ top: ['accessToken', 'access_token'] }],
+  zcode: [
+    {
+      top: ['oauth:bigmodel:access_token', 'zcodejwttoken'],
+      prefix: ['project-key-location:v1:'],
+    },
+  ],
+  loomy: [{ top: ['value'] }],
+  doubao: [{ top: ['value'] }],
+  lingma: [{ top: ['token', 'accessToken', 'access_token'] }],
+  // GrokBot:形状认得(本机凭证是 sandSealedFile 密封串),但没有明文凭据可导
+  grokbot: [{ sealed: { parent: 'credential', keys: ['sandSealedFile', 'data'] } }],
+}
+
+/**
+ * 「认不出」时的人话原因(单源:服务端逐条报错 / 路由整批拒绝 / CLI 预检共用)。
+ * 只报平台与键名,绝不回显任何凭据字符(§9)。
+ */
+export const RELAY_IMPORT_SHAPE_REASON: Record<RelayProviderCode, string> = {
+  trae: 'Trae 导入缺少 token',
+  workbuddy: 'WorkBuddy 导入缺少 token',
+  codearts: 'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)',
+  qoder: 'Qoder 导入缺少 token',
+  codex: 'Codex 导入缺少 tokens.access_token(auth.json 形状不符或 keyring 模式)',
+  opencode: 'OpenCode 导入条目缺 key/access 字段(auth.json 形状不符)',
+  minimax: 'MiniMax 导入缺少 accessToken(mcode auth.json 形状不符)',
+  zcode: 'ZCode 导入缺可用凭据(oauth:bigmodel:access_token / zcodejwttoken / project key 全缺)',
+  loomy: 'Loomy 导入条目缺 value(会话候选形状不符)',
+  doubao: '豆包导入条目缺 value(cookie 会话族形状不符)',
+  lingma: '灵码导入 raw 凭证无 token/accessToken/access_token 字段(字段级形状未实证)',
+  grokbot: 'GrokBot 本机凭证为 sandSealedFile 密封串,无明文 token 可导入(待解封方案取证)',
+}
+
+/** 形状认不出时的预检 issue code(按平台;validateAccountExport 用) */
+const RELAY_IMPORT_SHAPE_ISSUE_CODE: Record<RelayProviderCode, string> = {
+  trae: 'missing-token',
+  workbuddy: 'missing-token',
+  codearts: 'codearts-credentials',
+  qoder: 'missing-token',
+  codex: 'codex-credentials',
+  opencode: 'opencode-credentials',
+  minimax: 'missing-token',
+  zcode: 'zcode-credentials',
+  loomy: 'session-entry-credentials',
+  doubao: 'session-entry-credentials',
+  lingma: 'missing-token',
+  grokbot: 'grokbot-sealed',
+}
+
+/** 凭据槽位命中(只报键名;值由调用方自行加密,不得回显) */
+export interface RelayCredentialHit {
+  /** 命中的键路径(顶层键名 / 容器.键 / 前缀族实际键名) */
+  keyPath: string
+  value: string
+}
+
+function resolveCredentialSlot(
+  acc: Record<string, unknown>,
+  slot: RelayCredentialSlot,
+): RelayCredentialHit | null {
+  for (const key of slot.top ?? []) {
+    const value = cstr(acc[key])
+    if (value) return { keyPath: key, value }
+  }
+  for (const nested of slot.nested ?? []) {
+    const parent = acc[nested.parent]
+    if (!isRecord(parent)) continue
+    for (const key of nested.keys) {
+      const value = cstr(parent[key])
+      if (value) return { keyPath: `${nested.parent}.${key}`, value }
+    }
+  }
+  for (const prefix of slot.prefix ?? []) {
+    for (const [key, raw] of Object.entries(acc)) {
+      if (!key.startsWith(prefix)) continue
+      const value = cstr(raw)
+      if (value) return { keyPath: key, value }
+    }
+  }
+  const sealed = slot.sealed
+  if (sealed) {
+    const parent = acc[sealed.parent]
+    if (isRecord(parent)) {
+      const hit = sealed.keys.find((k) => {
+        const raw = parent[k]
+        return typeof raw === 'number' || cstr(raw) !== ''
+      })
+      // 形状命中但没有明文值(密封串):交由判定层区分"形状认得 / 导不进去"
+      if (hit !== undefined) return { keyPath: `${sealed.parent}.${hit}`, value: '' }
+    }
+  }
+  return null
+}
+
+/**
+ * 取某平台各凭据槽位的命中情况(**取凭据的唯一入口**)。
+ * 服务端 mapXxxImport 与形状闸门都走这里 ⇒ 键位知识只此一份。
+ */
+export function resolveRelayCredentialSlots(
+  acc: Record<string, unknown>,
+  providerCode: RelayProviderCode,
+): { hits: Array<RelayCredentialHit | null> } {
+  const slots = RELAY_IMPORT_CREDENTIAL_SLOTS[providerCode] ?? []
+  return { hits: slots.map((slot) => resolveCredentialSlot(acc, slot)) }
+}
+
+/** 导入形状判定结果(只报键名与形状,绝不回显凭据字符) */
+export interface ImportShapeVerdict {
+  /** 本仓是否认得这个平台的这套形状(认得 ≠ 一定导得进去) */
+  recognized: boolean
+  /** 是否能取到明文凭据(形状认得但取不到 ⇒ 导不进号池,如 GrokBot 密封串) */
+  importable: boolean
+  /** 命中的凭据键路径(仅键名) */
+  credentialKeys: string[]
+  /** 主凭据值(首个槽位;密封形状恒 null。调用方自行加密,不得回显) */
+  credential: string | null
+  /** 认不出 / 取不到明文时的人话原因(可直接展示给用户) */
+  reason: string | null
+}
+
+/**
+ * 形状闸门(单源判据):这条载荷是不是"本仓认得的 <平台> 凭据形状"。
+ *
+ * 先过 normalizeForeignAccountShape(外来形状归一:access_token → token 等),
+ * 再按 RELAY_IMPORT_CREDENTIAL_SLOTS 逐槽位找凭据:
+ * - 任一槽位落空 ⇒ 形状认不出(recognized=false,reason 点名缺哪个键);
+ * - 槽位命中但没有明文(GrokBot 密封串)⇒ 形状认得、导不进去(importable=false)。
+ * Web 路由闸门 / CLI 预检 / 服务端落库三处共用本函数 ⇒ 口径不可能再分叉。
+ */
+export function recognizeImportShape(
+  providerCode: RelayProviderCode,
+  row: unknown,
+): ImportShapeVerdict {
+  const acc = normalizeForeignAccountShape(row)
+  const slots = RELAY_IMPORT_CREDENTIAL_SLOTS[providerCode] ?? []
+  const credentialKeys: string[] = []
+  if (slots.length === 0) {
+    return {
+      recognized: false,
+      importable: false,
+      credentialKeys,
+      credential: null,
+      reason: RELAY_IMPORT_SHAPE_REASON[providerCode],
+    }
+  }
+  let credential: string | null = null
+  for (const slot of slots) {
+    const hit = resolveCredentialSlot(acc, slot)
+    if (!hit) {
+      return {
+        recognized: false,
+        importable: false,
+        credentialKeys,
+        credential: null,
+        reason: RELAY_IMPORT_SHAPE_REASON[providerCode],
+      }
+    }
+    credentialKeys.push(hit.keyPath)
+    if (!hit.value) {
+      // 形状认得但没有明文凭据(GrokBot 密封串):形状对,导不进号池
+      return {
+        recognized: true,
+        importable: false,
+        credentialKeys,
+        credential: null,
+        reason: RELAY_IMPORT_SHAPE_REASON[providerCode],
+      }
+    }
+    if (credential === null) credential = hit.value
+  }
+  return { recognized: true, importable: true, credentialKeys, credential, reason: null }
+}
+
 /**
  * 校验一份账号导出 JSON。接受 `{accounts:[...]}` 或裸数组。
  * 不修改入参、不读写文件、不发网络。
@@ -550,74 +769,20 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
           ? cstr(acc['nickname']) || cstr(acc['phone']) || `#${index + 1}`
           : `#${index + 1}`)
 
-    // ── 凭证必填面 ──
-    let token = cstr(acc['token'])
-    if (isCodearts) {
-      const sts = hasAny(acc, ['securitytoken', 'security_token', 'cloud_dragon_token'])
-      const ak = hasAny(acc, ['accessKey', 'access_key_id'])
-      const sk = hasAny(acc, ['secretKey', 'secret_access_key'])
-      if (!sts || !ak || !sk) {
-        issues.push(
-          issue(
-            'error',
-            'codearts-credentials',
-            'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)',
-          ),
-        )
-      }
-      token =
-        cstr(acc['securitytoken']) || cstr(acc['security_token']) || cstr(acc['cloud_dragon_token'])
-    } else if (opts.providerCode === 'codex') {
-      // 2026-10-27 扩容:各新平台的凭证落点与导入映射(mapXxxImport)同源同判
-      const tokens = isRecord(acc['tokens']) ? acc['tokens'] : undefined
-      token = cstr(tokens?.['access_token'])
-      if (!token) {
-        issues.push(
-          issue(
-            'error',
-            'codex-credentials',
-            'Codex 导入缺少 tokens.access_token(auth.json 形状不符或 keyring 模式)',
-          ),
-        )
-      }
-    } else if (opts.providerCode === 'opencode') {
-      const auth = isRecord(acc['auth']) ? acc['auth'] : undefined
-      token = cstr(auth?.['key']) || cstr(auth?.['access'])
-      if (!token) {
-        issues.push(issue('error', 'opencode-credentials', 'OpenCode 导入条目缺 key/access 字段'))
-      }
-    } else if (opts.providerCode === 'zcode') {
-      token =
-        cstr(acc['oauth:bigmodel:access_token']) ||
-        cstr(acc['zcodejwttoken']) ||
-        (Object.entries(acc).find(
-          ([k, v]) => k.startsWith('project-key-location:v1:') && typeof v === 'string' && v,
-        )?.[1] as string | undefined) ||
-        ''
-      if (!token) {
-        issues.push(
-          issue(
-            'error',
-            'zcode-credentials',
-            'ZCode 导入缺可用凭据(oauth:bigmodel:access_token / zcodejwttoken / project key 全缺)',
-          ),
-        )
-      }
-    } else if (opts.providerCode === 'loomy' || opts.providerCode === 'doubao') {
-      token = cstr(acc['value'])
-      if (!token) {
-        issues.push(issue('error', 'session-entry-credentials', '会话条目缺 value(形状不符)'))
-      }
-    } else if (opts.providerCode === 'grokbot') {
+    // ── 凭证必填面(形状判据单源:recognizeImportShape)──
+    // 12 平台原生形状(tokens.access_token / auth.key / accessToken / value /
+    // securitytoken+AK/SK …)的判据只有一份,Web 路由闸门、CLI 预检、服务端落库共用;
+    // 这里不再按平台各抄一段(抄一份就分叉一次,分叉一次就有平台导不进去)。
+    const shape = recognizeImportShape(opts.providerCode, row)
+    const token = shape.credential ?? ''
+    if (!shape.importable) {
       issues.push(
         issue(
           'error',
-          'grokbot-sealed',
-          'GrokBot 本机凭证为密封串(sandSealedFile),无明文 token 可导入(待解封方案取证)',
+          RELAY_IMPORT_SHAPE_ISSUE_CODE[opts.providerCode],
+          shape.reason ?? '缺少 token',
         ),
       )
-    } else if (!token) {
-      issues.push(issue('error', 'missing-token', '缺少 token'))
     }
 
     // ── 字段类型 ──

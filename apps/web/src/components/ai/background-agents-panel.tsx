@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import {
   Cpu,
@@ -285,7 +286,27 @@ export function BackgroundAgentsPanel({
                       <span className="text-xs text-muted-foreground">
                         {formatTimeOnly(agent.updated_at || agent.created_at)}
                       </span>
+                      {/* D08 ③:Fleet 跨会话行的逐 agent token;字段缺席=未判定,不渲染、不拿 0 顶替 */}
+                      {agent.tokens !== undefined && (
+                        <span
+                          data-testid={`bg-task-tokens-${agent.agent_id}`}
+                          className="text-xs text-muted-foreground tabular-nums"
+                        >
+                          {t('tokens')} {agent.tokens}
+                        </span>
+                      )}
                       <div className="ml-auto flex items-center gap-1">
+                        {/* D08 ③ 一键接管:有会话归属才给入口(宿主按 conversationId 生成深链),
+                          指向既有 /chat?conversationId= 深链;无归属=不给,不伪造入口 */}
+                        {agent.takeoverHref && (
+                          <Link
+                            href={agent.takeoverHref}
+                            data-testid={`bg-task-takeover-${agent.agent_id}`}
+                            className="rounded-sm px-2 py-0.5 text-xs text-primary transition-colors hover:underline"
+                          >
+                            {t('takeover')}
+                          </Link>
+                        )}
                         {/* D64 ④:动作按判定层 action 派发 —— stop=停止(pending/running);
                           retryStop=停止失败后的重试停止 + 忽略(显式,不静默吞)。
                           failed/timeout 的 action=retry 在本面板无重跑数据通道,不伪造入口。 */}

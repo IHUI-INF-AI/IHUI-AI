@@ -82,7 +82,10 @@ import {
   __test__ as sharedState,
   tryAcquireSharedLock,
 } from '../src/services/relay-account-shared-state.js'
-import { registerRelayAdapter } from '../src/services/relay-upstream-adapters.js'
+import {
+  registerRelayAdapter,
+  isRefreshableProviderCode,
+} from '../src/services/relay-upstream-adapters.js'
 
 function sweepRow(overrides: Record<string, unknown> = {}): unknown {
   return {
@@ -669,6 +672,83 @@ describe('空闲保活档在 sweep 里真的执行(开关成对对照)', () => {
     } finally {
       process.env.RELAY_ACCOUNT_KEEPALIVE_DAYS = 'off'
     }
+  })
+})
+
+describe('保活收敛:无续期能力 / 空壳 stub 平台不得命中保活窗口(2026-10-27 立)', () => {
+  const DAY = 86_400_000
+  function baseAdapter(providerCode: string, refreshTokenSupported?: boolean) {
+    return {
+      providerCode,
+      refreshTokenSupported,
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c: unknown, body: unknown) => (body ?? {}) as Record<string, unknown>,
+      checkHealth: async () => ({ ok: true }),
+      isAuthFailure: (status: number) => status === 401,
+      refreshToken: vi.fn(async () => null),
+    }
+  }
+
+  it('判据:有方法且未声明 false ⇒ 可续期;显式 false 或 无方法 ⇒ 不可续期', () => {
+    registerRelayAdapter(baseAdapter('workbuddy') as never) // 真实现
+    registerRelayAdapter(baseAdapter('doubao', false) as never) // 空壳 stub
+    // codex 用无 refreshToken 的真形态注册以验证"无方法"分支
+    registerRelayAdapter({
+      providerCode: 'codex',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c: unknown, body: unknown) => (body ?? {}) as Record<string, unknown>,
+      checkHealth: async () => ({ ok: true }),
+      isAuthFailure: (status: number) => status === 401,
+    } as never)
+    expect(isRefreshableProviderCode('workbuddy')).toBe(true)
+    expect(isRefreshableProviderCode('doubao')).toBe(false)
+    expect(isRefreshableProviderCode('codex')).toBe(false)
+    expect(isRefreshableProviderCode('not-registered')).toBe(false)
+  })
+
+  it('空壳 stub(refreshTokenSupported=false)账号:refreshOne 守卫直接 return false,不会被误判失败/摘除', async () => {
+    const refreshToken = vi.fn(async () => null)
+    registerRelayAdapter(baseAdapter('doubao', false) as never)
+    accountRows = [
+      sweepRow({
+        providerCode: 'doubao',
+        refreshTokenEnc: 'enc:rt',
+        healthStatus: 'healthy',
+        tokenExpiresAt: new Date(Date.now() - 60_000), // 已过期 ⇒ 临期档也会捞它
+      }),
+    ]
+    process.env.RELAY_ACCOUNT_KEEPALIVE_DAYS = '3'
+    const out = await sweepAccountPool()
+    // 守卫拦在 refreshOne 入口:doubao 的刷新函数根本没被调用,也不会被记成"刷新失败"
+    expect(refreshToken.mock.calls.length).toBe(0)
+    expect(updateCalls.some((u) => u.tempUnschedulable === true)).toBe(false)
+    expect(out.refreshFailed).toBe(0)
+    process.env.RELAY_ACCOUNT_KEEPALIVE_DAYS = 'off'
+  })
+
+  it('keepaliveIdleWhere 含「可续期平台」IN 过滤:空壳 stub 被排除', async () => {
+    const m = await import('../src/services/relay-account-pool-scheduler.js')
+    registerRelayAdapter(baseAdapter('workbuddy') as never) // 可续期
+    registerRelayAdapter(baseAdapter('doubao', false) as never) // 空壳 stub ⇒ 不可续期
+    registerRelayAdapter({
+      providerCode: 'codex',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c: unknown, body: unknown) => (body ?? {}) as Record<string, unknown>,
+      checkHealth: async () => ({ ok: true }),
+      isAuthFailure: (status: number) => status === 401,
+    } as never)
+    const q = new PgDialect().sqlToQuery(
+      m.keepaliveIdleWhere(new Date('2026-10-26T00:00:00Z')) as never,
+    )
+    const text = q.sql.toLowerCase()
+    const params = (q.params as unknown[]).map(String)
+    expect(text).toContain('provider_code') // IN 子句(可续期平台列)出现
+    // 可续期集合含 workbuddy、不含 doubao(由 getRefreshableProviderCodes 决定;IN 值被参数化)
+    expect(params).toContain('workbuddy')
+    expect(params).not.toContain('doubao')
   })
 })
 

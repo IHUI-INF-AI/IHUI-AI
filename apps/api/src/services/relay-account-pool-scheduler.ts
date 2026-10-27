@@ -27,7 +27,12 @@ import { decryptAccountCredentials, type AccountCredentials } from './relay-acco
 import { tryAcquireSharedLock } from './relay-account-shared-state.js'
 import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
-import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
+import {
+  getRelayAdapter,
+  getRefreshableProviderCodes,
+  isRefreshableProviderCode,
+  type AdapterAccountContext,
+} from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
 import { pickProxyForAccount } from './relay-proxy-pool.js'
 import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
@@ -118,7 +123,9 @@ export function accountIdleClock() {
 
 /**
  * 空闲保活的 where(导出供镜像测试锁形状):启用 + 未摘除 + 未判死 + 能自救续票,
- * 且空闲时钟早于窗口。不要求 tokenExpiresAt —— 临期档管「将过期」,这一档专管「闲置」;
+ * 且空闲时钟早于窗口 + **平台确能续期**(2026-10-27 立:见 isRefreshableProviderCode,
+ * 杜绝无续期能力/空壳 stub 平台命中窗口却只 refreshSkipped 的假命中)。
+ * 不要求 tokenExpiresAt —— 临期档管「将过期」,这一档专管「闲置」;
  * 两档都汇进 refreshOne 的同一把失败计数,不各写一份摘除口径。
  */
 export function keepaliveIdleWhere(cutoff: Date) {
@@ -127,6 +134,7 @@ export function keepaliveIdleWhere(cutoff: Date) {
     eq(aiRelayAccountPool.tempUnschedulable, false),
     ne(aiRelayAccountPool.healthStatus, 'down'),
     recredentialableCondition(),
+    inArray(aiRelayAccountPool.providerCode, getRefreshableProviderCodes()),
     lt(accountIdleClock(), cutoff),
   )
 }
@@ -310,7 +318,9 @@ export async function refreshOne(
   tally?: EgressProxyTally,
 ): Promise<boolean> {
   const adapter = getRelayAdapter(row.providerCode)
-  if (!adapter?.refreshToken) return false
+  // 方法缺失 或 显式声明不可续期(空壳 stub) ⇒ 直接判不可刷新,
+  // 避免把"刷新失败"记到 doubao/loomy 这类恒 null 平台上 → 连续 3 次误判自动摘除好号。
+  if (!adapter?.refreshToken || adapter.refreshTokenSupported === false) return false
   const credentials = decryptAccountCredentials(row)
   try {
     const proxyUrl = await resolveEgressProxy(row, tally)
@@ -427,8 +437,8 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       out.refreshSkipped++
       return
     }
-    const adapter = getRelayAdapter(row.providerCode)
-    if (!adapter?.refreshToken) {
+    if (!isRefreshableProviderCode(row.providerCode)) {
+      // 缺 refreshToken 方法 或 显式声明不可续期(空壳 stub)⇒ 跳过,绝不记成"刷新失败"
       out.refreshSkipped++
       return
     }
@@ -460,8 +470,8 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
         out.refreshSkipped++
         return
       }
-      const adapter = getRelayAdapter(row.providerCode)
-      if (!adapter?.refreshToken) {
+      if (!isRefreshableProviderCode(row.providerCode)) {
+        // 缺 refreshToken 方法 或 显式声明不可续期(空壳 stub)⇒ 跳过
         out.refreshSkipped++
         return
       }
@@ -530,8 +540,7 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   for (const row of downs) {
     if (row.refreshFailureCount >= REFRESH_FAILURE_LIMIT) continue
     if (shouldDeferRefresh(row, now)) continue // 同上:票未过期不抢客户端的轮换权
-    const adapter = getRelayAdapter(row.providerCode)
-    if (!adapter?.refreshToken) continue
+    if (!isRefreshableProviderCode(row.providerCode)) continue
     if (await refreshOne(row, egress)) out.healthRecovered++
   }
 
