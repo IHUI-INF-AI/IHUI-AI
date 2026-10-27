@@ -74,7 +74,8 @@ test('归因不得反向:同一文本在"点名本次文件"与"不点名"两种
 // 修法两半:门自己按面分流(--staged 只把**索引里有的**违规判 exit 1,未跟踪判 exit 2),
 // 归因层把 exit 2 认作"该门未对本枚提交下结论"。本测试钉的是后一半的**四个方向**。
 test('态①b:门在我这一侧判 exit 2 ⇒ 落未判定档,既不判 mine 也不判"与本次无关"', () => {
-  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, MY_FILES, EXTERNALS_STABLE } = __test__
+  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, MY_FILES, EXTERNALS_STABLE } =
+    __test__
   const text = SUMMARY + FAIL_29
   const undeterminable = {
     status: 2,
@@ -84,7 +85,13 @@ test('态①b:门在我这一侧判 exit 2 ⇒ 落未判定档,既不判 mine �
   // 差分第二前提(2026-10-17):两侧必须读自同一份外部状态快照,否则只能落未差分。
   // 本测试的自变量是**退出码**,快照必须当控制变量固定成"同一份" —— 否则臂 2 的翻向
   // 是被新前提改的,不是被 exit 码改的(那这条测试就证明不了它声称的东西)。
-  const stableBase = () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null, externals: EXTERNALS_STABLE })
+  const stableBase = () => ({
+    ran: true,
+    status: 0,
+    output: 'HEAD 面绿',
+    why: null,
+    externals: EXTERNALS_STABLE,
+  })
 
   // 臂 1:只有我这个面 exit 2,基线绿不绿都不该改变结论 —— 关键是**不得判 mine**
   const v1 = classifyHookFailure({
@@ -120,7 +127,11 @@ test('态①b:门在我这一侧判 exit 2 ⇒ 落未判定档,既不判 mine �
     runGateBaseline: stableBase,
   })
   assert.equal(v2.kind, 'mine', 'exit 1 + 基线绿 ⇒ 差分仍判引入红;新档不得吃掉旧结论')
-  assert.equal(v2.delta?.introduced, 1, '臂 2 必须真的走 introduced(而非点名档),否则这条不构成 exit 码的证据')
+  assert.equal(
+    v2.delta?.introduced,
+    1,
+    '臂 2 必须真的走 introduced(而非点名档),否则这条不构成 exit 码的证据',
+  )
 
   // 臂 3(方向锁):一道既喊"判不出"**又点名本次文件**的门,按"多要一次定向说明"处理。
   // 归因失效的方向从来不该是"多放一次跳门" —— 这条与守门 12/§12f 同一条禁令。
@@ -457,7 +468,11 @@ test('A12 跳门重试前必须重新暂存(否则"含新文件 + 归因允许�
   // `error: pathspec ... did not match any file(s) known to git` 退出 1。
   // 后果不是"重试慢一点"，而是**这条路对带新文件的提交根本不存在** ——
   // 本次实测 10 个声明文件里 4 个新文件全部 unknown，提交零落地，而归因本身判对了"红不在本次内容里"。
-  const retryAt = safeCommitSource.indexOf('commitArgs(true)')
+  // 〔锚点更新@2026-10-27,原写法在 HEAD 上就是红的(现读:未改任何文件时本例先死于这一行)〕
+  // `commitArgs(true)` 早已被重构进 `commitArgv(true)`(safe-commit.mjs 的 `commitArgv` = extraCfg
+  // + 署名参数 + commitArgs),而本断言的 indexOf 还盯着旧字面量 ⇒ 找不到 ⇒ 红。属**测试侧锚点腐烂**,
+  // 不是功能缺失(重暂存与重校验两行都还在原位)。两种写法都认,防止下一次改名再把这条锁打死。
+  const retryAt = safeCommitSource.search(/commitArgv?\(true\)/)
   assert.ok(retryAt > 0, '源码里找不到跳门重试调用(改过结构就得同步改本断言)')
   const window = safeCommitSource.slice(Math.max(0, retryAt - 1800), retryAt)
   // 本断言在 HEAD 上就是红的(实测:未改任何文件时跑本文件,该例 fail 于 `/git add \(retry\)/`
@@ -615,7 +630,8 @@ test('三支之二 · 自跑一个都没点名 ⇒ 可跳,但措辞只能说量�
 })
 
 test('自跑分支必须透传门源自声明:external-fs 不得被差分成本枚引入', () => {
-  const { decideWithSelfRunBatch, EXTERNAL_FS_MARK, MY_FILES, SUMMARY, FAIL_29, EXTERNALS_STABLE } = __test__
+  const { decideWithSelfRunBatch, EXTERNAL_FS_MARK, MY_FILES, SUMMARY, FAIL_29, EXTERNALS_STABLE } =
+    __test__
   const baseArgs = {
     verdict: stalledVerdict(),
     stagedFiles: MY_FILES,
@@ -623,7 +639,8 @@ test('自跑分支必须透传门源自声明:external-fs 不得被差分成本�
     runBatch: () => ({ ran: true, status: 1, output: SUMMARY + FAIL_29, why: null }),
     runGate: () => ({
       status: 1,
-      output: '[项目外] ../tmp-probe/x.mjs\n    原因: 内容同时包含项目路径引用 + agent 自动化操作痕迹',
+      output:
+        '[项目外] ../tmp-probe/x.mjs\n    原因: 内容同时包含项目路径引用 + agent 自动化操作痕迹',
       externals: EXTERNALS_STABLE,
     }),
     runGateBaseline: () => ({
@@ -1142,7 +1159,11 @@ test('G-1058649-1 环境性失败不得判 mine:git 步骤指纹 + 纯 warning �
 test('G-1058649-2 生死线不得放宽:同一行/同一块的内容错点名本任务文件 ⇒ 仍 mine', () => {
   const { classifyHookFailure } = __test__
   // 臂 A:表头行 + 其下 ≤4 行内有 error ⇒ 报错块表头即点名(2026-09-25 那条链不得被拆)
-  const a = classifyHookFailure({ text: REAL_RED_TEXT, stagedFiles: DECLARED3, runGate: runGateGreen })
+  const a = classifyHookFailure({
+    text: REAL_RED_TEXT,
+    stagedFiles: DECLARED3,
+    runGate: runGateGreen,
+  })
   assert.equal(a.kind, 'mine', `真 error 落在本任务文件上时必须仍 mine,实得 ${a.kind}`)
   assert.match(a.reason, /禁止 --no-verify/)
   // 臂 B:唯一变量是"那行是 warning 还是 error" ⇒ 两态必须可分,否则 A 是夹具碰巧
@@ -1169,12 +1190,19 @@ test('G-1058649-2 生死线不得放宽:同一行/同一块的内容错点名本
   for (const [name, l] of [
     ['裸 ✖', '✖ Failed to stage changes from tasks!'],
     ['裸 failed', '  ✖ lint-staged failed due to a git error.'],
-    ['eslint 纯 warning(行内含 error 字样)', '  1256:33  warning  Only these console methods are allowed: warn, error, info  no-console'],
+    [
+      'eslint 纯 warning(行内含 error 字样)',
+      '  1256:33  warning  Only these console methods are allowed: warn, error, info  no-console',
+    ],
     ['eslint 0 errors 汇总', '✖ 25 problems (0 errors, 25 warnings)'],
     ['prettier 找不到文件', '[error] No files matching the pattern were found: "scripts/foo.mjs".'],
     ['清单回显', '    *.{ts,tsx,js,jsx,mjs,cjs} — 3 files'],
   ])
-    assert.equal(__test__.contentErrorLine(l), false, `${name} 不是内容错,命中它就是把环境指纹当违规`)
+    assert.equal(
+      __test__.contentErrorLine(l),
+      false,
+      `${name} 不是内容错,命中它就是把环境指纹当违规`,
+    )
 })
 
 test('G-1058649-3 窗口里点名"他人文件"的内容错 ⇒ not-ours(既有语义不得改,且不得冒充"批内 0 失败")', () => {
@@ -1211,15 +1239,30 @@ test('G-1058649-4 blame 支必须绑轮:上一轮的 eslint 报告不得替本�
     stagedFiles: DECLARED3,
     runGate: runGateGreen,
   })
-  assert.notEqual(v.kind, 'mine', '借上一轮的内容错来挡本轮 ⇒ 正是本票要关掉的门(实测 20:08:57 那枚 mine)')
+  assert.notEqual(
+    v.kind,
+    'mine',
+    '借上一轮的内容错来挡本轮 ⇒ 正是本票要关掉的门(实测 20:08:57 那枚 mine)',
+  )
   assert.equal(v.kind, 'env-blocked', `本轮自己只有环境指纹,应落 env-blocked,实得 ${v.kind}`)
   // 反向锁:认不出轮次头时**不得**把整段丢掉(否则第二输入源等于没有)
   assert.ok(lastHookRound('无任何轮次头的一轮输出\n❌ x 失败，提交已阻止').includes('无任何轮次头'))
 })
 
 test('G-1058649-5 新 kind 必须接满:触发自跑、自跑失败保留 kind、留痕与分流都显式处理', () => {
-  const { needsBatchSelfRun, decideWithSelfRunBatch, classifyHookFailure, MY_FILES, SUMMARY, FAIL_29 } = __test__
-  const v = classifyHookFailure({ text: ENV_BLOCKED_TEXT, stagedFiles: DECLARED3, runGate: runGateGreen })
+  const {
+    needsBatchSelfRun,
+    decideWithSelfRunBatch,
+    classifyHookFailure,
+    MY_FILES,
+    SUMMARY,
+    FAIL_29,
+  } = __test__
+  const v = classifyHookFailure({
+    text: ENV_BLOCKED_TEXT,
+    stagedFiles: DECLARED3,
+    runGate: runGateGreen,
+  })
   assert.equal(v.kind, 'env-blocked', '前提')
   assert.equal(needsBatchSelfRun(v), true, '归因层手里没有门级结论 ⇒ 必须触发自跑取证')
   // A) 自跑那一轮仍是环境指纹 ⇒ 原样保留 env-blocked(不得洗成 unattributed)
@@ -1240,7 +1283,11 @@ test('G-1058649-5 新 kind 必须接满:触发自跑、自跑失败保留 kind�
     runBatch: () => ({ ran: false, status: null, output: '', why: '派生失败 EBUSY' }),
     runGate: runGateGreen,
   })
-  assert.equal(keepB.kind, 'env-blocked', `自跑失败时不得把 env-blocked 降级成 unattributed,实得 ${keepB.kind}`)
+  assert.equal(
+    keepB.kind,
+    'env-blocked',
+    `自跑失败时不得把 env-blocked 降级成 unattributed,实得 ${keepB.kind}`,
+  )
   assert.match(keepB.reason, /自跑 guardian-runner 同样未成功/)
   // C) 自跑拿到门级结论且点名本次 ⇒ mine 照旧(新 kind 不得吃掉更强的证据)
   const toMine = decideWithSelfRunBatch({
@@ -1259,19 +1306,31 @@ test('G-1058649-5 新 kind 必须接满:触发自跑、自跑失败保留 kind�
     runBatch: () => ({ ran: true, status: 0, output: GREEN_BATCH, why: null }),
     runGate: runGateGreen,
   })
-  assert.equal(allGreen.kind, 'not-ours', `批全绿 ⇒ 红在批外,应走既有 not-ours,实得 ${allGreen.kind}`)
+  assert.equal(
+    allGreen.kind,
+    'not-ours',
+    `批全绿 ⇒ 红在批外,应走既有 not-ours,实得 ${allGreen.kind}`,
+  )
 })
 
 test('G-1058649-6 装车证明:env-blocked 在 safe-commit 的分流/措辞/留痕三处都被显式处理', () => {
   const code = maskComments(safeCommitSource)
-  assert.match(code, /verdict\.kind === 'env-blocked'/, '主流程没有 env-blocked 分支 ⇒ 新 kind 只活在判据里(守门 70/76 同型)')
+  assert.match(
+    code,
+    /verdict\.kind === 'env-blocked'/,
+    '主流程没有 env-blocked 分支 ⇒ 新 kind 只活在判据里(守门 70/76 同型)',
+  )
   assert.match(code, /环境性失败,不是你的红,也不是别人的红/, '响亮那一行必须在码面,不在注释里')
   assert.match(code, /tasklist/, '必须给可执行的下一步')
   assert.match(code, /downgradedFromMine/, '"降级发生了"必须既打印又落账')
   const siteAt = code.search(/appendFileSync\(\s*join\([^)]*'safe-commit-attestation\.jsonl'/)
   assert.ok(siteAt > 0, '找不到留痕写点')
   assert.match(code.slice(siteAt), /envFingerprint:/, '环境指纹必须进既有记录,否则事后读不出这一型')
-  assert.match(code.slice(siteAt), /kind: verdict\.kind/, 'kind 必须原样落账(不得混进 unattributed)')
+  assert.match(
+    code.slice(siteAt),
+    /kind: verdict\.kind/,
+    'kind 必须原样落账(不得混进 unattributed)',
+  )
   // 反向锁:定责前提不得回退成"裸 failed/✖ 也算内容错"
   assert.doesNotMatch(
     code,
@@ -1280,9 +1339,10 @@ test('G-1058649-6 装车证明:env-blocked 在 safe-commit 的分流/措辞/留�
   )
   assert.match(hingeSource, /LEGACY_BLAME_SHAPE_RE\s*=/, '降级说明需要旧判据对照读数')
   assert.equal(
-    (hingeSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[^\S\n]*\/\/.*$/gm, '')).match(
-      /LEGACY_BLAME_SHAPE_RE/g,
-    ).length,
+    hingeSource
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^[^\S\n]*\/\/.*$/gm, '')
+      .match(/LEGACY_BLAME_SHAPE_RE/g).length,
     2,
     '旧判据只许"定义 + 对照读数"两处出现;第三处 = 拿它定责,正是本票要修的那一型',
   )
@@ -1314,7 +1374,8 @@ const GIT_STEP_FAILS = `✖ Failed to stage changes from tasks!
 ❌ 🎨 运行 lint-staged...失败，提交已阻止
 `
 /** 一条**属于别人文件**的真 finding 行:它与回显行相邻,故旧判据会让回显行借到它。 */
-const OTHER_FILE_ERROR = "  12:3  error  'unusedThing' is assigned a value but never used  @typescript-eslint/no-unused-vars"
+const OTHER_FILE_ERROR =
+  "  12:3  error  'unusedThing' is assigned a value but never used  @typescript-eslint/no-unused-vars"
 
 const ROOT_DECLARED = ['PROJECT_PLAN.md']
 
@@ -1453,7 +1514,13 @@ test('G-1058649-7 锁⑤:块边界认的是首行字面量 + 缩进形态,不是
   const r3 = exciseEchoBlocks(['      - PROJECT_PLAN.md', '  12:3  error  boom'])
   assert.equal(r3.dropped, 0, '没有首行就没有块;不得按行内关键词摘')
   // 漏块内空行会让"块尾早停"看起来像块被截断 ⇒ 空行必须一并摘
-  const r4 = exciseEchoBlocks(['📋 staged 文件清单审计(x):', '   - a.mjs', '', '      - b.mjs', '✖ x'])
+  const r4 = exciseEchoBlocks([
+    '📋 staged 文件清单审计(x):',
+    '   - a.mjs',
+    '',
+    '      - b.mjs',
+    '✖ x',
+  ])
   assert.deepEqual(r4.kept, ['✖ x'], '块内空行不得把块腰斩')
 })
 
@@ -1463,7 +1530,8 @@ test('G-1058649-7 锁⑤:块边界认的是首行字面量 + 缩进形态,不是
 // 可用面上判"你引入"(假红,零风险改动被死锁)。修法:门源自声明 [judges-remote-state],
 // 归因层经 readGateSource 读到标记 ⇒ 一进"复跑仍红"就落「未差分」,不进差分四态。
 test('态⓪:判远端态的门(自声明 [judges-remote-state])⇒ 未差分,不进差分四态', () => {
-  const { classifyHookFailure, verdictLine, REMOTE_STATE_MARK, SUMMARY, FAIL_29, MY_FILES } = __test__
+  const { classifyHookFailure, verdictLine, REMOTE_STATE_MARK, SUMMARY, FAIL_29, MY_FILES } =
+    __test__
   const text = SUMMARY + FAIL_29
   const seen = []
   const reader = (script) => {
@@ -1529,7 +1597,11 @@ test('态⓪:判远端态的门(自声明 [judges-remote-state])⇒ 未差分,�
   assert.equal(v3.kind, 'mine', '无 reader 注入时,点名/差分旧判据必须原样生效')
 
   // 臂 4(装车证明,守门 64/70/76 同型教训):两侧都要真接上
-  assert.match(safeCommitSource, /readGateSource/, 'safe-commit 未注入 readGateSource ⇒ 识别永不生效')
+  assert.match(
+    safeCommitSource,
+    /readGateSource/,
+    'safe-commit 未注入 readGateSource ⇒ 识别永不生效',
+  )
   const pushSyncSource = readFileSync(join(here, '..', 'check-push-sync.mjs'), 'utf8')
   assert.ok(
     pushSyncSource.includes(REMOTE_STATE_MARK),
@@ -1538,9 +1610,19 @@ test('态⓪:判远端态的门(自声明 [judges-remote-state])⇒ 未差分,�
 })
 
 test('态⓪b:判「仓库外文件系统状态」的门(自声明 [judges-external-fs-state])⇒ 未差分,不归责本枚', () => {
-  const { classifyHookFailure, verdictLine, EXTERNAL_FS_MARK, REMOTE_STATE_MARK, SUMMARY, FAIL_29, MY_FILES } =
-    __test__
-  assert.ok(EXTERNAL_FS_MARK && EXTERNAL_FS_MARK !== REMOTE_STATE_MARK, '两态必须各有各的标记,不能混用一把尺')
+  const {
+    classifyHookFailure,
+    verdictLine,
+    EXTERNAL_FS_MARK,
+    REMOTE_STATE_MARK,
+    SUMMARY,
+    FAIL_29,
+    MY_FILES,
+  } = __test__
+  assert.ok(
+    EXTERNAL_FS_MARK && EXTERNAL_FS_MARK !== REMOTE_STATE_MARK,
+    '两态必须各有各的标记,不能混用一把尺',
+  )
   const text = SUMMARY + FAIL_29
   const reader = () => `/** 注入夹具:带 ${EXTERNAL_FS_MARK} 标记的门源(判的是仓外磁盘态) */`
   // 臂 1:红点**未点名**本次文件 ⇒ 走未差分(标记的全部用途就在这里)
@@ -1549,7 +1631,8 @@ test('态⓪b:判「仓库外文件系统状态」的门(自声明 [judges-exter
     stagedFiles: MY_FILES,
     runGate: () => ({
       status: 1,
-      output: '违反 AGENTS.md §15 项目外路径禁令:\n  [项目外] ../tmp-probe/ars-live-repro.mjs\n    原因: 内容同时包含项目路径引用 + agent 自动化操作痕迹\n',
+      output:
+        '违反 AGENTS.md §15 项目外路径禁令:\n  [项目外] ../tmp-probe/ars-live-repro.mjs\n    原因: 内容同时包含项目路径引用 + agent 自动化操作痕迹\n',
     }),
     runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
     readGateSource: reader,
@@ -1562,7 +1645,11 @@ test('态⓪b:判「仓库外文件系统状态」的门(自声明 [judges-exter
   assert.match(det, /tmp-probe/, '取证行必须原样留着 —— 未差分不等于"这道红不存在"')
   const line1 = verdictLine(v1)
   assert.ok(!/不在本次提交内容里/.test(line1), '反向锁:未差分不得声称红与本次无关')
-  assert.match(line1, /仓库外|仓外/, `措辞必须点名真实成因(修法=查清外部现场归属),实得:${line1.slice(0, 160)}`)
+  assert.match(
+    line1,
+    /仓库外|仓外/,
+    `措辞必须点名真实成因(修法=查清外部现场归属),实得:${line1.slice(0, 160)}`,
+  )
 
   // 臂 1b(**攻击路径锁**,2026-10-15 评审给的):同一枚标记 + 红点**点名本次文件** ⇒ 必须仍判 mine。
   // 若这条分支排在点名判据之前,门源里塞一行注释就能把"点名你改的文件"的红洗成可跳 ⇒ §0.10 违规。
@@ -1573,7 +1660,11 @@ test('态⓪b:判「仓库外文件系统状态」的门(自声明 [judges-exter
     runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
     readGateSource: reader,
   })
-  assert.equal(attack.kind, 'mine', `带标记但点名本次文件必须仍拒跳(标记不是免罪符),实得 ${attack.kind}`)
+  assert.equal(
+    attack.kind,
+    'mine',
+    `带标记但点名本次文件必须仍拒跳(标记不是免罪符),实得 ${attack.kind}`,
+  )
   assert.equal(attack.delta?.externalFs ?? 0, 0, '点名臂先行生效后不得再计入未差分档')
 
   // 臂 2(方向锁,最关键):同一现场摘掉标记 ⇒ 差分档完整回归,"本枚引入"照判、照拒跳
@@ -1628,7 +1719,11 @@ test('态⓪b:判「仓库外文件系统状态」的门(自声明 [judges-exter
     /includes\(EXTERNAL_FS_MARK\)/,
     '归因层必须真读这个标记(只声明不识别 = 门 64/70/76 那一型"造好没装车")',
   )
-  assert.match(attrSource, /externalFs/, '计数必须进 delta,否则这一态不可机读、下一轮就没人知道它拦过什么')
+  assert.match(
+    attrSource,
+    /externalFs/,
+    '计数必须进 delta,否则这一态不可机读、下一轮就没人知道它拦过什么',
+  )
   // **顺序锁**:未差分分支必须排在点名判据之后(位置就是这道门的牙,挪到前面即成免罪符)
   const atNamed = attrSource.indexOf('const named = stagedFiles.filter')
   const atMark = attrSource.indexOf('includes(EXTERNAL_FS_MARK)')
@@ -1654,7 +1749,8 @@ test('态⓪b:判「仓库外文件系统状态」的门(自声明 [judges-exter
 // 也不许有 —— 由 R5 与本文件的源码级锁共同守着)。
 // ───────────────────────────────────────────────────────────────────────────
 test('差分第二前提 · 正向臂:两侧读自同一份外部状态快照 ⇒ introduced 照判 mine(不得被削弱)', () => {
-  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, MY_FILES, EXTERNALS_STABLE } = __test__
+  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, MY_FILES, EXTERNALS_STABLE } =
+    __test__
   const v = classifyHookFailure({
     text: SUMMARY + FAIL_29,
     stagedFiles: MY_FILES,
@@ -1676,13 +1772,24 @@ test('差分第二前提 · 正向臂:两侧读自同一份外部状态快照 �
   assert.equal(v.delta?.externalsMoved, 0, '外部状态未变 ⇒ moved 必须为 0')
   assert.equal(v.delta?.externalsUnobtainable, 0, '外部状态取得到 ⇒ unobtainable 必须为 0')
   assert.match(v.reason, /禁止 --no-verify/, '正向臂的出口必须是"修",不是跳门')
-  assert.match(v.detail.join('\n'), /外部状态快照两侧一致/, '明细要写下"这条前提核过了",不得静默放行')
+  assert.match(
+    v.detail.join('\n'),
+    /外部状态快照两侧一致/,
+    '明细要写下"这条前提核过了",不得静默放行',
+  )
   assert.match(verdictLine(v), /^❌/, 'mine 仍用拒绝色,不得读起来像可跳')
 })
 
 test('差分第二前提 · 反向臂:远端在两跑之间前移 ⇒ 禁止落 introduced,落 undetermined-red 且措辞如实', () => {
-  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, MY_FILES, EXTERNALS_STABLE, externalsAdvanced } =
-    __test__
+  const {
+    classifyHookFailure,
+    verdictLine,
+    SUMMARY,
+    FAIL_29,
+    MY_FILES,
+    EXTERNALS_STABLE,
+    externalsAdvanced,
+  } = __test__
   // 与正向臂**逐字同形**,唯一变量是"我的面读到的快照"换了另一份 —— 两态必须可分,
   // 否则其中一条是夹具碰巧,证明不了是快照给的结论。
   const mk = (myExternals) =>
@@ -1706,7 +1813,11 @@ test('差分第二前提 · 反向臂:远端在两跑之间前移 ⇒ 禁止落 
   assert.equal(v.kind, 'undetermined-red', `实得 ${v.kind}:${v.reason}`)
   assert.equal(v.delta?.introduced, 0, '这一格禁止落 introduced —— 那正是本型要杀死的假红定责')
   assert.equal(v.delta?.externalsMoved, 1, '亚型必须可机读:moved')
-  assert.equal(v.delta?.externalsUnobtainable, 0, 'moved 不得同时算成"取不到"(两个亚型各有各的修法)')
+  assert.equal(
+    v.delta?.externalsUnobtainable,
+    0,
+    'moved 不得同时算成"取不到"(两个亚型各有各的修法)',
+  )
   const det = v.detail.join('\n')
   assert.match(det, /未能差分/, '明细必须落"未能差分"')
   assert.match(det, /外部状态快照/, '明细必须点名这一型的真实成因')
@@ -1724,8 +1835,18 @@ test('差分第二前提 · 反向臂:远端在两跑之间前移 ⇒ 禁止落 
   const named = classifyHookFailure({
     text: SUMMARY + FAIL_29,
     stagedFiles: MY_FILES,
-    runGate: () => ({ status: 1, output: `❌ ${MY_FILES[0]}:12 违规`, externals: externalsAdvanced() }),
-    runGateBaseline: () => ({ ran: true, status: 0, output: '绿', why: null, externals: EXTERNALS_STABLE }),
+    runGate: () => ({
+      status: 1,
+      output: `❌ ${MY_FILES[0]}:12 违规`,
+      externals: externalsAdvanced(),
+    }),
+    runGateBaseline: () => ({
+      ran: true,
+      status: 0,
+      output: '绿',
+      why: null,
+      externals: EXTERNALS_STABLE,
+    }),
   })
   assert.equal(named.kind, 'mine', `点名本次文件时更强,新前提不许截走它,实得 ${named.kind}`)
   assert.equal(named.delta?.externalsMoved ?? 0, 0, '点名档先行生效后不得再计入未差分档')
@@ -1734,7 +1855,8 @@ test('差分第二前提 · 反向臂:远端在两跑之间前移 ⇒ 禁止落 
 })
 
 test('差分第二前提 · 第三臂:快照取不到 ⇒ 同样未判定,绝不折算成"没变"', () => {
-  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, MY_FILES, EXTERNALS_STABLE } = __test__
+  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, MY_FILES, EXTERNALS_STABLE } =
+    __test__
   const base = {
     text: SUMMARY + FAIL_29,
     stagedFiles: MY_FILES,
@@ -1747,12 +1869,18 @@ test('差分第二前提 · 第三臂:快照取不到 ⇒ 同样未判定,绝不
     }),
   }
   const shapes = [
-    ['问不到远端(before/after 皆 null)', { before: null, after: null, why: 'ls-remote 不可用(离线)' }],
+    [
+      '问不到远端(before/after 皆 null)',
+      { before: null, after: null, why: 'ls-remote 不可用(离线)' },
+    ],
     ['只读到前一半', { before: 'remote=alpha', after: null }],
     ['空串(空值不是"内容一致")', { before: '', after: '' }],
   ]
   for (const [name, externals] of shapes) {
-    const v = classifyHookFailure({ ...base, runGate: () => ({ status: 1, output: '❌ 未映射工具名(1):probe_zz', externals }) })
+    const v = classifyHookFailure({
+      ...base,
+      runGate: () => ({ status: 1, output: '❌ 未映射工具名(1):probe_zz', externals }),
+    })
     assert.equal(v.kind, 'undetermined-red', `${name}:实得 ${v.kind}:${v.reason}`)
     assert.equal(v.delta?.introduced, 0, `${name}: "取不到"不得折算成"没变"再拿去定责`)
     assert.equal(v.delta?.externalsUnobtainable, 1, `${name}: 亚型必须可机读:unobtainable`)
@@ -1768,7 +1896,11 @@ test('差分第二前提 · 第三臂:快照取不到 ⇒ 同样未判定,绝不
     runGateBaseline: () => ({ ran: true, status: 0, output: '绿', why: null }),
   })
   assert.equal(noField.kind, 'undetermined-red', `未注入快照字段必须落未判定,实得 ${noField.kind}`)
-  assert.equal(noField.delta?.externalsUnobtainable, 1, '未注入与"问不到"同档(都没有证据说世界没动)')
+  assert.equal(
+    noField.delta?.externalsUnobtainable,
+    1,
+    '未注入与"问不到"同档(都没有证据说世界没动)',
+  )
   // 单侧内部漂移也算 moved:同一跑前后就读到两份 ⇒ 两侧无从对齐
   const withinRun = classifyHookFailure({
     text: SUMMARY + FAIL_29,
@@ -1778,7 +1910,13 @@ test('差分第二前提 · 第三臂:快照取不到 ⇒ 同样未判定,绝不
       output: '❌ 未映射工具名(1):probe_zz',
       externals: { before: 'remote=alpha', after: 'remote=beta' },
     }),
-    runGateBaseline: () => ({ ran: true, status: 0, output: '绿', why: null, externals: EXTERNALS_STABLE }),
+    runGateBaseline: () => ({
+      ran: true,
+      status: 0,
+      output: '绿',
+      why: null,
+      externals: EXTERNALS_STABLE,
+    }),
   })
   assert.equal(withinRun.kind, 'undetermined-red', `实得 ${withinRun.kind}`)
   assert.equal(withinRun.delta?.externalsMoved, 1, '单跑前后不一致也必须算"外部状态动过"')
@@ -1786,10 +1924,18 @@ test('差分第二前提 · 第三臂:快照取不到 ⇒ 同样未判定,绝不
   const stockArm = classifyHookFailure({
     text: SUMMARY + FAIL_29,
     stagedFiles: MY_FILES,
-    runGate: () => ({ status: 1, output: '❌ 未映射工具名(1):probe_zz', externals: __test__.externalsAdvanced() }),
+    runGate: () => ({
+      status: 1,
+      output: '❌ 未映射工具名(1):probe_zz',
+      externals: __test__.externalsAdvanced(),
+    }),
     runGateBaseline: () => ({ ran: true, status: 1, output: 'HEAD 面同样红', why: null }),
   })
-  assert.equal(stockArm.kind, 'not-ours', `存量档不得被新前提改掉(明令不动 ③),实得 ${stockArm.kind}`)
+  assert.equal(
+    stockArm.kind,
+    'not-ours',
+    `存量档不得被新前提改掉(明令不动 ③),实得 ${stockArm.kind}`,
+  )
   assert.match(verdictLine(stockArm), /HEAD 面亦红/, '存量档措辞照旧')
 })
 
@@ -1825,8 +1971,16 @@ test('装车证明:外部状态快照必须由 safe-commit 现读并接到两侧
     /(MACHINE_STATE_GATES|STOCK_ONLY_GATES|BASELINE_EXEMPT|NON_DIFFERENTIABLE|EXTERNAL_STATE_GATES)/,
     '差分第二前提一旦写成门 id 清单就必然腐烂(AGENTS:豁免项若已不存在同样算红)',
   )
-  assert.match(hingeSource, /externalsDiffUsable/, '归因层必须真调用这条前提(只声明不接=造好没装车)')
-  assert.match(hingeSource, /externalsMoved[\s\S]{0,400}externalsUnobtainable/, '两个亚型必须分别计数并进 delta')
+  assert.match(
+    hingeSource,
+    /externalsDiffUsable/,
+    '归因层必须真调用这条前提(只声明不接=造好没装车)',
+  )
+  assert.match(
+    hingeSource,
+    /externalsMoved[\s\S]{0,400}externalsUnobtainable/,
+    '两个亚型必须分别计数并进 delta',
+  )
 })
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1843,8 +1997,7 @@ test('G-1018220-②①:自愈型门点名"它自己刚修复"的声明文件 ⇒
   // 最小同形现场:自愈动作行与真 eslint 错误行**逐字同形**,唯一差别是行尾的结构化键 ——
   // 猜词式判据(修|补齐|fixed…)在这一行上无从下手,只有键可判。
   // 现场其余部分:门复跑仍红(红因在别处:另一个文件的真失败块)+ 基线面同红(存量)。
-  const healedButMarked =
-    `scripts/foo.mjs:36:10 error 'unused' is defined but never used. no-unused-vars ${SELF_HEAL_FIXED_MARK}`
+  const healedButMarked = `scripts/foo.mjs:36:10 error 'unused' is defined but never used. no-unused-vars ${SELF_HEAL_FIXED_MARK}`
   const v = classifyHookFailure({
     text: SUMMARY + FAIL_29,
     stagedFiles: MY_FILES,
@@ -1862,7 +2015,11 @@ test('G-1018220-②①:自愈型门点名"它自己刚修复"的声明文件 ⇒
     'mine',
     `自愈动作行(带键)点名不得判 mine —— 它说的是"已修复"不是"你的改动有问题",实得 ${v.kind}:${v.reason}`,
   )
-  assert.match(v.detail.join('\n'), /未点名本次任何文件/, '明细必须如实写下"带键的动作行不算点名",不得静默')
+  assert.match(
+    v.detail.join('\n'),
+    /未点名本次任何文件/,
+    '明细必须如实写下"带键的动作行不算点名",不得静默',
+  )
 })
 
 test('G-1018220-②②(防洗绿锁):普通门同形点名你声明的文件(不带键)⇒ 照旧判 mine', () => {
@@ -1892,7 +2049,11 @@ test('G-1018220-②③:混合输出(自愈点名 + 真失败点名)⇒ 仍判 mi
     stagedFiles: MY_FILES,
     runGate: () => ({ status: 1, output: out }),
   })
-  assert.equal(v.kind, 'mine', `报红块(不带键)点名本次文件时必须仍判 mine,实得 ${v.kind}:${v.reason}`)
+  assert.equal(
+    v.kind,
+    'mine',
+    `报红块(不带键)点名本次文件时必须仍判 mine,实得 ${v.kind}:${v.reason}`,
+  )
 })
 
 test('G-1018220-②④:门 47 真实自愈块形态(逐字取自钩子日志)在无汇总路径上不得被读成点名', () => {
@@ -1919,7 +2080,9 @@ test('G-1018220-②④:门 47 真实自愈块形态(逐字取自钩子日志)在
 })
 
 test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只打在自愈清单行;归因层不靠词面猜', () => {
-  const gateMasked = maskComments(readFileSync(join(here, '..', 'check-watermark-coverage.mjs'), 'utf8'))
+  const gateMasked = maskComments(
+    readFileSync(join(here, '..', 'check-watermark-coverage.mjs'), 'utf8'),
+  )
   assert.match(
     gateMasked,
     /import\s*\{\s*SELF_HEAL_FIXED_MARK\s*\}\s*from\s*'\.\/lib\/commit-gate-attribution\.mjs'/,
@@ -1951,8 +2114,14 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
 // 暂存的滞后 PROJECT_PLAN.md 副本,而本枚带 pathspec,那路径进不了本次提交。归因错的方向很贵:
 // 拒掉合法跳门,把人逼到不跑钩子的对象空间。票面验收①②必须成对 —— 少一条就是单向放松。
 {
-  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, EXTERNALS_STABLE, externalsAdvanced } =
-    __test__
+  const {
+    classifyHookFailure,
+    verdictLine,
+    SUMMARY,
+    FAIL_29,
+    EXTERNALS_STABLE,
+    externalsAdvanced,
+  } = __test__
   const GATE71 = '❌ 计划登记行防丢:检测到 1 行已入库登记行整行消失(按索引面判)'
   const DECL = ['scripts/tests/plan-tasks-f3-archive-exit.test.mjs']
   const myRed = () => ({ status: 1, output: GATE71, externals: EXTERNALS_STABLE })
@@ -1996,7 +2165,11 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
     })
     assert.equal(v.kind, 'mine', `红恰由本枚声明内容引入时必须仍判 mine,实得 ${v.kind}`)
     assert.equal(v.delta.introduced, 1, 'introduced 计数与 D1 同一把尺')
-    assert.match(v.reason, /禁止 --no-verify/, '出口必须是"修",不是跳门 —— 验收①②不成对=单向推松铰链')
+    assert.match(
+      v.reason,
+      /禁止 --no-verify/,
+      '出口必须是"修",不是跳门 —— 验收①②不成对=单向推松铰链',
+    )
   })
 
   test('G-24-前提复用:他人面绿但两跑之间外部状态动过 ⇒ 不得落 introduced(第二前提同样管新档)', () => {
@@ -2017,15 +2190,30 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
   test('G-24-回落档:他人面做不到的那一档 ⇒ 回落 HEAD 差分仍被轮次绑定守卫拦下,且点名路径不笼统拒绝', () => {
     const v = classifyHookFailure({
       ...base,
-      runGateForeignFace: () => ({ ran: false, status: null, output: '', why: '临时索引不可写(EBUSY)' }),
-      runGateBaseline: () => ({ ran: true, status: 0, output: '绿', why: null, externals: EXTERNALS_STABLE }),
+      runGateForeignFace: () => ({
+        ran: false,
+        status: null,
+        output: '',
+        why: '临时索引不可写(EBUSY)',
+      }),
+      runGateBaseline: () => ({
+        ran: true,
+        status: 0,
+        output: '绿',
+        why: null,
+        externals: EXTERNALS_STABLE,
+      }),
       myFaceStaged: [...DECL, 'PROJECT_PLAN.md'],
     })
     assert.equal(v.kind, 'undetermined-red', `实得 ${v.kind}:${v.reason}`)
     const det = v.detail.join('\n')
     assert.match(det, /他人面\(索引减去声明集\)不可用/, '回落必须留痕,不得静默换档')
     assert.match(v.reason, /这一面含 1 个非本票暂存项,归属未经差分证明/, '票面原句必须逐字在结论里')
-    assert.match(v.reason + det, /PROJECT_PLAN\.md/, '必须点名"因他人暂存内容而红"的具体路径,不得笼统拒绝')
+    assert.match(
+      v.reason + det,
+      /PROJECT_PLAN\.md/,
+      '必须点名"因他人暂存内容而红"的具体路径,不得笼统拒绝',
+    )
     assert.ok(!/不在本次提交内容里/.test(verdictLine(v)), '降级档不得冒充实证过的"与本次无关"')
   })
 }
@@ -2039,8 +2227,18 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
   const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, EXTERNALS_STABLE } = __test__
   const GATE30C = '❌ 陈旧副本守门:检出 3 个路径的索引内容等于历史提交版本'
   const DECL = ['scripts/lib/commit-gate-attribution.mjs']
-  const foreignOnFace = ['scripts/live-doc-edit.mjs', 'scripts/next-plan-id.mjs', 'apps/api/src/routes/live-gifts.ts']
-  const greenBase = () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null, externals: EXTERNALS_STABLE })
+  const foreignOnFace = [
+    'scripts/live-doc-edit.mjs',
+    'scripts/next-plan-id.mjs',
+    'apps/api/src/routes/live-gifts.ts',
+  ]
+  const greenBase = () => ({
+    ran: true,
+    status: 0,
+    output: 'HEAD 面绿',
+    why: null,
+    externals: EXTERNALS_STABLE,
+  })
   const base = {
     text: SUMMARY + FAIL_29,
     stagedFiles: DECL,
@@ -2053,14 +2251,25 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
       ...base,
       myFaceStaged: [...DECL, ...foreignOnFace],
     })
-    assert.equal(v.kind, 'undetermined-red', `轮次前提不成立时不得钉"本枚引入",实得 ${v.kind}:${v.reason}`)
+    assert.equal(
+      v.kind,
+      'undetermined-red',
+      `轮次前提不成立时不得钉"本枚引入",实得 ${v.kind}:${v.reason}`,
+    )
     assert.equal(v.delta.replayForeignUndetermined, 1, '降级档必须可机读')
     assert.equal(v.delta.foreignOnFaceCount, 3, 'N 必须可机读(票面:这一面含 N 个非本票暂存项)')
-    assert.match(v.reason, /这一面含 3 个非本票暂存项,归属未经差分证明/, '票面要求的原句必须逐字出现在结论里')
+    assert.match(
+      v.reason,
+      /这一面含 3 个非本票暂存项,归属未经差分证明/,
+      '票面要求的原句必须逐字出现在结论里',
+    )
     assert.match(v.reason, /live-doc-edit\.mjs/, '必须点名具体路径,不得笼统拒绝')
     const line = verdictLine(v)
     assert.ok(!/引入了红|改红/.test(line), `降级档不得再喊"本枚引入",实得:${line}`)
-    assert.ok(!/不在本次提交内容里/.test(line), '降级档也不得冒充实证过的"与本次无关"(失效方向=多要一次定向说明)')
+    assert.ok(
+      !/不在本次提交内容里/.test(line),
+      '降级档也不得冒充实证过的"与本次无关"(失效方向=多要一次定向说明)',
+    )
     assert.match(line, /^⚠️/, '警示口吻,不得读起来像已过门')
   })
 
@@ -2083,14 +2292,21 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
   // 守卫静默不触发 ⇒ 落 introduced ⇒ 判 mine。那是把"没判"写成"是我的"(§0.3 同型反向)。
   test('G-420① 第三条:面清单取不到(生产形态 [])⇒ 未判定,既不判 mine 也不判 not-ours', () => {
     const v = classifyHookFailure({ ...base, myFaceStaged: [] })
-    assert.equal(v.kind, 'undetermined-red', `取不到面时不得判"是本枚引入",实得 ${v.kind}:${v.reason}`)
+    assert.equal(
+      v.kind,
+      'undetermined-red',
+      `取不到面时不得判"是本枚引入",实得 ${v.kind}:${v.reason}`,
+    )
     assert.equal(v.delta.replayFaceUnverified, 1, '自证失败档必须可机读')
     assert.equal(v.delta.introduced, 0, '面不可信时 introduced 必须为 0')
     assert.match(v.reason, /不含本票声明集 1 项中的 1 项/, '必须点名缺了声明集里的哪几项')
     assert.match(v.reason, /commit-gate-attribution\.mjs/, '缺项清单必须逐条点名')
     const line = verdictLine(v)
     assert.ok(!/引入了红|改红/.test(line), `不得写成"是我的",实得:${line}`)
-    assert.ok(!/不在本次提交内容里|与本次无关\(已证\)/.test(line), '也不得写成"不是我的"(甩锅型失效)')
+    assert.ok(
+      !/不在本次提交内容里|与本次无关\(已证\)/.test(line),
+      '也不得写成"不是我的"(甩锅型失效)',
+    )
     assert.match(line, /^⚠️/, '警示口吻,不得读起来像已过门')
   })
 
@@ -2121,6 +2337,177 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
     assert.ok(seen.length > 0, '自跑那一轮必须真的调用到他人面出口(否则自跑比钩子宽)')
     assert.equal(v.kind, 'not-ours', `他人面读数必须参与自跑轮归因,实得 ${v.kind}`)
     assert.equal(v.delta.foreignFaceRed, 1)
+  })
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  2026-10-27(票"门 44 把红与未判定混在同一条输出流里")
+//  未判定必须是**可指认的红因**,而不是"无红可指 ⇒ 走应急档"那种无人可问责的默认出口。
+//  三个方向各有正反臂:
+//    ① 执行器的未判定名单必须进归因层的取材面(此前只有判红名单进得去);
+//    ② 未判定既不得折成红(假红死锁,§12e)也不得折成绿(把"没判"写成"判过",§0.3);
+//    ③ 名单格式与解析器必须同批漂(对账锁:锚点不在 ⇒ 先红,不静默失联)。
+//  夹具是**输入样本**,判据一律从 `__test__` 取(§22c:测试不复制实现)。
+// ════════════════════════════════════════════════════════════════════════════
+{
+  const {
+    classifyHookFailure,
+    verdictLine,
+    needsBatchSelfRun,
+    parseUndeterminedGates,
+    SUMMARY,
+    FAIL_29,
+    EXTERNALS_STABLE,
+  } = __test__
+  const DECL = ['scripts/check-root-dir-clean.mjs']
+  const greenBase = () => ({
+    ran: true,
+    status: 0,
+    output: 'HEAD 面绿',
+    why: null,
+    externals: EXTERNALS_STABLE,
+  })
+  const stockRed = () => ({
+    ran: true,
+    status: 1,
+    output: 'HEAD 面同样红',
+    why: null,
+    externals: EXTERNALS_STABLE,
+  })
+
+  const GREEN_BATCH = `
+🛡️ 守门脚本批量检查汇总
+  总检查数: 134(已执行 134)
+  通过: 132
+  警告: 0
+  失败: 0
+  跳过: 0
+  ❓ 未判定: 1(取不到输入,§0.3 不记绿也不冒红,见下方逐道点名)
+  总耗时: 9.0s
+`
+  const UNDET_44 = `
+❓ 1 道门**未判定**(取不到输入,§0.3)—— 与"判据判红"分开列:**不许**按缺陷派单,但也不许当通过:
+   · [44] 🧹 根目录整洁守门(一级目录白名单) —— 取不到输入,门自己交付未判定(§0.3):无法判定(上面该门回显里有它点名的路径;复现:node scripts/check-root-dir-clean.mjs --staged)
+`
+  const CRASH_30 = `
+⚠️ 1 道门**跑不起来(未判定)**—— 与"判据判红"分开列,别按缺陷派单:
+   · [30] 💥 崩溃门 —— 超时(复现:node scripts/check-crash.mjs;下一步:重跑本批)
+`
+
+  test('对账锁:执行器仍在打"未判定名单",且三处格式锚点与本文件夹具逐字同形', () => {
+    // 这条锁的意义就是"两边同批漂":executor 改了措辞而 parseUndeterminedGates 没跟上,
+    // 表现永远是**安静**(归因层读不到名单 ⇒ 退回旧口径),正是 §12f 说的失效型。
+    assert.ok(
+      runnerSource.includes('道门**未判定**'),
+      'executor 找不到未判定清单标题 ⇒ 名单格式已漂,须同批改 parseUndeterminedGates',
+    )
+    assert.ok(
+      runnerSource.includes('· [${g.id}] ${g.label} —— ${g.reason}'),
+      'executor 的逐条行模板已漂 ⇒ 归因层认不到门 id/label/原因',
+    )
+    assert.ok(
+      runnerSource.includes('复现:node scripts/${g.script}'),
+      '逐条行必须仍带可复制的复现命令(席位要指得出是哪道门)',
+    )
+    assert.ok(
+      UNDET_44.includes('道门**未判定**') && UNDET_44.includes('复现:node scripts/'),
+      '夹具必须与上面三条锚点同形,否则本文件的对账是假的',
+    )
+  })
+
+  test('U1 批内 0 红 + 未判定名单 ⇒ 落"有名字的未判定",并点名到那道门与它的复现命令', () => {
+    const v = classifyHookFailure({
+      text: GREEN_BATCH + UNDET_44,
+      stagedFiles: DECL,
+      runGate: () => ({ status: 0, output: '' }),
+      runGateBaseline: greenBase,
+    })
+    assert.equal(v.kind, 'undetermined-red', `未判定必须占一档,实得 ${v.kind}`)
+    assert.equal(v.undeterminedName, __test__.GATE_UNDETERMINED_NAME, '这一格必须有名字')
+    assert.equal(v.delta.gateSelfUndetermined, 1, '计数必须可机读(不得只写在散文里)')
+    assert.equal(v.failed.length, 0, '未判定不得并进 blocking 红名单')
+    assert.equal(v.undeterminedGates[0].script, 'check-root-dir-clean.mjs', '要指得出是哪道门')
+    assert.match(v.undeterminedGates[0].reason, /无法判定/, '该门自述的原因必须原样带上')
+    assert.equal(
+      needsBatchSelfRun(v),
+      false,
+      '未判定就是门级结论 ⇒ 不得再自跑整批补证据(那是"手里没结论"那一族的待遇)',
+    )
+  })
+
+  test('U2 双向反向锁:未判定既不折成红也不折成绿', () => {
+    const v = classifyHookFailure({
+      text: GREEN_BATCH + UNDET_44,
+      stagedFiles: DECL,
+      runGate: () => ({ status: 0, output: '' }),
+      runGateBaseline: greenBase,
+    })
+    const line = verdictLine(v)
+    assert.notEqual(v.kind, 'mine', '折成红 = 假红死锁(§12e:结局是逼人 --no-verify)')
+    assert.notEqual(v.kind, 'not-ours', '折成绿 = 把"没判"写成"判过"(§0.3)')
+    assert.ok(!/引入了红|改红/.test(line), `措辞不得喊"本枚引入",实得:${line}`)
+    assert.ok(!/不在本次提交内容里/.test(line), '措辞不得冒充已实证过的"与本次无关"')
+    assert.match(line, /gate-self-undetermined/, '措辞必须带上档名(可指认)')
+    assert.match(line, /^⚠️/, '警示口吻,不得读起来像已过门')
+  })
+
+  test('U3 两族不并桶:崩溃名单(`跑不起来(未判定)`)不是未判定名单的成员', () => {
+    const both = parseUndeterminedGates(GREEN_BATCH + UNDET_44 + CRASH_30)
+    assert.equal(
+      both.length,
+      1,
+      `并桶会把同一格数两次,实得 ${JSON.stringify(both.map((g) => g.id))}`,
+    )
+    assert.equal(both[0].id, '44')
+  })
+
+  test('U4 反向对照:同一批没有未判定名单 ⇒ 逐字退回旧口径(unattributed)', () => {
+    const v = classifyHookFailure({
+      text: GREEN_BATCH,
+      stagedFiles: DECL,
+      runGate: () => ({ status: 0, output: '' }),
+      runGateBaseline: greenBase,
+    })
+    assert.equal(v.kind, 'unattributed', `不得凭空造一个名字,实得 ${v.kind}`)
+    assert.equal(v.undeterminedName, undefined, '旧口径的结论里不该出现新字段')
+  })
+
+  test('U5 红与未判定同时在场 ⇒ 走原有差分四态(未判定不得抢红的档,也不得被红吃掉)', () => {
+    const v = classifyHookFailure({
+      text: SUMMARY + FAIL_29 + UNDET_44,
+      stagedFiles: DECL,
+      runGate: () => ({
+        status: 1,
+        output: '[29] 仍红且未点名本次文件',
+        externals: EXTERNALS_STABLE,
+      }),
+      runGateBaseline: stockRed,
+      myFaceStaged: [...DECL],
+    })
+    assert.equal(v.kind, 'not-ours', `红名单在场时按既有差分档走,实得 ${v.kind}`)
+    assert.equal(v.failed.length, 1, '判红名单一条都不能少(未判定名单排在红之后,不改红的后果)')
+    assert.equal(v.delta.stock, 1, '红的那道门照旧进 HEAD 差分 —— 加第二张表不得钝化红名单的牙')
+    assert.ok(
+      !/gate-self-undetermined/.test(v.reason),
+      `红名单在场时不得把整格改口成"未判定档",实得:${v.reason}`,
+    )
+  })
+
+  test('U6 门侧自述键单源:守门 44 import 常量,不得在自己文件里写第二份字面量', () => {
+    const gateSrc = readFileSync(join(here, '..', 'check-root-dir-clean.mjs'), 'utf8')
+    assert.ok(
+      gateSrc.includes("from './lib/commit-gate-attribution.mjs'"),
+      '守门 44 未 import 归因层常量 ⇒ 键住两份,改一处就静默失联(§0.6)',
+    )
+    assert.ok(
+      gateSrc.includes('GATE_UNDETERMINED_MARK'),
+      '结论行必须用常量打键(与归因层同一字面量)',
+    )
+    assert.match(
+      gateSrc,
+      /process\.exit\(outcome\.code\)/,
+      '退出码必须走档位表(把未判定硬编码成 exit 1 就是本票要杀的折叠)',
+    )
   })
 }
 

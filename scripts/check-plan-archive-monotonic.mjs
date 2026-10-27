@@ -40,12 +40,61 @@
  * 紧急跳过(不推荐):HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC=1 git commit ...
  */
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
+
+/**
+ * 这面全文的 **git blob 内容寻址**(与 `git rev-parse <rev>:<path>` 同值,2026-10-27 实测逐位相等)。
+ * 为什么要它:本门的结论必须说清"两面到底是同一枚内容,还是两面不同而本门恰好没命中"。
+ * 拿字符串比较当结论、再把结论写成"逐字相同",一旦两面真不同就是把"没判中"说成"两面一样"
+ * (AGENTS §0.3 那一型)。内容寻址是**可复核的凭证**,不是措辞。
+ * 零 git 派生(不额外 spawn),只吃调用方已经取到手的那份全文 ⇒ 与判据同面同轮(§0.4)。
+ */
+export function blobShaOf(text) {
+  const buf = Buffer.from(String(text ?? ''), 'utf8')
+  return createHash('sha1')
+    .update(`blob ${buf.length}\0`, 'utf8')
+    .update(buf)
+    .digest('hex')
+}
+
+/**
+ * 三态结论的**唯一文案出口**(2026-10-27 改造;入口与 --self-test 共用,禁止两处各写一遍措辞)。
+ *  ① `identical` 两面同一枚 blob ⇒ 本门**无一可判**(这才是"零改动"唯一合法的用法);
+ *  ② `no-hit`    两面不同而本门零命中 ⇒ 只能说"本门无命中",并把两面 blob 报出来;
+ *  ③ `hits`      检出倒退 ⇒ 红。
+ * "面取不到"这一态不在这里(它不归文案管,由调用方 exit 2 并点名原因,§0.3)。
+ * ⚠ ①②两分支的措辞纪律:「逐字相同」只许出现在 ① —— 自检里有一条锁钉住这一点。
+ */
+export function conclusionOf(faceLabel, headText, candText, hitCount) {
+  const headSha = blobShaOf(headText)
+  const candSha = blobShaOf(candText)
+  if (headSha === candSha)
+    return {
+      kind: 'identical',
+      headSha,
+      candSha,
+      line: `归档单调性:零改动(${faceLabel} 与 HEAD 逐字相同,两面同一枚 blob ${candSha})`,
+    }
+  if (!hitCount)
+    return {
+      kind: 'no-hit',
+      headSha,
+      candSha,
+      line: `归档单调性:本门无命中(两面 blob 不同:${faceLabel} ${candSha} / HEAD ${headSha})`,
+    }
+  return {
+    kind: 'hits',
+    headSha,
+    candSha,
+    line: `🈲 归档单调性守门:检出 ${hitCount} 条倒退(${faceLabel};两面 blob 不同:${candSha} / HEAD ${headSha})`,
+  }
+}
 
 /** 状态注记的**窄口径**剥离表:只删已知的状态括注,不碰正文与别的括注(§0.3 不猜)。 */
 const NOTE_RE =
@@ -193,7 +242,13 @@ function readFace(argv) {
   if (ci >= 0) {
     const p = argv[ci + 1]
     if (!p) return { error: '--candidate-file 缺路径' }
-    return { cand: readFileSync(p, 'utf8'), label: 'file:' + p }
+    // 路径给了但读不到(不存在 / 是目录 / 无权限)⇒ **未判定 exit 2**,不得让它抛未捕获异常
+    // 落到 RC=1 —— 那等于把"没取到面"冒充"检出倒退"(§0.3:取不到输入既不记绿也不冒红)。
+    try {
+      return { cand: readFileSync(p, 'utf8'), label: 'file:' + p }
+    } catch (e) {
+      return { error: `--candidate-file 取不到 ${p}: ` + String(e?.message || e).split('\n')[0] }
+    }
   }
   let cand
   try {
@@ -316,7 +371,53 @@ function selfTest() {
   } else {
     console.log('  ✅ HEAD=候选时零新增零命中(反向锁)')
   }
-  console.log(bad === 0 ? 'SELF-TEST OK(' + (cases.length + 1) + '/' + (cases.length + 1) + ')' : 'SELF-TEST FAILED(' + bad + ' 例)')
+  // ── 措辞三态锁(2026-10-27 改造的正/反两控,内存文本、零 git)────────────────
+  // 立因:旧实现在"两面 blob 不同而本门零命中"时照样印「零改动(索引 blob 与 HEAD 逐字相同)」
+  // 且 RC=0 —— 把"本门没判中"说成"两面一样"(§0.3"没判绝不写成判过")。这里必须**成对**写:
+  // 只钉"①含逐字相同"是恒真断言,钉不住失效;反向那一条(②不得含)摘掉即翻红。
+  const shifted = head + '\n- [ ] G-777 一面独有的新登记正文很长很长足够二十字以上\n'
+  const c1 = conclusionOf('索引 blob', head, head, 0)
+  const c2 = conclusionOf('索引 blob', head, shifted, 0)
+  const c3 = conclusionOf('索引 blob', head, head + '\n- [ ] G-807 恢复器用例不稳定,完整内容在归档件', 1)
+  if (c1.kind !== 'identical' || !c1.line.includes('逐字相同') || !/blob [0-9a-f]{40}/.test(c1.line)) {
+    bad++
+    console.log('  ❌ ①两面同一枚 blob ⇒ 必须报"逐字相同"并带 40 位 blob,实测 ' + c1.line)
+  } else {
+    console.log('  ✅ ①两面同一枚 blob ⇒ 零改动 + 同一枚 blob 凭证')
+  }
+  if (
+    c2.kind !== 'no-hit' ||
+    c2.line.includes('逐字相同') ||
+    c2.headSha === c2.candSha ||
+    !/两面 blob 不同/.test(c2.line)
+  ) {
+    bad++
+    console.log(
+      '  ❌ ②两面不同而零命中 ⇒ 结论必须点名两面 blob 不同、且不得出现"逐字相同",实测 ' + c2.line,
+    )
+  } else {
+    console.log('  ✅ ②两面不同而零命中 ⇒ "本门无命中(两面 blob 不同:… / …)",不含"逐字相同"')
+  }
+  if (c3.kind !== 'hits' || !/检出 1 条倒退/.test(c3.line)) {
+    bad++
+    console.log('  ❌ ③有命中 ⇒ 必须报倒退条数,实测 ' + c3.line)
+  } else {
+    console.log('  ✅ ③有命中 ⇒ 报倒退条数并带两面 blob 凭证')
+  }
+  // blob 内容寻址必须是 git 的算法(拿它当凭证,值对不上就是自造标识)。
+  // 期望值现读自 `printf 'a\n' | git hash-object --stdin`(2026-10-27 实测两侧逐位相等)。
+  const shaProbe = blobShaOf('a\n')
+  if (shaProbe !== '78981922613b2afb6025042ff6bd878ac1994e85') {
+    bad++
+    console.log('  ❌ blobShaOf 与 git 的 blob 内容寻址不符,实测 ' + shaProbe)
+  } else {
+    console.log('  ✅ blobShaOf == git hash-object(blob 头 + 全文)')
+  }
+  console.log(
+    bad === 0
+      ? 'SELF-TEST OK(' + (cases.length + 4) + '/' + (cases.length + 4) + ')'
+      : 'SELF-TEST FAILED(' + bad + ' 例)',
+  )
   return bad === 0 ? 0 : 1
 }
 
@@ -339,17 +440,23 @@ function main() {
     console.error('无法判定:' + f.error)
     return process.exit(2)
   }
-  if (f.cand === head) {
-    console.log('归档单调性:零改动(' + f.label + ' 与 HEAD 逐字相同)')
+  // 三态分流(2026-10-27 改造,措辞唯一出口 = conclusionOf):
+  //  ① 两面同一枚 blob        ⇒ "零改动(…逐字相同)" —— 只有这一态有权说"逐字相同";
+  //  ② 两面不同 ∧ 本门零命中  ⇒ "本门无命中(两面 blob 不同:… / …)" —— 旧措辞在这里印的正是
+  //     ①那句"逐字相同",把"本门没判中"说成"两面一样"(§0.3 + 门 89 R4"绿灯本身就是缺陷");
+  //  ③ 任一面取不到            ⇒ 上面两个 return 已走 exit 2(HEAD 面取不到 / 被审面取不到)。
+  const concl = conclusionOf(f.label, head, f.cand, 0)
+  if (concl.kind === 'identical') {
+    console.log(concl.line)
     return process.exit(0)
   }
   const { hits, stats } = analyze(head, f.cand)
   if (hits.length === 0) {
-    console.log('归档单调性:通过(' + f.label + ')')
+    console.log(concl.line)
     console.log(render(hits, stats))
     return process.exit(0)
   }
-  console.error('🈲 归档单调性守门:检出 ' + hits.length + ' 条倒退(' + f.label + ')')
+  console.error(conclusionOf(f.label, head, f.cand, hits.length).line)
   console.error(render(hits, stats))
   console.error('')
   console.error('  成因几乎总是"按旧快照整文件写回":HEAD 里已归档(✅)的票被展开回未勾活行,')
