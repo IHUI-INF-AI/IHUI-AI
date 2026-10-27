@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation'
 import { getPlatformConfig } from '@/lib/third-party-config'
 import { generateState, saveOAuthState } from '@/lib/oauth-utils'
 import { loadDingtalkQrSdk, type DingtalkFrameInstance } from './sdk-loader'
-import { UnconfiguredState, ErrorState } from './WechatQrPanel'
+import { UnconfiguredState, ErrorState, QR_PANEL_BOX } from './WechatQrPanel'
 
 interface DingtalkQrPanelProps {
   refreshKey: number
@@ -58,8 +58,10 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
           frameRef.current = window.DTFrameLogin(
             {
               id: containerId,
-              width: 280,
-              height: 260,
+              // 2026-10-27:与外框 QR_PANEL_BOX 同为 300×300 正方形
+              // (原 280×260 非正方形,iframe 比外框矮 ⇒ 底部留白且码偏小)
+              width: 300,
+              height: 300,
             },
             {
               client_id: clientId,
@@ -121,7 +123,7 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
   // React 18 严格模式 + 第三方 SDK DOM 操作冲突修复(2026-07-22)
   // 详见 WechatQrPanel.tsx 同名注释
   return (
-    <div className="relative mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-xl border bg-card">
+    <div className={QR_PANEL_BOX}>
       <div ref={containerRef} id={containerId} className="absolute inset-0" />
       {status === 'loading' && (
         <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />
