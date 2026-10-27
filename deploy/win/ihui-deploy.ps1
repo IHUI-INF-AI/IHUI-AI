@@ -3124,7 +3124,11 @@ if (-not (Test-HealthGate)) {
             Start-Sleep -Seconds 6
             $apiOk = $false
             for ($i = 1; $i -le 5; $i++) {
-                if (Test-Http -url $ApiHealth -contains '"status":"ok"') { $apiOk = $true; break }
+                # 2026-10-28 改探源站直连($OriginApi)而不是公网 $ApiHealth:这一步验的是
+                # "服务重启后本地起没起来",而公网 522 属 EdgeOne 入口故障(源站直探正常),
+                # 会让本行误报"需人工核查 IHUI-API"(01:31 实测即此,api 本身一直健康)。
+                # 公网那一维已由健康门禁单独判定(GATE-ENTRY-BROKEN),不在这里重复。
+                if (Test-Http -url $OriginApi -contains '"status":"ok"') { $apiOk = $true; break }
                 Start-Sleep -Seconds 6
             }
             if ($apiOk) { Ok "api 重启完成且健康" }
