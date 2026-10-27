@@ -3,25 +3,23 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Codex 适配器 + 提取器行为单测(2026-10-27 立)。
+ * Codex 适配器行为单测(2026-10-27 立;提取器部分同日迁 scripts/tests/codex-auth-extract.test.mjs)。
+ *
+ * 迁移立因:架构契约门(门 103)判 D1/D2 —— apps/api(端应用)不得依赖
+ * repo-tooling(scripts/),提取器测试的真家在 scripts/tests/(与 codearts/qoder/trae
+ * 三个兄弟提取器同一布局)。本文件只留适配器行为。
  *
  * 覆盖点:
- * - 提取器形状(有/无会话两态):auth.json raw 直通、指纹、keyring 模式真实出路文案、零回显
  * - isAuthFailure:401/403 + 凭证失效文案 / HTML 登录墙
  * - buildChatRequest:Responses API 形状、Bearer、store:false
  * - translateStreamChunk:output_text.delta / completed / error 帧;认不出的帧忽略
  * - checkHealth / getQuota:200 也未判定(形状未实证/无公开额度端点),401 → authFailed
  *
- * fetch 全部打桩,不发真实网络请求;提取器走临时目录,不碰本机真实 .codex。
+ * fetch 全部打桩,不发真实网络请求。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import crypto from 'node:crypto'
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
 import type { AdapterAccountContext, StreamState } from '../src/services/relay-upstream-adapters.js'
 import { codexAdapter } from '../src/services/upstream-adapters/codex-adapter.js'
-import { extractCodexAccounts, summarizeSession } from '../../../scripts/lib/codex-auth-extract.mjs'
 
 const mockFetch = vi.fn()
 
@@ -36,112 +34,6 @@ function makeCtx(): AdapterAccountContext {
     },
   } as unknown as AdapterAccountContext
 }
-
-function makeTempCodexHome(files: Record<string, string>): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-codex-test-'))
-  for (const [name, content] of Object.entries(files)) {
-    fs.writeFileSync(path.join(dir, name), content, 'utf8')
-  }
-  return dir
-}
-
-const AUTH_JSON_FIXTURE = JSON.stringify({
-  auth_mode: 'chatgpt',
-  tokens: {
-    id_token: 'id-token-test',
-    access_token: 'codex-access-token-test',
-    refresh_token: 'codex-refresh-token-test',
-    account_id: 'acc-test-1',
-  },
-  last_refresh: '2026-10-27T00:00:00.000Z',
-})
-
-// =============================================================================
-// 提取器:有/无会话两态
-// =============================================================================
-
-describe('codex 提取器 extractCodexAccounts', () => {
-  it('有会话:tokens raw 直通 + 来源标记 + 指纹(sha256 前 12 位)', async () => {
-    const home = makeTempCodexHome({ 'auth.json': AUTH_JSON_FIXTURE })
-    const out = await extractCodexAccounts({ codexHome: home })
-    expect(out.providerCode).toBe('codex')
-    expect(out.accounts).toHaveLength(1)
-    const acc = out.accounts[0]
-    expect(acc.source).toBe('codex')
-    expect(acc.authMode).toBe('chatgpt')
-    // raw 直通(§0.6):tokens 对象键名零改动
-    expect(acc.tokens).toEqual({
-      id_token: 'id-token-test',
-      access_token: 'codex-access-token-test',
-      refresh_token: 'codex-refresh-token-test',
-      account_id: 'acc-test-1',
-    })
-    expect(acc.lastRefresh).toBe('2026-10-27T00:00:00.000Z')
-    expect(acc.fingerprint).toBe(
-      crypto
-        .createHash('sha256')
-        .update('codex-access-token-test', 'utf8')
-        .digest('hex')
-        .slice(0, 12),
-    )
-  })
-
-  it('meta 摘要零回显:不含任何 token 明文,只有布尔/长度/指纹', async () => {
-    const home = makeTempCodexHome({ 'auth.json': AUTH_JSON_FIXTURE })
-    const out = await extractCodexAccounts({ codexHome: home })
-    const metaText = JSON.stringify(out.meta)
-    expect(metaText).not.toContain('codex-access-token-test')
-    expect(metaText).not.toContain('codex-refresh-token-test')
-    expect(metaText).not.toContain('id-token-test')
-    const s = summarizeSession(JSON.parse(AUTH_JSON_FIXTURE))
-    expect(s.hasAccessToken).toBe(true)
-    expect(s.hasRefreshToken).toBe(true)
-    expect(s.tokenFingerprint).toHaveLength(12)
-    expect(s.tokenLength).toBe('codex-access-token-test'.length)
-  })
-
-  it('无会话:目录缺 auth.json → CODEX_NO_SESSION(点名真实出路)', async () => {
-    const home = makeTempCodexHome({})
-    await expect(extractCodexAccounts({ codexHome: home })).rejects.toMatchObject({
-      code: 'CODEX_NO_SESSION',
-    })
-  })
-
-  it('无会话:keyring 模式 → CODEX_NO_SESSION + 凭据管理器真实出路文案', async () => {
-    const home = makeTempCodexHome({
-      'config.toml': 'cli_auth_credentials_store = "keyring"\nmodel = "gpt-5.1"\n',
-    })
-    const err = await extractCodexAccounts({ codexHome: home }).catch((e) => e)
-    expect(err.code).toBe('CODEX_NO_SESSION')
-    expect(err.message).toContain('keyring')
-    expect(err.message).toContain('凭据管理器')
-  })
-
-  it('auth.json 解析失败 → CODEX_BAD_AUTH_JSON(未判定,不猜字段)', async () => {
-    const home = makeTempCodexHome({ 'auth.json': '{not-json' })
-    await expect(extractCodexAccounts({ codexHome: home })).rejects.toMatchObject({
-      code: 'CODEX_BAD_AUTH_JSON',
-    })
-  })
-
-  it('auth_mode 非 chatgpt(API key 登录)→ CODEX_NO_SESSION 点名原因', async () => {
-    const home = makeTempCodexHome({
-      'auth.json': JSON.stringify({ auth_mode: 'apikey', OPENAI_API_KEY: null }),
-    })
-    const err = await extractCodexAccounts({ codexHome: home }).catch((e) => e)
-    expect(err.code).toBe('CODEX_NO_SESSION')
-    expect(err.message).toContain('apikey')
-  })
-
-  it('缺 tokens.access_token → CODEX_BAD_AUTH_JSON(形状不符 ⇒ 未判定)', async () => {
-    const home = makeTempCodexHome({
-      'auth.json': JSON.stringify({ auth_mode: 'chatgpt', tokens: { account_id: 'x' } }),
-    })
-    await expect(extractCodexAccounts({ codexHome: home })).rejects.toMatchObject({
-      code: 'CODEX_BAD_AUTH_JSON',
-    })
-  })
-})
 
 // =============================================================================
 // 适配器

@@ -3,27 +3,24 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * OpenCode 适配器 + 提取器行为单测(2026-10-27 立)。
+ * OpenCode 适配器行为单测(2026-10-27 立;提取器部分同日迁 scripts/tests/opencode-auth-extract.test.mjs)。
+ *
+ * 迁移立因:架构契约门(门 103)判 D1/D2 —— apps/api(端应用)不得依赖
+ * repo-tooling(scripts/),提取器测试的真家在 scripts/tests/(与 codearts/qoder/trae
+ * 三个兄弟提取器同一布局)。本文件只留适配器行为。
  *
  * 覆盖点:
- * - 提取器形状(有/无会话两态):OPENCODE_AUTH_CONTENT 优先、多 provider 数组形态、
- *   auth 对象 raw 直通、指纹、零回显
  * - isAuthFailure:401/403 + 凭证失效文案 / HTML 登录墙
  * - buildChatRequest:OpenAI 兼容透传 + Bearer
  * - translateStreamChunk / translateNonStream:透传 + error 帧识别
  * - checkHealth:2026-10-27 实弹实证 zen/v1/models 轻量端点(200 ok / 401 authFailed /
  *   其余未判定);getQuota:zen/v1/usage 实弹 404 不存在 ⇒ 如实未判定
  *
- * 提取器走注入(env/dataDir),不碰本机真实 auth.json;fetch 全打桩。
+ * fetch 全打桩。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import crypto from 'node:crypto'
 import type { AdapterAccountContext, StreamState } from '../src/services/relay-upstream-adapters.js'
 import { opencodeAdapter } from '../src/services/upstream-adapters/opencode-adapter.js'
-import {
-  extractOpencodeAccounts,
-  summarizeProvider,
-} from '../../../scripts/lib/opencode-auth-extract.mjs'
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch as unknown as typeof fetch
@@ -39,89 +36,6 @@ function makeCtx(): AdapterAccountContext {
     },
   } as unknown as AdapterAccountContext
 }
-
-const AUTH_FIXTURE = JSON.stringify({
-  opencode: { type: 'api', key: 'oc-key-test-1' },
-  anthropic: {
-    type: 'oauth',
-    access: 'anthropic-access-token-test',
-    refresh: 'anthropic-refresh-token-test',
-    expires: 1795356026000,
-    accountId: 'acc-ant-1',
-  },
-})
-
-// =============================================================================
-// 提取器:有/无会话两态
-// =============================================================================
-
-describe('opencode 提取器 extractOpencodeAccounts', () => {
-  it('有会话:每 provider 一账号,auth raw 直通 + 来源标记 + 指纹', async () => {
-    const out = await extractOpencodeAccounts({ authContent: AUTH_FIXTURE })
-    expect(out.providerCode).toBe('opencode')
-    expect(out.accounts).toHaveLength(2)
-    const first = out.accounts.find((a) => a.providerID === 'opencode')
-    const second = out.accounts.find((a) => a.providerID === 'anthropic')
-    expect(first?.source).toBe('opencode')
-    // raw 直通(§0.6):auth 对象键名零改动
-    expect(first?.auth).toEqual({ type: 'api', key: 'oc-key-test-1' })
-    expect(second?.auth).toMatchObject({ type: 'oauth', access: 'anthropic-access-token-test' })
-    expect(first?.fingerprint).toBe(
-      crypto.createHash('sha256').update('oc-key-test-1', 'utf8').digest('hex').slice(0, 12),
-    )
-    expect(second?.fingerprint).toBe(
-      crypto
-        .createHash('sha256')
-        .update('anthropic-access-token-test', 'utf8')
-        .digest('hex')
-        .slice(0, 12),
-    )
-  })
-
-  it('meta 摘要零回显:不含任何 token 明文', async () => {
-    const out = await extractOpencodeAccounts({ authContent: AUTH_FIXTURE })
-    const metaText = JSON.stringify(out.meta)
-    expect(metaText).not.toContain('oc-key-test-1')
-    expect(metaText).not.toContain('anthropic-access-token-test')
-    expect(metaText).not.toContain('anthropic-refresh-token-test')
-    const s = summarizeProvider('opencode', { type: 'api', key: 'oc-key-test-1' })
-    expect(s.hasKey).toBe(true)
-    expect(s.tokenFingerprint).toHaveLength(12)
-  })
-
-  it('无会话:无注入无文件 → OPENCODE_NO_SESSION(点名出路)', async () => {
-    const err = await extractOpencodeAccounts({ env: {} }).catch((e) => e)
-    expect(err.code).toBe('OPENCODE_NO_SESSION')
-    expect(err.message).toContain('auth.json')
-  })
-
-  it('注入内容解析失败 → OPENCODE_BAD_AUTH_JSON(未判定,不猜字段)', async () => {
-    await expect(extractOpencodeAccounts({ authContent: '{bad' })).rejects.toMatchObject({
-      code: 'OPENCODE_BAD_AUTH_JSON',
-    })
-  })
-
-  it('注入空对象 / 全键形状不符 → OPENCODE_NO_SESSION / OPENCODE_BAD_AUTH_JSON', async () => {
-    await expect(extractOpencodeAccounts({ authContent: '{}' })).rejects.toMatchObject({
-      code: 'OPENCODE_NO_SESSION',
-    })
-    await expect(extractOpencodeAccounts({ authContent: '{"a":1,"b":[2]}' })).rejects.toMatchObject(
-      {
-        code: 'OPENCODE_BAD_AUTH_JSON',
-      },
-    )
-  })
-
-  it('dataDir 显式注入时读该目录 auth.json(文件路径优先级在注入之后)', async () => {
-    const out = await extractOpencodeAccounts({
-      authContent: '',
-      env: {},
-      dataDir: undefined,
-    }).catch((e) => e)
-    // 空注入回落文件查找;无文件 ⇒ NO_SESSION(不为编造路径冒绿)
-    expect(out.code).toBe('OPENCODE_NO_SESSION')
-  })
-})
 
 // =============================================================================
 // 适配器
