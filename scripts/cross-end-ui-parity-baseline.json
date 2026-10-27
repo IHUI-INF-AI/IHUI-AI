@@ -6,13 +6,14 @@
     "DrawerComponent": 12,
     "InputArea": 15,
     "IntelligentAssistant": 6,
-    "LoginPopUp": 8,
+    "LoginPopUp": 9,
     "ModelConfigDialog": 6,
     "ModelList": 6,
     "NavBar": 7,
     "UserInfoCard": 4,
     "VideoPlayer": 5,
-    "VoiceInput": 8
+    "VoiceInput": 8,
+    "ScreenStates": 2
   },
   "radiusCounts": {
     "AgentRuntimePanel": 1,
