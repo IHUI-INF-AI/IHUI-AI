@@ -4605,6 +4605,17 @@
     "p1": "錄音啟動失敗"
   },
   "webViewPortal": {
+    "pluginMarket": "插件市場",
+    "skillsMarket": "技能市場",
+    "memoryManager": "記憶管理台",
+    "agentRules": "運行規則",
+    "publishMonitor": "發佈監測",
+    "dramaStudio": "短劇劇本",
+    "myResources": "我的資源",
+    "mySignUps": "我的報名",
+    "certificateDownload": "證書下載",
+    "marginWallet": "保證金錢包",
+    "withdrawRecords": "提現記錄",
     "cloudRuns": "雲託管執行記錄",
     "mediaTasks": "媒體任務",
     "voices": "語音資源",

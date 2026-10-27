@@ -4605,6 +4605,17 @@
     "p1": "녹음을 시작하지 못했습니다"
   },
   "webViewPortal": {
+    "pluginMarket": "플러그인 마켓",
+    "skillsMarket": "스킬 마켓",
+    "memoryManager": "메모리 관리대",
+    "agentRules": "실행 규칙",
+    "publishMonitor": "발행 모니터링",
+    "dramaStudio": "드라마 대본",
+    "myResources": "내 자료",
+    "mySignUps": "내 신청",
+    "certificateDownload": "수료증 다운로드",
+    "marginWallet": "예치금 지갑",
+    "withdrawRecords": "출금 기록",
     "cloudRuns": "클라우드 에이전트 실행 기록",
     "mediaTasks": "미디어 작업",
     "voices": "음성 리소스",
