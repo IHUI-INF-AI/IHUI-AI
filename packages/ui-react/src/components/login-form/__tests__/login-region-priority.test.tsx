@@ -199,6 +199,40 @@ describe('sortByPlatformPriority — 表外平台不丢', () => {
     const sorted = sortByPlatformPriority(providers(['wechat', 'google', 'github']), [])
     expect(sorted.map((p) => p.key)).toEqual(['wechat', 'google', 'github'])
   })
+
+  it('同一条执行器也服务扫码渠道列表(不为第二处另写一份排序)', () => {
+    const panels = [
+      { key: 'app' as const, labelKey: 'a', icon: null, webUrl: '/' },
+      { key: 'wechat' as const, labelKey: 'w', icon: null, webUrl: '/' },
+      { key: 'feishu' as const, labelKey: 'f', icon: null, webUrl: '/' },
+    ]
+    expect(sortByPlatformPriority(panels, ['wechat']).map((p) => p.key)).toEqual([
+      'wechat',
+      'app',
+      'feishu',
+    ])
+    expect(sortByPlatformPriority(panels, []).map((p) => p.key)).toEqual([
+      'app',
+      'wechat',
+      'feishu',
+    ])
+  })
+})
+
+describe('planLoginRegion — 扫码 tab 内部渠道序', () => {
+  it('国内档首位是微信;"微信扫码最优先"要连进 tab 之后第一屏也算', () => {
+    expect(planLoginRegion({ ipRegion: 'domestic', locale: 'zh-CN' }).qrPlatformPriority[0]).toBe(
+      'wechat',
+    )
+    // IP 判不出时随 locale 走:中文⇒国内档⇒仍然微信第一
+    expect(planLoginRegion({ ipRegion: null, locale: 'zh-CN' }).qrPlatformPriority[0]).toBe(
+      'wechat',
+    )
+  })
+
+  it('海外档给空表 = 一个都不重排(判据不越权改调用方的渠道序)', () => {
+    expect(planLoginRegion({ ipRegion: 'overseas', locale: 'en' }).qrPlatformPriority).toEqual([])
+  })
 })
 
 /* ── 渲染档:顺序真的跟着 tabs 数组走 ────────────────────────────────────── */

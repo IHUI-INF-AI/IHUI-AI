@@ -43,16 +43,18 @@ export interface ThirdPartyLoginButtonsProps {
 /**
  * 稳定排序:按 priority 表给的名次排前,未列名的保持原相对顺序排后。
  * 判据住在 region-policy.ts,本函数只执行排序 —— 两侧都不在此复算「哪个国家算国内」。
+ * 泛型:同一条排序既服务第三方图标网格(ThirdPartyProvider),也服务扫码 tab 内部的
+ * 渠道列表(QrPlatformConfig),两者都以 `key` 为身份。禁止为第二处再写一份排序。
  */
-export function sortByPlatformPriority(
-  providers: readonly ThirdPartyProvider[],
+export function sortByPlatformPriority<T extends { key: ThirdPartyPlatform }>(
+  items: readonly T[],
   priority: readonly ThirdPartyPlatform[],
-): ThirdPartyProvider[] {
+): T[] {
   const rank = new Map<ThirdPartyPlatform, number>()
   priority.forEach((key, index) => {
     if (!rank.has(key)) rank.set(key, index)
   })
-  return providers
+  return items
     .map((entry, index) => ({ entry, index }))
     .sort((a, b) => {
       const rankA = rank.get(a.entry.key)
