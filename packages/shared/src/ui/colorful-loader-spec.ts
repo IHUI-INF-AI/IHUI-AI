@@ -31,7 +31,7 @@ export const COLORFUL_LOADER_SPIN_MS = 1200
 export const COLORFUL_LOADER_DOT_COUNT = 72
 
 /** 彩点色相步进 5(i * 5,70%/60% 循环彩虹):三腿现值已同,收一处。 */
-export const COLORFUL_LOADER_HUE_STEP = 5
+const COLORFUL_LOADER_HUE_STEP = 5
 
 /** 轨道半径 = 直径一半(装饰点落在容器边缘)。 */
 export function colorfuleLoaderRadiusPx(sizePx: number): number {
