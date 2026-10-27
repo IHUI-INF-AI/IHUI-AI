@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 86b7a8108d9fadfb299073684fa790d589ccf60b
-// inputsSha256: b1474cc1cec6d4afe3d44795d6c6dfd526320b1429ff3a77809f3abbda8377b7
+// sourceCommit: fe86578df95e3e1f9f850148fa95a1f2631e4681
+// inputsSha256: 7ebdda5ea689801fca0ac76ee388c8a573481230517fdd23a104cfa96db0bab3
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -259,7 +259,8 @@
 // input: apps/web/app/(main)/admin/refund/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/admin/refund/page.tsx a88b2ceb20ccce16959ac58c55ba249296ed681c5481ad03e4f1e463ecdc3d50
 // input: apps/web/app/(main)/admin/relay-param-ops/page.tsx eec9fe4164facc66cce530f01bd6abfa49b667b64a28a6788ecd15662323bd82
-// input: apps/web/app/(main)/admin/relay/account-pool/page.tsx 110447ed9ea9792170a5320dab30f574386784201d7b8d701855448a6286046a
+// input: apps/web/app/(main)/admin/relay/account-pool/page.tsx 325241543b7c91e5b4094f71ec32dfb694174bd9518716bc24a1a17ff233373a
+// input: apps/web/app/(main)/admin/relay/account-proxy/page.tsx 87876584bed533a84ecbb2624c062fb74c8d780393b74d2d6305f4973ffd3108
 // input: apps/web/app/(main)/admin/relay/alert-rules/page.tsx fabfbb96d5db4e2eb4f8c630890e0511ad467e1c5572f02ba08dc150f7bd3785
 // input: apps/web/app/(main)/admin/relay/capacity/page.tsx e764a1fd7100863cdad16da8a5011b5951ca304f6eb4fb5735296e70e1263060
 // input: apps/web/app/(main)/admin/relay/channels/page.tsx ee2621001ff5858411a40cc5c8d71dc36aece49b8278adb7947d53e8d860ca3e
@@ -277,6 +278,7 @@
 // input: apps/web/app/(main)/admin/relay/peak-pricing/page.tsx 1bf9ff2a6fa41c8f2172ede3a6e889d2d5c36073e289a4ab94e0c5cb716b8f13
 // input: apps/web/app/(main)/admin/relay/plugins/page.tsx f2c489e7a2fce2f01b53cc7a2273014b1efcd4f14f16b0e68303b6b43381632d
 // input: apps/web/app/(main)/admin/relay/prompt-audit/page.tsx 0af7f0dec90485cd9814af6abd713afbca8320d24b5f3a046b86f941588063c8
+// input: apps/web/app/(main)/admin/relay/tasks/page.tsx 9eb080f4b63761bc12cdf066ae682d002431d52e17470054ee9621a061c8d16b
 // input: apps/web/app/(main)/admin/relay/user-attributes/page.tsx 43d93470aee50ec7618ccfd39a5b76436f8a017b70b9069f015659273e464f7a
 // input: apps/web/app/(main)/admin/resource-product/page.tsx 3e3f0fe50d3afc39991e7ca530634c996ca8496f42f7bca8b2608491b0027051
 // input: apps/web/app/(main)/admin/resource-tag/page.tsx 8713454be6610b3a9775d40217b653c2ee840d518a7251a0780065b258ef2b45
@@ -313,7 +315,7 @@
 // input: apps/web/app/(main)/admin/skill-versions/page.tsx c493386851d7f28c74a1fd134874040d25215fa6937f8f2b86d4c7ec7297b538
 // input: apps/web/app/(main)/admin/skills/page.tsx 430306a7968473f7ec0b93764700de97b39ae472d93971813ed2b8d880f3f8e2
 // input: apps/web/app/(main)/admin/sms-receive/page.tsx e0cd3fae2a950040d6dc0ce1ed3384f0a38b8917ae68dd48d6091628cc063aec
-// input: apps/web/app/(main)/admin/sms/operations/page.tsx a3f9853ff57a456489a8183c5e3a399a8edaa9dad02189574e6751f3922312ac
+// input: apps/web/app/(main)/admin/sms/operations/page.tsx ed0c5fa064992034dff88ad33efec69c99bd40976290c1de3dcdd19a35673b1c
 // input: apps/web/app/(main)/admin/sms/page.tsx cb772cd31d7dec775578e0797692be1f8204a44c6947091996996aca748960e5
 // input: apps/web/app/(main)/admin/statistics/page.tsx 898fca9b97d952ff402eee5071f4c0b343e5689de461991ca0c51b2ab2a48c76
 // input: apps/web/app/(main)/admin/system/login-logs/page.tsx 8232466920411a110c810e97acfdd0ac75d618ce782f690ded404032bc698964
@@ -871,7 +873,7 @@
 // input: apps/web/app/(main)/user/articles/page.tsx 2be46cc4dfdc50f4792a8ca582b20e2e577c960d0839b3c052d6ab78a84a46ed
 // input: apps/web/app/(main)/user/ask/page.tsx bbb3c8f056d013de4d1b3f6837ef9b092afededed1ac77859457a264f358a080
 // input: apps/web/app/(main)/user/circle/page.tsx 7358ec4b119c4ed8294bfb54eb8ec4633e367a3b0987427d5f530ab6fb822c4a
-// input: apps/web/app/(main)/user/comment/page.tsx 08a40756abac2c8e6863991164fe6a3d63b49e2d43ddc91df597dd586f2c8adf
+// input: apps/web/app/(main)/user/comment/page.tsx 57092b1801563cd1f7f3ffa177e521a3a1eb0ff9975a2d6d29e992ef40869cf0
 // input: apps/web/app/(main)/user/exam/page.tsx eca652e994dcf97e5f644317192ea1e65e3eec0ac09885a060410b4708b19714
 // input: apps/web/app/(main)/user/fans/page.tsx 42626ee58b7fab02d0de8432c675307f8e4589ed314fc705597514010e90d41b
 // input: apps/web/app/(main)/user/follow/page.tsx 8a98b39860066159c4ea24201f0521a6d63b2857af26dae450781016f83fd238
@@ -926,7 +928,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 8509c1bc6272c3e141461ae79a70c998d3f8298592eaf936a64bb9be2402b464
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-27T01:49:41.889Z
+// generatedAt: 2026-10-27T05:04:22.929Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1175,6 +1177,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/relay', param: false, group: 'admin' },
   { path: '/admin/relay-param-ops', param: false, group: 'admin' },
   { path: '/admin/relay/account-pool', param: false, group: 'admin' },
+  { path: '/admin/relay/account-proxy', param: false, group: 'admin' },
   { path: '/admin/relay/alert-rules', param: false, group: 'admin' },
   { path: '/admin/relay/capacity', param: false, group: 'admin' },
   { path: '/admin/relay/channels', param: false, group: 'admin' },
@@ -1191,6 +1194,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/relay/peak-pricing', param: false, group: 'admin' },
   { path: '/admin/relay/plugins', param: false, group: 'admin' },
   { path: '/admin/relay/prompt-audit', param: false, group: 'admin' },
+  { path: '/admin/relay/tasks', param: false, group: 'admin' },
   { path: '/admin/relay/user-attributes', param: false, group: 'admin' },
   { path: '/admin/resource-product', param: false, group: 'admin' },
   { path: '/admin/resource-tag', param: false, group: 'admin' },

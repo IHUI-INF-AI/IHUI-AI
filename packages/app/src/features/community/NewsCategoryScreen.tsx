@@ -277,7 +277,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brandAccent.light,
       paddingHorizontal: 4,
       paddingVertical: 1,
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadius.md,
     },
     pinnedText: { fontSize: rnType.caption.size, color: tk.brandAccent.deep, fontWeight: '500' },
     articleTitle: {
