@@ -160,7 +160,9 @@ const styles = StyleSheet.create({
   trackBar: {
     height: '100%',
     borderRadius: rnRadius.xs,
-    backgroundColor: tokens.brand.cta,
+    // 进度条无文字载体,不构成品牌底×前景成对(R3);填充走强调档,与共享层
+    // student-styles.progressFill 同一写法,品牌实底留给真正的操作钮(actionBtn)。
+    backgroundColor: tokens.brandAccent.deep,
   },
   // 当前包身份小字:更新前「内置包」,更新后「热更 xxxxxxxx」,前后一对照就知道生效没生效
   bundleTag: { color: tokens.text.tertiary, fontSize: 11, marginTop: 2 },
