@@ -23,7 +23,8 @@
     "clean": "rimraf dist .turbo node_modules",
     "qoder:import": "tsx scripts/relay-import-qoder.ts",
     "relay:inspect": "tsx scripts/relay-account-inspect.ts",
-    "relay:sessions": "tsx scripts/relay-session-inspect.ts"
+    "relay:sessions": "tsx scripts/relay-session-inspect.ts",
+    "relay:sessions:backup": "tsx scripts/relay-session-backup.ts"
   },
   "dependencies": {
     "@alicloud/dysmsapi20170525": "^4.6.0",
