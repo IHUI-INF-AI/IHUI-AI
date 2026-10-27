@@ -34,7 +34,7 @@ import { __test__ as gate } from './check-miniapp-mirror-fidelity.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { buildShellPage } from './gen-miniapp-mirror.mjs'
 import { pickCarrierShell } from './lib/rn-shell-refs.mjs'
-import { plan } from './plan-hand-mirror-conversion.mjs'
+import { navTitleExpr, plan, titleOnlyLifecycle } from './plan-hand-mirror-conversion.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const MP_DIR = 'apps/miniapp-taro/src'
@@ -91,6 +91,7 @@ export function planUpgrades(face = 'head') {
       base: name.replace(/Screen$/, ''),
       shellText: rnTexts.get(carrier.rel),
       shellName: carrier.name,
+      navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : null,
     })
     if (body?.error) {
       refused.push({ route: r.route, why: body.error })

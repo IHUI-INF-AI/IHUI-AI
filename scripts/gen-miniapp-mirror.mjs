@@ -541,7 +541,7 @@ export function rendersSharedIn(text, symbol) {
   return false
 }
 
-export function buildShellPage({ spec, base, shellText = '', shellName = null }) {
+export function buildShellPage({ spec, base, shellText = '', shellName = null, navTitle = null }) {
   // shellName 允许与被承载的共享屏**不同名**(2026-10-27):平台侧薄壳常叫 PlanScreen /
   // NewsScreen,而它渲染的共享屏是 PlanListScreen / SquareScreen —— 承载体是那个壳文件,
   // 不是名字。缺省仍按同名,保持既有页逐字不变。
@@ -571,8 +571,21 @@ export function buildShellPage({ spec, base, shellText = '', shellName = null })
   L.push(' */')
   L.push("import ThemeRoot from '@/components/ThemeRoot'")
   L.push(binding)
+  // 只设导航标题的生命周期钩子由调用方以 navTitle 传入时原样保留(标题是端内事实,
+  // 壳里的共享屏不管小程序导航栏;不保留就等于把原页的标题弄丢)。
+  const usesT = navTitle ? /(^|[^\w.$])t\s*\(/.test(navTitle) : false
+  if (navTitle) {
+    L.push("import Taro, { useDidShow } from '@tarojs/taro'")
+    if (usesT) L.push("import { useI18n } from '@/i18n'")
+  }
   L.push('')
   L.push(`export default function ${base}Page() {`)
+  if (navTitle) {
+    if (usesT) L.push('  const { t } = useI18n()')
+    L.push('  useDidShow(() => {')
+    L.push(`    Taro.setNavigationBarTitle({ title: ${navTitle} })`)
+    L.push('  })')
+  }
   L.push('  return (')
   L.push('    <ThemeRoot>')
   L.push(`      <${jsxTag} />`)
