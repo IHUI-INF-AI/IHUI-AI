@@ -62,6 +62,15 @@ export const userAutomations = pgTable(
     /** G-241:认领落租约的时刻。执行体崩溃时租约**必须会过期**,否则那一行永远无人认领
      *  (失效方向不能是"静默停摆");判租超龄的执行体可接管,接管条件与认领 CAS 同一条。 */
     claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    /** G-241(2026-10-27 立)结算状态机**显式状态字段**:把 pending_claim / processing /
+     *  backing_off / terminal 四态落到一列,作为 FSM 的第一公民态(其余列——attempt 退避计数、
+     *  claimed_at / next_run_at / last_run_at 时间戳、terminal_reason 终态成因——已是 FSM 的
+     *  持久化支撑)。由 settlement-state-machine.ts 的 deriveSettlementStatus 派生并写回;
+     *  null 留给旧行(读作"尚未经 FSM 派生")。单一真相源见该服务文件。 */
+    settlementStatus: varchar('settlement_status', { length: 24 }),
+    /** G-241:到达终态的时刻。terminal_reason 只记"为什么停",本列记"何时停";
+     *  与 settlement_status='terminal' 同时写、可空(非终态行留 null)。 */
+    settlementTerminalAt: timestamp('settlement_terminal_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
