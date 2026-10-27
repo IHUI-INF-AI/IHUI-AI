@@ -622,7 +622,9 @@ export function ProfileScreen() {
                 </TouchableOpacity>
               </View>
             ) : null}
-            <UserCard t={t} isLoggedIn={!!user} onPress={handleUserCardPress} />
+            <View style={styles.userCardWrap}>
+              <UserCard t={t} isLoggedIn={!!user} onPress={handleUserCardPress} />
+            </View>
             {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
             {/* 折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits + 行 35-39 back.svg 箭头) */}
             <TouchableOpacity
@@ -1295,7 +1297,7 @@ function ProfileContentSection(): React.JSX.Element {
     <View style={styles.contentSection}>
       <View style={styles.tabBarWrap}>
         <CategoryInlineBar
-          items={TAB_BAR_ITEMS}
+          items={TAB_BAR_ITEMS.map((it) => ({ ...it, label: t(it.label) }))}
           selectedId={String(activeTab)}
           onSelect={onTabChange}
           colorScheme={resolvedTheme}
@@ -1971,6 +1973,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    // marginHorizontal 对齐小程序端 .membership-benefits-container 的 mx-[20rpx];
+    // 缺它时这块 bg-card 通栏贴住屏幕左右,看起来像一条没有边距的独立色带。
+    marginHorizontal: rpx(20),
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.card,
@@ -1991,6 +1996,11 @@ const styles = StyleSheet.create({
   // 会员权益内容容器(对齐 Uniapp 10rpx(≈5px)与折叠头间距)
   membershipBenefitsWrap: {
     marginTop: rpx(10),
+    marginHorizontal: rpx(20),
+  },
+  // UserCard 4 宫格外层(对齐小程序端 <View className="mx-[20rpx]"><UserCard/></View>)
+  userCardWrap: {
+    marginHorizontal: rpx(20),
   },
   tabBarWrap: {
     // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距

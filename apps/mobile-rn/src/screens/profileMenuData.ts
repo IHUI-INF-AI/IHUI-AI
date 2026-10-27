@@ -193,7 +193,7 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'LearnReview', labelKey: 'learnReview.title', icon: Repeat, viaParent: true },
       {
         key: 'KnowledgeBaseEdit',
-        labelKey: 'knowledgeBaseEdit.title',
+        labelKey: 'knowledgeBaseEdit.titleEdit',
         icon: PenLine,
         viaParent: true,
       },
@@ -310,11 +310,11 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'AgentCategories', labelKey: 'agentCategories.title', icon: Bot, viaParent: true },
       { key: 'ArticleEdit', labelKey: 'articleEdit.title', icon: PenLine, viaParent: true },
       { key: 'ArticleHot', labelKey: 'articleHot.title', icon: Trophy, viaParent: true },
-      { key: 'AskEdit', labelKey: 'askEdit.title', icon: HelpCircle, viaParent: true },
+      { key: 'AskEdit', labelKey: 'askEdit.titleEdit', icon: HelpCircle, viaParent: true },
       { key: 'PlazaNew', labelKey: 'plazaNew.title', icon: Plus, viaParent: true },
       {
         key: 'BusinessCardEdit',
-        labelKey: 'businessCardEdit.title',
+        labelKey: 'businessCardEdit.pageTitleEdit',
         icon: IdCard,
         viaParent: true,
       },
