@@ -4,6 +4,7 @@
 
 import { createHmac, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
+import { isProductionGuard } from '../config/index.js'
 
 /**
  * 视频签名 URL 服务。
@@ -28,7 +29,7 @@ function getDevEphemeralSecret(): string {
 
 function getSecret(): string {
   const env = process.env.VIDEO_SIGN_SECRET
-  if (process.env.NODE_ENV === 'production') {
+  if (isProductionGuard) {
     if (!env || env.length < 32 || env === 'ihui-video-sign-secret-change-me') {
       throw new Error(
         'VIDEO_SIGN_SECRET 未配置或强度不足(生产环境必须 ≥32 字符随机字符串),请在 .env 中配置后重启。',
