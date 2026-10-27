@@ -1,0 +1,6 @@
+{
+  "okAtoms": 9,
+  "totalAtoms": 11,
+  "setAt": "2026-10-27",
+  "note": "阶段1 收官基线: card/input/badge/tabs/dialog/tooltip/vip-badge/switch/sheet 双端消费 spec(9 OK); collapsible=NO-SPEC(需功能对齐,非纯几何)、avatar=PARTIAL(他人在飞 WIP 遗留 ui-native 未吃 avatar-spec)为已知开口。棘轮只拦退化、不拦存量:覆盖率涨不拦,跌才拦。"
+}
