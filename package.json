@@ -196,7 +196,8 @@
     "check:dispatch-board": "node scripts/dispatch-board.mjs --seats 6",
     "check:lint-staged-pin": "node scripts/check-lint-staged-stdio-pin.mjs",
     "qoder:import": "pnpm --filter @ihui/api qoder:import",
-    "relay:inspect": "pnpm --filter @ihui/api relay:inspect"
+    "relay:inspect": "pnpm --filter @ihui/api relay:inspect",
+    "relay:sessions": "pnpm --filter @ihui/api relay:sessions"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "contributors": [
