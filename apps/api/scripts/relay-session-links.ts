@@ -7,6 +7,7 @@
  *
  *   pnpm relay:session-links list
  *   pnpm relay:session-links rebuild --since <ISO> --account <id> [--label <名>] [--apply]
+ *   pnpm relay:session-links rebuild --auto [--snapshot-dir <dir>] [--auth-file <p>] [--apply]
  *   pnpm relay:session-links assign  --conversation <id> --account <id> [--apply]
  *   pnpm relay:session-links unassign --conversation <id> [--apply]
  *
@@ -14,6 +15,12 @@
  * - 以切换时刻 since 分桶:会话创建时刻 > since ⇒ 归该账号;≤ since 及时刻不可判 ⇒
  *   显式标 accountId=null(未归属),绝不猜;
  * - rebuild 只改台账,不动任何会话文件;已有 linkedBy=manual 的人工标注原样保留。
+ *
+ * --auto(2026-10-27 增):账号与切换时刻从登录态快照库
+ * (~/.wb-switch/backups/workbuddy-desktop.<ts>.info,每份记录"切换前活跃账号"的 uid)
+ * 自动推导成时间线段,用户零手抄。段判定口径:第 i 份快照记录的账号活跃于
+ * [上一份快照时刻, 本份快照时刻),当前 auth 文件的账号活跃于 [最后快照时刻, now);
+ * 第一段无下界。账号不可判的快照 ⇒ 该段整段标未归属(绝不把邻居账号借给它)。
  *
  * 红线(§2):默认 dry-run,写台账必须 --apply;写前把旧台账备份为
  * session_links.json.bak-<ts>;输出零内容回显(只有 id/计数/时刻,无消息正文无 token)。
@@ -31,6 +38,7 @@ import {
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { maskPhone, resolveAuthFileCandidates } from './relay-account-switch.js'
 
 /** 台账与被盘点的会话库根(默认本机真实面;测试注入临时目录) */
 export interface SessionLinksPaths {
@@ -261,6 +269,235 @@ export function planRebuild(
   return { action: 'rebuild', next: { version: 1, accounts, links }, changes, warnings }
 }
 
+/** 快照账号元数据(只带展示字段,绝不带 token) */
+export interface SnapshotAccountEntry {
+  fileName: string
+  /** 快照时刻 ISO(文件名解析;解析不出回落 mtime 并告警) */
+  ts: string
+  /** null = 该快照账号不可判(坏文件/缺 uid),整段会标未归属 */
+  accountId: string | null
+  /** 展示标签(昵称/打码手机号/uid 前 8 位),进台账前已脱敏 */
+  label: string
+}
+
+export interface TimelineSegment {
+  /** null = 该段账号不可判 */
+  accountId: string | null
+  label: string
+  /** null = 无下界(最早一段) */
+  start: string | null
+  /** null = 现在(最后一段) */
+  end: string | null
+  /** accountId=null 时的原因:早于最早快照的存量 / 快照账号本身不可判 */
+  reason?: 'below-earliest' | 'account-unknown'
+}
+
+/** 快照文件名 workbuddy-desktop.<YYYY-MM-DD>T<HH-MM-SS>Z.info → ISO 时刻 */
+export function parseSnapshotStamp(fileName: string): string | null {
+  const m = /^workbuddy-desktop\.(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.info$/.exec(fileName)
+  if (!m) return null
+  return `${m[1]}T${m[2]}:${m[3]}:${m[4]}Z`
+}
+
+/** 从 auth/快照文件读账号元数据(只取 uid/nickname/phoneNumber,零 token 读取面) */
+export function readAccountMeta(filePath: string): { accountId: string | null; label: string } {
+  let root: Record<string, unknown>
+  try {
+    root = JSON.parse(readFileSync(filePath, 'utf8')) as Record<string, unknown>
+  } catch {
+    return { accountId: null, label: '' }
+  }
+  const acc = (root['account'] ?? {}) as Record<string, unknown>
+  const uidRaw = acc['uid'] ?? acc['id']
+  const accountId = typeof uidRaw === 'string' && uidRaw.length > 0 ? uidRaw : null
+  const nick = acc['nickname']
+  let label = typeof nick === 'string' && nick.length > 0 ? nick : ''
+  if (!label) label = maskPhone(acc['phoneNumber']) ?? ''
+  if (!label && accountId) label = accountId.slice(0, 8)
+  return { accountId, label }
+}
+
+/** 枚举快照库(按时刻升序);坏文件进围栏但不静默跳过——它占的段必须标未归属 */
+export function scanSnapshotAccounts(backupsDir: string): {
+  entries: SnapshotAccountEntry[]
+  warnings: string[]
+} {
+  if (!existsSync(backupsDir)) {
+    throw new Error(
+      `登录态快照库不存在: ${backupsDir}。先跑 pnpm relay:switch-account(capture 快照)或 wb-switch 切换一次`,
+    )
+  }
+  const entries: SnapshotAccountEntry[] = []
+  const warnings: string[] = []
+  for (const n of readdirSync(backupsDir)) {
+    if (!/^workbuddy-desktop\..+\.info$/.test(n)) continue
+    const abs = join(backupsDir, n)
+    let st
+    try {
+      st = statSync(abs)
+    } catch {
+      continue
+    }
+    if (!st.isFile()) continue
+    let ts = parseSnapshotStamp(n)
+    if (!ts) {
+      ts = st.mtime.toISOString()
+      warnings.push(`${n}: 文件名解析不出时刻,按 mtime=${ts}(可能错位,建议改用规范命名快照)`)
+    }
+    const meta = readAccountMeta(abs)
+    if (!meta.accountId) warnings.push(`${n}: 账号不可判(解析失败或缺 uid),该时段标未归属`)
+    entries.push({ fileName: n, ts, accountId: meta.accountId, label: meta.label })
+  }
+  entries.sort((a, b) => a.ts.localeCompare(b.ts))
+  return { entries, warnings }
+}
+
+export interface TimelineOptions {
+  /**
+   * true = 最早快照之前的存量归最早快照的账号。默认 false:该时段无下界证据,
+   * 按方案 A「存量显式未归属不猜」标 null(放宽必须显式给旗)。
+   */
+  trustEarliest?: boolean
+}
+
+/**
+ * 快照序列 → 账号时间线段。语义:第 i 份快照记录"ts_i 切换前活跃的账号",
+ * 故该账号活跃区间 = [ts_{i-1}, ts_i);当前 auth 文件的账号 = [ts_last, now)。
+ * 首段无下界 ⇒ 默认标未归属(快照只能证明"时刻 ts_1 时活跃",不能证明更早)。
+ * 相邻同账号段合并(仅合并账号可判的段;null 段保留边界,便于如实展示)。
+ */
+export function deriveAccountTimeline(
+  snapshots: SnapshotAccountEntry[],
+  current: { accountId: string; label: string } | null,
+  opts: TimelineOptions = {},
+): TimelineSegment[] {
+  if (snapshots.length === 0) return []
+  const segs: TimelineSegment[] = []
+  for (let i = 0; i < snapshots.length; i += 1) {
+    const s = snapshots[i]!
+    const first = i === 0
+    const strictFirst = first && !opts.trustEarliest
+    segs.push({
+      accountId: strictFirst ? null : s.accountId,
+      label: s.label,
+      start: first ? null : snapshots[i - 1]!.ts,
+      end: s.ts,
+      ...(strictFirst
+        ? { reason: 'below-earliest' as const }
+        : s.accountId === null
+          ? { reason: 'account-unknown' as const }
+          : {}),
+    })
+  }
+  const last = snapshots[snapshots.length - 1]!
+  segs.push({
+    accountId: current?.accountId ?? null,
+    label: current?.label ?? '',
+    start: last.ts,
+    end: null,
+    ...(current ? {} : { reason: 'account-unknown' as const }),
+  })
+  const merged: TimelineSegment[] = []
+  for (const s of segs) {
+    const prev = merged[merged.length - 1]
+    if (prev && s.accountId !== null && prev.accountId === s.accountId) {
+      prev.end = s.end
+      if (!prev.label && s.label) prev.label = s.label
+      continue
+    }
+    merged.push({ ...s })
+  }
+  return merged
+}
+
+/** 段判定:会话创建时刻落在哪一段;区间左闭右开,首段无下界、末段无上界 */
+export function segmentForTime(segments: TimelineSegment[], iso: string): TimelineSegment | null {
+  const ms = Date.parse(iso)
+  if (!Number.isFinite(ms)) return null
+  for (const s of segments) {
+    const startMs = s.start === null ? null : Date.parse(s.start)
+    const endMs = s.end === null ? null : Date.parse(s.end)
+    if (startMs !== null && !Number.isFinite(startMs)) continue
+    if (endMs !== null && !Number.isFinite(endMs)) continue
+    if ((startMs === null || ms >= startMs) && (endMs === null || ms < endMs)) return s
+  }
+  return null
+}
+
+/** rebuild --auto:按时间线段判定归属;manual 保留;不可判段/段外/无时刻证据 ⇒ null */
+export function planRebuildFromTimeline(
+  ledger: SessionLinksLedger,
+  segments: TimelineSegment[],
+  conversations: string[],
+  times: Record<string, string | null>,
+  now = new Date(),
+): LinksPlan {
+  if (segments.length === 0)
+    throw new Error('账号时间线为空:快照库无可用快照,无法自动推导(先产生一份登录态快照)')
+  const accounts: LedgerAccount[] = [...ledger.accounts]
+  for (const seg of segments) {
+    if (!seg.accountId) continue
+    const i = accounts.findIndex((a) => a.accountId === seg.accountId)
+    if (i === -1) {
+      accounts.push({ accountId: seg.accountId, label: seg.label, since: seg.start ?? '' })
+    } else {
+      const prev = accounts[i]!
+      accounts[i] = {
+        accountId: prev.accountId,
+        label: seg.label || prev.label,
+        since: prev.since || seg.start || '',
+      }
+    }
+  }
+  const links: Record<string, LinkEntry> = { ...ledger.links }
+  const changes: string[] = []
+  const warnings: string[] = []
+  const nowIso = now.toISOString()
+  for (const conv of conversations) {
+    const prev = ledger.links[conv]
+    if (prev?.linkedBy === 'manual') continue
+    const t = times[conv] ?? null
+    let accountId: string | null = null
+    let segmentDesc = ''
+    if (t === null) {
+      warnings.push(`${conv}: 创建时刻无证据,标未归属`)
+    } else {
+      const seg = segmentForTime(segments, t)
+      if (seg) {
+        accountId = seg.accountId
+        segmentDesc = `;段 ${seg.start ?? '-∞'}~${seg.end ?? 'now'}`
+        if (seg.accountId === null) {
+          warnings.push(
+            `${conv}: 落在${seg.reason === 'below-earliest' ? '最早快照之前的存量' : '账号不可判'}段,标未归属`,
+          )
+        }
+      } else {
+        warnings.push(`${conv}: 落在快照覆盖之外,标未归属`)
+      }
+    }
+    const beforeDesc = prev ? `${prev.accountId ?? '未归属'}(${prev.linkedBy})` : '无记录'
+    changes.push(
+      `${conv}: ${beforeDesc} → ${accountId ?? '未归属(null)'}` +
+        `${t ? `(创建=${t}${segmentDesc})` : '(创建时刻无证据,不猜)'}`,
+    )
+    links[conv] = { accountId, linkedAt: nowIso, linkedBy: 'auto-since' }
+  }
+  return { action: 'rebuild', next: { version: 1, accounts, links }, changes, warnings }
+}
+
+/** 时间线段的人类可读清单(零 token、手机号打码) */
+export function formatTimeline(segments: TimelineSegment[]): string[] {
+  return segments.map((s, i) => {
+    const short = s.accountId ? s.accountId.slice(0, 8) : ''
+    const who = s.accountId
+      ? `${short}…${s.label && s.label !== short ? ` ${s.label}` : ''}`
+      : s.reason === 'below-earliest'
+        ? '(未归属:早于最早快照的存量)'
+        : '(未归属:账号不可判)'
+    return `  段${i + 1}: ${s.start ?? '-∞'} ~ ${s.end ?? 'now'}  → ${who}`
+  })
+}
+
 /** assign:人工标注(linkedBy=manual);账号必须在台账 accounts 里 */
 export function planAssign(
   ledger: SessionLinksLedger,
@@ -344,26 +581,79 @@ export function main(
   try {
     if (cmd === undefined || cmd === 'list') {
       console.log(formatLedgerList(loadLedger(paths.ledgerFile), paths))
-      console.log('\n写操作用法: rebuild / assign / unassign(默认 dry-run,加 --apply 才写台账)')
+      console.log(
+        '\n写操作用法: rebuild(--auto 自动推导 / --since+--account 手工)/ assign / unassign(默认 dry-run,加 --apply 才写台账)',
+      )
       return 0
     }
     const ledger = loadLedger(paths.ledgerFile) ?? emptyLedger()
     let plan: LinksPlan
     if (cmd === 'rebuild') {
+      const auto = argv.includes('--auto')
       const since = getFlag(argv, '--since')
       const account = getFlag(argv, '--account')
       const label = getFlag(argv, '--label')
-      if (!since || !account) {
-        console.error('rebuild 需要 --since <ISO> --account <id>([--label <名>])')
+      if (auto && (since !== undefined || account !== undefined)) {
+        console.error('--auto 与 --since/--account 互斥:自动推导不需要手填时刻/账号')
         return 2
       }
       const scan = scanConversationIds(paths.sessionsRoot, paths.projectsRoot)
-      plan = planRebuild(
-        ledger,
-        { since, accountId: account, label },
-        scan.conversations,
-        scan.times,
-      )
+      if (auto) {
+        const snapshotDir =
+          getFlag(argv, '--snapshot-dir') ?? join(homedir(), '.wb-switch', 'backups')
+        const authFileFlag = getFlag(argv, '--auth-file')
+        const authFile =
+          authFileFlag ?? resolveAuthFileCandidates().find((p) => existsSync(p)) ?? null
+        const snap = scanSnapshotAccounts(snapshotDir)
+        if (snap.entries.length === 0) {
+          console.error(
+            `快照库无 workbuddy-desktop.*.info: ${snapshotDir};无法推导账号时间线(先产生一份登录态快照)`,
+          )
+          return 2
+        }
+        const meta = authFile ? readAccountMeta(authFile) : { accountId: null, label: '' }
+        if (!meta.accountId) {
+          console.error(
+            `当前登录态账号不可判(${authFile ?? '未找到 auth 文件'}),拒绝写出台账;` +
+              '可用 --auth-file <路径> 指定当前登录态文件',
+          )
+          return 2
+        }
+        const trustEarliest = argv.includes('--trust-earliest')
+        const segments = deriveAccountTimeline(
+          snap.entries,
+          { accountId: meta.accountId, label: meta.label },
+          { trustEarliest },
+        )
+        const earliestAccount = snap.entries.find((e) => e.accountId)?.accountId ?? null
+        const hints: string[] = []
+        if (!trustEarliest && earliestAccount) {
+          hints.push(
+            `  提示: 最早快照(${snap.entries[0]!.ts})之前的存量默认标未归属(方案 A 不猜);` +
+              `若确认该时段一直使用 ${earliestAccount.slice(0, 8)}…,加 --trust-earliest 归它`,
+          )
+        }
+        console.log('== 账号时间线(从登录态快照库自动推导) ==')
+        console.log(
+          [...formatTimeline(segments), ...hints, ...snap.warnings.map((w) => `  ⚠ ${w}`)].join(
+            '\n',
+          ),
+        )
+        plan = planRebuildFromTimeline(ledger, segments, scan.conversations, scan.times)
+      } else {
+        if (!since || !account) {
+          console.error(
+            'rebuild 需要 --since <ISO> --account <id>([--label <名>]),或 --auto 自动推导',
+          )
+          return 2
+        }
+        plan = planRebuild(
+          ledger,
+          { since, accountId: account, label },
+          scan.conversations,
+          scan.times,
+        )
+      }
     } else if (cmd === 'assign') {
       const conv = getFlag(argv, '--conversation')
       const account = getFlag(argv, '--account')
