@@ -28,6 +28,7 @@ import {
   Input,
   Label,
   Loader2,
+  LogIn,
   PartyPopper,
   Pencil,
   Power,
@@ -60,6 +61,22 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { useConfirm } from '@/hooks/use-confirm'
+import { useTauriIpcReady } from '@/hooks/use-desktop'
+import { useWorkPanelStore } from '@/stores/work-panel'
+import { closeDockedBrowser } from '@/lib/tauri-bridge'
+import {
+  RELAY_WEB_LOGIN,
+  RELAY_WEB_LOGIN_PROVIDERS,
+  normalizeTraeProbe,
+  relayWebLoginAccountToImport,
+  type RelayWebLoginProvider,
+} from '@/lib/relay-web-login'
+
+/** 平台 → 网页重登能力(未登记的平台返回 null:该平台没进注册表,按钮 Tooltip 如实说明) */
+function relayWebLoginCap(providerCode: string) {
+  if (!(RELAY_WEB_LOGIN_PROVIDERS as readonly string[]).includes(providerCode)) return null
+  return RELAY_WEB_LOGIN[providerCode as RelayWebLoginProvider]
+}
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -67,7 +84,7 @@ const selectClass =
 const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs'
 
-// 账号级私有出口与代理池同口径:只接受 http(s)/socks5
+// 账号级代理与代理池同口径:只接受 http(s)/socks5
 const PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])
 
 function isSupportedProxyUrl(raw: string): boolean {
@@ -387,6 +404,14 @@ export default function AdminRelayAccountPoolPage() {
     'all',
   )
   const [importOpen, setImportOpen] = React.useState(false)
+  // 一键重登(2026-10-27 第 3 格):进行中的账号 id + 阶段;null = 空闲。
+  // 能力登记在 @/lib/relay-web-login(单一源);trae 有实证链,其余明示未判定。
+  const [relogin, setRelogin] = React.useState<{
+    id: string
+    phase: 'waiting' | 'importing'
+  } | null>(null)
+  const reloginDockTabRef = React.useRef<string | null>(null)
+  const reloginDockSeenRef = React.useRef(false)
   const [importProvider, setImportProvider] = React.useState<ProviderCode | ''>('')
   const [importText, setImportText] = React.useState('')
   const [importResult, setImportResult] = React.useState<ImportResult | null>(null)
@@ -436,7 +461,7 @@ export default function AdminRelayAccountPoolPage() {
     weight: '1',
     tempUnschedulable: false,
   })
-  // 私有出口:keep=不改动(默认),set=替换,clear=移除;避免打开编辑即把已有代理清空
+  // 代理:keep=不改动(默认),set=替换,clear=移除;避免打开编辑即把已有代理清空
   const [proxyMode, setProxyMode] = React.useState<'keep' | 'set' | 'clear'>('keep')
   const [proxyDraft, setProxyDraft] = React.useState('')
   const [proxyVisible, setProxyVisible] = React.useState(false)
@@ -650,7 +675,12 @@ export default function AdminRelayAccountPoolPage() {
   })
 
   const importMut = useMutation({
-    mutationFn: async (body: { providerCode: string; accounts: unknown[] }) => {
+    mutationFn: async (body: {
+      providerCode: string
+      accounts: unknown[]
+      /** 一键重登专用:本批未带 refreshToken 时保留库内旧票(重登只换得到 access) */
+      preserveMissingRefresh?: boolean
+    }) => {
       const r = await fetchApi<ImportResult>('/api/admin/relay/accounts/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -662,12 +692,16 @@ export default function AdminRelayAccountPoolPage() {
     onSuccess: (d) => {
       setImportResult(d)
       setImportFileName('')
+      setRelogin(null)
       toast.success(
         `导入完成:新增 ${d.imported} / 更新 ${d.updated} / 跳过 ${d.skipped} / 失败 ${d.failed}`,
       )
       invalidate()
     },
-    onError: (e: Error) => toast.error(e.message || '导入失败'),
+    onError: (e: Error) => {
+      setRelogin(null)
+      toast.error(e.message || '导入失败')
+    },
   })
 
   const sweepMut = useMutation({
@@ -737,7 +771,7 @@ export default function AdminRelayAccountPoolPage() {
       weight: Number(editForm.weight) || 1,
       tempUnschedulable: editForm.tempUnschedulable,
     }
-    // 只有显式更换/清除才带 proxyUrl;keep 状态绝不提交,防止覆盖已有私有出口
+    // 只有显式更换/清除才带 proxyUrl;keep 状态绝不提交,防止覆盖已有代理
     if (proxyMode === 'set') {
       const proxy = proxyDraft.trim()
       if (!proxy) {
@@ -800,6 +834,98 @@ export default function AdminRelayAccountPoolPage() {
     }
     importMut.mutate({ providerCode: importProvider, accounts })
   }
+
+  // ── 一键重登(第 3 格):凭据死了在页内直接唤起网页登录换票,走同一条导入通道覆盖凭证 ──
+  const desktop = useTauriIpcReady()
+  // 嵌入页检测(与签到页同判据:内嵌浏览器工具条注入脚本定义 window.__ihuiNav;
+  // 内容页没有 IPC,probe 全被 capability 拒,入口必须只在桌面主窗可用)
+  const [embedBrowser, setEmbedBrowser] = React.useState(false)
+  React.useEffect(() => {
+    if (typeof (window as unknown as { __ihuiNav?: unknown }).__ihuiNav === 'function') {
+      setEmbedBrowser(true)
+    }
+  }, [])
+
+  // 收尾共用:关登录 Tab(没别的 Tab 时面板一并收)+ 销毁原生 webview。
+  const endReloginDock = React.useCallback(() => {
+    const store = useWorkPanelStore.getState()
+    const tabId = reloginDockTabRef.current
+    reloginDockTabRef.current = null
+    reloginDockSeenRef.current = false
+    if (tabId) store.closeTab(tabId)
+    if (useWorkPanelStore.getState().tabs.length === 0) store.closePanel()
+    void closeDockedBrowser()
+  }, [])
+
+  const startRelogin = (k: AccountRow) => {
+    const cap = relayWebLoginCap(k.providerCode)
+    if (!cap) return
+    if (cap.kind === 'none') {
+      toast.error(cap.reason)
+      return
+    }
+    if (!desktop || embedBrowser) {
+      toast.error('一键重登要在桌面主窗里用:内嵌浏览器内容页没有 IPC,读不到登录 Cookie')
+      return
+    }
+    reloginDockSeenRef.current = false
+    setRelogin({ id: k.id, phase: 'waiting' })
+    reloginDockTabRef.current = useWorkPanelStore
+      .getState()
+      .openDockedTab(cap.loginUrl, cap.tabTitle)
+  }
+
+  // 轮询探测(2.5s):ok ⇒ 关登录 Tab + 走导入通道覆盖凭证(preserveMissingRefresh 保住
+  // 库内旧 refreshToken —— 重登只换得到 access,不保留就把能自续的号抹成待重登死号);
+  // 见过窗口之后又没了 = 用户关窗 ⇒ 复位;waiting/error 继续等,6.5min 超时兜底。
+  React.useEffect(() => {
+    if (!relogin || relogin.phase !== 'waiting') return
+    const row = list.find((k) => k.id === relogin.id)
+    const cap = row ? relayWebLoginCap(row.providerCode) : null
+    if (!cap || cap.kind !== 'ipc-trae') return
+    let stopped = false
+    const poll = async () => {
+      if (stopped) return
+      try {
+        const probe = normalizeTraeProbe(await cap.probe())
+        if (stopped) return
+        if (probe.status === 'waiting' && !probe.windowGone) reloginDockSeenRef.current = true
+        if (probe.status === 'ok') {
+          stopped = true
+          endReloginDock()
+          setRelogin({ id: relogin.id, phase: 'importing' })
+          importMut.mutate({
+            providerCode: 'trae',
+            accounts: [relayWebLoginAccountToImport(probe.account)],
+            preserveMissingRefresh: true,
+          })
+        } else if (probe.status === 'waiting' && probe.windowGone && reloginDockSeenRef.current) {
+          stopped = true
+          endReloginDock()
+          setRelogin(null)
+          toast.error('登录窗已关闭,重登未完成')
+        }
+      } catch {
+        // 瞬态(窗口未建好/IPC 注入竞态):下一轮再试
+      }
+    }
+    const timer = setInterval(() => void poll(), 2500)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- importMut 是稳定引用,进依赖只会空转
+  }, [relogin, list, desktop, embedBrowser, endReloginDock])
+
+  React.useEffect(() => {
+    if (!relogin || relogin.phase !== 'waiting') return
+    const timer = setTimeout(() => {
+      endReloginDock()
+      setRelogin(null)
+      toast.error('等了 6 分半还没等到登录完成,已退出;确认网络后可再点一次重试')
+    }, 390_000)
+    return () => clearTimeout(timer)
+  }, [relogin, endReloginDock])
 
   const copyUid = (uid: string) => {
     navigator.clipboard?.writeText(uid).then(
@@ -1028,6 +1154,7 @@ export default function AdminRelayAccountPoolPage() {
                       const claimed = k.claimStatus === 'claimed'
                       const failPct = failRatePct(k.usageSummary?.failRate24h)
                       const ci = checkinItems[k.id]
+                      const relCap = relayWebLoginCap(k.providerCode)
                       return (
                         <tr key={k.id} className={soon ? 'bg-amber-500/5' : undefined}>
                           <td className="px-3 py-2">
@@ -1226,7 +1353,7 @@ export default function AdminRelayAccountPoolPage() {
                           <td className="px-3 py-2 text-xs">
                             {k.hasProxy ? (
                               <Tooltip
-                                content={`私有出口：${k.proxyUrlMasked ?? '已配置（脱敏）'}`}
+                                content={`代理：${k.proxyUrlMasked ?? '已配置（脱敏）'}`}
                               >
                                 <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
                                   <ShieldCheck className="h-3 w-3" />
@@ -1322,6 +1449,31 @@ export default function AdminRelayAccountPoolPage() {
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                       <PartyPopper className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                              <Tooltip
+                                content={
+                                  relCap
+                                    ? relCap.kind === 'ipc-trae'
+                                      ? '一键重登:停靠浏览器打开登录页,换新票自动覆盖凭证(保留原 refreshToken)'
+                                      : relCap.reason
+                                    : '该平台未登记网页重登链(出路见告警话术:导入账号 JSON)'
+                                }
+                              >
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    aria-label="一键重登"
+                                    disabled={relogin !== null || !desktop}
+                                    onClick={() => startRelogin(k)}
+                                  >
+                                    {relogin?.id === k.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <LogIn className="h-4 w-4" />
                                     )}
                                   </Button>
                                 </span>
@@ -1504,7 +1656,7 @@ export default function AdminRelayAccountPoolPage() {
                 <div className="flex min-w-0 items-center gap-2">
                   <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                   <div className="min-w-0">
-                    <div className="text-sm font-medium leading-none">私有出口代理</div>
+                    <div className="text-sm font-medium leading-none">账号代理</div>
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       仅对该账号生效，不进入共享代理池
                     </p>
@@ -1614,7 +1766,7 @@ export default function AdminRelayAccountPoolPage() {
               {proxyMode === 'clear' ? (
                 <div className="space-y-2">
                   <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-                    保存后将移除该账号的私有出口，回落到共享代理池或直连。
+                    保存后将移除该账号的代理，回落到共享代理池或直连。
                   </p>
                   <div className="flex justify-end">
                     <Button

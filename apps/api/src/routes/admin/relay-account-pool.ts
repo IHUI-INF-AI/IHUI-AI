@@ -101,6 +101,12 @@ const importBodySchema = z.object({
     )
     .min(1)
     .max(500),
+  /**
+   * 覆盖既有行时,本批未提供 refreshToken ⇒ 保留库内既有密文(不写 NULL)。
+   * 专供"网页一键重登":重登只换得到 access,不带它会把能自续的号抹成待重登死号。
+   * 缺省 false = 存量导入语义(缺字段即清空)。
+   */
+  preserveMissingRefresh: z.boolean().optional(),
 })
 
 const listQuerySchema = paginationSchema.extend({
@@ -252,12 +258,14 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           ),
         )
     }
-    const { providerCode, accounts } = parsed.data
+    const { providerCode, accounts, preserveMissingRefresh } = parsed.data
     if (!isRelayProviderCode(providerCode)) {
       return reply.status(400).send(error(400, `不支持的平台: ${providerCode}`))
     }
     try {
-      const result = await importAccounts(providerCode, accounts as ImportAccountInput[])
+      const result = await importAccounts(providerCode, accounts as ImportAccountInput[], null, {
+        preserveMissingRefresh,
+      })
       return reply.send(success(result))
     } catch (e) {
       request.log.error(e)
