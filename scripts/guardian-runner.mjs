@@ -5774,6 +5774,32 @@ const checks = [
     ],
   },
 
+  // --- 跨端视觉原子 spec 覆盖率棘轮(阶段3,守门 256)---
+  {
+    id: '256',
+    label: '🔗 跨端视觉原子 spec 覆盖率棘轮(退化才拦;口径见 scripts/check-cross-end-spec-coverage.mjs)',
+    script: 'check-cross-end-spec-coverage.mjs',
+    args: ['--ratchet'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_SPEC_COVERAGE',
+    stagedTriggers: [
+      'packages/shared/src/ui/',
+      'packages/ui-react/src/components/',
+      'packages/ui-native/src/',
+      'apps/web/src/components/data/',
+      'scripts/check-cross-end-spec-coverage.mjs',
+      'scripts/data/cross-end-spec-baseline.json',
+    ],
+    onFailHint: [
+      '',
+      '  💡 跨端视觉原子 spec 覆盖率相对基线退化(某原子 spec 已存在却某端不再消费)。',
+      '     看差在哪:node scripts/check-cross-end-spec-coverage.mjs',
+      '     基线:scripts/data/cross-end-spec-baseline.json(口径已校正:视觉原子 11 项含 button,collapsible 为 EXEMPT 不计分母)。',
+      '     应急放行 HUSKY_SKIP_CROSS_END_SPEC_COVERAGE=1(仅限退化确属他人文件/并行谱系时,须在提交信息写明理由)。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
