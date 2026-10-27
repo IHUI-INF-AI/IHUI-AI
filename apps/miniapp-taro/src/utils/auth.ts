@@ -241,11 +241,6 @@ export function startTokenAutoRefresh(): void {
   autoRefresh.start()
 }
 
-export function stopTokenAutoRefresh(): void {
-  autoRefresh?.stop()
-  autoRefresh = null
-}
-
 export function isLoggedIn(): boolean {
   return !!getToken()
 }
