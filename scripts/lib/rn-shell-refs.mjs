@@ -93,6 +93,26 @@ export function mismatchedShellBinding(text, readShell) {
 }
 
 /**
+ * 选承载壳:同名优先,否则取"文本里出现该共享屏名"的第一枚(按路径排序)。
+ * refs = [rel, text] 的可迭代(Map / 数组);返回 { rel, name } 或 null(不编壳名)。
+ *
+ * 为什么允许异名:平台侧薄壳常叫 PlanScreen / NewsScreen 而它渲染的共享屏是
+ * PlanListScreen / SquareScreen(现读 5 例被还原度尺判过 other,实为合法委托)。
+ * 本函数只做**候选选择**;"壳真消费该屏"的强判据留给调用方(cov.rnConsumes /
+ * hostingFormOf 的三腿),因为它要判 @ihui/rn-app 取用,而本模块不能反向 import 覆盖尺(成环)。
+ */
+export function pickCarrierShell(refs, sharedName) {
+  const entries = [...refs]
+  if (entries.length === 0) return null
+  const re = new RegExp(`\\b${sharedName}\\b`)
+  const carriers = entries.filter(([, t]) => re.test(String(t ?? ''))).map(([rel]) => rel)
+  if (carriers.length === 0) return null
+  const same = shellTargetRel(sharedName)
+  const rel = carriers.includes(same) ? same : carriers.sort()[0]
+  return { rel, name: rel.split('/').pop().replace(/\.tsx$/, '') }
+}
+
+/**
  * 页面是否**直接**渲染共享屏(不经 RN 壳):具名导入自 `@ihui/rn-app`(含深路径)且 JSX 真用该符号。
  * 这是与「@rn-shells 壳承载」并列的第二种合法委托形态(现读 pkg-about/about-shared/index:
  * 页面自己注入 t/colorScheme/onBack 等平台事实,布局与数据仍是共享源那一份)。
