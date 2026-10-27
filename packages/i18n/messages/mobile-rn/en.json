@@ -4292,6 +4292,7 @@
     "loginButton": "Sign in"
   },
   "webViewPortal": {
+    "cloudRuns": "Cloud Agent Runs",
     "mediaTasks": "Media Tasks",
     "voices": "Voice Assets",
     "webTools": "Web Tools",

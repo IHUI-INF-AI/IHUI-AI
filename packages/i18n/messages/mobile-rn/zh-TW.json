@@ -4248,6 +4248,7 @@
     "loginButton": "去登入"
   },
   "webViewPortal": {
+    "cloudRuns": "雲託管執行記錄",
     "mediaTasks": "媒體任務",
     "voices": "語音資源",
     "webTools": "網頁工具",

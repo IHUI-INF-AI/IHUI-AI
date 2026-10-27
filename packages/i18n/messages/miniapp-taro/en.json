@@ -4605,6 +4605,7 @@
     "p1": "Failed to start recording"
   },
   "webViewPortal": {
+    "cloudRuns": "Cloud Agent Runs",
     "mediaTasks": "Media Tasks",
     "voices": "Voice Assets",
     "webTools": "Web Tools",
