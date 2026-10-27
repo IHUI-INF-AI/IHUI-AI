@@ -52,6 +52,17 @@ export interface SubagentDispatchInput {
   agentId?: string
 }
 
+/** D08 ③ 跨会话面板读的派单度量(服务端只读载荷字段;缺省 = 未判定,UI 不塞 0) */
+export interface SubagentDispatchMetrics {
+  /** 已执行步骤(面板只取条数,不解析内容) */
+  steps: unknown[]
+  /** DAG 总节点数 / 已完成数(缺省 = 该派单不是 DAG 编排) */
+  dagTotal?: number
+  dagDone?: number
+  /** 该派单累计 token(缺省 = 未计量) */
+  totalTokens?: number
+}
+
 /** 派单实例(输入字段 + 运行时状态字段) */
 export interface SubagentDispatch {
   id: string
@@ -71,6 +82,10 @@ export interface SubagentDispatch {
   startedAt?: string
   completedAt?: string
   errorMessage?: string
+  /** 进度/token 度量(载荷缺该字段 = 未判定;与 packages/shared 同名契约保持同形) */
+  metrics?: SubagentDispatchMetrics
+  /** 派单归属会话(一键接管深链用;未归属会话时缺省) */
+  conversationId?: string
 }
 
 /** 派单结果 */
