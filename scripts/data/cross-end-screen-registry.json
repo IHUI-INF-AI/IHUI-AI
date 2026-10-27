@@ -1060,6 +1060,26 @@
       "shared": "packages/app/src/features/teams/TeamsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/TeamsScreen.tsx",
       "miniapp": "pkg-user/teams/index"
+    },
+    {
+      "shared": "packages/app/src/features/tools/ToolsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ToolsScreen.tsx",
+      "miniapp": "pkg-user/tools/index"
+    },
+    {
+      "shared": "packages/app/src/features/workflows/WorkflowDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WorkflowDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/workflow-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/workflows/WorkflowInstanceDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WorkflowInstanceDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/workflow-instance-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/workflows/WorkflowListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/WorkflowDetailScreen.tsx",
+      "miniapp": "pkg-mirror3/workflow-list/index"
     }
   ]
 }
