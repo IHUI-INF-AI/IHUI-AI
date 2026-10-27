@@ -30,7 +30,8 @@
  * 22. POST   /admin/relay/account-pool/checkin-status — 批量点查签到状态(O64,≤20)
  * 23. POST   /admin/relay/accounts/:id/checkin-run — 立即签到(O64,转发 ai-service,429 透传)
  *
- * 加密:token/refreshToken/cookies 走 encryptField(AES-256-GCM),响应面永不回传密文/明文。
+ * 加密:token/refreshToken/cookies/账号级 proxyUrl 走 encryptField(AES-256-GCM),
+ * 响应面永不回传密文/明文(代理只回脱敏值)。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -74,6 +75,9 @@ import {
   deleteProxy,
   getProxyById,
   markProxyChecked,
+  encryptAccountProxyUrl,
+  resolveAccountProxyUrl,
+  maskAccountProxyUrl,
   type UpdateProxyPatch,
 } from '../../services/relay-proxy-pool.js'
 import {
@@ -113,6 +117,8 @@ const listQuerySchema = paginationSchema.extend({
   provider: z.transform(emptyToUndefined).pipe(z.enum(RELAY_PROVIDERS).optional()),
   enabled: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
   health: z.transform(emptyToUndefined).pipe(z.enum(PROVIDER_HEALTH_STATUSES).optional()),
+  /** 账号代理管理页筛选用:true = 已配置账号级 proxyUrl,false = 直连(未配置) */
+  hasProxy: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
   /** ops = 运营池(默认,保持存量视图);all = 含用户个人池;其余按 ownerUserId 精确筛 */
   owner: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
 })
@@ -122,7 +128,18 @@ const updateBodySchema = z.object({
   priority: z.number().int().optional(),
   weight: z.number().int().min(1).optional(),
   tempUnschedulable: z.boolean().optional(),
-  proxyUrl: z.string().max(512).nullable().optional(),
+  // 账号级代理:仅允许 http(s)/socks5;空串按清除处理,避免无效值进库
+  proxyUrl: z
+    .string()
+    .trim()
+    .max(512)
+    .nullable()
+    .optional()
+    .transform((v) => (v === '' ? null : v))
+    .refine(
+      (v) => v === null || v === undefined || isSupportedProxyUrl(v),
+      '代理地址必须是 http(s)/socks5 协议',
+    ),
 })
 
 // --- 出口代理池(2026-10-22 补写入入口;管理员可见 proxyUrl 原样,含内嵌账密) ---
@@ -223,6 +240,9 @@ const safeProjection = {
     sql<boolean>`case when ${aiRelayAccountPool.proxyUrl} is null then false else true end`.as(
       'has_proxy',
     ),
+  // 账号级 proxyUrl 落库为密文(encryptField);脱敏只能在服务端解密后做,
+  // 故此处取原值(密文)供 presentAccountRow 转换,响应前一律剥除。
+  proxyUrlEnc: aiRelayAccountPool.proxyUrl,
   totalCalls: aiRelayAccountPool.totalCalls,
   claimStatus: aiRelayAccountPool.claimStatus,
   claimedBy: aiRelayAccountPool.claimedBy,
@@ -240,6 +260,15 @@ const safeProjection = {
   } | null>`(${aiRelayAccountPool.extraMetadata} -> 'checkinSync')`.as('checkin_sync'),
   createdAt: aiRelayAccountPool.createdAt,
   updatedAt: aiRelayAccountPool.updatedAt,
+}
+
+/**
+ * 账号行响应投影:剥掉 proxyUrl 密文原值,换成脱敏展示值。
+ * 列表/详情统一走这里 —— 密文与明文账密都不进响应。
+ */
+function presentAccountRow<T extends { proxyUrlEnc: string | null }>(row: T) {
+  const { proxyUrlEnc, ...rest } = row
+  return { ...rest, proxyUrlMasked: maskAccountProxyUrl(proxyUrlEnc) }
 }
 
 const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
@@ -278,7 +307,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const q = listQuerySchema.safeParse(request.query)
     if (!q.success)
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
-    const { page, pageSize, search, provider, enabled, health, owner } = q.data
+    const { page, pageSize, search, provider, enabled, health, hasProxy, owner } = q.data
 
     const conds: SQL[] = []
     // 双池并存:运营号池页默认只显示运营池(存量视图零变化);owner=all 或指定用户 id 才扩面
@@ -288,6 +317,9 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     if (enabled === 'true') conds.push(eq(aiRelayAccountPool.isEnabled, true))
     if (enabled === 'false') conds.push(eq(aiRelayAccountPool.isEnabled, false))
     if (health) conds.push(eq(aiRelayAccountPool.healthStatus, health))
+    // proxyUrl 落库为密文,但"有无"判据与明文无关(非空即已配置),可直接在库侧筛
+    if (hasProxy === 'true') conds.push(isNotNull(aiRelayAccountPool.proxyUrl))
+    if (hasProxy === 'false') conds.push(isNull(aiRelayAccountPool.proxyUrl))
     const where = conds.length > 0 ? and(...conds) : undefined
 
     const searchCond = search
@@ -354,7 +386,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           now.getTime(),
         )
         return {
-          ...row,
+          ...presentAccountRow(row),
           verdict: verdict.verdict,
           tokenRemainingDays: verdict.tokenRemainingDays,
           idleDays: relayAccountIdleDays(
@@ -400,7 +432,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(aiRelayAccountPool.id, p.data.id))
         .limit(1)
       if (!row) return reply.status(404).send(error(404, '账号不存在'))
-      return reply.send(success(row))
+      return reply.send(success(presentAccountRow(row)))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询账号详情失败'))
@@ -415,9 +447,10 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
     const patch: Record<string, unknown> = {}
-    for (const k of ['name', 'priority', 'weight', 'tempUnschedulable', 'proxyUrl'] as const) {
+    for (const k of ['name', 'priority', 'weight', 'tempUnschedulable'] as const) {
       if (b.data[k] !== undefined) patch[k] = b.data[k]
     }
+    if (b.data.proxyUrl !== undefined) patch.proxyUrl = b.data.proxyUrl
     try {
       const [existing] = await dbRead
         .select({
@@ -431,9 +464,19 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(aiRelayAccountPool.id, p.data.id))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, '账号不存在'))
-      const changed = Object.fromEntries(
-        Object.entries(patch).filter(([k, v]) => (existing as Record<string, unknown>)[k] !== v),
-      )
+      // proxyUrl 库内是密文:先解密再与明文入参比较,变更时才重新加密回写。
+      // 直接比密文会让每次保存都判为"有变更",且对比结果永不为真。
+      const existingProxyUrl = resolveAccountProxyUrl(existing.proxyUrl)
+      const changed: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(patch)) {
+        if (k === 'proxyUrl') {
+          if (v !== existingProxyUrl) {
+            changed.proxyUrl = encryptAccountProxyUrl(v as string | null)
+          }
+        } else if ((existing as Record<string, unknown>)[k] !== v) {
+          changed[k] = v
+        }
+      }
       if (Object.keys(changed).length === 0) return reply.send(success({ id: p.data.id }))
       const updated = await db
         .update(aiRelayAccountPool)
@@ -513,7 +556,9 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .send(error(400, `平台 ${row.providerCode} 适配器未注册,无法健康检查`))
       }
       const ctx = { row, credentials: decryptAccountCredentials(row) }
-      const outcome = await adapter.checkHealth(ctx, { proxyUrl: row.proxyUrl })
+      const outcome = await adapter.checkHealth(ctx, {
+        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
+      })
       const now = new Date()
       // 三态消费与调度器同源(healthStatusOf):未判定保留 unknown 不写 down,
       // 否则 5xx/网络抖动一次就把活号摘除(§0.3 取不到 ≠ 失效)。
@@ -658,7 +703,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         refreshToken: credentials.refreshToken,
         credVersion: row.credVersion,
         enabled: row.isEnabled,
-        proxyUrl: row.proxyUrl,
+        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
         deviceId: row.deviceId,
         machineId: row.machineId,
         cosy: extractCosy(row.extraMetadata),
@@ -1033,7 +1078,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       let live = row
       let outcome = await adapter.getQuota(
         { row: live, credentials: decryptAccountCredentials(live) },
-        { proxyUrl: live.proxyUrl },
+        { proxyUrl: resolveAccountProxyUrl(live.proxyUrl) },
       )
       let attemptedRefresh = false
       if (!outcome.ok && outcome.authFailed && adapter.refreshToken) {
@@ -1047,7 +1092,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         live = fresh ?? live
         outcome = await adapter.getQuota(
           { row: live, credentials: decryptAccountCredentials(live) },
-          { proxyUrl: live.proxyUrl },
+          { proxyUrl: resolveAccountProxyUrl(live.proxyUrl) },
         )
       }
       // 上游**当场**明确拒收(不管有没有换票、换票后是否仍被拒)⇒ 到期列收敛到当下 + 健康降级,

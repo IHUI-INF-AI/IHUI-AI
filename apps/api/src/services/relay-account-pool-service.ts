@@ -43,6 +43,7 @@ import {
   pushPoolSync,
   type PoolSyncAccount,
 } from './relay-account-pool-checkin-sync.js'
+import { encryptAccountProxyUrl } from './relay-proxy-pool.js'
 
 // =============================================================================
 // 类型
@@ -412,6 +413,9 @@ export async function importAccounts(
       const healthStatus = down ? 'down' : 'unknown'
 
       const cookies = Array.isArray(acc.cookies) ? acc.cookies : []
+      // 账号级代理:明文只用于签到侧推送载荷,落库一律 encryptField 加密
+      const proxyUrlPlain =
+        typeof acc.proxyUrl === 'string' && acc.proxyUrl.trim() ? acc.proxyUrl.trim() : null
       const extra: Record<string, unknown> = {}
       const tenantId = providerCode === 'trae' ? extractTenantId(token) : null
       if (tenantId) extra.tenantId = tenantId
@@ -463,7 +467,7 @@ export async function importAccounts(
         lastErrorMessage: down ? '导入时 access token 已过期且无 refreshToken' : null,
         refreshFailureCount: 0,
         consecutiveFailures: 0,
-        proxyUrl: typeof acc.proxyUrl === 'string' && acc.proxyUrl ? acc.proxyUrl : null,
+        proxyUrl: encryptAccountProxyUrl(proxyUrlPlain),
         extraMetadata: extra,
         updatedAt: new Date(),
       }
@@ -534,7 +538,7 @@ export async function importAccounts(
           refreshToken,
           credVersion: writtenCredVersion,
           enabled: values.isEnabled,
-          proxyUrl: values.proxyUrl,
+          proxyUrl: proxyUrlPlain,
           deviceId: values.deviceId,
           machineId: values.machineId,
           cosy: cosyPayload,
