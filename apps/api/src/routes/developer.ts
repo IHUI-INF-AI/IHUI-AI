@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
+import { isDevelopmentRuntime } from '../config/index.js'
 import { readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -474,7 +475,8 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       },
       request.userId ?? null,
     )
-    if (process.env.NODE_ENV === 'development') {
+    // 档位判定走 config 出口(安全分支禁裸读 NODE_ENV,守门语义见 config/index.ts 头注)
+    if (isDevelopmentRuntime) {
       await activateDeveloperSubscription({
         userId,
         pricingId: pricing.id,
@@ -636,48 +638,68 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /withdrawals — 发起提现申请(冻结余额 + 记录 opType=1 负向流水)
-  server.post('/withdrawals', async (request, reply) => {
-    const userId = request.userId!
-    const parsed = withdrawBodySchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { amount } = parsed.data
+  server.post(
+    '/withdrawals',
+    // 资金型端点补限速(2026-10-27):此前零逐路由配额,可与余额检查并行轰炸
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const userId = request.userId!
+      const parsed = withdrawBodySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { amount } = parsed.data
 
-    const [margin] = await db
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, userId))
-      .limit(1)
-    const balance = margin?.tokenQuantity ?? 0
-    const frozen = margin?.frozenQuantity ?? 0
-    const available = balance - frozen
-    if (available < amount) {
-      return reply.status(400).send(error(400, '可用余额不足'))
-    }
-
-    if (margin) {
-      await db
-        .update(userMargins)
-        .set({ frozenQuantity: margin.frozenQuantity + amount, updatedAt: new Date() })
-        .where(eq(userMargins.userId, userId))
-    } else {
-      await db.insert(userMargins).values({ userId, tokenQuantity: 0, frozenQuantity: amount })
-    }
-
-    const [flow] = await db
-      .insert(tokenFlows)
-      .values({
-        userId,
-        opType: 1,
-        quantity: -amount,
-        balanceAfter: balance - amount,
-        remark: '提现申请',
-      })
-      .returning()
-
-    return reply.status(201).send(success({ flow, status: 'pending' }))
-  })
+      // 2026-10-27 原子化:原实现「先读后算再写」且无事务无行锁 —— N 个并行请求全部通过
+      // `available < amount` 检查后各自叠加冻结,同一笔余额被重复冻结/提走;且流水 INSERT 在
+      // 事务外(冻结成功而流水缺失 = 对账黑洞)。对齐 relay-billing-service 的既有样板:
+      // db.transaction + SELECT ... FOR UPDATE 行锁,余额检查、冻结、流水同生共死。
+      try {
+        const flow = await db.transaction(async (tx) => {
+          const [margin] = await tx
+            .select()
+            .from(userMargins)
+            .where(eq(userMargins.userId, userId))
+            .for('update')
+            .limit(1)
+          const balance = margin?.tokenQuantity ?? 0
+          const frozen = margin?.frozenQuantity ?? 0
+          if (balance - frozen < amount) {
+            throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
+          }
+          if (margin) {
+            await tx
+              .update(userMargins)
+              .set({ frozenQuantity: frozen + amount, updatedAt: new Date() })
+              .where(eq(userMargins.userId, userId))
+          } else {
+            await tx
+              .insert(userMargins)
+              .values({ userId, tokenQuantity: 0, frozenQuantity: amount })
+          }
+          const [created] = await tx
+            .insert(tokenFlows)
+            .values({
+              userId,
+              opType: 1,
+              quantity: -amount,
+              balanceAfter: balance - amount,
+              remark: '提现申请',
+            })
+            .returning()
+          return created
+        })
+        return reply.status(201).send(success({ flow, status: 'pending' }))
+      } catch (e) {
+        const statusCode = (e as { statusCode?: number }).statusCode ?? 500
+        if (statusCode < 500) {
+          return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+        }
+        request.log.error(e)
+        return reply.status(500).send(error(500, '发起提现失败'))
+      }
+    },
+  )
 
   // =============================================================================
   // G-962 批 4a(C 组):开发者控制台补面(#54-63、#65、#101;#64 versions 残段移交)
