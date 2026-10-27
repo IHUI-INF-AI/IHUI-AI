@@ -256,6 +256,38 @@ export const BackHandler = {
   removeEventListener: (_event: string, _cb: () => boolean) => {},
   exitApp: () => {},
 }
+/**
+ * AppState(2026-10-27 立):语音笔记面板用 `AppState.addEventListener('change')` 监听
+ * App 退到后台(后台回收 ⇒ 录音被系统打断 ⇒ 收成 interrupted 终态)。
+ * 桩要**可派发**:只给个空 addEventListener 的话,组件在测试里挂载即崩(AppState undefined),
+ * 而"退后台"这条路径永远无法被用例触发 —— 等于把该形态锁在零覆盖区。
+ * `__emit` 是替身专用出口(真身 AppState 上没有它)。
+ */
+type AppStateListener = (state: string) => void
+const appStateListeners = new Set<AppStateListener>()
+export const AppState = {
+  currentState: 'active',
+  addEventListener: (_event: string, cb: AppStateListener) => {
+    appStateListeners.add(cb)
+    return {
+      remove: () => {
+        appStateListeners.delete(cb)
+      },
+    }
+  },
+  removeEventListener: (_event: string, cb: AppStateListener) => {
+    appStateListeners.delete(cb)
+  },
+  /** 替身专用:派发一次 AppState 变更 */
+  __emit: (state: string) => {
+    AppState.currentState = state
+    for (const cb of [...appStateListeners]) cb(state)
+  },
+  __reset: () => {
+    appStateListeners.clear()
+    AppState.currentState = 'active'
+  },
+}
 export const Animated = {
   View: mk('div'),
   Text: mk('span'),
@@ -356,6 +388,7 @@ const ReactNative = {
   I18nManager,
   Animated,
   BackHandler,
+  AppState,
   PanResponder,
   Easing,
 }
