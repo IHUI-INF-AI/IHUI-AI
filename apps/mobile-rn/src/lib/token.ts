@@ -64,7 +64,9 @@ const memoryStore = createInMemoryTokenStore({
   },
   onSetRefreshToken: async (token) => {
     if (token) {
-      await setSecureItem(REFRESH_TOKEN_STORAGE_KEY, token)
+      // rejectPlaintext:refresh token 是长期凭据,SecureStore 不可用(原生平台)时
+      // 宁可本会话后不持久化,也不写进 AsyncStorage 明文(见 secure-store.ts 注记)
+      await setSecureItem(REFRESH_TOKEN_STORAGE_KEY, token, { rejectPlaintext: true })
     } else {
       await deleteSecureItem(REFRESH_TOKEN_STORAGE_KEY)
     }
