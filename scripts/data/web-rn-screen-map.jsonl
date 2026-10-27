@@ -14,7 +14,7 @@
 {"web":"user/profile","rn":"packages/app/src/features/profile-edit/ProfileEditScreen.tsx","status":"aligned","note":"web ProfileEditForm/AvatarCropper/ChangePhoneModal 编辑套件 ↔ RN ProfileEditScreen","at":"2026-10-24"}
 {"web":"member/benefits","rn":"packages/app/src/features/vip-benefit/VipBenefitScreen.tsx","status":"aligned","note":"web 会员等级权益列表(levelName/benefits/Crown)↔ RN VipBenefitScreen","at":"2026-10-24"}
 {"web":"member/favorites","rn":"packages/app/src/features/favorites/FavoritesScreen.tsx","status":"aligned","note":"我的收藏;RN 存在 favorite/FavoritesScreen 同义双实现(title 均为「我的收藏」),按路由段名选复数份,单数份冗余收口另票","at":"2026-10-24"}
-{"web":"user/follow","rn":"packages/app/src/features/following/FollowingScreen.tsx","status":"aligned","note":"web 我的关注 ↔ RN FollowingScreen(我的关注);FollowScreen 是「关注与粉丝」合并页,语义不同","at":"2026-10-24"}
+{"web":"user/follow","rn":"packages/app/src/features/following/FollowingScreen.tsx","status":"gap","note":"原记 aligned→following/FollowingScreen,但该共享屏在 RN 端**零渲染方**(全量 RN 屏按「@ihui/rn-app 具名导入的本地绑定出现在 JSX」扫 0 命中,2026-10-27 实测);RN 真正渲染的是 follow/FollowScreen(follow.* 键空间,含粉丝 Tab),与 web 该页的 following.* 键不同 ⇒ 降 gap:待判「建 RN 承载体」还是「两屏收敛到同一共享屏」。","at":"2026-10-27"}
 {"web":"edu/exam","rn":"packages/app/src/features/exam/ExamScreen.tsx","status":"aligned","note":"考试列表(backToList/duration ↔ exam:12)","at":"2026-10-24"}
 {"web":"edu/exam/[id]","rn":"packages/app/src/features/exam-question/ExamQuestionScreen.tsx","status":"aligned","note":"答题页(notExists/duration ↔ examQuestion:7)","at":"2026-10-24"}
 {"web":"edu/exam/[id]/result","rn":"packages/app/src/features/exam-result/ExamResultScreen.tsx","status":"aligned","note":"成绩页(totalScore ↔ examResult:8)","at":"2026-10-24"}
@@ -42,7 +42,7 @@
 {"web":"user/security","rn":"packages/app/src/features/change-phone/ChangePhoneScreen.tsx","status":"aligned","note":"web 换手机页(newPhonePlaceholder/sendCode)↔ RN ChangePhoneScreen","at":"2026-10-24"}
 {"web":"user/subscription","rn":"packages/app/src/features/subscriptions/SubscriptionsScreen.tsx","status":"aligned","note":"subscription:32 ↔ subscriptions:3;与 member/subscription 同屏双承载","at":"2026-10-24"}
 {"web":"user/qr-code","rn":"packages/app/src/features/qr-code/QrCodeScreen.tsx","status":"aligned","note":"二维码,名字直配","at":"2026-10-24"}
-{"web":"edu/dashboard","rn":"packages/app/src/features/study-index/StudyIndexScreen.tsx","status":"aligned","note":"stats/coursesCard/examsCard ↔ 学习首页;RN 侧键证据不足,按功能语义直配登记(中置信)","at":"2026-10-24"}
+{"web":"edu/dashboard","rn":"packages/app/src/features/study-index/StudyIndexScreen.tsx","status":"gap","note":"原记 aligned→study-index/StudyIndexScreen,原 note 已自述「键证据不足,中置信」;2026-10-27 全量扫:该共享屏在 RN 端零渲染方 ⇒ 名义对齐,降 gap。","at":"2026-10-27"}
 {"web":"settings/api-keys","rn":"apps/mobile-rn/src/screens/ApiKeysScreen.tsx","status":"aligned","note":"修正轮 10 误判:RN 端内层已有 508 行全功能屏(列表/创建/删除/usage);当时只对照了 ApiSettingsScreen(Coze 配置)漏了同名屏。残余小缺口=web 有 POST /keys/:id/reset 轮换而 RN 无,后续补","at":"2026-10-24"}
 {"web":"settings/activity","rn":"packages/app/src/features/activity/ActivityScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(eventLogin/Logout ↔ activity:6)","at":"2026-10-24"}
 {"web":"settings/connected-accounts","rn":"packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(unbind ↔ connectedAccounts:17)","at":"2026-10-24"}
@@ -63,7 +63,7 @@
 {"web":"exam","rn":"packages/app/src/features/exam/ExamScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(exam:12);与 edu/exam 同屏双承载","at":"2026-10-24"}
 {"web":"favorites","rn":"packages/app/src/features/favorites/FavoritesScreen.tsx","status":"aligned","note":"同名+键(favorites:2);与 member/favorites 同屏双承载","at":"2026-10-24"}
 {"web":"feedback","rn":"packages/app/src/features/feedback/FeedbackScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(unsupportedImage ↔ feedback:15);与 member/feedback 同屏双承载","at":"2026-10-24"}
-{"web":"following","rn":"packages/app/src/features/following/FollowingScreen.tsx","status":"aligned","note":"同名+键(following:3);与 user/follow 同屏双承载","at":"2026-10-24"}
+{"web":"following","rn":"packages/app/src/features/following/FollowingScreen.tsx","status":"gap","note":"原记 aligned→following/FollowingScreen(同名+following:3 键),但该共享屏 RN 端零渲染方(2026-10-27 全量扫 0 命中) ⇒ 名义对齐,降 gap;RN 侧同名功能由 follow/FollowScreen 承载(键空间 follow.* 不同),是否等价待产品口径。","at":"2026-10-27"}
 {"web":"groups","rn":"apps/mobile-rn/src/screens/GroupsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(groupName ↔ groups:25)","at":"2026-10-24"}
 {"web":"help","rn":"packages/app/src/features/help/HelpScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(searchPlaceholder ↔ help:2);与 member/help 同屏双承载","at":"2026-10-24"}
 {"web":"home","rn":"packages/app/src/features/home/HomeScreen.tsx","status":"aligned","note":"同名直配(home:8);web 工作区首页 ↔ RN 首页","at":"2026-10-24"}
