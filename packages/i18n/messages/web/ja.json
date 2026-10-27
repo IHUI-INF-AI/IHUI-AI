@@ -27032,6 +27032,12 @@
     "pageSubtitle": "ユーザーが編集できるルールセット。agent 実行時にマッチ条件に応じて system prompt へ動的に注入されます"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "手動で一時停止",
+      "failedPermanent": "恒久的な失敗",
+      "failedRetriesExhausted": "リトライ回数上限に到達",
+      "completed": "完了"
+    },
     "delete": "削除",
     "title": "自動化",
     "subtitle": "予定通りエージェントタスクを実行",

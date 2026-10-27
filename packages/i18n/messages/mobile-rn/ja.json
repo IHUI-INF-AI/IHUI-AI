@@ -5,6 +5,12 @@
     "loadFailed": "ワークフローの読み込みに失敗しました"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "手動で一時停止",
+      "failedPermanent": "恒久的な失敗",
+      "failedRetriesExhausted": "リトライ回数上限に到達",
+      "completed": "完了"
+    },
     "title": "自動化",
     "empty": "自動化タスクはまだありません",
     "loadFailed": "自動化の読み込みに失敗しました",
