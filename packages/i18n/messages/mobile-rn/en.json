@@ -5,6 +5,12 @@
     "loadFailed": "Failed to load workflows"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "Manually paused",
+      "failedPermanent": "Permanent failure",
+      "failedRetriesExhausted": "Retries exhausted",
+      "completed": "Completed"
+    },
     "title": "Automations",
     "empty": "No automation tasks yet",
     "loadFailed": "Failed to load automations",
