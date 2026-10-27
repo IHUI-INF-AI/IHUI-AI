@@ -107,14 +107,18 @@ export const tabBarStyles = {
 
   /**
    * 液态玻璃面板:图标行(高 TAB_BAR_HEIGHT)+ 底部手势区让位(运行时注入 paddingBottom)
-   * 一起包进同一块玻璃 —— 圆角 + 液态玻璃底 + 细描边 + 投影,延伸到屏幕底边。
+   * 一起包进同一块玻璃 —— 圆角 + 真背景模糊(expo-blur,TabBar.tsx 注入 blurFill 层)+
+   * 细描边 + 投影,延伸到屏幕底边。
+   * 2026-10-27 用户定稿「要 iOS 那种的」:原生端背景自绘交给 BlurView(带 tint),
+   * 容器本身不再叠 glass.bg 实底(web 端无 BlurView,仍走 glass.bg + backdropFilter)。
    */
   container: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-around',
     paddingTop: 0,
-    backgroundColor: tk.glass.bg,
+    overflow: 'hidden',
+    backgroundColor: Platform.OS === 'web' ? tk.glass.bg : 'transparent',
     borderRadius: TAB_BAR_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tk.border.light,
@@ -124,6 +128,15 @@ export const tabBarStyles = {
     shadowRadius: 16,
     elevation: 10,
     ...glassBlurLayer,
+  } satisfies ViewStyle,
+
+  /** 真背景模糊层(expo-blur BlurView 的 absolute fill,仅原生端渲染,置于图标行之下) */
+  blurFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   } satisfies ViewStyle,
 
   item: {

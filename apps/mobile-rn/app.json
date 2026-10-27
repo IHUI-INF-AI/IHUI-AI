@@ -2,7 +2,7 @@
   "expo": {
     "name": "IHUI AI",
     "slug": "ihui-ai-mobile",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "updates": {
       "url": "https://u.expo.dev/c840b892-d8fa-4341-8b51-fa70b4bf36a5"
     },
@@ -20,12 +20,19 @@
       "supportsTablet": true,
       "bundleIdentifier": "ai.ihui.mobile",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["weixin", "wechat", "weixinULAPI"],
+        "LSApplicationQueriesSchemes": [
+          "weixin",
+          "wechat",
+          "weixinULAPI"
+        ],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
         }
       },
-      "associatedDomains": ["applinks:aizhs.top", "applinks:file.aizhs.top"],
+      "associatedDomains": [
+        "applinks:aizhs.top",
+        "applinks:file.aizhs.top"
+      ],
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -38,7 +45,8 @@
       },
       "config": {
         "usesNonExemptEncryption": false
-      }
+      },
+      "versionCode": 26102701
     },
     "plugins": [
       [

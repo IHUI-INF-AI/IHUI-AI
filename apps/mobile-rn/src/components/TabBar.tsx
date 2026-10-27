@@ -12,10 +12,12 @@
  * 平台特有:依赖 react-native Image require + SafeAreaView,不适合共享层。
  */
 import { useCallback } from 'react'
-import { Image, Pressable, Text, View } from 'react-native'
+import { Image, Platform, Pressable, Text, View } from 'react-native'
+import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { tokens } from '../theme/active-tokens'
+import { useTheme } from '../context/ThemeContext'
 import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
 // 底栏图标的取源方式(2026-10-21 定档,刻意保留,不是遗留绕行):
 // 这族曾在 release 包里长期空白,当时的根因是 @react-native/assets-registry 被装成两份
@@ -86,6 +88,7 @@ const TABS: readonly TabBarItemConfig[] = [
 
 export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const insets = useSafeAreaInsets()
 
   const handlePress = useCallback((key: TabBarKey) => () => onChange(key), [onChange])
@@ -93,13 +96,24 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
   return (
     <View style={tabBarStyleSheet.wrapper}>
       {/* 液态玻璃面板直落屏幕底边:图标行 + 底部手势区让位(paddingBottom)同一块玻璃,
-          图标行下面不再有独立白带(2026-10-27 用户定稿)。 */}
+          图标行下面不再有独立白带(2026-10-27 用户定稿)。
+          2026-10-27 二稿「要 iOS 那种的」:原生端注入 expo-blur 真背景模糊层
+          (Android 必须显式 experimentalBlurMethod 才真模糊,否则只糊一层 tint);
+          web 端仍走 container 的 backdropFilter。 */}
       <View
         style={[
           tabBarStyleSheet.container,
           { paddingBottom: Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4) },
         ]}
       >
+        {Platform.OS !== 'web' ? (
+          <BlurView
+            intensity={50}
+            tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
+            experimentalBlurMethod="dimezisBlurView"
+            style={tabBarStyleSheet.blurFill}
+          />
+        ) : null}
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab
           return (
