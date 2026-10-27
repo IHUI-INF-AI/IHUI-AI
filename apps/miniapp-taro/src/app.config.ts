@@ -168,6 +168,7 @@ export default defineAppConfig({
         'tags/index',
         'team-workspace/index',
         'teams/index',
+        'tools/index',
       ],
     },
     {
@@ -357,6 +358,9 @@ export default defineAppConfig({
         'vip-level/index',
         'workflows/index',
         'student-center/index',
+        'workflow-detail/index',
+        'workflow-instance-detail/index',
+        'workflow-list/index',
       ],
     },
   ],
