@@ -33,8 +33,16 @@ from uuid import uuid4
 import pytest
 
 from app.services import agent_loop_v2 as alv2
+from app.services import agent_step_recorder as asr
 from app.services import tool_invocation_ledger as tll
-from app.services.agent_loop_v2 import AgentLoopV2, ToolCall, ToolDefinition, ToolResult
+from app.services.agent_loop_v2 import (
+    AgentLoopV2,
+    ToolCall,
+    ToolDefinition,
+    ToolResult,
+    _LoopInterrupted,
+)
+from app.services.agent_step_recorder import AgentStepRecorder
 
 USER = str(uuid4())
 
@@ -296,3 +304,148 @@ async def test_h3_ingest_entry_exception_does_not_pierce_loop(
     tc = ToolCall(id="c1", name="echo_tool", args={})
     tr = ToolResult(tool_call_id=tc.id, name=tc.name, result={"ok": True})
     loop._maybe_record_step(tc, tr)  # 不抛 = 通过
+
+
+# =============================================================================
+# I 录制面回指(2026-10-28 立):step 录制行与账行按同一 invocation_id 对齐
+# =============================================================================
+#
+# 此前 uuid4 在 `_maybe_ingest_tool_ledger` 里现生成后即丢弃:两个证据面(JSON
+# step 回放 / DB 明细账)无法按编号对齐,"可追溯"只能靠时间戳猜。四要素的落点:
+#  - 编号:账行与 step 行同值;**派发被拒时留空**(不挂一个查不到账行的编号);
+#  - 权限决策/操作者身份:循环侧算一次、两处引用(不写第二份判定);
+#  - 输入/输出哈希:只住服务端账行(单源),录制侧不自算第二份(见 recorder 头注)。
+
+
+def _capture_dispatch(
+    monkeypatch: pytest.MonkeyPatch, dispatched: bool = True
+) -> list[dict[str, Any]]:
+    """把派发入口换成记录器,并按需决定"派发腿收下了没有"。"""
+    calls: list[dict[str, Any]] = []
+
+    def _fake(**kw: Any) -> bool:
+        calls.append(kw)
+        return dispatched
+
+    monkeypatch.setattr(alv2, "record_tool_invocation", _fake)
+    return calls
+
+
+@pytest.mark.asyncio
+async def test_i1_step_record_points_at_the_same_invocation_id(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """I1 录制行与账行同编号;权限决策/操作者身份同源,fail 侧不编造编号。"""
+    calls = _capture_dispatch(monkeypatch)
+    rec = AgentStepRecorder(file_path=tmp_path / "steps.json")
+    loop = _make_loop(USER)
+    loop._session_id = "sess-rec"
+    loop._step_recorder = rec
+    loop._pipeline_record_active = True
+
+    tc = ToolCall(id="c1", name="echo_tool", args={"q": "hi"})
+    tr = ToolResult(tool_call_id="c1", name="echo_tool", result={"ok": True})
+    loop._maybe_record_step(tc, tr)
+
+    assert len(calls) == 1, "账行照派(证据面不跟录制开关走)"
+    step = rec.replay("sess-rec")["steps"][0]
+    assert step["invocation_id"] == calls[0]["invocation_id"] != ""
+    assert step["permission_decision"] == calls[0]["permission_decision"] == "approved"
+    assert step["permission_cause"] == ""
+    assert step["operator_id"] == USER, "操作者身份必须是令牌主体,不是空串"
+
+
+@pytest.mark.asyncio
+async def test_i2_rejected_dispatch_leaves_no_dangling_id(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """I2 派发被拒 ⇒ 录制行编号留空(不造查不到账行的 id),权限决策仍如实落。"""
+    _capture_dispatch(monkeypatch, dispatched=False)
+    rec = AgentStepRecorder(file_path=tmp_path / "steps.json")
+    loop = _make_loop(USER)
+    loop._session_id = "sess-rej"
+    loop._step_recorder = rec
+    loop._pipeline_record_active = True
+
+    tc = ToolCall(id="c1", name="echo_tool", args={})
+    tr = ToolResult(tool_call_id="c1", name="echo_tool", result={"ok": True})
+    loop._maybe_record_step(tc, tr)
+
+    step = rec.replay("sess-rej")["steps"][0]
+    assert step["invocation_id"] == "", "拒派就留空:编号必须指得到一行"
+    assert step["permission_decision"] == "approved"
+
+
+def test_i3_recorder_keeps_evidence_keys() -> None:
+    """I3 归一化白名单必须保住四键(chain/model 同型事故不回潮)+ 上限镜像不漂。"""
+    assert asr.EVIDENCE_FIELD_MAX == tll._MAX_INVOCATION_ID, "上限镜像漂了就会写出账侧拒收的值"
+    step = asr._normalize_step(
+        {
+            "invocation_id": "inv-1",
+            "permission_decision": "denied",
+            "permission_cause": "no-prompt",
+            "operator_id": USER,
+            "unknown_key_should_drop": 1,
+        },
+        0,
+    )
+    assert step["invocation_id"] == "inv-1"
+    assert step["permission_decision"] == "denied"
+    assert step["permission_cause"] == "no-prompt"
+    assert step["operator_id"] == USER
+    assert "unknown_key_should_drop" not in step
+    # 超长字段截断到上限(不炸审计载荷预算,也不截变枚举档)
+    clipped = asr._normalize_step({"invocation_id": "x" * 400}, 0)
+    assert len(clipped["invocation_id"]) == asr.EVIDENCE_FIELD_MAX
+    # 缺省 = 空串(未标注/未派发),不是 None
+    blank = asr._normalize_step({}, 0)
+    assert blank["invocation_id"] == "" and blank["operator_id"] == ""
+
+
+@pytest.mark.asyncio
+async def test_i4_interrupt_batch_keeps_finished_sibling_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """I4 并行批中断:已完成的兄弟调用必须留证据;被打断的那枚不编造行;中断照常上抛。"""
+    calls = _capture_dispatch(monkeypatch)
+    loop = _make_loop(USER)
+    loop._session_id = "sess-abort"
+
+    async def fake_single(tc: ToolCall) -> ToolResult:
+        if tc.name == "int_tool":
+            raise _LoopInterrupted("interrupted")
+        return ToolResult(tool_call_id=tc.id, name=tc.name, result={"ok": True}, duration_ms=1)
+
+    monkeypatch.setattr(loop, "_execute_single", fake_single)
+
+    with pytest.raises(_LoopInterrupted):
+        await loop._execute_tools(
+            [ToolCall(id="a", name="ok_tool", args={}), ToolCall(id="b", name="int_tool", args={})]
+        )
+
+    assert [c["tool_name"] for c in calls] == ["ok_tool"], "只补已终态的那一枚"
+    assert calls[0]["state"] == "settled" and calls[0]["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_i5_interrupt_batch_ingest_failure_does_not_block_abort(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """I5 补录自身炸也不许影响中断上抛(证据面 fail-open)。"""
+
+    def _boom(**_kw: Any) -> bool:
+        raise RuntimeError("补录炸了")
+
+    monkeypatch.setattr(alv2, "record_tool_invocation", _boom)
+    loop = _make_loop(USER)
+
+    async def fake_single(tc: ToolCall) -> ToolResult:
+        if tc.name == "int_tool":
+            raise _LoopInterrupted("interrupted")
+        return ToolResult(tool_call_id=tc.id, name=tc.name, result={"ok": True})
+
+    monkeypatch.setattr(loop, "_execute_single", fake_single)
+    with pytest.raises(_LoopInterrupted):
+        await loop._execute_tools(
+            [ToolCall(id="a", name="ok_tool", args={}), ToolCall(id="b", name="int_tool", args={})]
+        )
