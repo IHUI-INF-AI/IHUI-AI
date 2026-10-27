@@ -681,6 +681,7 @@ export default function AdminRelayAccountPoolPage() {
         clientProduct?: string
         clientWasRunning?: boolean
         clientClosed?: boolean
+        clientForced?: boolean
         clientRestarted?: boolean
         clientLaunchError?: string
       }>(`/api/admin/relay/accounts/${id}/login-local`, { method: 'POST' })
@@ -693,7 +694,7 @@ export default function AdminRelayAccountPoolPage() {
       const clientName = d.clientProduct || label
       const clientNote = d.clientWasRunning
         ? d.clientRestarted
-          ? `\n写前已关闭 ${clientName} 并重新打开(运行中的客户端会用内存态覆写登录态)`
+          ? `\n写前已${d.clientForced ? '强制' : '自动'}关闭 ${clientName} 并重新打开(运行中的客户端会用内存态覆写登录态)`
           : `\n写前已关闭 ${clientName},但未能自动重新打开${d.clientLaunchError ? `(${d.clientLaunchError})` : ''}:请手动打开客户端`
         : ''
       toast.success(`已把 uid=${d.uid} 写进本机 ${label}${replaced};${d.restartHint}`, {
