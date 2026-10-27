@@ -117,6 +117,58 @@ describe('loomy 提取器:目录在盘 ⇒ 形状(临时目录伪造 leveldb)', 
     fs.rmSync(dir, { recursive: true, force: true })
   })
 
+  it('源码实证键 loomy-auth-session 命中 → {phone,session,userid} JSON raw 直通', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-loomy-src-evid-'))
+    const ldbDir = path.join(dir, 'Local Storage', 'leveldb')
+    fs.mkdirSync(ldbDir, { recursive: true })
+    const anchor = Buffer.from('_file://\x00\x01', 'latin1')
+    // 与 G:\Loomy\resources\app.asar @51319631 setItem(jo, JSON.stringify(u)) 同形
+    const sessionJson = JSON.stringify({
+      phone: '13800000000',
+      maskedPhone: '138****0000',
+      session: 'sess-ticket-e2e-42',
+      userid: 'uid-77',
+      loggedInAt: '2026-10-27T00:00:00.000Z',
+    })
+    const rec = Buffer.concat([
+      anchor,
+      Buffer.from('loomy-auth-session'),
+      Buffer.from(sessionJson),
+      Buffer.from([0x01]),
+    ])
+    fs.writeFileSync(path.join(ldbDir, '000003.log'), rec)
+
+    const out = await loomyExtract.extractLoomyAccounts({ roamingDir: dir })
+    const session = out.accounts.find((a) => a.key === 'loomy-auth-session')
+    expect(session?.value).toBe(sessionJson) // raw 直通,零映射
+    // 源码实证键排在候选清单首位
+    const keysProbed = out.meta['keysProbed'] as string[]
+    expect(keysProbed[0]).toBe('loomy-auth-session')
+    // meta 零泄漏
+    expect(JSON.stringify(out.meta)).not.toContain('sess-ticket-e2e-42')
+    // 本机未登录 ⇒ vault 不存在,notes 不含 vault 命中
+    expect(JSON.stringify(out.meta['notes'])).not.toContain('DeviceCredentialVault 落点在盘')
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('DeviceCredentialVault 落点探测:直连与 environments 两形都点名进 notes', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-loomy-vault-'))
+    const direct = path.join(dir, 'shared-session-sync', 'device-credential.json')
+    fs.mkdirSync(path.dirname(direct), { recursive: true })
+    fs.writeFileSync(direct, '{"version":3,"encrypted":"v10fake"}')
+    const scoped = path.join(
+      dir,
+      'shared-session-sync',
+      'environments',
+      'scopeA',
+      'device-credential.json',
+    )
+    fs.mkdirSync(path.dirname(scoped), { recursive: true })
+    fs.writeFileSync(scoped, '{"version":3,"encrypted":"v10fake"}')
+    expect(loomyExtract.__test__.probeDeviceCredentialVault(dir)).toHaveLength(2)
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
   it('os_crypt v10 解密回路:加密 → 解密一致;v20 形 → throw 未判定', () => {
     const key = crypto.randomBytes(32)
     const nonce = crypto.randomBytes(12)

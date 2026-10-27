@@ -156,6 +156,7 @@ export {
   planLoginRegion,
   resolveLoginRegion,
   isOverseasLocale,
+  isProviderPlatformAvailable,
   sortByPlatformPriority,
 } from './components/login-form'
 export type {
