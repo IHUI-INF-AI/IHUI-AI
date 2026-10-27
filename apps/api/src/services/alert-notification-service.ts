@@ -26,6 +26,7 @@
 import { createHmac } from 'node:crypto'
 import nodemailer from 'nodemailer'
 import { pino, type Logger } from 'pino'
+import { isDevelopmentRuntime } from '../config/index.js'
 import { flattenUntrustedText, sanitizeAlertMessage } from '../utils/alert-text.js'
 import { finalizeEmailHtml } from './email-assets.js'
 import { renderSystemAlertEmail } from './email-templates.js'
@@ -33,7 +34,7 @@ import { renderSystemAlertEmail } from './email-templates.js'
 const logger: Logger = pino({
   name: 'alert-notification-service',
   level: process.env.LOG_LEVEL ?? 'info',
-  transport: process.env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
+  transport: isDevelopmentRuntime ? { target: 'pino-pretty' } : undefined,
 })
 
 // ---------------------------------------------------------------------------
@@ -465,7 +466,10 @@ async function pushEmail(
    */
   const prepared = finalizeEmailHtml(rendered.html)
   if (prepared.downgraded.length > 0) {
-    logger.warn({ downgraded: prepared.downgraded }, 'inline email asset missing, downgraded to remote url')
+    logger.warn(
+      { downgraded: prepared.downgraded },
+      'inline email asset missing, downgraded to remote url',
+    )
   }
 
   const transporter = nodemailer.createTransport({

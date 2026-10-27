@@ -35,6 +35,8 @@ export interface OAuthUserInfo {
   nickname?: string
   avatar?: string
   email?: string
+  /** IdP 是否确认了邮箱归属(oidc email_verified / discord verified);缺省按未验证处理 */
+  emailVerified?: boolean
 }
 
 /**

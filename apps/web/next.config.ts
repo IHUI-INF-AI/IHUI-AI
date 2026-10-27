@@ -793,9 +793,11 @@ const nextConfig: NextConfig = {
           // 2026-10-13 修复:Tauri 2.11 桌面端 IPC 走 http(s)://ipc.localhost 自定义协议,
           // 必须显式放行,否则被 CSP 拦截后 Tauri 只能 fallback 到 postMessage(功能退化+控制台红)。
           // ipc.localhost 仅 Tauri WebView 内可达,普通浏览器永不请求,对 web 无副作用。
+          // 2026-10-27 收紧:生产摘 ws:(明文 WebSocket 外联;线上全部走 wss,ws:// 在
+          // https 页面属混合内容本就会被拦 —— 与 frame-src 的 http: 同型死配置)。
           isDev
             ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
-            : "connect-src 'self' https: wss: ws: http://ipc.localhost https://ipc.localhost",
+            : "connect-src 'self' https: wss: http://ipc.localhost https://ipc.localhost",
           "media-src 'self' blob:",
           "object-src 'none'",
           // 2026-07-25 修复扫码登录 iframe 拦截:SDK 内部创建 iframe 渲染二维码
@@ -805,8 +807,10 @@ const nextConfig: NextConfig = {
           // - passport.feishu.cn:飞书 QR iframe
           // - self:Next.js dev HMR / React DevTools 需要
           // 2026-08-02 fix:WorkPanel 内置浏览器允许用户打开任意网址,
-          // frame-src 放开 https:/http: 使可嵌入的外部站点能正常 iframe 展示。
-          "frame-src 'self' https: http: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn https://challenges.cloudflare.com",
+          // frame-src 放开 https: 使可嵌入的外部站点能正常 iframe 展示。
+          // 2026-10-27 收紧:摘 http: —— https 页面嵌 http iframe 本就被浏览器
+          // 混合内容策略拦截,这是死配置;留着只会让审计每次都多问一遍。
+          "frame-src 'self' https: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn https://challenges.cloudflare.com",
           "base-uri 'self'",
           "form-action 'self'",
         ].join('; '),

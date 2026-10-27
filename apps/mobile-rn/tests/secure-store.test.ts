@@ -50,6 +50,49 @@ describe('lib/auth/secure-store', () => {
     expect(await getSecureItem('not-set')).toBeNull()
   })
 
+  it('rejectPlaintext + 原生平台 + 非加密后端 ⇒ 拒绝落盘(2026-10-27 加固;摘掉判据此例翻红)', async () => {
+    const { Platform } = await import('react-native')
+    const originalOS = Platform.OS
+    Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true })
+    try {
+      const result = await setSecureItem('refresh-token', 'leak-me', { rejectPlaintext: true })
+      expect(result).toBe('skipped-plaintext')
+      // 断言的是副作用没发生:长期凭据绝不能出现在明文存储里
+      expect(await getSecureItem('refresh-token')).toBeNull()
+    } finally {
+      Object.defineProperty(Platform, 'OS', { value: originalOS, configurable: true })
+      _resetSecureStoreBackendForTest()
+    }
+  })
+
+  it('不传 rejectPlaintext ⇒ 原生平台降级路径照常落盘(既有行为不回归)', async () => {
+    const { Platform } = await import('react-native')
+    const originalOS = Platform.OS
+    Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true })
+    try {
+      const result = await setSecureItem('access-token', 'v')
+      expect(result).toBe('stored')
+      expect(await getSecureItem('access-token')).toBe('v')
+    } finally {
+      Object.defineProperty(Platform, 'OS', { value: originalOS, configurable: true })
+      _resetSecureStoreBackendForTest()
+    }
+  })
+
+  it('web 平台豁免:rejectPlaintext 也照常落盘(localStorage 与 web 端风险模型一致)', async () => {
+    const { Platform } = await import('react-native')
+    const originalOS = Platform.OS
+    Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true })
+    try {
+      const result = await setSecureItem('refresh-token', 'v', { rejectPlaintext: true })
+      expect(result).toBe('stored')
+      expect(await getSecureItem('refresh-token')).toBe('v')
+    } finally {
+      Object.defineProperty(Platform, 'OS', { value: originalOS, configurable: true })
+      _resetSecureStoreBackendForTest()
+    }
+  })
+
   it('降级路径 deleteSecureItem 重复删不抛错', async () => {
     await expect(deleteSecureItem('never-set')).resolves.not.toThrow()
   })

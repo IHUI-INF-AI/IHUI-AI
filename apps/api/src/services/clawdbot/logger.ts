@@ -6,10 +6,11 @@
  * Clawdbot 共享日志器
  */
 import { pino, type Logger } from 'pino'
+import { isDevelopmentRuntime } from '../../config/index.js'
 
 const logger: Logger = pino({
   level: process.env.LOG_LEVEL ?? 'info',
-  transport: process.env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
+  transport: isDevelopmentRuntime ? { target: 'pino-pretty' } : undefined,
 })
 
 export { logger }

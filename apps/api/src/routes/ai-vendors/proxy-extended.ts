@@ -61,7 +61,17 @@ const jimeng4ProcessBody = z.looseObject({ req_key: z.string().optional() })
 
 const proxyBody = z.object({
   vendor: z.string().optional(),
-  endpoint: z.string().optional(),
+  // 2026-10-27 SSRF 封堵:endpoint 只许相对路径 —— 原实现 `startsWith('http')` 即透传
+  // 任意绝对 URL 且响应原样回吐,ollama/lmstudio 等无 key 厂商放行 ⇒ 任意登录用户可打
+  // http://169.254.169.254/... 读云元数据、可打 127.0.0.1:8810 探内网。厂商代理的合法
+  // 用途本就是拼 cfg.baseUrl + 子路径,绝对 URL 没有正当场景;全仓(含各端与 ai-service)
+  // 实测无调用方传绝对 URL。`//` 开头按协议相对 URL 处理同样拒绝。
+  endpoint: z
+    .string()
+    .optional()
+    .refine((v) => v === undefined || (/^\//.test(v) && !v.startsWith('//')), {
+      message: 'endpoint 只允许相对路径(以 / 开头,不允许 // 形态或绝对 URL)',
+    }),
   payload: z.unknown().optional(),
 })
 
@@ -566,9 +576,11 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, 'vendor 和 endpoint 为必填'))
       const cfg = VENDORS[body.vendor]
       if (!cfg) return reply.status(400).send(error(400, `不支持的厂商: ${body.vendor}`))
-      const url = body.endpoint.startsWith('http')
-        ? body.endpoint
-        : `${cfg.baseUrl}${body.endpoint}`
+      // 纵深防御:schema 已限相对路径,出口再拦一次(防未来调用绕过 schema 直拼)
+      if (!body.endpoint.startsWith('/') || body.endpoint.startsWith('//')) {
+        return reply.status(400).send(error(400, 'endpoint 只允许相对路径'))
+      }
+      const url = `${cfg.baseUrl}${body.endpoint}`
       const data = await callVendor(body.vendor, url, reply, {
         method: 'POST',
         body: JSON.stringify(body.payload ?? {}),

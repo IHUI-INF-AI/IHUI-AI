@@ -184,6 +184,7 @@
     "check:mirror-fidelity": "node scripts/check-miniapp-mirror-fidelity.mjs",
     "check:web-rn-parity": "node scripts/check-web-rn-screen-parity.mjs",
     "check:analytics-coverage": "node scripts/check-analytics-page-coverage.mjs",
+    "check:sms-channel-health": "node scripts/check-sms-channel-health.mjs",
     "e2e:extension-tracking": "node scripts/e2e-extension-tracking.mjs",
     "probe:web-rn-gap": "node scripts/probe-web-rn-gap.mjs",
     "gen:miniapp-mirror": "node scripts/gen-miniapp-mirror.mjs --all",

@@ -34,6 +34,7 @@
  * 新增的 `dbScoped()`/`dbReadScoped()` 走闸门。
  */
 import { eq, getTableName, isTable, and, sql, type SQL } from 'drizzle-orm'
+import { isProductionGuard } from '../config/index.js'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 import {
   COMPUTE_ALLOWED_TABLES,
@@ -72,13 +73,11 @@ export const DATA_SCOPE_ERROR_CODES = {
   RLS_NOT_ENFORCED: 'RLS_NOT_ENFORCED',
 } as const
 
-export type DataScopeErrorCode = (typeof DATA_SCOPE_ERROR_CODES)[keyof typeof DATA_SCOPE_ERROR_CODES]
+export type DataScopeErrorCode =
+  (typeof DATA_SCOPE_ERROR_CODES)[keyof typeof DATA_SCOPE_ERROR_CODES]
 
 /** 违规细分原因(排障与审计用;与对外 errorCode 分离,客户端只需认三个码)。 */
-export type DataScopeDenyReason =
-  | DataScopeErrorCode
-  | 'PROBE_UNAVAILABLE'
-  | 'PROBE_FAILED'
+export type DataScopeDenyReason = DataScopeErrorCode | 'PROBE_UNAVAILABLE' | 'PROBE_FAILED'
 
 /**
  * 数据闸违规错误。继承 AppError → 全局 errorHandler 透传 statusCode + errorCode,
@@ -110,7 +109,11 @@ export class DataScopeViolationError extends AppError {
   }
 }
 
-function dataAccessDenied(table: string | undefined, mode: DbAccessMode, why?: string): DataScopeViolationError {
+function dataAccessDenied(
+  table: string | undefined,
+  mode: DbAccessMode,
+  why?: string,
+): DataScopeViolationError {
   const subject = table ? `表 ${table}` : '无法判定目标表的语句(裸 SQL / CTE / 存储过程等)'
   return new DataScopeViolationError(
     DATA_SCOPE_ERROR_CODES.DATA_ACCESS_DENIED,
@@ -137,7 +140,10 @@ function dataScopeDenied(
   )
 }
 
-function ownerFilterRequired(table: string | undefined, mode: DbAccessMode): DataScopeViolationError {
+function ownerFilterRequired(
+  table: string | undefined,
+  mode: DbAccessMode,
+): DataScopeViolationError {
   return dataScopeDenied(table, mode, {
     message:
       `${mode} 模式下${table ? `表 ${table} 的` : ''}语句必须携带 owner 过滤条件` +
@@ -196,7 +202,9 @@ export function dbModeForPrincipal(principal: Principal): DbAccessMode {
  * 一并纳入会在同一提交里打断存量业务,故不在闸门范围内 —— 它们的数据边界仍由
  * 各自的 authenticate + 业务层过滤负责(见主 agent 的 routes 接线清单)。
  */
-export function isDataScopeEnforced(principal: Principal | undefined | null): principal is Principal {
+export function isDataScopeEnforced(
+  principal: Principal | undefined | null,
+): principal is Principal {
   return !!principal && !!principal.capability && principal.kind === 'apiKey'
 }
 
@@ -304,11 +312,9 @@ export interface DataScopeGuardDeps {
   ownerColumnByTable?: Readonly<Record<string, string>>
 }
 
-const deps: Required<Pick<DataScopeGuardDeps, 'isProduction' | 'warn'>> & Pick<
-  DataScopeGuardDeps,
-  'probeSuperuser'
-> = {
-  isProduction: () => process.env.NODE_ENV === 'production',
+const deps: Required<Pick<DataScopeGuardDeps, 'isProduction' | 'warn'>> &
+  Pick<DataScopeGuardDeps, 'probeSuperuser'> = {
+  isProduction: () => isProductionGuard,
   warn: (message, fields) => {
     if (fields) console.warn(`[scoped-guard] ${message}`, fields)
     else console.warn(`[scoped-guard] ${message}`)
@@ -347,7 +353,9 @@ export function isProductionDataScope(): boolean {
 export const SUPERUSER_PROBE_SQL = "SELECT current_setting('is_superuser') AS is_superuser" as const
 
 /** 探针执行器:只接受上面那条常量 SQL,永不接受拼接(避免探针本身成为注入面)。 */
-export type SuperuserProbeRunner = (sqlText: typeof SUPERUSER_PROBE_SQL) => Promise<readonly unknown[]>
+export type SuperuserProbeRunner = (
+  sqlText: typeof SUPERUSER_PROBE_SQL,
+) => Promise<readonly unknown[]>
 
 /**
  * 构造生产探针(db/index.ts 注入)。返回 true=超级用户 / false=普通角色;
@@ -378,7 +386,8 @@ let probeUnavailableReason: DataScopeDenyReason | undefined
 
 function cachedProbeConclusion(): { value: boolean | undefined; at: number } | undefined {
   if (!superuserCache) return undefined
-  const ttl = superuserCache.value === undefined ? PROBE_UNAVAILABLE_CACHE_TTL_MS : SUPERUSER_CACHE_TTL_MS
+  const ttl =
+    superuserCache.value === undefined ? PROBE_UNAVAILABLE_CACHE_TTL_MS : SUPERUSER_CACHE_TTL_MS
   if (Date.now() - superuserCache.at > ttl) return undefined
   return superuserCache
 }
@@ -408,7 +417,9 @@ export async function probeIsSuperuser(): Promise<boolean | undefined> {
     probeUnavailableReason = 'PROBE_UNAVAILABLE'
     if (!superuserWarnedOnce) {
       superuserWarnedOnce = true
-      deps.warn('未注入 probeSuperuser 探针,无法验证连接角色(若以超级用户连接,数据库层 RLS 形同虚设)')
+      deps.warn(
+        '未注入 probeSuperuser 探针,无法验证连接角色(若以超级用户连接,数据库层 RLS 形同虚设)',
+      )
     }
     superuserCache = { value: undefined, at: Date.now() }
     return undefined
@@ -732,7 +743,9 @@ function guardQueryMap(rawQuery: unknown, guardedSession: unknown): unknown {
       const swap = guardedRelationalBuilders.get(builder)
       if (swap) return swap
       const proto: object | null = Object.getPrototypeOf(builder) as object | null
-      const cloned = Object.assign(Object.create(proto ?? null), builder, { session: guardedSession })
+      const cloned = Object.assign(Object.create(proto ?? null), builder, {
+        session: guardedSession,
+      })
       guardedRelationalBuilders.set(builder, cloned)
       return cloned
     },
