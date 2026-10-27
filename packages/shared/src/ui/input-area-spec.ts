@@ -143,6 +143,21 @@ export const INPUT_AREA_STACK_GAP_PX = 8
 export const INPUT_AREA_CONTROL_RIGHT_PX = 8
 
 /**
+ * 【A 两端同值】放大/缩小切换钮的**定位盒边长** 20。
+ * 同一元素、两端各写一份:
+ *  - 小程序 ai-home 的 `search-right`(放大态)与 `search-right search-suo`(缩小态)两个浮层,
+ *    收编前各自写 `width: rpx(40), height: rpx(40)`(= 20px);
+ *  - RN 卡片态的 `expandBtn` 浮层写 `width: 20, height: 20`。
+ * 三个渲染点是同一个控件(输入框右上角的 ⤢/⤡ 切换钮)的定位盒,两端值本就同档,
+ * 但**字面量各写一份** ⇒ 改一端不会带着另一端走(本票要拆的就是这一型)。
+ * 依据:与 INPUT_AREA_FANGDA_TOP_PX(该钮的顶端内缩 6,两端已同源)同属一枚钮的两条档,
+ * 盒边长与内缩一起收进本表,那一枚钮的位置与尺寸就整体只有一份真相。
+ * 收编只动**盒边长**,不动位置:小程序的 `right: 0` 与 RN 的 `right: INPUT_AREA_CONTROL_RIGHT_PX`(8)
+ * 是两端各自的位置机制(小程序贴右缘、RN 让开浮层计数),仍留端内,不在本档管辖内。
+ */
+export const INPUT_AREA_EXPAND_BTN_BOX_PX = 20
+
+/**
  * 【B 单端档·RN·裁决】次要文字字号 12(语音区提示/录音时长/参数标题/参数输入),同时是
  * 计数浮层字号:RN 收编前写 11 —— **11 不在 design-tokens 字号档上**,按裁决规则 4
  * 就近吸附到 12。小程序端这些文字在 CSS 类臂,不具名。
