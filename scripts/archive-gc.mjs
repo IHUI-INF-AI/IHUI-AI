@@ -54,7 +54,8 @@
  * ──────────────────────────────────────────────────
  * 「文件名里没有 YYYY-MM-DD ⇒ 判不出世代」「lstat/realpath/体量量不到」「非普通文件」
  * 一律**保留 + 逐条报名**,计入末行 `未判定 Z`;未判定非空时退出码为 2(判定拿不到不记绿)。
- * 目录、重解析点、正在被写方引用的件(见 `IN_USE_NAMES`)同样保留并写明理由。
+ * 目录、重解析点、正在被写方引用的件(见 `IN_USE_NAMES`)、**活文档正文点名的件**
+ * (见 `LIVE_DOC_NAMES`/`liveDocArchiveRefs`)同样保留并写明理由。
  * 票面对 `.lintstagedrc.json` 这类无日期件**没有给判法**;本器不自造分类:一律保留 + 点名,
  * 计入 `未判定 Z` 并 RC=2,不得当“保留”悄悄过关。
  *
@@ -80,6 +81,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
@@ -117,6 +119,69 @@ export const MIN_AGE_MS = 1000
  * `PROJECT_PLAN_ARCHIVE.md` ⇒ 它不是历史快照,是活的落点。
  */
 export const IN_USE_NAMES = Object.freeze(['PROJECT_PLAN_ARCHIVE.md'])
+/**
+ * 活文档:它们的**正文**决定哪些归档件不能删。
+ * 立因(2026-10-28 现读):射程本来就是这些文档自己指定的档案目录,而 AGENTS.md 逐条写着
+ * "历史叙述…逐字归档于 `.ihui-agent/archive/<名>`" —— 只按世代/上限回收会把那些被正文
+ * 点名的件判成"待删"(实测 `AGENTS_full-pre-compact-2026-10-14.md` 1.20MB 与
+ * `AGENTS-pre-compress-2026-10-21.md` 118.8KB 均在待删集里),删完文档就指向不存在的出路
+ * (§0.8)。判据因此**从文档现读**而不是再抄一份名单(§0.6)。
+ */
+export const LIVE_DOC_NAMES = Object.freeze([
+  'AGENTS.md',
+  'README.md',
+  'README.en.md',
+  'README.ja.md',
+  'README.ko.md',
+  'PROJECT_PLAN.md',
+])
+
+/** 纯函数:抽正文里 `.ihui-agent/archive/<basename>` 形态的引用名。 */
+export function archiveRefsFromText(text) {
+  const out = new Set()
+  const re = /\.ihui-agent[/\\]archive[/\\]([^\s`'"()（）[\]<>«»「」、，。；;：:]+)/g
+  let m
+  while ((m = re.exec(String(text)))) {
+    const name = m[1].replace(/[.,;:]+$/, '')
+    if (name && !name.includes('/') && !name.includes('\\')) out.add(name)
+  }
+  return out
+}
+
+/**
+ * 从活文档现读引用集。`read`/`missing` 分开报:一份都读不到 ⇒ 调用方必须判"未判定"
+ * (判不出哪些件被引用就不冒删),不得退化成"没有引用"。
+ */
+export function liveDocArchiveRefs({ repoRoot = REPO_ROOT, readFile = readFileSync } = {}) {
+  const names = new Set()
+  const read = []
+  const missing = []
+  for (const doc of LIVE_DOC_NAMES) {
+    try {
+      const text = readFile(join(repoRoot, doc), 'utf8')
+      read.push(doc)
+      for (const n of archiveRefsFromText(text)) names.add(n)
+    } catch {
+      missing.push(doc)
+    }
+  }
+  return { names, read, missing }
+}
+
+/** 保护名单 = 静态在用件 ∪ 活文档引用件;后者单列理由,便于读数时分辨来源。 */
+export function protectedNameMap(names = []) {
+  const map = new Map()
+  for (const n of IN_USE_NAMES) map.set(n, `C-u 正在被写方引用的归档件(${n}) ⇒ 保留`)
+  for (const n of names || []) {
+    if (!map.has(n)) {
+      map.set(
+        n,
+        `C-ref 活文档引用的归档件(${n}):AGENTS/README/PLAN 正文指向它 ⇒ 删了就是"跑不通的出路"(§0.8)`,
+      )
+    }
+  }
+  return map
+}
 export const LEDGER_DELETED = 'archive-gc-deleted.jsonl'
 export const LEDGER_FAILED = 'archive-gc-failed.jsonl'
 
@@ -220,7 +285,9 @@ export function listEntries(root) {
  * lstat(拿链接本体,不跟随)→ 重解析点拒收 → 目录拒收 → 非普通文件拒收 → 越界拒收
  * → 正在被引用的件拒收 → 体量/世代可判 → 稳定窗 → in-scope。
  */
-export function classifyEntry({ root, name, now = Date.now() }) {
+export function classifyEntry({ root, name, now = Date.now(), protectedNames = null }) {
+  const protectedMap =
+    protectedNames instanceof Map ? protectedNames : protectedNameMap()
   const p = join(root, name)
   const row = {
     name,
@@ -268,9 +335,9 @@ export function classifyEntry({ root, name, now = Date.now() }) {
     row.reason = 'P-b 规范路径越出归档根 ⇒ 保留'
     return row
   }
-  if (IN_USE_NAMES.includes(name)) {
+  if (protectedMap.has(name)) {
     row.kind = 'protected'
-    row.reason = `C-u 正在被写方引用的归档件(${name}) ⇒ 保留`
+    row.reason = protectedMap.get(name)
     return row
   }
   if (typeof st.size !== 'number' || !Number.isFinite(st.size)) {
@@ -541,6 +608,15 @@ export function runMain({ argv, stdout = console.info, stderr = console.error })
   }
 
   const now = Date.now()
+  const liveDocs = liveDocArchiveRefs()
+  if (!liveDocs.read.length) {
+    stderr(
+      `❌ 无法判定:活文档一份都读不到(${LIVE_DOC_NAMES.join('/')})⇒ 判不出哪些归档件被正文引用,` +
+        '不冒删,也不记通过',
+    )
+    return 2
+  }
+  const protectedNames = protectedNameMap(liveDocs.names)
   let names
   try {
     names = listEntries(root)
@@ -548,7 +624,9 @@ export function runMain({ argv, stdout = console.info, stderr = console.error })
     stderr(`❌ 无法判定:归档根枚举失败(${e.message})⇒ 记"未判定"而非"无可删"`)
     return 2
   }
-  const entries = names.map((name) => classifyEntry({ root, name, now }))
+  const entries = names.map((name) =>
+    classifyEntry({ root, name, now, protectedNames }),
+  )
   const plan = planGc({ entries, keepGenerations: keep, maxFiles, maxItemBytes })
 
   stdout(`本次射程:${root}`)
@@ -557,6 +635,10 @@ export function runMain({ argv, stdout = console.info, stderr = console.error })
     `档位:保留最近 ${plan.keepGenerations} 代 · 总数上限 ${plan.maxFiles} · 单件体积上限 ${fmtBytes(plan.maxItemBytes)}`,
   )
   stdout(`条目:${plan.totalFiles} 件(世代 ${plan.generations.length} 个)`)
+  stdout(
+    `活文档引用保护:${liveDocs.names.size} 个名字来自 ${liveDocs.read.join('/')}` +
+      (liveDocs.missing.length ? `(读不到:${liveDocs.missing.join('/')})` : ''),
+  )
 
   for (const e of plan.retire) stdout(renderLine(e))
   for (const e of plan.keep) stdout(renderLine(e))
@@ -613,6 +695,10 @@ export const __test__ = {
   DEFAULT_MAX_ITEM_BYTES,
   MIN_AGE_MS,
   IN_USE_NAMES,
+  LIVE_DOC_NAMES,
+  archiveRefsFromText,
+  liveDocArchiveRefs,
+  protectedNameMap,
   norm,
   fmtBytes,
   isInsideRoot,
