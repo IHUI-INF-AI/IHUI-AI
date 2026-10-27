@@ -20,6 +20,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import {
   createSession,
@@ -42,6 +43,22 @@ export const terminalRoutes: FastifyPluginAsync = async (server) => {
     }
   }
 
+  /**
+   * 本地终端访问闸(2026-10-27 加固)。
+   *
+   * POST /terminal/sessions 起的是**这台服务器上的一个真 shell**(getDefaultShell ⇒
+   * cmd/pwsh),而原实现只判 authenticate:任意注册账号拿到一枚 JWT 就能在生产机上执行
+   * 任意命令。现默认只放行管理员;自托管部署确实要把终端开给登录用户时,显式设
+   * `IHUI_TERMINAL_LOCAL_ENABLED=1`(届时退回 requireAuth 语义,而不是悄悄放开)。
+   */
+  const requireTerminalAccess = async (request: FastifyRequest, reply: FastifyReply) => {
+    if (process.env.IHUI_TERMINAL_LOCAL_ENABLED === '1') {
+      await requireAuth(request, reply)
+      return
+    }
+    await requireAdmin(request, reply)
+  }
+
   const createSchema = z.object({
     cwd: z.string().optional(),
     cols: z.number().int().min(1).max(500).optional(),
@@ -62,9 +79,10 @@ export const terminalRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ sessions }))
   })
 
-  // POST /terminal/sessions — 创建新 session
+  // POST /terminal/sessions — 创建新 session(默认仅管理员,理由见 requireTerminalAccess 头注)
   server.post('/terminal/sessions', async (request, reply) => {
-    await requireAuth(request, reply)
+    await requireTerminalAccess(request, reply)
+    if (reply.sent) return
     if (!request.userId) return
 
     const parsed = createSchema.safeParse(request.body ?? {})
