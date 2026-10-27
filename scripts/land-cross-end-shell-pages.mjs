@@ -459,6 +459,10 @@ function runPages({ apply, cap = DEFAULT_CAP, headless = false } = {}) {
       state: 'clean',
       planned: 0,
       refused: refused?.length ?? 0,
+      // 只报"拒 N 枚"等于没报:N 枚各有各的成因,而这三腿判据的成因只有生产方知道。
+      // 明细随 --json 出账(封顶 20 条防刷屏),打印档逐条点名 ⇒ 接手的人能直接动手。
+      refusedDetail: (refused || []).slice(0, 20).map((r) => `${r.spec}:${String(r.why ?? '(未给因)').slice(0, 110)}`),
+      undeterminedDetail: (undetermined || []).slice(0, 10).map((u) => `${u.spec ?? u}:${String(u.why ?? '未判定').slice(0, 90)}`),
       undetermined: undetermined?.length ?? 0,
       note: '本轮没有可产的屏(缺口要么已落、要么被造页器按三腿判据拒/未判定)',
     }
@@ -930,6 +934,8 @@ if (isDirectRun) {
       )
       if (r.note) console.log(`  ${r.note}`)
       if (r.why) console.log(`  ${r.why}`)
+      for (const d of r.refusedDetail || []) console.log(`   · 拒:${d}`)
+      for (const d of r.undeterminedDetail || []) console.log(`   · 未判定:${d}`)
     }
     process.exit(r.state === 'clean' || r.state === 'pending' || r.state === 'landed' ? 0 : r.state === 'blocked' ? 1 : 2)
   }
