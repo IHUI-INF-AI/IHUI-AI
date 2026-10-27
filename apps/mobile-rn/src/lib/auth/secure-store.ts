@@ -87,10 +87,33 @@ function getBackend(): Promise<SecureBackend> {
   return backendPromise
 }
 
-/** 写入加密项(token 走此接口) */
-export async function setSecureItem(key: string, value: string): Promise<void> {
+/** 写入加密项(token 走此接口)
+ *
+ * opts.rejectPlaintext(2026-10-27 加固):值为 true 且当前后端**不是**系统级加密时,
+ * 原生平台一律拒绝落盘 —— 降级后端是 AsyncStorage 明文,refresh token 这种长期凭据
+ * 写进去等于 iOS 越狱/Android root 后直接读走账号。拒绝后内存缓存层
+ * (createInMemoryTokenStore)不受影响,本会话照常;冷启动需重新登录。
+ * 刻意的失效方向:宁可少一次「记住登录」,也不静默把凭据写成明文。
+ * web 平台豁免:RN web 的 AsyncStorage 就是 localStorage,与 web 端 token 持久化
+ * 同一风险模型(本来就明文),在那里拒绝只会白白打断会话。
+ *
+ * @returns 'stored'(已落盘) | 'skipped-plaintext'(因拒绝明文而未落盘)
+ */
+export async function setSecureItem(
+  key: string,
+  value: string,
+  opts: { rejectPlaintext?: boolean } = {},
+): Promise<'stored' | 'skipped-plaintext'> {
   const b = await getBackend()
+  if (opts.rejectPlaintext && !b.encrypted && Platform.OS !== 'web') {
+    console.warn(
+      `[secure-store] refused plaintext persistence for ${key} (backend is not encrypted; ` +
+        `native module missing is a build defect — cold start will require re-login)`,
+    )
+    return 'skipped-plaintext'
+  }
   await b.setItem(key, value)
+  return 'stored'
 }
 
 /** 读取加密项 */
