@@ -411,6 +411,20 @@ function evaluateNav(nav, ev, routeKeys = []) {
   }
 }
 
+function renderContradictedOf(gapCandidates) {
+  // 三条同时成立才入队:同名(exact)∧ 已被某 RN 屏以 JSX 渲染(covered)∧ 承载体确在共享层。
+  // 层位这一条收进判据而不是信调用方:workShape 是上游标的,判据若依赖它自觉,
+  // 一张写错的表就能把端内屏说成"共享真相源已被渲染"。
+  const SHARED = 'packages/app/src/features/'
+  const hit = (c) => c.exact && c.workShape === 'covered' && String(c.rel).startsWith(SHARED)
+  return gapCandidates
+    .filter((g) => g.candidates.some(hit))
+    .map((g) => ({
+      web: g.web,
+      renderers: g.candidates.filter(hit).map((c) => `${c.name}(${c.rel})`),
+    }))
+}
+
 function run() {
   const webRoutes = collectWebRoutes(FACE)
   const rnScreens = collectRnScreens(FACE)
@@ -501,6 +515,13 @@ function run() {
       }))
       .filter((x) => x.candidates.length > 0),
   }
+  // 渲染推翻候选(2026-10-27 立,**只点名不改判**):gap 行的同名共享屏确有一枚 RN 屏以 JSX 渲染它。
+  // 为什么只点名:同名 ≠ 同物 —— 现读 `edu/edu-management/study-plan` 是教职侧页面,而 RN 渲染的
+  // StudyPlanScreen 走学生侧数据;自动翻案会把两条不同语义的东西并成一条,那比留着当缺口更坏。
+  // 但"判过 RN 零承载"与"同名共享屏已被 RN 真渲染"是互斥的两句话,必须排成一条**可复核队列**
+  // 交人裁,而不是让下一个人重新逐屏翻代码(判据只这一处 §0.6;翻案权归人,本尺不代裁)。
+  json.renderContradicted = renderContradictedOf(json.gapCandidates)
+
   if (jsonMode) {
     console.log(JSON.stringify(json, null, 2))
     return
@@ -588,6 +609,16 @@ function run() {
       log(`  ${g.web}  →  ${c}`)
     }
   }
+  if (json.renderContradicted.length > 0) {
+    log('')
+    log(
+      `⚠ 渲染推翻候选(交人复核,本尺不翻案): ${json.renderContradicted.length} 条 gap 行` +
+        ` 的同名共享屏确被某 RN 屏以 JSX 渲染 —— 同名不等于同物(侧别/数据源可能不同),` +
+        `但"零承载"与"已渲染"两句互斥,必须逐条语义核对`,
+    )
+    for (const g of json.renderContradicted.slice(0, fullMode ? undefined : 20))
+      log(`     · ${g.web}  →  ${g.renderers.join(', ')}`)
+  }
   if (rot.length > 0) {
     log('')
     log('⚠ 登记腐烂(逐条点名):')
@@ -607,6 +638,7 @@ export const __test__ = {
   collectPortalRoutes,
   collectNavEntries,
   evaluateNav,
+  renderContradictedOf,
   screenTokens,
   routeTokens,
   suggestCandidates,
