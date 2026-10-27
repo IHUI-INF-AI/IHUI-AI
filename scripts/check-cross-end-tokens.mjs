@@ -127,6 +127,216 @@ const FACE_TXT = {
 // ─── 映射表(每条含取值依据,rn 路径 = [常量名, ...嵌套键]) ───
 const MAPPINGS = [
   {
+    label: 'surface.dark ↔ --color-surface-dark',
+    rn: { light: ['rnLightTokens', 'surface', 'dark'], dark: ['rnDarkTokens', 'surface', 'dark'] },
+    css: { light: '--color-surface-dark', dark: '--color-surface-dark' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #262626 / 暗档 (同亮) 与源 --color-surface-dark 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-surface-dark, --color-vip-card),其中与 RN 档名同名的只有 --color-surface-dark(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'text.secondary ↔ --color-muted-foreground',
+    rn: { light: ['rnLightTokens', 'text', 'secondary'], dark: ['rnDarkTokens', 'text', 'secondary'] },
+    css: { light: '--color-muted-foreground', dark: '--color-muted-foreground' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #666666 / 暗档 (同亮) 与源 --color-muted-foreground 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-muted-foreground)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'text.tertiary ↔ --color-text-tertiary',
+    rn: { light: ['rnLightTokens', 'text', 'tertiary'], dark: ['rnDarkTokens', 'text', 'tertiary'] },
+    css: { light: '--color-text-tertiary', dark: '--color-text-tertiary' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #A3A3A3 / 暗档 (同亮) 与源 --color-text-tertiary 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-text-tertiary)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'text.medium ↔ --color-text-medium',
+    rn: { light: ['rnLightTokens', 'text', 'medium'], dark: ['rnDarkTokens', 'text', 'medium'] },
+    css: { light: '--color-text-medium', dark: '--color-text-medium' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #404040 / 暗档 (同亮) 与源 --color-text-medium 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-text-medium)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'border.light ↔ --color-border',
+    rn: { light: ['rnLightTokens', 'border', 'light'], dark: ['rnDarkTokens', 'border', 'light'] },
+    css: { light: '--color-border', dark: '--color-border' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #E5E5E5 / 暗档 (同亮) 与源 --color-border 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-border)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'border.medium ↔ --color-border-medium',
+    rn: { light: ['rnLightTokens', 'border', 'medium'], dark: ['rnDarkTokens', 'border', 'medium'] },
+    css: { light: '--color-border-medium', dark: '--color-border-medium' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #D4D4D4 / 暗档 (同亮) 与源 --color-border-medium 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-border-medium)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'error.text ↔ --color-destructive',
+    rn: { light: ['rnLightTokens', 'error', 'text'], dark: ['rnDarkTokens', 'error', 'text'] },
+    css: { light: '--color-destructive', dark: '--color-destructive' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #FF3333 / 暗档 (同亮) 与源 --color-destructive 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-destructive)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'brandAccent.light ↔ --color-brand-accent-light',
+    rn: { light: ['rnLightTokens', 'brandAccent', 'light'], dark: ['rnDarkTokens', 'brandAccent', 'light'] },
+    css: { light: '--color-brand-accent-light', dark: '--color-brand-accent-light' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #eaf2f7 / 暗档 (同亮) 与源 --color-brand-accent-light 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-brand-accent-light)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'brandAccent.DEFAULT ↔ --color-brand-accent',
+    rn: { light: ['rnLightTokens', 'brandAccent', 'DEFAULT'], dark: ['rnDarkTokens', 'brandAccent', 'DEFAULT'] },
+    css: { light: '--color-brand-accent', dark: '--color-brand-accent' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #8fb8cc / 暗档 (同亮) 与源 --color-brand-accent 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-brand-accent, --color-brand-accent-grad-to),其中与 RN 档名同名的只有 --color-brand-accent(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'brandAccent.deep ↔ --color-brand-accent-deep',
+    rn: { light: ['rnLightTokens', 'brandAccent', 'deep'], dark: ['rnDarkTokens', 'brandAccent', 'deep'] },
+    css: { light: '--color-brand-accent-deep', dark: '--color-brand-accent-deep' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #4a7a96 / 暗档 (同亮) 与源 --color-brand-accent-deep 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-link, --color-brand-accent-deep),其中与 RN 档名同名的只有 --color-brand-accent-deep(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'brandAccent.foreground ↔ --color-brand-accent-foreground',
+    rn: { light: ['rnLightTokens', 'brandAccent', 'foreground'], dark: ['rnDarkTokens', 'brandAccent', 'foreground'] },
+    css: { light: '--color-brand-accent-foreground', dark: '--color-brand-accent-foreground' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #1e3a47 / 暗档 (同亮) 与源 --color-brand-accent-foreground 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-brand-accent-foreground)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'brandAccent.gradFrom ↔ --color-brand-accent-grad-from',
+    rn: { light: ['rnLightTokens', 'brandAccent', 'gradFrom'], dark: ['rnDarkTokens', 'brandAccent', 'gradFrom'] },
+    css: { light: '--color-brand-accent-grad-from', dark: '--color-brand-accent-grad-from' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #b8d4e3 / 暗档 (同亮) 与源 --color-brand-accent-grad-from 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-brand-accent-grad-from)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'brandAccent.gradTo ↔ --color-brand-accent-grad-to',
+    rn: { light: ['rnLightTokens', 'brandAccent', 'gradTo'], dark: ['rnDarkTokens', 'brandAccent', 'gradTo'] },
+    css: { light: '--color-brand-accent-grad-to', dark: '--color-brand-accent-grad-to' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #8fb8cc / 暗档 (同亮) 与源 --color-brand-accent-grad-to 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-brand-accent, --color-brand-accent-grad-to),其中与 RN 档名同名的只有 --color-brand-accent-grad-to(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'warning.light ↔ --color-warning-light',
+    rn: { light: ['rnLightTokens', 'warning', 'light'], dark: ['rnDarkTokens', 'warning', 'light'] },
+    css: { light: '--color-warning-light', dark: '--color-warning-light' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #fffbeb / 暗档 (同亮) 与源 --color-warning-light 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-warning-light)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'warning.amberLight ↔ --color-warning-amber-light',
+    rn: { light: ['rnLightTokens', 'warning', 'amberLight'], dark: ['rnDarkTokens', 'warning', 'amberLight'] },
+    css: { light: '--color-warning-amber-light', dark: '--color-warning-amber-light' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #fef3c7 / 暗档 (同亮) 与源 --color-warning-amber-light 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-warning-amber-light)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'warning.amber ↔ --color-warning-amber',
+    rn: { light: ['rnLightTokens', 'warning', 'amber'], dark: ['rnDarkTokens', 'warning', 'amber'] },
+    css: { light: '--color-warning-amber', dark: '--color-warning-amber' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #f59e0b / 暗档 (同亮) 与源 --color-warning-amber 在 :root/@theme 与 .dark 两个面各自同值;同值候选 3 个(--color-warning, --color-warning-amber, --chart-3),其中与 RN 档名同名的只有 --color-warning-amber(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'warning.amberText ↔ --color-warning-amber-text',
+    rn: { light: ['rnLightTokens', 'warning', 'amberText'], dark: ['rnDarkTokens', 'warning', 'amberText'] },
+    css: { light: '--color-warning-amber-text', dark: '--color-warning-amber-text' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #92400e / 暗档 (同亮) 与源 --color-warning-amber-text 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-warning-amber-text)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'success.lighter ↔ --color-success-lighter',
+    rn: { light: ['rnLightTokens', 'success', 'lighter'], dark: ['rnDarkTokens', 'success', 'lighter'] },
+    css: { light: '--color-success-lighter', dark: '--color-success-lighter' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #d1fae5 / 暗档 (同亮) 与源 --color-success-lighter 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-success-lighter)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'success.light ↔ --color-success-light',
+    rn: { light: ['rnLightTokens', 'success', 'light'], dark: ['rnDarkTokens', 'success', 'light'] },
+    css: { light: '--color-success-light', dark: '--color-success-light' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #ecfdf5 / 暗档 (同亮) 与源 --color-success-light 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-success-light)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'success.DEFAULT ↔ --color-success',
+    rn: { light: ['rnLightTokens', 'success', 'DEFAULT'], dark: ['rnDarkTokens', 'success', 'DEFAULT'] },
+    css: { light: '--color-success', dark: '--color-success' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #22c55e / 暗档 (同亮) 与源 --color-success 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-success)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'success.deep ↔ --color-success-deep',
+    rn: { light: ['rnLightTokens', 'success', 'deep'], dark: ['rnDarkTokens', 'success', 'deep'] },
+    css: { light: '--color-success-deep', dark: '--color-success-deep' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #16a34a / 暗档 (同亮) 与源 --color-success-deep 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-success-deep, --chart-success),其中与 RN 档名同名的只有 --color-success-deep(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'success.deepText ↔ --color-success-deep-text',
+    rn: { light: ['rnLightTokens', 'success', 'deepText'], dark: ['rnDarkTokens', 'success', 'deepText'] },
+    css: { light: '--color-success-deep-text', dark: '--color-success-deep-text' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #065F46 / 暗档 (同亮) 与源 --color-success-deep-text 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-success-deep-text)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'danger.light ↔ --color-danger-light',
+    rn: { light: ['rnLightTokens', 'danger', 'light'], dark: ['rnDarkTokens', 'danger', 'light'] },
+    css: { light: '--color-danger-light', dark: '--color-danger-light' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #fee2e2 / 暗档 (同亮) 与源 --color-danger-light 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-danger-light)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'modelType.text ↔ --color-model-type-text',
+    rn: { light: ['rnLightTokens', 'modelType', 'text'], dark: ['rnDarkTokens', 'modelType', 'text'] },
+    css: { light: '--color-model-type-text', dark: '--color-model-type-text' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #1888ee / 暗档 (同亮) 与源 --color-model-type-text 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-model-type-text)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'modelType.textBg ↔ --color-model-type-text-bg',
+    rn: { light: ['rnLightTokens', 'modelType', 'textBg'], dark: ['rnDarkTokens', 'modelType', 'textBg'] },
+    css: { light: '--color-model-type-text-bg', dark: '--color-model-type-text-bg' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #e8f4fd / 暗档 (同亮) 与源 --color-model-type-text-bg 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-model-type-text-bg)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'modelType.image ↔ --color-model-type-image',
+    rn: { light: ['rnLightTokens', 'modelType', 'image'], dark: ['rnDarkTokens', 'modelType', 'image'] },
+    css: { light: '--color-model-type-image', dark: '--color-model-type-image' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #c41e7a / 暗档 (同亮) 与源 --color-model-type-image 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-model-type-image)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'modelType.imageBg ↔ --color-model-type-image-bg',
+    rn: { light: ['rnLightTokens', 'modelType', 'imageBg'], dark: ['rnDarkTokens', 'modelType', 'imageBg'] },
+    css: { light: '--color-model-type-image-bg', dark: '--color-model-type-image-bg' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #fde8f5 / 暗档 (同亮) 与源 --color-model-type-image-bg 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-model-type-image-bg)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'modelType.av ↔ --color-model-type-av',
+    rn: { light: ['rnLightTokens', 'modelType', 'av'], dark: ['rnDarkTokens', 'modelType', 'av'] },
+    css: { light: '--color-model-type-av', dark: '--color-model-type-av' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #2e7d32 / 暗档 (同亮) 与源 --color-model-type-av 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-model-type-av)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'modelType.avBg ↔ --color-model-type-av-bg',
+    rn: { light: ['rnLightTokens', 'modelType', 'avBg'], dark: ['rnDarkTokens', 'modelType', 'avBg'] },
+    css: { light: '--color-model-type-av-bg', dark: '--color-model-type-av-bg' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #e8f5e9 / 暗档 (同亮) 与源 --color-model-type-av-bg 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-success-tag-bg, --color-model-type-av-bg),其中与 RN 档名同名的只有 --color-model-type-av-bg(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'agentName.DEFAULT ↔ --color-agent-name',
+    rn: { light: ['rnLightTokens', 'agentName', 'DEFAULT'], dark: ['rnDarkTokens', 'agentName', 'DEFAULT'] },
+    css: { light: '--color-agent-name', dark: '--color-agent-name' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #517bff / 暗档 (同亮) 与源 --color-agent-name 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-agent-name)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
     label: 'glass.bg ↔ --color-glass-bg',
     rn: { light: ['rnLightTokens', 'glass', 'bg'], dark: ['rnDarkTokens', 'glass', 'bg'] },
     css: { light: '--color-glass-bg', dark: '--color-glass-bg' },
@@ -1158,6 +1368,10 @@ export const __test__ = {
   checkIntraPalette,
   extractTsObjectBody,
   extractCssVars,
+  // 配对计划器(plan-rn-token-pairing)要按选择器分面取变量:层叠口径全仓只此一份(§0.6),
+  // 私有就等于让下游再写一遍 :root/@theme/.dark 的合并规则 —— 那份必然先漂。
+  extractAllBlocks,
+  mergeCssVars,
   // R6(2026-09-25):v3 端 /alpha 用量 ↔ 插件登记表
   UndeterminedError,
   ALPHA_PLUGIN_REL,
