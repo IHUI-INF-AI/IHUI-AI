@@ -198,7 +198,8 @@ const results = await client.memory.search({ query: '用户偏好', topK: 3 })
 
 ## 错误处理
 
-SDK 使用统一的 `SdkError` 类,包含 `status`、`code`、`message`、`details` 字段。
+SDK 使用统一的 `SdkError` 类,包含 `status`、`code`、`message`、`details`、`retryAfterMs` 字段
+(`retryAfterMs` = 服务端 `Retry-After` 头解析出的建议等待毫秒数,见「限流与 429」)。
 
 ```typescript
 import { SdkError } from '@ihui/sdk'
@@ -232,7 +233,31 @@ try {
 - 429 和 4xx 不重试
 - 流式请求不重试(无法安全回放流)
 
+### 限流与 429
+
+服务端返回 `429` 表示配额或速率超限。SDK **不自动重试 429**(避免持续打满配额),但会把响应里的
+`Retry-After` 头(整数秒或 HTTP 日期两种形态)解析为 `SdkError.retryAfterMs`(毫秒;头缺失或
+无法解析时为 `undefined`),调用方据此自适应退避:
+
+```typescript
+import { SdkError } from '@ihui/sdk'
+
+async function withRateLimit<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (e) {
+    if (e instanceof SdkError && e.status === 429) {
+      await new Promise((r) => setTimeout(r, e.retryAfterMs ?? 1000))
+      return await fn() // 按 Retry-After 等待后重试一次
+    }
+    throw e
+  }
+}
+```
+
 ## 鉴权
+
+在 IHUI-AI 平台「设置 → API Keys」页面创建 API Key(格式 `ihui_xxx`);创建/轮换时可同时获得 Secret。
 
 SDK 支持两种鉴权方式:
 
@@ -246,6 +271,22 @@ const client = createClient({
   secret: 'sk_xxx',
 })
 ```
+
+## 版本与稳定性
+
+- **版本号遵循 [Semantic Versioning 2.0.0](https://semver.org/lang/zh-CN/)**,显著变更记录在
+  [CHANGELOG.md](./CHANGELOG.md)(随包附带,升级前必读)。
+- **当前 0.x 为预稳定期**:minor 可能包含破坏性变更(CHANGELOG 中标注 `Breaking`),patch 只含修复;
+  `1.0.0` 起严格 SemVer —— 破坏性变更只随 major 发布。
+- **兼容承诺范围 = `@ihui/sdk` 顶层导出**(全部命名导出与类型)。`dist/` 内部文件路径与未导出符号
+  不在承诺内(`exports` 只开放 `.` 与 `./package.json` 两个子路径)。
+- **弃用策略**:废弃 API 先在 CHANGELOG 标注 `Deprecated` 并至少保留一个 minor,再于后续 minor 移除。
+
+## 遥测与隐私
+
+- **零遥测**:SDK 不采集、不回传任何使用数据、日志、错误统计或埋点,也没有遥测开关 —— 不存在上报通道。
+- **零运行时依赖**:不引入任何第三方客户端或上报组件,无 `postinstall` 脚本。
+- **网络边界**:请求只发往你配置的 `baseUrl`;API Key / Secret 只作为请求头发往该地址,不发往任何其他主机。
 
 ## License
 

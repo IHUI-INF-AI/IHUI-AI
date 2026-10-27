@@ -163,7 +163,13 @@ function makeCtx(region?: 'cn' | 'global'): AdapterAccountContext {
       token: 'zc-token',
       refreshToken: null,
       cookies: [],
-      secrets: region ? { region } : {},
+      secrets: {
+        ...(region ? { region } : {}),
+        credentialMap: {
+          'oauth:bigmodel:access_token': 'zc-token',
+          zcodejwttoken: 'zc-jwt-fixture',
+        },
+      },
     },
   } as unknown as AdapterAccountContext
 }
@@ -297,7 +303,7 @@ describe('zcode buildChatRequest', () => {
   })
 })
 
-describe('zcode getQuota(形状未实证 ⇒ 200 也未判定)', () => {
+describe('zcode getQuota(zcode-plan 通道,2026-10-27 实弹闭环)', () => {
   beforeEach(() => {
     mockFetch.mockReset()
   })
@@ -314,41 +320,88 @@ describe('zcode getQuota(形状未实证 ⇒ 200 也未判定)', () => {
     expect(q.error).toMatch(/HTTP 401/)
   })
 
-  it('HTTP 200 → ok:false 未判定,带响应键名清单(不猜字段读成数字)', async () => {
+  it('200/code=0 + active plans → ok:true,quota 报档名与权益包(不编剩余数字)', async () => {
     mockFetch.mockResolvedValue({
       status: 200,
       ok: true,
       text: async () =>
-        JSON.stringify({ balanceInfo: { balance: 0, giftBalance: 0, usedTokens: 0 } }),
+        JSON.stringify({
+          code: 0,
+          msg: '',
+          data: {
+            server_time: 1793095210,
+            plans: [
+              {
+                plan_id: 'zcode-v3-start-plan-0817',
+                name: 'ZCode Start Plan',
+                status: 'active',
+                ends_at: 1793289599,
+                entitlements: [
+                  { show_name: 'GLM-5.3', unit_type: 'token', grant_units: 1000 },
+                  { show_name: 'GLM-5.3-Flash', unit_type: 'token', grant_units: 2000 },
+                ],
+              },
+            ],
+          },
+        }),
+    })
+    const q = await zcodeAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(true)
+    expect(q.quota?.subscriptionName).toBe('ZCode Start Plan')
+    expect(q.quota?.packs).toHaveLength(2)
+    expect(q.quota?.packs?.[0]).toMatchObject({ name: 'GLM-5.3', limit: 1000 })
+    expect(q.quota?.resetsAt).toBe(new Date(1793289599 * 1000).toISOString())
+    expect(q.quota?.used).toBeUndefined()
+    expect(q.quota?.remaining).toBeUndefined()
+  })
+
+  it('200/code=0 但 plans 空 → ok:false「无生效套餐」(不编数字)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: 0, msg: '', data: { plans: [] } }),
     })
     const q = await zcodeAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
     expect(q.quota).toBeUndefined()
-    expect(q.error).toContain('响应键=[balanceInfo]')
-    expect(q.error).toMatch(/未判定/)
+    expect(q.error).toContain('无生效套餐')
   })
 
-  it('HTTP 200 非 JSON → ok:false 未判定,键=(空)', async () => {
-    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => 'not-json' })
+  it('200 但业务 code!=0 → ok:false 业务拒绝带码;非 JSON → 未判定', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: 3001, msg: 'parameter error' }),
+    })
     const q = await zcodeAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
-    expect(q.error).toContain('响应键=[(空)]')
+    expect(q.error).toContain('code=3001')
+
+    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => 'not-json' })
+    const q2 = await zcodeAdapter.getQuota!(makeCtx())
+    expect(q2.ok).toBe(false)
+    expect(q2.error).toMatch(/非 JSON/)
   })
 
-  it('请求面:GET coding 域 balance 端点 + Bearer;region 落对应域名', async () => {
-    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
+  it('请求面:GET zcode.z.ai billing/balance + zcodejwttoken 票 + X- 头全套', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({ code: 0, data: { plans: [{ status: 'active', entitlements: [] }] } }),
+    })
     await zcodeAdapter.getQuota!(makeCtx())
-    const [urlCn, initCn] = mockFetch.mock.calls[0] as [string, RequestInit]
-    expect(urlCn).toBe('https://open.bigmodel.cn/api/coding/paas/v4/users/me/balance')
-    expect(initCn.method).toBe('GET')
-    expect((initCn.headers as Record<string, string>)['authorization']).toBe('Bearer zc-token')
-
-    await zcodeAdapter.getQuota!(makeCtx('global'))
-    const [urlGlobal] = mockFetch.mock.calls[1] as [string, RequestInit]
-    expect(urlGlobal).toBe('https://api.z.ai/api/coding/paas/v4/users/me/balance')
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=3.16.3')
+    expect(init.method).toBe('GET')
+    const headers = init.headers as Record<string, string>
+    expect(headers['authorization']).toBe('Bearer zc-jwt-fixture')
+    expect(headers['X-Device-Mid']).toMatch(/^[0-9a-f-]{36}$/)
+    expect(headers['X-ZCode-App-Version']).toBe('3.16.3')
+    expect(headers['X-Os-Category']).toBe('windows')
   })
 
-  it('网络异常 → ok:false(未判定),error 带原因', async () => {
+  it('网络异常 → ok:false,error 带原因', async () => {
     mockFetch.mockRejectedValue(new Error('socket hang up'))
     const q = await zcodeAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
@@ -361,10 +414,27 @@ describe('zcode checkHealth(三态)', () => {
     mockFetch.mockReset()
   })
 
-  it('200 → ok:true', async () => {
-    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
+  it('200/code=0 → ok:true(zcode-plan 通道实弹语义)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({ code: 0, msg: '', data: { plans: [{ status: 'active' }] } }),
+    })
     const h = await zcodeAdapter.checkHealth(makeCtx())
     expect(h.ok).toBe(true)
+  })
+
+  it('200 但业务 code!=0 → indeterminate 未判定(不冒绿不误杀)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: 3001, msg: 'parameter error' }),
+    })
+    const h = await zcodeAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.indeterminate).toBe(true)
+    expect(h.authFailed).toBeUndefined()
   })
 
   it('401 → ok:false + authFailed(明确拒收)', async () => {
