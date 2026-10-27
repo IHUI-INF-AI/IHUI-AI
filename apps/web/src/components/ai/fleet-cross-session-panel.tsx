@@ -17,6 +17,7 @@ import {
   type SubagentGlobalStats,
 } from '@ihui/api-client'
 import { BackgroundAgentsPanel } from './background-agents-panel'
+import { useBackgroundAgentNotify } from '@/hooks/use-background-agent-notify'
 import type { BackgroundAgent } from './types'
 
 /**
@@ -47,14 +48,33 @@ function toBackgroundAgent(d: SubagentDispatch): BackgroundAgent {
         : d.status === 'cancelled'
           ? 'cancelled'
           : 'running'
+  // D08 ③:进度/逐 agent token 只读载荷上的 metrics;缺该字段 = 未判定(不塞 0、不编造)
+  const metrics = d.metrics
+  const progress = metrics
+    ? {
+        tool_calls: metrics.steps.length,
+        text_preview:
+          metrics.dagTotal !== undefined && metrics.dagDone !== undefined
+            ? `${metrics.dagDone}/${metrics.dagTotal}`
+            : undefined,
+      }
+    : undefined
   return {
     agent_id: d.id,
     status,
     prompt: d.goal,
     created_at: d.createdAt,
     updated_at: d.updatedAt,
+    progress,
     result: d.result ? { output: d.result } : undefined,
     error: d.errorMessage,
+    tokens: metrics?.totalTokens,
+    // 一键接管:仅「还在跑」的派单 + 有会话归属时给入口(既有 /chat?conversationId= 深链);
+    // 终态不给(用「查看结果」),未归属会话不给(不伪造入口)
+    takeoverHref:
+      status === 'running' && d.conversationId
+        ? `/chat?conversationId=${encodeURIComponent(d.conversationId)}`
+        : undefined,
   }
 }
 
@@ -116,6 +136,12 @@ export function FleetCrossSessionPanel({ onCancel }: FleetCrossSessionPanelProps
 
   const activeCount = buckets.find((b) => b.key === 'running')?.agents.length ?? 0
 
+  // D08 ③ 完成通知:必须在**整表**层面发一次 —— 分桶渲染时派单从「运行」桶移到「完成」桶
+  // 就换了实例,逐桶调 hook 认不出 running→completed 的跳变(不是发不出,就是发两遍)。
+  // 故桶内实例一律 notify={false},这里统一比对上一次全表快照。
+  const allAgents = React.useMemo(() => dispatches.map(toBackgroundAgent), [dispatches])
+  useBackgroundAgentNotify(allAgents)
+
   return (
     <div
       data-testid="fleet-cross-session-panel"
@@ -165,6 +191,7 @@ export function FleetCrossSessionPanel({ onCancel }: FleetCrossSessionPanelProps
                 agents={b.agents.map(toBackgroundAgent)}
                 loading={loading}
                 onCancel={onCancel}
+                notify={false}
               />
             </section>
           ))}

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import {
   Cpu,
@@ -50,6 +51,12 @@ interface BackgroundAgentsPanelProps {
   onCancel?: (agentId: string) => Promise<{ ok: boolean; error?: string } | void> | void
   onViewResult?: (agentId: string) => void
   onPurge?: (agentId: string) => void
+  /**
+   * 完成通知(D08 ③):终态跳变桌面通知默认开。Fleet 跨会话面板按状态分桶 = 多个实例,
+   * 派单从「运行」桶移到「完成」桶即换实例,prevRef 认不出跳变 ⇒ 由宿主在整表层面统一发,
+   * 桶内实例传 false(否则不是发不出就是发两遍)。
+   */
+  notify?: boolean
 }
 
 /** D64 ④:八态图标全集(判定层词汇表的端内图标映射,缺一态即 TS 报错;pending/timeout 无产生方但展示就绪) */
@@ -91,6 +98,9 @@ function truncate(text: string, max: number, omitted: (count: number) => string)
   return `${text.slice(0, max)}... ${omitted(text.length - max)}`
 }
 
+/** 通知关闭时的稳定空表(不让每次 render 生成新引用把 effect 反复触发) */
+const NO_AGENTS: BackgroundAgent[] = []
+
 /**
  * BackgroundAgentsPanel - 后台 Agent 面板
  * 显示后台运行的 Agent 列表，支持取消/查看结果/删除
@@ -104,6 +114,7 @@ export function BackgroundAgentsPanel({
   onCancel,
   onViewResult,
   onPurge,
+  notify = true,
 }: BackgroundAgentsPanelProps) {
   const t = useTranslations('ai.backgroundAgents')
   // D64 ④:八态标题/hint/动作文案走判定层契约键(elementPack.backgroundTask.*)
@@ -112,7 +123,8 @@ export function BackgroundAgentsPanel({
   const [permission, setPermission] = React.useState<DesktopPermission>('unsupported')
   React.useEffect(() => setPermission(getDesktopPermission()), [])
 
-  useBackgroundAgentNotify(agents)
+  // D08 ③:hook 必须无条件调用(hooks 顺序);关通知时传稳定空表,由宿主整表统一发
+  useBackgroundAgentNotify(notify ? agents : NO_AGENTS)
 
   // D64 ④ 停止通道本地生命周期:
   //  - stopping:停止请求在途(action=none,防重复点击)
@@ -285,7 +297,27 @@ export function BackgroundAgentsPanel({
                       <span className="text-xs text-muted-foreground">
                         {formatTimeOnly(agent.updated_at || agent.created_at)}
                       </span>
+                      {/* D08 ③:Fleet 跨会话行的逐 agent token;字段缺席=未判定,不渲染、不拿 0 顶替 */}
+                      {agent.tokens !== undefined && (
+                        <span
+                          data-testid={`bg-task-tokens-${agent.agent_id}`}
+                          className="text-xs text-muted-foreground tabular-nums"
+                        >
+                          {t('tokens')} {agent.tokens}
+                        </span>
+                      )}
                       <div className="ml-auto flex items-center gap-1">
+                        {/* D08 ③ 一键接管:有会话归属才给入口(宿主按 conversationId 生成深链),
+                          指向既有 /chat?conversationId= 深链;无归属=不给,不伪造入口 */}
+                        {agent.takeoverHref && (
+                          <Link
+                            href={agent.takeoverHref}
+                            data-testid={`bg-task-takeover-${agent.agent_id}`}
+                            className="rounded-sm px-2 py-0.5 text-xs text-primary transition-colors hover:underline"
+                          >
+                            {t('takeover')}
+                          </Link>
+                        )}
                         {/* D64 ④:动作按判定层 action 派发 —— stop=停止(pending/running);
                           retryStop=停止失败后的重试停止 + 忽略(显式,不静默吞)。
                           failed/timeout 的 action=retry 在本面板无重跑数据通道,不伪造入口。 */}
