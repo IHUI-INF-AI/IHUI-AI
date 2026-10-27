@@ -49,11 +49,18 @@ const webParity = (over = {}) => ({
   json: { rot: over.rot ?? [], aligned: 214, unmapped: 189, ...(over.json ?? {}) },
 })
 
+/** 还原度维的夹具(与 check-miniapp-mirror-fidelity --json 同形;2026-10-27 接进漂移尺) */
+const fidelity = (over = {}) => ({
+  ok: true,
+  json: { hosted: 114, hand: 99, totalMissing: 646, broken: 0, other: 0, ...over },
+})
+
 /** 生产方现造:同一个 judge() 出口,测试不复制任何 state/键名。 */
 const verdict = (opts) =>
   P.judge({
     coverage: coverage(opts?.coverage),
     webParity: webParity(opts?.webParity),
+    fidelity: fidelity(opts?.fidelity),
     doc: '',
     prev: opts?.prev,
   })
@@ -80,6 +87,33 @@ test('T1 ok ⇒ 一行读数(带现读数),不喊人', () => {
   assert.ok(line, 'ok 档也要留一行读数(否则"没跑"和"跑了且没事"长得一样)')
   assert.match(line, /208\/218/, '读数必须带镜像现读,不许写死的旧数')
   assert.match(line, /214/, 'web→RN 已登记数也要现读')
+})
+
+test('T2f 还原度维(断链/声明不符/承载退回手写)⇒ 到人,身份带该维', () => {
+  const logs = []
+  const mails = []
+  const v = verdict({
+    fidelity: { broken: 1 },
+    prev: { mirrored: 114, fidelityHosted: 120, fidelityMissing: 600 },
+  })
+  assert.equal(v.state, 'regressed', `夹具应造出倒退(实测 ${v.state})`)
+  assert.ok(
+    v.reasons.some((r) => r.dim === 'mirror-chain-broken'),
+    JSON.stringify(v.reasons.map((r) => r.dim)),
+  )
+  const r = auditCrossEndParityDrift({
+    ...fixture(),
+    logger: (m) => logs.push(m),
+    notify: (...a) => mails.push(a),
+    runner: runnerOf(v),
+  })
+  assert.equal(r.state, 'regressed')
+  assert.equal(mails.length, 1, '断链=页面渲染不出,必须到人,不是只写日志')
+  assert.match(
+    String(mails[0][2]?.dedupKey ?? ''),
+    /mirror-chain-broken/,
+    '身份要按倒退维,不能与别的维混成一封',
+  )
 })
 
 test('T2 regressed ⇒ 到人,身份按倒退维(明细抖动不换身份)', () => {
