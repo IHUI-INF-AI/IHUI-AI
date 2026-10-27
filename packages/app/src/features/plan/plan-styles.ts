@@ -171,7 +171,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 12,
       paddingVertical: 8,
       fontSize: 14,
@@ -190,7 +190,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
     stepCard: {
       gap: 8,
       padding: 10,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
