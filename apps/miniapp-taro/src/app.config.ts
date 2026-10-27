@@ -178,6 +178,7 @@ export default defineAppConfig({
         'sub-package-index/index',
         'ai-world-collection/index',
         'square/index',
+        'legal-docs-hub/index',
       ],
     },
     {
