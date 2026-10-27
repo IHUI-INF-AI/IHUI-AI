@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { View, Text } from 'react-native'
+import { View, Text, ActivityIndicator } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
@@ -237,7 +237,6 @@ import { SearchScreen } from '../screens/SearchScreen'
 import { HistoryScreen } from '../screens/HistoryScreen'
 import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
-import { useTheme } from '../context/ThemeContext'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
 import AigcCoverScreen from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
@@ -780,7 +779,6 @@ const PUSH_BANNER_DURATION_MS = 5000
 
 function RootNavigatorInner() {
   const { token, ready } = useAuth()
-  const { resolvedTheme } = useTheme()
   const ws = useNotificationWebSocket(token)
   const { t } = useI18n()
   const insets = useSafeAreaInsets()
@@ -889,11 +887,16 @@ function RootNavigatorInner() {
   }, [bannerHeadId, setVisible])
 
   if (!ready) {
+    // 启动态必须像个"在动"的界面(2026-10-27 机主反馈「更新后一直停在灰屏页」):
+    // 旧稿只有一行 tertiary 小字压在纯色底上,更像卡死页而不是加载页;底色也换成 surface.bg
+    // (与全站 shell 同档),不再用 bg-white/neutral-900 另立两档。
     return (
       <View
-        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: tokens.surface.bg }}
       >
-        <Text style={{ color: tokens.text.tertiary }}>加载中...</Text>
+        <ActivityIndicator color={tokens.brandAccent.deep} />
+        <Text style={{ color: tokens.text.secondary, marginTop: 12 }}>加载中...</Text>
       </View>
     )
   }

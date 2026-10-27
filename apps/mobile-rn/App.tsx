@@ -379,18 +379,39 @@ function AppContent() {
   )
 }
 
+/**
+ * 字体门最长等待(ms):超过就按系统字体先开屏。
+ *
+ * 为什么需要上限(2026-10-27 真机「点更新 → 灰屏一直不动」的根因):RN 下 `global.window` 存在,
+ * expo-font 走 **运行时**加载分支;热更包首启时这枚 7.4MB 字体资产要走远端取用,取失败
+ * (弱网 / 资产 CDN 不可达)⇒ loadAsync reject ⇒ 原写法只判 `!fontsLoaded` 就 return null,
+ * 把「加载失败」也当成「还没加载完」⇒ 整棵树永不挂载:一块不动的灰屏,连更新检查入口都没有。
+ * 现在:失败立即放行,未失败但久等不到也放行 —— 宁可字体不完美,不能打不开。
+ */
+const FONT_GATE_TIMEOUT_MS = 6000
+
 export default function App() {
   // 加载阿里妈妈方圆体(对齐 uniapp);未加载完返回 null 避免字体闪烁
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const fontAsset = require('./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf')
   // eslint-enable @typescript-eslint/no-require-imports
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     'AlimamaFangYuanTiVF-Thin': fontAsset,
   })
+  const [fontGateExpired, setFontGateExpired] = useState(false)
+  useEffect(() => {
+    if (Platform.OS === 'web' || fontsLoaded || fontError) return
+    const timer = setTimeout(() => setFontGateExpired(true), FONT_GATE_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [fontsLoaded, fontError])
+  useEffect(() => {
+    // 失败必须喊出来(§0.3 不静默降级):release 包里这行是唯一的现场线索
+    if (fontError) console.warn('[boot] 字体加载失败,以系统字体继续启动:', fontError)
+  }, [fontError])
   // 原生:未加载完返回 null,避免字体闪烁。Web 预览必须跳过这道门:
   // react-native-web 下 require(ttf) 返回的是资产 id 而非可加载 URL,expo-font 的 web
   // loader 永远不 resolve ⇒ fontsLoaded 恒 false ⇒ 整棵树 return null(:8806 白屏根因)。
-  if (Platform.OS !== 'web' && !fontsLoaded) return null
+  if (Platform.OS !== 'web' && !fontsLoaded && !fontError && !fontGateExpired) return null
   return (
     <ThemeProvider>
       <AppContent />

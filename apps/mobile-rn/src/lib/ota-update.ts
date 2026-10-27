@@ -138,21 +138,45 @@ async function runCheck(): Promise<OtaUpdateState> {
 }
 
 /**
+ * reloadAsync 看门狗上限(ms)。
+ *
+ * 为什么需要(2026-10-27 机主实拍「点完更新直接调到灰屏页,一直不动」的第二道保险):
+ * 真重启时进程被整份替换,这个定时器根本走不到;只有「reloadAsync 被调了却始终没重启」
+ * (原生通道挂死 / 新包装载卡住)才会落回 ready —— 否则 installing 会把 UpdatePrompt 的
+ * 「正在重启…」遮罩永久钉在屏幕上,用户除了杀进程没有任何出路(比原来那块无反馈的
+ * 灰屏更糟:连"卡在哪一步"都读不出来)。
+ */
+const RELOAD_WATCHDOG_MS = 15000
+
+/**
  * 立即重启应用生效(调用前应已 ready)。
  *
  * 失败处理(2026-10-27 修):原来失败后落 error 态,而提示卡只在 ready 渲染 ⇒
  * 卡片直接消失,用户既看不到失败原因、也没有任何重试入口,只能等下次冷启动。
  * 现在失败**回到 ready**:卡片继续在,用户再点一次就是重试;失败原因由调用方弹窗如实告知。
+ * 「调了但没重启」同样走失败路径(见 RELOAD_WATCHDOG_MS),不会把 UI 钉在 installing。
  * @returns 是否成功重启(reloadAsync 成功时进程已经重启,返回值实际只在失败路径可观测)。
  */
 export async function applyOtaUpdate(): Promise<boolean> {
   patch({ state: 'installing' })
+  // 显式标注类型且不给初始值:避免 TS 控制流把"回调里赋的值"当成不存在(见单测注释同款陷阱)
+  let watchdog: ReturnType<typeof setTimeout> | undefined
   try {
-    await Updates.reloadAsync()
+    await Promise.race([
+      Updates.reloadAsync(),
+      new Promise<never>((_, reject) => {
+        watchdog = setTimeout(
+          () => reject(new Error(`reloadAsync 超过 ${RELOAD_WATCHDOG_MS}ms 未重启(看门狗超时)`)),
+          RELOAD_WATCHDOG_MS,
+        )
+      }),
+    ])
     return true
   } catch (e) {
     patch({ state: 'ready', lastError: e instanceof Error ? e.message : String(e) })
     return false
+  } finally {
+    if (watchdog !== undefined) clearTimeout(watchdog)
   }
 }
 

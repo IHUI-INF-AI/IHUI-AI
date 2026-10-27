@@ -33,6 +33,16 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/**
+ * 启动门 fail-open 上限(ms)。
+ *
+ * 为什么需要(2026-10-27 机主「点完更新一直停在灰屏/加载页」的同类病):initApi 内部已对
+ * 存储读失败兜底,但只要某个原生模块调用**永不落定**(而不是 reject),这个 Promise 就一直悬着,
+ * `ready` 永远 false ⇒ RootNavigator 停在"加载中"页,用户只能杀进程。
+ * 与字体门同一哲学:宁可这一轮没有主动续期,不能停在启动页。
+ */
+const INIT_GATE_TIMEOUT_MS = 8000
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   // 委托 auth-store 作为单一数据源(消除平行 useState),user/token 不再本地持有
   const user = useAuthStore((s) => s.user)
@@ -45,23 +55,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let unsub: (() => void) | null = null
-    initApi().then(async () => {
-      // 镜像 tokenStore → auth-store,统一数据源
-      hydrateAuth()
+    // 启动门 fail-open:上限一到先放 UI(凭据镜像若随后才完成,登录态会自己追上;
+    // 只是这一轮可能少一次主动续期 —— 401 拦截器仍在,不会把已登录用户判成未登录)。
+    const gate = setTimeout(() => {
+      console.warn(
+        `[boot] initApi 超过 ${INIT_GATE_TIMEOUT_MS}ms 未落定,先放行 UI(启动门 fail-open)`,
+      )
       setReady(true)
+    }, INIT_GATE_TIMEOUT_MS)
+    initApi()
+      .then(async () => {
+        clearTimeout(gate)
+        // 镜像 tokenStore → auth-store,统一数据源
+        hydrateAuth()
+        setReady(true)
 
-      // 冷启动时检查 SSO deep link(若应用因 ihui://sso/callback?sso_code=xxx 唤起)
-      const initialCode = await getInitialSsoCode()
-      if (initialCode) {
-        await applySsoCode(initialCode)
-      }
+        // 冷启动时检查 SSO deep link(若应用因 ihui://sso/callback?sso_code=xxx 唤起)
+        const initialCode = await getInitialSsoCode()
+        if (initialCode) {
+          await applySsoCode(initialCode)
+        }
 
-      // 已运行时监听 deep link
-      unsub = subscribeSsoDeepLink(async (code) => {
-        await applySsoCode(code)
+        // 已运行时监听 deep link
+        unsub = subscribeSsoDeepLink(async (code) => {
+          await applySsoCode(code)
+        })
       })
-    })
+      .catch((e) => {
+        // 兜到最后一道:initApi 自身已 catch 了它知道的失败,这里接的是"它之外的意外"。
+        // 失败也不许把用户钉在启动页(§0.3:不静默降级,所以照旧喊出来)。
+        clearTimeout(gate)
+        console.error('[boot] initApi 意外失败,按无凭据继续启动:', e)
+        setReady(true)
+      })
     return () => {
+      clearTimeout(gate)
       if (unsub) unsub()
     }
   }, [])
