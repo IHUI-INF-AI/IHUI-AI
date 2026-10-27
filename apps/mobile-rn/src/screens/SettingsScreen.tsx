@@ -21,7 +21,7 @@ import { NavChrome } from '../components/NavChrome'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { APP_VERSION } from '../lib/config'
-import { checkOtaUpdate } from '../lib/ota-update'
+import { checkOtaUpdate, runningBundle } from '../lib/ota-update'
 import { useI18n, type Locale } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
@@ -206,10 +206,21 @@ export default function SettingsScreen() {
     if (key === 'CheckUpdate') {
       void (async () => {
         const result = await checkOtaUpdate()
+        // 当前包身份(内置/热更+短 id):让「生效没生效」有机器可查的对账凭据,
+        // 更新前后各查一次,短 id 变了就是真的换到新代码了
+        const rb = runningBundle()
+        const bundle =
+          rb.kind === 'ota' && rb.id
+            ? `${t('appUpdate.bundleOta')} ${rb.id.slice(0, 8)}`
+            : t('appUpdate.bundleEmbedded')
+        const bundleLine = `\n${t('appUpdate.currentBundle', { bundle })}`
         if (result === 'ready') {
-          appAlert(t('settings.checkUpdateTitle'), t('appUpdate.ready'))
+          appAlert(t('settings.checkUpdateTitle'), `${t('appUpdate.ready')}${bundleLine}`)
         } else if (result === 'up-to-date') {
-          appAlert(t('settings.checkUpdateTitle'), t('settings.checkUpdateLatest'))
+          appAlert(
+            t('settings.checkUpdateTitle'),
+            `${t('settings.checkUpdateLatest')}${bundleLine}`,
+          )
         } else if (result === 'unsupported') {
           appAlert(t('settings.checkUpdateTitle'), t('settings.checkUpdateUnsupported'))
         } else if (result === 'error') {

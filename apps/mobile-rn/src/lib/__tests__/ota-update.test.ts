@@ -17,6 +17,9 @@ const h = vi.hoisted(() => ({
   checkForUpdateAsync: vi.fn(),
   fetchUpdateAsync: vi.fn(),
   reloadAsync: vi.fn(),
+  addUpdatesStateChangeListener: vi.fn(
+    (_listener: (e: { context: Record<string, unknown> }) => void) => ({ remove: vi.fn() }),
+  ),
 }))
 
 vi.mock('expo-updates', () => ({
@@ -24,6 +27,9 @@ vi.mock('expo-updates', () => ({
   fetchUpdateAsync: h.fetchUpdateAsync,
   reloadAsync: h.reloadAsync,
   isEnabled: true,
+  isEmbeddedLaunch: true,
+  updateId: null,
+  addUpdatesStateChangeListener: h.addUpdatesStateChangeListener,
 }))
 
 /**
@@ -74,6 +80,30 @@ describe('OTA 状态机:检查 → 下载 → 就绪', () => {
     const mod = await freshModule()
     await expect(mod.checkOtaUpdate()).resolves.toBe('ready')
     expect(h.fetchUpdateAsync).toHaveBeenCalledTimes(1)
+  })
+
+  it('downloading 期间原生进度事件驱动读条;isDownloading=false 的事件不采样', async () => {
+    h.checkForUpdateAsync.mockResolvedValue({ isAvailable: true })
+    let resolveFetch: () => void = () => {}
+    h.fetchUpdateAsync.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFetch = resolve
+        }),
+    )
+    const mod = await freshModule()
+    const checkPromise = mod.checkOtaUpdate()
+    await vi.waitFor(() => expect(mod.otaSnapshot().state).toBe('downloading'))
+    expect(mod.otaSnapshot().downloadProgress).toBe(0)
+    const listener = h.addUpdatesStateChangeListener.mock.calls.at(-1)?.[0]
+    expect(listener).toBeTypeOf('function')
+    listener!({ context: { isDownloading: true, downloadProgress: 0.42 } })
+    expect(mod.otaSnapshot().downloadProgress).toBe(42)
+    // 非 downloading 的状态事件不该把读数写脏(摘掉这条守卫读条会在空闲期乱跳)
+    listener!({ context: { isDownloading: false, downloadProgress: 0.9 } })
+    expect(mod.otaSnapshot().downloadProgress).toBe(42)
+    resolveFetch()
+    await expect(checkPromise).resolves.toBe('ready')
   })
 
   it('无更新 ⇒ up-to-date,且不下载', async () => {

@@ -6749,6 +6749,10 @@
     "ready": "更新已就緒",
     "installing": "正在重新啟動…",
     "error": "更新失敗",
-    "errorDesc": "請檢查網路後重試"
+    "errorDesc": "請檢查網路後重試",
+    "downloading": "正在下載更新…",
+    "currentBundle": "目前執行:{{bundle}}",
+    "bundleEmbedded": "內建套件",
+    "bundleOta": "熱更新"
   }
 }

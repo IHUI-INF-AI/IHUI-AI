@@ -6749,6 +6749,10 @@
     "ready": "更新の準備ができました",
     "installing": "再起動しています…",
     "error": "更新に失敗しました",
-    "errorDesc": "ネットワークを確認して再試行してください"
+    "errorDesc": "ネットワークを確認して再試行してください",
+    "downloading": "アップデートをダウンロード中…",
+    "currentBundle": "現在実行中:{{bundle}}",
+    "bundleEmbedded": "内蔵パッケージ",
+    "bundleOta": "ホットアップデート"
   }
 }
