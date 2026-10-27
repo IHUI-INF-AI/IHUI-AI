@@ -1113,7 +1113,8 @@
     "copy3": "Link copied, please open in browser",
     "failed4": "Copy failed, please retry",
     "text5": "Chat page not configured",
-    "confirm6": "Delete this conversation?"
+    "confirm6": "Delete this conversation?",
+    "title": "Share"
   },
   "aiGroup": {
     "title": "Agent plaza",
@@ -2461,7 +2462,10 @@
       "tutorial": "Tutorials",
       "all": "All"
     },
-    "pinned": "Pinned"
+    "pinned": "Pinned",
+    "title": "AI News",
+    "anonAuthor": "Anonymous",
+    "netFail": "Network error"
   },
   "plaza": {
     "setNeed": {
@@ -2514,7 +2518,8 @@
       "identityTitle": "Switch identity",
       "identityDemander": "Demander",
       "identityDeveloper": "Developer",
-      "untitledConv": "Untitled conversation"
+      "untitledConv": "Untitled conversation",
+      "delOk": "Deleted"
     },
     "cover": {
       "entryTitle": "Become a developer",
@@ -3676,6 +3681,9 @@
         "reconnecting": "Reconnecting to {server} (attempt {attempt}/{maxAttempts})"
       },
       "mobileSettingsHint": "Manage MCP connections on desktop or web"
+    },
+    "notes": {
+      "loadFailShort": "Load failed"
     }
   },
   "tabBar": {
@@ -4576,7 +4584,8 @@
     "delFailedRetry": "Delete failed, please retry",
     "userCard": {
       "loginRequired": "Please log in first"
-    }
+    },
+    "notLoggedIn": "Not signed in"
   },
   "verify": {
     "phoneEmpty": "Phone number is empty",
@@ -6079,7 +6088,37 @@
     "diffFieldsChanged": "Changed fields: {fields}",
     "diffAddedThisRound": "Added in this round",
     "diffRemovedThisRound": "Removed in this round",
-    "diffNoChange": "No changes"
+    "diffNoChange": "No changes",
+    "createHeading": "New Plan",
+    "createSubmit": "Create plan",
+    "formTitleLabel": "Title",
+    "formTitlePlaceholder": "Plan title",
+    "formGoalLabel": "Goal",
+    "formGoalPlaceholder": "The outcome this plan aims to achieve",
+    "formScopeLabel": "Scope",
+    "formScopePlaceholder": "Scope description (optional)",
+    "formConstraintsLabel": "Constraints",
+    "formConstraintsPlaceholder": "Boundaries and constraints (optional)",
+    "formTagsLabel": "Tags",
+    "formTagsPlaceholder": "Comma-separated, e.g. refactor, backend",
+    "formStepsLabel": "Steps",
+    "errTitleRequired": "Title is required",
+    "errGoalRequired": "Goal is required",
+    "stepTitlePlaceholder": "Step title",
+    "stepDescPlaceholder": "Step description (optional)",
+    "subtitle": "Goal-driven plans, stored on this device",
+    "create": "New plan",
+    "statCompleted": "Done",
+    "statInProgress": "In progress",
+    "statBlocked": "Blocked",
+    "statPending": "Pending",
+    "statTotal": "{count} total",
+    "noGoal": "No goal set",
+    "viewDetail": "View details",
+    "emptyTitle": "No plans yet",
+    "emptyDesc": "Create your first goal-driven plan",
+    "filterEmptyTitle": "No matching plans",
+    "filterEmptyDesc": "Try another filter"
   },
   "myCommentsPage": {
     "title": "My Comments",
@@ -6305,5 +6344,15 @@
     "createdFailed": "Failed to create",
     "empty": "No workflows yet",
     "stepsCount": "{count} steps"
+  },
+  "aiWorldFavoritesPage": {
+    "title": "Favorited Items",
+    "subtitle": "AI World items you favorited",
+    "empty": "No favorites yet",
+    "fetchFailed": "Failed to load favorites",
+    "loginRequired": "Sign in to view your favorited items"
+  },
+  "square": {
+    "title": "AI Feed"
   }
 }

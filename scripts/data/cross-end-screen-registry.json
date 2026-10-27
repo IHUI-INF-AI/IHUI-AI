@@ -1115,6 +1115,26 @@
       "shared": "packages/app/src/features/sub-package-index/SubPackageIndexScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/SubPackageIndexScreen.tsx",
       "miniapp": "pkg-user/sub-package-index/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-world/AiWorldCollectionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiWorldFavoritesScreen.tsx",
+      "miniapp": "pkg-user/ai-world-collection/index"
+    },
+    {
+      "shared": "packages/app/src/features/plan/PlanFormScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PlanNewScreen.tsx",
+      "miniapp": "pages/distribution/plan-form/index"
+    },
+    {
+      "shared": "packages/app/src/features/plan/PlanListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PlanScreen.tsx",
+      "miniapp": "pages/distribution/plan-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/square/SquareScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NewsScreen.tsx",
+      "miniapp": "pkg-user/square/index"
     }
   ]
 }

@@ -1113,7 +1113,8 @@
     "copy3": "링크가 복사되었습니다, 브라우저에서 열어 주세요",
     "failed4": "복사 실패, 다시 시도해 주세요",
     "text5": "대화 페이지 미구성",
-    "confirm6": "이 대화를 삭제하시겠습니까?"
+    "confirm6": "이 대화를 삭제하시겠습니까?",
+    "title": "공유"
   },
   "aiGroup": {
     "title": "에이전트 광장",
@@ -2461,7 +2462,10 @@
       "tutorial": "튜토리얼",
       "all": "전체"
     },
-    "pinned": "고정"
+    "pinned": "고정",
+    "title": "AI 소식",
+    "anonAuthor": "익명",
+    "netFail": "네트워크 오류"
   },
   "plaza": {
     "setNeed": {
@@ -2514,7 +2518,8 @@
       "identityTitle": "신분 전환",
       "identityDemander": "수요자",
       "identityDeveloper": "개발자",
-      "untitledConv": "제목 없는 대화"
+      "untitledConv": "제목 없는 대화",
+      "delOk": "삭제되었습니다"
     },
     "cover": {
       "entryTitle": "개발자 되기",
@@ -3676,6 +3681,9 @@
         "reconnecting": "{server}을(를) {attempt}/{maxAttempts}번 재연결 중"
       },
       "mobileSettingsHint": "MCP 연결은 데스크톱 또는 웹에서 관리해 주세요"
+    },
+    "notes": {
+      "loadFailShort": "불러오기 실패"
     }
   },
   "tabBar": {
@@ -4576,7 +4584,8 @@
     "delFailedRetry": "삭제 실패, 다시 시도해 주세요",
     "userCard": {
       "loginRequired": "먼저 로그인하세요"
-    }
+    },
+    "notLoggedIn": "미로그인"
   },
   "verify": {
     "phoneEmpty": "휴대폰 번호가 비어 있습니다",
@@ -6079,7 +6088,37 @@
     "diffFieldsChanged": "변경 필드: {fields}",
     "diffAddedThisRound": "이번 라운드에 추가",
     "diffRemovedThisRound": "이번 라운드에 삭제",
-    "diffNoChange": "변경 없음"
+    "diffNoChange": "변경 없음",
+    "createHeading": "새 계획",
+    "createSubmit": "계획 만들기",
+    "formTitleLabel": "제목",
+    "formTitlePlaceholder": "계획 제목",
+    "formGoalLabel": "목표",
+    "formGoalPlaceholder": "이 계획으로 달성할 결과",
+    "formScopeLabel": "범위",
+    "formScopePlaceholder": "범위 설명 (선택)",
+    "formConstraintsLabel": "제약",
+    "formConstraintsPlaceholder": "경계와 제약 (선택)",
+    "formTagsLabel": "태그",
+    "formTagsPlaceholder": "쉼표로 구분, 예: 리팩터링, 백엔드",
+    "formStepsLabel": "단계",
+    "errTitleRequired": "제목은 필수입니다",
+    "errGoalRequired": "목표는 필수입니다",
+    "stepTitlePlaceholder": "단계 제목",
+    "stepDescPlaceholder": "단계 설명 (선택)",
+    "subtitle": "목표 지향 계획(이 기기에 저장됨)",
+    "create": "새 계획",
+    "statCompleted": "완료",
+    "statInProgress": "진행 중",
+    "statBlocked": "차단됨",
+    "statPending": "대기",
+    "statTotal": "총 {count}개 단계",
+    "noGoal": "목표 미설정",
+    "viewDetail": "상세 보기",
+    "emptyTitle": "계획이 없습니다",
+    "emptyDesc": "첫 번째 목표 지향 계획을 만들어 보세요",
+    "filterEmptyTitle": "조건에 맞는 계획이 없습니다",
+    "filterEmptyDesc": "다른 필터를 시도해 보세요"
   },
   "myCommentsPage": {
     "title": "내 댓글",
@@ -6305,5 +6344,15 @@
     "createdFailed": "생성 실패",
     "empty": "워크플로가 없습니다",
     "stepsCount": "단계 {count}개"
+  },
+  "aiWorldFavoritesPage": {
+    "title": "즐겨찾기 항목",
+    "subtitle": "즐겨찾기한 AI 월드 항목",
+    "empty": "즐겨찾기가 없습니다",
+    "fetchFailed": "즐겨찾기를 불러오지 못했습니다",
+    "loginRequired": "로그인 후 즐겨찾기 항목을 볼 수 있습니다"
+  },
+  "square": {
+    "title": "AI 정보"
   }
 }
