@@ -12,11 +12,14 @@
  * 本尺把"涨/跌"变成机读结论 + 一份快照台账,供 git-guardian 巡检轮派发;
  * 倒退(镜像减少 / 登记表腐烂 / 账本文档与现读脱节)才报警,涨不报。
  *
- * 判据零复算(§0.6):三个数字全部**取自三道现成对账器的 --json 输出**
+ * 判据零复算(§0.6):数字全部**取自现成对账器的 --json 输出**,本文件不重算任何一条判据,
+ * 只做"上一轮快照 ↔ 本轮现读"的比较(四道)
  *   · scripts/check-cross-end-screen-coverage.mjs --json  → 共享屏/已镜像/登记表条目/判红数
  *   · scripts/check-web-rn-screen-parity.mjs --json       → web 路由/aligned/unmapped/腐烂数
+ *   · scripts/check-miniapp-mirror-fidelity.mjs --json    → 承载对数/手写对数/未还原键数/断链/声明不符
+ *     (2026-10-27 接:还原度这条链此前只有 CI 与"人想起来才跑"的尺,守护轮的倒退⇒到人不认识它,
+ *      于是"承载页被改回头抄""文案键被删掉""壳断链"三类都在账面上无声)
  *   · docs/engineering/rn-miniapp-parity-matrix.md        → 缺口账本文档自述的三个数
- * 本文件不重算任何一条判据,只做"上一轮快照 ↔ 本轮现读"的比较。
  *
  * 三态(§0.3):任一子对账器取不到结论 ⇒ state=undetermined(不记绿也不冒红);
  * 取到且有倒退维 ⇒ state=regressed;否则 ok。文档数字与现读不等 ⇒ 单列 docStale(可整改:重跑生成命令)。
@@ -93,14 +96,17 @@ function docNumbers(md) {
 
 /**
  * 比较纯函数:上一轮快照 ↔ 本轮现读。
- * 倒退维只有三族,逐条给"能整改的下一步"(§5e-1 可整改性准入):
+ * 倒退维只有这些族,逐条给"能整改的下一步"(§5e-1 可整改性准入):
  *   mirrored-decrease —— 镜像声明被撤 ⇒ 查是哪条标记/登记被删(门 128 R3 同判据)
  *   registry-rot      —— 登记表条目腐烂/判红 ⇒ 修登记或补标记(门 128 R1)
  *   map-rot           —— web↔RN 登记表腐烂 ⇒ 修 aligned 指向或补 reason(门 check-web-rn-screen-parity)
  *   doc-stale         —— 账本文档数字≠现读 ⇒ 重跑 report-rn-miniapp-gaps --write
- * 只比"本轮有没有变坏",不比绝对值大小,免得把正常增长判成异常。
+ *   mirror-hosted-decrease / mirror-missing-increase —— 承载对数减少 / 未还原键增加(与上一轮快照比)
+ *   mirror-chain-broken / mirror-declaration-mismatch —— 引壳而链断 / 声明与承载不是同一屏(绝对值出声:
+ *       这两维现读存量都是 0,出现即"新增的产物级缺陷",不是把存量判成人人红(§12e))
+ * 涨跌只比"本轮有没有变坏",不比绝对值大小,免得把正常增长判成异常。
  */
-function judge({ coverage, webParity, doc, prev }) {
+function judge({ coverage, webParity, fidelity, doc, prev }) {
   const cur = {
     mirrored: coverage?.json?.stats?.mirroredShared ?? null,
     registryEntries: coverage?.json?.stats?.registryEntries ?? null,
@@ -109,23 +115,75 @@ function judge({ coverage, webParity, doc, prev }) {
     aligned: webParity?.json?.aligned ?? null,
     unmapped: webParity?.json?.unmapped ?? null,
     sharedTotal: coverage?.json?.stats?.sharedTotal ?? null,
+    // 还原度维(2026-10-27 接):镜像页**真还原**了多少,而不是"声明"了多少。
+    // 立因:此前这条链只有 CI 与人工跑的两把尺,守护轮的"倒退⇒到人"完全不认识它 ⇒
+    // 承载页被改回手写、文案被删、壳承载断链,都没人自动知道。
+    fidelityHosted: fidelity?.json?.hosted ?? null,
+    fidelityHand: fidelity?.json?.hand ?? null,
+    fidelityMissing: fidelity?.json?.totalMissing ?? null,
+    fidelityBroken: fidelity?.json?.broken ?? null,
+    fidelityOther: fidelity?.json?.other ?? null,
   }
   const reasons = []
   const missing = []
   for (const [k, v] of Object.entries(cur)) if (v === null || v === undefined) missing.push(k)
   if (!coverage.ok) missing.push('coverage')
   if (!webParity.ok) missing.push('webParity')
+  if (fidelity && !fidelity.ok) missing.push('fidelity')
   if (coverage.ok && webParity.ok && (cur.mirrored === null || cur.coverageRed === null)) {
     missing.push('coverage 字段名对不上(汇总行取不到数)')
   }
   if (missing.length > 0)
-    return { state: 'undetermined', cur, reasons, missing, why: `取不到输入:${missing.join(',')}(不记绿也不冒红)` }
+    return {
+      state: 'undetermined',
+      cur,
+      reasons,
+      missing,
+      why: `取不到输入:${missing.join(',')}(不记绿也不冒红)`,
+    }
 
-  if (cur.coverageRed > 0) reasons.push({ dim: 'registry-rot', detail: `门 128 判红 ${cur.coverageRed} 处` })
+  if (cur.coverageRed > 0)
+    reasons.push({ dim: 'registry-rot', detail: `门 128 判红 ${cur.coverageRed} 处` })
   if (cur.mapRot > 0) reasons.push({ dim: 'map-rot', detail: `web↔RN 登记表腐烂 ${cur.mapRot} 行` })
+  // 断链/声明不符:现读存量都是 0 ⇒ 这一维一旦出现就是"新增的产物级缺陷",按绝对值出声不算恒红门。
+  if (cur.fidelityBroken > 0)
+    reasons.push({
+      dim: 'mirror-chain-broken',
+      detail: `${cur.fidelityBroken} 对镜像页引了 @rn-shells 而链不成立(壳不在面/壳未消费本屏/取用形态与壳导出对不上 ⇒ 页面渲染不出) ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看点名行,再按 repair-cross-end-mirror.mjs 补声明或直接改回同名壳`,
+    })
+  if (cur.fidelityOther > 0)
+    reasons.push({
+      dim: 'mirror-declaration-mismatch',
+      detail: `${cur.fidelityOther} 对声明镜像 A 而承载的壳是 B ⇒ 账面"已镜像"而 A 那一屏并没渲染 ⇒ 出路:改标记为真承载的那一屏,或把壳指向声明的那一屏`,
+    })
 
   if (prev && Number.isFinite(prev.mirrored) && cur.mirrored < prev.mirrored)
-    reasons.push({ dim: 'mirrored-decrease', detail: `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${prev.mirrored - cur.mirrored})` })
+    reasons.push({
+      dim: 'mirrored-decrease',
+      detail: `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${prev.mirrored - cur.mirrored})`,
+    })
+
+  // 还原度两维只在"上一轮真读到过"时比较(没有基线 = 本轮先记快照,不造倒退也不冒绿)
+  if (
+    prev &&
+    Number.isFinite(prev.fidelityHosted) &&
+    Number.isFinite(cur.fidelityHosted) &&
+    cur.fidelityHosted < prev.fidelityHosted
+  )
+    reasons.push({
+      dim: 'mirror-hosted-decrease',
+      detail: `壳承载对数 ${prev.fidelityHosted} → ${cur.fidelityHosted}(净减 ${prev.fidelityHosted - cur.fidelityHosted})⇒ 有页面从"渲染共享源本体"退回头抄,源头再改它不会跟随 ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看是哪几页,恢复 @rn-shells 承载`,
+    })
+  if (
+    prev &&
+    Number.isFinite(prev.fidelityMissing) &&
+    Number.isFinite(cur.fidelityMissing) &&
+    cur.fidelityMissing > prev.fidelityMissing
+  )
+    reasons.push({
+      dim: 'mirror-missing-increase',
+      detail: `镜像页未还原的业务文案键 ${prev.fidelityMissing} → ${cur.fidelityMissing}(净增 ${cur.fidelityMissing - prev.fidelityMissing})⇒ 用户在小程序端看不到的条目变多 ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs --top=20 按页点名,补回文案或改回壳承载`,
+    })
 
   const docCur = docNumbers(doc)
   const docMismatch =
@@ -148,7 +206,12 @@ function judge({ coverage, webParity, doc, prev }) {
 function readPrev() {
   try {
     const o = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
-    return { mirrored: o?.cur?.mirrored ?? o?.mirrored ?? null, at: o?.at ?? null }
+    return {
+      mirrored: o?.cur?.mirrored ?? o?.mirrored ?? null,
+      fidelityHosted: o?.cur?.fidelityHosted ?? null,
+      fidelityMissing: o?.cur?.fidelityMissing ?? null,
+      at: o?.at ?? null,
+    }
   } catch {
     return null
   }
@@ -166,43 +229,166 @@ function selfTestMain() {
       unmapped,
     },
   })
+  /** 还原度尺的结论夹具(字段名与 check-miniapp-mirror-fidelity --json 逐字同形) */
+  const mkFid = ({ hosted = 114, hand = 99, missing = 646, broken = 0, other = 0 } = {}) => ({
+    ok: true,
+    json: { hosted, hand, totalMissing: missing, broken, other },
+  })
   cases.push({
     name: 'T1 持平无腐烂 ⇒ ok',
-    pass: judge({ coverage: mk(91, 0, 0), webParity: mk(91, 0, 0), doc: '- 已被小程序显式镜像: **91**', prev: { mirrored: 91 } }).state === 'ok',
+    pass:
+      judge({
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '- 已被小程序显式镜像: **91**',
+        prev: { mirrored: 91 },
+      }).state === 'ok',
   })
   cases.push({
     name: 'T2 镜像净减 ⇒ regressed/mirrored-decrease',
     pass: (() => {
-      const j = judge({ coverage: mk(89, 0, 0), webParity: mk(89, 0, 0), doc: '', prev: { mirrored: 91 } })
+      const j = judge({
+        fidelity: mkFid(),
+        coverage: mk(89, 0, 0),
+        webParity: mk(89, 0, 0),
+        doc: '',
+        prev: { mirrored: 91 },
+      })
       return j.state === 'regressed' && j.reasons.some((r) => r.dim === 'mirrored-decrease')
     })(),
   })
   cases.push({
     name: 'T3 门判红 ⇒ regressed/registry-rot(涨了也照样报红)',
     pass: (() => {
-      const j = judge({ coverage: mk(120, 3, 0), webParity: mk(120, 0, 0), doc: '', prev: { mirrored: 91 } })
+      const j = judge({
+        fidelity: mkFid(),
+        coverage: mk(120, 3, 0),
+        webParity: mk(120, 0, 0),
+        doc: '',
+        prev: { mirrored: 91 },
+      })
       return j.state === 'regressed' && j.reasons.some((r) => r.dim === 'registry-rot')
     })(),
   })
   cases.push({
     name: 'T4 文档数字与现读不等 ⇒ doc-stale(可整改,给出重跑命令)',
     pass: (() => {
-      const j = judge({ coverage: mk(91, 0, 0), webParity: mk(91, 0, 0), doc: '- 已被小程序显式镜像: **79**', prev: { mirrored: 91 } })
+      const j = judge({
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '- 已被小程序显式镜像: **79**',
+        prev: { mirrored: 91 },
+      })
       return j.reasons.some((r) => r.dim === 'doc-stale' && /report-rn-miniapp-gaps/.test(r.detail))
     })(),
   })
   cases.push({
     name: 'T5 子对账器跑不动 ⇒ undetermined,不记绿',
     pass: (() => {
-      const j = judge({ coverage: { ok: false, why: 'x' }, webParity: mk(91, 0, 0), doc: '', prev: null })
+      const j = judge({
+        fidelity: mkFid(),
+        coverage: { ok: false, why: 'x' },
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
       return j.state === 'undetermined' && j.missing.includes('coverage')
     })(),
   })
   cases.push({
     name: 'T6 无上一轮快照 ⇒ 不比涨跌,只判当场腐烂(拿 prev 缺失当"没倒退"是错的)',
     pass: (() => {
-      const j = judge({ coverage: mk(91, 0, 0), webParity: mk(91, 0, 0), doc: '', prev: null })
+      const j = judge({
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
       return j.state === 'ok' && j.prev === null
+    })(),
+  })
+  cases.push({
+    name: 'T7 承载对数净减 ⇒ mirror-hosted-decrease(有人把页改回头抄)',
+    pass: (() => {
+      const j = judge({
+        fidelity: mkFid({ hosted: 110 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, fidelityHosted: 114, fidelityMissing: 646 },
+      })
+      return j.state === 'regressed' && j.reasons.some((r) => r.dim === 'mirror-hosted-decrease')
+    })(),
+  })
+  cases.push({
+    name: 'T8 未还原文案键净增 ⇒ mirror-missing-increase',
+    pass: (() => {
+      const j = judge({
+        fidelity: mkFid({ missing: 700 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, fidelityHosted: 114, fidelityMissing: 646 },
+      })
+      return j.reasons.some(
+        (r) =>
+          r.dim === 'mirror-missing-increase' && /check-miniapp-mirror-fidelity/.test(r.detail),
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T9 壳承载断链 ⇒ 无需 prev 也出声(产物级缺陷,现读存量为 0 不是恒红门)',
+    pass: (() => {
+      const j = judge({
+        fidelity: mkFid({ broken: 2 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return j.reasons.some((r) => r.dim === 'mirror-chain-broken')
+    })(),
+  })
+  cases.push({
+    name: 'T10 声明镜像 A 而承载是 B ⇒ mirror-declaration-mismatch',
+    pass: (() => {
+      const j = judge({
+        fidelity: mkFid({ other: 1 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return j.reasons.some((r) => r.dim === 'mirror-declaration-mismatch')
+    })(),
+  })
+  cases.push({
+    name: 'T11 还原度尺跑不动 ⇒ undetermined 且点名 fidelity(不记绿)',
+    pass: (() => {
+      const j = judge({
+        fidelity: { ok: false, why: 'x' },
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return j.state === 'undetermined' && j.missing.includes('fidelity')
+    })(),
+  })
+  cases.push({
+    name: 'T12 上一轮没有还原度快照 ⇒ 不拿它造倒退(第一轮的存量不是"变坏")',
+    pass: (() => {
+      const j = judge({
+        fidelity: mkFid({ missing: 99999 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91 },
+      })
+      return !j.reasons.some((r) => r.dim.startsWith('mirror-')) && j.state === 'ok'
     })(),
   })
   let bad = 0
@@ -210,13 +396,18 @@ function selfTestMain() {
     if (!c.pass) bad++
     console.log(`${c.pass ? '✓' : '✗'} ${c.name}`)
   }
-  console.log(bad === 0 ? `SELF-TEST PASS ${cases.length}/${cases.length}` : `SELF-TEST FAIL ${bad}/${cases.length}`)
+  console.log(
+    bad === 0
+      ? `SELF-TEST PASS ${cases.length}/${cases.length}`
+      : `SELF-TEST FAIL ${bad}/${cases.length}`,
+  )
   process.exit(bad === 0 ? 0 : 1)
 }
 
 function main() {
   const coverage = runRuler('check-cross-end-screen-coverage.mjs')
   const webParity = runRuler('check-web-rn-screen-parity.mjs', ['--json', '--full'])
+  const fidelity = runRuler('check-miniapp-mirror-fidelity.mjs')
   const doc = (() => {
     try {
       return execFileSync('git', ['show', `HEAD:${DOC_PATH}`], {
@@ -232,7 +423,7 @@ function main() {
     }
   })()
   const prev = readPrev()
-  const result = judge({ coverage, webParity, doc, prev })
+  const result = judge({ coverage, webParity, fidelity, doc, prev })
   result.at = new Date().toISOString()
   if (recordMode) {
     mkdirSync(dirname(STATE_FILE), { recursive: true })
@@ -244,7 +435,7 @@ function main() {
   } else {
     console.log(`STATE=${result.state}`)
     console.log(
-      `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'} / unmapped ${result.cur?.unmapped ?? '?'}`,
+      `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'} / unmapped ${result.cur?.unmapped ?? '?'} / 还原度: 承载 ${result.cur?.fidelityHosted ?? '?'} 手写 ${result.cur?.fidelityHand ?? '?'} 未还原键 ${result.cur?.fidelityMissing ?? '?'} 断链 ${result.cur?.fidelityBroken ?? '?'} 声明不符 ${result.cur?.fidelityOther ?? '?'}`,
     )
     if (result.why) console.log(`未判定原因:${result.why}`)
     for (const r of result.reasons || []) console.log(`· ${r.dim} —— ${r.detail}`)
