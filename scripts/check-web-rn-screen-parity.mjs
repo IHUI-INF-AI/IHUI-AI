@@ -354,11 +354,23 @@ function collectNavEntries(face) {
   return { parsed: out.length, entries: [...byRoute.values()] }
 }
 
-/** 纯函数:入口集 × evaluateMap 的分档结果 → 六桶 + 两张点名清单。 */
-function evaluateNav(nav, ev) {
+/** 纯函数:入口集 × evaluateMap 的分档结果 → 六桶 + 两张点名清单。
+ * routeKeys(枚举到的 web 路由)用于**动态段归并**:侧栏写的是 `/messages/notice` 这类具体值,
+ * 而路由与台账记的是 `messages/[type]` 这一条(现读:该档在册 aligned → MessageCenterScreen.tsx)。
+ * 不做这一步就会把"已承载的入口"报成"无人认领的缺口"—— 本维第一版就这么假阳了 6 条,
+ * 所以这一段配了阳性对照(T14),而不是等下一个人再被骗一次。
+ */
+function evaluateNav(nav, ev, routeKeys = []) {
   if (!nav) return { undetermined: true, why: `${NAV_REL} 取不到 ⇒ 入口维未判定` }
   if (ev.portalCarried === null)
     return { undetermined: true, why: `门户表取不到 ⇒ 入口维未判定(不得把门户入口算成 unrecorded)` }
+  const patterns = routeKeys
+    .filter((r) => r.includes('['))
+    .map((r) => ({ key: r, re: new RegExp('^' + r.replace(/\[([^\]]+)\]/g, '[^/]+') + '$') }))
+  const resolve = (route) => {
+    const hit = patterns.find((p) => p.re.test(route))
+    return hit ? { key: hit.key, via: hit.key } : { key: route, via: null }
+  }
   const aligned = new Set(ev.aligned.map((r) => r.web))
   const excluded = new Set(ev.excluded.map((r) => r.web))
   const gap = new Set(ev.judgedGap.map((r) => r.web))
@@ -366,22 +378,33 @@ function evaluateNav(nav, ev) {
   const counts = { aligned: 0, portal: 0, excluded: 0, prefixExcluded: 0, gap: 0, unrecorded: 0 }
   const gapItems = []
   const unrecordedItems = []
+  let viaPattern = 0
   for (const e of nav.entries) {
-    const tag = `${e.route}${e.admin ? '[admin]' : ''}${e.advanced ? '[advanced]' : ''}`
-    if (aligned.has(e.route)) counts.aligned++
-    else if (gap.has(e.route)) {
+    const { key, via } = resolve(e.route)
+    if (via) viaPattern++
+    const tag = `${e.route}${e.admin ? '[admin]' : ''}${e.advanced ? '[advanced]' : ''}${via ? ` → ${via}` : ''}`
+    if (aligned.has(key)) counts.aligned++
+    else if (gap.has(key)) {
       counts.gap++
       gapItems.push(tag)
-    } else if (excluded.has(e.route)) counts.excluded++
-    else if (ev.portalCarried.has(e.route)) counts.portal++
-    else if (prefixes.some((pre) => e.route === pre.replace(/\/$/, '') || e.route.startsWith(pre)))
+    } else if (excluded.has(key)) counts.excluded++
+    else if (ev.portalCarried.has(key) || ev.portalCarried.has(e.route)) counts.portal++
+    else if (prefixes.some((pre) => key === pre.replace(/\/$/, '') || key.startsWith(pre)))
       counts.prefixExcluded++
     else {
       counts.unrecorded++
       unrecordedItems.push(tag)
     }
   }
-  return { undetermined: false, counts, gapItems, unrecordedItems, total: nav.entries.length, parsed: nav.parsed }
+  return {
+    undetermined: false,
+    counts,
+    gapItems,
+    unrecordedItems,
+    viaPattern,
+    total: nav.entries.length,
+    parsed: nav.parsed,
+  }
 }
 
 function run() {
@@ -418,7 +441,7 @@ function run() {
   const usedRn = new Set(aligned.map((r) => r.rn))
   const rnOnly = rnScreens.filter((s) => !usedRn.has(s.rel))
 
-  const navEval = evaluateNav(collectNavEntries(FACE), ev)
+  const navEval = evaluateNav(collectNavEntries(FACE), ev, webRoutes.map((r) => r.route))
   const byFirstSeg = new Map()
   for (const r of unmapped) {
     const k = r.route.split('/')[0] ?? '(root)'
@@ -523,7 +546,8 @@ function run() {
     log(
       `入口可达性(web 侧栏) : ${navEval.total} 条去重入口(解析 ${navEval.parsed})` +
         ` ⇒ 已承载 ${c.aligned} / 门户 ${c.portal} / 豁免 ${c.excluded} / 段级豁免 ${c.prefixExcluded}` +
-        ` / **入口级缺口 ${c.gap}** / **台账无记录 ${c.unrecorded}**`,
+        ` / **入口级缺口 ${c.gap}** / **台账无记录 ${c.unrecorded}**` +
+        `  (其中 ${navEval.viaPattern} 条经动态段归并归类,如 messages/notice → messages/[type])`,
     )
     if (c.gap > 0) {
       log(`  ⚠ 入口级缺口:这些项 web 侧栏一点就开,而台账判过「RN 零承载」——用户视角的"RN 功能差在这里"`)
