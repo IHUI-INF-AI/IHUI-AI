@@ -318,6 +318,22 @@ test('T21 同 spec 双路由:锚点按 spec+route 配对,一张 hosted 一张 ha
   assert.equal(gate.regressions(rows('hand', ['settings.title', 'settings.new'], 'hosted', []), base).length, 1)
 })
 
+test('T22 新增的镜像页是端内手写形制 ⇒ 判红(不许再写第二份重复实现)', () => {
+  const base = { rows: [] }
+  const now = { rows: [{ spec: SPEC, route: 'pages/new/index', form: 'hand', missing: ['settings.title'] }] }
+  const reg = gate.regressions(now, base)
+  assert.equal(reg.length, 1)
+  assert.equal(reg[0].kind, 'new-hand')
+})
+
+test('T23 新增的镜像页是壳承载/直载形制 ⇒ 不拦(那是收口,不是新债)', () => {
+  const base = { rows: [] }
+  for (const form of ['hosted', 'broken', 'other']) {
+    const now = { rows: [{ spec: SPEC, route: 'pages/new/index', form, missing: [] }] }
+    assert.deepEqual(gate.regressions(now, base), [], `${form} 不该被拦`)
+  }
+})
+
 test('T18 真仓冒烟(HEAD 面):引壳的页一律不得判成手写,且 hosted 桶非空', () => {
   const res = gate.computeFidelity('head')
   assert.ok(res.hosted > 0, `HEAD 面 hosted 桶为空 ⇒ 承载判据没装车(现读 hosted=${res.hosted})`)

@@ -51,7 +51,9 @@
  *
  * 棘轮(唯一 blocking 维):锚点 = **基线面**同一 spec 的缺口集(默认 HEAD 面,§0.5「棘轮锚点 =
  *   该文件 HEAD 自身的违规数」;CI 问责腿用 --base=<ref> 显式指定基线)。只拦「本次改动把基线上
- *   已还原的键又丢掉」;存量缺口只报数(§12e);基线面尚无镜像对的新增页不拦(那是收口,不是倒退)。
+ *   已还原的键又丢掉」;存量缺口只报数(§12e);基线面尚无镜像对的新增页:hosted/broken 不拦
+ *   (那是收口),**hand 拦** —— 造页器已默认壳承载形制,再新增手写页只会让 99 枚存量变多,
+ *   与「最大化减少开发」正相反(2026-10-27 补;仍是差值棘轮,只拦本次新增)。
  *   为什么不拿人工基线 JSON 当锚点:coverage 已实证「补 47 条镜像后基线仍是旧读数 ⇒ 删任意
  *   一条标记门都判绿 = 假绿」。故一律 git 读 HEAD 面,免维护、不过期。
  *
@@ -322,10 +324,16 @@ export function regressions(now, base) {
   }
   const out = []
   for (const r of now.rows) {
-    if (!basePaired.has(key(r))) continue
+    if (!basePaired.has(key(r))) {
+      // 新增镜像对:hosted/broken 是收口面,不拦;hand 是"又写了一份端内重复实现"——
+      // 造页器已默认壳承载形制,新增手写页只会让 99 枚存量继续变多(目标「最大化减少开发」正相反)。
+      // 差值棘轮:只拦本次新增,存量只报数(§12e)。
+      if (r.form === 'hand') out.push({ spec: r.spec, route: r.route, added: [], kind: 'new-hand' })
+      continue
+    }
     const anchor = baseMissing.get(key(r)) || new Set()
     const added = r.missing.filter((k) => !anchor.has(k))
-    if (added.length > 0) out.push({ spec: r.spec, route: r.route, added })
+    if (added.length > 0) out.push({ spec: r.spec, route: r.route, added, kind: 'regressed' })
   }
   return out
 }
@@ -456,11 +464,18 @@ function run() {
       if (r.form === 'other') console.log(`   ${r.spec} → ${r.route}:${r.why}`)
   }
   if (reg.length > 0) {
-    console.log('❌ 还原度倒退(本次丢掉的键):')
-    for (const r of reg)
+    console.log('❌ 还原度倒退(本次丢掉的键 / 新增的端内手写镜像页):')
+    for (const r of reg) {
+      if (r.kind === 'new-hand') {
+        console.log(
+          `   ${r.spec} → ${r.route}\n     新增镜像页是端内手写形制(既不引 @rn-shells 壳,也没直载共享屏)⇒ 又写了一份重复实现`,
+        )
+        continue
+      }
       console.log(
         `   ${r.spec} → ${r.route}\n     新增缺口(${r.added.length}):${r.added.slice(0, 8).join(', ')}${r.added.length > 8 ? ' …' : ''}`,
       )
+    }
   }
   if (!opts.quiet && now.totalMissing > 0) {
     const worst = [...now.rows]
