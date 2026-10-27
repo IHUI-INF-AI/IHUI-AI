@@ -67,6 +67,13 @@ import {
   type PoolAccountState,
 } from '../../services/relay-account-pool-checkin-sync.js'
 import { refreshOne, sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
+import {
+  collectRelayTaskStates,
+  RELAY_POOL_TASKS,
+  runRelayTaskById,
+} from '../../services/relay-task-center.js'
+import { Queue } from 'bullmq'
+import { config } from '../../config/index.js'
 import { getAccountUsage, getAccountUsageSummaries } from '../../services/relay-account-usage.js'
 import {
   listProxies,
@@ -650,6 +657,54 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply.status(500).send(error(500, '账号池巡检执行失败'))
     }
+  })
+
+  // ===== 8b. GET /admin/relay/account-pool/tasks — 号池任务中心(观测聚合,2026-10-27) =====
+  // 四载体任务折一张表:上次执行/下次执行/成败/能否触发;读不到的状态源如实 indeterminate。
+  server.get('/admin/relay/account-pool/tasks', async (request, reply) => {
+    try {
+      const tasks = await collectRelayTaskStates({
+        connection: server.redisForQueue,
+        makeQueue: server.redisForQueue
+          ? (queue) => {
+              const q = new Queue(queue, { connection: server.redisForQueue! })
+              return {
+                getJobSchedulers: () => q.getJobSchedulers(),
+                getJobs: async (types, start, end) => {
+                  const jobs = await q.getJobs(types as never, start, end)
+                  return jobs.map((j) => ({
+                    name: j.name,
+                    timestamp: j.timestamp,
+                    failedReason: j.failedReason,
+                  }))
+                },
+              }
+            }
+          : undefined,
+        aiServiceUrl: config.AI_SERVICE_URL,
+      })
+      return reply.send(success({ tasks }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '任务状态聚合失败'))
+    }
+  })
+
+  // ===== 8c. POST /admin/relay/account-pool/tasks/:id/run — 手动触发(bullmq 族) =====
+  // 无触发口的任务回 400 + 真实出路(§0.8);触发结果永不冒绿。
+  server.post('/admin/relay/account-pool/tasks/:id/run', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const def = RELAY_POOL_TASKS.find((t) => t.id === p.data.id)
+    if (!def) return reply.status(404).send(error(404, `任务不存在: ${p.data.id}`))
+    const outcome = await runRelayTaskById(p.data.id)
+    if (!outcome) {
+      return reply
+        .status(400)
+        .send(error(400, `任务「${def.name}」无手动触发口。${def.note ?? '该载体不由本进程调度'}`))
+    }
+    if (!outcome.ok) return reply.status(500).send(error(500, outcome.detail))
+    return reply.send(success({ id: p.data.id, detail: outcome.detail }))
   })
 
   // ===== 9. GET /admin/relay/account-pool/usage/:id?days=7 — 单账号用量 =====

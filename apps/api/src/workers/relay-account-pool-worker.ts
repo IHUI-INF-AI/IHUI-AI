@@ -39,7 +39,9 @@ interface TraeSyncOutcome {
 }
 
 /** 子进程跑回灌编排器;凭据只在父子进程管道里流动,输出面已由脚本脱敏 */
-async function runTraeSessionSync(): Promise<TraeSyncOutcome> {
+/** 子进程跑回灌编排器;凭据只在父子进程管道里流动,输出面已由脚本脱敏。
+ *  导出:任务中心(runRelayTaskById)与 worker 执行体共用同一份触发逻辑(§0.6)。 */
+export async function runTraeSessionSync(): Promise<TraeSyncOutcome> {
   const script = resolvePath(REPO_ROOT, 'scripts', 'sync-trae-client-session.mjs')
   // 变量名避开 result:消费面契约测试(relay-account-pool-sweep-result)按 `result.<键>`
   // 扫本文件对 sweepAccountPool 产出的取值;子进程结果与之同名异物会被误算进消费面
