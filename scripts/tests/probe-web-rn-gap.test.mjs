@@ -119,4 +119,67 @@ test('T9 第三方 import 不展开(解析不到如实不展开,不报错也不�
   assert.deepEqual(fam.files, [page])
   assert.equal(probe.resolveLocal(page, 'react', fileSet), null)
 })
+
+// ── 门户承载维(2026-10-27 立)────────────────────────────────────────
+// 立因:本尺此前只看「web 路由集 × RN 屏集」,从不读 packages/shared/src/constants/web-portal.ts
+// 那张移动端 WebView 门户表 ⇒ 门户在册的路由被逐条判成「RN 零承载」的既成缺口(现读 64 条 gap 里
+// 有 14 条如此)。假缺口的真正代价是它只能靠人翻代码推翻,与机主"最大化减少开发"正面冲突。
+
+const fakeRoutes = (...rs) => rs.map((route) => ({ route, rel: `apps/web/app/(main)/${route}/page.tsx` }))
+const gapRow = (web, line) => ({ web, status: 'gap', note: 'RN 零承载(判过)', line })
+const excludedRow = (web, line) => ({ web, status: 'excluded', reason: '结构性不承载', line })
+
+test('T10 门户在册 ⇒ gap/excluded 行改判 contradicted,既不留在缺口也不掉进 unmapped', () => {
+  const webRoutes = fakeRoutes('edu/schedule', 'models/overview', 'stock', 'knowledge-graph', 'letters')
+  const map = [gapRow('edu/schedule', 1), excludedRow('models/overview', 2), gapRow('stock', 3)]
+  const portal = {
+    set: new Set(['edu/schedule', 'models/overview', 'knowledge-graph']),
+    rows: [{ raw: '/knowledge-graph', route: 'knowledge-graph' }],
+    unreadable: false,
+  }
+  const ev = parity.evaluateMap(webRoutes, map, [], 'head', portal)
+  assert.equal(ev.judgedGap.length, 1, '门户没在册的 gap 行必须留在缺口档')
+  assert.equal(ev.judgedGap[0].web, 'stock')
+  assert.equal(ev.excluded.length, 0, '被门户推翻的 excluded 行不得继续冒充已豁免')
+  assert.deepEqual(ev.contradicted.map((r) => [r.web, r.by]), [
+    ['edu/schedule', 'gap'],
+    ['models/overview', 'excluded'],
+  ])
+  // knowledge-graph 一行台账都没有,纯靠门户表被认成承载 ⇒ 这条腿是"表长一条、承载面自动跟一条";
+  // 而 letters 既无台账行也不在表里 ⇒ 必须仍是未判定(尺子不能把"没读到"洗成"没缺口")。
+  assert.deepEqual(ev.unmapped.map((r) => r.route), ['letters'])
+  assert.equal(ev.portalCarried.size, 3)
+  assert.equal(ev.portalUndetermined, false)
+})
+
+test('T11 门户表取不到 ⇒ 整维未判定:不洗白在册 gap、不扣 unmapped、不冒充 0 承载(§0.3)', () => {
+  const webRoutes = fakeRoutes('edu/schedule', 'knowledge-graph')
+  const map = [gapRow('edu/schedule', 1)]
+  const ev = parity.evaluateMap(webRoutes, map, [], 'head', { set: null, rows: [], unreadable: true })
+  assert.equal(ev.portalCarried, null)
+  assert.equal(ev.portalUndetermined, true)
+  assert.equal(ev.judgedGap.length, 1, '取不到表时不得把 gap 行洗成承载')
+  assert.equal(ev.contradicted.length, 0, '取不到表时不得凭空造出"被推翻"的结论')
+  assert.deepEqual(ev.unmapped.map((r) => r.route), ['knowledge-graph'], '取不到表时不得从 unmapped 里扣门户路由')
+})
+
+test('T12 真仓存活 + 阳性对照(对照取自被审面的表内容,不钉死路由名)', () => {
+  const portal = parity.collectPortalRoutes('head')
+  assert.equal(portal.unreadable, false, `门户表取不到(${parity.WEB_PORTAL_REL})⇒ 这一维根本没装车`)
+  assert.ok(portal.set.size >= 50, `门户表只读出 ${portal.set.size} 条,与 90+ 条的现读形态不符`)
+  const webRoutes = parity.collectWebRoutes('head')
+  const routeSet = new Set(webRoutes.map((r) => r.route))
+  const carried = [...portal.set].filter((r) => routeSet.has(r))
+  assert.ok(carried.length >= 30, `门户表与 web 路由集交集只有 ${carried.length} 条 ⇒ 两侧归一化形态漂移`)
+  const sample = carried[0]
+  // 阳性对照:同一张真表喂进判据,在册 gap 行必须被推翻
+  const hit = parity.evaluateMap(fakeRoutes(sample), [gapRow(sample, 1)], [], 'head', portal)
+  assert.equal(hit.contradicted.length, 1, `门户表在册的 ${sample} 没被认成承载 ⇒ 判据与表的 path 形态不同形`)
+  assert.equal(hit.judgedGap.length, 0)
+  // 反向对照:拿一条确定不在表里的路由,同一条尺子必须仍判它是未判定
+  const notCarried = webRoutes.map((r) => r.route).find((r) => !portal.set.has(r))
+  const miss = parity.evaluateMap(fakeRoutes(notCarried), [], [], 'head', portal)
+  assert.deepEqual(miss.unmapped.map((r) => r.route), [notCarried])
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
