@@ -73,6 +73,62 @@ test('③b 配额:只数当日 registered(observed/quota-deferred 不占额)', (
   assert.equal(tr.registeredToday(led, now), 1)
 })
 
+test('③c 产出待办:纯函数 planTriageActions 把聚类候选推成动作(不 IO、可重放)', () => {
+  const now = Date.now()
+  const mk = (source, disposition, fp, title = 't') => ({ source, disposition, fp, title, evidence: 'e' })
+  // 观察类 → observed,不占配额
+  let r = tr.planTriageActions({ findings: [mk('api-logs', 'observe', 'fa')], dailyQuota: 3, now })
+  assert.equal(r.actions.length, 1)
+  assert.equal(r.actions[0].action, 'observed')
+  assert.equal(r.quotaUsed, 0)
+  // 可派单 + 空台账 + 配额充足 → register,quotaUsed=1
+  r = tr.planTriageActions({ findings: [mk('api-logs', 'register', 'fb')], dailyQuota: 3, now })
+  assert.equal(r.actions[0].action, 'register')
+  assert.equal(r.quotaUsed, 1)
+  // 24h 内同指纹已登记 → skip-dedupe(不占额、不重复登记)
+  const led = [{ action: 'registered', ts: new Date(now - 3600_000).toISOString(), fingerprint: 'fc' }]
+  r = tr.planTriageActions({ findings: [mk('api-logs', 'register', 'fc')], ledger: led, dailyQuota: 3, now })
+  assert.equal(r.actions[0].action, 'skip-dedupe')
+  assert.equal(r.quotaUsed, 1)
+  // 超配额 → 多余候选落 quota-deferred(不占额)
+  r = tr.planTriageActions({
+    findings: [mk('a', 'register', 'f1'), mk('b', 'register', 'f2'), mk('c', 'register', 'f3'), mk('d', 'register', 'f4')],
+    dailyQuota: 3,
+    now,
+  })
+  assert.deepEqual(r.actions.map((a) => a.action), ['register', 'register', 'register', 'quota-deferred'])
+  assert.equal(r.quotaUsed, 3)
+  // 注入 now 决定可重放:换 now 不影响同输入结果(纯函数)
+  const alt = tr.planTriageActions({ findings: [mk('a', 'register', 'f1')], dailyQuota: 3, now: now + 999 })
+  assert.equal(alt.actions[0].action, 'register')
+})
+
+test('③d 端到端(纯):归一 → 聚类 → 产出待办,复用既有通道不新建平行体系', () => {
+  const now = Date.now()
+  const recs = (src, arr) => arr.map((o) => ({ at: new Date(now - 3600_000).toISOString(), objectText: o, label: o, evidence: o }))
+  const apiRecords = recs('api-logs', [
+    'GET /api/a/1 500 boom', 'GET /api/a/2 500 boom', // 同签名 2 次 ⇒ register
+    'GET /api/b/9 500 timeout', // 单次 ⇒ observe
+  ])
+  const gRecords = recs('grafana-alerts', [
+    'ApiDown|critical|API 宕机', 'ApiDown|critical|API 宕机', // 同 alertname 2 实例 ⇒ register
+  ])
+  const toFindings = (records, source) =>
+    tr.clusterRecords({ source, records, windowHours: 24, minOccurrences: 2, now })
+      .map((b) => ({ source, disposition: b.disposition, fp: b.fingerprint, title: b.label, evidence: b.evidence }))
+  const findings = [...toFindings(apiRecords, 'api-logs'), ...toFindings(gRecords, 'grafana-alerts')]
+  // 归一(数字/UUID 归零)使 /api/a/1 与 /api/a/2 落同一桶
+  const apiBuckets = tr.clusterRecords({ source: 'api-logs', records: apiRecords, windowHours: 24, minOccurrences: 2, now })
+  assert.ok(apiBuckets.some((b) => b.disposition === 'register' && b.count === 2), '同签名 2 次应聚成可派单簇')
+  // 产出待办:两个 register 簇 + 一个 observe 簇,配额 3 充足
+  const plan = tr.planTriageActions({ findings, dailyQuota: 3, now })
+  const registers = plan.actions.filter((a) => a.action === 'register')
+  const observes = plan.actions.filter((a) => a.action === 'observed')
+  assert.equal(registers.length, 2, '两源各一可派单簇')
+  assert.equal(observes.length, 1, '单例 api/b 落观察类')
+  assert.equal(plan.quotaUsed, 2)
+})
+
 test('④ 登记通道:live-doc-edit 子进程形态(env 驱动 + 唯一入口路径 + 取号令牌)', () => {
   const calls = []
   let block = ''
