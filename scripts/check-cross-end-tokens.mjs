@@ -127,6 +127,69 @@ const FACE_TXT = {
 // ─── 映射表(每条含取值依据,rn 路径 = [常量名, ...嵌套键]) ───
 const MAPPINGS = [
   {
+    label: 'gray.50 ↔ --color-neutral-50',
+    rn: { light: ['rnLightTokens', 'gray', '50'], dark: ['rnDarkTokens', 'gray', '50'] },
+    css: { light: '--color-neutral-50', dark: '--color-neutral-50' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #fafafa / 暗档 (同亮) 与源 --color-neutral-50 在 :root/@theme 与 .dark 两个面各自同值;同值候选 5 个(--color-destructive-foreground, --color-success-foreground, --color-warning-foreground),其中与 RN 档名同名的只有 --color-neutral-50(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'gray.100 ↔ --color-neutral-100',
+    rn: { light: ['rnLightTokens', 'gray', '100'], dark: ['rnDarkTokens', 'gray', '100'] },
+    css: { light: '--color-neutral-100', dark: '--color-neutral-100' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #f5f5f5 / 暗档 (同亮) 与源 --color-neutral-100 在 :root/@theme 与 .dark 两个面各自同值;同值候选 5 个(--color-background, --color-secondary, --color-brand-50),其中与 RN 档名同名的只有 --color-neutral-100(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'gray.200 ↔ --color-neutral-200',
+    rn: { light: ['rnLightTokens', 'gray', '200'], dark: ['rnDarkTokens', 'gray', '200'] },
+    css: { light: '--color-neutral-200', dark: '--color-neutral-200' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #e5e5e5 / 暗档 (同亮) 与源 --color-neutral-200 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-border, --color-neutral-200),其中与 RN 档名同名的只有 --color-neutral-200(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'gray.300 ↔ --color-neutral-300',
+    rn: { light: ['rnLightTokens', 'gray', '300'], dark: ['rnDarkTokens', 'gray', '300'] },
+    css: { light: '--color-neutral-300', dark: '--color-neutral-300' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #d4d4d4 / 暗档 (同亮) 与源 --color-neutral-300 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-border-medium, --color-neutral-300),其中与 RN 档名同名的只有 --color-neutral-300(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'gray.500 ↔ --color-neutral-500',
+    rn: { light: ['rnLightTokens', 'gray', '500'], dark: ['rnDarkTokens', 'gray', '500'] },
+    css: { light: '--color-neutral-500', dark: '--color-neutral-500' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #737373 / 暗档 (同亮) 与源 --color-neutral-500 在 :root/@theme 与 .dark 两个面各自同值;同值候选 1 个(--color-neutral-500),其中与 RN 档名同名的只有 --color-neutral-500(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'gray.600 ↔ --color-neutral-600',
+    rn: { light: ['rnLightTokens', 'gray', '600'], dark: ['rnDarkTokens', 'gray', '600'] },
+    css: { light: '--color-neutral-600', dark: '--color-neutral-600' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #525252 / 暗档 (同亮) 与源 --color-neutral-600 在 :root/@theme 与 .dark 两个面各自同值;同值候选 1 个(--color-neutral-600),其中与 RN 档名同名的只有 --color-neutral-600(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'gray.700 ↔ --color-neutral-700',
+    rn: { light: ['rnLightTokens', 'gray', '700'], dark: ['rnDarkTokens', 'gray', '700'] },
+    css: { light: '--color-neutral-700', dark: '--color-neutral-700' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #404040 / 暗档 (同亮) 与源 --color-neutral-700 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-text-medium, --color-neutral-700),其中与 RN 档名同名的只有 --color-neutral-700(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'gray.800 ↔ --color-neutral-800',
+    rn: { light: ['rnLightTokens', 'gray', '800'], dark: ['rnDarkTokens', 'gray', '800'] },
+    css: { light: '--color-neutral-800', dark: '--color-neutral-800' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #262626 / 暗档 (同亮) 与源 --color-neutral-800 在 :root/@theme 与 .dark 两个面各自同值;同值候选 3 个(--color-surface-dark, --color-vip-card, --color-neutral-800),其中与 RN 档名同名的只有 --color-neutral-800(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'gray.900 ↔ --color-neutral-900',
+    rn: { light: ['rnLightTokens', 'gray', '900'], dark: ['rnDarkTokens', 'gray', '900'] },
+    css: { light: '--color-neutral-900', dark: '--color-neutral-900' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #171717 / 暗档 (同亮) 与源 --color-neutral-900 在 :root/@theme 与 .dark 两个面各自同值;同值候选 5 个(--color-secondary-foreground, --color-accent-foreground, --color-sidebar-foreground),其中与 RN 档名同名的只有 --color-neutral-900(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
     label: 'surface.muted ↔ --color-muted',
     rn: { light: ['rnLightTokens', 'surface', 'muted'], dark: ['rnDarkTokens', 'surface', 'muted'] },
     css: { light: '--color-muted', dark: '--color-muted' },
@@ -754,6 +817,13 @@ function normalizeColor(v) {
     compact,
   )
   if (m) return hslToHex(parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]))
+  // oklch 无 alpha 形式 → hex6。为什么要转:RN 的 StyleSheet 不认 oklch 字符串,而派生器
+  // (sync-rn-tokens)只接受 hex6/rgb[a]/hsl[a] —— 不转源值就永远"不可派生",Tailwind v4 色板
+  // 那一整族在 RN 侧等于没有源。带 `/ alpha` 的一律**不**折算(静默丢透明度是真分歧,不能藏)。
+  if (/^oklch\([^/]*\)$/.test(compact)) {
+    const t = toRgbTriple(compact)
+    if (t) return `#${t.map((x) => x.toString(16).padStart(2, '0')).join('')}`
+  }
   const flat = compact.replace(/\s+/g, '')
   // #fff 与 #ffffff 是同一颜色;不展开会让"一侧写缩写"的合法写法判成漂移
   const short = /^#([0-9a-f]{3})$/.exec(flat)

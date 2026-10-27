@@ -430,6 +430,26 @@
   --color-black-87: rgba(0, 0, 0, 0.87);
   --color-black-90: rgba(0, 0, 0, 0.9);
   --color-black-95: rgba(0, 0, 0, 0.95);
+
+  /* ============ neutral 色阶(2026-10-27 立:给 RN 的灰阶一个真源)============
+   * 值**逐字取自本机安装的 Tailwind v4 内置色板**(tailwindcss@4.3.3 dist 里的 neutral 块),
+   * 因此 web 侧现有 `bg-neutral-*` 工具类渲染一字不变 —— 这一段的引入不改任何已生效颜色。
+   * 为什么要显式声明:RN 侧 rn-tokens.ts 的 gray.* 十个档一直是手抄 hex,而它的值等于 v4 neutral
+   * 刻度(2026-10-27 用量等判定量得 9/10 逐位相符,唯一不符的是 gray.400,那一档留给人裁)。
+   * 源里没有同名档 ⇒ 门 93/254 只能报"不可派生",web 改一处 RN 永远不动;声明完,
+   * RN 侧按 §4「派生态一律由源头派生」经 scripts/sync-rn-tokens.mjs 跟随本块。
+   * 禁止端内手改 rn-tokens.ts 的这几档(改本块才是正解)。
+   */
+  --color-neutral-50: oklch(98.5% 0 none);
+  --color-neutral-100: oklch(97% 0 none);
+  --color-neutral-200: oklch(92.2% 0 none);
+  --color-neutral-300: oklch(87% 0 none);
+  --color-neutral-400: oklch(70.8% 0 none);
+  --color-neutral-500: oklch(55.6% 0 none);
+  --color-neutral-600: oklch(43.9% 0 none);
+  --color-neutral-700: oklch(37.1% 0 none);
+  --color-neutral-800: oklch(26.9% 0 none);
+  --color-neutral-900: oklch(20.5% 0 none);
 }
 
 /* ============ z-index token(共享 — 2026-07-24 迁移) ============
