@@ -39,6 +39,12 @@ interface QrStatusData {
 
 const POLL_INTERVAL_MS = 2000
 const SUCCESS_CLOSE_DELAY_MS = 800
+/**
+ * 状态轮询的瞬失容忍帧数。服务端 /qr/status 限流与轮询频率贴近(2s = 30 次/分钟),
+ * 一次 429 / 代理抖动并不代表这张码废了 —— 原实现把任何一次失败当终态,直接停轮并把
+ * 一张名义还有效 300s 的二维码判死。连续这么多帧都取不到才进 error 态。
+ */
+const STATUS_POLL_FAIL_TOLERANCE = 3
 // 2026-10-27:外框改 300×300 正方形后同步放大(原 184 在正方形框里显得过小、四周空太多)
 const QR_SIZE = 220
 
@@ -103,6 +109,15 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
         setQrContent(content)
         setStatus('pending')
 
+        const stopPolling = () => {
+          if (pollTimer) {
+            clearInterval(pollTimer)
+            pollTimer = null
+          }
+        }
+        // 连续瞬失帧数(见 STATUS_POLL_FAIL_TOLERANCE 头注)
+        let pollFails = 0
+
         const poll = async () => {
           try {
             const res = await fetchApi<QrStatusData>(
@@ -111,21 +126,18 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
             if (cancelled) return
 
             if (!res.success) {
-              if (pollTimer) {
-                clearInterval(pollTimer)
-                pollTimer = null
-              }
+              pollFails += 1
+              if (pollFails < STATUS_POLL_FAIL_TOLERANCE) return
+              stopPolling()
               setErrorMsg(res.error)
               setStatus('error')
               return
             }
+            pollFails = 0
 
             const data = res.data
             if (data.status === 'confirmed') {
-              if (pollTimer) {
-                clearInterval(pollTimer)
-                pollTimer = null
-              }
+              stopPolling()
               if (data.accessToken && data.refreshToken) {
                 setToken(data.accessToken, data.refreshToken)
                 qc.invalidateQueries({ queryKey: ['header'] })
@@ -150,10 +162,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
                 if (landing) requestWallboardChoice(landing)
               }, SUCCESS_CLOSE_DELAY_MS)
             } else if (data.status === 'expired') {
-              if (pollTimer) {
-                clearInterval(pollTimer)
-                pollTimer = null
-              }
+              stopPolling()
               setStatus('expired')
             }
             // status === 'pending' → 继续轮询
