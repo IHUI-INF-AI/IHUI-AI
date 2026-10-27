@@ -20,7 +20,7 @@ export type GeometryUnit<U extends string | number> = (px: number) => U
  * 转圈盒子 32:小程序端现档 `w-8 h-8` = 32px。RN 端没有对应的数字档(原生控件),
  * 用它包一层同档盒子,使两端的这一行高度由同一个数决定。
  */
-export const LOADING_SPINNER_PX = 32
+const LOADING_SPINNER_PX = 32
 
 /** 说明文字 14:两端现值已同(小程序 `text-sm` / RN `fontSize: 14`),收进一处只为不再分叉。 */
 export const LOADING_LABEL_FONT_PX = 14
