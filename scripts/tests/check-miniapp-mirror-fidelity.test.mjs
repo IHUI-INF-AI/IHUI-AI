@@ -288,6 +288,36 @@ export default function P() { return NewsShell }`
   assert.match(f.why, /不存在/)
 })
 
+test('T17d 直载共享屏(不经壳)且真渲染 ⇒ hosted/ via=direct', () => {
+  const page = `// 镜像 ${SPEC}
+import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
+export default function P() { return <SharedSettingsScreen t={(k) => k} /> }`
+  const f = gate.hostingFormOf({ spec: SPEC, pageText: page, readShell: readFrom({}) })
+  assert.equal(f.form, 'hosted')
+  assert.equal(f.via, 'direct')
+})
+
+test('T17e 只 import 共享屏而没渲染它 ⇒ 仍是 hand(失效方向恒为多算一份手写)', () => {
+  const page = `// 镜像 ${SPEC}
+import { SettingsScreen } from '@ihui/rn-app'
+export default function P() { return <div>自己写的</div> }`
+  const f = gate.hostingFormOf({ spec: SPEC, pageText: page, readShell: readFrom({}) })
+  assert.equal(f.form, 'hand')
+})
+
+test('T21 同 spec 双路由:锚点按 spec+route 配对,一张 hosted 一张 hand 不得报自我倒退', () => {
+  const rows = (formA, missA, formB, missB) => ({
+    rows: [
+      { spec: SPEC, route: 'pages/setting/index', form: formA, missing: missA },
+      { spec: SPEC, route: 'pkg-user/setting-shared/index', form: formB, missing: missB },
+    ],
+  })
+  const base = rows('hand', ['settings.title'], 'hosted', [])
+  const now = rows('hand', ['settings.title'], 'hosted', [])
+  assert.deepEqual(gate.regressions(now, base), [])
+  assert.equal(gate.regressions(rows('hand', ['settings.title', 'settings.new'], 'hosted', []), base).length, 1)
+})
+
 test('T18 真仓冒烟(HEAD 面):引壳的页一律不得判成手写,且 hosted 桶非空', () => {
   const res = gate.computeFidelity('head')
   assert.ok(res.hosted > 0, `HEAD 面 hosted 桶为空 ⇒ 承载判据没装车(现读 hosted=${res.hosted})`)
