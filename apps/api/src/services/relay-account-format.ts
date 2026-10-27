@@ -330,6 +330,8 @@ export const IMPORT_CANONICAL_KEYS = [
   'machineId',
   'deviceKeyPem',
   'devicePubPem',
+  /** Trae 会话模板(账号资料全量,凭证已剔除;加密进 secretsEnc 供「登录本机」重封信封) */
+  'sessionTemplate',
   'enabled',
   'cookies',
   'proxyUrl',

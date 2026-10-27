@@ -81,9 +81,6 @@ vi.mock('../src/services/relay-proxy-pool.js', () => ({
   pickProxyForAccount: (account: { id: string; proxyUrl: string | null }) => mockPickProxy(account),
   reportProxyFailure: (u: string) => mockReportProxyFailure(u),
   reportProxySuccess: (u: string) => mockReportProxySuccess(u),
-  // 本套件只测转发编排,账号级代理密文/明文在此按直通处理
-  resolveAccountProxyUrl: (u: string | null) => u,
-  encryptAccountProxyUrl: (u: string | null) => u,
 }))
 vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: (p: string, m: string) => mockResolveAlias(p, m),

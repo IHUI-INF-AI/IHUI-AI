@@ -61,6 +61,8 @@ export interface ImportAccountInput {
   /** 设备证明材料(Trae 桌面渠道续票必需;密钥对进 secretsEnc,两个都给才生效) */
   deviceKeyPem?: string
   devicePubPem?: string
+  /** Trae 会话模板(账号资料全量,凭证已剔除;进 secretsEnc,「登录本机」重封信封用) */
+  sessionTemplate?: Record<string, unknown>
   enabled?: boolean
   cookies?: unknown[]
   /** 账号级出口代理(可选) */
@@ -125,16 +127,37 @@ function cstr(v: unknown): string {
 }
 
 /**
- * Trae 设备材料 → secrets(2026-10-25 立):新版 ExchangeToken 用设备私钥签名
- * 换票,桌面客户端签发的票只认这条路。只收"两个 PEM 都在"的完整材料,
- * 缺一半视同没有(adapter 会退回旧通道)。token/refreshToken/uid 走原路径,
- * 不参与映射(避免与 opaque token 平台的分支语义混淆)。
+ * Trae 设备材料 + 会话模板 → secrets(2026-10-25 立,2026-10-27 扩模板)。
+ * 新版 ExchangeToken 用设备私钥签名换票,桌面客户端签发的票只认这条路。只收
+ * "两个 PEM 都在"的完整材料,缺一半视同没有(adapter 会退回旧通道)。
+ *
+ * 合并语义(2026-10-27):secretsEnc 是单列,网页重登等"只带 access token"的导入
+ * 不会带模板/设备材料,整列覆盖会把它们抹掉 ⇒ 以既有 secrets 为底,只在本次确实
+ * 提供时覆盖对应键。全都没提供 ⇒ 返回 null(调用方省略该列,保留原值)。
  */
-function mapTraeImport(acc: ImportAccountInput): { secrets: Record<string, unknown> } | null {
+function mapTraeImport(
+  acc: ImportAccountInput,
+  existingSecrets: Record<string, unknown> | null,
+): { secrets: Record<string, unknown> } | null {
   const keyPem = cstr(acc['deviceKeyPem'])
   const pubPem = cstr(acc['devicePubPem'])
-  if (!keyPem || !pubPem) return null
-  return { secrets: { deviceKeyPem: keyPem, devicePubPem: pubPem } }
+  const rawTemplate = acc['sessionTemplate']
+  const template =
+    rawTemplate && typeof rawTemplate === 'object' && !Array.isArray(rawTemplate)
+      ? (rawTemplate as Record<string, unknown>)
+      : null
+  const merged: Record<string, unknown> = { ...(existingSecrets ?? {}) }
+  let touched = false
+  if (keyPem && pubPem) {
+    merged.deviceKeyPem = keyPem
+    merged.devicePubPem = pubPem
+    touched = true
+  }
+  if (template && Object.keys(template).length > 0) {
+    merged.sessionTemplate = template
+    touched = true
+  }
+  return touched ? { secrets: merged } : null
 }
 
 /** DPoP 私钥既可能是 JWK 对象也可能是 JSON 字符串,统一解析为对象 */
@@ -577,8 +600,6 @@ export async function importAccounts(
                           : providerCode === 'grokbot'
                             ? mapGrokbotImport(acc)
                             : null
-      // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
-      const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       if (!accName && mapped?.name) displayName = mapped.name
       const missingReason = mapped ? null : (MAPPED_PROVIDER_MISSING_REASONS[providerCode] ?? null)
       if (missingReason && providerCode !== 'trae' && providerCode !== 'workbuddy') {
@@ -642,11 +663,14 @@ export async function importAccounts(
       const now = new Date()
       const expired = tokenExpiresAt !== null && tokenExpiresAt <= now
 
-      // 既有行先查出来:覆盖语义(保不保留旧 refreshToken)与"过期是否摘除"都依赖它
+      // 既有行先查出来:覆盖语义(保不保留旧 refreshToken)与"过期是否摘除"都依赖它。
+      // secretsEnc 一并取出:Trae 的会话模板/设备材料是合并语义(见 mapTraeImport),
+      // 网页重登那种只带 access 的导入绝不能把模板抹掉。
       const existing = await db
         .select({
           id: aiRelayAccountPool.id,
           hasRefreshToken: sql<boolean>`${aiRelayAccountPool.refreshTokenEnc} is not null`,
+          secretsEnc: aiRelayAccountPool.secretsEnc,
         })
         .from(aiRelayAccountPool)
         .where(
@@ -659,6 +683,19 @@ export async function importAccounts(
           ),
         )
         .limit(1)
+      let existingSecrets: Record<string, unknown> | null = null
+      if (existing[0]?.secretsEnc) {
+        try {
+          const parsed = JSON.parse(decryptField(existing[0].secretsEnc))
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            existingSecrets = parsed as Record<string, unknown>
+          }
+        } catch {
+          /* 坏密文/密钥轮换 ⇒ 当作无既有 secrets,本次提供的照写 */
+        }
+      }
+      // Trae 模板/设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
+      const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc, existingSecrets) : null
       // 一键重登只换 access:本批未带 refreshToken 时按开关保留旧票(判据单源在 format)
       const overwriteRefresh = resolveOverwriteRefresh({
         providerCode,
@@ -714,12 +751,14 @@ export async function importAccounts(
         tokenEnc: encryptField(token),
         refreshTokenEnc: refreshToken ? encryptField(refreshToken) : null,
         cookiesEnc: cookies.length > 0 ? encryptField(JSON.stringify(cookies)) : null,
+        // 本次没提供任何 secrets(Trae 未带模板/设备材料,或非 Trae 平台无映射)⇒
+        // undefined = 覆盖时不写该列(保留既有模板);insert 时按列默认 NULL 落库
         secretsEnc:
           mapped && 'secrets' in mapped
             ? encryptField(JSON.stringify(mapped.secrets))
             : traeSecrets
               ? encryptField(JSON.stringify(traeSecrets.secrets))
-              : null,
+              : undefined,
         deviceId:
           typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId.slice(0, 128) : null,
         machineId:

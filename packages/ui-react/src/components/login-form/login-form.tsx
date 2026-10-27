@@ -60,7 +60,9 @@ const KNOWN_TAB_KEYS = Object.keys(TAB_LABEL_KEYS) as LoginTab[]
  *   - 4 tab Tabs(网格 grid-cols-4)
  *   - 错误提示:每个 tab 独立,切换时清空
  *   - 协议状态:agreed / showAgreeErr / noticeOpen 三态联动
- *   - 协议模式:inline(红色提示)或 notice-dialog(弹窗)
+ *   - 协议模式:inline(红色提示 + 复选框)或 notice-dialog(弹窗);
+ *     2026-10-27 协议票起,**未同意时进入扫码 tab 即按当前档要求一次同意**
+ *     (弹窗档=弹同一扇 AgreementNoticeDialog;勾选框档=显示复选框 + 红提示)
  *   - 底部:第三方登录区 + "没有账号?立即注册"链接
  *
  * 共享包关键差异(2026-07-26):
@@ -161,6 +163,23 @@ export function LoginForm(props: LoginFormProps) {
     setAgreed(v)
     if (v) setShowAgreeErr(false)
   }, [])
+
+  // 2026-10-27 机主代裁(台账票「扫码登录路径从不触发协议同意」,方案①;落选方案②的理由进同笔
+  // commit message):**扫码面板进入即要求一次协议同意** —— 此前协议门禁挂在"点提交"上,而扫码
+  // 这条路径结构上没有提交动作(共享包以 tab!=='qr' 排除协议区),等于 2026-10-27 起国内访客
+  // 的默认首屏整条不经过同意就能直接拿 token。现改为:
+  //   · notice-dialog 档(现网唯一形态:web 弹窗 + 扩展 popup/sidepanel,×3 全部此档):
+  //     未同意时进入扫码面板即弹一次既有 AgreementNoticeDialog —— 与提交流程**同一器物**,
+  //     不新写弹窗;用户"不同意"即关窗且本次停留内不再骚扰,切走再切回且仍未同意才再问;
+  //   · inline 档(现无任何消费者开放 qr;组合本身在改动前就没有同意通道,不是本次造成的缺口):
+  //     同批把复选框在 qr 面板落位(见下方协议区条件),进入即置红提示,勾上即沉默。
+  // 同意后(agreed=true)该档永不再弹;defaultAgreed=true 主机即刻沉默;showAgreement=false
+  // 的主机已显式关闭协议面,不代为弹窗。
+  React.useEffect(() => {
+    if (tab !== 'qr' || !showAgreement || agreed) return
+    if (agreementMode === 'notice-dialog') setNoticeOpen(true)
+    else setShowAgreeErr(true)
+  }, [tab, agreed, showAgreement, agreementMode])
 
   // 切 tab 时清空协议错误(避免上一次的红色状态残留)
   const handleTabChange = React.useCallback((v: string) => {
@@ -267,8 +286,9 @@ export function LoginForm(props: LoginFormProps) {
         ))}
       </Tabs>
 
-      {/* 协议复选框(qr tab 不需要,因为不会触发提交) */}
-      {showAgreement && tab !== 'qr' && agreementMode === 'inline' && (
+      {/* 协议复选框:inline 档在 qr 面板同批落位(2026-10-27 协议票方案① —— 进入扫码即要求,
+          勾选框是该档的同意通道;notice-dialog 档走弹窗,本区维持排除) */}
+      {showAgreement && (tab !== 'qr' || agreementMode === 'inline') && agreementMode === 'inline' && (
         <div className="pt-1">
           <AgreementCheckbox
             t={t}
