@@ -4298,7 +4298,15 @@ const CROSS_END_DRIFT_INTERVAL_MS = Number(
 const CROSS_END_UNDET_HORIZON_MS = Number(
   process.env.IHUI_CROSS_END_UNDET_HORIZON_MS || 3 * 60 * 60 * 1000,
 )
-const CROSS_END_LEGS = new Set(['drift', 'mirror-heal', 'shell-land'])
+const CROSS_END_LEGS = new Set([
+  'drift',
+  'mirror-heal',
+  'shell-land',
+  // 2026-10-27 补:本文件新装的两条腿此前不在册 ⇒ noteCrossEndUndetermined 走「未知腿」分支
+  // 当场返回 { mailed:false },瞎了也无人喊(§12f「判据失效的表现永远是安静」)。
+  'portal-converge',
+  'rn-token-pair',
+])
 const crossEndUndetFile = (leg) =>
   join(WORKTREE, '.ihui-agent', 'state', `cross-end-${leg}-undetermined-first.json`)
 
@@ -4325,7 +4333,7 @@ export function noteCrossEndUndetermined(leg, detail, opts = {}) {
 export function settleCrossEndLeg(leg, opts = {}) {
   const { logger = log, file = crossEndUndetFile(leg) } = opts
   if (!CROSS_END_LEGS.has(leg)) return false
-  // 常态(没有连击在册)⇒ 一声不出:三条腿每 30~60 分钟各取一次结论,
+  // 常态(没有连击在册)⇒ 一声不出:各腿每 30~60 分钟各取一次结论,
   // 每轮都写一行"已清零"会把日志淹成噪声,而这格真正要被看见的是"清掉了一次在册的瞎"
   if (!existsSync(file)) return false
   clearUndeterminedStreak(file)
@@ -4987,6 +4995,9 @@ export function convergeCrossEndPortalVerdicts(opts = {}) {
     tickFile = join(dirname(LOG), 'cross-end-portal-converge-last.json'),
     logger = log,
     runner = null,
+    notify = notifyGuardRed,
+    undetFile = crossEndUndetFile('portal-converge'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'auto-register-cross-end.mjs')
   if (!existsSync(script)) {
@@ -5037,10 +5048,19 @@ export function convergeCrossEndPortalVerdicts(opts = {}) {
   const stdout = String(r.out ?? r.stdout ?? '')
   const line = stdout.split('\n').find((l) => l.includes('AUTO-REGISTER-PORTAL'))
   if (!line) {
+    const detail =
+      `派生 rc=${r.status ?? '?'};stderr 前 120:${String(r.err ?? r.stderr ?? '').slice(0, 120) || '(空)'}\n` +
+      `这表示**门户维收敛这一格是瞎的**(台账里该翻成 portal 的行没人翻),不是"台账已收敛"。\n` +
+      `出路:node scripts/auto-register-cross-end.mjs --converge-portal --only=portal --apply`
     logger(
-      `⚠️ 门户维收敛:结论行取不到(rc=${r.status ?? '?'})⇒ 本轮没判,` +
-        `既不读成"台账已收敛"也不读成"无需收敛":${String(r.err ?? r.stderr ?? '').slice(0, 120)}`,
+      `⚠️ 门户维收敛:结论行取不到(rc=${r.status ?? '?'})⇒ 本轮没判,既不读成"台账已收敛"也不读成"无需收敛"`,
     )
+    noteCrossEndUndetermined('portal-converge', detail, {
+      logger,
+      notify,
+      file: undetFile,
+      horizonMs: undetHorizonMs,
+    })
     return { ran: true, state: 'unparsed', status: r.status ?? null }
   }
   const m = /state=(\S+)\s+candidates=(\d+)\s+applied=(\d+)/.exec(line)
@@ -5049,8 +5069,14 @@ export function convergeCrossEndPortalVerdicts(opts = {}) {
   const applied = Number(m?.[3] ?? -1)
   if (state === 'undetermined') {
     logger(`⚠️ 门户维收敛:未判定(门户表取不到)⇒ 台账一条未改:${line.slice(0, 200)}`)
+    noteCrossEndUndetermined(
+      'portal-converge',
+      `结论行自报未判定 ⇒ 这一格没判:\n${line.slice(0, 300)}`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
     return { ran: true, state, candidates, applied }
   }
+  settleCrossEndLeg('portal-converge', { logger, file: undetFile })
   if (state === 'clean' && candidates === 0 && applied === 0)
     return { ran: true, state, candidates, applied }
   logger(`ℹ️ 门户维收敛:${line.slice(0, 260)}`)
@@ -5077,6 +5103,9 @@ export function autoRegisterRnTokenPairs(opts = {}) {
     tickFile = join(dirname(LOG), 'rn-token-pair-apply-last.json'),
     logger = log,
     runner = null,
+    notify = notifyGuardRed,
+    undetFile = crossEndUndetFile('rn-token-pair'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'plan-rn-token-pairing.mjs')
   if (!existsSync(script)) {
@@ -5133,13 +5162,35 @@ export function autoRegisterRnTokenPairs(opts = {}) {
       `⚠️ RN 色档同源入表:结论行取不到(rc=${r.status ?? '?'})⇒ 本轮没判,` +
         `既不读成"已同源"也不读成"无档可配":${String(r.err ?? r.stderr ?? '').slice(0, 120)}`,
     )
+    noteCrossEndUndetermined(
+      'rn-token-pair',
+      `派生 rc=${r.status ?? '?'};stderr 前 120:${String(r.err ?? r.stderr ?? '').slice(0, 120) || '(空)'}\n` +
+        `这表示**RN 色档同源入表这一格是瞎的**(web 改档后 RN 侧该跟随的档没人登记),不是"无档可配"。\n` +
+        `出路:node scripts/plan-rn-token-pairing.mjs --apply`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
     return { ran: true, state: 'unparsed', status: r.status ?? null }
   }
   const m = /state=(\S+)\s+inserted=(\d+)/.exec(line)
   const state = m?.[1] ?? 'unknown'
   const inserted = Number(m?.[2] ?? -1)
+  if (state === 'undetermined') {
+    logger(`⚠️ RN 色档同源入表:计划器自报未判定 ⇒ 本轮没判:${line.slice(0, 240)}`)
+    noteCrossEndUndetermined(
+      'rn-token-pair',
+      `结论行自报未判定 ⇒ 这一格没判:\n${line.slice(0, 300)}`,
+      {
+        logger,
+        notify,
+        file: undetFile,
+        horizonMs: undetHorizonMs,
+      },
+    )
+    return { ran: true, state, inserted }
+  }
+  settleCrossEndLeg('rn-token-pair', { logger, file: undetFile })
   if (state === 'nochange' && inserted === 0) return { ran: true, state, inserted }
-  // applied:真改了守门件 ⇒ 留读数(收编器据此落库);refused/undetermined:点名但不喊人。
+  // applied:真改了守门件 ⇒ 留读数(收编器据此落库);refused:点名但不喊人。
   logger(`ℹ️ RN 色档同源入表:${line.slice(0, 240)}`)
   return { ran: true, state, inserted, line }
 }
