@@ -47,13 +47,13 @@ export type GeometryUnit<U extends string | number> = (px: number) => U
  * 附件删除角标 20:小程序 `w-4 h-4` = 16 / RN `h-5 w-5` = 20。
  * 裁决规则 2(两端分叉取更稳的一档,角标取大不取小,点击命中不缩水)→ 20。
  */
-export const MODEL_CONFIG_DELETE_BADGE_PX = 20
+const MODEL_CONFIG_DELETE_BADGE_PX = 20
 
 /**
  * 音色菜单行前图标块 40:小程序 `w-[40rpx] h-[40rpx]` = 20 / RN `h-10 w-10` = 40。
  * 裁决规则 2 取大 → 40(行内文字 12/双行,图标块小于行高会把行拉歪)。
  */
-export const MODEL_CONFIG_AUDIO_MENU_ICON_PX = 40
+const MODEL_CONFIG_AUDIO_MENU_ICON_PX = 40
 
 /**
  * 上传控件里的"状态标记盒" 25:曾是小程序 `w-[50rpx] h-[50rpx]`(=25 位图状态图)vs
@@ -74,14 +74,14 @@ export const MODEL_CONFIG_UPLOAD_TILE_PX = 37
  * RN 上传虚线卡宽 80。**未决**(与小程序 37 同槽位不同形,理由见文件头)。
  * 80 不是设计取值而是布局上限:4 枚横排在 375pt 屏、`px-4` 后可用宽 ≈343,4×80 + 3×6 = 338 才放得下。
  */
-export const MODEL_CONFIG_UPLOAD_CARD_WIDTH_PX = 80
+const MODEL_CONFIG_UPLOAD_CARD_WIDTH_PX = 80
 
 /**
  * 参数输入行高 40:RN 现档 `h-10`(=40)vs 小程序端**完全没有高度档**(由 `py-2` + `text-sm`
  * 撑出约 36)。裁决规则 3「一端有档另一端无 → 取较大者并让缺失端补同档」→ 40,小程序 5 处
  * 参数输入补本档(40 > 现自然高 ⇒ 只会变高不会截断文字)。
  */
-export const MODEL_CONFIG_INPUT_HEIGHT_PX = 40
+const MODEL_CONFIG_INPUT_HEIGHT_PX = 40
 
 /**
  * 参数输入横向内衬 14:RN `px-3.5`=14 vs 小程序 `px-3`=12,同一元素(数值/文本参数输入框)
@@ -123,13 +123,13 @@ export const MODEL_CONFIG_MENU_ROW_PAD_Y_PX = 12
  * 没有可对齐的几何档(见文件头)。44 恰为触控下限,但轨道**高只有 22** —— 小程序端无 hitSlop
  * 通道,本票只收编现档不改观感,补触控高度另计一票。
  */
-export const MODEL_CONFIG_SWITCH_TRACK_WIDTH_PX = 44
+const MODEL_CONFIG_SWITCH_TRACK_WIDTH_PX = 44
 
 /** 自绘开关轨道高 22(小程序 44rpx)。同上,机制差异档。 */
-export const MODEL_CONFIG_SWITCH_TRACK_HEIGHT_PX = 22
+const MODEL_CONFIG_SWITCH_TRACK_HEIGHT_PX = 22
 
 /** 自绘开关轨道左右内衬 2(小程序 `px-[4rpx]`)。拇指行程的减数,见下面 TRAVEL。 */
-export const MODEL_CONFIG_SWITCH_TRACK_PAD_X_PX = 2
+const MODEL_CONFIG_SWITCH_TRACK_PAD_X_PX = 2
 
 /** 自绘开关拇指方块 18(小程序 36rpx)。与 RN 端 BLOCK_GLYPH 同为 18 属**巧合**而非同一元素。 */
 export const MODEL_CONFIG_SWITCH_THUMB_PX = 18

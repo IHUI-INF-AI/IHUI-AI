@@ -55,19 +55,19 @@ export function carouselDefaultHeightPx(): number {
 }
 
 /** 指示器距底边 12:RN 现值 12,小程序端 `bottom-2` = 8。裁决规则 2(间距取两端较大者)→ 12。 */
-export const CAROUSEL_INDICATOR_BOTTOM_PX = 12
+const CAROUSEL_INDICATOR_BOTTOM_PX = 12
 
 /** 指示点间距 6:两端现值已同(小程序 `gap-1.5` / RN `gap: 6`)。 */
-export const CAROUSEL_INDICATOR_GAP_PX = 6
+const CAROUSEL_INDICATOR_GAP_PX = 6
 
 /** 指示点高度 6:两端现值已同(小程序 `h-1.5` / RN `height: 6`)。 */
-export const CAROUSEL_DOT_HEIGHT_PX = 6
+const CAROUSEL_DOT_HEIGHT_PX = 6
 
 /** 未激活指示点宽度 6(正圆):两端现值已同(小程序 `w-1.5` / RN 三元里的 6)。 */
-export const CAROUSEL_DOT_INACTIVE_WIDTH_PX = 6
+const CAROUSEL_DOT_INACTIVE_WIDTH_PX = 6
 
 /** 激活指示点宽度 16(胶囊):两端现值已同(小程序 `w-4` / RN 三元里的 16)。 */
-export const CAROUSEL_DOT_ACTIVE_WIDTH_PX = 16
+const CAROUSEL_DOT_ACTIVE_WIDTH_PX = 16
 
 /** 指示器容器结构:底部居中一行,等距排点;只在这一处排,端内不再重摆。 */
 export function carouselIndicatorWrapStyle<U extends string | number>(
