@@ -106,8 +106,8 @@ export const tabBarStyles = {
 
   /**
    * 液态玻璃胶囊:图标行(高 TAB_BAR_HEIGHT)包进同一块玻璃 —— 圆角 + 细描边 + 投影。
-   * 2026-10-27 四稿:几何恢复悬浮胶囊(0.0.8 直落底边被机主否决),材质保留磨砂实底;
-   * 玻璃底分端注入 —— Android = surface 0.88(运行时注入),iOS = BlurView,web = glass.bg + backdropFilter。
+   * 2026-10-27 五稿:Android 也上真模糊(blurMethod='dimezisBlurView',expo-blur 默认 none
+   * 是 0.0.8「模糊不生效」误判的真因),Android 端底色运行时注入 0.5 半透;此处默认色仅 web 生效。
    */
   container: {
     flexDirection: 'row',

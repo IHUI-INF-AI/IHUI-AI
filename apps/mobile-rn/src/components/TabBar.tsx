@@ -101,23 +101,28 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
 
   return (
     <View style={[tabBarStyleSheet.wrapper, { marginBottom: floatGap }]}>
-      {/* 悬浮玻璃胶囊:图标行 + 底部留距(悬浮)组成同一块磨砂玻璃;玻璃底分端注入 ——
-          Android = surface 0.88 磨砂实底(确定性出效果);iOS = BlurView 真模糊;web = backdropFilter。 */}
+      {/* 悬浮玻璃胶囊:图标行 + 底部留距(悬浮)组成同一块磨砂玻璃。
+          真背景模糊两端都渲染(2026-10-27 五稿):expo-blur 在 Android 默认 blurMethod='none'
+          (纯 tint 零模糊)——0.0.8 三稿据此误判「dimezis 模糊不生效」退成 0.88 磨砂实底,
+          实机机主反馈「底下的字看得很清楚,没玻璃感」后定位真因 = 少传 blurMethod;
+          Android 显式传 dimezisBlurView(SDK 31+ 走 RenderEffect),iOS 用默认 UIVisualEffectView。
+          容器底色压到 0.5:模糊层负责质感,万一某机型模糊层不渲染,0.5 半透明仍可读(不退回实底)。 */}
       <View
         style={[
           tabBarStyleSheet.container,
-          Platform.OS !== 'ios' && {
+          Platform.OS === 'android' && {
             backgroundColor: withAlpha(
               resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
-              0.88,
+              0.5,
             ),
           },
         ]}
       >
-        {Platform.OS === 'ios' ? (
+        {Platform.OS !== 'web' ? (
           <BlurView
-            intensity={50}
+            intensity={resolvedTheme === 'dark' ? 40 : 48}
             tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
+            blurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
             style={tabBarStyleSheet.blurFill}
           />
         ) : null}
