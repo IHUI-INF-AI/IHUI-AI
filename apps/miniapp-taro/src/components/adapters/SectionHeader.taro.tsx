@@ -120,7 +120,7 @@ export function SectionHeader({
   }
   const moreLabelStyle: CSSProperties = {
     ...textStyles.moreLabel(tk),
-    fontSize: toRpx(12),
+    fontSize: toRpx(SECTION_HEADER_MORE_FONT_PX),
   }
 
   return (
