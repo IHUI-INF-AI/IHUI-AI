@@ -15,6 +15,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { resolvePostLoginLanding } from '@/lib/post-login-landing'
 import { requestWallboardChoice } from '../WallboardChoiceDialog'
+import { QR_PANEL_STATE_BOX } from './WechatQrPanel'
 
 interface AppQrPanelProps {
   /** 父组件传入,变化时重新生成二维码 */
@@ -38,7 +39,8 @@ interface QrStatusData {
 
 const POLL_INTERVAL_MS = 2000
 const SUCCESS_CLOSE_DELAY_MS = 800
-const QR_SIZE = 184
+// 2026-10-27:外框改 300×300 正方形后同步放大(原 184 在正方形框里显得过小、四周空太多)
+const QR_SIZE = 220
 
 /**
  * 本站 App 扫码登录面板。
@@ -186,7 +188,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
   if (status === 'loading') {
     return (
-      <div className="mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center rounded-xl border bg-card">
+      <div className={QR_PANEL_STATE_BOX}>
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -194,7 +196,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
   if (status === 'confirmed') {
     return (
-      <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-xl border bg-card">
+      <div className={`${QR_PANEL_STATE_BOX} gap-2`}>
         <CheckCircle2 className="h-12 w-12 text-green-500" />
         <p className="text-sm text-muted-foreground">{t('loginSuccess')}</p>
       </div>
@@ -203,7 +205,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
   if (status === 'error') {
     return (
-      <div className="ui-card mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 text-center">
+      <div className={`ui-card ${QR_PANEL_STATE_BOX} gap-2 border-destructive/30 bg-destructive/5`}>
         <XCircle className="h-8 w-8 text-destructive" />
         <p className="text-sm text-destructive">{t('appQrFailed')}</p>
         {errorMsg && <p className="text-xs text-muted-foreground">{errorMsg}</p>}
@@ -222,7 +224,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
   // status === 'pending' | 'expired' → 渲染二维码
   const isExpired = status === 'expired'
   return (
-    <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-3 rounded-xl border bg-card px-4">
+    <div className={`${QR_PANEL_STATE_BOX} gap-3`}>
       <div
         className={`relative rounded-lg border border-border bg-popover p-3${isExpired ? ' opacity-30' : ''}`}
       >
