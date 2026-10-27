@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { LoginTab, ThirdPartyPlatform } from './types'
+import type { LoginTab, ThirdPartyProvider, ThirdPartyPlatform } from './types'
 
 /**
  * 登录方式优先级判据(地区单源) —— 2026-10-26 立,自 apps/web/src/lib/login-region-policy.ts
@@ -40,6 +40,23 @@ export function resolveLoginRegion(input: {
 }): LoginRegion {
   if (input.ipRegion === 'domestic' || input.ipRegion === 'overseas') return input.ipRegion
   return isOverseasLocale(input.locale) ? 'overseas' : 'domestic'
+}
+
+/**
+ * 「该平台当前可用吗」的唯一实现(2026-10-27 立):`enabled` ∧ 未被强制禁用。
+ *
+ * 立因:`planLoginRegion` 的 `isPlatformAvailable` 入参由调用方注入,而各端对同一件事
+ * (注入进来的 provider 列表里这一项能不能点)只能有一种问法 —— web 端一度内联写了
+ * 一份 `providers.some(...)`,扩展端接着写第二份就会开始漂移(§0.6)。消费方传
+ * `(platform) => isProviderPlatformAvailable(config.providers, platform)`,不再复述条件。
+ */
+export function isProviderPlatformAvailable(
+  providers: readonly ThirdPartyProvider[],
+  platform: ThirdPartyPlatform,
+): boolean {
+  return providers.some(
+    (provider) => provider.key === platform && provider.enabled && !provider.forceDisabled,
+  )
 }
 
 /**

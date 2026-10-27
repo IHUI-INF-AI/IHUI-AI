@@ -31,6 +31,8 @@ import { createExtensionLoginApiClient } from '../../../lib/login-api-client'
 import { useI18n } from '../../../src/i18n'
 import { useSystemTheme } from '../../../src/hooks/use-system-theme'
 import { useExtensionThirdPartyAuth } from '../../../src/hooks/use-extension-third-party-auth'
+// 票 L28754:登录方式优先级按访客 IP 地区走,判据住在 @ihui/ui-react 的 planLoginRegion
+import { useExtensionLoginPlan } from '../../../src/hooks/use-extension-login-plan'
 // 2026-08-01 立:Extension SSO 一键授权登录(chrome.identity.launchWebAuthFlow),
 // 用户已在 web 端登录时无需再输账号密码,直接拉起 web SSO 授权页拿 token
 import { loginWithSso } from '../../../src/lib/sso'
@@ -56,6 +58,7 @@ export default function LoginPage({ onSuccess }: Props) {
   useSystemTheme()
   const loginApiClient = useMemo(() => createExtensionLoginApiClient(), [])
   const thirdParty = useExtensionThirdPartyAuth()
+  const loginPlan = useExtensionLoginPlan(thirdParty.config.providers)
   // SSO 一键登录状态:loading / error 提示
   const [ssoLoading, setSsoLoading] = useState(false)
   const [ssoError, setSsoError] = useState<string | null>(null)
@@ -165,6 +168,10 @@ export default function LoginPage({ onSuccess }: Props) {
           // 同 popup:本表面未启用凭据持久化,自动提交分支不会走到;显式写出来不留隐形缺省。
           canAutoSubmitCredentials={() => true}
           thirdParty={thirdParty.config}
+          tabs={loginPlan.plan.tabs}
+          thirdPartyFeaturedPlatform={loginPlan.plan.featuredPlatform}
+          thirdPartyFeaturedBackground={loginPlan.featuredBackground}
+          thirdPartyPriorityPlatforms={loginPlan.plan.priorityPlatforms}
           showAgreement
           agreementMode="notice-dialog"
           showRegisterLink
