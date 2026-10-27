@@ -6094,5 +6094,13 @@
     "deleteConfirmTitle": "삭제하시겠습니까?",
     "deleteFailed": "삭제에 실패했습니다",
     "cancel": "취소"
+  },
+  "myLessonsPage": {
+    "title": "내 코스",
+    "progressLabel": "학습 진행률 {value}%"
+  },
+  "myResourcesPage": {
+    "title": "내 리소스",
+    "subtitle": "내가 업로드한 리소스"
   }
 }

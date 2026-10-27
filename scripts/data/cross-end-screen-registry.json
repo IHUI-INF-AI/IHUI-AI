@@ -1015,6 +1015,16 @@
       "shared": "packages/app/src/features/student/MyCommentsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/MyCommentsScreen.tsx",
       "miniapp": "pkg-mirror2/my-comments/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/MyLessonsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MyLessonsScreen.tsx",
+      "miniapp": "pkg-mirror2/my-lessons/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/MyResourcesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MyResourcesScreen.tsx",
+      "miniapp": "pkg-mirror2/my-resources/index"
     }
   ]
 }

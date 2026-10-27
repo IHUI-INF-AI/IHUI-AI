@@ -6094,5 +6094,13 @@
     "deleteConfirmTitle": "確定要刪除嗎?",
     "deleteFailed": "刪除失敗",
     "cancel": "取消"
+  },
+  "myLessonsPage": {
+    "title": "我的課程",
+    "progressLabel": "學習進度 {value}%"
+  },
+  "myResourcesPage": {
+    "title": "我的資源",
+    "subtitle": "我上傳的資源"
   }
 }
