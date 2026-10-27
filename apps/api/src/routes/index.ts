@@ -453,8 +453,6 @@ import { relayPublicRoutes } from './relay-public.js'
 import developerRelayRoutes from './developer-relay.js'
 // developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对标 Sub2API)
 import developerRelayBootstrapRoutes from './developer-relay-bootstrap.js'
-// 本机登录态一键切换管理面(2026-10-27 立,对标 workbuddy-switch「换号」)
-import relaySwitchAdminRoutes from './admin/relay-switch-admin.js'
 // developer 用户侧:Key 批量管理(2026-09-16,对标 bulkEdit)
 import developerRelayKeysAdminRoutes from './developer-relay-keys-admin.js'
 // Usage 重度分析(2026-09-16,第三轮对标补强 K)
@@ -1291,8 +1289,6 @@ export function registerRoutes(server: FastifyInstance) {
   // admin 管理后台:模型上下架/Key 池/动态发现/调用日志(4 个路由文件,绝对路径字面量注册)
   server.register(relayModelsRoutes, { prefix: '/api' })
   server.register(relayKeyPoolRoutes, { prefix: '/api' })
-  // 本机登录态一键切换管理面(2026-10-27 立)
-  server.register(relaySwitchAdminRoutes, { prefix: '/api' })
   // 第三方 AI IDE 账号池 + 反代(2026-10-22 立,对标码道网关)
   server.register(relayAccountPoolRoutes, { prefix: '/api' })
   server.register(relayDiscoveryRoutes, { prefix: '/api' })
