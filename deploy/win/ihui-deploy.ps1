@@ -808,12 +808,44 @@ function Test-Http {
     } catch { return $false }
 }
 
+function New-SystemProbeToken {
+    # 探测令牌的系统自签路径(2026-10-27 修 "HEALTH 登录取探测令牌失败(HTTP 401)"):
+    # 旧实现只能"拿 admin 口令换 token",而 admin 口令在 10-26 被机主轮换后,env 块与
+    # 回落文件都停在旧值(两处一致 ⇒ 连 Drift WARN 都不响),于是每轮门禁恒 401、
+    # llm 维只剩 unknown。探测令牌本不该挂在某个人的口令轮换上:它只读一次网关健康,
+    # 身份语义与 apps/api 后台任务同一档。口径逐字对齐
+    # apps/api/src/utils/system-access-token.ts(HS256 / iss=ihui-ai / aud=ihui-ai-users /
+    # sub=system-worker / type=access / 10 分钟)。三处(本函数、该 TS、ai-service
+    # core/jwt_auth.py 的校验)必须同步改动;不同步的失败形态是"门禁静默回到 401",
+    # 而不是任何一条可见报错 —— 判据仍是日志里有没有出现 "HEALTH 已取得探测令牌"。
+    # 失败一律返回 $null,由调用方回落到 admin 登录(旧路径原样保留,不制造新的恒红门)。
+    $envFile = Join-Path $Root 'apps\api\.env'
+    if (-not (Test-Path -LiteralPath $envFile)) { return $null }
+    $secret = $null
+    foreach ($line in Get-Content -LiteralPath $envFile -Encoding utf8) {
+        if ($line -match '^\s*JWT_SECRET\s*=\s*(.+)$') { $secret = $Matches[1].Trim().Trim('"').Trim("'"); break }
+    }
+    if (-not $secret) { return $null }
+    $b64 = { param([byte[]]$bytes) [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_') }
+    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $h = & $b64 ([Text.Encoding]::UTF8.GetBytes('{"alg":"HS256","typ":"JWT"}'))
+    # 载荷用字面量拼接而不是 -f:JSON 的花括号会被 PowerShell 当成格式占位符
+    $payload = '{"userId":"system-worker","roleId":0,"type":"access","iss":"ihui-ai","aud":"ihui-ai-users","sub":"system-worker","iat":' + $now + ',"exp":' + ($now + 600) + '}'
+    $p = & $b64 ([Text.Encoding]::UTF8.GetBytes($payload))
+    $hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($secret))
+    try { $s = & $b64 ($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes("$h.$p"))) } finally { $hmac.Dispose() }
+    return "$h.$p.$s"
+}
+
 function BackendLogin-Token {
-    # 探测 LLM 网关需带 Bearer;用 admin 获取 token(仅作健康探测,不改数据)
-    # 凭据不入仓库:密码经环境变量 IHUI_ADMIN_PASSWORD 注入;
-    # 服务上下文(NSSM/计划任务)拿不到该变量时,回落到生产机本机密钥文件 ——
-    # 否则 p3 恒 False → 门禁 8 轮必失败 → 每次构建成功后又被回滚,api/ai-service 永不重启。
-    # 取值序(env 优先)一字不改;解析与"两处漂移"对照收在 admin-credential.ps1(唯一实现)。
+    # 探测 LLM 网关需带 Bearer。取值序(2026-10-27 起):
+    #   ① 系统自签令牌 —— 只依赖 apps/api/.env 的 JWT_SECRET,与任何人口令轮换解耦;
+    #   ② ①取不到时回落到 admin 登录(旧路径):密码经环境变量 IHUI_ADMIN_PASSWORD 注入,
+    #      服务上下文拿不到该变量时回落生产机本机密钥文件。
+    # ③ 之下的取值序与"两处漂移"对照仍收在 admin-credential.ps1(唯一实现),一字不改。
+    $sysTok = New-SystemProbeToken
+    if ($sysTok) { return $sysTok }
+    Log "HEALTH 系统自签探测令牌取不到(JWT_SECRET 缺失?)→ 回落 admin 登录"
     $cred = Resolve-AdminCredential -EnvValue $env:IHUI_ADMIN_PASSWORD -File $AdminPwdFile
     if ($cred.Drift) {
         Log "WARN  两处 admin 口令不一致(env 块 $($cred.EnvFingerprint) ≠ 回落文件 $($cred.FileFingerprint))—— 取用序 env 优先,陈旧那处会静默地把门禁打成盲的;修法=§5e 事务式把陈旧那处同步,再重启本服务。判它是否已修好:本轮或下一轮应出现 'HEALTH 已取得探测令牌'(坏态是 401)"
