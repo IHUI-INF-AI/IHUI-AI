@@ -1,86 +1,63 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌‌‌‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌​​‌‍‍‌​‌‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * OTA 更新提示(2026-10-27 立):对齐 web 端 PWAUpdatePrompt 的视觉与交互。
+ * OTA 更新提示卡(2026-10-27 立,与 web 端同一版式)。
  *
- * web 原型(apps/web/src/components/common/PWAUpdatePrompt.tsx):
- *   卡片行 = RefreshCw 图标(primary) + 「有新版本可用」+「刷新页面以获取最新版本」
- *   + [更新] cta 按钮 + 关闭 X。
- * RN 端同构:expo-updates 静默下载就绪后弹同一形态卡片,「更新」= reloadAsync(重启生效)。
+ * 视觉单一真相源 = web 的 components/common/UpdateNoticeCard.tsx:
+ *   RefreshCw 图标(brand) + 「有新版本可用」+「刷新页面以获取最新版本」+ [更新] cta + 关闭 X。
+ * 文案单一真相源 = packages/i18n 的 appUpdate 命名空间(与 web 逐字同值,有结构锁测试钉住)。
  *
- * 生命周期:挂载后 3s 检查(避开首屏网络争抢)→ 有更新即静默 fetchUpdateAsync 下载
- * → 就绪才提示(用户点更新立即重启,不等下次冷启动)。检查/下载失败一律静默 fail-open,
- * 与 web 端 app-version-gate 的降级哲学一致:挡住用户比旧版本跑着更坏。
- * __DEV__ 与 web 平台跳过(dev-client 无 OTA 通道;web 有自己的 PWA 链路)。
+ * 职责边界:本组件**只负责呈现**,检查/下载/重启全在 lib/ota-update.ts 的状态机里
+ * (设置页的「检查更新」调的是同一个入口,所以那边查到的更新这里立刻能看到卡片)。
+ * 只在 ready 时弹:静默检查 → 静默下载 → 就绪才打扰用户,点[更新]立即重启生效。
  */
 
 import * as React from 'react'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import * as Updates from 'expo-updates'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { RefreshCw, X } from 'lucide-react-native'
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
+import { applyOtaUpdate, checkOtaUpdate, dismissOtaPrompt, useOtaUpdate } from '../lib/ota-update'
 
 /** 挂载后延迟检查的毫秒数:首屏资源/请求优先,更新检查让路。 */
 const CHECK_DELAY_MS = 3000
 
 export function UpdatePrompt(): React.JSX.Element | null {
   const { t } = useI18n()
-  const [ready, setReady] = React.useState(false)
-  const [dismissed, setDismissed] = React.useState(false)
+  const { state, dismissed } = useOtaUpdate()
 
   React.useEffect(() => {
-    if (__DEV__ || Platform.OS === 'web') return
-    let cancelled = false
     const timer = setTimeout(() => {
-      void (async () => {
-        try {
-          const check = await Updates.checkForUpdateAsync()
-          if (!check.isAvailable || cancelled) return
-          await Updates.fetchUpdateAsync()
-          if (!cancelled) setReady(true)
-        } catch {
-          // fail-open:检查/下载失败不提示、不打扰,下次冷启动再试
-        }
-      })()
+      void checkOtaUpdate()
     }, CHECK_DELAY_MS)
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
+    return () => clearTimeout(timer)
   }, [])
 
-  const handleReload = React.useCallback(() => {
-    void Updates.reloadAsync().catch(() => {
-      // 重启失败极罕见(原生通道异常);保持卡片可见,用户可重试
-    })
-  }, [])
-
-  if (__DEV__ || Platform.OS === 'web' || !ready || dismissed) return null
+  if (state !== 'ready' || dismissed) return null
 
   return (
-    <View style={styles.card} accessibilityRole="alert" accessibilityLabel={t('update.title')}>
+    <View style={styles.card} accessibilityRole="alert" accessibilityLabel={t('appUpdate.title')}>
       <RefreshCw size={20} color={tokens.brand.DEFAULT} style={styles.icon} />
       <View style={styles.textWrap}>
-        <Text style={styles.title}>{t('update.title')}</Text>
-        <Text style={styles.body}>{t('update.body')}</Text>
+        <Text style={styles.title}>{t('appUpdate.title')}</Text>
+        <Text style={styles.body}>{t('appUpdate.body')}</Text>
       </View>
       <Pressable
-        onPress={handleReload}
+        onPress={() => void applyOtaUpdate()}
         style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
         accessibilityRole="button"
-        accessibilityLabel={t('update.action')}
+        accessibilityLabel={t('appUpdate.action')}
       >
-        <Text style={styles.actionText}>{t('update.action')}</Text>
+        <Text style={styles.actionText}>{t('appUpdate.action')}</Text>
       </Pressable>
       <Pressable
-        onPress={() => setDismissed(true)}
+        onPress={dismissOtaPrompt}
         hitSlop={8}
         accessibilityRole="button"
-        accessibilityLabel={t('update.close')}
+        accessibilityLabel={t('appUpdate.close')}
       >
         <X size={18} color={tokens.text.secondary} />
       </Pressable>
@@ -124,4 +101,4 @@ const styles = StyleSheet.create({
   actionBtnPressed: { opacity: 0.9 },
   actionText: { color: tokens.brand.ctaForeground, fontSize: 12, fontWeight: '500' },
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌‌‌​​‌‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌​​‌‍‍‌​‌‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
