@@ -20,8 +20,20 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(HERE, '..', 'check-no-nested-git.mjs')
-const { evaluateResult, splitByExemption, loadNamedExemptions, loadNamedSites, normRel, scanForNestedGit } =
-  (await import(pathToFileURL(SCRIPT_PATH).href)).__test__
+const {
+  evaluateResult,
+  splitByExemption,
+  loadNamedExemptions,
+  loadNamedSites,
+  normRel,
+  scanForNestedGit,
+  probeIgnoredRels,
+  flagCarrierMisuse,
+  carrierMisuseClause,
+  SITES_REL_TEXT,
+  EXEMPTION_REL_TEXT,
+} = (await import(pathToFileURL(SCRIPT_PATH).href)).__test__
+const { spawnSync } = await import('node:child_process')
 
 const E = (rel, over = {}) => ({
   rel,
@@ -244,5 +256,166 @@ test('⑧ 只有 linked worktree 时判绿且逐条回传;旧调用方(无该字
   assert.equal(v.linked.length, 1, '识别结果不回传就成了静默豁免(§0.7 禁)')
   const legacy = evaluateResult({ hits: [], truncated: false, unreadable: [], skippedReparse: 0 })
   assert.deepEqual(legacy.linked, [], '缺 linkedWorktrees 字段(旧 scan 形态)必须当空,不许崩')
+  assert.deepEqual(legacy.carrierMisuse, [], '缺 carrier 字段(旧调用方)必须当空,不许崩')
+  assert.deepEqual(legacy.carrierUndetermined, [])
+})
+
+// ─── 刀一(2026-10-27):JSON 具名台账的「载体误用」档 ───────────────────────────
+// 立因:台账里登记的 `.trae-cn/tmp/*-fork` 一类容器路径被 .gitignore 覆盖 ⇒ 在 HEAD blob /
+// 索引 blob / CI 干净检出面上**结构上不可能存在**,于是 §0.7「失去命中 ⇒ 清单腐烂判红」那支
+// 对它是恒真的红(实测入库枚 173381c761 自称消 CI 全量档红,效果相反:本地转绿、CI 转红)。
+// 这一档只**解释**红并给出正确出口(改登行式 sites.jsonl);它的三条反向锁由下面 ⑪⑫⑬ 钉住。
+const SCAN = (hits, extra = {}) => ({
+  hits,
+  truncated: false,
+  unreadable: [],
+  skippedReparse: 0,
+  ...extra,
+})
+
+test('⑪ 刀一不减少任何一次命中、不降级腐烂红:归属桶逐字段等值,红句只许变长不许变短', () => {
+  const entries = [E('a/live'), E('a/gone'), E('a/ignored-hit')]
+  const hits = [HIT('a/live/.git'), HIT('a/ignored-hit/.git'), HIT('b/never-registered/.git')]
+  const today = '2026-10-27'
+  const base = evaluateResult(SCAN(hits), { entries, today, checkStale: true })
+  const withTier = evaluateResult(SCAN(hits), {
+    entries,
+    today,
+    checkStale: true,
+    carrier: flagCarrierMisuse(entries, new Set(['a/live', 'a/gone', 'a/ignored-hit'])),
+  })
+  // ① 归属桶零变化:同一枚命中不会因为"它的路径被 gitignore"而被放过或额外拦下
+  assert.deepEqual(
+    withTier.exempted.map((x) => x.entry.rel).sort(),
+    base.exempted.map((x) => x.entry.rel).sort(),
+    '载体误用档把一次真放行吃掉了 = 释放命中'
+  )
+  assert.deepEqual(withTier.exempted.map((x) => x.entry.rel).sort(), ['a/ignored-hit', 'a/live'])
+  assert.deepEqual(withTier.stale.map((s) => s.rel), base.stale.map((s) => s.rel))
+  assert.deepEqual(withTier.stale.map((s) => s.rel), ['a/gone'])
+  // ② 命中面一条不少:被 gitignore 的现场若无台账条目照旧红,有台账条目且真实命中的照旧免
+  assert.equal(withTier.reasons.filter((r) => /never-registered/.test(r)).length, 1, '未登记的命中被档放走 = 判据被削')
+  assert.equal(withTier.ok, false)
+  // ③ 腐烂红的枚数与原句一字未改(只追加),ok 不变
+  assert.equal(withTier.reasons.length, base.reasons.length, '该档多开了一支红/少开了一支红 = 消红或加红,都违规')
+  assert.equal(withTier.stale.length, 1)
+  const baseStale = base.reasons.find((r) => /清单腐烂/.test(r))
+  const tierStale = withTier.reasons.find((r) => /清单腐烂/.test(r))
+  assert.ok(baseStale && tierStale)
+  assert.ok(tierStale.startsWith(baseStale), '原句被改写 = 顺手放宽判据(镜像测试明令禁止的那一型)')
+  assert.match(tierStale, /清单腐烂判红/)
+  assert.ok(tierStale.length > baseStale.length, '追加的病因与出路必须真落到红句里,不许只打在 stdout 旁注')
+  // ④ 新增那一档必须真在句子里,且点名**能跑通**的出口(§0.8):现读命令 + 行式载体路径
+  assert.match(tierStale, /载体误用/)
+  assert.match(tierStale, /git check-ignore -v a\/gone/)
+  assert.match(tierStale, new RegExp(SITES_REL_TEXT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.match(tierStale, new RegExp(EXEMPTION_REL_TEXT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  // ⑤ 反向对照(摘掉本次新增那一档 ⇒ 本测试翻红):没被 gitignore 的条目不得带出病因句
+  const clean = evaluateResult(SCAN(hits), {
+    entries,
+    today,
+    checkStale: true,
+    carrier: flagCarrierMisuse(entries, new Set()),
+  })
+  assert.equal(clean.reasons.filter((r) => /载体误用/.test(r)).length, 0, '档恒真 = 它不再是判据而是噪声')
+  assert.equal(clean.reasons.length, base.reasons.length)
+  // ⑥ 靠"live 命中"的 gitignore 条目:该免的照样免,但同时被点名成前瞻风险
+  const live = withTier.carrierMisuse.find((m) => m.rel === 'a/live')
+  assert.equal(live.state, 'live-exempt', '现场还在 ⇒ 只许 ⚠ 预警,不得提前替它下腐烂判语')
+  assert.equal(withTier.carrierMisuse.find((m) => m.rel === 'a/gone').state, 'lost-hit-red')
+  // ⑦ 形状锁:档必须真接在门体里(删掉接线 ⇒ 本测试翻红),且判据只在门体一份(§22c)
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(src, /flagCarrierMisuse\(/)
+  assert.match(src, /carrierMisuseClause\(s\.rel\)/)
+  assert.match(src, /probeIgnoredRels\(/)
+  assert.match(src, /check-ignore/, '载体判定必须现问 git,不许再抄一份 .gitignore 解析')
+})
+
+test('⑫ 载体判定的三态由注入的执行器给(不赌运气):忽略/不忽略/问不出各自归位', () => {
+  const rels = ['a/ignored', 'a/tracked', 'a/unknown']
+  const fakeRun = (rel) => {
+    if (rel === 'a/ignored') return 'ok'
+    if (rel === 'a/tracked') {
+      const e = new Error('no match')
+      e.status = 1
+      throw e
+    }
+    throw new Error('git 不可用')
+  }
+  const probe = probeIgnoredRels(rels, { run: (args) => fakeRun(args[args.length - 1]) })
+  assert.deepEqual([...probe.ignored], ['a/ignored'], 'check-ignore exit 0 = 被规则覆盖')
+  assert.deepEqual(probe.undetermined, ['a/unknown'], '退出码既不是 0 也不是 1 ⇒ 必须落"未判定"并点名(§0.3)')
+
+  const entries = [E('a/ignored'), E('a/unknown'), E('a/tracked')]
+  const misuse = flagCarrierMisuse(entries, probe.ignored, probe.undetermined)
+  assert.deepEqual(misuse.misuse.map((m) => m.rel), ['a/ignored'], '只有"问得出且被覆盖"的那条才许被下判语')
+  assert.deepEqual(misuse.undetermined, ['a/unknown'])
+
+  // 问不出的那条(a/unknown)与被明确回答"没覆盖"的那条(a/tracked):腐烂红照旧,但不得带出病因句
+  const v = evaluateResult(SCAN([]), { entries, today: '2026-10-27', checkStale: true, carrier: misuse })
+  assert.equal(v.ok, false, '条目失去命中却因"问不出"被放过 = 把未判定当判过(§0.3)')
+  assert.equal(v.stale.length, 3)
+  assert.equal(v.reasons.filter((r) => /清单腐烂/.test(r)).length, 3, '三本失去命中的条目一条也不许被这档免掉')
+  assert.match(v.reasons.find((r) => /「a\/ignored」/.test(r)), /载体误用/)
+  assert.doesNotMatch(v.reasons.find((r) => /「a\/unknown」/.test(r)), /载体误用/)
+  assert.doesNotMatch(v.reasons.find((r) => /「a\/tracked」/.test(r)), /载体误用/)
+  assert.deepEqual(v.carrierUndetermined, ['a/unknown'], '"未判定"必须原样回传给调用方大声打印')
+  // ignored=null(本轮压根没问,如 --root 子树档)⇒ 该档完全不介入
+  const off = flagCarrierMisuse(entries, null)
+  assert.deepEqual(off.misuse, [])
+  assert.match(carrierMisuseClause('x/y'), /x\/y/, '出路句必须点名被谈到的那条路径,不许泛泛而谈')
+})
+
+test('⑬ 阳性对照:真嵌套夹具仓(临时 mkdir .git)端到端照旧红 —— 刀一没把牙磨平', () => {
+  const dir = mkScratch('g208-nested-positive-')
+  try {
+    const fixture = join(dir, 'nested-fixture')
+    mkdirSync(join(fixture, '.git'), { recursive: true })
+    const r = spawnSync(process.execPath, [SCRIPT_PATH, '--root', dir], {
+      cwd: join(HERE, '..', '..'),
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.equal(r.status, 1, `真嵌套夹具被放过 = 判据被刀一削掉(输出:${out.slice(0, 240)})`)
+    assert.match(out, /nested-fixture/)
+    assert.match(out, /嵌套 \.git 目录/, '红句必须逐条点名绝对路径')
+    assert.doesNotMatch(out, /载体误用/, '--root 子树档不作腐烂/载体判定(否则分段复跑即恒红门)')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('⑭ 面旗契约:两面旗同给 ⇒ exit 2 未判定;单旗不得被读成"已经换了判定面"', () => {
+  const dir = mkScratch('g208-faceflags-')
+  try {
+    mkdirSync(join(dir, 'nested-fixture', '.git'), { recursive: true })
+    const run = (extra) =>
+      spawnSync(process.execPath, [SCRIPT_PATH, '--root', dir, ...extra], {
+        cwd: join(HERE, '..', '..'),
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    const both = run(['--staged', '--worktree'])
+    assert.equal(both.status, 2, `--staged 与 --worktree 同给必须未判定(输出:${both.stdout}${both.stderr})`)
+    assert.match(`${both.stdout}${both.stderr}`, /未判定/)
+    for (const single of [['--staged'], ['--worktree']]) {
+      const one = run(single)
+      assert.equal(one.status, 1, `单旗 ${single[0]} 不得把真嵌套夹具洗成绿,也不得报成用法错`)
+    }
+    // --root 的三支坏值仍归 lib/flag-value.mjs 单源(g322 探针同口径,不许被面旗检查抢先吞掉)
+    const bad = spawnSync(process.execPath, [SCRIPT_PATH, '--root', '--staged'], {
+      cwd: join(HERE, '..', '..'),
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    assert.notEqual(bad.status, 0)
+    assert.match(`${bad.stdout}${bad.stderr}`, /--root 需要一个目录参数/)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

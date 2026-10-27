@@ -28,6 +28,7 @@ import { config } from '../config/index.js'
 import { decryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
+import { resolveAccountProxyUrl } from './relay-proxy-pool.js'
 
 // =============================================================================
 // 平台映射(D5 单一真相源:号池侧只此一张表,Python 侧零映射逻辑)
@@ -326,6 +327,7 @@ export interface CheckinSyncPendingRow {
   refreshTokenEnc: string | null
   /** 设备证明密钥对的密文列(补链 2026-10-26;与 tokenEnc 同级,仅推送时解密) */
   secretsEnc: string | null
+  /** 账号级出口代理的**密文**列(推送前 decryptField 还原,见 resolveAccountProxyUrl) */
   proxyUrl: string | null
   deviceId: string | null
   machineId: string | null
@@ -524,7 +526,7 @@ export async function retryPendingCheckinSyncs(
         refreshToken: row.refreshTokenEnc ? decryptField(row.refreshTokenEnc) : null,
         credVersion: row.credVersion,
         enabled: row.isEnabled,
-        proxyUrl: row.proxyUrl,
+        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
         deviceId: row.deviceId,
         machineId: row.machineId,
         cosy: extractCosy(row.extraMetadata),

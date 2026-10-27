@@ -50,7 +50,6 @@ export type WebViewStatus = 'idle' | 'loading' | 'loaded' | 'screenshot' | 'fail
 
 /** 严档:属性存在且不含任何 token ⇒ 脚本/表单/弹窗/同源身份全部禁止 */
 export const STRICT_SANDBOX = ''
-export const STRICT_SANDBOX_TOKENS: readonly string[] = []
 
 /**
  * 模型生成 / 用户上传 HTML 的渲染档:只给 `allow-scripts`。
@@ -58,10 +57,9 @@ export const STRICT_SANDBOX_TOKENS: readonly string[] = []
  * —— 给了就等于把本站 Cookie/localStorage 交到一段模型现写的 HTML 手里。
  */
 export const MODEL_CONTENT_SANDBOX = 'allow-scripts'
-export const MODEL_CONTENT_SANDBOX_TOKENS: readonly string[] = ['allow-scripts']
 
 /** HTML 规范里 sandbox 合法的 token 全集;词外的值会被 resolveSandbox 丢掉(不静默放宽) */
-export const SANDBOX_TOKEN_VOCAB: readonly string[] = [
+const SANDBOX_TOKEN_VOCAB: readonly string[] = [
   'allow-scripts',
   'allow-same-origin',
   'allow-forms',

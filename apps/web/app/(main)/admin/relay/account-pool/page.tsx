@@ -1863,7 +1863,9 @@ export default function AdminRelayAccountPoolPage() {
                 className={
                   textareaClass +
                   ' transition-colors' +
-                  (importDragOver ? ' border-primary bg-primary/5 ring-1 ring-primary/40' : '')
+                  (importDragOver
+                    ? ' border-brand-accent-deep bg-primary/5 ring-1 ring-primary/40'
+                    : '')
                 }
               />
               <p className="text-xs text-muted-foreground">
