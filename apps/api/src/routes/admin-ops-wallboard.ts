@@ -59,6 +59,10 @@ import {
   type VisitTransitionSnapshot,
 } from '../services/visit-transition-stats-service.js'
 import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
+import {
+  getPageDwellLiveSnapshot,
+  type PageDwellLiveRow,
+} from '../services/page-dwell-stats-service.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
 const PROMETHEUS_URL = (process.env.PROMETHEUS_URL ?? 'http://127.0.0.1:8815').replace(/\/$/, '')
@@ -522,6 +526,13 @@ interface TrafficSnapshot {
    * `/ → /sso/login` 与 `/sso/login → /`(未登录用户在登录↔首页之间打转)。
    */
   visitTransition: VisitTransitionSnapshot | null
+  /**
+   * 近 24h 各页面平均停留时长(秒),按 url 与页面排行对齐;null = 同一条腿取不到。
+   * 2026-10-27 立:页面使用排行此前只有 PV/UV/占比,不答「这一页平均停多久」——
+   * PV 高但秒跳与停留久是两件事,这一列补的就是那句没答的话。数据来自 analytics_events
+   * 的 page_time 事件(既有事件 schema,非新发明),详见 page-dwell-stats-service。
+   */
+  pageDwell: PageDwellLiveRow[] | null
 }
 
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
@@ -553,6 +564,13 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
   } catch {
     visitTransition = null
   }
+  // 页面停留同样独立:失败只置 null,不拖垮其它腿。
+  let pageDwell: PageDwellLiveRow[] | null = null
+  try {
+    pageDwell = (await getPageDwellLiveSnapshot()).rows
+  } catch {
+    pageDwell = null
+  }
   try {
     // 现算(带 5 秒进程内缓存):三条限窗 SQL 走 api_logs_created_at_idx,合计 ≈ 46 ms。
     // 任何一条抛错都会上抛到下面的 catch ⇒ 整块 null ⇒ 大屏渲染"—",绝不折成 0 访客。
@@ -576,6 +594,7 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       sessionQuality,
       visitSource,
       visitTransition,
+      pageDwell,
     }
   } catch {
     return null

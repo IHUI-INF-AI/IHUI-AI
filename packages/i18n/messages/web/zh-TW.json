@@ -891,6 +891,7 @@
       "scopeAdmin": "後臺",
       "scopeAuth": "登入頁",
       "pageUsageTop": "熱門頁面(近24h)",
+      "avgDwellSec": "停留 {s}s",
       "pageUsageNoData": "近24h 暫無頁面訪問",
       "panelRelayPool": "AI 號池",
       "pv24h": "近24h 訪問量",
