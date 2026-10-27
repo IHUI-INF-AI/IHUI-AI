@@ -47,6 +47,7 @@ import type {
   PrecedenceLayer,
   ConfigFieldSource,
   EffortDowngradeTrace,
+  EffortResolution,
   LayerRevision,
   SourceRevisions,
   RevisionUnavailable,
@@ -388,6 +389,16 @@ export function resolveEffectiveOverrides(
   )
   const effortDowngrade = buildEffortDowngrade(requestedEffort, effortHit)
 
+  // G-395 请求档 vs 实得档对照(总是携带):与 effortDowngrade 吃同一批候选、同一命中结果,
+  // 只额外把「两档一致」这一档也留痕(告警面仍由 effortDowngrade 独占)。不改短路顺序。
+  const effortResolution: EffortResolution = {
+    requestedEffort: requestedEffort?.raw,
+    requestedEffortSource: requestedEffort?.source,
+    effectiveEffort: effortHit.value,
+    effectiveEffortSource: effortHit.source,
+    matched: requestedEffort === undefined ? null : requestedEffort.raw === effortHit.value,
+  }
+
   // capabilityMode: explicit ?? role ?? undefined(不从 persona 级联,enum 容错)
   const capabilityModeHit = firstHit(
     [
@@ -459,6 +470,7 @@ export function resolveEffectiveOverrides(
       rolePrompt: rolePromptSource,
     },
     effortDowngrade,
+    effortResolution,
     sourceRevisions,
   }
 
@@ -475,12 +487,22 @@ export function formatConfigSnapshot(config: EffectiveRuntimeConfig): string {
   const winners = (['model', 'reasoningEffort', 'capabilityMode', 'isolation'] as const)
     .map((field) => `${field}:${config.sources[field].layer}`)
     .join(',')
+  // G-395 请求档 vs 实得档:两档原值 + 双方出处 + 是否一致(n/a = 压根没有请求档)
+  const effort = config.effortResolution
+  const requestedText =
+    effort.requestedEffort === undefined
+      ? 'none'
+      : `${effort.requestedEffort}@${effort.requestedEffortSource?.layer ?? '?'}`
+  const effectiveText = `${effort.effectiveEffort ?? 'none'}@${effort.effectiveEffortSource.layer}`
+  const effortText = `requested:${requestedText}→effective:${effectiveText} matched:${
+    effort.matched === null ? 'n/a' : String(effort.matched)
+  }`
   const revisions = PRECEDENCE_LAYERS.map((layer) => {
     const r = config.sourceRevisions[layer]
     if (r.file !== null) return `${layer}=${r.file}@${r.revision ?? 'null'}`
     return `${layer}=null(${r.unavailable ?? 'unavailable'})`
   }).join(' ')
-  return `[subagent] config snapshot(G-395): winners=${winners} revisions=${revisions}\n`
+  return `[subagent] config snapshot(G-395): winners=${winners} effort=${effortText} revisions=${revisions}\n`
 }
 
 /**

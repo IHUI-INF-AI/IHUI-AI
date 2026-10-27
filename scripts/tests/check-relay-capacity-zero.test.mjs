@@ -146,6 +146,19 @@ test('M5b S1 复活出口按 provider 定制:trae/workbuddy 点名客户端重�
     '没定制出口的 provider 不得被硬塞别的平台文案(出路必须真跑得通)',
   )
   assert.ok(o.nextStep.includes('temp_unschedulable'), '通用出口(解除摘除/补号)仍在')
+  // 四平台齐名:qoder/codearts 也要有人性化出口,且不许指向未装车的命令(§0.8)
+  const q = s1Of('qoder')
+  assert.ok(q.nextStep.includes('换票'), 'qoder 点名池内通用巡检自动换票是首选处置')
+  assert.ok(
+    q.nextStep.includes('--from qoder') && !q.nextStep.includes('未装车'),
+    'qoder 提取器已装车(2026-10-27):出口点名真跑得通的一键重提取命令',
+  )
+  const c = s1Of('codearts')
+  assert.ok(c.nextStep.includes('无签到引擎'), 'codearts 不得被要求签到(映射即拦截的事实进文案)')
+  assert.ok(
+    c.nextStep.includes('--from codearts') && !c.nextStep.includes('未装车'),
+    'codearts 提取器已装车(2026-10-27):出口点名真跑得通的一键重提取命令',
+  )
 })
 
 test('M6 S2 两型:整池 0 行 / 有行但无一条 enabled', () => {

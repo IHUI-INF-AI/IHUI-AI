@@ -21,12 +21,21 @@ import type {
 } from '../src/services/relay-upstream-adapters.js'
 import { workbuddyAdapter } from '../src/services/upstream-adapters/workbuddy-adapter.js'
 import {
+  billingBaseUrl,
+  billingPathCandidates,
+  buildBillingHeaders,
   classifyUpstreamFailure,
+  extractResourceList,
+  extractSubscriptionInfo,
   isAuthFailureCore,
+  isResourceSuccess,
+  isResourceUnauthorized,
   looksLikeHtmlLoginPage,
+  normalizeResourcePackage,
   parseCookieString,
   parseLoginState,
   REFRESH_ENDPOINT_PATHS,
+  resolveResourceExpireAt,
 } from '../src/services/upstream-adapters/workbuddy-protocol.js'
 
 // =============================================================================
@@ -405,6 +414,169 @@ describe('classifyUpstreamFailure 映射表逐条', () => {
   })
   it('适配器成员返回 {kind}', () => {
     expect(workbuddyAdapter.classifyUpstreamFailure?.(401, '')).toEqual({ kind: 'auth' })
+  })
+})
+
+// =============================================================================
+// 权益/余额接口协议规格(2026-10-27 取证:credits.rs + variant.rs 同批)
+// =============================================================================
+
+describe('billingBaseUrl / billingPathCandidates', () => {
+  it('CN:workbuddy.cn 域走 www.workbuddy.cn,其余(codebuddy.cn / 空域)走 www.codebuddy.cn', () => {
+    expect(billingBaseUrl('cn', 'www.workbuddy.cn')).toBe('https://www.workbuddy.cn')
+    expect(billingBaseUrl('cn', 'workbuddy.cn')).toBe('https://www.workbuddy.cn')
+    expect(billingBaseUrl('cn', 'WWW.WORKBUDDY.CN')).toBe('https://www.workbuddy.cn')
+    expect(billingBaseUrl('cn', 'www.codebuddy.cn')).toBe('https://www.codebuddy.cn')
+    expect(billingBaseUrl('cn', '')).toBe('https://www.codebuddy.cn')
+    expect(billingBaseUrl('global', 'www.workbuddy.ai')).toBe('https://www.workbuddy.ai')
+  })
+
+  it('CN 单候选;global 先去 /v2,404 才回落 /v2', () => {
+    const p = '/billing/meter/get-user-resource-summary'
+    expect(billingPathCandidates('cn', p)).toEqual([p])
+    expect(billingPathCandidates('global', p)).toEqual([
+      p,
+      '/v2/billing/meter/get-user-resource-summary',
+    ])
+    expect(billingPathCandidates('global', '/v2/billing/meter/x')).toEqual([
+      '/billing/meter/x',
+      '/v2/billing/meter/x',
+    ])
+  })
+})
+
+describe('buildBillingHeaders', () => {
+  it('Origin/Referer 跟请求 host、X-Client-Platform=web、缺字段 X-No-*、绝不带 X-Refresh-Token', () => {
+    const h = buildBillingHeaders({
+      realm: 'cn',
+      accessToken: 'AT-1',
+      uid: 'u-1',
+      enterpriseId: '',
+      domain: 'www.codebuddy.cn',
+      origin: 'https://www.codebuddy.cn',
+    })
+    expect(h['Origin']).toBe('https://www.codebuddy.cn')
+    expect(h['Referer']).toBe('https://www.codebuddy.cn/profile/plans-usage')
+    expect(h['X-Client-Platform']).toBe('web')
+    expect(h['Authorization']).toBe('Bearer AT-1')
+    expect(h['X-User-Id']).toBe('u-1')
+    expect(h['X-Domain']).toBe('www.codebuddy.cn')
+    expect(h['X-No-Enterprise-Id']).toBe('1')
+    expect(h['X-Refresh-Token']).toBeUndefined()
+  })
+
+  it('无 accessToken ⇒ X-No-Authorization(不发空 Bearer)', () => {
+    const h = buildBillingHeaders({
+      realm: 'global',
+      accessToken: '',
+      uid: '',
+      enterpriseId: '',
+      domain: '',
+      origin: 'https://www.workbuddy.ai',
+    })
+    expect(h['Authorization']).toBeUndefined()
+    expect(h['X-No-Authorization']).toBe('1')
+  })
+})
+
+describe('normalizeResourcePackage(容量键位 + 到期规则)', () => {
+  const now = Date.parse('2026-10-27T00:00:00.000Z')
+
+  it('Cycle* 精确键优先;剩余/已用缺项由总量互推', () => {
+    const p = normalizeResourcePackage(
+      {
+        PackageName: 'Pro 月度包',
+        CycleCapacitySizePrecise: 1000,
+        CycleCapacityRemainPrecise: 250.5,
+      },
+      now,
+    )
+    expect(p).toEqual({ name: 'Pro 月度包', total: 1000, remaining: 250.5, used: 749.5 })
+  })
+
+  it('总量只在 SlicePeriodUsageDetails[0] 里也认;字符串数字同样接受', () => {
+    const p = normalizeResourcePackage(
+      {
+        PackageCode: 'TCACA_code_001',
+        SlicePeriodUsageDetails: [{ CapacitySize: '800', CapacityRemain: '300' }],
+      },
+      now,
+    )
+    // 2026-10-27 实测口径:code 与人话名分开取,只有 PackageCode ⇒ 不冒充 name
+    expect(p).toEqual({ code: 'TCACA_code_001', total: 800, remaining: 300, used: 500 })
+  })
+
+  it('三样数字全缺 ⇒ null(不得当作"余额 0")', () => {
+    expect(normalizeResourcePackage({ PackageName: '空包' }, now)).toBeNull()
+    expect(normalizeResourcePackage(null, now)).toBeNull()
+  })
+
+  it('到期:DeductionEndTime 优先;CycleEndTime 早 365 天以上才改认周期', () => {
+    const near = resolveResourceExpireAt(
+      { DeductionEndTime: '2026-12-01 00:00:00', CycleEndTime: '2026-11-01 00:00:00' },
+      now,
+    )
+    expect(near).toBe(new Date(Date.parse('2026-12-01T00:00:00')).toISOString())
+
+    const placeholder = resolveResourceExpireAt(
+      { DeductionEndTime: '2049-01-01 00:00:00', CycleEndTime: '2026-11-30 00:00:00' },
+      now,
+    )
+    expect(placeholder).toBe(new Date(Date.parse('2026-11-30T00:00:00')).toISOString())
+  })
+
+  it('距 now 超 730 天的占位到期 ⇒ undefined;秒级时间戳按毫秒归一', () => {
+    expect(resolveResourceExpireAt({ ExpiredTime: '2049-01-01' }, now)).toBeUndefined()
+    expect(resolveResourceExpireAt({ ExpiredTime: 1795334916 }, now)).toBe(
+      new Date(1795334916 * 1000).toISOString(),
+    )
+  })
+})
+
+describe('权益回包判据', () => {
+  it('code 0/200 成功;无 code 但有 data 也算成功;空对象失败', () => {
+    expect(isResourceSuccess({ code: 0, data: {} })).toBe(true)
+    expect(isResourceSuccess({ code: 200, data: {} })).toBe(true)
+    expect(isResourceSuccess({ data: { Packages: [] } })).toBe(true)
+    expect(isResourceSuccess({})).toBe(false)
+    expect(isResourceSuccess({ code: 1, msg: 'x' })).toBe(false)
+  })
+
+  it('10085(WAF 指纹拦截)不算鉴权失效;401/403 才算', () => {
+    expect(isResourceUnauthorized({ code: 10085 })).toBe(false)
+    expect(isResourceUnauthorized({ code: 401 })).toBe(true)
+    expect(isResourceUnauthorized({ code: 403 })).toBe(true)
+    expect(isResourceUnauthorized({ data: { code: 401 } })).toBe(true)
+    expect(isResourceUnauthorized({ code: 0 })).toBe(false)
+  })
+
+  it('订阅档信息(真号实弹键位):SubscriptionPackageName + IsPaidUser;缺则字段缺', () => {
+    expect(
+      extractSubscriptionInfo({
+        code: 0,
+        data: { SubscriptionPackageName: '体验版', IsPaidUser: false },
+      }),
+    ).toEqual({ subscriptionName: '体验版', isPaidUser: false })
+    expect(extractSubscriptionInfo({ code: 0, data: {} })).toEqual({})
+    expect(extractSubscriptionInfo(null)).toEqual({})
+  })
+
+  it('资源列表六种路径都认(Packages/packages × 嵌套层数)', () => {
+    const item = { PackageCode: 'x' }
+    expect(extractResourceList({ data: { Packages: [item] } }, 'Packages')).toEqual([item])
+    expect(extractResourceList({ data: { data: { Packages: [item] } } }, 'Packages')).toEqual([
+      item,
+    ])
+    expect(
+      extractResourceList({ data: { Response: { Data: { packages: [item] } } } }, 'Packages'),
+    ).toEqual([item])
+    expect(
+      extractResourceList(
+        { data: { data: { Response: { Data: { Accounts: [item] } } } } },
+        'Accounts',
+      ),
+    ).toEqual([item])
+    expect(extractResourceList({ data: {} }, 'Accounts')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

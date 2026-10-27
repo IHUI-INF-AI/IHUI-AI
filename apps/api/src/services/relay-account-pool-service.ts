@@ -32,6 +32,7 @@ import {
   normalizeCredentialValue,
   normalizeForeignAccountShape,
   parseFlexibleExpiry,
+  resolveOverwriteRefresh,
   type RelayProviderCode,
 } from './relay-account-format.js'
 import {
@@ -42,6 +43,7 @@ import {
   pushPoolSync,
   type PoolSyncAccount,
 } from './relay-account-pool-checkin-sync.js'
+import { encryptAccountProxyUrl } from './relay-proxy-pool.js'
 
 // =============================================================================
 // 类型
@@ -91,6 +93,15 @@ export interface ImportBatchResult {
    * 落待推条数(由 retryPendingCheckinSyncs / 对账收敛器清偿)。失败不阻塞导入。
    */
   checkinSync?: { pushed: number; skipped: number; pending: number; error: string | null }
+}
+
+/** 批量导入的行为开关(覆盖语义;缺省 = 存量语义,调用方零改动) */
+export interface ImportAccountsOptions {
+  /**
+   * 覆盖既有行时,本批未提供 refreshToken ⇒ 保留库内既有密文而不是写 NULL。
+   * 专供"网页一键重登"(重登只换得到 access);缺省 false。
+   */
+  preserveMissingRefresh?: boolean
 }
 
 // =============================================================================
@@ -262,11 +273,16 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
  * 批量导入账号(幂等:同一归属内 (providerCode, uid) 再导入 = 覆盖凭证 + 重置健康状态)。
  * ownerUserId 缺省/null = 运营池(存量行为零变化);非 null = 该平台用户的个人号池。
  * 逐条独立 try/catch,一条坏不影响整批。
+ *
+ * options.preserveMissingRefresh(2026-10-27 立):覆盖时若本批没带 refreshToken,保留
+ * 库内既有密文而不是写 NULL —— 给"网页一键重登"用(重登只换得到 access,老语义会
+ * 把能自续的号抹成待重登死号)。缺省 false = 存量导入语义不变。
  */
 export async function importAccounts(
   providerCode: RelayProviderCode,
   accounts: ImportAccountInput[],
   ownerUserId: string | null = null,
+  options: ImportAccountsOptions = {},
 ): Promise<ImportBatchResult> {
   const result: ImportBatchResult = {
     providerCode,
@@ -365,11 +381,41 @@ export async function importAccounts(
       const now = new Date()
       const expired = tokenExpiresAt !== null && tokenExpiresAt <= now
 
-      // 过期且无续期凭证 → 入库但摘除(诚实标记,不冒充可用)
-      const down = expired && !refreshToken
+      // 既有行先查出来:覆盖语义(保不保留旧 refreshToken)与"过期是否摘除"都依赖它
+      const existing = await db
+        .select({
+          id: aiRelayAccountPool.id,
+          hasRefreshToken: sql<boolean>`${aiRelayAccountPool.refreshTokenEnc} is not null`,
+        })
+        .from(aiRelayAccountPool)
+        .where(
+          and(
+            ownerUserId === null
+              ? isNull(aiRelayAccountPool.ownerUserId)
+              : eq(aiRelayAccountPool.ownerUserId, ownerUserId),
+            eq(aiRelayAccountPool.providerCode, providerCode),
+            eq(aiRelayAccountPool.uid, uid),
+          ),
+        )
+        .limit(1)
+      // 一键重登只换 access:本批未带 refreshToken 时按开关保留旧票(判据单源在 format)
+      const overwriteRefresh = resolveOverwriteRefresh({
+        providerCode,
+        incomingRefreshToken: refreshToken,
+        existingHasRefreshToken: existing[0]?.hasRefreshToken === true,
+        preserveMissingRefresh: options.preserveMissingRefresh === true,
+      })
+
+      // 过期且无续期凭证 → 入库但摘除(诚实标记,不冒充可用)。
+      // 留住旧票的覆盖不算"无续期凭证",否则重登反而把能自续的号摘掉。
+      const hasUsableRefresh = refreshToken !== null || overwriteRefresh.preserve
+      const down = expired && !hasUsableRefresh
       const healthStatus = down ? 'down' : 'unknown'
 
       const cookies = Array.isArray(acc.cookies) ? acc.cookies : []
+      // 账号级代理:明文只用于签到侧推送载荷,落库一律 encryptField 加密
+      const proxyUrlPlain =
+        typeof acc.proxyUrl === 'string' && acc.proxyUrl.trim() ? acc.proxyUrl.trim() : null
       const extra: Record<string, unknown> = {}
       const tenantId = providerCode === 'trae' ? extractTenantId(token) : null
       if (tenantId) extra.tenantId = tenantId
@@ -421,24 +467,10 @@ export async function importAccounts(
         lastErrorMessage: down ? '导入时 access token 已过期且无 refreshToken' : null,
         refreshFailureCount: 0,
         consecutiveFailures: 0,
-        proxyUrl: typeof acc.proxyUrl === 'string' && acc.proxyUrl ? acc.proxyUrl : null,
+        proxyUrl: encryptAccountProxyUrl(proxyUrlPlain),
         extraMetadata: extra,
         updatedAt: new Date(),
       }
-
-      const existing = await db
-        .select({ id: aiRelayAccountPool.id })
-        .from(aiRelayAccountPool)
-        .where(
-          and(
-            ownerUserId === null
-              ? isNull(aiRelayAccountPool.ownerUserId)
-              : eq(aiRelayAccountPool.ownerUserId, ownerUserId),
-            eq(aiRelayAccountPool.providerCode, providerCode),
-            eq(aiRelayAccountPool.uid, uid),
-          ),
-        )
-        .limit(1)
 
       // O64:凭证写入即 cred_version 变化 —— insert 显式 1;覆盖走 SQL 原子自增
       // (+1 = 签到侧 pool_cred_version 防降级的 CAS 基准,杜绝并发覆盖版本撞车)。
@@ -447,9 +479,15 @@ export async function importAccounts(
       let writtenId: string
       let writtenCredVersion: number
       if (existing.length > 0 && existing[0]) {
+        // preserve ⇒ 省略 refreshTokenEnc 键(该列保持原值);否则照旧整列覆盖
+        const { refreshTokenEnc: _keptRefreshTokenEnc, ...valuesWithoutRefresh } = values
+        void _keptRefreshTokenEnc
         const [written] = await db
           .update(aiRelayAccountPool)
-          .set({ ...values, credVersion: sql`${aiRelayAccountPool.credVersion} + 1` })
+          .set({
+            ...(overwriteRefresh.preserve ? valuesWithoutRefresh : values),
+            credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
+          })
           .where(eq(aiRelayAccountPool.id, existing[0].id))
           .returning({
             id: aiRelayAccountPool.id,
@@ -466,7 +504,9 @@ export async function importAccounts(
           status: 'updated',
           reason: down
             ? '已覆盖凭证;token 过期且无 refreshToken,已摘除'
-            : '已覆盖凭证并重置健康状态',
+            : overwriteRefresh.note
+              ? `已覆盖凭证并重置健康状态(${overwriteRefresh.note})`
+              : '已覆盖凭证并重置健康状态',
         })
       } else {
         const [written] = await db
@@ -498,7 +538,7 @@ export async function importAccounts(
           refreshToken,
           credVersion: writtenCredVersion,
           enabled: values.isEnabled,
-          proxyUrl: values.proxyUrl,
+          proxyUrl: proxyUrlPlain,
           deviceId: values.deviceId,
           machineId: values.machineId,
           cosy: cosyPayload,

@@ -55,6 +55,16 @@
  *      ② 按 gaps[] 在 README 对应能力段把**路径身份**写进去(如 `/api/goods/select`)
  *      ③ `node scripts/check-readme-sync.mjs`         (末行须现读"未描述 0";`--strict` 再要求"未判定 0")
  *
+ * ## 棘轮(2026-10-27 立,§0.5 差值棘轮)
+ * 上一条只说了"留在 warn",没说"存量怎么才不会被无限加回去"—— 实测缺陷:此前 `decideExit` 只读
+ * `counts.missing`,于是**一升 blocking 就因存量恒红**,而 warn 档的恒红又必然被当噪声(§12e)。
+ * 补上与仓内 26 份 `*-baseline.json` 同形的差值棘轮:`scripts/readme-sync-baseline.json` 记一枚
+ * `missing` 额度,判红条件改为 **现测 > 额度**(存量只报数,§0.5「棘轮锚点 = 该文件 HEAD 自身的
+ * 违规数」);现测 < 额度 ⇒ 绿但点名"可下调",靠 `--update-baseline` 收额度。
+ * **--update-baseline 只许降,抬不动**:额度高于现测时当场拒绝并 exit 2 —— 否则它就成了
+ * "把新增写进基线消红"的洗白口(§12e「修红不得顺手削判据」)。
+ * 基线件缺失 ⇒ 退回旧语义(missing > 0 即 1),不静默放宽;基线件解析不了 ⇒ exit 2 未判定(§0.3)。
+ *
  * 用法:
  *   node scripts/check-readme-sync.mjs                      # 全量档:判 HEAD 面(可审历史)
  *   node scripts/check-readme-sync.mjs --staged              # 判索引面(pre-commit 钩子用)
@@ -65,8 +75,10 @@
  *   node scripts/check-readme-sync.mjs --since <rev>         # 人工问责:显式钉窗口起点
  *   node scripts/check-readme-sync.mjs --self-test           # 判据自证(构造输入,零副作用)
  *   node scripts/check-readme-sync.mjs --root <dir>          # 换基准仓(镜像测试的临时夹具用)
+ *   node scripts/check-readme-sync.mjs --update-baseline     # 清理后下调棘轮额度(**只许降,抬不动**)
  *
- * 退出码:0 = 无未描述缺口 / 1 = 判出缺口(warn 档只计数,不阻塞)/ 2 = 未判定或脚本自身异常。
+ * 退出码:0 = 缺口未超棘轮基线 / 1 = 判出缺口超出基线(warn 档只计数,不阻塞)/ 2 = 未判定或脚本自身异常。
+ * 棘轮基线件:`scripts/readme-sync-baseline.json`(§0.5 差值棘轮:锚点 = 该门全量档未描述数,只减不增)。
  * 本门 warn,结构上不需要跳门变量;档位与 skipEnv 一律以 guardian-runner.mjs 注册条目现值为准。
  *
  * 本门**不判**的格(盲区显式点名,不得读成"全覆盖"):小程序页面身份住在 `src/app.config.ts` 的
@@ -75,8 +87,9 @@
  * 只在结论行报出"窗口内动了这些面的文件数"。
  */
 
-import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -97,6 +110,8 @@ import { makeRegistrar } from './lib/selftest-registrant.mjs'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120000
 const GIT_MAX_BUFFER = 1 << 29
+/** 棘轮基线件(§0.5 差值棘轮;锚点 = 该门全量档未描述数,只减不增) */
+const BASELINE_REL = 'scripts/readme-sync-baseline.json'
 /** 面标识:`:/` = 索引,`WORKTREE` = 磁盘,其余按 commit 走 ls-tree */
 const REV_INDEX = ':/'
 const REV_WORKTREE = 'WORKTREE'
@@ -107,6 +122,7 @@ const KNOWN_FLAGS = new Set([
   '--json',
   '--strict',
   '--self-test',
+  '--update-baseline',
   '--help',
   ...NEEDS_VALUE,
 ])
@@ -280,6 +296,7 @@ export function analyze(opts = {}) {
     notes: [],
     blindSpots: { files: 0, dirs: [], sample: [] },
     apiUnresolved: 0,
+    ratchet: null,
     elapsedMs: 0,
   }
   const t0 = Date.now()
@@ -432,18 +449,62 @@ export function analyze(opts = {}) {
       text: `后端注册面另有 ${out.apiUnresolved} 处路径模板/不透明前缀解析不出(唯一提取式自带的未判定桶,逐条报名归守门 8),本门只报数`,
     })
 
-  out.exit = decideExit(out, { strict: opts.strict === true })
+  // ── 棘轮:存量只减不增(§0.5)。基线件读不懂 ⇒ 未判定,不静默放宽 ──
+  const bl = loadBaseline(root)
+  if (bl.error) throw new Undetermined(`${bl.rel} ${bl.error}`)
+  out.ratchet = {
+    rel: bl.rel,
+    present: bl.present,
+    baseline: bl.present ? bl.missing : null,
+    now: out.counts.missing,
+    delta: bl.present ? out.counts.missing - bl.missing : null,
+  }
+  out.exit = decideExit(out, { strict: opts.strict === true, baseline: bl.present ? bl : null })
   out.elapsedMs = Date.now() - t0
   return out
 }
 
 /**
+ * 读棘轮基线(§0.5)。
+ * 三态:present=false 且无 error ⇒ 基线件不存在,退回旧语义;**有 error ⇒ 未判定**,
+ * 绝不因为读不懂就当没有基线放过(§0.3「没判绝不写成判过」)。
+ */
+export function loadBaseline(root) {
+  const p = join(root, BASELINE_REL)
+  let src
+  try {
+    src = readFileSync(p, 'utf8')
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return { present: false, rel: BASELINE_REL }
+    return { present: false, rel: BASELINE_REL, error: `基线件读不到(${e?.message ?? e})` }
+  }
+  let j
+  try {
+    j = JSON.parse(src)
+  } catch (e) {
+    return { present: false, rel: BASELINE_REL, error: `基线件不是合法 JSON(${e.message})` }
+  }
+  const n = Number(j?.missing)
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n))
+    return {
+      present: false,
+      rel: BASELINE_REL,
+      error: `基线件的 missing 不是非负整数(实得 ${JSON.stringify(j?.missing)})`,
+    }
+  return { present: true, rel: BASELINE_REL, missing: n, reason: String(j?.reason ?? '') }
+}
+
+/**
  * 出口档位:
- *  - 默认(warn):判出未描述缺口 ⇒ 1;无缺口 ⇒ 0(未判定/别称只点名,不顶红 —— §12e 不造恒红门);
+ *  - 无基线(旧语义):判出未描述缺口 ⇒ 1;无缺口 ⇒ 0(未判定/别称只点名,不顶红 —— §12e 不造恒红门);
+ *  - 有基线(§0.5 差值棘轮):**现测 > 额度** ⇒ 1;现测 ≤ 额度 ⇒ 不因存量判红(存量只报数);
  *  - `--strict`:未判定与别称桶也计入非零 —— 不许"靠未判定躲过去"。
  */
-export function decideExit(out, { strict = false } = {}) {
-  if (out.counts.missing > 0) return 1
+export function decideExit(out, { strict = false, baseline = null } = {}) {
+  const missing = out.counts.missing
+  if (baseline && Number.isFinite(baseline.missing)) {
+    if (missing > baseline.missing) return 1
+  } else if (missing > 0) return 1
   if (strict && (out.counts.alias > 0 || out.undetermined.length > 0)) return 1
   return 0
 }
@@ -464,20 +525,38 @@ function printReport(out, { strict } = {}) {
       ` · 已覆盖 ${out.counts.covered} · 未判定(别称/写法不同)${out.counts.alias} · 未描述 ${out.counts.missing}` +
       ` · 源面:后端 ${out.legs.apiSources} 文件(${out.legs.apiFace ?? '—'})/ web 页面 ${out.legs.pageSources}`,
   )
+  const r = out.ratchet
+  const overBudget = !!(r && r.present && Number.isFinite(r.baseline) && r.now > r.baseline)
+  if (r && r.present) {
+    console.log(
+      `[readme-sync] 棘轮(§0.5):基线 ${r.baseline} / 现测 ${r.now} / 差 ${r.delta > 0 ? '+' : ''}${r.delta}` +
+        (overBudget
+          ? ` —— ❌ 超出额度 ${r.delta} 枚(存量只减不增,新增必须同 commit 补 README)`
+          : r.delta < 0
+            ? ` —— ✅ 存量下降 ${-r.delta} 枚,可跑 --update-baseline 下调额度(只许降,抬不动)`
+            : ' —— ✅ 存量与基线齐平(只减不增)'),
+    )
+  } else {
+    console.log(
+      `[readme-sync] 棘轮(§0.5):基线件 ${r?.rel ?? BASELINE_REL} 不存在 ⇒ 退回旧语义(未描述 > 0 即判 1)`,
+    )
+  }
   console.log(
     `[readme-sync] 档位:warn(§12e)· 分桶 in-doc-window ${out.counts['in-doc-window']} / 存量 ${out.counts.backlog}` +
-      ' —— 升 blocking 的前置 = 全量档未描述归零',
+      ' —— 升 blocking 的前置 = 棘轮额度归零(逐批真补描述,不是改基线)',
   )
+  const mark = overBudget ? '❌' : '⚠️'
   if (out.gaps.length) {
     const newest = out.gaps.filter((g) => g.bucket === 'in-doc-window')
     if (newest.length)
       console.log(
-        `❌ [readme-sync] 其中「文档锚点之后新增」${newest.length} 枚(这一截才是 §21 说的"同 commit 更新";存量另列):`,
+        `${mark} [readme-sync] 其中「文档锚点之后新增」${newest.length} 枚(这一截才是 §21 说的"同 commit 更新";存量另列):`,
       )
     for (const g of newest.slice(0, 10)) console.log(`   ★ ${g.id}  ← ${g.file}`)
     const shown = out.gaps.slice(0, 20)
     console.log(
-      `❌ [readme-sync] 未描述的对外能力(AGENTS.md §21 要求进 ${out.docRel}),共 ${out.gaps.length} 枚:`,
+      `${mark} [readme-sync] ${overBudget ? '未描述' : '登记的存量未描述'}(AGENTS.md §21 要求进 ${out.docRel}),共 ${out.gaps.length} 枚` +
+        (overBudget ? ':' : ' —— 在棘轮额度内,本轮不判红,只报数:'),
     )
     for (const g of shown)
       console.log(`   - ${g.id}  ← ${g.file}${g.line ? `:${g.line}` : ''}(找过的身份:${g.evidence})`)
@@ -506,7 +585,9 @@ function printReport(out, { strict } = {}) {
     )
   console.log(
     `[readme-sync] 末行现读:面=${out.face} 新增=${out.counts.added} 已覆盖=${out.counts.covered}` +
-      ` 未判定=${out.counts.alias} 未描述=${out.counts.missing} 尺子未判定=${out.undetermined.length}` +
+      ` 未判定=${out.counts.alias} 未描述=${out.counts.missing}` +
+      ` 棘轮=${out.ratchet?.present ? out.ratchet.baseline : '—'}` +
+      ` 尺子未判定=${out.undetermined.length}` +
       ` exit=${out.exit} 耗时=${out.elapsedMs}ms`,
   )
 }
@@ -651,6 +732,41 @@ function selfTest() {
   })
   t('㉘参数锁:未知旗标点名,不静默吞', () =>
     parseArgs(['--turbo-mode']).unknown.join(' ') === '--turbo-mode')
+  t('㉙棘轮(§0.5):现测 ≤ 额度 ⇒ 存量不顶红;超出额度 ⇒ 判红,且差值可点名', () => {
+    const mk = (missing) => ({ counts: { missing, alias: 0 }, undetermined: [] })
+    const bl = { missing: 5 }
+    return (
+      decideExit(mk(5), { baseline: bl }) === 0 &&
+      decideExit(mk(4), { baseline: bl }) === 0 &&
+      decideExit(mk(6), { baseline: bl }) === 1 &&
+      // 无基线时必须退回旧语义,不得因"没读到基线"就静默放宽
+      decideExit(mk(6)) === 1 &&
+      decideExit(mk(0)) === 0
+    )
+  })
+  t('㉚棘轮读不到/读不懂一律未判定,不静默当"没有基线"', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'readme-sync-bl-'))
+    try {
+      // 不存在 ⇒ present:false 且无 error(旧语义,合法)
+      const absent = loadBaseline(dir)
+      if (!(absent.present === false && !absent.error)) return false
+      // 坏 JSON ⇒ 必须带 error(门侧据此 exit 2)
+      mkdirSync(join(dir, 'scripts'), { recursive: true })
+      writeFileSync(join(dir, BASELINE_REL), '{ "missing": ', 'utf8')
+      const broken = loadBaseline(dir)
+      if (!(broken.present === false && typeof broken.error === 'string')) return false
+      // missing 不是非负整数 ⇒ 同样必须带 error
+      writeFileSync(join(dir, BASELINE_REL), '{"missing": -3}', 'utf8')
+      const neg = loadBaseline(dir)
+      if (!(neg.present === false && typeof neg.error === 'string')) return false
+      // 正常 ⇒ present:true 且额度读得到
+      writeFileSync(join(dir, BASELINE_REL), '{"missing": 125}', 'utf8')
+      const ok = loadBaseline(dir)
+      return ok.present === true && ok.missing === 125
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
   const r = report()
   for (const c of r.cases)
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— got: ${c.got}`}`)
@@ -676,6 +792,7 @@ export function parseArgs(argv) {
     json: argv.includes('--json'),
     strict: argv.includes('--strict'),
     selfTest: argv.includes('--self-test'),
+    updateBaseline: argv.includes('--update-baseline'),
     help: argv.includes('--help'),
     horizonDays: horizon.value === null ? undefined : Number(horizon.value),
     horizonError: horizon.error,
@@ -729,9 +846,61 @@ function main() {
     }
     throw e
   }
+  if (a.updateBaseline) return updateBaseline(a.root ? resolve(a.root) : ROOT, sel.face, out)
   if (a.json) console.log(JSON.stringify(out, null, 2))
   else printReport(out, { strict: a.strict })
   return out.exit
+}
+
+/** 本地日期(YYYY-MM-DD)。基线件里记的是"人哪天立的账",用 UTC 会在东八区深夜差一天。 */
+function localDate(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/**
+ * 下调棘轮额度(§0.5)。**只许降,抬不动** —— 抬它就是 §12e「把新增写进基线消红」。
+ * 额度未变 ⇒ 不动文件、exit 0;要抬 ⇒ 拒绝并 exit 2,并把"该补的是 README 不是基线"说清楚。
+ * 只对全量档(head 面)生效:索引面/工作树面是过程态,拿它当锚点会把别人的半编辑钉成额度。
+ */
+function updateBaseline(root, face, out) {
+  if (face !== 'head') {
+    console.error(`❌ [readme-sync] --update-baseline 只认全量档(head 面),当前面=${face}`)
+    return 2
+  }
+  const bl = loadBaseline(root)
+  if (bl.error) {
+    console.error(`❌ [readme-sync] 未判定:${bl.rel} ${bl.error}`)
+    return 2
+  }
+  const now = out.counts.missing
+  const prev = bl.present ? bl.missing : null
+  if (prev !== null && now > prev) {
+    console.error(
+      `❌ [readme-sync] 拒绝上调额度:基线 ${prev} / 现测 ${now}(+${now - prev})。` +
+        '新增未描述只能靠补 README 消,不得写进基线(§12e 修红不得顺手削判据)。',
+    )
+    return 2
+  }
+  if (prev === now) {
+    console.log(`[readme-sync] 额度已是 ${now} 枚,无需改动。`)
+    return 0
+  }
+  const payload = {
+    version: 1,
+    anchor: '该门全量档(HEAD 面 / 默认 7 天窗口)的未描述数:只减不增;现测超出即判红,存量只报数',
+    reason:
+      bl.reason ||
+      '2026-10-27 立棘轮时的存量:这些端点在写下起就没有人对着 README 对过账,是历史欠账;' +
+        '本条只把它们钉成"不许再涨"的额度。清账出路 = 逐批在 README 对应能力段补路径身份,' +
+        '每清一批跑一次 --update-baseline 把额度压下去,归零后才谈升 blocking(§12e)。',
+    recordedAt: localDate(),
+    missing: now,
+    prevMissing: prev,
+  }
+  writeFileSync(join(root, BASELINE_REL), `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
+  console.log(`✅ [readme-sync] 额度已下调:${prev ?? '(新建)'} → ${now} 枚(${BASELINE_REL})`)
+  return 0
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -749,6 +918,8 @@ if (isDirectRun) {
 export const __test__ = {
   analyze,
   decideExit,
+  loadBaseline,
+  BASELINE_REL,
   parseArgs,
   selfTest,
   faceToRev,

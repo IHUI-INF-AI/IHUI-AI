@@ -352,6 +352,15 @@ export function judgeCapacity({ judges, accountRows, keyRows, sentinel, allowEmp
     workbuddy:
       '若系 WorkBuddy 凭据已死:本机打开桌面版并登录后跑' +
       ' `node scripts/relay-account-pool.mjs --from workbuddy` 重新提取(密钥只存在于桌面主进程)',
+    qoder:
+      'Qoder 池内通用巡检自动换票(适配器已实现 refresh 通道),多数"归零"是冷却或摘除;若换票一并失效,' +
+      ' 在本机登录 Qoder 客户端后跑 `node scripts/relay-account-pool.mjs --from qoder` 重新提取' +
+      '(需 pwsh 7+,以登录 Qoder 的同一 Windows 用户跑;客户端不必在跑)',
+    codearts:
+      'CodeArts 池内适配器已实现 refresh_token 刷新,先按摘除/冷却面处置;' +
+      ' 彻底失效在本机登录 CodeArts Agent 后跑 `node scripts/relay-account-pool.mjs --from codearts` 重新提取' +
+      '(Windows 自带 powershell 即可,须同一 Windows 用户;桌面在跑先关再提);' +
+      '该平台无签到引擎,映射即拦截,不要求签到动作',
   })
 
   // S1:有 enabled 号但可调度 = 0(两池都扫)

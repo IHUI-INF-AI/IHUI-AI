@@ -32,6 +32,9 @@ if TYPE_CHECKING:
 # `agent_security_prefs.resolve_security_config(主体)` 解析 —— 进程默认 ⊕ 该用户显式覆盖。
 # 主体唯一来源是 `call_tool` 的 `user_id` 形参(承载层注入)与 agent_loop_v2 在执行工具前
 # 发布的作用域;**绝不**读 arguments 里的 `__user_id`(那是 handler 入参,模型可填的形状)。
+from app.core.internal_ticket import internal_service_headers
+from app.core.vault import filter_vault_env as _filter_vault_env
+
 from .agent_security_prefs import (
     current_security_principal,
     resolve_security_config,
@@ -58,13 +61,6 @@ from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
 from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
-# P0-2 凭据保险库接线(2026-10-26):run_command 解析/脱敏/环境过滤经此单例
-from .session_security import (
-    get_session_vault as _get_session_vault,
-    get_vault_store as _get_vault_store,
-)
-from app.core.internal_ticket import internal_service_headers
-from app.core.vault import filter_vault_env as _filter_vault_env
 
 # 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
 # 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。
@@ -73,6 +69,14 @@ from .path_guard import find_sensitive_segment, sensitive_error_message
 # V3 #75 后半:懒索引护栏用**枚举层同一份**有界探测出口(该模块只依赖标准库,
 # 无重依赖、无回环,所以可以在顶层 import;函数内再 import 一次只会造成两个出处)。
 from .rg_fallback_parity import SizeProbe, probe_code_file_count
+
+# P0-2 凭据保险库接线(2026-10-26):run_command 解析/脱敏/环境过滤经此单例
+from .session_security import (
+    get_session_vault as _get_session_vault,
+)
+from .session_security import (
+    get_vault_store as _get_vault_store,
+)
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120

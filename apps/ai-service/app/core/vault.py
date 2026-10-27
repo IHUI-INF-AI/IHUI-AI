@@ -33,19 +33,19 @@ class VaultStore:
     # 凭据形环境变量名:子进程过滤时剔除(及其值绝不外带)
     _env_keys: set[str] = field(default_factory=set)
 
-    def put(self, name: str, value: str, *, env_key: "str | None" = None) -> None:
+    def put(self, name: str, value: str, *, env_key: str | None = None) -> None:
         """存入一个凭据槽(真值只在保险库内,模型看不到)。"""
         self._values[name] = value
         if env_key:
             self._env_keys.add(env_key)
 
-    def get(self, name: str) -> "str | None":
+    def get(self, name: str) -> str | None:
         return self._values.get(name)
 
-    def names(self) -> "list[str]":
+    def names(self) -> list[str]:
         return list(self._values)
 
-    def env_keys(self) -> "set[str]":
+    def env_keys(self) -> set[str]:
         return set(self._env_keys)
 
 
@@ -90,7 +90,7 @@ def redact_vault_values(text: str, store: VaultStore) -> str:
     return result
 
 
-def filter_vault_env(env: Mapping[str, str], store: VaultStore) -> "dict[str, str]":
+def filter_vault_env(env: Mapping[str, str], store: VaultStore) -> dict[str, str]:
     """子进程环境:剔除凭据形环境变量;返回值副本(绝不外带真值到子进程)。"""
     env_keys = store.env_keys()
     return {k: v for k, v in env.items() if k not in env_keys}
