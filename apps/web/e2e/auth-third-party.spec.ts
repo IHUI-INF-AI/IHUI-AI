@@ -242,6 +242,19 @@ test.describe('第三方登录 - 后端状态 API', () => {
       expect(data).toHaveProperty(key)
       expect(typeof data[key]).toBe('boolean')
     }
+
+    // 2026-10-27 登录呈现地区(国内 IP ⇒ 微信扫码优先;海外 ⇒ 邮箱 + Google/GitHub 优先)。
+    // 判不出时必须是显式 null,不能靠缺键 —— 缺键与"这版后端还没这个字段"就分不开了。
+    expect(data).toHaveProperty('loginRegion')
+    expect(['domestic', 'overseas', null]).toContain(data.loginRegion)
+
+    // 这条响应现在带着一条「随访客 IP 而变」的字段:任何一层把它缓存住,首个访客的地区
+    // 就会被发给后面所有人(实测本端点曾默认回 `Cache-Control: max-age=14400`)。
+    // 两个状态各自看都"正常",只能在这里把它钉住。
+    const cacheControl = resp.headers()['cache-control'] ?? ''
+    expect(cacheControl, `oauth-status 不得可缓存,实测 Cache-Control="${cacheControl}"`).toContain(
+      'no-store',
+    )
   })
 
   test('GET /api/auth/oauth-status 6 平台真凭据应为 true', async ({ request }) => {

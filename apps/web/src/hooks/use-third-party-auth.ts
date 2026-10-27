@@ -6,6 +6,8 @@
 
 import * as React from 'react'
 
+import type { LoginRegion } from '@ihui/ui-react'
+
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import {
@@ -147,7 +149,14 @@ type OAuthStatusBody = Partial<
     | 'alipay',
     boolean
   >
->
+> & {
+  /**
+   * 服务器按**请求来源 IP** 判出的登录呈现地区(2026-10-26 立)。
+   * null / 缺键 = 未判定,调用方必须回落到更粗的判据(界面语言),不得当成海外或国内。
+   * 判据住在 apps/api/src/services/login-region.ts,前端不复算「哪个国家算国内」。
+   */
+  loginRegion?: LoginRegion | null
+}
 
 /**
  * 服务器自己知不知道自己配了某平台的 client_secret —— 必须去问,不能靠构建期烘死的开关。
@@ -171,6 +180,36 @@ function loadOAuthStatus(): Promise<OAuthStatusBody | null> {
       .catch(() => null)
   }
   return oauthStatusCache
+}
+
+/**
+ * 服务器按来源 IP 判出的登录呈现地区(2026-10-26 立)。
+ *
+ * 取数**复用上面那条模块级缓存**,不再自立一次 GET:登录窗同时需要
+ * 「哪些第三方凭据配了」和「访客在国内还是海外」,两者本就在同一条
+ * `GET /api/auth/oauth-status` 上。另开一份 fetch 会多一次往返,还会让两处
+ * 拿到不同刻的答复(边缘 no-store 之后每次都是真回源)。
+ *
+ * 取不到(端点挂/网络失败/服务器判不出)⇒ 恒 `null` = 未判定,由调用方回落 locale。
+ */
+export function useServerLoginRegion(): LoginRegion | null {
+  const [region, setRegion] = React.useState<LoginRegion | null>(null)
+
+  React.useEffect(() => {
+    let alive = true
+    void loadOAuthStatus().then((status) => {
+      if (!alive) return
+      // 只认两个字面量:脏值/缺键一律按未判定处理,不猜方向。
+      if (status?.loginRegion === 'domestic' || status?.loginRegion === 'overseas') {
+        setRegion(status.loginRegion)
+      }
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  return region
 }
 
 /** 测试面:这条缓存是模块级"只取一次",不清掉就没法在同一进程里逐档验(报 false / 报 true / 取不到)三种服务器答复。 */

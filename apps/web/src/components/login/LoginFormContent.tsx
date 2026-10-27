@@ -19,6 +19,7 @@ import {
   type PasskeyAuthOptionsData,
   isValidPhone,
   loadLoginHistory,
+  planLoginRegion,
 } from '@ihui/ui-react'
 import { OAUTH_BRAND_COLORS } from '@ihui/design-tokens'
 
@@ -27,12 +28,12 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { fetchApi } from '@/lib/api'
 import type { ThirdPartyPlatform, ApiResult } from '@ihui/types'
 import { useThirdPartyConfig } from '@/hooks/use-third-party-config'
+import { useServerLoginRegion } from '@/hooks/use-third-party-auth'
 import { verifyTwoFactorLogin } from '@ihui/api-client'
 import { QrCodeLogin } from './QrCodeLogin'
 import { useTurnstile } from './LoginWithTurnstile'
 import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
 import { isSessionLoggedOut } from '@/lib/session-marker'
-import { isOverseasLocale, loginTabsForLocale } from '@/lib/login-region-policy'
 
 interface LoginFormContentProps {
   onSuccess?: () => void
@@ -300,32 +301,30 @@ export function LoginFormContent({ onSuccess, tabs }: LoginFormContentProps) {
   const setMode = useLoginDialogStore((s) => s.setMode)
   const thirdParty = useThirdPartyConfig()
 
-  // 2026-10-26 海外登录策略:非 zh-CN 界面不提供手机号验证码登录,
-  // Google 授权登录提升为整行主推大按钮(Google 未配置时回落到普通网格)。
+  // 登录方式优先级(2026-10-27 起按 IP 判):后端按**访客来源 IP** 判国内/海外,
+  // 判不出才回落到界面语言。国内 ⇒ 微信扫码排第一 + 微信整行主推大按钮;
+  // 海外 ⇒ 邮箱第一、手机号不开放(海外号码被前后端双重拒绝) + Google 主推、GitHub 紧随。
+  // 排序、剔除、主推可用性三件事的判据都住在 @ihui/ui-react 的 planLoginRegion,端内不复算。
   const locale = useLocale()
-  const isOverseas = isOverseasLocale(locale)
-  const effectiveTabs = loginTabsForLocale(tabs, locale)
-  const googleEnabled = thirdParty.providers.some(
-    (p) => p.key === 'google' && p.enabled && !p.forceDisabled,
+  const ipRegion = useServerLoginRegion()
+  const isPlatformAvailable = React.useCallback(
+    (platform: ThirdPartyPlatform) =>
+      thirdParty.providers.some((p) => p.key === platform && p.enabled && !p.forceDisabled),
+    [thirdParty.providers],
   )
-  // 2026-09-06:移动全屏登录页(tabs=['email','phone','password'] 3 项)才启用
-  // 微信整行大按钮 + 手机号自动回填;桌面(不传 tabs)维持原 3 列网格与手动输入。
+  const plan = React.useMemo(
+    () => planLoginRegion({ ipRegion, locale, requestedTabs: tabs, isPlatformAvailable }),
+    [ipRegion, locale, tabs, isPlatformAvailable],
+  )
+  const isDomestic = plan.region === 'domestic'
+  // 2026-09-06:移动全屏登录页(调用方显式给了少于 4 项 tabs)才自动回填最近手机号。
   const isMobileLayout = !!tabs && tabs.length < 4
-  // 主推平台:海外优先 Google(未配置时不主推,避免整行死按钮);国内移动仍主推微信。
-  const featuredPlatform = isOverseas
-    ? googleEnabled
-      ? ('google' as const)
-      : undefined
-    : isMobileLayout
-      ? ('wechat' as const)
-      : undefined
-  const featuredBackground = isOverseas
-    ? googleEnabled
+  const featuredBackground =
+    plan.featuredPlatform === 'google'
       ? OAUTH_BRAND_COLORS.google
-      : undefined
-    : isMobileLayout
-      ? OAUTH_BRAND_COLORS.wechat
-      : undefined
+      : plan.featuredPlatform === 'wechat'
+        ? OAUTH_BRAND_COLORS.wechat
+        : undefined
   // 最近一次登录手机号(取自账号历史,成就"自动显示手机号一键登录");在挂载后读取,
   // 避免 SSR 渲染 JSON 不一致造成 hydration mismatch。
   const [recentPhone, setRecentPhone] = React.useState('')
@@ -384,7 +383,7 @@ export function LoginFormContent({ onSuccess, tabs }: LoginFormContentProps) {
           <QrCodeLoginEmbedded platform={platform} refreshKey={refreshKey} />
         )}
         qrPlatforms={QR_PLATFORMS}
-        tabs={effectiveTabs}
+        tabs={plan.tabs}
         // 2026-07-30 立:启用凭据持久化(记住密码 + 自动登录 + 账号历史下拉)
         enableCredentialPersistence
         // 2026-09-29 立:自动提交凭据必须先过跨端判据。此前这条径路只读 localStorage 里的
@@ -396,9 +395,11 @@ export function LoginFormContent({ onSuccess, tabs }: LoginFormContentProps) {
         }
         // 2026-09-06 立:移动端开启微信整行大按钮 + 最近手机号自动回填
         // 2026-10-26 海外策略:海外改推 Google,手机号自动回填仅国内移动端启用
-        thirdPartyFeaturedPlatform={featuredPlatform}
+        // 2026-10-27 按 IP 判档:主推平台与网格优先序一并交给 planLoginRegion(桌面也主推)
+        thirdPartyFeaturedPlatform={plan.featuredPlatform}
         thirdPartyFeaturedBackground={featuredBackground}
-        phoneDefaultAccount={!isOverseas && isMobileLayout ? recentPhone : undefined}
+        thirdPartyPriorityPlatforms={plan.priorityPlatforms}
+        phoneDefaultAccount={isDomestic && isMobileLayout ? recentPhone : undefined}
         // 2026-09-19 紧凑化(用户要求登录弹窗内容在视口内完整显示、禁止滚动):
         // 表单纵向间距 16→12 / 输入框与提交钮 h-10→h-9 / 第三方网格 3→4 列
         // (8 平台 3 行→2 行)。仅桌面弹窗与移动全屏页共用本组件,twMerge 覆盖共享默认。
