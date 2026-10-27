@@ -28753,3 +28753,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - **端范围与豁免**:api + worker + admin CLI + admin web 列表;§9 平台独占豁免=运营后台面(admin),用户端 web/小程序/RN 无新增业务 UI 面,故不做 8 端同步;纯服务端判据以命令末行现读为凭。
 - **推送状态如实登记(事实非待办)**:两枚本地提交在 main 链上(代码/测试枚 79d39e8、docs/package 枚 a4ef5e2);与 origin 现分叉,`merge-tree` 实测唯一真冲突在 `deploy/win/ihui-monitor.ps1` 与 `deploy/tests/alert-stall-dedup-harness.ps1` 同段——系别两席在同一抑制块各改语义(非这两枚所碰),不代裁、禁手写 push;该两席收敛后按 §16b 由守卫 FF。
 
+## 2026-10-27 工程工具链待办(登记@2026-10-27/账号代理席)
+
+- [ ] （登记@2026-10-27/账号代理席） **git-sync-converge 台账闸门自指死锁:合并面判据读它自己尚未产出的面,全仓推送通道停摆** —— 判据位置 `mergedLedgerFace`(scripts/git-sync-converge.mjs:847-863),命中即 `out.unshift`(:956-963 无条件)⇒ `gateUndetermined.length>0` ⇒ `exit 1`(:1999-2003),连 `attemptUnionConverge` 都到不了,该支无 skipEnv。实证:本席两枚 `eef6684017`/`8f803dad397` 已在本地血统,只读档复现到闸门即停;挡路行只存在于 origin 面(本地 HEAD、工作树、merge-base 三面现读均 0),而 `live-doc-edit` 的 `before` 必须在被审面命中才改得动 ⇒ 两条出口互为前置。定罪尺 `WAITING_HUMAN_DIRECT_RE`(scripts/lib/plan-task-index.mjs:1934)按 :1925-1929 只过护栏①,带语法辖域护栏的 self 尺却把同一命中判成引号内叙述引文 ⇒ 落未判定。出路(两条都是判据自身修法,择一):① 给该支补第三态"命中行不在被审面 ⇒ 记 unjudged、不拒推";② 闸门改读合并后树并对引号内叙述豁免。取证命令:`node scripts/git-sync-converge.mjs --dry-run --rounds 1`。
