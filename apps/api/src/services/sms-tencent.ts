@@ -35,7 +35,9 @@ const REQUEST_TIMEOUT_MS = 10_000
 
 const tc3 = new TencentTc3AuthStrategy()
 
-/** 场景 → 该场景模板 ID 的 env 键。 */
+/** 场景 → 该场景模板 ID 的 env 键。
+ * @public 仅测试钉住(判据先行族,G-1200042):生产面暂无消费方,单测直接 import;若日后有生产消费方应删本标注
+ */
 export const TENCENT_SCENE_TEMPLATE_ENV_KEYS: Record<SmsScene, string> = {
   register: 'TENCENT_SMS_TEMPLATE_CODE_REGISTER',
   login: 'TENCENT_SMS_TEMPLATE_CODE_LOGIN',
