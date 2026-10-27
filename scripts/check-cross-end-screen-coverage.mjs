@@ -113,7 +113,9 @@ function faceRead(face, rel) {
   }
 }
 
-const log = (...a) => { if (!jsonMode) console.log(...a) }
+const log = (...a) => {
+  if (!jsonMode) console.log(...a)
+}
 
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out
@@ -143,7 +145,10 @@ function collectRn(face = FACE) {
     .filter((rel) => rel.endsWith('.tsx'))
     .map((rel) => ({
       file: rel,
-      name: rel.split('/').pop().replace(/\.tsx$/, ''),
+      name: rel
+        .split('/')
+        .pop()
+        .replace(/\.tsx$/, ''),
       text: faceRead(face, rel),
     }))
 }
@@ -223,7 +228,10 @@ function gitGrep(pattern, pathspec) {
 function headMirroredSpecs(allowedFiles) {
   const out = new Set()
   const allow = new Set(allowedFiles || [])
-  for (const line of gitGrep('packages/app/src/features/[A-Za-z0-9_-]+/[A-Za-z0-9_]+Screen', MP_SRC).split('\n')) {
+  for (const line of gitGrep(
+    'packages/app/src/features/[A-Za-z0-9_-]+/[A-Za-z0-9_]+Screen',
+    MP_SRC,
+  ).split('\n')) {
     const pm = line.match(/^HEAD:([^:]+):\d+:/)
     if (!pm || !allow.has(pm[1])) continue
     const m = line.match(/(packages\/app\/src\/features\/[A-Za-z0-9_-]+\/[A-Za-z0-9_]+Screen\.tsx)/)
@@ -232,20 +240,32 @@ function headMirroredSpecs(allowedFiles) {
   return out
 }
 
-/** HEAD 面:委托共享层(@ihui/rn-app)的 RN 屏文件路径集合 */
+/**
+ * HEAD 面:委托共享层(@ihui/rn-app)的 RN 屏文件路径集合。
+ * 两侧口径必须一致:当前侧 nowDelegated 来自 collectRn 的 `.tsx` filter ——
+ * 本侧若不筛 `.tsx`,`screens/tests/*.test.ts` 这类伴生测试(正文带
+ * `export type … from '@ihui/rn-app'` 的类型面引用)会进 HEAD 锚点集、
+ * 却永远进不了当前委托集 ⇒ R4 从该文件落地起恒红(实测
+ * quick-notes-insert-wiring.test.ts)。R4 判的是「RN **屏**委托共享层」,
+ * `.ts` 测试不是屏,两侧同取 `.tsx` 才是同一把尺子。
+ */
 function headDelegatedRn() {
   return new Set(
     gitGrep('@ihui/rn-app', RN_SCREENS)
       .split('\n')
       .map((l) => l.split(':')[1])
-      .filter(Boolean),
+      .filter((f) => f && f.endsWith('.tsx')),
   )
 }
 
 function loadJson(p, fallback, face = FACE) {
   const txt = faceRead(face, p)
   if (txt === null) return fallback
-  try { return JSON.parse(txt) } catch { return fallback }
+  try {
+    return JSON.parse(txt)
+  } catch {
+    return fallback
+  }
 }
 
 function run() {
@@ -261,21 +281,34 @@ function run() {
   // --- 小程序显式镜像 ---
   const mirrored = new Map() // spec -> [route]
   for (const s of shared) {
-    for (const p of mp) if (mirroredSpecs(p).has(s.spec)) {
-      if (!mirrored.has(s.spec)) mirrored.set(s.spec, [])
-      mirrored.get(s.spec).push(p.route)
-    }
+    for (const p of mp)
+      if (mirroredSpecs(p).has(s.spec)) {
+        if (!mirrored.has(s.spec)) mirrored.set(s.spec, [])
+        mirrored.get(s.spec).push(p.route)
+      }
   }
 
   // --- R1:登记表真实性 ---
   const r1Red = []
   for (const e of registry.entries || []) {
     const { shared: sp, rn: rf, miniapp: mr } = e || {}
-    if (!sp || !rf || !mr) { r1Red.push({ entry: e, why: '登记项缺 shared/rn/miniapp 三键之一' }); continue }
-    if (faceRead(FACE, sp) === null) { r1Red.push({ entry: e, why: `共享屏不存在(${FACE} 面): ${sp}` }); continue }
-    if (faceRead(FACE, rf) === null) { r1Red.push({ entry: e, why: `RN 屏不存在(${FACE} 面): ${rf}` }); continue }
+    if (!sp || !rf || !mr) {
+      r1Red.push({ entry: e, why: '登记项缺 shared/rn/miniapp 三键之一' })
+      continue
+    }
+    if (faceRead(FACE, sp) === null) {
+      r1Red.push({ entry: e, why: `共享屏不存在(${FACE} 面): ${sp}` })
+      continue
+    }
+    if (faceRead(FACE, rf) === null) {
+      r1Red.push({ entry: e, why: `RN 屏不存在(${FACE} 面): ${rf}` })
+      continue
+    }
     const mpEntry = mp.find((p) => p.route === mr)
-    if (!mpEntry || !mpEntry.file) { r1Red.push({ entry: e, why: `小程序页不存在: ${mr}` }); continue }
+    if (!mpEntry || !mpEntry.file) {
+      r1Red.push({ entry: e, why: `小程序页不存在: ${mr}` })
+      continue
+    }
     if (!mirroredSpecs(mpEntry).has(sp)) {
       r1Red.push({ entry: e, why: `小程序页 ${mr} 缺「镜像 ${sp}」标记(标记是配对的唯一凭据)` })
     }
@@ -283,17 +316,20 @@ function run() {
 
   // --- R3/R4 棘轮 ---
   const nowMirrored = [...mirrored.keys()].sort()
-  const nowDelegated = rn.filter((r) => /@ihui\/rn-app/.test(r.text || '')).map((r) => r.file).sort()
+  const nowDelegated = rn
+    .filter((r) => /@ihui\/rn-app/.test(r.text || ''))
+    .map((r) => r.file)
+    .sort()
   // 只拦「本次改动把 HEAD 已有的倒退掉」:新增不拦(那是收口),存量不拦(§12e)。
   // 锚点宽度 = HEAD 面在册页 ∪ 当前面在册页:只用当前面的话,「把整页删掉」会让那一页
   // 从允许清单里消失,连带把它的镜像声明从锚点里抹掉 —— 删页面反而免了倒退判定。
   const anchorWidth = new Set([
-    ...collectMiniapp('head').map((p) => p.file).filter(Boolean),
+    ...collectMiniapp('head')
+      .map((p) => p.file)
+      .filter(Boolean),
     ...mp.map((p) => p.file).filter(Boolean),
   ])
-  const lostMirrored = [...headMirroredSpecs(anchorWidth)].filter(
-    (x) => !nowMirrored.includes(x),
-  )
+  const lostMirrored = [...headMirroredSpecs(anchorWidth)].filter((x) => !nowMirrored.includes(x))
   const lostDelegated = [...headDelegatedRn()].filter((x) => !nowDelegated.includes(x))
 
   const stats = {
@@ -318,14 +354,28 @@ function run() {
   for (const x of lostMirrored) red.push({ rule: 'R3', why: `共享屏的小程序镜像被撤: ${x}` })
   for (const x of lostDelegated) red.push({ rule: 'R4', why: `RN 屏不再委托共享层: ${x}` })
 
-
   if (jsonMode) {
-    console.log(JSON.stringify({ stats, red, mirrored: nowMirrored, gaps: shared.filter((s) => !mirrored.has(s.spec)).map((s) => s.spec) }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          stats,
+          red,
+          mirrored: nowMirrored,
+          gaps: shared.filter((s) => !mirrored.has(s.spec)).map((s) => s.spec),
+        },
+        null,
+        2,
+      ),
+    )
   } else {
     log(`判定面                  : ${stats.faceLabel}`)
     log(`共享屏(真相源)          : ${stats.sharedTotal}`)
-    log(`RN 屏                   : ${stats.rnScreensTotal}(委托共享层 ${stats.rnDelegatedScreens},${(stats.rnDelegatedRatio * 100).toFixed(1)}%)`)
-    log(`小程序页                : ${stats.miniappPagesTotal}(有文件 ${stats.miniappPagesWithFile})`)
+    log(
+      `RN 屏                   : ${stats.rnScreensTotal}(委托共享层 ${stats.rnDelegatedScreens},${(stats.rnDelegatedRatio * 100).toFixed(1)}%)`,
+    )
+    log(
+      `小程序页                : ${stats.miniappPagesTotal}(有文件 ${stats.miniappPagesWithFile})`,
+    )
     log(`共享屏被 RN 消费        : ${stats.rnConsumedShared}/${stats.sharedTotal}`)
     log(`共享屏被小程序显式镜像  : ${stats.mirroredShared}/${stats.sharedTotal}`)
     log(`未判定(无标记,不算缺口): ${stats.undeterminedMiniapp}`)
@@ -349,17 +399,41 @@ function selfTestFn() {
   cases.push({ name: 'A2 RN 屏可枚举', pass: rn.length > 0, got: rn.length })
   const mp = collectMiniapp()
   cases.push({ name: 'A3 小程序页可枚举且解析出路由', pass: mp.length > 0, got: mp.length })
-  cases.push({ name: 'A4 小程序页至少一页有对应文件', pass: mp.some((p) => p.file), got: mp.filter((p) => p.file).length })
+  cases.push({
+    name: 'A4 小程序页至少一页有对应文件',
+    pass: mp.some((p) => p.file),
+    got: mp.filter((p) => p.file).length,
+  })
   // 正反例:镜像标记识别器对确定形态必须命中 / 对空串必须零命中
   const probe = { text: '// 镜像 packages/app/src/features/activity/ActivityScreen', cssText: '' }
-  cases.push({ name: 'A5 镜像标记识别(正面)', pass: mirroredSpecs(probe).has(`${SHARED_DIR}/activity/ActivityScreen.tsx`), got: [...mirroredSpecs(probe)] })
-  cases.push({ name: 'A6 镜像标记识别(反面:无关文本)', pass: mirroredSpecs({ text: 'nothing here', cssText: '' }).size === 0, got: 0 })
-  cases.push({ name: 'A7 RN 消费判定(正面)', pass: rnConsumes({ text: "import { ActivityScreen } from '@ihui/rn-app'" }, 'ActivityScreen'), got: true })
-  cases.push({ name: 'A8 RN 消费判定(反面:无 rn-app 引用)', pass: !rnConsumes({ text: 'const ActivityScreen = 1' }, 'ActivityScreen'), got: false })
+  cases.push({
+    name: 'A5 镜像标记识别(正面)',
+    pass: mirroredSpecs(probe).has(`${SHARED_DIR}/activity/ActivityScreen.tsx`),
+    got: [...mirroredSpecs(probe)],
+  })
+  cases.push({
+    name: 'A6 镜像标记识别(反面:无关文本)',
+    pass: mirroredSpecs({ text: 'nothing here', cssText: '' }).size === 0,
+    got: 0,
+  })
+  cases.push({
+    name: 'A7 RN 消费判定(正面)',
+    pass: rnConsumes({ text: "import { ActivityScreen } from '@ihui/rn-app'" }, 'ActivityScreen'),
+    got: true,
+  })
+  cases.push({
+    name: 'A8 RN 消费判定(反面:无 rn-app 引用)',
+    pass: !rnConsumes({ text: 'const ActivityScreen = 1' }, 'ActivityScreen'),
+    got: false,
+  })
   const hm = headMirroredSpecs(mp.map((p) => p.file).filter(Boolean))
   cases.push({ name: 'A9 棘轮锚点=HEAD 面:已镜像集合可算且非空', pass: hm.size > 0, got: hm.size })
   const hd = headDelegatedRn()
-  cases.push({ name: 'A10 棘轮锚点=HEAD 面:RN 下沉集合可算且非空', pass: hd.size > 0, got: hd.size })
+  cases.push({
+    name: 'A10 棘轮锚点=HEAD 面:RN 下沉集合可算且非空',
+    pass: hd.size > 0,
+    got: hd.size,
+  })
   // 取材面纪律(§0.4)的三条:读不到就是 null(不许回落另一个面)、列举与读取同面、
   // 在册页若在某一面上有文件,那一面必须真读得出内容(跨面回落会在这里当场露形)。
   cases.push({
@@ -370,7 +444,9 @@ function selfTestFn() {
   cases.push({
     name: 'A12 faceRead 三面都能读出 app.config(三面都存在该件)',
     pass: ['head', 'staged', 'worktree'].every((f) => typeof faceRead(f, MP_CONFIG) === 'string'),
-    got: ['head', 'staged', 'worktree'].map((f) => `${f}:${(faceRead(f, MP_CONFIG) || '').length}`).join(' '),
+    got: ['head', 'staged', 'worktree']
+      .map((f) => `${f}:${(faceRead(f, MP_CONFIG) || '').length}`)
+      .join(' '),
   })
   const headMp = collectMiniapp('head')
   cases.push({
@@ -385,13 +461,17 @@ function selfTestFn() {
   })
   cases.push({
     name: 'A15 阳性对照:把 spec 改成不存在的件,A14 那把尺子必须判不过',
-    pass: ![{ spec: `${SHARED_DIR}/__nope__/NopeScreen.tsx` }].every((s) => faceRead('head', s.spec) !== null),
+    pass: ![{ spec: `${SHARED_DIR}/__nope__/NopeScreen.tsx` }].every(
+      (s) => faceRead('head', s.spec) !== null,
+    ),
     got: false,
   })
   let bad = 0
   for (const c of cases) {
     if (!c.pass) bad++
-    console.log(`${c.pass ? '✓' : '✗'} ${c.name}${c.got !== undefined ? ` — ${JSON.stringify(c.got)}` : ''}`)
+    console.log(
+      `${c.pass ? '✓' : '✗'} ${c.name}${c.got !== undefined ? ` — ${JSON.stringify(c.got)}` : ''}`,
+    )
   }
   console.log(`\n自检 ${cases.length} 例,失败 ${bad}`)
   return bad === 0 ? 0 : 1
@@ -401,7 +481,19 @@ function selfTestFn() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 /** §22c:判据单一出口 —— 取证测试 import 这份,禁止在测试里另抄一份面读取器 */
-export const __test__ = { faceRead, faceList, collectShared, collectRn, collectMiniapp, mirroredSpecs, rnConsumes, headMirroredSpecs, headDelegatedRn, FACE, MARK_RE }
+export const __test__ = {
+  faceRead,
+  faceList,
+  collectShared,
+  collectRn,
+  collectMiniapp,
+  mirroredSpecs,
+  rnConsumes,
+  headMirroredSpecs,
+  headDelegatedRn,
+  FACE,
+  MARK_RE,
+}
 
 if (isDirectRun) {
   if (selfTest) process.exit(selfTestFn())
