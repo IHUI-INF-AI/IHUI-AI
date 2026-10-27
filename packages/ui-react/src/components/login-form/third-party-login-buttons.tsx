@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 
+import { reorderByPriority } from '@ihui/shared/auth/login-region-policy'
 import { Button } from '../button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../tooltip'
 import { cn } from '../../lib/utils'
@@ -42,29 +43,16 @@ export interface ThirdPartyLoginButtonsProps {
 
 /**
  * 稳定排序:按 priority 表给的名次排前,未列名的保持原相对顺序排后。
- * 判据住在 region-policy.ts,本函数只执行排序 —— 两侧都不在此复算「哪个国家算国内」。
- * 泛型:同一条排序既服务第三方图标网格(ThirdPartyProvider),也服务扫码 tab 内部的
- * 渠道列表(QrPlatformConfig),两者都以 `key` 为身份。禁止为第二处再写一份排序。
+ * 判据与执行器自 2026-10-27 住在共享层 `@ihui/shared/auth/login-region-policy`
+ * (`reorderByPriority`);本函数只是 `key` 档薄适配 —— 图标网格(ThirdPartyProvider)与
+ * 扫码渠道(QrPlatformConfig)都以 `key` 为身份,RN 的 `ThirdPartyLoginOption` 以
+ * `platform` 为身份,两端跑的是同一个执行器,不在这里复算任何判定(§0.6)。
  */
 export function sortByPlatformPriority<T extends { key: ThirdPartyPlatform }>(
   items: readonly T[],
   priority: readonly ThirdPartyPlatform[],
 ): T[] {
-  const rank = new Map<ThirdPartyPlatform, number>()
-  priority.forEach((key, index) => {
-    if (!rank.has(key)) rank.set(key, index)
-  })
-  return items
-    .map((entry, index) => ({ entry, index }))
-    .sort((a, b) => {
-      const rankA = rank.get(a.entry.key)
-      const rankB = rank.get(b.entry.key)
-      if (rankA !== undefined && rankB !== undefined) return rankA - rankB
-      if (rankA !== undefined) return -1
-      if (rankB !== undefined) return 1
-      return a.index - b.index
-    })
-    .map((wrapped) => wrapped.entry)
+  return reorderByPriority(items, priority, (item) => item.key)
 }
 
 /**
