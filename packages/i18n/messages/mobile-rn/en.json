@@ -6724,6 +6724,15 @@
     "loginRequired": "Please log in first",
     "error": "Failed to load"
   },
+  "signUpPage": {
+    "title": "My Sign-ups",
+    "loading": "Loading...",
+    "empty": "No data yet",
+    "statusDraft": "Pending Review",
+    "statusPublished": "Confirmed",
+    "statusRejected": "Rejected",
+    "statusCompleted": "Completed"
+  },
   "update": {
     "title": "New version available",
     "body": "Restart the app to get the latest version",

@@ -106,6 +106,7 @@ import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
 import { StatusScreen } from '../screens/StatusScreen'
+import { SignUpScreen } from '../screens/SignUpScreen'
 import { CirclePostScreen } from '../screens/CirclePostScreen'
 import { InvitationsScreen } from '../screens/InvitationsScreen'
 import { LettersScreen } from '../screens/LettersScreen'
@@ -504,6 +505,7 @@ export type RootStackParamList = {
   Agreement: undefined
   About: undefined
   Status: undefined
+  SignUp: undefined
   CirclePost: undefined
   Invitations: undefined
   Letters: undefined
@@ -1014,6 +1016,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />
             <RootStack.Screen name="Status" component={StatusScreen} />
+            <RootStack.Screen name="SignUp" component={SignUpScreen} />
             <RootStack.Screen name="CirclePost" component={CirclePostScreen} />
             <RootStack.Screen name="Invitations" component={InvitationsScreen} />
             <RootStack.Screen name="Letters" component={LettersScreen} />
