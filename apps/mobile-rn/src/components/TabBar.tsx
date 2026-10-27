@@ -94,19 +94,18 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
 
   const handlePress = useCallback((key: TabBarKey) => () => onChange(key), [onChange])
 
+  // 悬浮间距:有效 safe-area 一半 + 小间距,不足则用最小间距兜底(2026-10-27 四稿恢复:
+  // 0.0.8 的「直落底边」几何被机主否决——菜单栏沉底、底部距离消失、面板底部多出一段空嵌套块;
+  // 恢复悬浮胶囊几何,材质仍用磨砂实底)
+  const floatGap = Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4)
+
   return (
-    <View style={tabBarStyleSheet.wrapper}>
-      {/* 液态玻璃面板直落屏幕底边:图标行 + 底部手势区让位(paddingBottom)同一块玻璃,
-          图标行下面不再有独立白带(2026-10-27 用户定稿)。
-          2026-10-27 三稿(0.0.7 实机反馈「还是这么透明,没任何变化」):
-          Android 的 dimezis 真模糊在实机上不生效(只剩淡 tint,视觉与 glass.bg 无差),
-          ⇒ Android 端不再渲染 BlurView,直接上 iOS 白底页面同款磨砂实底
-          (surface 0.88 + 顶部高光线 + 重投影,确定性出效果);
-          iOS 端保留 BlurView 真模糊(UIVisualEffectView,可靠);web 端仍 backdropFilter。 */}
+    <View style={[tabBarStyleSheet.wrapper, { marginBottom: floatGap }]}>
+      {/* 悬浮玻璃胶囊:图标行 + 底部留距(悬浮)组成同一块磨砂玻璃;玻璃底分端注入 ——
+          Android = surface 0.88 磨砂实底(确定性出效果);iOS = BlurView 真模糊;web = backdropFilter。 */}
       <View
         style={[
           tabBarStyleSheet.container,
-          { paddingBottom: Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4) },
           Platform.OS !== 'ios' && {
             backgroundColor: withAlpha(
               resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,

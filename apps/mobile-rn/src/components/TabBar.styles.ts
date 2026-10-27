@@ -94,9 +94,8 @@ const glassBlurLayer: ViewStyle =
 
 export const tabBarStyles = {
   /**
-   * 外层定位容器:绝对定位浮在内容之上,左右留边,底部贴齐屏幕底边。
-   * 2026-10-27 用户定稿:玻璃面板直落底边(不再向上悬浮留缝),底部手势区
-   * 由 container 的 paddingBottom 收进面板 —— 图标行下面不再有独立白带。
+   * 外层定位容器:绝对定位浮在内容之上,左右留边,底部贴齐后再由运行时注入
+   * marginBottom 悬浮(marginBottom = 有效 safe-area 一半 + 4,见 TabBar.tsx 四稿)。
    */
   wrapper: {
     position: 'absolute',
@@ -106,17 +105,15 @@ export const tabBarStyles = {
   } satisfies ViewStyle,
 
   /**
-   * 液态玻璃面板:图标行(高 TAB_BAR_HEIGHT)+ 底部手势区让位(运行时注入 paddingBottom)
-   * 一起包进同一块玻璃 —— 圆角 + 细描边 + 投影,延伸到屏幕底边。
-   * 2026-10-27 三稿:玻璃底分端注入 —— Android 实机 dimezis 模糊不生效,组件层直接给
-   * surface 0.88 磨砂实底(运行时注入);iOS = BlurView 真模糊;web = glass.bg + backdropFilter。
-   * 此处默认色仅 web 生效。
+   * 液态玻璃胶囊:图标行(高 TAB_BAR_HEIGHT)包进同一块玻璃 —— 圆角 + 细描边 + 投影。
+   * 2026-10-27 四稿:几何恢复悬浮胶囊(0.0.8 直落底边被机主否决),材质保留磨砂实底;
+   * 玻璃底分端注入 —— Android = surface 0.88(运行时注入),iOS = BlurView,web = glass.bg + backdropFilter。
    */
   container: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-around',
-    paddingTop: 0,
+    height: TAB_BAR_HEIGHT,
     overflow: 'hidden',
     backgroundColor: tk.glass.bg,
     borderRadius: TAB_BAR_RADIUS,
