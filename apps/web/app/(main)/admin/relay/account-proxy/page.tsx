@@ -144,7 +144,7 @@ export default function AccountProxyPage() {
       return r.data
     },
     onSuccess: (_d, vars) => {
-      toast.success(vars.proxyUrl ? '代理已保存' : '已清除代理,回落到共享代理池/直连')
+      toast.success(vars.proxyUrl ? '代理已保存' : '已清除代理，回落到共享代理池/直连')
       setEditing(null)
       setDraft('')
       setVisible(false)
@@ -176,8 +176,8 @@ export default function AccountProxyPage() {
 
   const clearProxy = (row: AccountProxyRow) => {
     void confirm({
-      title: `清除「${row.name}」的代理?`,
-      description: '清除后该账号回落到共享代理池;池内无可用代理时按直连。',
+      title: `清除「${row.name}」的代理？`,
+      description: '清除后该账号回落到共享代理池；池内无可用代理时按直连。',
       confirmText: '清除',
       variant: 'destructive',
     }).then((ok) => {
@@ -195,7 +195,7 @@ export default function AccountProxyPage() {
             账号代理
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            给单个账号绑定专属代理,固定它的出口 IP;仅对该账号生效,不进入共享代理池
+            给单个账号绑定专属代理，固定它的出口 IP；仅对该账号生效，不进入共享代理池
           </p>
         </div>
         <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
@@ -285,7 +285,7 @@ export default function AccountProxyPage() {
               ) : isError ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-8 text-center text-red-500">
-                    加载失败:{error instanceof Error ? error.message : '未知错误'}
+                    加载失败：{error instanceof Error ? error.message : '未知错误'}
                   </td>
                 </tr>
               ) : list.length === 0 ? (
@@ -313,8 +313,8 @@ export default function AccountProxyPage() {
                       <span
                         className={
                           k.isEnabled
-                            ? 'rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400'
-                            : 'rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground'
+                            ? 'whitespace-nowrap rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400'
+                            : 'whitespace-nowrap rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground'
                         }
                       >
                         {k.isEnabled ? '启用' : '停用'}
@@ -322,7 +322,7 @@ export default function AccountProxyPage() {
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`rounded-md px-2 py-0.5 text-xs ${
+                        className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${
                           HEALTH_CLASS[k.healthStatus] ?? HEALTH_CLASS.unknown
                         }`}
                       >
@@ -403,7 +403,7 @@ export default function AccountProxyPage() {
             <DialogHeader>
               <DialogTitle>
                 {editing?.hasProxy ? '更换代理' : '设置代理'}
-                {editing ? `:${editing.name}` : ''}
+                {editing ? `：${editing.name}` : ''}
               </DialogTitle>
             </DialogHeader>
 
