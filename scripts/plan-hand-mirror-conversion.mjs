@@ -35,6 +35,7 @@ import { __test__ as fidelity } from './check-miniapp-mirror-fidelity.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { pickCarrierShell, shellTargetRel } from './lib/rn-shell-refs.mjs'
 import { __test__ as gen } from './gen-miniapp-mirror.mjs'
+import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const { computeFidelity, batchReadTexts } = fidelity
@@ -115,16 +116,36 @@ export function titleOnlyLifecycle(text) {
 }
 
 /**
- * 页面里的硬编码中文量。法律条款/公告正文这类内容若直接写在页面里(而不是走词包),
- * 转成壳承载后正文来自共享屏消费的词包键 ⇒ 会**静默丢正文**。实测 pkg-about/about/privacy
- * 5618 字、usage-rules 4603 字即此型(两页各缺 8/1 个共享屏键,因为它们压根没用那份词)。
+ * 页面里的硬编码中文量(**只数字符串字面量**,注释不算)。判"转壳会丢正文"请用
+ * `hardcodedCjkNotInMessages` —— 总量本身不是缺口(兜底文案在词包里都有)。
  */
 export function hardcodedCjkCount(text) {
-  return (String(text ?? '').match(/[\u4e00-\u9fff]/g) || []).length
+  return (maskComments(String(text ?? '')).match(/[\u4e00-\u9fff]/g) || []).length
 }
 
-/** 硬编码正文阈值:正文类页面远超它;普通页面的注释/兜底文案只有几十字(实测 agreement 30 字)。 */
-export const HARDCODED_TEXT_LIMIT = 200
+/** 硬编码正文阈值:只看**未在词包里**的中文字符数(正文类页面实测 317/242 字,普通页中位数 0)。 */
+export const HARDCODED_TEXT_LIMIT = 100
+
+/** 小程序词包(壳承载后文案的唯一来源) —— 与页面按同一面读。 */
+export const MESSAGES_REL = 'packages/i18n/messages/miniapp-taro/zh-CN.json'
+
+/**
+ * 页面字符串里**不在词包中**的中文字符数。判据用意:转壳后文案全部来自词包,
+ * 若页面的中文片段在词包里找不到 ⇒ 那一段会消失(正文丢失),这才是真阻塞;
+ * 而"加载失败/暂无数据/确定"这类兜底文案在词包里都有 ⇒ 删掉不丢东西(实测 98 页里 95 页 ≤50 字、中位数 0)。
+ */
+export function hardcodedCjkNotInMessages(text, messagesText) {
+  const src = maskComments(String(text ?? ''))
+  const hay = String(messagesText ?? '')
+  let miss = 0
+  for (const lit of scanLiterals(src).strings) {
+    const body = String(lit.body ?? '')
+    if (!/[\u4e00-\u9fff]/.test(body)) continue
+    if (hay.includes(body.trim())) continue
+    miss += (body.match(/[\u4e00-\u9fff]/g) || []).length
+  }
+  return miss
+}
 
 /** RN 路由名 → 小程序路径的派生表(生成器口径见 gen-rn-compat;本模块只读它,不另立映射)。 */
 export const ROUTE_MAP_REL = 'apps/miniapp-taro/src/rn-compat/route-map.generated.ts'
@@ -186,7 +207,15 @@ export function pageOnlyCapabilities({ pageTokens, sharedText, shellText }) {
 }
 
 /** 一枚手写镜像页的转换判定(纯判据,不写盘)。 */
-export function judgeConversion({ spec, pageText, shellText, sharedText, shellName = null, routeMap = null }) {
+export function judgeConversion({
+  spec,
+  pageText,
+  shellText,
+  sharedText,
+  shellName = null,
+  routeMap = null,
+  messagesText = '',
+}) {
   const name = String(spec || '')
     .split('/')
     .pop()
@@ -201,13 +230,13 @@ export function judgeConversion({ spec, pageText, shellText, sharedText, shellNa
       why: `壳 ${name} 未消费共享屏(不带 @ihui/rn-app 取用该符号)`,
     }
   const pageTokens = capabilityTokens(pageText)
-  // 硬编码正文闸:转壳后正文来自共享屏词包 ⇒ 页面自带的大段中文会消失(不是"未还原",是丢内容)
-  const cjk = hardcodedCjkCount(pageText)
-  if (cjk > HARDCODED_TEXT_LIMIT)
+  // 硬编码正文闸:转壳后正文来自共享屏词包 ⇒ **词包里没有的**中文片段会消失(不是"未还原",是丢内容)
+  const missingCjk = hardcodedCjkNotInMessages(pageText, messagesText)
+  if (missingCjk > HARDCODED_TEXT_LIMIT)
     return {
       spec,
       kind: 'page-only-capability',
-      why: `这一页带着共享屏/壳没有的能力:硬编码正文 ${cjk} 字(正文未进词包,转壳会丢内容)`,
+      why: `这一页带着共享屏/壳没有的能力:硬编码正文 ${missingCjk} 字不在词包(转壳会丢内容)`,
     }
   // "只设导航标题"的生命周期钩子可以由壳承载页原样保留(见 titleOnlyLifecycle),不计私有能力
   if (titleOnlyLifecycle(pageText))
@@ -256,8 +285,9 @@ export function plan({ face = 'head' } = {}) {
   const byRoute = new Map(miniapp.map((p) => [p.route, p]))
   const specs = [...new Set(hand.map((r) => r.spec))]
   const sharedTexts = batchReadTexts(face, specs)
-  // 路由映射按同一面读(缺表 ⇒ 空表 ⇒ "跳转是否被覆盖"判不出 ⇒ 不删导航 token,保守)
+  // 路由映射与词包按同一面读(缺表/缺词包 ⇒ 判不出 ⇒ 保守:不销账、正文全算缺失)
   const routeMap = routeMapFrom(batchReadTexts(face, [ROUTE_MAP_REL]).get(ROUTE_MAP_REL) ?? '')
+  const messagesText = batchReadTexts(face, [MESSAGES_REL]).get(MESSAGES_REL) ?? ''
   // 承载壳候选口径 = lib 单源(pickCarrierShell):同名优先、异名兜底(NewsScreen 渲染 SquareScreen
   // 这类平台薄壳是仓内既有形态)。旧实现只认同名壳 ⇒ 会把"壳叫别的名"的页误判成 no-shell。
   const rnTexts = new Map(
@@ -282,6 +312,7 @@ export function plan({ face = 'head' } = {}) {
         sharedText: sharedTexts.get(r.spec) ?? '',
         shellName: carrier?.name ?? null,
         routeMap,
+        messagesText,
       }),
       route: r.route,
       shell: carrier?.name ?? null,
@@ -397,6 +428,17 @@ function main(argv) {
       'page-only-capability',
     )
     P(
+      'S6b 同样的正文若词包里已有 ⇒ 不算缺口(兜底文案属重复,删掉不丢东西)',
+      judgeConversion({
+        spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+        pageText: `const body = '${'中'.repeat(300)}'`,
+        shellText: `import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){return null}`,
+        sharedText: '',
+        messagesText: `{"demo":{"body":"${'中'.repeat(300)}"}}`,
+      }).kind,
+      'convertible',
+    )
+    P(
       'S7 只设导航标题的生命周期钩子不算私有能力(生成页会原样保留)',
       titleOnlyLifecycle(`useDidShow(() => { Taro.setNavigationBarTitle({ title: t('a.b') }) })`),
       true,
@@ -492,6 +534,7 @@ export const __test__ = {
   navTitleExpr,
   titleOnlyLifecycle,
   hardcodedCjkCount,
+  hardcodedCjkNotInMessages,
   routeMapFrom,
   coveredNavigation,
   ROOT,
