@@ -4605,6 +4605,17 @@
     "p1": "Failed to start recording"
   },
   "webViewPortal": {
+    "pluginMarket": "Plugin Market",
+    "skillsMarket": "Skills Market",
+    "memoryManager": "Memory Manager",
+    "agentRules": "Agent Rules",
+    "publishMonitor": "Publish Monitor",
+    "dramaStudio": "Drama Scripts",
+    "myResources": "My Resources",
+    "mySignUps": "My Enrollments",
+    "certificateDownload": "Certificate Download",
+    "marginWallet": "Margin Wallet",
+    "withdrawRecords": "Withdrawal Records",
     "cloudRuns": "Cloud Agent Runs",
     "mediaTasks": "Media Tasks",
     "voices": "Voice Assets",
