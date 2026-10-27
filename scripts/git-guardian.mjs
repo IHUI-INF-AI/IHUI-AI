@@ -4159,7 +4159,7 @@ export function sweepCrossEndShellPages(opts = {}) {
  *  A healI18nBundleLeg —— 守门 105 的 G5(小程序离线语言包自述钉)是 blocking 且每次提交都跑,
  *     而这一维此前**只有人肉 `pnpm gen:i18n`** 一条出路:输入或生成器一改并经旁路落地(不跑钩子),
  *     HEAD 上的产物钉就落后,下一枚毫不相干的提交被拦 —— 只判不修的 blocking 门就是恒红门。
- *     器物:`scripts/heal-i18n-bundle.mjs --apply`(它自带在飞副本闸与量级闸,拒落属常态 ⇒ 只写日志)。
+ *     器物:`scripts/heal-derived-in-checkout.mjs --family i18n`(按 HEAD 建检出重生成,复量后才落 blob)。
  *  B auditPushDivergenceLeg —— 本地与 origin/main 真分叉时,全仓**零报警腿**:推送状态件只在 push-guard
  *     那一侧写,而"没人推得动"这件事没有任何一层量过(2026-10-26 实测:本地 ahead 121 / 远端 ahead 331
  *     持续移动,账面一声不响)。尺子:`scripts/lib/push-divergence-watch.mjs`,三态 ok/breach/unjudged。
@@ -4168,9 +4168,11 @@ export function sweepCrossEndShellPages(opts = {}) {
  *     "收编滞后工作树副本"那条既有链路(旁路落地不写工作树 ⇒ 别人的旧副本被收编回来)。
  *     门自己现在有 `--fix` 了(在飞副本闸 + 量级闸),本格只是给它一个调度器。
  */
-const I18N_HEAL_INTERVAL_MS = Number(process.env.IHUI_I18N_HEAL_INTERVAL_MS || 30 * 60 * 1000)
+const DERIVED_HEAL_INTERVAL_MS = Number(process.env.IHUI_DERIVED_HEAL_INTERVAL_MS || 30 * 60 * 1000)
+const I18N_HEAL_INTERVAL_MS = Number(process.env.IHUI_I18N_HEAL_INTERVAL_MS || DERIVED_HEAL_INTERVAL_MS)
 const PUSH_WATCH_INTERVAL_MS = Number(process.env.IHUI_PUSH_WATCH_INTERVAL_MS || 15 * 60 * 1000)
 const MIRROR_FIX_INTERVAL_MS = Number(process.env.IHUI_MIRROR_FIX_INTERVAL_MS || 30 * 60 * 1000)
+const UI_ROUTES_HEAL_INTERVAL_MS = Number(process.env.IHUI_UI_ROUTES_HEAL_INTERVAL_MS || DERIVED_HEAL_INTERVAL_MS)
 
 /** 节流台账:到点就写 attemptAt 并放行;取不到/写不进都不拦派发(宁可多跑一轮,不可静默停摆)。 */
 function legThrottle(tickFile, intervalMs, now, logger) {
@@ -4212,40 +4214,76 @@ function runLegChild(scriptFile, args, timeoutMs, cwd = WORKTREE) {
 }
 
 export function healI18nBundleLeg(opts = {}) {
+  return runDerivedHealLeg('i18n', {
+    ...opts,
+    tickFile: opts.tickFile ?? join(dirname(LOG), 'i18n-bundle-heal-last.json'),
+    intervalMs: opts.intervalMs ?? I18N_HEAL_INTERVAL_MS,
+  })
+}
+
+/**
+ * 四端 ui-routes 族走**同一件器物**(见 runDerivedHealLeg 头注)。
+ * 2026-10-27 实测:写回档在盘上跑生成器时,web 与小程序两份因"该端输入的工作树副本 ≠ 面副本"被拒落
+ * —— 拒落是对的(不许把别人的现场或滞后副本烘进派生件),但拒完没人管 ⇒ G5 把红留给下一枚不相干提交。
+ */
+export function healUiRoutesLeg(opts = {}) {
+  return runDerivedHealLeg('ui-routes', {
+    ...opts,
+    tickFile: opts.tickFile ?? join(dirname(LOG), 'ui-routes-heal-last.json'),
+    intervalMs: opts.intervalMs ?? UI_ROUTES_HEAL_INTERVAL_MS,
+  })
+}
+
+/**
+ * 派生产物自走重生成的共用派发体(两族各一条腿,底下只有一件器物、一条落 HEAD 的接缝)。
+ * 器物 = scripts/heal-derived-in-checkout.mjs:按当前 HEAD 建 detached 检出 → 在检出里重跑各端生成器
+ * → 逐份复量"新钉 == 面上现算输入哈希" → 只把复量过的 blob 落 HEAD(主工作树一字节不动)。
+ * clean = 绝大多数轮次的常态 ⇒ 一声不出(每 30 分钟一行"没问题"只会把守护日志淹成噪声)。
+ */
+function runDerivedHealLeg(family, opts = {}) {
   const {
     now = Date.now(),
-    intervalMs = I18N_HEAL_INTERVAL_MS,
-    tickFile = join(dirname(LOG), 'i18n-bundle-heal-last.json'),
+    intervalMs = DERIVED_HEAL_INTERVAL_MS,
+    tickFile = join(dirname(LOG), `derived-heal-${family}-last.json`),
     logger = log,
     runner = null,
   } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'heal-i18n-bundle.mjs')
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'heal-derived-in-checkout.mjs')
   if (!existsSync(script)) {
-    logger('ℹ️ 离线包自走重生成:器物不在位(scripts/heal-i18n-bundle.mjs)⇒ 本轮跳过,不记为已探测')
+    logger(
+      `ℹ️ 派生产物自走重生成(${family}):器物不在位(scripts/heal-derived-in-checkout.mjs)⇒ 本轮跳过,不记为已探测`,
+    )
     return { ran: false, why: '器物不在位' }
   }
   if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
   const r =
-    typeof runner === 'function'
-      ? runner()
-      : runLegChild(script, ['--apply', '--json'], 20 * 60 * 1000)
+    typeof runner === 'function' ? runner() : runLegChild(script, ['--family', family, '--json'], 30 * 60 * 1000)
   let summary = null
   try {
     summary = JSON.parse(String(r.stdout ?? '').trim().split('\n').pop())
   } catch {
-    /* 取不到结论 = 未判定,下面明写 */
+    /* 取不到结论 = 未判定,下面明写,绝不记绿 */
   }
   if (!summary || typeof summary.state !== 'string') {
-    logger(`⚠️ 离线包自走重生成:结论取不到(status=${r.status})⇒ 未判定,不记绿:${String(r.stderr ?? '').slice(0, 160)}`)
-    return { ran: true, state: 'undetermined', status: r.status }
+    logger(
+      `⚠️ 派生产物自走重生成(${family}):结论取不到(status=${r.status})⇒ 未判定,不记绿:${String(r.stderr ?? '').slice(0, 160)}`,
+    )
+    return { ran: true, state: 'undetermined', family, status: r.status }
   }
-  // clean = 绝大多数轮次的常态(钉本来就是对的)⇒ 不写日志,否则 30 分钟一行会把守护日志淹成噪声
-  if (summary.state === 'clean') return { ran: true, state: 'clean' }
+  if (summary.state === 'clean') return { ran: true, state: 'clean', family }
+  const mark = summary.state === 'landed' ? '✅' : summary.state === 'written' ? 'ℹ️' : '⚠️'
   logger(
-    `${summary.state === 'landed' || summary.state === 'written' ? '✅' : '⚠️'} 离线包自走重生成 state=${summary.state} ` +
-      `changed=${summary.changed ?? 0} paths=${(summary.paths ?? []).length} —— ${String(summary.detail ?? '').slice(0, 300)}`,
+    `${mark} 派生产物自走重生成(${family}) state=${summary.state} files=${(summary.files ?? []).length} —— ` +
+      String(summary.detail ?? '').slice(0, 300),
   )
-  return { ran: true, state: summary.state, summary }
+  for (const j of summary.judged ?? []) {
+    for (const n of Array.isArray(j.notes) ? j.notes : []) {
+      if (n.state === 'refused' || n.state === 'undetermined') {
+        logger(`   · ${n.rel} —— ${n.state}:${String(n.why ?? '').slice(0, 160)}`)
+      }
+    }
+  }
+  return { ran: true, state: summary.state, family, summary }
 }
 
 export function auditPushDivergenceLeg(opts = {}) {
@@ -5644,6 +5682,7 @@ function main() {
     if (!CHECK_ONLY) healI18nBundleLeg()
     if (!CHECK_ONLY) auditPushDivergenceLeg()
     if (!CHECK_ONLY) healMirrorPurgeLeg()
+    if (!CHECK_ONLY) healUiRoutesLeg()
     if (CHECK_ONLY)
       console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
     return 0
@@ -6495,6 +6534,7 @@ export const __test__ = {
   healCrossEndMirror,
   sweepCrossEndShellPages,
   healI18nBundleLeg,
+  healUiRoutesLeg,
   auditPushDivergenceLeg,
   healMirrorPurgeLeg,
   auditIndexUnmerged,

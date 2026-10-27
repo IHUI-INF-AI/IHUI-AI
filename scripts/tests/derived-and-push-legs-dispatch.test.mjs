@@ -56,17 +56,16 @@ test('L1 landed ⇒ 写一行 ✅ 并把器物自述的 changed/paths 带上(不
         status: 0,
         stdout: JSON.stringify({
           state: 'landed',
-          changed: 955000,
-          paths: ['a', 'b', 'c'],
-          detail: '已落 HEAD',
+          files: ['a.gen.ts', 'b.gen.ts', 'c.b64.txt'],
+          detail: '已落 3 份(检出档)',
         }),
         stderr: '',
       }),
     })
     assert.equal(r.state, 'landed')
     assert.equal(lines.length, 1, `landed 必须留一行,实得 ${lines.length} 行`)
-    assert.match(lines[0], /离线包自走重生成 state=landed/)
-    assert.match(lines[0], /changed=955000/)
+    assert.match(lines[0], /派生产物自走重生成\(i18n\) state=landed/)
+    assert.match(lines[0], /files=3/)
   } finally {
     rmScratch(t.dir)
   }
@@ -331,7 +330,12 @@ test('L9 门 238 --fix 的结论行按生产方形态解析:clean+0 静默,有�
 /* ───────────────────────── 装车锁(摘掉即翻红) ───────────────────────── */
 
 test('L10 装车锁:三条腿都真挂在 !CHECK_ONLY 派发链上,且都在 __test__ 出口里(§0.9)', () => {
-  for (const fn of ['healI18nBundleLeg', 'auditPushDivergenceLeg', 'healMirrorPurgeLeg']) {
+  for (const fn of [
+    'healI18nBundleLeg',
+    'healUiRoutesLeg',
+    'auditPushDivergenceLeg',
+    'healMirrorPurgeLeg',
+  ]) {
     assert.match(SRC, new RegExp(`if \\(!CHECK_ONLY\\) ${fn}\\(\\)`), `${fn} 必须在巡检轮里被调用`)
     assert.equal(typeof G[fn], 'function', `${fn} 必须进 __test__ 出口(镜像测试反查用)`)
     // 反向对照:调用点必须在派发链那一段(而不是只活在定义里)
@@ -341,14 +345,30 @@ test('L10 装车锁:三条腿都真挂在 !CHECK_ONLY 派发链上,且都在 __t
   }
 })
 
+test('L13 两族派生腿底下必须是**同一件器物**(落 HEAD 的接缝只许一处,防止两条 commit-tree 通路各漂一边)', () => {
+  assert.match(SRC, /function runDerivedHealLeg\(/, '共用派发体必须在位')
+  assert.match(SRC, /runDerivedHealLeg\('i18n'/, 'i18n 腿走共用体')
+  assert.match(SRC, /runDerivedHealLeg\('ui-routes'/, 'ui-routes 腿走同一件器物')
+  assert.doesNotMatch(SRC, /'heal-i18n-bundle\.mjs'/, '离线包腿不得再自带第二件落地器物')
+  assert.doesNotMatch(
+    SRC,
+    /--heal-ui-routes'\s*,\s*'--apply'/,
+    '四端腿不得绕过检出档直接调门 105 的写回档落地',
+  )
+})
+
 test('L12 selectFace 的返回是 {face,error} 形态:器物必须取 .face 并处理 error(实测踩过"未知判定面 [object Object]")', () => {
-  const s = readFileSync(resolve(import.meta.dirname, '..', 'heal-i18n-bundle.mjs'), 'utf8')
+  const s = readFileSync(resolve(import.meta.dirname, '..', 'heal-derived-in-checkout.mjs'), 'utf8')
   assert.match(
     s,
     /const sel = selectFace\(/,
     '必须接住整个返回体,不能把 selectFace 的返回直接当面名用',
   )
-  assert.match(s, /const face = sel\.face/, '面名必须从 sel.face 取')
+  assert.match(
+    s,
+    /face: sel\.face|const face = sel\.face/,
+    '面名必须从 sel.face 取(不是把返回体当面名)',
+  )
   assert.match(s, /if \(sel\.error\)/, '两旗同给必须显式退 2,不许带病往下跑')
 })
 
