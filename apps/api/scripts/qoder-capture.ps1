@@ -175,6 +175,8 @@ foreach ($dir in $dirs) {
     [void]$sessions.Add([ordered]@{
         appDir                = $dir.FullName
         edition               = $edition
+        # 会话原文(含凭证):供「登录本机」重封 auth.v1.dat 用;提取器会剔凭证后存成 sessionTemplate
+        rawSession            = $session
         uid                   = $uid
         accessToken           = $token
         refreshToken          = "$($session.refreshToken)".Trim()
@@ -193,7 +195,7 @@ foreach ($dir in $dirs) {
 }
 
 if ($sessions.Count -eq 0) { Write-Error '未解出任何 Qoder 会话(登录态缺失或全部解密失败)'; exit 1 }
-$json = @{ sessions = @($sessions) } | ConvertTo-Json -Depth 6
+$json = @{ sessions = @($sessions) } | ConvertTo-Json -Depth 20
 if ($OutFile) {
     $json | Out-File -FilePath $OutFile -Encoding utf8NoBOM
     Write-Output "SAVED=$OutFile"

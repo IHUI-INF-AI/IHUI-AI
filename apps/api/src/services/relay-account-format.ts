@@ -330,6 +330,8 @@ export const IMPORT_CANONICAL_KEYS = [
   'machineId',
   'deviceKeyPem',
   'devicePubPem',
+  /** Trae 会话模板(账号资料全量,凭证已剔除;加密进 secretsEnc 供「登录本机」重封信封) */
+  'sessionTemplate',
   'enabled',
   'cookies',
   'proxyUrl',
@@ -346,6 +348,24 @@ const FOREIGN_EXPIRES_ALIASES = ['expires_at', 'expired_time', 'expiry']
 const FOREIGN_REFRESH_EXPIRES_ALIASES = ['refresh_expires_at', 'refresh_token_expires_at']
 const FOREIGN_DEVICE_ID_ALIASES = ['device_id']
 const FOREIGN_MACHINE_ID_ALIASES = ['machine_id']
+/**
+ * 平台扩展机密键(2026-10-27 立):CodeArts 的 STS AK/SK、DPoP 私钥、PKCE code_verifier、
+ * 整包 loginContext,以及 ZCode 提取器附带的原始 enc:v1: 密文图 —— 这些只许进 secretsEnc,
+ * 绝不透传进 extraMetadata(jsonb 未加密)。键名对齐 mapCodeartsImport 的取值键。
+ */
+const FOREIGN_PLATFORM_SECRET_KEYS = [
+  'securitytoken',
+  'security_token',
+  'cloud_dragon_token',
+  'accessKey',
+  'access_key_id',
+  'secretKey',
+  'secret_access_key',
+  'dpop_private_key',
+  'code_verifier',
+  'loginContext',
+  'rawCredentials',
+]
 /** 标记键:归一化发生过;同时列入不透传集,免得混进 extraMetadata */
 const FOREIGN_MARKER = 'foreignShape'
 const FOREIGN_META_NOISE = new Set([
@@ -359,6 +379,7 @@ const FOREIGN_META_NOISE = new Set([
   ...FOREIGN_REFRESH_EXPIRES_ALIASES,
   ...FOREIGN_DEVICE_ID_ALIASES,
   ...FOREIGN_MACHINE_ID_ALIASES,
+  ...FOREIGN_PLATFORM_SECRET_KEYS,
 ])
 
 /** ISO 串(非法时刻 → null),供归一化结果继续走既有 parseFlexibleExpiry 通道 */

@@ -100,6 +100,19 @@ export function pickImportableSessions(sessions) {
 }
 
 /**
+ * 会话模板(2026-10-27 立):auth.v1.dat 解出的整份会话去掉凭证/到期字段。
+ * 「登录本机」用它 + 池内最新凭证重封 auth.v1.dat;凭证字段只在这里剔除一次。
+ */
+export function buildSessionTemplate(rawSession) {
+  if (!rawSession || typeof rawSession !== 'object' || Array.isArray(rawSession)) return null
+  const template = JSON.parse(JSON.stringify(rawSession))
+  for (const k of ['token', 'accessToken', 'refreshToken', 'expiresAt', 'refreshTokenExpiresAt']) {
+    delete template[k]
+  }
+  return template
+}
+
+/**
  * 提取本机 Qoder 会话 → 编排器 payload。pwsh 缺失/捕获失败/输出畸形一律 throw 带 code,
  * 编排器据此 exit 2;绝不静默返回空。
  * @param {{ps1Path?: string, pwshBin?: string}} [opts] ps1Path/pwshBin 仅供测试注入
@@ -154,7 +167,14 @@ export async function extractQoderAccounts(opts = {}) {
   }
   return {
     providerCode: 'qoder',
-    accounts: valid,
+    accounts: valid.map((s) => {
+      const template = buildSessionTemplate(s.rawSession)
+      const rest = { ...s }
+      delete rest.rawSession
+      // rawSession 含凭证,绝不进 accounts(防 extraMetadata 明文落库);
+      // sessionTemplate 已剔凭证,是 canonical 键,导入映射会加密进 secretsEnc
+      return template ? { ...rest, sessionTemplate: template } : rest
+    }),
     meta: { count: valid.length, skipped, sessions: valid.map(summarizeSession) },
   }
 }
@@ -163,6 +183,7 @@ export const __test__ = {
   summarizeSession,
   parseCaptureOutput,
   pickImportableSessions,
+  buildSessionTemplate,
   fingerprintOf,
   CAPTURE_PS1_DEFAULT,
 }
