@@ -208,6 +208,21 @@ export function shellFetchesData(shellText) {
   return /@ihui\/api-client/.test(s) && /fetchApi|request\s*\(/.test(s)
 }
 
+/** 触底加载:壳用 FlatList 的 onEndReached/onLoadMore,与小程序的 useReachBottom 是同一件事。 */
+export function reachBottomCovered(shellText) {
+  return /onEndReached|onLoadMore/.test(String(shellText ?? ''))
+}
+
+/** 确认弹窗:壳用 RN 的 Alert.alert(现读 10 个屏),与小程序的 Taro.showModal 是同一件事。 */
+export function modalCovered(shellText) {
+  return /\bAlert\.(alert|prompt)\b|showConfirm|ConfirmDialog/.test(String(shellText ?? ''))
+}
+
+/** 剪贴板:壳用 Clipboard.setString(现读 13 个屏),与小程序的 Taro.setClipboardData 是同一件事。 */
+export function clipboardCovered(shellText) {
+  return /Clipboard\.setString|Clipboard\.setClipboardData|copyToClipboard/.test(String(shellText ?? ''))
+}
+
 /** 一页文本里"能力-bearing"的三族标识(方法名 / 钩子 / 端内模块),用于相对取差。 */
 export function capabilityTokens(text) {
   const t = String(text ?? '')
@@ -282,6 +297,9 @@ export function judgeConversion({
       pageTokens.delete(tok)
   if (lifecycleOnlyDataRefresh(pageText) && shellFetchesData(shellText))
     for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
+  if (reachBottomCovered(shellText)) pageTokens.delete('useReachBottom')
+  if (modalCovered(shellText)) pageTokens.delete('Taro.showModal')
+  if (clipboardCovered(shellText)) pageTokens.delete('Taro.setClipboardData')
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -508,6 +526,13 @@ function main(argv) {
     P('S9 下拉刷新由壳承担:壳有 onRefresh/RefreshControl ⇒ 页面的下拉钩子不算私有能力', [pullDownCovered('onRefresh={() => {}}'), pullDownCovered('const refreshing = false'), pullDownCovered('function S(){ return null }')], [true, true, false])
     P('S9b 生命周期只做一次数据刷新 ⇒ 可与壳的 useEffect 对齐;体里还有别的语句 ⇒ 不算', [lifecycleOnlyDataRefresh('useDidShow(() => { void load() })'), lifecycleOnlyDataRefresh('useDidShow(() => { track(); load() })')], [true, false])
     P('S9c 壳自己取数(api-client + fetchApi)才算"刷新由壳承担"', [shellFetchesData("import { fetchApi } from '@ihui/api-client'\nfetchApi('/x')"), shellFetchesData("import X from 'y'")], [true, false])
+    P('S10 触底/确认弹窗/剪贴板:壳有平台等价物才销账', [
+      reachBottomCovered('<FlatList onEndReached={loadMore} />'),
+      modalCovered('Alert.alert(t("x"), "", [...])'),
+      clipboardCovered('Clipboard.setString(v)'),
+      reachBottomCovered('return null'),
+      clipboardCovered('return null'),
+    ], [true, true, true, false, false])
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
@@ -577,6 +602,9 @@ export const __test__ = {
   pullDownCovered,
   lifecycleOnlyDataRefresh,
   shellFetchesData,
+  reachBottomCovered,
+  modalCovered,
+  clipboardCovered,
   ROOT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
