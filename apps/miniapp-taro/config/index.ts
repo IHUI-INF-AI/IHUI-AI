@@ -469,6 +469,37 @@ export default defineConfig(async (merge) => {
                 ],
                 'apps/mobile-rn/src/',
               ])
+              // 2026-10-27 分包总量治理(实测:同一枚 707,273 B 块在 9 个分包各存一份,合计 6.4 MB):
+              // packages/app 根桶(1144 行 export)未声明副作用豁免 ⇒ webpack 必须保守保留每个
+              // 被 re-export 模块的求值,于是「没有任何镜像页使用」的 ImportAnalysisSheet 连同它的
+              // `await import('@ihui/shared/import-analysis/scenarios')` 被打进每个含镜像页的分包。
+              // 只在小程序构建面声明(不动 package.json,web/RN 两面零影响):两包内零 CSS 导入,
+              // 全仓顶层副作用调用仅 1 处(packages/shared/src/sse/families.ts 的自检断言,被引用时才求值)。
+              const sideEffectFreeRoots = (() => {
+                const literalRoot = path.resolve(__dirname, '..', '..', '..', 'packages')
+                let realRoot = literalRoot
+                try {
+                  realRoot = path.dirname(
+                    require('fs').realpathSync(
+                      path.resolve(__dirname, '..', 'node_modules', '@ihui', 'shared'),
+                    ),
+                  )
+                } catch {
+                  // 无 junction 的常规布局:realpath 即字面同值,Set 去重后逐字等价
+                }
+                return [
+                  ...new Set(
+                    ['app', 'shared'].flatMap((p) => [
+                      path.join(literalRoot, p, 'src'),
+                      path.join(realRoot, p, 'src'),
+                    ]),
+                  ),
+                ]
+              })()
+              const sideEffectFreeRule = chain.module.rule('ihui-side-effect-free')
+              sideEffectFreeRule.test(/\.[cm]?[jt]sx?$/)
+              sideEffectFreeRule.include.merge(sideEffectFreeRoots)
+              sideEffectFreeRule.set('sideEffects', false)
               // weapp 端注入 weapp-tailwindcss webpack 版插件(2026-09-10 自 vite
               // 版迁移):处理 Tailwind 任意值语法 [xxx] 的 WXSS 选择器转义 +
               // wxml class 匹配 + rem2rpx。v5.2.9 webpack 入口导出同名类,
