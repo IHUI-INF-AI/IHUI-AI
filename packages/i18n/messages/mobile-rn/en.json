@@ -771,6 +771,7 @@
         "retry": "Retry",
         "saveAudioOnly": "Save audio only",
         "insertToInput": "Insert into message",
+        "cancel": "Cancel recording",
         "dismiss": "Close"
       },
       "searchPlaceholder": "Search notes",

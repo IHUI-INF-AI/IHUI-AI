@@ -272,6 +272,8 @@ interface TrafficSnapshot {
   online5m: number | null
   /** 近 5 分钟浏览量 */
   pv5m: number | null
+  /** 近 24h 各页面平均停留时长(秒),按 url 与页面排行对齐;null = 同一条腿取不到 */
+  pageDwell: Array<{ url: string; avgDwellSec: number | null; samples: number }> | null
 }
 
 /**
@@ -2820,6 +2822,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {t('pageUsageTop')}
               </div>
               <div className="space-y-1">
+                {/* 平均停留按 url 对齐页面排行:page_time(label=上一页路径)经同一把归一尺 ⇒ 键一致 */}
                 {(traffic?.pageTop ?? []).slice(0, 8).map((p) => {
                   // 占比条:这个页面占近 24h visit_logs 总 PV 的比例。
                   // 分母取不到就不画条(绝不折 0 —— 那是把"没判"画成"零")。
@@ -2828,6 +2831,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       ? Math.max(0, Math.min(100, (p.pv / traffic.pageTotalPv) * 100))
                       : null
                   const prefix = splitPlatformPrefix(p.url)
+                  // 平均停留时长:与页面排行按 url 对齐;取不到(该页没有合法 page_time)就不显示,不画"—"。
+                  const dwellSec =
+                    traffic?.pageDwell?.find((d) => d.url === p.url)?.avgDwellSec ?? null
                   return (
                     <div
                       key={p.url}
@@ -2854,6 +2860,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       <span className="wb-num relative ml-auto shrink-0 text-[10px] text-info-text">
                         {fmtCompact(p.pv)}
                         <span className="text-muted-foreground"> / {fmtCompact(p.uv)}</span>
+                        {dwellSec !== null && dwellSec !== undefined ? (
+                          <span className="text-muted-foreground">
+                            {' · '}
+                            {t('avgDwellSec', { s: Math.round(dwellSec) })}
+                          </span>
+                        ) : null}
                       </span>
                     </div>
                   )
