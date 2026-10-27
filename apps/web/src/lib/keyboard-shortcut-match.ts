@@ -46,16 +46,16 @@ function readNavigatorPlatformInfo(): ShortcutPlatformInfo {
 export function isAppleKeyboardPlatform(
   platformInfo: ShortcutPlatformInfo = readNavigatorPlatformInfo(),
 ): boolean {
-  const platform = platformInfo.platform?.toLowerCase() ?? ''
+  const platform = platformInfo.platform?.toLowerCase() ?? '';
   if (
     platform.includes('mac') ||
     platform.includes('iphone') ||
     platform.includes('ipad') ||
     platform.includes('ipod')
   ) {
-    return true
+    return true;
   }
-  return /Mac|iPhone|iPad|iPod/.test(platformInfo.userAgent ?? '')
+  return /Mac|iPhone|iPad|iPod/.test(platformInfo.userAgent ?? '');
 }
 
 /** 主修饰键判定:mac meta-only / 其余 ctrl-only,两修饰键同按一律不触发。 */
@@ -63,8 +63,8 @@ function matchesPrimaryModifier(
   event: ShortcutKeyEventLike,
   platformInfo?: ShortcutPlatformInfo,
 ): boolean {
-  const isApple = isAppleKeyboardPlatform(platformInfo)
-  return isApple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey
+  const isApple = isAppleKeyboardPlatform(platformInfo);
+  return isApple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 }
 
 /**
@@ -76,28 +76,28 @@ export function matchesShortcutKeyCode(
   key: string,
 ): boolean {
   if ((event.key ?? '').toLowerCase() === key.toLowerCase()) {
-    return true
+    return true;
   }
-  const expectedCode = getExpectedShortcutCode(key.toLowerCase())
-  return expectedCode !== null && expectedCode !== undefined && event.code === expectedCode
+  const expectedCode = getExpectedShortcutCode(key.toLowerCase());
+  return expectedCode !== null && expectedCode !== undefined && event.code === expectedCode;
 }
 
 function getExpectedShortcutCode(key: string): string | null {
   if (key.length === 1) {
     if (key >= 'a' && key <= 'z') {
-      return `Key${key.toUpperCase()}`
+      return `Key${key.toUpperCase()}`;
     }
     if (key >= '0' && key <= '9') {
-      return `Digit${key}`
+      return `Digit${key}`;
     }
   }
   switch (key) {
     case '[':
-      return 'BracketLeft'
+      return 'BracketLeft';
     case ']':
-      return 'BracketRight'
+      return 'BracketRight';
     default:
-      return null
+      return null;
   }
 }
 
@@ -115,7 +115,7 @@ export function matchesPrimaryShortcut(
     !event.shiftKey &&
     !event.altKey &&
     matchesShortcutKeyCode(event, key)
-  )
+  );
 }
 
 /** Ctrl 风格次级快捷键:Ctrl 独占(meta 不同按,Shift/Alt 不参与)。 */
@@ -126,14 +126,14 @@ export function matchesCtrlShortcut(event: ShortcutKeyEventLike, key: string): b
     !event.shiftKey &&
     !event.altKey &&
     matchesShortcutKeyCode(event, key)
-  )
+  );
 }
 
 function formatShortcutKeyLabel(key: string): string {
   if (key === '[' || key === ']') {
-    return key
+    return key;
   }
-  return key.toUpperCase()
+  return key.toUpperCase();
 }
 
 /** 统一快捷键 label:Apple 形如 "⌘ B",Windows/Linux 形如 "Ctrl+B"。 */
@@ -142,8 +142,8 @@ export function formatCommandShortcutLabel(
   platformInfo?: ShortcutPlatformInfo,
 ): string {
   if (isAppleKeyboardPlatform(platformInfo)) {
-    return `⌘ ${formatShortcutKeyLabel(key)}`
+    return `⌘ ${formatShortcutKeyLabel(key)}`;
   }
-  return `Ctrl+${formatShortcutKeyLabel(key)}`
+  return `Ctrl+${formatShortcutKeyLabel(key)}`;
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

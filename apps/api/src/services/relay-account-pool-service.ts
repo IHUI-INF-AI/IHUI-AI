@@ -61,6 +61,8 @@ export interface ImportAccountInput {
   /** 设备证明材料(Trae 桌面渠道续票必需;密钥对进 secretsEnc,两个都给才生效) */
   deviceKeyPem?: string
   devicePubPem?: string
+  /** Trae 会话模板(账号资料全量,凭证已剔除;进 secretsEnc,「登录本机」重封信封用) */
+  sessionTemplate?: Record<string, unknown>
   enabled?: boolean
   cookies?: unknown[]
   /** 账号级出口代理(可选) */
