@@ -15,7 +15,7 @@
  * 取值裁决(两端分叉时的定档依据,AGENTS.md §4 / O81 交付标准):
  *  1. web 端同一元素有既有值 → 取 web;
  *  2. 否则取触控与可读更稳的一档(字号 ≥12、间距取两端较大者);
- *  3. 平台机制不同的数值对齐、通道各端保留 —— 见文件末 MECHANISM_WAIVERS。
+ *  3. 平台机制不同的数值对齐、通道各端保留 —— 见文件末「单腿档清单」。
  */
 import { GEOMETRY_PX } from '@ihui/design-tokens'
 
@@ -23,18 +23,22 @@ import { GEOMETRY_PX } from '@ihui/design-tokens'
 export type GeometryUnit<U extends string | number> = (px: number) => U
 
 /**
- * 标题行高 44:RN 端现档(44 = iOS 标准导航栏高,亦是触控可读的稳档)。
- * 小程序端行高由微信胶囊实测推导(menuButton.height + 8),属平台机制,见 waives 第 1 条。
+ * 标题行高 44:RN 腿档(44 = iOS 标准导航栏高,亦是触控可读的稳档)。
+ * 小程序端行高由微信胶囊实测推导(menuButton.height + 8)且经 px() 落设备 CSS px,与这里的逻辑 px 不是
+ * 同一把尺,属平台机制,见文件末「单腿档清单」第 1 条。
  */
 export const NAVBAR_ROW_HEIGHT_PX = 44
 
-/** 带副标题时的行高 56:RN 端现档;副标题是双行文本,单行档装不下。 */
+/** 带副标题时的行高 56:RN 腿档;副标题是双行文本,单行档装不下(小程序腿没有副标题那一行,见文件末单腿档清单)。 */
 export const NAVBAR_ROW_HEIGHT_SUBTITLE_PX = 56
 
 /** 左右内边距 10:两端现值已同(小程序 ai-home `20rpx` = 10px,RN `paddingHorizontal: 10`),收进一处防分叉。 */
 export const NAVBAR_SIDE_PADDING_PX = 10
 
-/** 侧占位宽 32:RN 端无内容侧的标题居中补偿;取两端较大者(小程序右钮 h-8 = 32)。 */
+/**
+ * 侧占位宽 32:**RN 腿档**(空侧补一块把标题夹在中间)。取值出处 = 两端较大者(小程序右钮 h-8 = 32),
+ * 但消费面只有 RN:小程序腿的居中走 absolute 悬浮钮 + justify-center,结构上没有占位元素。
+ */
 export const NAVBAR_SIDE_PLACEHOLDER_PX = 32
 
 /** 返回箭头墨迹 20:引用 GEOMETRY_PX.glyphMd;RN 端此前自写 24,小程序 BackChevron 已是 20。 */
@@ -63,10 +67,15 @@ export const NAVBAR_ACTION_LABEL_FONT_PX = 14
  */
 export const NAVBAR_TITLE_FONT_PX = 16
 
-/** 副标题字号 12:两端现值已同(RN 12 / 共享层 12)。 */
+/**
+ * 副标题字号 12:**RN 腿档**。原先注的"两端现值已同(RN 12 / 共享层 12)"是假话——那个"共享层"是
+ * `packages/app/src/components/NavBar.tsx` 的 DOM 副本(div/span 形态,不在 RN 屏上渲染、也不是守门 128
+ * 的配对腿)。小程序腿 `NavBarProps` 没有 subtitle 字段(现读只有 title/onBack/rightText),全仓零处传
+ * subtitle;RN 腿有 PatrolScreen 等屏真在传。给小程序腿补这枚档 = 造一个渲染不到的数字。
+ */
 export const NAVBAR_SUBTITLE_FONT_PX = 12
 
-/** 副标题与主标题间距 2:RN 端现档,与小程序端无对立取值。 */
+/** 副标题与主标题间距 2:**RN 腿档**(小程序腿没有"主标题下方再一行"这层结构,无从给间距)。 */
 export const NAVBAR_SUBTITLE_MARGIN_TOP_PX = 2
 
 /**
@@ -79,10 +88,10 @@ export const NAVBAR_SUBTITLE_MARGIN_TOP_PX = 2
  *    双行,不做 tab 切换)。单端独有档若搬进本表并只被一端正消费,对账门读数会归零而另一端什么都没
  *    渲染 —— 那正是"制造绿灯",所以档留在端内 + 记 waiver。
  *  - hitSlop(RN 12 / 8 / 4)与 RN 的"图标 + 文字并排 gap 4":RN 独有命中扩张通道 / RN 独有的
- *    icon+label 并排形态,见文件末 MECHANISM_WAIVERS 第 3 条。
+ *    icon+label 并排形态 —— 小程序腿没有这两个元素,档留在端内,不搬进本表。
  *  - 微信胶囊实测兜底档(小程序 `{ top: 26, height: 32 }` = 13px / 16px)与 notification 区内边距
  *    (`px-[32rpx]`/`py-[16rpx]`/`ml-[16rpx]` = 16px / 8px):平台量 + 端内独有子元素,
- *    见 MECHANISM_WAIVERS 第 1 条。兜底对象的键名必须保持 `top`/`height` —— 它是
+ *    见文件末「单腿档清单」第 1 条。兜底对象的键名必须保持 `top`/`height` —— 它是
  *    `getMenuButtonBoundingClientRect()` 返回形状的替身,改名就不是同一个 API 的兜底了。
  */
 
@@ -90,7 +99,8 @@ export const NAVBAR_SUBTITLE_MARGIN_TOP_PX = 2
  * 2026-09-27 逐条核过的**单腿档清单**(守门 128 对本族报 SL 的正是这五枚,处置动作各不同,
  * 不得用"给另一条腿补一个数字"消账):
  *  - NAVBAR_ROW_HEIGHT_PX(44)/ NAVBAR_ROW_HEIGHT_SUBTITLE_PX(56):小程序端行高是胶囊实测值,
- *    平台量,两腿不可能同名同数 → 属机制差异(MECHANISM_WAIVERS 第 1 条),建议台账 waivers。
+ *    平台量,两腿不可能同名同数 → 属机制差异,已登记
+ *    `scripts/cross-end-ui-parity-baseline.json` 的 `waivers.NavBar`(带 reason 与 until;2026-10-27 现读复量)。
  *  - NAVBAR_SUBTITLE_FONT_PX(12)/ NAVBAR_SUBTITLE_MARGIN_TOP_PX(2):小程序端 NavBar **根本没有
  *    subtitle 这个元素**(props 里没有该字段),头注写的"两端现值已同"里的"共享层"是
  *    `packages/app` 那份 DOM 死副本,不在守门 128 的配对腿上。补齐要么给小程序端加 subtitle
