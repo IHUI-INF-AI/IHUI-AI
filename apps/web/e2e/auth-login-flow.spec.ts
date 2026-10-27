@@ -233,5 +233,56 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
     await expect(page.getByTestId('login-tab-phone')).toBeVisible({ timeout: 8000 })
     await expect(page.getByTestId('third-party-featured-google')).toHaveCount(0)
   })
+
+  test('IP 地区判据压过界面语言:同一套中文界面,只换 loginRegion 就换整套排法', async ({
+    page,
+  }) => {
+    // 本用例锁的是需求本身:国内 IP ⇒ 微信扫码最优先;海外 IP ⇒ 邮箱 + Google/GitHub 最优先。
+    // 界面语言全程不动(默认 zh-CN),唯一变量是服务器答复里的 loginRegion ——
+    // 这样"按 IP 判"与"按语言判"就不会像旧口径那样混成一件事,任一档接错都当场翻红。
+    const routeStatus = async (loginRegion: 'domestic' | 'overseas') => {
+      await page.unroute('**/api/auth/oauth-status')
+      await page.route('**/api/auth/oauth-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 0,
+            message: 'success',
+            // 两个平台都给凭据,主推位才判得出来(没配就不主推,那是另一档判据)
+            data: { google: true, wechat: true, loginRegion },
+          }),
+        })
+      })
+    }
+
+    await routeStatus('domestic')
+    await page.goto('/sso/login')
+    await expect(page.locator('[role="tablist"] [role="tab"]').first()).toHaveAttribute(
+      'data-testid',
+      'login-tab-qr',
+      { timeout: 8000 },
+    )
+    await expect(page.getByTestId('login-tab-qr')).toHaveAttribute('data-state', 'active')
+    await expect(page.getByTestId('third-party-featured-wechat')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByTestId('third-party-featured-google')).toHaveCount(0)
+    // 国内档手机号验证码登录仍在(IP 判国内时不该被剔掉)
+    await expect(page.getByTestId('login-tab-phone')).toBeVisible({ timeout: 8000 })
+
+    await routeStatus('overseas')
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByTestId('login-tab-phone')).toHaveCount(0, { timeout: 8000 })
+    await expect(page.getByTestId('third-party-featured-google')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByTestId('third-party-featured-wechat')).toHaveCount(0)
+    // 海外档首位换成邮箱,且选中项跟着挪过去(判据晚于首帧到达时不留在旧首位)
+    await expect(page.locator('[role="tablist"] [role="tab"]').first()).toHaveAttribute(
+      'data-testid',
+      'login-tab-email',
+    )
+    await expect(page.getByTestId('login-tab-email')).toHaveAttribute('data-state', 'active')
+    // GitHub 紧跟在图标网格首位(Google 已被主推位占用,不重复出现)
+    const thirdPartyButtons = page.locator('[data-testid^="third-party-"]:not([data-testid^="third-party-featured-"])')
+    await expect(thirdPartyButtons.first()).toHaveAttribute('data-testid', 'third-party-github')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
