@@ -2457,6 +2457,11 @@ const checks = [
     label: '🧩 HEAD 悬空具名导入对账(blocking,import 的名字目标必须真导出)',
     script: 'check-dangling-local-imports.mjs',
     args: [],
+    // 落地后复跑档必须以锚点档跑本门(本门支持 --rev/--anchor,判"相对上一枚是否新增"):
+    // 不带锚点 ⇒ HEAD 上 16 条存量被算成本枚新增,每次旁路落地都判红一次 —— 那是逼人设
+    // IHUI_LAND_SKIP_AFFECTED_GATES=1 的恒红臂(§12e),而落地前那一跑本来就是带锚点的,
+    // 两跑口径不一致才是这次的病根。CI/pre-commit 的 --staged 档不受此字段影响。
+    rerunAnchor: true,
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DANGLING_IMPORTS',
     stagedTriggers: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/**/*.ts', 'packages/**/*.tsx', 'scripts/**/*.mjs'],
