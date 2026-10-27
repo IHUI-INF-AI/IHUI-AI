@@ -28698,7 +28698,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 ### 二期 P1 感知与闭环
 
 ### 三期 P2 验证与决策
-- [ ]（进行中@2026-10-26/r5）〔归:自进化〕(2026-10-25) 金丝雀发布:`IHUI-DEPLOYLOOP` 增加灰度分流 + 部署后自动比对错误率/延迟,异常自动回滚〔结清@2026-10-26/goal-20261026-b5:已交付——灰度分流+部署后比对+异常自动回滚现读在位:scripts/canary-verdict.mjs、scripts/data/canary-policy.json、deploy/win/ihui-deploy-loop.ps1 金丝雀分流段;摘牌归守门109〕〔复核@2026-10-27/gb17-chair:三件落点与调用点在位(scripts/canary-verdict.mjs / scripts/data/canary-policy.json / deploy/win/ihui-deploy-loop.ps1:332 定义、:600 真调 Invoke-CanaryGate),但"灰度分流"实测 0 命中、载体 IHUI-DEPLOYLOOP 本机未安装 ⇒ 观察窗运行期未判定;原"已交付"不实,保持未勾〕
+- [ ]（进行中@2026-10-26/r5）〔归:自进化〕(2026-10-25) 金丝雀发布:`IHUI-DEPLOYLOOP` 增加灰度分流 + 部署后自动比对错误率/延迟,异常自动回滚〔结清@2026-10-26/goal-20261026-b5:已交付——灰度分流+部署后比对+异常自动回滚现读在位:scripts/canary-verdict.mjs、scripts/data/canary-policy.json、deploy/win/ihui-deploy-loop.ps1 金丝雀分流段;摘牌归守门109〕〔复核@2026-10-27/gb17-chair:三件落点与调用点在位(scripts/canary-verdict.mjs / scripts/data/canary-policy.json / deploy/win/ihui-deploy-loop.ps1:332 定义、:600 真调 Invoke-CanaryGate),但"灰度分流"实测 0 命中、载体 IHUI-DEPLOYLOOP 本机未安装 ⇒ 观察窗运行期未判定;原"已交付"不实,保持未勾〕〔复核@2026-10-27/canary-chair:代码面三块俱在且单测全绿——①灰度分流:scripts/canary-traffic.mjs(纯函数车道/档位/契约,唯一判据,fail-closed 比例非法⇒0)+ deploy/win/ihui-canary-split.mjs(源站前置反向代理,按契约比例切流,契约缺失/灰度实例不在位一律回落 stable,绝不放量空端口);②部署后比对:scripts/canary-verdict.mjs(采基线/候选、错误率+P95 绝对与相对阈值出 pass/fail/unknown);③异常自动回滚:ihui-deploy-loop.ps1:332 定义 Invoke-CanaryGate、:600 真调,失败⇒ihui-deploy.ps1 -rollbackOnly -CanaryRollback。镜像测试 40 例(run-script-tests --canary,含 canary-traffic.test.mjs / ihui-canary-split.test.mjs / ihui-canary-stage.test.mjs)全绿+三件套 --self-test 13/12/1 全绿,node --check 语法校验通过。环境面:载体 IHUI-DEPLOYLOOP(Windows 计划任务/服务)本机未安装、观察窗从未运行⇒灰度分流 0 命中与 gb17-chair 一致,代码面无法在真实部署下验证;按纪律不碰环境面,保持未勾,注记中性〕
 
 ### 四期 P3 知识自举 + P4 治理
 
