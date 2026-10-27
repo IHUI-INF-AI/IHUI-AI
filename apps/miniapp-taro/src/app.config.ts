@@ -163,6 +163,11 @@ export default defineAppConfig({
         'connected-accounts/index',
         'context/index',
         'course-annex/index',
+        'support/index',
+        'tag-detail/index',
+        'tags/index',
+        'team-workspace/index',
+        'teams/index',
       ],
     },
     {
