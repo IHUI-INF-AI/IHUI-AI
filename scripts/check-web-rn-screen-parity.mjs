@@ -376,6 +376,10 @@ function evaluateNav(nav, ev, routeKeys = []) {
   const gap = new Set(ev.judgedGap.map((r) => r.web))
   const prefixes = ev.prefixRows.map((r) => r.web.slice(0, -3))
   const counts = { aligned: 0, portal: 0, excluded: 0, prefixExcluded: 0, gap: 0, unrecorded: 0 }
+  // byRoute:入口 → 桶名。下游(分诊探针)必须按这张表判"是不是侧栏入口",
+  // 不得自己再判一次字面量归属 —— 那样就会出现"尺子说入口级缺口 11、探针说 13"的两把尺子,
+  // 而差额(动态段归并的那两条)没有任何一档认领。
+  const byRoute = new Map()
   const gapItems = []
   const unrecordedItems = []
   let viaPattern = 0
@@ -383,22 +387,22 @@ function evaluateNav(nav, ev, routeKeys = []) {
     const { key, via } = resolve(e.route)
     if (via) viaPattern++
     const tag = `${e.route}${e.admin ? '[admin]' : ''}${e.advanced ? '[advanced]' : ''}${via ? ` → ${via}` : ''}`
-    if (aligned.has(key)) counts.aligned++
-    else if (gap.has(key)) {
-      counts.gap++
-      gapItems.push(tag)
-    } else if (excluded.has(key)) counts.excluded++
-    else if (ev.portalCarried.has(key) || ev.portalCarried.has(e.route)) counts.portal++
-    else if (prefixes.some((pre) => key === pre.replace(/\/$/, '') || key.startsWith(pre)))
-      counts.prefixExcluded++
-    else {
-      counts.unrecorded++
-      unrecordedItems.push(tag)
-    }
+    let label
+    if (aligned.has(key)) label = 'aligned'
+    else if (gap.has(key)) label = 'gap'
+    else if (excluded.has(key)) label = 'excluded'
+    else if (ev.portalCarried.has(key) || ev.portalCarried.has(e.route)) label = 'portal'
+    else if (prefixes.some((pre) => key === pre.replace(/\/$/, '') || key.startsWith(pre))) label = 'prefixExcluded'
+    else label = 'unrecorded'
+    counts[label]++
+    byRoute.set(e.route, label)
+    if (label === 'gap') gapItems.push(tag)
+    else if (label === 'unrecorded') unrecordedItems.push(tag)
   }
   return {
     undetermined: false,
     counts,
+    byRoute,
     gapItems,
     unrecordedItems,
     viaPattern,

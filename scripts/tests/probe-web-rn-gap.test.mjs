@@ -163,6 +163,37 @@ test('T11 门户表取不到 ⇒ 整维未判定:不洗白在册 gap、不扣 un
   assert.deepEqual(ev.unmapped.map((r) => r.route), ['knowledge-graph'], '取不到表时不得从 unmapped 里扣门户路由')
 })
 
+test('T15 分诊对象必须含"判过缺口":unmapped 恒 0 时探针不得空转,且无页面的缺口要点名', () => {
+  const webRoutes = [
+    { route: 'letters', rel: 'apps/web/app/(main)/letters/page.tsx' },
+    { route: 'voices', rel: 'apps/web/app/(main)/voices/page.tsx' },
+    { route: 'orphan', rel: 'apps/web/app/(main)/orphan/page.tsx' },
+  ]
+  const judgedGap = [{ web: 'letters' }, { web: 'voices' }, { web: 'media-tasks' }]
+  // 入口桶归属由对账尺那张表给(route → bucket),探针不再自己判字面量归属
+  const navByRoute = new Map([
+    ['letters', 'gap'],
+    ['dashboard', 'aligned'],
+  ])
+  const { targets, noPage } = probe.buildTargets(webRoutes, judgedGap, [], navByRoute)
+  assert.deepEqual(targets.map((t) => [t.route, t.scope, t.navBucket]), [
+    ['letters', 'gap', 'gap'],
+    ['voices', 'gap', null],
+  ])
+  assert.deepEqual(noPage, ['media-tasks'], '缺口没有 page.tsx 时必须点名,不能静默丢(§0.3)')
+  // 导航件取不到 ⇒ navBucket=null(未判定),不得折成"不是入口"
+  const und = probe.buildTargets(webRoutes, [{ web: 'letters' }], [], null)
+  assert.equal(und.targets[0].navBucket, null)
+  // 未映射与缺口同一条路由时不重复开列(否则派单会派两遍同一件事)
+  const dup = probe.buildTargets(
+    webRoutes,
+    [{ web: 'letters' }],
+    [{ route: 'letters', rel: 'apps/web/app/(main)/letters/page.tsx' }],
+    navByRoute,
+  )
+  assert.equal(dup.targets.filter((t) => t.route === 'letters').length, 1)
+})
+
 test('T14 入口可达性:侧栏 href 解析 + 六桶归类(阳性对照钉真源,不钉死路由名)', () => {
   const navText = [
     "export const NAV = [",
