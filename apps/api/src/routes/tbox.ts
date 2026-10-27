@@ -181,17 +181,22 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 事件通知接收（X-Signature HMAC-SHA256 签名验证）
   server.post('/events', async (req, reply) => {
     const secret = env.TBOX_WEBHOOK_SECRET
-    if (secret) {
-      const signature = req.headers['x-signature'] as string | undefined
-      if (!signature) return reply.status(401).send(error(401, '缺少签名'))
+    // 2026-10-27 安全加固:原写法 `if (secret) {...}` 是**fail-open** —— 密钥没配就整段
+    // 跳过签名校验,端点对全网敞开(可任意翻转设备在线状态 / 插入上下架指令行)。
+    // 生产 .env 至今未配 TBOX_WEBHOOK_SECRET,而近 30 天 /api/tbox 调用量为 0
+    // ⇒ 无在跑的集成会被这条 fail-closed 打断。与 rewarded-video-ad /notify 同一口径。
+    if (!secret) {
+      return reply.status(503).send(error(503, '服务端未配置 TBOX_WEBHOOK_SECRET,拒绝处理设备回调'))
+    }
+    const signature = req.headers['x-signature'] as string | undefined
+    if (!signature) return reply.status(401).send(error(401, '缺少签名'))
 
-      const rawBody = (req as FastifyRequest & { rawBody?: string }).rawBody
-      if (!rawBody) return reply.status(401).send(error(401, '无法读取请求体'))
+    const rawBody = (req as FastifyRequest & { rawBody?: string }).rawBody
+    if (!rawBody) return reply.status(401).send(error(401, '无法读取请求体'))
 
-      const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
-      if (!secretsEqual(signature, expected)) {
-        return reply.status(401).send(error(401, '签名验证失败'))
-      }
+    const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
+    if (!secretsEqual(signature, expected)) {
+      return reply.status(401).send(error(401, '签名验证失败'))
     }
 
     const body = eventSchema.parse(req.body)
@@ -215,17 +220,22 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 智能体上下架回调（X-Signature HMAC-SHA256 签名验证，与 /events 一致）
   server.post('/agent/channel/deploy', async (req, reply) => {
     const secret = env.TBOX_WEBHOOK_SECRET
-    if (secret) {
-      const signature = req.headers['x-signature'] as string | undefined
-      if (!signature) return reply.status(401).send(error(401, '缺少签名'))
+    // 2026-10-27 安全加固:原写法 `if (secret) {...}` 是**fail-open** —— 密钥没配就整段
+    // 跳过签名校验,端点对全网敞开(可任意翻转设备在线状态 / 插入上下架指令行)。
+    // 生产 .env 至今未配 TBOX_WEBHOOK_SECRET,而近 30 天 /api/tbox 调用量为 0
+    // ⇒ 无在跑的集成会被这条 fail-closed 打断。与 rewarded-video-ad /notify 同一口径。
+    if (!secret) {
+      return reply.status(503).send(error(503, '服务端未配置 TBOX_WEBHOOK_SECRET,拒绝处理设备回调'))
+    }
+    const signature = req.headers['x-signature'] as string | undefined
+    if (!signature) return reply.status(401).send(error(401, '缺少签名'))
 
-      const rawBody = (req as FastifyRequest & { rawBody?: string }).rawBody
-      if (!rawBody) return reply.status(401).send(error(401, '无法读取请求体'))
+    const rawBody = (req as FastifyRequest & { rawBody?: string }).rawBody
+    if (!rawBody) return reply.status(401).send(error(401, '无法读取请求体'))
 
-      const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
-      if (!secretsEqual(signature, expected)) {
-        return reply.status(401).send(error(401, '签名验证失败'))
-      }
+    const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
+    if (!secretsEqual(signature, expected)) {
+      return reply.status(401).send(error(401, '签名验证失败'))
     }
 
     const body = parseOrThrow(deploySchema, req.body)
