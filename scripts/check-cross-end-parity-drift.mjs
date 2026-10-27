@@ -98,6 +98,7 @@ function docNumbers(md) {
  * 比较纯函数:上一轮快照 ↔ 本轮现读。
  * 倒退维只有这些族,逐条给"能整改的下一步"(§5e-1 可整改性准入):
  *   mirrored-decrease —— 镜像声明被撤 ⇒ 查是哪条标记/登记被删(门 128 R3 同判据)
+ *   web-aligned-decrease / web-unmapped-increase —— RN 承载被拆 / 新 web 页无人判过(与上一轮快照比)
  *   registry-rot      —— 登记表条目腐烂/判红 ⇒ 修登记或补标记(门 128 R1)
  *   map-rot           —— web↔RN 登记表腐烂 ⇒ 修 aligned 指向或补 reason(门 check-web-rn-screen-parity)
  *   doc-stale         —— 账本文档数字≠现读 ⇒ 重跑 report-rn-miniapp-gaps --write
@@ -181,6 +182,29 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
       detail: `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${prev.mirrored - cur.mirrored})`,
     })
 
+  // web→RN 那一侧的同一格(此前只有小程序侧有涨跌维):aligned 是"web 有这屏、RN 也有承载"的对数,
+  // 它掉了 = 有人把 RN 承载拆了而账面无声;unmapped 涨了 = 新增 web 页没人判过 RN 侧。
+  if (
+    prev &&
+    Number.isFinite(prev.aligned) &&
+    Number.isFinite(cur.aligned) &&
+    cur.aligned < prev.aligned
+  )
+    reasons.push({
+      dim: 'web-aligned-decrease',
+      detail: `web→RN 已对齐 ${prev.aligned} → ${cur.aligned}(净减 ${prev.aligned - cur.aligned})⇒ 出路:node scripts/check-web-rn-screen-parity.mjs 看是哪条路由的承载体没了,再按 scripts/data/web-rn-screen-map.jsonl 恢复 aligned 指向`,
+    })
+  if (
+    prev &&
+    Number.isFinite(prev.unmapped) &&
+    Number.isFinite(cur.unmapped) &&
+    cur.unmapped > prev.unmapped
+  )
+    reasons.push({
+      dim: 'web-unmapped-increase',
+      detail: `web 路由未判定 ${prev.unmapped} → ${cur.unmapped}(净增 ${cur.unmapped - prev.unmapped})⇒ 新增页面没人判过 RN 侧承载 ⇒ 出路:node scripts/check-web-rn-screen-parity.mjs 按分组清单逐屏登记(aligned / gap / excluded 三态之一,不许留空)`,
+    })
+
   // 还原度两维只在"上一轮真读到过"时比较(没有基线 = 本轮先记快照,不造倒退也不冒绿)
   if (
     prev &&
@@ -226,6 +250,8 @@ function readPrev() {
     const o = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
     return {
       mirrored: o?.cur?.mirrored ?? o?.mirrored ?? null,
+      aligned: o?.cur?.aligned ?? null,
+      unmapped: o?.cur?.unmapped ?? null,
       fidelityHosted: o?.cur?.fidelityHosted ?? null,
       fidelityMissing: o?.cur?.fidelityMissing ?? null,
       at: o?.at ?? null,
@@ -457,6 +483,41 @@ function selfTestMain() {
         prev: null,
       })
       return j.state === 'undetermined' && j.missing.includes('conversion')
+    })(),
+  })
+  cases.push({
+    name: 'T15 RN 承载被拆 ⇒ web-aligned-decrease(小程序侧有涨跌维而 web→RN 侧没有,是半边瞎)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0, 150, 270),
+        doc: '',
+        prev: { mirrored: 91, aligned: 160, unmapped: 270 },
+      })
+      return (
+        j.state === 'regressed' &&
+        j.reasons.some(
+          (r) => r.dim === 'web-aligned-decrease' && /web-rn-screen-map/.test(r.detail),
+        )
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T16 新 web 页无人判过 ⇒ web-unmapped-increase(留空不是"没缺口")',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0, 275, 291),
+        doc: '',
+        prev: { mirrored: 91, aligned: 275, unmapped: 270 },
+      })
+      return j.reasons.some(
+        (r) => r.dim === 'web-unmapped-increase' && /aligned \/ gap \/ excluded/.test(r.detail),
+      )
     })(),
   })
   let bad = 0
