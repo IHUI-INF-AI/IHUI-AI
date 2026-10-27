@@ -474,6 +474,44 @@ export function recentlyRegistered(ledger, fp, now = Date.now()) {
 }
 
 /**
+ * 纯函数:把「已聚类候选」推成「待办动作清单」(不读钟/不写台账/不连登记入口)。
+ *
+ * 判定口径与 runOnce 原内联循环逐字一致,只是把 IO(appendLedger/registerToPlan/console/exit)
+ * 全部挪到执行侧,使「归一 → 聚类 → 产出待办」这一段可独立单测、可重放。
+ *
+ * 入参:
+ *  - findings:    clusterRecords 产出的候选
+ *                 [{source, disposition:'register'|'observe', fp, title, evidence}]
+ *  - ledger:     本器台账行(用于 24h 同指纹去重与当日配额计数)
+ *  - dailyQuota: 每日登记配额(正整数)
+ *  - now:        注入时钟(纯函数必需;默认 Date.now(),生产侧传单一时间点)
+ * 返回 { quotaUsed, actions }:
+ *  - actions[].action ∈ 'register' | 'observed' | 'quota-deferred' | 'skip-dedupe'
+ *  - quotaUsed: 若全部 register 真落库后的当日已登记数(供执行侧对账;dry-run 同口径占额)
+ */
+export function planTriageActions({ findings = [], ledger = [], dailyQuota = 0, now = Date.now() } = {}) {
+  let quotaUsed = registeredToday(ledger, new Date(now))
+  const actions = []
+  for (const f of findings) {
+    if (f.disposition !== 'register') {
+      actions.push({ ...f, action: 'observed' })
+      continue
+    }
+    if (recentlyRegistered(ledger, f.fp, now)) {
+      actions.push({ ...f, action: 'skip-dedupe' })
+      continue
+    }
+    if (quotaUsed >= dailyQuota) {
+      actions.push({ ...f, action: 'quota-deferred' })
+      continue
+    }
+    quotaUsed += 1
+    actions.push({ ...f, action: 'register', quotaUsed })
+  }
+  return { quotaUsed, actions }
+}
+
+/**
  * 登记:构造块文件走 live-doc-edit 子进程(唯一登记入口;它自带取号面/CAS/幂等判据)。
  * 登记行带新鲜日期交代(三选一之一);同题查重由「标题逐字」承担(守门 203),指纹只进台账。
  * 取号**一律**写 `{{NEXT_ID:G}}` 令牌(由 live-doc-edit 在每次 CAS 尝试里按当下 HEAD 现算),
@@ -530,8 +568,7 @@ async function runOnce({ dryRun = false } = {}) {
     return
   }
   const ledger = readTriageLedger()
-  let quotaUsed = registeredToday(ledger)
-  console.log(`分诊轮:今日已登记 ${quotaUsed}/${cfg.dailyRegistrationQuota},台账 ${ledger.length} 行`)
+  console.log(`分诊轮:今日已登记 ${registeredToday(ledger)}/${cfg.dailyRegistrationQuota},台账 ${ledger.length} 行`)
   const findings = []
   // 来源一:邮件投递连败
   if (cfg.sources.includes('mail-failure')) {
@@ -625,8 +662,11 @@ async function runOnce({ dryRun = false } = {}) {
       }
     }
   }
-  for (const f of findings) {
-    if (f.disposition !== 'register') {
+  // 「归一→聚类→产出待办」决策层:纯函数推计划,IO 全部在执行侧(runOnce 不读钟/不判去重/不算配额)。
+  const now = Date.now()
+  const plan = planTriageActions({ findings, ledger, dailyQuota: cfg.dailyRegistrationQuota, now })
+  for (const f of plan.actions) {
+    if (f.action === 'observed') {
       if (dryRun) {
         console.log(`  · dry-run:观察类不登记(${f.source} ${f.evidence})`)
         continue
@@ -634,20 +674,20 @@ async function runOnce({ dryRun = false } = {}) {
       appendLedger({ mode: 'once', action: 'observed', source: f.source, fingerprint: f.fp, why: f.evidence })
       continue
     }
-    if (recentlyRegistered(ledger, f.fp)) {
+    if (f.action === 'skip-dedupe') {
       console.log(`  ⏭ ${f.source} 24h 内已登记同指纹 ⇒ 跳过`)
       continue
     }
-    if (quotaUsed >= cfg.dailyRegistrationQuota) {
+    if (f.action === 'quota-deferred') {
       console.log(`  ⏸ 每日登记配额已满 ⇒ ${f.source} 留台账待明日`)
       if (dryRun) continue
       appendLedger({ mode: 'once', action: 'quota-deferred', source: f.source, fingerprint: f.fp, why: f.evidence })
       continue
     }
+    // f.action === 'register'
     if (dryRun) {
       console.log(`  ✅ dry-run:将登记「${f.title}」`)
       // 与真跑同口径占配额:否则 dry-run 会把第 4 条也报成"将登记",与实跑配额不符
-      quotaUsed++
       continue
     }
     const reg = registerToPlan({ source: f.source, fingerprint: f.fp, title: f.title, evidence: f.evidence })
@@ -657,7 +697,6 @@ async function runOnce({ dryRun = false } = {}) {
       process.exitCode = 2
       continue
     }
-    quotaUsed++
     appendLedger({ mode: 'once', action: 'registered', source: f.source, fingerprint: f.fp, why: f.evidence })
     console.log(`  ✅ 已登记:${f.title}`)
   }
@@ -809,6 +848,7 @@ export const __test__ = {
   readTriageLedger,
   registeredToday,
   recentlyRegistered,
+  planTriageActions,
   registerToPlan,
   sanitizeHexRuns,
   CONFIG_JSON,

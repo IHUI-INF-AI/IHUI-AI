@@ -351,4 +351,107 @@ test('W11 基线缺 F11/F12 键(旧形状)⇒ 缺项不判,不制造一条无人
     rmScratch(dir)
   }
 })
+
+// —— 2026-10-27 推送死锁收口(出路①):按「该行在不在本地 HEAD 面」分流未判定行 ——
+// 死锁结构:挡路行只在 origin 面 ⇒ live-doc-edit 的 REPLACE(before 须在被审面命中)本地永远改不到
+// ⇒ 挂 STATE_GATE_UNDETERMINED 硬拒 = 焊死全仓推送(实测 eef6684017/8f803dad397 两枚被挡一天)。
+
+/** 另一条引文行(句式与 ROW_QUOTED 同族,换编号,供混合臂用) */
+const ROW_QUOTED2 =
+  '- [ ] G-918 引文降档 —— 需要用户拍板的旧说法我列进「等人拍板」那一档,现已代裁收回。\n'
+
+/** 落两枚提交:local 面(无挡路行)与 remote 面(带挡路行);merged 树 = remote 树 ⇒ 第①把尺子恒 [] */
+function landTwoFaces({ localPlan, remotePlan, fields }) {
+  const dir = mkScratch('git-sync-converge-amplify-')
+  const repo = join(dir, 'repo')
+  mkdirSync(join(repo, 'scripts/data'), { recursive: true })
+  gitAt(repo, ['init', '-q', '-b', 'main'])
+  const identity = ['-c', 'user.name=mirror-fixture', '-c', 'user.email=mirror@example.invalid']
+  writeFileSync(join(repo, 'PROJECT_PLAN.md'), localPlan, 'utf8')
+  writeFileSync(join(repo, 'scripts/data/plan-fields.jsonl'), fields ?? '', 'utf8')
+  writeFileSync(
+    join(repo, 'scripts/plan-task-state-baseline.json'),
+    JSON.stringify(BASELINE) + '\n',
+    'utf8',
+  )
+  gitAt(repo, ['add', '-A'])
+  gitAt(repo, [...identity, 'commit', '-qm', 'local'])
+  const localSha = gitAt(repo, ['rev-parse', 'HEAD']).trim()
+  if (remotePlan === localPlan) return { dir, repo, localSha, remoteSha: localSha }
+  writeFileSync(join(repo, 'PROJECT_PLAN.md'), remotePlan, 'utf8')
+  gitAt(repo, ['add', '-A'])
+  gitAt(repo, [...identity, 'commit', '-qm', 'remote'])
+  const remoteSha = gitAt(repo, ['rev-parse', 'HEAD']).trim()
+  return { dir, repo, localSha, remoteSha }
+}
+
+test('W12 纯对侧引文行 ⇒ 点名不拒推(推送死锁解除的那一刀)', () => {
+  const { dir, repo, localSha, remoteSha } = landTwoFaces({
+    localPlan: HEAD + ROW_TRUE,
+    remotePlan: HEAD + ROW_TRUE + ROW_QUOTED,
+  })
+  try {
+    const out = CONV.mergedPlanStateRegressions(remoteSha, localSha, remoteSha, repo)
+    assert.ok(
+      out.every((l) => !l.startsWith(CONV.STATE_GATE_UNDETERMINED)),
+      `挡路行只在 origin 面 ⇒ 不得挂硬拒前缀,实测 ${JSON.stringify(out)}`,
+    )
+    const note = out.find((l) => l.startsWith(CONV.REMOTE_ONLY_BAN_NOTE))
+    assert.ok(note, `必须有普通点名行,实测 ${JSON.stringify(out)}`)
+    assert.ok(note.includes('G-917'), '点名行必须带行内容')
+    assert.ok(note.includes('F11'), '点名行必须带 bucket')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('W13 本地同在的引文行 ⇒ 维持硬拒(阳性对照:死锁只许修一半都不行)', () => {
+  const { dir, repo, localSha, remoteSha } = landTwoFaces({
+    localPlan: HEAD + ROW_TRUE + ROW_QUOTED,
+    remotePlan: HEAD + ROW_TRUE + ROW_QUOTED,
+  })
+  try {
+    const out = CONV.mergedPlanStateRegressions(remoteSha, localSha, remoteSha, repo)
+    assert.ok(
+      out.some((l) => l.startsWith(CONV.STATE_GATE_UNDETERMINED)),
+      `该行在本地 HEAD 面(本地改得到)⇒ 硬拒必须活着,实测 ${JSON.stringify(out)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('W14 混合 ⇒ 只硬拒本地那行,对侧行走点名', () => {
+  const { dir, repo, localSha, remoteSha } = landTwoFaces({
+    localPlan: HEAD + ROW_TRUE + ROW_QUOTED,
+    remotePlan: HEAD + ROW_TRUE + ROW_QUOTED + ROW_QUOTED2,
+  })
+  try {
+    const out = CONV.mergedPlanStateRegressions(remoteSha, localSha, remoteSha, repo)
+    const hard = out.find((l) => l.startsWith(CONV.STATE_GATE_UNDETERMINED))
+    const note = out.find((l) => l.startsWith(CONV.REMOTE_ONLY_BAN_NOTE))
+    assert.ok(hard, `本地行必须硬拒,实测 ${JSON.stringify(out)}`)
+    assert.ok(hard.includes('G-917'), `硬拒行点名 G-917,实测 ${hard}`)
+    assert.ok(note, `对侧行必须有点名行,实测 ${JSON.stringify(out)}`)
+    assert.ok(note.includes('G-918') && !note.includes('G-917'), `点名行只点名对侧行,实测 ${note}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('W15 形状锁:第三参 localText + inLocal 标记 + localText 缺省保守视为在本地', () => {
+  const at = SRC.indexOf('export function mergedLedgerFace')
+  const body = SRC.slice(at, SRC.indexOf('\n}', SRC.indexOf('return { face:', at)))
+  assert.match(body, /localText/, 'mergedLedgerFace 必须收本地 HEAD 面全文')
+  assert.match(body, /inLocal/, 'undetermined 条目必须带 inLocal 分流标记')
+  assert.ok(
+    SRC.includes('const localPlan = blobOrNull(local, REL)'),
+    '调用点必须从本地 HEAD 面取台账全文',
+  )
+  // 第三参缺省(W9 的旧两参调用形态)⇒ 保守当 inLocal=true,不得丢硬拒
+  const plan = HEAD + ROW_QUOTED
+  const { undetermined } = CONV.mergedLedgerFace(plan, loadFields(process.cwd(), ''))
+  assert.equal(undetermined.length, 1, '引文行仍降档报名')
+  assert.equal(undetermined[0].inLocal, true, 'localText 缺省 ⇒ 保守视为在本地(维持硬拒)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

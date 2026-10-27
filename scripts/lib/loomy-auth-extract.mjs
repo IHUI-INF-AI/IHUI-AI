@@ -275,11 +275,17 @@ export function readCookieEntries(dir, opts = {}) {
           entries.push({ source: 'cookies', key: name, host, value: row.value })
           continue
         }
-        const blob = Buffer.isBuffer(row.encrypted_value)
-          ? row.encrypted_value
-          : row.encrypted_value && row.encrypted_value.data
-            ? Buffer.from(row.encrypted_value.data)
-            : null
+        // node:sqlite 的 BLOB 返回裸 Uint8Array(2026-10-27 实证,isBuffer=false 会被误判空)
+        const rawEv = row.encrypted_value
+        const blob = rawEv === null || rawEv === undefined
+          ? null
+          : Buffer.isBuffer(rawEv)
+            ? rawEv
+            : ArrayBuffer.isView(rawEv)
+              ? Buffer.from(rawEv.buffer, rawEv.byteOffset, rawEv.byteLength)
+              : rawEv.data
+                ? Buffer.from(rawEv.data)
+                : null
         if (!blob || blob.length === 0) {
           skips.push(`cookie ${host}/${name} 无 value 也无 encrypted_value(未判定)`)
           continue

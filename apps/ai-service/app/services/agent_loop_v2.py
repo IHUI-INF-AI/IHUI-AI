@@ -202,6 +202,7 @@ from .llm_budget_governor import (
 from .plan_mode import is_readonly_tool
 from .security_config import get_security_config
 from .tool_input_scanner import HARD_SCAN_FLAGS
+from .tool_invocation_ledger import record_tool_invocation
 
 logger = logging.getLogger(__name__)
 
@@ -1169,6 +1170,40 @@ def _derive_step_decision(tr: ToolResult) -> tuple[str, str]:
     if tr.retry_count > 0:
         return "execute_tool_retried", f"瞬时失败自动重试 {tr.retry_count} 次后成功"
     return "execute_tool", ""
+
+
+def _ledger_permission_facts(
+    tr: ToolResult, hint: tuple[str, str] | None
+) -> tuple[str, str | None]:
+    """B04(2026-10-27 立):把循环决策面映射到明细账权限词汇(只用既有枚举,零新造)。
+
+    输入是循环里已存在的两个事实源:`ToolResult.error_type` 与 `_decision_hints`
+    提示对;输出 `(permissionDecision, permissionCause)` 落在 apps/api
+    `tool-approval-audit.ts` 的封闭集(镜像于 `tool_invocation_ledger.py`)。
+    - 用户拒绝(error_type=user_rejected 或 hint=rejected_by_user)⇒ denied/prompt-declined;
+    - plan 拦截 / 审批超时 / 注入与扫描拦截 ⇒ denied 且**不带成因**:词汇四档
+      (no-prompt/prompt-declined/prompt-empty/prompt-error)没有对应档,不冒充;
+    - 免审批/绕过审批(auto/bypass_skip_approval)⇒ flag(策略级自动放行,
+      与 danger-gate `--allow-dangerous` 同义);
+    - 其余走到执行终态的(审批通过/persist 命中/guardian 复核/轴放行/无审批门)⇒ approved。
+    """
+    decision_hint = hint[0] if hint else None
+    if tr.error_type == "user_rejected" or decision_hint == "rejected_by_user":
+        return "denied", "prompt-declined"
+    if (
+        tr.error_type
+        in (
+            "approval_timeout",
+            "permission_denied",
+            ERROR_INJECTION_BLOCKED,
+            ERROR_SCAN_BLOCKED,
+        )
+        or decision_hint == "security_blocked"
+    ):
+        return "denied", None
+    if decision_hint in ("auto_skip_approval", "bypass_skip_approval"):
+        return "flag", None
+    return "approved", None
 
 
 # ---------------------------------------------------------------------------
@@ -5691,6 +5726,39 @@ class AgentLoopV2:
         except Exception as e:
             logger.warning("agent LLM step 录制失败(降级,不阻塞): %s", e)
 
+    def _maybe_ingest_tool_ledger(
+        self, tc: ToolCall, tr: ToolResult, hint: tuple[str, str] | None
+    ) -> None:
+        """B04(2026-10-27 立):每次工具调用终态落证据级明细账(有界、失败不拖主循环)。
+
+        账是证据面,不跟可观测录制开关走(`_pipeline_record_active` 关的是 step
+        录制,账行是审计证据),因此调用位在 `_maybe_record_step` 的短路**之前**。
+        invocation_id 每次调用 uuid4 现生成(账侧幂等键:重放被服务端 duplicate 吸收,
+        不双计);input/output 用既有摘要素材(`_summarize_step` 产物,原文不出进程,
+        includeRaw 不下发 ⇒ 服务端默认 false 只存摘要);权限词汇见
+        `_ledger_permission_facts`。派发腿本体同 D154 mcp_status(create_task + 5s
+        超时 + 吞异常计数);这里再包一层 try,保证证据面任何失败都不穿透主循环。
+        """
+        try:
+            decision, cause = _ledger_permission_facts(tr, hint)
+            record_tool_invocation(
+                user_id=self._user_id,
+                session_id=self._session_id or "",
+                invocation_id=str(uuid.uuid4()),
+                tool_name=tr.name or tc.name or "",
+                permission_decision=decision,
+                permission_cause=cause,
+                state="settled",
+                ok=not tr.error,
+                input_summary=_summarize_step(tc.args),
+                output_summary=_summarize_step(
+                    {"error": tr.error} if tr.error else tr.result
+                ),
+                trace_id=self._trace_id,
+            )
+        except Exception as e:
+            logger.warning("b04 工具账派发失败(降级,不阻塞): %s", e)
+
     def _maybe_record_step(self, tc: ToolCall, tr: ToolResult) -> None:
         """工具调用可观测录制(2026-09-03 立):每次工具执行后 append 一步。
 
@@ -5703,6 +5771,8 @@ class AgentLoopV2:
         # 1-1:先弹出决策提示(auto 免审批等不可见路径),无提示再从结果推导
         # (pop 必须在短路之前:提示表是 per-tc 的,不弹就会漏给下一个同名 tc)
         hint = self._decision_hints.pop(tc.id, None)
+        # B04:明细账摄入与 step 录制开关无关(证据面),挂在短路之前;内部有界 fail-open。
+        self._maybe_ingest_tool_ledger(tc, tr, hint)
         if rec is None or not self._pipeline_record_active:
             return
         run_id = getattr(rec, "run_id", None) or self._session_id or ""
