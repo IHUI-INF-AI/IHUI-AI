@@ -20,6 +20,12 @@ import { QR_PANEL_STATE_BOX } from './WechatQrPanel'
 interface AppQrPanelProps {
   /** 父组件传入,变化时重新生成二维码 */
   refreshKey: number
+  /**
+   * 访客已同意用户协议与隐私政策(由扫码面板的协议弹窗采集)。
+   * 必须随 /qr/generate 写进后端扫码会话 —— 后端只在会话已同意时才允许
+   * /qr/confirm 签发 token、/qr/status 交付 token。未同意时不出码。
+   */
+  agreementAccepted: boolean
 }
 
 type QrStatus = 'loading' | 'pending' | 'confirmed' | 'expired' | 'error'
@@ -59,7 +65,7 @@ const QR_SIZE = 220
  *    - confirmed → setToken + invalidateQueries + 关闭弹窗
  *    - expired → 显示"已过期",提供刷新按钮
  */
-export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
+export function AppQrPanel({ refreshKey, agreementAccepted }: AppQrPanelProps) {
   const t = useTranslations('auth')
   const qc = useQueryClient()
   const setToken = useAuthStore((s) => s.setToken)
@@ -73,6 +79,9 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
   const [localRefresh, setLocalRefresh] = React.useState(0)
 
   React.useEffect(() => {
+    // 未同意协议不出码:即使调用方绕过协议弹窗直接挂载本面板,也不让后端拿到可被确认的会话。
+    if (!agreementAccepted) return
+
     let cancelled = false
     let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -82,12 +91,14 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
     async function generateAndPoll() {
       try {
-        // 2026-09-18 修复 App 扫码不出码:此接口无业务 body,但 fetchApi 无 body 的 POST
+        // 2026-09-18 修复 App 扫码不出码:此接口原先无业务 body,但 fetchApi 无 body 的 POST
         // 不带 Content-Type,经生产代理链路到达 Fastify 5 时被判为不支持媒体类型 → 415,
-        // 面板进入 error 态不渲染二维码。带空 JSON body 使请求携带 application/json 头。
+        // 面板进入 error 态不渲染二维码。带 JSON body 使请求携带 application/json 头。
+        // 2026-10-27:body 必须带 agreementAccepted —— 后端把它写入扫码会话,
+        // 未同意的会话在 /qr/confirm 与 /qr/status 都会被拒。
         const genRes = await fetchApi<QrGenerateData>('/api/auth/qr/generate', {
           method: 'POST',
-          body: JSON.stringify({}),
+          body: JSON.stringify({ agreementAccepted: true }),
         })
         if (cancelled) return
 
@@ -187,7 +198,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
       cancelled = true
       if (pollTimer) clearInterval(pollTimer)
     }
-  }, [refreshKey, localRefresh, setToken, setUser, qc, closeDialog])
+  }, [refreshKey, localRefresh, agreementAccepted, setToken, setUser, qc, closeDialog])
 
   const handleRetry = React.useCallback(() => {
     setLocalRefresh((n) => n + 1)
