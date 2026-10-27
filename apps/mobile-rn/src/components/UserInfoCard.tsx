@@ -367,9 +367,13 @@ const newStyles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   header: {
+    // 顶部块**不再叠加第二层 inset**(2026-10-27/xend-geometry,票「守门 128 换腿后新暴露的
+    // 跨端几何差(三对)」):卡片唯一内边距是 spec 的 USER_INFO_CARD_PADDING_PX(12),
+    // 小程序端(`PAD_STYLE`,单层 12)与 web 端(`p-3` = 12,规则 1 的来源)都只有这一层;
+    // 此前这里另有 `padding: rnSpacing.sm`(8),同一张卡的内容在 RN 比小程序多缩 8px —— 那是
+    // 同一元素两端不同值,不是端内布局。删除它 = 向单一源对齐,渲染面按 spec 收敛到 12。
     flexDirection: 'row',
     alignItems: 'center',
-    padding: rnSpacing.sm,
   },
   avatarWrap: {
     // 盒子结构(边长 + overflow + 居中)取自 spec 出口,端内不重摆;
