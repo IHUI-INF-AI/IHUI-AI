@@ -317,8 +317,6 @@ export function MessageInput({
   const [reviewSelection, setReviewSelection] = React.useState<ReviewSourceSelection | null>(null)
   const reviewModeStore = usePaneModeStore()
   const currentMode = reviewModeStore((s) => s.currentMode)
-  // 发送失败会把正文回填进输入框:选择条要等到"正文确实被清空"才清,避免失败即丢目标。
-  const reviewSelectionConsumeRef = React.useRef(false)
   const unifiedAddedIdsRef = React.useRef<Set<string>>(new Set())
   // V3 第 61 票(2026-09-27):`@` 与 `#` 的提及状态与正文落点都收进 useMentionWiring(下方,
   // 需在 inputCoreRef 之后构造)—— 这里原先是一份 contextChips 局部 state + addContextChip +
@@ -483,31 +481,14 @@ export function MessageInput({
       .finally(() => {
         linkPreview.reset()
         if (plan.mode === 'plain') return
-        if (plan.mode === 'slash') {
-          // 目标命令已发出:草稿回填(有则回填),选择条清空。失败时 submit 会把命令文本
-          // 回填成正文,这里不再二次覆盖 —— 用户可直接重发。
-          if (plan.restoreDraft) setValue(plan.restoreDraft)
-          setReviewSelection(null)
-          reviewSelectionConsumeRef.current = false
-          return
-        }
-        // 内联档:正文被清空 ⇒ 视为已发出,清选择;失败时正文回填,选择保留待重发。
-        if (!base.trim()) {
-          setReviewSelection(null)
-          return
-        }
-        reviewSelectionConsumeRef.current = true
+        // 目标命令/内联块已交给发送链:草稿回填(slash 档有则回填),选择条清空。
+        // 发送失败时 submit 会把正文回填进输入框,选择条不自动复原(重发需重新点档)——
+        // "成功位"要发送链回传才判得准,归 send-message 持有席,本席不在此猜。
+        if (plan.mode === 'slash' && plan.restoreDraft) setValue(plan.restoreDraft)
+        setReviewSelection(null)
       })
     return result
   }
-  // 内联档的"发出后清选择":submit 的失败路径会把正文写回输入框,故以
-  // 「正文确实变成空串」为已发信号(见上;ref 只在本次消费待判时生效,不常驻)。
-  React.useEffect(() => {
-    if (!reviewSelectionConsumeRef.current) return
-    if (value !== '') return
-    reviewSelectionConsumeRef.current = false
-    setReviewSelection(null)
-  }, [value])
   // W20 九类 # 上下文选择器(键盘导航在 textarea 层拦截);
   // V3 第 61 票:选中结果的落点从局部 chip state 改成那份唯一的 mention engine store。
   const contextSelector = useContextSelector({
