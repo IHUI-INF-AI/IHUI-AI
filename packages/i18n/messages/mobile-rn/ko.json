@@ -805,6 +805,7 @@
         "retry": "다시 시도",
         "saveAudioOnly": "오디오만 저장",
         "insertToInput": "입력창에 삽입",
+        "cancel": "녹음 취소",
         "dismiss": "닫기"
       },
       "searchPlaceholder": "노트 검색",

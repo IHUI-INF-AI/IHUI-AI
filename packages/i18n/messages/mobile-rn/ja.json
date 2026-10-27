@@ -771,6 +771,7 @@
         "retry": "再試行",
         "saveAudioOnly": "音声のみ保存",
         "insertToInput": "入力欄に挿入",
+        "cancel": "録音をキャンセル",
         "dismiss": "閉じる"
       },
       "searchPlaceholder": "ノートを検索",

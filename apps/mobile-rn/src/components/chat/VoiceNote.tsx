@@ -20,10 +20,21 @@
  *    errors.emptyTranscript 档在 RN 不可达,键仍随五语同批落库,不删);
  * ② 授权/准备/连接三段在 hook 内部一次异步链完成,无逐段回调 ⇒ recording 翻真时按序
  *    补发 permissionGranted → mediaReady → connected,相序仍逐格走共享表推进。
+ *
+ * 2026-10-27(D03 移动端补齐)补上的三格(共享 12 相机未动一格,事件词表本就含这两事件):
+ * ③ completed 相「转写完成即插入当前对话」入口(与 web 的 voice-note-insert-current 同形):
+ *    走既有 onInsert 回调,不依赖归档行落库成功 —— 落库失败回滚时这条路径仍通;
+ * ④ cancel 事件接线:录音中可显式取消 ⇒ cancelled 相在 RN 端首次可达(此前 RN 从不派发
+ *    cancel,共享表里 recording --cancel--> cancelled 这条边在 RN 是死边);
+ * ⑤ interrupt 事件接线:AppState 转后台/非 active ⇒ interrupted 相在 RN 端首次可达
+ *    (后台回收的端侧近似:共享层事件词表无「回收后复位」出口,故按矩阵测试第④型结论,
+ *    用 interrupt 收成终态;复位走终态唯一合法出边 retry → ready)。
+ *    三处相推进一律经 transitionVoiceNotePhase,端内不散写 phase 判断 / 本地 switch。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  AppState,
   Modal,
   Pressable,
   ScrollView,
@@ -31,7 +42,7 @@ import {
   Text,
   View,
 } from 'react-native'
-import { Mic, Square, Trash2, X } from 'lucide-react-native'
+import { ClipboardPaste, Mic, Square, Trash2, X } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { createVoiceNote, deleteVoiceNote, listVoiceNotes } from '@ihui/api-client'
 import { rnRadius } from '@ihui/design-tokens'
@@ -192,7 +203,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
     [dispatch],
   )
 
-  const { recording, transcribing, duration, start, stop } = useVoiceRecorder({
+  const { recording, transcribing, duration, start, stop, cancel } = useVoiceRecorder({
     onComplete: handleTranscript,
     onUnavailable: handleUnavailable,
     transcribe: sttEnabled,
@@ -207,6 +218,35 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
       dispatch('connected')
     }
   }, [recording, dispatch])
+
+  /**
+   * 中止录音(cancel / interrupt 两条事件共用):走 hook 的 cancel 出口 ——
+   * 只释放麦克风,**不上传、不转写、不回调** ⇒ 被取消的录音不会产生任何迟到结果,
+   * 上层不必再判「这条结果是不是被丢弃的那次」(那等于把状态机语义搬到端内二次判定)。
+   * 相推进一律经共享推进入口;cancelled / interrupted 是终态(共享表内唯一出边 retry→ready)。
+   */
+  const abortRecording = useCallback(
+    (event: 'cancel' | 'interrupt') => {
+      dispatch(event)
+      void cancel()
+    },
+    [cancel, dispatch],
+  )
+
+  /**
+   * 后台回收(票面①型④):App 退到后台或失去焦点 ⇒ 录音被系统打断 ⇒ 收成 interrupted 终态。
+   * 共享层事件词表**无**「回收后复位」出口(矩阵测试第④型明确钉住这一维),端侧唯一可用
+   * 近似就是自己派发 interrupt —— 这里就是这么用的,不是各写一份判定。
+   * 复位走终态唯一合法出边(retry → ready),由界面的「重试」按钮承担。
+   */
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') return
+      if (!recording) return
+      abortRecording('interrupt')
+    })
+    return () => sub.remove()
+  }, [abortRecording, recording])
 
   durationSecRef.current = duration
 
@@ -229,6 +269,16 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
     // 终态唯一合法回 ready 出边;非终态 no-op 原地(不散写 setPhase)
     dispatch('retry')
   }, [dispatch])
+
+  /**
+   * 转写完成即插入当前对话(与 web 的 voice-note-insert-current 同形):
+   * 走既有 onInsert 回调(输入框既有通道),**不经服务端归档行** ——
+   * 落库失败被回滚时这条路径仍通,这是本切片的主链路。
+   */
+  const insertTranscriptToInput = useCallback(() => {
+    if (!transcript.trim()) return
+    onInsert(transcript)
+  }, [onInsert, transcript])
 
   const saveAudioOnly = useCallback(() => {
     void persistNote(null)
@@ -273,9 +323,10 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               </Pressable>
             </View>
 
-            {/* phase 徽章(12 相文案全量走 i18n,与 web 同命名空间) */}
+            {/* phase 徽章(12 相文案全量走 i18n,与 web 同命名空间);
+                testID 带相名后缀 ⇒ 端上用例能机读「当前处于哪一相」(web 侧同形 data-phase) */}
             {showPhaseLabel && (
-              <View style={styles.phaseBadge} testID="voice-note-phase">
+              <View style={styles.phaseBadge} testID={`voice-note-phase-${phase}`}>
                 <Text style={styles.phaseText}>{t(`chat.voiceNote.phase.${phase}`)}</Text>
                 {(recording || isVoiceNoteTranscriptPending(phase)) && (
                   <Text style={styles.phaseDuration}>
@@ -342,6 +393,33 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                 >
                   <Text style={styles.outlineBtnText}>
                     {t('chat.voiceNote.action.saveAudioOnly')}
+                  </Text>
+                </Pressable>
+              )}
+              {/* 录音中显式取消 ⇒ cancelled 相(共享表 recording --cancel--> cancelled) */}
+              {phase === 'recording' && (
+                <Pressable
+                  style={styles.outlineBtn}
+                  onPress={() => abortRecording('cancel')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chat.voiceNote.action.cancel')}
+                  testID="voice-note-cancel"
+                >
+                  <Text style={styles.outlineBtnText}>{t('chat.voiceNote.action.cancel')}</Text>
+                </Pressable>
+              )}
+              {/* 转写完成即插入当前对话(不经服务端归档行,落库失败回滚时这条路径仍通) */}
+              {phase === 'completed' && transcript.trim().length > 0 && (
+                <Pressable
+                  style={styles.outlineBtn}
+                  onPress={insertTranscriptToInput}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chat.voiceNote.action.insertToInput')}
+                  testID="voice-note-insert-current"
+                >
+                  <ClipboardPaste size={12} color={tokens.text.secondary} />
+                  <Text style={styles.outlineBtnText}>
+                    {t('chat.voiceNote.action.insertToInput')}
                   </Text>
                 </Pressable>
               )}
