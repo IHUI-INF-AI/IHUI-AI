@@ -138,7 +138,9 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
   if (!coverage.ok) missing.push('coverage')
   if (!webParity.ok) missing.push('webParity')
   if (fidelity && !fidelity.ok) missing.push('fidelity')
-  if (conversion && !conversion.ok) missing.push('conversion')
+  // 转换预演器**发现可转页时退出码就是 1**(preview 语义:有活可干 ⇒ 非零)。
+  // 若按 ok=false 处理,这一维会在"最该喊"的那一刻判成未判定 —— 结论只认 stdout 的 JSON,
+  // JSON 取不到时上面的 null 扫描已经把 conversionUpgradable 记进 missing(不猜、不冒绿)。
   if (coverage.ok && webParity.ok && (cur.mirrored === null || cur.coverageRed === null)) {
     missing.push('coverage 字段名对不上(汇总行取不到数)')
   }
@@ -482,7 +484,24 @@ function selfTestMain() {
         doc: '',
         prev: null,
       })
-      return j.state === 'undetermined' && j.missing.includes('conversion')
+      return j.state === 'undetermined' && j.missing.some((m) => m.startsWith('conversion'))
+    })(),
+  })
+  cases.push({
+    name: 'T17 预演"发现可转页"时退出码就是 1 —— 结论仍须照判(否则最该喊的那一刻哑掉)',
+    pass: (() => {
+      const j = judge({
+        conversion: { ok: false, why: 'exit 1', json: { upgradable: 5, refused: 2 } },
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        fidelity: mkFid(),
+        doc: '',
+        prev: null,
+      })
+      return (
+        j.state === 'regressed' &&
+        j.reasons.some((r) => r.dim === 'conversion-available' && /5 枚/.test(r.detail))
+      )
     })(),
   })
   cases.push({
