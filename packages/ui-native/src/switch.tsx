@@ -45,18 +45,10 @@ export interface SwitchProps {
   className?: string
 }
 
-export function Switch({
-  checked = false,
-  onCheckedChange,
-  disabled,
-  size = SWITCH_DEFAULT_SIZE,
-  className,
-}: SwitchProps) {
+export function Switch({ checked = false, onCheckedChange, disabled, size = SWITCH_DEFAULT_SIZE, className }: SwitchProps) {
   const colorScheme = useColorScheme()
   const foreground = colorScheme === 'dark' ? '#ffffff' : '#000000'
-  const translate = useRef(
-    new Animated.Value(checked ? SWITCH_THUMB_TRANSLATE_X_PX[size] : 0),
-  ).current
+  const translate = useRef(new Animated.Value(checked ? SWITCH_THUMB_TRANSLATE_X_PX[size] : 0)).current
   useEffect(() => {
     Animated.timing(translate, {
       toValue: checked ? SWITCH_THUMB_TRANSLATE_X_PX[size] : 0,
@@ -76,7 +68,7 @@ export function Switch({
       disabled={disabled}
       onPress={() => onCheckedChange?.(!checked)}
       className={cn(
-        'flex-row items-center border-border',
+        'flex-row items-center border-foreground',
         TRACK_W_CLASS[w],
         TRACK_H_CLASS[h],
         TRACK_RADIUS_CLASS[SWITCH_TRACK_RADIUS_TIER],
@@ -86,12 +78,7 @@ export function Switch({
         disabled && 'opacity-50',
         className,
       )}
-      style={{
-        shadowColor: foreground,
-        shadowOffset: { width: 3, height: 3 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      }}
+      style={{ shadowColor: foreground, shadowOffset: { width: 3, height: 3 }, shadowOpacity: 1, shadowRadius: 0 }}
     >
       <Animated.View
         className={cn(
