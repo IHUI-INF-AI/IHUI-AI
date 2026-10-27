@@ -210,8 +210,16 @@ test('⑧ 编排器参数面:登记面与未装车面分开点名(不再是笼�
   assert.match(Pool.parseArgs(['--from', 'nosuch']).error ?? '', /未知来源/)
   const R = Pool.FROM_PROVIDERS
   assert.ok(R.trae?.module && R.workbuddy?.module, '已装车的两平台必须登记适配器模块')
-  assert.equal(R.qoder, null, 'qoder 提取器未装车必须如实登记为 null(取证后补登,不留口头账)')
-  assert.equal(R.codearts, null)
+  assert.equal(
+    R.qoder?.module,
+    'qoder-auth-extract.mjs',
+    'qoder 提取器已装车(2026-10-27):必须登记适配器模块,不得再挂 null 口头账',
+  )
+  assert.equal(
+    R.codearts?.module,
+    'codearts-auth-extract.mjs',
+    'codearts 提取器已装车(2026-10-27):必须登记适配器模块,不得再挂 null 口头账',
+  )
 })
 
 test('⑨ 全链取号:夹具目录里的信封能被真提取出来', () => {
