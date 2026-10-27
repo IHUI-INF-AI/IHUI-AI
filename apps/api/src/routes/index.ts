@@ -80,7 +80,6 @@ import { financeRoutes } from './finance.js'
 import { authExtendedRoutes } from './auth-extended.js'
 import authPasskeyRoutes from './auth-passkey.js'
 import { authSsoRoutes } from './auth-sso.js'
-import { authCarrierRoutes } from './auth-carrier.js'
 import { vipRoutes, adminVipRoutes } from './vip.js'
 // P0-3a/b 配套:AI 模型定价公开查询(/api/ai-pricing, /api/ai-pricing/stats, /api/ai-pricing/:modelId)
 import aiPricingRoutes from './ai-pricing.js'
@@ -454,6 +453,8 @@ import { relayPublicRoutes } from './relay-public.js'
 import developerRelayRoutes from './developer-relay.js'
 // developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对标 Sub2API)
 import developerRelayBootstrapRoutes from './developer-relay-bootstrap.js'
+// 本机登录态一键切换管理面(2026-10-27 立,对标 workbuddy-switch「换号」)
+import relaySwitchAdminRoutes from './admin/relay-switch-admin.js'
 // developer 用户侧:Key 批量管理(2026-09-16,对标 bulkEdit)
 import developerRelayKeysAdminRoutes from './developer-relay-keys-admin.js'
 // Usage 重度分析(2026-09-16,第三轮对标补强 K)
@@ -748,8 +749,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(authPasskeyRoutes, { prefix: '/api' })
   // SSO 统一登录：code 生成/交换/统一登出/token 验证（跨子项目共享登录态）
   server.register(authSsoRoutes, { prefix: '/api/auth' })
-  // 运营商一键登录(闪验 Univerify 聚合):POST /api/auth/login/carrier
-  server.register(authCarrierRoutes, { prefix: '/api/auth' })
   // VIP 会员：等级/购买/我的 + admin（R1 补完）
   server.register(vipRoutes, { prefix: '/api' })
   server.register(adminVipRoutes, { prefix: '/api/admin' })
@@ -1292,6 +1291,8 @@ export function registerRoutes(server: FastifyInstance) {
   // admin 管理后台:模型上下架/Key 池/动态发现/调用日志(4 个路由文件,绝对路径字面量注册)
   server.register(relayModelsRoutes, { prefix: '/api' })
   server.register(relayKeyPoolRoutes, { prefix: '/api' })
+  // 本机登录态一键切换管理面(2026-10-27 立)
+  server.register(relaySwitchAdminRoutes, { prefix: '/api' })
   // 第三方 AI IDE 账号池 + 反代(2026-10-22 立,对标码道网关)
   server.register(relayAccountPoolRoutes, { prefix: '/api' })
   server.register(relayDiscoveryRoutes, { prefix: '/api' })
