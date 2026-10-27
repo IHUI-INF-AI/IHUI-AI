@@ -20,14 +20,17 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
  */
 export default function AuthReadyGate({ children }: { children: ReactNode }) {
   const gate = useAuthReadyGate()
-  const [ready, setReady] = useState(gate.allow)
+  // 等的是"鉴权判定落定"(gate.ready),**不是**"已登录"(gate.allow):
+  // 未登录但已判定时照常渲染真相源,由壳自己的 401 处理显示错误态 —— 与原手写页一致;
+  // 若这里等 allow,未登录用户会永久停在加载中,比原来更差。
+  const [ready, setReady] = useState(gate.ready)
   useEffect(() => {
-    if (gate.allow) {
+    if (gate.ready) {
       setReady(true)
       return
     }
     return gate.waitUntilReady(() => setReady(true))
-  }, [gate.allow])
+  }, [gate.ready])
   if (!ready) return <PageLoading />
   return <>{children}</>
 }

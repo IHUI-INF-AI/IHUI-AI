@@ -224,9 +224,25 @@ export function clipboardCovered(shellText) {
 }
 
 /**
- * 主题:小程序的 `useAppTheme()`(端内 theme hook)与壳的 `useTheme().resolvedTheme` → colorScheme prop
- * 是同一件事的前后两段;壳自己会把 colorScheme 传给共享屏,页面那份是重复取用。
+ * 提示等价:页面 showToast 引用的 i18n key **全部**在壳正文里出现,且壳自己有提示出口
+ * (appAlert / Toast) ⇒ 页面那几处 toast 是重复;壳的提示文案就是同一批词条。
+ * 任一 key 在壳里找不到 ⇒ 壳没有这条提示,转壳会丢用户反馈 ⇒ 不销账(现读 67 页里只有 6 页满足)。
  */
+export function toastCovered(pageText, shellText) {
+  const src = maskComments(String(pageText ?? ''))
+  const shell = String(shellText ?? '')
+  const keys = new Set()
+  for (const m of src.matchAll(/showToast\s*\(\s*\{[\s\S]*?\}\s*\)/g))
+    for (const k of m[0].matchAll(/\btt?\s*\(\s*'([A-Za-z0-9_.]+)'/g)) keys.add(k[1])
+  if (keys.size === 0) return false
+  if (!/appAlert|\bToast\b|toast\.(show|info|success)/.test(shell)) return false
+  return [...keys].every((k) => shell.includes(k))
+}
+
+/** 页面是否用端内鉴权就绪钩子(由生成页包 AuthReadyGate 承担,见该组件头注)。 */
+export function needsAuthGate(pageText) {
+  return /useAuthReadyGate|@\/hooks\/use-auth-ready-gate/.test(String(pageText ?? ''))
+}
 export function themeCovered(shellText) {
   return /useTheme|colorScheme|resolvedTheme/.test(String(shellText ?? ''))
 }
@@ -329,6 +345,12 @@ export function judgeConversion({
   if (themeCovered(shellText)) for (const tok of ['@/lib/theme', 'useAppTheme']) pageTokens.delete(tok)
   if (backCovered(shellText)) pageTokens.delete('Taro.navigateBack')
   if (routeParamsCovered(pageText, shellText)) pageTokens.delete('Taro.getCurrentInstance')
+  // 鉴权就绪:生成页会包 AuthReadyGate(通用外罩),页面的钩子由它承担
+  const authGate = needsAuthGate(pageText)
+  if (authGate)
+    for (const tok of ['useAuthReadyGate', '@/hooks/use-auth-ready-gate']) pageTokens.delete(tok)
+  // 提示等价:key 全在壳里且壳有提示出口才销账(壳没有这条提示就仍算私有)
+  if (toastCovered(pageText, shellText)) pageTokens.delete('Taro.showToast')
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -346,6 +368,7 @@ export function judgeConversion({
     shellText,
     shellName,
     navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : null,
+    authGate,
   })
   if (body?.error) return { spec, kind: 'undetermined', why: `壳承载出口形态不合:${body.error}` }
   const lines = String(body?.content ?? body ?? '').split('\n').length
@@ -569,6 +592,13 @@ function main(argv) {
       routeParamsCovered('Taro.getCurrentInstance().eventChannel', 'const route = useRoute()'),
       routeParamsCovered('router?.params?.id', 'return null'),
     ], [true, true, true, false, false])
+    P('S12 提示等价与鉴权门:toast 的 key 必须全在壳里;带钩子的页要包 AuthReadyGate', [
+      toastCovered("Taro.showToast({ title: tt('checkIn.signSuccess') })", "appAlert(t('checkIn.signSuccess'))"),
+      toastCovered("Taro.showToast({ title: tt('x.y') })", "appAlert(t('z.w'))"),
+      toastCovered("Taro.showToast({ title: 'x' })", 'appAlert(1)'),
+      needsAuthGate("import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'"),
+      needsAuthGate('const x = 1'),
+    ], [true, false, false, true, false])
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
@@ -644,6 +674,8 @@ export const __test__ = {
   themeCovered,
   backCovered,
   routeParamsCovered,
+  toastCovered,
+  needsAuthGate,
   ROOT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
