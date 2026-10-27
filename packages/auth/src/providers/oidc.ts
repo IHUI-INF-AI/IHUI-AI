@@ -41,6 +41,8 @@ interface OidcUserInfo {
   name?: string
   preferred_username?: string
   email?: string
+  /** 标准 OIDC claim:IdP 是否已验证该邮箱 */
+  email_verified?: boolean
   picture?: string
 }
 
@@ -153,6 +155,9 @@ export function createOidcProvider(config: OidcProviderConfig): OAuthProvider {
         openId: info.sub,
         nickname: info.preferred_username ?? info.name,
         email: info.email,
+        // 标准 OIDC claim:调用方(自动关联已有同邮箱账号)必须以它为准,
+        // 未验证的邮箱声明不构成归属证明。
+        emailVerified: info.email_verified === true,
         avatar: info.picture,
       }
     },
