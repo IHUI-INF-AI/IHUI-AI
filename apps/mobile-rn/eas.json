@@ -12,10 +12,18 @@
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "WX_APP_APPID": "wx85fa429a9331b5c8",
+        "EXPO_PUBLIC_API_BASE_URL": "https://www.aizhs.top",
+        "EXPO_PUBLIC_WS_BASE_URL": "https://api.aizhs.top",
+        "EXPO_PUBLIC_WEB_URL": "https://aizhs.top"
+      }
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "android": {
         "buildType": "app-bundle"
       },
