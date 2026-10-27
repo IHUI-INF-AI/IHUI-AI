@@ -891,6 +891,7 @@
       "scopeAdmin": "管理",
       "scopeAuth": "ログイン",
       "pageUsageTop": "人気ページ(24h)",
+      "avgDwellSec": "滞在 {s}s",
       "pageUsageNoData": "24時間以内のページ訪問なし",
       "panelRelayPool": "AI プール",
       "pv24h": "24時間 PV",

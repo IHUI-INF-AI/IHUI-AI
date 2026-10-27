@@ -895,6 +895,7 @@
       "scopeAdmin": "后台",
       "scopeAuth": "登录页",
       "pageUsageTop": "热门页面(近24h)",
+      "avgDwellSec": "停留 {s}s",
       "pageUsageNoData": "近24h 暂无页面访问",
       "panelRelayPool": "AI 号池",
       "panelUptime": "进程运行时长",
