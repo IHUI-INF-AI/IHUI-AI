@@ -20,6 +20,7 @@ import {
   isValidPhone,
   loadLoginHistory,
   planLoginRegion,
+  sortByPlatformPriority,
 } from '@ihui/ui-react'
 import { OAUTH_BRAND_COLORS } from '@ihui/design-tokens'
 
@@ -317,6 +318,12 @@ export function LoginFormContent({ onSuccess, tabs }: LoginFormContentProps) {
     [ipRegion, locale, tabs, isPlatformAvailable],
   )
   const isDomestic = plan.region === 'domestic'
+  // 扫码 tab 内部的渠道顺序也跟着地区走:国内档访客点进扫码后第一个面板必须是微信,
+  // 否则"微信扫码最优先"只做到了 tab 那一层。排序执行器与图标网格共用同一份。
+  const qrPlatforms = React.useMemo(
+    () => sortByPlatformPriority(QR_PLATFORMS, plan.qrPlatformPriority),
+    [plan.qrPlatformPriority],
+  )
   // 2026-09-06:移动全屏登录页(调用方显式给了少于 4 项 tabs)才自动回填最近手机号。
   const isMobileLayout = !!tabs && tabs.length < 4
   const featuredBackground =
@@ -382,7 +389,7 @@ export function LoginFormContent({ onSuccess, tabs }: LoginFormContentProps) {
         qrComponent={({ platform, refreshKey }) => (
           <QrCodeLoginEmbedded platform={platform} refreshKey={refreshKey} />
         )}
-        qrPlatforms={QR_PLATFORMS}
+        qrPlatforms={qrPlatforms}
         tabs={plan.tabs}
         // 2026-07-30 立:启用凭据持久化(记住密码 + 自动登录 + 账号历史下拉)
         enableCredentialPersistence

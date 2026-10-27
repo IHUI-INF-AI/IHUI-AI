@@ -71,10 +71,25 @@ const THIRD_PARTY_PRIORITY: Readonly<Record<LoginRegion, readonly ThirdPartyPlat
   overseas: ['google', 'github', 'apple', 'oidc'],
 }
 
-/** 各地区的主推平台(整行大按钮)。可用性由调用方注入的 isPlatformAvailable 决定,不可用即不主推。 */
+/**
+ * 各地区的主推平台(整行大按钮)。可用性由调用方注入的 isPlatformAvailable 决定,不可用即不主推。 */
 const FEATURED_PLATFORM: Readonly<Record<LoginRegion, ThirdPartyPlatform>> = {
   domestic: 'wechat',
   overseas: 'google',
+}
+
+/**
+ * 扫码 tab 内部各扫码渠道的优先序(2026-10-27 立)。
+ *
+ * 立因:调用方给的 QR_PLATFORMS 原序把「本站 App 扫码」排第一,而需求是"国内 IP 时微信
+ * 扫码登录最优先显示" —— tab 排第一还不够,进了 tab 之后第一个子面板也得是微信,
+ * 否则"最优先"只成立半格。
+ * 海外档给空表 ⇒ 一个都不重排(维持调用方原序):海外没有"用微信扫码拉 App"这条动机,
+ * 保留 App 扫码在前是原设计,判据不越权改它。
+ */
+const QR_PLATFORM_PRIORITY: Readonly<Record<LoginRegion, readonly ThirdPartyPlatform[]>> = {
+  domestic: ['wechat', 'enterpriseWechat', 'dingtalk', 'feishu'],
+  overseas: [],
 }
 
 export interface LoginRegionPlan {
@@ -86,6 +101,8 @@ export interface LoginRegionPlan {
   featuredPlatform?: ThirdPartyPlatform
   /** 图标网格优先序(表外平台自动排末尾)。 */
   priorityPlatforms: readonly ThirdPartyPlatform[]
+  /** 扫码 tab 内部渠道优先序;空表 = 不重排,维持调用方原序。 */
+  qrPlatformPriority: readonly ThirdPartyPlatform[]
 }
 
 export interface LoginRegionPlanInput {
@@ -132,6 +149,7 @@ export function planLoginRegion(input: LoginRegionPlanInput): LoginRegionPlan {
     tabs: finalTabs,
     featuredPlatform,
     priorityPlatforms: [...THIRD_PARTY_PRIORITY[region]],
+    qrPlatformPriority: [...QR_PLATFORM_PRIORITY[region]],
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

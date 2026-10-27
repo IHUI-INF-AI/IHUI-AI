@@ -90,6 +90,40 @@ describe('Auth Extended API', () => {
       expect(typeof body.data.google).toBe('boolean')
     })
 
+    // 2026-10-27 登录呈现地区。判据函数另有单测(src/services/__tests__/login-region.test.ts),
+    // 这条锁的是**接线**:边缘国家头能否真从请求走到响应、缓存头有没有真被关掉。
+    // 没有这条,把 resolveLoginRegion 从路由里摘掉仍然全绿。
+    it('GET /api/auth/oauth-status 带 loginRegion 三档与 no-store', async () => {
+      const cn = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth-status',
+        headers: { 'cf-ipcountry': 'CN' },
+      })
+      // 这条响应带着"随访客 IP 而变"的字段 ⇒ 任何一层缓存住,首个访客的地区就发给后面所有人
+      expect(cn.headers['cache-control']).toBe('no-store')
+      expect(cn.json().data.loginRegion).toBe('domestic')
+      expect(cn.json().data.loginRegionSource).toBe('cf-ipcountry')
+
+      const us = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth-status',
+        headers: { 'cf-ipcountry': 'US' },
+      })
+      expect(us.json().data.loginRegion).toBe('overseas')
+
+      // CF 的 XX 是"未知"哨兵;本用例来源是 127.0.0.1 ⇒ 整链判不出,必须是**显式 null**
+      // (缺键与"这版后端还没有这个字段"要能分开 —— §0.3 不许把没判读成判过)。
+      const xx = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth-status',
+        headers: { 'cf-ipcountry': 'XX' },
+      })
+      const data = xx.json().data
+      expect(data).toHaveProperty('loginRegion')
+      expect(data.loginRegion).toBeNull()
+      expect(data.loginRegionSource).toBe('undetermined')
+    })
+
     it('GET /api/sms-proxy/config 返回 200 与 provider 字段（dev 模式）', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/sms-proxy/config' })
       expect(res.statusCode).toBe(200)
