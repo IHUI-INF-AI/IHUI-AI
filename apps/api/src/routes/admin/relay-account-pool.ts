@@ -30,6 +30,8 @@
  * 22. POST   /admin/relay/account-pool/checkin-status — 批量点查签到状态(O64,≤20)
  * 23. POST   /admin/relay/accounts/:id/checkin-run — 立即签到(O64,转发 ai-service,429 透传)
  * 24. POST   /admin/relay/accounts/:id/models — 按需点查可用模型清单(富契约优先,无实证通路 400)
+ * 25. POST   /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态(支持 trae + 六平台,
+ *            文件级备份+原子写;其余平台 409 并点名无法离线重封的原因)
  *
  * 加密:token/refreshToken/cookies/账号级 proxyUrl 走 encryptField(AES-256-GCM),
  * 响应面永不回传密文/明文(代理只回脱敏值)。
@@ -49,6 +51,7 @@ import {
   type ImportAccountInput,
 } from '../../services/relay-account-pool-service.js'
 import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
+import { loginAccountLocal, LocalLoginError } from '../../services/relay-local-login.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
 import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
 // 号池体检判据单源在 @ihui/shared(web 管理页与 CLI 同源,绝不各自抄一份枚举/阈值,§0.6)
@@ -594,6 +597,32 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '健康检查失败'))
+    }
+  })
+
+  // ===== 25. POST /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态 =====
+  // 支持 trae(重封 storage.json byteCrypto 信封)与 codex/opencode/minimax/zcode/
+  // codearts/qoder(scripts/local-login.mjs 重封各自存储);客户端登录态是整份会话(导入时
+  // 存成会话模板),用池内最新凭证打补丁后写回。写前必留同目录备份,失败可人工回滚。
+  // 其余平台返回 409 并点名「无法离线重封」的具体原因(见 LOCAL_LOGIN_UNSUPPORTED_REASONS)。
+  server.post('/admin/relay/accounts/:id/login-local', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const [row] = await db
+        .select()
+        .from(aiRelayAccountPool)
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, '账号不存在'))
+      const result = await loginAccountLocal(row)
+      return reply.send(success(result))
+    } catch (e) {
+      if (e instanceof LocalLoginError) {
+        return reply.status(e.status).send(error(e.status, e.message))
+      }
+      request.log.error(e)
+      return reply.status(500).send(error(500, '写入本机登录态失败'))
     }
   })
 

@@ -234,6 +234,29 @@ export function traeUserDataDirs(env = process.env, homedir = os.homedir()) {
   return Array.from(new Set(list.map((p) => path.resolve(p))))
 }
 
+/** 模板剔除的凭证/到期字段:写回本机时一律用池内权威值覆盖,绝不让旧值回灌 */
+const SESSION_TEMPLATE_OMIT = ['token', 'refreshToken', 'expiredAt', 'refreshExpiredAt']
+
+/**
+ * 会话模板(2026-10-27 立):userInfo 去掉凭证与到期时刻后的整份资料。
+ *
+ * 立因:号池只存 token/refreshToken/到期时刻,而 Trae 客户端登录态是整份 userInfo
+ * (account 头像/邮箱/组织、userRegion、host、tokenReleaseAt…),JWT 载荷里没有这些,
+ * 光靠票重建不出登录态 ⇒ 「登录本机」必须有一份模板,用池内最新凭证打补丁再重封。
+ * 凭证字段只在这里剔除一次(判据单源),写回端不得再自行拼装。
+ */
+export function buildSessionTemplate(userInfo) {
+  if (!userInfo || typeof userInfo !== 'object' || Array.isArray(userInfo)) return null
+  let clone
+  try {
+    clone = JSON.parse(JSON.stringify(userInfo))
+  } catch {
+    return null
+  }
+  for (const key of SESSION_TEMPLATE_OMIT) delete clone[key]
+  return clone
+}
+
 /**
  * userInfo 明文 → 号池标准导入 JSON。
  * 展示名按 AGENTS 口径 手机 > 邮箱 > 账户名 > 用户名;全空时用 uid 兜底,
@@ -265,6 +288,11 @@ export function toPoolAccount(userInfo) {
         ...(typeof userInfo.refreshExpiredAt === 'string'
           ? { refreshTokenExpiresAt: userInfo.refreshExpiredAt }
           : {}),
+        // 会话模板:账号资料全量(凭证已剔除),服务端加密进 secretsEnc,供「登录本机」重封信封
+        ...(() => {
+          const sessionTemplate = buildSessionTemplate(userInfo)
+          return sessionTemplate ? { sessionTemplate } : {}
+        })(),
         enabled: true,
       },
     ],
@@ -353,6 +381,7 @@ export const __test__ = {
   pickAuthEnvelopeKeys,
   traeUserDataDirs,
   traeUsersRoots,
+  buildSessionTemplate,
   toPoolAccount,
   fingerprintOf,
   ExtractError,
