@@ -288,6 +288,22 @@ export function toastCovered(pageText, shellText) {
   return [...keys].every((k) => shell.includes(k))
 }
 
+/**
+ * 页面的 showToast 是否**全部只在 catch 块内**(错误反馈)。
+ * 这类提示与壳的错误态是同一件事的两面:壳的每个 load/act 都有 try/catch 且走 appAlert / setError,
+ * 转壳后由壳的错误表达承担。文案可能不同(页面 common.loadFailed vs 壳 common.error + e.message),
+ * 但事件同一 ⇒ 不丢用户反馈。只要有任意一处 toast 不在 catch 里(成功提示等)⇒ false。
+ */
+export function toastOnlyInCatch(pageText) {
+  const src = maskComments(String(pageText ?? ''))
+  const total = [...src.matchAll(/showToast\s*\(/g)].length
+  if (total === 0) return false
+  const inCatch = [
+    ...src.matchAll(/catch\s*(?:\([^)]*\))?\s*\{[\s\S]{0,800}?showToast\s*\(/g),
+  ].length
+  return inCatch >= total
+}
+
 /** 页面是否用端内鉴权就绪钩子(由生成页包 AuthReadyGate 承担,见该组件头注)。 */
 export function needsAuthGate(pageText) {
   return /useAuthReadyGate|@\/hooks\/use-auth-ready-gate/.test(String(pageText ?? ''))
@@ -415,6 +431,9 @@ export function judgeConversion({
     for (const tok of ['useAuthReadyGate', '@/hooks/use-auth-ready-gate']) pageTokens.delete(tok)
   // 提示等价:key 全在壳里且壳有提示出口才销账(壳没有这条提示就仍算私有)
   if (toastCovered(pageText, shellText)) pageTokens.delete('Taro.showToast')
+  // 或:toast 全在 catch 内(错误反馈)+ 壳有错误出口 ⇒ 由壳的错误态承担
+  if (!toastCovered(pageText, shellText) && toastOnlyInCatch(pageText) && /appAlert|\bToast\b/.test(String(shellText ?? '')))
+    pageTokens.delete('Taro.showToast')
   // switchTab 只做 navigateBack 的失败回落 ⇒ RN 端没有这一态,壳的 goBack 已覆盖
   if (backFallbackOnly(pageText)) pageTokens.delete('Taro.switchTab')
   // 页面直接打的端点全部被壳覆盖 ⇒ 数据由壳承担(端点不重合的一律不销账)
@@ -673,6 +692,11 @@ function main(argv) {
       backFallbackOnly("Taro.switchTab({ url: '/pages/x' })"),
       backFallbackOnly('const x = 1'),
     ], [true, false, false])
+    P('S14 错误分支 toast:全部在 catch 内且壳有错误出口才算;成功提示仍在则不算', [
+      toastOnlyInCatch("try { await x() } catch { Taro.showToast({ title: t('common.loadFailed') }) }"),
+      toastOnlyInCatch("Taro.showToast({ title: t('ok') })"),
+      toastOnlyInCatch('const x = 1'),
+    ], [true, false, false])
     P('S13 端点等价:页面 get/post 的端点须全部在壳 fetchApi 里(/api 前缀与动态段归一);带业务函数或端点不重合都不销', [
       apiEndpointsCovered(
         "import { get, post } from '@/api'\nget(`/follows/${id}/status`)\npost('/messages/conversations')",
@@ -757,6 +781,7 @@ export const __test__ = {
   backCovered,
   routeParamsCovered,
   toastCovered,
+  toastOnlyInCatch,
   needsAuthGate,
   backFallbackOnly,
   apiEndpointsCovered,
