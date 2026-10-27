@@ -6093,7 +6093,25 @@
     "delete": "삭제",
     "deleteConfirmTitle": "삭제하시겠습니까?",
     "deleteFailed": "삭제에 실패했습니다",
-    "cancel": "취소"
+    "cancel": "취소",
+    "save": "저장",
+    "title": "학습 센터",
+    "subtitle": "학습 리포트 통계와 빠른 이동",
+    "exportReport": "리포트 내보내기",
+    "exportSuccess": "리포트를 내보냈습니다",
+    "exportError": "리포트 내보내기에 실패했습니다",
+    "lessons": "코스 통계",
+    "totalLessons": "총 코스",
+    "completedLessons": "완료",
+    "inProgressLessons": "진행 중",
+    "avgProgress": "평균 진행률",
+    "exams": "시험 통계",
+    "totalExams": "총 시험",
+    "passedExams": "합격",
+    "avgScore": "평균 점수",
+    "certificates": "수료증 통계",
+    "totalCerts": "총 수료증",
+    "quickLinks": "빠른 이동"
   },
   "myLessonsPage": {
     "title": "내 코스",
@@ -6102,5 +6120,25 @@
   "myResourcesPage": {
     "title": "내 리소스",
     "subtitle": "내가 업로드한 리소스"
+  },
+  "offlineRecordsPage": {
+    "title": "오프라인 학습 기록",
+    "subtitle": "오프라인 학습 시간과 자료 기록",
+    "create": "기록 추가",
+    "createTitle": "오프라인 학습 기록 새로 만들기",
+    "editTitle": "오프라인 학습 기록 편집",
+    "edit": "편집",
+    "type": "유형",
+    "typePlaceholder": "예: 오프라인 교육 / 워크숍",
+    "titleField": "제목",
+    "titlePlaceholder": "기록 제목을 입력하세요",
+    "descLabel": "설명",
+    "hoursLabel": "시간",
+    "dateLabel": "날짜",
+    "hoursValue": "{value}시간",
+    "attachmentsCount": "첨부 {count}개",
+    "saveFailed": "저장에 실패했습니다",
+    "errTitleRequired": "제목을 입력해 주세요",
+    "errTypeRequired": "유형을 입력해 주세요"
   }
 }

@@ -6093,7 +6093,25 @@
     "delete": "Delete",
     "deleteConfirmTitle": "Are you sure you want to delete?",
     "deleteFailed": "Failed to delete",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "save": "Save",
+    "title": "Learning Center",
+    "subtitle": "Learning report statistics and quick access",
+    "exportReport": "Export Report",
+    "exportSuccess": "Report exported",
+    "exportError": "Failed to export report",
+    "lessons": "Lessons",
+    "totalLessons": "Total lessons",
+    "completedLessons": "Completed",
+    "inProgressLessons": "In progress",
+    "avgProgress": "Avg. progress",
+    "exams": "Exams",
+    "totalExams": "Total exams",
+    "passedExams": "Passed",
+    "avgScore": "Avg. score",
+    "certificates": "Certificates",
+    "totalCerts": "Total certificates",
+    "quickLinks": "Quick Access"
   },
   "myLessonsPage": {
     "title": "My Lessons",
@@ -6102,5 +6120,25 @@
   "myResourcesPage": {
     "title": "My Resources",
     "subtitle": "Resources you uploaded"
+  },
+  "offlineRecordsPage": {
+    "title": "Offline Learning Records",
+    "subtitle": "Records of offline study hours and materials",
+    "create": "Add Record",
+    "createTitle": "New Offline Record",
+    "editTitle": "Edit Offline Record",
+    "edit": "Edit",
+    "type": "Type",
+    "typePlaceholder": "e.g. Offline training / Workshop",
+    "titleField": "Title",
+    "titlePlaceholder": "Enter record title",
+    "descLabel": "Description",
+    "hoursLabel": "Hours",
+    "dateLabel": "Date",
+    "hoursValue": "{value} hrs",
+    "attachmentsCount": "{count} attachments",
+    "saveFailed": "Failed to save",
+    "errTitleRequired": "Please enter a title",
+    "errTypeRequired": "Please enter a type"
   }
 }
