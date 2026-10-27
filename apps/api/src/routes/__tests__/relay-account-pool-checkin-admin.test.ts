@@ -93,6 +93,16 @@ vi.mock('@ihui/database', () => ({
 }))
 vi.mock('@ihui/types', () => ({
   PROVIDER_HEALTH_STATUSES: ['healthy', 'degraded', 'down', 'unknown'],
+  // 2026-10-27 修复存量红:本 mock 此前只给 PROVIDER_HEALTH_STATUSES,而
+  // packages/shared/src/sse/contract.ts 在**模块求值期**就解构
+  // CHAT_SYNC_EVENT_NAMES(chat-sync 帧名单一真相源,2026-10-26 起)⇒
+  // 整份测试文件在收集期就抛 "No CHAT_SYNC_EVENT_NAMES export",用例一个都没跑到。
+  // 这里按 packages/types/src/chat-sync-contract.ts 的逐字值补齐(不得漂移)。
+  CHAT_SYNC_EVENT_NAMES: {
+    MESSAGE_CREATED: 'message:created',
+    MESSAGE_PATCHED: 'message:patched',
+    MESSAGE_TERMINAL: 'message:terminal',
+  },
 }))
 vi.mock('../../utils/logger.js', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -124,6 +134,14 @@ vi.mock('../../services/relay-proxy-pool.js', () => ({
   deleteProxy: vi.fn(async () => ({})),
   getProxyById: vi.fn(async () => null),
   markProxyChecked: vi.fn(async () => ({})),
+  // 账号级代理三件套:relay-account-pool.ts 从本模块导入它们,
+  // 而 vi.mock 是**整模块替换**(不是按需合并)⇒ 少给一个导出名,调用处就是
+  // "undefined is not a function" ⇒ 被 handler 的 catch 吞成 500。
+  // checkin-resync 走的是 resolveAccountProxyUrl(row.proxyUrl)(真实现是解密,
+  // 解不出按直连处理);本测不关心代理判据,按存储值原样返回即可。
+  encryptAccountProxyUrl: vi.fn(async (v: string) => `enc:${v}`),
+  resolveAccountProxyUrl: vi.fn((stored: string | null | undefined) => stored ?? null),
+  maskAccountProxyUrl: vi.fn((stored: string | null | undefined) => stored ?? null),
 }))
 vi.mock('../../services/relay-model-catalog.js', () => ({
   listModelCatalog: vi.fn(async () => ({})),
