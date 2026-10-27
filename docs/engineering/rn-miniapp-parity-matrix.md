@@ -12,8 +12,8 @@
 
 - 判定面: **HEAD blob**
 - 共享屏(真相源): **242**
-- 已被小程序显式镜像: **204**
-- 缺口合计: **38**(其中已判定 21 / 未判定 17)
+- 已被小程序显式镜像: **217**
+- 缺口合计: **25**(其中已判定 21 / 未判定 4)
 - 判定台账: **105** 行 — 路径与口径单源 `scripts/lib/cross-end-verdicts.mjs`
 - 台账三档: **缺页待造 98** / **已造页待补数据钩子 0** / **不承载 7**
 
@@ -40,26 +40,13 @@
 | 17 | `legal-doc/LegalDocsHubScreen` | DomainHubScreen / EduAiHubScreen | pkg-mirror2/edu-ai-hub/index | 🔲 未判定 | — |
 | 18 | `login/LoginScreen` | ★LoginScreen | — | 🚫 不承载(已判定) | 机主定档小程序端不该有登录页,login 页已整个删除,登录只剩我的 tab 上的弹窗一个宿主(apps/miniapp-taro/src/app.config.ts:17);共享屏是 RN 端 4-tab 完整版(packages/app/src/features/login/LoginScreen.tsx:43),本就不由小程序承载 => not-applicable |
 | 19 | `mcp-store/McpStoreScreen` | ★McpStoreScreen | — | 🚫 不承载(已判定) | 该屏是 MCP Server 管理与安装能力,对应 Web /mcp-store(apps/mobile-rn/src/screens/McpStoreScreen.tsx:24),RN 侧入口全在开发者工作台屏(PatrolScreen/RepoWikiScreen/SelfHealingScreen/TeamMemoryScreen),小程序端无对应工作台域,apps/miniapp-taro/src/api/index.ts 无 mcp 端点 => 桌面/开发端专属 |
-| 20 | `student/MyLessonsScreen` | ★MyLessonsScreen / MyCommentsScreen | pages/study/my-study/index / pkg-mirror2/my-comments/index | 🔲 未判定 | — |
-| 21 | `student/MyResourcesScreen` | ★MyResourcesScreen / MyCommentsScreen | pages/study/my-study/index / pkg-mirror2/my-comments/index | 🔲 未判定 | — |
-| 22 | `student/OfflineRecordsScreen` | ★OfflineRecordsScreen | — | 🔲 未判定 | — |
-| 23 | `plan/PlanFormScreen` | PlanDetailScreen / PlanNewScreen | pages/distribution/plan/index / pages/distribution/plan-detail/index | 🔲 未判定 | — |
-| 24 | `plan/PlanListScreen` | AgentReviewListScreen / AigcListScreen | pkg-ai/aigc/list / pkg-shop/order/list | 🔲 未判定 | — |
-| 25 | `publish/PublishScreen` | ★AigcPublishScreen / ★PublishAccountsScreen | pkg-ai/aigc/publish / pages/study/publish/index | 🧱 缺页(已判定) | 共享屏 packages/app/src/features/publish/PublishScreen.tsx:24 是内容发布中心,RN 壳 apps/mobile-rn/src/screens/PublishScreen.tsx:54 调 listPublishTasks(/api/publish/tasks);小程序 api/index.ts 无 publish/tasks 出口(仅 :1408 publishAigc → /aigc/publish),在册的两个发布页 pkg-ai/aigc/publish.tsx:5 与 pages/study/publish/index.tsx:5 分别已镜像 aigc-publish 与 study-publish ⇒ 缺发布任务中心页。 |
-| 26 | `square/SquareScreen` | — | — | 🧱 缺页(已判定) | RN 壳 apps/mobile-rn/src/screens/NewsScreen.tsx:45 以 SquareScreen as SharedSquareScreen 渲染、:420 落地,共享屏 packages/app/src/features/square/SquareScreen.tsx:29 收 articles+categories 分类内联栏列表;小程序端 pages/share/index.tsx:5 已镜像 share/ShareScreen、pkg-content/news/list.tsx:5 已镜像 article-list/ArticleListScreen —— 两页均被别屏占用声明,端内暂无 Square 屏 ⇒ 判 missing。 |
-| 27 | `student/StudentCenterScreen` | ★StudentCenterScreen / MessageCenterScreen | pkg-user/task-center/index | 🔲 未判定 | — |
-| 28 | `sub-package-index/SubPackageIndexScreen` | ★SubPackageIndexScreen | — | 🧱 缺页(已判定) | 共享屏 packages/app/src/features/sub-package-index/SubPackageIndexScreen.tsx:24 是子包功能入口聚合网格,RN 壳 apps/mobile-rn/src/screens/SubPackageIndexScreen.tsx:33-79 的 ENTRIES 全指向 RN 专属路由(MoreCourse/DevEnterCover/PlazaCover/AppTopup/Learn/StudyIndex/AiGroup/AigcList);小程序 app.config.ts:28-248 的 subPackages 是构建期清单、端内只有 5 个 tabBar 页,无同型运行时聚合页 ⇒ 该造页。 |
-| 29 | `support/SupportScreen` | ★SupportScreen | — | 🔲 未判定 | — |
-| 30 | `switch-prefs/SwitchPrefsScreen` | — | — | 🚫 不承载(已判定) | 头注自述为通用杠杆屏:packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx:13-14「通用开关偏好屏 —— 开关型设置页(developer/notifications、developer/settings、settings/preferences 等)的规模化杠杆…本屏纯 UI」;RN 端无同名屏,只有薄壳 apps/mobile-rn/src/screens/DeveloperSettingsScreen.tsx:107 与 DeveloperNotificationsScreen.tsx:90 传 items,故该通用组件屏不该由小程序单页承载。 |
-| 31 | `tags/TagDetailScreen` | ★TagDetailScreen / ActivityDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 未判定 | — |
-| 32 | `tags/TagsScreen` | ★TagsScreen | — | 🔲 未判定 | — |
-| 33 | `teams/TeamsScreen` | ★TeamsScreen | — | 🔲 未判定 | — |
-| 34 | `teams/TeamWorkspaceScreen` | ★TeamWorkspaceScreen / TeamDetailScreen | pages/distribution/team / pkg-mirror3/team-detail/index | 🔲 未判定 | — |
-| 35 | `tools/ToolsScreen` | ★ChatToolsScreen / ★PdfToolsHubScreen | — | 🔲 未判定 | — |
-| 36 | `workflows/WorkflowDetailScreen` | ★WorkflowDetailScreen / ★WorkflowInstanceDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 未判定 | — |
-| 37 | `workflows/WorkflowInstanceDetailScreen` | ★WorkflowInstanceDetailScreen / WorkflowDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🔲 未判定 | — |
-| 38 | `workflows/WorkflowListScreen` | ★WorkflowListScreen / AgentReviewListScreen | pkg-ai/aigc/list / pkg-shop/order/list | 🔲 未判定 | — |
+| 20 | `plan/PlanFormScreen` | PlanDetailScreen / PlanNewScreen | pages/distribution/plan/index / pages/distribution/plan-detail/index | 🔲 未判定 | — |
+| 21 | `plan/PlanListScreen` | AgentReviewListScreen / AigcListScreen | pkg-ai/aigc/list / pkg-shop/order/list | 🔲 未判定 | — |
+| 22 | `publish/PublishScreen` | ★AigcPublishScreen / ★PublishAccountsScreen | pkg-ai/aigc/publish / pages/study/publish/index | 🧱 缺页(已判定) | 共享屏 packages/app/src/features/publish/PublishScreen.tsx:24 是内容发布中心,RN 壳 apps/mobile-rn/src/screens/PublishScreen.tsx:54 调 listPublishTasks(/api/publish/tasks);小程序 api/index.ts 无 publish/tasks 出口(仅 :1408 publishAigc → /aigc/publish),在册的两个发布页 pkg-ai/aigc/publish.tsx:5 与 pages/study/publish/index.tsx:5 分别已镜像 aigc-publish 与 study-publish ⇒ 缺发布任务中心页。 |
+| 23 | `square/SquareScreen` | — | — | 🧱 缺页(已判定) | RN 壳 apps/mobile-rn/src/screens/NewsScreen.tsx:45 以 SquareScreen as SharedSquareScreen 渲染、:420 落地,共享屏 packages/app/src/features/square/SquareScreen.tsx:29 收 articles+categories 分类内联栏列表;小程序端 pages/share/index.tsx:5 已镜像 share/ShareScreen、pkg-content/news/list.tsx:5 已镜像 article-list/ArticleListScreen —— 两页均被别屏占用声明,端内暂无 Square 屏 ⇒ 判 missing。 |
+| 24 | `sub-package-index/SubPackageIndexScreen` | ★SubPackageIndexScreen | — | 🧱 缺页(已判定) | 共享屏 packages/app/src/features/sub-package-index/SubPackageIndexScreen.tsx:24 是子包功能入口聚合网格,RN 壳 apps/mobile-rn/src/screens/SubPackageIndexScreen.tsx:33-79 的 ENTRIES 全指向 RN 专属路由(MoreCourse/DevEnterCover/PlazaCover/AppTopup/Learn/StudyIndex/AiGroup/AigcList);小程序 app.config.ts:28-248 的 subPackages 是构建期清单、端内只有 5 个 tabBar 页,无同型运行时聚合页 ⇒ 该造页。 |
+| 25 | `switch-prefs/SwitchPrefsScreen` | — | — | 🚫 不承载(已判定) | 头注自述为通用杠杆屏:packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx:13-14「通用开关偏好屏 —— 开关型设置页(developer/notifications、developer/settings、settings/preferences 等)的规模化杠杆…本屏纯 UI」;RN 端无同名屏,只有薄壳 apps/mobile-rn/src/screens/DeveloperSettingsScreen.tsx:107 与 DeveloperNotificationsScreen.tsx:90 传 items,故该通用组件屏不该由小程序单页承载。 |
 
-> 合计 38 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。
+> 合计 25 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。
 > 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页);**🏗 已造页** = 页已按声明链造出,数据钩子待补。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
