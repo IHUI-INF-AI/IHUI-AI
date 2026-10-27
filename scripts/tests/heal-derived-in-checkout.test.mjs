@@ -18,10 +18,10 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 
-import { __test__ as H } from '../heal-derived-in-checkout.mjs'
+import { __test__ as H, prefetchUiInputs } from '../heal-derived-in-checkout.mjs'
 import { __test__ as gate } from '../check-miniapp-generated.mjs'
 import { digestInputs, parsePin, renderPin } from '../lib/generated-input-pin.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -326,3 +326,22 @@ function putBare2(root, pin) {
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('C12 ui-routes 输入预取不是空转:函数在、两段式齐、两处调用都走这一出口', () => {
+  // 2026-10-27 实测:本文件两处调用 prefetchUiInputs,而全仓没有任何定义或 import ⇒
+  // 走到 judgeUiRoutesFace 就 ReferenceError,整条 ui-routes 自愈腿从未真正跑起来过。
+  assert.equal(typeof prefetchUiInputs, 'function', '预取出口必须真存在(调用一个未定义标识符 = 整条腿跑飞)')
+  const src = readFileSync(new URL('../heal-derived-in-checkout.mjs', import.meta.url), 'utf8')
+  assert.match(src, /export function prefetchUiInputs\(reader\)/, '实现要留在源脚本里,不许测试内自造一份')
+  assert.match(
+    src,
+    /\.\.\.specs\.map\(\(a\) => a\.rel\)[\s\S]{0,200}?TARO_APP_CONFIG/,
+    '第一段基集必须含 app.config —— inputRels 求值要读它,漏了就抛「未 prefetch 就 read」',
+  )
+  assert.equal(
+    (src.match(/prefetchUiInputs\(rd\)/g) || []).length,
+    2,
+    '两处调用(healUiRoutesFamily / judgeUiRoutesFace)都必须走同一出口',
+  )
+})
+
