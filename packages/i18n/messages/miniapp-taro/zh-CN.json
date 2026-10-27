@@ -6388,5 +6388,33 @@
     "platformZhihu": "知乎",
     "platformJuejin": "掘金",
     "platformShipinhao": "微信视频号"
+  },
+  "legal": {
+    "title": "法律信息",
+    "serviceSpecificTerms": {
+      "title": "服务特定条款",
+      "lastUpdated": "最近更新"
+    },
+    "supportedRegions": {
+      "title": "支持地区",
+      "lastUpdated": "最近更新",
+      "intro": "我们服务的可用范围会因所在国家/地区的当地法律法规而有所不同，详情如下。",
+      "supportedTitle": "支持的地区",
+      "restrictedTitle": "限制地区",
+      "restrictedIntro": "以下地区的用户可能无法使用本服务的全部或部分功能。",
+      "paymentTitle": "支付方式",
+      "paymentIntro": "不同地区支持的支付方式可能有所不同。",
+      "languageTitle": "界面语言",
+      "languageIntro": "本服务支持多种界面语言，实际展示语言可能因您所在地区而异。"
+    },
+    "terms": {
+      "title": "服务条款",
+      "lastUpdated": "最近更新"
+    },
+    "usagePolicy": {
+      "title": "使用政策",
+      "lastUpdated": "最近更新"
+    },
+    "backToHome": "返回首页"
   }
 }

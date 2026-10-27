@@ -6611,5 +6611,33 @@
     "pickFailed": "ファイルの選択に失敗しました",
     "tooLarge": "ファイルが 10MB の上限を超えています",
     "uploadFailed": "ファイルのアップロードに失敗しました"
+  },
+  "legal": {
+    "title": "法律信息",
+    "serviceSpecificTerms": {
+      "title": "個別利用規約",
+      "lastUpdated": "最終更新"
+    },
+    "supportedRegions": {
+      "title": "支持地区",
+      "lastUpdated": "最終更新",
+      "intro": "当社のサービスの提供範囲は、各国・地域の現地の法令により異なる場合があります。詳細は以下の通りです。",
+      "supportedTitle": "対応地域",
+      "restrictedTitle": "制限地域",
+      "restrictedIntro": "以下の地域のユーザーは本サービスの一部または全部をご利用いただけない場合があります。",
+      "paymentTitle": "お支払い方法",
+      "paymentIntro": "対応するお支払い方法は地域によって異なる場合があります。",
+      "languageTitle": "表示言語",
+      "languageIntro": "本サービスは複数の表示言語に対応しており、表示言語はお住まいの地域によって異なる場合があります。"
+    },
+    "terms": {
+      "title": "利用規約",
+      "lastUpdated": "最終更新"
+    },
+    "usagePolicy": {
+      "title": "使用政策",
+      "lastUpdated": "最終更新"
+    },
+    "backToHome": "ホームに戻る"
   }
 }
