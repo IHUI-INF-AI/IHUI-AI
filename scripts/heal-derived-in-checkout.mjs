@@ -264,6 +264,31 @@ function runGeneratorInFace(root, generatorRel, face, timeoutMs = 25 * 60 * 1000
  * 判据不另写一份:直接借守门 105 的 ui-routes 对账规格(UI_ROUTES_ARTIFACTS),
  * 面上现算钉由它自己的 parse 出口给,免得两边各算一把尺。
  */
+/**
+ * 四端 ui-routes 的输入预取(单点出口):先按门 105 的规格列清单统一 prefetch,再逐份读。
+ *
+ * 立因(2026-10-27 实测):本文件两处调用 `prefetchUiInputs`,而全仓没有任何定义或 import ——
+ * `node scripts/heal-derived-in-checkout.mjs` 走到 judgeUiRoutesFace 就 ReferenceError,整条
+ * ui-routes 自愈腿从未真正跑起来过(守护那轮只留一行失败,失效方向是安静,§12f)。
+ * 输入清单规则不在本文件重写一份:规格与 inputRels 都取门 105 的出口(§0.6)。
+ */
+export function prefetchUiInputs(reader) {
+  const specs = gate105.UI_ROUTES_ARTIFACTS
+  // 两段式取材(与门 105 同一条,顺序不可换):taro 的输入集要 app.config 求值后才能补齐,
+  // 所以先把「四份产物 + 各生成器直接输入」预取进来,再走 inputRels 二段补列。
+  reader.prefetch([
+    ...specs.map((a) => a.rel),
+    gate105.RN_NAVIGATOR,
+    gate105.RN_LINKING,
+    gate105.EXT_SIDEPANEL,
+    gate105.TARO_APP_CONFIG,
+  ])
+  const rels = new Set()
+  for (const art of specs) for (const rel of art.inputRels(reader)) rels.add(rel)
+  reader.prefetch([...rels])
+  return specs
+}
+
 export function healUiRoutesFamily({ face = 'head', root = ROOT, dir, reader = null }) {
   // 同 healI18nFamily:期望值与生成器读的是同一棵检出树(不可变),并发推进活 HEAD 不会误杀
   const rd = reader || gate105.makeReader('worktree', dir)
