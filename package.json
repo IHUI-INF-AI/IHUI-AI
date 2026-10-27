@@ -200,7 +200,10 @@
     "relay:sessions": "pnpm --filter @ihui/api relay:sessions",
     "relay:sessions:backup": "pnpm --filter @ihui/api relay:sessions:backup",
     "relay:switch-account": "pnpm --filter @ihui/api relay:switch-account",
-    "relay:ide-switch": "pnpm --filter @ihui/api relay:ide-switch"
+    "relay:ide-switch": "pnpm --filter @ihui/api relay:ide-switch",
+    "relay:sessions:restore": "pnpm --filter @ihui/api relay:sessions:restore",
+    "relay:session-links": "pnpm --filter @ihui/api relay:session-links",
+    "relay:session-move": "pnpm --filter @ihui/api relay:session-move"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "contributors": [
