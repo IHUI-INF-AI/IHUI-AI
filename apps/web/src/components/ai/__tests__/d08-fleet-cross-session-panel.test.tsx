@@ -14,9 +14,19 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) =>
     values ? `${key}:${JSON.stringify(values)}` : key,
 }))
-// 通知副作用与 Tooltip portal 与本票无关,按既有面板测试同款平替隔离
+// next/link 在 jsdom 无 AppRouterContext,平替为 <a>(与 phase4 面板测试同款隔离)
+vi.mock('next/link', () => ({
+  default: ({ href, children, ...props }: React.ComponentProps<'a'>) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}))
+// 通知副作用与 Tooltip portal 与本票无关,按既有面板测试同款平替隔离;
+// 但 D08 ③ 的「完成通知在整表层面发一次」必须量得到 ⇒ 通知 hook 用可断言 spy
+const { notifySpy } = vi.hoisted(() => ({ notifySpy: vi.fn() }))
 vi.mock('@/hooks/use-background-agent-notify', () => ({
-  useBackgroundAgentNotify: () => {},
+  useBackgroundAgentNotify: (agents: unknown[]) => notifySpy(agents),
 }))
 vi.mock('@/components/feedback', () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -40,6 +50,20 @@ type FakeDispatch = {
   updatedAt: string
   result?: string
   errorMessage?: string
+  conversationId?: string
+  metrics?: {
+    totalTokens: number
+    elapsedMs: number
+    steps: Array<{
+      agent: string
+      status: 'ok' | 'failed' | 'quota_exceeded'
+      durationMs: number
+      attempt: number
+      tokenUsage: { prompt: number; completion: number; total: number }
+    }>
+    dagDone?: number
+    dagTotal?: number
+  }
 }
 
 function makeDispatch(
@@ -98,6 +122,16 @@ describe('D08 ③ 跨会话 Fleet 面板', () => {
 
     // token 总量来自 stats(票面「token」格)
     expect(screen.getByText(/tokens: 1234/i)).toBeTruthy()
+
+    // 完成通知在整表层面发一次(桶内实例 notify=false 传空表):非空调用恰好一条,
+    // 拿到的是全部 6 条派单 —— 否则「运行→完成」跨桶换实例时通知发不出/发两遍
+    const nonEmptyCalls = notifySpy.mock.calls
+      .map((c) => c[0] as Array<{ agent_id: string }>)
+      .filter((list) => list.length > 0)
+    expect(nonEmptyCalls).toHaveLength(1)
+    expect(nonEmptyCalls[0]!.map((a) => a.agent_id).sort()).toEqual(
+      ['c1', 'f1', 'p1', 'pa1', 'r1', 'x1'].sort(),
+    )
   })
 
   it('空态:全量派单为空时只出空态文案,不渲染任何分组', async () => {
@@ -107,6 +141,79 @@ describe('D08 ③ 跨会话 Fleet 面板', () => {
     const { container } = render(<FleetCrossSessionPanel />)
     await waitFor(() => expect(screen.getByText('empty')).toBeTruthy())
     expect(container.querySelectorAll('[data-testid^="fleet-group-"]').length).toBe(0)
+  })
+
+  it('进度/token/一键接管:metrics 与 conversationId 有值才渲染,取值逐格对账', async () => {
+    getAllSubagentDispatches.mockResolvedValue({
+      dispatches: [
+        makeDispatch({
+          id: 'r1',
+          status: 'running',
+          conversationId: 'conv-abc',
+          metrics: {
+            totalTokens: 512,
+            elapsedMs: 1200,
+            steps: [
+              {
+                agent: 'coder',
+                status: 'ok',
+                durationMs: 600,
+                attempt: 1,
+                tokenUsage: { prompt: 200, completion: 100, total: 300 },
+              },
+              {
+                agent: 'reviewer',
+                status: 'ok',
+                durationMs: 600,
+                attempt: 1,
+                tokenUsage: { prompt: 100, completion: 112, total: 212 },
+              },
+            ],
+            dagDone: 1,
+            dagTotal: 3,
+          },
+        }),
+      ],
+    })
+    getSubagentStats.mockResolvedValue({ active: 1, completed: 0, failed: 0 })
+
+    render(<FleetCrossSessionPanel />)
+    await waitFor(() => expect(screen.getByTestId('fleet-group-running')).toBeTruthy())
+
+    // 逐 agent token(metrics.totalTokens 原值,不做估算)
+    expect(screen.getByTestId('bg-task-tokens-r1').textContent).toBe('tokens 512')
+    // 进度:steps 计数走既有「calls」文案;DAG 进度 1/3
+    expect(screen.getByText('calls:{"count":2}')).toBeTruthy()
+    expect(screen.getByText('1/3')).toBeTruthy()
+    // 一键接管 = 既有 /chat?conversationId= 深链,不乱拼别的前缀
+    const takeover = screen.getByTestId('bg-task-takeover-r1')
+    expect(takeover.getAttribute('href')).toBe('/chat?conversationId=conv-abc')
+    expect(takeover.textContent).toBe('takeover')
+  })
+
+  it('未判定不伪造:无 metrics / 无 conversationId 时不出 token、进度、接管三格', async () => {
+    getAllSubagentDispatches.mockResolvedValue({
+      dispatches: [makeDispatch({ id: 'r2', status: 'running' })],
+    })
+    getSubagentStats.mockResolvedValue(null)
+
+    render(<FleetCrossSessionPanel />)
+    await waitFor(() => expect(screen.getByTestId('fleet-group-running')).toBeTruthy())
+
+    expect(screen.queryByTestId('bg-task-tokens-r2')).toBeNull()
+    expect(screen.queryByTestId('bg-task-takeover-r2')).toBeNull()
+    expect(screen.queryByText(/calls:/)).toBeNull()
+  })
+
+  it('终态不给接管入口:已完成派单即便带会话归属也只走「查看结果」', async () => {
+    getAllSubagentDispatches.mockResolvedValue({
+      dispatches: [makeDispatch({ id: 'c2', status: 'completed', conversationId: 'conv-xyz' })],
+    })
+    getSubagentStats.mockResolvedValue(null)
+
+    render(<FleetCrossSessionPanel />)
+    await waitFor(() => expect(screen.getByTestId('fleet-group-completed')).toBeTruthy())
+    expect(screen.queryByTestId('bg-task-takeover-c2')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -143,6 +143,18 @@ export interface SubagentDispatch {
   startedAt?: string
   completedAt?: string
   errorMessage?: string
+  /** 进度/token 度量(载荷缺该字段 = 未判定;与 @ihui/api-client 同名契约保持同形) */
+  metrics?: {
+    /** 已执行步骤(面板只取条数,不解析内容) */
+    steps: unknown[]
+    /** DAG 总节点数 / 已完成数 */
+    dagTotal?: number
+    dagDone?: number
+    /** 该派单累计 token */
+    totalTokens?: number
+  }
+  /** 派单归属会话(一键接管深链用;未归属会话时缺省) */
+  conversationId?: string
 }
 
 /** 派单结果 */
