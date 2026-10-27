@@ -117,20 +117,30 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
   files.push({ path: REGISTRY, blob: hashBytes(reg) })
 
   const packs = new Map()
+  const packHeads = new Map()
   for (const p of planned) {
     for (const lb of p.langBlocks) {
       if (!packs.has(lb.packRel)) {
         const t0 = headOf(lb.packRel)
         if (typeof t0 !== 'string') return { ok: false, why: `HEAD 面取不到词包 ${lb.packRel} ⇒ 未判定,整批不落` }
         packs.set(lb.packRel, t0)
+        packHeads.set(lb.packRel, t0)
       }
       const r = writePackText(packs.get(lb.packRel), lb.groups, lb.members)
       if (!r.ok) return { ok: false, why: `词包 ${lb.packRel}(${p.route}):${r.why}`, culprit: p.route }
       packs.set(lb.packRel, r.text)
     }
   }
-  for (const [rel, text] of packs) files.push({ path: rel, blob: hashBytes(text) })
-  return { ok: true, files, packs: packs.size }
+  // 只有**真变了**的词包才进 blob 清单:空成员组那一档会原样返回底稿(http 在 no-op 屏上),
+  // 把未变的文件当成"待写"塞进去 ⇒ 落地器的"写回旧版"守卫当场命中(内容 === 父提交 blob),
+  // 整批 undetermined 而根因是自家清单多带了一件。2026-10-27 实测即此型。
+  let changedPacks = 0
+  for (const [rel, text] of packs) {
+    if (text === packHeads.get(rel)) continue
+    changedPacks += 1
+    files.push({ path: rel, blob: hashBytes(text) })
+  }
+  return { ok: true, files, packs: changedPacks }
 }
 
 /**
