@@ -57,6 +57,8 @@ import {
 // 两份实现必漂移是本仓记过最多次的失效型,而这一族的失败形态是安静的 —— 漂了的一侧只会让
 // 某些告警少打码或多打码,没有任何门会喊。`redactChildOutput` 在本文件里已不再有实现。
 import { redactChildOutput } from './lib/secret-shape-redact.mjs'
+// 推送分叉探测(2026-10-27 接线):判据住 lib,本格只做调度 + 到人(§5e 唯一通道 = 邮件)
+import { buildAlertIdentity, watchPushDivergence } from './lib/push-divergence-watch.mjs'
 // AI 自进化调度层(第 0 期)的接线锚点:取票面/闸门/台账/锁全部 import 自器物本身(§0.6 单一真相源),
 // 派发层不另写"什么算可派/今日已派几轮/成本还剩多少"的第二份判据 —— 两处各算一次必漂移。
 import {
@@ -4150,6 +4152,168 @@ export function sweepCrossEndShellPages(opts = {}) {
   }
 }
 
+/* ═══════════════ 派生产物自走与推送分叉到人(2026-10-27 立,三条腿)═══════════════
+ *
+ * 三条都判**机器状态** ⇒ 一律不进提交链(§12e),一律自带节流,一律"取不到结论"只写日志不记绿(§0.3)。
+ *
+ *  A healI18nBundleLeg —— 守门 105 的 G5(小程序离线语言包自述钉)是 blocking 且每次提交都跑,
+ *     而这一维此前**只有人肉 `pnpm gen:i18n`** 一条出路:输入或生成器一改并经旁路落地(不跑钩子),
+ *     HEAD 上的产物钉就落后,下一枚毫不相干的提交被拦 —— 只判不修的 blocking 门就是恒红门。
+ *     器物:`scripts/heal-i18n-bundle.mjs --apply`(它自带在飞副本闸与量级闸,拒落属常态 ⇒ 只写日志)。
+ *  B auditPushDivergenceLeg —— 本地与 origin/main 真分叉时,全仓**零报警腿**:推送状态件只在 push-guard
+ *     那一侧写,而"没人推得动"这件事没有任何一层量过(2026-10-26 实测:本地 ahead 121 / 远端 ahead 331
+ *     持续移动,账面一声不响)。尺子:`scripts/lib/push-divergence-watch.mjs`,三态 ok/breach/unjudged。
+ *     breach 到人(§5e-1:正文自带可照抄的下一步命令;身份 = 分档名 + 持续档,不塞会抖的计数)。
+ *  C healMirrorPurgeLeg —— 守门 238(镜像宣传内容不得回潮)是绝对零容忍的 blocking 门,而回潮通道是
+ *     "收编滞后工作树副本"那条既有链路(旁路落地不写工作树 ⇒ 别人的旧副本被收编回来)。
+ *     门自己现在有 `--fix` 了(在飞副本闸 + 量级闸),本格只是给它一个调度器。
+ */
+const I18N_HEAL_INTERVAL_MS = Number(process.env.IHUI_I18N_HEAL_INTERVAL_MS || 30 * 60 * 1000)
+const PUSH_WATCH_INTERVAL_MS = Number(process.env.IHUI_PUSH_WATCH_INTERVAL_MS || 15 * 60 * 1000)
+const MIRROR_FIX_INTERVAL_MS = Number(process.env.IHUI_MIRROR_FIX_INTERVAL_MS || 30 * 60 * 1000)
+
+/** 节流台账:到点就写 attemptAt 并放行;取不到/写不进都不拦派发(宁可多跑一轮,不可静默停摆)。 */
+function legThrottle(tickFile, intervalMs, now, logger) {
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return false
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 节流台账写入失败(${String(e?.message ?? e).slice(0, 80)})——下轮照旧派发`)
+  }
+  return true
+}
+
+/** 子命令共用电次:显式 stdio(§12g)+ windowsHide(§5b)+ 有界超时(守门 80);非零不抛,结论在 stdout */
+function runLegChild(scriptFile, args, timeoutMs, cwd = WORKTREE) {
+  try {
+    const out = execFileSync(process.execPath, [scriptFile, ...args], {
+      cwd,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 1 << 26,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { status: 0, stdout: String(out ?? ''), stderr: '' }
+  } catch (e) {
+    return {
+      status: typeof e?.status === 'number' ? e.status : null,
+      stdout: String(e?.stdout ?? ''),
+      stderr: String(e?.stderr ?? e?.message ?? ''),
+    }
+  }
+}
+
+export function healI18nBundleLeg(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = I18N_HEAL_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'i18n-bundle-heal-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'heal-i18n-bundle.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 离线包自走重生成:器物不在位(scripts/heal-i18n-bundle.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const r =
+    typeof runner === 'function'
+      ? runner()
+      : runLegChild(script, ['--apply', '--json'], 20 * 60 * 1000)
+  let summary = null
+  try {
+    summary = JSON.parse(String(r.stdout ?? '').trim().split('\n').pop())
+  } catch {
+    /* 取不到结论 = 未判定,下面明写 */
+  }
+  if (!summary || typeof summary.state !== 'string') {
+    logger(`⚠️ 离线包自走重生成:结论取不到(status=${r.status})⇒ 未判定,不记绿:${String(r.stderr ?? '').slice(0, 160)}`)
+    return { ran: true, state: 'undetermined', status: r.status }
+  }
+  // clean = 绝大多数轮次的常态(钉本来就是对的)⇒ 不写日志,否则 30 分钟一行会把守护日志淹成噪声
+  if (summary.state === 'clean') return { ran: true, state: 'clean' }
+  logger(
+    `${summary.state === 'landed' || summary.state === 'written' ? '✅' : '⚠️'} 离线包自走重生成 state=${summary.state} ` +
+      `changed=${summary.changed ?? 0} paths=${(summary.paths ?? []).length} —— ${String(summary.detail ?? '').slice(0, 300)}`,
+  )
+  return { ran: true, state: summary.state, summary }
+}
+
+export function auditPushDivergenceLeg(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = PUSH_WATCH_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'push-divergence-last.json'),
+    logger = log,
+    watcher = null,
+    notify = notifyGuardRed,
+  } = opts
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  let verdict
+  try {
+    const watch = typeof watcher === 'function' ? watcher : watchPushDivergence
+    verdict = watch({ now }).verdict
+  } catch (e) {
+    // 尺子自己抛 = 这一轮没判(§0.3),绝不因为"取不到"就报"没问题"
+    logger(`⚠️ 推送分叉探测:尺子异常 ⇒ 未判定:${String(e?.message ?? e).slice(0, 160)}`)
+    return { ran: true, state: 'undetermined' }
+  }
+  if (!verdict || !verdict.state) {
+    logger('⚠️ 推送分叉探测:尺子没回结论 ⇒ 未判定,不记绿')
+    return { ran: true, state: 'undetermined' }
+  }
+  if (verdict.state === 'ok') return { ran: true, state: 'ok', band: verdict.band }
+  if (verdict.state === 'unjudged') {
+    logger(`⚠️ 推送分叉探测:未判定 —— ${String(verdict.text ?? '').slice(0, 200)}`)
+    return { ran: true, state: 'unjudged', missing: verdict.missing ?? [] }
+  }
+  const id = buildAlertIdentity(verdict, { now })
+  const sent = notify(id.name, id.detail, { severity: id.severity, dedupKey: id.dedupKey, now })
+  logger(
+    `📣 推送分叉探测:breach(${verdict.band}) —— ${String(verdict.text ?? '').slice(0, 200)}` +
+      ` ⇒ 到人=${sent?.sent ? 'yes' : `no(${String(sent?.why ?? '').slice(0, 60)})`}`,
+  )
+  return { ran: true, state: 'breach', band: verdict.band, mailed: !!sent?.sent, identity: id.dedupKey }
+}
+
+export function healMirrorPurgeLeg(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = MIRROR_FIX_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'mirror-purge-fix-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-mirror-purge-intact.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 镜像徽章自愈:器物不在位(scripts/check-mirror-purge-intact.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const r = typeof runner === 'function' ? runner() : runLegChild(script, ['--fix'], 5 * 60 * 1000)
+  const line = String(r.stdout ?? '')
+    .split('\n')
+    .find((l) => l.includes('MIRROR-PURGE-FIX-RESULT'))
+  if (!line) {
+    logger(`⚠️ 镜像徽章自愈:结论取不到(status=${r.status})⇒ 未判定,不记绿:${String(r.stderr ?? '').slice(0, 140)}`)
+    return { ran: true, state: 'undetermined', status: r.status }
+  }
+  // fixed=0 是常态(文档本来就是干净的)⇒ 只在这种轮次留一行都不写;有改动/有拒落才值得被看见
+  const m = /state=(\S+).*?fixed=(\d+).*?refused=(\d+)/.exec(line)
+  if (m && m[1] === 'clean' && Number(m[2]) === 0 && Number(m[3]) === 0) return { ran: true, state: 'clean' }
+  logger(`ℹ️ 镜像徽章自愈:${line.slice(0, 260)}`)
+  return { ran: true, state: m?.[1] ?? 'unknown', line }
+}
+
 export function healCrossEndMirror(opts = {}) {
   const {
     now = Date.now(),
@@ -5474,6 +5638,12 @@ function main() {
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     if (!CHECK_ONLY) ensureS4u()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
+    // 派生钉自走 + 推送分叉到人 + 镜像徽章自愈(2026-10-27 立,三条腿各带节流):
+    // 守门 105/238 都是 blocking 而写回出口此前只有人肉一条路(§12e:只判不修=逼人人跳门),
+    // 而"本地与 origin 真分叉"全仓零报警腿。判机器状态 ⇒ 绝不进提交链。
+    if (!CHECK_ONLY) healI18nBundleLeg()
+    if (!CHECK_ONLY) auditPushDivergenceLeg()
+    if (!CHECK_ONLY) healMirrorPurgeLeg()
     if (CHECK_ONLY)
       console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
     return 0
@@ -6324,6 +6494,9 @@ export const __test__ = {
   auditCrossEndParityDrift,
   healCrossEndMirror,
   sweepCrossEndShellPages,
+  healI18nBundleLeg,
+  auditPushDivergenceLeg,
+  healMirrorPurgeLeg,
   auditIndexUnmerged,
   sweepStaleClosedRows,
   sweepStaleClaimMarks,
