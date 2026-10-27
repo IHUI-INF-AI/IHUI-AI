@@ -72,6 +72,10 @@ const hashBytes = (buf) => git(['hash-object', '-w', '--stdin'], Buffer.from(buf
 
 /** 词包两档写入(与造页器同一条:全新命名空间按行插,已在册转并键档) */
 function writePackText(headText, groups, members) {
+  // 壳承载形制里「t() 全落在通用命名空间」的屏没有专属词条(实测 knowledge-planet / learn /
+  // sub-package-index 三屏只用到 common.back|more|retry)⇒ 词包接缝无事可做,不是失败。
+  // 旧实现把它当写失败 ⇒ 整批 blocked,而这三屏永远落不下来。
+  if (!Array.isArray(groups) || groups.length === 0) return { ok: true, text: headText, skipped: true }
   let r = insertJsonMembers(headText, groups)
   if (!r.ok && /已存在顶层命名空间/.test(r.why || '')) r = mergeJsonMembers(headText, members)
   return r
