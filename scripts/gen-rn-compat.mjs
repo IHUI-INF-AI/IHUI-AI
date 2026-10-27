@@ -302,7 +302,10 @@ async function main() {
     console.log(`⚠️ lucide 词表里取不到形体的名字 ${missing.length} 个(将被渲染为占位,须人工换名):${missing.join(' ')}`)
   }
   if (check) {
-    const covered = new Set((current.match(/^  '([A-Za-z0-9]+)':/gm) ?? []).map((l) => l.slice(3, -2)))
+    // 盘上生成物是 `export const X = makeIcon(...)` 形态(渲染器换代后已无 `  'X':` 表格)。
+    // 旧尺子按表格正则取「在册」,于是永远量到"一个都没有" ⇒ --check 恒 exit 1、门 251 C2 的
+    // 修复出口变成跑不通的出路(§0.8)。改成与写出口同一形态,"在册"只有这一种读法。
+    const covered = new Set([...current.matchAll(/^export const ([A-Za-z0-9]+) =/gm)].map((m) => m[1]))
     const uncovered = names.filter((n) => !covered.has(n))
     if (uncovered.length > 0) {
       console.log(`❌ 已产出文件缺 ${uncovered.length} 个名字:${uncovered.join(' ')}`)
