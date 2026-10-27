@@ -318,6 +318,7 @@ export default defineAppConfig({
         'my-comments/index',
         'my-lessons/index',
         'my-resources/index',
+        'offline-records/index',
       ],
     },
     {
@@ -350,6 +351,7 @@ export default defineAppConfig({
         'usage/index',
         'vip-level/index',
         'workflows/index',
+        'student-center/index',
       ],
     },
   ],

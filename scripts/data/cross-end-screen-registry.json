@@ -1025,6 +1025,16 @@
       "shared": "packages/app/src/features/student/MyResourcesScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/MyResourcesScreen.tsx",
       "miniapp": "pkg-mirror2/my-resources/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/OfflineRecordsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OfflineRecordsScreen.tsx",
+      "miniapp": "pkg-mirror2/offline-records/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/StudentCenterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudentCenterScreen.tsx",
+      "miniapp": "pkg-mirror3/student-center/index"
     }
   ]
 }

@@ -6093,7 +6093,25 @@
     "delete": "删除",
     "deleteConfirmTitle": "确定要删除吗?",
     "deleteFailed": "删除失败",
-    "cancel": "取消"
+    "cancel": "取消",
+    "save": "保存",
+    "title": "学习中心",
+    "subtitle": "学习报告统计与快捷入口",
+    "exportReport": "导出报告",
+    "exportSuccess": "报告导出完成",
+    "exportError": "报告导出失败",
+    "lessons": "课程统计",
+    "totalLessons": "课程总数",
+    "completedLessons": "已完成",
+    "inProgressLessons": "进行中",
+    "avgProgress": "平均进度",
+    "exams": "考试统计",
+    "totalExams": "考试总数",
+    "passedExams": "已通过",
+    "avgScore": "平均分",
+    "certificates": "证书统计",
+    "totalCerts": "证书总数",
+    "quickLinks": "快捷入口"
   },
   "myLessonsPage": {
     "title": "我的课程",
@@ -6102,5 +6120,25 @@
   "myResourcesPage": {
     "title": "我的资源",
     "subtitle": "我上传的资源"
+  },
+  "offlineRecordsPage": {
+    "title": "线下学习记录",
+    "subtitle": "线下学习时长与资料记录",
+    "create": "添加记录",
+    "createTitle": "新建线下学习记录",
+    "editTitle": "编辑线下学习记录",
+    "edit": "编辑",
+    "type": "类型",
+    "typePlaceholder": "如 线下培训 / 工作坊",
+    "titleField": "标题",
+    "titlePlaceholder": "请输入记录标题",
+    "descLabel": "说明",
+    "hoursLabel": "时长",
+    "dateLabel": "日期",
+    "hoursValue": "{value} 小时",
+    "attachmentsCount": "{count} 个附件",
+    "saveFailed": "保存失败",
+    "errTitleRequired": "请填写标题",
+    "errTypeRequired": "请填写类型"
   }
 }

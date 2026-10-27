@@ -6093,7 +6093,25 @@
     "delete": "削除",
     "deleteConfirmTitle": "削除してもよろしいですか?",
     "deleteFailed": "削除に失敗しました",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "save": "保存",
+    "title": "学習センター",
+    "subtitle": "学習レポートの統計とクイックアクセス",
+    "exportReport": "レポートをエクスポート",
+    "exportSuccess": "レポートのエクスポートが完了しました",
+    "exportError": "レポートのエクスポートに失敗しました",
+    "lessons": "コース統計",
+    "totalLessons": "総コース数",
+    "completedLessons": "完了",
+    "inProgressLessons": "進行中",
+    "avgProgress": "平均進捗",
+    "exams": "試験統計",
+    "totalExams": "総試験数",
+    "passedExams": "合格",
+    "avgScore": "平均点",
+    "certificates": "証明書統計",
+    "totalCerts": "証明書総数",
+    "quickLinks": "クイックアクセス"
   },
   "myLessonsPage": {
     "title": "マイコース",
@@ -6102,5 +6120,25 @@
   "myResourcesPage": {
     "title": "マイリソース",
     "subtitle": "アップロードしたリソース"
+  },
+  "offlineRecordsPage": {
+    "title": "オフライン学習記録",
+    "subtitle": "オフライン学習時間と資料の記録",
+    "create": "記録を追加",
+    "createTitle": "オフライン学習記録を作成",
+    "editTitle": "オフライン学習記録を編集",
+    "edit": "編集",
+    "type": "種別",
+    "typePlaceholder": "例: オフライン研修 / ワークショップ",
+    "titleField": "タイトル",
+    "titlePlaceholder": "記録タイトルを入力してください",
+    "descLabel": "説明",
+    "hoursLabel": "時間",
+    "dateLabel": "日付",
+    "hoursValue": "{value} 時間",
+    "attachmentsCount": "添付 {count} 件",
+    "saveFailed": "保存に失敗しました",
+    "errTitleRequired": "タイトルを入力してください",
+    "errTypeRequired": "種別を入力してください"
   }
 }
