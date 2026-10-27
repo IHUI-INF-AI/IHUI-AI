@@ -4248,6 +4248,17 @@
     "loginButton": "ログイン"
   },
   "webViewPortal": {
+    "pluginMarket": "プラグインマーケット",
+    "skillsMarket": "スキルマーケット",
+    "memoryManager": "メモリ管理台",
+    "agentRules": "実行ルール",
+    "publishMonitor": "公開モニタリング",
+    "dramaStudio": "短編ドラマ脚本",
+    "myResources": "マイリソース",
+    "mySignUps": "受講登録",
+    "certificateDownload": "証明書ダウンロード",
+    "marginWallet": "保証金ウォレット",
+    "withdrawRecords": "出金履歴",
     "cloudRuns": "クラウドエージェント実行記録",
     "mediaTasks": "メディアタスク",
     "voices": "音声リソース",

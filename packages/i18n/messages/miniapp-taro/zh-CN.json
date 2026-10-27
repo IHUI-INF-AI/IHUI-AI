@@ -4605,6 +4605,17 @@
     "p1": "录音启动失败"
   },
   "webViewPortal": {
+    "pluginMarket": "插件市场",
+    "skillsMarket": "技能市场",
+    "memoryManager": "记忆管理台",
+    "agentRules": "运行规则",
+    "publishMonitor": "发布监测",
+    "dramaStudio": "短剧剧本",
+    "myResources": "我的资源",
+    "mySignUps": "我的报名",
+    "certificateDownload": "证书下载",
+    "marginWallet": "保证金钱包",
+    "withdrawRecords": "提现记录",
     "cloudRuns": "云托管运行记录",
     "mediaTasks": "媒体任务",
     "voices": "语音资源",
