@@ -45,6 +45,8 @@ const WEB_APP_DIR = 'apps/web/app'
 // WebView 门户登记表:移动端按设计用 WebView 承载的 web 路由,唯一源在共享常量里(RN 侧
 // apps/mobile-rn/src/lib/webview-portal-config.ts 与小程序侧都从它派生,不是端内自造清单)。
 const WEB_PORTAL_REL = 'packages/shared/src/constants/web-portal.ts'
+// web 侧栏导航项的唯一源(入口级可达性的分母)
+const NAV_REL = 'apps/web/src/components/sidebar/nav-data.ts'
 
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
@@ -320,6 +322,68 @@ function evaluateMap(webRoutes, map, rnScreens, face, portal = collectPortalRout
   }
 }
 
+/** web 侧栏入口(nav-data.ts 的 href)↔ 台账档位 → 入口级可达性(2026-10-27 立)。
+ * 为什么要有这一维:本尺此前只按 **web 路由文件是否存在** 分档,而"功能不差"的用户口径是
+ * **侧栏能不能点开**。现读:203 条去重入口里 13 条落在 gap 档(web 能点、台账判 RN 零承载)、
+ * 6 条(messages/* 通知中心子页)台账根本没记录 —— 这 19 条此前既不进缺口、也不进未映射,
+ * 叫任何人去补都补不到,因为它根本没被任何一档认领。
+ * 解析口径:只认字面量 href(以 / 开头、不含 ${}/占位),档位标记(adminOnly/advancedOnly)取
+ * **本行起 5 行窗口** —— 导航项是多行对象,只看本行会把 `href: '/x',\n adminOnly: true` 读成普通项。
+ * 门户表取不到 ⇒ 整维未判定(§0.3):不能把"本该由门户承载的入口"凭空算成 unrecorded 缺口。
+ */
+function collectNavEntries(face) {
+  const text = cov.faceRead(face, NAV_REL)
+  if (typeof text !== 'string') return null
+  const lines = text.split('\n')
+  const out = []
+  for (let i = 0; i < lines.length; i++) {
+    const m = /href:\s*'([^']+)'/.exec(lines[i])
+    if (!m) continue
+    const href = m[1]
+    if (!href.startsWith('/') || href.includes('$') || href.includes('*')) continue
+    const win = lines.slice(i, Math.min(lines.length, i + 5)).join('\n')
+    out.push({
+      route: href.replace(/^\/+/, '').replace(/\/+$/, '') || '(root)',
+      href,
+      admin: /adminOnly:\s*true|permission:\s*'[^']*admin/i.test(win),
+      advanced: /advancedOnly:\s*true/.test(win),
+    })
+  }
+  const byRoute = new Map()
+  for (const e of out) byRoute.set(e.route, e)
+  return { parsed: out.length, entries: [...byRoute.values()] }
+}
+
+/** 纯函数:入口集 × evaluateMap 的分档结果 → 六桶 + 两张点名清单。 */
+function evaluateNav(nav, ev) {
+  if (!nav) return { undetermined: true, why: `${NAV_REL} 取不到 ⇒ 入口维未判定` }
+  if (ev.portalCarried === null)
+    return { undetermined: true, why: `门户表取不到 ⇒ 入口维未判定(不得把门户入口算成 unrecorded)` }
+  const aligned = new Set(ev.aligned.map((r) => r.web))
+  const excluded = new Set(ev.excluded.map((r) => r.web))
+  const gap = new Set(ev.judgedGap.map((r) => r.web))
+  const prefixes = ev.prefixRows.map((r) => r.web.slice(0, -3))
+  const counts = { aligned: 0, portal: 0, excluded: 0, prefixExcluded: 0, gap: 0, unrecorded: 0 }
+  const gapItems = []
+  const unrecordedItems = []
+  for (const e of nav.entries) {
+    const tag = `${e.route}${e.admin ? '[admin]' : ''}${e.advanced ? '[advanced]' : ''}`
+    if (aligned.has(e.route)) counts.aligned++
+    else if (gap.has(e.route)) {
+      counts.gap++
+      gapItems.push(tag)
+    } else if (excluded.has(e.route)) counts.excluded++
+    else if (ev.portalCarried.has(e.route)) counts.portal++
+    else if (prefixes.some((pre) => e.route === pre.replace(/\/$/, '') || e.route.startsWith(pre)))
+      counts.prefixExcluded++
+    else {
+      counts.unrecorded++
+      unrecordedItems.push(tag)
+    }
+  }
+  return { undetermined: false, counts, gapItems, unrecordedItems, total: nav.entries.length, parsed: nav.parsed }
+}
+
 function run() {
   const webRoutes = collectWebRoutes(FACE)
   const rnScreens = collectRnScreens(FACE)
@@ -354,6 +418,7 @@ function run() {
   const usedRn = new Set(aligned.map((r) => r.rn))
   const rnOnly = rnScreens.filter((s) => !usedRn.has(s.rel))
 
+  const navEval = evaluateNav(collectNavEntries(FACE), ev)
   const byFirstSeg = new Map()
   for (const r of unmapped) {
     const k = r.route.split('/')[0] ?? '(root)'
@@ -373,6 +438,7 @@ function run() {
     contradicted: contradicted.length,
     portalRows: portalRows.length,
     portalUnverified: portalUnverified.length,
+    nav: navEval,
     contradictedRows: contradicted.map((r) => ({ web: r.web, by: r.by })),
     portalCarried: portalCarried ? portalCarried.size : null,
     portalUndetermined,
@@ -448,6 +514,27 @@ function run() {
   }
   log(`未映射 web 路由    : ${json.unmapped}  ← 功能缺口候选(**无人判过**;逐屏登记后收敛)`)
   log(`RN 独有屏         : ${json.rnOnly}`)
+  // 入口级可达性:分母是"用户在 web 侧栏真能点开的项",不是"路由文件存在"。
+  log('')
+  if (navEval.undetermined) {
+    log(`入口可达性(web 侧栏) : 未判定 —— ${navEval.why}(不把没读到算成零缺口,也不把门户入口算成缺口)`)
+  } else {
+    const c = navEval.counts
+    log(
+      `入口可达性(web 侧栏) : ${navEval.total} 条去重入口(解析 ${navEval.parsed})` +
+        ` ⇒ 已承载 ${c.aligned} / 门户 ${c.portal} / 豁免 ${c.excluded} / 段级豁免 ${c.prefixExcluded}` +
+        ` / **入口级缺口 ${c.gap}** / **台账无记录 ${c.unrecorded}**`,
+    )
+    if (c.gap > 0) {
+      log(`  ⚠ 入口级缺口:这些项 web 侧栏一点就开,而台账判过「RN 零承载」——用户视角的"RN 功能差在这里"`)
+      for (const g of navEval.gapItems.slice(0, fullMode ? navEval.gapItems.length : 20)) log(`     · ${g}`)
+    }
+    if (c.unrecorded > 0) {
+      log(`  ⚠ 台账无记录:既不在承载/门户/豁免任一档,也没进未映射(路由文件可能就不是 page.tsx 形态)`)
+      for (const u of navEval.unrecordedItems.slice(0, fullMode ? navEval.unrecordedItems.length : 20))
+        log(`     · ${u}`)
+    }
+  }
   log('')
   log('未映射按首段分组(前 25):')
   for (const [seg, n] of segRows.slice(0, 25)) log(`  ${String(n).padStart(4)}  ${seg}`)
@@ -490,6 +577,8 @@ export const __test__ = {
   collectWebRoutes,
   collectRnScreens,
   collectPortalRoutes,
+  collectNavEntries,
+  evaluateNav,
   screenTokens,
   routeTokens,
   suggestCandidates,
