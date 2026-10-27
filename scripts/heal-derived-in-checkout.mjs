@@ -37,11 +37,13 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { FACE_LABEL, Undetermined, selectFace } from './lib/face-reader.mjs'
 import { digestInputs, parsePin } from './lib/generated-input-pin.mjs'
+import { classifyCopyDelta, mayOverwrite } from './lib/derived-copy-state.mjs'
+import { hashText } from './lib/land-derived-blobs.mjs'
 import { landBlobs } from './lib/land-derived-blobs.mjs'
 /** 离线包一次生成的全部落点(7 份):钉/清单/内联包互相引用 version,4 份 CDN 载荷与钉同批 ⇒ 必须一次带走 */
 export const I18N_OUTPUTS = [
@@ -63,6 +65,9 @@ export const checkoutPathOf = (root = ROOT, slot = CHECKOUT_SLOT) => join(root, 
 
 /** 一次判定的输入族:离线包(1 份产物)与四端 ui-routes(4 份产物) */
 export const FAMILIES = ['i18n', 'ui-routes']
+
+/** 离线包一次重生成的量级上限:整包重写 ≈ 955 KB,留一倍余量;超过就是口径异常,不自动背书 */
+export const MAX_I18N_BYTES = 2_500_000
 
 function git(args, cwd = ROOT, opts = {}) {
   return execFileSync('git', ['-c', 'safe.directory=*', '-C', cwd, ...args], {
@@ -88,6 +93,17 @@ export function withHeadCheckout({
   logger = () => {},
 }) {
   const dir = checkoutPathOf(root, slot)
+  // 先把这一轮钉在**一枚具体提交**上:后面"面上现算"的期望值与检出里的字节必须同源。
+  // 现场(2026-10-27):一枚 chore(cross-end) 插在本器"判面 → 建检出 → 生成"之间,
+  // 于是对着旧面算的期望值比对新面产出的字节 ⇒ 本来正确的产物被误判成"钉不等"而整轮拒落。
+  let baseSha = ''
+  try {
+    baseSha = String(run(['rev-parse', 'HEAD'], root)).trim()
+  } catch {
+    return { ok: false, why: 'HEAD sha 取不到 ⇒ 这一轮没法钉在同一枚提交上,不动手(§0.3)' }
+  }
+  if (!/^[0-9a-f]{40}$/.test(baseSha))
+    return { ok: false, why: `HEAD sha 形态不对:${baseSha.slice(0, 20)}` }
   const remove = () => {
     try {
       run(['worktree', 'remove', '--force', dir], root, { timeout: 5 * 60 * 1000 })
@@ -104,7 +120,7 @@ export function withHeadCheckout({
   }
   remove() // 先扫残留
   try {
-    run(['worktree', 'add', '--detach', dir, 'HEAD'], root, {
+    run(['worktree', 'add', '--detach', dir, baseSha], root, {
       timeout: 10 * 60 * 1000,
       maxBuffer: 1 << 25,
     })
@@ -115,7 +131,7 @@ export function withHeadCheckout({
     }
   }
   try {
-    return { ok: true, dir, result: work({ dir, root }) }
+    return { ok: true, dir, baseSha, result: work({ dir, root, baseSha }) }
   } finally {
     remove()
   }
@@ -128,6 +144,17 @@ function runGeneratorIn(dir, generatorRel, args = [], timeoutMs = 20 * 60 * 1000
   try {
     execFileSync(process.execPath, [script, ...args], {
       cwd: dir,
+      // 检出里没有 node_modules(pnpm 依赖是机器态、不入库)⇒ 借主仓依赖面,否则
+      // 生成器第一行 require('fflate') 就炸(2026-10-27 第一次真跑实测)。依赖不参与产物字节,
+      // 产物只由"检出里那棵源码树"决定 ⇒ 借机器态不破坏"同面同轮"这条判据。
+      env: {
+        ...process.env,
+        NODE_PATH: [
+          join(ROOT, 'apps', 'miniapp-taro', 'node_modules'),
+          join(ROOT, 'packages', 'i18n', 'node_modules'),
+          join(ROOT, 'node_modules'),
+        ].join(delimiter),
+      },
       encoding: 'utf8',
       windowsHide: true,
       timeout: timeoutMs,
@@ -148,6 +175,11 @@ function runGeneratorIn(dir, generatorRel, args = [], timeoutMs = 20 * 60 * 1000
  * 7 份落点一次带走(钉/清单/内联包 + 4 份 CDN 载荷 —— 它们是同一次生成的同一批字节,落一半会自相矛盾)。
  */
 export function healI18nFamily({ face = 'head', root = ROOT, dir, reader = null }) {
+  // 离线包这一族**不能在检出里生成**:生成器要 require('fflate')(pnpm 把依赖装在端内,
+  // 检出里没有 node_modules),且它还要读承载页闭包。2026-10-27 实测两格:
+  //   ① 检出里跑 → Cannot find module 'fflate';② 主仓里跑 --head(读 git 对象)→ 13 分钟级。
+  // 所以这一族走"主仓 + 被审面"重跑,并在动手前过在飞副本闸(盘上那份必须可由生成器再生,
+  // 否则是别席现场)—— 与检出档同一条判据 lib/derived-copy-state.mjs。
   const rd = reader || gate105.makeReader(face, root)
   const bundleRel = gate105.I18N_BUNDLE
   if (!rd.has(bundleRel))
@@ -164,42 +196,67 @@ export function healI18nFamily({ face = 'head', root = ROOT, dir, reader = null 
   const computed = digestInputs(gate105.readPinInputs(rd))
   if (computed.digest === facePin.digest) return { state: 'clean', digest: computed.digest }
 
-  const gen = runGeneratorIn(dir, 'scripts/gen-i18n-compressed.mjs')
-  if (!gen.ok) return { state: 'refused', why: `检出里生成器未跑成:${gen.why}` }
-
-  const rels = I18N_OUTPUTS
-  const files = []
-  for (const rel of rels) {
-    const abs = join(dir, rel)
-    if (!existsSync(abs)) return { state: 'refused', why: `生成后检出里没有 ${rel}` }
-    const text = readFileSync(abs, 'utf8')
-    if (rel === bundleRel) {
-      const fresh = parsePin(text)
-      if (!fresh.present || fresh.digest !== computed.digest) {
-        return {
-          state: 'refused',
-          why: `检出里新钉(${fresh.present ? String(fresh.digest).slice(0, 12) : '不可读'}…)≠ 面上现算(${computed.digest.slice(0, 12)}…)⇒ 不落`,
-        }
-      }
-    }
-    const blob = git(['hash-object', '-w', '--stdin'], dir, { maxBuffer: 1 << 26, input: text })
-    files.push({ path: rel, blob: String(blob).trim() })
+  // 在飞副本闸:7 份落点里任何一份是"别席正写着的内容"就整轮拒(离线包是一次生成的同一批字节,落一半自相矛盾)
+  const busy = []
+  for (const rel of I18N_OUTPUTS) {
+    const d = classifyCopyDelta({ rel, face, root })
+    if (!mayOverwrite(d)) busy.push(`${rel.split('/').pop()}(${d.kind}:${d.why ?? '不同形'})`)
   }
-  return { state: 'ready', files, digest: computed.digest }
+  if (busy.length > 0) return { state: 'refused', why: `在飞副本闸:${busy.join('; ')}` }
+
+  void dir
+  const gen = runGeneratorInFace(root, 'scripts/gen-i18n-compressed.mjs', face)
+  if (!gen.ok)
+    return { state: 'refused', why: `主仓 ${FACE_LABEL[face]} 面生成器未跑成:${gen.why}` }
+
+  const fresh = parsePin(String(readFileSync(join(root, bundleRel), 'utf8')))
+  if (!fresh.present)
+    return { state: 'refused', why: '重跑出来的产物没有自述钉 ⇒ 不落一份说不清自己从哪来的文件' }
+  if (fresh.digest !== computed.digest) {
+    return {
+      state: 'refused',
+      why: `新钉(${String(fresh.digest).slice(0, 12)}…)≠ 面上现算(${computed.digest.slice(0, 12)}…)⇒ 生成器与门不同形,不落半套`,
+    }
+  }
+  const out = []
+  let bytes = 0
+  for (const rel of I18N_OUTPUTS) {
+    const abs = join(root, rel)
+    if (!existsSync(abs)) return { state: 'refused', why: `生成后读不回 ${rel}` }
+    const text = readFileSync(abs, 'utf8')
+    bytes += Buffer.byteLength(text)
+    out.push({ path: rel, blob: hashText(root, text) })
+  }
+  if (bytes > MAX_I18N_BYTES) {
+    return {
+      state: 'refused',
+      why: `一次重生成写回 ${bytes} 字节 > 上限 ${MAX_I18N_BYTES} ⇒ 异常量级,不自动背书`,
+    }
+  }
+  return { state: 'ready', files: out, digest: computed.digest }
 }
 
-/**
- * ui-routes 的两段式 prefetch(与判定档逐字同构):先四份产物,再各端 inputRels 补列的那一批。
- * 少 prefetch 一项 ⇒ reader.read 返回 null ⇒ digestInputs 把它折成 'ABSENT',
- * 现算的聚合哈希跟着错(2026-10-27 离线包那一格恒红就是这一型,不许在这条腿上复活)。
- */
-function prefetchUiInputs(rd) {
-  const specs = gate105.UI_ROUTES_ARTIFACTS
-  rd.prefetch([...specs.map((a) => a.rel)])
-  const rels = new Set()
-  for (const art of specs) for (const rel of art.inputRels(rd)) rels.add(rel)
-  rd.prefetch([...rels])
-  return specs
+/** 在**主仓**里按被审面重跑离线包生成器(检出里跑不了:见 healI18nFamily 头注) */
+function runGeneratorInFace(root, generatorRel, face, timeoutMs = 25 * 60 * 1000) {
+  const script = join(root, generatorRel)
+  if (!existsSync(script)) return { ok: false, why: `仓里没有生成器 ${generatorRel}` }
+  const flag = face === 'staged' ? '--staged' : '--head'
+  try {
+    execFileSync(process.execPath, [script, flag], {
+      cwd: root,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 1 << 26,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { ok: true }
+  } catch (e) {
+    const why = [e?.stderr, e?.stdout, e?.message, String(e)].find(
+      (s) => String(s ?? '').trim().length > 0,
+    )
+    return { ok: false, why: String(why).trim().slice(0, 240) }
+  }
 }
 
 /**
@@ -208,7 +265,8 @@ function prefetchUiInputs(rd) {
  * 面上现算钉由它自己的 parse 出口给,免得两边各算一把尺。
  */
 export function healUiRoutesFamily({ face = 'head', root = ROOT, dir, reader = null }) {
-  const rd = reader || gate105.makeReader(face, root)
+  // 同 healI18nFamily:期望值与生成器读的是同一棵检出树(不可变),并发推进活 HEAD 不会误杀
+  const rd = reader || gate105.makeReader('worktree', dir)
   const specs = prefetchUiInputs(rd)
   const ready = []
   const skipped = []
@@ -222,7 +280,7 @@ export function healUiRoutesFamily({ face = 'head', root = ROOT, dir, reader = n
       })
       continue
     }
-    const want = gate105.uiRoutesFaceDigest(art, rd)
+    const want = gate105.uiRoutesFaceDigest(art, rd) // rd = 检出树(worktree 面)
     if (!want?.digest) {
       skipped.push({
         rel: art.rel,
@@ -313,10 +371,12 @@ export function healDerivedInCheckout(opts = {}) {
     }
   }
 
+  let roundSha = ''
   const made = withCheckout({
     root,
     logger,
-    work: ({ dir }) => {
+    work: ({ dir, baseSha }) => {
+      roundSha = baseSha ?? ''
       const out = []
       if (i18nStale === 'stale') {
         const r = healI18n({ face, root, dir, reader: null })
@@ -356,6 +416,7 @@ export function healDerivedInCheckout(opts = {}) {
     root,
     files,
     slot: 'heal-derived-in-checkout',
+    baseRef: made.baseSha ?? '',
     msg: LAND_MSG_LINES,
     proof:
       'blob = 以当前 HEAD 建的 detached 检出里、各端生成器自己产出的字节(git hash-object --stdin 写入对象库);' +
@@ -371,7 +432,12 @@ export function healDerivedInCheckout(opts = {}) {
   return {
     state: 'landed',
     files: files.map((f) => f.path),
-    detail: `已落 ${files.length} 份(检出档)`,
+    gatesRed: !!r.gatesRed,
+    detail:
+      `已落 ${files.length} 份(检出档,baseSha=${String(made.baseSha).slice(0, 12)})` +
+      (r.gatesRed
+        ? ' —— **落地器复跑受影响判据仍红**:本器这一格已收口,红在别的维,原样贴在下条日志里'
+        : ''),
     judged,
   }
 }
@@ -467,6 +533,7 @@ if (isDirectRun) {
 export const __test__ = {
   FAMILIES,
   I18N_OUTPUTS,
+  MAX_I18N_BYTES,
   CHECKOUT_SLOT,
   checkoutPathOf,
   withHeadCheckout,
