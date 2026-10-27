@@ -16,7 +16,7 @@ import { PhoneCodeLoginForm } from './phone-code-login-form'
 import { PasskeyLoginButton } from './passkey-login-button'
 import { QrTab } from './qr-tab'
 import { ThirdPartyLoginButtons } from './third-party-login-buttons'
-import type { LoginFormProps, LoginTab } from './types'
+import type { LoginFormProps, LoginTab, ThirdPartyPlatform } from './types'
 
 /**
  * 登录方式 Tab 选中态背景(2026-07-30 立,用户要求;2026-09-30 收口到具名档)
@@ -169,6 +169,24 @@ export function LoginForm(props: LoginFormProps) {
     setShowAgreeErr(false)
   }, [])
 
+  /**
+   * 第三方按钮的同意门禁(2026-10-27 立)。
+   * 未勾选协议时走与主登录按钮同一条提示路径(onRequireAgree → 红色提示 / 协议弹窗),
+   * 且**不调用**调用方 onLogin —— 服务端通用回调 fail-closed,发起期没落同意记录必 403。
+   * 已勾选时透传 agreementAccepted=true,由调用方在跳转厂商前写入同意记录。
+   * 按钮本身在未同意时仍照常可见(点后才提示),不改布局。
+   */
+  const handleThirdPartyLogin = React.useCallback(
+    (platform: ThirdPartyPlatform) => {
+      if (!agreed) {
+        handleRequireAgree()
+        return
+      }
+      thirdParty?.onLogin(platform, true)
+    },
+    [agreed, handleRequireAgree, thirdParty],
+  )
+
   const handleRegister = (e: React.MouseEvent) => {
     e.preventDefault()
     if (onRegister) {
@@ -264,11 +282,11 @@ export function LoginForm(props: LoginFormProps) {
         </div>
       )}
 
-      {/* 第三方登录区(qr tab 已经有自家平台 tab,不重复展示) */}
+      {/* 第三方登录区(qr tab 已经有自家平台 tab,不重复展示)。onLogin 换成同意门禁版本 */}
       {showThirdParty && thirdParty && tab !== 'qr' && (
         <ThirdPartyLoginButtons
           t={t}
-          config={thirdParty}
+          config={{ ...thirdParty, onLogin: handleThirdPartyLogin }}
           featuredPlatform={thirdPartyFeaturedPlatform}
           featuredBackground={thirdPartyFeaturedBackground}
           columns={thirdPartyColumns}
