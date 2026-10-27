@@ -4578,7 +4578,10 @@ export function sweepCrossEndShellPages(opts = {}) {
               windowsHide: true, // §5b 派生进程纪律
               // 2026-10-26:240s → 600s。实测手动按同一参数真跑 199s(planBatch 随屏数增长),
               // 距旧上限只剩 41s 余量 ⇒ 机器一忙就超时,而超时与"缺口清零"在日志里长得一样。
-              timeout: 10 * 60 * 1000,
+              // 2026-10-28:600s 被顶穿(现读一轮 rc:null、attemptAt→finishedAt 正好 10 分钟、tail 空,
+              // 16:42 起每轮如此)⇒ 上一轮那条注释的预言成真:屏数一涨就必然越界。抬到 30 分钟并留
+              // env 旋钮(值守压节拍不必再改码);死因另由下面 signal 写进结论,不再与"判过"同形。
+              timeout: Number(process.env.IHUI_CROSS_END_SHELL_TIMEOUT_MS || 30 * 60 * 1000),
               maxBuffer: 1 << 22,
               stdio: ['ignore', 'pipe', 'pipe'], // §12g 显式接管 stdio
             })
@@ -4590,6 +4593,7 @@ export function sweepCrossEndShellPages(opts = {}) {
               out: String(e?.stdout ?? ''),
               err: String(e?.stderr ?? ''),
               status: typeof e?.status === 'number' ? e.status : null,
+              signal: typeof e?.signal === 'string' ? e.signal : null,
             }
           }
         }
@@ -4608,12 +4612,15 @@ export function sweepCrossEndShellPages(opts = {}) {
   const summary = parsed?.summary
   if (!summary || typeof summary !== 'object' || typeof summary.state !== 'string') {
     logger(
-      `⚠️ 跨端造页闭环:结论不可用:未判定 —— ${stderr.slice(0, 120) || '未取到 JSON'}` +
-        ` ⇒ 本轮没判,不等于"缺口已清零"`,
+      `⚠️ 跨端造页闭环:结论不可用:未判定 —— ${
+        r.signal
+          ? `孩子被 ${r.signal} 掐死(上限 ${Math.round(Number(process.env.IHUI_CROSS_END_SHELL_TIMEOUT_MS || 30 * 60 * 1000) / 60000)} 分钟)⇒ 这是没跑完,不是判定`
+          : stderr.slice(0, 120) || '未取到 JSON'
+      }` + ` ⇒ 本轮没判,不等于"缺口已清零"`,
     )
     noteCrossEndUndetermined(
       'shell-land',
-      `派生 rc=${r.status ?? '?'};stderr 前 120:${stderr.slice(0, 120) || '(空)'}\n` +
+      `派生 rc=${r.status ?? '?'} signal=${r.signal ?? '-'};stderr 前 120:${stderr.slice(0, 120) || '(空)'}\n` +
         `这表示**自动造页这一格是瞎的**(小程序缺页不会自己长回来),不是"缺口已清零"。\n` +
         `出路:node scripts/land-cross-end-shell-pages.mjs(只读预演,看它实际报什么)`,
       { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
