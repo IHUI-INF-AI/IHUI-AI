@@ -6739,13 +6739,9 @@
     "body": "刷新页面以获取最新版本",
     "action": "更新",
     "close": "关闭",
-    "checking": "正在检查更新…",
-    "downloading": "正在下载更新…",
     "ready": "更新已就绪",
     "installing": "正在重启…",
     "error": "更新失败",
-    "errorDesc": "请检查网络后重试",
-    "retry": "重试",
-    "upToDate": "当前已是最新版本"
+    "errorDesc": "请检查网络后重试"
   }
 }
