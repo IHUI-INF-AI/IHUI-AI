@@ -67,8 +67,9 @@ export const SWITCH_THUMB_RADIUS_TIER = 'sm'
  */
 export const SWITCH_THUMB_TRANSLATE_X_PX: Record<SwitchSizeTier, number> = { sm: 15, md: 19, lg: 23 }
 
-/** ON 底色 token 名(两端各自映射:web `bg-[var(--color-brand-accent)]` / RN `bg-brand-accent`)。 */
-export const SWITCH_ON_BG_TOKEN = 'brand-accent'
+// ON 底色 token 名 = `brand-accent`(见上):该值以 Tailwind / nativewind 类名承载,
+// 端内必须写字面量类名才能进扫描面 ⇒ 端内不可能消费 TS 常量,
+// 2026-10-27 撤零消费出口 SWITCH_ON_BG_TOKEN(token 名保留在本段说明里)。
 
 /** 默认尺寸档。 */
 export const SWITCH_DEFAULT_SIZE: SwitchSizeTier = 'md'
