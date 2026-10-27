@@ -15,6 +15,8 @@
  *   C6 检出收尾 ⇒ work 抛异常也必须摘干净
  *   C8/C9 面上取不到产物 ⇒ undetermined(不猜、不记绿,§0.3)
  *   C10 只判不修的判据与门 105 同基准(承载层必须是钉的一等输入 —— 2026-10-27 那起恒红的正身)
+ *   C9b/C13/C14/C15 2026-10-27 补样式派生面(tokens)一族:在册 / 落后必须建检出并带走 blob /
+ *     判不出整轮未判定 / 复校不过一条 blob 都不落(编号接在既有 C12 之后,不复用别人用过的号)
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
@@ -30,10 +32,14 @@ const OID40 = 'a'.repeat(40)
 const filesOf = (n, prefix = 'p') =>
   Array.from({ length: n }, (_u, i) => ({ path: `${prefix}${i}.gen.ts`, blob: OID40 }))
 
-/** 注入用:面上"离线包/四端"各自的新旧与缺席,全部由测试说了算(真判据在 C10 那条里量) */
-const judge = ({ i18n = 'clean', ui = [] }) => ({
+/** 注入用:面上"离线包/四端/样式派生"各自的新旧与缺席,全部由测试说了算(真判据在 C10 那条里量) */
+const judge = ({ i18n = 'clean', ui = [], tokens = 'clean' }) => ({
   judgeI18n: () => i18n,
   judgeUi: () => (ui === 'absent' ? [] : ui),
+  judgeTokens: () =>
+    Array.isArray(tokens)
+      ? { state: 'stale', stale: tokens.map((label) => ({ label, why: '' })), why: '' }
+      : { state: tokens, stale: [], why: tokens === 'undetermined' ? '夹具:判不出' : '' },
 })
 
 function runWith(over) {
@@ -53,6 +59,7 @@ function runWith(over) {
     },
     healI18n: () => ({ state: 'ready', files: filesOf(7, 'i18n-'), digest: 'd' }),
     healUi: () => ({ state: 'ready', files: filesOf(4, 'ui-'), notes: [] }),
+    healTokens: () => ({ state: 'ready', files: filesOf(2, 'tok-'), notes: [] }),
     land: (o) => {
       lands.push(o)
       return { ok: true }
@@ -103,7 +110,11 @@ test('C3b 只有离线包陈旧 ⇒ 根本不建检出(检出对它无用,却要
   assert.equal(lands.length, 1)
   assert.equal(lands[0].files.length, 7)
   assert.equal(lands[0].baseRef, '', '不建检出 ⇒ 没有 baseSha 可钉,由落地器对当时 HEAD 做 CAS')
-  assert.doesNotMatch(lands[0].proof, /检出/, 'proof 不得自称"检出里产出"(字节其实来自主仓按面生成)')
+  assert.doesNotMatch(
+    lands[0].proof,
+    /检出/,
+    'proof 不得自称"检出里产出"(字节其实来自主仓按面生成)',
+  )
   assert.match(lands[0].proof, /主仓/)
   assert.match(r.detail, /未建检出/)
 })
@@ -193,12 +204,57 @@ test('C8 面上取不到离线包产物 ⇒ undetermined(既不重生成也不�
   assert.equal(built, 0, '判不出时先去重生成 = 把"没判"当成"有问题要修"')
 })
 
-test('C9 --family 只认 i18n / ui-routes,坏值当场 exit 2(不静默跑全部)', () => {
+test('C9 --family 只认登记在册的族,坏值当场 exit 2(不静默跑全部)', () => {
   const argvFamily = ['--family', 'bogus']
   const found = argvFamily[1]
   assert.ok(!H.FAMILIES.includes(found), `夹具本身要先成立:${H.FAMILIES}`)
   // main() 的拒收形态由 CLI 集成测(本文件不派生子进程)兜:这里锁清单本身
-  assert.deepEqual([...H.FAMILIES].sort(), ['i18n', 'ui-routes'])
+  // 2026-10-27 补 tokens:样式派生面此前在守护轮**一条腿都没有**,而提交链的派生腿只认 staged
+  // (旁路落地不跑钩子 ⇒ HEAD 常年欠一格,靠人手工补,近两枚提交标题即"派生产物按 HEAD 面重生成并落地")。
+  assert.deepEqual([...H.FAMILIES].sort(), ['i18n', 'tokens', 'ui-routes'])
+})
+
+test('C9b 样式族(tokens)在册:它是这一轮唯一会在守护轮里被自动补的派生面,漏登即整族无人判', () => {
+  assert.ok(H.FAMILIES.includes('tokens'), `FAMILIES 现读:${H.FAMILIES.join(',')}`)
+})
+
+test('C13 只有样式派生面落后 ⇒ 必须建检出(该族只能在"盘==HEAD"的等价面上验),并带走它的文件', () => {
+  const { r, lands, checkouts } = runWith({
+    ...judge({ tokens: ['miniapp-taro app.css'] }),
+    healI18n: () => ({ state: 'ready', files: [], digest: 'd' }),
+  })
+  assert.equal(
+    checkouts.length,
+    1,
+    '样式族不建检出就没有任何判据能对着 HEAD 判它(主仓盘是滞后副本)',
+  )
+  assert.equal(r.state, 'landed', r.detail)
+  assert.equal(lands[0].files.length, 2, JSON.stringify(lands[0].files.map((f) => f.path)))
+  assert.match(
+    lands[0].proof,
+    /tokens/,
+    'LAND_BLOB_PROOF 要说清样式族凭什么算同形(否则与另两族混成一谈)',
+  )
+})
+
+test('C14 样式族判不出 ⇒ 整轮未判定,且不建检出(没判不是要修)', () => {
+  const { r, checkouts, lands } = runWith({ ...judge({ tokens: 'undetermined' }) })
+  assert.equal(r.state, 'undetermined', r.detail)
+  assert.equal(checkouts.length, 0)
+  assert.equal(lands.length, 0)
+})
+
+test('C15 样式族在检出里复校不过 ⇒ refused 且一条 blob 都不落', () => {
+  const { r, lands } = runWith({
+    ...judge({ tokens: ['mobile-rn global.css'] }),
+    healTokens: () => ({
+      state: 'refused',
+      files: [],
+      notes: [{ rel: 'mobile-rn global.css', state: 'refused', why: '复校仍红' }],
+    }),
+  })
+  assert.equal(r.state, 'refused', r.detail)
+  assert.equal(lands.length, 0, '复量不过的一族不得借另两族的车落进 HEAD')
 })
 
 test('C10 只判不修的那把尺与门 105 同基准:承载层是钉的一等输入,改了它就判 stale', () => {
@@ -247,9 +303,6 @@ test('C10 只判不修的那把尺与门 105 同基准:承载层是钉的一等�
 /** 借本器自己的"只判不修"出口(它 import 的就是门 105 那把尺,本测试不复制任何判据) */
 function judgeFaceStaleness(dir) {
   return H.judgeI18nFace('worktree', dir, gate.makeReader('worktree', dir))
-}
-function readBundle(dir) {
-  return (gate.makeReader('worktree', dir).read(gate.I18N_BUNDLE) ?? '').replace(/\\/g, '\\\\')
 }
 
 test('C11 只判不修的尺与门 105 同基准:改一份输入就 stale,还原就 clean(检出档不得自立第二把尺)', () => {
@@ -346,9 +399,17 @@ function putBare2(root, pin) {
 test('C12 ui-routes 输入预取不是空转:函数在、两段式齐、两处调用都走这一出口', () => {
   // 2026-10-27 实测:本文件两处调用 prefetchUiInputs,而全仓没有任何定义或 import ⇒
   // 走到 judgeUiRoutesFace 就 ReferenceError,整条 ui-routes 自愈腿从未真正跑起来过。
-  assert.equal(typeof prefetchUiInputs, 'function', '预取出口必须真存在(调用一个未定义标识符 = 整条腿跑飞)')
+  assert.equal(
+    typeof prefetchUiInputs,
+    'function',
+    '预取出口必须真存在(调用一个未定义标识符 = 整条腿跑飞)',
+  )
   const src = readFileSync(new URL('../heal-derived-in-checkout.mjs', import.meta.url), 'utf8')
-  assert.match(src, /export function prefetchUiInputs\(reader\)/, '实现要留在源脚本里,不许测试内自造一份')
+  assert.match(
+    src,
+    /export function prefetchUiInputs\(reader\)/,
+    '实现要留在源脚本里,不许测试内自造一份',
+  )
   assert.match(
     src,
     /\.\.\.specs\.map\(\(a\) => a\.rel\)[\s\S]{0,200}?TARO_APP_CONFIG/,
@@ -360,4 +421,3 @@ test('C12 ui-routes 输入预取不是空转:函数在、两段式齐、两处�
     '两处调用(healUiRoutesFamily / judgeUiRoutesFace)都必须走同一出口',
   )
 })
-
