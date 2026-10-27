@@ -1,6 +1,6 @@
 {
   "okAtoms": 9,
-  "totalAtoms": 11,
+  "totalAtoms": 10,
   "setAt": "2026-10-27",
-  "note": "阶段1 收官基线: card/input/badge/tabs/dialog/tooltip/vip-badge/switch/sheet 双端消费 spec(9 OK); collapsible=NO-SPEC(需功能对齐,非纯几何)、avatar=PARTIAL(他人在飞 WIP 遗留 ui-native 未吃 avatar-spec)为已知开口。棘轮只拦退化、不拦存量:覆盖率涨不拦,跌才拦。"
+  "note": "阶段1/2 收官基线(口径已校正): 视觉原子 card/input/badge/tabs/dialog/tooltip/vip-badge/switch/sheet 双端消费 spec(9 OK); avatar=PARTIAL(web apps/web/src/components/data/Avatar.tsx 已吃 avatar-spec,但 packages/ui-native/src/avatar.tsx 仍用本地 sizeMap 未吃,他人在飞 WIP 遗留)。collapsible 重分类为 EXEMPT(行为包裹组件,无盒模型几何可单一源,仅共享 w-full,视觉对齐需功能动画对齐→阶段2),不计入分母与缺口。棘轮只拦退化、不拦存量。"
 }
