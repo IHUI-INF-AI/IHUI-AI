@@ -618,19 +618,29 @@ export function parseTaskRows(content) {
 export function findClosedToOpenRegressions(anchorText, faceText) {
   const anchorRows = parseTaskRows(anchorText)
   const faceRows = parseTaskRows(faceText)
+  // 分组键必须是**复合主键**(编号#标题前缀逐字),不是裸编号 —— 裸编号把"同号不同题"并成
+  // 一枚,回退点名与键集差集都会指错对象(单源锁测试 7ea94a13db9 的契约;545c2a0f0e1 落本体
+  // 时按裸 id 分组是缺口,门 98 消红后由本仓单测钉回复合键)。
+  const keyOf = (r) => compositeKeyOf(r.raw) ?? r.key
   const doneBy = new Map()
   const openBy = new Map()
   for (const r of anchorRows) {
     if (!r.key) continue
+    const k = keyOf(r)
+    if (!k) continue
     const bucket = r.state === 'done' ? doneBy : openBy
-    if (!bucket.has(r.key)) bucket.set(r.key, [])
-    bucket.get(r.key).push(r.line)
+    if (!bucket.has(k)) bucket.set(k, [])
+    bucket.get(k).push(r.line)
   }
   const faceOpenBy = new Map()
   for (const r of faceRows) {
     if (!r.key || r.state !== 'open') continue
-    if (!faceOpenBy.has(r.key)) faceOpenBy.set(r.key, [])
-    faceOpenBy.get(r.key).push(r.line)
+    // 带【归并】副本指针的行不充"又变回未做"的证据 —— 与 findForks 的 liveOpenOf 同一把尺(§0.6)
+    if (isClaimExcludedPointer(r.raw)) continue
+    const k = keyOf(r)
+    if (!k) continue
+    if (!faceOpenBy.has(k)) faceOpenBy.set(k, [])
+    faceOpenBy.get(k).push(r.line)
   }
   const hits = []
   for (const key of [...doneBy.keys()].sort((a, b) => (a < b ? -1 : 1))) {
@@ -645,6 +655,25 @@ export function findClosedToOpenRegressions(anchorText, faceText) {
     anchorRows: anchorRows.length,
     faceRows: faceRows.length,
   }
+}
+
+/**
+ * F13 判据单源的分组面(2026-10-27 补齐,与 findClosedToOpenRegressions 同族):
+ * 复合主键 → 该主键在面上的全部登记行(含两态并存的键)。
+ * 立因:测试 plan-closed-row-regression 的单源锁以本 API 为契约先入库,本体缺席被
+ * 门 98 D1 判红(与 545c2a0f0e1 补 findClosedToOpenRegressions 同一型)。
+ * 只用 parseTaskRows/compositeKeyOf 分组,零新正则、不写第二套"什么算同一件事"(§0.6)。
+ */
+export function stateGroupsOf(faceText) {
+  const groups = new Map()
+  for (const r of parseTaskRows(faceText)) {
+    if (!r.key) continue
+    const k = compositeKeyOf(r.raw) ?? r.key
+    if (!k) continue
+    if (!groups.has(k)) groups.set(k, [])
+    groups.get(k).push(r)
+  }
+  return groups
 }
 
 /**
