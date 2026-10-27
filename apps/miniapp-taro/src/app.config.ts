@@ -316,6 +316,8 @@ export default defineAppConfig({
         'edu-ai-hub/index',
         'edu-ai-video-compose/index',
         'my-comments/index',
+        'my-lessons/index',
+        'my-resources/index',
       ],
     },
     {
