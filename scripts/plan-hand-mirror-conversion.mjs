@@ -33,12 +33,31 @@ import { dirname, join } from 'node:path'
 
 import { __test__ as fidelity } from './check-miniapp-mirror-fidelity.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
-import { shellTargetRel } from './lib/rn-shell-refs.mjs'
+import { pickCarrierShell, shellTargetRel } from './lib/rn-shell-refs.mjs'
 import { __test__ as gen } from './gen-miniapp-mirror.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const { computeFidelity, batchReadTexts } = fidelity
 const { collectMiniapp, rnConsumes } = cov
+
+/**
+ * 端内**通用 UI 设施** —— 壳承载页自己也会 import(现读生成模板就带 ThemeRoot),或者纯粹是
+ * 取词/日志/图标/状态骨架这类"不产生页面行为"的设施。它们不是"这一页独有的能力":
+ * 把 ThemeRoot 算成私有能力会让 99/99 页全部假阻塞(实测拦路频次表被这三个符号顶满),
+ * 那样的"经济账"会误导人去补一层根本不需要补的承载。
+ * 只收**确证无行为**的少数据;拿不准的一律留在清单外(失效方向=多判需人工)。
+ */
+export const END_UI_FACILITIES = new Set([
+  '@/components/ThemeRoot',
+  '@/i18n',
+  '@/utils/logger',
+  '@/components/LineIcon',
+  '@/components/ScreenStates',
+  '@/components/ScreenStates.taro',
+  'useI18n',
+  'useTheme',
+  'useTt',
+])
 
 /** 一页文本里"能力-bearing"的三族标识(方法名 / 钩子 / 端内模块),用于相对取差。 */
 export function capabilityTokens(text) {
@@ -47,6 +66,7 @@ export function capabilityTokens(text) {
   for (const m of t.matchAll(/\bTaro\.([A-Za-z_][A-Za-z0-9_]*)/g)) out.add(`Taro.${m[1]}`)
   for (const m of t.matchAll(/\buse([A-Z][A-Za-z0-9_]*)\b/g)) out.add(`use${m[1]}`)
   for (const m of t.matchAll(/from\s*['"](@\/[^'"]+)['"]/g)) out.add(m[1])
+  for (const tok of END_UI_FACILITIES) out.delete(tok)
   return out
 }
 
@@ -111,32 +131,32 @@ export function plan({ face = 'head' } = {}) {
   const byRoute = new Map(miniapp.map((p) => [p.route, p]))
   const specs = [...new Set(hand.map((r) => r.spec))]
   const sharedTexts = batchReadTexts(face, specs)
-  const shellRels = specs.map((s) =>
-    shellTargetRel(
-      String(s)
-        .split('/')
-        .pop()
-        .replace(/\.tsx$/, ''),
-    ),
+  // 承载壳候选口径 = lib 单源(pickCarrierShell):同名优先、异名兜底(NewsScreen 渲染 SquareScreen
+  // 这类平台薄壳是仓内既有形态)。旧实现只认同名壳 ⇒ 会把"壳叫别的名"的页误判成 no-shell。
+  const rnTexts = new Map(
+    cov
+      .collectRn(face)
+      .filter((p) => p.text)
+      .map((p) => [p.file, p.text]),
   )
-  const shellTexts = batchReadTexts(face, shellRels)
   const rows = []
   for (const r of hand) {
     const page = byRoute.get(r.route)
-    const shellRel = shellTargetRel(
-      String(r.spec)
-        .split('/')
-        .pop()
-        .replace(/\.tsx$/, ''),
-    )
+    const name = String(r.spec)
+      .split('/')
+      .pop()
+      .replace(/\.[jt]sx$/, '')
+    const carrier = pickCarrierShell(rnTexts, name)
     rows.push({
       ...judgeConversion({
         spec: r.spec,
         pageText: page?.text ?? null,
-        shellText: shellTexts.get(shellRel) ?? null,
+        shellText: carrier ? rnTexts.get(carrier.rel) : null,
         sharedText: sharedTexts.get(r.spec) ?? '',
+        shellName: carrier?.name ?? null,
       }),
       route: r.route,
+      shell: carrier?.name ?? null,
       pageLines: String(page?.text ?? '').split('\n').length,
       missingKeys: r.missing.length,
     })
@@ -223,6 +243,20 @@ function main(argv) {
         sharedText: '',
       }).kind,
       'shell-not-rendering',
+    )
+    P(
+      'S5 端内通用 UI 设施(ThemeRoot/i18n/logger)不算私有能力,真业务模块仍算',
+      pageOnlyCapabilities({
+        pageTokens: capabilityTokens(`
+          import ThemeRoot from '@/components/ThemeRoot'
+          import { useI18n } from '@/i18n'
+          import { logger } from '@/utils/logger'
+          import { fetchX } from '@/api'
+        `),
+        sharedText: '',
+        shellText: '',
+      }),
+      ['@/api'],
     )
     for (const c of cases)
       console.log(
