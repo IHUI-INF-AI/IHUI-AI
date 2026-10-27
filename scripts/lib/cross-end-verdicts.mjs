@@ -19,7 +19,7 @@
 //
 // 幂等:同一 shared 以最后写入者为准(同屏以本批为准);写盘口径 = HEAD 面 ∪ 工作树面 ∪ 本批。
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -144,6 +144,27 @@ export function indexVerdicts(rows) {
 }
 
 /** §22c 三步之①:源脚本导出 __test__,镜像测试直接用生产判据。 */
+
+/**
+ * 台账的唯一写出口(2026-10-27 补,§0.6):HEAD 上的消费方(auto-register-cross-end.mjs:42)
+ * 早就按名 import 这个符号,而 lib 里没有它 ⇒ ESM 具名导入在链接期即抛,该工具在干净检出/CI 上
+ * **连加载都失败**(门 253 D1 存量 8 条之一)。这里按 HEAD 已有的读面/归并/序列化原语实现它,
+ * 不新起第二套口径:归并 = HEAD 面 ∪ 工作树面 ∪ 本批,同 shared 键以本批为准。
+ * 取不到某一面的行数如实计入 unreadable 并继续(不把"没读到"当成"那一面是空的",§0.4 不回落另一个面)。
+ */
+export function writeVerdictRows(root, batch) {
+  if (!batch || batch.length === 0) return { total: 0, added: 0, unreadable: 0 }
+  const headRows = readVerdicts('head', root)
+  const workRows = readVerdicts('worktree', root)
+  const merged = mergeVerdictRows([...headRows.rows, ...workRows.rows], batch)
+  writeFileSync(join(root, VERDICTS_PATH), serializeVerdicts(merged.rows) + '\n', 'utf8')
+  return {
+    total: merged.total,
+    added: merged.added,
+    unreadable: headRows.bad.length + workRows.bad.length,
+  }
+}
+
 export const __test__ = {
   VERDICTS_PATH,
   VERDICT_KINDS,
