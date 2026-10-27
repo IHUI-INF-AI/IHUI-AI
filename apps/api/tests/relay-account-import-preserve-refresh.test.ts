@@ -12,6 +12,8 @@
  * - 纯判据 resolveOverwriteRefresh 四态(单源 relay-account-format,§0.6 不复制)
  * - 服务端 importAccounts 在 preserveMissingRefresh 下 update 不写 refresh_token_enc
  *   列;缺省时保持存量语义(refreshTokenEnc=null),不让普通导入静默变成删不掉。
+ * - secretsEnc 单列合并(2026-10-27 加):只带凭证的导入不得抹掉既有会话模板/设备材料,
+ *   带模板的导入也不得丢掉既有设备材料(同列共存,整列覆盖会互相踩踏)。
  *
  * 测试模式:vi.mock 掉 db / crypto / 签到同步(对齐 relay-qoder-import.test.ts),零真实 IO。
  */
@@ -239,5 +241,78 @@ describe('importAccounts preserveMissingRefresh 服务端行为', () => {
     hoisted.mockSelectRows.push({ id: 'row-1', hasRefreshToken: true })
     await importAccounts('trae', [{ name: 'u1', token: jwt({ sub: 'u1', exp: FUTURE }) }])
     expect(lastUpdateSet()['name']).toBe('u1')
+  })
+})
+
+describe('secretsEnc 单列合并(模板/设备材料同列共存)', () => {
+  const EXISTING_SECRETS = {
+    sessionTemplate: { userId: 'u1', account: { username: '老账号' } },
+    deviceKeyPem: 'PEM-PRIV',
+    devicePubPem: 'PEM-PUB',
+  }
+  const existingRow = () => ({
+    id: 'row-1',
+    hasRefreshToken: true,
+    secretsEnc: `enc:${JSON.stringify(EXISTING_SECRETS)}`,
+  })
+  /** update set 里的密文解回对象;未写该列时返回 null */
+  function writtenSecrets(): Record<string, unknown> | null {
+    const raw = lastUpdateSet()['secretsEnc']
+    if (typeof raw !== 'string') return null
+    return JSON.parse(raw.slice(4)) as Record<string, unknown>
+  }
+
+  it('只带凭证(网页重登)→ 不写 secretsEnc,既有模板与设备材料原样留在列里', async () => {
+    hoisted.mockSelectRows.push(existingRow())
+    const r = await importAccounts('trae', [
+      { name: '账号A', token: jwt({ sub: 'u1', exp: FUTURE }) },
+    ])
+    expect(r.updated).toBe(1)
+    // 值必须是 undefined(真 drizzle 会跳过 undefined 列;mock 里对象仍带该键)
+    expect(lastUpdateSet()['secretsEnc']).toBeUndefined()
+  })
+
+  it('本次带新模板 → 模板被替换,既有设备材料仍在', async () => {
+    hoisted.mockSelectRows.push(existingRow())
+    await importAccounts('trae', [
+      {
+        name: '账号A',
+        token: jwt({ sub: 'u1', exp: FUTURE }),
+        sessionTemplate: { userId: 'u1', account: { username: '新账号' } },
+      },
+    ])
+    expect(writtenSecrets()).toEqual({
+      ...EXISTING_SECRETS,
+      sessionTemplate: { userId: 'u1', account: { username: '新账号' } },
+    })
+  })
+
+  it('本次只带设备材料 → 既有模板不被抹掉', async () => {
+    hoisted.mockSelectRows.push(existingRow())
+    await importAccounts('trae', [
+      {
+        name: '账号A',
+        token: jwt({ sub: 'u1', exp: FUTURE }),
+        deviceKeyPem: 'PEM-PRIV-2',
+        devicePubPem: 'PEM-PUB-2',
+      },
+    ])
+    expect(writtenSecrets()).toEqual({
+      sessionTemplate: EXISTING_SECRETS.sessionTemplate,
+      deviceKeyPem: 'PEM-PRIV-2',
+      devicePubPem: 'PEM-PUB-2',
+    })
+  })
+
+  it('既有列解不开(密钥轮换)→ 以本批提供的重建,不让坏密文挡住导入', async () => {
+    hoisted.mockSelectRows.push({ id: 'row-1', hasRefreshToken: true, secretsEnc: 'broken' })
+    await importAccounts('trae', [
+      {
+        name: '账号A',
+        token: jwt({ sub: 'u1', exp: FUTURE }),
+        sessionTemplate: { userId: 'u1' },
+      },
+    ])
+    expect(writtenSecrets()).toEqual({ sessionTemplate: { userId: 'u1' } })
   })
 })

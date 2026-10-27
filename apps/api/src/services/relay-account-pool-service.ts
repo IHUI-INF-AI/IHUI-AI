@@ -61,6 +61,8 @@ export interface ImportAccountInput {
   /** 设备证明材料(Trae 桌面渠道续票必需;密钥对进 secretsEnc,两个都给才生效) */
   deviceKeyPem?: string
   devicePubPem?: string
+  /** Trae 会话模板(账号资料全量,凭证已剔除;进 secretsEnc,「登录本机」重封信封用) */
+  sessionTemplate?: Record<string, unknown>
   enabled?: boolean
   cookies?: unknown[]
   /** 账号级出口代理(可选) */
@@ -125,16 +127,57 @@ function cstr(v: unknown): string {
 }
 
 /**
- * Trae 设备材料 → secrets(2026-10-25 立):新版 ExchangeToken 用设备私钥签名
- * 换票,桌面客户端签发的票只认这条路。只收"两个 PEM 都在"的完整材料,
- * 缺一半视同没有(adapter 会退回旧通道)。token/refreshToken/uid 走原路径,
- * 不参与映射(避免与 opaque token 平台的分支语义混淆)。
+ * Trae 设备材料 + 会话模板 → secrets(2026-10-25 立,2026-10-27 扩模板)。
+ * 新版 ExchangeToken 用设备私钥签名换票,桌面客户端签发的票只认这条路。只收
+ * "两个 PEM 都在"的完整材料,缺一半视同没有(adapter 会退回旧通道)。
+ *
+ * 合并语义(2026-10-27):secretsEnc 是单列,网页重登等"只带 access token"的导入
+ * 不会带模板/设备材料,整列覆盖会把它们抹掉 ⇒ 以既有 secrets 为底,只在本次确实
+ * 提供时覆盖对应键。全都没提供 ⇒ 返回 null(调用方省略该列,保留原值)。
  */
-function mapTraeImport(acc: ImportAccountInput): { secrets: Record<string, unknown> } | null {
+function mapTraeImport(
+  acc: ImportAccountInput,
+  existingSecrets: Record<string, unknown> | null,
+): { secrets: Record<string, unknown> } | null {
   const keyPem = cstr(acc['deviceKeyPem'])
   const pubPem = cstr(acc['devicePubPem'])
-  if (!keyPem || !pubPem) return null
-  return { secrets: { deviceKeyPem: keyPem, devicePubPem: pubPem } }
+  const rawTemplate = acc['sessionTemplate']
+  const template =
+    rawTemplate && typeof rawTemplate === 'object' && !Array.isArray(rawTemplate)
+      ? (rawTemplate as Record<string, unknown>)
+      : null
+  const merged: Record<string, unknown> = { ...(existingSecrets ?? {}) }
+  let touched = false
+  if (keyPem && pubPem) {
+    merged.deviceKeyPem = keyPem
+    merged.devicePubPem = pubPem
+    touched = true
+  }
+  if (template && Object.keys(template).length > 0) {
+    merged.sessionTemplate = template
+    touched = true
+  }
+  return touched ? { secrets: merged } : null
+}
+
+/**
+ * secrets 单列合并(2026-10-27 全平台):secretsEnc 同时装会话模板/设备材料/凭据图,
+ * 而网页重登、手工 JSON 导入等"只带凭证"的导入不会带模板 ⇒ 整列覆盖会抹掉模板。
+ * 判据:空值(null/undefined/空对象)不覆盖既有键,其余以本批为准。
+ */
+function mergeSecrets(
+  existing: Record<string, unknown> | null,
+  incoming: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null {
+  if (!incoming) return null
+  const compact: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(incoming)) {
+    if (v === null || v === undefined) continue
+    if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) continue
+    compact[k] = v
+  }
+  if (Object.keys(compact).length === 0) return null
+  return { ...(existing ?? {}), ...compact }
 }
 
 /** DPoP 私钥既可能是 JWK 对象也可能是 JSON 字符串,统一解析为对象 */
@@ -185,6 +228,33 @@ function mapCodeartsImport(acc: ImportAccountInput): CodeartsImportMapping | nul
   const expRaw = cstr(a['expires_at']) || cstr(a['expiration'])
   const expDate = expRaw ? new Date(expRaw) : null
 
+  // 会话模板(2026-10-27):state.vscdb 解出的整份会话剔凭证后存 secretsEnc,
+  // 「登录本机」用它 + 池内最新 STS 凭据重封 v10 密文写回。AK/SK/DPoP 私钥仍由
+  // 下方 secrets 单独持有(写回端优先用它们,模板只补 account/loginContext 形状)。
+  const providedTemplate = objField(a, 'sessionTemplate')
+  const templateSource = providedTemplate ?? a
+  const template: Record<string, unknown> = {}
+  const CODEARTS_TEMPLATE_CRED = new Set([
+    'sessionTemplate',
+    'securitytoken',
+    'security_token',
+    'cloud_dragon_token',
+    'refresh_token',
+    'refreshToken',
+    'expires_at',
+    'expiration',
+    'accessKey',
+    'access_key_id',
+    'secretKey',
+    'secret_access_key',
+    'dpop_private_key',
+    'code_verifier',
+  ])
+  for (const [k, v] of Object.entries(templateSource)) {
+    if (CODEARTS_TEMPLATE_CRED.has(k)) continue
+    template[k] = v
+  }
+
   return {
     token,
     refreshToken,
@@ -199,6 +269,7 @@ function mapCodeartsImport(acc: ImportAccountInput): CodeartsImportMapping | nul
       clientId: cstr(a['client_id']) || CODEARTS_DEFAULT_CLIENT_ID,
       domainId: cstr(a['domainId']) || cstr(a['domain_id']),
       userName: userName || label,
+      sessionTemplate: Object.keys(template).length > 0 ? template : null,
     },
   }
 }
@@ -225,6 +296,8 @@ interface QoderImportMapping {
   refreshExpiresAt: Date | null
   name: string | null
   cosy: Record<string, string> | null
+  /** 会话模板 + 数据目录(「登录本机」重封 auth.v1.dat 用;无模板时不带,保留既有) */
+  secrets?: Record<string, unknown>
 }
 
 function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
@@ -254,6 +327,17 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
     const v = cstr(a[srcKey])
     if (v) cosy[storeKey] = v
   }
+  // 会话模板(2026-10-27):qoder-capture.ps1 的 rawSession 已由提取器剔凭证成 canonical
+  // sessionTemplate;appDir/edition 一并写入模板,写回端可优先按原目录定位(失效再扫描)。
+  const template = objField(a, 'sessionTemplate')
+  const secrets: Record<string, unknown> = {}
+  if (template) {
+    secrets.sessionTemplate = {
+      ...template,
+      ...(cstr(a['appDir']) ? { appDir: cstr(a['appDir']) } : {}),
+      ...(cstr(a['edition']) ? { edition: cstr(a['edition']) } : {}),
+    }
+  }
   return {
     token,
     refreshToken: cstr(a['refreshToken']) || null,
@@ -262,6 +346,7 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
     refreshExpiresAt: parseFlexibleExpiry(a['refreshTokenExpiresAt']),
     name: cstr(a['name']) || cstr(a['nickname']) || cstr(a['phone']) || null,
     cosy: Object.keys(cosy).length > 0 ? cosy : null,
+    ...(Object.keys(secrets).length > 0 ? { secrets } : {}),
   }
 }
 
@@ -327,6 +412,14 @@ function mapCodexImport(acc: ImportAccountInput): {
   const token = cstr(tokens?.['access_token'])
   if (!token) return null
   const accountId = cstr(tokens?.['account_id'])
+  // 会话模板(2026-10-27):auth.json 去掉 tokens 后的整份资料(凭证已剔除),
+  // 「登录本机」用它 + 池内凭证重建登录态;id_token 是重建所需凭证,单独进 secretsEnc。
+  const providedTemplate = objField(a, 'sessionTemplate')
+  const template: Record<string, unknown> = { ...(providedTemplate ?? {}) }
+  delete template.tokens
+  if (cstr(a['authMode'])) template.auth_mode = cstr(a['authMode'])
+  if (cstr(a['lastRefresh'])) template.last_refresh = cstr(a['lastRefresh'])
+  const idToken = cstr(tokens?.['id_token'])
   return {
     token,
     refreshToken: cstr(tokens?.['refresh_token']) || null,
@@ -337,12 +430,24 @@ function mapCodexImport(acc: ImportAccountInput): {
     secrets: {
       authMode: cstr(a['authMode']) || null,
       accountId: accountId || null,
-      idTokenPresent: Boolean(tokens?.['id_token']),
+      idToken: idToken || null,
       lastRefresh: cstr(a['lastRefresh']) || null,
       fingerprint: cstr(a['fingerprint']) || null,
+      sessionTemplate: Object.keys(template).length > 0 ? template : null,
     },
   }
 }
+
+/** OpenCode 凭证族(会话模板必须剔除;写回端按 authType 重新落 key/access/refresh/expires) */
+const OPENCODE_TEMPLATE_CRED = new Set([
+  'key',
+  'access',
+  'accessToken',
+  'refresh',
+  'refreshToken',
+  'expires',
+  'expiresAt',
+])
 
 /** OpenCode:auth.json 每 provider 一条(type:"api" 用 key,"oauth" 用 access/refresh) */
 function mapOpencodeImport(acc: ImportAccountInput): {
@@ -358,20 +463,45 @@ function mapOpencodeImport(acc: ImportAccountInput): {
   const token = cstr(auth?.['key']) || cstr(auth?.['access'])
   if (!token) return null
   const providerID = cstr(a['providerID'])
+  const accountId = cstr(auth?.['accountId'])
+  // 会话模板(2026-10-27):该 provider 条目去掉凭证后的整份资料,「登录本机」用它 +
+  // 池内凭证重建 auth.json 条目;providerID 是定位键,单独存 secrets(模板里也留一份)。
+  const providedTemplate = objField(a, 'sessionTemplate')
+  const templateSource = providedTemplate ?? auth ?? {}
+  const template: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(templateSource)) {
+    if (OPENCODE_TEMPLATE_CRED.has(k)) continue
+    template[k] = v
+  }
   return {
     token,
     refreshToken: cstr(auth?.['refresh']) || null,
-    uid: cstr(auth?.['accountId']) || autoUid(`${providerID}:${token}`),
+    uid: accountId || autoUid(`${providerID}:${token}`),
     name: providerID ? `opencode:${providerID}` : null,
     expiresAt: parseFlexibleExpiry(auth?.['expires']),
     secrets: {
       providerID: providerID || null,
       authType: cstr(auth?.['type']) || null,
+      accountId: accountId || null,
       enterpriseUrl: cstr(auth?.['enterpriseUrl']) || null,
       fingerprint: cstr(a['fingerprint']) || null,
+      sessionTemplate: Object.keys(template).length > 0 ? template : null,
     },
   }
 }
+
+/** MiniMax 凭证 + 提取器溯源键(会话模板必须剔除;溯源键写回客户端会污染 records 条目) */
+const MINIMAX_TEMPLATE_SKIP = new Set([
+  'accessToken',
+  'refreshToken',
+  'expiresAtMs',
+  'region',
+  'regions',
+  'recordKey',
+  'sourceRoot',
+  'sourcePath',
+  'fingerprint',
+])
 
 /** MiniMax:mcode auth 记录(accessToken/refreshToken/expiresAtMs + region 溯源) */
 function mapMinimaxImport(acc: ImportAccountInput): {
@@ -387,6 +517,15 @@ function mapMinimaxImport(acc: ImportAccountInput): {
   if (!token) return null
   const expMs = typeof a['expiresAtMs'] === 'number' ? (a['expiresAtMs'] as number) : null
   const region = cstr(a['region']) || null
+  // 会话模板(2026-10-27):记录去掉凭证后的整份资料(保留 tokenType/scopes/audience/
+  // generation/loginEpoch 等旁键),「登录本机」用它 + 池内凭证重写 records[recordKey]。
+  const providedTemplate = objField(a, 'sessionTemplate')
+  const templateSource = providedTemplate ?? a
+  const template: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(templateSource)) {
+    if (MINIMAX_TEMPLATE_SKIP.has(k)) continue
+    template[k] = v
+  }
   return {
     token,
     refreshToken: cstr(a['refreshToken']) || null,
@@ -403,6 +542,7 @@ function mapMinimaxImport(acc: ImportAccountInput): {
       recordKey: cstr(a['recordKey']) || null,
       sourcePath: cstr(a['sourcePath']) || null,
       fingerprint: cstr(a['fingerprint']) || null,
+      sessionTemplate: Object.keys(template).length > 0 ? template : null,
     },
   }
 }
@@ -417,7 +557,18 @@ function mapZcodeImport(acc: ImportAccountInput): {
   secrets: Record<string, unknown>
 } | null {
   const a = acc as Record<string, unknown>
-  const RESERVED = new Set(['region', 'regions', 'sourceRoot', 'sourcePath', 'fingerprint'])
+  // rawCredentials = 提取器附带的原始 enc:v1: 密文图(仅供溯源),绝不能再进 credentialMap
+  // (那是写回端的明文基准;混进密文会把 token 定位键算错,也白占一份密文副本)。region/
+  // regions/source* / fingerprint 是溯源元数据,不属于客户端凭据图,同样不进 credentialMap。
+  const RESERVED = new Set([
+    'region',
+    'regions',
+    'sourceRoot',
+    'sourcePath',
+    'fingerprint',
+    'rawCredentials',
+    'sessionTemplate',
+  ])
   const token =
     cstr(a['oauth:bigmodel:access_token']) ||
     cstr(a['zcodejwttoken']) ||
@@ -577,8 +728,6 @@ export async function importAccounts(
                           : providerCode === 'grokbot'
                             ? mapGrokbotImport(acc)
                             : null
-      // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
-      const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       if (!accName && mapped?.name) displayName = mapped.name
       const missingReason = mapped ? null : (MAPPED_PROVIDER_MISSING_REASONS[providerCode] ?? null)
       if (missingReason && providerCode !== 'trae' && providerCode !== 'workbuddy') {
@@ -642,11 +791,14 @@ export async function importAccounts(
       const now = new Date()
       const expired = tokenExpiresAt !== null && tokenExpiresAt <= now
 
-      // 既有行先查出来:覆盖语义(保不保留旧 refreshToken)与"过期是否摘除"都依赖它
+      // 既有行先查出来:覆盖语义(保不保留旧 refreshToken)与"过期是否摘除"都依赖它。
+      // secretsEnc 一并取出:Trae 的会话模板/设备材料是合并语义(见 mapTraeImport),
+      // 网页重登那种只带 access 的导入绝不能把模板抹掉。
       const existing = await db
         .select({
           id: aiRelayAccountPool.id,
           hasRefreshToken: sql<boolean>`${aiRelayAccountPool.refreshTokenEnc} is not null`,
+          secretsEnc: aiRelayAccountPool.secretsEnc,
         })
         .from(aiRelayAccountPool)
         .where(
@@ -659,6 +811,29 @@ export async function importAccounts(
           ),
         )
         .limit(1)
+      let existingSecrets: Record<string, unknown> | null = null
+      if (existing[0]?.secretsEnc) {
+        try {
+          const parsed = JSON.parse(decryptField(existing[0].secretsEnc))
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            existingSecrets = parsed as Record<string, unknown>
+          }
+        } catch {
+          /* 坏密文/密钥轮换 ⇒ 当作无既有 secrets,本次提供的照写 */
+        }
+      }
+      // Trae 模板/设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
+      const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc, existingSecrets) : null
+      // secrets 单列合并(2026-10-27 全平台):模板/设备材料/凭据图同住 secretsEnc。
+      // "只带凭证"的导入(网页重登、手工 JSON)不带模板 ⇒ 整列覆盖会抹掉模板,
+      // 所以以既有 secrets 为底、本次确实提供的键才覆盖(判据单源:mergeSecrets)。
+      const incomingSecrets: Record<string, unknown> | null =
+        providerCode === 'trae'
+          ? (traeSecrets?.secrets ?? null)
+          : mapped && 'secrets' in mapped
+            ? (mapped.secrets as Record<string, unknown>)
+            : null
+      const mergedSecrets = mergeSecrets(existingSecrets, incomingSecrets)
       // 一键重登只换 access:本批未带 refreshToken 时按开关保留旧票(判据单源在 format)
       const overwriteRefresh = resolveOverwriteRefresh({
         providerCode,
@@ -714,12 +889,9 @@ export async function importAccounts(
         tokenEnc: encryptField(token),
         refreshTokenEnc: refreshToken ? encryptField(refreshToken) : null,
         cookiesEnc: cookies.length > 0 ? encryptField(JSON.stringify(cookies)) : null,
-        secretsEnc:
-          mapped && 'secrets' in mapped
-            ? encryptField(JSON.stringify(mapped.secrets))
-            : traeSecrets
-              ? encryptField(JSON.stringify(traeSecrets.secrets))
-              : null,
+        // 本次没提供任何 secrets(非可采集平台,或只带凭证的导入)⇒ undefined =
+        // 覆盖时不写该列(保留既有模板/凭据图);insert 时按列默认 NULL 落库
+        secretsEnc: mergedSecrets ? encryptField(JSON.stringify(mergedSecrets)) : undefined,
         deviceId:
           typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId.slice(0, 128) : null,
         machineId:

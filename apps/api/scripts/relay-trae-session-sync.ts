@@ -50,6 +50,8 @@ export interface SyncCandidate {
   machineId?: string | null
   deviceKeyPem?: string | null
   devicePubPem?: string | null
+  /** 会话模板(2026-10-27):本机当前登录号的账号资料(凭证已剔除),合并进 secretsEnc */
+  sessionTemplate?: Record<string, unknown> | null
 }
 
 export interface SyncInputPayload {
@@ -223,23 +225,52 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         summary.rows.push({ uid, decision: final.reason, applied: false, error: 'dry-run 未写' })
         continue
       }
-      // 设备材料随票回灌(客户端重新登录换机/换密钥时池侧自愈);缺任一项 → 不动原值
+      // 设备材料与会话模板随票回灌(客户端重新登录换机/换密钥时池侧自愈)。
+      // 合并语义(2026-10-27):secretsEnc 是单列且还要装「登录本机」的会话模板,
+      // 这里若整列覆盖,每 10 分钟一次的回灌会把模板抹掉 ⇒ 以既有 secrets 为底,
+      // 只在本次确实提供时覆盖对应键。
       const deviceId = typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId : null
       const machineId = typeof acc.machineId === 'string' && acc.machineId ? acc.machineId : null
       const keyPem =
         typeof acc.deviceKeyPem === 'string' && acc.deviceKeyPem ? acc.deviceKeyPem : null
       const pubPem =
         typeof acc.devicePubPem === 'string' && acc.devicePubPem ? acc.devicePubPem : null
+      const template =
+        acc.sessionTemplate &&
+        typeof acc.sessionTemplate === 'object' &&
+        !Array.isArray(acc.sessionTemplate) &&
+        Object.keys(acc.sessionTemplate).length > 0
+          ? acc.sessionTemplate
+          : null
+      let secrets: Record<string, unknown> | null = null
+      if ((keyPem && pubPem) || template) {
+        let base: Record<string, unknown> = {}
+        if (row.secretsEnc) {
+          try {
+            const parsed = JSON.parse(decryptField(row.secretsEnc))
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              base = parsed as Record<string, unknown>
+            }
+          } catch {
+            /* 坏密文/密钥轮换 ⇒ 以本次提供为准重建 */
+          }
+        }
+        secrets = { ...base }
+        if (keyPem && pubPem) {
+          secrets.deviceKeyPem = keyPem
+          secrets.devicePubPem = pubPem
+        }
+        if (template) secrets.sessionTemplate = template
+      }
+      const secretsUpdate = secrets ? { secretsEnc: encryptField(JSON.stringify(secrets)) } : {}
       const deviceUpdate =
         keyPem && pubPem
           ? {
-              secretsEnc: encryptField(
-                JSON.stringify({ deviceKeyPem: keyPem, devicePubPem: pubPem }),
-              ),
+              ...secretsUpdate,
               ...(deviceId ? { deviceId } : {}),
               ...(machineId ? { machineId } : {}),
             }
-          : {}
+          : secretsUpdate
       await db
         .update(aiRelayAccountPool)
         .set({

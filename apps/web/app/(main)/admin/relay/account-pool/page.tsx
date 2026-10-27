@@ -29,6 +29,7 @@ import {
   Label,
   Loader2,
   LogIn,
+  MonitorDown,
   PartyPopper,
   Pencil,
   Power,
@@ -122,6 +123,35 @@ const PROVIDER_OPTIONS = [
   'grokbot',
 ] as const
 type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
+
+/** 平台展示名(登录本机 toast/确认框话术用;未知平台回落代码本身) */
+const LOCAL_LOGIN_LABEL: Partial<Record<ProviderCode, string>> = {
+  trae: 'Trae',
+  workbuddy: 'WorkBuddy',
+  codearts: 'CodeArts',
+  qoder: 'Qoder',
+  codex: 'Codex',
+  opencode: 'OpenCode',
+  minimax: 'MiniMax Code',
+  zcode: 'ZCode',
+  loomy: 'Loomy',
+  doubao: '豆包',
+  lingma: '灵码',
+  grokbot: 'GrokBot',
+}
+
+/**
+ * 「登录本机」不支持矩阵(2026-10-27 全平台):与 API 的
+ * LOCAL_LOGIN_UNSUPPORTED_REASONS 同口径 —— 支持平台可点,不支持平台 disabled 并在
+ * tooltip 点名原因,不做假入口(判据见各平台提取器头注)。
+ */
+const LOCAL_LOGIN_UNSUPPORTED: Partial<Record<ProviderCode, string>> = {
+  workbuddy: '加密密钥只在本机运行中的主进程内(9229 inspector),离线无法重封本机登录态',
+  loomy: '本机登录态是 Electron leveldb 且被客户端独占,离线无法重建',
+  doubao: '登录态是 Chrome Cookies 库(被浏览器独占),离线无法重封',
+  lingma: '字段级登录态形状尚未实证(本机未安装),没有可验证的写回配方',
+  grokbot: '本机凭证是 sandSealedFile 密封串,没有明文 token 可重建',
+}
 
 // 24h 用量摘要。后端契约字段均为 number,但后端尚未合并时可能整体缺失,
 // 故全部可选并做容错渲染(缺字段显示 "-",不阻塞 typecheck)。
@@ -633,6 +663,40 @@ export default function AdminRelayAccountPoolPage() {
       invalidate()
     },
     onError: (e: Error) => toast.error(e.message || '操作失败'),
+  })
+
+  // 登录本机(2026-10-27 全平台):把号池账号写进本机客户端登录态(写前自动备份)
+  const loginLocalMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<{
+        providerCode: string
+        uid: string
+        replacedUid: string | null
+        targetFile: string
+        backupFile: string
+        notes: string[]
+        tokenNearExpiry: boolean
+        refreshed: boolean
+        restartHint: string
+      }>(`/api/admin/relay/accounts/${id}/login-local`, { method: 'POST' })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      const label = LOCAL_LOGIN_LABEL[d.providerCode as ProviderCode] ?? d.providerCode
+      const replaced = d.replacedUid ? `,已替换原登录 ${d.replacedUid}` : ''
+      toast.success(`已把 uid=${d.uid} 写进本机 ${label}${replaced};${d.restartHint}`, {
+        description:
+          `落点:${d.targetFile}\n备份:${d.backupFile || '(原文件不存在,本次为新建)'}` +
+          (d.notes.length > 0 ? `\n${d.notes.join('\n')}` : '') +
+          (d.tokenNearExpiry
+            ? '\n这枚票已临期:客户端启动后会自行续期' +
+              (d.providerCode === 'trae' ? ',号池由 10 分钟一次的同步回灌' : '')
+            : ''),
+      })
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '写入本机登录态失败'),
   })
 
   const healthMut = useMutation({
@@ -1500,6 +1564,45 @@ export default function AdminRelayAccountPoolPage() {
                                   </Button>
                                 </span>
                               </Tooltip>
+                              {(() => {
+                                const provider = k.providerCode as ProviderCode
+                                const unsupported = LOCAL_LOGIN_UNSUPPORTED[provider]
+                                const label = LOCAL_LOGIN_LABEL[provider] ?? k.providerCode
+                                return (
+                                  <Tooltip
+                                    content={
+                                      unsupported
+                                        ? `登录本机不可用:${unsupported}`
+                                        : `登录本机:把该号写进本机 ${label} 客户端登录态(写前自动备份原文件,可回滚)`
+                                    }
+                                  >
+                                    <span className="inline-flex">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        aria-label="登录本机"
+                                        disabled={loginLocalMut.isPending || Boolean(unsupported)}
+                                        onClick={() => {
+                                          void confirm({
+                                            title: `把「${k.name}」登录到本机 ${label}?`,
+                                            description: `会替换本机当前 ${label} 登录态(写入前自动备份原文件)。写入后需重启 ${label} 才生效。`,
+                                            confirmText: '写入并替换',
+                                          }).then((ok) => {
+                                            if (ok) loginLocalMut.mutate(k.id)
+                                          })
+                                        }}
+                                      >
+                                        {loginLocalMut.isPending &&
+                                        loginLocalMut.variables === k.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <MonitorDown className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </span>
+                                  </Tooltip>
+                                )
+                              })()}
                               <Tooltip
                                 content={
                                   relCap
@@ -2095,9 +2198,7 @@ export default function AdminRelayAccountPoolPage() {
       <Dialog open={modelsView !== null} onOpenChange={(o) => !o && setModelsView(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              可用模型{modelsView?.name ? `:${modelsView.name}` : ''}
-            </DialogTitle>
+            <DialogTitle>可用模型{modelsView?.name ? `:${modelsView.name}` : ''}</DialogTitle>
           </DialogHeader>
           {modelsView && (
             <div className="space-y-3">
