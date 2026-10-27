@@ -361,6 +361,33 @@ export function judgeCapacity({ judges, accountRows, keyRows, sentinel, allowEmp
       ' 彻底失效在本机登录 CodeArts Agent 后跑 `node scripts/relay-account-pool.mjs --from codearts` 重新提取' +
       '(Windows 自带 powershell 即可,须同一 Windows 用户;桌面在跑先关再提);' +
       '该平台无签到引擎,映射即拦截,不要求签到动作',
+    // 2026-10-27 扩容八平台:提取器均已装车,--from 全部真跑得通(§0.8)
+    codex:
+      '若系 Codex 凭据已死:在本机 `codex login`(config.toml 置 cli_auth_credentials_store="file")后' +
+      ' 跑 `node scripts/relay-account-pool.mjs --from codex` 重新提取' +
+      '(keyring 模式提取不到,错误码 CODEX_NO_SESSION 会点名出路)',
+    opencode:
+      '若系 OpenCode 凭据已死:在本机 `opencode auth login` 后跑' +
+      ' `node scripts/relay-account-pool.mjs --from opencode` 重新提取(auth.json 明文直读)',
+    minimax:
+      '若系 MiniMax 凭据已死:在本机 `mcode login`(国际版 `mcode login --region global`)后跑' +
+      ' `node scripts/relay-account-pool.mjs --from minimax` 重新提取',
+    zcode:
+      '若系 ZCode 凭据已死:在本机桌面端/TUI 重新连接 BigModel/Z.ai 账号后跑' +
+      ' `node scripts/relay-account-pool.mjs --from zcode` 重新提取(credentials.json 直读)',
+    loomy:
+      '若系 Loomy 凭据已死:在本机重新登录 Loomy 桌面端后跑' +
+      ' `node scripts/relay-account-pool.mjs --from loomy` 重新提取' +
+      '(会话持久化形状未实证,提取不到会如实点名不冒绿)',
+    doubao:
+      '若系豆包凭据已死:在本机重新登录豆包桌面端后跑' +
+      ' `node scripts/relay-account-pool.mjs --from doubao` 重新提取(passport 会话 cookie 直读)',
+    lingma:
+      '若系灵码凭据已死:在本机 IDE 登录通义灵码后跑' +
+      ' `node scripts/relay-account-pool.mjs --from lingma` 重新提取(凭证文件/vscdb 双路探测)',
+    grokbot:
+      'GrokBot 本机凭证为密封串(sandSealedFile,提取器只取证不解封)——当前唯一出路:' +
+      ' 后台「中转-号池-账号池」导入账号 JSON,或拿到明文凭据后 `--file` 导入',
   })
 
   // S1:有 enabled 号但可调度 = 0(两池都扫)
