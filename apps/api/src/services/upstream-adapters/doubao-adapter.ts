@@ -252,8 +252,12 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
 
   /**
    * 健康检查(三态语义,对齐 HealthCheckResult):
-   * - 非 2xx:401/403 ⇒ 明确拒收(authFailed),5xx/网络 ⇒ indeterminate(不误杀好号);
+   * - **401 在此端点不可作拒收判据**(2026-10-27 实弹对照:无 cookie/假 cookie/真 cookie
+   *   全 401 空体 —— 端点是字节签名墙,a-bogus/msToken 防签缺失时真票也 401,不可区分)
+   *   ⇒ 401/403 回 indeterminate(未判定),绝不误杀好号;
+   * - 5xx/网络 ⇒ indeterminate;
    * - 2xx:端点本身是推断的,SPA 服务器对任意路径都可能回 200 ⇒ 形状未实证 ⇒ indeterminate。
+   * 净效果:豆包健康检查恒 unknown,票有效性只能靠 chat 面实测(签名墙内)。
    */
   async checkHealth(
     ctx: AdapterAccountContext,
@@ -266,15 +270,10 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
       })
       const text = await res.text().catch(() => '')
       if (!res.ok) {
-        const rejected = isAuthFailure(res.status, text)
         return {
           ok: false,
-          indeterminate: !rejected,
-          // 只在明确拒收时写 authFailed;5xx/网络缺省(不得与 indeterminate 背离)
-          ...(rejected ? { authFailed: true } : {}),
-          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
-            rejected ? '' : '(未判定)'
-          }`,
+          indeterminate: true,
+          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}(端点为签名墙,401 与凭证失效不可区分 ⇒ 未判定)`,
         }
       }
       return {
@@ -292,10 +291,10 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
   },
 
   /**
-   * 额度点查(§0.3 如实未判定):**无公开额度端点**,DOUBAO_QUOTA_URL 是推断路径。
-   * 非 2xx ⇒ authFailed 按 isAuthFailure(401/403 是唯一有把握的判定);
-   * 200 ⇒ 回响应键名清单 + 「形状未实证 ⇒ 未判定」,绝不猜字段读成数字
-   * (对齐 codearts getQuota 同款口径)。
+   * 额度点查(§0.3 如实未判定):DOUBAO_QUOTA_URL 是推断路径且**实弹实证为字节签名墙**
+   * (2026-10-27:无 cookie/假 cookie/真 cookie 全 401 空体,不可区分)⇒ 非 2xx 一律
+   * 未判定(authFailed 不再由此端点判定);200 ⇒ 回响应键名清单 + 「形状未实证 ⇒ 未判定」,
+   * 绝不猜字段读成数字(对齐 codearts getQuota 同款口径)。
    */
   async getQuota(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult> {
     try {
@@ -307,8 +306,7 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
       if (!res.ok) {
         return {
           ok: false,
-          ...(isAuthFailure(res.status, text) ? { authFailed: true } : {}),
-          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}(端点为签名墙,401 与凭证失效不可区分 ⇒ 未判定)`,
         }
       }
       let keys: string[] = []

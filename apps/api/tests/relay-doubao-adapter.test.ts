@@ -272,12 +272,13 @@ describe('doubao checkHealth(三态,打桩 fetch)', () => {
     mockFetch.mockReset()
   })
 
-  it('401 → ok:false + authFailed:true(明确拒收)', async () => {
+  it('401 → ok:false + indeterminate(2026-10-27 实弹:签名墙 401 与失效不可区分,不误杀)', async () => {
     mockFetch.mockResolvedValue({ status: 401, ok: false, text: async () => 'unauthorized' })
     const h = await doubaoAdapter.checkHealth(makeCtx())
     expect(h.ok).toBe(false)
-    expect(h.authFailed).toBe(true)
-    expect(h.indeterminate).toBe(false)
+    expect(h.indeterminate).toBe(true)
+    expect(h.authFailed).toBeUndefined()
+    expect(h.error).toMatch(/签名墙/)
   })
 
   it('5xx → ok:false + indeterminate(不误杀好号)', async () => {
@@ -310,12 +311,13 @@ describe('doubao getQuota(无公开额度端点 ⇒ 如实未判定)', () => {
     mockFetch.mockReset()
   })
 
-  it('401 → ok:false + authFailed(承载层据此触发自愈摘除)', async () => {
+  it('401 → ok:false 未判定(签名墙 401 与凭证失效不可区分,2026-10-27 实弹)', async () => {
     mockFetch.mockResolvedValue({ status: 401, ok: false, text: async () => 'unauthorized' })
     const q = await doubaoAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
-    expect(q.authFailed).toBe(true)
+    expect(q.authFailed).toBeUndefined()
     expect(q.error).toMatch(/HTTP 401/)
+    expect(q.error).toMatch(/签名墙/)
     expect(q.quota).toBeUndefined()
   })
 

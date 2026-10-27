@@ -127,6 +127,12 @@ const overview = {
     ],
     online5m: 3,
     pv5m: 12,
+    // 分时访问(2026-10-27):近 24h 逐小时 PV/UV(上海小时桶)
+    pageHourly: [
+      { hour: '09', pv: 40, uv: 12 },
+      { hour: '14', pv: 120, uv: 30 },
+      { hour: '20', pv: 80, uv: 22 },
+    ],
     // 会话质量(2026-10-26):来了之后看了几屏、从哪一页落地
     sessionQuality: {
       sessions: 6,
@@ -142,6 +148,11 @@ const overview = {
       entryPages: [
         // 落地页路径刻意不与页面排行的 fixture 重名:重名会让 getByText 命中两处而歧义
         { url: '/pricing', sessions: 2, singlePageSessions: 1 },
+        { url: '/docs', sessions: 1, singlePageSessions: 0 },
+      ],
+      // 退出页(2026-10-27):与落地页镜像 —— 人从哪走
+      exitPages: [
+        { url: '/checkout', sessions: 3, singlePageSessions: 1 },
         { url: '/docs', sessions: 1, singlePageSessions: 0 },
       ],
     },
@@ -426,6 +437,61 @@ describe('WallboardView 使用数据面板', () => {
       expect(within(view.container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0),
     )
     expect(within(view.container).queryAllByText('/sso/login')).toHaveLength(0)
+  })
+
+  it('渲染分时访问:面板标题与窗口档都在屏上(数据绑 EChart,画布侧只钉读数面)', async () => {
+    const { container } = renderWallboard()
+    await waitFor(() =>
+      expect(within(container).getAllByText('分时访问').length).toBeGreaterThan(0),
+    )
+    // 窗口档:滚动 24h 逐小时(与「今日分时调用」的截断语义不同,不按当前小时截)。
+    // 它在 traffic 腿落地后才替换 SourceGap ⇒ waitFor 等的是「数据真的到了」
+    await waitFor(() =>
+      expect(within(container).getAllByText('近 24h · 逐小时').length).toBeGreaterThan(0),
+    )
+  })
+
+  it('分时访问这条腿取不到时画空态,不得把空数组读成「今日无访问」', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: { ...overview.traffic, pageHourly: null },
+            },
+          }) as never)
+    const view = renderWallboard()
+    // 先等**别的** traffic 腿落地(证明是分时腿取不到,不是整块数据没到)
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('近24h 会话 6').length).toBeGreaterThan(0),
+    )
+    expect(within(view.container).getAllByText('分时访问').length).toBeGreaterThan(0)
+    // null = 腿取不到 ⇒ 窗口档旁仍画空态(源不可达);**不得**画「暂无页面访问」——
+    // 那是把「没判」说成「判过且为零」(§0.3)
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('近 24h · 逐小时').length).toBeGreaterThan(0),
+    )
+    expect(within(view.container).queryAllByText('近24h 暂无页面访问')).toHaveLength(0)
+  })
+
+  it('渲染退出页:与落地页同栏镜像,按「会话 / 单页」绑定', async () => {
+    const { container } = renderWallboard()
+    // 小标题是静态铺出来的,数据要等 query 落地 —— 等的是退出页真读数上屏
+    await waitFor(() =>
+      expect(within(container).getAllByText('退出页(会话/单页)').length).toBeGreaterThan(0),
+    )
+    await waitFor(() =>
+      expect(within(container).getAllByText('/checkout').length).toBeGreaterThan(0),
+    )
+    // 退出页行 = 会话数 / 其中只停这一页的会话数(fixture /checkout = 3 / 1)
+    const checkout = within(container).getAllByText('/checkout')
+    expect(checkout.some((el) => (el.parentElement?.textContent ?? '').includes('3 / 1'))).toBe(
+      true,
+    )
+    // 落地页与退出页两榜并存,各自有自己的小标题
+    expect(within(container).getAllByText('落地页(会话/单页)').length).toBeGreaterThan(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

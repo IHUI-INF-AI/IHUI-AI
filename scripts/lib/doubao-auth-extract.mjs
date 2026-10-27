@@ -78,10 +78,29 @@ function cstr(v) {
 }
 
 /**
- * Chromium os_crypt cookie 密文(v10/v11 + nonce12 + ct + tag16,AES-256-GCM)→ 明文字符串。
+ * 豆包桌面端自家一层包装(2026-10-27 实证):os_crypt 解密后的明文**再套一层**
+ * 固定 32 字节二进制头(全会话族 cookie 恒定同魔数,10 键逐一比对一致),其后才是真值
+ * (sessionid 剥头后 = 32 字符 hex 真值;sid_guard 剥头后尾部为可读 GMT 日期串)。
+ * 非该魔数的明文原样返回(不冒进)。
+ */
+const DOUBAO_APP_PLAIN_PREFIX_HEX = '55f747e1cd4f97038127e7f1466c5c5dc911c8fa4e5c6283d28cb91e538f5889'
+
+export function stripDoubaoAppPrefix(plaintextOrBuf) {
+  const buf = Buffer.isBuffer(plaintextOrBuf) ? plaintextOrBuf : Buffer.from(String(plaintextOrBuf), 'utf8')
+  const HEADER_LEN = DOUBAO_APP_PLAIN_PREFIX_HEX.length / 2
+  if (buf.length > HEADER_LEN && buf.subarray(0, HEADER_LEN).toString('hex') === DOUBAO_APP_PLAIN_PREFIX_HEX) {
+    return buf.subarray(HEADER_LEN).toString('utf8')
+  }
+  return buf.toString('utf8')
+}
+
+/**
+ * Chromium os_crypt cookie 密文(v10/v11 + nonce12 + ct + tag16,AES-256-GCM)→ 明文。
+ * opts.rawBuffer=true ⇒ 返回 Buffer(豆包自家 24 字节二进制头需字节级剥除,先转 utf8 会产生
+ * U+FFFD 不可逆损毁 —— 2026-10-27 实证);默认返回 utf8 字符串(旧签名兼容)。
  * cookie 值非 JSON ⇒ 不做 JSON.parse;前缀非 v10/v11(v20 app-bound 等)⇒ throw 未判定。
  */
-export function decryptOsCryptString(blob, aesKey) {
+export function decryptOsCryptString(blob, aesKey, opts = {}) {
   if (!Buffer.isBuffer(blob) || blob.length < 3 + 12 + 16) {
     throw Object.assign(new Error('cookie 密文长度不足 v10 形(未判定)'), { code: 'DOUBAO_BAD_BLOB' })
   }
@@ -97,7 +116,8 @@ export function decryptOsCryptString(blob, aesKey) {
   const ct = blob.subarray(15, blob.length - 16)
   const d = crypto.createDecipheriv('aes-256-gcm', aesKey, nonce)
   d.setAuthTag(tag)
-  return Buffer.concat([d.update(ct), d.final()]).toString('utf8')
+  const pt = Buffer.concat([d.update(ct), d.final()])
+  return opts.rawBuffer ? pt : pt.toString('utf8')
 }
 
 /**
@@ -141,11 +161,17 @@ export function readCookieSessionRows(userDataDir, profile, opts = {}) {
         entries.push({ source: 'cookies', key: name, host, value: row.value })
         continue
       }
-      const blob = Buffer.isBuffer(row.encrypted_value)
-        ? row.encrypted_value
-        : row.encrypted_value && row.encrypted_value.data
-          ? Buffer.from(row.encrypted_value.data)
-          : null
+      // node:sqlite 的 BLOB 返回裸 Uint8Array(2026-10-27 实证,isBuffer=false 会被误判空)
+      const rawEv = row.encrypted_value
+      const blob = rawEv === null || rawEv === undefined
+        ? null
+        : Buffer.isBuffer(rawEv)
+          ? rawEv
+          : ArrayBuffer.isView(rawEv)
+            ? Buffer.from(rawEv.buffer, rawEv.byteOffset, rawEv.byteLength)
+            : rawEv.data
+              ? Buffer.from(rawEv.data)
+              : null
       if (!blob || blob.length === 0) {
         skips.push(`cookie ${host}/${name} 无 value 也无 encrypted_value(未判定)`)
         continue
@@ -175,7 +201,7 @@ export function readCookieSessionRows(userDataDir, profile, opts = {}) {
           source: 'cookies',
           key: name,
           host,
-          value: decryptOsCryptString(blob, aesKey),
+          value: stripDoubaoAppPrefix(decryptOsCryptString(blob, aesKey, { rawBuffer: true })),
         })
       } catch (e) {
         skips.push(`cookie ${host}/${name} 解密未判定: ${e instanceof Error ? e.message : String(e)}`)
