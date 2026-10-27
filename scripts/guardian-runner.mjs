@@ -3470,7 +3470,7 @@ const checks = [
   {
     id: '130',
     label:
-      '🗂  任务状态分叉对账(blocking,差值棘轮:一次提交不得让"同一件事既已完成又挂着未勾"变多,不得带入没有交代的登记行,也不得新增撞号组(F9,存量只报数) —— 既有防护全在防丢,没有一道防错)',
+      '🗂  任务状态分叉对账(blocking,差值棘轮:一次提交不得让"同一件事既已完成又挂着未勾"变多,不得带入没有交代的登记行,不得新增撞号组(F9,存量只报数),也不得把 HEAD 面已结清的登记行捣回未勾(F13 跨面对账,锚点=HEAD 面自身存量、存量只报数) —— 既有防护全在防丢,没有一道防错)',
     script: 'plan-tasks.mjs',
     args: ['--gate'],
     mode: 'blocking',
@@ -5682,10 +5682,23 @@ const checks = [
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_E2E_COVERAGE_GAP',
-    stagedTriggers: ['apps/web/app/', 'apps/web/src/', 'apps/api/src/', 'scripts/check-e2e-coverage-gap.mjs', 'scripts/data/e2e-coverage-gap-scope.json', 'scripts/lib/e2e-coverage-gap.mjs'],
+    // 2026-10-27 补:判据层增规则③(收集目录同名),apps/*/tests|test/ 里的测试被删/改也会翻缺口
+    // (测试被删 ⇒ 模块落进新增缺口),触发面必须罩住收集目录,否则那一族回潮跑不到本门。
+    stagedTriggers: [
+      'apps/web/app/',
+      'apps/web/src/',
+      'apps/web/tests/',
+      'apps/api/src/',
+      'apps/api/tests/',
+      'apps/api/test/',
+      'scripts/check-e2e-coverage-gap.mjs',
+      'scripts/data/e2e-coverage-gap-scope.json',
+      'scripts/lib/e2e-coverage-gap.mjs',
+    ],
     onFailHint: [
       '',
-      '  💡 本次暂存带进了没有对应测试的新模块(判据:同目录 *.test.* / __tests__ 词边界前缀)。',
+      '  💡 本次暂存带进了没有对应测试的新模块(判据:①同目录 *.test.*|*.spec.* 同名;',
+      '     ② __tests__ 词边界前缀;③ 收集目录 apps/*/tests|test/ 精确同名,同包同名唯一才认)。',
       '     补测骨架:node scripts/e2e-autofill.mjs --propose --staged',
       '     存量缺口只报数(差值棘轮),不拦本次;warn 档观察中。',
       '     紧急跳过:HUSKY_SKIP_E2E_COVERAGE_GAP=1 git commit ...',
