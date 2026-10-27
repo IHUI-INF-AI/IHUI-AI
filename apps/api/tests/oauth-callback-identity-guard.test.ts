@@ -22,6 +22,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
+import type { Redis } from 'ioredis'
 
 const dbMocks = vi.hoisted(() => ({
   findUserByPhone: vi.fn(),
@@ -61,6 +62,53 @@ vi.mock('../src/routes/user/ip-whitelist-guard.js', () => ({
 }))
 
 import { authExtendedRoutes } from '../src/routes/auth-extended.js'
+import {
+  OAUTH_CONSENT_KEY_PREFIX,
+  OAUTH_CONSENT_TTL_SECONDS,
+} from '../src/services/oauth-consent.js'
+
+/** 发起期同意记录的 Redis 内存替身:回调在查/建用户前会一次性消费该 key。 */
+class FakeRedis {
+  private readonly store = new Map<string, { value: string; expiresAt: number | null }>()
+
+  async set(key: string, value: string, _ex?: string, ttlSeconds?: number): Promise<'OK'> {
+    this.store.set(key, {
+      value,
+      expiresAt: typeof ttlSeconds === 'number' ? Date.now() + ttlSeconds * 1000 : null,
+    })
+    return 'OK'
+  }
+
+  async get(key: string): Promise<string | null> {
+    const entry = this.store.get(key)
+    if (!entry) return null
+    if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      this.store.delete(key)
+      return null
+    }
+    return entry.value
+  }
+
+  async del(key: string): Promise<number> {
+    return this.store.delete(key) ? 1 : 0
+  }
+
+  clear(): void {
+    this.store.clear()
+  }
+}
+
+const consentRedis = new FakeRedis()
+
+/** 预置一条发起期同意记录:这些用例考的是"空主体标识不得建号",不是同意闸本身。 */
+async function seedConsent(platform: string, state: string): Promise<void> {
+  await consentRedis.set(
+    OAUTH_CONSENT_KEY_PREFIX + state,
+    JSON.stringify({ platform, agreementAccepted: true, createdAt: new Date().toISOString() }),
+    'EX',
+    OAUTH_CONSENT_TTL_SECONDS,
+  )
+}
 
 const WECHAT_KEYS = ['WECHAT_APP_ID', 'WECHAT_APP_SECRET']
 
@@ -109,6 +157,10 @@ beforeEach(async () => {
     roleId: 0,
   })
   app = Fastify({ logger: false })
+  // 通用回调先过同意闸:用内存 Redis 预置记录(闸本身的用例见 oauth-consent-gate.test.ts)
+  consentRedis.clear()
+  await seedConsent('wechat', 's')
+  app.decorate('redis', consentRedis as unknown as Redis)
   await app.register(cookie)
   await app.register(authExtendedRoutes, { prefix: '/api' })
   await app.ready()

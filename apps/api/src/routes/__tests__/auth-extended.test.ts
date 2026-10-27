@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
+import type { Redis } from 'ioredis'
 import { createHash } from 'node:crypto'
 
 vi.hoisted(() => {
@@ -56,12 +57,65 @@ vi.mock('@ihui/auth', async (importOriginal) => {
 vi.mock('../../db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
 import { authExtendedRoutes } from '../auth-extended.js'
+import {
+  OAUTH_CONSENT_KEY_PREFIX,
+  OAUTH_CONSENT_TTL_SECONDS,
+} from '../../services/oauth-consent.js'
+
+/**
+ * 发起期同意记录的 Redis 内存替身:通用回调在查/建用户前会一次性消费
+ * `oauth:consent:<state>`。本文件里的回调用例考的是"未配置 / 参数校验",
+ * 不是同意闸本身,所以按真实流程预置记录而不是绕过闸门。
+ */
+class FakeRedis {
+  private readonly store = new Map<string, { value: string; expiresAt: number | null }>()
+
+  async set(key: string, value: string, _ex?: string, ttlSeconds?: number): Promise<'OK'> {
+    this.store.set(key, {
+      value,
+      expiresAt: typeof ttlSeconds === 'number' ? Date.now() + ttlSeconds * 1000 : null,
+    })
+    return 'OK'
+  }
+
+  async get(key: string): Promise<string | null> {
+    const entry = this.store.get(key)
+    if (!entry) return null
+    if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      this.store.delete(key)
+      return null
+    }
+    return entry.value
+  }
+
+  async del(key: string): Promise<number> {
+    return this.store.delete(key) ? 1 : 0
+  }
+
+  clear(): void {
+    this.store.clear()
+  }
+}
+
+const consentRedis = new FakeRedis()
+
+/** 预置一条发起期同意记录(模拟客户端跳转厂商前调过 /auth/oauth/consent)。 */
+async function seedConsent(platform: string, state = 'fake'): Promise<void> {
+  await consentRedis.set(
+    OAUTH_CONSENT_KEY_PREFIX + state,
+    JSON.stringify({ platform, agreementAccepted: true, createdAt: new Date().toISOString() }),
+    'EX',
+    OAUTH_CONSENT_TTL_SECONDS,
+  )
+}
 
 describe('Auth Extended API', () => {
   let app: FastifyInstance
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    // 通用回调的同意闸需要 Redis;测试用内存替身(与 auth.ts QR 用例同模式)
+    app.decorate('redis', consentRedis as unknown as Redis)
     // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
     await app.register(cookie)
     await app.register(authExtendedRoutes, { prefix: '/api' })
@@ -350,6 +404,10 @@ describe('Auth Extended API', () => {
       'alipay',
     ] as const
 
+    beforeEach(() => {
+      consentRedis.clear()
+    })
+
     it('路由注册:8 平台均返回非 404(参数缺失时 400,未配置时 400)', async () => {
       for (const platform of supportedPlatforms) {
         const res = await app.inject({
@@ -392,6 +450,7 @@ describe('Auth Extended API', () => {
     })
 
     it('微信未配置:返回 400 + "微信 OAuth 未配置"', async () => {
+      await seedConsent('wechat')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/wechat/callback',
@@ -402,6 +461,7 @@ describe('Auth Extended API', () => {
     })
 
     it('企业微信未配置:返回 400 + "企业微信未配置"', async () => {
+      await seedConsent('enterpriseWechat')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/enterpriseWechat/callback',
@@ -412,6 +472,7 @@ describe('Auth Extended API', () => {
     })
 
     it('钉钉未配置:返回 400 + "钉钉 OAuth 未配置"', async () => {
+      await seedConsent('dingtalk')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/dingtalk/callback',
@@ -422,6 +483,7 @@ describe('Auth Extended API', () => {
     })
 
     it('飞书未配置:返回 400 + "飞书 OAuth 未配置"', async () => {
+      await seedConsent('feishu')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/feishu/callback',
@@ -432,6 +494,8 @@ describe('Auth Extended API', () => {
     })
 
     it('GET 兼容版本:GET /api/auth/wechat/callback?code=fake&state=fake 同样可路由(转发到 POST)', async () => {
+      // GET 侧只是注入式转发到 POST,state 一并带过去 ⇒ 同意闸在 POST 内同样生效
+      await seedConsent('wechat')
       const res = await app.inject({
         method: 'GET',
         url: '/api/auth/wechat/callback?code=fake&state=fake',
