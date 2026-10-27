@@ -200,6 +200,8 @@ function evaluateMap(webRoutes, map, rnScreens, face, portal = collectPortalRout
   const excluded = []
   const judgedGap = []
   const contradicted = []
+  const portalRows = []
+  const portalUnverified = []
   const prefixRows = []
   // 门户承载维:与 web 路由集同面现算(不复制第二份清单,§0.6)。set 为 null = 这一维没读到 ⇒
   // 不改动任何判定,只把「门户维未判定」如实点名;此时既不把 gap 行洗成承载,也不把门户路由从 unmapped 里扣掉。
@@ -255,6 +257,16 @@ function evaluateMap(webRoutes, map, rnScreens, face, portal = collectPortalRout
       aligned.push(row)
       continue
     }
+    // portal = 门户承载行(2026-10-27 立,由 auto-register 的 --converge-portal 档自动改写而来)。
+    // 「验过才免」:行在册而门户表里查无此 path ⇒ 台账在给一个不存在的承载背书 ⇒ 点名。
+    // 表整个取不到 ⇒ 不冒红也不冒充验过:记未判定,行仍算已处置(不能因量具失效凭空造缺口,§0.3)。
+    if (row.status === 'portal') {
+      if (portalCarried === null) portalUnverified.push(row)
+      else if (!portalCarried.has(row.web))
+        rot.push({ line: row.line, why: `portal 行而门户表无此 path(验过才免):${row.web}` })
+      else portalRows.push(row)
+      continue
+    }
     // gap = 判过「RN 该内容域零承载」。证据必填:没有证据的 gap 与"没人判"不可区分。
     // 这一档只减少 unmapped(未判定面),不进 aligned —— 缺口存量仍单独报数,不冒充已对齐。
     if (row.status === 'gap') {
@@ -268,7 +280,9 @@ function evaluateMap(webRoutes, map, rnScreens, face, portal = collectPortalRout
     rot.push({ line: row.line, why: `未知 status:${String(row.status)}` })
   }
 
-  const mappedRoutes = new Set([...aligned, ...excluded, ...judgedGap].map((r) => r.web))
+  const mappedRoutes = new Set(
+    [...aligned, ...excluded, ...judgedGap, ...portalRows, ...portalUnverified].map((r) => r.web),
+  )
   const prefixHits = new Map()
   const prefixExcludedRoutes = new Set()
   for (const p of prefixRows) {
@@ -294,6 +308,8 @@ function evaluateMap(webRoutes, map, rnScreens, face, portal = collectPortalRout
     contradicted,
     portalCarried,
     portalUnmatched,
+    portalRows,
+    portalUnverified,
     portalUndetermined: portal.unreadable,
     rot,
     prefixHits,
@@ -324,6 +340,8 @@ function run() {
     excluded,
     judgedGap,
     contradicted,
+    portalRows,
+    portalUnverified,
     portalCarried,
     portalUnmatched,
     portalUndetermined,
@@ -353,6 +371,8 @@ function run() {
     excluded: excluded.length,
     judgedGap: judgedGap.length,
     contradicted: contradicted.length,
+    portalRows: portalRows.length,
+    portalUnverified: portalUnverified.length,
     contradictedRows: contradicted.map((r) => ({ web: r.web, by: r.by })),
     portalCarried: portalCarried ? portalCarried.size : null,
     portalUndetermined,
@@ -402,6 +422,9 @@ function run() {
   log(
     `门户承载(web-portal): ${portalCarried === null ? '未判定(取不到 ' + WEB_PORTAL_REL + ')' : json.portalCarried}` +
       `  ← 移动端按设计用 WebView 打开的 web 路由,唯一源 ${WEB_PORTAL_REL}`,
+  )
+  log(
+    `在册 portal 行      : ${json.portalRows}(门户表验过)+ ${json.portalUnverified}(表取不到⇒未判定,不冒充验过)`,
   )
   if (portalCarried !== null && contradicted.length > 0) {
     const nGap = contradicted.filter((r) => r.by === 'gap').length

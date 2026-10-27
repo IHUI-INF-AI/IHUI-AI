@@ -163,6 +163,29 @@ test('T11 门户表取不到 ⇒ 整维未判定:不洗白在册 gap、不扣 un
   assert.deepEqual(ev.unmapped.map((r) => r.route), ['knowledge-graph'], '取不到表时不得从 unmapped 里扣门户路由')
 })
 
+test('T13 在册 portal 行三态:表里有⇒计入承载 / 表里没有⇒腐烂点名 / 表取不到⇒未判定不冒红', () => {
+  const webRoutes = fakeRoutes('edu/schedule', 'ghost-route')
+  const portalRow = (web, line) => ({ web, status: 'portal', reason: '门户承载', line })
+  const portal = { set: new Set(['edu/schedule']), rows: [], unreadable: false }
+  const ok = parity.evaluateMap(webRoutes, [portalRow('edu/schedule', 1)], [], 'head', portal)
+  assert.equal(ok.portalRows.length, 1)
+  assert.equal(ok.rot.length, 0)
+  assert.deepEqual(ok.unmapped.map((r) => r.route), ['ghost-route'])
+  // 行说承载而表里查无此 path ⇒ 台账给一个不存在的承载背书(§0.7 验过才免)
+  const bad = parity.evaluateMap(webRoutes, [portalRow('ghost-route', 1)], [], 'head', portal)
+  assert.equal(bad.portalRows.length, 0)
+  assert.match(bad.rot[0].why, /portal 行而门户表无此 path/)
+  // 表整个取不到 ⇒ 不凭空造腐烂,也不凭空造缺口:行算已处置,另记未判定
+  const und = parity.evaluateMap(webRoutes, [portalRow('edu/schedule', 1)], [], 'head', {
+    set: null,
+    rows: [],
+    unreadable: true,
+  })
+  assert.equal(und.portalUnverified.length, 1)
+  assert.equal(und.rot.length, 0, '表取不到不得造出"腐烂"这一判红输入')
+  assert.deepEqual(und.unmapped.map((r) => r.route), ['ghost-route'])
+})
+
 test('T12 真仓存活 + 阳性对照(对照取自被审面的表内容,不钉死路由名)', () => {
   const portal = parity.collectPortalRoutes('head')
   assert.equal(portal.unreadable, false, `门户表取不到(${parity.WEB_PORTAL_REL})⇒ 这一维根本没装车`)
