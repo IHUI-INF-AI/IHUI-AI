@@ -25,6 +25,7 @@
  */
 
 import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -40,7 +41,7 @@ import { homedir } from 'node:os'
 import { dirname, join, relative, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { computeBackupPlan, type BackupManifest } from './relay-session-backup.js'
-import { loadLedger } from './relay-session-links.js'
+import { loadLedger, type SessionLinksLedger } from './relay-session-links.js'
 
 /** 搬移器全部路径面(默认本机真实面;测试注入临时目录,绝不碰真实会话库) */
 export interface MovePaths {
@@ -292,18 +293,37 @@ function toBackupRel(srcAbs: string, paths: MovePaths): string {
 }
 
 /**
+ * 批量搬移共享上下文(2026-10-27 增,治批量下每会话重扫全库的 O(n²)):
+ * 当日快照与"当前库 rel→sha 表"由调用方算一次;不传则 planMove 自算(单会话老路径零变化)。
+ */
+export interface MovePlanContext {
+  snapshot: { dir: string; manifest: BackupManifest }
+  currentRels: Map<string, string>
+}
+
+/** 当前会话库 rel→sha 表(快照覆盖核对用;批量时算一次共享) */
+function currentRelsOf(paths: MovePaths, now: Date): Map<string, string> {
+  const current = computeBackupPlan(paths.sessionsRoot, paths.projectsRoot, now)
+  const m = new Map<string, string>()
+  for (const f of current.files) m.set(f.rel, f.sha256)
+  return m
+}
+
+/**
  * move 计划(纯只读)。拒绝场景(都明说,不猜不做):
  * 快照缺失 / 会话不存在 / 台账缺失或无记录 / 未归属(null) / 账号不在 accounts / 桶内同名冲突。
  * 另借 computeBackupPlan 与当日 manifest 比对,给出"快照未覆盖/已漂移"告警(只告警不拒)。
  */
-export function planMove(conversationId: string, paths: MovePaths, now: Date): MovePlan {
+export function planMove(
+  conversationId: string,
+  paths: MovePaths,
+  now: Date,
+  shared?: MovePlanContext,
+): MovePlan {
   if (!conversationId) throw new Error('缺少 --conversation <id>')
-  const snap = findTodaySnapshot(
-    paths.backupsSessionsDir,
-    paths.sessionsRoot,
-    paths.projectsRoot,
-    now,
-  )
+  const snap =
+    shared?.snapshot ??
+    findTodaySnapshot(paths.backupsSessionsDir, paths.sessionsRoot, paths.projectsRoot, now)
   if (!snap) {
     throw new Error(
       `当日会话库快照缺失(${paths.backupsSessionsDir} 下无 createdAt=${now.toISOString().slice(0, 10)} 且 source 根匹配的 manifest)。` +
@@ -355,11 +375,9 @@ export function planMove(conversationId: string, paths: MovePaths, now: Date): M
   }
   files.sort((a, b) => a.from.localeCompare(b.from))
   // 快照覆盖核对:借 computeBackupPlan 盘当前源 + 当日 manifest rel→sha 对账(只读)
-  const current = computeBackupPlan(paths.sessionsRoot, paths.projectsRoot, now)
+  const currentMap = shared?.currentRels ?? currentRelsOf(paths, now)
   const manifestMap = new Map<string, string>()
   for (const f of snap.manifest.files) manifestMap.set(f.rel, f.sha256)
-  const currentMap = new Map<string, string>()
-  for (const f of current.files) currentMap.set(f.rel, f.sha256)
   for (const f of files) {
     if (!manifestMap.has(f.backupRel)) {
       warnings.push(`当日快照未覆盖 ${f.backupRel}(快照后新产生,回退口径以 ops 日志为准)`)
@@ -379,6 +397,96 @@ export function planMove(conversationId: string, paths: MovePaths, now: Date): M
     totalBytes: files.reduce((s, f) => s + f.bytes, 0),
     warnings,
   }
+}
+
+export interface BatchMoveSkip {
+  conversationId: string
+  reason: string
+}
+
+export interface BatchMovePlan {
+  accountId: string
+  plans: MovePlan[]
+  skipped: BatchMoveSkip[]
+  totalFiles: number
+  totalBytes: number
+  warnings: string[]
+}
+
+/** 账号前缀解析(完整 id 或唯一前缀;不唯一/不存在都拒绝,不猜) */
+export function resolveAccountId(ledger: SessionLinksLedger, raw: string): string {
+  const exact = ledger.accounts.find((a) => a.accountId === raw)
+  if (exact) return exact.accountId
+  const hits = ledger.accounts.filter((a) => a.accountId.startsWith(raw))
+  if (hits.length === 1) return hits[0]!.accountId
+  if (hits.length > 1)
+    throw new Error(
+      `账号前缀不唯一: ${raw} → ${hits.map((h) => h.accountId.slice(0, 8)).join(', ')}`,
+    )
+  throw new Error(`账号不在台账: ${raw}(先跑 pnpm relay:session-links rebuild --auto)`)
+}
+
+/**
+ * 按账号批量搬移计划(纯只读)。只取台账 accountId 精确等于该账号的会话;
+ * 未归属(null)与别的账号一律不碰。逐会话独立:单个被拒(已搬走/桶内冲突)只跳过并点名,
+ * 不阻断其余——每条搬移各自记账、各自 undo。
+ */
+export function planBatchMove(rawAccountId: string, paths: MovePaths, now: Date): BatchMovePlan {
+  const ledger = loadLedger(paths.ledgerFile)
+  if (!ledger)
+    throw new Error(`台账不存在: ${paths.ledgerFile}。先跑 pnpm relay:session-links rebuild --auto`)
+  const accountId = resolveAccountId(ledger, rawAccountId)
+  const convs = Object.entries(ledger.links)
+    .filter(([, l]) => l.accountId === accountId)
+    .map(([c]) => c)
+    .sort()
+  const snap = findTodaySnapshot(
+    paths.backupsSessionsDir,
+    paths.sessionsRoot,
+    paths.projectsRoot,
+    now,
+  )
+  if (!snap) {
+    throw new Error(
+      `当日会话库快照缺失(${paths.backupsSessionsDir})。先跑 pnpm relay:sessions:backup --apply,备份数据是回退能力的载体;本器不自动代跑。`,
+    )
+  }
+  const shared: MovePlanContext = { snapshot: snap, currentRels: currentRelsOf(paths, now) }
+  const plans: MovePlan[] = []
+  const skipped: BatchMoveSkip[] = []
+  for (const conv of convs) {
+    try {
+      plans.push(planMove(conv, paths, now, shared))
+    } catch (err) {
+      skipped.push({ conversationId: conv, reason: (err as Error).message })
+    }
+  }
+  return {
+    accountId,
+    plans,
+    skipped,
+    totalFiles: plans.reduce((s, p) => s + p.files.length, 0),
+    totalBytes: plans.reduce((s, p) => s + p.totalBytes, 0),
+    warnings: plans.flatMap((p) => p.warnings).slice(0, 20),
+  }
+}
+
+export function formatBatchPlan(b: BatchMovePlan, dryRun: boolean): string {
+  const lines: string[] = []
+  lines.push(`按账号批量搬移 · ${dryRun ? '预览(dry-run;加 --apply 才动库)' : '执行'}`)
+  lines.push(`归属账号: ${b.accountId}`)
+  lines.push(`将搬 ${b.plans.length} 个会话,共 ${b.totalFiles} 个文件 / ${b.totalBytes} 字节`)
+  for (const p of b.plans.slice(0, 20)) {
+    lines.push(`  ${p.conversationId}  ${p.files.length} 文件 ${p.totalBytes}B`)
+  }
+  if (b.plans.length > 20) lines.push(`  …其余 ${b.plans.length - 20} 个会话同批`)
+  if (b.skipped.length > 0) {
+    lines.push(`跳过 ${b.skipped.length} 个(逐条独立,不影响其余):`)
+    for (const s of b.skipped.slice(0, 10)) lines.push(`  ${s.conversationId}: ${s.reason}`)
+    if (b.skipped.length > 10) lines.push(`  …其余 ${b.skipped.length - 10} 条`)
+  }
+  for (const w of b.warnings) lines.push(`  ⚠ ${w}`)
+  return lines.join('\n')
 }
 
 /**
@@ -608,15 +716,65 @@ function getFlag(argv: string[], name: string): string | undefined {
   return i >= 0 ? argv[i + 1] : undefined
 }
 
-export function main(argv: string[] = process.argv.slice(2), pathsOverride?: MovePaths): number {
+/**
+ * 客户端存续探测(2026-10-27 增):WorkBuddy 运行时会话文件可能被占用或正在写,
+ * 搬移会半写/让客户端内存态与磁盘不一致。只读探测,绝不杀进程;探测失败按空返回
+ * (不误拦非 Windows 环境,但 --apply 仍会因文件被占用而整批报错留现场)。
+ */
+export function detectWorkbuddyProcesses(): string[] {
+  if (process.platform !== 'win32') {
+    try {
+      const out = execFileSync('pgrep', ['-fl', '[Ww]ork[Bb]uddy'], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+        encoding: 'utf8',
+      })
+      return out
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    } catch {
+      return []
+    }
+  }
+  try {
+    const out = execFileSync(
+      'tasklist',
+      ['/FI', 'IMAGENAME eq WorkBuddy.exe', '/FO', 'CSV', '/NH'],
+      { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, encoding: 'utf8' },
+    )
+    return out
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => /^"WorkBuddy\.exe"/i.test(s))
+  } catch {
+    return []
+  }
+}
+
+export function main(
+  argv: string[] = process.argv.slice(2),
+  pathsOverride?: MovePaths,
+  runningProcsOverride?: string[],
+): number {
   const paths = pathsOverride ?? defaultMovePaths()
   const apply = argv.includes('--apply')
   const cmd = argv[0]
+  const guardClient = (): number | null => {
+    const procs = runningProcsOverride ?? detectWorkbuddyProcesses()
+    if (procs.length === 0) return null
+    console.error(
+      `检测到 WorkBuddy 客户端正在运行(${procs.length} 个进程):会话文件可能被占用或正在写入,` +
+        '搬移会半写。请先退出客户端再 --apply(本器不替你杀进程;dry-run 不受影响)。',
+    )
+    return 2
+  }
   try {
     if (cmd === undefined || cmd === 'help') {
       console.log(
         '用法:\n' +
           '  relay:session-move move    --conversation <id> [--apply]\n' +
+          '  relay:session-move move    --account <id|唯一前缀> [--apply]   # 按账号批量\n' +
           '  relay:session-move restore --conversation <id> [--apply]\n' +
           '  relay:session-move undo    --op <n> [--apply]\n' +
           '  relay:session-move ops\n' +
@@ -641,10 +799,54 @@ export function main(argv: string[] = process.argv.slice(2), pathsOverride?: Mov
     let refOp: number | undefined
     if (cmd === 'move') {
       const conv = getFlag(argv, '--conversation')
-      if (!conv) {
-        console.error('move 需要 --conversation <id>')
+      const acct = getFlag(argv, '--account')
+      if (conv !== undefined && acct !== undefined) {
+        console.error('--conversation 与 --account 互斥(单会话 or 按账号批量,二选一)')
         return 2
       }
+      if (conv === undefined && acct === undefined) {
+        console.error('move 需要 --conversation <id>,或 --account <id> 按账号批量')
+        return 2
+      }
+      if (acct !== undefined) {
+        const batch = planBatchMove(acct, paths, new Date())
+        const batchText = formatBatchPlan(batch, !apply)
+        if (!apply) {
+          console.log(batchText)
+          console.log('\n(dry-run;未写入任何路径。确认后加 --apply)')
+          return 0
+        }
+        if (batch.plans.length === 0) {
+          console.log(`${batchText}\n\n没有可搬的会话(可能已全在桶内)`)
+          return 0
+        }
+        const blocked = guardClient()
+        if (blocked !== null) return blocked
+        const done: string[] = []
+        const failed: { conversationId: string; error: string }[] = []
+        for (const p of batch.plans) {
+          try {
+            const r = applyTransfers(p)
+            appendOps(paths.opsLogFile, {
+              ts: new Date().toISOString(),
+              type: 'move',
+              conversationId: p.conversationId,
+              accountId: p.accountId,
+              entries: r.moved,
+            })
+            done.push(p.conversationId)
+          } catch (err) {
+            failed.push({ conversationId: p.conversationId, error: (err as Error).message })
+          }
+        }
+        console.log(
+          `${batchText}\n\n完成: ${done.length} 个会话;失败 ${failed.length} 个` +
+            `(已落地部分按 ops 日志逐条可撤)`,
+        )
+        for (const f of failed.slice(0, 10)) console.error(`  ${f.conversationId}: ${f.error}`)
+        return failed.length === 0 ? 0 : 1
+      }
+      if (conv === undefined) return 2
       plan = planMove(conv, paths, new Date())
       opType = 'move'
     } else if (cmd === 'restore') {
@@ -680,6 +882,8 @@ export function main(argv: string[] = process.argv.slice(2), pathsOverride?: Mov
       console.log('\n(dry-run;未写入任何路径。确认后加 --apply)')
       return 0
     }
+    const blockedSingle = guardClient()
+    if (blockedSingle !== null) return blockedSingle
     const r = applyTransfers(plan)
     appendOps(paths.opsLogFile, {
       ts: new Date().toISOString(),

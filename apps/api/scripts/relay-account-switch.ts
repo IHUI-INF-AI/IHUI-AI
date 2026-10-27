@@ -73,7 +73,7 @@ export interface SwitchPlan {
 
 const sha256 = (p: string): string => createHash('sha256').update(readFileSync(p)).digest('hex')
 
-const maskPhone = (raw: unknown): string | undefined => {
+export const maskPhone = (raw: unknown): string | undefined => {
   const s = typeof raw === 'string' ? raw : ''
   const digits = s.replace(/\D/g, '')
   if (digits.length < 7) return undefined
