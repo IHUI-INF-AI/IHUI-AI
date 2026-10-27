@@ -770,8 +770,44 @@ function normalizeColor(v) {
  * 比对时把两侧都折成 RGB 三元组量距离;非 hex/hsl(如 rgba)退回归一字符串全等 ——
  * 透明度差 0.05 是真分歧,不该被容差吞掉。
  */
+/** oklch → sRGB 三元组(CSS Color 4 / Ottosson 变换)。
+ *  为什么门必须认得它:Tailwind v4 的**内置色板**写的就是 oklch,而 tokens.css 一旦补声明同名档
+ *  (`@theme { --color-gray-500: oklch(...) }`)就会覆盖那批工具类 —— 届时源侧真值与 RN 侧 hex
+ *  在旧的"只认 hsl/hex"口径下永不相等,RN 同源链对整条 Tailwind 色板失明(不是漂移,是量不到)。
+ *  本函数不改任何现有判定:tokens.css 现读 0 处 oklch。缺 alpha 面:与既有口径一致只回三通道,
+ *  带 alpha 的档仍走字符串归一那条兜底支(补它是另一格,不在本票范围)。
+ */
+function oklchToRgbTriple(c) {
+  const m = /^oklch\(\s*([\d.]+%?)\s+([\d.]+%?)(?:\s+([\d.]+)(?:deg)?)?\s*(?:\/\s*[\d.]+%?)?\)/.exec(c)
+  if (!m) return null
+  const num = (x, scale) => (String(x).endsWith('%') ? (parseFloat(x) / 100) * scale : parseFloat(x))
+  const L = num(m[1], 1)
+  const C = num(m[2], 0.4)
+  const H = m[3] === undefined ? 0 : parseFloat(m[3])
+  if ([L, C, H].some(Number.isNaN)) return null
+  const hRad = (H * Math.PI) / 180
+  const aa = C * Math.cos(hRad)
+  const bb = C * Math.sin(hRad)
+  const l_ = L + 0.3963377774 * aa + 0.2158037573 * bb
+  const m_ = L - 0.1055613458 * aa - 0.0638541728 * bb
+  const s_ = L - 0.0894841775 * aa - 1.291485548 * bb
+  const [l3, m3, s3] = [l_ ** 3, m_ ** 3, s_ ** 3]
+  const lin = [
+    4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3,
+    -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3,
+    -0.0041960863 * l3 - 0.7034186147 * m3 + 1.7076805285 * s3,
+  ]
+  const gam = (t) => {
+    const x = Math.max(0, Math.min(1, t))
+    return x > 0.0031308 ? 1.055 * x ** (1 / 2.4) - 0.055 : 12.92 * x
+  }
+  return lin.map((t) => Math.round(Math.max(0, Math.min(1, gam(t))) * 255))
+}
+
 function toRgbTriple(v) {
   const c = v.trim().replace(/\s+/g, ' ').toLowerCase()
+  const ok = oklchToRgbTriple(c)
+  if (ok) return ok
   const h = /^hsla?\(\s*([\d.]+)\s*(?:deg)?\s*[, ]\s*([\d.]+)%\s*[, ]\s*([\d.]+)%/.exec(c)
   if (h) {
     const [hh, s, l] = [parseFloat(h[1]), parseFloat(h[2]), parseFloat(h[3])]

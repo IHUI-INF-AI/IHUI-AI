@@ -248,6 +248,26 @@ test('R4:shadcn 的 HSL 整数舍入不得算漂移,而真漂移不得被容差�
   )
   assert.ok(colorsAgree('#000', '#000000'), '缩写与全写不得算两个颜色')
   assert.ok(!colorsAgree('rgba(0,0,0,0.4)', 'rgba(0,0,0,0.9)'), '透明度差是真分歧,不得被容差吞')
+
+  // oklch ↔ hex(2026-10-27 补能力):Tailwind v4 内置色板写的就是 oklch,门不认得它
+  // 就等于对整条 Tailwind 色板失明 —— 源侧一声明同名档就覆盖那些工具类,而 RN 侧是 hex,
+  // 旧口径下"永不相等"会被读成"源无同值档"(不是漂移,是量不到)。
+  // 下面三组对照值今日用仓内独立实现 chroma-js@3.2.0 交叉验证过(11/11 判等),
+  // 刻意写死常量而不是在测试里 import 传递依赖 —— 基准只用来造题,不进断言链。
+  for (const [ok, hex] of [
+    ['98.5% 0.002 247.839', '#f9fafb'],
+    ['55.1% 0.027 264.364', '#6a7282'],
+    ['21% 0.034 264.665', '#101828'],
+  ]) {
+    assert.ok(colorsAgree(`oklch(${ok})`, hex), `oklch(${ok}) 应等于 ${hex}(独立基准已验)`)
+    assert.ok(colorsAgree(hex, `oklch(${ok})`), '等值判定必须双向对称')
+  }
+  // 反向对照:真色差不得被换算"凑"平等(否则新容差面会把漂移洗绿)
+  assert.ok(!colorsAgree('oklch(55.1% 0.027 264.364)', '#858e9e'), '差一档的灰必须判不等')
+  assert.ok(!colorsAgree('oklch(55.1% 0.027 264.364)', '#101828'), '远色必须判不等')
+  // 畸形输入不得抛(门的失效方向是"这一维判不出",不是崩整个门)
+  assert.equal(colorsAgree('oklch(abc)', '#112233'), false)
+  assert.equal(colorsAgree('oklch()', '#112233'), false)
 })
 
 test('R4:登记表是"只减不许腐烂"的 —— 登记即免红,登记却已不冲突则判红', () => {
