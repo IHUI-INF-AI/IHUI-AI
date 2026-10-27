@@ -27,6 +27,13 @@ import {
 } from 'node:fs'
 import { homedir, platform } from 'node:os'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+// 工作区登记根判据(单源):文件桥的 workspacePath 与 browse 的 path 都问它,不再各处自量
+import {
+  assertWithinRegisteredRoots,
+  getRegisteredWorkspaceRoots,
+  isInsideRoot,
+  realpathOrResolve,
+} from '../utils/workspace-roots.js'
 import { promisify } from 'node:util'
 
 const execAsync = promisify(exec)
@@ -2763,34 +2770,27 @@ export interface BrowseEntry {
 
 class FSBridge {
   browse(path?: string): BrowseEntry[] {
+    // 2026-10-27 收口:原实现压根没有 workspacePath 概念 —— 无 path 时枚举 `A:\`~`Z:\`
+    // 全部盘符、有 path 时 resolve() 完直接 readdirSync,等于给任意登录用户一台「服务器
+    // 文件系统浏览器」。现只允许列举服务端登记的根及其子目录;无 path 返回登记根。
+    const roots = getRegisteredWorkspaceRoots()
     if (!path) {
-      if (platform() === 'win32') {
-        const entries: BrowseEntry[] = []
-        for (let i = 65; i <= 90; i++) {
-          const drive = `${String.fromCharCode(i)}:\\`
-          // 2026-07-28 加固:existsSync 在某些 U 盘/网络盘可能抛 ENOENT,
-          // 包 try/catch 防止 browse 整体失败(返回空 entries)
-          try {
-            if (existsSync(drive)) {
-              entries.push({
-                name: `${String.fromCharCode(i)}:`,
-                path: drive,
-                isDir: true,
-                size: 0,
-                modified: 0,
-              })
-            }
-          } catch {
-            // 跳过无法访问的盘符
-            continue
-          }
-        }
-        return entries
+      if (roots.length === 0) {
+        throw new Error('文件桥未启用:服务端未登记任何工作区根(IHUI_WORKSPACE_ROOTS 为空)')
       }
-      path = '/'
+      return roots.map((r) => ({
+        name: basename(r),
+        path: r,
+        isDir: true,
+        size: 0,
+        modified: 0,
+      }))
     }
 
-    const p = resolve(path)
+    const p = realpathOrResolve(path)
+    if (!roots.some((r) => isInsideRoot(p, r))) {
+      throw new Error('路径越界：只能浏览服务端已登记的工作区')
+    }
     if (!existsSync(p)) throw new Error(`路径不存在: ${path}`)
     const st = statSync(p)
     if (!st.isDirectory()) throw new Error(`不是目录: ${path}`)
@@ -2838,8 +2838,8 @@ class FSBridge {
     path: string
     size: number
   } {
+    // 越界与登记校验已收进 resolvePath(单点判据,不再各处补第二把尺子)
     const full = this.resolvePath(params.path, params.workspacePath)
-    this.ensureWithinWorkspace(full, params.workspacePath)
     if (params.createDirs !== false) ensureDir(dirname(full))
     // 检查点快照
     if (existsSync(full)) {
@@ -2857,8 +2857,8 @@ class FSBridge {
     path: string
     occurrences: number
   } {
+    // 越界与登记校验已收进 resolvePath(单点判据,不再各处补第二把尺子)
     const full = this.resolvePath(params.path, params.workspacePath)
-    this.ensureWithinWorkspace(full, params.workspacePath)
     if (!existsSync(full)) throw new Error(`文件不存在: ${params.path}`)
     checkpointManager.snapshot(params.workspacePath, {
       tool: 'edit',
@@ -2877,8 +2877,8 @@ class FSBridge {
     path: string
     deleted: boolean
   } {
+    // 越界与登记校验已收进 resolvePath(单点判据,不再各处补第二把尺子)
     const full = this.resolvePath(params.path, params.workspacePath)
-    this.ensureWithinWorkspace(full, params.workspacePath)
     checkpointManager.snapshot(params.workspacePath, {
       tool: 'delete',
       description: `删除文件: ${params.path}`,
@@ -2966,13 +2966,26 @@ class FSBridge {
     return stack
   }
 
-  private resolvePath(p: string, workspacePath: string): string {
-    return isAbsolute(p) ? p : join(workspacePath, p)
+  /**
+   * 工作区登记闸(2026-10-27 加固):workspacePath 必须是服务端 env 白名单内的根之一。
+   *
+   * 此前它全程是**客户端自报字符串**:传 `workspacePath="C:\\"` 就让「文件须落在工作区内」
+   * 这条判据自我成立,于是 write/read/grep 全部指向整台生产机;现网 `workspace_permissions`
+   * 实测 0 行(无人用过这套授权),故默认拒绝无现实损失。
+   * 判据住在 utils/workspace-roots.ts 单源,本方法只是薄封装(§0.6)。
+   */
+  assertWorkspaceRegistered(workspacePath: string): string {
+    return assertWithinRegisteredRoots(workspacePath, '工作区')
   }
 
-  private ensureWithinWorkspace(fullPath: string, workspacePath: string): void {
-    const rel = relative(workspacePath, fullPath)
-    if (rel.startsWith('..')) throw new Error('路径越界：不能操作工作区外的文件')
+  private resolvePath(p: string, workspacePath: string): string {
+    // 归一后的登记根才是比较基准(客户端串可能是符号链接,拿它当根等于自证清白)
+    const root = this.assertWorkspaceRegistered(workspacePath)
+    const full = realpathOrResolve(isAbsolute(p) ? resolve(p) : resolve(root, p))
+    if (!isInsideRoot(full, root)) {
+      throw new Error('路径越界：不能操作工作区外的文件')
+    }
+    return full
   }
 
   private globToRegex(pattern: string): RegExp {
