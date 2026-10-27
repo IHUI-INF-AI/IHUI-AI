@@ -36,7 +36,7 @@ const HELP = `反代账号池导入
   node scripts/relay-account-pool.mjs --from qoder                # 取本机 Qoder 登录态并导入(需 pwsh 7+;客户端不必在跑)
   node scripts/relay-account-pool.mjs --from codearts           # 取本机 CodeArts Agent 登录态并导入(Windows 自带 powershell 即可;桌面不必在跑)
   node scripts/relay-account-pool.mjs --file <accounts.json>       # 直接导入标准账号 JSON
-    [--provider <trae|workbuddy|qoder|codearts>]   文件顶层无 providerCode 时必须给
+    [--provider <trae|workbuddy|qoder|codearts|codex|opencode|minimax|zcode|loomy|doubao|lingma|grokbot>]   文件顶层无 providerCode 时必须给
     [--dry-run]                              只校验预检,不写库
     [--no-health]                            跳过导入后的上游健康检查
     [--json]                                 机器可读摘要(提取信息走 stderr)
