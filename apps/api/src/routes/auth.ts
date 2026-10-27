@@ -85,6 +85,7 @@ import {
   recordAuthLoginAnomaly,
 } from '../plugins/business-metrics.js'
 import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
+import { QR_AGREEMENT_REQUIRED, isQrSessionAgreed } from '../services/qr-login-agreement.js'
 
 /**
  * G-642(2026-09-29):设备指纹落库前归一 —— trim 首尾空白;归一后为空(如 " ")视为
@@ -311,6 +312,11 @@ const qrTicketSchema = z.object({
   ticket: z.string().min(1, 'ticket 不能为空'),
 })
 
+/** PC 端生成二维码时把「已同意条款」写入扫码会话(唯一真相源,判据见 qr-login-agreement)。 */
+const qrGenerateSchema = z.object({
+  agreementAccepted: z.boolean().optional(),
+})
+
 /** QR 登录 token 对(与 buildTokenPair 返回结构一致) */
 interface QrTokenPair {
   accessToken: string
@@ -325,8 +331,20 @@ interface QrTokenPair {
  * - confirmed: 移动端已确认,PC 端轮询可拿到 token 对 + userId
  */
 type QrLoginState =
-  | { status: 'pending'; userId: null; createdAt: string }
-  | { status: 'confirmed'; userId: string; tokens: QrTokenPair; createdAt: string }
+  | {
+      status: 'pending'
+      userId: null
+      createdAt: string
+      /** 生成二维码时由 PC 端写入;扫码确认与发 token 都读这一格(判据见 qr-login-agreement)。 */
+      agreementAccepted?: boolean
+    }
+  | {
+      status: 'confirmed'
+      userId: string
+      tokens: QrTokenPair
+      createdAt: string
+      agreementAccepted?: boolean
+    }
 
 // =============================================================================
 // 路由
@@ -1915,14 +1933,26 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/qr/generate',
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
-    async (_request, reply) => {
+    async (request, reply) => {
+      // 协议同意由 PC 端在进入扫码面板时采集(复用共享协议弹窗),随会话一并落 Redis。
+      // 缺省/非法值不阻断出码,但 `agreementAccepted` 只会是 false ⇒ 后续确认/领取 token
+      // 都会被 isQrSessionAgreed 拒掉(fail-closed),不会出现"未同意仍换到 token"。
+      const parsed = qrGenerateSchema.safeParse(request.body ?? {})
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
       const redis = getRedis()
       if (!redis) {
         return reply.status(503).send(error(503, 'Redis 未配置,无法生成二维码'))
       }
       const ticket = `qr_${randomUUID()}`
       const now = new Date().toISOString()
-      const state: QrLoginState = { status: 'pending', userId: null, createdAt: now }
+      const state: QrLoginState = {
+        status: 'pending',
+        userId: null,
+        createdAt: now,
+        agreementAccepted: parsed.data.agreementAccepted === true,
+      }
       try {
         await redis.set(
           QR_LOGIN_KEY_PREFIX + ticket,
@@ -1931,7 +1961,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           QR_LOGIN_TTL_SECONDS,
         )
       } catch (e) {
-        _request.log.error({ err: e }, '[qr] generate: redis set failed')
+        request.log.error({ err: e }, '[qr] generate: redis set failed')
         return reply.status(500).send(error(500, '二维码生成失败,请稍后重试'))
       }
       const expiresAt = new Date(Date.now() + QR_LOGIN_TTL_SECONDS * 1000).toISOString()
@@ -1974,6 +2004,21 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       if (state.status === 'pending') {
         return reply.send(success({ status: 'pending' as const }))
+      }
+      // 发 token 前的最后一道闸:会话未同意条款 ⇒ 不交付 token(旧版本遗留的
+      // confirmed 票据、或被直接改写的 Redis 值都在这里被拦住)。判据单源见
+      // services/qr-login-agreement.ts,与 /qr/confirm 共用,不在此另写一份。
+      if (!isQrSessionAgreed(state)) {
+        try {
+          await redis.del(QR_LOGIN_KEY_PREFIX + ticket)
+        } catch (e) {
+          request.log.warn({ err: e }, '[qr] status: redis del failed (non-fatal)')
+        }
+        return reply
+          .status(403)
+          .send(
+            error(403, '该扫码登录会话未同意用户协议与隐私政策,请重新扫码', QR_AGREEMENT_REQUIRED),
+          )
       }
       // state.status === 'confirmed':一次性删除 key,防止 token 被重复领取
       try {
@@ -2042,6 +2087,15 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (state.status !== 'pending') {
         return reply.status(409).send(error(409, '该二维码已被使用,请在电脑端刷新后重新扫码'))
       }
+      // 扫码确认即发 token 的起点:会话未同意条款 ⇒ 拒绝确认,不签发任何凭据。
+      // 判据与 /qr/status 共用 services/qr-login-agreement.ts,不得在此另写一份。
+      if (!isQrSessionAgreed(state)) {
+        return reply
+          .status(403)
+          .send(
+            error(403, '请先在电脑端同意用户协议与隐私政策,再扫码确认登录', QR_AGREEMENT_REQUIRED),
+          )
+      }
       // 加载用户信息,签发 token 对(复用 buildTokenPair,与正常登录一致)
       const user = await findUserById(userId)
       if (!user || user.status !== 1) {
@@ -2061,6 +2115,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         userId,
         tokens,
         createdAt: new Date().toISOString(),
+        agreementAccepted: state.agreementAccepted === true,
       }
       try {
         // 保留剩余 TTL(用 ttl 续期,避免 confirm 时 key 已临近过期被写回 300s)
