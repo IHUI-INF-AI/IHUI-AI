@@ -16,8 +16,21 @@
  */
 import { createHash } from 'node:crypto'
 
-/** 支持反代的第三方 AI IDE 平台 */
-export const RELAY_PROVIDERS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
+/** 支持反代的第三方 AI IDE 平台(2026-10-27 扩容:8 平台五件套,提取器 raw 直通) */
+export const RELAY_PROVIDERS = [
+  'trae',
+  'workbuddy',
+  'codearts',
+  'qoder',
+  'codex',
+  'opencode',
+  'minimax',
+  'zcode',
+  'loomy',
+  'doubao',
+  'lingma',
+  'grokbot',
+] as const
 export type RelayProviderCode = (typeof RELAY_PROVIDERS)[number]
 
 export function isRelayProviderCode(v: string): v is RelayProviderCode {
@@ -554,6 +567,55 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
       }
       token =
         cstr(acc['securitytoken']) || cstr(acc['security_token']) || cstr(acc['cloud_dragon_token'])
+    } else if (opts.providerCode === 'codex') {
+      // 2026-10-27 扩容:各新平台的凭证落点与导入映射(mapXxxImport)同源同判
+      const tokens = isRecord(acc['tokens']) ? acc['tokens'] : undefined
+      token = cstr(tokens?.['access_token'])
+      if (!token) {
+        issues.push(
+          issue(
+            'error',
+            'codex-credentials',
+            'Codex 导入缺少 tokens.access_token(auth.json 形状不符或 keyring 模式)',
+          ),
+        )
+      }
+    } else if (opts.providerCode === 'opencode') {
+      const auth = isRecord(acc['auth']) ? acc['auth'] : undefined
+      token = cstr(auth?.['key']) || cstr(auth?.['access'])
+      if (!token) {
+        issues.push(issue('error', 'opencode-credentials', 'OpenCode 导入条目缺 key/access 字段'))
+      }
+    } else if (opts.providerCode === 'zcode') {
+      token =
+        cstr(acc['oauth:bigmodel:access_token']) ||
+        cstr(acc['zcodejwttoken']) ||
+        (Object.entries(acc).find(
+          ([k, v]) => k.startsWith('project-key-location:v1:') && typeof v === 'string' && v,
+        )?.[1] as string | undefined) ||
+        ''
+      if (!token) {
+        issues.push(
+          issue(
+            'error',
+            'zcode-credentials',
+            'ZCode 导入缺可用凭据(oauth:bigmodel:access_token / zcodejwttoken / project key 全缺)',
+          ),
+        )
+      }
+    } else if (opts.providerCode === 'loomy' || opts.providerCode === 'doubao') {
+      token = cstr(acc['value'])
+      if (!token) {
+        issues.push(issue('error', 'session-entry-credentials', '会话条目缺 value(形状不符)'))
+      }
+    } else if (opts.providerCode === 'grokbot') {
+      issues.push(
+        issue(
+          'error',
+          'grokbot-sealed',
+          'GrokBot 本机凭证为密封串(sandSealedFile),无明文 token 可导入(待解封方案取证)',
+        ),
+      )
     } else if (!token) {
       issues.push(issue('error', 'missing-token', '缺少 token'))
     }

@@ -107,7 +107,20 @@ function maskProxyDisplay(raw?: string | null): string {
   }
 }
 
-const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
+const PROVIDER_OPTIONS = [
+  'trae',
+  'workbuddy',
+  'codearts',
+  'qoder',
+  'codex',
+  'opencode',
+  'minimax',
+  'zcode',
+  'loomy',
+  'doubao',
+  'lingma',
+  'grokbot',
+] as const
 type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
 
 // 24h 用量摘要。后端契约字段均为 number,但后端尚未合并时可能整体缺失,
