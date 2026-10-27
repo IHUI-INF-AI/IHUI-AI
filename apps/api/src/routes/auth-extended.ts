@@ -984,6 +984,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { phone } = z.object({ phone: z.string() }).parse(request.params)
+      // 2026-10-27 收窄:只应答合法手机号 —— 该端点是小程序注册预检,公开 exists 探针
+      // 配 10/min/IP 限速后枚举成本已不可行(手机号空间 10^10 ⇒ 14400 次/天),但
+      // "任意字符串都查"的形态会让它被当免费的任意存在性查询代理用。无效号一律 400。
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        return reply.status(400).send(error(400, '手机号格式不正确'))
+      }
       return reply.send(success({ exists: await checkPhoneExists(phone) }))
     },
   )
