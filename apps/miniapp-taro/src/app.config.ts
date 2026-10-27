@@ -169,6 +169,11 @@ export default defineAppConfig({
         'team-workspace/index',
         'teams/index',
         'tools/index',
+        'agent-chat/index',
+        'ai-world/index',
+        'assistant/index',
+        'connectors/index',
+        'knowledge-planet/index',
       ],
     },
     {
