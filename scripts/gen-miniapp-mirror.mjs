@@ -351,6 +351,19 @@ export function insertJsonMembers(text, groups) {
   return { ok: true, text: next, addedLines: out.length }
 }
 
+/**
+ * 「这屏该不该跳过」的唯一判据:只有**文件在 ∧ 路由在 app.config 在册**才算真已落地。
+ *
+ * 立因(2026-10-27 实测):旧实现只看"页面文件存在"就整屏 skip,于是 5 枚半落地物
+ * (agent-chat / ai-world / assistant / connectors / following —— 页文件在、路由一句没进
+ * app.config、词包也没有该命名空间)永远停在"页在而链路不通":造页器每轮跳它、
+ * 覆盖尺每轮把它记成缺口,两边都很忙而缺口不动。失效方向是安静(§12f)。
+ * 返回 'plan' 时上层继续规划,页正文由 applyBatch 的"已存在"分支跳过写入,接缝按幂等补齐。
+ */
+export function pageSeamVerdict({ pageOnDisk, routeRegistered }) {
+  return pageOnDisk === true && routeRegistered === true ? 'skip' : 'plan'
+}
+
 /** 与 cov.collectMiniapp 同形但 root 参数化(cov 硬绑自己仓,夹具取证需要;标记识别仍用 cov 的尺)。 */
 export function parseMiniappRoutes(cfgText) {
   const pages = []
@@ -851,11 +864,31 @@ export function planGeneration(rootDir, opts, ctx = null) {
   if (subpackage && !blocks.some((m) => m[1] === subpackage)) {
     return { kind: 'refuse', why: `--subpackage='${subpackage}' 不是 app.config.ts 里的现成 root(可用: ${blocks.map((m) => m[1]).join(' / ')})` }
   }
-  const pagePath = page || `${kebab(shape.base)}/index`
-  const route = `${inf.root}/${pagePath}`
+  // 落点:优先语义分包;但**页文件已落而路由没进 app.config**的旧轮次半落地物必须就地补接缝 ——
+  // 按"文件存在就整屏跳过"会让它永远停在"页在而链路不通",覆盖尺也就永远把它记成缺口
+  // (2026-10-27 实测 5 枚:agent-chat / ai-world / assistant / connectors / following)。
+  // 此时落点以**既有文件的位置**为准:换根重造会得到第二份同屏页。
+  let subRoot = inf.root
+  let pagePath = page || `${kebab(shape.base)}/index`
+  if (!page && !subpackage) {
+    const kebabDir = kebab(shape.base)
+    if (!existsSync(join(rootDir, `${MP_SRC}/${subRoot}/${pagePath}.tsx`))) {
+      for (const m of blocks) {
+        if (existsSync(join(rootDir, `${MP_SRC}/${m[1]}/${kebabDir}/index.tsx`))) {
+          subRoot = m[1]
+          pagePath = `${kebabDir}/index`
+          break
+        }
+      }
+    }
+  }
+  const route = `${subRoot}/${pagePath}`
   const pageRel = `${MP_SRC}/${route}.tsx`
+  const registeredRoutes = new Set(parseMiniappRoutes(cfgText).routes)
   const alreadyOnDisk = existsSync(join(rootDir, pageRel)) || pages.some((p) => p.file === pageRel)
-  if (alreadyOnDisk) return { kind: 'skip', why: `页面文件已存在(上轮已落或人工先落):${pageRel} —— 造页动作跳过,其余接缝按幂等各自点名` }
+  if (pageSeamVerdict({ pageOnDisk: alreadyOnDisk, routeRegistered: registeredRoutes.has(route) }) === 'skip') {
+    return { kind: 'skip', why: `页面文件已存在且在册:${pageRel} —— 不重复造页` }
+  }
 
   // i18n 键集:共享屏 + RN 壳的 t() 字面量;非通用命名空间;五语逐语可解析
   const rnShellKeys = extractUsedKeys(rnMap.get(rnHits[0]))
@@ -927,7 +960,7 @@ export function planGeneration(rootDir, opts, ctx = null) {
     spec: shape.spec,
     fnName: shape.base,
     domain: shape.domain,
-    subRoot: inf.root,
+    subRoot,
     subNote: inf.note,
     page: pagePath,
     route,
@@ -1406,6 +1439,7 @@ export const __test__ = {
   insertJsonMembers,
   mergeJsonMembers,
   parseMiniappRoutes,
+  pageSeamVerdict,
   insertConfigPage,
   insertRegistryEntry,
   buildPage,

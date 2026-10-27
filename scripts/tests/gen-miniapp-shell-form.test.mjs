@@ -138,3 +138,28 @@ test('M4 幂等与形态闸:键全在册⇒内容不变;非 canonical 输入⇒�
   assert.equal(G.mergeJsonMembers(notCanon, [{ ns: 'profile', obj: { b: 2 } }]).ok, false, '非 canonical 形态重渲染会排他人文件,须拒')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('B5 页已落判据:只有「文件在 ∧ 路由在册」才算真落地', () => {
+  assert.equal(G.pageSeamVerdict({ pageOnDisk: true, routeRegistered: true }), 'skip')
+  assert.equal(
+    G.pageSeamVerdict({ pageOnDisk: true, routeRegistered: false }),
+    'plan',
+    '页在而路由没进 app.config = 旧轮次半落地,必须继续补接缝(2026-10-27 实测 5 枚)',
+  )
+  assert.equal(G.pageSeamVerdict({ pageOnDisk: false, routeRegistered: true }), 'plan', '路由在册但文件没了 ⇒ 重新造页')
+  assert.equal(G.pageSeamVerdict({ pageOnDisk: false, routeRegistered: false }), 'plan')
+})
+
+test('B6 接线锁:planGeneration 必须走同一判据,不得回退成「文件在就整屏跳过」', () => {
+  assert.match(
+    SRC,
+    /pageSeamVerdict\(\{ pageOnDisk: alreadyOnDisk, routeRegistered: registeredRoutes\.has\(route\) \}\)/,
+    '判据只许这一个出口(§0.6)',
+  )
+  assert.equal(
+    /if \(alreadyOnDisk\) return \{ kind: 'skip'/.test(SRC),
+    false,
+    '无条件跳过那版让「页在而链路不通」的 5 枚页永远补不上接缝',
+  )
+})
+
