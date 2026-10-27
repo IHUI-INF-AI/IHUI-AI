@@ -1938,9 +1938,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // GET /qr/status - PC 端轮询扫码登录状态(未鉴权)
+  // 限流必须比 PC 端轮询频率(2s/次 = 30 次/分钟)高一倍:原 max=30 与轮询等量,
+  // 一次偶发的第 31 帧(双标签页、代理重试)即 429,面板会当成终态把码停轮。
   server.get(
     '/qr/status',
-    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const parsed = qrTicketSchema.safeParse(request.query)
       if (!parsed.success) {
@@ -2025,6 +2027,18 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       if (!raw) {
         return reply.status(404).send(error(404, '二维码已过期或不存在'))
+      }
+      // 2026-10-27 加固:此处原先只看 key 在不在,不校验状态 ⇒ 已被 A 确认过的票据
+      // 可被第二台设备(B)重复确认,写回 B 的 token 对,而 PC 端轮询拿到的是"最后写入"
+      // 那一枚 —— 等于 A 授权、B 换脸。非 pending 一律拒签(409)。
+      let state: QrLoginState
+      try {
+        state = JSON.parse(raw) as QrLoginState
+      } catch {
+        return reply.status(404).send(error(404, '二维码已过期或不存在'))
+      }
+      if (state.status !== 'pending') {
+        return reply.status(409).send(error(409, '该二维码已被使用,请在电脑端刷新后重新扫码'))
       }
       // 加载用户信息,签发 token 对(复用 buildTokenPair,与正常登录一致)
       const user = await findUserById(userId)
