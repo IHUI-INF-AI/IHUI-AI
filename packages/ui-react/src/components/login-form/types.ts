@@ -89,8 +89,12 @@ export interface ThirdPartyConfig {
   providers: ThirdPartyProvider[]
   /** 当前正在登录的平台(用于 loading 态) */
   currentPlatform: ThirdPartyPlatform | null
-  /** 第三方登录点击回调(由调用方实现跳转 / OAuth / fetch 等) */
-  onLogin: (platform: ThirdPartyPlatform) => void
+  /**
+   * 第三方登录点击回调(由调用方实现跳转 / OAuth / fetch 等)。
+   * 2026-10-27 扩第二参:发起期的"用户协议同意"标记(可选,旧调用方不传仍兼容)。
+   * 服务端通用 OAuth 回调要求发起期已落同意记录,调用方据此透传给 startLogin。
+   */
+  onLogin: (platform: ThirdPartyPlatform, agreementAccepted?: boolean) => void
 }
 
 /**
