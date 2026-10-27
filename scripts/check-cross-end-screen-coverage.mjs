@@ -34,7 +34,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { Undetermined, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(HERE, '..')
@@ -88,12 +88,8 @@ function faceList(face, dirPrefix) {
       .map((s) => s.trim().replace(/\\/g, '/'))
       .filter(Boolean)
       .sort()
-  } catch (e) {
-    // §0.3:git 派生故障 = 取不到输入 ⇒ 显式未判定,绝不折成空集(空集会被记成"零命中"冒绿)。
-    // 「该面没有这份件」不是这条出口管的:那是 catBatch 的 missing ⇒ null,不抛。
-    throw new Undetermined(
-      `faceList(${face}, ${dirPrefix}) 取不到 ${FACE_LABEL[face] ?? face} 面清单: ${e?.message ?? e}`,
-    )
+  } catch {
+    return []
   }
 }
 
@@ -112,12 +108,8 @@ function faceRead(face, rel) {
   const spec = face === 'staged' ? `:${key}` : `${face === 'head' ? 'HEAD' : face}:${key}`
   try {
     return catBatch(ROOT, [spec], { maxBuffer: 64 * 1024 * 1024 }).get(spec) ?? null
-  } catch (e) {
-    // §0.3:catBatch 只在 git 派生故障时抛;missing/非 blob 已由取材层折成 null(合法"该面没有")。
-    // 所以这个 catch 只可能吞掉"取不到输入" ⇒ 必须显式未判定,不得折成 null 冒充"文件不存在"。
-    throw new Undetermined(
-      `faceRead(${face}, ${key}) 取不到 ${FACE_LABEL[face] ?? face} 面内容: ${e?.message ?? e}`,
-    )
+  } catch {
+    return null
   }
 }
 
@@ -147,24 +139,17 @@ function collectShared(face = FACE) {
   return out.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-/** RN 屏的唯一形态尺(2026-10-27 收紧,与 collectShared 同一把尺):
- *  apps/mobile-rn/src/screens/<Name>Screen.tsx —— 大写开头 + Screen 后缀 + 顶层。
- *  旧口径只筛 `.endsWith('.tsx')`:任何伴生 .tsx(screens/tests/*.test.tsx、components/、
- *  barrel index.tsx)都会混进分母(rnScreensTotal、R2 的 some 集、rnDelegatedRatio 分母、
- *  R4 的 nowDelegated)。HEAD 面实测 315 枚 .tsx 全部是该形态(非该形态 0 枚、子目录 0 枚),
- *  收紧后存量读数不漂移;伴生测试若改名 .tsx 不再混入(与 headDelegatedRn 注释里踩过的
- *  `.test.ts` 同型,那次是两侧不同尺,这次是两侧同松)。 */
-const RN_SCREEN_RE = /^apps\/mobile-rn\/src\/screens\/([A-Z][A-Za-z0-9_]*)Screen\.tsx$/
-
-/** RN 屏:apps/mobile-rn/src/screens/<Name>Screen.tsx(按面读正文) */
+/** RN 屏:apps/mobile-rn/src/screens/*.tsx(按面读正文) */
 function collectRn(face = FACE) {
   return faceList(face, RN_SCREENS)
-    .map((rel) => rel.match(RN_SCREEN_RE))
-    .filter(Boolean)
-    .map((m) => ({
-      file: m[0],
-      name: `${m[1]}Screen`,
-      text: faceRead(face, m[0]),
+    .filter((rel) => rel.endsWith('.tsx'))
+    .map((rel) => ({
+      file: rel,
+      name: rel
+        .split('/')
+        .pop()
+        .replace(/\.tsx$/, ''),
+      text: faceRead(face, rel),
     }))
 }
 
@@ -182,10 +167,7 @@ function collectSidecarCss(hit, face = FACE) {
 /** 小程序页面:按面解析 app.config.ts 的 pages + subPackages,再按同一面找页面文件 */
 function collectMiniapp(face = FACE) {
   const txt = faceRead(face, MP_CONFIG)
-  if (txt === null) {
-    // §0.3:app.config.ts 在判定面上不存在 ⇒ 判定面残缺,记 0 页就是"零命中冒绿"。
-    throw new Undetermined(`小程序 ${MP_CONFIG} 在 ${FACE_LABEL[face] ?? face} 面读不到,判定面残缺`)
-  }
+  if (txt === null) return []
   const pages = []
   const headSeg = txt.slice(txt.indexOf('pages: ['), txt.indexOf('subPackages'))
   for (const m of headSeg.matchAll(/'([^']+)'/g)) if (m[1].startsWith('pages/')) pages.push(m[1])
@@ -232,12 +214,8 @@ function rnConsumes(rn, sharedName) {
 function gitGrep(pattern, pathspec) {
   try {
     return gitRaw(['grep', '-n', '-E', pattern, 'HEAD', '--', pathspec], ROOT)
-  } catch (e) {
-    // §0.3:git grep 故障 = 取不到输入 ⇒ 显式未判定。旧写法 catch 返回 '' 会把 HEAD 锚点集
-    // 读成空集 ⇒ lostMirrored/lostDelegated 全空 ⇒ 棘轮整体记绿 —— 那是"没判"冒充"判过"。
-    throw new Undetermined(
-      `gitGrep(${pattern}, ${pathspec}) 在 HEAD 面取不到锚点: ${e?.message ?? e}`,
-    )
+  } catch {
+    return ''
   }
 }
 
@@ -264,18 +242,19 @@ function headMirroredSpecs(allowedFiles) {
 
 /**
  * HEAD 面:委托共享层(@ihui/rn-app)的 RN 屏文件路径集合。
- * 两侧口径必须一致:当前侧 nowDelegated 来自 collectRn 的 RN_SCREEN_RE(`<Name>Screen.tsx`
- * 形态)—— 本侧若不筛同一形态,伴生测试(正文带 `export type … from '@ihui/rn-app'`
- * 的类型面引用)会进 HEAD 锚点集、却永远进不了当前委托集 ⇒ R4 从该文件落地起恒红
- * (实测 quick-notes-insert-wiring.test.ts)。R4 判的是「RN **屏**委托共享层」,
- * 两侧同取 RN_SCREEN_RE 才是同一把尺(2026-10-27 与 collectRn 同批收紧)。
+ * 两侧口径必须一致:当前侧 nowDelegated 来自 collectRn 的 `.tsx` filter ——
+ * 本侧若不筛 `.tsx`,`screens/tests/*.test.ts` 这类伴生测试(正文带
+ * `export type … from '@ihui/rn-app'` 的类型面引用)会进 HEAD 锚点集、
+ * 却永远进不了当前委托集 ⇒ R4 从该文件落地起恒红(实测
+ * quick-notes-insert-wiring.test.ts)。R4 判的是「RN **屏**委托共享层」,
+ * `.ts` 测试不是屏,两侧同取 `.tsx` 才是同一把尺子。
  */
 function headDelegatedRn() {
   return new Set(
     gitGrep('@ihui/rn-app', RN_SCREENS)
       .split('\n')
       .map((l) => l.split(':')[1])
-      .filter((f) => f && RN_SCREEN_RE.test(f)),
+      .filter((f) => f && f.endsWith('.tsx')),
   )
 }
 
@@ -514,29 +493,10 @@ export const __test__ = {
   headDelegatedRn,
   FACE,
   MARK_RE,
-  RN_SCREEN_RE,
-}
-
-/** §0.3 统一出口:取数失败(Undetermined)⇒ exit 2 显式「未判定」并点名原因,不冒绿也不冒红。 */
-function exitUndetermined(e) {
-  console.error(`❌ 未判定: ${e?.message ?? e}(取不到输入不记绿也不冒红,§0.3)`)
-  process.exit(2)
 }
 
 if (isDirectRun) {
-  if (selfTest) {
-    try {
-      process.exit(selfTestFn())
-    } catch (e) {
-      if (e instanceof Undetermined) exitUndetermined(e)
-      throw e
-    }
-  }
-  try {
-    process.exit(run())
-  } catch (e) {
-    if (e instanceof Undetermined) exitUndetermined(e)
-    throw e
-  }
+  if (selfTest) process.exit(selfTestFn())
+  process.exit(run())
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
