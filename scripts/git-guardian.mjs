@@ -4852,6 +4852,93 @@ export function healMirrorPurgeLeg(opts = {}) {
   return { ran: true, state: m?.[1] ?? 'unknown', line }
 }
 
+/**
+ * 跨端台账门户维收敛(2026-10-27 立):把 web-rn-screen-map.jsonl 里与 WebView 门户表互斥的
+ * 在册判定(gap/excluded 而门户表说承载)自动改写成 portal 行。
+ * 为什么必须自动:registeredGap/registeredExcluded 是自动登记链的**跳过集** —— 假判定留在台账里,
+ * 那条链就永远不重判这些路由,只能等人逐条翻代码推翻(与"最大化减少开发"正面冲突)。
+ * 判据零复算:门户表解析与推翻判据取对账尺那一份(check-web-rn-screen-parity.mjs),本腿只派发并读结论行。
+ * 写盘面只有工作树(与 healCrossEndMirror 同族),落库交给仓内收编器 auto-commit-quiet。
+ * 失效方向:clean ⇒ 零读数;converged ⇒ 留一行;undetermined/unparsed ⇒ 点名未判定,绝不读成"已收敛"。
+ * 判机器状态 ⇒ 不进提交链(§12e);不改守护退出码;收敛属常态不到人(§5e-1)。
+ */
+export function convergeCrossEndPortalVerdicts(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CROSS_END_SHELL_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'cross-end-portal-converge-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'auto-register-cross-end.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 门户维收敛:器物不在位(scripts/auto-register-cross-end.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '登记器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 门户维收敛:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(
+              process.execPath,
+              [script, '--converge-portal', '--only=portal', '--apply'],
+              {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b 派生进程纪律
+                timeout: 10 * 60 * 1000,
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g 显式接管 stdio
+              },
+            )
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const line = stdout.split('\n').find((l) => l.includes('AUTO-REGISTER-PORTAL'))
+  if (!line) {
+    logger(
+      `⚠️ 门户维收敛:结论行取不到(rc=${r.status ?? '?'})⇒ 本轮没判,` +
+        `既不读成"台账已收敛"也不读成"无需收敛":${String(r.err ?? r.stderr ?? '').slice(0, 120)}`,
+    )
+    return { ran: true, state: 'unparsed', status: r.status ?? null }
+  }
+  const m = /state=(\S+)\s+candidates=(\d+)\s+applied=(\d+)/.exec(line)
+  const state = m?.[1] ?? 'unknown'
+  const candidates = Number(m?.[2] ?? -1)
+  const applied = Number(m?.[3] ?? -1)
+  if (state === 'undetermined') {
+    logger(`⚠️ 门户维收敛:未判定(门户表取不到)⇒ 台账一条未改:${line.slice(0, 200)}`)
+    return { ran: true, state, candidates, applied }
+  }
+  if (state === 'clean' && candidates === 0 && applied === 0)
+    return { ran: true, state, candidates, applied }
+  logger(`ℹ️ 门户维收敛:${line.slice(0, 260)}`)
+  return { ran: true, state, candidates, applied, line }
+}
+
 export function healCrossEndMirror(opts = {}) {
   const {
     now = Date.now(),
@@ -6241,6 +6328,8 @@ function main() {
     // 跨端镜像声明链自愈(2026-10-26 立):修复器只补"登记表已有"的缺口、他席在飞一律拒落,
     // 故可无人值守;30 分钟节流。只写日志不喊人(拒落属常态),真倒退由上一格按维到人。
     if (!CHECK_ONLY) healCrossEndMirror()
+    // 门户维收敛紧跟镜像自愈之后:两者都只动台账/声明面,共用同一节拍(现读 CROSS_END_SHELL_INTERVAL_MS)
+    if (!CHECK_ONLY) convergeCrossEndPortalVerdicts()
     // index 烂尾哨兵(2026-10-24 立,尺子 = scripts/check-index-unmerged-age.mjs):stash pop
     // 冲突/merge 中断逃逸会让 index 挂 unmerged 条目数小时(实测 12h)。同一挂点语义 ——
     // 判机器状态绝不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。15 分钟节流。

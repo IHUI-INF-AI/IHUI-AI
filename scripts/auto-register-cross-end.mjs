@@ -8,7 +8,10 @@
 // 为什么要有这件器物:两条链的判据都已是"登记表说了算",但人工逐条登记追不上屏的增长
 // (2026-10-25 现读:web 886 路由 / RN 291 屏 / 共享屏 218 / 小程序页 173,显式镜像仅 84)。
 // 本工具只做**已有证据的机械登记**,不做任何 UI 翻译:
-//   ① web→RN:`scripts/data/web-rn-screen-map.jsonl` 追加 aligned 行。证据 = web 页端点与
+//   ① web→RN:`scripts/data/web-rn-screen-map.jsonl` 追加 aligned / excluded / gap 三档行。
+//      aligned 的自动证据 = web 页端点与该共享屏 RN 壳端点交集(jac ≥ 0.5 或 common ≥ 2)**且**
+//      路由名 token 与屏名 token 同源。单靠端点会把 `console-table` 这种通用屏登记到任意 edu 子页,
+//      故名称同源是硬门槛。`gap` 档(子代理判定)只写"判过零承载 + 证据",不写 rn。证据 = web 页端点与
 //      该共享屏 RN 壳端点交集(jac ≥ 0.5 或 common ≥ 2)**且**路由名 token 与屏名 token 同源。
 //      单靠端点会把 `console-table` 这种通用屏登记到任意 edu 子页,故名称同源是硬门槛。
 //   ② RN→小程序:给已存在且证据强的小程序页补「镜像」标记 + registry 条目。
@@ -35,8 +38,8 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
-// 判定台账的路径与读写口径归单源 lib(§0.6):本文件只调它,不自己写一遍路径/解析。
-import { VERDICTS_PATH, mergeVerdictRows, readVerdicts, serializeVerdicts } from './lib/cross-end-verdicts.mjs'
+// 判定台账的路径与读写口径归单源 lib(§0.6):本文件只调它,不自己写一遍路径/解析/归并。
+import { writeVerdictRows } from './lib/cross-end-verdicts.mjs'
 // 镜像标记的形态与插入点归单源 lib(§0.6):本文件不自己拼这行字。
 import { hasMirrorMarker, insertMirrorMarker } from './lib/cross-end-mirror-write.mjs'
 
@@ -54,6 +57,10 @@ const applyMode = argv.includes('--apply')
 const worktreeMode = argv.includes('--worktree')
 const onlyArg = argv.find((a) => a.startsWith('--only='))
 const recordVerdicts = argv.includes('--record-verdicts')
+// 门户维收敛档(2026-10-27 立):把台账里与 web-portal.ts 互斥的在册判定改写成 portal 行。
+// 为什么必须存在:registeredGap/registeredExcluded 是自动登记链的**跳过集** —— 假判定不摘,
+// 那 28 条路由就被永久跳过,机器再也不会重判,只能等人翻代码推翻(与机主"最大化减少开发"正面冲突)。
+const convergePortal = argv.includes('--converge-portal')
 const only = onlyArg ? onlyArg.slice('--only='.length) : null
 const FACE = worktreeMode ? 'worktree' : 'head'
 const TODAY = new Date().toISOString().slice(0, 10)
@@ -130,6 +137,9 @@ const isExported = (name) => new RegExp(`export\\s*(?:\\{[^}]*\\b${name}\\b|\\*\
 
 // ---------- ① web → RN ----------
 const mapRows = parity.loadMap(FACE)
+// 门户承载集:判据取对账尺那一份实现,本文件零复算(§0.6)。表取不到 ⇒ set=null ⇒ 整维未判定:
+// 既不放宽跳过集,也不改写任何在册行(§0.3 —— 取不到不能读成"没有门户承载")。
+const portalCarried = parity.collectPortalRoutes(FACE).set
 const registeredWeb = new Set(
   mapRows.filter((r) => r.status === 'aligned' && r.web).map((r) => r.web),
 )
@@ -270,7 +280,16 @@ if (proposalsArg) {
   const sharedBySpec = new Map(shared.map((s) => [s.spec, s]))
   const rnByRel = new Map(rn.map((r) => [r.file, r]))
   const webRouteSet = new Set(routes.map((r) => r.route))
-  const registeredExcluded = new Set(mapRows.filter((r) => r.status === 'excluded').map((r) => r.web))
+  // 跳过集不认门户推翻的在册判定:台账说「不承载/零承载」而 web-portal.ts 说承载 ⇒ 那句已过期,
+  // 留着它 = 这条路由被自动登记链永久跳过,再也不会被重判(假判定的危害不是数字,是它锁死了重判)。
+  const notPortalCarried = (r) => !(portalCarried?.has(r.web) && (r.status === 'gap' || r.status === 'excluded'))
+  const registeredExcluded = new Set(
+    mapRows.filter((r) => r.status === 'excluded' && notPortalCarried(r)).map((r) => r.web),
+  )
+  // gap = 判过「RN 零承载」。不落盘的话,54 条已判缺口会退回 unmapped(判过≡没判)。
+  const registeredGap = new Set(
+    mapRows.filter((r) => r.status === 'gap' && notPortalCarried(r)).map((r) => r.web),
+  )
 
   for (const f of files) {
     let list
@@ -347,9 +366,20 @@ if (proposalsArg) {
         proposals.miniapp.push({ shared: s.spec, rn: it.rn, miniapp: page.route, file: page.file, evidence: ev })
       } else if (it.web) {
         // web 档
-        if (it.verdict === 'gap') continue
         if (ev.trim().length < 10) {
           refuse('note/reason 少于 10 字,拒')
+          continue
+        }
+        if (it.verdict === 'gap') {
+          if (!webRouteSet.has(it.web)) {
+            refuse(`web 键不在路由集:${String(it.web)}`)
+            continue
+          }
+          if (registeredWeb.has(it.web) || registeredExcluded.has(it.web) || registeredGap.has(it.web)) {
+            refuse('该路由已有判定登记(aligned/excluded/gap)')
+            continue
+          }
+          proposals.web.push({ web: it.web, status: 'gap', note: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
           continue
         }
         if (it.verdict === 'aligned') {
@@ -357,8 +387,8 @@ if (proposalsArg) {
             refuse(`web 键不在路由集:${String(it.web)}`)
             continue
           }
-          if (registeredWeb.has(it.web)) {
-            refuse('该路由已登记 aligned')
+          if (registeredWeb.has(it.web) || registeredExcluded.has(it.web) || registeredGap.has(it.web)) {
+            refuse('该路由已有判定登记(aligned/excluded/gap)')
             continue
           }
           const ok = sharedBySpec.has(it.rn) || rnByRel.has(it.rn)
@@ -373,8 +403,8 @@ if (proposalsArg) {
             refuse(`web 键不在路由集:${String(it.web)}`)
             continue
           }
-          if (registeredExcluded.has(it.web)) {
-            refuse('该路由/段已登记 excluded')
+          if (registeredExcluded.has(it.web) || registeredWeb.has(it.web) || registeredGap.has(it.web)) {
+            refuse('该路由/段已有判定登记(aligned/excluded/gap)')
             continue
           }
           proposals.web.push({ web: it.web, status: 'excluded', reason: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
@@ -433,9 +463,24 @@ function appendMapRows(rows) {
       .filter(Boolean)
   const headRows = parse(cov.faceRead('head', MAP_PATH))
   const workRows = parse(readFileSync(R(MAP_PATH), 'utf8'))
-  const seen = new Set(headRows.map((r) => r.key))
-  const merged = [...headRows.map((r) => r.raw)]
-  for (const r of workRows) if (!seen.has(r.key)) { seen.add(r.key); merged.push(r.raw) }
+  // portal 行按 web 键**取代**同一路由的其它判定行(承载权已由门户表行使,旧判定留着就是第二把尺子)。
+  const supersedeWebs = new Set(rows.filter((r) => r.status === 'portal').map((r) => r.web))
+  const keep = (r) => {
+    try {
+      const o = JSON.parse(r.raw)
+      return !(supersedeWebs.has(o.web) && o.status !== 'portal')
+    } catch {
+      return true
+    }
+  }
+  const seen = new Set(headRows.filter(keep).map((r) => r.key))
+  const merged = [...headRows.filter(keep).map((r) => r.raw)]
+  for (const r of workRows.filter(keep)) {
+    if (!seen.has(r.key)) {
+      seen.add(r.key)
+      merged.push(r.raw)
+    }
+  }
   for (const r of rows) {
     const key = `${r.web}::${r.status}::${r.rn || ''}`
     if (seen.has(key)) continue
@@ -483,16 +528,12 @@ function appendRegistry(entries) {
 
 /**
  * 判定台账落地:HEAD 面为底 ∪ 工作树独有 ∪ 本批(同屏以本批为准),按 shared 键唯一。
- * 归并与序列化口径归 scripts/lib/cross-end-verdicts.mjs(§0.6 单源)——本函数只决定"落什么"。
- * 取不到某一面就少那一面,不拿另一面顶替(§0.4 取材面纪律:回落另一个面 = 把"没落"读成"是空")。
+ * 归并与写盘口径归 scripts/lib/cross-end-verdicts.mjs 的 writeVerdictRows(§0.6 单源)——
+ * 本函数只决定"落什么",不自己拼一遍归并。
  */
 function writeVerdicts(items) {
   if (items.length === 0) return { total: 0, added: 0, unreadable: 0 }
-  const head = readVerdicts('head', ROOT)
-  const work = readVerdicts('worktree', ROOT)
-  const merged = mergeVerdictRows([...head.rows, ...work.rows], items)
-  writeFileSync(R(VERDICTS_PATH), serializeVerdicts(merged.rows) + '\n')
-  return { total: merged.total, added: merged.added, unreadable: head.bad.length + work.bad.length }
+  return writeVerdictRows(ROOT, items)
 }
 
 const summary = {
@@ -526,6 +567,24 @@ const summary = {
   },
 }
 
+// 门户收敛清单:判据与对账尺的 contradicted 同一把(门户表在册 ∧ 台账写「不承载/零承载」)。
+// 表取不到 ⇒ 一条都不改,并显式未判定(§0.3:取不到不能读成"没有门户承载")。
+const portalRowsToLand =
+  convergePortal && portalCarried
+    ? mapRows
+        .filter((r) => (r.status === 'gap' || r.status === 'excluded') && portalCarried.has(r.web))
+        .map((r) => ({
+          web: r.web,
+          status: 'portal',
+          reason: `门户承载(web-portal.ts 推导@${TODAY}):原在册 ${r.status}`,
+          at: TODAY,
+        }))
+    : []
+if (convergePortal && portalCarried === null)
+  console.error(`❌ 未判定:门户表取不到 ⇒ 台账一条不改(${parity.WEB_PORTAL_REL})`)
+summary.portalConverge = { candidates: portalRowsToLand.length, webs: portalRowsToLand.map((r) => r.web) }
+let appliedPortalCount = 0
+
 if (applyMode) {
   const mapRowsToAdd = summary.webRn.map((c) => ({
     web: c.web,
@@ -535,6 +594,8 @@ if (applyMode) {
     at: TODAY,
   }))
   for (const r of proposals.web) mapRowsToAdd.push(r)
+  for (const r of portalRowsToLand) mapRowsToAdd.push(r)
+  appliedPortalCount = portalRowsToLand.length
   const regEntries = []
   const marked = []
   const skipped = []
@@ -570,6 +631,22 @@ if (applyMode) {
     fromProposals: { miniapp: proposals.miniapp.length, web: proposals.web.length, refused: proposals.refused.length },
   }
 }
+
+// 结论行 = 派发腿唯一解析面(形状由镜像测试钉住,不手抄)。三态必须互斥:
+// 取不到表 ⇒ undetermined(不得读成 clean);给了旗但没 --apply ⇒ planned(不得读成已收敛)。
+console.log(
+  `AUTO-REGISTER-PORTAL face=${FACE} state=${
+    convergePortal
+      ? portalCarried === null
+        ? 'undetermined'
+        : applyMode
+          ? appliedPortalCount > 0
+            ? 'converged'
+            : 'clean'
+          : 'planned'
+      : 'off'
+  } candidates=${portalRowsToLand.length} applied=${appliedPortalCount}`,
+)
 
 if (jsonMode) {
   console.log(JSON.stringify(summary, null, 2))
