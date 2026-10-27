@@ -27,12 +27,11 @@ import { fileURLToPath } from 'node:url'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ReviewFindingsCard, type ReviewFinding } from '@/components/chat/message-list/review-findings-card'
 import {
-  isReviewSelectionReady,
-  toReviewSlashText,
-  type ReviewSourceSelection,
-} from '@/components/chat/review-context'
+  ReviewFindingsCard,
+  type ReviewFinding,
+} from '@/components/chat/message-list/review-findings-card'
+import { isReviewSelectionReady, toReviewSlashText } from '@/components/chat/review-context'
 import { planReviewSend } from '@/components/chat/review-target-send'
 import { buildReviewTargetPrompt, parseReviewTargetArgs } from '@/hooks/use-chat/slash-commands'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
@@ -40,7 +39,10 @@ import { useIDEWorkspace } from '@/stores/ide-workspace'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const MESSAGE_INPUT_SRC = path.resolve(HERE, '..', 'message-input.tsx')
 const SELECTOR_SRC = path.resolve(HERE, '..', 'review-target-selector.tsx')
-const REAL_DIFF = fs.readFileSync(path.resolve(HERE, 'fixtures', 'real-diff-message-input.diff'), 'utf8')
+const REAL_DIFF = fs.readFileSync(
+  path.resolve(HERE, 'fixtures', 'real-diff-message-input.diff'),
+  'utf8',
+)
 
 /** 剥掉行注释与块注释(串字面量不剥 —— 挂载判据看的正是引号里的模块说明符)。 */
 function codeFace(src: string): string {
@@ -108,9 +110,9 @@ describe('D06① 装车证明:选择器与"选择→正文"判定在生产面被
       ),
     ).toBe(true)
     // 渲染点 + 可见性判据(生产 = review 模式)必须同在一处,缺一都不算装车
-    expect(/<ReviewTargetSelector\b[\s\S]{0,200}?visible=\{currentMode === 'review'\}/.test(face)).toBe(
-      true,
-    )
+    expect(
+      /<ReviewTargetSelector\b[\s\S]{0,200}?visible=\{currentMode === 'review'\}/.test(face),
+    ).toBe(true)
     // 选择值必须真的上抛/回填(state 受控),不是写死的展示件
     expect(/selection=\{reviewSelection\}/.test(face)).toBe(true)
     expect(/onChange=\{setReviewSelection\}/.test(face)).toBe(true)
@@ -118,10 +120,14 @@ describe('D06① 装车证明:选择器与"选择→正文"判定在生产面被
 
   it('发送面真的消费选择:submit 包装里调 planReviewSend,且空正文+已选目标可发', () => {
     const face = codeFace(fs.readFileSync(MESSAGE_INPUT_SRC, 'utf8'))
-    expect(/planReviewSend\(\s*base,\s*reviewSelection,\s*reviewTargetReady\s*\)/.test(face)).toBe(true)
-    expect(/const canSend = \(value\.trim\(\)\.length > 0 \|\| reviewTargetReady\) && refsReady/.test(face)).toBe(
+    expect(/planReviewSend\(\s*base,\s*reviewSelection,\s*reviewTargetReady\s*\)/.test(face)).toBe(
       true,
     )
+    expect(
+      /const canSend = \(value\.trim\(\)\.length > 0 \|\| reviewTargetReady\) && refsReady/.test(
+        face,
+      ),
+    ).toBe(true)
   })
 
   it('选择条渲染三类 git 目标(票面口径)+ 两档补充', () => {
