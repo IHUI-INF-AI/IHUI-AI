@@ -6388,5 +6388,33 @@
     "platformZhihu": "Zhihu",
     "platformJuejin": "Juejin",
     "platformShipinhao": "WeChat Channels"
+  },
+  "legal": {
+    "title": "Legal Information",
+    "serviceSpecificTerms": {
+      "title": "Service-Specific Terms",
+      "lastUpdated": "Last updated"
+    },
+    "supportedRegions": {
+      "title": "Supported Regions",
+      "lastUpdated": "Last updated",
+      "intro": "The availability of our services may vary by country or region due to local laws and regulations. Details are as follows.",
+      "supportedTitle": "Supported Regions",
+      "restrictedTitle": "Restricted Regions",
+      "restrictedIntro": "Users in the following regions may be unable to use all or part of our services.",
+      "paymentTitle": "Payment Methods",
+      "paymentIntro": "Supported payment methods may vary by region.",
+      "languageTitle": "Interface Language",
+      "languageIntro": "Our service supports multiple interface languages; the displayed language may vary by your region."
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "lastUpdated": "Last updated"
+    },
+    "usagePolicy": {
+      "title": "Usage Policy",
+      "lastUpdated": "Last updated"
+    },
+    "backToHome": "Back to Home"
   }
 }
