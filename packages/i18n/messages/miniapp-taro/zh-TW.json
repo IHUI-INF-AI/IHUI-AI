@@ -1113,7 +1113,8 @@
     "copy3": "連結已複製,請在瀏覽器開啟",
     "failed4": "複製失敗,請重試",
     "text5": "對話頁未設定",
-    "confirm6": "確定刪除此對話?"
+    "confirm6": "確定刪除此對話?",
+    "title": "分享"
   },
   "aiGroup": {
     "title": "智慧體廣場",
@@ -2461,7 +2462,10 @@
       "tutorial": "教程",
       "all": "全部"
     },
-    "pinned": "置頂"
+    "pinned": "置頂",
+    "title": "AI資訊",
+    "anonAuthor": "佚名",
+    "netFail": "網路異常"
   },
   "plaza": {
     "setNeed": {
@@ -2514,7 +2518,8 @@
       "identityTitle": "切換身份",
       "identityDemander": "需求方",
       "identityDeveloper": "開發者",
-      "untitledConv": "未命名對話"
+      "untitledConv": "未命名對話",
+      "delOk": "刪除成功"
     },
     "cover": {
       "entryTitle": "成為開發者",
@@ -3676,6 +3681,9 @@
         "reconnecting": "第 {attempt}/{maxAttempts} 次重連 {server}"
       },
       "mobileSettingsHint": "請在桌面端或網頁端管理 MCP 連線"
+    },
+    "notes": {
+      "loadFailShort": "載入失敗"
     }
   },
   "tabBar": {
@@ -4576,7 +4584,8 @@
     "delFailedRetry": "刪除失敗,請重試",
     "userCard": {
       "loginRequired": "請先登入"
-    }
+    },
+    "notLoggedIn": "未登入"
   },
   "verify": {
     "phoneEmpty": "手機號碼為空",
@@ -6079,7 +6088,37 @@
     "diffFieldsChanged": "變化欄位:{fields}",
     "diffAddedThisRound": "本輪新增",
     "diffRemovedThisRound": "本輪移除",
-    "diffNoChange": "無變化"
+    "diffNoChange": "無變化",
+    "createHeading": "新建 Plan",
+    "createSubmit": "建立計劃",
+    "formTitleLabel": "標題",
+    "formTitlePlaceholder": "計劃標題",
+    "formGoalLabel": "目標",
+    "formGoalPlaceholder": "這個計劃要達成的結果",
+    "formScopeLabel": "修改範圍",
+    "formScopePlaceholder": "範圍內外說明(選填)",
+    "formConstraintsLabel": "約束邊界",
+    "formConstraintsPlaceholder": "邊界與約束(選填)",
+    "formTagsLabel": "標籤",
+    "formTagsPlaceholder": "逗號分隔,如:重構,後端",
+    "formStepsLabel": "步驟",
+    "errTitleRequired": "標題不能為空",
+    "errGoalRequired": "目標不能為空",
+    "stepTitlePlaceholder": "步驟標題",
+    "stepDescPlaceholder": "步驟描述(選填)",
+    "subtitle": "以目標驅動的計劃,資料儲存於本機",
+    "create": "新建計劃",
+    "statCompleted": "已完成",
+    "statInProgress": "進行中",
+    "statBlocked": "受阻",
+    "statPending": "待辦",
+    "statTotal": "共 {count} 步",
+    "noGoal": "未設定目標",
+    "viewDetail": "查看詳情",
+    "emptyTitle": "尚無計劃",
+    "emptyDesc": "建立你的第一個目標驅動計劃",
+    "filterEmptyTitle": "沒有符合條件的計劃",
+    "filterEmptyDesc": "換一個篩選條件試試"
   },
   "myCommentsPage": {
     "title": "我的評論",
@@ -6305,5 +6344,15 @@
     "createdFailed": "建立失敗",
     "empty": "尚無工作流",
     "stepsCount": "{count} 個步驟"
+  },
+  "aiWorldFavoritesPage": {
+    "title": "收藏的項目",
+    "subtitle": "你收藏的 AI 世界項目",
+    "empty": "暫無收藏",
+    "fetchFailed": "收藏載入失敗",
+    "loginRequired": "請先登入後檢視收藏的項目"
+  },
+  "square": {
+    "title": "AI 資訊"
   }
 }
