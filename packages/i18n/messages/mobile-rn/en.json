@@ -6749,6 +6749,10 @@
     "ready": "Update ready",
     "installing": "Restarting…",
     "error": "Update failed",
-    "errorDesc": "Check your network and try again"
+    "errorDesc": "Check your network and try again",
+    "downloading": "Downloading update…",
+    "currentBundle": "Currently running: {{bundle}}",
+    "bundleEmbedded": "Built-in bundle",
+    "bundleOta": "Hot update"
   }
 }
