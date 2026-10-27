@@ -44,11 +44,19 @@ function maskPhone(phone: string): string {
 }
 
 function readToken(request: FastifyRequest): string | undefined {
+  // 2026-10-27 加固:header 优先 —— query 会随完整 URL 进入代理/CDN/网关访问日志,
+  // header 只存在于请求头。query 仅作腾讯控制台无法配置 header 时的兜底。
+  const header = request.headers['x-sms-callback-token']
+  const fromHeader = Array.isArray(header) ? header[0] : header
+  if (fromHeader) return fromHeader
   const q = request.query as Record<string, unknown> | undefined
   const fromQuery = typeof q?.key === 'string' ? q.key : undefined
-  if (fromQuery) return fromQuery
-  const header = request.headers['x-sms-callback-token']
-  return Array.isArray(header) ? header[0] : header
+  if (fromQuery) {
+    // 每条回执都会打,用 debug 级避免刷日志;保持可见性供运维决定迁移时机
+    logger.debug('短信回调 token 经 ?key= query 提供(header 不可用)')
+    return fromQuery
+  }
+  return undefined
 }
 
 async function handleCallback(
