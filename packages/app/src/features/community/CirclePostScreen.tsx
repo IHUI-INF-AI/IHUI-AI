@@ -105,7 +105,7 @@ export function CirclePostScreen({
                     onPress={() => onSelectCircle(c.id)}
                     style={active ? styles.chipActive : styles.chip}
                   >
-                    <Text style={active ? styles.chipTextActive : styles.chipText}>{c.name}</Text>
+                    <Text style={active ? styles.chipActiveText : styles.chipText}>{c.name}</Text>
                   </TouchableOpacity>
                 )
               })}
@@ -226,7 +226,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     chipText: { fontSize: rnType.body.size, color: tk.text.medium },
-    chipTextActive: {
+    chipActiveText: {
       fontSize: rnType.body.size,
       color: tk.brand.ctaForeground,
       fontWeight: '500',
