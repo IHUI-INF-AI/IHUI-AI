@@ -130,6 +130,13 @@ test('P6 装车锁:本腿挂在守护轮 !CHECK_ONLY 分支,且只以 --only=por
   )
   assert.match(body, /noteCrossEndUndetermined\(\s*'portal-converge'/, '瞎必须进跨腿未判定连击台账')
   assert.match(body, /settleCrossEndLeg\('portal-converge'/, '取到确定结论必须撤掉在册起点')
+  // 渲染复判(2026-10-27 立)走**同一条派发**:另开一条腿 = 两条都在改同一本台账而彼此不知道,
+  // 而它刻意与门户收敛同批,是因为两者都是"摘掉跳过集里那条过期判定"这同一件事。
+  assert.match(
+    body,
+    /'--converge-render'/,
+    '渲染复判必须随同一条派发跑,否则又回到"只能人工敲"(§0.9)',
+  )
 })
 
 test('P7 单轮取不到结论 ⇒ 只留在册起点,不到人(并发争用不该叫人)', () => {
@@ -220,5 +227,35 @@ test('P10 结论行自报未判定(门户表取不到)⇒ 同样进连击台账,
   })
   assert.equal(r.state, 'undetermined')
   assert.ok(existsSync(f.undetFile), '「表取不到」与「进程崩了」在“这一格没判”上同罪')
+})
+
+test('P11 跑完的轮次回写同一枚节流戳 ⇒ 与"派发了但没回来"从此不同形', () => {
+  const f = fixture()
+  convergeCrossEndPortalVerdicts({
+    ...f,
+    logger: () => {},
+    notify: () => {},
+    runner: runnerOf(`${lineOf('clean', 0, 0)}\n`),
+    now: 1_700_000_000_000,
+  })
+  const j = JSON.parse(readFileSync(f.tickFile, 'utf8'))
+  assert.ok(j.attemptAt && j.finishedAt, `完成轮必须留下 finishedAt,实得 ${JSON.stringify(j)}`)
+  assert.equal(j.rc, 0)
+  assert.match(String(j.tail), /AUTO-REGISTER-PORTAL/, '尾读数是复盘唯一凭据,要带上结论行本身')
+})
+
+test('P12 子进程被掐死(rc 非数字)⇒ 戳上记 rc:null,不留在读不出的裸 attemptAt', () => {
+  const f = fixture()
+  convergeCrossEndPortalVerdicts({
+    ...f,
+    logger: () => {},
+    notify: () => {},
+    undetHorizonMs: 60 * 60 * 1000,
+    runner: () => ({ ok: false, out: '', err: '', status: null }),
+    now: 1_700_000_000_000,
+  })
+  const j = JSON.parse(readFileSync(f.tickFile, 'utf8'))
+  assert.equal(j.rc, null, `超时被杀必须量得出来,实得 ${JSON.stringify(j)}`)
+  assert.ok(j.finishedAt, '回来了(哪怕是被掐着回来的)就要有 finishedAt')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
