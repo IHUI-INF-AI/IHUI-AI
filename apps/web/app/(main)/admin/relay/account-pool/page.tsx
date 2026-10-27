@@ -1208,7 +1208,7 @@ export default function AdminRelayAccountPoolPage() {
                           </td>
                           <td className="px-3 py-2">
                             <span
-                              className={`rounded-md px-2 py-0.5 text-xs ${
+                              className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${
                                 HEALTH_CLASS[k.healthStatus] ?? HEALTH_CLASS.unknown
                               }`}
                             >
@@ -1226,7 +1226,7 @@ export default function AdminRelayAccountPoolPage() {
                               >
                                 <span className="inline-flex items-center gap-1">
                                   <span
-                                    className={`rounded-md px-2 py-0.5 text-xs ${
+                                    className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${
                                       VERDICT_CLASS[k.verdict] ?? VERDICT_CLASS.indeterminate
                                     }`}
                                   >
@@ -1352,9 +1352,7 @@ export default function AdminRelayAccountPoolPage() {
                           </td>
                           <td className="px-3 py-2 text-xs">
                             {k.hasProxy ? (
-                              <Tooltip
-                                content={`代理：${k.proxyUrlMasked ?? '已配置（脱敏）'}`}
-                              >
+                              <Tooltip content={`代理：${k.proxyUrlMasked ?? '已配置（脱敏）'}`}>
                                 <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
                                   <ShieldCheck className="h-3 w-3" />
                                   私有
@@ -1972,7 +1970,7 @@ export default function AdminRelayAccountPoolPage() {
                     Tokens {fmtNum(usageQuery.data?.summary?.tokens24h)}
                   </span>
                   <span
-                    className={`rounded-md px-2 py-1 tabular-nums ${
+                    className={`whitespace-nowrap rounded-md px-2 py-1 tabular-nums ${
                       failRatePct(usageQuery.data?.summary?.failRate24h) !== null &&
                       (failRatePct(usageQuery.data?.summary?.failRate24h) ?? 0) > 30
                         ? 'bg-red-500/10 font-medium text-red-600 dark:text-red-400'
