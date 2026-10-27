@@ -40,6 +40,7 @@ import { edgeSeries, latestEdgeSnapshot } from '../services/edge-access.js'
 import { getTrafficLiveSnapshot } from '../services/traffic-stats-service.js'
 import {
   getPageUsageLiveSnapshot,
+  type PageHourlyRow,
   type PageUsageLiveRow,
   type PlatformUsageLiveRow,
   type ScopeUsageLiveRow,
@@ -506,6 +507,12 @@ interface TrafficSnapshot {
   /** 近 5 分钟浏览量 */
   pv5m: number | null
   /**
+   * 近 24h 逐小时 PV/UV(上海小时桶,升序);null = 页面热度腿取不到。
+   * 2026-10-27 立:页面使用此前只有总量与排行,在时间维度上一格没有 ——
+   * 「一天里什么时段用得多」只有 api_logs 的分时**调用**能答,页面使用答不了。
+   */
+  pageHourly: PageHourlyRow[] | null
+  /**
    * 近 24h 会话质量(来了之后看了几屏 / 落地页排行);null = 同一条腿取不到。
    * 2026-10-26 立:页面热度说「/chat 被打开 N 次」,不回答「打开的人里有多少顺手又翻了别的
    * 页面」—— 这一格补的就是那句没答的话。口径 = session_id(标签页级),见
@@ -591,6 +598,7 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       platformSplit: pageUsage?.platforms ?? null,
       online5m: pageUsage?.online5m ?? null,
       pv5m: pageUsage?.pv5m ?? null,
+      pageHourly: pageUsage?.hourly ?? null,
       sessionQuality,
       visitSource,
       visitTransition,

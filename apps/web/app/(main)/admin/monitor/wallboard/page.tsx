@@ -241,6 +241,8 @@ interface TrafficSnapshot {
     depth: Array<{ bucket: '1' | '2-3' | '4-7' | '8+'; sessions: number }>
     /** 落地页 TOP(进来的会话最多的页面)+ 其中「只停这一页」的会话数 */
     entryPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
+    /** 退出页 TOP(收尾的会话最多的页面,2026-10-27);与落地页镜像口径 */
+    exitPages: Array<{ url: string; sessions: number; singlePageSessions: number }>
   } | null
   /** 近 24h 访问来源(直接访问/本机开发/站内/外部 + 主机 TOP);null = 同一条腿取不到 */
   visitSource: {
@@ -274,6 +276,8 @@ interface TrafficSnapshot {
   pv5m: number | null
   /** 近 24h 各页面平均停留时长(秒),按 url 与页面排行对齐;null = 同一条腿取不到 */
   pageDwell: Array<{ url: string; avgDwellSec: number | null; samples: number }> | null
+  /** 近 24h 逐小时 PV/UV(上海小时桶,2026-10-27);null = 页面热度腿取不到 */
+  pageHourly: Array<{ hour: string; pv: number; uv: number }> | null
 }
 
 /**
@@ -1293,6 +1297,67 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       ],
     }
   }, [trend?.hourlyCalls, isDark, nowHour, t, locale])
+
+  // 页面使用的分时曲线(2026-10-27):滚动 24h 按小时分桶 ⇒ 24 个桶都画满,
+  // **不像**上面「今日分时调用」按 nowHour 截断 —— 窗口跨夜,夜里那半截也是真数据,
+  // 截掉会把"凌晨没人用"读成"没到"(两图横轴都 00..23,可对读)。
+  const visitHourlyOption = React.useMemo<EChartsOption>(() => {
+    const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+    const byHour = new Map((traffic?.pageHourly ?? []).map((r) => [r.hour, r]))
+    return {
+      grid: { left: 40, right: 36, top: 16, bottom: 22 },
+      legend: {
+        data: [t('visitHourlyPv'), t('visitHourlyUv')],
+        textStyle: { color: fg(isDark), fontSize: 10 },
+        itemWidth: 10,
+        itemHeight: 6,
+        top: 0,
+        right: 0,
+      },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
+      },
+      xAxis: { type: 'category', data: hours, ...AXIS(isDark) },
+      yAxis: [
+        { type: 'value', ...AXIS(isDark) },
+        { type: 'value', ...AXIS(isDark), splitLine: { show: false } },
+      ],
+      series: [
+        {
+          name: t('visitHourlyPv'),
+          type: 'bar',
+          data: hours.map((h) => byHour.get(h)?.pv ?? 0),
+          barWidth: '58%',
+          itemStyle: {
+            borderRadius: [2, 2, 0, 0],
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: withAlpha(CHART_CYAN, 0.95) },
+                { offset: 1, color: withAlpha(CHART_CYAN, 0.15) },
+              ],
+            },
+          },
+        },
+        {
+          name: t('visitHourlyUv'),
+          type: 'line',
+          yAxisIndex: 1,
+          smooth: true,
+          showSymbol: false,
+          data: hours.map((h) => byHour.get(h)?.uv ?? 0),
+          ...seriesGlow(CHART_VIOLET),
+        },
+      ],
+    }
+  }, [traffic?.pageHourly, isDark, t])
 
   const modelOption = React.useMemo<EChartsOption>(() => {
     const models = [...(biz?.llmTopModels ?? [])].reverse()
@@ -2884,6 +2949,37 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             </div>
           </Panel>
 
+          {/* 分时访问(2026-10-27):visit_logs 逐小时 PV/UV —— 「一天里什么时段用得多」。
+              此前时间维度只有 api_logs 的「今日分时调用」,页面使用只有总量与排行;
+              滚动 24h 窗口跨夜 ⇒ 24 桶画满,夜里那半截是真数据(与今日分时调用的
+              截断语义不同,那里未来小时不得画 0 柱)。两图横轴同为 00..23,可对读。 */}
+          <Panel
+            title={t('panelHourlyVisits')}
+            icon={<Clock3 className="h-3.5 w-3.5" />}
+            className="wb-c6 wb-c3-md"
+            right={
+              traffic === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">{t('hourlyVisitWindow')}</span>
+              )
+            }
+          >
+            <div className="relative min-h-[168px]">
+              <EChart
+                option={visitHourlyOption}
+                height={168}
+                merge
+                ariaLabel={t('panelHourlyVisits')}
+              />
+              {traffic?.pageHourly === null ? (
+                <ChartEmpty text={t('sourceUnreachable')} />
+              ) : (traffic?.pageHourly?.length ?? 0) === 0 && traffic !== null ? (
+                <ChartEmpty text={t('pageUsageNoData')} />
+              ) : null}
+            </div>
+          </Panel>
+
           {/* 各端使用量(2026-10-26):web 裸路径 / RN `/rn/*` / 小程序 `/mp/*` / 插件 `/ex/*` 同表分桶。
               四端埋点都写 visit_logs,这里回答「哪一端在用、用了多少次」。 */}
           <Panel
@@ -3046,6 +3142,34 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {traffic?.sessionQuality === null ? (
                   <div className="flex justify-center px-2 py-2">
                     <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : null}
+              </div>
+              {/* 退出页(2026-10-27):落地页答「人从哪进」,这榜答「人从哪走」——
+                  两头都有才看得出路径断在哪一步。单页会话两榜同时计入(口径见服务端头注)。 */}
+              <div className="mb-1.5 mt-2.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('sessionQualityExitTop')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.sessionQuality?.exitPages ?? []).map((p) => (
+                  <div
+                    key={p.url}
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="truncate text-[10px] text-foreground">{p.url}</span>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                      {fmtInt(p.sessions)}
+                      <span className="text-muted-foreground">
+                        {' '}
+                        / {fmtInt(p.singlePageSessions)}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+                {traffic?.sessionQuality &&
+                (traffic.sessionQuality.exitPages?.length ?? 0) === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('sessionQualityNoData')}
                   </div>
                 ) : null}
               </div>

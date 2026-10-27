@@ -21,6 +21,7 @@ import {
   visitPlatformFilter,
   classifyVisitPlatform,
   mergePlatformRows,
+  foldHourlyRows,
   VISIT_PLATFORM_PATH_PREFIXES,
   VISIT_SCOPE_VALUES,
   VISIT_PLATFORM_VALUES,
@@ -133,6 +134,41 @@ describe('mergePlatformRows(端接入史合并)', () => {
     const rows = mergePlatformRows([], [])
     expect(rows.map((r) => r.platform).sort()).toEqual(['ex', 'mp', 'rn', 'web'])
     expect(rows.every((r) => r.pv === 0 && r.pv90d === 0 && r.lastSeenAt === null)).toBe(true)
+  })
+})
+
+describe('foldHourlyRows(2026-10-27 分时访问:小时桶归一)', () => {
+  it('E1 字符串数字也认(PG int4 经某些驱动回传字符串时不得读成 0)', () => {
+    const rows = foldHourlyRows([
+      { hour: '08', pv: '12', uv: '3' },
+      { hour: '09', pv: 5, uv: 2 },
+    ])
+    expect(rows).toEqual([
+      { hour: '08', pv: 12, uv: 3 },
+      { hour: '09', pv: 5, uv: 2 },
+    ])
+  })
+
+  it('E2 非法数字落 0(「取不到」与「取到 0」在这一格同值,不冒充负数/NaN)', () => {
+    const rows = foldHourlyRows([{ hour: '10', pv: 'NaN', uv: -3 }, { hour: '11' }])
+    expect(rows).toEqual([
+      { hour: '10', pv: 0, uv: 0 },
+      { hour: '11', pv: 0, uv: 0 },
+    ])
+  })
+
+  it('E3 小时桶钳成两位(个位小时不得画错横轴位置)', () => {
+    const rows = foldHourlyRows([{ hour: '7', pv: 1, uv: 1 }])
+    expect(rows[0]?.hour).toBe('07')
+  })
+
+  it('E4 只做归一不做排序/补桶(顺序是 SQL ORDER BY 的承诺,空桶是真 0 不是缺行)', () => {
+    const rows = foldHourlyRows([
+      { hour: '23', pv: 1, uv: 1 },
+      { hour: '00', pv: 2, uv: 2 },
+    ])
+    // 输入顺序原样返回 —— 前端按桶键取值,不在两处各排一次
+    expect(rows.map((r) => r.hour)).toEqual(['23', '00'])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
