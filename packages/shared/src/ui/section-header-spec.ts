@@ -4,17 +4,19 @@
 
 /**
  * SectionHeader「区段标题 + 更多」的结构与几何单一源(形状照 back-chevron-spec)。
- * 注:本表面向两端,但 RN 端目前尚无渲染腿 —— 见下方"两端真实实现",不要按"已共用"引用它。
+ * 注:本表面向两端,RN 端唯一渲染腿见下方"两端真实实现",不要按"已共用"引用本表以外的副本。
  *
- * 两端真实实现(2026-09-26 现读更正;原文写"RN 端唯一实现 = …(features 各屏经 @ihui/rn-app 消费)"
- * 是一句做不到的承诺 —— 按它去 RN 端找消费方会一无所获,而账面读起来像已收口):
- *  - RN 端:**本表当前零渲染腿**。曾在的那一份 packages/app/src/components/SectionHeader.tsx
+ * 两端真实实现(2026-10-27 现读):
+ *  - RN 端:唯一渲染腿 = packages/app/src/components/SectionHeader.tsx(经 @ihui/rn-app 出口),
+ *    几何 1:1 取本表(`SECTION_HEADER_*_PX` 不做 rpx 换算);RN 各屏/共享 feature 已接入,
+ *    此前 9+ 屏各自自绘的区段头副本已收口。以下历史段保留,用于解释 2026-10-27 之前
+ *    "本表在 RN 侧零渲染腿"为何成立(当时摘除后无替代件,各屏仍在屏内自绘):
+ *    曾在的那一份 packages/app/src/components/SectionHeader.tsx
  *    是 RN 形态(View/StyleSheet)并由同目录 barrel re-export,但全仓没有任何屏具名取用它,
  *    2026-09-30 随 O92 票摘除(判据:零具名消费者 + 零深导入;摘除后 @ihui/rn-app 也不再出口该名);
  *    course-tab 与 learn 两屏里检索到的同名命中,是各自在屏内自绘的局部渲染函数
  *    (取证:两屏各有一处以自绘函数排「标题 + 更多」头部),与本表、与该组件都无引用关系。
- *    因此 RN 侧的区段头部目前**没有单一源**,把它接进本表要先改 9+ 屏的头部观感 —— 那属产品决策,
- *    未决前不得把本表读成"两端已共用"。
+ *    2026-10-27 立项派单重建该件并逐屏接线,RN 侧自此有单一源。
  *  - 小程序端**只有一条渲染腿** = apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx
  *    (pkg-learn / pkg-shop 经适配层)。2026-09-29 实测更正本段原文:它写的是"两条渲染腿 =
  *    apps/miniapp-taro/src/components/SectionHeader.tsx(页面直连)与 …(经适配层),两条腿同取本表"。

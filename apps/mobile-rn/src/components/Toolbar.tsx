@@ -35,7 +35,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
-import { MoreLink } from '@ihui/rn-app'
+import { SectionHeader } from '@ihui/rn-app'
 import {
   Bot,
   Film,
@@ -231,16 +231,15 @@ export function Toolbar({
         ))}
       </View>
 
-      {/* 2. 栏目标题 + 更多(入口委托 MoreLink,与其余区段头同规格) */}
-      <View style={styles.sectionTitleRow}>
-        <Text style={styles.sectionTitle}>独家开发 AI Agent应用</Text>
-        <MoreLink
-          label={t('toolbar.more2')}
-          onPress={onMorePress}
-          accessibilityLabel={t('toolbar.viewMoreA11y')}
-          colorScheme={currentRnTheme()}
-        />
-      </View>
+      {/* 2. 栏目标题 + 更多(入口委托 SectionHeader,与其余区段头同规格) */}
+      <SectionHeader
+        title="独家开发 AI Agent应用"
+        moreText={t('toolbar.more2')}
+        onMore={onMorePress}
+        accessibilityLabel={t('toolbar.viewMoreA11y')}
+        colorScheme={currentRnTheme()}
+        style={styles.sectionTitleRow}
+      />
 
       {/* 3. 营销 banner(带浮动动画) */}
       <Pressable
@@ -418,16 +417,8 @@ const styles = StyleSheet.create({
 
   // ── 2. 栏目标题 ──
   sectionTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingVertical: 10,
     marginTop: 6,
-  },
-  sectionTitle: {
-    fontSize: rnType.title.size,
-    fontWeight: '700',
-    color: tokens.text.primary,
   },
 
   // ── 3. 营销 banner(正常流布局;机器人列随浮动动画上浮,paddingTop 10 为浮动基线余量,上浮 -10 不出容器) ──

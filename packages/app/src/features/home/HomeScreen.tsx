@@ -13,7 +13,8 @@ import type {
   HomeMenuItem,
   HomeScreenProps,
 } from '../../types'
-import { MoreLink, useFontMultiplier } from '../../components/MoreLink'
+import { useFontMultiplier } from '../../components/MoreLink'
+import { SectionHeader } from '../../components/SectionHeader'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
@@ -177,12 +178,13 @@ export function HomeScreen({
           </View>
 
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, styles.sectionHeaderTitle]}>
-                {t('home.livePreview')}
-              </Text>
-              <MoreLink label={moreLabel} onPress={onNavigateLives} colorScheme={colorScheme} />
-            </View>
+            <SectionHeader
+              title={t('home.livePreview')}
+              moreText={moreLabel}
+              onMore={onNavigateLives}
+              colorScheme={colorScheme}
+              style={styles.sectionHeader}
+            />
             {lives.length === 0 ? (
               <View style={[styles.card, styles.emptyCenter]}>
                 <Video size={18} color={tk.text.tertiary} />
@@ -222,12 +224,13 @@ export function HomeScreen({
           </View>
 
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, styles.sectionHeaderTitle]}>
-                {t('home.recommend')}
-              </Text>
-              <MoreLink label={moreLabel} onPress={onNavigateCourses} colorScheme={colorScheme} />
-            </View>
+            <SectionHeader
+              title={t('home.recommend')}
+              moreText={moreLabel}
+              onMore={onNavigateCourses}
+              colorScheme={colorScheme}
+              style={styles.sectionHeader}
+            />
             {recommends.length === 0 ? (
               <View style={[styles.card, styles.emptyCenter]}>
                 <BookOpen size={18} color={tk.text.tertiary} />
@@ -355,7 +358,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    sectionHeaderTitle: { marginBottom: 0 },
     card: {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
