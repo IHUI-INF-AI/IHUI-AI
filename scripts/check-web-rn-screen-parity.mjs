@@ -15,6 +15,12 @@
 //   {"web":"agent-plan","status":"gap","note":"<判过:RN 该内容域零承载,含证据文件:行>","at":"2026-10-26"}
 // 未登记的 web 路由 = unmapped(功能缺口**候选** = 没人判过),报告按首段分组计数并附启发式 RN 候选(仅建议,不判定)。
 // 四桶分档(2026-10-26 补 gap 档):aligned / excluded / gap(判过确缺) / unmapped(未判定)。
+// 第五维「门户承载」(2026-10-27 立,不是第五桶而是**推导维**):packages/shared/src/constants/web-portal.ts
+// 是移动端 WebView 门户的唯一源(RN 与小程序都从它派生),在册路由即由 RN 承载。本尺此前不读它 ⇒
+// 门户路由被逐条判成「RN 零承载」的既成缺口(现读 64 条 gap 里 14 条、excluded 里 14 条如此)。
+// 推导而非登记:表每长一条,承载面自动跟一条,不需要人再判一次(机主"最大化减少开发"的直接落点)。
+// 与之互斥的在册行单列 contradicted 点名(台账说不承载、表说承载 ⇒ 两句不能同时成立,裁决权归人);
+// 表里指向不存在路由的 path 单列 portalUnmatched 点名(那是门户腿自己腐烂:RN 会开出一个 404)。
 // 为什么必须有 gap 档:落地器此前 `if (verdict==='gap') continue` ⇒ 判过的缺口一行不留,
 // 下轮重扫又变回 unmapped —— "判过"与"没人判"结构上分不开(§0.3 的对称另一半:判过不能丢成没判)。
 // 登记腐烂(aligned 指向不存在的文件 / web 键不在路由集 / excluded 缺 reason / 段级豁免命中 0 条路由)
@@ -36,6 +42,9 @@ import { rendersSharedIn } from './gen-miniapp-mirror.mjs'
 
 const MAP_PATH = 'scripts/data/web-rn-screen-map.jsonl'
 const WEB_APP_DIR = 'apps/web/app'
+// WebView 门户登记表:移动端按设计用 WebView 承载的 web 路由,唯一源在共享常量里(RN 侧
+// apps/mobile-rn/src/lib/webview-portal-config.ts 与小程序侧都从它派生,不是端内自造清单)。
+const WEB_PORTAL_REL = 'packages/shared/src/constants/web-portal.ts'
 
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
@@ -71,6 +80,25 @@ function collectWebRoutes(face) {
     out.push({ route: segs.join('/') || '(root)', rel })
   }
   return out.sort((a, b) => a.route.localeCompare(b.route))
+}
+
+/** WebView 门户承载集(2026-10-27 立,治本尺的结构性盲区)。
+ * 立因:本尺此前只看「web 路由集 × RN 屏集」,从不读这张门户表 ⇒ 移动端**按设计**用 WebView
+ * 承载的 91 条路由里,18 条被逐条判成「RN 零承载」的既成缺口(现读证据:登记表 gap 行的 note
+ * 与门户表 path 指向同一路由)。假缺口的代价不是数字难看,而是它必须靠人逐条翻代码才能推翻 ——
+ * 正是机主要消灭的那类重复开发。接进唯一判据源后,门户表每长一条,承载面自动跟着长。
+ * 形态:去 query/hash、去首尾斜杠,与 collectWebRoutes 的 route 同形(无首斜杠、kebab 段)。
+ * 取不到面 ⇒ set 为 null(调用侧一律按「门户维未判定」走,绝不把没读到当成空集,§0.3)。
+ */
+function collectPortalRoutes(face) {
+  const text = cov.faceRead(face, WEB_PORTAL_REL)
+  if (typeof text !== 'string') return { set: null, rows: [], unreadable: true }
+  const rows = []
+  for (const m of text.matchAll(/path:\s*'([^']+)'/g)) {
+    const route = m[1].split('?')[0].split('#')[0].replace(/^\/+/, '').replace(/\/+$/, '')
+    if (route) rows.push({ raw: m[1], route })
+  }
+  return { set: new Set(rows.map((r) => r.route)), rows, unreadable: false }
 }
 
 /** 屏名 token 化:PascalCase 拆词、小写、剔虚词;'index' 用父目录名补位 */
@@ -157,7 +185,7 @@ function loadMap(face = FACE) {
  * 与「逐条优先于段级」这两条规则一改,就会出现「对账尺报 229、探针报 231」的两把尺子,
  * 而那 2 条差额是没有任何一档认领的幽灵缺口。
  */
-function evaluateMap(webRoutes, map, rnScreens, face) {
+function evaluateMap(webRoutes, map, rnScreens, face, portal = collectPortalRoutes(face)) {
   const webByRoute = new Map(webRoutes.map((r) => [r.route, r]))
   // 登记表可以指向共享屏(真相源)或端内薄壳任一层:屏名去重只服务「候选建议」,
   // 不能让同名的端内屏在归属面被判"不存在"(2026-10-25 实测 UserPublic/LlmSettings/EduShop 三屏误报 ——
@@ -171,7 +199,14 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
   const aligned = []
   const excluded = []
   const judgedGap = []
+  const contradicted = []
   const prefixRows = []
+  // 门户承载维:与 web 路由集同面现算(不复制第二份清单,§0.6)。set 为 null = 这一维没读到 ⇒
+  // 不改动任何判定,只把「门户维未判定」如实点名;此时既不把 gap 行洗成承载,也不把门户路由从 unmapped 里扣掉。
+  const portalCarried = portal.set
+    ? new Set(webRoutes.filter((r) => portal.set.has(r.route)).map((r) => r.route))
+    : null
+  const portalUnmatched = portal.set ? portal.rows.filter((r) => !webByRoute.has(r.route)) : []
   for (const row of map) {
     if (row.bad) {
       rot.push({ line: row.line, why: '非法 JSON 行' })
@@ -195,6 +230,7 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
     }
     if (row.status === 'excluded') {
       if (!row.reason) rot.push({ line: row.line, why: 'excluded 缺 reason(验过才免)' })
+      else if (portalCarried?.has(row.web)) contradicted.push({ ...row, by: 'excluded' })
       else excluded.push(row)
       continue
     }
@@ -223,6 +259,9 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
     // 这一档只减少 unmapped(未判定面),不进 aligned —— 缺口存量仍单独报数,不冒充已对齐。
     if (row.status === 'gap') {
       if (!row.note) rot.push({ line: row.line, why: 'gap 缺 note(判过必有证据,否则与未判定不可区分)' })
+      // 「RN 零承载」这句判据被门户表推翻:同一路由在 web-portal.ts 里在册,移动端就是按设计用
+      // WebView 打开它。这不是"另一种形态承载"的模糊提示,而是台账与仓内登记表互相打脸 ⇒ 单列点名。
+      else if (portalCarried?.has(row.web)) contradicted.push({ ...row, by: 'gap' })
       else judgedGap.push(row)
       continue
     }
@@ -244,8 +283,25 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
     }
     if (!prefixHits.has(p.web)) rot.push({ line: p.line, why: `段级豁免命中 0 条路由:${p.web}` })
   }
-  const unmapped = webRoutes.filter((r) => !mappedRoutes.has(r.route) && !prefixExcludedRoutes.has(r.route))
-  return { aligned, excluded, judgedGap, rot, prefixHits, prefixRows, prefixExcludedRoutes, unmapped, rnScreens }
+  const unmapped = webRoutes.filter(
+    (r) =>
+      !mappedRoutes.has(r.route) && !prefixExcludedRoutes.has(r.route) && !portalCarried?.has(r.route),
+  )
+  return {
+    aligned,
+    excluded,
+    judgedGap,
+    contradicted,
+    portalCarried,
+    portalUnmatched,
+    portalUndetermined: portal.unreadable,
+    rot,
+    prefixHits,
+    prefixRows,
+    prefixExcludedRoutes,
+    unmapped,
+    rnScreens,
+  }
 }
 
 function run() {
@@ -263,7 +319,19 @@ function run() {
   // 未映射集的判据只有一处(§0.6):抽出来的 evaluateMap 同时供本尺与探针 probe-web-rn-gap 使用,
   // 保证「对账尺报多少条,探针就分诊多少条」永远相等。
   const ev = evaluateMap(webRoutes, map, rnScreens, FACE)
-  const { aligned, excluded, judgedGap, rot, prefixHits, prefixRows, unmapped } = ev
+  const {
+    aligned,
+    excluded,
+    judgedGap,
+    contradicted,
+    portalCarried,
+    portalUnmatched,
+    portalUndetermined,
+    rot,
+    prefixHits,
+    prefixRows,
+    unmapped,
+  } = ev
   const prefixExcluded = prefixHits.size
   const usedRn = new Set(aligned.map((r) => r.rn))
   const rnOnly = rnScreens.filter((s) => !usedRn.has(s.rel))
@@ -284,6 +352,11 @@ function run() {
     aligned: aligned.length,
     excluded: excluded.length,
     judgedGap: judgedGap.length,
+    contradicted: contradicted.length,
+    contradictedRows: contradicted.map((r) => ({ web: r.web, by: r.by })),
+    portalCarried: portalCarried ? portalCarried.size : null,
+    portalUndetermined,
+    portalUnmatched: portalUnmatched.map((r) => r.raw),
     prefixExcluded,
     prefixHits: [...prefixHits.entries()],
     unmapped: unmapped.length,
@@ -326,6 +399,30 @@ function run() {
   log(`已对齐(aligned)   : ${json.aligned}`)
   log(`已豁免(excluded)  : ${json.excluded}(逐条) + ${json.prefixExcluded}(段级 ${prefixRows.length} 个前缀)`)
   log(`已判缺口(gap)     : ${json.judgedGap}  ← 判过「RN 零承载」,不再重复判定`)
+  log(
+    `门户承载(web-portal): ${portalCarried === null ? '未判定(取不到 ' + WEB_PORTAL_REL + ')' : json.portalCarried}` +
+      `  ← 移动端按设计用 WebView 打开的 web 路由,唯一源 ${WEB_PORTAL_REL}`,
+  )
+  if (portalCarried !== null && contradicted.length > 0) {
+    const nGap = contradicted.filter((r) => r.by === 'gap').length
+    const nExc = contradicted.length - nGap
+    log(
+      `⚠ 被门户表推翻的在册判定: ${contradicted.length}(gap ${nGap} / excluded ${nExc})` +
+        `  ← 台账说「RN 零承载/不承载」而门户表说承载,两句互斥;摘行或改判都由人裁,本尺不代裁`,
+    )
+    for (const r of contradicted.slice(0, fullMode ? contradicted.length : 12)) {
+      log(`     · ${r.web}(在册 ${r.by})`)
+    }
+  }
+  if (portalCarried !== null && portalUnmatched.length > 0) {
+    log(
+      `⚠ 门户表指向不在路由集的 path: ${portalUnmatched.length} 条` +
+        `  ← RN 会打开一个 web 端没有的 URL,这类是"门户腿自己腐烂",不是覆盖缺口`,
+    )
+    for (const r of portalUnmatched.slice(0, fullMode ? portalUnmatched.length : 12)) {
+      log(`     · ${r.raw} → ${r.route}`)
+    }
+  }
   log(`未映射 web 路由    : ${json.unmapped}  ← 功能缺口候选(**无人判过**;逐屏登记后收敛)`)
   log(`RN 独有屏         : ${json.rnOnly}`)
   log('')
@@ -366,5 +463,16 @@ if (isDirectRun) {
   run()
 }
 
-export const __test__ = { collectWebRoutes, collectRnScreens, screenTokens, routeTokens, suggestCandidates, loadMap, evaluateMap, LANG_SEGS }
+export const __test__ = {
+  collectWebRoutes,
+  collectRnScreens,
+  collectPortalRoutes,
+  screenTokens,
+  routeTokens,
+  suggestCandidates,
+  loadMap,
+  evaluateMap,
+  LANG_SEGS,
+  WEB_PORTAL_REL,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
