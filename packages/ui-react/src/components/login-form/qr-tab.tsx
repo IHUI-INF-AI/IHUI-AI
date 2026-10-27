@@ -13,6 +13,7 @@ import {
   Building2,
   MapPin,
   Plane,
+  RefreshCw,
 } from 'lucide-react'
 
 import { Button } from '../button'
@@ -139,7 +140,7 @@ export function QrTab({
                 // 横排 icon+文字会让"App 扫码/企业微信"换行挤压,竖排永不换行
                 'flex flex-col items-center justify-center gap-1 rounded-sm px-1 py-1.5 text-[11px] leading-none transition-colors',
                 active
-                  ? 'bg-card text-foreground shadow-sm'
+                  ? 'bg-card text-foreground shadow-sm font-medium ring-1 ring-border/60'
                   : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
               )}
             >
@@ -185,35 +186,37 @@ export function QrTab({
         )}
       </div>
 
-      {/* 扫码提示 */}
-      <p className="text-center text-xs text-muted-foreground">
-        {current
-          ? t('auth.qrScanTipPlatform', { platform: t(current.labelKey) })
-          : t('auth.qrScanTipPlatform', { platform: '' })}
-      </p>
-
-      {/* 操作行:刷新 + 切换登录方式 */}
-      <div className="flex w-full items-center justify-between gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          onClick={() => setRefreshKey((k) => k + 1)}
-          className="px-2 text-xs text-muted-foreground"
-        >
-          {t('auth.qrRefresh')}
-        </Button>
-        {onSwitchMethod && (
+      {/* 扫码提示 + 操作行:统一居中,避免刷新按钮孤悬左侧 */}
+      <div className="flex w-full flex-col items-center gap-2.5">
+        <p className="text-center text-xs leading-relaxed text-muted-foreground">
+          {current
+            ? t('auth.qrScanTipPlatform', { platform: t(current.labelKey) })
+            : t('auth.qrScanTipPlatform', { platform: '' })}
+        </p>
+        <div className="flex items-center justify-center gap-3">
           <Button
             type="button"
-            variant="link"
-            size="xs"
-            onClick={onSwitchMethod}
-            className="px-2 text-xs"
+            variant="outline"
+            size="sm"
+            onClick={() => setRefreshKey((k) => k + 1)}
+            className="gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            data-testid="qr-refresh"
           >
-            {t('auth.qrSwitchMethod')}
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            {t('auth.qrRefresh')}
           </Button>
-        )}
+          {onSwitchMethod && (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={onSwitchMethod}
+              className="px-2 text-xs"
+            >
+              {t('auth.qrSwitchMethod')}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )
