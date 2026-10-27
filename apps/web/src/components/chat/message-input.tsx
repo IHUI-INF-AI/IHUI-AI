@@ -56,6 +56,12 @@ import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-b
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 // D117(2026-09-27):/diff 会话改动总览弹窗(全局单实例,useSessionDiffStore 驱动)
 import { SessionDiffDialog } from '@/components/ai/session-diff-dialog'
+// D06 审查对象选择器(2026-10-27 装车):选择条 + 发送正文判定。此前两个文件只有测试引用
+// (生产面零引用 = 票面「审查对象选择器」格未装车),装车点在下方 JSX 与 submitAndDismissLinkPreview。
+import { ReviewTargetSelector } from '@/components/chat/review-target-selector'
+import { isReviewSelectionReady, type ReviewSourceSelection } from '@/components/chat/review-context'
+import { planReviewSend } from '@/components/chat/review-target-send'
+import { usePaneModeStore } from '@/stores/mode'
 import { runManualCompact } from '@/hooks/use-chat/manual-compact'
 // P3 #30 diff 意见条 / D154 MCP 状态行(2026-09-30 起)由 InputStatusSlot 统一按优先级挂载
 // 任务进度常驻状态条:输入框上方动态显示"在做什么 / 第几步 / 改了多少文件",plan_updated 驱动
@@ -303,6 +309,13 @@ export function MessageInput({
   // 读不到(404/410/5xx)/未判定(需登录/超时/内网,未判定 ≠ 读不到)。
   // fire-and-forget:预览失败绝不阻断发送(票面显式断言,探测侧已自证)。
   const linkPreview = useLinkPreview()
+  // D06 审查对象选择器(2026-10-27 装车):selection 住输入层(随窗格隔离 —— mode 档位取
+  // 窗格实例,选择条本身不读 store);消费点在 submitAndDismissLinkPreview。
+  const [reviewSelection, setReviewSelection] = React.useState<ReviewSourceSelection | null>(null)
+  const reviewModeStore = usePaneModeStore()
+  const currentMode = reviewModeStore((s) => s.currentMode)
+  // 发送失败会把正文回填进输入框:选择条要等到"正文确实被清空"才清,避免失败即丢目标。
+  const reviewSelectionConsumeRef = React.useRef(false)
   const unifiedAddedIdsRef = React.useRef<Set<string>>(new Set())
   // V3 第 61 票(2026-09-27):`@` 与 `#` 的提及状态与正文落点都收进 useMentionWiring(下方,
   // 需在 inputCoreRef 之后构造)—— 这里原先是一份 contextChips 局部 state + addContextChip +
@@ -451,11 +464,45 @@ export function MessageInput({
   })
   // D166:发送即收卡 —— 包装保持 submit 原签名 `(overrideValue?: string) => Promise<void>`,
   // 发送动作与结果零变更,仅在发送链启动后关闭链接预览卡(探测失败本就不阻断发送)。
+  // D06 审查对象选择器(2026-10-27 装车):本包装是本轮"选择 → 正文"的唯一判定点
+  // (`planReviewSend` 纯函数,映射逐档有单测):
+  //   · slash 档 ⇒ 正文改写为 `/review uncommitted|branch <ref>|commit <sha>`,交给
+  //     send-message 既有拦截链只读收集 diff(前端不跑第二份 git);用户已输入的草稿
+  //     不随命令送出,发送 resolve 后回填,不静默丢稿;
+  //   · file/snippet 档 ⇒ 内联审查块追加到正文尾部(只影响发给 LLM 的正文);
+  //   · 未选 / 未 ready ⇒ 正文逐字不变(与接线前同一路径)。
   const submitAndDismissLinkPreview = (overrideValue?: string): Promise<void> => {
-    const result = submit(overrideValue)
-    result.catch(() => {}).finally(() => linkPreview.reset())
+    const base = overrideValue ?? value
+    const plan = planReviewSend(base, reviewSelection, reviewTargetReady)
+    const result = submit(plan.mode === 'plain' ? base : plan.text)
+    result.catch(() => {}).finally(() => {
+      linkPreview.reset()
+      if (plan.mode === 'plain') return
+      if (plan.mode === 'slash') {
+        // 目标命令已发出:草稿回填(有则回填),选择条清空。失败时 submit 会把命令文本
+        // 回填成正文,这里不再二次覆盖 —— 用户可直接重发。
+        if (plan.restoreDraft) setValue(plan.restoreDraft)
+        setReviewSelection(null)
+        reviewSelectionConsumeRef.current = false
+        return
+      }
+      // 内联档:正文被清空 ⇒ 视为已发出,清选择;失败时正文回填,选择保留待重发。
+      if (!base.trim()) {
+        setReviewSelection(null)
+        return
+      }
+      reviewSelectionConsumeRef.current = true
+    })
     return result
   }
+  // 内联档的"发出后清选择":submit 的失败路径会把正文写回输入框,故以
+  // 「正文确实变成空串」为已发信号(见上;ref 只在本次消费待判时生效,不常驻)。
+  React.useEffect(() => {
+    if (!reviewSelectionConsumeRef.current) return
+    if (value !== '') return
+    reviewSelectionConsumeRef.current = false
+    setReviewSelection(null)
+  }, [value])
   // W20 九类 # 上下文选择器(键盘导航在 textarea 层拦截);
   // V3 第 61 票:选中结果的落点从局部 chip state 改成那份唯一的 mention engine store。
   const contextSelector = useContextSelector({
@@ -696,7 +743,9 @@ export function MessageInput({
   // 2026-08-14 修改:流式期间也允许发送(保存为 pending 消息,流式结束后自动发出)
   // b75-5#1:附件未到 ready(uploading/error/terminal)时阻发,防附件断链
   const refsReady = canSendReferences(references).canSend
-  const canSend = value.trim().length > 0 && refsReady
+  // D06 审查对象选择器:选中合法目标 + review 模式 ⇒ 即使正文为空也可发(目标本身就是本轮请求)。
+  const reviewTargetReady = currentMode === 'review' && isReviewSelectionReady(reviewSelection)
+  const canSend = (value.trim().length > 0 || reviewTargetReady) && refsReady
   // 斜杠命令选中技能时触发的调用流程状态(2026-08-08 立)
   const [skillInvokeSkill, setSkillInvokeSkill] = React.useState<AiSkillMeta | null>(null)
   const [skillInvokeResult, setSkillInvokeResult] = React.useState<AiSkillInvokeResponse | null>(
@@ -1144,7 +1193,15 @@ export function MessageInput({
         {/* D01(2026-10-25 立)对话内 Agent 选择器:输入卡上方的「已切换 XX 专家」交代条。
             形态复用 steer-notice-bar 同族的 FoldableSection;未选专家时自渲染为 null。 */}
         <AgentNoticeBar />
-        <div ref={inputAreaRef} className="relative">
+        {/* D06(2026-10-27 装车)审查对象选择条:票面三类目标(未提交 diff / 指定分支 /
+            指定 commit)+ 文件/片段两档补充。与 InputNoticeBanner 同区(输入框上方),
+            只在 review 模式渲染;摘掉这一行 ⇒ `review-target-wiring.test.tsx` 的挂载判据红。 */}
+        <ReviewTargetSelector
+          visible={currentMode === 'review'}
+          selection={reviewSelection}
+          onChange={setReviewSelection}
+          data-testid="review-target-selector"
+        />        <div ref={inputAreaRef} className="relative">
           <FileMentionPopover
             files={mentionFiles}
             open={mentionOpen}
