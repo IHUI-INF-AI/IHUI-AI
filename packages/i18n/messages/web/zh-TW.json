@@ -29153,5 +29153,28 @@
     "addSuccess": "帳號已新增",
     "actionFailed": "操作失敗",
     "loginRequired": "登入後管理你的個人號池"
+  },
+  "appUpdate": {
+    "title": "有新版本可用",
+    "body": "重新整理頁面以取得最新版本",
+    "action": "更新",
+    "close": "關閉",
+    "checking": "正在檢查更新…",
+    "downloading": "正在下載更新…",
+    "ready": "更新已就緒",
+    "installing": "正在重新啟動…",
+    "error": "更新失敗",
+    "errorDesc": "請檢查網路後重試",
+    "retry": "重試",
+    "upToDate": "目前為最新版本",
+    "gateTitle": "需要更新",
+    "gateBody": "目前版本 {version} 已不再支援,請更新至 {latest} 後繼續使用",
+    "gateForceBody": "偵測到新版本 {latest},本次為強制更新",
+    "gateReleaseNotes": "更新內容",
+    "gateUpdateNow": "立即更新",
+    "gateLater": "稍後",
+    "gateQuit": "關閉頁面",
+    "gateQuitConfirm": "更新尚未完成,關閉頁面會中斷本次使用,確定關閉?",
+    "gateQuitFailed": "無法自動關閉頁面,請手動關閉此分頁"
   }
 }
