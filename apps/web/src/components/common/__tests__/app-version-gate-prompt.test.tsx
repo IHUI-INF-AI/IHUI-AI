@@ -21,6 +21,22 @@ vi.mock('next-intl', () => ({
     params ? `${key}(${Object.keys(params).sort().join(',')})` : key,
 }))
 
+// 只 mock 出用到的 CloseButton,不加载 @ihui/ui-react 的整个 barrel:
+// 那条 barrel 会连带拉进 login-form 等一大片组件,别人在途改动的半成品会让本测试在
+// 收集期就炸(实测 2026-10-27 别席改 third-party-login-buttons 时就是这样),
+// 而本测试要验的是闸门渲染端,跟登录表单毫无关系。
+vi.mock('@ihui/ui-react', async () => {
+  const React = await import('react')
+  return {
+    CloseButton: (props: { onClick?: () => void; 'aria-label'?: string }) =>
+      React.createElement(
+        'button',
+        { type: 'button', onClick: props.onClick, 'aria-label': props['aria-label'] },
+        '×',
+      ),
+  }
+})
+
 vi.mock('@ihui/api-client/endpoints/system', () => ({
   checkAppVersion: vi.fn(),
 }))
@@ -44,15 +60,18 @@ describe('AppVersionGatePrompt:强更决策必须真的渲染出阻塞弹窗', (
   beforeEach(() => mockedCheck.mockReset())
   afterEach(() => cleanup())
 
-  it('forceUpdate ⇒ alertdialog 出现,侧门(稍后/关闭)不渲染', async () => {
+  it('forceUpdate ⇒ alertdialog 出现,且只有 manual/quit 两个动作', async () => {
     await renderWithDecision({ hasUpdate: true, forceUpdate: true, latestVersion: '2.0.0' })
 
     await waitFor(() => expect(screen.getByRole('alertdialog')).toBeTruthy())
     expect(screen.getByText('gateTitle')).toBeTruthy()
-    expect(screen.getByText('gateUpdateNow')).toBeTruthy()
-    // 强更会话里 skip/cancel 被 gateAllowsAction 锁死 ⇒ 不渲染,而不是渲染成死按钮
-    expect(screen.queryByText('gateLater')).toBeNull()
-    expect(screen.queryByText('gateQuit')).toBeTruthy()
+    // 强更会话里 skip/cancel 侧门被 gateAllowsAction 锁死 ⇒ 根本不渲染(不是渲染成死按钮)。
+    // 钉死"恰好两个按钮":多一个就是又长回了点了没反应的东西。
+    const labels = screen
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+      .sort()
+    expect(labels).toEqual(['gateQuit', 'gateUpdateNow'])
   })
 
   it('普通更新 ⇒ 渲染成卡片,关闭后消失', async () => {

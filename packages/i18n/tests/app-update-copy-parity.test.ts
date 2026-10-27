@@ -37,20 +37,16 @@ function appUpdateOf(platform: 'web' | 'mobile-rn', locale: string): Record<stri
   return ns as Record<string, string>
 }
 
-/** 两端必须都有的键(RN 只用这 12 个;web 另有 gate* 强更文案)。 */
+/** 两端必须都有的键(RN 只用这 8 个;web 另有 gate* 强更文案)。 */
 const SHARED_KEYS = [
   'title',
   'body',
   'action',
   'close',
-  'checking',
-  'downloading',
   'ready',
   'installing',
   'error',
   'errorDesc',
-  'retry',
-  'upToDate',
 ] as const
 
 /** web 独占的强更弹窗文案(web 有阻塞弹窗,RN 目前没有强更通道)。 */
@@ -60,11 +56,19 @@ const WEB_ONLY_KEYS = [
   'gateForceBody',
   'gateReleaseNotes',
   'gateUpdateNow',
-  'gateLater',
   'gateQuit',
   'gateQuitConfirm',
   'gateQuitFailed',
 ] as const
+
+/**
+ * 已被审计删掉的死键:不许再回来(回来就是"写了不渲染"的第二份真相源)。
+ *   checking/downloading —— 两端 UI 都不显示这两个中间态
+ *   upToDate —— 设置页用的是 settings.checkUpdateLatest
+ *   retry —— 重启失败改成"回到 ready 再点一次"
+ *   gateLater —— 强更弹窗里 skip 侧门恒锁死,那块 UI 结构上永不渲染
+ */
+const REMOVED_DEAD_KEYS = ['checking', 'downloading', 'upToDate', 'retry', 'gateLater'] as const
 
 describe('appUpdate 文案:web 5 语言键集一致(S1)', () => {
   it('每个语言都齐 SHARED_KEYS + WEB_ONLY_KEYS', () => {
@@ -128,6 +132,43 @@ describe('appUpdate 文案:旧命名空间不得残留(S4)', () => {
         Object.hasOwn(readMessages('web', locale), 'appUpdate'),
         `web/${locale} 缺 appUpdate`,
       ).toBe(true)
+    }
+  })
+})
+
+describe('appUpdate 文案:死键不许回来(S5)', () => {
+  it('审计删掉的键两端都不存在', () => {
+    for (const locale of LOCALES) {
+      const web = appUpdateOf('web', locale)
+      const mobile = appUpdateOf('mobile-rn', locale)
+      for (const key of REMOVED_DEAD_KEYS) {
+        expect(web[key], `web/${locale} 又长回死键 ${key}`).toBeUndefined()
+        expect(mobile[key], `mobile-rn/${locale} 又长回死键 ${key}`).toBeUndefined()
+      }
+    }
+  })
+
+  it('键集恰好等于"共用键 + web 独占键"(没有多余项)', () => {
+    for (const locale of LOCALES) {
+      const webKeys = Object.keys(appUpdateOf('web', locale)).sort()
+      expect(webKeys).toEqual([...SHARED_KEYS, ...WEB_ONLY_KEYS].sort())
+      const mobileKeys = Object.keys(appUpdateOf('mobile-rn', locale)).sort()
+      expect(mobileKeys).toEqual([...SHARED_KEYS].sort())
+    }
+  })
+})
+
+describe('pwaInstall 文案:web 5 语言齐(S6)', () => {
+  it('title/body/action/close 都存在且非空,5 语言键集一致', () => {
+    const baseline = ['action', 'body', 'close', 'title']
+    for (const locale of LOCALES) {
+      const dict = readMessages('web', locale) as { pwaInstall?: Record<string, string> }
+      expect(dict.pwaInstall, `web/${locale} 缺 pwaInstall`).toBeTypeOf('object')
+      const ns = dict.pwaInstall as Record<string, string>
+      expect(Object.keys(ns).sort()).toEqual(baseline)
+      for (const [k, v] of Object.entries(ns)) {
+        expect(v.length, `web/${locale} 的 pwaInstall.${k} 是空串`).toBeGreaterThan(0)
+      }
     }
   })
 })

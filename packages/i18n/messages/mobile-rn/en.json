@@ -6739,13 +6739,9 @@
     "body": "Refresh the page to get the latest version",
     "action": "Update",
     "close": "Close",
-    "checking": "Checking for updates…",
-    "downloading": "Downloading update…",
     "ready": "Update ready",
     "installing": "Restarting…",
     "error": "Update failed",
-    "errorDesc": "Check your network and try again",
-    "retry": "Retry",
-    "upToDate": "You are on the latest version"
+    "errorDesc": "Check your network and try again"
   }
 }

@@ -121,8 +121,6 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
       ? t('gateBody', { version: decision.currentVersion, latest })
       : t('gateForceBody', { latest })
   const releaseNotes = decision.releaseNotes?.trim() ?? ''
-  const skip = gateAllowsAction(state, decision, 'skip')
-  const cancel = gateAllowsAction(state, decision, 'cancel')
 
   return (
     <div
@@ -158,28 +156,12 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
         </div>
         <div className="mt-5 flex items-center justify-end gap-2">
           {/*
-            skip / cancel 侧门:强更会话里 gateAllowsAction 恒返回 allowed=false。
-            锁死就**不渲染** —— 给一个点了没反应的按钮等于骗人
+            这里**只有** manual(立即更新)与 quit(关闭页面)两个动作。
+            skip/cancel 侧门在强更会话里被 gateAllowsAction 恒判 allowed=false,
+            所以不渲染 —— 给一个点了没反应的按钮等于骗人
             (本仓铁律:失效方向只能是"多要一次定向说明",不能是"多放一次跳门")。
+            普通更新(非强更)根本走不到这个弹窗,它在下面走可关闭的卡片分支。
           */}
-          {skip.allowed ? (
-            <button
-              type="button"
-              onClick={() => setDismissed(true)}
-              className="rounded-sm px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
-            >
-              {t('gateLater')}
-            </button>
-          ) : null}
-          {cancel.allowed ? (
-            <button
-              type="button"
-              onClick={() => setDismissed(true)}
-              className="rounded-sm px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
-            >
-              {t('close')}
-            </button>
-          ) : null}
           {confirmQuit ? (
             <button
               type="button"
