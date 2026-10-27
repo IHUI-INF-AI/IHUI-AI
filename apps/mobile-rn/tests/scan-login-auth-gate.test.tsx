@@ -53,8 +53,10 @@ import { rnAuthStore, selectIsAuthenticated } from '../src/stores/auth-store'
 import { I18nProvider, messages } from '../src/i18n'
 
 const zh = messages['zh-CN'] as Record<string, unknown>
-const needLoginText = (zh.scanLogin as Record<string, string>).needLogin
-const loginText = (zh.common as Record<string, string>).login
+// 索引签名在 noUncheckedIndexedAccess 下返回 string | undefined,而 getByText 的 Matcher 不收 undefined。
+// 这里取的就是五语言档案里必存在的两条文案,缺键应当让本套件直接红(而不是静默传 undefined)。
+const needLoginText = (zh.scanLogin as Record<string, string>).needLogin!
+const loginText = (zh.common as Record<string, string>).login!
 
 function renderScreen() {
   return render(createElement(I18nProvider, null, createElement(ScanLoginScreen)))
