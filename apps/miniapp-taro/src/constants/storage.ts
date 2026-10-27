@@ -68,8 +68,6 @@ export const ACCOUNT_SCOPED_CONTENT_KEYS = [
   VIDEO_HISTORY_KEY,
   AGENT_DIALOGUE_DATA_KEY,
 ] as const
-export const AI_AGENT_TIP_SHOWN_KEY = 'ai_agent_tip_shown' as const
-export const AGENT_DIALOGUE_DATA_KEY = 'ihui-agent-dialogue-data' as const
 
 // 业务相关
 export const BUSINESS_CARD_DATA_KEY = 'ihui-business-card-data' as const
