@@ -29176,5 +29176,11 @@
     "gateQuit": "關閉頁面",
     "gateQuitConfirm": "更新尚未完成,關閉頁面會中斷本次使用,確定關閉?",
     "gateQuitFailed": "無法自動關閉頁面,請手動關閉此分頁"
+  },
+  "pwaInstall": {
+    "title": "安裝應用程式",
+    "body": "加入主畫面,獲得更佳體驗",
+    "action": "安裝",
+    "close": "關閉"
   }
 }
