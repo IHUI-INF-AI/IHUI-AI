@@ -1105,6 +1105,16 @@
       "shared": "packages/app/src/features/knowledge-planet/KnowledgePlanetScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/KnowledgePlanetScreen.tsx",
       "miniapp": "pkg-user/knowledge-planet/index"
+    },
+    {
+      "shared": "packages/app/src/features/learn/LearnScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseScreen.tsx",
+      "miniapp": "pkg-learn/learn/index"
+    },
+    {
+      "shared": "packages/app/src/features/sub-package-index/SubPackageIndexScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SubPackageIndexScreen.tsx",
+      "miniapp": "pkg-user/sub-package-index/index"
     }
   ]
 }
