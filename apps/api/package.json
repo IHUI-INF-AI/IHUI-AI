@@ -24,7 +24,8 @@
     "qoder:import": "tsx scripts/relay-import-qoder.ts",
     "relay:inspect": "tsx scripts/relay-account-inspect.ts",
     "relay:sessions": "tsx scripts/relay-session-inspect.ts",
-    "relay:sessions:backup": "tsx scripts/relay-session-backup.ts"
+    "relay:sessions:backup": "tsx scripts/relay-session-backup.ts",
+    "relay:switch-account": "tsx scripts/relay-account-switch.ts"
   },
   "dependencies": {
     "@alicloud/dysmsapi20170525": "^4.6.0",
