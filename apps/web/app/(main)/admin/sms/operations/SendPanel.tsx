@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { useConfirm } from '@/hooks/use-confirm'
 import { Loader2, Send } from 'lucide-react'
@@ -29,15 +30,16 @@ import {
 import { Textarea } from '@/components/form'
 import {
   BASE,
-  CATEGORY_LABELS,
+  CATEGORY_LABEL_KEYS,
+  ERROR_LABEL_KEYS,
   PHONE_RE,
+  PROVIDER_LABEL_KEYS,
   TEMPLATE_KEYS,
+  TEMPLATE_LABEL_KEYS,
   api,
-  errorLabel,
+  codeLabel,
   normalizePhoneInput,
   parseDryRun,
-  providerLabel,
-  templateLabel,
 } from './helpers'
 import type {
   SmsBroadcastResponse,
@@ -78,12 +80,13 @@ function newRequestId(): string {
   return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function reviewSuffix(row: SmsTemplateRow | undefined): string {
+/** 模板下拉项的审核后缀:只回 i18n 键,无后缀时回空串(分隔符由渲染处给)。 */
+function reviewSuffixKey(row: SmsTemplateRow | undefined): string {
   if (!row) return ''
-  if (!row.templateId) return ' · 未回填'
-  if (row.reviewStatus === 'rejected') return ' · 审核未通过'
-  if (row.reviewStatus === 'pending') return ' · 审核中'
-  if (row.reviewStatus === 'approved') return ' · 已生效'
+  if (!row.templateId) return 'status.notBackfilled'
+  if (row.reviewStatus === 'rejected') return 'send.suffixRejected'
+  if (row.reviewStatus === 'pending') return 'review.pending'
+  if (row.reviewStatus === 'approved') return 'review.approved'
   return ''
 }
 
@@ -98,6 +101,7 @@ function TemplateSelect({
   onChange: (v: string) => void
   templates: SmsTemplateRow[]
 }) {
+  const t = useTranslations('admin.smsOperations')
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger>
@@ -105,11 +109,12 @@ function TemplateSelect({
       </SelectTrigger>
       <SelectContent>
         {TEMPLATE_KEYS[category].map((key) => {
-          const row = templates.find((t) => t.category === category && t.key === key)
+          const row = templates.find((tpl) => tpl.category === category && tpl.key === key)
+          const suffixKey = reviewSuffixKey(row)
           return (
             <SelectItem key={key} value={key}>
-              {templateLabel(key)}
-              {reviewSuffix(row)}
+              {codeLabel(TEMPLATE_LABEL_KEYS, key, t)}
+              {suffixKey ? ` · ${t(suffixKey)}` : ''}
             </SelectItem>
           )
         })}
@@ -127,20 +132,22 @@ function CategorySelect({
   onChange: (v: SmsCategory) => void
   id?: string
 }) {
+  const t = useTranslations('admin.smsOperations')
   return (
     <Select value={value} onValueChange={(v) => onChange(v as SmsCategory)}>
       <SelectTrigger id={id}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="notice">{CATEGORY_LABELS.notice}</SelectItem>
-        <SelectItem value="marketing">{CATEGORY_LABELS.marketing}</SelectItem>
+        <SelectItem value="notice">{t(CATEGORY_LABEL_KEYS.notice)}</SelectItem>
+        <SelectItem value="marketing">{t(CATEGORY_LABEL_KEYS.marketing)}</SelectItem>
       </SelectContent>
     </Select>
   )
 }
 
 export function SendPanel({ status }: { status: SmsStatus }) {
+  const t = useTranslations('admin.smsOperations')
   const [form, setForm] = React.useState<SendForm>({
     phone: '',
     category: 'notice',
@@ -200,8 +207,11 @@ export function SendPanel({ status }: { status: SmsStatus }) {
     onSuccess: (result) => {
       setBcastResult(result)
       if (!result.dryRun) broadcastRequestIdRef.current = null
-      if (result.dryRun) toast.success(`预演完成:命中 ${result.total} 个号码`)
-      else toast.success(`群发完成:成功 ${result.sent ?? 0} / 失败 ${result.failed ?? 0}`)
+      if (result.dryRun) toast.success(t('send.dryRunDoneToast', { count: result.total }))
+      else
+        toast.success(
+          t('send.broadcastDoneToast', { sent: result.sent ?? 0, failed: result.failed ?? 0 }),
+        )
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -210,27 +220,27 @@ export function SendPanel({ status }: { status: SmsStatus }) {
     e.preventDefault()
     const phone = normalizePhoneInput(form.phone)
     if (!PHONE_RE.test(phone)) {
-      toast.error('手机号格式不正确(支持 13800000000 / +8613800000000)')
+      toast.error(t('field.phoneInvalid'))
       return
     }
     const content = form.fallbackContent.trim()
     if (content && content.length > 35) {
-      toast.error('阿里云兜底正文不能超过 35 字(变量长度上限)')
+      toast.error(t('send.fallbackTooLong'))
       return
     }
     if (marketingOff && form.category === 'marketing' && !form.dryRun) {
-      toast.error('营销总开关已关闭,营销短信仅可预演')
+      toast.error(t('send.marketingOffToast'))
       return
     }
     const tpl = status.templates.find(
-      (t) => t.category === form.category && t.key === form.templateKey,
+      (row) => row.category === form.category && row.key === form.templateKey,
     )
     if (!form.dryRun && !tpl?.templateId && !content) {
-      toast.error('该模板尚未回填 ID,真发需要先回填或填写兜底正文走阿里云通道')
+      toast.error(t('send.templateNotBackfilled'))
       return
     }
     if (!form.dryRun && tpl?.reviewStatus === 'rejected' && !content) {
-      toast.error('该模板腾讯审核未通过,请在兜底正文填写文案后重试')
+      toast.error(t('send.templateRejected'))
       return
     }
     setSendResult(null)
@@ -253,43 +263,43 @@ export function SendPanel({ status }: { status: SmsStatus }) {
     e.preventDefault()
     const content = bcast.fallbackContent.trim()
     if (content && content.length > 35) {
-      toast.error('阿里云兜底正文不能超过 35 字(变量长度上限)')
+      toast.error(t('send.fallbackTooLong'))
       return
     }
     if (!bcast.dryRun && bcast.confirm.trim() !== requiredConfirm()) {
-      toast.error(`真发需要输入确认词 ${requiredConfirm()}`)
+      toast.error(t('send.confirmWordRequired', { word: requiredConfirm() }))
       return
     }
     if (marketingOff && bcast.category === 'marketing' && !bcast.dryRun) {
-      toast.error('营销总开关已关闭,营销短信仅可预演')
+      toast.error(t('send.marketingOffToast'))
       return
     }
     const tpl = status.templates.find(
-      (t) => t.category === bcast.category && t.key === bcast.templateKey,
+      (row) => row.category === bcast.category && row.key === bcast.templateKey,
     )
     if (!bcast.dryRun && !tpl?.templateId && !content) {
-      toast.error('该模板尚未回填 ID,真发需要先回填或填写兜底正文走阿里云通道')
+      toast.error(t('send.templateNotBackfilled'))
       return
     }
     if (!bcast.dryRun && tpl?.reviewStatus === 'rejected' && !content) {
-      toast.error('该模板腾讯审核未通过,请在兜底正文填写文案后重试')
+      toast.error(t('send.templateRejected'))
       return
     }
     const limit = Number(bcast.limit)
     if (!Number.isInteger(limit) || limit < 1 || limit > status.broadcastLimit) {
-      toast.error(`本次数量需为 1–${status.broadcastLimit} 的整数`)
+      toast.error(t('send.limitInvalid', { max: status.broadcastLimit }))
       return
     }
     const excludeDays = Number(bcast.excludeRecentDays)
     if (!Number.isInteger(excludeDays) || excludeDays < 0 || excludeDays > 30) {
-      toast.error('跳过天数需为 0–30 的整数')
+      toast.error(t('send.excludeDaysInvalid'))
       return
     }
     if (!bcast.dryRun && excludeDays === 0) {
       const ok = await confirm({
-        title: '跳过天数为 0',
-        description: '本次群发不会排除近期已收到同模板的用户,可能与刚收到过的人重复打扰。确认继续?',
-        confirmText: '继续真发',
+        title: t('send.zeroDaysTitle'),
+        description: t('send.zeroDaysDesc'),
+        confirmText: t('send.zeroDaysConfirm'),
       })
       if (!ok) return
     }
@@ -318,25 +328,33 @@ export function SendPanel({ status }: { status: SmsStatus }) {
   const marketingOff = !status.compliance.marketingEnabled
   const sendBlocked = marketingOff && form.category === 'marketing' && !form.dryRun
   const bcastBlocked = marketingOff && bcast.category === 'marketing' && !bcast.dryRun
+  /** 群发范围的三段读数(范围内 / 跳过已收 / 可发);整条句子走 ICU,不拆成片段拼接。 */
+  function scopeSummary(r: SmsBroadcastResponse): string {
+    return t('send.scopeSummary', {
+      scopeTotal: r.scopeTotal ?? '-',
+      days: r.excludeRecentDays ?? 0,
+      excluded: r.excludedRecent ?? 0,
+      eligible: r.eligible ?? '-',
+    })
+  }
 
   return (
     <div className="space-y-4">
       {marketingOff && (
         <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
-          营销总开关已关闭(SMS_MARKETING_ENABLED=0):营销类短信仅可预演,真发会被后端统一拦截;
-          通知类短信不受影响。
+          {t('send.marketingOffBanner')}
         </p>
       )}
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">单发</CardTitle>
-            <CardDescription>客服补偿与联调使用,默认预演不消耗额度。</CardDescription>
+            <CardTitle className="text-base">{t('send.cardSingle')}</CardTitle>
+            <CardDescription>{t('send.cardSingleDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-3" onSubmit={submitSend}>
               <div className="space-y-1">
-                <Label htmlFor="send-phone">手机号</Label>
+                <Label htmlFor="send-phone">{t('field.phone')}</Label>
                 <Input
                   id="send-phone"
                   value={form.phone}
@@ -348,7 +366,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label>用途</Label>
+                  <Label>{t('field.usage')}</Label>
                   <CategorySelect
                     value={form.category}
                     onChange={(category) =>
@@ -357,7 +375,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>模板</Label>
+                  <Label>{t('field.template')}</Label>
                   <TemplateSelect
                     category={form.category}
                     value={form.templateKey}
@@ -368,16 +386,16 @@ export function SendPanel({ status }: { status: SmsStatus }) {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="send-fallback">兜底正文(可选)</Label>
+                <Label htmlFor="send-fallback">{t('field.fallbackContent')}</Label>
                 <Textarea
                   id="send-fallback"
                   rows={2}
                   value={form.fallbackContent}
                   onChange={(e) => setForm({ ...form, fallbackContent: e.target.value })}
-                  placeholder="腾讯模板未过审时回落阿里云通知模板使用,≤35 字"
+                  placeholder={t('send.fallbackPlaceholder')}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {form.fallbackContent.trim().length}/35 · 腾讯已过审时不会使用
+                  {t('send.fallbackCounter', { n: form.fallbackContent.trim().length })}
                 </p>
               </div>
 
@@ -388,7 +406,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                     checked={form.dryRun}
                     onCheckedChange={(dryRun) => setForm({ ...form, dryRun })}
                   />
-                  <Label htmlFor="send-dry-run">预演(不真发)</Label>
+                  <Label htmlFor="send-dry-run">{t('send.dryRunLabel')}</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch
@@ -396,7 +414,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                     checked={form.skipRateLimit}
                     onCheckedChange={(skipRateLimit) => setForm({ ...form, skipRateLimit })}
                   />
-                  <Label htmlFor="send-skip-rate">跳过单号频控</Label>
+                  <Label htmlFor="send-skip-rate">{t('send.skipRateLimitLabel')}</Label>
                 </div>
               </div>
 
@@ -406,7 +424,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-                发送
+                {t('send.submitLabel')}
               </Button>
             </form>
 
@@ -414,19 +432,28 @@ export function SendPanel({ status }: { status: SmsStatus }) {
               <div className="mt-3 rounded-md border p-3 text-sm">
                 {dryRunView ? (
                   <p>
-                    预演通过:通道解析为
-                    <Badge variant="secondary" className="mx-1">
-                      {providerLabel(dryRunView.channel)}
-                    </Badge>
-                    未消耗额度。
+                    {t.rich('send.dryRunPassed', {
+                      channel: codeLabel(PROVIDER_LABEL_KEYS, dryRunView.channel, t),
+                      badge: (chunks) => (
+                        <Badge variant="secondary" className="mx-1">
+                          {chunks}
+                        </Badge>
+                      ),
+                    })}
                   </p>
                 ) : sendResult.result.sent ? (
                   <p className="text-emerald-600">
-                    发送成功 · 通道 {providerLabel(sendResult.result.provider ?? '-')} · 模板{' '}
-                    {sendResult.result.templateId ?? '-'}
+                    {t('send.sentSuccess', {
+                      channel: codeLabel(PROVIDER_LABEL_KEYS, sendResult.result.provider, t),
+                      template: sendResult.result.templateId ?? '-',
+                    })}
                   </p>
                 ) : (
-                  <p className="text-destructive">发送失败:{errorLabel(sendResult.result.error)}</p>
+                  <p className="text-destructive">
+                    {t('send.sendFailed', {
+                      reason: codeLabel(ERROR_LABEL_KEYS, sendResult.result.error, t),
+                    })}
+                  </p>
                 )}
               </div>
             )}
@@ -435,19 +462,19 @@ export function SendPanel({ status }: { status: SmsStatus }) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">群发</CardTitle>
+            <CardTitle className="text-base">{t('send.cardBroadcast')}</CardTitle>
             <CardDescription>
-              面向全量用户,按注册时间正序取前 N 个有手机号的号码;默认跳过近{' '}
-              {status.broadcastExcludeRecentDays}{' '}
-              天已成功收到同一模板的用户,让后续批次自然向后推进。 单次上限 {status.broadcastLimit}{' '}
-              条。
+              {t('send.cardBroadcastDesc', {
+                days: status.broadcastExcludeRecentDays,
+                limit: status.broadcastLimit,
+              })}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-3" onSubmit={submitBroadcast}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label>用途</Label>
+                  <Label>{t('field.usage')}</Label>
                   <CategorySelect
                     value={bcast.category}
                     onChange={(category) =>
@@ -461,7 +488,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>模板</Label>
+                  <Label>{t('field.template')}</Label>
                   <TemplateSelect
                     category={bcast.category}
                     value={bcast.templateKey}
@@ -473,7 +500,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
-                  <Label htmlFor="bcast-limit">本次数量</Label>
+                  <Label htmlFor="bcast-limit">{t('send.limitLabel')}</Label>
                   <Input
                     id="bcast-limit"
                     type="number"
@@ -484,7 +511,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="bcast-exclude">跳过近 N 天已收</Label>
+                  <Label htmlFor="bcast-exclude">{t('send.excludeLabel')}</Label>
                   <Input
                     id="bcast-exclude"
                     type="number"
@@ -496,15 +523,15 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                       setBcast({ ...bcast, excludeRecentDays: e.target.value })
                     }}
                   />
-                  <p className="text-xs text-muted-foreground">0 = 不跳过</p>
+                  <p className="text-xs text-muted-foreground">{t('send.excludeZeroHint')}</p>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="bcast-fallback">兜底正文(可选)</Label>
+                  <Label htmlFor="bcast-fallback">{t('field.fallbackContent')}</Label>
                   <Input
                     id="bcast-fallback"
                     value={bcast.fallbackContent}
                     onChange={(e) => setBcast({ ...bcast, fallbackContent: e.target.value })}
-                    placeholder="≤35 字"
+                    placeholder={t('send.fallbackShortPlaceholder')}
                     maxLength={35}
                   />
                 </div>
@@ -512,9 +539,10 @@ export function SendPanel({ status }: { status: SmsStatus }) {
 
               {bcast.category === 'marketing' && (
                 <p className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
-                  营销类受退订黑名单、单号 2 条/日与 4 条/月、全局日上限
-                  {status.compliance.marketingGlobalDailyCap} 条、以及
-                  {status.compliance.marketingSendWindow} 时段限制。
+                  {t('send.marketingConstraint', {
+                    cap: status.compliance.marketingGlobalDailyCap,
+                    window: status.compliance.marketingSendWindow,
+                  })}
                 </p>
               )}
 
@@ -525,14 +553,17 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                     checked={bcast.dryRun}
                     onCheckedChange={(dryRun) => setBcast({ ...bcast, dryRun })}
                   />
-                  <Label htmlFor="bcast-dry-run">预演(不真发)</Label>
+                  <Label htmlFor="bcast-dry-run">{t('send.dryRunLabel')}</Label>
                 </div>
               </div>
 
               {!bcast.dryRun && (
                 <div className="space-y-1">
                   <Label htmlFor="bcast-confirm">
-                    确认词(输入 <code className="font-mono">{requiredConfirm()}</code> 才会真发)
+                    {t.rich('send.confirmLabel', {
+                      word: requiredConfirm(),
+                      code: (chunks) => <code className="font-mono">{chunks}</code>,
+                    })}
                   </Label>
                   <Input
                     id="bcast-confirm"
@@ -546,7 +577,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                     className="text-xs text-primary hover:underline"
                     onClick={() => setBcast({ ...bcast, confirm: requiredConfirm() })}
                   >
-                    填入确认词
+                    {t('send.fillConfirmWord')}
                   </button>
                 </div>
               )}
@@ -557,7 +588,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-                执行群发
+                {t('send.submitBroadcastLabel')}
               </Button>
             </form>
 
@@ -566,39 +597,44 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                 {bcastResult.dryRun ? (
                   <>
                     <p>
-                      预演:命中 {bcastResult.total} 个号码 · 通道{' '}
-                      {providerLabel(bcastResult.channel ?? '-')} · 模板{' '}
-                      {bcastResult.templateId ?? '-'}
+                      {t('send.dryRunSummary', {
+                        total: bcastResult.total,
+                        channel: codeLabel(PROVIDER_LABEL_KEYS, bcastResult.channel, t),
+                        template: bcastResult.templateId ?? '-',
+                      })}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      范围内 {bcastResult.scopeTotal ?? '-'} 个 · 跳过近{' '}
-                      {bcastResult.excludeRecentDays ?? 0} 天已收 {bcastResult.excludedRecent ?? 0}{' '}
-                      个 · 可发 {bcastResult.eligible ?? '-'} 个
+                      {scopeSummary(bcastResult)}
                       {(bcastResult.targetOffset ?? 0) > 0
-                        ? ` · 起始偏移 ${bcastResult.targetOffset}`
+                        ? ` · ${t('send.scopeOffset', { offset: bcastResult.targetOffset ?? 0 })}`
                         : ''}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      样本号码:{bcastResult.samplePhones?.join('、') || '-'}
+                      {t('send.samplePhones', {
+                        phones: bcastResult.samplePhones?.join('、') || '-',
+                      })}
                     </p>
                   </>
                 ) : (
                   <>
                     <p>
-                      共 {bcastResult.total} 条 · 成功{' '}
-                      <span className="font-medium text-emerald-600">{bcastResult.sent ?? 0}</span>{' '}
-                      · 失败{' '}
-                      <span className="font-medium text-destructive">
-                        {bcastResult.failed ?? 0}
-                      </span>{' '}
-                      · 拦截 {bcastResult.suppressed ?? 0}
+                      {t.rich('send.broadcastSummary', {
+                        total: bcastResult.total,
+                        sent: bcastResult.sent ?? 0,
+                        failed: bcastResult.failed ?? 0,
+                        suppressed: bcastResult.suppressed ?? 0,
+                        ok: (chunks) => (
+                          <span className="font-medium text-emerald-600">{chunks}</span>
+                        ),
+                        bad: (chunks) => (
+                          <span className="font-medium text-destructive">{chunks}</span>
+                        ),
+                      })}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      范围内 {bcastResult.scopeTotal ?? '-'} 个 · 跳过近{' '}
-                      {bcastResult.excludeRecentDays ?? 0} 天已收 {bcastResult.excludedRecent ?? 0}{' '}
-                      个 · 可发 {bcastResult.eligible ?? '-'} 个
+                      {scopeSummary(bcastResult)}
                       {(bcastResult.targetOffset ?? 0) > 0
-                        ? ` · 起始偏移 ${bcastResult.targetOffset}`
+                        ? ` · ${t('send.scopeOffset', { offset: bcastResult.targetOffset ?? 0 })}`
                         : ''}
                     </p>
                     {bcastResult.idempotentHint && (
@@ -616,7 +652,9 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                             <span className="font-mono text-muted-foreground">
                               {f.phone ?? '-'}
                             </span>
-                            <span className="text-destructive">{errorLabel(f.error)}</span>
+                            <span className="text-destructive">
+                              {codeLabel(ERROR_LABEL_KEYS, f.error, t)}
+                            </span>
                           </div>
                         ))}
                       </div>

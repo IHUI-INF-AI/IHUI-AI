@@ -5,6 +5,13 @@
 import { apiOrThrow } from '@/lib/api'
 import type { SmsCategory, SmsReviewStatus } from './types'
 
+/** 组件侧 `useTranslations()` 返回的取值函数;本模块只做「码 → 文案」的查表展示,
+ *  不自己持有命名空间(命名空间由调用它的组件决定)。 */
+type Translate = (key: string, values?: Record<string, string | number>) => string
+
+/** 徽标色调;与 REVIEW_LABELS / LOG_STATUS 共用。 */
+export type BadgeTone = 'default' | 'secondary' | 'destructive' | 'outline'
+
 export const BASE = '/api/admin/sms'
 
 /** 校验用的**归一后**形态:11 位大陆手机号。输入先过 normalizePhoneInput,
@@ -40,50 +47,50 @@ export const TEMPLATE_KEYS: Record<SmsCategory, string[]> = {
   marketing: ['new-feature', 'promo'],
 }
 
-export const TEMPLATE_LABELS: Record<string, string> = {
-  'binding-success': '手机绑定成功',
-  'new-device': '新设备登录提醒',
-  'password-changed': '密码修改提醒',
-  maintenance: '系统维护通知',
-  'account-cancel': '账号注销确认',
-  'membership-expiry': '会员到期提醒',
-  'payment-success': '支付成功通知',
-  'content-reject': '内容审核驳回',
-  'security-limit': '安全风控限制',
-  'service-restore': '服务恢复通知',
-  'new-feature': '新功能上线',
-  promo: '优惠活动',
+/** 模板码 → i18n 键(命名空间 `admin.smsOperations`,键由组件侧的 `t()` 解析)。 */
+export const TEMPLATE_LABEL_KEYS: Record<string, string> = {
+  'binding-success': 'template.bindingSuccess',
+  'new-device': 'template.newDevice',
+  'password-changed': 'template.passwordChanged',
+  maintenance: 'template.maintenance',
+  'account-cancel': 'template.accountCancel',
+  'membership-expiry': 'template.membershipExpiry',
+  'payment-success': 'template.paymentSuccess',
+  'content-reject': 'template.contentReject',
+  'security-limit': 'template.securityLimit',
+  'service-restore': 'template.serviceRestore',
+  'new-feature': 'template.newFeature',
+  promo: 'template.promo',
 }
 
-/** 腾讯云审核状态 → 徽标文案与色调。null(未回填模板 ID)单独走"未回填"。 */
-export const REVIEW_LABELS: Record<
-  SmsReviewStatus,
-  { label: string; tone: 'default' | 'secondary' | 'destructive' | 'outline' }
-> = {
-  approved: { label: '已生效', tone: 'default' },
-  pending: { label: '审核中', tone: 'secondary' },
-  rejected: { label: '未通过', tone: 'destructive' },
-  unknown: { label: '状态未知', tone: 'outline' },
+/** 腾讯云审核状态 → i18n 键与徽标色调。null(未回填模板 ID)单独走"未回填"。 */
+export const REVIEW_LABELS: Record<SmsReviewStatus, { key: string; tone: BadgeTone }> = {
+  approved: { key: 'review.approved', tone: 'default' },
+  pending: { key: 'review.pending', tone: 'secondary' },
+  rejected: { key: 'review.rejected', tone: 'destructive' },
+  unknown: { key: 'review.unknown', tone: 'outline' },
 }
 
-export function reviewLabel(status: SmsReviewStatus | null): {
-  label: string
-  tone: 'default' | 'secondary' | 'destructive' | 'outline'
-} {
-  return status ? REVIEW_LABELS[status] : { label: '未回填', tone: 'outline' }
+export function reviewLabel(status: SmsReviewStatus | null): { key: string; tone: BadgeTone } {
+  return status ? REVIEW_LABELS[status] : { key: 'status.notBackfilled', tone: 'outline' }
 }
 
-export const CATEGORY_LABELS: Record<SmsCategory, string> = {
-  notice: '通知类',
-  marketing: '营销类',
+export const CATEGORY_LABEL_KEYS: Record<SmsCategory, string> = {
+  notice: 'category.notice',
+  marketing: 'category.marketing',
 }
 
-export function templateLabel(key: string): string {
-  return TEMPLATE_LABELS[key] ?? key
-}
-
-export function categoryLabel(category: string): string {
-  return CATEGORY_LABELS[category as SmsCategory] ?? category
+/** 码 → 可读文案:命中查表取译文,未命中原样回显该码(空码回显 '-')。
+ *  与后端可能新增的码保持向后兼容,不把「没判」显示成空白。
+ *  形参泛型化是为了让 `Record<SmsCategory, string>` 这类穷举表也能直接传入。 */
+export function codeLabel<K extends string>(
+  keys: Record<K, string>,
+  code: string | null | undefined,
+  t: Translate,
+): string {
+  if (!code) return '-'
+  const key: string | undefined = (keys as Partial<Record<string, string>>)[code]
+  return key ? t(key) : code
 }
 
 /** PostgreSQL timestamptz → 本地可读时间(浏览器时区)。 */
@@ -98,59 +105,53 @@ export function maskPhone(phone: string): string {
   return phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : '***'
 }
 
-/** 台账状态 → 中文与徽标色。未知状态原样显示为 outline。 */
-export const LOG_STATUS: Record<
-  string,
-  { label: string; tone: 'default' | 'secondary' | 'destructive' | 'outline' }
-> = {
-  accepted: { label: '已提交', tone: 'secondary' },
-  delivered: { label: '已送达', tone: 'default' },
-  delivery_failed: { label: '投递失败', tone: 'destructive' },
-  failed: { label: '发送失败', tone: 'destructive' },
-  suppressed: { label: '已拦截', tone: 'outline' },
+/** 台账状态 → i18n 键与徽标色。未知状态原样显示为 outline。 */
+export const LOG_STATUS: Record<string, { key: string; tone: BadgeTone }> = {
+  accepted: { key: 'log.statusAccepted', tone: 'secondary' },
+  delivered: { key: 'log.statusDelivered', tone: 'default' },
+  delivery_failed: { key: 'log.statusDeliveryFailed', tone: 'destructive' },
+  failed: { key: 'log.statusFailed', tone: 'destructive' },
+  suppressed: { key: 'log.statusSuppressed', tone: 'outline' },
 }
 
 export function logStatus(status: string): {
-  label: string
-  tone: 'default' | 'secondary' | 'destructive' | 'outline'
+  key: string
+  tone: BadgeTone
+  values?: Record<string, string>
 } {
-  return LOG_STATUS[status] ?? { label: status, tone: 'outline' }
+  const hit = LOG_STATUS[status]
+  return hit
+    ? { key: hit.key, tone: hit.tone }
+    : { key: 'log.rawCode', tone: 'outline', values: { code: status } }
 }
 
-export const PROVIDER_LABELS: Record<string, string> = {
-  tencent: '腾讯云',
-  aliyun: '阿里云',
-  proxy: '自建代理',
-  none: '无可用通道',
+export const PROVIDER_LABEL_KEYS: Record<string, string> = {
+  tencent: 'provider.tencent',
+  aliyun: 'provider.aliyun',
+  proxy: 'provider.proxy',
+  none: 'provider.none',
 }
 
-export function providerLabel(p: string): string {
-  return PROVIDER_LABELS[p] ?? p
-}
-
-/** 失败原因码 → 可读说明。后端只回错误码或配置键名,不夹带云侧原文。 */
-export const ERROR_LABELS: Record<string, string> = {
-  rate_limited: '单号频控命中',
-  suppressed_unsubscribed: '已退订/拒收',
-  unsubscribe_check_unavailable: '退订黑名单查询失败(营销 fail-closed)',
-  no_channel: '无可用通道(配置缺失)',
-  not_configured: '模板或通道未配置',
-  outside_marketing_window: '不在营销发送时段(08:00–21:00)',
-  marketing_window_closed: '不在营销发送时段(08:00–21:00)',
-  global_daily_cap: '营销全局日上限已满',
-  marketing_daily_cap_reached: '营销全局日上限已满',
-  sdk_unavailable: '云 SDK 不可用',
-  aliyun_sdk_unavailable: '阿里云 SDK 不可用',
-  aliyun_response_unparsable: '阿里云响应无法解析',
-  proxy_call_failed: '自建代理调用失败',
-  invalid_template: '模板 key 不合法',
-  marketing_disabled: '营销总开关已关闭(SMS_MARKETING_ENABLED=0)',
-  duplicate: '同一业务事件已发送(幂等拦截)',
-}
-
-export function errorLabel(code: string | undefined): string {
-  if (!code) return '-'
-  return ERROR_LABELS[code] ?? code
+/** 失败原因码 → i18n 键。后端只回错误码或配置键名,不夹带云侧原文。
+ *  两个同义的旧码(`outside_marketing_window` / `marketing_window_closed` 与
+ *  `global_daily_cap` / `marketing_daily_cap_reached`)共用同一条文案,不留第二份。 */
+export const ERROR_LABEL_KEYS: Record<string, string> = {
+  rate_limited: 'error.rateLimited',
+  suppressed_unsubscribed: 'error.suppressedUnsubscribed',
+  unsubscribe_check_unavailable: 'error.unsubscribeCheckUnavailable',
+  no_channel: 'error.noChannel',
+  not_configured: 'error.notConfigured',
+  outside_marketing_window: 'error.notInMarketingWindow',
+  marketing_window_closed: 'error.notInMarketingWindow',
+  global_daily_cap: 'error.globalDailyCapReached',
+  marketing_daily_cap_reached: 'error.globalDailyCapReached',
+  sdk_unavailable: 'error.sdkUnavailable',
+  aliyun_sdk_unavailable: 'error.aliyunSdkUnavailable',
+  aliyun_response_unparsable: 'error.aliyunResponseUnparsable',
+  proxy_call_failed: 'error.proxyCallFailed',
+  invalid_template: 'error.invalidTemplate',
+  marketing_disabled: 'error.marketingDisabled',
+  duplicate: 'error.duplicate',
 }
 
 /** dryRun 的返回是 `dry_run: <channel>`,不是失败;面板需按预演展示。 */
