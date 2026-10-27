@@ -429,6 +429,7 @@
     "githubLogin": "GitHub",
     "googleLogin": "Google",
     "googleNotConfigured": "Google Login is not configured",
+    "platformNotConfigured": "This sign-in method is not configured",
     "hasAccount": "Already have an account?",
     "invalidAccount": "Invalid account",
     "invalidCredentials": "Invalid account or password",

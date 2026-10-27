@@ -230,7 +230,7 @@ function ThirdPartyGrid({
             (p.forceDisabled
               ? t('auth.appleComingSoon')
               : !p.enabled
-                ? t('auth.googleNotConfigured')
+                ? t('auth.platformNotConfigured')
                 : undefined)
 
           const button = (
