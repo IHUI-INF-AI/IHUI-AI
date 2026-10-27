@@ -6,6 +6,19 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Animated, Modal, PanResponder, Pressable, useWindowDimensions, View } from 'react-native'
 import { cn } from '@ihui/design-tokens'
+import {
+  SHEET_ANIM_DURATION_MS,
+  SHEET_CONTENT_GAP_PX,
+  SHEET_PADDING_PX,
+  SHEET_RADIUS_TIER,
+} from '@ihui/shared/ui/sheet-spec'
+
+// 平台专属项(不下沉 sheet-spec,逐条登记):拖拽手柄 / RN Modal 通道为 RN 专属;取值档一律取自 sheet-spec。
+const RADIUS_CLASS: Record<typeof SHEET_RADIUS_TIER, { top: string; bottom: string }> = {
+  xl: { top: 'rounded-t-xl', bottom: 'rounded-b-xl' },
+}
+const PADDING_CLASS: Record<number, string> = { 12: 'p-3' }
+const CONTENT_GAP_CLASS: Record<number, string> = { 12: 'gap-3' }
 
 export interface SheetProps {
   open: boolean
@@ -14,7 +27,7 @@ export interface SheetProps {
   side?: 'bottom' | 'top'
 }
 
-const ANIM_DURATION = 300
+const ANIM_DURATION = SHEET_ANIM_DURATION_MS
 const SWIPE_THRESHOLD = 80
 
 /**
@@ -84,8 +97,13 @@ export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetPr
           onResponderRelease={(e) => e.stopPropagation()}
           style={{ transform: [{ translateY }] }}
           className={cn(
-            'absolute left-0 right-0 bg-card p-6 shadow-lg',
-            side === 'bottom' ? 'bottom-0 rounded-t-lg' : 'top-0 rounded-b-lg',
+            'absolute left-0 right-0 bg-card flex-col',
+            CONTENT_GAP_CLASS[SHEET_CONTENT_GAP_PX],
+            PADDING_CLASS[SHEET_PADDING_PX],
+            'shadow-lg',
+            side === 'bottom'
+              ? `bottom-0 ${RADIUS_CLASS[SHEET_RADIUS_TIER].top}`
+              : `top-0 ${RADIUS_CLASS[SHEET_RADIUS_TIER].bottom}`,
           )}
         >
           {/* 拖拽手柄:双层结构(外层命中区 + 内层可见细线) */}

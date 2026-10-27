@@ -10,6 +10,19 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
 import { guardEscKeyDown, mergeEscStackRef, useEscStackId } from '../lib/use-esc-stack'
 import { cn } from '../lib/utils'
+import {
+  SHEET_ANIM_DURATION_MS,
+  SHEET_CONTENT_GAP_PX,
+  SHEET_PADDING_PX,
+  SHEET_RADIUS_TIER,
+} from '@ihui/shared/ui/sheet-spec'
+
+// 平台专属项(不下沉 sheet-spec,逐条登记):`min-[640px]:gap-4` 响应式档为 web 专属,RN 不按断点排版。
+// 其余取值档一律取自 sheet-spec,本文件只做"档 → 本端承载类"的映射。
+const RADIUS_CLASS: Record<typeof SHEET_RADIUS_TIER, string> = { xl: 'rounded-xl' }
+const PADDING_CLASS: Record<number, string> = { 12: 'p-3' }
+const CONTENT_GAP_CLASS: Record<number, string> = { 12: 'gap-3' }
+const DURATION_CLASS: Record<number, string> = { 300: 'duration-300' }
 
 // 2026-09-16:与 dialog.tsx 同款安全降级——SheetTrigger 即 DialogPrimitive.Trigger,
 // 游离(无 Root)时预渲染会抛 "`DialogTrigger` must be used within `Dialog`" 导致整页导出失败,
@@ -38,7 +51,7 @@ const sheetSideVariants = cva(
   // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
   //   - 默认(移动端):p-3 gap-3,sm(≥375px)及以上:p-3 gap-4
   //   - left/right 在 < sm 时占 w-[90vw] 充分利用移动端视口,sm 起恢复 w-3/4 + max-w-sm
-  'fixed z-modal flex flex-col gap-3 bg-background p-3 shadow-lg transition data-[state=closed]:duration-(--duration-unified) data-[state=open]:duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out min-[640px]:gap-4',
+  `fixed z-modal flex flex-col ${CONTENT_GAP_CLASS[SHEET_CONTENT_GAP_PX]} bg-background ${PADDING_CLASS[SHEET_PADDING_PX]} shadow-lg transition data-[state=closed]:${DURATION_CLASS[SHEET_ANIM_DURATION_MS]} data-[state=open]:${DURATION_CLASS[SHEET_ANIM_DURATION_MS]} ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out min-[640px]:gap-4`,
   {
     variants: {
       side: {
@@ -78,7 +91,7 @@ const SheetContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={escStackRef}
         onEscapeKeyDown={guardEscKeyDown(escStackId, onEscapeKeyDown)}
-        className={cn(sheetSideVariants({ side }), 'rounded-xl', className)}
+        className={cn(sheetSideVariants({ side }), RADIUS_CLASS[SHEET_RADIUS_TIER], className)}
         {...props}
       >
         {children}
