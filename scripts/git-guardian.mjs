@@ -4159,7 +4159,8 @@ export function sweepCrossEndShellPages(opts = {}) {
  *  A healI18nBundleLeg —— 守门 105 的 G5(小程序离线语言包自述钉)是 blocking 且每次提交都跑,
  *     而这一维此前**只有人肉 `pnpm gen:i18n`** 一条出路:输入或生成器一改并经旁路落地(不跑钩子),
  *     HEAD 上的产物钉就落后,下一枚毫不相干的提交被拦 —— 只判不修的 blocking 门就是恒红门。
- *     器物:`scripts/heal-derived-in-checkout.mjs --family i18n`(按 HEAD 建检出重生成,复量后才落 blob)。
+ *     器物:`scripts/heal-derived-in-checkout.mjs --family i18n`(在主仓按被审面重生成,复量后才落 blob;
+ *     这一族不建检出 —— 2026-10-27 实测:检出要 4-5 分钟而生成只占 12 秒,窗口正好被并发提交跨过去)。
  *  B auditPushDivergenceLeg —— 本地与 origin/main 真分叉时,全仓**零报警腿**:推送状态件只在 push-guard
  *     那一侧写,而"没人推得动"这件事没有任何一层量过(2026-10-26 实测:本地 ahead 121 / 远端 ahead 331
  *     持续移动,账面一声不响)。尺子:`scripts/lib/push-divergence-watch.mjs`,三态 ok/breach/unjudged。
@@ -4169,7 +4170,10 @@ export function sweepCrossEndShellPages(opts = {}) {
  *     门自己现在有 `--fix` 了(在飞副本闸 + 量级闸),本格只是给它一个调度器。
  */
 const DERIVED_HEAL_INTERVAL_MS = Number(process.env.IHUI_DERIVED_HEAL_INTERVAL_MS || 30 * 60 * 1000)
-const I18N_HEAL_INTERVAL_MS = Number(process.env.IHUI_I18N_HEAL_INTERVAL_MS || DERIVED_HEAL_INTERVAL_MS)
+// 离线包一族单独收紧到 10 分钟(2026-10-27):它现在是秒级(实测整轮 2m51s,生成只占 12s),
+// 而词包输入由造页闭环腿每几分钟动一次 —— 30 分钟节拍意味着 HEAD 上的钉最长落后 30 分钟,
+// 那段时间里 CI 的 G5(blocking)与小程序构建拿到的都是旧包。clean 时零写零推,加密度不产生新提交。
+const I18N_HEAL_INTERVAL_MS = Number(process.env.IHUI_I18N_HEAL_INTERVAL_MS || 10 * 60 * 1000)
 const PUSH_WATCH_INTERVAL_MS = Number(process.env.IHUI_PUSH_WATCH_INTERVAL_MS || 15 * 60 * 1000)
 const MIRROR_FIX_INTERVAL_MS = Number(process.env.IHUI_MIRROR_FIX_INTERVAL_MS || 30 * 60 * 1000)
 const UI_ROUTES_HEAL_INTERVAL_MS = Number(process.env.IHUI_UI_ROUTES_HEAL_INTERVAL_MS || DERIVED_HEAL_INTERVAL_MS)

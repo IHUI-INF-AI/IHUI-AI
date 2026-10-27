@@ -177,7 +177,8 @@ function runGeneratorIn(dir, generatorRel, args = [], timeoutMs = 20 * 60 * 1000
 export function healI18nFamily({ face = 'head', root = ROOT, dir, reader = null }) {
   // 离线包这一族**不能在检出里生成**:生成器要 require('fflate')(pnpm 把依赖装在端内,
   // 检出里没有 node_modules),且它还要读承载页闭包。2026-10-27 实测两格:
-  //   ① 检出里跑 → Cannot find module 'fflate';② 主仓里跑 --head(读 git 对象)→ 13 分钟级。
+  //   ① 检出里跑 → Cannot find module 'fflate';② 主仓里跑 --head 曾要 13 分钟级(每探一个不存在的
+  //   候选路径起一个 git 进程)—— 2026-10-27 换成"存在性全集 + 批量读"后实测整轮 12 秒。
   // 所以这一族走"主仓 + 被审面"重跑,并在动手前过在飞副本闸(盘上那份必须可由生成器再生,
   // 否则是别席现场)—— 与检出档同一条判据 lib/derived-copy-state.mjs。
   const rd = reader || gate105.makeReader(face, root)
@@ -397,28 +398,30 @@ export function healDerivedInCheckout(opts = {}) {
   }
 
   let roundSha = ''
-  const made = withCheckout({
-    root,
-    logger,
-    work: ({ dir, baseSha }) => {
-      roundSha = baseSha ?? ''
-      const out = []
-      if (i18nStale === 'stale') {
-        const r = healI18n({ face, root, dir, reader: null })
-        judged.push({ family: 'i18n', state: r.state, why: r.why ?? '' })
-        if (r.state === 'ready') out.push(...r.files)
-        else if (r.state === 'refused') logger(`⚠️ 检出档·离线包拒落:${r.why}`)
-      }
-      if (uiStale.length > 0) {
-        const r = healUi({ face, root, dir, reader: null })
-        judged.push({ family: 'ui-routes', state: r.state, notes: r.notes })
-        if (r.files?.length) out.push(...r.files)
-        for (const n of r.notes ?? [])
-          if (n.state === 'refused') logger(`⚠️ 检出档·${n.rel} 拒落:${n.why}`)
-      }
-      return out
-    },
-  })
+  // 检出只为 ui-routes 一族而建:那一族必须在检出里跑生成器并按检出树复量。
+  // 离线包一族在主仓按被审面生成(见 healI18nFamily 头注),给它建一次检出要 4-5 分钟 ——
+  // 那恰好是把面换掉的窗口(2026-10-27 实测:一轮 4m55s,其中生成只占 12s),白烧 ⇒ 不建。
+  const workIn = ({ dir, baseSha }) => {
+    roundSha = baseSha ?? ''
+    const out = []
+    if (i18nStale === 'stale') {
+      const r = healI18n({ face, root, dir, reader: null })
+      judged.push({ family: 'i18n', state: r.state, why: r.why ?? '' })
+      if (r.state === 'ready') out.push(...r.files)
+      else if (r.state === 'refused') logger(`⚠️ 检出档·离线包拒落:${r.why}`)
+    }
+    if (uiStale.length > 0) {
+      const r = healUi({ face, root, dir, reader: null })
+      judged.push({ family: 'ui-routes', state: r.state, notes: r.notes })
+      if (r.files?.length) out.push(...r.files)
+      for (const n of r.notes ?? []) if (n.state === 'refused') logger(`⚠️ 检出档·${n.rel} 拒落:${n.why}`)
+    }
+    return out
+  }
+  const made =
+    uiStale.length > 0
+      ? withCheckout({ root, logger, work: workIn })
+      : { ok: true, dir: null, baseSha: '', result: workIn({ dir: null, baseSha: '' }) }
   if (!made?.ok) return { state: 'refused', detail: made?.why ?? '检出未建成', judged }
   const files = made.result ?? []
   if (files.length === 0) {
@@ -437,6 +440,7 @@ export function healDerivedInCheckout(opts = {}) {
       judged,
     }
   }
+  const usedCheckout = uiStale.length > 0
   const r = land({
     root,
     files,
@@ -444,7 +448,11 @@ export function healDerivedInCheckout(opts = {}) {
     baseRef: made.baseSha ?? '',
     msg: LAND_MSG_LINES,
     proof:
-      'blob = 以当前 HEAD 建的 detached 检出里、各端生成器自己产出的字节(git hash-object --stdin 写入对象库);' +
+      `blob = ${
+        usedCheckout
+          ? '以当前 HEAD 建的 detached 检出里、各端生成器自己产出的字节'
+          : '主仓按被审面跑生成器产出的字节(离线包一族的生成器要在主仓依赖面上跑)'
+      }(git hash-object --stdin 写入对象库);` +
       '每一份落地前都复量到"产物自述钉 == 门在同一张面上现算的输入哈希",不等的一份都不在本清单里(逐条点名)',
   })
   if (!r?.ok) {
@@ -459,7 +467,7 @@ export function healDerivedInCheckout(opts = {}) {
     files: files.map((f) => f.path),
     gatesRed: !!r.gatesRed,
     detail:
-      `已落 ${files.length} 份(检出档,baseSha=${String(made.baseSha).slice(0, 12)})` +
+      `已落 ${files.length} 份(${usedCheckout ? `检出档,baseSha=${String(made.baseSha).slice(0, 12)}` : '主仓按被审面生成,未建检出'})` +
       (r.gatesRed
         ? ' —— **落地器复跑受影响判据仍红**:本器这一格已收口,红在别的维,原样贴在下条日志里'
         : ''),

@@ -82,14 +82,30 @@ test('C2 面上陈旧 ⇒ 检出里备好 + 复量过 ⇒ 一次落地带走两�
   assert.match(lands[0].msg, /heal-derived-in-checkout/, '提交信息要能归因到器物')
 })
 
-test('C3 检出建不起来 ⇒ refused,一条 blob 都不落(不把"没建成"洗成"已修")', () => {
+test('C3 需要检出却建不起来 ⇒ refused,一条 blob 都不落(不把"没建成"洗成"已修")', () => {
   const { r, lands } = runWith({
-    ...judge({ i18n: 'stale', ui: [] }),
+    ...judge({ i18n: 'stale', ui: ['apps/web/src/lib/ui-routes.generated.ts'] }),
     withCheckout: () => ({ ok: false, why: 'git worktree add 失败:already registered' }),
   })
   assert.equal(r.state, 'refused')
   assert.match(r.detail, /already registered/)
   assert.equal(lands.length, 0)
+})
+
+test('C3b 只有离线包陈旧 ⇒ 根本不建检出(检出对它无用,却要 4-5 分钟,正好把面换掉)', () => {
+  const { r, lands, checkouts } = runWith({
+    ...judge({ i18n: 'stale', ui: [] }),
+    // 注入一枚"必定失败"的检出:它一次都不该被调用 —— 调用了就是白烧窗口
+    withCheckout: () => ({ ok: false, why: '这枚检出根本不该被建' }),
+  })
+  assert.equal(checkouts.length, 0, '离线包一族建检出 = 每轮守护多烧几分钟窗口')
+  assert.equal(r.state, 'landed', r.detail)
+  assert.equal(lands.length, 1)
+  assert.equal(lands[0].files.length, 7)
+  assert.equal(lands[0].baseRef, '', '不建检出 ⇒ 没有 baseSha 可钉,由落地器对当时 HEAD 做 CAS')
+  assert.doesNotMatch(lands[0].proof, /检出/, 'proof 不得自称"检出里产出"(字节其实来自主仓按面生成)')
+  assert.match(lands[0].proof, /主仓/)
+  assert.match(r.detail, /未建检出/)
 })
 
 test('C4 检出里复量不过 ⇒ refused 且不落(器物不得自证空转)', () => {
