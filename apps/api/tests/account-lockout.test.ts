@@ -100,13 +100,15 @@ describe('account-lockout 内存降级路径(Redis 不可用时)', () => {
     expect(await getLockRemainingMs(key('user-d'), '4.4.4.4')).toBe(0)
   })
 
-  it('不同账号/IP 互不影响', async () => {
+  it('不同账号互不影响;同账号换 IP 不绕过锁定(2026-10-27 安全契约变更)', async () => {
     _resetAccountLockoutForTests()
     for (let i = 0; i < ACCOUNT_LOCKOUT_CONFIG.maxFailures; i++) {
       await recordLoginFailure(key('user-x'), '9.9.9.9')
     }
     expect(await getLockRemainingMs(key('user-x'), '9.9.9.9')).toBeGreaterThan(0)
-    expect(await getLockRemainingMs(key('user-x'), '8.8.8.8')).toBe(0)
+    // 安全修正:锁定 key 按账号全局(不带 IP)。旧契约"换 IP 即未锁"正是
+    // 分布式撞库绕过点 —— 现契约同账号换 IP 仍锁定。
+    expect(await getLockRemainingMs(key('user-x'), '8.8.8.8')).toBeGreaterThan(0)
     expect(await getLockRemainingMs(key('user-y'), '9.9.9.9')).toBe(0)
   })
 })

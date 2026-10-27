@@ -26,6 +26,7 @@ import {
   revokeAllUserRefreshTokens,
   isSystemAdminUser,
 } from '../db/queries.js'
+import { recordSecurityEvent } from '../db/security-logs-queries.js'
 import { getUserPermissions } from '../db/rbac-queries.js'
 import { findInvitationByCode, markInvitationUsed } from '../db/promotion-queries.js'
 import { earnPoints } from '../services/points-service.js'
@@ -335,13 +336,24 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   // 覆盖 /login /login/sms /login/email,未配置 TURNSTILE_SECRET_KEY 时 verifyTurnstile 内部放行
   // 客户端未提供 turnstileToken 时放行(兼容未启用 Turnstile 的旧客户端)
   server.addHook('preHandler', async (request, reply) => {
-    const loginPaths = new Set(['/login', '/login/sms', '/login/email'])
-    const routeUrl = request.routeOptions?.url
-    if (!routeUrl || !loginPaths.has(routeUrl)) return
+    // 2026-10-27 修复:routeOptions.url 是含注册前缀的全路径(如 /api/auth/login),
+    // 原实现对 Set 里的裸路径做全等比较恒不命中 ⇒ 钩子自 2026-08-01 上线起从未执行过。
+    // 改为后缀匹配,天然覆盖前缀。
+    const loginPaths = ['/login', '/login/sms', '/login/email']
+    const routeUrl = request.routeOptions?.url ?? ''
+    if (!routeUrl || !loginPaths.some((p) => routeUrl.endsWith(p))) return
 
     const body = request.body as Record<string, unknown> | undefined
     const token = body?.turnstileToken
-    if (typeof token !== 'string' || !token) return
+    if (typeof token !== 'string' || !token) {
+      // 2026-10-27 加固:服务端启用了 Turnstile(TURNSTILE_SECRET_KEY 已配置)时,
+      // 客户端"省略字段"= 绕过尝试,一律拒绝 —— 原写法不传 token 直接放行,
+      // 等于脚本打 /login 可以完全跳过人机验证(密码喷洒敞口)。
+      if (process.env.TURNSTILE_SECRET_KEY) {
+        return reply.code(403).send(error(403, '人机验证失败,请重试'))
+      }
+      return
+    }
 
     try {
       const result = await verifyTurnstile(token, request.ip)
@@ -1137,6 +1149,25 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
 
+      // 2FA 一致性(2026-10-27 修旁路):短信验证码登录同样必须过 TOTP,
+      // 否则"SIM 劫持/短信截获 + 密码未知"路径完全绕过两步验证。
+      if (user.twoFactorEnabled) {
+        const challengeToken = await signChallengeToken({
+          userId: user.id,
+          phone: user.phone ?? '',
+          familyId: '',
+          roleId: user.roleId ?? 0,
+        })
+        request.skipResponseSanitization = true
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken,
+            expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+          }),
+        )
+      }
+
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
@@ -1305,7 +1336,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       const user = await findUserByEmail(email)
       if (!user) {
-        return reply.status(404).send(error(404, '邮箱未注册'))
+        // 防枚举(CWE-204,2026-10-27):未注册邮箱返回与已注册一致的模糊响应,
+        // 不发送真实邮件 —— 原 404「邮箱未注册」可被批量探测注册名单。
+        return reply.send(success({ sent: true, message: '若邮箱已注册,验证码已发送' }))
       }
 
       const existing = await getCodeEntry(email)
@@ -1522,18 +1555,35 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             .string()
             .regex(/^1[3-9]\d{9}$/)
             .optional(),
+          // 2026-10-27 安全加固:改绑 email/phone 属账号凭据变更,必须携带当前密码确认。
+          // 原实现仅凭会话即可静默改绑 —— 借临时会话(XSS/借机)把受害者邮箱改成攻击者
+          // 自己的,随后走邮箱验证码登录实现持久接管。
+          currentPassword: z.string().min(1).max(200).optional(),
         })
         .safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { nickname, email, phone } = parsed.data
+      const { nickname, email, phone, currentPassword } = parsed.data
       if (nickname === undefined && email === undefined && phone === undefined) {
         return reply.status(400).send(error(400, '没有可更新的字段'))
       }
 
       const user = await findUserById(userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
+
+      const rebinding =
+        (email !== undefined && email !== user.email) ||
+        (phone !== undefined && phone !== user.phone)
+      if (rebinding) {
+        if (
+          !currentPassword ||
+          !user.passwordHash ||
+          !(await verifyPassword(currentPassword, user.passwordHash))
+        ) {
+          return reply.status(403).send(error(403, '改绑手机/邮箱需要验证当前密码'))
+        }
+      }
 
       if (email !== undefined && email !== user.email) {
         const byEmail = await findUserByEmail(email)
@@ -1549,6 +1599,19 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const updated = await updateUser(userId, { nickname, email, phone })
+      if (rebinding) {
+        // 改绑凭据后吊销全部 refresh token:旧会话(含潜在攻击者持有的)全部失效,
+        // 阻断"改绑 → 邮箱/短信验证码登录"的持久接管链。当前请求方重新登录即可。
+        await revokeAllUserRefreshTokens(userId)
+        await recordSecurityEvent(
+          { ip: request.ip, headers: request.headers, userId },
+          'account.rebind',
+          {
+            emailChanged: email !== undefined && email !== user.email,
+            phoneChanged: phone !== undefined && phone !== user.phone,
+          },
+        ).catch(() => {})
+      }
       const permissions = await resolveUserPermissions(updated.id, updated.roleId)
       return reply.send(success({ user: publicUser(updated, permissions) }))
     },
