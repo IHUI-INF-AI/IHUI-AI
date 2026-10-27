@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 多平台「登录本机」写回端接线锁(2026-10-27 立)。
@@ -21,6 +22,7 @@ import { spawnSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -526,7 +528,59 @@ test(
 )
 
 // =============================================================================
-// ⑦ CLI 面
+// ⑦ 服务身份下的落点解析(生产 API 以 LocalSystem 运行)
+// =============================================================================
+
+test('codex:服务身份下落到真实用户家目录(IHUI_CLIENT_HOME 显式兜底)', () => {
+  const scratch = mkScratch('local-login-codex-home')
+  try {
+    const file = path.join(scratch, '.codex', 'auth.json')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify({ auth_mode: 'chatgpt', tokens: { access_token: 'local-old', account_id: 'old' } }))
+    const systemHome = 'C:\\Windows\\system32\\config\\systemprofile'
+    const env = {
+      ...process.env,
+      USERPROFILE: systemHome,
+      HOME: systemHome,
+      APPDATA: `${systemHome}\\AppData\\Roaming`,
+      IHUI_CLIENT_HOME: scratch,
+    }
+    const payload = L.normalizePayload({ uid: 'u-new', token: 't-new', secrets: {} })
+    const result = L.applyCodex(payload, { extract, env })
+    assert.equal(result.targetFile, path.resolve(file), '必须落到真实用户家目录,不是 systemprofile')
+    assert.equal(readJson(file).tokens.access_token, 't-new')
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('zcode:派生密钥随 env 家目录走,普通环境与旧算法逐字节相同', () => {
+  const osApi = {
+    platform: () => 'win32',
+    homedir: () => 'C:\\Windows\\system32\\config\\systemprofile',
+    userInfo: () => ({ username: 'MACHINE$' }),
+  }
+  const serviceKey = Z.deriveCipherKey(
+    { USERPROFILE: 'C:\\Users\\Administrator', USERNAME: 'Administrator' },
+    osApi,
+  )
+  const expected = crypto
+    .createHash('sha256')
+    .update('zcode-credential-fallback:win32:C:\\Users\\Administrator:Administrator')
+    .digest()
+  assert.equal(serviceKey.equals(expected), true, '服务身份必须按真实用户家目录派生')
+
+  const legacy = crypto
+    .createHash('sha256')
+    .update(
+      `zcode-credential-fallback:${process.platform}:${os.homedir()}:${os.userInfo().username}`,
+    )
+    .digest()
+  assert.equal(Z.deriveCipherKey().equals(legacy), true, '普通桌面进程的派生串不得变')
+})
+
+// =============================================================================
+// ⑧ CLI 面
 // =============================================================================
 
 test('CLI:--provider 必填且限支持集,stdin JSON 回报不含凭据', () => {
@@ -562,3 +616,4 @@ test('CLI:--provider 必填且限支持集,stdin JSON 回报不含凭据', () =>
     rmScratch(scratch)
   }
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
