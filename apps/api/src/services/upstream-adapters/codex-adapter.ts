@@ -157,6 +157,18 @@ function translateStreamChunk(
   return null
 }
 
+/**
+ * 上游 error 对象 → 有界描述(该文案会进持久记录:字符串按码点截断、数组只报条数、
+ * 其余只报类型/键数,绝不把整块对象 JSON 展开进去)。
+ */
+function describeUpstreamError(err: Record<string, unknown>): string {
+  const msg = err['message']
+  if (typeof msg === 'string') return Array.from(msg).slice(0, 200).join('')
+  if (Array.isArray(msg)) return `array (${msg.length} items)`
+  if (msg !== undefined) return typeof msg
+  return `object(keys=${Object.keys(err).length})`
+}
+
 /** Responses 非流式响应 → 最小 OpenAI completion;认不出形状 ⇒ 抛错未判定(不编造) */
 function translateNonStream(
   _ctx: AdapterAccountContext,
@@ -168,7 +180,7 @@ function translateNonStream(
   const rec = responseBody as Record<string, unknown>
   if (rec['error'] !== undefined) {
     const err = rec['error'] as Record<string, unknown>
-    throw new Error(`Codex 上游业务错误: ${String(err['message'] ?? JSON.stringify(err))}`)
+    throw new Error(`Codex 上游业务错误: ${describeUpstreamError(err)}`)
   }
   const output = Array.isArray(rec['output']) ? rec['output'] : null
   if (!output) {

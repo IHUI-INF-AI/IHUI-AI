@@ -6,22 +6,25 @@
 
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Ban, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { useConfirm } from '@/hooks/use-confirm'
-import { BASE, PHONE_RE, api, fmtTime, maskPhone, normalizePhoneInput } from './helpers'
+import { BASE, PHONE_RE, api, codeLabel, fmtTime, maskPhone, normalizePhoneInput } from './helpers'
 import type { SmsUnsubscribesResponse } from './types'
 
 const PAGE_SIZE = 20
 
-const SOURCE_LABELS: Record<string, string> = {
-  reply: '回复退订',
-  admin: '管理员拉黑',
-  manual: '手工录入',
+const SOURCE_LABEL_KEYS: Record<string, string> = {
+  reply: 'unsub.sourceReply',
+  admin: 'unsub.sourceAdmin',
+  manual: 'unsub.sourceManual',
 }
 
 export function UnsubscribePanel() {
+  const t = useTranslations('admin.smsOperations')
+  const tc = useTranslations('common')
   const qc = useQueryClient()
   const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [offset, setOffset] = React.useState(0)
@@ -49,7 +52,7 @@ export function UnsubscribePanel() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'sms-operations'] })
-      toast.success('已加入退订黑名单')
+      toast.success(t('unsub.addedToast'))
       setPhone('')
       setReason('')
     },
@@ -61,7 +64,7 @@ export function UnsubscribePanel() {
       api(`${BASE}/unsubscribes/${encodeURIComponent(target)}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'sms-operations'] })
-      toast.success('已恢复接收')
+      toast.success(t('unsub.restoredToast'))
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -70,7 +73,7 @@ export function UnsubscribePanel() {
     e.preventDefault()
     const target = normalizePhoneInput(phone)
     if (!PHONE_RE.test(target)) {
-      toast.error('手机号格式不正确(支持 13800000000 / +8613800000000)')
+      toast.error(t('field.phoneInvalid'))
       return
     }
     addMut.mutate(target)
@@ -78,9 +81,9 @@ export function UnsubscribePanel() {
 
   async function handleRemove(target: string) {
     const ok = await confirm({
-      title: '恢复接收',
-      description: `确认将 ${maskPhone(target)} 移出退订黑名单?仅在该用户明确重新同意接收后使用,否则会构成骚扰。`,
-      confirmText: '恢复接收',
+      title: t('unsub.restore'),
+      description: t('unsub.restoreDesc', { phone: maskPhone(target) }),
+      confirmText: t('unsub.restore'),
     })
     if (ok) delMut.mutate(target)
   }
@@ -91,7 +94,7 @@ export function UnsubscribePanel() {
         <CardContent className="pt-4">
           <form className="flex flex-wrap items-end gap-3" onSubmit={submit}>
             <div className="space-y-1">
-              <Label htmlFor="unsub-phone">手机号</Label>
+              <Label htmlFor="unsub-phone">{t('field.phone')}</Label>
               <Input
                 id="unsub-phone"
                 className="w-48"
@@ -102,13 +105,13 @@ export function UnsubscribePanel() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="unsub-reason">原因</Label>
+              <Label htmlFor="unsub-reason">{t('field.reason')}</Label>
               <Input
                 id="unsub-reason"
                 className="w-64"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="用户电话投诉等"
+                placeholder={t('unsub.reasonPlaceholder')}
                 maxLength={160}
               />
             </div>
@@ -118,7 +121,7 @@ export function UnsubscribePanel() {
               ) : (
                 <Plus className="h-4 w-4" />
               )}
-              加入黑名单
+              {t('unsub.addToList')}
             </Button>
           </form>
         </CardContent>
@@ -128,11 +131,11 @@ export function UnsubscribePanel() {
         <CardContent className="space-y-3 pt-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              共 {total} 人 · 第 {page}/{totalPages} 页
+              {t('unsub.listSummary', { total, page, totalPages })}
             </span>
             <Button variant="outline" size="sm" className="ml-auto" onClick={() => void refetch()}>
               <RefreshCw className={isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-              刷新
+              {tc('refresh')}
             </Button>
           </div>
 
@@ -140,12 +143,12 @@ export function UnsubscribePanel() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 font-medium">号码</th>
-                  <th className="px-3 py-2 font-medium">来源</th>
-                  <th className="px-3 py-2 font-medium">原因</th>
-                  <th className="px-3 py-2 font-medium">原始回复</th>
-                  <th className="px-3 py-2 font-medium">更新时间</th>
-                  <th className="px-3 py-2 font-medium">操作</th>
+                  <th className="px-3 py-2 font-medium">{t('field.number')}</th>
+                  <th className="px-3 py-2 font-medium">{t('field.source')}</th>
+                  <th className="px-3 py-2 font-medium">{t('field.reason')}</th>
+                  <th className="px-3 py-2 font-medium">{t('field.rawReply')}</th>
+                  <th className="px-3 py-2 font-medium">{t('field.updateTime')}</th>
+                  <th className="px-3 py-2 font-medium">{tc('actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -153,23 +156,21 @@ export function UnsubscribePanel() {
                   <tr>
                     <td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
                       <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                      加载中…
+                      {t('pager.loading')}
                     </td>
                   </tr>
                 ) : items.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
                       <Ban className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                      暂无退订记录
+                      {t('unsub.empty')}
                     </td>
                   </tr>
                 ) : (
                   items.map((row) => (
                     <tr key={row.phone} className="border-t hover:bg-muted/30">
                       <td className="px-3 py-2 font-mono">{maskPhone(row.phone)}</td>
-                      <td className="px-3 py-2">
-                        {row.source ? (SOURCE_LABELS[row.source] ?? row.source) : '-'}
-                      </td>
+                      <td className="px-3 py-2">{codeLabel(SOURCE_LABEL_KEYS, row.source, t)}</td>
                       <td className="max-w-64 truncate px-3 py-2" title={row.reason ?? ''}>
                         {row.reason ?? '-'}
                       </td>
@@ -185,7 +186,7 @@ export function UnsubscribePanel() {
                           onClick={() => void handleRemove(row.phone)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          恢复
+                          {t('unsub.restoreAction')}
                         </button>
                       </td>
                     </tr>
@@ -202,7 +203,7 @@ export function UnsubscribePanel() {
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
             >
-              上一页
+              {t('pager.prev')}
             </Button>
             <Button
               size="sm"
@@ -210,7 +211,7 @@ export function UnsubscribePanel() {
               disabled={offset + PAGE_SIZE >= total}
               onClick={() => setOffset(offset + PAGE_SIZE)}
             >
-              下一页
+              {t('pager.next')}
             </Button>
           </div>
         </CardContent>

@@ -90,6 +90,9 @@ import {
   INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
   // 票④:本文件剩余的可见几何档(裁决依据与"单端档"理由逐条写在 spec 的常数注释里)
   INPUT_AREA_DOC_NAME_STRIP_PX,
+  // O02 票④(2026-10-27):⤢/⤡ 切换钮的**定位盒边长** —— 与小程序 search-right / search-suo
+  // 同一枚档(收编前本端写裸 20、小程序写 rpx(40),同一控件两份真相);两端同枚提交改指。
+  INPUT_AREA_EXPAND_BTN_BOX_PX,
   INPUT_AREA_INPUT_FONT_PX,
   INPUT_AREA_CONTAINER_PADDING_X_PX,
   INPUT_AREA_CONTAINER_PADDING_V_PX,
@@ -1298,8 +1301,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: INPUT_AREA_CONTROL_RIGHT_PX,
     top: INPUT_AREA_FANGDA_TOP_PX,
-    width: 20,
-    height: 20,
+    // O02 票④(2026-10-27):盒边长收进共享 spec(与小程序 search-right / search-suo
+    // 同一枚档)—— 收编前本端写裸 20、小程序写 rpx(40),同一控件两份真相。
+    width: INPUT_AREA_EXPAND_BTN_BOX_PX,
+    height: INPUT_AREA_EXPAND_BTN_BOX_PX,
     alignItems: 'center',
     justifyContent: 'center',
   },
