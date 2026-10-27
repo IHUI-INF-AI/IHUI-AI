@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "measuredAtSha": "7abd2be3baec",
-  "measuredAt": "2026-10-26",
-  "face": "隔离 worktree 在 7abd2be3baec(待产队列已清空、含 home)上 `pnpm --filter @ihui/miniapp-taro build:weapp` 的真实产物,由 check-artifact-budget 同一把尺子逐包量;合计 18,016,705 B",
+  "measuredAtSha": "15a3e7bbbfe7",
+  "measuredAt": "2026-10-27",
+  "face": "隔离 worktree 15a3e7bbbfe7 + 小程序面副作用豁免补丁,`taro build --type weapp` 真实产物(私有输出目录),由 check-artifact-budget 同一把尺子逐包量;合计 8582928 B",
   "limitBytes": 2097152,
   "totalLimitBytes": 20971520,
   "totalSafetyRatio": 0.88,
@@ -22,113 +22,116 @@
     "bytesPerShellPage = 页代码本体边际(已带共享块的包里实测约 30 KB);闭包大的屏由 pageEstimates 逐屏覆盖。",
     "pageEstimates = 由 `node scripts/measure-cross-end-page-sizes.mjs --write` 现算(键 = 共享屏 spec 全路径),RATIO=0.65 —— 0.5 那一版把整批低估 25%,当场造成 pkg-user 超限。",
     "pkg-user 记 1916558 B / 36 条:该包已摘除让位并实测到 1.92 MB,水位下几乎无余量 ⇒ 新屏一律走 overflow 链。",
-    "该表是**测量快照**不是豁免:重建产物后按新读数重跑更新(sha/时间/bytes/条数一起换);取不到本表 ⇒ 造页器整轮 blocked,不猜。"
+    "该表是**测量快照**不是豁免:重建产物后按新读数重跑更新(sha/时间/bytes/条数一起换);取不到本表 ⇒ 造页器整轮 blocked,不猜。",
+    "〔2026-10-27 改判,覆盖上文 18,016,705 B / 900,000 B 两处旧读数〕在 15a3e7bbbfe7 + 副作用豁免补丁上实测合计 8582928 B(41% of 20 MiB),主包 1,549,660 B。",
+    "chunkReserveBytes 900,000 → 300,000 的根因已修:packages/app 根桶(1144 行 export)未声明副作用豁免,把未被任何页使用的 ImportAnalysisSheet 连同其动态导入的 import-analysis 目录投影(707,273 B)拖进**每个**含镜像页的分包 —— 实测 9 个分包各一份,合计 6.4 MB。2026-10-27 起小程序构建面按 webpack 模块规则对 packages/app/src 与 packages/shared/src 声明 sideEffects:false(两包零 CSS 导入,全仓顶层副作用调用仅 1 处),同一枚块只在 pkg-ai 自己的分析页留一份 ⇒ 总量 20,811,452 → 8,582,928 B,页面数 269 不变;pkg-content / pkg-mirror 原本硬超 2 MiB 单包上限,现分别 970,667 / 493,186 B。",
+    "reserve 口径重定:已带共享块的包(实测 ≥150,000 B)记 0 —— 实测字节里已含那块;还没落页的新包(pkg-mirror4)按改造后实测最大共享块 297,251 B 上取整 300,000 B。"
   ],
   "roots": {
     "pages": {
-      "bytes": 1702630,
+      "bytes": 1549660,
       "mirrorEntriesAtMeasure": 2,
       "chunkReserveBytes": 0
     },
     "pages/ask": {
-      "bytes": 37088,
+      "bytes": 36969,
       "mirrorEntriesAtMeasure": 3,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 300000
     },
     "pages/circle": {
-      "bytes": 70156,
+      "bytes": 70031,
       "mirrorEntriesAtMeasure": 2,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 300000
     },
     "pages/distribution": {
-      "bytes": 75433,
-      "mirrorEntriesAtMeasure": 5,
-      "chunkReserveBytes": 900000
+      "bytes": 260619,
+      "mirrorEntriesAtMeasure": 6,
+      "chunkReserveBytes": 0
     },
     "pages/exam": {
-      "bytes": 58106,
+      "bytes": 57906,
       "mirrorEntriesAtMeasure": 4,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 300000
     },
     "pages/forgot-password": {
-      "bytes": 21914,
+      "bytes": 21878,
       "mirrorEntriesAtMeasure": 0,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 300000
     },
     "pages/member": {
       "bytes": 442894,
       "mirrorEntriesAtMeasure": 4,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 0
     },
     "pages/register": {
-      "bytes": 23360,
+      "bytes": 27390,
       "mirrorEntriesAtMeasure": 1,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 300000
     },
     "pages/setting": {
-      "bytes": 1280861,
+      "bytes": 196552,
       "mirrorEntriesAtMeasure": 3,
       "chunkReserveBytes": 0
     },
     "pages/study": {
-      "bytes": 83635,
+      "bytes": 83306,
       "mirrorEntriesAtMeasure": 5,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 300000
     },
     "pages/webview": {
-      "bytes": 2788,
+      "bytes": 3008,
       "mirrorEntriesAtMeasure": 0,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 300000
     },
     "pkg-about": {
-      "bytes": 337321,
+      "bytes": 353036,
       "mirrorEntriesAtMeasure": 10,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 0
     },
     "pkg-ai": {
-      "bytes": 1307046,
+      "bytes": 1338036,
       "mirrorEntriesAtMeasure": 21,
       "chunkReserveBytes": 0
     },
     "pkg-content": {
-      "bytes": 2061218,
+      "bytes": 970667,
       "mirrorEntriesAtMeasure": 15,
       "chunkReserveBytes": 0
     },
     "pkg-learn": {
-      "bytes": 1624128,
+      "bytes": 537850,
       "mirrorEntriesAtMeasure": 11,
       "chunkReserveBytes": 0
     },
     "pkg-shop": {
-      "bytes": 1508524,
+      "bytes": 418055,
       "mirrorEntriesAtMeasure": 14,
       "chunkReserveBytes": 0
     },
     "pkg-user": {
-      "bytes": 1916558,
+      "bytes": 577069,
       "mirrorEntriesAtMeasure": 36,
       "chunkReserveBytes": 0
     },
     "pkg-mirror": {
-      "bytes": 1962214,
+      "bytes": 493186,
       "mirrorEntriesAtMeasure": 30,
       "chunkReserveBytes": 0
     },
     "pkg-mirror2": {
-      "bytes": 1675099,
-      "mirrorEntriesAtMeasure": 4,
+      "bytes": 703177,
+      "mirrorEntriesAtMeasure": 12,
       "chunkReserveBytes": 0
     },
     "pkg-mirror3": {
-      "bytes": 1825732,
-      "mirrorEntriesAtMeasure": 27,
+      "bytes": 441639,
+      "mirrorEntriesAtMeasure": 28,
       "chunkReserveBytes": 0
     },
     "pkg-mirror4": {
       "bytes": 0,
       "mirrorEntriesAtMeasure": 0,
-      "chunkReserveBytes": 900000
+      "chunkReserveBytes": 300000
     }
   },
   "pageEstimates": {
