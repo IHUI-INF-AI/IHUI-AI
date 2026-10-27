@@ -12,7 +12,8 @@
 //
 // ②③ 是选择 → 本轮正文的逐档映射(含反向:未选/未 ready/非法 ref ⇒ 正文逐字不变);
 // ④ 用**仓内真实 git diff 采样**(fixtures/real-diff-message-input.diff,由
-// `git diff HEAD -- apps/web/src/components/chat/message-input.tsx` 原样落盘)验收"对真实 diff 跑一轮"
+// `git diff 2dfa71a0cf^ 2dfa71a0cf -- apps/web/src/components/chat/message-input.tsx` 原样落盘 ——
+// 即本票装车那一次提交的真身 diff)验收"对真实 diff 跑一轮"
 // 里可离线验证的部分:真实 diff 进 prompt/进内联块后仍带着 `文件` 与 `新文件行号` 锚点,
 // 且端上按 P1 → P2 → Nit 三档分组、每条 finding 定位到 `文件:行`。
 //
@@ -218,9 +219,11 @@ describe('D06③ 真实 diff 进链路:锚点不丢、三档可分组、逐条�
     expect(prompt.startsWith('Review the uncommitted changes below.')).toBe(true)
     expect(prompt).toContain('Report findings with path:line anchors.')
     expect(prompt).toContain('```diff')
-    // 真实 diff 的文件头与 hunk 头逐字在内(端到端"喂给编排层的就是这段改动")
+    // 真实 diff 的文件头与每段 hunk 头逐字在内(端到端"喂给编排层的就是这段改动")
     expect(prompt).toContain('+++ b/apps/web/src/components/chat/message-input.tsx')
-    expect(prompt).toContain('@@ -451,11 +464,45 @@')
+    for (const hunk of REAL_DIFF.match(/^@@ .*$/gm) ?? []) {
+      expect(prompt).toContain(hunk)
+    }
     expect(prompt).not.toContain('truncated at')
   })
 
