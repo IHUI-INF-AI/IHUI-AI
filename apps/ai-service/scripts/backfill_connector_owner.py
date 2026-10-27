@@ -31,9 +31,17 @@
 
 只打印 key 与 owner,**绝不打印记录正文**(`app_secret` 就在这条记录里)。
 
-退出码:0 = 成功(含"无可落项");1 = 语义拒绝(claims 与命令行都没给 / `--reassign`
-未点名对应 key / 写盘失败);2 = 环境错(store 不可读、JSON 损坏或不是列表)。
-`--apply` 缺省时是 dry-run,不写盘。
+两种用法,入口不同、判据同源:
+  * `--audit`(2026-10-27 立):**不需要 claims**,先出"报名清单"—— 无主记录逐条报 key
+    与 type,并单列"同一 key 多条"(按 key 认领表达不了改哪一条,须先合条)。这一步是
+    "机主逐条认领"的前置:拿到清单的人才知道要认领哪些 key,否则只拿到一个计数。
+  * `--claims/--claim` 回填:dry-run 看会落哪些(缺省),`--apply` 才写盘。
+    `--dry-run` 是显式开关,与 `--apply` 互斥 —— 票面/runbook 里写的就是 `--dry-run`,
+    若只靠"缺省即 dry-run",照抄命令会直接 `unrecognized arguments` 退 2。
+
+退出码:0 = 成功(含"无可落项"/巡检完成);1 = 语义拒绝(回填档没点名任何 key /
+`--reassign` 未点名对应 key / `--dry-run` 与 `--apply` 同给 / 写盘失败);
+2 = 环境错(store 不可读、JSON 损坏或不是列表)。
 """
 
 from __future__ import annotations
@@ -161,6 +169,77 @@ def parse_claims(args: argparse.Namespace) -> dict[str, str]:
     return claims
 
 
+@dataclass
+class Audit:
+    """巡检结论:只回答"有哪些无主记录、哪些不能按 key 认领",不落任何东西。"""
+
+    total: int = 0
+    owned: int = 0
+    ownerless: dict[str, str] = field(default_factory=dict)  # key -> type(无主且 key 唯一)
+    duplicate_keys: list[str] = field(default_factory=list)
+    missing_key: int = 0  # 没有可用 key 字段的记录条数(无法被点名认领)
+
+    @property
+    def ownerless_count(self) -> int:
+        return len(self.ownerless)
+
+    @property
+    def has_ownerless(self) -> bool:
+        return bool(self.ownerless or self.duplicate_keys or self.missing_key)
+
+
+def audit_records(records: list[dict[str, Any]]) -> Audit:
+    """纯函数:按记录算出报名清单。同一 key 多条只进 duplicate_keys(认领会被整体拒绝)。"""
+    result = Audit(total=len(records))
+    by_key: dict[str, list[dict[str, Any]]] = {}
+    for rec in records:
+        if rec.get(OWNER_FIELD):
+            result.owned += 1
+        key = rec.get("key")
+        if not isinstance(key, str) or not key:
+            result.missing_key += 1
+            continue
+        by_key.setdefault(key, []).append(rec)
+    for key, recs in by_key.items():
+        if len(recs) > 1:
+            result.duplicate_keys.append(key)
+        elif not recs[0].get(OWNER_FIELD):
+            result.ownerless[key] = str(recs[0].get("type") or "?")
+    result.duplicate_keys.sort()
+    return result
+
+
+def _print_audit(path: Path, audit: Audit) -> None:
+    """打报名清单。只出 key/type 与计数,记录正文(app_secret 等)一律不落屏。"""
+    distribution: dict[str, int] = {}
+    for ctype in audit.ownerless.values():
+        distribution[ctype] = distribution.get(ctype, 0) + 1
+    dist_text = ", ".join(f"{k}={v}" for k, v in sorted(distribution.items())) or "无"
+    print(f"📇 连接器属主巡检 store={path} 记录 {audit.total} 条")
+    print(
+        f"   已属主 {audit.owned} 条 / 无主且可按 key 认领 {audit.ownerless_count} 条"
+        f"(按类型:{dist_text})"
+    )
+    if audit.ownerless:
+        print("   ⚠️ 报名清单(逐条认领,key <- type):")
+        for key in sorted(audit.ownerless):
+            print(f"     · {key} ({audit.ownerless[key]})")
+    if audit.duplicate_keys:
+        print(
+            f"   ❌ 同一 key 有多条、**先合条再认领**:{len(audit.duplicate_keys)} 个 "
+            f"{audit.duplicate_keys}"
+        )
+    if audit.missing_key:
+        print(f"   ❌ 缺少可用 key 字段、无法点名认领:{audit.missing_key} 条")
+    if audit.has_ownerless:
+        print(
+            "   下一步:按上表把每条 key 的认领人写成 {\"<key>\": \"<user_id>\"} 的 claims.json,"
+            "再跑 --claims claims.json --dry-run 复核会落哪些,最后 --apply 落盘。"
+        )
+    else:
+        print("   ✅ 无主记录 0 条 —— 本 store 不需要回填")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--store", default=str(DEFAULT_STORE), help="连接器 JSON 路径")
@@ -172,9 +251,22 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
         help="允许改写**已有属主**的 key(逐条点名;不点名的一律不动)",
     )
+    parser.add_argument(
+        "--audit",
+        action="store_true",
+        help="只出无主记录报名清单(无需 claims,不写盘)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="显式 dry-run(与 --apply 互斥)")
     parser.add_argument("--apply", action="store_true", help="写盘(缺省 dry-run)")
     parser.add_argument("--json", action="store_true", help="机器可读输出")
     args = parser.parse_args(argv)
+
+    if args.apply and args.dry_run:
+        print("❌ 拒绝:--dry-run 与 --apply 互斥,同给等于两个意图")
+        return 1
+    if args.audit and args.apply:
+        print("❌ 拒绝:--audit 只读,不能与 --apply 同用")
+        return 1
 
     path = Path(args.store)
     try:
@@ -183,13 +275,36 @@ def main(argv: list[str] | None = None) -> int:
         print(f"❌ 无法判定:{path} 读不到或形态不认识 —— {exc}")
         return 2
 
+    if args.audit:
+        result = audit_records(records)
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "audit": True,
+                        "records": result.total,
+                        "owned": result.owned,
+                        "ownerless": dict(sorted(result.ownerless.items())),
+                        "duplicateKeys": result.duplicate_keys,
+                        "missingKey": result.missing_key,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+        else:
+            _print_audit(path, result)
+        return 0
+
     try:
         claims = parse_claims(args)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"❌ 拒绝:claims 不可用 —— {exc}")
         return 1
     if not claims:
-        print("❌ 拒绝:没有点名任何 key —— 空 claims 等于什么都不做,别让它看起来像「已回填」")
+        print(
+            "❌ 拒绝:没有点名任何 key —— 空 claims 等于什么都不做,别让它看起来像「已回填」。"
+            "若只想先看有哪些无主记录,用 --audit(不需要 claims)"
+        )
         return 1
     reassign = {str(k) for k in args.reassign}
     unknown_reassign = reassign - set(claims)
@@ -274,7 +389,7 @@ def harden_console_streams() -> None:
     为什么这是判据而不是观感问题:Windows 控制台按 **GBK 码页**编码,一个编不出的字符会在
     `print` 处抛 UnicodeEncodeError。本工具实测两型后果:① 拒执行文案(含 `❌`)直接崩在打印上,
     运维拿不到"为什么没跑",而机主给这张票的解阻动作就是"跑一次 dry-run 出报名清单";
-    ② 更坏的一型在第 251→256 行 —— **已经写盘成功后**才打印 `✅ 已回填`,打印一崩退出码就变 1,
+    ② 更坏的一型在写盘之后的那处 `print("✅ 已回填 ...")` —— **已经写盘成功后**才打印,打印一崩退出码就变 1,
     读起来像"回填失败"而数据其实已改完。输出面绝不允许推翻一个已经成立的结果。
     """
     for stream in (sys.stdout, sys.stderr):
