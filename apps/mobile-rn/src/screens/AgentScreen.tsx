@@ -69,6 +69,7 @@ import { type LucideIcon, Bot, Film, FolderOpen, Palette, Search } from 'lucide-
 import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
+import { useRefreshOnFocus } from '../hooks'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -322,6 +323,9 @@ export function AgentScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
 
   /** 顶部轮播(对齐 Uniapp tools/index.vue banner_carousel):
    *  api-client 无 getBanners 端点,从智能体列表派生:取前 5 条有头像的智能体转 CarouselItem
