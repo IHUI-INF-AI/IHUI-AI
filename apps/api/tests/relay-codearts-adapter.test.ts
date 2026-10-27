@@ -345,6 +345,59 @@ describe('codearts checkHealth / listModels(打桩 fetch)', () => {
   })
 })
 
+describe('codearts getQuota(限时福利 balance;形状未实证 ⇒ 200 也未判定)', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
+
+  it('401 → ok:false + authFailed(承载层据此触发自愈刷新)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 401,
+      ok: false,
+      text: async () => JSON.stringify({ error_code: 'APIG.0301', error_msg: 'Unauthorized' }),
+    })
+    const q = await codeartsAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.authFailed).toBe(true)
+    expect(q.error).toMatch(/HTTP 401/)
+  })
+
+  it('HTTP 200 → ok:false 未判定,带响应键名清单(不猜字段读成数字)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ balance: 60, unit: 'tokens' }),
+    })
+    const q = await codeartsAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.quota).toBeUndefined()
+    expect(q.error).toContain('响应键=[balance,unit]')
+    expect(q.error).toMatch(/未判定/)
+  })
+
+  it('HTTP 200 非 JSON → ok:false 未判定,键=(空)', async () => {
+    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => 'not-json' })
+    const q = await codeartsAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.error).toContain('响应键=[(空)]')
+  })
+
+  it('请求面:GET balance 端点 + 签名头含 host/x-sdk-date/x-security-token(无 agent-type)', async () => {
+    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
+    await codeartsAdapter.getQuota!(makeCtx())
+    const [url, init] = mockFetch.mock.calls[0] as [string, { headers: Record<string, string> }]
+    expect(url).toContain('opengw.developer.huaweicloud.com/api/v1/user/tokens/balance')
+    expect(init.method).toBe('GET')
+    const h = Object.fromEntries(
+      Object.entries(init.headers).map(([k, v]) => [k.toLowerCase(), v]),
+    )
+    expect(h['host']).toContain('opengw.developer.huaweicloud.com')
+    expect(h['x-sdk-date']).toBeTruthy()
+    expect(h['x-security-token']).toBe('sts-security-token')
+    expect(h['agent-type']).toBeUndefined()
+  })
+})
+
 describe('codearts classifyUpstreamFailure', () => {
   const classify = codeartsAdapter.classifyUpstreamFailure!
 

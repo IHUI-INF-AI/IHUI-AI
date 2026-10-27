@@ -197,7 +197,10 @@
     "check:lint-staged-pin": "node scripts/check-lint-staged-stdio-pin.mjs",
     "qoder:import": "pnpm --filter @ihui/api qoder:import",
     "relay:inspect": "pnpm --filter @ihui/api relay:inspect",
-    "relay:sessions": "pnpm --filter @ihui/api relay:sessions"
+    "relay:sessions": "pnpm --filter @ihui/api relay:sessions",
+    "relay:sessions:backup": "pnpm --filter @ihui/api relay:sessions:backup",
+    "relay:switch-account": "pnpm --filter @ihui/api relay:switch-account",
+    "relay:ide-switch": "pnpm --filter @ihui/api relay:ide-switch"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "contributors": [

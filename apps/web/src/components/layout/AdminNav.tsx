@@ -661,6 +661,13 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: ShieldCheck,
         dynamicLabel: '账号代理',
       },
+      // 号池任务中心(2026-10-27 立,缺口④:四载体周期任务观测+手动触发)
+      {
+        href: '/admin/relay/tasks',
+        labelKey: 'dashboard',
+        icon: ListChecks,
+        dynamicLabel: '号池任务中心',
+      },
       { href: '/admin/relay/discovery', labelKey: 'adminRelayDiscovery', icon: Activity },
       { href: '/admin/relay/logs', labelKey: 'adminRelayLogs', icon: Coins },
       { href: '/admin/relay/alert-rules', labelKey: 'adminRelayAlertRules', icon: BellRing },

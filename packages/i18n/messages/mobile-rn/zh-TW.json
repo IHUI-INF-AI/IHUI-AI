@@ -5,6 +5,12 @@
     "loadFailed": "工作流載入失敗"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "手動暫停",
+      "failedPermanent": "永久失敗",
+      "failedRetriesExhausted": "重試次數已用盡",
+      "completed": "已完成"
+    },
     "title": "自動化",
     "empty": "暫無自動化任務",
     "loadFailed": "自動化載入失敗",
