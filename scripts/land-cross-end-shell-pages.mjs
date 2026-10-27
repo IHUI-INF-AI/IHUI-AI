@@ -911,6 +911,11 @@ if (isDirectRun) {
       batch: r.batch?.length ?? 0,
       blobs: r.blobs ?? 0,
       refused: r.refused ?? 0,
+      // 逐条拒因必须同时进 --json:这一层是**字段白名单**重新组装 summary,上一版只改了 runPages 的返回
+      // 与打印档 ⇒ 打印看得见、调度器读的那份里根本没有这两个键(2026-10-28 实测:同一命令的 JSON 出口
+      // `refusedDetail` 为空)。消费方(guardian 的 sweepCrossEndShellPages)读的正是 --json,漏这里=仪表没接线。
+      refusedDetail: r.refusedDetail ?? [],
+      undeterminedDetail: r.undeterminedDetail ?? [],
       cap: capArg ? Number(capArg.slice(6)) : DEFAULT_CAP,
       // 容量闸挡下几枚、为什么挡:到量时这是唯一能解释"为什么不再往前"的读数
       held: r.held?.length ?? 0,
