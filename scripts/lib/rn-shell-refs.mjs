@@ -73,7 +73,10 @@ export function shellBindingsOf(text) {
  * 本模块不碰任何读取 ⇒ 面纪律(§0.4 同面同轮)留在调用方,不在这里被暗中固定成一个面。
  */
 export function hasDanglingShell(text, readTarget) {
-  for (const name of shellRefsOf(text)) if (readTarget(shellTargetRel(name)) == null) return name
+  for (const name of shellRefsOf(text)) {
+    const t = readTarget(shellTargetRel(name))
+    if (t === null || t === undefined) return name
+  }
   return null
 }
 
@@ -87,5 +90,25 @@ export function mismatchedShellBinding(text, readShell) {
       return `${b.target}:页面具名导入 ${b.imported},而壳的具名出口是 {${[...shape.names].join(',')}}`
   }
   return null
+}
+
+/**
+ * 页面是否**直接**渲染共享屏(不经 RN 壳):具名导入自 `@ihui/rn-app`(含深路径)且 JSX 真用该符号。
+ * 这是与「@rn-shells 壳承载」并列的第二种合法委托形态(现读 pkg-about/about-shared/index:
+ * 页面自己注入 t/colorScheme/onBack 等平台事实,布局与数据仍是共享源那一份)。
+ * 只 import 不渲染不算(可能是类型或条件分支)——那种情况仍按手写逐键数,失效方向恒为"多算一份手写"。
+ */
+export function directSharedUsage(text, sharedName) {
+  const t = String(text ?? '')
+  const aliases = []
+  for (const m of t.matchAll(/import\s+\{([^}]*)\}\s*from\s*['"]@ihui\/rn-app(?:\/[^'"]*)?['"]/g)) {
+    for (const piece of m[1].split(',')) {
+      const p = piece.trim().replace(/^type\s+/, '')
+      if (!p) continue
+      const [orig, alias] = p.split(/\s+as\s+/).map((s) => s.trim())
+      if (orig === sharedName) aliases.push(alias || orig)
+    }
+  }
+  return aliases.find((a) => new RegExp(`<${a}(?=[\\s/>])`).test(t)) ?? null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
