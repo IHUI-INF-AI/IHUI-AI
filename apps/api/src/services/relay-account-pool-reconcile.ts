@@ -37,6 +37,7 @@ import {
   type PoolAccountState,
 } from './relay-account-pool-checkin-sync.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
+import { resolveAccountProxyUrl } from './relay-proxy-pool.js'
 
 // =============================================================================
 // 双侧投影(plan 纯函数的输入;拉取逻辑与执行逻辑都在本文件)
@@ -438,7 +439,7 @@ export async function reconcileCheckinSync(opts?: {
               refreshToken: creds.refreshToken,
               credVersion: full.credVersion,
               enabled: full.isEnabled,
-              proxyUrl: full.proxyUrl,
+              proxyUrl: resolveAccountProxyUrl(full.proxyUrl),
               deviceId: full.deviceId,
               machineId: full.machineId,
               cosy: extractCosy(full.extraMetadata),

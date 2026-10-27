@@ -107,10 +107,10 @@ export function LetterChatScreen({
                   <Trash2 size={13} color={tk.text.tertiary} />
                 </TouchableOpacity>
                 <View style={item.mine ? styles.bubbleMine : styles.bubbleTheirs}>
-                  <Text style={item.mine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>
+                  <Text style={item.mine ? styles.bubbleMineText : styles.bubbleTextTheirs}>
                     {item.content}
                   </Text>
-                  <Text style={item.mine ? styles.bubbleTimeMine : styles.bubbleTimeTheirs}>
+                  <Text style={item.mine ? [styles.bubbleMineText, styles.bubbleTimeMine] : styles.bubbleTimeTheirs}>
                     {item.mine ? `${t('lettersPage.you')} · ` : ''}
                     {item.timeText}
                   </Text>
@@ -137,7 +137,7 @@ export function LetterChatScreen({
           editable={!sending}
         />
         <TouchableOpacity
-          style={sending || !draft.trim() ? styles.sendBtnDisabled : styles.sendBtn}
+          style={[styles.sendBtn, (sending || !draft.trim()) && styles.sendBtnDisabled]}
           onPress={onSend}
           disabled={sending || !draft.trim()}
         >
@@ -218,13 +218,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.muted,
     },
-    bubbleTextMine: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
+    bubbleMineText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
     bubbleTextTheirs: { fontSize: rnType.body.size, color: tk.text.primary },
     bubbleTimeMine: {
       marginTop: 2,
       textAlign: 'right',
       fontSize: rnType.caption.size,
-      color: tk.brand.ctaForeground,
     },
     bubbleTimeTheirs: {
       marginTop: 2,
@@ -257,13 +256,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    sendBtnDisabled: {
-      paddingHorizontal: rnSpacing.lg,
-      paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-      opacity: 0.5,
-    },
+    sendBtnDisabled: { opacity: 0.5 },
     sendText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
   })
 }

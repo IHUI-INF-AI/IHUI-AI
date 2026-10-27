@@ -7,10 +7,10 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 
+import { reorderByPriority } from '@ihui/shared/auth/login-region-policy'
 import { Button } from '../button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../tooltip'
 import { cn } from '../../lib/utils'
-import { orderByPlatformPriority } from '@ihui/shared/utils/login-order-policy'
 import type { ThirdPartyConfig, ThirdPartyPlatform, ThirdPartyProvider } from './types'
 
 export interface ThirdPartyLoginButtonsProps {
@@ -43,10 +43,17 @@ export interface ThirdPartyLoginButtonsProps {
 
 /**
  * 稳定排序:按 priority 表给的名次排前,未列名的保持原相对顺序排后。
- * 实现住在 `@ihui/shared` 的 `utils/login-order-policy.ts`(2026-10-27 下沉,RN 与 web
- * 共用同一份);此处只保留模块出口名,历史 import 面不变。禁止为第二处再写一份排序。
+ * 判据与执行器自 2026-10-27 住在共享层 `@ihui/shared/auth/login-region-policy`
+ * (`reorderByPriority`);本函数只是 `key` 档薄适配 —— 图标网格(ThirdPartyProvider)与
+ * 扫码渠道(QrPlatformConfig)都以 `key` 为身份,RN 的 `ThirdPartyLoginOption` 以
+ * `platform` 为身份,两端跑的是同一个执行器,不在这里复算任何判定(§0.6)。
  */
-export const sortByPlatformPriority: typeof orderByPlatformPriority = orderByPlatformPriority
+export function sortByPlatformPriority<T extends { key: ThirdPartyPlatform }>(
+  items: readonly T[],
+  priority: readonly ThirdPartyPlatform[],
+): T[] {
+  return reorderByPriority(items, priority, (item) => item.key)
+}
 
 /**
  * 第三方登录按钮群(2026-07-26 抽取到共享包)

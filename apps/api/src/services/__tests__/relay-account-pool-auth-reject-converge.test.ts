@@ -44,7 +44,15 @@ vi.mock('../../db/index.js', () => {
     })
     return withSettlers(step, () => [])
   }
-  return { db: { update: chainWrite, insert: chainWrite, delete: chainWrite }, dbRead: { select: chainWrite } }
+  return {
+    db: {
+      update: chainWrite,
+      insert: chainWrite,
+      delete: chainWrite,
+      execute: vi.fn(async () => []),
+    },
+    dbRead: { select: chainWrite },
+  }
 })
 
 vi.mock('../../utils/crypto.js', () => ({
@@ -135,7 +143,11 @@ describe('换票成功 ⇒ 按上游 expiresAt 写库', () => {
   it('refreshOne 写入上游真实到期时刻,不写 now+N 小时兜底', async () => {
     registerRelayAdapter({
       providerCode: 'qoder',
-      refreshToken: async () => ({ token: 'tok-new', refreshToken: 'rt-new', expiresAt: new Date(UPSTREAM_EXPIRES_AT) }),
+      refreshToken: async () => ({
+        token: 'tok-new',
+        refreshToken: 'rt-new',
+        expiresAt: new Date(UPSTREAM_EXPIRES_AT),
+      }),
       buildChatRequest: () => {
         throw new Error('本用例不跑 chat')
       },

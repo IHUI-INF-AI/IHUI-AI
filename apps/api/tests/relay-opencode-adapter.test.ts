@@ -11,11 +11,12 @@
  * - isAuthFailure:401/403 + 凭证失效文案 / HTML 登录墙
  * - buildChatRequest:OpenAI 兼容透传 + Bearer
  * - translateStreamChunk / translateNonStream:透传 + error 帧识别
- * - checkHealth / getQuota:无已实证端点 ⇒ 如实未判定
+ * - checkHealth:2026-10-27 实弹实证 zen/v1/models 轻量端点(200 ok / 401 authFailed /
+ *   其余未判定);getQuota:zen/v1/usage 实弹 404 不存在 ⇒ 如实未判定
  *
- * 提取器走注入(env/dataDir),不碰本机真实 auth.json。
+ * 提取器走注入(env/dataDir),不碰本机真实 auth.json;fetch 全打桩。
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import crypto from 'node:crypto'
 import type { AdapterAccountContext, StreamState } from '../src/services/relay-upstream-adapters.js'
 import { opencodeAdapter } from '../src/services/upstream-adapters/opencode-adapter.js'
@@ -23,6 +24,9 @@ import {
   extractOpencodeAccounts,
   summarizeProvider,
 } from '../../../scripts/lib/opencode-auth-extract.mjs'
+
+const mockFetch = vi.fn()
+global.fetch = mockFetch as unknown as typeof fetch
 
 function makeCtx(): AdapterAccountContext {
   return {
@@ -199,16 +203,59 @@ describe('opencode translateStreamChunk / translateNonStream', () => {
   })
 })
 
-describe('opencode checkHealth / getQuota(无已实证端点 ⇒ 如实未判定)', () => {
-  it('checkHealth → indeterminate 未判定,不发请求', async () => {
+describe('opencode checkHealth(2026-10-27 实弹:zen/v1/models 轻量端点)', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
+
+  it('请求面:GET zen/v1/models + Bearer', async () => {
+    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{"data":[]}' })
+    const health = await opencodeAdapter.checkHealth(makeCtx())
+    expect(health.ok).toBe(true)
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(String(url)).toBe('https://opencode.ai/zen/v1/models')
+    expect(init.method).toBe('GET')
+    expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer oc-key-test-1')
+  })
+
+  it('401 api_key_expired → authFailed(实弹结论:重登不续期,须 Console 新建 key)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 401,
+      ok: false,
+      text: async () =>
+        JSON.stringify({
+          error: {
+            type: 'authentication_error',
+            code: 'api_key_expired',
+            message: 'This API key has expired. Create a new API key in OpenCode Console.',
+          },
+        }),
+    })
+    const health = await opencodeAdapter.checkHealth(makeCtx())
+    expect(health.ok).toBe(false)
+    expect(health.authFailed).toBe(true)
+    expect(health.indeterminate).toBeFalsy()
+  })
+
+  it('503 → indeterminate 未判定(临时故障不误杀好号)', async () => {
+    mockFetch.mockResolvedValue({ status: 503, ok: false, text: async () => 'unavailable' })
     const health = await opencodeAdapter.checkHealth(makeCtx())
     expect(health.ok).toBe(false)
     expect(health.indeterminate).toBe(true)
-    expect(health.error).toContain('未判定')
-    expect(health.authFailed).toBeUndefined()
+    expect(health.authFailed).toBeFalsy()
   })
 
-  it('getQuota → ok:false 未判定(无公开额度端点),不发请求', async () => {
+  it('网络异常 → indeterminate 未判定带原因', async () => {
+    mockFetch.mockRejectedValue(new Error('socket hang up'))
+    const health = await opencodeAdapter.checkHealth(makeCtx())
+    expect(health.ok).toBe(false)
+    expect(health.indeterminate).toBe(true)
+    expect(health.error).toMatch(/socket hang up/)
+  })
+})
+
+describe('opencode getQuota(实弹复核:zen/v1/usage 404 不存在 ⇒ 如实未判定)', () => {
+  it('getQuota → ok:false 未判定,不发请求', async () => {
     const q = await opencodeAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
     expect(q.quota).toBeUndefined()

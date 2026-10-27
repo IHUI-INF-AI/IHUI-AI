@@ -29,6 +29,7 @@ import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
+import { pickProxyForAccount } from './relay-proxy-pool.js'
 import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
 import { retryPendingCheckinSyncs } from './relay-account-pool-checkin-sync.js'
 
@@ -277,16 +278,43 @@ export function downRecoveryWhere() {
   )
 }
 
+/** 本轮巡检出口选取台账:proxied=走代理(账号级或池),direct=直连(无可用代理) */
+export interface EgressProxyTally {
+  proxied: number
+  direct: number
+}
+
+/**
+ * 与转发链路同一口径取出口:账号级 proxyUrl 优先,否则池内按最久未用轮换。
+ * 取不到代理时 pickProxyForAccount 返回 null,调用方回退直连。
+ */
+async function resolveEgressProxy(
+  row: AiRelayAccountPool,
+  tally?: EgressProxyTally,
+): Promise<string | null> {
+  const proxyUrl = await pickProxyForAccount({ id: row.id, proxyUrl: row.proxyUrl })
+  if (tally) {
+    if (proxyUrl) tally.proxied++
+    else tally.direct++
+  }
+  return proxyUrl
+}
+
 /**
  * 刷新单账号;成功回写凭证,失败累计摘除。返回 true = 刷新成功。
  * 导出给管理面「按需查余额」共用同一把出口(回写/解摘/失败累计的口径只有一份)。
+ * tally 只用于本轮巡检的观测(代理/直连计数),不影响产出。
  */
-export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
+export async function refreshOne(
+  row: AiRelayAccountPool,
+  tally?: EgressProxyTally,
+): Promise<boolean> {
   const adapter = getRelayAdapter(row.providerCode)
   if (!adapter?.refreshToken) return false
   const credentials = decryptAccountCredentials(row)
   try {
-    const result = await adapter.refreshToken(ctxOf(row, credentials), { proxyUrl: row.proxyUrl })
+    const proxyUrl = await resolveEgressProxy(row, tally)
+    const result = await adapter.refreshToken(ctxOf(row, credentials), { proxyUrl })
     if (!result) return false
     const now = new Date()
     await db
@@ -379,6 +407,8 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   }
   const now = new Date()
   const deadline = new Date(now.getTime() + REFRESH_AHEAD_MS)
+  // 出口选取台账(仅日志观测;不新增 sweep 产出键,保持全标量契约)
+  const egress: EgressProxyTally = { proxied: 0, direct: 0 }
 
   // ── 0. 台账保留期清理(24h 节流;每 5 分钟一轮 sweep 但不会每轮 delete) ──
   await maybePurgeUsageLedger()
@@ -402,7 +432,7 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       out.refreshSkipped++
       return
     }
-    if (await refreshOne(row)) out.refreshed++
+    if (await refreshOne(row, egress)) out.refreshed++
     else out.refreshFailed++
   })
 
@@ -435,7 +465,7 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
         out.refreshSkipped++
         return
       }
-      if (await refreshOne(row)) out.refreshed++
+      if (await refreshOne(row, egress)) out.refreshed++
       else out.refreshFailed++
     })
   }
@@ -471,8 +501,9 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       return
     }
     try {
+      const proxyUrl = await resolveEgressProxy(row, egress)
       const outcome = await adapter.checkHealth(ctxOf(row, decryptAccountCredentials(row)), {
-        proxyUrl: row.proxyUrl,
+        proxyUrl,
       })
       out.healthChecked++
       const now = new Date()
@@ -501,7 +532,7 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     if (shouldDeferRefresh(row, now)) continue // 同上:票未过期不抢客户端的轮换权
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) continue
-    if (await refreshOne(row)) out.healthRecovered++
+    if (await refreshOne(row, egress)) out.healthRecovered++
   }
 
   // ── 4. O64 号池↔签到对账收敛(断链自愈;失败不中断 sweep,下轮继续) ──
@@ -530,6 +561,13 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   } catch (e) {
     logger.warn('[relay-account-pool] 待推重推异常(不影响巡检)', {
       error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
+  }
+
+  if (egress.proxied + egress.direct > 0) {
+    logger.info('[relay-account-pool] 本轮出口选取', {
+      proxied: egress.proxied,
+      direct: egress.direct,
     })
   }
 

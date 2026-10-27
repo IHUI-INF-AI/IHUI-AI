@@ -61,7 +61,10 @@ import {
 import { db, dbRead } from '../db/index.js'
 import { encryptField } from '../utils/crypto.js'
 import { startStopwatch } from '../utils/elapsed-ms.js'
-import { recordRelayStreamInterrupt, snapshotRelayStreamInterrupts } from '../plugins/business-metrics.js'
+import {
+  recordRelayStreamInterrupt,
+  snapshotRelayStreamInterrupts,
+} from '../plugins/business-metrics.js'
 import { logger } from '../utils/logger.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
 import { accountSchedulableCondition } from './relay-account-pool-scheduler.js'
@@ -74,7 +77,12 @@ import {
   setSessionAffinity,
 } from './relay-account-shared-state.js'
 import { recordAccountUsage } from './relay-account-usage.js'
-import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './relay-proxy-pool.js'
+import {
+  pickProxyForAccount,
+  reportProxyFailure,
+  reportProxySuccess,
+  resolveAccountProxyUrl,
+} from './relay-proxy-pool.js'
 import { resolveModelAlias } from './relay-model-catalog.js'
 import {
   applyStopToCompletion,
@@ -679,7 +687,10 @@ async function doRefreshRowInPlace(
   const startedAt = new Date()
   try {
     const credentials = decryptAccountCredentials(row)
-    const result = await adapter.refreshToken!({ row, credentials }, { proxyUrl: row.proxyUrl })
+    const result = await adapter.refreshToken!(
+      { row, credentials },
+      { proxyUrl: resolveAccountProxyUrl(row.proxyUrl) },
+    )
     if (!result) return null
     const tokenEnc = encryptField(result.token)
     const refreshTokenEnc =
@@ -1242,7 +1253,11 @@ async function attemptWithAccount(
             const retry = await adapter.executeChat(
               { row: refreshed, credentials: decryptAccountCredentials(refreshed) },
               normReq,
-              { signal: retryTimed.signal, proxyUrl: refreshed.proxyUrl, fetchImpl: doFetch },
+              {
+                signal: retryTimed.signal,
+                proxyUrl: resolveAccountProxyUrl(refreshed.proxyUrl),
+                fetchImpl: doFetch,
+              },
             )
             if (retry.stream) {
               const retryTerminal = newStreamTerminal()

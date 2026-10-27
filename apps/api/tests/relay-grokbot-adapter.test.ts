@@ -10,12 +10,15 @@
  *   凭证/连接文件存在(按 2026-10-27 本机实证键形)⇒ raw 直通 + 摘要零回显
  * - buildChatRequest:api.x.ai + Bearer + body 透传
  * - checkHealth:401 ⇒ authFailed;形状不符 ⇒ indeterminate(未判定不冒绿)
- * - getQuota:无公开端点 ⇒ 未判定且不发请求
+ * - getQuota:2026-10-27 端点级实证升级——POST GetSandUsageStatus(Connect-RPC);
+ *   usagePercent→ratio、nextResetTimestampUtc→resetsAt、grokPlanLabel→subscriptionName;
+ *   形状不符/非 JSON ⇒ 未判定带键名清单;401 ⇒ authFailed
  * - isAuthFailure / translateStreamChunk / classifyUpstreamFailure
  *
  * fetch 全部打桩,不发真实网络请求。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import crypto from 'node:crypto'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
@@ -31,13 +34,21 @@ interface ExtractResult {
   accounts: Array<Record<string, unknown>>
   meta: Record<string, unknown>
 }
-const extractGrokbotAccounts = (
-  (await import(
-    pathToFileURL(resolve(HERE, '../../../scripts/lib/grokbot-auth-extract.mjs')).href
-  )) as {
-    extractGrokbotAccounts: (opts?: Record<string, unknown>) => Promise<ExtractResult>
+const extractMod = (await import(
+  pathToFileURL(resolve(HERE, '../../../scripts/lib/grokbot-auth-extract.mjs')).href
+)) as {
+  extractGrokbotAccounts: (opts?: Record<string, unknown>) => Promise<ExtractResult>
+  readSandSecretsAccounts: (
+    appConfigDir: string,
+    inject?: Record<string, unknown>,
+  ) => {
+    accounts: Array<{ source: string; accountId: string; key: string; value: string }>
+    notes: string[]
   }
-).extractGrokbotAccounts
+  decryptOscryptV10Blob: (blobB64: string, aesKey: Buffer) => string
+  APP_CONFIG_DIR_NAME: string
+}
+const extractGrokbotAccounts = extractMod.extractGrokbotAccounts
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch as unknown as typeof fetch
@@ -230,19 +241,168 @@ describe('grokbot checkHealth / listModels(打桩 fetch)', () => {
   })
 })
 
-describe('grokbot getQuota(无公开端点 ⇒ 未判定,不发请求)', () => {
+describe('grokbot getQuota(2026-10-27 端点级实证:GetSandUsageStatus)', () => {
   beforeEach(() => {
     mockFetch.mockReset()
   })
 
-  it('永远 ok:false + 未判定点名 + 不发网络请求(不猜字段)', async () => {
+  it('请求面:POST api2.cursor.sh GetSandUsageStatus + Bearer + 空 JSON body', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          usagePercent: 42,
+          nextResetTimestampUtc: '2026-11-01T00:00:00Z',
+          grokPlanLabel: 'SuperGrok',
+        }),
+    })
+    await grokbotAdapter.getQuota!(makeCtx())
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(String(url)).toBe(
+      'https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus',
+    )
+    expect(init.method).toBe('POST')
+    const headers = init.headers as Record<string, string>
+    expect(headers.authorization).toBe('Bearer gk-test-token')
+    expect(headers['content-type']).toBe('application/json')
+    expect(String(init.body)).toBe('{}')
+  })
+
+  it('200 + usagePercent 数字 → ok:true quota(ratio/resetsAt/subscriptionName)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          usagePercent: 42,
+          currentPeriodStart: '2026-10-25T00:00:00Z',
+          nextResetTimestampUtc: '2026-11-01T00:00:00Z',
+          hasNonZeroIncludedLimit: true,
+          hasAvailableUsage: true,
+          grokPlanLabel: 'SuperGrok',
+        }),
+    })
+    const q = await grokbotAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(true)
+    expect(q.quota?.used).toBe(42)
+    expect(q.quota?.ratio).toBeCloseTo(0.42)
+    expect(q.quota?.resetsAt).toBe('2026-11-01T00:00:00Z')
+    expect(q.quota?.subscriptionName).toBe('SuperGrok')
+  })
+
+  it('401 ⇒ authFailed(承载层刷新自愈标志)', async () => {
+    mockFetch.mockResolvedValue({ status: 401, ok: false, text: async () => 'unauthorized' })
+    const q = await grokbotAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.authFailed).toBe(true)
+  })
+
+  it('200 但 usagePercent 非数字 → 未判定 + 响应键名清单(不猜字段)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ foo: 'bar', baz: 1 }),
+    })
     const q = await grokbotAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
     expect(q.quota).toBeUndefined()
-    expect(q.authFailed).toBeUndefined()
-    expect(q.error).toMatch(/未判定/)
-    expect(q.error).toMatch(/无公开.*端点/)
-    expect(mockFetch).not.toHaveBeenCalled()
+    expect(q.error).toMatch(/usagePercent 非数字/)
+    expect(q.error).toMatch(/foo,baz/)
+  })
+
+  it('200 非 JSON → 未判定并带响应前缀', async () => {
+    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '<html>gateway</html>' })
+    const q = await grokbotAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.error).toMatch(/响应非 JSON/)
+    expect(q.error).toMatch(/<html>/)
+  })
+})
+
+describe('grokbot 提取器 sand-secrets 主路径(2026-10-27 源码级取证)', () => {
+  it('sand-secrets.json 不存在 ⇒ GROKBOT_NO_SESSION(桌面端未登录/已卸载)', () => {
+    const dir = makeTmpDir()
+    try {
+      let caught: { code?: string; message?: string } | null = null
+      try {
+        extractMod.readSandSecretsAccounts(dir)
+      } catch (e) {
+        caught = e as { code?: string; message?: string }
+      }
+      expect(caught?.code).toBe('GROKBOT_NO_SESSION')
+      expect(caught?.message).toMatch(/sand-secrets\.json 不存在/)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('cursor-accounts 为 JSON 字符串且缺 accounts ⇒ GROKBOT_BAD_SECRETS', () => {
+    const dir = makeTmpDir()
+    try {
+      writeFileSync(
+        `${dir}/sand-secrets.json`,
+        JSON.stringify({ 'cursor-accounts': JSON.stringify({ active: 'x' }) }),
+        'utf8',
+      )
+      let caught: { code?: string; message?: string } | null = null
+      try {
+        extractMod.readSandSecretsAccounts(dir)
+      } catch (e) {
+        caught = e as { code?: string; message?: string }
+      }
+      expect(caught?.code).toBe('GROKBOT_BAD_SECRETS')
+      expect(caught?.message).toMatch(/accounts/)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('cursor-accounts JSON 串损坏 ⇒ GROKBOT_BAD_SECRETS(双层解析失败)', () => {
+    const dir = makeTmpDir()
+    try {
+      writeFileSync(
+        `${dir}/sand-secrets.json`,
+        JSON.stringify({ 'cursor-accounts': '{not-json' }),
+        'utf8',
+      )
+      let caught: { code?: string; message?: string } | null = null
+      try {
+        extractMod.readSandSecretsAccounts(dir)
+      } catch (e) {
+        caught = e as { code?: string; message?: string }
+      }
+      expect(caught?.code).toBe('GROKBOT_BAD_SECRETS')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('decryptOscryptV10Blob 纯函数回路:v10 加密→解密一致;v20 形 → 未判定', () => {
+    const key = crypto.randomBytes(32)
+    const nonce = crypto.randomBytes(12)
+    const plain = 'cursor-access-token-plain-42'
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, nonce)
+    const ct = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()])
+    const blob = Buffer.concat([Buffer.from('v10', 'ascii'), nonce, ct, cipher.getAuthTag()])
+    expect(extractMod.decryptOscryptV10Blob(blob.toString('base64'), key)).toBe(plain)
+    const bad = Buffer.concat([Buffer.from('v20', 'ascii'), nonce, ct, cipher.getAuthTag()])
+    expect(() => extractMod.decryptOscryptV10Blob(bad.toString('base64'), key)).toThrow(/v10\/v11/)
+  })
+
+  it('extractGrokbotAccounts 测试封闭性:注入目录即不扫真实环境(双路径均空 ⇒ NO_SESSION)', async () => {
+    const empty = makeTmpDir()
+    try {
+      const err = await extractGrokbotAccounts({ appConfigDir: `${empty}/Grok Bot` }).then(
+        () => null,
+        (e: { code?: string; message?: string }) => e,
+      )
+      expect(err?.code).toBe('GROKBOT_NO_SESSION')
+      expect(err?.message).toMatch(/sand-secrets 探测注记/)
+    } finally {
+      rmSync(empty, { recursive: true, force: true })
+    }
   })
 })
 
