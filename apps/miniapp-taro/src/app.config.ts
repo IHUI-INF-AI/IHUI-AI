@@ -319,6 +319,8 @@ export default defineAppConfig({
         'message-system/index',
         'note-create/index',
         'note-detail/index',
+        'favorites/index',
+        'publish/index',
       ],
     },
     {
