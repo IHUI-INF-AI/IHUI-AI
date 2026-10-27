@@ -345,7 +345,8 @@ describe('codearts checkHealth / listModels(打桩 fetch)', () => {
   })
 })
 
-describe('codearts getQuota(限时福利 balance;形状未实证 ⇒ 200 也未判定)', () => {
+describe('codearts getQuota(限时福利 balance;APIG 信封实证 2026-10-27)', () => {
+  // 2026-10-27 收尾票:本 describe 自 4cdbb439de 恢复(他席 32db9220c5 重派误冲双源实证信封断言)
   beforeEach(() => {
     mockFetch.mockReset()
   })
@@ -362,7 +363,37 @@ describe('codearts getQuota(限时福利 balance;形状未实证 ⇒ 200 也未�
     expect(q.error).toMatch(/HTTP 401/)
   })
 
-  it('HTTP 200 → ok:false 未判定,带响应键名清单(不猜字段读成数字)', async () => {
+  it('200 + 业务拒绝信封(4000 invalid channel,group not found)→ ok:false 带码与明细', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({ error_code: '4000', error_msg: 'invalid channel, group not found', result: null }),
+    })
+    const q = await codeartsAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.quota).toBeUndefined()
+    expect(q.authFailed).toBeUndefined()
+    expect(q.error).toContain('error_code=4000')
+    expect(q.error).toContain('invalid channel, group not found')
+  })
+
+  it('200 + 0000 信封 → ok:false 载荷未判定(result 键如实带出,不猜字段读成数字)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ error_code: '0000', error_msg: 'success', result: { balance: 60 } }),
+    })
+    const q = await codeartsAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.quota).toBeUndefined()
+    expect(q.error).toContain('error_code=0000')
+    expect(q.error).toContain('result 载荷形状未实证')
+    expect(q.error).toContain('balance')
+    expect(q.error).toMatch(/未判定/)
+  })
+
+  it('200 无 error_code 字段(信封外形状)→ ok:false 未判定,如实报缺失', async () => {
     mockFetch.mockResolvedValue({
       status: 200,
       ok: true,
@@ -370,16 +401,14 @@ describe('codearts getQuota(限时福利 balance;形状未实证 ⇒ 200 也未�
     })
     const q = await codeartsAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
-    expect(q.quota).toBeUndefined()
-    expect(q.error).toContain('响应键=[balance,unit]')
-    expect(q.error).toMatch(/未判定/)
+    expect(q.error).toContain('(缺失/非字符串)')
   })
 
-  it('HTTP 200 非 JSON → ok:false 未判定,键=(空)', async () => {
+  it('200 非 JSON → ok:false 未判定,报非 JSON 信封', async () => {
     mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => 'not-json' })
     const q = await codeartsAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
-    expect(q.error).toContain('响应键=[(空)]')
+    expect(q.error).toContain('非 JSON 信封')
   })
 
   it('请求面:GET balance 端点 + 签名头含 host/x-sdk-date/x-security-token(无 agent-type)', async () => {
