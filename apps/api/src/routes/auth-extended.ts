@@ -929,6 +929,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 各自看都"正常",没人能从账面发现。
   server.get('/auth/oauth-status', async (request, reply) => {
     const loginRegion = await resolveLoginRegion(request)
+    // 判定结果进请求日志:线上排"为什么这位访客看到的是另一套排法"时,这是不依赖
+    // 让访客配合 curl 的唯一取证面(响应里那份 loginRegionSource 只在被请求那一刻可见)。
+    request.log.info(
+      { loginRegion: loginRegion.region, loginRegionSource: loginRegion.source },
+      '登录呈现地区判定',
+    )
     reply.header('Cache-Control', 'no-store')
     return reply.send(
       success({
