@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 「登录本机」多平台执行端(2026-10-27 立;trae 仍走 scripts/trae-login-local.mjs)。
@@ -30,6 +31,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { clientHomeEnvs } from './lib/client-home.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -216,6 +218,28 @@ function writeResult(providerCode, file, backupFile, extra = {}) {
   return { ok: true, providerCode, targetFile: file, backupFile: backupFile ?? '', notes: [], ...extra }
 }
 
+/**
+ * 候选环境:登录态落在**真实用户**名下,而生产 API 以 LocalSystem 运行时
+ * %USERPROFILE%/%APPDATA% 指向 systemprofile ⇒ 逐个真实家目录派生等价 env 再探测
+ * (判据单源:scripts/lib/client-home.mjs;普通桌面进程下与原 env 等价)。
+ */
+function clientEnvs(opts = {}) {
+  return clientHomeEnvs(opts.env ?? process.env)
+}
+
+function uniq(list) {
+  return [...new Set(list.filter(Boolean))]
+}
+
+function firstExisting(candidates) {
+  return candidates.find((p) => fs.existsSync(p)) ?? ''
+}
+
+/** 候选目录里第一个存在目录的落点(文件还没建过时也能定位到正确目录) */
+function firstUsableDir(candidates) {
+  return candidates.find((p) => fs.existsSync(p)) ?? candidates.find((p) => fs.existsSync(path.dirname(p))) ?? ''
+}
+
 // =============================================================================
 // Codex — %USERPROFILE%\.codex\auth.json(CODEX_HOME 可覆盖)
 // =============================================================================
@@ -228,11 +252,18 @@ const CODEX_CRED_TOKENS = ['access_token', 'refresh_token', 'id_token', 'OPENAI_
 
 export function applyCodex(payload, opts = {}) {
   const extract = opts.extract
-  const file = payload.target
-    ? path.resolve(payload.target)
-    : path.join(extract.resolveCodexHome(opts.env ?? process.env) ?? '', 'auth.json')
-  if (!file || file === 'auth.json') {
-    throw new WriteError('解析不出 Codex 数据目录(CODEX_HOME/USERPROFILE/HOME 全缺)', 'no-target')
+  let file = payload.target ? path.resolve(payload.target) : ''
+  if (!file) {
+    const candidates = uniq(
+      clientEnvs(opts).map((env) => {
+        const home = extract.resolveCodexHome(env)
+        return home ? path.join(home, 'auth.json') : ''
+      }),
+    )
+    if (candidates.length === 0) {
+      throw new WriteError('解析不出 Codex 数据目录(CODEX_HOME/USERPROFILE/HOME 全缺)', 'no-target')
+    }
+    file = firstExisting(candidates) || firstUsableDir(candidates) || candidates[0]
   }
   const exists = fs.existsSync(file)
   if (!exists && !fs.existsSync(path.dirname(file))) {
@@ -295,13 +326,14 @@ const OPENCODE_CRED_KEYS = ['key', 'access', 'accessToken', 'refresh', 'refreshT
 
 export function applyOpencode(payload, opts = {}) {
   const extract = opts.extract
-  const dirs = extract.candidateDataDirs(opts.env ?? process.env)
   let file = payload.target ? path.resolve(payload.target) : ''
+  let dirs = []
   if (!file) {
-    const hit = dirs.map((d) => path.join(d, 'auth.json')).find((p) => fs.existsSync(p))
-    file = hit ?? path.join(dirs[0] ?? '', 'auth.json')
+    dirs = uniq(clientEnvs(opts).flatMap((env) => extract.candidateDataDirs(env)))
+    const candidates = dirs.map((d) => path.join(d, 'auth.json'))
+    file = firstExisting(candidates) || firstUsableDir(candidates) || (candidates[0] ?? '')
   }
-  if (!file || file === 'auth.json') {
+  if (!file) {
     throw new WriteError('解析不出 OpenCode 数据目录(XDG_DATA_HOME/USERPROFILE/HOME 全缺)', 'no-target')
   }
   const exists = fs.existsSync(file)
@@ -369,15 +401,15 @@ const MINIMAX_CRED_KEYS = ['accessToken', 'refreshToken', 'expiresAtMs']
 export function applyMinimax(payload, opts = {}) {
   const extract = opts.extract
   let file = payload.target ? path.resolve(payload.target) : ''
-  let roots = []
   if (!file) {
-    roots = extract.minimaxCandidateRoots()
     const hits = []
-    for (const root of roots) {
-      for (const f of extract.minimaxDiscoverAuthFiles(root)) hits.push(f.authPath)
+    for (const env of clientEnvs(opts)) {
+      for (const root of extract.minimaxCandidateRoots({ env })) {
+        for (const f of extract.minimaxDiscoverAuthFiles(root)) hits.push(f.authPath)
+      }
     }
     const preferred = asText(payload.secrets.sourcePath)
-    file = preferred && fs.existsSync(preferred) ? preferred : hits[0] ?? ''
+    file = preferred && fs.existsSync(preferred) ? preferred : uniq(hits)[0] ?? ''
   }
   if (!file) {
     throw new WriteError(
@@ -466,11 +498,20 @@ export function encryptZcodeValue(plaintext, key) {
 
 export function applyZcode(payload, opts = {}) {
   const extract = opts.extract
-  const roots = extract.zcodeCandidateRoots()
   let file = payload.target ? path.resolve(payload.target) : ''
+  /** 命中落点所属的环境 —— enc:v1: 的 fallback 密钥由「家目录+用户名」派生,必须同源 */
+  let keyEnv = opts.env ?? process.env
   if (!file) {
-    const hit = roots.map((r) => path.join(r, 'v2', 'credentials.json')).find((p) => fs.existsSync(p))
-    file = hit ?? ''
+    for (const env of clientEnvs(opts)) {
+      const hit = uniq(extract.zcodeCandidateRoots({ env }).map((r) => path.join(r, 'v2', 'credentials.json'))).find(
+        (p) => fs.existsSync(p),
+      )
+      if (hit) {
+        file = hit
+        keyEnv = env
+        break
+      }
+    }
   }
   if (!file) {
     throw new WriteError('本机没找到 ZCode 凭据文件(~/.zcode/v2/credentials.json)', 'no-target')
@@ -478,8 +519,7 @@ export function applyZcode(payload, opts = {}) {
   if (!fs.existsSync(file)) throw new WriteError(`指定的 ZCode 凭据文件不存在:${file}`, 'no-target')
   const rawMap = readJsonObject(file, 'ZCode credentials.json')
 
-  const env = opts.env ?? process.env
-  const cipherKey = extract.zcodeDeriveCipherKey(env)
+  const cipherKey = extract.zcodeDeriveCipherKey(keyEnv)
   const existingPlain = {}
   for (const [k, v] of Object.entries(rawMap)) {
     if (typeof v !== 'string') continue
@@ -574,7 +614,7 @@ export function applyCodearts(payload, opts = {}) {
   if (target) {
     roamingDirs = [fs.existsSync(target) && fs.statSync(target).isFile() ? codeartsRoamingDir(target) : target]
   } else {
-    roamingDirs = extract.codeartsCandidateRoamingDirs()
+    roamingDirs = extract.codeartsCandidateRoamingDirs(opts.env ?? process.env)
   }
   if (roamingDirs.length === 0) {
     throw new WriteError('本机没找到 CodeArts 数据目录(%APPDATA%\\codearts-agent)', 'no-target')
@@ -725,7 +765,10 @@ export function applyQoder(payload, opts = {}) {
   } else if (asText(template?.appDir) && fs.existsSync(asText(template.appDir))) {
     dir = asText(template.appDir)
   } else {
-    dir = qoderAppDirs(opts.env ?? process.env, template)[0] ?? ''
+    for (const env of clientEnvs(opts)) {
+      dir = qoderAppDirs(env, template)[0] ?? ''
+      if (dir) break
+    }
   }
   if (!dir) {
     throw new WriteError(
@@ -807,7 +850,7 @@ async function loadExtract() {
     zcodeCandidateRoots: (opts) => zcode.candidateRoots(opts),
     zcodeDeriveCipherKey: (env) => zcode.deriveCipherKey(env),
     zcodeDecryptValue: (value, key) => zcode.decryptZcodeValue(value, key),
-    codeartsCandidateRoamingDirs: () => codearts.candidateRoamingDirs(),
+    codeartsCandidateRoamingDirs: (env) => codearts.candidateRoamingDirs(env),
     readSecretBlobsFromVscdb: codearts.readSecretBlobsFromVscdb,
     readAesKeyFromLocalState: codearts.readAesKeyFromLocalState,
     decryptSafeStorageBlob: codearts.decryptSafeStorageBlob,
@@ -920,3 +963,4 @@ export const __test__ = {
   WriteError,
   CREDENTIAL_KEYS,
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
