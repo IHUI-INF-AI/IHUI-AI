@@ -170,14 +170,42 @@ export function coveredNavigation(pageText, shellText, routeMap) {
   if (calls.length === 0) return { covered: true, missing: [], calls: 0 }
   const missing = []
   for (const url of calls) {
-    if (url.includes('${')) {
+    // query 里的插值不影响路径反查(`.../detail/index?id=${id}` 的静态路径仍可查表);
+    // 只有**路径段**含插值才判未覆盖(那时不知道壳跳去哪)。
+    const path = url.split('?')[0]
+    if (path.includes('${')) {
       missing.push(url)
       continue
     }
-    const rn = routeMap.get(url.split('?')[0])
+    const rn = routeMap.get(path)
     if (!rn || !new RegExp(`\\b${rn}\\b`).test(String(shellText ?? ''))) missing.push(rn ? `${url}(壳无 ${rn})` : url)
   }
   return { covered: missing.length === 0, missing, calls: calls.length }
+}
+
+/**
+ * 下拉刷新是否由壳承担:壳里出现 RefreshControl / onRefresh / refreshing 任一,就说明
+ * "下拉→重取数"这条链壳自己实现了;页面再写 usePullDownRefresh 是重复接线。
+ */
+export function pullDownCovered(shellText) {
+  return /RefreshControl|onRefresh|refreshing/.test(String(shellText ?? ''))
+}
+
+/**
+ * 生命周期钩子是否**只做"刷新一次数据"**(体里只有一句无参函数调用)。
+ * 这类页面的 useDidShow(Show) 与壳的 useEffect+取数 是同一件事的两种写法;
+ * 体里还有别的语句(埋点/设置标题以外的东西)一律不算,留给人工。
+ */
+export function lifecycleOnlyDataRefresh(text) {
+  const blocks = lifecycleBlocks(text)
+  if (blocks.length === 0) return false
+  return blocks.every((b) => /^(?:void\s+)?[A-Za-z_$][\w$]*\s*\(\s*\)\s*;?$/.test(b.body.trim()))
+}
+
+/** 壳自己取数(有 api-client 调用) —— 与 lifecycleOnlyDataRefresh 合起来才认"刷新由壳承担"。 */
+export function shellFetchesData(shellText) {
+  const s = String(shellText ?? '')
+  return /@ihui\/api-client/.test(s) && /fetchApi|request\s*\(/.test(s)
 }
 
 /** 一页文本里"能力-bearing"的三族标识(方法名 / 钩子 / 端内模块),用于相对取差。 */
@@ -248,6 +276,12 @@ export function judgeConversion({
       for (const tok of ['Taro.navigateTo', 'Taro.redirectTo', 'Taro.switchTab', 'Taro.reLaunch'])
         pageTokens.delete(tok)
   }
+  // 平台惯用法的等价物由壳承担时,页面那份是重复接线(逐条都要壳里有对应实现才销账):
+  if (pullDownCovered(shellText))
+    for (const tok of ['usePullDownRefresh', 'onPullDownRefresh', 'Taro.stopPullDownRefresh'])
+      pageTokens.delete(tok)
+  if (lifecycleOnlyDataRefresh(pageText) && shellFetchesData(shellText))
+    for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -471,6 +505,9 @@ function main(argv) {
       }).kind,
       'page-only-capability',
     )
+    P('S9 下拉刷新由壳承担:壳有 onRefresh/RefreshControl ⇒ 页面的下拉钩子不算私有能力', [pullDownCovered('onRefresh={() => {}}'), pullDownCovered('const refreshing = false'), pullDownCovered('function S(){ return null }')], [true, true, false])
+    P('S9b 生命周期只做一次数据刷新 ⇒ 可与壳的 useEffect 对齐;体里还有别的语句 ⇒ 不算', [lifecycleOnlyDataRefresh('useDidShow(() => { void load() })'), lifecycleOnlyDataRefresh('useDidShow(() => { track(); load() })')], [true, false])
+    P('S9c 壳自己取数(api-client + fetchApi)才算"刷新由壳承担"', [shellFetchesData("import { fetchApi } from '@ihui/api-client'\nfetchApi('/x')"), shellFetchesData("import X from 'y'")], [true, false])
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
@@ -537,6 +574,9 @@ export const __test__ = {
   hardcodedCjkNotInMessages,
   routeMapFrom,
   coveredNavigation,
+  pullDownCovered,
+  lifecycleOnlyDataRefresh,
+  shellFetchesData,
   ROOT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
