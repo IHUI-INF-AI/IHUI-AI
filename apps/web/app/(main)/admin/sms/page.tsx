@@ -5,9 +5,10 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Download, MessageSquare } from 'lucide-react'
+import { Plus, Download, MessageSquare, Send } from 'lucide-react'
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button } from '@ihui/ui-react'
@@ -124,6 +125,12 @@ export default function SmsTempPage() {
           短信模板
         </h1>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/admin/sms/operations">
+              <Send className="h-4 w-4" />
+              通道运营
+            </Link>
+          </Button>
           <HasPermi code={`${PERM}:export`}>
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />

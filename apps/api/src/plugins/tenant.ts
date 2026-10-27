@@ -23,6 +23,13 @@ const PUBLIC_PREFIXES = [
   '/api/health',
   '/api/auth/',
   '/api/sms-proxy/',
+  // 短信厂商回调(2026-10-27 补登记):云服务器到服务器投递,不带 X-Tenant-Id。
+  // 与 plugins/csrf.ts 同一条纪律 —— 只放这三条**完整路径**,不放 /api/sms/callback/ 前缀,
+  // 否则今后往该前缀下加写端点会自动继承"免租户"待遇。漏登记的后果不是报错而是静默:
+  // TENANT_STRICT_MODE 一旦开成 true,回执整条链当场 401,送达状态与退订永久补不上。
+  '/api/sms/callback/tencent',
+  '/api/sms/callback/tencent/status',
+  '/api/sms/callback/tencent/reply',
   '/api/oauth/',
   '/api/payments/',
   '/api/ai/callback',

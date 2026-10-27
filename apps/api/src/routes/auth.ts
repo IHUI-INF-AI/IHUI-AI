@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
@@ -55,9 +55,16 @@ import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/tot
 import {
   buildSendCodePayload,
   consumeSendQuota,
+  refundSendQuota,
   sendCodePreSerialization,
 } from '../utils/code-echo-guard.js'
-import { deliverSmsCode, smsCodeTtlMs, isSmsConfigured } from '../services/sms.js'
+import {
+  deliverSmsCode,
+  smsCodeTtlMs,
+  isSmsConfigured,
+  extractSmsSendGuard,
+} from '../services/sms.js'
+import { sendNoticeSmsToUser, sendNoticeSmsToPhone } from '../services/sms-notify.js'
 import type { SmsScene } from '../services/sms-types.js'
 import { ErrorCode } from '../errors/codes.js'
 import { sendVerificationEmail } from '../services/email-service.js'
@@ -433,9 +440,20 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 2026-10-22 根治:这里过去只写一行"验证码已生成"的日志,从不投递 ——
       // 响应却回"已发送",于是用户永远在等那条根本不会来的短信。现在真发,且发不出去就如实报错。
-      const delivery = await deliverSmsCode(phone, code, parsed.data.scene)
+      const delivery = await deliverSmsCode(
+        phone,
+        code,
+        parsed.data.scene,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!delivery.sent) {
+        // 没发出去就退还本标识 + IP 的取码配额,避免通道抖动一次就锁住用户 10 分钟
+        await refundSendQuota(phone, request.ip)
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
+        // IP/设备防刷命中与云侧失败必须区分:前者是客户端该退避,后者是通道问题
+        if (delivery.reason?.startsWith('rate_limited')) {
+          return reply.status(429).send(error(429, '请求过于频繁,请稍后再试'))
+        }
         return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
       }
 
@@ -1638,9 +1656,20 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       await putCodeEntry(phone, entry)
       // 与 /send-code 同口径:真投递,失败如实报错(这支是小程序登录实际在打的端点)
-      const delivery = await deliverSmsCode(phone, code, parsed.data.scene)
+      const delivery = await deliverSmsCode(
+        phone,
+        code,
+        parsed.data.scene,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!delivery.sent) {
+        // 没发出去就退还本标识 + IP 的取码配额,避免通道抖动一次就锁住用户 10 分钟
+        await refundSendQuota(phone, request.ip)
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
+        // IP/设备防刷命中与云侧失败必须区分:前者是客户端该退避,后者是通道问题
+        if (delivery.reason?.startsWith('rate_limited')) {
+          return reply.status(429).send(error(429, '请求过于频繁,请稍后再试'))
+        }
         return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
       }
       // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
@@ -1673,11 +1702,16 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, '原密码错误'))
       }
       // updated 由委托侧 UPDATE … RETURNING 的行存在性派生(守门 134),不再回字面量 true。
-      const updatedUser = await updateUser(request.userId!, {
-        passwordHash: await hashPassword(newPassword),
-      })
+      const nextPasswordHash = await hashPassword(newPassword)
+      const updatedUser = await updateUser(request.userId!, { passwordHash: nextPasswordHash })
       // 2026-07-24 安全加固:密码修改后吊销所有 refresh token(与重置密码对齐)
       await revokeAllUserRefreshTokens(request.userId!)
+      // 安全类短信:改密后必须让用户知道(不受通知偏好约束),失败不影响改密结果。
+      // bizId 用新密码哈希的短摘要而不是 Date.now():同一改密请求重试时键不变,幂等闸才能去重。
+      void sendNoticeSmsToUser(request.userId!, 'password-changed', {
+        bizType: 'auth',
+        bizId: `pwd:${request.userId!}:${createHash('sha256').update(nextPasswordHash).digest('hex').slice(0, 12)}`,
+      })
       // updated 由委托侧 UPDATE … RETURNING 的命中行存在性派生(守门 134),不再回字面量 true。
       return reply.send(success({ updated: Boolean(updatedUser.id) }))
     },
@@ -1696,7 +1730,16 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           .status(statusCode)
           .send(error(statusCode, toUserFriendlyMessage(e) || '操作失败,请稍后重试'))
       }
+      // 注销会清空 PII(含手机号),所以先取号、注销成功后再用捕获的号码发确认短信
+      const phoneBeforeCancel = (await findUserById(request.userId!))?.phone ?? null
       await cancelUserAccount(request.userId!)
+      if (phoneBeforeCancel) {
+        // 注销是一次性事件,bizId 必须稳定(重复调用/重试都指向同一事件)。
+        void sendNoticeSmsToPhone(phoneBeforeCancel, 'account-cancel', {
+          bizType: 'auth',
+          bizId: `cancel:${request.userId!}`,
+        })
+      }
       return reply.send(success({ cancelled: true }))
     },
   )
