@@ -39,6 +39,8 @@ import {
 import { createTokenAutoRefresh, type TokenAutoRefreshHandle } from '@ihui/shared/auth/auto-refresh'
 
 // legacy underscore key (read-only for migration); new key uses hyphen via USER_INFO_STORAGE_KEY
+import { ACCOUNT_SCOPED_CONTENT_KEYS } from '@/constants/storage'
+
 const USER_INFO_KEY_LEGACY = 'ihui_user_info'
 
 /**
@@ -92,6 +94,10 @@ const tokenStoreCore = createInMemoryTokenStore({
     removeStorageSync(REFRESH_TOKEN_KEY)
     removeStorageSync(USER_INFO_STORAGE_KEY)
     removeStorageSync(USER_INFO_KEY_LEGACY)
+    // 换身份必须让上一身份的内容缓存一起失效:这些本地键不含 userId,过去登出只清凭据 ⇒
+    // 同一台手机上 B 登录后能在 AI 对话/生图历史里看到 A 的提问与生成结果(跨账号泄漏)。
+    // 清单唯一来源 = constants/storage.ts 的 ACCOUNT_SCOPED_CONTENT_KEYS。
+    for (const key of ACCOUNT_SCOPED_CONTENT_KEYS) removeStorageSync(key)
   },
 })
 
