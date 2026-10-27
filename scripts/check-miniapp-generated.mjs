@@ -114,6 +114,14 @@ import {
   PIN_BEGIN,
   PIN_END,
 } from './lib/generated-input-pin.mjs'
+// 离线包输入清单的唯一构造规则(与生成器同一份 —— 两处各列一遍必然漂,2026-10-27 就漂过一回)
+import {
+  MESSAGES_REL,
+  baseSourceRel,
+  bundleInputRels,
+  carriedSourceRel,
+  overrideSourceRel,
+} from './lib/i18n-bundle-inputs.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -124,7 +132,7 @@ const ICON_REGISTRY = `${APP}/src/components/LineIcon/icons.ts`
 const ICON_ASSET_DIR = `${APP}/src/static/images/icons`
 const TABBAR_ASSET_DIR = `${APP}/src/assets/tabbar`
 const TABBAR_GENERATOR = `${APP}/scripts/gen-tabbar-icons.mjs`
-const MESSAGE_ROOT = 'packages/i18n/messages'
+const MESSAGE_ROOT = MESSAGES_REL
 const REMOTE_LOCALES = ['en', 'ja', 'ko', 'zh-TW']
 
 /* ── G-816040:四端「AI 可导航路由」产物的生成器直接输入 ── */
@@ -344,10 +352,10 @@ function decodeBundle(bundleText) {
   return out
 }
 
-/** 源侧:shared ⊕ miniapp-taro 两份 JSON 合并后的叶子键值 */
+/** 源侧:shared ⊕ miniapp-taro 两份 JSON 合并后的叶子键值(离线包的前两层输入) */
 function readSourceLeaves(reader, locale) {
-  const sharedRel = `${MESSAGE_ROOT}/shared/${locale}.json`
-  const miniRel = `${MESSAGE_ROOT}/miniapp-taro/${locale}.json`
+  const sharedRel = baseSourceRel(locale)
+  const miniRel = overrideSourceRel(locale)
   const read = (rel) => {
     if (!reader.has(rel)) return null
     const t = reader.read(rel)
@@ -364,22 +372,41 @@ function readSourceLeaves(reader, locale) {
   return leafMap(mergeMessages(shared ?? {}, mini ?? {}))
 }
 
+/**
+ * 承载层(mobile-rn 词包)的叶子键集 —— **只用来把「合法的承载补键」从 B3 孤儿里摘出去**。
+ * 分工是有意为之:本门判"产物对不对得起端内两层源 + 钉",而"哪些可达键真的必须进包"由门 251 C10
+ * 用同一把闭包尺(lib/rn-carried-keys.mjs)判 —— 在这里重算一遍闭包就是第二份实现(§0.6),
+ * 而把整张 RN 词包当 B2 的分母更错:那会把"可达集之外的 RN 键"报成缺键,造一台假红门(§12e)。
+ * 取不到(面上没有 RN 词包)⇒ null ⇒ 退回两层口径,不猜。
+ */
+function readCarriedLeafKeys(reader, locale) {
+  const rel = carriedSourceRel(locale)
+  if (!reader.has(rel)) return null
+  const t = reader.read(rel)
+  if (t === null) return null
+  try {
+    return new Set(Object.keys(leafMap(JSON.parse(t))))
+  } catch {
+    return null // 词包坏了是词包自己的事;本门不因此把承载补键判成孤儿
+  }
+}
+
 /* ───────────────── G-680 生成物自述钉(离线包) ───────────────── */
 
 /**
- * 钉的输入清单:必须与生成器实际读的那 8 份**逐字同集**(路径同、无多无少)。
- * 两侧共用 lib/generated-input-pin.mjs 这一份哈希实现与字节归一 —— 门与生成器各算一遍必然漂,
- * 而漂出来的红比漏判更难查(本仓"两处算同一 key 必须共用一份实现"同型)。
+ * 钉的输入清单:必须与生成器实际读的**逐字同集**(路径同、无多无少)。
+ * 清单构造取自 lib/i18n-bundle-inputs.mjs 这一份规则(§0.6 单一真相源)——
+ * 2026-10-27 实测:承载层(mobile-rn 词包)加进生成器时门没跟,门按两层现算,
+ * 于是钉里那 4 条被报成「面上 ABSENT」⇒ 一台在完好仓库上无事可判的恒红门(§12e)。
+ * 两侧还共用 lib/generated-input-pin.mjs 那一份哈希实现与字节归一。
  * 关键口径:**从门正在审的那个面读**(全量=HEAD blob / --staged=索引 / --worktree=磁盘)。
  * 若清单来自磁盘而内容来自 git,就会产出一把自洽但基准错位的尺子(守门 101/118 同型)。
  */
 function readPinInputs(reader) {
-  return REMOTE_LOCALES.flatMap((locale) =>
-    [`${MESSAGE_ROOT}/shared/${locale}.json`, `${MESSAGE_ROOT}/miniapp-taro/${locale}.json`].map((rel) => ({
-      rel,
-      text: reader.has(rel) ? reader.read(rel) : null,
-    })),
-  )
+  return bundleInputRels(
+    REMOTE_LOCALES,
+    (rel) => reader.has(rel),
+  ).map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null }))
 }
 
 /**
@@ -940,10 +967,10 @@ function runCheck({ face, root, strict, group }) {
     ? allFiles.filter((p) => ARTIFACT_DIRS.some((d) => p.startsWith(`${d}/`)))
     : []
   if (!uiRoutesOnly) {
-    const localeRels = REMOTE_LOCALES.flatMap((l) => [
-      `${MESSAGE_ROOT}/shared/${l}.json`,
-      `${MESSAGE_ROOT}/miniapp-taro/${l}.json`,
-    ])
+    // 输入清单取自 lib/i18n-bundle-inputs.mjs 那一条规则(与生成器同一份)——
+    // 此前这里硬列两层,承载层没进 prefetch,于是 git 面 read() 取回 null 被 digestInputs 折成
+    // 'ABSENT',与"文件真不在面上"同形(2026-10-27 实测的正是这一格)。
+    const localeRels = bundleInputRels(REMOTE_LOCALES, (rel) => reader.has(rel))
     const singletonRels = [...new Set([I18N_BUNDLE, ICON_REGISTRY, TABBAR_GENERATOR])].filter((p) =>
       reader.has(p),
     )
@@ -976,7 +1003,8 @@ function runCheck({ face, root, strict, group }) {
         continue
       }
       const missing = Object.keys(src).filter((k) => !(k in art))
-      const orphans = Object.keys(art).filter((k) => !(k in src))
+      const carriedKeys = readCarriedLeafKeys(reader, locale)
+      const orphans = Object.keys(art).filter((k) => !(k in src) && !(carriedKeys && carriedKeys.has(k)))
       const wrongValue = Object.keys(src).filter((k) => k in art && !sameLeafValue(src[k], art[k]))
       if (missing.length) {
         push('B2', 'missing', true, I18N_BUNDLE, `${locale}:包比源少 ${missing.length} 个键,如 ${missing.slice(0, 3).join(', ')}`)
@@ -2064,8 +2092,14 @@ export const __test__ = {
   sameLeafValue,
   decodeBundle,
   readSourceLeaves,
+  readCarriedLeafKeys,
   readPinInputs,
   checkBundlePin,
+  // 输入清单规则的唯一出口(镜像测试按它造夹具,不许在测试里再抄一遍路径 —— §22c)
+  bundleInputRels,
+  baseSourceRel,
+  overrideSourceRel,
+  carriedSourceRel,
   // G-680:钉的实现只有一份,门与生成器都引它 —— 导出给镜像测试做"不得有第二份"的形状锁
   pinKit: { digestInputs, parsePin, renderPin, maskGeneratedAt, PIN_BEGIN },
   assetRefToRepoRel,
