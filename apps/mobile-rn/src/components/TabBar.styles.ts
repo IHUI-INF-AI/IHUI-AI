@@ -107,10 +107,10 @@ export const tabBarStyles = {
 
   /**
    * 液态玻璃面板:图标行(高 TAB_BAR_HEIGHT)+ 底部手势区让位(运行时注入 paddingBottom)
-   * 一起包进同一块玻璃 —— 圆角 + 真背景模糊(expo-blur,TabBar.tsx 注入 blurFill 层)+
-   * 细描边 + 投影,延伸到屏幕底边。
-   * 2026-10-27 用户定稿「要 iOS 那种的」:原生端背景自绘交给 BlurView(带 tint),
-   * 容器本身不再叠 glass.bg 实底(web 端无 BlurView,仍走 glass.bg + backdropFilter)。
+   * 一起包进同一块玻璃 —— 圆角 + 细描边 + 投影,延伸到屏幕底边。
+   * 2026-10-27 三稿:玻璃底分端注入 —— Android 实机 dimezis 模糊不生效,组件层直接给
+   * surface 0.88 磨砂实底(运行时注入);iOS = BlurView 真模糊;web = glass.bg + backdropFilter。
+   * 此处默认色仅 web 生效。
    */
   container: {
     flexDirection: 'row',
@@ -118,25 +118,35 @@ export const tabBarStyles = {
     justifyContent: 'space-around',
     paddingTop: 0,
     overflow: 'hidden',
-    backgroundColor: Platform.OS === 'web' ? tk.glass.bg : 'transparent',
+    backgroundColor: tk.glass.bg,
     borderRadius: TAB_BAR_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tk.border.light,
     shadowColor: tk.gray.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 12,
     ...glassBlurLayer,
   } satisfies ViewStyle,
 
-  /** 真背景模糊层(expo-blur BlurView 的 absolute fill,仅原生端渲染,置于图标行之下) */
+  /** 真背景模糊层(expo-blur BlurView 的 absolute fill,仅 iOS 端渲染,置于图标行之下) */
   blurFill: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+  } satisfies ViewStyle,
+
+  /** 顶部高光线(iOS 白底玻璃的 rim light,仅浅色主题渲染;压住面板与内容的分界) */
+  rimLight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1.5,
+    backgroundColor: withAlpha(tk.surface.light, 0.95),
   } satisfies ViewStyle,
 
   item: {
