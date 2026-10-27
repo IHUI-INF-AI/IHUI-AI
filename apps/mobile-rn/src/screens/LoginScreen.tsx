@@ -54,6 +54,7 @@ import { isSessionLoggedOut } from '../lib/token'
 import { shouldAttemptAutoLogin } from '../lib/auto-login-policy'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { orderThirdPartyOptionsByRegion, useLoginRegionPlan } from '../hooks/use-login-region-plan'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { credentialStorage } from '../lib/credential-storage'
@@ -347,9 +348,18 @@ export function LoginScreen() {
 
   // 第三方登录方式:按平台 + locale 动态生成
   // 国内安卓:微信/飞书/钉钉/企微(4);国内 iOS:苹果为主 + 微信/飞书/钉钉/企微(5);国际版:Google/GitHub(2)
+  // 票 L28754:成员集仍由本端按平台能力决定,但**谁排第一不再由端内原序说了算** ——
+  // 优先序来自共享判据 planLoginRegion(后端按访客 IP 判的 loginRegion,判不出才落界面语言),
+  // 与 web 主站/桌面壳/浏览器扩展同一份表与同一个排序执行器(§0.6,端内禁止另写一份)。
+  // 只改顺序、不改成员(本票射程;tab 顺序与整行主推大按钮两格未接,见交付报告 C 段)。
+  const loginRegionPlan = useLoginRegionPlan(locale)
   const thirdPartyOptions = useMemo(
-    () => buildThirdPartyOptions(locale, resolvedTheme, t),
-    [locale, resolvedTheme, t],
+    () =>
+      orderThirdPartyOptionsByRegion(
+        buildThirdPartyOptions(locale, resolvedTheme, t),
+        loginRegionPlan,
+      ),
+    [locale, resolvedTheme, t, loginRegionPlan],
   )
 
   // ===== 历史账号记录(各 tab 登录成功后写入;供账号/邮箱/手机号输入框历史下拉展示) =====
