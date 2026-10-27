@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 腾讯云短信回调的解析与验签判据(纯函数,便于成对夹具)。
@@ -82,14 +83,7 @@ export interface TencentReportVerdict {
   code: string
 }
 
-const DELIVERED_CODES = new Set([
-  '0',
-  'OK',
-  'SUCCESS',
-  'DELIVERED',
-  'DELIVRD',
-  'DELIVERY_SUCCESS',
-])
+const DELIVERED_CODES = new Set(['0', 'OK', 'SUCCESS', 'DELIVERED', 'DELIVRD', 'DELIVERY_SUCCESS'])
 
 /** 投递成功判定。腾讯云不同接口版本给的字段不同,三面都认:
  *  result=0 / error_code=DELIVRD(运营商级) / status=DELIVERED。判不出来一律算**失败**。 */
@@ -112,7 +106,10 @@ export function judgeTencentReport(body: unknown): TencentReportVerdict {
     const raw = nested[key]
     if (raw === undefined || raw === null || raw === '') continue
     const code = sanitizeCode(String(raw))
-    return { delivered: DELIVERED_CODES.has(String(raw).trim().toUpperCase()), code: code || 'unknown' }
+    return {
+      delivered: DELIVERED_CODES.has(String(raw).trim().toUpperCase()),
+      code: code || 'unknown',
+    }
   }
 
   // 只有 errmsg 时无法判定成功与否 ⇒ 失败(不许默认成功)
@@ -121,7 +118,10 @@ export function judgeTencentReport(body: unknown): TencentReportVerdict {
 }
 
 function sanitizeCode(v: string): string {
-  const t = v.trim().replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 64)
+  const t = v
+    .trim()
+    .replace(/[^A-Za-z0-9._-]/g, '_')
+    .slice(0, 64)
   return t || 'unknown'
 }
 
@@ -185,3 +185,4 @@ export const __test__ = {
   isSmsCallbackAuthorized,
   normalizeIp,
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
