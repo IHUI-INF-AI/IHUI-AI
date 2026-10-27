@@ -350,17 +350,34 @@ $env:PGPASSWORD = $dbPw
 # 被上方 trap 接住 exit 1,而 G:\DevEnv\backups\pg 长期 0 份。本机真正的 PG 二进制在
 # $env:ProgramFiles\PostgreSQL\18\bin(与运行中的 postgresql-x64-18 服务配对,psql/pg_dump 18.6)。
 # 候选序(高→低),只认磁盘上真有 pg_dump.exe 的那一个:
-#   ① $env:IHUI_PG_BIN_DIR           显式覆盖(换机/换盘只改机器级 env,不再改脚本与影子副本)
-#   ② $DevEnvRoot\runtimes\pgsql\bin 历史落点(向后兼容:该目录若回来,行为回到旧样)
+#   ① $env:ProgramFiles\PostgreSQL\<版本>\bin(按版本降序;17/18 并存取 18)
+#   ② $env:IHUI_PG_BIN_DIR           显式覆盖(换机/换盘只改机器级 env,不再改脚本与影子副本)
 #   ③ 运行中 PostgreSQL 服务 ImagePath 反查 …\bin\pg_ctl.exe(与服务器版本天然配对,最不易错)
-#   ④ $env:ProgramFiles\PostgreSQL\<版本>\bin(按版本降序;17/18 并存取 18)
+#   ④ $DevEnvRoot\runtimes\pgsql\bin 历史落点(向后兼容:该目录若回来,行为回到旧样)
 #   ⑤ PATH 上的 pg_dump.exe
-# 全落空 ⇒ 当场告警 + exit 1:原因写成"备份工具不在位",而不是让它在导出循环里抛一句同形的
-# "is not recognized"(与"库未就绪""口令错"在日志里必须形态不同,§0.3)。
+# 2026-10-27 改序(① 与 ④ 对调;原序是 env→历史落点→服务→发行版→PATH),立因不是洁癖:
+#   换机后这两档会**同路径重现**而不是二选一 —— 仓根回到 G:,于是 $DevEnvRoot = G:\DevEnv,
+#   而旧机那套运行时也正落在 G:\DevEnv\runtimes\pgsql。旧序下只要有人把旧客户端目录搬回来,
+#   历史落点就排在发行版之前被选中;pg_dump 主版本低于服务器(18.6)时 dump 必失败,
+#   而它的报错形态与"口令/权限错"同形 ⇒ 排障方向被带偏。发行版探测 = 现读机器事实,排第一;
+#   env 覆盖留在第二档:既不夺人的显式指定权,也不再让一个"路径碰巧存在"压过机器现状。
+# 全落空 ⇒ **exit 2「未判定」**(§0.3),不再是 exit 1 的"备份失败":取不到工具链 = 本轮判不了,
+#   不等于判出"备份坏了"。两者在日志/告警里必须形态不同,否则接手的人会先去查库而不是查工具链。
 function Resolve-PgBinCandidateDirs {
     $dirs = New-Object System.Collections.Generic.List[string]
+    # ① 发行版安装位。不写 C 盘字面量(§26 同一条纪律;check-c-drive-paths 也扫 .ps1),根从环境变量派生
+    # ⚠ 必须先 Test-Path 再 Join-Path:ProgramFiles 指向一个不存在的驱动器时 Join-Path 会抛
+    # "Cannot find drive",而本文件 EAP=Stop ⇒ 它会被顶部 trap 接成"脚本自身异常 exit 1",
+    # 形态与"pg_dump 失败"同形。候选档取不到只该**跳过这一档**(2026-10-27 负控实测)。
+    $pfRoot = if ($env:ProgramFiles -and (Test-Path -LiteralPath $env:ProgramFiles)) { Join-Path $env:ProgramFiles 'PostgreSQL' } else { $null }
+    if ($pfRoot -and (Test-Path -LiteralPath $pfRoot)) {
+        $installs = @(Get-ChildItem -LiteralPath $pfRoot -Directory -ErrorAction SilentlyContinue |
+            Sort-Object { [int]($_.Name -replace '\D', '') } -Descending)
+        foreach ($d in $installs) { $dirs.Add((Join-Path $d.FullName 'bin')) }
+    }
+    # ② 显式覆盖
     if ($env:IHUI_PG_BIN_DIR) { $dirs.Add($env:IHUI_PG_BIN_DIR) }
-    if ($legacyPgBinDir) { $dirs.Add($legacyPgBinDir) }
+    # ③ 运行中服务反查(与服务器版本天然配对)
     try {
         $svcs = @(Get-CimInstance Win32_Service -ErrorAction SilentlyContinue |
             Where-Object { $_.PathName -and $_.PathName -match '(?i)postgres' -and $_.State -eq 'Running' } |
@@ -372,13 +389,9 @@ function Resolve-PgBinCandidateDirs {
     } catch {
         Write-Host "[WARN] 从服务反查 PG bin 失败(跳过该候选): $($_.Exception.Message)" -ForegroundColor Yellow
     }
-    # 不写 C 盘字面量(§26 同一条纪律;check-c-drive-paths 也扫 .ps1),根从环境变量派生
-    $pfRoot = if ($env:ProgramFiles) { Join-Path $env:ProgramFiles 'PostgreSQL' } else { $null }
-    if ($pfRoot -and (Test-Path -LiteralPath $pfRoot)) {
-        $installs = @(Get-ChildItem -LiteralPath $pfRoot -Directory -ErrorAction SilentlyContinue |
-            Sort-Object { [int]($_.Name -replace '\D', '') } -Descending)
-        foreach ($d in $installs) { $dirs.Add((Join-Path $d.FullName 'bin')) }
-    }
+    # ④ 历史落点(旧机运行时;排在发行版与服务反查之后,见上方改序说明)
+    if ($legacyPgBinDir) { $dirs.Add($legacyPgBinDir) }
+    # ⑤ PATH
     $cmd = Get-Command pg_dump.exe -ErrorAction SilentlyContinue
     if ($cmd -and $cmd.Source) { $dirs.Add((Split-Path -Parent $cmd.Source)) }
     return @($dirs | Where-Object { $_ } | Select-Object -Unique)
@@ -391,16 +404,16 @@ foreach ($d in $pgCandidates) {
 }
 if (-not $pgBinDir) {
     $tried = if ($pgCandidates.Count -gt 0) { $pgCandidates -join ' | ' } else { '(无候选)' }
-    Write-Host "[ERROR] 找不到 pg_dump.exe:本轮无法备份(候选全落空)" -ForegroundColor Red
+    Write-Host '[UNDETERMINED] 找不到 pg_dump.exe:本轮未判定(不是「备份失败」,是工具链取不到)' -ForegroundColor Red
     Write-Host "        已尝试: $tried" -ForegroundColor Yellow
     Write-Host "        出路:①设 IHUI_PG_BIN_DIR=<含 pg_dump.exe 的 bin 目录>;②安装 PostgreSQL client(需机主同意)" -ForegroundColor Yellow
-    Send-FailureAlert -Reason '找不到 pg_dump.exe,本轮未跑任何导出(备份链断在备份工具缺失)' -Details @(
+    Send-FailureAlert -Reason '未判定:找不到 pg_dump.exe,本轮未跑任何导出(备份链断在备份工具缺失)' -Details @(
         "已尝试目录: $tried",
-        '定性:不是口令/权限/库未就绪 —— 是备份工具不在位,与 pg_dump 退出码的失败形态不同',
+        '定性:不是口令/权限/库未就绪,也不是 pg_dump 判出的失败 —— 是本轮判不了(§0.3),退出码 2 与备份失败(1)不同形',
         '本机 PG 发行版可经 Win32_Service 的 postgresql-* 服务 ImagePath 反查其 bin 目录',
         '出路:①设 IHUI_PG_BIN_DIR;②安装 PostgreSQL client(需机主同意)'
     )
-    exit 1
+    exit 2
 }
 $pgDump = Join-Path $pgBinDir 'pg_dump.exe'
 $psql = Join-Path $pgBinDir 'psql.exe'
