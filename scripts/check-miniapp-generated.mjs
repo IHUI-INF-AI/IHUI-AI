@@ -122,6 +122,8 @@ import {
   carriedSourceRel,
   overrideSourceRel,
 } from './lib/i18n-bundle-inputs.mjs'
+// 「盘上那份能不能覆盖」的三态判别也只有一份(lib/derived-copy-state.mjs)—— 写回档与检出档共用
+import { classifyCopyDelta, mayOverwrite } from './lib/derived-copy-state.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -921,6 +923,20 @@ const UI_ROUTES_ARTIFACTS = [
  * @param {{face:string, root:string, strict:boolean, group:string|null}} opts
  * @returns {{findings:Array, undetermined:Object, counts:Object}}
  */
+/**
+ * 四端 ui-routes 的「面上现算输入哈希」—— 唯一出口。判定档(G5)、写回档(healUiRoutes 的复量)、
+ * 检出档(heal-derived-in-checkout)都问它:两处各算一把尺,漂出来的红比漏判更难查(§0.6/§22c)。
+ * ⚠ 调用方必须先 prefetch(inputRels 补列的那一批),否则 read 返回 null 会被 digestInputs 折成
+ *   'ABSENT' —— 2026-10-27 离线包那一格恒红就是这个同型故障。
+ */
+export function faceDigestOfRels(reader, rels) {
+  return digestInputs(rels.map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null })))
+}
+
+export function uiRoutesFaceDigest(art, reader) {
+  return faceDigestOfRels(reader, art.inputRels(reader))
+}
+
 function runCheck({ face, root, strict, group }) {
   const reader = makeReader(face, root)
   /** @type {Array<{code:string,dir:'missing'|'orphan'|'unreproducible',blocking:boolean,file:string,detail:string}>} */
@@ -1167,9 +1183,7 @@ function runCheck({ face, root, strict, group }) {
         state.detail = `钉读不出来:${pin.reason}`
         continue
       }
-      const computed = digestInputs(
-        art.inputRels(reader).map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null })),
-      )
+      const computed = uiRoutesFaceDigest(art, reader)
       if (computed.digest !== pin.digest) {
         state.state = 'stale'
         const diffs = differingInputs(pin, computed.perInput)
@@ -1310,16 +1324,14 @@ function healUiRoutes({ face, root, log = (s) => console.log(s) }) {
     }
     // 输入清单来自同一轮取材(见函数开头的两段式 prefetch),不在这里二次枚举。
     const inputRels = inputSets.get(art.rel)
-    const computed = digestInputs(
-      inputRels.map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null })),
-    )
+    const computed = faceDigestOfRels(reader, inputRels)
     if (computed.digest === pin.digest) {
       // 幂等锁:第二次跑本档必须一个字节都不写(登记表 failMode=block 的前置依据)。
       row.action = 'clean'
       row.note = `钉已与${face}面现算同值(${computed.digest.slice(0, 12)}…)⇒ 不写回`
       continue
     }
-    // 安全闸①:工作树副本必须与面副本同字节。不同 = 别人正拿着这份产物的在飞改动,门不得覆盖。
+    // 安全闸①:先取盘上那份(下面三态判别要用它比对)。盘上没有 = 有人在删,一律不动。
     const diskText = readWorktreeFile(root, art.rel)
     if (diskText === null) {
       row.action = 'refuse'
@@ -1327,11 +1339,20 @@ function healUiRoutes({ face, root, log = (s) => console.log(s) }) {
       refused += 1
       continue
     }
+    // 盘 ≠ 面时先问"这是谁的现场":三态判别只有一份实现(lib/derived-copy-state.mjs)。
+    // 直接以"≠"让路在本仓等于**永不干活**:旁路落地只推进 HEAD/索引、不写工作树,
+    // 派生件的工作树副本常年是该路径的历史旧版(2026-10-27 实测:守护跑一次 = 已写回 2 / 拒绝 2,
+    // 被拒的正是这两份)。真正要保护的是"别席正写着的内容",那一档才拦。
     if (normalizeInputBytes(diskText) !== normalizeInputBytes(faceText)) {
-      row.action = 'refuse'
-      row.note = `工作树副本 ≠ ${face}面副本 ⇒ 该产物上有别人的在飞改动,门不动它(未写回)`
-      refused += 1
-      continue
+      const delta = classifyCopyDelta({ rel: art.rel, face, root })
+      if (!mayOverwrite(delta)) {
+        row.action = 'refuse'
+        row.note =
+          `工作树副本 ≠ ${face}面副本(${delta.kind}:${delta.why ?? '不同形'})` +
+          '⇒ 该产物上有别人的在飞改动,门不动它(未写回)'
+        refused += 1
+        continue
+      }
     }
     const restore = () => writeFileSync(join(root, art.rel), diskText, 'utf8')
     // 安全闸②:生成器两面都得在位(面上没有 ⇒ cmd 跑到即失败,而不是"当成没有输入")。
@@ -2123,6 +2144,9 @@ export const __test__ = {
   TABBAR_GENERATOR,
   // G-816040:四端 ui-routes 对账规格与其源侧派生件(镜像测试锁形状用)
   UI_ROUTES_ARTIFACTS,
+  // 面上现算输入哈希的唯一出口(写回档/判定档/检出档三处共用)
+  faceDigestOfRels,
+  uiRoutesFaceDigest,
   evalTaroConfigText,
   taroPageList,
   // 四端输入面的锚点:镜像测试的 T21 装车锁要用它们复算真输入清单,再对账登记表的触发面
