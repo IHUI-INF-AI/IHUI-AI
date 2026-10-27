@@ -28722,7 +28722,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 <!-- 结清摘除@2026-10-26/goal-c 完成即删:O66 派单面与过滤面同尺 v2 接线已落地(枚 2f0830e8eefbdb884c4c5e19ae86c64090a32ab7,正文见 git show --stat 该枚),登记行不留活账 -->
 - [ ] 〔归:机主控制台面｜等:—〕 **G-1200041 sso.aizhs.top 恒定 502 的剩余两格(本机侧第①格已做)** — @2026-10-26 现读:本机 KC 已 8543→8850;① 控制台 ihui-local ingress 仍写 8543(隧道日志 v25,CF token 归机主控制台面供值(本机无副本));② 同隧道生产机连接器两口无源站、生产机凭据归机主运维面 ⇒ hostname 不能按机器绑路,单改一侧修不好。出路:(a)控制台指 8850 且生产机跑 KC@8850;(b)新建仅本机连的隧道迁走 sso(须先从 ihui-local 删)。验收 curl -I https://sso.aizhs.top/realms/ihui=200(归:机主控制台/运维动作面,本线不代做)。回退 kc-run-production.bat.20261026-131455.pre-8850.bak〔SSO席〕
-- [ ] **O66 派单面与过滤面同尺结清**:JSON dispClaim* 原按 v1 散文尺计数,与 v2 过滤面漂移(实测把 5 张侧车有主票报成可做)⇒ 照 JSON 派单必撞票;派单桶改 dispositionOfV2,v1 降为影子键,自检 F7e 六臂钉同尺。〔结清@2026-10-26/goal-c:已落地 2f0830e8ee,走第二步摘行〕
+- [x] ✅(2026-10-27) **O66 派单面与过滤面同尺结清**:JSON dispClaim* 原按 v1 散文尺计数,与 v2 过滤面漂移(实测把 5 张侧车有主票报成可做)⇒ 照 JSON 派单必撞票;派单桶改 dispositionOfV2,v1 降为影子键,自检 F7e 六臂钉同尺。〔结清@2026-10-26/goal-c:已落地 2f0830e8eefbdb884c4c5e19ae86c64090a32ab7,走第二步摘行〕
 
 ## 2026-10-26 号池对标 workbuddy-switch 三件套(代码+测试已验绿并本地提交;待 monitor/deploy 那两席收敛后随链 FF 上 origin)
 
