@@ -28,6 +28,7 @@ import {
   Switch,
 } from '@ihui/ui-react'
 import { Textarea } from '@/components/form'
+import { richAnchorRenderer } from '@/components/chat/rich-anchor-text'
 import {
   BASE,
   CATEGORY_LABEL_KEYS,
@@ -562,7 +563,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                   <Label htmlFor="bcast-confirm">
                     {t.rich('send.confirmLabel', {
                       word: requiredConfirm(),
-                      code: (chunks) => <code className="font-mono">{chunks}</code>,
+                      code: richAnchorRenderer('code'),
                     })}
                   </Label>
                   <Input
