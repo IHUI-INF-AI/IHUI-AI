@@ -18,6 +18,7 @@ import {
   parseGateRegistry,
   extractEntryFields,
   selectAffectedGates,
+  countUntriggered,
   scanDuplicateDefinitions,
   rerunAffectedGates,
 } from '../lib/land-gate-rerun.mjs'
@@ -336,5 +337,70 @@ test('T12 形状锁:object-space-land 与 union-converge 两台旁路落地器�
   const uc = readFileSync(UNION_TOOL, 'utf8')
   assert.match(uc, /import \{ rerunAffectedGates \} from '\.\/lib\/land-gate-rerun\.mjs'/)
   assert.match(uc, /rerunAffectedGates\(\{ root: ROOT, paths: \[\.\.\.new Set\(\[\.\.\.LIVE_DOCS, \.\.\.p\.tookTheirs\]\)\] \}\)/)
+})
+
+// ── T13 覆盖面边界(2026-10-27 立):缺射程的判据门必须被**量出来**,而不是从账上消失 ──
+// 立因:同一份 `stagedTriggers` 缺省,提交通道读成"任何提交都跑",本通道读成"永不复跑"
+// ⇒ 落地绿行可以是盲绿(实证:门 193 缺射程 ⇒ 那笔落地报 19 臂全绿,而唯一能咬住它的臂没跑)。
+test('T13 countUntriggered:只数判据门(info 不算),缺射程与其中 blocking 分开,且不改选门', () => {
+  const entries = [
+    { id: '1', script: 'a.mjs', mode: 'blocking', stagedTriggers: ['pkg/'] },
+    { id: '2', script: 'b.mjs', mode: 'blocking' }, // 字段缺省
+    { id: '3', script: 'c.mjs', mode: 'warn', stagedTriggers: [] }, // 空数组(与缺省同义)
+    { id: '4', script: 'd.mjs', mode: 'info' }, // info 门本来就不入列,不数
+  ]
+  const u = countUntriggered(entries)
+  assert.equal(u.judges, 3, '判据门 = 非 info 且带 script 的条目')
+  assert.equal(u.missing, 2)
+  assert.equal(u.blocking, 1)
+  assert.deepEqual(u.ids, ['2', '3'])
+  // 互补不重复:它只量不选 —— 缺射程的门照样不入"受影响门"(否则就是把两件事说成一件)
+  assert.deepEqual(
+    selectAffectedGates(['pkg/x.md'], entries).map((e) => e.id),
+    ['1'],
+  )
+  // 空注册表 / 全声明 ⇒ 0,不抛错(反恒红对照)
+  assert.equal(countUntriggered([]).missing, 0)
+  assert.equal(countUntriggered([{ id: '9', script: 'z.mjs', mode: 'blocking', stagedTriggers: ['**'] }]).missing, 0)
+})
+
+// ── T14 点名必须真打印(回归锁):绿行写「点名 N 条(见上)」,那就必须真有"上" ──
+// 修前实况:notes 只被 push、全仓没有一处 print ⇒ 这句话是自证"已经点过名"的谎(§0.3)。
+test('T14 点名真打印:notes 与"未声明射程"两路都要出现在报告面,且绿行带覆盖面边界', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  writeFileSync(join(dir, 'scripts', 'stub-gate.mjs'), STUB_SRC)
+  const reg = join(dir, 'stub-registry.txt')
+  writeFileSync(
+    reg,
+    `const checks = [
+  { id: '910', label: 'skip', script: 'stub-gate.mjs', args: [], mode: 'blocking', skipEnv: 'STUB_SKIP', stagedTriggers: ['pkg/'] },
+  { id: '911', label: 'no trigger', script: 'stub-gate.mjs', args: [], mode: 'blocking' },
+]\n`,
+  )
+  const logs = []
+  const orig = console.log
+  console.log = (...a) => logs.push(a.map(String).join(' '))
+  let res
+  try {
+    res = rerunAffectedGates({
+      root: dir,
+      paths: ['pkg/x.md'],
+      env: { LAND_GATE_RERUN_REGISTRY: reg, STUB_RC: '0', STUB_SKIP: '1', STUB_MARKER: join(dir, 'm.txt') },
+    })
+  } finally {
+    console.log = orig
+  }
+  // ① 缺射程被量到(而不是从账上消失)
+  assert.equal(res.untriggered.missing, 1)
+  assert.deepEqual(res.untriggered.ids, ['911'])
+  // ② 每一条 notes 都真的出现在输出面
+  assert.ok(res.notes.length >= 2, `期望至少两条点名,实得 ${res.notes.length}`)
+  const joined = logs.join('\n')
+  for (const n of res.notes) assert.ok(joined.includes(n), `这条点名只进了数组没被打印:${n}`)
+  assert.match(joined, /落地后复跑点名/)
+  // ③ 绿行自带边界:全绿 ≠ 全域通过
+  assert.match(joined, /未声明射程未复跑 1 道\(blocking 1\)/)
+  assert.match(joined, /只覆盖跑过的臂/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -21,7 +21,7 @@
 import type { SerializedError } from '@ihui/types'
 
 /** cause 链(含根节点)最多展开的节点数。与 @ihui/types 的 ERROR_SERIALIZE_MAX_DEPTH 同值。 */
-export const ERROR_SERIALIZE_MAX_DEPTH = 5
+const ERROR_SERIALIZE_MAX_DEPTH = 5
 
 const NON_THROWN_NAME = 'NonThrownError'
 

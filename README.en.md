@@ -82,15 +82,15 @@ Headline claims (same source as the table below, all live-computed): **608 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3362 | `testFiles` |
+| 测试文件 | 3374 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 286 | `guardianGates` |
-| — blocking | 261 | `guardianBlocking` |
-| — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 16681 | `trackedFiles` |
+| 工程守门 | 289 | `guardianGates` |
+| — blocking | 263 | `guardianBlocking` |
+| — warn | 28 | `guardianWarn` |
+| 跟踪文件 | 16733 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-26。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-27。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -99,6 +99,133 @@ Headline claims (same source as the table below, all live-computed): **608 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-27**
+- 🚀 Feature/Improvement:账号级代理前后端闭环入库,管理入口与文案由「私有出口」改名「账号代理」 (2d779c49ce)
+- 🚀 Feature/Improvement:号池一键网页重登(Trae 先行)+ 重登不毁自续票 (0471fd3d9a)
+- 📚 Docs:号池对标⑦会话搬家侦察定案一行 —— 先取证,不施工 (b27b6474ab)
+- 🐞 Fix:补注册门 254 check-ruff-python —— 清偿 8a48e5411f 半笔落地欠账 (911fb16f9c)
+- 🔧 Chore/Other:结清 ruff 接提交链票(L28763 未取号行)—— 票面三条判据当场复跑:①前置存量归零=ruff 全量档 0 violations(1492 个 .py,HEAD/索引/磁盘三档各实跑一次);②注册条目成套=id 254 blocking+skipEnv HUSKY_SKIP_RUFF+射程 apps/ai-service/(门 89 已接线数 321→322、门 253 新增缺 0);③摘掉即翻红形状锁=check-ruff-gate-wiring T2 对缺 skipEnv/缺射程/换 id/降 warn 四维逐条咬住,镜像 11 例 + 自检 11 例全过 (3e71a669a5)
+- 🐞 Fix:门 39 清偿 —— ScanLoginScreen.tsx 按 B 通道登记 RN 独占白名单(expo-camera 相机/条码扫描硬件依赖,共享层无同名屏,票务判据已共用 shared parseQrLoginTicket;与 VoiceSttScreen 先例同构)。证据:门 rc 1→0(312 枚无未迁移、白名单零腐烂),镜像测试全过 (ce64684498)
+- 🚀 Feature/Improvement:152 道存量门射程声明一次清偿 —— 门 253 棘轮存量归零 (91a47401d5)
+- 🚀 Feature/Improvement:ruff 守门接进提交链(id 254,blocking)+ AGENTS R4 点名同批 —— 前半件脚本入库后接线与点名必须同批(§0.9 造好没装车=没有;门 89 R4 已接线不点名即红)。AGENTS.md 走 LAND_BLOBS 而非工作树:该文件此刻是他人门 207 体积清偿的在飞脏面,交工作树字节等于替他们落地,正解=HEAD 版⊕本票一行。落地后接线锁 check-ruff-gate-wiring 的 T1 由红转绿(它读 HEAD 面 runner,落地前红是设计内阳性对照) (8a48e5411f)
+- 🚀 Feature/Improvement:workbuddy 号池⑥余额点查 getQuota(实弹闭环) (2ab083b8d3)
+- 🚀 Feature/Improvement:ruff 守门脚本入库(未接线,接线与文档点名同批待落)——把 Python lint 从只挂 CI 接进提交链的前半件:三档判定面(HEAD/索引/磁盘,外部工具只能看磁盘故先物化到 scratch)照 check-mypy 同口径,ruff 版本 pin 从 apps/ai-service/pyproject.toml 解析(§0.6,不硬编码),uvx 缺失/pin 解析失败/面取不到一律 exit 2 未判定且优先于红。证据:--worktree/--staged/全量档三档实跑 0 violations(1492 个 .py)、--self-test 11 例全过、镜像测试 11/11、接线锁 check-ruff-gate-wiring 反向对照 4 维逐条翻假 (9ce6ffcf6c)
+- 🔧 Chore/Other:gb17-e2 结清 lint-staged 盯针票(门252 已装车,翻勾+证据) (ab17635a2e)
+- 🔧 Chore/Other:gb17-e1 完成即删(翻勾行移除,不留档) (c266040802)
+- 📚 Docs:L6065 现状升级落账 —— 生产源站 522 三连/ssh 隧道 bad handshake/三通道同断,原解阻判据不可执行,修复属机主带外(p7 席外网实测) (0362b423f7)
+- 🔧 Chore/Other:gb17-e1 结清 git-guardian 指针形态票(翻勾+摘牌+证据) (fb2ba69985)
+- 📚 Docs:G-116 结清(代码镜像载体已删,等机主删 ref/GC 的前提随之失效) + USDT 事实纠偏(地址已非空) + 三枚自进化票复核注记(结清注记不成立,保持未勾) (74aa4f9dcf)
+- 📚 Docs:AGENTS.md 补 R4 漏点名补记 ⑤ —— 门 253 点名(接线对账 R4 清偿) (dfb48c1dcd)
+- 🐞 Fix:G-70 备份脚本 pg_dump 解析优先级 —— ProgramFiles 优先于旧机落点(换机后残留旧客户端会顶掉 18.6,报错形态与口令错同形,误导排障方向),全落空改 exit 2 显式未判定;影子副本已同步等值 (e478e9885e)
+- 🚀 Feature/Improvement:plan-fields-extract 补孤儿键退场档并接 CLI —— 侧车记录终于有"只退不抽"的合法出口 (1ce6414900)
+- 🚀 Feature/Improvement:G-395 请求档与实得档留痕 + 出处标签 —— 新增 EffortResolution(四层 source、requested/effective 两档、matched),formatConfigSnapshot 单点渲染;十一例测试移入 tests 面由 runner 实收集(原放 src 下不会被跑,不接线等于没验) (87b306dec1)
+- 🔧 Chore/Other:lint-staged stdio 补丁器补自证 4 例 + 盯针门镜像对齐 —— 三针补丁此前只有生产脚本、无回归网 (6821396b31)
+- 🚀 Feature/Improvement:门 253 本体入库 + 镜像测试 + 落地通道盲绿修复 (85a41c1276)
+- 🐞 Fix:check-ps1-bom 补回 windowsHide 三处——本侧重写把对侧提交「给新装车的门 251 与其修复器补 3 处 windowsHide」的两处改动覆盖掉了(门 52 全量档会判),按原意在全部三个派生 git 调用点补齐:git() / selfTest.run() / selfTest.runNoPs(),末者为本侧重写新增的夹具。证据:产物 --self-test 11 例全 PASS(判据六 + 端到端五),node --check 通过,常规档扫描 77 带BOM 77 存量缺 0 (e87d13d918)
+- 🔧 Chore/Other:门 30 validate-i18n-integrity 修法席收口 —— D1 三态哨兵与 D2 定根在镜像里钉死,9/9 (42aff94ccf)
+- 📚 Docs:gb17-chair 结清 5 枚(G-29 回潮再结/门134后续批/同一契约两份声明/G-41/两类残行)+ 金丝雀注记纠偏(灰度分流实测零命中,保持未勾) (b3c71c1f0a)
+- 🐞 Fix:门 31 check-ps1-bom 修法席收口 —— 三处判据缺陷已修,镜像 13/13 (76383db3e0)
+- 🚀 Feature/Improvement:新守门 check-gate-triggers.mjs 接进提交链(射程声明完备性,id 253) (c8455ef160)
+- 🚀 Feature/Improvement:lint-staged stdio 三针盯针门挂进守门批(id 252,warn) (34425c621d)
+- 🐞 Fix:deferred 队列终态文案与代码行为对齐——撤回队列项走 message-input.tsx 的 onUndo:先 recordQueueSendOutcome(...,'deferred') 再 removeQueued,消息实际已出队;旧文案「仍保留在队列中」把用户引向等待一次不会发生的重发,五语言同批改为「已从队列移除,请重新发送」。证据:门30 validate-i18n-integrity 通过(5 文件)、check-i18n-keys 19278 键 5 语 parity OK、scan-i18n-zh-residue zh-TW/ko/ja 均无中文残留、五语 leaf 均为 string 且无同名自套 (db904288fb)
+- 🐞 Fix:号池页代理显隐按钮圆角归 control 档 —— 门 150 单族判红(account-pool/page.tsx:1579 裸 rounded-md=6px,应为 sm=4px) (3179d3e2ad)
+- 🐞 Fix:dispatch-board 镜像走 __test__ 出口并纠正一次红测试 —— 枚 102c21f68c8 落地时 ⑰b 因我只做顶层 export 未进 __test__ 而红(实现自证绿、镜像红的半套入库,§10 反面);现 self-test 29/29、镜像 20/20 (072bec49e7)
+- 🐞 Fix:dispatch-board 补 scope-placeholder 维 —— 占位符路径(<x>-spec、通配、含空白)以前被当成真作用域,会把席派到一条不存在的文件上并给它发"这块地没人占"的合格证(今晚实测:一席据此领到 packages/shared/src/ui/<x>-spec/) (102c21f68c)
+- 🔧 Chore/Other:小程序 ui-routes 自述钉按合并后源面重派(门 105 G5 维) (e2c90724a7)
+- 🐞 Fix:zh-TW 字形残留单点修正 + 离线包按新源重派(门 2j-shared blocking 红清偿) (58f4078e52)
+- 🐞 Fix:给新装车的门 251 与其修复器补 3 处 windowsHide(门 52 全量档红清偿) (695955befa)
+- 🔧 Chore/Other:goal-b17 gb17-e5 认领(加复合租约) (d973b9d7ec)
+- 🔧 Chore/Other:goal-b17 gb17-e4 认领(加复合租约) (42ef31b5eb)
+- 🔧 Chore/Other:goal-b17 gb17-e3 认领(加复合租约) (21c584b4f8)
+- 🔧 Chore/Other:goal-b17 gb17-e2 认领(加复合租约) (5e12de960d)
+- 🔧 Chore/Other:goal-b17 gb17-e1 认领(加复合租约) (3c4ba5f0f9)
+- 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (53b18b238d)
+- 📚 Docs:重登被误摘的侧车退场档票(改用不撞桶名的等价表述,复合主键语义不变) (71ce65a9da)
+- 🐞 Fix:dispatch-board 补 dirty-inflight 那一维 —— 他席未提交的脏面以前只算不压,是"不打架"的另一半;自检 27/27、镜像 19/19(含反向锁:dirtyHit 为空时同票必须能排进来,防这一维变恒拒) (aa357de376)
+- 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (9ea4fac622)
+- 🔧 Chore/Other:门 208 具名登记 2 处对外贡献 fork 克隆——消掉 CI 全量档的 blocking 红 (173381c761)
+- 🔧 Chore/Other:门 30 validate-i18n-integrity 补三态自证据与 §22c 镜像 —— blocking 门此前无任何自证 (77fd720a81)
+- 🐞 Fix:取材一过性失败不再被读成判红(门 84/107/117/243) (a382488082)
+- 📚 Docs:守门 251 check-ps1-bom 补进点名索引(门 89 R4 义务) (be6a520abe)
+- 🔧 Chore/Other:check-ps1-bom 补 §22c 镜像与 §22d 守卫 —— 一道 blocking 门此前"一 import 就打死宿主" (6dde87dfa3)
+- 📚 Docs:门 207 余量告急处置——git 网络与推送族删旧版留现行版(95937→94975 B,余量 63→1025) (9af1033f1b)
+- 📚 Docs:AGENTS.md git 网络与推送族旧副本的逐字迁出件(先入库立凭据) (f6e9093843)
+- 📚 Docs:G-19 行去尽字面量(两处) + 记入今日扫全读数 —— 该行把令牌前缀写成可重跑命令与 git grep 样本,导致每条 plan-head 快照自繁殖一份外泄面串(今晚实测 619 枚快照即此源);改为"现读 secrets 单存件头 6 字符作 pattern"的取法,并记 630 命中/6 真令牌/621 已清/3 处待机主轮换保留;本行不翻勾,未收格=轮换属机主职权 (e26491797d)
+- 🔧 Chore/Other:抽取器注释措辞换掉被禁字面量——消掉一处假阳性的第二把尺子告警 (2594a64ee0)
+- 🐞 Fix:adoptMovesOf 的搬支补整族闸——归并不会再把违禁桶搬上活键 (adbe260628)
+- 🐞 Fix:销掉一枚已入库迁移的水印欠账(门 47 自愈补盘 ⇒ 提交才销账) (85380ee43a)
+- 🐞 Fix:合并面的活文档放大定罪改用单源尺 —— 假 F11 不再焊死全仓推送(真放大照旧拒推) (e5383dfb68)
+- 📚 Docs:立两枚可派单真工作票(侧车孤儿键退场档缺失 / ruff 不在提交链) (1382eae649)
+- ♻️ Refactor:4 条旧号孤儿键的 waiting/blocking 收敛到活键读数(退场前置) (d1c4029f3e)
+- 🔧 Chore/Other:净面复量抓到的 4 条 ruff 真红清零(旁路收编带进 HEAD 的漏网面) (88af2ba859)
+- 📚 Docs:两枚票注记已入库格(防下一班重复派单) —— gitdir 票 ③修复面已落 枚 5e11de4b1f5、G-70 票 ③调度面已落 枚 b2fecee0ae(①角色面归对席 8def005420);两行均不翻勾,未收格逐条点名在行内;凭据=主席亲自复跑的镜像 31/31 与 readiness 7/7 末行 (15cc8f947f)
+- 🐞 Fix:摘除留痕回捞腿补两档判据——16 枚假阳性不再死锁完成即删 (e03b22c295)
+- 🚀 Feature/Improvement:dispatch-board 补派单书档(--brief) —— 今晚三条硬约束从"主席记得"变成"随行印出" (031d555cc0)
+- 🐞 Fix:check-ps1-bom 两处裸派生 git 补 stdio(门 193)+ 给 193/251 补 stagedTriggers (532880b398)
+- 📚 Docs:补回第⑤刀误删的 README 在库行（纠偏） (65d1ba9730)
+- 🚀 Feature/Improvement:「更傻瓜」第⑤刀——号池导入框支持拖拽 .json / 点「选文件」,不必再手抄粘贴 (477c441a57)
+- ♻️ Refactor:H01 改判出等条件桶(归:机主微信扫码会话面) (06d42e60b0)
+- ♻️ Refactor:H01 出等条件桶——标头按侧车投影改写(归:机主微信扫码会话面) (c73967172a)
+- 📚 Docs:lint-staged stdio 三针盯针结清——只读门现读绿(3/3 针)、已挂 git-guardian 巡检(引用 6 处,实现在 lib)、接线锁 8/8 通过;按 §12e 不进提交链 (2d672a55d5)
+- 📚 Docs:门 207 体积清偿批二(语义裁决,非字节重放) + 两枚只读器的 npm 别名与 R4 点名同批接入 (b6e4c20c81)
+- 🚀 Feature/Improvement:号池入口层「登记面/未装车面」分档——编排器平台注册表(FROM_PROVIDERS,单一登记入口,§0.6):qoder/codearts parse 通过但 --from 运行期明示未判定(exit 2)并点名当下真出路(后台导入/--file),不再用笼统「暂不支持」把「号池认该平台」与「本机提取器未开发」两件事混成一条(§0.3 不猜,§0.8 不指跑不通的路;新平台取证后补登记即接入)。容量归零哨兵复活出口补齐 qoder/codearts(qoder=池内通用巡检换票优先+重授权走导入并预告提取器未装车;codearts=适配器 refresh 优先+无签到引擎不被要求签到)。测试:⑦⑧两镜像锁注册表形状与分档,M5b 扩两平台断言;三套 13+8+12 例全绿,门自检 30 例全绿。后续派单格(交后手,取证类):qoder/codearts 本机会话落点取证→登记适配器;workbuddy/codearts getQuota 上游端点取证;池侧四平台一键重登(桌面停靠浏览器单元向 pool 侧推广);签到任务中心(攒积分)按实证端点逐平台扩展 (bc2f677e6f)
+- 🐞 Fix:门 22 的"存量恒红"换成只减不增的差值棘轮(§0.5) + 对齐 GATEKEEPERS 过期四行 (9415fe1937)
+- 🐞 Fix:备份链调度面跟上现读形态 —— psql 走探测式、日志从 DevEnv 根派生、调度器自写留痕;readiness 判据钉现行不变量(7/7) (b2fecee0ae)
+- 🐞 Fix:清偿 shared zh-TW 简体字残留 (5c771301ad)
+- 🐞 Fix:quick-notes 接线用例补 @ihui/rn-app 类型引用,门 39 V1 存量清零 (e7f626e736)
+- 🔧 Chore/Other:补票面点名的形状锁「指针形态机上不得出现对 .git 的 mkdirSync」—— 现读零处 + 变异对照点名 writeGitdirPointer + 异形大文件真跑一例(归档后仍落文件不是目录);gb17-v1 隔离沙箱三形态演练(合法指针/25MB 异形文件/目录)rc 全 0,异形那例 61ms 自愈且现场已归档、工作区根零残骸 (2ad6e1b636)
+- 🐞 Fix:指针形态 .git 的异形现场不再被守护静默删掉 + lint-staged 三针盯针接进巡检轮 (5e11de4b1f)
+- 📚 Docs:L6067 部署机格进展落账——SSH 只读核实今日构建已落地,旧滞留前提过期;bad handshake 属已知 530 窗口不追动 (d8b012625e)
+- 🔧 Chore/Other:web ui-routes 自述钉随 HEAD 再钉一次 (d01913072d)
+- 🚀 Feature/Improvement:「比他们更傻瓜」第④刀——号池管理页出「体检徽章列」(六态+闲置天数,机主"都要") (7a110c4deb)
+- 🐞 Fix:G-19 明文面收口——ssh config 脱明文走 secrets 文件+包装器(ssh 实测通),3 处副本隔离/净身,新发现 cloudflared 构建默认值是第 8 副本源;余轮换归机主面(API token 无 ZT 权限) (01d3a1be13)
+- 🔧 Chore/Other:他席 i18n/新增页落地后重派三处派生件 (4f929a5a4f)
+- 🐞 Fix:陈旧副本重放不再把活着的会话永久锁死(stale-sibling 放行轮转) (e6f75c3418)
+- 🐞 Fix:构建冷却必须比对它自己记录的 head —— 记录坏/HEAD 取不到一律显式未判定,不再默认压住或默认放行 (d9f6e2e2a6)
+- 🔧 Chore/Other:部署成本阀墙钟闸 240→480 分钟(三闸配额对齐) (63acf50477)
+- 🐞 Fix:账号池容量归零告警按 provider 点名复活出口——trae 凭据死亡时收信人的当场动作是重开 Trae 客户端登录一次,worker trae-session-sync 每 10 分钟自动回灌新会话入池(2026-10-26 跨 profile 兜底扫描落地后这条链在真机才跑得通),不再要求人工记着跑命令或找后台按钮;workbuddy 点名 --from workbuddy 重提取;无定制出口的 provider 不被硬塞别家文案(§0.8 出路必须真跑得通)。镜像 M5b 例 + 门自检查表锁三型(12+30 例全绿) (94b9133cb8)
+- 🐞 Fix:ps1-add-bom 的"全仓已清零"不再被打成用法错 —— 出口三态各自有话说 (d07bc892a9)
+- 🚀 Feature/Improvement:备份只读角色幂等建制器——SELECT 探测后只补差值,默认 dry-run,apply 单事务并回读自证,口令只报长度不覆盖不打印;判据复用 pg-restore-drill 的口令链单源,落 deploy 之外的 node 侧因 .sql 一次性载体做不到先探测(执行席 g70-backup 交回;主席复跑自检十一例与镜像廿五例全绿,本机无超管身份时按未判定 exit 2 不猜) (8def005420)
+- 🚀 Feature/Improvement:排他切席板 dispatch-board + lint-staged 盯针门入库 —— 把主席手三条派单纪律变成器物 (429cf91aac)
+- 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (4146ce30ab)
+- 🔧 Chore/Other:ruff 存量 36 枚清零(CI ruff check . 同口径红清偿) (3161e42705)
+
+**2026-10-27**
+- 🐞 Fix:Trae 落点候选加跨 profile 兜底扫描——非登录用户 shell 下裸跑 --from trae 即命中本机真会话(2026-10-26 实测首跑栽于沙箱 %APPDATA%,靠手工 IHUI_TRAE_DIR 救回);候选次序=显式覆盖>当前用户>他人 profile,IHUI_TRAE_SCAN_USERS=0 可关;镜像测试 13 例全绿+裸跑 dry-run 打穿为证 (cba1c89415)
+- 📚 Docs:README.en 生成块与散文六处数字按现算重钉 —— 门 173 见我改过它,从此对它全判 (0dbf4375a6)
+- 📚 Docs:自进化 7 枚由主席逐条现读复核后结清——金丝雀三器物在 HEAD、自治决策/经验提炼/决策链三条腿提交均为 HEAD 祖先、需求发现器三源适配器提交为祖先、反馈闭环器件在 HEAD、E2E 缺口门已接 runner id 250 (ecf125780a)
+- 🐞 Fix:冷启动不再把「cookie 还在」的老用户判成匿名 (db0bcde945)
+- 📚 Docs:三份外文 README 补「账号保活中心」一节 —— 中文那份已在 HEAD,外文一直缺 (06035647e9)
+- 🔧 Chore/Other:显式声明 expo-camera 相机权限 (fbfaa42034)
+- 🚀 Feature/Improvement:默认头像域名收敛到 www.aizhs.top(省一次 CF 301) (ed751bd809)
+- 📚 Docs:G-11 队列拒因三件结清——b/c 两格在 HEAD 逐条复验(deferred/failed 终态与静态键盘面在位,承载测试 12/12),a 格三个输入无合法生产者按观察类结清不臆造 (fbb8c22cac)
+- 📚 Docs:两枚结清——argument-validation 三格逐格复跑(裁决夹具 8/8、演示路径 4/4、hub 前提已腐烂);G-37 三格逐条复验(语言包 JSON + i18n 两门 RC=0、冷却指纹测试 4/4、80 端口已进值守监控与人跑清单附 5 例夹具) (c282980c9f)
+- 🚀 Feature/Improvement:补上手机端扫码确认 PC 登录(小程序 + RN) (b5d89fc7ba)
+- ♻️ Refactor:保活中心 router 迁 app/routers/ —— 让门8 的那 6 条端点从「未判定」变「在册」 (4d673db992)
+- 🐞 Fix:zh-TW 一枚简体残留改繁体——sourceCookie 的平台应为平臺(opencc 判残留导致门 2b 红;该值由枚 f541169ba4 keepalive 批次新增;执行席 g37-locale-json 现读点名,主席一字修正并复跑 JSON 解析与语言判定) (b77a3373ff)
+- 🚀 Feature/Improvement:未设置头像统一使用平台 Logo (a078ca2b10)
+- 🚀 Feature/Improvement:归属尺只认真实证据——散文标签的持有者须同时过租约/提交史/脏面三条之一才剔出派单面,否则落 stale-owner-label 并在 --dispatchable 默认保留;机主面与活租约一律仍剔,取不到输入落未判定(执行席 owner-scale-r2 交回;主席独立复跑同一命令得 出单 9 与 仍归他人 23=机主面17/侧车5/在飞1,与席位读数一致;三条反向自证齐备) (6129400e9b)
+- 🚀 Feature/Improvement:门251 判据本体补上 + 存量 67 枚 .ps1 一次补齐 UTF-8 BOM + R6 判据右边界修正 (c384d583b9)
+- 🔧 Chore/Other:web ui-routes 自述钉按当前 HEAD 重钉 (541e325761)
+- 🐞 Fix:plan-copy-row-purge ④c 开「陈旧快照」降级档——化石件里的旧 open 不再永久挡陈旧指针 (91ead7dd14)
+- 🔧 Chore/Other:三枚假牙改形态锁(续假牙B同型)——api-failure-throw 删 total 硬下限改四字段形态锁、shared-type 的 hits 与 csrf 的 sites 同改,存量维一律可解析断言,取材面非空与真判据全保留,补变异自证(执行席 faketooth-a 交回;主席复跑三档十+十一+十四例全绿) (94709e33b6)
+- 🔧 Chore/Other:三枚假牙改形态锁——把门体自己声明只报数的存量维从下限改成可解析断言,取材面非空与真判据全保留,补变异自证(摘形态锁必红/存量归零不红)(执行席 faketooth-b 交回;主席复跑三档十五+十三+十二例全绿) (afe5fd443f)
+- 📚 Docs:两枚副本指针行按完成即删处置——二者本身是指针不是任务(承载行均在册),而指针注记存量自 2026-10-14 已定为零基线;翻勾后由 5 分钟节拍的清扫器摘除 (7a139fbe21)
+- 🐞 Fix:门71 判据补齐成套——missingFrom 按条目自带名额展开并启用 multiset(复制份标 dupSlot 折成 multiSlot 只点名不回捞),openCount 语义改为窗口内同时开放峰值(避免把 churn 累计量当名额致规模闸误触),加粗族按 marker 出现次数记账;自检 73 升 78、镜像 85 升 95(执行席 g948-complete-r2 交回;主席复跑两档全绿且全量档 RC=0 未新增红) (b3427a4a6a)
+- 🐞 Fix:演示路径不再执行工具 + 部署断言锚点跟上新写法——① workspace-ai-service 的 AgentLoopRuntime.run 删掉 await tool.execute({}) 那段模拟执行(轨迹仍成对、状态 completed,自述未执行);② o6 ⑤ 定位器跟上 merge 改为 git -C $Root merge --ff-only 的新形态(语义断言零删改);两枚反向牙均实跑:塞回 execute 即 2 failed、退回 -Entries 全量脏文件即 BLOCKED-WIP 断言红 (357496236a)
+- 🔧 Chore/Other:归并后按合并树重派三处派生件 (ac65a7954d)
+- 🚀 Feature/Improvement:新守门 check-ps1-bom.mjs 接进提交链 (6e8f4bd2a4)
+- 🐞 Fix:工作空间页短内容撑满卡片剩余高度，消除项目区下方大片空白 (aec2acdf90)
+
+**2026-10-26**
+- 🔧 Chore/Other:收敛后重派 6 枚派生件(三端 ui-routes + i18n 离线包与清单) (170b1ba6de)
+- 🐞 Fix:工作空间页短内容撑满卡片剩余高度，消除项目区下方大片空白 (253418c2de)
+- 🐞 Fix:补齐收敛并入的 3 枚缺载荷文件(CI verify 面回潮清偿) (9e0f5aedb0)
+- 🐞 Fix:补齐 deploy 三枚缺载荷文件(门 47 全量档/CI 红清偿) (67f3a74541)
+- 📚 Docs:守门 207 体积红二次清偿——合并把已清副本 union 回来了(100886→94975 B) (0f85b56149)
+- 🐞 Fix:还原被本席上一枚提交覆盖的别席逐字迁出条目(同名归档件撞车) (3be29eb3ec)
+- 🚀 Feature/Improvement:海外登录隐藏手机号入口并主推 Google，Google OAuth 出站走白名单代理 (0451b10e78)
+
 **2026-10-26**
 - 📚 Docs:12 枚僵尸票批量结清——前提在 HEAD 逐条不成立:桌面 ANR 残行 55 字、G-195 三个入口脚本全在 HEAD、take_loop_v2_handoff 生产面 18 处已装车、O87g 精确挂载图已装车(本轮另补 compositeDelta 报数)、三枚归并副本指向行已归档、G-8 为副本套娃 31 层的一次性快照、G-242 残行且属禁用的等条件形态、G-948 被吞行已回补、G-66 为单点读数加等条件形态、cloudflared 运行副本与入库源逐字节等值 (9be4bfd2bb)
 
@@ -194,20 +321,6 @@ Headline claims (same source as the table below, all live-computed): **608 table
 - 🚀 Feature/Improvement:G-957 小程序网页授权回传腿闭合(代码侧)——① web 中转页 /sso/login 新增 miniapp-bridge.ts:微信 JS-SDK jweixin-1.6.0 CDN 注入 + wx.miniProgram.postMessage 回传 sso_code(载荷契约 ihui-sso-code 与小程序接收侧逐字同源,SDK 失败超时 8s reject 如实提示绝不静默,交接成功留完成卡不跳转防丢 bindmessage 整批投递时机);② auth-sso.ts 深链 scheme 白名单默认补 ihui-miniapp(过 isSafeRedirectUri 的合法形态,AGENTS §9 契约);③ miniapp sso.ts 导出 SSO_REDIRECT_URI + LoginPopUp 增 onWebAuthLogin 传入才渲染格 + user 页接线(收弹窗再跳 webview 页);④ 五语言:miniapp-taro login.webAuthLogin + web miniappHandoff 三键;⑤ 测试:web 桥 12 例本席绿+主席独立复跑 12/12;剩余人工窗=小程序后台业务域名白名单+真机投递时机验证 (20fce9cea8)
 - 🚀 Feature/Improvement:G-40 A/E 双格闭合——command-acks 写侧端点 + ack 事实存活判据——① POST /api/command-acks(authenticated 零公开面,owner_key 由令牌主体拼出,Zod 入参,PG 事实先行+KV 镜像后写不共事务,KV 失败不回滚 PG、如实 kv_mirrored:false,复合主键 onConflictDoNothing 幂等:同指纹 replayed/processing 409/异指纹 KEY_REUSED);② services/command-ack-facts.ts 纯判据四档死因硬错 + GET /alive/:parent/:cmd 查询面;③ 新测 18 例全内存零真库,本席两遍 + 主席独立复跑均 18/18 绿;④ turbo typecheck api+web 11/11 任务 0 错误(删除批 27 枚已还原后现跑);⑤ index.ts 仅 import+注册两行接线 (865aad52cb)
 - 🐞 Fix:huggingface 入口换域 api-inference→router.huggingface.co——旧域被网络封锁(直连超时+代理TLS reset 实测),官方推理入口已迁;registry/种子/web 中继清单三处同步,生产 DB ai_model_config 行已另行 UPDATE 到位 (b4b1c6a3ab)
-
-**2026-10-26**
-- 📚 Docs:门207体积清偿——R4漏点名补记②三份漂移副本删二留一(保留最全版含CI问责腿与analytics点名),被删两版逐字归档 AGENTS_trim-2026-10-26,规则条款零删减;有意重写整份文档故按门84 出路带 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (e7fbe3b0f3)
-- 📚 Docs:G-172 记进展不翻勾——CI 红因两条判清(水印门 5 枚随删除腿自愈;Knip 棘轮四类清单交主席),票面本机无 gh 前提腐烂(gh 2.96.0 在位) (082d85ee02)
-
-**2026-10-26**
-- 🔧 Chore/Other:合并落地后重生成 web ui-routes 钉(union-converge 对生成物留下的本侧副本须立即重跑生成器,门 105 现读 web 行 stale⇒heal 后待入库;miniapp 端他席在飞 taro-ws-ticket.ts 由 heal 档正确拒写不背书) (c411929340)
-- 🐞 Fix:G-1200041 按 2026-10-25 机主令出等条件桶——两格真卡点归机主控制台/运维动作面,存在句改归属句(事实未动),清合并回潮的 F12 基线违例 (3c6956763c)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9ae2dd7013)
-- 🐞 Fix:健康 ping 与同步同用出网判据(专用代理表→SYNC_PROXY_URL→直连)——huggingface 直连被封经代理可达却被误判 DOWN,系 LlmProviderUnhealthy 误报根因;钉测含变异自证 (ce76fff2c1)
-
-**2026-10-26**
-- ♻️ Refactor:侧栏/历史页会话菜单按钮层级重构——导出7格式与压缩2档位收进二级子菜单,一线16项收敛为9项(48项菜单测试/typecheck/prettier现读绿,i18n五语言补键parity OK) (09b5462b8f)
-- 🐞 Fix:推送腿兜底两处收尾 —— ① 探针取根改用脚本自身位置 EGRESS_ROOT,不再引用尚未赋值的 repoRoot(实测:兜底自己崩在判据之前,Cannot access 'repoRoot' before initialization,比没兜底更坏) ② 两条腿都不通时把诊断写进 push-state reason,读数不再退化成'退出码 128 且无可辨认特征'(AGENTS §5e-3 量得到/§12f 失效不许安静),并给出单次绕过的可跑通道 --no-proxy ③ withDirectArgs 保住 git.exe 与尾随空格形态。回归 git-push-guard.test 32 例 + push-attempt-triage 自跑全绿 (5999fa708e)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
