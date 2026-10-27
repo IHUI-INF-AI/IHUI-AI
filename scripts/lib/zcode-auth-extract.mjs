@@ -10,19 +10,23 @@
  *   - 数据根 = ~/.zcode/(v2/、cli/、workspace/、backup/);Electron 侧另有
  *     %APPDATA%\ZCode\(rum-electron-store\ZGVmYXVsdA.json、session/)——已探查,
  *     无凭据形状(仅 UI 偏好/内核缓存),不纳入提取面。
- *   - 凭据文件 = ~/.zcode/v2/credentials.json,**扁平 map,值全部为 opaque 明文串**
- *     (实测 7 键,均非 JSON、非 JWT 头形):
- *       · oauth:bigmodel:access_token(494 字符)  · zcodejwttoken(319)
- *       · oauth:bigmodel:user_info(299,opaque 非 JSON)
- *       · oauth:login_attribution / oauth:active_provider
- *       · project-key-location:v1:<URI 编码数组> ×2 —— 键名解码后为
- *         ["https://bigmodel.cn","bigmodel","<projectId>",null,1,"non-team"],
- *         值(254 字符)为项目级 API Key(可直连 paas/v4)。
+ *   - 凭据文件 = ~/.zcode/v2/credentials.json,扁平 map。
+ *     **2026-10-27 源码级重大实证:值并非明文,而是 `enc:v1:` 前缀的 AES-256-GCM 密文**
+ *     (app.asar 取证:TA="enc:v1:",fK="aes-256-gcm",iv=12,tag=16;
+ *      key = sha256(env.ZCODE_CREDENTIAL_SECRET ?? `zcode-credential-fallback:${platform()}:${homedir()}:${username()}`);
+ *      编码 = enc:v1: + b64url(iv) + "." + b64url(tag) + "." + b64url(ciphertext);无前缀 = 明文直通):
+ *       · oauth:bigmodel:access_token(密文 494 → 明文 335)· zcodejwttoken(密文 319 → 明文 204)
+ *       · oauth:bigmodel:user_info / oauth:login_attribution / oauth:active_provider
+ *       · project-key-location:v1:<URI 编码数组> ×2(项目级 API Key,同加密体制)
+ *     解密配方已实弹闭环:明文 zcodejwttoken 打
+ *     https://zcode.z.ai/api/v1/zcode-plan/billing/balance → 200 + plans[](见 zcode-adapter)。
+ *     此前「opaque 明文直通」的旧口径系误判(密文被当 token 发 ⇒ 401,已纠正)。
  *   - region 判定:project-key-location 键名里的 host ⇒ bigmodel.cn→'cn'、z.ai→'global'
  *     (本机只见 bigmodel.cn;z.ai 形未实证,按 ZCode 双站文档语义探测,不冒绿)。
  *
- * §0.6 单一真相源:credentials.json 整图**逐字直通**(键值原样),仅附 region/溯源字段;
- * 归一与凭证拆分(token 用哪枚、project key 进哪档)全交服务端 mapZcodeImport(主会话集成)。
+ * §0.6 单一真相源:credentials.json 整图保留,但**值为解密后明文**(raw 密文整图附在
+ * rawCredentials 字段溯源);归一与凭证拆分(token 用哪枚、project key 进哪档)全交服务端
+ * mapZcodeImport(主会话集成)。
  *
  * 安全:令牌零回显 —— meta 摘要只有 sha256 前 12 位指纹/长度/键有无布尔;
  * project-key 的解码只碰**键名**(存储键非密文),值不读不改。
@@ -49,6 +53,63 @@ function fingerprintOf(token) {
 
 function cstr(v) {
   return typeof v === 'string' ? v.trim() : ''
+}
+
+// —— 凭据解密(2026-10-27 app.asar 源码级配方 + 本机实弹闭环)——
+const ENC_PREFIX = 'enc:v1:'
+const CIPHER = 'aes-256-gcm'
+const IV_LEN = 12
+const TAG_LEN = 16
+const SECRET_ENV = 'ZCODE_CREDENTIAL_SECRET'
+
+/** 派生密钥:sha256(secret);secret = env.ZCODE_CREDENTIAL_SECRET ?? fallback(platform:homedir:username) */
+export function deriveCipherKey(env = process.env, osApi = os) {
+  const secret = cstr(env?.[SECRET_ENV]) || `zcode-credential-fallback:${osApi.platform()}:${osApi.homedir()}:${osApi.userInfo().username}`
+  return crypto.createHash('sha256').update(secret).digest()
+}
+
+/**
+ * 解密单值:`enc:v1:` + b64url(iv) + "." + b64url(tag) + "." + b64url(ciphertext) → 明文;
+ * 无前缀 = 明文直通(原样返回);解密失败(AUTH 失败/格式非法)⇒ throw 带原指纹的未判定错。
+ */
+export function decryptZcodeValue(value, key = deriveCipherKey()) {
+  const v = typeof value === 'string' ? value : ''
+  if (!v.startsWith(ENC_PREFIX)) return v
+  const parts = v.slice(ENC_PREFIX.length).split('.')
+  if (parts.length !== 3) {
+    throw Object.assign(new Error('ZCode 凭据密文格式非法(段数!=3)'), { code: 'ZCODE_CIPHER_MALFORMED' })
+  }
+  try {
+    const iv = Buffer.from(parts[0], 'base64url')
+    const tag = Buffer.from(parts[1], 'base64url')
+    const ct = Buffer.from(parts[2], 'base64url')
+    if (iv.length !== IV_LEN || tag.length !== TAG_LEN) {
+      throw new Error(`IV/TAG 长度非法(${iv.length}/${tag.length})`)
+    }
+    const d = crypto.createDecipheriv(CIPHER, key, iv)
+    d.setAuthTag(tag)
+    return Buffer.concat([d.update(ct), d.final()]).toString('utf8')
+  } catch (e) {
+    throw Object.assign(
+      new Error(`ZCode 凭据解密失败(AES-256-GCM AUTH 不过;密钥派生环境不匹配?): ${e instanceof Error ? e.message : String(e)}`),
+      { code: 'ZCODE_CIPHER_DECRYPT_FAIL' },
+    )
+  }
+}
+
+/** 整图解密:逐键 decryptZcodeValue;返回 { plainMap, decryptErrors } */
+export function decryptCredentialMap(credMap, key = deriveCipherKey()) {
+  const plainMap = {}
+  const decryptErrors = []
+  for (const [k, v] of Object.entries(credMap)) {
+    try {
+      plainMap[k] = decryptZcodeValue(v, key)
+    } catch (e) {
+      decryptErrors.push({ key: k.slice(0, 60), code: e.code ?? 'ZCODE_CIPHER_DECRYPT_FAIL' })
+      plainMap[k] = ''
+    }
+  }
+  return { plainMap, decryptErrors }
 }
 
 /** 候选数据根:~/.zcode(本机实证);opts.roots 仅供测试注入(同样做存在性过滤,缺失根 ⇒ 上层 DIR_MISSING) */
@@ -137,11 +198,15 @@ export async function extractZcodeAccounts(opts = {}) {
     }
     if (!credMap || typeof credMap !== 'object' || Array.isArray(credMap)) continue
     rootNotes.push({ root, credentialsPath: credPath, keyCount: Object.keys(credMap).length })
-    const regions = collectRegions(credMap)
-    if (!hasUsableCredential(credMap)) continue
-    // §0.6 raw 直通:credentials.json 整图逐字保留,仅附 region/溯源字段
+    // 2026-10-27 起值为 enc:v1: 密文 ⇒ 整图解密为明文(失败键落 '' 并记 decryptErrors,不冒绿)
+    const { plainMap, decryptErrors } = decryptCredentialMap(credMap)
+    rootNotes[rootNotes.length - 1].decryptErrorCount = decryptErrors.length
+    const regions = collectRegions(plainMap)
+    if (!hasUsableCredential(plainMap)) continue
+    // §0.6:值为解密后明文直通;raw 密文整图附 rawCredentials 溯源(零回显纪律仍由编排层保证)
     accounts.push({
-      ...credMap,
+      ...plainMap,
+      rawCredentials: credMap,
       // region:单区域 ⇒ 该值;多区域并存 ⇒ 'mixed'(明细看 regions);判不出 ⇒ null 未判定
       region: regions.length === 1 ? regions[0] : regions.length === 0 ? null : 'mixed',
       regions,
@@ -161,7 +226,11 @@ export async function extractZcodeAccounts(opts = {}) {
   return {
     providerCode: 'zcode',
     accounts,
-    meta: { roots: rootNotes, count: accounts.length, sessions: accounts.map((a) => summarizeCredentials(a, a.regions)) },
+    meta: {
+      roots: rootNotes,
+      count: accounts.length,
+      sessions: accounts.map((a) => summarizeCredentials(a, a.regions)),
+    },
   }
 }
 
@@ -171,5 +240,11 @@ export const __test__ = {
   collectRegions,
   hasUsableCredential,
   summarizeCredentials,
+  deriveCipherKey,
+  decryptZcodeValue,
+  decryptCredentialMap,
   CREDENTIALS_REL,
+  ENC_PREFIX,
+  CIPHER,
+  SECRET_ENV,
 }

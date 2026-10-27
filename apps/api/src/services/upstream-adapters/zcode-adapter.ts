@@ -16,16 +16,19 @@
  * - 业务错误帧:{"error":{"code":"1000","message":"身份验证失败"}}(公开文档错误码:
  *   1000 = 身份验证失败(Key 无效/过期/用错站点),1001 = Header 未收到 Authorization;
  *   国内站 Key 打到 api.z.ai 或反之也会 1000)。
- * - 余额端点:GET /api/coding/paas/v4/users/me/balance(旧版资源接口,**未列入现行官方
- *   API 参考**,社区口径返回 balanceInfo{balance,giftBalance,voucherBalance,usedTokens}
- *   与 packageInfo[];字段随账号/Key 类型可变)⇒ getQuota 学 codearts:200 也回
- *   未判定 + 键名清单,不猜字段读成数字。
+ * - 余额端点:GET /api/coding/paas/v4/users/me/balance(旧版资源接口,字段随账号/Key
+ *   类型可变;2026-10-27 起仅作参考,**额度/健康检查升级为 zcode-plan 通道**:
+ *   GET https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=3.16.3,
+ *   实弹 200 + plans[]/entitlements[],票 = zcodejwttoken,X-Device-Mid 等头必带)。
  * - 刷新:ZCode OAuth token 的刷新端点未实证 ⇒ 本适配器不实现 refreshToken,
  *   401 自愈依赖重新导入号池,绝不猜端点。
  * - 凭证映射(服务端 mapZcodeImport,主会话集成):token←oauth:bigmodel:access_token
- *   (或 zcodejwttoken/项目 Key,主会话定),raw 其余字段进 secretsEnc 直通。
+ *   (或 zcodejwttoken/项目 Key),raw 其余字段进 secretsEnc 直通。
+ * - 提取器(2026-10-27):credentials.json 值为 enc:v1: AES-256-GCM 密文,解密配方见
+ *   scripts/lib/zcode-auth-extract.mjs(实弹闭环)。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import { randomUUID } from 'node:crypto'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
@@ -48,9 +51,58 @@ const BASE_GLOBAL = 'https://api.z.ai'
 const CHAT_PATH = '/api/coding/paas/v4/chat/completions'
 /**
  * 套餐/余额查询面(coding 域旧版资源接口;通用域同路径 /api/paas/v4/users/me/balance
- * 查现金余额。响应字段未本机实证 ⇒ 未判定三态,学 codearts getQuota)。
+ * 查现金余额。2026-10-27 起额度/健康检查走 zcode-plan 通道(PLAN_*),此常量保留作
+ * 后备参考;实弹复核:该路径对 zcodejwttoken 亦 401,不再作为主通道)。
  */
 const BALANCE_PATH = '/api/coding/paas/v4/users/me/balance'
+void BALANCE_PATH
+
+// —— zcode-plan 通道(2026-10-27 实弹闭环,对齐 ZCode 桌面端同款)——
+/** 套餐端点真身(app.asar buildZCodeEndpointUrls + 运行日志 url 双源;bigmodel.cn 直打 ⇒ 404 NOT_FOUND) */
+const PLAN_BASE = 'https://zcode.z.ai'
+const PLAN_BALANCE_PATH = '/api/v1/zcode-plan/billing/balance'
+const PLAN_APP_VERSION = '3.16.3'
+
+/**
+ * plan 票 = zcodejwttoken:实弹实证 balance 端点只认它
+ * (oauth access_token ⇒ 401;zcodejwttoken ⇒ 200 + plans[])。
+ * 导入槽位首位是 oauth:bigmodel:access_token(chat paas/v4 用),故这里显式回读 credentialMap。
+ */
+function planJwt(ctx: AdapterAccountContext): string {
+  const cm = ctx.credentials.secrets?.['credentialMap']
+  const jwt = cm && typeof cm === 'object' ? (cm as Record<string, unknown>)['zcodejwttoken'] : null
+  return typeof jwt === 'string' && jwt.trim() !== '' ? jwt.trim() : ctx.credentials.token
+}
+
+/** zcode-plan 请求头(实弹实证:缺 X-Device-Mid/X-ZCode-App-Version ⇒ 400 parameter error) */
+function planHeaders(jwt: string): Record<string, string> {
+  return {
+    accept: 'application/json',
+    authorization: `Bearer ${jwt}`,
+    'user-agent': `ZCode/${PLAN_APP_VERSION}`,
+    'X-Device-Mid': randomUUID(),
+    'X-ZCode-App-Version': PLAN_APP_VERSION,
+    'X-Platform': 'windows-x64',
+    'X-Client-Language': 'zh-CN',
+    'X-Client-Timezone': 'Asia/Shanghai',
+    'X-Os-Category': 'windows',
+  }
+}
+
+/** balance 信封(实弹形状):{code:0,msg,data:{server_time,plans:[{plan_id,name,status,ends_at,entitlements:[…]}]}} */
+interface ZcodePlanBalanceEnvelope {
+  code?: number
+  msg?: string
+  data?: {
+    plans?: Array<{
+      plan_id?: string
+      name?: string
+      status?: string
+      ends_at?: number
+      entitlements?: Array<{ show_name?: string; unit_type?: string; grant_units?: number }>
+    }>
+  }
+}
 
 // =============================================================================
 // fetch 解析(测试缝 > 账号级代理 > 全局直连;对齐 codearts/trae 同款做法)
@@ -245,7 +297,7 @@ function classifyUpstreamFailure(
 }
 
 // =============================================================================
-// 额度点查与健康检查(GET /api/coding/paas/v4/users/me/balance;形状未实证 ⇒ 未判定)
+// 额度点查与健康检查(zcode-plan 通道,2026-10-27 实弹闭环;zcodejwttoken 票)
 // =============================================================================
 
 async function getQuota(
@@ -253,38 +305,64 @@ async function getQuota(
   opts?: QuotaCallOptions,
 ): Promise<RelayQuotaResult> {
   try {
-    const url = `${regionBase(ctx)}${BALANCE_PATH}`
+    const url = `${PLAN_BASE}${PLAN_BALANCE_PATH}?app_version=${PLAN_APP_VERSION}`
     const res = await resolveFetchImpl(opts ?? {})(url, {
       method: 'GET',
-      headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${ctx.credentials.token}`,
-      },
+      headers: planHeaders(planJwt(ctx)),
     })
     const text = await res.text().catch(() => '')
     if (!res.ok) {
       return {
         ok: false,
         ...(zcodeAdapter.isAuthFailure(res.status, text) ? { authFailed: true } : {}),
-        error: `balance HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+        error: `billing/balance HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
       }
     }
-    let keys: string[] = []
+    let env: ZcodePlanBalanceEnvelope
     try {
-      const obj: unknown = JSON.parse(text)
-      if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-        keys = Object.keys(obj as Record<string, unknown>)
-      }
+      env = JSON.parse(text) as ZcodePlanBalanceEnvelope
     } catch {
-      /* 非 JSON 也如实报 */
+      return { ok: false, error: 'billing/balance 200 但响应非 JSON ⇒ 未判定(不猜字段读成数字)' }
+    }
+    if (env.code !== 0) {
+      return {
+        ok: false,
+        error: `billing/balance 业务拒绝 code=${env.code}${env.msg ? ` msg=${env.msg}` : ''}`,
+      }
+    }
+    const plans = env.data?.plans ?? []
+    const active = plans.filter((p) => p.status === 'active')
+    if (plans.length === 0) {
+      return {
+        ok: false,
+        error: 'billing/balance 200/code=0 但 plans 空 ⇒ 无生效套餐(如实报,不编数字)',
+      }
+    }
+    const packs = active.flatMap((p) =>
+      (p.entitlements ?? []).map((e) => ({
+        // 形状里无 remaining ⇒ 只报发放量(limit)与到期,不编剩余数字
+        name: e.show_name ?? 'entitlement',
+        limit: e.grant_units ?? undefined,
+        endAt: p.ends_at ? new Date(p.ends_at * 1000).toISOString() : undefined,
+      })),
+    )
+    const first = active[0] ?? plans[0]
+    if (!first) {
+      return { ok: false, error: 'billing/balance 200/code=0 但无任何套餐 ⇒ 未判定' }
     }
     return {
-      ok: false,
-      error: `余额端点已应答 200,响应键=[${keys.join(',') || '(空)'}],字段形状未实证 ⇒ 未判定(不猜字段读成数字)`,
+      ok: true,
+      quota: {
+        // 形状里无 remaining/used 数字字段(仅 grant_units 发放量)⇒ 不编数字,只报档名与权益包
+        subscriptionName: first.name ?? first.plan_id ?? undefined,
+        unit: first.entitlements?.[0]?.unit_type,
+        resetsAt: first.ends_at ? new Date(first.ends_at * 1000).toISOString() : undefined,
+        packs,
+      },
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { ok: false, error: `余额点查失败: ${msg}` }
+    return { ok: false, error: `套餐点查失败: ${msg}` }
   }
 }
 
@@ -293,14 +371,11 @@ async function checkHealth(
   opts?: AdapterCallOptions,
 ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
   try {
-    // 轻量检查 = 复用余额端点(GET,不消耗对话配额)
-    const url = `${regionBase(ctx)}${BALANCE_PATH}`
+    // 轻量检查 = zcode-plan billing/balance(GET,不消耗对话配额;实弹实证零消耗)
+    const url = `${PLAN_BASE}${PLAN_BALANCE_PATH}?app_version=${PLAN_APP_VERSION}`
     const res = await resolveFetchImpl(opts ?? {})(url, {
       method: 'GET',
-      headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${ctx.credentials.token}`,
-      },
+      headers: planHeaders(planJwt(ctx)),
     })
     if (!res.ok) {
       const text = await res.text().catch(() => '')
@@ -309,10 +384,23 @@ async function checkHealth(
         ok: false,
         indeterminate: !rejected,
         authFailed: rejected,
-        error: `balance HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
+        error: `billing/balance HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
           rejected ? '' : '(未判定)'
         }`,
       }
+    }
+    const text = await res.text().catch(() => '')
+    try {
+      const env = JSON.parse(text) as ZcodePlanBalanceEnvelope
+      if (env.code !== 0) {
+        return {
+          ok: false,
+          indeterminate: true,
+          error: `billing/balance 200 但业务 code=${env.code}${env.msg ? ` msg=${env.msg}` : ''}(未判定)`,
+        }
+      }
+    } catch {
+      return { ok: false, indeterminate: true, error: 'billing/balance 200 但响应非 JSON(未判定)' }
     }
     return { ok: true }
   } catch (e) {
