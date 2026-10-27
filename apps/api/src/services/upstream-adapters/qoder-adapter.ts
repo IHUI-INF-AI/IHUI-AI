@@ -40,8 +40,10 @@ import type {
   AdapterAccountContext,
   AdapterCallOptions,
   ChatExecuteOptions,
+  ModelListCallOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
+  RelayModelListResult,
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
@@ -56,6 +58,7 @@ import {
   qoderCliChatChunks,
   renderQoderPrompt,
 } from './qoder-cli-bridge.js'
+import { listQoderModels } from './qoder-models.js'
 
 // =============================================================================
 // 端点常量(实证值;非生产档允许 env 覆写指向假上游,供 tests 真跑协议线)
@@ -519,6 +522,35 @@ export const qoderAdapter: RelayUpstreamAdapter = {
         return { ok: false, error: 'quota 响应未含 addOnQuota.remaining ⇒ 未判定(不读成零)' }
       }
       return { ok: true, quota: { remaining, unit: 'Qoder credits' } }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  },
+
+  /**
+   * 富模型清单(2026-10-27 立;契约见 RelayModelListResult)。
+   * 调 listQoderModels(spawn 本机 CLI --list-models),永不抛,失败归 ok:false。
+   * ctx 不用于取凭据:CLI 用本机登录态(清单语义 = 本机 CLI 登录态的当前用户,
+   * 不是号池账号),scope 字段如实标注;取证:上游无 models HTTP 端点
+   * (docs/RELAY_QODER_LISTMODELS_EVIDENCE.md),CLI 是唯一客户端同源通路。
+   */
+  async listModelsDetailed(
+    _ctx: AdapterAccountContext,
+    _opts?: ModelListCallOptions,
+  ): Promise<RelayModelListResult> {
+    try {
+      const r = listQoderModels()
+      if (!r.ok) return { ok: false, error: r.error }
+      const models = [
+        ...(r.auto ? [{ name: 'auto' }] : []),
+        ...r.official.map((name) => ({ name, id: name })),
+        ...r.custom.map((c) => ({ name: c.name, id: c.idPrefix, idTruncated: true as const })),
+      ]
+      return {
+        ok: true,
+        scope: r.scope,
+        models,
+      }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }

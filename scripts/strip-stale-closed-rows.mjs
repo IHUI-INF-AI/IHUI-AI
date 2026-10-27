@@ -423,6 +423,15 @@ export function adjudicateUnexpectedOpenRows(openRows, { landedText, headText, l
 }
 
 /**
+ * 未判定条目的点名样本:两桶都取。
+ * 「非登记行」那一桶过去不进样本 ⇒ 拒落了却一行都报不出来,看的人无从下手(§0.10:失效方向必须是
+ * "多要一次定向说明",绝不能是"多放一次跳门"——报名既不是放行也不是拒落,是把拒落变得可处置)。
+ */
+export function undeterminedSample(otherUnexpected = [], lostHere = [], limit = 3) {
+  return [...otherUnexpected.slice(0, limit), ...lostHere.slice(0, limit)]
+}
+
+/**
  * 留痕回捞腿(2026-10-26 立,根治本次实测的"摘了却没留痕")。
  *
  * 立因是**量出来的**,不是推断。现读(2026-10-26):近 500 枚提交里 36 枚是本器的清扫提交,
@@ -559,14 +568,16 @@ export function reconcileDropLedgerDebt({
       continue
     }
     const { closed, unexpected } = removedRowsBetween(parentText, landedText)
-    // 未勾登记行走档②两问(2026-10-27):同题形态仍在被审面 / 台账-归档逐字凭据,两问皆否才是 lost;
-    // 其余非登记行(标题、散文、真实少掉的中段空行)不走两问,照旧算「前提破了」——
-    // 本器只摘「已勾登记行」(H1/H2 保证),这一档不放宽。
-    const openUnexpected = unexpected.filter((l) => /^\s*- \[ \]/.test(l))
-    const otherUnexpected = unexpected.filter((l) => !/^\s*- \[ \]/.test(l))
+    // 未勾登记行与非登记行走**同一把**档②两问(2026-10-27 二次收口):同题形态仍在被审面 / 台账-归档逐字
+    // 凭据,两问皆否才是 lost。原口径把非登记行(标题、散文、中段空行)整桶排除在两问之外 ⇒ 任何一次
+    // 合法的活文档压缩只要动过一行散文,就把这一枚永久钉成"前提破了",而一轮里只要有一枚未判定
+    // 就整轮不清扫、不落地 —— 实测完成即删清扫因此空转 237 分钟(01653da4eb 吞掉一行 ⑧补充散文,
+    // 该行既无台账凭据也不在归档件里,拒落本身是对的,但它把后面所有轮次一起冻住了)。
+    // 放宽的只是"自证清白的通道",不是 lost 档:无凭据仍整枚拒落(§0.10 失效方向恒为多要一次定向说明)。
     let lostHere = []
+    let lostOther = []
     let paidHere = []
-    if (openUnexpected.length > 0) {
+    if (unexpected.length > 0) {
       // 输入面按惰性取;取不到 ⇒ 传 null,该通道一条不认(失效方向 = 多落一枚 lost,不放宽)。
       let headText = null
       try {
@@ -606,26 +617,30 @@ export function reconcileDropLedgerDebt({
         }
         archivePool = buildSubjectPool(arcLines)
       }
-      const adj = adjudicateUnexpectedOpenRows(openUnexpected, {
+      const adj = adjudicateUnexpectedOpenRows(unexpected, {
         landedText,
         headText,
         ledgerPool,
         archivePool,
       })
       paidHere = adj.paid
-      lostHere = adj.lost
+      // 残差分桶只按行形归堆(报名时要说清是哪一桶),判据仍是上面那一把,不另写第二份尺(§0.6)。
+      lostHere = adj.lost.filter((r) => /^\s*- \[ \]/.test(r))
+      lostOther = adj.lost.filter((r) => !/^\s*- \[ \]/.test(r))
       harmless.push(...paidHere.map((p) => ({ sha: d.sha, row: p.row.slice(0, 90), via: p.via })))
     }
-    const brokenHere = otherUnexpected.length + lostHere.length
+    const brokenHere = lostOther.length + lostHere.length
     if (brokenHere > 0) {
       // 前提破了就一条不写:多写一条假凭据会教复洁器去剔别人的行(§0.10 明令禁止的那一型)。
       undetermined.push({
         sha: d.sha,
         why:
           `差集含 ${brokenHere} 枚两问皆接不住的非「已勾登记行」` +
-          `(非登记行 ${otherUnexpected.length} / 真丢失候选 ${lostHere.length};` +
+          `(非登记行 ${lostOther.length} / 真丢失候选 ${lostHere.length};` +
           `同题存续或凭据接住而未补账 ${paidHere.length} 枚)⇒ 前提破了,这一枚一条不补(交人工看)`,
-        sample: lostHere.slice(0, 3),
+        // 两桶都要报名:过去只取 lostHere,而"非登记行"那一桶计数报了、样本恒空 ⇒ 整枚清扫器
+        // 天天拒落却无人看得见该看哪一行(2026-10-27 实测:完成即删清扫空转 237 分钟即此型)。
+        sample: undeterminedSample(lostOther, lostHere),
       })
       continue
     }
@@ -1320,6 +1335,72 @@ function selfTest() {
       dBrokeLines === 0,
     ` state=${dBroke?.state} why=${dBroke?.undetermined?.[0]?.why ?? '-'}`,
   )
+  // ⑮c 拒落的**可处置性**:两桶都得进样本。过去只取 lostHere,而"非登记行"桶计数报了、样本恒空
+  // ⇒ 清扫器天天整批拒落却无人看得见该看哪一行(2026-10-27 实测:完成即删清扫空转 237 分钟)。
+  const sBoth = undeterminedSample(['非登记行A', '非登记行B', '非登记行C', '非登记行D'], ['丢失X', '丢失Y'])
+  t(
+    '⑮c 未判定样本:非登记行与真丢失候选两桶都报名(各截 3),空桶不再产出"拒落而不点名"',
+    sBoth.join('\u0001') === ['非登记行A', '非登记行B', '非登记行C', '丢失X', '丢失Y'].join('\u0001') &&
+      undeterminedSample(['只有非登记行'], []).length === 1 &&
+      undeterminedSample([], []).length === 0,
+    ` sample=${JSON.stringify(sBoth)}`,
+  )
+  t(
+    '⑮d 接线锁:⑮b 那条真实夹具的样本非空(判据修好却没接到真实路径=没有,§0.9)',
+    dBroke &&
+      dBroke.undetermined.length === 1 &&
+      Array.isArray(dBroke.undetermined[0].sample) &&
+      dBroke.undetermined[0].sample.length > 0,
+    ` sample长度=${dBroke?.undetermined?.[0]?.sample?.length ?? '-'}`,
+  )
+  // ⑮e/⑮f 非登记行接进两问(2026-10-27 二次收口):成对用例,一条不许少。
+  const proseDir = mkScratch('ihui-drop-debt-prose-')
+  const PROSE = '- **补充说明**:一行散文,不是登记行(压缩批次常动它)'
+  const proseGit = ({ headHasProse }) => (args) => {
+    if (args[0] === 'log')
+      return `${DEBT_COMMIT}\u001f${DEBT_PARENT}\u001f${sweepCommitSubject(1, 0)}\n`
+    if (args[0] === 'ls-files') return ''
+    const spec = String(args[2] ?? '')
+    if (spec === `${DEBT_PARENT}:PROJECT_PLAN.md`) return `${DEBT_R1}\n${PROSE}\n`
+    if (spec === `${DEBT_COMMIT}:PROJECT_PLAN.md`) return '# 台账\n'
+    if (spec === `HEAD:PROJECT_PLAN.md`)
+      return headHasProse ? `# 台账\n${PROSE}\n` : '# 台账\n'
+    throw new Error('夹具没有这一面:' + spec)
+  }
+  let dProsePaid = null
+  let dProseLost = null
+  try {
+    dProsePaid = reconcileDropLedgerDebt({
+      root: proseDir,
+      gitRun: proseGit({ headHasProse: true }),
+      write: false,
+    })
+    t(
+      '⑮e 非登记行仍面 ⇒ 问a 接住记 paid,该枚不再钉成"前提破了"(合法压缩不再永久冻住整轮清扫)',
+      dProsePaid &&
+        dProsePaid.undetermined.length === 0 &&
+        (dProsePaid.harmless || []).some((h) => h.row.startsWith('- **补充说明**')),
+      ` state=${dProsePaid?.state} 未判定=${dProsePaid?.undetermined?.length} harmless=${JSON.stringify(
+        (dProsePaid?.harmless || []).map((h) => h.via),
+      )}`,
+    )
+    dProseLost = reconcileDropLedgerDebt({
+      root: proseDir,
+      gitRun: proseGit({ headHasProse: false }),
+      write: false,
+    })
+  } finally {
+    rmScratch(proseDir)
+  }
+  t(
+    '⑮f 红线正向对照:同一行散文三面皆无凭据 ⇒ 照旧整枚拒落(接两问只多开"自证清白",不放弱 lost 档)',
+    dProseLost &&
+      dProseLost.undetermined.length === 1 &&
+      /前提破了/.test(dProseLost.undetermined[0].why) &&
+      (dProseLost.written ?? 0) === 0 &&
+      (dProseLost.undetermined[0].sample || []).join('').includes('补充说明'),
+    ` state=${dProseLost?.state} why=${dProseLost?.undetermined?.[0]?.why ?? '-'}`,
+  )
 
   // 档①/档②(2026-10-27 立,取证 g63-debt:16 枚 undetermined 全为假阳性)────────────
   // 档① 正控:纯行尾符/末空行/中段空行差异不再进「非已勾行」计数
@@ -1547,8 +1628,12 @@ function main() {
           ? ` / 另 ${rec.short.length} 枚与题面自报枚数不符(以两面差集为准,不照自报数补)`
           : ''),
     )
-    for (const u of rec.undetermined || [])
+    for (const u of rec.undetermined || []) {
       console.error(`${C.red}❗ 无法判定 ${String(u.sha).slice(0, 12)}:${u.why}${C.reset}`)
+      // 拒落必须带得出"该看哪一行":只报计数不报行,等于把每一轮清扫变成无人能处置的死循环。
+      for (const s of u.sample || [])
+        console.error(`   ↳ 点名 ${String(s ?? '').split('\n')[0].slice(0, 160)}`)
+    }
     // 机读行前缀刻意不叫 SWEEP-RESULT:派发层按**第一条** SWEEP-RESULT 分档,
     // 这里再发一条会把本轮的三态读数顶掉(等于把"清扫做没做成"读错)。
     console.log(
@@ -1931,6 +2016,7 @@ export const __test__ = {
   findDropLedgerDebt,
   buildSubjectPool,
   adjudicateUnexpectedOpenRows,
+  undeterminedSample,
   reconcileDropLedgerDebt,
   DROP_LEDGER,
   SWEEP_SUBJECT_RE,

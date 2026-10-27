@@ -36,11 +36,11 @@ export const NAVBAR_SIDE_PADDING_PX = 10
 /** 侧占位宽 32:RN 端无内容侧的标题居中补偿;取两端较大者(小程序右钮 h-8 = 32)。 */
 export const NAVBAR_SIDE_PLACEHOLDER_PX = 32
 
-/** 返回箭头墨迹 20:引用 GEOMETRY_PX.glyphMd;RN 端此前自写 24,小程序 BackChevron 已是 20。 */
-export const NAVBAR_BACK_GLYPH_PX = GEOMETRY_PX.glyphMd
+// 返回箭头墨迹(20 = GEOMETRY_PX.glyphMd)归 back-chevron-spec 单一源,NavBar 侧不再出这份副本
+// ——2026-10-27 撤零消费出口 NAVBAR_BACK_GLYPH_PX。
 
 /** 侧按钮最小宽 28:RN 端 2026-09-23 P1 修复的既定格(给标题留横向空间,勿回升);小程序端原 20px 盒收口到 28。 */
-export const NAVBAR_ACTION_MIN_WIDTH_PX = 28
+const NAVBAR_ACTION_MIN_WIDTH_PX = 28
 
 /**
  * 侧按钮高 32:RN 端现档;小程序端 rightText `h-8` = 32px,两端同值收一处。
@@ -48,7 +48,7 @@ export const NAVBAR_ACTION_MIN_WIDTH_PX = 28
  * 端内点名这枚档 = 端自己重排盒子(小程序端此前写 `height: toUnit(NAVBAR_ACTION_HEIGHT_PX)`
  * 并用它做垂直居中算术),那既是第二份真相,又让守门 128 的 SL 把它报成"另一条腿没接线"。
  */
-export const NAVBAR_ACTION_HEIGHT_PX = 32
+const NAVBAR_ACTION_HEIGHT_PX = 32
 
 /** 侧按钮图标墨迹 20:引用 GEOMETRY_PX.glyphMd(小程序 ai-home 菜单钮已是 40rpx=20px,RN 18→20)。 */
 export const NAVBAR_ACTION_GLYPH_PX = GEOMETRY_PX.glyphMd

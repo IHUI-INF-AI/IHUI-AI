@@ -65,6 +65,14 @@ const FROM_PROVIDERS = Object.freeze({
   workbuddy: { module: 'workbuddy-auth-extract.mjs', fn: 'extractWorkbuddyAccount' },
   qoder: { module: 'qoder-auth-extract.mjs', fn: 'extractQoderAccounts' },
   codearts: { module: 'codearts-auth-extract.mjs', fn: 'extractCodeartsAccounts' },
+  codex: { module: 'codex-auth-extract.mjs', fn: 'extractCodexAccounts' },
+  opencode: { module: 'opencode-auth-extract.mjs', fn: 'extractOpencodeAccounts' },
+  minimax: { module: 'minimax-auth-extract.mjs', fn: 'extractMinimaxAccounts' },
+  zcode: { module: 'zcode-auth-extract.mjs', fn: 'extractZcodeAccounts' },
+  loomy: { module: 'loomy-auth-extract.mjs', fn: 'extractLoomyAccounts' },
+  doubao: { module: 'doubao-auth-extract.mjs', fn: 'extractDoubaoAccounts' },
+  lingma: { module: 'lingma-auth-extract.mjs', fn: 'extractLingmaAccounts' },
+  grokbot: { module: 'grokbot-auth-extract.mjs', fn: 'extractGrokbotAccounts' },
 })
 const FROM_POOL_KEYS = Object.keys(FROM_PROVIDERS)
 
@@ -266,6 +274,46 @@ async function main(argv) {
       `提取: 落点=${meta.storageFile} 键=${meta.storageKey} uid=${meta.uid} 名称=${meta.name} ` +
         `token到期=${meta.tokenExpiresAt ?? '-'} refreshToken到期=${meta.refreshExpiresAt ?? '-'} ` +
         `指纹=${meta.tokenFingerprint} (access ${meta.accessTokenLength}B / refresh ${meta.refreshTokenLength}B)\n`,
+    )
+    providerCode = extracted.providerCode
+    payloadText = JSON.stringify(extracted)
+  } else if (options.from && FROM_PROVIDERS[options.from]) {
+    // 2026-10-27 扩容八平台通用分支:提取器已在注册表登记 ⇒ 按 module/fn 动态分发。
+    // 各平台 meta.sessions 形状不同 ⇒ 逐条 compact JSON 打印(提取器侧已保证零 token 回显)。
+    const entry = FROM_PROVIDERS[options.from]
+    const mod = await import(
+      pathToFileURL(path.join(ROOT, 'scripts', 'lib', entry.module)).href
+    )
+    const extractFn = mod[entry.fn]
+    if (typeof extractFn !== 'function') {
+      process.stderr.write(
+        `❌ 提取器接线错误(未判定):${entry.module} 未导出 ${entry.fn}\n`,
+      )
+      return 2
+    }
+    let extracted
+    try {
+      extracted = await extractFn()
+    } catch (e) {
+      const code = e?.code ? `[${e.code}] ` : ''
+      process.stderr.write(
+        `❌ 提取失败(未判定): ${code}${e instanceof Error ? e.message : String(e)}\n`,
+      )
+      return 2
+    }
+    const meta = extracted.meta
+    const sessionLines = Array.isArray(meta.sessions)
+      ? meta.sessions.map((s) => `  ${JSON.stringify(s)}`)
+      : []
+    process.stderr.write(
+      `提取: 会话=${meta.count ?? sessionLines.length}` +
+        (typeof meta.skipped === 'number' ? ` 跳过=${meta.skipped}` : '') +
+        (meta.sourceDir || meta.sourceFile || meta.sourcePath
+          ? ` 落点=${meta.sourceDir ?? meta.sourceFile ?? meta.sourcePath}`
+          : '') +
+        '\n' +
+        sessionLines.join('\n') +
+        '\n',
     )
     providerCode = extracted.providerCode
     payloadText = JSON.stringify(extracted)

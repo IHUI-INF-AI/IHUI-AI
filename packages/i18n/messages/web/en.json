@@ -891,6 +891,7 @@
       "scopeAdmin": "Admin",
       "scopeAuth": "Sign-in",
       "pageUsageTop": "Top pages (24h)",
+      "avgDwellSec": "stay {s}s",
       "pageUsageNoData": "No page visits in 24h",
       "panelRelayPool": "AI pool",
       "pv24h": "Page views (24h)",

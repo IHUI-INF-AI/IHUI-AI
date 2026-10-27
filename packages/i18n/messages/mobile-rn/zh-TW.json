@@ -805,6 +805,7 @@
         "retry": "重試",
         "saveAudioOnly": "僅儲存音訊",
         "insertToInput": "插入對話",
+        "cancel": "取消錄音",
         "dismiss": "關閉"
       },
       "searchPlaceholder": "搜尋筆記內容",

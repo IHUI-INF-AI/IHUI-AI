@@ -266,6 +266,252 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
 }
 
 // =============================================================================
+// 2026-10-27 扩容八平台导入映射(提取器 raw 直通 → 在此单一映射,§0.6)
+// =============================================================================
+
+/** 映射必选平台的导入失败点名(§0.3:取不到就报原因,不静默) */
+const MAPPED_PROVIDER_MISSING_REASONS: Partial<Record<RelayProviderCode, string>> = {
+  codearts: 'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)',
+  qoder: 'Qoder 导入缺少 token',
+  codex: 'Codex 导入缺少 tokens.access_token(auth.json 形状不符或 keyring 模式)',
+  opencode: 'OpenCode 导入条目缺 key/access 字段(auth.json 形状不符)',
+  minimax: 'MiniMax 导入缺少 accessToken(mcode auth.json 形状不符)',
+  zcode: 'ZCode 导入缺可用凭据(oauth:bigmodel:access_token / zcodejwttoken / project key 全缺)',
+  loomy: 'Loomy 导入条目缺 value(会话候选形状不符)',
+  doubao: '豆包导入条目缺 value(cookie 会话族形状不符)',
+  lingma: '灵码导入 raw 凭证无 token/accessToken/access_token 字段(字段级形状未实证)',
+  grokbot: 'GrokBot 本机凭证为 sandSealedFile 密封串,无明文 token 可导入(待解封方案取证)',
+}
+
+/** uid 退化哈希(对齐 codearts 的 auto: 前缀形态) */
+function autoUid(seed: string): string {
+  return `auto:${createHash('sha256').update(seed).digest('hex').slice(0, 32)}`
+}
+
+/**
+ * 递归剥除字符串里的 NUL 字节(PG text/jsonb 拒收 \u0000;leveldb 键名等本机
+ * 取证材料常内嵌键分隔符,透传进 extra_metadata 前统一消毒,只去非法字节不改语义)。
+ */
+function stripNulDeep<T>(v: T, depth = 0): T {
+  if (depth > 8) return v
+  if (typeof v === 'string') return v.replace(/\u0000/g, '') as unknown as T
+  if (Array.isArray(v)) return v.map((x) => stripNulDeep(x, depth + 1)) as unknown as T
+  if (v !== null && typeof v === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      out[k] = stripNulDeep(val, depth + 1)
+    }
+    return out as unknown as T
+  }
+  return v
+}
+
+function objField(a: Record<string, unknown>, key: string): Record<string, unknown> | null {
+  const v = a[key]
+  return v !== null && typeof v === 'object' && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null
+}
+
+/** Codex:auth.json 的 tokens 对象直通(access_token/refresh_token/account_id) */
+function mapCodexImport(acc: ImportAccountInput): {
+  token: string
+  refreshToken: string | null
+  uid: string
+  name: string | null
+  expiresAt: Date | null
+  secrets: Record<string, unknown>
+} | null {
+  const a = acc as Record<string, unknown>
+  const tokens = objField(a, 'tokens')
+  const token = cstr(tokens?.['access_token'])
+  if (!token) return null
+  const accountId = cstr(tokens?.['account_id'])
+  return {
+    token,
+    refreshToken: cstr(tokens?.['refresh_token']) || null,
+    uid: accountId || autoUid(token),
+    name: accountId ? `codex:${accountId.slice(0, 8)}` : null,
+    // auth.json 无到期字段(90 天滑动+客户端自动刷新),不猜时刻 ⇒ null
+    expiresAt: null,
+    secrets: {
+      authMode: cstr(a['authMode']) || null,
+      accountId: accountId || null,
+      idTokenPresent: Boolean(tokens?.['id_token']),
+      lastRefresh: cstr(a['lastRefresh']) || null,
+      fingerprint: cstr(a['fingerprint']) || null,
+    },
+  }
+}
+
+/** OpenCode:auth.json 每 provider 一条(type:"api" 用 key,"oauth" 用 access/refresh) */
+function mapOpencodeImport(acc: ImportAccountInput): {
+  token: string
+  refreshToken: string | null
+  uid: string
+  name: string | null
+  expiresAt: Date | null
+  secrets: Record<string, unknown>
+} | null {
+  const a = acc as Record<string, unknown>
+  const auth = objField(a, 'auth')
+  const token = cstr(auth?.['key']) || cstr(auth?.['access'])
+  if (!token) return null
+  const providerID = cstr(a['providerID'])
+  return {
+    token,
+    refreshToken: cstr(auth?.['refresh']) || null,
+    uid: cstr(auth?.['accountId']) || autoUid(`${providerID}:${token}`),
+    name: providerID ? `opencode:${providerID}` : null,
+    expiresAt: parseFlexibleExpiry(auth?.['expires']),
+    secrets: {
+      providerID: providerID || null,
+      authType: cstr(auth?.['type']) || null,
+      enterpriseUrl: cstr(auth?.['enterpriseUrl']) || null,
+      fingerprint: cstr(a['fingerprint']) || null,
+    },
+  }
+}
+
+/** MiniMax:mcode auth 记录(accessToken/refreshToken/expiresAtMs + region 溯源) */
+function mapMinimaxImport(acc: ImportAccountInput): {
+  token: string
+  refreshToken: string | null
+  uid: string
+  name: string | null
+  expiresAt: Date | null
+  secrets: Record<string, unknown>
+} | null {
+  const a = acc as Record<string, unknown>
+  const token = cstr(a['accessToken'])
+  if (!token) return null
+  const expMs = typeof a['expiresAtMs'] === 'number' ? (a['expiresAtMs'] as number) : null
+  const region = cstr(a['region']) || null
+  return {
+    token,
+    refreshToken: cstr(a['refreshToken']) || null,
+    uid: autoUid(`${cstr(a['recordKey']) || 'minimax'}:${token}`),
+    name: `minimax${region ? `:${region}` : ''}`,
+    expiresAt: expMs !== null && Number.isFinite(expMs) ? new Date(expMs) : null,
+    secrets: {
+      clientId: cstr(a['clientId']) || null,
+      audience: cstr(a['audience']) || null,
+      scopes: Array.isArray(a['scopes']) ? a['scopes'] : null,
+      tokenType: cstr(a['tokenType']) || null,
+      loginEpoch: cstr(a['loginEpoch']) || null,
+      region,
+      recordKey: cstr(a['recordKey']) || null,
+      sourcePath: cstr(a['sourcePath']) || null,
+      fingerprint: cstr(a['fingerprint']) || null,
+    },
+  }
+}
+
+/** ZCode:credentials.json 扁平图直通,token 主选 oauth:bigmodel:access_token */
+function mapZcodeImport(acc: ImportAccountInput): {
+  token: string
+  refreshToken: string | null
+  uid: string
+  name: string | null
+  expiresAt: Date | null
+  secrets: Record<string, unknown>
+} | null {
+  const a = acc as Record<string, unknown>
+  const RESERVED = new Set(['region', 'regions', 'sourceRoot', 'sourcePath', 'fingerprint'])
+  const token =
+    cstr(a['oauth:bigmodel:access_token']) ||
+    cstr(a['zcodejwttoken']) ||
+    (() => {
+      for (const [k, v] of Object.entries(a)) {
+        if (k.startsWith('project-key-location:v1:') && typeof v === 'string' && v) return v
+      }
+      return ''
+    })()
+  if (!token) return null
+  const rawMap: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(a)) {
+    if (!RESERVED.has(k)) rawMap[k] = v
+  }
+  const region = cstr(a['region']) || null
+  return {
+    token,
+    refreshToken: null,
+    uid: autoUid(token),
+    name: `zcode${region ? `:${region}` : ''}`,
+    expiresAt: null,
+    secrets: {
+      credentialMap: rawMap,
+      region,
+      regions: Array.isArray(a['regions']) ? a['regions'] : null,
+      sourcePath: cstr(a['sourcePath']) || null,
+    },
+  }
+}
+
+/** Loomy/豆包共用:会话条目 {source,key,host,value} → token=value */
+function mapSessionEntryImport(
+  providerLabel: string,
+  acc: ImportAccountInput,
+): {
+  token: string
+  refreshToken: string | null
+  uid: string
+  name: string | null
+  expiresAt: Date | null
+  secrets: Record<string, unknown>
+} | null {
+  const a = acc as Record<string, unknown>
+  const token = cstr(a['value'])
+  if (!token) return null
+  const key = cstr(a['key'])
+  return {
+    token,
+    refreshToken: null,
+    uid: autoUid(`${cstr(a['source']) || providerLabel}:${key}:${token}`),
+    name: key ? `${providerLabel}:${key}` : providerLabel,
+    expiresAt: null,
+    secrets: {
+      entrySource: cstr(a['source']) || null,
+      entryKey: key || null,
+      host: cstr(a['host']) || null,
+    },
+  }
+}
+
+const mapLoomyImport = (acc: ImportAccountInput) => mapSessionEntryImport('loomy', acc)
+const mapDoubaoImport = (acc: ImportAccountInput) => mapSessionEntryImport('doubao', acc)
+
+/** 灵码:raw 凭证记录(字段级形状未实证,token 按常见键名探测,取不到如实 null) */
+function mapLingmaImport(acc: ImportAccountInput): {
+  token: string
+  refreshToken: string | null
+  uid: string
+  name: string | null
+  expiresAt: Date | null
+  secrets: Record<string, unknown>
+} | null {
+  const a = acc as Record<string, unknown>
+  const token = cstr(a['token']) || cstr(a['accessToken']) || cstr(a['access_token'])
+  if (!token) return null
+  return {
+    token,
+    refreshToken: cstr(a['refreshToken']) || cstr(a['refresh_token']) || null,
+    uid: cstr(a['uid']) || cstr(a['user_id']) || autoUid(token),
+    name: cstr(a['name']) || cstr(a['user_name']) || null,
+    expiresAt:
+      parseFlexibleExpiry(a['expiresAt']) ??
+      parseFlexibleExpiry(a['expires_at']) ??
+      parseFlexibleExpiry(a['expiration']),
+    secrets: a,
+  }
+}
+
+/** GrokBot:凭证全为密封串 ⇒ 映射恒 null,导入在分派处按点名原因失败(不猜不解封) */
+function mapGrokbotImport(_acc: ImportAccountInput): null {
+  return null
+}
+
+// =============================================================================
 // 批量导入
 // =============================================================================
 
@@ -306,28 +552,43 @@ export async function importAccounts(
     let displayName = accName || `#${i + 1}`
     try {
       // 非 JWT 平台映射分支:CodeArts(2026-10-22)STS 凭据包 / Qoder(2026-10-23)
-      // opaque token 会话。两种格式的 uid/expiresAt 都在映射层显式解析,
+      // opaque token 会话 / 2026-10-27 扩容八平台(codex/opencode/minimax/zcode/
+      // loomy/doubao/lingma/grokbot)。各格式的 uid/expiresAt 都在映射层显式解析,
       // 不透传则退化为哈希 uid + 无过期时刻。
       const mapped =
         providerCode === 'codearts'
           ? mapCodeartsImport(acc)
           : providerCode === 'qoder'
             ? mapQoderImport(acc)
-            : null
+            : providerCode === 'codex'
+              ? mapCodexImport(acc)
+              : providerCode === 'opencode'
+                ? mapOpencodeImport(acc)
+                : providerCode === 'minimax'
+                  ? mapMinimaxImport(acc)
+                  : providerCode === 'zcode'
+                    ? mapZcodeImport(acc)
+                    : providerCode === 'loomy'
+                      ? mapLoomyImport(acc)
+                      : providerCode === 'doubao'
+                        ? mapDoubaoImport(acc)
+                        : providerCode === 'lingma'
+                          ? mapLingmaImport(acc)
+                          : providerCode === 'grokbot'
+                            ? mapGrokbotImport(acc)
+                            : null
       // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
       const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       if (!accName && mapped?.name) displayName = mapped.name
-      if ((providerCode === 'codearts' || providerCode === 'qoder') && !mapped) {
+      const missingReason = mapped ? null : (MAPPED_PROVIDER_MISSING_REASONS[providerCode] ?? null)
+      if (missingReason && providerCode !== 'trae' && providerCode !== 'workbuddy') {
         result.failed++
         result.items.push({
           index: i,
           name: displayName,
           uid: null,
           status: 'failed',
-          reason:
-            providerCode === 'codearts'
-              ? 'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)'
-              : 'Qoder 导入缺少 token',
+          reason: missingReason,
         })
         continue
       }
@@ -434,7 +695,9 @@ export async function importAccounts(
       // 未知字段原样透传(兑现 RELAY_ACCOUNT_IMPORT_FORMAT.md §2 承诺;此前服务端
       // 并没有真做透传 ⇒ 外来格式的 payment_type/checkin_streak 等平台侧键会整枚丢失)。
       // canonical/别名集之外的键一律进 extraMetadata,单源判据见 foreignPassthroughMetadata。
-      Object.assign(extra, foreignPassthroughMetadata(acc))
+      // NUL 消毒(2026-10-27 实弹:MiniMax recordKey 内嵌 leveldb 键分隔符 \u0000,
+      // PG text/jsonb 拒收 NUL ⇒ 透传值里所有字符串统一剥除,不改语义只去非法字节)。
+      Object.assign(extra, stripNulDeep(foreignPassthroughMetadata(acc)))
 
       const values = {
         ownerUserId,

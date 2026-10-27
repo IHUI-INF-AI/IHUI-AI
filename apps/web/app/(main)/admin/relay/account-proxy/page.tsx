@@ -48,7 +48,20 @@ import { useConfirm } from '@/hooks/use-confirm'
 const PAGE_SIZE = 20
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
+const PROVIDER_OPTIONS = [
+  'trae',
+  'workbuddy',
+  'codearts',
+  'qoder',
+  'codex',
+  'opencode',
+  'minimax',
+  'zcode',
+  'loomy',
+  'doubao',
+  'lingma',
+  'grokbot',
+] as const
 // 与后端 updateBodySchema 同口径:只接受 http(s)/socks5
 const PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])
 

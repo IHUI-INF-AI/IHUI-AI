@@ -186,6 +186,33 @@ export interface RelayQuotaResult {
 /** 余额查询的执行选项(与 AdapterCallOptions 同形,单独命名便于语义区分) */
 export type QuotaCallOptions = AdapterCallOptions
 
+/** 模型清单条目(富形状;官方模型 id=名称,自定义模型 id 可能被上游截断) */
+export interface RelayModelEntry {
+  name: string
+  id?: string
+  /** id 非完整值(CLI 显示上限截断等)时恒 true,消费方不得当完整 id 用 */
+  idTruncated?: boolean
+}
+
+/**
+ * 上游模型清单富结果(2026-10-27 立,与既有 listModels(): string[] 并存):
+ * - 既有 listModels 契约是纯 id 数组(trae/workbuddy/codearts 已实现且消费方依赖),
+ *   不能改签名;qoder 的清单来自本机 CLI 登录态且含截断 id,无法忠实塞进 string[],
+ *   故新增本富形状方法,永不抛(失败归 ok:false,不冒充)。
+ * - scope 如实标注清单语义(如 qoder 的 'local-cli-login' = 本机 CLI 登录态的
+ *   当前用户,不是号池任意账号)。
+ */
+export interface RelayModelListResult {
+  ok: boolean
+  error?: string
+  /** 清单语义标注(如 'local-cli-login');ok:false 时可缺省 */
+  scope?: string
+  models?: RelayModelEntry[]
+}
+
+/** 富模型清单的执行选项(与 AdapterCallOptions 同形,单独命名便于语义区分) */
+export type ModelListCallOptions = AdapterCallOptions
+
 export interface RelayUpstreamAdapter {
   providerCode: RelayProviderCode
   /** 构造上游 chat 请求(单段式协议;两段式协议平台改实现 executeChat) */
@@ -221,6 +248,14 @@ export interface RelayUpstreamAdapter {
    * 按需调用(管理面点查),不进调度轮询;永不抛(失败归 ok:false)。
    */
   getQuota?(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult>
+  /**
+   * 富模型清单(可选,2026-10-27 立;与 listModels 并存的原因见 RelayModelListResult)。
+   * 永不抛(失败归 ok:false);scope 如实标注清单语义。
+   */
+  listModelsDetailed?(
+    ctx: AdapterAccountContext,
+    opts?: ModelListCallOptions,
+  ): Promise<RelayModelListResult>
   /** 上游响应是否 401/会话失效(触发 401 自愈刷新重试一次) */
   isAuthFailure(statusCode: number, bodyText: string): boolean
   /** executeChat 路径抛出的异常是否为鉴权失效(等价于 isAuthFailure 的异常形态) */
