@@ -27,7 +27,7 @@
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { findConversationFiles, resolveAccountId } from './relay-session-move.js'
 import { loadLedger } from './relay-session-links.js'
@@ -271,6 +271,17 @@ export function assertSafeConversationId(conversationId: string): void {
   }
 }
 
+/** 输出目录不得落进会话库(源库只读红线;手滑 --out 也不能击穿) */
+export function assertOutDirOutsideStore(outDir: string, paths: ExportPaths): void {
+  const target = resolve(outDir)
+  for (const root of [paths.sessionsRoot, paths.projectsRoot]) {
+    const base = resolve(root)
+    if (target === base || target.startsWith(base + sep)) {
+      throw new Error(`--out 落在会话库内,拒绝写入(源库只读): ${outDir}`)
+    }
+  }
+}
+
 /** 定位逐会话转写:projects/<ws>/<conv>.jsonl(本机实测每会话恒一份;多份取字典序第一并点名) */
 export function locateTranscript(conversationId: string, paths: ExportPaths): string {
   assertSafeConversationId(conversationId)
@@ -447,7 +458,7 @@ const USAGE = [
   '说明:',
   '  --conversation  导出单个会话(sessions/<id>/ 与 projects/<ws>/<id>.jsonl 两面定位)',
   '  --account       导出会话关联台账(~/.wb-switch/relay/session_links.json)里该账号名下全部会话',
-  '  --out           输出目录;缺省 ~/.wb-switch/exports/<UTC 时间戳>/',
+  '  --out           输出目录(不得落在会话库内);缺省 ~/.wb-switch/exports/<UTC 时间戳>/',
   '  --apply         真写文件;缺省 dry-run(只列会话数与文件数,零内容)',
   '每个会话产出 <id>.json(conversationId/title/messages)与 <id>.html(自包含、内联样式、无脚本)',
   '批量模式逐会话独立:取不到转写的会话跳过并点名,不阻断其余;全部跳过 ⇒ exit 2',
@@ -491,6 +502,12 @@ export function main(argv: string[] = process.argv.slice(2), pathsOverride?: Exp
     return 1
   }
   const outDir = outFlag ?? join(paths.exportsRoot, exportDirStamp(now))
+  try {
+    assertOutDirOutsideStore(outDir, paths)
+  } catch (err) {
+    console.error(`会话导出失败(参数不可判定): ${(err as Error).message}`)
+    return 2
+  }
   let plan: ExportPlan
   try {
     plan = buildExportPlan(conversationIds, outDir, paths, now)

@@ -322,6 +322,16 @@ describe('main · --apply', () => {
     expect(conv.title).toBe('迁移演练标题')
     expect(readFileSync(join(out, `${CONV_TITLED}.html`), 'utf8')).toContain('迁移演练标题')
   })
+
+  it('--out 落在会话库内 → exit 2(源库只读红线,手滑参数也不能击穿)', () => {
+    const fx = makeFixture()
+    cleanup.push(fx.root)
+    const out = join(fx.paths.sessionsRoot, CONV, 'export')
+    const cap = captureOutput()
+    expect(main(['--conversation', CONV, '--out', out, '--apply'], fx.paths)).toBe(2)
+    expect(cap.text()).toContain('源库只读')
+    expect(existsSync(out)).toBe(false)
+  })
 })
 
 describe('main · --account', () => {
@@ -405,6 +415,11 @@ describe('applyExport · 对账与源库只读', () => {
     expect(plan.targets).toHaveLength(2)
     expect(plan.totalFiles).toBe(4)
     expect(plan.totalBadLines).toBe(1)
+    // 缺转写的会话进 skipped(逐条独立),不进 targets
+    const mixed = buildExportPlan([CONV, CONV_MISSING], join(fx.root, 'out-mixed'), fx.paths)
+    expect(mixed.targets.map((t) => t.conversationId)).toEqual([CONV])
+    expect(mixed.skipped.map((s) => s.conversationId)).toEqual([CONV_MISSING])
+    expect(mixed.skipped[0]!.reason).toContain('会话无逐会话转写')
     const placed = applyExport(plan)
     expect(placed).toHaveLength(4)
     for (const f of placed) {
