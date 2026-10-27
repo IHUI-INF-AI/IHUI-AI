@@ -47,6 +47,15 @@ export const AVATAR_TAILWIND: Record<AvatarSize, string> = {
   xl: 'h-16 w-16 text-xl',
 }
 
+/** RN 的 <Text> 不级联父 <View> 的 text-* 类,字号必须单独挂在 <Text> 上(web 容器可直接吃 AVATAR_TAILWIND 里的 text-*)。 */
+export const AVATAR_TEXT_TAILWIND: Record<AvatarSize, string> = {
+  xs: 'text-xs',
+  sm: 'text-xs',
+  md: 'text-sm',
+  lg: 'text-base',
+  xl: 'text-xl',
+}
+
 /**
  * 形状 → 圆角**档位名**(xs..2xl,取自 design-tokens 的 RADIUS_STEPS,本文件不写数值)。
  * 不借用角色名:项目规则对头像写的是档位而非角色("禁止 rounded-full,统一 rounded-md"),
@@ -65,6 +74,7 @@ export function avatarSpecSelfCheck(): { ok: boolean; why?: string } {
   for (const [name, tbl] of [
     ['AVATAR_TEXT_PX', AVATAR_TEXT_PX],
     ['AVATAR_TAILWIND', AVATAR_TAILWIND],
+    ['AVATAR_TEXT_TAILWIND', AVATAR_TEXT_TAILWIND],
   ] as const) {
     const ks = Object.keys(tbl)
     if (ks.length !== keys.length || !ks.every((k) => keys.includes(k)))
