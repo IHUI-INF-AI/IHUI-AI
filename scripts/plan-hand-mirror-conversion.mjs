@@ -208,6 +208,15 @@ export function shellFetchesData(shellText) {
   return /@ihui\/api-client/.test(s) && /fetchApi|request\s*\(/.test(s)
 }
 
+/**
+ * 壳是否已有"回屏即重取"层(2026-10-28):`useRefreshOnFocus`(本仓通用 hook)或 `useFocusEffect`。
+ * 小程序的 useDidShow 与它是同一件事的两种写法 —— 壳补上这层后,页面的 useDidShow 不再算私有能力。
+ * 仍要求壳自己取数(shellFetchesData),否则"重取"无从谈起。
+ */
+export function shellRefreshesOnFocus(shellText) {
+  return /useRefreshOnFocus|useFocusEffect/.test(String(shellText ?? ''))
+}
+
 /** 触底加载:壳用 FlatList 的 onEndReached/onLoadMore,与小程序的 useReachBottom 是同一件事。 */
 export function reachBottomCovered(shellText) {
   return /onEndReached|onLoadMore/.test(String(shellText ?? ''))
@@ -454,6 +463,9 @@ export function judgeConversion({
     for (const tok of ['usePullDownRefresh', 'onPullDownRefresh', 'Taro.stopPullDownRefresh'])
       pageTokens.delete(tok)
   if (lifecycleOnlyDataRefresh(pageText) && shellFetchesData(shellText))
+    for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
+  // 壳已有"回屏即重取"层 ⇒ 页面的 useDidShow 与该层是同一件事(不要求钩子体形态,壳侧已承担)
+  if (shellRefreshesOnFocus(shellText) && shellFetchesData(shellText))
     for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
   if (reachBottomCovered(shellText)) pageTokens.delete('useReachBottom')
   if (modalCovered(shellText)) pageTokens.delete('Taro.showModal')
@@ -730,6 +742,11 @@ function main(argv) {
       backFallbackOnly("Taro.switchTab({ url: '/pages/x' })"),
       backFallbackOnly('const x = 1'),
     ], [true, false, false])
+    P('S17 壳有「回屏即重取」层(useRefreshOnFocus/useFocusEffect)+自己取数 ⇒ 页面的 useDidShow 不算私有', [
+      shellRefreshesOnFocus('useRefreshOnFocus(load)'),
+      shellRefreshesOnFocus('useFocusEffect(cb)'),
+      shellRefreshesOnFocus('useEffect(load)'),
+    ], [true, true, false])
     P('S16 确认弹窗:Alert.alert 或带选项的 appAlert(onPress)才算', [
       modalCovered('Alert.alert(t("x"), "", [...])'),
       modalCovered("appAlert(skill.name, skill.description, [{ text: t('ok'), onPress: () => go() }])"),
@@ -823,6 +840,7 @@ export const __test__ = {
   pullDownCovered,
   lifecycleOnlyDataRefresh,
   shellFetchesData,
+  shellRefreshesOnFocus,
   reachBottomCovered,
   modalCovered,
   clipboardCovered,
