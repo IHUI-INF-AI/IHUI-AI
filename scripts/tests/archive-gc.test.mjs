@@ -363,4 +363,65 @@ test('T10 两轴独立但总数轴不重复计已判删件:不得过删到 maxFi
   assert.equal(plan.keep.length, 5, '最终保留数必须正好等于 maxFiles')
   assert.equal(plan.capUnmet, false, '两轴合计已够回落,不得误报上限未达')
 })
+
+test('T11 活文档引用抽取:只认 .ihui-agent/archive/<basename>,目录与越层路径不算', () => {
+  const { archiveRefsFromText } = __test__
+  const text = [
+    '历史原文在 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md` 里',
+    '反斜杠形态 .ihui-agent\\archive\\AGENTS-pre-compress-2026-10-21.md 也算',
+    '目录形态 .ihui-agent/archive/audit-reports-2026-07-21/ 不该被当成单件名',
+    '越层 .ihui-agent/archive/sub/dir.md 不算(本器只回收顶层文件)',
+    '尾随标点 .ihui-agent/archive/foo-2026-09-01.md, 后面还有话',
+  ].join('\n')
+  const got = archiveRefsFromText(text)
+  assert.ok(got.has('AGENTS_full-pre-compact-2026-10-14.md'))
+  assert.ok(got.has('AGENTS-pre-compress-2026-10-21.md'))
+  assert.ok(got.has('foo-2026-09-01.md'), '尾随中文/英文标点必须被剥掉')
+  assert.equal(got.has('sub'), false, '越层路径不得退化成目录名')
+  assert.equal(got.size, 3, `应恰好 3 个名字,实得 ${[...got].join(',')}`)
+})
+
+test('T12 活文档引用的归档件进保护名单:理由单列 C-ref,未引用者不在表内', () => {
+  const { protectedNameMap, IN_USE_NAMES } = __test__
+  const map = protectedNameMap(new Set(['AGENTS_full-pre-compact-2026-10-14.md']))
+  assert.match(map.get(IN_USE_NAMES[0]), /C-u/, '静态在用件理由不变')
+  assert.match(map.get('AGENTS_full-pre-compact-2026-10-14.md'), /C-ref/)
+  assert.equal(map.has('没人引用的快照-2026-09-01.md'), false)
+})
+
+test('T13 变异锚点:注入保护名单则该件不可删;不注入同一件就是 in-scope', () => {
+  const { classifyEntry, protectedNameMap, planGc } = __test__
+  const box = boxed('t13')
+  const arch = mkArch(box)
+  const name = 'AGENTS_full-pre-compact-2026-10-14.md'
+  put(arch, name, 64)
+  const now = Date.now()
+
+  const guarded = classifyEntry({ root: arch, name, now, protectedNames: protectedNameMap(new Set([name])) })
+  assert.equal(guarded.kind, 'protected')
+  assert.match(guarded.reason, /C-ref/)
+
+  const bare = classifyEntry({ root: arch, name, now })
+  assert.equal(bare.kind, 'in-scope', '不注入时(默认只保护 IN_USE)同一件必须仍是可删候选 —— 摘掉接线即翻红')
+
+  const plan = planGc({ entries: [guarded], keepGenerations: 0, maxFiles: 0, maxItemBytes: DEFAULT_MAX_ITEM_BYTES })
+  assert.equal(plan.retire.length, 0, '被引用的件永不得进入删除路径')
+})
+
+test('T14 判据接的是真文档:AGENTS.md 点名的那两份必须在引用集里', () => {
+  const { liveDocArchiveRefs } = __test__
+  const live = liveDocArchiveRefs()
+  assert.ok(live.read.length >= 2, `活文档至少读到 AGENTS.md 与 PROJECT_PLAN.md,实读 ${live.read.join(',')}`)
+  for (const n of ['AGENTS_full-pre-compact-2026-10-14.md', 'AGENTS-pre-compress-2026-10-21.md']) {
+    assert.ok(live.names.has(n), `${n} 被 AGENTS.md 正文点名,必须进保护集`)
+  }
+})
+
+test('T15 活文档全读不到 ⇒ 判"未判定"而不是"没有引用"', () => {
+  const { liveDocArchiveRefs, LIVE_DOC_NAMES } = __test__
+  const live = liveDocArchiveRefs({ repoRoot: join(boxed('t15-empty'), '不存在') })
+  assert.equal(live.read.length, 0)
+  assert.equal(live.missing.length, LIVE_DOC_NAMES.length)
+  assert.equal(live.names.size, 0)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
