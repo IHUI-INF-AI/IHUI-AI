@@ -54,10 +54,15 @@ function cstr(v) {
   return typeof v === 'string' ? v.trim() : ''
 }
 
-/** 候选数据根:~/.minimax(主,本机实证)+ ~/.minimax-global(国际版候选);opts.roots 仅供测试注入(同样做存在性过滤,缺失根 ⇒ 上层 DIR_MISSING) */
+/**
+ * 候选数据根:~/.minimax(主,本机实证)+ ~/.minimax-global(国际版候选)。
+ * opts.roots 仅供测试注入;opts.env 供「登录本机/入池」在服务身份下改指真实用户家目录
+ * (IHUI-API 以 LocalSystem 运行时 os.homedir() = systemprofile,真实用户数据在别处)。
+ */
 export function candidateRoots(opts = {}) {
   const raw = Array.isArray(opts.roots) && opts.roots.length > 0 ? opts.roots : (() => {
-    const home = os.homedir()
+    const env = opts.env ?? process.env
+    const home = cstr(env.USERPROFILE) || cstr(env.HOME) || os.homedir()
     return [path.join(home, '.minimax'), path.join(home, GLOBAL_ROOT_NAME)]
   })()
   return [...new Set(raw)].filter((d) => fs.existsSync(d))
