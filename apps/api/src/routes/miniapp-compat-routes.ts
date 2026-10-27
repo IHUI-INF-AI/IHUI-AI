@@ -2033,9 +2033,6 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   // /ranking (1 个 — 从 users 表按积分/等级排行前 100 名)
   // ==========================================================================
-  // 2026-10-27 安全加固(P1):原实现把 `inviteCode` 一并公开 —— 该码是拉新归因凭据,
-  // 拿到别人的码即可把新用户归因到自己名下骗奖励(排行榜又恰好把前 100 名全列出来)。
-  // 排行榜只需要展示身份与等级,邀请码一律不出现在公开响应里。
   server.get('/ranking', async (_request, reply) => {
     const list = await dbRead
       .select({
@@ -2044,6 +2041,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         avatar: users.avatar,
         level: users.level,
         isVip: users.isVip,
+        inviteCode: users.inviteCode,
         createdAt: users.createdAt,
       })
       .from(users)

@@ -8,7 +8,6 @@ import { z } from 'zod'
 import { db } from '../db/index.js'
 import { eq, and } from 'drizzle-orm'
 import { subscriptions } from '@ihui/database'
-import { error } from '../utils/response.js'
 
 /**
  * 历史项目缺失端点补齐 — 直播订阅模块(D6)。
@@ -17,17 +16,12 @@ import { error } from '../utils/response.js'
  */
 export const legacyLiveRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // ========== D6: 直播频道订阅 (2端点) ==========
-  // 2026-10-27 安全加固(P1):原实现把 body.userId / query.userId 直接当主体写库/删库 ⇒
-  // 任意登录用户可替**别人**订阅、或删掉**别人**的订阅(只要知道其 userId)。
-  // 身份唯一出口 = 令牌主体;客户端自报的 userId 键位仅为兼容保留,不参与主体选择。
   fastify.post('/live/subscribe', { preHandler: authenticate }, async (request, reply) => {
-    const body = z.object({ channelId: z.uuid(), userId: z.uuid().optional() }).parse(request.body)
-    const principal = request.userId
-    if (!principal) return reply.status(401).send(error(401, '未登录'))
+    const body = z.object({ channelId: z.uuid(), userId: z.uuid() }).parse(request.body)
     const [created] = await db
       .insert(subscriptions)
       .values({
-        userId: principal,
+        userId: body.userId,
         targetType: 'live_channel',
         targetId: body.channelId,
       })
@@ -35,15 +29,13 @@ export const legacyLiveRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
     return reply.code(201).send(created)
   })
 
-  fastify.delete('/live/unsubscribe', { preHandler: authenticate }, async (request, reply) => {
-    const { channelId } = z
-      .object({ channelId: z.string(), userId: z.string().optional() })
+  fastify.delete('/live/unsubscribe', { preHandler: authenticate }, async (request) => {
+    const { channelId, userId } = z
+      .object({ channelId: z.string(), userId: z.string() })
       .parse(request.query)
-    const principal = request.userId
-    if (!principal) return reply.status(401).send(error(401, '未登录'))
     await db
       .delete(subscriptions)
-      .where(and(eq(subscriptions.userId, principal), eq(subscriptions.targetId, channelId)))
+      .where(and(eq(subscriptions.userId, userId), eq(subscriptions.targetId, channelId)))
     return { unsubscribed: true }
   })
 }

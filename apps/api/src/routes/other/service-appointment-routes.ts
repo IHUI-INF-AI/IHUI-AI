@@ -13,7 +13,6 @@ import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { serviceAppointments } from '@ihui/database'
 import { parseIdParam } from './_shared.js'
-import { isSystemAdmin } from '../../plugins/require-permission.js'
 
 export const serviceAppointmentRoutes: FastifyPluginAsync = async (server) => {
   // GET /service-appointment/:id — 预约详情
@@ -26,15 +25,6 @@ export const serviceAppointmentRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(serviceAppointments.id, id))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '预约不存在'))
-    // 2026-10-27 安全加固(P1,IDOR):原实现任何登录用户凭 UUID 就能读别人的预约
-    // (含 contactName/contactPhone/location 等 PII)并改状态。现只允许本人或管理员;
-    // 非本人一律回 404(与"不存在"同形),不给外部枚举预约 ID 的信号。
-    if (
-      row.userId !== request.userId &&
-      !isSystemAdmin(request, { includeInternalChannel: false })
-    ) {
-      return reply.status(404).send(error(404, '预约不存在'))
-    }
     return reply.send(success(row))
   })
 
@@ -48,15 +38,6 @@ export const serviceAppointmentRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(serviceAppointments.id, id))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '预约不存在'))
-    // 2026-10-27 安全加固(P1,IDOR):原实现任何登录用户凭 UUID 就能读别人的预约
-    // (含 contactName/contactPhone/location 等 PII)并改状态。现只允许本人或管理员;
-    // 非本人一律回 404(与"不存在"同形),不给外部枚举预约 ID 的信号。
-    if (
-      row.userId !== request.userId &&
-      !isSystemAdmin(request, { includeInternalChannel: false })
-    ) {
-      return reply.status(404).send(error(404, '预约不存在'))
-    }
     if (row.status !== 'pending' && row.status !== 'confirmed') {
       return reply.status(409).send(error(409, '当前状态不允许取消'))
     }
@@ -78,15 +59,6 @@ export const serviceAppointmentRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(serviceAppointments.id, id))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '预约不存在'))
-    // 2026-10-27 安全加固(P1,IDOR):原实现任何登录用户凭 UUID 就能读别人的预约
-    // (含 contactName/contactPhone/location 等 PII)并改状态。现只允许本人或管理员;
-    // 非本人一律回 404(与"不存在"同形),不给外部枚举预约 ID 的信号。
-    if (
-      row.userId !== request.userId &&
-      !isSystemAdmin(request, { includeInternalChannel: false })
-    ) {
-      return reply.status(404).send(error(404, '预约不存在'))
-    }
     if (row.status !== 'pending') {
       return reply.status(409).send(error(409, '当前状态不允许确认'))
     }
@@ -108,15 +80,6 @@ export const serviceAppointmentRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(serviceAppointments.id, id))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '预约不存在'))
-    // 2026-10-27 安全加固(P1,IDOR):原实现任何登录用户凭 UUID 就能读别人的预约
-    // (含 contactName/contactPhone/location 等 PII)并改状态。现只允许本人或管理员;
-    // 非本人一律回 404(与"不存在"同形),不给外部枚举预约 ID 的信号。
-    if (
-      row.userId !== request.userId &&
-      !isSystemAdmin(request, { includeInternalChannel: false })
-    ) {
-      return reply.status(404).send(error(404, '预约不存在'))
-    }
     if (row.status !== 'confirmed') {
       return reply.status(409).send(error(409, '当前状态不允许完成'))
     }
