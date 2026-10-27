@@ -112,21 +112,21 @@ export function ScanLoginScreen() {
         </Text>
         {denied ? (
           <Pressable
-            style={[styles.ctaButton, { backgroundColor: tokens.brand.cta }]}
+            style={styles.ctaButton}
             onPress={openSettings}
             accessibilityRole="button"
           >
-            <Text style={[styles.ctaButtonText, { color: tokens.brand.ctaForeground }]}>
+            <Text style={styles.ctaButtonText}>
               {t('scanLogin.openSettings')}
             </Text>
           </Pressable>
         ) : (
           <Pressable
-            style={[styles.ctaButton, { backgroundColor: tokens.brand.cta }]}
+            style={styles.ctaButton}
             onPress={() => void requestPermission()}
             accessibilityRole="button"
           >
-            <Text style={[styles.ctaButtonText, { color: tokens.brand.ctaForeground }]}>
+            <Text style={styles.ctaButtonText}>
               {t('scanLogin.grant')}
             </Text>
           </Pressable>
@@ -184,7 +184,7 @@ export function ScanLoginScreen() {
 const CAMERA_TEXT = '#FFFFFF'
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000000' },
+  root: { flex: 1, backgroundColor: tokens.gray.black },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   // ── 未授权/被拒:主题感知的可视界面 ──
   safe: {
@@ -212,10 +212,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rnSpacing.xl,
     paddingVertical: rnSpacing.sm,
     borderRadius: rnRadiusFor.control,
+    backgroundColor: tokens.brand.cta,
   },
   ctaButtonText: {
     fontSize: rnType.body.size,
     fontWeight: '600',
+    color: tokens.brand.ctaForeground,
   },
   cancelText: {
     color: tokens.text.secondary,
