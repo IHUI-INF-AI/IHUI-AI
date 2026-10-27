@@ -910,7 +910,29 @@ export function planGeneration(rootDir, opts, ctx = null) {
   let pagePath = page || `${kebab(shape.base)}/index`
   if (!page && !subpackage) {
     const kebabDir = kebab(shape.base)
-    if (!existsSync(join(rootDir, `${MP_SRC}/${subRoot}/${pagePath}.tsx`))) {
+    // 「这个路径上的页是不是**本屏**的页」:在册页看标记,盘上未入库副本内容不可读 ⇒ 按占用处理。
+    const occupiedByOther = (root) => {
+      const rel = `${MP_SRC}/${root}/${kebabDir}/index.tsx`
+      const p = pages.find((x) => x.file === rel)
+      if (p) return !cov.mirroredSpecs(p).has(shape.spec)
+      return existsSync(join(rootDir, rel))
+    }
+    // 同 kebab 路径被**另一张屏**的页占着时,不能判"本屏已落" —— 那是上一轮实测卡死两枚的形态
+    // (FavoritesScreen 撞 pkg-user/favorites/index[mirror favorite/FavoriteScreen]、
+    //  PublishScreen 撞 publish/index[mirror study-publish])。改道到镜像分包:路由名不发明新词,
+    // 也不动既有页;镜像分包本就是给跨端承载页用的。
+    if (occupiedByOther(subRoot)) {
+      const mirrorRoots = blocks.map((m) => m[1]).filter((r) => /^pkg-mirror/.test(r) && r !== subRoot)
+      const free = mirrorRoots.find((r) => !occupiedByOther(r))
+      if (!free) {
+        return {
+          kind: 'refuse',
+          why: `kebab 路径 ${kebabDir}/index 在语义分包与镜像分包均被别屏占用 ⇒ 不产重名路由(证据:该路径的页未镜像本屏)`,
+        }
+      }
+      subRoot = free
+    } else if (!existsSync(join(rootDir, `${MP_SRC}/${subRoot}/${pagePath}.tsx`))) {
+      // 半落地物(页在而路由不在)就地补接缝:落点以既有文件为准
       for (const m of blocks) {
         if (existsSync(join(rootDir, `${MP_SRC}/${m[1]}/${kebabDir}/index.tsx`))) {
           subRoot = m[1]
