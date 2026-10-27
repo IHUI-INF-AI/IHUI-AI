@@ -94,7 +94,7 @@
  * 一字未动 —— 把判据放宽/收紧都不解决"判据没在真跑它的那一刻成立",而那属于"为消红削判据"。
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -113,7 +113,8 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
 // 摘除台账单源(与 auto-commit 复洁器同一份解析):整行已被声明摘除的行,本门不得判丢、不得回捞。
 // 否则"删副本 → 门 71 判丢 → 自动回捞 → 再删"永不收敛(2026-10-22 实测 G-56 回捞提交 ec4171d119)。
-import { declaredRows, titleFpOf } from './scrub-declared-removals.mjs'
+// `LEDGERS` 一并 import:闸门要点名"缺的是哪一本账",清单若在门里再抄一份就会和复洁器的漂移(§0.6)。
+import { declaredRows, titleFpOf, LEDGERS } from './scrub-declared-removals.mjs'
 // G-722:编号形态判据(畸形号 = 族名在编号段出现两次)的**唯一实现**住在活文档编辑器里 ——
 // 判据住在 `scripts/lib/plan-task-index.mjs` 的下沉方案因该文件正被并发会话在飞编辑而未采,
 // 按票面指定的 import 方案接。两处各抄一遍形态正则必然漂移(§22c 同一条纪律),镜像形状锁钉死。
@@ -535,16 +536,106 @@ export function lossFingerprintOf(line) {
   return fp.length >= 8 ? fp : ''
 }
 
-/** 摘除声明集合(模块级缓存:同一进程只读一次;取不到 ⇒ 空集,方向是"照旧判丢"而不是误豁免)。 */
-let _declaredRowsCache = null
-function declaredRowSet() {
-  if (_declaredRowsCache) return _declaredRowsCache
+/**
+ * 摘除台账闸门(2026-10-27 立,执行席 mp-g71)。
+ *
+ * 旧口径(`declaredRowSet()` 把读抛 catch 成空集)是 **fail-open**:台账取不到时"声明过的摘除"
+ * 一律隐形 ⇒ `missingFrom` 把那些行判缺 ⇒ `--heal` 逐字节把它们插回台账 ⇒ "摘了又回来"循环
+ * (复现件 `.ihui-agent/tmp/mp-rescue/repro.mjs` 第⑤步;对照档 `union-converge.declaredFamilyCaps`
+ * 早已有"取不到 ⇒ 不回补"那一档,门 71 没有)。
+ *
+ * 新口径 = 三态,失效方向是**多问一次**而不是多放一次自动写回(§0.10):
+ *  · `undetermined:false` —— 至少一本台账在位且解析正常;
+ *  · `undetermined:true`  —— ① `declaredRows()` 抛错;② 读了但 `filesSeen===0`(两本账都不在位);
+ *    ③ 账在位却一行都解不开(`set` 空 ∧ `malformed>0`,即整本账损坏)。
+ * 两种情形**判定面(判缺)一条不放宽** —— 台账不可见只会让豁免面变窄,判缺照旧、报数照旧;
+ * 收窄的只有**自动回捞**这一侧:本轮零回捞 + 显式点名缺的是哪一本账与原因。
+ *
+ * 模块级缓存:同一进程只读一次(真仓 `plan-row-drop.jsonl` 现读数 MB 级,读两遍是白付的墙钟)。
+ */
+let _declaredGateCache = null
+export function declaredLedgerGate(root = ROOT, files = LEDGERS) {
+  if (_declaredGateCache && _declaredGateCache.root === root && _declaredGateCache.files === files)
+    return _declaredGateCache.gate
+  let d = null
+  let thrown = null
   try {
-    _declaredRowsCache = declaredRows()
-  } catch {
-    _declaredRowsCache = { set: new Set(), dropTitleFps: new Set() }
+    d = declaredRows(root, files)
+  } catch (e) {
+    thrown = e
   }
-  return _declaredRowsCache
+  const missing = files.filter((f) => {
+    try {
+      return !existsSync(path.join(root, f))
+    } catch {
+      return true
+    }
+  })
+  let gate
+  if (thrown || !d) {
+    gate = {
+      declared: { set: new Set(), dropTitleFps: new Set(), keyIndex: new Map() },
+      undetermined: true,
+      filesSeen: 0,
+      missing: [...files],
+      why: `摘除台账解析抛错(${String(thrown?.code || thrown?.name || '')} ${String(thrown?.message || thrown).slice(0, 120)})`,
+    }
+  } else if (Number(d.filesSeen) === 0) {
+    gate = {
+      declared: d,
+      undetermined: true,
+      filesSeen: 0,
+      missing,
+      why: `两本摘除台账都不在位(filesSeen=0,缺 ${missing.join(' / ') || '—'})`,
+    }
+  } else if (d.set.size === 0 && Number(d.malformed) > 0) {
+    gate = {
+      declared: d,
+      undetermined: true,
+      filesSeen: Number(d.filesSeen),
+      missing,
+      why: `台账在位(${d.filesSeen}/${files.length},缺 ${missing.join(' / ') || '无'})但 ${d.malformed} 行全解不开 ⇒ 无一条可用声明`,
+    }
+  } else {
+    gate = {
+      declared: d,
+      undetermined: false,
+      filesSeen: Number(d.filesSeen),
+      missing,
+      why: '',
+    }
+  }
+  if (root === ROOT && files === LEDGERS) _declaredGateCache = { root, files, gate }
+  return gate
+}
+
+/** 判定面用的兼容出口:闸门无论是否未判定都返回**这一份**声明集(未判定 ⇒ 空集 ⇒ 判缺从严)。 */
+function declaredRowSet() {
+  return declaredLedgerGate().declared
+}
+
+/**
+ * 回捞决议(纯函数、零 IO,镜像测试直接喂夹具闸门)。
+ * 只有"闸门未判定 ∧ 本轮确有回捞候选"才拒;候选为 0 时本轮本就没有自动动作,
+ * 结论"无缺失"是与台账无关的真判定(空台账只会**多**判缺,不会少判)⇒ 不冒充未判定。
+ */
+export function rescueDecisionFromGate(gate, legs) {
+  const candidates =
+    (legs?.disk?.length ?? 0) + (legs?.head?.length ?? 0) + (legs?.index?.length ?? 0)
+  if (gate?.undetermined && candidates > 0)
+    return {
+      rescue: false,
+      exitCode: 2,
+      candidates,
+      why: gate.why || '未给出原因',
+      missing: Array.isArray(gate.missing) ? gate.missing : [],
+      legs: {
+        disk: legs?.disk?.length ?? 0,
+        head: legs?.head?.length ?? 0,
+        index: legs?.index === null || legs?.index === undefined ? null : legs.index.length,
+      },
+    }
+  return { rescue: true, exitCode: 0, candidates, why: '', missing: [] }
 }
 
 /** 改号行正文归一化:去空白、剥尾部压缩注记、编号统一为占位符(改号本身只动编号)。 */
@@ -727,8 +818,12 @@ export function resolveRegistrationLoss(
     return pointerCorpus.has(normalizeRenumberBody(body))
   }
   // 声明摘除豁免(2026-10-22):整行逐字在摘除台账中 ⇒ 这是被主动删掉的副本/结清行,
-  // 不判丢、不回捞。方向从严:只认整行逐字相等,不做指纹/相似度;台账取不到 ⇒ declared 为空,
-  // 一切照旧(不误免)。与 pointerExempt 并存:两条通道互不替代。
+  // 不判丢、不回捞。方向从严:只认整行逐字相等,不做指纹/相似度。
+  // 〔2026-10-27 改判,执行席 mp-g71〕台账取不到时 declared 仍为空(判缺**照旧从严**、不误免),
+  // 但"照旧"只到判定面为止:自动回捞那一侧从此由 `declaredLedgerGate` + `rescueDecisionFromGate`
+  // 拦成本轮零回捞 + 未判定退出码。旧口径把"看不见声明"当成"没人声明过"继续插行,是 fail-open
+  // (实测:被 f12-purge 正当摘掉的禁令形态行,逐字节插回台账 ⇒ "摘了又回来")。
+  // 与 pointerExempt 并存:两条通道互不替代。
   const declaredExempt = (e) =>
     typeof e.line === 'string' &&
     (declaredSet.has(e.line) || (dropTitleFps.size > 0 && dropTitleFps.has(titleFpOf(e.line))))
@@ -3590,6 +3685,52 @@ function selfTest() {
     )
   })
 
+  // ── 摘除台账闸门(2026-10-27 立,执行席 mp-g71;fail-open ⇒ fail-closed 的同批自检) ──
+  t('台账闸门:未判定 ∧ 本轮确有回捞候选 ⇒ 零回捞 + 退出码 2(不得冒成 0)', () => {
+    const d = rescueDecisionFromGate(
+      { undetermined: true, why: '两本摘除台账都不在位', missing: ['a.jsonl'], filesSeen: 0 },
+      { disk: [1], head: [1], index: [] },
+    )
+    return d.rescue === false && d.exitCode === 2 && d.candidates === 2
+  })
+
+  t('台账闸门:未判定 ∧ 三档候选为 0 ⇒ 不误拦(本轮本无自动动作,"无缺失"与台账无关)', () => {
+    const d = rescueDecisionFromGate({ undetermined: true, why: 'x', missing: [] }, { disk: [], head: [], index: [] })
+    return d.rescue === true && d.exitCode === 0 && d.candidates === 0
+  })
+
+  t('台账闸门:索引面未判定(index=null)不得被折成"缺 0 条"再顶替回捞决议', () => {
+    const d = rescueDecisionFromGate({ undetermined: true, why: 'x', missing: [] }, { disk: [], head: [], index: null })
+    const e = rescueDecisionFromGate({ undetermined: true, why: 'x', missing: [] }, { disk: [1], head: [], index: null })
+    return d.rescue === true && e.rescue === false && e.legs.index === null
+  })
+
+  t('台账闸门在位 ⇒ 照常回捞,且判缺那一支一条不放宽(空声明集与满声明集成对)', () => {
+    const row =
+      '- [ ] G-909999 台账闸门自检靶行:被摘除后不得被回捞器插回,这是一条足够长的登记行用于夹具。'
+    const face = '- [ ] G-900001 另一条在册登记行,同样写得足够长以免被最短长度判据挡在射程之外。\n'
+    const seen = registeredLines(row)
+    const blind = resolveRegistrationLoss(seen, face, { set: new Set(), dropTitleFps: new Set() })
+    const ledgered = resolveRegistrationLoss(
+      seen,
+      face,
+      { set: new Set([row]), dropTitleFps: new Set([titleFpOf(row)]) },
+    )
+    // 正向牙:台账看不见时判缺 1(不豁免);台账在场时判缺 0(逐字命中)——两侧都必须是**判定**出来的
+    return seen.length === 1 && blind.length === 1 && ledgered.length === 0
+  })
+
+  t('形状锁:heal() 必须真消费闸门决议(摘掉这一支 ⇒ 上面那条未判定档就只是纸面判据)', () => {
+    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const body = src.slice(src.indexOf('function heal(commit)'))
+    return (
+      body.includes('declaredLedgerGate()') &&
+      body.includes('rescueDecisionFromGate(gate, legs)') &&
+      /if\s*\(\s*gate\.undetermined\s*&&\s*!rescue\.rescue\s*\)/.test(body) &&
+      body.includes('return 2')
+    )
+  })
+
   let failed = 0
   for (const c of cases) {
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -3601,7 +3742,10 @@ function selfTest() {
 
 /**
  * 回捞 + (可选)前向恢复提交。
- * 返回退出码:0 = 无需恢复或已恢复成功;1 = 恢复失败(不动历史,交人工)。
+ * 返回退出码(2026-10-27 起三档,§0.3「没判」绝不写成「判过」):
+ *  · 0 = 无需恢复 / 已恢复成功(判定输入齐备,或本轮本就没有候选);
+ *  · 1 = 判定/规模闸拦下或提交失败(不动历史,交人工);
+ *  · 2 = **未判定** —— 摘除台账取不到而本轮确有回捞候选 ⇒ 本轮零回捞(见 `declaredLedgerGate`)。
  */
 /**
  * 回捞行的**出处**(该登记行最后出现在哪一枚提交里)。
@@ -3690,6 +3834,42 @@ function heal(commit) {
     console.log(
       `ℹ️  [族表自检] L${u.line} 声明位 ${u.token} 不被编号族认出 ⇒ 防丢面/复合主键/撞号三重看不见它:${u.head}`,
     )
+  /**
+   * 摘除台账闸门(2026-10-27 立,执行席 mp-g71;旧口径是 fail-open —— 台账取不到被折成空集
+   * 继续回捞,把 `strip-banned-buckets` / `strip-stale-closed-rows` 正当摘掉的行逐字节插回台账,
+   * 于是"摘了又回来"永不收敛,复现件 `.ihui-agent/tmp/mp-rescue/repro.mjs` 第⑤步)。
+   * 失效方向 = **多问一次**(点名缺的是哪一本账 + 未判定退出码),绝不是"多放一次自动写回"(§0.10)。
+   * 只拦自动回捞这一侧:三档读数、判缺枚数、点名一条不减(正向牙不放宽,§0.3 的对偶)。
+   */
+  const gate = declaredLedgerGate()
+  const rescue = rescueDecisionFromGate(gate, legs)
+  if (gate.undetermined && !rescue.rescue) {
+    console.error(
+      `🛑 [plan-line-loss] 台账闸门未判定 ⇒ 本轮零回捞(不回捞 ≠ 没丢):${rescue.why}`,
+    )
+    console.error(
+      `   缺的账:${rescue.missing.length ? rescue.missing.join(' / ') : '(在位但内容不可用)'} ` +
+        `(已读到 ${gate.filesSeen} 本 / 应读 ${LEDGERS.length} 本;落点 ${ROOT}/.ihui-agent/state/)`,
+    )
+    console.error(
+      `   本轮候选 ${rescue.candidates} 枚(工作树 ${rescue.legs.disk} / HEAD ${rescue.legs.head} / 索引 ${
+        rescue.legs.index === null ? '未判定' : rescue.legs.index
+      })一律**不写回、不建提交**;判缺读数照旧报出,不作削减。`,
+    )
+    console.error(
+      '   出路(是"多问一次",不是"多放一次"):先让写这本账的器物跑起来 —— 摘行留痕出口 `scripts/strip-banned-buckets.mjs` / ' +
+        '`scripts/strip-stale-closed-rows.mjs` / `scripts/strip-stale-claim-marks.mjs` 各自追写 ' +
+        '`.ihui-agent/state/plan-row-drop.jsonl`、`stale-claim-strip.jsonl`;\n' +
+        '        账修好后重跑 `node scripts/check-plan-line-loss.mjs --heal`(或 --heal --commit)照常回捞。\n' +
+        '        本闸**不提供跳过这枚闸门的变量**:跳过它 = 明知看不见"哪些行是被正当摘除的"还要自动往台账里插行。',
+    )
+    return 2
+  } else if (gate.undetermined) {
+    console.error(
+      `ℹ️  [plan-line-loss] 摘除台账闸门未判定(${gate.why}),但本轮三档判缺候选为 0 ⇒ 无自动回捞动作可做,` +
+        '"无缺失"这一结论与台账是否在场无关(空台账只会多判缺,不会少判)。',
+    )
+  }
   if (legs.allClean) {
     console.log(`✅ [plan-line-loss] 扫描 ${seen.size} 条登记行:无缺失,无需回捞`)
     return 0
@@ -4203,6 +4383,9 @@ export const __test__ = {
   healLegs,
   healLegRoster,
   healContent,
+  // 摘除台账闸门(2026-10-27 立):三态读取 + 回捞决议,镜像测试直接喂夹具,不得在测试里抄第二份(§22c)
+  declaredLedgerGate,
+  rescueDecisionFromGate,
   // 判活唯一实现与其取材(镜像测试据此证明"名额判活"只有一份,§22c 禁止再抄一份)
   registrationSlots,
   resolveRegistrationLoss,

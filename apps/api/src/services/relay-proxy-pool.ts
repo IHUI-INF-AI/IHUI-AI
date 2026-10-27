@@ -6,7 +6,7 @@
  * 出口代理池服务(2026-10-22 立,反代号池子系统数据层)。
  *
  * 职责:ai_relay_proxy_pool 表(迁移 331)的轮换取用与失败计数。
- * - pickProxyForAccount:账号自带 proxyUrl 直接返回;否则从池取 active 代理
+ * - pickProxyForAccount:账号自带 proxyUrl(落库密文,此处解密)优先;否则从池取 active 代理
  *   (最久未用优先的简单轮换,取用即回写 lastPickedAt)。取用是**单条 UPDATE**,
  *   多实例并发取不同位(读-改-写会两家取到同一位)。
  * - reportProxyFailure / reportProxySuccess:连续失败计数,达阈值转 exhausted,成功清零并回 active。
@@ -17,10 +17,70 @@
 import { desc, eq, sql } from 'drizzle-orm'
 import { aiRelayProxyPool, type AiRelayProxyPool } from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
+import { decryptField, encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 
 /** 连续失败阈值:达到即转 exhausted(暂冷,成功上报可回升 active) */
 const PROXY_FAIL_LIMIT = 5
+
+/** 日志脱敏:代理地址只留协议+主机,账密/路径/查询串一律不落日志 */
+function maskProxyUrlForLog(raw: string): string {
+  try {
+    const u = new URL(raw)
+    return `${u.protocol}//${u.host}`
+  } catch {
+    return '***'
+  }
+}
+
+/**
+ * 账号级出口代理落库形态(AES-256-GCM,与 token/cookies 同一把钥匙)。
+ * 空串/null → null,读路径由 decryptField 兼容存量明文,升级无需停机回填。
+ * 只用于 ai_relay_account_pool.proxy_url;共享代理池自己的 proxy_url 仍为明文
+ * (要被多账号按 URL 精确取用与去重)。
+ */
+export function encryptAccountProxyUrl(plain: string | null | undefined): string | null {
+  const v = typeof plain === 'string' ? plain.trim() : ''
+  return v ? encryptField(v) : null
+}
+
+/**
+ * 解密账号级 proxyUrl;解不出(密钥轮换/密文损坏)→ null 按直连处理。
+ * 绝不把密文当代理地址交给 ProxyAgent —— 那会让该号整条出网链路必坏。
+ */
+export function resolveAccountProxyUrl(stored: string | null | undefined): string | null {
+  if (!stored) return null
+  try {
+    const plain = decryptField(stored).trim()
+    return plain || null
+  } catch (e) {
+    logger.warn('[relay-proxy-pool] 账号级 proxyUrl 解密失败,按直连处理', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+    return null
+  }
+}
+
+/**
+ * 账号级代理脱敏展示:只留 scheme://***@host:port。
+ * 密文解不出/地址非法 → '已隐藏'(既不回流密文,也不编造地址)。
+ */
+export function maskAccountProxyUrl(stored: string | null | undefined): string | null {
+  if (!stored) return null
+  let plain: string
+  try {
+    plain = decryptField(stored).trim()
+  } catch {
+    return '已隐藏'
+  }
+  if (!plain) return null
+  try {
+    const u = new URL(plain)
+    return `${u.protocol}//${u.username || u.password ? '***@' : ''}${u.host}`
+  } catch {
+    return '已隐藏'
+  }
+}
 
 /** 安全提取 db.execute 结果为数组(兼容 postgres.js RowList / {rows} 两种形态)。 */
 function toRows(raw: unknown): Record<string, unknown>[] {
@@ -32,7 +92,7 @@ function toRows(raw: unknown): Record<string, unknown>[] {
 }
 
 /**
- * 为账号选出口代理。账号自带 proxyUrl → 直接返回(账号级独立出口优先);
+ * 为账号选出口代理。账号自带 proxyUrl(落库密文,先解密)→ 直接返回(账号级独立出口优先);
  * 否则池内轮换取 active 代理(共享位或绑定到该账号的位);池空/异常 → null(直连)。
  *
  * 2026-10-22:原「SELECT 最久未用 → UPDATE 该 id」是读-改-写,多实例会同时取到同一位。
@@ -43,7 +103,8 @@ export async function pickProxyForAccount(account: {
   id: string
   proxyUrl: string | null
 }): Promise<string | null> {
-  if (account.proxyUrl) return account.proxyUrl
+  const accountProxy = resolveAccountProxyUrl(account.proxyUrl)
+  if (accountProxy) return accountProxy
   try {
     const raw = await db.execute(sql`
       UPDATE ai_relay_proxy_pool
@@ -95,7 +156,7 @@ export async function reportProxyFailure(proxyUrl: string): Promise<void> {
       .where(eq(aiRelayProxyPool.id, row.id))
   } catch (e) {
     logger.warn('[relay-proxy-pool] 代理失败计数上报失败(已吞)', {
-      proxyUrl,
+      proxyUrl: maskProxyUrlForLog(proxyUrl),
       error: e instanceof Error ? e.message : String(e),
     })
   }
@@ -122,7 +183,7 @@ export async function reportProxySuccess(proxyUrl: string): Promise<void> {
       .where(eq(aiRelayProxyPool.id, row.id))
   } catch (e) {
     logger.warn('[relay-proxy-pool] 代理成功计数上报失败(已吞)', {
-      proxyUrl,
+      proxyUrl: maskProxyUrlForLog(proxyUrl),
       error: e instanceof Error ? e.message : String(e),
     })
   }
@@ -145,7 +206,7 @@ export async function markProxyChecked(proxyUrl: string, alive: boolean): Promis
       .where(eq(aiRelayProxyPool.proxyUrl, proxyUrl))
   } catch (e) {
     logger.warn('[relay-proxy-pool] 代理活性标记失败(已吞)', {
-      proxyUrl,
+      proxyUrl: maskProxyUrlForLog(proxyUrl),
       error: e instanceof Error ? e.message : String(e),
     })
   }
@@ -223,7 +284,7 @@ export async function createProxy(input: CreateProxyInput): Promise<CreateProxyR
     if ((e as { code?: string } | null)?.code === '23505') {
       return { ok: false, reason: 'duplicate' }
     }
-    logProxyError('代理新增', e, { proxyUrl: input.proxyUrl })
+    logProxyError('代理新增', e, { proxyUrl: maskProxyUrlForLog(input.proxyUrl) })
     return { ok: false, reason: 'error' }
   }
 }

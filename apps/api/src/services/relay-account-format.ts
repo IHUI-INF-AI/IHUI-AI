@@ -205,6 +205,41 @@ export function credentialShapeIssue(
   return null
 }
 
+/**
+ * 覆盖导入时「refreshToken 写不写」的判据(2026-10-27 立,单源)。
+ *
+ * 立因:网页一键重登只能换到 access token —— Trae 的 GetUserToken 与 WorkBuddy 的
+ * cookie 换登录态都不发 refreshToken;而覆盖导入的默认语义是「缺字段即写 NULL」。
+ * 两者相遇就是个自毁环:一次重登把原本能自续的 refreshToken 抹成 NULL,号从
+ * `expired-renewable` 掉成 `expired-dead` —— 救号的动作本身把号弄死。
+ *
+ * 因此重登路径显式带 `preserveMissingRefresh=true`:本批未提供 refreshToken 时保留
+ * 库内既有密文;提供了新值则照常覆盖(显式输入永远优先)。默认 false = 保持存量导入
+ * 语义(缺字段即清空),不让普通导入静默变成"永远删不掉旧票"。
+ */
+export interface OverwriteRefreshDecision {
+  /** true ⇒ 更新时不写 refresh_token_enc 列(保留库内既有密文) */
+  preserve: boolean
+  /** 结果项人话(null = 无需额外说明) */
+  note: string | null
+}
+
+export function resolveOverwriteRefresh(input: {
+  providerCode: RelayProviderCode
+  incomingRefreshToken: string | null
+  existingHasRefreshToken: boolean
+  preserveMissingRefresh: boolean
+}): OverwriteRefreshDecision {
+  // 显式新票优先:用户贴了新的 refreshToken 就没有"保留"的余地
+  if (input.incomingRefreshToken) return { preserve: false, note: null }
+  if (!input.preserveMissingRefresh) return { preserve: false, note: null }
+  if (!input.existingHasRefreshToken) return { preserve: false, note: null }
+  return {
+    preserve: true,
+    note: `${input.providerCode} 本次未提供 refreshToken,已保留库内原票(重登只换 access)`,
+  }
+}
+
 interface ImportIssue {
   level: ImportIssueLevel
   code: string

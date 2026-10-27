@@ -17,8 +17,11 @@
  *    ① 内置最低三件(票面点名):python 面 mypy、ts 面 tsc、同名函数族重复定义扫描;
  *    ② 注册表映射:现读 scripts/guardian-runner.mjs 的门注册条目,凡声明了 stagedTriggers
  *      且被落地面触及的门,都算"受影响门",复跑其**全量档**(判 HEAD 面 = 落地面;
- *      取材面纪律与守门 70/77/83/98/103/118 同口径)。无 stagedTriggers 的恒跑门不参与
- *      路径映射(它们对任何提交都跑,不是"本次落地面受影响")。
+ *      取材面纪律与守门 70/77/83/98/103/118 同口径)。无 stagedTriggers 的门**不参与**路径映射
+ *      (判据设计上不随落地面变化)。〔2026-10-27 补正〕旧文在这句后面接的是「(它们对任何提交
+ *      都跑,不是"本次落地面受影响")」—— 那是**钩子通道**的语义,在本通道里不成立:本器不走
+ *      钩子,缺省即"不复跑"。故改为只承认"不参与路径映射",不再暗示"它们照样跑过";
+ *      这一截由 countUntriggered 量出来逐次点名,绿行末尾缀道数(实证见该函数头注)。
  *  - 失败语义:**大声报数 + exit 非 0**。不回滚(落地是既成事实,替身无权撤销),但拒绝静默:
  *    blocking 门判红 ⇒ verdict=1;门"无法判定"(rc=2)⇒ verdict=2(未判定不等于通过);
  *    warn 门判红只点名、不改 verdict(与 runner 的分级语义逐字同形,§12e 不造恒红门)。
@@ -171,6 +174,39 @@ export function selectAffectedGates(paths, entries) {
 }
 
 /**
+ * 与 selectAffectedGates **互补**的那一半:本通道结构上永不复跑的登记门(2026-10-27 立)。
+ *
+ * 立因(实证,不是假想):同一份声明在两条通道上被读成**反义** ——
+ *   · 提交通道(guardian-runner):`stagedTriggers` 缺省 = **任何提交都跑**(AGENTS §15d 明写
+ *     「无 stagedTriggers=任何提交都跑」,并以此为 213 号门的合规凭据);
+ *   · 落地通道(本文件 selectAffectedGates):同一份缺省 = `return false` ⇒ **永不复跑**。
+ * 后果是"落地后 N 臂全绿"这句话可以**盲绿**:2026-10-27 实测,门 193
+ * (check-git-stdio-discipline)因注册条目没有 stagedTriggers 而被本节排除,于是一笔落地报
+ * 「19 臂全绿」,而那一笔恰好往 scripts/check-ps1-bom.mjs 里写了两处裸派生 git —— 唯一能咬住
+ * 它的那一臂**压根没跑**,直到 `git push` 的 pre-push 才被拦下(AGENTS §12e 的反面:绿行是真的,
+ * 但它覆盖的面比读它的人以为的小)。
+ *
+ * 本函数不改判定(不改红绿、不改选门),只把"没覆盖到的那一截"量出来交给报告面 ——
+ * 让绿行自己说清它覆盖了多少、漏了多少。射程缺省的登记门由门 `check-gate-triggers.mjs`
+ * 记在入口(新门无射程 ⇒ 红;要"任何提交都跑"必须显式写出全匹配射程,写法见函数体内的行注),
+ * 两道合起来才闭环:这一半让**当下**的落地不盲绿,那一半让**以后**不再长出新的缺省。
+ */
+export function countUntriggered(entries) {
+  // 要"任何提交都跑"就该把它写下来,而不是留空让两条通道各自猜:
+  //   stagedTriggers: ['**', '/*'].join('')   ← 等价的全匹配通配(此处用 join 只是为了让本行
+  //   不出现注释终止符;注册表里直接写通配字面量即可,guardian-triggers 认它,实测根文件与
+  //   深层文件都命中)
+  const judges = (entries ?? []).filter((e) => e && e.script && e.mode !== 'info')
+  const missing = judges.filter((e) => !e.stagedTriggers || e.stagedTriggers.length === 0)
+  return {
+    judges: judges.length,
+    missing: missing.length,
+    blocking: missing.filter((e) => e.mode === 'blocking').length,
+    ids: missing.map((e) => String(e.id)),
+  }
+}
+
+/**
  * 同名函数族重复定义扫描(简单判据,票面允许):同一文件**顶层**同名 def/class/function/
  * export const **带 body 的声明**出现 ≥2 次 ⇒ 命中。这正是 f57e0c9983 那一型:行级归并把
  * 两侧各自重写的同名函数族一起留下,归并不报冲突、tsc/mypy 未必当轮跑,而重复定义扫描一条就咬住。
@@ -274,8 +310,11 @@ function spawnGate(script, args, root, timeoutMs, env) {
 }
 
 /**
- * 落地后复跑受影响判据。返回 { verdict, ran, failed, undetermined, warnFailures, dupFindings, notes }
+ * 落地后复跑受影响判据。返回
+ * { verdict, ran, failed, undetermined, warnFailures, dupFindings, notes, untriggered }
  *  - verdict 0 = 全绿;1 = 有 blocking 臂判红(含重复定义命中);2 = 有臂"无法判定"(未判定≠通过)
+ *  - untriggered = 注册表里**本通道结构上不复跑**的那一截的计数(见 countUntriggered);
+ *    它的存在意味着"全绿"这句话的覆盖面小于字面,报告面必须把它一起说出来。
  *  - 本函数**只报数不改调用方退出码**;调用方(落地器)按 verdict 大声 exit 非 0 ——
  *    不回滚(落地是既成事实),但拒绝静默(票面纪律)。
  */
@@ -288,6 +327,7 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
     warnFailures: [],
     dupFindings: [],
     notes: [],
+    untriggered: null,
   }
   const declared = [...new Set(paths.map((p) => String(p).replace(/\\/g, '/')))]
   if (declared.length === 0) return res
@@ -441,6 +481,17 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
         } else res.undetermined.push({ ...rec, rc: r.rc, out: r.out })
       }
       res.registryAffected = affected.map((g) => `${g.id}:${g.script}`)
+      // 覆盖面边界(2026-10-27 立):把"本通道结构上永不复跑"的那一截量出来并点名。
+      // 只量不判 —— 不改红绿,但绝不允许绿行把这一截省掉(见 countUntriggered 头注)。
+      const untrig = countUntriggered(parsed.entries)
+      res.untriggered = untrig
+      if (untrig.missing > 0) {
+        res.notes.push(
+          `注册表臂覆盖面:登记判据门 ${untrig.judges} 道,其中 ${untrig.missing} 道(blocking ${untrig.blocking})` +
+            `未声明 stagedTriggers ⇒ 本通道**结构上不复跑**(提交通道把同一份缺省读成"任何提交都跑",两通道在此反义);` +
+            `本次"全绿"不覆盖这 ${untrig.missing} 道,要覆盖请在注册条目里显式声明射程(要"任何提交都跑"就写 ['**/*'])`,
+        )
+      }
     }
   }
 
@@ -460,14 +511,26 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
     console.error(`❌ 落地后复跑**无法判定**:${u.kind}${u.id ? ` [门 ${u.id}]` : ''}(rc=${u.rc ?? 'n/a'})—— 未判定不等于通过`)
     if (u.why) console.error(`   ${u.why}`)
   }
+  // 点名必须**真的打印出来**(2026-10-27 修):此前 notes 只被 push、从未有人 print,而绿行却写
+  // 「点名 N 条(见上)」—— 那是一句自证"已经点过名"的谎(§0.3「把没判说成判过」同族)。
+  // 落地时"被审根不是本器所在仓""tsc 有文件盘上没有""注册表门按 skipEnv 放行"这些格子
+  // 全都只走这条路,不打印就等于静默少跑。措辞不叫"警告"叫"点名",因为它不改红绿、只交代覆盖面。
+  for (const n of res.notes) console.log(`ℹ️ 落地后复跑点名:${n}`)
   if (res.failed.length > 0) res.verdict = 1
   else if (res.undetermined.length > 0) res.verdict = 2
   else {
+    // 覆盖面边界写进绿行本身(2026-10-27):`N 臂全绿` 是**跑过的那些臂**全绿,不是"全部判据全绿"。
+    // 未声明 stagedTriggers 的登记门在本通道结构上不复跑,这里必须把道数缀在绿行末尾 ——
+    // 否则读绿行的人会把它当成全域通过(2026-10-27 门 193 盲绿就是这么发生的)。
+    const untrig = res.untriggered
     console.log(
       `✅ 落地后受影响判据复跑:${res.ran.length} 臂全绿` +
         (res.registryAffected
           ? `(注册表受影响门 ${res.registryAffected.length} 道${res.registryAffected.length ? `:${res.registryAffected.join(' / ')}` : ''})`
           : '(注册表臂本轮未跑,见点名)') +
+        (untrig && untrig.missing > 0
+          ? `;未声明射程未复跑 ${untrig.missing} 道(blocking ${untrig.blocking})—— 本行"全绿"只覆盖跑过的臂,不是全域通过`
+          : '') +
         (res.notes.length ? `;点名 ${res.notes.length} 条(见上)` : ''),
     )
   }
@@ -478,6 +541,7 @@ export const __test__ = {
   parseGateRegistry,
   extractEntryFields,
   selectAffectedGates,
+  countUntriggered,
   scanDuplicateDefinitions,
   DUPDEF_EXTS,
   PY_EXTS,

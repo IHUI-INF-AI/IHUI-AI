@@ -654,6 +654,13 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: IdCard,
         dynamicLabel: '账号池',
       },
+      // 账号代理(2026-10-27 立,账号级 proxyUrl 的独立管理入口)
+      {
+        href: '/admin/relay/account-proxy',
+        labelKey: 'dashboard',
+        icon: ShieldCheck,
+        dynamicLabel: '账号代理',
+      },
       { href: '/admin/relay/discovery', labelKey: 'adminRelayDiscovery', icon: Activity },
       { href: '/admin/relay/logs', labelKey: 'adminRelayLogs', icon: Coins },
       { href: '/admin/relay/alert-rules', labelKey: 'adminRelayAlertRules', icon: BellRing },

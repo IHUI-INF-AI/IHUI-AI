@@ -161,6 +161,20 @@ test('⑫ 残缺/未知旗标一律 exit 2 面(静默退回默认是本仓登记
   assert.equal(BOARD.parseArgs(['--seats', '4']).issues.length, 0)
 })
 
+test('⑬b 派单书自带今晚三条硬约束(派单靠手抄就会漏,这一格是判据不是格式)', () => {
+  const br = BOARD.briefOf(
+    { line: 3, ticketId: 'G-42', title: '示例票', paths: ['apps/api/src/x.ts', 'deploy/win/a.ps1'], hot: [] },
+    { seat: 's9', ticketRow: '- [ ] G-42 示例票正文' },
+  )
+  assert.match(br, /严禁 git worktree/, 'worktree 顶穿盘那条必须在书里')
+  assert.match(br, /先自核票面勾选态/, '票面被对席结清 ⇒ 席位自己就要能判停')
+  assert.match(br, /git add/, '执行席不 commit 那条必须在书里')
+  assert.match(br, /mkdir -p \.ihui-agent\/tmp/, '第一条动作必须是自己建目录(死席主形态是静默死亡)')
+  assert.ok(br.includes('apps/api/src/x.ts') && br.includes('deploy/win/a.ps1'), '作用域逐条列全')
+  assert.match(br, /--claim s9 --ticket G-42 --scope apps\/api\/src\/x\.ts/, '登记命令随行给到,不用主席回忆')
+  assert.ok(br.includes('G-42 示例票正文'), '票面原文随书交付')
+})
+
 test('⑬ 直执行档:--self-test 真跑一次并取末行(接线锁,不是把判据再抄一遍)', () => {
   const out = execFileSync(process.execPath, [path.join('scripts', 'dispatch-board.mjs'), '--self-test'], {
     cwd: ROOT,
@@ -174,6 +188,31 @@ test('⑬ 直执行档:--self-test 真跑一次并取末行(接线锁,不是把�
 })
 
 // ── 席位作用域台账(跨会话那一格的往返取证;夹具走正牌 scratch 根,不落仓库树) ──
+test('⑰b 占位符路径不构成互斥凭据(不存在的路径不能发"这块地没人占"的合格证)', () => {
+  const sp = BOARD.splitConcretePaths(['apps/web/src/a.ts', 'packages/shared/src/ui/<x>-spec/', 'docs/UI GUIDELINES.md', 'apps/api/src/*.ts'])
+  assert.deepEqual(sp.concrete, ['apps/web/src/a.ts'], `只该留真路径,实得:${JSON.stringify(sp.concrete)}`)
+  assert.equal(sp.placeholder.length, 3, '<x> 形 / 含空白 / 通配 三种都必须归占位符')
+  // 全占位符的票到了 buildWave 这一层必须已是空作用域 ⇒ 落 scope-unknown,绝不带假凭据排席
+  const emptied = BOARD.splitConcretePaths(['packages/shared/src/ui/<x>-spec/', 'docs/UI GUIDELINES.md', 'apps/api/src/*.ts'])
+  assert.equal(emptied.concrete.length, 0, '三枚全该判占位符')
+  const w = BOARD.buildWave([cand(9, 'P-9', emptied.concrete)], { maxSeats: 6 })
+  assert.equal(w.wave.length, 0)
+  assert.equal(w.dropped[0].why, 'scope-unknown')
+})
+
+test('⑰ 他席未提交的脏面必须压住(dirty-inflight)——"不打架"的另一半', () => {
+  const dirtyCand = { line: 7, ticketId: 'D-7', title: 'd', paths: ['apps/api/src/x.ts'], hot: [], dirtyHit: ['apps/api/src/x.ts'] }
+  const cleanCand = { line: 8, ticketId: 'D-8', title: 'e', paths: ['packages/auth/src/y.ts'], hot: [], dirtyHit: [] }
+  const r = BOARD.buildWave([dirtyCand, cleanCand], { maxSeats: 6 })
+  assert.equal(r.wave.length, 1)
+  assert.equal(r.wave[0].ticketId, 'D-8')
+  assert.equal(r.dropped[0].why, 'dirty-inflight')
+  assert.deepEqual(r.dropped[0].detail, ['apps/api/src/x.ts'], '必须点名是被哪条脏路径压住的,不能只说"排不进"')
+  // 反向:脏集为空时同一票必须能排进来(证明这一维不是恒拒)
+  const r2 = BOARD.buildWave([{ ...dirtyCand, dirtyHit: [] }], { maxSeats: 6 })
+  assert.equal(r2.wave.length, 1, 'dirtyHit 为空却仍被挡 ⇒ 这一维变成了恒拒,不可接受')
+})
+
 test('⑭ claim 往返:他席装载为"已占"、本席自载排除、过期自动失效', () => {
   const dir = mkScratch('board-claim-')
   try {

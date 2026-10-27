@@ -42,7 +42,7 @@ class SessionTaint:
     # 免批出网目标白名单:精确 host 或 `.domain` 后缀(如 ".github.com")
     egress_allowlist: frozenset[str] = field(default_factory=frozenset)
 
-    def mark(self, source: str) -> "SessionTaint":
+    def mark(self, source: str) -> SessionTaint:
         """标记一次污点来源,返回新风(不可变)。已含则返回自身。"""
         if self.tainted and source in self.sources:
             return self
@@ -52,7 +52,7 @@ class SessionTaint:
             egress_allowlist=self.egress_allowlist,
         )
 
-    def with_allowlist(self, allow: "Iterable[str]") -> "SessionTaint":
+    def with_allowlist(self, allow: Iterable[str]) -> SessionTaint:
         """设置出网免批白名单,返回新风。"""
         return SessionTaint(
             tainted=self.tainted,
@@ -70,7 +70,7 @@ def _hostname_of(url: str) -> str:
     return host.lower()
 
 
-def url_in_allowlist(url: str, allowlist: "Iterable[str]") -> bool:
+def url_in_allowlist(url: str, allowlist: Iterable[str]) -> bool:
     """url 是否命中出网免批白名单(精确 host 或 `.domain` 后缀)。"""
     host = _hostname_of(url)
     if not host:
@@ -97,6 +97,4 @@ def requires_egress_approval(taint: SessionTaint, url: str) -> bool:
     """
     if not taint.tainted:
         return False
-    if url_in_allowlist(url, taint.egress_allowlist):
-        return False
-    return True
+    return not url_in_allowlist(url, taint.egress_allowlist)

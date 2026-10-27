@@ -260,6 +260,7 @@ class AgentStepRecorder:
         steps = rec.replay("run-1")              # 全量(时间序)
         step  = rec.replay("run-1", step_index=2)  # 单步回看
         metrics = rec.get_run_metrics("run-1")
+        rec.finish_run("run-1", session_id="s1")  # 运行收尾:并入成本账本
     """
 
     def __init__(
@@ -364,6 +365,47 @@ class AgentStepRecorder:
             self._trim(record)
             self._persist()
             return dict(normalized)
+
+    def finish_run(
+        self,
+        run_id: str,
+        *,
+        user_id: str = "",
+        session_id: str = "",
+        ledger: Any = None,
+    ) -> dict[str, Any]:
+        """运行收尾:把该 run 的全部步骤并入成本账本(recorder→账本接线的唯一出口)。
+
+        G-941(2026-10-27):`cost_ledger.sync_from_recorder` 此前在生产侧零调用方 ——
+        录好了不入账:recorder 口径的 token/缓存/耗时/成本一行都进不了账本,账本只
+        见那些直写账的生产者。收尾处必须显式调一次本方法。
+
+        刻意在 `append_step` 之外(不逐步自动入账):sync 是整 run 重放,每步调一次
+        是 O(n²)(MAX_STEPS_PER_RUN=2000 ⇒ 每 run 百万级条目回灌),且会把"录制"
+        这个可观测面变成每次工具调用都写盘的主链路负担。
+
+        入账幂等:同 run 重复收尾由 `sync_from_recorder` 走同一张方向表逐列合并,
+        第二次起 synced=0、skipped=步数(账不重复记)。
+
+        `ledger` 缺省取全局 `cost_ledger` 单例(延迟导入:cost_ledger 反向 import
+        本模块,顶层互引会成环)。入账失败只 warning 并如实返回 synced=0 ——
+        可观测面的故障不许反过来打断业务主链路,也不许把"没入账"说成"入账了"。
+        """
+        if ledger is None:
+            try:
+                from .cost_ledger import cost_ledger
+
+                ledger = cost_ledger
+            except Exception as e:  # noqa: BLE001 - 接线失败降级,不许打断收尾
+                logger.warning("运行收尾入账失败(未接线,降级): %s", e)
+                return {"run_id": run_id, "synced": 0, "skipped": 0, "error": str(e)}
+        try:
+            return ledger.sync_from_recorder(
+                run_id, self, user_id=user_id, session_id=session_id
+            )
+        except Exception as e:  # noqa: BLE001 - 账本不可用时录制仍算完成
+            logger.warning("运行收尾入账失败(降级,不阻塞主链路): %s", e)
+            return {"run_id": run_id, "synced": 0, "skipped": 0, "error": str(e)}
 
     def reset_run(self, run_id: str) -> bool:
         """清空某运行的步骤记录。存在则删除并返回 True,不存在返回 False(幂等)。"""
