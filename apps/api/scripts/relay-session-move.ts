@@ -6,6 +6,8 @@
  * 单会话搬移/隔离(⑦第二刀·搬移腿,2026-10-27 立,最小粒度单会话·逐条可撤)。
  *
  *   pnpm relay:session-move move    --conversation <id> [--apply]
+ *   pnpm relay:session-move move    --account <id|唯一前缀> [--apply]   # 按账号批量
+ *   pnpm relay:session-move swap    --to <id|唯一前缀> [--apply]        # 切账号联动换桶
  *   pnpm relay:session-move restore --conversation <id> [--apply]
  *   pnpm relay:session-move undo    --op <n>            [--apply]
  *   pnpm relay:session-move ops
@@ -41,7 +43,8 @@ import { homedir } from 'node:os'
 import { dirname, join, relative, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { computeBackupPlan, type BackupManifest } from './relay-session-backup.js'
-import { loadLedger, type SessionLinksLedger } from './relay-session-links.js'
+import { loadLedger, readAccountMeta, type SessionLinksLedger } from './relay-session-links.js'
+import { resolveAuthFileCandidates } from './relay-account-switch.js'
 
 /** 搬移器全部路径面(默认本机真实面;测试注入临时目录,绝不碰真实会话库) */
 export interface MovePaths {
@@ -489,6 +492,163 @@ export function formatBatchPlan(b: BatchMovePlan, dryRun: boolean): string {
   return lines.join('\n')
 }
 
+/** 桶内该账号持有的会话 id(目录名 + 转写文件名主干,去重排序) */
+export function listBucketConversations(bucketsRoot: string, accountId: string): string[] {
+  const set = new Set<string>()
+  const sessDir = join(bucketsRoot, accountId, 'workspace', 'sessions')
+  if (existsSync(sessDir)) {
+    for (const n of readdirSync(sessDir)) {
+      try {
+        if (statSync(join(sessDir, n)).isDirectory()) set.add(n)
+      } catch {
+        /* 竞态消失跳过 */
+      }
+    }
+  }
+  const projDir = join(bucketsRoot, accountId, 'projects')
+  if (existsSync(projDir)) {
+    for (const ws of readdirSync(projDir)) {
+      const d = join(projDir, ws)
+      try {
+        if (!statSync(d).isDirectory()) continue
+      } catch {
+        continue
+      }
+      for (const n of readdirSync(d)) {
+        const i = n.indexOf('.')
+        if (i > 0) set.add(n.slice(0, i))
+      }
+    }
+  }
+  return [...set].sort()
+}
+
+export interface SwapSkip {
+  conversationId: string
+  direction: 'outbound' | 'inbound'
+  reason: string
+}
+
+export interface SwapPlan {
+  /** 当前登录态账号(取不到为 null:此时只做 inbound,不搬出) */
+  currentAccountId: string | null
+  targetAccountId: string
+  /** 活库 → 当前账号桶 */
+  outbound: MovePlan[]
+  /** 目标账号桶 → 活库 */
+  inbound: MovePlan[]
+  skipped: SwapSkip[]
+  totalFiles: number
+  totalBytes: number
+  warnings: string[]
+}
+
+/**
+ * 切账号联动换桶计划(纯只读):切到目标账号前,把活库里**当前账号名下**的会话搬进其桶,
+ * 把**目标账号桶里**的会话搬回活库。边界:
+ * - 未归属(null)与第三个账号的会话一律不碰(方案 A:无证据不猜);
+ * - 当前登录态不可判 ⇒ 只做 inbound(不搬出,避免把别人的会话挪走),并在告警里点名;
+ * - 目标与当前是同一账号 ⇒ 拒绝(无需换桶);
+ * - 桶内会话回位时若活库已有同名不同内容 ⇒ planRestore 拒做,该会话跳过并点名(宁可拒做)。
+ */
+export function planSwap(
+  targetRaw: string,
+  paths: MovePaths,
+  now: Date,
+  authFileOverride?: string,
+): SwapPlan {
+  const ledger = loadLedger(paths.ledgerFile)
+  if (!ledger)
+    throw new Error(`台账不存在: ${paths.ledgerFile}。先跑 pnpm relay:session-links rebuild --auto`)
+  const targetAccountId = resolveAccountId(ledger, targetRaw)
+  const authFile =
+    authFileOverride ?? resolveAuthFileCandidates().find((p) => existsSync(p)) ?? null
+  const meta = authFile ? readAccountMeta(authFile) : { accountId: null, label: '' }
+  const currentAccountId = meta.accountId
+  if (currentAccountId === targetAccountId) {
+    throw new Error(`目标账号就是当前登录账号(${targetAccountId});无需换桶`)
+  }
+  const snap = findTodaySnapshot(
+    paths.backupsSessionsDir,
+    paths.sessionsRoot,
+    paths.projectsRoot,
+    now,
+  )
+  if (!snap) {
+    throw new Error(
+      `当日会话库快照缺失(${paths.backupsSessionsDir})。先跑 pnpm relay:sessions:backup --apply;本器不自动代跑。`,
+    )
+  }
+  const shared: MovePlanContext = { snapshot: snap, currentRels: currentRelsOf(paths, now) }
+  const outbound: MovePlan[] = []
+  const inbound: MovePlan[] = []
+  const skipped: SwapSkip[] = []
+  const warnings: string[] = []
+  if (currentAccountId === null) {
+    warnings.push(`当前登录态账号不可判(${authFile ?? '未找到 auth 文件'}):只做换入、不搬出`)
+  } else {
+    const convs = Object.entries(ledger.links)
+      .filter(([, l]) => l.accountId === currentAccountId)
+      .map(([c]) => c)
+      .sort()
+    for (const conv of convs) {
+      try {
+        outbound.push(planMove(conv, paths, now, shared))
+      } catch (err) {
+        const msg = (err as Error).message
+        // 已搬走(两面皆无落点)= 正常终态,不算失败也不点名
+        if (msg.includes('会话不存在')) continue
+        skipped.push({ conversationId: conv, direction: 'outbound', reason: msg })
+      }
+    }
+  }
+  for (const conv of listBucketConversations(paths.bucketsRoot, targetAccountId)) {
+    try {
+      inbound.push(planRestore(conv, paths, now))
+    } catch (err) {
+      skipped.push({ conversationId: conv, direction: 'inbound', reason: (err as Error).message })
+    }
+  }
+  const all = [...outbound, ...inbound]
+  return {
+    currentAccountId,
+    targetAccountId,
+    outbound,
+    inbound,
+    skipped,
+    totalFiles: all.reduce((s, p) => s + p.files.length, 0),
+    totalBytes: all.reduce((s, p) => s + p.totalBytes, 0),
+    warnings: [...warnings, ...all.flatMap((p) => p.warnings)].slice(0, 20),
+  }
+}
+
+export function formatSwapPlan(p: SwapPlan, dryRun: boolean): string {
+  const lines: string[] = []
+  lines.push(`切账号换桶 · ${dryRun ? '预览(dry-run;加 --apply 才动库)' : '执行'}`)
+  lines.push(`当前账号: ${p.currentAccountId ?? '(不可判)'}   →   目标账号: ${p.targetAccountId}`)
+  lines.push(
+    `换出 ${p.outbound.length} 个会话 → 当前账号桶;换入 ${p.inbound.length} 个会话 → 活库;` +
+      `共 ${p.totalFiles} 个文件 / ${p.totalBytes} 字节`,
+  )
+  for (const m of p.outbound.slice(0, 10)) {
+    lines.push(`  ↓ ${m.conversationId}  ${m.files.length} 文件 ${m.totalBytes}B`)
+  }
+  if (p.outbound.length > 10) lines.push(`  …其余 ${p.outbound.length - 10} 个换出会话同批`)
+  for (const m of p.inbound.slice(0, 10)) {
+    lines.push(`  ↑ ${m.conversationId}  ${m.files.length} 文件 ${m.totalBytes}B`)
+  }
+  if (p.inbound.length > 10) lines.push(`  …其余 ${p.inbound.length - 10} 个换入会话同批`)
+  if (p.skipped.length > 0) {
+    lines.push(`跳过 ${p.skipped.length} 个(逐条独立,不影响其余):`)
+    for (const s of p.skipped.slice(0, 10)) {
+      lines.push(`  ${s.direction === 'outbound' ? '↓' : '↑'} ${s.conversationId}: ${s.reason}`)
+    }
+    if (p.skipped.length > 10) lines.push(`  …其余 ${p.skipped.length - 10} 条`)
+  }
+  for (const w of p.warnings) lines.push(`  ⚠ ${w}`)
+  return lines.join('\n')
+}
+
 /**
  * restore 计划:桶内镜像 → 原位。归属从台账读;台账无记录则在桶里找唯一持有者。
  * 目标已在位且 sha 一致 ⇒ 跳过拷贝只移除桶内副本;sha 不一致 ⇒ 拒绝(宁可拒做)。
@@ -785,6 +945,7 @@ export function main(
           '  relay:session-move move    --conversation <id> [--apply]\n' +
           '  relay:session-move move    --account <id|唯一前缀> [--apply]   # 按账号批量\n' +
           '  relay:session-move restore --conversation <id> [--apply]\n' +
+          '  relay:session-move swap    --to <账号id|唯一前缀> [--apply]   # 切账号联动换桶\n' +
           '  relay:session-move undo    --op <n> [--apply]\n' +
           '  relay:session-move ops\n' +
           '客户端在跑时 --apply 会被拦;确认目标会话未被写入可加\n' +
@@ -808,6 +969,59 @@ export function main(
     let plan: MovePlan
     let opType: MoveOp['type']
     let refOp: number | undefined
+    if (cmd === 'swap') {
+      const to = getFlag(argv, '--to')
+      if (!to) {
+        console.error('swap 需要 --to <账号 id 或唯一前缀>([--auth-file <当前登录态文件>])')
+        return 2
+      }
+      const swapPlan = planSwap(to, paths, new Date(), getFlag(argv, '--auth-file'))
+      const swapText = formatSwapPlan(swapPlan, !apply)
+      if (!apply) {
+        console.log(swapText)
+        console.log('\n(dry-run;未写入任何路径。确认后加 --apply)')
+        return 0
+      }
+      const swapBlocked = guardClient()
+      if (swapBlocked !== null) return swapBlocked
+      if (swapPlan.outbound.length === 0 && swapPlan.inbound.length === 0) {
+        console.log(`${swapText}\n\n没有需要换的会话`)
+        return 0
+      }
+      let outOk = 0
+      let inOk = 0
+      const swapFailed: { conv: string; dir: string; error: string }[] = []
+      const runOne = (p: MovePlan, type: 'move' | 'restore'): void => {
+        try {
+          const r = applyTransfers(p)
+          appendOps(paths.opsLogFile, {
+            ts: new Date().toISOString(),
+            type,
+            conversationId: p.conversationId,
+            accountId: p.accountId,
+            entries: r.moved,
+          })
+          if (type === 'move') outOk += 1
+          else inOk += 1
+        } catch (err) {
+          swapFailed.push({
+            conv: p.conversationId,
+            dir: type,
+            error: (err as Error).message,
+          })
+        }
+      }
+      for (const p of swapPlan.outbound) runOne(p, 'move')
+      for (const p of swapPlan.inbound) runOne(p, 'restore')
+      console.log(
+        `${swapText}\n\n完成: 换出 ${outOk} 个 / 换入 ${inOk} 个;失败 ${swapFailed.length} 个` +
+          `(已落地部分按 ops 逐条可撤)`,
+      )
+      for (const f of swapFailed.slice(0, 10)) {
+        console.error(`  ${f.conv}(${f.dir}): ${f.error}`)
+      }
+      return swapFailed.length === 0 ? 0 : 1
+    }
     if (cmd === 'move') {
       const conv = getFlag(argv, '--conversation')
       const acct = getFlag(argv, '--account')
