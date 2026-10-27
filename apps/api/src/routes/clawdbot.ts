@@ -288,7 +288,8 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   server.get('/clawdbot/models', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    return success(getModelManager().list())
+    // 2026-10-27 安全加固:普通登录用户也不该看到平台上游密钥明文 ⇒ 脱敏视图
+    return success(getModelManager().listPublic())
   })
 
   server.post('/clawdbot/models/complete', async (req, reply) => {

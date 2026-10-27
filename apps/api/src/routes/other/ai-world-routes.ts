@@ -14,6 +14,7 @@ import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { aiWorldItems } from '@ihui/database'
 import { parseIdParam } from './_shared.js'
+import { isSystemAdmin } from '../../plugins/require-permission.js'
 
 export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   // POST /ai-world/create — 创建 AI 世界条目
@@ -67,6 +68,13 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(aiWorldItems.id, id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '条目不存在'))
+    // 2026-10-27 安全加固(P1,IDOR):原实现登录即可改任意条目(含官方抓取入库的内容)。
+    // 现要求作者本人或管理员;无 authorId 的系统抓取条目只有管理员能改。
+    const isOwner = existing.authorId !== null && existing.authorId === request.userId
+    const isAdminUser = isSystemAdmin(request, { includeInternalChannel: false })
+    if (!isOwner && !isAdminUser) {
+      return reply.status(403).send(error(403, '无权修改该条目'))
+    }
     const [updated] = await db
       .update(aiWorldItems)
       .set({ ...body.data, updatedAt: new Date() })
