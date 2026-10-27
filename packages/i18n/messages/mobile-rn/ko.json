@@ -6749,6 +6749,10 @@
     "ready": "업데이트 준비 완료",
     "installing": "다시 시작하는 중…",
     "error": "업데이트 실패",
-    "errorDesc": "네트워크를 확인한 후 다시 시도하세요"
+    "errorDesc": "네트워크를 확인한 후 다시 시도하세요",
+    "downloading": "업데이트 다운로드 중…",
+    "currentBundle": "현재 실행 중: {{bundle}}",
+    "bundleEmbedded": "내장 패키지",
+    "bundleOta": "핫 업데이트"
   }
 }

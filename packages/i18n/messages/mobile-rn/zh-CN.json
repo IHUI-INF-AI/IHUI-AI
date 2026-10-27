@@ -6749,6 +6749,10 @@
     "ready": "更新已就绪",
     "installing": "正在重启…",
     "error": "更新失败",
-    "errorDesc": "请检查网络后重试"
+    "errorDesc": "请检查网络后重试",
+    "downloading": "正在下载更新…",
+    "currentBundle": "当前运行:{{bundle}}",
+    "bundleEmbedded": "内置包",
+    "bundleOta": "热更"
   }
 }

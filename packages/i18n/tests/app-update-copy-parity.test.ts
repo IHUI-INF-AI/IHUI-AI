@@ -62,13 +62,27 @@ const WEB_ONLY_KEYS = [
 ] as const
 
 /**
+ * RN 独占的 OTA 卡文案:下载读条 + 当前包身份(2026-10-27 第二批加)。
+ * web 的 PWA 卡没有这两层(SW 更新是页面级 reload,没有"包身份"概念),
+ * 所以不进 SHARED_KEYS,但五语言齐备与占位符成对照判不豁免。
+ */
+const RN_ONLY_KEYS = [
+  'downloading',
+  'currentBundle',
+  'bundleEmbedded',
+  'bundleOta',
+] as const
+
+/**
  * 已被审计删掉的死键:不许再回来(回来就是"写了不渲染"的第二份真相源)。
- *   checking/downloading —— 两端 UI 都不显示这两个中间态
+ *   checking —— 两端 UI 都不显示检查中中间态
  *   upToDate —— 设置页用的是 settings.checkUpdateLatest
  *   retry —— 重启失败改成"回到 ready 再点一次"
  *   gateLater —— 强更弹窗里 skip 侧门恒锁死,那块 UI 结构上永不渲染
+ *   〔2026-10-27 更正〕downloading 曾在本名单:原判"两端 UI 都不显示下载中间态";
+ *   机主实机要求补读条后 RN 卡开始渲染它 ⇒ 移入 RN_ONLY_KEYS,不再是死键。
  */
-const REMOVED_DEAD_KEYS = ['checking', 'downloading', 'upToDate', 'retry', 'gateLater'] as const
+const REMOVED_DEAD_KEYS = ['checking', 'upToDate', 'retry', 'gateLater'] as const
 
 describe('appUpdate 文案:web 5 语言键集一致(S1)', () => {
   it('每个语言都齐 SHARED_KEYS + WEB_ONLY_KEYS', () => {
@@ -92,20 +106,37 @@ describe('appUpdate 文案:web 5 语言键集一致(S1)', () => {
   })
 })
 
-describe('appUpdate 文案:RN 是 web 的子集且同名键等值(S2)', () => {
-  it('RN 有 SHARED_KEYS,且每个键的值与 web 逐字相等', () => {
+describe('appUpdate 文案:RN = 共用键 + RN 独占键,共用键与 web 等值(S2)', () => {
+  it('RN 有 SHARED_KEYS,且每个共用键的值与 web 逐字相等', () => {
     for (const locale of LOCALES) {
       const web = appUpdateOf('web', locale)
       const mobile = appUpdateOf('mobile-rn', locale)
       for (const key of SHARED_KEYS) {
         expect(mobile[key], `mobile-rn/${locale} 缺 ${key}`).toBeTypeOf('string')
+        expect(mobile[key], `mobile-rn/${locale} 的 ${key} 与 web 措辞不一致`).toBe(web[key])
       }
-      for (const [key, value] of Object.entries(mobile)) {
-        expect(web[key], `mobile-rn/${locale} 的 ${key} 在 web 侧不存在(两边漂开了)`).toBeTypeOf(
-          'string',
-        )
-        expect(value, `mobile-rn/${locale} 的 ${key} 与 web 措辞不一致`).toBe(web[key])
+    }
+  })
+
+  it('RN 独占键五语言齐备且非空(RN_ONLY_KEYS 不进 web,但翻译纪律同 SHARED)', () => {
+    for (const locale of LOCALES) {
+      const mobile = appUpdateOf('mobile-rn', locale)
+      for (const key of RN_ONLY_KEYS) {
+        expect(mobile[key], `mobile-rn/${locale} 缺 RN 独占键 ${key}`).toBeTypeOf('string')
+        expect(
+          (mobile[key] as string).length,
+          `mobile-rn/${locale} 的 ${key} 是空串`,
+        ).toBeGreaterThan(0)
       }
+    }
+  })
+
+  it('RN 独占键 currentBundle 的 {{bundle}} 占位符五语言成对', () => {
+    for (const locale of LOCALES) {
+      expect(
+        appUpdateOf('mobile-rn', locale).currentBundle,
+        `mobile-rn/${locale} currentBundle 缺 {{bundle}}`,
+      ).toContain('{{bundle}}')
     }
   })
 })
@@ -148,12 +179,12 @@ describe('appUpdate 文案:死键不许回来(S5)', () => {
     }
   })
 
-  it('键集恰好等于"共用键 + web 独占键"(没有多余项)', () => {
+  it('键集恰好等于"共用键 + web 独占键"/"共用键 + RN 独占键"(没有多余项)', () => {
     for (const locale of LOCALES) {
       const webKeys = Object.keys(appUpdateOf('web', locale)).sort()
       expect(webKeys).toEqual([...SHARED_KEYS, ...WEB_ONLY_KEYS].sort())
       const mobileKeys = Object.keys(appUpdateOf('mobile-rn', locale)).sort()
-      expect(mobileKeys).toEqual([...SHARED_KEYS].sort())
+      expect(mobileKeys).toEqual([...SHARED_KEYS, ...RN_ONLY_KEYS].sort())
     }
   })
 })
