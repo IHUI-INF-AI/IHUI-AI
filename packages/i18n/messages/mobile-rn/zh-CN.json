@@ -6723,5 +6723,14 @@
     "back": "返回",
     "loginRequired": "请先登录",
     "error": "加载失败"
+  },
+  "signUpPage": {
+    "title": "我的报名",
+    "loading": "加载中...",
+    "empty": "目前还没有数据",
+    "statusDraft": "待审核",
+    "statusPublished": "已确认",
+    "statusRejected": "已拒绝",
+    "statusCompleted": "已完成"
   }
 }

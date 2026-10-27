@@ -6723,5 +6723,14 @@
     "back": "Back",
     "loginRequired": "Please log in first",
     "error": "Failed to load"
+  },
+  "signUpPage": {
+    "title": "My Sign-ups",
+    "loading": "Loading...",
+    "empty": "No data yet",
+    "statusDraft": "Pending Review",
+    "statusPublished": "Confirmed",
+    "statusRejected": "Rejected",
+    "statusCompleted": "Completed"
   }
 }
