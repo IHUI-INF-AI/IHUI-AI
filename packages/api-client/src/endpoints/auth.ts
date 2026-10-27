@@ -461,6 +461,23 @@ export async function oauthCallback(
   })
 }
 
+/** OAuth 发起期协议同意记录 — POST /auth/oauth/consent
+ *  服务端对通用回调 `POST /auth/:platform/callback` 是 fail-closed 闸:只认发起期已落 Redis
+ *  且绑定 state 的同意记录(回调时一次性消费)。各端在**打开授权会话前**必须先调本端点;
+ *  返回非 ok 即中止授权,不得先开浏览器再补记录。
+ *  body: { state, platform, agreementAccepted: true };成功 { ok: true };Redis 不可用 503。
+ */
+export async function recordOAuthConsent(
+  platform: OAuthPlatform,
+  state: string,
+  agreementAccepted: boolean,
+): Promise<ApiResult<{ ok: boolean }>> {
+  return fetchApi<{ ok: boolean }>('/api/auth/oauth/consent', {
+    method: 'POST',
+    body: JSON.stringify({ state, platform, agreementAccepted }),
+  })
+}
+
 /** Google Android id_token 验证 — GET /auth/google/android/wxCode?id_token=xxx
  *  Android 端通过 @react-native-google-signin/google-signin 拿到 id_token 后调此端点,
  *  后端调用 Google OAuth2 tokeninfo 验证并返回 GoogleUserInfo(openId/email/name/picture)。
