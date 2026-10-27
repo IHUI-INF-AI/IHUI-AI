@@ -33,10 +33,10 @@ def _read_store(path: Path) -> list[dict[str, object]]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _rec(key: str, *, owner: str = "", name: str = "语雀文档库") -> dict[str, object]:
+def _rec(key: str, *, owner: str = "", name: str = "语雀文档库", ctype: str = "yuque") -> dict[str, object]:
     rec: dict[str, object] = {
         "key": key,
-        "type": "yuque",
+        "type": ctype,
         "name": name,
         "app_id": "appid-1",
         "app_secret": SECRET,
@@ -226,6 +226,101 @@ def test_malformed_claim_argument_is_refused(tmp_path: Path, bad: str, capsys) -
 
     assert rc == 1
     assert "拒绝" in capsys.readouterr().out
+
+
+def test_audit_lists_ownerless_without_any_claim(tmp_path: Path, capsys) -> None:
+    """`--audit` 是"报名清单"的出口:不需要 claims,也不写盘。
+
+    立因(2026-10-27):原实现无 claims 一律 exit 1,于是"机主逐条认领"的前一步——
+    先知道有哪些 key 可认领——在工具里根本没有入口:部署机上没人能列出无主 key,
+    拿到的只有一个计数或一句拒绝。这不是安全判据,是缺了一条只读出口。
+    """
+    store = tmp_path / "connector_store.json"
+    _write_store(store, [_rec("yuque:docs"), _rec("feishu:team", ctype="feishu"), _rec("wecom:ops", owner="7", ctype="wecom")])
+    before = store.read_bytes()
+
+    rc = main(["--store", str(store), "--audit"])
+
+    assert rc == 0
+    assert store.read_bytes() == before
+    out = capsys.readouterr().out
+    assert "已属主 1 条" in out and "可按 key 认领 2 条" in out, out
+    assert "yuque:docs (yuque)" in out and "feishu:team (feishu)" in out, out
+    assert "feishu=1" in out and "yuque=1" in out, out
+    assert "wecom:ops" not in out, "已属主的记录不该出现在报名清单里"
+    assert "claims.json" in out, "清单必须给出下一步可执行动作"
+
+
+def test_audit_splits_duplicate_keys_out_of_the_claim_list(tmp_path: Path, capsys) -> None:
+    """同一 key 多条不能混进"可认领"清单 —— 按 key 认领会整体拒绝,先合条才有意义。"""
+    store = tmp_path / "connector_store.json"
+    _write_store(store, [_rec("dup:a", owner="7"), _rec("dup:a"), _rec("solo:b")])
+
+    rc = main(["--store", str(store), "--audit"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "可按 key 认领 1 条" in out, out
+    assert "solo:b (yuque)" in out
+    assert "先合条再认领" in out and "dup:a" in out, out
+
+
+def test_audit_never_echoes_record_contents(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "connector_store.json"
+    _write_store(store, [_rec("yuque:docs")])
+
+    main(["--store", str(store), "--audit"])
+
+    assert SECRET not in capsys.readouterr().out
+
+
+def test_audit_on_missing_store_reports_zero_and_succeeds(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "connector_store.json"
+
+    rc = main(["--store", str(store), "--audit"])
+
+    assert rc == 0
+    assert "无主记录 0 条" in capsys.readouterr().out
+    assert not store.exists(), "巡检不得凭空创建 store 文件"
+
+
+def test_explicit_dry_run_flag_is_accepted_and_writes_nothing(tmp_path: Path, capsys) -> None:
+    """`--dry-run` 必须能被显式传:runbook/票面写的正是它。
+
+    立因(2026-10-27 实测):参数里只有 `--apply`,照抄 `--dry-run` 会
+    `unrecognized arguments: --dry-run` 退 2 —— 机主按票面命令跑第一次就失败,
+    而"缺省即 dry-run"这个设计事实在命令行上是不可见的。
+    """
+    store = tmp_path / "connector_store.json"
+    _write_store(store, [_rec("yuque:docs")])
+    before = store.read_bytes()
+
+    rc = main(["--store", str(store), "--claim", "yuque:docs=42", "--dry-run"])
+
+    assert rc == 0
+    assert store.read_bytes() == before
+    assert "[dry-run]" in capsys.readouterr().out
+
+
+def test_dry_run_and_apply_together_are_refused(tmp_path: Path) -> None:
+    store = tmp_path / "connector_store.json"
+    _write_store(store, [_rec("yuque:docs")])
+    before = store.read_bytes()
+
+    rc = main(["--store", str(store), "--claim", "yuque:docs=42", "--dry-run", "--apply"])
+
+    assert rc == 1
+    assert store.read_bytes() == before
+
+
+def test_audit_and_apply_together_are_refused(tmp_path: Path) -> None:
+    store = tmp_path / "connector_store.json"
+    _write_store(store, [_rec("yuque:docs")])
+
+    rc = main(["--store", str(store), "--audit", "--apply"])
+
+    assert rc == 1
+    assert _read_store(store)[0].get("owner_user_id", "") == ""
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 
