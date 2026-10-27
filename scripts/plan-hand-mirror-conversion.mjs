@@ -224,6 +224,55 @@ export function clipboardCovered(shellText) {
 }
 
 /**
+ * 端点归一:去 query、插值与数字段折成 :id、去尾斜杠、**去开头的 /api**。
+ * 为什么要去 /api:端内 `get('/follows/:id/status')` 走 BASE_URL(已含 /api),而 RN 壳
+ * `fetchApi('/api/follows/:id/status')` 写全路径 —— 同一端点两种写法(现读 user-public 页头注即此)。
+ */
+export function normEndpoint(p) {
+  return String(p)
+    .split('?')[0]
+    .replace(/\$\{[^}]*\}/g, ':id')
+    .replace(/\/\d+/g, '/:id')
+    .replace(/\/+$/, '')
+    .replace(/^\/api(?=\/|$)/, '')
+}
+
+const GENERIC_FETCHERS = new Set(['get', 'post', 'put', 'del', 'patch'])
+
+/**
+ * 页面**直接**用通用请求器(get/post/put/del/patch)打的端点,是否全部被承载壳覆盖。
+ * 判定为真需同时满足:
+ *   ① 页面里确实有直接调用,且从 `@/api*` 导入的具名成员**只有**这几个通用请求器
+ *      (还有别的业务函数 ⇒ 那些函数的端点解析不出 ⇒ 一律不销账,保守);
+ *   ② 每个端点归一后都能在壳的 fetchApi 端点集里找到。
+ * 端点重合才有资格说"数据由壳承担";不重合就是真差异(现读 64 页里绝大多数属后者)。
+ */
+export function apiEndpointsCovered(pageText, shellText) {
+  const page = maskComments(String(pageText ?? ''))
+  const calls = [
+    ...page.matchAll(/\b(?:get|post|put|del|patch)\s*(?:<[^>]*>)?\s*\(\s*[`'"]([^`'"]+)/g),
+  ].map((m) => normEndpoint(m[1]))
+  if (calls.length === 0) return false
+  for (const m of page.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]@\/api[^'"]*['"]/g)) {
+    for (const piece of m[1].split(',')) {
+      const n = piece.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim()
+      if (!n) continue
+      if (GENERIC_FETCHERS.has(n)) continue
+      if (/^[A-Z]/.test(n)) continue // 类型导入(如 Course/News)
+      return false
+    }
+  }
+  const shell = maskComments(String(shellText ?? ''))
+  const sp = new Set(
+    [
+      ...shell.matchAll(/fetchApi\s*(?:<[^>]*>)?\s*\(\s*['"`]([^'"`]+)/g),
+      ...shell.matchAll(/fetchApi\s*\(\s*\{[^}]*url:\s*['"`]([^'"`]+)/g),
+    ].map((m) => normEndpoint(m[1])),
+  )
+  return calls.every((p) => sp.has(p))
+}
+
+/**
  * 提示等价:页面 showToast 引用的 i18n key **全部**在壳正文里出现,且壳自己有提示出口
  * (appAlert / Toast) ⇒ 页面那几处 toast 是重复;壳的提示文案就是同一批词条。
  * 任一 key 在壳里找不到 ⇒ 壳没有这条提示,转壳会丢用户反馈 ⇒ 不销账(现读 67 页里只有 6 页满足)。
@@ -242,6 +291,21 @@ export function toastCovered(pageText, shellText) {
 /** 页面是否用端内鉴权就绪钩子(由生成页包 AuthReadyGate 承担,见该组件头注)。 */
 export function needsAuthGate(pageText) {
   return /useAuthReadyGate|@\/hooks\/use-auth-ready-gate/.test(String(pageText ?? ''))
+}
+
+/**
+ * 页面里的 switchTab 是否**只作为 navigateBack 的失败回落**(`navigateBack(...).catch(() => switchTab(...))`)。
+ * 这是小程序特有写法:RN 端 navigation.goBack() 不存在"失败回落首页"这一态,壳不需要它。
+ * 只要有任意一处 switchTab 不在该 catch 链里(独立跳 tab)⇒ false,仍算私有能力。
+ */
+export function backFallbackOnly(pageText) {
+  const src = maskComments(String(pageText ?? ''))
+  const switches = [...src.matchAll(/Taro\.switchTab\s*\(/g)].length
+  if (switches === 0) return false
+  const fallbacks = [
+    ...src.matchAll(/navigateBack\s*\([\s\S]{0,240}?\.catch\s*\(\s*\(\s*\)\s*=>\s*\{[\s\S]{0,240}?Taro\.switchTab/g),
+  ].length
+  return fallbacks >= switches
 }
 export function themeCovered(shellText) {
   return /useTheme|colorScheme|resolvedTheme/.test(String(shellText ?? ''))
@@ -351,6 +415,11 @@ export function judgeConversion({
     for (const tok of ['useAuthReadyGate', '@/hooks/use-auth-ready-gate']) pageTokens.delete(tok)
   // 提示等价:key 全在壳里且壳有提示出口才销账(壳没有这条提示就仍算私有)
   if (toastCovered(pageText, shellText)) pageTokens.delete('Taro.showToast')
+  // switchTab 只做 navigateBack 的失败回落 ⇒ RN 端没有这一态,壳的 goBack 已覆盖
+  if (backFallbackOnly(pageText)) pageTokens.delete('Taro.switchTab')
+  // 页面直接打的端点全部被壳覆盖 ⇒ 数据由壳承担(端点不重合的一律不销账)
+  if (apiEndpointsCovered(pageText, shellText))
+    for (const tok of ['@/api', '@/api/index', '@/api/social']) pageTokens.delete(tok)
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -599,6 +668,19 @@ function main(argv) {
       needsAuthGate("import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'"),
       needsAuthGate('const x = 1'),
     ], [true, false, false, true, false])
+    P('S12b switchTab 只作 navigateBack 的失败回落 ⇒ 不算私有;独立切 tab 仍算', [
+      backFallbackOnly("Taro.navigateBack({ delta: 1 }).catch(() => { Taro.switchTab({ url: '/pages/index/index' }) })"),
+      backFallbackOnly("Taro.switchTab({ url: '/pages/x' })"),
+      backFallbackOnly('const x = 1'),
+    ], [true, false, false])
+    P('S13 端点等价:页面 get/post 的端点须全部在壳 fetchApi 里(/api 前缀与动态段归一);带业务函数或端点不重合都不销', [
+      apiEndpointsCovered(
+        "import { get, post } from '@/api'\nget(`/follows/${id}/status`)\npost('/messages/conversations')",
+        "fetchApi(`/api/follows/${uid}/status`)\nfetchApi('/api/messages/conversations', { method: 'POST' })",
+      ),
+      apiEndpointsCovered("import { get } from '@/api'\nget('/agents/list')", "fetchApi('/api/agents')"),
+      apiEndpointsCovered("import { getX } from '@/api'\nget('/x')", "fetchApi('/api/x')"),
+    ], [true, false, false])
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
@@ -676,6 +758,9 @@ export const __test__ = {
   routeParamsCovered,
   toastCovered,
   needsAuthGate,
+  backFallbackOnly,
+  apiEndpointsCovered,
+  normEndpoint,
   ROOT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
