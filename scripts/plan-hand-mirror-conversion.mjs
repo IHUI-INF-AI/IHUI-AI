@@ -223,6 +223,32 @@ export function clipboardCovered(shellText) {
   return /Clipboard\.setString|Clipboard\.setClipboardData|copyToClipboard/.test(String(shellText ?? ''))
 }
 
+/**
+ * 主题:小程序的 `useAppTheme()`(端内 theme hook)与壳的 `useTheme().resolvedTheme` → colorScheme prop
+ * 是同一件事的前后两段;壳自己会把 colorScheme 传给共享屏,页面那份是重复取用。
+ */
+export function themeCovered(shellText) {
+  return /useTheme|colorScheme|resolvedTheme/.test(String(shellText ?? ''))
+}
+
+/** 返回:navigateBack ↔ RN 的 navigation.goBack / 壳的 onBack 注入。 */
+export function backCovered(shellText) {
+  return /goBack|onBack/.test(String(shellText ?? ''))
+}
+
+/**
+ * 路由参数:`Taro.getCurrentInstance().router.params` 在端内页里拿 query,
+ * 而壳里读的是 `route.params` —— rn-compat 的 useRoute 头注写明"小程序的 router.params 即 RN 的
+ * route.params"(apps/miniapp-taro/src/rn-compat/navigation.tsx:57),所以参数链路成立。
+ * 只认壳里真有 route.params/useRoute 的情形;页面侧也必须真的在读 params(不拿它当事件通道)。
+ */
+export function routeParamsCovered(pageText, shellText) {
+  return (
+    /router\??\.params/.test(String(pageText ?? '')) &&
+    /useRoute|route\??\.params/.test(String(shellText ?? ''))
+  )
+}
+
 /** 一页文本里"能力-bearing"的三族标识(方法名 / 钩子 / 端内模块),用于相对取差。 */
 export function capabilityTokens(text) {
   const t = String(text ?? '')
@@ -300,6 +326,9 @@ export function judgeConversion({
   if (reachBottomCovered(shellText)) pageTokens.delete('useReachBottom')
   if (modalCovered(shellText)) pageTokens.delete('Taro.showModal')
   if (clipboardCovered(shellText)) pageTokens.delete('Taro.setClipboardData')
+  if (themeCovered(shellText)) for (const tok of ['@/lib/theme', 'useAppTheme']) pageTokens.delete(tok)
+  if (backCovered(shellText)) pageTokens.delete('Taro.navigateBack')
+  if (routeParamsCovered(pageText, shellText)) pageTokens.delete('Taro.getCurrentInstance')
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -533,6 +562,13 @@ function main(argv) {
       reachBottomCovered('return null'),
       clipboardCovered('return null'),
     ], [true, true, true, false, false])
+    P('S11 主题/返回/路由参数:壳侧有对应实现才销账;页面没读 params 时 getCurrentInstance 不销', [
+      themeCovered("const { resolvedTheme } = useTheme()"),
+      backCovered('onBack={() => navigation.goBack()}'),
+      routeParamsCovered('Taro.getCurrentInstance().router?.params?.id', 'const route = useRoute(); route.params.id'),
+      routeParamsCovered('Taro.getCurrentInstance().eventChannel', 'const route = useRoute()'),
+      routeParamsCovered('router?.params?.id', 'return null'),
+    ], [true, true, true, false, false])
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
@@ -605,6 +641,9 @@ export const __test__ = {
   reachBottomCovered,
   modalCovered,
   clipboardCovered,
+  themeCovered,
+  backCovered,
+  routeParamsCovered,
   ROOT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
