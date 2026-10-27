@@ -119,6 +119,27 @@ export interface EffortDowngradeTrace {
   reason: 'invalid-enum' | 'rank-lower' | 'rank-higher'
 }
 
+/**
+ * G-395 请求档 vs 实得档对照(每次解析都携带,含两档一致时)。
+ *
+ * 与 `EffortDowngradeTrace` 的分工:后者只在两档不一致时存在(告警面),
+ * 本记录每次都给出两档原值与双方出处(对账面)—— 两档一致时也读得到"请求档是什么",
+ * 不再只能靠"没有降档留痕"反推。
+ * `effectiveEffort` 与 `EffectiveRuntimeConfig.reasoningEffort` 同值、同一出口生成(非第二份真相)。
+ */
+export interface EffortResolution {
+  /** 请求档:最高优先给出非 undefined 原始值的层原样值(含非法枚举值,不做容错改写) */
+  requestedEffort?: string
+  /** 请求档出处(哪层/哪个配置项给的原值);无请求档 ⇒ undefined */
+  requestedEffortSource?: ConfigFieldSource
+  /** 实得档:链解析后的最终值;四层皆空 ⇒ undefined(交由父 session 继承/默认档) */
+  effectiveEffort?: ReasoningEffort
+  /** 实得档出处(哪一层接手;四层皆空时为 parent 兜底标签) */
+  effectiveEffortSource: ConfigFieldSource
+  /** 两档是否一致;无请求档 ⇒ null(无从比较,不写 false 冒充) */
+  matched: boolean | null
+}
+
 /** 解析后的有效运行时配置(四层短路链结果) */
 export interface EffectiveRuntimeConfig {
   model?: string
@@ -147,6 +168,11 @@ export interface EffectiveRuntimeConfig {
   }
   /** G-395:请求档 vs 实得档留痕,仅降档发生时存在(消除静默降档) */
   effortDowngrade?: EffortDowngradeTrace
+  /**
+   * G-395:请求档 vs 实得档对照(总是存在)。
+   * `effortDowngrade` 只在两档不一致时给告警面;本字段把两档一致这一档也留痕。
+   */
+  effortResolution: EffortResolution
   /**
    * G-395:快照可读的四层修订号(哪一层的来源文件、mtime、取不到时的显式原因)。
    * 消费方读 `precedence.ts` 的 `formatConfigSnapshot` / 默认留痕出口,不得自带第二份渲染。

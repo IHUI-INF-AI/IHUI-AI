@@ -214,6 +214,7 @@ export function parseArgs(argv) {
   let diskFloorGb = DISK_FLOOR_GB_DEFAULT
   let timeoutMs = PLAN_TASKS_TIMEOUT_MS_DEFAULT
   let json = false
+  let brief = false
   let mode = 'plan'
   let seat = null
   let ticket = null
@@ -221,9 +222,10 @@ export function parseArgs(argv) {
   const scopes = []
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
-    if (a === '--json') json = true
+    if (a === '--brief') brief = true
+    else if (a === '--json') json = true
     else if (a === '--self-test')
-      return { selfTest: true, seats, diskFloorGb, timeoutMs, json, issues, mode, seat, ticket, scopes, ttlMinutes }
+      return { selfTest: true, seats, diskFloorGb, timeoutMs, json, brief, issues, mode, seat, ticket, scopes, ttlMinutes }
     else if (a === '--claim' || a === '--release') {
       mode = a === '--claim' ? 'claim' : 'release'
       const v = argv[++i]
@@ -269,7 +271,7 @@ export function parseArgs(argv) {
   if (mode === 'claim' && scopes.length === 0)
     issues.push('--claim 必须带至少一条 --scope(没有作用域的登记等于给别人发"这块地没人占"的合格证)')
   if (mode === 'release' && !seat) issues.push('--release 需要席位短名')
-  return { selfTest: false, seats, diskFloorGb, timeoutMs, json, issues, mode, seat, ticket, scopes, ttlMinutes }
+  return { selfTest: false, seats, diskFloorGb, timeoutMs, json, brief, issues, mode, seat, ticket, scopes, ttlMinutes }
 }
 
 /** 抽一台机的剩余空间。读不出 ⇒ null(调用方落未判定,不得拿 0 冒充"盘满"也不冒充"够")。 */
@@ -329,6 +331,12 @@ export function prefixMatches(clipped, raw, { min = 20 } = {}) {
   return i >= min
 }
 
+/** 抽成纯函数(可测):占位符路径(`<x>`、通配、含空白)不构成互斥凭据。 */
+export function splitConcretePaths(paths) {
+  const isPh = (p) => /[<>|*?]/.test(p) || /\s/.test(p)
+  return { concrete: paths.filter((p) => !isPh(p)), placeholder: paths.filter(isPh) }
+}
+
 /** 一行登记行的作用域:点名路径 ∪ 命中的热文件档(热文件之间互为冲突)。 */
 export function scopeOfRow(raw) {
   const paths = []
@@ -375,6 +383,13 @@ export function buildWave(candidates, { maxSeats, externalClaims = new Map(), ex
   for (const c of order) {
     if (wave.length >= maxSeats) {
       dropped.push({ ...c, why: 'seat-cap' })
+      continue
+    }
+    // 他席**未提交**的在飞面也必须压住:唯一入口的 --exclude-inflight 只按"票面点名的路径此刻是否
+    // 被在飞改动占着"移票,而它用的清单是台账行自带的引用;本器的 dirtyHit 是按 extractRefs 逐条比
+    // 索引/工作树脏集算出来的,比那一档更准。今晚实测到派出去的席撞上别人 59 枚脏面里的同一文件。
+    if (Array.isArray(c.dirtyHit) && c.dirtyHit.length > 0) {
+      dropped.push({ ...c, why: 'dirty-inflight', detail: c.dirtyHit.slice(0, 4) })
       continue
     }
     // 同一枚票只能有一席在干(票号维,排在作用域维之前):今天实测到对席会话在同一分钟把
@@ -426,7 +441,7 @@ export function spinVerdict({ dispatchFaceCount, waveCount, dropped, anchorMisma
   if (waveCount > 0) return { state: 'dispatchable', red: false }
   const blockedByOverlap = dropped.filter((d) => ['path-overlap', 'hot-file', 'held-by-seat', 'held-ticket-by-seat'].includes(d.why)).length
   if (blockedByOverlap > 0 || anchorMismatch > 0) return { state: 'spinning', red: true }
-  if (dropped.some((d) => d.why === 'scope-unknown'))
+  if (dropped.some((d) => d.why === 'scope-unknown' || d.why === 'scope-placeholder'))
     return { state: 'needs-scope', red: true }
   return { state: 'idle-seats-exhausted', red: false }
 }
@@ -505,6 +520,7 @@ export function buildBoard(root, opts = {}) {
   const candidates = []
   const anchorMismatch = []
   const undeterminedRefs = []
+  const placeholders = []
   for (const f of faceLines) {
     const row = rowsByLine.get(f.line)
     if (!row || !prefixMatches(f.clipped, row.raw)) {
@@ -513,7 +529,14 @@ export function buildBoard(root, opts = {}) {
     }
     const sc = scopeOfRow(row.raw)
     if (sc.extractFailed) undeterminedRefs.push({ line: row.line, reason: 'extractRefs 抛错' })
-    const paths = sc.paths
+    // 占位符路径不是作用域:`packages/shared/src/ui/<x>-spec/` 这类票面写法指的是"待命名的新文件",
+    // 拿它当互斥凭据等于给一条不存在的路径发合格证(2026-10-27 实测:一席据此领到过假路径)。
+    const { concrete, placeholder } = splitConcretePaths(sc.paths)
+    if (concrete.length === 0) {
+      placeholders.push({ line: row.line, ticketId: keyOfRow(row.raw) ?? '(无号)', why: 'scope-placeholder', detail: placeholder.slice(0, 4) })
+      continue
+    }
+    const paths = concrete
     const dirtyHit =
       dirty === null ? [] : paths.filter((p) => (p.endsWith('/') ? [...dirty].some((d) => d === p.slice(0, -1) || d.startsWith(p)) : dirty.has(p)))
     const absentInHead =
@@ -527,6 +550,7 @@ export function buildBoard(root, opts = {}) {
       hot: hotClassesOf(paths),
       dirtyHit,
       absentInHead,
+      raw: row.raw,
     })
   }
 
@@ -536,10 +560,11 @@ export function buildBoard(root, opts = {}) {
     externalTickets: flattenSeatTickets(claimsRes.claims),
   })
   const heldBySeat = dropped.filter((d) => d.why === 'held-by-seat' || d.why === 'held-ticket-by-seat').length
+  const droppedAll = [...dropped, ...placeholders]
   const spin = spinVerdict({
     dispatchFaceCount: faceLines.length,
     waveCount: wave.length,
-    dropped,
+    dropped: droppedAll,
     anchorMismatch: anchorMismatch.length,
   })
   return {
@@ -555,8 +580,9 @@ export function buildBoard(root, opts = {}) {
       dispatchFace: faceLines.length,
       rowsOpenInHead: rowsByLine.size,
       candidateCount: candidates.length,
-      wave: wave.map((w) => ({ line: w.line, ticketId: w.ticketId, title: w.title, paths: w.paths, hot: w.hot })),
-      dropped: dropped.map((d) => ({ line: d.line, ticketId: d.ticketId, why: d.why, detail: d.detail ?? null })),
+      wave: wave.map((w) => ({ line: w.line, ticketId: w.ticketId, title: w.title, paths: w.paths, hot: w.hot, raw: String(w.raw ?? '').slice(0, 900) })),
+      dropped: droppedAll.map((d) => ({ line: d.line, ticketId: d.ticketId, why: d.why, detail: d.detail ?? null })),
+      scopePlaceholder: placeholders.length,
       anchorMismatch,
       dirtyFace: dirty === null ? 'undetermined' : dirty.size,
       headFace: headSet === null ? 'undetermined' : headSet.size,
@@ -625,8 +651,48 @@ function selfTest() {
   t('㉔ 票号摊平:没写票号的声明不冒充票号维', f2.get('G-9') === 's1' && f2.size === 1)
   t('㉕ 被别席占着也算"有活排不进"⇒ 判红要人重排(不得读成"今天没活")', spinVerdict({ dispatchFaceCount: 2, waveCount: 0, dropped: [{ why: 'held-ticket-by-seat' }], anchorMismatch: 0 }).red === true)
   t('⑱ needs-scope 判红(有活排不进=主席须补作用域,不是"今天没活")', spinVerdict({ dispatchFaceCount: 2, waveCount: 1, dropped: w3.dropped, anchorMismatch: 0 }).red === false && spinVerdict({ dispatchFaceCount: 2, waveCount: 0, dropped: [{ why: 'scope-unknown' }], anchorMismatch: 0 }).state === 'needs-scope')
+  const br = briefOf({ line: 1, ticketId: 'G-9', title: '示例票', paths: ['apps/api/src/x.ts'], hot: [] }, { seat: 's1', ticketRow: '- [ ] G-9 示例票正文' })
+  t('㉗ 派单书必须自带今晚踩过的三条硬约束(严禁 worktree / 先自核勾选态 / 执行席不 commit)', /严禁 git worktree/.test(br) && /先自核票面勾选态/.test(br) && /git add/.test(br) && /--claim s1 --ticket G-9 --scope apps\/api\/src\/x\.ts/.test(br))
+  t('㉘ 派单书把作用域与票面原文逐条列全(不靠主席手抄漏项)', br.includes('apps/api/src/x.ts') && br.includes('G-9 示例票正文'))
+  const sp = splitConcretePaths(['apps/web/src/a.ts', 'packages/shared/src/ui/<x>-spec/', 'docs/UI GUIDELINES.md', 'apps/api/src/z.ts'])
+  t('㉚ 占位符/含空白路径不算作用域(拿不存在的路径发互斥合格证=假凭据)', sp.concrete.length === 2 && sp.placeholder.length === 2 && sp.concrete[0] === 'apps/web/src/a.ts')
+  t('㉛ 全占位符的票要落 scope-placeholder 并判红(不是"没活")', spinVerdict({ dispatchFaceCount: 1, waveCount: 0, dropped: [{ why: 'scope-placeholder' }], anchorMismatch: 0 }).state === 'needs-scope')
+  t('㉙ 他席未提交的脏面必须压住(dirty-inflight)——这是"不打架"的另一半', (() => {
+    const dirty = [{ line: 7, ticketId: 'D-7', title: 'd', paths: ['apps/api/src/x.ts'], hot: [], dirtyHit: ['apps/api/src/x.ts'] }, { line: 8, ticketId: 'D-8', title: 'e', paths: ['packages/auth/src/y.ts'], hot: [], dirtyHit: [] }]
+    const w = buildWave(dirty, { maxSeats: 6 })
+    return w.wave.length === 1 && w.wave[0].ticketId === 'D-8' && w.dropped[0].why === 'dirty-inflight'
+  })())
   console.log(`[dispatch-board] self-test ${ok.length}/${n} 通过${bad.length ? ` ⇒ 失败:${bad.join(', ')}` : ''}`)
   return bad.length === 0 ? 0 : 1
+}
+
+/**
+ * 派单书生成(§11 六要素 + 本席今晚实测到的三条硬约束)。
+ * 为什么要这一格:切席判据算得出来之后,任务书仍是主席手抄 —— 手抄就会漏"严禁 worktree"
+ * (今晚五席全灭那条)、漏"先自核票面勾选态"(今晚两席空活那条)、漏"执行席不 commit"
+ * (共享索引被别人占着、safe-commit 必拒那条)。把这三句做成模板印出来,而不是指望人记得。
+ * 只给**有作用域**的票出书;scope-unknown 的票不出(它没有互斥凭据)。
+ */
+export function briefOf(candidate, { seat, ticketRow }) {
+  const c = candidate
+  const paths = c.paths.length > 0 ? c.paths : []
+  const lines = []
+  lines.push(`【席位 ${seat}】票 ${c.ticketId}`)
+  lines.push(`目标：${c.title} —— 动手前先跑 git show HEAD:PROJECT_PLAN.md 现读该行全文，别只信本节转述。`)
+  lines.push('受影响文件（只准写这些，其余一律不碰）：')
+  for (const p of paths) lines.push(`  - ${p}`)
+  if (c.hot.length > 0) lines.push(`  ⚠ 本票含热档 ${c.hot.join(', ')} ⇒ 与同档他席串行，不得并写`)
+  lines.push('禁止修改：PROJECT_PLAN.md / AGENTS.md / README*.md / 根 package.json / .husky/** / scripts/data/** / 他席在飞面（见席位台账 seat-scopes.jsonl）')
+  lines.push('验证命令（交付前自跑并贴末行现读）：')
+  lines.push('  1) 先自核票面勾选态：`git show HEAD:PROJECT_PLAN.md | grep -c "<本行标题锚点>"` —— 命中在 `- [x]` 或 0 命中 ⇒ **零改动回报**，只交现读命令与末行（票面已被别席结清就是有效交付，不是失败）')
+  lines.push('  2) 语法冒烟：`node --check <每个改动文件>`')
+  lines.push('  3) 只跑该票点名的那一条判据/测试，**别跑全量守门批**（机器上数十 node 进程，会把他人用例打成假红）')
+  lines.push('  4) 新文件：`node scripts/watermark.mjs inject <file>` + `verify`；改动带镜像测试且做"摘掉即红"变异自证')
+  lines.push('约束边界：**严禁 git worktree**（共享盘与 16,673 文件检出会把派单顶穿）；严禁 `git add`/`commit`/`push`（主席带 pathspec 或 object-space-land 落地）；派单书第一条动作 = `mkdir -p .ihui-agent/tmp/<席名>` 并在 30 秒内写 progress.md 首行（本仓死席主形态是静默死亡）')
+  lines.push(`交付物：改动清单 + 末行读数 + 报告 ≤300 字（含未收格与未判定项，不得用"完成"盖住）`)
+  lines.push(`登记本席作用域（主席执行）：node scripts/dispatch-board.mjs --claim ${seat} --ticket ${c.ticketId} ${paths.map((p) => `--scope ${p}`).join(' ')} --ttl-minutes 120`)
+  if (typeof ticketRow === 'string' && ticketRow.trim()) lines.push(`票面原文（逐字，勿改）：${ticketRow.trim().slice(0, 700)}`)
+  return lines.join('\n')
 }
 
 function main() {
@@ -680,9 +746,16 @@ function main() {
       if (b.dropped.length > 12) console.log(`    …另 ${b.dropped.length - 12} 枚(同口径重跑可全量点名)`)
     }
     const scopeUnknown = b.dropped.filter((d) => d.why === 'scope-unknown').length
-    if (scopeUnknown > 0)
-      console.log(`  ⚠ 作用域未点名 ${scopeUnknown} 枚 ⇒ 本器不替它们发互斥合格证;唯一出路 = 主席按票面正文补出点名文件后重跑`)
+    const ph = b.scopePlaceholder ?? 0
+    if (scopeUnknown + ph > 0)
+      console.log(`  ⚠ 作用域不可用 ${scopeUnknown + ph} 枚(未点名 ${scopeUnknown} / 占位符路径 ${ph})⇒ 本器不替它们发互斥合格证;唯一出路 = 主席按票面正文补出真实路径后重跑`)
     console.log(`  结论 state=${b.state}${b.red ? ' ⇒ 有可派票却一枚排不进,主席须重排(不是没活)' : ''}`)
+  }
+  if (a.brief) {
+    console.log('')
+    console.log('── 派单书(§11 六要素 + 本仓三条硬约束;票面正文请从 HEAD 现读补齐)──')
+    for (const w of b.wave) console.log(`\n${briefOf(w, { seat: a.seat ?? `seat-L${w.line}`, ticketRow: w.raw })}`)
+    if (b.wave.length === 0) console.log('(本波无票可派书 ⇒ 一枚都没排进,按上面的归因处置,不是"没活")')
   }
   process.exit(b.red ? 1 : 0)
 }
@@ -702,6 +775,8 @@ export const __test__ = {
   releaseSeatClaims,
   flattenSeatClaims,
   flattenSeatTickets,
+  splitConcretePaths,
+  briefOf,
   seatLedgerPath,
   SEAT_LEDGER_REL,
   SEAT_CLAIM_TTL_MINUTES_DEFAULT,

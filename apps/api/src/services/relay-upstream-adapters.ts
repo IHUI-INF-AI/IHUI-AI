@@ -177,6 +177,8 @@ export interface RelayQuotaResult {
     /** 原始单位说明(如 trae 积分) */
     unit?: string
     resetsAt?: string
+    /** 订阅档名(workbuddy 实证:summary 的 SubscriptionPackageName,如"体验版";可选) */
+    subscriptionName?: string
     packs?: Array<{ name?: string; limit?: number; remaining?: number; endAt?: string }>
   }
 }

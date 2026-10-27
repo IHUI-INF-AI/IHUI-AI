@@ -114,6 +114,10 @@ export const WHITELIST_ENTRIES = new Map(
       why: '已连接账户屏:第三方账号绑定/解绑 + 状态徽章,共享层无同名屏,RN 端独占账号管理交互',
       expires: '2027-06-30',
     },
+    'ScanLoginScreen.tsx': {
+      why: '扫码登录屏(移动端一半):expo-camera CameraView/useCameraPermissions 相机与条码扫描通道,RN 端独占硬件依赖;PC 端是展示二维码的另一半,票务判据已共用 @ihui/shared parseQrLoginTicket,共享层无同名屏',
+      expires: '2027-06-30',
+    },
     'DistributionCompanyScreen.tsx': {
       why: '2026-10-24 按被描述文件订正旧账(原文"公司信息表单 + 审核状态…独占表单交互"与文件内容不符:全文 TextInput/validate/onSubmit/audit 命中 0)。实读 = 佣金窗口卡 + 下线列表卡 + 两个跳转,取数 /finance/commission/summary 与 /finance/distribution/subordinates;共享层无同名屏。小程序 pkg-ai/distribution/company 是另一件事(取 getDistributionInfo/getDistributionTeam + 成员列表,其自述对齐 TeamScreen),web 还有第三套。强行合屏必失真,归人拍板承载什么。',
       expires: '2027-06-30',

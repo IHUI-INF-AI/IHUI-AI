@@ -327,6 +327,92 @@ function noteEgressDegradation({ root, verb, plan, ok }) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 并发档一过性取材失败的**串行退避重试**(2026-10-27 立,守门 84/107/117/243 同批次红的
+// 清偿)。立因(现读 `gates-progress.log` 实证,不是推断):同一道门在同一批里 pass 与 fail
+// 交替出现且耗时跨两个数量级(84:509ms pass ↔ 228285ms fail;117:108692ms pass ↔
+// 142553ms fail;243:72179ms pass ↔ 259137ms fail;107 亦在 16:28:18 与 84/117 同刻整排 fail)
+// ⇒ 形状是"并发抢不到派生/IO 资源"的一过性失败,而单跑复验全绿。门体把这种失败读成违规
+// 判红,按 §12e/§12f 那正是会逼人 `--no-verify` 的形状。
+//
+// 三条边界(与既有 egress 换腿同一条纪律,缺一条就退化成"多放一次跳门"):
+//  ① **只重试只读动词**(下表)。写动词(add/commit/checkout/reset/update-index/…)绝不重跑 ——
+//     重跑一次写操作等于把"可能已落了一半"的状态再写一遍。
+//  ② **不碰网络动词**:那一族已有 `egressFallbackPlan` 的换腿通道,再加重试就是两条兜底叠床架屋。
+//  ③ **只认一过性形态**:超时被杀(ETIMEDOUT)、派生面 EBUSY、以及"无退出码+无信号+无回显"
+//     (并发下 git 连启动都没启动完那一型)。git 自己给的结论(如 status 128 + `fatal:`)照旧
+//     一次就抛 —— 那是真失败,重试只是把同一个错多付一次。
+//  ④ **只多跑两次**,仍失败就抛**第一次**的错误(失效方向是如实报第一次失败,不是"再多放一次")。
+// ─────────────────────────────────────────────────────────────────────────────
+export const GIT_RETRY_READ_VERBS = Object.freeze([
+  'log',
+  'show',
+  'cat-file',
+  'ls-tree',
+  'ls-files',
+  'rev-parse',
+  'diff',
+  'hash-object',
+  'for-each-ref',
+  'show-ref',
+  'grep',
+  'merge-base',
+  'status',
+])
+export const GIT_RETRY_MAX_ATTEMPTS = 2
+/** 退避:150ms → 450ms(串行退避,不并发重跑 —— 并发重跑只会把抢资源那一型再撞一次) */
+export const GIT_RETRY_BACKOFF_MS = Object.freeze([150, 450])
+
+/** 同步退避(取材面全是 sync 派生,不能用 await)。写不动/不支持则立即返回,不因此改判定。 */
+export function sleepSync(ms) {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+  } catch {
+    /* 退避失败不阻断重试语义 */
+  }
+}
+
+/**
+ * 纯判据(零 IO,便于镜像测试逐格钉):这一趟失败该不该**串行退避重跑**。
+ * @param {{verb?:string, code?:string|null, status?:number|null, signal?:string|null,
+ *          stderrText?:string, attempt?:number, maxAttempts?:number}} p
+ * @returns {{apply:boolean, why:string, delayMs:number}}
+ */
+export function gitRetryPlan({
+  verb = '',
+  code = null,
+  status = null,
+  signal = null,
+  stderrText = '',
+  attempt = 0,
+  maxAttempts = GIT_RETRY_MAX_ATTEMPTS,
+} = {}) {
+  if (!GIT_RETRY_READ_VERBS.includes(verb))
+    return {
+      apply: false,
+      why: `动词 ${verb || '(空)'} 不在只读重试表 ⇒ 不重跑(写动词/网络动词绝不多跑一次)`,
+      delayMs: 0,
+    }
+  if (attempt >= maxAttempts)
+    return { apply: false, why: `已重试 ${attempt}/${maxAttempts} 次仍失败 ⇒ 如实上报`, delayMs: 0 }
+  const timedOut = code === 'ETIMEDOUT' || /ETIMEDOUT/i.test(String(code ?? ''))
+  const spawnBusy = code === 'EBUSY'
+  // 无退出码 + 无信号 + 无回显 = 派生面连 git 都没跑完(并发下 `git log` 无输出那一型)。
+  const noVerdict = status === null && signal === null && String(stderrText ?? '').trim() === ''
+  if (!timedOut && !spawnBusy && !noVerdict)
+    return {
+      apply: false,
+      why: `退出码 ${String(status)} 且 git 有回显 ⇒ 这是 git 的结论/真失败,不是一过性`,
+      delayMs: 0,
+    }
+  const shape = timedOut ? '超时被杀' : spawnBusy ? '派生面 EBUSY' : '无退出码无回显'
+  return {
+    apply: true,
+    why: `${shape} ⇒ 串行退避重跑(第 ${attempt + 1}/${maxAttempts} 次)`,
+    delayMs: GIT_RETRY_BACKOFF_MS[Math.min(attempt, GIT_RETRY_BACKOFF_MS.length - 1)],
+  }
+}
+
 /**
  * 统一 git 派生:绝对路径 + safe.directory + quotepath(中文路径)+ windowsHide + 数字 timeout
  * + **显式 stdio**。
@@ -335,8 +421,48 @@ function noteEgressDegradation({ root, verb, plan, ok }) {
  * (实测:空仓里 `rev-parse --verify HEAD` 漏出 32 字节 `fatal: Needed a single revision`)。
  * 守门靠 stdout/stderr 做逐字基线比对与归因取证,漏一行就把"取数失败"混进判定输出里 ——
  * 而错误文本本来已在 `e.stderr` 内、由 gitErrText 收进 Undetermined 消息,不需要它再漏一遍。
+ *
+ * 外层只负责**一过性失败的串行退避重试**(判据与边界见 `gitRetryPlan`);单趟派生的全部
+ * 语义(stdio 两态、egress 换腿、Undetermined 抛出)仍住在 `gitRawOnce`,逐字未改。
  */
 export function gitRaw(args, root, opts = {}) {
+  const maxAttempts = opts.retryMax ?? GIT_RETRY_MAX_ATTEMPTS
+  let first = null
+  let retryNote = ''
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return gitRawOnce(args, root, opts)
+    } catch (e) {
+      if (attempt === 0) first = e
+      const errStatus = typeof e?.status === 'number' ? e.status : null
+      const errSignal = e?.signal ?? null
+      const plan = gitRetryPlan({
+        verb: String(args[0] ?? ''),
+        code: e?.code ?? null,
+        status: errStatus,
+        signal: errSignal,
+        stderrText: e?.stderr === undefined || e?.stderr === null ? '' : String(e.stderr),
+        attempt,
+        maxAttempts,
+      })
+      if (!plan.apply) {
+        // 重试过但没救回来 ⇒ 把"试过几次、为什么不算数"并进第一次错误的话里(§0.3 未判定
+        // 必须点名原因:只报一句 `git log 失败` 看不出这是重试两趟后的结论)。只增诊断,
+        // 不改判定 —— 仍抛**第一次**的错误,失效方向是如实报第一次失败,不是"再多放一次"。
+        if (retryNote && first && !first.retryNote) {
+          first.retryNote = retryNote
+          first.message = `${first.message}(已${retryNote}仍失败)`
+        }
+        throw first ?? e
+      }
+      retryNote = plan.why
+      sleepSync(plan.delayMs)
+    }
+  }
+}
+
+/** `gitRaw` 的单趟实现(原 `gitRaw` 函数体逐字搬入,判定语义一字未改)。 */
+function gitRawOnce(args, root, opts = {}) {
   // stdio[0] 分两态:不带 input 时 'ignore'(继承会挂),带 input 时**必须** 'pipe' ——
   // 这正是 `cat-file --batch` / `hash-object --stdin-paths` 那一族的老陷阱:stdio[0] 设成
   // 'ignore' 时喂进去的清单被丢弃,而 git 不报错,只是"每个对象都取不到"。

@@ -24,6 +24,7 @@ import {
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
 import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
 import { createHash } from 'node:crypto'
@@ -48,6 +49,7 @@ import {
   gitVersion,
   resolveWorktree,
   resolveGitdir,
+  parseGitdirPointer,
   needsGitdirPointer,
   resolveBackupDir,
   gitdirArchivePath,
@@ -337,7 +339,7 @@ function pointerOk() {
     return existsSync(POINTER)
   }
   try {
-    return readFileSync(POINTER, 'utf8').trim() === `gitdir: ${GITDIR}`
+    return pointerContentOk(readFileSync(POINTER, 'utf8'), EXPECTED_POINTER)
   } catch {
     return false
   }
@@ -961,22 +963,240 @@ function bareAuditReportMain(json) {
 }
 
 // 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1071(门 103 C1 收口)〉首意: 重建 `.git` 指针文件(原子写 + 回读校验)。
+
+/**
+ * 一行 gitfile 就是几十字节;远超此体积的普通文件**不可能是合法指针**,也没必要把整份读进内存
+ * 再判(2026-10-16 00:21 现场那一枚是 25,433,594 字节的 `.git`)。上限取得比 git 自己的
+ * `gitfile` 余量宽得多,只为把"垃圾 blob"与"合法指针"分开,不承担精确解析。
+ */
+export const GITFILE_MAX_BYTES = 4096
+
+/**
+ * 「现读到的 `.git` 形态 → 指针腿该怎么处置」的**纯判据**(零 IO,可构造面取证)。
+ *
+ * 立因(台账票「修复面假定 `.git` 是目录」那一格):两条兜底恢复路径早在 2026-10-16 就都排在
+ * `gitdirTargetSafe()` 之后了,`EEXIST … mkdir` 那一型已在 HEAD 不成立;仍然活着的是**指针腿自己**——
+ * 旧 `healPointer()` 无条件 `rmSync(POINTER)` + 覆盖,于是那枚 25MB 现场会被守护**静默删掉**
+ * (既没归档也没留证),违反 §5b「破坏性覆盖前必须先归档」与票面正解②。
+ *
+ * 五态各有一条出路,且**失效方向恒为"多要一次定向说明",绝不写成"已修好"也不写成"没救"**(§0.3/§0.10):
+ *  - `absent`            ⇒ 直接落指针(没有现场可归档)
+ *  - `valid-pointer`     ⇒ 直接重写(内容就是期望那一行,不可损失)
+ *  - `stray-file`        ⇒ **先归档现场再落指针**;归档不成 ⇒ 拒绝覆盖
+ *  - `directory`         ⇒ 拒绝动它(那是本机形态;覆盖等于删库)
+ *  - `unreadable`        ⇒ **未判定**并点名原因,既不覆盖也不删
+ * @param {{exists?:boolean,isDirectory?:boolean,sizeBytes?:number,pointerTarget?:string|null,preview?:string,unreadable?:boolean,reason?:string}} input
+ */
+export function pointerFormVerdict({
+  exists = false,
+  isDirectory = false,
+  sizeBytes = 0,
+  pointerTarget = null,
+  preview = '',
+  unreadable = false,
+  reason = '',
+} = {}) {
+  if (unreadable)
+    return {
+      state: 'unreadable',
+      action: 'refuse',
+      writes: false,
+      archives: false,
+      why: `形态读不出来(${reason || 'stat/read 失败'}) ⇒ 未判定:不猜它是指针也不是猜它是目录,不覆盖不删,交人工`,
+    }
+  if (!exists)
+    return { state: 'absent', action: 'write', writes: true, archives: false, why: '无 `.git` ⇒ 没有现场可归档,直接落指针' }
+  if (isDirectory)
+    return { state: 'directory', action: 'refuse', writes: false, archives: false, why: '`.git` 是目录形态 ⇒ 指针腿覆盖它等于删库' }
+  if (sizeBytes > GITFILE_MAX_BYTES)
+    return {
+      state: 'stray-file',
+      action: 'archive-then-write',
+      writes: true,
+      archives: true,
+      why: `普通文件 ${sizeBytes} 字节 > gitfile 上限 ${GITFILE_MAX_BYTES} ⇒ 不可能是合法指针(2026-10-16 那枚 25,433,594 字节现场同型)`,
+    }
+  if (!pointerTarget)
+    return {
+      state: 'stray-file',
+      action: 'archive-then-write',
+      writes: true,
+      archives: true,
+      why: `普通文件而内容不含 \`gitdir:\` 行(前 40 字:${JSON.stringify(String(preview).slice(0, 40))})⇒ 形态不认识 ⇒ 按现场归档,不许直接覆盖`,
+    }
+  return {
+    state: 'valid-pointer',
+    action: 'write',
+    writes: true,
+    archives: false,
+    why: `合法 gitfile 指针(指向 ${pointerTarget})⇒ 一行文本可由期望值复原,直接重写、不产归档`,
+  }
+}
+
+/**
+ * 现问形态(§5b「gitdir 形态是七类必须每次实测的机器事实」的修复面一侧)。只读不写。
+ * @param {string} pointerPath 工作区 `.git`
+ * @returns 同 `pointerFormVerdict`
+ */
+export function inspectGitdirPointer(pointerPath) {
+  let st
+  try {
+    st = statSync(pointerPath)
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return pointerFormVerdict({ exists: false })
+    return pointerFormVerdict({ unreadable: true, reason: `stat ${e && e.code ? e.code : e}` })
+  }
+  if (st.isDirectory()) return pointerFormVerdict({ exists: true, isDirectory: true, sizeBytes: st.size })
+  if (st.size > GITFILE_MAX_BYTES) return pointerFormVerdict({ exists: true, sizeBytes: st.size })
+  let raw
+  try {
+    raw = readFileSync(pointerPath, 'utf8')
+  } catch (e) {
+    return pointerFormVerdict({ unreadable: true, reason: `read ${e && e.code ? e.code : e}` })
+  }
+  return pointerFormVerdict({
+    exists: true,
+    sizeBytes: st.size,
+    pointerTarget: parseGitdirPointer(raw),
+    preview: String(raw).trim().slice(0, 40),
+  })
+}
+
+/**
+ * 修复面两形态分流(纯判据,`remediate` 消费它):
+ * 指针形态机上「真身还在」与「真身没了」是两件事,旧写法靠两条 `if` 各判各的、判序无处取证。
+ *  - 目标(gitdir 本体)骨架不全/不在 ⇒ `restore-gitdir`:这才轮到恢复源,恢复前该归档的归档;
+ *  - 目标在而指针坏 ⇒ `rewrite-pointer`:**只重写 gitfile,绝不 mkdir、绝不灌整份备份**
+ *    (2026-10-16 10:05–10:07 那三次「活仓 config 被覆盖 + 23GB cpSync」就是这一格没分清);
+ *  - 两者都好 ⇒ `none`。
+ * @param {{gitdirOk?:boolean,pointerOk?:boolean}} input
+ * @returns {'restore-gitdir'|'rewrite-pointer'|'none'}
+ */
+export function gitdirRepairPlan({ gitdirOk = false, pointerOk = false } = {}) {
+  if (!gitdirOk) return 'restore-gitdir'
+  if (!pointerOk) return 'rewrite-pointer'
+  return 'none'
+}
+
+/** 指针内容是否与期望一致(纯判据;`pointerOk()` 与夹具侧执行单元共用同一把尺子,§0.6) */
+export function pointerContentOk(rawText, expectedPointer) {
+  return String(rawText ?? '').trim() === String(expectedPointer ?? '').trim()
+}
+
+/**
+ * 落 `.git` 指针的**执行单元**(路径全入参 ⇒ 能在夹具上真跑,不碰活仓)。
+ * 写前按 `inspectGitdirPointer()` 现读的形态处置:异形现场先归档再覆盖,归档不成 ⇒ 拒绝覆盖。
+ *
+ * 归档落点两条硬约束(§5b 原文,不是建议):
+ *  1. 必须由唯一出口 `gitdirArchivePath()` 给出(生产侧),它返回 null ⇒ **拒绝覆盖**;
+ *     不许像 `archiveGitdir()` 那样退回 `${GITDIR}.broken-*`,因为指针文件的同级就是工作区根,
+ *     「现场 mv 到一级目录 = 把它送回宿主批量清理层的射程」。
+ *  2. 落点目录不得与指针文件同目录(同目录 = 工作区根那一格)⇒ 当场拒绝。
+ * @param {{pointer:string,expectedPointer:string,archiveNameFor?:(tag:number)=>string|null,logger?:(msg:string)=>void,notify?:(title:string,detail:string)=>void,inspect?:(p:string)=>object}} opts
+ * @returns {{ok:boolean,state:string,archived:string|null,why:string}}
+ */
+export function writeGitdirPointer({
+  pointer,
+  expectedPointer,
+  archiveNameFor = null,
+  logger = () => {},
+  notify = () => {},
+  // 形态探查可注入:唯一用途是让「读不出来」那一支在夹具上真跑(Windows 上没有可靠的
+  // 权限位能造出稳定 EACCES,而"未判定不得写成已修好"这条必须有牙,不能只靠纯函数构造面)。
+  inspect = inspectGitdirPointer,
+} = {}) {
+  const v = inspect(pointer)
+  const say = (m) => {
+    try {
+      logger(m)
+    } catch {
+      /* 日志层坏了不得把自愈一起带走 */
+    }
+  }
+  const callNotify = (title, detail) => {
+    try {
+      notify(title, detail)
+    } catch (e) {
+      say(`通知层异常(不影响自愈判定): ${String((e && e.message) || e)}`)
+    }
+  }
+
+  if (v.action === 'refuse') {
+    say(`⛔ 指针腿让路:${v.why}(${pointer})`)
+    if (v.state === 'unreadable')
+      callNotify('.git 形态无法判定(指针腿未判定)', `${v.why}\n路径:${pointer}\n期望指针:${String(expectedPointer).trim()}`)
+    return { ok: false, state: v.state, archived: null, why: v.why }
+  }
+
+  let archived = null
+  if (v.archives) {
+    let dst = null
+    try {
+      dst = archiveNameFor ? archiveNameFor(Date.now()) : null
+    } catch {
+      dst = null
+    }
+    if (!dst || samePath(dirname(dst), dirname(pointer))) {
+      const why = !dst
+        ? '现场归档落点取不到(gitdirArchivePath 返回 null)⇒ 拒绝覆盖:宁可仓库继续不可用,不许把唯一现场删掉'
+        : `现场归档落点与指针同目录(${dst})⇒ 等于把 .git* 留在工作区根,违反 §5b ⇒ 拒绝覆盖`
+      say(`⛔ 拒绝覆盖指针:${why}`)
+      callNotify('.git 异形现场未能归档(已拒绝覆盖)', `${why}\n指针路径:${pointer}\n形态:${v.why}`)
+      return { ok: false, state: 'refused-no-archive', archived: null, why }
+    }
+    try {
+      mkdirSync(dirname(dst), { recursive: true })
+      cpSync(pointer, dst)
+      archived = dst
+      say(`归档: .git 现场已备份 -> ${dst}(${v.why})`)
+      callNotify('.git 是指针位上的异形文件(现场已归档并落指针)', `${v.why}\n归档:${dst}\n指针路径:${pointer}`)
+    } catch (e) {
+      const why = `归档失败 ⇒ 放弃覆盖,现场必须可回溯: ${String((e && e.message) || e)}`
+      say(`⛔ 拒绝覆盖指针:${why}`)
+      callNotify('.git 异形现场归档失败(已拒绝覆盖)', `${why}\n指针路径:${pointer}`)
+      return { ok: false, state: 'refused-no-archive', archived: null, why }
+    }
+  }
+
+  const tmp = `${pointer}.tmp-${process.pid}`
+  let ok = false
+  try {
+    writeFileSync(tmp, expectedPointer)
+    try {
+      rmSync(pointer, { recursive: true, force: true })
+    } catch {
+      /* 目标可能不存在 */
+    }
+    renameSync(tmp, pointer)
+    ok = pointerContentOk(readFileSync(pointer, 'utf8'), expectedPointer)
+  } catch (e) {
+    say(`指针落盘异常: ${String((e && e.message) || e)}`)
+    ok = false
+  } finally {
+    try {
+      if (existsSync(tmp)) rmSync(tmp, { force: true })
+    } catch {
+      /* 清不掉不追加噪音 */
+    }
+  }
+  return { ok, state: v.state, archived, why: v.why }
+}
+
 function healPointer() {
   if (!needsGitdirPointer()) {
     log('修复跳过: 当前为常规仓库(.git 即 gitdir 目录),无需也不应重建指针文件')
     return true
   }
-  const tmp = `${POINTER}.tmp-${process.pid}`
-  writeFileSync(tmp, EXPECTED_POINTER)
-  try {
-    rmSync(POINTER, { recursive: true, force: true })
-  } catch {
-    /* 目标可能不存在 */
-  }
-  renameSync(tmp, POINTER)
-  const ok = pointerOk()
-  log(`${ok ? '修复' : '修复失败'}: 重建 .git 指针文件 -> ${GITDIR}`)
-  return ok
+  const r = writeGitdirPointer({
+    pointer: POINTER,
+    expectedPointer: EXPECTED_POINTER,
+    // 归档落点唯一出口(lib 侧同名函数已带夹具闸:落点 null ⇒ 执行单元拒绝覆盖)
+    archiveNameFor: (tag) => gitdirArchivePath(`${basename(GITDIR)}.gitfile-stray-${tag}`),
+    logger: log,
+    notify: (title, detail) => notifyGuardRed(title, detail),
+  })
+  log(`${r.ok ? '修复' : '修复失败'}: 重建 .git 指针文件 -> ${GITDIR}`)
+  return r.ok
 }
 
 // 〈原 5 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1094(门 103 C1 收口)〉首意: 环境自愈:`git=true` 之外的唯一分支 —— pointer/gitdir 都在但 git 命令不可用。
@@ -3907,6 +4127,11 @@ export function auditIndexUnmerged(opts = {}) {
   return { ran: true, ok: r.ok, overall, count: v.parsed.count ?? null, ageMin: v.parsed.ageMin ?? null }
 }
 
+// lint-staged stdio 三针盯针(2026-10-27):判据/节流/到人住 lib/lint-staged-pin-audit.mjs;判机器状态 ⇒ 不进提交链(§12e)。
+const PIN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'lint-staged-pin-tick.json')
+export function auditLintStagedPins(opts = {}) {
+  return pinsAudit({ tickFile: PIN_TICK, logger: log, notify: notifyGuardRed, ...opts })
+}
 export function auditTunnelLegHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -4408,13 +4633,16 @@ function archiveGitdir(tag) {
  * 任一步成功即止;每次破坏性覆盖前先归档现场。
  */
 function remediate(before) {
-  if (!before.gitdirOk) {
+  // 两形态分流交给同一把尺子(纯判据 `gitdirRepairPlan`,镜像可在夹具上真跑取证):
+  // 真身在 ⇒ 只重写 gitfile;真身没了 ⇒ 才轮到恢复源。旧写法两条 `if` 各判各的,判序无从验证。
+  const plan = gitdirRepairPlan({ gitdirOk: before.gitdirOk, pointerOk: before.pointerOk })
+  if (plan === 'restore-gitdir') {
     const ok = !!(healFromBackup() || healFromRemote())
     // 恢复源是整份 gitdir 副本 ⇒ cpSync 会把它自己的 core.bare 一起带回来,恢复后必须再归一一次
     if (ok && !worktreeUsable()) return healWorktreeBare()
     return ok
   }
-  if (!before.pointerOk) healPointer()
+  if (plan === 'rewrite-pointer') healPointer()
   if (!gitUsable()) healEnv()
   if (!gitUsable()) healHead()
   if (!gitUsable()) {
@@ -4972,6 +5200,8 @@ function main() {
     // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
     // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
     if (!CHECK_ONLY) auditOpsPatrol()
+    // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
+    if (!CHECK_ONLY) auditLintStagedPins()
     // 巡检**自己**也要有人看(2026-10-17 立):上面那行派发它,而它一旦停摆,账面没有任何一格会红
     // —— 它判的是"别的任务没在跑", "它自己没在跑"没有任何判据。挂点与上面各层同格(健康轮次
     // 早退之前 + !CHECK_ONLY),读它每轮落的 ops-patrol-last.json,超 3 期未更新即就地起跳一轮。
@@ -5122,6 +5352,7 @@ function startDaemon() {
         // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .ihui-agent/state/ops-patrol-tick.ts 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
         auditOpsPatrol()
+        auditLintStagedPins()
         // 同一挂点语义:与 main() 单轮路径共用 .ihui-agent/state/service-heal-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会把同一台服务重启两遍。
         healUnresponsiveServices()
@@ -5878,6 +6109,14 @@ if (isDirectRun) {
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
   gitdirTargetVerdict,
+  // `.git` 指针形态的修复面(2026-10-27 票面第③格补的口):判据、现读形态、两形态分流、
+  // 执行单元与"内容是否一致"那把尺子全部导出,镜像只 import 这一份,不复制判据(§22c)。
+  GITFILE_MAX_BYTES,
+  pointerFormVerdict,
+  inspectGitdirPointer,
+  gitdirRepairPlan,
+  pointerContentOk,
+  writeGitdirPointer,
   judgeRefsHealth,
   alertFingerprint,
   stableAlertFingerprint,
@@ -5886,6 +6125,7 @@ export const __test__ = {
   auditTunnelLegHealth,
   auditSweeperLiveness,
   auditIndexUnmerged,
+  auditLintStagedPins,
   sweepStaleClosedRows,
   sweepStaleClaimMarks,
   // AI 自进化调度层派发点(2026-10-26 导出):镜像测试据此逐条钉「节流 / 无票不 spawn /

@@ -7,13 +7,14 @@
  * 镜像测试:check-lint-staged-stdio-pin.mjs(只读盯针门,2026-10-27 立)。
  *
  * §22c:判据全部 import 生产实现(__test__ 出口),本文件不复制任何判据常量/针形态判断。
- * 钉六环:
+ * 钉七环:
  *  ① --check 读数行解析只认 ALREADY-PATCHED / NEEDS-PATCH 两种收尾(apply 档的 PATCHED 不计数);
  *  ② 三档裁决构造面:green / gap / 三类 undetermined(MISSING、零读数跑死、rc 与读数矛盾);
  *  ③ 夹具起步零针 ⇒ gap 三针全点名;生产脚本 apply 后 ⇒ green;
  *  ④ **摘掉一针必红**:恰好点名那一针,其余不误伤;
  *  ⑤ **缺 node_modules 必 exit 2 档**:安装副本摘掉 ⇒ undetermined(重装依赖形态,不记绿不冒红);
- *  ⑥ 判据脚本缺失 ⇒ undetermined;夹具脚本与生产脚本逐字节同形(证明测的是同一份判据)。
+ *  ⑥ 判据脚本缺失 ⇒ undetermined;夹具脚本与生产脚本逐字节同形(证明测的是同一份判据);
+ *  ⑦ **apply 幂等**:三针打满后再 apply 一次 ⇒ rc=0 且两文件逐字节不变(幂等 = 不写盘,不是"重写一遍同样内容")。
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

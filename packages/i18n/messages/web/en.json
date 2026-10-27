@@ -7795,7 +7795,7 @@
             "sourceMismatch": "Source mismatch: this action is only available for voice-delegated tasks"
           },
           "outcome": {
-            "deferred": "Message not sent; it is kept in the queue",
+            "deferred": "Message not sent; it has been removed from the queue. Please send it again.",
             "failed": "Message failed to send; please retry",
             "sent": "Message sent"
           },

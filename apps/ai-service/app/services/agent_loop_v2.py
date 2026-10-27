@@ -152,17 +152,21 @@ from ..core.mcp_tool_approval import (
 from ..core.mcp_tool_approval import (
     requires_mcp_tool_approval as _requires_mcp_tool_approval,
 )
+
+# A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
+from ..core.retry_after import hint_from_error, resolve_retry_delay_s
+
 # P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
 from ..core.session_taint import TaintSource as _TaintSource
 from ..services.session_security import (
     args_contain_resolvable_vault as _args_contain_resolvable_vault,
+)
+from ..services.session_security import (
     get_session_taint_store as _get_session_taint_store,
-    get_vault_store as _get_vault_store,
+)
+from ..services.session_security import (
     taint_gate_requires_approval as _taint_gate_requires_approval,
 )
-
-# A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
-from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 from .agent_security_prefs import (
     apply_prefs,
     get_agent_security_prefs,
@@ -6842,6 +6846,31 @@ async def run_converged_agent(
     ]
     result = await loop.run(messages)
     _replay_progress_events(result, progress_callback)
+
+    # G-941(2026-10-27):运行收尾把本 run 的全部步骤并入成本账本 —— `finish_run` 的**唯一生产
+    # 调用点**(此前只有定义/docstring/测试,recorder 口径的 token/成本一行都进不了账本)。
+    # 三个边界都照既有纪律写:
+    #  ① run_id 与 `_maybe_record_llm_step` 同一式子(recorder.run_id > loop 的 session > 入参),
+    #     两处不同源就会把收尾入到另一个 run 上;
+    #  ② 只在本轮真录制时调(recorder 在位 ∧ 档位开启),缺省路径与接线前逐字同形;
+    #  ③ 入账故障只 warning 降级 —— 可观测面的故障不许反过来打断业务主链路(finish_run 内部
+    #     已降级,这里再兜一层是因为 getattr/取 run_id 也可能抛)。
+    rec = getattr(loop, "_step_recorder", None)
+    if rec is not None and getattr(loop, "_pipeline_record_active", False):
+        try:
+            run_id = (
+                getattr(rec, "run_id", None)
+                or getattr(loop, "_session_id", None)
+                or session_id
+                or ""
+            )
+            rec.finish_run(
+                run_id,
+                user_id=str(user_id or ""),
+                session_id=str(session_id or ""),
+            )
+        except Exception as e:  # noqa: BLE001 - 收尾入账故障不许打断主链路
+            logger.warning("运行收尾入账失败(降级,不阻塞返回): %s", e)
 
     output = result.final_response or ""
     status = "completed" if result.success else "failed"

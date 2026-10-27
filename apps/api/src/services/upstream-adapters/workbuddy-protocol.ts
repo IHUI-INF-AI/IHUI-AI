@@ -28,6 +28,12 @@ const CN_CHAT_BASE = 'https://copilot.tencent.com'
 const GLOBAL_CHAT_BASE = 'https://www.workbuddy.ai'
 const CN_ORIGIN = 'https://www.codebuddy.cn'
 const GLOBAL_ORIGIN = 'https://www.workbuddy.ai'
+/**
+ * 国内版另一条官方 web 域:域名是 workbuddy.cn 的账号,令牌域与 X-Domain 都落在它上面。
+ * 权益接口实际请求的是「当前登录 origin」,把 workbuddy.cn 的票发往 codebuddy.cn
+ * 会被网关按域一致性拒收(2026-10-27 取证:credits.rs api_base_for 同一规则)。
+ */
+const CN_WORKBUDDY_WEB_BASE = 'https://www.workbuddy.cn'
 
 /** domain == workbuddy.ai 或 *.workbuddy.ai → global;缺失/其他 → CN(默认) */
 export function resolveRealm(domain: string): WorkBuddyRealm {
@@ -321,6 +327,321 @@ export function buildHealthHeaders(i: {
   }
   if (i.accessToken) h['Authorization'] = `Bearer ${i.accessToken}`
   return h
+}
+
+// =============================================================================
+// 计费/权益查询(余额点查;用户中心 billing 接口,2026-10-27 取证立)
+// =============================================================================
+
+/**
+ * 权益接口三件套(上游用户中心「套餐与用量」页同源):
+ * - summary:一次性带回所有资源包的容量/用量/到期,是首选来源;
+ * - paid / free:按包码查明细,补 summary 不带时间字段的包。
+ * 旧接口 `/v2/billing/meter/get-user-resource` 仍可作兼容回退,本适配器不接(无字段收益)。
+ */
+export const RESOURCE_SUMMARY_PATH = '/billing/meter/get-user-resource-summary'
+export const RESOURCE_PAID_PACKAGES_PATH = '/billing/meter/get-user-resource-paid-packages'
+export const RESOURCE_FREE_PACKAGES_PATH = '/billing/meter/get-user-resource-free-packages'
+
+/**
+ * 权益接口基址。与 chat 域(`copilot.tencent.com`)**不同**:它属于用户中心 web 域,
+ * Origin 必须与请求 host 一致,否则网关按域一致性拒收。
+ * - global → `www.workbuddy.ai`
+ * - CN 且 domain 为 workbuddy.cn/www.workbuddy.cn → `www.workbuddy.cn`
+ * - 其余 CN(含 codebuddy.cn / 空域)→ `www.codebuddy.cn`
+ * 只认这三条官方域,不允许账号数据拼出任意主机。
+ */
+export function billingBaseUrl(realm: WorkBuddyRealm, domain: string): string {
+  if (realm === 'global') return GLOBAL_ORIGIN
+  const d = domain.trim().toLowerCase()
+  return d === 'workbuddy.cn' || d === 'www.workbuddy.cn' ? CN_WORKBUDDY_WEB_BASE : CN_ORIGIN
+}
+
+/**
+ * 路径候选(顺序即回落顺序)。国内版只有一个候选;国际版实测走去掉 `/v2` 的形态,
+ * 故先试 `/billing/meter/...` 再回落 `/v2/billing/meter/...`。
+ * **只有 HTTP 404 才允许换下一个候选** —— 401/403/WAF 10085/传输错误都不是路径问题,
+ * 一律原样返回(否则真因被"路径不对"掩盖,上层还会误判可重试)。
+ */
+export function billingPathCandidates(realm: WorkBuddyRealm, path: string): string[] {
+  if (realm === 'cn') return [path]
+  const primary = path.startsWith('/v2/') ? path.slice(3) : path
+  const fallback = `/v2${primary}`
+  return fallback === primary ? [primary] : [primary, fallback]
+}
+
+/**
+ * 权益接口请求头 = 用户中心 Axios 拦截器同款。
+ * `X-Client-Platform: web` 是网关识别客户端用的:缺它会被当成未知客户端。
+ * 身份头规则与 chat 一致(缺字段用 X-No-* 显式声明),绝不携带 X-Refresh-Token。
+ */
+export function buildBillingHeaders(i: {
+  realm: WorkBuddyRealm
+  accessToken: string
+  uid: string
+  enterpriseId: string
+  domain: string
+  /** 本次请求的 origin(必须等于请求 host,见 billingBaseUrl) */
+  origin: string
+}): Record<string, string> {
+  const h: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json, text/plain, */*',
+    Origin: i.origin,
+    Referer: `${i.origin}/profile/plans-usage`,
+    'User-Agent': userAgentFor(i.realm),
+    'X-Client-Platform': 'web',
+  }
+  if (i.accessToken) h['Authorization'] = `Bearer ${i.accessToken}`
+  else h['X-No-Authorization'] = '1'
+  if (i.uid) h['X-User-Id'] = i.uid
+  else h['X-No-User-Id'] = '1'
+  if (i.enterpriseId) h['X-Enterprise-Id'] = i.enterpriseId
+  else h['X-No-Enterprise-Id'] = '1'
+  if (i.domain) h['X-Domain'] = i.domain
+  else h['X-No-Department-Info'] = '1'
+  return h
+}
+
+/** 单个资源包(归一到余额面板的语义);取不到的字段留 undefined,绝不补 0 */
+export interface WorkBuddyResourcePackage {
+  /** 包码(如 TCACA_code_007_...);summary 与明细间的关联键 */
+  code?: string
+  /** 人话包名(如"新用户礼包");**实测 summary 常缺此键只有包码**,明细接口才给 */
+  name?: string
+  total?: number
+  remaining?: number
+  used?: number
+  /** 到期时刻(ISO)。**实测 summary 常不带时间字段**,需用明细补;上游给长期占位(>730 天)时视为无到期 ⇒ undefined */
+  endAt?: string
+}
+
+function numOrUndef(v: unknown): number | undefined {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined
+  if (typeof v === 'string') {
+    const t = v.trim()
+    if (!t) return undefined
+    const n = Number(t)
+    return Number.isFinite(n) ? n : undefined
+  }
+  return undefined
+}
+
+function firstNum(o: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const k of keys) {
+    const n = numOrUndef(o[k])
+    if (n !== undefined) return n
+  }
+  return undefined
+}
+
+function atPath(root: unknown, path: string[]): unknown {
+  let cur: unknown = root
+  for (const k of path) {
+    const o = asRecord(cur)
+    if (!(k in o)) return undefined
+    cur = o[k]
+  }
+  return cur
+}
+
+/**
+ * 从上游回包里取资源列表。实测路径有六种写法(大小写/嵌套层数不一),
+ * 逐个试到第一个数组为止;都不命中 ⇒ null(调用方据此判「未判定」)。
+ */
+export function extractResourceList(root: unknown, key: 'Packages' | 'Accounts'): unknown[] | null {
+  const alt = key === 'Packages' ? 'packages' : 'accounts'
+  const bases: string[][] = [
+    [],
+    ['data'],
+    ['data', 'data'],
+    ['data', 'Response', 'Data'],
+    ['data', 'data', 'Response', 'Data'],
+  ]
+  for (const base of bases) {
+    for (const k of [key, alt]) {
+      const v = atPath(root, [...base, k])
+      if (Array.isArray(v)) return v
+    }
+  }
+  return null
+}
+
+/** 上游回包的 code(根或 data.code;字符串数字也认);没有 code ⇒ null(不是 undefined) */
+export function resourceResponseCode(root: unknown): number | null {
+  const o = asRecord(root)
+  const direct = numOrUndef(o['code'])
+  if (direct !== undefined) return direct
+  return numOrUndef(asRecord(o['data'])['code']) ?? null
+}
+
+/**
+ * summary 回包里的订阅档信息(2026-10-27 真号实证键位):
+ * data.SubscriptionPackageName(如"体验版") + data.IsPaidUser。
+ * 包级人话名实测不存在,这个档名是面板上唯一可读的套餐语义。
+ */
+export function extractSubscriptionInfo(root: unknown): {
+  subscriptionName?: string
+  isPaidUser?: boolean
+} {
+  const data = asRecord(asRecord(root)['data'])
+  const name = str(data['SubscriptionPackageName'])
+  const paid = data['IsPaidUser']
+  return {
+    ...(name ? { subscriptionName: name } : {}),
+    ...(typeof paid === 'boolean' ? { isPaidUser: paid } : {}),
+  }
+}
+
+/** 回包成功判据:code 0/200;无 code 但有 data 且未显式失败 */
+export function isResourceSuccess(root: unknown): boolean {
+  const o = asRecord(root)
+  if (Object.keys(o).length === 0) return false
+  const code = resourceResponseCode(root)
+  if (code === 0 || code === 200) return true
+  if (code !== null) return false
+  return 'data' in o && o['ok'] !== false && o['success'] !== false
+}
+
+/**
+ * 是否鉴权失效。**10085 是网关 WAF 客户端指纹拦截,不是 token 过期**(刷新无效),
+ * 必须排除,否则会给好号白换一次票。
+ */
+export function isResourceUnauthorized(root: unknown): boolean {
+  const code = resourceResponseCode(root)
+  if (code === 10085) return false
+  return code === 401 || code === 403
+}
+
+/** 回包错误文案(只取前 160 字;不含任何凭证) */
+export function resourceErrorMessage(root: unknown): string {
+  const o = asRecord(root)
+  const nested = asRecord(o['data'])
+  const pick = (v: unknown): string => (typeof v === 'string' ? v.trim().slice(0, 160) : '')
+  return (
+    pick(o['message']) ||
+    pick(o['msg']) ||
+    pick(nested['message']) ||
+    pick(nested['msg']) ||
+    (resourceResponseCode(root) !== null ? `code=${resourceResponseCode(root)}` : '')
+  )
+}
+
+/** 时间戳归一:秒(绝对值 <1e10)→ 毫秒;字符串认 RFC3339 / `YYYY-MM-DD HH:mm:ss` / `YYYY-MM-DD`(当日末) */
+function parseTimestampMs(v: unknown): number | undefined {
+  const n = numOrUndef(v)
+  if (n !== undefined) return Math.round(Math.abs(n) < 10_000_000_000 ? n * 1000 : n)
+  if (typeof v !== 'string') return undefined
+  const t = v.trim()
+  if (!t) return undefined
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+    const ms = Date.parse(`${t}T23:59:59`)
+    return Number.isFinite(ms) ? ms : undefined
+  }
+  const ms = Date.parse(t.includes('T') ? t : t.replace(' ', 'T'))
+  return Number.isFinite(ms) ? ms : undefined
+}
+
+const EXPIRY_CYCLE_OVERRIDE_MS = 365 * 24 * 3600 * 1000
+const FAR_FUTURE_EXPIRY_MS = 730 * 24 * 3600 * 1000
+
+/**
+ * 到期时刻:DeductionEndTime/ExpiredTime 优先。仅当 CycleEndTime 比它早 365 天以上时
+ * 改认周期结束时间(实测官方数据里 2049 这类长期占位与"当月月底"并存的形态)。
+ * 最终值距 now 超过 730 天 ⇒ 视为长期有效,返回 undefined(不让占位值流进面板)。
+ */
+export function resolveResourceExpireAt(raw: unknown, now: number): string | undefined {
+  const o = asRecord(raw)
+  const deduction = parseTimestampMs(
+    o['DeductionEndTime'] ?? o['deductionEndTime'] ?? o['ExpiredTime'] ?? o['expiredTime'],
+  )
+  const cycle = parseTimestampMs(o['CycleEndTime'] ?? o['cycleEndTime'])
+  let expireAt: number | undefined
+  if (
+    deduction !== undefined &&
+    cycle !== undefined &&
+    deduction - cycle > EXPIRY_CYCLE_OVERRIDE_MS
+  ) {
+    expireAt = cycle
+  } else if (deduction !== undefined) {
+    expireAt = deduction
+  } else {
+    expireAt = cycle
+  }
+  if (expireAt === undefined) return undefined
+  if (expireAt - now > FAR_FUTURE_EXPIRY_MS) return undefined
+  return new Date(expireAt).toISOString()
+}
+
+/**
+ * 单个资源包归一。容量/剩余/已用各有多套键名(含 SlicePeriodUsageDetails[0] 内嵌形态);
+ * 三样都取不到 ⇒ null(该包无数字,不当作"余额 0")。
+ */
+export function normalizeResourcePackage(
+  raw: unknown,
+  now: number,
+): WorkBuddyResourcePackage | null {
+  const o = asRecord(raw)
+  const slice = asRecord(
+    (Array.isArray(o['SlicePeriodUsageDetails']) ? o['SlicePeriodUsageDetails'] : [])[0] ??
+      (Array.isArray(o['slicePeriodUsageDetails']) ? o['slicePeriodUsageDetails'] : [])[0],
+  )
+
+  const totalKeys = [
+    'CycleCapacitySizePrecise',
+    'CycleCapacitySize',
+    'CycleTotalCapacity',
+    'CapacitySizePrecise',
+    'CapacitySize',
+    'SlicePeriodCapacitySizePrecise',
+    'SlicePeriodCapacitySize',
+  ]
+  const remainKeys = [
+    'CycleCapacityRemainPrecise',
+    'CycleCapacityRemain',
+    'CycleRemainCapacity',
+    'CapacityRemainPrecise',
+    'CapacityRemain',
+    'SlicePeriodCapacityRemainPrecise',
+    'SlicePeriodCapacityRemain',
+  ]
+  const usedKeys = [
+    'CycleCapacityUsedPrecise',
+    'CycleCapacityUsed',
+    'CycleUsedCapacity',
+    'CapacityUsedPrecise',
+    'CapacityUsed',
+    'SlicePeriodCapacityUsedPrecise',
+    'SlicePeriodCapacityUsed',
+  ]
+
+  const rawTotal = firstNum(o, totalKeys) ?? firstNum(slice, totalKeys)
+  const rawRemain = firstNum(o, remainKeys) ?? firstNum(slice, remainKeys)
+  const rawUsed = firstNum(o, usedKeys) ?? firstNum(slice, usedKeys)
+  if (rawTotal === undefined && rawRemain === undefined && rawUsed === undefined) return null
+
+  const total = Math.max(
+    0,
+    rawTotal ??
+      (rawRemain !== undefined && rawUsed !== undefined
+        ? rawRemain + rawUsed
+        : (rawRemain ?? rawUsed ?? 0)),
+  )
+  const remaining = Math.max(0, rawRemain ?? Math.max(0, total - (rawUsed ?? 0)))
+  const used = Math.max(0, rawUsed ?? Math.max(0, total - remaining))
+
+  // code 与 name 分开取(2026-10-27 实测:summary 常只有 PackageCode 没有人名)
+  const code = str(o['PackageCode']) || str(o['packageCode'])
+  const name = str(o['PackageName']) || str(o['packageName'])
+  const endAt = resolveResourceExpireAt(o, now)
+  return {
+    ...(code ? { code } : {}),
+    ...(name ? { name } : {}),
+    total,
+    remaining,
+    used,
+    ...(endAt ? { endAt } : {}),
+  }
 }
 
 // =============================================================================
