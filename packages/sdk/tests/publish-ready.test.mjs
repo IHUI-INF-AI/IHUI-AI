@@ -22,7 +22,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -111,6 +111,46 @@ function headJson(relPath) {
 }
 
 /**
+ * 该路径是否已在索引里(已暂存、可能尚未提交)。
+ * 「下一次提交是否会把这份现场带进 HEAD」的判据只有这一份,不许在别处抄第二遍(§0.6)。
+ * @param {string} relPath 仓库根相对路径(正斜杠)
+ */
+function inIndex(relPath) {
+  try {
+    execFileSync(GIT, ['-c', 'safe.directory=*', 'ls-files', '--error-unmatch', '--', relPath], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 20_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 枚举工作树里 `packages/sdk/src` 下全部 `.ts`(含子目录),返回仓库根相对路径(正斜杠)。
+ * **只用于发现候选** —— 某个源文件到底"发布链拿不拿得到"仍按 HEAD ∪ 索引判;工作树里多出来的
+ * 那一份在干净检出里根本不存在,那正是本文件要抓的一型(见「pack 输入在 HEAD 齐备」用例)。
+ */
+function worktreeSrcFiles() {
+  const out = []
+  const walk = (absDir, relDir) => {
+    for (const ent of readdirSync(absDir, { withFileTypes: true })) {
+      const absChild = resolve(absDir, ent.name)
+      const relChild = `${relDir}/${ent.name}`
+      if (ent.isDirectory()) walk(absChild, relChild)
+      else if (ent.name.endsWith('.ts')) out.push(relChild)
+    }
+  }
+  const srcRoot = resolve(REPO_ROOT, 'packages/sdk/src')
+  if (existsSync(srcRoot)) walk(srcRoot, 'packages/sdk/src')
+  return out.sort()
+}
+
+/**
  * 读一份发布交付文档:默认仍判 HEAD(干净检出),只为「工作树里新建、索引与 HEAD 都还没有」
  * 这一种在飞状态开口 —— 否则新增的 CHANGELOG 在提交前永远被自己的门判红,而发布就绪判据
  * 必须在提交前就能跑通(AGENTS.md §0 第 9 条「判据必须在真跑它的那一刻才成立」)。
@@ -121,19 +161,9 @@ function headJson(relPath) {
 function deliveryDocFile(relPath) {
   const head = headFile(relPath)
   if (head !== null) return head
-  try {
-    execFileSync(GIT, ['-c', 'safe.directory=*', 'ls-files', '--error-unmatch', '--', relPath], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 20_000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    return null
-  } catch {
-    const abs = resolve(REPO_ROOT, relPath)
-    return existsSync(abs) ? readFileSync(abs, 'utf8') : null
-  }
+  if (inIndex(relPath)) return null
+  const abs = resolve(REPO_ROOT, relPath)
+  return existsSync(abs) ? readFileSync(abs, 'utf8') : null
 }
 
 const RELEASE_WORKFLOW = '.github/workflows/release-sdk.yml'
@@ -323,6 +353,67 @@ test('prepack 的输入在 HEAD 齐备(仓库根许可证必须入库)', () => {
     assert.notEqual(rootText, null, `仓库根 ${name} 未入库:CI 干净检出时 prepack 必失败`)
     assert.ok(rootText.trim().length > 200, `仓库根 ${name} 内容为空/过短,不是完整法律文本`)
   }
+})
+
+test('pack 输入的其余件在 HEAD 齐备(工程文件 / prepack 脚本 / 全部 src 源文件)', () => {
+  // 上一条只核了仓库根的两份法律文本;prepack 真正吃的输入还有工程文件 tsconfig.json、脚本自身
+  // (`prepack.mjs` 与它 execFile 的 `embed-types.mjs`)以及 `src/**` 全部源文件。
+  // 这几件在**工作树里当然存在**,所以 `check-pkg-installable` 在本机 pack 永远看不出它们没入库
+  // (它 pack 的就是工作树);而 CI 干净检出缺任何一件 = prepack 直接 exit 1,或者更糟 ——
+  // 包照发,但少了一整个模块,本地全绿、出事的是消费者。
+  for (const [rel, why] of [
+    ['packages/sdk/tsconfig.json', 'prepack 的 tsc 找不到工程文件,构建步必红'],
+    [
+      'packages/sdk/scripts/prepack.mjs',
+      'npm publish 的 prepack 钩子本体没入库 ⇒ CI 里根本没有这一步',
+    ],
+    ['packages/sdk/scripts/embed-types.mjs', 'prepack [1b/3] 按路径直接 execFile 它,缺它必红'],
+  ]) {
+    assert.notEqual(headFile(rel), null, `${rel} 未入库:${why}`)
+  }
+
+  const headSrc = headList('packages/sdk/src').filter((p) => p.endsWith('.ts'))
+  assert.ok(headSrc.length > 0, 'HEAD 里 packages/sdk/src 没有任何 .ts —— 发出去的包里没有实现')
+
+  // 方向固定为「工作树有、HEAD 没有」这一侧:那正是"造好了没入库",干净检出拿不到。
+  // 索引里已有(已暂存待提交)不算缺口 —— 下一次提交就会把它带进 HEAD(§0.4 索引面)。
+  const uncommitted = worktreeSrcFiles().filter((p) => !headSrc.includes(p) && !inIndex(p))
+  assert.deepEqual(
+    uncommitted,
+    [],
+    '以下源文件在工作树存在,但既不在 HEAD 也不在索引 —— CI 干净检出时它们不存在,' +
+      `本地 pack 出的包会比仓库少这些模块:\n  - ${uncommitted.join('\n  - ')}`,
+  )
+})
+
+test('装车证明:check:sdk-publish 真指向本文件,且已串入 check:all(读 HEAD 面)', () => {
+  // 本仓反复记过的"造好没装车":门写得再好,没人跑就等于没有(AGENTS.md §0 第 9 条)。
+  // 这条与 `check-pkg-installable` 的分工 —— 那条回答"包能不能装"(工作树 pack),
+  // 这条回答"这道门会不会真被执行"(HEAD 面的接线形状)。两处都是 HEAD 面,故与干净检出同形。
+  const rootPkg = headJson('package.json')
+  const script = String(rootPkg.scripts?.['check:sdk-publish'] ?? '')
+  assert.match(
+    script,
+    /node --test\s+packages\/sdk\/tests\/publish-ready\.test\.mjs/,
+    `根 package.json 的 check:sdk-publish 未指向本文件(现读 "${script}"):改名/改路径即静默失去这道门`,
+  )
+  assert.notEqual(
+    headFile('packages/sdk/tests/publish-ready.test.mjs'),
+    null,
+    '本文件自身未入库 —— check:sdk-publish 在干净检出里会直接 exit 1',
+  )
+  const runner = headFile('scripts/all-checks-runner.mjs')
+  assert.notEqual(runner, null, 'scripts/all-checks-runner.mjs 缺失,check:all 无从串接')
+  assert.ok(
+    runner.includes("'pnpm check:sdk-publish'"),
+    'check:sdk-publish 未串入 check:all(all-checks-runner.mjs 的子步骤清单里没有它)',
+  )
+  // 串进一枚没人执行的清单不算装车:check:all 自身必须仍指向那个编排器。
+  assert.match(
+    String(rootPkg.scripts?.['check:all'] ?? ''),
+    /all-checks-runner/,
+    '根 package.json 的 check:all 未指向 all-checks-runner.mjs —— "串入 check:all"只是一句空话',
+  )
 })
 
 test('包内 LICENSE / NOTICE 按设计不入库(避免法律文本漂移的第二份真相)', () => {
