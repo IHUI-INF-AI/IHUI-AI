@@ -80,9 +80,13 @@ export function judge({ face, preference }) {
   return { ...v, measuredPitchPx: face.pitchDy, openFolderWindows: face.openFolderWindows, screen: face.cxScreen && face.cyScreen ? `${face.cxScreen}x${face.cyScreen}@${face.dpi}` : null }
 }
 
-/** 可自动动手的唯一一格:Windows 随换屏自己重算,且没有别人的浏览现场在被关掉。 */
+/**
+ * 可自动动手的唯一一格:Windows 随换屏自己重算,且**已确证**没有别人的浏览现场会被关掉。
+ * `=== 0` 是严格等值:helper 枚举窗口失败时给的是 null,而 Number(null)===0 会把"没量到"
+ * 放行成"没有窗口"⇒ 正好关掉别人开着的文件夹。取不到一律不动手(§0.3)。
+ */
 export function isAutoRepairable(v) {
-  return v.state === 'drift' && v.cause === 'topology-rederive' && Number(v.openFolderWindows) === 0
+  return v.state === 'drift' && v.cause === 'topology-rederive' && v.openFolderWindows === 0
 }
 
 /** 写 bag。只按数字写,不猜路径。 */
