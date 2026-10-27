@@ -1236,10 +1236,17 @@ pub async fn minimax_quarantine_restore(
 
 #[tauri::command(async)]
 pub async fn minimax_quarantine_delete(
+    app: tauri::AppHandle,
     quarantine: String,
     confirm: bool,
 ) -> Result<WbResetReport, IpcError> {
     mm_reset_gate().map_err(IpcError::internal)?;
+    // 2026-10-27:confirm 参数由调用方自报,XSS 直接传 true 即绕过 —— 原生确认窗才是闸
+    crate::require_native_confirm(
+        &app,
+        "MiniMax 隔离区删除",
+        "将永久删除指定隔离区文件,不可恢复。确认执行?",
+    )?;
     let q = std::path::PathBuf::from(quarantine);
     tauri::async_runtime::spawn_blocking(move || minimax_quarantine_delete_impl(&q, confirm))
         .await
