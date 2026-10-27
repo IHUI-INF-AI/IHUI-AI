@@ -81,6 +81,9 @@ vi.mock('../src/services/relay-proxy-pool.js', () => ({
   pickProxyForAccount: (account: { id: string; proxyUrl: string | null }) => mockPickProxy(account),
   reportProxyFailure: (u: string) => mockReportProxyFailure(u),
   reportProxySuccess: (u: string) => mockReportProxySuccess(u),
+  // 本套件只测转发编排,账号级代理密文/明文在此按直通处理
+  resolveAccountProxyUrl: (u: string | null) => u,
+  encryptAccountProxyUrl: (u: string | null) => u,
 }))
 vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: (p: string, m: string) => mockResolveAlias(p, m),
@@ -953,7 +956,12 @@ describe('forwardToAccountPool', () => {
 describe('mergeToolCallDelta', () => {
   it('后续分片的空 id/name 不得覆盖首次非空值;arguments 逐片拼接', () => {
     const slot = { args: '' }
-    F.mergeToolCallDelta(slot, { index: 0, id: 'call_1', type: 'function', function: { name: 'get_time', arguments: '' } })
+    F.mergeToolCallDelta(slot, {
+      index: 0,
+      id: 'call_1',
+      type: 'function',
+      function: { name: 'get_time', arguments: '' },
+    })
     F.mergeToolCallDelta(slot, { index: 0, id: '', function: { name: '', arguments: '{}' } })
     expect(slot.name).toBe('get_time')
     expect(slot.id).toBe('call_1')

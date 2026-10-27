@@ -80,6 +80,8 @@ vi.mock('../src/services/relay-proxy-pool.js', () => ({
   pickProxyForAccount: async () => null,
   reportProxyFailure: async () => {},
   reportProxySuccess: async () => {},
+  resolveAccountProxyUrl: (u: string | null) => u,
+  encryptAccountProxyUrl: (u: string | null) => u,
 }))
 vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: async () => null,
