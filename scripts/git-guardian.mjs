@@ -5112,6 +5112,11 @@ export function convergeCrossEndPortalVerdicts(opts = {}) {
     return { ran: true, state, candidates, applied }
   }
   settleCrossEndLeg('portal-converge', { logger, file: undetFile })
+  // 渲染复判(①b)与门户收敛同一条派发 ⇒ 它的出账也必须上同一块仪表板。
+  // 只转述 PORTAL 那行的后果是:这条腿每轮改了判、留了几条 gap、几条量不到,日志里一个字都没有
+  // —— 装了指纹采集器却不接指示灯,等于没装(§0.9/§12f:能看见的才谈得上修)。
+  const renderLine = stdout.split('\n').find((l) => l.includes('AUTO-REGISTER-RENDER'))
+  if (renderLine && !/state=off/.test(renderLine)) logger(`ℹ️ 渲染复判:${renderLine.slice(0, 240)}`)
   if (state === 'clean' && candidates === 0 && applied === 0)
     return { ran: true, state, candidates, applied }
   logger(`ℹ️ 门户维收敛:${line.slice(0, 260)}`)
