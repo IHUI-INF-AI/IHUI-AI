@@ -4,5 +4,6 @@
   "hooks/use-push.ts": ["#ff231f7c"],
   "screens/ChatScreen.tsx": ["#9cdcfe"],
   "screens/LoginScreen.tsx": ["#000000", "#ffffff"],
-  "screens/MoreCourseScreen.tsx": ["#93d2e2"]
+  "screens/MoreCourseScreen.tsx": ["#93d2e2"],
+  "screens/ScanLoginScreen.tsx": ["#ffffff"]
 }
