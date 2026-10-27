@@ -116,20 +116,6 @@ vi.mock('../src/lib/wechat', () => ({
   sendWechatAuth: vi.fn(async () => 'wx-code'),
 }))
 
-vi.mock('../src/lib/carrier-one-click', () => {
-  class CarrierOneClickError extends Error {}
-  return {
-    CARRIER_ERROR: { NOT_CONFIGURED: 'not_configured' },
-    CarrierOneClickError,
-    carrierLogin: vi.fn(async () => ({})),
-    getCarrierChannel: () => 'none',
-    getCarrierWebUrl: () => null,
-    getRecentPhone: () => null,
-    isCarrierAvailable: () => false,
-    resolveCarrierWebResult: vi.fn(),
-  }
-})
-
 vi.mock('../src/lib/oauth-redirect', () => ({
   loginByAlipayRedirect: vi.fn(),
   loginByDingtalkRedirect: vi.fn(),
