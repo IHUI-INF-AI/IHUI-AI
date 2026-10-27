@@ -541,7 +541,7 @@ export function rendersSharedIn(text, symbol) {
   return false
 }
 
-export function buildShellPage({ spec, base, shellText = '', shellName = null, navTitle = null }) {
+export function buildShellPage({ spec, base, shellText = '', shellName = null, navTitle = null, authGate = false }) {
   // shellName 允许与被承载的共享屏**不同名**(2026-10-27):平台侧薄壳常叫 PlanScreen /
   // NewsScreen,而它渲染的共享屏是 PlanListScreen / SquareScreen —— 承载体是那个壳文件,
   // 不是名字。缺省仍按同名,保持既有页逐字不变。
@@ -570,6 +570,7 @@ export function buildShellPage({ spec, base, shellText = '', shellName = null, n
   L.push(' * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。')
   L.push(' */')
   L.push("import ThemeRoot from '@/components/ThemeRoot'")
+  if (authGate) L.push("import AuthReadyGate from '@/components/AuthReadyGate'")
   L.push(binding)
   // 只设导航标题的生命周期钩子由调用方以 navTitle 传入时原样保留(标题是端内事实,
   // 壳里的共享屏不管小程序导航栏;不保留就等于把原页的标题弄丢)。
@@ -592,7 +593,9 @@ export function buildShellPage({ spec, base, shellText = '', shellName = null, n
   }
   L.push('  return (')
   L.push('    <ThemeRoot>')
-  L.push(`      <${jsxTag} />`)
+  if (authGate) L.push('      <AuthReadyGate>')
+  L.push(authGate ? `        <${jsxTag} />` : `      <${jsxTag} />`)
+  if (authGate) L.push('      </AuthReadyGate>')
   L.push('    </ThemeRoot>')
   L.push('  )')
   L.push('}')
