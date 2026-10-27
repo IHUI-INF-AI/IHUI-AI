@@ -111,24 +111,16 @@ export function ScanLoginScreen() {
           {denied ? t('scanLogin.deniedHint') : t('scanLogin.permissionHint')}
         </Text>
         {denied ? (
-          <Pressable
-            style={[styles.ctaButton, { backgroundColor: tokens.brand.cta }]}
-            onPress={openSettings}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.ctaButtonText, { color: tokens.brand.ctaForeground }]}>
-              {t('scanLogin.openSettings')}
-            </Text>
+          <Pressable style={styles.ctaButton} onPress={openSettings} accessibilityRole="button">
+            <Text style={styles.ctaButtonText}>{t('scanLogin.openSettings')}</Text>
           </Pressable>
         ) : (
           <Pressable
-            style={[styles.ctaButton, { backgroundColor: tokens.brand.cta }]}
+            style={styles.ctaButton}
             onPress={() => void requestPermission()}
             accessibilityRole="button"
           >
-            <Text style={[styles.ctaButtonText, { color: tokens.brand.ctaForeground }]}>
-              {t('scanLogin.grant')}
-            </Text>
+            <Text style={styles.ctaButtonText}>{t('scanLogin.grant')}</Text>
           </Pressable>
         )}
         <Pressable onPress={() => navigation.goBack()} accessibilityRole="button">
@@ -212,8 +204,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: rnSpacing.xl,
     paddingVertical: rnSpacing.sm,
     borderRadius: rnRadiusFor.control,
+    backgroundColor: tokens.brand.cta,
   },
   ctaButtonText: {
+    color: tokens.brand.ctaForeground,
     fontSize: rnType.body.size,
     fontWeight: '600',
   },
