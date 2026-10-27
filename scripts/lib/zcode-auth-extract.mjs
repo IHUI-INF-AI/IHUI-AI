@@ -62,9 +62,30 @@ const IV_LEN = 12
 const TAG_LEN = 16
 const SECRET_ENV = 'ZCODE_CREDENTIAL_SECRET'
 
-/** 派生密钥:sha256(secret);secret = env.ZCODE_CREDENTIAL_SECRET ?? fallback(platform:homedir:username) */
+/**
+ * 派生密钥:sha256(secret);secret = env.ZCODE_CREDENTIAL_SECRET ??
+ * fallback(platform:homedir:username)。
+ *
+ * 2026-10-28 修正:fallback 的 homedir/username 改为「按传入 env 现读」——
+ * 服务身份(LocalSystem)下 os.homedir() 是 systemprofile、os.userInfo() 是机器账户,
+ * 与用户桌面端派生出的密钥必然不同,解密必失败。登录本机会把真实用户家目录派生的
+ * env 传进来;家目录与 os.homedir() 一致(普通桌面进程)时回退到 os.userInfo(),
+ * 派生串与旧实现逐字节相同。
+ */
 export function deriveCipherKey(env = process.env, osApi = os) {
-  const secret = cstr(env?.[SECRET_ENV]) || `zcode-credential-fallback:${osApi.platform()}:${osApi.homedir()}:${osApi.userInfo().username}`
+  let osUser = ''
+  try {
+    osUser = cstr(osApi.userInfo().username)
+  } catch {
+    osUser = ''
+  }
+  const osHome = cstr(osApi.homedir())
+  const envHome = cstr(env?.USERPROFILE) || cstr(env?.HOME)
+  const home = envHome || osHome
+  const normalize = (s) => s.replace(/\//g, '\\').toLowerCase().replace(/\\+$/, '')
+  const sameHome = home !== '' && normalize(home) === normalize(osHome)
+  const user = sameHome ? osUser || cstr(env?.USERNAME) : cstr(env?.USERNAME) || path.basename(home)
+  const secret = cstr(env?.[SECRET_ENV]) || `zcode-credential-fallback:${osApi.platform()}:${home}:${user}`
   return crypto.createHash('sha256').update(secret).digest()
 }
 
@@ -112,9 +133,16 @@ export function decryptCredentialMap(credMap, key = deriveCipherKey()) {
   return { plainMap, decryptErrors }
 }
 
-/** 候选数据根:~/.zcode(本机实证);opts.roots 仅供测试注入(同样做存在性过滤,缺失根 ⇒ 上层 DIR_MISSING) */
+/**
+ * 候选数据根:~/.zcode(本机实证);opts.roots 仅供测试注入。
+ * opts.env 供服务身份(LocalSystem)下改指真实用户家目录(os.homedir() 会落到 systemprofile)。
+ */
 export function candidateRoots(opts = {}) {
-  const raw = Array.isArray(opts.roots) && opts.roots.length > 0 ? opts.roots : [path.join(os.homedir(), '.zcode')]
+  const raw = Array.isArray(opts.roots) && opts.roots.length > 0 ? opts.roots : (() => {
+    const env = opts.env ?? process.env
+    const home = cstr(env.USERPROFILE) || cstr(env.HOME) || os.homedir()
+    return [path.join(home, '.zcode')]
+  })()
   return [...new Set(raw)].filter((d) => fs.existsSync(d))
 }
 
