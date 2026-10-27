@@ -32,7 +32,7 @@
 export const VP_STAGE_ASPECT = 16 / 9
 
 /** rpx 设计稿基准宽(Taro 750)。只用于把比例投成小程序 rpx,不是第二档尺寸。 */
-export const VP_STAGE_REF_WIDTH_RPX = 750
+const VP_STAGE_REF_WIDTH_RPX = 750
 
 /**
  * 小程序舞台高度(rpx 数值,喂 `rpx()`)。750 × 9/16 = 421.875 → 422(取整)。
@@ -60,8 +60,8 @@ export const VP_TRACK_HEIGHT_PX = 4
 /** 进度条命中行的可见高度(RN 原 `h-1.5` = 6)。只作为命中补差的被减数,小程序无自绘进度条。 */
 export const VP_PROGRESS_ROW_HEIGHT_PX = 6
 
-/** 控制元素命中的最小方块(逻辑 px)。规则 2:命中块 ≥44。小程序侧由原生控件 chrome 自证(RN 消费)。 */
-export const VP_CONTROL_HIT_PX = 44
+// 规则 2「命中块 ≥44」已由 hitSlop 出口承担(VP_CONTROL_BUTTON_HIT_SLOP_PX /
+// VP_PROGRESS_BAR_HIT_SLOP_PX;小程序侧由原生控件 chrome 自证)——2026-10-27 撤零消费出口 VP_CONTROL_HIT_PX。
 
 /**
  * 文字按钮的 hitSlop(不可外溢到相邻按钮:水平向补差刻意小于 `VP_CONTROL_GAP_PX` 的一半以上区间,
