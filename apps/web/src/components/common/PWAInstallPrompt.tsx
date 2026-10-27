@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Download } from 'lucide-react'
 import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -20,6 +21,8 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function PWAInstallPrompt({ className, promptEvent }: PWAInstallPromptProps) {
+  // 2026-10-27:此前文案硬编码中文,5 语言站上只有中文能看 —— 与更新提示同批收口到 i18n。
+  const t = useTranslations('pwaInstall')
   const [deferredPrompt, setDeferredPrompt] = React.useState<BeforeInstallPromptEvent | null>(null)
   const [visible, setVisible] = React.useState(false)
 
@@ -49,16 +52,16 @@ export function PWAInstallPrompt({ className, promptEvent }: PWAInstallPromptPro
     <div className={cn('flex items-center gap-3 rounded-lg border bg-card p-3 shadow', className)}>
       <Download className="h-5 w-5 shrink-0 text-primary" />
       <div className="flex-1 min-w-0 text-sm">
-        <p className="font-medium">安装应用</p>
-        <p className="text-xs text-muted-foreground">添加到主屏幕,获得更好体验</p>
+        <p className="font-medium">{t('title')}</p>
+        <p className="text-xs text-muted-foreground">{t('body')}</p>
       </div>
       <button
         onClick={handleInstall}
         className="rounded-sm bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground hover:bg-cta/90"
       >
-        安装
+        {t('action')}
       </button>
-      <CloseButton aria-label="关闭" onClick={() => setVisible(false)} />
+      <CloseButton aria-label={t('close')} onClick={() => setVisible(false)} />
     </div>
   )
 }

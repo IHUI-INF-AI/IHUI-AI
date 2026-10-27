@@ -21,6 +21,7 @@ import { NavChrome } from '../components/NavChrome'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { APP_VERSION } from '../lib/config'
+import { checkOtaUpdate } from '../lib/ota-update'
 import { useI18n, type Locale } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
@@ -198,9 +199,23 @@ export default function SettingsScreen() {
   }
 
   const onMenuPress = (key: string) => {
-    // 检查更新:不跳转,直接弹窗提示(settings.checkUpdateTitle/Latest)
+    // 检查更新(2026-10-27 修真):此前这里只弹一句「已是最新版本」—— 无论有没有更新、
+    // 无论网络通不通,用户点到的永远是同一句话,那是假的。现在调 OTA 状态机的真实入口,
+    // 结论按实际状态回话;查到更新时提示卡(components/UpdatePrompt)会自动出现,
+    // 因为两边读的是同一份 store(lib/ota-update.ts)。
     if (key === 'CheckUpdate') {
-      appAlert(t('settings.checkUpdateTitle'), t('settings.checkUpdateLatest'))
+      void (async () => {
+        const result = await checkOtaUpdate()
+        if (result === 'ready') {
+          appAlert(t('settings.checkUpdateTitle'), t('appUpdate.ready'))
+        } else if (result === 'up-to-date') {
+          appAlert(t('settings.checkUpdateTitle'), t('settings.checkUpdateLatest'))
+        } else if (result === 'unsupported') {
+          appAlert(t('settings.checkUpdateTitle'), t('settings.checkUpdateUnsupported'))
+        } else if (result === 'error') {
+          appAlert(t('appUpdate.error'), t('appUpdate.errorDesc'))
+        }
+      })()
       return
     }
     // 更换手机号:ChangePhone 路由需要 { uuid } 参数(取 user.id)

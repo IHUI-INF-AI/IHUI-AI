@@ -29361,5 +29361,29 @@
   "personalHub": {
     "title": "アカウント",
     "subtitle": "マイ学習、アカウント、セキュリティ、学生センター、フィードバックとヘルプ"
+  },
+  "appUpdate": {
+    "title": "新しいバージョンがあります",
+    "body": "ページを更新して最新バージョンを取得してください",
+    "action": "更新",
+    "close": "閉じる",
+    "ready": "更新の準備ができました",
+    "installing": "再起動しています…",
+    "error": "更新に失敗しました",
+    "errorDesc": "ネットワークを確認して再試行してください",
+    "gateTitle": "更新が必要です",
+    "gateBody": "バージョン {version} はサポートされていません。続行するには {latest} に更新してください。",
+    "gateForceBody": "新しいバージョン {latest} があります。今回の更新は必須です。",
+    "gateReleaseNotes": "更新内容",
+    "gateUpdateNow": "今すぐ更新",
+    "gateQuit": "ページを閉じる",
+    "gateQuitConfirm": "更新はまだ完了していません。閉じるとこの利用は中断されます。",
+    "gateQuitFailed": "ページを自動で閉じられませんでした。このタブを手動で閉じてください。"
+  },
+  "pwaInstall": {
+    "title": "アプリをインストール",
+    "body": "ホーム画面に追加すると、より快適に使えます",
+    "action": "インストール",
+    "close": "閉じる"
   }
 }

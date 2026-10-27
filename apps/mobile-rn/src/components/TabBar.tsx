@@ -7,15 +7,18 @@
  * 对齐历史项目 customTabBar/index.vue 5 主 Tab 结构与 static/tabbar/ 图标:
  *   - AI应用商店 (tabbar_1) / 广场 (tabbar_2) / 智汇AI (tabbar_3) /
  *     动态 (tabbar_4) / 我的 (tabbar_5)
- * 悬浮胶囊风(对齐 Telegram/钉钉 App 底部导航) — 圆角胶囊脱离屏幕边缘,
- * 左右留边 + 投影,底部按 safe-area 悬浮避开手势区。
+ * 液态玻璃停靠栏(2026-10-27 用户定稿):玻璃面板从图标行延伸到屏幕底边,
+ * 手势区收进面板内 —— 删掉原先图标行下面独立的白色透明带。
  * 平台特有:依赖 react-native Image require + SafeAreaView,不适合共享层。
  */
 import { useCallback } from 'react'
-import { Image, Pressable, Text, View } from 'react-native'
+import { Image, Platform, Pressable, Text, View } from 'react-native'
+import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { tokens } from '../theme/active-tokens'
+import { withAlpha } from '@ihui/design-tokens'
+import { useTheme } from '../context/ThemeContext'
 import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
 // 底栏图标的取源方式(2026-10-21 定档,刻意保留,不是遗留绕行):
 // 这族曾在 release 包里长期空白,当时的根因是 @react-native/assets-registry 被装成两份
@@ -86,19 +89,41 @@ const TABS: readonly TabBarItemConfig[] = [
 
 export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const insets = useSafeAreaInsets()
 
   const handlePress = useCallback((key: TabBarKey) => () => onChange(key), [onChange])
 
+  // 悬浮间距:有效 safe-area 一半 + 小间距,不足则用最小间距兜底(2026-10-27 四稿恢复:
+  // 0.0.8 的「直落底边」几何被机主否决——菜单栏沉底、底部距离消失、面板底部多出一段空嵌套块;
+  // 恢复悬浮胶囊几何,材质仍用磨砂实底)
+  const floatGap = Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4)
+
   return (
-    <View
-      style={[
-        tabBarStyleSheet.wrapper,
-        // 悬浮高度:有效 safe-area 一半 + 小间距,不足则用最小间距兜底(对齐 Telegram 手势区避让)
-        { marginBottom: Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4) },
-      ]}
-    >
-      <View style={tabBarStyleSheet.container}>
+    <View style={[tabBarStyleSheet.wrapper, { marginBottom: floatGap }]}>
+      {/* 悬浮玻璃胶囊:图标行 + 底部留距(悬浮)组成同一块磨砂玻璃;玻璃底分端注入 ——
+          Android = surface 0.88 磨砂实底(确定性出效果);iOS = BlurView 真模糊;web = backdropFilter。 */}
+      <View
+        style={[
+          tabBarStyleSheet.container,
+          Platform.OS !== 'ios' && {
+            backgroundColor: withAlpha(
+              resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
+              0.88,
+            ),
+          },
+        ]}
+      >
+        {Platform.OS === 'ios' ? (
+          <BlurView
+            intensity={50}
+            tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
+            style={tabBarStyleSheet.blurFill}
+          />
+        ) : null}
+        {resolvedTheme !== 'dark' ? (
+          <View style={tabBarStyleSheet.rimLight} pointerEvents="none" />
+        ) : null}
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab
           return (

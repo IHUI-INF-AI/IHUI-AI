@@ -358,15 +358,30 @@ export async function loginByUsername(
 /**
  * 发送验证码(手机/邮箱通用) — POST /auth/send-code
  * body 字段名按 method 动态决定(phone → {phone, scene} / email → {email, scene})
+ *
+ * 2026-10-27:支持携带人机验证 token(turnstileToken = Cloudflare Turnstile,
+ * captchaToken = /api/security/challenge 挑战换的一次性 token)。
+ * 服务端 escalate 模式下超频后强制要求;带 token 即校验,无效必拒。
  */
 export async function sendCode(
   method: 'phone' | 'email',
   target: string,
   scene: SmsScene = 'login',
+  options?: { turnstileToken?: string; captchaToken?: string },
 ): Promise<ApiResult<{ sent: boolean }>> {
+  const turnstileToken = options?.turnstileToken
+  const captchaToken = options?.captchaToken
+  // 空串不当作"已带 token":服务端 escalate 档是"带 token 即校验、无效必拒",
+  // 把 '' 透上去只会让正常用户收到一个无法自助的人机验证失败。
+  const tokenFields =
+    typeof turnstileToken === 'string' && turnstileToken.length > 0
+      ? { turnstileToken }
+      : typeof captchaToken === 'string' && captchaToken.length > 0
+        ? { captchaToken }
+        : {}
   return fetchApi<{ sent: boolean }>('/api/auth/send-code', {
     method: 'POST',
-    body: JSON.stringify({ [method]: target, scene }),
+    body: JSON.stringify({ [method]: target, scene, ...tokenFields }),
   })
 }
 

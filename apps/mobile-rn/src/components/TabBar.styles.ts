@@ -4,10 +4,10 @@
 
 /**
  * TabBar 样式定义 (mobile-rn 端)
- * 悬浮胶囊风(对齐 Telegram/钉钉 App 底部导航) — 绝对定位悬浮在内容之上:
- * 左右留边 + 圆角 + 投影,底部按 safe-area 悬浮避开手势区;液态玻璃底
- * (glass.bg 半透明 + backdrop blur),下方内容若隐若现。
- * 5 Tab 等宽布局;选中态用 text.primary(深色中性),未选中用 text.tertiary(中性灰)。
+ * 液态玻璃停靠栏(2026-10-27 用户定稿「删掉底下单独的白底,菜单栏整体液态玻璃」):
+ * 玻璃面板从图标行一直延伸到屏幕底边,把底部手势区收进面板 —— 图标行下面不再有
+ * 独立的白色透明带;玻璃底(glass.bg 半透明 + web 预览 backdrop blur),下方内容若隐若现。
+ * 5 Tab 等宽布局;选中态用强调档,未选中用中性灰。
  */
 import { Platform, StyleSheet } from 'react-native'
 import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
@@ -93,7 +93,10 @@ const glassBlurLayer: ViewStyle =
     : {}
 
 export const tabBarStyles = {
-  /** 外层定位容器:绝对定位浮在内容之上,左右留边,底部贴齐(运行时注入 marginBottom 让出 safe-area) */
+  /**
+   * 外层定位容器:绝对定位浮在内容之上,左右留边,底部贴齐后再由运行时注入
+   * marginBottom 悬浮(marginBottom = 有效 safe-area 一半 + 4,见 TabBar.tsx 四稿)。
+   */
   wrapper: {
     position: 'absolute',
     left: TAB_BAR_FLOAT_MARGIN_H,
@@ -101,22 +104,46 @@ export const tabBarStyles = {
     bottom: 0,
   } satisfies ViewStyle,
 
-  /** 内层胶囊:圆角 + 液态玻璃底 + 细描边 + 投影(替代原贴底全宽实心条) */
+  /**
+   * 液态玻璃胶囊:图标行(高 TAB_BAR_HEIGHT)包进同一块玻璃 —— 圆角 + 细描边 + 投影。
+   * 2026-10-27 四稿:几何恢复悬浮胶囊(0.0.8 直落底边被机主否决),材质保留磨砂实底;
+   * 玻璃底分端注入 —— Android = surface 0.88(运行时注入),iOS = BlurView,web = glass.bg + backdropFilter。
+   */
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     height: TAB_BAR_HEIGHT,
+    overflow: 'hidden',
     backgroundColor: tk.glass.bg,
     borderRadius: TAB_BAR_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tk.border.light,
     shadowColor: tk.gray.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 12,
     ...glassBlurLayer,
+  } satisfies ViewStyle,
+
+  /** 真背景模糊层(expo-blur BlurView 的 absolute fill,仅 iOS 端渲染,置于图标行之下) */
+  blurFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  } satisfies ViewStyle,
+
+  /** 顶部高光线(iOS 白底玻璃的 rim light,仅浅色主题渲染;压住面板与内容的分界) */
+  rimLight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1.5,
+    backgroundColor: withAlpha(tk.surface.light, 0.95),
   } satisfies ViewStyle,
 
   item: {
