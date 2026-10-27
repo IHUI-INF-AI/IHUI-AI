@@ -429,6 +429,7 @@
     "githubLogin": "GitHub",
     "googleLogin": "Google",
     "googleNotConfigured": "Google 登入未設定",
+    "platformNotConfigured": "該登入方式未設定",
     "hasAccount": "已有帳號？",
     "invalidAccount": "無效帳號",
     "invalidCredentials": "帳號或密碼錯誤",

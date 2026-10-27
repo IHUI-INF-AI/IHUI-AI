@@ -429,6 +429,7 @@
     "githubLogin": "GitHub",
     "googleLogin": "Google",
     "googleNotConfigured": "Google 로그인이 설정되지 않았습니다",
+    "platformNotConfigured": "이 로그인 방법은 미설정입니다",
     "hasAccount": "이미 계정이 있으신가요?",
     "invalidAccount": "유효하지 않은 계정",
     "invalidCredentials": "계정 또는 비밀번호가 올바르지 않습니다",
