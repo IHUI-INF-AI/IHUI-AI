@@ -7,8 +7,8 @@
  * 对齐历史项目 customTabBar/index.vue 5 主 Tab 结构与 static/tabbar/ 图标:
  *   - AI应用商店 (tabbar_1) / 广场 (tabbar_2) / 智汇AI (tabbar_3) /
  *     动态 (tabbar_4) / 我的 (tabbar_5)
- * 悬浮胶囊风(对齐 Telegram/钉钉 App 底部导航) — 圆角胶囊脱离屏幕边缘,
- * 左右留边 + 投影,底部按 safe-area 悬浮避开手势区。
+ * 液态玻璃停靠栏(2026-10-27 用户定稿):玻璃面板从图标行延伸到屏幕底边,
+ * 手势区收进面板内 —— 删掉原先图标行下面独立的白色透明带。
  * 平台特有:依赖 react-native Image require + SafeAreaView,不适合共享层。
  */
 import { useCallback } from 'react'
@@ -91,14 +91,15 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
   const handlePress = useCallback((key: TabBarKey) => () => onChange(key), [onChange])
 
   return (
-    <View
-      style={[
-        tabBarStyleSheet.wrapper,
-        // 悬浮高度:有效 safe-area 一半 + 小间距,不足则用最小间距兜底(对齐 Telegram 手势区避让)
-        { marginBottom: Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4) },
-      ]}
-    >
-      <View style={tabBarStyleSheet.container}>
+    <View style={tabBarStyleSheet.wrapper}>
+      {/* 液态玻璃面板直落屏幕底边:图标行 + 底部手势区让位(paddingBottom)同一块玻璃,
+          图标行下面不再有独立白带(2026-10-27 用户定稿)。 */}
+      <View
+        style={[
+          tabBarStyleSheet.container,
+          { paddingBottom: Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4) },
+        ]}
+      >
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab
           return (

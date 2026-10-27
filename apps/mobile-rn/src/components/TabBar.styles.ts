@@ -4,10 +4,10 @@
 
 /**
  * TabBar 样式定义 (mobile-rn 端)
- * 悬浮胶囊风(对齐 Telegram/钉钉 App 底部导航) — 绝对定位悬浮在内容之上:
- * 左右留边 + 圆角 + 投影,底部按 safe-area 悬浮避开手势区;液态玻璃底
- * (glass.bg 半透明 + backdrop blur),下方内容若隐若现。
- * 5 Tab 等宽布局;选中态用 text.primary(深色中性),未选中用 text.tertiary(中性灰)。
+ * 液态玻璃停靠栏(2026-10-27 用户定稿「删掉底下单独的白底,菜单栏整体液态玻璃」):
+ * 玻璃面板从图标行一直延伸到屏幕底边,把底部手势区收进面板 —— 图标行下面不再有
+ * 独立的白色透明带;玻璃底(glass.bg 半透明 + web 预览 backdrop blur),下方内容若隐若现。
+ * 5 Tab 等宽布局;选中态用强调档,未选中用中性灰。
  */
 import { Platform, StyleSheet } from 'react-native'
 import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
@@ -93,7 +93,11 @@ const glassBlurLayer: ViewStyle =
     : {}
 
 export const tabBarStyles = {
-  /** 外层定位容器:绝对定位浮在内容之上,左右留边,底部贴齐(运行时注入 marginBottom 让出 safe-area) */
+  /**
+   * 外层定位容器:绝对定位浮在内容之上,左右留边,底部贴齐屏幕底边。
+   * 2026-10-27 用户定稿:玻璃面板直落底边(不再向上悬浮留缝),底部手势区
+   * 由 container 的 paddingBottom 收进面板 —— 图标行下面不再有独立白带。
+   */
   wrapper: {
     position: 'absolute',
     left: TAB_BAR_FLOAT_MARGIN_H,
@@ -101,21 +105,24 @@ export const tabBarStyles = {
     bottom: 0,
   } satisfies ViewStyle,
 
-  /** 内层胶囊:圆角 + 液态玻璃底 + 细描边 + 投影(替代原贴底全宽实心条) */
+  /**
+   * 液态玻璃面板:图标行(高 TAB_BAR_HEIGHT)+ 底部手势区让位(运行时注入 paddingBottom)
+   * 一起包进同一块玻璃 —— 圆角 + 液态玻璃底 + 细描边 + 投影,延伸到屏幕底边。
+   */
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-around',
-    height: TAB_BAR_HEIGHT,
+    paddingTop: 0,
     backgroundColor: tk.glass.bg,
     borderRadius: TAB_BAR_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tk.border.light,
     shadowColor: tk.gray.black,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    elevation: 10,
     ...glassBlurLayer,
   } satisfies ViewStyle,
 
