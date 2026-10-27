@@ -63,7 +63,7 @@
 {"web":"exam","rn":"packages/app/src/features/exam/ExamScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(exam:12);与 edu/exam 同屏双承载","at":"2026-10-24"}
 {"web":"favorites","rn":"packages/app/src/features/favorites/FavoritesScreen.tsx","status":"aligned","note":"同名+键(favorites:2);与 member/favorites 同屏双承载","at":"2026-10-24"}
 {"web":"feedback","rn":"packages/app/src/features/feedback/FeedbackScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(unsupportedImage ↔ feedback:15);与 member/feedback 同屏双承载","at":"2026-10-24"}
-{"web":"following","rn":"packages/app/src/features/following/FollowingScreen.tsx","status":"gap","note":"原记 aligned→following/FollowingScreen(同名+following:3 键),但该共享屏 RN 端零渲染方(2026-10-27 全量扫 0 命中) ⇒ 名义对齐,降 gap;RN 侧同名功能由 follow/FollowScreen 承载(键空间 follow.* 不同),是否等价待产品口径。","at":"2026-10-27"}
+{"web":"following","rn":"apps/mobile-rn/src/screens/FollowScreen.tsx","status":"aligned","note":"web 关注页是 following/followers 双 Tab(apps/web/app/(main)/following/PageClient.tsx:44-45/97),RN 由 FollowScreen 渲染共享 follow/FollowScreen(关注/粉丝 Tab + 取消关注)承载 ⇒ 功能已对齐;共享层 following/FollowingScreen 是无人渲染的变体,不改用它。文案键空间 following.* 与 follow.* 不同,属文案差异,另按 i18n 收敛。","at":"2026-10-27"}
 {"web":"groups","rn":"apps/mobile-rn/src/screens/GroupsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(groupName ↔ groups:25)","at":"2026-10-24"}
 {"web":"help","rn":"packages/app/src/features/help/HelpScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(searchPlaceholder ↔ help:2);与 member/help 同屏双承载","at":"2026-10-24"}
 {"web":"home","rn":"packages/app/src/features/home/HomeScreen.tsx","status":"aligned","note":"同名直配(home:8);web 工作区首页 ↔ RN 首页","at":"2026-10-24"}
