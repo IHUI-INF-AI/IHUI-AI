@@ -117,6 +117,19 @@ def _validate_url_ssrf(url: str) -> tuple[bool, str]:
 
     return True, ""
 
+
+def _route_ssrf_guard(route: Any) -> bool:
+    """每跳/每子资源都过 SSRF 尺(2026-10-27 修):入口的 _validate_url_ssrf 只看首跳,
+    而浏览器会自动跟随重定向并加载页面引用的子资源 —— 公网页 302 →
+    http://169.254.169.254/... 即整条 SSRF,渲染结果还会把内网内容回吐给调用方。
+    在 Playwright route 层逐请求复检,不合法一律 abort。返回 True=已处理(abort)。"""
+    ok, _reason = _validate_url_ssrf(route.request.url)
+    if not ok:
+        route.abort()
+        return True
+    return False
+
+
 # === sync 单例 Browser(核心实现,不受 EventLoop 限制)===
 _browser: Any = None
 _browser_lock = threading.Lock()
@@ -222,6 +235,8 @@ def _take_screenshot_sync(
 
     # 拦截图片/字体/媒体资源加速截图
     def _route_filter(route: Any) -> None:
+        if _route_ssrf_guard(route):
+            return
         rt = route.request.resource_type
         if rt in ("image", "font", "media"):
             route.abort()
@@ -312,6 +327,8 @@ def _render_html_sync(url: str, wait_until: str, timeout: int) -> dict[str, Any]
 
 def _route_block_images_fonts(route: Any) -> None:
     """拦截图片/字体/媒体资源, 加速渲染取 HTML(与截图同款策略)。"""
+    if _route_ssrf_guard(route):
+        return
     rt = route.request.resource_type
     if rt in ("image", "font", "media"):
         route.abort()
