@@ -39,6 +39,35 @@
  *      到期日;到期或失去命中都自动翻红)。
  *
  * §22d 合规:isDirectRun 守卫 + __test__ 纯函数导出(镜像测试走 __test__)。
+ *
+ * ── 判定面现状(2026-10-27 登记,刀二**未装车**)────────────────────────────
+ *   本门**尚无 §0.4 的三面档**:全量档与 `--staged` 读的是同一个工作树磁盘面
+ *   (扫描走 readdirSync、两本台账走 readFileSync)。`--staged` 由 guardian-runner
+ *   统一追加,本门收下但**不改变判定面**;两面旗同给(`--staged --worktree`)判死
+ *   (exit 2 未判定),这是本枚先把"静默吞旗标"改成"如实声明"的那一半。
+ *   为什么面档不接(实测,取证 .ihui-agent/tmp/nested-gate-face-chair/face-sim.mjs):
+ *     · 嵌套 .git 是**未跟踪的磁盘现场**(本机三处现场全被 .gitignore 覆盖:
+ *       .trae-cn/ = :38、.ihui-agent/* = :182、outputs/* = :546),HEAD/索引树里没有
+ *       任何可命中形态(gitlink 现读 0 枚)⇒ 严格按被审面枚举命中 = 本门对 2026-10-14
+ *       那一型彻底失明(削判据,禁止)。
+ *     · 只把两本台账换成被审面,则 HEAD 面台账现读 2 条 `.trae-cn/tmp/*-fork`,其容器
+ *       在任何被审面上结构上不可能存在 ⇒「清单腐烂判红」那一支变成**恒真**红 ⇒
+ *       存量未归零就 blocking = §12e 禁止的恒红门(接上去拦的是所有人的提交)。
+ *   ⇒ 正解次序:先按刀一把"载体误用"点名并给出改登行式载体的出口,等 HEAD 面那两条
+ *     恒红条目经一次带说明的提交摘干净(存量归零),再由主席接面档(方案见交付报告)。
+ *
+ * ── 刀一:JSON 具名台账的「载体误用」档(2026-10-27 立;只解释红,不消红)──────
+ *   `flagCarrierMisuse` 在装载台账时现读:某条 rel 若被 .gitignore 规则覆盖,它就永远
+ *   不可能出现在 HEAD blob / 索引 blob / CI 干净检出面上。而 JSON 具名台账的语义是
+ *   §0.7「已登记的豁免若被审面不再命中 ⇒ 清单腐烂**判红**」—— 对这种条目该支恒真,
+ *   于是"条目在册"本身就是一把恒红门(实测:入库枚 173381c761 自称消 CI 全量档红,
+ *   效果相反 —— 本地转绿、CI 转红)。对照第二把载体(行式 `no-nested-git-sites.jsonl`):
+ *   同一型"只存在于机主本机"的现场在那里只打 ⚠ 不清红。**红还是 ⚠ 纯由载体决定,
+ *   不由现场决定** ⇒ 这一档的职责是把选错载体这件事点名,并给出出口(改登行式载体)。
+ *   三条锁(镜像测试逐条钉住):① 不改任何归属桶 —— 命中该放的照样放、该红的照样红;
+ *   ② 不降级「清单腐烂」那一支的红(只在原句**后面**追加病因与出路);
+ *   ③ `git check-ignore` 问不出结论 ⇒ 该档本轮「未判定」并点名,既不据此加红也不据此降级。
+ *
  * ══════════════════════════════════════════════════════════════════════════
  *
  * provenance: 7ab6f29e01c4b3d58a2f1e9c04d76b35a8e2c9f1d4b7a6e3c8f5d2b1a9e4c7f0
@@ -47,6 +76,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from 'node
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GATE_LABEL = '[check-no-nested-git]'
@@ -222,11 +252,6 @@ export function loadNamedSites(file = SITES_FILE) {
 
 /**
  * 按台账把 hits 分成「仍判红 / 具名放行」两堆,并另算**腐烂**(§0.7:已登记的豁免在审面不再命中 ⇒ 清单腐烂判红)。
- * 判据要点(都是为了让这条出口不能被滥用):
- *  · 只有**容器目录 rel 与台账条目逐字等值**才免;更深位置、同名别处、前缀相似一律照旧红;
- *  · 到期(ISO 字典序比较)⇒ 不免,并点名"需重新 ack";
- *  · 台账读不到 ⇒ 传入 entries=[] 即可,效果是零放行(严档)。
- */
 export function splitByExemption(hits, entries, today = isoToday()) {
   const reported = []
   const exempted = []
