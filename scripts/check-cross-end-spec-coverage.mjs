@@ -17,6 +17,8 @@
 //   - EXEMPT  : 行为/布局型包裹组件(如 collapsible),无盒模型几何可单一源(仅共享 w-full,两端已同);
 //               web 无箭头动画、RN 有箭头旋转动画,视觉对齐属功能对齐(阶段2),不在样式 spec 范畴
 //               → 不计入缺口、不计入分母。
+//   - 个别原子(button)的单一源是 @ihui/design-tokens 而非 *-spec.ts:按 SPEC_MODULE 登记模块名,
+//     双端 import 该模块即算消费,同样纳入覆盖率(不另造一份 spec)。
 //
 // 棘轮口径:基线存于 scripts/data/cross-end-spec-baseline.json({ okAtoms, totalAtoms })。
 //   totalAtoms = 视觉原子数(已排除 EXEMPT);okAtoms = 双端消费 spec 的视觉原子数。
@@ -47,11 +49,28 @@ const ATOMS = [
   'switch',
   'sheet',
   'avatar',
+  'button',
 ]
 // 行为/布局型包裹组件:无盒模型几何可单一源,仅共享极少 token(如 w-full),且视觉对齐需功能对齐 → 不计入 spec 覆盖率分母。
 const EXEMPT = {
   collapsible:
     '行为/布局包裹组件:无盒模型几何可单一源(根节点仅 w-full,两端已同);web 无箭头动画、RN 有箭头旋转动画,视觉对齐属功能对齐(阶段2),不在样式 spec 范畴。',
+}
+
+// 个别原子的单一源不在 *-spec.ts,而在 @ihui/design-tokens(如 button 的 button-variants 表);
+// 在此登记其模块名与物理文件,computeCoverage 据此判定"该原子是否已下沉单一源且双端消费"。
+const SPEC_MODULE = {
+  button: '@ihui/design-tokens',
+}
+const SPEC_PHYSICAL = {
+  button: resolve(ROOT, 'packages/design-tokens/src/button-variants.ts'),
+}
+function specModule(atom) {
+  return SPEC_MODULE[atom] ?? `@ihui/shared/ui/${atom}-spec`
+}
+function hasSpecFile(atom) {
+  if (SPEC_PHYSICAL[atom]) return has(SPEC_PHYSICAL[atom])
+  return has(resolve(SHARED_UI, `${atom}-spec.ts`))
 }
 
 const has = (p) => existsSync(p)
@@ -60,7 +79,7 @@ const read = (p) => readFileSync(p, 'utf8')
 function consumes(atom, dir) {
   const file = resolve(dir, `${atom}.tsx`)
   if (!has(file)) return false
-  return read(file).includes(`@ihui/shared/ui/${atom}-spec`)
+  return read(file).includes(specModule(atom))
 }
 
 /** 单一真相源扫描:返回 { rows, ok, partials, exempt, total }。守门与棘轮共用,§0.6 零复算。 */
@@ -68,10 +87,10 @@ export function computeCoverage() {
   const rows = []
   let partials = 0
   for (const atom of ATOMS) {
-    const hasSpec = has(resolve(SHARED_UI, `${atom}-spec.ts`))
+    const hasSpec = hasSpecFile(atom)
     const react =
       consumes(atom, UI_REACT) ||
-      (WEB_EXTRA[atom] && has(WEB_EXTRA[atom]) && read(WEB_EXTRA[atom]).includes(`@ihui/shared/ui/${atom}-spec`))
+      (WEB_EXTRA[atom] && has(WEB_EXTRA[atom]) && read(WEB_EXTRA[atom]).includes(specModule(atom)))
     const native = consumes(atom, UI_NATIVE)
     let status = 'OK'
     if (!hasSpec) status = 'NO-SPEC'
@@ -150,7 +169,7 @@ function run() {
   process.exit(0)
 }
 
-export const __test__ = { computeCoverage, ATOMS, EXEMPT, WEB_EXTRA, consumes, loadBaseline, BASELINE_PATH }
+export const __test__ = { computeCoverage, ATOMS, EXEMPT, WEB_EXTRA, SPEC_MODULE, specModule, hasSpecFile, consumes, loadBaseline, BASELINE_PATH }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) run()
