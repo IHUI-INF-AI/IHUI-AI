@@ -7785,7 +7785,9 @@
       "notifyCompletedTitle": "任務完成：{name}",
       "notifyFailedTitle": "任務失敗：{name}",
       "runningCount": "{count} 運行中",
+      "takeover": "接管",
       "title": "後臺 Agent",
+      "tokens": "Token 用量",
       "total": "共 {count} 個",
       "viewResult": "查看結果"
     },

@@ -47,14 +47,33 @@ function toBackgroundAgent(d: SubagentDispatch): BackgroundAgent {
         : d.status === 'cancelled'
           ? 'cancelled'
           : 'running'
+  // D08 ③:进度/逐 agent token 只读载荷上的 metrics;缺该字段 = 未判定(不塞 0、不编造)
+  const metrics = d.metrics
+  const progress = metrics
+    ? {
+        tool_calls: metrics.steps.length,
+        text_preview:
+          metrics.dagTotal !== undefined && metrics.dagDone !== undefined
+            ? `${metrics.dagDone}/${metrics.dagTotal}`
+            : undefined,
+      }
+    : undefined
   return {
     agent_id: d.id,
     status,
     prompt: d.goal,
     created_at: d.createdAt,
     updated_at: d.updatedAt,
+    progress,
     result: d.result ? { output: d.result } : undefined,
     error: d.errorMessage,
+    tokens: metrics?.totalTokens,
+    // 一键接管:仅「还在跑」的派单 + 有会话归属时给入口(既有 /chat?conversationId= 深链);
+    // 终态不给(用「查看结果」),未归属会话不给(不伪造入口)
+    takeoverHref:
+      status === 'running' && d.conversationId
+        ? `/chat?conversationId=${encodeURIComponent(d.conversationId)}`
+        : undefined,
   }
 }
 

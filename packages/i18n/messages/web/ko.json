@@ -7785,7 +7785,9 @@
       "notifyCompletedTitle": "작업 완료: {name}",
       "notifyFailedTitle": "작업 실패: {name}",
       "runningCount": "{count} 실행 중",
+      "takeover": "인계",
       "title": "백그라운드 에이전트",
+      "tokens": "토큰",
       "total": "총 {count}개",
       "viewResult": "결과 보기"
     },

@@ -116,6 +116,21 @@ const CACHE_HYGIENE_SCRIPT = path.join(REPO_ROOT, 'scripts', 'clean-turbopack-ca
 
 const log = (...m) => console.log(`[dev-warmup ${new Date().toISOString().slice(11, 19)}]`, ...m)
 
+// 隔离档成套提示(2026-10-28 加):端口与构建目录只解决"不撞他席构建",不解决
+// "这套 web 打到哪台 API、哪枚库" —— 第三件是 IHUI_API_PROXY_TARGET。缺它的表现是
+// e2e 登录打到默认 8802 那台共享 API/共享库(2026-10-25 实测 fixtures 登录 401 即此型:
+// ihui_e2e 两账号俱全,而 8802 连 ihui 只有 test_e2e),而端口/构建两面全绿、失败无法归因。
+// 只告警不改默认、不阻断:默认档(8801/.next)行为与文案完全不变。
+if (PORT !== 8801 || DIST_DIR !== '.next') {
+  const proxyTarget = process.env.IHUI_API_PROXY_TARGET
+  log(
+    proxyTarget
+      ? `隔离档反代:${proxyTarget}(IHUI_API_PROXY_TARGET)`
+      : '⚠️ 隔离档未设 IHUI_API_PROXY_TARGET ⇒ 反代仍指默认 http://127.0.0.1:8802(共享 API/共享库);' +
+          'e2e 要接隔离库必须一并设它(IHUI_DEV_PORT/IHUI_BUILD_DIST/IHUI_API_PROXY_TARGET 三件成套)',
+  )
+}
+
 // 0) 拿到 dev 锁 **再** 起 next dev。
 //    为什么由本进程持有,而不是继续留在 apps/web 的 predev:
 //    predev 是一条**与 dev server 分离**的 npm 生命周期脚本 —— 它自己的 shell 在 predev

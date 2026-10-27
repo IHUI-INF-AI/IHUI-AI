@@ -16,6 +16,13 @@ Step 结构(append_step 入参缺省字段由 recorder 归一化):
     step_index / type(tool|message|plan|llm) / tool_name / input_summary /
     result_summary / status(ok|error) / tokens / tokens_in / tokens_out /
     duration_ms / cost / http_summary / at
+证据回指四要素(B04,2026-10-28 立):
+    invocation_id(账行编号;空 = 本次没交给派发腿,不编造) /
+    permission_decision / permission_cause / operator_id(令牌主体) ——
+    与明细账同一份事实源(循环侧算一次、两处引用),录制面用它回指
+    `tool_invocation_ledger` 那一行;**输入/输出哈希刻意不落本文件**:
+    inputDigest/outputDigest 的唯一实现住在服务端账行(digestToolArgsStructure +
+    canonicalStringify,§0.6),在录制侧自算第二份即漂移源,故只留回指编号。
 Prompt 缓存计量(P0-①,2026-09-18 立,对标 Codex Harness 的缓存可观测):
     cached_tokens(缓存读命中)/ cache_creation_tokens(缓存写,Anthropic 5min TTL)
     —— 主循环 LLM 步骤(type=llm)与工具内嵌 LLM 用量均透传此二字段,
@@ -90,6 +97,10 @@ STEP_RECORD_CAPS: dict[str, dict[str, Any]] = {
 }
 # 输入/结果摘要单条长度上限(历史名,= itemMaxChars.cap,防单条超大撑爆文件)
 SUMMARY_LIMIT = STEP_RECORD_CAPS["itemMaxChars"]["cap"]
+# B04 证据回指字段的单字段字符上限:取账表 schema 的 invocation_id 上限(160)。
+# 枚举档(permission_decision/cause)也在该长度内,截断不可能命中断变词汇;
+# 该值有镜像测试与 tool_invocation_ledger._MAX_INVOCATION_ID 对齐(漂移即红)。
+EVIDENCE_FIELD_MAX = 160
 # 分页 page_size 上限
 PAGE_SIZE_MAX = 200
 
@@ -239,6 +250,15 @@ def _normalize_step(step: dict[str, Any], idx: int) -> dict[str, Any]:
         "cost": round(_to_num(step.get("cost")), 6),
         "http_summary": str(step.get("http_summary") or ""),
         "at": str(step.get("at") or _now_iso()),
+        # B04 证据回指四要素(2026-10-28 立):此前归一化白名单不含这四键,生产者
+        # 标注的账行编号/权限决策/操作者会在录制侧被丢弃 —— 与 chain(G-816021)、
+        # model(2026-09-09)同型事故,不重犯。空串 = 未标注/未派发,不编造。
+        "invocation_id": str(step.get("invocation_id") or "")[:EVIDENCE_FIELD_MAX],
+        "permission_decision": str(step.get("permission_decision") or "")[
+            :EVIDENCE_FIELD_MAX
+        ],
+        "permission_cause": str(step.get("permission_cause") or "")[:EVIDENCE_FIELD_MAX],
+        "operator_id": str(step.get("operator_id") or "")[:EVIDENCE_FIELD_MAX],
         # 1-5 可解释性证据(2026-09-08 立):缺省回填;b76-04 票3 起超限有界化(诚实置位)
         "input": bounded_input,
         "decision": str(step.get("decision") or ""),

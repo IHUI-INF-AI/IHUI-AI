@@ -2095,9 +2095,7 @@ export default function AdminRelayAccountPoolPage() {
       <Dialog open={modelsView !== null} onOpenChange={(o) => !o && setModelsView(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              可用模型{modelsView?.name ? `:${modelsView.name}` : ''}
-            </DialogTitle>
+            <DialogTitle>可用模型{modelsView?.name ? `:${modelsView.name}` : ''}</DialogTitle>
           </DialogHeader>
           {modelsView && (
             <div className="space-y-3">
