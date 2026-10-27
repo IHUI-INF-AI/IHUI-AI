@@ -24,7 +24,7 @@ import { dirname, join, resolve } from 'node:path'
 import { __test__ as H } from '../heal-derived-in-checkout.mjs'
 import { __test__ as gate } from '../check-miniapp-generated.mjs'
 import { digestInputs, parsePin, renderPin } from '../lib/generated-input-pin.mjs'
-import { mkScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const OID40 = 'a'.repeat(40)
 const filesOf = (n, prefix = 'p') =>
@@ -115,7 +115,12 @@ test('C6 withHeadCheckout 的收尾:work 抛异常也必须把检出摘干净(�
   const calls = []
   const run = (args) => {
     calls.push(args.join(' '))
+    // 本器把一轮钉在**一枚具体 sha** 上(2026-10-27 实测:一枚并发提交插在"判面→建检出→生成"之间,
+    // 拿旧面期望值比对新面字节会把一份正确产物误判成陈旧)⇒ 桩必须给得出钉得上形态的 sha
+    if (args[0] === 'rev-parse') return `${'b'.repeat(40)}\n`
     if (args[0] === 'worktree' && args[1] === 'add') {
+      // 检出必须是按那枚 sha 建的,不是按"当时的 HEAD"(它可能已经被别席推进过)
+      if (!args.includes('b'.repeat(40))) throw new Error(`worktree add 没钉 sha:${args.join(' ')}`)
       mkdirSync(slotDir, { recursive: true })
       writeFileSync(join(slotDir, 'x.txt'), 'x', 'utf8')
     }
@@ -229,5 +234,95 @@ function judgeFaceStaleness(dir) {
 }
 function readBundle(dir) {
   return (gate.makeReader('worktree', dir).read(gate.I18N_BUNDLE) ?? '').replace(/\\/g, '\\\\')
+}
+
+test('C11 只判不修的尺与门 105 同基准:改一份输入就 stale,还原就 clean(检出档不得自立第二把尺)', () => {
+  const dir = mkScratch('hdic-judge-')
+  try {
+    const put = (rel, text) => {
+      mkdirSync(join(dir, rel).slice(0, join(dir, rel).lastIndexOf('/')), { recursive: true })
+      writeFileSync(join(dir, rel), text, 'utf8')
+    }
+    const inputs = []
+    for (const l of gate.REMOTE_LOCALES) {
+      put(gate.baseSourceRel(l), JSON.stringify({ greeting: `hi-${l}` }))
+      put(gate.overrideSourceRel(l), JSON.stringify({ local: `${l}-only` }))
+      put(gate.carriedSourceRel(l), JSON.stringify({ carried: { note: `c-${l}` } }))
+      inputs.push(
+        { rel: gate.baseSourceRel(l), text: JSON.stringify({ greeting: `hi-${l}` }) },
+        { rel: gate.overrideSourceRel(l), text: JSON.stringify({ local: `${l}-only` }) },
+        { rel: gate.carriedSourceRel(l), text: JSON.stringify({ carried: { note: `c-${l}` } }) },
+      )
+    }
+    const rd = gate.makeReader('worktree', dir)
+    const digest = digestInputs(gate.readPinInputs(rd)).digest
+    const pin = renderPin({
+      generator: 'g',
+      sourceCommit: 'c',
+      inputs,
+      generatedAt: '2026-01-01T00:00:00.000Z',
+    }).join('\n')
+    put(gate.I18N_BUNDLE, `// GENERATED\n${pin}\nexport const REMOTE_LOCALE_B64 = {}\n`)
+    assert.equal(H.judgeI18nFace('worktree', dir, rd), 'clean', '钉与面上现算同值时应判 clean')
+    assert.equal(digest.length, 64)
+
+    // 只改承载层那一份源(2026-10-27 之前门根本看不见的那一层)⇒ 必须立刻 stale
+    put(gate.carriedSourceRel('ja'), JSON.stringify({ carried: { note: 'LATER-EDIT' } }))
+    assert.equal(
+      H.judgeI18nFace('worktree', dir, gate.makeReader('worktree', dir)),
+      'stale',
+      '改承载层源而钉没重算 ⇒ 应判 stale',
+    )
+
+    // 面上根本没有 RN 词包 ⇒ 两层口径,不得因此冒红(§12e 恒红门禁令)
+    const bare = mkScratch('hdic-judge-bare-')
+    try {
+      const bareInputs = []
+      for (const l of gate.REMOTE_LOCALES) {
+        const b = JSON.stringify({ greeting: `hi-${l}` })
+        const o = '{}'
+        const putBare = (rel, text) => {
+          mkdirSync(join(bare, rel).slice(0, join(bare, rel).lastIndexOf('/')), { recursive: true })
+          writeFileSync(join(bare, rel), text, 'utf8')
+        }
+        putBare(gate.baseSourceRel(l), b)
+        putBare(gate.overrideSourceRel(l), o)
+        bareInputs.push(
+          { rel: gate.baseSourceRel(l), text: b },
+          { rel: gate.overrideSourceRel(l), text: o },
+        )
+      }
+      const bareRd = gate.makeReader('worktree', bare)
+      const barePin = renderPin({
+        generator: 'g',
+        sourceCommit: 'c',
+        inputs: bareInputs,
+        generatedAt: '2026-01-01T00:00:00.000Z',
+      }).join('\n')
+      putBare2(bare, barePin)
+      assert.equal(
+        H.judgeI18nFace('worktree', bare, gate.makeReader('worktree', bare)),
+        'clean',
+        '没有承载层时按两层算也应 clean',
+      )
+      assert.equal(
+        digestInputs(gate.readPinInputs(bareRd)).perInput.length,
+        gate.REMOTE_LOCALES.length * 2,
+      )
+    } finally {
+      rmScratch(bare)
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+function putBare2(root, pin) {
+  const rel = gate.I18N_BUNDLE
+  mkdirSync(join(root, rel).slice(0, join(root, rel).lastIndexOf('/')), { recursive: true })
+  writeFileSync(
+    join(root, rel),
+    `// GENERATED\n${pin}\nexport const REMOTE_LOCALE_B64 = {}\n`,
+    'utf8',
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
