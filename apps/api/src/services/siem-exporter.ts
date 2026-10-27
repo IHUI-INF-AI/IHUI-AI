@@ -583,6 +583,21 @@ function rsaVerify(canonical: string, signatureB64: string, publicKeyPem: string
 }
 
 /**
+ * 86(B04)tool_invocation_ledger 明细账签名导出(2026-10-27)的签名出口。
+ *
+ * 私钥、签名算法、失败归因与 `buildSignedAuditExport` 是**同一套机制** —— 明细账导出
+ * 只是载荷不同(账行 JSON Lines,无链锚,见 tool-invocation-ledger-export.ts 头注),
+ * 签名这一格绝不允许第二份实现(两处各写 createSign 必漂移,§0.6 同型)。收件方验签
+ * 不分数据面:`verifySignedAuditExport` 对两种信封一视同仁。
+ *
+ * @param canonical 载荷经 `canonicalAuditExportPayload` 归一后的确定性文本
+ * @throws AuditExportSignatureError 私钥不可用 / 签名运算失败 —— 绝不返回空签名
+ */
+export function signCanonicalExportPayload(canonical: string): string {
+  return rsaSign(canonical, getPrivateKeyPem())
+}
+
+/**
  * 86F ①:计算导出区间的链锚;算不出就返回 undefined(信封保持旧形状)。
  *
  * 两个条件都是硬的:
