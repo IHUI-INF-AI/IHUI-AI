@@ -49,7 +49,7 @@ import {
 // 2026-10-24:同一把尺子多收一个输入 `code` —— 执行器两道兜底(单门超时看门狗 / 输出超 20MB)合成的
 // Error 只有 error.code、没有 status/signal,不传 code 就被读成"判据判红"(§0.3 把"没判"写成"判过");
 // 归 crash 档后后果一项不减(仍 failed++、仍非零退出、提交仍被拦)。判定与措辞单源都在该 lib。
-import { crashAdvisory, crashNextStep, decideGateOutcome } from './gate-failure-kind.mjs'
+import { crashAdvisory, crashNextStep, decideGateOutcome, UNDETERMINED_EXIT_CODE } from './gate-failure-kind.mjs'
 
 export async function runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs }) {
 
@@ -115,6 +115,9 @@ let passed = 0
 let warned = 0
 let failed = 0
 let skipped = 0
+// §0.3「未判定」独成一档(2026-10-27):既不是 passed(没拿到"通过"这个结论)也不是 failed
+// (没有判出任何违规)。单独计数 ⇒ 汇总既能把它逐道点名出来,又不会把"没判"算进"失败"。
+let undetermined = 0
 const startTime = Date.now()
 // 跑完再汇总(2026-09-22 改版):原先任一 blocking 门失败即 exit(1),会遮蔽其后所有门的结论
 // —— 既让人误判"刚注册的门没生效"(实测两次被 id 6 / id 30c 的在途失败截断),也会把
@@ -161,6 +164,12 @@ const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
 const failedGates = []
 /** 跑不起来的门(崩溃指纹 / 被兜底弄死的 error.code ⇒ 都是"未判定")。仍计入 failed(不放行),但**不进** failedGates,免得被当"判据判红"。 */
 const crashedGates = []
+/**
+ * 门自己按 §0.3 交付「未判定」的那几道(exit 2 + 显式点名了取不到什么)。
+ * 与 crashedGates 的区分:那一档是"整套门没跑起来",这一档是"门跑完了,但这一次它取不到被审面"。
+ * 两档都**不等于通过**,但只有 `failedGates`(red)才是"判出了违规" —— 三者一个都不许并桶。
+ */
+const undeterminedGates = []
 
 // ─── 批次留痕(G-1059139)───
 // 两类"没跑"必须分开记:`selfSkipped` 只收 **env 自跳**(条目声明了 skipEnv 且当次该变量为 1),
@@ -218,7 +227,7 @@ function printSummary(useStderr) {
       /* 观测旁路:落盘失败不影响判据 */
     }
   }
-  const executed = passed + warned + failed + skipped
+  const executed = passed + warned + failed + skipped + undetermined
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
   out('')
   out(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
@@ -229,6 +238,9 @@ function printSummary(useStderr) {
   out(`  ${C.yellow}警告: ${warned}${C.reset}`)
   out(`  ${C.red}失败: ${failed}${C.reset}`)
   out(`  ${C.dim}跳过: ${skipped}${C.reset}`)
+  // 刻意**不**写进"失败"那一行(那是判红计数),也不写进"通过"(没判);
+  // 但必须占一行并进 executed —— 少算它会让上一行凭空打出"← 提前中止",把"没判"说成"没跑到"。
+  out(`  ${C.yellow}❓ 未判定: ${undetermined}(取不到输入,§0.3 不记绿也不冒红,见下方逐道点名)${C.reset}`)
   out(`  总耗时: ${totalTime}s`)
 }
 
@@ -647,19 +659,42 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
     // 现在 stderr 是**管道进来的**,由上方 `process.stderr.write(gateStderr)` 负责原样吐回上游 ——
     // 也就是说"子进程的话一定被打印"这件事仍然成立,但**保障它的是这段代码,不是 stdio 模式**。
     // 谁再改 stdio 配置,必须同时回头看那一句 write,否则判据的输出会被静默吞掉(比误报更难查)。
+    // ── §0.3「未判定」必须在**任何计数之前**分出去(2026-10-27)──────────────────
+    // 判据体对"取不到输入"的合规交付是 exit 2 + 显式点名,而此前这一档落到 decideGateOutcome 的
+    // 最后一行 ⇒ kind='red' ⇒ failed++ / 进 failedGates(判红名单)/ 批量 exit(1)。于是
+    // 「我读到了内容、它确实违规」与「我取不到输入、判不了」在汇总层长得一模一样 —— 这正是
+    // §12e/§12f 明令禁止的形状:与本次提交内容无关的红会让使用者去 `--no-verify`,一次绕过 =
+    // 该枚提交上全部守门作废。这里把它单独成档,**不计 failed、不进 failedGates**,但逐道点名、
+    // 批量以同一枚退出码收口(不记绿也不冒红)。
+    // 注意 `kindPre` 故意算在 mode 派发**之外**:这样上面的异常返回值可直接复用于未判定判定,
+    // 而 `failed++` 仍是 blocking 支的第一句(executor 分类层的既有结构锁)。
+    const kindPre = decideGateOutcome({
+      status: e?.status ?? null,
+      signal: e?.signal ?? null,
+      code: e?.code ?? null,
+      stderr: gateStderr,
+    })
+    if (check.mode === 'blocking' && kindPre.kind === 'undetermined') {
+      undetermined++
+      undeterminedGates.push({ id: check.id, label: check.label, script: check.script, reason: kindPre.reason })
+      console.error(
+        `${C.yellow}❓ [${check.id}] ${check.label} ${kindPre.reason}${C.reset} —— **未判定**:` +
+          `这不是"这道门发现了违规"(不计入 blocking 红),也不是"通过"(不记绿);` +
+          `上面该门回吐的输出里有它点名的路径/原因。(单独复现:node scripts/${check.script}` +
+          `${passStaged ? ' --staged' : ''})`,
+      )
+      return
+    }
     if (check.mode === 'blocking') {
       failed++
-      // 崩溃 ≠ 判红(纯函数与四条分支的构造面证明在 scripts/lib/gate-failure-kind.mjs)。
+      // 崩溃 ≠ 判红(纯函数与各分支的构造面证明在 scripts/lib/gate-failure-kind.mjs)。
       // 分流只改**说法与归类**,不改后果:仍然 failed、批量仍然非零退出 —— 把"跑不起来"洗成
       // 通过,等于给一台瞎掉的尺子发合格证(本仓对"未判定"的一贯要求:大声、点名、不清偿不放行)。
       // code 必须一起传:兜底弄死(超时看门狗 / 输出超 20MB)那两个 Error 只有 code,
       // 没有 status/signal —— 少传这一个键,门就会被读成"判据判红"(2026-10-24 实测即此型)。
-      const kind = decideGateOutcome({
-        status: e?.status ?? null,
-        signal: e?.signal ?? null,
-        code: e?.code ?? null,
-        stderr: gateStderr,
-      })
+      // 2026-10-27:这次调用提前到上面 kindPre(未判定要先于 failed++ 分流),此处直接复用同一个结果,
+      // 判定实现与"code 必须传"这条规矩都还在 gate-failure-kind 单源里,本文件不复制。
+      const kind = kindPre
       if (kind.kind === 'crash') {
         crashedGates.push({ id: check.id, label: check.label, script: check.script, reason: kind.reason })
         console.error(
@@ -837,6 +872,23 @@ if (crashedGates.length > 0) {
     )
   console.error(`   ${crashAdvisory(crashedGates.length, crashedGates.map((g) => g.reason))}`)
 }
+// §0.3 未判定清单(2026-10-27 立):与上面两档都**不同桶** —— 不是"判出了违规",也不是"整套门没跑起来"。
+// 这里必须**逐道点名**:立案要求就是"不许静默吞掉"。逐条的根据有两处:
+//  ① reason 带上 detectUndetermined 从该门 stderr 里抓到的那句自述;
+//  ② 该门自己的输出(含它点名的具体路径/被审面)已在 applyGateResult 里原样吐回上游,见上方回显。
+// 打印位置排在判红支**之前**:两份名单都要打印完再退出,不得因为先退而把另一段吞掉。
+if (undeterminedGates.length > 0) {
+  console.error('')
+  console.error(
+    `${C.bold}${C.yellow}❓ ${undeterminedGates.length} 道门**未判定**(取不到输入,§0.3)—— ` +
+      `与"判据判红"分开列:**不许**按缺陷派单,但也不许当通过:${C.reset}`,
+  )
+  for (const g of undeterminedGates)
+    console.error(
+      `   · [${g.id}] ${g.label} —— ${g.reason}(上面该门回显里有它点名的路径;` +
+        `复现:node scripts/${g.script}${passStaged ? ' --staged' : ''})`,
+    )
+}
 if (failedGates.length > 0) {
   console.error('')
   console.error(
@@ -864,6 +916,26 @@ if (crashedGates.length > 0) {
       `未判定 ≠ 通过,§0.3)${C.reset}`,
   )
   process.exit(1)
+}
+// ── 未判定 ⇒ 批量以 §0.3 的**同一枚**退出码(2)收口(2026-10-27)────────────────
+// 不写第四个数,也不落到 0/1 两头:三档口径是全仓既有约定(AGENTS §0.3、§5c),执行器把同一把尺子
+// 用在批量结论上,而不是自造一套。
+//   · **不冒红**:本批没有判出任何违规 ⇒ 不得 exit 1,不得进 failedGates(failed 计数也不加)。
+//     这是本次要根治的那一格 —— 与本次提交内容无关的红会把使用者推向 `--no-verify`,
+//     一次绕过 = 该枚提交上全部守门作废(§12e/§12f)。
+//   · **不记绿**:批量没有拿到"通过"这个结论 ⇒ 绝不落到 exit 0 / `writePushGateCache`。
+//     排在缓存写入之前正是为此:把"没判"当"通过"缓存起来会让下一轮 push 连门都不跑。
+if (undeterminedGates.length > 0) {
+  console.error('')
+  console.error(
+    `${C.bold}${C.yellow}⛔ 本批有 ${undeterminedGates.length} 道门**未判定**(取不到输入,判不了)⇒ ` +
+      `批量以 exit ${UNDETERMINED_EXIT_CODE}「未判定」收口:${C.reset}`,
+  )
+  console.error(
+    `   ${C.dim}不是红(这批里一道都没判出违规,**请勿当缺陷派单**),也不是绿(没拿到"通过"这个结论;` +
+      `§0.3 不记绿也不冒红)。把上面逐条点名的取材问题清偿后,重跑本批即可拿到真结论。${C.reset}`,
+  )
+  process.exit(UNDETERMINED_EXIT_CODE)
 }
 
 // push-gate 全部通过 → 写缓存(2026-10-16 外置到 lib/guardian-pushgate-cache.mjs;failed===0 守卫与打印在 lib 内)
