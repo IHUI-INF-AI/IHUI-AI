@@ -6,7 +6,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 import { eq } from 'drizzle-orm'
 import { generateShortCode } from '../utils/crypto-random.js'
@@ -105,7 +105,8 @@ import {
   deleteUserSk,
   createAuditLog,
 } from '../db/oauth-queries.js'
-import { sendSmsCode, isSmsConfigured } from '../services/sms.js'
+import { sendSmsCode, isSmsConfigured, extractSmsSendGuard } from '../services/sms.js'
+import { sendNoticeSmsToUser } from '../services/sms-notify.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
 import { resolveLoginRegion } from '../services/login-region.js'
 import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
@@ -1559,7 +1560,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = smsCodeSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      const result = await sendSmsCode(parsed.data.phone)
+      const result = await sendSmsCode(
+        parsed.data.phone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) {
         // 限速 → 429;云侧没发出去 → 502。两者不能同形:把欠费读成"慢点再试"没人会去查账户。
         const status = result.failure === 'delivery_failed' ? 502 : 429
@@ -1578,7 +1583,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = smsCodeSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      const result = await sendSmsCode(parsed.data.phone)
+      const result = await sendSmsCode(
+        parsed.data.phone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) {
         // 限速 → 429;云侧没发出去 → 502。两者不能同形:把欠费读成"慢点再试"没人会去查账户。
         const status = result.failure === 'delivery_failed' ? 502 : 429
@@ -2705,7 +2714,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const user = await findUserById(request.userId!)
       if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
-      const result = await sendSmsCode(user.phone)
+      const result = await sendSmsCode(
+        user.phone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) return reply.status(429).send(error(429, result.msg))
       return reply.send(success({ sent: true }))
     },
@@ -2747,11 +2760,13 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { newPhone } = parsed.data
-      const existing = await findUserByPhone(newPhone)
-      if (existing && existing.id !== request.userId) {
-        return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
-      }
-      const result = await sendSmsCode(newPhone)
+      // 号码是否已被他人绑定只在 confirm 阶段裁决:发码前预检会把“该号是否注册”直接回给调用方,
+      // 等于开放手机号枚举。发码本身无害,先发再在确认时 409。
+      const result = await sendSmsCode(
+        newPhone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) return reply.status(429).send(error(429, result.msg))
       return reply.send(success({ sent: true }))
     },
@@ -2783,6 +2798,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
       }
       const updated = await updateUser(request.userId!, { phone: newPhone })
+      // 安全类短信:换绑成功必须让用户知道,失败不影响换绑结果。
+      // bizId 用完整号码的短摘要(不落裸号、同一新号重试键相同),不再掺 Date.now()。
+      void sendNoticeSmsToUser(request.userId!, 'binding-success', {
+        bizType: 'auth',
+        bizId: `bind:${request.userId!}:${createHash('sha256').update(newPhone).digest('hex').slice(0, 12)}`,
+      })
       return reply.send(success({ user: { id: updated.id, phone: updated.phone ?? '' } }))
     },
   )
