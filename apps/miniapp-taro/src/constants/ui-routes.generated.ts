@@ -8,11 +8,11 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 977cc1847014aa8927435c690171498769a3b0dd
-// inputsSha256: d406f3af1a2591257b6a0e5ab6b37e3dcd94622878ac873c9316d04454b13150
+// sourceCommit: db087fdc4c2228c450cf4f5082e1e3d790d93450
+// inputsSha256: 48488b7e94a1c753920c95c54356c6de8e1e3ecd126bc579c6ae802ef4541844
 // input: apps/miniapp-taro/src/api/index.ts 906678d9feb2dabe632a4a45b2a75ace7e081d020944f31357aa249f64c7ab2e
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
-// input: apps/miniapp-taro/src/app.config.ts 0865eb10cf08e41ae7c94f578febcf055e064c3a5b9ecfba1aaeb9420ce68268
+// input: apps/miniapp-taro/src/app.config.ts 00f704d11f2a44d6df6cb92b48d21108c14e48ba28ecbbf17e4ba71e5db7f307
 // input: apps/miniapp-taro/src/app.tsx e0b0feff8f2c5092b9bcb916cc9dc173002f9e7b71b21bb0132f207a04e79668
 // input: apps/miniapp-taro/src/components/AgentListPanel.tsx 1e9ba13abe25ef1f475d28393dc0df9812a4b3df620bff14e19cf2942914c051
 // input: apps/miniapp-taro/src/components/AgentRuntimePanel.tsx dccf5486d145e8f00d80c4e8067ef929229234d2122b8f2e625f9dc48c6872d6
@@ -442,6 +442,7 @@
 // input: apps/miniapp-taro/src/pkg-mirror2/my-comments/index.tsx e4c88b3f5aff75ad024002346410df504be87a2b2aa4c2d1158a8bd8421954cc
 // input: apps/miniapp-taro/src/pkg-mirror2/my-lessons/index.tsx 0a20c2a64798fb3bc1d8ea6fce62316e0fcc70a067302d3ebc691b30158687bb
 // input: apps/miniapp-taro/src/pkg-mirror2/my-resources/index.tsx 5ac4e955bbea37310e0bbc617ad74b1bdcb794f297370391e84af28e516bf552
+// input: apps/miniapp-taro/src/pkg-mirror2/offline-records/index.tsx 9d07dfde1ab34f35157b4f67bbe08b05fd878faea68cb13fe77d9ffabb500d53
 // input: apps/miniapp-taro/src/pkg-mirror3/note-list/index.tsx 060a786b13cf6377939d5fdc4af1848758ca90736834c95d83bd57521e65d33f
 // input: apps/miniapp-taro/src/pkg-mirror3/note/index.tsx 629e57296fdb7ed70a7b1dc4735ddd49f49539216479fb85d399b04743275b7c
 // input: apps/miniapp-taro/src/pkg-mirror3/order-log/index.tsx cd2abdcf9c5774fbce81b0ef06e95c4639f70c9b9a6aec12ca3a6bbc679c8b05
@@ -463,6 +464,7 @@
 // input: apps/miniapp-taro/src/pkg-mirror3/settings-account/index.tsx c0ee45c694fe991ac94f278609dae338bc8e502c5c3b31fb24a97bf011bd8aaa
 // input: apps/miniapp-taro/src/pkg-mirror3/spec/index.tsx 77b6fc9e3d4ff791957084da0fd1b07f178e5c10ef828c9a2fffebdf68acb117
 // input: apps/miniapp-taro/src/pkg-mirror3/status/index.tsx 6befee75ba9d505ff90879761b321524aa24c2d4321a80c797446d76f979e117
+// input: apps/miniapp-taro/src/pkg-mirror3/student-center/index.tsx e4970acff65a26c2e40bf3506ecb06c147b5d44fdb949dddc7617a78a0a96b36
 // input: apps/miniapp-taro/src/pkg-mirror3/study-progress/index.tsx a6d793ab41e27ae67612310d38bae7d619d1cef5e40a37723abb88ba7005742c
 // input: apps/miniapp-taro/src/pkg-mirror3/team-detail/index.tsx 17ffb133fbcc29673fddf66cc9dcfdc49a0ba9928e19232c5b7da45df71da91b
 // input: apps/miniapp-taro/src/pkg-mirror3/topup-fail/index.tsx 0ba4c4d51b73cccdfd8cdfe56f21e1298249c32177df319617a088fb137e550e
@@ -636,9 +638,9 @@
 // input: apps/miniapp-taro/src/utils/visit-tracker.ts 86fd000208a9998e70d5970099acdef093c25bf0031c8f80474aabc117d868fa
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts f3405919e3d130c52be0c105153f70c9bfad426ceb8e081adf65badc15580e5a
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
-// scanned: 502 source files(navigateTo url 参数探测,requiresParams 的依据)
-// skipped: pagesWithoutOwnConfig=144(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-27T04:08:09.936Z
+// scanned: 504 source files(navigateTo url 参数探测,requiresParams 的依据)
+// skipped: pagesWithoutOwnConfig=146(标题回落 app window / tabBar 文案)
+// generatedAt: 2026-10-27T04:13:43.314Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
@@ -2341,6 +2343,13 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     requiresParams: false,
   },
   {
+    path: '/pkg-mirror2/offline-records/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-mirror2',
+    requiresParams: false,
+  },
+  {
     path: '/pkg-mirror3/note-list/index',
     title: '智汇AI',
     tab: false,
@@ -2524,6 +2533,13 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
   },
   {
     path: '/pkg-mirror3/workflows/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-mirror3',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-mirror3/student-center/index',
     title: '智汇AI',
     tab: false,
     subPackageRoot: 'pkg-mirror3',
