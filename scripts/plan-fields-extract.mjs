@@ -39,14 +39,35 @@
  *    (删旧键不丢任何信息)才许退;否则点名交 `--reclassify`,绝不替人裁。
  *  · 标题锚点命中多行(同题不同号同时在册)⇒ 归属歧义,一条都不动(失效方向恒为"少搬")。
  * 判据出口 `adoptMovesOf` 同时供门 234(`check-plan-fields.mjs`)归并维 import,不写第二把匹配。
+ *
+ * 孤儿键退场档(2026-10-27 立,票面「侧车孤儿键没有合法退场档」):归并档的两支都要求**台账面上
+ * 还有一个同题面的活行**当认领目标(搬=目标键空、退场=目标键已被新号补写且逐字覆盖),所以
+ * "题面在台账已彻底消失"的那一族旧号键**结构性没有出口** —— 手工删 jsonl 行不算通道(§1 侧车只增
+ * 不删,要删必须走器物并留痕),`--apply` 也不是纯退场档(同批还会追加抽取记录,把"退"和"写"混在
+ * 一档 ⇒ 谁退了什么查不清)。本档 `--retire-orphans` 只做一件事:**只退不抽**,三条前置同时成立
+ * 才退(判据全部 import 单源:复合主键 `compositeKeyOf`/`fieldsFor` + 归并档 `adoptMovesOf` 的在册集):
+ *  ① 台账面已无任何对应登记行 —— 键逐字不在被审面行键集 ∧ **题面指纹也不在任何行(含已勾)** ∧ 不在
+ *     归并档在册/点名集(搬、退场、不可归并三支都归归并档管,本档绝不重复处置);
+ *  ② 键形态合法 —— 号段非空 ∧ `#` 后题面 ≥4 字(与 `compositeKeyOf` 同档),`T:` 兜底键不合法;
+ *  ③ 该键**最近一次** `updatedBy` 不是本器的自写面(见 `SELF_WRITER_STAMPS`)。
+ * 任一不成立 ⇒ 该键**一条都不退**并逐条点名原因;失效方向恒为"多留一条并点名",绝不是"多删一条"。
+ * 零丢失:退场前把被退物理行**逐字**写进既有那本账 `.ihui-agent/state/plan-row-drop.jsonl`
+ * (同型条目,`kind=sidecar-orphan-retire`,不新建第二本账格式)—— 取不到那本账 ⇒ 整批不退并 exit 2。
+ * **留痕排在摘行之前**:AGENTS §1 那条"留痕必须排在落地成功之后"的立因是"先写后落会把面上还在的
+ * 行说成已删 ⇒ 复洁器误剔丢别人的行",而 `scrub-declared-removals.declaredRows` 只认
+ * `/^\s*- \[[ xX]\]/` 形态的 `rowBefore`(本档写的是 jsonl 记录行,结构上进不了那个射程,害不到人);
+ * 反过来先摘后写一旦崩在两步之间,记录就**逐字不可恢复**了。所以这一族的序只能是留痕 ⇒ 摘行 ⇒ 回读。
+ * 默认 dry-run 只报数,`--apply` 才写盘;写盘走临时件 + rename,回读再断言
+ * 「退场行数 + 剩余行数 == 退场前总行数」,不成立 ⇒ `state=refused` 并 exit 2。
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { auditFace, readFieldsFace, readPlan } from './plan-tasks.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { FIELDS_REL, normalizeRecord } from './lib/plan-fields.mjs'
+import { FIELDS_REL, fieldsFor, normalizeRecord } from './lib/plan-fields.mjs'
+import { DROP_LEDGER_REL, ledgerRowSet } from './lib/plan-drop-record.mjs'
 import { parseHeader, resolveSidecar, stripHeader } from './lib/plan-field-line.mjs'
 import {
   bucketFromFields,
@@ -700,6 +721,395 @@ export function applyAdoptMoves(root, moves = [], retires = []) {
   return { moved, retired: retires.length, removed, raced, path: abs }
 }
 
+/**
+ * ── 孤儿键退场档(2026-10-27 立,票面「侧车孤儿键没有合法退场档」)────────────────
+ *
+ * 归并档的两支都以"台账面上还有一个同题面的行"为前提(搬 = 目标键空、退场 = 目标键已被新号补写
+ * 且逐字覆盖)。题面在台账**彻底消失**的那一族旧号键因此结构性没有出口:手工删 jsonl 行不算通道
+ * (§1「侧车只增不删,要删必须走器物并留痕」),而 `--apply` 不是纯退场档(同批还会追加抽取记录,
+ * 谁退了什么查不清)。本档只做一件事:**只退不抽**。
+ *
+ * 三条前置同时成立才退(任一不成立 ⇒ 该键一条都不退并点名;失效方向恒为"多留一条"):
+ *  ① 台账面已无任何对应登记行 —— 复合主键逐字不在行键集(行键走单源 `fieldsFor`,与门 234 同一把尺)
+ *     ∧ **题面指纹不在任何行(含已勾)** ∧ 不在归并档在册/点名集(`adoptMovesOf` 单源,绝不重复处置);
+ *  ② 键形态合法 —— 号段非空 ∧ `#` 后题面 ≥4 字(与 `compositeKeyOf` 同档),`T:<sha1>` 兜底键不合法;
+ *  ③ 该键**最近一次** `updatedBy` 不是本器的自写面 —— 见 `SELF_WRITER_STAMPS`。
+ *
+ * 为什么③ 的射程是"抽取/归并两条自动腿"而不含 `--reclassify`:主席 d1c4029f3e3 的 commit message
+ * 自述"已按退场前置把 4 条旧键的 waiting 收到 none…目的:使 adoptMovesOf 的退场前置成立" ——
+ * 声明式改判(逐条带 why)是本仓唯一的"定向说明"通道,它写的戳是**人给的交代**,不是本器自产的说辞。
+ * 把它也算进"本器",等于把主席自己准备好的那批永久钉死 ⇒ 判据输入集依赖它要消的形态而自锁
+ * (AGENTS §1「回潮实测到三条通道」②那一型)。拿不准的那一族(自动腿刚写的 67 枚)留在射程外,
+ * 出路点名得很清楚:逐条 `--reclassify`(带 why)⇒ 下一轮进射程。
+ */
+const SELF_WRITER_STAMPS = new Set([UPDATED_BY, 'plan-fields-extract-adopt'])
+export const RETIRE_SEAT = 'plan-fields-extract'
+export const RETIRE_DROP_KIND = 'sidecar-orphan-retire'
+/** 留痕条目的 `file` 面(正斜杠:git/对账侧只认 posix 分隔符,同 `plan-tasks.fieldsSpecRel`)。 */
+const FIELDS_REL_POSIX = FIELDS_REL.split(path.sep).join('/')
+const RETIRE_DROP_NOTE =
+  '孤儿键退场档(plan-fields-extract --retire-orphans --apply):复合主键与题面指纹在被审面均已无对应登记行 ⇒ 侧车记录逐字退场;本行即回滚件(把它原样追加回侧车即恢复)'
+
+/** 题面指纹归一:空白差异("DevEnv 搬入 G" vs "DevEnv搬入G")不构成"题面已消失"的凭据。
+ *  失效方向恒为多留一条 —— 归一只会让更多键落 held,绝不放宽退场。 */
+const titleKeyOf = (s) => String(s ?? '').replace(/\s+/g, '')
+
+const faceIdentityOf = (rec) =>
+  `${rec.key}|${sigOf(rec)}|${String(rec.updatedAt ?? '')}|${String(rec.updatedBy ?? '')}`
+
+/**
+ * 物理行 → `[{raw, rec, why}]`(纯函数,零 IO)。畸形行不丢:`rec=null` + 原因,
+ * 由调用方逐条点名并**原样留在盘上**(§0.3 不替看不懂的行做决定)。
+ */
+export function parsePhysicalLines(lines = []) {
+  const out = []
+  for (const raw of lines ?? []) {
+    let rec = null
+    let why = ''
+    try {
+      const n = normalizeRecord(JSON.parse(raw))
+      if (n.ok) rec = n.rec
+      else why = n.why
+    } catch (e) {
+      why = `JSON 解析失败(${String(e?.message ?? e).split('\n')[0]})`
+    }
+    out.push({ raw: String(raw), rec, why })
+  }
+  return out
+}
+
+/**
+ * 退场判据(纯函数,零 IO、零 git):物理行条目 + 台账行 + 被审面侧车映射 ⇒ 可退/留下/畸形。
+ * `faceIds` 缺省 null = 不做盘上↔面同形核验(单测直接构造条目时用);实跑档必传。
+ */
+export function retirePlanOf(
+  entries,
+  rows,
+  sideMap,
+  { selfStamps = SELF_WRITER_STAMPS, faceIds = null } = {},
+) {
+  const adopt = adoptMovesOf(
+    (entries ?? []).filter((e) => e?.rec).map((e) => e.rec),
+    rows,
+    sideMap,
+  )
+  const inAdopt = new Map()
+  for (const m of adopt.moves)
+    inAdopt.set(m.fromKey, `归并档在册(搬 → ${m.toKey})⇒ 归 --apply 的归并腿处置,本档不重复动手`)
+  for (const m of adopt.retires)
+    inAdopt.set(
+      m.fromKey,
+      `归并档在册(退场:新号键 ${m.toKey} 已有记录且语义逐字覆盖)⇒ 同上,本档不重复动手`,
+    )
+  const skipped = new Map(adopt.skipped.map((s) => [s.key, s.why]))
+
+  const rowKeys = new Set()
+  const rowNums = new Set()
+  // 无编号行(编号位被租约/标头挤掉的)在 compositeKeyOf 处恒 null ⇒ 上面的键集看不见它们。
+  // 孤儿判据因此还须有一道"题面是否原样出现在任何登记行正文里"的保守检查(空白归一后子串命中)。
+  // 失效方向恒为多留:命中即不退,绝不拿它当"题面等价"去放宽别的分支。
+  const compactRows = []
+  const anchors = new Map()
+  for (const r of rows ?? []) {
+    const raw = String(r?.raw ?? '')
+    if (raw === '') continue
+    compactRows.push(raw.replace(/\s+/g, ''))
+    rowKeys.add(fieldsFor({ line: raw, map: null }).key)
+    const k = compositeKeyOf(raw)
+    if (!k) continue
+    const i = k.indexOf('#')
+    if (i <= 0) continue
+    rowNums.add(k.slice(0, i).trim())
+    const t = titleKeyOf(k.slice(i + 1))
+    if (!t) continue
+    if (!anchors.has(t)) anchors.set(t, [])
+    anchors.get(t).push({ key: k, state: r.state })
+  }
+
+  // 同键多份 ⇒ "最近一次"按 loadFields 同序判(严格更新才换、并列取先出现的那条)。
+  const byKey = new Map()
+  const malformed = []
+  for (const item of entries ?? []) {
+    const rec = item?.rec ?? null
+    if (!rec) {
+      malformed.push({ raw: String(item?.raw ?? ''), why: item?.why ?? '记录解析不出' })
+      continue
+    }
+    const key = String(rec.key ?? '')
+    if (!byKey.has(key)) byKey.set(key, { latest: rec, lines: [item] })
+    else {
+      const g = byKey.get(key)
+      g.lines.push(item)
+      if (Date.parse(String(rec.updatedAt ?? '')) > Date.parse(String(g.latest.updatedAt ?? '')))
+        g.latest = rec
+    }
+  }
+
+  const retire = []
+  const held = []
+  for (const [key, g] of byKey) {
+    const i = key.indexOf('#')
+    const anchor = i > 0 ? key.slice(i + 1) : ''
+    if (i <= 0 || key.slice(0, i).trim() === '' || anchor.trim().length < 4) {
+      held.push({
+        key,
+        why: `键形态不合法(号段缺位或题面短于 4 字,实测题面长度 ${anchor.trim().length})⇒ 不退`,
+        lines: g.lines,
+      })
+      continue
+    }
+    // `T:<sha1>` 兜底键 = 行本体逐字哈希:行一改写就换人,结构上不可能是"孤儿",只可能是
+    // "换了行"。它不得充当归属权威(fieldsFor 的 keyKind='rowhash'),本档一条都不退。
+    if (key.startsWith('T:')) {
+      held.push({
+        key,
+        why: 'T:<sha1> 兜底键(行本体重写即换人)不得充当归属权威 ⇒ 不退,交 --reclassify 定向说明',
+        lines: g.lines,
+      })
+      continue
+    }
+    if (inAdopt.has(key)) {
+      held.push({ key, why: inAdopt.get(key), lines: g.lines })
+      continue
+    }
+    if (skipped.has(key)) {
+      held.push({ key, why: `归并档点名不可归并(${skipped.get(key)})⇒ 交 --reclassify`, lines: g.lines })
+      continue
+    }
+    if (rowKeys.has(key)) {
+      held.push({ key, why: '台账面仍有该复合主键的登记行 ⇒ 绝不退', lines: g.lines })
+      continue
+    }
+    // 编号是强身份:同号行还在(哪怕题面已改写/带空格),题面漂移就**不是**孤儿凭据。
+    // 2026-10-27 实测:41 条 dry-run 可退里有 12 条与活行只差一个空格(G-50 "DevEnv 搬入 G"
+    // 对侧车 G-50#DevEnv搬入G)或同号不同题 ⇒ 只按逐字题面比会把这些活票的归属记录退掉。
+    const numSegment = key.slice(0, i).trim()
+    if (rowNums.has(numSegment)) {
+      held.push({
+        key,
+        why: `台账面仍有同号行(${numSegment})—— 编号是强身份,题面漂移不足以判孤儿 ⇒ 不退`,
+        lines: g.lines,
+      })
+      continue
+    }
+    const hits = anchors.get(titleKeyOf(anchor)) ?? []
+    if (hits.length > 0) {
+      held.push({
+        key,
+        why: `题面指纹仍在台账(命中 ${hits.map((h) => `${h.key}[${h.state}]`).join(' / ')})⇒ 拿不准不退`,
+        lines: g.lines,
+      })
+      continue
+    }
+    const compactAnchor = titleKeyOf(anchor)
+    if (compactRows.some((t) => t.includes(compactAnchor))) {
+      held.push({
+        key,
+        why: '题面原样出现在某条登记行正文里(该行编号位可能被租约/标头挤掉 ⇒ 复合主键解析不出)⇒ 不退',
+        lines: g.lines,
+      })
+      continue
+    }
+    const by = String(g.latest?.updatedBy ?? '')
+    if (selfStamps.has(by)) {
+      held.push({
+        key,
+        why: `最近一次 updatedBy=${by}(本器自写面)⇒ 本轮不退;出路 = --reclassify 逐条带 why 声明后下一轮进射程`,
+        lines: g.lines,
+      })
+      continue
+    }
+    if (faceIds) {
+      const off = g.lines.filter((l) => !faceIds.has(faceIdentityOf(l.rec)))
+      if (off.length > 0) {
+        held.push({
+          key,
+          why: `盘上 ${off.length} 行在被审面读不到同形副本(侧车正被别席改写)⇒ 不退`,
+          lines: g.lines,
+        })
+        continue
+      }
+    }
+    retire.push({ key, updatedBy: by, lines: g.lines })
+  }
+
+  const total = (entries ?? []).length
+  const retireLines = retire.reduce((n, r) => n + r.lines.length, 0)
+  const keptLines = total - retireLines
+  return {
+    retire,
+    held,
+    malformed,
+    rowsN: (rows ?? []).length,
+    keysN: byKey.size,
+    retireKeys: retire.length,
+    retireLines,
+    heldKeys: held.length,
+    total,
+    keptLines,
+    // 「退场数 + 剩余数 == 退场前总数」(畸形行也在剩余数里,不进退场射程)
+    conserved: retireLines + keptLines === total,
+    adopt,
+  }
+}
+
+/**
+ * 退场落盘(唯一写出口):留痕 ⇒ 摘行 ⇒ 回读自证,三段任一不成立 ⇒ 侧车一字节不动或整批拒。
+ *
+ * 顺序与 §1「留痕必须排在落地成功之后」**刻意相反**,理由是可证的:那一条的立因是"先写后落会把
+ * 面上还在的台账行说成已删 ⇒ `scrub-declared-removals` 误剔 ⇒ 丢别人的行",而 `declaredRows` 只收
+ * `/^\s*- \[[ xX]\]/` 形态的 `rowBefore`(门 234 的 orphan/rot 与 union 的 declaredDropCaps 同一条筛),
+ * 本档写的是 `plan-fields.jsonl` 的 JSON 记录行,结构上进不了那个射程 ⇒ 多说一句不害人;
+ * 反过来先摘后写一旦崩在两步之间,记录就**逐字不可恢复**了(零丢失要求的是这一头)。
+ *
+ * @param {object} o io 注入点(镜像测试用):{read, append, mkdir, readSidecar, rename}
+ */
+export function applyRetireRecords(
+  root = ROOT,
+  plan = {},
+  {
+    ledgerRel = DROP_LEDGER_REL,
+    nowIso = new Date().toISOString(),
+    baseline = '',
+    io = {},
+  } = {},
+) {
+  const read = io.read ?? ((p) => readFileSync(p, 'utf8'))
+  const append = io.append ?? ((p, s) => appendFileSync(p, s, 'utf8'))
+  const mkdir = io.mkdir ?? ((p) => mkdirSync(p, { recursive: true }))
+  const retire = plan.retire ?? []
+  const abs = recordsFile(root)
+  const ledgerAbs = path.join(root, ledgerRel)
+  if (retire.length === 0)
+    return { state: 'clean', retired: 0, lines: 0, path: abs, ledger: ledgerRel, why: '本轮零条满足三条前置 ⇒ 一个字节都不动' }
+  if (plan.conserved !== true)
+    return { state: 'refused', retired: 0, lines: 0, path: abs, ledger: ledgerRel, why: `守恒断言不过(退场 ${plan.retireLines} + 剩余 ${plan.keptLines} ≠ 退场前 ${plan.total})⇒ 整批不落` }
+
+  // ① 留痕件必须**取到**才动数据:读不到(含文件不在)⇒ 未判定,零写盘(§0.3 不猜"它大概是空的")。
+  let ledgerText
+  try {
+    ledgerText = read(ledgerAbs)
+  } catch (e) {
+    return {
+      state: 'undetermined',
+      retired: 0,
+      lines: 0,
+      path: abs,
+      ledger: ledgerRel,
+      why: `留痕件取不到(${ledgerRel},实测码 ${String(e?.code ?? e)}):${String(e?.message ?? e).split('\n')[0]} ⇒ 整批不退,侧车一字节不动`,
+    }
+  }
+  const have = ledgerRowSet(ledgerText)
+  if (!have.ok)
+    return { state: 'undetermined', retired: 0, lines: 0, path: abs, ledger: ledgerRel, why: `留痕件不成文本(${have.why})⇒ 整批不退` }
+
+  // 幂等:逐字已在账 ⇒ 不重复追加(同一枚死键被别席带回后再退一次,账面仍只有一条凭据)。
+  const entries = []
+  const seen = new Set()
+  let already = 0
+  for (const r of retire)
+    for (const l of r.lines) {
+      const raw = String(l.raw ?? '')
+      if (have.set.has(raw) || seen.has(raw)) {
+        already++
+        continue
+      }
+      seen.add(raw)
+      const entry = {
+        at: nowIso,
+        seat: RETIRE_SEAT,
+        file: FIELDS_REL_POSIX,
+        kind: RETIRE_DROP_KIND,
+        rowBefore: raw,
+        note: RETIRE_DROP_NOTE,
+      }
+      if (baseline) entry.baseline = baseline
+      entries.push(entry)
+    }
+
+  // 摘行前重取当前盘面(取材与落盘之间可能被别席改过 ⇒ 以"此刻的面"为准逐字比对)。
+  const target = new Set()
+  for (const r of retire) for (const l of r.lines) target.add(String(l.raw ?? ''))
+  const before = existingLines(root)
+  const kept = before.filter((l) => !target.has(l))
+  const removed = before.length - kept.length
+  if (removed !== target.size)
+    return {
+      state: 'refused',
+      retired: 0,
+      lines: 0,
+      path: abs,
+      ledger: ledgerRel,
+      why: `落盘前重取盘面:待退的 ${target.size} 行里只有 ${removed} 行仍在位(盘面已被别席改写)⇒ 整批不落`,
+    }
+
+  // ② 留痕先入账(写不进 ⇒ 未判定,尚未摘任何行)。
+  if (entries.length > 0) {
+    try {
+      mkdir(path.dirname(ledgerAbs))
+      append(ledgerAbs, entries.map((e) => JSON.stringify(e)).join('\n') + '\n')
+    } catch (e) {
+      return {
+        state: 'undetermined',
+        retired: 0,
+        lines: 0,
+        path: abs,
+        ledger: ledgerRel,
+        why: `留痕件写不进(${ledgerRel}):${String(e?.message ?? e).split('\n')[0]} ⇒ 整批不退,侧车一字节不动`,
+      }
+    }
+  }
+
+  // ③ 摘行(临时件 + rename;失败则目标文件保持原样,留痕只是多说了一句,不害人)。
+  const tmp = `${abs}.tmp-${process.pid}`
+  try {
+    mkdirSync(path.dirname(abs), { recursive: true })
+    writeFileSync(tmp, kept.join('\n') + (kept.length ? '\n' : ''), 'utf8')
+    renameSync(tmp, abs)
+  } catch (e) {
+    return {
+      state: 'refused',
+      retired: 0,
+      lines: 0,
+      path: abs,
+      ledger: ledgerRel,
+      ledgerWritten: entries.length,
+      why: `侧车写盘失败(${String(e?.code ?? e)}):目标文件保持原样 —— 临时件留在 ${path.basename(tmp)};留痕已入账 ${entries.length} 条(它是凭据,不是判决)`,
+    }
+  }
+
+  // ④ 回读自证:剩余行逐字 == 计划剩余 ∧ 被退行逐字已不在面 ∧「退场数 + 剩余数 == 退场前总数」。
+  const after = existingLines(root)
+  const drift = []
+  if (after.length !== kept.length) drift.push(`回读行数 ${after.length} ≠ 计划剩余 ${kept.length}`)
+  for (const [i, l] of after.entries()) if (l !== kept[i]) drift.push(`第 ${i + 1} 行内容不符`)
+  const back = new Set(after)
+  for (const raw of target) if (back.has(raw)) drift.push(`被退行仍在位:${raw.slice(0, 60)}`)
+  if (removed + after.length !== before.length)
+    drift.push(`守恒不过:退场 ${removed} + 剩余 ${after.length} ≠ 退场前 ${before.length}`)
+  if (drift.length > 0)
+    return {
+      state: 'refused',
+      retired: 0,
+      lines: removed,
+      path: abs,
+      ledger: ledgerRel,
+      ledgerWritten: entries.length,
+      why: `回读自证不过(逐条):${drift.slice(0, 3).join(' / ')}${drift.length > 3 ? ` …另 ${drift.length - 3} 条` : ''}`,
+    }
+  return {
+    state: 'stripped',
+    retired: retire.length,
+    lines: removed,
+    before: before.length,
+    after: after.length,
+    ledgerWritten: entries.length,
+    alreadyInLedger: already,
+    path: abs,
+    ledger: ledgerRel,
+  }
+}
+
 /** 一次算完:面 → 候选 → 合并侧车 → 漂移。check / dry-run / apply 三处共用同一份,不许两套口径。 */
 export function plan({ root = ROOT, face = 'head' } = {}) {
   const a = auditFace(root, face)
@@ -1016,6 +1426,57 @@ function main() {
     }
     return 0
   }
+  // 孤儿键退场档(2026-10-27):只退不抽。三条前置与失效方向见 retirePlanOf 头注;
+  // 默认 dry-run 零写盘,`--apply` 才动侧车(留痕 → 摘行 → 回读自证三段全在 applyRetireRecords 里)。
+  if (has('--retire-orphans')) {
+    if (has('--staged') && has('--worktree')) {
+      console.log('❌ 用法错 —— --staged 与 --worktree 不得同用(两个判定面互斥,§0.4)')
+      return 2
+    }
+    const face = has('--staged') ? 'staged' : has('--worktree') ? 'worktree' : 'head'
+    let rows
+    let side
+    try {
+      // 判定面必须是**全量登记行**(open + done),不能拿派单口径 claimableRows:
+      // 后者刻意排除了带完整租约的行(在飞),用它当孤儿判据会把每一张在飞票的侧车记录
+      // 都读成"台账已无对应行" ⇒ 2026-10-27 实测 dry-run 41 条可退里 12 条正是这一型。
+      rows = parseTaskRows(readPlan(ROOT, face))
+      side = readFieldsFace(ROOT, face)
+    } catch (e) {
+      console.log(`⚠️ 未判定 —— 台账面取不到(${face}):${String(e?.message ?? e).split('\n')[0]}`)
+      console.log('RETIRE-RESULT state=undetermined retireKeys=0 retireLines=0 heldKeys=0')
+      return 2
+    }
+    if (side.undetermined) {
+      console.log(`⚠️ 未判定 —— 侧车取不到:${side.why}`)
+      console.log('RETIRE-RESULT state=undetermined retireKeys=0 retireLines=0 heldKeys=0')
+      return 2
+    }
+    const entries = parsePhysicalLines(existingLines(ROOT))
+    const faceIds = new Set(Array.from(side.map.values()).map(faceIdentityOf))
+    const rp = retirePlanOf(entries, rows, side.map, { faceIds })
+    for (const m of rp.malformed ?? []) console.log(`  ⚠️ 畸形行原样保留:${m.why}`)
+    for (const h of rp.held) console.log(`  ⏸ ${h.key}: ${h.why}`)
+    for (const r of rp.retire)
+      console.log(`  ⟳ 可退 ${r.key}(最近写手 ${r.updatedBy || '(缺)'},${r.lines.length} 行)`)
+    console.log(
+      `RETIRE-RESULT state=${rp.conserved ? (rp.retireKeys ? 'ready' : 'clean') : 'refused'} retireKeys=${rp.retireKeys} retireLines=${rp.retireLines} heldKeys=${rp.heldKeys} entries=${rp.total} kept=${rp.keptLines}`,
+    )
+    if (!rp.conserved) return 2
+    if (!has('--apply')) {
+      console.log('   (dry-run:零写盘 —— 侧车文件一个字节都不动)')
+      return rp.retireKeys ? 1 : 0
+    }
+    const res = applyRetireRecords(ROOT, rp)
+    if (res.state === 'stripped') {
+      console.log(
+        `✅ 已退场 ${res.retired} 键 / ${res.lines} 行(留痕 ${res.ledgerWritten} 条 → ${res.ledger})`,
+      )
+      return 0
+    }
+    console.log(`⚠️ ${res.state} —— ${res.why}`)
+    return res.state === 'clean' ? 0 : 2
+  }
   const modes = ['--check', '--dry-run', '--apply'].filter(has)
   if (modes.length !== 1) {
     console.log(
@@ -1097,5 +1558,11 @@ export const __test__ = {
   plan,
   adoptMovesOf,
   applyAdoptMoves,
+  parsePhysicalLines,
+  retirePlanOf,
+  applyRetireRecords,
+  faceIdentityOf,
+  RETIRE_SEAT,
+  RETIRE_DROP_KIND,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
