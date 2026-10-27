@@ -127,6 +127,7 @@ export function plan({ tokensTxt, rnSrc, mappings }) {
   const ambiguous = []
   const noSource = []
   const scale = []
+  const divergent = []
   const safeAgree = (a, b) => {
     try {
       return xct.colorsAgree(a, b)
@@ -159,7 +160,16 @@ export function plan({ tokensTxt, rnSrc, mappings }) {
       if (cands.length === 1) return { name: cands[0][0], rule: 'R1' }
       const named = new Set(xct.deriveCssVarNames(l.path))
       const hit = cands.filter(([n]) => named.has(n))
-      return hit.length === 1 ? { name: hit[0][0], rule: 'R2', rivals: cands.length } : null
+      if (hit.length === 1) return { name: hit[0][0], rule: 'R2', rivals: cands.length }
+      // R3:末段同名(档面只看一个角色词,如 surface.muted ↔ --color-muted)。
+      // 比 R1/R2 更严的前提是"两面都等值才写回"这一条 —— 见下方暗档核对:等值才配,配了就是零视觉变化。
+      const lastKebab = `--color-${l.path
+        .split('.')
+        .pop()
+        .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+        .toLowerCase()}`
+      const hit3 = cands.filter(([n]) => n === lastKebab)
+      return hit3.length === 1 ? { name: hit3[0][0], rule: 'R3', rivals: cands.length } : null
     }
     const L = pick(lightCands)
     const rec = {
@@ -176,12 +186,13 @@ export function plan({ tokensTxt, rnSrc, mappings }) {
       ambiguous.push({ ...rec, why: 'RN 暗表无同名档(登记后无处可写)' })
       continue
     }
-    if (!L) {
-      ambiguous.push({ ...rec, why: '亮档同值多源且命名推不出唯一' })
+    // 色阶档先落桶:它连"按同值挂到角色档"这个诱惑都不该有,不管命名推不推得出(判据只加不减)。
+    if (SCALE_NS.has(l.path.split('.')[0])) {
+      scale.push({ ...rec, css: L?.name ?? null })
       continue
     }
-    if (SCALE_NS.has(l.path.split('.')[0])) {
-      scale.push({ ...rec, css: L.name })
+    if (!L) {
+      ambiguous.push({ ...rec, why: '亮档同值多源且命名推不出唯一(R1/R2/R3 都不成立)' })
       continue
     }
     // 暗档必须落**同一个源变量**:一条 MAPPINGS 的 rn 档 ↔ 一个 css 档,亮暗取该档在两个面的值。
@@ -190,13 +201,23 @@ export function plan({ tokensTxt, rnSrc, mappings }) {
       const srcDark = cssDark[L.name]
       const agree = srcDark !== undefined && safeAgree(darkValue, srcDark)
       if (!agree) {
-        ambiguous.push({ ...rec, why: `暗档 ${darkValue} 与源 ${L.name} 的 .dark 值(${srcDark ?? '无此档'})不同值` })
+        // 已在门里具名登记的跨端视觉分歧 ⇒ 认它,不再报成"没人判过的歧义"。
+        // 那些条目的理由是有实体的合同冲突(改 RN 会造出深底白卡面,改 web 会破小程序成对前提),
+        // 反复把它们列成歧义会诱导后人重判已经判过的格子。
+        const registeredKey = `rnDarkTokens|${l.path}`
+        const reason = xct.BASE_CONFLICTS?.[registeredKey]
+        if (reason) divergent.push({ ...rec, css: L.name, registeredKey, reason })
+        else
+          ambiguous.push({
+            ...rec,
+            why: `暗档 ${darkValue} 与源 ${L.name} 的 .dark 值(${srcDark ?? '无此档'})不同值,且未在门内登记分歧`,
+          })
         continue
       }
     }
     pairs.push({ ...rec, css: L.name, dark: L.name, rule: L.rule })
   }
-  return { pairs, ambiguous, noSource, scale, face: FACE }
+  return { pairs, ambiguous, noSource, scale, divergent, face: FACE }
 }
 
 /** 打成可直接粘进守门 93 MAPPINGS 的条目(basis 带实测值,不留"以后再说"的空白)。 */
@@ -274,7 +295,7 @@ function run() {
     console.log(emitMappings(p.pairs))
     return
   }
-  const line = `PLAN-RN-PAIRING face=${p.face} 未登记色档 ${p.pairs.length + p.ambiguous.length + p.noSource.length + p.scale.length} 可配对 ${p.pairs.length} 歧义 ${p.ambiguous.length} 色阶待补源 ${p.scale.length} 源无等值 ${p.noSource.length}`
+  const line = `PLAN-RN-PAIRING face=${p.face} 未登记色档 ${p.pairs.length + p.ambiguous.length + p.noSource.length + p.scale.length + p.divergent.length} 可配对 ${p.pairs.length} 歧义 ${p.ambiguous.length} 色阶待补源 ${p.scale.length} 已登记分歧 ${p.divergent.length} 源无等值 ${p.noSource.length}`
   if (jsonMode) {
     console.log(JSON.stringify({ summary: line, ...p }, null, 2))
     return
@@ -286,6 +307,8 @@ function run() {
   for (const x of p.ambiguous) console.log(`  ${x.rn}  ${x.light.value}  ${x.why ?? ''}  候选 ${x.light.cands.slice(0, 4).join(', ')}`)
   console.log('\n── 色阶档:值同≠语义同,不得挂角色档;正解是把刻度补进 tokens.css ──')
   for (const x of p.scale) console.log(`  ${x.rn}  ${x.light.value}  (同值源档 ${x.css})`)
+  console.log('\n── 已登记分歧(门内 BASE_CONFLICTS 具名在册,不再列成"没人判过")──')
+  for (const x of p.divergent) console.log(`  ${x.rn}  亮→${x.css}  登记键 ${x.registeredKey}`)
   console.log('\n── 源无等值档:RN 专属或源侧缺档(两种都不是本器能代裁的)──')
   for (const x of p.noSource) console.log(`  ${x.rn}  ${x.light.value}`)
 }
@@ -373,6 +396,32 @@ function selfTests() {
       assertEq(p.pairs.length, 0, '色阶档被挂上了角色档')
       assertEq(p.scale.length, 1, '色阶档没进独立桶')
       assertEq(p.scale[0].css, '--color-border-medium', '桶里没记下那个同值角色档,人无法据此补源刻度')
+    },
+  ])
+  cases.push([
+    'S9 R3 末段同名唯一 + 两面等值 ⇒ 可配对(写回值与现值同色,零视觉变化)',
+    () => {
+      const css = `:root {\n  --color-muted: #EBEBEB;\n  --color-streamed-container-bg: #EBEBEB;\n}\n.dark {\n  --color-muted: #27272a;\n  --color-streamed-container-bg: #0f172a;\n}`
+      const src =
+        "export const rnLightTokens: RnThemeTokens = { surface: { muted: '#EBEBEB' } }\n" +
+        "export const rnDarkTokens: RnThemeTokens = { surface: { muted: '#27272a' } }\n"
+      const p = plan(mk(css, src))
+      assertEq(p.pairs.length, 1, '末段同名的唯一候选没配出来')
+      assertEq(p.pairs[0].css, '--color-muted', '配到了同值的他档')
+      assertEq(p.pairs[0].rule, 'R3', '应走 R3 末段同名')
+    },
+  ])
+  cases.push([
+    'S10 已登记分歧认得下来:暗档与源不等但门内具名在册 ⇒ 进 divergent,不再冒充"没人判过"',
+    () => {
+      const css = `:root {\n  --color-surface-light: #FFFFFF;\n}`
+      const src =
+        "export const rnLightTokens: RnThemeTokens = { surface: { light: '#FFFFFF' } }\n" +
+        "export const rnDarkTokens: RnThemeTokens = { surface: { light: '#262626' } }\n"
+      const p = plan(mk(css, src))
+      assertEq(p.pairs.length, 0, '已登记分歧被配掉了')
+      assertEq(p.divergent.length, 1, '在册分歧没被认出(判据与门的登记表断链)')
+      assertEq(p.ambiguous.length, 0, '在册分歧仍被列成歧义 = 诱导后人重判已判过的格子')
     },
   ])
   let fail = 0
