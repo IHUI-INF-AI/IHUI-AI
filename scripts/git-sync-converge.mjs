@@ -552,14 +552,6 @@ function stderrTail(ue) {
 export const STATE_GATE_UNDETERMINED = '[台账闸门未判定]'
 
 /**
- * 仅对侧(origin 面)引文型违禁桶命中的普通点名行前缀 —— **刻意不共用** `STATE_GATE_UNDETERMINED`
- * 前缀:该行在本地 HEAD 面 0 命中,本地改不到(`live-doc-edit` 的 REPLACE 要求 before 在被审面
- * 命中 ⇒ 那行本地永远改不掉),挂未判定前缀会被主流程当硬拒 ⇒ 全仓推送死锁(2026-10-27 实测)。
- * 点名不拒推:随合并进本地后由台账侧车/清扫器通道处置。
- */
-export const REMOTE_ONLY_BAN_NOTE = '[台账点名·仅对侧]'
-
-/**
  * ── union 结论的转述层(2026-09-29 立)────────────────────────────────
  * 立因是本文件自己实测到的措辞谎:merge-tree 冲突分支过去打印
  *   ❌ 合并冲突,且 union-converge 亦判需人工(见上)。
@@ -849,29 +841,19 @@ export function describeUnionRelay(input, opts = {}) {
  *
  * @param mergedText 合并面的 PROJECT_PLAN.md 全文
  * @param fields 合并面侧车的装载结果(`loadFields` 产物;不得是 undetermined)
- * @param localText 本地 HEAD 面的 PROJECT_PLAN.md 全文(调用方以被审 local rev 的 blob 现取;
- *        取不到输入传 null/undefined ⇒ 一律按"在本地"处理,维持既有硬拒 —— §0.3,失效方向
- *        绝不许是"读不到就放行")。逐行问「该行在不在本地 HEAD 面」是死锁收口的唯一核心判据:
- *        只在 origin 面的行本地改不到,硬拒它 = 焊死全仓推送(2026-10-27 实测)。
  * @returns `{face, undetermined}` —— face 的 F11/F12 名单与读数同步收窄
- *          (名单与 counts 不同形会让 `f11Ratchet` 落 `blind`,那一格本身就是不记绿);
- *          undetermined 条目带 `inLocal`(raw 是否逐字出现在本地 HEAD 面),调用方按它分流硬拒/点名。
+ *          (名单与 counts 不同形会让 `f11Ratchet` 落 `blind`,那一格本身就是不记绿)
  */
-export function mergedLedgerFace(mergedText, fields, localText) {
+export function mergedLedgerFace(mergedText, fields) {
   const a = auditPlan(mergedText, { fields })
   const undetermined = []
-  // 本地 HEAD 面的行集合:一次 O(n) 构建,逐行 O(1) **整行等值**比对。不用 `includes` 子串匹配:
-  // 子串会把"本地另一行恰好包含这段文字"误读成本行在本地,把纯对侧行错打成 inLocal=true,
-  // 死锁只修一半;而 `raw` 来自 parseTaskRows 的逐行切分(不含换行),与行集合天然同形。
-  const localLines = typeof localText === 'string' ? new Set(localText.split(/\r?\n/)) : null
-  const inLocalOf = (raw) => (localLines ? localLines.has(raw) : true)
   const withGuard = (rows, guarded, bucket) =>
     rows.filter((r) => {
       const d = dispositionOfV2({ line: r.raw, fields })
       if (d.source !== 'prose') return true
       const v = guarded(r.raw)
       if (v !== 'undetermined') return true
-      undetermined.push({ bucket, verdict: v, raw: r.raw, inLocal: inLocalOf(r.raw) })
+      undetermined.push({ bucket, verdict: v, raw: r.raw })
       return false
     })
   a.waitingHumanRows = withGuard(a.waitingHumanRows ?? [], waitingHumanSelfVerdict, 'F11')
@@ -968,35 +950,16 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
       )
     return out
   }
-  // 本地 HEAD 面的台账文本:逐行问「该行在不在本地」的唯一取材面。用 blobOrNull 而不是 blobOf:
-  // 取不到本地面(git 失败/rev 坏)时宁可保守维持既有硬拒(§0.10:失效方向是多要一次定向说明,
-  // 不是跳门),绝不能把"读不到"读成"0 命中"静默放行;真正的"本地面无此行"由行集合精确判定。
-  const localPlan = blobOrNull(local, REL)
-  const { face: mf, undetermined: undecidedRows } = mergedLedgerFace(merged, fields, localPlan)
+  const { face: mf, undetermined: undecidedRows } = mergedLedgerFace(merged, fields)
   out.push(...ratchetViolations(base, probe(mf), mf))
-  // 判不准的行必须**报名**(§0.3),并按「该行在不在本地 HEAD 面」分流(2026-10-27 推送死锁收口):
-  //  - 在本地 ⇒ live-doc-edit 的 REPLACE 改得到 ⇒ 维持既有硬拒:本地改完再推;
-  //  - 只在 origin 面 ⇒ 本地永远改不到(REPLACE 要求 before 在被审面命中),硬拒 = 焊死全仓推送。
-  //    降为普通点名行(REMOTE_ONLY_BAN_NOTE 前缀,主流程的未判定硬拒不认它):逐行点名
-  //    bucket+截断行,不冒 STATE_GATE_UNDETERMINED,交台账侧车/清扫器通道处置。
+  // 判不准的行必须**报名**:只调数字不点名,下一个人无从判断这一格是"清掉了"还是"没量到"(§0.3)。
   if (undecidedRows.length) {
-    const inLocalRows = undecidedRows.filter((r) => r.inLocal)
-    const remoteOnlyRows = undecidedRows.filter((r) => !r.inLocal)
-    if (inLocalRows.length) {
-      out.unshift(
-        `${STATE_GATE_UNDETERMINED} 有 ${inLocalRows.length} 行的违禁桶命中只出自**无引号护栏的措辞族尺**,` +
-          '而带语法辖域护栏的 self 尺判"引号内、判不了是自指还是转述"(叙述引文这一型)⇒ 本器不给它定罪,' +
-          '也不当成干净(该行在本地 HEAD 面,本地改得到,改完再推):' +
-          inLocalRows.map((r) => `${r.bucket}[${r.verdict}]=${clipRow(r.raw)}`).join(' / '),
-      )
-    }
-    if (remoteOnlyRows.length) {
-      out.push(
-        `${REMOTE_ONLY_BAN_NOTE} ${remoteOnlyRows.length} 行引文型违禁桶命中只在 origin 面的台账行(本地 HEAD 面 0 命中)——` +
-          '非本次收敛带来的,本地处置不了;随合并进本地后由台账侧车/清扫器通道处置:' +
-          remoteOnlyRows.map((r) => `${r.bucket}[${r.verdict}]=${clipRow(r.raw)}`).join(' / '),
-      )
-    }
+    out.unshift(
+      `${STATE_GATE_UNDETERMINED} 有 ${undecidedRows.length} 行的违禁桶命中只出自**无引号护栏的措辞族尺**,` +
+        '而带语法辖域护栏的 self 尺判"引号内、判不了是自指还是转述"(叙述引文这一型)⇒ 本器不给它定罪,' +
+        '也不当成干净:' +
+        undecidedRows.map((r) => `${r.bucket}[${r.verdict}]=${clipRow(r.raw)}`).join(' / '),
+    )
   }
   return out
 }
@@ -2367,7 +2330,6 @@ export const __test__ = {
   capText,
   describeUnionRelay,
   STATE_GATE_UNDETERMINED,
-  REMOTE_ONLY_BAN_NOTE,
   mergedPlanStateRegressions,
   // 2026-10-27:合并面违禁桶的判定面(单源尺 + 引述护栏)与它的点名出口一并导出 ——
   // 镜像测试按 §22c 直接喂构造面复用同一份判据,不得在测试里再抄一把尺。
