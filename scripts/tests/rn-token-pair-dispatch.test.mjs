@@ -213,4 +213,34 @@ test('R9 瞎后恢复 ⇒ 起点被撤且不补发旧账', () => {
   assert.equal(mails.length, 0, '只瞎一轮又恢复 ⇒ 不该到人')
   assert.ok(!existsSync(f.undetFile), `在册起点应被撤掉:${f.undetFile}`)
 })
+
+test('R10 跑完的轮次回写同一枚节流戳 ⇒ 与"派发了但没回来"从此不同形', () => {
+  const f = fixture()
+  autoRegisterRnTokenPairs({
+    ...f,
+    logger: () => {},
+    notify: () => {},
+    runner: runnerOf(`${lineOf('nochange', 0)}\n`),
+    now: 1_700_000_000_000,
+  })
+  const j = JSON.parse(readFileSync(f.tickFile, 'utf8'))
+  assert.ok(j.attemptAt && j.finishedAt, `完成轮必须留下 finishedAt,实得 ${JSON.stringify(j)}`)
+  assert.equal(j.rc, 0)
+  assert.match(String(j.tail), /PLAN-RN-PAIRING-APPLY/, '尾读数是复盘唯一凭据,要带上结论行本身')
+})
+
+test('R11 子进程被掐死(rc 非数字)⇒ 戳上记 rc:null', () => {
+  const f = fixture()
+  autoRegisterRnTokenPairs({
+    ...f,
+    logger: () => {},
+    notify: () => {},
+    undetHorizonMs: 60 * 60 * 1000,
+    runner: () => ({ ok: false, out: '', err: '', status: null }),
+    now: 1_700_000_000_000,
+  })
+  const j = JSON.parse(readFileSync(f.tickFile, 'utf8'))
+  assert.equal(j.rc, null, `超时被杀必须量得出来,实得 ${JSON.stringify(j)}`)
+  assert.ok(j.finishedAt)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
