@@ -26,6 +26,11 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { planBuildEnv, needsMsvcInjection } from './lib/msvc-env.mjs'
+// rustup 归属钉正判据单源(2026-10-27 沙箱 HOME 实测:agent 会话里 HOME/USERPROFILE 指沙箱根,
+// rustup 找不到 settings.toml ⇒ "no default toolchain",tauri 死在 cargo metadata)。
+// 与 MSVC 注入同族问题(环境形态 ≠ 机器事实),但不并进 msvc-env —— 那文件管"链接器遮蔽",
+// 这里管"rustup 家在哪",两判据各有各的失效形态,合一起只会让镜像测试互相牵制。
+import { applyRustupPinToEnv } from './lib/rustup-env.mjs'
 // 包管理器执行器判据单源(与 desktop-build-saas / desktop-dev-saas 共用,不得各抄一份)
 import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 // 未签名豁免判据单源(§0.6)。为什么**本入口必须**认这个开关:desktop-artifact-single.mjs 早就有
@@ -251,7 +256,7 @@ function resolveToolchainEnv() {
     console.log(
       `[desktop-build] ⓘ 跳过 MSVC 注入:NOT_WINDOWS(platform=${process.platform}) —— MSVC 是 Windows 专属问题,本平台不适用,按现 env 直跑`,
     )
-    return { ok: true, env: process.env, linkFrom: null, vcvars: null, removedDirs: [], skipped: 'NOT_WINDOWS' }
+    return { ok: true, env: applyRustupPin(process.env), linkFrom: null, vcvars: null, removedDirs: [], skipped: 'NOT_WINDOWS' }
   }
   const plan = planBuildEnv({ env: process.env, existsSync, runCapture: captureVsEnv })
   if (!plan.ok) return { ok: false, plan }
@@ -261,12 +266,23 @@ function resolveToolchainEnv() {
     console.log(`[desktop-build] 已从 PATH 剔除遮蔽目录:${plan.removedDirs.join(' ; ')}`)
   return {
     ok: true,
-    env: plan.env,
+    env: applyRustupPin(plan.env),
     linkFrom: plan.linkFrom,
     vcvars: plan.vcvars,
     removedDirs: plan.removedDirs,
     skipped: null,
   }
+}
+
+/**
+ * MSVC 注入之后、构建之前的第二层环境判定:rustup 家钉正。
+ * 判据与三态日志出口都在 lib/rustup-env.mjs 的 applyRustupPinToEnv 里 ——
+ * §0.6:四个桌面入口共用一份,不在本文件写第二份。
+ * @param {Record<string,string|undefined>} env
+ * @returns {Record<string,string|undefined>}
+ */
+function applyRustupPin(env) {
+  return applyRustupPinToEnv({ env, platform: process.platform, existsSync, tag: 'desktop-build' })
 }
 
 async function main(argv = process.argv.slice(2)) {

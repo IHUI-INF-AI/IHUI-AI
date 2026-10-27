@@ -25,6 +25,9 @@ import { planBuildEnv } from './lib/msvc-env.mjs';
 // vcvars 的**生产实现**同样单源:desktop-build.mjs 的 captureVsEnv(切 cwd + 只写批处理文件名,
 // 完整路径形态在本机实测静默不生效)。走它已有的具名导出,不另写第二种形态。
 import { __test__ as desktopBuildInternals } from './desktop-build.mjs';
+// rustup 归属钉正(判据单源 lib/rustup-env.mjs,立因见该文件头注/AGENTS §5f 调用点):
+// 本脚本与 desktop-build.mjs 共用工具链注入,同样会吃到"沙箱 HOME ⇒ no default toolchain"。
+import { applyRustupPinToEnv } from './lib/rustup-env.mjs';
 
 const cwd0 = process.cwd();
 const ROOT = /apps[\\/]desktop$/.test(cwd0) ? path.resolve(cwd0, '../..') : cwd0;
@@ -141,8 +144,16 @@ if (!toolchain.ok) {
 }
 console.log(`✓ MSVC 工具链已注入:${toolchain.linkFrom}`);
 if (toolchain.removedDirs.length > 0) console.log(`  已从 PATH 剔除遮蔽目录:${toolchain.removedDirs.join(' ; ')}`);
+// rustup 家钉正(与 desktop-build 同判据同出口:三态日志由 lib 单源发,不在本文件写第二份)
+const rustupEnv = applyRustupPinToEnv({
+  env: toolchain.env,
+  platform: process.platform,
+  existsSync,
+  tag: 'release-desktop-local',
+  log: (m) => console.log(m),
+});
 const buildEnv = {
-  ...toolchain.env,
+  ...rustupEnv,
   TAURI_SKIP_FRONTEND: '1',
   TAURI_SIGNING_PRIVATE_KEY: key,
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: pwd,
