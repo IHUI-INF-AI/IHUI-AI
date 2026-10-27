@@ -8,13 +8,14 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 6eb206cf399783408e18ef05ad6b92d891ae6b59
-// inputsSha256: bbb7c13edbbb2755f330f9c3f5f3f3dcd4f4b4d90684c2f838b6b6dd4e57127f
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 664b34ae04d2172e5eefc9051fbe1020fd310906096531e979d70e58c06155b8
+// sourceCommit: fe86578df95e3e1f9f850148fa95a1f2631e4681
+// inputsSha256: 41e02c6aa53692c7212fcb1da12be024571b32b2dc36e4d33db0d8c2d4074ecd
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx f0d0eea4b1c28acd95ad49eef5d049f20c0d3080c1a5ebd2977d08fa5df427d5
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-26T16:33:07.477Z
+// generatedAt: 2026-10-27T05:04:23.830Z
 // IHUI-GEN-PIN-END
+
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
@@ -28,7 +29,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 305 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 312 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -126,6 +127,18 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Agreement', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'About', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Status', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'SignUp', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'CirclePost', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Invitations', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Letters', tab: false, requiresParams: false, requiredParams: [] },
+  {
+    name: 'LetterChat',
+    tab: false,
+    requiresParams: true,
+    requiredParams: ['memberId', 'memberName'],
+  },
+  { name: 'NewsCategory', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'SearchHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AiWorldDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'AiWorldEdit', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'AiWorldFavorites', tab: false, requiresParams: false, requiredParams: [] },
