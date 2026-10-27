@@ -62,6 +62,35 @@ const verdictCache = new Map<string, { verdict: LoginRegionVerdict; expiry: numb
 /** 缓存条目上限:超出即整体丢弃(登录页是公网高频入口,不能无界增长)。 */
 const VERDICT_CACHE_MAX = 50_000
 
+/**
+ * 远程 GeoIP 腿的每分钟配额。
+ *
+ * 立因:`request.ip` 取自 X-Forwarded-For —— Fastify 按 server.ts 的 TRUSTED_PROXIES 解来源,
+ * 而生产所有流量都经本机 Next(:8801)反代过来,remoteAddress 恒命中默认白名单里的 127.0.0.1,
+ * 于是 XFF 第一段实际由**客户端自报**。伪造一个新 IP 就能让本层多打一次 ip-api 查询,
+ * 免费版只有 45 req/min,而同一条腿还住着异地登录风控(services/anomaly-detector.ts)。
+ * 一条只管界面呈现顺序的判据不配把风控的配额吃干 ⇒ 超预算直接落未判定,
+ * 并且**不写缓存**(下一个窗口自动恢复,不需要谁来复位)。
+ *
+ * 已知浪费:装了 GeoLite2 mmdb 之后本地腿不吃远程配额,而本层在调用前分不出会走哪条腿,
+ * 所以这份预算在场时是白扣的。本机实测 mmdb 不存在,当前必然走远程腿。
+ */
+const REMOTE_LOOKUP_BUDGET_PER_WINDOW = 20
+const LOOKUP_WINDOW_MS = 60_000
+let lookupWindowStart = 0
+let lookupWindowCount = 0
+
+function takeRemoteLookupQuota(): boolean {
+  const now = Date.now()
+  if (now - lookupWindowStart >= LOOKUP_WINDOW_MS) {
+    lookupWindowStart = now
+    lookupWindowCount = 0
+  }
+  if (lookupWindowCount >= REMOTE_LOOKUP_BUDGET_PER_WINDOW) return false
+  lookupWindowCount++
+  return true
+}
+
 export function countryToRegion(countryCode: string): LoginRegion | null {
   const code = countryCode.toUpperCase()
   if (!COUNTRY_CODE_RE.test(code)) return null
@@ -105,14 +134,19 @@ export async function resolveLoginRegion(
   const hit = cached(ip)
   if (hit) return hit
 
-  let verdict: LoginRegionVerdict = { region: null, source: 'undetermined' }
+  const verdict: LoginRegionVerdict = { region: null, source: 'undetermined' }
+  if (!takeRemoteLookupQuota()) return verdict
   try {
     const location = await getGeoIpService().lookup(ip)
     const region = location?.countryCode ? countryToRegion(location.countryCode) : null
-    if (region) verdict = { region, source: 'geoip' }
+    if (region) {
+      verdict.region = region
+      verdict.source = 'geoip'
+    }
   } catch {
     // 远程腿超时/报错 ⇒ 未判定。不记绿也不冒红,交给调用方的兜底判据。
   }
+  // 只有真问过才记结果:超配额那一轮不落缓存,否则窗口刚过就被自己的拒绝钉死 6 小时。
   remember(ip, verdict)
   return verdict
 }
@@ -124,5 +158,10 @@ export const __test__ = {
     verdictCache.clear()
   },
   verdictCacheSize: (): number => verdictCache.size,
+  /** 测试面:配额是进程内滑窗,不清就没法在同一进程里逐档验"预算内 / 超预算"。 */
+  clearLookupQuota: (): void => {
+    lookupWindowStart = 0
+    lookupWindowCount = 0
+  },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

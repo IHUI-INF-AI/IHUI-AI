@@ -30,6 +30,7 @@ function makeRequest(headers: Record<string, string>, ip = PUBLIC_IP) {
 
 beforeEach(() => {
   loginRegion.clearVerdictCache()
+  loginRegion.clearLookupQuota()
   lookupMock.mockReset()
 })
 
@@ -70,9 +71,9 @@ describe('resolveLoginRegion — CF 边缘头', () => {
 
   it('小写头值与 XX 哨兵:XX 不算国家码,落到下一腿', async () => {
     lookupMock.mockResolvedValue({ countryCode: 'CN' })
-    expect((await loginRegion.resolveLoginRegion(makeRequest({ 'cf-ipcountry': 'us' }))).region).toBe(
-      'overseas',
-    )
+    expect(
+      (await loginRegion.resolveLoginRegion(makeRequest({ 'cf-ipcountry': 'us' }))).region,
+    ).toBe('overseas')
     loginRegion.clearVerdictCache()
     const xx = await loginRegion.resolveLoginRegion(makeRequest({ 'cf-ipcountry': 'XX' }))
     expect(xx.source).toBe('geoip')
@@ -154,6 +155,45 @@ describe('resolveLoginRegion — 按 IP 的结果缓存', () => {
     const other = await loginRegion.resolveLoginRegion(makeRequest({}, '198.51.100.4'))
     expect(other.region).toBe('overseas')
     expect(lookupMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+/* ── 远程腿配额:request.ip 来自客户端可自报的 XFF ⇒ 不能让人拿伪造 IP 耗尽 ip-api ── */
+
+describe('resolveLoginRegion — 远程 GeoIP 腿的每分钟配额', () => {
+  it('预算内每个新 IP 各问一次;超预算后一枪都不放,并落未判定', async () => {
+    lookupMock.mockResolvedValue({ countryCode: 'US' })
+    for (let i = 1; i <= 20; i++) {
+      const verdict = await loginRegion.resolveLoginRegion(makeRequest({}, `203.0.113.${i}`))
+      expect(verdict.region, `第 ${i} 个 IP 还在预算内`).toBe('overseas')
+    }
+    expect(lookupMock).toHaveBeenCalledTimes(20)
+
+    const exhausted = await loginRegion.resolveLoginRegion(makeRequest({}, '203.0.113.99'))
+    expect(exhausted).toEqual({ region: null, source: 'undetermined' })
+    expect(lookupMock, '超预算不得再发起远程查询').toHaveBeenCalledTimes(20)
+  })
+
+  it('反向断言:超预算那一轮不写缓存(否则窗口过去后仍被自己的拒绝钉死 6 小时)', async () => {
+    lookupMock.mockResolvedValue({ countryCode: 'CN' })
+    for (let i = 1; i <= 21; i++) {
+      await loginRegion.resolveLoginRegion(makeRequest({}, `198.51.100.${i}`))
+    }
+    expect(loginRegion.verdictCacheSize()).toBe(20)
+  })
+
+  it('CF 边缘头命中时一份额度都不消耗 —— 零网络那条腿不该被远程预算限住', async () => {
+    for (let i = 1; i <= 40; i++) {
+      const verdict = await loginRegion.resolveLoginRegion(
+        makeRequest({ 'cf-ipcountry': 'CN' }, `203.0.113.${i}`),
+      )
+      expect(verdict.source).toBe('cf-ipcountry')
+    }
+    expect(lookupMock).not.toHaveBeenCalled()
+
+    lookupMock.mockResolvedValue({ countryCode: 'US' })
+    const after = await loginRegion.resolveLoginRegion(makeRequest({}, '192.0.2.1'))
+    expect(after.region).toBe('overseas')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

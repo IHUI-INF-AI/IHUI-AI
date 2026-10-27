@@ -188,11 +188,11 @@ describe('sortByPlatformPriority — 表外平台不丢', () => {
     keys.map((key) => ({ key, label: key, icon: null, enabled: true }))
 
   it('按优先序重排,未列名的保持原相对顺序排在后面', () => {
-    const sorted = sortByPlatformPriority(providers(['wechat', 'google', 'custom', 'github']), [
+    const sorted = sortByPlatformPriority(providers(['wechat', 'google', 'feishu', 'github']), [
       'google',
       'github',
     ])
-    expect(sorted.map((p) => p.key)).toEqual(['google', 'github', 'wechat', 'custom'])
+    expect(sorted.map((p) => p.key)).toEqual(['google', 'github', 'wechat', 'feishu'])
   })
 
   it('反向断言:优先序为空数组时顺序一个都不动(排序不是"没给表就乱排")', () => {
