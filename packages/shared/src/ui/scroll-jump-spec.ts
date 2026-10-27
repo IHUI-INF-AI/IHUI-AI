@@ -29,8 +29,6 @@
  */
 import {
   GEOMETRY_PX,
-  RADIUS_CSS_VAR,
-  RADIUS_ROLES,
   TARO_RPX_PER_PX,
   rnRadius,
 } from '@ihui/design-tokens'
@@ -39,7 +37,7 @@ import {
 export type ScrollJumpUnit<U extends string | number> = (px: number) => U
 
 /** 方块边长:复用既有 `controlBox` 档(web 输入卡实底控件方块同值),不新造档。 */
-export function scrollJumpBoxPx(): number {
+function scrollJumpBoxPx(): number {
   return GEOMETRY_PX.controlBox
 }
 
@@ -49,19 +47,20 @@ export function scrollJumpGlyphPx(): number {
 }
 
 /** 描边宽度:outline 档即 1px 边框,三端同值。 */
-export const SCROLL_JUMP_BORDER_WIDTH_PX = 1
+const SCROLL_JUMP_BORDER_WIDTH_PX = 1
 
-/** 圆角档位:`control` 角色(按钮/输入控件)→ sm = 4px,与 web `rounded-sm` 同档。 */
-export const SCROLL_JUMP_RADIUS_STEP = RADIUS_ROLES.control
+/** 圆角档位:`control` 角色(按钮/输入控件)→ sm = 4px,与 web `rounded-sm` 同档。
+ *  2026-10-27 撤零消费出口 SCROLL_JUMP_RADIUS_STEP / SCROLL_JUMP_RADIUS_CSS_VAR:档名与
+ *  CSS 引用形式(小程序 `border-radius: var(--radius-sm)`)改由 radius.js 自身承担,端内仍只走
+ *  本文件的 scrollJumpRadiusPx() 这一个出口。
+ */
+
 /** 圆角 px 数值(唯一出口:端内不得自己写 4)。显式具名档取用:守门 150 对
- *  `rnRadius[变量]` 索引判不出档位(unknown-step 未判定);`sm` 与上方
- *  SCROLL_JUMP_RADIUS_STEP(= RADIUS_ROLES.control)同值,control 角色若改档
- *  必须同步本行(CSS_VAR 消费走变量索引自动跟随,px 这一处不会)。 */
-export function scrollJumpRadiusPx(): number {
+ *  `rnRadius[变量]` 索引判不出档位(unknown-step 未判定);`sm` 与 `control` 角色同值,
+ *  control 角色若改档必须同步本行(CSS 侧走 radius.js 变量自动跟随,px 这一处不会)。 */
+function scrollJumpRadiusPx(): number {
   return rnRadius.sm
 }
-/** CSS 侧引用形式(小程序写 `border-radius: var(--radius-sm)`),值仍来自 radius.js。 */
-export const SCROLL_JUMP_RADIUS_CSS_VAR = `var(${RADIUS_CSS_VAR[SCROLL_JUMP_RADIUS_STEP]})`
 
 /**
  * 方向 → 图标语义。方向是**语义**,不是外观开关:
@@ -94,8 +93,8 @@ export function scrollJumpInsetRpx(): number {
   return pxToTaroRpx(scrollJumpInsetPx())
 }
 
-/** 同列两枚按钮的间距 8(web `gap-2`)。 */
-export const SCROLL_JUMP_COLUMN_GAP_PX = 8
+// 同列两枚按钮的间距 8(web `gap-2`)——本表曾立此档但两端无消费点,
+// 2026-10-27 撤零消费出口 SCROLL_JUMP_COLUMN_GAP_PX(值留档备查)。
 
 /** 按下态弱化值:web 无 hover 对应档,RN/小程序同取一个数(与 BackChevron 的 0.6 同族)。 */
 export const SCROLL_JUMP_PRESSED_OPACITY = 0.6

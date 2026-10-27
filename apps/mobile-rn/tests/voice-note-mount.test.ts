@@ -105,7 +105,9 @@ describe('D43 语音笔记的 RN i18n 锁(五语包逐包)', () => {
     'sttPending',
     'loadFailed',
   ]
-  const ACTIONS = ['start', 'stop', 'retry', 'saveAudioOnly', 'insertToInput', 'dismiss']
+  // cancel 是 2026-10-27 D03 RN 腿新增的动作键(录音中显式取消 ⇒ cancelled 相),
+  // 与 action 键一一对应由组件静态取词那组兜底,这里把白名单同步齐。
+  const ACTIONS = ['start', 'stop', 'retry', 'saveAudioOnly', 'insertToInput', 'cancel', 'dismiss']
 
   for (const loc of LOCALES) {
     it(`${loc}:chat.voiceNote 子树齐(12 相 + 组件用到的 errors/action/顶层键)`, () => {
