@@ -84,7 +84,10 @@ function collectIconNames(files) {
     let m
     while ((m = re.exec(text))) {
       for (const raw of m[1].split(',')) {
-        const t = raw.trim().split(/\s+as\s+/)[0].trim()
+        const t = raw
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .trim()
         if (t && !t.startsWith('type ')) names.add(t)
       }
     }
@@ -137,7 +140,10 @@ function renderSource(names, rows) {
     .filter(Boolean)
     // 走 src(name) 而不是 S[name]:本仓 ts 开了 noUncheckedIndexedAccess ⇒ 直接索引会读成
     // string | undefined,而 makeIcon 的入参是 string ⇒ 216 处类型错全落在这一行模板上(2026-10-26 实测)
-    .map((name) => `export const ${name} = makeIcon(${JSON.stringify(name)}, src(${JSON.stringify(name)}))`)
+    .map(
+      (name) =>
+        `export const ${name} = makeIcon(${JSON.stringify(name)}, src(${JSON.stringify(name)}))`,
+    )
   return `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 /**
  * ⚠️ 生成物,请勿手改 —— 重新生成:\`node scripts/gen-rn-compat.mjs --write\`
@@ -199,20 +205,52 @@ function headBlob(rel) {
 }
 
 function buildRouteMap() {
-  const nav = headBlob(RN_NAVIGATOR)
-  const registry = JSON.parse(headBlob(REGISTRY))
-  const byRn = new Map(registry.entries.filter((e) => e.rn && e.miniapp).map((e) => [e.rn, e.miniapp]))
-  // 组件名 → 壳文件(import X from '../screens/Y')
+  return buildRouteMapFromText(headBlob(RN_NAVIGATOR), JSON.parse(headBlob(REGISTRY)).entries)
+}
+
+/**
+ * 纯函数版(镜像测试直接打,不碰 git 也不写盘):导航器正文 + 登记表 entries ⇒ 路由映射三桶。
+ */
+export function buildRouteMapFromText(nav, registryEntries) {
+  const byRn = new Map(
+    (registryEntries || []).filter((e) => e.rn && e.miniapp).map((e) => [e.rn, e.miniapp]),
+  )
+  // 组件名 → 壳文件。两种导入形态都要认:
+  //   ① 默认导入 `import X from '../screens/Y'`
+  //   ② 具名导入 `import { X } from '../screens/Y'`(可带 `as` 别名,别名后的**本地名**才是
+  //      Screen 的 component 取值)
+  // 现读血案:旧解析只有 ①,而导航器里 AIMultimodalScreen 等一整批走的是 ②
+  // (`import { AIMultimodalScreen } from '../screens/AIMultimodalScreen'`,
+  //  `<RootStack.Screen name="AIMultimodal" component={AIMultimodalScreen} />`)
+  // ⇒ 这些路由名整批从映射表里消失。后果不是"少一行注释":小程序端那一跳由
+  // rn-compat/navigation 运行时点名"未执行"(点了不动),而转换门 ⑤ 又据此把页面判成
+  // "跳过去会不动"⇒ 拒转。一条解析缺漏同时造出运行时缺陷与假缺口。
   const compToFile = new Map()
-  for (const m of nav.matchAll(/import\s+(\w+)\s+from\s+'\.\.\/screens\/([\w/-]+)'/g)) {
+  for (const m of nav.matchAll(/import\s+(\w+)\s+from\s*'\.\.\/screens\/([\w/-]+)'/g)) {
     compToFile.set(m[1], `apps/mobile-rn/src/screens/${m[2]}.tsx`)
+  }
+  for (const m of nav.matchAll(/import\s*\{([^}]*)\}\s*from\s*'\.\.\/screens\/([\w/-]+)'/g)) {
+    const file = `apps/mobile-rn/src/screens/${m[2]}.tsx`
+    for (const piece of m[1].split(',')) {
+      const t = piece.trim().replace(/^type\s+/, '')
+      if (!t) continue
+      const [orig, alias] = t.split(/\s+as\s+/).map((s) => String(s).trim())
+      if (!orig) continue
+      compToFile.set(alias || orig, file)
+    }
   }
   const map = new Map()
   const unmapped = []
+  const unbound = []
   for (const m of nav.matchAll(/\.Screen\s*\n?\s*name=["']([\w-]+)["']\s+component=\{(\w+)\}/g)) {
     const [, routeName, comp] = [m[0], m[1], m[2]]
     const file = compToFile.get(comp)
-    if (!file) continue
+    // 组件名在两种导入形态里都找不到 ⇒ 单独点名(旧版在这里静默 continue,
+    // 于是"解析形态不够"与"确实没这屏"读出同一个数,没人能发现是尺子瞎了)
+    if (!file) {
+      unbound.push(`${routeName}(component=${comp})`)
+      continue
+    }
     const miniapp = byRn.get(file)
     if (!miniapp) {
       unmapped.push(`${routeName}(${comp})`)
@@ -220,11 +258,13 @@ function buildRouteMap() {
     }
     map.set(routeName, `/${miniapp}`)
   }
-  return { map, unmapped, total: compToFile.size }
+  return { map, unmapped, unbound, total: compToFile.size }
 }
 
 function renderRouteMap(map) {
-  const lines = [...map.entries()].sort().map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`)
+  const lines = [...map.entries()]
+    .sort()
+    .map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`)
   return `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 /**
@@ -297,15 +337,21 @@ async function main() {
   const current = existsSync(outPath) ? readFileSync(outPath, 'utf8') : ''
   const next = renderSource(names, rows)
 
-  console.log(`lucide 消费文件 ${face.length} 个 · 图标名 ${names.length} 个 · 可产出 ${rows.length} 个`)
+  console.log(
+    `lucide 消费文件 ${face.length} 个 · 图标名 ${names.length} 个 · 可产出 ${rows.length} 个`,
+  )
   if (missing.length > 0) {
-    console.log(`⚠️ lucide 词表里取不到形体的名字 ${missing.length} 个(将被渲染为占位,须人工换名):${missing.join(' ')}`)
+    console.log(
+      `⚠️ lucide 词表里取不到形体的名字 ${missing.length} 个(将被渲染为占位,须人工换名):${missing.join(' ')}`,
+    )
   }
   if (check) {
     // 盘上生成物是 `export const X = makeIcon(...)` 形态(渲染器换代后已无 `  'X':` 表格)。
     // 旧尺子按表格正则取「在册」,于是永远量到"一个都没有" ⇒ --check 恒 exit 1、门 251 C2 的
     // 修复出口变成跑不通的出路(§0.8)。改成与写出口同一形态,"在册"只有这一种读法。
-    const covered = new Set([...current.matchAll(/^export const ([A-Za-z0-9]+) =/gm)].map((m) => m[1]))
+    const covered = new Set(
+      [...current.matchAll(/^export const ([A-Za-z0-9]+) =/gm)].map((m) => m[1]),
+    )
     const uncovered = names.filter((n) => !covered.has(n))
     if (uncovered.length > 0) {
       console.log(`❌ 已产出文件缺 ${uncovered.length} 个名字:${uncovered.join(' ')}`)
@@ -329,23 +375,30 @@ async function main() {
     iconNamesOnDisk.length >= iconNamesNew.length &&
     iconNamesNew.every((n) => iconNamesOnDisk.includes(n))
   const routeKeysNew = [...routeInfo.map.keys()]
-  const routeKeysOnDisk = [...routeCurrent.matchAll(/^\s*(?:'([A-Za-z0-9]+)'|([A-Za-z0-9]+)):\s*'/gm)].map((m) => m[1] ?? m[2])
+  const routeKeysOnDisk = [
+    ...routeCurrent.matchAll(/^\s*(?:'([A-Za-z0-9]+)'|([A-Za-z0-9]+)):\s*'/gm),
+  ].map((m) => m[1] ?? m[2])
   const routesAlreadyCovered =
     routeCurrent.length > 0 &&
     routeKeysOnDisk.length >= routeKeysNew.length &&
     routeKeysNew.every((k) => routeKeysOnDisk.includes(k))
   console.log(
-    `路由名映射:${routeInfo.map.size} 条在册 / 映射不到 ${routeInfo.unmapped.length} 条(运行时点名)/ 导航器壳文件 ${routeInfo.total} 个`,
+    `路由名映射:${routeInfo.map.size} 条在册 / 映射不到 ${routeInfo.unmapped.length} 条(运行时点名)/ 导航器壳文件 ${routeInfo.total} 个` +
+      // 第三种形态必须单独出声:组件名在两种 import 里都找不到 = 解析面不够(尺子瞎),
+      // 与"确实没这屏"不同形,混在一起就把解析缺陷读成缺口数。
+      ` / 组件名解析不到 ${routeInfo.unbound.length} 条${routeInfo.unbound.length ? `(逐条:${routeInfo.unbound.slice(0, 8).join(', ')}${routeInfo.unbound.length > 8 ? ' …' : ''})` : ''}`,
   )
   if (write) {
-    if (iconsAlreadyCovered) console.log(`✓ 图标无变化(盘上生成物已覆盖现读全集 ${iconNamesNew.length} 名)`)
+    if (iconsAlreadyCovered)
+      console.log(`✓ 图标无变化(盘上生成物已覆盖现读全集 ${iconNamesNew.length} 名)`)
     else {
       writeFileSync(outPath, next, 'utf8')
       await formatWithPrettier(OUT_REL)
       injectWatermark(OUT_REL)
       console.log(`✓ 已写 ${OUT_REL}(${rows.length} 个图标,已按仓库 prettier 配置归一并注入水印)`)
     }
-    if (routesAlreadyCovered) console.log(`✓ 路由映射无变化(盘上已覆盖现读 ${routeKeysNew.length} 条)`)
+    if (routesAlreadyCovered)
+      console.log(`✓ 路由映射无变化(盘上已覆盖现读 ${routeKeysNew.length} 条)`)
     else {
       writeFileSync(routeOut, routeNext, 'utf8')
       await formatWithPrettier(ROUTE_OUT_REL)
