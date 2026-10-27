@@ -30,6 +30,7 @@
     "relay:sessions:restore": "tsx scripts/relay-session-restore.ts",
     "relay:session-links": "tsx scripts/relay-session-links.ts",
     "relay:session-move": "tsx scripts/relay-session-move.ts",
+    "relay:session-export": "tsx scripts/relay-session-export.ts",
     "relay:qoder-models": "tsx scripts/relay-qoder-models.ts"
   },
   "dependencies": {
