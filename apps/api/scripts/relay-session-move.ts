@@ -46,7 +46,7 @@ import { pathToFileURL } from 'node:url'
 import { computeBackupPlan, type BackupManifest } from './relay-session-backup.js'
 import { loadLedger, readAccountMeta, type SessionLinksLedger } from './relay-session-links.js'
 import { resolveAuthFileCandidates } from './relay-account-switch.js'
-import { acquireSessionLock } from './relay-session-lock.js'
+import { acquireSessionLock, SESSION_STORE_LOCK_NAME } from './relay-session-lock.js'
 
 /** 搬移器全部路径面(默认本机真实面;测试注入临时目录,绝不碰真实会话库) */
 export interface MovePaths {
@@ -1035,7 +1035,7 @@ export function main(
     )
     return 2
   }
-  const lockPath = join(dirname(paths.opsLogFile), 'session-move.lock')
+  const lockPath = join(dirname(paths.opsLogFile), SESSION_STORE_LOCK_NAME)
   let lock: { release: () => void } | null = null
   try {
     if (apply && cmd !== undefined && cmd !== 'ops' && cmd !== 'help') {
