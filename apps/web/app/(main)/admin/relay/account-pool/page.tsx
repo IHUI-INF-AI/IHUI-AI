@@ -330,6 +330,8 @@ interface QuotaResult {
     ratio?: number
     unit?: string
     resetsAt?: string
+    /** 订阅档名(workbuddy 实证:summary 的 SubscriptionPackageName,如"体验版") */
+    subscriptionName?: string
     packs?: Array<{ name?: string; limit?: number; remaining?: number; endAt?: string }>
   } | null
   queriedAt: string
@@ -338,6 +340,7 @@ interface QuotaResult {
 // 余额一行话:优先"剩余/总额";平台只给已用时按 total 换算,两者都给不到就不编数字。
 function formatQuotaLine(q: NonNullable<QuotaResult['quota']>): string {
   const unit = q.unit ?? '额度'
+  const sub = q.subscriptionName ? `(${q.subscriptionName}) ` : ''
   const remaining =
     q.remaining ?? (q.used !== undefined && q.total !== undefined ? q.total - q.used : undefined)
   const pct =
@@ -345,10 +348,10 @@ function formatQuotaLine(q: NonNullable<QuotaResult['quota']>): string {
       ? ` · 已用 ${(q.ratio * 100).toFixed(1)}%`
       : ''
   if (remaining !== undefined && q.total !== undefined) {
-    return `余额 ${fmtNum(remaining)} / ${fmtNum(q.total)} ${unit}${pct}`
+    return `${sub}余额 ${fmtNum(remaining)} / ${fmtNum(q.total)} ${unit}${pct}`
   }
-  if (remaining !== undefined) return `余额 ${fmtNum(remaining)} ${unit}`
-  if (q.used !== undefined) return `已用 ${fmtNum(q.used)} ${unit}`
+  if (remaining !== undefined) return `${sub}余额 ${fmtNum(remaining)} ${unit}`
+  if (q.used !== undefined) return `${sub}已用 ${fmtNum(q.used)} ${unit}`
   return '余额接口已应答,但字段未识别(未判定)'
 }
 
