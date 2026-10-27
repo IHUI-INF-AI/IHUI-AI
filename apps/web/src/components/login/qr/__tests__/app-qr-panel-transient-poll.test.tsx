@@ -105,7 +105,7 @@ async function tickFrames(n: number) {
 describe('AppQrPanel 状态轮询的瞬失容忍', () => {
   it('连续两帧 429 后恢复 ⇒ 不进 error 态、继续轮询到 confirmed', async () => {
     h.statusQueue = [{ ok: false }, { ok: false }, { ok: true }]
-    render(<AppQrPanel refreshKey={0} />)
+    render(<AppQrPanel refreshKey={0} agreementAccepted />)
     await tickFrames(1)
     // 首帧瞬失:码还在屏上,没有失败态
     expect(screen.queryByText('appQrFailed')).toBeNull()
@@ -120,7 +120,7 @@ describe('AppQrPanel 状态轮询的瞬失容忍', () => {
 
   it('一直取不到 ⇒ 到容忍上限必须真进 error 态(容忍不等于永不判死)', async () => {
     h.statusQueue = [{ ok: false }]
-    render(<AppQrPanel refreshKey={0} />)
+    render(<AppQrPanel refreshKey={0} agreementAccepted />)
     await tickFrames(5)
     expect(screen.queryByText('appQrFailed')).not.toBeNull()
     expect(h.dialogState.close).not.toHaveBeenCalled()
