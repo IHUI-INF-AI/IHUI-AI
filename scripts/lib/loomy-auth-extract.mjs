@@ -16,9 +16,20 @@
  *     不是登录凭证,不得当会话票;
  *   - Cookies:主库(%APPDATA%\Loomy\Network\Cookies)0 行;分区库
  *     Partitions\loomy-browser-default 下无 Cookies 文件;Session Storage 无 file:// 键;
- *   - 结论:本机未发现 auth/session token 的持久化键(登录态疑在内存或 safeStorage
- *     加密存于别处)⇒ 提取器按「实证键 + Electron 通用候选键」双路径探测
- *     (Local Storage leveldb + Cookies),取不到 ⇒ LOOMY_NO_SESSION(未判定,不冒绿)。
+ *   - **2026-10-27 源码级实证升级**(G:\Loomy\resources\app.asar 字符串取证):
+ *     ① 登录会话持久化键 = localStorage **`loomy-auth-session`**,写入结构
+ *     `JSON.stringify({phone, maskedPhone, session, userid, loggedInAt})`(session 字段
+ *     即会话票;asar @51319631 setItem(jo,…) 一手证据);配套键 `loomy-last-login-phone`
+ *     (Xb,明文手机号)与 `loomy-user-identity`(Oh);手机号正则 /^1[3-9]\d{9}$/;
+ *     ② 设备凭证走 DeviceCredentialVault(app.asar.unpacked\electron\cross-end-sync\
+ *     device-credential-vault.js):Electron safeStorage(v10 DPAPI 同构)加密后存
+ *     `<userData>\shared-session-sync\[environments\<scopeKey>\]device-credential.json`,
+ *     字段 {version, scope_key, encrypted(base64), device_id, app_id, status} ——
+ *     本机 2026-10-27 现读:该目录不存在 + localStorage 无 loomy-auth-session 键
+ *     ⇒ **未登录态**,两路径探测照常走,登录后即可提取;
+ *   - 结论:提取器按「源码实证键 + Electron 通用候选键」双路径探测
+ *     (Local Storage leveldb + Cookies + device-credential.json 探测注记),
+ *     取不到 ⇒ LOOMY_NO_SESSION(未判定,不冒绿)。
  *
  * 分工(§0.6 单一真相源,本模块零映射):leveldb/cookie 取证只读;命中候选键的值
  * **逐字直通**(不猜字段、不改名、不拼装),归一与凭证拆分全交服务端单一映射。
@@ -43,9 +54,14 @@ import { readAesKeyFromLocalState } from './codearts-auth-extract.mjs'
 
 /**
  * Local Storage 候选键名探测清单(只筛「取哪把钥匙」,不做字段映射,§0.6):
- * ① 本机实证键在前(login-phone,2026-10-27 独立键形态);② Electron 通用会话键候选在后。
+ * ① 源码实证键在前(loomy-auth-session = 登录会话主键,asar setItem 一手证据);
+ * ② 配套键(loomy-last-login-phone/loomy-user-identity,asar 常量 Xb/Oh);
+ * ③ 早前本机取证键(login-phone);④ Electron 通用会话键候选在后。
  */
 const LOCAL_STORAGE_KEY_CANDIDATES = [
+  'loomy-auth-session',
+  'loomy-last-login-phone',
+  'loomy-user-identity',
   'login-phone',
   'loomy-login-phone',
   'loomy-session',
@@ -153,6 +169,27 @@ export function cutBalancedJson(s) {
     }
   }
   return null
+}
+
+/** 只读探测 DeviceCredentialVault 落点(存在与否如实进 notes;密文不解不导,仅指路) */
+export function probeDeviceCredentialVault(dir) {
+  const root = path.join(dir, 'shared-session-sync')
+  if (!fs.existsSync(root)) return []
+  const hits = []
+  const direct = path.join(root, 'device-credential.json')
+  if (fs.existsSync(direct)) hits.push(path.relative(dir, direct))
+  const envRoot = path.join(root, 'environments')
+  try {
+    if (fs.existsSync(envRoot)) {
+      for (const scope of fs.readdirSync(envRoot)) {
+        const p = path.join(envRoot, scope, 'device-credential.json')
+        if (fs.existsSync(p)) hits.push(path.relative(dir, p))
+      }
+    }
+  } catch {
+    /* environments 不可读就只认直连路径 */
+  }
+  return hits
 }
 
 /**
@@ -353,14 +390,20 @@ export async function extractLoomyAccounts(opts = {}) {
     try {
       const ls = scanLocalStorageEntries(dir)
       const ck = readCookieEntries(dir, { shellBin: opts.shellBin })
+      const vaultHits = probeDeviceCredentialVault(dir)
+      const vaultNotes = vaultHits.length
+        ? [
+            `DeviceCredentialVault 落点在盘(未解未导,登录后可作为设备票源): ${vaultHits.join('; ')}`,
+          ]
+        : []
       const all = [...ls.entries, ...ck.entries]
-      const notes = [...ls.skips, ...ck.skips]
+      const notes = [...ls.skips, ...ck.skips, ...vaultNotes]
       const { valid, skipped } = pickImportableEntries(all)
       if (valid.length === 0) {
         throw Object.assign(
           new Error(
-            `目录在盘但 0 条会话候选命中(2026-10-27 取证:Local Storage 全为 loomy-* 应用状态键、` +
-              `Cookies 两库皆空,未发现 token 持久化键 ⇒ 未判定)。取证注记: ${notes.join('; ') || '(无)'}`,
+            `目录在盘但 0 条会话候选命中(源码实证主键 loomy-auth-session 未出现 ⇒ ` +
+              `本机 Loomy 处于未登录态;登录后重跑即可)。取证注记: ${notes.join('; ') || '(无)'}`,
           ),
           { code: 'LOOMY_NO_SESSION' },
         )
@@ -391,6 +434,7 @@ export const __test__ = {
   scanLocalStorageEntries,
   readCookieEntries,
   candidateRoamingDirs,
+  probeDeviceCredentialVault,
   summarizeEntry,
   pickImportableEntries,
   LOCAL_STORAGE_KEY_CANDIDATES,

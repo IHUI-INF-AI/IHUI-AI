@@ -40,6 +40,22 @@ import { normalizeStopSequences } from '../relay-upstream-adapters.js'
 
 /** OpenCode Zen 官方网关(OpenAI chat.completions 兼容;路径未实弹复核,抓包后可调) */
 const CHAT_URL = 'https://opencode.ai/zen/v1/chat/completions'
+/**
+ * 轻量健康检查端点(2026-10-27 实弹取证):GET /zen/v1/models 存在且鉴权面与 chat 同一
+ * (实弹:过期 key → 401 {"error":{"type":"authentication_error","code":"api_key_expired",
+ * "message":"…Create a new API key in OpenCode Console…Signing in again will not renew
+ * this key."}})。GET 零配额消耗,可作健康检查;usage 端点实弹 404 不存在。
+ */
+const MODELS_URL = 'https://opencode.ai/zen/v1/models'
+
+// =============================================================================
+// fetch 缝(测试打桩 > 全局直连;对齐 codearts/minimax 同款做法)
+// =============================================================================
+
+function resolveFetchImpl(opts: AdapterCallOptions): typeof fetch {
+  if (opts.fetchImpl) return opts.fetchImpl
+  return globalThis.fetch.bind(globalThis)
+}
 
 // =============================================================================
 // chat 请求构造(OpenAI 兼容形状,body 透传)
@@ -128,25 +144,44 @@ function translateNonStream(
 // =============================================================================
 
 /**
- * 轻量健康检查(§0.3):OpenCode 无已实证的轻量探测端点 —— 唯一可打的是 chat 面,
- * 但那会消耗真实配额(健康检查纪律:不得消耗大量配额)。故不探测,回未判定保留 unknown,
- * 待实弹取证到轻量端点后补实现。
+ * 轻量健康检查(2026-10-27 实弹实证):GET /zen/v1/models —— 鉴权面与 chat 同一、
+ * 零配额消耗。200 ⇒ ok;401/403 ⇒ authFailed(key 过期,重登不续期须 Console 新建);
+ * 其余 ⇒ 未判定。
  */
 async function checkHealth(
-  _ctx: AdapterAccountContext,
-  _opts?: AdapterCallOptions,
+  ctx: AdapterAccountContext,
+  opts?: AdapterCallOptions,
 ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
-  return {
-    ok: false,
-    indeterminate: true,
-    error: '无已实证的轻量探测端点 ⇒ 未判定(不做会耗配额的 chat 探测)',
+  try {
+    const res = await resolveFetchImpl(opts ?? {})(MODELS_URL, {
+      method: 'GET',
+      headers: { accept: 'application/json', authorization: `Bearer ${ctx.credentials.token}` },
+    })
+    const text = await res.text().catch(() => '')
+    if (res.ok) return { ok: true }
+    const rejected = opencodeAdapter.isAuthFailure(res.status, text)
+    return {
+      ok: false,
+      indeterminate: !rejected,
+      authFailed: rejected,
+      error: `zen/v1/models HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
+        rejected ? '' : '(未判定)'
+      }`,
+    }
+  } catch (e) {
+    return {
+      ok: false,
+      indeterminate: true,
+      error: `${e instanceof Error ? e.message : String(e)}(未判定)`,
+    }
   }
 }
 
 /**
- * 余额点查(§0.3 如实未判定):OpenCode **无公开额度端点** —— 额度在各个底层 provider
- * (OpenAI/Anthropic/Zen…),聚合面不可查。不发请求、不编数字;凭据是否失效由
- * chat 面实测 401 时按 isAuthFailure 判定。
+ * 余额点查(§0.3 如实未判定):OpenCode **无公开额度端点**(2026-10-27 实弹复核:
+ * zen/v1/usage 404 不存在;models 只回模型清单不含用量)。额度在各个底层 provider,
+ * 聚合面不可查。不发请求、不编数字;凭据是否失效由 chat 面实测 401 时按
+ * isAuthFailure 判定。
  */
 async function getQuota(
   _ctx: AdapterAccountContext,
@@ -154,7 +189,8 @@ async function getQuota(
 ): Promise<RelayQuotaResult> {
   return {
     ok: false,
-    error: '无公开额度端点 ⇒ 未判定(额度在各底层 provider,聚合面不可查;不猜字段读成数字)',
+    error:
+      '无公开额度端点(2026-10-27 实弹:zen/v1/usage 404)⇒ 未判定(额度在各底层 provider,聚合面不可查;不猜字段读成数字)',
   }
 }
 
