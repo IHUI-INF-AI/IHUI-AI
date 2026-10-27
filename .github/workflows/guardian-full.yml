@@ -68,6 +68,16 @@ jobs:
         # 只构建 packages,不构建 apps(门对 apps dist 缺失只跳过)。
         run: pnpm -r --filter "./packages/*" build
 
+      - name: 安装 uv(门 254 ruff 的执行器)
+        # 门 254 判 Python lint,它只认 uvx。本 job 此前没有任何 python 面 ⇒ 干净 runner 上取不到
+        # 执行器,门会落 exit 2「未判定」并把整批守门顶红 —— 那正是 §12e 禁的恒红门,而 §0.3 又不许
+        # 把"没判"读成"判过"。所以在这里显式装并自证版本:装不上是本步当场红,原因一眼可见,
+        # 而不是混进守门批的汇总里让人以为是 Python 代码有了新问题。
+        run: |
+          python3 -m pip install --user uv
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          uvx --version
+
       - name: 全量守门(271 道)
         # 刻意**不传** --staged:CI 的 checkout 是干净工作树,没有暂存区概念,
         # 门的判据面回落到"磁盘全量";同时本地那套元门档裁剪也不生效
