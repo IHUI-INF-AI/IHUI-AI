@@ -4,7 +4,7 @@
 
 import './global.css'
 import { useCallback, useEffect, useState } from 'react'
-import { AppRegistry, LogBox, Platform, Text, TextInput, View } from 'react-native'
+import { AppRegistry, ActivityIndicator, LogBox, Platform, Text, TextInput, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFonts } from 'expo-font'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
@@ -390,6 +390,27 @@ function AppContent() {
  */
 const FONT_GATE_TIMEOUT_MS = 6000
 
+/**
+ * 启动兜底屏(2026-10-28 机主「点了更新依旧灰屏 卡死」):
+ * 字体还没就绪时**不再 return null**。null 期间 RN 根视图是空的 —— 原生启动图撤下后
+ * 只剩 AppTheme 的 DayNight 窗口底(深色机型就是一块暗灰),真机上读作"灰屏卡死"。
+ * 这里给一帧与应用同色的底 + 一枚转圈:任何等待都有可见反馈,绝不再出现无内容灰屏。
+ */
+function BootScreen(): React.JSX.Element {
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: tokens.surface.bg,
+      }}
+    >
+      <ActivityIndicator color={tokens.brandAccent.deep} />
+    </View>
+  )
+}
+
 export default function App() {
   // 加载阿里妈妈方圆体(对齐 uniapp);未加载完返回 null 避免字体闪烁
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -411,7 +432,13 @@ export default function App() {
   // 原生:未加载完返回 null,避免字体闪烁。Web 预览必须跳过这道门:
   // react-native-web 下 require(ttf) 返回的是资产 id 而非可加载 URL,expo-font 的 web
   // loader 永远不 resolve ⇒ fontsLoaded 恒 false ⇒ 整棵树 return null(:8806 白屏根因)。
-  if (Platform.OS !== 'web' && !fontsLoaded && !fontError && !fontGateExpired) return null
+  if (Platform.OS !== 'web' && !fontsLoaded && !fontError && !fontGateExpired) {
+    return (
+      <ThemeProvider>
+        <BootScreen />
+      </ThemeProvider>
+    )
+  }
   return (
     <ThemeProvider>
       <AppContent />
