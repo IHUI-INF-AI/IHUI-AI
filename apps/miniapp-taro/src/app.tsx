@@ -40,7 +40,7 @@ import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import { initTheme } from './lib/theme'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import { initCrashReport } from './utils/crash-report'
-import { startPageViewTracking, settlePageTime } from './utils/visit-tracker'
+import { startPageViewTracking } from './utils/visit-tracker'
 import './app.css'
 
 // 初始化 api-client:注入 Taro transport + token provider + baseUrl
@@ -140,11 +140,6 @@ function NetworkStatusHandler() {
   // 单独一个 useLaunch:上面那块的守卫只覆盖网络监听,不应把埋点一起短路。
   useLaunch(() => {
     startPageViewTracking()
-    // 退后台即结算当前页停留:页面栈轮询只在前台跑,切走小程序时最后一页的
-    // 停留原本永远丢(2026-10-27 收口);老基础库没有 onAppHide 时静默跳过。
-    if (typeof Taro.onAppHide === 'function') {
-      Taro.onAppHide(() => settlePageTime())
-    }
   })
   return null
 }

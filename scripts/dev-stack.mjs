@@ -44,7 +44,7 @@ import net from 'node:net';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LOG_DIR = path.join(ROOT, '.tmp-sync');
@@ -342,56 +342,22 @@ const SERVICES = [
   },
 ];
 
-// —— 参数取值器:--name=value 与 --name value 两形态,等号形优先 ——
-// 2026-10-27 修复:旧实现只认等号形(startsWith('--name=')),`--timeout 600`(空格形)
-// 被静默回落默认 120s;叠加 api(Fastify tsx watch)本机冷启动实测 >120s ⇒ 启动判
-// 「start-timeout」假失败。空格形读 argv 下一项;下一项不存在或以 `--` 开头不算值。
-function getVal(argv, n, def) {
-  const eq = argv.find((x) => x.startsWith(`--${n}=`));
-  if (eq) return eq.slice(n.length + 3);
-  const i = argv.indexOf(`--${n}`);
-  if (i !== -1 && i + 1 < argv.length && !argv[i + 1].startsWith('--')) return argv[i + 1];
-  return def;
-}
+const args = process.argv.slice(2);
+const a = new Set(args);
+const getVal = (n, def) => {
+  const hit = args.find((x) => x.startsWith(`--${n}=`));
+  return hit ? hit.slice(n.length + 3) : def;
+};
+const wantDevice = a.has('--device') || a.has('--with-device');
+const checkOnly = a.has('--check');
+const watchMode = a.has('--watch');
+const asJson = a.has('--json');
+const onlyArg = getVal('only', null);
+const onlyList = onlyArg ? onlyArg.split(',').map((s) => s.trim()) : null;
+const intervalMs = Number(getVal('interval', '30')) * 1000;
+const readyTimeoutMs = Number(getVal('timeout', '120')) * 1000;
 
-// 数值参数防御解析:NaN / ≤0 ⇒ 抛错(调用方 exit 2 并打印参数名与原值),绝不静默回落
-// (§0.3 铁律:取不到 ⇒ 未判定,静默回落等于假绿)。
-function parsePositiveInt(n, raw, def) {
-  if (raw === null || raw === undefined) return def;
-  const v = Number(raw);
-  if (!Number.isFinite(v) || v <= 0) {
-    throw new Error(`参数 --${n} 收到无法解析的值 "${raw}"(需要正数),拒绝静默回落;正确示例:--${n}=${def}`);
-  }
-  return v;
-}
-
-// main() 内赋值的运行形态位(模块层 let,供 ensure/report/run/watch 闭包引用)
-let wantDevice = false;
-let checkOnly = false;
-let watchMode = false;
-let asJson = false;
-let intervalMs = 30_000;
-let readyTimeoutMs = 120_000;
-let targets = SERVICES;
-
-async function main() {
-  const args = process.argv.slice(2);
-  const a = new Set(args);
-  wantDevice = a.has('--device') || a.has('--with-device');
-  checkOnly = a.has('--check');
-  watchMode = a.has('--watch');
-  asJson = a.has('--json');
-  const onlyArg = getVal(args, 'only', null);
-  const onlyList = onlyArg ? onlyArg.split(',').map((s) => s.trim()) : null;
-  try {
-    intervalMs = parsePositiveInt('interval', getVal(args, 'interval', null), 30) * 1000;
-    readyTimeoutMs = parsePositiveInt('timeout', getVal(args, 'timeout', null), 120) * 1000;
-  } catch (e) {
-    console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
-    process.exit(2);
-  }
-
-  targets = onlyList ? SERVICES.filter((s) => onlyList.includes(s.name)) : SERVICES;
+const targets = onlyList ? SERVICES.filter((s) => onlyList.includes(s.name)) : SERVICES;
 
 // 双栈探活:Windows 上 dev server 常只绑 IPv6([::1])或只绑 IPv4,必须两个都试。
 // 返回实际可达的 host,供 http 探针复用,避免 TCP 通了 HTTP 却探错栈。
@@ -535,9 +501,7 @@ async function ensure(svc, results) {
     port: svc.port,
     status: ok ? 'up' : 'down',
     action: ok ? 'started' : 'start-timeout',
-    hint: ok
-      ? ''
-      : `${svc.hint}\n      当前启动等待上限 readyTimeoutMs=${readyTimeoutMs}(${Math.round(readyTimeoutMs / 1000)}s)内未探到就绪。冷启动较慢(如 api tsx watch 首编译 >120s)时加 --timeout=600 重跑\n      最近日志:\n${tail(logPaths(svc.name).err) || tail(logPaths(svc.name).out) || '(空)'}`,
+    hint: ok ? '' : svc.hint + (ok ? '' : `\n      最近日志:\n${tail(logPaths(svc.name).err) || tail(logPaths(svc.name).out) || '(空)'}`),
   });
   return ok;
 }
@@ -671,20 +635,7 @@ if (watchMode) {
   };
   await tick();
   setInterval(tick, intervalMs);
-  } else {
-    process.exit(code);
-  }
+} else {
+  process.exit(code);
 }
-
-// §22d 双形态守卫:CLI 直跑才执行 main(),被 import(测试/工具)零副作用
-const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-
-if (isDirectRun) {
-  main().catch((e) => {
-    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`);
-    process.exit(2);
-  });
-}
-
-export const __test__ = { getVal, parsePositiveInt };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

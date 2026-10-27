@@ -4,7 +4,7 @@
 
 import './global.css'
 import { useCallback, useEffect, useState } from 'react'
-import { AppRegistry, AppState, LogBox, Platform, Text, TextInput, View } from 'react-native'
+import { AppRegistry, LogBox, Platform, Text, TextInput, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFonts } from 'expo-font'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
@@ -20,7 +20,7 @@ import { UpdatePrompt } from './src/components/UpdatePrompt'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
 import { navigationRef, navigateTo } from './src/navigation/navigation-ref'
-import { reportScreenView, settleScreenTime } from './src/lib/visit-tracker'
+import { reportScreenView } from './src/lib/visit-tracker'
 import { registerWechat } from './src/lib/wechat'
 import {
   subscribeOAuthDeepLink,
@@ -187,14 +187,6 @@ if (__DEV__) {
 
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
-  // 退后台即结算当前屏停留:visit-tracker 的 page_time 原本只在换屏时结算,
-  // 用户直接退后台/杀 app 时最后一屏的停留永远丢(2026-10-27 收口)。
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'background' || state === 'inactive') settleScreenTime()
-    })
-    return () => sub.remove()
-  }, [])
   return (
     <NavigationContainer
       ref={navigationRef}
