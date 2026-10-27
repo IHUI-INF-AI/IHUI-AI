@@ -316,4 +316,33 @@ test('⑫ 全链取号带设备材料:账号对象带 deviceId/密钥对,meta �
     rmScratch(scratch)
   }
 })
+
+test('⑭ 会话模板:凭证整族剔除、账号资料原样、深拷贝(登录本机的重建底稿)', () => {
+  const session = {
+    ...SESSION,
+    userRegion: { region: 'cn', _aiRegion: 'cn' },
+    account: { username: 'someone', email: 'a@b.co', phone: '13800000000', avatar_url: 'x' },
+  }
+  const tpl = T.buildSessionTemplate(session)
+  for (const k of ['token', 'refreshToken', 'expiredAt', 'refreshExpiredAt']) {
+    assert.equal(k in tpl, false, `${k} 不得进模板(否则密文里躺着可被直接用的票)`)
+  }
+  for (const k of ['tokenReleaseAt', 'userId', 'host', 'userRegion', 'account']) {
+    assert.ok(k in tpl, `${k} 必须保留(重建整份登录态所需)`)
+  }
+  assert.deepEqual(tpl.account, session.account, '账号资料必须原样(头像/邮箱/组织靠它)')
+  assert.equal(JSON.stringify(tpl).includes(session.token), false)
+  // 深拷贝:改模板不得回头改上游 userInfo(否则同步回灌会把原件弄脏)
+  tpl.account.username = 'tampered'
+  assert.equal(session.account.username, 'someone')
+  // 非对象输入 ⇒ null(不抛错,调用方据 null 不写键)
+  assert.equal(T.buildSessionTemplate(null), null)
+  assert.equal(T.buildSessionTemplate([]), null)
+  assert.equal(T.buildSessionTemplate('nope'), null)
+  // 全链:toPoolAccount 必须带模板,且模板自身不含凭证
+  const acct = T.toPoolAccount(session)
+  assert.deepEqual(acct.accounts[0].sessionTemplate, T.buildSessionTemplate(session))
+  assert.equal('token' in acct.accounts[0].sessionTemplate, false)
+  assert.equal('refreshToken' in acct.accounts[0].sessionTemplate, false)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
