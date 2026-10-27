@@ -1035,6 +1035,31 @@
       "shared": "packages/app/src/features/student/StudentCenterScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/StudentCenterScreen.tsx",
       "miniapp": "pkg-mirror3/student-center/index"
+    },
+    {
+      "shared": "packages/app/src/features/support/SupportScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SupportScreen.tsx",
+      "miniapp": "pkg-user/support/index"
+    },
+    {
+      "shared": "packages/app/src/features/tags/TagDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TagDetailScreen.tsx",
+      "miniapp": "pkg-user/tag-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/tags/TagsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TagsScreen.tsx",
+      "miniapp": "pkg-user/tags/index"
+    },
+    {
+      "shared": "packages/app/src/features/teams/TeamWorkspaceScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeamWorkspaceScreen.tsx",
+      "miniapp": "pkg-user/team-workspace/index"
+    },
+    {
+      "shared": "packages/app/src/features/teams/TeamsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeamsScreen.tsx",
+      "miniapp": "pkg-user/teams/index"
     }
   ]
 }
