@@ -69,7 +69,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
       gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
@@ -119,7 +119,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
     tagRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
     tagChip: {
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 6,
       paddingVertical: 2,
     },
