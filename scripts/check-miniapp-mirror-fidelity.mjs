@@ -170,11 +170,15 @@ export function consumedKeys(text) {
  * 这把尺子的失效方向是**逼人回去手抄已经在渲染的文案**,与目标(减少开发)正相反,故必修。
  *
  * 判承载三腿,缺一即不认(承重腿比"数键"更强,不是更弱):
- *   ① 页面按 `@rn-shells/<SpecName>` 引了**与这一屏同名**的壳(引错名不顶包);
- *   ② 该壳在本面上存在,且真消费了本 spec(cov.rnConsumes:同名符号 + `@ihui/rn-app`);
+ *   ① 页面引的壳里有一枚**真消费了本 spec**(cov.rnConsumes:同名符号 + `@ihui/rn-app`)。
+ *      同名壳优先,但不要求同名 —— RN 壳名与共享屏名不同是仓内既有形态(现读 5 例:
+ *      NewsScreen 渲染 SquareScreen、PlanScreen 渲染 PlanListScreen 等),按名判会把
+ *      合法委托读成"声明未渲染",方向同样是逼人回头手抄;
+ *   ② 该壳在本面上存在(引了不存在的壳 ⇒ 编不过,单列 broken);
  *   ③ 页面对壳的取用形态与壳的真导出对得上(mismatchedShellBinding 为空)。
- * ②③ 任一不成立 ⇒ form='broken':这一页在产物里渲染不出来(undefined 组件 / 编不过),
+ * 任一腿断 ⇒ form='broken':这一页在产物里渲染不出来(undefined 组件 / 编不过),
  * 比"少几个文案"严重,单独立桶点名,绝不混进手写存量里让人以为只是没抄完。
+ * 引了壳而**没有一枚**消费本 spec ⇒ form='other':声明只是账面上的。
  *
  * readShell 由调用方给 ⇒ 面纪律(§0.4 同面同轮)留在调用方,本函数纯判据零 IO。
  */
@@ -185,18 +189,36 @@ export function hostingFormOf({ spec, pageText, readShell }) {
     .replace(/\.[jt]sx$/, '')
   if (!name) return { form: 'hand', why: '' }
   const refs = shellRefsOf(pageText || '')
-  if (!refs.has(name)) {
-    if (refs.size === 0) return { form: 'hand', why: '' }
+  if (refs.size === 0) return { form: 'hand', why: '' }
+  const shells = new Map()
+  for (const n of refs) shells.set(n, readShell(shellTargetRel(n)))
+  const dangling = [...refs]
+    .filter((n) => {
+      const t = shells.get(n)
+      return t === null || t === undefined
+    })
+    .sort()
+  if (dangling.length > 0)
     return {
-      form: 'other',
-      why: `声明镜像 ${name},而这一页承载的壳是 ${[...refs].sort().join(',')} ⇒ 声明的那一屏并未渲染`,
+      form: 'broken',
+      why: `${dangling.map(shellTargetRel).join(', ')} 在本面不存在 ⇒ 页面引了不存在的壳`,
+    }
+  let carrier = refs.has(name) ? name : null
+  if (!carrier) {
+    for (const n of [...refs].sort()) {
+      if (rnConsumes({ text: shells.get(n) }, name)) {
+        carrier = n
+        break
+      }
     }
   }
-  const rel = shellTargetRel(name)
-  const shellText = readShell(rel)
-  if (shellText === null || shellText === undefined) return { form: 'broken', why: `${rel} 在本面不存在 ⇒ 页面引了不存在的壳` }
-  if (!rnConsumes({ text: shellText }, name))
-    return { form: 'broken', why: `${rel} 未消费共享屏 ${name}` }
+  if (!carrier)
+    return {
+      form: 'other',
+      why: `声明镜像 ${name},而这一页承载的壳是 ${[...refs].sort().join(', ')}(均未消费该屏) ⇒ 声明的那一屏并未渲染`,
+    }
+  if (!rnConsumes({ text: shells.get(carrier) }, name))
+    return { form: 'broken', why: `${shellTargetRel(carrier)} 未消费共享屏 ${name}` }
   const mismatch = mismatchedShellBinding(pageText, (r) => readShell(r))
   if (mismatch) return { form: 'broken', why: mismatch }
   return { form: 'hosted', why: '' }

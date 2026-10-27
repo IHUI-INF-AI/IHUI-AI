@@ -248,13 +248,44 @@ export function SettingsScreen() { return Shared }`
   assert.match(f.why, /默认导入/)
 })
 
-test('T17 声明与承载不符:页引了别的壳 ⇒ other(声明镜像的那一屏并没渲染,旧尺对这一型无感)', () => {
+test('T17 声明与承载不符:引的壳都不消费这一屏 ⇒ other(声明镜像的那一屏并没渲染,旧尺对这一型无感)', () => {
+  const page = `// 镜像 ${SPEC}
+import NewsShell from '@rn-shells/NewsScreen'
+export default function P() { return NewsShell }`
+  const otherShell = `
+import { OtherScreen } from '@ihui/rn-app'
+export default function NewsScreen() { return OtherScreen }`
+  const f = gate.hostingFormOf({
+    spec: SPEC,
+    pageText: page,
+    readShell: readFrom({ 'apps/mobile-rn/src/screens/NewsScreen.tsx': otherShell }),
+  })
+  assert.equal(f.form, 'other')
+  assert.match(f.why, /NewsScreen/)
+})
+
+test('T17b 壳名与共享屏名不同但真的消费了这一屏 ⇒ hosted(仓内既有形态:NewsScreen 渲染 SquareScreen)', () => {
+  const page = `// 镜像 ${SPEC}
+import NewsShell from '@rn-shells/NewsScreen'
+export default function P() { return NewsShell }`
+  const carrier = `
+import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
+export default function NewsScreen() { return SharedSettingsScreen }`
+  const f = gate.hostingFormOf({
+    spec: SPEC,
+    pageText: page,
+    readShell: readFrom({ 'apps/mobile-rn/src/screens/NewsScreen.tsx': carrier }),
+  })
+  assert.equal(f.form, 'hosted')
+})
+
+test('T17c 引了别的壳而那壳在本面不存在 ⇒ broken(编不过,不是"声明未渲染"这种轻账)', () => {
   const page = `// 镜像 ${SPEC}
 import NewsShell from '@rn-shells/NewsScreen'
 export default function P() { return NewsShell }`
   const f = gate.hostingFormOf({ spec: SPEC, pageText: page, readShell: readFrom({}) })
-  assert.equal(f.form, 'other')
-  assert.match(f.why, /NewsScreen/)
+  assert.equal(f.form, 'broken')
+  assert.match(f.why, /不存在/)
 })
 
 test('T18 真仓冒烟(HEAD 面):引壳的页一律不得判成手写,且 hosted 桶非空', () => {
