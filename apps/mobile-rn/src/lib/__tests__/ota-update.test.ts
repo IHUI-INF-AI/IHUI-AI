@@ -167,6 +167,26 @@ describe('OTA 状态机:重启生效', () => {
     expect(mod.otaSnapshot().state).toBe('ready')
     expect(mod.otaSnapshot().lastError).toContain('native channel broken')
   })
+
+  it('reloadAsync 永不 resolve ⇒ 看门狗超时落回 ready(「正在重启」遮罩不许永久钉住)', async () => {
+    // 机主实拍「点完更新直接调到灰屏页,一直不动」:真重启时进程被替换、定时器走不到;
+    // 但原生通道挂死 / 新包装载卡住时 reloadAsync 可能一直悬着 —— 没有看门狗就会把
+    // installing 的整幅遮罩永久留在屏幕上(比原来那块无反馈灰屏更糟)。
+    vi.useFakeTimers()
+    try {
+      h.reloadAsync.mockImplementation(() => new Promise<void>(() => {}))
+      const mod = await freshModule()
+      const applying = mod.applyOtaUpdate()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(mod.otaSnapshot().state).toBe('installing')
+      await vi.advanceTimersByTimeAsync(15000)
+      await expect(applying).resolves.toBe(false)
+      expect(mod.otaSnapshot().state).toBe('ready')
+      expect(mod.otaSnapshot().lastError).toContain('看门狗')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('OTA 状态机:并发去重(自动检查与设置页手动检查会撞车)', () => {
