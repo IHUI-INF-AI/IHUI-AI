@@ -78,6 +78,8 @@ function git(args, { cwd = ROOT, allowFail = false } = {}) {
       // 门 193 硬要求:派生 git 必须显式接管 stdio —— 不写时本机 0/30 成功(EBUSY)。
       // 取值按 face-reader 同族惯例 ['ignore','pipe','pipe'](这里不喂 stdin)。
       stdio: ['ignore', 'pipe', 'pipe'],
+      // 门 52:本机派生进程禁弹控制台窗口(AGENTS §5b 机器级默认钩子之外的逐点参数)。
+      windowsHide: true,
     })
   } catch (e) {
     if (allowFail) return null
@@ -320,7 +322,7 @@ function selfTest() {
   const tmp = mk('ps1bom-selftest-')
   try {
     const run = (args) =>
-      execFileSync('git', args, { cwd: tmp, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+      execFileSync('git', args, { cwd: tmp, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
     run(['init', '-q'])
     run(['config', 'user.email', 't@t'])
     run(['config', 'user.name', 't'])
@@ -364,7 +366,7 @@ function selfTest() {
     // ⑤ 有效面 + 真的零枚 .ps1(面上有别的跟踪文件)⇒ 必须 0(§12e 反恒红对照)
     const noPs = mk('ps1bom-nops-')
     const runNoPs = (args) =>
-      execFileSync('git', args, { cwd: noPs, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+      execFileSync('git', args, { cwd: noPs, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
     runNoPs(['init', '-q'])
     runNoPs(['config', 'user.email', 't@t'])
     runNoPs(['config', 'user.name', 't'])
