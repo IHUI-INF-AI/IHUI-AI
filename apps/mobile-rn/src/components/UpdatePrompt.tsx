@@ -15,7 +15,7 @@
  */
 
 import * as React from 'react'
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from 'react-native'
 import { RefreshCw, X } from 'lucide-react-native'
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
@@ -70,6 +70,24 @@ export function UpdatePrompt(): React.JSX.Element | null {
   const downloading = state === 'downloading'
   if ((state !== 'ready' && !applying && !downloading) || dismissed) return null
 
+  // 重启窗口(2026-10-27 机主实拍「点完更新直接调到灰屏页,一直不动」):
+  // 进程重启前有一段空白,没有任何反馈 ⇒ 被当成卡死。改成整幅「正在重启…」遮罩,
+  // 点下去必须有反应,直到新包接管(常驻上限见 ota-update 的 reload 看门狗)。
+  if (applying) {
+    return (
+      <View
+        style={styles.applyingOverlay}
+        accessibilityRole="alert"
+        accessibilityLabel={t('appUpdate.installing')}
+      >
+        <View style={styles.applyingCard}>
+          <ActivityIndicator color={tokens.brandAccent.deep} />
+          <Text style={styles.applyingText}>{t('appUpdate.installing')}</Text>
+        </View>
+      </View>
+    )
+  }
+
   // 当前跑的是哪个包(内置/热更 + 短 id):更新前后各看一眼,「生效没生效」不再靠猜
   const rb = runningBundle()
   const bundleLabel =
@@ -77,50 +95,59 @@ export function UpdatePrompt(): React.JSX.Element | null {
       ? `${t('appUpdate.bundleOta')} ${rb.id.slice(0, 8)}`
       : t('appUpdate.bundleEmbedded')
 
+  /**
+   * 版式(2026-10-27 二稿,机主反馈「更新两个字看不清、跟背景色一样、太难看了」):
+   * 旧稿把图标/文字/按钮平铺成一行,按钮只靠 brand.cta 裸色块区分,卡片与页面又同是 surface 档
+   * ⇒ 在浅色页上整块糊成一片。新稿给出明确层级:
+   *   ① 图标收进强调档圆角底(视觉锚点)  ② 标题/正文分行,字号拉开
+   *   ③ 按钮独立成行、加高加宽 + 描边 + 投影(可点区域 ≥ 32dp)  ④ 包身份收进浅底胶囊
+   *   ⑤ 关闭钮做成独立圆角块(命中区不再只是一个 18px 的 X)
+   * 配色仍全部取 token:品牌实底只出现在主钮(`brand.cta` ↔ `brand.ctaForeground` 成对)。
+   */
   return (
     <View style={styles.card} accessibilityRole="alert" accessibilityLabel={t('appUpdate.title')}>
-      <RefreshCw size={20} color={tokens.brand.DEFAULT} style={styles.icon} />
-      <View style={styles.textWrap}>
-        <Text style={styles.title}>
-          {downloading ? t('appUpdate.downloading') : t('appUpdate.title')}
-        </Text>
-        <Text style={styles.body}>
-          {downloading ? `${t('appUpdate.downloading')} ${progress}%` : t('appUpdate.body')}
-        </Text>
-        {downloading ? (
-          <View style={styles.track}>
-            <View style={[styles.trackBar, { width: `${progress}%` }]} />
-          </View>
-        ) : null}
-        <Text style={styles.bundleTag}>
-          {t('appUpdate.currentBundle', { bundle: bundleLabel })}
-        </Text>
-      </View>
-      {downloading ? null : (
-        <Pressable
-          onPress={() => void handleUpdate()}
-          disabled={applying}
-          style={({ pressed }) => [
-            styles.actionBtn,
-            pressed && styles.actionBtnPressed,
-            applying && styles.actionBtnPressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={t('appUpdate.action')}
-        >
-          <Text style={styles.actionText}>
-            {applying ? t('appUpdate.installing') : t('appUpdate.action')}
+      <View style={styles.header}>
+        <View style={styles.iconBadge}>
+          <RefreshCw size={16} color={tokens.brandAccent.deep} />
+        </View>
+        <View style={styles.titleWrap}>
+          <Text style={styles.title}>{t('appUpdate.title')}</Text>
+          <Text style={styles.body}>
+            {downloading ? `${t('appUpdate.downloading')} ${progress}%` : t('appUpdate.body')}
           </Text>
+        </View>
+        <Pressable
+          onPress={dismissOtaPrompt}
+          hitSlop={10}
+          style={styles.closeBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('appUpdate.close')}
+        >
+          <X size={16} color={tokens.text.secondary} />
         </Pressable>
-      )}
-      <Pressable
-        onPress={dismissOtaPrompt}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={t('appUpdate.close')}
-      >
-        <X size={18} color={tokens.text.secondary} />
-      </Pressable>
+      </View>
+      {downloading ? (
+        <View style={styles.track}>
+          <View style={[styles.trackBar, { width: `${progress}%` }]} />
+        </View>
+      ) : null}
+      <View style={styles.footer}>
+        <View style={styles.bundlePill}>
+          <Text style={styles.bundleTag} numberOfLines={1}>
+            {t('appUpdate.currentBundle', { bundle: bundleLabel })}
+          </Text>
+        </View>
+        {downloading ? null : (
+          <Pressable
+            onPress={() => void handleUpdate()}
+            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={t('appUpdate.action')}
+          >
+            <Text style={styles.actionText}>{t('appUpdate.action')}</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   )
 }
@@ -132,29 +159,62 @@ const styles = StyleSheet.create({
     right: rnSpacing.lg,
     // GlobalFloatBox(右下角浮窗)在 bottom 9%;提示卡片抬高避开
     bottom: '18%',
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: rnSpacing.md,
     padding: rnSpacing.lg,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.gray[200],
-    // web 原型 shadow-sm 的 RN 等效
+    // 描边取中档而不是浅档:卡片与页面同属 surface 族,浅档在真机上几乎看不见边界
+    borderColor: tokens.border.medium,
+    // 抬升档:让卡片从页面里"浮"出来(web shadow-lg 的 RN 等效)
     shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  icon: { flexShrink: 0 },
-  textWrap: { flex: 1, minWidth: 0, gap: 2 },
-  // 下载读条:细轨道 + 品牌实底,宽度随 store.downloadProgress(0-100)走
+  header: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
+  // 图标底:强调档浅底 + 深档图标(两主题都成对可见),给卡片一个视觉锚点
+  iconBadge: {
+    width: rnSpacing.xl * 2,
+    height: rnSpacing.xl * 2,
+    borderRadius: rnRadius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.brandAccent.light,
+  },
+  titleWrap: { flex: 1, minWidth: 0, gap: 2 },
+  title: { color: tokens.text.primary, fontSize: 15, fontWeight: '600' },
+  body: { color: tokens.text.secondary, fontSize: 12.5 },
+  // 关闭钮:独立圆角块(原来只有一枚 18px 的 X,可点面太小也不成块)
+  closeBtn: {
+    width: rnSpacing.xl + rnSpacing.sm,
+    height: rnSpacing.xl + rnSpacing.sm,
+    borderRadius: rnRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.muted,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: rnSpacing.sm,
+  },
+  // 包身份胶囊:浅底 + 正文字档,不再用 tertiary 小字直接压在卡面上(旧稿最淡的一行)
+  bundlePill: {
+    flexShrink: 1,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.surface.muted,
+  },
+  bundleTag: { color: tokens.text.secondary, fontSize: 11 },
+  // 下载读条:细轨道 + 强调档实底,宽度随 store.downloadProgress(0-100)走
   track: {
-    height: 3,
+    height: 4,
     borderRadius: rnRadius.xs,
-    backgroundColor: tokens.gray[200],
-    marginTop: 4,
+    backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   },
   trackBar: {
@@ -164,18 +224,53 @@ const styles = StyleSheet.create({
     // student-styles.progressFill 同一写法,品牌实底留给真正的操作钮(actionBtn)。
     backgroundColor: tokens.brandAccent.deep,
   },
-  // 当前包身份小字:更新前「内置包」,更新后「热更 xxxxxxxx」,前后一对照就知道生效没生效
-  bundleTag: { color: tokens.text.tertiary, fontSize: 11, marginTop: 2 },
-  title: { color: tokens.text.primary, fontSize: 14, fontWeight: '500' },
-  body: { color: tokens.text.secondary, fontSize: 12 },
+  // 主钮:品牌实底 + 同档前景(亮=黑底白字,暗=白底黑字),加高到 32dp 并补描边 + 投影
   actionBtn: {
     flexShrink: 0,
+    minWidth: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: rnSpacing.lg,
-    paddingVertical: 6,
-    borderRadius: rnRadius.sm,
+    paddingVertical: rnSpacing.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.border.medium,
+    shadowColor: tokens.gray.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  actionBtnPressed: { opacity: 0.9 },
-  actionText: { color: tokens.brand.ctaForeground, fontSize: 12, fontWeight: '500' },
+  actionBtnPressed: { opacity: 0.85 },
+  actionText: { color: tokens.brand.ctaForeground, fontSize: 13, fontWeight: '600' },
+  // 重启遮罩:盖满窗口,中途不再出现"无内容的灰屏"
+  applyingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.overlay.loading,
+  },
+  applyingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing.md,
+    paddingHorizontal: rnSpacing.xl,
+    paddingVertical: rnSpacing.md,
+    borderRadius: rnRadius.xl,
+    backgroundColor: tokens.surface.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.border.medium,
+    shadowColor: tokens.gray.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  applyingText: { color: tokens.text.primary, fontSize: 14, fontWeight: '500' },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
