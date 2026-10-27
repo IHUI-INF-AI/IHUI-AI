@@ -294,6 +294,11 @@ function run() {
         web: r.route,
         candidates: suggestCandidates(r.route, rnScreens, topN),
       })),
+    // gap 行的同名候选(只提示,不改判定):72 条「RN 零承载」里混着一批"RN 以另一种形态内联承载"
+    // (实测 news/category/[id] 的分类切换就在 NewsScreen 内联),逐条翻代码太贵 ⇒ 先把候选排成队列。
+    gapCandidates: judgedGap
+      .map((r) => ({ web: r.web, candidates: suggestCandidates(r.web, rnScreens, topN) }))
+      .filter((x) => x.candidates.length > 0),
   }
   if (jsonMode) {
     console.log(JSON.stringify(json, null, 2))
@@ -316,6 +321,14 @@ function run() {
   for (const s of json.suggestions) {
     const c = s.candidates.map((x) => `${x.exact ? '[同名] ' : ''}${x.name}(${x.hit.join('+')})`).join(' | ') || '—'
     log(`  ${s.web}  →  ${c}`)
+  }
+  if (json.gapCandidates.length > 0) {
+    log('')
+    log(`gap 待复核(同名候选,只提示不改判定): ${json.gapCandidates.length}/${json.judgedGap} 条`)
+    for (const g of json.gapCandidates.slice(0, fullMode ? undefined : 20)) {
+      const c = g.candidates.map((x) => `${x.exact ? '[同名] ' : ''}${x.name}(${x.rel})`).join(' | ')
+      log(`  ${g.web}  →  ${c}`)
+    }
   }
   if (rot.length > 0) {
     log('')
