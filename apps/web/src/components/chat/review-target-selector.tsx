@@ -23,7 +23,14 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ClipboardPaste, FileCode2, GitBranch, GitCommitHorizontal, GitCompare, X } from 'lucide-react'
+import {
+  ClipboardPaste,
+  FileCode2,
+  GitBranch,
+  GitCommitHorizontal,
+  GitCompare,
+  X,
+} from 'lucide-react'
 
 import { Button, Input } from '@ihui/ui-react'
 
@@ -61,10 +68,7 @@ const KIND_OPTIONS: ReadonlyArray<{
 
 /** 需要条内展开单行输入的档(branch/commit/file 共用同一个受控 Input 形态)。 */
 const REF_INPUTS: Partial<
-  Record<
-    ReviewSourceKind,
-    { testId: string; labelKey: string; placeholderKey: string }
-  >
+  Record<ReviewSourceKind, { testId: string; labelKey: string; placeholderKey: string }>
 > = {
   branch: {
     testId: 'review-target-branch-input',
