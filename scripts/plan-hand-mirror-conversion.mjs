@@ -126,6 +126,39 @@ export function hardcodedCjkCount(text) {
 /** 硬编码正文阈值:正文类页面远超它;普通页面的注释/兜底文案只有几十字(实测 agreement 30 字)。 */
 export const HARDCODED_TEXT_LIMIT = 200
 
+/** RN 路由名 → 小程序路径的派生表(生成器口径见 gen-rn-compat;本模块只读它,不另立映射)。 */
+export const ROUTE_MAP_REL = 'apps/miniapp-taro/src/rn-compat/route-map.generated.ts'
+
+export function routeMapFrom(text) {
+  const map = new Map()
+  for (const m of String(text ?? '').matchAll(/([A-Za-z0-9_]+):\s*'(\/[^']+)'/g)) map.set(m[2], m[1])
+  return map
+}
+
+/**
+ * 页面的跳转调用是否**全部**被承载壳覆盖:小程序路径经 route-map 反查成 RN 路由名,
+ * 该路由名在壳正文里出现 ⇒ 这一跳壳自己会做(页面那份是重复实现)。
+ * 含插值的 URL(`${id}`)一律算"未覆盖"——路由名反查不到就不知道壳跳去哪,不猜。
+ */
+export function coveredNavigation(pageText, shellText, routeMap) {
+  const calls = [
+    ...String(pageText ?? '').matchAll(
+      /Taro\.(navigateTo|redirectTo|switchTab|reLaunch)\s*\(\s*\{\s*url:\s*[`'"]([^`'"]+)/g,
+    ),
+  ].map((m) => m[2])
+  if (calls.length === 0) return { covered: true, missing: [], calls: 0 }
+  const missing = []
+  for (const url of calls) {
+    if (url.includes('${')) {
+      missing.push(url)
+      continue
+    }
+    const rn = routeMap.get(url.split('?')[0])
+    if (!rn || !new RegExp(`\\b${rn}\\b`).test(String(shellText ?? ''))) missing.push(rn ? `${url}(壳无 ${rn})` : url)
+  }
+  return { covered: missing.length === 0, missing, calls: calls.length }
+}
+
 /** 一页文本里"能力-bearing"的三族标识(方法名 / 钩子 / 端内模块),用于相对取差。 */
 export function capabilityTokens(text) {
   const t = String(text ?? '')
@@ -153,7 +186,7 @@ export function pageOnlyCapabilities({ pageTokens, sharedText, shellText }) {
 }
 
 /** 一枚手写镜像页的转换判定(纯判据,不写盘)。 */
-export function judgeConversion({ spec, pageText, shellText, sharedText, shellName = null }) {
+export function judgeConversion({ spec, pageText, shellText, sharedText, shellName = null, routeMap = null }) {
   const name = String(spec || '')
     .split('/')
     .pop()
@@ -179,6 +212,13 @@ export function judgeConversion({ spec, pageText, shellText, sharedText, shellNa
   // "只设导航标题"的生命周期钩子可以由壳承载页原样保留(见 titleOnlyLifecycle),不计私有能力
   if (titleOnlyLifecycle(pageText))
     for (const tok of ['useDidShow', 'useDidHide', 'Taro.setNavigationBarTitle']) pageTokens.delete(tok)
+  // 跳转全部被壳覆盖 ⇒ 页面那几处 navigateTo 是重复实现(route-map 反查 + 壳正文出现该路由名)
+  if (routeMap) {
+    const nav = coveredNavigation(pageText, shellText, routeMap)
+    if (nav.covered)
+      for (const tok of ['Taro.navigateTo', 'Taro.redirectTo', 'Taro.switchTab', 'Taro.reLaunch'])
+        pageTokens.delete(tok)
+  }
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -216,6 +256,8 @@ export function plan({ face = 'head' } = {}) {
   const byRoute = new Map(miniapp.map((p) => [p.route, p]))
   const specs = [...new Set(hand.map((r) => r.spec))]
   const sharedTexts = batchReadTexts(face, specs)
+  // 路由映射按同一面读(缺表 ⇒ 空表 ⇒ "跳转是否被覆盖"判不出 ⇒ 不删导航 token,保守)
+  const routeMap = routeMapFrom(batchReadTexts(face, [ROUTE_MAP_REL]).get(ROUTE_MAP_REL) ?? '')
   // 承载壳候选口径 = lib 单源(pickCarrierShell):同名优先、异名兜底(NewsScreen 渲染 SquareScreen
   // 这类平台薄壳是仓内既有形态)。旧实现只认同名壳 ⇒ 会把"壳叫别的名"的页误判成 no-shell。
   const rnTexts = new Map(
@@ -239,6 +281,7 @@ export function plan({ face = 'head' } = {}) {
         shellText: carrier ? rnTexts.get(carrier.rel) : null,
         sharedText: sharedTexts.get(r.spec) ?? '',
         shellName: carrier?.name ?? null,
+        routeMap,
       }),
       route: r.route,
       shell: carrier?.name ?? null,
@@ -363,6 +406,29 @@ function main(argv) {
       titleOnlyLifecycle(`useDidShow(() => { Taro.setNavigationBarTitle({ title: t('a.b') }); refresh() })`),
       false,
     )
+    const rm = routeMapFrom(`export const RN_ROUTE_MAP = { Detail: '/pkg-a/detail/index' }`)
+    P(
+      'S8 页面跳转经 route-map 反查且壳里出现该路由名 ⇒ 不算私有能力',
+      judgeConversion({
+        spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+        pageText: `Taro.navigateTo({ url: '/pkg-a/detail/index?id=1' })`,
+        shellText: `import { DemoScreen } from '@ihui/rn-app'\nfunction DemoScreen({ navigation }: any) { navigation.navigate('Detail') }\nexport default DemoScreen`,
+        sharedText: '',
+        routeMap: rm,
+      }).kind,
+      'convertible',
+    )
+    P(
+      'S8b 壳里没有这个路由名 ⇒ 仍算私有能力(不猜"大概等价")',
+      judgeConversion({
+        spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+        pageText: `Taro.navigateTo({ url: '/pkg-a/detail/index' })`,
+        shellText: `import { DemoScreen } from '@ihui/rn-app'\nfunction DemoScreen() { return null }\nexport default DemoScreen`,
+        sharedText: '',
+        routeMap: rm,
+      }).kind,
+      'page-only-capability',
+    )
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
@@ -426,6 +492,8 @@ export const __test__ = {
   navTitleExpr,
   titleOnlyLifecycle,
   hardcodedCjkCount,
+  routeMapFrom,
+  coveredNavigation,
   ROOT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
