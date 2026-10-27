@@ -29172,5 +29172,11 @@
     "gateQuit": "Close page",
     "gateQuitConfirm": "The update is not finished yet. Closing now will interrupt this session.",
     "gateQuitFailed": "Could not close the page automatically. Please close this tab manually."
+  },
+  "pwaInstall": {
+    "title": "Install app",
+    "body": "Add to home screen for a better experience",
+    "action": "Install",
+    "close": "Close"
   }
 }

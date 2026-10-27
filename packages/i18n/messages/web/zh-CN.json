@@ -29176,5 +29176,11 @@
     "gateQuit": "关闭页面",
     "gateQuitConfirm": "更新尚未完成,关闭页面会中断本次使用,确定关闭?",
     "gateQuitFailed": "无法自动关闭页面,请手动关闭此标签页"
+  },
+  "pwaInstall": {
+    "title": "安装应用",
+    "body": "添加到主屏幕,获得更好体验",
+    "action": "安装",
+    "close": "关闭"
   }
 }
