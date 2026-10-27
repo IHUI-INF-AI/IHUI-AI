@@ -62,7 +62,9 @@ if (stagedMode && worktreeMode) {
   process.exit(2)
 }
 const FACE = stagedMode ? 'staged' : worktreeMode ? 'worktree' : 'head'
-const log = (...a) => { if (!jsonMode) console.log(...a) }
+const log = (...a) => {
+  if (!jsonMode) console.log(...a)
+}
 
 /** web 语言镜像段:同一路由的五语复制品,不是独立功能页,逐条排除 */
 const LANG_SEGS = new Set(['en', 'zh-TW', 'ko', 'ja', 'zh-CN'])
@@ -100,7 +102,33 @@ function collectPortalRoutes(face) {
     const route = m[1].split('?')[0].split('#')[0].replace(/^\/+/, '').replace(/\/+$/, '')
     if (route) rows.push({ raw: m[1], route })
   }
+  /**
+   * 参数路由的门户承载此前量不到(2026-10-27 立):表里除了静态 `path: '...'`,还住着**详情 URL
+   * 组装出口**(`buildWebMemoryDetailUrl` 一类,`${webBase}/memory/${encodeURIComponent(id)}`),
+   * 那正是 web `/memory/[id]` 的承载体——台账却仍把它读成"RN 零承载"的 gap,尺子也跟着漏判。
+   * 这里按**模板形状**把它折成路由形态 `memory/[id]`,与静态条目同集合参与判定。
+   */
+  rows.push(...portalRouteShapesFrom(text))
   return { set: new Set(rows.map((r) => r.route)), rows, unreadable: false }
+}
+
+/** 纯函数(可被镜像直接喂缺陷面):把门户表里的 URL 组装模板折成路由形态;首段非字面量或 api/ 前缀不算页面承载 */
+function portalRouteShapesFrom(text) {
+  const out = []
+  for (const m of String(text).matchAll(/`\$\{webBase\}([^`]*)`/g)) {
+    const segs = m[1].split(/\$\{[^}]*\}/)
+    if (!segs[0]) continue // 首段就是插值 ⇒ 拿不到路径形状,不猜
+    const route = segs
+      .map((s, i) => (i === 0 ? s : `[id]${s}`))
+      .join('')
+      .split('?')[0]
+      .split('#')[0]
+      .replace(/^\/+/, '')
+      .replace(/\/+$/, '')
+    if (!/\[id\]/.test(route) || route.startsWith('api/')) continue
+    out.push({ raw: m[0], route, derived: true })
+  }
+  return out
 }
 
 /** 屏名 token 化:PascalCase 拆词、小写、剔虚词;'index' 用父目录名补位 */
@@ -156,7 +184,12 @@ function suggestCandidates(route, rnScreens, limit) {
       return { name: s.name, rel: s.rel, hit, exact }
     })
     .filter((c) => c.hit.length > 0 || c.exact)
-    .sort((a, b) => Number(b.exact) - Number(a.exact) || b.hit.length - a.hit.length || a.name.localeCompare(b.name))
+    .sort(
+      (a, b) =>
+        Number(b.exact) - Number(a.exact) ||
+        b.hit.length - a.hit.length ||
+        a.name.localeCompare(b.name),
+    )
     .slice(0, limit)
 }
 
@@ -246,7 +279,10 @@ function evaluateMap(webRoutes, map, rnScreens, face, portal = collectPortalRout
       // 指向共享屏时:必须真有 RN 屏以 JSX 渲染它。只判"文件存在"会放过「共享屏在、无人渲染」这一型 ——
       // 本仓把它叫名义对齐:web 路由在 RN 端实际不可达,而账本记为 aligned(2026-10-27 实测 3 条)。
       if (String(row.rn).startsWith('packages/app/src/features/')) {
-        const symbol = String(row.rn).split('/').pop().replace(/\.tsx$/, '')
+        const symbol = String(row.rn)
+          .split('/')
+          .pop()
+          .replace(/\.tsx$/, '')
         const rendered = rnList.some((r) => r.file !== row.rn && rendersSharedIn(r.text, symbol))
         if (!rendered) {
           rot.push({
@@ -272,7 +308,8 @@ function evaluateMap(webRoutes, map, rnScreens, face, portal = collectPortalRout
     // gap = 判过「RN 该内容域零承载」。证据必填:没有证据的 gap 与"没人判"不可区分。
     // 这一档只减少 unmapped(未判定面),不进 aligned —— 缺口存量仍单独报数,不冒充已对齐。
     if (row.status === 'gap') {
-      if (!row.note) rot.push({ line: row.line, why: 'gap 缺 note(判过必有证据,否则与未判定不可区分)' })
+      if (!row.note)
+        rot.push({ line: row.line, why: 'gap 缺 note(判过必有证据,否则与未判定不可区分)' })
       // 「RN 零承载」这句判据被门户表推翻:同一路由在 web-portal.ts 里在册,移动端就是按设计用
       // WebView 打开它。这不是"另一种形态承载"的模糊提示,而是台账与仓内登记表互相打脸 ⇒ 单列点名。
       else if (portalCarried?.has(row.web)) contradicted.push({ ...row, by: 'gap' })
@@ -301,7 +338,9 @@ function evaluateMap(webRoutes, map, rnScreens, face, portal = collectPortalRout
   }
   const unmapped = webRoutes.filter(
     (r) =>
-      !mappedRoutes.has(r.route) && !prefixExcludedRoutes.has(r.route) && !portalCarried?.has(r.route),
+      !mappedRoutes.has(r.route) &&
+      !prefixExcludedRoutes.has(r.route) &&
+      !portalCarried?.has(r.route),
   )
   return {
     aligned,
@@ -392,7 +431,8 @@ function evaluateNav(nav, ev, routeKeys = []) {
     else if (gap.has(key)) label = 'gap'
     else if (excluded.has(key)) label = 'excluded'
     else if (ev.portalCarried.has(key) || ev.portalCarried.has(e.route)) label = 'portal'
-    else if (prefixes.some((pre) => key === pre.replace(/\/$/, '') || key.startsWith(pre))) label = 'prefixExcluded'
+    else if (prefixes.some((pre) => key === pre.replace(/\/$/, '') || key.startsWith(pre)))
+      label = 'prefixExcluded'
     else label = 'unrecorded'
     counts[label]++
     byRoute.set(e.route, label)
@@ -459,7 +499,11 @@ function run() {
   const usedRn = new Set(aligned.map((r) => r.rn))
   const rnOnly = rnScreens.filter((s) => !usedRn.has(s.rel))
 
-  const navEval = evaluateNav(collectNavEntries(FACE), ev, webRoutes.map((r) => r.route))
+  const navEval = evaluateNav(
+    collectNavEntries(FACE),
+    ev,
+    webRoutes.map((r) => r.route),
+  )
   const byFirstSeg = new Map()
   for (const r of unmapped) {
     const k = r.route.split('/')[0] ?? '(root)'
@@ -527,11 +571,17 @@ function run() {
     return
   }
 
-  log(`判定面            : ${FACE === 'head' ? 'HEAD blob' : FACE === 'staged' ? '索引 blob' : '工作树(人工逃生舱)'}`)
+  log(
+    `判定面            : ${FACE === 'head' ? 'HEAD blob' : FACE === 'staged' ? '索引 blob' : '工作树(人工逃生舱)'}`,
+  )
   log(`web 路由(剥语言镜像): ${webRoutes.length}`)
-  log(`RN 屏              : ${rnScreens.length}(共享屏真相源 ${json.shared} + 端内独有 ${json.rnAppOnly})`)
+  log(
+    `RN 屏              : ${rnScreens.length}(共享屏真相源 ${json.shared} + 端内独有 ${json.rnAppOnly})`,
+  )
   log(`已对齐(aligned)   : ${json.aligned}`)
-  log(`已豁免(excluded)  : ${json.excluded}(逐条) + ${json.prefixExcluded}(段级 ${prefixRows.length} 个前缀)`)
+  log(
+    `已豁免(excluded)  : ${json.excluded}(逐条) + ${json.prefixExcluded}(段级 ${prefixRows.length} 个前缀)`,
+  )
   log(`已判缺口(gap)     : ${json.judgedGap}  ← 判过「RN 零承载」,不再重复判定`)
   log(
     `门户承载(web-portal): ${portalCarried === null ? '未判定(取不到 ' + WEB_PORTAL_REL + ')' : json.portalCarried}` +
@@ -565,7 +615,9 @@ function run() {
   // 入口级可达性:分母是"用户在 web 侧栏真能点开的项",不是"路由文件存在"。
   log('')
   if (navEval.undetermined) {
-    log(`入口可达性(web 侧栏) : 未判定 —— ${navEval.why}(不把没读到算成零缺口,也不把门户入口算成缺口)`)
+    log(
+      `入口可达性(web 侧栏) : 未判定 —— ${navEval.why}(不把没读到算成零缺口,也不把门户入口算成缺口)`,
+    )
   } else {
     const c = navEval.counts
     log(
@@ -575,12 +627,20 @@ function run() {
         `  (其中 ${navEval.viaPattern} 条经动态段归并归类,如 messages/notice → messages/[type])`,
     )
     if (c.gap > 0) {
-      log(`  ⚠ 入口级缺口:这些项 web 侧栏一点就开,而台账判过「RN 零承载」——用户视角的"RN 功能差在这里"`)
-      for (const g of navEval.gapItems.slice(0, fullMode ? navEval.gapItems.length : 20)) log(`     · ${g}`)
+      log(
+        `  ⚠ 入口级缺口:这些项 web 侧栏一点就开,而台账判过「RN 零承载」——用户视角的"RN 功能差在这里"`,
+      )
+      for (const g of navEval.gapItems.slice(0, fullMode ? navEval.gapItems.length : 20))
+        log(`     · ${g}`)
     }
     if (c.unrecorded > 0) {
-      log(`  ⚠ 台账无记录:既不在承载/门户/豁免任一档,也没进未映射(路由文件可能就不是 page.tsx 形态)`)
-      for (const u of navEval.unrecordedItems.slice(0, fullMode ? navEval.unrecordedItems.length : 20))
+      log(
+        `  ⚠ 台账无记录:既不在承载/门户/豁免任一档,也没进未映射(路由文件可能就不是 page.tsx 形态)`,
+      )
+      for (const u of navEval.unrecordedItems.slice(
+        0,
+        fullMode ? navEval.unrecordedItems.length : 20,
+      ))
         log(`     · ${u}`)
     }
   }
@@ -590,7 +650,10 @@ function run() {
   log('')
   log(`启发式候选建议(前 ${json.suggestions.length} 条,仅建议不判定):`)
   for (const s of json.suggestions) {
-    const c = s.candidates.map((x) => `${x.exact ? '[同名] ' : ''}${x.name}(${x.hit.join('+')})`).join(' | ') || '—'
+    const c =
+      s.candidates
+        .map((x) => `${x.exact ? '[同名] ' : ''}${x.name}(${x.hit.join('+')})`)
+        .join(' | ') || '—'
     log(`  ${s.web}  →  ${c}`)
   }
   if (json.gapCandidates.length > 0) {
@@ -604,7 +667,10 @@ function run() {
     )
     for (const g of json.gapCandidates.slice(0, fullMode ? undefined : 20)) {
       const c = g.candidates
-        .map((x) => `${x.workShape === 'host-only' ? '[宿主] ' : x.workShape === 'covered' ? '[已渲染] ' : ''}${x.exact ? '[同名] ' : ''}${x.name}(${x.rel})`)
+        .map(
+          (x) =>
+            `${x.workShape === 'host-only' ? '[宿主] ' : x.workShape === 'covered' ? '[已渲染] ' : ''}${x.exact ? '[同名] ' : ''}${x.name}(${x.rel})`,
+        )
         .join(' | ')
       log(`  ${g.web}  →  ${c}`)
     }
@@ -636,6 +702,7 @@ export const __test__ = {
   collectWebRoutes,
   collectRnScreens,
   collectPortalRoutes,
+  portalRouteShapesFrom,
   collectNavEntries,
   evaluateNav,
   renderContradictedOf,
