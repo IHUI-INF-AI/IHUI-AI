@@ -197,6 +197,28 @@ test('T14 入口可达性:侧栏 href 解析 + 六桶归类(阳性对照钉真�
   assert.equal(/adminOnly:\s*true/.test(win(iAlpha)), true)
   assert.equal(/advancedOnly:\s*true/.test(win(iGamma)), true, 'advancedOnly 在下一行,窗口必须盖到')
 
+  // 动态段归并(本维第一版在这里假阳了 6 条):入口写具体值,台账/路由记 `messages/[type]`
+  const dyn = parity.evaluateNav(
+    { parsed: 2, entries: [{ route: 'messages/notice', admin: false, advanced: false }] },
+    {
+      aligned: [{ web: 'messages/[type]' }],
+      excluded: [],
+      judgedGap: [],
+      prefixRows: [],
+      portalCarried: new Set(),
+    },
+    ['messages', 'messages/[type]', 'agents/[id]'],
+  )
+  assert.equal(dyn.counts.aligned, 1, '已承载的动态路由入口被误报成缺口/无记录')
+  assert.equal(dyn.counts.unrecorded, 0)
+  assert.equal(dyn.viaPattern, 1, '经动态段归并的条数必须自报,否则读数看不出这一步做过')
+  const dynGap = parity.evaluateNav(
+    { parsed: 1, entries: [{ route: 'letters/x', admin: false, advanced: false }] },
+    { aligned: [], excluded: [], judgedGap: [{ web: 'letters/[id]' }], prefixRows: [], portalCarried: new Set() },
+    ['letters/[id]'],
+  )
+  assert.deepEqual(dynGap.gapItems, ['letters/x → letters/[id]'], '缺口档入口必须带上归并来源,便于复核不是硬凑')
+
   // 真仓阳性对照:这仓真有的入口必须解析出来,否则"入口级缺口 0"可能是坏尺子
   const nav = parity.collectNavEntries('head')
   assert.ok(nav, `${parity.NAV_REL} 取不到`)
