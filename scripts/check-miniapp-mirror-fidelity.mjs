@@ -85,7 +85,12 @@ import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, gitErrText } from './lib/face-reader.mjs'
-import { shellRefsOf, shellTargetRel, mismatchedShellBinding } from './lib/rn-shell-refs.mjs'
+import {
+  directSharedUsage,
+  shellRefsOf,
+  shellTargetRel,
+  mismatchedShellBinding,
+} from './lib/rn-shell-refs.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { extractUsedKeys, __test__ as gen } from './gen-miniapp-mirror.mjs'
 
@@ -179,6 +184,9 @@ export function consumedKeys(text) {
  * 任一腿断 ⇒ form='broken':这一页在产物里渲染不出来(undefined 组件 / 编不过),
  * 比"少几个文案"严重,单独立桶点名,绝不混进手写存量里让人以为只是没抄完。
  * 引了壳而**没有一枚**消费本 spec ⇒ form='other':声明只是账面上的。
+ * 另有第二种合法形态(2026-10-27 补):页面**不经壳直载共享屏**(`import { X as Y } from '@ihui/rn-app'`
+ * ∧ JSX 真用 `<Y`)⇒ 同样记 hosted(why 空、via='direct')。它按构造渲染的就是分母那份文件,
+ * 逐键数只会把 `t(\`about.${id}\`)` 这类动态拼键读成缺口(现读 pkg-about/about-shared/index 缺 15/15)。
  *
  * readShell 由调用方给 ⇒ 面纪律(§0.4 同面同轮)留在调用方,本函数纯判据零 IO。
  */
@@ -189,7 +197,10 @@ export function hostingFormOf({ spec, pageText, readShell }) {
     .replace(/\.[jt]sx$/, '')
   if (!name) return { form: 'hand', why: '' }
   const refs = shellRefsOf(pageText || '')
-  if (refs.size === 0) return { form: 'hand', why: '' }
+  if (refs.size === 0) {
+    if (directSharedUsage(pageText, name)) return { form: 'hosted', why: '', via: 'direct' }
+    return { form: 'hand', why: '' }
+  }
   const shells = new Map()
   for (const n of refs) shells.set(n, readShell(shellTargetRel(n)))
   const dangling = [...refs]
@@ -299,16 +310,20 @@ export function computeFidelity(face) {
 
 /** 棘轮:当前面相对基线面(默认 HEAD,CI 腿为 --base=<ref>)**新增**的缺口(存量不拦)。返回 [{spec, route, added}]。 */
 export function regressions(now, base) {
+  // 锚点键必须是「spec + 路由」:同一共享屏可以被两个小程序路由各镜像一份(现读 about/AboutScreen
+  // 有 about/index 与 about-shared/index 两行),只按 spec 建索引时后一行会覆盖前一行 ⇒
+  // 同一份数据自我比较也能报出"新增缺口"(实测一张 hand 一张 hosted 时 exactly 这一型)。
+  const key = (r) => `${r.spec}\u0000${r.route}`
   const baseMissing = new Map()
   const basePaired = new Set()
   for (const r of base.rows) {
-    basePaired.add(r.spec)
-    baseMissing.set(r.spec, new Set(r.missing))
+    basePaired.add(key(r))
+    baseMissing.set(key(r), new Set(r.missing))
   }
   const out = []
   for (const r of now.rows) {
-    if (!basePaired.has(r.spec)) continue
-    const anchor = baseMissing.get(r.spec) || new Set()
+    if (!basePaired.has(key(r))) continue
+    const anchor = baseMissing.get(key(r)) || new Set()
     const added = r.missing.filter((k) => !anchor.has(k))
     if (added.length > 0) out.push({ spec: r.spec, route: r.route, added })
   }
