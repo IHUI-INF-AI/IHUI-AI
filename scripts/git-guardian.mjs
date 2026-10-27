@@ -4716,6 +4716,67 @@ export function healStyleTokensLeg(opts = {}) {
   })
 }
 
+const DIST_HEAL_INTERVAL_MS = Number(process.env.IHUI_DIST_HEAL_INTERVAL_MS || 30 * 60 * 1000)
+
+/**
+ * workspace 包 dist 落后 ⇒ 自动重建腿(2026-10-27 立,器物 = scripts/heal-stale-dist.mjs)。
+ *
+ * 立因(现读两条):① 消费方按 `package.json` 的 exports 取的是 **dist** 而不是 src,所以
+ * 「web 改一笔样式常量」即使已经把 src 与派生面同步好,只要没人跑 `pnpm --filter <pkg> build`,
+ * RN/小程序读到的仍是旧值 —— 实测 `@ihui/shared` 落后 21 项全是样式常量(CAROUSEL_DOT_ACTIVE_WIDTH_PX
+ * / COLORFUL_LOVER_HUE_STEP 一族)。② 守门 101/103 的 D 维对"清单没把声明入口指到 dist"的包只报数,
+ * 所以这条洞**没有任何红**;喊的"修复:pnpm … build"历来靠人想起来敲(§0.9 喊了没人修 = 也没装)。
+ *
+ * 与样式派生腿的先后是有意义的:派生腿写 src/派生件,本腿编译 src→dist,故必须排在派生之后。
+ * 不排队尾(本仓记过队尾静默停摆:前面的腿吃满整轮预算,队尾永远跑不到)。
+ *
+ * 只写机器态(gitignored dist),不动仓、不落 HEAD、不推 ⇒ 零协作面副作用;判机器状态 ⇒ 不进提交链(§12e)。
+ * 一轮上限 6 个包(器物自证),超量按 refused 出声而不自动背书。
+ */
+export function healStaleDistLeg(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = DIST_HEAL_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'stale-dist-heal-last.json'),
+    logger = log,
+    runner = null,
+    scriptFile = null,
+  } = opts
+  const script = scriptFile ?? join(dirname(fileURLToPath(import.meta.url)), 'heal-stale-dist.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ dist 新鲜度:器物不在位(scripts/heal-stale-dist.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const r =
+    typeof runner === 'function'
+      ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
+      : runLegChild(script, ['--apply', '--json'], 12 * 60 * 1000)
+  let res = null
+  try {
+    const lastLine = String(r.stdout ?? '')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .pop()
+    res = JSON.parse(lastLine ?? '')
+  } catch {
+    /* 下面统一按"未判定"报 */
+  }
+  if (!res || typeof res !== 'object' || typeof res.state !== 'string') {
+    logger(
+      `ℹ️ dist 新鲜度:结论行解析不出(status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
+    )
+    return { ran: true, ok: false, why: '结论解析失败', status: r.status }
+  }
+  logger(
+    `ℹ️ dist 新鲜度:state=${res.state} 待重建=${(res.targets || []).length} 已消账=${(res.healed || []).length}${
+      (res.still || []).length ? ` 仍落后=${res.still.join(',').slice(0, 160)}` : ''
+    }${res.why ? ` —— ${String(res.why).slice(0, 140)}` : ''}`,
+  )
+  return { ran: true, ok: res.state !== 'undetermined', ...res }
+}
+
 const HAND_UPGRADE_INTERVAL_MS = Number(process.env.IHUI_HAND_UPGRADE_INTERVAL_MS || 30 * 60 * 1000)
 
 /**
@@ -5019,7 +5080,9 @@ export function autoRegisterRnTokenPairs(opts = {}) {
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'plan-rn-token-pairing.mjs')
   if (!existsSync(script)) {
-    logger('ℹ️ RN 色档同源入表:器物不在位(scripts/plan-rn-token-pairing.mjs)⇒ 本轮跳过,不记为已探测')
+    logger(
+      'ℹ️ RN 色档同源入表:器物不在位(scripts/plan-rn-token-pairing.mjs)⇒ 本轮跳过,不记为已探测',
+    )
     return { ran: false, why: '计划器不在位' }
   }
   let last = NaN
@@ -5033,7 +5096,9 @@ export function autoRegisterRnTokenPairs(opts = {}) {
     mkdirSync(dirname(tickFile), { recursive: true })
     writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
   } catch (e) {
-    logger(`⚠️ RN 色档同源入表:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+    logger(
+      `⚠️ RN 色档同源入表:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+    )
   }
   const run =
     typeof runner === 'function'
@@ -6522,6 +6587,9 @@ function main() {
     // 样式派生面(2026-10-27 立):排在 ui-routes 之前而不是队尾 —— 队尾那条位置本仓记过静默停摆
     // (跑在前面的腿吃掉整轮时间预算,排在最后的腿永远跑不到),而这一族单轮可能要建一次检出。
     if (!CHECK_ONLY) healStyleTokensLeg()
+    // dist 新鲜度(2026-10-27 立):必须排在样式派生之后 —— 派生腿写的是 src/派生件,本腿编译 src→dist,
+    // 反过来的话刚落地的样式常量还要等下一轮才进得了消费方(design-tokens/shared 的 dist)。
+    if (!CHECK_ONLY) healStaleDistLeg()
     if (!CHECK_ONLY) healUiRoutesLeg()
     if (CHECK_ONLY)
       console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
@@ -7409,6 +7477,7 @@ export const __test__ = {
   healI18nBundleLeg,
   healUiRoutesLeg,
   healStyleTokensLeg,
+  healStaleDistLeg,
   auditPushDivergenceLeg,
   healMirrorPurgeLeg,
   auditIndexUnmerged,
