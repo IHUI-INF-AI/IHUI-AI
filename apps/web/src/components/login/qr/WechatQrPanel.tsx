@@ -34,14 +34,14 @@ interface WechatQrPanelProps {
  * 尺寸关系与推导见 `public/qr-styles/wecom-qr.css` 头部注释。
  */
 export const QR_PANEL_BOX =
-  'relative mx-auto flex aspect-square w-full max-w-[300px] items-center justify-center overflow-hidden rounded-xl border bg-card'
+  'relative mx-auto flex aspect-square w-full max-w-[300px] items-center justify-center overflow-hidden rounded-xl border bg-card shadow-sm'
 
 /**
  * 状态态外框(未配置 / 加载 / 成功 / 失败):与 QR_PANEL_BOX 同尺寸 1:1,内容纵向排列。
  * 不含 gap —— 调用方按需自带 gap-2 / gap-3,避免同一元素上两个 gap-* 互相打架。
  */
 export const QR_PANEL_STATE_BOX =
-  'mx-auto flex aspect-square w-full max-w-[300px] flex-col items-center justify-center rounded-xl border bg-card px-4 text-center'
+  'mx-auto flex aspect-square w-full max-w-[300px] flex-col items-center justify-center rounded-xl border bg-card px-4 text-center shadow-sm'
 
 export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   const t = useTranslations('auth')
