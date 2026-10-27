@@ -57,16 +57,25 @@ export function UpdatePrompt(): React.JSX.Element | null {
     return () => sub.remove()
   }, [])
 
+  // 点击后到 reload 之间必须先让遮罩真正画出来(2026-10-27 机主「点完更新直接跳到灰屏页」):
+  // reloadAsync 会当场拆掉当前 JS 面,不等这一拍用户看到的就是"点完就消失",而不是"正在更新"。
+  const [starting, setStarting] = React.useState(false)
+
   const handleUpdate = React.useCallback(async () => {
+    setStarting(true)
+    await new Promise<void>((resolve) => setTimeout(resolve, 600))
     const ok = await applyOtaUpdate()
     // 失败不静默:卡片已回到 ready(可再点一次重试),但必须如实告诉用户刚才没成功
-    if (!ok) appAlert(t('appUpdate.error'), t('appUpdate.errorDesc'))
+    if (!ok) {
+      setStarting(false)
+      appAlert(t('appUpdate.error'), t('appUpdate.errorDesc'))
+    }
   }, [t])
 
   // installing 也要继续显示:点了更新到进程重启之间有一段窗口,卡片突然消失会让人以为没反应;
   // downloading 同理:静默检查开始下载后立刻出卡片 + 读条,别让用户对着黑盒等(对齐
   // 应用商店式「下载读条 → 安装」的可见链路,机主 2026-10-27 反馈「不像 web 一样有读条」)。
-  const applying = state === 'installing'
+  const applying = state === 'installing' || starting
   const downloading = state === 'downloading'
   if ((state !== 'ready' && !applying && !downloading) || dismissed) return null
 
