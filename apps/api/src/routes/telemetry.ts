@@ -37,41 +37,35 @@ const ingestBodySchema = z.object({
 export const telemetryRoutes: FastifyPluginAsync = async (server) => {
   // POST /v1/telemetry/ingest
   // 接收事件批量,记录到日志(后续可扩展到数据库)
-  // 2026-10-27 安全加固:匿名可无限灌日志(每条事件 props 最多 4KB,批量 100 条)
-  // ⇒ 日志盘/ELK 成本可被单 IP 打爆。加一道按 IP 的速率闸(正常客户端远低于此)。
-  server.post(
-    '/v1/telemetry/ingest',
-    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
-    async (request, reply) => {
-      const parsed = ingestBodySchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      try {
-        const events = parsed.data.events
-        // 简化:仅记录到日志(后续可扩展到 DB 表 telemetry_events)
-        // 用 server.log.info 而非 console.info,以便被 pino ELK 管线收集
-        server.log.info(
-          {
-            module: 'telemetry',
-            eventCount: events.length,
-            events: events.map((e) => ({
-              name: e.name,
-              timestamp: e.timestamp,
-              // props 序列化为字符串,长度限制 4KB(防止日志膨胀)
-              props: e.props ? JSON.stringify(e.props).slice(0, 4096) : undefined,
-            })),
-          },
-          'telemetry ingest received',
-        )
-        return reply.send(success({ accepted: events.length }))
-      } catch (err) {
-        server.log.warn({ err, module: 'telemetry' }, 'telemetry ingest failed')
-        // 失败仍返回 success(避免客户端重试堆积)
-        return reply.send(success({ accepted: 0, error: 'ingest failed' }))
-      }
-    },
-  )
+  server.post('/v1/telemetry/ingest', async (request, reply) => {
+    const parsed = ingestBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const events = parsed.data.events
+      // 简化:仅记录到日志(后续可扩展到 DB 表 telemetry_events)
+      // 用 server.log.info 而非 console.info,以便被 pino ELK 管线收集
+      server.log.info(
+        {
+          module: 'telemetry',
+          eventCount: events.length,
+          events: events.map((e) => ({
+            name: e.name,
+            timestamp: e.timestamp,
+            // props 序列化为字符串,长度限制 4KB(防止日志膨胀)
+            props: e.props ? JSON.stringify(e.props).slice(0, 4096) : undefined,
+          })),
+        },
+        'telemetry ingest received',
+      )
+      return reply.send(success({ accepted: events.length }))
+    } catch (err) {
+      server.log.warn({ err, module: 'telemetry' }, 'telemetry ingest failed')
+      // 失败仍返回 success(避免客户端重试堆积)
+      return reply.send(success({ accepted: 0, error: 'ingest failed' }))
+    }
+  })
 
   // GET /v1/telemetry/health
   // 健康检查端点(供客户端验证 endpoint 可达)

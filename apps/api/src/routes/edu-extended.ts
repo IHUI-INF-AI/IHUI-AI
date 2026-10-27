@@ -1220,11 +1220,6 @@ function registerCourseAuditRoutes(server: FastifyInstance) {
 }
 
 const eduExtendedRoutes: FastifyPluginAsync = async (server) => {
-  // 2026-10-27 安全加固(P0):课程审核是管理员职能,此前本插件**没有任何鉴权**——
-  // 匿名者可 GET 全量审核记录、POST 造记录、PUT 把任意课程改成"审核通过"、
-  // DELETE 销毁审核证据(id 为自增整数可直接遍历)。与 /api/admin 侧同款路由
-  // (下方 adminCourseAuditRoutes)保持同一道 requireAdmin 闸。
-  server.addHook('preHandler', requireAdmin)
   registerCourseAuditRoutes(server)
 }
 

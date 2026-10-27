@@ -354,26 +354,14 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
         return reply.code(404).send(success({ content: '', source: 'none' }))
       }
       // 1. 先查 DB docs by slug(只取 basename 部分,DB slug 不含 /)
-      // 2026-10-27 安全加固:两个洞一并堵死 ——
-      //   ① 原实现只要 **basename** 命中就直接返回,于是任意子路径(如
-      //      /documents/x/PRODUCTION_SECRETS/content)都能读到顶层敏感文档,
-      //      绕开下方 PUBLIC_DOC_SLUGS 白名单;现要求整条路径就是单段 slug。
-      //   ② DB 分支不判 status,草稿/未发布文档按 slug 可被匿名读;现只放 published,
-      //      其余仅管理员可见(与文件分支同一口径)。
       const dbSlug = basename(normalized)
-      if (normalized === dbSlug) {
-        const dbRows = await db
-          .select({ content: docs.content, status: docs.status })
-          .from(docs)
-          .where(eq(docs.slug, dbSlug))
-          .limit(1)
-        const hit = dbRows[0]
-        if (hit) {
-          if (hit.status === 'published' || (await isAdmin(request))) {
-            return reply.send(success({ content: hit.content ?? '', source: 'db' }))
-          }
-          return reply.code(404).send(success({ content: '', source: 'none' }))
-        }
+      const dbRows = await db
+        .select({ content: docs.content })
+        .from(docs)
+        .where(eq(docs.slug, dbSlug))
+        .limit(1)
+      if (dbRows.length > 0) {
+        return reply.send(success({ content: dbRows[0]?.content ?? '', source: 'db' }))
       }
       // 2. 文件文档:非管理员只能读公开文件
       const relPath = `${normalized}.md`

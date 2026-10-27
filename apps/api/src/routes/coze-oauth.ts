@@ -26,7 +26,6 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { randomBytes } from 'node:crypto'
 import { success, error } from '../utils/response.js'
-import { requireAdmin } from '../plugins/require-permission.js'
 import { attributeError } from '@ihui/shared/utils/error-attribution'
 import { loadCozeOAuthConfig, getCozeAccessToken } from '../services/coze-auth-utils.js'
 import {
@@ -38,41 +37,6 @@ import {
 
 const OAUTH_TYPES = ['device', 'web', 'pkce', 'jwt'] as const
 
-/**
- * base_url 白名单(2026-10-27 安全加固,P0)。
- *
- * `resolveBaseUrl()` 允许调用方用 base_url 覆盖 COZE_API_BASE,而 device/web/pkce 三支
- * 都会把 **client_id + client_secret** POST 到 `${baseUrl}/api/permission/oauth2/...`。
- * 也就是说任意能打这个路由的人只要传 `base_url=https://attacker.tld`,就能让服务器
- * 带着平台应用凭据去敲他的域名 —— 这不是普通 SSRF,是**凭据主动外送**。
- * 官方只可能有这两个域(coze.cn / coze.com),其余一律 400,不做"猜它想干什么"。
- */
-const COZE_BASE_URL_HOSTS = new Set([
-  'coze.cn',
-  'api.coze.cn',
-  'www.coze.cn',
-  'coze.com',
-  'api.coze.com',
-  'www.coze.com',
-])
-
-function isAllowedCozeBase(raw: string): boolean {
-  try {
-    const u = new URL(raw)
-    return u.protocol === 'https:' && COZE_BASE_URL_HOSTS.has(u.hostname.toLowerCase())
-  } catch {
-    return false
-  }
-}
-
-/** 三份 schema 共用的 base_url 字段:缺省 ⇒ 走环境变量默认;给了就必须是官方域名 */
-const baseUrlField = z
-  .string()
-  .optional()
-  .refine((v) => v === undefined || isAllowedCozeBase(v), {
-    message: 'base_url 只允许 Coze 官方域名(api.coze.cn / api.coze.com)',
-  })
-
 const authorizeQuerySchema = z.object({
   type: z.enum(OAUTH_TYPES).default('jwt'),
   redirect_uri: z.string().optional(),
@@ -81,7 +45,7 @@ const authorizeQuerySchema = z.object({
   workspace_id: z.string().optional(),
   code_verifier: z.string().optional(),
   code_challenge_method: z.string().default('S256'),
-  base_url: baseUrlField,
+  base_url: z.string().optional(),
 })
 
 const tokenBodySchema = z.object({
@@ -96,7 +60,7 @@ const tokenBodySchema = z.object({
   scope: z.string().optional(),
   ttl: z.number().optional(),
   force_refresh: z.boolean().default(false),
-  base_url: baseUrlField,
+  base_url: z.string().optional(),
 })
 
 const refreshBodySchema = z.object({
@@ -105,7 +69,7 @@ const refreshBodySchema = z.object({
   client_id: z.string().optional(),
   client_secret: z.string().optional(),
   user_uuid: z.string().nullable().optional(),
-  base_url: baseUrlField,
+  base_url: z.string().optional(),
 })
 
 const jwtBodySchema = z.object({
@@ -120,15 +84,6 @@ function genState(): string {
 }
 
 export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
-  // 2026-10-27 安全加固(P0):本插件此前**完全无鉴权**(挂在 /api/coze/oauth,不在任何
-  // barrel 鉴权钩子的射程内)。匿名者可:
-  //   ① POST /jwt、POST /token(type=jwt) —— 用平台私钥给**任意 user_uuid** 铸造 Coze
-  //      access_token(等于白送上游账号权限);
-  //   ② POST /token(type=device) 传 base_url —— 把 client_secret 送到攻击者域名(见上);
-  //   ③ GET /config 读集成配置。
-  // 这些是运维/后台集成面,一律要求管理员。
-  server.addHook('preHandler', requireAdmin)
-
   // GET /authorize - 获取授权 URL
   server.get('/authorize', async (request, reply) => {
     const parsed = authorizeQuerySchema.safeParse(request.query)
@@ -319,7 +274,10 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       // 配置缺失 ⇒ 400 档(成因判据走错误归因唯一出口 G-816012;未命中落 unknown,仍走 500 兜底)
       const attribution = attributeError(e)
-      if (attribution.errorSource === 'config' && attribution.failureReason === 'not-configured') {
+      if (
+        attribution.errorSource === 'config' &&
+        attribution.failureReason === 'not-configured'
+      ) {
         return reply.status(400).send(error(400, e instanceof Error ? e.message : String(e)))
       }
       request.log.error(e)

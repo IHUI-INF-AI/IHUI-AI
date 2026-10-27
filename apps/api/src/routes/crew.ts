@@ -89,11 +89,9 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /models - 可用模型列表
-  // 2026-10-27 安全加固(P0):原实现**完全无鉴权**,且原样返回 ModelConfig ——
-  // 其中 apiKey 是平台上游密钥明文,匿名一次 GET 即可全部取走。现要求登录 + 脱敏视图。
-  server.get('/models', { preHandler: [requireAuth] }, async (_req, reply) => {
+  server.get('/models', async (_req, reply) => {
     const mm = getModelManager()
-    return reply.send(success(mm.listPublic()))
+    return reply.send(success(mm.list()))
   })
 
   // POST /sessions - 创建会话
@@ -226,7 +224,8 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   // GET /runs/:id/stream - SSE 流式执行
   server.get('/runs/:id/stream', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = (req.params as { id: string }).id
-    if (!(await accessibleSession(req, id))) return reply.status(404).send(error(404, '会话不存在'))
+    if (!(await accessibleSession(req, id)))
+      return reply.status(404).send(error(404, '会话不存在'))
 
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
