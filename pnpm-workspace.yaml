@@ -208,7 +208,7 @@ overrides:
   postcss@<=8.5.22: ^8.5.23
   serialize-javascript@<=7.0.2: ^7.0.3
   serialize-javascript@>=5.0.0 <7.0.5: ^7.0.5
-  sharp@<0.35.0: ^0.35.0
+  sharp@<0.35.5: ^0.35.5
   swiper@>=6.5.1 <12.1.2: ^12.1.2
   uuid@<11.1.1: ^11.1.1
   vite-plugin-static-copy@>=0.4.3 <=2.3.1: ^2.3.2
