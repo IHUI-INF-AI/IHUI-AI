@@ -14,7 +14,9 @@ import {
   appVersionGateCheck,
   compareVersions,
   gateAllowsAction,
+  getLastAppVersionGateDecision,
   isActiveAppVersionGateKind,
+  subscribeAppVersionGate,
   type AppVersionGateDecision,
 } from '../app-version-gate'
 
@@ -208,6 +210,77 @@ describe('appVersionGateCheck(接线:拉端点 + 广播决策)', () => {
     expect(d.required).toBe(false)
     expect(d.kind).toBe('error')
     expect(mockedCheck).toHaveBeenCalledWith({ version: '0.0.0', platform: 'web' })
+  })
+})
+
+// 2026-10-27:渲染端接线后补的三组判据。
+// 背景:决策由 GlobalHooksProvider 的挂载 effect 广播,而渲染端在另一棵子树 ——
+// 事件派发可能早于订阅者 addEventListener,只靠 window 事件会丢掉首次决策
+// (表现就是"强更策略配了但永远不弹")。下面钉住回放、退订与 cause 字段。
+describe('决策订阅:回放与退订', () => {
+  beforeEach(() => {
+    mockedCheck.mockReset()
+  })
+
+  it('订阅发生在广播之后,仍能拿到最新一条(回放)', async () => {
+    mockedCheck.mockResolvedValue({
+      success: true,
+      data: { hasUpdate: true, forceUpdate: true, latestVersion: '9.9.9' },
+    })
+    await appVersionGateCheck({ currentVersion: '1.0.0' })
+
+    const seen: AppVersionGateDecision[] = []
+    const off = subscribeAppVersionGate((d) => seen.push(d))
+    try {
+      expect(seen).toHaveLength(1)
+      expect(seen[0]?.latestVersion).toBe('9.9.9')
+      expect(seen[0]?.required).toBe(true)
+      expect(getLastAppVersionGateDecision()?.latestVersion).toBe('9.9.9')
+    } finally {
+      off()
+    }
+  })
+
+  it('退订后不再收到新决策', async () => {
+    mockedCheck.mockResolvedValue({
+      success: true,
+      data: { hasUpdate: false, forceUpdate: false },
+    })
+    const seen: AppVersionGateDecision[] = []
+    const off = subscribeAppVersionGate((d) => seen.push(d))
+    const afterReplay = seen.length
+    off()
+    await appVersionGateCheck({ currentVersion: '1.0.0' })
+    expect(seen).toHaveLength(afterReplay)
+  })
+})
+
+describe('决策字段:cause 与 currentVersion(渲染端选文案的唯一依据)', () => {
+  it('低于最低版本 ⇒ cause=minimum-version', () => {
+    const d = appVersionGate({ currentVersion: '1.0.0', hasUpdate: true, minimumVersion: '1.2.0' })
+    expect(d.required).toBe(true)
+    expect(d.cause).toBe('minimum-version')
+    expect(d.currentVersion).toBe('1.0.0')
+  })
+
+  it('forceUpdate ⇒ cause=force-update', () => {
+    const d = appVersionGate({ currentVersion: '1.0.0', hasUpdate: true, forceUpdate: true })
+    expect(d.required).toBe(true)
+    expect(d.cause).toBe('force-update')
+  })
+
+  it('普通更新 / 无更新 ⇒ cause=none', () => {
+    expect(appVersionGate({ currentVersion: '1.0.0', hasUpdate: true }).cause).toBe('none')
+    expect(appVersionGate({ currentVersion: '1.0.0', hasUpdate: false }).cause).toBe('none')
+  })
+
+  it('fail-open 也带 currentVersion(渲染端不用自己猜)', async () => {
+    mockedCheck.mockReset()
+    mockedCheck.mockResolvedValue({ success: false })
+    const d = await appVersionGateCheck({ currentVersion: '3.2.1' })
+    expect(d.kind).toBe('error')
+    expect(d.currentVersion).toBe('3.2.1')
+    expect(d.cause).toBe('none')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

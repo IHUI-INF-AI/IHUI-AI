@@ -933,6 +933,7 @@
     "themeChanged": "主题已切换",
     "checkUpdateTitle": "检查更新",
     "checkUpdateLatest": "当前已是最新版本",
+    "checkUpdateUnsupported": "当前环境不支持应用内更新",
     "changePhoneMissingUser": "用户信息缺失,无法更换手机号",
     "logoutConfirm": "确认退出当前账号?",
     "appPermission": "应用权限",
@@ -6733,10 +6734,18 @@
     "statusRejected": "已拒绝",
     "statusCompleted": "已完成"
   },
-  "update": {
+  "appUpdate": {
     "title": "有新版本可用",
-    "body": "重启应用以获取最新版本",
+    "body": "刷新页面以获取最新版本",
     "action": "更新",
-    "close": "关闭"
+    "close": "关闭",
+    "checking": "正在检查更新…",
+    "downloading": "正在下载更新…",
+    "ready": "更新已就绪",
+    "installing": "正在重启…",
+    "error": "更新失败",
+    "errorDesc": "请检查网络后重试",
+    "retry": "重试",
+    "upToDate": "当前已是最新版本"
   }
 }
