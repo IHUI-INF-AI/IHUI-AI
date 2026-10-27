@@ -57,7 +57,74 @@ export const END_UI_FACILITIES = new Set([
   'useI18n',
   'useTheme',
   'useTt',
+  // React 内置钩子:共享屏本体也在用,与页面行为无关。旧口径把它们算成"页面独有能力"
+  // ⇒ privacy/usage-rules 两页仅因 useCallback 被拒(实测),属同一型假阻塞。
+  'useState',
+  'useEffect',
+  'useMemo',
+  'useCallback',
+  'useRef',
+  'useContext',
+  'useReducer',
+  'useLayoutEffect',
+  'useImperativeHandle',
+  'useTransition',
+  'useDeferredValue',
+  'useId',
+  'useSyncExternalStore',
+  'useDebugValue',
+  'useInsertionEffect',
 ])
+
+/**
+ * 页面里的 useDidShow/useDidHide 回调体(括号配对)。用于判"生命周期钩子是不是只做了设标题"。
+ * 只认无参箭头形态 `useDidShow(() => { ... })`;其它形态一律不识别(那类页按带私有能力拒)。
+ */
+export function lifecycleBlocks(text) {
+  const t = String(text ?? '')
+  const out = []
+  for (const m of t.matchAll(/useDid(Show|Hide)\s*\(\s*\(\s*\)\s*=>\s*\{/g)) {
+    let i = m.index + m[0].length
+    let depth = 1
+    const start = i
+    while (i < t.length && depth > 0) {
+      if (t[i] === '{') depth++
+      else if (t[i] === '}') depth--
+      i++
+    }
+    out.push({ kind: m[1], body: t.slice(start, i - 1) })
+  }
+  return out
+}
+
+/** 设导航标题的 title 表达式(如 `t('agreement.title')`);取不到返回 null。 */
+export function navTitleExpr(text) {
+  const m = String(text ?? '').match(/setNavigationBarTitle\s*\(\s*\{\s*title:\s*([^}]+?)\s*\}\s*\)/)
+  return m ? m[1].trim() : null
+}
+
+/**
+ * 全部生命周期钩子都只做 Taro.setNavigationBarTitle ⇒ 不算私有能力:
+ * 导航标题是端内事实,壳承载页可以把这 3 行原样保留(生成器 navTitle 通道),行为不丢。
+ * 只要有任何一个钩子体里还有别的语句 ⇒ false(那类页可能刷新数据/埋点,必须人工)。
+ */
+export function titleOnlyLifecycle(text) {
+  const blocks = lifecycleBlocks(text)
+  if (blocks.length === 0) return false
+  return blocks.every((b) => /^Taro\.setNavigationBarTitle\s*\(\s*\{[\s\S]*\}\s*\)\s*;?$/.test(b.body.trim()))
+}
+
+/**
+ * 页面里的硬编码中文量。法律条款/公告正文这类内容若直接写在页面里(而不是走词包),
+ * 转成壳承载后正文来自共享屏消费的词包键 ⇒ 会**静默丢正文**。实测 pkg-about/about/privacy
+ * 5618 字、usage-rules 4603 字即此型(两页各缺 8/1 个共享屏键,因为它们压根没用那份词)。
+ */
+export function hardcodedCjkCount(text) {
+  return (String(text ?? '').match(/[\u4e00-\u9fff]/g) || []).length
+}
+
+/** 硬编码正文阈值:正文类页面远超它;普通页面的注释/兜底文案只有几十字(实测 agreement 30 字)。 */
+export const HARDCODED_TEXT_LIMIT = 200
 
 /** 一页文本里"能力-bearing"的三族标识(方法名 / 钩子 / 端内模块),用于相对取差。 */
 export function capabilityTokens(text) {
@@ -100,8 +167,20 @@ export function judgeConversion({ spec, pageText, shellText, sharedText, shellNa
       kind: 'shell-not-rendering',
       why: `壳 ${name} 未消费共享屏(不带 @ihui/rn-app 取用该符号)`,
     }
+  const pageTokens = capabilityTokens(pageText)
+  // 硬编码正文闸:转壳后正文来自共享屏词包 ⇒ 页面自带的大段中文会消失(不是"未还原",是丢内容)
+  const cjk = hardcodedCjkCount(pageText)
+  if (cjk > HARDCODED_TEXT_LIMIT)
+    return {
+      spec,
+      kind: 'page-only-capability',
+      why: `这一页带着共享屏/壳没有的能力:硬编码正文 ${cjk} 字(正文未进词包,转壳会丢内容)`,
+    }
+  // "只设导航标题"的生命周期钩子可以由壳承载页原样保留(见 titleOnlyLifecycle),不计私有能力
+  if (titleOnlyLifecycle(pageText))
+    for (const tok of ['useDidShow', 'useDidHide', 'Taro.setNavigationBarTitle']) pageTokens.delete(tok)
   const extras = pageOnlyCapabilities({
-    pageTokens: capabilityTokens(pageText),
+    pageTokens,
     sharedText,
     shellText,
   })
@@ -111,7 +190,13 @@ export function judgeConversion({ spec, pageText, shellText, sharedText, shellNa
       kind: 'page-only-capability',
       why: `这一页带着共享屏/壳没有的能力:${extras.slice(0, 8).join(', ')}`,
     }
-  const body = gen.buildShellPage({ spec, base: name.replace(/Screen$/, ''), shellText, shellName })
+  const body = gen.buildShellPage({
+    spec,
+    base: name.replace(/Screen$/, ''),
+    shellText,
+    shellName,
+    navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : null,
+  })
   if (body?.error) return { spec, kind: 'undetermined', why: `壳承载出口形态不合:${body.error}` }
   const lines = String(body?.content ?? body ?? '').split('\n').length
   return {
@@ -258,6 +343,26 @@ function main(argv) {
       }),
       ['@/api'],
     )
+    P(
+      'S6 硬编码正文超阈值 ⇒ 拒转(转壳后正文来自词包,页面自带正文会丢)',
+      judgeConversion({
+        spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+        pageText: `const body = '${'中'.repeat(300)}'`,
+        shellText: `import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){return null}`,
+        sharedText: '',
+      }).kind,
+      'page-only-capability',
+    )
+    P(
+      'S7 只设导航标题的生命周期钩子不算私有能力(生成页会原样保留)',
+      titleOnlyLifecycle(`useDidShow(() => { Taro.setNavigationBarTitle({ title: t('a.b') }) })`),
+      true,
+    )
+    P(
+      'S7b 钩子里还有别的语句 ⇒ 仍算(必须人工)',
+      titleOnlyLifecycle(`useDidShow(() => { Taro.setNavigationBarTitle({ title: t('a.b') }); refresh() })`),
+      false,
+    )
     for (const c of cases)
       console.log(
         `${c.pass ? '✔' : '✖'} ${c.name}${c.pass ? '' : ` —— 实测:${JSON.stringify(c.got)}`}`,
@@ -312,5 +417,15 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { capabilityTokens, pageOnlyCapabilities, judgeConversion, plan, ROOT }
+export const __test__ = {
+  capabilityTokens,
+  pageOnlyCapabilities,
+  judgeConversion,
+  plan,
+  lifecycleBlocks,
+  navTitleExpr,
+  titleOnlyLifecycle,
+  hardcodedCjkCount,
+  ROOT,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
