@@ -13,7 +13,10 @@
  *   sandSealedFile 密封串(密封方案未公开)⇒ 解封交服务端/后续取证,适配器只认
  *   ctx.credentials.token(§0.6 零映射)。
  * - 走 SuperGrok/Cursor 套餐,国际产品,无国内分线。
- * - 余额/配额:SuperGrok 套餐配额无公开查询端点 ⇒ getQuota 如实未判定,不发请求。
+ * - 余额/配额:周用量端点已端点级实证(2026-10-27,双源)——桌面端自调
+ *   POST api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus(Connect-RPC,
+ *   Bearer cursor-access-token);响应 usagePercent 形状未本机实弹复验 ⇒ 解析不出时
+ *   如实未判定并带键名清单。
  * - 刷新:无公开续期协议 ⇒ 不实现 refreshToken;401 自愈后由人工重导补票。
  *
  * 错误面:HTTP 层 401/403 直接判鉴权失效;OpenAI 形 {"error":{...}} 帧(含 HTTP 200)
@@ -311,21 +314,81 @@ function classifyUpstreamFailure(
 }
 
 // =============================================================================
-// 余额/配额(§0.3 如实未判定:无公开端点,不发请求不猜字段)
+// 余额/配额(2026-10-27 端点级实证升级:Connect-RPC GetSandUsageStatus)
 // =============================================================================
 
 /**
- * SuperGrok/Cursor 套餐配额**无公开查询端点** ⇒ 永远 ok:false + 未判定点名,
- * 不发请求、不猜字段。
+ * 周配额端点(codeburn providers/grokbot.md 实弹捕获 + ai-usagebar grokbot::fetch 双源):
+ * 桌面端自己调用 POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus
+ * (Connect-RPC,空 JSON body,Authorization: Bearer <cursor-access-token>)。
+ * 响应字段(捕获面):usagePercent(0..100)/currentPeriodStart/nextResetTimestampUtc/
+ * hasNonZeroIncludedLimit/usesPooledEnterpriseAllowance/hasAvailableUsage/
+ * upgradeRecommendation/grokPlanLabel。响应字段形状未在本机实弹复验(凭证文件不在盘)
+ * ⇒ 200 但解析不出 usagePercent 数字时如实未判定并带键名清单(§0.3,不猜字段)。
  */
+const SAND_USAGE_URL = 'https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus'
+
 async function getQuota(
-  _ctx: AdapterAccountContext,
-  _opts?: QuotaCallOptions,
+  ctx: AdapterAccountContext,
+  opts?: QuotaCallOptions,
 ): Promise<RelayQuotaResult> {
-  return {
-    ok: false,
-    error:
-      'Grok Bot(SuperGrok/Cursor 套餐)无公开余额/配额查询端点(2026-10-27 取证) ⇒ 未判定(未发请求,不猜字段)',
+  try {
+    const token = readToken(ctx)
+    const res = await resolveFetchImpl(opts ?? {})(SAND_USAGE_URL, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'connect-protocol-version': '1',
+      },
+      body: JSON.stringify({}),
+    })
+    const text = await res.text().catch(() => '')
+    if (!res.ok) {
+      return {
+        ok: false,
+        ...(grokbotAdapter.isAuthFailure(res.status, text) ? { authFailed: true } : {}),
+        error: `GetSandUsageStatus HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+      }
+    }
+    let body: unknown
+    try {
+      body = JSON.parse(text)
+    } catch {
+      return {
+        ok: false,
+        error: `GetSandUsageStatus 200 但响应非 JSON(前 200 字: ${text.slice(0, 200)}) ⇒ 未判定`,
+      }
+    }
+    const obj =
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : null
+    const raw = obj?.['usagePercent']
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+      const keys = obj ? Object.keys(obj) : []
+      return {
+        ok: false,
+        error: `GetSandUsageStatus 200 但 usagePercent 非数字,响应键=[${keys.join(',') || '(空)'}] ⇒ 未判定(不猜字段)`,
+      }
+    }
+    const ratio = raw / 100
+    const resetsAt =
+      typeof obj?.['nextResetTimestampUtc'] === 'string' ? obj['nextResetTimestampUtc'] : undefined
+    const planLabel = typeof obj?.['grokPlanLabel'] === 'string' ? obj['grokPlanLabel'] : undefined
+    return {
+      ok: true,
+      quota: {
+        used: raw,
+        unit: '% (周用量 usagePercent)',
+        ratio,
+        ...(resetsAt ? { resetsAt } : {}),
+        ...(planLabel ? { subscriptionName: planLabel } : {}),
+      },
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { ok: false, error: `余额点查失败: ${msg}` }
   }
 }
 

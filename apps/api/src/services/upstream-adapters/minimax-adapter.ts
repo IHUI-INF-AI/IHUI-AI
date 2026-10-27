@@ -44,11 +44,19 @@ const BASE_CN = 'https://api.minimaxi.com'
 const BASE_GLOBAL = 'https://api.minimax.io'
 const CHAT_PATH = '/v1/chat/completions'
 /**
- * Token Plan 余量端点(社区调研 2026-06 口径:GET /v1/token_plan/remains,双域名路由同后端,
- * 仅 Subscription Key 可用)。响应字段形状未本机实证 ⇒ getQuota 学 codearts:200 也回
- * 未判定 + 键名清单,不猜字段读成数字。
+ * OAuth 会话票余量端点(2026-10-27 双源实证升级):
+ * ① mcode 桌面端 app.asar 字符串取证 —— OPEN_PLATFORM_ORIGINS{cn:www.minimaxi.com,
+ *    en:platform.minimax.io} + GET /v1/api/openplatform/coding_plan/remains,
+ *    鉴权 = Bearer <OAuth accessToken>;
+ * ② 本机实弹(真号 OAuth token)—— api.minimaxi.com 线 200 +
+ *    {"model_remains":null,"base_resp":{"status_code":2062,"status_msg":
+ *    "no active token plan subscription"}} = 鉴权通过、免费号无活跃套餐。
+ * 响应形状:model_remains 数组(null=无套餐;会员号解析从模型名聚合 used/remaining);
+ * base_resp.status_code 非 0 即业务拒绝(如实带码)。
+ * 注意旧口径 /v1/token_plan/remains 是 API Secret Key 通道(实弹 1004 "carry the
+ * API secret key"),OAuth 票调它必失败,不得再用。
  */
-const QUOTA_PATH = '/v1/token_plan/remains'
+const QUOTA_PATH = '/v1/api/openplatform/coding_plan/remains'
 
 // =============================================================================
 // fetch 解析(测试缝 > 账号级代理 > 全局直连;对齐 codearts/trae 同款做法)
@@ -242,8 +250,14 @@ function classifyUpstreamFailure(
 }
 
 // =============================================================================
-// 额度点查与健康检查(GET /v1/token_plan/remains;响应形状未实证 ⇒ 未判定三态)
+// 额度点查与健康检查(GET /v1/api/openplatform/coding_plan/remains;2026-10-27 实弹)
 // =============================================================================
+
+/** MiniMax 信封:base_resp.status_code 非 0 = 业务拒绝;载荷 = model_remains 数组 */
+interface MiniMaxEnvelope {
+  model_remains?: unknown
+  base_resp?: { status_code?: number; status_msg?: string }
+}
 
 async function getQuota(
   ctx: AdapterAccountContext,
@@ -263,21 +277,62 @@ async function getQuota(
       return {
         ok: false,
         ...(minimaxAdapter.isAuthFailure(res.status, text) ? { authFailed: true } : {}),
-        error: `token_plan/remains HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+        error: `coding_plan/remains HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
       }
     }
-    let keys: string[] = []
+    let env: MiniMaxEnvelope
     try {
-      const obj: unknown = JSON.parse(text)
-      if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-        keys = Object.keys(obj as Record<string, unknown>)
-      }
+      env = JSON.parse(text) as MiniMaxEnvelope
     } catch {
-      /* 非 JSON 也如实报 */
+      return {
+        ok: false,
+        error: `余量端点 200 但响应非 JSON(前 200 字: ${text.slice(0, 200)}) ⇒ 未判定`,
+      }
+    }
+    const biz = env.base_resp?.status_code
+    if (typeof biz === 'number' && biz !== 0) {
+      return {
+        ok: false,
+        error: `上游业务拒绝 status_code=${biz}(${env.base_resp?.status_msg ?? '无明细'})——如 2062=无活跃套餐(免费号如实无余量)`,
+      }
+    }
+    const rows = Array.isArray(env.model_remains) ? env.model_remains : null
+    if (!rows) {
+      const keys = env && typeof env === 'object' ? Object.keys(env) : []
+      return {
+        ok: false,
+        error: `余量端点 200 但 model_remains 非数组,响应键=[${keys.join(',')}] ⇒ 未判定(不猜字段)`,
+      }
+    }
+    // model_remains 行形状未取得非空样例(免费号恒 null)⇒ 逐行字段不猜:
+    // 能安全读出的字段直读,读不出的整行原样进 error 供 admin 点查喂形状。
+    let used = 0
+    let remaining = 0
+    let shapeUnknown = false
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') {
+        shapeUnknown = true
+        continue
+      }
+      const rec = row as Record<string, unknown>
+      const rem = rec['remain'] ?? rec['remaining'] ?? rec['remains']
+      const u = rec['used'] ?? rec['usage'] ?? rec['consume']
+      if (typeof rem === 'number') remaining += rem
+      else shapeUnknown = true
+      if (typeof u === 'number') used += u
+    }
+    if (shapeUnknown) {
+      return {
+        ok: false,
+        error: `model_remains 行字段形状未实证(行数=${rows.length},样例键=[${rows
+          .slice(0, 2)
+          .map((r) => (r && typeof r === 'object' ? Object.keys(r as object).join('|') : typeof r))
+          .join('; ')}]) ⇒ 未判定(不猜字段读成数字)`,
+      }
     }
     return {
-      ok: false,
-      error: `余量端点已应答 200,响应键=[${keys.join(',') || '(空)'}],字段形状未实证 ⇒ 未判定(不猜字段读成数字)`,
+      ok: true,
+      quota: { used, remaining, unit: 'token plan 余量' },
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
