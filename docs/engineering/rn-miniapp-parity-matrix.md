@@ -15,18 +15,18 @@
 - 已被小程序显式镜像: **230**
 - 缺口合计: **12**(其中已判定 11 / 未判定 1)
 - 判定台账: **105** 行 — 路径与口径单源 `scripts/lib/cross-end-verdicts.mjs`
-- 台账三档: **缺页待造 2** / **已造页待补数据钩子 94** / **不承载 9**
+- 台账三档: **缺页待造 0** / **已造页待补数据钩子 94** / **不承载 11**
 > ⚠ 已造页 94 条**已计入上面的覆盖率**,但数据钩子/交互尚未按共享屏补齐 ⇒ 覆盖率不等于功能对齐(§0.3「造好没装车 = 没有」);待补清单见文末「已造页·待补数据钩子」单。
 
 ## 缺口清单
 
 | # | 共享屏(域) | RN 候选屏 | 小程序既有页线索 | 状态 | 判定依据 |
 |---|---|---|---|---|---|
-| 1 | `agent-review-detail/AgentReviewDetailScreen` | AgentDetailScreen / AgentReviewListScreen | pkg-ai/ai/agent-detail / pkg-user/agent-review-list/index | 🧱 缺页(已判定) | packages/app/src/features/agent-review-detail/AgentReviewDetailScreen.tsx:32 用 t('agentReviewDetail.title');apps/mobile-rn/src/screens 下无任何屏 import AgentReviewDetailScreen(全仓 RN 消费方为空),小程序端亦无 agentReviewDetail 命名空间与评价详情页,评价详情功能两面皆缺,故该造页。 |
+| 1 | `agent-review-detail/AgentReviewDetailScreen` | AgentDetailScreen / AgentReviewListScreen | pkg-ai/ai/agent-detail / pkg-user/agent-review-list/index | 🚫 不承载(已判定) | 全仓零渲染消费:RN 侧只有 AgentReviewListScreen(列表,渲染共享屏 agent-review-list),无详情入口、无 <AgentReviewDetailScreen,web 侧 apps/web/app/(main) 下无 agents/*/reviews 一类的详情路由,包内也只有类型再导出 ⇒ 镜像它会产出无数据腿的重复页,判不承载;本屏候选下线(零消费)。 |
 | 2 | `console-table/ConsoleTableScreen` | — | — | 🚫 不承载(已判定) | packages/app/src/features/console-table/ConsoleTableScreen.tsx:21-25 注释明写「通用控制台列表屏 —— 61 条控制台类页面(models/developer 网关族)的规模化杠杆」,是列配置驱动的通用 UI 杠杆而非一个具体页面;其 RN 消费方为 20 个 edu/developer 薄壳(如 apps/mobile-rn/src/screens/EduGradesScreen.tsx),小程序对应页 apps/miniapp-taro/src/pkg-user/edu-mgmt-grades/index.tsx:5 已各自对齐其 RN 薄壳,不存在也不该造一个「控制台表」页。 |
 | 3 | `dashboard/DashboardScreen` | ★DashboardScreen | — | 🚫 不承载(已判定) | packages/app/src/features/dashboard/DashboardScreen.tsx:24 是全注入式指标看板(items/renderLoading/renderEmpty 全靠平台注入),RN 壳 apps/mobile-rn/src/screens/DashboardScreen.tsx:60 的数据源是 /api/admin/error-dashboard/stats 管理端错误看板;小程序 app.config.ts 无 admin 页,不由小程序承载,判 not-applicable。 |
 | 4 | `domain-hub/DomainHubScreen` | ★DomainHubScreen / EduAiHubScreen | pkg-mirror2/edu-ai-hub/index | 🚫 不承载(已判定) | packages/app/src/features/domain-hub/DomainHubScreen.tsx:16 头注自述跨端共享域入口二级屏(G-921),条目全靠平台注入(DomainHubItem key/label/icon),RN 壳 apps/mobile-rn/src/screens/DomainHubScreen.tsx:19 是 P3 侧边栏收敛用的域入口;小程序 app.config.ts:260-303 只有 5 tab+分包、无侧边栏形态,判通用导航组件屏 not-applicable。 |
-| 5 | `finance/FinanceScreen` | ★EduFinanceScreen | pkg-user/edu-mgmt-finance/index | 🧱 缺页(已判定) | packages/app/src/features/finance/FinanceScreen.tsx:16 是财务汇总四卡(余额/今日收入/累计收入/累计支出);RN 端无壳消费该符号(apps/mobile-rn/src/screens/EduFinanceScreen.tsx:15 只 import ConsoleTableScreen);小程序 pkg-user/edu-mgmt-finance/index.tsx:5 是教育缴费记录(对齐 EduFinanceScreen),pkg-shop 只有充值/提现/佣金/余额(app.config.ts:66-88),无财务汇总页,故该造页。 |
+| 5 | `finance/FinanceScreen` | ★EduFinanceScreen | pkg-user/edu-mgmt-finance/index | 🚫 不承载(已判定) | 全仓零渲染消费:apps/mobile-rn/src/screens 无任何屏渲染 <FinanceScreen(全量扫 0 命中;RN 的 EduFinanceScreen 用 ConsoleTableScreen),web 的财务页 apps/web/app/(main)/edu/edu-management/finance/page.tsx 对应 EduFinanceScreen(缴费记录)而非本屏四卡汇总,小程序仅 pkg-user/edu-mgmt-finance 注释里提到对齐目标 ⇒ 镜像它会产出无数据腿的重复页,判不承载;本屏候选下线(零消费)。 |
 | 6 | `following/FollowingScreen` | — | pkg-user/following/index | 🚫 不承载(已判定) | RN 端关注列表由 follow/FollowScreen 承载:apps/mobile-rn/src/screens/FollowScreen.tsx 渲染 <FollowScreen>(含关注/粉丝 Tab、取消关注),小程序 pkg-user/following 亦已镜像 follow/FollowScreen;本屏在 RN 端零渲染方(全量扫 <FollowingScreen 0 命中)⇒ 镜像它会产出无数据腿的重复页,判不承载。web /following 与 FollowScreen 的等价性另记 web→RN 台账 gap(键空间 following.* vs follow.*)。 |
 | 7 | `help-detail/HelpDetailScreen` | ActivityDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🚫 不承载(已判定) | RN 端以列表内联展开承载同一阅读目的:packages/app/src/features/help/HelpScreen.tsx:63-65(expandedId 命中即渲染 item.answer),宿主 apps/mobile-rn/src/screens/HelpScreen.tsx:60-78 注入 expandedId/onToggle;本屏是 web 独立详情页(help/[slug]/PageClient.tsx)的投影,RN 端零渲染方(全量扫 <HelpDetailScreen 0 命中)⇒ 小程序镜像它 = 再造一个重复入口,判不承载。 |
 | 8 | `legal-doc/LegalDocScreen` | ★LegalDocScreen / KnowledgeDocScreen | pkg-mirror/knowledge-doc/index | 🚫 不承载(已判定) | 头注自述为通用静态页(隐私政策/用户协议/Cookie 政策等,packages/app/src/features/legal-doc/LegalDocScreen.tsx:16),是多页共用杠杆而非具体页面,RN 侧亦无壳;小程序端每个具体法律页各有专属共享屏并已镜像(apps/miniapp-taro/src/pkg-about/about/privacy.tsx:4 镜像 privacy)=> 不由小程序端单独承载 |
