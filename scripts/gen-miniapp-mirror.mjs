@@ -515,8 +515,37 @@ export function insertRegistryEntry(text, entry) {
  * 由 apps/miniapp-taro/config/rn-shell-replace-plugin.ts 按"发起上下文在 apps/mobile-rn/src/ 内"
  * 换到端内真相源(src/i18n、src/rn-compat/theme.tsx)。
  */
-export function buildShellPage({ spec, base, shellText = '' }) {
-  const shellSymbol = `${base}Screen`
+/**
+ * 该 RN 屏是否**真的以 JSX 渲染**这张共享屏(判据:具名导入的本地绑定出现在 JSX 起始标签)。
+ *
+ * 为什么不能只看"文件里出现过这个名字"(2026-10-27):console-table / switch-prefs 的消费方
+ * 只是把符号当类型/参数用,照那种"命中"造页会产出指向不存在模块的 dangling 页(weapp 当场编不过)。
+ * 反过来,平台侧薄壳常给共享屏起别名(`PlanListScreen as SharedPlanListScreen`),按原名找 JSX
+ * 又会把真正的承载体全漏掉 —— 所以先按导入解出本地绑定名,再只认 `<绑定名` 的起始标签。
+ */
+export function rendersSharedIn(text, symbol) {
+  const src = String(text ?? '')
+  const bindings = new Set()
+  // 必须锚在**语句起始**且块内不含 `}`:否则惰性匹配会从更早的 `import {` 一路吞到本语句,
+  // 抓出来的 specifier 前面粘着别的 import(实测把 `PlanListScreen as SharedPlanListScreen`
+  // 读成 `'@react-native-async-storage/...'\nimport {\n  PlanListScreen as ...`)⇒ 判据恒 false。
+  for (const m of src.matchAll(/(?:^|\n)\s*import\s*\{([^}]*)\}\s*from\s*['"]@ihui\/rn-app['"]/g)) {
+    for (const piece of m[1].split(',')) {
+      const p = piece.trim().replace(/^type\s+/, '')
+      if (!p) continue
+      const [orig, alias] = p.split(/\s+as\s+/).map((x) => x.trim())
+      if (orig === symbol) bindings.add(alias || orig)
+    }
+  }
+  for (const name of bindings) if (new RegExp(`<${name}(?=[\\s/>])`).test(src)) return true
+  return false
+}
+
+export function buildShellPage({ spec, base, shellText = '', shellName = null }) {
+  // shellName 允许与被承载的共享屏**不同名**(2026-10-27):平台侧薄壳常叫 PlanScreen /
+  // NewsScreen,而它渲染的共享屏是 PlanListScreen / SquareScreen —— 承载体是那个壳文件,
+  // 不是名字。缺省仍按同名,保持既有页逐字不变。
+  const shellSymbol = shellName || `${base}Screen`
   const shape = shellExportShapeOf(shellText)
   // 取用形态由**壳的现读导出**决定:实测 5 枚壳承载页里 4 枚写的是默认导入,而壳只有具名导出
   // (webpack 只给一条 "export 'default' was not found" 警告,页面渲染成 undefined 而不是报错)。
@@ -827,17 +856,26 @@ export function planGeneration(rootDir, opts, ctx = null) {
   // cov.collectShared 的 name 形制 = `<Base>Screen`(共享符号同名),rnConsumes 判的也是这个符号
   const rnHits = rnRels.filter((r) => cov.rnConsumes({ text: rnMap.get(r) }, `${shape.base}Screen`)).sort()
   if (rnHits.length === 0) return { kind: 'refuse', why: `HEAD 面无任何 RN 屏 import @ihui/rn-app 使用 ${shape.base}(registry 头注要求 RN 腿),三腿不齐不登记` }
-  // 壳承载形制的硬前置:**同名** RN 壳文件必须存在。`@rn-shells/<Base>Screen` 这条别名是按名字指过去的,
-  // 而 rnHits 判的是"谁 import 了这张共享屏"——两者不是一回事:现读 console-table / switch-prefs 两枚
-  // 是被 DeveloperConversationsScreen 这类"使用者"命中的,于是产出了指向不存在模块的页面,
-  // weapp 构建当场编不过(Taro 解析 @rn-shells/ConsoleTableScreen ⇒ "…ConsoleTableScreen.vue doesn't exist")。
-  const shellRel = `${RN_SCREENS}/${shape.base}Screen.tsx`
-  if (opts.form === 'shell' && !rnRels.includes(shellRel)) {
-    return {
-      kind: 'refuse',
-      why: `壳承载需同名 RN 壳 ${shellRel}(现读消费方 ${rnHits[0]} 只是使用者)⇒ 数据腿无从继承,不产 dangling 页`,
+  // 承载体选择(2026-10-27 收窄):`@rn-shells/<名>` 是按**文件名**指过去的,所以需要的不是
+  // "同名文件",而是"**真的以 JSX 渲染这张共享屏的 RN 屏**"。旧判据只认同名文件 ⇒ 平台侧薄壳
+  // 叫 PlanScreen / PlanNewScreen / NewsScreen / AiWorldFavoritesScreen / LegalDocScreen、
+  // 而被承载的共享屏叫 PlanListScreen / PlanFormScreen / SquareScreen / ... 的 5 屏全被拒,
+  // 理由写着"只是使用者"—— 实测它们恰恰是最标准的承载体(`<SharedX ...>` 就在这些文件里)。
+  // 反向风险仍在:只 import 不渲染(console-table / switch-prefs 那两枚)必须继续拒 ⇒ 判据是
+  // "具名导入的本地绑定出现在 JSX 起始标签",不是"文件里出现过这个名字"。
+  const sameNameShell = `${RN_SCREENS}/${shape.base}Screen.tsx`
+  let shellRel = sameNameShell
+  if (opts.form === 'shell' && !rnRels.includes(sameNameShell)) {
+    const renderer = rnHits.find((r) => rendersSharedIn(rnMap.get(r) ?? '', `${shape.base}Screen`))
+    if (!renderer) {
+      return {
+        kind: 'refuse',
+        why: `HEAD 面无任何 RN 屏以 JSX 渲染 ${shape.base}Screen(同名壳也不存在;消费方 ${rnHits[0]} 只 import 不渲染)⇒ 数据腿无从继承,不产 dangling 页`,
+      }
     }
+    shellRel = renderer
   }
+  const shellName = shellRel.split('/').pop().replace(/\.tsx$/, '')
   // 壳承载前置③:闭包里的 RN 原生族包必须都已被端内别名承载(缺一枚 = weapp 构建当场停摆)
   if (opts.form === 'shell') {
     const taroCfg = c.taroCfgText ?? faceReadMap(rootDir, [TARO_CONFIG_REL]).get(TARO_CONFIG_REL)
@@ -959,7 +997,7 @@ export function planGeneration(rootDir, opts, ctx = null) {
 
   const shellPage =
     opts.form === 'shell'
-      ? buildShellPage({ spec: shape.spec, base: shape.base, shellText: rnMap.get(shellRel) ?? '' })
+      ? buildShellPage({ spec: shape.spec, base: shape.base, shellText: rnMap.get(shellRel) ?? '', shellName })
       : null
   if (shellPage?.error) return { kind: 'refuse', why: `${shape.spec}:${shellPage.error}` }
 
@@ -982,7 +1020,7 @@ export function planGeneration(rootDir, opts, ctx = null) {
     droppedKeys: dropped,
     pageText: shellPage ?? buildPage({ spec: shape.spec, fnName: shape.base, titleKey, subtitleKey, pairs, singles }),
     langBlocks,
-    registryEntry: { shared: shape.spec, rn: rnHits[0], miniapp: route },
+    registryEntry: { shared: shape.spec, rn: shellRel, miniapp: route },
   }
 }
 
@@ -1447,6 +1485,7 @@ export const __test__ = {
   insertJsonMembers,
   mergeJsonMembers,
   parseMiniappRoutes,
+  rendersSharedIn,
   pageSeamVerdict,
   insertConfigPage,
   insertRegistryEntry,
