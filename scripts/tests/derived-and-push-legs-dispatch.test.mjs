@@ -329,9 +329,35 @@ test('L9 门 238 --fix 的结论行按生产方形态解析:clean+0 静默,有�
 
 /* ───────────────────────── 装车锁(摘掉即翻红) ───────────────────────── */
 
-test('L10 装车锁:三条腿都真挂在 !CHECK_ONLY 派发链上,且都在 __test__ 出口里(§0.9)', () => {
+test('L10b 样式派生腿走 --family tokens、有独立节流台账,且不排在派发链队尾', () => {
+  assert.match(
+    SRC,
+    /runDerivedHealLeg\('tokens'/,
+    '样式腿必须以 --family tokens 走同一件器物(另写一份落地器=第二把尺子必然漂移)',
+  )
+  assert.match(
+    SRC,
+    /style-tokens-heal-last\.json/,
+    '每条腿各自一份节流台账(共用一枚 ⇒ 一族跑过就替全族宣布"这轮跑过了")',
+  )
+  assert.match(
+    SRC,
+    /IHUI_STYLE_TOKENS_HEAL_INTERVAL_MS/,
+    '节流必须有运维旋钮(单轮可能要建一次检出,不能只能等 30 分钟)',
+  )
+  const tokensIdx = SRC.indexOf('if (!CHECK_ONLY) healStyleTokensLeg()')
+  const uiIdx = SRC.indexOf('if (!CHECK_ONLY) healUiRoutesLeg()')
+  const tailIdx = SRC.indexOf('if (CHECK_ONLY)', uiIdx)
+  assert.ok(
+    tokensIdx > 0 && uiIdx > tokensIdx && tailIdx > uiIdx,
+    '排最后 = 前面几腿吃满窗口时它永远跑不到(本仓记过这型静默停摆)',
+  )
+})
+
+test('L10 装车锁:四条腿都真挂在 !CHECK_ONLY 派发链上,且都在 __test__ 出口里(§0.9)', () => {
   for (const fn of [
     'healI18nBundleLeg',
+    'healStyleTokensLeg',
     'healUiRoutesLeg',
     'auditPushDivergenceLeg',
     'healMirrorPurgeLeg',
