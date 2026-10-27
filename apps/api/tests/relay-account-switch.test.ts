@@ -131,6 +131,7 @@ describe('planSwitch', () => {
     expect(plan.targetPath).toContain('workbuddy-desktop.20261026T110000Z.info')
     expect(plan.backupPath).toMatch(/pre-switch\.info$/)
     expect(plan.warnings.some((w) => w.includes('重启'))).toBe(true)
+    expect(plan.warnings.some((w) => w.includes('relay:session-move swap --to u-1'))).toBe(true)
     expect(readdirSync(paths.backupsDir)).toEqual(before)
   })
 
