@@ -137,6 +137,8 @@ export interface LocalLoginResult {
   clientProduct?: string
   clientWasRunning?: boolean
   clientClosed?: boolean
+  /** 客户端托盘常驻/关不掉时是否走了强制结束(用户已在确认框授权替换登录态) */
+  clientForced?: boolean
   clientRestarted?: boolean
   clientLaunchError?: string
 }
@@ -381,14 +383,15 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
   const clientProduct = typeof parsed.clientProduct === 'string' ? parsed.clientProduct : ''
   const clientWasRunning = parsed.clientWasRunning === true
   const clientClosed = parsed.clientClosed === true
+  const clientForced = parsed.clientForced === true
   const clientRestarted = parsed.clientRestarted === true
   const clientLaunchError =
     typeof parsed.clientLaunchError === 'string' ? parsed.clientLaunchError : ''
   if (clientClosed) {
     notes.push(
       clientRestarted
-        ? `写入前已优雅关闭并重新打开 ${clientProduct || 'Trae'} 客户端(运行中的客户端会用内存态覆写登录态,故必须先关后写)`
-        : `写入前已优雅关闭 ${clientProduct || 'Trae'} 客户端,但未能自动重新拉起,请手动打开客户端`,
+        ? `写入前已${clientForced ? '强制' : '优雅'}关闭并重新打开 ${clientProduct || 'Trae'} 客户端(运行中的客户端会用内存态覆写登录态,故必须先关后写)`
+        : `写入前已关闭 ${clientProduct || 'Trae'} 客户端,但未能自动重新拉起,请手动打开客户端`,
     )
   }
   return {
@@ -408,6 +411,7 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
     clientProduct,
     clientWasRunning,
     clientClosed,
+    clientForced,
     clientRestarted,
     clientLaunchError,
   }
