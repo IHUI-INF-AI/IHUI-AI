@@ -121,18 +121,95 @@ describe('OTA 状态机:重启生效', () => {
     h.reloadAsync.mockReset()
   })
 
-  it('apply ⇒ 调 reloadAsync', async () => {
+  it('apply ⇒ 调 reloadAsync,成功返回 true', async () => {
     h.reloadAsync.mockResolvedValue(undefined)
     const mod = await freshModule()
-    await mod.applyOtaUpdate()
+    await expect(mod.applyOtaUpdate()).resolves.toBe(true)
     expect(h.reloadAsync).toHaveBeenCalledTimes(1)
   })
 
-  it('reload 失败 ⇒ 落 error(卡片保持可见可重试)', async () => {
+  it('reload 失败 ⇒ 回到 ready(卡片继续在,可再点一次重试)并返回 false', async () => {
+    // 2026-10-27 修的真 bug:原来失败落 error 态,而提示卡只在 ready 渲染
+    // ⇒ 卡片直接消失,用户既看不到原因也没有重试入口,只能等下次冷启动。
     h.reloadAsync.mockRejectedValue(new Error('native channel broken'))
     const mod = await freshModule()
-    await mod.applyOtaUpdate()
-    expect(mod.otaSnapshot().state).toBe('error')
+    await expect(mod.applyOtaUpdate()).resolves.toBe(false)
+    expect(mod.otaSnapshot().state).toBe('ready')
+    expect(mod.otaSnapshot().lastError).toContain('native channel broken')
+  })
+})
+
+describe('OTA 状态机:并发去重(自动检查与设置页手动检查会撞车)', () => {
+  beforeEach(() => {
+    h.checkForUpdateAsync.mockReset()
+    h.fetchUpdateAsync.mockReset()
+  })
+
+  it('两趟同时进来只真正跑一趟', async () => {
+    // 用对象装回调:直接 `let release: (()=>void)|null` 会被 TS 控制流分析收窄成 null(赋值在回调里),
+    // 调用处报 "Type 'never' has no call signatures"。
+    const gate: { release?: () => void } = {}
+    h.checkForUpdateAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          gate.release = () => resolve({ isAvailable: true })
+        }),
+    )
+    h.fetchUpdateAsync.mockResolvedValue(undefined)
+
+    const mod = await freshModule()
+    const a = mod.checkOtaUpdate()
+    const b = mod.checkOtaUpdate()
+    // 等第一趟真正进到 checkForUpdateAsync 内部再放行
+    await Promise.resolve()
+    gate.release?.()
+
+    await expect(Promise.all([a, b])).resolves.toEqual(['ready', 'ready'])
+    expect(h.checkForUpdateAsync).toHaveBeenCalledTimes(1)
+    expect(h.fetchUpdateAsync).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('OTA 状态机:回前台补查判据', () => {
+  beforeEach(() => {
+    h.checkForUpdateAsync.mockReset()
+    h.fetchUpdateAsync.mockReset()
+    h.checkForUpdateAsync.mockResolvedValue({ isAvailable: true })
+    h.fetchUpdateAsync.mockResolvedValue(undefined)
+  })
+
+  it('从未查过 ⇒ 该补查', async () => {
+    const mod = await freshModule()
+    expect(mod.shouldAutoRecheck(30 * 60 * 1000)).toBe(true)
+  })
+
+  it('已有 ready 在等用户 ⇒ 不补查(否则卡片会被推回 checking 闪一下)', async () => {
+    const mod = await freshModule()
+    await mod.checkOtaUpdate()
+    expect(mod.otaSnapshot().state).toBe('ready')
+    expect(mod.shouldAutoRecheck(0)).toBe(false)
+  })
+
+  it('用户已关掉提示 ⇒ 不自动补查', async () => {
+    const mod = await freshModule()
+    await mod.checkOtaUpdate()
+    mod.dismissOtaPrompt()
+    expect(mod.shouldAutoRecheck(0)).toBe(false)
+  })
+
+  it('间隔不足 ⇒ 不补查;超过间隔 ⇒ 补查', async () => {
+    h.checkForUpdateAsync.mockResolvedValue({ isAvailable: false })
+    const mod = await freshModule()
+    await mod.checkOtaUpdate()
+    expect(mod.shouldAutoRecheck(30 * 60 * 1000)).toBe(false)
+    // 把"上次检查时刻"往回拨 31 分钟
+    const now = Date.now()
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(now + 31 * 60 * 1000)
+    try {
+      expect(mod.shouldAutoRecheck(30 * 60 * 1000)).toBe(true)
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

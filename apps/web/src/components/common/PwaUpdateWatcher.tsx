@@ -53,8 +53,15 @@ export function PwaUpdateWatcher(): null {
 
     const bootstrap = async () => {
       try {
+        // getRegistration 优先,拿不到才退回 ready —— 但 ready 是**永不 reject** 的 promise,
+        // SW 从未注册时它会永久 pending(实测):不给超时,这里就静默挂死,
+        // 后面的 watch/update 一次都不跑,表现成"更新提示永远不出现且没有任何报错"。
         const reg =
-          (await navigator.serviceWorker.getRegistration()) ?? (await navigator.serviceWorker.ready)
+          (await navigator.serviceWorker.getRegistration()) ??
+          (await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+          ]))
         if (disposed || !reg) return
         registration = reg
         watch(reg)
