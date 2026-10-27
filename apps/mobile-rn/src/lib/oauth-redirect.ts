@@ -15,7 +15,13 @@
  */
 
 import * as WebBrowser from 'expo-web-browser'
-import { dingtalkLogin, oauthCallback, wecomLogin, type LoginResult } from '@ihui/api-client'
+import {
+  dingtalkLogin,
+  oauthCallback,
+  recordOAuthConsent,
+  wecomLogin,
+  type LoginResult,
+} from '@ihui/api-client'
 import { WEB_BASE_URL } from './config'
 
 // 通用 OAuth 平台类型(对齐后端 POST /api/auth/:platform/callback 的 platform 参数)
@@ -107,19 +113,37 @@ export async function callOAuthCallback(
  *        已编码进 authUrl,本函数内部不再直接使用(下划线前缀表示有意保留参数以维持调用契约,
  *        apple.ts 等外部调用方仍传此参数)。openAuthSessionAsync 第二参数固定为 OAUTH_APP_RETURN_URI。
  * @param loginApi 拿到 code 后调后端换 JWT 的函数(各平台可能不同)
+ * @param opts.consentPlatform 指定时:打开授权会话前先在该平台/state 上记录协议同意。
+ *        通用回调(`POST /auth/:platform/callback`)服务端 fail-closed 只认这条记录;
+ *        记录失败即中止,不打开浏览器。走专有登录端点(dingtalkLogin / wecomLogin)的入口不传。
  * @param opts.allowMissingState provider 不回传 state 时跳过校验(支付宝 publicAppAuthorize 不保证回传)
  */
 export async function openOAuthAndLogin(
   authUrl: string,
   _redirectUri: string,
   loginApi: (code: string, state: string) => Promise<OAuthRedirectResult>,
-  opts?: { allowMissingState?: boolean },
+  opts?: { allowMissingState?: boolean; consentPlatform?: OAuthPlatform },
 ): Promise<OAuthRedirectResult> {
   const state = generateState()
   const separator = authUrl.includes('?') ? '&' : '?'
   const urlWithState = authUrl.includes('state=')
     ? authUrl
     : `${authUrl}${separator}state=${encodeURIComponent(state)}`
+
+  // 协议同意必须先于授权会话落地:服务端回调侧没有补记录的窗口
+  if (opts?.consentPlatform) {
+    try {
+      const consent = await recordOAuthConsent(opts.consentPlatform, state, true)
+      if (!consent.success || !consent.data?.ok) {
+        return { success: false, error: consent.error ?? '未记录第三方登录协议同意,已中止授权' }
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : '记录第三方登录协议同意失败',
+      }
+    }
+  }
 
   let result: WebBrowser.WebBrowserAuthSessionResult
   try {
@@ -163,8 +187,11 @@ export async function loginByFeishuRedirect(): Promise<OAuthRedirectResult> {
     `https://open.feishu.cn/open-apis/authen/v1/authorize` +
     `?app_id=${encodeURIComponent(FEISHU_APP_ID)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}`
-  return openOAuthAndLogin(authUrl, redirectUri, (code, state) =>
-    callOAuthCallback('feishu', code, state),
+  return openOAuthAndLogin(
+    authUrl,
+    redirectUri,
+    (code, state) => callOAuthCallback('feishu', code, state),
+    { consentPlatform: 'feishu' },
   )
 }
 
@@ -190,6 +217,7 @@ export async function loginByDingtalkRedirect(): Promise<OAuthRedirectResult> {
     `&client_id=${encodeURIComponent(DINGTALK_CLIENT_ID)}` +
     `&scope=${encodeURIComponent('openid')}` +
     `&prompt=consent`
+  // 专有端点 dingtalkLogin(/auth/dingtalk/login)不经通用回调,本轮不落同意记录
   return openOAuthAndLogin(authUrl, redirectUri, async (code) => {
     try {
       const res = await dingtalkLogin(code)
@@ -218,7 +246,8 @@ export async function loginByWecomRedirect(): Promise<OAuthRedirectResult> {
     `&appid=${encodeURIComponent(WECOM_CORP_ID)}` +
     `&agentid=${encodeURIComponent(WECOM_AGENT_ID)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}`
-  // 企微用 wecomLogin(code) 而非通用 oauthCallback(保持与现有契约一致)
+  // 企微用 wecomLogin(code) 而非通用 oauthCallback(保持与现有契约一致);专有端点不经通用回调,
+  // 本轮不落同意记录
   return openOAuthAndLogin(authUrl, redirectUri, async (code) => {
     try {
       const res = await wecomLogin(code)
@@ -244,8 +273,11 @@ export async function loginByGoogleRedirect(): Promise<OAuthRedirectResult> {
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&response_type=code` +
     `&scope=${encodeURIComponent('openid email profile')}`
-  return openOAuthAndLogin(authUrl, redirectUri, (code, state) =>
-    callOAuthCallback('google', code, state),
+  return openOAuthAndLogin(
+    authUrl,
+    redirectUri,
+    (code, state) => callOAuthCallback('google', code, state),
+    { consentPlatform: 'google' },
   )
 }
 
@@ -262,8 +294,11 @@ export async function loginByGithubRedirect(): Promise<OAuthRedirectResult> {
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&response_type=code` +
     `&scope=${encodeURIComponent('read:user user:email')}`
-  return openOAuthAndLogin(authUrl, redirectUri, (code, state) =>
-    callOAuthCallback('github', code, state),
+  return openOAuthAndLogin(
+    authUrl,
+    redirectUri,
+    (code, state) => callOAuthCallback('github', code, state),
+    { consentPlatform: 'github' },
   )
 }
 
@@ -287,7 +322,7 @@ export async function loginByAlipayRedirect(): Promise<OAuthRedirectResult> {
     authUrl,
     redirectUri,
     (code, state) => callOAuthCallback('alipay', code, state),
-    { allowMissingState: true },
+    { allowMissingState: true, consentPlatform: 'alipay' },
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
