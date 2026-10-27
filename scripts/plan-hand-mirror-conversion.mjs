@@ -273,6 +273,36 @@ export function apiEndpointsCovered(pageText, shellText) {
 }
 
 /**
+ * 逐个 showToast 调用的**括号配对**文本。不能拿正则截到第一个右花括号:模板串里的插值自带
+ * 右花括号,会把调用截断(实测 account-pool 第二处 toast 因此抓不到 key,整页被误判"壳没有这条提示")。
+ */
+export function toastCallSpans(src) {
+  const text = String(src ?? '')
+  const out = []
+  for (const m of text.matchAll(/Taro\.showToast\s*\(/g)) {
+    let i = m.index + m[0].length
+    let depth = 1
+    const start = i
+    while (i < text.length && depth > 0) {
+      const ch = text[i]
+      if (ch === '(') depth++
+      else if (ch === ')') depth--
+      i++
+    }
+    out.push({ start: m.index, text: text.slice(start, i - 1) })
+  }
+  return out
+}
+
+/** 鉴权钩子的页面,其 useDidShow 体若只做 gate.waitUntilReady(...) ⇒ 由 AuthReadyGate 承担。 */
+export function authGateCoversDidShow(pageText) {
+  if (!needsAuthGate(pageText)) return false
+  const blocks = lifecycleBlocks(pageText)
+  if (blocks.length === 0) return false
+  return blocks.every((b) => /waitUntilReady\s*\(/.test(b.body))
+}
+
+/**
  * 提示等价:页面 showToast 引用的 i18n key **全部**在壳正文里出现,且壳自己有提示出口
  * (appAlert / Toast) ⇒ 页面那几处 toast 是重复;壳的提示文案就是同一批词条。
  * 任一 key 在壳里找不到 ⇒ 壳没有这条提示,转壳会丢用户反馈 ⇒ 不销账(现读 67 页里只有 6 页满足)。
@@ -281,8 +311,8 @@ export function toastCovered(pageText, shellText) {
   const src = maskComments(String(pageText ?? ''))
   const shell = String(shellText ?? '')
   const keys = new Set()
-  for (const m of src.matchAll(/showToast\s*\(\s*\{[\s\S]*?\}\s*\)/g))
-    for (const k of m[0].matchAll(/\btt?\s*\(\s*'([A-Za-z0-9_.]+)'/g)) keys.add(k[1])
+  for (const call of toastCallSpans(src))
+    for (const k of call.text.matchAll(/\btt?\s*\(\s*'([A-Za-z0-9_.]+)'/g)) keys.add(k[1])
   if (keys.size === 0) return false
   if (!/appAlert|\bToast\b|toast\.(show|info|success)/.test(shell)) return false
   return [...keys].every((k) => shell.includes(k))
@@ -429,6 +459,8 @@ export function judgeConversion({
   const authGate = needsAuthGate(pageText)
   if (authGate)
     for (const tok of ['useAuthReadyGate', '@/hooks/use-auth-ready-gate']) pageTokens.delete(tok)
+  // 带鉴权钩子的页,其 useDidShow 若只做 waitUntilReady(...) ⇒ 由 AuthReadyGate 承担"就绪后再渲染"
+  if (authGateCoversDidShow(pageText)) for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
   // 提示等价:key 全在壳里且壳有提示出口才销账(壳没有这条提示就仍算私有)
   if (toastCovered(pageText, shellText)) pageTokens.delete('Taro.showToast')
   // 或:toast 全在 catch 内(错误反馈)+ 壳有错误出口 ⇒ 由壳的错误态承担
@@ -697,6 +729,12 @@ function main(argv) {
       toastOnlyInCatch("Taro.showToast({ title: t('ok') })"),
       toastOnlyInCatch('const x = 1'),
     ], [true, false, false])
+    P('S15 toast 括号配对(模板插值含右花括号也不截断) + 鉴权钩子的 useDidShow 由门承担', [
+      toastCallSpans("Taro.showToast({ title: `${t('a.b')}${msg ? `:${msg}` : ''}`, icon: 'none' })").length,
+      toastCovered("Taro.showToast({ title: `${t('a.b')}${msg ? `:${msg}` : ''}` })", "appAlert(t('a.b'))"),
+      authGateCoversDidShow("import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'\nuseDidShow(() => { gate.waitUntilReady(() => { void load() }) })"),
+      authGateCoversDidShow("useDidShow(() => { track() })"),
+    ], [1, true, true, false])
     P('S13 端点等价:页面 get/post 的端点须全部在壳 fetchApi 里(/api 前缀与动态段归一);带业务函数或端点不重合都不销', [
       apiEndpointsCovered(
         "import { get, post } from '@/api'\nget(`/follows/${id}/status`)\npost('/messages/conversations')",
@@ -781,6 +819,8 @@ export const __test__ = {
   backCovered,
   routeParamsCovered,
   toastCovered,
+  toastCallSpans,
+  authGateCoversDidShow,
   toastOnlyInCatch,
   needsAuthGate,
   backFallbackOnly,
