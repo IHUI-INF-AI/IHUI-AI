@@ -37,6 +37,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { catBatch } from './lib/face-reader.mjs'
 import { shellRefsOf, shellTargetRel } from './lib/rn-shell-refs.mjs'
+// 判决台账单源(§0.6):造页器已按它拒造「不承载」屏,覆盖尺也必须按它分桶 ——
+// 否则那几枚永远被读成"未判定(没人验过)",把"验过且结论是不承载"混进"没人验过"里。
+import { parseVerdictRows, VERDICTS_PATH } from './lib/cross-end-verdicts.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(HERE, '..')
@@ -258,6 +261,18 @@ function gitGrep(pattern, pathspec) {
  * 曾因 git grep 扫整个 src(把未注册页/组件里的引用也算进来)而当前面只扫注册页
  * ⇒ 未注册页上的标记被读成「本次被删」,当场造出假红(变异测试抓到)。
  */
+/**
+ * 未镜像集按判决台账分桶:台账判过「不承载」的进 judgedNotApplicable,其余仍算未判定。
+ * 纯函数 ⇒ --self-test 能直接打(桶口径改错时门槛低到不会漏测)。
+ */
+export function splitUnmirrored(unmirrored, notApplicable) {
+  const na = notApplicable instanceof Set ? notApplicable : new Set(notApplicable || [])
+  const judgedNotApplicable = []
+  const undetermined = []
+  for (const spec of unmirrored) (na.has(spec) ? judgedNotApplicable : undetermined).push(spec)
+  return { judgedNotApplicable, undetermined }
+}
+
 function headMirroredSpecs(allowedFiles) {
   const out = new Set()
   const allow = new Set(allowedFiles || [])
@@ -366,6 +381,21 @@ function run() {
   )
   const lostDelegated = [...headDelegatedRn()].filter((x) => !nowDelegated.includes(x))
 
+  // 已判「不承载」的屏(台账里 verdict=not-applicable)单列:它们不是"没人验过",也不该算缺口。
+  // 台账取不到 ⇒ 一个都不扣(失效方向恒为"多留一个未判定",绝不把没读过的东西当判过,§0.3)。
+  const verdictText = faceRead(FACE, VERDICTS_PATH)
+  const notApplicable = new Set()
+  let verdictBad = 0
+  if (typeof verdictText === 'string') {
+    const parsed = parseVerdictRows(verdictText)
+    verdictBad = parsed.bad.length
+    for (const r of parsed.rows) {
+      if (r.verdict === 'not-applicable' && typeof r.shared === 'string') notApplicable.add(r.shared)
+    }
+  }
+  const unmirrored = shared.filter((s) => !mirrored.has(s.spec)).map((s) => s.spec)
+  const { judgedNotApplicable, undetermined } = splitUnmirrored(unmirrored, notApplicable)
+
   const stats = {
     face: FACE,
     faceLabel: FACE_LABEL[FACE],
@@ -380,7 +410,9 @@ function run() {
     mirroredShared: nowMirrored.length,
     mirroredRatio: shared.length ? +(nowMirrored.length / shared.length).toFixed(4) : 0,
     registryEntries: (registry.entries || []).length,
-    undeterminedMiniapp: shared.length - nowMirrored.length - r1Red.length,
+    judgedNotApplicable: judgedNotApplicable.length,
+    verdictBadRows: verdictBad,
+    undeterminedMiniapp: undetermined.length,
   }
 
   const red = []
@@ -390,7 +422,7 @@ function run() {
 
 
   if (jsonMode) {
-    console.log(JSON.stringify({ stats, red, mirrored: nowMirrored, gaps: shared.filter((s) => !mirrored.has(s.spec)).map((s) => s.spec) }, null, 2))
+    console.log(JSON.stringify({ stats, red, mirrored: nowMirrored, gaps: shared.filter((s) => !mirrored.has(s.spec)).map((s) => s.spec), judgedNotApplicable, undetermined }, null, 2))
   } else {
     log(`判定面                  : ${stats.faceLabel}`)
     log(`共享屏(真相源)          : ${stats.sharedTotal}`)
@@ -398,7 +430,9 @@ function run() {
     log(`小程序页                : ${stats.miniappPagesTotal}(有文件 ${stats.miniappPagesWithFile})`)
     log(`共享屏被 RN 消费        : ${stats.rnConsumedShared}/${stats.sharedTotal}`)
     log(`共享屏被小程序显式镜像  : ${stats.mirroredShared}/${stats.sharedTotal}`)
+    log(`已判不承载(判决台账)    : ${stats.judgedNotApplicable}(验过、结论是不该由小程序承载;不算缺口)`)
     log(`未判定(无标记,不算缺口): ${stats.undeterminedMiniapp}`)
+    if (stats.verdictBadRows > 0) log(`⚠ 判决台账坏行 ${stats.verdictBadRows} 条(读不出来 ≠ 没判过)`)
     log(`登记表条目              : ${stats.registryEntries}`)
     if (red.length) {
       log('')
@@ -430,6 +464,23 @@ function selfTestFn() {
   cases.push({ name: 'A9 棘轮锚点=HEAD 面:已镜像集合可算且非空', pass: hm.size > 0, got: hm.size })
   const hd = headDelegatedRn()
   cases.push({ name: 'A10 棘轮锚点=HEAD 面:RN 下沉集合可算且非空', pass: hd.size > 0, got: hd.size })
+  // A16 判决台账分桶:判过「不承载」的不许混进未判定;台账取不到时一条都不扣(失效方向恒为多留)
+  {
+    const r1 = splitUnmirrored(['a', 'b', 'c'], new Set(['b']))
+    const r2 = splitUnmirrored(['a', 'b'], new Set())
+    const r3 = splitUnmirrored(['a'], null)
+    cases.push({
+      name: 'A16 未镜像集分桶:台账判不承载的进单列,其余仍未判定;台账空则一条不扣',
+      pass:
+        r1.judgedNotApplicable.length === 1 &&
+        r1.judgedNotApplicable[0] === 'b' &&
+        r1.undetermined.join(',') === 'a,c' &&
+        r2.judgedNotApplicable.length === 0 &&
+        r2.undetermined.length === 2 &&
+        r3.undetermined.length === 1,
+      got: `${r1.judgedNotApplicable.length}/${r1.undetermined.length} ${r2.judgedNotApplicable.length}/${r2.undetermined.length} ${r3.undetermined.length}`,
+    })
+  }
   // 取材面纪律(§0.4)的三条:读不到就是 null(不许回落另一个面)、列举与读取同面、
   // 在册页若在某一面上有文件,那一面必须真读得出内容(跨面回落会在这里当场露形)。
   cases.push({
@@ -471,7 +522,7 @@ function selfTestFn() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 /** §22c:判据单一出口 —— 取证测试 import 这份,禁止在测试里另抄一份面读取器 */
-export const __test__ = { faceRead, faceList, collectShared, collectRn, collectMiniapp, mirroredSpecs, rnConsumes, headMirroredSpecs, headDelegatedRn, FACE, MARK_RE }
+export const __test__ = { faceRead, splitUnmirrored, faceList, collectShared, collectRn, collectMiniapp, mirroredSpecs, rnConsumes, headMirroredSpecs, headDelegatedRn, FACE, MARK_RE }
 
 if (isDirectRun) {
   if (selfTest) process.exit(selfTestFn())
