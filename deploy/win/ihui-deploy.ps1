@@ -1442,14 +1442,24 @@ function Start-CleanBuildAsyncDelete {
     if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $true }
     $trashName = '.trash-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
     $trash = Join-Path (Split-Path -Parent $Path) $trashName
-    $renamed = $true
-    try {
-        Rename-Item -LiteralPath $Path -NewName $trashName -ErrorAction Stop
-        Log "[CLEAN-BUILD] 净面已改名 ⇒ 后台异步删除(收尾不阻塞):$trash"
-    } catch {
-        $renamed = $false
-        Log "[CLEAN-BUILD] 改名失败($_)⇒ 原路交后台进程直接删(改名要整树无句柄,删单文件只要该文件无锁,后台删照样不阻塞收尾)"
+    $renamed = $false
+    # 2026-10-28:改名先重试再降级。`because it is in use` 不是"改名这条路不通",而是
+    # 构建刚结束时 node/编译缓存/杀软扫描的句柄还没退干净(实测几乎每轮都撞)——
+    # 等几秒再试通常就成了,而改名成功才能把净面放进回收站(.trash-*)由 Sweep 兜底;
+    # 直接走原路径后台删的话,半途死掉留下的是 `clean-build-wt` 本体,下一轮只能靠
+    # "源码层与目标 SHA 不一致"再推倒重来。重试 ≤3 次、每次 3 秒(收尾持锁期最多多 6 秒),
+    # 全失败仍按原设计交后台进程 -AllowPlain 删,不放宽也不丢弃这条降级路径。
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            Rename-Item -LiteralPath $Path -NewName $trashName -ErrorAction Stop
+            $renamed = $true
+            break
+        } catch {
+            if ($attempt -lt 3) { Start-Sleep -Seconds 3 }
+            else { Log "[CLEAN-BUILD] 改名失败(重试 3 次仍 in use:$_)⇒ 原路交后台进程直接删(改名要整树无句柄,删单文件只要该文件无锁,后台删照样不阻塞收尾)" }
+        }
     }
+    if ($renamed) { Log "[CLEAN-BUILD] 净面已改名 ⇒ 后台异步删除(收尾不阻塞):$trash" }
     # $PSScriptRoot 兜底:本文件由部署环以 -File 启动时它等于 deploy\win;若哪天被 -Command
     # 内联或 dot-source 调用,它是空串,Join-Path 会抛"不能绑定到 Path"——
     # 那时退回 $Root\deploy\win(本脚本在生产/开发仓里的固定位置)。
