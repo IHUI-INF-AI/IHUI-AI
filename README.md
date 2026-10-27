@@ -17036,3 +17036,15 @@ A: Yes. ~14839+ tests / 3213 test files / 67 e2e spec / 4561 API 路由 / 608 �
 | 测试文件 | 3357 | `testFiles` |
 | 跟踪文件 | 16664 | `trackedFiles` |
 - 守门 251 `check-ps1-bom.mjs`(runner id 251,**blocking**,跳过变量 `HUSKY_SKIP_PS1_BOM=1`):判 `.ps1` / `.psm1` 必须以 **UTF-8 with BOM**(`EF BB BF`)写入。立因是实证不是假想——`AGENTS.md` §27 早规定这条,但全仓曾没有任何尺子校验它,76 个 `.ps1` 里 40 个没 BOM 而无人知;真害在 Windows 自带的 5.1 引擎按系统代码页(zh-CN=GBK)解码满篇中文的无 BOM 脚本,当场报「表达式或语句中包含意外的标记」并连累整模块「缺少右 }」,而受害模块被 `alert-dedup.ps1` 与 `ihui-monitor.ps1` dot-source ⇒ 生产上只要走一次 5.1,部署窗口控制与告警去重整条功能就是坏的(同批自带的 harness T2 专门断言「5.1 也要能加载」,因此在 main 上恒红)。取证:`node scripts/check-ps1-bom.mjs --self-test` 末行「自检通过(判据六例 + 端到端三例,正反两向都真跑)」;`deploy/**` 的 `.ps1` 不吃 `#requires` pragma 那条口径见 `check-pwsh-version.mjs`。
+| AI 服务路由 | 597 | `aiServiceRoutes` |
+| 测试文件 | 3359 | `testFiles` |
+| 工程守门 | 285 | `guardianGates` |
+| — blocking | 260 | `guardianBlocking` |
+| 跟踪文件 | 16670 | `trackedFiles` |
+> ⚠️ 未判定 1 项:`aiServiceRoutes`(apps/ai-service/app 有 1 个 .py 取不到内容)
+| **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + 分页 + 导入对话框 + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
+- **登录方式优先级按访客来源 IP 的地区判**(2026-10-27,web 主站 + 桌面壳同一份产物):国内 IP ⇒ 扫码登录 tab 排第一 + 微信整行主推大按钮;海外 IP ⇒ 邮箱验证码第一、手机号不开放 + Google 主推、GitHub 紧随图标网格首位。判据产出侧唯一出口 `apps/api/src/services/login-region.ts`(Cloudflare 边缘国家头 → GeoLite2/ip-api 兜底 → 判不出显式返回未判定),排序侧唯一出口 `packages/ui-react/src/components/login-form/region-policy.ts`(IP 判不出才回落界面语言)。地区经 `GET /api/auth/oauth-status` 的 `loginRegion` 字段下发,该端点同时显式 `Cache-Control: no-store` —— 实测这条响应此前默认 `max-age=14400` 且边缘可缓存,不关掉就会把首个访客的地区发给后面所有人。**该字段只影响呈现顺序,不参与任何鉴权/限流/风控判定**(国家头可被客户端自带伪造)。
+**2026-10-26**
+| API 路由 | 4562 | `apiRoutes` |
+| 测试文件 | 3334 | `testFiles` |
+| 跟踪文件 | 16615 | `trackedFiles` |

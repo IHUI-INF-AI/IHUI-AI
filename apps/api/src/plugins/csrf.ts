@@ -150,6 +150,18 @@ const PUBLIC_PREFIXES = [
   '/.well-known/',
   // 服务回调（HMAC/共享密钥，无 JWT）
   '/api/ai/callback',
+  // 短信厂商回调（2026-10-26 立）：腾讯云服务器到服务器投递，永远不带 CSRF token，
+  // 与浏览器 cookie 会话无关 ⇒ CSRF 在此没有防护对象。防线只有已登记的两道：SMS_CALLBACK_TOKEN
+  // 定长比较 + 可选 IP 白名单；**两道都未配时路由回 503 并记 error**（fail-closed，不静默放行），
+  // 除此之外没有第三道兜底 —— 别在注释里写不存在的防线（§0.8 出路必须真跑得通）。
+  // **刻意按这三条路径登记,而不是放开 /api/sms/callback/ 整个前缀**(纪律同下方 webhooks/github
+  // 与 github-app/webhook,O19 事故原文:参数化前缀连带放开静态子路由)。matchesPrefix 是段边界
+  // 语义:精确命中 + 该路径的子路径命中 ⇒ 放过的是这三条及其子路径(status/reply 本就住在
+  // tencent 之下),而 /api/sms/callback/ 下**将来另起的兄弟族**不再自动继承豁免 ——
+  // 这一条由 tests/csrf.test.ts 用兄弟路径钉死(摘掉本档改动,该用例当场翻红)。
+  '/api/sms/callback/tencent',
+  '/api/sms/callback/tencent/status',
+  '/api/sms/callback/tencent/reply',
   // 支付服务端回调（P2 修复 2026-08-06:豁免最小化,仅保留纯回调路径,且入口均有签名/密钥验签）:
   // - wechat/notify + wechat/notify/refund:verifyCallbackSignature 微信平台证书验签
   // - alipay/notify:verifyNotify 支付宝 RSA 验签

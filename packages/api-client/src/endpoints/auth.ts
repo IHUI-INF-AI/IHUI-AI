@@ -62,6 +62,13 @@ export interface OAuthStatus {
   feishu: boolean
   github: boolean
   alipay: boolean
+  /**
+   * 服务器按**请求来源 IP** 判出的登录呈现地区(2026-10-27 立)。
+   * 值域与判据权威住在 apps/api/src/services/login-region.ts(本包零依赖,不 import 它);
+   * null / 缺键 = 未判定,消费方必须回落到更粗的判据(界面语言),不得当成海外或国内。
+   * 用途只有一个:登录界面把哪几种方式排在前面。不得用于鉴权、限流或风控。
+   */
+  loginRegion?: 'domestic' | 'overseas' | null
 }
 
 /** Google Android id_token 验证返回的用户信息 */

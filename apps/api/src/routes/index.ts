@@ -14,6 +14,9 @@ import { fileRoutes } from './files.js'
 import { adminRoutes } from './admin.js'
 import { i18nDashboardRoutes } from './i18n-dashboard.js'
 import { notificationRoutes } from './notifications.js'
+// 短信回调(腾讯云状态回执 + 上行退订)与后台短信管理(2026-10-26)
+import { smsCallbackRoutes } from './sms-callback.js'
+import { adminSmsRoutes } from './admin-sms.js'
 // D43 会话内快捷笔记(第②格,2026-10-18):归属取令牌主体,整棵子树需登录
 import { voiceNoteRoutes } from './voice-notes.js'
 import { billingRoutes } from './billing.js'
@@ -566,6 +569,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminRoutes, { prefix: '/api/admin' })
   server.register(i18nDashboardRoutes, { prefix: '/api/admin' })
   server.register(notificationRoutes, { prefix: '/api' })
+  // 短信回调不走登录态(厂商回调),鉴权由 SMS_CALLBACK_TOKEN / IP 白名单两道闸负责
+  server.register(smsCallbackRoutes, { prefix: '/api/sms/callback' })
+  server.register(adminSmsRoutes, { prefix: '/api/admin/sms' })
   server.register(voiceNoteRoutes, { prefix: '/api/voice-notes' })
   server.register(billingRoutes, { prefix: '/api' })
   server.register(searchRoutes, { prefix: '/api' })
