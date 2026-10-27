@@ -127,6 +127,57 @@ const FACE_TXT = {
 // ─── 映射表(每条含取值依据,rn 路径 = [常量名, ...嵌套键]) ───
 const MAPPINGS = [
   {
+    label: 'surface.muted ↔ --color-muted',
+    rn: { light: ['rnLightTokens', 'surface', 'muted'], dark: ['rnDarkTokens', 'surface', 'muted'] },
+    css: { light: '--color-muted', dark: '--color-muted' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R3):RN 亮档 #EBEBEB / 暗档 (同亮) 与源 --color-muted 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-muted, --color-streamed-container-bg),其中与 RN 档名同名的只有 --color-muted(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'surface.card ↔ --color-card',
+    rn: { light: ['rnLightTokens', 'surface', 'card'], dark: ['rnDarkTokens', 'surface', 'card'] },
+    css: { light: '--color-card', dark: '--color-card' },
+    basis:
+      '2026-10-27 由 plan-rn-token-pairing 量得(R3):RN 亮档 #FFFFFF / 暗档 (同亮) 与源 --color-card 在 :root/@theme 与 .dark 两个面各自同值;同值候选 13 个(--color-card, --color-popover, --color-selection),其中与 RN 档名同名的只有 --color-card(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'text.primary ↔ --color-foreground',
+    rn: { light: ['rnLightTokens', 'text', 'primary'], dark: ['rnDarkTokens', 'text', 'primary'] },
+    css: { light: '--color-foreground', dark: '--color-foreground' },
+    basis:
+      '2026-10-27 定档(证据:RN 亮 #0A0A0A / 暗 #FAFAFA,源 hsl(0 0% 3.9%) / hsl(0 0% 98%) 两面各自 colorsAgree=true)。' +
+      '角色同一物:页面正文墨色。同值多源(还有 card-foreground / popover-foreground / selection-foreground 同色),但那些是"容器内前景",本档被 packages/app 当全局文字色取用;' +
+      '前景容器档各自已有自己的配对,故只认 --color-foreground。写回值与现值同色 ⇒ 零视觉变化。',
+  },
+  {
+    label: 'surface.bg ↔ --color-background',
+    rn: { light: ['rnLightTokens', 'surface', 'bg'], dark: ['rnDarkTokens', 'surface', 'bg'] },
+    css: { light: '--color-background', dark: '--color-background' },
+    basis:
+      '2026-10-27 定档(证据:RN 亮 #F5F5F5 / 暗 #242424,源 hsl(0 0% 96.1%) / hsl(0 0% 14%) 两面 colorsAgree=true)。' +
+      '角色同一物:页面底色。同值候选里 --color-secondary 是"次级面"、--color-sidebar 是侧栏面、--color-brand-50 是品牌色阶,' +
+      '都不该在 web 改它们时顺带重绘 RN 的页面底 —— 按角色只认 --color-background。写回同色 ⇒ 零视觉变化。',
+  },
+  {
+    label: 'overlay.modal ↔ --color-black-40 / --color-black-60',
+    rn: { light: ['rnLightTokens', 'overlay', 'modal'], dark: ['rnDarkTokens', 'overlay', 'modal'] },
+    css: { light: '--color-black-40', dark: '--color-black-60' },
+    basis:
+      '2026-10-27 定档(证据:RN 亮 rgba(0,0,0,0.4) ↔ 源 --color-black-40 同值;RN 暗 rgba(0,0,0,0.6) ↔ 源 --color-black-60 同值)。' +
+      '此前被计划器报成"暗档分歧":暗面 0.6 有两条同值候选(--color-scrim 与 --color-black-60),命名推不出唯一。' +
+      '取 black-60 不取 scrim 的依据:本仓 --color-scrim 在 web/ui-react/miniapp **零消费方**(现读 git grep 0 命中),' +
+      '把 RN 五个在用的遮罩组件(BottomPops/BottomPopup/IntroducePopup/PrivacyPolicyModal/BottomActionBar)挂到一张死档上,' +
+      '等于让"没人用的变量"变成活合同 ——"black-60"档名即值,是无歧义的 alpha 档。写回同色 ⇒ 零视觉变化。',
+  },
+  {
+    label: 'overlay.loading ↔ --color-white-80 / --color-black-60',
+    rn: { light: ['rnLightTokens', 'overlay', 'loading'], dark: ['rnDarkTokens', 'overlay', 'loading'] },
+    css: { light: '--color-white-80', dark: '--color-black-60' },
+    basis:
+      '2026-10-27 定档(证据:RN 亮 rgba(255,255,255,0.8) ↔ --color-white-80 同值;RN 暗 rgba(0,0,0,0.6) ↔ --color-black-60 同值)。' +
+      '加载遮罩亮面是"压白的白罩"、暗面随全局遮罩压黑,两侧各取同值 alpha 档;理由与 overlay.modal 同源(scrim 无消费方,不挂)。',
+  },
+  {
     label: 'surface.dark ↔ --color-surface-dark',
     rn: { light: ['rnLightTokens', 'surface', 'dark'], dark: ['rnDarkTokens', 'surface', 'dark'] },
     css: { light: '--color-surface-dark', dark: '--color-surface-dark' },
