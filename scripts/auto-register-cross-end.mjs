@@ -121,6 +121,21 @@ export function scoreRenderCandidate(webEps, screenEps) {
 }
 
 /**
+ * 文案证据(第二型):端点这一证据类型对某些屏**结构性不存在** —— EP_RE 只认字面 '/api/…' 字符串,
+ * 而共享屏大多经 api-client 抽象、不写死字面路径(2026-10-28 实测:10 条渲染推翻候选里 7 条两侧至少一侧
+ * 端点为空)。这时按「专有 i18n 命名空间命中 ∧ 专有键重合 ≥2」裁,通用键(common/app/nav/…)整批排除。
+ * 阈值与小程序那一维同源(§0.6):两处各写一遍必然漂移,故那一维也改调本函数。
+ */
+export function keyEvidence(screenKeys, pageKeys) {
+  const isGeneric = (k) => GENERIC_NS.has(nsOf(k))
+  const sns = new Set([...screenKeys].map(nsOf).filter((n) => !GENERIC_NS.has(n)))
+  const pns = new Set([...pageKeys].map(nsOf).filter((n) => !GENERIC_NS.has(n)))
+  const nsHit = [...sns].filter((n) => pns.has(n))
+  const keyCommon = common(screenKeys, pageKeys).filter((k) => !isGeneric(k))
+  return { nsHit, keyCommonN: keyCommon.length, strong: nsHit.length > 0 && keyCommon.length >= 2, sample: keyCommon.slice(0, 4) }
+}
+
+/**
  * 纯函数取证档(§22c 的落地形态:本文件是顶层流程型 CLI,没有 isDirectRun 保护,
  * import 它 = 跑整条登记链 ⇒ 判据自证只能走自带 --self-test,派发形状另由镜像件锁)。
  * 刻意排在重活之前:这一档不读台账、不跑对账尺,秒级返回。
@@ -148,6 +163,18 @@ function selfTestRender() {
   )
   P('R4 一侧空集 ⇒ 不过闸(取不到证据不能读成"证据支持")', scoreRenderCandidate(S(['/a']), new Set()).strong === false, '')
   P('R5 交集样本 ≤3 条(出账可读,不灌整集)', scoreRenderCandidate(S(['/a', '/b', '/c', '/d']), S(['/a', '/b', '/c', '/d'])).sample.length === 3, '')
+  // 文案证据这一型:通用键(common.*/nav.*)整批排除,否则任意两页都会因"确定/取消"被判成同物。
+  P(
+    'R8 文案证据:专有 ns 命中 ∧ 专有键 ≥2 ⇒ 过闸;只有通用键 ⇒ 不过闸',
+    keyEvidence(S(['favorites.title', 'favorites.empty', 'common.ok']), S(['favorites.title', 'favorites.empty', 'common.cancel'])).strong === true &&
+      keyEvidence(S(['common.ok', 'common.cancel']), S(['common.ok', 'common.no'])).strong === false,
+    '',
+  )
+  P(
+    'R9 文案证据:ns 命中但专有键只 1 条 ⇒ 不过闸(单键共名会把两页并成一条)',
+    keyEvidence(S(['settings.a', 'settings.b']), S(['settings.a', 'profile.c'])).strong === false,
+    '',
+  )
   // 形状锁:阈值字面量全文件只许出现在 epOverlapStrong 那一处。**必须先剥注释**再数 ——
   // 本文件头注与上面的理由注释里就写着这条阈值,不剥会把散文算成用量(实测就是这样误判过一次)。
   const srcText = maskComments(readFileSync(new URL(import.meta.url), 'utf8')).replace(/\s+/g, ' ')
@@ -208,6 +235,17 @@ function screenEpsOf(s) {
   for (const f of symbolOwners.get(s.name) || []) for (const e of endpointsOf(cov.faceRead(FACE, f) || '')) ep.add(e)
   return ep
 }
+/**
+ * ①b 用的共享屏文案键 = 屏源文件 ∪ 其 RN 壳文件(与小程序那一维同口径,不另写一份)。
+ * 为什么复判需要这一型:EP_RE 只认字面 '/api/…',而共享屏经 api-client 抽象 ⇒ 端点对它们结构性为空
+ * (实测 10 条推翻候选里 7 条如此),只剩文案可比。
+ */
+function screenKeysOf(s) {
+  const sk = keysOf(cov.faceRead(FACE, s.spec))
+  for (const f of symbolOwners.get(s.name) || []) for (const k of keysOf(cov.faceRead(FACE, f) || '')) sk.add(k)
+  return sk
+}
+
 const mapRows = parity.loadMap(FACE)
 // 门户承载集:判据取对账尺那一份实现,本文件零复算(§0.6)。表取不到 ⇒ set=null ⇒ 整维未判定:
 // 既不放宽跳过集,也不改写任何在册行(§0.3 —— 取不到不能读成"没有门户承载")。
@@ -300,29 +338,39 @@ if (convergeRender) {
         continue
       }
       const sep = screenEpsOf(s)
-      if (webEps.size === 0 || sep.size === 0) {
+      const sc = scoreRenderCandidate(webEps, sep)
+      const sk = screenKeysOf(s)
+      const pk = keysOf(rel ? cov.faceRead(FACE, rel) || '' : '')
+      const kev = keyEvidence(sk, pk)
+      // 两型证据都必须"量到了"才算结论:一型结构性缺失(两侧都取不到字面端点 / 都没有专有键)时,
+      // 说"不重叠"就是坏尺子而不是发现(§0.3)。
+      const epMeasurable = webEps.size > 0 && sep.size > 0
+      const keyMeasurable = sk.size > 0 && pk.size > 0
+      if (sc.strong || kev.strong) {
+        const ev = sc.strong
+          ? `端点交集 ${sc.n} 条(jac ${sc.jac.toFixed(2)};样本 ${(sc.sample || []).join(',').slice(0, 60)})`
+          : `专有命名空间 ${kev.nsHit.join('/')} 专有键重合 ${kev.keyCommonN} 条(样本 ${kev.sample.join(',').slice(0, 60)})`
+        renderRowsToLand.push({
+          web: c.web,
+          rn: s.spec,
+          status: 'aligned',
+          note: `渲染+${sc.strong ? '端点' : '文案'}复判@${TODAY}:RN 已渲染 ${s.name} ∧ ${ev};原在册 gap 由本行取代`,
+          at: TODAY,
+        })
+        continue
+      }
+      if (!epMeasurable && !keyMeasurable) {
         renderUndetermined.push({
           web: c.web,
           rn: s.spec,
-          why: `一侧端点取不到(web ${webEps.size} 条 / RN ${sep.size} 条;rel=${rel || '不在路由面'})⇒ 本维未判定,不读成"语义不同"`,
+          why: `两型证据都量不到(端点 web ${webEps.size}/RN ${sep.size};键 屏 ${sk.size}/页 ${pk.size})⇒ 本维未判定,不读成"语义不同"`,
         })
         continue
       }
-      const sc = scoreRenderCandidate(webEps, sep)
-      if (!sc.strong) {
-        renderRefused.push({
-          web: c.web,
-          rn: s.spec,
-          why: `两侧都取到端点(web ${webEps.size} / RN ${sep.size})却不重叠(jac ${sc.jac.toFixed(2)},交集 ${sc.n})⇒ 门头注那型同名异义,留 gap`,
-        })
-        continue
-      }
-      renderRowsToLand.push({
+      renderRefused.push({
         web: c.web,
         rn: s.spec,
-        status: 'aligned',
-        note: `渲染+端点语义复判@${TODAY}:RN 已渲染 ${s.name} ∧ 端点交集 ${sc.n} 条(jac ${sc.jac.toFixed(2)};样本 ${(sc.sample || []).join(',').slice(0, 80)});原在册 gap 由本行取代`,
-        at: TODAY,
+        why: `同名确被渲染,但${epMeasurable ? `端点不重叠(web ${webEps.size}/RN ${sep.size},jac ${sc.jac.toFixed(2)},交集 ${sc.n})` : '端点这一型取不到'};${keyMeasurable ? `专有键也不重合(屏 ${sk.size}/页 ${pk.size},命中 ${kev.keyCommonN} 条,ns ${kev.nsHit.join('/') || '无'})` : '文案这一型取不到'} ⇒ 留 gap`,
       })
     }
   }
@@ -341,7 +389,6 @@ if (!only || only === 'miniapp') {
     if (owners.length === 0 || !isExported(g.name)) continue
     const sk = keysOf(cov.faceRead(FACE, g.spec))
     for (const f of owners) for (const k of keysOf(cov.faceRead(FACE, f) || '')) sk.add(k)
-    const sns = new Set([...sk].map(nsOf).filter((n) => !GENERIC_NS.has(n)))
     const sep = new Set()
     for (const f of owners) for (const e of endpointsOf(cov.faceRead(FACE, f) || '')) sep.add(e)
     // 名称同源(宁漏不误):共享屏 domain/屏名 token 必须在小程序路由段里出现;
@@ -358,13 +405,13 @@ if (!only || only === 'miniapp') {
         .map(stem)
       if (!gTokens.some((t) => pTokens.includes(t))) continue
       const pk = keysOf(p.text)
-      const pns = new Set([...pk].map(nsOf).filter((n) => !GENERIC_NS.has(n)))
-      const nsHit = [...sns].filter((n) => pns.has(n))
+      const kev = keyEvidence(sk, pk)
+      const nsHit = kev.nsHit
       const keyCommon = common(sk, pk).filter((k) => !GENERIC_NS.has(nsOf(k)))
       const pep = endpointsOf(p.text)
       const epJac = jaccard(sep, pep)
       const epCommon = common(sep, pep)
-      const keyStrong = nsHit.length > 0 && keyCommon.length >= 2
+      const keyStrong = kev.strong
       const epStrong = epCommon.length >= 1 && epJac >= 0.4
       if (!keyStrong && !epStrong) continue
       cands.push({

@@ -78,15 +78,25 @@ test('A2 阈值单源:①b 走 scoreRenderCandidate,且端点阈值全文件只�
   )
 })
 
-test('A3 空集不算证据:一侧取不到 ⇒ undetermined,不并进"不重叠"', () => {
+test('A3 空集不算证据:两型都量不到 ⇒ undetermined,不并进"不重叠"', () => {
   const src = flat(work('scripts/auto-register-cross-end.mjs'))
   assert.match(src, /const renderUndetermined = \[\]/, '未判定必须单独成桶')
   assert.match(
     src,
-    /if \(webEps\.size === 0 \|\| sep\.size === 0\)[\s\S]{0,200}renderUndetermined\.push/,
-    '空集走 undetermined 分支(把"量不到"报成"量出不同"是坏尺子,不是结论)',
+    /if \(!epMeasurable && !keyMeasurable\)[\s\S]{0,200}renderUndetermined\.push/,
+    '两型证据都量不到才叫未判定(把"量不到"报成"量出不同"是坏尺子,不是结论)',
   )
+  assert.match(src, /const epMeasurable = webEps\.size > 0 && sep\.size > 0/, '端点这一型要显式声明"量到了没有"')
+  assert.match(src, /const keyMeasurable = sk\.size > 0 && pk\.size > 0/, '文案这一型同上')
   assert.match(src, /未判=\$\{renderUndetermined\.length\}/, '出账必须把未判定条数报出来')
+})
+
+test('A5 第二型证据接上:端点缺失时回落专有键,阈值与小程序那一维同源', () => {
+  const src = flat(work('scripts/auto-register-cross-end.mjs'))
+  assert.match(src, /const kev = keyEvidence\(sk, pk\)/, '①b 必须走 keyEvidence,不许就地再算一遍')
+  assert.match(src, /if \(sc\.strong \|\| kev\.strong\)/, '两型任一成立才改判')
+  assert.equal((src.match(/nsHit\.length > 0 && keyCommon\.length >= 2/g) || []).length, 1, '键阈值出现两处 ⇒ 两把尺子(§0.6)')
+  assert.equal((src.match(/epCommon\.length >= 1 && epJac >= 0\.4/g) || []).length, 1, '小程序那一维的端点阈值同样只许一处')
 })
 
 test('A4 取代面收窄:改判行只按显式 (web,status) 对取代旧 gap 行', () => {
