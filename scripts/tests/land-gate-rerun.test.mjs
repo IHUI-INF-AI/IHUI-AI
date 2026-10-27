@@ -306,4 +306,59 @@ test('T12 形状锁:object-space-land 与 union-converge 两台旁路落地器�
   assert.match(uc, /import \{ rerunAffectedGates \} from '\.\/lib\/land-gate-rerun\.mjs'/)
   assert.match(uc, /rerunAffectedGates\(\{ root: ROOT, paths: \[\.\.\.new Set\(\[\.\.\.LIVE_DOCS, \.\.\.p\.tookTheirs\]\)\] \}\)/)
 })
+
+// ── T13 锚点档:声明了 rerunAnchor 的门,复跑必须带 --rev/--anchor ──
+// 病根(2026-10-27 实测,同一枚被咬两次):门 98 落地**前**那跑是带树+锚点的(只拦本枚新增),
+// 落地**后**的复跑档不带锚点 ⇒ HEAD 上 16 条存量被算成本枚新增,每次旁路落地都判红一次。
+// 恒红的复跑臂只会逼人设 IHUI_LAND_SKIP_AFFECTED_GATES=1(§12e),所以两跑的口径必须一致。
+test('T13 rerunAnchor 门以锚点档复跑;未声明的门不得被塞锚点', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  writeFileSync(join(dir, 'scripts', 'stub-gate.mjs'), STUB_SRC)
+  const marker = join(dir, 'argv.txt')
+  const regAnchored = join(dir, 'reg-anchor.txt')
+  writeFileSync(
+    regAnchored,
+    `const checks = [
+  { id: '908', label: 'stub anchored', script: 'stub-gate.mjs', args: [], mode: 'blocking', rerunAnchor: true, stagedTriggers: ['pkg/'] },
+]\n`,
+  )
+  const env = { LAND_GATE_RERUN_REGISTRY: regAnchored, STUB_RC: '0', STUB_MARKER: marker }
+  const res = rerunAffectedGates({ root: dir, paths: ['pkg/readme.md'], env })
+  assert.equal(res.verdict, 0)
+  const argv = readFileSync(marker, 'utf8')
+  assert.match(argv, /--rev HEAD/, `锚点档必须指定被审面(实收:${argv})`)
+  assert.match(argv, /--anchor HEAD\^/, `锚点必须是本枚的父,否则棘轮无基准(实收:${argv})`)
+
+  // 反向对照:没声明能力的门不得被塞锚点(否则等于给所有门改了口径)
+  const regPlain = join(dir, 'reg-plain.txt')
+  writeFileSync(
+    regPlain,
+    `const checks = [
+  { id: '909', label: 'stub plain', script: 'stub-gate.mjs', args: [], mode: 'blocking', stagedTriggers: ['pkg/'] },
+]\n`,
+  )
+  rerunAffectedGates({ root: dir, paths: ['pkg/readme.md'], env: { ...env, LAND_GATE_RERUN_REGISTRY: regPlain } })
+  const argv2 = readFileSync(marker, 'utf8')
+  assert.ok(!argv2.includes('--rev'), `未声明 rerunAnchor 的门被塞了锚点:${argv2}`)
+
+  // 真仓接线锁:门 98 在注册表里确实带了这个能力(不然改了机制而存量红照旧)
+  const runner = readFileSync(join(HERE, '..', 'guardian-runner.mjs'), 'utf8')
+  const e98 = runner.slice(
+    runner.indexOf("script: 'check-dangling-local-imports.mjs'"),
+    runner.indexOf("script: 'check-dangling-local-imports.mjs'") + 900,
+  )
+  assert.match(e98, /rerunAnchor:\s*true/, '注册表里没声明能力 ⇒ 本枚只是写了机制没装车')
+
+  // 解析面单测:能力必须被读出来(真/缺省两态),且不依赖字段在条目里的书写次序
+  const on = extractEntryFields("{ id: '8', script: 'a.mjs', rerunAnchor: true, mode: 'blocking' }")
+  assert.equal(on.rerunAnchor, true, '解析器没读出 rerunAnchor ⇒ 装了等于没装')
+  const off = extractEntryFields("{ id: '9', script: 'a.mjs', mode: 'blocking' }")
+  assert.equal(off.rerunAnchor, false, '未声明的门必须读成 false,不得默认带锚点')
+  // 注释里出现同名字样不得被当成声明(取材遮注释是同族事故的既有口径)
+  const commented = extractEntryFields(
+    "{ id: '10', script: 'a.mjs', mode: 'blocking' }\n// rerunAnchor: true 这是散文,不算声明\n",
+  )
+  assert.equal(commented.rerunAnchor, false, '注释里的散文被当成了能力声明')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
