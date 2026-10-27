@@ -8,11 +8,11 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: db087fdc4c2228c450cf4f5082e1e3d790d93450
-// inputsSha256: 48488b7e94a1c753920c95c54356c6de8e1e3ecd126bc579c6ae802ef4541844
+// sourceCommit: e29e7ee2d9e935c6d15673fd5ec7e721101c63d8
+// inputsSha256: fa55d7a36e626c06cd36b57af595843f8704b34dcb3477b5491ba66894a00fff
 // input: apps/miniapp-taro/src/api/index.ts 906678d9feb2dabe632a4a45b2a75ace7e081d020944f31357aa249f64c7ab2e
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
-// input: apps/miniapp-taro/src/app.config.ts 00f704d11f2a44d6df6cb92b48d21108c14e48ba28ecbbf17e4ba71e5db7f307
+// input: apps/miniapp-taro/src/app.config.ts 91a669d5873a3021ba3867d24fd3f1889aee102fbb2720aa6c6edb556ffc8fd5
 // input: apps/miniapp-taro/src/app.tsx e0b0feff8f2c5092b9bcb916cc9dc173002f9e7b71b21bb0132f207a04e79668
 // input: apps/miniapp-taro/src/components/AgentListPanel.tsx 1e9ba13abe25ef1f475d28393dc0df9812a4b3df620bff14e19cf2942914c051
 // input: apps/miniapp-taro/src/components/AgentRuntimePanel.tsx dccf5486d145e8f00d80c4e8067ef929229234d2122b8f2e625f9dc48c6872d6
@@ -470,6 +470,9 @@
 // input: apps/miniapp-taro/src/pkg-mirror3/topup-fail/index.tsx 0ba4c4d51b73cccdfd8cdfe56f21e1298249c32177df319617a088fb137e550e
 // input: apps/miniapp-taro/src/pkg-mirror3/usage/index.tsx a3a9270f2eb23fb5070b4050e4cce6c89921f77d06a6fa954c6098d9368a9155
 // input: apps/miniapp-taro/src/pkg-mirror3/vip-level/index.tsx 73f6a13d9174383347ab5005bf1b4e56f4f03eba36fa7bd468afe050fca73541
+// input: apps/miniapp-taro/src/pkg-mirror3/workflow-detail/index.tsx cdea036711ab9bfcda4adcabc3dbcc6feee75f94ae8141335806de4419f67ac3
+// input: apps/miniapp-taro/src/pkg-mirror3/workflow-instance-detail/index.tsx 3b7e1e0e9eeb1d91c99b631cef29cf7d589258489627d75d68eea1447a0d7528
+// input: apps/miniapp-taro/src/pkg-mirror3/workflow-list/index.tsx 21ea4706b38cb1fb3c84a5a3ccf1af21c0f36d379301c61f596825c84d5904e1
 // input: apps/miniapp-taro/src/pkg-mirror3/workflows/index.tsx c84b870bcf6ba38929ee223750b796c866281e4554e6aa45c74c59859bdc85b4
 // input: apps/miniapp-taro/src/pkg-shop/cart/index.tsx 8b40b60c92cd2375f90376bcf8c0721b7ba1d3822a06b6528d557c027fe875d5
 // input: apps/miniapp-taro/src/pkg-shop/edu-shop/index.tsx 9185d984f492045b388f4dc149d00e0c98ae3d46acdef3493fefe7e21ca21cd4
@@ -510,13 +513,16 @@
 // input: apps/miniapp-taro/src/pkg-user/account-pool/add-form.tsx a06d3bf3ec06d2e53e0e223bd7d4b73297a28b82bad7b986afbf053a5ed47091
 // input: apps/miniapp-taro/src/pkg-user/account-pool/index.tsx 6779c2e6600ec0e544454b8360320fe17eb61d796f4b71c80af4048c690b14cd
 // input: apps/miniapp-taro/src/pkg-user/account-pool/pool-row.tsx 504cff49d535def8e68cc2eb61b7905e6b3b58d5c65461afd1d081578db33888
+// input: apps/miniapp-taro/src/pkg-user/agent-chat/index.tsx 69ef7b8d5f7fb5f5dc7a22ce827f4ed095266541c55d0e61ca67f7327b6415df
 // input: apps/miniapp-taro/src/pkg-user/agent-create/index.tsx 6a5e3ee9865985ffbf6dfe5c25625026ca076f4b0cbf6be671950f6f1575459e
 // input: apps/miniapp-taro/src/pkg-user/agent-market/index.tsx c3cf7d7e4725578f5cb63aaa8bb6563da84f24aeb2f2c1dc6bddd910867d68d3
 // input: apps/miniapp-taro/src/pkg-user/agent-review-list/index.tsx d0d50108bc6923c4a544162bfd9fc480d0b160ab54cd2dc9ba777ae8810f3191
 // input: apps/miniapp-taro/src/pkg-user/agent-setting/index.tsx c56ee346d739a31f9a6f54c44c4996686eb7c8d4e679a46208eea476402b1543
 // input: apps/miniapp-taro/src/pkg-user/agent-stat/index.tsx 1f35ad36d175271ac9e0a8da665c8b849ee2ec87d56086cbde8db20de74777f4
 // input: apps/miniapp-taro/src/pkg-user/ai-multimodal/index.tsx e9b016f5dee5937af5f7498bddde3b07de3f28ad34dc2975384781e7d72a5fac
+// input: apps/miniapp-taro/src/pkg-user/ai-world/index.tsx 99a259da1b63466c7ab4a0084f8fffc9fc27c91c732d58d11f7ecaa5e6ce5d46
 // input: apps/miniapp-taro/src/pkg-user/aigc-cover/index.tsx 9b58e48c6480597440b9795b449a54f3c477d7928d36b4dcd2b54bf32964e590
+// input: apps/miniapp-taro/src/pkg-user/assistant/index.tsx 8186e1efc29e6a4c58cb98dfdb5afdbe8faa762b8c11bd82f13218150e295c60
 // input: apps/miniapp-taro/src/pkg-user/automations/index.tsx f04f629c683f168b1e531217948d74f57d22db4bddc712171db23a4af411d1d4
 // input: apps/miniapp-taro/src/pkg-user/bank-card/index.tsx 78d9013fceca2e100881aeaa31586b233b73782a5f5bc550753a33ce60205af3
 // input: apps/miniapp-taro/src/pkg-user/bill/index.tsx 99e451ce198cf865cee3cf72294a196611a2bb45e7a07118075432888889746b
@@ -531,6 +537,7 @@
 // input: apps/miniapp-taro/src/pkg-user/circle-chat/index.tsx 8b67abdbdcb79f07c8a267ec0893b9a4879ad8c77026f29c921760a5a0ce4508
 // input: apps/miniapp-taro/src/pkg-user/circle-member/index.tsx 5a005a7ec728e1472e71f4d8f0f60fcd549710ecfbe902171bb2dcc65de38bf3
 // input: apps/miniapp-taro/src/pkg-user/connected-accounts/index.tsx bca47d2bf7a8127a9fbc2ca88ba773cbeee6e533e96b18cd442cbc72be1c21c4
+// input: apps/miniapp-taro/src/pkg-user/connectors/index.tsx 374b3d2ff172aa2a6838645dfa4512b6692efd8dd0a1a395af02eb4bc3855217
 // input: apps/miniapp-taro/src/pkg-user/context/index.tsx a6dc23c23dabcc476665eb9c6e921b356c1805831ceee988166974bf70ccf891
 // input: apps/miniapp-taro/src/pkg-user/course-annex/index.tsx 026a752a459ed797ba2176c1d45cf250b92fc289454a3a42252035c68152fe80
 // input: apps/miniapp-taro/src/pkg-user/edu-child/attendance/index.tsx b9f372984dbc05bf6cf90ac7ed3aa0fbbf560ff76caefacbb5cffd6b76c93406
@@ -550,12 +557,19 @@
 // input: apps/miniapp-taro/src/pkg-user/favorites/index.tsx 0e2d32d5d2f246d369f1cc4099332c2dc77f6b23e4aee454990478fd8bd2980b
 // input: apps/miniapp-taro/src/pkg-user/following/index.config.ts c17f5f4bf09110d00ae568437b311ca7ca331436bc8578f6d314671390db3e92
 // input: apps/miniapp-taro/src/pkg-user/following/index.tsx 257df6800f24f710e4782f709b5f5b2f64f2b8534a727f2b3129e40527e40101
+// input: apps/miniapp-taro/src/pkg-user/knowledge-planet/index.tsx 3a9026618ef4e5c8019b55372e1717d8ffd0a6e8c6051ed7cdd53a37e896fa87
 // input: apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx a5c208de3fe7f97737ac0beee67d2b17bc1ae5980ffc5b9bbb36c0bdb4cb95db
 // input: apps/miniapp-taro/src/pkg-user/message/index.config.ts 5724af357a63f4a3d80dfa39ddcb588a5ff31bf7effb367ffc65be28e025d364
 // input: apps/miniapp-taro/src/pkg-user/message/index.tsx 5be111e523b92a3a8dfd0ea24ef307656f9cb524b7efe5d49a42f0e606ed02ae
 // input: apps/miniapp-taro/src/pkg-user/subscriptions/index.config.ts 8c1e683f06023f20eaa560b46a26f01c36d0396c9a4bd4a87b47d5518e5b0f59
 // input: apps/miniapp-taro/src/pkg-user/subscriptions/index.tsx ebee73211b3fd5a43e46b078f19f1ab79c4df10891e6deec6de9fe185df511e2
+// input: apps/miniapp-taro/src/pkg-user/support/index.tsx 01869b77e4887c4c89249fca489b5f76d0fc982e501e944f5acf045d7e9db27d
+// input: apps/miniapp-taro/src/pkg-user/tag-detail/index.tsx dd962775df5be6d6270c10070d2c1139882165adba085fc348407a829e1e6664
+// input: apps/miniapp-taro/src/pkg-user/tags/index.tsx cb1c96359ca9ea1b6682990ba229e45f6bb7c3b3920b8cd900314d20dbdfcd15
 // input: apps/miniapp-taro/src/pkg-user/task-center/index.tsx 9a5bdad9f502bb935e67b84a569bae95e15f2400a66eb8e8bf5d34544d0b4db5
+// input: apps/miniapp-taro/src/pkg-user/team-workspace/index.tsx b7b1f2691f94c921586a9c76afc3e68be26f221ec6993c6c9ea12f93a36e4d8d
+// input: apps/miniapp-taro/src/pkg-user/teams/index.tsx d98fa32dfcb21f87786fed5d2af6e3ce820745bf30392fa0b753d17e42d11e38
+// input: apps/miniapp-taro/src/pkg-user/tools/index.tsx e413318ba86e203debf4d681136bf29e0bfc872fb930364c509b60ae3ee295f9
 // input: apps/miniapp-taro/src/pkg-user/user-public/index.tsx b503cf6cb3053e72aa7a622191c0f5a41ff1cd738b2b3964d20bd3c6bfea1566
 // input: apps/miniapp-taro/src/pkg-user/user/avatar.config.ts a9b52097d7246785ba5a108c72302be136bd00bd4258e73e3c1ba9ea36c8c697
 // input: apps/miniapp-taro/src/pkg-user/user/avatar.tsx 42eef38bde21e8d538773dd27d8be762dab237eb042e959458db8eae3cd46f64
@@ -638,9 +652,9 @@
 // input: apps/miniapp-taro/src/utils/visit-tracker.ts 86fd000208a9998e70d5970099acdef093c25bf0031c8f80474aabc117d868fa
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts f3405919e3d130c52be0c105153f70c9bfad426ceb8e081adf65badc15580e5a
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
-// scanned: 504 source files(navigateTo url 参数探测,requiresParams 的依据)
-// skipped: pagesWithoutOwnConfig=146(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-27T04:13:43.314Z
+// scanned: 518 source files(navigateTo url 参数探测,requiresParams 的依据)
+// skipped: pagesWithoutOwnConfig=160(标题回落 app window / tabBar 文案)
+// generatedAt: 2026-10-27T05:45:12.347Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
@@ -1525,6 +1539,83 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
   },
   {
     path: '/pkg-user/course-annex/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/support/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/tag-detail/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/tags/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/team-workspace/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/teams/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/tools/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/agent-chat/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/ai-world/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/assistant/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/connectors/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/knowledge-planet/index',
     title: '智汇AI',
     tab: false,
     subPackageRoot: 'pkg-user',
@@ -2540,6 +2631,27 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
   },
   {
     path: '/pkg-mirror3/student-center/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-mirror3',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-mirror3/workflow-detail/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-mirror3',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-mirror3/workflow-instance-detail/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-mirror3',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-mirror3/workflow-list/index',
     title: '智汇AI',
     tab: false,
     subPackageRoot: 'pkg-mirror3',
