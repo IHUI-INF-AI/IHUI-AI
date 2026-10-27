@@ -31,6 +31,7 @@ import type {
   SkillNotification,
 } from '@ihui/shared/skills/market'
 import { checkAuth } from '../plugins/auth.js'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { db } from '../db/index.js'
 import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
@@ -922,7 +923,12 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     // ── 1. 鉴权(身份)────────────────────────────────────────────────────────────
     // 内部服务调用(self-evolution 自进化同步)可通过 X-Internal-Secret 绕过 JWT
     const internalSecret = request.headers['x-internal-secret']
-    const isInternal = !!config.AI_CALLBACK_SECRET && internalSecret === config.AI_CALLBACK_SECRET
+    // 常量时间比较(secretsEqual 单源):`===` 逐字节短路可被计时侧信道剥密钥
+    const isInternal =
+      typeof config.AI_CALLBACK_SECRET === 'string' &&
+      config.AI_CALLBACK_SECRET.length > 0 &&
+      typeof internalSecret === 'string' &&
+      secretsEqual(internalSecret, config.AI_CALLBACK_SECRET)
     if (!isInternal) {
       if (!(await checkAuth(request, reply))) return
     }
