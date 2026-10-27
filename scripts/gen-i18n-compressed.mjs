@@ -148,6 +148,21 @@ if (FACE !== 'worktree') {
 //   ③ 字节归一(剥 BOM + CRLF→LF)只在 lib 里有一份实现,生成器与门共用 —— 否则 Windows
 //      检出带 CRLF 的磁盘算出的哈希,会和门在 HEAD blob(LF)上算出的永不相等,门恒红。
 
+// 存在性全集(2026-10-27 立):闭包解析按 TS 惯例对每条说明符探 9 个候选(`x` / `x.ts|.tsx|.js|.jsx`
+// / `x/index.*`),**绝大多数候选本来就不存在**。此前"暖批没命中 ⇒ 单份补读"给每一个不存在的候选
+// 起一个 git 进程(一轮 ~8 万次 ⇒ 实测 59 分 23 秒),窗口长到任何并发提交都会把它跨过去,
+// 于是自愈腿永远追不上词包 churn。一次 ls-tree 读满整棵树,不在树上的候选直接算"没有",零派生。
+let FACE_TREE_CACHE = null
+function faceTreeSet() {
+  if (FACE_TREE_CACHE) return FACE_TREE_CACHE
+  try {
+    FACE_TREE_CACHE = new Set(listFaceFiles(repoRoot, FACE, { timeout: 180000 }))
+  } catch {
+    FACE_TREE_CACHE = new Set() // 取不到全集 ⇒ 退回逐份补读(慢但不改口径),绝不让构建死在这一步
+  }
+  return FACE_TREE_CACHE
+}
+
 // 与 @ihui/i18n/loader#mergeMessages 语义完全一致:
 // 浅拷贝 base,遍历 override 的 key;当双方都是普通对象(非数组)时递归合并,否则 override 覆盖。
 function isPlainObject(v) {
@@ -210,13 +225,69 @@ const faceReadSource = (rel) => {
   }
   const spec = specOf(rel)
   if (FACE_BATCH.has(spec)) return FACE_BATCH.get(spec) ?? null
-  // 闭包涉及的源码文件不在预声明的输入清单里 ⇒ 就地在**同一个面**上单份补读;
-  // 绝不回落磁盘面(§0.4),代价是这一档比 worktree 慢(约 120 次 git 调用)。
+  const warm = closureBatch()
+  if (warm && warm.has(spec)) return warm.get(spec) ?? null
+  // 这一面上根本没有这个路径 ⇒ 直接算"没有"。闭包探路的候选绝大多数是这种,给它们各起一个
+  // git 进程就是本轮 59 分钟的全部来历。
+  if (!faceTreeSet().has(rel)) return null
+  // 兜底:仍按**同一个面**就地单份补读(绝不回落磁盘面,§0.4)。走到这里的应当极少:
+  // 暖批已一次读满闭包可能探到的全部源码根,全集又证明确实有这个路径 ⇒ 只有"探到根外"的少数。
   try {
     return catBatch(repoRoot, [spec], { timeout: 60000 }).get(spec) ?? null
   } catch {
     return null
   }
+}
+
+/**
+ * 一批候选一次问完(与门 251 的 `readBatch: (rels) => rd.readMany(rels)` 同一形状):
+ * 暖批/全集能答的不开进程,答不了又确实在树上的,整批合并成一次 cat-file --batch。
+ */
+function faceReadBatch(rels) {
+  const out = new Map()
+  const need = []
+  const warm = closureBatch()
+  for (const rel of rels) {
+    const spec = specOf(rel)
+    if (FACE_BATCH.has(spec)) out.set(rel, FACE_BATCH.get(spec) ?? null)
+    else if (warm && warm.has(spec)) out.set(rel, warm.get(spec) ?? null)
+    else if (!faceTreeSet().has(rel)) out.set(rel, null)
+    else need.push(rel)
+  }
+  if (need.length > 0) {
+    let got = null
+    try {
+      got = catBatch(repoRoot, need.map(specOf), { timeout: 120000, maxBuffer: 1 << 26 })
+    } catch {
+      got = null
+    }
+    for (const rel of need) out.set(rel, got ? (got.get(specOf(rel)) ?? null) : faceReadSource(rel))
+  }
+  return out
+}
+
+/**
+ * 闭包源的一次性批量预取(2026-10-27 立):此前逐份补读实测要 10 分钟以上
+ * (承载页闭包 ~990 枚可达文件,每份一次 git 派生),窗口长到**任何并发提交都会把它跨过去** ——
+ * 产物按 A 面生成、门按 A+1 面判,于是自愈腿永远追不上(实测连续两轮都这样失败)。
+ * 一次 cat-file --batch 读满整棵源树 = 同一轮、同一面、几十秒;取不到不回落磁盘面,只退回逐份补读。
+ */
+let CLOSURE_BATCH = null
+const CLOSURE_ROOTS = ['apps/miniapp-taro/src', 'packages/app/src', 'apps/mobile-rn/src', 'packages/shared/src', 'packages/types/src', 'packages/i18n/src']
+function closureBatch() {
+  if (CLOSURE_BATCH) return CLOSURE_BATCH
+  try {
+    const rels = new Set()
+    for (const root0 of CLOSURE_ROOTS) {
+      for (const r of listFaceFiles(repoRoot, FACE, { paths: [root0] })) {
+        if (/.(t|j)sx?$/.test(r)) rels.add(r)
+      }
+    }
+    CLOSURE_BATCH = catBatch(repoRoot, [...rels].map(specOf), { timeout: 300000, maxBuffer: 1 << 28 })
+  } catch {
+    CLOSURE_BATCH = new Map() // 暖批失败 ⇒ 退回逐份补读(慢但不改口径),绝不让构建死在预取上
+  }
+  return CLOSURE_BATCH
 }
 /** 这一份被审面上有没有这个路径(承载层是可选输入,存在性必须在**同一个面**上问,§0.4) */
 const faceHas = (rel) => (FACE === 'worktree' ? existsSync(resolve(repoRoot, rel)) : FACE_BATCH.get(specOf(rel)) != null)
@@ -236,7 +307,14 @@ const faceListSources = (prefix) => {
   }
   return listFaceFiles(repoRoot, FACE, { paths: [prefix] })
 }
-const CARRIED = carriedKeysFromRepo({ readFile: faceReadSource, listFiles: faceListSources })
+const CARRIED_T0 = Date.now()
+const CARRIED = carriedKeysFromRepo({
+  readFile: faceReadSource,
+  // 磁盘面逐文件读很便宜,不必换批量出口;git 面必须用批量(否则探路的 9 个候选= 9 次派生)。
+  readBatch: FACE === 'worktree' ? null : faceReadBatch,
+  listFiles: faceListSources,
+})
+console.log(`[gen:i18n] 承载层闭包耗时 ${((Date.now() - CARRIED_T0) / 1000).toFixed(1)}s`)
 // 承载层是**增强层**:它的源(mobile-rn/*.json)在被审面上缺席时,不能让整轮构建死在增强层上
 // (那是"文档写了出路却跑不通");改成显式跳过 + 在产物里记 carried:skipped,由门 251 C10 判缺键。
 function carriedSourceFor(locale, pinList) {
