@@ -265,6 +265,13 @@ test('R4:shadcn 的 HSL 整数舍入不得算漂移,而真漂移不得被容差�
   // 反向对照:真色差不得被换算"凑"平等(否则新容差面会把漂移洗绿)
   assert.ok(!colorsAgree('oklch(55.1% 0.027 264.364)', '#858e9e'), '差一档的灰必须判不等')
   assert.ok(!colorsAgree('oklch(55.1% 0.027 264.364)', '#101828'), '远色必须判不等')
+  // 无彩轴 `none` 色相(2026-10-27 实测的自身 bug):Tailwind v4 的 neutral/gray 0 彩度档写作
+  // `oklch(98.5% 0 none)`。首版只认数字色相 ⇒ 整支返回"解析不了"⇒ 落回字符串比较 ⇒
+  // 10 档 neutral 全被读成"与 RN 不等"(0/10)。修完后同一组量出 9/10 等 ——
+  // 一个解析漏洞足以把"可零视觉同源"整个判成"属主决策",所以这条必须钉死。
+  assert.ok(colorsAgree('#fafafa', 'oklch(98.5% 0 none)'), 'none 色相必须按 0 处理(无彩轴)')
+  assert.ok(colorsAgree('#737373', 'oklch(55.6% 0 none)'), 'gray/neutral 500 无彩档必须判等')
+  assert.ok(colorsAgree('#ffffff', 'oklch(100% 0 none)') || colorsAgree('#fefefe', 'oklch(100% 0 none)'))
   // 畸形输入不得抛(门的失效方向是"这一维判不出",不是崩整个门)
   assert.equal(colorsAgree('oklch(abc)', '#112233'), false)
   assert.equal(colorsAgree('oklch()', '#112233'), false)

@@ -778,13 +778,15 @@ function normalizeColor(v) {
  *  带 alpha 的档仍走字符串归一那条兜底支(补它是另一格,不在本票范围)。
  */
 function oklchToRgbTriple(c) {
-  const m = /^oklch\(\s*([\d.]+%?)\s+([\d.]+%?)(?:\s+([\d.]+)(?:deg)?)?\s*(?:\/\s*[\d.]+%?)?\)/.exec(c)
+  const m = /^oklch\(\s*([\d.]+%?|none)\s+([\d.]+%?|none)(?:\s+(?:([\d.]+)(?:deg)?|none))?\s*(?:\/\s*[\d.]+%?)?\)/
+    .exec(c)
   if (!m) return null
-  const num = (x, scale) => (String(x).endsWith('%') ? (parseFloat(x) / 100) * scale : parseFloat(x))
+  const num = (x, scale) =>
+    x === undefined || x === 'none' ? 0 : String(x).endsWith('%') ? (parseFloat(x) / 100) * scale : parseFloat(x)
   const L = num(m[1], 1)
   const C = num(m[2], 0.4)
   const H = m[3] === undefined ? 0 : parseFloat(m[3])
-  if ([L, C, H].some(Number.isNaN)) return null
+  if (Number.isNaN(L) || Number.isNaN(C) || Number.isNaN(H)) return null
   const hRad = (H * Math.PI) / 180
   const aa = C * Math.cos(hRad)
   const bb = C * Math.sin(hRad)
