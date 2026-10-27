@@ -25,6 +25,7 @@ import {
   applyOtaUpdate,
   checkOtaUpdate,
   dismissOtaPrompt,
+  runningBundle,
   shouldAutoRecheck,
   useOtaUpdate,
 } from '../lib/ota-update'
@@ -36,7 +37,7 @@ const RECHECK_MIN_INTERVAL_MS = 30 * 60 * 1000
 
 export function UpdatePrompt(): React.JSX.Element | null {
   const { t } = useI18n()
-  const { state, dismissed } = useOtaUpdate()
+  const { state, dismissed, downloadProgress: progress } = useOtaUpdate()
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -62,32 +63,56 @@ export function UpdatePrompt(): React.JSX.Element | null {
     if (!ok) appAlert(t('appUpdate.error'), t('appUpdate.errorDesc'))
   }, [t])
 
-  // installing 也要继续显示:点了更新到进程重启之间有一段窗口,卡片突然消失会让人以为没反应
+  // installing 也要继续显示:点了更新到进程重启之间有一段窗口,卡片突然消失会让人以为没反应;
+  // downloading 同理:静默检查开始下载后立刻出卡片 + 读条,别让用户对着黑盒等(对齐
+  // 应用商店式「下载读条 → 安装」的可见链路,机主 2026-10-27 反馈「不像 web 一样有读条」)。
   const applying = state === 'installing'
-  if ((state !== 'ready' && !applying) || dismissed) return null
+  const downloading = state === 'downloading'
+  if ((state !== 'ready' && !applying && !downloading) || dismissed) return null
+
+  // 当前跑的是哪个包(内置/热更 + 短 id):更新前后各看一眼,「生效没生效」不再靠猜
+  const rb = runningBundle()
+  const bundleLabel =
+    rb.kind === 'ota' && rb.id
+      ? `${t('appUpdate.bundleOta')} ${rb.id.slice(0, 8)}`
+      : t('appUpdate.bundleEmbedded')
 
   return (
     <View style={styles.card} accessibilityRole="alert" accessibilityLabel={t('appUpdate.title')}>
       <RefreshCw size={20} color={tokens.brand.DEFAULT} style={styles.icon} />
       <View style={styles.textWrap}>
-        <Text style={styles.title}>{t('appUpdate.title')}</Text>
-        <Text style={styles.body}>{t('appUpdate.body')}</Text>
-      </View>
-      <Pressable
-        onPress={() => void handleUpdate()}
-        disabled={applying}
-        style={({ pressed }) => [
-          styles.actionBtn,
-          pressed && styles.actionBtnPressed,
-          applying && styles.actionBtnPressed,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={t('appUpdate.action')}
-      >
-        <Text style={styles.actionText}>
-          {applying ? t('appUpdate.installing') : t('appUpdate.action')}
+        <Text style={styles.title}>
+          {downloading ? t('appUpdate.downloading') : t('appUpdate.title')}
         </Text>
-      </Pressable>
+        <Text style={styles.body}>
+          {downloading ? `${t('appUpdate.downloading')} ${progress}%` : t('appUpdate.body')}
+        </Text>
+        {downloading ? (
+          <View style={styles.track}>
+            <View style={[styles.trackBar, { width: `${progress}%` }]} />
+          </View>
+        ) : null}
+        <Text style={styles.bundleTag}>
+          {t('appUpdate.currentBundle', { bundle: bundleLabel })}
+        </Text>
+      </View>
+      {downloading ? null : (
+        <Pressable
+          onPress={() => void handleUpdate()}
+          disabled={applying}
+          style={({ pressed }) => [
+            styles.actionBtn,
+            pressed && styles.actionBtnPressed,
+            applying && styles.actionBtnPressed,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={t('appUpdate.action')}
+        >
+          <Text style={styles.actionText}>
+            {applying ? t('appUpdate.installing') : t('appUpdate.action')}
+          </Text>
+        </Pressable>
+      )}
       <Pressable
         onPress={dismissOtaPrompt}
         hitSlop={8}
@@ -124,6 +149,21 @@ const styles = StyleSheet.create({
   },
   icon: { flexShrink: 0 },
   textWrap: { flex: 1, minWidth: 0, gap: 2 },
+  // 下载读条:细轨道 + 品牌实底,宽度随 store.downloadProgress(0-100)走
+  track: {
+    height: 3,
+    borderRadius: rnRadius.xs,
+    backgroundColor: tokens.gray[200],
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  trackBar: {
+    height: '100%',
+    borderRadius: rnRadius.xs,
+    backgroundColor: tokens.brand.cta,
+  },
+  // 当前包身份小字:更新前「内置包」,更新后「热更 xxxxxxxx」,前后一对照就知道生效没生效
+  bundleTag: { color: tokens.text.tertiary, fontSize: 11, marginTop: 2 },
   title: { color: tokens.text.primary, fontSize: 14, fontWeight: '500' },
   body: { color: tokens.text.secondary, fontSize: 12 },
   actionBtn: {
