@@ -182,6 +182,7 @@
     "migration:check:db": "node scripts/check-migration-bookkeeping.mjs --db",
     "check:miniapp-parity": "node scripts/check-miniapp-taro-style-parity.mjs",
     "check:mirror-fidelity": "node scripts/check-miniapp-mirror-fidelity.mjs",
+    "plan:hand-mirror-conversion": "node scripts/plan-hand-mirror-conversion.mjs",
     "check:web-rn-parity": "node scripts/check-web-rn-screen-parity.mjs",
     "check:analytics-coverage": "node scripts/check-analytics-page-coverage.mjs",
     "e2e:extension-tracking": "node scripts/e2e-extension-tracking.mjs",
