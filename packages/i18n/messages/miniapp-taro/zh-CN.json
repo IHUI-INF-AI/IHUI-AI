@@ -1113,7 +1113,8 @@
     "copy3": "链接已复制,请在浏览器打开",
     "failed4": "复制失败,请重试",
     "text5": "对话页未配置",
-    "confirm6": "确定删除此对话?"
+    "confirm6": "确定删除此对话?",
+    "title": "分享"
   },
   "aiGroup": {
     "title": "智能体广场",
@@ -2461,7 +2462,10 @@
       "tutorial": "教程",
       "all": "全部"
     },
-    "pinned": "置顶"
+    "pinned": "置顶",
+    "title": "AI资讯",
+    "anonAuthor": "佚名",
+    "netFail": "网络异常"
   },
   "plaza": {
     "setNeed": {
@@ -2514,7 +2518,8 @@
       "identityTitle": "切换身份",
       "identityDemander": "需求方",
       "identityDeveloper": "开发者",
-      "untitledConv": "未命名对话"
+      "untitledConv": "未命名对话",
+      "delOk": "删除成功"
     },
     "cover": {
       "entryTitle": "成为开发者",
@@ -3676,6 +3681,9 @@
         "reconnecting": "第 {attempt}/{maxAttempts} 次重连 {server}"
       },
       "mobileSettingsHint": "请在桌面端或网页端管理 MCP 连接"
+    },
+    "notes": {
+      "loadFailShort": "加载失败"
     }
   },
   "tabBar": {
@@ -4576,7 +4584,8 @@
     "delFailedRetry": "删除失败,请重试",
     "userCard": {
       "loginRequired": "请先登录"
-    }
+    },
+    "notLoggedIn": "未登录"
   },
   "verify": {
     "phoneEmpty": "手机号为空",
@@ -6079,7 +6088,37 @@
     "diffFieldsChanged": "变化字段:{fields}",
     "diffAddedThisRound": "本轮新增",
     "diffRemovedThisRound": "本轮移除",
-    "diffNoChange": "无变化"
+    "diffNoChange": "无变化",
+    "createHeading": "新建 Plan",
+    "createSubmit": "创建计划",
+    "formTitleLabel": "标题",
+    "formTitlePlaceholder": "计划标题",
+    "formGoalLabel": "目标",
+    "formGoalPlaceholder": "这个计划要达成的结果",
+    "formScopeLabel": "修改范围",
+    "formScopePlaceholder": "范围内外说明(可选)",
+    "formConstraintsLabel": "约束边界",
+    "formConstraintsPlaceholder": "边界与约束(可选)",
+    "formTagsLabel": "标签",
+    "formTagsPlaceholder": "逗号分隔,如:重构,后端",
+    "formStepsLabel": "步骤",
+    "errTitleRequired": "标题不能为空",
+    "errGoalRequired": "目标不能为空",
+    "stepTitlePlaceholder": "步骤标题",
+    "stepDescPlaceholder": "步骤描述(可选)",
+    "subtitle": "以目标驱动的计划,数据保存在本机",
+    "create": "新建计划",
+    "statCompleted": "已完成",
+    "statInProgress": "进行中",
+    "statBlocked": "受阻",
+    "statPending": "待办",
+    "statTotal": "共 {count} 步",
+    "noGoal": "未设定目标",
+    "viewDetail": "查看详情",
+    "emptyTitle": "暂无计划",
+    "emptyDesc": "创建你的第一个目标驱动计划",
+    "filterEmptyTitle": "没有符合条件的计划",
+    "filterEmptyDesc": "换一个筛选条件试试"
   },
   "myCommentsPage": {
     "title": "我的评论",
@@ -6305,5 +6344,15 @@
     "createdFailed": "创建失败",
     "empty": "暂无工作流",
     "stepsCount": "{count} 个步骤"
+  },
+  "aiWorldFavoritesPage": {
+    "title": "收藏的项目",
+    "subtitle": "你收藏的 AI 世界项目",
+    "empty": "暂无收藏",
+    "fetchFailed": "收藏加载失败",
+    "loginRequired": "请先登录后查看收藏的项目"
+  },
+  "square": {
+    "title": "AI资讯"
   }
 }

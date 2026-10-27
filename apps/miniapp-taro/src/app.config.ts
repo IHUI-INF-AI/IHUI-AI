@@ -176,6 +176,8 @@ export default defineAppConfig({
         'connectors/index',
         'knowledge-planet/index',
         'sub-package-index/index',
+        'ai-world-collection/index',
+        'square/index',
       ],
     },
     {
@@ -232,6 +234,8 @@ export default defineAppConfig({
         'plan/index',
         'company/index',
         'plan-detail/index',
+        'plan-form/index',
+        'plan-list/index',
       ],
     },
     {

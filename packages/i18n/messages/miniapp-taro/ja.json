@@ -1113,7 +1113,8 @@
     "copy3": "リンクをコピーしました、ブラウザで開いてください",
     "failed4": "コピー失敗、再試行してください",
     "text5": "会話ページ未設定",
-    "confirm6": "この会話を削除しますか?"
+    "confirm6": "この会話を削除しますか?",
+    "title": "共有"
   },
   "aiGroup": {
     "title": "エージェント広場",
@@ -2461,7 +2462,10 @@
       "tutorial": "チュートリアル",
       "all": "すべて"
     },
-    "pinned": "固定"
+    "pinned": "固定",
+    "title": "AI ニュース",
+    "anonAuthor": "匿名",
+    "netFail": "ネットワークエラー"
   },
   "plaza": {
     "setNeed": {
@@ -2514,7 +2518,8 @@
       "identityTitle": "身分切替",
       "identityDemander": "発注者",
       "identityDeveloper": "開発者",
-      "untitledConv": "無題の会話"
+      "untitledConv": "無題の会話",
+      "delOk": "削除しました"
     },
     "cover": {
       "entryTitle": "開発者になる",
@@ -3676,6 +3681,9 @@
         "reconnecting": "{server} を {attempt}/{maxAttempts} 回目で再接続中"
       },
       "mobileSettingsHint": "MCP 接続はデスクトップ版または Web 版で管理してください"
+    },
+    "notes": {
+      "loadFailShort": "読み込み失敗"
     }
   },
   "tabBar": {
@@ -4576,7 +4584,8 @@
     "delFailedRetry": "削除に失敗しました。再試行してください",
     "userCard": {
       "loginRequired": "先にログインしてください"
-    }
+    },
+    "notLoggedIn": "未ログアウト"
   },
   "verify": {
     "phoneEmpty": "電話番号が入力されていません",
@@ -6079,7 +6088,37 @@
     "diffFieldsChanged": "変更フィールド: {fields}",
     "diffAddedThisRound": "このラウンドで追加",
     "diffRemovedThisRound": "このラウンドで削除",
-    "diffNoChange": "変更なし"
+    "diffNoChange": "変更なし",
+    "createHeading": "新規プラン",
+    "createSubmit": "プランを作成",
+    "formTitleLabel": "タイトル",
+    "formTitlePlaceholder": "プランのタイトル",
+    "formGoalLabel": "目標",
+    "formGoalPlaceholder": "このプランで達成する結果",
+    "formScopeLabel": "適用範囲",
+    "formScopePlaceholder": "スコープの説明(任意)",
+    "formConstraintsLabel": "制約",
+    "formConstraintsPlaceholder": "境界と制約(任意)",
+    "formTagsLabel": "タグ",
+    "formTagsPlaceholder": "カンマ区切り(例:リファクタリング, バックエンド)",
+    "formStepsLabel": "ステップ",
+    "errTitleRequired": "タイトルは必須です",
+    "errGoalRequired": "目標は必須です",
+    "stepTitlePlaceholder": "ステップのタイトル",
+    "stepDescPlaceholder": "ステップの説明(任意)",
+    "subtitle": "目標主導のプラン(この端末に保存)",
+    "create": "新規プラン",
+    "statCompleted": "完了",
+    "statInProgress": "進行中",
+    "statBlocked": "ブロック",
+    "statPending": "未着手",
+    "statTotal": "全 {count} ステップ",
+    "noGoal": "目標未設定",
+    "viewDetail": "詳細を見る",
+    "emptyTitle": "プランがありません",
+    "emptyDesc": "最初の目標主導プランを作成しましょう",
+    "filterEmptyTitle": "条件に合うプランがありません",
+    "filterEmptyDesc": "別のフィルターをお試しください"
   },
   "myCommentsPage": {
     "title": "マイコメント",
@@ -6305,5 +6344,15 @@
     "createdFailed": "作成に失敗しました",
     "empty": "ワークフローがありません",
     "stepsCount": "{count} ステップ"
+  },
+  "aiWorldFavoritesPage": {
+    "title": "お気に入りの項目",
+    "subtitle": "お気に入りに登録した AI ワールドの項目",
+    "empty": "お気に入りがありません",
+    "fetchFailed": "お気に入りの読み込みに失敗しました",
+    "loginRequired": "ログイン後にお気に入りの項目を表示できます"
+  },
+  "square": {
+    "title": "AIニュース"
   }
 }
