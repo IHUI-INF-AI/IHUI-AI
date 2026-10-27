@@ -29,6 +29,7 @@
  * 21. POST   /admin/relay/accounts/:id/checkin-resync — 单条重推签到同步(O64)
  * 22. POST   /admin/relay/account-pool/checkin-status — 批量点查签到状态(O64,≤20)
  * 23. POST   /admin/relay/accounts/:id/checkin-run — 立即签到(O64,转发 ai-service,429 透传)
+ * 24. POST   /admin/relay/accounts/:id/models — 按需点查可用模型清单(富契约优先,无实证通路 400)
  *
  * 加密:token/refreshToken/cookies/账号级 proxyUrl 走 encryptField(AES-256-GCM),
  * 响应面永不回传密文/明文(代理只回脱敏值)。
@@ -1170,6 +1171,70 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '余额查询失败'))
+    }
+  })
+
+  // ===== 24. POST /admin/relay/accounts/:id/models — 按需点查可用模型清单 =====
+  // 形状统一:优先富契约 listModelsDetailed(qoder 走本机 CLI --list-models,scope=本机登录态),
+  // 否则回落既有 listModels(string[],trae/workbuddy/codearts/grokbot/lingma 等)逐名包装。
+  // 两者都无(如 minimax,模型清单端点未实证)⇒ 如实 400 未支持,绝不编造清单。
+  server.post('/admin/relay/accounts/:id/models', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const [row] = await dbRead
+        .select()
+        .from(aiRelayAccountPool)
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, '账号不存在'))
+      const adapter = getRelayAdapter(row.providerCode)
+      if (!adapter) {
+        return reply
+          .status(400)
+          .send(error(400, `平台 ${row.providerCode} 适配器未注册,无法查模型清单`))
+      }
+      if (typeof adapter.listModelsDetailed === 'function') {
+        // qoder 通路:CLI 用本机登录态,不消费库凭据;结果 scope 原样透传(管理页须展示语义)
+        const outcome = await adapter.listModelsDetailed(
+          { row, credentials: decryptAccountCredentials(row) },
+          {},
+        )
+        return reply.send(
+          success({
+            id: row.id,
+            providerCode: row.providerCode,
+            ok: outcome.ok,
+            error: outcome.error ?? null,
+            scope: outcome.scope ?? null,
+            models: outcome.models ?? [],
+            queriedAt: new Date().toISOString(),
+          }),
+        )
+      }
+      if (typeof adapter.listModels === 'function') {
+        const names = await adapter.listModels(
+          { row, credentials: decryptAccountCredentials(row) },
+          { proxyUrl: resolveAccountProxyUrl(row.proxyUrl) },
+        )
+        return reply.send(
+          success({
+            id: row.id,
+            providerCode: row.providerCode,
+            ok: true,
+            error: null,
+            scope: 'upstream-account',
+            models: (Array.isArray(names) ? names : []).map((n) => ({ name: String(n) })),
+            queriedAt: new Date().toISOString(),
+          }),
+        )
+      }
+      return reply
+        .status(400)
+        .send(error(400, `平台 ${row.providerCode} 无已实证的模型清单通路(未支持)`))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '模型清单查询失败'))
     }
   })
 }
