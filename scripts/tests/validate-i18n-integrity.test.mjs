@@ -13,6 +13,8 @@
  *    (守门 208 的立项由因);真 git 面是本门的输入面,不写真仓、也不 mock 掉。
  *  - 三态各成组:判通过(0)/ 判出缺口(1)/ 取不到输入(2「未判定」),外加变异自证 ——
  *    摘掉某条判据分支后对应夹具**必须翻面**,否则那条夹具是恒过的假证。
+ *  - 2026-10-27 修法席新增钉法:HEAD 面**三态**(number / `HEAD_ABSENT` / null,修 D1)与
+ *    定根优先级(修 D2,`--root`/env/脚本位置,禁 cwd 定根)各有成对翻面夹具。
  */
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -56,9 +58,13 @@ test('T1 §22c 出口形状:__test__ 把生产判据全部递出来(缺一枚即
     'I18N_MESSAGES_PREFIX',
     'TRUNCATION_RATIO',
     'MIN_DECREASE_LINES',
+    'HEAD_ABSENT',
+    'SCRIPT_REPO_ROOT',
+    'ROOT_ENV',
+    'resolveRoot',
     'countLines',
     'countStagedLines',
-    'countHeadLines',
+    'readHeadLines',
     'isI18nJsonFile',
     'getStagedFiles',
     'detectTruncations',
@@ -76,6 +82,8 @@ test('T1 §22c 出口形状:__test__ 把生产判据全部递出来(缺一枚即
     'runI18nIntegrity',
     'getStagedFiles',
     'printResult',
+    'readHeadLines',
+    'resolveRoot',
   ]) {
     assert.equal(typeof gate[fn], 'function', `${fn} 必须是生产函数本体`)
   }
@@ -134,13 +142,21 @@ test('T5 detectTruncations 纯函数面:双阈 + 两种跳过各归各桶(不并
     table.map((t) => t.want),
     `只有双阈同时破才喊红(实得 ${JSON.stringify(got)};红档比值=${(RED_LINES / HEAD_LINES).toFixed(3)} vs 阈 ${gate.TRUNCATION_RATIO})`,
   )
-  // 两条跳过通道各自落桶
+  // 两条跳过通道各自落桶(不并桶)
   const newFile = gate.detectTruncations(['x.json'], {
-    headLinesOf: () => null,
+    headLinesOf: () => gate.HEAD_ABSENT,
     stagedLinesOf: () => 1,
   })
   assert.equal(newFile.truncations.length, 0)
   assert.deepEqual(newFile.skippedNewFile, ['x.json'])
+  // D1: `null` = "该存在却读不出" ⇒ 未判定桶,**不得**与"HEAD 明说没有"同形
+  const headLoss = gate.detectTruncations(['z.json'], {
+    headLinesOf: () => null,
+    stagedLinesOf: () => 1,
+  })
+  assert.equal(headLoss.truncations.length, 0)
+  assert.deepEqual(headLoss.headUnreadable, ['z.json'])
+  assert.deepEqual(headLoss.skippedNewFile, [])
   const unreadable = gate.detectTruncations(['y.json'], {
     headLinesOf: () => HEAD_LINES,
     stagedLinesOf: () => null,
@@ -183,9 +199,14 @@ test('T6 变异自证:摘掉任一判据分支,对应夹具必须翻面(证夹�
     'M2:减量闸承重',
   )
   // M3 摘 HEAD 面 ⇒ 命中集归零(红是量出来的,不是写出来的)
-  const noHead = gate.detectTruncations(cands, { ...deps, headLinesOf: () => null })
+  const noHead = gate.detectTruncations(cands, { ...deps, headLinesOf: () => gate.HEAD_ABSENT })
   assert.equal(noHead.truncations.length, 0)
   assert.equal(noHead.skippedNewFile.length, cands.length)
+  // M3b 同一支的另一面:HEAD 应存在但读不出 ⇒ 全部落未判定桶(D1 不许洗成"新增")
+  const blindHead = gate.detectTruncations(cands, { ...deps, headLinesOf: () => null })
+  assert.equal(blindHead.truncations.length, 0)
+  assert.equal(blindHead.headUnreadable.length, cands.length)
+  assert.equal(blindHead.skippedNewFile.length, 0)
   // M4 摘 staged 面 ⇒ 全部落 unreadable 桶,一枚也判不出
   const noStaged = gate.detectTruncations(cands, { ...deps, stagedLinesOf: () => null })
   assert.equal(noStaged.truncations.length, 0)
@@ -232,14 +253,14 @@ test('T7 真 git 夹具面:索引 vs HEAD 两把尺都读到东西,判据与 CLI
   assert.equal(passJudge.truncations, undefined)
   assert.equal(passJudge.skipped.truncations.length, 0)
   assert.deepEqual(passJudge.skipped.skippedNewFile, [rel('ko')])
-  const passCli = gate.runCli(d, [])
+  const passCli = gate.runCli(d, ['--root', d])
   assert.equal(passCli.status, 0, String(passCli.stdout))
   assert.match(passCli.stdout, /完整性正常/)
 
   // 把 en.json 腰斩入索引 ⇒ 同一仓、同一把尺,必须翻红
   gate.writeRel(d, rel('en'), gate.jsonLines(RED_LINES))
   gitAddAll(d)
-  assert.equal(gate.countHeadLines(rel('en'), d), HEAD_LINES, 'HEAD 面仍是基线厚度')
+  assert.equal(gate.readHeadLines(rel('en'), d), HEAD_LINES, 'HEAD 面仍是基线厚度')
   assert.equal(gate.countStagedLines(rel('en'), d), RED_LINES, '索引面已被削薄')
   const redJudge = gate.runI18nIntegrity({ root: d })
   assert.equal(redJudge.state, 'fail')
@@ -247,7 +268,7 @@ test('T7 真 git 夹具面:索引 vs HEAD 两把尺都读到东西,判据与 CLI
     redJudge.truncations.map((x) => x.relPath),
     [rel('en')],
   )
-  const redCli = gate.runCli(d, [])
+  const redCli = gate.runCli(d, ['--root', d])
   assert.equal(redCli.status, 1, 'CLI 与进程内判据必须同结论(否则接线是假的)')
   assert.match(redCli.stdout, /疑似被截断/)
   assert.match(redCli.stdout, /packages\/i18n\/messages\/en\.json/)
