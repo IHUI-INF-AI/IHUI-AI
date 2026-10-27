@@ -56,6 +56,7 @@ import {
   TriangleAlert,
   Users,
   Wallet,
+  Cpu,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
@@ -372,6 +373,18 @@ function formatQuotaLine(q: NonNullable<QuotaResult['quota']>): string {
   return '余额接口已应答,但字段未识别(未判定)'
 }
 
+/** POST /admin/relay/accounts/:id/models 的 data 形状(模型条目不编造,id 给不到就缺省) */
+interface ModelsResult {
+  id: string
+  providerCode: string
+  ok: boolean
+  error: string | null
+  /** 清单语义:upstream-account=该账号凭据点查;local-cli-login=本机 CLI 登录态(qoder) */
+  scope: string | null
+  models: Array<{ name: string; id?: string; idTruncated?: boolean }>
+  queriedAt: string
+}
+
 // failRate24h 契约未指明是 0–1 比例还是 0–100 百分数:≤1 视为比例换算,否则按百分数直显。
 function failRatePct(v: number | null | undefined): number | null {
   if (v === null || v === undefined) return null
@@ -639,6 +652,29 @@ export default function AdminRelayAccountPoolPage() {
       else toast.error(`余额查询失败:${d.error ?? '未判定'}`)
     },
     onError: (e: Error) => toast.error(e.message || '余额查询失败'),
+  })
+
+  // 模型清单点查:成功弹 Dialog(清单可能 10+ 条,toast 放不下);失败 toast 如实报
+  const [modelsView, setModelsView] = React.useState<{ name: string; result: ModelsResult } | null>(
+    null,
+  )
+  const modelsMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<ModelsResult>(`/api/admin/relay/accounts/${id}/models`, {
+        method: 'POST',
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d, id) => {
+      if (d.ok) {
+        const acc = list.find((k) => k.id === id)
+        setModelsView({ name: acc?.name ?? id, result: d })
+      } else {
+        toast.error(`模型清单查询失败:${d.error ?? '未判定'}`)
+      }
+    },
+    onError: (e: Error) => toast.error(e.message || '模型清单查询失败'),
   })
 
   const deleteMut = useMutation({
@@ -1492,6 +1528,22 @@ export default function AdminRelayAccountPoolPage() {
                                   </Button>
                                 </span>
                               </Tooltip>
+                              <Tooltip content="可用模型">
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={modelsMut.isPending}
+                                    onClick={() => modelsMut.mutate(k.id)}
+                                  >
+                                    {modelsMut.isPending && modelsMut.variables === k.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Cpu className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </span>
+                              </Tooltip>
                               <Tooltip content="调用日志">
                                 <span className="inline-flex">
                                   <Button
@@ -1863,7 +1915,9 @@ export default function AdminRelayAccountPoolPage() {
                 className={
                   textareaClass +
                   ' transition-colors' +
-                  (importDragOver ? ' border-primary bg-primary/5 ring-1 ring-primary/40' : '')
+                  (importDragOver
+                    ? ' border-brand-accent-deep bg-primary/5 ring-1 ring-primary/40'
+                    : '')
                 }
               />
               <p className="text-xs text-muted-foreground">
@@ -2023,6 +2077,46 @@ export default function AdminRelayAccountPoolPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* 可用模型点查结果(qoder=本机 CLI 登录态清单,scope 一行如实标注) */}
+      <Dialog open={modelsView !== null} onOpenChange={(o) => !o && setModelsView(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              可用模型{modelsView?.name ? `:${modelsView.name}` : ''}
+            </DialogTitle>
+          </DialogHeader>
+          {modelsView && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                {modelsView.result.scope === 'local-cli-login'
+                  ? '清单来源:本机 Qoder CLI 登录态(当前登录账号;自定义模型 ID 因 CLI 显示上限截断,转发请用名称或 auto)'
+                  : '清单来源:上游账号凭据点查'}
+                {' · '}
+                {new Date(modelsView.result.queriedAt).toLocaleString()}
+              </p>
+              {modelsView.result.models.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">清单为空</p>
+              ) : (
+                <div className="max-h-80 space-y-1 overflow-auto rounded-md border border-border p-2">
+                  {modelsView.result.models.map((m, i) => (
+                    <div key={`${m.name}-${i}`} className="flex items-center gap-2 text-sm">
+                      <span className="truncate" title={m.id ?? m.name}>
+                        {m.name}
+                      </span>
+                      {m.idTruncated ? (
+                        <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          ID 截断
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialogRenderer />
     </div>
