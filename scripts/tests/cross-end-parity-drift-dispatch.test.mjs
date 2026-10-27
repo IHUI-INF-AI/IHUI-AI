@@ -55,12 +55,16 @@ const fidelity = (over = {}) => ({
   json: { hosted: 114, hand: 99, totalMissing: 646, broken: 0, other: 0, ...over },
 })
 
+/** 转换机会预演的夹具(与 upgrade-miniapp-shell-pages 机读档同形;默认"本轮没机会"= 现读真实状态) */
+const conversion = (over = {}) => ({ ok: true, json: { upgradable: 0, refused: 12, ...over } })
+
 /** 生产方现造:同一个 judge() 出口,测试不复制任何 state/键名。 */
 const verdict = (opts) =>
   P.judge({
     coverage: coverage(opts?.coverage),
     webParity: webParity(opts?.webParity),
     fidelity: fidelity(opts?.fidelity),
+    conversion: conversion(opts?.conversion),
     doc: '',
     prev: opts?.prev,
   })
@@ -113,6 +117,27 @@ test('T2f 还原度维(断链/声明不符/承载退回手写)⇒ 到人,身份�
     String(mails[0][2]?.dedupKey ?? ''),
     /mirror-chain-broken/,
     '身份要按倒退维,不能与别的维混成一封',
+  )
+})
+
+test('T2g 转换机会预演读到可转页 ⇒ 到人且身份带 conversion-available(机会窗不能只躺在日志里)', () => {
+  const mails = []
+  const logs = []
+  const v = verdict({ conversion: { upgradable: 4 } })
+  assert.equal(v.state, 'regressed', `夹具应造出机会窗出声(实测 ${v.state})`)
+  const r = auditCrossEndParityDrift({
+    ...fixture(),
+    logger: (m) => logs.push(m),
+    notify: (...a) => mails.push(a),
+    runner: runnerOf(v),
+  })
+  assert.equal(r.state, 'regressed')
+  assert.equal(mails.length, 1, '有可转页 = 少养一份端内实现的机会,必须喊到')
+  assert.match(String(mails[0][2]?.dedupKey ?? ''), /conversion-available/)
+  assert.match(
+    JSON.stringify(mails),
+    /gen-rn-shell-types/,
+    '邮件要带齐两步,少一步就是把门 251 打红',
   )
 })
 

@@ -104,9 +104,10 @@ function docNumbers(md) {
  *   mirror-hosted-decrease / mirror-missing-increase —— 承载对数减少 / 未还原键增加(与上一轮快照比)
  *   mirror-chain-broken / mirror-declaration-mismatch —— 引壳而链断 / 声明与承载不是同一屏(绝对值出声:
  *       这两维现读存量都是 0,出现即"新增的产物级缺陷",不是把存量判成人人红(§12e))
+ *   conversion-available —— 落地器预演读到手写页可转壳承载(机会窗,不是倒退;带齐两步命令)
  * 涨跌只比"本轮有没有变坏",不比绝对值大小,免得把正常增长判成异常。
  */
-function judge({ coverage, webParity, fidelity, doc, prev }) {
+function judge({ coverage, webParity, fidelity, conversion, doc, prev }) {
   const cur = {
     mirrored: coverage?.json?.stats?.mirroredShared ?? null,
     registryEntries: coverage?.json?.stats?.registryEntries ?? null,
@@ -123,6 +124,12 @@ function judge({ coverage, webParity, fidelity, doc, prev }) {
     fidelityMissing: fidelity?.json?.totalMissing ?? null,
     fidelityBroken: fidelity?.json?.broken ?? null,
     fidelityOther: fidelity?.json?.other ?? null,
+    // 转换机会维(2026-10-27 接):落地器**只读预演**的结论 —— 有页可自动转壳承载时必须被机器看见。
+    // 为什么不直接把 apply 挂守护轮:转换还要同批改 `rn-shell-types` 声明件(门 251 C9 判它),
+    // 只落页不落声明件会把那道 blocking 门打红(§12e 恒红门),而那一步需要一个按 HEAD 面重生成的
+    // 检出档 —— 现无该形态的器物,所以这一维先"喊得响 + 给全两条命令",不自作主张改 99 枚源文件。
+    conversionUpgradable: conversion?.json?.upgradable ?? null,
+    conversionRefused: conversion?.json?.refused ?? null,
   }
   const reasons = []
   const missing = []
@@ -130,6 +137,7 @@ function judge({ coverage, webParity, fidelity, doc, prev }) {
   if (!coverage.ok) missing.push('coverage')
   if (!webParity.ok) missing.push('webParity')
   if (fidelity && !fidelity.ok) missing.push('fidelity')
+  if (conversion && !conversion.ok) missing.push('conversion')
   if (coverage.ok && webParity.ok && (cur.mirrored === null || cur.coverageRed === null)) {
     missing.push('coverage 字段名对不上(汇总行取不到数)')
   }
@@ -155,6 +163,16 @@ function judge({ coverage, webParity, fidelity, doc, prev }) {
     reasons.push({
       dim: 'mirror-declaration-mismatch',
       detail: `${cur.fidelityOther} 对声明镜像 A 而承载的壳是 B ⇒ 账面"已镜像"而 A 那一屏并没渲染 ⇒ 出路:改标记为真承载的那一屏,或把壳指向声明的那一屏`,
+    })
+  // 转换机会:"有页可转"不是倒退,但它是"少养一份端内实现"的窗口,现读到 >0 就出声
+  // (身份按维去重 ⇒ 同一批机会不会每 60 分钟刷一封;明细抖动不换身份)。
+  if (cur.conversionUpgradable > 0)
+    reasons.push({
+      dim: 'conversion-available',
+      detail:
+        `${cur.conversionUpgradable} 枚手写镜像页已可转壳承载(转完这一页就自动跟随共享屏,拒 ${cur.conversionRefused} 枚)⇒ 出路:` +
+        '① node scripts/upgrade-miniapp-shell-pages.mjs --apply --cap=5 ② 提交页面后 node scripts/gen-rn-shell-types.mjs --write 再提交声明件' +
+        '(两步同批:声明件按 HEAD 面派生,只落页会把门 251 C9 打成红)',
     })
 
   if (prev && Number.isFinite(prev.mirrored) && cur.mirrored < prev.mirrored)
@@ -234,10 +252,16 @@ function selfTestMain() {
     ok: true,
     json: { hosted, hand, totalMissing: missing, broken, other },
   })
+  /** 转换机会预演夹具(与 upgrade-miniapp-shell-pages 的机读档同形;默认"没机会"= 现读真实状态) */
+  const mkConv = ({ upgradable = 0, refused = 12 } = {}) => ({
+    ok: true,
+    json: { upgradable, refused },
+  })
   cases.push({
     name: 'T1 持平无腐烂 ⇒ ok',
     pass:
       judge({
+        conversion: mkConv(),
         fidelity: mkFid(),
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0),
@@ -249,6 +273,7 @@ function selfTestMain() {
     name: 'T2 镜像净减 ⇒ regressed/mirrored-decrease',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid(),
         coverage: mk(89, 0, 0),
         webParity: mk(89, 0, 0),
@@ -262,6 +287,7 @@ function selfTestMain() {
     name: 'T3 门判红 ⇒ regressed/registry-rot(涨了也照样报红)',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid(),
         coverage: mk(120, 3, 0),
         webParity: mk(120, 0, 0),
@@ -275,6 +301,7 @@ function selfTestMain() {
     name: 'T4 文档数字与现读不等 ⇒ doc-stale(可整改,给出重跑命令)',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid(),
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0),
@@ -288,6 +315,7 @@ function selfTestMain() {
     name: 'T5 子对账器跑不动 ⇒ undetermined,不记绿',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid(),
         coverage: { ok: false, why: 'x' },
         webParity: mk(91, 0, 0),
@@ -301,6 +329,7 @@ function selfTestMain() {
     name: 'T6 无上一轮快照 ⇒ 不比涨跌,只判当场腐烂(拿 prev 缺失当"没倒退"是错的)',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid(),
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0),
@@ -314,6 +343,7 @@ function selfTestMain() {
     name: 'T7 承载对数净减 ⇒ mirror-hosted-decrease(有人把页改回头抄)',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid({ hosted: 110 }),
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0),
@@ -327,6 +357,7 @@ function selfTestMain() {
     name: 'T8 未还原文案键净增 ⇒ mirror-missing-increase',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid({ missing: 700 }),
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0),
@@ -343,6 +374,7 @@ function selfTestMain() {
     name: 'T9 壳承载断链 ⇒ 无需 prev 也出声(产物级缺陷,现读存量为 0 不是恒红门)',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid({ broken: 2 }),
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0),
@@ -356,6 +388,7 @@ function selfTestMain() {
     name: 'T10 声明镜像 A 而承载是 B ⇒ mirror-declaration-mismatch',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid({ other: 1 }),
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0),
@@ -382,6 +415,7 @@ function selfTestMain() {
     name: 'T12 上一轮没有还原度快照 ⇒ 不拿它造倒退(第一轮的存量不是"变坏")',
     pass: (() => {
       const j = judge({
+        conversion: mkConv(),
         fidelity: mkFid({ missing: 99999 }),
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0),
@@ -389,6 +423,40 @@ function selfTestMain() {
         prev: { mirrored: 91 },
       })
       return !j.reasons.some((r) => r.dim.startsWith('mirror-')) && j.state === 'ok'
+    })(),
+  })
+  cases.push({
+    name: 'T13 预演读到手写页可转 ⇒ conversion-available(机会窗要出声,且给齐两步命令)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv({ upgradable: 3 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        fidelity: mkFid(),
+        doc: '',
+        prev: null,
+      })
+      const r = j.reasons.find((x) => x.dim === 'conversion-available')
+      return (
+        j.state === 'regressed' &&
+        !!r &&
+        /upgrade-miniapp-shell-pages/.test(r.detail) &&
+        /gen-rn-shell-types/.test(r.detail)
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T14 转换预演跑不动 ⇒ 不得当成"没机会"(取不到输入就是未判定)',
+    pass: (() => {
+      const j = judge({
+        conversion: { ok: false, why: 'x' },
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        fidelity: mkFid(),
+        doc: '',
+        prev: null,
+      })
+      return j.state === 'undetermined' && j.missing.includes('conversion')
     })(),
   })
   let bad = 0
@@ -408,6 +476,9 @@ function main() {
   const coverage = runRuler('check-cross-end-screen-coverage.mjs')
   const webParity = runRuler('check-web-rn-screen-parity.mjs', ['--json', '--full'])
   const fidelity = runRuler('check-miniapp-mirror-fidelity.mjs')
+  // 转换机会只跑**预演**(不带 --apply):器物自己说"落地还要同批改声明件",那一形态未装车,
+  // 所以这里只把机会喊出来并给全两条命令,不自作主张改端内源文件。
+  const conversion = runRuler('upgrade-miniapp-shell-pages.mjs')
   const doc = (() => {
     try {
       return execFileSync('git', ['show', `HEAD:${DOC_PATH}`], {
@@ -423,7 +494,7 @@ function main() {
     }
   })()
   const prev = readPrev()
-  const result = judge({ coverage, webParity, fidelity, doc, prev })
+  const result = judge({ coverage, webParity, fidelity, conversion, doc, prev })
   result.at = new Date().toISOString()
   if (recordMode) {
     mkdirSync(dirname(STATE_FILE), { recursive: true })
