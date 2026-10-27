@@ -30,6 +30,7 @@ import { spawn as nodeSpawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isProductionGuard } from '../../config/index.js'
 import type { NormalizedChatRequest } from '../relay-upstream-adapters.js'
 
 // =============================================================================
@@ -90,7 +91,7 @@ function envPath(name: string): string {
 
 /** 路径解析:env 覆写优先;非 production 才允许实证默认值(production 留空 ⇒ 预检报未配置) */
 function resolveQoderBridgePaths(): QoderBridgePaths {
-  const nonProd = process.env.NODE_ENV !== 'production'
+  const nonProd = !isProductionGuard
   const probe = (...segs: string[]): string =>
     nonProd ? join(REPO_ROOT, PROBE_RUN_REL, ...segs) : ''
   return {
@@ -115,7 +116,7 @@ export function isQoderBridgeEnabled(): boolean {
   const flag = process.env.QODER_BRIDGE_ENABLED?.trim()
   if (flag === '1') return true
   if (flag === '0') return false
-  if (process.env.NODE_ENV === 'production') return false
+  if (isProductionGuard) return false
   const p = resolveQoderBridgePaths()
   return (
     p.runnerPath !== '' &&

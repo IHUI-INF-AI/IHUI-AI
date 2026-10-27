@@ -8,6 +8,7 @@ import { z } from 'zod'
 import type { Redis } from 'ioredis'
 // 2026-07-24 国安级升级:argon2id 密码哈希(抗 GPU/ASIC),兼容老 bcrypt 透明升级
 import { hashPassword, verifyPassword, upgradeHashIfNeeded } from '../utils/password-crypto.js'
+import { config } from '../config/index.js'
 import { verifyRefreshToken, createFamilyId, type JWTPayload } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
@@ -781,7 +782,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         // 的 7s 退避追不上 60s 窗口)。dev 放宽到 200 次/分钟;production 保持 5 次/分钟。
         // (账号锁定防爆破机制 recordLoginFailure/getLockRemainingMs 独立生效,不受影响)
         rateLimit:
-          process.env.NODE_ENV !== 'production'
+          // 档位判定走 config.isProductionGuard 单源(2026-10-27 收口,同 server.ts)
+          !config.isProductionGuard
             ? { max: 200, timeWindow: '1 minute' }
             : { max: 5, timeWindow: '1 minute' },
       },
