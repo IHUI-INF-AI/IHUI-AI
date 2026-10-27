@@ -213,9 +213,15 @@ export function reachBottomCovered(shellText) {
   return /onEndReached|onLoadMore/.test(String(shellText ?? ''))
 }
 
-/** 确认弹窗:壳用 RN 的 Alert.alert(现读 10 个屏),与小程序的 Taro.showModal 是同一件事。 */
+/**
+ * 确认弹窗:壳用 RN 的 Alert.alert(现读 10 个屏),与小程序的 Taro.showModal 是同一件事。
+ * 另认 `appAlert(title, msg, [{ onPress }])` 形态 —— 带选项的 appAlert 就是确认弹窗
+ * (现读 AiSkillScreen 注释即「RN 端 Alert(name/description + 取消/查看详情)」,实现为 appAlert + onPress)。
+ */
 export function modalCovered(shellText) {
-  return /\bAlert\.(alert|prompt)\b|showConfirm|ConfirmDialog/.test(String(shellText ?? ''))
+  const s = String(shellText ?? '')
+  if (/\bAlert\.(alert|prompt)\b|showConfirm|ConfirmDialog/.test(s)) return true
+  return /appAlert\s*\([\s\S]{0,300}?onPress/.test(s)
 }
 
 /** 剪贴板:壳用 Clipboard.setString(现读 13 个屏),与小程序的 Taro.setClipboardData 是同一件事。 */
@@ -724,6 +730,11 @@ function main(argv) {
       backFallbackOnly("Taro.switchTab({ url: '/pages/x' })"),
       backFallbackOnly('const x = 1'),
     ], [true, false, false])
+    P('S16 确认弹窗:Alert.alert 或带选项的 appAlert(onPress)才算', [
+      modalCovered('Alert.alert(t("x"), "", [...])'),
+      modalCovered("appAlert(skill.name, skill.description, [{ text: t('ok'), onPress: () => go() }])"),
+      modalCovered("appAlert(t('common.failed'))"),
+    ], [true, true, false])
     P('S14 错误分支 toast:全部在 catch 内且壳有错误出口才算;成功提示仍在则不算', [
       toastOnlyInCatch("try { await x() } catch { Taro.showToast({ title: t('common.loadFailed') }) }"),
       toastOnlyInCatch("Taro.showToast({ title: t('ok') })"),
