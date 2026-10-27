@@ -1436,7 +1436,9 @@
     "tabLive": "直播",
     "tabPost": "帖子",
     "tabAigc": "AI作品",
-    "tabNews": "資訊"
+    "tabNews": "資訊",
+    "deleteTitle": "確認刪除",
+    "title": "我的收藏"
   },
   "userFans": {
     "title": "我的粉絲",
@@ -6354,5 +6356,37 @@
   },
   "square": {
     "title": "AI 資訊"
+  },
+  "publish": {
+    "title": "內容發布",
+    "empty": "暫無發布任務",
+    "emptyHint": "發布的文章與內容會顯示在這裡",
+    "loadFailed": "載入失敗",
+    "retry": "重試",
+    "scheduled": "已排期",
+    "statsFailed": "發布失敗",
+    "statsSuccess": "發布成功",
+    "statsTotal": "總計",
+    "cancelTask": "取消",
+    "cancelTitle": "取消發布任務",
+    "cancelConfirm": "確定取消該任務嗎?",
+    "retryTask": "重試",
+    "operateFailed": "操作失敗,請重試",
+    "statusSuccess": "成功",
+    "statusFailed": "失敗",
+    "statusPartial": "部分成功",
+    "statusRunning": "執行中",
+    "statusPending": "待處理",
+    "statusSkipped": "跳過",
+    "platformBilibili": "嗶哩嗶哩",
+    "platformDouyin": "抖音",
+    "platformKuaishou": "快手",
+    "platformWechat": "微信公眾號",
+    "platformToutiao": "今日頭條",
+    "platformWeibo": "微博",
+    "platformXiaohongshu": "小紅書",
+    "platformZhihu": "知乎",
+    "platformJuejin": "掘金",
+    "platformShipinhao": "微信視頻號"
   }
 }

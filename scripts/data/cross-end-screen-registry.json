@@ -1135,6 +1135,16 @@
       "shared": "packages/app/src/features/square/SquareScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/NewsScreen.tsx",
       "miniapp": "pkg-user/square/index"
+    },
+    {
+      "shared": "packages/app/src/features/favorites/FavoritesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FavoritesScreen.tsx",
+      "miniapp": "pkg-mirror/favorites/index"
+    },
+    {
+      "shared": "packages/app/src/features/publish/PublishScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PublishScreen.tsx",
+      "miniapp": "pkg-mirror/publish/index"
     }
   ]
 }

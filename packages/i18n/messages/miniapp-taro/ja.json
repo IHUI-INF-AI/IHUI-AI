@@ -1436,7 +1436,9 @@
     "tabLive": "ライブ",
     "tabPost": "投稿",
     "tabAigc": "AI作品",
-    "tabNews": "ニュース"
+    "tabNews": "ニュース",
+    "deleteTitle": "削除の確認",
+    "title": "マイお気に入り"
   },
   "userFans": {
     "title": "フォロワー",
@@ -6354,5 +6356,37 @@
   },
   "square": {
     "title": "AIニュース"
+  },
+  "publish": {
+    "title": "コンテンツ公開",
+    "empty": "公開タスクがありません",
+    "emptyHint": "公開した記事やコンテンツが表示されます",
+    "loadFailed": "読み込みに失敗",
+    "retry": "再試行",
+    "scheduled": "予約済み",
+    "statsFailed": "配信失敗",
+    "statsSuccess": "公開しました",
+    "statsTotal": "合計",
+    "cancelTask": "キャンセル",
+    "cancelTitle": "公開タスクをキャンセル",
+    "cancelConfirm": "このタスクをキャンセルしますか?",
+    "retryTask": "再試行",
+    "operateFailed": "操作に失敗しました。再試行してください",
+    "statusSuccess": "成功",
+    "statusFailed": "失敗",
+    "statusPartial": "部分成功",
+    "statusRunning": "実行中",
+    "statusPending": "待処理",
+    "statusSkipped": "スキップ",
+    "platformBilibili": "ビリビリ",
+    "platformDouyin": "抖音",
+    "platformKuaishou": "快手",
+    "platformWechat": "WeChat公式アカウント",
+    "platformToutiao": "今日頭条",
+    "platformWeibo": "Weibo（微博）",
+    "platformXiaohongshu": "小紅書（RED）",
+    "platformZhihu": "知乎",
+    "platformJuejin": "掘金（Juejin）",
+    "platformShipinhao": "微信视频号"
   }
 }

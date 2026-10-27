@@ -1436,7 +1436,9 @@
     "tabLive": "라이브",
     "tabPost": "게시물",
     "tabAigc": "AI 작품",
-    "tabNews": "뉴스"
+    "tabNews": "뉴스",
+    "deleteTitle": "삭제 확인",
+    "title": "내 즐겨찾기"
   },
   "userFans": {
     "title": "내 팬",
@@ -6354,5 +6356,37 @@
   },
   "square": {
     "title": "AI 정보"
+  },
+  "publish": {
+    "title": "콘텐츠 게시",
+    "empty": "게시 작업이 없습니다",
+    "emptyHint": "게시한 기사와 콘텐츠가 여기에 표시됩니다",
+    "loadFailed": "로드 실패",
+    "retry": "재시도",
+    "scheduled": "예약됨",
+    "statsFailed": "게시 실패",
+    "statsSuccess": "게시됨",
+    "statsTotal": "합계",
+    "cancelTask": "취소",
+    "cancelTitle": "게시 작업 취소",
+    "cancelConfirm": "이 작업을 취소하시겠습니까?",
+    "retryTask": "재시도",
+    "operateFailed": "작업 실패, 다시 시도하세요",
+    "statusSuccess": "성공",
+    "statusFailed": "실패",
+    "statusPartial": "부분 성공",
+    "statusRunning": "실행 중",
+    "statusPending": "대기 중",
+    "statusSkipped": "건너뜀",
+    "platformBilibili": "비리비리",
+    "platformDouyin": "더우인",
+    "platformKuaishou": "콰이쇼우",
+    "platformWechat": "위챗 공식 계정",
+    "platformToutiao": "투티아오",
+    "platformWeibo": "웨이보",
+    "platformXiaohongshu": "샤오홍슈",
+    "platformZhihu": "지후",
+    "platformJuejin": "쥐진",
+    "platformShipinhao": "위챗 채널"
   }
 }
