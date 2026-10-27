@@ -59,7 +59,10 @@ import { SessionDiffDialog } from '@/components/ai/session-diff-dialog'
 // D06 审查对象选择器(2026-10-27 装车):选择条 + 发送正文判定。此前两个文件只有测试引用
 // (生产面零引用 = 票面「审查对象选择器」格未装车),装车点在下方 JSX 与 submitAndDismissLinkPreview。
 import { ReviewTargetSelector } from '@/components/chat/review-target-selector'
-import { isReviewSelectionReady, type ReviewSourceSelection } from '@/components/chat/review-context'
+import {
+  isReviewSelectionReady,
+  type ReviewSourceSelection,
+} from '@/components/chat/review-context'
 import { planReviewSend } from '@/components/chat/review-target-send'
 import { usePaneModeStore } from '@/stores/mode'
 import { runManualCompact } from '@/hooks/use-chat/manual-compact'
@@ -475,24 +478,26 @@ export function MessageInput({
     const base = overrideValue ?? value
     const plan = planReviewSend(base, reviewSelection, reviewTargetReady)
     const result = submit(plan.mode === 'plain' ? base : plan.text)
-    result.catch(() => {}).finally(() => {
-      linkPreview.reset()
-      if (plan.mode === 'plain') return
-      if (plan.mode === 'slash') {
-        // 目标命令已发出:草稿回填(有则回填),选择条清空。失败时 submit 会把命令文本
-        // 回填成正文,这里不再二次覆盖 —— 用户可直接重发。
-        if (plan.restoreDraft) setValue(plan.restoreDraft)
-        setReviewSelection(null)
-        reviewSelectionConsumeRef.current = false
-        return
-      }
-      // 内联档:正文被清空 ⇒ 视为已发出,清选择;失败时正文回填,选择保留待重发。
-      if (!base.trim()) {
-        setReviewSelection(null)
-        return
-      }
-      reviewSelectionConsumeRef.current = true
-    })
+    result
+      .catch(() => {})
+      .finally(() => {
+        linkPreview.reset()
+        if (plan.mode === 'plain') return
+        if (plan.mode === 'slash') {
+          // 目标命令已发出:草稿回填(有则回填),选择条清空。失败时 submit 会把命令文本
+          // 回填成正文,这里不再二次覆盖 —— 用户可直接重发。
+          if (plan.restoreDraft) setValue(plan.restoreDraft)
+          setReviewSelection(null)
+          reviewSelectionConsumeRef.current = false
+          return
+        }
+        // 内联档:正文被清空 ⇒ 视为已发出,清选择;失败时正文回填,选择保留待重发。
+        if (!base.trim()) {
+          setReviewSelection(null)
+          return
+        }
+        reviewSelectionConsumeRef.current = true
+      })
     return result
   }
   // 内联档的"发出后清选择":submit 的失败路径会把正文写回输入框,故以
@@ -1201,7 +1206,8 @@ export function MessageInput({
           selection={reviewSelection}
           onChange={setReviewSelection}
           data-testid="review-target-selector"
-        />        <div ref={inputAreaRef} className="relative">
+        />{' '}
+        <div ref={inputAreaRef} className="relative">
           <FileMentionPopover
             files={mentionFiles}
             open={mentionOpen}

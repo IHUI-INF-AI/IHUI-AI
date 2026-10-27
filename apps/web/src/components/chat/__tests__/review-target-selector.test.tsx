@@ -66,7 +66,13 @@ describe('ReviewTargetSelector(组件,受控)', () => {
     const { getByTestId, onChange, rerender } = renderSelector()
     fireEvent.click(getByTestId('review-target-kind-branch'))
     expect(onChange).toHaveBeenCalledWith({ kind: 'branch', value: '' })
-    rerender(<ReviewTargetSelector visible selection={{ kind: 'branch', value: '' }} onChange={onChange} />)
+    rerender(
+      <ReviewTargetSelector
+        visible
+        selection={{ kind: 'branch', value: '' }}
+        onChange={onChange}
+      />,
+    )
     fireEvent.change(getByTestId('review-target-branch-input'), { target: { value: 'feature/x' } })
     expect(onChange).toHaveBeenLastCalledWith({ kind: 'branch', value: 'feature/x' })
   })
@@ -75,7 +81,13 @@ describe('ReviewTargetSelector(组件,受控)', () => {
     const { getByTestId, onChange, rerender } = renderSelector()
     fireEvent.click(getByTestId('review-target-kind-commit'))
     expect(onChange).toHaveBeenCalledWith({ kind: 'commit', value: '' })
-    rerender(<ReviewTargetSelector visible selection={{ kind: 'commit', value: '' }} onChange={onChange} />)
+    rerender(
+      <ReviewTargetSelector
+        visible
+        selection={{ kind: 'commit', value: '' }}
+        onChange={onChange}
+      />,
+    )
     fireEvent.change(getByTestId('review-target-commit-input'), { target: { value: '9cb7c5a' } })
     expect(onChange).toHaveBeenLastCalledWith({ kind: 'commit', value: '9cb7c5a' })
   })
