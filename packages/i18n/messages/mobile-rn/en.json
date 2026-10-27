@@ -6641,5 +6641,11 @@
     "success": "Sign-in confirmed",
     "failed": "Confirmation failed. Please try again.",
     "needLogin": "Please sign in before scanning"
+  },
+  "update": {
+    "title": "New version available",
+    "body": "Restart the app to get the latest version",
+    "action": "Update",
+    "close": "Close"
   }
 }
