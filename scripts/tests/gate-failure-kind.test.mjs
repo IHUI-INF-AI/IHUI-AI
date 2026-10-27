@@ -10,7 +10,7 @@
  * `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'opencc-js' …`。
  * runner 把"跑不起来"和"判红"记成同一件事,我就差点把一次 import 失败登记成"10 道语言包缺陷"。
  *
- * 四条硬约束各有正反例(缺一即判据无牙):
+ * 五条硬约束各有正反例(缺一即判据无牙):
  *  - 崩溃 ⇒ crash,**但仍算失败**(不得把没跑成的门洗成通过);
  *  - 门自己打印的 `❌ 发现 N 处违规` ⇒ 必须还是 red(不得借"分流"给判据开后门);
  *  - 中断族(75 / 128+N / 只有 signal)⇒ interrupt,与 G-611 的传播语义同形;
@@ -19,6 +19,8 @@
  *    status/signal/stderr 交给这把尺子,兜底 Error 两个都是 null ⇒ 落 `判据判红(exit null)`,
  *    门 30c check-stale-copy.mjs 被 300010ms 看门狗 SIGKILL、零输出即此型实测。
  *    最危险的失效方向是"把真红洗成未判定"(逃逸口),故 F2/F3 与 F1 同票成对。
+ *  - 门自己按 §0.3 交付的 exit 2 + 自称「未判定」⇒ 独成 undetermined 档(2026-10-27 立),
+ *    **两个条件缺一不可**:只凭退出码放行会把刻意用 exit 2 顶红的尺子洗绿;F9 四条反向牙钉死。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -350,5 +352,53 @@ test('F8 末行后果锁:crash 一支必须自己把批量顶成非零(2026-10-2
   )
   // 措辞锁:这条出口的文案必须明说"未判定不等于通过",免得后人把它当普通告警删掉
   assert.match(src.slice(crashGuard, cacheWrite), /未判定/, '兜底出口的文案没点名"未判定"')
+})
+
+test('F9 §0.3 未判定独成一档:exit 2 + 门自称未判定 ⇒ undetermined,且四条反向牙不许被削', () => {
+  // 正例:门按 §0.3 交付(取不到输入)⇒ 独成第五档,不并进 red/failedGates
+  const und = gateFail.decideGateOutcome({
+    status: gateFail.UNDETERMINED_EXIT_CODE,
+    signal: null,
+    stderr: '[check-x] ⚠️ 未判定:HEAD 面取不到(git show 失败)',
+  })
+  assert.equal(
+    und.kind,
+    'undetermined',
+    '门自称未判定却被并进判红 ⇒ 与本次提交无关的红会逼人 --no-verify、连带废掉全部守门(§12e/§12f)',
+  )
+  assert.match(und.reason, /未判定/)
+  // 反向牙①:只给 exit 2 而门没自称未判定 ⇒ 仍判红(本仓有刻意用 exit 2 顶红的尺子)
+  assert.equal(
+    gateFail.decideGateOutcome({ status: 2, signal: null, stderr: GATE_VERDICT_STDERR }).kind,
+    'red',
+    '仅凭退出码 2 放行 = 逃逸口:刻意用 exit 2 顶红的判据会被洗成未判定',
+  )
+  // 反向牙②:自称未判定却是 exit 1 ⇒ 仍是 red(那是门体口径错,不许记成未判定)
+  assert.equal(gateFail.decideGateOutcome({ status: 1, signal: null, stderr: '未判定' }).kind, 'red')
+  // 反向牙③:有信号且无码 ⇒ interrupt 优先(信号不是门自己交付的结论)
+  assert.equal(
+    gateFail.decideGateOutcome({ status: null, signal: 'SIGKILL', stderr: '未判定' }).kind,
+    'interrupt',
+  )
+  // 反向牙③b:exit 2 与 signal 同给属于异常组合 ⇒ detectUndetermined 显式拒绝信号 ⇒ 落 red
+  assert.equal(
+    gateFail.decideGateOutcome({ status: 2, signal: 'SIGKILL', stderr: '未判定' }).kind,
+    'red',
+  )
+  // 反向牙④:崩溃指纹排在未判定之前 ⇒ 同时出现按"跑不起来"处理(更严那档)
+  assert.equal(
+    gateFail.decideGateOutcome({
+      status: 2,
+      signal: null,
+      stderr: "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'x'\n未判定",
+    }).kind,
+    'crash',
+  )
+  // 纯函数面:detectUndetermined 返回命中那句话(点名用),判不了时返回 null 而不是布尔
+  assert.match(
+    gateFail.detectUndetermined({ status: 2, signal: null, stderr: '无法判定:面为空' }),
+    /无法判定/,
+  )
+  assert.equal(gateFail.detectUndetermined({ status: 0, signal: null, stderr: '未判定' }), null)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

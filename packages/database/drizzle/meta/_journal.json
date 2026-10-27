@@ -2426,6 +2426,13 @@
       "when": 1793065500000,
       "tag": "20261027091500_default_avatar_www",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 350,
+      "when": 1793075400000,
+      "tag": "20261027120000_automation_settlement_state_machine",
+      "breakpoints": true
     }
   ]
 }

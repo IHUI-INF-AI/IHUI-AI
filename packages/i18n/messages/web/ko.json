@@ -27032,6 +27032,12 @@
     "pageSubtitle": "사용자가 편집할 수 있는 규칙 세트. agent 실행 시 조건에 따라 system prompt에 동적 주입"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "수동 일시정지",
+      "failedPermanent": "영구 실패",
+      "failedRetriesExhausted": "재시도 횟수 초과",
+      "completed": "완료"
+    },
     "delete": "삭제",
     "title": "자동화",
     "subtitle": "일정에 맞춰 에이전트 작업 실행",

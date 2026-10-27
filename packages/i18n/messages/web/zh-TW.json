@@ -27004,6 +27004,12 @@
     "pageSubtitle": "用戶可編輯的規則集,在 agent 運行時按匹配條件動態注入到 system prompt"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "手動暫停",
+      "failedPermanent": "永久失敗",
+      "failedRetriesExhausted": "重試次數已用盡",
+      "completed": "已完成"
+    },
     "delete": "刪除",
     "title": "定時自動化",
     "subtitle": "定時執行你的 Agent 任務",

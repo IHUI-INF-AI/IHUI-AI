@@ -39,6 +39,35 @@
  *      到期日;到期或失去命中都自动翻红)。
  *
  * §22d 合规:isDirectRun 守卫 + __test__ 纯函数导出(镜像测试走 __test__)。
+ *
+ * ── 判定面现状(2026-10-27 登记,刀二**未装车**)────────────────────────────
+ *   本门**尚无 §0.4 的三面档**:全量档与 `--staged` 读的是同一个工作树磁盘面
+ *   (扫描走 readdirSync、两本台账走 readFileSync)。`--staged` 由 guardian-runner
+ *   统一追加,本门收下但**不改变判定面**;两面旗同给(`--staged --worktree`)判死
+ *   (exit 2 未判定),这是本枚先把"静默吞旗标"改成"如实声明"的那一半。
+ *   为什么面档不接(实测,取证 .ihui-agent/tmp/nested-gate-face-chair/face-sim.mjs):
+ *     · 嵌套 .git 是**未跟踪的磁盘现场**(本机三处现场全被 .gitignore 覆盖:
+ *       .trae-cn/ = :38、.ihui-agent/* = :182、outputs/* = :546),HEAD/索引树里没有
+ *       任何可命中形态(gitlink 现读 0 枚)⇒ 严格按被审面枚举命中 = 本门对 2026-10-14
+ *       那一型彻底失明(削判据,禁止)。
+ *     · 只把两本台账换成被审面,则 HEAD 面台账现读 2 条 `.trae-cn/tmp/*-fork`,其容器
+ *       在任何被审面上结构上不可能存在 ⇒「清单腐烂判红」那一支变成**恒真**红 ⇒
+ *       存量未归零就 blocking = §12e 禁止的恒红门(接上去拦的是所有人的提交)。
+ *   ⇒ 正解次序:先按刀一把"载体误用"点名并给出改登行式载体的出口,等 HEAD 面那两条
+ *     恒红条目经一次带说明的提交摘干净(存量归零),再由主席接面档(方案见交付报告)。
+ *
+ * ── 刀一:JSON 具名台账的「载体误用」档(2026-10-27 立;只解释红,不消红)──────
+ *   `flagCarrierMisuse` 在装载台账时现读:某条 rel 若被 .gitignore 规则覆盖,它就永远
+ *   不可能出现在 HEAD blob / 索引 blob / CI 干净检出面上。而 JSON 具名台账的语义是
+ *   §0.7「已登记的豁免若被审面不再命中 ⇒ 清单腐烂**判红**」—— 对这种条目该支恒真,
+ *   于是"条目在册"本身就是一把恒红门(实测:入库枚 173381c761 自称消 CI 全量档红,
+ *   效果相反 —— 本地转绿、CI 转红)。对照第二把载体(行式 `no-nested-git-sites.jsonl`):
+ *   同一型"只存在于机主本机"的现场在那里只打 ⚠ 不清红。**红还是 ⚠ 纯由载体决定,
+ *   不由现场决定** ⇒ 这一档的职责是把选错载体这件事点名,并给出出口(改登行式载体)。
+ *   三条锁(镜像测试逐条钉住):① 不改任何归属桶 —— 命中该放的照样放、该红的照样红;
+ *   ② 不降级「清单腐烂」那一支的红(只在原句**后面**追加病因与出路);
+ *   ③ `git check-ignore` 问不出结论 ⇒ 该档本轮「未判定」并点名,既不据此加红也不据此降级。
+ *
  * ══════════════════════════════════════════════════════════════════════════
  *
  * provenance: 7ab6f29e01c4b3d58a2f1e9c04d76b35a8e2c9f1d4b7a6e3c8f5d2b1a9e4c7f0
@@ -47,6 +76,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from 'node
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GATE_LABEL = '[check-no-nested-git]'
@@ -220,6 +250,79 @@ export function loadNamedSites(file = SITES_FILE) {
   return { entries, error: '', bad }
 }
 
+/** 行式载体的仓库相对路径(刀一给出的出口必须点名到**能真跑**的文件,§0.8)。 */
+const SITES_REL_TEXT = 'scripts/data/no-nested-git-sites.jsonl'
+/** JSON 具名台账的仓库相对路径(与红字处置同源,不另写第二份措辞)。 */
+const EXEMPTION_REL_TEXT = 'scripts/data/no-nested-git-exemptions.json'
+
+/**
+ * 现读:这些容器路径里,哪些被 .gitignore 规则覆盖(= 在 HEAD blob / 索引 blob / CI 干净检出
+ * 面上**结构上不可能存在**)。
+ *
+ * 只用退出码取结论、**不解析 `check-ignore` 的输出格式**(全仓另有一份行解析,复制它 = §0.6
+ * 说的第二份必然漂移;而本档要的只是"忽略/不忽略/问不出"三态)。`--no-index` 问的是规则本身
+ * 覆不覆盖这个路径,与它此刻有没有被跟踪无关 —— 这正是"结构上不可能存在"那一问。
+ *
+ * @param {string[]} rels 台账条目的容器路径(数量 = 台账枚数,个位数)
+ * @param {{root?:string, run?:Function}} [opts] `run` 可注入(镜像测试构造三态,不赌运气)
+ * @returns {{ignored:Set<string>, undetermined:string[]}} ignored=确认被覆盖;undetermined=问不出结论
+ *          (§0.3:问不出一律点名"未判定",既不据此加红也不据此降级)
+ */
+export function probeIgnoredRels(rels, opts = {}) {
+  const root = opts.root ?? REPO_ROOT
+  const run = opts.run ?? ((args) => gitRaw(args, root, { timeout: 20000 }))
+  const ignored = new Set()
+  const undetermined = []
+  for (const rel of rels ?? []) {
+    let status = null
+    try {
+      run(['check-ignore', '-q', '--no-index', '--', rel])
+      status = 0
+    } catch (e) {
+      status = typeof e?.status === 'number' ? e.status : null
+    }
+    if (status === 0) ignored.add(rel)
+    else if (status === 1) continue // git 明确回答"没被忽略"⇒ 载体没选错
+    else undetermined.push(rel) // 其它退出码/信号/取不到 git ⇒ 未判定
+  }
+  return { ignored, undetermined }
+}
+
+/**
+ * 刀一:JSON 具名台账的**载体误用**判定 —— 只解释红,不消红、不释放命中。
+ *
+ * 射程只有 JSON 具名台账:行式 `no-nested-git-sites.jsonl` 记的是意图、存续由本门现算、
+ * 失去命中只 ⚠ 不判红,那正是被 .gitignore 覆盖的本机现场的**正确载体**,不该反过来点名。
+ *
+ * @param {Array<{rel:string}>} entries loadNamedExemptions 的可用条目
+ * @param {Set<string>|null} ignored probeIgnoredRels 的 ignored 集;null = 本轮没问(不参与)
+ * @param {string[]} [undetermined] 问不出结论的 rel(原样透出,由 main 大声打印"未判定")
+ * @returns {{misuse:Array<{rel:string,owner:string,expires:string}>, undetermined:string[]}}
+ */
+export function flagCarrierMisuse(entries, ignored, undetermined = []) {
+  const misuse = []
+  if (ignored) {
+    for (const e of entries ?? []) {
+      if (e && ignored.has(e.rel)) {
+        misuse.push({ rel: e.rel, owner: String(e.owner ?? ''), expires: String(e.expires ?? '') })
+      }
+    }
+  }
+  return { misuse, undetermined: [...(undetermined ?? [])] }
+}
+
+/** 刀一追加进红句的病因 + 出路(接在原句之后,原句一字不改 —— 降级红即违例)。 */
+export function carrierMisuseClause(rel) {
+  return (
+    ` —— [刀一·载体误用]该条登记的容器路径被 .gitignore 规则覆盖` +
+    `(现读命令:git check-ignore -v ${rel}),因此它在 HEAD blob / 索引 blob / CI 干净检出面上` +
+    `**结构上不可能存在** ⇒ 「登记在册 ⇒ 永远不再命中 ⇒ 清单腐烂判红」这支对它是**恒真**的,` +
+    `这条红不会随现场清偿而消失(§12e 禁止的恒红门)。出路不是再 ack、也不是删判据,` +
+    `而是把该现场改登行式载体 ${SITES_REL_TEXT}(每处一行、只记意图与归属,存续由本门在判的那一刻现算,` +
+    `失去命中只 ⚠ 不清红),并从 ${EXEMPTION_REL_TEXT} 摘掉这一条 —— 摘册走一次带说明的提交,不跳门。`
+  )
+}
+
 /**
  * 按台账把 hits 分成「仍判红 / 具名放行」两堆,并另算**腐烂**(§0.7:已登记的豁免在审面不再命中 ⇒ 清单腐烂判红)。
  * 判据要点(都是为了让这条出口不能被滥用):
@@ -349,6 +452,9 @@ export function scanForNestedGit(root, opts = {}) {
  * 只有**逐字等值容器目录 + 形态合格 + 未到期**那几条被放行,放行结果一并回传给调用方大声打印
  * (§0.7 不许静默豁免)。不传 entries ⇒ 行为与加装豁免之前**逐字相同**(既有调用方/测试不受影响)。
  * `opts.checkStale` 只在扫的是仓库根本体时为真:那才有资格判「台账里的条目已无命中 ⇒ 清单腐烂」。
+ * `opts.carrier`(刀一)给 `{misuse, undetermined}`(由 flagCarrierMisuse + probeIgnoredRels 现算)时,
+ * **只**在两处动笔墨、一处也不动归属桶:① 腐烂红原句后面追加病因与出路;② 未到期却已无命中的
+ * 条目按状态透出供大声打印。不传 ⇒ 行为与加装刀一之前**逐字相同**(旧调用方/镜像测试不受影响)。
  */
 export function evaluateResult(scan, opts = {}) {
   const entries = opts.entries ?? []
@@ -366,10 +472,20 @@ export function evaluateResult(scan, opts = {}) {
       `${h.isDir ? '嵌套 .git 目录' : '嵌套 .git(gitfile)'}: ${h.path}` +
       (h.exemptWhy ? ` —— ${h.exemptWhy}` : '')
   )
+  // ── 刀一:载体误用档(只解释红,不消红、不释放命中)────────────────────────
+  const misuse = (opts.carrier?.misuse ?? []).filter((m) => m && entries.some((e) => e.rel === m.rel))
+  const misuseRels = new Set(misuse.map((m) => m.rel))
+  const exemptedRels = new Set(jsonPass.exempted.map((x) => x.entry.rel))
+  const staleRels = new Set(jsonPass.stale.map((s) => s.rel))
+  for (const m of misuse) {
+    m.state = staleRels.has(m.rel) ? 'lost-hit-red' : exemptedRels.has(m.rel) ? 'live-exempt' : 'no-exemption-granted'
+  }
   if (checkStale) {
     for (const s of jsonPass.stale) {
       reasons.push(
-        `具名豁免腐烂:台账里的「${s.rel}」本次审面已无命中 ⇒ 清单腐烂判红(§0.7:豁免必须随现场一起销,不许留在册上等人猜它还在不在)`
+        `具名豁免腐烂:台账里的「${s.rel}」本次审面已无命中 ⇒ 清单腐烂判红(§0.7:豁免必须随现场一起销,不许留在册上等人猜它还在不在)` +
+          // 追加,不是替换:摘掉这一句 ⇒ 同一枚红照样在,只是没人再说清它为什么恒真(镜像测试 ⑪ 钉住)
+          (misuseRels.has(s.rel) ? carrierMisuseClause(s.rel) : '')
       )
     }
   }
@@ -388,6 +504,8 @@ export function evaluateResult(scan, opts = {}) {
     stale: jsonPass.stale,
     staleSites: sitePass.stale,
     linked: scan.linkedWorktrees ?? [],
+    carrierMisuse: misuse,
+    carrierUndetermined: [...(opts.carrier?.undetermined ?? [])],
   }
 }
 
@@ -397,7 +515,23 @@ export async function main(argv = process.argv.slice(2)) {
     console.info('用法: node scripts/check-no-nested-git.mjs [--root <目录>]')
     console.info('守门 208(blocking): 仓库工作树内出现任何嵌套 .git(目录/gitfile)即红。')
     console.info('  --root <目录>  扫描根(默认仓库根;测试/演练可显式指定)')
+    console.info(
+      '  判定面: 本门**尚无 HEAD/索引面档**(§0.4 三面形态未装车,原因见头注)——' +
+        '全量档与 --staged 读同一个工作树磁盘面,两面读数相同不代表两面一致。'
+    )
+    console.info('  --staged 与 --worktree 互斥,同给 ⇒ exit 2 未判定(不回落任一面)。')
+    console.info(
+      `  刀一: JSON 具名台账 ${EXEMPTION_REL_TEXT} 里被 .gitignore 覆盖的条目 ⇒ 点名「载体误用」` +
+        `并给出改登 ${SITES_REL_TEXT} 的出口(只解释红,不消红、不释放命中)。`
+    )
     return 0
+  }
+  // 面旗互斥:这一支**只**判"调用方要的是哪个面"这件事本身矛盾,不改变任何单旗档的判定。
+  // 立因:runner 在 staged 模式统一追加 --staged,而本门过去不解析旗标(静默吞掉),
+  // 于是"两面读数逐字相同"被读成"两面一致"—— 先让它不许自相矛盾,再谈面档(头注)。
+  if (argv.includes('--staged') && argv.includes('--worktree')) {
+    console.error(`${GATE_LABEL} ⏭ 未判定:--staged(索引面)与 --worktree(工作树面)互斥,同给不记绿也不冒红(§0.4)`)
+    return 2
   }
   let root = REPO_ROOT
   // G-322(守门 208,blocking):旧写法 `ri !== -1 && argv[ri+1]` 在被旗标顶值时把 "--staged" 当扫描根
@@ -413,10 +547,19 @@ export async function main(argv = process.argv.slice(2)) {
   const scan = scanForNestedGit(root)
   const ledger = loadNamedExemptions()
   const sites = loadNamedSites()
+  const isRepoRootFace = resolve(root) === REPO_ROOT
+  // 刀一只在"扫的是仓库根本体、且 JSON 台账确有可用条目"时才问 git(空台账一次都不派生;
+  // --root 指到夹具子树时两本台账都不作腐烂判定,不必问)。
+  let carrier = { misuse: [], undetermined: [] }
+  if (isRepoRootFace && ledger.entries.length) {
+    const probe = probeIgnoredRels(ledger.entries.map((e) => e.rel))
+    carrier = flagCarrierMisuse(ledger.entries, probe.ignored, probe.undetermined)
+  }
   const verdict = evaluateResult(scan, {
     entries: ledger.entries,
     sites: sites.entries,
-    checkStale: resolve(root) === REPO_ROOT,
+    checkStale: isRepoRootFace,
+    carrier,
   })
   if (ledger.error && scan.hits.length > 0) {
     verdict.reasons.push(
@@ -444,6 +587,25 @@ export async function main(argv = process.argv.slice(2)) {
   for (const s of verdict.staleSites) {
     console.warn(
       `${GATE_LABEL} ⚠ 现场登记件里的「${s.rel}」本次审面已无命中 ⇒ 该行的豁免本轮自然不生效(未命中=免不了任何东西),不判红;归属 ${s.owner} 若已撤离,请随批摘掉该行。`
+    )
+  }
+  // ── 刀一:载体误用点名(腐烂那一型已在红句里逐条带出病因,这里补另外两种状态)──
+  for (const m of verdict.carrierMisuse) {
+    if (m.state === 'lost-hit-red') continue
+    console.warn(
+      `${GATE_LABEL} ⚠ [刀一·载体误用]${m.rel}(载体:JSON 具名台账;归属 ${m.owner};到期 ${m.expires})` +
+        ` 的容器路径被 .gitignore 规则覆盖 ⇒ 它在 HEAD blob / 索引 blob / CI 干净检出面上结构上不可能存在。` +
+        (m.state === 'live-exempt'
+          ? '本轮它靠磁盘现场才命中并获放行;现场一消失,这条就把本门做成恒红门(§12e)。'
+          : '本轮它没有换来任何放行。') +
+        `出路:改登行式载体 ${SITES_REL_TEXT}(存续由本门在判的那一刻现算、失去命中只 ⚠ 不清红),` +
+        `并从 ${EXEMPTION_REL_TEXT} 摘掉这一条(走一次带说明的提交,不跳门)。`
+    )
+  }
+  if (verdict.carrierUndetermined.length) {
+    console.warn(
+      `${GATE_LABEL} ⏭ [刀一]载体误用那一档本轮未判定(git check-ignore 对 ${verdict.carrierUndetermined.join(', ')} 问不出结论)` +
+        ` ⇒ 既不据此加红,也不据此降级本次腐烂红(§0.3:没判 ≠ 判过)`
     )
   }
 
@@ -494,7 +656,11 @@ export async function main(argv = process.argv.slice(2)) {
   }
   console.error('  处置: 演练/夹具仓 → 删目录或摘 .git;测试基建 → 落点改 scripts/lib/scratch-dir.mjs mkScratch()。')
   console.error(
-    `  确属长期合法的在飞现场 → 走具名台账 scripts/data/no-nested-git-exemptions.json(必须带 owner + why + YYYY-MM-DD 到期日;逐字等值容器目录才免,到期自动翻红,条目失去命中按清单腐烂判红)。`
+    `  确属长期合法的在飞现场 → 走具名台账 ${EXEMPTION_REL_TEXT}(必须带 owner + why + YYYY-MM-DD 到期日;逐字等值容器目录才免,到期自动翻红,条目失去命中按清单腐烂判红)。`
+  )
+  console.error(
+    `  ⚠ 选载体前先看 git check-ignore -v <容器目录>:命中 .gitignore 的现场(本机工具产物、临时克隆)在 HEAD/索引/CI 面上结构上不可能存在,` +
+      `登记在 ${EXEMPTION_REL_TEXT} 会把「失去命中 ⇒ 清单腐烂判红」做成恒真红 ⇒ 这种现场请改登 ${SITES_REL_TEXT}(存续由本门现算,失去命中只 ⚠ 不清红)。`
   )
   console.error('  因由: 嵌套仓被 IDE 源代码管理当独立仓库扫描,聚合出「暂存更改 10000+ 全 D」幻影计数(2026-10-14 事故)。')
   return 1
@@ -509,7 +675,12 @@ export const __test__ = {
   loadNamedExemptions,
   loadNamedSites,
   splitByExemption,
+  probeIgnoredRels,
+  flagCarrierMisuse,
+  carrierMisuseClause,
   normRel,
+  SITES_REL_TEXT,
+  EXEMPTION_REL_TEXT,
 }
 
 /** §22d 直接运行守卫:被 import(镜像测试/编排器)时不自跑。 */

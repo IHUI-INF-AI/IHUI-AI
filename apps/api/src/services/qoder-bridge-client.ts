@@ -61,7 +61,6 @@ let endpoint: QoderBridgeEndpoint | null = null
 let child: ChildProcess | null = null
 let starting: Promise<QoderBridgeEndpoint | null> | null = null
 let stopped = false
-let consecutiveFailures = 0
 let lastError = ''
 
 function isFile(p: string): boolean {
@@ -234,13 +233,11 @@ export async function ensureQoderBridge(): Promise<QoderBridgeEndpoint | null> {
       try {
         const ep = await launchOnce()
         endpoint = ep
-        consecutiveFailures = 0
         lastError = ''
         console.info(`[qoder-bridge] ready pid=${ep.pid} ${ep.baseUrl}`)
         return ep
       } catch (e) {
         lastError = e instanceof Error ? e.message : String(e)
-        consecutiveFailures++
         console.warn(`[qoder-bridge] 启动失败(${attempt}/${MAX_START_ATTEMPTS}): ${lastError}`)
         if (attempt < MAX_START_ATTEMPTS) {
           await new Promise((r) => setTimeout(r, Math.min(2000 * attempt, 6000)))
@@ -291,20 +288,4 @@ export function stopQoderBridge(): void {
   }, 3000).unref?.()
 }
 
-/** 观测面用：桥的当前状态（不进健康检查轮询，管理面按需读） */
-export function qoderBridgeStatus(): {
-  ready: boolean
-  baseUrl: string | null
-  pid: number | null
-  consecutiveFailures: number
-  lastError: string
-} {
-  return {
-    ready: endpoint !== null,
-    baseUrl: endpoint?.baseUrl ?? null,
-    pid: endpoint?.pid ?? null,
-    consecutiveFailures,
-    lastError,
-  }
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

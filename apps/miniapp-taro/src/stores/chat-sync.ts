@@ -13,10 +13,6 @@
  * `@ihui/shared/chat` 的 `chat-sync-store`(它再引用 `@ihui/types` 的契约内核)。
  * 本文件只负责"把它包成本端 React 能订阅的 hook",与 user.ts / vip.ts 同一条模式。
  *
- * 页面用法(接线时):
- * ```ts
- * const synced = useChatSyncMessages(conversationId)
- * ```
  * 选择器返回的数组由共享 store 缓存(状态不变 ⇒ 同一引用),所以未变更的会话不会重渲染;
  * **不要**在 selector 里现拼对象/数组(每次新引用 = 每次发布都重渲染)。
  */
@@ -34,8 +30,6 @@ import {
   type ChatSyncStoreCounters,
   type ChatSyncStoreFrameOutcome,
 } from '@ihui/shared/chat'
-
-import { createTaroZustandHook } from './helpers/create-taro-zustand-hook'
 
 interface ChatSyncMiniappState {
   /** 共享 store 的变更序号:每次真实变更 +1(端内用它当"发布信号") */
@@ -68,16 +62,6 @@ chatSyncStore.subscribe(() => {
   chatSyncTaroStore.setState({ version: chatSyncStore.version() })
 })
 
-/** 端内 store(既能当 hook 调,也保留 getState/subscribe,与 zustand `create` 同形)。 */
-const useChatSyncStore = createTaroZustandHook(chatSyncTaroStore)
-
 /** 非 React 路径(广播适配器)使用的直读入口。 */
 export const chatSyncTaroStoreApi = chatSyncTaroStore
-
-/**
- * 会话消息面的便捷 hook(接线页一行取数)。返回引用稳定 ⇒ 别的会话变更不引起本页重渲染。
- */
-export function useChatSyncMessages(conversationId: string): readonly ChatSyncMessageSurface[] {
-  return useChatSyncStore((s) => s.messagesOf(conversationId))
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

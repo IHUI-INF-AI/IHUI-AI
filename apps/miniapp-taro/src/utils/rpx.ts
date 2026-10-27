@@ -44,18 +44,6 @@ export function rpx(n: number): string {
 }
 
 /**
- * rpx 转 px(用于 fontSize 等需要 px 的场景,H5 下用 px 不用 vw 避免字太小)
- * @param n rpx 数值
- * @returns 1rpx = 1px(粗略估算,不准确但足够用于字号/边框)
- */
-export function rpxToPx(n: number): string {
-  if (detectH5()) {
-    return `${n}px`
-  }
-  return `${n}rpx`
-}
-
-/**
  * 纯 px 值(不参与 rpx 转换,如状态栏高度这种与设备相关的实际像素)
  * 修复 (2026-08-12):模板字面量 `${navBarHeight}px` 同样被 SWC 剥离,导致
  * NavBar 高度塌陷。用 px(n) 替代,让 SWC 看到的是函数调用,保留输出。

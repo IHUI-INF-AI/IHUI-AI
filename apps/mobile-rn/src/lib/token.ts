@@ -414,7 +414,6 @@ export async function runWithFreshToken<T>(run: (token: string | null) => Promis
   }
 }
 
-
 /**
  * 主动续期(2026-10-26)。
  *
@@ -433,11 +432,6 @@ export function startTokenAutoRefresh(): void {
     isSessionLoggedOut,
   })
   autoRefresh.start()
-}
-
-export function stopTokenAutoRefresh(): void {
-  autoRefresh?.stop()
-  autoRefresh = null
 }
 
 export function getToken(): string | null {
