@@ -77,12 +77,7 @@ import {
   setSessionAffinity,
 } from './relay-account-shared-state.js'
 import { recordAccountUsage } from './relay-account-usage.js'
-import {
-  pickProxyForAccount,
-  reportProxyFailure,
-  reportProxySuccess,
-  resolveAccountProxyUrl,
-} from './relay-proxy-pool.js'
+import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './relay-proxy-pool.js'
 import { resolveModelAlias } from './relay-model-catalog.js'
 import {
   applyStopToCompletion,
@@ -687,10 +682,7 @@ async function doRefreshRowInPlace(
   const startedAt = new Date()
   try {
     const credentials = decryptAccountCredentials(row)
-    const result = await adapter.refreshToken!(
-      { row, credentials },
-      { proxyUrl: resolveAccountProxyUrl(row.proxyUrl) },
-    )
+    const result = await adapter.refreshToken!({ row, credentials }, { proxyUrl: row.proxyUrl })
     if (!result) return null
     const tokenEnc = encryptField(result.token)
     const refreshTokenEnc =
@@ -1253,11 +1245,7 @@ async function attemptWithAccount(
             const retry = await adapter.executeChat(
               { row: refreshed, credentials: decryptAccountCredentials(refreshed) },
               normReq,
-              {
-                signal: retryTimed.signal,
-                proxyUrl: resolveAccountProxyUrl(refreshed.proxyUrl),
-                fetchImpl: doFetch,
-              },
+              { signal: retryTimed.signal, proxyUrl: refreshed.proxyUrl, fetchImpl: doFetch },
             )
             if (retry.stream) {
               const retryTerminal = newStreamTerminal()

@@ -94,3 +94,4 @@
 {"key":"G-75#落地闸第②把尺子对F9是永不可满足的","owner":"门 130 / union-converge 判据持有人裁决","waiting":"none","updatedAt":"2026-10-26T07:34:26.258Z","updatedBy":"plan-fields-extract"}
 {"key":"G-1200041#G-1200041sso","owner":"机主控制台面","waiting":"none","updatedAt":"2026-10-27T04:12:36.669Z","updatedBy":"plan-fields-extract"}
 {"key":"G-70#备份链重建","owner":"待认领","waiting":"none","blocking":"","updatedAt":"2026-10-27T03:57:48.154Z","updatedBy":"plan-fields-extract-adopt"}
+{"key":"H01#冷启动抢跑全仓盘点余量","waiting":"human","blocking":"机主真机/扫码会话","updatedAt":"2026-10-27T06:06:52.516Z","updatedBy":"plan-fields-extract"}

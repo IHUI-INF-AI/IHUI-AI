@@ -53,6 +53,9 @@ export function buildPayload(extracted) {
     ...(a.machineId ? { machineId: a.machineId } : {}),
     ...(a.deviceKeyPem ? { deviceKeyPem: a.deviceKeyPem } : {}),
     ...(a.devicePubPem ? { devicePubPem: a.devicePubPem } : {}),
+    // 会话模板(2026-10-27):本机当前登录号的账号资料(凭证已剔除)。随票回灌让池侧
+    // 「登录本机」模板与本机保持一致;池侧按合并语义落 secretsEnc,不会抹掉设备材料。
+    ...(a.sessionTemplate ? { sessionTemplate: a.sessionTemplate } : {}),
   }))
   return { providerCode: 'trae', accounts, meta: extracted?.meta ?? {} }
 }

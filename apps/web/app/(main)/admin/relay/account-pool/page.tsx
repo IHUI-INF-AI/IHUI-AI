@@ -29,6 +29,7 @@ import {
   Label,
   Loader2,
   LogIn,
+  MonitorDown,
   PartyPopper,
   Pencil,
   Power,
@@ -633,6 +634,36 @@ export default function AdminRelayAccountPoolPage() {
       invalidate()
     },
     onError: (e: Error) => toast.error(e.message || '操作失败'),
+  })
+
+  // 登录本机(2026-10-27):把号池账号写进本机 Trae 客户端登录态(仅 trae;写前自动备份)
+  const loginLocalMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<{
+        uid: string
+        replacedUid: string | null
+        storageFile: string
+        backupFile: string
+        deviceEnvelopeWritten: boolean
+        tokenNearExpiry: boolean
+        refreshed: boolean
+        restartHint: string
+      }>(`/api/admin/relay/accounts/${id}/login-local`, { method: 'POST' })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      const replaced = d.replacedUid ? `,已替换原登录 ${d.replacedUid}` : ''
+      toast.success(`已把 uid=${d.uid} 写进本机 Trae${replaced};${d.restartHint}`, {
+        description:
+          `备份:${d.backupFile}` +
+          (d.tokenNearExpiry
+            ? '\n这枚票已临期:客户端启动后会自行续期,号池由 10 分钟一次的同步回灌'
+            : ''),
+      })
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '写入本机登录态失败'),
   })
 
   const healthMut = useMutation({
@@ -1500,6 +1531,34 @@ export default function AdminRelayAccountPoolPage() {
                                   </Button>
                                 </span>
                               </Tooltip>
+                              {k.providerCode === 'trae' && (
+                                <Tooltip content="登录本机:把该号写进本机 Trae 客户端登录态(写前自动备份 storage.json,可回滚)">
+                                  <span className="inline-flex">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      aria-label="登录本机"
+                                      disabled={loginLocalMut.isPending}
+                                      onClick={() => {
+                                        void confirm({
+                                          title: `把「${k.name}」登录到本机 Trae?`,
+                                          description:
+                                            '会替换本机当前 Trae 登录态(写入前自动备份 storage.json)。写入后需重启 Trae CN 才生效。',
+                                          confirmText: '写入并替换',
+                                        }).then((ok) => {
+                                          if (ok) loginLocalMut.mutate(k.id)
+                                        })
+                                      }}
+                                    >
+                                      {loginLocalMut.isPending && loginLocalMut.variables === k.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <MonitorDown className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </span>
+                                </Tooltip>
+                              )}
                               <Tooltip
                                 content={
                                   relCap
