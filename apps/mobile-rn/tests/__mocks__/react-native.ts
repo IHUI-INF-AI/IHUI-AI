@@ -186,7 +186,15 @@ export const View = mk('div')
 export const Text = mk('span')
 export const Pressable = mk('button')
 export const TouchableOpacity = mk('button')
-export const ScrollView = mk('div')
+/**
+ * ScrollView 不能是裸 `mk('div')`:它与普通 View 在 DOM 上完全同形,于是分类下拉面板
+ * 「改成 ScrollView 才不会被 maxHeight+overflow:hidden 静默裁切」这条修复在测试里
+ * 无从取证(换回 View 也全绿)。打一个 data 标记,让回归锁能选中真正承担滚动的容器。
+ */
+const ScrollViewBase = mk('div')
+export function ScrollView(props: { children?: ReactNode; [k: string]: unknown }) {
+  return createElement(ScrollViewBase, { ...props, 'data-rn-scrollview': 'true' })
+}
 /**
  * FlatList 必须是"真渲染"的 stub:`mk('div')` 直接吐掉 data/renderItem,任何把内容
  * 放进列表的组件在测试里都渲染成空壳 —— 断言照常通过,覆盖率为 0(假绿)。
