@@ -4673,20 +4673,54 @@ export function gitdirTargetVerdict({ samePointer = false, exists = false, isDir
   return { ok: true, why: exists && isDirectory ? '已存在且是目录' : '不存在,可安全建目录' }
 }
 
+/**
+ * 「恢复面按**当次实测**的 gitdir 形态分派」的纯判据(形态三事实 → `gitdirTargetVerdict` 输入)。
+ *
+ * 立因(台账票「git-guardian 的 `.git` 修复路径在"指针文件那台机"失效」本席收的格):
+ * 旧 `gitdirTargetSafe()` 把 `samePath(GITDIR, POINTER)` **无条件**当"自指损坏态"喂给判据。
+ * 而 §5b 明令 gitdir 形态属七类必须每次现读的机器事实 —— 工作区 `.git` 本身就是目录的那类机
+ * (健康的目录形态仓 `resolveGitdir` 恒返回 `<wt>/.git`,本机当次实测即此型)里该路径恒相等,
+ * 于是整条恢复阶梯(`healFromBackup`/`healFromRemote`)对目录形态机**永久死锁**,报错文案还把
+ * 合法布局说成「先修 scripts/lib/gitdir.mjs 的解析」。真自指损坏态(2026-09-23 那型:指针文件
+ * 内容 `gitdir:` 指回自身、`cpSync(BACKUP, GITDIR)` 把 25MB 备份灌进指针文件)的实测特征是
+ * 「路径相同 ∧ 存在 ∧ **不是目录**」—— 只有那一型才禁写。
+ * 形态分派只有这一份实现(§0.6):调用方只喂当次实测的三个事实,不得再各自 `if (isDirectory)`。
+ * @param {{pathsMatch?:boolean,exists?:boolean,isDirectory?:boolean}} face 当次实测三事实
+ */
+export function gitdirTargetVerdictFromFace({
+  pathsMatch = false,
+  exists = false,
+  isDirectory = false,
+} = {}) {
+  return gitdirTargetVerdict({
+    // pathsMatch 时只有「存在 ∧ 是目录」(目录形态机的合法布局,当次实测)才不是自指;
+    // 「存在但不是目录」= 2026-09-23/10-16 那一型,「不存在」= 无从实测形态 —— 两型照旧拒(§0.10)。
+    samePointer: Boolean(pathsMatch) && !(exists === true && isDirectory === true),
+    exists,
+    isDirectory,
+  })
+}
+
 function gitdirTargetSafe() {
   let v
   try {
     const exists = existsSync(GITDIR)
-    v = gitdirTargetVerdict({
-      samePointer: samePath(GITDIR, POINTER),
+    v = gitdirTargetVerdictFromFace({
+      pathsMatch: samePath(GITDIR, POINTER),
       exists,
       isDirectory: exists ? statSync(GITDIR).isDirectory() : false,
     })
   } catch (e) {
-    log(`⛔ 拒绝恢复:${gitdirTargetVerdict({ unreadable: true }).why}(${GITDIR}): ${String((e && e.message) || e)}`)
+    const why = gitdirTargetVerdict({ unreadable: true }).why
+    log(`⛔ 拒绝恢复:${why}(${GITDIR}): ${String((e && e.message) || e)}`)
+    // §0.10:失效方向 = 经既有派发口多要一次定向说明,绝不静默让恢复面停摆(也不跳任何门)
+    notifyGuardRed('gitdir 恢复被拒(形态读不出,未判定)', `${why}\n路径: ${GITDIR}\n本轮异常: ${String((e && e.message) || e)}\n「未判定」≠「判过」:既不猜它是目录也不猜它是指针,恢复面不动作`, { dedupKey: 'gitdir-restore-refuse;unreadable' })
     return false
   }
-  if (!v.ok) log(`⛔ 拒绝恢复:${v.why}(${GITDIR})`)
+  if (!v.ok) {
+    log(`⛔ 拒绝恢复:${v.why}(${GITDIR})`)
+    notifyGuardRed('gitdir 恢复被拒(修复面要一次人工定向说明)', `${v.why}\n路径: ${GITDIR}\n工作区 .git: ${POINTER}\n当次实测: pathsMatch=${samePath(GITDIR, POINTER)}, exists=${existsSync(GITDIR)}\n「拒」= 不动作、不是跳门;确认要恢复的先按 §5b 归档现场再人工处理`, { dedupKey: `gitdir-restore-refuse;${String(v.why).slice(0, 12)}` })
+  }
   return v.ok
 }
 
@@ -6109,6 +6143,8 @@ if (isDirectRun) {
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
   gitdirTargetVerdict,
+  // 恢复面的"当次实测形态分派"唯一出口(gitdir-pointer 票本席收的格,镜像只 import 这一份)
+  gitdirTargetVerdictFromFace,
   // `.git` 指针形态的修复面(2026-10-27 票面第③格补的口):判据、现读形态、两形态分流、
   // 执行单元与"内容是否一致"那把尺子全部导出,镜像只 import 这一份,不复制判据(§22c)。
   GITFILE_MAX_BYTES,

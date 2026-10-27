@@ -11,7 +11,7 @@
  * 记成了同一件事(两者都是退出码 1),而汇总里只写"失败" —— 于是拿名单的人会把一次 import 失败
  * 读成"仓库里有 10 道语言包缺陷",去修一批根本不存在的东西(本仓定罪多次:假阳比漏报更贵)。
  *
- * 四条不变量,由 `scripts/tests/gate-failure-kind.test.mjs` 各钉一对:
+ * 五条不变量,由 `scripts/tests/gate-failure-kind.test.mjs` 各钉一对:
  *  1. **崩溃不洗成通过**:`crash` 与 `red` 一样让批量以非零退出 —— 分流是为了**说清是什么**,
  *     不是为了放行。〔2026-10-25 实测:这一条在执行器末尾**曾长期不成立** —— 只有判红支会
  *     `process.exit(1)`,crash 支只 `failed++`,`GUARDIAN_GATE_TIMEOUT_MS=1` 把 111 道门打成未判定
@@ -27,6 +27,15 @@
  *     杀掉、零输出,全量档把它记进 failedGates(判红名单),汇总里既没有 crashedGates 也没有未判定段。
  *     它归进**已有的** `crash` 档(既不是 pass 也不是 red,不新造第四种结局),**后果一项不减**:调用方
  *     照旧 `failed++`、照旧进未判定清单、批量照旧非零退出、提交照旧被拦。
+ *  5. **门自己按 §0.3 交付的「未判定」独成一档,不并进 red(2026-10-27 立)**:§0.3 给的版本扩散是
+ *     「取不到输入 ⇒ exit 2 显式「未判定」并点名原因,**不记绿也不冒红**」。判据体已经能正确退出 2,
+ *     但本模块此前只有 pass/red/crash/interrupt 四种结局 ⇒ exit 2 一路落到最后一行的
+ *     `判据判红(exit 2)` ⇒ 进 failedGates(**判红名单**)⇒ 批量 exit(1)。形状上,「我读到了内容、
+ *     它确实违规」与「我取不到输入、判不了」在汇总层长得一模一样 —— 正是 §12e/§12f 明令禁止的那一种:
+ *     与本次提交内容无关的红会逼使用者 `--no-verify`,一次绕过 = 该枚提交上全部守门作废。
+ *     第五档 `undetermined` 由此而来:**不计 failed、不进 failedGates**,但必须**逐道点名**,
+ *     批量以同一枚 `UNDETERMINED_EXIT_CODE`(2)收口 —— **不记绿(≠0)也不冒红(≠1)**。
+ *     见 detectUndetermined():两个条件缺一不可,只按退出码放行会把刻意用 exit 2 顶红的尺子洗绿。
  */
 
 /** 崩溃指纹:Node 自己抛出来的、不是门打印的。全部锚在**错误码/固定措辞**上,不靠"看着像堆栈"。 */
@@ -51,9 +60,36 @@ const FALLBACK_KILL_CODES = Object.freeze({
 })
 
 /**
+ * §0.3 的「未判定」交付 —— **两个条件缺一不可**,理由是保守方向:
+ *   ① 退出码 == 2 —— AGENTS §0.3 与 §5c 的三档口径(0 通过 / 1 判出红 / 2 未判定),不新造第四个数;
+ *   ② stderr 里**门自己显式说了**「未判定」(与 CRASH_MARKERS 同构:认"某人说了",不猜)。
+ * 只按 ① 放行会把刻意用 exit 2 **顶红**的尺子洗成绿 —— 本仓就有这种用法(AGENTS §6
+ * `check:benchmark-delivery`:`--strict` 下"判不出"/"台账腐烂"/"仍存在且无豁免" ⇒ exit 2 顶红),
+ * 把真违规改成绿是本方向最贵的失效,故 ② 是硬门槛;反之,① 不成立(exit 1 写着"未判定")
+ * 也不能算,那是门体自己的口径错,该红就得红。
+ */
+export const UNDETERMINED_EXIT_CODE = 2
+
+const UNDETERMINED_MARKERS = Object.freeze([/未判定/, /无法判定/])
+
+/**
+ * 是否属于"门自己按 §0.3 交付的未判定"。返回匹配到的那句话(点名用),不是则 null。
+ */
+export function detectUndetermined({ status, signal, stderr }) {
+  if (status !== UNDETERMINED_EXIT_CODE) return null
+  if (signal) return null // 有信号 ⇒ 已被上面的 interrupt 分支接走
+  if (typeof stderr !== 'string') return null
+  for (const re of UNDETERMINED_MARKERS) {
+    const m = re.exec(stderr)
+    if (m !== null) return m[0]
+  }
+  return null // exit 2 但没自称未判定 ⇒ 不当逃逸口,照旧判红
+}
+
+/**
  * @param {{status?: number|null, signal?: string|null, stderr?: string|null, code?: string|null}} outcome
  *        `code` = 执行器合成错误的 `error.code`(兜底超时/输出超限);缺省/null 表示这次没有兜底介入。
- * @returns {{kind:'pass'|'interrupt'|'crash'|'red', reason: string}}
+ * @returns {{kind:'pass'|'interrupt'|'crash'|'undetermined'|'red', reason: string}}
  */
 export function decideGateOutcome(outcome) {
   const status = outcome?.status
@@ -75,6 +111,10 @@ export function decideGateOutcome(outcome) {
     const m = re.exec(stderr)
     if (m !== null) return { kind: 'crash', reason: `跑不起来:${m[0]}` }
   }
+  // 排在崩溃指纹**之后**:两者同时出现时按"跑不起来"处理(更严的那一档),失效方向恒为"多拦一道",不得反过来。
+  const und = detectUndetermined({ status, signal, stderr })
+  if (und !== null)
+    return { kind: 'undetermined', reason: `取不到输入,门自己交付未判定(§0.3):${und}` }
   return { kind: 'red', reason: `判据判红(exit ${String(status)})` }
 }
 
@@ -134,6 +174,9 @@ export function crashAdvisory(crashCount, reasons = []) {
 export const __test__ = {
   CRASH_MARKERS,
   FALLBACK_KILL_CODES,
+  UNDETERMINED_EXIT_CODE,
+  UNDETERMINED_MARKERS,
+  detectUndetermined,
   decideGateOutcome,
   fallbackCodeOfReason,
   crashAdvisory,

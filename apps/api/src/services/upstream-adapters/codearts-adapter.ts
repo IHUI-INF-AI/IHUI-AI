@@ -25,6 +25,8 @@ import type {
   AdapterAccountContext,
   AdapterCallOptions,
   NormalizedChatRequest,
+  QuotaCallOptions,
+  RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
   TranslatedChunk,
@@ -41,6 +43,14 @@ const SNAP_HOST = 'https://snap-access.cn-north-4.myhuaweicloud.com'
 const CHAT_URL = `${SNAP_HOST}/api/v2/chat/completions`
 const BUILTIN_MODELS_URL = `${SNAP_HOST}/v1/model/builtin`
 const STS_TOKEN_URL = 'https://sts.cn-north-4.myhuaweicloud.com/v1/oauth2/tokens'
+/**
+ * 限时福利余额端点(2026-10-27 取证自 codearts2api docs/reverse-engineering.md §8,
+ * 逆向自 CodeArtsSpace 0.1.18:幂等,官方客户端打开模型菜单即调用;同 host 同签名,
+ * 无 Agent-Type 头)。注意:CodeArts **没有**积分/套餐余额查询接口——官方明细只在
+ * 控制台页 codearts.huaweicloud.com/portal/settings/personal-usage(免费额度按月
+ * 重置,滑动窗口限流见官方 FAQ),本端点只覆盖限时福利 token 余额。
+ */
+const BENEFIT_BALANCE_URL = 'https://opengw.developer.huaweicloud.com/api/v1/user/tokens/balance'
 /** OAuth 客户端标识(= 桌面端 product.json 的 urlProtocol);secrets 缺省时兜底 */
 const DEFAULT_CLIENT_ID = 'codearts-agent'
 const PLUGIN_VERSION = '26.9.902'
@@ -613,6 +623,57 @@ function classifyUpstreamFailure(
   return { kind: 'client' }
 }
 
+/**
+ * 限时福利余额点查(§0.3 如实未判定):端点已取证(见 BENEFIT_BALANCE_URL 注),
+ * 但响应**字段形状未实证**(2026-10-27 本机实弹未做成:入库号 refresh 会话已被
+ * 上游判死 STS5.1806,桌面端重登补票后可点查补证)。因此 200 一律回 ok:false +
+ * 响应键名清单,绝不猜字段名读成数字——一旦清单可见,后续一轮即可补解析。
+ */
+async function getQuota(
+  ctx: AdapterAccountContext,
+  opts?: QuotaCallOptions,
+): Promise<RelayQuotaResult> {
+  try {
+    const secrets = readSecrets(ctx)
+    const headers = signRequest({
+      accessKeyId: secrets.accessKeyId,
+      secretAccessKey: secrets.secretAccessKey,
+      securityToken: ctx.credentials.token,
+      method: 'GET',
+      url: BENEFIT_BALANCE_URL,
+      headers: { accept: 'application/json' },
+    })
+    const res = await resolveFetchImpl(opts ?? {})(BENEFIT_BALANCE_URL, {
+      method: 'GET',
+      headers,
+    })
+    const text = await res.text().catch(() => '')
+    if (!res.ok) {
+      return {
+        ok: false,
+        ...(codeartsAdapter.isAuthFailure(res.status, text) ? { authFailed: true } : {}),
+        error: `balance HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+      }
+    }
+    let keys: string[] = []
+    try {
+      const obj: unknown = JSON.parse(text)
+      if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+        keys = Object.keys(obj as Record<string, unknown>)
+      }
+    } catch {
+      /* 非 JSON 也如实报 */
+    }
+    return {
+      ok: false,
+      error: `余额端点已应答 200,响应键=[${keys.join(',') || '(空)'}],字段形状未实证 ⇒ 未判定(不猜字段读成数字)`,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { ok: false, error: `余额点查失败: ${msg}` }
+  }
+}
+
 // =============================================================================
 // 导出
 // =============================================================================
@@ -624,6 +685,7 @@ export const codeartsAdapter: RelayUpstreamAdapter = {
   translateNonStream,
   refreshToken,
   checkHealth,
+  getQuota,
   listModels,
   isAuthFailure,
   isAuthError,

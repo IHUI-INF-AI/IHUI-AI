@@ -5,6 +5,12 @@
     "loadFailed": "워크플로우를 불러오지 못했습니다"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "수동 일시정지",
+      "failedPermanent": "영구 실패",
+      "failedRetriesExhausted": "재시도 횟수 초과",
+      "completed": "완료"
+    },
     "title": "자동화",
     "empty": "자동화 작업이 없습니다",
     "loadFailed": "자동화를 불러오지 못했습니다",

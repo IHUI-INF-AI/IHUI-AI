@@ -5,6 +5,12 @@
     "loadFailed": "工作流加载失败"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "手动暂停",
+      "failedPermanent": "永久失败",
+      "failedRetriesExhausted": "重试次数已用尽",
+      "completed": "已完成"
+    },
     "title": "自动化",
     "empty": "暂无自动化任务",
     "loadFailed": "自动化加载失败",

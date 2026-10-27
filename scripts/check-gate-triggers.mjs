@@ -88,6 +88,7 @@ function git(args, { cwd = ROOT } = {}) {
       cwd,
       maxBuffer: 512 * 1024 * 1024,
       encoding: 'utf8',
+      windowsHide: true,
       // 门 193 硬要求:派生 git 必须显式接管 stdio,不写时本机 EBUSY 0/30。
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -359,7 +360,8 @@ function selfTest() {
     return d
   }
   const tmp = mk('gtrig-selftest-')
-  const run = (args) => execFileSync('git', args, { cwd: tmp, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const run = (args) =>
+    execFileSync('git', args, { cwd: tmp, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   try {
     run(['init', '-q'])
     run(['config', 'user.email', 't@t'])
