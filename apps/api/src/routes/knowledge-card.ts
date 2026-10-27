@@ -26,6 +26,7 @@ import { z } from 'zod'
 import { knowledgeCards } from '@ihui/database'
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { config } from '../config/index.js'
 import { parseOrThrow, success, error } from '../utils/response.js'
 
@@ -147,7 +148,12 @@ export const knowledgeCardRoutes: FastifyPluginAsync = async (app) => {
   //   时绕过 JWT(同 skills.ts 模式),source 固定 agent,userId 由 body 指定(缺省全局卡)
   app.post('/', async (request, reply) => {
     const internalSecret = request.headers['x-internal-secret']
-    const isInternal = !!config.AI_CALLBACK_SECRET && internalSecret === config.AI_CALLBACK_SECRET
+    // 常量时间比较(secretsEqual 单源):`===` 逐字节短路可被计时侧信道剥密钥
+    const isInternal =
+      typeof config.AI_CALLBACK_SECRET === 'string' &&
+      config.AI_CALLBACK_SECRET.length > 0 &&
+      typeof internalSecret === 'string' &&
+      secretsEqual(internalSecret, config.AI_CALLBACK_SECRET)
     if (!isInternal) {
       if (!(await requireLogin(request, reply))) return
     }

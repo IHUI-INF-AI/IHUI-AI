@@ -602,6 +602,52 @@ export function parseTaskRows(content) {
 }
 
 /**
+ * F13「已勾被捣回未勾」判据本体(2026-10-27 装车补齐:plan-tasks.mjs 的 import 与
+ * 自检样例先落了库,本实现一度缺席 ⇒ 全仓 `node scripts/plan-tasks.mjs` SyntaxError,
+ * safe-commit 预检连带被卡 —— 判据与消费者必须同笔入库)。
+ *
+ * 输入:锚点面全文 / 被审面全文。输出(消费面 wireF13 与自检样例钉形):
+ * - hits: 跨面回归 = 锚点面已勾 ∧ 被审面未勾 的复合主键集合,按 key 字典序,
+ *   每枚带 { key, anchorDoneLines, faceOpenLines }(f13HitLine 用行号只做定位)
+ * - anchorStockKeys: 锚点面**自身**两态并存(同主键既有 done 又有 open)的存量 ——
+ *   差值棘轮的锚点;被审面==锚点时,它就是"HEAD 面自身的命中数"
+ * - anchorDoneKeys / anchorRows / faceRows: 候选面读数(枚举到 0 不得被读成通过)
+ *
+ * "同一件事"的定义与全库同源:只认 parseTaskRows 的复合主键(keyOfRow),无编号行不参与。
+ */
+export function findClosedToOpenRegressions(anchorText, faceText) {
+  const anchorRows = parseTaskRows(anchorText)
+  const faceRows = parseTaskRows(faceText)
+  const doneBy = new Map()
+  const openBy = new Map()
+  for (const r of anchorRows) {
+    if (!r.key) continue
+    const bucket = r.state === 'done' ? doneBy : openBy
+    if (!bucket.has(r.key)) bucket.set(r.key, [])
+    bucket.get(r.key).push(r.line)
+  }
+  const faceOpenBy = new Map()
+  for (const r of faceRows) {
+    if (!r.key || r.state !== 'open') continue
+    if (!faceOpenBy.has(r.key)) faceOpenBy.set(r.key, [])
+    faceOpenBy.get(r.key).push(r.line)
+  }
+  const hits = []
+  for (const key of [...doneBy.keys()].sort((a, b) => (a < b ? -1 : 1))) {
+    const faceLines = faceOpenBy.get(key)
+    if (faceLines) hits.push({ key, anchorDoneLines: doneBy.get(key), faceOpenLines: faceLines })
+  }
+  const anchorStockKeys = [...doneBy.keys()].filter((k) => openBy.has(k)).sort((a, b) => (a < b ? -1 : 1))
+  return {
+    hits,
+    anchorStockKeys,
+    anchorDoneKeys: doneBy.size,
+    anchorRows: anchorRows.length,
+    faceRows: faceRows.length,
+  }
+}
+
+/**
  * ── 三条确定性判据(2026-09-26 实测定型)────────────────────────────────
  *
  * 立项时设计的第 4 条判据"open 行号 < 该编号首个 done 行号 ⇒ 陈旧副本"**已被实测否定并删除**

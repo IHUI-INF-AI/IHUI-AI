@@ -26,6 +26,7 @@
  *   合法枚举由 model_list 的 `reasoning_effort_config.options` 给出
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import { isProductionGuard } from '../../config/index.js'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
@@ -77,7 +78,7 @@ import { buildCookieHeader } from '../relay-account-format.js'
  * 生产(NODE_ENV=production)一律吃死默认值 —— 环境变量不得把线上流量指走。
  */
 function endpoint(name: string, fallback: string): string {
-  if (process.env.NODE_ENV === 'production') return fallback
+  if (isProductionGuard) return fallback
   const v = process.env[name]?.trim()
   if (!v || !/^https?:\/\//.test(v)) return fallback
   return v.replace(/\/$/, '')

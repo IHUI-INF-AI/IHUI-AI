@@ -23,6 +23,9 @@
  * 判据(任一不成立即 exit 1):
  *   A 桌面双写一致:tauri.conf.json 的 version === apps/desktop/package.json 的 version
  *     (桌面热修必须两处同笔 bump,这是仓库既有铁律,单独漏一侧就会发出版本号与包不符的包)
+ *   I 移动端双写一致:apps/mobile-rn/app.json 的 version === 同目录 package.json 的 version
+ *     (2026-10-27 立,A 的移动端同型:app.config.js 未注入 IHUI_MOBILE_VERSION 时回落 package.json,
+ *      两处漂开就等于"包内显示的版本号"落后;实测曾出现 0.0.6 / 0.0.8 / 0.0.7 三处各说一套)
  *   B RN 原生版本可追溯:app.config.js 的 version 必须取自 IHUI_MOBILE_VERSION 或 package.json
  *   C RN 界面版本可追溯:src/lib/config.ts 的 APP_VERSION 必须取自
  *     EXPO_PUBLIC_IHUI_MOBILE_VERSION 或 package.json
@@ -83,6 +86,7 @@ function readJson(rel) {
  *   tauriConf: object|null, desktopPkg: object|null, appConfigJs: string|null,
  *   rnConfigTs: string|null, capGradle: string|null, downloadsConfig: string|null,
  *   feedRouteJs: string|null, feedRouteApi: string|null, workflows: Record<string,string>,
+ *   mobileAppJson: object|null, mobilePkg: object|null,
  * }} input
  * @returns {string[]} 违规描述;空数组 = 全部通过
  */
@@ -98,6 +102,8 @@ export function findVersionDrift(input) {
     feedRouteJs,
     feedRouteApi,
     workflows,
+    mobileAppJson,
+    mobilePkg,
   } = input
 
   // A 桌面双写一致
@@ -107,6 +113,19 @@ export function findVersionDrift(input) {
     v.push(
       `A 桌面版本双写不一致:tauri.conf.json=${tauriV} 而 apps/desktop/package.json=${desktopV}` +
         '(热修必须两处同笔 bump,否则会发出"包版本 ≠ 界面版本"的包)',
+    )
+  }
+
+  // I 移动端双写一致(2026-10-27 立,A 的移动端同型)
+  // app.config.js 的 version 取 `IHUI_MOBILE_VERSION || pkg.version`,而未注入时的兜底值就是
+  // apps/mobile-rn/package.json —— 它若与 app.json 的 version 漂开,包里显示的就是旧号。
+  // 实测现成事故形态:package.json=0.0.6、app.json=0.0.8、README=0.0.7 三处各说一套。
+  const appJsonV = mobileAppJson?.version
+  const mobilePkgV = mobilePkg?.version
+  if (appJsonV && mobilePkgV && appJsonV !== mobilePkgV) {
+    v.push(
+      `I 移动端版本双写不一致:app.json=${appJsonV} 而 apps/mobile-rn/package.json=${mobilePkgV}` +
+        '(未注入 IHUI_MOBILE_VERSION 的构建会回落成后者,包内显示的版本号就此落后)',
     )
   }
 
@@ -225,6 +244,8 @@ export function collectInputs() {
   return {
     tauriConf: readJson('apps/desktop/src-tauri/tauri.conf.json'),
     desktopPkg: readJson('apps/desktop/package.json'),
+    mobileAppJson: readJson('apps/mobile-rn/app.json'),
+    mobilePkg: readJson('apps/mobile-rn/package.json'),
     appConfigJs: read('apps/mobile-rn/app.config.js'),
     rnConfigTs: read('apps/mobile-rn/src/lib/config.ts'),
     capGradle: read('apps/mobile-cap/android/app/build.gradle'),

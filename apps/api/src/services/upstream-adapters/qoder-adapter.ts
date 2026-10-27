@@ -30,6 +30,7 @@
  * 接入号池的账号可被调度器续期/健康检查;转发链路调 chat 时按上述两条路径如实得到结果或错误。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import { isProductionGuard } from '../../config/index.js'
 import { extractTokenExpiry } from '../relay-account-format.js'
 import {
   describeQoderBridgeFailure,
@@ -65,7 +66,8 @@ import { listQoderModels } from './qoder-models.js'
 // =============================================================================
 
 function endpoint(name: string, fallback: string): string {
-  if (process.env.NODE_ENV === 'production') return fallback
+  // 档位判定走 config 出口(守门语义见 config/index.ts 头注):production 下端点覆写不生效
+  if (isProductionGuard) return fallback
   const v = process.env[name]?.trim()
   if (!v || !/^https?:\/\//.test(v)) return fallback
   return v.replace(/\/$/, '')

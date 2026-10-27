@@ -29,7 +29,7 @@ import { crashReportsRoutes } from './routes/crash-reports.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
-import { config } from './config/index.js'
+import { config, isDevelopmentRuntime } from './config/index.js'
 import authPlugin from './plugins/auth.js'
 // O4 数据作用域闸:统一调用主体(principal)必须在 rls-context 之前注册 ——
 // 它挂的 onRequest 钩子用 AsyncLocalStorage.run(store, () => next()) 包住后续整条
@@ -121,7 +121,8 @@ import smsSendCaptchaPlugin from './utils/sms-send-captcha.js'
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
   level: process.env.LOG_LEVEL ?? 'info',
-  transport: process.env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
+  // 档位判定走 config 出口(安全分支禁裸读 process.env.NODE_ENV,守门语义见 config/index.ts 头注)
+  transport: isDevelopmentRuntime ? { target: 'pino-pretty' } : undefined,
 }
 
 // 独立 pino 实例(errorHandler 在 server 创建前定义,需要独立 logger)
@@ -427,21 +428,43 @@ async function registerPlugins(server: FastifyInstance) {
       const allowed = config.CORS_ORIGIN.split(',')
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean)
+      // 2026-10-27 收紧:chrome-extension:// 不再整体放行 —— 任何已安装扩展(含恶意)
+      // 都能产生该 Origin,前缀放行等于给全部扩展发全站带凭据通行证。运维把自家扩展 ID
+      // 逐枚填进 IHUI_EXTENSION_IDS 即收紧;未配置时保持旧行为(扩展 UI 不断),但每次
+      // 都点名实际请求的扩展 ID,让"还没配"这件事在日志里可见。
+      const extIds = config.EXTENSION_IDS.split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+      let extAllowed = false
+      if (o.startsWith('chrome-extension://')) {
+        if (extIds.length > 0) {
+          extAllowed = extIds.includes(o)
+        } else {
+          extAllowed = true
+          server.log.warn(
+            { origin: o },
+            'chrome-extension origin 放行(未配置 IHUI_EXTENSION_IDS,精确白名单未生效)',
+          )
+        }
+      }
       cb(
         null,
         allowed.includes(o) ||
           DESKTOP_ORIGINS.includes(o) ||
           MOBILE_CAP_ORIGINS.includes(o) ||
-          o.startsWith('chrome-extension://'),
+          extAllowed,
       )
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
-  // 全局 IP 限流:按 NODE_ENV 分级(防止开发期热点路由反复触发 429)
+  // 全局 IP 限流:按运行档位分级(防止开发期热点路由反复触发 429)
   // - production: 100 req/min/IP(生产安全,DoS 防护)
   // - development: 1000 req/min/IP(单人开发几乎不触发,避免误伤 dev 体验)
-  const isDev = process.env.NODE_ENV !== 'production'
+  // 档位判定走 config.isProductionGuard 单源(2026-10-27 收口:原裸读
+  // process.env.NODE_ENV 违反 config 头注的守门语义 —— "生产"由 ZCODE_RUNTIME_ENV/
+  // NODE_ENV 声明表解析,不是字符串比较)
+  const isDev = !config.isProductionGuard
   await server.register(rateLimit, {
     max: isDev ? 1000 : 100,
     timeWindow: '1 minute',
@@ -453,7 +476,7 @@ async function registerPlugins(server: FastifyInstance) {
   // - 可选 API Key 鉴权:SWAGGER_API_KEY 配置后,访问 /docs 需带 X-API-Key header
   //   留空 = /docs 公开(仅推荐开发环境)
   //   /docs-json(spec JSON)始终公开,方便 CI / 自动化工具拉取
-  const swaggerEnabled = config.SWAGGER_ENABLED || process.env.NODE_ENV !== 'production'
+  const swaggerEnabled = config.SWAGGER_ENABLED || !config.isProductionGuard
   if (swaggerEnabled) {
     await server.register(swagger, {
       openapi: {
@@ -575,10 +598,22 @@ async function registerPlugins(server: FastifyInstance) {
       ) => {
         const origin = (info.origin ?? '').toLowerCase()
         // 缺失 Origin(非浏览器/curl/服务端客户端):允许,依赖 JWT wsAuth
-        // 2026-09-02 增补:放行 chrome-extension:// 前缀(浏览器扩展 popup/sidepanel
-        // 维护的 WS 连接,见 CORS 同名注释的安全论证 —— 该 origin 恶意网页无法伪造)。
-        // 此前仅白名单 CORS_ORIGIN,真实扩展连 WS 恒被 403 拒(1006),扩展端推送从未真通。
-        if (!origin || wsAllowedOrigins.has(origin) || origin.startsWith('chrome-extension://')) {
+        // 2026-10-27 与 CORS 同步收紧:chrome-extension:// 不再整体放行(任何已安装
+        // 扩展都能产生该 Origin)。精确白名单 = IHUI_EXTENSION_IDS;未配置保持旧行为
+        // 并逐次点名(见 CORS 同名注释)。
+        const extIds = config.EXTENSION_IDS.split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+        let extAllowed = false
+        if (origin.startsWith('chrome-extension://')) {
+          if (extIds.length > 0) {
+            extAllowed = extIds.includes(origin)
+          } else {
+            extAllowed = true
+            server.log.warn({ origin }, 'chrome-extension WS 握手放行(未配置 IHUI_EXTENSION_IDS)')
+          }
+        }
+        if (!origin || wsAllowedOrigins.has(origin) || extAllowed) {
           next(true)
         } else {
           next(false, 403, 'Origin not allowed')

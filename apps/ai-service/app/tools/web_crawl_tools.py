@@ -102,24 +102,43 @@ def _is_http_html(url: str, content_type: str = "") -> bool:
     return not any(path.endswith(e) for e in binary_hint_exts)
 
 
+_MAX_REDIRECT_HOPS = 5
+
+
 async def _http_get_html(url: str) -> dict[str, Any] | None:
     """抓取单个 URL 的 HTML。返回 {url, final_url, status_code, content_type, html};
-    非 HTML/失败返回 None。不做 SSRF(调用方需先校验)。"""
+    非 HTML/失败返回 None。
+
+    SSRF 不只校验首跳(2026-10-27 修):入口 _validate_ssrf 只看第一个 URL,而
+    follow_redirects=True 会自动跟随落点 —— 公网页 302 → http://169.254.169.254/...
+    即整条 SSRF。现手动逐跳:每一跳都重新过 _validate_ssrf,超跳数上限即放弃。"""
     if not _HTTPX_OK:
         return None
+    current = url
     try:
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
-            resp = await client.get(url, headers=_DEFAULT_HEADERS)
-        ctype = resp.headers.get("content-type", "")
-        if not _is_http_html(str(resp.url), ctype):
-            return None
-        return {
-            "url": str(resp.url),
-            "final_url": str(resp.url),
-            "status_code": resp.status_code,
-            "content_type": ctype,
-            "html": resp.text,
-        }
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, follow_redirects=False) as client:
+            resp: httpx.Response | None = None
+            for _hop in range(_MAX_REDIRECT_HOPS + 1):
+                reason = _validate_ssrf(current)
+                if reason:
+                    return None
+                resp = await client.get(current, headers=_DEFAULT_HEADERS)
+                location = resp.headers.get("location")
+                if resp.is_redirect and location:
+                    current = str(resp.url.join(location))
+                    continue
+                break
+            assert resp is not None
+            ctype = resp.headers.get("content-type", "")
+            if not _is_http_html(str(resp.url), ctype):
+                return None
+            return {
+                "url": str(resp.url),
+                "final_url": str(resp.url),
+                "status_code": resp.status_code,
+                "content_type": ctype,
+                "html": resp.text,
+            }
     except Exception:  # noqa: BLE001
         return None
 

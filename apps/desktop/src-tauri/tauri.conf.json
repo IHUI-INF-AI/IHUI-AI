@@ -38,7 +38,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://aizhs.top https://www.aizhs.top https://api.aizhs.top wss://api.aizhs.top; font-src 'self' data:; frame-src 'self' https://aizhs.top https://www.aizhs.top"
     }
   },
   "plugins": {

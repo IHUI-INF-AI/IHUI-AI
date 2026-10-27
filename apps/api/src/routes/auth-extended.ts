@@ -515,8 +515,12 @@ async function loginWithOAuthAccount(params: {
   nickname?: string
   avatar?: string
   email?: string
+  /** IdP 是否确认了该邮箱归属(oidc: email_verified / discord: verified);缺省按未验证处理 */
+  emailVerified?: boolean
 }): Promise<
   | { blocked: true }
+  | { blocked: false; emailUnverified: true; email: string }
+  | { blocked: false; twoFactorRequired: true; challengeToken: string; expiresIn: number }
   | {
       blocked: false
       accessToken: string
@@ -527,7 +531,8 @@ async function loginWithOAuthAccount(params: {
       isNewUser: boolean
     }
 > {
-  const { request, reply, platform, openId, unionId, nickname, avatar, email } = params
+  const { request, reply, platform, openId, unionId, nickname, avatar, email, emailVerified } =
+    params
   const binding = await findThirdPartyAccount(platform, openId)
   let user: NonNullable<Awaited<ReturnType<typeof findUserById>>>
   let isNewUser = false
@@ -541,6 +546,13 @@ async function loginWithOAuthAccount(params: {
     // 避免 users_email_unique 唯一约束冲突导致 SSO 首登 500)
     const existingByEmail = email ? await findUserByEmail(email) : undefined
     if (existingByEmail) {
+      // 2026-10-27 接管链封堵:自动关联的前提是 IdP 确认了邮箱归属(email_verified)。
+      // 此前不看验证位 —— 攻击者在自己控制的 IdP 上把邮箱声明成受害者邮箱,首登即绑定
+      // 进受害者账号并拿到完整 token(免密码账号接管)。未验证一律拒绝,让用户用密码
+      // 登录后在设置里手动绑定。
+      if (emailVerified !== true) {
+        return { blocked: false, emailUnverified: true, email: email ?? '' }
+      }
       if (existingByEmail.status !== 1) throw new Error('账号已被禁用')
       user = existingByEmail
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
@@ -556,6 +568,24 @@ async function loginWithOAuthAccount(params: {
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
     }
   }
+  // 2026-10-27 2FA 一致性(修旁路):三条密码/验证码登录路均已要求已开 TOTP 的账号过
+  // login-verify,社交登录此前漏了 —— IdP 会话失窃即可在无第二因子的情况下直接拿 token
+  // 对。现与 /login 密码路同一状态机:签发 5min challengeToken,由调用方交前端走
+  // /auth/2fa/login-verify,不在此处直接下发可用凭据。
+  if (user.twoFactorEnabled) {
+    const challengeToken = await signChallengeToken({
+      userId: user.id,
+      phone: user.phone ?? '',
+      familyId: '',
+      roleId: user.roleId ?? 0,
+    })
+    return {
+      blocked: false,
+      twoFactorRequired: true,
+      challengeToken,
+      expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+    }
+  }
   const gate = await gateLoginIpWhitelist(request, reply, user.id)
   if (!gate.allowed) return { blocked: true }
   const tokens = await buildTokenPair(user)
@@ -569,6 +599,10 @@ async function loginWithOAuthAccount(params: {
     isNewUser,
   }
 }
+
+// __test__ 导出(§22c 模式):社交登录 2FA/邮箱验证位两道闸的契约测试从这里进,
+// 不复制判据。
+export const __test__ = { loginWithOAuthAccount }
 
 // 共用 callback 响应格式(与现有 /auth/:platform/callback 一致)
 function buildOAuthCallbackResponse(result: {
@@ -950,6 +984,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { phone } = z.object({ phone: z.string() }).parse(request.params)
+      // 2026-10-27 收窄:只应答合法手机号 —— 该端点是小程序注册预检,公开 exists 探针
+      // 配 10/min/IP 限速后枚举成本已不可行(手机号空间 10^10 ⇒ 14400 次/天),但
+      // "任意字符串都查"的形态会让它被当免费的任意存在性查询代理用。无效号一律 400。
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        return reply.status(400).send(error(400, '手机号格式不正确'))
+      }
       return reply.send(success({ exists: await checkPhoneExists(phone) }))
     },
   )
@@ -3923,15 +3963,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         nickname: info.nickname,
         avatar: info.avatar,
         email: info.email,
+        emailVerified: info.emailVerified,
       })
       if (result.blocked) return reply
-      // 浏览器闭环(2026-09-19 立):OIDC 由后端代理,回调落在浏览器会话,
-      // 必须写 httpOnly cookie 并 302 回前端登录页/首页,否则浏览器停留在 API JSON 页。
-      setAuthCookies(
-        reply,
-        { accessToken: result.accessToken, refreshToken: result.refreshToken },
-        true,
-      )
       // 回跳源:优先 state 里记录的发起源(签发时已过白名单,此处二次校验防
       // CORS_ORIGIN 在 10min state 有效期内变更),未记录/已失效回退 CORS_ORIGIN 首项。
       // 修复:bsm.aizhs.top 发起的登录不再被硬编码丢到 aizhs.top(2026-09-19)。
@@ -3940,6 +3974,29 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         stateCheck.webOrigin && isAllowedWebOrigin(stateCheck.webOrigin)
           ? stateCheck.webOrigin
           : fallbackOrigin
+      if ('emailUnverified' in result) {
+        return reply
+          .status(403)
+          .send(
+            error(
+              403,
+              '该邮箱已注册,但身份提供方未确认邮箱归属,拒绝自动关联;请用密码登录后在设置中绑定',
+            ),
+          )
+      }
+      if ('twoFactorRequired' in result) {
+        // 挑战经 URL fragment 交给前端:fragment 不进代理与服务器访问日志,也不随请求
+        // 回服务器;challengeToken 是 5min 一次性凭据,与 OAuth code 同级的短时效面。
+        // 消费侧(登录页读 fragment 调 /auth/2fa/login-verify)属前端体验层,后端契约已闭合。
+        return reply.redirect(`${webOrigin}/login#sso2fa=${result.challengeToken}`)
+      }
+      // 浏览器闭环(2026-09-19 立):OIDC 由后端代理,回调落在浏览器会话,
+      // 必须写 httpOnly cookie 并 302 回前端登录页/首页,否则浏览器停留在 API JSON 页。
+      setAuthCookies(
+        reply,
+        { accessToken: result.accessToken, refreshToken: result.refreshToken },
+        true,
+      )
       // sso=oidc 标记:前端 /sso/login 检测到后,已登录态自动跳转 redirect(关闭登录弹窗),
       // 避免 OIDC 回跳后停留在授权卡片需要手动点击(2026-09-19 SSO 闭环体验修复)
       return reply.redirect(`${webOrigin}/sso/login?sso=oidc`)
@@ -3978,8 +4035,29 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         nickname: info.nickname,
         avatar: info.avatar,
         email: info.email,
+        emailVerified: info.emailVerified,
       })
       if (result.blocked) return reply
+      if ('emailUnverified' in result) {
+        return reply
+          .status(403)
+          .send(
+            error(
+              403,
+              '该邮箱已注册,但身份提供方未确认邮箱归属,拒绝自动关联;请用密码登录后在设置中绑定',
+            ),
+          )
+      }
+      if ('twoFactorRequired' in result) {
+        request.skipResponseSanitization = true
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken: result.challengeToken,
+            expiresIn: result.expiresIn,
+          }),
+        )
+      }
       return reply.send(buildOAuthCallbackResponse(result))
     } catch (e) {
       request.log.error(e)
@@ -4069,6 +4147,29 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           avatar: authResult.avatar,
         })
         if (result.blocked) return reply
+        if ('emailUnverified' in result) {
+          // Telegram 走 Bot 回写,当前不携带 email ⇒ 本分支逻辑上不可达;类型上仍要
+          // 消掉联合的这一支,且将来若给 Telegram 回写补上 email,这里的闸已在位。
+          return reply
+            .status(403)
+            .send(
+              error(
+                403,
+                '该邮箱已注册,但身份提供方未确认邮箱归属,拒绝自动关联;请用密码登录后在设置中绑定',
+              ),
+            )
+        }
+        if ('twoFactorRequired' in result) {
+          request.skipResponseSanitization = true
+          return reply.send(
+            success({
+              status: '2fa_required',
+              twoFactorRequired: true,
+              challengeToken: result.challengeToken,
+              expiresIn: result.expiresIn,
+            }),
+          )
+        }
         return reply.send(
           success({
             status: 'success',
