@@ -400,9 +400,12 @@ class AgentStepRecorder:
                 logger.warning("运行收尾入账失败(未接线,降级): %s", e)
                 return {"run_id": run_id, "synced": 0, "skipped": 0, "error": str(e)}
         try:
-            return ledger.sync_from_recorder(
+            # 显式注解接一手:账本返回 Any,直接 return 会被 --strict 判 no-any-return
+            # (本仓 mypy 全库清零后不得回退一行)。
+            synced: dict[str, Any] = ledger.sync_from_recorder(
                 run_id, self, user_id=user_id, session_id=session_id
             )
+            return synced
         except Exception as e:  # noqa: BLE001 - 账本不可用时录制仍算完成
             logger.warning("运行收尾入账失败(降级,不阻塞主链路): %s", e)
             return {"run_id": run_id, "synced": 0, "skipped": 0, "error": str(e)}
