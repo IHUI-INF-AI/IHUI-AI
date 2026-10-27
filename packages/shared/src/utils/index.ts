@@ -50,8 +50,6 @@ export * from './number-format'
 export * from './storage'
 export * from './jwt-utils'
 export * from './llm-templates'
-// 登录方式优先级(地区→排序)跨端唯一源(2026-10-27 从 @ihui/ui-react 下沉:web/扩展吃 DOM 包,RN 只能吃共享层)
-export * from './login-order-policy'
 export * from './logger'
 export * from './markdown-mermaid-code'
 export * from './mcp-curated'
