@@ -6094,5 +6094,13 @@
     "deleteConfirmTitle": "削除してもよろしいですか?",
     "deleteFailed": "削除に失敗しました",
     "cancel": "キャンセル"
+  },
+  "myLessonsPage": {
+    "title": "マイコース",
+    "progressLabel": "学習進捗 {value}%"
+  },
+  "myResourcesPage": {
+    "title": "マイリソース",
+    "subtitle": "アップロードしたリソース"
   }
 }

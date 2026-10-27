@@ -6094,5 +6094,13 @@
     "deleteConfirmTitle": "Are you sure you want to delete?",
     "deleteFailed": "Failed to delete",
     "cancel": "Cancel"
+  },
+  "myLessonsPage": {
+    "title": "My Lessons",
+    "progressLabel": "Progress {value}%"
+  },
+  "myResourcesPage": {
+    "title": "My Resources",
+    "subtitle": "Resources you uploaded"
   }
 }
