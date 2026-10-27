@@ -89,6 +89,36 @@ describe('geoip — 降级链与判定逻辑', () => {
       const result = await svc.lookup('8.8.8.8')
       expect(result === null || typeof result.country === 'string').toBe(true)
     })
+
+    it('ip-api 答复里的 countryCode 必须原样透出(2026-10-27 立)', async () => {
+      // 立因:services/login-region.ts 的兜底腿只吃 GeoLocation.countryCode 这一列。
+      // 该列是在 geoip.ts 里加的,而落地时漏交了那个文件 —— 判据测试 mock 掉本服务,
+      // 问的是替身而不是真出口,于是 13/13 全绿而线上这一腿恒判不出。
+      // 本例不打替身:走真的 lookup() + 真的响应形状,把"这一列真在出口上"钉住。
+      const svc = getGeoIpService()
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: 'success',
+          country: 'China',
+          countryCode: 'CN',
+          regionName: 'Zhejiang',
+          city: 'Hangzhou',
+          lat: 30,
+          lon: 120,
+          timezone: 'Asia/Shanghai',
+        }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      try {
+        const result = await svc.lookup('114.114.114.114')
+        expect(result?.countryCode).toBe('CN')
+        // country 是人读字段、语言随查询参数变(「中国」/「China」)⇒ 判定不能用它代替 countryCode
+        expect(result?.country).toBe('China')
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
