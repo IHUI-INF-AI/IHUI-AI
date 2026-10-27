@@ -57,8 +57,22 @@ test('B3 两种都不认 ⇒ error(交上层 refuse),不猜一个能编过的空
   assert.match(r.error, /unrelated/, '点名现读到的真实出口,人才有可能一眼修壳')
 })
 
-test('B4 接线:同名壳先验、壳文取现读面、导出形态判据是单一真相源', () => {
-  assert.match(SRC, /opts\.form === 'shell' && !rnRels\.includes\(shellRel\)/, '缺同名 RN 壳的射程校验被摘掉 ⇒ 又能产出悬空页')
+test('B4 接线:承载体选择在射程内、判据是"真的以 JSX 渲染"、找不到就拒造', () => {
+  assert.match(
+    SRC,
+    /opts\.form === 'shell' && !rnRels\.includes\(sameNameShell\)/,
+    '缺同名壳时的承载体选择被摘掉 ⇒ 又能产出悬空页',
+  )
+  assert.match(
+    SRC,
+    /rendersSharedIn\(rnMap\.get\(r\) \?\? '', `\$\{shape\.base\}Screen`\)/,
+    '承载体必须按「具名导入的本地绑定出现在 JSX」判,不得只看文件里出现过名字',
+  )
+  assert.match(
+    SRC,
+    /kind: 'refuse'[\s\S]{0,240}数据腿无从继承/,
+    '找不到真承载体时必须拒造(失效方向只能是多要一次说明,不是多放一次 dangling 页)',
+  )
   assert.match(SRC, /shellText: rnMap\.get\(shellRel\)/, '壳文必须来自现读面,不许留空串默认值')
   assert.match(SRC, /from '\.\/lib\/rn-shell-refs\.mjs'/, '导出形态判据不得在本器里再写一份')
   assert.equal(/function shellExportShapeOf\s*\(/.test(SRC), false, '本器不得自带第二份壳出口形态判据')
@@ -161,5 +175,54 @@ test('B6 接线锁:planGeneration 必须走同一判据,不得回退成「文件
     false,
     '无条件跳过那版让「页在而链路不通」的 5 枚页永远补不上接缝',
   )
+})
+
+
+test('B7 承载体判据只认「具名导入的本地绑定出现在 JSX」,不认「文件里出现过这个名字」', () => {
+  // 正例:平台侧薄壳给共享屏起别名,再用别名渲染
+  assert.equal(
+    G.rendersSharedIn(
+      "import { PlanListScreen as SharedPlanListScreen } from '@ihui/rn-app'\nexport function P(){return <SharedPlanListScreen />}",
+      'PlanListScreen',
+    ),
+    true,
+  )
+  // 正例:同名直接用
+  assert.equal(
+    G.rendersSharedIn(
+      "import { SquareScreen } from '@ihui/rn-app'\nexport function P(){return <SquareScreen items={[]} />}",
+      'SquareScreen',
+    ),
+    true,
+  )
+  // 反例:只 import 不渲染(console-table / switch-prefs 那两枚的形态)
+  assert.equal(
+    G.rendersSharedIn(
+      "import { ConsoleTableScreen } from '@ihui/rn-app'\nexport const x = ConsoleTableScreen",
+      'ConsoleTableScreen',
+    ),
+    false,
+  )
+  // 反例:渲染的是另一个组件(前缀相同也不算)
+  assert.equal(
+    G.rendersSharedIn(
+      "import { SquareScreen as S } from '@ihui/rn-app'\nexport function P(){return <SquareScreenOther />}",
+      'SquareScreen',
+    ),
+    false,
+  )
+})
+
+test('B8 不同名承载体:页面按壳名取用,并用壳的真导出形态', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/plan/PlanListScreen.tsx',
+    base: 'PlanList',
+    shellText: 'export function PlanScreen() {}\n',
+    shellName: 'PlanScreen',
+  })
+  assert.equal(typeof out, 'string', '不同名承载体必须能产出页面')
+  assert.match(out, /import \{ PlanScreen as PlanScreenShell \} from '@rn-shells\/PlanScreen'/)
+  assert.match(out, /<PlanScreenShell \/>/)
+  assert.match(out, /RN 壳 apps\/mobile-rn\/src\/screens\/PlanScreen\.tsx/, '头注要写真实承载体文件,不写被承载屏的名字')
 })
 
