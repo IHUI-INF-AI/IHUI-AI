@@ -904,7 +904,15 @@ export function planGeneration(rootDir, opts, ctx = null) {
     else dropped.push(k)
   }
   if (kept.length === 0) {
-    return { kind: 'refuse', why: `该屏 t() 命中的键在五语 mobile-rn 词包里无一可整组解析(弃用键:${dropped.join(', ') || '无'}),零新译前提下无内容可镜像` }
+    // 壳承载形制不写正文文案:全键都落在通用命名空间(GENERIC_NS)⇒ 该屏本来就没有专属词条,
+    // 没有要镜像的命名空间,**不是缺口**。旧判据一律拒 ⇒ knowledge-planet / learn /
+    // sub-package-index 三屏永久停在"缺口"(2026-10-27 实测:分别只用到 common.back /
+    // common.more / common.retry,且这些键在五语小程序词包里已齐)。
+    // 有弃用键(dropped 非空)才仍拒 —— 那说明它确实要端内没有的译文。
+    const nothingToMirror = opts.form === 'shell' && dropped.length === 0
+    if (!nothingToMirror) {
+      return { kind: 'refuse', why: `该屏 t() 命中的键在五语 mobile-rn 词包里无一可整组解析(弃用键:${dropped.join(', ') || '无'}),零新译前提下无内容可镜像` }
+    }
   }
 
   // 命名空间分组(键序 = en 词包遍历序;词包没有的键已被剔除)
