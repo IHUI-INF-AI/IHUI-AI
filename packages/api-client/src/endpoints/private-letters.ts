@@ -108,4 +108,51 @@ export async function getPrivateLetterNewList(
 ): Promise<ApiResult<PrivateLetterListPage>> {
   return fetchApi<PrivateLetterListPage>(`/api/private-letters/new${buildQs(query)}`)
 }
+
+/**
+ * 私信行精确形状。既有 `PrivateLetter` 类型登记的是 createTime(social-supplement 旧表位),
+ * 而本路由实际查表是 relation-tables.ts 的 message_private_letter,时间列逐字为
+ * createdAt —— 直接读旧类型拿不到,这里按后端 select() 整行投影收口。
+ */
+export interface LetterRow {
+  id: number
+  senderId: string
+  receiverId: string
+  content: string
+  isRead: boolean
+  status: string
+  createdAt: string
+}
+
+function readStr(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+/** PrivateLetter(带索引签名)→ LetterRow 精确投影;后端时间列取不到时回落 createTime */
+export function normalizeLetterRow(raw: PrivateLetter): LetterRow {
+  const created = raw.createdAt
+  return {
+    id: raw.id,
+    senderId: raw.senderId,
+    receiverId: raw.receiverId,
+    content: raw.content,
+    isRead: raw.isRead,
+    status: typeof raw.status === 'string' ? raw.status : 'normal',
+    createdAt: typeof created === 'string' ? created : readStr(raw.createTime),
+  }
+}
+
+/** 会话列表项(联表对方信息)→ 精确投影 */
+export function normalizeLetterMemberRow(raw: PrivateLetterMember): {
+  letter: LetterRow
+  counterpartId: string
+  counterpartName: string
+} {
+  return {
+    letter: normalizeLetterRow(raw.letter),
+    counterpartId: raw.counterpartId,
+    counterpartName: readStr(raw.counterpartName),
+  }
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
