@@ -24,12 +24,15 @@ import { fileURLToPath } from 'node:url'
 export const LAND_PATHS_SEP = ';'
 
 /** 落地 env 的构造(纯函数;调用方的镜像测试拿落地器自己的 parseArgs 做 round-trip) */
-export function landEnv({ paths, manifest, msg, proof }) {
+export function landEnv({ paths, manifest, msg, proof, baseRef = '' }) {
   return {
     LAND_PATHS: paths.join(LAND_PATHS_SEP),
     LAND_BLOBS: manifest,
     LAND_BLOB_PROOF: proof,
     LAND_MSG: msg,
+    // 把 CAS 的基线钉死在"我这份 blob 是对着哪一枚提交生成的"上:HEAD 若已被别席推进,
+    // 落地器必须**失败并重判**,而不是拿新 HEAD 重放一份旧面上的字节(检出档的全部前提就是同面)。
+    ...(baseRef ? { LAND_BASE_REF: baseRef } : {}),
   }
 }
 
@@ -80,6 +83,7 @@ export function landBlobs({
   proof,
   slot = 'derived',
   timeoutMs = 10 * 60 * 1000,
+  baseRef = '',
 }) {
   if (!Array.isArray(files) || files.length === 0)
     return { ok: false, why: 'files 为空 ⇒ 不落地(空清单会交出 undefined 当路径)' }
@@ -97,7 +101,10 @@ export function landBlobs({
   writeFileSync(manifest, JSON.stringify({ files }, null, 1), 'utf8')
   const paths = files.map((f) => f.path)
   try {
-    const out = execFileSync(
+    let out = ''
+    let status = 0
+    try {
+      out = execFileSync(
       process.execPath,
       [join(dirname(fileURLToPath(import.meta.url)), '..', 'object-space-land.mjs')],
       {
@@ -107,14 +114,20 @@ export function landBlobs({
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: timeoutMs,
-        env: { ...process.env, ...landEnv({ paths, manifest, msg, proof }) },
+        env: { ...process.env, ...landEnv({ paths, manifest, msg, proof, baseRef }) },
       },
     )
-    return /CAS 成功|提交面回读/.test(String(out))
-      ? { ok: true, out: String(out) }
-      : { ok: false, why: '落地器未自证成功(既没报 CAS 也没报回读)' }
-  } catch (e) {
-    return { ok: false, why: String(e?.stdout ?? e?.stderr ?? e?.message ?? e).slice(0, 400) }
+    } catch (e) {
+      // 非零退出**不等于没落地**:落地器落成功后还会复跑受影响判据,那一轮若有别的维红就非零退出。
+      // 所以结论只看它有没有自证 CAS/回读;红要如实报出去(gatesRed),不许折成"没落上"。
+      status = typeof e?.status === 'number' ? e.status : -1
+      out = String(e?.stdout ?? '')
+      if (!out) return { ok: false, why: String(e?.stderr ?? e?.message ?? e).slice(0, 400) }
+    }
+    const landed = /CAS 成功|提交面回读/.test(String(out))
+    const gatesRed = /判红|blocking d+ 臂|拒绝报绿/.test(String(out))
+    if (!landed) return { ok: false, why: '落地器未自证成功(既没报 CAS 也没报回读)', out: String(out), status }
+    return { ok: true, landed, gatesRed, out: String(out), status }
   } finally {
     try {
       rmSync(manifest, { force: true })
