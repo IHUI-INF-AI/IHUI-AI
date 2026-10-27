@@ -1005,6 +1005,16 @@
       "shared": "packages/app/src/features/edu-ai/EduAiVideoComposeScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/EduAiVideoComposeScreen.tsx",
       "miniapp": "pkg-mirror2/edu-ai-video-compose/index"
+    },
+    {
+      "shared": "packages/app/src/features/plan/PlanDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PlanDetailScreen.tsx",
+      "miniapp": "pages/distribution/plan-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/student/MyCommentsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MyCommentsScreen.tsx",
+      "miniapp": "pkg-mirror2/my-comments/index"
     }
   ]
 }

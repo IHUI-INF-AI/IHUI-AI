@@ -218,6 +218,7 @@ export default defineAppConfig({
         'member-detail/index',
         'plan/index',
         'company/index',
+        'plan-detail/index',
       ],
     },
     {
@@ -314,6 +315,7 @@ export default defineAppConfig({
         'ai-world-edit/index',
         'edu-ai-hub/index',
         'edu-ai-video-compose/index',
+        'my-comments/index',
       ],
     },
     {
