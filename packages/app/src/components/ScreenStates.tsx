@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
     stateGlyphCircle: {
       width: 64,
       height: 64,
-      borderRadius: '50%', // C6 几何真圆:64×64 正方盒写 50%,不吃字面档
+      borderRadius: rnRadius['2xl'], // 与小程序 .ihui-state-glyph-circle 同取 2xl 档(128rpx 盒 + var(--radius-2xl));写 50% 会让两端一个圆角方、一个正圆
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.light,
