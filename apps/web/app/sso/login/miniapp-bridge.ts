@@ -23,10 +23,14 @@
  * 失败方向(AGENTS §0.10):SDK 加载失败/超时 ⇒ reject 由调用方如实提示,绝不静默当成功。
  */
 
-/** 小程序接收侧契约的 type 字面量(与 SSO_WEBVIEW_MESSAGE_TYPE 逐字同源,勿单改一边) */
+/** 小程序接收侧契约的 type 字面量(与 SSO_WEBVIEW_MESSAGE_TYPE 逐字同源,勿单改一边)
+ * @public 仅测试钉住(判据先行族,G-1200042):生产面暂无消费方,单测直接 import;若日后有生产消费方应删本标注
+ */
 export const SSO_WEBVIEW_POST_TYPE = 'ihui-sso-code'
 
-/** 微信官方 JS-SDK(web-view 基础能力,postMessage 所在) */
+/** 微信官方 JS-SDK(web-view 基础能力,postMessage 所在)
+ * @public 仅测试钉住(判据先行族,G-1200042):生产面暂无消费方,单测直接 import;若日后有生产消费方应删本标注
+ */
 export const WECHAT_JWEIXIN_SRC = 'https://res.wx.qq.com/open/js/jweixin-1.6.0.js'
 
 /** SDK script 注入的兜底超时:微信 CDN 偶发慢,但不允许用户对着一页表单干等 */
@@ -57,7 +61,9 @@ export function isWechatMiniProgramHost(
   return ua.toLowerCase().includes('miniprogram')
 }
 
-/** 小程序回传腿的载荷构造(单测锚点:字段名与 type 契约锁在这里) */
+/** 小程序回传腿的载荷构造(单测锚点:字段名与 type 契约锁在这里)
+ * @public 仅测试钉住(判据先行族,G-1200042):生产面暂无消费方,单测直接 import;若日后有生产消费方应删本标注
+ */
 export function buildMiniappSsoPayload(ssoCode: string): { type: string; sso_code: string } {
   return { type: SSO_WEBVIEW_POST_TYPE, sso_code: ssoCode }
 }
