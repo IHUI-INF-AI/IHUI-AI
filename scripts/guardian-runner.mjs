@@ -5611,6 +5611,31 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- ruff 提交链门(1 项,blocking:CI 有 ruff 而提交链没有 ⇒ 旁路落地与 chore(auto) 收编能把 Python 欠账直带进 HEAD)---
+  {
+    id: '254',
+    label:
+      '🐍 Python ruff(lint)必须在提交链上跑(三档面 HEAD/索引/磁盘;uvx 缺失或面取不到 ⇒ 未判定)',
+    script: 'check-ruff-python.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RUFF',
+    stagedTriggers: ['apps/ai-service/', 'scripts/check-ruff-python.mjs', 'scripts/lib/face-reader.mjs'],
+    onFailHint: [
+      '',
+      '  💡 apps/ai-service 的 Python 代码有 ruff 违规。逐条看:',
+      '     node scripts/check-ruff-python.mjs --worktree',
+      '     机械项自动修:cd apps/ai-service && uvx ruff==<pyproject 里的 pin> check --fix .',
+      '  立因:ruff 原先只挂 .github/workflows/ci-monorepo.yml,guardian-runner 与 .husky 都没有;',
+      '  旁路落地(object-space-land / union-converge)与 chore(auto) 收编**不跑钩子** ⇒ 欠账能在 HEAD 面静默积累',
+      '  (2026-10-27 净面检出实测 4 条真红,引入者均为收编提交)。',
+      '  三档:0 无违规 / 1 有违规(逐条打印)/ 2 未判定(uvx 缺失、pin 解析失败、被审面取不到;',
+      '  未判定优先于红,同时写 stderr 供 runner 的 detectUndetermined 识别)。',
+      '  紧急跳过:HUSKY_SKIP_RUFF=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
