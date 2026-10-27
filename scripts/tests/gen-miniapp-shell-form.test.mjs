@@ -226,3 +226,16 @@ test('B8 不同名承载体:页面按壳名取用,并用壳的真导出形态', 
   assert.match(out, /RN 壳 apps\/mobile-rn\/src\/screens\/PlanScreen\.tsx/, '头注要写真实承载体文件,不写被承载屏的名字')
 })
 
+
+test('B9 路由占用:同 kebab 路径的页不镜像本屏 ⇒ 改道镜像分包,不判"已落"', () => {
+  // 2026-10-27 实测:FavoritesScreen / PublishScreen 都有 RN 承载方,却因 pkg-user/favorites 与
+  // publish 两条 kebab 路径被**另一张屏**的页占着,被旧判据当成"已落"永久跳过。
+  assert.match(SRC, /occupiedByOther\(subRoot\)/, '必须先问「这个路径上的页是不是本屏的页」')
+  assert.match(
+    SRC,
+    /mirrorRoots\.find\(\(r\) => !occupiedByOther\(r\)\)/,
+    '冲突时按固定顺序改道镜像分包(不发明新词、不动既有页)',
+  )
+  assert.match(SRC, /不产重名路由/, '镜像分包也占满时必须拒造并点名,不得产重名路由')
+})
+
