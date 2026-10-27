@@ -148,6 +148,9 @@ vi.mock('../src/services/relay-proxy-pool.js', () => ({
   pickProxyForAccount: async () => null,
   reportProxyFailure: async () => {},
   reportProxySuccess: async () => {},
+  // e2e 不验证加密:账号级代理按明文直通,断言只看导入/转发编排
+  encryptAccountProxyUrl: (u: string | null) => u,
+  resolveAccountProxyUrl: (u: string | null) => u,
 }))
 vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: async () => null,
