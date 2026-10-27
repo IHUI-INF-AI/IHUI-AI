@@ -41,19 +41,24 @@
  *   node scripts/check-mirror-purge-intact.mjs            # 全量档(HEAD 面)
  *   node scripts/check-mirror-purge-intact.mjs --staged   # 提交链档(索引面)
  *   node scripts/check-mirror-purge-intact.mjs --json     # 机器可读结论
- *   node scripts/check-mirror-purge-intact.mjs --self-test # 真临时仓端到端取证(19 例)
- * 退出码:0 = 干净;1 = 判红(点名文件/行/判据);2 = 未判定或用法错。
- * 镜像测试:node --test scripts/tests/check-mirror-purge-intact.test.mjs(10 例,含 T1 方向锁)。
+ *   node scripts/check-mirror-purge-intact.mjs --self-test # 真临时仓端到端取证(25 例)
+ *   node scripts/check-mirror-purge-intact.mjs --fix      # 写回出口:摘掉工作树副本里的禁止行(不判定)
+ *   node scripts/check-mirror-purge-intact.mjs --fix --dry-run # 干跑:只报"将会改什么",零写盘
+ * 退出码:判定档 0 = 干净;1 = 判红(点名文件/行/判据);2 = 未判定或用法错。
+ *   --fix 档只出 0(写回出口按其自身口径完成,含 0 改动)或 2(未判定/用法错),**永不产出 1** ——
+ *   "红/绿"是判定轮的语言,写档不判档(纪律全文见下方写回区块头注)。
+ * 镜像测试:node --test scripts/tests/check-mirror-purge-intact.test.mjs(16 例,含 T1 方向锁)。
  * 紧急跳过:HUSKY_SKIP_MIRROR_PURGE_INTACT=1(必须在提交信息里写明理由与清偿票)。
  *
  * 接线状态:已接入 guardian-runner 注册表(守门 237,blocking,skipEnv=HUSKY_SKIP_MIRROR_PURGE_INTACT;
  * stagedTriggers = 射程 10 文档;注册落地后本行随注册表现状维护,镜像测试 T1 双向锁死)。
  */
 
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+import { normalizeInputBytes } from './lib/generated-input-pin.mjs'
 import { FACE_LABEL, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -218,6 +223,149 @@ export function report(r, { json = false } = {}) {
   )
 }
 
+/* ───────── 写回出口(--fix,2026-10-27 立) ─────────
+ *
+ * 立因:本门 blocking 而**只判不修**。多会话共享工作区 + 旁路落地(commit-tree+CAS 只推进 HEAD、
+ * 不写工作树)⇒ 已 purge 的镜像旧文案被"收编滞后工作树副本"的链路反复带回 HEAD,实测已人工清过
+ * 4 次(最近一枚 68cf199cdc27,做法 = 取 HEAD blob ⊕ 只删命中行)。恒红门的唯一结局是逼人
+ * --no-verify 连带废掉全部守门(§12e/§12f)⇒ 按"blocking 门必须自带修复出口"补上本档。
+ * 纪律照抄同型先例 `check-miniapp-generated.mjs` 的 `--heal-ui-routes` 档。
+ *
+ * 本档永远不会做的事:
+ *   ① 用自己的输出替代判定 —— 判据函数(scanText/runCheck)与判定档退出码**一字未动**,
+ *      本档只报"改没改、为什么没改",结论行是 MIRROR-PURGE-FIX-RESULT,不是 MIRROR-PURGE-RESULT;
+ *   ② 覆盖别人的在飞改动 —— 某文档工作树副本 ≠ 被审面副本 ⇒ **那一份**拒绝改写并点名,
+ *      其余各份照改,跳过可见不静默(判序先验磁盘副本自身有没有禁止行:磁盘已净 ⇒ clean,
+ *      所以"上一轮 --fix 摘过而尚未入库"的形态不会被误读成在飞);
+ *   ③ 造面上不存在/磁盘上不存在或别人未入库的新文档 —— skip/refuse 出口,绝不 writeFileSync;
+ *   ④ 替"改写后仍可能命中"背书 —— 落盘前对产物再跑一次同一把 scanText,仍有命中即拒绝;
+ *   ⑤ 接受与判定混用的旗标 —— --fix 与 --json / --worktree 同给 = 用法错 exit 2
+ *      (--worktree 下面副本≡磁盘,在飞副本闸失明);--fix --staged 合法(对照索引面)。
+ *
+ * git add 绝不做(同先例):写回属于工作树,提交者是别人——本档不替任何人把改动塞进提交。
+ */
+
+/**
+ * 单份文档一次写回允许摘除的最大行数。
+ * 上限依据(全现读,不是拍的):历史回潮的单文档命中峰值 = 3 行
+ * (68cf199cdc27 之前的 README.md,M1×2+M2×1,scanText 旧 blob 实测);旧 AGENTS.md §5b
+ * 整块 120 行里按行判据实际命中 1 行。即便取"回潮块整段每行都命中"的最坏形态(≈120 行)
+ * 也远在 150 之下;超过 150 行意味着已经不是"回潮"这个形态(整份文档被换/生成器错位),
+ * 必须让人看见而不是门自动背书。
+ */
+export const MAX_FIX_REMOVED_LINES = 150
+
+/**
+ * 摘除命中行(纯函数,判据零复算:命中集直接来自 scanText —— 行级局部判据,删行不造新行)。
+ * @returns {{violations:object[], removed:number, fixedText:string}}
+ */
+export function stripViolatingLines(text) {
+  const violations = scanText(text)
+  const hit = new Set(violations.map((v) => v.line))
+  const lines = String(text).split('\n')
+  const kept = []
+  for (let i = 0; i < lines.length; i++) if (!hit.has(i + 1)) kept.push(lines[i])
+  return { violations, removed: lines.length - kept.length, fixedText: kept.join('\n') }
+}
+
+/**
+ * 单文档写回决策(纯函数):给面副本与磁盘副本,返回该动/不该动及原因。
+ * 判序即纪律:磁盘无禁止行 ⇒ clean(幂等锁在第一位)⇒ 面缺失/在飞/超量级逐一拒绝并点名。
+ * @returns {{action:'clean'|'skip'|'refuse'|'fix', why:string, removed?:number, fixedText?:string, violations?:object[]}}
+ */
+export function decideFix({ faceText, diskText, maxRemoved = MAX_FIX_REMOVED_LINES }) {
+  if (diskText === null) return { action: 'skip', why: '磁盘上没有该文档(别人在删/尚未落地)⇒ 写回出口不造文件' }
+  const info = stripViolatingLines(diskText)
+  if (info.violations.length === 0) return { action: 'clean', why: '磁盘副本无禁止行 ⇒ 零改动(幂等)', removed: 0 }
+  if (faceText === null)
+    return {
+      action: 'refuse',
+      why: `被审面上没有该文档而磁盘副本含 ${info.violations.length} 处禁止行 ⇒ 那是别人未入库的新文档,门不动它`,
+      violations: info.violations,
+    }
+  if (normalizeInputBytes(diskText) !== normalizeInputBytes(faceText))
+    return {
+      action: 'refuse',
+      why: `工作树副本 ≠ 面副本 ⇒ 这份上有别人的在飞改动(禁止行随其改动一并交人工),门不覆盖`,
+      violations: info.violations,
+    }
+  if (info.removed > maxRemoved)
+    return {
+      action: 'refuse',
+      why: `本次将摘 ${info.removed} 行 > 上限 ${maxRemoved} ⇒ 不是回潮量级(疑似整份文档被换),拒绝改写、磁盘一字节未动`,
+      violations: info.violations,
+    }
+  return { action: 'fix', why: `摘除 ${info.removed} 行`, fixedText: info.fixedText, removed: info.removed, violations: info.violations }
+}
+
+/** --fix 旗标互斥校验(纯函数):返回冲突说明;null = 无冲突。 */
+export function fixArgConflict(argv) {
+  if (!argv.includes('--fix')) return null
+  if (argv.includes('--json')) return '--fix 是写回出口(不判定),不得与 --json 同给'
+  if (argv.includes('--worktree')) return '--fix 的在飞副本闸要对照被审面;--worktree 面下面副本≡磁盘、闸失明 ⇒ 不得同用'
+  return null
+}
+
+/** 命中判据的计数摘要(报告行用,顺序稳定)。 */
+function codesSummary(violations) {
+  const byCode = {}
+  for (const v of violations || []) byCode[v.code] = (byCode[v.code] || 0) + 1
+  return Object.entries(byCode)
+    .map(([c, n]) => `${c}×${n}`)
+    .join(' ')
+}
+
+/**
+ * 射程 10 文档的写回出口(不判绿不判红)。取材与判定轮同面同轮(catBatch 面 + readWorktreeFile 磁盘)。
+ * @param {{root:string, face?:'head'|'staged', dryRun?:boolean, log?:(s:string)=>void, maxRemoved?:number}} opts
+ * @returns {{rows:object[], state:string, fixed:number, refused:number, clean:number, skipped:number}}
+ *   取不到被审面 ⇒ catBatch 抛 Undetermined,由 main 落 exit 2(未判定 ≠ 已写回)。
+ */
+export function fixDocuments({ root, face = 'head', dryRun = false, log = (s) => console.log(s), maxRemoved = MAX_FIX_REMOVED_LINES }) {
+  if (face === 'worktree') throw new Error('fixDocuments 不接受 worktree 面(在飞副本闸会失明)')
+  const specs = SCOPE_FILES.map((rel) => faceSpec(face, rel))
+  const m = catBatch(root, specs)
+  const rows = []
+  let fixed = 0
+  let refused = 0
+  let clean = 0
+  let skipped = 0
+  for (let i = 0; i < SCOPE_FILES.length; i++) {
+    const rel = SCOPE_FILES[i]
+    const faceText = m.get(specs[i]) ?? null
+    const diskText = readWorktreeFile(root, rel)
+    const d = decideFix({ faceText, diskText, maxRemoved })
+    const row = { rel, action: d.action, removed: d.removed ?? 0, codes: codesSummary(d.violations), why: d.why }
+    if (d.action === 'fix') {
+      // 纪律④:落盘前对产物再验一次同一把尺 —— 理论上删行不造新命中,验不过说明判据本身坏了,当场拒绝。
+      if (scanText(d.fixedText).length > 0) {
+        row.action = 'refuse'
+        row.why = '改写产物再扫仍有命中 ⇒ 不落盘(这不该发生,发生即判据坏了,交人工)'
+        refused += 1
+        rows.push(row)
+        continue
+      }
+      if (!dryRun) writeFileSync(join(root, rel), d.fixedText, 'utf8')
+      fixed += 1
+    } else if (d.action === 'refuse') refused += 1
+    else if (d.action === 'clean') clean += 1
+    else skipped += 1
+    rows.push(row)
+  }
+  const state = fixed > 0 ? 'fixed' : refused > 0 ? 'refused' : 'clean'
+  log(
+    `[mirror-purge-intact --fix] 面=${face}(${FACE_LABEL[face]})${dryRun ? ' · 干跑(零写盘)' : ''} · 射程 ${SCOPE_FILES.length}:改写 ${fixed} / 拒绝 ${refused} / 已净 ${clean} / 跳过 ${skipped}`,
+  )
+  for (const r of rows) {
+    if (r.action === 'clean') continue
+    const icon = r.action === 'fix' ? (dryRun ? '🔍' : '✍️') : r.action === 'refuse' ? '⛔' : '⏭️'
+    log(`  ${icon} ${r.rel} —— [${r.action}]${r.codes ? ` (${r.codes})` : ''} ${r.why}`)
+  }
+  log('  ℹ️ 本档只写回、不判定:红/绿仍由同面的判定轮说;面未被触动,复检请再跑不带 --fix 的本脚本(改动留给人 git add)。')
+  log(`MIRROR-PURGE-FIX-RESULT state=${state} dryRun=${dryRun} fixed=${fixed} refused=${refused} clean=${clean} skipped=${skipped}`)
+  return { rows, state, fixed, refused, clean, skipped }
+}
+
 /**
  * §22c 自检 harness:传函数当 cond 必须记红 —— 断言从未求值与"断言为假"是两回事,
  * 后者会被打成 ❌,前者会假装通过。镜像测试用 `__test__.makeAssert` 直接证明这条分支。
@@ -340,6 +488,27 @@ function selfTest() {
     ok('⑧ 射程含 4 版 README + AGENTS.md,共 10 个', SCOPE_FILES.length === 10 && SCOPE_FILES.includes('README.en.md') && SCOPE_FILES.includes('AGENTS.md'), String(SCOPE_FILES.length))
     ok('⑧ PROJECT_PLAN.md 不在射程(历史台账叙事不拦)', !SCOPE_FILES.includes('PROJECT_PLAN.md'), JSON.stringify(SCOPE_FILES))
     ok('⑧ 射程全是文档(无代码路径)', SCOPE_FILES.every((f) => f.endsWith('.md')), JSON.stringify(SCOPE_FILES))
+
+    // ── ⑨ 写回出口(--fix):真能修自己判的事 + 幂等 + 面不受触动 + 在飞/超限拒改 ──
+    // 此刻磁盘 == HEAD 面(reset --hard 后),HEAD 面含 4 处命中(AGENTS.md×1 + README.md×3)。
+    const fix1 = fixDocuments({ root: dir, face: 'head', log: () => {} })
+    ok('⑨ 第一轮写回改写 2 份(README.md+AGENTS.md),拒绝 0', fix1.fixed === 2 && fix1.refused === 0, JSON.stringify(fix1.rows.filter((r) => r.action !== 'clean' && r.action !== 'skip')))
+    ok('⑨ 写回后 worktree 面零命中(阳性对照:器物真能修它判的事)', runCheck(dir, 'worktree').violations.length === 0, JSON.stringify(runCheck(dir, 'worktree').violations))
+    ok('⑨ 写回不触动面:HEAD 面照旧判红(写档不冒判)', runCheck(dir, 'head').state === 'violation', runCheck(dir, 'head').state)
+    const bytesAfter1 = { agents: readWorktreeFile(dir, 'AGENTS.md'), readme: readWorktreeFile(dir, 'README.md') }
+    const fix2 = fixDocuments({ root: dir, face: 'head', log: () => {} })
+    ok('⑨ 幂等:第二轮 0 改写且磁盘逐字节同形(在飞闸不误伤自己的写回)', fix2.fixed === 0 && readWorktreeFile(dir, 'AGENTS.md') === bytesAfter1.agents && readWorktreeFile(dir, 'README.md') === bytesAfter1.readme, JSON.stringify(fix2.rows.filter((r) => r.action === 'fix')))
+
+    // 超限:造一份 151 行命中的射程文档入库(磁盘==面),写回必须拒绝且一字节不动
+    const over = Array.from({ length: MAX_FIX_REMOVED_LINES + 1 }, (_, i) => `- 镜像仓库地址:https://gitcode.com/IHUI-AI/IHUI-AI#${i}`).join('\n') + '\n'
+    mkdirSync(join(dir, 'docs'), { recursive: true })
+    writeFileSync(join(dir, 'docs', 'RELEASE.md'), over, 'utf8')
+    g('add', 'docs/RELEASE.md')
+    g('commit', '-qm', 'fixture: 超限回潮')
+    const fix3 = fixDocuments({ root: dir, face: 'head', log: () => {} })
+    const overRow = fix3.rows.find((r) => r.rel === 'docs/RELEASE.md')
+    ok('⑨ 超限拒改:摘除量 > 上限 ⇒ refuse 且磁盘未动', overRow?.action === 'refuse' && readWorktreeFile(dir, 'docs/RELEASE.md') === over, JSON.stringify(overRow))
+    ok('⑨ 超限轮其余各份保持 0 改写(fixed=0)', fix3.fixed === 0, String(fix3.fixed))
   } finally {
     rmScratch(dir)
   }
@@ -352,12 +521,19 @@ function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--help') || argv.includes('-h')) {
     console.log('用法:node scripts/check-mirror-purge-intact.mjs [--staged|--worktree] [--json] [--self-test]')
-    console.log('退出码:0 干净 / 1 判红 / 2 未判定或用法错。')
+    console.log('     node scripts/check-mirror-purge-intact.mjs --fix [--staged] [--dry-run]  # 写回出口(不判定)')
+    console.log('退出码:判定档 0 干净 / 1 判红 / 2 未判定或用法错;--fix 档只出 0 或 2,永不产出 1。')
     process.exit(0)
   }
   if (argv.includes('--self-test')) {
     selfTest()
     return
+  }
+  const doFix = argv.includes('--fix')
+  const conflict = doFix ? fixArgConflict(argv) : null
+  if (conflict) {
+    console.error(`[mirror-purge-intact] 用法错:${conflict}`)
+    process.exit(2)
   }
   const { face, error } = faceFromArgv(argv)
   if (error) {
@@ -365,6 +541,15 @@ function main() {
     process.exit(2)
   }
   const root = assertRepoRoot(process.cwd(), '本门')
+  if (doFix) {
+    try {
+      fixDocuments({ root, face, dryRun: argv.includes('--dry-run') })
+    } catch (e) {
+      console.error(`[mirror-purge-intact --fix] 未判定:${e?.message ?? e}(写回出口坏了不冒充写回成功)`)
+      process.exit(2)
+    }
+    process.exit(0)
+  }
   const r = runCheck(root, face)
   report(r, { json: argv.includes('--json') })
   process.exit(r.exit)
@@ -387,4 +572,9 @@ export const __test__ = {
   runCheck,
   report,
   makeAssert,
+  MAX_FIX_REMOVED_LINES,
+  stripViolatingLines,
+  decideFix,
+  fixArgConflict,
+  fixDocuments,
 }

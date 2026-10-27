@@ -47,7 +47,7 @@
 //      结构性校验(解码失败一律回落,不进缓存)。
 
 import { createRequire } from 'node:module'
-import { writeFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync, readdirSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, relative, resolve } from 'node:path'
@@ -62,6 +62,17 @@ import { renderPin, sha256Hex } from './lib/generated-input-pin.mjs'
 import { catBatch, readWorktreeFile, FACE_LABEL, listFaceFiles } from './lib/face-reader.mjs'
 // 承载层可达键的**唯一算式**(门 251 判"键可解析"时 import 同一份,§0.6)
 import { carriedKeysFromRepo, subsetMissing } from './lib/rn-carried-keys.mjs'
+// 离线包钉输入清单的**唯一构造规则**(守门 105 现算钉时 import 同一份,§0.6)——
+// 2026-10-27 实测:本生成器加承载层第三层输入而门没跟,门把钉里那 4 条判成"面上 ABSENT"⇒ 恒红门。
+// 清单只在这里列一次,末尾还有"实际读到的 == 规则说应有的"那道自证锁(读漏/读多都不出合格证)。
+import {
+  MESSAGES_REL,
+  baseSourceRel,
+  bundleInputRels,
+  carriedSourceRel,
+  carriedSourceRelsOf,
+  overrideSourceRel,
+} from './lib/i18n-bundle-inputs.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 // 脚本在根 scripts/,仓库根在其上 1 级;消息源在 packages/i18n/messages
@@ -71,8 +82,7 @@ const repoRoot = resolve(__dirname, '..')
 const { gzipSync, strToU8 } = createRequire(
   resolve(repoRoot, 'apps/miniapp-taro/package.json'),
 )('fflate')
-// 消息源的仓库相对根:只在这里写一次,INPUT_RELS 与 loadJson 的钉 rel 都从它拼(两处各拼必然漂移)
-const MESSAGES_REL = 'packages/i18n/messages'
+// 消息源的仓库相对根由 lib/i18n-bundle-inputs.mjs 单点持有(与守门 105 同一份,§0.6)
 const outDir = resolve(repoRoot, 'apps/miniapp-taro/src/i18n/generated')
 const outFile = resolve(outDir, 'remote-locales.gen.ts')
 const manifestFile = resolve(outDir, 'remote-locale-manifest.gen.ts')
@@ -102,14 +112,15 @@ if (faceFlags.length > 1) {
 }
 const FACE = faceFlags[0] ? faceFlags[0][1] : 'worktree'
 const specOf = (rel) => (FACE === 'staged' ? `:${rel}` : `HEAD:${rel}`)
-const INPUT_RELS = REMOTE_LOCALES.flatMap((locale) => [
-  `${MESSAGES_REL}/shared/${locale}.json`,
-  `${MESSAGES_REL}/miniapp-taro/${locale}.json`,
-])
-// zh-CN 两份输入(产物④):与 remote 8 份同一取材面、同一批量读 —— 缺一份就 exit 2,
+const INPUT_RELS = REMOTE_LOCALES.flatMap((locale) => [baseSourceRel(locale), overrideSourceRel(locale)])
+// zh-CN 两层必需输入(产物④):与 remote 同一取材面、同一批量读 —— 缺一份就 exit 2,
 // 绝不回落另一个面(否则 ④ 的钉会说自己是从没读全的输入派生的,§0.3 同型)。
-const ZH_INPUT_RELS = [`${MESSAGES_REL}/shared/zh-CN.json`, `${MESSAGES_REL}/miniapp-taro/zh-CN.json`]
-const ALL_INPUT_RELS = [...INPUT_RELS, ...ZH_INPUT_RELS]
+const ZH_INPUT_RELS = [baseSourceRel('zh-CN'), overrideSourceRel('zh-CN')]
+// 承载层源(mobile-rn 词包)是**增强层**:面上没有它不能让构建死,但它必须在**这一轮就被看见**。
+// 此前它根本不在批量读清单里 ⇒ --head/--staged 面永远取不到它 ⇒ 承载补键被静默跳过、
+// 钉里少 4 条输入,而磁盘面却带着它们:同一份产物在两把尺子下两种基准(守门 118「少扫不红」同型)。
+const CARRY_RELS = [...carriedSourceRelsOf(REMOTE_LOCALES), carriedSourceRel('zh-CN')]
+const ALL_INPUT_RELS = [...INPUT_RELS, ...ZH_INPUT_RELS, ...CARRY_RELS]
 // 非磁盘面:一次批量读满。逐份 `git show` 会让并行会话在第 3 份和第 4 份之间推进 HEAD,
 // 产出自洽却错位的钉(守门 118 的"少扫不红"同型)。
 let FACE_BATCH = null
@@ -207,6 +218,9 @@ const faceReadSource = (rel) => {
     return null
   }
 }
+/** 这一份被审面上有没有这个路径(承载层是可选输入,存在性必须在**同一个面**上问,§0.4) */
+const faceHas = (rel) => (FACE === 'worktree' ? existsSync(resolve(repoRoot, rel)) : FACE_BATCH.get(specOf(rel)) != null)
+
 const faceListSources = (prefix) => {
   if (FACE === 'worktree') {
     const out = []
@@ -226,17 +240,8 @@ const CARRIED = carriedKeysFromRepo({ readFile: faceReadSource, listFiles: faceL
 // 承载层是**增强层**:它的源(mobile-rn/*.json)在被审面上缺席时,不能让整轮构建死在增强层上
 // (那是"文档写了出路却跑不通");改成显式跳过 + 在产物里记 carried:skipped,由门 251 C10 判缺键。
 function carriedSourceFor(locale, pinList) {
-  const rel = `${MESSAGES_REL}/mobile-rn/${locale}.json`
-  let text
-  if (FACE === 'worktree') {
-    try {
-      text = readWorktreeFile(repoRoot, rel)
-    } catch {
-      text = null
-    }
-  } else {
-    text = FACE_BATCH.has(specOf(rel)) ? FACE_BATCH.get(specOf(rel)) : null
-  }
+  const rel = carriedSourceRel(locale)
+  const text = faceReadSource(rel)
   if (text === null || text === undefined) return null
   pinList.push({ rel, text })
   return JSON.parse(text)
@@ -358,6 +363,27 @@ function readSourceCommit() {
     return 'unknown'
   }
 }
+
+// 自证锁:实际进钉的输入集必须等于 lib/i18n-bundle-inputs.mjs 在这一面上算出的集合。
+// 不等 ⇒ 门 105 按同一条规则现算必然对不上 ⇒ 一台在完好仓库上无事可判的恒红门
+// (2026-10-27 实录:承载层第三层只加在生成器上,门按两层现算,把钉里那 4 条报成"面上 ABSENT")。
+// 失效方向 = 不出合格证(exit 2),绝不"少一份也照样写产物"——那份产物一到 CI 就顶红。
+function assertPinSet(pinList, locales, label) {
+  const expected = bundleInputRels(locales, faceHas).sort()
+  const actual = pinList.map((i) => i.rel).sort()
+  const dupes = actual.filter((rel, i) => i > 0 && actual[i - 1] === rel)
+  const missing = expected.filter((rel) => !actual.includes(rel))
+  const extra = actual.filter((rel) => !expected.includes(rel))
+  if (dupes.length === 0 && missing.length === 0 && extra.length === 0) return
+  console.error(
+    `❌ [gen:i18n] ${label} 的钉输入集与共享规则(lib/i18n-bundle-inputs.mjs)在这一面上算出的不一致 ⇒ exit 2\n` +
+      `   重复: ${dupes.join(', ') || '无'} / 规则说有而没读进钉: ${missing.join(', ') || '无'} / 读了但规则不认: ${extra.join(', ') || '无'}\n` +
+      `   出路:生成器与守门 105 共用那条规则 —— 加/减一层只改 lib 一处,两侧同改;在这里单方面多读一份,门必然恒判陈旧。`,
+  )
+  process.exit(2)
+}
+assertPinSet(pinInputs, REMOTE_LOCALES, 'remote 离线包')
+assertPinSet(zhPinInputs, ['zh-CN'], 'zh-CN 内联包')
 
 // 自述钉两份产物共用同一份(同批输入 + 同一时刻行 ⇒ 幂等性对两份产物同时成立)
 const pinLines = renderPin({
