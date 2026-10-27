@@ -23,6 +23,7 @@
 10. **失效方向必须是"多要一次定向说明",绝不能是"多放一次跳门"**(归因、豁免、跳门留痕同此禁令)。
 11. **必须永久中文回复,包括思考过程**(用户 2026-10-21 定案)。
 
+
 ## 1. 任务计划文档规则(强制)
 
 - 唯一任务计划文档 = `PROJECT_PLAN.md`(根目录)。所有计划/进度/待办**只写**此文件,禁止在别处新建计划/TODO/ROADMAP 文件(唯一例外:`/goal` 模式的 `.ihui-agent/goal-runtime/STATE.md` + `loop-run-log.md`,以及 `.ihui-agent/skills/SKILL.md`)。
@@ -154,6 +155,7 @@ IHUI-AI 全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端(2026-10
 - **npm 发布不启用 2FA(用户 2026-10-19 定案,永久有效)**:不得再提议/询问扫码绑定安全密钥、Windows Hello、USB key、TOTP,也不得登记 Trusted Publisher;发布一律走 granular token(`bypass_2fa`):本地 `~/.npmrc` 的 `ihui-cli-publish`、CI 的 `secrets.NPM_PUBLISH_TOKEN`;OIDC 步骤失败属预期,由 workflow 自动回退。
 - **隧道腿健康只读哨兵**:`check-tunnel-leg-health.mjs` 量 Cloudflared 腿存续与源地址退化(netsh 首选寿命 0s 或 deprecated ⇒ breach),三态 ok/breach/unjudged 逐维独立,单点共用只 warn 报放大因子;不进提交链,公网入口断流时由 git-guardian 报警。
 - **`deprecated-source` 是节律现象,不是工单**:本机 v6 源地址约每 12 小时退化一次,重启 Cloudflared 实测约 3 分钟入口 530。收到信先看 `held=` 与 `restart-churn`:同日已重启或崩溃循环正在抖 ⇒ 不要再重启;真要动挑无人窗口并预先告知影响时长。
+- **`ProxyCommand` 的 Windows 路径只能用正斜杠(2026-10-27 立,当日踩过一整轮)**:`~/.ssh/config` 里 `ProxyCommand C:\Windows\System32\…\powershell.exe -File D:\DevEnv\secrets\cf-ssh-proxy.ps1 %h` 这种**未加引号的单反斜杠**写法,取值过 shell 式 argv 拆词时反斜杠是转义符 ⇒ 路径被吃成 `C:WindowsSystem32…powershell.exe`,ssh 只报 `exec: C:WindowsSystem32WindowsPowerShellv1.0powershell.exe: not found`。**这不是"生产机连不上"**——本机 `D:/DevEnv/ihui-prod` 本来就不存在(那是远程机的目录),两件事叠在一起极易误判成网络故障/长期未连。三种安全写法实测(2026-10-27 真跑命令验证正反例):正斜杠 / 双引号包裹 / 双反斜杠;**唯一被许可的手改出口是 `node scripts/doctor-ssh-tunnel.mjs --fix`**(静态检查默认只读,`--verify` 真连、`--self-test` 判据自检、`--json` 机读;发现"反斜杠被吃 / 引用件缺失 / IdentityFile 缺失 / 脚本前置件缺失"逐条点名给动作)。规范形态单源 = `deploy/win/ssh-config.aizhs-top.template` + `deploy/win/cf-ssh-proxy.ps1`,由 `scripts/tests/doctor-ssh-tunnel.test.mjs`(10 例)钉住四形态矩阵与模板不腐烂。**被 `powershell.exe`(5.1) 调起的 `.ps1` 含非 ASCII 必须带 UTF-8 BOM**:PS 5.1 对无 BOM 的 .ps1 按 ANSI 读,中文会被读成乱码并报「缺少 )」,整条隧道当场断(当日同样踩过)—— 判据锁在 `scripts/tests/doctor-ssh-tunnel.test.mjs` ⑨(从模板里 `powershell.exe` 这个事实推 BOM 必要性,不是无差别要求,`#requires -Version 7` 的脚本不在此列)。按 §0.2/§12e,**该体检仪刻意不进提交链**(判的是本机运行时配置,提交者结构上满足不了),没有"紧急跳过"环境变量。
 
 ## 6. 验证命令
 
