@@ -23,6 +23,7 @@
  * Usage:
  *   node scripts/upgrade-miniapp-shell-pages.mjs                # 预演
  *   node scripts/upgrade-miniapp-shell-pages.mjs --apply --cap=5
+ *   node scripts/upgrade-miniapp-shell-pages.mjs --land --cap=2  # 自动落地(页面 + 声明件两批;守护轮用)
  *   node scripts/upgrade-miniapp-shell-pages.mjs --json
  */
 import { execFileSync } from 'node:child_process'
@@ -38,6 +39,7 @@ import { navTitleExpr, plan, titleOnlyLifecycle } from './plan-hand-mirror-conve
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const MP_DIR = 'apps/miniapp-taro/src'
+const SHELL_DECL = 'apps/miniapp-taro/types/rn-shells.generated.d.ts'
 
 const git = (args) =>
   execFileSync('git', args, {
@@ -46,6 +48,31 @@ const git = (args) =>
     maxBuffer: 1 << 28,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
+
+/** 自动落地的提交消息(纯函数,便于测试:每条 route/shell 必须能被回读)。 */
+export function landMessage(batch) {
+  const lines = batch.map((x) => `· ${x.route} | ${x.shell} | ${x.beforeLines}→${x.afterLines} 行`)
+  return [
+    `chore(cross-end): 自动把 ${batch.length} 枚手写镜像页升级为壳承载`,
+    '',
+    ...lines,
+    '',
+    '判据腿 = scripts/plan-hand-mirror-conversion.mjs(相对取差:页面私有能力/正文不在词包/跳转未被壳覆盖一律拒);',
+    '落地腿 = scripts/upgrade-miniapp-shell-pages.mjs --land,由 git-guardian 巡检轮派发。',
+  ].join('\n')
+}
+
+/** 经对象空间落地(不碰工作树与共享索引;C A S 冲突即拒)。 */
+function landViaObjectSpace(paths, msg) {
+  return execFileSync(process.execPath, [join(ROOT, 'scripts', 'object-space-land.mjs')], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 1 << 28,
+    windowsHide: true,
+    env: { ...process.env, LAND_PATHS: paths.join(';'), LAND_MSG: msg },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
 
 const worktreeClean = (rel) => {
   try {
@@ -126,9 +153,10 @@ export function planUpgrades(face = 'head') {
 function main() {
   const argv = process.argv.slice(2)
   const apply = argv.includes('--apply')
+  const land = argv.includes('--land')
   const json = argv.includes('--json')
   const capArg = argv.find((a) => a.startsWith('--cap='))
-  const cap = capArg ? Math.max(1, Number(capArg.slice('--cap='.length)) || 0) : Infinity
+  const cap = capArg ? Math.max(1, Number(capArg.slice('--cap='.length)) || 0) : land ? 2 : Infinity
 
   const res = planUpgrades('head')
   if (!res.ok) {
@@ -138,7 +166,7 @@ function main() {
   const batch = res.upgradable.slice(0, cap)
   const saved = batch.reduce((n, x) => n + (x.beforeLines - x.afterLines), 0)
 
-  if (apply) {
+  if (apply || land) {
     for (const x of batch) {
       const abs = join(ROOT, x.pageRel)
       writeFileSync(abs, x.pageText, 'utf8')
@@ -153,28 +181,82 @@ function main() {
     }
   }
 
+  // --land:页面 → 对象空间落地 → 按新 HEAD 重生成壳声明件 → 声明件再落一批。
+  // 凭据是 **HEAD 有没有被推进**,不是落地器退出码(实测它落完还会复跑别的门而退非零)。
+  let landed = null
+  if (land && batch.length > 0) {
+    const before = git(['rev-parse', 'HEAD']).trim()
+    let err = ''
+    try {
+      landViaObjectSpace(
+        batch.map((x) => x.pageRel),
+        landMessage(batch),
+      )
+    } catch (e) {
+      err = String(e?.stderr ?? e?.message ?? e).slice(0, 600)
+    }
+    const after = git(['rev-parse', 'HEAD']).trim()
+    landed = { pages: batch.length, ok: after !== before, headBefore: before.slice(0, 12), headAfter: after.slice(0, 12), err }
+    if (landed.ok) {
+      try {
+        execFileSync(process.execPath, [join(ROOT, 'scripts', 'gen-rn-shell-types.mjs'), '--head', '--write'], {
+          cwd: ROOT,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+      } catch {
+        /* 生成失败不阻断:声明件落后由门 251 C9 兜底 */
+      }
+      let declChanged = false
+      try {
+        git(['diff', '--quiet', 'HEAD', '--', SHELL_DECL])
+      } catch {
+        declChanged = true
+      }
+      if (declChanged) {
+        const b2 = git(['rev-parse', 'HEAD']).trim()
+        try {
+          landViaObjectSpace(
+            [SHELL_DECL],
+            `chore(cross-end): 壳声明件跟随自动升级的 ${batch.length} 枚页(按 HEAD 面派生)`,
+          )
+        } catch (e) {
+          landed.declErr = String(e?.stderr ?? e?.message ?? e).slice(0, 400)
+        }
+        landed.declLanded = git(['rev-parse', 'HEAD']).trim() !== b2
+      } else {
+        landed.declLanded = false
+      }
+    }
+  }
+
   if (json) {
     console.log(
       JSON.stringify({
         ok: true,
         applied: apply,
+        land,
+        landed,
         upgradable: res.upgradable.length,
         batch: batch.map((x) => ({ route: x.route, shell: x.shell, saved: x.beforeLines - x.afterLines })),
         refused: res.refused.length,
         savedLines: saved,
       }),
     )
-    return apply || batch.length === 0 ? 0 : 1
+    return apply || land || batch.length === 0 ? 0 : 1
   }
 
   console.log(
-    `UPGRADE-SHELL state=${apply ? 'applied' : 'preview'} 可落地=${res.upgradable.length} 本批=${batch.length} 拒=${res.refused.length} 本批可删行=${saved}`,
+    `UPGRADE-SHELL state=${land ? (landed?.ok ? 'landed' : 'land-failed') : apply ? 'applied' : 'preview'} 可落地=${res.upgradable.length} 本批=${batch.length} 拒=${res.refused.length} 本批可删行=${saved}`,
   )
   for (const x of batch) console.log(`  ${x.route} | ${x.shell} | ${x.beforeLines}→${x.afterLines} 行`)
   for (const x of res.refused) console.log(`  拒 ${x.route} | ${x.why}`)
-  if (apply && batch.length > 0)
+  if (land && landed)
+    console.log(
+      `  落地:${landed.ok ? `HEAD ${landed.headBefore}→${landed.headAfter}` : 'HEAD 未推进'}${landed.declLanded ? ' + 声明件' : ''}${landed.err ? ` | ${landed.err.split('\n').slice(-2).join(' ')}` : ''}`,
+    )
+  if (apply && !land && batch.length > 0)
     console.log('ℹ️ 下一步:提交页面 → node scripts/gen-rn-shell-types.mjs --write → 提交派生声明件')
-  return apply || batch.length === 0 ? 0 : 1
+  return apply || land || batch.length === 0 ? 0 : 1
 }
 
 /* §22d:直执行才跑主流程;测试 import __test__ 不得触发 CLI */
@@ -188,5 +270,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { planUpgrades, worktreeClean }
+export const __test__ = { planUpgrades, worktreeClean, landMessage }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
