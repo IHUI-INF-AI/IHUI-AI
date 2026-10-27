@@ -22,7 +22,7 @@ export const EDU_AI_PALETTE = {
   blue: { bg: 'rgba(59,130,246,0.10)', fg: '#2563eb' },
   purple: { bg: 'rgba(168,85,247,0.10)', fg: '#9333ea' },
   slate: { bg: 'rgba(115,115,115,0.12)', fg: '#52525b' },
-  star: { bg: 'rgba(245,158,11,0.12)', fg: '#f59e0b' },
+  star: { bg: 'rgba(245,158,11,0.12)', fg: '#f59e0b' }, // handcopy-token-exempt: 评分星色,与 warning.amber 同值不同语义(挂主题档会让"改警示色"重绘星星;本表整张是固定语义色)
 } as const
 
 export type EduAiTone = keyof typeof EDU_AI_PALETTE

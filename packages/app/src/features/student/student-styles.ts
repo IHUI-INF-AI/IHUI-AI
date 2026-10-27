@@ -20,7 +20,7 @@ import type { AppThemeTokens } from '../../theme/tokens'
 export const STUDENT_PALETTE = {
   pending: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
   completed: { bg: 'rgba(16,185,129,0.10)', fg: '#059669' },
-  muted: { bg: 'rgba(115,115,115,0.12)', fg: '#737373' },
+  muted: { bg: 'rgba(115,115,115,0.12)', fg: '#737373' }, // handcopy-token-exempt: 学生状态"静默"档的固定语义色,与 text.tertiary 同值不同语义(状态色板整表不随主题换档,挂主题档会让暗色下状态色与文字色一起漂)
   rejected: { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48' },
 } as const
 

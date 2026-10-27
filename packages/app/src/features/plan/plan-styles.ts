@@ -14,7 +14,7 @@ import type { AppThemeTokens } from '../../theme/tokens'
 const SLATE = { bg: 'rgba(100,116,139,0.12)', fg: '#475569', dot: '#64748b' }
 const BLUE = { bg: 'rgba(59,130,246,0.12)', fg: '#1d4ed8', dot: '#3b82f6' }
 const EMERALD = { bg: 'rgba(16,185,129,0.10)', fg: '#059669', dot: '#10b981' }
-const AMBER = { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: '#f59e0b' }
+const AMBER = { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', dot: '#f59e0b' } // handcopy-token-exempt: 计划优先级的固定语义色,与 warning.amber 同值不同语义(本表头注已写明"不随主题换档",挂主题档会让暗色下优先级点跟着翻)
 const ROSE = { bg: 'rgba(244,63,94,0.12)', fg: '#e11d48', dot: '#f43f5e' }
 
 /** 计划状态 / 步骤状态 / 优先级 / diff 类型 → 语义色(键名与 @ihui/shared/plan 枚举一致)。 */
