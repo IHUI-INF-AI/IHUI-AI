@@ -21,7 +21,7 @@
 import { BlockList, isIP } from 'node:net'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { config } from '../config/index.js'
-import { incrWindow, resetCounters, windowRemainingMs } from './window-counter.js'
+import { incrWindow, refundWindows, resetCounters, windowRemainingMs } from './window-counter.js'
 import { logger } from './logger.js'
 
 // ---------------------------------------------------------------------------
@@ -178,6 +178,21 @@ export async function consumeSendQuota(
 
   const remainingMs = await windowRemainingMs(attemptsKey, SEND_QUOTA_WINDOW_MS)
   return { allowed: false, retryAfterSec: Math.max(1, Math.ceil(remainingMs / 1000)) }
+}
+
+/** 退还一次已消费的取码配额(投递失败时用):没发出去就不该占用「5 次/10 分钟」的预算,
+ *  否则云侧故障一次,用户既收不到码也立刻重试不了。 */
+export async function refundSendQuota(
+  identifier: string,
+  ip: string | undefined,
+): Promise<void> {
+  await refundWindows([
+    {
+      key: `echo:q:${identifier}|${normalizeIp(ip)}`,
+      windowMs: SEND_QUOTA_WINDOW_MS,
+      max: SEND_QUOTA_MAX_ATTEMPTS,
+    },
+  ])
 }
 
 /** 测试用:清空频控计数。计数已搬到共享存储,所以必须**内存与 Redis 两面一起清** ——

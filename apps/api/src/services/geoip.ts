@@ -46,6 +46,12 @@ import { logger } from '../utils/logger.js'
 
 export interface GeoLocation {
   country?: string
+  /**
+   * ISO 3166-1 alpha-2 国家码(如 CN / US)。
+   * 与 country 分列:country 给人读(降级链 1 给人名是英文),判定必须用它 ——
+   * 人名的语言随查询参数变(lang=zh-CN 时 ip-api 返「中国」),拿它比对会静默失配。
+   */
+  countryCode?: string
   city?: string
   region?: string
   latitude?: number
@@ -115,6 +121,7 @@ class GeoIpServiceImpl implements GeoIpService {
         if (record) {
           return {
             country: record.country?.names?.en ?? record.country?.iso_code,
+            countryCode: record.country?.iso_code,
             city: record.city?.names?.en,
             region: record.subdivisions?.[0]?.names?.en,
             latitude: record.location?.latitude,
@@ -233,6 +240,7 @@ async function lookupViaIpApi(ip: string): Promise<GeoLocation | null> {
       if (data.status === 'success') {
         location = {
           country: data.country,
+          countryCode: data.countryCode,
           city: data.city,
           region: data.regionName,
           latitude: data.lat,

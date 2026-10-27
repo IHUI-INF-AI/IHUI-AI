@@ -6,7 +6,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 import { eq } from 'drizzle-orm'
 import { generateShortCode } from '../utils/crypto-random.js'
@@ -105,8 +105,10 @@ import {
   deleteUserSk,
   createAuditLog,
 } from '../db/oauth-queries.js'
-import { sendSmsCode, isSmsConfigured } from '../services/sms.js'
+import { sendSmsCode, isSmsConfigured, extractSmsSendGuard } from '../services/sms.js'
+import { sendNoticeSmsToUser } from '../services/sms-notify.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
+import { resolveLoginRegion } from '../services/login-region.js'
 import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
 import {
   getCodeEntry,
@@ -916,8 +918,24 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // 第三方登录配置状态(公开端点,登录页用于显示哪些平台可用)
-  // 返回 8 平台 true/false,与 .env 凭据配置实时一致
-  server.get('/auth/oauth-status', async (_request, reply) => {
+  // 返回 8 平台 true/false,与 .env 凭据配置实时一致;
+  // 外加 loginRegion —— 按**请求来源 IP** 判的国内/海外,登录窗据此排登录方式优先级。
+  // 判据与「为什么它不得用于鉴权/风控」住在 services/login-region.ts。
+  //
+  // 为什么必须显式 no-store:响应里现在带一条「随访客 IP 而变」的字段,而这条响应
+  // 原本是**可被边缘缓存的公共 GET**(2026-10-26 实测 api.aizhs.top 那腿回
+  // `Cache-Control: max-age=14400` 且 `cf-cache-status` 存在)。一旦缓存住,首个访客的
+  // 地区会被钉在边缘上发给后面所有人 —— 国内用户收到海外的排法、反之亦然,而两个状态
+  // 各自看都"正常",没人能从账面发现。
+  server.get('/auth/oauth-status', async (request, reply) => {
+    const loginRegion = await resolveLoginRegion(request)
+    // 判定结果进请求日志:线上排"为什么这位访客看到的是另一套排法"时,这是不依赖
+    // 让访客配合 curl 的唯一取证面(响应里那份 loginRegionSource 只在被请求那一刻可见)。
+    request.log.info(
+      { loginRegion: loginRegion.region, loginRegionSource: loginRegion.source },
+      '登录呈现地区判定',
+    )
+    reply.header('Cache-Control', 'no-store')
     return reply.send(
       success({
         google: isGoogleConfigured(),
@@ -933,6 +951,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         feishu: isFeishuConfigured(),
         github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
         alipay: isAlipayLoginConfigured(),
+        loginRegion: loginRegion.region,
+        loginRegionSource: loginRegion.source,
       }),
     )
   })
@@ -1546,7 +1566,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = smsCodeSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      const result = await sendSmsCode(parsed.data.phone)
+      const result = await sendSmsCode(
+        parsed.data.phone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) {
         // 限速 → 429;云侧没发出去 → 502。两者不能同形:把欠费读成"慢点再试"没人会去查账户。
         const status = result.failure === 'delivery_failed' ? 502 : 429
@@ -1565,7 +1589,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = smsCodeSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      const result = await sendSmsCode(parsed.data.phone)
+      const result = await sendSmsCode(
+        parsed.data.phone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) {
         // 限速 → 429;云侧没发出去 → 502。两者不能同形:把欠费读成"慢点再试"没人会去查账户。
         const status = result.failure === 'delivery_failed' ? 502 : 429
@@ -2692,7 +2720,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const user = await findUserById(request.userId!)
       if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
-      const result = await sendSmsCode(user.phone)
+      const result = await sendSmsCode(
+        user.phone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) return reply.status(429).send(error(429, result.msg))
       return reply.send(success({ sent: true }))
     },
@@ -2734,11 +2766,13 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { newPhone } = parsed.data
-      const existing = await findUserByPhone(newPhone)
-      if (existing && existing.id !== request.userId) {
-        return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
-      }
-      const result = await sendSmsCode(newPhone)
+      // 号码是否已被他人绑定只在 confirm 阶段裁决:发码前预检会把“该号是否注册”直接回给调用方,
+      // 等于开放手机号枚举。发码本身无害,先发再在确认时 409。
+      const result = await sendSmsCode(
+        newPhone,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) return reply.status(429).send(error(429, result.msg))
       return reply.send(success({ sent: true }))
     },
@@ -2770,6 +2804,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
       }
       const updated = await updateUser(request.userId!, { phone: newPhone })
+      // 安全类短信:换绑成功必须让用户知道,失败不影响换绑结果。
+      // bizId 用完整号码的短摘要(不落裸号、同一新号重试键相同),不再掺 Date.now()。
+      void sendNoticeSmsToUser(request.userId!, 'binding-success', {
+        bizType: 'auth',
+        bizId: `bind:${request.userId!}:${createHash('sha256').update(newPhone).digest('hex').slice(0, 12)}`,
+      })
       return reply.send(success({ user: { id: updated.id, phone: updated.phone ?? '' } }))
     },
   )

@@ -258,6 +258,8 @@ type DrawerNavRouteName =
   | 'BusinessCard'
   // Vip 由底部用户行菜单直跳(与抽屉导航项同一出口,故同列一处,避免两处各写一份联合)
   | 'Vip'
+  // 扫一扫:左下角快捷入口(2026-10-27 立)。ScanLogin 路由无必参,已在 RootNavigator 注册。
+  | 'ScanLogin'
 
 /** 点击目标:drawerTab 走父级 onNavigate 契约;route 直跳根栈;main 跳 Main Tab 容器 */
 export type DrawerNavTarget =
@@ -1204,5 +1206,13 @@ export const DRAWER_AUTOMATION_ITEM: DrawerNavItem = {
   Icon: Clock,
   route: 'Automations',
   target: { type: 'route', name: 'Automations' },
+}
+// 扫一扫快捷入口(2026-10-27 立):用户要求左侧栏底部也能一键直达扫码。
+// ScanLogin 路由无必参且在 RootNavigator 注册,走与自动化任务同一的「独立快捷项」出口。
+export const DRAWER_SCAN_ITEM: DrawerNavItem = {
+  labelKey: 'scanLogin.menuTitle',
+  Icon: ScanLine,
+  route: 'ScanLogin',
+  target: { type: 'route', name: 'ScanLogin' },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

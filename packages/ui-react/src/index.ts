@@ -153,6 +153,10 @@ export {
   ALL_THIRD_PARTY_PLATFORMS,
   isValidEmail,
   isValidPhone,
+  planLoginRegion,
+  resolveLoginRegion,
+  isOverseasLocale,
+  sortByPlatformPriority,
 } from './components/login-form'
 export type {
   LoginFormProps,
@@ -164,6 +168,10 @@ export type {
   ThirdPartyConfig,
   QrPlatformConfig,
   PasskeyAuthOptionsData,
+  LoginRegion,
+  MaybeLoginRegion,
+  LoginRegionPlan,
+  LoginRegionPlanInput,
   PasswordLoginFormProps,
   EmailCodeLoginFormProps,
   PhoneCodeLoginFormProps,

@@ -24,6 +24,7 @@ describe('sendSmsMessage：通知类短信的凭据/模板判定', () => {
     'ALI_SMS_TEMPLATE_CODE',
     'ALI_SMS_NOTIFY_TEMPLATE_CODE',
     'SMS_API_BASE_URL',
+    'SMS_DEV_ECHO',
   ] as const
   const saved: Record<string, string | undefined> = {}
   for (const k of KEYS) saved[k] = env[k]
@@ -55,11 +56,19 @@ describe('sendSmsMessage：通知类短信的凭据/模板判定', () => {
     vi.unstubAllGlobals()
   })
 
-  it('完全没有阿里云凭据、也没配代理 ⇒ 维持 dev console 降级（行为一字未改，仍是 success）', async () => {
+  it('完全无通道且显式 SMS_DEV_ECHO=1（非生产档）⇒ 才允许 console 降级', async () => {
     for (const k of KEYS) delete env[k]
+    env.SMS_DEV_ECHO = '1'
     const r = await sendSmsMessage('13800000003', 'dev 环境通知')
     expect(r.success).toBe(true)
     expect(r.error ?? '').toBe('')
+  })
+
+  it('完全无通道且未显式开启 SMS_DEV_ECHO ⇒ 判未发送，不得再假成功', async () => {
+    for (const k of KEYS) delete env[k]
+    const r = await sendSmsMessage('13800000005', '生产环境通知')
+    expect(r.success).toBe(false)
+    expect(r.error).toContain('not_configured')
   })
 
   it('有凭据与通知模板但缺签名 ⇒ 判未配置（旧写法会 return success:true ⇒ 留痕记成已发送）', async () => {

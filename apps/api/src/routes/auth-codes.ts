@@ -4,7 +4,8 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { sendSmsCode } from '../services/sms.js'
+import { sendSmsCode, extractSmsSendGuard } from '../services/sms.js'
+import { normalizeSmsPhone } from '../utils/phone.js'
 import { verifyCode } from '../utils/code-store.js'
 import { success, error } from '../utils/response.js'
 
@@ -17,19 +18,21 @@ import { success, error } from '../utils/response.js'
 // 复用 code-store.ts verifyCode(内存存储,一次性校验)
 // =============================================================================
 
+/** 入参允许 +86 / 0086 / 空格 / 连字符,先归一为 11 位再校验 ——
+ *  与后台表单、群发 SQL 的号码口径收口成同一条判据(utils/phone.ts)。 */
+const normalizedMobile = z
+  .string()
+  .min(1, 'mobile 为必填项')
+  .max(20, '手机号过长')
+  .refine((v) => normalizeSmsPhone(v) !== null, '手机号码格式错误')
+  .transform((v) => normalizeSmsPhone(v) as string)
+
 const mobileQuery = z.object({
-  mobile: z
-    .string()
-    .min(1, 'mobile 为必填项')
-    .regex(/^1[3-9]\d{9}$/, '手机号码格式错误')
-    .max(20, '手机号过长'),
+  mobile: normalizedMobile,
 })
 
 const checkSchema = z.object({
-  mobile: z
-    .string()
-    .min(1, 'mobile 为必填项')
-    .regex(/^1[3-9]\d{9}$/, '手机号码格式错误'),
+  mobile: normalizedMobile,
   code: z.string().min(1, 'code 为必填项').max(8, 'code 过长'),
 })
 
@@ -46,7 +49,11 @@ const authCodeRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { mobile } = parsed.data
-      const result = await sendSmsCode(mobile)
+      const result = await sendSmsCode(
+        mobile,
+        undefined,
+        extractSmsSendGuard(request.headers, request.ip),
+      )
       if (!result.success) {
         // 限速 → 429(对应 Java 抛 GlobalException 的语义);云侧没发出去 → 502,两者不得同形
         const status = result.failure === 'delivery_failed' ? 502 : 429

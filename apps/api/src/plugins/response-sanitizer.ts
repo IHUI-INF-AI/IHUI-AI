@@ -41,13 +41,17 @@ export const DEFAULT_SENSITIVE_KEYS = [
 ] as const
 
 /**
- * 白名单:即便命中敏感规则也不脱敏(LLM usage 计量字段,调用方必需)。
+ * 白名单:即便命中敏感规则也不脱敏(调用方必需的字段)。
  * P0-5m(2026-07-30):prompt_tokens 等含 "token" 子串会被误伤,导致 usage 返回 ***
+ * 2026-10-26:`GET /api/csrf-token` 的 `csrfToken` 同样被 "token" 子串打码成 `***`,
+ *   而配套 cookie 是 HttpOnly —— 前端只能从响应体取,端点因此事实上不可用。
+ *   CSRF token 本就是**要交给客户端的凭据**(双提交校验的一半),不属于敏感数据。
  */
 export const SAFE_KEYS: ReadonlySet<string> = new Set([
   'prompt_tokens',
   'completion_tokens',
   'total_tokens',
+  'csrftoken',
 ])
 
 const MASK = '***'

@@ -106,6 +106,13 @@ import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
 import { StatusScreen } from '../screens/StatusScreen'
+import { SignUpScreen } from '../screens/SignUpScreen'
+import { CirclePostScreen } from '../screens/CirclePostScreen'
+import { InvitationsScreen } from '../screens/InvitationsScreen'
+import { LettersScreen } from '../screens/LettersScreen'
+import { LetterChatScreen } from '../screens/LetterChatScreen'
+import { NewsCategoryScreen } from '../screens/NewsCategoryScreen'
+import { SearchHistoryScreen } from '../screens/SearchHistoryScreen'
 import { AiWorldDetailScreen } from '../screens/AiWorldDetailScreen'
 import { AiWorldEditScreen } from '../screens/AiWorldEditScreen'
 import { AiWorldFavoritesScreen } from '../screens/AiWorldFavoritesScreen'
@@ -498,6 +505,13 @@ export type RootStackParamList = {
   Agreement: undefined
   About: undefined
   Status: undefined
+  SignUp: undefined
+  CirclePost: undefined
+  Invitations: undefined
+  Letters: undefined
+  LetterChat: { memberId: string; memberName: string }
+  NewsCategory: { id: string }
+  SearchHistory: undefined
   AiWorldDetail: { id: string }
   AiWorldEdit: { id: string }
   AiWorldFavorites: undefined
@@ -1002,6 +1016,13 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />
             <RootStack.Screen name="Status" component={StatusScreen} />
+            <RootStack.Screen name="SignUp" component={SignUpScreen} />
+            <RootStack.Screen name="CirclePost" component={CirclePostScreen} />
+            <RootStack.Screen name="Invitations" component={InvitationsScreen} />
+            <RootStack.Screen name="Letters" component={LettersScreen} />
+            <RootStack.Screen name="LetterChat" component={LetterChatScreen} />
+            <RootStack.Screen name="NewsCategory" component={NewsCategoryScreen} />
+            <RootStack.Screen name="SearchHistory" component={SearchHistoryScreen} />
             <RootStack.Screen name="AiWorldDetail" component={AiWorldDetailScreen} />
             <RootStack.Screen name="AiWorldEdit" component={AiWorldEditScreen} />
             <RootStack.Screen name="AiWorldFavorites" component={AiWorldFavoritesScreen} />

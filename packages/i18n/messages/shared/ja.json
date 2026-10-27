@@ -429,6 +429,7 @@
     "githubLogin": "GitHub",
     "googleLogin": "Google",
     "googleNotConfigured": "Google ログインは未設定です",
+    "platformNotConfigured": "このログイン方法は未設定です",
     "hasAccount": "アカウントをお持ちですか？",
     "invalidAccount": "無効なアカウント",
     "invalidCredentials": "アカウントまたはパスワードが正しくありません",
