@@ -6093,7 +6093,25 @@
     "delete": "刪除",
     "deleteConfirmTitle": "確定要刪除嗎?",
     "deleteFailed": "刪除失敗",
-    "cancel": "取消"
+    "cancel": "取消",
+    "save": "儲存",
+    "title": "學習中心",
+    "subtitle": "學習報告統計與快捷入口",
+    "exportReport": "匯出報告",
+    "exportSuccess": "報告匯出完成",
+    "exportError": "報告匯出失敗",
+    "lessons": "課程統計",
+    "totalLessons": "課程總數",
+    "completedLessons": "已完成",
+    "inProgressLessons": "進行中",
+    "avgProgress": "平均進度",
+    "exams": "考試統計",
+    "totalExams": "考試總數",
+    "passedExams": "已通過",
+    "avgScore": "平均分",
+    "certificates": "證書統計",
+    "totalCerts": "證書總數",
+    "quickLinks": "快捷入口"
   },
   "myLessonsPage": {
     "title": "我的課程",
@@ -6102,5 +6120,25 @@
   "myResourcesPage": {
     "title": "我的資源",
     "subtitle": "我上傳的資源"
+  },
+  "offlineRecordsPage": {
+    "title": "線下學習記錄",
+    "subtitle": "線下學習時長與資料記錄",
+    "create": "新增記錄",
+    "createTitle": "新建線下學習記錄",
+    "editTitle": "編輯線下學習記錄",
+    "edit": "編輯",
+    "type": "類型",
+    "typePlaceholder": "如 線下培訓 / 工作坊",
+    "titleField": "標題",
+    "titlePlaceholder": "請輸入記錄標題",
+    "descLabel": "說明",
+    "hoursLabel": "時長",
+    "dateLabel": "日期",
+    "hoursValue": "{value} 小時",
+    "attachmentsCount": "{count} 個附件",
+    "saveFailed": "儲存失敗",
+    "errTitleRequired": "請填寫標題",
+    "errTypeRequired": "請填寫類型"
   }
 }
