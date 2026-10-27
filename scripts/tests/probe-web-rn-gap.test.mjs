@@ -163,6 +163,59 @@ test('T11 门户表取不到 ⇒ 整维未判定:不洗白在册 gap、不扣 un
   assert.deepEqual(ev.unmapped.map((r) => r.route), ['knowledge-graph'], '取不到表时不得从 unmapped 里扣门户路由')
 })
 
+test('T14 入口可达性:侧栏 href 解析 + 六桶归类(阳性对照钉真源,不钉死路由名)', () => {
+  const navText = [
+    "export const NAV = [",
+    "  { href: '/alpha', labelKey: 'a', adminOnly: true },",
+    "  { href: '/beta', labelKey: 'b' },",
+    "  { href: '/gamma', labelKey: 'c',",
+    "    advancedOnly: true },",
+    "  { href: `/dyn/${id}`, labelKey: 'd' },",
+    "  { href: 'https://external/x', labelKey: 'e' },",
+    ']',
+  ].join('\n')
+  // 解析口径由下面真仓阳性对照兜;这里只喂已解析好的条目集,验归类不串档
+  const entries = parity.evaluateNav(
+    { parsed: 3, entries: [{ route: 'alpha', href: '/alpha', admin: true, advanced: false }, { route: 'beta', href: '/beta', admin: false, advanced: false }, { route: 'gamma', href: '/gamma', admin: false, advanced: true }] },
+    {
+      aligned: [{ web: 'alpha' }],
+      excluded: [],
+      judgedGap: [{ web: 'beta' }],
+      prefixRows: [],
+      portalCarried: new Set(['gamma']),
+    },
+  )
+  assert.equal(entries.counts.aligned, 1)
+  assert.deepEqual(entries.gapItems, ['beta'], '判过零承载的入口必须被点名,且带档位标记')
+  assert.equal(entries.counts.portal, 1, 'advancedOnly 项在门户表在册 ⇒ 算门户承载,不算缺口')
+
+  // 档位标记跨行必须认得(导航项是多行对象;只看本行会把 admin 项读成普通项)
+  const lines = navText.split('\n')
+  const win = (i) => lines.slice(i, i + 5).join('\n')
+  const iAlpha = lines.findIndex((l) => l.includes("'/alpha'"))
+  const iGamma = lines.findIndex((l) => l.includes("'/gamma'"))
+  assert.equal(/adminOnly:\s*true/.test(win(iAlpha)), true)
+  assert.equal(/advancedOnly:\s*true/.test(win(iGamma)), true, 'advancedOnly 在下一行,窗口必须盖到')
+
+  // 真仓阳性对照:这仓真有的入口必须解析出来,否则"入口级缺口 0"可能是坏尺子
+  const nav = parity.collectNavEntries('head')
+  assert.ok(nav, `${parity.NAV_REL} 取不到`)
+  const routes = new Set(nav.entries.map((e) => e.route))
+  assert.ok(routes.has('admin/theme'), `阳性对照未命中(admin/theme),解析口径与真仓形不同,实读 ${[...routes].slice(0, 3)}`)
+  assert.ok(nav.entries.length > 100, `只解析出 ${nav.entries.length} 条入口,与现读 200+ 量级不符`)
+
+  // 未判定两支:导航件取不到 / 门户表取不到 ⇒ 整维未判定,绝不把门户入口算成 unrecorded 缺口
+  assert.equal(parity.evaluateNav(null, { portalCarried: new Set() }).undetermined, true)
+  const und = parity.evaluateNav({ parsed: 1, entries: [{ route: 'x', admin: false, advanced: false }] }, {
+    aligned: [],
+    excluded: [],
+    judgedGap: [],
+    prefixRows: [],
+    portalCarried: null,
+  })
+  assert.equal(und.undetermined, true)
+})
+
 test('T13 在册 portal 行三态:表里有⇒计入承载 / 表里没有⇒腐烂点名 / 表取不到⇒未判定不冒红', () => {
   const webRoutes = fakeRoutes('edu/schedule', 'ghost-route')
   const portalRow = (web, line) => ({ web, status: 'portal', reason: '门户承载', line })
