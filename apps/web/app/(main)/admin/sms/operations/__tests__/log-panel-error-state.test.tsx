@@ -8,6 +8,10 @@
  * 钉的是"取不到 ≠ 没有记录":接口失败时台账必须显示「加载失败 + 重试」,
  * 且计数不得回落成 0。旧实现在失败时展示「暂无发送记录 / 共 0 条」,
  * 运营会把一次接口故障读成"今天没发过短信"。
+ *
+ * i18n 接线后(2026-10-27,L28753)本用例仍按**中文成品串**断言:next-intl 被替换成
+ * 真读 `packages/i18n/messages/web/zh-CN.json` 的解析器,而不是 `key → key` 的恒等 mock。
+ * 等价强度因此不降反升 —— 同一条断言现在同时证明「组件取的键」与「词包里那条 zh-CN 文案」。
  */
 // @vitest-environment jsdom
 import * as React from 'react'
@@ -17,6 +21,37 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('@/lib/api', () => ({ apiOrThrow: vi.fn() }))
 vi.mock('@/lib/export-utils', () => ({ exportToExcel: vi.fn() }))
+
+vi.mock('next-intl', async () => {
+  const fs = await import('node:fs')
+  const path = await import('node:path')
+  const messages = JSON.parse(
+    fs.readFileSync(
+      path.resolve(process.cwd(), '../../packages/i18n/messages/web/zh-CN.json'),
+      'utf8',
+    ),
+  ) as Record<string, unknown>
+  const dig = (segs: string[]): string | null => {
+    let cur: unknown = messages
+    for (const seg of segs) cur = (cur as Record<string, unknown> | undefined)?.[seg]
+    return typeof cur === 'string' ? cur : null
+  }
+  const interpolate = (raw: string, vars?: Record<string, unknown>): string =>
+    raw.replace(/\{(\w+)\}/g, (_m, name: string) => String(vars?.[name] ?? ''))
+  type TReader = ((key: string, vars?: Record<string, unknown>) => string) & {
+    rich: (key: string, vars?: Record<string, unknown>) => string
+  }
+  const useTranslations = (ns: string): TReader => {
+    const t = (key: string, vars?: Record<string, unknown>): string => {
+      const raw = dig([...ns.split('.'), ...key.split('.')])
+      // 取不到键时回吐键名:让"词包缺键"在断言里显式失败,而不是静默显示空串
+      return raw === null ? key : interpolate(raw, vars)
+    }
+    // LogPanel 只用普通取值;t.rich 一并指向同一实现,避免 mock 面缺角
+    return Object.assign(t, { rich: t })
+  }
+  return { useTranslations, useLocale: () => 'zh-CN' }
+})
 
 import { apiOrThrow } from '@/lib/api'
 import { LogPanel } from '../LogPanel'
