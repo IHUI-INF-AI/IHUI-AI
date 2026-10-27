@@ -3489,6 +3489,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 记住密码功能(自动填充 + localStorage 存储 + 5 语言 i18n)
 - 邮箱 / 验证码 / 扫码登录加自动登录 + 记住 token 30 天 + 账号设置可配自动续期
 - 登录弹窗三步 Enter 交互回归修复 + Apple 登录按钮置灰移到末位
+- **登录方式优先级按访客来源 IP 的地区判**(2026-10-27,web 主站 + 桌面壳同一份产物):国内 IP ⇒ 扫码登录 tab 排第一 + 微信整行主推大按钮;海外 IP ⇒ 邮箱验证码第一、手机号不开放 + Google 主推、GitHub 紧随图标网格首位。判据产出侧唯一出口 `apps/api/src/services/login-region.ts`(Cloudflare 边缘国家头 → GeoLite2/ip-api 兜底 → 判不出显式返回未判定),排序侧唯一出口 `packages/ui-react/src/components/login-form/region-policy.ts`(IP 判不出才回落界面语言)。地区经 `GET /api/auth/oauth-status` 的 `loginRegion` 字段下发,该端点同时显式 `Cache-Control: no-store` —— 实测这条响应此前默认 `max-age=14400` 且边缘可缓存,不关掉就会把首个访客的地区发给后面所有人。**该字段只影响呈现顺序,不参与任何鉴权/限流/风控判定**(国家头可被客户端自带伪造)。
 #### 13. PDF 工具端到端连通
 - 后端改 multipart 文件上传 + 前端端点路径修正 + convert 页改为不可用提示
 - merge / split / watermark 基于 pdf-lib 真实实现,print / sign 返回 501
