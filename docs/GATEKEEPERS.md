@@ -538,7 +538,30 @@ if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
 |------|------|------|
 | post-commit push 失败 | post-commit | `git push origin <branch>` 手动重推 |
 | pre-push typecheck 失败 | pre-push | 修复 TS 错误后重 push,或 `HUSKY_SKIP_TYPECHECK=1 git push`(其他 agent 代码) |
-| local != remote | git-push-guard | `node scripts/git-push-guard.mjs` 核查,`git pull --rebase` 后重 push |
+| local != remote | git-push-guard | 先 `node scripts/git-push-converge.mjs`(只读六态);真分叉再 `node scripts/git-sync-converge.mjs`(索引层合并,零触碰他人未提交文件;禁止 rebase) |
+
+---
+
+## 9. 巡检腿与常驻器物(不进提交链,§12e)
+
+这些器物判的是**机器状态**或**派生产物新旧**,提交者结构上满足不了 ⇒ 一律不进 pre-commit / CI,挂在 `scripts/git-guardian.mjs` 的巡检轮或根 `package.json`。节流与超时以 guardian 里的常量现值为准。
+
+| 器物 | 干什么 | 怎么手动跑 |
+| --- | --- | --- |
+| `scripts/heal-derived-in-checkout.mjs` | 派生产物(小程序离线语言包 / 四端 ui-routes)陈旧时**按被审面重生成并复量后才落 HEAD**(唯一落地接缝:blob 走对象空间 CAS,不写工作树) | `--family i18n|ui-routes [--json] [--dry-run|--check]` |
+| `scripts/lib/derived-copy-state.mjs` | 判"盘上那份派生件能不能覆盖"的四态尺(equal / 滞后副本 / 未入库生成物 / 在飞),取不到凭据一律算在飞 | 被上面那枚 import |
+| `scripts/lib/land-derived-blobs.mjs` | 派生件落地契约:`LAND_PATHS` 用 `;` 分隔、`LAND_BLOBS` 是 40 位 oid 清单、成功判据是"CAS 成功/回读"而非退出码 | 被上面那枚 import |
+| `scripts/lib/push-divergence-watch.mjs` | 本地↔origin/main 真分叉的到人报警(三态 ok/breach/unjudged,身份 = 分档+持续档,不塞会抖的计数) | `--status` |
+| `scripts/lib/i18n-bundle-inputs.mjs` | 离线包钉输入清单的**唯一构造规则**(生成器与守门 105 共用;加/减一层只改这一处) | 被两侧 import |
+| `scripts/check-mirror-purge-intact.mjs --fix` | 守门 238 的修复出口(在飞副本闸 + 量级闸;拒绝时不猜) | `--fix [--staged] [--dry-run]` |
+
+四个巡检腿(全在 `git-guardian.mjs`,全部判机器状态 ⇒ 不进提交链):
+
+- `healI18nBundleLeg` / `healUiRoutesLeg` —— 上面那枚自愈器的调度器。离线包一族在主仓按面生成(实测整轮 2m51s,其中生成 12s),ui-routes 一族才建检出。
+- `auditPushDivergenceLeg` —— 分叉到人。
+- `healMirrorPurgeLeg` —— 守门 238 回潮通道的兜底。
+
+**为什么生成器能跑进秒级**(2026-10-27 实测):闭包解析对每条说明符按 TS 惯例探 9 个候选路径,绝大多数**本来就不存在**;此前每个不存在的候选都起一个 git 进程(一轮约 8 万次 ⇒ 59 分 23 秒),现在一次 `ls-tree` 读满被审面整棵树 + 存在性全集短路,同一轮 **11.756s**。判据:`node scripts/gen-i18n-compressed.mjs --head` 的输出末行与守门 105 的「离线包自述钉:matched」要同时成立。
 
 ---
 
