@@ -202,6 +202,35 @@ function selfTest() {
   return 0
 }
 
+/** 分诊对象 = 未映射路由 ∪ **台账判过的缺口**(2026-10-27 扩)。
+ * 为什么必须扩:本探针此前只吃 unmapped,而入口维装车后现读 unmapped 恒 0 ⇒ 整台分诊机空转,
+ * 偏偏台账里有 50 条 gap、其中 11 条是"web 侧栏一点就开"—— 最该被机器预消化的清单它看不见。
+ * 判据零新发明:档位/证据/候选全沿用同一套 bucketOf/familyOf/suggestCandidates,只是换了输入集。
+ * 缺口条目若找不到对应 page.tsx(路由形态不是页面文件)⇒ 计入 noPage 点名,不静默丢(§0.3)。
+ * navBucket:该路由在对账尺入口维里落哪一档('gap' = 入口级缺口);导航件取不到 ⇒ null(未判定),
+ * 不折成 null→"不是入口"。归属判据只在尺子那一处(§0.6),本文件只消费。
+ */
+function buildTargets(webRoutes, judgedGap, unmapped, navByRoute) {
+  const relByRoute = new Map(webRoutes.map((r) => [r.route, r.rel]))
+  // navBucket 一律取**对账尺 evaluateNav 的那张表**(含动态段归并),本文件不再自己判字面量归属:
+  // 自己判就会出现"尺子说入口级缺口 11、探针说 13"的两把尺子,而差额没人认领。
+  const nb = (route) => (navByRoute ? (navByRoute.get(route) ?? null) : null)
+  const targets = [
+    ...unmapped.map((r) => ({ route: r.route, rel: r.rel, scope: 'unmapped', navBucket: nb(r.route) })),
+  ]
+  const noPage = []
+  for (const g of judgedGap) {
+    const rel = relByRoute.get(g.web)
+    if (!rel) {
+      noPage.push(g.web)
+      continue
+    }
+    if (targets.some((t) => t.rel === rel && t.route === g.web)) continue
+    targets.push({ route: g.web, rel, scope: 'gap', navBucket: nb(g.web) })
+  }
+  return { targets, noPage }
+}
+
 function run() {
   const webRoutes = parity.collectWebRoutes(FACE)
   const rnScreens = parity.collectRnScreens(FACE)
@@ -210,7 +239,16 @@ function run() {
     return 2
   }
   const map = parity.loadMap(FACE)
-  const { unmapped } = parity.evaluateMap(webRoutes, map, rnScreens, FACE)
+  const ev = parity.evaluateMap(webRoutes, map, rnScreens, FACE)
+  const nav = parity.collectNavEntries(FACE)
+  const navEval = parity.evaluateNav(nav, ev, webRoutes.map((r) => r.route))
+  const { targets, noPage } = buildTargets(
+    webRoutes,
+    ev.judgedGap,
+    ev.unmapped,
+    navEval.undetermined ? null : navEval.byRoute,
+  )
+  const navUndetermined = navEval.undetermined
 
   const revOf = (rel) => (FACE === 'staged' ? `:${rel}` : `HEAD:${rel}`)
   const texts = new Map()
@@ -231,31 +269,33 @@ function run() {
     for (const rel of miss) texts.set(rel, got.get(revOf(rel)) ?? null)
   }
 
-  readInto(unmapped.map((r) => r.rel))
+  readInto(targets.map((r) => r.rel))
   // 证据面 = 页面族(见 familyOf):先按 page.tsx 解析本地依赖并补读,再算证据。
   const fileSet = new Set(cov.faceList(FACE, 'apps/web/src'))
   const need = new Set()
-  for (const r of unmapped) {
+  for (const r of targets) {
     for (const f of familyOf(r.rel, texts, fileSet).files) if (!texts.has(f)) need.add(f)
   }
   readInto([...need])
 
-  const rows = unmapped.map((r) => {
+  const rows = targets.map((r) => {
     const fam = familyOf(r.rel, texts, fileSet)
     // 页面族展开的前提是 page.tsx 自身取得到;取不到 ⇒ undetermined,不拿族内其他文件冒充
-    const ev = evOf(texts.get(r.rel) === null || texts.get(r.rel) === undefined ? null : fam.text)
+    const evd = evOf(texts.get(r.rel) === null || texts.get(r.rel) === undefined ? null : fam.text)
     return {
       web: r.route,
       rel: r.rel,
+      scope: r.scope,
+      navBucket: r.navBucket,
       seg: r.route.split('/')[0] ?? '(root)',
       family: fam.files.length,
-      bytes: ev.bytes,
-      lines: ev.lines,
-      eff: ev.eff,
-      data: ev.data,
-      state: ev.state,
-      form: ev.form,
-      bucket: bucketOf(ev),
+      bytes: evd.bytes,
+      lines: evd.lines,
+      eff: evd.eff,
+      data: evd.data,
+      state: evd.state,
+      form: evd.form,
+      bucket: bucketOf(evd),
       candidates: parity.suggestCandidates(r.route, rnScreens, 3).map((c) => `${c.exact ? '[同名] ' : ''}${c.name}`),
     }
   })
@@ -272,7 +312,15 @@ function run() {
     face: FACE,
     webRoutes: webRoutes.length,
     rnScreens: rnScreens.length,
-    unmapped: rows.length,
+    targets: rows.length,
+    scopeCounts: {
+      unmapped: rows.filter((r) => r.scope === 'unmapped').length,
+      gap: rows.filter((r) => r.scope === 'gap').length,
+      entryGap: rows.filter((r) => r.navBucket === 'gap').length,
+      entryOther: rows.filter((r) => r.navBucket && r.navBucket !== 'gap').length,
+      entryUndetermined: navUndetermined ? rows.length : 0,
+    },
+    gapWithoutPage: noPage,
     buckets,
     routes: shown,
   }
@@ -287,7 +335,13 @@ function run() {
   const log = (...a) => console.info(...a)
   log(`判定面        : ${FACE === 'head' ? 'HEAD blob' : FACE === 'staged' ? '索引 blob' : '工作树(人工逃生舱)'}`)
   log(`web 路由      : ${webRoutes.length} / RN 屏 ${rnScreens.length}`)
-  log(`未映射(分诊对象): ${rows.length}`)
+  log(
+    `分诊对象      : ${payload.targets}(未映射 ${payload.scopeCounts.unmapped} + 判过缺口 ${payload.scopeCounts.gap};` +
+      `其中入口级缺口 ${payload.scopeCounts.entryGap}(桶归属取自对账尺 evaluateNav,本文件零复算)` +
+      `${navUndetermined ? ' —— 入口维未判定,本行不代表"没有入口缺口"' : ''})` +
+      `${noPage.length ? ` | 另有 ${noPage.length} 条缺口无 page.tsx 可分诊(点名在下)` : ''}`,
+  )
+  if (noPage.length) log(`                 无页面文件:${noPage.slice(0, 12).join(', ')}${noPage.length > 12 ? ' …' : ''}`)
   log(`证据面          : page.tsx ∪ 沿本地 import 展开 2 层的组件(页面族;只读 page.tsx 会把`)
   log(`                   「薄壳 + PageClient」的真功能页读成空壳,2026-10-26 已修该假阴性)`)
   log('')
@@ -323,6 +377,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   bucketOf,
+  buildTargets,
   evOf,
   effectiveLines,
   familyOf,
