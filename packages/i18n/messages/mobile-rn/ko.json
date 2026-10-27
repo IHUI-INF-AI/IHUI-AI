@@ -6724,6 +6724,15 @@
     "loginRequired": "먼저 로그인하세요",
     "error": "로드 실패"
   },
+  "signUpPage": {
+    "title": "내 신청",
+    "loading": "로딩 중...",
+    "empty": "데이터가 없습니다",
+    "statusDraft": "심사 대기",
+    "statusPublished": "확인됨",
+    "statusRejected": "거절됨",
+    "statusCompleted": "완료"
+  },
   "update": {
     "title": "새 버전이 있습니다",
     "body": "최신 버전을 적용하려면 앱을 다시 시작하세요",

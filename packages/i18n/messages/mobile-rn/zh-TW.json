@@ -6724,6 +6724,15 @@
     "loginRequired": "請先登錄",
     "error": "加載失敗"
   },
+  "signUpPage": {
+    "title": "我的報名",
+    "loading": "加載中...",
+    "empty": "目前還沒有數據",
+    "statusDraft": "待審核",
+    "statusPublished": "已確認",
+    "statusRejected": "已拒絕",
+    "statusCompleted": "已完成"
+  },
   "update": {
     "title": "有新版本可用",
     "body": "重新啟動應用程式以取得最新版本",
