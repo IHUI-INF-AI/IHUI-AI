@@ -65,6 +65,11 @@ test.describe('完整认证流程', () => {
 
     // 直连 /sso/login(独立登录页);/login 的 308 已摘除,恢复弹窗软路由语义
     await expect(page).toHaveURL(/\/sso\/login/)
+    // 2026-10-27 改:不再假设"首屏就有输入框"。登录方式的默认首位现在由访客地区决定
+    // (国内 IP ⇒ 扫码面板第一,它本来就没有账号输入框),所以先显式切到邮箱 tab 再断言,
+    // 这样 CI(回环 IP ⇒ 判不出 ⇒ 落 locale 档)与生产(真地区档)两侧都成立。
+    await expect(page.getByTestId('login-tab-email')).toBeVisible({ timeout: 10000 })
+    await page.getByTestId('login-tab-email').click()
     const accountInput = page.locator('input:not([type="file"]):visible').first()
     await expect(accountInput).toBeVisible({ timeout: 10000 })
   })
