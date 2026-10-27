@@ -18,7 +18,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { SearchInput } from '../../components/SearchInput'
-import { MoreLink } from '../../components/MoreLink'
+import { SectionHeader } from '../../components/SectionHeader'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import type { TFunction } from '../../types'
 import type {
@@ -98,12 +98,13 @@ export function CourseTabScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   const renderSectionHeader = (title: string, onMore?: () => void) => (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {onMore ? (
-        <MoreLink label={t('common.more')} onPress={onMore} colorScheme={colorScheme} />
-      ) : null}
-    </View>
+    <SectionHeader
+      title={title}
+      moreText={t('common.more')}
+      onMore={onMore}
+      colorScheme={colorScheme}
+      style={styles.sectionHeader}
+    />
   )
 
   return (
@@ -380,11 +381,6 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginBottom: rnSpacing.md,
     } as ViewStyle,
-    sectionTitle: {
-      fontSize: rnType.heading.size,
-      fontWeight: '600',
-      color: tk.text.primary,
-    } as TextStyle,
 
     // 学习路径
     horizontalList: {

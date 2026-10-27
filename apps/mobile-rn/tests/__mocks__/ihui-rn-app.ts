@@ -56,6 +56,11 @@ export { SettingsScreen } from '../../../../packages/app/src/features/settings/S
 // ⇒ 任何渲染到它的测试拿到 undefined(1572ed50aa8 把区段头统一到共享 MoreLink 后,my-agents 两条
 // 用例红了 15 天才被看见,因为那个套件此前连收集都失败)。补的是替身,不是逐套件 vi.mock。
 export { MoreLink } from '../../../../packages/app/src/components/MoreLink'
+// 2026-10-27:区段头几何单一源落地后,SectionHeader 成为 @ihui/rn-app 的真实导出面
+// (MoreTitles/MyAgents/Toolbar/KnowledgePlanet 都经它渲染)。同 MoreLink 那条纪律:
+// 替身必须镜像真实导出面,否则渲染到即 "Element type is invalid: got: undefined"。
+export { SectionHeader } from '../../../../packages/app/src/components/SectionHeader'
+export type { SectionHeaderProps } from '../../../../packages/app/src/components/SectionHeader'
 export { OrderScreen } from '../../../../packages/app/src/features/order/OrderScreen'
 export { PaymentScreen } from '../../../../packages/app/src/features/payment/PaymentScreen'
 export { WalletScreen } from '../../../../packages/app/src/features/wallet/WalletScreen'
