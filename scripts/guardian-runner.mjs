@@ -5758,6 +5758,21 @@ const checks = [
       '',
     ].join('\n'),
   },
+  {
+    id: '254',
+    label: '🐍 Python ruff lint(拦 chore(auto)/旁路落地把 Python 欠账直带进 HEAD)—— 2026-10-27 补注册,接线与点名同批',
+    script: 'check-ruff-python.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RUFF',
+    stagedTriggers: ['apps/ai-service/'],
+    onFailHint: [
+      '',
+      '  修法:node scripts/check-ruff-python.mjs 看红点 → 修掉 ruff 判红再提交;判定面与门 35 mypy 同口径(HEAD/索引/磁盘),',
+      '  版本 pin 唯一源 = apps/ai-service/pyproject.toml;ruff 缺失/pin 坏/面取不到 ⇒ exit 2 未判定;',
+      '  应急放行 HUSKY_SKIP_RUFF=1(§22c 形态锁,不得常态使用)。',
+    ],
+  },
 
   // --- info (1 项) ---
   {
