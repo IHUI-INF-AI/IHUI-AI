@@ -30,6 +30,10 @@
  *    (后台回收的端侧近似:共享层事件词表无「回收后复位」出口,故按矩阵测试第④型结论,
  *    用 interrupt 收成终态;复位走终态唯一合法出边 retry → ready)。
  *    三处相推进一律经 transitionVoiceNotePhase,端内不散写 phase 判断 / 本地 switch。
+ *
+ * 2026-10-27(D03 第②格 RN 腿)再补两环:归档/恢复(分区切到 archived 时同位置换成
+ * unarchive 出口)与行内改分组,两跳都只经 `@ihui/api-client`(setVoiceNoteArchived /
+ * updateVoiceNote),端内零裸 fetch、零本地桶;查询条件(partition/groupKey/q)交给服务端。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -42,9 +46,25 @@ import {
   Text,
   View,
 } from 'react-native'
-import { ClipboardPaste, Mic, Square, Trash2, X } from 'lucide-react-native'
+import {
+  Archive,
+  ArchiveRestore,
+  Check,
+  ClipboardPaste,
+  Mic,
+  Square,
+  Tag,
+  Trash2,
+  X,
+} from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
-import { createVoiceNote, deleteVoiceNote, listVoiceNotes } from '@ihui/api-client'
+import {
+  createVoiceNote,
+  deleteVoiceNote,
+  listVoiceNotes,
+  setVoiceNoteArchived,
+  updateVoiceNote,
+} from '@ihui/api-client'
 import { rnRadius } from '@ihui/design-tokens'
 import type { VoiceNoteGroupFacet } from '@ihui/types'
 import {
@@ -98,18 +118,24 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
   const [query, setQuery] = useState('')
   const [groupKey, setGroupKey] = useState<string | null>(null)
   const [groups, setGroups] = useState<VoiceNoteGroupFacet[]>([])
+  // 归档分区同理由服务端切(缺省 active:默认视图混入归档行等于「没归档」)
+  const [partition, setPartition] = useState<'active' | 'archived'>('active')
+  // 行内改分组:只为一行开一个输入位
+  const [groupEditing, setGroupEditing] = useState<string | null>(null)
+  const [groupDraft, setGroupDraft] = useState('')
 
   const dispatch = useCallback((event: VoiceNoteEvent) => {
     setPhase((prev) => transitionVoiceNotePhase(prev, event))
   }, [])
 
-  // 归档事实源 = 服务端 chat_voice_notes;archivedRef 只是删除回滚镜像,不参与渲染
+  // 归档事实源 = 服务端 chat_voice_notes;archivedRef 只是删除/归档回滚镜像,不参与渲染
   const archivedRef = useRef<VoiceNoteRecord[]>([])
   archivedRef.current = archived
 
   const loadArchive = useCallback(async () => {
     const res = await listVoiceNotes({
       pageSize: VOICE_NOTE_ARCHIVE_LIMIT,
+      partition,
       withGroups: '1',
       ...(query.trim() ? { q: query.trim() } : {}),
       ...(groupKey ? { groupKey } : {}),
@@ -122,7 +148,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
     setListError(false)
     setArchived(res.data.list.map(toVoiceNoteRecord))
     setGroups(res.data.groups ?? [])
-  }, [groupKey, query])
+  }, [groupKey, partition, query])
 
   // 输入即搜去抖 300ms(每敲一个字符打一次后端会把列表打抖);首帧不去抖
   const firstLoadRef = useRef(true)
@@ -178,6 +204,42 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
     const res = await deleteVoiceNote(id)
     if (!res.success) setArchived(snapshot)
   }, [])
+
+  /**
+   * 归档/恢复(票面②「新建→归档」的 RN 腿):归档是写时刻、可撤销,与硬删分家。
+   * 方向由当前分区决定(共享层 toVoiceNoteRecord 不带归档维,分区即真相)。
+   */
+  const toggleArchived = useCallback(
+    async (id: string, nextArchived: boolean) => {
+      const snapshot = archivedRef.current
+      setArchived(removeVoiceNote(snapshot, id))
+      const res = await setVoiceNoteArchived(id, nextArchived)
+      if (!res.success) {
+        setArchived(snapshot)
+        setErrorCode('saveFailed')
+        return
+      }
+      void loadArchive()
+    },
+    [loadArchive],
+  )
+
+  /** 行内改分组:分组键只落服务端,不做本地兜底 */
+  const assignGroup = useCallback(
+    async (id: string, value: string) => {
+      const next = value.trim()
+      if (!next) return
+      setGroupEditing(null)
+      setGroupDraft('')
+      const res = await updateVoiceNote(id, { groupKey: next })
+      if (!res.success) {
+        setErrorCode('saveFailed')
+        return
+      }
+      void loadArchive()
+    },
+    [loadArchive],
+  )
 
   const handleTranscript = useCallback(
     (text: string) => {
@@ -445,6 +507,21 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               testID="voice-note-search"
             />
 
+            {/* 分区切换:活跃 ⇄ 已归档(票面②「新建→归档」在 RN 上可见的那一半) */}
+            <View style={styles.groupRow}>
+              <Pressable
+                style={[styles.chip, partition === 'archived' ? styles.chipActive : null]}
+                onPress={() => setPartition((prev) => (prev === 'active' ? 'archived' : 'active'))}
+                accessibilityRole="button"
+                accessibilityLabel={t('quickNotes.archived')}
+                testID="voice-note-partition-toggle"
+              >
+                <Text style={[styles.chipText, partition === 'archived' && styles.chipActiveText]}>
+                  {t('quickNotes.archived')}
+                </Text>
+              </Pressable>
+            </View>
+
             {groups.length > 0 && (
               <View style={styles.groupRow} testID="voice-note-filters">
                 <Pressable
@@ -484,42 +561,101 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               </Text>
             )}
 
-            {/* 归档列表(服务端事实源:新建→落库→插入对话→删除) */}
+            {/* 归档列表(服务端事实源:新建→落库→插入对话→归档/分组/删除) */}
             <ScrollView style={styles.archiveList}>
               {archived
                 .slice()
                 .reverse()
                 .map((note) => (
-                  <View key={note.id} style={styles.archiveItem} testID="voice-note-archive-item">
-                    <Text style={styles.archiveDuration}>
-                      {formatVoiceNoteDuration(note.durationMs)}
-                    </Text>
-                    <Text style={styles.archiveText} numberOfLines={1}>
-                      {/* 无转写=只存了音频,给命名空间自带的「语音笔记」文案,不猜任何相 */}
-                      {note.transcript ?? t('chat.voiceNote.title')}
-                    </Text>
-                    {voiceNoteHasInsertableText(note) && (
+                  <View key={note.id}>
+                    <View style={styles.archiveItem} testID="voice-note-archive-item">
+                      <Text style={styles.archiveDuration}>
+                        {formatVoiceNoteDuration(note.durationMs)}
+                      </Text>
+                      <Text style={styles.archiveText} numberOfLines={1}>
+                        {/* 无转写=只存了音频,给命名空间自带的「语音笔记」文案,不猜任何相 */}
+                        {note.transcript ?? t('chat.voiceNote.title')}
+                      </Text>
+                      {voiceNoteHasInsertableText(note) && (
+                        <Pressable
+                          onPress={() => onInsert(note.transcript ?? '')}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('chat.voiceNote.action.insertToInput')}
+                          testID="voice-note-insert"
+                        >
+                          <Text style={styles.archiveAction}>
+                            {t('chat.voiceNote.action.insertToInput')}
+                          </Text>
+                        </Pressable>
+                      )}
+                      {/* 改分组:分组键只落服务端,输入框开在本行下方 */}
                       <Pressable
-                        onPress={() => onInsert(note.transcript ?? '')}
+                        onPress={() => {
+                          setGroupEditing(note.id)
+                          setGroupDraft('')
+                        }}
                         hitSlop={6}
                         accessibilityRole="button"
-                        accessibilityLabel={t('chat.voiceNote.action.insertToInput')}
-                        testID="voice-note-insert"
+                        accessibilityLabel={t('quickNotes.groupPlaceholder')}
+                        testID="voice-note-group-set"
                       >
-                        <Text style={styles.archiveAction}>
-                          {t('chat.voiceNote.action.insertToInput')}
-                        </Text>
+                        <Tag size={14} color={tokens.text.secondary} />
                       </Pressable>
+                      {/* 归档/恢复:方向由当前分区决定 */}
+                      {partition === 'active' ? (
+                        <Pressable
+                          onPress={() => void toggleArchived(note.id, true)}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('quickNotes.archive')}
+                          testID="voice-note-archive-action"
+                        >
+                          <Archive size={14} color={tokens.text.secondary} />
+                        </Pressable>
+                      ) : (
+                        <Pressable
+                          onPress={() => void toggleArchived(note.id, false)}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('quickNotes.unarchive')}
+                          testID="voice-note-unarchive-action"
+                        >
+                          <ArchiveRestore size={14} color={tokens.text.secondary} />
+                        </Pressable>
+                      )}
+                      <Pressable
+                        onPress={() => void removeNote(note.id)}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('chat.voiceNote.action.dismiss')}
+                        testID="voice-note-archive-delete"
+                      >
+                        <Trash2 size={14} color={tokens.text.secondary} />
+                      </Pressable>
+                    </View>
+                    {groupEditing === note.id && (
+                      <View style={styles.groupEditor} testID="voice-note-group-editor">
+                        <TextField
+                          colorScheme={currentRnTheme()}
+                          style={styles.groupInput}
+                          value={groupDraft}
+                          onChangeText={setGroupDraft}
+                          placeholder={t('quickNotes.groupPlaceholder')}
+                          placeholderTextColor={tokens.text.tertiary}
+                          testID="voice-note-group-input"
+                        />
+                        <Pressable
+                          onPress={() => void assignGroup(note.id, groupDraft)}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('quickNotes.edit')}
+                          testID="voice-note-group-submit"
+                        >
+                          <Check size={14} color={tokens.text.secondary} />
+                        </Pressable>
+                      </View>
                     )}
-                    <Pressable
-                      onPress={() => void removeNote(note.id)}
-                      hitSlop={6}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('chat.voiceNote.action.dismiss')}
-                      testID="voice-note-archive-delete"
-                    >
-                      <Trash2 size={14} color={tokens.text.secondary} />
-                    </Pressable>
                   </View>
                 ))}
             </ScrollView>
@@ -632,6 +768,17 @@ const styles = StyleSheet.create({
   archiveDuration: { fontSize: 11, color: tokens.text.tertiary },
   archiveText: { flex: 1, fontSize: 12, color: tokens.text.primary },
   archiveAction: { fontSize: 11, color: tokens.text.secondary },
+  groupEditor: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 2 },
+  groupInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    borderRadius: rnRadius.sm, // control 档 sm(4)
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    fontSize: 12,
+    color: tokens.text.primary,
+  },
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -39,6 +39,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { maskPhone, resolveAuthFileCandidates } from './relay-account-switch.js'
+import { acquireSessionLock } from './relay-session-lock.js'
 
 /** 台账与被盘点的会话库根(默认本机真实面;测试注入临时目录) */
 export interface SessionLinksPaths {
@@ -578,7 +579,12 @@ export function main(
   const paths = pathsOverride ?? defaultLinksPaths()
   const apply = argv.includes('--apply')
   const cmd = argv[0]
+  const lockPath = join(dirname(paths.ledgerFile), 'session-links.lock')
+  let lock: { release: () => void } | null = null
   try {
+    if (apply && cmd !== undefined && cmd !== 'list') {
+      lock = acquireSessionLock(lockPath, `session-links ${cmd}`)
+    }
     if (cmd === undefined || cmd === 'list') {
       console.log(formatLedgerList(loadLedger(paths.ledgerFile), paths))
       console.log(
@@ -695,6 +701,8 @@ export function main(
   } catch (err) {
     console.error(`会话台账操作失败: ${(err as Error).message}`)
     return 1
+  } finally {
+    lock?.release()
   }
 }
 
