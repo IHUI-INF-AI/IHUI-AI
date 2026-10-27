@@ -70,6 +70,16 @@ const envSchema = z.object({
       'http://localhost:8801,http://localhost:8806,http://tauri.localhost,tauri://localhost',
     ),
 
+  /**
+   * 浏览器扩展的精确 origin 白名单(2026-10-27):`chrome-extension://<扩展ID>` 逐枚登记,
+   * 逗号分隔。此前 CORS/WS 对 `chrome-extension://` 前缀整体放行 —— 浏览器里**任何**已
+   * 安装扩展(含恶意扩展)都能产生该形态 Origin,叠加 credentials:true 等于给全部扩展发
+   * 全站带凭据通行证(无 host_permissions 的恶意扩展本被 CORS 挡在响应外,前缀放行把这
+   * 一层拆了)。配置后仅列表内的扩展 ID 可过;**未配置时保持旧行为**(扩展端 UI 不断),
+   * 但服务端会逐次打 warn 点名实际请求的扩展 ID —— 运维把自家扩展 ID 填进来即完成收紧。
+   */
+  EXTENSION_IDS: z.string().default(''),
+
   DATABASE_URL: z.url(),
   DATABASE_READ_REPLICA_URL: z
     .string()
