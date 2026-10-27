@@ -310,7 +310,9 @@ function isBindPhoneRequired(msg?: string | null): boolean {
 type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>
 
 // 协议二次确认弹窗记录的待执行登录方式(对齐历史 login.vue pendingLoginType)
-type PendingLoginAction = 'email' | 'phone' | 'password' | 'carrier'
+// 第三方登录也走同一弹窗:未同意时记录平台,「同意」后自动续登(断点由 performThirdPartyLogin 承接)
+type PendingLoginAction =
+  'email' | 'phone' | 'password' | 'carrier' | { kind: 'thirdParty'; platform: ThirdPartyPlatform }
 
 export function LoginScreen() {
   const { t, locale } = useI18n()
@@ -760,25 +762,6 @@ export function LoginScreen() {
     setPendingLoginAction(null)
   }, [])
 
-  // 点「同意」:自动勾选协议 + 关闭弹窗 + 继续执行被拦截的登录(对齐历史 confirmAgreement)
-  const confirmAgreement = useCallback(() => {
-    setAgreed(true)
-    setAgreementError('')
-    setAgreementModalVisible(false)
-    const action = pendingLoginAction
-    setPendingLoginAction(null)
-    if (action === 'email') void performEmailLogin()
-    else if (action === 'phone') void performPhoneLogin()
-    else if (action === 'password') void performPasswordLogin()
-    else if (action === 'carrier') void performCarrierOneClickLogin()
-  }, [
-    pendingLoginAction,
-    performEmailLogin,
-    performPhoneLogin,
-    performPasswordLogin,
-    performCarrierOneClickLogin,
-  ])
-
   // 弹窗内「服务条款 / 隐私政策」链接:关闭弹窗后跳转对应页面(对齐历史 openAgreement)
   const openAgreementFromModal = useCallback(() => {
     setAgreementModalVisible(false)
@@ -828,7 +811,8 @@ export function LoginScreen() {
   // 苹果:iOS 优先 expo-apple-authentication 原生 SDK,Android 走 web OAuth 跳转(apple.ts)
   // Google:Android/iOS 优先 @react-native-google-signin/google-signin,fallback 到 web OAuth(google.ts)
   // 飞书/钉钉/企微/支付宝/GitHub:无原生 RN SDK,走 OAuth 浏览器跳转(oauth-redirect.ts)
-  const handleThirdPartyLogin = useCallback(
+  // 实际执行(不含协议检查,供协议弹窗「同意」后直接续登;授权会话的同意记录在 lib 层落)
+  const performThirdPartyLogin = useCallback(
     async (platform: ThirdPartyPlatform) => {
       const option = thirdPartyOptions.find((o) => o.platform === platform)
       if (!option || !option.enabled || option.forceDisabled) {
@@ -1018,6 +1002,40 @@ export function LoginScreen() {
     },
     [t, form, thirdPartyOptions, applyOAuthResult, showToast, navigateAfterLogin, navigation],
   )
+
+  // 第三方按钮统一入口:先过前端协议同意闸(未同意 → 记录平台并弹窗,确认后自动续登)。
+  // 微信原生 loginByWechat 也在此闸内 —— 票面要求 RN 第三方按钮不得绕过 agreed。
+  const handleThirdPartyLogin = useCallback(
+    (platform: ThirdPartyPlatform) => {
+      if (!checkAgreement({ kind: 'thirdParty', platform })) return
+      void performThirdPartyLogin(platform)
+    },
+    [checkAgreement, performThirdPartyLogin],
+  )
+
+  // ===== 协议二次确认弹窗回调(对齐历史 login.vue confirmAgreement/closeAgreementModal) =====
+  // 点「同意」:自动勾选协议 + 关闭弹窗 + 继续执行被拦截的登录(对齐历史 confirmAgreement)
+  // 第三方档调用不含闸的 performThirdPartyLogin —— agreed 的 setState 尚未落盘,
+  // 再走一次 handleThirdPartyLogin 会被同一闸拦下。
+  const confirmAgreement = useCallback(() => {
+    setAgreed(true)
+    setAgreementError('')
+    setAgreementModalVisible(false)
+    const action = pendingLoginAction
+    setPendingLoginAction(null)
+    if (action === 'email') void performEmailLogin()
+    else if (action === 'phone') void performPhoneLogin()
+    else if (action === 'password') void performPasswordLogin()
+    else if (action === 'carrier') void performCarrierOneClickLogin()
+    else if (action && typeof action === 'object') void performThirdPartyLogin(action.platform)
+  }, [
+    pendingLoginAction,
+    performEmailLogin,
+    performPhoneLogin,
+    performPasswordLogin,
+    performCarrierOneClickLogin,
+    performThirdPartyLogin,
+  ])
 
   // ===== 协议同意回调 =====
   const handleAgreedChange = useCallback((next: boolean) => {
