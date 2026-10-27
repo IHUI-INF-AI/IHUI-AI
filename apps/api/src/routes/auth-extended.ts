@@ -107,6 +107,7 @@ import {
 } from '../db/oauth-queries.js'
 import { sendSmsCode, isSmsConfigured } from '../services/sms.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
+import { resolveLoginRegion } from '../services/login-region.js'
 import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
 import {
   getCodeEntry,
@@ -916,8 +917,18 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // 第三方登录配置状态(公开端点,登录页用于显示哪些平台可用)
-  // 返回 8 平台 true/false,与 .env 凭据配置实时一致
-  server.get('/auth/oauth-status', async (_request, reply) => {
+  // 返回 8 平台 true/false,与 .env 凭据配置实时一致;
+  // 外加 loginRegion —— 按**请求来源 IP** 判的国内/海外,登录窗据此排登录方式优先级。
+  // 判据与「为什么它不得用于鉴权/风控」住在 services/login-region.ts。
+  //
+  // 为什么必须显式 no-store:响应里现在带一条「随访客 IP 而变」的字段,而这条响应
+  // 原本是**可被边缘缓存的公共 GET**(2026-10-26 实测 api.aizhs.top 那腿回
+  // `Cache-Control: max-age=14400` 且 `cf-cache-status` 存在)。一旦缓存住,首个访客的
+  // 地区会被钉在边缘上发给后面所有人 —— 国内用户收到海外的排法、反之亦然,而两个状态
+  // 各自看都"正常",没人能从账面发现。
+  server.get('/auth/oauth-status', async (request, reply) => {
+    const loginRegion = await resolveLoginRegion(request)
+    reply.header('Cache-Control', 'no-store')
     return reply.send(
       success({
         google: isGoogleConfigured(),
@@ -933,6 +944,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         feishu: isFeishuConfigured(),
         github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
         alipay: isAlipayLoginConfigured(),
+        loginRegion: loginRegion.region,
+        loginRegionSource: loginRegion.source,
       }),
     )
   })
