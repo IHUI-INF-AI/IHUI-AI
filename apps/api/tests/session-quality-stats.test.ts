@@ -73,6 +73,7 @@ describe('会话质量:总量腿的行键必须是 drizzle 的 select 别名(cam
         depth8plus: 0,
       },
       [],
+      [],
     )
     expect(q.sessions).toBe(6)
     expect(q.singlePageSessions).toBe(4)
@@ -91,6 +92,7 @@ describe('会话质量:总量腿的行键必须是 drizzle 的 select 别名(cam
         depth_1: 4,
       } as never,
       [],
+      [],
     )
     expect(q.sessions).toBe(6)
     expect(q.singlePageSessions).toBe(0)
@@ -101,6 +103,7 @@ describe('会话质量:总量腿的行键必须是 drizzle 的 select 别名(cam
     const q = buildSessionQuality(
       { sessions: '6', singlePageSessions: '4', totalPv: '11', depth1: '4' },
       [],
+      [],
     )
     expect(q.sessions).toBe(6)
     expect(q.singlePageSessions).toBe(4)
@@ -110,7 +113,11 @@ describe('会话质量:总量腿的行键必须是 drizzle 的 select 别名(cam
 
 describe('会话质量:空集不许被说成结论', () => {
   it('B1 窗口内没有会话 ⇒ 占比与人均为 null(不是 0、不是 0%)', () => {
-    const q = buildSessionQuality({ sessions: 0, singlePageSessions: 0, totalPv: 0, depth1: 0 }, [])
+    const q = buildSessionQuality(
+      { sessions: 0, singlePageSessions: 0, totalPv: 0, depth1: 0 },
+      [],
+      [],
+    )
     expect(q.sessions).toBe(0)
     expect(q.singlePageRate).toBeNull()
     expect(q.avgPvPerSession).toBeNull()
@@ -120,7 +127,7 @@ describe('会话质量:空集不许被说成结论', () => {
   })
 
   it('B2 整个总量腿取不到(aggRow 缺失)⇒ 同样落 null,不落 0', () => {
-    const q = buildSessionQuality(undefined, [])
+    const q = buildSessionQuality(undefined, [], [])
     expect(q.sessions).toBe(0)
     expect(q.singlePageRate).toBeNull()
     expect(q.avgPvPerSession).toBeNull()
@@ -133,11 +140,15 @@ describe('会话质量:深度分档与落地页', () => {
   })
 
   it('C2 落地页行按 entryUrl 取,空 url 行被丢掉', () => {
-    const q = buildSessionQuality({ sessions: 3 }, [
-      { entryUrl: '/ecosystem', sessions: 2, singlePageSessions: 1 },
-      { entryUrl: '', sessions: 9, singlePageSessions: 9 },
-      { entryUrl: null, sessions: 9, singlePageSessions: 9 },
-    ])
+    const q = buildSessionQuality(
+      { sessions: 3 },
+      [
+        { entryUrl: '/ecosystem', sessions: 2, singlePageSessions: 1 },
+        { entryUrl: '', sessions: 9, singlePageSessions: 9 },
+        { entryUrl: null, sessions: 9, singlePageSessions: 9 },
+      ],
+      [],
+    )
     expect(q.entryPages).toHaveLength(1)
     expect(q.entryPages[0]).toEqual({ url: '/ecosystem', sessions: 2, singlePageSessions: 1 })
   })
@@ -152,6 +163,53 @@ describe('会话质量:深度分档与落地页', () => {
 
   it('C4 窗口与大屏其它腿同档(24h),不同口径不许并排比', () => {
     expect(SESSION_QUALITY_WINDOW_HOURS).toBe(24)
+  })
+})
+
+describe('会话质量:退出页(2026-10-27 立,与落地页镜像)', () => {
+  it('D1 退出页行按 exitUrl 取,空 url 行被丢掉', () => {
+    const q = buildSessionQuality(
+      { sessions: 3 },
+      [],
+      [
+        { exitUrl: '/pricing', sessions: 2, singlePageSessions: 1 },
+        { exitUrl: '', sessions: 9, singlePageSessions: 9 },
+        { exitUrl: null, sessions: 9, singlePageSessions: 9 },
+      ],
+    )
+    expect(q.exitPages).toHaveLength(1)
+    expect(q.exitPages[0]).toEqual({ url: '/pricing', sessions: 2, singlePageSessions: 1 })
+  })
+
+  it('D2 退出页取"最后一条有 url 的记录":array_agg 倒序 + filter 不得被摘掉', () => {
+    const text = sqlText(SESSION_ROWS_COLUMNS.exitUrl)
+    expect(text).toContain('array_agg')
+    expect(text).toContain('filter')
+    // 与落地页的差别只在排序方向:desc = 最后一条;改成 asc 就成了第二个落地页腿
+    expect(text).toContain('desc')
+    expect(text).toContain('created_at')
+  })
+
+  it('D3 单页会话两榜同时计入(那一页既是入口也是出口),不做互斥剔除', () => {
+    const q = buildSessionQuality(
+      { sessions: 1 },
+      [{ entryUrl: '/only', sessions: 1, singlePageSessions: 1 }],
+      [{ exitUrl: '/only', sessions: 1, singlePageSessions: 1 }],
+    )
+    expect(q.entryPages[0]?.url).toBe('/only')
+    expect(q.exitPages[0]?.url).toBe('/only')
+    expect(q.entryPages[0]?.singlePageSessions).toBe(1)
+    expect(q.exitPages[0]?.singlePageSessions).toBe(1)
+  })
+
+  it('D4 退出页腿取不到(exitRows 空)不折成 entryPages 兜底:两榜各自独立', () => {
+    const q = buildSessionQuality(
+      { sessions: 2 },
+      [{ entryUrl: '/a', sessions: 2, singlePageSessions: 0 }],
+      [],
+    )
+    expect(q.entryPages).toHaveLength(1)
+    expect(q.exitPages).toHaveLength(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
