@@ -109,6 +109,13 @@ import {
 import { sendSmsCode, isSmsConfigured, extractSmsSendGuard } from '../services/sms.js'
 import { sendNoticeSmsToUser } from '../services/sms-notify.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
+import {
+  OAUTH_AGREEMENT_REQUIRED,
+  OAUTH_CONSENT_KEY_PREFIX,
+  OAUTH_CONSENT_TTL_SECONDS,
+  isOAuthConsentRecorded,
+  type OAuthConsentState,
+} from '../services/oauth-consent.js'
 import { resolveLoginRegion } from '../services/login-region.js'
 import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
 import {
@@ -2921,7 +2928,44 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!bodyParsed.success)
       return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
     const { platform } = paramParsed.data
-    const { code } = bodyParsed.data
+    const { code, state } = bodyParsed.data
+
+    // 用户协议同意闸:本次回调的 state 必须在发起期留下过同意记录。
+    // 位置刻意放在厂商 code 交换与查/建用户之前 —— 未同意就不得换取 token;
+    // 也放在 switch 之前,保证下面对各平台的提前 return 都无法绕过这道闸。
+    // 判据单源 services/oauth-consent.ts,Redis I/O 复用本文件 getRedis()。
+    {
+      const redis = getRedis()
+      const key = OAUTH_CONSENT_KEY_PREFIX + state
+      let raw: string | null = null
+      if (redis) {
+        try {
+          raw = await redis.get(key)
+        } catch (e) {
+          request.log.warn({ err: e, platform }, '[oauth-consent] redis get 失败 ⇒ 按未同意拒绝')
+        }
+        // 一次性消费:无论判据结果如何都删除,同一 state 第二次回调必然被拒。
+        try {
+          await redis.del(key)
+        } catch (e) {
+          request.log.warn({ err: e, platform }, '[oauth-consent] redis del 失败(非致命)')
+        }
+      }
+      let consent: OAuthConsentState | null = null
+      if (raw) {
+        try {
+          consent = JSON.parse(raw) as OAuthConsentState
+        } catch {
+          // 存储内容损坏与"没有记录"同级处理
+        }
+      }
+      if (!isOAuthConsentRecorded(consent, platform)) {
+        request.log.warn({ platform }, '[oauth-consent] 无有效的发起期同意记录 ⇒ 拒绝回调')
+        return reply
+          .status(403)
+          .send(error(403, '请先同意用户协议与隐私政策', OAUTH_AGREEMENT_REQUIRED))
+      }
+    }
 
     let openId: string
     let unionId: string | undefined
@@ -3727,6 +3771,49 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // Redis 客户端获取(防御式:测试环境可能未注册 redis 插件,与 auth.ts QR 登录同模式)
   const getRedis = (): Redis | null => (server as unknown as { redis?: Redis }).redis ?? null
+
+  // ============================================================================
+  // 发起期同意记录 POST /auth/oauth/consent
+  // 客户端在跳转厂商授权页之前调用,把"已同意用户协议与隐私政策"按 state 落 Redis;
+  // 通用回调 POST /auth/:platform/callback 一次性消费该记录后,才允许查/建用户与发 token。
+  // 判据单源 services/oauth-consent.ts,本端点只负责 Redis 读写。
+  // ============================================================================
+  const oauthConsentBody = z.object({
+    state: z.string().min(16, { error: 'state 长度不足 16 位' }),
+    platform: platformCallbackParam.shape.platform,
+    agreementAccepted: z.literal(true, { error: '必须同意用户协议与隐私政策' }),
+  })
+
+  server.post('/auth/oauth/consent', async (request, reply) => {
+    const parsed = oauthConsentBody.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const redis = getRedis()
+    // fail-closed:Redis 不可用就无处落同意记录,此时若放行回调等于这道闸失效。
+    if (!redis)
+      return reply
+        .status(503)
+        .send(error(503, '同意记录服务不可用,请稍后重试', 'OAUTH_CONSENT_UNAVAILABLE'))
+    const record = {
+      platform: parsed.data.platform,
+      agreementAccepted: true as const,
+      createdAt: new Date().toISOString(),
+    }
+    try {
+      await redis.set(
+        OAUTH_CONSENT_KEY_PREFIX + parsed.data.state,
+        JSON.stringify(record),
+        'EX',
+        OAUTH_CONSENT_TTL_SECONDS,
+      )
+    } catch (e) {
+      request.log.error({ err: e }, '[oauth-consent] redis set 失败 ⇒ 503')
+      return reply
+        .status(503)
+        .send(error(503, '同意记录服务不可用,请稍后重试', 'OAUTH_CONSENT_UNAVAILABLE'))
+    }
+    return reply.send(success({ ok: true }))
+  })
 
   /** state 持久化载荷 */
   interface OAuthStatePayload {
