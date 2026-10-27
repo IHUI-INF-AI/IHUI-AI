@@ -105,6 +105,7 @@ import aiCallbackRoutes from './ai-callback.js'
 import internalUserBroadcastRoutes from './internal-user-broadcast.js'
 import internalRelayAccountPoolCredentialRoutes from './internal-relay-account-pool-credential.js'
 import internalRelayUserPoolRoutes from './internal-relay-user-pool.js'
+import internalToolInvocationLedgerRoutes from './internal-tool-invocation-ledger.js'
 import { adminSysRoutes, menuRoutersRoutes } from './admin-sys.js'
 import { dictPublicRoutes } from './dict.js'
 import { eduPublicRoutes } from './edu-public.js'
@@ -726,6 +727,8 @@ export function registerRoutes(server: FastifyInstance) {
   // O64:号池凭证回写内网端点(ai-service 签到引擎自刷新 → 号池 CAS 回流)
   server.register(internalRelayAccountPoolCredentialRoutes)
   server.register(internalRelayUserPoolRoutes)
+  // B04:工具调用明细账内部摄入腿(ai-service agent 循环 → tool_invocation_ledger)
+  server.register(internalToolInvocationLedgerRoutes)
 
   // 支付网关：微信/支付宝/基金/对账（R1 补完）
   server.register(paymentGatewayRoutes, { prefix: '/api' })
