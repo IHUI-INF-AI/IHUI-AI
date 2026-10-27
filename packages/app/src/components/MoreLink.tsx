@@ -46,8 +46,11 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  * 按压反馈因此改走 Pressable 的 children 渲染函数:不新增布局节点,几何不变。
  */
 
-/** 与 web 端 `text-xs` + `ChevronRight h-3 w-3` 同档;两常量收编共享 spec 单源 */
-const ICON_SIZE = 12
+/**
+ * 与 web 端 `text-xs` + `ChevronRight h-3 w-3` 同档;**与标签字号同档**也是设计约束(两者同比):
+ * 故直接取共享 spec 的 `SECTION_HEADER_MORE_FONT_PX`(别名 LABEL_FONT_SIZE),端内不再各写一个 12。
+ */
+const ICON_SIZE = LABEL_FONT_SIZE
 /** 与 RN `Text.maxFontSizeMultiplier` 同义的上限,防超大系统字体下按钮撑破行高 */
 const MAX_FONT_MULTIPLIER = 1.4
 

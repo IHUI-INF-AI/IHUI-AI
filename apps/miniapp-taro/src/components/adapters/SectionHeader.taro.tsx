@@ -5,7 +5,12 @@
 import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import type { CSSProperties, ReactNode } from 'react'
-import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import {
+  getRnTokens,
+  TARO_RPX_PER_PX,
+  type RnThemeTokens,
+  type RnThemeMode,
+} from '@ihui/design-tokens'
 import {
   SECTION_HEADER_ARROW_MARGIN_LEFT_PX,
   SECTION_HEADER_MORE_FONT_PX,
@@ -143,9 +148,13 @@ export function SectionHeader({
             hoverClass="opacity-60"
           >
             <Text style={moreLabelStyle}>{moreLabel}</Text>
+            {/* 箭头与「更多」文字同号(单源 = SECTION_HEADER_MORE_FONT_PX,与 RN MoreLink 的
+                ICON_SIZE 取同一档);端内不再写裸 24rpx —— 那是同一枚 12px 档的第三份。
+                必须传**数值**(LineIcon 的 size 收数值时自按 750 稿换算 H5 的 px);传 `${…}rpx`
+                字符串会绕过那条换算,内联 rpx 在 H5 被 SWC 剥离 ⇒ 尺寸回退成默认。 */}
             <LineIcon
               name="chevron-right"
-              size={24}
+              size={SECTION_HEADER_MORE_FONT_PX * TARO_RPX_PER_PX}
               color={tk.text.secondary}
               style={{ marginLeft: toRpx(SECTION_HEADER_ARROW_MARGIN_LEFT_PX) }}
             />
