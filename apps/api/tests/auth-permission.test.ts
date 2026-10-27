@@ -917,7 +917,7 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
       expect(res.statusCode).toBe(400)
     })
 
-    it('邮箱未注册返回 404', async () => {
+    it('邮箱未注册返回防枚举模糊响应(不再404)', async () => {
       mockFindUserByAccount.mockResolvedValueOnce(null)
       // 注意:findUserByEmail 不在 mock 列表,需用 findUserByPhone 替代路径
       // 实际路由调用 findUserByEmail,我们补 mock
@@ -929,8 +929,9 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
         url: '/api/auth/login/email?email=notexist@example.com',
       })
       // 因 findUserByEmail 未在顶层 vi.mock 中,实际会调用真实模块(可能抛错)
-      // 此处验证返回 404 即可
-      expect([404, 500]).toContain(res.statusCode)
+      // 2026-10-27 安全契约变更:未注册邮箱不再 404「邮箱未注册」(CWE-204 防枚举),
+      // 改为与已注册一致的模糊 200 响应;mock 缺失等异常路径 500 仍可接受
+      expect([200, 500]).toContain(res.statusCode)
     })
   })
 })
