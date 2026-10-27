@@ -57,8 +57,9 @@ export type GeometryUnit<U extends string | number> = (px: number) => U
  */
 export const SECTION_HEADER_TITLE_FONT_PX = 16
 
-/** 标题字重 700:两端现值已同(小程序 `font-bold` / RN '700'),收一处防分叉。 */
-export const SECTION_HEADER_TITLE_FONT_WEIGHT = '700'
+// 标题字重 700 与「行内居中 + 单行省略」的三件套由承载端自持(小程序适配层
+// SectionHeader.taro 的 textStyles.title / RN 同名文件同形)——2026-10-27 撤零消费出口
+// SECTION_HEADER_TITLE_FONT_WEIGHT 与 sectionHeaderTitleStyle。
 
 /** 副标题字号 12:两端现值已同(小程序 `text-[length:24rpx]` / RN 12)。 */
 export const SECTION_HEADER_SUBTITLE_FONT_PX = 12
@@ -75,22 +76,4 @@ export const SECTION_HEADER_ARROW_MARGIN_LEFT_PX = 2
 /** 「更多」文字字号 12:两端现值已同(小程序适配层裸 12 / RN MoreLink LABEL_FONT_SIZE 12);收一处防分叉。 */
 export const SECTION_HEADER_MORE_FONT_PX = 12
 
-/** 标题区结构:行内水平居中 + 可截断(溢出省略的三件套只在这一处排)。 */
-export function sectionHeaderTitleStyle<U extends string | number>(
-  toUnit: GeometryUnit<U>,
-): {
-  fontSize: U
-  fontWeight: '700'
-  overflow: 'hidden'
-  textOverflow: 'ellipsis'
-  whiteSpace: 'nowrap'
-} {
-  return {
-    fontSize: toUnit(SECTION_HEADER_TITLE_FONT_PX),
-    fontWeight: SECTION_HEADER_TITLE_FONT_WEIGHT,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  }
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
