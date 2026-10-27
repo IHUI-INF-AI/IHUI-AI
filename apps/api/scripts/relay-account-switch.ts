@@ -47,6 +47,8 @@ export interface SwitchTarget {
   sha12: string
   /** 账号昵称(展示用) */
   nickname?: string
+  /** 账号 uid(会话台账/换桶用;非凭据,展示时只取前 8 位) */
+  accountId?: string
   /** 手机号打码 138****1234 */
   phoneMasked?: string
   /** 令牌域(cn/global 判别的粗略线索) */
@@ -120,6 +122,7 @@ function describeAuthFile(
   }
   const auth = asRecord(root['auth'])
   const account = asRecord(root['account'])
+  const uid = str(account['uid']) ?? str(account['id'])
   const sha = sha256(path)
   const expMs = parseExpires(auth['expiresAt'])
   const expiresIso = Number.isFinite(expMs) ? new Date(expMs).toISOString() : undefined
@@ -132,6 +135,7 @@ function describeAuthFile(
     ...(maskPhone(account['phoneNumber'])
       ? { phoneMasked: maskPhone(account['phoneNumber']) }
       : {}),
+    ...(uid ? { accountId: uid } : {}),
     ...(str(auth['domain']) ? { domain: str(auth['domain']) } : {}),
     ...(expiresIso ? { authExpiresAt: expiresIso } : {}),
     tokenShape: tokenShapeOf(auth),
@@ -205,6 +209,12 @@ export function planSwitch(paths: SwitchPaths, targetName: string, now = new Dat
     warnings.push('目标快照为 $wbEncrypted 信封形态:只能回灌到同一台机器的客户端')
   if (target.tokenShape === 'missing') warnings.push('目标快照缺 accessToken:切过去等于登出态')
   warnings.push('切换后需重启 WorkBuddy 桌面端生效;当前登录态已自动备份,可随时切回')
+  if (target.accountId) {
+    warnings.push(
+      `会话面不会自动跟随:如需把会话也切到该账号,先 dry-run 再 --apply —— ` +
+        `pnpm relay:session-move swap --to ${target.accountId}`,
+    )
+  }
   const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', 'T')
   return {
     targetName: target.name,

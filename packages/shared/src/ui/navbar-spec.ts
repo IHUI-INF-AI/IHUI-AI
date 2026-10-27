@@ -79,10 +79,19 @@ export const NAVBAR_SUBTITLE_MARGIN_TOP_PX = 2
  *    渲染 —— 那正是"制造绿灯",所以档留在端内 + 记 waiver。
  *  - hitSlop(RN 12 / 8 / 4)与 RN 的"图标 + 文字并排 gap 4":RN 独有命中扩张通道 / RN 独有的
  *    icon+label 并排形态,见文件末 MECHANISM_WAIVERS 第 3 条。
- *  - 微信胶囊实测兜底档(小程序 `{ top: 26, height: 32 }` = 13px / 16px)与 notification 区内边距
- *    (`px-[32rpx]`/`py-[16rpx]`/`ml-[16rpx]` = 16px / 8px):平台量 + 端内独有子元素,
+ *  - 微信胶囊实测兜底档(小程序 `{ top: 26, height: 32 }`,**单位是逻辑 px**)与 notification
+ *    区内边距(`px-[32rpx]`/`py-[16rpx]`/`ml-[16rpx]` = 16px / 8px):平台量 + 端内独有子元素。
+ *    ⚠️ 读数纠偏@2026-10-27(现读,不是推断):`apps/miniapp-taro/src/utils/rpx.ts` 的 `px(n)` 就是
+ *    `${n}px`(真 CSS px,与 rpx 无关),而这两个值由 `px(statusBarHeight)` / `px(navBarHeight)` 落地
+ *    ⇒ 兜底档真值是 **26px / 32px**。守门 128 对这个对象字面量按"小程序端裸数字 = rpx"折半,于是报出
+ *    `仅小程序档 13`(= 26/2)——那是**量纲误读**,不是两端分叉,更不是"门读不到"(旧文案如此写,已作废)。
+ *    32 因 RN 侧另有 32(sidePlaceholder / 按钮盒)已同值,故只剩 13 一枚显形;它对面根本没有对应元素
+ *    (RN 的状态栏由 App.tsx SafeAreaView 单点注入),属单侧结构档。
  *    见 MECHANISM_WAIVERS 第 1 条。兜底对象的键名必须保持 `top`/`height` —— 它是
  *    `getMenuButtonBoundingClientRect()` 返回形状的替身,改名就不是同一个 API 的兜底了。
+ *  - (圆角通道,2026-10-27 登记)本族 `RD 仅小程序 4` 来自 ai-home 「加入社区群」胶囊的
+ *    `borderRadius: rnRadius.sm`(4)。RN 端**没有这枚带边框 CTA**(侧钮是图标/图标+文字,
+ *    见上文"刻意不覆盖"条)⇒ 单侧元素,不得为消 RD 给 RN 补圆角。
  */
 
 /**

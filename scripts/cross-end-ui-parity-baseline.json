@@ -94,11 +94,11 @@
       "until": "2027-03-27"
     },
     "NavBar": {
-      "reason": "RN 页头有 subtitle 一支(实测 git grep -c subtitle 于 RN NavBar = 9、小程序 = 0,该端 props 根本没有这一行)→ 2/12/56 随它而来;行高 44 是 RN 自测量、小程序走微信胶囊 menuButton.height+8(实测小程序侧 px() 通道,门读不到);32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道。",
+      "reason": "RN 页头有 subtitle 一支(实测 git grep -c subtitle 于 RN NavBar = 9、小程序 = 0,该端 props 根本没有这一行)→ 2/12/56 随它而来;行高 44 是 RN 自测量、小程序走微信胶囊 menuButton.height+8(平台量);32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道;13 = 胶囊兜底对象 `{ top: 26, height: 32 }` 的量纲误读(该对象是逻辑 px,经 utils/rpx.ts 的 px() 落成真 CSS px,门按小程序裸数字=rpx 折半读成 13;对面无对应元素,状态栏由 App.tsx SafeAreaView 单点注入)。圆角 RD 4 同属单侧:小程序 ai-home「加入社区群」胶囊的 rnRadius.sm,RN 无该带边框 CTA。更正@2026-10-27:旧文案「px() 通道门读不到」与现读矛盾(门确实读到了这一行,只是量纲读错),已删。",
       "until": "2027-03-27"
     },
     "Carousel": {
-      "reason": "小程序独有兜底文案块 + course 叠加层(实测 variant=\"course\" 有 1 处真实调用点,非死分支),RN 侧不渲染这两层 → 2/4/8/14/16/20 全属\"一端多元素\",不是同元素取不同值。",
+      "reason": "小程序独有兜底文案块 + course 叠加层(实测 variant=course 有 1 处真实调用点,非死分支),RN 侧不渲染这两层 → 2/4/8/14/16/20 全属一端多元素,不是同元素取不同值。补记@2026-10-27:2026-10-24 已有裁决(机主 2026-10-23 强制令,选拆对、不选向 RN 移植),但**未落地** —— 现读 pairingRejects 只有 FloatBox 一族、本族 counts 仍为 6,门仍报 ○ Carousel 几何仅小程序档 2/4/8/14/16/20;未落地原因是拆对要删本族四键,而承载票明令只许清偿后下调、不许删条目,故该步归门 128 持有人/主席。裁决与出口逐条写在 packages/shared/src/ui/carousel-spec.ts 头注。",
       "until": "2027-03-27"
     },
     "InputArea": {
