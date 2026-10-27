@@ -61,7 +61,7 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
-import { SearchInput, CategoryInlineBar, MoreLink } from '@ihui/rn-app'
+import { SearchInput, CategoryInlineBar, SectionHeader } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -553,18 +553,15 @@ function StudyIndexScreen() {
 
           {/* ModelList 预览(对齐 Uniapp model_list index 态:推荐课程合集 + 更多) */}
           <View style={styles.previewSection}>
-            <View style={styles.previewHeader}>
-              <View style={styles.previewTitleRow}>
-                <Flame size={18} color={tk.text.secondary} style={{ marginRight: rpx(12) }} />
-                <Text style={styles.previewTitle}>推荐课程合集</Text>
-              </View>
-              <MoreLink
-                label={t('common.more')}
-                onPress={() => setPageType('model')}
-                accessibilityLabel="查看更多模型"
-                colorScheme={resolvedTheme}
-              />
-            </View>
+            <SectionHeader
+              title="推荐课程合集"
+              leading={<Flame size={18} color={tk.text.secondary} style={styles.previewIcon} />}
+              moreText={t('common.more')}
+              onMore={() => setPageType('model')}
+              accessibilityLabel="查看更多模型"
+              colorScheme={resolvedTheme}
+              style={styles.previewHeader}
+            />
             {previewModels.length > 0 ? (
               previewModels.map((m) => (
                 <View key={m.id} style={styles.previewModelRow}>
@@ -603,18 +600,15 @@ function StudyIndexScreen() {
 
           {/* StudyList 预览(对齐 Uniapp study_list index 态:最新课程 + 更多) */}
           <View style={styles.previewSection}>
-            <View style={styles.previewHeader}>
-              <View style={styles.previewTitleRow}>
-                <Film size={18} color={tk.text.secondary} style={{ marginRight: rpx(12) }} />
-                <Text style={styles.previewTitle}>最新课程</Text>
-              </View>
-              <MoreLink
-                label={t('common.more')}
-                onPress={() => setPageType('study')}
-                accessibilityLabel="查看更多课程"
-                colorScheme={resolvedTheme}
-              />
-            </View>
+            <SectionHeader
+              title="最新课程"
+              leading={<Film size={18} color={tk.text.secondary} style={styles.previewIcon} />}
+              moreText={t('common.more')}
+              onMore={() => setPageType('study')}
+              accessibilityLabel="查看更多课程"
+              colorScheme={resolvedTheme}
+              style={styles.previewHeader}
+            />
             {initialLoading ? (
               <Loading text="加载中..." />
             ) : previewItems.length > 0 ? (
@@ -732,19 +726,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: rpx(16),
   } as ViewStyle,
-  previewTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  } as ViewStyle,
   previewIcon: {
-    fontSize: 18,
     marginRight: rpx(12),
-  } as TextStyle,
-  previewTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: tk.text.primary,
-  } as TextStyle,
+  } as ViewStyle,
   // 模型预览行(对齐 ModelList row 简化版)
   previewModelRow: {
     flexDirection: 'row',

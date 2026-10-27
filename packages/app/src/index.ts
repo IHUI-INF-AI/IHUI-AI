@@ -315,8 +315,9 @@ export type {
 } from './features/cards'
 
 /** 跨端共享小组件。两条死载体已先后摘除,依据与判据同形(全仓零具名消费者):
- *  · SectionHeader —— 2026-09-30 摘除,小程序端渲染腿在 apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx,
- *    而 RN 侧区段头部至今**没有单一源**(9+ 屏各自自绘,见 packages/shared/src/ui/section-header-spec.ts)。
+ *  · SectionHeader —— 2026-09-30 摘除后又于 2026-10-27 重建为 RN 唯一渲染腿:几何取自
+ *    packages/shared/src/ui/section-header-spec.ts,小程序端腿在
+ *    apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx。
  *  · Selecter —— 2026-10-15 摘除(连同 packages/app 侧文件);小程序端腿是 adapters/Selecter.taro.tsx,
  *    RN 端用 apps/mobile-rn/src/components/ModelConfigDialog.tsx 自绘的 ModelSelecterDialog,本包那份无人取。
  *  历史同批:ColorfulLoader / PayButton 两条出口于 2026-09-26 摘除。 */
@@ -341,6 +342,10 @@ export type { WrapFocus, WrapFocusOptions } from './hooks/use-wrap-focus'
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
+
+/** 区段头(标题 + 可选副标题 + 可选「更多」):RN 端唯一实现,几何取自 @ihui/shared/ui 单一源 */
+export { SectionHeader } from './components'
+export type { SectionHeaderProps } from './components'
 
 export { BackChevron } from './components'
 export type { BackChevronProps } from './components'
@@ -1144,17 +1149,39 @@ export type {
   PdfToolsHubScreenProps,
 } from './features/tools/pdf/PdfToolsHubScreen'
 export { CirclePostScreen } from './features/community/CirclePostScreen'
-export type { CircleOption, CirclePostImage, CirclePostScreenProps } from './features/community/CirclePostScreen'
+export type {
+  CircleOption,
+  CirclePostImage,
+  CirclePostScreenProps,
+} from './features/community/CirclePostScreen'
 export { InvitationsScreen } from './features/community/InvitationsScreen'
-export type { InvitationStatus, InvitationRowView, InviteeRowView, InvitationsScreenProps } from './features/community/InvitationsScreen'
+export type {
+  InvitationStatus,
+  InvitationRowView,
+  InviteeRowView,
+  InvitationsScreenProps,
+} from './features/community/InvitationsScreen'
 export { LettersScreen } from './features/community/LettersScreen'
 export type { LetterConversationRow, LettersScreenProps } from './features/community/LettersScreen'
 export { LetterChatScreen } from './features/community/LetterChatScreen'
-export type { LetterChatMessageRow, LetterChatScreenProps } from './features/community/LetterChatScreen'
+export type {
+  LetterChatMessageRow,
+  LetterChatScreenProps,
+} from './features/community/LetterChatScreen'
 export { NewsCategoryScreen } from './features/community/NewsCategoryScreen'
-export type { NewsCategoryArticleRow, NewsCategoryScreenProps } from './features/community/NewsCategoryScreen'
+export type {
+  NewsCategoryArticleRow,
+  NewsCategoryScreenProps,
+} from './features/community/NewsCategoryScreen'
 export { SearchHistoryScreen } from './features/community/SearchHistoryScreen'
-export type { SearchHistoryRowView, SearchHistoryScreenProps } from './features/community/SearchHistoryScreen'
+export type {
+  SearchHistoryRowView,
+  SearchHistoryScreenProps,
+} from './features/community/SearchHistoryScreen'
 export { SignUpScreen } from './features/sign-up/SignUpScreen'
-export type { SignUpRowView, SignUpStatusView, SignUpScreenProps } from './features/sign-up/SignUpScreen'
+export type {
+  SignUpRowView,
+  SignUpStatusView,
+  SignUpScreenProps,
+} from './features/sign-up/SignUpScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
