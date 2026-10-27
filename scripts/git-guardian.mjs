@@ -4313,6 +4313,112 @@ export function auditTunnelLegHealth(opts = {}) {
   }
 }
 
+/** 短信发送通道健康的**常驻**派发点(尺子本体 = `scripts/check-sms-channel-health.mjs`,2026-10-27 立) */
+const SMS_HEALTH_TICK = join(WORKTREE, '.ihui-agent', 'state', 'sms-channel-health-tick.ts')
+const SMS_HEALTH_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'sms-channel-health-first.json')
+const SMS_HEALTH_LAST = join(WORKTREE, '.ihui-agent', 'state', 'sms-channel-health-last.json')
+const SMS_HEALTH_INTERVAL_MS = Number(process.env.IHUI_SMS_HEALTH_INTERVAL_MS || 15 * 60 * 1000)
+const SMS_HEALTH_TIMEOUT_MS = Number(process.env.IHUI_SMS_HEALTH_TIMEOUT_MS || 60_000)
+
+export function auditSmsChannelHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = SMS_HEALTH_INTERVAL_MS,
+    tickFile = SMS_HEALTH_TICK,
+    firstFile = SMS_HEALTH_FIRST,
+    lastFile = SMS_HEALTH_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-sms-channel-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 短信通道健康:尺子脚本不在位(scripts/check-sms-channel-health.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: SMS_HEALTH_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 20,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed.verdict !== 'string') {
+      logger(
+        `⚠️ 短信通道健康未产出结论(未判定,不记为已探测):rc=${call.status} ${(
+          [call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)'
+        )
+          .split(/\r?\n/)[0]
+          .slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响 --status 可见性,不影响告警本身 */
+    }
+    const verdict = parsed.verdict
+    if (verdict === 'breach') {
+      // 身份按"类别 + 尝试量档 + 持续档"折叠:明细(失败条数、具体手机号)会抖,写进身份就是风暴。
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      notify(
+        '短信通道不出量(登录验证码发不出去)',
+        `读数:${String(parsed.detail || '(尺子未给原因)')}\n近 24h 尝试=${parsed.attempts} 成功=${parsed.success};近 1h 尝试=${parsed.lastHourAttempts}\n尺子:scripts/check-sms-channel-health.mjs(只读投递审计表 sms_delivery_logs,不碰云端接口)\n取证:node scripts/check-sms-channel-health.mjs --json(或读 .ihui-agent/state/sms-channel-health-last.json)\n出路:去阿里云费用中心充值 / 购买短信套餐包,然后复跑上面那条命令确认转 ok —— 这是本判据唯一能让它转绿的整改动作。`,
+        {
+          severity: 'warning',
+          dedupKey: `verdict=breach;attempts=${alertCountTier(parsed.attempts)};held=${held.tier}`,
+        },
+      )
+      logger(`❌ 短信通道不出量:${String(parsed.detail || '').slice(0, 200)}(已按身份去重发信)`)
+      return { ran: true, judged: true, breaches: 1, unjudged: 0 }
+    }
+    if (verdict === 'unjudged') {
+      // 未判定既不续命也不清零(§0.3);只写日志,不喊人 —— 取不到样本不等于通道坏了
+      logger(`ℹ️ 短信通道健康:未判定 —— ${String(parsed.detail || '(无原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    clearUndeterminedStreak(firstFile)
+    logger(`✅ 短信通道健康:${String(parsed.detail || '').slice(0, 160)}`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger('⚠️ 短信通道健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
@@ -5322,6 +5428,9 @@ function main() {
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
     if (!CHECK_ONLY) auditTunnelLegHealth()
+    // 短信通道健康(2026-10-27 立,尺子 = scripts/check-sms-channel-health.mjs):判机器状态 ⇒
+    // 不进提交链(§12e)。立因 = 当天阿里云欠费停机一整天、用户拿不到登录验证码,而全仓零门喊过。
+    if (!CHECK_ONLY) auditSmsChannelHealth()
     // 「完成即删」兜底清扫已提前到 healWorktreeTracked 之后(2026-10-22 调度加固,见该处注释):
     // 挂在这一长串探测之后实测整轮到不了,清扫心跳会长期停摆。
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
