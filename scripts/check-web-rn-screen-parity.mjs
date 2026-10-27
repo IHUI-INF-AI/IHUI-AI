@@ -29,6 +29,10 @@
 // 挂提交链 = 恒红门(§12e),与 check-temp-landing / check-dispatch-premise 同列只读尺子。
 import { pathToFileURL } from 'node:url'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
+// 承载体判据单源:与造页器同一条(§0.6)。aligned 指向共享屏时,必须真有 RN 屏渲染它 ——
+// 2026-10-27 实测 3 条在册行(web following / user/follow / edu/dashboard)指向的共享屏
+// 在 RN 端**零渲染方**,却在账本里记"已对齐":那不是对齐,是登记表替代码背书。
+import { rendersSharedIn } from './gen-miniapp-mirror.mjs'
 
 const MAP_PATH = 'scripts/data/web-rn-screen-map.jsonl'
 const WEB_APP_DIR = 'apps/web/app'
@@ -160,7 +164,8 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
   // 共享层有同名屏时 byName 记的是共享层 rel,而登记表写的是端内路径)。
   const rnByRel = new Map()
   for (const s of cov.collectShared(face)) rnByRel.set(s.rel, s)
-  for (const r of cov.collectRn(face)) rnByRel.set(r.file, { rel: r.file, name: r.name })
+  const rnList = cov.collectRn(face)
+  for (const r of rnList) rnByRel.set(r.file, { rel: r.file, name: r.name })
 
   const rot = []
   const aligned = []
@@ -197,6 +202,19 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
       if (!row.rn || !rnByRel.has(row.rn)) {
         rot.push({ line: row.line, why: `aligned 指向的 RN 屏不存在:${String(row.rn)}` })
         continue
+      }
+      // 指向共享屏时:必须真有 RN 屏以 JSX 渲染它。只判"文件存在"会放过「共享屏在、无人渲染」这一型 ——
+      // 本仓把它叫名义对齐:web 路由在 RN 端实际不可达,而账本记为 aligned(2026-10-27 实测 3 条)。
+      if (String(row.rn).startsWith('packages/app/src/features/')) {
+        const symbol = String(row.rn).split('/').pop().replace(/\.tsx$/, '')
+        const rendered = rnList.some((r) => r.file !== row.rn && rendersSharedIn(r.text, symbol))
+        if (!rendered) {
+          rot.push({
+            line: row.line,
+            why: `aligned 指向的共享屏没有任何 RN 屏以 JSX 渲染(名义对齐):${String(row.rn)}`,
+          })
+          continue
+        }
       }
       aligned.push(row)
       continue
