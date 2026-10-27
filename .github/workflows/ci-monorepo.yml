@@ -235,6 +235,27 @@ jobs:
           O_SHEET_FLEX: ${{ steps.sheet-flex.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
+  # 跨端视觉原子 spec 覆盖率棘轮(阶段3,守门 256 的 CI 不可旁路副本):只拦退化,不拦存量。
+  # 与 sheet-flex-contract 同形:脚本零依赖,免装依赖;HEAD 面即被审提交本身,基线退化才红。
+  spec-coverage-ratchet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        id: checkout
+      - name: 跨端视觉原子 spec 覆盖率棘轮(退化才拦)
+        id: spec-coverage-ratchet
+        run: node scripts/check-cross-end-spec-coverage.mjs --ratchet
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout spec-coverage-ratchet
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SPEC_COVERAGE_RATCHET: ${{ steps.spec-coverage-ratchet.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
   test:
     needs: setup
     runs-on: ubuntu-latest
