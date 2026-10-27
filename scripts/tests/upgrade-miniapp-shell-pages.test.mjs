@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url'
 
 import { pickCarrierShell } from '../lib/rn-shell-refs.mjs'
 import { __test__ as conv } from '../plan-hand-mirror-conversion.mjs'
+import { landMessage } from '../upgrade-miniapp-shell-pages.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const UPGRADER = join(HERE, '..', 'upgrade-miniapp-shell-pages.mjs')
@@ -67,4 +68,30 @@ test('U6 规划器判据仍可拒"带私有能力":页面独有的 Taro 方法�
   })
   assert.equal(r.kind, 'page-only-capability')
   assert.match(r.why, /Taro\.requestPayment/)
+})
+
+test('U7 自动落地的提交消息:每一枚都得能回读(route/shell/行数账逐条在消息里)', () => {
+  const batch = [
+    { route: 'pkg-a/index', shell: 'AScreen', beforeLines: 120, afterLines: 24 },
+    { route: 'pkg-b/index', shell: 'BScreen', beforeLines: 60, afterLines: 26 },
+  ]
+  const msg = landMessage(batch)
+  for (const x of batch) {
+    assert.ok(msg.includes(x.route), `缺 ${x.route}`)
+    assert.ok(msg.includes(x.shell), `缺 ${x.shell}`)
+    assert.ok(msg.includes(`${x.beforeLines}→${x.afterLines} 行`), `缺行数账 ${x.route}`)
+  }
+  assert.match(msg, /自动把 2 枚/)
+})
+
+test('U8 自动落地消息的枚数与批一致(不许"声称 N 枚而只落 M")', () => {
+  for (const n of [1, 3, 5]) {
+    const batch = Array.from({ length: n }, (_, i) => ({
+      route: `pkg-${i}/index`,
+      shell: `S${i}Screen`,
+      beforeLines: 100,
+      afterLines: 24,
+    }))
+    assert.match(landMessage(batch), new RegExp(`自动把 ${n} 枚`))
+  }
 })
