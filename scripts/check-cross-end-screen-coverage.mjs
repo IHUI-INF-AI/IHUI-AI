@@ -96,21 +96,73 @@ function faceList(face, dirPrefix) {
 /** 当前面上的文件内容;读不到 = null(该面没有这份件,不回落另一个面) */
 function faceRead(face, rel) {
   const key = rel.replace(/\\/g, '/')
+  const ck = faceCacheKey(face, key)
+  if (faceCache.has(ck)) return faceCache.get(ck)
   // 正文一律经取材层(§0.4 / 门 118):磁盘面走 readWorktreeFile,git 两档走 catBatch ——
   // 不再自拼 `gitRaw(['show', …])`,否则"引了层却没换判定面"会被判半接线。
   if (face === 'worktree') {
     try {
-      return readWorktreeFile(ROOT, key)
+      const v = readWorktreeFile(ROOT, key)
+      faceCache.set(ck, v)
+      return v
     } catch {
+      faceCache.set(ck, null)
       return null
     }
   }
-  const spec = face === 'staged' ? `:${key}` : `${face === 'head' ? 'HEAD' : face}:${key}`
+  const spec = faceSpec(face, key)
   try {
-    return catBatch(ROOT, [spec], { maxBuffer: 64 * 1024 * 1024 }).get(spec) ?? null
+    const v = catBatch(ROOT, [spec], { maxBuffer: 64 * 1024 * 1024 }).get(spec) ?? null
+    faceCache.set(ck, v)
+    return v
   } catch {
+    faceCache.set(ck, null)
     return null
   }
+}
+
+/**
+ * 取材缓存 + **批量预取**(2026-10-27 落地,修「这道门 7 分钟跑不完」)。
+ *
+ * 旧实现:faceRead 每次都单独起一次 `git cat-file` 子进程(每文件一次)——
+ * HEAD 面要读 RN 屏 300+ 、小程序在册页 400+ 、共享屏 300+ ⇒ 上千次进程 spawn,
+ * 在 Windows 上每次 ~200ms ⇒ 门永远跑不完(实测 >7 分钟仍未结束,pre-push 必被拖死)。
+ * 现实现:同一面的文件清单**一次性**交给 catBatch(它本就支持按字节分块批量读),
+ * 千次 spawn 压到个位数。
+ *
+ * 语义不变:取不到 = null(不回落另一个面,§0.4);逐个读的回退路径仍在
+ * (批量取不到时清掉预取标记,后续 faceRead 仍按原来的单读路径走)。
+ */
+const faceCache = new Map()
+const facePrefetched = new Set()
+const faceCacheKey = (face, rel) => `${face}\u0000${rel.replace(/\\/g, '/')}`
+const faceSpec = (face, key) =>
+  face === 'staged' ? `:${key}` : `${face === 'head' ? 'HEAD' : face}:${key}`
+
+/** 预取同一面的一批文件;磁盘面直读无需批量,git 两档一次 catBatch 取回。 */
+function prefetchFace(face, rels) {
+  if (face === 'worktree') return
+  const keys = []
+  const specs = []
+  for (const rel of rels || []) {
+    if (!rel) continue
+    const key = rel.replace(/\\/g, '/')
+    if (!key) continue
+    const ck = faceCacheKey(face, key)
+    if (faceCache.has(ck) || facePrefetched.has(ck)) continue
+    facePrefetched.add(ck)
+    keys.push(key)
+    specs.push(faceSpec(face, key))
+  }
+  if (specs.length === 0) return
+  let map
+  try {
+    map = catBatch(ROOT, specs, { maxBuffer: 64 * 1024 * 1024 })
+  } catch {
+    for (const k of keys) facePrefetched.delete(faceCacheKey(face, k))
+    return
+  }
+  keys.forEach((k, i) => faceCache.set(faceCacheKey(face, k), map.get(specs[i]) ?? null))
 }
 
 const log = (...a) => {
@@ -136,21 +188,24 @@ function collectShared(face = FACE) {
     if (!m) continue
     out.push({ name: m[2], domain: m[1], rel, spec: rel })
   }
+  // 共享屏正文也可能被读(A14 尺子/登记表核验)⇒ 同面一次性预取
+  prefetchFace(face, out.map((s) => s.spec))
   return out.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** RN 屏:apps/mobile-rn/src/screens/*.tsx(按面读正文) */
 function collectRn(face = FACE) {
-  return faceList(face, RN_SCREENS)
-    .filter((rel) => rel.endsWith('.tsx'))
-    .map((rel) => ({
-      file: rel,
-      name: rel
-        .split('/')
-        .pop()
-        .replace(/\.tsx$/, ''),
-      text: faceRead(face, rel),
-    }))
+  const files = faceList(face, RN_SCREENS).filter((rel) => rel.endsWith('.tsx'))
+  // 一次批量取回本面全部 RN 屏正文(旧实现逐个起 git 子进程 ⇒ 上千次 spawn,门跑不完)
+  prefetchFace(face, files)
+  return files.map((rel) => ({
+    file: rel,
+    name: rel
+      .split('/')
+      .pop()
+      .replace(/\.tsx$/, ''),
+    text: faceRead(face, rel),
+  }))
 }
 
 /** 同目录伴生样式表也算镜像标记载体(项目既有惯例:.css 头部写「对齐 RN 端 packages/app/...」) */
@@ -175,6 +230,16 @@ function collectMiniapp(face = FACE) {
     const root = m[1]
     for (const p of m[2].matchAll(/'([^']+)'/g)) pages.push(`${root}/${p[1]}`)
   }
+  // 在册页正文候选 + 同目录伴生样式表:一次性批量预取(旧实现逐个起 git 子进程)
+  const candAll = []
+  for (const p of pages) {
+    candAll.push(`${MP_SRC}/${p}.tsx`, `${MP_SRC}/${p}/index.tsx`, `${MP_SRC}/${p}/index.jsx`)
+  }
+  const sideAll = []
+  for (const c of candAll) {
+    sideAll.push(c.replace(/\.tsx$/, '.css'), c.replace(/[^/]*$/, 'index.css'))
+  }
+  prefetchFace(face, [...candAll, ...sideAll])
   const out = []
   for (const p of pages) {
     const cands = [`${MP_SRC}/${p}.tsx`, `${MP_SRC}/${p}/index.tsx`, `${MP_SRC}/${p}/index.jsx`]
@@ -273,6 +338,11 @@ function run() {
   const rn = collectRn()
   const mp = collectMiniapp()
   const registry = loadJson(REGISTRY, { entries: [] })
+  // 登记表里的 shared/rn 路径也要读(核验 R1)⇒ 同面一次性预取
+  prefetchFace(
+    FACE,
+    (registry.entries || []).flatMap((e) => [e?.shared, e?.rn]).filter(Boolean),
+  )
 
   // --- R2:共享屏 → RN 消费覆盖(只报数) ---
   const rnConsumed = new Set()
