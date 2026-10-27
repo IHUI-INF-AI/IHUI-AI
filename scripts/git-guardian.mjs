@@ -4716,6 +4716,63 @@ export function healStyleTokensLeg(opts = {}) {
   })
 }
 
+const HAND_UPGRADE_INTERVAL_MS = Number(process.env.IHUI_HAND_UPGRADE_INTERVAL_MS || 30 * 60 * 1000)
+
+/**
+ * 手写镜像页 → 壳承载的自动升级腿(2026-10-27 立)。
+ *
+ * 为什么要有:小程序端现读 97 枚页仍是端内手写(合计 ~2.9 万行重复实现),而它们声明的共享屏在
+ * RN 端全部有承载壳。判定与落地已各有一件器物(判据腿 = plan-hand-mirror-conversion 的相对取差;
+ * 落地腿 = upgrade-miniapp-shell-pages --land),此前却只有人肉一条派发路 —— 与「造好没装车 =
+ * 没有」同型(§0.9)。这一步接上,「源头改一笔两端同动」才会随时间自走。
+ *
+ * 节拍 30 分钟;零可落地时零写零推(器物在无 convertible 行时一次都不写盘,连 HEAD 都不读第二遍)。
+ * 判机器状态 ⇒ 不进提交链(§12e)。结论只写日志不喊人:CAP=2 且五条安全判据全过才落,失败只报数。
+ */
+export function sweepHandMirrorUpgrades(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = HAND_UPGRADE_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'hand-mirror-upgrade-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'upgrade-miniapp-shell-pages.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 手写页升级:器物不在位(scripts/upgrade-miniapp-shell-pages.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const r =
+    typeof runner === 'function'
+      ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
+      : runLegChild(script, ['--land', '--json', '--cap=2'], 15 * 60 * 1000)
+  let res = null
+  try {
+    const lastLine = String(r.stdout ?? '')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .pop()
+    res = JSON.parse(lastLine ?? '')
+  } catch {
+    /* 下面统一按"未判定"报 */
+  }
+  if (!res || typeof res !== 'object') {
+    logger(
+      `ℹ️ 手写页升级:结论行解析不出(status=${r.status})⇒ 本轮未判定,下轮重试 ${String(r.stderr ?? '').slice(0, 120)}`,
+    )
+    return { ran: true, ok: false, why: '结论解析失败', status: r.status }
+  }
+  const landedN = res.landed?.ok ? res.landed.pages : 0
+  logger(
+    `ℹ️ 手写页升级:可落地=${res.upgradable ?? 0} 本批=${res.batch?.length ?? 0} 落地=${landedN}${res.landed?.declLanded ? ' + 声明件' : ''}${res.landed?.err ? ` | ${String(res.landed.err).split('\n')[0].slice(0, 120)}` : ''}`,
+  )
+  return { ran: true, ok: true, ...res }
+}
+
 /**
  * 派生产物自走重生成的共用派发体(两族各一条腿,底下只有一件器物、一条落 HEAD 的接缝)。
  * 器物 = scripts/heal-derived-in-checkout.mjs:按当前 HEAD 建 detached 检出 → 在检出里重跑各端生成器
@@ -4937,6 +4994,89 @@ export function convergeCrossEndPortalVerdicts(opts = {}) {
     return { ran: true, state, candidates, applied }
   logger(`ℹ️ 门户维收敛:${line.slice(0, 260)}`)
   return { ran: true, state, candidates, applied, line }
+}
+
+/**
+ * RN 色档同源配对自动入表(2026-10-27 立):跑 scripts/plan-rn-token-pairing.mjs --apply,
+ * 把「亮暗两面与某个源变量各自等值」的 RN 手抄色档自动登记进守门 93 的 MAPPINGS。
+ * 为什么这一格可以自动动手:**判据是等值**,登记后派生器写回的值与现值逐位同色 —— 本会话实测
+ * 8 档入表后 rn-tokens.ts 零 diff。也就是说这条腿永远不改颜色,它只把"手抄字面量"变成"派生态",
+ * 从此 web 改这一档 RN 自动跟随。风险面与"改颜色"的腿不同源,故不需要人先点头。
+ * 判据零复算(§0.6):等值/命名推导/色阶不挂角色档/在册分歧不再冒充未判,全部住在计划器那一份实现里,
+ * 本腿只派发并读它打的结论行。写盘面只有工作树(与 healCrossEndMirror / convergeCrossEndPortalVerdicts
+ * 同族),落库交给仓内收编器。
+ * 护栏:计划器在守门件挂着**他席不在 HEAD 的行**时整批拒落(不替别人提交)⇒ 本腿把 refused 记一行、
+ * 不到人(§5e-1:拒落属常态);state=undetermined/unparsed ⇒ 显式未判定,绝不读成"已同源"。
+ * 判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
+ */
+export function autoRegisterRnTokenPairs(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = Number(process.env.IHUI_RN_TOKEN_PAIR_INTERVAL_MS || 60 * 60 * 1000),
+    tickFile = join(dirname(LOG), 'rn-token-pair-apply-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'plan-rn-token-pairing.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ RN 色档同源入表:器物不在位(scripts/plan-rn-token-pairing.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '计划器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ RN 色档同源入表:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b 派生进程纪律
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g 显式接管 stdio
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // exit 1 = refused(他席在飞,属常态)、2 = 未判定:结论行仍在 stdout,非零不等于没判。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const line = String(r.out ?? r.stdout ?? '')
+    .split('\n')
+    .find((l) => l.includes('PLAN-RN-PAIRING-APPLY'))
+  if (!line) {
+    logger(
+      `⚠️ RN 色档同源入表:结论行取不到(rc=${r.status ?? '?'})⇒ 本轮没判,` +
+        `既不读成"已同源"也不读成"无档可配":${String(r.err ?? r.stderr ?? '').slice(0, 120)}`,
+    )
+    return { ran: true, state: 'unparsed', status: r.status ?? null }
+  }
+  const m = /state=(\S+)\s+inserted=(\d+)/.exec(line)
+  const state = m?.[1] ?? 'unknown'
+  const inserted = Number(m?.[2] ?? -1)
+  if (state === 'nochange' && inserted === 0) return { ran: true, state, inserted }
+  // applied:真改了守门件 ⇒ 留读数(收编器据此落库);refused/undetermined:点名但不喊人。
+  logger(`ℹ️ RN 色档同源入表:${line.slice(0, 240)}`)
+  return { ran: true, state, inserted, line }
 }
 
 export function healCrossEndMirror(opts = {}) {
@@ -6330,6 +6470,8 @@ function main() {
     if (!CHECK_ONLY) healCrossEndMirror()
     // 门户维收敛紧跟镜像自愈之后:两者都只动台账/声明面,共用同一节拍(现读 CROSS_END_SHELL_INTERVAL_MS)
     if (!CHECK_ONLY) convergeCrossEndPortalVerdicts()
+    // RN 色档同源配对自动入表(等值才配 ⇒ 不改颜色,只把手抄档变派生态)
+    if (!CHECK_ONLY) autoRegisterRnTokenPairs()
     // index 烂尾哨兵(2026-10-24 立,尺子 = scripts/check-index-unmerged-age.mjs):stash pop
     // 冲突/merge 中断逃逸会让 index 挂 unmerged 条目数小时(实测 12h)。同一挂点语义 ——
     // 判机器状态绝不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。15 分钟节流。
@@ -6369,6 +6511,8 @@ function main() {
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     if (!CHECK_ONLY) ensureS4u()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
+    // 手写镜像页自动升级(2026-10-27 立):与上一条同族 —— 造页腿负责"缺页",本腿负责"手写存量递减"。
+    if (!CHECK_ONLY) sweepHandMirrorUpgrades()
     // 派生钉自走 + 推送分叉到人 + 镜像徽章自愈(2026-10-27 立,三条腿各带节流):
     // 守门 105/238 都是 blocking 而写回出口此前只有人肉一条路(§12e:只判不修=逼人人跳门),
     // 而"本地与 origin 真分叉"全仓零报警腿。判机器状态 ⇒ 绝不进提交链。
