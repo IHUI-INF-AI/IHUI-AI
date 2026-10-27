@@ -7,6 +7,7 @@
  *
  *   pnpm relay:session-move move    --conversation <id> [--apply]
  *   pnpm relay:session-move move    --account <id|唯一前缀> [--apply]   # 按账号批量
+ *   pnpm relay:session-move copy    --conversation <id> [--to <账号>] [--apply]  # 复制到桶,源保留
  *   pnpm relay:session-move swap    --to <id|唯一前缀> [--apply]        # 切账号联动换桶
  *   pnpm relay:session-move restore --conversation <id> [--apply]
  *   pnpm relay:session-move undo    --op <n>            [--apply]
@@ -45,6 +46,7 @@ import { pathToFileURL } from 'node:url'
 import { computeBackupPlan, type BackupManifest } from './relay-session-backup.js'
 import { loadLedger, readAccountMeta, type SessionLinksLedger } from './relay-session-links.js'
 import { resolveAuthFileCandidates } from './relay-account-switch.js'
+import { acquireSessionLock } from './relay-session-lock.js'
 
 /** 搬移器全部路径面(默认本机真实面;测试注入临时目录,绝不碰真实会话库) */
 export interface MovePaths {
@@ -220,7 +222,7 @@ export interface MoveOpFileEntry {
 
 export interface MoveOp {
   ts: string
-  type: 'move' | 'restore' | 'undo'
+  type: 'move' | 'restore' | 'undo' | 'copy'
   conversationId: string | null
   accountId: string | null
   /** undo 时指向被回退的 op 行号(1 起) */
@@ -253,7 +255,7 @@ export interface MovePlanFile extends MoveOpFileEntry {
 }
 
 export interface MovePlan {
-  mode: 'move' | 'restore'
+  mode: 'move' | 'restore' | 'copy'
   conversationId: string
   accountId: string
   /** 当日快照目录(备份数据可回退的载体) */
@@ -405,6 +407,90 @@ export function planMove(
 export interface BatchMoveSkip {
   conversationId: string
   reason: string
+}
+
+/**
+ * copy 计划(纯只读):把会话**复制**到目标账号桶,源侧保留(对标 wb-switch 的 copy_sessions_cross)。
+ * 目标账号 = --to 显式指定,缺省取台账归属;两者都取不到 ⇒ 拒绝(不猜)。
+ * 与 move 的差异:不要求会话必须归属(显式 --to 是人的判断,输出里标注台账实况且不改台账);
+ * 桶内已有同名不在 plan 阶段判冲突——apply 时 sha 相同即跳过、不同则拒做。
+ */
+export function planCopy(
+  conversationId: string,
+  paths: MovePaths,
+  now: Date,
+  toAccountId?: string,
+): MovePlan {
+  if (!conversationId) throw new Error('缺少 --conversation <id>')
+  const snap = findTodaySnapshot(
+    paths.backupsSessionsDir,
+    paths.sessionsRoot,
+    paths.projectsRoot,
+    now,
+  )
+  if (!snap) {
+    throw new Error(
+      `当日会话库快照缺失(${paths.backupsSessionsDir})。先跑 pnpm relay:sessions:backup --apply;本器不自动代跑。`,
+    )
+  }
+  const ledger = loadLedger(paths.ledgerFile)
+  if (!ledger)
+    throw new Error(`台账不存在: ${paths.ledgerFile}。先跑 pnpm relay:session-links rebuild --auto`)
+  // 会话物理存在性先判:它决定了"没得复制"比"去向不明确"更根本
+  const cf = findConversationFiles(conversationId, paths.sessionsRoot, paths.projectsRoot)
+  if (cf.sessionRelFiles.length === 0 && cf.projectFiles.length === 0) {
+    throw new Error(`会话不存在: ${conversationId}(sessions/ 与 projects/ 两面均无落点)`)
+  }
+  const link = ledger.links[conversationId]
+  const accountId = toAccountId ? resolveAccountId(ledger, toAccountId) : (link?.accountId ?? null)
+  if (!accountId) {
+    throw new Error(
+      '目标账号不可判:台账未归属(accountId=null)且未给 --to <账号>。复制去向必须明确(本器不猜)。',
+    )
+  }
+  if (!ledger.accounts.some((a) => a.accountId === accountId)) {
+    throw new Error(`目标账号不在台账 accounts 里: ${accountId}(先 rebuild --auto 登记)`)
+  }
+  const warnings: string[] = []
+  if (!link) warnings.push('台账无此会话记录:按 --to 显式目标复制(不改台账)')
+  else if (link.accountId !== accountId) {
+    warnings.push(
+      `台账归属是 ${link.accountId ?? '未归属'},本次按 --to 复制到 ${accountId}(不改台账)`,
+    )
+  }
+  const files: MovePlanFile[] = []
+  const sources = [
+    ...cf.sessionRelFiles.map((rel) => join(cf.sessionDir!, ...rel.split('/'))),
+    ...cf.projectFiles,
+  ]
+  for (const src of sources) {
+    let bytes = 0
+    let sha = ''
+    try {
+      bytes = statSync(src).size
+      sha = sha256OfPath(src)
+    } catch (err) {
+      throw new Error(`源文件不可读: ${src}: ${(err as Error).message}`)
+    }
+    files.push({
+      from: src,
+      to: bucketDestFor(src, accountId, conversationId, paths),
+      bytes,
+      sha256: sha,
+      backupRel: toBackupRel(src, paths),
+    })
+  }
+  files.sort((a, b) => a.from.localeCompare(b.from))
+  return {
+    mode: 'copy',
+    conversationId,
+    accountId,
+    snapshotDir: snap.dir,
+    files,
+    stopDirs: [paths.sessionsRoot, paths.projectsRoot, paths.bucketsRoot],
+    totalBytes: files.reduce((s, f) => s + f.bytes, 0),
+    warnings,
+  }
 }
 
 export interface BatchMovePlan {
@@ -760,6 +846,12 @@ export function planUndo(
   const ops = readOps(opsLogFile)
   const op = ops[opNum - 1]
   if (!op) throw new Error(`ops 日志无第 ${opNum} 条(现存 ${ops.length} 条)`)
+  if (op.type === 'copy') {
+    throw new Error(
+      `第 ${opNum} 条是 copy(复制到桶):撤销等于删除副本,本器不删文件(红线:绝不删除)。` +
+        '如需清理,请人工确认后删除目标侧副本。',
+    )
+  }
   const reverse: MovePlanFile[] = op.entries.map((e) => ({
     from: e.to,
     to: e.from,
@@ -786,7 +878,10 @@ export function planUndo(
  * 校验 → 原子改名 → 全量对账 → 对账过后移除源侧(移动语义,undo 可回)→ 清空目录 rmdir。
  * 任一环对不上即整批停,已改名落地的保留并随错误抛出。
  */
-export function applyTransfers(plan: MovePlan): { moved: MoveOpFileEntry[]; skipped: string[] } {
+export function applyTransfers(
+  plan: MovePlan,
+  opts: { keepSource?: boolean } = {},
+): { moved: MoveOpFileEntry[]; skipped: string[] } {
   const ts = Date.now()
   const moved: MoveOpFileEntry[] = []
   const skipped: string[] = []
@@ -833,6 +928,8 @@ export function applyTransfers(plan: MovePlan): { moved: MoveOpFileEntry[]; skip
       throw new Error(`收工对账失败: ${e.to} 缺失或 sha 不一致;保留现场,按 ops 处理`)
     }
   }
+  // 复制语义:源侧保留(copy 的撤销不是删除,见 planUndo 的拒绝分支)
+  if (opts.keepSource) return { moved, skipped }
   // 对账过后才移除源侧(移动语义;源内容已在目标校验过,undo 可回)
   for (const e of moved) {
     if (existsSync(e.from)) unlinkSync(e.from)
@@ -855,7 +952,7 @@ export function applyTransfers(plan: MovePlan): { moved: MoveOpFileEntry[]; skip
 export function formatPlan(plan: MovePlan, dryRun: boolean): string {
   const lines: string[] = []
   lines.push(
-    `会话${plan.mode === 'move' ? '搬移' : '回移'} · ${dryRun ? '预览(dry-run;加 --apply 才动库)' : '执行'}`,
+    `会话${plan.mode === 'move' ? '搬移' : plan.mode === 'copy' ? '复制' : '回移'} · ${dryRun ? '预览(dry-run;加 --apply 才动库)' : '执行'}`,
   )
   lines.push(`会话: ${plan.conversationId}  归属桶: ${plan.accountId}`)
   lines.push(`当日快照: ${plan.snapshotDir}`)
@@ -938,12 +1035,18 @@ export function main(
     )
     return 2
   }
+  const lockPath = join(dirname(paths.opsLogFile), 'session-move.lock')
+  let lock: { release: () => void } | null = null
   try {
+    if (apply && cmd !== undefined && cmd !== 'ops' && cmd !== 'help') {
+      lock = acquireSessionLock(lockPath, `session-move ${cmd}`)
+    }
     if (cmd === undefined || cmd === 'help') {
       console.log(
         '用法:\n' +
           '  relay:session-move move    --conversation <id> [--apply]\n' +
           '  relay:session-move move    --account <id|唯一前缀> [--apply]   # 按账号批量\n' +
+          '  relay:session-move copy    --conversation <id> [--to <账号>] [--apply]  # 复制到桶,源保留\n' +
           '  relay:session-move restore --conversation <id> [--apply]\n' +
           '  relay:session-move swap    --to <账号id|唯一前缀> [--apply]   # 切账号联动换桶\n' +
           '  relay:session-move undo    --op <n> [--apply]\n' +
@@ -969,6 +1072,42 @@ export function main(
     let plan: MovePlan
     let opType: MoveOp['type']
     let refOp: number | undefined
+    if (cmd === 'copy') {
+      const conv = getFlag(argv, '--conversation')
+      if (!conv) {
+        console.error('copy 需要 --conversation <id>([--to <账号id|唯一前缀>])')
+        return 2
+      }
+      let copyPlan: MovePlan
+      try {
+        copyPlan = planCopy(conv, paths, new Date(), getFlag(argv, '--to'))
+      } catch (e) {
+        console.error(e instanceof Error ? e.message : String(e))
+        return 2
+      }
+      const copyText = formatPlan(copyPlan, !apply)
+      if (!apply) {
+        console.log(copyText)
+        console.log('\n(dry-run;未写入任何路径。确认后加 --apply)')
+        return 0
+      }
+      const copyBlocked = guardClient()
+      if (copyBlocked !== null) return copyBlocked
+      const cr = applyTransfers(copyPlan, { keepSource: true })
+      appendOps(paths.opsLogFile, {
+        ts: new Date().toISOString(),
+        type: 'copy',
+        conversationId: copyPlan.conversationId,
+        accountId: copyPlan.accountId,
+        entries: cr.moved,
+      })
+      console.log(
+        copyText +
+          `\n\n完成: 复制 ${cr.moved.length} 个文件,跳过(桶内已在且 sha 一致) ${cr.skipped.length} 个;` +
+          `源侧保留;记账 ${paths.opsLogFile}(copy 不删文件,故不支持 undo)`,
+      )
+      return 0
+    }
     if (cmd === 'swap') {
       const to = getFlag(argv, '--to')
       if (!to) {
@@ -1127,6 +1266,8 @@ export function main(
   } catch (err) {
     console.error(`会话搬移失败(未动库或已按红线留现场): ${(err as Error).message}`)
     return 1
+  } finally {
+    lock?.release()
   }
 }
 
