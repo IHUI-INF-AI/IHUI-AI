@@ -763,9 +763,18 @@ export function main(
   const guardClient = (): number | null => {
     const procs = runningProcsOverride ?? detectWorkbuddyProcesses()
     if (procs.length === 0) return null
+    const reason = getFlag(argv, '--force-running-reason')?.trim()
+    if (reason !== undefined && reason.length >= 10) {
+      console.error(
+        `⚠ 客户端仍在运行(${procs.length} 个进程),已按定向理由放行: ${reason}` +
+          '(放行仅对本次调用生效;请确认目标会话未被客户端正在写入)',
+      )
+      return null
+    }
     console.error(
       `检测到 WorkBuddy 客户端正在运行(${procs.length} 个进程):会话文件可能被占用或正在写入,` +
-        '搬移会半写。请先退出客户端再 --apply(本器不替你杀进程;dry-run 不受影响)。',
+        '搬移会半写。请先退出客户端再 --apply,或给 --force-running-reason "<≥10字定向理由>" ' +
+        '明确"已确认目标会话未在写"后放行(本器不替你杀进程;dry-run 不受影响)。',
     )
     return 2
   }
@@ -778,6 +787,8 @@ export function main(
           '  relay:session-move restore --conversation <id> [--apply]\n' +
           '  relay:session-move undo    --op <n> [--apply]\n' +
           '  relay:session-move ops\n' +
+          '客户端在跑时 --apply 会被拦;确认目标会话未被写入可加\n' +
+          '  --force-running-reason "<≥10字定向理由>" 放行(仅本次调用)\n' +
           '默认 dry-run;所有动库动作要求当日会话库快照在位;操作记账 ~/.wb-switch/relay/move_ops.jsonl',
       )
       return 0

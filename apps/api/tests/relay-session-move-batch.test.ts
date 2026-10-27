@@ -197,6 +197,37 @@ describe('main move --account:互斥 / apply / 逐条 undo', () => {
     expect(main(['move', '--account', ACCT], fx.paths, ['"WorkBuddy.exe","1234"'])).toBe(0)
   })
 
+  it('定向理由(≥10字)可放行客户端在跑;短理由/缺理由仍拦', () => {
+    const fx = makeFixture()
+    seedAll(fx.paths)
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(
+        main(['move', '--account', ACCT, '--apply', '--force-running-reason', '太短'], fx.paths, [
+          '"WorkBuddy.exe","1234"',
+        ]),
+      ).toBe(2)
+      expect(
+        main(
+          [
+            'move',
+            '--account',
+            ACCT,
+            '--apply',
+            '--force-running-reason',
+            '已确认目标会话当前未被客户端写入',
+          ],
+          fx.paths,
+          ['"WorkBuddy.exe","1234"'],
+        ),
+      ).toBe(0)
+    } finally {
+      spy.mockRestore()
+    }
+    expect(existsSync(join(fx.paths.sessionsRoot, C1))).toBe(false)
+    expect(readOps(fx.paths.opsLogFile).length).toBe(2)
+  })
+
   it('dry-run 不动库;--apply 后两会话各自落地并各记一条 op;单条 undo 只回退那一条', () => {
     const fx = makeFixture()
     seedAll(fx.paths)
