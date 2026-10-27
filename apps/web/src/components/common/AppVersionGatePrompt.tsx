@@ -202,7 +202,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
             disabled={state === 'installing'}
             className="rounded-sm bg-cta px-4 py-1.5 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
           >
-            {t('gateUpdateNow')}
+            {state === 'installing' ? t('installing') : t('gateUpdateNow')}
           </button>
         </div>
       </div>

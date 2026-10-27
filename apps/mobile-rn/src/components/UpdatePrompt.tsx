@@ -15,15 +15,24 @@
  */
 
 import * as React from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
 import { RefreshCw, X } from 'lucide-react-native'
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
-import { applyOtaUpdate, checkOtaUpdate, dismissOtaPrompt, useOtaUpdate } from '../lib/ota-update'
+import { appAlert } from './BottomPops'
+import {
+  applyOtaUpdate,
+  checkOtaUpdate,
+  dismissOtaPrompt,
+  shouldAutoRecheck,
+  useOtaUpdate,
+} from '../lib/ota-update'
 
 /** 挂载后延迟检查的毫秒数:首屏资源/请求优先,更新检查让路。 */
 const CHECK_DELAY_MS = 3000
+/** 回到前台补查的最小间隔:切一次前台就查一次太吵,expo-updates 也没必要。 */
+const RECHECK_MIN_INTERVAL_MS = 30 * 60 * 1000
 
 export function UpdatePrompt(): React.JSX.Element | null {
   const { t } = useI18n()
@@ -36,7 +45,26 @@ export function UpdatePrompt(): React.JSX.Element | null {
     return () => clearTimeout(timer)
   }, [])
 
-  if (state !== 'ready' || dismissed) return null
+  // 冷启动只查一次是不够的:app 长期挂在后台,OTA 推了也不会被看见。
+  // 回到前台且距上次检查超过 30 分钟就补查一次(已有 ready 在等用户时跳过,见 shouldAutoRecheck)。
+  React.useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return
+      if (!shouldAutoRecheck(RECHECK_MIN_INTERVAL_MS)) return
+      void checkOtaUpdate()
+    })
+    return () => sub.remove()
+  }, [])
+
+  const handleUpdate = React.useCallback(async () => {
+    const ok = await applyOtaUpdate()
+    // 失败不静默:卡片已回到 ready(可再点一次重试),但必须如实告诉用户刚才没成功
+    if (!ok) appAlert(t('appUpdate.error'), t('appUpdate.errorDesc'))
+  }, [t])
+
+  // installing 也要继续显示:点了更新到进程重启之间有一段窗口,卡片突然消失会让人以为没反应
+  const applying = state === 'installing'
+  if ((state !== 'ready' && !applying) || dismissed) return null
 
   return (
     <View style={styles.card} accessibilityRole="alert" accessibilityLabel={t('appUpdate.title')}>
@@ -46,12 +74,19 @@ export function UpdatePrompt(): React.JSX.Element | null {
         <Text style={styles.body}>{t('appUpdate.body')}</Text>
       </View>
       <Pressable
-        onPress={() => void applyOtaUpdate()}
-        style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+        onPress={() => void handleUpdate()}
+        disabled={applying}
+        style={({ pressed }) => [
+          styles.actionBtn,
+          pressed && styles.actionBtnPressed,
+          applying && styles.actionBtnPressed,
+        ]}
         accessibilityRole="button"
         accessibilityLabel={t('appUpdate.action')}
       >
-        <Text style={styles.actionText}>{t('appUpdate.action')}</Text>
+        <Text style={styles.actionText}>
+          {applying ? t('appUpdate.installing') : t('appUpdate.action')}
+        </Text>
       </Pressable>
       <Pressable
         onPress={dismissOtaPrompt}

@@ -7,7 +7,9 @@
 // 声明面(只读对照,不改):
 //   - packages/api-client/src/endpoints/system.ts 的 checkAppVersion(GET /api/app-version/check-update)
 //   - apps/api/src/routes/app-version.ts:43 的 forceUpdate(版本发布策略位)
-//   - apps/api/src/routes/app-version.ts:89 的 minimumVersion(服务端最低版本闸门,CliMinVersionDecision)
+//   - apps/api/src/routes/app-version.ts 的 resolveAppMinVersion(全平台最低版本闸门,环境变量
+//     IHUI_MIN_VERSION;2026-10-27 起该字段真的随 check-update 下发 —— 在此之前客户端读的字段
+//     端点从不返回,minimumVersion 那条强更分支结构上不可达)
 //   - packages/database/src/schema/app-version.ts 的 app_versions.force_update
 //
 // 六终态机与动作语义照抄上游 zcode packages/desktop/src/main(只读参考,不改它):
@@ -79,8 +81,16 @@ export interface AppVersionGateInput {
   releaseNotes?: string | null
   /** check-update 的 forceUpdate 策略位(app-version.ts:43)。 */
   forceUpdate?: boolean
-  /** 服务端下发的最低版本(app-version.ts:89 的 CliMinVersionDecision.minimumVersion;null/缺省=没要求)。 */
+  /** 服务端下发的最低版本(app-version.ts 的 resolveAppMinVersion / 环境变量 IHUI_MIN_VERSION;null/缺省=没要求)。 */
   minimumVersion?: string | null
+  /**
+   * 当前版本号是否可信(缺省 true)。
+   * web 端若没注入真实版本号(恒 '0.0.0'),服务端按 buildNumber 比对就毫无意义 ——
+   * 任何一条 web 平台版本记录都会被判成"有更新",若那条记录还是 force_update,
+   * 全站用户会被永久拦住且点「立即更新」也修不好(重载后版本号仍是 0.0.0)。
+   * 所以这条为 false 时整条策略 fail-open,理由随 reason 回传。
+   */
+  versionTrusted?: boolean
 }
 
 export interface AppVersionGateDecision {
@@ -109,6 +119,22 @@ export function appVersionGate(input: AppVersionGateInput): AppVersionGateDecisi
     latestVersion: input.latestVersion ?? null,
     downloadUrl: input.downloadUrl ?? null,
     releaseNotes: input.releaseNotes ?? null,
+  }
+  if (input.versionTrusted === false) {
+    // 版本号不可信 ⇒ 整条策略 fail-open,连 latestVersion 都不往下传:
+    // 传下去渲染端就会弹"有新版本可用",而用户点了也修不好(版本号根本没变)。
+    return {
+      required: false,
+      kind: 'idle',
+      cause: 'none',
+      reason:
+        '当前版本号不可信(web 端未注入 NEXT_PUBLIC_APP_VERSION,恒 0.0.0)⇒ 版本策略 fail-open 不拦也不提示;' +
+        '要启用 web 版本策略,发布时注入真实版本号并在 app_versions 表登记同名版本',
+      ...base,
+      latestVersion: null,
+      downloadUrl: null,
+      releaseNotes: null,
+    }
   }
   if (!isValidVersion(input.currentVersion)) {
     return {
@@ -248,8 +274,16 @@ function publishAppVersionGate(decision: AppVersionGateDecision): void {
   }
 }
 
-/** web 当前版本号:构建时可经 NEXT_PUBLIC_APP_VERSION 注入;缺省 0.0.0(服务端按 buildNumber 兜底比对)。 */
+/** web 当前版本号:构建时可经 NEXT_PUBLIC_APP_VERSION 注入;缺省 0.0.0(哨兵值,代表"没注入")。 */
 const WEB_APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0'
+
+/**
+ * 版本号是否可信:'0.0.0' 是"没注入"的哨兵,不是真实版本(全仓只有这一处读 NEXT_PUBLIC_APP_VERSION,
+ * 构建脚本目前并不注入它)。不可信时整条版本策略 fail-open,见 appVersionGate 的 versionTrusted 分支。
+ */
+export function isTrustedAppVersion(version: string): boolean {
+  return version !== '0.0.0' && isValidVersion(version)
+}
 
 function failOpen(reason: string, currentVersion = WEB_APP_VERSION): AppVersionGateDecision {
   return {
@@ -288,6 +322,7 @@ export async function appVersionGateCheck(
       const d: VersionCheckResult = res.data
       decision = appVersionGate({
         currentVersion,
+        versionTrusted: isTrustedAppVersion(currentVersion),
         hasUpdate: d.hasUpdate === true,
         latestVersion: (d.latestVersion as string | undefined) ?? null,
         downloadUrl: (d.downloadUrl as string | undefined) ?? null,
