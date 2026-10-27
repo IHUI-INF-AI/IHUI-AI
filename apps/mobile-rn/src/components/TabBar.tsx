@@ -17,6 +17,7 @@ import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { tokens } from '../theme/active-tokens'
+import { withAlpha } from '@ihui/design-tokens'
 import { useTheme } from '../context/ThemeContext'
 import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
 // 底栏图标的取源方式(2026-10-21 定档,刻意保留,不是遗留绕行):
@@ -97,22 +98,32 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
     <View style={tabBarStyleSheet.wrapper}>
       {/* 液态玻璃面板直落屏幕底边:图标行 + 底部手势区让位(paddingBottom)同一块玻璃,
           图标行下面不再有独立白带(2026-10-27 用户定稿)。
-          2026-10-27 二稿「要 iOS 那种的」:原生端注入 expo-blur 真背景模糊层
-          (Android 必须显式 experimentalBlurMethod 才真模糊,否则只糊一层 tint);
-          web 端仍走 container 的 backdropFilter。 */}
+          2026-10-27 三稿(0.0.7 实机反馈「还是这么透明,没任何变化」):
+          Android 的 dimezis 真模糊在实机上不生效(只剩淡 tint,视觉与 glass.bg 无差),
+          ⇒ Android 端不再渲染 BlurView,直接上 iOS 白底页面同款磨砂实底
+          (surface 0.88 + 顶部高光线 + 重投影,确定性出效果);
+          iOS 端保留 BlurView 真模糊(UIVisualEffectView,可靠);web 端仍 backdropFilter。 */}
       <View
         style={[
           tabBarStyleSheet.container,
           { paddingBottom: Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4) },
+          Platform.OS !== 'ios' && {
+            backgroundColor: withAlpha(
+              resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
+              0.88,
+            ),
+          },
         ]}
       >
-        {Platform.OS !== 'web' ? (
+        {Platform.OS === 'ios' ? (
           <BlurView
             intensity={50}
             tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-            experimentalBlurMethod="dimezisBlurView"
             style={tabBarStyleSheet.blurFill}
           />
+        ) : null}
+        {resolvedTheme !== 'dark' ? (
+          <View style={tabBarStyleSheet.rimLight} pointerEvents="none" />
         ) : null}
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab
