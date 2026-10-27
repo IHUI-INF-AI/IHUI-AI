@@ -23,13 +23,15 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, createElement, type ReactNode } from 'react'
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { AppState } from 'react-native'
 
 const mocks = vi.hoisted(() => ({
   listVoiceNotes: vi.fn(),
   createVoiceNote: vi.fn(),
   deleteVoiceNote: vi.fn(),
+  setVoiceNoteArchived: vi.fn(),
+  updateVoiceNote: vi.fn(),
   // 录音 hook 的替身:本套件只关心「面板怎么派事件、界面落在哪一相」,
   // expo-audio 那层由 tests/use-voice-recorder.test.ts 单独覆盖。
   useVoiceRecorder: vi.fn(),
@@ -39,6 +41,8 @@ vi.mock('@ihui/api-client', () => ({
   listVoiceNotes: mocks.listVoiceNotes,
   createVoiceNote: mocks.createVoiceNote,
   deleteVoiceNote: mocks.deleteVoiceNote,
+  setVoiceNoteArchived: mocks.setVoiceNoteArchived,
+  updateVoiceNote: mocks.updateVoiceNote,
 }))
 
 vi.mock('../src/hooks/use-voice-recorder', () => ({
@@ -140,6 +144,8 @@ beforeEach(() => {
   mocks.listVoiceNotes.mockResolvedValue({ success: true, data: { list: [], groups: [] } })
   mocks.createVoiceNote.mockResolvedValue({ success: true, data: {} })
   mocks.deleteVoiceNote.mockResolvedValue({ success: true, data: {} })
+  mocks.setVoiceNoteArchived.mockResolvedValue({ success: true, data: {} })
+  mocks.updateVoiceNote.mockResolvedValue({ success: true, data: {} })
   mocks.useVoiceRecorder.mockReturnValue(recorderStub())
   ;(AppState as unknown as { __reset: () => void }).__reset()
 })
@@ -258,6 +264,101 @@ describe('D03 RN 语音笔记:interrupt 事件接线(票面①型②中途中断
     })
     // 空闲相(ready)收不到 interrupt(共享表内无该出边)⇒ 相不变、徽章不出现
     expect(currentPhase(container)).toBe('')
+  })
+})
+
+/**
+ * 票面②验收「新建→归档→按分组检索→命中,全链路走 @ihui/api-client」的 RN 腿。
+ * 归档/分组都只经 `@ihui/api-client` 出口(端内零裸 fetch),方向由当前分区决定。
+ */
+describe('D03 RN 语音笔记:归档/分组(票面② RN 腿)', () => {
+  const NOTE_ID = '33333333-3333-4333-8333-333333333333'
+  function noteRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: NOTE_ID,
+      conversationId: null,
+      title: '周会要点',
+      transcript: '周会要点',
+      durationMs: 2_000,
+      audioUrl: null,
+      groupKey: 'inbox',
+      archivedAt: null,
+      createdAt: '2026-10-27T00:00:00.000Z',
+      updatedAt: '2026-10-27T00:00:00.000Z',
+      ...overrides,
+    }
+  }
+  /** 读口去抖 300ms(与 web 同档),等它落地再断言 */
+  async function settle(): Promise<void> {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    })
+  }
+
+  it('归档→切归档分区→恢复:两跳都打 setVoiceNoteArchived,列表按服务端分区重查', async () => {
+    let archivedAt: string | null = null
+    mocks.listVoiceNotes.mockImplementation(
+      async (query: { partition?: string; groupKey?: string }) => {
+        const partition = query.partition ?? 'active'
+        const visible = partition === 'archived' ? archivedAt !== null : archivedAt === null
+        return {
+          success: true,
+          data: {
+            list: visible ? [noteRow({ archivedAt })] : [],
+            groups: [{ groupKey: 'inbox', count: 1 }],
+          },
+        }
+      },
+    )
+    mocks.setVoiceNoteArchived.mockImplementation(async (_id: string, next: boolean) => {
+      archivedAt = next ? '2026-10-27T00:00:00.000Z' : null
+      return { success: true, data: noteRow({ archivedAt }) }
+    })
+
+    const { container } = render(createElement(VoiceNote, { onInsert: vi.fn() }), { wrapper })
+    openPanel(container)
+    await settle()
+    expect(byTestId(container, 'voice-note-archive-item')).toBeTruthy()
+
+    act(() => {
+      requireByTestId(container, 'voice-note-archive-action').click()
+    })
+    expect(mocks.setVoiceNoteArchived).toHaveBeenCalledWith(NOTE_ID, true)
+
+    // 切到归档分区 ⇒ 服务端按 partition=archived 重查,行重新出现
+    act(() => {
+      requireByTestId(container, 'voice-note-partition-toggle').click()
+    })
+    await settle()
+    expect(mocks.listVoiceNotes).toHaveBeenLastCalledWith(
+      expect.objectContaining({ partition: 'archived' }),
+    )
+    expect(byTestId(container, 'voice-note-archive-item')).toBeTruthy()
+
+    act(() => {
+      requireByTestId(container, 'voice-note-unarchive-action').click()
+    })
+    expect(mocks.setVoiceNoteArchived).toHaveBeenLastCalledWith(NOTE_ID, false)
+  })
+
+  it('改分组:输入分组键提交 ⇒ updateVoiceNote(id,{groupKey}),不写本地桶', async () => {
+    mocks.listVoiceNotes.mockResolvedValue({
+      success: true,
+      data: { list: [noteRow()], groups: [{ groupKey: 'inbox', count: 1 }] },
+    })
+    const { container } = render(createElement(VoiceNote, { onInsert: vi.fn() }), { wrapper })
+    openPanel(container)
+    await settle()
+
+    act(() => {
+      requireByTestId(container, 'voice-note-group-set').click()
+    })
+    const input = requireByTestId(container, 'voice-note-group-input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'lectures' } })
+    act(() => {
+      requireByTestId(container, 'voice-note-group-submit').click()
+    })
+    expect(mocks.updateVoiceNote).toHaveBeenCalledWith(NOTE_ID, { groupKey: 'lectures' })
   })
 })
 // ⁠‌‌‌‍‍‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‌‍‌‌‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌**⁠
