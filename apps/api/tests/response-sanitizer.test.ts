@@ -60,6 +60,15 @@ describe('response-sanitizer — isSensitiveKey', () => {
     expect(isSensitiveKey('username', keys)).toBe(false)
     expect(isSensitiveKey('createdAt', keys)).toBe(false)
   })
+
+  // 2026-10-26:`csrfToken` 曾被 "token" 子串误伤成 ***,而配套 cookie 是 HttpOnly,
+  // 前端只能从响应体取 ⇒ /api/csrf-token 事实上不可用。钉死它不是敏感字段。
+  it('csrfToken 属于交付给客户端的凭据,不得打码', () => {
+    expect(isSensitiveKey('csrfToken', keys)).toBe(false)
+    expect(sanitizeData({ csrfToken: 'sig.expiry.nonce' }, keys)).toEqual({
+      csrfToken: 'sig.expiry.nonce',
+    })
+  })
 })
 
 describe('response-sanitizer — maskValue (旧版简单脱敏)', () => {

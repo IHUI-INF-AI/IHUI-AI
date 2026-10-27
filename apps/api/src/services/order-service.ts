@@ -84,6 +84,23 @@ export async function getOrder(orderNo: string): Promise<Order | undefined> {
 }
 
 /**
+ * 支付成功短信通知(fire-and-forget)。只在真实 pending→paid 的分支调用,
+ * 幂等重放分支不重复发;bizId 绑订单号,sendTemplatedSms 的幂等闸再兜一层。
+ */
+async function notifyPaymentSuccessSms(order: Order): Promise<void> {
+  try {
+    if (!order.userId) return
+    const { sendNoticeSmsToUser } = await import('./sms-notify.js')
+    await sendNoticeSmsToUser(order.userId, 'payment-success', {
+      bizType: 'order',
+      bizId: `order:${order.orderNo}`,
+    })
+  } catch (e) {
+    logger.warn('支付成功短信通知失败', { orderNo: order.orderNo, error: (e as Error).message })
+  }
+}
+
+/**
  * 状态机：完成订单（支付成功回调调用）。
  * 仅 pending 订单可转为 paid；记录支付时间。
  *
@@ -120,6 +137,7 @@ export async function completeOrder(
     const payChannel = updated.paymentMethod ?? 'unknown'
     recordOrderSample(String(updated.orderType), 'paid')
     recordPaymentSample(payChannel, 'success')
+    void notifyPaymentSuccessSms(updated)
     // Phase 4: updateOrderStatus 内部已事务同步 eduOrders，无需额外同步
     return { success: true, order: updated }
   }

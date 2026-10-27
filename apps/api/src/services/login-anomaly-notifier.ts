@@ -139,10 +139,21 @@ export async function notifyLoginAnomaly(input: LoginAnomalyInput): Promise<void
   const content = buildNotificationContent(input)
 
   // 5. 并行发送通知(失败不抛错,各通道独立 try-catch)
+  // 短信只接两个有固定文案模板的事件:新设备登录、频繁登录失败。
+  // remote_login 无对应模板(腾讯通知模板文案固定,硬套会发错内容)。
+  const smsTemplate =
+    eventType === 'new_device_login'
+      ? 'new-device'
+      : eventType === 'frequent_login_failure'
+        ? 'security-limit'
+        : null
   await Promise.allSettled([
     sendInAppNotification(userId, title, content, input),
     sendEmailNotification(input, title, content),
     sendWebhookNotification(input, title, content),
+    smsTemplate
+      ? sendSecuritySmsNotification(userId, smsTemplate, `login:${userId}:${eventHash}`)
+      : Promise.resolve(),
   ])
 }
 
@@ -340,6 +351,25 @@ async function sendInAppNotification(
     })
   } catch (e) {
     logger.warn('login-anomaly: in-app notification failed', { err: e, userId })
+  }
+}
+
+/** 安全类短信(新设备/频繁失败)。动态 import 避免 notifier ↔ sms 服务循环依赖。
+ *  sendNoticeSmsToUser 内部已吞错,这里只兜 import 失败。 */
+async function sendSecuritySmsNotification(
+  userId: string,
+  templateKey: 'new-device' | 'security-limit',
+  bizId: string,
+): Promise<void> {
+  try {
+    const { sendNoticeSmsToUser } = await import('./sms-notify.js')
+    await sendNoticeSmsToUser(userId, templateKey, { bizType: 'security', bizId, force: true })
+  } catch (e) {
+    logger.warn('login-anomaly: sms notify failed', {
+      userId,
+      templateKey,
+      error: (e as Error).message,
+    })
   }
 }
 
