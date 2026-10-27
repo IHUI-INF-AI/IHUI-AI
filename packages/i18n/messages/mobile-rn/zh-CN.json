@@ -809,6 +809,7 @@
         "retry": "重试",
         "saveAudioOnly": "仅保存音频",
         "insertToInput": "插入对话",
+        "cancel": "取消录音",
         "dismiss": "关闭"
       },
       "searchPlaceholder": "搜索笔记内容",
