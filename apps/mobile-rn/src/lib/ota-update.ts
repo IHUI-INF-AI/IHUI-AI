@@ -41,9 +41,17 @@ interface OtaStore {
   lastError: string | null
   /** 最近一次真正发起检查的时刻(ms);给"回到前台要不要补查"用。 */
   lastCheckedAt: number | null
+  /** 下载进度 0-100,只在本状态机处于 downloading 时采样(提示卡读条的唯一数据源)。 */
+  downloadProgress: number
 }
 
-let store: OtaStore = { state: 'idle', dismissed: false, lastError: null, lastCheckedAt: null }
+let store: OtaStore = {
+  state: 'idle',
+  dismissed: false,
+  lastError: null,
+  lastCheckedAt: null,
+  downloadProgress: 0,
+}
 const listeners = new Set<() => void>()
 /** 正在飞的那一趟检查(并发去重用;见 checkOtaUpdate 头注)。 */
 let inFlight: Promise<OtaUpdateState> | null = null
@@ -52,6 +60,14 @@ function patch(next: Partial<OtaStore>): void {
   store = { ...store, ...next }
   for (const listener of listeners) listener()
 }
+
+// 下载进度事件(提示卡读条的唯一数据源):原生状态机每次进度变化都会广播;
+// 只在本状态机处于 downloading 时采样,免得空闲期的状态事件把读数写脏。
+Updates.addUpdatesStateChangeListener((event) => {
+  if (store.state !== 'downloading') return
+  if (!event.context.isDownloading) return
+  patch({ downloadProgress: Math.round(event.context.downloadProgress * 100) })
+})
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
@@ -65,6 +81,17 @@ export function isOtaSupported(): boolean {
   if (__DEV__) return false
   if (Platform.OS === 'web') return false
   return Updates.isEnabled !== false
+}
+
+/**
+ * 当前进程跑的是哪个包(设置页「检查更新」与提示卡的可见身份):
+ * isEmbeddedLaunch=true 或拿不到 updateId ⇒ 内置包;否则是热更包。
+ * 为什么要有:OTA「点了更新却像没生效」无从对账 —— 身份可见后,用户在
+ * 关于/设置里读到的短 id 就是"我到底跑到哪份代码"的机器可查凭据。
+ */
+export function runningBundle(): { kind: 'embedded' | 'ota'; id: string | null } {
+  if (Updates.isEmbeddedLaunch || !Updates.updateId) return { kind: 'embedded', id: null }
+  return { kind: 'ota', id: Updates.updateId }
 }
 
 /**
@@ -99,7 +126,7 @@ async function runCheck(): Promise<OtaUpdateState> {
       patch({ state: 'up-to-date' })
       return 'up-to-date'
     }
-    patch({ state: 'downloading' })
+    patch({ state: 'downloading', downloadProgress: 0 })
     await Updates.fetchUpdateAsync()
     // 就绪即复位 dismissed:这是新一轮更新,旧的一次性关闭不该继续压着它
     patch({ state: 'ready', dismissed: false })
