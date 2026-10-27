@@ -2855,7 +2855,14 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               </div>
               <div className="space-y-1">
                 {(['public', 'admin', 'auth'] as const).map((key) => {
-                  const row = (traffic?.scopeSplit ?? []).find((s) => s.scope === key)
+                  const scopeSplit = traffic?.scopeSplit
+                  const row = (scopeSplit ?? []).find((s) => s.scope === key)
+                  // 服务端 group by 不出空桶:某访问面在窗口内 0 次 ⇒ 该桶整行缺席。
+                  // 那是「确实 0 次」(查询成功),不是「取不到」——必须落 0;落 '—' 会让
+                  // 「24h 没人进后台/登录页」这种常态被读成监控失明。整条腿失败
+                  // (scopeSplit 为 null / traffic 整个取不到)才保留 '—'。
+                  const pv = row?.pv ?? (scopeSplit ? 0 : undefined)
+                  const uv = row?.uv ?? (scopeSplit ? 0 : undefined)
                   const label =
                     key === 'public'
                       ? t('scopePublic')
@@ -2869,8 +2876,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     >
                       <span className="text-[10px] text-foreground">{label}</span>
                       <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
-                        {fmtInt(row?.pv)}
-                        <span className="text-muted-foreground"> / {fmtInt(row?.uv)}</span>
+                        {fmtInt(pv)}
+                        <span className="text-muted-foreground"> / {fmtInt(uv)}</span>
                       </span>
                     </div>
                   )
