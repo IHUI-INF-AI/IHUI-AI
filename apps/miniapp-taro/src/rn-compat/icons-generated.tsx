@@ -30,6 +30,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-app-window"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect x="2" y="4" width="20" height="16" rx="2" />\n  <path d="M10 4v4" />\n  <path d="M2 8h20" />\n  <path d="M6 4v4" />\n</svg>\n',
   ArrowDown:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-arrow-down"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M12 5v14" />\n  <path d="m19 12-7 7-7-7" />\n</svg>\n',
+  ArrowRight:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-arrow-right"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M5 12h14" />\n  <path d="m12 5 7 7-7 7" />\n</svg>\n',
   ArrowUp:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-arrow-up"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m5 12 7-7 7 7" />\n  <path d="M12 19V5" />\n</svg>\n',
   Award:
@@ -66,6 +68,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-calendar"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M8 2v3" />\n  <path d="M16 2v3" />\n  <rect x="3" y="3" width="18" height="18" rx="2" />\n  <path d="M3 9h18" />\n</svg>\n',
   CalendarCheck:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-calendar-check"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M8 2v3" />\n  <path d="M16 2v3" />\n  <rect x="3" y="3" width="18" height="18" rx="2" />\n  <path d="M3 9h18" />\n  <path d="m9 15 2 2 4-4" />\n</svg>\n',
+  CalendarClock:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-calendar-clock"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M16 14v2.2l1.6 1" />\n  <path d="M16 2v3" />\n  <path d="M21 7.338V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h2.338" />\n  <path d="M3 9h5.859" />\n  <path d="M8 2v3" />\n  <circle cx="16" cy="16" r="6" />\n</svg>\n',
   CalendarDays:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-calendar-days"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M8 2v3" />\n  <path d="M16 2v3" />\n  <rect x="3" y="3" width="18" height="18" rx="2" />\n  <path d="M3 9h18" />\n  <path d="M8 13h.01" />\n  <path d="M12 13h.01" />\n  <path d="M16 13h.01" />\n  <path d="M8 17h.01" />\n  <path d="M12 17h.01" />\n  <path d="M16 17h.01" />\n</svg>\n',
   Camera:
@@ -136,6 +140,12 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-eye-off"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />\n  <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />\n  <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />\n  <path d="m2 2 20 20" />\n</svg>\n',
   FileAudio:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-file-audio"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M4 6.835V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2h-.343" />\n  <path d="M14 2v5a1 1 0 0 0 1 1h5" />\n  <path d="M2 19a2 2 0 0 1 4 0v1a2 2 0 0 1-4 0v-4a6 6 0 0 1 12 0v4a2 2 0 0 1-4 0v-1a2 2 0 0 1 4 0" />\n</svg>\n',
+  FileCode:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-file-code"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />\n  <path d="M14 2v5a1 1 0 0 0 1 1h5" />\n  <path d="M10 12.5 8 15l2 2.5" />\n  <path d="m14 12.5 2 2.5-2 2.5" />\n</svg>\n',
+  FileJson:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-file-json"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />\n  <path d="M14 2v5a1 1 0 0 0 1 1h5" />\n  <path d="M10 12a1 1 0 0 0-1 1v1a1 1 0 0 1-1 1 1 1 0 0 1 1 1v1a1 1 0 0 0 1 1" />\n  <path d="M14 18a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1 1 1 0 0 1-1-1v-1a1 1 0 0 0-1-1" />\n</svg>\n',
+  FileSpreadsheet:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-file-spreadsheet"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />\n  <path d="M14 2v5a1 1 0 0 0 1 1h5" />\n  <path d="M8 13h2" />\n  <path d="M14 13h2" />\n  <path d="M8 17h2" />\n  <path d="M14 17h2" />\n</svg>\n',
   FileText:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-file-text"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />\n  <path d="M14 2v5a1 1 0 0 0 1 1h5" />\n  <path d="M10 9H8" />\n  <path d="M16 13H8" />\n  <path d="M16 17H8" />\n</svg>\n',
   FileUp:
@@ -359,8 +369,12 @@ const S = {
   Stamp:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-stamp"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M14 13V8.5C14 7 15 7 15 5a3 3 0 0 0-6 0c0 2 1 2 1 3.5V13" />\n  <path d="M20 15.5a2.5 2.5 0 0 0-2.5-2.5h-11A2.5 2.5 0 0 0 4 15.5V17a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1z" />\n  <path d="M5 22h14" />\n</svg>\n',
   Star: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-star"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />\n</svg>\n',
+  StickyNote:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-sticky-note"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z" />\n  <path d="M15 3v5a1 1 0 0 0 1 1h5" />\n</svg>\n',
   Store:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-store"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M15 21v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5" />\n  <path d="M17.774 10.31a1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.451 0 1.12 1.12 0 0 0-1.548 0 2.5 2.5 0 0 1-3.452 0 1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.77-3.248l2.889-4.184A2 2 0 0 1 7 2h10a2 2 0 0 1 1.653.873l2.895 4.192a2.5 2.5 0 0 1-3.774 3.244" />\n  <path d="M4 10.95V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.05" />\n</svg>\n',
+  Subtitles:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-subtitles"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="18" height="14" x="3" y="5" rx="2" ry="2" />\n  <path d="M7 15h4M15 15h2M7 11h2M13 11h4" />\n</svg>\n',
   Sun: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-sun"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <circle cx="12" cy="12" r="4" />\n  <path d="M12 2v2" />\n  <path d="M12 20v2" />\n  <path d="m4.93 4.93 1.41 1.41" />\n  <path d="m17.66 17.66 1.41 1.41" />\n  <path d="M2 12h2" />\n  <path d="M20 12h2" />\n  <path d="m6.34 17.66-1.41 1.41" />\n  <path d="m19.07 4.93-1.41 1.41" />\n</svg>\n',
   Tag: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-tag"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />\n  <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />\n</svg>\n',
   Target:
@@ -419,9 +433,8 @@ const S = {
 } as const
 
 /**
- * 按图标名取 SVG。名字与本表同批生成 ⇒ 正常跑不会缺;真缺了(手改过本文件 / 生成器漏名)
- * **大声告警并画占位**,而不是把 undefined 交给 makeIcon —— 那既过不了类型
- * (noUncheckedIndexedAccess 下 S['X'] 读成 string | undefined),也会在运行期静默少一枚图标。
+ * 按图标名取 SVG。名字与表同批生成 ⇒ 正常跑不会缺;真缺了(手动改过本文件/生成器漏名)
+ * **大声告警并画占位**,而不是把 undefined 交给 makeIcon —— 那既过不了类型,也会在运行期静默少一枚图标。
  */
 function src(name: string): string {
   const hit: string | undefined = S[name as keyof typeof S]
@@ -431,11 +444,13 @@ function src(name: string): string {
     )
   return hit ?? ''
 }
+
 export const Activity = makeIcon('Activity', src('Activity'))
 export const AlertCircle = makeIcon('AlertCircle', src('AlertCircle'))
 export const AlertTriangle = makeIcon('AlertTriangle', src('AlertTriangle'))
 export const AppWindow = makeIcon('AppWindow', src('AppWindow'))
 export const ArrowDown = makeIcon('ArrowDown', src('ArrowDown'))
+export const ArrowRight = makeIcon('ArrowRight', src('ArrowRight'))
 export const ArrowUp = makeIcon('ArrowUp', src('ArrowUp'))
 export const Award = makeIcon('Award', src('Award'))
 export const BadgeCheck = makeIcon('BadgeCheck', src('BadgeCheck'))
@@ -455,6 +470,7 @@ export const BriefcaseBusiness = makeIcon('BriefcaseBusiness', src('BriefcaseBus
 export const Building2 = makeIcon('Building2', src('Building2'))
 export const Calendar = makeIcon('Calendar', src('Calendar'))
 export const CalendarCheck = makeIcon('CalendarCheck', src('CalendarCheck'))
+export const CalendarClock = makeIcon('CalendarClock', src('CalendarClock'))
 export const CalendarDays = makeIcon('CalendarDays', src('CalendarDays'))
 export const Camera = makeIcon('Camera', src('Camera'))
 export const ChartLine = makeIcon('ChartLine', src('ChartLine'))
@@ -492,6 +508,9 @@ export const ExternalLink = makeIcon('ExternalLink', src('ExternalLink'))
 export const Eye = makeIcon('Eye', src('Eye'))
 export const EyeOff = makeIcon('EyeOff', src('EyeOff'))
 export const FileAudio = makeIcon('FileAudio', src('FileAudio'))
+export const FileCode = makeIcon('FileCode', src('FileCode'))
+export const FileJson = makeIcon('FileJson', src('FileJson'))
+export const FileSpreadsheet = makeIcon('FileSpreadsheet', src('FileSpreadsheet'))
 export const FileText = makeIcon('FileText', src('FileText'))
 export const FileUp = makeIcon('FileUp', src('FileUp'))
 export const Files = makeIcon('Files', src('Files'))
@@ -614,7 +633,9 @@ export const SquareFunction = makeIcon('SquareFunction', src('SquareFunction'))
 export const SquarePen = makeIcon('SquarePen', src('SquarePen'))
 export const Stamp = makeIcon('Stamp', src('Stamp'))
 export const Star = makeIcon('Star', src('Star'))
+export const StickyNote = makeIcon('StickyNote', src('StickyNote'))
 export const Store = makeIcon('Store', src('Store'))
+export const Subtitles = makeIcon('Subtitles', src('Subtitles'))
 export const Sun = makeIcon('Sun', src('Sun'))
 export const Tag = makeIcon('Tag', src('Tag'))
 export const Target = makeIcon('Target', src('Target'))

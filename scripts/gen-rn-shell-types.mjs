@@ -252,7 +252,11 @@ function main() {
   if (argv.includes('--self-test')) return selfTest()
   const write = argv.includes('--write')
   const check = argv.includes('--check')
-  const face = check ? 'head' : 'worktree'
+  // 判它的门(251 C9)读的是 **HEAD blob** ⇒ 复核必须同面(§0.4 同面同轮)。
+  // 写回默认仍取工作树(给人就地刷新自己的改动),另给 `--head`:把 HEAD 面的期望写进工作树,
+  // 落地器据此推进 HEAD —— 否则"按工作树生成、按 HEAD 判"必然互相打脸(本机实测:工作树 122 个
+  // 说明符 vs HEAD 118 个 ⇒ --write 之后 --check 仍报落后,那正是修复出口跑不通的形态)。
+  const face = check || argv.includes('--head') ? 'head' : 'worktree'
   let plan
   try {
     plan = collect({ face })
