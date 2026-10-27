@@ -311,4 +311,24 @@ test('T12 真仓存活 + 阳性对照(对照取自被审面的表内容,不钉�
   assert.deepEqual(miss.unmapped.map((r) => r.route), [notCarried])
 })
 
+test('T16 渲染推翻候选:同名 ∧ 已被 RN 渲染 才入队;非同名或仅宿主形态一律不入队(不翻案只点名)', () => {
+  const g = (web, cs) => ({ web, candidates: cs })
+  const c = (name, rel, exact, workShape) => ({ name, rel, exact, workShape })
+  const out = parity.renderContradictedOf([
+    g('edu/dashboard', [c('DashboardScreen', 'packages/app/src/features/dashboard/DashboardScreen.tsx', true, 'covered')]),
+    // 同名但没有任何 RN 屏渲染 ⇒ 那是"只补薄宿主"的成本档,不是互斥句
+    g('letters', [c('LettersScreen', 'packages/app/src/features/letters/LettersScreen.tsx', true, 'host-only')]),
+    // 已渲染但名字是启发式凑出来的(非同名)⇒ 不足以说台账错
+    g('voices', [c('AiVoiceScreen', 'packages/app/src/features/voice/AiVoiceScreen.tsx', false, 'covered')]),
+    // 非共享层的同名屏(端内屏)⇒ 不在本维射程
+    g('web-tools', [c('ToolsScreen', 'apps/mobile-rn/src/screens/ToolsScreen.tsx', true, 'covered')]),
+  ])
+  assert.deepEqual(out.map((x) => x.web), ['edu/dashboard'])
+  assert.deepEqual(out[0].renderers, [
+    'DashboardScreen(packages/app/src/features/dashboard/DashboardScreen.tsx)',
+  ])
+  // 空集必须真为空(判据放宽一格就会把"只补宿主"的活账翻成"已承载")
+  assert.deepEqual(parity.renderContradictedOf([g('a', [c('B', 'p', false, 'other')])]), [])
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
