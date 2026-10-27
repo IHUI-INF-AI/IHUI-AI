@@ -113,7 +113,9 @@ export function QrTab({
 
   return (
     // 2026-09-19 紧凑化(用户要求登录弹窗禁滚动):gap-3→gap-2、pt-2→0;
-    // 面板包裹层 py-3→py-1。厂商 SDK 二维码面板高度(280px)不动,只压本组件自身 chrome。
+    // 面板包裹层 py-3→py-1。厂商 SDK 二维码面板只压本组件自身 chrome。
+    // 2026-10-27:面板高度随外框改为 1:1 正方形(默认 300×300)——原 280×260 不是正方形,
+    // 且装不下 SDK 写死的 300×400 iframe,二维码被裁;面板自身 chrome 仍维持紧凑值。
     <div className={cn('flex flex-col items-center gap-2', className)}>
       {/* 平台切换 Tab:列数跟随平台数(5 平台单行排布,修复第 5 项掉行) */}
       <div
@@ -160,7 +162,7 @@ export function QrTab({
           <QrComponent platform={platform} refreshKey={refreshKey} />
         ) : (
           <>
-            <div className="flex h-32 w-32 items-center justify-center rounded-md border border-dashed border-border bg-muted/30">
+            <div className="flex aspect-square w-full max-w-[300px] items-center justify-center rounded-md border border-dashed border-border bg-muted/30">
               <QrCode className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
             </div>
             <Button
