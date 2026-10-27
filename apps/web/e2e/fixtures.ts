@@ -50,7 +50,15 @@ const TEST_USER = {
 
 const ADMIN_USER = {
   account: process.env.E2E_ADMIN_ACCOUNT ?? 'e2e_admin',
-  password: requireEnv('E2E_ADMIN_PASSWORD'),
+  // 惰性求值(2026-10-27):原写法把 requireEnv 放在顶层对象字面量里 ⇒ 未设
+  // E2E_ADMIN_PASSWORD 时任何 `import './fixtures'` 的 spec 在**加载阶段**整片崩
+  // (Playwright 报 Total: 0 tests in 0 files),连带无关用例一起熄火。
+  // 改 getter 只挪"求值时机"到真正读取 .password(即真要 admin 登录)的那一刻;
+  // 禁令本身一字未动 —— 仓库内不提供任何 admin 默认口令,缺失仍当场 throw,
+  // 不 warn、不回落。
+  get password(): string {
+    return requireEnv('E2E_ADMIN_PASSWORD')
+  },
 }
 
 // storageState 文件路径
