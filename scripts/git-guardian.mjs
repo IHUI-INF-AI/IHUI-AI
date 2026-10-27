@@ -5117,6 +5117,10 @@ export function convergeCrossEndPortalVerdicts(opts = {}) {
   // —— 装了指纹采集器却不接指示灯,等于没装(§0.9/§12f:能看见的才谈得上修)。
   const renderLine = stdout.split('\n').find((l) => l.includes('AUTO-REGISTER-RENDER'))
   if (renderLine && !/state=off/.test(renderLine)) logger(`ℹ️ 渲染复判:${renderLine.slice(0, 240)}`)
+  // 反向牙:整行都不出现 ⇒ 旗掉了或 child 在 PORTAL 行之后就死 ⇒ 这一维**没判**,不许读成"无事"。
+  // (off 是"这条派发刻意不做收敛",不在射程;缺行才是安静失效。)
+  if (!renderLine)
+    logger('⚠️ 渲染复判:结论行缺失 ⇒ 这一维本轮没判(旗 --converge-render 是否还在派发里?),不读成"无需改判"')
   if (state === 'clean' && candidates === 0 && applied === 0)
     return { ran: true, state, candidates, applied }
   logger(`ℹ️ 门户维收敛:${line.slice(0, 260)}`)
