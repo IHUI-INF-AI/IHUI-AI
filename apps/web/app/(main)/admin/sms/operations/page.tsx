@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Loader2, RefreshCw, Send } from 'lucide-react'
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
@@ -17,6 +18,8 @@ import { UnsubscribePanel } from './UnsubscribePanel'
 import type { SmsStatus } from './types'
 
 export default function SmsOperationsPage() {
+  const t = useTranslations('admin.smsOperations')
+  const tc = useTranslations('common')
   /** 刷新按钮要绕过服务端 5 分钟的审核状态缓存,所以把"强制刷新"带进 query key。 */
   const [refreshKey, setRefreshKey] = React.useState(0)
   const { data, isLoading, isFetching, error } = useQuery({
@@ -30,30 +33,30 @@ export default function SmsOperationsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Send className="h-6 w-6 text-primary" />
-          短信通道运营
+          {t('page.title')}
         </h1>
         <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)}>
           <RefreshCw className={isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-          刷新
+          {tc('refresh')}
         </Button>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center rounded-lg border py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载通道状态…
+          {t('page.loadingStatus')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          {(error as Error).message || '加载失败'}
+          {(error as Error).message || tc('loadFailed')}
         </div>
       ) : data ? (
         <Tabs defaultValue="overview">
           <TabsList>
-            <TabsTrigger value="overview">通道状态</TabsTrigger>
-            <TabsTrigger value="send">发送</TabsTrigger>
-            <TabsTrigger value="logs">发送台账</TabsTrigger>
-            <TabsTrigger value="unsubscribes">退订黑名单</TabsTrigger>
+            <TabsTrigger value="overview">{t('page.tabStatus')}</TabsTrigger>
+            <TabsTrigger value="send">{t('page.tabSend')}</TabsTrigger>
+            <TabsTrigger value="logs">{t('page.tabLogs')}</TabsTrigger>
+            <TabsTrigger value="unsubscribes">{t('page.tabUnsubscribes')}</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-4">
             <StatusPanel status={data} />

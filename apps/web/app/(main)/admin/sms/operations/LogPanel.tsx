@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Download, Loader2, RefreshCw } from 'lucide-react'
 import {
@@ -22,32 +23,40 @@ import {
 import { exportToExcel, type ExportColumn } from '@/lib/export-utils'
 import {
   BASE,
+  CATEGORY_LABEL_KEYS,
   LOG_STATUS,
+  PROVIDER_LABEL_KEYS,
+  TEMPLATE_LABEL_KEYS,
   api,
-  categoryLabel,
+  codeLabel,
   fmtTime,
   logStatus,
-  providerLabel,
-  templateLabel,
 } from './helpers'
 import type { SmsDeliveryLog, SmsLogsResponse } from './types'
 
 const PAGE_SIZE = 20
 const EXPORT_LIMIT = 200
 
-const EXPORT_COLS: ExportColumn[] = [
-  { key: 'created_at', title: '发送时间', formatter: (v) => fmtTime(v) },
-  { key: 'provider', title: '通道' },
-  { key: 'category', title: '类别' },
-  { key: 'template_key', title: '模板' },
-  { key: 'template_id', title: '模板 ID' },
-  { key: 'phone', title: '手机号' },
-  { key: 'status', title: '状态' },
-  { key: 'reason', title: '原因' },
+/** 导出列的表头是给用户看的文案,故按 i18n 键存;实际取词在组件内做。
+ *  RequestId / SerialNo 是云侧字段本名,不属于待译文案,保留 `title` 直填。 */
+const EXPORT_COLS: {
+  key: string
+  labelKey?: string
+  title?: string
+  withTime?: boolean
+}[] = [
+  { key: 'created_at', labelKey: 'log.colSendTime', withTime: true },
+  { key: 'provider', labelKey: 'field.channel' },
+  { key: 'category', labelKey: 'field.category' },
+  { key: 'template_key', labelKey: 'field.template' },
+  { key: 'template_id', labelKey: 'field.templateId' },
+  { key: 'phone', labelKey: 'field.phone' },
+  { key: 'status', labelKey: 'field.status' },
+  { key: 'reason', labelKey: 'field.reason' },
   { key: 'request_id', title: 'RequestId' },
   { key: 'serial_no', title: 'SerialNo' },
-  { key: 'biz_type', title: '业务类型' },
-  { key: 'biz_id', title: '业务 ID' },
+  { key: 'biz_type', labelKey: 'field.bizType' },
+  { key: 'biz_id', labelKey: 'field.bizId' },
 ]
 
 function buildQuery(status: string, limit: number, offset: number): string {
@@ -57,9 +66,17 @@ function buildQuery(status: string, limit: number, offset: number): string {
 }
 
 export function LogPanel() {
+  const t = useTranslations('admin.smsOperations')
+  const tc = useTranslations('common')
   const [status, setStatus] = React.useState('all')
   const [offset, setOffset] = React.useState(0)
   const [exporting, setExporting] = React.useState(false)
+
+  const exportCols: ExportColumn[] = EXPORT_COLS.map(({ key, labelKey, title, withTime }) => ({
+    key,
+    title: labelKey ? t(labelKey) : (title ?? key),
+    ...(withTime ? { formatter: (v: unknown) => fmtTime(v) } : {}),
+  }))
 
   const params = buildQuery(status, PAGE_SIZE, offset)
   const { data, isLoading, isError, isFetching, refetch } = useQuery({
@@ -76,8 +93,12 @@ export function LogPanel() {
     setExporting(true)
     try {
       const all = await api<SmsLogsResponse>(`${BASE}/logs?${buildQuery(status, EXPORT_LIMIT, 0)}`)
-      exportToExcel('短信发送台账', EXPORT_COLS, all.items as unknown as Record<string, unknown>[])
-      toast.success(`已导出 ${all.items.length} 条`)
+      exportToExcel(
+        t('log.exportFileName'),
+        exportCols,
+        all.items as unknown as Record<string, unknown>[],
+      )
+      toast.success(t('log.exported', { count: all.items.length }))
     } catch (e) {
       toast.error((e as Error).message)
     } finally {
@@ -100,17 +121,17 @@ export function LogPanel() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="all">{t('log.allStatuses')}</SelectItem>
               {Object.entries(LOG_STATUS).map(([key, v]) => (
                 <SelectItem key={key} value={key}>
-                  {v.label}
+                  {t(v.key)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
             <RefreshCw className={isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-            刷新
+            {tc('refresh')}
           </Button>
           <Button
             variant="outline"
@@ -123,15 +144,15 @@ export function LogPanel() {
             ) : (
               <Download className="h-4 w-4" />
             )}
-            导出
+            {tc('export')}
           </Button>
           <span className="ml-auto text-xs text-muted-foreground">
-            最多导出最近 {EXPORT_LIMIT} 条
+            {t('log.exportLimitHint', { limit: EXPORT_LIMIT })}
           </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>共 {isError ? '—' : total} 条</span>
+          <span>{t('log.totalCount', { count: isError ? '—' : total })}</span>
           {Object.keys(LOG_STATUS)
             .filter((k) => (counts[k] ?? 0) > 0)
             .map((k) => {
@@ -139,7 +160,7 @@ export function LogPanel() {
               if (!meta) return null
               return (
                 <Badge key={k} variant={meta.tone}>
-                  {meta.label} {counts[k]}
+                  {t(meta.key)} {counts[k]}
                 </Badge>
               )
             })}
@@ -149,13 +170,13 @@ export function LogPanel() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">时间</th>
-                <th className="px-3 py-2 font-medium">通道</th>
-                <th className="px-3 py-2 font-medium">类别</th>
-                <th className="px-3 py-2 font-medium">模板</th>
-                <th className="px-3 py-2 font-medium">号码</th>
-                <th className="px-3 py-2 font-medium">状态</th>
-                <th className="px-3 py-2 font-medium">原因</th>
+                <th className="px-3 py-2 font-medium">{t('field.time')}</th>
+                <th className="px-3 py-2 font-medium">{t('field.channel')}</th>
+                <th className="px-3 py-2 font-medium">{t('field.category')}</th>
+                <th className="px-3 py-2 font-medium">{t('field.template')}</th>
+                <th className="px-3 py-2 font-medium">{t('field.number')}</th>
+                <th className="px-3 py-2 font-medium">{t('field.status')}</th>
+                <th className="px-3 py-2 font-medium">{t('field.reason')}</th>
                 <th className="px-3 py-2 font-medium">RequestId</th>
               </tr>
             </thead>
@@ -164,15 +185,13 @@ export function LogPanel() {
                 <tr>
                   <td colSpan={8} className="px-3 py-10 text-center text-muted-foreground">
                     <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                    加载中…
+                    {t('pager.loading')}
                   </td>
                 </tr>
               ) : isError ? (
                 <tr>
                   <td colSpan={8} className="px-3 py-10 text-center">
-                    <p className="text-destructive">
-                      台账加载失败,下方不是「没有记录」而是没取到。
-                    </p>
+                    <p className="text-destructive">{t('log.loadFailed')}</p>
                     <Button
                       variant="outline"
                       size="sm"
@@ -180,14 +199,14 @@ export function LogPanel() {
                       onClick={() => void refetch()}
                     >
                       <RefreshCw className="h-4 w-4" />
-                      重试
+                      {tc('retry')}
                     </Button>
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-3 py-10 text-center text-muted-foreground">
-                    暂无发送记录
+                    {t('log.empty')}
                   </td>
                 </tr>
               ) : (
@@ -196,14 +215,18 @@ export function LogPanel() {
                   return (
                     <tr key={row.id} className="border-t hover:bg-muted/30">
                       <td className="whitespace-nowrap px-3 py-2">{fmtTime(row.created_at)}</td>
-                      <td className="px-3 py-2">{providerLabel(row.provider)}</td>
-                      <td className="px-3 py-2">{categoryLabel(row.category)}</td>
                       <td className="px-3 py-2">
-                        {row.template_key ? templateLabel(row.template_key) : '-'}
+                        {codeLabel(PROVIDER_LABEL_KEYS, row.provider, t)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {codeLabel(CATEGORY_LABEL_KEYS, row.category, t)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {codeLabel(TEMPLATE_LABEL_KEYS, row.template_key, t)}
                       </td>
                       <td className="px-3 py-2 font-mono">{row.phone}</td>
                       <td className="px-3 py-2">
-                        <Badge variant={s.tone}>{s.label}</Badge>
+                        <Badge variant={s.tone}>{t(s.key, s.values)}</Badge>
                       </td>
                       <td className="max-w-56 truncate px-3 py-2" title={row.reason ?? ''}>
                         {row.reason ?? '-'}
@@ -224,7 +247,7 @@ export function LogPanel() {
 
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="text-muted-foreground">
-            第 {page} 页 · 每页 {PAGE_SIZE} 条 · 共 {total} 条
+            {t('log.pagination', { page, size: PAGE_SIZE, total })}
           </span>
           <div className="flex gap-1">
             <Button
@@ -233,7 +256,7 @@ export function LogPanel() {
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
             >
-              上一页
+              {t('pager.prev')}
             </Button>
             <Button
               size="sm"
@@ -241,7 +264,7 @@ export function LogPanel() {
               disabled={!hasNext}
               onClick={() => setOffset(offset + PAGE_SIZE)}
             >
-              下一页
+              {t('pager.next')}
             </Button>
           </div>
         </div>
