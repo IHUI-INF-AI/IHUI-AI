@@ -1,5 +1,7 @@
-﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 #requires -Version 7
 <#
 .SYNOPSIS
@@ -25,6 +27,9 @@
   目标会话 id;0 = 自动取活动控制台会话(WTSGetActiveConsoleSessionId)。
 .PARAMETER TimeoutSeconds
   子进程最长执行秒数;超时 TerminateProcess 并以退出码 124 返回(默认 25,小于调用方 30s)。
+.PARAMETER NoWait
+  拉起后立即返回,不等子进程退出(2026-10-28 立:重新打开客户端这类长驻 GUI 进程,
+  等它退出会把调用方(depth 30s)挂死;本开关下超时不生效)。
 .EXAMPLE
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File run-as-user.ps1 -Exe C:\node.exe -ArgJson '["a.mjs","--stdin"]'
 #>
@@ -33,7 +38,8 @@ param(
     [Parameter(Mandatory = $true)][string]$ArgJson,
     [string]$WorkingDirectory = '',
     [int]$SessionId = 0,
-    [int]$TimeoutSeconds = 25
+    [int]$TimeoutSeconds = 25,
+    [switch]$NoWait
 )
 
 $ErrorActionPreference = 'Stop'
@@ -155,6 +161,11 @@ if (-not $WorkingDirectory) { $WorkingDirectory = (Get-Location).Path }
 if (-not (Test-ServiceIdentity)) {
     Push-Location -LiteralPath $WorkingDirectory
     try {
+        if ($NoWait) {
+            # 不等待:Start-Process 只负责拉起(客户端这类长驻 GUI)
+            Start-Process -FilePath $Exe -ArgumentList $argList -WorkingDirectory $WorkingDirectory | Out-Null
+            exit 0
+        }
         & $Exe @argList
         $code = $LASTEXITCODE
         if ($null -eq $code) { $code = 0 }
@@ -309,7 +320,7 @@ public static class IHUIUserProcess
         finally { CloseHandle(token); }
     }
 
-    public static int RunAsInteractionUser(string exe, string cmdLine, string cwd, int sessionId, int timeoutMs)
+    public static int RunAsInteractionUser(string exe, string cmdLine, string cwd, int sessionId, int timeoutMs, bool noWait)
     {
         EnablePrivileges();
         if (sessionId <= 0)
@@ -359,6 +370,12 @@ public static class IHUIUserProcess
                     throw new Win32Exception(Marshal.GetLastWin32Error(), "CreateProcessAsUser 失败(首次错误码 " + firstError + ")");
             }
             CloseHandle(pi.hThread);
+            if (noWait)
+            {
+                // 长驻 GUI(客户端):拉起即返回,不陪它跑到退出
+                CloseHandle(pi.hProcess);
+                return 0;
+            }
             uint wait = WaitForSingleObject(pi.hProcess, (uint)timeoutMs);
             uint code;
             if (wait == WAIT_TIMEOUT)
@@ -394,6 +411,7 @@ try {
             $env:IHUI_RUN_AS_USER_REEXEC = '1'
             $retryArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath,
                 '-Exe', $Exe, '-ArgJson', $ArgJson, '-SessionId', "$SessionId", '-TimeoutSeconds', "$TimeoutSeconds")
+            if ($NoWait) { $retryArgs += '-NoWait' }
             if ($WorkingDirectory) { $retryArgs += @('-WorkingDirectory', $WorkingDirectory) }
             & $pwsh @retryArgs
             exit $LASTEXITCODE
@@ -404,9 +422,10 @@ try {
 }
 
 try {
-    $code = [IHUIUserProcess]::RunAsInteractionUser($Exe, $cmdLine, $WorkingDirectory, $SessionId, ($TimeoutSeconds * 1000))
+    $code = [IHUIUserProcess]::RunAsInteractionUser($Exe, $cmdLine, $WorkingDirectory, $SessionId, ($TimeoutSeconds * 1000), [bool]$NoWait)
     exit $code
 } catch {
     Write-HelperError 'run-as-user' $_.Exception.Message
     exit 3
 }
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
