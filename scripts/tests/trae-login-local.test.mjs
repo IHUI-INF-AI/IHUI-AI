@@ -18,6 +18,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { __test__ as L } from '../trae-login-local.mjs'
+import { __test__ as C } from '../lib/trae-client-process.mjs'
 import { __test__ as T } from '../lib/trae-auth-extract.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -233,16 +234,16 @@ test('⑥ 进程面:在跑则先优雅关闭→写→自检→自动拉起;关�
     assert.equal(fs.readFileSync(file, 'utf8'), beforeProbe)
     assert.equal(L.normalizePayload(PAYLOAD).restartClient, false, '缺省不得动进程')
 
-    // 关不掉(托盘常驻/有未响应窗口)⇒ 不写,如实报错,不强杀丢用户未保存内容
+    // 连强制结束都没退掉(进程被别的驱动挂住)⇒ 不写,如实报错(此时写必被覆写)
     assert.throws(
       () =>
         L.applyLogin(T, L.normalizePayload({ ...PAYLOAD, restartClient: true, targetStorage: file }), {
           probe: running(),
           resolveExe: () => 'C:/fake/Trae CN.exe',
-          closeProduct: () => ({ wasRunning: true, closed: false, pids: [4242] }),
+          closeProduct: () => ({ wasRunning: true, closed: false, pids: [4242], forced: true }),
           launchProduct: () => assert.fail('没关成就不能拉起'),
         }),
-      (e) => e.code === 'target-locked',
+      (e) => e.code === 'target-locked' && /强制/.test(e.message),
     )
     assert.equal(fs.readFileSync(file, 'utf8'), beforeProbe)
 
@@ -292,6 +293,23 @@ test('⑥ 进程面:在跑则先优雅关闭→写→自检→自动拉起;关�
     assert.equal(manual.clientRestarted, false)
     assert.equal(manual.clientLaunchError, '拒绝访问')
     assert.match(manual.restartHint, /手动打开/)
+
+    // 托盘常驻只能强杀时:落盘照旧,但回报必须点名"强制"(用户才知道自己的未保存内容可能丢了)
+    const forced = L.applyLogin(
+      T,
+      L.normalizePayload({ ...PAYLOAD, restartClient: true, targetStorage: file }),
+      {
+        probe: running(),
+        resolveExe: () => 'C:/fake/Trae CN.exe',
+        closeProduct: () => ({ wasRunning: true, closed: true, pids: [4242], forced: true }),
+        launchProduct: () => ({ launched: true, error: '' }),
+      },
+    )
+    assert.equal(forced.clientClosed, true)
+    assert.equal(forced.clientForced, true)
+    assert.equal(forced.clientRestarted, true)
+    assert.match(forced.restartHint, /强制关闭/)
+    assert.equal(manual.clientForced, false, '优雅关闭不得误报强制')
 
     // 写入失败也要把用户客户端拉回来(finally),否则用户会以为客户端"被关掉了"
     const badFile = path.join(scratch, 'Trae', 'User', 'globalStorage', 'storage.json')
@@ -353,5 +371,31 @@ test('⑦ 落点面:多份客户端同时安装时优先正在运行的那份,�
   } finally {
     rmScratch(scratch)
   }
+})
+
+test('⑧ 进程库面:产品名映射、探测不到=未知、不存在的产品=没在跑、拉不起如实回报', () => {
+  assert.equal(C.productOfDir('trae cn'), 'Trae CN')
+  assert.equal(C.productOfDir('TRAE SOLO CN'), 'TRAE SOLO CN')
+  assert.equal(C.productOfDir('Trae'), 'Trae')
+  assert.equal(C.productOfDir('Cursor'), '', '不认识的数据目录不得当成 Trae')
+
+  // 关掉总开关:不 fork tasklist,直接当"没在跑"(诊断用,调用方会因此收到 target-locked)
+  assert.deepEqual(C.listProductPids('Trae CN', { IHUI_TRAE_PROCESS_CONTROL: '0' }), [])
+
+  // 真探测一个几乎不可能存在的产品名:tasklist 的 INFO 行不得被误解析成 pid,
+  // 且"没在跑"时 closeProduct 必须直接闭合并标记 wasRunning=false(不白等 15 秒)
+  const none = C.listProductPids('IHUI-No-Such-Client')
+  if (none !== null) {
+    assert.deepEqual(none, [], '不存在的进程不得解析出 pid')
+    const t0 = Date.now()
+    const closed = C.closeProduct('IHUI-No-Such-Client', { waitMs: 5000 })
+    assert.equal(closed.wasRunning, false)
+    assert.equal(closed.closed, true)
+    assert.ok(Date.now() - t0 < 4000, '没在跑就必须立即返回,不得空轮询')
+  }
+
+  assert.equal(C.launchProduct('').launched, false)
+  assert.equal(C.launchProduct('C:/nope/NoSuch.exe').launched, false)
+  assert.match(C.launchProduct('C:/nope/NoSuch.exe').error, /路径/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

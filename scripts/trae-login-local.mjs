@@ -219,20 +219,37 @@ export function buildUserInfo(payload) {
   return userInfo
 }
 
-/** 原子写:临时文件写完再 rename(VSCode 自身也是这种写法,避免半截 JSON 被读) */
+/** 同步等待(不 fork 子进程 —— 旧实现每轮 fork 一个 node,长轮询能起上千个) */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/**
+ * 原子写:临时文件写完再 rename(VSCode 自身也是这种写法,避免半截 JSON 被读)。
+ * Windows 上目标文件常被扫描器/索引器/文件监视器短暂持有 ⇒ rename 偶发 EPERM/EBUSY,
+ * 这里退避重试;超过预算才失败(失败时临时文件清掉,主文件保持原样)。
+ */
 function atomicWrite(file, text) {
   const dir = path.dirname(file)
   const tmp = path.join(dir, `.storage.json.ihui-tmp-${process.pid}-${Date.now()}`)
   fs.writeFileSync(tmp, text, 'utf8')
-  try {
-    fs.renameSync(tmp, file)
-  } catch (e) {
+  for (let attempt = 0; ; attempt += 1) {
     try {
-      fs.unlinkSync(tmp)
-    } catch {
-      /* 残留临时文件不影响主文件 */
+      fs.renameSync(tmp, file)
+      return
+    } catch (e) {
+      const transient = ['EPERM', 'EBUSY', 'EACCES', 'EEXIST'].includes(e?.code)
+      if (transient && attempt < 12) {
+        sleepSync(120)
+        continue
+      }
+      try {
+        fs.unlinkSync(tmp)
+      } catch {
+        /* 残留临时文件不影响主文件 */
+      }
+      throw e
     }
-    throw e
   }
 }
 
@@ -259,6 +276,7 @@ export function applyLogin(extract, payload, opts = {}) {
   // 写前关停:客户端退出时会用内存态刷回 storage.json,先写必被覆盖(2026-10-28 实测根因)
   let clientWasRunning = false
   let clientClosed = false
+  let clientForced = false
   let exePath = ''
   if (product && probe.running.has(product)) {
     if (!manageProcess) {
@@ -277,11 +295,12 @@ export function applyLogin(extract, payload, opts = {}) {
     })
     if (!closed.closed) {
       throw new WriteError(
-        `${product} 正在运行且未能在 15 秒内正常退出(可能有未响应窗口或正在保存)⇒ 未写入,请手动退出客户端后重试`,
+        `${product} 正在运行且无法关闭(已尝试优雅关闭与强制结束,进程仍未退出)⇒ 未写入,请手动退出客户端后重试`,
         'target-locked',
       )
     }
     clientClosed = true
+    clientForced = closed.forced === true
   }
 
   let outcome
@@ -360,6 +379,7 @@ export function applyLogin(extract, payload, opts = {}) {
       clientProduct: product || '',
       clientWasRunning,
       clientClosed,
+      clientForced,
       clientRestarted: false,
       clientLaunchError: '',
       restartHint: '',
@@ -368,12 +388,17 @@ export function applyLogin(extract, payload, opts = {}) {
     // 写失败也要把客户端拉回来(用户可能正用它)——只在"是我们关的"情况下
     if (clientClosed) {
       const doLaunch = opts.launchProduct ?? launchProduct
-      const launched = doLaunch(exePath, { env, helperPath: opts.helperPath ?? RUN_AS_USER_SCRIPT })
+      const launched = doLaunch(exePath, {
+        env,
+        helperPath: opts.helperPath ?? RUN_AS_USER_SCRIPT,
+        product,
+        verifyWaitMs: opts.verifyLaunchWaitMs,
+      })
       if (outcome) {
         outcome.clientRestarted = launched.launched
         outcome.clientLaunchError = launched.error
         outcome.restartHint = launched.launched
-          ? `已关闭并重新打开 ${product} 客户端,登录态即时生效`
+          ? `已${clientForced ? '强制' : ''}关闭并重新打开 ${product} 客户端,登录态即时生效`
           : `已关闭 ${product},但未能自动重新打开(${launched.error || '未判定'});请手动打开客户端`
       }
     }

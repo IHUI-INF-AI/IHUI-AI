@@ -172,8 +172,21 @@ export function closeProduct(product, opts = {}) {
       /* 同上 */
     }
   }
-  if (waitOnce(Math.min(8000, waitMs))) return { wasRunning: true, closed: true, pids }
-  return { wasRunning: true, closed: false, pids }
+  if (waitOnce(Math.min(8000, waitMs))) return { wasRunning: true, closed: true, pids, forced: false }
+  /**
+   * 还不退:客户端被设成"关闭即最小化到托盘",或有确认弹窗没人点 —— 这时它永远不会自己退。
+   * 用户已经点过「写入并替换」并在确认框里被告知先存盘,授权是明确的;不强杀等于这个功能
+   * 在托盘常驻的机器上永远不可用(实测"点了没反应"的一大来源)。强杀反而更安全:
+   * 客户端没机会执行退出落盘,不可能再覆写我们马上要写的 storage.json。
+   */
+  for (const pid of pids) {
+    try {
+      execFileSync('taskkill.exe', ['/PID', String(pid), '/F'], { windowsHide: true, timeout: 8000, env })
+    } catch {
+      /* 已退出或无权 —— 由下方轮询给出最终判定 */
+    }
+  }
+  return { wasRunning: true, closed: waitOnce(Math.min(8000, waitMs)), pids, forced: true }
 }
 
 /**
@@ -186,6 +199,18 @@ export function launchProduct(exePath, opts = {}) {
   const env = opts.env ?? process.env
   if (!exePath || !fs.existsSync(exePath)) return { launched: false, error: '拿不到客户端可执行文件路径' }
   const helper = opts.helperPath ?? ''
+  /** 起了没:给了产品名就等 3 秒再看一眼 pid 面(不然 spawn 成功被安全软件吃掉也会报"已重开") */
+  const verify = () => {
+    const product = String(opts.product ?? '').trim()
+    const wait = Number(opts.verifyWaitMs ?? 3000)
+    if (!product || !(wait > 0)) return { launched: true, error: '' }
+    sleepSync(wait)
+    const pids = listProductPids(product, env)
+    if (pids !== null && pids.length === 0) {
+      return { launched: false, error: '已发起启动,但 3 秒内没检测到客户端进程(可能被安全软件拦截)' }
+    }
+    return { launched: true, error: '' }
+  }
   const serviceIdentity =
     /\\systemprofile(\\|$)/i.test(String(env.USERPROFILE ?? '')) ||
     /\\ServiceProfiles(\\|$)/i.test(String(env.USERPROFILE ?? '')) ||
@@ -211,7 +236,7 @@ export function launchProduct(exePath, opts = {}) {
         ],
         { windowsHide: true, timeout: 20_000, env },
       )
-      return { launched: true, error: '' }
+      return verify()
     }
     const child = spawn(exePath, [], {
       cwd: path.dirname(exePath),
@@ -220,7 +245,7 @@ export function launchProduct(exePath, opts = {}) {
       windowsHide: false,
     })
     child.unref()
-    return { launched: true, error: '' }
+    return verify()
   } catch (e) {
     return { launched: false, error: e instanceof Error ? e.message : String(e) }
   }
