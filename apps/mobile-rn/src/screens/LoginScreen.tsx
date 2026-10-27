@@ -52,15 +52,9 @@ import {
 import { tokens } from '../theme/active-tokens'
 import { isSessionLoggedOut } from '../lib/token'
 import { shouldAttemptAutoLogin } from '../lib/auto-login-policy'
-import {
-  fetchRnLoginRegion,
-  orderRnLoginTabs,
-  orderRnThirdPartyOptions,
-  resolveRnLoginRegion,
-  type RnLoginRegion,
-} from '../lib/login-region'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { orderThirdPartyOptionsByRegion, useLoginRegionPlan } from '../hooks/use-login-region-plan'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { credentialStorage } from '../lib/credential-storage'
@@ -207,7 +201,7 @@ const APPLE_ICON_WHITE = require('../../assets/images/common/apple-white.svg')
 // 微信为独立大按钮(共享 ThirdPartyLoginArea 自动抽取);支付宝 auth_code 模式、
 // GitHub 标准 OAuth,均走 web 端回调地址(/callback?platform=xxx&redirect=mobile-rn)。
 function buildThirdPartyOptions(
-  region: RnLoginRegion,
+  _locale: string,
   colorScheme: 'light' | 'dark',
   t: (key: string) => string,
 ): ThirdPartyLoginOption[] {
@@ -274,19 +268,14 @@ function buildThirdPartyOptions(
       brandColor: tokens.gray.black,
     })
   }
-  // 按访客地区重排:domestic ⇒ 微信/企微/钉钉/飞书/支付宝在前;overseas ⇒ Google/GitHub/Apple 在前。
-  // 只改顺序不改成员(判据见 ../lib/login-region;语义与 web region-policy 对齐)。
-  return orderRnThirdPartyOptions(options, region)
+  return options
 }
 
-// 启用的 tab 成员集合(3 tab:邮箱/验证码/密码;渲染顺序由地区判据计算,见下方 loginRegion)
+// 启用的 tab 列表(3 tab:邮箱/验证码/密码)
 // 2026-08-04 移除 qr 扫码登录 tab:App 端自己就是手机,无法扫自己,
 // 扫码登录只适用于 PC web 端(用手机扫电脑屏幕上的二维码)。
 // App 端第三方登录走原生 SDK 一键授权(微信/苹果/Google 等,见 handleThirdPartyLogin)。
-// 2026-10-27 接入访客地区分档:domestic ⇒ phone/email/password(手机验证码优先,与 web 同档
-// 剔除 qr 后的序一致);overseas ⇒ email/password(phone 整体隐藏——后端 `^1[3-9]\d{9}$`
-// 只收中国大陆号码,留着只会指向必然失败的入口)。成员集合本身不变。
-const TAB_MEMBERS: readonly LoginTab[] = ['email', 'phone', 'password']
+const TABS: readonly LoginTab[] = ['email', 'phone', 'password']
 
 // 验证码倒计时秒数(对齐 web 60s)
 const CODE_COUNTDOWN_SECONDS = 60
@@ -330,22 +319,6 @@ export function LoginScreen() {
   const { returnUrl, setReturnUrl } = useAuth()
   const fullUserRef = useRef<AuthUser | null>(null)
 
-  // ===== 访客地区分档(2026-10-27):后端按来源 IP 判的 loginRegion 优先,未判定落设备 locale 兜底 =====
-  // 挂载时经 GET /api/auth/oauth-status 拉一次;失败/缺字段 ⇒ null,由 resolveRnLoginRegion
-  // 按界面语言给粗判据(非 zh-CN ⇒ 海外,与 web 同语义),失效方向永远是"能用的排法"。
-  const [ipLoginRegion, setIpLoginRegion] = useState<RnLoginRegion | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    void fetchRnLoginRegion().then((region) => {
-      if (!cancelled && region !== null) setIpLoginRegion(region)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-  const loginRegion = resolveRnLoginRegion({ ipRegion: ipLoginRegion, locale })
-  const tabs = useMemo(() => orderRnLoginTabs(TAB_MEMBERS, loginRegion), [loginRegion])
-
   // ===== FloatBox 非阻塞错误提示(对齐 uniapp uni.showToast,替代阻塞式 Alert.alert) =====
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('error')
@@ -373,12 +346,20 @@ export function LoginScreen() {
     })
   }, [returnUrl, setReturnUrl, navigation])
 
-  // 第三方登录方式:按平台 + 访客地区动态生成(2026-10-27 起第一参从 locale 换成地区档:
-  // IP 档优先、locale 兜底后的最终 loginRegion;国内微信在前、海外 Google/GitHub 在前)
+  // 第三方登录方式:按平台 + locale 动态生成
   // 国内安卓:微信/飞书/钉钉/企微(4);国内 iOS:苹果为主 + 微信/飞书/钉钉/企微(5);国际版:Google/GitHub(2)
+  // 票 L28754:成员集仍由本端按平台能力决定,但**谁排第一不再由端内原序说了算** ——
+  // 优先序来自共享判据 planLoginRegion(后端按访客 IP 判的 loginRegion,判不出才落界面语言),
+  // 与 web 主站/桌面壳/浏览器扩展同一份表与同一个排序执行器(§0.6,端内禁止另写一份)。
+  // 只改顺序、不改成员(本票射程;tab 顺序与整行主推大按钮两格未接,见交付报告 C 段)。
+  const loginRegionPlan = useLoginRegionPlan(locale)
   const thirdPartyOptions = useMemo(
-    () => buildThirdPartyOptions(loginRegion, resolvedTheme, t),
-    [loginRegion, resolvedTheme, t],
+    () =>
+      orderThirdPartyOptionsByRegion(
+        buildThirdPartyOptions(locale, resolvedTheme, t),
+        loginRegionPlan,
+      ),
+    [locale, resolvedTheme, t, loginRegionPlan],
   )
 
   // ===== 历史账号记录(各 tab 登录成功后写入;供账号/邮箱/手机号输入框历史下拉展示) =====
@@ -1106,9 +1087,9 @@ export function LoginScreen() {
           // = 可用 350dp ⇒ **刚好贴满、右边距 0**,品牌文字 "IHUI INF.AI" 末字压着屏幕右缘被裁。
           // 收到 265×40(保持原图 447:67 等比)后右侧留 ≈22dp 呼吸,与页面其余区块的 15dp 边距同族。
           welcomeNode={<SvgXml xml={welcomeXml} width={265} height={40} />}
-          // 4-tab 配置(顺序按访客地区计算,首位即默认选中:国内 ⇒ phone,海外 ⇒ email)
-          tabs={tabs}
-          defaultTab={tabs[0]}
+          // 4-tab 配置
+          tabs={TABS}
+          defaultTab="phone"
           onTabChange={handleTabChange}
           // email tab
           email={email}
@@ -1139,7 +1120,7 @@ export function LoginScreen() {
           onLoginByPhoneCode={handleLoginByPhoneCode}
           // 运营商一键登录入口(仅已配置通道时渲染;未配置隐藏,走免费自动回填降级)
           carrierOneClickEntry={carrierAvailable ? carrierEntryNode : undefined}
-          // 第三方登录区(按平台 + 访客地区动态生成)
+          // 第三方登录区(按平台 + locale 动态生成)
           thirdPartyOptions={thirdPartyOptions}
           onThirdPartyLogin={handleThirdPartyLogin}
           thirdPartyLoadingPlatform={thirdPartyLoadingPlatform}

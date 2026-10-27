@@ -2,39 +2,33 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { ThirdPartyProvider, ThirdPartyPlatform } from './types'
-
 /**
- * 登录方式优先级判据(DOM 端的取用面) —— 2026-10-27 起**不再是实现**,只是转发:
- * 排序表与 plan 函数住在 `@ihui/shared` 的 `utils/login-order-policy.ts`(web 主站、
- * 桌面壳、浏览器扩展与 RN 共用同一张表,§0.6 单一真相源)。
+ * 地区→登录方式优先级判据 —— 本包消费面(票 L28754,2026-10-27 下沉后只留转出)。
  *
- * 立因:RN 不能依赖 `@ihui/ui-react`(DOM 组件包),此前若各端自留一份排序表,
- * 「谁排第一」就会有两个真相源;下沉共享层后,端内只剩「取 region」这一件事
- * (web: useServerLoginRegion / RN: fetchRnLoginRegion / 扩展: useExtensionLoginRegion)。
- * 例外一枚:`isProviderPlatformAvailable`(provider 可用性谓词)住本文件——
- * `ThirdPartyProvider.icon` 是 ReactNode(DOM 形状),不宜下沉 shared;它不碰排序,不与 §0.6 冲突。
- * (2026-10-27 收敛分叉时自 origin/ad94f971901 逐字移植。)
+ * 唯一实现自 2026-10-27 起住在跨端共享层 `@ihui/shared/auth/login-region-policy`;
+ * 本文件只做两件事:
+ *   ① **原路径转出** —— web 与浏览器扩展的 `import { planLoginRegion } from '@ihui/ui-react'`
+ *      一字不动。下沉原因(全账在共享层文件头):`@ihui/ui-react` 不是 `apps/mobile-rn`
+ *      的依赖,其 barrel 又 `export * from 'lucide-react'` + Radix DOM 组件,接进 RN 等于
+ *      把 Web 专用运行时拖进 Metro 包;而依赖方向是 ui-react → shared,所以判据落共享层、
+ *      本包转出(同型先例:G-365 冷启动重登判据、D28 场景分析判据)。
+ *   ② **留下 `isProviderPlatformAvailable`** —— 它判的是本包自己的 provider 配置形状
+ *      (`ThirdPartyProvider` 含 `ReactNode` 图标),属 UI 契约,不下沉。
  */
 export {
-  DEFAULT_LOGIN_TABS,
-  FEATURED_LOGIN_PLATFORM,
-  LOGIN_EXCLUDED_TABS,
-  LOGIN_TAB_ORDER,
-  QR_LOGIN_PLATFORM_PRIORITY,
-  THIRD_PARTY_PRIORITY,
   isOverseasLocale,
-  orderByPlatformPriority,
-  orderLoginTabs,
   planLoginRegion,
+  reorderByPriority,
   resolveLoginRegion,
-} from '@ihui/shared/utils/login-order-policy'
+} from '@ihui/shared/auth/login-region-policy'
 export type {
   LoginRegion,
   LoginRegionPlan,
   LoginRegionPlanInput,
   MaybeLoginRegion,
-} from '@ihui/shared/utils/login-order-policy'
+} from '@ihui/shared/auth/login-region-policy'
+
+import type { ThirdPartyPlatform, ThirdPartyProvider } from './types'
 
 /**
  * 「该平台当前可用吗」的唯一实现(2026-10-27 立):`enabled` ∧ 未被强制禁用。

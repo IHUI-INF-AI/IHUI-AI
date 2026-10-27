@@ -11,7 +11,8 @@
  * - translateNonStream:HTTP 200 业务错误体必须抛错(不得当成功)
  * - isAuthFailure:401/403 + base_resp 1004;普通 4xx/5xx 不误判
  * - buildChatRequest:双域名按 region 落点、Bearer 头、body 透传
- * - getQuota:401 ⇒ ok:false + authFailed;200 ⇒ 未判定带键名清单(不猜字段)
+ * - getQuota:401 ⇒ authFailed;200 信封三态——base_resp.status_code≠0 ⇒ 业务拒绝带码
+ *   (2062=无活跃套餐)、model_remains 行字段形状未实证 ⇒ 未判定带样例键、数字行可读 ⇒ 聚合
  * - checkHealth:200 ok / 5xx 未判定 / 401 authFailed
  * - classifyUpstreamFailure:1004→auth、1008→credit、1039→rate(社区口径)
  *
@@ -298,7 +299,7 @@ describe('minimax buildChatRequest', () => {
   })
 })
 
-describe('minimax getQuota(形状未实证 ⇒ 200 也未判定)', () => {
+describe('minimax getQuota(2026-10-27 实弹实证:coding_plan/remains 信封)', () => {
   beforeEach(() => {
     mockFetch.mockReset()
   })
@@ -315,37 +316,72 @@ describe('minimax getQuota(形状未实证 ⇒ 200 也未判定)', () => {
     expect(q.error).toMatch(/HTTP 401/)
   })
 
-  it('HTTP 200 → ok:false 未判定,带响应键名清单(不猜字段读成数字)', async () => {
+  it('200 + base_resp.status_code=2062(无活跃套餐)→ ok:false 带业务码(免费号如实无余量)', async () => {
     mockFetch.mockResolvedValue({
       status: 200,
       ok: true,
-      text: async () => JSON.stringify({ models: { 'MiniMax-M2.7': { remains: 42 } } }),
+      text: async () =>
+        JSON.stringify({
+          model_remains: null,
+          base_resp: { status_code: 2062, status_msg: 'no active token plan subscription' },
+        }),
     })
     const q = await minimaxAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
     expect(q.quota).toBeUndefined()
-    expect(q.error).toContain('响应键=[models]')
-    expect(q.error).toMatch(/未判定/)
+    expect(q.error).toMatch(/status_code=2062/)
+    expect(q.error).toMatch(/no active token plan subscription/)
   })
 
-  it('HTTP 200 非 JSON → ok:false 未判定,键=(空)', async () => {
+  it('200 + model_remains 数组但行字段形状未实证 → 未判定并带样例键清单', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ model_remains: [{ model: 'M2.7', foo: 1 }], base_resp: { status_code: 0 } }),
+    })
+    const q = await minimaxAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.error).toMatch(/行字段形状未实证/)
+    expect(q.error).toMatch(/model\|foo/)
+  })
+
+  it('200 + model_remains 行含数字 remain/used → ok:true 聚合', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          model_remains: [
+            { model: 'M2.7', remain: 30, used: 70 },
+            { model: 'M2.5', remain: 20, used: 10 },
+          ],
+          base_resp: { status_code: 0 },
+        }),
+    })
+    const q = await minimaxAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(true)
+    expect(q.quota?.remaining).toBe(50)
+    expect(q.quota?.used).toBe(80)
+  })
+
+  it('200 非 JSON → ok:false 未判定带响应前缀', async () => {
     mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => 'not-json' })
     const q = await minimaxAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
-    expect(q.error).toContain('响应键=[(空)]')
+    expect(q.error).toMatch(/响应非 JSON/)
   })
 
-  it('请求面:GET token_plan/remains + Bearer;region 落对应域名', async () => {
+  it('请求面:GET coding_plan/remains + Bearer;region 落对应域名', async () => {
     mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
     await minimaxAdapter.getQuota!(makeCtx())
     const [urlCn, initCn] = mockFetch.mock.calls[0] as [string, RequestInit]
-    expect(urlCn).toBe('https://api.minimaxi.com/v1/token_plan/remains')
+    expect(urlCn).toBe('https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains')
     expect(initCn.method).toBe('GET')
     expect((initCn.headers as Record<string, string>)['authorization']).toBe('Bearer mm-token')
 
     await minimaxAdapter.getQuota!(makeCtx('global'))
     const [urlGlobal] = mockFetch.mock.calls[1] as [string, RequestInit]
-    expect(urlGlobal).toBe('https://api.minimax.io/v1/token_plan/remains')
+    expect(urlGlobal).toBe('https://api.minimax.io/v1/api/openplatform/coding_plan/remains')
   })
 
   it('网络异常 → ok:false(未判定),error 带原因', async () => {
