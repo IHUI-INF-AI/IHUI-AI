@@ -251,6 +251,8 @@ function evaluateMap(webRoutes, map, rnScreens, face) {
 function run() {
   const webRoutes = collectWebRoutes(FACE)
   const rnScreens = collectRnScreens(FACE)
+  // gap 候选的工作形态要问"有没有 RN 屏真的渲染它" ⇒ 取一次正文(同面,§0.4)
+  const rnTexts = cov.collectRn(FACE)
   if (webRoutes.length === 0 || rnScreens.length === 0) {
     console.error(
       `❌ 未判定:取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length}),不记绿也不冒红`,
@@ -296,8 +298,21 @@ function run() {
       })),
     // gap 行的同名候选(只提示,不改判定):72 条「RN 零承载」里混着一批"RN 以另一种形态内联承载"
     // (实测 news/category/[id] 的分类切换就在 NewsScreen 内联),逐条翻代码太贵 ⇒ 先把候选排成队列。
+    // 每条候选再标工作形态(决定成本,也是"最大化减少开发"的判据):
+    //   host-only  = 共享屏已在、没有任何 RN 屏渲染它 ⇒ 只补一个薄宿主(零 UI 开发)
+    //   covered    = 共享屏已在且已有 RN 屏渲染它 ⇒ 疑似"已被承载",优先做语义核对(可能是记账错)
+    //   other      = 不在共享层或形态不明
     gapCandidates: judgedGap
-      .map((r) => ({ web: r.web, candidates: suggestCandidates(r.web, rnScreens, topN) }))
+      .map((r) => ({
+        web: r.web,
+        candidates: suggestCandidates(r.web, rnScreens, topN).map((c) => {
+          const isShared = String(c.rel).startsWith('packages/app/src/features/')
+          const hasRenderer =
+            isShared && rnTexts.some((t) => t.file !== c.rel && rendersSharedIn(t.text, c.name))
+          const workShape = !isShared ? 'other' : hasRenderer ? 'covered' : 'host-only'
+          return { ...c, workShape }
+        }),
+      }))
       .filter((x) => x.candidates.length > 0),
   }
   if (jsonMode) {
@@ -323,10 +338,18 @@ function run() {
     log(`  ${s.web}  →  ${c}`)
   }
   if (json.gapCandidates.length > 0) {
+    const shapes = json.gapCandidates.flatMap((g) => g.candidates.map((c) => c.workShape))
+    const nHost = shapes.filter((s) => s === 'host-only').length
+    const nCovered = shapes.filter((s) => s === 'covered').length
     log('')
-    log(`gap 待复核(同名候选,只提示不改判定): ${json.gapCandidates.length}/${json.judgedGap} 条`)
+    log(
+      `gap 待复核(同名候选,只提示不改判定): ${json.gapCandidates.length}/${json.judgedGap} 条` +
+        ` · 候选形态 host-only ${nHost} / covered ${nCovered}`,
+    )
     for (const g of json.gapCandidates.slice(0, fullMode ? undefined : 20)) {
-      const c = g.candidates.map((x) => `${x.exact ? '[同名] ' : ''}${x.name}(${x.rel})`).join(' | ')
+      const c = g.candidates
+        .map((x) => `${x.workShape === 'host-only' ? '[宿主] ' : x.workShape === 'covered' ? '[已渲染] ' : ''}${x.exact ? '[同名] ' : ''}${x.name}(${x.rel})`)
+        .join(' | ')
       log(`  ${g.web}  →  ${c}`)
     }
   }
