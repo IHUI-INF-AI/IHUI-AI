@@ -33,7 +33,8 @@ const HELP = `反代账号池导入
 用法:
   node scripts/relay-account-pool.mjs --from trae                  # 取本机 Trae 客户端会话(含 refreshToken)并导入
   node scripts/relay-account-pool.mjs --from workbuddy             # 取本机 WorkBuddy 桌面版当前登录号并导入(需桌面在跑且已登录)
-  node scripts/relay-account-pool.mjs --from qoder|codearts        # 入账/换票/告警已建,本机会话提取器尚未装车 ⇒ 明示未判定(exit 2)并点名真出路
+  node scripts/relay-account-pool.mjs --from qoder                # 取本机 Qoder 登录态并导入(需 pwsh 7+;客户端不必在跑)
+  node scripts/relay-account-pool.mjs --from codearts           # 取本机 CodeArts Agent 登录态并导入(Windows 自带 powershell 即可;桌面不必在跑)
   node scripts/relay-account-pool.mjs --file <accounts.json>       # 直接导入标准账号 JSON
     [--provider <trae|workbuddy|qoder|codearts>]   文件顶层无 providerCode 时必须给
     [--dry-run]                              只校验预检,不写库
@@ -46,6 +47,12 @@ const HELP = `反代账号池导入
   - WorkBuddy 需要桌面版正在运行且已登录(密钥只存在于主进程);
    - Trae 读 %APPDATA%\\<Trae CN|TRAE SOLO CN|Trae>\\User\\globalStorage\\storage.json 的信封
      (进程不是登录用户账户时自动兜底扫本机各用户 profile;IHUI_TRAE_SCAN_USERS=0 可关),客户端不必在跑;
+  - Qoder 读 %APPDATA%\\com.qoder[cn].app.* 的 auth.v1.dat(DPAPI+AES-GCM,须以登录
+     Qoder 的同一 Windows 用户跑;IHUI_QODER_CAPTURE_PS1 可换捕获脚本),客户端不必在跑;
+     无 pwsh 环境降级:qoder-capture.ps1 -OutFile 后 pnpm qoder:import -- --session-file;
+  - CodeArts 读 %APPDATA%\codearts-agent\User\globalStorage\state.vscdb 的
+     HuaweiCloudSession 秘密(v10+DPAPI+AES-GCM,须以登录 CodeArts 的同一 Windows 用户跑;
+     桌面在跑可能持锁,先关再提;IHUI_CODEARTS_SCAN_USERS=0 可关 profile 兜底);
   - 任何输出都不包含令牌明文。
 `
 
@@ -56,8 +63,8 @@ const HELP = `反代账号池导入
 const FROM_PROVIDERS = Object.freeze({
   trae: { module: 'trae-auth-extract.mjs', fn: 'extractTraeAccount' },
   workbuddy: { module: 'workbuddy-auth-extract.mjs', fn: 'extractWorkbuddyAccount' },
-  qoder: null,
-  codearts: null,
+  qoder: { module: 'qoder-auth-extract.mjs', fn: 'extractQoderAccounts' },
+  codearts: { module: 'codearts-auth-extract.mjs', fn: 'extractCodeartsAccounts' },
 })
 const FROM_POOL_KEYS = Object.keys(FROM_PROVIDERS)
 
@@ -179,6 +186,64 @@ async function main(argv) {
       `提取: 版本=${meta.edition} pid=${meta.pid} uid=${meta.uid} 名称=${meta.name} ` +
         `token到期=${meta.tokenExpiresAt ?? '-'} 指纹=${meta.tokenFingerprint} ` +
         `(access ${meta.accessTokenLength}B / refresh ${meta.refreshTokenLength}B)\n`,
+    )
+    providerCode = extracted.providerCode
+    payloadText = JSON.stringify(extracted)
+  } else if (options.from === 'codearts') {
+    const { extractCodeartsAccounts } = await import(
+      pathToFileURL(path.join(ROOT, 'scripts', 'lib', 'codearts-auth-extract.mjs')).href
+    )
+    let extracted
+    try {
+      extracted = await extractCodeartsAccounts()
+    } catch (e) {
+      const code = e?.code ? `[${e.code}] ` : ''
+      process.stderr.write(
+        `❌ 提取失败(未判定): ${code}${e instanceof Error ? e.message : String(e)}\n`,
+      )
+      return 2
+    }
+    const meta = extracted.meta
+    process.stderr.write(
+      `提取: 会话=${meta.count} 跳过=${meta.skipped} 落点=${meta.sourceDir}\n` +
+        meta.sessions
+          .map(
+            (s) =>
+              `  #${s.uid} ${s.name} STS到期=${s.expiresAt} refresh=${s.hasRefresh ? '有' : '无'} ` +
+              `AK/SK=${s.hasAkSk ? '全' : '缺'} DPoP=${s.hasDpopJwk ? '有' : '缺'} PKCE=${s.hasCodeVerifier ? '有' : '缺'} ` +
+              `指纹=${s.tokenFingerprint} (STS ${s.tokenLength}B)`,
+          )
+          .join('\n') +
+        '\n',
+    )
+    providerCode = extracted.providerCode
+    payloadText = JSON.stringify(extracted)
+  } else if (options.from === 'qoder') {
+    const { extractQoderAccounts } = await import(
+      pathToFileURL(path.join(ROOT, 'scripts', 'lib', 'qoder-auth-extract.mjs')).href
+    )
+    let extracted
+    try {
+      extracted = await extractQoderAccounts()
+    } catch (e) {
+      const code = e?.code ? `[${e.code}] ` : ''
+      process.stderr.write(
+        `❌ 提取失败(未判定): ${code}${e instanceof Error ? e.message : String(e)}\n`,
+      )
+      return 2
+    }
+    const meta = extracted.meta
+    process.stderr.write(
+      `提取: 会话=${meta.count} 跳过=${meta.skipped}\n` +
+        meta.sessions
+          .map(
+            (s) =>
+              `  #${s.uid} ${s.name} (${s.edition}) token到期=${s.expiresAt} ` +
+              `rt到期=${s.refreshTokenExpiresAt} refresh=${s.hasRefresh ? '有' : '无'} ` +
+              `指纹=${s.tokenFingerprint} (access ${s.accessTokenLength}B)`,
+          )
+          .join('\n') +
+        '\n',
     )
     providerCode = extracted.providerCode
     payloadText = JSON.stringify(extracted)

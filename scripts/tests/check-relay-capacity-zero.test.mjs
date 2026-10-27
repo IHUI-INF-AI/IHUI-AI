@@ -150,14 +150,14 @@ test('M5b S1 复活出口按 provider 定制:trae/workbuddy 点名客户端重�
   const q = s1Of('qoder')
   assert.ok(q.nextStep.includes('换票'), 'qoder 点名池内通用巡检自动换票是首选处置')
   assert.ok(
-    q.nextStep.includes('导入账号 JSON') && q.nextStep.includes('未装车'),
-    'qoder 的兜底出路只能是已存在的导入通道,并如实预告提取器未装车',
+    q.nextStep.includes('--from qoder') && !q.nextStep.includes('未装车'),
+    'qoder 提取器已装车(2026-10-27):出口点名真跑得通的一键重提取命令',
   )
   const c = s1Of('codearts')
   assert.ok(c.nextStep.includes('无签到引擎'), 'codearts 不得被要求签到(映射即拦截的事实进文案)')
   assert.ok(
-    !c.nextStep.includes('--from ') || c.nextStep.includes('未装车'),
-    'codearts 出口不许引用不存在的命令',
+    c.nextStep.includes('--from codearts') && !c.nextStep.includes('未装车'),
+    'codearts 提取器已装车(2026-10-27):出口点名真跑得通的一键重提取命令',
   )
 })
 
