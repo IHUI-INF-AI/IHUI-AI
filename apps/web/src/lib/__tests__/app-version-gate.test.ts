@@ -14,7 +14,10 @@ import {
   appVersionGateCheck,
   compareVersions,
   gateAllowsAction,
+  getLastAppVersionGateDecision,
   isActiveAppVersionGateKind,
+  isTrustedAppVersion,
+  subscribeAppVersionGate,
   type AppVersionGateDecision,
 } from '../app-version-gate'
 
@@ -208,6 +211,133 @@ describe('appVersionGateCheck(接线:拉端点 + 广播决策)', () => {
     expect(d.required).toBe(false)
     expect(d.kind).toBe('error')
     expect(mockedCheck).toHaveBeenCalledWith({ version: '0.0.0', platform: 'web' })
+  })
+})
+
+// 2026-10-27:渲染端接线后补的三组判据。
+// 背景:决策由 GlobalHooksProvider 的挂载 effect 广播,而渲染端在另一棵子树 ——
+// 事件派发可能早于订阅者 addEventListener,只靠 window 事件会丢掉首次决策
+// (表现就是"强更策略配了但永远不弹")。下面钉住回放、退订与 cause 字段。
+describe('决策订阅:回放与退订', () => {
+  beforeEach(() => {
+    mockedCheck.mockReset()
+  })
+
+  it('订阅发生在广播之后,仍能拿到最新一条(回放)', async () => {
+    mockedCheck.mockResolvedValue({
+      success: true,
+      data: { hasUpdate: true, forceUpdate: true, latestVersion: '9.9.9' },
+    })
+    await appVersionGateCheck({ currentVersion: '1.0.0' })
+
+    const seen: AppVersionGateDecision[] = []
+    const off = subscribeAppVersionGate((d) => seen.push(d))
+    try {
+      expect(seen).toHaveLength(1)
+      expect(seen[0]?.latestVersion).toBe('9.9.9')
+      expect(seen[0]?.required).toBe(true)
+      expect(getLastAppVersionGateDecision()?.latestVersion).toBe('9.9.9')
+    } finally {
+      off()
+    }
+  })
+
+  it('退订后不再收到新决策', async () => {
+    mockedCheck.mockResolvedValue({
+      success: true,
+      data: { hasUpdate: false, forceUpdate: false },
+    })
+    const seen: AppVersionGateDecision[] = []
+    const off = subscribeAppVersionGate((d) => seen.push(d))
+    const afterReplay = seen.length
+    off()
+    await appVersionGateCheck({ currentVersion: '1.0.0' })
+    expect(seen).toHaveLength(afterReplay)
+  })
+})
+
+describe('决策字段:cause 与 currentVersion(渲染端选文案的唯一依据)', () => {
+  it('低于最低版本 ⇒ cause=minimum-version', () => {
+    const d = appVersionGate({ currentVersion: '1.0.0', hasUpdate: true, minimumVersion: '1.2.0' })
+    expect(d.required).toBe(true)
+    expect(d.cause).toBe('minimum-version')
+    expect(d.currentVersion).toBe('1.0.0')
+  })
+
+  it('forceUpdate ⇒ cause=force-update', () => {
+    const d = appVersionGate({ currentVersion: '1.0.0', hasUpdate: true, forceUpdate: true })
+    expect(d.required).toBe(true)
+    expect(d.cause).toBe('force-update')
+  })
+
+  it('普通更新 / 无更新 ⇒ cause=none', () => {
+    expect(appVersionGate({ currentVersion: '1.0.0', hasUpdate: true }).cause).toBe('none')
+    expect(appVersionGate({ currentVersion: '1.0.0', hasUpdate: false }).cause).toBe('none')
+  })
+
+  it('fail-open 也带 currentVersion(渲染端不用自己猜)', async () => {
+    mockedCheck.mockReset()
+    mockedCheck.mockResolvedValue({ success: false })
+    const d = await appVersionGateCheck({ currentVersion: '3.2.1' })
+    expect(d.kind).toBe('error')
+    expect(d.currentVersion).toBe('3.2.1')
+    expect(d.cause).toBe('none')
+  })
+})
+
+// 2026-10-27 加固:web 端版本号目前没人注入(全仓只有 lib 一处读 NEXT_PUBLIC_APP_VERSION,
+// 构建脚本不设它)⇒ 恒为哨兵 '0.0.0'。而服务端按 buildNumber 比对,客户端版本在 DB 里查不到
+// 就等于 currentBuild=0,任何一条 web 平台版本记录都会判成"有更新";那条记录若还带 force_update,
+// 全站用户会被永久拦住且点「立即更新」也修不好(重载后版本号仍是 0.0.0)。
+// 所以版本号不可信时必须整条 fail-open —— 这组用例就是那道防线。
+describe('版本号不可信时整条策略 fail-open(防全站误拦/误弹)', () => {
+  beforeEach(() => {
+    mockedCheck.mockReset()
+  })
+
+  it('isTrustedAppVersion:0.0.0 是哨兵,不算真实版本', () => {
+    expect(isTrustedAppVersion('0.0.0')).toBe(false)
+    expect(isTrustedAppVersion('')).toBe(false)
+    expect(isTrustedAppVersion('abc')).toBe(false)
+    expect(isTrustedAppVersion('1.0.0')).toBe(true)
+    expect(isTrustedAppVersion('0.0.1')).toBe(true)
+  })
+
+  it('versionTrusted=false ⇒ 不拦、不提示、不把 latestVersion 传给渲染端', () => {
+    const d = appVersionGate({
+      currentVersion: '0.0.0',
+      versionTrusted: false,
+      hasUpdate: true,
+      forceUpdate: true,
+      latestVersion: '2.0.0',
+      downloadUrl: 'https://example.com/app.apk',
+    })
+    expect(d.required).toBe(false)
+    expect(d.kind).toBe('idle')
+    expect(d.latestVersion).toBeNull()
+    expect(d.downloadUrl).toBeNull()
+    expect(d.reason).toContain('版本号不可信')
+  })
+
+  it('未注入版本号时即使服务端标了 forceUpdate,也不拦(真实调用路径)', async () => {
+    mockedCheck.mockResolvedValue({
+      success: true,
+      data: { hasUpdate: true, forceUpdate: true, latestVersion: '9.9.9' },
+    })
+    // 不传 currentVersion ⇒ 走默认哨兵 0.0.0
+    const d = await appVersionGateCheck()
+    expect(d.required).toBe(false)
+    expect(d.latestVersion).toBeNull()
+  })
+
+  it('注入真实版本号后策略恢复正常(不把能力焊死)', async () => {
+    mockedCheck.mockResolvedValue({
+      success: true,
+      data: { hasUpdate: true, forceUpdate: true, latestVersion: '9.9.9' },
+    })
+    const d = await appVersionGateCheck({ currentVersion: '1.0.0' })
+    expect(d.required).toBe(true)
+    expect(d.latestVersion).toBe('9.9.9')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

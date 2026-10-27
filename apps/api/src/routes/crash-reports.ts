@@ -84,38 +84,42 @@ function isDuplicate(errorMessage: string): boolean {
 
 export const crashReportsRoutes: FastifyPluginAsync = async (server) => {
   // POST /crash-reports - 崩溃事件上报(匿名可上报)
-  server.post('/crash-reports', async (request, reply) => {
-    const parsed = crashBodySchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
+  server.post(
+    '/crash-reports',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = crashBodySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    const { platform, version, errorMessage, stack, route } = parsed.data
+      const { platform, version, errorMessage, stack, route } = parsed.data
 
-    // 同栈 5 分钟去重(防客户端循环崩溃刷库)
-    if (isDuplicate(errorMessage)) {
-      return reply.send(success({ id: '', deduplicated: true }))
-    }
+      // 同栈 5 分钟去重(防客户端循环崩溃刷库)
+      if (isDuplicate(errorMessage)) {
+        return reply.send(success({ id: '', deduplicated: true }))
+      }
 
-    let userId: string | null = null
-    try {
-      await authenticate(request)
-      userId = request.userId ?? null
-    } catch {
-      // 匿名崩溃上报:userId 保持 null
-    }
+      let userId: string | null = null
+      try {
+        await authenticate(request)
+        userId = request.userId ?? null
+      } catch {
+        // 匿名崩溃上报:userId 保持 null
+      }
 
-    const input: CrashReportInput = {
-      userId,
-      platform,
-      version: version ?? null,
-      errorMessage,
-      stack: stack ?? null,
-      route: route ?? null,
-    }
-    const { id } = await recordCrash(input)
-    return reply.send(success({ id, deduplicated: false }))
-  })
+      const input: CrashReportInput = {
+        userId,
+        platform,
+        version: version ?? null,
+        errorMessage,
+        stack: stack ?? null,
+        route: route ?? null,
+      }
+      const { id } = await recordCrash(input)
+      return reply.send(success({ id, deduplicated: false }))
+    },
+  )
 }
 
 export default crashReportsRoutes

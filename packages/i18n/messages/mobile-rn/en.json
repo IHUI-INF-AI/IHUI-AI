@@ -940,6 +940,7 @@
     "themeChanged": "Theme changed",
     "checkUpdateTitle": "Check Update",
     "checkUpdateLatest": "You're on the latest version",
+    "checkUpdateUnsupported": "In-app updates are not available in this build",
     "changePhoneMissingUser": "Missing user info, cannot change phone",
     "logoutConfirm": "Confirm logout?",
     "appPermission": "App Permissions",
@@ -6740,10 +6741,14 @@
     "statusRejected": "Rejected",
     "statusCompleted": "Completed"
   },
-  "update": {
+  "appUpdate": {
     "title": "New version available",
-    "body": "Restart the app to get the latest version",
+    "body": "Refresh the page to get the latest version",
     "action": "Update",
-    "close": "Close"
+    "close": "Close",
+    "ready": "Update ready",
+    "installing": "Restarting…",
+    "error": "Update failed",
+    "errorDesc": "Check your network and try again"
   }
 }

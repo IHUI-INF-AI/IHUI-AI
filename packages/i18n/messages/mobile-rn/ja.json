@@ -940,6 +940,7 @@
     "themeChanged": "テーマが切り替わりました",
     "checkUpdateTitle": "アップデート確認",
     "checkUpdateLatest": "最新のバージョンです",
+    "checkUpdateUnsupported": "このビルドではアプリ内更新を利用できません",
     "changePhoneMissingUser": "ユーザー情報が不足しています",
     "logoutConfirm": "ログアウトしますか?",
     "appPermission": "アプリ権限",
@@ -6740,10 +6741,14 @@
     "statusRejected": "拒否",
     "statusCompleted": "完了"
   },
-  "update": {
+  "appUpdate": {
     "title": "新しいバージョンがあります",
-    "body": "アプリを再起動して最新版に更新してください",
+    "body": "ページを更新して最新バージョンを取得してください",
     "action": "更新",
-    "close": "閉じる"
+    "close": "閉じる",
+    "ready": "更新の準備ができました",
+    "installing": "再起動しています…",
+    "error": "更新に失敗しました",
+    "errorDesc": "ネットワークを確認して再試行してください"
   }
 }
