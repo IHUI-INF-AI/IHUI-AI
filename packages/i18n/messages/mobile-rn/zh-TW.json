@@ -6611,5 +6611,33 @@
     "pickFailed": "檔案選擇失敗",
     "tooLarge": "檔案超過 10MB 限制",
     "uploadFailed": "檔案上傳失敗"
+  },
+  "legal": {
+    "title": "法律信息",
+    "serviceSpecificTerms": {
+      "title": "服務特定條款",
+      "lastUpdated": "最近更新"
+    },
+    "supportedRegions": {
+      "title": "支援的國家與地區",
+      "lastUpdated": "最近更新",
+      "intro": "我們服務的可用範圍會因所在國家/地區的當地法規而有所不同，詳情如下。",
+      "supportedTitle": "支援的地區",
+      "restrictedTitle": "限制地區",
+      "restrictedIntro": "以下地區的使用者可能無法使用本服務的全部或部分功能。",
+      "paymentTitle": "支付方式",
+      "paymentIntro": "不同地區支援的支付方式可能有所不同。",
+      "languageTitle": "介面語言",
+      "languageIntro": "本服務支援多種介面語言，實際顯示語言可能因您所在地區而異。"
+    },
+    "terms": {
+      "title": "服務條款",
+      "lastUpdated": "最近更新"
+    },
+    "usagePolicy": {
+      "title": "使用政策",
+      "lastUpdated": "最近更新"
+    },
+    "backToHome": "返回首頁"
   }
 }

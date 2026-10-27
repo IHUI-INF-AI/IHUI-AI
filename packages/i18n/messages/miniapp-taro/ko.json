@@ -6388,5 +6388,33 @@
     "platformZhihu": "지후",
     "platformJuejin": "쥐진",
     "platformShipinhao": "위챗 채널"
+  },
+  "legal": {
+    "title": "법적 정보",
+    "serviceSpecificTerms": {
+      "title": "서비스별 약관",
+      "lastUpdated": "최종 업데이트"
+    },
+    "supportedRegions": {
+      "title": "지원 국가 및 지역",
+      "lastUpdated": "최종 업데이트",
+      "intro": "서비스 이용 가능 범위는 국가 또는 지역의 현지 법규에 따라 다를 수 있습니다. 자세한 내용은 다음과 같습니다.",
+      "supportedTitle": "지원 지역",
+      "restrictedTitle": "제한 지역",
+      "restrictedIntro": "다음 지역의 사용자는 본 서비스의 전부 또는 일부를 이용하지 못할 수 있습니다.",
+      "paymentTitle": "결제 방식",
+      "paymentIntro": "지원하는 결제 방식은 지역에 따라 다를 수 있습니다.",
+      "languageTitle": "인터페이스 언어",
+      "languageIntro": "본 서비스는 여러 인터페이스 언어를 지원하며, 실제 표시 언어는 지역에 따라 다를 수 있습니다."
+    },
+    "terms": {
+      "title": "서비스 약관",
+      "lastUpdated": "최종 업데이트"
+    },
+    "usagePolicy": {
+      "title": "사용 정책",
+      "lastUpdated": "최종 업데이트"
+    },
+    "backToHome": "홈으로"
   }
 }
