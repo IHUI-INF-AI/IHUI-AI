@@ -4248,6 +4248,7 @@
     "loginButton": "ログイン"
   },
   "webViewPortal": {
+    "cloudRuns": "クラウドエージェント実行記録",
     "mediaTasks": "メディアタスク",
     "voices": "音声リソース",
     "webTools": "ウェブツール",

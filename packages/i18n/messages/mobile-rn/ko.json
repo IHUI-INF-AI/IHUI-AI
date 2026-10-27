@@ -4248,6 +4248,7 @@
     "loginButton": "로그인"
   },
   "webViewPortal": {
+    "cloudRuns": "클라우드 에이전트 실행 기록",
     "mediaTasks": "미디어 작업",
     "voices": "음성 리소스",
     "webTools": "웹 도구",

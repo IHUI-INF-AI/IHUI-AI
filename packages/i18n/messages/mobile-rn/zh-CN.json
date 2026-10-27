@@ -4292,6 +4292,7 @@
     "loginButton": "去登录"
   },
   "webViewPortal": {
+    "cloudRuns": "云托管运行记录",
     "mediaTasks": "媒体任务",
     "voices": "语音资源",
     "webTools": "网页工具",
