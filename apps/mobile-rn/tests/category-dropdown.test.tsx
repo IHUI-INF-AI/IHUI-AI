@@ -87,6 +87,32 @@ describe('CategoryDropdown', () => {
     expect(queryByText('BBB')).not.toBeNull()
   })
 
+  it('选项多于 8 条时,面板用可滚动容器承载全部选项(修 maxHeight 静默裁切)', () => {
+    // 票面修复的 bug:面板此前是普通 View + maxHeight + overflow:hidden,第 9 条起的
+    // 选项在真机上被静态裁掉且没有滚动入口。按"多于 8 条"取 12 条,锁住三件事:
+    // 全部选项进树、它们同住一个 ScrollView、面板仍受 maxHeight 约束(是滚动不是撑破)。
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: `c${i}`, label: `ITEM_${i}` }))
+    const { container, queryByText } = render(
+      <CategoryDropdown
+        items={many}
+        selectedId={null}
+        onSelect={() => {}}
+        visible
+        hideTrigger
+        panelMaxHeight={320}
+      />,
+    )
+    expect(queryByText('ITEM_11')).not.toBeNull()
+    const scroller = container.querySelector('[data-rn-scrollview]')
+    expect(scroller).not.toBeNull()
+    // 首尾都在同一个滚动容器里 ⇒ 内容没有被面板的 overflow:hidden 静态裁掉
+    expect(scroller!.textContent).toContain('ITEM_0')
+    expect(scroller!.textContent).toContain('ITEM_11')
+    // 面板仍受 maxHeight 约束:超出部分靠滚动,而不是把面板撑破
+    const panel = scroller!.parentElement as HTMLElement
+    expect(panel.style.maxHeight).toBe('320px')
+  })
+
   it('空 items 时面板不崩,渲染空占位而非文案', () => {
     const { container } = render(
       <CategoryDropdown items={[]} selectedId={null} onSelect={() => {}} visible hideTrigger />,
