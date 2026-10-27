@@ -33,6 +33,9 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const INTAKE = join(ROOT, 'scripts', 'deploy-outcome-intake.mjs')
 const FEEDBACK = join(ROOT, 'scripts', 'deploy-feedback.mjs')
 const LOOP_STATUS = join(ROOT, 'scripts', 'feedback-loop-status.mjs')
+// 契约版本以文件为唯一真源(§0.6):本测试只断言"intake 自述版本 == 契约文件现读版本",
+// 不把数字钉死在测试里 —— v2→v3 升级(新增三源生产者)不得因测试未同步而制造恒红。
+const CONTRACT = JSON.parse(readFileSync(join(ROOT, 'scripts', 'data', 'incident-signal-contract.json'), 'utf8'))
 
 const LOOP_LINE = /^LOOP-STATUS incidents=\d+ closed=\d+ open=\d+ undetermined=\d+$/
 const FULL_SHA = '0123456789abcdef0123456789abcdef01234567'
@@ -143,7 +146,8 @@ test('① 失败链:部署决策 ⇒ intake 两条 deploy_outcome 信号(exit 0 
 
   const json = JSON.parse(r.stdout.trim().split(/\r?\n/)[0])
   assert.equal(json.judged, true)
-  assert.equal(json.contract.version, 2)
+  assert.ok(CONTRACT.version >= 2, `契约 version 未达 deploy_outcome 引入档:${CONTRACT.version}`)
+  assert.equal(json.contract.version, CONTRACT.version)
   assert.equal(resolve(json.params.input), resolve(decisions))
   assert.equal(resolve(json.params.out), resolve(signals))
   assert.equal(json.signals, 2)

@@ -493,5 +493,61 @@ describe('WallboardView 使用数据面板', () => {
     // 落地页与退出页两榜并存,各自有自己的小标题
     expect(within(container).getAllByText('落地页(会话/单页)').length).toBeGreaterThan(0)
   })
+
+  // 下面两例必须排在最后:本仓 RTL 不自动 cleanup,每例的 DOM 都留在 body 里,
+  // 前面那些用 screen.getByText(要求全屏唯一)的用例经不起再多一次渲染。
+  it('访问面某档窗口内 0 次(服务端不出空桶)时读数落 0,不得落“—”', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: {
+                ...overview.traffic,
+                // group by 不出空桶:只回 public ⇒ 后台/登录页整行缺席 = 窗口内确实 0 次
+                scopeSplit: [{ scope: 'public', pv: 4200, uv: 300 }],
+              },
+            },
+          }) as never)
+    const view = renderWallboard()
+    await waitFor(() => expect(within(view.container).getByText('4,200')).toBeTruthy())
+    // 「访问面(近24h)」左列:标题 div → 父节点即整列
+    const leftCol =
+      within(view.container).getByText('访问面(近24h)').parentElement?.textContent ?? ''
+    expect(leftCol).toContain('前台4,200 / 300')
+    expect(leftCol).toContain('后台0 / 0')
+    expect(leftCol).toContain('登录页0 / 0')
+    expect(leftCol).not.toContain('—')
+  })
+
+  it('访问面这条腿取不到时三行读数落“—”,不得兜成 0', async () => {
+    vi.mocked(fetchApi).mockImplementation((async (url: string) =>
+      String(url).includes('/trend')
+        ? { success: true, data: trend }
+        : {
+            success: true,
+            data: {
+              ...overview,
+              traffic: {
+                ...overview.traffic,
+                // 整条腿失败:服务端把 pageTop/scopeSplit/pageTotalPv 一并折成 null
+                scopeSplit: null,
+                pageTop: null,
+                pageTotalPv: null,
+              },
+            },
+          }) as never)
+    const view = renderWallboard()
+    await waitFor(() =>
+      expect(within(view.container).getAllByText('页面访问热度').length).toBeGreaterThan(0),
+    )
+    const leftCol =
+      within(view.container).getByText('访问面(近24h)').parentElement?.textContent ?? ''
+    expect(leftCol).toContain('前台— / —')
+    expect(leftCol).toContain('后台— / —')
+    expect(leftCol).toContain('登录页— / —')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
