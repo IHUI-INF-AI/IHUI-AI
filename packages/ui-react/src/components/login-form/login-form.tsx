@@ -35,6 +35,21 @@ const loginTabActiveClassName =
   'h-6 py-0 data-[state=active]:bg-selection data-[state=active]:text-selection-foreground'
 
 /**
+ * tab 键 → 标签文案键(2026-10-26 立)。这张表同时充当「哪些键是已知 tab」的判据:
+ * 调用方传来的脏键不会被渲染成一个空白 tab。
+ * tab 的**渲染顺序**由调用方传入的 tabs 数组决定 —— 地区优先级判据住在 region-policy.ts,
+ * 组件不再自带顺序。
+ */
+const TAB_LABEL_KEYS: Record<LoginTab, string> = {
+  email: 'auth.emailLogin',
+  phone: 'auth.phoneCodeLogin',
+  password: 'auth.passwordLogin',
+  qr: 'auth.qrLogin',
+}
+
+const KNOWN_TAB_KEYS = Object.keys(TAB_LABEL_KEYS) as LoginTab[]
+
+/**
  * 共享 LoginForm 组件(2026-07-26 立)
  *
  * 单一来源(single source of truth):web 端 LoginFormContent 和扩展端
@@ -93,18 +108,37 @@ export function LoginForm(props: LoginFormProps) {
     thirdPartyFeaturedBackground,
     phoneDefaultAccount,
     thirdPartyColumns,
+    thirdPartyPriorityPlatforms,
   } = props
 
   const enabledTabs: LoginTab[] = tabs ?? ['email', 'phone', 'password', 'qr']
+  const renderableTabs = enabledTabs.filter((key) => KNOWN_TAB_KEYS.includes(key))
   // Passkey(WebAuthn)是 web 能力:只有调用方注入了 auth/options + auth/verify 才渲染。
   // 小程序/RN 无 WebAuthn,不注入即无入口(平台豁免见 PROJECT_PLAN G-874)。
   const passkeyEnabled =
     typeof apiClient.passkeyAuthOptions === 'function' &&
     typeof apiClient.passkeyAuthVerify === 'function'
-  const [tab, setTab] = React.useState<LoginTab>(defaultTab ?? enabledTabs[0] ?? 'email')
+  const [tab, setTab] = React.useState<LoginTab>(defaultTab ?? renderableTabs[0] ?? 'email')
   const [agreed, setAgreed] = React.useState(defaultAgreed)
   const [showAgreeErr, setShowAgreeErr] = React.useState(false)
   const [noticeOpen, setNoticeOpen] = React.useState(false)
+
+  // 2026-10-26 地区优先:后端按来源 IP 判的地区与第三方凭据状态走同一条 GET,是**异步到达**的;
+  // 到达后 tabs 会重排。用户还没手动切过时,选中项跟着挪到新首位;切过之后一律尊重用户的选择。
+  // 调用方显式传了 defaultTab 时不自动挪(那是它自己的定向意图,不是地区排序的结果)。
+  const userPickedTab = React.useRef(false)
+  const autoFollowFirstTab = defaultTab === undefined
+  const firstRenderableTab = renderableTabs[0]
+  // 扫码 tab 里「换种方式登录」的落点:按当前顺序取第一个非扫码项,而不是硬写 email
+  // (国内扫码排第一时,email 已不是次选位)。
+  const nonQrTab = renderableTabs.find((key) => key !== 'qr')
+  const switchAwayFromQr = React.useCallback(() => {
+    if (nonQrTab) setTab(nonQrTab)
+  }, [nonQrTab])
+  React.useEffect(() => {
+    if (!autoFollowFirstTab || userPickedTab.current || !firstRenderableTab) return
+    setTab(firstRenderableTab)
+  }, [autoFollowFirstTab, firstRenderableTab])
 
   const handleRequireAgree = React.useCallback(() => {
     setShowAgreeErr(true)
@@ -130,6 +164,7 @@ export function LoginForm(props: LoginFormProps) {
 
   // 切 tab 时清空协议错误(避免上一次的红色状态残留)
   const handleTabChange = React.useCallback((v: string) => {
+    userPickedTab.current = true
     setTab(v as LoginTab)
     setShowAgreeErr(false)
   }, [])
@@ -166,40 +201,19 @@ export function LoginForm(props: LoginFormProps) {
         {/* 2026-09-19 紧凑化:h-9→h-8(登录弹窗总高压到 95vh 内,用户要求禁滚动) */}
         <TabsList
           className="grid h-8 w-full"
-          style={{ gridTemplateColumns: `repeat(${enabledTabs.length}, minmax(0, 1fr))` }}
+          style={{ gridTemplateColumns: `repeat(${renderableTabs.length}, minmax(0, 1fr))` }}
         >
-          {enabledTabs.includes('email') && (
+          {/* 顺序 = 调用方传入 tabs 的顺序(地区优先级由 planLoginRegion 决定),不再硬编码。 */}
+          {renderableTabs.map((key) => (
             <TabsTrigger
-              value="email"
-              data-testid="login-tab-email"
+              key={key}
+              value={key}
+              data-testid={`login-tab-${key}`}
               className={loginTabActiveClassName}
             >
-              {t('auth.emailLogin')}
+              {t(TAB_LABEL_KEYS[key])}
             </TabsTrigger>
-          )}
-          {enabledTabs.includes('phone') && (
-            <TabsTrigger
-              value="phone"
-              data-testid="login-tab-phone"
-              className={loginTabActiveClassName}
-            >
-              {t('auth.phoneCodeLogin')}
-            </TabsTrigger>
-          )}
-          {enabledTabs.includes('password') && (
-            <TabsTrigger
-              value="password"
-              data-testid="login-tab-password"
-              className={loginTabActiveClassName}
-            >
-              {t('auth.passwordLogin')}
-            </TabsTrigger>
-          )}
-          {enabledTabs.includes('qr') && (
-            <TabsTrigger value="qr" data-testid="login-tab-qr" className={loginTabActiveClassName}>
-              {t('auth.qrLogin')}
-            </TabsTrigger>
-          )}
+          ))}
         </TabsList>
 
         {/* Passkey 免密登录(g-874):web 注入 options/verify 后出现在表单顶部;扫码 tab 不重复展示 */}
@@ -207,41 +221,32 @@ export function LoginForm(props: LoginFormProps) {
           <PasskeyLoginButton t={t} apiClient={apiClient} onSuccess={onSuccess} className="mt-2" />
         )}
 
-        {enabledTabs.includes('email') && (
+        {renderableTabs.map((key) => (
           // 2026-09-19 紧凑化:mt-2→mt-1(覆盖 TabsContent 全局默认)
-          <TabsContent value="email" className="mt-1">
-            <EmailCodeLoginForm {...formBaseProps} />
+          <TabsContent key={key} value={key} className="mt-1">
+            {key === 'email' && <EmailCodeLoginForm {...formBaseProps} />}
+            {key === 'phone' && (
+              <PhoneCodeLoginForm {...formBaseProps} defaultAccount={phoneDefaultAccount} />
+            )}
+            {key === 'password' && (
+              <PasswordLoginForm
+                {...formBaseProps}
+                captchaEnabled={captchaEnabled}
+                showForgotPassword={showForgotPassword}
+                onForgotPassword={onForgotPassword}
+                forgotPasswordHref={forgotPasswordHref}
+              />
+            )}
+            {key === 'qr' && (
+              <QrTab
+                t={t}
+                QrComponent={qrComponent}
+                platforms={qrPlatforms}
+                onSwitchMethod={switchAwayFromQr}
+              />
+            )}
           </TabsContent>
-        )}
-
-        {enabledTabs.includes('phone') && (
-          <TabsContent value="phone" className="mt-1">
-            <PhoneCodeLoginForm {...formBaseProps} defaultAccount={phoneDefaultAccount} />
-          </TabsContent>
-        )}
-
-        {enabledTabs.includes('password') && (
-          <TabsContent value="password" className="mt-1">
-            <PasswordLoginForm
-              {...formBaseProps}
-              captchaEnabled={captchaEnabled}
-              showForgotPassword={showForgotPassword}
-              onForgotPassword={onForgotPassword}
-              forgotPasswordHref={forgotPasswordHref}
-            />
-          </TabsContent>
-        )}
-
-        {enabledTabs.includes('qr') && (
-          <TabsContent value="qr" className="mt-1">
-            <QrTab
-              t={t}
-              QrComponent={qrComponent}
-              platforms={qrPlatforms}
-              onSwitchMethod={() => setTab('email')}
-            />
-          </TabsContent>
-        )}
+        ))}
       </Tabs>
 
       {/* 协议复选框(qr tab 不需要,因为不会触发提交) */}
@@ -267,6 +272,7 @@ export function LoginForm(props: LoginFormProps) {
           featuredPlatform={thirdPartyFeaturedPlatform}
           featuredBackground={thirdPartyFeaturedBackground}
           columns={thirdPartyColumns}
+          priorityPlatforms={thirdPartyPriorityPlatforms}
         />
       )}
 
