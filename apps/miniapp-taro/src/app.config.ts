@@ -105,6 +105,7 @@ export default defineAppConfig({
         'course-planet/index',
         'subscription/contracts/index',
         'live/index',
+        'learn/index',
       ],
     },
     {
@@ -174,6 +175,7 @@ export default defineAppConfig({
         'assistant/index',
         'connectors/index',
         'knowledge-planet/index',
+        'sub-package-index/index',
       ],
     },
     {
