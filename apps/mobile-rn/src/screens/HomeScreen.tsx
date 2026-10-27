@@ -14,7 +14,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -32,6 +31,7 @@ import {
   Bot,
   Camera,
   Folder,
+  Library,
   Search,
   History,
   Bookmark,
@@ -2020,52 +2020,26 @@ export function HomeScreen() {
       {/* ModelTypeBar 模型类型选择栏(原对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
        *  2026-10-15 用户重构:外挂选择栏整块移除,8 种分类改经 categories props 收进 InputArea
        *  大输入框内「+」左侧(对齐 web 输入卡底栏两行布局);selectedModel 小标签随分类行内嵌 */}
-      {/* 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮 showMaterialList=true,
-       *  点击打开并加载"全部"tab(getMyCreation('agent') 我的创作数据) */}
-      <TouchableOpacity
-        onPress={handleOpenMaterialList}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={t('home.myCreation')}
-        style={shellStyles.creationEntry}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Folder size={13} color={tokens.brand.DEFAULT} />
-          <Text style={shellStyles.creationEntryText}>{t('home.myCreation')}</Text>
-        </View>
-      </TouchableOpacity>
+      {/* 「我的创作」入口与素材卡片行一律不挂在此处:本行之后是绝对定位的 bottomDock,
+          普通流兄弟节点会被 flex:1 的 ScrollView 顶到屏幕最底边,从悬浮胶囊下面露出来
+          (2026-10-27 实机反馈「下面怎么还有个我的创作的嵌套块」)。
+          入口收进 AddPanel 的 heroItem(与 ChatScreen 同形),卡片行进停靠区贴着输入框。 */}
       {/* 语音输入已内嵌 InputArea 大输入框(麦克风长按录音,2026-09-22 用户定稿):
           原独立 VoiceInput「按住说出你的问题」行移除,转文字回填输入框,随提交跳 Chat */}
-      {/* 素材卡片行(对齐 Uniapp material-cards-wrap:点击素材插入输入区上方,每卡右上 × 移除)
-       *  数据源 materialCards 由 handleMaterialPress 写入,横向滚动包裹 */}
-      {materialCards.length > 0 ? (
-        <View style={shellStyles.materialCardsWrap}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={shellStyles.materialCardsRow}>
-              {materialCards.map((card) => (
-                <View key={card.uid} style={shellStyles.materialCardItem}>
-                  <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
-                    {card.title}
-                  </Text>
-                  <Pressable
-                    onPress={() => handleRemoveMaterialCard(card.uid)}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('home.a11yRemoveMat')}
-                  >
-                    <Text style={shellStyles.materialCardClose}>×</Text>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-      ) : null}
       {/* 输入框「+」底部滑出菜单:统一走共享 AddPanel(图标按钮组:相机/相册/本地文件/微信文件,
           与 BottomActionBar/ChatScreen 同源),上传结果拼入输入框随提交发送 */}
       <AddPanel
         visible={plusPanelVisible}
         onClose={closePlusPanel}
+        // 「我的创作」主入口行(2026-10-27 自页面底部迁入):与 ChatScreen 的
+        // BottomActionBar → AddPanel heroItem 同一形态与同一文案键,不再在屏幕底边另挂一行
+        heroItem={{
+          key: 'my-creation',
+          label: t('common.myCreation'),
+          subtitle: t('common.myCreationSubtitle'),
+          icon: <Library size={24} color={tokens.text.secondary} />,
+          onPress: handleOpenMaterialList,
+        }}
         items={[
           {
             key: 'camera',
@@ -2452,6 +2426,33 @@ export function HomeScreen() {
         style={shellStyles.bottomDock}
         onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
       >
+        {/* 素材卡片行(对齐 Uniapp material-cards-wrap:每卡右上 × 移除;数据源 materialCards
+         *  由 handleMaterialPress 写入)。2026-10-27 由页面根容器迁入停靠区:它是输入框的附件行,
+         *  挂在 ScrollView 之后会落到屏幕最底边(胶囊下面);停靠区高度经 onLayout 回灌
+         *  ScrollView 预留,内容不会与它叠字。 */}
+        {materialCards.length > 0 ? (
+          <View style={shellStyles.materialCardsWrap}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={shellStyles.materialCardsRow}>
+                {materialCards.map((card) => (
+                  <View key={card.uid} style={shellStyles.materialCardItem}>
+                    <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
+                      {card.title}
+                    </Text>
+                    <Pressable
+                      onPress={() => handleRemoveMaterialCard(card.uid)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('home.a11yRemoveMat')}
+                    >
+                      <Text style={shellStyles.materialCardClose}>×</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        ) : null}
         {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分)
          *  常驻输入栏(2026-09-22 用户明令去掉折叠 FAB 加号球:collapsible/defaultCollapsed 均不传,
          *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
@@ -2530,17 +2531,8 @@ const shellStyles = {
   //  不同脸;端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。 ──
   // ── ModelTypeBar 模型类型选择栏样式已随外挂选择栏移除(2026-10-15 用户重构:
   //  分类收进 InputArea 大输入框,样式随迁至 InputArea.tsx catChip 族) ──
-  // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
-  creationEntry: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(12),
-  } as const,
-  creationEntryText: {
-    fontSize: 13,
-    color: tokens.brand.DEFAULT,
-    fontWeight: '600',
-  } as const,
+  // ── creationEntry 我的创作入口样式已随入口移除(2026-10-27:入口收进 AddPanel heroItem,
+  //  与 ChatScreen 同源;原样式挂在 ScrollView 之后的普通流位置,会落到屏幕最底边) ──
   // ── 素材卡片行(对齐 Uniapp material-cards-wrap:卡片带标题 + 右上 × 移除,compact 风格) ──
   materialCardsWrap: {
     paddingHorizontal: rpx(24),

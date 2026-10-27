@@ -29358,5 +29358,29 @@
   "personalHub": {
     "title": "Account",
     "subtitle": "My learning, account security, student center, feedback and help"
+  },
+  "appUpdate": {
+    "title": "New version available",
+    "body": "Refresh the page to get the latest version",
+    "action": "Update",
+    "close": "Close",
+    "ready": "Update ready",
+    "installing": "Restarting…",
+    "error": "Update failed",
+    "errorDesc": "Check your network and try again",
+    "gateTitle": "Update required",
+    "gateBody": "Version {version} is no longer supported. Please update to {latest} to continue.",
+    "gateForceBody": "A new version {latest} is available. This update is required.",
+    "gateReleaseNotes": "What's new",
+    "gateUpdateNow": "Update now",
+    "gateQuit": "Close page",
+    "gateQuitConfirm": "The update is not finished yet. Closing now will interrupt this session.",
+    "gateQuitFailed": "Could not close the page automatically. Please close this tab manually."
+  },
+  "pwaInstall": {
+    "title": "Install app",
+    "body": "Add to home screen for a better experience",
+    "action": "Install",
+    "close": "Close"
   }
 }

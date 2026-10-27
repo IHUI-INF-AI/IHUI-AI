@@ -13,6 +13,7 @@ import { parseQrLoginTicket } from '@ihui/shared'
 import { confirmQrLogin } from '@ihui/api-client'
 import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { appAlert } from '../components/BottomPops'
+import { selectIsAuthenticated, useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -39,6 +40,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 export function ScanLoginScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
+  // 登录态判据与全端同一把尺子(shared 工厂导出),端内不自写 token 布尔
+  const isAuthenticated = useAuthStore(selectIsAuthenticated)
   const [permission, requestPermission] = useCameraPermissions()
   const [submitting, setSubmitting] = useState(false)
   // 扫到非本站码时允许用户继续扫:锁只拦重复回调,不拦重试
@@ -46,15 +49,16 @@ export function ScanLoginScreen() {
   // 自动申请只发一次(避免 effect 重跑反复弹系统授权框)
   const autoRequestedRef = useRef(false)
 
-  // 进入即申请相机权限(undetermined 且仍可询问时)
+  // 进入即申请相机权限(undetermined 且仍可询问时);未登录不弹授权
   useEffect(() => {
+    if (!isAuthenticated) return
     if (!permission) return
     if (permission.status === 'undetermined' && permission.canAskAgain !== false) {
       if (autoRequestedRef.current) return
       autoRequestedRef.current = true
       void requestPermission()
     }
-  }, [permission, requestPermission])
+  }, [permission, requestPermission, isAuthenticated])
 
   const handleScanned = useCallback(
     async ({ data }: { data: string }) => {
@@ -101,6 +105,27 @@ export function ScanLoginScreen() {
     )
   }
 
+  // 未登录:与小程序 handleScanLogin 同行为(先登录再扫码),不进相机、不弹授权。
+  // 此前本屏无守卫,未登录用户扫到码只会得到一句"确认失败",而真因是没登录。
+  if (!isAuthenticated) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <Text style={styles.safeTitle}>{t('scanLogin.title')}</Text>
+        <Text style={styles.safeHint}>{t('scanLogin.needLogin')}</Text>
+        <Pressable
+          style={styles.ctaButton}
+          onPress={() => navigation.navigate('Login')}
+          accessibilityRole="button"
+        >
+          <Text style={styles.ctaButtonText}>{t('common.login')}</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.goBack()} accessibilityRole="button">
+          <Text style={styles.cancelText}>{t('common.cancel')}</Text>
+        </Pressable>
+      </SafeAreaView>
+    )
+  }
+
   // 未授权(undetermined / denied):主题感知的可视界面,不再白底白字
   if (!permission.granted) {
     const denied = permission.status === 'denied'
@@ -111,14 +136,8 @@ export function ScanLoginScreen() {
           {denied ? t('scanLogin.deniedHint') : t('scanLogin.permissionHint')}
         </Text>
         {denied ? (
-          <Pressable
-            style={styles.ctaButton}
-            onPress={openSettings}
-            accessibilityRole="button"
-          >
-            <Text style={styles.ctaButtonText}>
-              {t('scanLogin.openSettings')}
-            </Text>
+          <Pressable style={styles.ctaButton} onPress={openSettings} accessibilityRole="button">
+            <Text style={styles.ctaButtonText}>{t('scanLogin.openSettings')}</Text>
           </Pressable>
         ) : (
           <Pressable
@@ -126,9 +145,7 @@ export function ScanLoginScreen() {
             onPress={() => void requestPermission()}
             accessibilityRole="button"
           >
-            <Text style={styles.ctaButtonText}>
-              {t('scanLogin.grant')}
-            </Text>
+            <Text style={styles.ctaButtonText}>{t('scanLogin.grant')}</Text>
           </Pressable>
         )}
         <Pressable onPress={() => navigation.goBack()} accessibilityRole="button">

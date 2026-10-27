@@ -4,9 +4,9 @@
 
 /**
  * 短信验证码服务。
- * 发送策略优先级：阿里云（配置密钥）→ 代理（SMS_API_BASE_URL）→ dev console（日志）。
- * 限速：60s 1 次 / 1h 5 次 / 24h 20 次。
- * 验证码存储复用 code-store.ts（内存 Map，生产应迁移 Redis）。
+ * 发送策略:按 SMS_PROVIDER 声明的优先级在已配置通道里逐档回落(缺省 auto = 阿里云 → 代理)。
+ * 号码限速:60s 1 次 / 1h 5 次 / 24h 20 次;另有 IP/设备二维档与「手机号+IP」取码配额。
+ * 验证码存储已迁 Redis(共享,部署不掉码),Redis 不可用时回退进程内 Map(见 code-store.ts)。
  */
 
 import { env } from 'node:process'
@@ -19,6 +19,9 @@ import {
   CODE_RESEND_INTERVAL_MS,
 } from '../utils/code-store.js'
 import { tryConsumeWindows, refundWindows, type WindowSpec } from '../utils/window-counter.js'
+// G-192 同一判据的复用(2026-10-27 短信安全审计):sendSmsCode 原来只靠号码三档 + IP/设备
+// 二维,缺「手机号+IP」取码配额;auth.ts 的端点是直连 consumeSendQuota 的,两条路径必须同闸。
+import { consumeSendQuota, refundSendQuota } from '../utils/code-echo-guard.js'
 import { parsePositiveInt } from '../utils/positive-int.js'
 import { logger } from '../utils/logger.js'
 import { config } from '../config/index.js'
@@ -242,12 +245,27 @@ export function smsCodeTtlMs(scene?: SmsScene): number {
   return scene === 'register' ? CODE_TTL_REGISTER_MS : CODE_TTL_MS
 }
 
-/** 发送短信验证码。`guard` 为 IP/设备维度防刷,拿不到调用方信息时可省略。 */
+/** 发送短信验证码。`guard` 为 IP/设备维度防刷,拿不到调用方信息时可省略。
+ *
+ * 2026-10-27 安全审计加固:新增「手机号+IP」取码配额(与 auth.ts 端点同一道
+ * consumeSendQuota 闸,5 次/10 分钟)。原来走本函数的公开端点(/public-api/auth-code、
+ * /auth/sms/code、/sms-proxy/send、change-phone 两端点)没有这道闸——同一 IP 可在
+ * 号码三档的空隙里对**一批不同号码**各打满 20 次/小时;配上后换号轰炸也要过同一道闸。
+ * 消费顺序与退款语义:quota 最先消费,任何一步失败都按"没发出去就没次数"逐层退还。 */
 export async function sendSmsCode(
   phone: string,
   scene?: SmsScene,
   guard?: SmsSendGuard,
 ): Promise<SendCodeResult> {
+  // ① 「手机号+IP」配额最先消费:它被拒时号码三档/IP档都还没动,直接拒,无需退款。
+  //    拿不到 ip(单测/内网)时跳过,与 sendGuardSpecs 的宽容语义一致。
+  if (guard?.ip) {
+    const quota = await consumeSendQuota(phone, guard.ip)
+    if (!quota.allowed) {
+      return { success: false, msg: '验证码请求过于频繁,请稍后再试', failure: 'rate_limited' }
+    }
+  }
+
   const rl = await checkRateLimit(phone)
   if (!rl.ok) return { success: false, msg: rl.msg, failure: 'rate_limited' }
 
@@ -280,6 +298,7 @@ export async function sendSmsCode(
   if (!delivery.sent) {
     // 云侧没发出去:退还本次三档 + 防线计数,否则一次通道抖动就把用户锁 60 秒并吃掉 24h 配额
     await refundWindows([...rateLimitSpecs(phone), ...sendGuardSpecs(guard)])
+    if (guard?.ip) await refundSendQuota(phone, guard.ip)
     return { success: false, msg: '验证码发送失败,请稍后重试', failure: 'delivery_failed' }
   }
 
@@ -289,17 +308,30 @@ export async function sendSmsCode(
 /** 投递一枚「调用方自己已经生成并存进 code-store」的验证码。
  *  与 sendSmsCode 的分工:那支自带取码 + 限速 + 重发间隔,适合只管发的端点;
  *  这支只负责"送出去并如实回报",供已在自己作用域内生成/存码的端点复用
- *  (routes/auth.ts 的 /send-code 与 /sms/send —— 它们还要把码交给回显闸,不能另生成一枚)。 */
+ *  (routes/auth.ts 的 /send-code 与 /sms/send —— 它们还要把码交给回显闸,不能另生成一枚)。
+ *
+ * 2026-10-27 安全审计加固:补上号码三档硬顶(60s/1h 5/24h 20)。原来本函数只有 IP/设备
+ * 二维档,而调用方的「手机号+IP」配额(echo:q:phone|ip)换 IP 即重置,同一号码的 24h 上限
+ * 实际只剩 60 秒重发间隔在撑 —— 换 IP 轰炸同一手机号理论上限 1440 条/天(条条真实计费)。
+ * 补齐后与 sendSmsCode 路径同一号码同一硬顶。 */
 export async function deliverSmsCode(
   phone: string,
   code: string,
   scene?: SmsScene,
   guard?: SmsSendGuard,
 ): Promise<SmsDeliveryResult> {
+  const rl = await checkRateLimit(phone)
+  if (!rl.ok) return { sent: false, reason: `rate_limited: ${rl.msg}` }
   const gd = await checkSendGuard(guard)
-  if (!gd.ok) return { sent: false, reason: 'rate_limited: 请求过于频繁' }
+  if (!gd.ok) {
+    // IP/设备维度被挡:号码维度刚消费的这一次退回去,没有发出去就没有「次数」
+    await refundWindows(rateLimitSpecs(phone))
+    return { sent: false, reason: 'rate_limited: 请求过于频繁' }
+  }
   const delivery = await dispatchSms(phone, code, scene)
-  if (!delivery.sent) await refundWindows(sendGuardSpecs(guard))
+  if (!delivery.sent) {
+    await refundWindows([...rateLimitSpecs(phone), ...sendGuardSpecs(guard)])
+  }
   return delivery
 }
 
@@ -518,24 +550,49 @@ async function sendViaProxy(phone: string, code: string): Promise<SmsDeliveryRes
   }
 }
 
-/** 用阿里云「通知」模板发一条正文。
- *  与验证码模板严格分开:占位符不同({content} vs {code}),共用必被拒发;
- *  阿里云变量属性上限 35 字符,"整段正文塞单变量"不是长文方案(结构化模板见 sendArrearSms)。 */
-async function sendViaAliyunNotify(phone: string, content: string): Promise<SmsDeliveryResult> {
+/** 阿里云通知模板 → env 键。与 TENCENT_NOTICE_TEMPLATE_ENV_KEYS 同构:云侧模板同为
+ *  固定正文(无变量),按用途 key 各自寻址,发信不传 templateParam。
+ *  未回填的 key 自动落到通用 {content} 结构化模板(ALI_SMS_NOTIFY_TEMPLATE_CODE)或代理。 */
+export const ALIYUN_NOTICE_TEMPLATE_ENV_KEYS: Record<SmsNoticeTemplateKey, string> = {
+  'binding-success': 'ALI_SMS_TEMPLATE_NOTICE_BINDING_SUCCESS',
+  'new-device': 'ALI_SMS_TEMPLATE_NOTICE_NEW_DEVICE',
+  'password-changed': 'ALI_SMS_TEMPLATE_NOTICE_PASSWORD_CHANGED',
+  maintenance: 'ALI_SMS_TEMPLATE_NOTICE_MAINTENANCE',
+  'account-cancel': 'ALI_SMS_TEMPLATE_NOTICE_ACCOUNT_CANCEL',
+  'membership-expiry': 'ALI_SMS_TEMPLATE_NOTICE_MEMBERSHIP_EXPIRY',
+  'payment-success': 'ALI_SMS_TEMPLATE_NOTICE_PAYMENT_SUCCESS',
+  'content-reject': 'ALI_SMS_TEMPLATE_NOTICE_CONTENT_REJECT',
+  'security-limit': 'ALI_SMS_TEMPLATE_NOTICE_SECURITY_LIMIT',
+  'service-restore': 'ALI_SMS_TEMPLATE_NOTICE_SERVICE_RESTORE',
+}
+
+/** 阿里云营销模板 → env 键(与 TENCENT_MARKETING_TEMPLATE_ENV_KEYS 同构)。 */
+export const ALIYUN_MARKETING_TEMPLATE_ENV_KEYS: Record<SmsMarketingTemplateKey, string> = {
+  'new-feature': 'ALI_SMS_TEMPLATE_MARKETING_NEW_FEATURE',
+  promo: 'ALI_SMS_TEMPLATE_MARKETING_PROMO',
+}
+
+function pickAliyunTemplatedCode(
+  category: 'notice' | 'marketing',
+  templateKey: SmsTemplateKey,
+): string | undefined {
+  const envKey =
+    category === 'notice'
+      ? ALIYUN_NOTICE_TEMPLATE_ENV_KEYS[templateKey as SmsNoticeTemplateKey]
+      : ALIYUN_MARKETING_TEMPLATE_ENV_KEYS[templateKey as SmsMarketingTemplateKey]
+  const code = env[envKey]
+  return code && code.trim() ? code.trim() : undefined
+}
+
+/** 用阿里云任一已过审模板发一条(通知/营销共用底层;验证码另走自己的通道)。 */
+async function sendViaAliyunSms(
+  phone: string,
+  templateCode: string,
+  templateParam?: string,
+): Promise<SmsDeliveryResult> {
   const signName = env.ALI_SMS_SIGN_NAME
-  const notifyTemplateCode = env.ALI_SMS_NOTIFY_TEMPLATE_CODE
-  if (!notifyTemplateCode) {
-    logger.warn('通知短信未配置 ALI_SMS_NOTIFY_TEMPLATE_CODE ⇒ 判为未配置,不记为已发送', {
-      phone: maskPhone(phone),
-    })
-    return {
-      sent: false,
-      reason:
-        'not_configured: 未配置 ALI_SMS_NOTIFY_TEMPLATE_CODE(通知类需独立结构化模板;验证码模板占位符为 {code},共用必被阿里云拒发)',
-    }
-  }
   if (!signName) {
-    logger.warn('通知短信缺少 ALI_SMS_SIGN_NAME ⇒ 判为未配置,不记为已发送', {
+    logger.warn('阿里云短信缺少 ALI_SMS_SIGN_NAME ⇒ 判为未配置,不记为已发送', {
       phone: maskPhone(phone),
     })
     return { sent: false, reason: 'not_configured: 缺少 ALI_SMS_SIGN_NAME' }
@@ -557,19 +614,37 @@ async function sendViaAliyunNotify(phone: string, content: string): Promise<SmsD
     const request = new sdk.SendSmsRequest({
       phoneNumbers: phone,
       signName,
-      templateCode: notifyTemplateCode,
-      templateParam: JSON.stringify({ content }),
+      templateCode,
+      ...(templateParam ? { templateParam } : {}),
     })
     const verdict = judgeAliyunResponse(await client.sendSms(request))
     if (!verdict.sent) {
-      logger.warn('通知短信未发出', { phone: maskPhone(phone), reason: verdict.reason })
+      logger.warn('阿里云短信未发出', { phone: maskPhone(phone), reason: verdict.reason })
     }
     return verdict
   } catch (e) {
     const reason = `aliyun_call_failed:${providerErrorCode(e)}`
-    logger.warn('通知短信调用异常', { phone: maskPhone(phone), reason })
+    logger.warn('阿里云短信调用异常', { phone: maskPhone(phone), reason })
     return { sent: false, reason }
   }
+}
+
+/** 用阿里云「通知」模板发一条正文。
+ *  与验证码模板严格分开:占位符不同({content} vs {code}),共用必被拒发;
+ *  阿里云变量属性上限 35 字符,"整段正文塞单变量"不是长文方案(结构化模板见 sendArrearSms)。 */
+async function sendViaAliyunNotify(phone: string, content: string): Promise<SmsDeliveryResult> {
+  const notifyTemplateCode = env.ALI_SMS_NOTIFY_TEMPLATE_CODE
+  if (!notifyTemplateCode) {
+    logger.warn('通知短信未配置 ALI_SMS_NOTIFY_TEMPLATE_CODE ⇒ 判为未配置,不记为已发送', {
+      phone: maskPhone(phone),
+    })
+    return {
+      sent: false,
+      reason:
+        'not_configured: 未配置 ALI_SMS_NOTIFY_TEMPLATE_CODE(通知类需独立结构化模板;验证码模板占位符为 {code},共用必被阿里云拒发)',
+    }
+  }
+  return sendViaAliyunSms(phone, notifyTemplateCode, JSON.stringify({ content }))
 }
 
 /** 通知/营销模板走哪条通道:按 SMS_PROVIDER 声明的顺序逐个判"模板 + 凭据 + 兜底正文"。
@@ -591,6 +666,10 @@ export function resolveTemplatedSmsChannel(
   const envKey = isNotice
     ? TENCENT_NOTICE_TEMPLATE_ENV_KEYS[templateKey as SmsNoticeTemplateKey]
     : TENCENT_MARKETING_TEMPLATE_ENV_KEYS[templateKey as SmsMarketingTemplateKey]
+  const aliyunTemplateId = pickAliyunTemplatedCode(category, templateKey)
+  const aliyunEnvKey = isNotice
+    ? ALIYUN_NOTICE_TEMPLATE_ENV_KEYS[templateKey as SmsNoticeTemplateKey]
+    : ALIYUN_MARKETING_TEMPLATE_ENV_KEYS[templateKey as SmsMarketingTemplateKey]
 
   // 结构化模板的 auto 语义:该用途的腾讯模板已回填 ⇒ 优先腾讯;
   // 未回填就按历史顺序回落。验证码通道的 auto 顺序不动(有测试钉着)。
@@ -606,10 +685,13 @@ export function resolveTemplatedSmsChannel(
     if (
       p === 'aliyun' &&
       isAliyunSmsConfigured() &&
-      env.ALI_SMS_NOTIFY_TEMPLATE_CODE &&
-      hasFallbackContent
+      (aliyunTemplateId || (env.ALI_SMS_NOTIFY_TEMPLATE_CODE && hasFallbackContent))
     ) {
-      return { channel: 'aliyun', envKey }
+      return {
+        channel: 'aliyun',
+        templateId: aliyunTemplateId,
+        envKey: aliyunTemplateId ? aliyunEnvKey : envKey,
+      }
     }
     if (p === 'proxy' && env.SMS_API_BASE_URL && hasFallbackContent) {
       return { channel: 'proxy', envKey }
@@ -749,7 +831,7 @@ export async function sendTemplatedSms(
 
   if (!resolved.channel) {
     const error =
-      `not_configured: ${resolved.envKey}(腾讯模板未过审或未回填) 且 ` +
+      `not_configured: ${resolved.envKey}(对应厂商模板未过审或未回填) 且 ` +
       `ALI_SMS_NOTIFY_TEMPLATE_CODE / SMS_API_BASE_URL 未配置`
     logger.warn('通知/营销短信没有可用通道 ⇒ 判未配置', { phone: maskPhone(phone), error })
     await recordSmsDelivery({
@@ -888,7 +970,9 @@ export async function sendTemplatedSms(
     if (resolved.channel === 'tencent') {
       delivery = await sendViaTencentTemplate(phone, resolved.templateId!, [])
     } else if (resolved.channel === 'aliyun') {
-      delivery = await sendViaAliyunNotify(phone, options.fallbackContent!)
+      delivery = resolved.templateId
+        ? await sendViaAliyunSms(phone, resolved.templateId)
+        : await sendViaAliyunNotify(phone, options.fallbackContent!)
     } else {
       const base = env.SMS_API_BASE_URL!
       try {
@@ -1012,7 +1096,7 @@ export async function sendArrearSms(
   try {
     const sdk = await loadAliyunSdk()
     if (!sdk) {
-      logger.warn('阿里云短信 SDK 不可用,催缴短信未发送', { phone })
+      logger.warn('阿里云短信 SDK 不可用,催缴短信未发送', { phone: maskPhone(phone) })
       return { success: false, error: 'sdk_unavailable' }
     }
     const config = new sdk.Config({

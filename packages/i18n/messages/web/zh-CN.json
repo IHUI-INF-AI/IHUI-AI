@@ -29362,5 +29362,29 @@
   "personalHub": {
     "title": "个人中心",
     "subtitle": "我的学习、账号安全、学员中心、反馈与帮助"
+  },
+  "appUpdate": {
+    "title": "有新版本可用",
+    "body": "刷新页面以获取最新版本",
+    "action": "更新",
+    "close": "关闭",
+    "ready": "更新已就绪",
+    "installing": "正在重启…",
+    "error": "更新失败",
+    "errorDesc": "请检查网络后重试",
+    "gateTitle": "需要更新",
+    "gateBody": "当前版本 {version} 已不再支持,请更新到 {latest} 后继续使用",
+    "gateForceBody": "检测到新版本 {latest},本次为强制更新",
+    "gateReleaseNotes": "更新内容",
+    "gateUpdateNow": "立即更新",
+    "gateQuit": "关闭页面",
+    "gateQuitConfirm": "更新尚未完成,关闭页面会中断本次使用,确定关闭?",
+    "gateQuitFailed": "无法自动关闭页面,请手动关闭此标签页"
+  },
+  "pwaInstall": {
+    "title": "安装应用",
+    "body": "添加到主屏幕,获得更好体验",
+    "action": "安装",
+    "close": "关闭"
   }
 }

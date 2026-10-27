@@ -940,6 +940,7 @@
     "themeChanged": "主題已切換",
     "checkUpdateTitle": "檢查更新",
     "checkUpdateLatest": "當前已是最新版本",
+    "checkUpdateUnsupported": "目前環境不支援應用程式內更新",
     "changePhoneMissingUser": "使用者資訊缺失,無法更換手機號",
     "logoutConfirm": "確認退出當前帳號?",
     "appPermission": "應用權限",
@@ -6740,10 +6741,14 @@
     "statusRejected": "已拒絕",
     "statusCompleted": "已完成"
   },
-  "update": {
+  "appUpdate": {
     "title": "有新版本可用",
-    "body": "重新啟動應用程式以取得最新版本",
+    "body": "重新整理頁面以取得最新版本",
     "action": "更新",
-    "close": "關閉"
+    "close": "關閉",
+    "ready": "更新已就緒",
+    "installing": "正在重新啟動…",
+    "error": "更新失敗",
+    "errorDesc": "請檢查網路後重試"
   }
 }

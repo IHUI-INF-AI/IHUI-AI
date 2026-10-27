@@ -116,6 +116,7 @@ import auditLoggerPlugin from './plugins/audit-logger.js'
 import antiAutomationPlugin from './plugins/anti-automation.js'
 import threatDetectorPlugin from './plugins/threat-detector.js'
 import { anomalyDetectorPlugin } from './plugins/anomaly-detector-plugin.js'
+import smsSendCaptchaPlugin from './utils/sms-send-captcha.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -675,6 +676,10 @@ async function registerPlugins(server: FastifyInstance) {
   // 与 threat-detector(IP 信誉评分)互补——信誉先行,行为补充。
   // 顺序敏感:必须在 threatDetectorPlugin 之后、networkSegmentPlugin 之前。
   await server.register(anomalyDetectorPlugin)
+  // 短信发码人机验证闸(2026-10-27):全站发码端点 escalate/required/off 三模,
+  // 阈值内零摩擦、超阈值强制 token;带 token 即校验,无效必拒。preHandler 阶段,
+  // 须在路由注册前挂上(routes 在 registerRoutes 中后置注册,时序满足)。
+  await server.register(smsSendCaptchaPlugin)
   await server.register(networkSegmentPlugin)
   await server.register(mtlsPlugin)
   await server.register(auditLoggerPlugin)

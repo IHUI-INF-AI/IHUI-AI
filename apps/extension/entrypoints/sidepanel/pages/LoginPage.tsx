@@ -23,16 +23,23 @@
  *   - 让 sidepanel 跟 web 端 + popup 用同一份 .login-scope / .welcome-img 共享 CSS,
  *     浅/深主题切换视觉一致
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { LoginResult as ApiClientLoginResult } from '@ihui/api-client'
-import { AuthShell, LoginForm, type LoginResult } from '@ihui/ui-react'
+import {
+  AuthShell,
+  LoginForm,
+  planLoginRegion,
+  type LoginResult,
+  type ThirdPartyPlatform,
+} from '@ihui/ui-react'
+import { OAUTH_BRAND_COLORS } from '@ihui/design-tokens'
 
 import { createExtensionLoginApiClient } from '../../../lib/login-api-client'
 import { useI18n } from '../../../src/i18n'
 import { useSystemTheme } from '../../../src/hooks/use-system-theme'
 import { useExtensionThirdPartyAuth } from '../../../src/hooks/use-extension-third-party-auth'
-// 票 L28754:登录方式优先级按访客 IP 地区走,判据住在 @ihui/ui-react 的 planLoginRegion
-import { useExtensionLoginPlan } from '../../../src/hooks/use-extension-login-plan'
+// 2026-10-27 立:登录方式优先级按访客来源 IP 分档(与 web 主站同一份判据 planLoginRegion)
+import { useExtensionLoginRegion } from '../../../src/hooks/use-extension-login-region'
 // 2026-08-01 立:Extension SSO 一键授权登录(chrome.identity.launchWebAuthFlow),
 // 用户已在 web 端登录时无需再输账号密码,直接拉起 web SSO 授权页拿 token
 import { loginWithSso } from '../../../src/lib/sso'
@@ -52,13 +59,34 @@ function openWeb(): void {
 }
 
 export default function LoginPage({ onSuccess }: Props) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   // 2026-07-26 改造:sidepanel 启用系统主题跟随,跟 web 端 + popup 用同一份 .login-scope
   // 共享 CSS,深色模式视觉一致。
   useSystemTheme()
   const loginApiClient = useMemo(() => createExtensionLoginApiClient(), [])
   const thirdParty = useExtensionThirdPartyAuth()
-  const loginPlan = useExtensionLoginPlan(thirdParty.config.providers)
+  // 2026-10-27 立:登录方式优先级与 web 主站同档(判据唯一住在 @ihui/ui-react 的
+  // planLoginRegion,端内不复算「谁排第一」)。IP 那一腿取不到 ⇒ 传 null,由判据回落
+  // locale;locale 取扩展自己的 i18n 当前语言(chrome.storage.local 的 ihui_locale,
+  // 读不到时为默认 'zh-CN' —— 这是扩展端能拿到的最粗语言信号,见 src/i18n/index.tsx)。
+  const ipRegion = useExtensionLoginRegion()
+  const isPlatformAvailable = useCallback(
+    (platform: ThirdPartyPlatform) =>
+      thirdParty.config.providers.some((p) => p.key === platform && p.enabled && !p.forceDisabled),
+    [thirdParty.config.providers],
+  )
+  const plan = useMemo(
+    () => planLoginRegion({ ipRegion, locale, isPlatformAvailable }),
+    [ipRegion, locale, isPlatformAvailable],
+  )
+  // 主推大按钮的品牌底取色与 web 同一档同源(@ihui/design-tokens 的 OAUTH_BRAND_COLORS),
+  // 端内不自创颜色;共享 FeaturedPlatformButton 缺底时是 text-white 透明底 ⇒ 必须成对给。
+  const featuredBackground =
+    plan.featuredPlatform === 'google'
+      ? OAUTH_BRAND_COLORS.google
+      : plan.featuredPlatform === 'wechat'
+        ? OAUTH_BRAND_COLORS.wechat
+        : undefined
   // SSO 一键登录状态:loading / error 提示
   const [ssoLoading, setSsoLoading] = useState(false)
   const [ssoError, setSsoError] = useState<string | null>(null)
@@ -168,10 +196,13 @@ export default function LoginPage({ onSuccess }: Props) {
           // 同 popup:本表面未启用凭据持久化,自动提交分支不会走到;显式写出来不留隐形缺省。
           canAutoSubmitCredentials={() => true}
           thirdParty={thirdParty.config}
-          tabs={loginPlan.plan.tabs}
-          thirdPartyFeaturedPlatform={loginPlan.plan.featuredPlatform}
-          thirdPartyFeaturedBackground={loginPlan.featuredBackground}
-          thirdPartyPriorityPlatforms={loginPlan.plan.priorityPlatforms}
+          // 扫码 tab 内部的渠道序不在端内指定:扩展端不注入 qrPlatforms,走共享
+          // DEFAULT_PLATFORMS(wechat → 企微 → 钉钉 → 飞书),与国内档 plan.qrPlatformPriority
+          // 同序;海外档该表为空 = 不重排,与 web 同一判据语义。
+          tabs={plan.tabs}
+          thirdPartyFeaturedPlatform={plan.featuredPlatform}
+          thirdPartyFeaturedBackground={featuredBackground}
+          thirdPartyPriorityPlatforms={plan.priorityPlatforms}
           showAgreement
           agreementMode="notice-dialog"
           showRegisterLink

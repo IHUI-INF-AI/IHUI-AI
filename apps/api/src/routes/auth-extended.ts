@@ -41,6 +41,7 @@ import {
   type OAuth2Client,
 } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
+import { CHALLENGE_TOKEN_TTL_SECONDS, signChallengeToken } from '../services/totp-service.js'
 import { success, error } from '../utils/response.js'
 import { setAuthCookies } from '../utils/auth-cookies.js'
 import { encryptJSON, decryptJSON } from '../utils/crypto.js'
@@ -740,6 +741,24 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         recordAuthLoginFailed(request.ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
+      // 2FA 一致性(2026-10-27 修旁路):与 /login 密码路同一状态机 —— 开启 TOTP 的账号
+      // 走邮箱验证码登录同样必须过 login-verify,否则"仅需邮箱验证码"即完全绕过 TOTP。
+      if (user.twoFactorEnabled) {
+        const challengeToken = await signChallengeToken({
+          userId: user.id,
+          phone: user.phone ?? '',
+          familyId: '',
+          roleId: user.roleId ?? 0,
+        })
+        request.skipResponseSanitization = true
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken,
+            expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+          }),
+        )
+      }
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
       const { accessToken, refreshToken } = await buildTokenPair(user, reply)
@@ -803,6 +822,24 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
       await clearLoginFailures(username, ip)
+      // 2FA 一致性(2026-10-27 修旁路):用户名+密码登录同样必须过 TOTP,
+      // 否则攻击者拿到密码后走此路即可完全绕过两步验证(P0)。
+      if (user.twoFactorEnabled) {
+        const challengeToken = await signChallengeToken({
+          userId: user.id,
+          phone: user.phone ?? '',
+          familyId: '',
+          roleId: user.roleId ?? 0,
+        })
+        request.skipResponseSanitization = true
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken,
+            expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+          }),
+        )
+      }
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
       const { accessToken, refreshToken } = await buildTokenPair(user, reply)
