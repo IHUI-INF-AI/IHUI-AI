@@ -69,6 +69,20 @@ describe('response-sanitizer — isSensitiveKey', () => {
       csrfToken: 'sig.expiry.nonce',
     })
   })
+
+  // 2026-10-27:号池列表行投影里的三个字段被 "token" 子串误伤成 *** —— 前两个是时间戳、
+  // 后一个是布尔,前端 `new Date('***')` 抛 RangeError 整页崩(admin 真机复现)。
+  it('号池行的时间戳与「有无票」布尔不得打码', () => {
+    const row = {
+      tokenExpiresAt: '2026-10-28T04:17:50.000Z',
+      refreshExpiresAt: '2027-04-07T00:15:04.000Z',
+      hasRefreshToken: true,
+    }
+    expect(isSensitiveKey('tokenExpiresAt', keys)).toBe(false)
+    expect(isSensitiveKey('refreshExpiresAt', keys)).toBe(false)
+    expect(isSensitiveKey('hasRefreshToken', keys)).toBe(false)
+    expect(sanitizeData(row, keys)).toEqual(row)
+  })
 })
 
 describe('response-sanitizer — maskValue (旧版简单脱敏)', () => {

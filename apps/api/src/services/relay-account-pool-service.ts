@@ -699,6 +699,13 @@ export async function importAccounts(
       // PG text/jsonb 拒收 NUL ⇒ 透传值里所有字符串统一剥除,不改语义只去非法字节)。
       Object.assign(extra, stripNulDeep(foreignPassthroughMetadata(acc)))
 
+      // 平台映射(目前仅 qoder)优先;其余平台认账号对象上的 refreshTokenExpiresAt
+      // (Trae 提取器已写入,2026-10-24:此前只有 qoder 分支会落这一列 ⇒ trae 恒 NULL)
+      const incomingRefreshExpiresAt =
+        mapped && 'refreshExpiresAt' in mapped
+          ? mapped.refreshExpiresAt
+          : parseFlexibleExpiry(acc['refreshTokenExpiresAt'])
+
       const values = {
         ownerUserId,
         providerCode,
@@ -718,12 +725,7 @@ export async function importAccounts(
         machineId:
           typeof acc.machineId === 'string' && acc.machineId ? acc.machineId.slice(0, 128) : null,
         tokenExpiresAt,
-        // 平台映射(目前仅 qoder)优先;其余平台认账号对象上的 refreshTokenExpiresAt
-        // (Trae 提取器已写入,2026-10-24:此前只有 qoder 分支会落这一列 ⇒ trae 恒 NULL)
-        refreshExpiresAt:
-          mapped && 'refreshExpiresAt' in mapped
-            ? mapped.refreshExpiresAt
-            : parseFlexibleExpiry(acc['refreshTokenExpiresAt']),
+        refreshExpiresAt: incomingRefreshExpiresAt,
         isEnabled: acc.enabled === false ? false : true,
         tempUnschedulable: down,
         healthStatus,
@@ -742,13 +744,28 @@ export async function importAccounts(
       let writtenId: string
       let writtenCredVersion: number
       if (existing.length > 0 && existing[0]) {
-        // preserve ⇒ 省略 refreshTokenEnc 键(该列保持原值);否则照旧整列覆盖
-        const { refreshTokenEnc: _keptRefreshTokenEnc, ...valuesWithoutRefresh } = values
+        // preserve ⇒ 省略 refreshTokenEnc(该列保持原值)。refreshExpiresAt 与 name 同理:
+        // 只有「本批确实带来新信息」才写 —— 网页重登只换得到 access,载荷带不到 refresh
+        // 到期时刻,名字也只能回退成 uid;整列覆盖会把这些元数据抹成 NULL / uid
+        // (2026-10-27 真机实证:2027-04-07 被写成 NULL、展示名退成 uid)。
+        const {
+          refreshTokenEnc: _keptRefreshTokenEnc,
+          refreshExpiresAt: incomingExpiryColumn,
+          name: incomingNameColumn,
+          ...valuesWithoutRefresh
+        } = values
         void _keptRefreshTokenEnc
+        const overwriteValues = overwriteRefresh.preserve
+          ? {
+              ...valuesWithoutRefresh,
+              ...(incomingExpiryColumn === null ? {} : { refreshExpiresAt: incomingExpiryColumn }),
+              ...(accName && accName !== uid ? { name: incomingNameColumn } : {}),
+            }
+          : values
         const [written] = await db
           .update(aiRelayAccountPool)
           .set({
-            ...(overwriteRefresh.preserve ? valuesWithoutRefresh : values),
+            ...overwriteValues,
             credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
           })
           .where(eq(aiRelayAccountPool.id, existing[0].id))

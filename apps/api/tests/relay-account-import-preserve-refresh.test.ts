@@ -188,4 +188,56 @@ describe('importAccounts preserveMissingRefresh 服务端行为', () => {
     expect(lastUpdateSet()['refreshTokenEnc']).toBeNull()
     expect(String(r.items[0]?.reason)).not.toContain('保留库内原票')
   })
+
+  // 2026-10-27 真机实证补钉:preserve 只保密文会把元数据一起抹掉 —— 重登载荷带不到
+  // refreshTokenExpiresAt(被写成 NULL)、name 只能回退成 uid(覆盖掉库内原名)。
+  it('覆盖 + preserve + 载荷无 refreshTokenExpiresAt:不写该列,保留库内到期时刻', async () => {
+    hoisted.mockSelectRows.push({ id: 'row-1', hasRefreshToken: true })
+    const r = await importAccounts(
+      'trae',
+      [{ name: '账号A', token: jwt({ sub: 'u1', exp: FUTURE }) }],
+      null,
+      { preserveMissingRefresh: true },
+    )
+    expect(r.updated).toBe(1)
+    expect(lastUpdateSet()).not.toHaveProperty('refreshExpiresAt')
+  })
+
+  it('覆盖 + preserve + 载荷带 refreshTokenExpiresAt:照常写入新值', async () => {
+    hoisted.mockSelectRows.push({ id: 'row-1', hasRefreshToken: true })
+    const r = await importAccounts(
+      'trae',
+      [
+        {
+          name: '账号A',
+          token: jwt({ sub: 'u1', exp: FUTURE }),
+          refreshTokenExpiresAt: '2027-04-07T00:15:04.000Z',
+        },
+      ],
+      null,
+      { preserveMissingRefresh: true },
+    )
+    expect(r.updated).toBe(1)
+    const set = lastUpdateSet()
+    expect(set['refreshExpiresAt']).toBeInstanceOf(Date)
+    expect((set['refreshExpiresAt'] as Date).toISOString()).toBe('2027-04-07T00:15:04.000Z')
+  })
+
+  it('覆盖 + preserve + 名字只是 uid 回退:不写 name,保留库内展示名', async () => {
+    hoisted.mockSelectRows.push({ id: 'row-1', hasRefreshToken: true })
+    const r = await importAccounts(
+      'trae',
+      [{ name: 'u1', uid: 'u1', token: jwt({ sub: 'u1', exp: FUTURE }) }],
+      null,
+      { preserveMissingRefresh: true },
+    )
+    expect(r.updated).toBe(1)
+    expect(lastUpdateSet()).not.toHaveProperty('name')
+  })
+
+  it('覆盖 + 缺省(非 preserve):名字是 uid 也照旧写,存量语义不变', async () => {
+    hoisted.mockSelectRows.push({ id: 'row-1', hasRefreshToken: true })
+    await importAccounts('trae', [{ name: 'u1', token: jwt({ sub: 'u1', exp: FUTURE }) }])
+    expect(lastUpdateSet()['name']).toBe('u1')
+  })
 })

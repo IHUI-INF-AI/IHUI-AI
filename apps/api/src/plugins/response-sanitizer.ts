@@ -52,6 +52,12 @@ export const SAFE_KEYS: ReadonlySet<string> = new Set([
   'completion_tokens',
   'total_tokens',
   'csrftoken',
+  // 2026-10-27:号池管理页列表投影直接吃这三个字段 —— 前两个是**时间戳**、最后一个是
+  // **布尔**,都不含凭据本体。此前被 "token" 子串误伤成 "***",前端 `new Date('***')`
+  // 抛 RangeError: Invalid time value ⇒ 整页崩溃(admin 真机复现,非单测可覆盖)。
+  'tokenexpiresat',
+  'refreshexpiresat',
+  'hasrefreshtoken',
 ])
 
 const MASK = '***'
