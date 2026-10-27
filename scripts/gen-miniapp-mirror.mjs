@@ -573,15 +573,19 @@ export function buildShellPage({ spec, base, shellText = '', shellName = null, n
   L.push(binding)
   // 只设导航标题的生命周期钩子由调用方以 navTitle 传入时原样保留(标题是端内事实,
   // 壳里的共享屏不管小程序导航栏;不保留就等于把原页的标题弄丢)。
+  // 取词入口按表达式现读:原页可能用 t(useI18n) 也可能用 tt(useTt,带回退文案的第二参)。
   const usesT = navTitle ? /(^|[^\w.$])t\s*\(/.test(navTitle) : false
+  const usesTt = navTitle ? /(^|[^\w.$])tt\s*\(/.test(navTitle) : false
   if (navTitle) {
     L.push("import Taro, { useDidShow } from '@tarojs/taro'")
     if (usesT) L.push("import { useI18n } from '@/i18n'")
+    if (usesTt) L.push("import { useTt } from '@/i18n'")
   }
   L.push('')
   L.push(`export default function ${base}Page() {`)
   if (navTitle) {
     if (usesT) L.push('  const { t } = useI18n()')
+    if (usesTt) L.push('  const tt = useTt()')
     L.push('  useDidShow(() => {')
     L.push(`    Taro.setNavigationBarTitle({ title: ${navTitle} })`)
     L.push('  })')
