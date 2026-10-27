@@ -13,6 +13,7 @@ import { db } from '../../db/index.js'
 import { users, exportTasks } from '@ihui/database'
 import { isSystemAdminUser, findUserById } from '../../db/queries.js'
 import { purgeUserPii } from '../../services/purge-user-pii.js'
+import { sendNoticeSmsToPhone } from '../../services/sms-notify.js'
 import { setRawRetentionOptOut } from '../../services/raw-retention-optout.js'
 import { setCodeIndexEgressOptOut } from '../../services/code-index-egress-consent.js'
 import {
@@ -419,6 +420,13 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
     // 2026-09-27 布尔删除 ack 清账:deleted 由 purgeUserPii 的库侧 RETURNING 证据
     // (users 主行匿名化 UPDATE 的命中集)派生,不再是路由层常量;键名与语义逐字不变。
     const purgeResult = await purgeUserPii(userId)
+    // 注销会清空手机号,用注销前捕获的号码发确认短信(安全类,不受通知偏好约束)
+    if (user.phone) {
+      void sendNoticeSmsToPhone(user.phone, 'account-cancel', {
+        bizType: 'auth',
+        bizId: `cancel:${userId}`,
+      })
+    }
     return reply.send(success({ success: true, deleted: purgeResult.userRowAnonymized, userId }))
   })
 

@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 0bdff73528be75f840efe8545917a922d9525f99
-// inputsSha256: bdb3ced6a517bb0f9eadd6cb53c5ad63ff7125914011936d1d9981f6aa382e1c
+// sourceCommit: 86b7a8108d9fadfb299073684fa790d589ccf60b
+// inputsSha256: b1474cc1cec6d4afe3d44795d6c6dfd526320b1429ff3a77809f3abbda8377b7
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -259,8 +259,7 @@
 // input: apps/web/app/(main)/admin/refund/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/admin/refund/page.tsx a88b2ceb20ccce16959ac58c55ba249296ed681c5481ad03e4f1e463ecdc3d50
 // input: apps/web/app/(main)/admin/relay-param-ops/page.tsx eec9fe4164facc66cce530f01bd6abfa49b667b64a28a6788ecd15662323bd82
-// input: apps/web/app/(main)/admin/relay/account-pool/page.tsx 815dfaf2de8a26c02ececb8f75cb12f020e2ecd2527570ad1817a67c0667ac10
-// input: apps/web/app/(main)/admin/relay/account-proxy/page.tsx b7fbb8d4d378f2b8e528a794276499e560268e2679df7c17ef7a95420283c740
+// input: apps/web/app/(main)/admin/relay/account-pool/page.tsx 110447ed9ea9792170a5320dab30f574386784201d7b8d701855448a6286046a
 // input: apps/web/app/(main)/admin/relay/alert-rules/page.tsx fabfbb96d5db4e2eb4f8c630890e0511ad467e1c5572f02ba08dc150f7bd3785
 // input: apps/web/app/(main)/admin/relay/capacity/page.tsx e764a1fd7100863cdad16da8a5011b5951ca304f6eb4fb5735296e70e1263060
 // input: apps/web/app/(main)/admin/relay/channels/page.tsx ee2621001ff5858411a40cc5c8d71dc36aece49b8278adb7947d53e8d860ca3e
@@ -314,7 +313,8 @@
 // input: apps/web/app/(main)/admin/skill-versions/page.tsx c493386851d7f28c74a1fd134874040d25215fa6937f8f2b86d4c7ec7297b538
 // input: apps/web/app/(main)/admin/skills/page.tsx 430306a7968473f7ec0b93764700de97b39ae472d93971813ed2b8d880f3f8e2
 // input: apps/web/app/(main)/admin/sms-receive/page.tsx e0cd3fae2a950040d6dc0ce1ed3384f0a38b8917ae68dd48d6091628cc063aec
-// input: apps/web/app/(main)/admin/sms/page.tsx ff30a4a5b8afec377a29408fa94a0762359ce539e85f4fe004e2202fbcd60e29
+// input: apps/web/app/(main)/admin/sms/operations/page.tsx a3f9853ff57a456489a8183c5e3a399a8edaa9dad02189574e6751f3922312ac
+// input: apps/web/app/(main)/admin/sms/page.tsx cb772cd31d7dec775578e0797692be1f8204a44c6947091996996aca748960e5
 // input: apps/web/app/(main)/admin/statistics/page.tsx 898fca9b97d952ff402eee5071f4c0b343e5689de461991ca0c51b2ab2a48c76
 // input: apps/web/app/(main)/admin/system/login-logs/page.tsx 8232466920411a110c810e97acfdd0ac75d618ce782f690ded404032bc698964
 // input: apps/web/app/(main)/admin/system/monitor/page.tsx 283edad5aa7cc4ca99fbf7953406c8368d89f63a159b1dc39443bf97474a8105
@@ -926,7 +926,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 8509c1bc6272c3e141461ae79a70c998d3f8298592eaf936a64bb9be2402b464
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-27T01:13:47.271Z
+// generatedAt: 2026-10-27T01:49:41.889Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1175,7 +1175,6 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/relay', param: false, group: 'admin' },
   { path: '/admin/relay-param-ops', param: false, group: 'admin' },
   { path: '/admin/relay/account-pool', param: false, group: 'admin' },
-  { path: '/admin/relay/account-proxy', param: false, group: 'admin' },
   { path: '/admin/relay/alert-rules', param: false, group: 'admin' },
   { path: '/admin/relay/capacity', param: false, group: 'admin' },
   { path: '/admin/relay/channels', param: false, group: 'admin' },
@@ -1229,6 +1228,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/skills', param: false, group: 'admin' },
   { path: '/admin/sms', param: false, group: 'admin' },
   { path: '/admin/sms-receive', param: false, group: 'admin' },
+  { path: '/admin/sms/operations', param: false, group: 'admin' },
   { path: '/admin/statistics', param: false, group: 'admin' },
   { path: '/admin/system/login-logs', param: false, group: 'admin' },
   { path: '/admin/system/monitor', param: false, group: 'admin' },

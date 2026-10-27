@@ -33,6 +33,38 @@ export interface ThirdPartyLoginButtonsProps {
    * 保证"企业微信"等长标签在窄列内不溢出。扩展端不传维持 3 列。
    */
   columns?: number
+  /**
+   * 网格优先序(2026-10-26 立,地区判据注入)。表内平台按给定次序排到前面,
+   * 表外平台保持传入顺序排在后面。undefined = 不重排(维持调用方原序)。
+   */
+  priorityPlatforms?: readonly ThirdPartyPlatform[]
+}
+
+/**
+ * 稳定排序:按 priority 表给的名次排前,未列名的保持原相对顺序排后。
+ * 判据住在 region-policy.ts,本函数只执行排序 —— 两侧都不在此复算「哪个国家算国内」。
+ * 泛型:同一条排序既服务第三方图标网格(ThirdPartyProvider),也服务扫码 tab 内部的
+ * 渠道列表(QrPlatformConfig),两者都以 `key` 为身份。禁止为第二处再写一份排序。
+ */
+export function sortByPlatformPriority<T extends { key: ThirdPartyPlatform }>(
+  items: readonly T[],
+  priority: readonly ThirdPartyPlatform[],
+): T[] {
+  const rank = new Map<ThirdPartyPlatform, number>()
+  priority.forEach((key, index) => {
+    if (!rank.has(key)) rank.set(key, index)
+  })
+  return items
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => {
+      const rankA = rank.get(a.entry.key)
+      const rankB = rank.get(b.entry.key)
+      if (rankA !== undefined && rankB !== undefined) return rankA - rankB
+      if (rankA !== undefined) return -1
+      if (rankB !== undefined) return 1
+      return a.index - b.index
+    })
+    .map((wrapped) => wrapped.entry)
 }
 
 /**
@@ -67,16 +99,21 @@ export function ThirdPartyLoginButtons({
   featuredPlatform,
   featuredBackground,
   columns = 3,
+  priorityPlatforms,
 }: ThirdPartyLoginButtonsProps) {
   const { providers, currentPlatform, onLogin } = config
   const isLoading = currentPlatform !== null
 
+  const orderedProviders = priorityPlatforms
+    ? sortByPlatformPriority(providers, priorityPlatforms)
+    : providers
+
   const featuredProvider = featuredPlatform
-    ? providers.find((p) => p.key === featuredPlatform)
+    ? orderedProviders.find((p) => p.key === featuredPlatform)
     : null
   const restProviders = featuredProvider
-    ? providers.filter((p) => p.key !== featuredProvider.key)
-    : providers
+    ? orderedProviders.filter((p) => p.key !== featuredProvider.key)
+    : orderedProviders
 
   return (
     <div className={cn(className)}>
@@ -112,7 +149,7 @@ export function ThirdPartyLoginButtons({
           </div>
           <ThirdPartyGrid
             t={t}
-            providers={providers}
+            providers={orderedProviders}
             currentPlatform={currentPlatform}
             onLogin={onLogin}
             columns={columns}
@@ -195,7 +232,7 @@ function ThirdPartyGrid({
             (p.forceDisabled
               ? t('auth.appleComingSoon')
               : !p.enabled
-                ? t('auth.googleNotConfigured')
+                ? t('auth.platformNotConfigured')
                 : undefined)
 
           const button = (

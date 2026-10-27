@@ -57,6 +57,20 @@ async function notifyVipExpired(userId: string, expiredAt: Date): Promise<void> 
   }
 }
 
+/** VIP 到期短信通知(与邮件并列,fire-and-forget)。动态 import 避免循环依赖。
+ *  bizId 用「用户 + 到期时刻」:同一期会员只通知一次,续费后再到期是新事件。 */
+async function notifyVipExpiredSms(userId: string, expiredAt: Date): Promise<void> {
+  try {
+    const { sendNoticeSmsToUser } = await import('./sms-notify.js')
+    await sendNoticeSmsToUser(userId, 'membership-expiry', {
+      bizType: 'vip',
+      bizId: `vip:${userId}:${expiredAt.toISOString()}`,
+    })
+  } catch {
+    /* 短信通知失败不阻塞降级任务 */
+  }
+}
+
 export async function expireVipMembers(): Promise<VipExpireResult> {
   const errors: string[] = []
   let expiredVips = 0
@@ -112,7 +126,10 @@ export async function expireVipMembers(): Promise<VipExpireResult> {
         downgradedUsers++
         // VIP 过期邮件通知(fire-and-forget,不阻塞降级循环)
         const expiredAt = expiredEndTimes.get(userId)
-        if (expiredAt) void notifyVipExpired(userId, expiredAt)
+        if (expiredAt) {
+          void notifyVipExpired(userId, expiredAt)
+          void notifyVipExpiredSms(userId, expiredAt)
+        }
       }
     } catch (err) {
       errors.push(`Failed to downgrade user ${userId}: ${String(err)}`)

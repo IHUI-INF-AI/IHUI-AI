@@ -17,6 +17,16 @@ export { ThirdPartyLoginButtons } from './third-party-login-buttons'
 export { AgreementCheckbox } from './agreement-checkbox'
 export { AgreementNoticeDialog } from './agreement-notice-dialog'
 export { PasskeyLoginButton } from './passkey-login-button'
+// 地区→登录方式优先级判据(2026-10-26 自 apps/web 迁入;消费方不得端内另写一份)
+export { planLoginRegion, resolveLoginRegion, isOverseasLocale } from './region-policy'
+// 平台优先序的执行器(图标网格与扫码渠道共用一份)
+export { sortByPlatformPriority } from './third-party-login-buttons'
+export type {
+  LoginRegion,
+  MaybeLoginRegion,
+  LoginRegionPlan,
+  LoginRegionPlanInput,
+} from './region-policy'
 // 账号输入框 + 历史下拉(2026-07-30 抽到共享包,消除 web 端 B 版本功能差异)
 export { AccountHistoryInput } from './account-history-input'
 

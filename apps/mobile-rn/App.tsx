@@ -16,6 +16,7 @@ import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
 import { OfflineBanner } from './src/components/OfflineBanner'
 import { DevErrorToast } from './src/components/DevErrorToast'
+import { UpdatePrompt } from './src/components/UpdatePrompt'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
 import { navigationRef, navigateTo } from './src/navigation/navigation-ref'
@@ -219,6 +220,9 @@ function AppInner() {
       <OfflineBanner banner={banner} reason={reason} />
       <ThemedNavigation />
       <DevErrorToast />
+      {/* OTA 更新提示(对齐 web PWAUpdatePrompt):expo-updates 静默下载就绪后弹出,
+          [更新]=reloadAsync 立即生效;自身判 __DEV__/web 返回 null */}
+      <UpdatePrompt />
     </SafeAreaView>
   )
 }
