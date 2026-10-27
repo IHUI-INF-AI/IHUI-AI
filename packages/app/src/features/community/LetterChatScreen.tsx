@@ -107,7 +107,7 @@ export function LetterChatScreen({
                   <Trash2 size={13} color={tk.text.tertiary} />
                 </TouchableOpacity>
                 <View style={item.mine ? styles.bubbleMine : styles.bubbleTheirs}>
-                  <Text style={item.mine ? styles.bubbleMineText : styles.bubbleTheirsText}>
+                  <Text style={item.mine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>
                     {item.content}
                   </Text>
                   <Text style={item.mine ? styles.bubbleTimeMine : styles.bubbleTimeTheirs}>
@@ -137,7 +137,7 @@ export function LetterChatScreen({
           editable={!sending}
         />
         <TouchableOpacity
-          style={[styles.sendBtn, (sending || !draft.trim()) && styles.sendBtnDisabled]}
+          style={sending || !draft.trim() ? styles.sendBtnDisabled : styles.sendBtn}
           onPress={onSend}
           disabled={sending || !draft.trim()}
         >
@@ -218,8 +218,8 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.muted,
     },
-    bubbleMineText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
-    bubbleTheirsText: { fontSize: rnType.body.size, color: tk.text.primary },
+    bubbleTextMine: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
+    bubbleTextTheirs: { fontSize: rnType.body.size, color: tk.text.primary },
     bubbleTimeMine: {
       marginTop: 2,
       textAlign: 'right',
@@ -257,7 +257,13 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    sendBtnDisabled: { opacity: 0.5 },
+    sendBtnDisabled: {
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+      opacity: 0.5,
+    },
     sendText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
   })
 }
