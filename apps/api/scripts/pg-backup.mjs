@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 // PG 数据库每日备份脚本
 // ⚠ 备份拥有者状态(2026-09-06 收口为单一拥有者;2026-10-27 现读更新承载体):
 //   - 唯一权威备份 = IHUI-PG-BACKUP 调度链 → <DevEnvRoot>\backups\pg\*.dump(每日03:00,7天轮转)+ 网盘同步副本。
@@ -21,12 +20,21 @@
 // 保留: 最近 30 份, 老的自动删除
 // 自校: 落盘后完整解压校验 gzip 完整性 + 含建表语句 + 非空, 失败即终止轮转并 exit 1
 import { spawn } from 'node:child_process'
-import { readFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, createReadStream, createWriteStream } from 'node:fs'
+import {
+  readFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  createReadStream,
+  createWriteStream,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createGzip, createGunzip } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
 // pg_dump/psql 定位的唯一实现(全仓一份,与 check-migration-* 两门同源;§0.6 单一真相源,禁止在此抄第二份候选表)
-import { locatePsqlClient, psqlLocateMissText } from '../../../scripts/lib/psql-client-locate.mjs'
+import { locatePsqlClient, psqlLocateMissText } from '../../../scripts/lib/psql-client-locate.mjs' // arch-exempt: 本脚本是临时/手动导出验证(非生产备份链,见头注);psql 定位是全仓唯一实现(§0.6 单一真相源,本行注释明令禁止抄第二份候选表),与 scripts 侧 check-migration-* 两门同源——挪包牵动 8 个调用方与策略表公开出口,收益为零,按行内豁免走
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 // 脚本位于 apps/api/scripts/, 上 3 级到仓库根
@@ -43,13 +51,22 @@ if (!existsSync(envPath)) {
 const env = Object.fromEntries(
   readFileSync(envPath, 'utf8')
     .split(/\r?\n/)
-    .filter(l => l && !l.startsWith('#') && l.includes('='))
-    .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] }),
+    .filter((l) => l && !l.startsWith('#') && l.includes('='))
+    .map((l) => {
+      const i = l.indexOf('=')
+      return [l.slice(0, i).trim(), l.slice(i + 1).trim()]
+    }),
 )
 const url = env.DATABASE_URL
-if (!url) { console.error('[pg-backup] ❌ .env 中无 DATABASE_URL'); process.exit(1) }
+if (!url) {
+  console.error('[pg-backup] ❌ .env 中无 DATABASE_URL')
+  process.exit(1)
+}
 const m = url.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/)
-if (!m) { console.error('[pg-backup] ❌ DATABASE_URL 格式不正确:', url); process.exit(1) }
+if (!m) {
+  console.error('[pg-backup] ❌ DATABASE_URL 格式不正确:', url)
+  process.exit(1)
+}
 const [, user, pass, host, port, db] = m
 
 // 2) 找 pg_dump(2026-10-27 改探测式,G-70 备份链重建③)
@@ -78,31 +95,59 @@ const outFile = join(BACKUP_DIR, `${db}-${stamp}.sql.gz`)
 console.log(`[pg-backup] 📦 ${db}@${host}:${port} → ${outFile}`)
 
 // 4) pg_dump | gzip
-const pgDump = spawn(pgDumpExe, [
-  '-h', host, '-p', port, '-U', user, '-d', db,
-  '--no-owner', '--no-privileges', '--clean', '--if-exists',
-], {
-  env: { ...process.env, PGPASSWORD: pass },
-  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  stdio: ['ignore', 'pipe', 'pipe'],
-})
+const pgDump = spawn(
+  pgDumpExe,
+  [
+    '-h',
+    host,
+    '-p',
+    port,
+    '-U',
+    user,
+    '-d',
+    db,
+    '--no-owner',
+    '--no-privileges',
+    '--clean',
+    '--if-exists',
+  ],
+  {
+    env: { ...process.env, PGPASSWORD: pass },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  },
+)
 
 const gzip = createGzip()
 const out = createWriteStream(outFile)
 pgDump.stdout.pipe(gzip).pipe(out)
 
 let pgErr = ''
-pgDump.stderr.on('data', d => pgErr += d)
-pgDump.on('error', e => { console.error('[pg-backup] ❌ pg_dump 启动失败:', e.message); process.exit(1) })
+pgDump.stderr.on('data', (d) => (pgErr += d))
+pgDump.on('error', (e) => {
+  console.error('[pg-backup] ❌ pg_dump 启动失败:', e.message)
+  process.exit(1)
+})
 
 await new Promise((resolve, reject) => {
   let finished = 0
-  const check = () => { if (finished === 2) resolve() }
-  pgDump.on('close', code => {
-    if (code !== 0) { console.error(`[pg-backup] ❌ pg_dump 退出码 ${code}\n${pgErr}`); return reject(new Error(`pg_dump exit ${code}`)) }
-    console.log('[pg-backup] ✓ pg_dump 完成'); finished++; check()
+  const check = () => {
+    if (finished === 2) resolve()
+  }
+  pgDump.on('close', (code) => {
+    if (code !== 0) {
+      console.error(`[pg-backup] ❌ pg_dump 退出码 ${code}\n${pgErr}`)
+      return reject(new Error(`pg_dump exit ${code}`))
+    }
+    console.log('[pg-backup] ✓ pg_dump 完成')
+    finished++
+    check()
   })
-  out.on('finish', () => { console.log('[pg-backup] ✓ gzip 压缩完成'); finished++; check() })
+  out.on('finish', () => {
+    console.log('[pg-backup] ✓ gzip 压缩完成')
+    finished++
+    check()
+  })
   out.on('error', reject)
 })
 
@@ -126,21 +171,29 @@ try {
   })
   if (decompressedBytes <= 0) throw new Error('解压后为空(0 字节)')
   if (!sawCreateTable) throw new Error('解压内容不含 CREATE TABLE,疑似非完整 SQL dump')
-  console.log(`[pg-backup] 🔍 完整性校验通过: 解压 ${(decompressedBytes / 1024).toFixed(1)} KB, 含建表语句`)
+  console.log(
+    `[pg-backup] 🔍 完整性校验通过: 解压 ${(decompressedBytes / 1024).toFixed(1)} KB, 含建表语句`,
+  )
 } catch (e) {
-  console.error(`[pg-backup] ❌ 完整性校验失败: ${e.message} —— 本次备份不可信,终止轮转避免误删可用备份`)
+  console.error(
+    `[pg-backup] ❌ 完整性校验失败: ${e.message} —— 本次备份不可信,终止轮转避免误删可用备份`,
+  )
   process.exit(1)
 }
 
 // 6) 轮转: 只保留最近 KEEP 份
 const files = readdirSync(BACKUP_DIR)
-  .filter(f => f.endsWith('.sql.gz'))
-  .map(f => ({ f, m: statSync(join(BACKUP_DIR, f)).mtimeMs }))
+  .filter((f) => f.endsWith('.sql.gz'))
+  .map((f) => ({ f, m: statSync(join(BACKUP_DIR, f)).mtimeMs }))
   .sort((a, b) => b.m - a.m)
 const toDelete = files.slice(KEEP)
 for (const x of toDelete) {
-  try { unlinkSync(join(BACKUP_DIR, x.f)); console.log(`[pg-backup] 🗑  ${x.f}`) }
-  catch (e) { console.warn(`[pg-backup] ⚠  ${e.message}`) }
+  try {
+    unlinkSync(join(BACKUP_DIR, x.f))
+    console.log(`[pg-backup] 🗑  ${x.f}`)
+  } catch (e) {
+    console.warn(`[pg-backup] ⚠  ${e.message}`)
+  }
 }
 
 const size = (statSync(outFile).size / 1024).toFixed(1)
