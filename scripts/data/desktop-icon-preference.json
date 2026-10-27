@@ -1,0 +1,10 @@
+{
+  "iconSize": 48,
+  "tierName": "中等图标",
+  "reason": "2026-10-27 实测:Windows 随 3440x1440 超宽屏上线把桌面图标重算成 96 档,纵向格距从 100px 涨到 164px,机主反馈『间距太大』;48 档是该机装机以来的默认档,实测格距 100px 观感正常。",
+  "setAt": "2026-10-27",
+  "setBy": "agent(机主本轮指令:改回并杜绝复发)",
+  "reviewBy": "2027-04-30",
+  "measuredPitchPx": { "48": 100, "96": 164 },
+  "note": "改这个值 = 改机主桌面观感,须机主同意或按 --apply 显式执行;判据层见 scripts/lib/desktop-icon-grid.mjs"
+}
