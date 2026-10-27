@@ -81,7 +81,17 @@ const SECTIONS = [
     // 本机 build.gradle 已有一份生效的 release 签名(指向 apps/mobile-rn/credentials/release.keystore,
     // 存量 APK/AAB 就是这把证书签的)。此时再按模板锚点重注入必然匹配失败 ⇒ 整条出包链在第 1 步就断。
     // 已有 release 签名即视为"已配置",不再要求它必须读 IHUI_RELEASE_*。
-    detect: (s) => /signingConfigs \{[\s\S]{0,2000}?\n {8}release \{/.test(s),
+    // 〔2026-10-27 修误报〕旧正则 `/signingConfigs \{[\s\S]{0,2000}?\n {8}release \{/` 会被
+    // buildTypes.release 命中(prebuild 生成文件里它恰好也是 8 空格缩进、且必在 2000 字窗内)
+    // ⇒ expo prebuild 后每轮必误判"已注入" ⇒ signingConfigs 里根本没 release 块,
+    // gradle 配置期抛 `Could not get unknown property 'release' for SigningConfig container`。
+    // 收窄:只在 signingConfigs 段与 buildTypes 段**之间**找 8 空格的 release 块。
+    detect: (s) => {
+      const start = s.indexOf('    signingConfigs {')
+      const end = s.indexOf('    buildTypes {', start)
+      if (start === -1 || end === -1) return false
+      return /\n {8}release \{/.test(s.slice(start, end))
+    },
     apply: (s) =>
       s.replace(
         [
