@@ -891,6 +891,7 @@
       "scopeAdmin": "관리자",
       "scopeAuth": "로그인",
       "pageUsageTop": "인기 페이지(24h)",
+      "avgDwellSec": "체류 {s}s",
       "pageUsageNoData": "최근 24시간 페이지 방문 없음",
       "panelRelayPool": "AI 풀",
       "pv24h": "24시간 PV",
