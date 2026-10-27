@@ -1436,7 +1436,9 @@
     "tabLive": "Live",
     "tabPost": "Posts",
     "tabAigc": "AI Works",
-    "tabNews": "News"
+    "tabNews": "News",
+    "deleteTitle": "Confirm delete",
+    "title": "My Favorites"
   },
   "userFans": {
     "title": "My Followers",
@@ -6354,5 +6356,37 @@
   },
   "square": {
     "title": "AI Feed"
+  },
+  "publish": {
+    "title": "Content Publish",
+    "empty": "No publish tasks",
+    "emptyHint": "Published articles and content appear here",
+    "loadFailed": "Failed to load",
+    "retry": "Retry",
+    "scheduled": "Scheduled",
+    "statsFailed": "Publish Failed",
+    "statsSuccess": "Published",
+    "statsTotal": "Total",
+    "cancelTask": "Cancel",
+    "cancelTitle": "Cancel Publish Task",
+    "cancelConfirm": "Cancel this task?",
+    "retryTask": "Retry",
+    "operateFailed": "Operation failed, please retry",
+    "statusSuccess": "Success",
+    "statusFailed": "Failed",
+    "statusPartial": "Partial",
+    "statusRunning": "Running",
+    "statusPending": "Pending",
+    "statusSkipped": "Skipped",
+    "platformBilibili": "Bilibili",
+    "platformDouyin": "Douyin",
+    "platformKuaishou": "Kuaishou",
+    "platformWechat": "WeChat Official Account",
+    "platformToutiao": "Toutiao",
+    "platformWeibo": "Weibo",
+    "platformXiaohongshu": "Xiaohongshu (RED)",
+    "platformZhihu": "Zhihu",
+    "platformJuejin": "Juejin",
+    "platformShipinhao": "WeChat Channels"
   }
 }
