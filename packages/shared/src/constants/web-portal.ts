@@ -726,6 +726,13 @@ export const WEB_PORTAL_SECTIONS = [
         domain: 'workflows',
         fallbackLabel: '定时任务',
       },
+      {
+        key: 'cloud-runs-home',
+        titleKey: 'webViewPortal.cloudRuns',
+        path: '/cloud-agent',
+        domain: 'cloud-agent',
+        fallbackLabel: '云托管运行记录',
+      },
     ],
   },
   {
