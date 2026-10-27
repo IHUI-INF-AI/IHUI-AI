@@ -6,6 +6,7 @@
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useConfirm } from '@/hooks/use-confirm'
 import { Loader2, Send } from 'lucide-react'
 import {
   Badge,
@@ -162,6 +163,8 @@ export function SendPanel({ status }: { status: SmsStatus }) {
     confirm: '',
   })
   const [bcastResult, setBcastResult] = React.useState<SmsBroadcastResponse | null>(null)
+  // 原生 window.confirm 违反 §4(禁用原生提示窗),改走仓内唯一出口 useConfirm
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   /** 跳过天数是否被操作员手动改过:没改过时跟随 status 刷新,改过之后不再被覆盖。 */
   const excludeDirtyRef = React.useRef(false)
   /** 群发幂等键:真发提交时生成一次,超时重试复用同一个;成功后再清空,下一次是新一次群发。 */
@@ -245,7 +248,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
     return bcast.category === 'marketing' ? 'SEND_ALL_MARKETING' : 'SEND_ALL'
   }
 
-  function submitBroadcast(e: React.FormEvent) {
+  async function submitBroadcast(e: React.FormEvent) {
     e.preventDefault()
     const content = bcast.fallbackContent.trim()
     if (content && content.length > 35) {
@@ -282,7 +285,11 @@ export function SendPanel({ status }: { status: SmsStatus }) {
       return
     }
     if (!bcast.dryRun && excludeDays === 0) {
-      const ok = window.confirm('跳过天数为 0:可能与近期已收到的用户重复打扰,确认继续?')
+      const ok = await confirm({
+        title: '跳过天数为 0',
+        description: '本次群发不会排除近期已收到同模板的用户,可能与刚收到过的人重复打扰。确认继续?',
+        confirmText: '继续真发',
+      })
       if (!ok) return
     }
     setBcastResult(null)
@@ -430,8 +437,9 @@ export function SendPanel({ status }: { status: SmsStatus }) {
             <CardTitle className="text-base">群发</CardTitle>
             <CardDescription>
               面向全量用户,按注册时间正序取前 N 个有手机号的号码;默认跳过近{' '}
-              {status.broadcastExcludeRecentDays} 天已成功收到同一模板的用户,让后续批次自然向后推进。
-              单次上限 {status.broadcastLimit} 条。
+              {status.broadcastExcludeRecentDays}{' '}
+              天已成功收到同一模板的用户,让后续批次自然向后推进。 单次上限 {status.broadcastLimit}{' '}
+              条。
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -563,9 +571,8 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       范围内 {bcastResult.scopeTotal ?? '-'} 个 · 跳过近{' '}
-                      {bcastResult.excludeRecentDays ?? 0} 天已收{' '}
-                      {bcastResult.excludedRecent ?? 0} 个 · 可发{' '}
-                      {bcastResult.eligible ?? '-'} 个
+                      {bcastResult.excludeRecentDays ?? 0} 天已收 {bcastResult.excludedRecent ?? 0}{' '}
+                      个 · 可发 {bcastResult.eligible ?? '-'} 个
                       {(bcastResult.targetOffset ?? 0) > 0
                         ? ` · 起始偏移 ${bcastResult.targetOffset}`
                         : ''}
@@ -587,9 +594,8 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       范围内 {bcastResult.scopeTotal ?? '-'} 个 · 跳过近{' '}
-                      {bcastResult.excludeRecentDays ?? 0} 天已收{' '}
-                      {bcastResult.excludedRecent ?? 0} 个 · 可发{' '}
-                      {bcastResult.eligible ?? '-'} 个
+                      {bcastResult.excludeRecentDays ?? 0} 天已收 {bcastResult.excludedRecent ?? 0}{' '}
+                      个 · 可发 {bcastResult.eligible ?? '-'} 个
                       {(bcastResult.targetOffset ?? 0) > 0
                         ? ` · 起始偏移 ${bcastResult.targetOffset}`
                         : ''}
@@ -621,6 +627,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
           </CardContent>
         </Card>
       </div>
+      <ConfirmDialogRenderer />
     </div>
   )
 }
