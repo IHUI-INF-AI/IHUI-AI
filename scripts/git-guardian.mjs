@@ -4342,6 +4342,31 @@ export function settleCrossEndLeg(leg, opts = {}) {
 }
 
 /**
+ * 派发回写同一枚节流戳(2026-10-27 立):节流戳原先只有 attemptAt(派发前写),于是
+ * 「子进程被超时掐死」与「本轮判过、无需动手」在盘面上是同一枚文件、同一句无声 ——
+ * 实测 16:11/16:42 两轮造页闭环被掐死,日志只留下一句「未取到 JSON」,而两条新腿连这句都没有。
+ * 本函数只在**子进程返回之后**补 finishedAt/rc ⇒ 裸 attemptAt 从此专表示"派发了但没回来"。
+ * 写失败不改变判定(它是读数,不是判据),也不回落另一个面。
+ */
+function stampCrossEndDispatch(tickFile, attemptAtMs, r, stdout) {
+  try {
+    writeFileSync(
+      tickFile,
+      JSON.stringify({
+        attemptAt: new Date(attemptAtMs).toISOString(),
+        finishedAt: new Date().toISOString(),
+        rc: typeof r?.status === 'number' ? r.status : null,
+        tail: String(stdout ?? '').slice(-220),
+      }),
+      'utf8',
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * 跨端对齐漂移巡检(2026-10-26 立):尺子 `check-cross-end-parity-drift.mjs` 的头注自述
  * 「供 git-guardian 巡检轮派发」,而全仓此前**零派发** —— 判据齐全却无人调度,失效形态是安静
  * (§0.9「造好没装车」= 没有)。本函数是它唯一的调度器。
@@ -4409,6 +4434,7 @@ export function auditCrossEndParityDrift(opts = {}) {
           }
         }
   const r = run()
+  stampCrossEndDispatch(tickFile, now, r, String(r.out ?? r.stdout ?? ''))
   // runner 两种契约都收:生产派生(`{ok,out,err,status}`)与镜像测试(`{status,stdout,stderr}`)。
   const stdout = String(r.out ?? r.stdout ?? '')
   const stderr = String(r.err ?? r.stderr ?? '')
@@ -4568,6 +4594,7 @@ export function sweepCrossEndShellPages(opts = {}) {
           }
         }
   const r = run()
+  stampCrossEndDispatch(tickFile, now, r, String(r.out ?? r.stdout ?? ''))
   const stdout = String(r.out ?? r.stdout ?? '')
   const stderr = String(r.err ?? r.stderr ?? '')
   let parsed = null
@@ -5024,7 +5051,7 @@ export function convergeCrossEndPortalVerdicts(opts = {}) {
           try {
             const out = execFileSync(
               process.execPath,
-              [script, '--converge-portal', '--only=portal', '--apply'],
+              [script, '--converge-portal', '--converge-render', '--only=portal', '--apply'],
               {
                 cwd: WORKTREE,
                 encoding: 'utf8',
@@ -5045,13 +5072,14 @@ export function convergeCrossEndPortalVerdicts(opts = {}) {
           }
         }
   const r = run()
+  stampCrossEndDispatch(tickFile, now, r, String(r.out ?? r.stdout ?? ''))
   const stdout = String(r.out ?? r.stdout ?? '')
   const line = stdout.split('\n').find((l) => l.includes('AUTO-REGISTER-PORTAL'))
   if (!line) {
     const detail =
       `派生 rc=${r.status ?? '?'};stderr 前 120:${String(r.err ?? r.stderr ?? '').slice(0, 120) || '(空)'}\n` +
       `这表示**门户维收敛这一格是瞎的**(台账里该翻成 portal 的行没人翻),不是"台账已收敛"。\n` +
-      `出路:node scripts/auto-register-cross-end.mjs --converge-portal --only=portal --apply`
+      `出路:node scripts/auto-register-cross-end.mjs --converge-portal --converge-render --only=portal --apply`
     logger(
       `⚠️ 门户维收敛:结论行取不到(rc=${r.status ?? '?'})⇒ 本轮没判,既不读成"台账已收敛"也不读成"无需收敛"`,
     )
@@ -5154,6 +5182,7 @@ export function autoRegisterRnTokenPairs(opts = {}) {
           }
         }
   const r = run()
+  stampCrossEndDispatch(tickFile, now, r, String(r.out ?? r.stdout ?? ''))
   const line = String(r.out ?? r.stdout ?? '')
     .split('\n')
     .find((l) => l.includes('PLAN-RN-PAIRING-APPLY'))
@@ -5251,6 +5280,7 @@ export function healCrossEndMirror(opts = {}) {
           }
         }
   const r = run()
+  stampCrossEndDispatch(tickFile, now, r, String(r.out ?? r.stdout ?? ''))
   const stdout = String(r.out ?? r.stdout ?? '')
   const stderr = String(r.err ?? r.stderr ?? '')
   let parsed = null
