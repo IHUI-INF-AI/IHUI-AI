@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 「登录本机」— 把号池账号写进本机客户端登录态(2026-10-27 立,同日扩容到六平台)。
@@ -22,6 +23,7 @@
  * 写前备份/原子写/模板 uid 校验全部由脚本执行(四个平台共用同一份安全实现)。
  */
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { eq } from 'drizzle-orm'
@@ -36,6 +38,8 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = process.env.IHUI_REPO_ROOT?.trim() || resolve(HERE, '..', '..', '..', '..')
 const TRAE_SCRIPT = resolve(REPO_ROOT, 'scripts', 'trae-login-local.mjs')
 const LOCAL_SCRIPT = resolve(REPO_ROOT, 'scripts', 'local-login.mjs')
+/** 服务身份下换桌面用户执行的 helper(CodeArts/Qoder 的用户级 DPAPI 只能以该用户身份解) */
+const RUN_AS_USER_SCRIPT = resolve(REPO_ROOT, 'apps', 'api', 'scripts', 'run-as-user.ps1')
 const SPAWN_TIMEOUT_MS = 30_000
 /** 票剩余寿命低于此值就视为"临期":trae 写回后客户端必然立刻轮换,与池内旧票打架 */
 const EXPIRY_GUARD_MS = 60_000
@@ -61,6 +65,39 @@ const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
   'codearts',
   'qoder',
 ])
+
+/**
+ * 必须「以桌面登录用户身份」执行写回的平台:Local State 的密钥是用户级 DPAPI,
+ * IHUI-API 以 LocalSystem 运行时既解不开(SYSTEM 主密钥不同)、落点又指向 systemprofile。
+ * 走 apps/api/scripts/run-as-user.ps1(WTSQueryUserToken → CreateProcessAsUser);
+ * 非服务身份时该脚本原样直跑,行为与直接 spawn 等价。
+ */
+const RUN_AS_USER_PROVIDERS: ReadonlySet<string> = new Set(['codearts', 'qoder'])
+
+/**
+ * 选 PowerShell 解释器:优先 pwsh 7(本机实测 powershell.exe 可能被替换成
+ * 「PS7 二进制 + PS5.1 $PSHOME」的怪异形态,模块搜索路径里没有可加载的
+ * Utility 模块 ⇒ ConvertFrom-Json/Test-Path/Add-Type 全部「找不到」)。
+ * 次序:IHUI_PWSH_PATH > Program Files\PowerShell\{7,6} > 自带 powershell.exe。
+ */
+function powershellPath(): string {
+  const override = process.env.IHUI_PWSH_PATH?.trim()
+  if (override && existsSync(override)) return override
+  const pf = process.env.ProgramFiles?.trim() || 'C:\\Program Files'
+  const pf86 = process.env['ProgramFiles(x86)']?.trim() || 'C:\\Program Files (x86)'
+  const local = process.env.LOCALAPPDATA?.trim()
+  const candidates = [
+    resolve(pf, 'PowerShell', '7', 'pwsh.exe'),
+    resolve(pf, 'PowerShell', '6', 'pwsh.exe'),
+    resolve(pf86, 'PowerShell', '7', 'pwsh.exe'),
+    ...(local ? [resolve(local, 'Microsoft', 'PowerShell', '7', 'pwsh.exe')] : []),
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate
+  }
+  const root = process.env.SystemRoot?.trim() || 'C:\\Windows'
+  return resolve(root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+}
 
 export class LocalLoginError extends Error {
   constructor(
@@ -102,9 +139,34 @@ function runScript(
   scriptPath: string,
   args: string[],
   payload: unknown,
+  opts: { asUser?: boolean } = {},
 ): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(process.execPath, [scriptPath, ...args], {
+    const useHelper =
+      opts.asUser === true &&
+      process.platform === 'win32' &&
+      RUN_AS_USER_SCRIPT !== '' &&
+      existsSync(RUN_AS_USER_SCRIPT)
+    const command = useHelper ? powershellPath() : process.execPath
+    const commandArgs = useHelper
+      ? [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-File',
+          RUN_AS_USER_SCRIPT,
+          '-Exe',
+          process.execPath,
+          '-ArgJson',
+          JSON.stringify([scriptPath, ...args]),
+          '-WorkingDirectory',
+          REPO_ROOT,
+          '-TimeoutSeconds',
+          String(Math.max(5, Math.floor(SPAWN_TIMEOUT_MS / 1000) - 5)),
+        ]
+      : [scriptPath, ...args]
+    const child = spawn(command, commandArgs, {
       cwd: REPO_ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
@@ -191,6 +253,49 @@ function isNearExpiry(row: AiRelayAccountPool, now: number): boolean {
 }
 
 /**
+ * 池内 trae 号没有会话模板时的最小会话(2026-10-28 立)。
+ *
+ * 立因:号池里一部分 trae 号是「只导入了凭证」进来的(旧导入/脚本直灌/换机),没有
+ * sessionTemplate ⇒ 老实现直接 409 no-template,用户点「登录本机」必失败。而 Trae 的
+ * 会话信封实际只要求 userId + 平台静态档 + 凭证;account 里的邮箱/头像/组织等资料
+ * 缺了不影响客户端出登录态,登录成功后 sync-trae-client-session.mjs(每 10 分钟)会把
+ * 客户端整份会话回灌成完整模板。
+ *
+ * 静态字段取值来自本机实测模板(2026-10-27 号池审计,零凭据):
+ * host=https://api.trae.cn、userRegion={CN,CN}、scope=marscode、loginScope=trae、
+ * iss/storeCountryCode/storeCountrySrc/work_country 为空串、migrateToSG=false。
+ */
+export function buildMinimalTraeTemplate(
+  row: Pick<AiRelayAccountPool, 'uid' | 'name'>,
+): Record<string, unknown> {
+  const now = new Date()
+  return {
+    tokenReleaseAt: now.toISOString(),
+    userId: row.uid,
+    host: 'https://api.trae.cn',
+    userRegion: { region: 'CN', _aiRegion: 'CN' },
+    account: {
+      username: (row.name ?? '').trim() || row.uid,
+      iss: '',
+      iat: Math.floor(now.getTime() / 1000),
+      organization: '',
+      work_country: '',
+      email: '',
+      avatar_url: '',
+      description: '',
+      scope: 'marscode',
+      loginScope: 'trae',
+      nonPlainTextMobile: '',
+      storeCountryCode: '',
+      storeCountrySrc: '',
+      storeRegion: '',
+      userTag: '',
+      migrateToSG: false,
+    },
+  }
+}
+
+/**
  * Trae:票还有 60 秒以上寿命就直接写(客户端不会立刻轮换,池内票保持同一枚);
  * 临期/已过期才让号池兜底刷新一次(此窗口本机没有该号登录态,不会把客户端顶下线)。
  * 刷新失败不阻塞写回 —— 客户端自带设备证明,通常能自己把票续活,再由同步回灌池。
@@ -216,12 +321,16 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
   }
 
   const creds = decryptAccountCredentials(current)
-  const template = creds.secrets.sessionTemplate
-  if (!template || typeof template !== 'object' || Array.isArray(template)) {
-    throw new LocalLoginError(
-      '该号没有会话模板,无法写入本机:请先在本机登录这个号,再点「一键入池」采集模板',
-      'no-template',
-      409,
+  const stored = creds.secrets.sessionTemplate
+  const notes: string[] = []
+  let template: Record<string, unknown>
+  if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+    template = stored as Record<string, unknown>
+  } else {
+    // 没有模板不再一票否决:用平台静态字段合成最小会话(见 buildMinimalTraeTemplate 头注)
+    template = buildMinimalTraeTemplate(current)
+    notes.push(
+      '该号没有会话模板,已按平台静态字段生成最小会话(不影响登录态;客户端登录成功后 10 分钟内的同步会把完整资料回填进号池)',
     )
   }
 
@@ -264,7 +373,7 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
     replacedUid: typeof parsed.replacedUid === 'string' ? parsed.replacedUid : null,
     targetFile,
     backupFile: typeof parsed.backupFile === 'string' ? parsed.backupFile : '',
-    notes: [],
+    notes,
     tokenNearExpiry: nearExpiry && !refreshed,
     refreshed,
     restartHint:
@@ -295,6 +404,7 @@ async function loginViaScript(
       LOCAL_SCRIPT,
       ['--provider', providerCode, '--stdin', '--json'],
       payload,
+      { asUser: RUN_AS_USER_PROVIDERS.has(providerCode) },
     )
   } catch (e) {
     if (e instanceof LocalLoginError) throw e
@@ -353,3 +463,4 @@ export async function loginAccountLocal(row: AiRelayAccountPool): Promise<LocalL
   }
   return loginViaScript(row, providerCode)
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
