@@ -27747,6 +27747,15 @@
         }
       }
     },
+    "/api/admin/meta-learner/refresh": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/meta-learner/trigger": {
       "post": {
         "responses": {
@@ -32196,6 +32205,15 @@
         }
       }
     },
+    "/api/admin/relay/account-pool/renewal-capability": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/account-pool/sweep": {
       "post": {
         "responses": {
@@ -33645,6 +33663,25 @@
         }
       }
     },
+    "/api/admin/relay/logs/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/model-catalog": {
       "get": {
         "responses": {
@@ -33932,6 +33969,15 @@
             "required": true
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/pool-policy": {
+      "get": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -142475,6 +142521,25 @@
         }
       }
     },
+    "/api/mcp/external/servers/{name}/clear-auth": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "name",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/mcp/integrations": {
       "get": {
         "responses": {
@@ -142629,6 +142694,15 @@
             "required": true
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/mcp/slash-commands/reload": {
+      "post": {
         "responses": {
           "200": {
             "description": "Default Response"
