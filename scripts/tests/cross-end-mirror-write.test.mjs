@@ -18,6 +18,9 @@
  * ④ 台账语义漂移 —— 坏行不许被静默吞掉(吞了就等于把"读不出来"记成"台账是空")。
  */
 import assert from 'node:assert/strict'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, sep } from 'node:path'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as W } from '../lib/cross-end-mirror-write.mjs'
 import { __test__ as V } from '../lib/cross-end-verdicts.mjs'
 import { __test__ as cov } from '../check-cross-end-screen-coverage.mjs'
@@ -122,6 +125,52 @@ test('V3 归并:同屏以本批为准,新增计数只算新键', () => {
 test('V4 序列化键序固定(同一份台账两次落盘长得一样)', () => {
   const s = V.serializeVerdicts([{ shared: SPEC, verdict: 'missing', evidence: 'e', at: '2026-10-25', source: 'b.json' }])
   assert.equal(s, JSON.stringify({ shared: SPEC, verdict: 'missing', evidence: 'e', at: '2026-10-25', source: 'b.json' }))
+})
+
+/**
+ * V5/V6 钉的是 writeVerdictRows 的两条写面护栏(2026-10-28 立)。
+ * 立因:生产方 repair-cross-end-mirror 写出 `generated` 而词表没这一档 ⇒ 读面把 94 条合法行
+ * 归进 bad,而写面只带 `.rows` 进归并 ⇒ **下一次写台账就把这 94 条判定证据静默删掉**。
+ * 词表补上是一半;另一半是"写面自己必须过同一张词表 + 读不出来就不许写",否则下一档新词
+ * 还会以同样的方式吃掉同一批证据(§0.3 没判不写成判过,§0.10 失效方向是多要一次说明)。
+ */
+function withScratchLedger(lines) {
+  const root = mkScratch('verdicts-write')
+  const p = join(root, V.VERDICTS_PATH.split('/').join(sep))
+  mkdirSync(dirname(p), { recursive: true })
+  const text = lines.join('\n') + '\n'
+  writeFileSync(p, text, 'utf8')
+  return { root, p, original: text }
+}
+
+test('V5 词表外的 verdict 拒写(写面与读面共用同一张表)', () => {
+  const { root, p, original } = withScratchLedger([
+    JSON.stringify({ shared: SPEC, verdict: 'missing', evidence: 'e', at: '2026-10-28', source: 't' }),
+  ])
+  let threw = false
+  try {
+    V.writeVerdictRows(root, [{ shared: OTHER, verdict: 'declare', evidence: 'e' }])
+  } catch {
+    threw = true
+  }
+  assert.ok(threw, "verdict='declare'(不在 VERDICT_KINDS)必须抛错,不能写进去")
+  assert.equal(readFileSync(p, 'utf8'), original, '拒写必须一字不改(拒绝≠部分写入)')
+  rmScratch(root)
+})
+
+test('V6 面上有读不出来的行 ⇒ 拒写(继续写等于删掉它们代表的判定)', () => {
+  const good = JSON.stringify({ shared: SPEC, verdict: 'generated', evidence: 'e', at: '2026-10-28', source: 't' })
+  const { root, p, original } = withScratchLedger([good, 'this-is-not-json'])
+  let threw = false
+  try {
+    V.writeVerdictRows(root, [{ shared: OTHER, verdict: 'missing', evidence: 'e' }])
+  } catch (e) {
+    threw = true
+    assert.match(String(e && e.message), /读不出来/, '抛错必须点名坏行')
+  }
+  assert.ok(threw, '坏行存在时不许写盘')
+  assert.equal(readFileSync(p, 'utf8'), original, '拒写必须一字不改(否则坏行被 merged.rows 重排洗掉)')
+  rmScratch(root)
 })
 
 let failed = 0

@@ -32,8 +32,17 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url))
  */
 export const VERDICTS_PATH = 'scripts/data/miniapp-mirror-verdicts.jsonl'
 
-/** 允许进台账的判定档。`declare` 不在其中:它落代码,不落台账。 */
-export const VERDICT_KINDS = Object.freeze(['missing', 'not-applicable'])
+/**
+ * 允许进台账的判定档。`declare` 不在其中:它落代码,不落台账。
+ *
+ * `generated` 是对账器 `repair-cross-end-mirror.mjs:273` 的改档档(2026-10-27 起在 HEAD 面上
+ * 实存 94 条,判据=该屏已被小程序页显式镜像)。它此前**不在本表里**,后果不是"少报一个档"而是:
+ *   ① 消费方 `parseVerdictRows` 把这 94 条归进 bad ⇒ 门 237 每轮喊"判决台账坏行 94 条";
+ *   ② 写出口 `writeVerdictRows` 只带 `.rows` 进归并 ⇒ 任何一次后续台账写入都会把这 94 条
+ *      **静默删干净**(内容损失,且删的是"这一格验过并结清"的凭据,下一轮它们会重新列成待办)。
+ * ⇒ 词表必须等于生产方真实产出的档位;少一档,读面与写面就同时失真(§0.3/§0.6)。
+ */
+export const VERDICT_KINDS = Object.freeze(['missing', 'not-applicable', 'generated'])
 
 /**
  * 解析台账文本。坏行**不静默丢**:单独归入 bad 并带原因(§0.3「没判不写成判过」——
@@ -154,14 +163,38 @@ export function indexVerdicts(rows) {
  */
 export function writeVerdictRows(root, batch) {
   if (!batch || batch.length === 0) return { total: 0, added: 0, unreadable: 0 }
+  // 写面必须过同一张词表(§0.6 单一真相源的反面教训:读面拒收 generated 那 94 条,写面却照样产它,
+  // 于是读出的行数永远少于写入的行数,差的那批正是"已结清"的证据)。
+  for (const r of batch) {
+    const v = r && r.verdict
+    if (!VERDICT_KINDS.includes(v)) {
+      throw new Error(
+        `台账写入被拒:verdict=${JSON.stringify(v)} 不在词表 [${VERDICT_KINDS.join('|')}] 内(单源 scripts/lib/cross-end-verdicts.mjs 的 VERDICT_KINDS)`,
+      )
+    }
+  }
   const headRows = readVerdicts('head', root)
   const workRows = readVerdicts('worktree', root)
+  // 不可解析行 ⇒ 当场拒绝,绝不"先把能读的写回去"。
+  // 立因:归并只吃 `.rows`,坏行不进 merged ⇒ 一次写入等于把坏行代表的判定从台账里删掉。
+  // 失效方向必须是"多要一次定向说明"(调用方 repair-cross-end-mirror 已把抛错归进 refused 并点名),
+  // 不能是"多放一次静默清账"(§0.3/§0.10)。
+  const badAll = [...headRows.bad, ...workRows.bad]
+  if (badAll.length > 0) {
+    const sample = badAll
+      .slice(0, 3)
+      .map((b) => `${b.why} ⇒ ${String(b.raw).slice(0, 90)}`)
+      .join(' ／ ')
+    throw new Error(
+      `台账写入被拒:${badAll.length} 行读不出来(HEAD ${headRows.bad.length} + 工作树 ${workRows.bad.length}),继续写会把它们代表的判定静默删除。前 3 行:${sample}`,
+    )
+  }
   const merged = mergeVerdictRows([...headRows.rows, ...workRows.rows], batch)
   writeFileSync(join(root, VERDICTS_PATH), serializeVerdicts(merged.rows) + '\n', 'utf8')
   return {
     total: merged.total,
     added: merged.added,
-    unreadable: headRows.bad.length + workRows.bad.length,
+    unreadable: badAll.length,
   }
 }
 
@@ -172,5 +205,6 @@ export const __test__ = {
   mergeVerdictRows,
   serializeVerdicts,
   indexVerdicts,
+  writeVerdictRows,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
