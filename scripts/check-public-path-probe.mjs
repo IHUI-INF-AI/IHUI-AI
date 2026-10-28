@@ -105,6 +105,9 @@
  *   node scripts/check-public-path-probe.mjs --leg-hops 0          # 关掉跟跳(每一腿的 3xx 都会如实落成未判定)
  *   node scripts/check-public-path-probe.mjs --report <ledger>     # 只读回一份取证
  *   node scripts/check-public-path-probe.mjs --self-test           # 构造面正反对照(唯一不触网的一档)
+ *   node scripts/check-public-path-probe.mjs --callback-redirect    # 回调腿方法保全(G16,2026-10-29 立):
+ *        逐条 GET 不跟随,301/302/303 ⇒ breach(跟随方按 RFC 会把 POST 降成 GET ⇒ 投递在丢);
+ *        307/308 或直达源站 ⇒ ok;取不到应答/台账过期 ⇒ exit 2 未判定。**零 POST**,不给自家威胁检测层投喂假签名请求。
  * 退出码:0 已判定且未越阈值 / 1 已判定且越阈值 / 2 用法错 / 3 INCOMPLETE 或未判定(结论无效)。
  * 阳性对照未命中 ⇒ 无论其余读数如何一律降 3(一把抓不到已知必坏目标的尺子,不配出具合格证)。
  */
@@ -1537,6 +1540,62 @@ function selfTest() {
     const green = classifyAlertIdentity('E/www', summarizeSequence([{ at: new Date(t0).toISOString(), status: 200, ms: 20, ...classifySample({ status: 200, ms: 20 }) }]), { nowMs: NOW, leg: 'entry' })
     return a.identity === b.identity && a.sevTier === 4 && /;sev=/.test(a.identity) && !/300|742/.test(a.identity + a.why) && green.sevTier === 0 && green.identity !== a.identity
   })())
+  // ── G16 回调腿方法保全(2026-10-29 立;每档都有成对反例,否则这条判据可以是空的) ──
+  cases.push(
+    ...[
+      [
+        'G16 301/302/303 判 breach(降级会吃掉 POST)',
+        [301, 302, 303].every(
+          (s) => judgeCallbackRedirect({ id: 'x', apexUrl: 'u' }, { status: s, location: 'https://www/x' }).state === 'breach',
+        ),
+      ],
+      [
+        'G16 成对:307/308 不判 breach(它们保留方法)',
+        [307, 308].every((s) => judgeCallbackRedirect({ id: 'x', apexUrl: 'u' }, { status: s }).state === 'ok'),
+      ],
+      [
+        'G16 成对:401/200 直达源站算 ok(4xx 是鉴权语义)',
+        [200, 401, 404].every((s) => judgeCallbackRedirect({ id: 'x', apexUrl: 'u' }, { status: s }).state === 'ok'),
+      ],
+      [
+        'G16 取不到应答 ⇒ 未判定,不折成 ok',
+        judgeCallbackRedirect({ id: 'x', apexUrl: 'u' }, { status: null, errorCode: 'ETIMEDOUT' }).state === 'unjudged',
+      ],
+      [
+        'G16 5xx ⇒ 未判定(本维不为源站故障出结论)',
+        judgeCallbackRedirect({ id: 'x', apexUrl: 'u' }, { status: 502 }).state === 'unjudged',
+      ],
+      [
+        'G16 汇总:一条 breach 即 rc=1,全未判定 rc=2,全 ok rc=0',
+        summarizeCallbackVerdicts([{ state: 'breach' }], { state: 'ok', legs: [{}] }).rc === 1 &&
+          summarizeCallbackVerdicts([{ state: 'unjudged' }], { state: 'ok', legs: [{}] }).rc === 2 &&
+          summarizeCallbackVerdicts([{ state: 'ok' }], { state: 'ok', legs: [{}] }).rc === 0,
+      ],
+      [
+        'G16 台账枚举到 0 ⇒ 整档未判定(判死不记绿)',
+        loadCallbackLegs('x', {
+          readFileSync: () => JSON.stringify({ expires: '2099-01-01', callbackLegs: [] }),
+        }).state === 'undetermined',
+      ],
+      [
+        'G16 台账过期 ⇒ 整档未判定(§0.7 到期不续用)',
+        loadCallbackLegs('x', {
+          readFileSync: () => JSON.stringify({ expires: '2020-01-01', callbackLegs: [{ id: 'a', apexUrl: 'u' }] }),
+          today: '2026-01-01',
+        }).state === 'undetermined',
+      ],
+      [
+        'G16 台账形状坏(缺 apexUrl)⇒ 未判定而不是跳过那条',
+        loadCallbackLegs('x', {
+          readFileSync: () => JSON.stringify({ expires: '2099-01-01', callbackLegs: [{ id: 'a' }] }),
+        }).state === 'undetermined',
+      ],
+      [
+        'G16 现行台账真能读出腿(判据不是自说自话)',
+        loadCallbackLegs().state === 'ok' && loadCallbackLegs().legs.length > 0,
+      ],
+    ],
+  )
   let pass = 0
   for (const [n, p] of cases) {
     console.log(`${p ? '  ✅' : '  ❌'} ${n}`)
@@ -1570,8 +1629,128 @@ function pickOpt(argv, k, d, errs) {
   return f.value ?? d
 }
 
+/**
+ * 回调腿的"方法保全"判据(2026-10-29 立)。
+ *
+ * 立因(现场读数,不是推测):GitHub App 的回调配在裸域,而裸域在 Cloudflare 边缘就被 **301** 弹到 www ——
+ * 按 RFC 9110 §15.4,301/302/303 **允许客户端把 POST 改成 GET** 再跟随,于是我方收到的是
+ * `GET /api/github-app/webhook`(路由不存在 ⇒ 404),GitHub 判投递失败并重试 ——
+ * 单是 02:20 换流后那一档日志里就有 2154 条这种 404。307/308 才明确要求保留方法。
+ *
+ * 为什么用 GET 就够:方法降级发生在**客户端跟随那一步**,与它跟随的是 POST 还是 GET 无关;
+ * 边缘回给探测器的状态码本身就决定了真投递会不会掉方法。用 POST 去探反而会给自家
+ * 威胁检测/IP 信誉层投喂"签名校验失败的回调",是自我致噪(§5e 同族教训)。
+ *
+ * 失效方向:取不到对端应答 ⇒ `unjudged` 点名,绝不折成"没配错"(§0.3);
+ * 台账 `expires` 过期或一条腿都没登记 ⇒ 整档判未判定(§0.7 验过才免且会到期)。
+ */
+export const METHOD_DEGRADING_STATUSES = Object.freeze([301, 302, 303])
+
+/** 读回调腿台账。枚举到 0 或台账过期 ⇒ state=undetermined(不记绿)。 */
+export function loadCallbackLegs(file = PUBLIC_LEGS_FILE, opt = {}) {
+  const read = opt.readFileSync ?? ((p) => readFileSync(p, 'utf8'))
+  const today = opt.today ?? new Date().toISOString().slice(0, 10)
+  let doc
+  try {
+    doc = JSON.parse(read(file, 'utf8'))
+  } catch (e) {
+    return {
+      state: 'undetermined',
+      why: `台账读不到或 JSON 坏(${String(e?.message).split('\n')[0].slice(0, 90)})`,
+      legs: [],
+    }
+  }
+  const rows = Array.isArray(doc?.callbackLegs) ? doc.callbackLegs : []
+  if (rows.length === 0)
+    return { state: 'undetermined', why: '台账未登记任何 callbackLegs(枚举到 0 判死不记绿)', legs: [] }
+  const bad = rows.filter((r) => typeof r?.id !== 'string' || typeof r?.apexUrl !== 'string')
+  if (bad.length > 0)
+    return { state: 'undetermined', why: `${bad.length} 条回调腿形状坏(缺 id/apexUrl),整档不判`, legs: [] }
+  const exp = typeof doc?.expires === 'string' ? doc.expires : null
+  if (exp && exp < today)
+    return {
+      state: 'undetermined',
+      why: `台账已到期(expires=${exp} < 今日=${today})⇒ 需重核后改期,不得当成"一直在效"`,
+      legs: rows,
+    }
+  return { state: 'ok', legs: rows, expires: exp }
+}
+
+/** 单腿判定。sample 形如 sampleOnce 的产出({status, location, errorCode…})。 */
+export function judgeCallbackRedirect(leg, sample) {
+  const st = typeof sample?.status === 'number' ? sample.status : null
+  if (st === null)
+    return {
+      id: leg.id,
+      url: leg.apexUrl,
+      state: 'unjudged',
+      why: `取不到对端应答(${String(sample?.errorCode ?? sample?.causeCode ?? '无状态码')})`,
+    }
+  if (st >= 300 && st < 400) {
+    if (METHOD_DEGRADING_STATUSES.includes(st))
+      return {
+        id: leg.id,
+        url: leg.apexUrl,
+        state: 'breach',
+        status: st,
+        location: typeof sample.location === 'string' ? sample.location : null,
+        why: `边缘以 ${st} 重定向 ⇒ 跟随方按 RFC 可把 POST 降成 GET,该回调投递必丢`,
+      }
+    return { id: leg.id, url: leg.apexUrl, state: 'ok', status: st, note: `${st} 保留请求方法 ⇒ 投递不受影响` }
+  }
+  if (st >= 500) return { id: leg.id, url: leg.apexUrl, state: 'unjudged', status: st, why: `源站 ${st} ⇒ 本维不出结论` }
+  if (st >= 400)
+    return { id: leg.id, url: leg.apexUrl, state: 'ok', status: st, note: '直达源站(4xx 是鉴权/路由语义,不判坏)' }
+  return { id: leg.id, url: leg.apexUrl, state: 'ok', status: st, note: '直达源站' }
+}
+
+/** 汇总到三档退出码:0 全部无降级 / 1 至少一条 breach / 2 一条都没判成(未判定)。 */
+export function summarizeCallbackVerdicts(verdicts, load) {
+  const breach = verdicts.filter((v) => v.state === 'breach')
+  const ok = verdicts.filter((v) => v.state === 'ok')
+  const unjudged = verdicts.filter((v) => v.state === 'unjudged')
+  if (load && load.state === 'undetermined')
+    return { verdict: 'undetermined', rc: 2, breach, ok, unjudged, why: load.why }
+  if (breach.length > 0) return { verdict: 'breach', rc: 1, breach, ok, unjudged }
+  if (ok.length === 0)
+    return { verdict: 'undetermined', rc: 2, breach, ok, unjudged, why: '没有任何一条腿拿到可判定的应答' }
+  return { verdict: 'ok', rc: 0, breach, ok, unjudged }
+}
+
+/** 实探测档:逐条 GET 不跟随重定向(只问状态码与 Location,零 POST、零副作用)。 */
+export async function probeCallbackLegs(load, opt = {}) {
+  const ceiling = Number.isFinite(opt.ceilingMs) ? opt.ceilingMs : 8000
+  const sampler = opt.sampleOnce ?? sampleOnce
+  const out = []
+  for (const leg of load.legs) {
+    try {
+      out.push(judgeCallbackRedirect(leg, await sampler(leg.apexUrl, ceiling)))
+    } catch (e) {
+      out.push(judgeCallbackRedirect(leg, { status: null, errorCode: String(e?.message).slice(0, 60) }))
+    }
+  }
+  return out
+}
+
 async function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
+  if (argv.includes('--callback-redirect')) {
+    const load = loadCallbackLegs()
+    const sum = summarizeCallbackVerdicts(await probeCallbackLegs(load), load)
+    console.log(
+      `回调腿方法保全探测:台账腿数=${load.legs.length} 判定=${sum.verdict} (breach=${sum.breach.length} ok=${sum.ok.length} 未判定=${sum.unjudged.length})`,
+    )
+    for (const v of [...sum.breach, ...sum.unjudged, ...sum.ok])
+      console.log(`  · ${v.id} ${v.status ?? '-'} [${v.state}] ${(v.why ?? v.note ?? '')}${v.location ? ` → ${v.location}` : ''}`)
+    console.log(
+      sum.rc === 0
+        ? '结论:回调腿未被方法降级重定向(307/308 或直达)。'
+        : sum.rc === 1
+          ? '结论:存在 301/302/303 降级腿 ⇒ 跟随方按 RFC 会把 POST 变 GET。逐条看 configuredBy:真在配的腿其投递正在丢,当前无提供方的腿是"配上即丢"的预置坑。修法=把该重定向改成 308(Cloudflare 边缘规则),或把提供方回调地址配到不经该重定向的域名。'
+          : `结论:未判定 —— ${sum.why ?? '取不到输入'}(既不等于"配错了",也不等于"没配错")`,
+    )
+    return sum.rc
+  }
   const reportFlag = requireFlagValue(argv, '--report', { noun: '取证文件路径' })
   // G-322(取证封缄落点):旧写法只挡"后面没有参数";`--report --json` 会把 "--json" 当取证文件读,
   // 得到的结论与该门"取证必须经 run-evidence 封缄"的纪律脱钩(读不到 ≠ 没有问题)。给了就要有值。
@@ -1903,6 +2082,11 @@ export const __test__ = {
   nextHopUrl,
   planLegHop,
   loadPublicLegs,
+  loadCallbackLegs,
+  judgeCallbackRedirect,
+  summarizeCallbackVerdicts,
+  probeCallbackLegs,
+  METHOD_DEGRADING_STATUSES,
   summarizeLegStates,
   PUBLIC_LEGS_FILE,
   LEG_REDIRECT_MAX_HOPS,
