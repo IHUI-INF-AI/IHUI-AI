@@ -25,7 +25,7 @@ import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { extractTKeys, pickByPath, subsetMissing, flattenKeys, decodePackB64, extractStringConst } from '../lib/rn-carried-keys.mjs'
+import { extractTKeys, pickByPath, subsetMissing, flattenKeys, decodePackB64, extractStringConst, carriedKeysFromRepo } from '../lib/rn-carried-keys.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 test('K1 取键:带参/带插值都算,模板串与变量键不算', () => {
@@ -75,5 +75,43 @@ test('K5 接线锁:生成器与门都 import 这一份算式,门里不许多出�
   assert.match(gate, /from '\.\/lib\/rn-carried-keys\.mjs'/, '门 251 没接这条算式 ⇒ 判据与补键各算一套,必然漂移')
   assert.equal(/T_KEY_RE|function extractTKeys/.test(gate), false, '门里出现了第二份取键判据')
   assert.match(gate, /makeReader\('head'\)/, 'C10 的锚点必须落在 HEAD 面上(差值棘轮的锚点不得取自被审面自己)')
+})
+
+test('K6 特性屏整片纳入:import 闭包断链时,共享屏自述的键仍必须被承载(否则页面显示原始键)', () => {
+  // 承载页 → 壳(壳文件缺)⇒ 闭包链断;但共享屏 features/x/XScreen.tsx 在册 ⇒ 它的键仍要被承载。
+  const FILES = {
+    'apps/miniapp-taro/src/pages/x/index.tsx': "import { XScreen } from '@rn-shells/XScreen'\nexport default () => <XScreen />",
+    'packages/app/src/features/x/XScreen.tsx': "const a = t('x.title')\nconst b = t('x.empty')",
+    'packages/app/src/features/u/UScreen.tsx': "const ROLES = { owner: 'u.owner', admin: 'u.admin' }\nconst p = x === 1 ? 'u.bare' : null",
+  }
+  const read = (rel) => FILES[rel] ?? null
+  const list = (prefix) => Object.keys(FILES).filter((p) => p.startsWith(prefix))
+  const r = carriedKeysFromRepo({
+    readFile: read,
+    readBatch: (rels) => new Map(rels.map((x) => [x, read(x)])),
+    listFiles: list,
+  })
+  assert.equal(r.carriers.length, 1, '承载页要认得出来')
+  assert.equal(r.featureFiles, 2, '特性屏整片纳入的文件数')
+  // t('x') 直调通道 + 裸字面量键表通道(ROLES / 三元里的 'u.bare')都要认;
+  // 带斜杠的路由名(如 '/pages/x/index')落不进该形状,不得被当键承载。
+  for (const k of ['x.title', 'x.empty', 'u.owner', 'u.admin', 'u.bare'])
+    assert.equal(r.keys.has(k), true, `${k} 未被承载`)
+  assert.equal(r.keys.has('/pages/x/index'), false, '路由名不得被当键')
+})
+
+test('K7 取不到特性屏根不得炸(增强层缺席不阻断,交由门判缺键)', () => {
+  const FILES = { 'apps/miniapp-taro/src/pages/x/index.tsx': "import { XScreen } from '@rn-shells/XScreen'" }
+  const read = (rel) => FILES[rel] ?? null
+  const r = carriedKeysFromRepo({
+    readFile: read,
+    readBatch: (rels) => new Map(rels.map((x) => [x, read(x)])),
+    listFiles: (prefix) => {
+      if (prefix === 'packages/app/src') throw new Error('读不到')
+      return Object.keys(FILES).filter((p) => p.startsWith(prefix))
+    },
+  })
+  assert.equal(r.featureFiles, 0)
+  assert.deepEqual([...r.keys], [])
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
