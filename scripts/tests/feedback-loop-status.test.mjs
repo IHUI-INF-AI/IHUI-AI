@@ -264,4 +264,25 @@ test('⑪ 旁路不可伪造:无票号命中仍判未派单;部署不含修复�
   assert.equal(di.stages.ticketed, 'undetermined')
   assert.ok(di.why.includes('建单未落地'), di.why)
 })
+
+// ⑫ 钉住「部署决策面」:部署环跑生产 checkout、决策落那一侧,status 若钉死主仓就会永远看不见
+// 真部署(2026-10-28 实测:主仓 3 行 vs 生产 88 行,导致已上线的两枚事故被判「尚未部署」)。
+test('⑫ 部署决策台账随线上 oracle 面解析,不钉死主仓;--state-dir 仍平铺隔离', () => {
+  const root = makeBox()
+  const faceFile = join(root, 'prod-face.jsonl')
+  writeFileSync(faceFile, '', 'utf8')
+  const prev = process.env.IHUI_DEPLOY_DECISIONS_FACE
+  process.env.IHUI_DEPLOY_DECISIONS_FACE = faceFile
+  try {
+    const p = mod.resolvePaths({ root })
+    assert.equal(p.decisions, faceFile, '部署决策路径未随面覆盖 —— 又钉死主仓了')
+    assert.ok(p.signals.startsWith(join(root, '.ihui-agent', 'state')), '其余三本不应受面影响')
+  } finally {
+    if (prev === undefined) delete process.env.IHUI_DEPLOY_DECISIONS_FACE
+    else process.env.IHUI_DEPLOY_DECISIONS_FACE = prev
+  }
+  // 显式 --state-dir ⇒ 四本平铺,不受面影响(测试与夹具隔离的既定契约)
+  const flat = mod.resolvePaths({ root, stateDir: root })
+  assert.equal(flat.decisions, join(root, SOURCE_FILES.decisions))
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
