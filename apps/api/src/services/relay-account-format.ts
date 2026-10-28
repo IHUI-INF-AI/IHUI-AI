@@ -563,12 +563,15 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
     const acc = normalizeForeignAccountShape(row)
     const isCodearts = opts.providerCode === 'codearts'
     const codeartsAccount = isCodearts && isRecord(acc['account']) ? acc['account'] : undefined
+    // O66:name 链统一 name → phone → 平台特化 → #序号(手机号是全平台统一兜底位,
+    // 先于平台昵称/标签;显式 name 恒最优先,导入方意图不被覆盖)
     const name =
       cstr(acc['name']) ||
+      cstr(acc['phone']) ||
       (isCodearts
         ? cstr(codeartsAccount?.['label']) || cstr(acc['user_name']) || `#${index + 1}`
         : opts.providerCode === 'qoder'
-          ? cstr(acc['nickname']) || cstr(acc['phone']) || `#${index + 1}`
+          ? cstr(acc['nickname']) || `#${index + 1}`
           : `#${index + 1}`)
 
     // ── 凭证必填面 ──

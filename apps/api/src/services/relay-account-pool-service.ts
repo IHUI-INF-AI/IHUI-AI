@@ -344,7 +344,8 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
     uid,
     expiresAt: parseFlexibleExpiry(a['expiresAt']) ?? extractTokenExpiry(token),
     refreshExpiresAt: parseFlexibleExpiry(a['refreshTokenExpiresAt']),
-    name: cstr(a['name']) || cstr(a['nickname']) || cstr(a['phone']) || null,
+    // O66:phone 优先于 nickname(全平台统一手机号兜底位)
+    name: cstr(a['name']) || cstr(a['phone']) || cstr(a['nickname']) || null,
     cosy: Object.keys(cosy).length > 0 ? cosy : null,
     ...(Object.keys(secrets).length > 0 ? { secrets } : {}),
   }
@@ -700,7 +701,9 @@ export async function importAccounts(
     // 我方原生形状(token 在场)原样通过。
     const acc = normalizeForeignAccountShape(accounts[i] ?? {}) as ImportAccountInput
     const accName = typeof acc.name === 'string' && acc.name ? acc.name : ''
-    let displayName = accName || `#${i + 1}`
+    // O66:phone 是全平台统一展示名兜底位(仅次于显式 name,先于平台特化映射)
+    const accPhone = cstr((acc as Record<string, unknown>)['phone'])
+    let displayName = accName || accPhone || `#${i + 1}`
     try {
       // 非 JWT 平台映射分支:CodeArts(2026-10-22)STS 凭据包 / Qoder(2026-10-23)
       // opaque token 会话 / 2026-10-27 扩容八平台(codex/opencode/minimax/zcode/
@@ -728,7 +731,7 @@ export async function importAccounts(
                           : providerCode === 'grokbot'
                             ? mapGrokbotImport(acc)
                             : null
-      if (!accName && mapped?.name) displayName = mapped.name
+      if (!accName && !accPhone && mapped?.name) displayName = mapped.name
       const missingReason = mapped ? null : (MAPPED_PROVIDER_MISSING_REASONS[providerCode] ?? null)
       if (missingReason && providerCode !== 'trae' && providerCode !== 'workbuddy') {
         result.failed++
