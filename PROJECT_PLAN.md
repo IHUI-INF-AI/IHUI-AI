@@ -28698,6 +28698,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 <!-- 结清摘除@2026-10-26/goal-c 完成即删:O66 派单面与过滤面同尺 v2 接线已落地(枚 2f0830e8eefbdb884c4c5e19ae86c64090a32ab7,正文见 git show --stat 该枚),登记行不留活账 -->
 
 ## 2026-10-26 号池对标 workbuddy-switch 三件套(代码+测试已验绿并本地提交;待 monitor/deploy 那两席收敛后随链 FF 上 origin)
+- [ ] （未取号:G 族号池已满,登记@2026-10-28）**i18n 死 key 审计 CI 腿连红清账(三端 247 枚存量)**:现读 HEAD 面 miniapp-taro 116 / mobile-rn 121 / cli 10 枚,web 与 extension 已 0;该腿自 02:55 起连红 8 次而派单口径读 0 行 ⇒ 属"没人认领的恒红 CI 门"。出路 = 逐端 `clean-dead-i18n-keys.mjs` 清 + 假阳性走 `a7b1863f85` 立的契约键声明免除口(不许把端缩掉)+ 每端复跑 `scan-dead-i18n-keys.mjs --target <端> --exit 1` 与 `check-i18n-keys.mjs` 五语言 parity。
+- [ ] （未取号:G 族号池已满,登记@2026-10-28）**完成即删兜底轮削掉文件尾的未勾登记行(其自述"未勾行逐字节守恒"不成立)**:枚 `c32fae1fb9` 一次摘 4 行 = 两枚该摘的 `[x]` + 1 空行 + 1 枚别人刚经 `live-doc-edit` EOF 追加的 `- [ ]` 票(上面那枚 i18n 票,已因此丢一次)。出路 = `strip-stale-closed-rows.mjs` 落地前加断言"未勾登记行逐字节同序"(判据 import 门 229/71 现成尺,本器零复算),任一未勾行在结果面缺失即整批不落;并在 `scripts/tests/` 补一枚「尾部未勾行必须存活」的反向夹具钉住。
 
 > 机主令:把这工具的能力做进本仓且「更强更实用更便捷更傻瓜」。先摸底:仓库早有成熟号池(`ai_relay_key_pool` + 第三方 IDE 账号池,含 AES-GCM 字段级凭证/临期刷新/健康定级/熔断/用量台账/代理池/签到双向同步/前端页),但对标本工具查出三处真缺口——逐个补:会话搬家与官方积分额度日历两票挂在下(不盲做)。
 - **①外来格式自适应(判据单源)**:`apps/api/src/services/relay-account-format.ts` 的 `normalizeForeignAccountShape` 认 workbuddy-switch 等第三方导出(`access_token`/`refresh_token`/毫秒 `expires_at`/`uid`/`nickname`),**搬运归一在进校验之前**、canonical 值优先、别名只补空缺;`expireEpochToMs`(1e11 分界)立修真实缺陷——裸数字一律当秒 ⇒ 毫秒票被折成公元 5138 年"永不过期",临期/保活/到期摘除对它集体失明;显式到期只采信早于 JWT exp(保守取早绝不冒充长效);陌生键经 `foreignPassthroughMetadata` 落 extraMetadata,兑现 `docs/RELAY_ACCOUNT_IMPORT_FORMAT.md` §2「其他字段原样透传」(先前服务端没真做)。取证 `apps/api/tests/relay-account-import-format.test.ts`。
