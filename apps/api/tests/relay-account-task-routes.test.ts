@@ -105,6 +105,8 @@ vi.mock('../src/db/index.js', () => {
 })
 
 import relayAccountPoolRoutes from '../src/routes/admin/relay-account-pool.js'
+// §22c:期望值一律由生产端现算(relay-pool-policy 是唯一真相源),测试里不抄第二份档位表
+import { __test__ as POLICY } from '../src/services/relay-pool-policy.js'
 
 const ADMIN_TOKEN = 'Bearer admin-token'
 const ACCOUNT_ID = '00000000-0000-4000-8000-0000000000a1'
@@ -465,6 +467,106 @@ describe('POST /admin/relay/accounts/:id/task-run(O68 触发面)', () => {
       method: 'POST',
       url: taskRunUrl(),
       body: { kind: 'growth' },
+      headers: { authorization: 'Bearer user-token' },
+    })
+    expect(statusCode).toBe(403)
+  })
+})
+
+// =============================================================================
+// O93 号池策略档只读面:端点必须真在 HTTP 面上可达(此前只测 view 纯函数,
+// "路由注册了但打不通"这种形态抓不到 —— §0.9 判据要在真跑它的那一刻才成立)
+// =============================================================================
+
+describe('GET /admin/relay/pool-policy(O93 策略档只读面)', () => {
+  beforeEach(() => {
+    rearmDbMockDefaults()
+    mockAdmin()
+  })
+
+  const policyUrl = '/api/admin/relay/pool-policy'
+
+  it('钮名/钮序/env 键与单源登记表逐枚同值,且明写不可写', async () => {
+    const oracle = POLICY.relayPoolPolicyView()
+    const { statusCode, envelope } = await injectJson({
+      method: 'GET',
+      url: policyUrl,
+      headers: { authorization: 'Bearer admin-token' },
+    })
+    expect(statusCode).toBe(200)
+    const data = envelope.data as {
+      knobs: Array<{ name: string; envKey: string; effective: unknown }>
+      mutable: boolean
+      registryComplete: boolean
+    }
+    expect(data.knobs.map((k) => k.name)).toEqual(oracle.knobs.map((k) => k.name))
+    expect(data.knobs.map((k) => k.envKey)).toEqual(oracle.knobs.map((k) => k.envKey))
+    expect(data.knobs.map((k) => k.effective)).toEqual(oracle.knobs.map((k) => k.effective))
+    // 档位来自进程 env,面板只能读不能写:这条是"为什么没做写端点"的正面凭据
+    expect(data.mutable).toBe(false)
+    expect(data.registryComplete).toBe(true)
+  })
+
+  it('改 env 后读数必须跟着变(证明不是恒「全默认」的死读数)', async () => {
+    const envKey = POLICY.RELAY_POOL_ENV_KEYS.strategy
+    const prev = process.env[envKey]
+    process.env[envKey] = 'weighted_random'
+    try {
+      const oracle = POLICY.relayPoolPolicyView()
+      const { envelope } = await injectJson({
+        method: 'GET',
+        url: policyUrl,
+        headers: { authorization: 'Bearer admin-token' },
+      })
+      const data = envelope.data as {
+        knobs: Array<{ envKey: string; effective: unknown; differsFromDefault: boolean }>
+        allDefault: boolean
+        deviatedKnobs: unknown
+      }
+      const hit = data.knobs.find((k) => k.envKey === envKey)
+      expect(hit?.effective).toBe('weighted_random')
+      expect(hit?.differsFromDefault).toBe(true)
+      expect(data.allDefault).toBe(false)
+      expect(data.deviatedKnobs).toEqual(oracle.deviatedKnobs)
+    } finally {
+      if (prev === undefined) delete process.env[envKey]
+      else process.env[envKey] = prev
+    }
+  })
+
+  it('非法 env 值不得被静默当成合法档:照实标 invalid 并回落默认', async () => {
+    const envKey = POLICY.RELAY_POOL_ENV_KEYS.idleWeightMax
+    const prev = process.env[envKey]
+    process.env[envKey] = 'not-a-number'
+    try {
+      const { envelope } = await injectJson({
+        method: 'GET',
+        url: policyUrl,
+        headers: { authorization: 'Bearer admin-token' },
+      })
+      const data = envelope.data as {
+        knobs: Array<{ envKey: string; invalidEnv?: boolean; effective: unknown }>
+        invalidEnvKnobs: unknown
+      }
+      const hit = data.knobs.find((k) => k.envKey === envKey)
+      expect(hit?.invalidEnv).toBe(true)
+      expect(hit?.effective).toBe(POLICY.DEFAULT_RELAY_POOL_POLICY.idleWeightMax)
+      // 非法值必须计入"带病运行"的读数并与生产端现读同值(不在此猜它是数组还是计数)
+      expect(data.invalidEnvKnobs).toEqual(POLICY.relayPoolPolicyView().invalidEnvKnobs)
+    } finally {
+      if (prev === undefined) delete process.env[envKey]
+      else process.env[envKey] = prev
+    }
+  })
+
+  it('档位属特权读数:非管理员 ⇒ 403', async () => {
+    mockVerifyAccessToken.mockResolvedValue({
+      userId: '00000000-0000-4000-8000-000000000002',
+      roleId: 0,
+    })
+    const { statusCode } = await injectJson({
+      method: 'GET',
+      url: policyUrl,
       headers: { authorization: 'Bearer user-token' },
     })
     expect(statusCode).toBe(403)
