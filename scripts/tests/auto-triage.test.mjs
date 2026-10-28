@@ -5,7 +5,7 @@
 /**
  * `auto-triage.mjs` 的镜像测试(§22c:判据 import 源脚本 `__test__`,本文件零复制判据)。
  *
- * 钉九环:
+ * 钉十一环:
  *  ① 分诊配置形状锁(来源白名单闭集 / 配额正整数);
  *  ② mail-failure 来源:24h 窗计数只收 failed(旧窗与 delivered 不计),台账缺 = 未判定;
  *  ③ 去重与配额成对:24h 窗新鲜拦 / 过期放;配额只数当日 registered
@@ -16,7 +16,9 @@
  *  ⑦ 聚类:同桶 24h ≥2 可派单 / 单次观察 / 窗外不计;
  *  ⑧ api-logs:JSONL 夹具 + 只读单语句 SQL 形状;
  *  ⑨ grafana-alerts:无 URL 未判定 / 夹具同 alertname 多实例聚一桶;
- *  ⑩ user-feedback:无导出件未判定 / JSONL 夹具聚类。
+ *  ⑩ user-feedback:无导出件未判定 / JSONL 夹具聚类;
+ *  ⑪ 参数闸:未知旗标/位置参数/歧义调用当场拒绝(exit 2 + 用法),且零观测账副作用(反向对照
+ *     --once/--dry-run/--status/--self-test/--help 仍各自合法)。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -196,15 +198,13 @@ test('③d 端到端(纯):归一 → 聚类 → 产出待办,复用既有通道�
     'ApiDown|critical|API 宕机', // 同 alertname 2 实例 ⇒ register
   ])
   const toFindings = (records, source) =>
-    tr
-      .clusterRecords({ source, records, windowHours: 24, minOccurrences: 2, now })
-      .map((b) => ({
-        source,
-        disposition: b.disposition,
-        fp: b.fingerprint,
-        title: b.label,
-        evidence: b.evidence,
-      }))
+    tr.clusterRecords({ source, records, windowHours: 24, minOccurrences: 2, now }).map((b) => ({
+      source,
+      disposition: b.disposition,
+      fp: b.fingerprint,
+      title: b.label,
+      evidence: b.evidence,
+    }))
   const findings = [
     ...toFindings(apiRecords, 'api-logs'),
     ...toFindings(gRecords, 'grafana-alerts'),
@@ -611,6 +611,77 @@ test('⑩ user-feedback:无导出件转直连取数(取不到才未判定并点�
     assert.equal(buckets[0].disposition, 'register')
   } finally {
     rmScratch(dir)
+  }
+})
+
+test('⑪ 参数闸:未知旗标/位置参数/歧义调用 ⇒ 当场拒绝且零副作用(2026-10-28 立)', async () => {
+  // 立因:`--help` 曾不被识别而不报错,直接落进真分诊轮(实测往观测账净增 1 行,并 spawn
+  // live-doc-edit 去登记 PROJECT_PLAN)。失效方向必须是"多要一次定向说明",绝不能是"多跑一次真轮"。
+  assert.ok(tr.KNOWN_FLAGS.has('--once') && tr.KNOWN_FLAGS.has('--dry-run'), '闭集缺文档点名的旗标')
+  for (const f of tr.KNOWN_FLAGS) assert.ok(tr.usageText().includes(f), `用法档未点名 ${f}`)
+
+  // 与同族 triage-discovery.mjs 同形的拒绝措辞(未知旗标 <原样 token>)
+  assert.match(tr.parseArgs(['--warp']).errors.join('|'), /未知旗标 --warp/)
+  assert.match(tr.parseArgs(['D:/junk']).errors.join('|'), /位置参数/)
+  assert.match(tr.parseArgs([]).errors.join('|'), /缺少动作旗标/)
+  assert.match(tr.parseArgs(['--dry-run']).errors.join('|'), /必须与 --once 同给/)
+  assert.match(tr.parseArgs(['--once', '--status']).errors.join('|'), /互斥/)
+
+  // 合法档必须仍然合法(反向对照,否则等于把功能关了)
+  for (const argv of [
+    ['--once'],
+    ['--once', '--dry-run'],
+    ['--status'],
+    ['--self-test'],
+    ['--help'],
+    ['-h'],
+  ]) {
+    assert.equal(
+      tr.parseArgs(argv).errors.length,
+      0,
+      `${argv.join(' ')} 被误拒:${tr.parseArgs(argv).errors}`,
+    )
+  }
+  assert.equal(tr.parseArgs(['--once', '--dry-run']).dryRun, true)
+  assert.equal(tr.parseArgs(['--help']).help, true)
+  assert.equal(tr.parseArgs(['-h']).help, true)
+
+  // 副作用没发生:拒绝档不得碰观测账(读真实台账只做计数比对,不写)
+  const savedExitCode = process.exitCode
+  const logLines = []
+  const errLines = []
+  const realLog = console.log
+  const realErr = console.error
+  try {
+    console.log = (...a) => logLines.push(a.join(' '))
+    console.error = (...a) => errLines.push(a.join(' '))
+    const before = tr.readTriageLedger().length
+    await tr.main(['--help'])
+    assert.equal(tr.readTriageLedger().length, before, '拒绝档写了观测账 ⇒ 参数闸失效')
+    assert.ok(
+      logLines.some((l) => /用法:node scripts\/auto-triage\.mjs/.test(l)),
+      '--help 未打印用法',
+    )
+    assert.notEqual(process.exitCode, 2, '--help 是合法档,不得顶 exit 2')
+
+    logLines.length = 0
+    errLines.length = 0
+    await tr.main(['--warp'])
+    const after = tr.readTriageLedger().length
+    assert.equal(after, before, '未知旗标仍落了真轮 ⇒ 副作用回来了')
+    assert.equal(process.exitCode, 2, '未知旗标必须给出退出码 2')
+    assert.ok(
+      errLines.some((l) => /未知旗标 --warp/.test(l)),
+      '拒绝未点名未知旗标',
+    )
+    assert.ok(
+      errLines.some((l) => /未执行任何分诊轮/.test(l)),
+      '拒绝结论缺"未执行任何分诊轮"',
+    )
+  } finally {
+    console.log = realLog
+    console.error = realErr
+    process.exitCode = savedExitCode
   }
 })
 
