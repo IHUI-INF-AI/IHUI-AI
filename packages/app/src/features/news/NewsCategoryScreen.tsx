@@ -15,7 +15,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { Eye, Newspaper, Pin } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { NewsCategoryArticle, NewsCategoryScreenProps } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -302,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 2,
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.light,
     },
     pinText: {

@@ -22,6 +22,7 @@ import {
   CHART_RED,
   CHART_VIOLET,
   rnRadius,
+  rnRadiusFor,
   rnSpacing,
   rnType,
 } from '@ihui/design-tokens'
@@ -379,7 +380,7 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadiusFor.chip,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -486,7 +487,7 @@ function createStyles(tk: AppThemeTokens) {
     weakBadge: {
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.danger.light,
     },
     weakBadgeText: {

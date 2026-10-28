@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Calendar, Download, Star, User, Wand2 } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { SkillMarketDetailScreenProps, SkillMarketEntryView } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -282,7 +282,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.muted,
     },
     badgeText: {
@@ -350,7 +350,7 @@ function createStyles(tk: AppThemeTokens) {
     tagPill: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 2,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.muted,
     },
     tagPillText: {

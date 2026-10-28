@@ -22,7 +22,7 @@ import {
   Users,
   X,
 } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type {
   AiWorkspaceConvertResult,
   AiWorkspaceFile,
@@ -474,7 +474,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.light,
       fontSize: rnType.caption.size,
       color: tk.brandAccent.deep,
@@ -487,7 +487,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       minHeight: 40,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
     },
     uploadBtnText: {
