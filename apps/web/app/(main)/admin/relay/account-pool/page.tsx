@@ -331,6 +331,53 @@ interface MatchPhoneResult {
   rejected: Array<{ phone: string; reason: string }>
 }
 
+/**
+ * 平台续期能力位(GET /api/admin/relay/account-pool/renewal-capability)。
+ * 判据住后端适配器注册表(`isRefreshableProviderCode`),**前端不写平台名单** ——
+ * 名单一旦在两侧各存一份,面板就会在下一次接入平台时开始说谎。
+ */
+interface RenewalCapabilityItem {
+  providerCode: string
+  /** 适配器是否已注册:false ⇒ 能力位无从判定,只能标"未判定" */
+  adapterRegistered: boolean
+  autoRenewalSupported: boolean
+  accounts: number
+}
+interface RenewalCapabilityData {
+  items: RenewalCapabilityItem[]
+  unlistedProviderCodes: string[]
+}
+
+/**
+ * 平台列的续期标注:
+ * - 读数没到(查询失败/未注册该平台) ⇒ 什么都不写(没判过就不开口);
+ * - 可自动续期 ⇒ 不占版面;
+ * - 适配器在册但确无续期通道 ⇒ 明示"无自动续期",运维据此知道掉线只能重采凭证;
+ * - 适配器不在册 ⇒ 单列"未判定",绝不并入"无自动续期"那一档。
+ */
+function RenewalNote({ cap }: { cap: RenewalCapabilityItem | undefined }) {
+  if (!cap) return null
+  if (!cap.adapterRegistered) {
+    return (
+      <Tooltip content="上游适配器未在册,续期能力位读不到">
+        <span className="whitespace-nowrap rounded-md bg-red-500/10 px-1.5 py-0.5 text-[10px] text-red-600 dark:text-red-400">
+          续期未判定
+        </span>
+      </Tooltip>
+    )
+  }
+  if (cap.autoRenewalSupported) return null
+  return (
+    <Tooltip
+      content={`该平台没有 refreshToken 续期通道,共 ${cap.accounts} 个号;掉线后调度器无法自动续,只能重新采集凭证`}
+    >
+      <span className="whitespace-nowrap rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+        无自动续期
+      </span>
+    </Tooltip>
+  )
+}
+
 const HEALTH_CLASS: Record<string, string> = {
   unknown: 'bg-muted text-muted-foreground',
   healthy: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -595,6 +642,25 @@ export default function AdminRelayAccountPoolPage() {
   const poolHealth = data?.poolHealth ?? null
   const showRefillBanner =
     poolHealth !== null && ((poolHealth.needRefill ?? false) || (poolHealth.expiredCount ?? 0) > 0)
+
+  // ── 平台续期能力位(2026-10-29 立):能力位与在册账号数都由后端现读,页面只投影 ──
+  const renewalCapabilityQuery = useQuery({
+    queryKey: ['admin', 'relay', 'account-pool', 'renewal-capability'],
+    queryFn: async () => {
+      const r = await fetchApi<RenewalCapabilityData>(
+        '/api/admin/relay/account-pool/renewal-capability',
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    // 能力位只在适配器变更时会动,不跟着翻页刷
+    staleTime: 5 * 60 * 1000,
+  })
+  const renewalByProvider = React.useMemo(() => {
+    const m = new Map<string, RenewalCapabilityItem>()
+    for (const i of renewalCapabilityQuery.data?.items ?? []) m.set(i.providerCode, i)
+    return m
+  }, [renewalCapabilityQuery.data])
 
   const usageQuery = useQuery({
     queryKey: ['admin', 'relay', 'account-pool', 'usage', usageAccountId],
@@ -1358,7 +1424,19 @@ export default function AdminRelayAccountPoolPage() {
                       />
                     </th>
                     <th className="px-3 py-2 text-left">名称</th>
-                    <th className="px-3 py-2 text-left">平台</th>
+                    <th className="px-3 py-2 text-left">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span>平台</span>
+                        {/* 能力位读数没到手时明确说"未判定",不能让整列空白冒充"全平台都能续期" */}
+                        {renewalCapabilityQuery.isError && (
+                          <Tooltip content="续期能力位读数未到手,本列的平台标注不可用">
+                            <span className="whitespace-nowrap rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                              续期能力未判定
+                            </span>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </th>
                     <th className="px-3 py-2 text-left">uid</th>
                     <th className="px-3 py-2 text-left">健康</th>
                     <th className="px-3 py-2 text-left">体检</th>
@@ -1443,7 +1521,12 @@ export default function AdminRelayAccountPoolPage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-xs">{k.providerCode}</td>
+                          <td className="px-3 py-2 text-xs">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="whitespace-nowrap">{k.providerCode}</span>
+                              <RenewalNote cap={renewalByProvider.get(k.providerCode)} />
+                            </div>
+                          </td>
                           <td className="px-3 py-2">
                             {k.uid ? (
                               <div className="flex items-center gap-1">
