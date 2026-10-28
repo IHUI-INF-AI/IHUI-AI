@@ -4,20 +4,20 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-# @ihui/sdk
+# @ihui-ai/sdk
 
 IHUI-AI 平台 JavaScript/TypeScript SDK,完整封装 105 个 `/v1/*` 对外开放 API 端点,零运行时依赖。
 
 ## 安装
 
 ```bash
-pnpm add @ihui/sdk
+pnpm add @ihui-ai/sdk
 ```
 
 ## 快速开始
 
 ```typescript
-import { createClient } from '@ihui/sdk'
+import { createClient } from '@ihui-ai/sdk'
 
 const client = createClient({
   apiKey: 'ihui_xxx',
@@ -202,7 +202,7 @@ SDK 使用统一的 `SdkError` 类,包含 `status`、`code`、`message`、`detai
 (`retryAfterMs` = 服务端 `Retry-After` 头解析出的建议等待毫秒数,见「限流与 429」)。
 
 ```typescript
-import { SdkError } from '@ihui/sdk'
+import { SdkError } from '@ihui-ai/sdk'
 
 try {
   await client.ai.getModel('nonexistent')
@@ -240,7 +240,7 @@ try {
 无法解析时为 `undefined`),调用方据此自适应退避:
 
 ```typescript
-import { SdkError } from '@ihui/sdk'
+import { SdkError } from '@ihui-ai/sdk'
 
 async function withRateLimit<T>(fn: () => Promise<T>): Promise<T> {
   try {
@@ -278,7 +278,7 @@ const client = createClient({
   [CHANGELOG.md](./CHANGELOG.md)(随包附带,升级前必读)。
 - **当前 0.x 为预稳定期**:minor 可能包含破坏性变更(CHANGELOG 中标注 `Breaking`),patch 只含修复;
   `1.0.0` 起严格 SemVer —— 破坏性变更只随 major 发布。
-- **兼容承诺范围 = `@ihui/sdk` 顶层导出**(全部命名导出与类型)。`dist/` 内部文件路径与未导出符号
+- **兼容承诺范围 = `@ihui-ai/sdk` 顶层导出**(全部命名导出与类型)。`dist/` 内部文件路径与未导出符号
   不在承诺内(`exports` 只开放 `.` 与 `./package.json` 两个子路径)。
 - **弃用策略**:废弃 API 先在 CHANGELOG 标注 `Deprecated` 并至少保留一个 minor,再于后续 minor 移除。
 

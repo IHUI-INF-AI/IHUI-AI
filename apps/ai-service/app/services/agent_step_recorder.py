@@ -101,6 +101,14 @@ SUMMARY_LIMIT = STEP_RECORD_CAPS["itemMaxChars"]["cap"]
 # 上限远长于权限枚举档(最长 16),截断不会把词汇截变成另一档;
 # 该值有镜像测试与 tool_invocation_ledger._MAX_INVOCATION_ID 对齐(漂移即红)。
 EVIDENCE_FIELD_MAX = 160
+# B04 证据回指四要素的字段名单一真源(2026-10-28):归一化白名单、按编号反查、
+# 时间线 meta 投影三处都从这里取键名,不各写一份字面量(§0.6)。
+EVIDENCE_FIELDS: tuple[str, ...] = (
+    "invocation_id",
+    "permission_decision",
+    "permission_cause",
+    "operator_id",
+)
 # 分页 page_size 上限
 PAGE_SIZE_MAX = 200
 
@@ -253,12 +261,11 @@ def _normalize_step(step: dict[str, Any], idx: int) -> dict[str, Any]:
         # B04 证据回指四要素(2026-10-28 立):此前归一化白名单不含这四键,生产者
         # 标注的账行编号/权限决策/操作者会在录制侧被丢弃 —— 与 chain(G-816021)、
         # model(2026-09-09)同型事故,不重犯。空串 = 未标注/未派发,不编造。
-        "invocation_id": str(step.get("invocation_id") or "")[:EVIDENCE_FIELD_MAX],
-        "permission_decision": str(step.get("permission_decision") or "")[
-            :EVIDENCE_FIELD_MAX
-        ],
-        "permission_cause": str(step.get("permission_cause") or "")[:EVIDENCE_FIELD_MAX],
-        "operator_id": str(step.get("operator_id") or "")[:EVIDENCE_FIELD_MAX],
+        # 键名取自 EVIDENCE_FIELDS(单一真源,按编号反查/时间线投影同一份)。
+        **{
+            name: str(step.get(name) or "")[:EVIDENCE_FIELD_MAX]
+            for name in EVIDENCE_FIELDS
+        },
         # 1-5 可解释性证据(2026-09-08 立):缺省回填;b76-04 票3 起超限有界化(诚实置位)
         "input": bounded_input,
         "decision": str(step.get("decision") or ""),
@@ -474,6 +481,58 @@ class AgentStepRecorder:
                 return {"run_id": run_id, "step": None, "found": False}
             return {"run_id": run_id, "step": steps[idx], "found": True}
         return {"run_id": run_id, "steps": steps, "total": len(steps)}
+
+    def get_steps_by_invocation_id(
+        self, invocation_id: str, *, limit: int = PAGE_SIZE_MAX
+    ) -> dict[str, Any]:
+        """按账行编号反查录制步骤(B04 证据回指的查询面,2026-10-28 立)。
+
+        录制行与明细账行是同一事实的两处投影:循环侧算一次、两处引用,靠
+        `invocation_id` 对齐。此前只有"按 run 读"一个入口 —— 编号落盘之后**没有任何
+        读路径**(router 三个端点全按 run_id 寻址),于是"录制面回指账行"只写不读,
+        两个证据面仍然只能靠时间戳猜着对齐。本方法补的就是这一跳。
+
+        跨 run 扫(编号是全局幂等键,不保证与 run 同域):先按 run 逐个取该 run 的
+        命中,再按 run 起始时间升序拼、按 limit 截断;`total` 报截断**前**的命中数,
+        `list` 报本轮实数(与 get_run_steps 的 total/页长口径一致,不静默少报)。
+
+        空/全空白编号 ⇒ 不扫全表、found=False(`total` 恒 0):空串是"本次没交给
+        派发腿"的合法值,拿它去扫会把所有未标注步都当命中。
+        """
+        target = (invocation_id or "").strip()
+        if not target:
+            return {
+                "invocation_id": "",
+                "found": False,
+                "total": 0,
+                "list": [],
+                "scanned_runs": 0,
+            }
+        capped = min(max(1, int(limit or PAGE_SIZE_MAX)), PAGE_SIZE_MAX)
+        with self._lock:
+            self._load()
+            # 只取引用快照,出锁后再拷 step,避免长持锁
+            runs = [
+                (run_id, record.get("started_at") or "", list(record.get("steps") or []))
+                for run_id, record in self._data.items()
+            ]
+        runs.sort(key=lambda item: (item[1], item[0]))
+        matches: list[dict[str, Any]] = []
+        total = 0
+        for run_id, _started, steps in runs:
+            for step in steps:
+                if step.get("invocation_id") != target:
+                    continue
+                total += 1
+                if len(matches) < capped:
+                    matches.append({**dict(step), "run_id": run_id})
+        return {
+            "invocation_id": target,
+            "found": total > 0,
+            "total": total,
+            "list": matches,
+            "scanned_runs": len(runs),
+        }
 
     def get_run_metrics(self, run_id: str) -> dict[str, Any]:
         """聚合单运行指标:步数 / 成败 / 总 token / 总耗时 / 总成本。"""

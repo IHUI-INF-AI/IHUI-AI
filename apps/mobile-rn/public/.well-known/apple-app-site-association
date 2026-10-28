@@ -2,15 +2,13 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.ai.ihui.mobile"],
+        "appIDs": ["TKF3V7GG6T.ai.ihui.mobile"],
         "components": [
           {
-            "/": "/wechat/*",
-            "comment": "微信支付回调 UniversalLink 路径"
+            "/": "/wechat/*"
           },
           {
-            "/": "/*",
-            "comment": "兜底:所有路径都可作为 UniversalLink 回调"
+            "/": "/*"
           }
         ]
       }

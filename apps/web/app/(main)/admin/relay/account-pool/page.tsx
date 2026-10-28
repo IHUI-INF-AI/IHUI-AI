@@ -86,6 +86,11 @@ const selectClass =
 const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs'
 
+/** 号池统一命名规约 = 官方绑定手机号全号;掩码形态名(如 180******69)需补全/归位 */
+const MASKED_PHONE_NAME = /^\d{3}\*{2,8}\d{2,4}$/
+/** 大陆 11 位手机号全号(与后端 complete-phone 判据同口径,掩码形态直接拒) */
+const FULL_PHONE_CN = /^1[3-9]\d{9}$/
+
 // 账号级代理与代理池同口径:只接受 http(s)/socks5
 const PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])
 
@@ -146,7 +151,6 @@ const LOCAL_LOGIN_LABEL: Partial<Record<ProviderCode, string>> = {
  * tooltip 点名原因,不做假入口(判据见各平台提取器头注)。
  */
 const LOCAL_LOGIN_UNSUPPORTED: Partial<Record<ProviderCode, string>> = {
-  workbuddy: '加密密钥只在本机运行中的主进程内(9229 inspector),离线无法重封本机登录态',
   loomy: '本机登录态是 Electron leveldb 且被客户端独占,离线无法重建',
   doubao: '登录态是 Chrome Cookies 库(被浏览器独占),离线无法重封',
   lingma: '字段级登录态形状尚未实证(本机未安装),没有可验证的写回配方',
@@ -156,10 +160,13 @@ const LOCAL_LOGIN_UNSUPPORTED: Partial<Record<ProviderCode, string>> = {
 /**
  * 写前「先关客户端、写完自动拉起」的平台(2026-10-28 与 scripts/local-login.mjs 的
  * CLIENT_IMAGES + trae 同口径):落点会被运行中的 GUI 用内存态覆写,不先关就是假绿。
+ * workbuddy 由 scripts/workbuddy-login-local.mjs 同形先关后写再拉起(未运行还要先拉起
+ * 冷启动,后端 restartClient:true,2026-10-28 补)。
  * codex/opencode 是 CLI,每次启动现读 auth.json,写了即生效,不需要碰进程。
  */
 const LOCAL_LOGIN_RESTARTS_CLIENT: ReadonlySet<ProviderCode> = new Set<ProviderCode>([
   'trae',
+  'workbuddy',
   'codearts',
   'qoder',
   'minimax',
@@ -301,6 +308,28 @@ interface ImportResult {
   skipped: number
   failed: number
   items: ImportItem[]
+}
+/** POST /admin/relay/accounts/:id/complete-phone 的 data 形状(掩码名回填官方绑定全号) */
+interface CompletePhoneResult {
+  id: string
+  oldName: string
+  name: string
+  changed: boolean
+  message: string
+  checkinSync?: { pushed?: number; pending?: boolean; error?: string | null } | null
+}
+/** POST /admin/relay/account-pool/match-phone 的 data 形状(批量归位结果分桶) */
+interface MatchPhoneResult {
+  scannedMasked: number
+  matched: Array<{
+    id: string
+    oldName: string
+    name: string
+    checkinSync?: { pushed?: number; pending?: boolean; error?: string | null } | null
+  }>
+  ambiguous: Array<{ id: string; name: string; candidates: string[] }>
+  unmatched: Array<{ id: string; name: string }>
+  rejected: Array<{ phone: string; reason: string }>
 }
 
 const HEALTH_CLASS: Record<string, string> = {
@@ -536,6 +565,11 @@ export default function AdminRelayAccountPoolPage() {
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [usageAccountId, setUsageAccountId] = React.useState<string | null>(null)
   const [tab, setTab] = React.useState<PoolTab>('accounts')
+  // 补全手机号 / 批量归位(号池命名规约 = 官方绑定手机号全号,掩码名需归位)
+  const [completing, setCompleting] = React.useState<AccountRow | null>(null)
+  const [completePhone, setCompletePhone] = React.useState('')
+  const [matchOpen, setMatchOpen] = React.useState(false)
+  const [matchText, setMatchText] = React.useState('')
 
   const qs = React.useMemo(() => {
     const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
@@ -651,6 +685,51 @@ export default function AdminRelayAccountPoolPage() {
     onError: (e: Error) => toast.error(e.message || '触发签到失败'),
   })
 
+  // 补全手机号:掩码名账号回填官方绑定全号(后端校验前 3 后 2 吻合,不吻合 400 如实报)
+  const completePhoneMut = useMutation({
+    mutationFn: async (vars: { id: string; phone: string }) => {
+      const r = await fetchApi<CompletePhoneResult>(
+        `/api/admin/relay/accounts/${vars.id}/complete-phone`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: vars.phone }),
+        },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      const msg = d.message || `已补全为 ${d.name},签到副本已同步`
+      toast.success(d.checkinSync?.pending ? `${msg};签到同步待重试` : msg)
+      setCompleting(null)
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '补全手机号失败'),
+  })
+
+  // 批量归位:粘贴候选全号(每行一个),后端按掩码前后缀归位号池内掩码名账号并改名
+  const matchPhoneMut = useMutation({
+    mutationFn: async (phones: string[]) => {
+      const r = await fetchApi<MatchPhoneResult>('/api/admin/relay/account-pool/match-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phones }),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      const summary = `归位 ${d.matched.length} 条,歧义 ${d.ambiguous.length},无命中 ${d.unmatched.length},非法 ${d.rejected.length}`
+      if (d.matched.length > 0) toast.success(summary)
+      else toast(summary)
+      setMatchOpen(false)
+      setMatchText('')
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '批量归位失败'),
+  })
+
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   const allOnPageSelected = list.length > 0 && list.every((k) => selectedIds.includes(k.id))
@@ -697,12 +776,13 @@ export default function AdminRelayAccountPoolPage() {
         clientRestarted?: boolean
         clientLaunchError?: string
         /**
-         * 超时放宽到 60s:该端点在客户端运行中时要走「优雅关闭(最多 15s)→ 补一轮(8s)→
-         * 强杀后复核(8s)→ 写盘 → 拉起并复核(3s)」,最坏 ~35s。用默认 30s 会出现
+         * 超时放宽到 150s:该端点在客户端运行中时要走「优雅关闭(最多 15s)→ 补一轮(8s)→
+         * 强杀后复核(8s)→ 写盘 → 拉起并复核(3s)」;workbuddy 还多一段冷启动(未运行先
+         * 拉起再关再写再重启),最坏预算 ~150s。用默认 30s 会出现
          * 「浏览器先超时报错,服务端随后其实写成功了」的假失败(2026-10-28 与六平台
-         * 进程控制同批补;API 侧 SPAWN_TIMEOUT_MS=90s)。
+         * 进程控制同批补;API 侧 SPAWN_TIMEOUT_MS=150s 同批放宽)。
          */
-      }>(`/api/admin/relay/accounts/${id}/login-local`, { method: 'POST', timeoutMs: 60_000 })
+      }>(`/api/admin/relay/accounts/${id}/login-local`, { method: 'POST', timeoutMs: 150_000 })
       if (!r.success) throw new Error(r.error)
       return r.data
     },
@@ -979,6 +1059,34 @@ export default function AdminRelayAccountPoolPage() {
     importMut.mutate({ providerCode: importProvider, accounts })
   }
 
+  const submitCompletePhone = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!completing) return
+    const phone = completePhone.trim()
+    if (!FULL_PHONE_CN.test(phone)) {
+      toast.error('请输入 11 位大陆手机号全号(1[3-9] 开头,掩码不接受)')
+      return
+    }
+    completePhoneMut.mutate({ id: completing.id, phone })
+  }
+
+  const submitMatchPhone = (e: React.FormEvent) => {
+    e.preventDefault()
+    const phones = matchText
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+    if (phones.length === 0) {
+      toast.error('每行一个手机号全号,至少填一行')
+      return
+    }
+    if (phones.length > 200) {
+      toast.error(`单次最多提交 200 个候选号,当前 ${phones.length} 个`)
+      return
+    }
+    matchPhoneMut.mutate(phones)
+  }
+
   // ── 一键重登(第 3 格):凭据死了在页内直接唤起网页登录换票,走同一条导入通道覆盖凭证 ──
   const desktop = useTauriIpcReady()
   // 嵌入页检测(与签到页同判据:内嵌浏览器工具条注入脚本定义 window.__ihuiNav;
@@ -1104,6 +1212,9 @@ export default function AdminRelayAccountPoolPage() {
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             刷新
+          </Button>
+          <Button variant="outline" onClick={() => setMatchOpen(true)}>
+            批量归位
           </Button>
           <Button onClick={() => setImportOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -1314,6 +1425,11 @@ export default function AdminRelayAccountPoolPage() {
                               {k.expiresSoon === true && (
                                 <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
                                   即将过期
+                                </span>
+                              )}
+                              {MASKED_PHONE_NAME.test(k.name) && (
+                                <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
+                                  待补全
                                 </span>
                               )}
                             </div>
@@ -1545,6 +1661,19 @@ export default function AdminRelayAccountPoolPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center justify-end gap-1">
+                              {MASKED_PHONE_NAME.test(k.name) && (
+                                <Button
+                                  size="xs"
+                                  variant="ghost"
+                                  className="px-2 text-xs"
+                                  onClick={() => {
+                                    setCompleting(k)
+                                    setCompletePhone('')
+                                  }}
+                                >
+                                  补全
+                                </Button>
+                              )}
                               <Tooltip content="健康检查">
                                 <span className="inline-flex">
                                   <Button
@@ -1606,7 +1735,9 @@ export default function AdminRelayAccountPoolPage() {
                                       unsupported
                                         ? `登录本机不可用:${unsupported}`
                                         : `登录本机:把该号写进本机 ${label} 客户端登录态(写前自动备份原文件,可回滚)${
-                                            willRestart ? ';写前自动关闭客户端、写完自动重新打开' : ';CLI 下次启动即生效'
+                                            willRestart
+                                              ? ';写前自动关闭客户端、写完自动重新打开'
+                                              : ';CLI 下次启动即生效'
                                           }`
                                     }
                                   >
@@ -2147,6 +2278,74 @@ export default function AdminRelayAccountPoolPage() {
               <Button type="submit" disabled={importMut.isPending}>
                 {importMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 提交导入
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!completing} onOpenChange={(o) => !o && setCompleting(null)}>
+        <DialogContent>
+          <form onSubmit={submitCompletePhone} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>补全手机号{completing ? `:${completing.name}` : ''}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="a-complete-phone">官方绑定手机号(11 位全号)</Label>
+              <Input
+                id="a-complete-phone"
+                value={completePhone}
+                onChange={(e) => setCompletePhone(e.target.value)}
+                placeholder="如 18012345669"
+                autoComplete="off"
+                spellCheck={false}
+                required
+              />
+              <p className="text-[11px] text-muted-foreground">
+                号池命名规约 = 官方绑定手机号全号;全号前 3 后 2 需与该掩码名吻合,不吻合会被拒绝。
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCompleting(null)}>
+                取消
+              </Button>
+              <Button type="submit" disabled={completePhoneMut.isPending}>
+                {completePhoneMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                提交补全
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={matchOpen} onOpenChange={(o) => !o && setMatchOpen(false)}>
+        <DialogContent className="max-w-2xl">
+          <form onSubmit={submitMatchPhone} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>批量归位手机号</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="a-match-phones">候选手机号(每行一个 11 位全号,1~200 个)</Label>
+              <textarea
+                id="a-match-phones"
+                rows={10}
+                value={matchText}
+                onChange={(e) => setMatchText(e.target.value)}
+                placeholder="每行粘贴一个手机号全号,如:18012345669"
+                className={textareaClass}
+              />
+              <p className="text-xs text-muted-foreground">
+                后端按掩码前 3 后 2
+                归位号池内掩码名账号并统一改名为全号;歧义/无命中/非法只汇总报数。
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setMatchOpen(false)}>
+                取消
+              </Button>
+              <Button type="submit" disabled={matchPhoneMut.isPending}>
+                {matchPhoneMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                提交归位
               </Button>
             </DialogFooter>
           </form>

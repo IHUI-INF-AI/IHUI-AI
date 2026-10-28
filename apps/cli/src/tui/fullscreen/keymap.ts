@@ -48,6 +48,22 @@ const CSI_RE = /^\x1b\[[0-9;?]*[ -/]*([@-~])/
 const SS3_RE = /^\x1bO([A-Z])/
 const OSC_RE = /^\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/
 
+// SGR 鼠标(1006):按下/滚轮是 `\x1b[<b;x;yM`,释放是 `\x1b[<b;x;ym`。
+// 通用 CSI_RE 只认 `[0-9;?]` 参数,`<` 前缀会整条落空 ⇒ 滚轮被当未绑定序列吞掉(G-329 缺陷格)。
+const SGR_MOUSE_RE = /^\x1b\[<(\d+);(\d+);(\d+)([Mm])/
+/** 滚轮一格滚 3 行:与多数终端一致,比 PgUp/PgDn 的整页细、比方向键的 1 行粗。 */
+const WHEEL_SCROLL_LINES = 3
+
+/**
+ * SGR 鼠标事件 → 动作。滚轮键码 = 64(上)/65(下),高位是修饰键(shift/meta/ctrl 不影响方向);
+ * 其余按键(左中右/移动/释放帧)不产生动作 —— 本 TUI 未绑定鼠标点选,只吞不猜。
+ */
+function sgrMouseAction(code: number, final: string): KeyAction {
+  if (final === 'M' && (code & 64) !== 0)
+    return { type: 'scroll', lines: (code & 1) === 0 ? -WHEEL_SCROLL_LINES : WHEEL_SCROLL_LINES }
+  return { type: 'unbound', label: 'mouse' }
+}
+
 function csiAction(final: string, params: string): KeyAction | null {
   switch (final) {
     case 'A':
@@ -110,6 +126,12 @@ export function decodeInput(chunk: string, ctx: DecodeContext): KeyAction[] {
       continue
     }
     if (rest.startsWith('\x1b[')) {
+      const mouse = SGR_MOUSE_RE.exec(rest)
+      if (mouse) {
+        out.push(sgrMouseAction(Number(mouse[1]), mouse[4] ?? 'M'))
+        rest = rest.slice(mouse[0].length)
+        continue
+      }
       const m = CSI_RE.exec(rest)
       if (!m) {
         // 序列不完整(终端分批送达)或形态未知:整段吞掉,不污染输入。
