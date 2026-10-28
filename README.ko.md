@@ -2219,6 +2219,14 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-29**
+- 🚀 기능/개선:补 pnpm check:public-exposure 入口 —— G-329 ④ 的 pnpm 面此前只有 node 直调,门已接线而脚本位缺失 (f85e1f55de)
+- 🔧 기타:结清 G-329 与 O66 + G-957 卡点定位更正 (5016a01222)
+- 📚 문서:体积清偿第 29 日批 —— §5c 一条改判留痕整段逐字迁 archive,净省 944 字节回到预算内 (535029dfea)
+
+**2026-10-29**
+- 🔧 기타:撤回 32 枚桶收窄实验,只留两处经全仓 tsc 验证的收窄 —— 中途造出过一次真断链 (65cc33c418)
+
+**2026-10-29**
 - 🔧 기타:更正提交——重删退役归档器四件(上一枚 ba51496b4bf 落地后被收编器从工作树写回) (d47ff00d63)
 
 **2026-10-29**
@@ -2282,20 +2290,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-10-29**
 - 🐞 수정:补回被"整份写回旧态"吞掉的 auditFeedbackLoopClosure 六行(本枚走落地器出口②,理由与证据在下面) (7c5b1b90eb)
-
-**2026-10-29**
-- 🐞 수정:找回被 b966cb2167 整份写回旧态的 dev-stack 超时双形态修复 —— 门 98 由红转绿 (fbfae3f297)
-- 🐞 수정:zh-TW clearAuthHint「這一台」改「這一臺」—— 门 2b 简体残留归零 (bcad210fe7)
-- 📚 문서:本侧 README 对齐远端新版守门清单行,解掉 git-sync-converge 的零丢失自证停顿 (017f455c72)
-- 🐞 수정:上游转发器补守卫②连接期 dispatcher —— 首跳复检挡不住 DNS rebinding (a3facca58f)
-- 🐞 수정:蓝绿编排器参数化 —— web 蓝绿改走 Node 执行面 (8a4ff327f8)
-- 🐞 수정:scripts/ 面 mypy strict 35→0 + 修 2 处 GBK 日志静默丢行 (969d74b9a6)
-- 📚 문서:UI/样式 门清单行对齐远端形态 —— 本侧 790 字版是远端 1106 字版的**前缀**(已实证 B.startsWith(A)=true),远端仅在其后追加了 check-ui-spec-mirror.mjs(259) 等条目 ⇒ 取远端版对本侧零丢失。此前 git-sync-converge 因这行按整行比对判『README.md 未存活行』拒绝推进 HEAD,而语义上并无内容丢失。 (12b99cbc35)
-- 🚀 기능/개선:web 蓝绿双实例 + router 原子切流(根治 O68 切流空窗) (38d71cfb82)
-- 🚀 기능/개선:守门 259 装车 —— RN 壳↔小程序壳 spec 接线对账进提交链 (a02c39768b)
-
-**2026-10-28**
-- 🔧 기타:守护: 反馈闭环巡检挂进 tick(此前只挂 main,常驻守护永不到达) (c79806a4ad)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

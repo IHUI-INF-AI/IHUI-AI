@@ -189,5 +189,18 @@ describe('MarkdownStream 档⑦:围栏晋升 stable 不回塌折叠', () => {
     expect(hlTexts(container).some((t) => t.includes('beta2 = 2'))).toBe(true)
     expect(expandButton(container)).toBeNull()
   })
+
+  it('⑧ 在写判定逐块化:写完毕的非尾块当拍升完成外观,在写尾块仍无动作按钮', async () => {
+    vi.useFakeTimers()
+    const { container } = render(<MarkdownStream content={M1} isStreaming />)
+    await tick()
+    // A(js)已闭且非尾 ⇒ 动作区出现(应用按钮一枚);B(py)在写 ⇒ 无动作按钮。
+    // 旧粗判整实例一个位:此拍全局"在写",两处都不应有 → 计数判据直接量出逐块化是否接线。
+    expect(container.querySelectorAll('[data-testid="apply-to-file-button"]').length).toBe(1)
+    // A 完成外观 + ⑦ 携带展开 ⇒ 折叠控件以"收起代码"形态当拍在场(不等整实例翻转)
+    expect(container.querySelector('button[aria-label="收起代码"]')).not.toBeNull()
+    // 尾块 B 在写:全展、无"展开代码"(④ 尾随全展语义不变)
+    expect(expandButton(container)).toBeNull()
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -279,7 +279,7 @@ const HEADING_RE = headingReFor(FAMILY)
 /**
  * 数字段提取(族感知):算术**只有一份** —— 复用上面 `headingNum` 那颗 `^O(\d+)`:族名是单字母,
  * 把 key 的首字母换回 `O` 交同一份算术(`Z12附⑥ → O12附⑥ → 12`)。
- * 不另写一条 `^Z(\d+)`(§22c:两处算同一件事必漂移,而镜像 T6 只锁得住其中一份)。
+ * 不另写一条"族名 + 数字"的族内正则(§22c:两处算同一件事必漂移,而镜像 T6 只锁得住其中一份)。
  */
 const headingNumOf = (key) => headingNum(`${DEFAULT_FAMILY}${String(key).slice(FAMILY.length)}`)
 
@@ -493,9 +493,14 @@ const scanWork = scanFamilyIds(worktreeText, FAMILY)
 // 发出去的号必须用该族自己的形状(与第一发号出口同一个来源:`usedIdsOfPrefix` 的 template)——
 // 印成 `Z2` 而该族行写的是 `Z-1`,就是给使用者一个判据认不出来的号(那是本仓记过的原病)。
 // 面序:HEAD 宽面(台账 ⊕ 归档件)> 工作树副本(新族首行常只活在这一侧,如未提交的 `Z-1`)
-// > 族名裸拼。缺省族 O 现读 template = `O%d` ⇒ 与改前逐字同形。
+// > 兜底。缺省族 O 现读 template = `O%d` ⇒ 与改前逐字同形。
 const familyTemplate =
-  rowUsedWide?.template ?? usedIdsOfPrefix(worktreeText, FAMILY)?.template ?? `${FAMILY}%d`
+  rowUsedWide?.template ??
+  usedIdsOfPrefix(worktreeText, FAMILY)?.template ??
+  // 兜底只在"判定层一条该族登记行都没有"时可达(新族首行还没入库 / 缺省族面全空)。它只是**显示形状**,
+  // 不参与占用判定(扫描面 `[-_ ]?` 把三种写法读成同一个号):缺省族沿用改前的裸拼,新族按两位数
+  // 号池的连字符惯例(本仓 `G-05`,也是唯一一条 `Z-1` 的写法 —— 与既有行同形才有人认得出来)。
+  (FAMILY === DEFAULT_FAMILY ? `${FAMILY}%d` : `${FAMILY}-%d`)
 /** 号 → 该族的书写形状(`O%d` → `O69`,`Z-%d` → `Z-2`) */
 const labelOf = (n) => familyTemplate.replace('%d', String(n))
 // ── 发号前对目标文件现读正文查同题(第五条,2026-10-24)────────────────────────────────
