@@ -94,6 +94,7 @@ describe('alipay — 支付宝支付服务', () => {
       vi.stubEnv('ALIPAY_APP_ID', '2021000')
 
       const params: Record<string, string> = {
+        app_id: '2021000',
         trade_no: '202412340001',
         out_trade_no: 'ORD123',
         total_amount: '9.99',
@@ -129,6 +130,58 @@ describe('alipay — 支付宝支付服务', () => {
           sign_type: 'RSA2',
         }),
       ).toBe(false)
+    })
+
+    // 2026-10-28 安全审计回归:跨商户重放防线(验签只证明"支付宝签过",必须再比对 app_id)
+    it('他商户 app_id 的"真签名"通知返回 false(跨商户重放)', () => {
+      const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      // 支付宝平台密钥全网共用:攻击者用"同一把平台私钥"签自己商户的通知,本端公钥能验过
+      vi.stubEnv('ALIPAY_PUBLIC_KEY', publicKey.export({ type: 'spki', format: 'pem' }) as string)
+      vi.stubEnv('ALIPAY_APP_ID', '2021000')
+
+      const params: Record<string, string> = {
+        app_id: '9999999', // 攻击者自己的 appid(与本方 2021000 不一致)
+        trade_no: 'ATTACKER_TRADE_1',
+        out_trade_no: 'ORD123', // 冒充本方订单号
+        total_amount: '9.99',
+        sign_type: 'RSA2',
+      }
+      const { sign: _s, sign_type: _st, ...rest } = params
+      const signContent = Object.keys(rest)
+        .filter((k) => rest[k] !== '' && rest[k] !== undefined)
+        .sort()
+        .map((k) => `${k}=${rest[k]}`)
+        .join('&')
+      const s = createSign('RSA-SHA256')
+      s.update(signContent, 'utf-8')
+      params.sign = s.sign(privateKey.export({ type: 'pkcs8', format: 'pem' }) as string, 'base64')
+
+      // 正向对照:若删掉 app_id 比对,这份 RSA 验签本身是通过的(本用例的失效方向必须可判)
+      expect(verifyNotify(params)).toBe(false)
+    })
+
+    it('缺 app_id 字段返回 false(fail-closed,即使其余内容签名有效)', () => {
+      const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      vi.stubEnv('ALIPAY_PUBLIC_KEY', publicKey.export({ type: 'spki', format: 'pem' }) as string)
+      vi.stubEnv('ALIPAY_APP_ID', '2021000')
+
+      const params: Record<string, string> = {
+        trade_no: '202412340002',
+        out_trade_no: 'ORD456',
+        total_amount: '9.99',
+        sign_type: 'RSA2',
+      }
+      const { sign: _s, sign_type: _st, ...rest } = params
+      const signContent = Object.keys(rest)
+        .filter((k) => rest[k] !== '' && rest[k] !== undefined)
+        .sort()
+        .map((k) => `${k}=${rest[k]}`)
+        .join('&')
+      const s = createSign('RSA-SHA256')
+      s.update(signContent, 'utf-8')
+      params.sign = s.sign(privateKey.export({ type: 'pkcs8', format: 'pem' }) as string, 'base64')
+
+      expect(verifyNotify(params)).toBe(false)
     })
   })
 
