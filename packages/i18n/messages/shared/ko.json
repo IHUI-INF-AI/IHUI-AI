@@ -1383,6 +1383,23 @@
     "empty": "즐겨찾기 없음",
     "deleteTitle": "즐겨찾기 삭제"
   },
+  "favorite": {
+    "title": "내 즐겨찾기",
+    "empty": "즐겨찾기가 없습니다",
+    "tab_all": "전체",
+    "tab_course": "강좌",
+    "tab_live": "라이브",
+    "tab_post": "게시글",
+    "tab_aigc": "AI 작품",
+    "tab_news": "뉴스",
+    "total": "저장됨",
+    "items_unit": "개",
+    "collected_at": "추가일",
+    "cancel": "즐겨찾기 삭제",
+    "loading_more": "더 불러오기",
+    "no_more": "더 이상 없음",
+    "go_discover": "발견하기"
+  },
   "checkIn": {
     "title": "매일 체크인",
     "subtitle": "매일 체크인하여 포인트 획득",
