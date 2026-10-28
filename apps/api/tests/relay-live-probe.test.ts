@@ -28,6 +28,11 @@ import {
   type ProbeResult,
   type ProbeStepOutcome,
 } from '../src/services/relay-live-probe.js'
+import { readFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const PKG_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 // ---------------------------------------------------------------------------
 // fetch 零调用打桩(静态用例共用)
@@ -199,6 +204,22 @@ describe('relay live probe(静态断言,零网络)', () => {
     expect(formatProbeReport({ enabled: false, timeoutMs: 20_000, results: [] })).toContain(
       '未开启',
     )
+  })
+
+  it('探针已装车:有可发现的命令入口,入口只 import 生产判据不复算', () => {
+    const pkg = JSON.parse(readFileSync(join(PKG_DIR, 'package.json'), 'utf8')) as {
+      scripts?: Record<string, string>
+    }
+    const cli = join(PKG_DIR, 'scripts', 'relay-live-probe.ts')
+    expect(pkg.scripts?.['relay:live-probe']).toBe('tsx scripts/relay-live-probe.ts')
+    expect(existsSync(cli)).toBe(true)
+    const src = readFileSync(cli, 'utf8')
+    // 判据单源(§0.6):入口只准 import,自带网络/探测逻辑就是第二份真相
+    expect(src).toContain("from '../src/services/relay-live-probe.js'")
+    expect(src).not.toMatch(/\bfetch\(/)
+    expect(src).not.toContain('undici')
+    // 未开启档必须显式喊"未判定",不许被读成"已验证"(§0.3)
+    expect(src).toContain('未判定')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

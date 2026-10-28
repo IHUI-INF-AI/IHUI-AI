@@ -2064,6 +2064,7 @@ class AgentEngine:
             "thread.metadata": self._handle_thread_metadata,
             "memory.status": self._handle_memory_status,
             "memory.reset": self._handle_memory_reset,
+            "memory.refresh": self._handle_memory_refresh,
             "fs.watch": self._handle_fs_watch,
             "fs.unwatch": self._handle_fs_unwatch,
             "thread.settings": self._handle_thread_settings,
@@ -4547,6 +4548,28 @@ class AgentEngine:
 
         confirm = bool(params.get("confirm", False))
         return {"result": memory_reset(confirm=confirm)}
+
+    async def _handle_memory_refresh(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """记忆面运行时刷新(2026-10-28 立,对标竞品 `refresh_memory` 控制帧)。
+
+        竞品原帧语义(2026-09 取证,qoder-control-frames.md 第 26 行):
+        `async refreshMemory(){await this.requireSdkMemoryEnabled(),
+        await this.request({type:"refresh_memory"})}` —— **宿主显式调用 + 必须回报结果**,
+        不是「后台自己会刷新」的承诺。
+
+        与同族 `memory.status`(只读聚合)/`memory.reset`(双确认清空)的分工:
+        本帧真的**再打一次持久化源**并把差额算出来(added/removed/changed)——
+        差别不是措辞,是「用户在外面改了记忆文件,agent 什么时候才看得到」。
+
+        判据出口仍是 memory_facade(唯一判定源):读失败 ≠ 空(facade 返
+        refreshed:false + error + loadState),本帧原样透出,不把「读不到」报成
+        「没有记忆」。facade 异常已内部降级,本帧不炸引擎。
+        """
+        from .memory_facade import memory_refresh
+
+        return {"result": await memory_refresh()}
 
     async def _handle_thread_settings(
         self, params: dict[str, Any], emit: Emitter
