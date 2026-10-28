@@ -1,4 +1,10 @@
 {
+  "setting": {
+    "operationFailed": "操作失敗"
+  },
+  "message": {
+    "deleted": "已刪除"
+  },
   "workflows": {
     "title": "工作流",
     "empty": "暫無工作流",
