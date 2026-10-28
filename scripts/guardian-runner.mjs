@@ -5815,6 +5815,23 @@ const checks = [
   {
     id: '257',
     label:
+      '🌐 web↔RN 跨端对账(仅报告):web 新增路由/功能而 RN 缺承载时自动可见 —— 复用 check-web-rn-screen-parity 同一把尺,拦「web 有、RN 零承载」漂移回潮',
+    script: 'check-web-rn-parity.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_WEB_RN_PARITY',
+    stagedTriggers: ['apps/web/app/**', 'apps/mobile-rn/src/**', 'packages/app/src/**', 'scripts/data/web-rn-screen-map.jsonl', 'scripts/check-web-rn-parity.mjs'],
+    onFailHint: [
+      '',
+      '  💡 仅报告:web 有路由/能力而 RN 零承载。逐条看差在哪:node scripts/check-web-rn-parity.mjs',
+      '     映射表:scripts/data/web-rn-screen-map.jsonl(新增承载后请在表里登记)。',
+      '     应急放行 HUSKY_SKIP_WEB_RN_PARITY=1(须在提交信息写明理由)。',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '258',
+    label:
       '🛡️ DDoS 守卫接线对账(摘线即红;四道闸的注册锚点在不在,口径见 scripts/check-ddos-guard-wiring.mjs)',
     script: 'check-ddos-guard-wiring.mjs',
     args: [],
