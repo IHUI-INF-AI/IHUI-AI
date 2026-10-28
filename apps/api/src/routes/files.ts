@@ -32,6 +32,7 @@ import {
   extractExt,
   MAX_MULTIPART_UPLOAD_SIZE,
 } from '../utils/file-type-validator.js'
+import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -181,6 +182,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files/upload/base64',
     {
+      bodyLimit: FILE_UPLOAD_BODY_LIMIT,
       schema: buildSchema({
         summary: 'Base64 上传文件',
         description: '通过 base64 编码上传文件,支持 webp 自动转 png',
