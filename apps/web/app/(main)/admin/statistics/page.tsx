@@ -46,7 +46,7 @@ export default function StatisticsPage() {
   const t = useTranslations('statistics')
   const queryClient = useQueryClient()
 
-  const { data, isLoading, error } = useQuery<StatisticsData>({
+  const { data, error } = useQuery<StatisticsData>({
     queryKey: ['statistics', 'admin'],
     queryFn: async () => {
       const r = await fetchApi<StatisticsData>('/api/admin/statistics')
@@ -55,7 +55,6 @@ export default function StatisticsPage() {
     },
     staleTime: 60_000,
   })
-  const d = data!
 
   const { data: snapshotsData } = useQuery({
     queryKey: ['statistics', 'snapshots'],
@@ -71,20 +70,23 @@ export default function StatisticsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['statistics', 'snapshots'] }),
   })
 
-  const overviewCards = buildOverviewCards(t, d.overview)
+  // 取数未完成时 data 必为 undefined(`useQuery` 首帧如此),渲染期不得解引用;
+  // 曾经写成 `const d = data!` 的编译期断言 ⇒ 首屏必抛 TypeError 被 admin 错误边界接住。
+  const d = data
+  const overviewCards = buildOverviewCards(t, d?.overview)
 
   const growthOption: EChartsOption = {
     tooltip: { trigger: 'axis' },
     legend: { data: ['累计用户', '新增用户'], top: 0 },
     grid: { left: 50, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: 'category', data: d.userGrowth.map((g) => g.date) },
+    xAxis: { type: 'category', data: (d?.userGrowth ?? []).map((g) => g.date) },
     yAxis: { type: 'value' },
     series: [
       {
         name: '累计用户',
         type: 'line',
         smooth: true,
-        data: d.userGrowth.map((g) => g.total),
+        data: (d?.userGrowth ?? []).map((g) => g.total),
         itemStyle: { color: CHART_BLUE },
         areaStyle: { opacity: 0.1 },
       },
@@ -92,7 +94,7 @@ export default function StatisticsPage() {
         name: '新增用户',
         type: 'line',
         smooth: true,
-        data: d.userGrowth.map((g) => g.newCount),
+        data: (d?.userGrowth ?? []).map((g) => g.newCount),
         itemStyle: { color: CHART_GREEN },
       },
     ],
@@ -127,7 +129,7 @@ export default function StatisticsPage() {
         center: ['50%', '45%'],
         avoidLabelOverlap: true,
         label: { show: false },
-        data: d.sources.map((s) => ({ name: s.name, value: s.value })),
+        data: (d?.sources ?? []).map((s) => ({ name: s.name, value: s.value })),
         color: [CHART_BLUE, CHART_GREEN, CHART_AMBER, CHART_VIOLET, CHART_TEXT_LIGHT],
       },
     ],
@@ -151,14 +153,14 @@ export default function StatisticsPage() {
             {t('saveSnapshot')}
           </Button>
         </div>
-        {isLoading ? (
+        {error ? (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            统计加载失败:{(error as Error).message}
+          </div>
+        ) : !d ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t('loading')}
-          </div>
-        ) : error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            统计加载失败:{(error as Error).message}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
@@ -188,7 +190,7 @@ export default function StatisticsPage() {
           <p className="text-xs text-muted-foreground">近 7 天累计与新增用户</p>
         </CardHeader>
         <CardContent>
-          <EChart option={growthOption} loading={isLoading} />
+          <EChart option={growthOption} loading={!d} />
         </CardContent>
       </Card>
 
@@ -199,7 +201,7 @@ export default function StatisticsPage() {
             <p className="text-xs text-muted-foreground">核心指标横向对比</p>
           </CardHeader>
           <CardContent>
-            <EChart option={moduleOption} loading={isLoading} height={280} />
+            <EChart option={moduleOption} loading={!d} height={280} />
           </CardContent>
         </Card>
 
@@ -209,7 +211,7 @@ export default function StatisticsPage() {
             <p className="text-xs text-muted-foreground">访问渠道占比</p>
           </CardHeader>
           <CardContent>
-            <EChart option={sourceOption} loading={isLoading} height={280} />
+            <EChart option={sourceOption} loading={!d} height={280} />
           </CardContent>
         </Card>
       </div>
