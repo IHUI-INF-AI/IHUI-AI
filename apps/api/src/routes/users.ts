@@ -25,6 +25,7 @@ import { updateUserPassword } from '../db/usercenter-queries.js'
 import { success, error } from '../utils/response.js'
 import { verifyCode } from '../utils/code-store.js'
 import { validateUploadFile, sanitizeFilename } from '../utils/file-type-validator.js'
+import { SMALL_IMAGE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 import { db } from '../db/index.js'
 
 const ADMIN_ROLE_ID = 1
@@ -290,7 +291,8 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     'image/gif': '.gif',
   }
 
-  server.post('/:id/avatar', async (request, reply) => {
+  // 头像上传:内部校验 2MiB,整包还需 multipart 边界余量 → 吃全局 2MiB 会先 413
+  server.post('/:id/avatar', { bodyLimit: SMALL_IMAGE_UPLOAD_BODY_LIMIT }, async (request, reply) => {
     try {
       await authenticate(request)
     } catch (e) {
