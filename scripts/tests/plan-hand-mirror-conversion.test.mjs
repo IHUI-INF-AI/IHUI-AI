@@ -124,4 +124,31 @@ test('M12 正文闸的作用域:同一句话在别的键下不算该屏渲染得
   const okHay = conv.messagesValuesByKeys(messages, conv.screenConsumedKeys(`t('other.x')`))
   assert.equal(conv.cjkNotRenderedOnScreen(page, okHay), 0)
 })
+
+test('M13 catch 形态必须认全:语句式与三种箭头式 .catch 里的 toast 都算错误分支', () => {
+  // 仓内主流是 `.catch((e) => { … })`;旧实现只认语句式 `catch (e) {` ⇒ 这类页恒被判
+  // "toast 不在 catch 里",于是「错误提示由壳承担」这条等价判据对绝大多数请求代码恒为假。
+  const cases = {
+    '带括号单参箭头': "load().catch((e) => { Taro.showToast({ title: tt('x.loadFailed') }) })",
+    '空参箭头': "load().catch(() => { Taro.showToast({ title: tt('x.loadFailed') }) })",
+    '裸标识符箭头': "load().catch(err => { Taro.showToast({ title: tt('x.loadFailed') }) })",
+    语句式: "try { load() } catch (e) { Taro.showToast({ title: tt('x.loadFailed') }) }",
+  }
+  for (const [name, src] of Object.entries(cases))
+    assert.equal(conv.toastOnlyInCatch(src), true, `${name} 的 catch 必须被认出来`)
+  // 反面:catch 之外还有成功提示 ⇒ 不得整体算成错误分支
+  const mixed =
+    "load().catch((e) => { Taro.showToast({ title: 'x' }) }); Taro.showToast({ title: 'y' })"
+  assert.equal(conv.toastOnlyInCatch(mixed), false, 'catch 外的 toast 仍要拦住')
+})
+
+test('M14 壳侧反馈出口含整屏错误态:ErrorState 与 appAlert 同等看待', () => {
+  const page = "load().catch(() => { Taro.showToast({ title: tt('x.loadFailed') }) })"
+  assert.equal(
+    conv.toastFullyCovered(page, 'if (error) return <ErrorState message={error} />'),
+    true,
+    'ErrorState 是错误提示的等价出口(实测 ExamResultScreen 就是这个形态)',
+  )
+  assert.equal(conv.toastFullyCovered(page, 'return <View />'), false, '壳连错误态都没有 ⇒ 不销账')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

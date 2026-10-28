@@ -419,6 +419,18 @@ export function authGateCoversDidShow(pageText) {
 }
 
 /**
+ * 壳侧的"用户反馈出口"形态(单源,2026-10-29 立):
+ *   · 瞬时提示:appAlert / Toast / toast.show|info|success
+ *   · **整屏错误态**:ErrorState / ScreenStates / ErrorBoundary
+ * 第二个族此前一直不在判据里,实测 ExamResultScreen 的反馈就是
+ * `if (error || !item) return <ErrorState … />` —— 判据读成"壳没有任何提示",页面被白判成私有能力。
+ * catch 里的 toast 与整屏错误态是同一件事的两种表达(前者是端内瞬时提示、后者是跨端可渲染的错误面),
+ * 出口形态不认全,"错误提示由壳承担"这条等价判据对一半的屏恒为假。
+ */
+export const SHELL_FEEDBACK_RE =
+  /appAlert|\bToast\b|toast\.(show|info|success)|ErrorState|ScreenStates|ErrorBoundary/
+
+/**
  * 提示等价:页面 showToast 引用的 i18n key **全部**在壳正文里出现,且壳自己有提示出口
  * (appAlert / Toast) ⇒ 页面那几处 toast 是重复;壳的提示文案就是同一批词条。
  * 任一 key 在壳里找不到 ⇒ 壳没有这条提示,转壳会丢用户反馈 ⇒ 不销账(现读 67 页里只有 6 页满足)。
@@ -434,7 +446,7 @@ export function toastCovered(pageText, shellText, sharedText = '') {
   for (const call of toastCallSpans(src))
     for (const k of call.text.matchAll(/\btt?\s*\(\s*'([A-Za-z0-9_.]+)'/g)) keys.add(k[1])
   if (keys.size === 0) return false
-  if (!/appAlert|\bToast\b|toast\.(show|info|success)/.test(shell)) return false
+  if (!SHELL_FEEDBACK_RE.test(shell)) return false
   return [...keys].every((k) => hay.includes(k))
 }
 
@@ -446,19 +458,25 @@ export function toastCovered(pageText, shellText, sharedText = '') {
  */
 export function toastOnlyInCatch(pageText) {
   const src = maskComments(String(pageText ?? ''))
-  const total = [...src.matchAll(/showToast\s*\(/g)].length
-  if (total === 0) return false
-  const inCatch = [
-    ...src.matchAll(/catch\s*(?:\([^)]*\))?\s*\{[\s\S]{0,800}?showToast\s*\(/g),
-  ].length
-  return inCatch >= total
+  const calls = toastCallSpans(src)
+  if (calls.length === 0) return false
+  // 与 toastFullyCovered 共用同一张 catch 区间表(单源):两处各写一套括号/形态判据必然漂开,
+  // 实测旧实现只认语句式 catch,对 `.catch((e) => {` 恒判"不在 catch 里"。
+  const ranges = catchRanges(src)
+  return calls.every((c) => ranges.some(([a, b]) => c.start >= a && c.start <= b))
 }
 
 /** catch 块区间(括号配对),用于判某个 toast 调用是否落在错误分支里。 */
 export function catchRanges(src) {
   const text = String(src ?? '')
   const out = []
-  for (const m of text.matchAll(/catch\s*(?:\([^)]*\))?\s*\{/g)) {
+  // 形态必须认全(2026-10-29):仓内主流是 `.catch((e) => { … })` / `.catch(() => { … })` /
+  // `.catch(err => { … })`,而旧正则只认语句式 `catch (e) {` ⇒ 箭头形态一个区间都取不到,
+  // 于是「错误提示落在 catch 里」这条等价判据对小程序的绝大多数请求代码恒为假。
+  // 六个分支按"最具体优先"排列;块起点仍取 `catch` 关键字本身(m.index)。
+  const RE =
+    /catch\s*(?:\(\([^()]*\)\s*=>\s*\{|\([A-Za-z_$][\w$]*\s*=>\s*\{|\(\s*\)\s*=>\s*\{|\([^()]*\)\s*(?:=>\s*)?\{|[A-Za-z_$][\w$]*\s*=>\s*\{|\{)/g
+  for (const m of text.matchAll(RE)) {
     let i = m.index + m[0].length
     let depth = 1
     const start = m.index
@@ -485,7 +503,7 @@ export function toastFullyCovered(pageText, shellText, sharedText = '') {
   const src = maskComments(String(pageText ?? ''))
   const shell = String(shellText ?? '')
   const hay = `${shell}\n${sharedText ? maskComments(String(sharedText)) : ''}`
-  const hasOutlet = /appAlert|\bToast\b|toast\.(show|info|success)/.test(shell)
+  const hasOutlet = SHELL_FEEDBACK_RE.test(shell)
   const calls = toastCallSpans(src)
   if (calls.length === 0) return false
   const ranges = catchRanges(src)
@@ -653,7 +671,7 @@ export function judgeConversion({
   else if (
     !toastCovered(pageText, shellText, sharedText) &&
     toastOnlyInCatch(pageText) &&
-    /appAlert|\bToast\b/.test(String(shellText ?? ''))
+    SHELL_FEEDBACK_RE.test(String(shellText ?? ''))
   )
     pageTokens.delete('Taro.showToast')
   // switchTab 只做 navigateBack 的失败回落 ⇒ RN 端没有这一态,壳的 goBack 已覆盖
