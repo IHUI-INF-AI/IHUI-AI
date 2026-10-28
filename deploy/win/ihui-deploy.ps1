@@ -1495,17 +1495,28 @@ function Start-CleanBuildAsyncDelete {
 function Clear-CleanBuildTrash {
     <#
       清过期的 `.trash-*` 回收站:后台删除进程可能被系统打断/机器重启,不清理会无限堆积。
-      保留最近 $Keep 个(它们大概正在被后台删),更老的直接同步删 —— 启动时删,
-      不在部署关键路径上。调用点在 Get-CleanBuildWebDir 开头。
+      调用点在 Get-CleanBuildWebDir 开头。
+
+      2026-10-28 判据改造(原形是"保留最近 $Keep 个",实测成一格恒不触发的死角):
+      旧形 `$items.Count -le $Keep` 早退,而 Keep=2 —— 盘上恰好长期停着 2 个删不掉的
+      `.trash-*`(10-23、10-26 各一,顶层 56 项完整),于是**每一轮 Count 都等于 2、直接 return**,
+      后面的删除循环一次都没跑过(6 份 loop 日志里"清过期净面回收站"出现 0 次)。
+      判据改成**年龄**:只碰 30 分钟前的回收站(更年轻的大概率正被后台删除器删着,
+      抢它的活只会两边撞锁),无论盘上有几个。删完回读,仍在就 WARN —— 旧形在
+      Remove-DirLongPath 上没有任何反馈,删没删掉都静默。
     #>
-    param([int]$Keep = 2)
+    param([int]$MinAgeMinutes = 30)
     if (-not (Test-Path -LiteralPath $CleanBuildRootDefault)) { return }
+    $cutoff = (Get-Date).AddMinutes(-$MinAgeMinutes)
     $items = @(Get-ChildItem -LiteralPath $CleanBuildRootDefault -Force -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -like '.trash-*' } | Sort-Object LastWriteTime)
-    if ($items.Count -le $Keep) { return }
-    foreach ($d in $items[0..($items.Count - $Keep - 1)]) {
+        Where-Object { $_.Name -like '.trash-*' -and $_.LastWriteTime -lt $cutoff } | Sort-Object LastWriteTime)
+    if ($items.Count -eq 0) { return }
+    foreach ($d in $items) {
         Log ("[clean-recycle] 清过期净面回收站:{0}(最后写入 {1:yyyy-MM-dd HH:mm:ss})" -f $d.Name, $d.LastWriteTime)
         Remove-DirLongPath -Path $d.FullName
+        if (Test-Path -LiteralPath $d.FullName) {
+            Log ("WARN  [clean-recycle] 过期回收站未删净(仍有句柄,后台删除器会继续重试):{0}" -f $d.Name)
+        }
     }
 }
 
@@ -1536,6 +1547,14 @@ function Invoke-CleanBuildWorktreeSweep {
             return
         }
         Log "[CLEAN-BUILD] 收尾:回收净面 $CleanBuildWt"
+        # 防御(2026-10-28):改名要求**整棵树没有任何进程的 CWD**;Build-Web 那侧的还原是
+        # 主修,这里再兜一层 —— 万一别的路径(失败出口/将来的调用点)把 CWD 留在净面里,
+        # 唯一后果就是回收恒失败。只在真落在里面时才动 CWD,不对正常路径产生副作用。
+        $cwdNow = (Get-Location).ProviderPath
+        if ($cwdNow -and $cwdNow.StartsWith($CleanBuildWt, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Log "[CLEAN-BUILD] 收尾:CWD 仍在净面内($cwdNow)⇒ 先退回仓根,否则改名必报 in use"
+            Set-Location -LiteralPath $Root
+        }
         [void](Start-CleanBuildAsyncDelete -Path $CleanBuildWt)
         # 改名成功/失败都不再同步删 ⇒ 路径"还在"只代表后台进程还没删完,不是故障;
         # 真故障形态是 Start-CleanBuildAsyncDelete 里那两条 WARN(删除器不在位/启动失败)。
@@ -1717,6 +1736,14 @@ function Build-Web {
     # 两个构建同时写 .next —— 那正是这把锁存在的理由。上限 45 分钟的推导见
     # deploy-lock-common.ps1 头注;函数内部 15s 节流,放在循环里代价只有一次时间判断。
     Update-DeployLockHeartbeat
+    # 2026-10-28 根治:`Set-Location` 进净面后**从不还原**(本函数旧形只有这一句,finally 只还原
+    # 环境变量),于是整轮结束时部署 pwsh **自身 CWD 仍在净面树内**。Windows 规定"目录树内
+    # 任何进程的当前目录都阻止整棵树改名" ⇒ 收尾 Start-CleanBuildAsyncDelete 的
+    # Rename-Item 恒报 `because it is in use`,重试 3×3s 也无效(不是别人持句柄,是我们自己),
+    # 只能降级成后台按原路径删。取证:01:20/04:00/05:57 三处净面构建 ⇒ 01:32:43/04:12:17/
+    # 06:07:40 三次改名失败,而 02:27 那轮从共享工作树构建(未 Set-Location 进净面)⇒ 改名成功。
+    # 这里记下进入前的 CWD,finally 无条件还原;不影响构建本身(构建仍必须在 $bwd 内跑)。
+    $prevCwd = (Get-Location).ProviderPath
     Set-Location $bwd
     if (-not (Test-Path (Join-Path $bwd 'node_modules\.bin\next.cmd'))) {
         Log "web 依赖缺失,先 pnpm install"
@@ -1890,6 +1917,9 @@ function Build-Web {
         }
         throw "next build 连续 $MaxTries 次失败,保持当前在线版本$(if ($lastErrFp) { "(末次报错: $lastErrFp)" } else { "(末轮报错行不可读,exit=$exitCode)" })"
     } finally {
+        # CWD 必须先退出净面再让收尾改名(见函数开头 $prevCwd 的立因);$prevCwd 万一已被
+        # 删(极端情况)退回仓根,不允许在 finally 里抛 —— 那会盖掉真正的构建失败原因。
+        try { Set-Location -LiteralPath $prevCwd } catch { Set-Location -LiteralPath $Root }
         Remove-Item Env:\IHUI_BUILD_DIST -ErrorAction SilentlyContinue
         Remove-Item Env:\NEXT_TELEMETRY_DISABLED -ErrorAction SilentlyContinue
         if ($prevNodeOptions) { $env:NODE_OPTIONS = $prevNodeOptions } else { Remove-Item Env:\NODE_OPTIONS -ErrorAction SilentlyContinue }

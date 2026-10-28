@@ -237,6 +237,7 @@ function statusOf(code: string): 400 | 409 | 502 {
     code === 'no-storage' ||
     code === 'target-shape' ||
     code === 'storage-shape' ||
+    code === 'storage-format-unknown' ||
     code === 'duplicate-accounts' ||
     code === 'target-locked' ||
     code === 'cipher-key-mismatch'
