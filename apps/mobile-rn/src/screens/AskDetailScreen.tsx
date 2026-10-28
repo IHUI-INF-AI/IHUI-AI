@@ -10,6 +10,7 @@ import { fetchApi } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { AskDetailScreen as SharedAskDetailScreen, type AskDetailItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Route = RouteProp<RootStackParamList, 'AskDetail'>
@@ -25,6 +26,8 @@ export function AskDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+    const [reloadKey, setReloadKey] = useState(0)
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
@@ -39,7 +42,10 @@ export function AskDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):bump reloadKey 让上面的 effect 重跑
+  useRefreshOnFocus(() => setReloadKey((k) => k + 1))
 
   return (
     <SharedAskDetailScreen
