@@ -803,12 +803,8 @@ const MIN_HIT_REF = 20
  *    类型错 / 同键重复声明)——它说明这份声明档不可信,半批应用等于挑着信;
  *  · **逐项跳过**(`skipped`)给"这一枚声明过期了"用(早于记录最后一次改写 / recordSig 对不上)——
  *    其余声明仍然有效,但被跳过的那枚绝不放行(陈旧声明不记通过)。
- *
- * `nowIso` 与 `applyReclassify` 同形(签名对位,调用方可注入时钟):本档判据只比"记录自带的
- * updatedAt"与"声明自带的 declaredAt"两枚时刻 —— 把"当下"放进判据会让同一份声明在两次运行里
- * 判出不同结论,而这正是"判据失效得安静"的形状。故第三个参数刻意不用,`_` 前缀即 lint 在册标记。
  */
-export function validateRetireIntents(items, records, _nowIso = new Date().toISOString()) {
+export function validateRetireIntents(items, records) {
   const reject = (error) => ({ intents: new Map(), error, skipped: [] })
   if (!Array.isArray(items) || items.length === 0)
     return reject('声明档必须是非空数组 [{key, why, declaredAt, declaredBy?, recordSig?, hitRefs?}]')
