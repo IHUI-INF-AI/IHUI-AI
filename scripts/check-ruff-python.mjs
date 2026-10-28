@@ -19,6 +19,11 @@
  *
  * 退出码:0 无违规 / 1 有违规(逐条打印 ruff 输出)/ 2 未判定(uvx 缺失、pin 解析失败、被审面
  * 取不到、ruff 自身 rc∉{0,1})。未判定优先于红:任一维没量到就不出结论。
+ * 出网退路(2026-10-28 本机实测补):uvx 走 reqwest 的 Windows 系统代理解析,节点挂时对 pypi 报
+ * `tls handshake eof`(rc=2),而 `ruff==<pin>` 常常已在 uv 本地缓存里 ⇒ 那只说明"这一条腿没通",
+ * 不说明"判不了"。故出网形状的失败后按同一 pin、同一参数补跑一次 `uvx --offline`:缓存腿给出
+ * 结论即采用它(报告里点名两腿),两腿都不通仍落 exit 2。**非网络形状的 rc=2(规则名写错、配置坏)
+ * 一律不重跑** —— 给真故障开重跑等于把它洗成偶发重试。
  *
  * 紧急跳过:HUSKY_SKIP_RUFF=1 git commit ...
  */
@@ -137,7 +142,6 @@ export function classifyRuffOutcome({
   status,
   signal = null,
   stdout = '',
-  stderr = '',
   error = null,
 } = {}) {
   if (error) return error.code === 'ENOENT' ? 'tool-missing' : 'tool-error'
@@ -265,9 +269,32 @@ function spawnUvx(exe, args, cwd, timeout) {
   })
 }
 
+/**
+ * 出网腿失败的形状(ruff 已在 uv 本地缓存里时,这一型本不该变成"没结论")。
+ * 只认传输层措辞,不认 rc=2 那类配置/规则错误 —— 后者换腿重跑也是同样答案,给它开重跑等于掩盖真故障。
+ */
+export const EGRESS_FAILURE_RE =
+  /failed to fetch|error sending request|tls handshake|connection refused|could not resolve|dns error/i
+
+/** 这条结果是不是"网络没够着"(而非 lint 结论 / 工具自身故障)。 */
+export function isEgressFailure(r) {
+  if (!r || r.error) return false
+  if (r.status === 0 || r.status === 1) return false // rc0=通过、rc1=有违规,都是 lint 结论
+  return EGRESS_FAILURE_RE.test(`${r.stderr || ''}\n${r.stdout || ''}`)
+}
+
 /** 在**物化出来的判定面**里跑 `uvx ruff==<pin> check .`。 */
-export function runRuff({ dir, uvx, spec, timeout = RUFF_TIMEOUT }) {
-  return spawnUvx(uvx, [spec, ...RUFF_ARGS], dir, timeout)
+export function runRuff({ dir, uvx, spec, timeout = RUFF_TIMEOUT, spawn = spawnUvx }) {
+  const first = spawn(uvx, [spec, ...RUFF_ARGS], dir, timeout)
+  if (!isEgressFailure(first)) return first
+  // 出网腿挂了 ⇒ 用 uv 的本地缓存再问一次(同一 pin、同一参数,覆盖面只增不减)。
+  // 两腿都不通就回吐**第一手**错误(离线腿的"缓存里没有"往往比原始故障更难读)。
+  const second = spawn(uvx, ['--offline', spec, ...RUFF_ARGS], dir, timeout)
+  const firstDetail = `rc=${first.status ?? first.error?.code ?? 'null'}`
+  if (second.error || isEgressFailure(second) || (second.status !== 0 && second.status !== 1)) {
+    return { ...second, egress: { used: false, firstDetail } }
+  }
+  return { ...second, egress: { used: true, firstDetail } }
 }
 
 /** uvx 可执行性探测(自检用来区分"红绿两向演示不了"与"判据坏了")。 */
@@ -384,6 +411,12 @@ export function judgeFace({ root, face, uvx = null, timeout = RUFF_TIMEOUT } = {
     const output = `${r.stdout || ''}\n${r.stderr || ''}`.trim()
     const ruffKind = classifyRuffOutcome(r)
     const code = exitCodeFor(ruffKind)
+    if (r.egress) {
+      lines.push(
+        `${C.dim}   ↳ 出网腿失败(${r.egress.firstDetail})⇒ 已用 uv 本地缓存重跑 uvx --offline ${spec}` +
+          `${r.egress.used ? ' 并给出结论' : '(缓存腿也不通 ⇒ 仍未判定)'}${C.reset}`,
+      )
+    }
 
     if (code === 0) {
       if (output) lines.push(`${C.dim}${output}${C.reset}`)
@@ -791,6 +824,7 @@ export const __test__ = {
   stagedPythonChanges,
   materializeFace,
   resolveUvx,
+  isEgressFailure,
   runRuff,
   probeUvx,
   judgeFace,
