@@ -5813,6 +5813,16 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '257',
+    label:
+      '🌐 web↔RN 跨端对账(仅报告):web 新增路由/功能而 RN 缺承载时自动可见 —— 复用 check-web-rn-screen-parity 同一把尺,拦「web 有、RN 零承载」漂移回潮',
+    script: 'check-web-rn-parity.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_WEB_RN_PARITY',
+    stagedTriggers: ['apps/web/app/**', 'apps/mobile-rn/src/**', 'packages/app/src/**', 'scripts/data/web-rn-screen-map.jsonl', 'scripts/check-web-rn-parity.mjs'],
+  },
   // --- info (1 项) ---
   {
     id: '23',
