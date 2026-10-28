@@ -1032,6 +1032,7 @@
     "certList": "자격증 목록",
     "certApply": "강사 인증",
     "certVerify": "자격증 검증",
+    "sectionAi": "AI 에이전트",
     "sectionSocial": "소셜",
     "favorites": "내 즐겨찾기",
     "follow": "팔로우 및 팔로워",
@@ -4301,6 +4302,18 @@
       "completed": "완료",
       "cancelled": "취소됨",
       "refunded": "환불됨"
+    }
+  },
+  "myAgentsPage": {
+    "title": "내 에이전트",
+    "empty": "에이전트가 없습니다",
+    "loadFailed": "불러오기 실패",
+    "free": "무료",
+    "status": {
+      "pending": "검토 중",
+      "published": "공개됨",
+      "rejected": "반려됨",
+      "draft": "초안"
     }
   },
   "webViewPortal": {

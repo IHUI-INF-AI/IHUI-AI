@@ -1032,6 +1032,7 @@
     "certList": "Certificates",
     "certApply": "Lecturer Certification",
     "certVerify": "Certificate Verification",
+    "sectionAi": "AI Agents",
     "sectionSocial": "Social",
     "favorites": "My Favorites",
     "follow": "Following & Followers",
@@ -4345,6 +4346,18 @@
       "completed": "Completed",
       "cancelled": "Cancelled",
       "refunded": "Refunded"
+    }
+  },
+  "myAgentsPage": {
+    "title": "My Agents",
+    "empty": "No agents yet",
+    "loadFailed": "Failed to load",
+    "free": "Free",
+    "status": {
+      "pending": "Under review",
+      "published": "Live",
+      "rejected": "Rejected",
+      "draft": "Draft"
     }
   },
   "webViewPortal": {

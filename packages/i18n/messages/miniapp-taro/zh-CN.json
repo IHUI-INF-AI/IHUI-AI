@@ -4653,6 +4653,18 @@
       "refunded": "已退款"
     }
   },
+  "myAgentsPage": {
+    "title": "我的智能体",
+    "empty": "还没有智能体",
+    "loadFailed": "加载失败",
+    "free": "免费",
+    "status": {
+      "pending": "审核中",
+      "published": "已上线",
+      "rejected": "已驳回",
+      "draft": "草稿"
+    }
+  },
   "webViewPortal": {
     "news": "资讯",
     "learnTopic": "课程专题",
