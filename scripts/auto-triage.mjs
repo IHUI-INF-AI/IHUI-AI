@@ -14,7 +14,11 @@
  *  - 来源白名单:只吃配置里点名的源,每源一台账/一判据,不搞万能解析(防噪音淹没,§1);
  *  - 「台账只记真工作」:可派单的判据 = 有人能动手做的(§1 登记门槛);
  *  - 登记行带新鲜日期交代(三选一),同源 24h 去重 + 每日登记配额;
- *  - 取不到来源数据 ⇒ 该源落「未判定」不记绿(§0.3),绝不把读不到当成"无发现"。
+ *  - 取不到来源数据 ⇒ 该源落「未判定」不记绿(§0.3),绝不把读不到当成"无发现";
+ *  - 「已判定但没落台账」的处置(observed / skip-dedupe / quota-deferred)一律留观测账
+ *    (2026-10-29 补:skip-dedupe 曾只打印不落账,于是"本轮 0 登记"读起来像"什么都没发现",
+ *    本票的成因因此被连写三遍且互相矛盾 —— 账面读数必须出自器物,不靠后手手数 jsonl);
+ *    --status 用 summarizeTriageLedger 把全期/窗内分桶念出来,同一把尺只住这一份。
  *
  * 来源(第二期新增 3 个,均只吃机器可读面,不新开路由/不新开连接层):
  *  - mail-failure:apps/api/scripts/notify-deploy-failure.ts 的投递台账(§5e-3)24h 窗内
@@ -52,7 +56,7 @@
  *  被拒且属 `pool-exhausted` ⇒ 按现读可发族的次名重试(≤3 次),其余失败原因不重试(重试也不会变)。
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, unlinkSync, mkdirSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
@@ -621,6 +625,32 @@ function appendLedger(entry) {
   writeFileSync(TRIAGE_LEDGER, lines.map((e) => JSON.stringify(e)).join('\n') + '\n', 'utf8')
 }
 
+/** 「本轮已判定、但没落台账」的处置闭集 —— 每一型都必须在观测账上留痕。 */
+const LEDGER_RECORDED_ACTIONS = new Set(['observed', 'skip-dedupe', 'quota-deferred'])
+
+/**
+ * 处置 → 观测台账行(纯判据,一张闭集表;执行侧不许再各自拼行)。
+ *
+ * 立因(2026-10-29 实测):本票「registered=0」的成因被连写三遍且三遍互相矛盾,根子是
+ * **"本轮为什么一条都没登记"在账面上读不出来** —— skip-dedupe 只往控制台打印、不落账
+ * (与 quota-deferred 不对称),于是任何后手只能手数 381 行 jsonl,每手数一遍得出一个故事。
+ * ⇒ 凡"已判定但未落台账"的处置一律留痕;'register' / 'register-failed' 走执行侧专档
+ * (带 family / exhaustions / causeNote 字段,本表拼不出也不该拼),故返回 null。
+ *  dryRun ⇒ 一律 null(零副作用档不写任何面)。行对象不含 ts(时刻由 appendLedger 统一盖)。
+ */
+export function triageLedgerRowOf(action, { dryRun = false } = {}) {
+  if (dryRun) return null
+  if (!action || typeof action !== 'object') return null
+  if (!LEDGER_RECORDED_ACTIONS.has(action.action)) return null
+  return {
+    mode: 'once',
+    action: action.action,
+    source: action.source ?? null,
+    fingerprint: action.fp ?? null,
+    why: action.evidence ?? '',
+  }
+}
+
 /** 今日已登记数(本器台账现读,配额判据;两面都按本地日切,不用 UTC 串直接比本地串) */
 export function registeredToday(ledger, now = new Date()) {
   const ymd = (d) =>
@@ -639,6 +669,86 @@ export function recentlyRegistered(ledger, fp, now = Date.now()) {
     (e) =>
       e.action === 'registered' && e.fingerprint === fp && now - Date.parse(e.ts) < 24 * 3600_000,
   )
+}
+
+/** 观测台账里本器会产生的处置闭集(--status 读数按这一张表分桶,不认表外动作 ⇒ 计入 other)。 */
+const LEDGER_ACTIONS = new Set([
+  'registered',
+  'register-failed',
+  'observed',
+  'skip-dedupe',
+  'quota-deferred',
+])
+
+/**
+ * 观测台账读数汇总(纯函数,--status 的唯一取数面)。
+ *
+ * 立因(2026-10-29 立,同 triageLedgerRowOf):票面上「现读 observed 34 / register-failed 45 /
+ * registered 0」这类话是**人手数 jsonl** 数出来的,三次数出三个窗口、三个结论;器物必须自己把
+ * 账面念出来(全期 + 窗内分桶、末条时刻、逐源计数),否则下一次还是靠猜(§0.8 不许写跑不通的出路、
+ * §0.1 凡数字一律现读)。
+ * 三态纪律:时刻读不到 ⇒ 只进全期计数、不进窗内(不用 0 冒充"窗内没有");
+ *  ledger 为空数组 ⇒ total=0 并如实报 0(与"文件读不到"由调用方按 existsSync 分档,本纯函数不猜)。
+ */
+export function summarizeTriageLedger(ledger = [], { now = Date.now(), windowHours = 24 } = {}) {
+  const byAction = {}
+  const bySource = {}
+  const windowByAction = {}
+  const windowBySource = {}
+  const untsRows = { count: 0, actions: [] }
+  let lastTs = null
+  const windowMs = windowHours * 3600_000
+  for (const e of ledger ?? []) {
+    const action = LEDGER_ACTIONS.has(e?.action) ? e.action : 'other'
+    byAction[action] = (byAction[action] ?? 0) + 1
+    const src = String(e?.source ?? '(无来源字段)')
+    bySource[src] = (bySource[src] ?? 0) + 1
+    const ts = Date.parse(String(e?.ts ?? ''))
+    if (!Number.isFinite(ts)) {
+      untsRows.count += 1
+      if (!untsRows.actions.includes(action)) untsRows.actions.push(action)
+      continue
+    }
+    if (lastTs === null || ts > lastTs.ts) lastTs = { ts, iso: String(e.ts) }
+    if (now - ts <= windowMs) {
+      windowByAction[action] = (windowByAction[action] ?? 0) + 1
+      windowBySource[src] = (windowBySource[src] ?? 0) + 1
+    }
+  }
+  return {
+    total: (ledger ?? []).length,
+    byAction,
+    bySource,
+    windowHours,
+    windowByAction,
+    windowBySource,
+    lastTs: lastTs ? lastTs.iso : null,
+    untsRows,
+  }
+}
+
+/** 读数 → 人读行(纯函数;--status 只打印它,不再另拼一句)。 */
+export function renderLedgerSummary(s) {
+  const keys = ['registered', 'register-failed', 'skip-dedupe', 'quota-deferred', 'observed', 'other']
+  const fmt = (map) =>
+    keys
+      .filter((k) => Number(map[k] ?? 0) > 0)
+      .map((k) => `${k}=${map[k]}`)
+      .join(' ') || '(无)'
+  const srcFmt = (map) =>
+    Object.entries(map)
+      .map(([k, v]) => `${k}=${v}`)
+      .sort()
+      .join(' ') || '(无)'
+  const out = [
+    `观测台账读数:共 ${s.total} 条(末条 ${s.lastTs ?? '读不到时刻'})`,
+    `  全期按处置 ${fmt(s.byAction)}`,
+    `  窗内(${s.windowHours}h)按处置 ${fmt(s.windowByAction)} —— 读不到时刻的行不进窗`,
+    `  全期按来源 ${srcFmt(s.bySource)}`,
+  ]
+  if (s.untsRows.count > 0)
+    out.push(`  ⚠ ${s.untsRows.count} 条无有效 ts(动作 ${s.untsRows.actions.join('/')}),只计全期不判窗内`)
+  return out
 }
 
 /**
@@ -1087,29 +1197,22 @@ async function runOnce({ dryRun = false } = {}) {
         console.log(`  · dry-run:观察类不登记(${f.source} ${f.evidence})`)
         continue
       }
-      appendLedger({
-        mode: 'once',
-        action: 'observed',
-        source: f.source,
-        fingerprint: f.fp,
-        why: f.evidence,
-      })
+      const observedRow = triageLedgerRowOf(f, { dryRun })
+      if (observedRow) appendLedger(observedRow)
       continue
     }
     if (f.action === 'skip-dedupe') {
       console.log(`  ⏭ ${f.source} 24h 内已登记同指纹 ⇒ 跳过`)
+      // 2026-10-29 补留痕:这一型此前只打印不落账 ⇒ "本轮 0 登记"读起来像"什么都没发现",
+      // 而真原因是 24h 去重拦下(与 quota-deferred 不对称)。判据住 triageLedgerRowOf 一张表。
+      const dedupeRow = triageLedgerRowOf(f, { dryRun })
+      if (dedupeRow) appendLedger(dedupeRow)
       continue
     }
     if (f.action === 'quota-deferred') {
       console.log(`  ⏸ 每日登记配额已满 ⇒ ${f.source} 留台账待明日`)
-      if (dryRun) continue
-      appendLedger({
-        mode: 'once',
-        action: 'quota-deferred',
-        source: f.source,
-        fingerprint: f.fp,
-        why: f.evidence,
-      })
+      const deferredRow = triageLedgerRowOf(f, { dryRun })
+      if (deferredRow) appendLedger(deferredRow)
       continue
     }
     // f.action === 'register'
@@ -1637,6 +1740,94 @@ async function selfTest() {
     const b = parseArgs(['--families', '--once'])
     return a.errors.length === 0 && a.families === true && b.errors.some((e) => /互斥/.test(e))
   })())
+  // ── T12/T13「本轮为什么没登记」必须读得出来(2026-10-29 立,同票三条矛盾成因的器物化)──
+  const actOf = (a) => ({ action: a, source: 'api-logs', fp: 'fp-x', evidence: '同签名 6 次' })
+  ok(
+    'T12a 留账闭集:observed/skip-dedupe/quota-deferred 各产一行,register 与 register-failed 归执行侧专档(null)',
+    ['observed', 'skip-dedupe', 'quota-deferred'].every(
+      (a) =>
+        JSON.stringify(triageLedgerRowOf(actOf(a))) ===
+        JSON.stringify({
+          mode: 'once',
+          action: a,
+          source: 'api-logs',
+          fingerprint: 'fp-x',
+          why: '同签名 6 次',
+        }),
+    ) &&
+      triageLedgerRowOf(actOf('register')) === null &&
+      triageLedgerRowOf(actOf('register-failed')) === null,
+  )
+  ok(
+    'T12b dry-run 一律不留痕(零副作用档不写任何面)',
+    ['observed', 'skip-dedupe', 'quota-deferred'].every(
+      (a) => triageLedgerRowOf(actOf(a), { dryRun: true }) === null,
+    ),
+  )
+  ok(
+    'T12c 闭集外/入参坏 ⇒ null,不猜一条账行出来',
+    triageLedgerRowOf(actOf('unknown-action')) === null &&
+      triageLedgerRowOf(null) === null &&
+      triageLedgerRowOf('observed') === null,
+  )
+  ok(
+    'T13a 汇总分桶:全期与窗内分开(23h 前进窗、25h 前进全期)',
+    (() => {
+      const s = summarizeTriageLedger(
+        [
+          { ts: new Date(now - 23 * 3600_000).toISOString(), action: 'observed', source: 'api-logs' },
+          { ts: new Date(now - 25 * 3600_000).toISOString(), action: 'observed', source: 'api-logs' },
+          { ts: new Date(now - 60_000).toISOString(), action: 'skip-dedupe', source: 'api-logs' },
+        ],
+        { now },
+      )
+      return (
+        s.total === 3 &&
+        s.byAction.observed === 2 &&
+        s.windowByAction.observed === 1 &&
+        s.windowByAction['skip-dedupe'] === 1 &&
+        s.bySource['api-logs'] === 3 &&
+        s.lastTs === new Date(now - 60_000).toISOString()
+      )
+    })(),
+  )
+  ok(
+    'T13b 读不到时刻的行:只计全期、不进窗,并逐条点名(§0.3 不用 0 冒充"窗内没有")',
+    (() => {
+      const s = summarizeTriageLedger(
+        [{ ts: '不是时刻', action: 'registered', source: 'mail-failure' }],
+        { now },
+      )
+      const lines = renderLedgerSummary(s)
+      return (
+        s.byAction.registered === 1 &&
+        s.windowByAction.registered === undefined &&
+        s.untsRows.count === 1 &&
+        s.lastTs === null &&
+        lines.some((l) => /无有效 ts/.test(l))
+      )
+    })(),
+  )
+  ok(
+    'T13c 表外动作落 other,不静默吞;空账面念成"共 0 条"(与"文件读不到"由调用方分档)',
+    (() => {
+      const s = summarizeTriageLedger([{ ts: new Date(now).toISOString(), action: 'round' }], { now })
+      const empty = summarizeTriageLedger([], { now })
+      return (
+        s.byAction.other === 1 &&
+        empty.total === 0 &&
+        renderLedgerSummary(empty)[0].includes('共 0 条')
+      )
+    })(),
+  )
+  ok(
+    'T13d --status 是只读档:与 --once 互斥、且不落真分诊轮(反向锁参数闸)',
+    (() => {
+      const a = parseArgs(['--status'])
+      const b = parseArgs(['--status', '--once'])
+      return a.errors.length === 0 && a.status === true && b.errors.some((e) => /互斥/.test(e))
+    })(),
+  )
   if (failed > 0) {
     console.error(`self-test: ${failed} 例红`)
     process.exitCode = 1
@@ -1662,6 +1853,17 @@ function printStatus() {
   console.log(
     `聚类档:窗口 ${cluster.windowHours}h / 同桶下限 ${cluster.minOccurrences} 次(错误签名归一后指纹去重)`,
   )
+  // 账面读数由器物自己念(2026-10-29 立):此前"现读 observed N / register-failed M / registered K"
+  // 全是人手数 jsonl,三个窗口三遍数出三个结论(本票因此被写过三条互相矛盾的成因注记)。
+  // 文件不存在 ≠ 0 条 —— 前者是"取不到账面"(§0.3),后者才是"确实一条都没留痕"。
+  let ledgerExists = true
+  try {
+    ledgerExists = existsSync(TRIAGE_LEDGER)
+  } catch {
+    ledgerExists = false
+  }
+  if (!ledgerExists) console.log('观测台账读数:未判定 —— 账面文件不存在(本器从未留痕,不记成"0 条=没发生过")')
+  else for (const line of renderLedgerSummary(summarizeTriageLedger(ledger))) console.log(line)
   console.log(`台账最近 5 条:`)
   for (const e of ledger.slice(-5))
     console.log(
@@ -1741,7 +1943,7 @@ export function usageText() {
     '用法:node scripts/auto-triage.mjs --once [--dry-run] | --status | --families | --self-test | --help',
     '  --once       真跑一轮分诊(写分诊观测账,必要时经 live-doc-edit 唯一入口登记 PROJECT_PLAN.md)',
     '  --dry-run    预演:只打印将要登记/观察的行,不写 PROJECT_PLAN.md、不写分诊台账(只能与 --once 同给)',
-    '  --status     只读:打印分诊配置与观测台账最近 5 条',
+    '  --status     只读:打印分诊配置 + 观测台账按处置/来源分桶读数(全期与 24h 窗内)+ 最近 5 条',
     '  --families   只读:现读每一枚字母族能否发号(挑族判据 = live-doc-edit 那一份,零写盘)',
     '  --self-test  只读:跑本器自测',
     '  --help / -h  只读:打印本用法',
@@ -1843,6 +2045,9 @@ export const __test__ = {
   readTriageLedger,
   registeredToday,
   recentlyRegistered,
+  triageLedgerRowOf,
+  summarizeTriageLedger,
+  renderLedgerSummary,
   planTriageActions,
   registerToPlan,
   idFamilyLetters,
