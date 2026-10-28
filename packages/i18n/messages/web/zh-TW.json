@@ -18454,7 +18454,7 @@
     "dashboardNoData": "暫無資料",
     "dashboardLatency": "{value}s",
     "clearAuth": "撤回授權",
-    "clearAuthHint": "撤回你授予該 Server 的 OAuth 憑證(只撤這一台)",
+    "clearAuthHint": "撤回你授予該 Server 的 OAuth 憑證(只撤這一臺)",
     "clearAuthSuccess": "{name} 的授權已撤回",
     "clearAuthNoOauth": "{name} 未使用 OAuth 通道,沒有可撤回的授權",
     "clearAuthFailed": "{name} 撤回授權失敗"
