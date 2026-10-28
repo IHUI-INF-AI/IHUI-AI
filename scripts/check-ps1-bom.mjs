@@ -98,20 +98,26 @@ function git(args, { cwd = ROOT, allowFail = false } = {}) {
  * 旧 `scan` 得空集 ⇒ `report([])` 退 0 绿;而旧代码 `if (!buf) return []` 那一支**结构上到不了**
  * (空输出是**真值 Buffer**,不是 null;git 真失败则因 allowFail=false 直接抛错)。
  */
-function readTrackedList(cwd) {
+function readTrackedList(cwd, surface = 'index') {
   const face = { ok: false, why: null, listed: 0, total: null, cwd }
   const firstErr = (e) => {
     const s = String(e?.stderr || e?.message || '')
     return s.split(/\r?\n/).find((l) => l.trim() !== '') || '(无回显)'
   }
+  const onHead = surface === 'head'
+  const listCmd = onHead ? 'git ls-tree -r --name-only -z HEAD' : 'git ls-files(射程 *.ps1/*.psm1)'
   let buf
   try {
-    buf = git(['ls-files', '-z', '*.ps1', '*.psm1'], { cwd })
+    // 清单与内容必须同面同轮(§0.4):head 档用 ls-tree HEAD,不再拿索引清单去配 HEAD 内容。
+    buf = onHead
+      ? git(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], { cwd })
+      : git(['ls-files', '-z', '*.ps1', '*.psm1'], { cwd })
   } catch (e) {
-    face.why = `git ls-files(射程 *.ps1/*.psm1)在 cwd=${cwd} 执行失败:${firstErr(e)}`
+    face.why = `${listCmd}在 cwd=${cwd} 执行失败:${firstErr(e)}`
     return { paths: [], face }
   }
-  const paths = buf.toString('utf8').split('\u0000').filter((s) => s.length > 0)
+  const allPaths = buf.toString('utf8').split('\u0000').filter((s) => s.length > 0)
+  const paths = onHead ? allPaths.filter((p) => /\.(ps1|psm1)$/i.test(p)) : allPaths
   face.listed = paths.length
   if (paths.length > 0) {
     face.ok = true
@@ -119,14 +125,18 @@ function readTrackedList(cwd) {
   }
   // 空清单 ⇒ 再问一句整张跟踪面,把「真的零枚 .ps1」与「面根本取不到」分开:
   try {
-    const all = git(['ls-files', '-z'], { cwd })
-    face.total = all
-      .toString('utf8')
-      .split('\u0000')
-      .filter((s) => s.length > 0)
-      .length
+    if (onHead) {
+      // head 档的整张面就是上面 ls-tree 的全量(未经 *.ps1 过滤)
+      face.total = allPaths.length
+    } else {
+      const all = git(['ls-files', '-z'], { cwd })
+      face.total = all
+        .toString('utf8')
+        .split('\u0000')
+        .filter((s) => s.length > 0).length
+    }
   } catch (e) {
-    face.why = `射程清单为空后追问全量清单(git ls-files)在 cwd=${cwd} 执行失败:${firstErr(e)}`
+    face.why = `射程清单为空后追问全量清单(${onHead ? 'git ls-tree -r HEAD' : 'git ls-files'})在 cwd=${cwd} 执行失败:${firstErr(e)}`
     return { paths, face }
   }
   if (face.total > 0) {
@@ -153,10 +163,16 @@ function firstBytes(buf) {
   return Buffer.from(buf.subarray(0, Math.min(3, buf.length))).toString('hex') || '(空)'
 }
 
-/** 读某一面(工作树 / 索引)的文件内容;读不到返回 null —— 不静默当成"没有 BOM" */
+/** 读某一面(HEAD / 索引 / 工作树)的文件内容;读不到返回 null —— 不静默当成"没有 BOM" */
 function readSurface(cwd, rel, surface) {
   try {
     if (surface === 'staged') return git(['cat-file', 'blob', `:${rel}`], { cwd, allowFail: true })
+    // §0.4 同面同轮:全量档判 **HEAD blob**,`--worktree` 只是人工逃生舱。
+    // 此前默认档直接 readFileSync 读盘,而清单恒取索引(git ls-files)⇒ 清单面与内容面不同形;
+    // 在 6 会话共享工作树上,别人正在写的那枚 .ps1 会让 readFileSync 间歇拿不到内容 →
+    // classify='undetermined' → 本门整轮退 2(2026-10-29 实测:deploy/win/ihui-api-bluegreen.ps1
+    // 00:03 提交、00:53 又被写,体检正落在那 50 分钟里)。改成读 HEAD 后这一型结构不可达。
+    if (surface === 'head') return git(['cat-file', 'blob', `HEAD:${rel}`], { cwd, allowFail: true })
     return readFileSync(join(cwd, rel))
   } catch {
     return null
@@ -189,12 +205,24 @@ export function classify({ worktreeBom, headBom }) {
  * 空集本身不再等于"判过了")。rows 的逐枚判定链与旧版一致。
  */
 function scan({ cwd = ROOT, surface = 'worktree' } = {}) {
-  const { paths, face } = readTrackedList(cwd)
+  const { paths, face } = readTrackedList(cwd, surface === 'staged' ? 'index' : surface)
   face.surface = surface
   const rows = []
   for (const rel of paths) {
     const buf = readSurface(cwd, rel, surface)
     const worktreeBom = buf === null ? null : hasBom(buf)
+    // **head 档走绝对判据**(2026-10-29 定):被审面就是 HEAD,拿 HEAD 去比 HEAD 恒等
+    // ⇒ 旧的 classify 链在这里会退化成"什么都能过的存量"(我把默认面改成 head 时差点造出
+    // 一道永远不会红的门)。BOM 在不在是二值事实,不存在"合法存量"——存量那一格靠
+    // 一次性补齐(见 deploy/win/ihui-api-bluegreen.ps1 那枚),而不是靠棘轮永久豁免。
+    if (surface === 'head') {
+      rows.push({
+        path: rel,
+        verdict: worktreeBom === null ? 'undetermined' : worktreeBom ? 'ok' : 'missing-on-head',
+        first3: buf === null ? '(读不到)' : firstBytes(buf),
+      })
+      continue
+    }
     // 性能:只在这份文件**缺 BOM 或读不到**时才去问 HEAD —— 带 BOM 的文件结论恒为 ok,
     // 问 HEAD 只是白起一个子进程。全部被跟踪 .ps1 都带 BOM 时本门零子进程开销(立门时实测 ~50ms),
     // 否则每提交要白跑 150+ 次 git。
@@ -216,6 +244,7 @@ function report(result, { json = false, strict = false, listExisting = false, qu
   const existing = by('existing')
   const regressed = by('regressed')
   const added = by('new-violation')
+  const missingOnHead = by('missing-on-head')
   const undetermined = by('undetermined')
   const newViolations = [...regressed, ...added]
   const faceBad = face ? face.ok === false : false
@@ -237,6 +266,7 @@ function report(result, { json = false, strict = false, listExisting = false, qu
           existing: existing.map((r) => r.path),
           regressed: regressed.map((r) => ({ path: r.path, first3: r.first3 })),
           added: added.map((r) => ({ path: r.path, first3: r.first3 })),
+          missingOnHead: missingOnHead.map((r) => ({ path: r.path, first3: r.first3 })),
           undetermined: undetermined.map((r) => r.path),
           face: face
             ? { ok: face.ok, why: face.why, listed: face.listed, total: face.total, surface: face.surface, cwd: face.cwd }
@@ -262,22 +292,31 @@ function report(result, { json = false, strict = false, listExisting = false, qu
       say(`❌ [ps1-bom] 新增 .ps1 没有 BOM,共 ${added.length} 枚:`)
       for (const r of added) say(`     ${r.first3}  ${r.path}`)
     }
+    if (missingOnHead.length > 0) {
+      say(
+        `❌ [ps1-bom] HEAD 面有 ${missingOnHead.length} 枚 .ps1/.psm1 缺 UTF-8 BOM` +
+          '(缺省档判 HEAD blob,是**绝对判据**:BOM 在不在是二值事实,不设"合法存量"这一格):',
+      )
+      for (const r of missingOnHead) say(`     ${r.first3}  ${r.path}`)
+    }
     if (undetermined.length > 0) {
       say(`⚠️  [ps1-bom] 读不到内容、判不了(未判定,不冒充通过)共 ${undetermined.length} 枚:`)
       for (const r of undetermined) say(`     ${r.path}`)
     }
     if (faceBad) {
       say(
-        `⚠️  [ps1-bom] 被审面取不到(未判定,不记绿也不冒红):问的面=清单面 git ls-files${face.surface ? `(${face.surface} 档内容面)` : ''}@${face.cwd};原因:${face.why}`,
+        `⚠️  [ps1-bom] 被审面取不到(未判定,不记绿也不冒红):问的面=${
+          face.surface === 'head' ? '清单面 git ls-tree HEAD' : '清单面 git ls-files'
+        }${face.surface ? `(${face.surface} 档内容面)` : ''}@${face.cwd};原因:${face.why}`,
       )
     }
-    if (newViolations.length > 0) {
+    if (newViolations.length > 0 || missingOnHead.length > 0) {
       say('修复:给这些文件补 3 字节 UTF-8 BOM 前缀(正文一字节都不用动):')
       say('  node scripts/lib/ps1-add-bom.mjs <文件...>   # 见本门旁的实现,幂等、已有 BOM 不动')
     }
   }
 
-  const red = newViolations.length > 0 || (strict && existing.length > 0)
+  const red = newViolations.length > 0 || missingOnHead.length > 0 || (strict && existing.length > 0)
   // 修法席②:**未判定优先于红**(2 排在 1 前;依据与不放走任何红的论证见头注「退出码」段)。
   const exit = unjudged > 0 ? 2 : red ? 1 : 0
   if (!quiet && exit === 2) {
@@ -328,30 +367,66 @@ function selfTest() {
     run(['config', 'user.name', 't'])
     mkdirSync(join(tmp, 'd'), { recursive: true })
     const bom = Buffer.from([0xef, 0xbb, 0xbf])
-    writeFileSync(join(tmp, 'd/legacy.ps1'), 'Write-Output 1\n')
-    writeFileSync(join(tmp, 'd/good.ps1'), Buffer.concat([bom, Buffer.from('Write-Output 2\n')]))
+    const withBom = (s) => Buffer.concat([bom, Buffer.from(s)])
+    // 夹具底版:HEAD 面**全部带 BOM**(缺省档是绝对判据,底版脏了就永远绿不了)
+    writeFileSync(join(tmp, 'd/legacy.ps1'), withBom('Write-Output 1\n'))
+    writeFileSync(join(tmp, 'd/good.ps1'), withBom('Write-Output 2\n'))
     run(['add', '-A'])
     run(['commit', '-q', '-m', 'base'])
 
-    // ① 只改内容、不碰 BOM ⇒ 必须绿(存量不算新增)
-    writeFileSync(join(tmp, 'd/legacy.ps1'), 'Write-Output 11\n')
-    writeFileSync(join(tmp, 'd/good.ps1'), Buffer.concat([bom, Buffer.from('Write-Output 22\n')]))
+    // ① 只改内容、不碰 BOM ⇒ 必须绿(缺省档 = HEAD blob)
+    writeFileSync(join(tmp, 'd/legacy.ps1'), withBom('Write-Output 11\n'))
+    writeFileSync(join(tmp, 'd/good.ps1'), withBom('Write-Output 22\n'))
     const g1 = report(scan({ cwd: tmp }), { json: true, quiet: true })
     console.log(`${g1 === 0 ? 'PASS' : 'FAIL'}  端到端①:改内容不动 BOM ⇒ 绿(exit=${g1})`)
     if (g1 !== 0) fail++
 
     // ② 新增一个无 BOM 文件 ⇒ 必须红(此面每一枚都量得到,红档 1 必须可达)
+    //    面=索引:新增件在 HEAD 里还不存在,提交链判的就是索引 blob(§0.4 同面同轮)
     writeFileSync(join(tmp, 'd/newbie.ps1'), 'Write-Output 3\n')
     run(['add', '-A'])
-    const g2 = report(scan({ cwd: tmp }), { json: true, quiet: true })
+    const g2 = report(scan({ cwd: tmp, surface: 'staged' }), { json: true, quiet: true })
     console.log(`${g2 === 1 ? 'PASS' : 'FAIL'}  端到端②:新增无 BOM ⇒ 红(exit=${g2})`)
     if (g2 !== 1) fail++
 
-    // ③ 把有 BOM 的文件的 BOM 弄掉 ⇒ 必须红(regressed 那一格)
+    // ③ 把有 BOM 的文件的 BOM 弄掉 ⇒ 必须红(regressed 那一格;暂存档)
     writeFileSync(join(tmp, 'd/good.ps1'), 'Write-Output 222\n')
-    const g3 = report(scan({ cwd: tmp }), { json: true, quiet: true })
+    run(['add', '-A'])
+    const g3 = report(scan({ cwd: tmp, surface: 'staged' }), { json: true, quiet: true })
     console.log(`${g3 === 1 ? 'PASS' : 'FAIL'}  端到端③:原带 BOM 的文件被弄掉 BOM ⇒ 红(exit=${g3})`)
     if (g3 !== 1) fail++
+
+    // ③b 把这次弄掉 BOM **提交进 HEAD** ⇒ 缺省档(HEAD blob,绝对判据)必须红。
+    run(['commit', '-q', '-m', 'drop bom'])
+    const g3b = report(scan({ cwd: tmp, surface: 'head' }), { json: true, quiet: true })
+    console.log(`${g3b === 1 ? 'PASS' : 'FAIL'}  端到端③b:缺 BOM 已入 HEAD ⇒ 缺省档红(exit=${g3b})`)
+    if (g3b !== 1) fail++
+
+    // ③b2 同一状态走 **--staged 档** ⇒ 判的是棘轮(index vs HEAD:同缺 = 存量,只报数)⇒ 必须绿。
+    //    这一对(③b 红 / ③b2 绿)钉的是两档各自的语义:绝对判据不给存量留活口,
+    //    棘轮档不替历史债背红 —— 任何一档被改成对方的口径,这里就红。
+    const g3b2 = report(scan({ cwd: tmp, surface: 'staged' }), { json: true, quiet: true })
+    console.log(
+      `${g3b2 === 0 ? 'PASS' : 'FAIL'}  端到端③b2:同状态 --staged 档按棘轮只报数 ⇒ 绿(exit=${g3b2})`,
+    )
+    if (g3b2 !== 0) fail++
+
+    // ③c 反向对照(§5c「盘上已补、HEAD 欠账」那一型):只在盘上把 BOM 补回去、不提交 ⇒
+    //    缺省档结论必须**不变**(仍红)。旧写法读盘,这一型会被盘上副本顶成绿。
+    writeFileSync(join(tmp, 'd/good.ps1'), withBom('Write-Output 222\n'))
+    writeFileSync(join(tmp, 'd/newbie.ps1'), withBom('Write-Output 3\n'))
+    const g3c = report(scan({ cwd: tmp, surface: 'head' }), { json: true, quiet: true })
+    console.log(
+      `${g3c === 1 ? 'PASS' : 'FAIL'}  端到端③c:盘上补好未提交 ⇒ 缺省档照旧红,不记绿(exit=${g3c})`,
+    )
+    if (g3c !== 1) fail++
+
+    // ③d 带进 HEAD 才算销账:提交补齐 ⇒ 缺省档回绿(绝对判据在存量清零后才是可过状态)。
+    run(['add', '-A'])
+    run(['commit', '-q', '-m', 'restore bom'])
+    const g3d = report(scan({ cwd: tmp, surface: 'head' }), { json: true, quiet: true })
+    console.log(`${g3d === 0 ? 'PASS' : 'FAIL'}  端到端③d:补齐并入库 ⇒ 缺省档回绿(exit=${g3d})`)
+    if (g3d !== 0) fail++
 
     // ④ 面取不到(不 init git 的裸 scratch 面)⇒ 必须 2 未判定,绝不 0 绿(修法席①)
     const bare = mk('ps1bom-noface-')
@@ -385,7 +460,7 @@ function selfTest() {
   }
 
   console.log(
-    fail === 0 ? '\n自检通过(判据六例 + 端到端五例,红/绿/未判定三向都真跑)' : `\n自检失败:${fail} 例不符`,
+    fail === 0 ? '\n自检通过(判据 + 端到端全部通过,红/绿/未判定三向都真跑;例数以本段逐行 PASS 为准)' : `\n自检失败:${fail} 例不符`,
   )
   return fail === 0 ? 0 : 1
 }
@@ -399,7 +474,13 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 if (isDirectRun) {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) process.exit(selfTest())
-  const surface = argv.includes('--staged') ? 'staged' : 'worktree'
+  // 两面旗同给 ⇒ 用法错 exit 2(§0.4 同面同轮,不允许"既要索引又要工作树")
+  if (argv.includes('--staged') && argv.includes('--worktree')) {
+    console.error('❌ [ps1-bom] --staged 与 --worktree 同给 ⇒ 不知道你要判哪张面,拒绝判定')
+    process.exit(2)
+  }
+  // 缺省 = HEAD blob(全量档口径);--worktree 保留为人工取证逃生舱(§0.4)
+  const surface = argv.includes('--staged') ? 'staged' : argv.includes('--worktree') ? 'worktree' : 'head'
   process.exit(
     report(scan({ surface }), {
       json: argv.includes('--json'),

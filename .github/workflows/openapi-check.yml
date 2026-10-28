@@ -28,7 +28,12 @@ on:
 
 concurrency:
   group: openapi-check-${{ github.ref }}
-  cancel-in-progress: true
+  # 2026-10-29 由 true 改 false(与同日 knip.yml 同一手证据):main 多席并发提交约每 4–5 分钟一枚,
+  # 本 job 含 pnpm install + types build + export,单跑约 5–6 分钟 ⇒ cancel-in-progress: true 时
+  # 16:57Z 之后 f623f8fe / eb7c91a3 两枚的 run 都被下一枚直接 cancelled,账面永远停在
+  # "最近一次 completed = failure",判据没有失效,是终态取不到。改 false 后同组排队,
+  # 每枚提交都拿得到自己的结论(与 ci.yml 既有口径一致)。
+  cancel-in-progress: false
 
 permissions:
   contents: read

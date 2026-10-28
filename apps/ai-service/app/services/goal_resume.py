@@ -132,7 +132,32 @@ def resume_goal(
         )
         return _rejected(session_id)
 
-    existing = store.get_thread_goal_state(thread_id) or {}
+    from .session_store import normalize_goal_state
+
+    raw_goal_state = thread.metadata.get("goalState")
+    if raw_goal_state is not None:
+        # 有 goalState 键但形状不合法(normalize 后仍 None)⇒ 与「没有」分形:
+        # 不能把它压成 existing={} 落到 no_goal 报 ok:true(那会把存储损坏 / 越权写入
+        # 的痕迹静默吞成「良性」结论)。`get_thread_goal_state` 的返回契约不动,
+        # 形状校验只在本模块内部做。
+        existing = normalize_goal_state(raw_goal_state)
+        if existing is None:
+            logger.warning(
+                "resume_goal 目标状态形状不合法(session=%s):%r",
+                session_id,
+                raw_goal_state,
+            )
+            return {
+                "ok": True,
+                "accepted": False,
+                "resumed": False,
+                "status": "",
+                "reason": "goal_state_malformed",
+                "sessionId": session_id,
+            }
+    else:
+        existing = {}
+
     status = str(existing.get("status") or "")
     objective = str(existing.get("objective") or "")
 
@@ -191,8 +216,6 @@ def resume_goal(
             "sessionId": session_id,
         }
 
-    from .session_store import normalize_goal_state
-
     stamp = time.time() if now is None else float(now)
     candidate: dict[str, Any] = {
         "status": "active",
@@ -220,9 +243,27 @@ def resume_goal(
             "sessionId": session_id,
         }
 
-    # 唯一合法写口。返回 None = 线程行没了(与「不存在」同形)。
-    if store.set_thread_goal_state(thread_id, new_state) is None:
+    # 唯一合法写口,带 CAS:写入前复核「读到的来源状态」未被并发改写,否则回 "conflict"
+    # 而非盲目无条件覆盖(clear/set/done 占了先时,resume 不应把别人的新状态盖掉)。
+    written = store.set_thread_goal_state(
+        thread_id,
+        new_state,
+        expected_status=status,
+        expected_objective=objective,
+    )
+    if written is None:
+        # None = 线程行没了(与「不存在」同形)。
         return _rejected(session_id)
+    if written == "conflict":
+        # 读-判-写之间状态已被并发改写,不再覆盖。报确定 reason 让调用方决定重试。
+        return {
+            "ok": True,
+            "accepted": False,
+            "resumed": False,
+            "status": status,
+            "reason": "conflict",
+            "sessionId": session_id,
+        }
 
     from .agent_events import SSE_GOAL_UPDATED, publish_goal_update
 

@@ -463,7 +463,11 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       authAsAdmin()
       // 订单金额 10000 分(100 元),退款 200 元(>100 元)
       mockGetOrder.mockResolvedValueOnce(
-        makeOrder({ status: 'paid', userId: '11111111-1111-4111-8111-111111111111', amount: 10000 }),
+        makeOrder({
+          status: 'paid',
+          userId: '11111111-1111-4111-8111-111111111111',
+          amount: 10000,
+        }),
       )
       const res = await app.inject({
         method: 'POST',
@@ -478,7 +482,11 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       authAsAdmin()
       mockIsAlipayConfigured.mockReturnValue(true)
       mockGetOrder.mockResolvedValueOnce(
-        makeOrder({ status: 'paid', userId: '11111111-1111-4111-8111-111111111111', amount: 10000 }),
+        makeOrder({
+          status: 'paid',
+          userId: '11111111-1111-4111-8111-111111111111',
+          amount: 10000,
+        }),
       )
       mockAliRefundOrder.mockResolvedValueOnce({ success: true })
       mockRefundOrder.mockResolvedValueOnce({ success: true })
@@ -496,7 +504,11 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
     it('非管理员非本人退款返回 403', async () => {
       authAs('user-002', 0)
       mockGetOrder.mockResolvedValueOnce(
-        makeOrder({ status: 'paid', userId: '11111111-1111-4111-8111-111111111111', amount: 10000 }),
+        makeOrder({
+          status: 'paid',
+          userId: '11111111-1111-4111-8111-111111111111',
+          amount: 10000,
+        }),
       )
       const res = await app.inject({
         method: 'POST',
@@ -765,7 +777,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
   describe('POST /api/payments/wechat/query IDOR 防护', () => {
     it('管理员可查询他人订单返回 200', async () => {
       authAsAdmin()
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/wechat/query?outTradeNo=EDU001',
@@ -789,7 +803,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
   describe('POST /api/payments/wechat/close 关闭订单权限', () => {
     it('非本人非管理员返回 403', async () => {
       authAs('user-002', 0)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/wechat/close?outTradeNo=EDU001',
@@ -800,7 +816,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
 
     it('本人关闭订单返回 200', async () => {
       authAs('11111111-1111-4111-8111-111111111111', 0)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       mockCancelOrder.mockResolvedValueOnce({ success: true })
       const res = await app.inject({
         method: 'POST',
