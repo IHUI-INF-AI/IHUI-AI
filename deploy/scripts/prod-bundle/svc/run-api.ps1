@@ -20,19 +20,17 @@ if (Test-Path "D:\DevEnv\secrets\swagger-api-key.txt") {
 # 会指向错误目录、跑错代码(下方 tsx preflight/loader 的绝对路径写错时 API 直接起不来)。
 # 唯一解析实现在 deploy\win\ihui-root-common.ps1;本脚本有两份落点(入库源
 # deploy\scripts\prod-bundle\svc 与生产实际执行的 deploy\prod-bundle\svc,相差 1 级),
-# 写死相对深度必有一份算错 ⇒ 自 $PSScriptRoot 逐级向上找 helper,找不到当场 throw ——
-# 这是生产启动路径,宁可大声失败也不带着错根继续。
-$ihuiRootCommon = $null
-$ihuiProbe = $PSScriptRoot
-for ($ihuiUp = 0; $ihuiUp -le 12; $ihuiUp++) {
-    $ihuiCandidate = Join-Path $ihuiProbe 'deploy\win\ihui-root-common.ps1'
-    if (Test-Path -LiteralPath $ihuiCandidate) { $ihuiRootCommon = $ihuiCandidate; break }
-    $ihuiParent = Split-Path -Path $ihuiProbe -Parent
-    if ([string]::IsNullOrEmpty($ihuiParent) -or $ihuiParent -eq $ihuiProbe) { break }
-    $ihuiProbe = $ihuiParent
-}
-if (-not $ihuiRootCommon) {
-    throw "run-api.ps1: 自 $PSScriptRoot 向上未找到 deploy\win\ihui-root-common.ps1 —— 解析不出仓库根,拒绝启动服务"
+# 2026-10-28 改:上面的"逐级向上搜索"退役 —— 它把 $ihuiRootCommon 赋值两次、RHS 还是变量
+# 拷贝,而健康门(scripts/check-service-binary-paths.mjs)的 dot-source 维只认**单次赋值的
+# 静态形态**(Join-Path / 引号字面量 / 盘符绝对路径)。于是该维对 IHUI-WEB / IHUI-API /
+# IHUI-AI-SERVICE 三台核心服务永远落"读不出实际落点"⇒ 长期开着不健康证(unattested),
+# 真红被这层假红淹掉。落点其实是确定的:NSSM 的 -File 指向
+# <root>\deploy\prod-bundle\svc\run-api.ps1 ⇒ $PSScriptRoot 上溯 3 级即仓库根。
+# 入库源 deploy\scripts\prod-bundle\svc 多 1 级,但那份只作副本源、从不执行(门 104 只比
+# 字节)⇒ 这里按**执行落点**书写。找不到照样当场 throw,绝不带着错根继续跑。
+$ihuiRootCommon = Join-Path $PSScriptRoot '..\..\..\deploy\win\ihui-root-common.ps1'
+if (-not (Test-Path -LiteralPath $ihuiRootCommon)) {
+    throw "run-api.ps1: 自 $PSScriptRoot 上溯 3 级未命中 deploy\win\ihui-root-common.ps1(实算:$ihuiRootCommon)—— 解析不出仓库根,拒绝启动服务"
 }
 . $ihuiRootCommon
 $Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
