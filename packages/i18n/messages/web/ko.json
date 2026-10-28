@@ -10703,6 +10703,11 @@
     "noAssessment": "평가 기록이 없습니다"
   },
   "goalCard": {
+    "resumeServerOk": "목표를 재개했습니다",
+    "resumeAlreadyActive": "목표가 이미 진행 중입니다. 재개할 필요가 없습니다",
+    "resumeTerminal": "목표가 완료되어 재개할 수 없습니다",
+    "resumeNoGoal": "이 세션에 재개할 수 있는 목표가 없습니다",
+    "resumeFailed": "재개에 실패했습니다: {message}",
     "editAriaLabel": "목표 편집",
     "editSave": "저장",
     "editCancel": "취소",
