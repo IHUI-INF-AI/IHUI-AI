@@ -671,8 +671,14 @@ if (liveDocsStaged.length && process.env.IHUI_SKIP_LIVE_DOC_CHECK !== '1') {
       'err',
       `活文档对账判红:${C.cyan}${f}${C.reset} 的工作树副本**吃掉 HEAD 已入库的行**。\n` +
         `   若照此提交,会把别人已入库的内容整批写回旧态(git status 与 diff 都看不出来)。\n` +
-        `   修法:${C.cyan}node scripts/merge-live-doc.mjs --file ${f} --apply${C.reset} 后重新提交;\n` +
-        `   归并后必须看到"lost = 0 且长行重复新增 = 0"。确属有意重写整份文档时:${C.cyan}IHUI_SKIP_LIVE_DOC_CHECK=1${C.reset}(会在报告里留痕)。`,
+        `   先读上面那份报告,按实际形态走两步(两条都实测跑得通,顺序不能倒):\n` +
+        `   ① 本席是把整区正文**逐字迁进** \`.ihui-agent/archive/\`(AGENTS §1 两步走)——报告里这些行必须读成\n` +
+        `      「已按 §1 移入 archive」;读成 lost 就是同批归档件既不在 HEAD 也不在盘上 ⇒ 先把**那枚归档件单独提交**\n` +
+        `      (它不是活文档,不受本闸管),再复跑 ${C.cyan}node scripts/merge-live-doc.mjs --file ${f}${C.reset}。\n` +
+        `      迁出行在飞窗口里曾被顶回旧态(2026-10-28 实测 95336 B 被写成 102352 B),根因已修在被审面 ∪ 磁盘那一档。\n` +
+        `   ② 落库后**仍判 lost** 的那些行才真是被吃掉的正文:${C.cyan}node scripts/merge-live-doc.mjs --file ${f} --apply${C.reset}\n` +
+        `      补回,归并后必须看到"lost = 0 且长行重复新增 = 0"。\n` +
+        `   两型都不是(确属有意重写整份文档)时:${C.cyan}IHUI_SKIP_LIVE_DOC_CHECK=1${C.reset}(会在报告里留痕)。`,
     )
     process.exit(1)
   }

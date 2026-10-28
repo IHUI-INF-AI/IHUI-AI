@@ -12182,6 +12182,15 @@
       "reloadSkillsTotal": "共 {count} 個技能",
       "reloadSkillsNoChange": "本次重載沒有內容變化",
       "reloadSkillsAuto": "auto 來源 {count} 個",
+      "reloadPlugins": "重載外掛面",
+      "reloadPluginsHint": "重掃外掛面，並把最新命令清單回灌給宿主",
+      "reloadPluginsRunning": "重載中…",
+      "reloadPluginsSuccess": "外掛面已重載",
+      "reloadPluginsFailed": "外掛面重載失敗",
+      "reloadPluginsCommandCount": "命令 {count} 條",
+      "reloadPluginsSkillCount": "技能 {count} 個",
+      "reloadPluginsCommandList": "最新命令清單",
+      "reloadPluginsNoCommand": "目前沒有可用命令",
       "save": "保存",
       "saving": "保存中…",
       "scenario": "場景",
@@ -15057,7 +15066,18 @@
       "toolFailures": "工具失敗",
       "trigger": "手動觸發",
       "triggerError": "觸發失敗",
-      "triggerSuccess": "觸發成功"
+      "triggerSuccess": "觸發成功",
+      "refresh": "重新掃描記憶來源",
+      "refreshSuccess": "記憶來源已重掃",
+      "refreshReadFailed": "記憶來源讀取失敗（已保留重掃前的記憶）",
+      "refreshFailed": "記憶來源重掃失敗",
+      "refreshTotal": "重掃前 {before} 筆 → 重掃後 {after} 筆",
+      "refreshLoadState": "讀取狀態",
+      "refreshAdded": "新增",
+      "refreshRemoved": "移除",
+      "refreshChanged": "更新",
+      "refreshUnchanged": "未變",
+      "refreshNoChange": "本次重掃沒有內容變化"
     },
     "orch": {
       "dashboard": "儀表盤",
@@ -18432,7 +18452,12 @@
     "dashboardSuccessRate": "成功率",
     "dashboardAvgLatency": "平均延遲",
     "dashboardNoData": "暫無資料",
-    "dashboardLatency": "{value}s"
+    "dashboardLatency": "{value}s",
+    "clearAuth": "撤回授權",
+    "clearAuthHint": "撤回你授予該 Server 的 OAuth 憑證(只撤這一臺)",
+    "clearAuthSuccess": "{name} 的授權已撤回",
+    "clearAuthNoOauth": "{name} 未使用 OAuth 通道,沒有可撤回的授權",
+    "clearAuthFailed": "{name} 撤回授權失敗"
   },
   "member": {
     "feedback": {

@@ -1,5 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// D141 控制帧三帧的客户端出口(2026-10-28 立):reload_plugins / refresh_memory /
+// mcp_clear_auth。第四帧 resume_goal 的出口在 client.ts(与 postSessionGoal 同族)。
+export * from './endpoints/control-frames.js'
 export * from './endpoints/ai-world.js'
 export * from './endpoints/edu-ai.js'
 export * from './endpoints/student.js'

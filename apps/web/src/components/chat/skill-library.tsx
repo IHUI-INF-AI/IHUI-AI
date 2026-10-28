@@ -52,6 +52,7 @@ import {
   listAiSkills,
   reloadAiSkills,
 } from '@ihui/api-client/endpoints/ai-skills'
+import { type ReloadPluginsResult, reloadPlugins } from '@ihui/api-client/endpoints/control-frames'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/hooks/use-confirm'
 
@@ -142,6 +143,12 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
   const [reloading, setReloading] = React.useState(false)
   const [reloadResult, setReloadResult] = React.useState<AiSkillsReloadResult | null>(null)
   const [reloadError, setReloadError] = React.useState<string | null>(null)
+  // 2026-10-28 新增:控制帧 `reload_plugins` 的前端侧状态(重扫插件面 + 回灌最新命令列表)
+  const [pluginsReloading, setPluginsReloading] = React.useState(false)
+  const [pluginsReloadResult, setPluginsReloadResult] = React.useState<ReloadPluginsResult | null>(
+    null,
+  )
+  const [pluginsReloadError, setPluginsReloadError] = React.useState<string | null>(null)
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
@@ -247,6 +254,42 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
       setReloading(false)
     }
   }, [reloading, t, loadAiSkills])
+
+  /**
+   * 控制帧 `reload_plugins` —— 重扫插件面,并把**最新命令列表**回灌给宿主。
+   *
+   * 与同屏的 `reload_skills` 不是一回事,分工必须分清,否则两个按钮看起来一样、
+   * 用户点哪个都一样,那一格等于没落地:
+   *  · `reload_skills` 管的是**技能注册表**:重读 SKILL.md,回报技能名单差额;
+   *  · `reload_plugins` 管的是**插件面**:重扫之后把**宿主可见的命令列表**回灌
+   *    (竞品原帧那句 `replaceLatestCommands(e.commands)` 就是这个回灌动作),
+   *    顺带带上技能差额。
+   *
+   * 三条纪律(与竞品 `reload_plugins` 帧的"宿主显式调用 + 回报结果"语义对齐):
+   * ① 回灌物必须可见 —— 命令清单是这一帧的产出,只报"已重载"等于把产出藏起来;
+   * ② 差额必须可见 —— 插件变了什么(新增/移除/更新)要列出来;
+   * ③ 失败必须给原因 —— 不吞异常,错误文案要能区分"没权限/没登录"与"服务不可用"。
+   */
+  const handleReloadPlugins = React.useCallback(async () => {
+    if (pluginsReloading) return
+    setPluginsReloading(true)
+    setPluginsReloadError(null)
+    setPluginsReloadResult(null)
+    try {
+      const res = await reloadPlugins({ force: true })
+      if (res.success && res.data) {
+        setPluginsReloadResult(res.data)
+        // 插件面变了,技能清单也可能变了 —— 重取一次,列表与命令面保持同一快照
+        void loadAiSkills()
+      } else {
+        setPluginsReloadError(res.error || t('reloadPluginsFailed'))
+      }
+    } catch (e) {
+      setPluginsReloadError(e instanceof Error && e.message ? e.message : t('reloadPluginsFailed'))
+    } finally {
+      setPluginsReloading(false)
+    }
+  }, [pluginsReloading, t, loadAiSkills])
 
   React.useEffect(() => {
     if (activeTab === 'ai-skills' || activeTab === 'all') {
@@ -436,6 +479,23 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
             )}
             <span>{reloading ? t('reloadSkillsRunning') : t('reloadSkills')}</span>
           </button>
+          {/* 控制帧 `reload_plugins`:重扫插件面 + 回灌最新命令列表(与上面「重载技能」分工不同) */}
+          <button
+            type="button"
+            onClick={() => void handleReloadPlugins()}
+            disabled={pluginsReloading}
+            title={t('reloadPluginsHint')}
+            aria-label={t('reloadPlugins')}
+            data-testid="skill-library-reload-plugins"
+            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {pluginsReloading ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            <span>{pluginsReloading ? t('reloadPluginsRunning') : t('reloadPlugins')}</span>
+          </button>
           {isAuthenticated && (
             <button
               type="button"
@@ -500,6 +560,74 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
           {reloadResult.removed.length > 0 && (
             <div className="mt-0.5 break-all">− {reloadResult.removed.join(', ')}</div>
           )}
+        </div>
+      )}
+
+      {/* 控制帧 `reload_plugins` 的结果:回灌物(最新命令清单) + 插件差额,两者都必须可见。
+          命令清单这一块是这一帧的产出本体 —— 竞品那句 replaceLatestCommands(e.commands)
+          就是把它交回宿主;端内不展示它,等于帧落地了但用户看不到产出。 */}
+      {pluginsReloadError && (
+        <div
+          role="alert"
+          data-testid="skill-library-reload-plugins-error"
+          className="rounded-md bg-destructive/10 px-2 py-1 text-[11px] text-destructive"
+        >
+          {t('reloadPluginsFailed')}: {pluginsReloadError}
+        </div>
+      )}
+      {pluginsReloadResult && (
+        <div
+          data-testid="skill-library-reload-plugins-result"
+          className="rounded-md bg-muted/50 px-2 py-1.5 text-[11px] text-muted-foreground"
+        >
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="font-medium text-foreground">{t('reloadPluginsSuccess')}</span>
+            <span>
+              {t('reloadPluginsCommandCount', { count: pluginsReloadResult.commandCount })}
+            </span>
+            <span>{t('reloadPluginsSkillCount', { count: pluginsReloadResult.skills })}</span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+            <span>
+              {t('reloadSkillsAdded')}: {pluginsReloadResult.added.length}
+            </span>
+            <span>
+              {t('reloadSkillsRemoved')}: {pluginsReloadResult.removed.length}
+            </span>
+            <span>
+              {t('reloadSkillsChanged')}: {pluginsReloadResult.changed.length}
+            </span>
+          </div>
+          {pluginsReloadResult.added.length === 0 &&
+            pluginsReloadResult.removed.length === 0 &&
+            pluginsReloadResult.changed.length === 0 && (
+              <div className="mt-0.5">{t('reloadSkillsNoChange')}</div>
+            )}
+          {pluginsReloadResult.added.length > 0 && (
+            <div className="mt-0.5 break-all">+ {pluginsReloadResult.added.join(', ')}</div>
+          )}
+          {pluginsReloadResult.changed.length > 0 && (
+            <div className="mt-0.5 break-all">~ {pluginsReloadResult.changed.join(', ')}</div>
+          )}
+          {pluginsReloadResult.removed.length > 0 && (
+            <div className="mt-0.5 break-all">− {pluginsReloadResult.removed.join(', ')}</div>
+          )}
+          {/* 回灌物:重载后的命令清单(容器内完整显示,不出现滚动条) */}
+          <div className="mt-1.5">
+            <div className="font-medium text-foreground">{t('reloadPluginsCommandList')}</div>
+            {pluginsReloadResult.commands.length === 0 ? (
+              <div className="mt-0.5">{t('reloadPluginsNoCommand')}</div>
+            ) : (
+              <ul className="mt-0.5 space-y-0.5">
+                {pluginsReloadResult.commands.map((cmd) => (
+                  <li key={cmd.name} className="break-all">
+                    <span className="font-mono text-foreground">/{cmd.name}</span>
+                    {cmd.description ? <span> — {cmd.description}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 

@@ -65,7 +65,17 @@ function makeRepo(t) {
 function runLive(dir, replaceFile, extraEnv = {}) {
   return spawnSync(process.execPath, [TOOL], {
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, LIVE_ROOT: dir, LIVE_DOC: 'DOC.md', LIVE_MSG: 'docs: e2e flip', LIVE_REPLACE_FILE: replaceFile, ...extraEnv },
+    // D6/D7 覆盖的是「翻勾后两形态入账」那条旧路径,显式走回退开关;
+    // 默认(结清即删只入未勾一条)由 D8 单独覆盖。extraEnv 在后 ⇒ 可覆盖本缺省。
+    env: {
+      ...process.env,
+      LIVE_ROOT: dir,
+      LIVE_DOC: 'DOC.md',
+      LIVE_MSG: 'docs: e2e flip',
+      LIVE_REPLACE_FILE: replaceFile,
+      LIVE_KEEP_CLOSED_ROW: '1',
+      ...extraEnv,
+    },
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180_000,
@@ -264,3 +274,19 @@ test('D10 ⑤端到端:台账取不到 ⇒ 大声未判定 + exit 2,内容仍已
   assert.equal(realLedgerCount(), realBefore)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+test('D8 默认结清即删(2026-10-28):只入未勾一条,该行整行消失(两形态路径由 D6/D7 走回退开关覆盖)', (t) => {
+  const { dir, inputs } = makeRepo(t)
+  const rep = writePairs(inputs, [{ before: FLIP_BEFORE, after: FLIP_AFTER }])
+  const r = runLive(dir, rep, { LIVE_KEEP_CLOSED_ROW: '' })
+  assert.equal(r.status, 0, '应成功:' + r.stdout + '|' + r.stderr)
+  assert.match(r.stdout, /结清即删:1 项/, '必须出声说明这一项被转成删除档')
+  const now = norm(runGit(dir, ['show', 'HEAD:DOC.md']))
+  assert.ok(!now.includes(FLIP_AFTER), '面上不得出现已勾形态(否则又会变成跨枚滞留)')
+  assert.ok(!now.includes(FLIP_BEFORE), '原未勾行也必须删除')
+  const es = entriesOf(dir)
+  assert.equal(es.length, 1, '只入未勾一条')
+  assert.equal(es[0].rowBefore, FLIP_BEFORE)
+  assert.equal(es[0].form, 'open')
+})
