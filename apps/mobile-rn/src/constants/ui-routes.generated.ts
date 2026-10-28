@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 8eb003c1542c92bfc98e1b6a3ac0a7644043de3a
-// inputsSha256: 360382db501fab1c255a171f6815a442d869d4e00b7475167d7efa63b2496ab3
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx eab937464cec7361c24cb4698747d82e1cbef11585df64886bf280f22e83f580
+// sourceCommit: ea003326f7637ebfabf1d1862aa780db7039cd3a
+// inputsSha256: d0efa60a4a96394337f28e8941aba54a9a74849f5d0b69dbeb5638673fe4f98b
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 97f741998ee7cd2b418ed3281407beca5a6f8a62abf6deea8b84ae705ab9422a
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-28T07:20:47.592Z
+// generatedAt: 2026-10-28T07:54:02.402Z
 // IHUI-GEN-PIN-END
 
 
@@ -29,7 +29,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 308 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 309 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -67,6 +67,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'MemberSettings', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MemberDashboard', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MyAgents', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduDashboard', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'SecurityCenter', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ApiKeys', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'DataRights', tab: false, requiresParams: false, requiredParams: [] },
