@@ -23,6 +23,7 @@ import { Gauge, Loader2, RotateCcw } from 'lucide-react'
 import { Badge, Button, Input, Label, Loader2 as LoaderIcon, Switch } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'
+import { RelayPoolPolicyCard } from '@/components/admin/relay-pool-policy-card'
 
 interface KeyRow {
   id: string
@@ -280,6 +281,9 @@ export default function KeySchedulingPage() {
           </tbody>
         </table>
       </div>
+
+      {/* 全局策略默认档(只读):本页的 per-key 覆盖就叠在这张档之上 */}
+      <RelayPoolPolicyCard />
 
       <p className="flex items-center gap-1 text-xs text-muted-foreground">
         <Label className="text-xs font-normal">说明</Label>
