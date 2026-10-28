@@ -4,7 +4,7 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import fp from 'fastify-plugin'
-import IORedis, { type Redis } from 'ioredis'
+import IORedis, { type Redis, type RedisOptions } from 'ioredis'
 import { config } from '../config/index.js'
 
 declare module 'fastify' {
@@ -29,6 +29,22 @@ export const REDIS_CONNECTION_OPTIONS = {
 } as const
 
 /**
+ * 限流专用连接参数覆盖：Redis 不可用时必须**立刻失败**。
+ *
+ * 基础参数里的 `maxRetriesPerRequest: null` 是 BullMQ 的硬要求，但它对上层的含义是
+ * 「命令永不超时、一直排队等重连」。限流检查挂在**每个请求**上，若沿用这一档，
+ * Redis 挂掉时请求会挂死在限流这一步 —— `createFailSafeRateLimitStore` 的本地兜底
+ * 结构上永远走不到（只有命令真的抛错才会回退）。`enableOfflineQueue: false` 让断连
+ * 期间的命令立即报错，`maxRetriesPerRequest: 1` 让已发出的命令快速放弃，两档合起来
+ * 才使「Redis 故障 → 本地保守计数」这条路径成立。
+ */
+export const FAST_FAIL_REDIS_OPTIONS = {
+  maxRetriesPerRequest: 1,
+  enableOfflineQueue: false,
+  connectTimeout: 2000,
+} as const
+
+/**
  * 建一条独立 Redis 连接。
  *
  * 存在的理由:某些消费方必须在 **redis 插件注册之前** 拿到客户端实例
@@ -36,8 +52,11 @@ export const REDIS_CONNECTION_OPTIONS = {
  * 而把 redis 插件整体上移会改变 onClose 的执行顺序,连带影响队列/调度的优雅关闭)。
  * 这类消费方用本函数自建连接并自己负责 quit,不要依赖 server.redis 的时序。
  */
-export function createRedisClient(onError?: (err: Error) => void): Redis {
-  const client = new IORedis(config.REDIS_URL, REDIS_CONNECTION_OPTIONS)
+export function createRedisClient(
+  onError?: (err: Error) => void,
+  overrides?: Partial<RedisOptions>,
+): Redis {
+  const client = new IORedis(config.REDIS_URL, { ...REDIS_CONNECTION_OPTIONS, ...overrides })
   if (onError) client.on('error', onError)
   return client
 }
