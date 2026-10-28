@@ -30,7 +30,9 @@
  * 22. POST   /admin/relay/account-pool/checkin-status — 批量点查签到状态(O64,≤20)
  * 23. POST   /admin/relay/accounts/:id/checkin-run — 立即签到(O64,转发 ai-service,429 透传)
  * 24. POST   /admin/relay/accounts/:id/models — 按需点查可用模型清单(富契约优先,无实证通路 400)
- * 25. POST   /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态(支持 trae + 六平台,
+ * 25. POST   /admin/relay/accounts/:id/complete-phone — 人工补全手机号(掩码归位,前3后2吻合校验)
+ * 26. POST   /admin/relay/account-pool/match-phone — 批量候选全号自动归位(双向唯一命中才改名)
+ * 27. POST   /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态(支持 trae + 六平台,
  *            文件级备份+原子写;其余平台 409 并点名无法离线重封的原因)
  *
  * 加密:token/refreshToken/cookies/账号级 proxyUrl 走 encryptField(AES-256-GCM),
@@ -48,10 +50,16 @@ import { paginationSchema, idParamSchema } from './_shared.js'
 import {
   importAccounts,
   decryptAccountCredentials,
+  completeAccountPhone,
+  matchPhoneCandidates,
   type ImportAccountInput,
 } from '../../services/relay-account-pool-service.js'
-import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
-import { loginAccountLocal, LocalLoginError } from '../../services/relay-local-login.js'
+import {
+  IMPORT_MAX_ACCOUNTS,
+  isRelayProviderCode,
+  recognizeImportShape,
+  RELAY_PROVIDERS,
+} from '../../services/relay-account-format.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
 import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
 // 号池体检判据单源在 @ihui/shared(web 管理页与 CLI 同源,绝不各自抄一份枚举/阈值,§0.6)
@@ -96,26 +104,34 @@ import {
   createModelCatalog,
   deleteModelCatalog,
 } from '../../services/relay-model-catalog.js'
+import { loginAccountLocal, LocalLoginError } from '../../services/relay-local-login.js'
+
+/**
+ * 导入载荷的**结构**闸门(2026-10-27 立)。
+ *
+ * 立因:这里的 Zod 曾硬性要求每个账号有顶层 `token: z.string().min(1)`,而各平台原生
+ * 提取器产出的形状彼此不同 —— codex 的 `tokens.access_token`、opencode 的 `auth.key`、
+ * minimax 的 `accessToken`、zcode 的 `oauth:bigmodel:access_token`、loomy/doubao 的
+ * `value`、codearts 的 `securitytoken + accessKey + secretKey` ⇒ 12 平台里 10 个平台的
+ * 原生载荷在路由层就被挡掉(Web 拖拽导入全线不可用,只有 trae/workbuddy 的 `{token}`
+ * 能过);而 CLI 直调 importAccounts 不过 Zod ⇒ CLI 能导、Web 不能导,两套口径割裂。
+ *
+ * 现在路由只守**结构与体积**:每条一个对象、键数上限、字符串长度上限、键名防注入、
+ * 单批 500 上限。「凭据形状是否被本仓认得」下沉到 service 层
+ * (relay-account-format.recognizeImportShape,CLI 预检共用同一份判据)。
+ */
+const IMPORT_ACCOUNT_MAX_KEYS = 64
+const IMPORT_ACCOUNT_MAX_STRING = 8192
+const IMPORT_ACCOUNT_MAX_BYTES = 64 * 1024
+/** 键名白名单:字母数字与 _ . : @ - [ ](zcode 的 oauth:bigmodel:access_token 等原生键位) */
+const IMPORT_KEY_NAME_RE = /^[A-Za-z0-9_:.@\-[\]]{1,128}$/
+/** 原型链键一律拒收(防注入) */
+const IMPORT_FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
 const importBodySchema = z.object({
-  providerCode: z.enum(RELAY_PROVIDERS),
-  accounts: z
-    .array(
-      z
-        .object({
-          name: z.string().max(128).optional(),
-          token: z.string().min(1),
-          refreshToken: z.string().optional(),
-          deviceId: z.string().max(128).optional(),
-          machineId: z.string().max(128).optional(),
-          enabled: z.boolean().optional(),
-          cookies: z.array(z.unknown()).optional(),
-          proxyUrl: z.string().max(512).optional(),
-        })
-        .passthrough(),
-    )
-    .min(1)
-    .max(500),
+  // 平台名判据交给 isRelayProviderCode(可读错误);Zod 只管"是个短字符串"。
+  providerCode: z.string().max(32),
+  accounts: z.array(z.record(z.string(), z.unknown())).min(1).max(IMPORT_MAX_ACCOUNTS),
   /**
    * 覆盖既有行时,本批未提供 refreshToken ⇒ 保留库内既有密文(不写 NULL)。
    * 专供"网页一键重登":重登只换得到 access,不带它会把能自续的号抹成待重登死号。
@@ -123,6 +139,105 @@ const importBodySchema = z.object({
    */
   preserveMissingRefresh: z.boolean().optional(),
 })
+
+interface ImportStructureIssue {
+  /** 出问题的条目下标(0 起) */
+  index: number
+  message: string
+}
+
+/**
+ * 找出超长字符串所在的键名(只报键名,绝不回显值;深度与节点数封顶防爆)。
+ */
+function findOversizeStringKeys(value: unknown, depth = 0, out: string[] = []): string[] {
+  if (depth > 6 || out.length >= 5) return out
+  if (Array.isArray(value)) {
+    for (const item of value.slice(0, 64)) findOversizeStringKeys(item, depth + 1, out)
+    return out
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value as Record<string, unknown>).slice(0, 64)) {
+      if (typeof item === 'string') {
+        if (item.length > IMPORT_ACCOUNT_MAX_STRING) out.push(key)
+        continue
+      }
+      findOversizeStringKeys(item, depth + 1, out)
+    }
+  }
+  return out
+}
+
+/**
+ * 导入载荷的结构校验:只管"这是不是一个账号条目",不管"凭据形状认不认得"。
+ * 形状判据在 service 层(recognizeImportShape)—— 路由抄一份就分叉一次。
+ */
+function checkImportStructure(accounts: Record<string, unknown>[]): ImportStructureIssue[] {
+  const issues: ImportStructureIssue[] = []
+  accounts.forEach((acc, index) => {
+    const keys = Object.keys(acc)
+    if (keys.length === 0) {
+      issues.push({ index, message: '账号条目是空对象(没有任何字段)' })
+      return
+    }
+    if (keys.length > IMPORT_ACCOUNT_MAX_KEYS) {
+      issues.push({
+        index,
+        message: `账号条目字段数超上限(${keys.length} > ${IMPORT_ACCOUNT_MAX_KEYS})`,
+      })
+    }
+    for (const key of keys) {
+      if (IMPORT_FORBIDDEN_KEYS.has(key) || !IMPORT_KEY_NAME_RE.test(key)) {
+        issues.push({ index, message: `账号条目字段名非法:${key.slice(0, 40)}` })
+      }
+    }
+    for (const key of keys) {
+      const value = acc[key]
+      if (typeof value === 'string') {
+        if (value.length > IMPORT_ACCOUNT_MAX_STRING) {
+          issues.push({
+            index,
+            message: `账号条目字段 ${key} 字符串超长(>${IMPORT_ACCOUNT_MAX_STRING})`,
+          })
+        }
+        continue
+      }
+      const nested = findOversizeStringKeys(value, 1)
+      if (nested.length > 0) {
+        issues.push({
+          index,
+          message: `账号条目字段 ${key} 内有超长字符串(${nested.join(',')})`,
+        })
+      }
+    }
+    let size = 0
+    try {
+      size = JSON.stringify(acc)?.length ?? 0
+    } catch {
+      size = IMPORT_ACCOUNT_MAX_BYTES + 1
+    }
+    if (size > IMPORT_ACCOUNT_MAX_BYTES) {
+      issues.push({ index, message: `账号条目体积超上限(>${IMPORT_ACCOUNT_MAX_BYTES} 字节)` })
+    }
+  })
+  return issues
+}
+
+/** 结构问题汇总成一句人话(只报键名与条目序号,不含任何凭据字符) */
+function formatImportStructureIssues(issues: ImportStructureIssue[]): string {
+  const head = issues.slice(0, 5).map((i) => `#${i.index + 1} ${i.message}`)
+  const more = issues.length > head.length ? ` 等 ${issues.length} 项` : ''
+  return `导入参数不合规:${head.join(';')}${more}`
+}
+
+/** Zod 层错误汇总成一句人话(带字段路径,别只回一句泛化失败) */
+function formatImportSchemaIssues(issues: { path: PropertyKey[]; message: string }[]): string {
+  const head = issues.slice(0, 5).map((i) => {
+    const p = i.path.length > 0 ? i.path.join('.') : '(顶层)'
+    return `${p}: ${i.message}`
+  })
+  const more = issues.length > head.length ? ` 等 ${issues.length} 项` : ''
+  return `导入参数不合规:${head.join(';')}${more}`
+}
 
 const listQuerySchema = paginationSchema.extend({
   provider: z.transform(emptyToUndefined).pipe(z.enum(RELAY_PROVIDERS).optional()),
@@ -151,6 +266,20 @@ const updateBodySchema = z.object({
       (v) => v === null || v === undefined || isSupportedProxyUrl(v),
       '代理地址必须是 http(s)/socks5 协议',
     ),
+})
+
+// --- 手机号补全(2026-10-28 立:号池统一名 = 官方绑定手机号全号) ---
+// 全号形态判据单源在 relay-account-format.CN_PHONE_RE,这里 Zod 只做同一条正则的
+// 入参闸门(掩码形态一律拒收,归位匹配是 match-phone 的职责)。
+const CN_PHONE_ZOD_RE = /^1[3-9]\d{9}$/
+const completePhoneBodySchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(CN_PHONE_ZOD_RE, '手机号必须是 11 位大陆全号(1[3-9] 开头),掩码形态请走 match-phone'),
+})
+const matchPhoneBodySchema = z.object({
+  phones: z.array(z.string().trim().min(1)).min(1).max(200),
 })
 
 // --- 出口代理池(2026-10-22 补写入入口;管理员可见 proxyUrl 原样,含内嵌账密) ---
@@ -289,18 +418,34 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/relay/accounts/import', async (request, reply) => {
     const parsed = importBodySchema.safeParse(request.body)
     if (!parsed.success) {
+      return reply.status(400).send(error(400, formatImportSchemaIssues(parsed.error.issues)))
+    }
+    const { providerCode, accounts, preserveMissingRefresh } = parsed.data
+    if (!isRelayProviderCode(providerCode)) {
+      return reply.status(400).send(error(400, `不支持的平台:${providerCode}`))
+    }
+    const structureIssues = checkImportStructure(accounts)
+    if (structureIssues.length > 0) {
+      return reply.status(400).send(error(400, formatImportStructureIssues(structureIssues)))
+    }
+    // 形状闸门(单源判据 relay-account-format.recognizeImportShape,与 CLI 预检同源):
+    // 整批都认不出 ⇒ 整批拒绝并逐条点名缺哪个键;部分认不出 ⇒ 交给 service 逐条拒
+    // (好条目照常入库,坏条目带原因进结果表)。绝不静默丢弃,绝不塞无效账号。
+    const rejected = accounts
+      .map((acc, index) => ({ index, verdict: recognizeImportShape(providerCode, acc) }))
+      .filter((x) => !x.verdict.recognized)
+    if (rejected.length === accounts.length) {
+      const detail = rejected
+        .map((x) => `#${x.index + 1} ${x.verdict.reason ?? '凭据形状无法识别'}`)
+        .join(';')
       return reply
         .status(400)
         .send(
           error(
             400,
-            parsed.error.issues[0]?.message ?? '导入参数错误(需 providerCode + accounts[])',
+            `导入被拒:本批 ${accounts.length} 条账号都不是 ${providerCode} 的凭据形状。逐条原因:${detail}`,
           ),
         )
-    }
-    const { providerCode, accounts, preserveMissingRefresh } = parsed.data
-    if (!isRelayProviderCode(providerCode)) {
-      return reply.status(400).send(error(400, `不支持的平台: ${providerCode}`))
     }
     try {
       const result = await importAccounts(providerCode, accounts as ImportAccountInput[], null, {
@@ -597,32 +742,6 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '健康检查失败'))
-    }
-  })
-
-  // ===== 25. POST /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态 =====
-  // 支持 trae(重封 storage.json byteCrypto 信封)与 codex/opencode/minimax/zcode/
-  // codearts/qoder(scripts/local-login.mjs 重封各自存储);客户端登录态是整份会话(导入时
-  // 存成会话模板),用池内最新凭证打补丁后写回。写前必留同目录备份,失败可人工回滚。
-  // 其余平台返回 409 并点名「无法离线重封」的具体原因(见 LOCAL_LOGIN_UNSUPPORTED_REASONS)。
-  server.post('/admin/relay/accounts/:id/login-local', async (request, reply) => {
-    const p = idParamSchema.safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
-    try {
-      const [row] = await db
-        .select()
-        .from(aiRelayAccountPool)
-        .where(eq(aiRelayAccountPool.id, p.data.id))
-        .limit(1)
-      if (!row) return reply.status(404).send(error(404, '账号不存在'))
-      const result = await loginAccountLocal(row)
-      return reply.send(success(result))
-    } catch (e) {
-      if (e instanceof LocalLoginError) {
-        return reply.status(e.status).send(error(e.status, e.message))
-      }
-      request.log.error(e)
-      return reply.status(500).send(error(500, '写入本机登录态失败'))
     }
   })
 
@@ -1264,6 +1383,84 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '模型清单查询失败'))
+    }
+  })
+
+  // ===== 25. POST /admin/relay/accounts/:id/complete-phone — 人工补全手机号 =====
+  // 号池统一名 = 官方绑定手机号全号(2026-10-28 规约)。掩码名账号(如 Trae 的
+  // 180******69)由机主提供全号后在此归位:前3后2不吻合一律 400 拒收,现名已是
+  // 全号且不一致 409。改名联动 cred_version 前进 + 签到副本传播(判据单源 service)。
+  server.post('/admin/relay/accounts/:id/complete-phone', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const b = completePhoneBodySchema.safeParse(request.body)
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const r = await completeAccountPhone(p.data.id, b.data.phone)
+      if (r.code === 'not_found')
+        return reply.status(404).send(error(404, r.message ?? '账号不存在'))
+      if (r.code === 'invalid_phone' || r.code === 'mask_mismatch') {
+        return reply.status(400).send(error(400, r.message ?? '手机号不合规'))
+      }
+      if (r.code === 'already_full') {
+        return reply.status(409).send(error(409, r.message ?? '现名已是全号'))
+      }
+      return reply.send(
+        success({
+          id: r.id,
+          oldName: r.oldName,
+          name: r.name,
+          changed: r.changed,
+          message: r.message,
+          checkinSync: r.checkinSync,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '手机号补全失败'))
+    }
+  })
+
+  // ===== 26. POST /admin/relay/account-pool/match-phone — 批量候选号自动归位 =====
+  // 机主一次性给一组全号:前3后2 双向唯一命中才自动改名,歧义/无命中如实挂报告
+  // 待人工(绝不猜号归位)。响应零凭据,只含 id/名/候选号。
+  server.post('/admin/relay/account-pool/match-phone', async (request, reply) => {
+    const b = matchPhoneBodySchema.safeParse(request.body)
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const report = await matchPhoneCandidates(b.data.phones)
+      return reply.send(success(report))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '批量候选匹配失败'))
+    }
+  })
+
+  // ===== 27. POST /admin/relay/accounts/:id/login-local — 把该号写进本机客户端登录态 =====
+  // 支持 trae(重封 storage.json byteCrypto 信封)与 codex/opencode/minimax/zcode/
+  // codearts/qoder(scripts/local-login.mjs 重封各自存储);客户端登录态是整份会话(导入时
+  // 存成会话模板),用池内最新凭证打补丁后写回。写前必留同目录备份,失败可人工回滚。
+  // 其余平台返回 409 并点名「无法离线重封」的具体原因(见 LOCAL_LOGIN_UNSUPPORTED_REASONS)。
+  server.post('/admin/relay/accounts/:id/login-local', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const [row] = await dbRead
+        .select()
+        .from(aiRelayAccountPool)
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, '账号不存在'))
+      const result = await loginAccountLocal(row)
+      return reply.send(success(result))
+    } catch (e) {
+      if (e instanceof LocalLoginError) {
+        return reply.status(e.status).send(error(e.status, e.message))
+      }
+      request.log.error(e)
+      return reply.status(500).send(error(500, '写入本机登录态失败'))
     }
   })
 }
