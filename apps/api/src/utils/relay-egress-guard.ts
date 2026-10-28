@@ -2,7 +2,10 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { assertSafeFetchUrl } from './ssrf-guard.js'
+import type { LookupOptions } from 'node:dns'
+import { lookup as dnsLookupAll } from 'node:dns/promises'
+import { Agent } from 'undici'
+import { assertSafeFetchUrl, isBlockedTargetIp } from './ssrf-guard.js'
 
 /**
  * relay 账号池出网复检。
@@ -16,13 +19,16 @@ import { assertSafeFetchUrl } from './ssrf-guard.js'
  * 两维;云元数据、回环、本机这三类由 ssrf-guard 的 isBlockedTargetIp **恒拦**,
  * 不受本档位影响。地址分类判据一律住在 ssrf-guard,本文件不另写一份(§0.6)。
  *
- * 已知残余(写破,不装看不见):本复检看的是"发请求前这一次解析",而连接用的是 fetch
- * 内部再解析的结果 —— 一条 TTL=0 的 A 记录仍能做到"校验时公网、连接时内网"(rebinding)。
- * 真防它要把连接期钩子(undici Agent 的 connect.lookup;探针见
- * .ihui-agent/tmp/relay-egress/probe.mjs:注入的地址就是连接目标,桩成拒绝态时本地
- * server 一个请求都收不到)装上。2026-10-28 试过:直连出口从内置 fetch 换成包 undici 后,
- * 多个以 vi.stubGlobal('fetch') 打桩的 relay 用例改走真实网络并长时间挂起,已回退。
- * 下一步的正解是给那些用例换成显式 fetch 注入,而不是把首跳复检也退掉。
+ * 两层防线（缺一不可，各挡一类）：
+ *  ① 首跳复检 assertRelayEgressSafe —— 管协议/端口/地址族，两条出口分支都过。
+ *  ② 连接期守卫 relayGuardedLookup —— 只管"这一条连接真要用的地址"。少了它，
+ *     ①就防不住 DNS rebinding：①问的是一次解析，fetch 连接时还会再问一次，
+ *     一条 TTL=0 的 A 记录能让"校验时公网、连接时内网"。
+ *     探针实测（.ihui-agent/tmp/relay-egress/probe.mjs，两态对照）：connect.lookup 交回的
+ *     地址就是连接目标；把它桩成拒绝态时，本地 http server 一个请求都收不到。
+ *
+ * 覆盖边界（写破）：② 只对**直连**分支有意义。走账号代理时本机不解析目标（由代理解析），
+ * 那一分支的防线只有 ① —— 要覆盖它得让代理侧固化解析结果，不在本轮射程。
  */
 export const RELAY_EGRESS_GUARD = { allowPrivate: true, allowCustomPort: true } as const
 
@@ -40,5 +46,61 @@ export async function assertRelayEgressSafe(input: Parameters<typeof fetch>[0]):
         : ((input as { url?: string }).url ?? '')
   const verdict = await assertSafeFetchUrl(target, RELAY_EGRESS_GUARD)
   if (!verdict.safe) throw new Error(`relay egress blocked: ${verdict.reason}`)
+}
+
+export interface RelayLookupAddress {
+  address: string
+  family: number
+}
+
+export type RelayLookupCallback = (
+  err: NodeJS.ErrnoException | null,
+  addresses: RelayLookupAddress[] | string,
+) => void
+
+/**
+ * 连接期守卫（Node net 的 lookup 契约）：把"这个地址能不能连"的判定，
+ * 挪到 undici 拿它真正建 socket 的那一步 —— 校验与连接共用同一次解析，rebinding 才无效。
+ *
+ * 判据不重写：地址族一律问 ssrf-guard 的 isBlockedTargetIp（危险族恒拦，私网不拦，
+ * 因为 LAN 自托管是允许面）。解析失败 ⇒ 交回错误，绝不"判不出就当放行"。
+ */
+export function relayGuardedLookup(
+  hostname: string,
+  options: LookupOptions,
+  callback: RelayLookupCallback,
+): void {
+  // all:true 必须排在展开之后：调用方传 all:false 时不能把"拿数组"这个前提冲掉
+  void dnsLookupAll(hostname, { ...options, all: true })
+    .then((rows) => {
+      for (const row of rows) {
+        if (isBlockedTargetIp(row.address)) {
+          callback(
+            Object.assign(new Error(`relay egress blocked: ${row.address} is a blocked target`), {
+              code: 'ERELAYEGRESS',
+            }),
+            [],
+          )
+          return
+        }
+      }
+      callback(null, rows)
+    })
+    .catch((e: unknown) => {
+      callback(e instanceof Error ? e : new Error(String(e)), [])
+    })
+}
+
+let directEgressAgent: Agent | null = null
+
+/**
+ * 直连出口的 dispatcher（单例：连接池按 host 复用，不能每请求新建）。
+ * 装的是 connect.lookup 钩子，所以它既是"直连用的那个 agent"，也是 ② 的接线点。
+ */
+export function directEgressDispatcher(): Agent {
+  if (!directEgressAgent) {
+    directEgressAgent = new Agent({ connect: { lookup: relayGuardedLookup } })
+  }
+  return directEgressAgent
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

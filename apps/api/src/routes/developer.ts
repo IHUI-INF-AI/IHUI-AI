@@ -24,6 +24,7 @@ import {
   orders,
 } from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { createOrder } from '../db/payment-queries.js'
@@ -387,6 +388,23 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createKeySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // 2FA step-up：已开 2FA 的账号，签发长期凭据前必须有窗内二次验证（会话被窃 ⇒ 拿不到 key）。
+    // 未开 2FA 的账号逐字不变；判不出账号状态一律拒。文案直接给出下一步端点，
+    // 因为这条会被脚本/curl 调用命中，光说"需要验证"没人知道要做什么。
+    const gate = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!gate.ok) {
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            gate.code === 'STEP_UP_REQUIRED'
+              ? '签发 API Key 需要二次验证：请先调用 POST /api/auth/2fa/step-up 提交当前验证码（有效窗 5 分钟）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            gate.code,
+          ),
+        )
     }
     const { expiresAt, ...quota } = parsed.data
     noteDeprecatedKeyFields(reply, request.body)

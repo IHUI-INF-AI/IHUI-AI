@@ -69,6 +69,7 @@ import {
   ACCOUNT_LOCKOUT_CONFIG,
 } from '../services/account-lockout.js'
 import { STEP_UP_WINDOW_SEC, recordTwoFactorStepUp } from '../services/two-factor-step-up-store.js'
+import { transparentlyUpgradePasswordHash } from '../services/login-hash-upgrade.js'
 import {
   findUserByPhone,
   findUserByEmail,
@@ -864,6 +865,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
       await clearLoginFailures(username, ip)
+      // 2026-10-28 普查发现：本入口此前只 verify 不升级哈希，与 /auth/login 不一致
+      // （弱哈希账户若经此路登录就永远升不上 argon2id）。补同一出口调用，三入口行为齐平。
+      await transparentlyUpgradePasswordHash({
+        userId: String(user.id),
+        password,
+        currentHash: user.passwordHash,
+        log: request.log,
+      })
       // 2FA 一致性(2026-10-27 修旁路):用户名+密码登录同样必须过 TOTP,
       // 否则攻击者拿到密码后走此路即可完全绕过两步验证(P0)。
       if (user.twoFactorEnabled) {
