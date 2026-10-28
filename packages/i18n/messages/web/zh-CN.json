@@ -11232,6 +11232,8 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "feedbackLike": "有帮助",
+    "feedbackDislike": "没帮助",
     "truncation": {
       "maxLengthNotice": "本条回答在达到最大输出长度时被截断，内容不完整；发送“继续”可接着生成。"
     },
@@ -12234,6 +12236,7 @@
       "feedbackRecorded": "已记录反馈,感谢支持",
       "feedbackSaved": "反馈已记录",
       "feedbackFailed": "反馈提交失败",
+      "dislikeThanks": "已记录 —— 可通过反馈卡补充原因",
       "messageDeleted": "已删除消息",
       "operationFailed": "操作失败",
       "regenerating": "正在重新生成…",

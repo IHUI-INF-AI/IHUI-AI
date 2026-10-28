@@ -11232,6 +11232,8 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "feedbackLike": "Helpful",
+    "feedbackDislike": "Not helpful",
     "truncation": {
       "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
     },
@@ -12234,6 +12236,7 @@
       "feedbackRecorded": "Feedback recorded, thank you",
       "feedbackSaved": "Feedback saved",
       "feedbackFailed": "Failed to submit feedback",
+      "dislikeThanks": "Thanks — you can add details from the survey card",
       "messageDeleted": "Message deleted",
       "operationFailed": "Operation failed",
       "regenerating": "Regenerating…",
