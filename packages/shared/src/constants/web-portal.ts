@@ -729,6 +729,13 @@ export const WEB_PORTAL_SECTIONS = [
         domain: 'distribution',
         fallbackLabel: '分销提现记录',
       },
+      {
+        key: 'news',
+        titleKey: 'webViewPortal.news',
+        path: '/news',
+        domain: 'news',
+        fallbackLabel: '资讯',
+      },
     ],
   },
   {
