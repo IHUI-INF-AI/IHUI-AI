@@ -389,7 +389,11 @@ describe('VoiceNote(D43 会话内快捷笔记)', () => {
 
     // ② 改分组 → lectures(只调 updateVoiceNote,不写任何本地桶)
     fireEvent.click(screen.getByTestId('voice-note-group-set'))
-    fireEvent.change(screen.getByTestId('voice-note-group-input'), {
+    const groupInput = screen.getByTestId('voice-note-group-input')
+    // 角色档 control ⇒ rounded-sm(4px)。这里是门 150 静态判据的运行时锁:
+    // 改回裸 `rounded`(8px) 静态门会红,而这条断言保证"渲染出来的类名"也被钉住。
+    expect(groupInput.className).toContain('rounded-sm')
+    fireEvent.change(groupInput, {
       target: { value: 'lectures' },
     })
     fireEvent.click(screen.getByTestId('voice-note-group-submit'))
