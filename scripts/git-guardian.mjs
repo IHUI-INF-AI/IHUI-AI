@@ -19,6 +19,7 @@ import {
   renameSync,
   rmSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
@@ -6776,6 +6777,46 @@ function reportBaselineFreshness() {
     log(`ℹ️ 基线新鲜度(只报数,不进提交链)${full ? '全账' : '便宜账'}:${parts.join(';')}`)
 }
 
+/**
+ * 单实例闸(2026-10-28 立)。计划任务每 2 分钟拉一轮,而一轮巡检经常超过 2 分钟(腿多、派生腿慢),
+ * 于是两轮并存 ⇒ 它们抢同一个临时检出槽位 `.worktrees/derived-heal`:一条刚 `worktree add`,
+ * 另一条 `remove` 就把它删掉,留下 EPERM 与 `already exists` 交替出现 —— 实测样式派生腿(tokens)
+ * 从 2026-10-28 15:49 起每轮 refused,而日志里只写「检出残留摘不掉…交人工」,真因没人看得见。
+ * 失效方向:抢不到闸就静默退出(下一轮 2 分钟后还会来),绝不让锁本身停摆巡检。
+ */
+const GUARDIAN_PID_FILE = join(dirname(LOG), 'git-guardian.pid')
+
+function acquireSingleInstance(pidFile = GUARDIAN_PID_FILE) {
+  try {
+    const prev = Number(String(readFileSync(pidFile, 'utf8')).match(/pid=(\d+)/)?.[1] ?? 0)
+    if (prev && prev !== process.pid) {
+      try {
+        process.kill(prev, 0)
+        return { ok: false, pid: prev }
+      } catch {
+        /* 前一进程已退出 ⇒ 接管 */
+      }
+    }
+  } catch {
+    /* 没跑过 */
+  }
+  try {
+    mkdirSync(dirname(pidFile), { recursive: true })
+    writeFileSync(pidFile, `pid=${process.pid} at=${new Date().toISOString()}`, 'utf8')
+    process.on('exit', () => {
+      try {
+        if (Number(String(readFileSync(pidFile, 'utf8')).match(/pid=(\d+)/)?.[1]) === process.pid)
+          unlinkSync(pidFile)
+      } catch {
+        /* 退不掉就留着,下轮按 pid 存活判定 */
+      }
+    })
+  } catch {
+    return { ok: true, degraded: 'pid 文件写不了' }
+  }
+  return { ok: true }
+}
+
 // 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5352(门 103 C1 收口)〉首意: 提交窗口期静默(2026-10-22 立,机主要求"提交稳定在 1 分钟内")。
 function inCommitWindow() {
   try {
@@ -6801,6 +6842,23 @@ function inCommitWindow() {
 }
 
 function main() {
+  // 手工/只读入口不参与单实例闸:它们要么不写盘,要么是人在等结果
+  const manual = process.argv.includes('--check') || process.argv.includes('--notify-test')
+  const inst = manual ? { ok: true } : acquireSingleInstance()
+  if (!inst.ok) {
+    if (
+      legThrottle(
+        join(dirname(LOG), 'guardian-overlap-last.json'),
+        30 * 60 * 1000,
+        Date.now(),
+        log,
+      )
+    )
+      log(
+        `ℹ️ 上一轮巡检仍在跑(pid=${inst.pid})⇒ 本轮静默退出:两轮并存会抢同一临时检出槽位(.worktrees/derived-heal),互相删对方的目录(本行 30 分钟最多一条)`,
+      )
+    return
+  }
   // 提交窗口期静默(2026-10-22):safe-commit 持写锁期间不做巡检,把 CPU 与索引锁全让给提交链。
   if (inCommitWindow()) {
     log('提交窗口期(检测到 git 写锁且持有者存活)⇒ 本轮巡检静默,下轮再来')
@@ -7921,6 +7979,7 @@ if (isDirectRun) {
 // §22c 镜像测试出口:通知层"是否应当发信"的全部判据(指纹/去重窗口/退避/状态归一/argv 契约)
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
+  acquireSingleInstance,
   gitdirTargetVerdict,
   judgeRefsHealth,
   alertFingerprint,
