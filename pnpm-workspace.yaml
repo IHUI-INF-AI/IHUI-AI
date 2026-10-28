@@ -169,6 +169,13 @@ minimumReleaseAge: 0
 # 原 package.json pnpm.overrides 迁移至此:
 overrides:
   ioredis: 6.0.0
+  # webpack 钉版 = Taro 4.2.1 工具链兼容必需,不是配置遗漏(2026-10-28 安全审计第二刀实证):
+  # 尝试抬到 ^5.104.1 后 `build:weapp` 在 Taro ProgressPlugin 的 ajv schema 校验处直接崩
+  # (webpack>=5.92 改了 ProgressPlugin handler 签名)。三条 webpack advisory(1 moderate DOM
+  # Clobbering + 2 low buildHttp allowedUris)均为**构建期工具链面**,不进入运行时代码与
+  # 产物运行时,属"恒红门禁令 §12e 同型"的不可修项 —— 出路在 @tarojs 上游适配新 webpack,
+  # 不适配前该钉版不得解除;下方第一刀批次的三条 webpack 选择器行因裸键优先级更高而无效,
+  # 保留仅作历史登记,不得当作"已抬升"的依据。
   webpack: 5.91.0
   '@types/react': 19.2.18
   '@types/react-dom': 19.2.4
@@ -233,7 +240,8 @@ overrides:
   # 判据来源:outputs/dep-audit-deployed.json(按 name+version 双匹配生产依赖树,
   # 只保留 @ihui/api 与 @ihui/web 生产链上的包)。全部为同 minor 内 patch 抬升,
   # 不改任何包的主版本语义,调用方 API 不变。
-  # 跨主版本项(image-size 1→2、katex 0.16→0.18)刻意不在此列,单独验证后再决定。
+  # 跨主版本项(image-size 1→2、katex 0.16→0.18)刻意不在此列——2026-10-28 第二刀已对
+  # image-size 完成单独验证并抬升(见本区"第二刀"块),katex 维持不抬(见彼处留痕)。
   '@grpc/grpc-js@<1.14.5': ^1.14.5
   # brace-expansion 三条线各自抬到该线最新(5.x 与 1.x API 不同,不可跨线合并)
   brace-expansion@>=1.0.0 <2.0.0: ^1.1.19
@@ -275,6 +283,46 @@ overrides:
   zod@>=4.0.0 <4.6.6: ^4.6.6
   # undici 7.x 线(api 直接声明的是 ^8.10.1,7.29.0 由其他包带入)
   undici@>=7.0.0 <8.0.0: ^7.30.1
+  # ===== 2026-10-28 安全审计第二刀(pnpm audit --prod @ registry.npmjs.org)=====
+  # 现读:41 条 advisory = 1 critical / 12 high / 23 moderate / 5 low。
+  # 处置口径(与第一批一致):同主版本线内的补丁一律 override 抬升;跨主版本单独立项验证。
+  # 全部为链上传递依赖,product 代码零调用面变更风险由 build/typecheck 同批验证。
+  proxy-addr@<2.0.8: ^2.0.8 # CRITICAL · IPv4-mapped IPv6 信任子网伪装(webpack-dev-server>express 链)
+  body-parser@<1.20.9: ^1.20.9
+  follow-redirects@>=1.16.0 <1.16.1: ^1.16.1
+  launch-editor@<=2.14.1: ^2.14.2
+  node-forge@<=1.4.0: ^1.4.1 # RSA PKCS#1 v1.5 验签多嵌套接受(@expo/cli 链)
+  svgo@>=3.0.0 <3.3.5: ^3.3.5 # removeScripts 命名空间绕过的构建期 SVG 洗脱(miniapp cssnano 链)
+  vite@>=6.0.0 <6.4.4: ^6.4.4 # 现装仅 6.4.3;抬同一 minor 补丁
+  qs@<6.16.1: ^6.16.1 # 三条 qs advisory 并集补丁(现装 6.15.3)
+  # webpack 不在本块处置:钉版兼容性与三条 advisory 的归因留痕见上方迁移区裸键注释(§0.6 单源)。
+  postcss-selector-parser@<6.1.5: ^6.1.5
+  # advisory 声明补丁线 >=0.4.3,但 0.4.3 从未发布(现读 registry 全 9 版:0.2.x/0.3.x/0.5.x),
+  # 实际可命中的补丁版是 0.5.1;包对外只有单一默认导出,query-string 等调用方兼容。
+  decode-uri-component@<=0.4.2: ^0.5.1
+  # 本仓唯一生产链上的跨主版本项:image-size HIGH(JXL/HEIF/ICNS 解析死循环)。
+  # 生产宿主 = apps/api>pptxgenjs(声明 ^1.2.1,恶意图片喂进 PPT 生成即打满 CPU);
+  # 工具链宿主 = metro(RN 构建)与 @storybook/nextjs(web 文档构建)。
+  # 2026-10-28 锁内实测:范围选择器 'image-size@>=0.6.3 <2.0.3' 已把 pptxgenjs 链抬到 2.0.4,
+  # 但 metro/storybook 声明范围不被该 selector 命中(audit 复跑仍见 1.2.1 / 2.0.2 各 1 线);
+  # 故用父母域写法点名补,less(0.5.5,不在漏洞区间)不受牵连。image-size 2.x 保留
+  # sizeOf(buffer)→{width,height} 默认导出,调用方兼容,由同批 build 验证钉住。
+  image-size@>=0.6.3 <2.0.3: ^2.0.4
+  'metro>image-size': ^2.0.4
+  '@storybook/nextjs>image-size': ^2.0.4
+  # 刻意不抬(如实留痕,不是漏项):
+  #  · deepmerge(GHSA-gcqx-w48m-w2h4,LOW,原型污染 gadget,宿主=@svgr/RN cli 构建链):
+  #    advisory 声明的补丁版 4.3.2 在官方 npm registry 尚未发布(现读 latest=4.3.1,
+  #    2026-10-28 pnpm/npmmirror 双侧实测一致),写 override 只会让 install 直接失败。
+  #    发布后补一行 `deepmerge@<4.3.2: ^4.3.2`,并随本仓 audit 复跑销账。
+  #  · esbuild 0.21.5(@tarojs/helper/terser 链):advisory 只命中 esbuild "独立 dev server
+  #    / service 模式"(--serve),仓内无该形态入口;0.21→0.24.3 跨三条 minor 且 @tarojs/helper
+  #    对 esbuild 内部行为敏感,强抬会打爆 miniapp 构建(与 zod 3.x→Expo 同一先例)。
+  #  · katex 0.16.47(mermaid/@lobehub/ui 嵌套副本):LOW,利用前提是"已存在原型污染";
+  #    web 直接依赖已是 ^0.18.7,只有产品自渲染路径走它;强抬嵌套副本会破坏 mermaid/@lobehub
+  #    对 katex 0.16 API 的假设。升 blocking 前置 = mermaid 上游切换。
+  #  · zod 3.25.76(@expo/cli 构建期):上方既有注释已定档"强升 3→4 打爆 Expo 工具链";
+  #    产品请求校验用 catalog ^4.6.6,不受此条影响。
 
 # 原 package.json pnpm.peerDependencyRules 迁移至此:
 peerDependencyRules:
