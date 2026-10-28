@@ -159,6 +159,11 @@ vi.mock('undici', () => ({
   ProxyAgent: class {
     close(): void {}
   },
+  // 直连出口的 dispatcher（连接期守卫挂在它上面）；本文件只测选号/转发，桩成空壳。
+  Agent: class {
+    constructor(_opts?: unknown) {}
+    close(): void {}
+  },
   fetch: vi.fn(),
 }))
 
