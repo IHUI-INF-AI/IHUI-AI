@@ -11,13 +11,18 @@
 
 import asyncio
 import sys
+from typing import Any
 
 import httpx
 
 BASE = "https://k.token6688.com"
 FAKE = {"Authorization": "Bearer sk-fake-smoke-test-no-cost"}
 
-PROBES: list[tuple[str, str, dict, dict | None]] = [
+# 2026-10-28 修:第 3 元素原标注为 dict,与实参形态(url 字符串)不符 —— mypy strict
+# 因此把整表的 21 个 item 逐条判红(list-item)。契约本就是 (名称, 方法, url, body|None),
+# 改的是**标注**而非数据:数据与我们调用 httpx 的方式(client.get/post(url, json=body))
+# 一直是对的,错的是写窄了一格的类型。
+PROBES: list[tuple[str, str, str, dict[str, Any] | None]] = [
     ("models 目录(免鉴权)", "GET", f"{BASE}/v1/skills/models", None),
     ("单模型参数(免鉴权)", "GET", f"{BASE}/v1/skills/models/seedance-2-5", None),
     ("跨渠道价格(免鉴权)", "GET", f"{BASE}/v1/skills/models/seedance-2-5/pricing", None),

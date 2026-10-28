@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import gc
 import hashlib
+import io
 import json
 import os
 import random
@@ -48,7 +49,7 @@ import tracemalloc
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -57,7 +58,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # 一律把 stdout/stderr 重配成 UTF-8,不可编码时降级替换而不是抛错。
 for _stream in (sys.stdout, sys.stderr):
     try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
+        # 2026-10-28 修:typeshed 给 sys.stdout/stderr 的静态类型是抽象 io.TextIO,而
+        # `reconfigure` 只存在于具体子类 io.TextIOWrapper(runtime 上正是它)⇒ mypy 判
+        # union-attr。cast 是此处唯一的诚实表达:契约没变、try/except 照旧兜非 tty /
+        # 已被替换的流,只是把"我知道它实际是 TextIOWrapper"写进类型系统。
+        cast(io.TextIOWrapper, _stream).reconfigure(encoding="utf-8", errors="replace")
     except (AttributeError, OSError):  # 非 tty / 已被替换的流:原样跑,不因此放弃量算
         pass
 
