@@ -515,6 +515,32 @@ function attemptUnionConverge(freshRemote, repoRoot) {
   const strict = process.env.IHUI_UNION_NO_STATE_ACCEPT === '1'
   const args = ['scripts/union-converge.mjs', '--apply', '--theirs', freshRemote]
   for (const r of strict ? [] : acceptDims) args.push('--accept-state-growth', r)
+  /**
+   * 声明透传(2026-10-28 立)。
+   *
+   * 立因不是"缺一条便捷参数",而是**本器把一类只能由人做的判断锁死在门外**:
+   * union-converge 有六条声明式出口(`--take-theirs-doc` / `--take-ours` / `--take-theirs` /
+   * `--resolve` / `--union-capped` / `--supersede`),它们存在的唯一理由就是
+   * "工具只能比字面、判不出语义住在哪一行"。而本器派生它时**一条都不转发** —— 于是遇到
+   * 那几型,本器每轮只会复读同一句判红,人只能绕开本器直接跑 union-converge
+   * (把本器的 CAS/fetch/推送链一起绕过)。这正是 §0.8 "只判不修的门逼人绕过"。
+   *
+   * 实测两例(2026-10-28 同一小时内):①对侧 `d75e178e26b` 结清 O68 删掉登记行,本侧该文件
+   * 与基线逐字相同 ⇒ 三方合并的正确结果就是删掉它,零丢失自证却判"吞掉本侧已提交内容";
+   * ②对侧删 AGENTS.md 两行 R4 补记,同型。两例的正解都只有 `--take-theirs-doc`,而本器
+   * 表达不了 ⇒ 每轮 3 分钟白等,远端持续前进,分叉越拉越大。
+   *
+   * 本条**只做透传,零判据**:声明的语义、举证(supersedeProof/折叠四问)、留痕与
+   * "声明未命中照样判红"全部仍在 union-converge 那一份实现里(§0.6 单一真相源),
+   * 本器不校验、不改写、不代填。缺值一律不代猜(交给 union-converge 自己的用法错出口),
+   * 且透传的旗号逐条打印 —— 声明式例外不许静默(与守门 83 同一规矩)。
+   */
+  const forwarded = declarationArgs(process.argv)
+  if (forwarded.length > 0) {
+    args.push(...forwarded)
+    const names = forwarded.filter((x) => x.startsWith('--'))
+    log(C.dim, `  ℹ️ 声明透传至 union-converge(${names.length} 条):${names.join(' ')} —— 判据/举证/留痕仍在收敛器那一份实现里,本器不代判`)
+  }
   try {
     const out = execFileSync(process.execPath, args, {
       cwd: repoRoot,
@@ -596,6 +622,45 @@ export function readUnionExitCode(text) {
   for (const m of String(text ?? '').matchAll(UNION_EXIT_RE)) last = m[1]
   if (last === undefined || last === 'unknown') return null
   return Number(last)
+}
+
+/**
+ * 声明透传的唯一判据(纯函数、零 IO、零副作用)。
+ *
+ * 为什么抽成导出函数而不是在派生点内联:这一格判的是"人的声明有没有送达" —— 它失效的
+ * 形态是**安静**的(声明被吞 ⇒ union-converge 拿不到 ⇒ 每轮复读同一句判红,grep 日志
+ * 只会看到"又红了一次",看不出"声明压根没送到"),所以必须能被镜像测试逐条钉:
+ * ①命中/②顺序/③缺值不代猜/④非声明旗号一律不转发/⑤重复声明逐条保留。
+ *
+ * 纪律:本函数**只做"哪些 token 是声明"**,一个字节都不判断声明内容是否合理 ——
+ * 举证(supersedeProof / 折叠四问)、"声明未命中照样判红"、"放行逐条打印并写进合并
+ * 提交信息"全部仍在 union-converge 那一份实现里(§0.6 单一真相源,不在本器再写一遍)。
+ *
+ * 缺值**不代猜**(`--take-theirs-doc` 后面紧跟另一个旗号或没有 token):本器不替人编一个
+ * 默认路径 —— 编了就是把"人声明了"和"人声明错了"变成同形。留空让 union-converge 的
+ * "值没给"用法错出口来判,那才是唯一有资格说这句话的地方。
+ */
+export const DECLARATION_FLAGS = Object.freeze([
+  '--take-theirs-doc',
+  '--take-ours',
+  '--take-theirs',
+  '--resolve',
+  '--union-capped',
+  '--supersede',
+])
+
+export function declarationArgs(argv = process.argv) {
+  const list = Array.isArray(argv) ? argv : []
+  const out = []
+  for (let i = 2; i < list.length; i++) {
+    const flag = list[i]
+    if (!DECLARATION_FLAGS.includes(flag)) continue
+    const value = list[i + 1]
+    if (value === undefined || String(value).startsWith('--')) continue
+    out.push(flag, value)
+    i++
+  }
+  return out
 }
 
 /**
