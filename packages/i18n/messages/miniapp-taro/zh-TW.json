@@ -4604,6 +4604,17 @@
   "VoiceInput": {
     "p1": "錄音啟動失敗"
   },
+  "securityAudit": {
+    "title": "安全審計",
+    "empty": "暫無審計記錄",
+    "loadFailed": "載入失敗",
+    "type": {
+      "login": "登入",
+      "permission": "權限",
+      "sensitive": "敏感",
+      "other": "其他"
+    }
+  },
   "webViewPortal": {
     "news": "資訊",
     "learnTopic": "課程專題",

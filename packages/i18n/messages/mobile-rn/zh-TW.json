@@ -4254,6 +4254,17 @@
     "loginRequired": "登入後即可使用 AI 對話與全部工具（MCP 商店、連接器、技能面板等）",
     "loginButton": "去登入"
   },
+  "securityAudit": {
+    "title": "安全審計",
+    "empty": "暫無審計記錄",
+    "loadFailed": "載入失敗",
+    "type": {
+      "login": "登入",
+      "permission": "權限",
+      "sensitive": "敏感",
+      "other": "其他"
+    }
+  },
   "webViewPortal": {
     "news": "資訊",
     "learnTopic": "課程專題",

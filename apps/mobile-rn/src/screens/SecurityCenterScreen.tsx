@@ -475,6 +475,16 @@ export default function SecurityCenterScreen() {
           <ChevronRight size={16} color={tokens.text.tertiary} />
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => navigation.navigate('SecurityAudit')}
+          activeOpacity={0.7}
+        >
+          <ShieldCheck size={16} color={tokens.text.secondary} />
+          <Text style={styles.linkText}>{t('securityAudit.title')}</Text>
+          <ChevronRight size={16} color={tokens.text.tertiary} />
+        </TouchableOpacity>
+
         {!twoFactor?.enabled && !setup ? (
           <View style={styles.footerNote}>
             <ShieldOff size={14} color={tokens.text.tertiary} />
