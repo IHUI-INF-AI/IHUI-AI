@@ -349,6 +349,50 @@ export function toastOnlyInCatch(pageText) {
   return inCatch >= total
 }
 
+/** catch 块区间(括号配对),用于判某个 toast 调用是否落在错误分支里。 */
+export function catchRanges(src) {
+  const text = String(src ?? '')
+  const out = []
+  for (const m of text.matchAll(/catch\s*(?:\([^)]*\))?\s*\{/g)) {
+    let i = m.index + m[0].length
+    let depth = 1
+    const start = m.index
+    while (i < text.length && depth > 0) {
+      const ch = text[i]
+      if (ch === '{') depth++
+      else if (ch === '}') depth--
+      i++
+    }
+    out.push([start, i])
+  }
+  return out
+}
+
+/**
+ * **逐条**判 toast 是否都被壳承担(2026-10-28 合并版):
+ *   每条 toast 满足其一即可 —— ① 引用的 i18n key 全部在壳正文里(壳有同词条提示);
+ *   ② 该调用落在 catch 块内 ∧ 壳有错误出口(appAlert/Toast)。
+ * 全条通过才销账。这比"整页 key 全同"或"整页都在 catch"两条各自独立更准:
+ * 实测 edu-shop 一页里既有 catch 内的 common.loadFailed、又有成功分支的 eduShop.orderCreated,
+ * 前者由壳的错误态承担、后者壳里有同词条 —— 分开判会导致两条件都不成立,整页被误留。
+ */
+export function toastFullyCovered(pageText, shellText) {
+  const src = maskComments(String(pageText ?? ''))
+  const shell = String(shellText ?? '')
+  const hasOutlet = /appAlert|\bToast\b|toast\.(show|info|success)/.test(shell)
+  const calls = toastCallSpans(src)
+  if (calls.length === 0) return false
+  const ranges = catchRanges(src)
+  for (const call of calls) {
+    const keys = [...call.text.matchAll(/\btt?\s*\(\s*'([A-Za-z0-9_.]+)'/g)].map((m) => m[1])
+    if (keys.length > 0 && keys.every((k) => shell.includes(k))) continue
+    const inCatch = ranges.some(([a, b]) => call.start >= a && call.start <= b)
+    if (hasOutlet && inCatch) continue
+    return false
+  }
+  return true
+}
+
 /** 页面是否用端内鉴权就绪钩子(由生成页包 AuthReadyGate 承担,见该组件头注)。 */
 export function needsAuthGate(pageText) {
   return /useAuthReadyGate|@\/hooks\/use-auth-ready-gate/.test(String(pageText ?? ''))
@@ -479,10 +523,9 @@ export function judgeConversion({
     for (const tok of ['useAuthReadyGate', '@/hooks/use-auth-ready-gate']) pageTokens.delete(tok)
   // 带鉴权钩子的页,其 useDidShow 若只做 waitUntilReady(...) ⇒ 由 AuthReadyGate 承担"就绪后再渲染"
   if (authGateCoversDidShow(pageText)) for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
-  // 提示等价:key 全在壳里且壳有提示出口才销账(壳没有这条提示就仍算私有)
-  if (toastCovered(pageText, shellText)) pageTokens.delete('Taro.showToast')
-  // 或:toast 全在 catch 内(错误反馈)+ 壳有错误出口 ⇒ 由壳的错误态承担
-  if (!toastCovered(pageText, shellText) && toastOnlyInCatch(pageText) && /appAlert|\bToast\b/.test(String(shellText ?? '')))
+  // 提示:逐条判(同词条在壳里 或 在 catch 内且壳有错误出口) ⇒ 全部通过才销账
+  if (toastFullyCovered(pageText, shellText)) pageTokens.delete('Taro.showToast')
+  else if (!toastCovered(pageText, shellText) && toastOnlyInCatch(pageText) && /appAlert|\bToast\b/.test(String(shellText ?? '')))
     pageTokens.delete('Taro.showToast')
   // switchTab 只做 navigateBack 的失败回落 ⇒ RN 端没有这一态,壳的 goBack 已覆盖
   if (backFallbackOnly(pageText)) pageTokens.delete('Taro.switchTab')
@@ -752,6 +795,13 @@ function main(argv) {
       modalCovered("appAlert(skill.name, skill.description, [{ text: t('ok'), onPress: () => go() }])"),
       modalCovered("appAlert(t('common.failed'))"),
     ], [true, true, false])
+    P('S18 逐条 toast:同词条在壳里 或 在 catch 内且壳有错误出口 —— 一页混两种也全过', [
+      toastFullyCovered(
+        "Taro.showToast({ title: t('eduShop.orderCreated') }); try { await buy() } catch { Taro.showToast({ title: t('common.loadFailed') }) }",
+        "appAlert(t('eduShop.orderCreated'), t('eduShop.orderCreated'))",
+      ),
+      toastFullyCovered("Taro.showToast({ title: t('x.onlyPage') })", "appAlert(t('y'))"),
+    ], [true, false])
     P('S14 错误分支 toast:全部在 catch 内且壳有错误出口才算;成功提示仍在则不算', [
       toastOnlyInCatch("try { await x() } catch { Taro.showToast({ title: t('common.loadFailed') }) }"),
       toastOnlyInCatch("Taro.showToast({ title: t('ok') })"),
@@ -848,6 +898,8 @@ export const __test__ = {
   backCovered,
   routeParamsCovered,
   toastCovered,
+  toastFullyCovered,
+  catchRanges,
   toastCallSpans,
   authGateCoversDidShow,
   toastOnlyInCatch,
