@@ -123,9 +123,20 @@ describe('doubao 提取器:目录在盘 ⇒ 形状(临时 Cookies sqlite)', () =
 
     const out = await doubaoExtract.extractDoubaoAccounts({ userDataDir: dir })
     expect(out.providerCode).toBe('doubao')
-    const keys = out.accounts.map((a) => a.key).sort()
-    expect(keys).toEqual(['sessionid', 'sessionid_ss', 'sid_guard'])
-    const sessionid = out.accounts.find((a) => a.key === 'sessionid')
+    // 捆绑单账号(2026-10-28):整套 passport 族 cookie 打成一个账号,不拆逐 cookie 行号池
+    expect(out.accounts).toHaveLength(1)
+    const bundle = out.accounts[0] as unknown as {
+      token: string
+      cookies: Array<{ source: string; key: string; host: string; value: string }>
+    }
+    expect(bundle.cookies.map((c) => c.key).sort()).toEqual([
+      'sessionid',
+      'sessionid_ss',
+      'sid_guard',
+    ])
+    // 主票按登录判据优先级取:sessionid 最先
+    expect(bundle.token).toBe('sess-plain-abc')
+    const sessionid = bundle.cookies.find((c) => c.key === 'sessionid')
     expect(sessionid).toMatchObject({
       source: 'cookies',
       host: '.doubao.com',
