@@ -2,137 +2,22 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/ask-list/AskListScreen.tsx
-import { useI18n } from '@/i18n'
-import { View, Text } from '@tarojs/components'
-import Taro, { useReachBottom } from '@tarojs/taro'
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { getAskList, type Ask } from '@/api'
+// 镜像 packages/app/src/features/ask-list/AskListScreen.tsx
+
+/**
+ * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
+ *   渲染 = packages/app/src/features/ask-list/AskListScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
+ *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/AskListScreen.tsx 本体,
+ *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
+ * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ */
 import ThemeRoot from '@/components/ThemeRoot'
-import SearchBar from '@/components/SearchBar'
-import './list.css'
+import { AskListScreen as AskListScreenShell } from '@rn-shells/AskListScreen'
 
 export default function AskListPage() {
-  const { t } = useI18n()
-  const [list, setList] = useState<Ask[]>([])
-  const [loading, setLoading] = useState(false)
-  const [keyword, setKeyword] = useState('')
-  const [tab, setTab] = useState('new')
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
-
-  const load = useCallback(
-    async (reset = false) => {
-      if (loading) return
-      let curPage = page
-      if (reset) {
-        curPage = 1
-        setHasMore(true)
-        setList([])
-        setPage(1)
-      }
-      if (!hasMore && !reset) return
-      setLoading(true)
-      try {
-        const res = await getAskList({ page: curPage, pageSize: 10, keyword })
-        const newList = res.list || []
-        setList((prev) => (reset ? newList : [...prev, ...newList]))
-        setHasMore((reset ? newList.length : list.length + newList.length) < res.total)
-        setPage(curPage + 1)
-      } finally {
-        setLoading(false)
-      }
-    },
-    [loading, page, hasMore, keyword, list.length],
-  )
-
-  const switchTab = useCallback(
-    (t: string) => {
-      setTab(t)
-      load(true)
-    },
-    [load],
-  )
-
-  const goDetail = useCallback((id: string | number) => {
-    Taro.navigateTo({ url: `/pages/ask/detail?id=${id}` })
-  }, [])
-
-  const goCreate = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/ask/create' })
-  }, [])
-
-  const onSearchConfirm = useCallback(() => {
-    load(true)
-  }, [load])
-
-  useReachBottom(() => load())
-
-  const loadRef = useRef(load)
-  loadRef.current = load
-  useEffect(() => {
-    loadRef.current(true)
-  }, [])
-
   return (
     <ThemeRoot>
-      <View className="page">
-        {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
-        <SearchBar
-          value={keyword}
-          placeholder={t('ask.search')}
-          onInput={setKeyword}
-          onSearch={onSearchConfirm}
-          onClear={() => setKeyword('')}
-        />
-
-        <View className="tabs">
-          <Text className={`tab${tab === 'new' ? ' active' : ''}`} onClick={() => switchTab('new')}>
-            {t('ask.tabs.new')}
-          </Text>
-          <Text className={`tab${tab === 'hot' ? ' active' : ''}`} onClick={() => switchTab('hot')}>
-            {t('ask.tabs.hot')}
-          </Text>
-          <Text
-            className={`tab${tab === 'unanswered' ? ' active' : ''}`}
-            onClick={() => switchTab('unanswered')}
-          >
-            {t('ask.tabs.unanswered')}
-          </Text>
-        </View>
-
-        {list.length ? (
-          <View className="list">
-            {list.map((a) => (
-              <View
-                key={a.id}
-                className="item"
-                onClick={() => goDetail(a.id)}
-                hoverClass="opacity-60"
-              >
-                <Text className="title">{a.title}</Text>
-                {/* meta 行对齐 RN SharedAskListScreen:作者左 / 回答数右 */}
-                <View className="meta">
-                  <Text className="author">{a.author}</Text>
-                  <Text className={`answers${a.adopted ? ' adopted' : ''}`}>
-                    {t('ask.answers', { n: a.answers || 0 })}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {!loading && !list.length ? (
-          <View className="empty">
-            <Text>{t('ask.empty')}</Text>
-          </View>
-        ) : null}
-
-        <View className="fab" onClick={goCreate} hoverClass="opacity-60">
-          +
-        </View>
-      </View>
+      <AskListScreenShell />
     </ThemeRoot>
   )
 }
