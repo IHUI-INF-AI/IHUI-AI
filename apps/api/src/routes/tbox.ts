@@ -53,6 +53,8 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 保留原有 X-Signature HMAC-SHA256 签名验证作为鉴权,不加 requireAdmin。
 
   // 捕获原始请求体用于 webhook 签名验证
+  // 必须先摘掉继承自根作用域的 json parser(见 server.ts registerPlugins),否则 add 抛 ALREADY_PRESENT
+  server.removeContentTypeParser('application/json')
   server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
     try {
       const raw = body.toString()

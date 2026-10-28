@@ -302,6 +302,8 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
   // POST /live/tencent/callback - 腾讯云直播回调端点(验签 + 事件处理)
   // 独立子作用域:捕获 raw body 用于 HMAC-SHA256 验签,不影响其他 live 路由的 JSON 解析。
   server.register(async (scope) => {
+    // 必须先摘掉继承自根作用域的 json parser(见 server.ts registerPlugins),否则 add 抛 ALREADY_PRESENT
+    scope.removeContentTypeParser('application/json')
     scope.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
       const raw = body as string
       ;(req as FastifyRequest & { rawBody?: string }).rawBody = raw
