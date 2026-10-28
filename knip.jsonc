@@ -20,7 +20,37 @@
   // 早已计入 09-15 基线(binaries 16 即含它),所以这不是新增死代码,是配置盲区新增第 2 次发作(+2 超基线)。
   // 只在本 root workspace 免检这两个名字;任一"端"真删了 playwright/drizzle-kit 声明,
   // dependencies/unlisted 判据仍会红,本行不会掩盖。
-  "ignoreBinaries": ["playwright", "drizzle-kit"],
+  //   ②2026-10-28(Knip 棘轮 binaries 16→20 归因席):同族第二类盲区 = knip 把「调用操作系统自带/
+  //   环境提供的可执行文件」一律记成 unlisted binary("未声明二进制"),但这类程序**结构上不可能**
+  //   出现在 package.json 依赖里(pwsh/tasklist/pgrep/where/rg/ffmpeg/pbcopy/… 都不是 npm 包)。
+  //   实测面:CI run 40679357487 的 `Unlisted binaries (20)` 与本机同面读数逐条同形(20/20 名字+文件
+  //   全等 —— 该类别实测**无本地↔CI 偏移**,与 exports/types 那两族的偏移不同,故本行按本机读数收口),
+  //   其中 19 枚属此族。逐条新增 ⇒ 逐条把基线抬高,等于给一类
+  //   永不消失的噪声装恒红门(§12e),所以在这里按名字收口判据,而不是让每个落地席位去消计数。
+  //   边界:只免「名字确在此清单内」的二进制;新增任何**其它**名字(含误拼的本族名字)照旧进计数、
+  //   照旧超基线即红;npm 包漏声明仍由 dependencies/unlisted 两维判红,本行掩盖不到。
+  //   唯一**不**收进清单者 = `appsai-service.venvScriptspython.exe`(root package.json 的 db:* 四条
+  //   以 Windows 相对路径直调本机 uv 生成的 venv 解释器;knip 把反斜杠吃掉后拼成这个畸形名字)。
+  //   按畸形字面量豁免即"会漂移的白名单"(§0.7),故留它在射程内可见,基线 binaries 因此收为 1。
+  "ignoreBinaries": [
+    "playwright",
+    "drizzle-kit",
+    "pwsh",
+    "pwsh.exe",
+    "where",
+    "where.exe",
+    "pgrep",
+    "tasklist",
+    "fsutil",
+    "rd",
+    "rg",
+    "ffmpeg",
+    "pbcopy",
+    "pbpaste",
+    "xclip",
+    "xsel",
+    "uv"
+  ],
   "workspaces": {
     "apps/api": {
       "entry": ["src/server.ts"],
