@@ -79,7 +79,16 @@ function runLive(
     extraEnv = {},
   } = {},
 ) {
-  const env = { ...process.env, LIVE_ROOT: dir, LIVE_DOC: doc, LIVE_MSG: msg, ...extraEnv }
+  // 既有端到端用例覆盖的是「翻勾后留已勾形态」那条旧路径,显式走回退开关;
+  // 默认(结清即删)由 T-DROP-E2E 单独覆盖。extraEnv 在后 ⇒ 可覆盖本缺省。
+  const env = {
+    ...process.env,
+    LIVE_ROOT: dir,
+    LIVE_DOC: doc,
+    LIVE_MSG: msg,
+    LIVE_KEEP_CLOSED_ROW: '1',
+    ...extraEnv,
+  }
   if (replaceFile) {
     env.LIVE_REPLACE_FILE = replaceFile
     delete env.LIVE_BLOCK_FILE
@@ -3289,4 +3298,32 @@ test('T-DROP3 留痕:删除档只入未勾一形态(drops 桶),门 71 的 declar
   assert.equal(flips.length, 0, '删除档不进 flips(面上不会有已勾形态)')
   assert.equal(drops.length, 1)
   assert.deepEqual(rowsToRecordOf(flips, drops), [{ rowBefore: '- [ ] G-9 甲', form: 'open' }])
+})
+
+test('T-DROP-E2E 默认结清即删(2026-10-28):open→done 落地后该行整行消失、其余逐字原位、留痕只入未勾形态', (t) => {
+  const src = ['# 标题', '段落一', '- [ ] **D1 待办**:说明。', '段落二', '']
+  const { dir, inputs } = makeDocRepo(t, src.join('\n'))
+  const rep = join(inputs, 'rep-drop.json')
+  writeFileSync(
+    rep,
+    JSON.stringify([{ before: src[2], after: '- [x] ✅(2026-09-27) **D1 待办**:说明。' }]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: rep, extraEnv: { LIVE_KEEP_CLOSED_ROW: '' } })
+  assert.equal(r.status, 0, '应成功:' + r.stdout + '|' + r.stderr)
+  assert.match(r.stdout, /结清即删:1 项/, '必须出声说明这一项被转成删除档')
+  assert.match(r.stdout, /按删除档摘除/, '回读必须单列删除项(否则自证会把它读成缺行)')
+  const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
+  assert.deepEqual(now, ['# 标题', '段落一', '段落二', ''], '该行必须整行消失,其余逐字原位')
+  let ledger = ''
+  try {
+    ledger = readFileSync(join(dir, '.ihui-agent/state/plan-row-drop.jsonl'), 'utf8')
+  } catch {
+    ledger = ''
+  }
+  assert.ok(ledger.includes(src[2]), '未勾形态必须逐字入账(门 71 的 declaredExempt 靠它认账)')
+  assert.ok(
+    !ledger.includes('- [x] ✅(2026-09-27) **D1 待办**'),
+    '面上没有已勾形态 ⇒ 不该凭空记一条',
+  )
 })
