@@ -1,5 +1,5 @@
 {
-  "name": "@ihui/sdk",
+  "name": "@ihui-ai/sdk",
   "version": "0.1.0",
   "description": "IHUI AI (智汇AI) 官方 TypeScript SDK — 对话 / 图像 / 音频 / 视频 / 知识库 / 记忆 / Agent 全能力客户端",
   "keywords": [

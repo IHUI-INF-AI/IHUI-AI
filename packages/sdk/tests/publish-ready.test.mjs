@@ -244,7 +244,7 @@ function assertNetChannelBidirectional(projectFiles, workflowText, channel = '.N
 
 test('npm 清单:发布形态齐备且不外泄内部依赖', () => {
   const pkg = headJson('packages/sdk/package.json')
-  assert.notEqual(pkg.private, true, '@ihui/sdk 仍为 private,任何通道都发不出去')
+  assert.notEqual(pkg.private, true, '@ihui-ai/sdk 仍为 private,任何通道都发不出去')
   assert.match(String(pkg.name), /^@ihui\/sdk$/, 'npm 包名漂移(CI 的 `npm view` 回读按此名判红)')
   assert.match(String(pkg.version), /^\d+\.\d+\.\d+/, 'version 必须是合法 semver(tag 解析依赖它)')
 
@@ -907,8 +907,8 @@ test('通道就绪性台账:通道集↔CI job 集↔清单坐标三面双向对
 test('通道台账·变异对照:四类假账必须被结构判据点名(判据有牙证明)', () => {
   const jobs = ['npm-publish', 'pypi-publish', 'maven-publish', 'nuget-publish', 'go-publish']
   const coordinates = {
-    npm: '@ihui/sdk',
-    npmUrlNeedle: '@ihui%2Fsdk',
+    npm: '@ihui-ai/sdk',
+    npmUrlNeedle: '@ihui-ai%2Fsdk',
     pypi: 'ihui-ai',
     mavenGroupPath: 'com/ihui',
     mavenArtifact: 'ihui-ai-java',
@@ -923,8 +923,8 @@ test('通道台账·变异对照:四类假账必须被结构判据点名(判据�
         status: 'blocked-by-credential',
         blocker: 'secrets 缺 NPM_TOKEN(gh 实测)',
         unblockAction: '生成 Automation token 并 gh secret set',
-        verifyCommand: 'npm view @ihui/sdk version',
-        probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@ihui%2Fsdk' },
+        verifyCommand: 'npm view @ihui-ai/sdk version',
+        probe: { kind: 'http-status', url: 'https://registry.npmjs.org/@ihui-ai%2Fsdk' },
         ...over.npm,
       },
       {
@@ -1088,21 +1088,21 @@ test('@ihui/api-client 摘掉 private 即必须当场过发布前置(workspace �
  * 首版 `publishPreconditionFailures` 把 **devDependencies** 一起扫进"workspace: ⇒ 发出去即装不到"。
  * 那是判据错:发布时 devDependencies 被整个剥掉,workspace 协议写在那里进不了 tarball。
  * 后果可实测且是一台恒红门 —— 本仓每个包都带 workspace 形态的内部 devDeps,而**已经摘了
- * private 的 @ihui/sdk** 正是这个形态;不收窄,则"摘 private"这个动作对所有包都必然红,
+ * private 的 @ihui-ai/sdk** 正是这个形态;不收窄,则"摘 private"这个动作对所有包都必然红,
  * 唯一出路是把供类型面使用的内部依赖删掉(删了就打不到类型)。
  * 载体刻意取自真实入库文件(sdk 清单),而不是自造夹具 —— §22c:镜像只复读实现就是复读机。
  */
-test('廉价前置只看会发布的三个字段:workspace 形态的内部 devDeps 不得判红(真载体 @ihui/sdk)', async () => {
+test('廉价前置只看会发布的三个字段:workspace 形态的内部 devDeps 不得判红(真载体 @ihui-ai/sdk)', async () => {
   const mod = await import(
     new URL('../../../scripts/check-sdk-release-channels.mjs', import.meta.url).href
   )
   const fail = mod.publishPreconditionFailures
   const raw = headFile('packages/sdk/package.json')
-  assert.ok(raw !== null, 'HEAD 里读不到 @ihui/sdk 清单 —— 判不了不是通过')
+  assert.ok(raw !== null, 'HEAD 里读不到 @ihui-ai/sdk 清单 —— 判不了不是通过')
   const sdk = JSON.parse(raw)
   // 前提自证:这份真实清单确实"非 private + 带 workspace devDeps + 版本已定",
   // 否则本条就退化成一句空调用(判据的载体没了还报绿,是本仓反复记过的那一型)。
-  assert.notEqual(sdk.private, true, '@ihui/sdk 应已非 private(本条的前提)')
+  assert.notEqual(sdk.private, true, '@ihui-ai/sdk 应已非 private(本条的前提)')
   assert.match(
     JSON.stringify(sdk.devDependencies ?? {}),
     /workspace:/,

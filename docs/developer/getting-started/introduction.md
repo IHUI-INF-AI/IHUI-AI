@@ -51,7 +51,7 @@ AI 调用类端点(chat/embeddings/agents/多模态)内部转发到 `ai-service`
 ## 快速开始
 
 1. **获取 API Key** — 登录管理后台 → 设置 → API 密钥 → 创建密钥(从 27 个权限点中选择)。详见 [身份认证](./authentication.md)。
-2. **安装 SDK** — `npm install @ihui/sdk`(TypeScript)或 `pip install ihui-ai`(Python)。详见 [环境配置](./setup.md)。
+2. **安装 SDK** — `npm install @ihui-ai/sdk`(TypeScript)或 `pip install ihui-ai`(Python)。详见 [环境配置](./setup.md)。
 3. **发起首个请求** — 参考 [API 概览](../api/overview.md) 选择端点,或直接复制下方示例。
 
 ### cURL 示例
@@ -76,7 +76,7 @@ curl -X POST http://localhost:8802/v1/chat/completions \
 
 | 语言 | 包名 | 安装 | 入口 |
 |------|------|------|------|
-| TypeScript / JavaScript | `@ihui/sdk` | `npm install @ihui/sdk` | `createClient(config): IhuiClient` |
+| TypeScript / JavaScript | `@ihui-ai/sdk` | `npm install @ihui-ai/sdk` | `createClient(config): IhuiClient` |
 | Python | `ihui-ai` | `pip install ihui-ai` | `create_client(config) -> IhuiClient` |
 | 任意 HTTP 语言 | — | — | 直接调用 RESTful 端点,参考 [cURL 示例](../sdk/curl.md) |
 

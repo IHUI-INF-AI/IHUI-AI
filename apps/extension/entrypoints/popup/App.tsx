@@ -16,7 +16,7 @@
  * 登录 + 协议勾选 + 注册入口会超 600px,input/button 缩到 h-9 + 外层 max-h-[600px]
  * overflow-y-auto 解决滚动。
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   BookOpen,
   Globe,
@@ -29,14 +29,7 @@ import {
 import { getMe, logout, type AuthUser } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { classifyRefreshFailureStatus } from '@ihui/shared/auth/auto-login-policy'
-import {
-  AuthShell,
-  LoginForm,
-  planLoginRegion,
-  type LoginResult,
-  type ThirdPartyPlatform,
-} from '@ihui/ui-react'
-import { OAUTH_BRAND_COLORS } from '@ihui/design-tokens'
+import { AuthShell, LoginForm, type LoginResult } from '@ihui/ui-react'
 import { initApi, getToken, getRefreshToken, clearAllTokens } from '../../lib/token'
 import { startAutoRefresh } from '../../lib/token-utils'
 import { createExtensionLoginApiClient } from '../../lib/login-api-client'
@@ -44,8 +37,8 @@ import { useI18n } from '../../src/i18n'
 import { sendMessage } from '../../lib/message-router'
 import { useSystemTheme } from '../../src/hooks/use-system-theme'
 import { useExtensionThirdPartyAuth } from '../../src/hooks/use-extension-third-party-auth'
-// 2026-10-27 立:登录方式优先级按访客来源 IP 分档(与 web 主站同一份判据 planLoginRegion)
-import { useExtensionLoginRegion } from '../../src/hooks/use-extension-login-region'
+// 票 L28754:登录方式优先级按访客 IP 地区走,判据住在 @ihui/ui-react 的 planLoginRegion
+import { useExtensionLoginPlan } from '../../src/hooks/use-extension-login-plan'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { QuickActionButton } from '../components/QuickActionButton'
 import { NotificationBell } from '../components/NotificationBell'
@@ -85,7 +78,7 @@ export async function probeIdentity(deps: {
 }
 
 export default function App() {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   // 2026-07-26 改造:popup 启用系统主题跟随(浅/深模式由 OS 决定),让 popup 跟 web 端
   // LoginDialog 用同一份 .login-scope / .welcome-img 共享 CSS,深色模式视觉一致。
   useSystemTheme()
@@ -98,29 +91,7 @@ export default function App() {
   // thirdParty 由 useExtensionThirdPartyAuth hook 注入 8 平台配置。
   const loginApiClient = useMemo(() => createExtensionLoginApiClient(), [])
   const thirdParty = useExtensionThirdPartyAuth()
-  // 2026-10-27 立:登录方式优先级与 web 主站同档(判据唯一住在 @ihui/ui-react 的
-  // planLoginRegion,端内不复算「谁排第一」)。IP 那一腿取不到 ⇒ 传 null,由判据回落
-  // locale;locale 取扩展自己的 i18n 当前语言(chrome.storage.local 的 ihui_locale,
-  // 读不到时为默认 'zh-CN' —— 扩展端能拿到的最粗语言信号,见 src/i18n/index.tsx)。
-  // 取数只在未登录(popup 真的渲染登录表单)时发起,已登录不多跑一次 GET。
-  const ipRegion = useExtensionLoginRegion(!user)
-  const isPlatformAvailable = useCallback(
-    (platform: ThirdPartyPlatform) =>
-      thirdParty.config.providers.some((p) => p.key === platform && p.enabled && !p.forceDisabled),
-    [thirdParty.config.providers],
-  )
-  const loginPlan = useMemo(
-    () => planLoginRegion({ ipRegion, locale, isPlatformAvailable }),
-    [ipRegion, locale, isPlatformAvailable],
-  )
-  // 主推大按钮的品牌底取色与 web 同一档同源(@ihui/design-tokens 的 OAUTH_BRAND_COLORS);
-  // 共享 FeaturedPlatformButton 缺底时是 text-white 透明底 ⇒ 必须成对给,端内不自创颜色。
-  const featuredBackground =
-    loginPlan.featuredPlatform === 'google'
-      ? OAUTH_BRAND_COLORS.google
-      : loginPlan.featuredPlatform === 'wechat'
-        ? OAUTH_BRAND_COLORS.wechat
-        : undefined
+  const loginPlan = useExtensionLoginPlan(thirdParty.config.providers)
 
   useEffect(() => {
     // 2026-07-23 修复:原代码 initApi() reject 时 setReady(true) 永不触发 → popup 卡在 loading
@@ -225,13 +196,10 @@ export default function App() {
             // 而不是留一个看不见的缺省。web 那侧的写法才是判据的正解。
             canAutoSubmitCredentials={() => true}
             thirdParty={thirdParty.config}
-            // 扫码 tab 内部的渠道序不在端内指定:不注入 qrPlatforms,走共享
-            // DEFAULT_PLATFORMS(wechat → 企微 → 钉钉 → 飞书),与国内档 qrPlatformPriority
-            // 同序;海外档该表为空 = 不重排,与 web 同一判据语义。
-            tabs={loginPlan.tabs}
-            thirdPartyFeaturedPlatform={loginPlan.featuredPlatform}
-            thirdPartyFeaturedBackground={featuredBackground}
-            thirdPartyPriorityPlatforms={loginPlan.priorityPlatforms}
+            tabs={loginPlan.plan.tabs}
+            thirdPartyFeaturedPlatform={loginPlan.plan.featuredPlatform}
+            thirdPartyFeaturedBackground={loginPlan.featuredBackground}
+            thirdPartyPriorityPlatforms={loginPlan.plan.priorityPlatforms}
             showAgreement
             agreementMode="notice-dialog"
             showRegisterLink

@@ -28,7 +28,7 @@ const distDir = join(pkgRoot, 'dist')
 const require = createRequire(import.meta.url)
 
 function fail(msg) {
-  console.error(`❌ embed-types(@ihui/sdk): ${msg}`)
+  console.error(`❌ embed-types(@ihui-ai/sdk): ${msg}`)
   process.exit(1)
 }
 

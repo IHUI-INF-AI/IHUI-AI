@@ -10,15 +10,15 @@
 >
 > | 事项 | 实测结论 |
 > | --- | --- |
-> | 是否已发布 | `ihui-cli@1.0.0` **已发布**(2026-10-19,`latest=1.0.0`,安装实测通过);`@ihui/sdk` 仍 404 未发布 |
+> | 是否已发布 | `ihui-cli@1.0.0` **已发布**(2026-10-19,`latest=1.0.0`,安装实测通过);`@ihui-ai/sdk` 仍 404 未发布 |
 > | 发布凭据 | ✅ 本地已有 granular token `ihui-cli-publish`(`bypass_2fa: true`,All packages,read-write,到期 2027-01-17),写在用户级 `~/.npmrc` 的 `//registry.npmjs.org/:_authToken`;备份在仓库外 `D:\DevEnv\secrets\npm-token-ihui-cli-2026-10-19.txt`。**这是 CLI 与 SDK 的唯一发布通道**(不启用 2FA,故不用 OIDC) |
 > | OIDC 免 token 发布 | ⛔ **已放弃(用户定案)**:不启用 2FA、不登记 Trusted Publisher。原卡点:npm 要求包设置类操作做 WebAuthn step-up,网页提交后强制跳 `/settings/<user>/tfa` 的 `Add your security key`,无邮箱 OTP 分支 |
 > | 当前可用的发布方式 | ✅ 唯一通道:**granular token(`bypass_2fa`)**。本地 `npm publish ./npm-dist --access public`;CI 由 `release-cli.yml` 回退 `secrets.NPM_PUBLISH_TOKEN` 发布(无 provenance)。`cli-v*` 的 OIDC 步骤会失败后自动回退,属预期行为 |
-> | `@ihui` scope | `ihui-cli` 是 **unscoped 包名**,与 `@ihui` scope 归属无关,不存在"scope 被占用"问题;`@ihui` scope 只影响 `@ihui/sdk` 等 SDK 包(发布前仍需 `npm org ls ihui` 确认) |
-> | 本指南适用包 | npm 侧当前有两个目标:CLI 发 **`ihui-cli`**(unscoped,单文件 bundle,见 §11);SDK 只发 **`@ihui/sdk`**。`@ihui/types` / `@ihui/api-client` / `@ihui/ui-react` / `@ihui/design-tokens` 仍是 `private: true` 的内部包(理由见 §4.6) |
+> | `@ihui` scope | `ihui-cli` 是 **unscoped 包名**,与 `@ihui` scope 归属无关,不存在"scope 被占用"问题;`@ihui` scope 只影响 `@ihui-ai/sdk` 等 SDK 包(发布前仍需 `npm org ls ihui` 确认) |
+> | 本指南适用包 | npm 侧当前有两个目标:CLI 发 **`ihui-cli`**(unscoped,单文件 bundle,见 §11);SDK 只发 **`@ihui-ai/sdk`**。`@ihui/types` / `@ihui/api-client` / `@ihui/ui-react` / `@ihui/design-tokens` 仍是 `private: true` 的内部包(理由见 §4.6) |
 > | 发布通道 | 不是本文件 §7 提议的 `npm-publish.yml`,而是已存在的 **`.github/workflows/release-sdk.yml`**(`sdk-v*` tag)与 **`release-cli.yml`**(`cli-v*` tag,已切 OIDC) |
-> | 仓库 registry 陷阱 | 根 `.npmrc` 写的是 `registry=https://registry.npmmirror.com`(**第三方镜像**)。项目级 `.npmrc` 优先级高于 `setup-node` 写的用户级配置 → 缺 `publishConfig.registry` 的包会**把代码推给镜像站**。`@ihui/sdk` / `ihui-cli` 已显式锁 `registry.npmjs.org` |
-> | 已完成的可安装性修复 | `@ihui/sdk`:`main`/`types`/`exports` → `dist`、`files` 白名单、`license: Apache-2.0`、`@ihui/types` 降为 devDependency、`prepack` 构建+附带 `LICENSE`/`NOTICE`。tarball 由 **253 文件 / 1.39MB(含 java/go/dotnet/python 四棵源码树、src、tests、`.turbo` 日志、tsbuildinfo)** 降到 **76 文件 / 0.23MB(dist + LICENSE + NOTICE + README)**。已用真实 tarball 装入干净工程验证:`npm i` 成功、`import` 成功、`tsc --noEmit`(skipLibCheck:true)**exit 0** |
+> | 仓库 registry 陷阱 | 根 `.npmrc` 写的是 `registry=https://registry.npmmirror.com`(**第三方镜像**)。项目级 `.npmrc` 优先级高于 `setup-node` 写的用户级配置 → 缺 `publishConfig.registry` 的包会**把代码推给镜像站**。`@ihui-ai/sdk` / `ihui-cli` 已显式锁 `registry.npmjs.org` |
+> | 已完成的可安装性修复 | `@ihui-ai/sdk`:`main`/`types`/`exports` → `dist`、`files` 白名单、`license: Apache-2.0`、`@ihui/types` 降为 devDependency、`prepack` 构建+附带 `LICENSE`/`NOTICE`。tarball 由 **253 文件 / 1.39MB(含 java/go/dotnet/python 四棵源码树、src、tests、`.turbo` 日志、tsbuildinfo)** 降到 **76 文件 / 0.23MB(dist + LICENSE + NOTICE + README)**。已用真实 tarball 装入干净工程验证:`npm i` 成功、`import` 成功、`tsc --noEmit`(skipLibCheck:true)**exit 0** |
 >
 > **⛔ 最终决策(2026-10-19,用户明确指示):永久不启用 2FA / 不绑定任何 WebAuthn 认证器,因此不登记 Trusted Publisher。**
 > 该结论已定案 —— 后续任何 agent 会话**不得再提议、不得再询问**扫码绑定安全密钥、Windows Hello、USB key 或 TOTP 等 2FA 方案。
@@ -35,11 +35,11 @@
 
 > 目的:把核心 packages 发布到 npm,增加曝光、便于集成、建立品牌。本指南详细到 AI agent 可照着执行。
 >
-> 适用包(均位于 `packages/` 下):`@ihui/types` / `@ihui/sdk` / `@ihui/api-client` / `@ihui/ui-react` / `@ihui/design-tokens`
+> 适用包(均位于 `packages/` 下):`@ihui/types` / `@ihui-ai/sdk` / `@ihui/api-client` / `@ihui/ui-react` / `@ihui/design-tokens`
 >
 > 发布顺序(按依赖递推):`types` → `design-tokens` → `ui-react` → `sdk` → `api-client`
 >
-> ⚠️ 上面这条"5 包全发"是原始设想,**当前对外只发两个包:`ihui-cli`(CLI,unscoped,不依赖 `@ihui/*`)与 `@ihui/sdk`**(其余 4 个保持 private,理由见 §4.6 与 §11)。
+> ⚠️ 上面这条"5 包全发"是原始设想,**当前对外只发两个包:`ihui-cli`(CLI,unscoped,不依赖 `@ihui/*`)与 `@ihui-ai/sdk`**(其余 4 个保持 private,理由见 §4.6 与 §11)。
 
 ---
 
@@ -48,7 +48,7 @@
 | 价值维度 | 说明 |
 | --- | --- |
 | 增加曝光 | npm 月活 1700 万开发者,`npm view` / unpkg / jsDelivr 自然流量;SEO 反哺 GitHub star |
-| 便于集成 | 用户 `pnpm add @ihui/sdk` 即可用,无需 clone 仓库;CI/CD 友好 |
+| 便于集成 | 用户 `pnpm add @ihui-ai/sdk` 即可用,无需 clone 仓库;CI/CD 友好 |
 | 建立品牌 | `@ihui` scope 占位,建立"全栈 AI 平台"心智;对比 Dify/Coze 的 npm 包更显专业 |
 | 版本可信 | semver + tag + changelog,用户敢用于生产;Apache 2.0 商业友好 |
 | 跨端复用 | 9 端代码同源,SDK 一处发布、多端调用;降低集成摩擦 |
@@ -62,7 +62,7 @@
 | `@ihui/types` | `packages/types` | 无 | `0.1.0` | 最基础,优先发布 |
 | `@ihui/design-tokens` | `packages/design-tokens` | `clsx` / `tailwind-merge` / `cva` | `0.1.0` | 设计令牌,无业务依赖 |
 | `@ihui/ui-react` | `packages/ui-react` | `@ihui/design-tokens` + Radix UI | `0.1.0` | React 19 组件库 |
-| `@ihui/sdk` | `packages/sdk` | `@ihui/types` | `0.1.0` | JS/TS SDK,API 调用封装 |
+| `@ihui-ai/sdk` | `packages/sdk` | `@ihui/types` | `0.1.0` | JS/TS SDK,API 调用封装 |
 | `@ihui/api-client` | `packages/api-client` | `@ihui/types` | `0.1.0` | 完整 API 客户端,4561 路由 |
 
 > **scope 策略**:统一用 `@ihui` scope,scoped 包默认私有,发布必须带 `--access public`。
@@ -101,7 +101,7 @@ npm view ihui-cli            # unscoped,已发布 1.0.0(2026-10-19),回读 200
 npm view @ihui/types
 npm view @ihui/design-tokens
 npm view @ihui/ui-react
-npm view @ihui/sdk
+npm view @ihui-ai/sdk
 npm view @ihui/api-client
 ```
 
@@ -118,7 +118,7 @@ registry=https://registry.npmmirror.com   # ← 第三方镜像,不是 npm 官�
 npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Actions 里 `setup-node` 的
 `registry-url` 压不过它。不带显式 registry 的 `npm publish` 会**把包 PUT 到 npmmirror**。
 
-正确做法(**已在 `@ihui/sdk` / `ihui-cli` 落地**,不要再依赖命令行习惯):
+正确做法(**已在 `@ihui-ai/sdk` / `ihui-cli` 落地**,不要再依赖命令行习惯):
 
 ```jsonc
 // packages/<pkg>/package.json —— 包级锁死,优先级最高,任何环境都生效
@@ -406,13 +406,13 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
 
 > **关键变更**:`workspace:*` → `^0.1.0`,确保 npm 端能解析依赖。
 
-### 4.5 @ihui/sdk 完整配置(**已落地,与仓库实际一致**)
+### 4.5 @ihui-ai/sdk 完整配置(**已落地,与仓库实际一致**)
 
 `packages/sdk/package.json` 现状 —— 这不是模板,是已提交的实际内容:
 
 ```jsonc
 {
-  "name": "@ihui/sdk",
+  "name": "@ihui-ai/sdk",
   "version": "0.1.0",
   "description": "IHUI AI (智汇AI) 官方 TypeScript SDK — 对话 / 图像 / 音频 / 视频 / 知识库 / 记忆 / Agent 全能力客户端",
   "license": "Apache-2.0",
@@ -454,7 +454,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
 
 | 模板写法 | SDK 实际 | 为什么 |
 | --- | --- | --- |
-| `main: "./dist/index.cjs"` + `exports.require` | 只有 `import`,无 `require` | 构建器是 `tsc`,只产 ESM。声明一个不存在的 `.cjs` 入口,CJS 消费者 `require('@ihui/sdk')` 直接 `ERR_MODULE_NOT_FOUND` |
+| `main: "./dist/index.cjs"` + `exports.require` | 只有 `import`,无 `require` | 构建器是 `tsc`,只产 ESM。声明一个不存在的 `.cjs` 入口,CJS 消费者 `require('@ihui-ai/sdk')` 直接 `ERR_MODULE_NOT_FOUND` |
 | `build: "tsup"` | `build: "tsc -p tsconfig.json"` | 不为此新增 devDependency(会改 `pnpm-lock.yaml`);`tsc` 已能产出 `dist/*.js` + `*.d.ts` + `.map`,实测 72 个产物文件足够 |
 | `prepublishOnly: "build && test"` | `prepack: "node scripts/prepack.mjs"` | `prepublishOnly` 只在 `npm publish` 跑,`npm pack` / 私有镜像同步都不跑;`prepack` 两种路径都覆盖,并且顺带把根 `LICENSE`/`NOTICE` 复制进包目录(§4 分发要求)+ 自检"入口指 dist / 无 workspace 依赖 / files 含 dist",任一不满足直接 exit 1 拒绝出包 |
 | `files: [dist, README.md, LICENSE, CHANGELOG.md]` | `[dist, README.md, LICENSE, NOTICE]` | 本仓库无 CHANGELOG.md(变更记录统一在 `docs/CHANGELOG.md`,AGENTS.md §1 禁止另立计划/变更文件);NOTICE 是 Apache-2.0 第 4 条要求随副本分发的 |
@@ -472,7 +472,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
 
 1. **消费方式**:9 端经 workspace 按源码直接 `import { ... } from '@ihui/api-client/endpoints/xxx'`,
    依赖 AGENTS.md §3 的"所有 API 调用必须走 `@ihui/api-client`"约束。它是**仓库内规范**,不是对外契约。
-2. **对外契约已由 `@ihui/sdk` 承担**:同一份 REST 面发两个高度重叠的 npm 包,只会让外部使用者困惑。
+2. **对外契约已由 `@ihui-ai/sdk` 承担**:同一份 REST 面发两个高度重叠的 npm 包,只会让外部使用者困惑。
 3. **翻了也发不出去**:它的 `dependencies` 是 `{ "@ihui/types": "workspace:*" }`,而 `@ihui/types` 仍是
    `private: true`。去 private 只会把失败从"入口不可用"推到"安装 404"。
 4. **入口指 `src` 在仓库内是对的**:`packages/` 下 16 个包**全部**是 `main/types → ./src/index.ts`
@@ -490,7 +490,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
 > **通用陷阱(与 private 无关,值得单独记)**:npm 打包**只认包目录自己的 ignore 文件**,
 > 仓库根的 `.gitignore`(`dist/`、`.turbo/`、`tsconfig.tsbuildinfo`)**对 `npm pack` 不生效**。
 > 所以"被 gitignore 了"绝不等于"不会进 tarball" —— 必须靠 `files` 白名单。本次体检中
-> `@ihui/api-client` 与 `@ihui/sdk` 都实打实把 `.turbo/*.log` 和 `tsconfig.tsbuildinfo` 打了进去。
+> `@ihui/api-client` 与 `@ihui-ai/sdk` 都实打实把 `.turbo/*.log` 和 `tsconfig.tsbuildinfo` 打了进去。
 
 ---
 
@@ -504,7 +504,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
 pnpm --filter @ihui/types add -D tsup
 pnpm --filter @ihui/design-tokens add -D tsup
 pnpm --filter @ihui/ui-react add -D tsup
-pnpm --filter @ihui/sdk add -D tsup
+pnpm --filter @ihui-ai/sdk add -D tsup
 pnpm --filter @ihui/api-client add -D tsup
 ```
 
@@ -733,7 +733,7 @@ npm publish --tag beta                  # 用 beta tag,不污染 latest
 >
 > | 通道 | 触发 tag | 发什么 | 状态 |
 > | --- | --- | --- | --- |
-> | `release-sdk.yml` | `sdk-v*` | npm `@ihui/sdk` + PyPI `ihui-ai` + Maven + Go | 存在;2026-09-20 修掉"4 个 job 的 `if:` 在 push 事件下恒 false → 只 dry-run 不发布"的门控缺陷,并补齐 tarball 自检 / `twine check` 前置 / 发布后 registry 回读 |
+> | `release-sdk.yml` | `sdk-v*` | npm `@ihui-ai/sdk` + PyPI `ihui-ai` + Maven + Go | 存在;2026-09-20 修掉"4 个 job 的 `if:` 在 push 事件下恒 false → 只 dry-run 不发布"的门控缺陷,并补齐 tarball 自检 / `twine check` 前置 / 发布后 registry 回读 |
 > | `release-cli.yml` | `cli-v*` | npm `ihui-cli` + 6 二进制 + GHCR 镜像 | 存在;发布物已收口为单文件 bundle;首版 `1.0.0` 已 bootstrap 完成。npm 发布走 **token 通道**(OIDC 步骤失败后自动回退 `NPM_PUBLISH_TOKEN`,见 §11) |
 > | `release-on-tag.yml` | `v*` | 只建 GitHub Release 页面 | 与包发布无关 |
 >
@@ -750,7 +750,7 @@ on:
       - '@ihui/types@*'
       - '@ihui/design-tokens@*'
       - '@ihui/ui-react@*'
-      - '@ihui/sdk@*'
+      - '@ihui-ai/sdk@*'
       - '@ihui/api-client@*'
   workflow_dispatch:
     inputs:
@@ -880,7 +880,7 @@ npmjs.com → `ihui-cli` 包页面 → **Settings** → **Trusted Publishing** �
 > 即 CI 仍能发布,只是拿不到 Sigstore provenance;本地 `npm publish` 用 `bypass_2fa` granular token,完全不受影响。
 > 这一回退**不是临时方案,而是既定长期方案**。
 
-> SDK(`@ihui/sdk`)尚未切 OIDC,仍沿用 token 方式,需要 `NPM_TOKEN` secret(见 §7.5)。
+> SDK(`@ihui-ai/sdk`)尚未切 OIDC,仍沿用 token 方式,需要 `NPM_TOKEN` secret(见 §7.5)。
 
 ### 7.3 触发发布(**实际通道**,不是 §7.1 提案)
 
@@ -931,7 +931,7 @@ git push origin cli-v1.0.1    # 推送 tag 同样只能由人执行
 #      注意名字是 PYPI_TOKEN,不是 PYPI_API_TOKEN(workflow 里引用的是前者)
 
 # ── 1. 本地自检(不需要任何凭据,可反复跑) ───────────────────────
-pnpm --filter @ihui/sdk typecheck && pnpm --filter @ihui/sdk test
+pnpm --filter @ihui-ai/sdk typecheck && pnpm --filter @ihui-ai/sdk test
 cd packages/sdk && npm pack --dry-run --json   # 期望 76 文件 / 约 0.23MB,含 LICENSE+NOTICE,无 src|java|go|dotnet|python|.turbo|tsbuildinfo
 cd packages/sdk/python && cp ../../../LICENSE ../../../NOTICE . && \
   python -m build && python -m twine check dist/*   # 期望 wheel + sdist 双 PASSED
@@ -943,10 +943,10 @@ git tag sdk-v0.1.0 && git push origin sdk-v0.1.0     # CI 路线(tag 触发)
 cd packages/sdk && npm publish --access public --provenance
 
 # ── 3. 回读验证(命令 exit 0 不等于发布成功,必须回读) ────────────
-npm view @ihui/sdk version --registry=https://registry.npmjs.org/   # 期望 0.1.0
+npm view @ihui-ai/sdk version --registry=https://registry.npmjs.org/   # 期望 0.1.0
 curl -s https://pypi.org/pypi/ihui-ai/0.1.0/json | head -c 200      # 期望含 "version":"0.1.0"
 # 装一次真实产物(这才是"对外可安装"的判据):
-mkdir -p /tmp/i && cd /tmp/i && npm init -y >/dev/null && npm i @ihui/sdk && node -e "import('@ihui/sdk').then(m=>console.log(Object.keys(m).length,'exports'))"
+mkdir -p /tmp/i && cd /tmp/i && npm init -y >/dev/null && npm i @ihui-ai/sdk && node -e "import('@ihui-ai/sdk').then(m=>console.log(Object.keys(m).length,'exports'))"
 ```
 
 ---
@@ -989,12 +989,12 @@ mkdir /tmp/ihui-test && cd /tmp/ihui-test
 npm init -y
 
 # 安装刚发布的包
-npm install @ihui/types @ihui/sdk
+npm install @ihui/types @ihui-ai/sdk
 
 # 创建 test.mjs 验证
 cat > test.mjs <<'EOF'
 import * as types from '@ihui/types';
-import { IhuiClient } from '@ihui/sdk';
+import { IhuiClient } from '@ihui-ai/sdk';
 console.log('types exports:', Object.keys(types));
 console.log('IhuiClient:', typeof IhuiClient);
 EOF
@@ -1198,7 +1198,7 @@ npm deprecate @ihui/types@0.1.0 "use @ihui/types@0.2.0 instead"
 ```bash
 # 每月一次
 pnpm --filter @ihui/types update
-pnpm --filter @ihui/sdk update
+pnpm --filter @ihui-ai/sdk update
 
 # 升级后 patch 版本发布
 pnpm version patch
@@ -1245,12 +1245,12 @@ git tag cli-v1.0.1 && git push origin cli-v1.0.1   # 推送 tag 只能由人执�
 
 ## 附录:发布 Checklist
 
-以 `@ihui/sdk@0.1.0` 与 `ihui-cli@1.0.0` 为参照。逐项打勾,**"实测状态"为 2026-10-18 ~ 2026-10-19 的结论**:
+以 `@ihui-ai/sdk@0.1.0` 与 `ihui-cli@1.0.0` 为参照。逐项打勾,**"实测状态"为 2026-10-18 ~ 2026-10-19 的结论**:
 
 - [x] `package.json` 已是可发布形态(`main`/`types` → `dist`、`files` 白名单、`publishConfig.registry` 锁 npmjs.org、`license`、`repository`、`bugs`)—— **已落地**
 - [x] 无 `workspace:*` / `@ihui/*` 残留在 `dependencies`(`@ihui/types` 已降为 devDependency)—— **已落地,prepack 会硬闸**
-- [x] `pnpm --filter @ihui/sdk typecheck` 全绿 —— **已实测通过**
-- [x] `pnpm --filter @ihui/sdk test` 全绿 —— **已实测 51 passed**
+- [x] `pnpm --filter @ihui-ai/sdk typecheck` 全绿 —— **已实测通过**
+- [x] `pnpm --filter @ihui-ai/sdk test` 全绿 —— **已实测 51 passed**
 - [x] `npm pack --dry-run` 清单干净 —— **已实测 76 文件 / 0.23MB,无 src/java/go/dotnet/python/tests/.turbo/tsbuildinfo**
 - [x] 真实 tarball 装进干净工程 + `import` + `tsc --noEmit` 通过 —— **已实测 exit 0**
 - [x] CLI 发布物已收口为单文件 bundle(`build:npm` → `apps/cli/npm-dist/`,无 `dependencies`,含 `dist/messages`)—— **已落地(见 §11)**
@@ -1266,7 +1266,7 @@ git tag cli-v1.0.1 && git push origin cli-v1.0.1   # 推送 tag 只能由人执�
 - [ ] `LICENSE` / `NOTICE` 随包分发 —— **已落地(prepack 从仓库根复制)**
 - [ ] CI 链路 dry-run 通过(`gh workflow run release-sdk.yml -f dry_run=true -f language=npm`)—— ⏳ 见交付报告
 - [ ] SDK `npm publish --access public` 执行成功 —— ❌ 未执行(无凭据,不可撤销动作已按硬闸停止)
-- [ ] `npm view @ihui/sdk version` 回读 === 发布版本 —— ❌ 未做(registry 仍 404)
+- [ ] `npm view @ihui-ai/sdk version` 回读 === 发布版本 —— ❌ 未做(registry 仍 404)
 - [ ] unpkg / jsDelivr CDN 可访问 —— ❌ 未做
 - [ ] GitHub Release 已创建并链接到 npm 包 —— ❌ 未做(`release-on-tag.yml` 只认 `v*`)
 - [ ] 临时项目 `npm install` + `node test.mjs` 验证通过 —— ✅ 已在本地用 tarball 完成(见上)

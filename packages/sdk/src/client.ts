@@ -7,7 +7,7 @@
  *
  * 用法:
  * ```ts
- * import { createClient } from '@ihui/sdk'
+ * import { createClient } from '@ihui-ai/sdk'
  *
  * const client = createClient({ apiKey: 'ihui_xxx' })
  * const models = await client.ai.listModels()

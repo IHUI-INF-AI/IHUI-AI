@@ -28,7 +28,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
 // 已结清行回退判据(§0.6 单一真相源):本器只 import,不抄第二份"什么算已结清/同一件事"。
@@ -282,6 +282,37 @@ function rollbackLedger(file, snap, why) {
 }
 
 /**
+ * 处置侧快照落盘(2026-10-28 立,票 gb22「活文档被体积清偿压好后又被归并档原样拉回」)。
+ *
+ * 为什么需要这一份:§1 的体积清偿是两步走 —— 先把整区正文逐字写进 `.ihui-agent/archive/`,再把文档
+ * 压下来。压下来到落库之间(实测 11:40 压 → 11:54 入库)HEAD 仍是**未压版**,而 `merge-live-doc --apply`
+ * 比的正是 HEAD ↔ 工作树 ⇒ 它把刚被有意搬走的行判成"真丢失"原样插回(实测 2026-10-28 11:51:57 把
+ * 95336 字节顶回 102352,备份件 `.ihui-agent/tmp/AGENTS.md.2026-10-28T03-51-57.pre-merge.bak`)。
+ * 复洁器要判"这一行是本轮归并插回来的、还是别人真新增的",唯一可靠的基准就是**归并前那一刻的工作树**
+ * —— 也就是本器已经在手的 `snapshotLedger` 快照。落盘只为把它交给子进程,文件名固定 ⇒ 每轮覆盖,不堆积。
+ *
+ * 只服务正文族(AGENTS.md / README*.md):PROJECT_PLAN.md 一族的四道维有镜像测试钉着,本次红线是不动
+ * 其语义,故该族一律不传这一旗(判据语义与 2026-10-22 立版逐字相同)。
+ *
+ * @returns {string|null} 相对 ROOT 的快照路径;取不到快照 ⇒ null(本维不启用,复洁退回原判据)
+ */
+function writeDispositionSnapshot(file, snap) {
+  if (!file.endsWith('.md') || file.endsWith('PROJECT_PLAN.md')) return null
+  if (!snap || !snap.length) return null
+  try {
+    const dir = join(ROOT, '.ihui-agent', 'tmp', 'auto-commit-quiet')
+    mkdirSync(dir, { recursive: true })
+    const rel = join('.ihui-agent', 'tmp', 'auto-commit-quiet', `${basename(file)}.pre-merge.disposition`)
+    const abs = join(ROOT, rel)
+    writeFileSync(abs, snap)
+    return rel
+  } catch (e) {
+    log(`⚠️ 处置侧快照落盘失败(${file}):${String(e?.message || e)} ⇒ 本轮不启用归档批次维(退回原判据)`)
+    return null
+  }
+}
+
+/**
  * 已结清行回退闸的取数口(2026-10-25):HEAD blob 走取材层(守门 118 —— 散写 cat-file 会让
  * "判据与内容不同面同轮"悄悄发生);候选取**现盘文本**,因为调用点已在归并/复洁之后,
  * 那一刻的盘上文本就是即将入库的那一份。任一取不到 ⇒ null,由判据落 undetermined(fail-closed)。
@@ -411,6 +442,10 @@ function main() {
       // "本轮不收编"只保住了历史,工作树副本仍被写脏 —— 那正是 16:00/16:06/16:09 三次
       // 回插事故里污染扩散到下一席位的原因。
       const snap = snapshotLedger(f)
+      // 处置侧快照(2026-10-28,票 gb22):归并档比的是 HEAD ↔ 工作树,而体积清偿在飞的窗口里
+      // HEAD 还是未压版 ⇒ 被有意搬走的行会被判成"真丢失"插回。把归并前的工作树交给复洁器,
+      // 它才能把"本轮归并插回的迁出行"和"别人真新增的行"分开。PROJECT_PLAN 一族不传(红线)。
+      const dispRel = writeDispositionSnapshot(f, snap)
       /** 只在判定红时回滚;判定绿则保留本器写盘(归并/复洁的正当产物)。 */
       const revertIfRed = (why) => {
         if (!f.endsWith('PROJECT_PLAN.md')) return
@@ -426,7 +461,11 @@ function main() {
         try {
           const sr = execFileSync(
             process.execPath,
-            [join(ROOT, 'scripts', 'scrub-declared-removals.mjs'), f],
+            [
+              join(ROOT, 'scripts', 'scrub-declared-removals.mjs'),
+              f,
+              ...(dispRel ? ['--archive-disposition', dispRel] : []),
+            ],
             {
               cwd: ROOT,
               encoding: 'utf8',
@@ -437,11 +476,23 @@ function main() {
             },
           )
           const m = /state=(\w+) dropped=(\d+)/.exec(String(sr ?? ''))
+          const ar = /archive=(\d+)/.exec(String(sr ?? ''))
           log(
-            `活文档摘除台账复洁(${f}): ${m ? `${m[1]} dropped=${m[2]}` : '未回带机读行 ⇒ 本轮不收编'}`,
+            `活文档摘除台账复洁(${f}): ${m ? `${m[1]} dropped=${m[2]}${ar ? ` archive=${ar[1]}` : ''}` : '未回带机读行 ⇒ 本轮不收编'}`,
           )
           if (!m) {
             revertIfRed('复洁未回带机读行')
+            stale.splice(stale.indexOf(f), 1)
+            continue
+          }
+          // 归档批次维放过行 = 本轮归并确实把"已按 §1 逐字迁入 archive 的迁出批次"插回来了,而该批次
+          // 此刻只在盘上、不在 HEAD 面 ⇒ 现在收编会把清偿成果第二次写回历史。让路给文档所有者:
+          // 工作树已被复洁回到处置那一版(不是被插回的那一版),本器不再碰它,同批归档件与正文一起落库
+          // 之后下一轮自然无滞留。失效方向恒为"多要一次落库",绝不是"多放一次收编"。
+          if (ar && Number(ar[1]) > 0) {
+            log(
+              `活文档让路(${f}):本轮归并插回 ${ar[1]} 行"已逐字迁入 archive 的迁出批次"(凭据只在盘上、HEAD 面尚未入库)⇒ 不收编,留给文档所有者与同批归档件一起落库`,
+            )
             stale.splice(stale.indexOf(f), 1)
             continue
           }

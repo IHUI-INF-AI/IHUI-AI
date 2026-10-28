@@ -151,7 +151,7 @@ export function validateStructure(manifest) {
  * **2026-09-26 收窄:只看会发布的那三个字段,不看 devDependencies。** 首版把 devDependencies
  * 一起扫了,那是判据错不是世界错 —— npm 发布时会**整个剥掉 devDependencies**,workspace 协议
  * 写在那里根本进不了 tarball。不收窄的后果可实测且是恒红:本仓每个包都带 workspace 形态的内部
- * devDeps(如 `@ihui/eslint-config`/`@ihui/tsconfig`),而**已经摘了 private 的 `@ihui/sdk`**
+ * devDeps(如 `@ihui/eslint-config`/`@ihui/tsconfig`),而**已经摘了 private 的 `@ihui-ai/sdk`**
  * 清单里就有两条 —— 按旧判据它从"摘 private 那一刻"起永远红,唯一出路是把内部依赖从 devDeps 里
  * 删掉,而删掉就打不到类型 ⇒ 逼人跳门。正确姿势正是本次 api-client 收口走的那条:内部包留在
  * devDependencies(供类型面 import type),运行时自实现/自带,于是 dependencies 为空。
