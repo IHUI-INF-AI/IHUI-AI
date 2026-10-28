@@ -2380,6 +2380,8 @@
         "unknownStatus": "未知"
       },
       "queueOps": {
+        "sendNow": "插到队首",
+        "sendNowAria": "插到队首，这条消息将最先发送",
         "ariaLabel": "排队消息操作条",
         "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键",
         "undo": "撤回",

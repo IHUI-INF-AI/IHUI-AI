@@ -2380,6 +2380,8 @@
         "unknownStatus": "unknown"
       },
       "queueOps": {
+        "sendNow": "Send next",
+        "sendNowAria": "Move to front of queue; this message will be sent next",
         "ariaLabel": "Queued message actions",
         "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused",
         "undo": "Undo",
