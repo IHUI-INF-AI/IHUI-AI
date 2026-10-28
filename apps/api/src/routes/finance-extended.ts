@@ -8,6 +8,7 @@ import { eq, and, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
   commissionFlows,
@@ -221,6 +222,22 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
     const parsed = applySchema.safeParse(request.body)
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误: amount, type 必填'))
     const { amount, type, bankInfo, openId } = parsed.data
+    // 2FA step-up：已开 2FA 的账号，资金流出动作必须有窗内二次验证；
+    // 未开 2FA 的账号逐字不变（不打断存量）。判不出账号状态一律拒，不默认放行。
+    const gate = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!gate.ok) {
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            gate.code === 'STEP_UP_REQUIRED'
+              ? '提现需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前验证码'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            gate.code,
+          ),
+        )
+    }
     try {
       // 检查余额：佣金总额 - 已提现（含待审核/处理中/已完成）金额
       const commissionRows = await db
@@ -388,7 +405,10 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
         .onConflictDoNothing({ target: userMargins.userId })
       const [adjusted] = await db
         .update(userMargins)
-        .set({ tokenQuantity: sql`${userMargins.tokenQuantity} + ${amount}`, updatedAt: new Date() })
+        .set({
+          tokenQuantity: sql`${userMargins.tokenQuantity} + ${amount}`,
+          updatedAt: new Date(),
+        })
         .where(
           and(
             eq(userMargins.userId, userId),
