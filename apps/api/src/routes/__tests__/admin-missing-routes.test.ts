@@ -68,7 +68,7 @@ const AUTH_HEADERS = { authorization: 'Bearer mock-admin-token' }
 
 function mockAdminAuth(): void {
   vi.mocked(verifyAccessToken).mockResolvedValue({
-    userId: 'mock-admin-id',
+    userId: '00000000-0000-4000-8000-000000000ad1',
     phone: '13800000000',
     familyId: '11111111-1111-4111-8111-111111111111',
     roleId: 1,

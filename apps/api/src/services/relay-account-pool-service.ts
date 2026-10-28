@@ -18,7 +18,7 @@
  * 的可被调度器续期;没有的直接标 down + 摘除),是否可用交给健康检查/转发链路判定。
  */
 import { createHash } from 'node:crypto'
-import { and, eq, isNull, like, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, like, sql } from 'drizzle-orm'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
@@ -101,6 +101,20 @@ export interface ImportBatchResult {
    * 落待推条数(由 retryPendingCheckinSyncs / 对账收敛器清偿)。失败不阻塞导入。
    */
   checkinSync?: { pushed: number; skipped: number; pending: number; error: string | null }
+  /**
+   * O72 设备指纹重复报告(2026-10-28 立;只报告、不改写、不加迁移/唯一索引 ——
+   * 唯一索引会把存量池硬失败,升格需机主签字)。同一池内 (providerCode, deviceId)
+   * 相同的多行 = 从同一真实客户端导出的 N 个账号,这是上游可直接完成跨账号关联的
+   * 暴露面;此前导入面对它零信号。本字段点名这些行,由运营者自行区分/重导。
+   */
+  deviceCollisions?: Array<{ deviceId: string; uids: string[] }>
+  /**
+   * deviceCollisions 的判定范围三态(§0.3 取不到不冒绿):
+   * - checked   = 本批落库行 + 池内既有行(同 providerCode/归属)一并核对过;
+   * - unjudged  = 池内既有行查询失败 ⇒ deviceCollisions 只覆盖本批内部,池面未判定;
+   * - none      = 本批没有任何带 deviceId 的落库行(无从碰撞,一次池内查询都不发起)。
+   */
+  deviceCollisionScope?: 'checked' | 'unjudged' | 'none'
 }
 
 /** 批量导入的行为开关(覆盖语义;缺省 = 存量语义,调用方零改动) */
@@ -141,22 +155,8 @@ function cstr(v: unknown): string {
 function mapTraeImport(acc: ImportAccountInput): { secrets: Record<string, unknown> } | null {
   const keyPem = cstr(acc['deviceKeyPem'])
   const pubPem = cstr(acc['devicePubPem'])
-  const secrets: Record<string, unknown> = {}
-  if (keyPem && pubPem) {
-    secrets.deviceKeyPem = keyPem
-    secrets.devicePubPem = pubPem
-  }
-  // 会话模板三键与 WorkBuddy 同一条通道(2026-10-28):提取器/回灌带来模板与信封路径,
-  // 「登录本机」按它重封。载荷带就落,不带就不产出键(交给列合并回填既有值,不抹)。
-  const template = objField(acc, 'sessionTemplate')
-  if (template) secrets.sessionTemplate = template
-  const sealedPaths = Array.isArray(acc['sealedPaths'])
-    ? acc['sealedPaths'].filter((p): p is string => typeof p === 'string' && p !== '')
-    : []
-  if (sealedPaths.length > 0) secrets.sealedPaths = sealedPaths
-  const edition = cstr(acc['edition'])
-  if (edition) secrets.edition = edition
-  return Object.keys(secrets).length > 0 ? { secrets } : null
+  if (!keyPem || !pubPem) return null
+  return { secrets: { deviceKeyPem: keyPem, devicePubPem: pubPem } }
 }
 
 /** DPoP 私钥既可能是 JWK 对象也可能是 JSON 字符串,统一解析为对象 */
@@ -503,106 +503,8 @@ function mapSessionEntryImport(
   }
 }
 
-/**
- * Loomy:捆绑单账号(2026-10-28)。提取器出一条
- * {source:'local-storage', key:'loomy-auth-session', value:整份会话 JSON, companions:{配套键}},
- * value = JSON.stringify({phone,maskedPhone,session,userid,loggedInAt}),session 即会话票。
- * 导入拆票:session→token,剔票模板→secrets.sessionTemplate(「登录本机」按它重建写回值),
- * companions→secrets.companions(同批写回的配套键);uid 用会话 userid(缺则 autoUid 票)。
- * 仍兼容旧的逐条目 {source,key,host,value} 形状(value 非 JSON / 无 session 票)⇒ 回落通用映射。
- */
-function mapLoomyImport(acc: ImportAccountInput): ReturnType<typeof mapSessionEntryImport> {
-  const a = acc as Record<string, unknown>
-  if (cstr(a['key']) === 'loomy-auth-session') {
-    const raw = a['value']
-    if (typeof raw === 'string' && raw) {
-      try {
-        const parsed = JSON.parse(raw) as Record<string, unknown>
-        const session = cstr(parsed['session'])
-        if (session) {
-          const template: Record<string, unknown> = { ...parsed }
-          delete template.session
-          const uidRaw = parsed['userid']
-          const uid =
-            typeof uidRaw === 'string'
-              ? uidRaw.trim()
-              : typeof uidRaw === 'number' && Number.isFinite(uidRaw)
-                ? String(uidRaw)
-                : ''
-          const companions = objField(a, 'companions')
-          return {
-            token: session,
-            refreshToken: null,
-            uid: uid || autoUid(session),
-            name: cstr(parsed['maskedPhone']) || cstr(parsed['phone']) || 'loomy',
-            expiresAt: null,
-            secrets: {
-              entrySource: cstr(a['source']) || null,
-              entryKey: 'loomy-auth-session',
-              sessionTemplate: template,
-              ...(companions ? { companions } : {}),
-            },
-          }
-        }
-      } catch {
-        /* value 不是合法 JSON ⇒ 回落旧条目映射(不猜) */
-      }
-    }
-  }
-  return mapSessionEntryImport('loomy', 'loomy', acc)
-}
-
-/**
- * 豆包:捆绑单账号(2026-10-28)。提取器把整套字节 passport 族 cookie 打成一个账号
- * ({token=主票, uid=整包指纹, cookies[]}),cookies 数组由通用路径落 cookiesEnc
- * (doubao-adapter 转发的就是整包)。仍兼容旧的逐 cookie {source,key,host,value} 条目
- * 形状(历史导入),原样走 mapSessionEntryImport。
- */
-function mapDoubaoImport(acc: ImportAccountInput): ReturnType<typeof mapSessionEntryImport> {
-  const a = acc as Record<string, unknown>
-  if (Array.isArray(a['cookies']) && a['cookies'].length > 0) {
-    const token = cstr(a['token'])
-    if (!token) return null
-    return {
-      token,
-      refreshToken: null,
-      uid: cstr(a['uid']) || autoUid(token),
-      name: cstr(a['name']) || null,
-      expiresAt: null,
-      secrets: {},
-    }
-  }
-  return mapSessionEntryImport('doubao', 'doubao', acc)
-}
-
-/**
- * WorkBuddy:JWT 票 + 「登录本机」写回配方(2026-10-28)。
- * sessionTemplate(解密树剔凭证)/ sealedPaths(信封路径清单,写回端重封依据)/
- * edition / authFile 全进 secretsEnc;uid 用会话 account.uid(提取器已证 = 令牌 sub)。
- */
-function mapWorkbuddyImport(acc: ImportAccountInput): ReturnType<typeof mapCodexImport> {
-  const a = acc as Record<string, unknown>
-  const token = cstr(a['token'])
-  if (!token) return null
-  const template = objField(a, 'sessionTemplate')
-  const sealed = Array.isArray(a['sealedPaths'])
-    ? a['sealedPaths'].filter((p): p is string => typeof p === 'string' && p.startsWith('$'))
-    : null
-  return {
-    token,
-    refreshToken: cstr(a['refreshToken']) || null,
-    uid: cstr(a['uid']) || autoUid(token),
-    name: cstr(a['name']) || null,
-    // 到期时刻交 extractTokenExpiry(JWT exp)兜底,映射层不猜
-    expiresAt: null,
-    secrets: {
-      sessionTemplate: template ?? null,
-      sealedPaths: sealed && sealed.length > 0 ? sealed : null,
-      edition: cstr(a['edition']) || null,
-      authFile: cstr(a['authFile']) || null,
-    },
-  }
-}
+const mapLoomyImport = (acc: ImportAccountInput) => mapSessionEntryImport('loomy', 'loomy', acc)
+const mapDoubaoImport = (acc: ImportAccountInput) => mapSessionEntryImport('doubao', 'doubao', acc)
 
 /** 灵码:raw 凭证记录(字段级形状未实证,token 按常见键名探测,取不到如实 null) */
 function mapLingmaImport(acc: ImportAccountInput): {
@@ -636,6 +538,45 @@ function mapGrokbotImport(_acc: ImportAccountInput): null {
 }
 
 // =============================================================================
+// 设备指纹碰撞报告(O72@2026-10-28;判据纯函数,测试经 __test__ 直用生产实现)
+// =============================================================================
+
+interface DeviceRowRef {
+  uid: string
+  deviceId: string | null
+}
+
+/**
+ * 按 (deviceId) 分组点名碰撞:同一 deviceId 下出现 ≥2 个不同 uid 即碰撞。
+ * - deviceId 为空/纯空白 ⇒ 不参与(无设备材料的行不构成同设备证据);
+ * - uid 天然按行去重((providerCode, uid) 是本表去重键,批内+池面两路行集合并后
+ *   同一 uid 出现多次只算一枚);
+ * - 输出按 deviceId、uids 双升序,报告形态确定可测。
+ */
+function computeDeviceCollisions(
+  rows: ReadonlyArray<DeviceRowRef>,
+): Array<{ deviceId: string; uids: string[] }> {
+  const byDevice = new Map<string, Set<string>>()
+  for (const r of rows) {
+    const d = typeof r.deviceId === 'string' ? r.deviceId.trim() : ''
+    if (!d) continue
+    let set = byDevice.get(d)
+    if (!set) {
+      set = new Set<string>()
+      byDevice.set(d, set)
+    }
+    set.add(r.uid)
+  }
+  const out: Array<{ deviceId: string; uids: string[] }> = []
+  for (const [deviceId, uidSet] of byDevice) {
+    if (uidSet.size > 1) out.push({ deviceId, uids: [...uidSet].sort() })
+  }
+  return out.sort((a, b) => (a.deviceId < b.deviceId ? -1 : a.deviceId > b.deviceId ? 1 : 0))
+}
+
+export const __test__ = { computeDeviceCollisions }
+
+// =============================================================================
 // 批量导入
 // =============================================================================
 
@@ -666,6 +607,8 @@ export async function importAccounts(
   const seenInBatch = new Set<string>()
   // O64:签到推送载荷收集(明文凭证仅本进程内传递,循环结束后一次性推送)
   const checkinPush: PoolSyncAccount[] = []
+  // O72:本批落库行的设备材料收集(uid 是 (providerCode,uid) 去重键,可直接当行标识)
+  const writtenDeviceRows: Array<{ uid: string; deviceId: string | null }> = []
 
   for (let i = 0; i < accounts.length; i++) {
     // 外来格式自适应(判据单源 relay-account-format,与 validateAccountExport 同一函数):
@@ -695,29 +638,27 @@ export async function importAccounts(
       // loomy/doubao/lingma/grokbot)。各格式的 uid/expiresAt 都在映射层显式解析,
       // 不透传则退化为哈希 uid + 无过期时刻。
       const mapped =
-        providerCode === 'workbuddy'
-          ? mapWorkbuddyImport(acc)
-          : providerCode === 'codearts'
-            ? mapCodeartsImport(acc)
-            : providerCode === 'qoder'
-              ? mapQoderImport(acc)
-              : providerCode === 'codex'
-                ? mapCodexImport(acc)
-                : providerCode === 'opencode'
-                  ? mapOpencodeImport(acc)
-                  : providerCode === 'minimax'
-                    ? mapMinimaxImport(acc)
-                    : providerCode === 'zcode'
-                      ? mapZcodeImport(acc)
-                      : providerCode === 'loomy'
-                        ? mapLoomyImport(acc)
-                        : providerCode === 'doubao'
-                          ? mapDoubaoImport(acc)
-                          : providerCode === 'lingma'
-                            ? mapLingmaImport(acc)
-                            : providerCode === 'grokbot'
-                              ? mapGrokbotImport(acc)
-                              : null
+        providerCode === 'codearts'
+          ? mapCodeartsImport(acc)
+          : providerCode === 'qoder'
+            ? mapQoderImport(acc)
+            : providerCode === 'codex'
+              ? mapCodexImport(acc)
+              : providerCode === 'opencode'
+                ? mapOpencodeImport(acc)
+                : providerCode === 'minimax'
+                  ? mapMinimaxImport(acc)
+                  : providerCode === 'zcode'
+                    ? mapZcodeImport(acc)
+                    : providerCode === 'loomy'
+                      ? mapLoomyImport(acc)
+                      : providerCode === 'doubao'
+                        ? mapDoubaoImport(acc)
+                        : providerCode === 'lingma'
+                          ? mapLingmaImport(acc)
+                          : providerCode === 'grokbot'
+                            ? mapGrokbotImport(acc)
+                            : null
       // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
       const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       // 号池统一名称 = 官方绑定手机号:qoder 映射出的 name 即 phone,具备权威性,
@@ -870,22 +811,22 @@ export async function importAccounts(
           : traeSecrets
             ? traeSecrets.secrets
             : null
-      // secretsEnc 单列合并(2026-10-28 定稿):该列同时装凭据图、会话模板三键
-      // (sessionTemplate/sealedPaths/edition)与设备材料(trae 的 deviceKeyPem/devicePubPem)。
-      // 三类生产者各自只带自己那几键 ⇒ 整列覆盖会互相踩踏(带模板的导入抹掉设备材料,
-      // 带设备材料的导入抹掉模板)。判据:**以既有为底**,本批显式给出非空值才覆盖;
-      // 本批不带任何 secrets ⇒ 该列不动(undefined)。只保留三键是旧口径,设备材料
-      // 会被抹 —— 契约测试 tests/relay-account-import-preserve-refresh.test.ts 已钉死。
+      // 模板三键保留(2026-10-28,HEAD mergeSecrets 对这三键语义的最小恢复):secretsEnc 同时装
+      // 凭据图与会话模板三键(sessionTemplate/sealedPaths/edition —— worker cron 每 10 分钟经
+      // relay-workbuddy-session-sync 回灌,「登录本机」relay-local-login 唯一消费面)。导入载荷
+      // 通常只带凭证 ⇒ 整列覆盖会把三键抹掉。判据:以既有为底,仅当本批 secrets 图显式提供
+      // 非空值才覆盖这三键;本批不带任何 secrets ⇒ 该列不动(等价 HEAD 的 undefined 语义)。
       let secretsEncOut: string | null | undefined
       if (incomingSecrets) {
         const merged: Record<string, unknown> = { ...incomingSecrets }
         if (existingSecrets) {
-          for (const [k, keep] of Object.entries(existingSecrets)) {
+          for (const k of ['sessionTemplate', 'sealedPaths', 'edition'] as const) {
             const cur = merged[k]
             const provided =
               cur !== null &&
               cur !== undefined &&
               !(typeof cur === 'object' && !Array.isArray(cur) && Object.keys(cur).length === 0)
+            const keep = existingSecrets[k]
             if (!provided && keep !== null && keep !== undefined) merged[k] = keep
           }
         }
@@ -993,6 +934,7 @@ export async function importAccounts(
           reason: down ? 'token 已过期且无 refreshToken,入库即摘除' : null,
         })
       }
+      writtenDeviceRows.push({ uid, deviceId: values.deviceId })
       checkinPush.push(
         buildPoolSyncAccount({
           id: writtenId,
@@ -1052,6 +994,46 @@ export async function importAccounts(
         error: push.error,
       }
     }
+  }
+  // O72 设备指纹碰撞报告(只报告不改写;报告失败绝不阻塞导入本身):
+  // 本批落库行 + 同池(providerCode/归属一致)既有行一并核对 (deviceId) 分组,
+  // 点名"从同一真实客户端导出 N 号 ⇒ N 行共用一枚 device_id"的跨账号关联暴露面。
+  const batchDeviceIds = [
+    ...new Set(
+      writtenDeviceRows
+        .map((r) => (typeof r.deviceId === 'string' ? r.deviceId.trim() : ''))
+        .filter((d) => d !== ''),
+    ),
+  ]
+  if (batchDeviceIds.length === 0) {
+    result.deviceCollisionScope = 'none'
+    result.deviceCollisions = []
+  } else {
+    const merged: Array<{ uid: string; deviceId: string | null }> = [...writtenDeviceRows]
+    try {
+      const poolRows = await dbRead
+        .select({ uid: aiRelayAccountPool.uid, deviceId: aiRelayAccountPool.deviceId })
+        .from(aiRelayAccountPool)
+        .where(
+          and(
+            ownerUserId === null
+              ? isNull(aiRelayAccountPool.ownerUserId)
+              : eq(aiRelayAccountPool.ownerUserId, ownerUserId),
+            eq(aiRelayAccountPool.providerCode, providerCode),
+            inArray(aiRelayAccountPool.deviceId, batchDeviceIds),
+          ),
+        )
+      for (const row of poolRows) {
+        if (typeof row.uid === 'string' && row.uid) {
+          merged.push({ uid: row.uid, deviceId: row.deviceId ?? null })
+        }
+      }
+      result.deviceCollisionScope = 'checked'
+    } catch {
+      // 池面查询失败 ⇒ 只报了本批内部,池面维度如实落 unjudged(§0.3 不记绿)
+      result.deviceCollisionScope = 'unjudged'
+    }
+    result.deviceCollisions = computeDeviceCollisions(merged)
   }
   return result
 }

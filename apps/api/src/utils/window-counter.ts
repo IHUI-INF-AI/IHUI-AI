@@ -152,11 +152,7 @@ export async function refundWindows(specs: WindowSpec[]): Promise<void> {
   const redis = getRedis()
   if (redis) {
     try {
-      await redis.eval(
-        REFUND_SCRIPT,
-        specs.length,
-        ...specs.map((s) => s.key),
-      )
+      await redis.eval(REFUND_SCRIPT, specs.length, ...specs.map((s) => s.key))
       return
     } catch (e) {
       logger.error('[window-counter] 退还脚本失败,回退内存', {
@@ -181,11 +177,7 @@ export interface OnceResult {
 
 const localOnce = new Map<string, { value: string; expiresAt: number }>()
 
-export async function acquireOnce(
-  key: string,
-  value: string,
-  ttlMs: number,
-): Promise<OnceResult> {
+export async function acquireOnce(key: string, value: string, ttlMs: number): Promise<OnceResult> {
   const ttl = Math.max(1000, ttlMs)
   const redis = getRedis()
   if (redis) {
