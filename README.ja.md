@@ -2219,6 +2219,10 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-29**
+- 🐞 修正:契约产物再跟上路由面（净检出 @ee248c585f 重生成）—— CI OpenAPI Check 复红收口 (d76b7ad820)
+- 🚀 機能/改善:号池面板与运维可见性收口 —— 策略档只读卡片 / 日志详情抽屉 / 模型名复制 / 续期能力位标注 / 探针装车 / 非 git 夹具修复 (f7c98f0f6f)
+
+**2026-10-29**
 - 🐞 修正:复洁器维五补上"旁路落地型"那一格 —— 滞后副本现场两步判据同时失效,R4⑨ 已第三次回潮 (ee248c585f)
 - 📚 ドキュメント:补门 89 R4 —— 给已装车的 AASA 哨兵在 AGENTS.md 点名(与体积清偿同批收口) (7c74403489)
 - 🐞 修正:prebuild 重打 gradle 内存档 —— 512m 元空间实测 OOM 打死 daemon (da077b5d8b)
@@ -2299,30 +2303,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:密钥回填的替换串改为函数式 —— 含 $ 的 token 此前会被静默写坏 (49c1216053)
 - 🐞 修正:密钥回填的替换串改为函数式 —— 含 $ 的 token 此前会被静默写坏 (4f46d18b73)
 - 📚 ドキュメント:结清 O68 自动票(pass-entry-broken 那次是隧道单次抖动,链路按设计工作;现网三维复测全绿,无代码缺口) (d75e178e26)
-
-**2026-10-28**
-- 🐞 修正:给上一步的兑底腿补上它自己的牙 —— 单批补凭据超限即拒绝入账。 (368c00895a)
-- 🐞 修正:门 7 退出并发池改走串行 —— 全量体检里它每轮被 300s 看门狗截成「未判定」 (751762ef28)
-- 🐞 修正:销 HEAD 面一枚载荷损坏 —— body-limit-regression.test.ts 盘上缺失且恢复后载荷不可解码 (7da6772653)
-- 🐞 修正:用真实现替换我 31afc9be7a2 的占位 —— 对侧已落 962 行取证版,占位即多余 (2956e6afcc)
-- 📚 ドキュメント:部署表登记号池单机档入口 —— relay-standalone 一条命令 + API key 门(O70 交付面的 README 同步,AGENTS 21 条) 内容取 HEAD 面 blob 后在锚点行「部署/构建全局锁」之后插入一行指向 deploy/relay-standalone/,不读工作树副本(他席在飞),构造脚本当场断言行数差恰为 1 且锚点唯一命中。 (7004949231)
-- 🐞 修正:祖先包含判据补 stdio 属性名 —— 修 push 门 193 判红 (afd32fc7b9)
-- 🐞 修正:api 蓝绿换 Node 执行面 —— 服务控制被程序黑名单封死、嵌套解释器无命令可用,api 从未随部署重载 (6bc097e291)
-- 🐞 修正:补 workbuddy_tasks 占位模块 —— 自动收编把半成品入了库,生产 8803 每 30 秒崩溃重启 (31afc9be7a)
-- 🐞 修正:契约产物跟上 HEAD 路由面 —— 净检出 @2aa7823f70 重生成,自校零漂移 (1378f7ba3a)
-- 🐞 修正:嵌套解释器只挑真带 cmdlet 的那个 —— 修 api 从未随部署重载的静默失败 (f663483f37)
-- 🐞 修正:闭环状态器补四格判据 —— 旁路派单/最早修复/部署含修复/建单看 result,实测 O67 首枚 verified (d1c45777fb)
-- 🚀 機能/改善:号池对标五票结清 O93/O68/O69/O70/O72 —— 选号策略六钮+全局在飞闸 / WorkBuddy 任务族 / 一键重登 / 单机档 / 指纹收口 (20276cb1d9)
-- 🔧 その他:O67 归机主生产机面出桶 —— face 路径修好后(枚 05ccfe9667)现读两候选仍皆无:G:\IHUI-AI\.DevEnv\ 只有 Temp/backups/cache/tools 无 ihui-prod,主仓 .ihui-agent/deploy-decisions.jsonl 不在 ⇒ 生产账本只住生产机,证据 sha 已被 intake 折成 [hex:40] 占位,原值只能回生产账本取。按 §25 机主令改归属出桶(actionable→owned-elsewhere),不再占可派单面。 (d502ab744b)
-- 🔧 その他:给 step-up 全端点覆盖与 relay 上游出网复检查补接线锁 (98846e65a7)
-- 🐞 修正:全局 bodyLimit 收到 2MiB + 上传路由显式放开(DDoS P2) (0af8929c1d)
-- 🐞 修正:安全加固——relay 出网 SSRF 复检 + 敏感端点 2FA step-up 闸 (75b5ffdc89)
-- 🐞 修正:切流后就绪等待替代固定 8s —— 消掉每次部署都留一枚假 entry-broken 的成因(O68) (e6d21d196d)
-- 🐞 修正:补上 chat-workbench-shell-spec 的入库 —— web 4 处 import 在 HEAD 里找不到模块,Build 步整条红 (eead7d191a)
-- 🐞 修正:补回被顶替的门257(web↔RN 跨端对账),DDoS 门改挂 258 (042a8eca88)
-- 🔧 その他:限流接线锁跟上 2026-10-28 的失稳安全存储 redesign (328710d344)
-- 📚 ドキュメント:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (2d76580805)
-- 🐞 修正:把 api 蓝绿切换脚本与 router 入库——此前从主仓发起的部署每次都要断流 20~30 秒 (00adfa0036)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

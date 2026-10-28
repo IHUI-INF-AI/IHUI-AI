@@ -22,6 +22,19 @@ vi.mock('../src/plugins/auth.js', () => ({
   checkAuth: vi.fn(),
 }))
 
+// ---------- 2FA step-up mock(2026-10-29 补)----------
+// 提现/转账路由 2026-10-28 起在 authenticate 之后加了一道二次验证闸:已开 2FA 的账号
+// 必须持有窗内 step-up 凭据,否则 401 STEP_UP_REQUIRED。本文件判的是「余额/金额/风控」,
+// 闸本身由 tests/two-factor-step-up.test.ts 单测覆盖 ⇒ 这里默认放行,并补一枚反向用例
+// 钉住「闸没过就不能提现」,防有人为了跑绿把闸摘掉。
+const { mockRequireStepUp } = vi.hoisted(() => ({
+  mockRequireStepUp: vi.fn(),
+}))
+
+vi.mock('../src/services/two-factor-step-up-store.js', () => ({
+  requireStepUpForTwoFactorUser: mockRequireStepUp,
+}))
+
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
@@ -150,7 +163,7 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
   return {
     id: 'order-id-001',
     orderNo: 'EDU20260726000000ABCDEF',
-    userId: 'user-001',
+    userId: '11111111-1111-4111-8111-111111111111',
     orderType: 0,
     productId: null,
     amount: 10000, // 100 元(单位:分)
@@ -201,6 +214,8 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // 默认:二次验证闸放行(闸自身的判据见 tests/two-factor-step-up.test.ts)
+    mockRequireStepUp.mockResolvedValue({ ok: true })
     // 重置 DB mock 行
     mockDbRows.length = 0
     // 默认未登录
@@ -219,7 +234,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
     ;(app.paymentIdempotency.fail as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
   })
 
-  function authAs(userId = 'user-001', roleId = 0) {
+  function authAs(userId = '11111111-1111-4111-8111-111111111111', roleId = 0) {
     mockAuthenticate.mockImplementation(
       (request: { userId?: string; jwtPayload?: { userId: string; roleId: number } }) => {
         request.userId = userId
@@ -229,7 +244,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
     )
   }
 
-  function authAsAdmin(userId = 'admin-001') {
+  function authAsAdmin(userId = '22222222-2222-4222-8222-222222222222') {
     authAs(userId, 1)
   }
 
@@ -448,7 +463,11 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       authAsAdmin()
       // 订单金额 10000 分(100 元),退款 200 元(>100 元)
       mockGetOrder.mockResolvedValueOnce(
-        makeOrder({ status: 'paid', userId: 'user-001', amount: 10000 }),
+        makeOrder({
+          status: 'paid',
+          userId: '11111111-1111-4111-8111-111111111111',
+          amount: 10000,
+        }),
       )
       const res = await app.inject({
         method: 'POST',
@@ -463,7 +482,11 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       authAsAdmin()
       mockIsAlipayConfigured.mockReturnValue(true)
       mockGetOrder.mockResolvedValueOnce(
-        makeOrder({ status: 'paid', userId: 'user-001', amount: 10000 }),
+        makeOrder({
+          status: 'paid',
+          userId: '11111111-1111-4111-8111-111111111111',
+          amount: 10000,
+        }),
       )
       mockAliRefundOrder.mockResolvedValueOnce({ success: true })
       mockRefundOrder.mockResolvedValueOnce({ success: true })
@@ -481,7 +504,11 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
     it('非管理员非本人退款返回 403', async () => {
       authAs('user-002', 0)
       mockGetOrder.mockResolvedValueOnce(
-        makeOrder({ status: 'paid', userId: 'user-001', amount: 10000 }),
+        makeOrder({
+          status: 'paid',
+          userId: '11111111-1111-4111-8111-111111111111',
+          amount: 10000,
+        }),
       )
       const res = await app.inject({
         method: 'POST',
@@ -495,6 +522,23 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
   // ===================== 提现余额校验(CWE-841)=====================
 
   describe('POST /api/payments/withdrawal 微信提现余额校验', () => {
+    it('未持有窗内二次验证 → 401 STEP_UP_REQUIRED,且不落提现流水', async () => {
+      authAs()
+      mockRequireStepUp.mockResolvedValueOnce({ ok: false, code: 'STEP_UP_REQUIRED' })
+      // 不排 getBalance:闸在余额查询之前就返回,mockResolvedValueOnce 队列一旦排了又没被
+      // 消费,会顺延到下一枚用例造成余额错位(本次实测:两条余额用例的期望值整体互换)。
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/payments/withdrawal?amount=50',
+        headers: { authorization: 'Bearer t' },
+      })
+      expect(res.statusCode).toBe(401)
+      // 判据落在「提现被挡住且明确告知要二次验证」:响应体经统一包装后 errorCode 是否透出
+      // 由外壳决定,这里钉死人类可读的那句(换壳也不会静默变绿)。
+      expect(res.json().message).toContain('二次验证')
+      expect(mockApplyWithdrawal).not.toHaveBeenCalled()
+    })
+
     it('提现金额超过余额返回 400', async () => {
       authAs()
       mockGetBalance.mockResolvedValueOnce(100)
@@ -733,7 +777,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
   describe('POST /api/payments/wechat/query IDOR 防护', () => {
     it('管理员可查询他人订单返回 200', async () => {
       authAsAdmin()
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/wechat/query?outTradeNo=EDU001',
@@ -757,7 +803,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
   describe('POST /api/payments/wechat/close 关闭订单权限', () => {
     it('非本人非管理员返回 403', async () => {
       authAs('user-002', 0)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ userId: 'user-001' }))
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/wechat/close?outTradeNo=EDU001',
@@ -767,8 +815,10 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
     })
 
     it('本人关闭订单返回 200', async () => {
-      authAs('user-001', 0)
-      mockGetOrder.mockResolvedValueOnce(makeOrder({ userId: 'user-001' }))
+      authAs('11111111-1111-4111-8111-111111111111', 0)
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({ userId: '11111111-1111-4111-8111-111111111111' }),
+      )
       mockCancelOrder.mockResolvedValueOnce({ success: true })
       const res = await app.inject({
         method: 'POST',
