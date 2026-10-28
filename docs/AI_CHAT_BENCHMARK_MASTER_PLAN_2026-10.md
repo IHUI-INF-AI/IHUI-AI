@@ -78,7 +78,7 @@
 | --- | --- | --- |
 | `add_directories` | 多根工作区(会话中途追加目录),**Qoder/Codex/Trae 三家都有**;四别名零命中 | **D201 已立票**(跨端,涉 workspace 模型,大票) |
 | `resume_goal` | 已清/已完成目标无恢复口 | 并入 D152 目标族产品化拍板 |
-| `reload_plugins` / `reload_skills` | 插件/技能无运行时热重载口(`skills.py:777` 的 mtime 自动重载≠宿主可调帧,防翻案注记在案) | 并入插件面/技能面产品化 |
+| `reload_plugins` / `reload_skills` | 插件/技能无运行时热重载口(`skills.py:777` 的 mtime 自动重载≠宿主可调帧,防翻案注记在案) | **`reload_skills` 已落地(2026-10-28)**:宿主可调帧(POST /ai-skills/reload)+ 差额回报(added/removed/changed)+ force 默认 true + web 端「重载技能」入口(差额可见/失败给原因);残余 = 插件面 `reload_plugins` 仍真缺,并入插件面产品化 |
 | `refresh_memory` | 记忆无运行时刷新帧(仅内部 updated_at) | 并入长期记忆产品化 |
 | `mcp_clear_auth` | MCP 凭据无运行时清除口——**刻意真缺**(AGENTS §5 安全口径,否证命中的就是"不可清除"本身) | **§24 拍板前不得开工** |
 
