@@ -182,6 +182,7 @@ export default defineAppConfig({
         'security-audit/index',
         'member-settings/index',
         'member-dashboard/index',
+        'my-agents/index',
       ],
     },
     {

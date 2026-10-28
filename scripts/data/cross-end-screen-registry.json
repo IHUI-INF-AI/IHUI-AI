@@ -1165,6 +1165,11 @@
       "shared": "packages/app/src/features/member-dashboard/MemberDashboardScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/MemberDashboardScreen.tsx",
       "miniapp": "pkg-user/member-dashboard/index"
+    },
+    {
+      "shared": "packages/app/src/features/my-agents/MyAgentsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/MyAgentsScreen.tsx",
+      "miniapp": "pkg-user/my-agents/index"
     }
   ]
 }
