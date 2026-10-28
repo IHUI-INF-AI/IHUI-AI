@@ -31,7 +31,56 @@
 //  6) 小程序 default 变体表情面板 `className="h-48"`(折 192)。它是 Tailwind **间距步**而不是
 //     端内抄的数字,而 `packages/design-tokens/src/geometry.js` 头注规定"CSS/类名侧尺寸走
 //     Tailwind 档位,禁写 px/rpx 字面量" —— 把它换成 `style={{ height: toUnit(192) }}` 读数会
-//     变好看,但违反那条口径,故保留类名。这是本族唯一剩余的差异档,登记而非遮掉。
+//     变好看,但违反那条口径,故保留类名。它与 ai-home 变体的 90 同属本端两个变体的表情面板,
+//     是**本端内部两份取值**而非跨端分叉:统一它等于改 default 变体的观感(192→90),
+//     须产品裁决,本表不擅自收编。
+//     ⚠️ 旧句"这是本族唯一剩余的差异档"已于 2026-10-28 作废:现读 15 档,逐条见下面 O02 段。
+
+// ── O02 票④(第 ④ 格)收口证据:本族"只剩一份源"────────────────────────────
+// 现读 2026-10-28(`node scripts/check-cross-end-ui-parity.mjs --json`):
+//   findings[InputArea] = diffCount 15(几何仅小程序 10 + 仅 RN 5)/ radiusCount 2 /
+//   elementRadiusCount 0;同名档取值冲突(named)= 0、RE 维同名元素 = 0。
+// 两条腿的几何档**全部**经本文件取数,端内不再自持"跨端可共享"的数值 —— 两端 import 点:
+//   · apps/miniapp-taro/src/components/InputArea.tsx  →  '@ihui/shared/ui/input-area-spec'
+//   · apps/mobile-rn/src/components/InputArea.tsx     →  '@ihui/shared/ui/input-area-spec'
+//
+// ⚠️ 一条实测出来的边界(2026-10-28,本轮试过又撤回):RN 端最后一枚未入表的几何档
+//   `catChip.maxWidth: 96`(模型钮截断上限,= web max-w-6rem)**不得**收进本表。
+//   试收编时它是"仅 RN 引用、小程序无该元素"的单侧档,守门 128 的 SL 维据此报
+//   `SL InputArea 36→37、新增判红 1`(判据:`specLegAudit` 只把基线里已登记的单侧档降为只报数,
+//   新出现的单侧档名一律当场判红)。⇒ 单端档的正确去处是**端内留裸数字 + 本头注清单登记**
+//   (与上面第 1~5 条同型),不是入表。这条边界由 wiring 测试 ⑪「导出面全覆盖」+ ⑫ 三枚变异钉住:
+//   ⑨ 只测**已登记**单端档的归属,拦不住"入表却无人取数"的幻影档(同 AGENTS §0.9「造好没装车 = 没有」)。
+//   2026-10-28 两种形态都实测过:① 常数入表 + RN 腿**真接线** ⇒ 值集合不变,但 SL 维按档名算出一条
+//   新的单侧引用,`SL InputArea 36→37` 当场判红;② 只入表不接线 ⇒ ⑪ 的幻影档判据红。
+//   ⇒ 单端档唯一的合法去处是**端内留裸数字** + 本头注清单 + ⑨ 的归属表登记,不是入表。
+//
+// 15 档逐条归属 —— 分三类。**没有一条属于"本可同值却各写一份"**(那一型才是本票要拆的):
+//
+//  A 一端根本没有该元素(往另一端补引用 = 往屏幕上加一个不存在的节点):
+//    仅小程序 30    EMOJI_CELL                RN 无表情面板
+//    仅小程序 90    EMOJI_PANEL_H             RN 无表情面板
+//    仅小程序 146   OVERLAY_BOTTOM_WITH_PANEL fixed 全屏浮层;RN 放大即解除 maxHeight,无浮层
+//    仅小程序 192   default 变体 `h-48`       类名档(见上面第 6 条);RN 无面板
+//    仅 RN 26       GLYPH_LG                  collapsible 折叠 FAB 加号;小程序无该变体
+//    仅 RN 96       端内裸 `catChip.maxWidth`   模型钮截断上限(= web max-w-6rem);小程序 ai-home 无该元素。
+//                                               **刻意不入表** —— 单端档入表会新增 SL 单侧判红,见上面的边界注
+//
+//  B 同一元素、两端按**已裁决**的变体契约取不同档(取任一端会破另一端的版 ⇒ 须产品裁决,
+//    不由本表单方面定档;这正是本族 counts 停在 15 而不是被"补数字"抹平的原因):
+//    25 AI_HOME_VOICE_BTN_W   ↔ 32 VOICE_BTN_WIDTH        紧凑条 22 行高 vs 卡片 48 行高
+//    48 INPUT_MIN_HEIGHT      ↔ 小程序 rpx(44)=22          同上
+//    72 THUMB_PX              ↔ 106.5×60 VIDEO_THUMB_W/H   方盒 vs 16:9 内容盒(素材固有比)
+//    120 INPUT_MAX_HEIGHT     ↔ 250 AI_HOME_INPUT_MAX_HEIGHT 卡片内滚 vs ai-home 可放大到全屏
+//
+//  C 同槽位留白,两端各由自身机制决定(不是同一个量的两条写法):
+//    仅小程序 5     INLINE_GAP                表情格内衬 / 清空与发送图标间距;RN 该槽位是实底钮 marginLeft 4
+//    仅小程序 9     SEND_ICON_MARGIN          占位条里裸图标的视觉让位;RN 同位是实底钮 marginLeft 4
+//
+// ⇒ 结论:本族**无可继续收敛项** —— A 组补引用是造假,C 组量纲不同,B 组是产品裁决面。
+//   counts 维持 15。逐档归属(含每组属于谁)另由
+//   packages/shared/src/ui/__tests__/input-area-wiring.test.ts 的 ⑨ 号用例机器钉住:
+//   谁往"另一端"补了引用,那条用例就红。
 
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
 import { GEOMETRY_PX } from '@ihui/design-tokens'

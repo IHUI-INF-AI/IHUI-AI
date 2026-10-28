@@ -1163,6 +1163,8 @@ const styles = StyleSheet.create({
     gap: rnSpacing.xs,
     // 单端档·RN:左距 4 与 sendInShell marginLeft 同档
     marginLeft: rnSpacing.xs,
+    // 截断上限 96 = web max-w-6rem。**刻意留在端内不入 spec**:它是单侧档(小程序 ai-home
+    // 无模型钮),入表会新增一条 SL 单侧判红(2026-10-28 实测 36→37),依据见 spec 头注边界注
     maxWidth: 96,
     flexShrink: 1,
     paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
