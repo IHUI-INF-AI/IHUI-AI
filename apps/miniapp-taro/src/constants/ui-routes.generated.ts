@@ -8,11 +8,11 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 5c8373e37828285abd79a122f3ddbfb90497a25a
-// inputsSha256: aa9b694db2e8015447970fe22e34277970c4e8b8017e0cd80204e2ab0cf480e9
+// sourceCommit: 8eb003c1542c92bfc98e1b6a3ac0a7644043de3a
+// inputsSha256: 33351a9a072c440e6c81cd26743d2103f30def90a1c7ee73d9483c3c349dfb7f
 // input: apps/miniapp-taro/src/api/index.ts 906678d9feb2dabe632a4a45b2a75ace7e081d020944f31357aa249f64c7ab2e
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
-// input: apps/miniapp-taro/src/app.config.ts 928ae75f9e5f90178de13d4c5b4e19e8ee6395f2f55ce5674b3eced7a3076c87
+// input: apps/miniapp-taro/src/app.config.ts 13dc8c13040f5a20c2432373d07de1bf3d7276bf6264623d7825d78105bd7184
 // input: apps/miniapp-taro/src/app.tsx e0b0feff8f2c5092b9bcb916cc9dc173002f9e7b71b21bb0132f207a04e79668
 // input: apps/miniapp-taro/src/components/AgentListPanel.tsx 1e9ba13abe25ef1f475d28393dc0df9812a4b3df620bff14e19cf2942914c051
 // input: apps/miniapp-taro/src/components/AgentRuntimePanel.tsx dccf5486d145e8f00d80c4e8067ef929229234d2122b8f2e625f9dc48c6872d6
@@ -567,9 +567,11 @@
 // input: apps/miniapp-taro/src/pkg-user/knowledge-planet/index.tsx 3a9026618ef4e5c8019b55372e1717d8ffd0a6e8c6051ed7cdd53a37e896fa87
 // input: apps/miniapp-taro/src/pkg-user/legal-docs-hub/index.tsx df7e0972e150c65969db78ec96895048b783fa2f54adab496289979e576ed8cc
 // input: apps/miniapp-taro/src/pkg-user/llm-settings/index.tsx 6fde22cb2c318d4f993854c609af4cfe9e683656a8589293bd0678c1c96975b7
+// input: apps/miniapp-taro/src/pkg-user/member-dashboard/index.tsx 076b6c0e8256e0eeeb7838f55a95d25b0c2c620ea061d9b94ec63e99be086b4a
 // input: apps/miniapp-taro/src/pkg-user/member-settings/index.tsx 85774c213b497d8f9dffab885b29b70e6ac198a099c67c92e315ba932e10eab0
 // input: apps/miniapp-taro/src/pkg-user/message/index.config.ts 5724af357a63f4a3d80dfa39ddcb588a5ff31bf7effb367ffc65be28e025d364
 // input: apps/miniapp-taro/src/pkg-user/message/index.tsx 5be111e523b92a3a8dfd0ea24ef307656f9cb524b7efe5d49a42f0e606ed02ae
+// input: apps/miniapp-taro/src/pkg-user/my-agents/index.tsx f0d2dbb2496c98bdcb334713058289546912df568afd2138fce597e413c3edd7
 // input: apps/miniapp-taro/src/pkg-user/security-audit/index.tsx 4593c91fcef5c0ac6b97751dd2632b04f4a1b5ce5bfa7959e4ecc91633414ec5
 // input: apps/miniapp-taro/src/pkg-user/square/index.tsx ea9e3233eb082d126767bd3efaa2fda96ec0bb109a53084fe9404fb2a2515bf7
 // input: apps/miniapp-taro/src/pkg-user/sub-package-index/index.tsx 9eae4c6b41668fedaa2a5bed96b3952baace3cf0a8f3609c8d9b39ba74f28870
@@ -664,9 +666,9 @@
 // input: apps/miniapp-taro/src/utils/visit-tracker.ts 86fd000208a9998e70d5970099acdef093c25bf0031c8f80474aabc117d868fa
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts f3405919e3d130c52be0c105153f70c9bfad426ceb8e081adf65badc15580e5a
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
-// scanned: 530 source files(navigateTo url 参数探测,requiresParams 的依据)
-// skipped: pagesWithoutOwnConfig=171(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-28T06:18:35.055Z
+// scanned: 532 source files(navigateTo url 参数探测,requiresParams 的依据)
+// skipped: pagesWithoutOwnConfig=173(标题回落 app window / tabBar 文案)
+// generatedAt: 2026-10-28T07:20:49.113Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
@@ -1677,6 +1679,20 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
   },
   {
     path: '/pkg-user/member-settings/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/member-dashboard/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/my-agents/index',
     title: '智汇AI',
     tab: false,
     subPackageRoot: 'pkg-user',
