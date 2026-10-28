@@ -106,8 +106,9 @@ export const tabBarStyles = {
 
   /**
    * 液态玻璃胶囊:图标行(高 TAB_BAR_HEIGHT)包进同一块玻璃 —— 圆角 + 细描边 + 投影。
-   * 2026-10-27 五稿:Android 也上真模糊(blurMethod='dimezisBlurView',expo-blur 默认 none
-   * 是 0.0.8「模糊不生效」误判的真因),Android 端底色运行时注入 0.5 半透;此处默认色仅 web 生效。
+   * 2026-10-28 六稿:五稿的 Android blurMethod='dimezisBlurView' 实机仍出实心白 —— expo-blur
+   * SDK 55+ 的 Android 模糊还须配 blurTarget(缺省即退实心 LIGHT tint 白块),故 Android 不再
+   * 渲染 BlurView,运行时注入 0.88 磨砂实底(见 TabBar.tsx);此处默认色仅 web/iOS 生效。
    */
   container: {
     flexDirection: 'row',
