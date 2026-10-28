@@ -187,7 +187,31 @@ export function carriedKeysFromRepo({ readFile: readFileRaw = null, readBatch: r
     if (text && /@rn-shells\/|@ihui\/rn-app\//.test(text)) carriers.push({ rel, text })
   }
   const r = carriedKeys({ carriers, readFile: safeOne, readBatch: safeBatch, resolveRel, mpSrc })
-  return { ...r, carriers }
+  // 第二格:共享特性屏**整片**纳入(2026-10-28 立,治"页面上出现原始键")。
+  // 为什么不只靠上面那条 import 闭包:闭包在 HEAD 面上有断链(现读承载页 141 枚 → 可达文件 294 枚 /
+  // 可达键 432 个,而 259 枚 `packages/app/src/features/**` 屏自述消费 1994 个键),漏掉的那批屏
+  // 被承载页渲染时,端内包取不到它的键 ⇒ 屏幕上就是 `activityDetail.title` 这种原始键(实测
+  // `pkg-content/activity-detail-shared` 正是纯壳承载页,自身零文案)。承载页只可能渲染共享屏,
+  // 故"共享屏消耗的键"是这条补键的安全上界:多补的键只是词包体积(实测 328 键 / 约 10.4KB),
+  // 而漏补的键是用户可见的破相。端内已有措辞一律不覆盖(subsetMissing 同一口径)。
+  const featureRoot = 'packages/app/src'
+  let featureFiles = []
+  try {
+    featureFiles = listFiles(featureRoot).filter((p) => p.includes('/features/') && p.endsWith('.tsx'))
+  } catch {
+    featureFiles = []
+  }
+  const featureTexts = featureFiles.length ? safeBatch(featureFiles) : new Map()
+  for (const rel of featureFiles) {
+    const text = featureTexts.get(rel) ?? ''
+    for (const k of extractTKeys(text)) r.keys.add(k)
+    // 裸字面量键表也必须认:`owner: 'circleMember.owner'` / `return 'connectedAccounts.platformWechat'`
+    // 这型在屏里当键表登记,调用点再 `t(KEY[role])` —— extractTKeys 只看得到 `t('x')`,这两族实测漏补。
+    // 形状取「小写字母开头 + 至少一个点 + 段内驼峰」(与正文闸 screenConsumedKeys 同一形状):
+    // 路由名(带斜杠)与包名(带 @)落不进来;多认出来的键还要在 RN 包里存在才会被 subsetMissing 采用。
+    for (const m of text.matchAll(/'([a-z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)'/g)) r.keys.add(m[1])
+  }
+  return { ...r, carriers, featureFiles: featureFiles.length }
 }
 /** 从生成件文本里抠出一个字符串常量(词包 b64 就是单行长字符串)。 */
 /**
