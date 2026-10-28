@@ -19,6 +19,9 @@
  *   # 干跑(只解析不落库)
  *   pnpm qoder:import -- --dry-run
  *
+ *   # 跳过导入后的即时体检(默认会跑,与 relay-account-import.ts 同口径)
+ *   pnpm qoder:import -- --no-health
+ *
  * 行为要点:
  * - 幂等:同 (providerCode, uid) 再导入 = 覆盖凭证 + 重置健康状态(号池续命,
  *   重复导入安全;这也是"重复性导入"的复用入口)
@@ -157,10 +160,12 @@ interface CliArgs {
   sessionFile?: string
   provider: RelayProviderCode
   dryRun: boolean
+  /** 导入后是否立刻做上游体检(默认 true;与 relay-account-import.ts 同口径) */
+  health: boolean
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { provider: 'qoder', dryRun: false }
+  const args: CliArgs = { provider: 'qoder', dryRun: false, health: true }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     // G-322:带值旗标的值被紧邻旗标顶掉(`--file --dry-run`)或结尾无值时,旧写法
@@ -179,6 +184,7 @@ function parseArgs(argv: string[]): CliArgs {
     if (a === '--file') args.file = takeValue(argv[i + 1])
     else if (a === '--session-file') args.sessionFile = takeValue(argv[i + 1])
     else if (a === '--dry-run') args.dryRun = true
+    else if (a === '--no-health') args.health = false
     else if (a === '--provider') {
       const v = takeValue(argv[i + 1])
       if (!(RELAY_PROVIDERS as readonly string[]).includes(v)) {
@@ -187,7 +193,7 @@ function parseArgs(argv: string[]): CliArgs {
       args.provider = v as RelayProviderCode
     } else if (a === '--help' || a === '-h') {
       console.log(
-        '用法: pnpm qoder:import [-- --file x.json | --session-file x.json | --provider <code> | --dry-run]',
+        '用法: pnpm qoder:import [-- --file x.json | --session-file x.json | --provider <code> | --dry-run | --no-health]',
       )
       process.exit(0)
     } else {
@@ -301,6 +307,35 @@ async function main(): Promise<void> {
       )
     }
   }
+
+  // 4. 即时体检(2026-10-29 补):导入本身只做本地解析,但「导入后立刻看到 unknown」
+  // 与另一入口 relay-account-import.ts(导入即体检)口径不一致 —— 同一次导入在两套工具下
+  // 给出不同状态就是 bug。这里直接复用它的 runHealth 实现,不写第二份判据。
+  // 体检不打对话配额(Qoder 走 /api/v2/quota/usage),不影响退出码(导入成败只看落库)。
+  if (args.health) {
+    const targets = result.items.filter(
+      (item) => item.uid && (item.status === 'imported' || item.status === 'updated'),
+    )
+    if (targets.length > 0) {
+      const { registerAllRelayAdapters } =
+        await import('../src/services/upstream-adapters/index.js')
+      const { runHealth } = await import('./relay-account-import.js')
+      const { healthStatusOf } = await import('../src/services/relay-account-pool-scheduler.js')
+      registerAllRelayAdapters()
+      for (const item of targets) {
+        const outcome = await runHealth(args.provider, item.uid as string)
+        if (!outcome) {
+          console.log(`  体检 #${item.index + 1} uid=${item.uid} 取不到账号行(未判定)`)
+          continue
+        }
+        console.log(
+          `  体检 #${item.index + 1} uid=${item.uid} health=${healthStatusOf(outcome)}` +
+            (outcome.ok ? '' : ` (${outcome.error ?? '未判定'})`),
+        )
+      }
+    }
+  }
+
   process.exit(result.failed > 0 ? 1 : 0)
 }
 

@@ -91,6 +91,12 @@ Qoder 桌面端(`com.qodercn.app.*`/`com.qoder.app.*`)登录态:token 是 27 字
 
 \* 不填不阻塞导入,但 uid 退化为 `auto:sha256(token)[:32]`、无过期时刻——桌面端捕获的会话应尽量带全。
 
+> **Cosy 设备头族怎么取到**(2026-10-29 修):`qoder-capture.ps1` 先从**运行中的 Qoder/Qoder CN
+> 进程路径**反推安装根(`<root>\.qoder-versions\<ver>\…` 取上两级),再兜底候选
+> (`$QODER_INSTALL_DIR`、`G:\Qoder CN`、`D:\software\Qoder*`、LOCALAPPDATA、ProgramFiles);
+> 多版本并存时按**版本号**取最高那份(不是路径字符串序)。此前只有写死候选清单,装在
+> 清单外的机器(如 `D:\software\Qoder CN`)整族取不到,落库后 `has_cosy=false`。
+
 ### 3.2 CodeArts
 
 CodeArts 不是 JWT,凭证按 STS 凭据包导入。以下三种写法任选其一,但三组信息必须齐全:
@@ -215,6 +221,11 @@ pnpm qoder:import -- --dry-run
 - **安全**:输出永不回显 token/refreshToken 明文(只给 uid/到期/问题码)。
   `--file` 的账号 JSON 与 `--session-file` 的会话 JSON 均含**明文凭证**——用完即删、勿入仓(见 §7)。
 - **退出码**:`0` 全部成功 / `1` 有失败或缺可导账号 / `2` 参数或输入读取失败(未判定)。
+- **导入即体检**(2026-10-29 补):落库后立刻对本次新增/更新的账号调上游健康检查并写
+  `healthStatus`/`healthCheckedAt`(与另一入口 `relay-account-import.ts` 同口径,复用其
+  `runHealth`,不写第二份判据)。不加这一步,导入后要等下一轮 5 分钟巡检才定级,期间
+  管理面显示 `unknown` —— 同一次导入在两套工具下给出不同状态曾是缺陷。`--no-health` 可跳过。
+  体检失败/未判定**不影响退出码**(导入成败只看落库),最多一条 `healthError`。
 - 模式 A 需要 PowerShell 7+(`pwsh`)且本机已登录 Qoder 客户端;不满足时走模式 C 降级:
   在能解密的机器上 `pwsh -File qoder-capture.ps1 -OutFile session.json`,再加 `--session-file` 导入。
 

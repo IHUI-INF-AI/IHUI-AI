@@ -119,7 +119,29 @@ foreach ($dir in $dirs) {
     $version = ""; $machineToken = ""; $machineCode = ""; $machineType = ""
     $roots = New-Object System.Collections.ArrayList
     if ($env:QODER_INSTALL_DIR) { [void]$roots.Add($env:QODER_INSTALL_DIR) }
+    # 2026-10-29 修:写死候选清单必然漏装 —— 本机实际装在 D:\software\Qoder CN
+    # (不在 Program Files / LOCALAPPDATA / G:),结果 Cosy-* 设备头族整族取不到
+    # (has_cosy=false,refresh 有被上游拒的风险)。先从运行中的客户端进程反推安装根。
+    foreach ($pn in @('Qoder CN', 'Qoder')) {
+        try {
+            $proc = Get-Process -Name $pn -ErrorAction Stop | Select-Object -First 1
+            $exePath = $proc.Path
+            if ($exePath) {
+                $exeDir = Split-Path $exePath -Parent
+                if ($exeDir -like '*.qoder-versions*') {
+                    # 形态 <root>\.qoder-versions\<ver>\<exe> ⇒ 版本目录上两级才是安装根
+                    $verDir = Split-Path $exeDir -Parent
+                    $installRoot = Split-Path $verDir -Parent
+                    if ($installRoot) { [void]$roots.Add($installRoot) }
+                } elseif ($exeDir) {
+                    [void]$roots.Add($exeDir)
+                }
+            }
+        } catch {}
+    }
     [void]$roots.Add('G:\Qoder CN')
+    [void]$roots.Add('D:\software\Qoder CN')
+    [void]$roots.Add('D:\software\Qoder')
     if ($env:LOCALAPPDATA) {
         [void]$roots.Add((Join-Path $env:LOCALAPPDATA 'Programs\Qoder CN'))
         [void]$roots.Add((Join-Path $env:LOCALAPPDATA 'Programs\Qoder'))
@@ -146,8 +168,10 @@ foreach ($dir in $dirs) {
         }
         $exe = Join-Path $root 'resources\umid\runtime-info.exe'
         if (-not (Test-Path $exe)) {
-            $exe = Join-Path $root '.qoder-versions\*\resources\umid\runtime-info.exe'
-            $exe = (Get-Item $exe -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+            # 多版本并存时取**版本号最高**的那份;按路径字符串降序会把 0.4.9 排在 0.4.11 前
+            $exe = (Get-Item (Join-Path $root '.qoder-versions\*\resources\umid\runtime-info.exe') -ErrorAction SilentlyContinue |
+                Sort-Object { try { [version]$_.Directory.Parent.Parent.Name } catch { [version]'0.0' } } -Descending |
+                Select-Object -First 1).FullName
         }
         if (-not $machineToken -and $exe -and (Test-Path $exe)) {
             try {
