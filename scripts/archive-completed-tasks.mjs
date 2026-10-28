@@ -155,18 +155,34 @@ import {
   countBulletCompleted,
   OPEN_ROW_RE,
 } from './lib/plan-task-headings.mjs'
-// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
-import { requireFlagValue } from './lib/flag-value.mjs'
+// 2026-10-29 判据迁移(本文件退役前置):
+//   `partitionPlanBlocks` / `resolvePlanBase` / `resolveRequestedFace` 这三个判据原先**定义在本文件里**,
+//   而活器物借走的是**判据本身**而不是归档器 —— `scripts/ledger-strip-open-rows.mjs` 顶部 import 它们,
+//   且 scripts/tests/ 下没有任何 ledger-strip 测试覆盖那条边 ⇒ 本文件一旦删除即是静默断链(ERR_MODULE_NOT_FOUND)。
+//   故判据连同它闭合捕获的取值位(`--days` / `--all` 的模块级 `daysThreshold` / `allMode`,离开它们
+//   `shouldArchive` 就不是同一把尺子)整体搬进 `scripts/lib/plan-block-partition.mjs`,**函数体逐字未改**。
+//   本文件改为 import + re-export(见文件尾 `export {...}` 与 `__test__`):外部 import 面一字不动,
+//   自身仍可跑(还没删)。§0.6/§22c:同一件事只许一份实现 —— 留一份在旧位等于马上漂开。
+import {
+  PLAN_REL,
+  allMode,
+  daysVerdict,
+  daysThreshold,
+  todayStr,
+  shouldArchive,
+  readWorktreeFileOrNull,
+  partitionPlanBlocks,
+  resolvePlanBase,
+  resolveRequestedFace,
+  resolveDaysThreshold,
+} from './lib/plan-block-partition.mjs'
 
 const ROOT = process.cwd()
 const PLAN_FILE = join(ROOT, 'PROJECT_PLAN.md')
 const ARCHIVE_DIR = join(ROOT, '.ihui-agent', 'archive')
-/** 提交面上的相对路径(git 只认正斜杠;ROOT 是工作树根,两者只差前缀)。 */
-const PLAN_REL = 'PROJECT_PLAN.md'
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
-const allMode = args.includes('--all')
 const autoCommit = args.includes('--auto-commit')
 const selfTest = args.includes('--self-test')
 const noBullets = args.includes('--no-bullets')
@@ -176,44 +192,6 @@ const listBlocked = args.includes('--list-blocked')
 const jsonOut = args.includes('--json')
 // 大批量(格式漂移/积压)时的显式人工放行口 —— 自动档(pre-commit 钩子)没有这个开关就走阀门
 const allowMass = args.includes('--allow-mass')
-/**
- * `--days` 的取值判定(G-322:取值一律走 scripts/lib/flag-value.mjs 单源,本器不再自己算 `args[i + 1]`)。
- * 漏值 / 值被下一个旗标顶掉 ⇒ error(用法错,exit 2);`abc` 这类"token 合法但数值域不合法"
- * 也判死 —— 旧写法 `parseInt('abc')=NaN` 会让 `diff >= NaN` 恒假 ⇒ "一个也不搬"读起来像"确实没有到期项",
- * 而漏值(`--days` 打在结尾)被 `? :` 折回 0 = 把"我要按年龄节流"写成"关掉年龄节流"。
- * @returns {{days:number|null, error:string|null}}
- */
-export function resolveDaysThreshold(argv) {
-  const f = requireFlagValue(argv, '--days', { noun: '天数(非负整数)' })
-  if (f.error) return { days: null, error: f.error }
-  if (!f.present) return { days: 0, error: null }
-  const n = Number(f.value)
-  if (!Number.isInteger(n) || n < 0) {
-    return { days: null, error: `--days 需要非负整数,实得:${JSON.stringify(f.value)}` }
-  }
-  return { days: n, error: null }
-}
-const daysVerdict = resolveDaysThreshold(args)
-const daysThreshold = daysVerdict.error ? 0 : daysVerdict.days
-
-/**
- * 底稿面:`head`(默认,= 被审面)/ `worktree`(人工取证逃生舱,或"根本没有被审面可比"时的自动退化)。
- * 值必须是这两个之一 —— 未知值**报错退出**,不得静默掉进默认档(那会让"我明明指定了另一面"
- * 与"脚本压根没认这个开关"在账面上长得一模一样)。
- *
- * `exitCode` 分两档(G-322):值给了但不在枚举里 = 既有用法错,沿用 1(测试 A3 钉着);
- * **压根没拿到值**(漏值 / 被下一旗标顶掉 / 空串)= 本票新增的吞值档,走 2「未判定」。
- * @returns {{face:string|null, error:string|null, exitCode:number|null}}
- */
-export function resolveRequestedFace(argv) {
-  const f = requireFlagValue(argv, '--plan-face', { noun: '面名(head|worktree)' })
-  if (!f.present) return { face: null, error: null, exitCode: null }
-  if (f.error) return { face: null, error: f.error, exitCode: 2 }
-  if (f.value !== 'head' && f.value !== 'worktree') {
-    return { face: null, error: `--plan-face 只接受 head|worktree,实得 ${JSON.stringify(f.value)}`, exitCode: 1 }
-  }
-  return { face: f.value, error: null, exitCode: null }
-}
 const requestedFace = resolveRequestedFace(args)
 
 // git 二进制按 §5b 取候选,不依赖 PATH(钩子/服务账户环境下 PATH 可能没有 git)
@@ -234,18 +212,7 @@ const C = {
   reset: '\x1b[0m',
 }
 
-function todayStr() {
-  const d = new Date()
-  const tz = d.getTimezoneOffset() * 60000
-  return new Date(d - tz).toISOString().slice(0, 10)
-}
-
-function dateDiffDays(dateStr) {
-  if (!dateStr) return Infinity // 无日期视为最新,不归档(除非 --all)
-  const target = new Date(dateStr + 'T00:00:00')
-  const now = new Date(todayStr() + 'T00:00:00')
-  return Math.floor((now - target) / 86400000)
-}
+// `todayStr` / `dateDiffDays` 随 `shouldArchive` 的年龄判据迁入 lib(同一份实现,不在此留第二份)。
 
 /**
  * 归档件是 git 跟踪文件,必须由本器自带水印注入 —— 它是 §5c 对生成器的原话要求("任何 writeFileSync
@@ -300,32 +267,8 @@ function trimTrailingEmpty(lines) {
   return result
 }
 
-function shouldArchive(task) {
-  if (allMode) return true
-  // **默认阈值 0 = 完成即归档**(2026-09-28 由 7 改,用户原话"2053 条应该全归档才对"):
-  // 旧默认把"刚做完一周内"整段留在台账里,于是台账里 98% 的已完成行(实测 2008/2053)按规则
-  // 一条都不动 —— 这不是节流,是把"归档"这个动作推迟到没人再看它的时候。
-  // `--days N` 仍可回到"只搬满 N 天的"节奏(取证或降速时用)。
-  if (!task.date) return daysThreshold <= 0 // 阈值为 0 时不需要年龄判据 ⇒ 无日期也搬;>0 时不猜生日
-  return dateDiffDays(task.date) >= daysThreshold
-}
-
-/**
- * 把"已完成候选"分成**可搬**与**因体内还有活账所以不搬**两堆的唯一实现(2026-09-28 立)。
- *
- * 为什么必须抽出来:这条分区判据原先内联在 main() 里三行,而"为什么搬不走"是人工裁决与
- * 派单的输入 —— 让诊断出口另抄一遍筛选,两份迟早漂开(本仓最高频失效型),后果是"日志说
- * 卡住 29 块、交给代理裁决的是另一批 29 块"这种自洽却错位的清单。main() 与 --list-blocked
- * 现在都只调这一个函数。
- * @returns {{tasks:object[],candidates:object[],blocked:object[],movable:object[]}}
- */
-export function partitionPlanBlocks(content) {
-  const tasks = parseCompletedTaskBlocks(content)
-  const candidates = tasks.filter(shouldArchive)
-  const blocked = candidates.filter((t) => entryHasOpenRows(t.bodyLines))
-  const movable = candidates.filter((t) => !entryHasOpenRows(t.bodyLines))
-  return { tasks, candidates, blocked, movable }
-}
+// `shouldArchive` + `partitionPlanBlocks` 已迁入户 scripts/lib/plan-block-partition.mjs(见头部迁移注);
+// 一处函数不得在两处各留一份 —— 两处必漂,而漂开的表现是同一份台账给出两份不同的"卡住清单"。
 
 /**
  * 把一个被卡住的块摊成**可逐行裁决**的结构:块边界(被审面 1-based 行号)+ 体内每一条
@@ -494,95 +437,9 @@ export function mergeNotesOf(bodyLines) {
   return seen.join(' ')
 }
 
-// ─── 底稿面:被审面优先,取不到不猜 ───────────────────────────────────────
-/**
- * 决定"这份计划文档的底稿取哪一面",输出三态之一:
- *   head      —— HEAD 面上确有该文件且正文取到(默认档,也是真实仓库里唯一的合法档)
- *   worktree —— 显式 `--plan-face worktree`,或"根本没有被审面可比"(非 git 仓 / HEAD 未诞生 /
- *               该文件尚未入库)。后者写盘不可能是"把别人已入库的行退回旧版",因为还没有入库行。
- *   none      —— 磁盘与被审面都取不到
- * **是 git 仓、HEAD 里确有该路径、却读不到正文(锁住 / 超时 / 对象损坏)⇒ { face:'undetermined' }** ——
- * 那一档绝不能退到磁盘:否则本票要根治的那一型会在最常见的故障形态下原地复活。
- */
-export function resolvePlanBase({ root, requested }) {
-  const headSpec = `HEAD:${PLAN_REL}`
-  let repo = true
-  let headCommit = null
-  try {
-    headCommit = plumbingGit(['rev-parse', '--verify', '--quiet', 'HEAD'], {
-      root,
-      allowFail: true,
-    })
-  } catch {
-    repo = false
-  }
-  if (!repo || headCommit === null) {
-    const wt = readWorktreeFileOrNull(root)
-    if (wt === null)
-      return { face: 'none', text: null, why: '既不是可用的 git 仓,盘上也没有 PROJECT_PLAN.md' }
-    return {
-      face: 'worktree',
-      auto: true,
-      text: wt,
-      parentText: null,
-      why: '没有被审面可取(非 git 仓或 HEAD 尚未诞生)⇒ 退回工作树档:此支没有"别人已入库的行"可被写回',
-    }
-  }
-  let headText = null
-  let headAbsent = false
-  try {
-    const got = catBatch(root, [headSpec])
-    headText = got.get(headSpec) ?? null
-    if (headText === null) headAbsent = true
-  } catch (e) {
-    // 层抛 Undetermined = 仓在、面该有、就是读不到 ⇒ 无法判定(既不冒红也不记绿,更不偷偷改用盘)
-    return { face: 'undetermined', text: null, why: `被审面取不到:${e.message}` }
-  }
-  if (headAbsent) {
-    const wt = readWorktreeFileOrNull(root)
-    if (wt === null) return { face: 'none', text: null, why: 'HEAD 与磁盘都没有 PROJECT_PLAN.md' }
-    return {
-      face: 'worktree',
-      auto: true,
-      text: wt,
-      parentText: null,
-      why: `${PLAN_REL} 尚未进入 HEAD ⇒ 无已入库形态可被回退,退回工作树档`,
-    }
-  }
-  if (requested === 'worktree') {
-    const wt = readWorktreeFileOrNull(root)
-    if (wt === null)
-      return {
-        face: 'undetermined',
-        text: null,
-        why: '指定了 --plan-face worktree 而盘上没有该文件',
-      }
-    return {
-      face: 'worktree',
-      explicit: true,
-      text: wt,
-      parentText: headText,
-      headSha: headCommit,
-      why: '人工取证逃生舱:刻意以磁盘副本为底稿(默认档是 HEAD)。零损失闸仍按父提交面判,不因逃生舱而放宽',
-    }
-  }
-  return {
-    face: 'head',
-    text: headText,
-    parentText: headText,
-    headSha: headCommit,
-    why: '被审面 HEAD blob(默认档)',
-  }
-}
-
-/** 磁盘面的"取不到即 null",不把编码/权限错误伪装成"该文件不存在"(取材层原样抛 ⇒ 这里接成 null 前先判存在)。 */
-function readWorktreeFileOrNull(root) {
-  try {
-    return readWorktreeFile(root, PLAN_REL)
-  } catch {
-    return null
-  }
-}
+// ─── 底稿面:判据已迁入户 scripts/lib/plan-block-partition.mjs(2026-10-29)────────
+// `resolvePlanBase` 与其私有取材助手 `readWorktreeFileOrNull` 都不在本文件里留副本 —— 归档器退役
+// 要删的就是整个文件,任何留在这里的判据都会随着那次删除一起消失(正是本票要切断的隐式耦合)。
 
 /**
  * 整文件写盘前的**归档单调性自检**(2026-10-23 立)。
@@ -2623,6 +2480,25 @@ if (isDirectRun) {
     process.exit(2) // 2 = 脚本异常,1 = 业务失败(§22b/§22d 的退出码约定)
   })
 }
+
+// 2026-10-29 判据迁移的**兼容面**:三个符号连同 `--days` 取值位已迁入户
+// scripts/lib/plan-block-partition.mjs,这里 import 后再原样 re-export —— 既有的
+// `import { … } from './archive-completed-tasks.mjs'` 面(含本文件自己的 `__test__` 与
+// check-project-plan-archive.test.mjs 那一处)一字不动。归档器本身被删后,这些形状不存在了,
+// 新 import 面直接指向 lib;目前保留是因为删除发生在另一枚。
+export {
+  PLAN_REL,
+  allMode,
+  daysVerdict,
+  daysThreshold,
+  todayStr,
+  shouldArchive,
+  readWorktreeFileOrNull,
+  partitionPlanBlocks,
+  resolvePlanBase,
+  resolveRequestedFace,
+  resolveDaysThreshold,
+} from './lib/plan-block-partition.mjs'
 
 export const __test__ = {
   placeholderLine,
