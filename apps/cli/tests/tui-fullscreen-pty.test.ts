@@ -13,8 +13,19 @@
  * 夹具按 `import('node-pty')` → `createRequire(apps/api/package.json)` 两通道解析,
  * 两条都取不到 ⇒ 整组 skip 并在 stderr 点名"未判定(缺 node-pty 解析通道)"。
  *
- * ConPTY 取证口径(2026-10-28 真跑实测,不是猜的):
- *  - 模式类序列 `\x1b[?1049h/l`、`\x1b[?25l/h` 原样到达读端 ⇒ alt-screen 进出可直接断言;
+ * ConPTY 取证口径(2026-10-28 本机真跑实测,不是猜的;探针逐轮记录见 commit message):
+ *  - 模式类序列 `\x1b[?1049h/l` 原样到达读端 ⇒ alt-screen 进出可直接断言;
+ *    进入侧 `\x1b[?1049h`+清屏+`\x1b[?1000h`+`\x1b[?1006h` 实测连续到达(偏移 75/156/164,3/3 同形),
+ *    所以"全屏确实把鼠标上报打开了"能在真终端读端取证(滚轮字节才有解码通道);
+ *  - **退出侧不可取证的那两格**(实测 4/4 轮次同形,不是竞态):
+ *    ① `leaveSequence()` 写出的 `\x1b[?1000l\x1b[?1006l` 与重复的 `\x1b[?25h` 被 ConPTY 折叠吞掉,
+ *       读端永远只剩 `\x1b[?25h\x1b[?1049l`;
+ *    ② 退出后打在**主屏**的那句交代(`left fullscreen …`)也进不了读端 —— 流恰好以 `1049l` 的最后
+ *       8 字节结束(total == leaveAt + 8;vitest 侧只有靠 retry 撞中过一次,首跑 3/3 超时)。
+ *    ⇒ 本组**不再**断言这两格(断言了就是一道本机恒红门,§12e)。鼠标开关的写侧配对已改由
+ *    `tui-fullscreen-keys.test.ts` 的 `enterSequence()/leaveSequence()` 用例逐字节断言,
+ *    主屏交代的写出归 `tui-fullscreen-terminal.test.ts`(假 io 断言"发出的还原动作")。
+ *    削弱的是"取证面",不是判据本身:这里只留读端真能到达的不变量,且不得改成条件断言冒充绿。
  *  - 子进程写出的绝对光标定位 CUP **不**被透传(ConPTY 做单元格差分合成,首帧用相对移动),
  *    所以"按新尺寸重画"不能用 CUP 行号断言(Windows 实测恒缺席,只有 POSIX 裸管道才有)——
  *    改用**宽度决定性探针**:输入 90 个 'x',80 列下读端最长连续串只可能是 78("❯ " 占 2 格),
@@ -23,6 +34,10 @@
  *    并在主屏回显 `terminal too small (20x10)` —— 文本字节跨平台都可达;
  *  - 退出通知的 onExit 事件可能先于尾字节冲刷到达(实测竞态),凡"退出后断言文本"
  *    一律走 settle 等待窗,不拿 onExit 时刻的快照说事。
+ *  - 滚轮那一格 2026-10-28 由"字节不打崩"升级为**因果断言**:注入 `\x1b[<64;10;10M`(上滚)/
+ *    `\x1b[<65;10;10M`(下滚)后,状态栏读数必须真的从 `LIVE` 翻成 `SCROLL` 再翻回 `LIVE`
+ *    (实测上滚 3 枚→110 字节新帧含 `SCROLL`,下滚 6 枚→99 字节新帧含 `LIVE`),
+ *    这才算"滚轮事件进了应用、并被重绘到真终端"。
  */
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -30,9 +45,16 @@ import { quitByEsc, resolvePtyModule, settleExitCode, spawnTuiInPty, type PtyMod
 
 const ENTER = '\x1b[?1049h'
 const LEAVE = '\x1b[?1049l'
+const CLEAR = '\x1b[2J'
+const MOUSE_PRESS_ON = '\x1b[?1000h'
+const MOUSE_SGR_ON = '\x1b[?1006h'
+const MOUSE_ON = [MOUSE_PRESS_ON, MOUSE_SGR_ON] as const
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const ENTER_RE = new RegExp(escapeRe(ENTER))
 const LEAVE_RE = new RegExp(escapeRe(LEAVE))
+const MOUSE_ENABLE_RE = /\x1b\[\?(?:1000|1006)h/
+/** 整枚序列在流里出现了几次(序列含转义字节,必须按字面量数,不能按正则类匹配数)。 */
+const countOf = (stream: string, seq: string): number => stream.split(seq).length - 1
 
 const ptyModule = await resolvePtyModule()
 if (!ptyModule) {
@@ -68,47 +90,68 @@ suite('全屏 TUI × 真 PTY(G-329)', () => {
   })
 
   it(
-    '进入/离开 alt-screen:1049h 于进入时、1049l 于退出时,顺序配对,退出通知落在 alt-screen 之外',
+    'alt-screen 进出配对:1049h/1049l 各恰好一枚、先进后出;还原之后读端不得再被拉回全屏',
     async () => {
       const session = await startTui()
       const enterAt = await session.waitFor(ENTER_RE, 0, 1_000)
+      expect(countOf(session.stream, ENTER), '一次会话只允许进入 alt-screen 一枚 1049h(重复进入=反复掀屏)').toBe(1)
+      expect(session.stream.indexOf(LEAVE), '还没退出,读端不该出现 1049l').toBe(-1)
 
       const exitInfo = await quitByEsc(session, 15_000)
       const leaveAt = await session.waitFor(LEAVE_RE, enterAt, SETTLE_MS)
-      expect(exitInfo.exitCode, `ESC 退出应为 0,实测 ${String(exitInfo.exitCode)}`).toBe(0)
-      // 退出通知打在 alt-screen 之外:leave 之后(允许冲刷竞态)还能读到那句交代。
-      await session.waitFor(/left fullscreen/, leaveAt, SETTLE_MS)
+      expect(exitInfo.exitCode, `ESC 退出应为 0(取不到即未判定,不得当 0),实测 ${String(exitInfo.exitCode)}`).toBe(0)
+      expect(countOf(session.stream, LEAVE), '1049l 必须且只能有一枚').toBe(1)
+      expect(leaveAt, '还原必须排在进入之后').toBeGreaterThan(enterAt)
+      // 还原之后不得再出现任何"把终端重新拉回 alt-screen / 重新打开鼠标上报"的开关字节。
+      // (主屏那句退出交代在 ConPTY 读端取不到,依据见文件头口径;这里断言可达的那一半。)
+      const afterLeave = session.stream.slice(leaveAt + LEAVE.length)
+      expect(ENTER_RE.test(afterLeave) || MOUSE_ENABLE_RE.test(afterLeave), `1049l 之后残留重新开启的开关字节:${JSON.stringify(afterLeave.slice(0, 120))}`).toBe(false)
     },
     PTY_TEST_TIMEOUT_MS,
   )
 
   it(
-    '滚轮字节不得打崩全屏:注入 SGR 鼠标事件(64/65 上下滚)后仍能被 ESC 正常退出并配对还原',
+    '滚轮事件端到端:注入 SGR 上滚(64)/下滚(65)后读数必须 LIVE→SCROLL→LIVE 真重绘,收尾仍配对还原',
     async () => {
       const session = await startTui()
-      const beforeWheel = session.mark()
-      session.write('\x1b[<64;10;10M\x1b[<65;10;10M'.repeat(3))
+      await session.waitFor(/LIVE/, 0, 15_000)
+      expect(session.stream.includes('SCROLL'), '基线:未滚轮之前不该已经是 SCROLL 态').toBe(false)
+
+      const upMark = session.mark()
+      session.write('\x1b[<64;10;10M'.repeat(3))
+      await session.waitFor(/SCROLL/, upMark, 10_000)
+      expect(session.stream.indexOf(LEAVE), '滚轮不得把全屏弄退出').toBe(-1)
+
+      const downMark = session.mark()
+      session.write('\x1b[<65;10;10M'.repeat(6))
+      await session.waitFor(/LIVE/, downMark, 10_000)
+
       const exitInfo = await quitByEsc(session, 15_000)
-      const leaveAt = await session.waitFor(LEAVE_RE, beforeWheel, SETTLE_MS)
-      expect(leaveAt, '注入滚轮字节后 TUI 必须还活着并能配对还原终端').toBeGreaterThan(beforeWheel)
-      expect(exitInfo.exitCode, `注入滚轮后 ESC 退出应按 0 收尾,实测 ${String(exitInfo.exitCode)}`).toBe(0)
+      await session.waitFor(LEAVE_RE, downMark, SETTLE_MS)
+      expect(exitInfo.exitCode, `滚轮之后 ESC 退出应按 0 收尾,实测 ${String(exitInfo.exitCode)}`).toBe(0)
     },
     PTY_TEST_TIMEOUT_MS,
   )
 
   it(
-    '全屏开启鼠标上报(1000+1006),滚轮有解码通道(G-329 原缺陷格,2026-10-28 补齐)',
+    '进入全屏必须把鼠标上报开启字节送到读端(1049h→清屏→1000h→1006h 同串有序),否则滚轮没有解码通道',
     async () => {
       const session = await startTui()
-      await quitByEsc(session, 15_000)
-      await session.exited
-      await session.waitFor(/left fullscreen/, 0, SETTLE_MS)
-      // 真 PTY 读端全量流里找鼠标上报开关:进全屏必须开、退全屏必须关。
-      // ConPTY 自身会开 ?1004(焦点上报)与 ?9001,那不是鼠标模式,判据不含它们。
-      const mouseModeOn = /\x1b\[\?(?:1000|1006)h/.test(session.stream)
-      const mouseModeOff = /\x1b\[\?(?:1000|1006)l/.test(session.stream)
-      expect(mouseModeOn, '全屏会话应开启鼠标上报(滚轮翻页)能力').toBe(true)
-      expect(mouseModeOff, '退出全屏必须关掉鼠标上报,否则滚轮会污染 shell').toBe(true)
+      const enterAt = await session.waitFor(ENTER_RE, 0, 1_000)
+      // 开启鼠标上报只算"进入全屏"这个动作的一部分:必须落在 1049h 之后的同一串里,
+      // 而不是会话中途某处冒出来(实测三枚序列都在 1049h 后 32 字节窗口内)。
+      const window = session.stream.slice(enterAt, enterAt + 64)
+      const atClear = window.indexOf(CLEAR)
+      const [atPress, atSgr] = [window.indexOf(MOUSE_PRESS_ON), window.indexOf(MOUSE_SGR_ON)]
+      expect(atClear, `1049h 之后应紧跟清屏,窗口实测 ${JSON.stringify(window)}`).toBeGreaterThanOrEqual(0)
+      expect(atPress, `窗口内应出现 1000h(按下/释放上报),实测 ${JSON.stringify(window)}`).toBeGreaterThanOrEqual(0)
+      expect(atSgr, '窗口内应出现 1006h(SGR 扩展编码,滚轮键码 64/65 只在它之下无歧义)').toBeGreaterThan(atPress)
+      expect(atPress).toBeGreaterThan(atClear)
+      for (const seq of MOUSE_ON) expect(countOf(session.stream, seq), `${JSON.stringify(seq)} 只应开启一次`).toBe(1)
+
+      const exitInfo = await quitByEsc(session, 15_000)
+      expect(exitInfo.exitCode, `退出码取不到即未判定,实测 ${String(exitInfo.exitCode)}`).toBe(0)
+      await session.waitFor(LEAVE_RE, enterAt, SETTLE_MS)
     },
     PTY_TEST_TIMEOUT_MS,
   )
