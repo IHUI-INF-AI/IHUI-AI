@@ -201,11 +201,16 @@ async function injectVerifiedUser(
   reply: FastifyReply,
   requestedUserId: string,
 ): Promise<boolean> {
+  // 长度在收窄**之前**取:isUuidString 声明为 `value is string`,对已是 string 的入参做
+  // 否定判断时 TS 把分支内类型收窄成 never(排除 string 后为空集),分支里直接写
+  // requestedUserId.length 会报 TS2339。运行时语义完全等价(string.length 无副作用),
+  // 不动 isUuidString 的签名 —— 它是 §0.6 单一真相源,被多处引用。
+  const subjectLength = requestedUserId.length
   if (!isUuidString(requestedUserId)) {
     // 不打印主体原文:它未经任何形状约束(票档的 sub 是签名载荷,老通道那条正则也允许
     // 任意字母数字串),日志面按 log-sanitizer 之外再留一道"不把外来串原样写进日志"的余量。
     request.log.warn(
-      { subjectLength: requestedUserId.length, ip: request.ip, endpoint: request.url },
+      { subjectLength, ip: request.ip, endpoint: request.url },
       '[internal-token] subject not uuid-shaped, rejected before any query',
     )
     reply.status(401).send(error(401, 'Verified UUID principal required'))
