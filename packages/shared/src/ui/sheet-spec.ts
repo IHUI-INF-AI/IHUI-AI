@@ -1,0 +1,51 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// 本文件为 Sheet 族的「结构与几何单一源」(web 薄壳与 RN 薄壳共用),形状照 card-spec / input-spec。
+
+/**
+ * Sheet 族的结构与几何单一源(web 薄壳与 RN 薄壳共用),形状照 card-spec。
+ *
+ * 两端真实实现坐标:
+ *  - web 端 = packages/ui-react/src/components/sheet.tsx(Radix Dialog 派生;五档 side、遮罩、
+ *    flex-col 布局;`gap-3 p-3` + `min-[640px]:gap-4`、圆角 rounded-xl、CSS 过渡);
+ *  - RN 端  = packages/ui-native/src/sheet.tsx(RN Modal + Animated slideUp;全宽 bottom/top 抽屉、
+ *    拖拽手柄;`p-6` + `rounded-t-lg`/`rounded-b-lg`、ANIM_DURATION=300)。
+ *
+ * 本表只存**取值档**(逻辑 px + 圆角档名),不存承载形式;承载类名/样式表留在两端薄壳里。
+ * 代价:两端壳必须把本表的每一个导出常量都接走并真用 —— 挂了常量却没人消费就是"造好没装车"。
+ *
+ * 颜色(规则6:机制/取值分叉,允许不同形,**不下沉**):
+ *  - 遮罩不透明度:web `bg-white/80 dark:bg-black/80`、RN `bg-black/50` 为两端既定承载差异,
+ *    属平台色通道差异,不收进本表(收进会变成第二份真相且 nativewind 扫不到)。
+ *
+ * 圆角**只给档名不给 px**:px 归 packages/design-tokens/src/radius.js 的 RADIUS_STEPS 单源;
+ * 本表只记"抽屉取哪一档",两端各自把档名映射成本端承载类名
+ * (web `rounded-xl` / RN `rounded-t-xl`+`rounded-b-xl`,按 side 取上/下沿)。
+ *
+ * 侧栏宽度(规则6,逐条登记):web `w-[90vw]`(移动)→`w-3/4 max-w-sm`(≥640px)是响应式栅格专属;
+ * RN 为全宽 bottom/top 抽屉,无侧栏宽度概念 ⇒ 作为平台差异登记,不下沉为常量。
+ *
+ * 消费方式:子路径 `@ihui/shared/ui/sheet-spec`(禁挂根桶:同 card-spec,根桶会把整棵 src 拉进被检程序)。
+ * spec 内只存逻辑 px;web 端 1:1(CSS px),RN 端 1:1(逻辑 pt)。
+ *
+ * 裁定规则(同 O81 票④):
+ *  - 规则1 两端现值已同,收一处防再分叉;
+ *  - 规则2 同义不同值取 compact 较小档(RN `p-6`=24 收敛到 web `p-3`=12);
+ *  - 规则6 平台承载机制差异(web 用 CSS 过渡 + 响应式档,RN 用 Animated + 全宽抽屉)→ 允许不同形,注明理由。
+ */
+export const SHEET_SIZE_TIERS = ['sm', 'md', 'lg'] as const
+export type SheetSizeTier = (typeof SHEET_SIZE_TIERS)[number]
+
+/** 抽屉内边距(逻辑 px):web `p-3` = 12;RN `p-6` = 24。规则2 取 compact 较小档 12,RN 收敛到 12。 */
+export const SHEET_PADDING_PX = 12
+
+/** 抽屉内容纵向间隙(逻辑 px):web SheetContent `gap-3` = 12;RN 原无 gap,补 flex-col + gap-3 对齐。 */
+export const SHEET_CONTENT_GAP_PX = 12
+
+/** 抽屉圆角档名:web `rounded-xl`(12px);RN 改 `rounded-t-xl`/`rounded-b-xl`(按 side 取上/下沿)。 */
+export const SHEET_RADIUS_TIER = 'xl'
+
+/** 进出场动画时长(ms):web 原用 `--duration-unified` 变量,RN `ANIM_DURATION=300`。定 300 为唯一值,两端齐步。 */
+export const SHEET_ANIM_DURATION_MS = 300
+
+/** 默认尺寸档。 */
+export const SHEET_DEFAULT_SIZE: SheetSizeTier = 'md'

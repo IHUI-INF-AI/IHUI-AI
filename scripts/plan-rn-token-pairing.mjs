@@ -186,9 +186,24 @@ export function plan({ tokensTxt, rnSrc, mappings }) {
       ambiguous.push({ ...rec, why: 'RN 暗表无同名档(登记后无处可写)' })
       continue
     }
-    // 色阶档先落桶:它连"按同值挂到角色档"这个诱惑都不该有,不管命名推不推得出(判据只加不减)。
+    // 色阶档:不得挂**角色档**(--color-border-medium 这种),但允许挂同类**刻度档**
+    // (--color-neutral-500 ↔ gray.500 —— 两边都是"一条灰阶",挂上就是同源,不产生语义耦合)。
+    // 判据只加不减:刻度档名必须命中 SCALE_NS 里那一族且带数字尾档,否则一律落桶交人。
     if (SCALE_NS.has(l.path.split('.')[0])) {
-      scale.push({ ...rec, css: L?.name ?? null })
+      const scaleCand = lightCands.filter(([n]) =>
+        new RegExp(`^--color-(${[...SCALE_NS].join('|')})-\\d{2,3}$`).test(n),
+      )
+      if (scaleCand.length === 1) {
+        const n = scaleCand[0][0]
+        const okDark = !darkValue || safeAgree(darkValue, cssDark[n])
+        if (okDark) {
+          pairs.push({ ...rec, css: n, dark: n, rule: 'R4-scale' })
+          continue
+        }
+        ambiguous.push({ ...rec, why: `刻度档 ${n} 亮面等值但暗面不等值(RN 暗 ${darkValue} vs 源暗 ${cssDark[n]})` })
+        continue
+      }
+      scale.push({ ...rec, css: L?.name ?? null, scaleCandidates: scaleCand.map(([x]) => x) })
       continue
     }
     if (!L) {

@@ -32,7 +32,7 @@ import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { VOICE_INPUT_RECORD_ROW_GAP_PX } from '@ihui/shared/ui/voice-input-spec'
 import { voiceSttFromReactNative } from '@ihui/api-client'
-import { runWithFreshToken } from '../lib/token'
+import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
@@ -66,9 +66,9 @@ const WAVE_MAX = 28
 const WAVE_SAMPLES = [0, 0.25, 0.5, 0.75, 1]
 
 const IMAGE_SOURCES: ReadonlyArray<{ type: VoiceImageSource; icon: LucideIcon; label: string }> = [
-  { type: 'camera', icon: Camera, label: '相机' },
-  { type: 'album', icon: ImageIcon, label: '相册' },
-  { type: 'file', icon: Folder, label: '文件' },
+  { type: 'camera', icon: Camera, label: 'voice.cam' },
+  { type: 'album', icon: ImageIcon, label: 'voice.album' },
+  { type: 'file', icon: Folder, label: 'voice.file' },
 ]
 
 export function VoiceInput({
@@ -88,9 +88,6 @@ export function VoiceInput({
   const [duration, setDuration] = useState(0)
   const [showImagePopup, setShowImagePopup] = useState(false)
   const [lastResult, setLastResult] = useState('')
-  // 转写失败的用户可见原因(2026-10-26:此前失败只回填空串,界面停在"按住说话",
-  // 看起来像"没按到",而真实原因是上传被服务端拒了)
-  const [sttError, setSttError] = useState('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const waveAnim = useRef(new Animated.Value(0)).current
   const recordingRef = useRef(false)
@@ -149,32 +146,22 @@ export function VoiceInput({
 
     setTranscribing(true)
     try {
-      // 凭据新鲜度由 lib/token 的兜带负责:上传前剩余寿命 ≤ 5 分钟先续期,
-      // 被服务端否定(判据 = classifyRefreshFailureStatus)则续期后只重试一次。
-      const text = await runWithFreshToken((token) =>
-        voiceSttFromReactNative(uri, {
-          language,
-          aiServiceUrl,
-          token: token ?? undefined,
-        }),
-      )
-      setSttError('')
+      const text = await voiceSttFromReactNative(uri, {
+        language,
+        aiServiceUrl,
+        token: getToken() ?? undefined,
+      })
       setLastResult(text)
       onChange?.(text)
       onComplete?.(text)
-    } catch (e) {
-      // 失败要响:上一行成功才清空,这里给出可见原因(仍回填空串 = 调用方按"无内容"处理)
-      setSttError(t('common.failed'))
-      console.warn(
-        `[rn-voice] VoiceInput STT failed: ${e instanceof Error ? e.message : 'unknown error'}`,
-      )
+    } catch {
       setLastResult('')
       onChange?.('')
       onComplete?.('')
     } finally {
       setTranscribing(false)
     }
-  }, [onChange, onComplete, recorder, language, aiServiceUrl, t])
+  }, [onChange, onComplete, recorder, language, aiServiceUrl])
 
   // 计时器 + 波形动画
   useEffect(() => {
@@ -210,8 +197,6 @@ export function VoiceInput({
     recordingRef.current = true
     setRecording(true)
     setDuration(0)
-    // 新一轮录音:上一轮可见失败原因先退场(失败仍会由下一轮的 catch 重新给出)
-    setSttError('')
     void (async () => {
       try {
         await recorder.prepareToRecordAsync()
@@ -275,7 +260,7 @@ export function VoiceInput({
         <Pressable
           style={styles.mask}
           onPress={() => setShowImagePopup(false)}
-          accessibilityLabel="关闭图片菜单"
+          accessibilityLabel={t('voice.closeImgMenu')}
         />
       ) : null}
 
@@ -286,7 +271,7 @@ export function VoiceInput({
           onPress={() => setShowImagePopup((v) => !v)}
           hitSlop={4}
           accessibilityRole="button"
-          accessibilityLabel="添加图片"
+          accessibilityLabel={t('voice.addImage')}
         >
           <Text style={styles.imageToggleIcon} allowFontScaling={false}>
             {'＋'}
@@ -314,14 +299,15 @@ export function VoiceInput({
             {bars.map((h, i) => (
               <Animated.View key={i} style={[styles.bar, { height: h }]} />
             ))}
-            <Text style={styles.recordingText}>{formatShortDuration(duration)} 松开结束</Text>
+            <Text style={styles.recordingText}>
+              {formatShortDuration(duration)}
+              {t('voice.releaseEnd')}
+            </Text>
           </View>
         ) : transcribing ? (
-          <Text style={styles.transcribingText}>转写中…</Text>
+          <Text style={styles.transcribingText}>{t('voice.transcribing')}</Text>
         ) : (
-          <Text style={sttError ? styles.errorText : styles.idleText} numberOfLines={2}>
-            {sttError || (placeholder ?? '按住说话')}
-          </Text>
+          <Text style={styles.idleText}>{placeholder ?? t('voice.holdToTalk')}</Text>
         )}
       </Pressable>
 
@@ -332,7 +318,7 @@ export function VoiceInput({
           onPress={handleClear}
           hitSlop={4}
           accessibilityRole="button"
-          accessibilityLabel="清除结果"
+          accessibilityLabel={t('voice.clearResult')}
         >
           <Text style={styles.clearIcon} allowFontScaling={false}>
             {'×'}
@@ -349,11 +335,11 @@ export function VoiceInput({
               style={styles.popupItem}
               onPress={() => handleImagePick(item.type)}
               accessibilityRole="button"
-              accessibilityLabel={item.label}
+              accessibilityLabel={t(item.label)}
             >
               <item.icon size={20} color={tokens.text.secondary} />
               <Text style={styles.popupLabel} numberOfLines={1}>
-                {item.label}
+                {t(item.label)}
               </Text>
             </Pressable>
           ))}
@@ -433,10 +419,6 @@ const styles = StyleSheet.create({
   idleText: {
     fontSize: 12,
     color: tokens.text.secondary,
-  } as TextStyle,
-  errorText: {
-    fontSize: 12,
-    color: tokens.danger.DEFAULT,
   } as TextStyle,
   clearBtn: {
     width: 24,

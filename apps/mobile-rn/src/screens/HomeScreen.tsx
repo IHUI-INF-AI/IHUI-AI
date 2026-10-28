@@ -4,8 +4,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QrCodeImage from '../../assets/images/common/qewm.png'
+import ShareZhuanmiImage from '../../assets/images/common/share-zhuanmi.png'
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Image,
   Keyboard,
   Modal,
@@ -657,6 +660,61 @@ async function persistShareFirstDismissed(): Promise<void> {
 /** AiModelCard 收藏资源标识(品牌主推卡固定资源;resourceType='agent' 已入后端枚举,2026-10-15) */
 const ASSISTANT_FAVORITE = { resourceType: 'agent' as const, resourceId: 'zhihui-ai-assistant' }
 
+// ── 顶部分享图按钮(2026-10-28 用户定):与小程序 ai_index 右上角 share-image 同图
+//    (remote-images/share_zhuanmi.png),纯图片不带文字,上下浮动吸引点击;点击弹 ShareSheet。
+//    内置 256px 压缩版(原 CDN 图 2048²/2MB 不适合按 40dp 整图解码),内容与小程序同源图一致。──
+const NAV_SHARE_IMAGE_PX = 40 // 小程序 80rpx 的 dp 投影(80/2)
+const NAV_SHARE_BOB_PX = 5 // 上下浮动幅度
+const NAV_SHARE_BOB_HALF_MS = 700 // 半程时长(整周期 1.4s,呼吸节奏不喧宾夺主)
+
+function NavShareImageButton({ onPress, a11yLabel }: { onPress: () => void; a11yLabel: string }) {
+  const bob = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bob, {
+          toValue: -NAV_SHARE_BOB_PX,
+          duration: NAV_SHARE_BOB_HALF_MS,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(bob, {
+          toValue: 0,
+          duration: NAV_SHARE_BOB_HALF_MS,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [bob])
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      style={navShareStyles.btn}
+    >
+      <Animated.Image
+        source={ShareZhuanmiImage}
+        style={{
+          width: NAV_SHARE_IMAGE_PX,
+          height: NAV_SHARE_IMAGE_PX,
+          transform: [{ translateY: bob }],
+        }}
+        resizeMode="contain"
+      />
+    </TouchableOpacity>
+  )
+}
+
+const navShareStyles = StyleSheet.create({
+  btn: { paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+})
+
 export function HomeScreen() {
   const { t } = useI18n()
   // ── i18n 消费侧(§19 端内禁硬编码文案,2026-10-24):以下三组替代原模块顶层
@@ -942,15 +1000,16 @@ export function HomeScreen() {
    *  点击开 SearchOverlay 弹窗(遮罩 + 三段面板,弹窗内直接出结果,不再跳全屏搜索页;
    *  RootStack 'Search' 路由保留)
    *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24))
-   *  分享按钮(2026-10-15 产品定):原对齐 Uniapp share-image → goToMyPage 跳我的页,
-   *  改为弹微信分享面板 ShareSheet(微信好友/朋友圈原生分享 + 复制链接兜底) */
+   *  分享按钮(2026-10-28 用户定):从 Gift 图标改为与小程序 ai_index 右上角同款的
+   *  share-image「分享赚米」徽章图(纯图片无文字 + 上下浮动),经 NavBar rightAction
+   *  挂在最右(与小程序 share-image 同位),点击弹微信分享面板 ShareSheet(微信好友/
+   *  朋友圈原生分享 + 复制链接兜底,2026-10-15 产品定) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
     { icon: PanelLeftRounded, a11yLabel: t('home.navMenu'), onPress: handleMenuPress },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
     { icon: Search, a11yLabel: t('common.search'), onPress: () => setSearchOverlayVisible(true) },
     { icon: Handshake, label: t('home.navJoinGroup'), onPress: handleJoinPress },
-    { icon: Gift, label: t('home.navShare'), onPress: () => setShareSheetVisible(true) },
   ]
 
   // ── InputArea 提交(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) ──
@@ -1812,7 +1871,9 @@ export function HomeScreen() {
   return (
     <View style={shellStyles.root}>
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
-       *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
+       *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/分享徽章图 对齐 join-click/share-image
+       *  分享位(2026-10-28 用户定):小程序同款 share_zhuanmi 徽章图,纯图片 + 上下浮动,
+       *  经 rightAction 挂最右(与小程序 share-image 右上角同位)
        *  (2026-10-20 用户定:原右侧「分类」按钮移除,首页不做赛道分类筛选)
        *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
       <NavChrome>
@@ -1820,6 +1881,12 @@ export function HomeScreen() {
           title={t('home.brandName')}
           leftActions={navLeftActions}
           rightActions={navRightActions}
+          rightAction={
+            <NavShareImageButton
+              onPress={() => setShareSheetVisible(true)}
+              a11yLabel={t('home.navShare')}
+            />
+          }
         />
       </NavChrome>
       <ScrollView

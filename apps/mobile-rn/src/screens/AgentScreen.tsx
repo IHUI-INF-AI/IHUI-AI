@@ -64,7 +64,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
-import { type LucideIcon, Bot, Film, FolderOpen, Palette, Search } from 'lucide-react-native'
+import { type LucideIcon, Bot, Film, LayoutGrid, Palette, Search } from 'lucide-react-native'
 
 import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
@@ -652,11 +652,17 @@ export function AgentScreen() {
       <NavChrome>
         <NavBar
           title={t('agentScreen.title')}
+          // 分类钮(2026-10-28 用户定):FolderOpen「分类」换 LayoutGrid 纯图标去文字,
+          // 并从左侧移到右侧操作区(左侧只留导航菜单,右侧并列搜索,左导航/右操作)
           leftActions={[
-            { icon: FolderOpen, label: t('plaza.index.navCategory'), onPress: handleCategoryPress },
             { icon: PanelLeftRounded, a11yLabel: t('home.navMenu'), onPress: handleMenuPress },
           ]}
           rightActions={[
+            {
+              icon: LayoutGrid,
+              a11yLabel: t('plaza.index.navCategory'),
+              onPress: handleCategoryPress,
+            },
             { icon: Search, a11yLabel: t('common.search'), onPress: handleSearchPress },
           ]}
         />

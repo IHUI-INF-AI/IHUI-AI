@@ -100,16 +100,27 @@ const stats = {
   sharedTotal: shared.length,
   mirrored: mirrored.size,
   gaps: gaps.length,
-  // 已判定(缺页/不承载)与未判定分列 —— 这两个数必须分开,合在一起就分不清
+  // 已判定与未判定分列 —— 这两个数必须分开,合在一起就分不清
   // "没人看过"和"看过且结论是不该有"。前者要派单,后者不必再派。
   verdicted: rows.filter((r) => r.verdict).length,
   undetermined: rows.filter((r) => !r.verdict).length,
   verdictLedgerRows: verdictRows.rows.length,
   verdictLedgerBad: verdictRows.bad.length,
+  // 台账三档分布(全表,不止缺口集):
+  //   missing = 判过、该造页、尚未造;not-applicable = 判过、不该由小程序承载;
+  //   generated = **已造页**(声明链+路由+五语词包已落),但数据钩子/交互待补。
+  // generated 这一档单列的原因:它的屏**已被计入覆盖率**,但功能还没跟上 ——
+  // 不单列就等于让覆盖率读数替功能缺口背书(§0.3「造好没装车 = 没有」)。
+  ledgerMissing: verdictRows.rows.filter((r) => r.verdict === 'missing').length,
+  ledgerGenerated: verdictRows.rows.filter((r) => r.verdict === 'generated').length,
+  ledgerNotApplicable: verdictRows.rows.filter((r) => r.verdict === 'not-applicable').length,
 }
 
+/** 待补数据钩子的工作单:已造页但功能未跟上的屏(不在缺口集里,单列成一张单) */
+const pendingHooks = verdictRows.rows.filter((r) => r.verdict === 'generated')
+
 if (jsonMode) {
-  console.log(JSON.stringify({ stats, rows }, null, 1))
+  console.log(JSON.stringify({ stats, rows, pendingHooks }, null, 1))
   process.exit(0)
 }
 
@@ -129,6 +140,15 @@ lines.push(
     (stats.verdictLedgerBad ? `(坏行 ${stats.verdictLedgerBad} 行,已单列不静默丢)` : '') +
     ` — 路径与口径单源 \`scripts/lib/cross-end-verdicts.mjs\``,
 )
+lines.push(
+  `- 台账三档: **缺页待造 ${stats.ledgerMissing}** / **已造页待补数据钩子 ${stats.ledgerGenerated}** / **不承载 ${stats.ledgerNotApplicable}**`,
+)
+if (stats.ledgerGenerated > 0) {
+  lines.push(
+    `> ⚠ 已造页 ${stats.ledgerGenerated} 条**已计入上面的覆盖率**,但数据钩子/交互尚未按共享屏补齐 ⇒ ` +
+      `覆盖率不等于功能对齐(§0.3「造好没装车 = 没有」);待补清单见文末「已造页·待补数据钩子」单。`,
+  )
+}
 lines.push('')
 lines.push('## 缺口清单')
 lines.push('')
@@ -137,16 +157,35 @@ lines.push('|---|---|---|---|---|---|')
 rows.forEach((r, i) => {
   const rnTxt = r.rn.length ? r.rn.map((c) => `${c.exact ? '★' : ''}${c.name}`).join(' / ') : '—'
   const mpTxt = r.mp.length ? r.mp.map((c) => c.route).join(' / ') : '—'
-  // 状态三态:未判定(没人验过)/ 缺页(验过,确实没有,待造页)/ 不承载(验过,不该由小程序承载)
+  // 状态四态:未判定(没人验过)/ 缺页(验过,确实没有,待造页)/ 不承载(验过,不该由小程序承载)
+  //          / 已造页(已落声明链,功能钩子待补 —— 已计入覆盖率,故不在本表)
   const state =
-    r.verdict === 'missing' ? '🧱 缺页(已判定)' : r.verdict === 'not-applicable' ? '🚫 不承载(已判定)' : '🔲 未判定'
+    r.verdict === 'missing'
+      ? '🧱 缺页(已判定)'
+      : r.verdict === 'not-applicable'
+        ? '🚫 不承载(已判定)'
+        : r.verdict === 'generated'
+          ? '🏗 已造页(功能待补)'
+          : '🔲 未判定'
   lines.push(`| ${i + 1} | \`${r.domain}/${r.name}\` | ${rnTxt} | ${mpTxt} | ${state} | ${r.evidence || '—'} |`)
 })
 lines.push('')
 lines.push(`> 合计 ${rows.length} 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。`)
 lines.push(
-  `> 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页)。`,
+  `> 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页);**🏗 已造页** = 页已按声明链造出,数据钩子待补。`,
 )
+if (pendingHooks.length > 0) {
+  lines.push('')
+  lines.push('## 已造页 · 待补数据钩子(已计入覆盖率,功能尚未跟上)')
+  lines.push('')
+  lines.push('| # | 共享屏 | 判定依据 |')
+  lines.push('|---|---|---|')
+  pendingHooks.forEach((r, i) => {
+    lines.push(`| ${i + 1} | \`${r.shared}\` | ${r.evidence || '—'} |`)
+  })
+  lines.push('')
+  lines.push(`> 共 ${pendingHooks.length} 条;每条都要按对应共享屏补齐取数/交互/跳转,才算功能真对齐。`)
+}
 const md = lines.join('\n') + '\n'
 if (writePath) {
   writeFileSync(resolve(ROOT, writePath), md)
