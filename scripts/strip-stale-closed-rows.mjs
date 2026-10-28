@@ -1967,7 +1967,18 @@ function main() {
     console.log(
       `${C.yellow}⏭ 落地前受影响门预探未跑:${C.reset}lib/land-gate-rerun.mjs 取不到(净检出形态)⇒ 归因不可用,落地器 exit≠0 时照旧落 refused(不猜"存量红")`,
     )
-  else if (process.env.IHUI_LAND_SKIP_AFFECTED_GATES !== '1') {
+  else if (process.env.IHUI_LAND_PROBE !== '1') {
+    // 默认不预探(2026-10-28 依据实测裁):一批受影响门并发后仍要 70s,而本机当天三个轮次里
+    // 两轮 pre 全绿(对归因零信息)、一轮 pre=0/post=1(结论相反,归因本来就失败)⇒ 预探的
+    // 信息量在当下工作流是 0,成本是每轮 70s;且它是"批批叠三轮门"的源头(landStatus≠0 时
+    // 还会再跑一次 postProbe)。归因不可用的后果是"落地器 exit≠0 → refused"(§0.10 失效方向
+    // = 多要一次定向说明),不是放行;HEAD 该推进的照旧推进、留痕照旧写、推送腿照旧跑。
+    // 诊断需要时置 IHUI_LAND_PROBE=1 恢复改前行为(两批门,含归因)。
+    console.log(
+      `${C.yellow}⏭ 落地前受影响门预探未跑:${C.reset}默认关闭(每批约 70s,实测信息量为 0)` +
+        `⇒ 落地器 exit≠0 时归因不可用,照旧落 refused(不猜"存量红");诊断时置 IHUI_LAND_PROBE=1`,
+    )
+  } else if (process.env.IHUI_LAND_SKIP_AFFECTED_GATES !== '1') {
     console.log(
       `${C.cyan}🔎 落地前受影响门预探(只读;与落地后复跑同一实现 lib/land-gate-rerun,不跳过任何门)${C.reset}`,
     )
@@ -2124,7 +2135,8 @@ function main() {
   // 归因成功 = 报告"摘除已落地 + 存量红仍在(点名)",门照旧红、提交链照旧拦。
   if (landStatus !== 0) {
     let postProbe = null
-    if (advanced && rerunAffectedGates) {
+    // 归因要 pre/post 两面;预探默认关 ⇒ postProbe 也没有比较对象,一并跳过(省第三批 ~70s)。
+    if (advanced && rerunAffectedGates && process.env.IHUI_LAND_PROBE === '1') {
       console.log(`${C.cyan}🔎 落地后受影响门复跑(归因用;与预探同一实现)${C.reset}`)
       postProbe = rerunAffectedGates({ root: ROOT, paths: [FILE] })
     }

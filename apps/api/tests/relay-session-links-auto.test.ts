@@ -11,7 +11,7 @@
  * - 输出零泄漏(快照里的 token 埋雷与转写正文均不出现)。
  */
 import { describe, it, expect, afterAll, vi } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 

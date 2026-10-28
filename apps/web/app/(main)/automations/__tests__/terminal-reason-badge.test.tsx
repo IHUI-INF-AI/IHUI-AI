@@ -14,13 +14,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import type { UserAutomation } from '@ihui/api-client'
+// import() 类型注解被本仓 @typescript-eslint/consistent-type-imports 禁止,
+// 改用命名空间类型导入取同一模块的类型面(等价,且参与同一套 no-duplicate-imports 规则)。
+import type * as ApiClientModule from '@ihui/api-client'
 
 const { listAutomations } = vi.hoisted(() => ({
   listAutomations: vi.fn(),
 }))
 
 vi.mock('@ihui/api-client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  const actual = await importOriginal<typeof ApiClientModule>()
   return {
     ...actual,
     listAutomations,

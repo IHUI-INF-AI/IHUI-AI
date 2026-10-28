@@ -278,6 +278,21 @@ test('D1 面漂移判据三态:两面同 ⇒ ok;不同 ⇒ 判出漂移;任一�
     assert.equal(S.faceDriftVerdict(a, b).undetermined, true, '任一取不到一律未判定')
 })
 
+test('D3 形状锁(2026-10-28 提速):预探默认关闭、IHUI_LAND_PROBE=1 才开,postProbe 与它同开关', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../strip-stale-closed-rows.mjs', import.meta.url), 'utf8')
+  const main = src.slice(src.indexOf('function main()'))
+  const gate = main.indexOf("process.env.IHUI_LAND_PROBE !== '1'")
+  const run = main.indexOf('preProbe = rerunAffectedGates(')
+  assert.ok(gate >= 0, '预探必须先判 IHUI_LAND_PROBE 开关(默认关)')
+  assert.ok(run > gate, `开关(${gate})必须排在真跑预探(${run})之前`)
+  assert.ok(main.includes("process.env.IHUI_LAND_PROBE === '1'"), 'postProbe 必须与预探同一开关')
+  assert.ok(
+    !/if \(advanced && rerunAffectedGates\) \{/.test(main),
+    'postProbe 不得绕过开关:预探默认关时它没有比较对象,再跑一批纯属空转',
+  )
+})
+
 test('D2 形状锁(2026-10-28 枚 1d73ea96161a):面漂移守卫必须排在 object-space-land 之前,底稿按 sha 固定读', async () => {
   const { readFileSync } = await import('node:fs')
   const src = readFileSync(new URL('../strip-stale-closed-rows.mjs', import.meta.url), 'utf8')
