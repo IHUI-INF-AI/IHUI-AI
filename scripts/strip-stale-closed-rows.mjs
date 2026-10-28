@@ -189,6 +189,37 @@ function blobOf(spec) {
   }
 }
 
+/** 取一个 ref 的 40 位 sha;取不到(含无父提交)返回空串,由调用方落「未判定」 */
+function shaOf(ref) {
+  try {
+    const v = git(['rev-parse', ref]).trim()
+    return /^[0-9a-f]{40}$/.test(v) ? v : ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 面漂移判据(纯函数,零 IO):底稿读的那一面,还是不是落地前这一面?
+ *
+ * 立因(2026-10-28 实测枚 `1d73ea96161a`,不是推断):本器读完 HEAD 面之后要跑「落地前受影响门
+ * 预探」,那段是分钟级;窗口里别席提交了活文档 ⇒ 本器手里的 `plan.text` 是**旧面的产物**,
+ * 落地就是把旧面整份覆盖到新父面上。那一枚的实测后果:4 分钟前刚改写的 i18n 题面被回退,
+ * 已结清的「兜底轮削尾」票被翻回未勾 —— 而本器自己的 H0/H0b/H1/H2/H3 与落地器的 clobber
+ * 检查**全都只在各自那一面上自洽**,没有一条比较"我读的那一面还是不是当下这一面"。
+ *
+ * 三态(§0.3):两面都取得到且逐字节同 ⇒ ok;取得到而不同 ⇒ 判出漂移(拒绝落地);
+ * 任一取不到 ⇒ undetermined,由调用方 exit 2,绝不读成"没漂移"。
+ *
+ * @returns {{ok:boolean, undetermined?:boolean, why?:string}}
+ */
+export function faceDriftVerdict(textAtRead, textNow) {
+  if (typeof textAtRead !== 'string' || typeof textNow !== 'string')
+    return { ok: false, undetermined: true, why: '面取不到(读时或落地前)' }
+  if (textNow !== textAtRead) return { ok: false, why: '底稿面在读取之后被推进' }
+  return { ok: true }
+}
+
 /**
  * 纯函数:从底稿里摘掉指定行号的行,并跑三条守恒。
  * @returns {{ok:boolean, text?:string, removed?:number, why?:string, keptClosed:number}}
@@ -1756,8 +1787,12 @@ function main() {
     if (reconcileOnly) process.exit(dryRun && rec.pending > 0 ? 1 : 0)
   }
 
-  const headText = blobOf('HEAD:' + FILE)
-  const baseText = blobOf('HEAD^:' + FILE)
+  // 两面按 **sha 固定**读,不按符号 HEAD/HEAD^ 各读一次:两次 cat-file 之间若有人推进 HEAD,
+  // 这两面会来自不同提交,门 229 的"父面也已勾"那一维当场错位(而错位方向不报错,只是判错)。
+  const headShaAtRead = shaOf('HEAD')
+  const baseShaAtRead = shaOf('HEAD^')
+  const headText = headShaAtRead ? blobOf(`${headShaAtRead}:${FILE}`) : null
+  const baseText = baseShaAtRead ? blobOf(`${baseShaAtRead}:${FILE}`) : null
   if (headText === null || baseText === null) {
     console.error(`${C.yellow}⏭ 未判定:${C.reset}HEAD 或 HEAD^ 面的 ${FILE} 取不到 ⇒ 不清扫(§0.3)`)
     emitResult('undetermined', {
@@ -1944,6 +1979,38 @@ function main() {
           : ' 无判红臂'),
     )
   }
+  // ── 面漂移守卫(2026-10-28 立;实测枚 1d73ea96161a)─────────────────────────
+  // 必须排在预探之后:预探是分钟级的,它自己就是漂移窗口的主要来源。取不到现面 ⇒ exit 2 未判定。
+  const drift = faceDriftVerdict(headText, blobOf('HEAD:' + FILE))
+  if (!drift.ok) {
+    if (drift.undetermined) {
+      console.error(
+        `${C.yellow}⏭ 未判定(面漂移守卫):${C.reset}${drift.why} ⇒ 本轮不落地(§0.3:没量到不写成没漂移)。`,
+      )
+      emitResult('undetermined', {
+        stale: v.stale.length,
+        held: part.held.length,
+        stripped: 0,
+        why: 'face-unavailable',
+      })
+      process.exit(2)
+    }
+    const headShaNow = shaOf('HEAD') || '取不到'
+    console.error(
+      `${C.red}❌ 面漂移:${C.reset}底稿读于 ${headShaAtRead.slice(0, 11)},落地前已是 ${headShaNow.slice(0, 11)}` +
+        ` ⇒ 手里的 plan.text 是旧面产物,落地会整面覆盖这期间别人的改动` +
+        `(2026-10-28 枚 1d73ea96161a 即此型:回退了 4 分钟前刚改写的两行、把已结清票翻回未勾)。` +
+        `整批不落,下一轮按新面重读重做。`,
+    )
+    emitResult('refused', {
+      stale: v.stale.length,
+      held: part.held.length,
+      stripped: 0,
+      why: 'face-drift-since-read',
+    })
+    process.exit(1)
+  }
+
   const dir = mkScratch('ihui-strip-closed-')
   // 落地器的退出码要带出 try 块:留痕段(try 之后)要拿它决定"该怎么解释这次推进"。
   // **绝不在 try 里 process.exit**:那会让留痕与推送腿被整段跳过 —— 2026-10-24 实测
@@ -2122,6 +2189,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   buildStripPlan,
+  faceDriftVerdict,
   appendDropLedger,
   sweepCommitSubject,
   removedRowsBetween,
