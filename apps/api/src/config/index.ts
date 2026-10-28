@@ -173,6 +173,19 @@ const envSchema = z.object({
   // 票的 TTL 上限(秒),**由验票侧封顶**——发票方误配大值时"短期"这个前提必须还成立。
   INTERNAL_SERVICE_TICKET_MAX_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 
+  // ── 管理员 TOTP 闸档位(2026-10-28 安全审计)──
+  // 背景:TOTP 此前只对"已开启 2FA 的账号"生效 —— 管理员只要不主动开 2FA,纯密码登录
+  // 后即可走 requireAdmin 保护的全部 admin 路由。本档位给 requireAdmin /
+  // requireAdminRouteGuard 加一道"管理员必须绑 TOTP"的闸。
+  //   off     = 完全不检查(回滚口子,行为与加固前逐字节一致)
+  //   warn    = 未绑 TOTP 的管理员**放行**,但每次打一条结构化告警(默认档,
+  //             供运维统计有多少管理员没绑;绝不锁死生产管理后台)
+  //   enforce = 未绑 TOTP 的管理员访问 admin 面 → 403(文案直接给用户看)
+  // 默认 warn 而非 enforce 的理由:enforce 一旦上线,所有未绑 TOTP 的管理员立刻失去
+  // 管理后台访问权,属于"上线即锁死"的破坏面,必须先经 warn 期盘点存量账号。
+  // 未知值落回 warn(拼错档位名不该静默把门关掉,也不该静默把门锁死)。
+  ADMIN_TOTP_MODE: z.enum(['off', 'warn', 'enforce']).default('warn'),
+
   // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
   TBOX_WEBHOOK_SECRET: z.string().default(''),
 
