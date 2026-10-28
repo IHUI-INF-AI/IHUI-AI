@@ -2,144 +2,21 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/lecturer-list/LecturerListScreen.tsx
-import { useI18n } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
-import Taro, { useReachBottom } from '@tarojs/taro'
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { getTeacherList, type Teacher } from '@/api'
+// 镜像 packages/app/src/features/lecturer-list/LecturerListScreen.tsx
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon from '@/components/LineIcon'
-import SearchBar from '@/components/SearchBar'
-import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { TeacherListScreen as TeacherListScreenShell } from '@rn-shells/TeacherListScreen'
 
-export default function TeacherList() {
-  const { t } = useI18n()
-  const [list, setList] = useState<Teacher[]>([])
-  const [loading, setLoading] = useState(false)
-  const [keyword, setKeyword] = useState('')
-  const pageRef = useRef(1)
-  const hasMoreRef = useRef(true)
-  const loadingRef = useRef(false)
-  const lenRef = useRef(0)
-  const keywordRef = useRef('')
-
-  const load = useCallback(async (reset = false) => {
-    if (loadingRef.current) return
-    if (reset) {
-      pageRef.current = 1
-      hasMoreRef.current = true
-      lenRef.current = 0
-      setList([])
-    }
-    if (!reset && !hasMoreRef.current) return
-    loadingRef.current = true
-    setLoading(true)
-    try {
-      const res = await getTeacherList({
-        page: pageRef.current,
-        pageSize: 10,
-        keyword: keywordRef.current,
-      })
-      const more = res.list || []
-      lenRef.current = reset ? more.length : lenRef.current + more.length
-      setList((prev) => (reset ? more : [...prev, ...more]))
-      hasMoreRef.current = lenRef.current < res.total
-      pageRef.current++
-    } catch {
-      // 统一提示
-    } finally {
-      loadingRef.current = false
-      setLoading(false)
-    }
-  }, [])
-
-  const onSearch = useCallback(() => {
-    keywordRef.current = keyword
-    load(true)
-  }, [keyword, load])
-
-  const goDetail = useCallback((id: string | number) => {
-    Taro.navigateTo({ url: `/pkg-learn/teacher/detail?id=${id}` })
-  }, [])
-
-  useReachBottom(() => load())
-
-  useEffect(() => {
-    load(true)
-  }, [load])
-
+/**
+ * 手工迁移(2026-10-28):判据腿只差 @/api 一项,人工核对后数据面与壳逐字同源 ——
+ * 页面 `getTeacherList()` 与壳 `fetchApi('/teacher/list')` 同端点;
+ * 搜索由壳 onSearch 上抛关键词、点击由壳 onOpenLecturer → navigation.navigate('TeacherDetail')
+ * (route-map 有 TeacherDetail → /pkg-learn/teacher/detail);分页由壳 usePaginatedList 承担。
+ * ⇒ 源头(RN 壳或共享屏)改一笔,这一页自动跟随。
+ */
+export default function TeacherListPage() {
   return (
     <ThemeRoot>
-      {/* 对齐 RN TeacherListScreen container:bg surface.bg */}
-      <View className="min-h-screen bg-background">
-        {/* 搜索栏(RN searchWrap 胶囊,统一为圆角输入井,共享 SearchBar) */}
-        <SearchBar
-          value={keyword}
-          placeholder={t('teacher.list.searchPlaceholder')}
-          onInput={setKeyword}
-          onSearch={onSearch}
-          onClear={() => setKeyword('')}
-        />
-        {list.length > 0 && (
-          <View className="px-3 pb-[40rpx]">
-            {list.map((item) => (
-              <View
-                key={item.id}
-                className="flex items-center gap-3 bg-card rounded-lg p-3 mb-3"
-                hoverClass="opacity-85"
-                hoverStayTime={120}
-                onClick={() => goDetail(item.id)}
-              >
-                {item.avatar ? (
-                  <Image
-                    className="w-[120rpx] h-[120rpx] rounded-2xl bg-muted flex-shrink-0"
-                    src={item.avatar}
-                    mode="aspectFill"
-                  />
-                ) : (
-                  <View className="w-[120rpx] h-[120rpx] rounded-2xl bg-muted flex-shrink-0 flex items-center justify-center">
-                    <Text className="text-[length:44rpx] font-semibold text-muted-foreground">
-                      {item.name.slice(0, 1)}
-                    </Text>
-                  </View>
-                )}
-                <View className="flex-1 min-w-0">
-                  <View className="flex items-center gap-[12rpx]">
-                    <Text className="text-base text-foreground font-semibold line-clamp-1 min-w-0 flex-shrink">
-                      {item.name}
-                    </Text>
-                    {item.title && (
-                      <View className="flex-shrink min-w-0 bg-[var(--color-muted)] px-[12rpx] py-[4rpx] rounded">
-                        <Text className="text-[length:22rpx] text-muted-foreground line-clamp-1">
-                          {item.title}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  {item.intro ? (
-                    <Text className="block text-[length:26rpx] leading-[36rpx] text-muted-foreground mt-1 line-clamp-2">
-                      {item.intro}
-                    </Text>
-                  ) : null}
-                  <Text className="block text-xs text-[var(--color-text-tertiary)] mt-1">
-                    {t('teacher.list.courseCount', { n: item.courses || 0 })} ·{' '}
-                    {t('teacher.list.studentCount', { n: item.students || 0 })}
-                  </Text>
-                </View>
-                <LineIcon
-                  name="chevron-right"
-                  size={36}
-                  color="var(--color-text-tertiary)"
-                  className="flex-shrink-0"
-                />
-              </View>
-            ))}
-          </View>
-        )}
-        {!loading && list.length === 0 && <EmptyState title={t('teacher.list.empty')} />}
-        {loading && list.length === 0 && <ScreenSkeleton variant="list" count={4} />}
-      </View>
+      <TeacherListScreenShell />
     </ThemeRoot>
   )
 }
