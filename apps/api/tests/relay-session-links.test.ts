@@ -30,9 +30,12 @@ import {
   formatLedgerList,
   loadLedger,
   main,
+  parseConversationIdList,
   planAssign,
+  planAssignBatch,
   planRebuild,
   planUnassign,
+  readConversationIdList,
   scanConversationIds,
   type SessionLinksLedger,
   type SessionLinksPaths,
@@ -233,6 +236,196 @@ describe('applyLedger / main:写盘纪律', () => {
     expect(text).toContain('桶内=1')
     expect(text).toContain('未归属')
     expect(text).not.toContain(SECRET_BODY)
+  })
+})
+
+/** 造一份"账号已登记、会话全部显式未归属(auto-since)"的台账底稿,供批量人工照标 */
+function seedAssignedLedger(
+  paths: SessionLinksPaths,
+  accounts: { accountId: string; label: string }[],
+  convs: string[],
+): SessionLinksLedger {
+  const ledger: SessionLinksLedger = {
+    version: 1,
+    accounts: accounts.map((a, i) => ({ ...a, since: `2026-0${i + 1}-01T00:00:00.000Z` })),
+    links: {},
+  }
+  for (const conv of convs) {
+    ledger.links[conv] = {
+      accountId: null,
+      linkedAt: '2026-01-01T00:00:00.000Z',
+      linkedBy: 'auto-since',
+    }
+  }
+  return ledger
+}
+
+describe('assign-batch:人工清单批量 assign(方案 A 红线:绝不机器猜)', () => {
+  it('清单解析:忽略空行/注释/行内空白,按首次出现去重', () => {
+    expect(
+      parseConversationIdList(
+        [
+          '# 人工核对清单(注释行不算)',
+          '',
+          '  conv-a  ',
+          'conv-b',
+          '',
+          '   ',
+          '# conv-commented-out',
+          'conv-a',
+          'conv-c # 行尾注释不去掉(id 逐字节取自行内容)',
+        ].join('\n'),
+      ),
+    ).toEqual(['conv-a', 'conv-b', 'conv-c # 行尾注释不去掉(id 逐字节取自行内容)'])
+  })
+
+  it('逐条标 manual;台账外且盘点不到的会话跳过并点名,不阻断其余;清单外的行不碰', () => {
+    const { paths, root } = makeFixture()
+    cleanup.push(root)
+    const seeded = seedAssignedLedger(
+      paths,
+      [{ accountId: 'acct-a', label: 'A' }],
+      ['conv-in-ledger', 'conv-keep'],
+    )
+    writeTranscript(paths, 'conv-on-disk-only', '2026-06-01T00:00:00.000Z')
+    const scan = scanConversationIds(paths.sessionsRoot, paths.projectsRoot)
+    const plan = planAssignBatch(
+      seeded,
+      'acct-a',
+      ['conv-in-ledger', 'conv-ghost', 'conv-on-disk-only'],
+      new Set(scan.conversations),
+    )
+    expect(plan.next.links['conv-in-ledger']).toMatchObject({
+      accountId: 'acct-a',
+      linkedBy: 'manual',
+    })
+    expect(plan.next.links['conv-on-disk-only']).toMatchObject({
+      accountId: 'acct-a',
+      linkedBy: 'manual',
+    })
+    // 不存在的会话绝不写入(既不写账号,也不写 null 占位)
+    expect('conv-ghost' in plan.next.links).toBe(false)
+    expect(plan.skipped).toHaveLength(1)
+    expect(plan.skipped[0]).toContain('conv-ghost')
+    // 点名同时进 warnings(人类可读面)
+    expect(plan.warnings.join('\n')).toContain('conv-ghost')
+    expect(plan.changes).toHaveLength(2)
+    expect(plan.listedCount).toBe(3)
+    // 清单外的台账行原样保留(不被批量动作顺手改写)
+    expect(plan.next.links['conv-keep']).toMatchObject({ accountId: null, linkedBy: 'auto-since' })
+    // 台账 accounts 不被批量 assign 改写
+    expect(plan.next.accounts).toEqual(seeded.accounts)
+  })
+
+  it('账号必须已在台账:未知账号/前缀不唯一/空清单都拒绝(不写任何一条)', () => {
+    const { paths, root } = makeFixture()
+    cleanup.push(root)
+    const two = seedAssignedLedger(
+      paths,
+      [
+        { accountId: 'acct-alpha', label: '甲' },
+        { accountId: 'acct-beta', label: '乙' },
+      ],
+      ['conv-a'],
+    )
+    const existing = new Set(['conv-a'])
+    expect(() => planAssignBatch(two, 'no-such', ['conv-a'], existing)).toThrow(/账号/)
+    expect(() => planAssignBatch(two, 'acct-', ['conv-a'], existing)).toThrow(/不唯一/)
+    expect(() => planAssignBatch(two, 'acct-alpha', [], existing)).toThrow(/清单为空/)
+    expect(() => planAssignBatch(two, '', ['conv-a'], existing)).toThrow(/--account/)
+    // 唯一前缀可解析(不要求全量 id)
+    const byPrefix = planAssignBatch(two, 'acct-al', ['conv-a'], existing)
+    expect(byPrefix.next.links['conv-a']).toMatchObject({
+      accountId: 'acct-alpha',
+      linkedBy: 'manual',
+    })
+  })
+
+  it('readConversationIdList:清单文件不存在 ⇒ 抛错(绝不回落成"空清单=没事干")', () => {
+    const { root } = makeFixture()
+    cleanup.push(root)
+    expect(() => readConversationIdList(join(root, 'nope.txt'))).toThrow(/不存在/)
+    const file = join(root, 'ids.txt')
+    writeFileSync(file, '# 注释\nconv-a\n\n')
+    expect(readConversationIdList(file)).toEqual(['conv-a'])
+  })
+
+  it('main: dry-run 不写台账;--apply 写盘留 .bak 且逐条 linkedBy=manual', () => {
+    const { paths, root } = makeFixture()
+    cleanup.push(root)
+    applyLedger(
+      paths.ledgerFile,
+      seedAssignedLedger(paths, [{ accountId: 'acct-a', label: 'A' }], ['conv-a', 'conv-b']),
+    )
+    const file = join(root, 'ids.txt')
+    writeFileSync(file, '# 人工确认\nconv-a\nconv-b\n')
+    const args = ['assign-batch', '--file', file, '--account', 'acct-a']
+    expect(main(args, paths)).toBe(0)
+    expect(loadLedger(paths.ledgerFile)!.links['conv-a']).toMatchObject({ accountId: null })
+    expect(readdirSync(join(paths.ledgerFile, '..')).filter((n) => n.includes('.bak-'))).toEqual([])
+
+    expect(main([...args, '--apply'], paths)).toBe(0)
+    const after = loadLedger(paths.ledgerFile)!
+    for (const conv of ['conv-a', 'conv-b']) {
+      expect(after.links[conv]).toMatchObject({ accountId: 'acct-a', linkedBy: 'manual' })
+    }
+    const baks = readdirSync(join(paths.ledgerFile, '..')).filter((n) =>
+      n.startsWith('session_links.json.bak-'),
+    )
+    expect(baks.length).toBe(1)
+    const bak = JSON.parse(
+      readFileSync(join(paths.ledgerFile, '..', baks[0]!), 'utf8'),
+    ) as SessionLinksLedger
+    expect(bak.links['conv-a']).toMatchObject({ accountId: null, linkedBy: 'auto-since' })
+  })
+
+  it('main: 未知账号 / 缺 --file / 清单全是不存在的会话 ⇒ 拒绝写盘', () => {
+    const { paths, root } = makeFixture()
+    cleanup.push(root)
+    applyLedger(
+      paths.ledgerFile,
+      seedAssignedLedger(paths, [{ accountId: 'acct-a', label: 'A' }], []),
+    )
+    const before = readFileSync(paths.ledgerFile, 'utf8')
+    expect(main(['assign-batch', '--account', 'acct-a'], paths)).toBe(2)
+    expect(
+      main(['assign-batch', '--file', join(root, 'ghost.txt'), '--account', 'nope'], paths),
+    ).toBe(2)
+    const ghostFile = join(root, 'ghosts.txt')
+    writeFileSync(ghostFile, 'conv-not-there\n')
+    // 有效清单但逐条都验不过 ⇒ 计划 0 条,写盘与否都不改变归属真相
+    expect(main(['assign-batch', '--file', ghostFile, '--account', 'acct-a'], paths)).toBe(0)
+    expect(readFileSync(paths.ledgerFile, 'utf8')).toBe(before)
+    expect(
+      main(['assign-batch', '--file', ghostFile, '--account', 'acct-a', '--apply'], paths),
+    ).toBe(0)
+    expect('conv-not-there' in loadLedger(paths.ledgerFile)!.links).toBe(false)
+  })
+
+  it('输出零内容回显:批量预览/执行都不带会话正文', () => {
+    const { paths, root } = makeFixture()
+    cleanup.push(root)
+    writeTranscript(paths, 'conv-a', '2026-06-01T00:00:00.000Z')
+    applyLedger(
+      paths.ledgerFile,
+      seedAssignedLedger(paths, [{ accountId: 'acct-a', label: 'A' }], []),
+    )
+    const file = join(root, 'ids.txt')
+    writeFileSync(file, 'conv-a\n')
+    const logs: string[] = []
+    const orig = console.log
+    console.log = (...a: unknown[]) => {
+      logs.push(a.join(' '))
+    }
+    try {
+      expect(main(['assign-batch', '--file', file, '--account', 'acct-a', '--apply'], paths)).toBe(
+        0,
+      )
+    } finally {
+      console.log = orig
+    }
+    expect(logs.join('\n')).toContain('conv-a')
+    expect(logs.join('\n')).not.toContain(SECRET_BODY)
   })
 })
 

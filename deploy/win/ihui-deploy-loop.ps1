@@ -328,6 +328,11 @@ $script:LastDeploySha = ''
 #  ④ 返回值 = "本轮是否已经自动回滚"。为 $true 时调用方**不得**再刷绿色态 ——
 #     子脚本已经打过「部署完成」,但观察窗把它撤了,绿色态必须跟着撤。
 #  ⑤ 逃生舱:IHUI_DEPLOY_CANARY=0 时只跳过观察窗(不采样、不回滚),并在日志点名。
+#  ⑥ 灰度分流(O65 第 2 期,2026-10-28 装车)在本函数尾部接线:档位/比例/槽位端口一律
+#     经 scripts/canary-traffic.mjs 与 deploy/win/ihui-canary-stage.mjs 从
+#     scripts/data/canary-policy.json 派生,进程动作在 deploy/win/ihui-canary-gray.ps1,
+#     本层不写第二个数字。这一段有没有真接上,由只读尺子
+#     deploy/win/ihui-canary-wiring.mjs --check 判(镜像 deploy/tests/ihui-canary-wiring.test.mjs)。
 # =============================================================================
 function Invoke-CanaryGate {
     param([Parameter(Mandatory = $true)][string]$Node)
@@ -353,21 +358,119 @@ function Invoke-CanaryGate {
     $ledger = Join-Path $Root '.ihui-agent\deploy-decisions.jsonl'
     $baseline = Join-Path $stateDir 'last-good.jsonl'
     $candidate = Join-Path $stateDir ("candidate-{0}.jsonl" -f (Get-Date).ToString('yyyyMMdd-HHmmss'))
-    Log "CANARY 观察窗开始(源站直探量错误率/P95;样本=$candidate)"
-    $sampleOut = (& $Node $scriptPath --sample --stage candidate --out $candidate 2>&1 | Out-String)
+
+    # ── 灰度分流接线(O65 第 2 期「灰度分流」,2026-10-28 装车)─────────────────────
+    # 这一段只做三件事:① 问出"当前档位"、② 让分流器/灰度实例真在位、③ 把本轮判定结论
+    # 喂回档位推进。档位表、比例、槽位端口、桶口径**一律来自 scripts\data\canary-policy.json**
+    # (经 scripts/canary-traffic.mjs 与 deploy/win/ihui-canary-stage.mjs 派生),本层一个数字
+    # 都不写(§0.6 单一真相源;判据尺子 = deploy/win/ihui-canary-wiring.mjs W7)。
+    # 任一件缺位 ⇒ 只喊 "GRAY 未判定" 并退回按现网端点观察:既不冒绿说"已分流",也不让
+    # 分流这一格反过来摘掉既有回滚能力(§0.3 + §12e)。
+    $grayStageCli = Join-Path $WinDir 'ihui-canary-stage.mjs'
+    $grayTrafficCli = Join-Path $Root 'scripts\canary-traffic.mjs'
+    $grayPs1 = Join-Path $WinDir 'ihui-canary-gray.ps1'
+    $rampPath = Join-Path $stateDir 'ramp.json'
+    $grayPolicyPath = Join-Path $stateDir 'gray-policy.json'
+    $samplePolicy = $policyPath
+    $grayStage = 'off'
+    $graySampledFrom = 'stable'
+    $splitUp = $false
+    $canaryUp = $false
+    if (-not ((Test-Path -LiteralPath $grayStageCli) -and (Test-Path -LiteralPath $grayTrafficCli) -and (Test-Path -LiteralPath $grayPs1))) {
+        Log 'GRAY 未判定:分流件不在位(stage/traffic/gray 三件齐才动)⇒ 本轮不分流,观察窗仍按现网端点判'
+    } elseif (-not $script:LastDeploySha) {
+        Log 'GRAY 未判定:本轮部署 sha 取不到 ⇒ 不起始灰度契约(不知道给哪一枚构建放量)'
+    } else {
+        # 1) 当前档位:只问契约,不在这里解释比例
+        $stOut = (& $Node $grayStageCli --status --contract $rampPath 2>&1 | Out-String)
+        $stStage = ''
+        $stSha = ''
+        try {
+            $stDoc = ConvertFrom-Json $stOut
+            $stStage = [string]$stDoc.stage
+            $stSha = [string]$stDoc.contract.deploySha
+        } catch { Log "GRAY 未判定:契约状态读不出($stOut)" }
+        if ($stStage) { $grayStage = $stStage.Trim() }
+        # 契约缺失、或契约属于另一枚构建 ⇒ 从档位表**最小档**重新起步(比例由策略给,本层不填数)
+        if ((-not $stSha) -or ($stSha -ne [string]$script:LastDeploySha)) {
+            $inOut = (& $Node $grayStageCli --init --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
+            foreach ($ln in ($inOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+            if ($LASTEXITCODE -ne 0) {
+                Log "GRAY 未判定:起始契约写不下(rc=$LASTEXITCODE)⇒ 本轮不分流"
+                $grayStage = 'off'
+            } else {
+                try { $grayStage = [string]((ConvertFrom-Json $inOut).contract.stage) } catch { $grayStage = 'off' }
+                Log "GRAY 起始档位=$grayStage(sha=$($script:LastDeploySha),比例取自 canary-policy.json)"
+            }
+        } else {
+            Log "GRAY 当前档位=$grayStage(契约沿用同一枚 sha)"
+        }
+        # 2) 进程编排:-SplitOnly = 灰度实例无产物时也要让契约有一个真进程消费
+        #    (分流器自带"灰度槽位不在位 ⇒ 回落 stable",永远不会把请求打到空端口)
+        $gpOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File $grayPs1 -Action start -SplitOnly -Sha ([string]$script:LastDeploySha) -StateDir $stateDir 2>&1 | Out-String)
+        foreach ($ln in ($gpOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+        $splitUp = ($LASTEXITCODE -eq 0)
+        $canaryUp = ($gpOut -match 'GRAY-CANARY\s+up')
+        if (-not $splitUp) {
+            Log "GRAY 未判定:分流器起不来(rc=$LASTEXITCODE)⇒ 本轮不分流,观察窗仍按现网端点判"
+        } elseif ($canaryUp -and ($grayStage -ne 'off')) {
+            # 3) 灰度实例真在位 ⇒ 采样目标改指灰度槽位,观察窗量的就是候选本身
+            $dgpOut = (& $Node $grayTrafficCli --gray-policy --stage $grayStage --out $grayPolicyPath 2>&1 | Out-String)
+            if (($LASTEXITCODE -eq 0) -and (Test-Path -LiteralPath $grayPolicyPath)) {
+                $samplePolicy = $grayPolicyPath
+                $graySampledFrom = 'canary'
+                Log "GRAY 采样目标=灰度槽位(档位 $grayStage;策略由 canary-policy.json 派生,本层不写端口)"
+            } else {
+                foreach ($ln in ($dgpOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+                Log 'GRAY 未判定:灰期策略派生失败 ⇒ 本轮仍按现网端点采样(不猜端口、不猜比例)'
+            }
+        } else {
+            Log 'GRAY 分流器在位而灰度实例不在位 ⇒ 本轮按现网端点观察;契约仍由分流器消费(灰度槽位不健康即回落 stable)'
+        }
+    }
+
+    Log ("CANARY 观察窗开始(源站直探量错误率/P95;采样面={0};样本={1})" -f $graySampledFrom, $candidate)
+    $sampleOut = (& $Node $scriptPath --sample --policy $samplePolicy --stage candidate --out $candidate 2>&1 | Out-String)
     $sampleRc = $LASTEXITCODE
     foreach ($ln in ($sampleOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [canary] $($ln.Trim())" } }
     if ($sampleRc -ne 0) {
         Log "CANARY 未判定:采样失败(rc=$sampleRc)⇒ 不回滚,也不冒充通过"
         return $false
     }
-    $dArgs = @($scriptPath, '--decide', '--candidate', $candidate, '--json', '--record-decision', '--deploy-sha', $script:LastDeploySha, '--ledger', $ledger)
+    $dArgs = @($scriptPath, '--decide', '--policy', $samplePolicy, '--candidate', $candidate, '--json', '--record-decision', '--deploy-sha', $script:LastDeploySha, '--ledger', $ledger)
     # 首次运行没有基线 ⇒ 只按绝对阈值判(判断器内部如实记"无基线",本层不补默认值)。
     if (Test-Path -LiteralPath $baseline) { $dArgs += @('--baseline', $baseline) }
     $dOut = (& $Node @dArgs 2>&1 | Out-String)
     $dRc = $LASTEXITCODE
     foreach ($ln in ($dOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [canary] $($ln.Trim())" } }
+
+    # ── 判定结论 → 档位推进(pass/fail/unknown 三态由 rc 现算,阈值判据不在这层)──────
+    # fail ⇒ 契约比例归零 = 撤灰度流量(先于整包回滚:先把请求从候选身上拿走,再退包);
+    # unknown ⇒ 原地不动(不放量也不回滚);pass ⇒ 升一档,末档再 pass ⇒ promote(可全量)。
+    $verdictWord = if ($dRc -eq 0) { 'pass' } elseif ($dRc -eq 3) { 'fail' } else { 'unknown' }
+    if ($splitUp -or ($grayStage -ne 'off')) {
+        if (Test-Path -LiteralPath $grayStageCli) {
+            $advOut = (& $Node $grayStageCli --decide --verdict $verdictWord --current $grayStage --sha ([string]$script:LastDeploySha) --contract $rampPath 2>&1 | Out-String)
+            foreach ($ln in ($advOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+            if ($LASTEXITCODE -ne 0) {
+                Log "GRAY 未判定:档位推进没判出(rc=$LASTEXITCODE)⇒ 契约保持本轮读到的档位,不猜"
+            } else {
+                try {
+                    $advDoc = ConvertFrom-Json $advOut
+                    Log ("GRAY 动作={0} 新档位={1} 比例={2}%(取自 canary-policy.json) 依据={3}" -f `
+                            $advDoc.action, $advDoc.stage, $advDoc.percent, $advDoc.reason)
+                } catch { Log 'GRAY 未判定:档位推进结论解析不出 ⇒ 不据此放量' }
+            }
+        }
+    }
+
     if ($dRc -eq 0) {
+        if ($graySampledFrom -eq 'canary') {
+            # 灰度期放量未完:基线必须是"现网实测",不能拿灰度槽位的样本充当基线(否则下一轮
+            # 拿候选跟自己比,回归判据自己漂);.rollback 同理保留 —— 它是撤灰度的退路。
+            Log "CANARY 通过(灰度槽位实测)⇒ 档位可进;基线与回滚点保持现网那份,不更新"
+            return $false
+        }
         # 放量完成:候选样本就是"当前在线版本"的实测 ⇒ 升为下一轮基线(滚动基线),
         # 然后摘掉本轮回滚点。删除权归本层(子脚本成功分支已不再删,否则这里判死时无包可退);
         # 下一轮部署的备份步也会整份替换它,所以"多留一会儿"不会累积多份。
@@ -377,6 +480,13 @@ function Invoke-CanaryGate {
         return $false
     }
     if ($dRc -eq 3) {
+        # 先撤灰度(停分流器与灰度实例;契约已被 --decide 归零),再退整包。
+        # 顺序反了就是"包退完了,分流器还按老契约把请求往已经拆掉的候选槽位上送"。
+        if ((Test-Path -LiteralPath $grayPs1) -and ($splitUp -or ($grayStage -ne 'off'))) {
+            $stopOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File $grayPs1 -Action stop -StateDir $stateDir 2>&1 | Out-String)
+            foreach ($ln in ($stopOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
+            Log "GRAY 已撤灰度(-Action stop;契约比例归零)"
+        }
         Log "CANARY 异常 ⇒ 自动回滚(调 ihui-deploy.ps1 -rollbackOnly -CanaryRollback 退回上一可用包)"
         # -CanaryRollback 让子脚本按 canary-rollback 记账并发告警:本守护进程里**没有**
         # Invoke-FailNotify(它只活在 ihui-deploy.ps1),在这里直调只会抛"命令不存在"被 catch 吞掉 ——

@@ -10,6 +10,13 @@
  * - 默认 dry-run:只打印将备份清单(路径+字节,不打印内容),真拷贝必须 --apply;
  * - 零内容回显:输出永不包含 token、消息正文;
  * - 校验后收工:逐文件 sha256 对账,先写临时名、校验过后再改名,不留半写状态。
+ *
+ * 可选压缩(--gzip,2026-10-28 立,opt-in,默认关闭):
+ * - 开启后磁盘产物为 `<rel>.gz`,manifest 条目带 `encoding: "gzip"`;
+ * - 条目的 bytes/sha256 仍以【解压后原文】为基准(校验基准不变),恢复腿据此对账;
+ * - 不带 --gzip 时与旧全量档逐字节一致(条目不带 encoding 字段,磁盘无 .gz);
+ * - computeBackupPlan 既有签名/默认行为不动(并行席按 ≤4 参 import,零影响),
+ *   压缩只走新增可选参数 opts.gzip。
  */
 
 import { createHash } from 'node:crypto'
@@ -22,6 +29,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
+import { gunzipSync, gzipSync } from 'node:zlib'
 import { homedir } from 'node:os'
 import { join, relative, sep } from 'node:path'
 import { acquireSessionLock, SESSION_STORE_LOCK_NAME } from './relay-session-lock.js'
@@ -33,6 +41,11 @@ export interface BackupFileEntry {
   bytes: number
   mtimeMs: number
   sha256: string
+  /**
+   * 可选压缩标记(缺省 = 未压缩,与旧档逐字节兼容):
+   * 'gzip' → 磁盘产物为 `<rel>.gz`,bytes/sha256 仍为【解压后原文】的字节数与摘要。
+   */
+  encoding?: 'gzip'
 }
 
 export interface BackupManifest {
@@ -93,15 +106,22 @@ function toEntry(absPath: string, root: string): BackupFileEntry | null {
   }
 }
 
+/** computeBackupPlan 的可选压缩档(新增参数,不改既有 4 参调用形态) */
+export interface BackupPlanOptions {
+  /** 开启 gzip 压缩;缺省/为 false 时与未压缩腿逐字节一致 */
+  gzip?: boolean
+}
+
 /**
  * 计算备份计划(纯只读面)。默认目的地 `~/.wb-switch/backups/sessions/<UTC时间戳>/`,
- * `destOverride` 供测试与 --dest 注入。
+ * `destOverride` 供测试与 --dest 注入;`opts.gzip` 为新增可选压缩档(默认关)。
  */
 export function computeBackupPlan(
   sessionsRoot: string,
   projectsRoot: string,
   now: Date,
   destOverride?: string,
+  opts?: BackupPlanOptions,
 ): BackupPlan {
   const stamp = now
     .toISOString()
@@ -117,7 +137,11 @@ export function computeBackupPlan(
   ] as const) {
     for (const abs of collectFilesUnder(root)) {
       const e = toEntry(abs, root)
-      if (e) files.push({ ...e, rel: prefix + e.rel })
+      if (e) {
+        const entry: BackupFileEntry = { ...e, rel: prefix + e.rel }
+        if (opts?.gzip) entry.encoding = 'gzip'
+        files.push(entry)
+      }
     }
   }
   const totalBytes = files.reduce((s, f) => s + f.bytes, 0)
@@ -133,8 +157,16 @@ export function formatPlan(plan: BackupPlan, dryRun: boolean): string {
     `源: sessions=${plan.sessionsRoot}(存在=${existsSync(plan.sessionsRoot)}) projects=${plan.projectsRoot}(存在=${existsSync(plan.projectsRoot)})`,
   )
   lines.push(`将备份 ${plan.files.length} 个文件,共 ${plan.totalBytes} 字节`)
+  const gzCount = plan.files.filter((f) => f.encoding === 'gzip').length
+  if (gzCount > 0)
+    lines.push(
+      `压缩: gzip(${gzCount} 个,磁盘产物 <rel>.gz;manifest bytes/sha256 仍为解压后原文基准)`,
+    )
   const shown = plan.files.slice(0, 15)
-  for (const f of shown) lines.push(`  ${f.rel} (${f.bytes}B, sha:${f.sha256.slice(0, 12)})`)
+  for (const f of shown)
+    lines.push(
+      `  ${f.rel}${f.encoding === 'gzip' ? ' (.gz)' : ''} (${f.bytes}B, sha:${f.sha256.slice(0, 12)})`,
+    )
   if (plan.files.length > shown.length)
     lines.push(`  …其余 ${plan.files.length - shown.length} 个文件见 manifest.json`)
   return lines.join('\n')
@@ -144,6 +176,8 @@ export function formatPlan(plan: BackupPlan, dryRun: boolean): string {
  * 执行备份(写面,仅 --apply 路径可达)。逐文件:读源 → 写 `<目标>.copying-<ts>` 临时名
  * → sha256 校验 → rename 去后缀 → 记账。任一文件对不上即整批中止(已成功的保留,
  * 失败清单随错误抛出),绝不留"对不上的半写状态"。
+ * 条目带 `encoding: "gzip"` 时磁盘产物为 `<目标>.gz`(临时名同样带 .gz 后缀),
+ * 校验方式 = 读回临时名后 gunzip 再比 sha256(基准仍是解压后原文);未带标记条目逐字节走旧路径。
  */
 export function applyBackup(
   plan: BackupPlan,
@@ -158,8 +192,10 @@ export function applyBackup(
       ? join(sourceRoots.sessionsRoot, f.rel.slice('workspace/'.length))
       : join(sourceRoots.projectsRoot, f.rel)
     // rel 前缀:plan 构造时 workspace/sessions → "workspace/...", projects → 原样相对 projectsRoot
+    const gz = f.encoding === 'gzip'
     const dstAbs = join(plan.destDir, f.rel)
-    const tmpAbs = `${dstAbs}.copying-${ts}`
+    const outAbs = gz ? `${dstAbs}.gz` : dstAbs
+    const tmpAbs = `${outAbs}.copying-${ts}`
     try {
       const buf = readFileSync(srcAbs)
       const got = sha256Of(buf)
@@ -167,13 +203,14 @@ export function applyBackup(
         failures.push(`${f.rel}: 源内容与计划快照不一致(sha256 漂移)`)
         continue
       }
-      mkdirSync(join(dstAbs, '..'), { recursive: true })
-      writeFileSync(tmpAbs, buf)
-      if (sha256Of(readFileSync(tmpAbs)) !== f.sha256) {
+      mkdirSync(join(outAbs, '..'), { recursive: true })
+      writeFileSync(tmpAbs, gz ? gzipSync(buf) : buf)
+      const back = gz ? gunzipSync(readFileSync(tmpAbs)) : readFileSync(tmpAbs)
+      if (sha256Of(back) !== f.sha256) {
         failures.push(`${f.rel}: 临时文件校验不过`)
         continue
       }
-      renameSync(tmpAbs, dstAbs)
+      renameSync(tmpAbs, outAbs)
       placed.push(f)
     } catch (err) {
       failures.push(`${f.rel}: ${(err as Error).message}`)
@@ -201,18 +238,20 @@ export function relToSourceAbs(rel: string, sessionsRoot: string, projectsRoot: 
     : join(projectsRoot, rel)
 }
 
-function computePlanForCli(now: Date, destArg?: string): BackupPlan {
+function computePlanForCli(now: Date, destArg?: string, gzip?: boolean): BackupPlan {
   const home = homedir()
   return computeBackupPlan(
     join(home, '.workbuddy', 'workspace', 'sessions'),
     join(home, '.workbuddy', 'projects'),
     now,
     destArg,
+    gzip ? { gzip: true } : undefined,
   )
 }
 
 export function main(argv: string[] = process.argv.slice(2), lockHome = homedir()): number {
   const apply = argv.includes('--apply')
+  const gzip = argv.includes('--gzip')
   const destIdx = argv.indexOf('--dest')
   const destArg = destIdx >= 0 ? argv[destIdx + 1] : undefined
   // 备份读全库、搬移写全库:共用同一把会话库锁,防读到别人搬了一半的状态(2026-10-28)
@@ -224,7 +263,7 @@ export function main(argv: string[] = process.argv.slice(2), lockHome = homedir(
         'session-backup',
       )
     }
-    const plan = computePlanForCli(new Date(), destArg)
+    const plan = computePlanForCli(new Date(), destArg, gzip)
     if (!apply) {
       console.log(formatPlan(plan, true))
       console.log('\n(dry-run;未写入任何路径。确认后加 --apply 执行)')
@@ -234,8 +273,11 @@ export function main(argv: string[] = process.argv.slice(2), lockHome = homedir(
       sessionsRoot: plan.sessionsRoot,
       projectsRoot: plan.projectsRoot,
     })
+    const gzCount = manifest.files.filter((f) => f.encoding === 'gzip').length
     console.log(
-      `备份完成: ${manifest.files.length} 个文件,共 ${plan.totalBytes} 字节 → ${plan.destDir}\nmanifest.json 已写入(含逐文件 sha256,恢复腿将按它校验)`,
+      `备份完成: ${manifest.files.length} 个文件,共 ${plan.totalBytes} 字节` +
+        (gzCount > 0 ? `(gzip 压缩 ${gzCount} 个,磁盘产物 <rel>.gz)` : '') +
+        ` → ${plan.destDir}\nmanifest.json 已写入(含逐文件 sha256,恢复腿将按它校验)`,
     )
     return 0
   } catch (err) {
