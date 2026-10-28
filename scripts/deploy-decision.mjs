@@ -26,6 +26,9 @@
  *   rollback           健康门禁未过,整份退回上一可用包
  *   manual-rollback    人工执行 -rollbackOnly
  *   build-fail         构建失败,未切流
+ *   swap-fail          切流本身失败(2026-10-28 登记:web 蓝绿目标色起不来/健康不过)
+ *                      ⇒ 与 build-fail 同属"未切流、线上无损",但病因在切流环节而非构建环节;
+ *                        合并到 build-fail 会让"构建其实成功了"这一事实从台账里消失。
  *   canary-pass        金丝雀观察窗通过(错误率/延迟未超策略阈值),放量完成
  *   canary-rollback    金丝雀观察窗异常,自动回滚到上一可用包
  *   canary-unproven    金丝雀观察窗未判定(样本不足/未知占比过高),不回滚也不冒充通过
@@ -52,6 +55,7 @@ export const DECISION_ACTIONS = Object.freeze([
   'rollback',
   'manual-rollback',
   'build-fail',
+  'swap-fail',
   'canary-pass',
   'canary-rollback',
   'canary-unproven',

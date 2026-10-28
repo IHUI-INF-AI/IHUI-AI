@@ -30,14 +30,24 @@
  *
  * 用法:node ihui-api-bluegreen.mjs [--target auto|blue|green] [--health-timeout 120]
  *        [--drain 20] [--state-file <p>] [--log-file <p>] [--dry-run]
+ *
+ * 通用化(2026-10-29):默认即 API 形态(服务 IHUI-API-BLUE/GREEN、端口 8842/8843、
+ * 健康 /api/health 含 "status":"ok"),**不带新参数时行为与旧版逐字一致**。web 蓝绿
+ * 复用同一份编排器需显式给:
+ *        --svc-blue IHUI-WEB-BLUE --svc-green IHUI-WEB-GREEN
+ *        --port-blue 8851 --port-green 8852
+ *        --health-path / --health-match '<!DOCTYPE html'
+ *        --state-file D:\DevEnv\ihui-prod\deploy\run\web-bluegreen.json
+ *   立因:web 蓝绿最初写成 `& powershell -File ihui-api-bluegreen.ps1`,同时踩上面
+ *   ①②两条(嵌套解释器无 cmdlet + sc.exe 被封)⇒ 首次启用即 `Test-Path is not
+ *   recognized`、rc≠0、FAIL 未切流。参数化是唯一出路:服务控制只有 nssm 这条路通,
+ *   不能靠换解释器绕过。
  */
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
 
-const SERVICES = { blue: 'IHUI-API-BLUE', green: 'IHUI-API-GREEN' }
-const PORTS = { blue: 8842, green: 8843 }
 const NSSM =
   process.env.IHUI_NSSM || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'nssm.exe')
 
@@ -49,6 +59,13 @@ function parseArgs(argv) {
     stateFile: 'D:\\DevEnv\\ihui-prod\\deploy\\run\\api-bluegreen.json',
     logFile: 'D:\\DevEnv\\logs\\api-bluegreen.log',
     dryRun: false,
+    // 目标形态参数(2026-10-29 加):默认 = API,web 蓝绿显式覆写。默认不改 ⇒ 旧调用方零影响。
+    svcBlue: 'IHUI-API-BLUE',
+    svcGreen: 'IHUI-API-GREEN',
+    portBlue: 8842,
+    portGreen: 8843,
+    healthPath: '/api/health',
+    healthMatch: '"status":"ok"',
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -58,6 +75,12 @@ function parseArgs(argv) {
     else if (a === '--drain') out.drainSec = Number(next()) || 0
     else if (a === '--state-file') out.stateFile = String(next() || out.stateFile)
     else if (a === '--log-file') out.logFile = String(next() || out.logFile)
+    else if (a === '--svc-blue') out.svcBlue = String(next() || out.svcBlue)
+    else if (a === '--svc-green') out.svcGreen = String(next() || out.svcGreen)
+    else if (a === '--port-blue') out.portBlue = Number(next()) || out.portBlue
+    else if (a === '--port-green') out.portGreen = Number(next()) || out.portGreen
+    else if (a === '--health-path') out.healthPath = String(next() || out.healthPath)
+    else if (a === '--health-match') out.healthMatch = String(next() || out.healthMatch)
     else if (a === '--dry-run') out.dryRun = true
   }
   if (!['auto', 'blue', 'green'].includes(out.target)) out.target = 'auto'
@@ -65,6 +88,10 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2))
+
+/** 服务名与端口一律由参数派生(默认 API 形态),不再写死 —— 见头部「通用化」注。 */
+const SERVICES = { blue: args.svcBlue, green: args.svcGreen }
+const PORTS = { blue: args.portBlue, green: args.portGreen }
 
 function stamp() {
   const d = new Date()
@@ -150,10 +177,15 @@ function stopService(name, timeoutMs = 45000) {
   }
 }
 
-function apiHealthy(port) {
+/**
+ * 健康探测(2026-10-29 参数化):路径与匹配串都来自参数 ⇒ 同一份编排器既能判 api
+ * (/api/health 含 "status":"ok")也能判 web(/ 含 <!DOCTYPE html)。
+ * 不传 --health-match 时只要求 200(不臆造匹配串)。
+ */
+function probeHealthy(port) {
   return new Promise((resolve) => {
     const req = http.get(
-      { host: '127.0.0.1', port, path: '/api/health', timeout: 3000 },
+      { host: '127.0.0.1', port, path: args.healthPath, timeout: 3000 },
       (res) => {
         let body = ''
         res.setEncoding('utf8')
@@ -161,7 +193,9 @@ function apiHealthy(port) {
           body += c
           if (body.length > 4096) req.destroy()
         })
-        res.on('end', () => resolve(res.statusCode === 200 && body.includes('"status":"ok"')))
+        res.on('end', () =>
+          resolve(res.statusCode === 200 && (!args.healthMatch || body.includes(args.healthMatch))),
+        )
       },
     )
     req.on('timeout', () => {
@@ -175,7 +209,7 @@ function apiHealthy(port) {
 async function waitHealthy(port, timeoutMs) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    if (await apiHealthy(port)) return true
+    if (await probeHealthy(port)) return true
     await new Promise((r) => setTimeout(r, 1500))
   }
   return false
@@ -212,7 +246,7 @@ async function main() {
   // ── 0. 状态自愈 ────────────────────────────────────────────────────────────
   if (args.target === 'auto') {
     const other = state.active === 'blue' ? 'green' : 'blue'
-    if (!(await apiHealthy(ports[state.active])) && (await apiHealthy(ports[other]))) {
+    if (!(await probeHealthy(ports[state.active])) && (await probeHealthy(ports[other]))) {
       log(
         'WARN',
         `状态自愈:活跃色 ${state.active}(${ports[state.active]}) 不可服务,另一色 ${other} 健康 ⇒ 活跃色改写为 ${other}`,
@@ -234,7 +268,7 @@ async function main() {
   log('INFO', `当前活跃=${oldColor}(${oldPort}) 目标=${target}(${targetPort}) 服务=${targetSvc}`)
 
   if (target === oldColor) {
-    log('WARN', '目标色与活跃色相同 ⇒ 退化为原地重启,期间 8802 会短暂 502')
+    log('WARN', '目标色与活跃色相同 ⇒ 退化为原地重启,期间入口端口会短暂 502')
   }
 
   if (args.dryRun) {
@@ -245,7 +279,7 @@ async function main() {
   // ── 2. 起目标色 ────────────────────────────────────────────────────────────
   // 幂等:目标色已在健康服务(上一轮已起好但没切流)就不再重启它 —— 重启一次要多等一次冷启动,
   // 且在 wrapper 形态下还可能因 STOPPED/RUNNING 判断把好实例停掉。
-  if (await apiHealthy(targetPort)) {
+  if (await probeHealthy(targetPort)) {
     log('INFO', `目标色 ${target}(${targetPort}) 已在健康服务,跳过启动`)
   } else {
     startService(targetSvc)
