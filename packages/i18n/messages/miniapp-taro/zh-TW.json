@@ -4631,6 +4631,28 @@
     "showActivity": "公開我的動態",
     "allowInvites": "允許被邀請"
   },
+  "memberDashboard": {
+    "title": "會員中心",
+    "level": "會員等級",
+    "points": "我的積分",
+    "coupons": "優惠券",
+    "orders": "我的訂單",
+    "expireAt": "會員有效期至 {date}",
+    "noExpire": "暫無有效期資訊",
+    "renew": "立即續費",
+    "recentOrders": "最近訂單",
+    "viewAll": "查看全部",
+    "noOrders": "暫無訂單",
+    "loadFailed": "載入失敗",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "shipped": "已發貨",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "refunded": "已退款"
+    }
+  },
   "webViewPortal": {
     "news": "資訊",
     "learnTopic": "課程專題",

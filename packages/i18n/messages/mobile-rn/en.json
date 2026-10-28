@@ -4325,6 +4325,28 @@
     "showActivity": "Public activity",
     "allowInvites": "Allow invitations"
   },
+  "memberDashboard": {
+    "title": "Member Center",
+    "level": "Membership",
+    "points": "My Points",
+    "coupons": "Coupons",
+    "orders": "My Orders",
+    "expireAt": "Valid until {date}",
+    "noExpire": "No expiry information",
+    "renew": "Renew now",
+    "recentOrders": "Recent orders",
+    "viewAll": "View all",
+    "noOrders": "No orders yet",
+    "loadFailed": "Failed to load",
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "shipped": "Shipped",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    }
+  },
   "webViewPortal": {
     "news": "News",
     "learnTopic": "Topic Lessons",

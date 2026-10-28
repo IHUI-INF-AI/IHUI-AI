@@ -26,6 +26,12 @@ export type {
   MemberPrefs,
   MemberSettingsScreenProps,
 } from './features/member-settings/MemberSettingsScreen'
+export { MemberDashboardScreen } from './features/member-dashboard/MemberDashboardScreen'
+export type {
+  MemberCardKey,
+  MemberDashboardScreenProps,
+  MemberOrderRow,
+} from './features/member-dashboard/MemberDashboardScreen'
 export { FeedbackScreen } from './features/feedback/FeedbackScreen'
 export { FeedbackHistoryScreen } from './features/feedback/FeedbackHistoryScreen'
 export { FeedbackDetailScreen } from './features/feedback-detail/FeedbackDetailScreen'
