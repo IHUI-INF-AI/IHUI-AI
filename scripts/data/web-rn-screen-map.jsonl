@@ -13,8 +13,8 @@
 {"web":"chat","rn":"packages/app/src/features/chat/ChatScreen.tsx","status":"aligned","note":"web /chat 是全局 AI 面板快捷入口(复用 home 工作区+docked AISidePanel);RN 独立 ChatScreen 承载对话,功能等价、形态平台化","at":"2026-10-24"}
 {"web":"user/profile","rn":"packages/app/src/features/profile-edit/ProfileEditScreen.tsx","status":"aligned","note":"web ProfileEditForm/AvatarCropper/ChangePhoneModal 编辑套件 ↔ RN ProfileEditScreen","at":"2026-10-24"}
 {"web":"member/benefits","rn":"packages/app/src/features/vip-benefit/VipBenefitScreen.tsx","status":"aligned","note":"web 会员等级权益列表(levelName/benefits/Crown)↔ RN VipBenefitScreen","at":"2026-10-24"}
-{"web":"member/favorites","rn":"packages/app/src/features/favorites/FavoritesScreen.tsx","status":"aligned","note":"我的收藏;RN 存在 favorite/FavoritesScreen 同义双实现(title 均为「我的收藏」),按路由段名选复数份,单数份冗余收口另票","at":"2026-10-24"}
-{"web":"user/follow","rn":"packages/app/src/features/following/FollowingScreen.tsx","status":"aligned","note":"web 我的关注 ↔ RN FollowingScreen(我的关注);FollowScreen 是「关注与粉丝」合并页,语义不同","at":"2026-10-24"}
+{"web":"member/favorites","rn":"packages/app/src/features/favorite/FavoriteScreen.tsx","status":"aligned","note":"我的收藏;2026-10-28 跨端重复屏合并:favorites/FavoritesScreen(无 tab)是 favorite/FavoriteScreen 的真子集(同端点 GET /api/favorites、同卡片字段、同删除确认),已删,本路由段落到超集屏;原注\"按路由段名选复数份\"随之作废","at":"2026-10-28"}
+{"web":"user/follow","rn":"packages/app/src/features/follow/FollowScreen.tsx","status":"aligned","note":"web 我的关注 ↔ RN follow/FollowScreen 的 following 页签;2026-10-28 合并:following/FollowingScreen 零 RN 消费方且路由已于 2026-09-04 按「功能为 Follow 子集」裁决删除,故本行改指超集屏(原注\"语义不同\"只描述 web 页范围更窄,不构成两份渲染真相源)","at":"2026-10-28"}
 {"web":"edu/exam","rn":"packages/app/src/features/exam/ExamScreen.tsx","status":"aligned","note":"考试列表(backToList/duration ↔ exam:12)","at":"2026-10-24"}
 {"web":"edu/exam/[id]","rn":"packages/app/src/features/exam-question/ExamQuestionScreen.tsx","status":"aligned","note":"答题页(notExists/duration ↔ examQuestion:7)","at":"2026-10-24"}
 {"web":"edu/exam/[id]/result","rn":"packages/app/src/features/exam-result/ExamResultScreen.tsx","status":"aligned","note":"成绩页(totalScore ↔ examResult:8)","at":"2026-10-24"}
@@ -61,9 +61,9 @@
 {"web":"deep-research","rn":"apps/mobile-rn/src/screens/DeepResearchScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(sourceTier ↔ deepResearch:23)","at":"2026-10-24"}
 {"web":"distribution","rn":"packages/app/src/features/distribution/DistributionScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(colStatus ↔ distribution:15)","at":"2026-10-24"}
 {"web":"exam","rn":"packages/app/src/features/exam/ExamScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(exam:12);与 edu/exam 同屏双承载","at":"2026-10-24"}
-{"web":"favorites","rn":"packages/app/src/features/favorites/FavoritesScreen.tsx","status":"aligned","note":"同名+键(favorites:2);与 member/favorites 同屏双承载","at":"2026-10-24"}
+{"web":"favorites","rn":"packages/app/src/features/favorite/FavoriteScreen.tsx","status":"aligned","note":"同名+键(favorites:2);与 member/favorites 同屏双承载;2026-10-28 合并后两行同指 favorite/FavoriteScreen","at":"2026-10-28"}
 {"web":"feedback","rn":"packages/app/src/features/feedback/FeedbackScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(unsupportedImage ↔ feedback:15);与 member/feedback 同屏双承载","at":"2026-10-24"}
-{"web":"following","rn":"packages/app/src/features/following/FollowingScreen.tsx","status":"aligned","note":"同名+键(following:3);与 user/follow 同屏双承载","at":"2026-10-24"}
+{"web":"following","rn":"packages/app/src/features/follow/FollowScreen.tsx","status":"aligned","note":"同名+键(following:3);与 user/follow 同屏双承载;2026-10-28 合并后同指 follow/FollowScreen","at":"2026-10-28"}
 {"web":"groups","rn":"apps/mobile-rn/src/screens/GroupsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(groupName ↔ groups:25)","at":"2026-10-24"}
 {"web":"help","rn":"packages/app/src/features/help/HelpScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(searchPlaceholder ↔ help:2);与 member/help 同屏双承载","at":"2026-10-24"}
 {"web":"home","rn":"packages/app/src/features/home/HomeScreen.tsx","status":"aligned","note":"同名直配(home:8);web 工作区首页 ↔ RN 首页","at":"2026-10-24"}

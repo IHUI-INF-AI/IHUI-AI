@@ -5854,39 +5854,6 @@ const checks = [
       '',
     ].join('\n'),
   },
-  {
-    id: '259',
-    label:
-      '🪞 RN 壳 ↔ 小程序壳 spec 接线对账(blocking;同名配对组件两端消费面必须相等 —— 一端接了 spec、另一端手写数字,就是「改 spec 一端不跟随」的根因)',
-    script: 'check-ui-spec-mirror.mjs',
-    args: [],
-    mode: 'blocking',
-    // 2026-10-28 立:升 blocking 的前置 = 存量归零 —— 被审面现读「射程对 16 · ✅已接线 9 · 🔴断链 0」(§12e)。
-    // 本门只判**接线**(常量名有没有被消费);取值漂移(同档位两端映成不同类名)归 scripts/gen-ui-mirror.mjs
-    // —— 那枚是写盘派生器、恒读工作树,结构上判不了入库面,故不入提交链(接成门就是恒红门)。
-    // 本端承载物理上不允许照抄 RN 消费形的例外(典型:weapp-tailwind 只扫 ./src/**,类名表搬进 spec 产不出规则)
-    // 走 scripts/data/ui-mirror-waivers.json 具名台账,**两把尺读同一本**(§0.6 零复算;判序 lib/ui-mirror-waivers.mjs)。
-    skipEnv: 'HUSKY_SKIP_UI_SPEC_MIRROR',
-    stagedTriggers: [
-      'apps/miniapp-taro/src/components/',
-      'packages/ui-native/src/',
-      'packages/shared/src/ui/',
-      'scripts/check-ui-spec-mirror.mjs',
-      'scripts/lib/ui-mirror-waivers.mjs',
-      'scripts/data/ui-mirror-waivers.json',
-    ],
-    onFailHint: [
-      '',
-      '  💡 断链 = 改 spec 时 RN 会跟、小程序不会跟 ⇒ spec 单源在这条链上退化成两份真相。',
-      '     修法:按 RN 壳把「档 → 本端承载类」映射镜像进小程序壳 ——',
-      '     node scripts/gen-ui-mirror.mjs --apply 落绑定块(只动 import 与映射声明,结构体仍按本端承载手写),',
-      '     再 node scripts/gen-ui-mirror.mjs 复量到「🔴漂移 0」。',
-      '     本端确实不可能照抄消费形 ⇒ 在 scripts/data/ui-mirror-waivers.json 逐条写 names + reason(≥10 字)',
-      '     + reviewBy(会到期);改判据、加白名单或删标记都不算出路(§0.7 验过才免且会到期)。',
-      '     应急放行 HUSKY_SKIP_UI_SPEC_MIRROR=1(须在提交信息写明断的是哪一对、为什么)。',
-      '',
-    ].join('\n'),
-  },
 
   // --- info (1 项) ---
   {

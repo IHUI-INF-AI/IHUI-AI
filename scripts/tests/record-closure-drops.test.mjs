@@ -163,7 +163,34 @@ test('⑨ 超限 ⇒ 拒绝补凭据 + 零入账(真丢的行不许被器物洗�
   assert.equal(ledgerOf(dir), '', '超限一律零入账')
 })
 
-test('⑩ 同一批显式放宽上限 ⇒ 放行(证明牙是"多问一次",不是死门)', (t) => {
+test('⑩ merge 落点一律拒绝补凭据(合并吞行不是结清,牙按父数判不按内容判)', (t) => {
+  const dir = makeRepo(t, [OPEN_B, CLOSED, PROSE, ''].join('\n'))
+  const branch = runGit(dir, ['rev-parse', '--abbrev-ref', 'HEAD'])
+  // 造一个"两父、且其中一父仍留着那行"的 merge 落点 —— 即守门 100/168 要救的那一型
+  runGit(dir, ['checkout', '-q', '-b', 'other-side', 'HEAD~1'])
+  // 对侧必须**真有改动**(否则 commit 因 nothing to commit 失败),同时那行在对侧仍活着
+  writeFileSync(
+    join(dir, 'PROJECT_PLAN.md'),
+    [OPEN_A, OPEN_B, CLOSED, PROSE, '- 对侧自己新增的一行', ''].join('\n'),
+    'utf8',
+  )
+  runGit(dir, ['add', '-A'])
+  runGit(dir, ['commit', '-q', '-m', 'other: 该行在此侧仍活着'])
+  runGit(dir, ['checkout', '-q', branch])
+  runGit(dir, ['merge', '-q', '-s', 'ours', '-m', 'merge 落点(取本侧树,对侧那行没带回)', 'other-side'])
+  const parents = runGit(dir, ['rev-list', '--parents', '-1', 'HEAD']).trim().split(/\s+/).length - 1
+  assert.equal(parents, 2, '夹具必须是两父,否则这条锁测不到 merge')
+  const r = catchUpForCommit({ sha: 'HEAD', root: dir })
+  assert.equal(r.rc, 2, r.why)
+  assert.equal(r.verdict, 'merge-commit', r.why)
+  assert.equal(ledgerOf(dir), '', 'merge 落点一律零入账 —— 记了就是把真丢失洗成已处置')
+  // 成对反向:同一份行差异走**单父**普通提交时是会被补的 ⇒ 证明这条牙拦的是"父数",不是"有删除"
+  const single = makeRepo(t, [OPEN_B, CLOSED, PROSE, ''].join('\n'))
+  const s = catchUpForCommit({ sha: 'HEAD', root: single })
+  assert.equal(s.verdict, 'recorded', '单父结清仍应放行,否则这牙就成了死门')
+})
+
+test('⑪ 同一批显式放宽上限 ⇒ 放行(证明牙是"多问一次",不是死门)', (t) => {
   const n = MAX_AUTO_CATCH + 1
   const dir = makeBulkRepo(t, n)
   const r = catchUpForCommit({ sha: 'HEAD', root: dir, max: n })

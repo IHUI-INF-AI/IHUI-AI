@@ -426,7 +426,7 @@ export async function runWithFreshToken<T>(run: (token: string | null) => Promis
  */
 let autoRefresh: TokenAutoRefreshHandle | null = null
 
-export function startTokenAutoRefresh(): void {
+function startTokenAutoRefresh(): void {
   if (autoRefresh) return
   autoRefresh = createTokenAutoRefresh({
     getToken,

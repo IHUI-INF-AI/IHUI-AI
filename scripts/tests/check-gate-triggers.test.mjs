@@ -13,9 +13,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 import { __test__ as T } from '../check-gate-triggers.mjs'
+// §22c:形状锁的判据 = 门 52 自己那份 scanSource(不在测试里复制第二把尺子)
+import { __test__ as V } from '../check-no-visible-spawn.mjs'
 import { parseGateRegistry } from '../lib/land-gate-rerun.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
@@ -139,5 +141,37 @@ test('T4 端到端(scratch 仓):新增门缺射程 ⇒ 1;补上射程 ⇒ 0;摘�
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
+})
+
+// ── T5 形状锁:本门体自己派生 git 的每一处都带 windowsHide(门 52 判生产代码) ──
+// 立因:门 52 现读点名本门两处漏 windowsHide。判据用门 52 的 `__test__.scanSource`,不在这里复制尺子。
+test('T5 形状锁:门体两处派生 git 都带 windowsHide;逐处摘掉即翻红(阳性对照)', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  const hits = (text) =>
+    V.scanSource(text, 'scripts/check-gate-triggers.mjs').filter((x) => x.kind === 'visible-spawn')
+  const TAG = 'windowsHide: true'
+  const MUT = 'hideWindows: true' // 与 TAG 等长:摘掉这一处 windowsHide 而不让后面的偏移漂移
+  const dropAt = (text, idxs) => {
+    const re = new RegExp(TAG.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+    const at = []
+    let m
+    while ((m = re.exec(text)) !== null) at.push(m.index)
+    assert.ok(at.length >= 2, `阳性对照需要 ≥2 处 ${TAG} 可摘,实得 ${at.length}`)
+    let out = ''
+    let prev = 0
+    for (let i = 0; i < at.length; i++) {
+      out += text.slice(prev, at[i]) + (idxs.includes(i) ? MUT : TAG)
+      prev = at[i] + TAG.length
+    }
+    return out + text.slice(prev)
+  }
+  assert.deepEqual(
+    hits(src).map((x) => x.line),
+    [],
+    `门体自身仍有漏 windowsHide 的派生点:${JSON.stringify(hits(src))}`,
+  )
+  assert.equal(hits(dropAt(src, [0])).length, 1, '摘掉第一处 windowsHide ⇒ 判据必须点名这一处')
+  assert.equal(hits(dropAt(src, [1])).length, 1, '摘掉第二处 windowsHide ⇒ 判据必须点名这一处')
+  assert.equal(hits(dropAt(src, [0, 1])).length, 2, '两处都摘 ⇒ 判据必须点名两处')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
