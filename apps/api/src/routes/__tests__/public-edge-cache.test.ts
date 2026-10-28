@@ -402,5 +402,67 @@ describe('公开 GET 接口的边缘缓存头', () => {
     expect(PUBLIC_EDGE_CACHE_CONTROL).toMatch(/^public, s-maxage=\d+, stale-while-revalidate=\d+$/)
     expect(PUBLIC_EDGE_CACHE_CONTROL).not.toMatch(/private|no-store|no-cache/)
   })
+
+  it('跨源不进共享缓存:Origin≠Host ⇒ 不打 public;Origin==Host 或无 Origin ⇒ 照旧打(2026-10-28 实测承因)', () => {
+    const mk = (requestHeaders: Record<string, string | undefined>) => {
+      const headers: Record<string, string> = {}
+      const reply = {
+        statusCode: 200,
+        header(key: string, value: string) {
+          headers[key] = value
+          return reply
+        },
+        request: { headers: requestHeaders },
+      }
+      return { reply, headers }
+    }
+    // 桌面端 WebView 的固定 Origin 与本站 Host 不同 ⇒ 正是实测被串味的那一档
+    const cross = mk({ origin: 'http://tauri.localhost', host: 'www.aizhs.top' })
+    withPublicEdgeCache(cross.reply)
+    expect(
+      cross.headers['Cache-Control'],
+      '跨源响应不得进共享缓存(否则边缘会把上一位访客的 ACAO 喂给本站)',
+    ).toBeUndefined()
+
+    const same = mk({ origin: 'https://www.aizhs.top', host: 'www.aizhs.top' })
+    withPublicEdgeCache(same.reply)
+    expect(same.headers['Cache-Control']).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+
+    // 端口不同也是跨源;Host 带端口时不得误判同源
+    const ported = mk({ origin: 'https://www.aizhs.top:444', host: 'www.aizhs.top' })
+    withPublicEdgeCache(ported.reply)
+    expect(ported.headers['Cache-Control']).toBeUndefined()
+
+    const none = mk({ host: 'www.aizhs.top' })
+    withPublicEdgeCache(none.reply)
+    expect(none.headers['Cache-Control']).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+
+    // 退化方向:解析不出的一律算跨源(宁可少缓存一次,不可把别人的凭据域喂给本站)
+    const junk = mk({ origin: 'not-a-url', host: 'www.aizhs.top' })
+    withPublicEdgeCache(junk.reply)
+    expect(junk.headers['Cache-Control']).toBeUndefined()
+    const noHost = mk({ origin: 'http://tauri.localhost' })
+    withPublicEdgeCache(noHost.reply)
+    expect(noHost.headers['Cache-Control']).toBeUndefined()
+  })
+
+  it('真实 socket 上同样成立:带跨源 Origin 拿不到 public,无 Origin 照旧拿得到', async () => {
+    const live = await createApp()
+    const address = await live.listen({ port: 0, host: '127.0.0.1' })
+    try {
+      const cross = await fetch(`${address}/api/configs`, {
+        headers: { Origin: 'http://tauri.localhost' },
+      })
+      const plain = await fetch(`${address}/api/configs`)
+      console.info(
+        `[wire-evidence] 跨源臂 cache-control=${cross.headers.get('cache-control')} / 无 Origin 臂 cache-control=${plain.headers.get('cache-control')}`,
+      )
+      expect(cross.status).toBe(200)
+      expect(cross.headers.get('cache-control'), '跨源臂不得带 public 档').toBeNull()
+      expect(plain.headers.get('cache-control')).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+    } finally {
+      await live.close()
+    }
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
