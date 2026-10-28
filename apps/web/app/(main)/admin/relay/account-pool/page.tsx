@@ -696,7 +696,13 @@ export default function AdminRelayAccountPoolPage() {
         clientForced?: boolean
         clientRestarted?: boolean
         clientLaunchError?: string
-      }>(`/api/admin/relay/accounts/${id}/login-local`, { method: 'POST' })
+        /**
+         * 超时放宽到 60s:该端点在客户端运行中时要走「优雅关闭(最多 15s)→ 补一轮(8s)→
+         * 强杀后复核(8s)→ 写盘 → 拉起并复核(3s)」,最坏 ~35s。用默认 30s 会出现
+         * 「浏览器先超时报错,服务端随后其实写成功了」的假失败(2026-10-28 与六平台
+         * 进程控制同批补;API 侧 SPAWN_TIMEOUT_MS=90s)。
+         */
+      }>(`/api/admin/relay/accounts/${id}/login-local`, { method: 'POST', timeoutMs: 60_000 })
       if (!r.success) throw new Error(r.error)
       return r.data
     },
