@@ -9588,6 +9588,9 @@
     "title": "AI キャリア指導"
   },
   "aiChat": {
+    "favorite": "ブックマークに追加",
+    "unfavorite": "ブックマークを解除",
+    "delete": "削除",
     "bindIssue": "Issueを紐付け",
     "actions": {
       "archive": "アーカイブ",
@@ -11233,6 +11236,8 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "favorite": "ブックマークに追加",
+    "unfavorite": "ブックマークを解除",
     "workbenchSessions": "セッション",
     "feedbackLike": "参考になった",
     "feedbackDislike": "参考にならなかった",

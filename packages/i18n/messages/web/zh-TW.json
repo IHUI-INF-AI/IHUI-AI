@@ -9588,6 +9588,9 @@
     "title": "AI 生涯指導"
   },
   "aiChat": {
+    "favorite": "加入收藏",
+    "unfavorite": "取消收藏",
+    "delete": "刪除",
     "bindIssue": "綁定 Issue",
     "actions": {
       "archive": "歸檔",
@@ -11233,13 +11236,15 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "favorite": "加入收藏",
+    "unfavorite": "取消收藏",
     "workbenchSessions": "會話",
     "feedbackLike": "有幫助",
     "feedbackDislike": "沒幫助",
-    "workbenchHeroTitle": "AI 對話工作台",
+    "workbenchHeroTitle": "AI 對話工作臺",
     "workbenchHeroHint": "在下方直接輸入即可開啟新會話，或從左側選擇會話繼續任務。",
     "workbenchSplit": "拆分窗格",
-    "workbenchDropHere": "從左側把會話拖到这里",
+    "workbenchDropHere": "從左側把會話拖到這裡",
     "workbenchQuickStart": "快捷動作",
     "truncation": {
       "maxLengthNotice": "本條回答在達到最大輸出長度時被截斷，內容不完整；傳送「繼續」可接著生成。"

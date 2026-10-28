@@ -9588,6 +9588,9 @@
     "title": "AI 生涯指导"
   },
   "aiChat": {
+    "favorite": "添加收藏",
+    "unfavorite": "取消收藏",
+    "delete": "删除",
     "bindIssue": "绑定 Issue",
     "actions": {
       "archive": "归档",
@@ -11233,6 +11236,8 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "favorite": "添加收藏",
+    "unfavorite": "取消收藏",
     "workbenchSessions": "会话",
     "feedbackLike": "有帮助",
     "feedbackDislike": "没帮助",
