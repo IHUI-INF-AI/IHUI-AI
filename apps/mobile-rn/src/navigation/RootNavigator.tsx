@@ -206,6 +206,7 @@ import { AgentDetailScreen } from '../screens/AgentDetailScreen'
 import { AgentChatScreen } from '../screens/AgentChatScreen'
 import { AgentMarketScreen } from '../screens/AgentMarketScreen'
 import { AgentCreateScreen } from '../screens/AgentCreateScreen'
+import { AgentEditScreen } from '../screens/AgentEditScreen'
 import { ArticleDetailScreen } from '../screens/ArticleDetailScreen'
 import { ArticleListScreen } from '../screens/ArticleListScreen'
 import { PostDetailScreen } from '../screens/PostDetailScreen'
@@ -585,6 +586,7 @@ export type RootStackParamList = {
   AgentChat: { agentId: string; name: string }
   AgentMarket: undefined
   AgentCreate: undefined
+  AgentEdit: { id: string }
   ArticleDetail: { id: string }
   ArticleList: undefined
   PostDetail: { id: string }
@@ -1107,6 +1109,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="AgentChat" component={AgentChatScreen} />
             <RootStack.Screen name="AgentMarket" component={AgentMarketScreen} />
             <RootStack.Screen name="AgentCreate" component={AgentCreateScreen} />
+            <RootStack.Screen name="AgentEdit" component={AgentEditScreen} />
             <RootStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
             <RootStack.Screen name="ArticleList" component={ArticleListScreen} />
             <RootStack.Screen name="PostDetail" component={PostDetailScreen} />

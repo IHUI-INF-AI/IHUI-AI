@@ -38,6 +38,54 @@ export interface AgentDetailScreenProps {
   onBack: () => void
   /** 开始对话回调(平台注入导航跳转 AgentChat) */
   onStartChat?: (agentId: string, name: string) => void
+  /**
+   * 编辑入口回调 — 对齐 web apps/web/app/(main)/agents/[id]/PageClient.tsx:193-198
+   * 「agent 加载出来即显示编辑键」(可见性由后端 PUT 归属校验兜，前端不另判)。
+   * 不传即不渲染入口(宿主未接线时保持既有形态，不出现死按钮)。
+   */
+  onEdit?: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/**
+ * AgentEditScreen 表单形 — 字段集 = 后端 PUT /api/agents/:agentId 实际接收集
+ * (apps/api/src/routes/agents.ts:569-582 的 zod，逐名对齐 web AgentForm 的可提交子集)。
+ * price/sort 用 string 承载:输入框是文本态，空串与 0 的区分留给宿主在提交前归一(同 web 做法)。
+ * 不承载 workspaceId 与 skillIds — web 编辑页 updateMut 的 body 同样不含(status:79-90)。
+ */
+export interface AgentEditForm {
+  name: string
+  description: string
+  avatar: string
+  cover: string
+  categoryId: string
+  status: string
+  price: string
+  isFree: boolean
+  sort: string
+  remark: string
+}
+
+/** 分类选项(宿主经 GET /api/categories/list 注入;字段名对齐 web Category) */
+export interface AgentEditCategory {
+  id: string
+  name: string
+}
+
+/** AgentEditScreen props(与 AgentCreateScreenProps 同形制:受控 + 平台注入 t/colorScheme) */
+export interface AgentEditScreenProps {
+  t: TFunction
+  form: AgentEditForm
+  loading: boolean
+  saving: boolean
+  error: string
+  categories: AgentEditCategory[]
+  statusOptions: string[]
+  statusKeyOf: (status: string) => string
+  categoryTextOf: (categoryId: string) => string
+  onChange: <K extends keyof AgentEditForm>(key: K, value: AgentEditForm[K]) => void
+  onSubmit: () => void
+  onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
 
