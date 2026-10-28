@@ -129,6 +129,9 @@ export default function AccountPoolScreen() {
         return
       }
       setDraft(EMPTY_DRAFT)
+      // 添加成功反馈(2026-10-28 补):词条 accountPool.addSuccess 早已在册,小程序页一直弹它,
+      // 而 RN 壳此前静默 —— 两端"添加成功"体验不一致,也让该页无法判等价迁移
+      appAlert(t('accountPool.addSuccess'))
       void load(true)
     } finally {
       setSubmitting(false)
