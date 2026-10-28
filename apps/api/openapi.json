@@ -108,6 +108,15 @@
     }
   ],
   "paths": {
+    "/.well-known/apple-app-site-association": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/.well-known/oauth-authorization-server": {
       "get": {
         "responses": {
@@ -3873,6 +3882,193 @@
           }
         },
         "summary": "生成带 RSA-SHA256 签名的审计日志导出信封(收件方仅需公钥即可离线验签)",
+        "tags": [
+          "audit-evidence-export"
+        ]
+      }
+    },
+    "/api/admin/audit-evidence/tool-invocations/signed": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "userId",
+            "required": false,
+            "description": "按操作者 ID 过滤(UUID,服务端 Zod 校验;仅作查询维度)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "toolName",
+            "required": false,
+            "description": "按工具名过滤(服务端 Zod 校验)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "sessionId",
+            "required": false,
+            "description": "按会话 ID 过滤(服务端 Zod 校验)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "description": "按结果档过滤(success/failure/lost/unknown;服务端 Zod 校验)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "startDate",
+            "required": false,
+            "description": "账行 createdAt 窗口起点(ISO)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "endDate",
+            "required": false,
+            "description": "账行 createdAt 窗口终点(ISO)"
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "导出行数上限,默认 10000,最大 50000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "生成带 RSA-SHA256 签名的工具调用明细账导出信封(86 证据级可追溯执行流水;收件方仅需公钥即可离线验签)",
         "tags": [
           "audit-evidence-export"
         ]
@@ -31991,8 +32187,45 @@
         }
       }
     },
+    "/api/admin/relay/account-pool/match-phone": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/account-pool/sweep": {
       "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/account-pool/tasks": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/account-pool/tasks/{id}/run": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response"
@@ -32147,7 +32380,64 @@
         }
       }
     },
+    "/api/admin/relay/accounts/{id}/complete-phone": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/accounts/{id}/health": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/login-local": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/models": {
       "post": {
         "parameters": [
           {
@@ -32187,6 +32477,44 @@
     },
     "/api/admin/relay/accounts/{id}/release": {
       "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/task-run": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/tasks": {
+      "get": {
         "parameters": [
           {
             "schema": {
@@ -37272,6 +37600,77 @@
         }
       }
     },
+    "/api/admin/sms/broadcast": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/sms/logs": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/sms/send": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/sms/status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/sms/unsubscribes": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/sms/unsubscribes/{phone}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "phone",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/statistics": {
       "delete": {
         "responses": {
@@ -41395,6 +41794,21 @@
             "name": "endTime",
             "required": false,
             "description": "结束时间 YYYY-MM-DD"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "admin",
+                "auth",
+                "all"
+              ]
+            },
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "description": "访问面:public(默认)/admin/auth/all"
           }
         ],
         "responses": {
@@ -41465,6 +41879,21 @@
             "name": "endTime",
             "required": false,
             "description": "结束时间 YYYY-MM-DD"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "admin",
+                "auth",
+                "all"
+              ]
+            },
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "description": "访问面:public(默认)/admin/auth/all"
           }
         ],
         "responses": {
@@ -41570,6 +41999,21 @@
             "name": "endTime",
             "required": false,
             "description": "结束时间 YYYY-MM-DD"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "admin",
+                "auth",
+                "all"
+              ]
+            },
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "description": "访问面:public(默认)/admin/auth/all"
           },
           {
             "schema": {
@@ -41696,6 +42140,21 @@
             "name": "endTime",
             "required": false,
             "description": "YYYY-MM-DD"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "admin",
+                "auth",
+                "all"
+              ]
+            },
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "description": "访问面:all(默认)/public/admin/auth"
           }
         ],
         "responses": {
@@ -41769,6 +42228,21 @@
           },
           {
             "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "admin",
+                "auth",
+                "all"
+              ]
+            },
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "description": "访问面:public(默认)/admin/auth/all"
+          },
+          {
+            "schema": {
               "type": "integer",
               "minimum": 1,
               "default": 1
@@ -41787,6 +42261,35 @@
             "in": "query",
             "name": "pageSize",
             "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "web",
+                "rn",
+                "mp",
+                "ex",
+                "all"
+              ]
+            },
+            "in": "query",
+            "name": "platform",
+            "required": false,
+            "description": "端:all(默认)/web/rn/mp/ex"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pv",
+                "uv"
+              ]
+            },
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "description": "排序键(默认 pv)"
           }
         ],
         "responses": {
@@ -41857,6 +42360,21 @@
             "name": "endTime",
             "required": false,
             "description": "结束时间 YYYY-MM-DD"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "admin",
+                "auth",
+                "all"
+              ]
+            },
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "description": "访问面:public(默认)/admin/auth/all"
           }
         ],
         "responses": {
@@ -74152,13 +74670,9 @@
                     "maximum": 9007199254740991
                   },
                   "watermark": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "boolean",
+                      "null"
                     ]
                   },
                   "i2v_align": {
@@ -111433,6 +111947,25 @@
         }
       }
     },
+    "/api/articles/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/asks": {
       "get": {
         "parameters": [
@@ -112960,6 +113493,40 @@
         ]
       }
     },
+    "/api/auth/2fa/step-up": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[0-9]{6}$",
+                    "description": "6 位 TOTP"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "summary": "敏感操作二次验证（TOTP，仅记账）",
+        "tags": [
+          "2fa",
+          "auth"
+        ]
+      }
+    },
     "/api/auth/2fa/verify": {
       "post": {
         "requestBody": {
@@ -113990,6 +114557,15 @@
       }
     },
     "/api/auth/oauth/client-credentials": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/consent": {
       "post": {
         "responses": {
           "200": {
@@ -119453,6 +120029,25 @@
         }
       }
     },
+    "/api/chat/messages/{id}/feedback": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/chat/messages/{id}/flags": {
       "patch": {
         "parameters": [
@@ -121383,6 +121978,42 @@
         }
       }
     },
+    "/api/command-acks/": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/command-acks/alive/{parentSessionId}/{sourceCommandId}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "parentSessionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sourceCommandId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/comments": {
       "get": {
         "parameters": [
@@ -121617,6 +122248,81 @@
           }
         },
         "summary": "创建评论",
+        "tags": [
+          "comments"
+        ]
+      }
+    },
+    "/api/comments/mine": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "description": "页码(默认 1)"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "description": "每页数量(1-100,默认 20)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "我的评论列表",
         "tags": [
           "comments"
         ]
@@ -134463,7 +135169,7 @@
                   "expiresAt": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                   }
                 },
                 "required": [
@@ -136916,6 +137622,15 @@
       }
     },
     "/api/internal/relay/user-pool/upsert": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/internal/tool-ledger/invocation": {
       "post": {
         "responses": {
           "200": {
@@ -163627,6 +164342,33 @@
         }
       }
     },
+    "/api/sms/callback/tencent": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/sms/callback/tencent/reply": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/sms/callback/tencent/status": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/spec/apply": {
       "post": {
         "responses": {
@@ -165697,6 +166439,25 @@
     },
     "/api/tasks/result": {
       "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}/approval": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response"
