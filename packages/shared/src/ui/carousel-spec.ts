@@ -49,6 +49,43 @@
 //    `window.innerWidth` 取不到时的设备宽度默认值,不是设计档 —— 小程序侧同一含义走
 //    百分比宽(`width: ${(total*100)}%` + 每屏 `100/total%`),两端都没有"轮播宽"这个档。
 //    该共享层死副本已按 O81 票删除(守门 128 配对面上 RN 腿只剩端内那份),此条留作依据出处。
+//
+// ── O02 票④(第 ④ 格)收口证据:本族"只剩一份源"────────────────────────────────
+// 现读 2026-10-28(`node scripts/check-cross-end-ui-parity.mjs --json`,HEAD 977d324b22):
+//   findings[Carousel] = diffCount 6 / radiusCount 0 / elementRadiusCount 0;
+//   人读面:`○ Carousel [className|className] 几何仅小程序档 2/4/8/14/16/20`。
+// 两条腿的**共用**几何档全部经本文件三个出口取数,端内不再自持数字:
+//   · apps/miniapp-taro/src/components/Carousel.tsx → carouselDefaultHeightPx /
+//     carouselIndicatorWrapStyle / carouselDotStyle(换算 `toUnit = rpx(px * TARO_RPX_PER_PX)`)
+//   · apps/mobile-rn/src/components/Carousel.tsx   → 同三出口(换算 `toUnit = px` 恒等)
+// 已收口档(两端同值同源):默认高 160、指示器底距 12、点间距 6、点高 6、非激活宽 6、激活宽 16。
+// ⚠ 门读数里 6/12/16 两侧都出现**不能**当作收口证据:12 在两端另有巧合来源(见下),6/16 在端内
+//   是圆角档(rounded-md / rounded-2xl,归守门 77)不是几何档;收口证据是三出口被两条腿真调用
+//   (__tests__/carousel-wiring.test.ts ②③ 逐端现算)。
+//
+// 6 枚几何逐条归属 —— **全部 A 类**,0 枚 B、0 枚 C:
+//  A 一端根本没有该元素(六枚全部来自小程序独有渲染两块,RN 同名文件不渲染它们):
+//    兜底文案块(`!hasImg && (title || subtitle)`):16 = 容器 p-4;20 = 标题 text-xl;
+//                                          14 = 副标题 text-sm;8 = 标题 mb-2
+//    course 叠加层(`variant === 'course' && meta`):8 = 标签行 gap-2 / 徽章 px-2;
+//                                          4 = 标签行 mt-1;2 = 徽章 py-[4rpx];
+//                                          14 = 叠加层标题 text-sm
+//    ⇒ 集合恰为 2/4/8/14/16/20。依据与裁决(2026-10-24 选拆对、不向 RN 移植)以及
+//      落地状态纠偏(2026-10-27:pairingRejects 仍只有 FloatBox、counts 仍 = 6)见上半段。
+//  B 已裁决变体契约:0 枚。
+//  C 同槽位、机制不同:0 枚**带数值的**。轮播步进确属机制不同(小程序 ScrollView + scrollIntoView
+//    + 每屏 `100/total%` 宽 vs RN pagingEnabled + slideWidth 像素 + scrollTo),但两端都没有
+//    "步进宽"这个档 —— 一端是百分比、一端是容器实测宽,不构成可对账的档。
+//
+// ⚠ 12 的"两侧相消"是数字巧合:小程序来自叠加层容器 p-3 与徽章 text-xs,RN 来自空列表占位文案
+//   text-xs(小程序空列表 return null,该占位在对面不存在)⇒ 不得读成已收口档。
+//   RD / RE 两维 0:圆角两端同走 radius.js(rounded-2xl / rounded-sm 两端同值,守门 77 问责);
+//   RE 维两侧无同名具名元素 ⇒ 零判据(覆盖面事实,不是"已同值")。
+//
+// ⇒ 结论:本族**无可继续收敛项** —— A 组六枚与"RN 端不渲染这两层"是同一件事的两面,补引用是
+//   造假;B/C 0 枚。counts 维持 6(几何)/ 0(RD)/ 0(RE)。逐档归属由
+//   __tests__/carousel-wiring.test.ts 机器钉住:谁往 RN 端补这六枚、谁把三出口的取数删掉、
+//   谁在端内同一块里另写同值裸数字,对应那条用例就红。
 
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
 export type GeometryUnit<U extends string | number> = (px: number) => U
