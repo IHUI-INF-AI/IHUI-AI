@@ -100,4 +100,55 @@ test('⑥ 源文件自身不含明文字面量 + 体内 --self-test 全绿', () 
   assert.ok(!src.includes(PLAINTEXT), '守门源文件自己含明文 ⇒ 必须开自豁免口子,豁免面会腐烂')
   assert.equal(selfTest(), 0, '体内 --self-test 有失败用例')
 })
+
+/**
+ * ⑦ 变异自证(2026-10-28,根因 dbc66f80:fixtures 改 getter 后本门假红)。
+ *
+ * 禁令没被弱化,被改的只是"求值时机"。判据必须同时认三种等价形态,
+ * 且对 getter 内掺字面量/兜底的写法继续判红 —— 否则"改成 getter"会成为新的后门。
+ */
+test('⑦ getter 形态:惰性求值合规;getter 内 ?? / || 字面量兜底必须红', () => {
+  const getterClean =
+    "const ADMIN_USER = {\n  account: 'e2e_admin',\n  get password(): string {\n    return requireEnv('E2E_ADMIN_PASSWORD')\n  },\n}"
+  assert.deepEqual(gate.judgeFixture(getterClean), [], 'getter 惰性求值必须判合规(否则本门对 HEAD 恒假红)')
+
+  // 变异:真仓 fixtures 若被写成这种形态,门必须红(否则口令缺值时会静默用字面量登录)。
+  const fallback = (op) =>
+    "const ADMIN_USER = {\n  get password(): string {\n    return requireEnv('E2E_ADMIN_PASSWORD') " +
+    op +
+    " '" +
+    PLAINTEXT +
+    "'\n  },\n}"
+  for (const op of ['??', '||']) {
+    const f = gate.judgeFixture(fallback(op))
+    assert.ok(f.length > 0, `getter 内 ${op} 字面量兜底必须判红(变异自证失败:门已失去牙口)`)
+    assert.ok(
+      f.some((x) => /回落|字面量/.test(x)),
+      `判红须点明回落/字面量,实得:${f.join(' | ')}`,
+    )
+  }
+
+  // 三种等价形态都必须判绿:只认其中一种 ⇒ 下次重构又一次假红。
+  assert.deepEqual(
+    gate.judgeFixture("const ADMIN_USER = {\n  password: requireEnv('E2E_ADMIN_PASSWORD'),\n}"),
+    [],
+  )
+  assert.deepEqual(
+    gate.judgeFixture('const ADMIN_USER = {\n  password: process.env.E2E_ADMIN_PASSWORD,\n}'),
+    [],
+  )
+  assert.deepEqual(
+    gate.judgeFixture("const ADMIN_USER = {\n  password: process.env['E2E_ADMIN_PASSWORD'],\n}"),
+    [],
+  )
+  // getter 体里有嵌套花括号时不得把片段截断成半截(截断 = 漏判窗口)。
+  assert.deepEqual(
+    gate.judgeFixture(
+      "const ADMIN_USER = {\n  get password(): string {\n    if (!process.env.E2E_ADMIN_PASSWORD) {\n      throw new Error('x')\n    }\n    return process.env.E2E_ADMIN_PASSWORD\n  },\n}",
+    ),
+    [],
+  )
+  // 纯字面量口令(无 env 读取)仍必须红。
+  assert.ok(gate.judgeFixture("const ADMIN_USER = {\n  get password(): string {\n    return '" + PLAINTEXT + "'\n  },\n}").length > 0)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
