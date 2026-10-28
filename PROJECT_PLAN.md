@@ -28750,4 +28750,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 
 ## 2026-10-28 四端 ui-routes 自述钉追平已入库输入(登记@2026-10-28/ui-gen)
+- [ ] O67 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=10080min count=1 first=2026-10-25T13:45:54.324Z last=2026-10-25T13:45:54.324Z route=/deploy/build-fail sample="deploy_outcome action=build-fail sha=[hex:40] d…"）
 
