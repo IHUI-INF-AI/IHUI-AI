@@ -3133,13 +3133,23 @@ if ($webBg) {
     Move-Item "$WebDir\.next-staging" "$WebDir\$webTargetDist"
 
     # 起目标色 → 健康 → 原子切流 → 排空 → 停旧色(复用同一份编排器,不另写一份)
-    $bgPs1 = Join-Path $Root 'deploy\win\ihui-api-bluegreen.ps1'
-    $bgOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $bgPs1 `
-        -Target $webTarget `
-        -SvcBlue 'IHUI-WEB-BLUE' -SvcGreen 'IHUI-WEB-GREEN' `
-        -PortBlue 8851 -PortGreen 8852 `
-        -HealthPath '/' -HealthMatch '<!DOCTYPE html' `
-        -StateFile $WebBgStateFile -LogFile $WebBgLogFile 2>&1
+    # 2026-10-29 换执行面(Node 版),与 api 蓝绿同因同解:
+    #   ① `& powershell -File ihui-api-bluegreen.ps1` 是嵌套解释器,本机策略把它限成几乎
+    #      无 cmdlet ⇒ 子进程第一行 Test-Path 就报 "The term 'Test-Path' is not
+    #      recognized"(00:07:44 实测,web 蓝绿首次启用即 FAIL 未切流);
+    #   ② 即使解释器能跑,.ps1 里的 sc.exe 也被程序黑名单封死 ⇒ 换任何 shell 都绕不过。
+    #   两条叠加 ⇒ 只有 Node 执行面(nssm 控服)走得通。编排器已参数化,默认仍是 API 形态,
+    #   这里显式给 web 的服务名/端口/健康判据。
+    $bgMjs  = Join-Path $Root 'deploy\win\ihui-api-bluegreen.mjs'
+    $bgNode = Resolve-NodeExe
+    if (-not ($bgNode -and (Test-Path -LiteralPath $bgMjs))) {
+        Fail "web 蓝绿编排器不可用(node=$bgNode, mjs=$bgMjs)⇒ 不切流,保持当前在线版本" -Reason "web-bluegreen missing-runner"
+    }
+    $bgOut = & $bgNode $bgMjs --target $webTarget `
+        --svc-blue 'IHUI-WEB-BLUE' --svc-green 'IHUI-WEB-GREEN' `
+        --port-blue 8851 --port-green 8852 `
+        --health-path '/' --health-match '<!DOCTYPE html' `
+        --state-file $WebBgStateFile --log-file $WebBgLogFile 2>&1
     $bgRc = $LASTEXITCODE
     $bgOut | ForEach-Object { Log "  [bg] $_" }
     if ($bgRc -ne 0) {
