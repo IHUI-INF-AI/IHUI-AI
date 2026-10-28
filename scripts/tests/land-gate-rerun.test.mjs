@@ -53,7 +53,7 @@ const runGit = (dir, args) =>
       dir,
       ...args,
     ],
-    { ...runOpts },
+    { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] },
   )
 
 function makeRepo(t) {
