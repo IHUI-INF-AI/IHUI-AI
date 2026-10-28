@@ -33,6 +33,7 @@ import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { gitBinary } from './lib/face-reader.mjs'
 import { sanitizeHexRuns } from './lib/triage-doc-line.mjs'
 import { clusterSignals, identityOf, loadContract, validateSignal } from './lib/incident-cluster.mjs'
 import { nextTaskIdLabel, usedIdsOfPrefix } from './lib/plan-task-index.mjs'
@@ -337,7 +338,7 @@ function ymd(d) {
  * 登记:构造块文件 → 子进程 live-doc-edit(唯一入口)→ 用完即删块文件。
  * 返回 {ok, line, why};临时块写失败抛 DeployFeedbackWriteError(调用方 exit 3)。
  */
-export function registerToPlan({ token, title, evidence, identity = '', now = new Date(), spawn = defaultSpawn, tmpDir = TMP_DIR }) {
+export function registerToPlan({ token, title, evidence, identity = '', now = new Date(), spawn = defaultSpawn, tmpDir = TMP_DIR, readPlanHead = null }) {
   const line = buildRegistrationLine({ token, title, evidence, date: ymd(now) })
   const tag = createHash('sha256').update(String(identity || `${title}|${evidence}`)).digest('hex').slice(0, 16)
   let blockFile
@@ -378,7 +379,55 @@ export function registerToPlan({ token, title, evidence, identity = '', now = ne
       why: `live-doc-edit rc=${r?.status ?? '?'}:${String(r?.stderr ?? r?.stdout ?? '').trim().slice(-160)}`,
     }
   }
-  return { ok: true, line }
+  // —— 真实落账链路补环(2026-10-28,L28696「票→提交环」点名缺口之二)——
+  // live-doc-edit 把 `{{NEXT_ID:O}}` 展开成真实号并只推进 HEAD(旁路落地不写工作树)⇒ 回读必须取 HEAD 面。
+  // 读回的行文本随 ledger 条目落 `ticketLine`:feedback-loop-status 的 dispatched 对齐(face→extractTicketNo)
+  // 与 auto-evolve 的 dispatch 行由此才可能接上;读不回不阻断登记(条目退回无键形态,status 判 undetermined 点名,§0.3)。
+  let landed = null
+  try {
+    const read = typeof readPlanHead === 'function' ? readPlanHead : defaultReadPlanHead
+    const text = read()
+    if (typeof text === 'string' && text !== '') {
+      landed = findLandedRegistrationLine(text, identity)
+    }
+  } catch {
+    landed = null
+  }
+  return { ok: true, line, landed }
+}
+
+/** 从 HEAD 面台账文本里找回本枚刚落地的登记行:行首 `- [ ] ` + 行头标记 + (identity 带 route 时)route 串。
+ *  route 取自 `deploy_outcome|kind|route:/deploy/x` 的第三段 ⇒ 行体内必有 `route=/deploy/x`(buildEvidence 原样落笔)。 */
+export function findLandedRegistrationLine(text, identity = '') {
+  if (typeof text !== 'string') return null
+  // identity 形如 `deploy_outcome|<kind>|route:<route>`;route 段可含空格与 `/`(如 `post /api/deploy/release`)。
+  // 行体内 buildRegistrationLine 的证据带同款 `route=<原样值>`(同一 bits.push 出口,§0.6 不另立)。
+  const segs = String(identity).split('|')
+  const lastSeg = segs.length > 0 ? segs[segs.length - 1] : ''
+  const routeVal = lastSeg.startsWith('route:') ? lastSeg.slice(6) : ''
+  const routeNeedle = routeVal ? `route=${routeVal}` : null
+  for (const l of text.split(/\r?\n/)) {
+    if (!l.startsWith('- [ ] ')) continue
+    if (!l.includes(' [deploy-feedback] ')) continue
+    if (routeNeedle && !l.includes(routeNeedle)) continue
+    return l
+  }
+  return null
+}
+
+function defaultReadPlanHead() {
+  // git 可执行体走 face-reader 单源(§0.6);HEAD 面而非工作树——多会话共享工作区的工作树副本常年滞后,
+  // 且 live-doc-edit 的旁路落地只推进 HEAD。stdio 显式接管(§12g)。
+  const r = spawnSync(gitBinary(), ['show', 'HEAD:PROJECT_PLAN.md'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 60_000,
+    windowsHide: true,
+  })
+  if (r?.status !== 0) throw new Error(`git show HEAD:PROJECT_PLAN.md rc=${r?.status ?? '?'}`)
+  return String(r.stdout ?? '')
 }
 
 /** 取某身份簇里最新一条原始行(action/dims 只在原文里,validateSignal 后的 signal 不保留扩展字段)。 */
@@ -436,6 +485,7 @@ export function runRound({
   planContent,
   spawn = defaultSpawn,
   tmpDir = TMP_DIR,
+  readPlanHead = null,
   log = console.log,
   warn = (...a) => console.error(...a),
 } = {}) {
@@ -583,8 +633,8 @@ export function runRound({
     })
     out.candidates.push(cand)
 
-    const record = (result) => {
-      const entry = { ts: now.toISOString(), action: cand.action, identity: cand.identity, result }
+    const record = (result, extra = {}) => {
+      const entry = { ts: now.toISOString(), action: cand.action, identity: cand.identity, result, ...extra }
       try {
         appendLedger(entry, ledgerPath)
       } catch (e) {
@@ -619,7 +669,7 @@ export function runRound({
 
     let reg
     try {
-      reg = registerToPlan({ token: family.token, title: cand.title, evidence: cand.evidence, identity: cand.identity, now, spawn, tmpDir })
+      reg = registerToPlan({ token: family.token, title: cand.title, evidence: cand.evidence, identity: cand.identity, now, spawn, tmpDir, readPlanHead })
     } catch (e) {
       out.why = e?.message ?? String(e)
       out.code = 3
@@ -634,7 +684,8 @@ export function runRound({
       continue
     }
     log(`✅ 已登记:${cand.title}`)
-    if (!record('registered')) break
+    // landed 读回才写 ticketLine;读不到 ⇒ 条目退回无键形态(status 判 undetermined 并点名),不伪造对齐键。
+    if (!record('registered', reg.landed ? { ticketLine: reg.landed } : {})) break
   }
 
   if (out.code === 3) {
@@ -831,10 +882,16 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
       tmpDir: tmpB,
       apply: true,
       spawn: fakeSpawn,
+      // 密闭夹具:self-test 绝不触真 git;给一棵「已落地」假 HEAD 面,同时钉 ticketLine 带回链。
+      readPlanHead: () => `- [ ] O67 [deploy-feedback] [deploy_outcome/alert_firing] rollback post /api/deploy/release 部署异常 ⇒ 排查链路并修复（登记@2026-10-26/deploy-feedback;来源:deploy_outcome;证据:dims=web action=rollback route=post /api/deploy/release sample="x"）\n`,
       log: () => {},
       warn: () => {},
     })
     ok('--apply 只调一次 live-doc-edit', applied.code === 0 && applied.results[0]?.result === 'registered' && calls.length === 1)
+    ok('registered 条目带 ticketLine 回读(闭环对齐键)', (() => {
+      const e = readLedger(ledgerB).find((x) => x.result === 'registered')
+      return Boolean(e?.ticketLine) && e.ticketLine.includes('[deploy-feedback]') && /^[O]\d+/.test(e.ticketLine.replace('- [ ] ', '').trim())
+    })())
     ok(
       'live-doc-edit 调用参数(LIVE_DOC/LIVE_BLOCK_FILE/LIVE_MSG/令牌族)',
       String(calls[0]?.argv?.[0] ?? '').endsWith('live-doc-edit.mjs') &&
@@ -980,6 +1037,8 @@ export const __test__ = {
   appendLedger,
   recentlyRegistered,
   registerToPlan,
+  findLandedRegistrationLine,
+  defaultReadPlanHead,
   runRound,
   statusReport,
   runSelfTest,
