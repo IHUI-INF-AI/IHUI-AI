@@ -165,7 +165,8 @@ export function WorkbenchShell({ conversationId }: WorkbenchShellProps) {
             <Button
               type="button"
               variant="ghost"
-              className="h-7 gap-1 px-2 text-xs"
+              size="xs"
+              className="gap-1 px-2"
               onClick={handleSplit}
               title={t('workbenchSplit')}
               aria-label={t('workbenchSplit')}
@@ -175,7 +176,8 @@ export function WorkbenchShell({ conversationId }: WorkbenchShellProps) {
             <Button
               type="button"
               variant="ghost"
-              className="h-7 gap-1 px-2 text-xs"
+              size="xs"
+              className="gap-1 px-2"
               onClick={handleNewTask}
             >
               <Plus className="h-3.5 w-3.5" aria-hidden />
