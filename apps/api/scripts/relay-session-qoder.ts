@@ -159,6 +159,15 @@ export interface QoderConversationFiles {
   sessionSubDirs: string[]
 }
 
+/**
+ * Qoder 会话 id = UUID 形态(与 WorkBuddy conversationId 同形)。
+ * 顶层目录靠这个区分"会话目录"与"工作区结构件(memory/ transcript/ …)"——
+ * 只有 uuid 形态的无配对目录才算孤儿会话,结构目录绝不入台账当会话搬。
+ */
+export function isQoderSessionId(name: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(name)
+}
+
 export function findQoderConversationFiles(
   conversationId: string,
   projectsRoot: string,
@@ -717,7 +726,10 @@ export interface QoderInventory {
   workspaces: number
   transcripts: number
   sessionDirs: number
-  unpairedDirs: number
+  /** uuid 形态但无同名主转写:会话目录在、转写未生成或已删 ⇒ 仍是会话,必须入台账全集 */
+  orphanSessionDirs: number
+  /** 非 uuid 形态顶层目录(memory/ transcript/ 等工作区结构件)⇒ 不是会话,绝不入台账 */
+  nonSessionDirs: number
   diskConversations: number
   bucketAccounts: number
   bucketConversations: number
@@ -739,7 +751,8 @@ export function computeQoderInventory(paths: QoderPaths): QoderInventory {
   let workspaces = 0
   let transcripts = 0
   let sessionDirs = 0
-  let unpairedDirs = 0
+  let orphanSessionDirs = 0
+  let nonSessionDirs = 0
   const diskSet = new Set<string>()
   if (existsSync(paths.projectsRoot)) {
     for (const ws of readdirSync(paths.projectsRoot)) {
@@ -770,8 +783,13 @@ export function computeQoderInventory(paths: QoderPaths): QoderInventory {
             if (nameSet.has(`${n}.jsonl`)) {
               sessionDirs += 1
               diskSet.add(n)
+            } else if (isQoderSessionId(n)) {
+              // 有会话目录、无同名主转写:转写未生成或已删 ⇒ 仍算会话,入 diskSet(台账要认识它)
+              orphanSessionDirs += 1
+              diskSet.add(n)
             } else {
-              unpairedDirs += 1
+              // 非 uuid 形态顶层目录(memory/ transcript/ 等)是工作区结构件,绝不入台账当会话搬
+              nonSessionDirs += 1
             }
           }
         } catch {
@@ -811,7 +829,8 @@ export function computeQoderInventory(paths: QoderPaths): QoderInventory {
     workspaces,
     transcripts,
     sessionDirs,
-    unpairedDirs,
+    orphanSessionDirs,
+    nonSessionDirs,
     diskConversations: diskSet.size,
     bucketAccounts,
     bucketConversations: bucketSet.size,
@@ -830,9 +849,11 @@ export function formatQoderInventory(inv: QoderInventory): string {
   lines.push('== Qoder 会话库只读盘点(零内容:只有路径/计数/字节) ==')
   lines.push(`活库: ${inv.projectsRoot}`)
   lines.push(
-    `  工作区=${inv.workspaces}  转写=${inv.transcripts}  会话目录=${inv.sessionDirs}  非会话目录=${inv.unpairedDirs}`,
+    `  工作区=${inv.workspaces}  主转写=${inv.transcripts}  会话目录=${inv.sessionDirs}` +
+      `  孤儿会话目录(有目录无主转写,入台账)=${inv.orphanSessionDirs}` +
+      `  结构目录(非会话,不入台账)=${inv.nonSessionDirs}`,
   )
-  lines.push(`  盘上会话 id=${inv.diskConversations}`)
+  lines.push(`  盘上会话 id=${inv.diskConversations}(含孤儿会话目录,不含结构目录)`)
   lines.push(`桶: ${inv.bucketsRoot}  账号=${inv.bucketAccounts}  会话=${inv.bucketConversations}`)
   lines.push(
     `台账: ${inv.ledgerFile}` +
@@ -867,10 +888,50 @@ function qoderConversationScan(paths: QoderPaths): {
   conversations: string[]
   times: Record<string, string | null>
 } {
-  return scanConversationIds(
+  const base = scanConversationIds(
     join(paths.projectsRoot, '.qoder-no-sessions-face'),
     paths.projectsRoot,
   )
+  const times = { ...base.times }
+  const set = new Set(base.conversations)
+  // 补"孤儿会话目录":有 uuid 形态目录、无同名主转写(转写未生成/已删)——
+  // 与盘点同口径,否则这类会话在台账里隐形、永远搬不到(结构目录不在其列)
+  if (existsSync(paths.projectsRoot)) {
+    for (const ws of readdirSync(paths.projectsRoot)) {
+      const wsDir = join(paths.projectsRoot, ws)
+      let wsStat
+      try {
+        wsStat = statSync(wsDir)
+      } catch {
+        continue
+      }
+      if (!wsStat.isDirectory()) continue
+      let names: string[]
+      try {
+        names = readdirSync(wsDir)
+      } catch {
+        continue
+      }
+      const nameSet = new Set(names)
+      for (const n of names) {
+        if (!isQoderSessionId(n) || nameSet.has(`${n}.jsonl`)) continue
+        let st
+        try {
+          st = statSync(join(wsDir, n))
+        } catch {
+          continue
+        }
+        if (!st.isDirectory()) continue
+        set.add(n)
+        const ms = st.birthtimeMs > 0 ? st.birthtimeMs : st.mtimeMs
+        const iso = new Date(ms).toISOString()
+        const cur = times[n]
+        if (cur === undefined || cur === null) times[n] = iso
+        else if (iso < cur) times[n] = iso
+      }
+    }
+  }
+  return { conversations: [...set].sort(), times }
 }
 
 /**

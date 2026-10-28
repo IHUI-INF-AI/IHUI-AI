@@ -161,6 +161,10 @@ describe('findQoderConversationFiles + 盘点计数', () => {
     seedQoderConversation(paths, CONV2, 'ws-b')
     mkdirSync(join(paths.projectsRoot, 'ws-a', 'memory'), { recursive: true })
     writeFileSync(join(paths.projectsRoot, 'ws-a', 'memory', 'MEMORY.md'), '# note')
+    // 孤儿会话目录:uuid 形态、无同名主转写 ⇒ 仍是会话(转写未生成/已删),要入台账全集
+    const ORPHAN = 'd1111111-2222-4333-8444-555566667777'
+    mkdirSync(join(paths.projectsRoot, 'ws-a', ORPHAN), { recursive: true })
+    writeFileSync(join(paths.projectsRoot, 'ws-a', ORPHAN, 'state.json'), '{"orphan":true}')
 
     const cf = findQoderConversationFiles(CONV, paths.projectsRoot)
     expect(cf.transcripts).toEqual([join(paths.projectsRoot, 'ws-a', `${CONV}.jsonl`)])
@@ -172,8 +176,10 @@ describe('findQoderConversationFiles + 盘点计数', () => {
     expect(inv.workspaces).toBe(2)
     expect(inv.transcripts).toBe(2)
     expect(inv.sessionDirs).toBe(2)
-    expect(inv.unpairedDirs).toBe(1) // memory/ 无同名转写,不算会话
-    expect(inv.diskConversations).toBe(2)
+    expect(inv.nonSessionDirs).toBe(1) // memory/ 非 uuid ⇒ 结构目录,不算会话
+    expect(inv.orphanSessionDirs).toBe(1) // ORPHAN uuid 无主转写 ⇒ 孤儿会话,算
+    // 盘上会话 id = 2 配对 + 1 孤儿 = 3(不含 memory);旧实现会漏掉那 1 个孤儿
+    expect(inv.diskConversations).toBe(3)
     expect(inv.ledgerPresent).toBe(false)
     expect(inv.consistent).toBe(false) // 台账缺失 ⇒ 不一致,不冒绿
 
@@ -181,7 +187,7 @@ describe('findQoderConversationFiles + 盘点计数', () => {
     const inv2 = computeQoderInventory(paths)
     expect(inv2.ledgerPresent).toBe(true)
     expect(inv2.ledgerRecords).toBe(1)
-    expect(inv2.diskWithoutLedger).toBe(1) // CONV2 未进台账
+    expect(inv2.diskWithoutLedger).toBe(2) // CONV2 + ORPHAN 未进台账
     expect(inv2.consistent).toBe(false)
   })
 
@@ -268,6 +274,10 @@ describe('links rebuild:方案 A 分桶 + 存量显式 null', () => {
       `{"type":"session","sessionId":"${CONV2}","timestamp":"2020-05-05T00:00:00.000Z"}\n${SECRET_BODY}\n`,
     )
     const since = '2026-01-01T00:00:00.000Z'
+    // 孤儿会话目录(uuid、无主转写、刚建 birthtime 新):rebuild 必须认得它并入台账
+    const ORPHAN = 'e1111111-2222-4333-8444-555566667777'
+    mkdirSync(join(paths.projectsRoot, 'ws-a', ORPHAN), { recursive: true })
+    writeFileSync(join(paths.projectsRoot, 'ws-a', ORPHAN, 'state.json'), '{"orphan":true}')
 
     const dry = captureOutput(() =>
       main(['links', 'rebuild', '--since', since, '--account', ACCT], paths, NO_CLIENT),
@@ -286,6 +296,7 @@ describe('links rebuild:方案 A 分桶 + 存量显式 null', () => {
     expect(ledger.links[CONV]?.accountId).toBe(ACCT) // 创建>since ⇒ 归账号
     expect(ledger.links[CONV]?.linkedBy).toBe('auto-since')
     expect(ledger.links[CONV2]?.accountId).toBeNull() // 存量显式 null,不猜
+    expect(ledger.links[ORPHAN]?.accountId).toBe(ACCT) // 孤儿 uuid 目录被认出且归账号(旧实现看不见它)
   })
 
   it('缺 --since/--account ⇒ rc 2,不写台账', () => {
