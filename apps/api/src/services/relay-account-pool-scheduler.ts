@@ -120,6 +120,14 @@ export function accountIdleClock() {
  * 空闲保活的 where(导出供镜像测试锁形状):启用 + 未摘除 + 未判死 + 能自救续票,
  * 且空闲时钟早于窗口。不要求 tokenExpiresAt —— 临期档管「将过期」,这一档专管「闲置」;
  * 两档都汇进 refreshOne 的同一把失败计数,不各写一份摘除口径。
+ *
+ * 为什么窗口边界要显式绑 ISO 串 + `::timestamptz`(2026-10-28 生产实测):
+ * `lt(column, Date)` 由列类型的 mapToDriverValue 把 Date 转成驱动能吃的形式,可这里左边是
+ * 裸 `sql` 片段(`accountIdleClock()`),没有列可推断 ⇒ drizzle 把 Date 原样丢给 postgres.js,
+ * 后者只收款 string/Buffer/ArrayBuffer,直接抛 `ERR_INVALID_ARG_TYPE: Received an instance
+ * of Date`。症状不是「查错行」而是**整个 sweep 在步骤 1.5 抛死**:job 每 5 分钟失败一次,
+ * 后面的 unknown 定级 / down 恢复 / 签到对账全部不再执行 —— 保活档自己把巡检打死。
+ * 绑定形态改成字符串 + 显式转换后,值仍是同一个时刻,驱动也不再挑类型。
  */
 export function keepaliveIdleWhere(cutoff: Date) {
   return and(
@@ -127,7 +135,7 @@ export function keepaliveIdleWhere(cutoff: Date) {
     eq(aiRelayAccountPool.tempUnschedulable, false),
     ne(aiRelayAccountPool.healthStatus, 'down'),
     recredentialableCondition(),
-    lt(accountIdleClock(), cutoff),
+    lt(accountIdleClock(), sql`${cutoff.toISOString()}::timestamptz`),
   )
 }
 
