@@ -81,7 +81,7 @@ export function FavoriteScreen() {
     [tab, uniappT],
   )
 
-  const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
+  const { items, loading, refreshing, loadingMore, error, total, refresh, loadMore, removeItem } =
     usePaginatedList<FavoriteItemRow>(fetcher, PAGE_SIZE)
   // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):走分页 hook 的 refresh,重置分页并重载
   useRefreshOnFocus(refresh)
@@ -120,11 +120,13 @@ export function FavoriteScreen() {
       loading={loading}
       refreshing={refreshing}
       loadingMore={loadingMore}
+      hasMore={items.length < total}
       error={error}
       onRefresh={refresh}
       onLoadMore={loadMore}
       onDelete={onDelete}
       onBack={() => navigation.goBack()}
+      onGoDiscover={() => navigation.navigate('Home')}
       colorScheme={resolvedTheme}
     />
   )
