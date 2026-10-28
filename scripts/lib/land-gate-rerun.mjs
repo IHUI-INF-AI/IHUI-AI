@@ -36,15 +36,21 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
+import { cpus } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execFileSync } from 'node:child_process'
-import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
+import { execFile, execFileSync } from 'node:child_process'
+import { triggersTouch } from './guardian-triggers.mjs'
 import { catBatch } from './face-reader.mjs'
 import { maskComments, maskCommentsStringsAndRegex } from './code-mask.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
+const WORKER = join(HERE, 'land-gate-rerun-worker.mjs')
+/** 注册表臂单臂超时(与串行时代一致;并发不放大单臂预算)。 */
+const GATE_TIMEOUT_MS = 300000
+/** worker 总超时:按最坏串行排队留足余量,只防"worker 挂死"把落地器拖到天荒地老。 */
+const WORKER_TIMEOUT_MS = 30 * 60 * 1000
 
 /** 同名函数族扫描的扩展面(票面:"简单判据"—— 只扫顶层(def/class/function/export const),不建 AST)。 */
 const DUPDEF_EXTS = ['.py', '.pyi', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
@@ -226,7 +232,11 @@ export function scanDuplicateDefinitions(text, ext) {
   // 等长遮罩 ⇒ 行号/缩进不变,"只认第 0 列"的规则逐字照旧。
   const lines = maskCommentsStringsAndRegex(src).split(/\r?\n/)
   const patterns = PY_EXTS.includes(ext)
-    ? [/^def\s+([A-Za-z_]\w*)\s*\(/, /^async\s+def\s+([A-Za-z_]\w*)\s*\(/, /^class\s+([A-Za-z_]\w*)/]
+    ? [
+        /^def\s+([A-Za-z_]\w*)\s*\(/,
+        /^async\s+def\s+([A-Za-z_]\w*)\s*\(/,
+        /^class\s+([A-Za-z_]\w*)/,
+      ]
     : [
         /^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*[(<]/,
         /^(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/,
@@ -236,7 +246,14 @@ export function scanDuplicateDefinitions(text, ext) {
   const isPy = PY_EXTS.includes(ext)
   lines.forEach((l, idx) => {
     const t = l.trimStart()
-    if (t === '' || t.startsWith('//') || t.startsWith('#') || t.startsWith('*') || t.startsWith('/*')) return
+    if (
+      t === '' ||
+      t.startsWith('//') ||
+      t.startsWith('#') ||
+      t.startsWith('*') ||
+      t.startsWith('/*')
+    )
+      return
     if (l !== t) return // 只认第 0 列(有缩进即非顶层)
     for (const re of patterns) {
       const m = re.exec(l)
@@ -310,6 +327,87 @@ function spawnGate(script, args, root, timeoutMs, env) {
 }
 
 /**
+ * 并发度(2026-10-28 立):默认 min(8, 核数-2),下限 2。
+ * 依据是实测而非拍的:26 臂串行耗时分钟级,而单臂 0.3s(check-api-key-leak)~34s
+ * (check-rounded-full)差两个数量级 ⇒ 串行的墙钟时间几乎全花在等最慢那几臂。
+ * `IHUI_LAND_GATE_CONCURRENCY` 可覆盖(测试与低配机应急);给 1 = 退回逐臂串行,语义与改前同形。
+ */
+export function gateConcurrency(env = process.env) {
+  const raw = Number(env?.IHUI_LAND_GATE_CONCURRENCY)
+  if (Number.isFinite(raw) && raw >= 1) return Math.min(32, Math.floor(raw))
+  const n = (cpus?.() ?? []).length || 4
+  return Math.max(2, Math.min(8, n - 2))
+}
+
+/**
+ * 异步版 spawnGate:逐条对齐同步版语义(超时 / 被杀 / stdout+stderr 合并 / env 叠加),
+ * 只服务本文件配套的并发 worker,不进生产判据路径。
+ */
+export function spawnGateAsync(script, args, root, timeoutMs, env) {
+  return new Promise((settle) => {
+    execFile(
+      process.execPath,
+      [script, ...args],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: timeoutMs,
+        maxBuffer: 64 << 20,
+        env: env ? { ...process.env, ...env } : process.env,
+      },
+      (err, stdout, stderr) => {
+        const out = String((stdout ?? '') + (stderr ?? ''))
+        if (!err) return settle({ rc: 0, out })
+        const rc = typeof err.code === 'number' ? err.code : 9
+        // 与 spawnGate 同一档:超时/被杀落 'killed' ⇒ 调用方归 undetermined,不读成判红
+        if (rc === 9 && (err.killed || err.signal)) return settle({ rc: 'killed', out })
+        settle({ rc, out })
+      },
+    )
+  })
+}
+
+/**
+ * 同步批量执行入口:单任务或并发度 1 ⇒ 就地串行(不付 worker 启动开销);
+ * 多任务 ⇒ 交给 worker 并发跑,**结果按输入下标回填**,调用方据此按原顺序归类。
+ *
+ * 失败方向:worker 起不来 / 返回条目数不符 / 输出解析不了 ⇒ 每一臂都落 `rc=9 + 原因`,
+ * 由调用方归入 undetermined(§0.3:取不到判定面既不记绿也不冒红)。**不回落串行重跑** ——
+ * 那会把一次 worker 故障变成"再花一遍分钟级",并掩盖故障本身。
+ */
+export function runGateBatch(tasks, { root = REPO_ROOT, concurrency, env = process.env } = {}) {
+  const list = Array.isArray(tasks) ? tasks : []
+  if (list.length === 0) return []
+  const limit =
+    Number.isFinite(concurrency) && concurrency > 0 ? Math.floor(concurrency) : gateConcurrency(env)
+  if (list.length === 1 || limit <= 1)
+    return list.map((t) =>
+      spawnGate(t.script, t.args ?? [], root, t.timeoutMs ?? GATE_TIMEOUT_MS, env),
+    )
+  const failAll = (why) => list.map(() => ({ rc: 9, out: why }))
+  try {
+    const out = execFileSync(process.execPath, [WORKER], {
+      input: JSON.stringify({ tasks: list, root, concurrency: limit }),
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: WORKER_TIMEOUT_MS,
+      maxBuffer: 1 << 29,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, ...(env ?? {}) },
+    })
+    const parsed = JSON.parse(String(out ?? ''))
+    if (!Array.isArray(parsed) || parsed.length !== list.length)
+      return failAll(
+        `并发 worker 返回条目数 ${Array.isArray(parsed) ? parsed.length : '非数组'} ≠ 任务数 ${list.length} ⇒ 未判定`,
+      )
+    return parsed
+  } catch (e) {
+    return failAll(`并发 worker 不可用(${String(e?.message ?? e).slice(0, 160)})⇒ 未判定`)
+  }
+}
+
+/**
  * 落地后复跑受影响判据。返回
  * { verdict, ran, failed, undetermined, warnFailures, dupFindings, notes, untriggered }
  *  - verdict 0 = 全绿;1 = 有 blocking 臂判红(含重复定义命中);2 = 有臂"无法判定"(未判定≠通过)
@@ -332,7 +430,9 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
   const declared = [...new Set(paths.map((p) => String(p).replace(/\\/g, '/')))]
   if (declared.length === 0) return res
   if (env.IHUI_LAND_SKIP_AFFECTED_GATES === '1') {
-    console.log('⚠️ IHUI_LAND_SKIP_AFFECTED_GATES=1 ⇒ 本次跳过落地后受影响判据复跑(该行输出即留痕;仅应急)')
+    console.log(
+      '⚠️ IHUI_LAND_SKIP_AFFECTED_GATES=1 ⇒ 本次跳过落地后受影响判据复跑(该行输出即留痕;仅应急)',
+    )
     res.skipped = true
     return res
   }
@@ -347,9 +447,16 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
   if (codePaths.length > 0) {
     let face = null
     try {
-      face = catBatch(root, codePaths.map((p) => `HEAD:${p}`), { timeout: 120000, maxBuffer: 1 << 29 })
+      face = catBatch(
+        root,
+        codePaths.map((p) => `HEAD:${p}`),
+        { timeout: 120000, maxBuffer: 1 << 29 },
+      )
     } catch (e) {
-      res.undetermined.push({ kind: 'dupdef', why: `落地面取材失败,重复定义扫描未判定:${e?.message ?? e}` })
+      res.undetermined.push({
+        kind: 'dupdef',
+        why: `落地面取材失败,重复定义扫描未判定:${e?.message ?? e}`,
+      })
     }
     if (face) {
       for (const p of codePaths) {
@@ -380,7 +487,9 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
     const stub = String(env.LAND_GATE_RERUN_MYPY ?? '').trim()
     const gate = stub || join(REPO_ROOT, 'scripts', 'check-mypy.mjs')
     if (!stub && !inHomeRepo) {
-      res.notes.push(`mypy 臂:被审根不是本器所在仓且未给桩(LAND_GATE_RERUN_MYPY)⇒ 本轮未跑,已点名(不是"跑过且绿")`)
+      res.notes.push(
+        `mypy 臂:被审根不是本器所在仓且未给桩(LAND_GATE_RERUN_MYPY)⇒ 本轮未跑,已点名(不是"跑过且绿")`,
+      )
     } else if (!existsSync(gate)) {
       res.undetermined.push({ kind: 'mypy', why: `门体取不到:${gate}(未判定不等于通过)` })
     } else {
@@ -397,14 +506,22 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
     const stub = String(env.LAND_GATE_RERUN_TSC ?? '').trim()
     const gate = stub || join(REPO_ROOT, 'scripts', 'check-staged-typecheck.mjs')
     if (!stub && !inHomeRepo) {
-      res.notes.push(`tsc 臂:被审根不是本器所在仓且未给桩(LAND_GATE_RERUN_TSC)⇒ 本轮未跑,已点名(不是"跑过且绿")`)
+      res.notes.push(
+        `tsc 臂:被审根不是本器所在仓且未给桩(LAND_GATE_RERUN_TSC)⇒ 本轮未跑,已点名(不是"跑过且绿")`,
+      )
     } else if (!existsSync(gate)) {
       res.undetermined.push({ kind: 'tsc', why: `门体取不到:${gate}(未判定不等于通过)` })
     } else {
       const present = tsFiles.filter((p) => existsSync(join(root, p)))
-      for (const p of tsFiles) if (!present.includes(p)) res.notes.push(`tsc:${p} 盘上没有(删除档)⇒ 不进 --files 清单,已点名`)
+      for (const p of tsFiles)
+        if (!present.includes(p))
+          res.notes.push(`tsc:${p} 盘上没有(删除档)⇒ 不进 --files 清单,已点名`)
       if (present.length === 0) {
-        res.ran.push({ kind: 'tsc', files: 0, note: '落地 ts 面全是删除档,tsc 无对象可审;删除面的红由注册表臂/提交链兜' })
+        res.ran.push({
+          kind: 'tsc',
+          files: 0,
+          note: '落地 ts 面全是删除档,tsc 无对象可审;删除面的红由注册表臂/提交链兜',
+        })
       } else {
         const r = spawnGate(gate, ['--files', ...present], root, 600000, env)
         if (r.rc === 0) res.ran.push({ kind: 'tsc', files: present.length })
@@ -418,7 +535,9 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
   const regStub = String(env.LAND_GATE_RERUN_REGISTRY ?? '').trim()
   let regText = null
   if (!regStub && !inHomeRepo) {
-    res.notes.push('注册表臂:被审根不是本器所在仓且未给替代注册表(LAND_GATE_RERUN_REGISTRY)⇒ 路径→门映射本轮未跑,已点名(不是"没有受影响门")')
+    res.notes.push(
+      '注册表臂:被审根不是本器所在仓且未给替代注册表(LAND_GATE_RERUN_REGISTRY)⇒ 路径→门映射本轮未跑,已点名(不是"没有受影响门")',
+    )
   } else if (regStub) {
     try {
       regText = readFileSync(regStub, 'utf8')
@@ -431,13 +550,19 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
   } else {
     // 生产档判 **HEAD 面**(§0.4:工作树副本常年滞后,按盘上那份选门会把刚落地的新门看漏)
     try {
-      const m = catBatch(root, ['HEAD:scripts/guardian-runner.mjs'], { timeout: 60000, maxBuffer: 1 << 28 })
+      const m = catBatch(root, ['HEAD:scripts/guardian-runner.mjs'], {
+        timeout: 60000,
+        maxBuffer: 1 << 28,
+      })
       regText = m.get('HEAD:scripts/guardian-runner.mjs') ?? null
     } catch {
       regText = null
     }
     if (regText === null) {
-      res.undetermined.push({ kind: 'registry', why: 'HEAD 面取不到 scripts/guardian-runner.mjs(路径→门映射未判定,不得读成"没有受影响门")' })
+      res.undetermined.push({
+        kind: 'registry',
+        why: 'HEAD 面取不到 scripts/guardian-runner.mjs(路径→门映射未判定,不得读成"没有受影响门")',
+      })
     }
   }
   if (regText !== null) {
@@ -449,7 +574,10 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       try {
         affected = selectAffectedGates(declared, parsed.entries)
       } catch (e) {
-        res.undetermined.push({ kind: 'registry', why: `stagedTriggers 归一抛错:${e?.message ?? e}` })
+        res.undetermined.push({
+          kind: 'registry',
+          why: `stagedTriggers 归一抛错:${e?.message ?? e}`,
+        })
       }
       // 内置臂已覆盖的门体不重跑(mypy/tsc 各只跑一次);注册表条目若声明了 --staged,
       // 这里剥掉 —— 落地后"本次改动"在 HEAD 面,全量档判 HEAD blob 才是落地面;
@@ -459,20 +587,38 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       const toRun = affected.filter((g) => !BUILTIN_SCRIPTS.has(g.script))
       const deferred = toRun.slice(REGISTRY_CAP)
       for (const g of deferred) {
-        console.log(`⚠️ 注册表受影响门 [${g.id}] ${g.script} 超出复跑预算(${REGISTRY_CAP} 道)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`)
+        console.log(
+          `⚠️ 注册表受影响门 [${g.id}] ${g.script} 超出复跑预算(${REGISTRY_CAP} 道)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`,
+        )
       }
+      // 执行:先按原顺序筛出**真要跑**的臂(缺门体/应急跳过都不进批次),再整体交给并发池。
+      // 并发只改"等谁":argv、cwd、timeout、env 与逐臂串行时逐字相同;结果按输入下标回填,
+      // 下面的归类循环保持原顺序 ⇒ ran/failed/warnFailures/undetermined 的内容与分级一字不变。
+      // 依据(2026-10-28 实测):单臂 0.3s~34s 差两个数量级,串行的墙钟时间几乎全花在等最慢那几臂。
+      const batchPlan = []
       for (const g of toRun.slice(0, REGISTRY_CAP)) {
         const scriptPath = join(root, 'scripts', g.script)
         if (!existsSync(scriptPath)) {
-          res.undetermined.push({ kind: 'registry', id: g.id, why: `门体取不到:scripts/${g.script}` })
+          res.undetermined.push({
+            kind: 'registry',
+            id: g.id,
+            why: `门体取不到:scripts/${g.script}`,
+          })
           continue
         }
         if (g.skipEnv && env[g.skipEnv] === '1') {
           res.notes.push(`注册表门 [${g.id}] 跳过(${g.skipEnv}=1,应急放行留痕)`)
           continue
         }
-        const gateArgs = g.args.filter((a) => a !== '--staged')
-        const r = spawnGate(scriptPath, [...gateArgs], root, 300000, env)
+        batchPlan.push({ g, scriptPath, args: g.args.filter((a) => a !== '--staged') })
+      }
+      const outcomes = runGateBatch(
+        batchPlan.map((b) => ({ script: b.scriptPath, args: b.args, timeoutMs: GATE_TIMEOUT_MS })),
+        { root, env },
+      )
+      for (let i = 0; i < batchPlan.length; i++) {
+        const g = batchPlan[i].g
+        const r = outcomes[i] ?? { rc: 9, out: '并发批量未回填该臂 ⇒ 未判定' }
         const rec = { kind: 'registry', id: g.id, script: g.script, mode: g.mode }
         if (r.rc === 0) res.ran.push({ ...rec })
         else if (r.rc === 1) {
@@ -497,18 +643,31 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
 
   if (res.dupFindings.length > 0) {
     for (const d of res.dupFindings.slice(0, 20)) {
-      console.error(`❌ 重复定义:${d.path} 顶层同名 "${d.name}" 出现 ${d.lines.length} 次(行 ${d.lines.join(', ')})`)
+      console.error(
+        `❌ 重复定义:${d.path} 顶层同名 "${d.name}" 出现 ${d.lines.length} 次(行 ${d.lines.join(', ')})`,
+      )
     }
   }
   for (const f of res.failed) {
-    console.error(`❌ 落地后复跑判红:${f.kind}${f.id ? ` [门 ${f.id}]` : ''} ${f.why ?? '见门体输出'}`)
-    if (f.out) console.error(String(f.out).split(/\r?\n/).slice(-12).map((l) => `   | ${l}`).join('\n'))
+    console.error(
+      `❌ 落地后复跑判红:${f.kind}${f.id ? ` [门 ${f.id}]` : ''} ${f.why ?? '见门体输出'}`,
+    )
+    if (f.out)
+      console.error(
+        String(f.out)
+          .split(/\r?\n/)
+          .slice(-12)
+          .map((l) => `   | ${l}`)
+          .join('\n'),
+      )
   }
   for (const w of res.warnFailures) {
     console.log(`⚠️ 落地后复跑 warn 门判红(不阻塞,与 runner 分级同形):[门 ${w.id}] ${w.script}`)
   }
   for (const u of res.undetermined) {
-    console.error(`❌ 落地后复跑**无法判定**:${u.kind}${u.id ? ` [门 ${u.id}]` : ''}(rc=${u.rc ?? 'n/a'})—— 未判定不等于通过`)
+    console.error(
+      `❌ 落地后复跑**无法判定**:${u.kind}${u.id ? ` [门 ${u.id}]` : ''}(rc=${u.rc ?? 'n/a'})—— 未判定不等于通过`,
+    )
     if (u.why) console.error(`   ${u.why}`)
   }
   // 点名必须**真的打印出来**(2026-10-27 修):此前 notes 只被 push、从未有人 print,而绿行却写
