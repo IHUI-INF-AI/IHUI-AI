@@ -1328,4 +1328,65 @@ async def test_emit_self_heal_reaches_subscriber(engine):
     item2 = q.get_nowait()
     assert item2["phase"] == "finished"
     assert item2["ok"] is True
+
+
+class TestExecutionGateHighRisk:
+    """P0-5 高危动作**执行侧**兜底门禁(2026-10-28 安全审计立)。
+
+    立因:白名单此前只拦创建(routes/hooks.py 与 engine 创建校验),执行分派
+    `_execute_hook` 不复核 —— 2026-08-05 策略生效前入库的 script/webhook 存量
+    (或绕过创建接口直改 Redis 的记录)在 HOOK_ALLOWED_ACTIONS 为空时仍会执行。
+    用例按"副作用没发生 + 成对正向对照"纪律(AGENTS §5 鉴权面同型):
+    判"被拒"必须断言执行器没被调用,且白名单显式放行时同一钩子必须走进去。
+    """
+
+    @pytest.mark.asyncio
+    async def test_script_denied_when_whitelist_empty_no_side_effect(self, engine, monkeypatch):
+        from app.services import hook_engine as he
+
+        monkeypatch.setattr(he.settings, "hook_allowed_actions", "")
+        spy = AsyncMock(return_value=("x", None))
+        monkeypatch.setattr(engine, "_run_script", spy)
+        hook = {"id": "hk-sec1", "event": "tool.before", "action": {"type": "script", "config": {"command": "whoami"}}}
+
+        log = await engine._execute_hook(hook, "tool.before", {})
+        assert log["success"] is False
+        assert "高危动作" in (log.get("error") or "")
+        spy.assert_not_awaited()
+
+        # 正向对照:显式放行后同一钩子必须抵达执行器(门禁失效方向只能是要么真拦、要么真放)
+        monkeypatch.setattr(he.settings, "hook_allowed_actions", "script")
+        spy2 = AsyncMock(return_value=("done", None))
+        monkeypatch.setattr(engine, "_run_script", spy2)
+        log2 = await engine._execute_hook(hook, "tool.before", {})
+        assert log2["success"] is True
+        spy2.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_webhook_denied_when_whitelist_empty_no_egress(self, engine, monkeypatch):
+        from app.services import hook_engine as he
+
+        monkeypatch.setattr(he.settings, "hook_allowed_actions", "")
+        spy = AsyncMock(return_value=("resp", None))
+        monkeypatch.setattr(engine, "_run_webhook", spy)
+        hook = {
+            "id": "hk-sec2",
+            "event": "tool.after",
+            "action": {"type": "webhook", "config": {"url": "http://169.254.169.254/latest/meta-data/"}},
+        }
+
+        log = await engine._execute_hook(hook, "tool.after", {})
+        assert log["success"] is False
+        assert "高危动作" in (log.get("error") or "")
+        spy.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_log_action_still_runs_when_whitelist_empty(self, engine, monkeypatch):
+        """低风险动作不受门禁影响(防把门禁做成恒红:放行面误伤)。"""
+        from app.services import hook_engine as he
+
+        monkeypatch.setattr(he.settings, "hook_allowed_actions", "")
+        hook = {"id": "hk-sec3", "event": "tool.before", "action": {"type": "log", "config": {}}}
+        log = await engine._execute_hook(hook, "tool.before", {})
+        assert log["success"] is True
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
