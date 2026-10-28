@@ -8,7 +8,8 @@
  * 钉九环:
  *  ① 分诊配置形状锁(来源白名单闭集 / 配额正整数);
  *  ② mail-failure 来源:24h 窗计数只收 failed(旧窗与 delivered 不计),台账缺 = 未判定;
- *  ③ 去重与配额成对:24h 窗新鲜拦 / 过期放;配额只数当日 registered;
+ *  ③ 去重与配额成对:24h 窗新鲜拦 / 过期放;配额只数当日 registered
+ *     (时钟显式注入、不读真实钟:00:30 / 23:30 / 跨日 23:59→00:01 三档同形);
  *  ④ 登记通道:live-doc-edit 子进程形态(env 驱动 + 唯一登记入口);
  *  ⑤ 第二期三来源进白名单 / clustering 与 minOccurrences 形状锁;
  *  ⑥ 错误签名归一(UUID/数字/URL 查询串/时间戳归零);
@@ -26,6 +27,10 @@ import { __test__ as tr } from '../auto-triage.mjs'
 
 const LDE_TAIL = 'live-doc-edit.mjs'
 const LDE_MSG = '登记必须走 live-doc-edit 唯一入口'
+
+// 时间基准显式本地日历构造(月 1-based),不读真实钟 —— 日切口径见源脚本 registeredToday。
+// 夹具若从 Date.now() 相对生成,00:00–01:00 的 now-1h 会落到前一日,每日凌晨必假红(2026-10-28 实测)。
+const at = (y, month, day, hh = 0, mm = 0) => new Date(y, month - 1, day, hh, mm, 0, 0)
 
 test('① 形状锁:合法过 / 未知源闭集拒 / 配额 0 拒', () => {
   const g = tr.loadConfig(() => JSON.stringify({ enabled: true, dailyRegistrationQuota: 3, sources: ['mail-failure', 'index-unmerged'] }))
@@ -74,7 +79,9 @@ test('③b 配额:只数当日 registered(observed/quota-deferred 不占额)', (
 })
 
 test('③c 产出待办:纯函数 planTriageActions 把聚类候选推成动作(不 IO、可重放)', () => {
-  const now = Date.now()
+  // 基准显式取本地正午(不读真实钟):任何时区下 now-1h 都落在同一本地日,
+  // 不会像 Date.now() 那样在 00:00–01:00 把夹具推进前一日、踩 registeredToday 的日切。
+  const now = at(2026, 10, 27, 12, 0).getTime()
   const mk = (source, disposition, fp, title = 't') => ({ source, disposition, fp, title, evidence: 'e' })
   // 观察类 → observed,不占配额
   let r = tr.planTriageActions({ findings: [mk('api-logs', 'observe', 'fa')], dailyQuota: 3, now })
@@ -127,6 +134,43 @@ test('③d 端到端(纯):归一 → 聚类 → 产出待办,复用既有通道�
   assert.equal(registers.length, 2, '两源各一可派单簇')
   assert.equal(observes.length, 1, '单例 api/b 落观察类')
   assert.equal(plan.quotaUsed, 2)
+})
+
+test('③e 时间基准可注入:00:30 / 23:30 / 跨日 23:59→00:01 三档同形', () => {
+  const mk = (source, disposition, fp) => ({ source, disposition, fp, title: 't', evidence: 'e' })
+  const ledgerOf = (tsMs) => [{ action: 'registered', ts: new Date(tsMs).toISOString(), fingerprint: 'fc' }]
+  const planAt = (nowMs, ledger) =>
+    tr.planTriageActions({
+      findings: [mk('api-logs', 'register', 'fc'), mk('api-logs', 'register', 'fd')],
+      ledger,
+      dailyQuota: 3,
+      now: nowMs,
+    })
+  const shapeOf = (r) => r.actions.map((a) => a.action)
+  const early = at(2026, 10, 28, 0, 30) // 凌晨档:now-1h 会跨日
+  const late = at(2026, 10, 27, 23, 30) // 深夜档
+  const edgeBefore = at(2026, 10, 27, 23, 59) // 跨日前 1 分钟
+  const edgeAfter = at(2026, 10, 28, 0, 1) // 跨日后 1 分钟
+  assert.notEqual(edgeBefore.toDateString(), edgeAfter.toDateString(), '这一档必须真的跨本地日,否则等于没判')
+  // 档一/档二:夹具各取「自身所在本地日」内的时刻 ⇒ 日切维相同,只差真实时刻
+  const earlyPlan = planAt(early.getTime(), ledgerOf(at(2026, 10, 28, 0, 0).getTime()))
+  const latePlan = planAt(late.getTime(), ledgerOf(at(2026, 10, 27, 12, 0).getTime()))
+  // 档三:同一份 23:00 台账跨过午夜 ⇒ 日切只换配额基数,24h 去重不得松手
+  const beforePlan = planAt(edgeBefore.getTime(), ledgerOf(at(2026, 10, 27, 23, 0).getTime()))
+  const afterPlan = planAt(edgeAfter.getTime(), ledgerOf(at(2026, 10, 27, 23, 0).getTime()))
+  // 同形:三档动作序列必须一致(24h 去重与本地日切正交)
+  for (const [name, r] of [['深夜', latePlan], ['跨日前', beforePlan], ['跨日后', afterPlan]]) {
+    assert.deepEqual(shapeOf(r), shapeOf(earlyPlan), `${name}档动作序列必须与凌晨档同形`)
+  }
+  assert.deepEqual(shapeOf(earlyPlan), ['skip-dedupe', 'register'])
+  // 配额基数按本地日切成对:同日内 = 当日已登记 1;跨日后 = 0(同一行仍被 24h 去重拦住)
+  assert.equal(earlyPlan.quotaUsed, 2)
+  assert.equal(latePlan.quotaUsed, 2)
+  assert.equal(beforePlan.quotaUsed, 2)
+  assert.equal(afterPlan.quotaUsed, 1)
+  // 注入生效的硬证明:同一台账换 now 即换日切结论(若读真实钟,两次必然同值)
+  assert.equal(tr.registeredToday(ledgerOf(at(2026, 10, 27, 23, 0).getTime()), edgeBefore), 1)
+  assert.equal(tr.registeredToday(ledgerOf(at(2026, 10, 27, 23, 0).getTime()), edgeAfter), 0)
 })
 
 test('④ 登记通道:live-doc-edit 子进程形态(env 驱动 + 唯一入口路径 + 取号令牌)', () => {

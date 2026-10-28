@@ -39,7 +39,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { maskPhone, resolveAuthFileCandidates } from './relay-account-switch.js'
-import { acquireSessionLock } from './relay-session-lock.js'
+import { acquireSessionLock, SESSION_LINKS_LOCK_NAME } from './relay-session-lock.js'
 
 /** 台账与被盘点的会话库根(默认本机真实面;测试注入临时目录) */
 export interface SessionLinksPaths {
@@ -579,7 +579,7 @@ export function main(
   const paths = pathsOverride ?? defaultLinksPaths()
   const apply = argv.includes('--apply')
   const cmd = argv[0]
-  const lockPath = join(dirname(paths.ledgerFile), 'session-links.lock')
+  const lockPath = join(dirname(paths.ledgerFile), SESSION_LINKS_LOCK_NAME)
   let lock: { release: () => void } | null = null
   try {
     if (apply && cmd !== undefined && cmd !== 'list') {
