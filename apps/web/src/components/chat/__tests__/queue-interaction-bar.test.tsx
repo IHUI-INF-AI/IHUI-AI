@@ -220,6 +220,65 @@ describe('D38 QueueInteractionBar / 渲染结构与四动作', () => {
     fireEvent.keyDown(last, { key: 'ArrowDown' })
     expect(onReorder).toHaveBeenCalledTimes(2)
   })
+
+  // ── 「插到队首」(Qoder sendNow 形态对标,2026-10-28):undo 同门,非队首项一键到队首 ──
+  it('插到队首:仅非队首项渲染入口(队首项本就置顶,不给无效钮)', () => {
+    const { container } = render(<QueueInteractionBar {...baseProps()} />)
+    const btns = container.querySelectorAll('[data-queue-op="sendNow"]')
+    expect(btns).toHaveLength(1)
+    expect(btns[0]?.getAttribute('data-item-id')).toBe('q2')
+  })
+
+  it('插到队首点击上抛 onReorder(1, 0);**流式中不受拖拽锁定**(canUndo 同门,W27 队首消费仍不动)', () => {
+    const onReorder = vi.fn()
+    const { container } = render(<QueueInteractionBar {...baseProps({ onReorder })} />)
+    ;(container.querySelector('[data-queue-op="sendNow"]') as HTMLButtonElement).click()
+    expect(onReorder).toHaveBeenLastCalledWith(1, 0)
+    // 流式中:reorder 把手被锁(现行为),sendNow 仍可用 —— 这正是它与拖拽的分工
+    const busy = render(
+      <QueueInteractionBar
+        {...baseProps({
+          onReorder,
+          streaming: true,
+          perms: queueInteractionPerms({
+            runtimeSupportsInterjection: true,
+            streaming: true,
+            hasQueuedMessages: true,
+          }),
+        })}
+      />,
+    )
+    expect(
+      busy.container
+        .querySelector('[data-queue-op="reorderHandle"]')
+        ?.getAttribute('aria-disabled'),
+    ).toBe('true')
+    const btn = busy.container.querySelector('[data-queue-op="sendNow"]') as HTMLButtonElement
+    expect(btn.getAttribute('aria-disabled')).not.toBe('true')
+    btn.click()
+    expect(onReorder).toHaveBeenLastCalledWith(1, 0)
+  })
+
+  it('并发漂移(queueChanged)⇒ 插到队首与撤回同门被拒:aria-disabled=true,点击不回调', () => {
+    const onReorder = vi.fn()
+    const { container } = render(
+      <QueueInteractionBar
+        {...baseProps({
+          onReorder,
+          perms: queueInteractionPerms({
+            runtimeSupportsInterjection: true,
+            streaming: false,
+            hasQueuedMessages: true,
+            queueChanged: true,
+          }),
+        })}
+      />,
+    )
+    const btn = container.querySelector('[data-queue-op="sendNow"]') as HTMLButtonElement
+    expect(btn.getAttribute('aria-disabled')).toBe('true')
+    btn.click()
+    expect(onReorder).not.toHaveBeenCalled()
+  })
 })
 
 describe('D38 QueueInteractionBar / 许可拒绝 deniedKey 显式渲染', () => {
@@ -339,6 +398,8 @@ describe.skipIf(!queueOpsAvailable)(
     it('四动作 + 模式 + 降级键全齐(五语言);拒绝三键不在本命名空间(单点消费在 inputNotices.queue.denied)', () => {
       for (const locale of LOCALES) {
         const keys = flat(readQueueOps(locale))
+        expect(keys, `${locale} sendNow`).toContain('sendNow')
+        expect(keys, `${locale} sendNowAria`).toContain('sendNowAria')
         expect(keys, `${locale} reorderAria`).toContain('reorderAria')
         expect(keys, `${locale} undo`).toContain('undo')
         expect(keys, `${locale} edit`).toContain('edit')
@@ -356,6 +417,8 @@ describe.skipIf(!queueOpsAvailable)(
 
     it('zh-CN 逐字对齐判据原文(任务原文 + D69 同族句)', () => {
       const node = readQueueOps('zh-CN') as Record<string, string | Record<string, string>>
+      expect(node.sendNow).toBe('插到队首')
+      expect(node.sendNowAria).toBe('插到队首，这条消息将最先发送')
       expect(node.reorderAria).toBe('拖动调整排队顺序；聚焦后可使用上下方向键')
       expect(node.undo).toBe('撤回')
       expect(node.edit).toBe('编辑')

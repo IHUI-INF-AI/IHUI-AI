@@ -2380,6 +2380,8 @@
         "unknownStatus": "不明"
       },
       "queueOps": {
+        "sendNow": "次に送る",
+        "sendNowAria": "キューの先頭に移動し、このメッセージが次に送信されます",
         "ariaLabel": "キューメッセージ操作バー",
         "reorderAria": "ドラッグでキューの順序を変更。フォーカス中は上下方向キーも使用できます",
         "undo": "取り消す",
