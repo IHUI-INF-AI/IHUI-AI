@@ -42,7 +42,7 @@
 {"web":"user/security","rn":"packages/app/src/features/change-phone/ChangePhoneScreen.tsx","status":"aligned","note":"web 换手机页(newPhonePlaceholder/sendCode)↔ RN ChangePhoneScreen","at":"2026-10-24"}
 {"web":"user/subscription","rn":"packages/app/src/features/subscriptions/SubscriptionsScreen.tsx","status":"aligned","note":"subscription:32 ↔ subscriptions:3;与 member/subscription 同屏双承载","at":"2026-10-24"}
 {"web":"user/qr-code","rn":"packages/app/src/features/qr-code/QrCodeScreen.tsx","status":"aligned","note":"二维码,名字直配","at":"2026-10-24"}
-{"web":"edu/dashboard","rn":"packages/app/src/features/study-index/StudyIndexScreen.tsx","status":"gap","note":"原记 aligned→study-index/StudyIndexScreen,原 note 已自述「键证据不足,中置信」;2026-10-27 全量扫:该共享屏在 RN 端零渲染方 ⇒ 名义对齐,降 gap。","at":"2026-10-27"}
+{"web":"edu/dashboard","status":"gap","note":"2026-10-28 复判:原 rn 指针 study-index/StudyIndexScreen 系误配 —— 该共享屏头注自述是「AI 视频页」(赛道 chip + 视频卡片),而 web 这条是教育看板(apps/web/app/(main)/edu/dashboard/page.tsx:214 行,Card 卡片 + apiOrThrow,词包 eduDashboardPage);两者非同物,故撤掉载体指针、维持 gap:RN 侧需自建教育看板屏。","at":"2026-10-28"}
 {"web":"settings/api-keys","rn":"apps/mobile-rn/src/screens/ApiKeysScreen.tsx","status":"aligned","note":"修正轮 10 误判:RN 端内层已有 508 行全功能屏(列表/创建/删除/usage);当时只对照了 ApiSettingsScreen(Coze 配置)漏了同名屏。残余小缺口=web 有 POST /keys/:id/reset 轮换而 RN 无,后续补","at":"2026-10-24"}
 {"web":"settings/activity","rn":"packages/app/src/features/activity/ActivityScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(eventLogin/Logout ↔ activity:6)","at":"2026-10-24"}
 {"web":"settings/connected-accounts","rn":"packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(unbind ↔ connectedAccounts:17)","at":"2026-10-24"}
