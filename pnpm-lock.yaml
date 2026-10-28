@@ -1649,6 +1649,10 @@ importers:
   packages/tsconfig: {}
 
   packages/types:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@ihui/eslint-config':
         specifier: workspace:*
