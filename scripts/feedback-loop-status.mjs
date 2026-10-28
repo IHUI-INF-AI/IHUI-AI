@@ -12,9 +12,15 @@
  *
  *   perceived  → incident-signals.jsonl 里有该 identity 的行
  *   ticketed   → deploy-feedback-ledger.jsonl 里有该 identity 的登记行
- *   dispatched → auto-evolve-ledger.jsonl 里 mode=dispatch 且与登记行同票的行
+ *   dispatched → auto-evolve-ledger.jsonl 里 mode=dispatch 且与登记行同票的行;
+ *                无同票行时,若 --commits 给出了「subject 含票号」的提交 ⇒ 判 bypassed(旁路),
+ *                如实标明「未走派单环」并继续评估后续阶段(不猜、不按时间相近硬凑;无提交为证仍判 no)
  *   fixed      → 提交 subject 含票号(仅 --commits 给了才跑 git;默认不跑)
- *   deployed   → 晚于派单时刻的 deploy-decisions 行(有修复 sha 时必须同 sha)
+ *   deployed   → 晚于派单/旁路修复时刻的 deploy-decisions 行;对齐修复提交时接受两种证据:
+ *                「同 sha」或「部署 sha 包含该修复提交」(merge-base --is-ancestor) —— 后者才是常态
+ *                (部署的是修复之后推进的 HEAD)。决策台账路径走 lib/deploy-decisions-face.mjs 的
+ *                线上 oracle 面(生产 checkout 优先 → 回落主仓),**不钉死主仓**:部署环跑在生产
+ *                checkout,其决策落那一侧,钉死主仓会让 deployed 永远看不见真部署。
  *   verified   → 最新部署裁决 action=pass/canary-pass
  *   rolled_back→ 最新部署裁决 action=rollback/manual-rollback/canary-rollback
  *
@@ -26,6 +32,9 @@
  *    坏行逐条点名 line+原因,同一本台账里的好行照常参与。
  *  - **没跑 git ≠ 没修复**:--commits 未给时 fixed 记 `not-requested`(不据此判死,也不冒充已固定);
  *    给了 --commits 却没有票号/没有命中 ⇒ undetermined。
+ *  - **旁路要凭证**:派单环无同票行但有含票号提交 ⇒ 记 `bypassed`(图形 `b`)而非 `no`,
+ *    否则「人工直接修复」这条真实路径会被永久误报成「尚未派单」;证不足(无票号/未跑 git)仍判 `no`,
+ *    绝不因为「时间上像」就认定走过某环。
  *  - **只读**:不写任何台账、不跑 git 写操作、不改工作树;--self-test 的夹具只经
  *    scripts/lib/scratch-dir.mjs 的 mkScratch/rmScratch 落 §15b scratch 根并清理。
  *
@@ -47,6 +56,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { extractTicketNo, loadSourcesConfig, normalizeAt, SOURCES_PATH } from './audit-decision-chain.mjs'
+import { deployDecisionsFace } from './lib/deploy-decisions-face.mjs'
 import { identityOf } from './lib/incident-cluster.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -164,11 +174,22 @@ export function resolvePaths({ root = ROOT, stateDir = null } = {}) {
       decisions: join(d, SOURCE_FILES.decisions),
     }
   }
+  // 部署决策台账按「线上 oracle 面」解析,不钉死主仓:部署环(nssm IHUI-DEPLOYLOOP)跑的是
+  // 生产 checkout,决策行落在那一侧(实测 2026-10-28 22:48:主仓 3 行 vs 生产 88 行,含当轮
+  // pass sha=75b5ffdc897),钉死主仓会让 deployed 阶段永远看不见真部署、把已闭环的事故报成未部署。
+  // 复用 lib/deploy-decisions-face.mjs 的唯一出口(生产优先 → 回落主仓),不在此另立第二套候选。
+  let decisions = join(root, '.ihui-agent', SOURCE_FILES.decisions)
+  try {
+    const face = deployDecisionsFace({ repoRoot: root })
+    if (face.found && face.path) decisions = face.path
+  } catch {
+    /* 面解析异常 ⇒ 保持主仓候选;readJsonl 会判 missing/error 并在报告里点名路径,读错面可见 */
+  }
   return {
     signals: join(root, '.ihui-agent', 'state', SOURCE_FILES.signals),
     feedback: join(root, '.ihui-agent', 'state', SOURCE_FILES.feedback),
     dispatch: join(root, '.ihui-agent', 'state', SOURCE_FILES.dispatch),
-    decisions: join(root, '.ihui-agent', SOURCE_FILES.decisions),
+    decisions,
   }
 }
 
@@ -229,6 +250,7 @@ export function normalizeFeedback(raw, patterns = []) {
     ticketKey: ticket.key,
     ticketFace: ticket.face,
     ticketNo: ticket.no || extractTicketNo(ticket.face, patterns) || '',
+    result: textOf(pickSlot(raw, ['result', 'outcome', 'status']), 40),
     why: textOf(pickSlot(raw, ['why', 'reason', 'note'])),
   }
 }
@@ -256,6 +278,32 @@ export function normalizeDecision(raw) {
     sha: textOf(pickSlot(raw, ['sha', 'deploySha', 'landedSha'])).toLowerCase(),
     prevSha: textOf(pickSlot(raw, ['prevSha', 'previousSha'])).toLowerCase(),
     reason: textOf(pickSlot(raw, ['reason', 'why', 'note'])),
+  }
+}
+
+/**
+ * 提交包含判据:descendantSha 是否包含 ancestorSha(即 ancestorSha 是它的祖先或本身)。
+ * 为什么需要:「部署了修复之后的提交」同样是「修复已上线」的充分证据;只认同 sha 会把真实上线
+ * 判成「未部署」。只读(git merge-base --is-ancestor),任何失败一律 false —— 不把「判不了」说成「包含」。
+ * 带进程内缓存,同一对 sha 只查一次。可注入 spawn 供测试隔离。
+ */
+export function makeAncestorCheck({ root = ROOT, spawn = spawnSync } = {}) {
+  const cache = new Map()
+  return (ancestorSha, descendantSha) => {
+    const a = String(ancestorSha || '').toLowerCase()
+    const d = String(descendantSha || '').toLowerCase()
+    if (!a || !d) return false
+    const key = `${a}..${d}`
+    if (cache.has(key)) return cache.get(key)
+    let ok = false
+    try {
+      const r = spawn('git', ['merge-base', '--is-ancestor', a, d], { cwd: root, encoding: 'utf8', windowsHide: true })
+      ok = !!(r && r.status === 0)
+    } catch {
+      ok = false
+    }
+    cache.set(key, ok)
+    return ok
   }
 }
 
@@ -333,7 +381,7 @@ function inWindowAt(at, sinceMs) {
   return Number.isFinite(t) && t >= sinceMs
 }
 
-const STAGE_MARKS = { yes: 'Y', no: '.', undetermined: '?', 'not-requested': 'skip', 'not-reached': '-' }
+const STAGE_MARKS = { yes: 'Y', no: '.', undetermined: '?', bypassed: 'b', 'not-requested': 'skip', 'not-reached': '-' }
 
 function mark(v) {
   return STAGE_MARKS[v] ?? String(v ?? '?')
@@ -348,7 +396,7 @@ function shortText(s, n = 50) {
  * 单条事故的阶段判定(纯函数):输入已归一的信号/登记/派单/部署行与各源状态。
  * 任何一处拿不准都写入 why 并点名阶段;状态最终由 verified/rolled_back/undetermined 决定。
  */
-export function judgeIncident({ identity, signals, feedback, dispatchRows, decisionRows, sourceStates, commitsRequested, git }) {
+export function judgeIncident({ identity, signals, feedback, dispatchRows, decisionRows, sourceStates, commitsRequested, git, isAncestor = null }) {
   const stages = {
     perceived: 'no',
     ticketed: 'no',
@@ -394,8 +442,18 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
     stages.ticketed = 'undetermined'
     undet(`断在 ticketed:登记台账${fbSourceState === 'missing' ? '不存在' : '读不出'}`)
   } else if (fbRows.length > 0) {
-    stages.ticketed = 'yes'
-    evidence.feedbackAt = fbRows.map((f) => f.at).filter(Boolean).sort()[0] || null
+    // 台账有行 ≠ 建单成功:result=undetermined/failed 是「写盘被打断」,dry-run/skip 是演练或跳过,
+    // 三者都不算真建单。只有真空或明确成功态才算 ticketed=yes,否则如实判未判定并点名 result 分布。
+    const OK_RESULTS = new Set(['', 'registered', 'ok', 'created'])
+    const okRows = fbRows.filter((f) => OK_RESULTS.has(String(f.result ?? '').toLowerCase()))
+    if (okRows.length > 0) {
+      stages.ticketed = 'yes'
+      evidence.feedbackAt = okRows.map((f) => f.at).filter(Boolean).sort()[0] || null
+    } else {
+      stages.ticketed = 'undetermined'
+      const dist = [...new Set(fbRows.map((f) => String(f.result ?? '').toLowerCase() || '空'))].join('/')
+      undet(`断在 ticketed:登记台账有该身份 ${fbRows.length} 行,但 result 均非成功态(${dist}) —— 建单未落地`)
+    }
   }
 
   const tickets = uniqTickets(fbRows.map((f) => ({ key: f.ticketKey, face: f.ticketFace, no: f.ticketNo })))
@@ -429,20 +487,39 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
     return finish()
   }
   const matchedDispatch = dispatchRows.filter((d) => d.isDispatch && tickets.some((t) => dispatchMatchesTicket(d, t)))
+  // 派单台账无同票行时不立刻判死:真实工作流存在「跳过派单、人工直接修复并提交」的旁路。
+  // 旁路必须有「subject 含票号」的提交为证(不猜、不按时间相近硬凑);无证则如实判「尚未派单」。
+  let bypassFix = null
   if (matchedDispatch.length === 0) {
-    stages.dispatched = 'no'
-    notes.push('尚未派单(派单台账已读,无同票 dispatch 行)')
-    return finish()
-  }
-  stages.dispatched = 'yes'
-  const firstDispatch = matchedDispatch.filter((d) => d.at).sort((a, b) => a.at.localeCompare(b.at))[0] || matchedDispatch[0]
-  evidence.dispatchAt = matchedDispatch.map((d) => d.at).filter(Boolean).sort()[0] || null
-  evidence.dispatchAction = firstDispatch.action
-  evidence.dispatchLine = firstDispatch.line
+    if (commitsRequested && git && git.ok === true && evidence.ticketNo) {
+      const nos = String(evidence.ticketNo).split(',').filter(Boolean)
+      const hitsB = git.commits.filter((c) => nos.some((no) => c.subject.toLowerCase().includes(no.toLowerCase())))
+      // 与 fixed 阶段同一把尺子:取最早命中。否则旁路时间基准会被最新的同票提交推到部署之后,
+      // 出现「修复在部署之后」的假象而误报未部署。
+      bypassFix = hitsB.length
+        ? hitsB.slice().sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')))[0]
+        : null
+    }
+    if (!bypassFix) {
+      stages.dispatched = 'no'
+      notes.push('尚未派单(派单台账已读,无同票 dispatch 行)')
+      return finish()
+    }
+    stages.dispatched = 'bypassed'
+    notes.push(`未走派单环(派单台账无同票行),但有含票号 ${evidence.ticketNo} 的提交 ${bypassFix.sha.slice(0, 7)} —— 按旁路修复认定`)
+    evidence.bypassFixSha = bypassFix.sha
+    evidence.bypassFixAt = bypassFix.at || null
+  } else {
+    stages.dispatched = 'yes'
+    const firstDispatch = matchedDispatch.filter((d) => d.at).sort((a, b) => a.at.localeCompare(b.at))[0] || matchedDispatch[0]
+    evidence.dispatchAt = matchedDispatch.map((d) => d.at).filter(Boolean).sort()[0] || null
+    evidence.dispatchAction = firstDispatch.action
+    evidence.dispatchLine = firstDispatch.line
 
-  const dispatchFailures = matchedDispatch.filter((d) => d.action === 'session-failed' || d.action === 'session-timeout' || d.action === 'mint-failed' || d.action === 'quarantined')
-  if (dispatchFailures.length > 0 && !matchedDispatch.some((d) => d.action === 'session-ok' || d.action === 'dispatched')) {
-    notes.push(`派单未成功(action=${dispatchFailures[0].action})`)
+    const dispatchFailures = matchedDispatch.filter((d) => d.action === 'session-failed' || d.action === 'session-timeout' || d.action === 'mint-failed' || d.action === 'quarantined')
+    if (dispatchFailures.length > 0 && !matchedDispatch.some((d) => d.action === 'session-ok' || d.action === 'dispatched')) {
+      notes.push(`派单未成功(action=${dispatchFailures[0].action})`)
+    }
   }
 
   // —— fixed ——
@@ -464,10 +541,16 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
       undet(`断在 fixed:最近 ${git.commits.length} 条 commit subject 均未含票号 ${nos.join('/')}(票→提交环未闭环)`)
     } else {
       stages.fixed = 'yes'
-      fixSha = hits[0].sha
-      evidence.fixSha = fixSha
-      evidence.fixSubject = hits[0].subject
-      evidence.fixAt = hits[0].at
+      // 取最早命中的那枚:修复的语义是「第一次修好」,更晚的同票提交多是结清/注记/器件补强。
+      // 取最新会把 fixAt 推到部署之后,连带把「已上线的部署」判成「早于修复」而误报未部署。
+      const earliest = hits
+        .slice()
+        .sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')))[0]
+      fixSha = earliest.sha
+      evidence.fixSha = earliest.sha
+      evidence.fixSubject = earliest.subject
+      evidence.fixAt = earliest.at
+      if (hits.length > 1) notes.push(`同票提交 ${hits.length} 枚,修复环按最早 ${String(earliest.sha).slice(0, 7)} 认定`)
     }
   }
 
@@ -477,25 +560,37 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
     undet(`断在 deployed:部署决策台账${decisionState === 'missing' ? '不存在' : '读不出'}`)
     return finish()
   }
-  if (!evidence.dispatchAt) {
+  const deployBaselineAt = evidence.dispatchAt || evidence.bypassFixAt || null
+  if (!deployBaselineAt) {
     stages.deployed = 'undetermined'
-    undet('断在 deployed:同票 dispatch 行无时间键,无法判断哪次部署晚于派单')
+    undet(stages.dispatched === 'bypassed'
+      ? '断在 deployed:旁路修复提交无时间键,无法判断哪次部署晚于修复'
+      : '断在 deployed:同票 dispatch 行无时间键,无法判断哪次部署晚于派单')
     return finish()
   }
-  const dispatchMs = Date.parse(evidence.dispatchAt)
+  if (!evidence.dispatchAt) evidence.deployBaseline = 'bypass-fix'
+  const baselineWord = evidence.dispatchAt ? '派单' : '旁路修复'
+  const dispatchMs = Date.parse(deployBaselineAt)
+  // 变量名沿用 afterDispatch:语义是「基准时刻之后的部署决策行」,基准可能是派单时刻或旁路修复提交时刻。
   const afterDispatch = decisionRows.filter((d) => d.at && Date.parse(d.at) > dispatchMs)
   const deployFacts = afterDispatch.filter((d) => d.action !== 'build-fail')
   const buildFails = afterDispatch.filter((d) => d.action === 'build-fail')
 
   let chosen = null
   if (fixSha) {
-    const sameSha = deployFacts.filter((d) => shaMatches(d.sha, fixSha))
+    // 「同 sha」或「部署提交包含修复提交」都算修复已上线:后者才是常态(部署的是修复之后推进的 HEAD)。
+    const sameSha = deployFacts.filter(
+      (d) => shaMatches(d.sha, fixSha) || (typeof isAncestor === 'function' && isAncestor(fixSha, d.sha)),
+    )
     if (sameSha.length > 0) {
       chosen = latestByAt(sameSha)
-      evidence.deployBasis = 'sha'
+      evidence.deployBasis = shaMatches(chosen.sha, fixSha) ? 'sha' : 'contains-fix'
+      if (evidence.deployBasis === 'contains-fix') {
+        notes.push(`部署提交 ${String(chosen.sha).slice(0, 7)} 包含修复提交 ${String(fixSha).slice(0, 7)} ⇒ 修复已上线`)
+      }
     } else if (deployFacts.length > 0) {
       stages.deployed = 'undetermined'
-      undet('断在 deployed:晚于派单的部署决策无与修复提交同 sha 的记录')
+      undet(`断在 deployed:晚于${baselineWord}的部署决策均不含修复提交 ${String(fixSha).slice(0, 7)}(同 sha 与祖先包含皆非)`)
       return finish()
     }
   } else if (deployFacts.length > 0) {
@@ -509,7 +604,7 @@ export function judgeIncident({ identity, signals, feedback, dispatchRows, decis
     if (buildFails.length > 0) {
       notes.push(`构建失败未部署(action=build-fail,${buildFails[0].reason || '无原因'})`)
     } else {
-      notes.push('尚未部署(部署决策台账已读,无晚于派单的部署行)')
+      notes.push(`尚未部署(部署决策台账已读,无晚于${baselineWord}的部署行)`)
     }
     return finish()
   }
@@ -565,6 +660,7 @@ export function buildStatus({
   sinceHours = DEFAULT_SINCE_HOURS,
   commits = 0,
   git = null,
+  isAncestor = null,
   now = new Date(),
   ticketNoPatterns = null,
 } = {}) {
@@ -664,6 +760,8 @@ export function buildStatus({
 
   const gitResult = git || runGitLog({ root, commits })
   if (commits > 0 && !gitResult.ok) notes.push(`git 取数未判定:${gitResult.why}`)
+  // 部署环的「包含修复」判据:没给 --commits 就不必查 git;给了才默认走只读 merge-base。
+  const ancestorCheck = typeof isAncestor === 'function' ? isAncestor : commits > 0 ? makeAncestorCheck({ root }) : null
   const sourceStates = {
     signals: loaded.signals.state,
     feedback: loaded.feedback.state,
@@ -681,6 +779,7 @@ export function buildStatus({
       sourceStates,
       commitsRequested: commits > 0,
       git: gitResult,
+      isAncestor: ancestorCheck,
     }),
   )
 
@@ -738,7 +837,7 @@ export function renderHuman(report) {
     out.push('  坏行(逐条点名,不连坐其它行):')
     for (const b of report.badLines) out.push(`    - ${b.source} line ${b.line}:${b.why}`)
   }
-  out.push('  阶段表 [感知 建单 派单 修复 部署 裁决] 图例 Y=已达成 .=未达成 ?=未判定 skip=未评估 -=尚未到达')
+  out.push('  阶段表 [感知 建单 派单 修复 部署 裁决] 图例 Y=已达成 .=未达成 ?=未判定 b=旁路(未走本环,有票号提交为证) skip=未评估 -=尚未到达')
   if (report.incidents.length === 0) {
     out.push('    (0 条事故/信号)')
   } else {

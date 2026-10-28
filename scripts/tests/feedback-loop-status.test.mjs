@@ -198,4 +198,91 @@ test('⑨ 派生身份以 incident-cluster.identityOf 为唯一尺子', () => {
   assert.deepEqual(r.incidents.map((i) => i.identity), [expected])
   assert.equal(r.incidents[0].stages.perceived, 'yes')
 })
+
+// ⑩⑪ 钉住「旁路」这条判据:真实工作流存在「跳过派单、人工直接修复并提交」的路径,
+// 若只认派单台账,这类事故会被永久误报成「尚未派单」。但旁路必须有凭证 ——
+// 无票号提交 / 部署不含修复 / 建单写盘失败,三种情况都不得被说成闭环。
+const FIX_SHA = 'a'.repeat(40)
+const DEPLOY_SHA = 'b'.repeat(40)
+
+function bypassBox({ ticket = '- [ ] O67 [deploy-feedback] build-fail /deploy/build-fail', result = 'registered', decisions = null } = {}) {
+  const box = makeBox()
+  writeLines(join(box, SOURCE_FILES.signals), [signal('bypass-1')])
+  writeLines(join(box, SOURCE_FILES.feedback), [{ at: at(2), identity: 'bypass-1', ticket, result }])
+  writeLines(join(box, SOURCE_FILES.dispatch), [])
+  writeLines(
+    join(box, SOURCE_FILES.decisions),
+    decisions ?? [{ ts: at(4), action: 'canary-pass', sha: DEPLOY_SHA, reason: '观察窗通过' }],
+  )
+  return box
+}
+
+const BYPASS_GIT = { ok: true, why: '', commits: [{ sha: FIX_SHA, at: at(3), subject: 'fix(deploy): 结清 O67 build-fail(已上线)' }] }
+const NO_HIT_GIT = { ok: true, why: '', commits: [{ sha: FIX_SHA, at: at(3), subject: 'fix(deploy): 与票号无关的提交' }] }
+const PATTERNS = ['\\b(O\\d{1,4})\\b']
+
+test('⑩ 旁路:派单台账无同票行,但有含票号提交 + 部署包含该提交 ⇒ bypassed 且 verified', () => {
+  const r = buildStatus({
+    stateDir: bypassBox(),
+    now: NOW,
+    commits: 5,
+    git: BYPASS_GIT,
+    isAncestor: () => true,
+    ticketNoPatterns: PATTERNS,
+  })
+  const one = r.incidents.find((i) => i.identity === 'bypass-1')
+  assert.ok(one, '未生成 bypass-1 事故')
+  assert.equal(one.stages.dispatched, 'bypassed')
+  assert.equal(one.stages.fixed, 'yes')
+  assert.equal(one.stages.deployed, 'yes')
+  assert.equal(one.status, 'verified')
+  assert.equal(one.evidence.deployBasis, 'contains-fix')
+  assert.ok(one.why.includes('未走派单环'), `why 未点明旁路:${one.why}`)
+  assert.ok(renderHuman(r).includes('b=旁路'), '人读图表例未标注旁路符号')
+})
+
+test('⑪ 旁路不可伪造:无票号命中仍判未派单;部署不含修复判未判定;建单写盘失败不算已建单', () => {
+  // a) 票号有,但没有任何含票号的提交 ⇒ 不许认旁路
+  const a = buildStatus({ stateDir: bypassBox(), now: NOW, commits: 5, git: NO_HIT_GIT, isAncestor: () => true, ticketNoPatterns: PATTERNS })
+  const ai = a.incidents.find((i) => i.identity === 'bypass-1')
+  assert.equal(ai.stages.dispatched, 'no')
+  assert.ok(ai.why.includes('尚未派单'), ai.why)
+
+  // b) 未请求 git(--commits 未给)⇒ 无凭证,同样不许认旁路
+  const b = buildStatus({ stateDir: bypassBox(), now: NOW, ticketNoPatterns: PATTERNS })
+  assert.equal(b.incidents.find((i) => i.identity === 'bypass-1').stages.dispatched, 'no')
+
+  // c) 有修复提交,但部署的 sha 既不同源也不包含修复 ⇒ 不许说已上线
+  const c = buildStatus({ stateDir: bypassBox(), now: NOW, commits: 5, git: BYPASS_GIT, isAncestor: () => false, ticketNoPatterns: PATTERNS })
+  const ci = c.incidents.find((i) => i.identity === 'bypass-1')
+  assert.equal(ci.stages.deployed, 'undetermined')
+  assert.ok(ci.why.includes('均不含修复提交'), ci.why)
+
+  // d) 登记行 result=undetermined(写盘被打断)⇒ 建单未落地,不得算 ticketed=yes
+  const d = buildStatus({ stateDir: bypassBox({ result: 'undetermined' }), now: NOW, commits: 5, git: BYPASS_GIT, isAncestor: () => true, ticketNoPatterns: PATTERNS })
+  const di = d.incidents.find((i) => i.identity === 'bypass-1')
+  assert.equal(di.stages.ticketed, 'undetermined')
+  assert.ok(di.why.includes('建单未落地'), di.why)
+})
+
+// ⑫ 钉住「部署决策面」:部署环跑生产 checkout、决策落那一侧,status 若钉死主仓就会永远看不见
+// 真部署(2026-10-28 实测:主仓 3 行 vs 生产 88 行,导致已上线的两枚事故被判「尚未部署」)。
+test('⑫ 部署决策台账随线上 oracle 面解析,不钉死主仓;--state-dir 仍平铺隔离', () => {
+  const root = makeBox()
+  const faceFile = join(root, 'prod-face.jsonl')
+  writeFileSync(faceFile, '', 'utf8')
+  const prev = process.env.IHUI_DEPLOY_DECISIONS_FACE
+  process.env.IHUI_DEPLOY_DECISIONS_FACE = faceFile
+  try {
+    const p = mod.resolvePaths({ root })
+    assert.equal(p.decisions, faceFile, '部署决策路径未随面覆盖 —— 又钉死主仓了')
+    assert.ok(p.signals.startsWith(join(root, '.ihui-agent', 'state')), '其余三本不应受面影响')
+  } finally {
+    if (prev === undefined) delete process.env.IHUI_DEPLOY_DECISIONS_FACE
+    else process.env.IHUI_DEPLOY_DECISIONS_FACE = prev
+  }
+  // 显式 --state-dir ⇒ 四本平铺,不受面影响(测试与夹具隔离的既定契约)
+  const flat = mod.resolvePaths({ root, stateDir: root })
+  assert.equal(flat.decisions, join(root, SOURCE_FILES.decisions))
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
