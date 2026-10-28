@@ -264,6 +264,9 @@ Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSoc
 8. **i18n**:五种语言(en/zh-CN/zh-TW/ja/ko)键集 parity 是门禁;新增状态词必须同枚提交补齐五语言;
    不得在端内硬编码中文。
 9. **临时文件**只落 `.ihui-agent/tmp/<任务名>/`;项目外路径与 C 盘写入由守门拦截。
+10. **门户不变量**:门户表 titleKey 须两端五语言齐。
+    守门 `check-web-portal-label-keys.mjs`,
+    登记走 `add-web-portal-entries.mjs --apply`。
 10. **新文件必须带溯源水印**:`node scripts/watermark.mjs inject <file>`;不得对已注入文件做
     文本级批量改写(零宽载荷会被静默破坏)。
 
