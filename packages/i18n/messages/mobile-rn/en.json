@@ -123,7 +123,6 @@
     "modelSck": "Knowledge",
     "matAll": "All",
     "matText": "Text",
-    "myCreation": "My Creations",
     "inputPlaceholder": "Ask a question, or hold to speak",
     "modelSelectTitle": "Select Model",
     "modelSelectSearchCount": "{count} models found",
@@ -255,9 +254,7 @@
     "pubVideo": "Publish Video",
     "pubGroup": "Publish Collection",
     "closePreview": "Close preview",
-    "recentUsed": "Recently used",
-    "closeDrawer": "Close drawer",
-    "shareBoardTitle": "IHUI AI community - {name}"
+    "recentUsed": "Recently used"
   },
   "plaza": {
     "index": {
@@ -294,8 +291,7 @@
       "n4t": "4. Privacy protection ",
       "n4b": "Developers must strictly protect user privacy and must not disclose, sell or unlawfully use personal information.",
       "n5t": "5. Technical standards ",
-      "n5b": "Developers shall provide services meeting industry standards, ensuring feasibility and reliability of technical solutions.",
-      "searchNeedDesc": "Search needs or descriptions"
+      "n5b": "Developers shall provide services meeting industry standards, ensuring feasibility and reliability of technical solutions."
     }
   },
   "login": {
@@ -549,8 +545,7 @@
     "myOrders": "My Orders",
     "editProfile": "Edit Profile",
     "notLoggedIn": "Not signed in",
-    "clickRetry": "Tap to retry",
-    "benefitTraderAll": "All platform benefits included"
+    "clickRetry": "Tap to retry"
   },
   "payResult": {
     "title": "Payment Result",
@@ -1077,14 +1072,6 @@
     "sectionSettings": "Settings",
     "subscriptions": "My Subscriptions",
     "settings": "Settings",
-    "catImage": "Image",
-    "catVideo": "Video",
-    "catCopy": "Copywriting",
-    "catAgent": "Agents",
-    "catRpa": "RPA",
-    "catCode": "Coding",
-    "catMusic": "Music",
-    "catOther": "Other",
     "catCopyShort": "Copy"
   },
   "drawer": {
@@ -1204,18 +1191,7 @@
     "chat": {
       "title": "Start Chat",
       "message": "Starting a chat with \"{name}\""
-    },
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Analytics",
-    "catAll2": "All"
+    }
   },
   "aiAssistantN8n": {
     "title": "AI Assistant",
@@ -1371,13 +1347,7 @@
     "kindAutoContext": "Auto-retrieved context"
   },
   "developer": {
-    "becomeDeveloper": "Become a Developer",
-    "title": "Developer Portal",
-    "subtitle": "Publish agents and earn revenue",
-    "selectService": "Select a service plan",
-    "processing": "Processing...",
-    "openNow": "Activate Now",
-    "agreementHint": "By activating, you agree to the Developer Service Agreement"
+    "becomeDeveloper": "Become a Developer"
   },
   "liveHost": {
     "error": {
@@ -1412,8 +1382,7 @@
     "streamKey": "Stream key",
     "streamTitle": "Live title",
     "streamTitlePlaceholder": "Enter live title",
-    "title": "Live Host",
-    "productLoading": "Loading..."
+    "title": "Live Host"
   },
   "modelEdit": {
     "error": {
@@ -1469,8 +1438,7 @@
     "operationFailed": "Operation failed, please try again",
     "title": "n8n Models",
     "vendorName": "n8n Workflows",
-    "listView": "List view",
-    "groupBrowse": "Grouped"
+    "listView": "List view"
   },
   "modelPlaza": {
     "officialBadge": "IH",
@@ -1493,8 +1461,7 @@
     "selectProviderLabel": "Choose provider",
     "title": "Model Plaza",
     "groupBrowse": "Grouped",
-    "workflowTab": "Workflows",
-    "listView": "List view"
+    "workflowTab": "Workflows"
   },
   "tokenValue": {
     "recharge": {
@@ -1645,14 +1612,7 @@
     "ctaDesc": "Sign up and get 1,000 credits, free trial of all models, no credit card required.",
     "ctaPrimary": "Free Sign Up",
     "ctaSecondary": "View Documentation",
-    "complianceTitle": "Legal & Compliance",
-    "title": "About",
-    "appName": "App Name",
-    "version": "Version",
-    "description": "Description",
-    "officialSite": "Official Website",
-    "contactEmail": "Contact Email",
-    "license": "License"
+    "complianceTitle": "Legal & Compliance"
   },
   "activityDetail": {
     "title": "Activity Details",
@@ -1929,10 +1889,7 @@
     "sales": "{count} sold",
     "loadFailed": "Failed to load distribution",
     "withdrawFailed": "Withdrawal failed",
-    "withdrawSuccess": "Withdrawal successful",
-    "unsettled": "Unsettled",
-    "refunded": "Refunded",
-    "unknown": "Unknown"
+    "withdrawSuccess": "Withdrawal successful"
   },
   "earnCommission": {
     "title": "Commission Program",
@@ -3322,27 +3279,10 @@
   },
   "studyIndex": {
     "title": "AI Videos",
-    "catAll": "All",
     "catDouyin": "Douyin operations",
     "catPrivate": "Private domain",
     "catContent": "Content creation",
     "catData": "Data analysis",
-    "tipMarquee": "IHUI AI cloud education & short video — all AI-related video uploads welcome",
-    "myCollection": "My collections",
-    "searchPh": "Search videos",
-    "loadMoreHint": "Loading more...",
-    "noMoreText": "No more items",
-    "emptyVideos": "No learning videos yet",
-    "emptyModels": "No models",
-    "paidCollection": "Recommended course collections",
-    "latestCourses": "Latest courses",
-    "viewMoreModels": "View more models",
-    "viewMoreCourses": "View more courses",
-    "tagPaid": "Paid",
-    "tagFree": "Free",
-    "publishVidBtn": "Publish video",
-    "authorFallback": "IHUI Community · Official",
-    "receiveFreeTitle": "Claim free materials",
     "receiveFreeBody": "Link copied; paste it in a browser to open"
   },
   "studyProgress": {
@@ -3517,23 +3457,7 @@
     "price": "Price",
     "rating": "Rating",
     "startChat": "Start chat",
-    "uses": "Uses",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "uses": "Uses"
   },
   "agentMarket": {
     "empty": "No agents",
@@ -3792,9 +3716,7 @@
     "yourAnswer": "Your answer"
   },
   "favorites": {
-    "deleteTitle": "Confirm delete",
     "empty": "No favorites",
-    "loadFailed": "Failed to load",
     "title": "My Favorites"
   },
   "feedback": {
@@ -4568,10 +4490,7 @@
       "empty": "No posts yet. Be the first to post!",
       "loadingMore": "Loading…",
       "noMore": "No more items",
-      "anonymous": "Anonymous",
-      "justNow": "Just now",
-      "minutesAgo": "{n} min ago",
-      "hoursAgo": "{n} hr ago"
+      "anonymous": "Anonymous"
     }
   },
   "circle": {
@@ -5318,15 +5237,7 @@
     "addTitle": "Add account",
     "adding": "Adding…",
     "deleteConfirm": "Delete {name}?",
-    "summary": "{total} accounts · {enabled} enabled",
-    "add": "Add account",
-    "provider": "Platform",
-    "name": "Name",
-    "cancel": "Cancel",
-    "loading": "Loading…",
-    "confirmDelete": "Confirm delete",
-    "addSuccess": "Account added",
-    "loginRequired": "Sign in to manage your account pool"
+    "summary": "{total} accounts · {enabled} enabled"
   },
   "checkinAssistant": {
     "title": "Check-in Assistant",
@@ -5404,10 +5315,6 @@
     "favoritesCount": "Favorites",
     "joined": "Joined"
   },
-  "courseSwiper": {
-    "tabHotIntro": "Popular starter courses",
-    "tabHotPick": "Popular featured courses"
-  },
   "llmSettings": {
     "title": "Model Providers",
     "empty": "No providers configured",
@@ -5437,12 +5344,6 @@
   },
   "pay": {
     "alipayNotOpen": "Alipay is not available yet. Please use WeChat Pay."
-  },
-  "popularCourses": {
-    "tabHotIntro": "Popular intro",
-    "tabHotPick": "Popular picks",
-    "lessonsCount": "· {n} lessons",
-    "enrolled": "{n} learning"
   },
   "modelConfig": {
     "framesUnit": "{n} frames",
@@ -5597,15 +5498,7 @@
     "updated": "Updated"
   },
   "voice": {
-    "cam": "Camera",
-    "album": "Album",
-    "file": "File",
-    "closeImgMenu": "Close image menu",
-    "addImage": "Add image",
     "holdToTalk": "Hold to talk",
-    "clearResult": "Clear result",
-    "releaseEnd": " release to end",
-    "transcribing": "Transcribing…",
     "realStart": "Start live voice",
     "realConnecting": "Connecting...",
     "realLive": "Live voice in progress",
@@ -5645,7 +5538,6 @@
     "shareMoments": "Moments",
     "needAlbum": "Album permission required to pick card image",
     "uploadFail": "Card image upload failed",
-    "okTitle": "Success",
     "updated": "Business card updated",
     "submitFail": "Submit failed",
     "customFail": "Card customization failed. Retry."
@@ -5814,7 +5706,6 @@
     "modelA11y": "Model: {name}",
     "modelConfig": "Model settings",
     "voiceInput": "Voice input",
-    "feature2": "Features",
     "source": "Sources",
     "enlarge": "Enlarge",
     "agentAssist": "Agent assist"
@@ -5863,15 +5754,12 @@
     "customA11y": "AI custom service"
   },
   "confirm": {
-    "defaultCancel": "Cancel",
-    "defaultOk": "Confirm",
     "payFmt": "Pay now ¥{v}"
   },
   "sr": {
     "closeA11y": "Tap to close",
     "firstBonus": "First share bonus: {n} points",
     "inviteNote": "Invite friends; both earn points after signup",
-    "claimA11y": "Claim {n} points",
     "rewardUnit": " points",
     "footnote": "Points can be redeemed for compute & membership perks",
     "claimBtn": "Claim {n} points"
@@ -5941,15 +5829,6 @@
     "teacher": "Teacher",
     "time": "Time",
     "classroom": "Room",
-    "weekday": {
-      "mon": "Mon",
-      "tue": "Tue",
-      "wed": "Wed",
-      "thu": "Thu",
-      "fri": "Fri",
-      "sat": "Sat",
-      "sun": "Sun"
-    },
     "title2": "Class Schedule"
   },
   "eduChildAttendance": {
@@ -6087,7 +5966,6 @@
   "tagsPage": {
     "title": "Tags",
     "subtitle": "Browse all tags",
-    "loading": "Loading...",
     "empty": "No tags yet",
     "popular": "Popular Tags",
     "usageCount": "{count} uses",
@@ -6137,9 +6015,7 @@
     "makeAdmin": "Make Admin",
     "makeMember": "Make Member",
     "removeMember": "Remove member",
-    "inviteMember": "Invite Member",
     "inviteMemberDesc": "Invite a new member by phone or email",
-    "invitee": "Invitee",
     "inviteePlaceholder": "Enter phone or email",
     "inviteeRequired": "Invitee is required",
     "sendInvite": "Send Invite",
@@ -6151,7 +6027,6 @@
     "roleOwner": "Owner",
     "roleAdmin": "Admin",
     "roleMember": "Member",
-    "editTeam": "Edit Team",
     "editTeamDesc": "Update team name and description",
     "save": "Save",
     "dangerZone": "Danger Zone",
@@ -6738,7 +6613,6 @@
   },
   "appUpdate": {
     "title": "New version available",
-    "body": "Refresh the page to get the latest version",
     "action": "Update",
     "close": "Close",
     "ready": "Update ready",
