@@ -304,6 +304,18 @@ if (process.env.HUSKY_SKIP_POST_README !== '1') {
 // 别人尚未提交的内容),并交给 git-push-guard 推送。
 // 防递归:回捞提交带 IHUI_PLAN_HEAL_COMMIT=1;跳过:HUSKY_SKIP_PLAN_HEAL=1
 if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEAL !== '1') {
+  // 结清留痕兜底腿(2026-10-28 立,排在回捞之前 —— 顺序就是这条腿的全部意义)。
+  // 立因是量出来的通道缺口:留痕腿此前只有 live-doc-edit / plan-fields-extract 两个调用方,
+  // safe-commit 面现读零接线 ⇒ 凡"手工改台账 + 普通提交"删掉一行 `- [ ]` 登记,这本账就没有凭据;
+  // 而下一段门 71 的 --heal 只认逐字留痕,认不出"被正当结清"那一型,就把它当"被旧基线抹掉的
+  // 登记行"整行还原成未勾(O67 实证:19:14 结清删行 → 19:59 被 dfd9b905f113a1dc761d66025aa56104c9d4ddc5
+  // 回捞,摘除台账该票留痕 0 条)。后果不止台账脏:回捞行会让 git-sync-converge 的零丢失自证
+  // 把它读成"本侧已提交内容被吞"⇒ 拒绝推进 HEAD,整仓同步停摆。
+  // 只补凭据、不改判定面(判据全 import lib/plan-drop-record.mjs 单源);未判定一律零入账。
+  // 跳过:沿用本块的 HUSKY_SKIP_PLAN_HEAL,不另立旋钮(多一个跳过变量就多一处腐烂面,§0.2)。
+  runLogged('post-commit-closure-drop', 'node scripts/record-closure-drops.mjs', {
+    timeout: 60000,
+  })
   // 结论必须留痕:上一版把输出丢进 /dev/null 并 `|| true`,而提交命令里 rev-parse/hash-object
   // 未 .trim() 使自愈**自上线起一次都没成功过**却毫无声响(2026-09-23 才在临时仓库 A/B 抓到)。
   runLogged('post-commit-plan-heal', 'node scripts/check-plan-line-loss.mjs --heal --commit', {
