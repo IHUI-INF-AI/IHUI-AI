@@ -46590,6 +46590,15 @@
         }
       }
     },
+    "/api/ai-skills/reload": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/ai-skills/{id}": {
       "get": {
         "parameters": [
