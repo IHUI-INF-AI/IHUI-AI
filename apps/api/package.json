@@ -20,6 +20,7 @@
     "seed:e2e-notifications": "tsx scripts/seed-e2e-notifications.ts",
     "seed:rbac-teacher": "tsx scripts/seed-rbac-teacher.ts",
     "reset:admin-password": "tsx scripts/reset-admin-password.ts",
+    "relay:live-probe": "tsx scripts/relay-live-probe.ts",
     "clean": "rimraf dist .turbo node_modules",
     "qoder:import": "tsx scripts/relay-import-qoder.ts",
     "relay:inspect": "tsx scripts/relay-account-inspect.ts",
