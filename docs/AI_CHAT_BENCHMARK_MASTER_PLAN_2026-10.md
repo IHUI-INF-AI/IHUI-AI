@@ -74,13 +74,16 @@
 
 ### 3.3 能力真缺(控制面正本 §2,全部附否证命令)
 
+> **2026-10-28 收口:本表 5 行全部销缺,在账 0 项**(逐行去向已改为"已落地",保留作去向记录;证据见 `docs/benchmark-evidence/2026-10/d141-control-frame-parity.md` §1.1/§1.6/§1.7 各行)。
+> 计数勘误:正本上一版表头写"在账 2 项"而表体点数是 3 行,表头漏计一行;本轮一并修平(现账面 0)。
+
 | 帧 | 差距 | 去向 |
 | --- | --- | --- |
-| `add_directories` | 多根工作区(会话中途追加目录),**Qoder/Codex/Trae 三家都有**;四别名零命中 | **D201 已立票**(跨端,涉 workspace 模型,大票) |
-| `resume_goal` | 已清/已完成目标无恢复口 | 并入 D152 目标族产品化拍板 |
-| `reload_plugins` / `reload_skills` | 插件/技能无运行时热重载口(`skills.py:777` 的 mtime 自动重载≠宿主可调帧,防翻案注记在案) | **`reload_skills` 已落地(2026-10-28)**:宿主可调帧(POST /ai-skills/reload)+ 差额回报(added/removed/changed)+ force 默认 true + web 端「重载技能」入口(差额可见/失败给原因);残余 = 插件面 `reload_plugins` 仍真缺,并入插件面产品化 |
-| `refresh_memory` | 记忆无运行时刷新帧(仅内部 updated_at) | 并入长期记忆产品化 |
-| `mcp_clear_auth` | MCP 凭据无运行时清除口——**刻意真缺**(AGENTS §5 安全口径,否证命中的就是"不可清除"本身) | **§24 拍板前不得开工** |
+| `add_directories` | 多根工作区(会话中途追加目录),**Qoder/Codex/Trae 三家都有**;四别名零命中 | **已落地(2026-10-02,票 D201)**:thread.settings additionalDirectories 控制帧 + 会话级路径校验覆盖层;残余(CLI/web/索引面)见正本 §1.5 该行 |
+| `resume_goal` | 已清/已暂停目标无恢复口(原判真缺系否证正则漏了 `action:"resume"` 这种"藏在枚举里"的形态) | **已落地(2026-10-28)**:帧面入口 `POST /llm/sessions/{id}/goal/resume`,端点与帧面共用一份 `goal_resume.resume_goal()`;四层齐备(pytest 12 例 + web 6 例) |
+| `reload_plugins` / `reload_skills` | 插件/技能无运行时热重载口(`skills.py:777` 的 mtime 自动重载≠宿主可调帧,防翻案注记在案) | **两帧均已落地(2026-10-28)**:`reload_skills` = 宿主可调帧(POST /ai-skills/reload)+ 差额回报 + force 默认 true + web「重载技能」入口;`reload_plugins` = 对位物判为"技能贡献的命令集",`slash_command_registry.reload()` 先复用同一套技能重扫、再**回灌重载后的完整命令列表**(竞品 `replaceLatestCommands` 等价物) |
+| `refresh_memory` | 记忆无运行时刷新帧(仅内部 updated_at) | **已落地(2026-10-28)**:`memory_facade.memory_refresh()`(绕过懒加载短路与退避窗口、回报差额、**读失败 ≠ 空**)+ HTTP `POST /api/admin/meta-learner/refresh` + 引擎帧 `memory.refresh` + web 管理页「重新扫描」 |
+| `mcp_clear_auth` | MCP 凭据无运行时清除口——**刻意真缺**(AGENTS §5 安全口径,否证命中的就是"不可清除"本身) | **已落地(2026-10-28)**:§5 拆细为"禁平台级一键清除 / 不禁用户撤回自己给第三方站的授权(RFC 7009 revocation 同族)"后落地 —— 逐台点名 serverName、无全清出口、只清用户自授权 token、沿用 `can_mutate`(越权 403 且零副作用) |
 
 ### 3.4 环境与人工阻塞(不是待办,是等条件;不得在本机装成已做)
 
@@ -101,7 +104,7 @@
 | **S16 我方侧清单与矩阵** | 16 类 × web 我方清单四张并行 → 逐类目矩阵收口 | D203/D204/D205/D206(四张天然并行,不同类目零交集)→ D207 | 无(收编 web-bind2.tsv 既有数据) | `node scripts/benchmark-diff-matrix.mjs` 逐类目档出表 + `docs/benchmark-evidence/2026-09/README.md` 登记;矩阵两侧都有条目 |
 | **S17 web 对话流可见缺口** | 流式 diff → 预览五态 → 链接卡 → 分组动作 | D113 → D163/D166/D165(同端不同面,可三路并行;D113 先行因其动 SSE 契约) | D113 动 `tool-delta` 帧须走契约两侧同批纪律(D132 先例) | web typecheck 0 新红 + 各票 DOM 断言 + 真机会话录屏;D113 另加"断线重放后最终态一致" |
 | **S18 跨端残留与能力真缺** | RN 主屏 terminal 帧接线;G-978066 落地窗口;D201 多根工作区 | D19 残留 + G-978066 + D201 | D139 parity 门已扩端(✅)所以缺失可见;G-978066 等他人在飞文件让位;D201 需先出 workspace 模型方案(§24 预填) | RN 真机跑 3 工具调用会话截图;D201 否证命令转阳命(四别名 ≥1 命中且经审批) |
-| **S19 §24 拍板族** | resume_goal / reload_plugins / reload_skills / refresh_memory / mcp_clear_auth 五帧逐件产品拍板:做→立实现票,不做→写明理由入册 | 拍板件(非实现票) | S16 矩阵读数提供"用户是否感知"证据 | 每帧一行拍板记录(做/不做+理由),台账登记;**mcp_clear_auth 在拍板前禁止任何清除口代码** |
+| **S19 §24 拍板族** | resume_goal / reload_plugins / reload_skills / refresh_memory / mcp_clear_auth 五帧逐件产品拍板:做→立实现票,不做→写明理由入册 | 拍板件(非实现票) | S16 矩阵读数提供"用户是否感知"证据 | 每帧一行拍板记录(做/不做+理由),台账登记;**mcp_clear_auth 在拍板前禁止任何清除口代码** → **✅ 2026-10-28 完成:五帧按 §24 代裁全部判“做”并落地完毕**(逐帧证据见 §3.3 表格各行的“已落地”去向 + 正本 §1.1/§1.6/§1.7);`mcp_clear_auth` 的“禁止”禁令已完成使命 —— 其落地形态严格限定在“用户撤回自己的第三方 OAuth 授权”(逐台点名、无全清出口、不碰平台级凭据),未触动 §5 那条口径本身 |
 | **S20 环境/人工解锁** | 容器机器到位→D14 四票;发布动作就位→D18 列车 | D14×4 / D18 | 外部条件 | D14①:两容器互不可见实测;D18:`sdk-v0.1.0` tag 真触发发布 |
 | **横切(随时)** | audit 建档扩面;新真缺自动立票;版本重取 | §3.5 | 无 | `pnpm check:benchmark-delivery` 覆盖数不回退 |
 
