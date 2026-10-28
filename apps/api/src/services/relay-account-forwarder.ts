@@ -66,6 +66,7 @@ import {
   snapshotRelayStreamInterrupts,
 } from '../plugins/business-metrics.js'
 import { logger } from '../utils/logger.js'
+import { assertRelayEgressSafe, directEgressDispatcher } from '../utils/relay-egress-guard.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
 import { accountSchedulableCondition } from './relay-account-pool-scheduler.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
@@ -77,12 +78,7 @@ import {
   setSessionAffinity,
 } from './relay-account-shared-state.js'
 import { recordAccountUsage } from './relay-account-usage.js'
-import {
-  pickProxyForAccount,
-  reportProxyFailure,
-  reportProxySuccess,
-  resolveAccountProxyUrl,
-} from './relay-proxy-pool.js'
+import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './relay-proxy-pool.js'
 import { resolveModelAlias } from './relay-model-catalog.js'
 import {
   applyStopToCompletion,
@@ -228,16 +224,27 @@ function getProxyAgent(proxyUrl: string): ProxyAgent {
   return agent
 }
 
-/** 账号级 fetch:有 proxyUrl 走 undici ProxyAgent,否则全局直连 */
+/**
+ * 账号级 fetch:两条分支都先过首跳复检；直连再挂**连接期守卫**（真防 DNS rebinding 的那一层）。
+ *
+ * 为什么直连必须走包 undici 的 Agent 而不是内置 globalThis.fetch:连接期钩子（connect.lookup）
+ * 装在 dispatcher 上,而 Node 内置 fetch 用的是它自己那份 undici 实例,外部 Agent 递进去不认。
+ * 所以这一行的 dispatcher 就是守卫 ② 的接线点,挪不得。
+ * 桩面纪律:测本函数请用 undici 的 fetch 桩 —— tests/relay-account-forwarder.test.ts 已改成
+ * "配过 undici 桩就用它,否则转交当时的 global fetch 桩",不要反过来改生产出口迁就旧桩。
+ *
+ * 覆盖边界（写破）:走账号代理时本机不解析目标（由代理解析）,那一分支只有首跳复检 ① 在守。
+ */
 function poolFetch(proxyUrl: string | null | undefined): typeof fetch {
-  if (!proxyUrl) return globalThis.fetch.bind(globalThis)
-  const agent = getProxyAgent(proxyUrl)
-  const f: typeof fetch = (input, init) =>
+  const agent = proxyUrl ? getProxyAgent(proxyUrl) : directEgressDispatcher()
+  const f: typeof fetch = async (input, init) => {
+    await assertRelayEgressSafe(input)
     // undici 的 RequestInit 是全局 RequestInit 的超集(dispatcher 为附加可选字段)
-    undiciFetch(input as string, {
+    return undiciFetch(input as string, {
       ...(init ?? {}),
       dispatcher: agent,
-    }) as unknown as Promise<Response>
+    }) as unknown as Response
+  }
   return f
 }
 
@@ -687,10 +694,7 @@ async function doRefreshRowInPlace(
   const startedAt = new Date()
   try {
     const credentials = decryptAccountCredentials(row)
-    const result = await adapter.refreshToken!(
-      { row, credentials },
-      { proxyUrl: resolveAccountProxyUrl(row.proxyUrl) },
-    )
+    const result = await adapter.refreshToken!({ row, credentials }, { proxyUrl: row.proxyUrl })
     if (!result) return null
     const tokenEnc = encryptField(result.token)
     const refreshTokenEnc =
@@ -1253,11 +1257,7 @@ async function attemptWithAccount(
             const retry = await adapter.executeChat(
               { row: refreshed, credentials: decryptAccountCredentials(refreshed) },
               normReq,
-              {
-                signal: retryTimed.signal,
-                proxyUrl: resolveAccountProxyUrl(refreshed.proxyUrl),
-                fetchImpl: doFetch,
-              },
+              { signal: retryTimed.signal, proxyUrl: refreshed.proxyUrl, fetchImpl: doFetch },
             )
             if (retry.stream) {
               const retryTerminal = newStreamTerminal()
@@ -1639,5 +1639,7 @@ export const __test__ = {
   newStreamTerminal,
   judgeStreamOutcome,
   kindForStreamInterrupt,
+  // ── 出网复检(档位判据住在 utils/relay-egress-guard.ts,此处只暴露接线入口)──
+  poolFetch,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

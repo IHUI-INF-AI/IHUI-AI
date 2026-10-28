@@ -180,4 +180,24 @@ test('D5 反向源码锁:明细绝不进签名', () => {
     '挡住 ff 这一格必须真的带上明细(判据在、调用点没有 = 没有)',
   )
 })
+
+// ─── D6 build-fail 台账侧病因锁(2026-10-28,O67 派单现场) ──────────────────
+// 现读 .ihui-agent/deploy-decisions.jsonl:85 行里 14 枚 action=build-fail,reason 全是同一句
+// "构建失败,未切流,保持当前在线版本" ⇒ 台账读不出"哪一次为什么挂";G-21 当年只把病因补到了
+// 告警侧(-Reason "$_"),而散文日志 rotate 后只活 ~6 小时 ⇒ 事后归因两头落空。
+// 本锁钉的是"台账与告警取同一份 throw 原文"这件事,不是措辞本身。
+test('D6 build-fail 台账必须带 throw 原文,且台账与告警同源', () => {
+  const line = SRC.split(/\r?\n/).find((l) => l.includes("Write-DeployDecision -Action 'build-fail'"))
+  assert.ok(line, "找不到 build-fail 的台账写入点 ⇒ 该出口换了形态,本锁要重新设计而不是放过")
+  const hasCause = (l) => /-Reason "[^"]*\$\{?_/.test(l)
+  assert.ok(hasCause(line), `台账 reason 没带 throw 原文 ⇒ 14 枚 build-fail 仍是同一句空话:${line.trim()}`)
+  // 反向夹具:摘掉病因退回历史形态,同一把尺子必须判红(锁没牙 = 白写)
+  const historical =
+    "[void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason '构建失败,未切流,保持当前在线版本')"
+  assert.equal(hasCause(historical), false, '变异夹具摘掉病因仍被判绿 ⇒ 本锁无牙')
+  // 同源:告警侧仍从同一个 catch 变量取值(不允许台账一套、告警另一套)
+  const failLine = SRC.split(/\r?\n/).find((l) => /^\s*Fail "构建失败/.test(l) && l.includes('-Reason'))
+  assert.ok(failLine, '找不到构建失败那条 Fail ⇒ 出口换了形态,同源性无从对账')
+  assert.match(failLine, /-Reason "\$\{?_/, `告警侧病因取值形态变了:${failLine.trim()}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

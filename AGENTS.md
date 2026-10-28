@@ -401,3 +401,4 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **短信通道只读哨兵** `check-sms-channel-health.mjs`(2026-10-27 立,判机器状态不进提交链):吃本地投递审计表判短信通道健康(欠费停机型,如 OUT_OF_SERVICE 悬而无人喊),不碰云端接口、不引新凭据;判据/自检/派发面见门体头注。
 - **R4 漏点名补记 ⑧(2026-10-28)**:`check-asset-path-health.mjs`(只读巡检,判机器状态故不进提交链 §12e;派发面 = `scripts/git-guardian.mjs` 的 `auditAssetPathHealth` 每 6h;`--json`/`--self-test`;断链或证书错 exit 1,取不到输入 exit 2 未判定):受管 `.env` 引用的绝对路径可达性 + 证书到期,判据委托 `cert-expiry-check.mjs` 单源。
 - **R4 漏点名补记 ⑨**:`check-live-doc-merge-recall.mjs`(只读、不进提交链 §12e;接线 `.husky/post-merge`):普通 merge 带回已结清行的探测,判据 import `liveDocExpectedCounts` 零复算;自检 4/4、镜像 6/6;无跳过变量。
+- **R4 点名补记(2026-10-28)**:`check-live-doc-merge-recall.mjs` 普通 merge 落点后探活文档回捞;判据 import `liveDocExpectedCounts` 零复算;接 `.husky/post-merge`;自检 4 例/镜像 6 例。 + `check-ddos-guard-wiring.mjs`(257)

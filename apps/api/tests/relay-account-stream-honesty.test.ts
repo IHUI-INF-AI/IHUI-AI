@@ -87,6 +87,31 @@ vi.mock('../src/services/relay-model-catalog.js', () => ({
   resolveModelAlias: async () => null,
 }))
 
+/**
+ * 出网复检（utils/relay-egress-guard.ts）会在发请求前问一次 DNS；
+ * 本文件的 https://upstream.test/v 是假域名，桩成公网 IP 才能继续测"流式记账"本身。
+ */
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '203.0.113.10', family: 4 }]),
+}))
+
+/**
+ * 自 2026-10-28 起 poolFetch 的直连分支也走**包 undici**（连接期守卫挂在它的 dispatcher 上），
+ * 而本文件桩的是 global fetch —— 这里把 undici.fetch 转交给当时的 global fetch 桩，
+ * 否则用例会拿真 undici 去连假域名（真网络 + 长时间挂起）。生产出口不为此让步。
+ */
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    Agent: class {
+      constructor(_opts?: unknown) {}
+      close(): void {}
+    },
+    fetch: (...args: unknown[]) => (globalThis.fetch as (...a: unknown[]) => unknown)(...args),
+  }
+})
+
 /** 冷却落账探针:记「谁、冷却到几毫秒、写入时刻」,据此量真实退避时长 */
 const cooldownWrites: Array<{ id: string; untilMs: number; atMs: number }> = []
 vi.mock('../src/services/relay-account-shared-state.js', async (importOriginal) => {
