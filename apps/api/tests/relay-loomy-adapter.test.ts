@@ -265,6 +265,17 @@ describe('loomy isAuthFailure / isAuthError', () => {
     expect(loomyAdapter.isAuthFailure(200, '<html><head>登录</head></html>')).toBe(true)
   })
 
+  // 2026-10-28 实测事故:quota 端点是推断的,真实站对未知路径回 404 + 整站 HTML,
+  // 而该 HTML 导航里带「登录」⇒ 旧判据把好号判成 authFailed,入池当场 health=down。
+  it('404/405 的 SPA 兜底页不得读成鉴权失败(端点不存在 = 未判定)', () => {
+    const spa =
+      '<!DOCTYPE html><html lang="zh-CN"><head><title>Loomy</title></head><body><nav>登录</nav></body></html>'
+    expect(loomyAdapter.isAuthFailure(404, spa)).toBe(false)
+    expect(loomyAdapter.isAuthFailure(405, spa)).toBe(false)
+    // 反证:同样的正文在 200 下仍是登录墙(放宽的只是错误码那一档,不是把判据整体削掉)
+    expect(loomyAdapter.isAuthFailure(200, spa)).toBe(true)
+  })
+
   it('isAuthError:结构化 401/403 → true,其余 → false', () => {
     expect(loomyAdapter.isAuthError!(new LoomyUpstreamError(401, 'x'))).toBe(true)
     expect(loomyAdapter.isAuthError!(new LoomyUpstreamError(403, 'x'))).toBe(true)

@@ -99,7 +99,7 @@ import { staleClosedVerdict } from './check-plan-closed-stock.mjs'
 //   摘除台账 rowBefore 集合 = scrub-declared-removals 的 declaredRows,
 //   复合主键 = lib/plan-task-index 的 keyOfRow。
 // 在本器里再抄一份"什么算同一件事"的正则 = 第二份真相,下一次必然漂开。
-import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
+import { extractTaskFingerprint, bulletTitleKey } from './check-plan-task-duplicates.mjs'
 import { declaredRows } from './scrub-declared-removals.mjs'
 // H4 的尺子**一律借守门 71 自己的出口**(§0.6/§22c 单一真相源):
 //   historyMarkers = 历史配平状态机(它决定一个 marker 到底算「勾销」还是「仍保护」),
@@ -405,13 +405,16 @@ export function findDropLedgerDebt(commits, ledgerEntries, { subjectRe = SWEEP_S
 }
 
 /**
- * 留痕回捞腿的档②输入池(纯函数):给一批候选原文行,建「整行逐字 / 题面指纹 / 复合主键」三面集合。
- * 三面判据全部 import 单源(extractTaskFingerprint / keyOfRow,§0.6/§22c),本器零复算。
+ * 留痕回捞腿的档②输入池(纯函数):给一批候选原文行,建「整行逐字 / 题面指纹 / 复合主键 /
+ * 正文粗体题面」四面集合。
+ * 四面判据全部 import 单源(extractTaskFingerprint / bulletTitleKey / keyOfRow,§0.6/§22c),
+ * 本器零复算。
  */
 export function buildSubjectPool(lines) {
   const verbatim = new Set()
   const fps = new Set()
   const keys = new Set()
+  const titles = new Set()
   for (const l of Array.isArray(lines) ? lines : []) {
     if (typeof l !== 'string') continue
     verbatim.add(l.endsWith('\r') ? l.slice(0, -1) : l)
@@ -419,8 +422,10 @@ export function buildSubjectPool(lines) {
     if (fp) fps.add(fp)
     const k = keyOfRow(l)
     if (k) keys.add(k)
+    const t = bulletTitleKey(l)
+    if (t) titles.add(t)
   }
-  return { verbatim, fps, keys }
+  return { verbatim, fps, keys, titles }
 }
 
 /**
@@ -454,9 +459,11 @@ export function adjudicateUnexpectedOpenRows(
   for (const row of Array.isArray(openRows) ? openRows : []) {
     const fp = extractTaskFingerprint(row)
     const key = keyOfRow(row)
+    const title = bulletTitleKey(row)
     const hit = (pool, what) =>
       (fp !== null && pool.fps.has(fp) ? what + '(指纹)' : null) ||
       (key !== null && pool.keys.has(key) ? what + '(主键)' : null) ||
+      (title !== null && pool.titles.has(title) ? what + '(正文粗体题面)' : null) ||
       (pool.verbatim.has(row) ? what + '(逐字)' : null)
     let via = null
     for (const pool of facePools) {

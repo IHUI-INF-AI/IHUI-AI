@@ -1394,7 +1394,8 @@ export function applyDoubao(payload, opts = {}) {
  * 写回值 = 池内 secrets.sessionTemplate(导入时剔票的整份资料)+ 池内权威 token 重建
  * (键序不必与原始一致,客户端按 JSON 解析;净零判据 = 解析后字段集/值一致)。
  * 配套键 loomy-last-login-phone / loomy-user-identity 同批写入(secrets.companions)。
- * 元数据键 `_file://\0\0`(origin 总大小)不动:净零等长写回无碍;跨账号字节数漂移
+ * 元数据键 `META:file://` / `METAACCESS:file://` / `VERSION`(2026-10-28 按真库现读更正,原注写的
+ * `_file://\0\0` 并不存在)不动:净零等长写回无碍;跨账号字节数漂移
  * 由客户端下次 setItem 自修(如实进 notes)。设备凭证(safeStorage 加密的
  * shared-session-sync\device-credential.json)不在写回范围:客户端下次同步自会重建。
  */
@@ -1456,8 +1457,20 @@ export function applyLoomy(payload, opts = {}) {
 
   const keyBuf = lv.lsValueKey('loomy-auth-session')
   const beforeBuf = fs.readFileSync(logFile)
-  // 写前现值(净零判据 + replacedUid 如实回报)
-  const prevPlain = lv.decodeStoredValue(lv.latestStoredValue(beforeBuf, keyBuf))
+  /**
+   * 写前现值(净零判据 + replacedUid 如实回报)。**必须按客户端读法读整库**:
+   * 会话经常已被压缩进 .ldb 压缩块(本机 2026-10-28 实测就在 000005.ldb 里),
+   * 只看活日志会把它读成"不存在" ⇒ replacedUid 恒 null、净零判据失效。
+   * 整库读取失败才退回日志面(失效方向 = 少报一个 replacedUid,不猜)。
+   */
+  let prevPlain = null
+  try {
+    const db = lv.readLevelDbEntries(path.dirname(logFile), fs, path)
+    prevPlain = lv.decodeStoredValue(db.entries.get(keyBuf.toString('latin1')))
+  } catch {
+    prevPlain = null
+  }
+  if (prevPlain === null) prevPlain = lv.decodeStoredValue(lv.latestStoredValue(beforeBuf, keyBuf))
   let replacedUid = null
   if (prevPlain) {
     try {
@@ -1500,7 +1513,7 @@ export function applyLoomy(payload, opts = {}) {
     replacedUid,
     notes: [
       `已向活日志追加 WriteBatch(seq=${nextSeq},条目=${writes.map((w) => w.name).join(', ')})`,
-      'origin 元数据键(_file://\\0\\0)未动:净零等长写回无碍;跨账号字节数漂移由客户端下次 setItem 自修',
+      '库级元数据键(META:file:// / METAACCESS:file:// / VERSION)未动:净零等长写回无碍;跨账号字节数漂移由客户端下次 setItem 自修',
       '设备凭证(safeStorage 加密 shared-session-sync\\device-credential.json)不在写回范围:客户端下次同步自会重建',
     ],
     restartHint: '重启 Loomy 客户端后生效(运行中的客户端会把内存态回写 leveldb,故必须先关后写)',
