@@ -7,18 +7,41 @@
 // 所以"接线还在"这件事必须由本门 + 本锁钉住；本锁又必须住在每次提交都跑的那一层。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ } from '../check-ddos-guard-wiring.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 
-const { evaluateWiring, isChecklistViable, pyAnchorInCode, anchorPresent, GUARD_SOURCES, WIRING } =
-  __test__
+const {
+  evaluateWiring,
+  evaluateHookShape,
+  isHookScopeViable,
+  isChecklistViable,
+  pyAnchorInCode,
+  anchorPresent,
+  GUARD_SOURCES,
+  WIRING,
+  TERMINAL_HOOKS,
+  HOOK_SHAPE_ROOT,
+} = __test__
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
 const read = (p) => readFileSync(resolve(ROOT, p), 'utf8')
+
+/** 递归取扫描根内的 .ts(排除测试与声明文件)——与门体 runJudge 的过滤口径一致 */
+function listTsUnder(dirRel) {
+  const out = []
+  for (const e of readdirSync(resolve(ROOT, dirRel), { withFileTypes: true })) {
+    if (e.name === '__tests__' || e.name === 'node_modules') continue
+    const rel = `${dirRel}/${e.name}`
+    if (e.isDirectory()) out.push(...listTsUnder(rel))
+    else if (e.name.endsWith('.ts') && !e.name.endsWith('.test.ts') && !e.name.endsWith('.d.ts'))
+      out.push(rel)
+  }
+  return out
+}
 
 function faceOfRepo() {
   const files = new Map()
@@ -85,17 +108,29 @@ test('清单为空/锚点被清空 ⇒ 判不成立(§0.3 判死不记绿)', () 
   assert.equal(isChecklistViable(), true)
 })
 
-test('形状锁：runner 里 257 条目成套(blocking + skipEnv + 射程齐备)', () => {
+test('形状锁：本门在 runner 里成套(blocking + skipEnv + 射程齐备)，按 script 名定位而非写死编号', () => {
   // 用"只剥注释、保留字符串"那一档：注册条目要认的东西(id/script/skipEnv 的值)本身就是字符串，
   // 连字符串一起抹的那档会把合规条目读成"没登记"(code-mask 头注记过同型)。
+  //
+  // 2026-10-29 改按 script 名定位：原先写死 `id: '257'`，而插号把本门推到 258 后这条锁
+  // 立刻在 HEAD 面变红(门其实装着)—— 编号是登记序的产物、不是身份；写死它等于把锁
+  // 变成"每次有人插号就红一次"的恒红面(§12e)。身份是 script 文件名，编号唯一性另有专锁。
   const runner = maskComments(read('scripts/guardian-runner.mjs'))
-  const block = runner.split("id: '257'")[1]
-  assert.ok(block, '257 未登记进 guardian-runner(= 造好没装车)')
-  const entry = block.slice(0, block.indexOf('onFailHint'))
-  assert.match(entry, /script: 'check-ddos-guard-wiring\.mjs'/)
+  const at = runner.indexOf("script: 'check-ddos-guard-wiring.mjs'")
+  assert.ok(at > 0, '本门未登记进 guardian-runner(= 造好没装车)')
+  // 注册对象从它自己的 id 行开始，到 onFailHint 为止
+  const start = runner.lastIndexOf('id:', at)
+  assert.ok(start > 0, '本门注册条目里找不到 id 字段(条目形状坏了)')
+  const entry = runner.slice(start, runner.indexOf('onFailHint', at))
   assert.match(entry, /mode: 'blocking'/)
   assert.match(entry, /skipEnv: 'HUSKY_SKIP_DDOS_GUARD_WIRING'/)
   assert.match(entry, /stagedTriggers: \[/)
+  // 射程必须覆盖 W4 的扫描根：routes/ 下也能长出终结型钩子，射程窄了就判不到。
+  // 用门体导出的常量比对，不在此重写路径(§0.6 —— 写死的那份会跟着扫描根漂移而假绿)。
+  assert.ok(
+    entry.includes(`'${HOOK_SHAPE_ROOT}/'`),
+    `stagedTriggers 未覆盖 W4 扫描根 ${HOOK_SHAPE_ROOT}/ ⇒ 该根内的新违规不会触发本门`,
+  )
 })
 
 test('形状锁：注册条目 id 不得重复(门 89 R5 同判据，剥注释后数)', () => {
@@ -106,6 +141,71 @@ test('形状锁：注册条目 id 不得重复(门 89 R5 同判据，剥注释�
   assert.ok(ids.length > 100, `解析到的注册条目数异常(${ids.length})—— 判据自身坏了，不据此出绿`)
   const dup = ids.filter((v, i) => ids.indexOf(v) !== i)
   assert.deepEqual(dup, [], `重复 id：${dup.join(', ')}`)
-  assert.equal(ids.filter((v) => v === '257').length, 1)
+  // 本门自己的编号现读现证(不写死)：它必须存在且只存在一次
+  const runner2 = maskComments(read('scripts/guardian-runner.mjs'))
+  const at = runner2.indexOf("script: 'check-ddos-guard-wiring.mjs'")
+  const myId = (runner2.slice(runner2.lastIndexOf('id:', at), at).match(/'(\d+)'/) ?? [])[1]
+  assert.ok(myId, '取不到本门自己的 id(条目形状坏了)')
+  assert.equal(ids.filter((v) => v === myId).length, 1, `本门 id ${myId} 在注册表里不唯一`)
+})
+
+// ───────────────────────── W4 终结型钩子形态(2026-10-29 立) ─────────────────────────
+
+test('W4 真仓现读：扫描根内不得有同步形态的终结型钩子', () => {
+  // 取材用工作树(本锁跟着门体跑在提交口，面由门体自己按 --staged/HEAD 判；这里只证现值不成红)
+  const files = new Map()
+  for (const rel of listTsUnder(HOOK_SHAPE_ROOT)) files.set(rel, read(rel))
+  assert.ok(isHookScopeViable([...files.keys()]), '扫描根枚举到 0 个文件(判据自身坏了，不据此记绿)')
+  const { gaps, candidates } = evaluateHookShape(files)
+  assert.ok(candidates > 0, '一处终结型钩子都没判到 ⇒ 射程或正则失效，不记绿')
+  assert.deepEqual(
+    gaps.map((g) => `${g.file} ${g.detail}`),
+    [],
+    '存在会把下游整条链静默冻住的同步钩子',
+  )
+})
+
+test('W4 变异自证：同一行只差 async 这一个词，红绿必须翻转', () => {
+  const sync = new Map([['a.ts', "server.addHook('onResponse', (req, reply) => { void reply })"]])
+  const async_ = new Map([
+    ['a.ts', "server.addHook('onResponse', async (req, reply) => { void reply })"],
+  ])
+  assert.equal(evaluateHookShape(sync).gaps.length, 1, '同步形态未翻红 ⇒ 本锁没有牙齿')
+  assert.equal(evaluateHookShape(async_).gaps.length, 0, 'async 形态被误判 ⇒ 本锁过头')
+})
+
+test('W4 具名处理器跨文件解析：定义在别处的 async 不得被误判，解析不到的一律判红', () => {
+  const okPair = new Map([
+    ['r.ts', "server.addHook('onResponse', auditOnResponse)"],
+    ['_h.ts', 'export const auditOnResponse = async (request) => { void request }'],
+  ])
+  assert.equal(evaluateHookShape(okPair).gaps.length, 0)
+  const dangling = new Map([['r.ts', "server.addHook('onResponse', unseenHandler)"]])
+  assert.equal(
+    evaluateHookShape(dangling).gaps.length,
+    1,
+    '解析不到定义就放绿 ⇒ 看不见的那一格正好是事故会待的地方',
+  )
+})
+
+test('W4 遮噪档位：注释里的注册形态不算命中，字符串里的钩子名必须仍被认得到', () => {
+  assert.equal(
+    evaluateHookShape(new Map([['a.ts', "// addHook('onResponse', (req) => { void req })"]])).gaps
+      .length,
+    0,
+    '注释被当成代码命中 ⇒ 假阳',
+  )
+  assert.equal(
+    evaluateHookShape(new Map([['a.ts', "server.addHook('onRequestAbort', (req) => {})"]])).gaps
+      .length,
+    1,
+    '钩子名字符串被抹掉 ⇒ W4 静默失效(遮错档)'
+  )
+})
+
+test('W4 射程清单：TERMINAL_HOOKS 必须含 onResponse/onRequestAbort/onTimeout', () => {
+  for (const h of ['onResponse', 'onRequestAbort', 'onTimeout']) {
+    assert.ok(TERMINAL_HOOKS.includes(h), `射程缺 ${h}`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

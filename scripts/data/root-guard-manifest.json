@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-10-28T16:36:27.490Z",
+  "sealedAt": "2026-10-28T17:13:27.210Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-10-29/生产席:复核 a02c39768b5(00:00:21「守门 259 装车」)对 scripts/guardian-runner.mjs 的唯一改动 —— 纯新增 259 注册块(check-ui-spec-mirror.mjs,RN 壳↔小程序壳 spec 接线对账,blocking,带 skipEnv/stagedTriggers/onFailHint),diff 内无其他目标改动;被引用三件(scripts/check-ui-spec-mirror.mjs、lib/ui-mirror-waivers.mjs、data/ui-mirror-waivers.json)均存在,门号 259 全表唯一(1 处),node --check 通过。判据/铁律段两目标未变(PASS)。部署环 00:35:47 因该笔未重封而 fail-closed,重封后恢复。",
+  "reason": "2026-10-29/生产席:修 b44ab834609(chore(auto) 收编)把门 259 注册块按旧基线写回 —— 该提交把 guardian-runner.mjs 整份换成 pre-259 副本(含同日 258 DDoS 文案改进),check-ui-spec-mirror 在 runner 面归零;现将 259 块按 a02c39768b5 原文补回并保留 258 新文案,node --check 通过、门号 259 唯一 1 处、被引用三件均在库。",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "40d32dd23cd82941630c09e9927dbf59322006a4e6eb4e30ead4becd137c0e30"
+      "sha256": "73da356c67744ec9a844779c2d1cf0cbf087f9763da32961e16308dc8b7a86ed"
     },
     {
       "id": "judgement-libs",
