@@ -127,6 +127,7 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 import { authRoutes } from '../src/routes/auth.js'
+import { QR_AGREEMENT_REQUIRED } from '../src/services/qr-login-agreement.js'
 import responseSanitizerPlugin from '../src/plugins/response-sanitizer.js'
 import { parseQrLoginTicket } from '@ihui/shared'
 
@@ -177,8 +178,14 @@ let redis: ReturnType<typeof mkRedis>
 /** 各路由注册时声明的 config(限流档位是路由的静态声明,用 onRoute 钩子现读,不在测试里抄数字) */
 let routeConfig: Record<string, { rateLimit?: { max?: number; timeWindow?: string } }>
 
-async function generate(): Promise<{ ticket: string; qrContent: string; expiresAt: string }> {
-  const res = await app.inject({ method: 'POST', url: '/api/auth/qr/generate', payload: {} })
+async function generate(
+  agreementAccepted = true,
+): Promise<{ ticket: string; qrContent: string; expiresAt: string }> {
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/auth/qr/generate',
+    payload: { agreementAccepted },
+  })
   expect(res.statusCode).toBe(200)
   return res.json().data
 }
@@ -250,6 +257,9 @@ describe('QR 扫码登录 — generate/status/confirm', () => {
       status: 'pending',
       userId: null,
       createdAt: expect.any(String),
+      // 2026-10-28 加固:出码时把"PC 端是否已同意协议"记进会话,confirm 腿据此拒绝签发。
+      // 未带 agreementAccepted 的旧调用形态只会落 false(见 auth.ts 出码腿注释),故此处断言为 true。
+      agreementAccepted: true,
     })
   })
 
@@ -304,6 +314,48 @@ describe('QR 扫码登录 — generate/status/confirm', () => {
     expect((await confirm(ticket, false)).statusCode).toBe(401)
     expect(mockIssueTokenPair).not.toHaveBeenCalled()
     expect(JSON.parse(redis.store.get(`qr:login:${ticket}`)!).status).toBe('pending')
+  })
+
+  it('协议闸锁:未同意条款的会话,确认与领取两条腿都 403 ⇒ 一个 token 都不签发', async () => {
+    // 判据单源在 services/qr-login-agreement.ts;这里只钉"两会话端点都真的接上了那道闸",
+    // 不复制 `=== true` 判断(§22c:第二份判据必然漂移)。
+    mockIssueTokenPair.mockClear()
+    const { ticket } = await generate(false)
+
+    const confirmed = await confirm(ticket)
+    expect(confirmed.statusCode).toBe(403)
+    expect(confirmed.json().errorCode).toBe(QR_AGREEMENT_REQUIRED)
+    expect(mockIssueTokenPair).not.toHaveBeenCalled()
+    // 被拒的会话必须原样停在 pending,不能被写成 confirmed 留下半条授权
+    expect(JSON.parse(redis.store.get(`qr:login:${ticket}`)!).status).toBe('pending')
+
+    const claimed = await app.inject({
+      method: 'GET',
+      url: `/api/auth/qr/status?ticket=${encodeURIComponent(ticket)}`,
+    })
+    // pending 会话的 status 只回报 pending(不涉及凭据),所以 200 是对的
+    expect(claimed.statusCode).toBe(200)
+    expect(claimed.json().data).toEqual({ status: 'pending' })
+
+    // 发放腿的闸针对"已 confirmed 但从未同意"的会话 —— 旧版本遗留票据正是这一形态
+    redis.store.set(
+      `qr:login:${ticket}`,
+      JSON.stringify({
+        status: 'confirmed',
+        userId: USER_ID,
+        tokens: TOKENS_A,
+        createdAt: new Date().toISOString(),
+      }),
+    )
+    const legacy = await app.inject({
+      method: 'GET',
+      url: `/api/auth/qr/status?ticket=${encodeURIComponent(ticket)}`,
+    })
+    expect(legacy.statusCode).toBe(403)
+    expect(legacy.json().errorCode).toBe(QR_AGREEMENT_REQUIRED)
+    expect(legacy.json().data?.accessToken).toBeUndefined()
+    // 被拦下的会话必须销毁,不能留着等下一次轮询(否则等于挂着一枚可换的凭据)
+    expect(redis.store.has(`qr:login:${ticket}`)).toBe(false)
   })
 
   it('缺陷②锁:status 限流必须给 web 端 2s 轮询留余量(≥30 帧/分钟的两倍)', () => {

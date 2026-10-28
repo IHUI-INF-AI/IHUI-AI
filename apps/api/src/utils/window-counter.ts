@@ -255,10 +255,18 @@ function localTryConsumeWindows(specs: WindowSpec[], now: number): number {
   return 0
 }
 
-/** 清空指定前缀的计数(内存 + 共享存储两面)。给测试隔离用。 */
+/** 清空指定前缀的计数(内存 + 共享存储两面)。给测试隔离用。
+ *
+ * **两侧同语义(2026-10-28 修)**:内存侧原先是无条件 `clear()`,而 Redis 侧一直是按前缀
+ * SCAN ⇒ 同一份声明在两面执行出两种结果。实际后果不是"多清了一点"这么轻:调用方
+ * `resetSendQuotaForTests()` 声明清 `echo:`,却顺带把 `sms:rl:` / `sms:guard:` /
+ * 任何别的族的窗口计数一起抹平,于是"A 族用例清自己"变成了"B 族的频控也放水",
+ * 配额类用例之间互相串数(表现为同一文件里先红后绿、换顺序又红)。
+ * 现在内存侧按键名前缀过滤:声明清什么就只清什么。 */
 export async function resetCounters(prefixes: string[]): Promise<void> {
-  localStore.clear()
-  localOnce.clear()
+  const matches = (key: string): boolean => prefixes.some((p) => key.startsWith(p))
+  for (const key of [...localStore.keys()]) if (matches(key)) localStore.delete(key)
+  for (const key of [...localOnce.keys()]) if (matches(key)) localOnce.delete(key)
   const redis = getRedis()
   if (!redis || redis.status !== 'ready') return
   for (const prefix of prefixes) {
