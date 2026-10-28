@@ -970,13 +970,33 @@ test('leveldb-log:WriteBatch 编解码往返 + put/delete 条目格式(判据 wr
   assert.equal(lv.parseBatch(Buffer.from([1, 2, 3])), null)
 })
 
-test('leveldb-log:存储值 varint 往返(UTF-8 按字节长;截断 ⇒ null)', () => {
+// 2026-10-28 改正:Chromium DOM Storage 的值是 **0x01 + 原文**,不是 varint 长度前缀。
+// 证据来自本机真实库(classic-level 直读 47 条键):`loomy:thinking-level` → 01 68 69 67 68
+// ("high")、`theme-mode` → 01 6C 69 67 68 74("light")、`loomy:ui:sidebar-width` → 01 32 35 36("256")。
+// 旧实现按 varint 写,单元测试"自证自读"全绿而对真客户端是坏的 ⇒ 这条用例改成钉真实字节。
+test('leveldb-log:存储值 = 0x01 类型标记 + utf8 原文(真实库字节口径)', () => {
+  assert.deepEqual([...lv.encodeStoredValue('high')], [0x01, 0x68, 0x69, 0x67, 0x68])
+  assert.equal(lv.decodeStoredValue(Buffer.from([0x01, 0x68, 0x69, 0x67, 0x68])), 'high')
+
   const s = '张三138****0000'
   const enc = lv.encodeStoredValue(s)
-  assert.equal(lv.decodeStoredValue(enc), s)
-  assert.equal(enc[0], Buffer.from(s, 'utf8').length, '长度前缀是字节长,不是字符长')
-  assert.equal(lv.decodeStoredValue(Buffer.alloc(0)), null)
-  assert.equal(lv.decodeStoredValue(enc.subarray(0, enc.length - 2)), null)
+  assert.equal(enc[0], 0x01, '首位恒为类型标记,不带长度')
+  assert.deepEqual([...enc.subarray(1)], [...Buffer.from(s, 'utf8')], '标记之后逐字节就是 UTF-8 原文')
+  assert.equal(lv.decodeStoredValue(enc), s, '多字节 UTF-8 不得被截断')
+
+  assert.equal(lv.decodeStoredValue(lv.encodeStoredValue('')), '', '空串也是合法的:只剩标记')
+  assert.equal(lv.decodeStoredValue(Buffer.alloc(0)), null, '空缓冲 ⇒ 未判定')
+  assert.equal(lv.decodeStoredValue(Buffer.from([0x02, 0x41])), null, '未知类型标记 ⇒ 不猜内容')
+})
+
+// CRC 掩码常数锁:leveldb-1.20 `util/crc32c.h` 的 kMaskDelta = 0xa282ead8。
+// 2026-10-28 实测:写成 0xa282ead3(差 5)时,本机 74 条真实日志记录**全部**校验不过 ——
+// 读:解析出 0 条;写:我写的记录真客户端必拒收。这条用例把常数与一条真实向量一起钉死。
+test('leveldb-log:CRC 掩码常数 = 0xa282ead8(leveldb-1.20 口径)', () => {
+  assert.equal(lv.CRC_MASK_DELTA, 0xa282ead8)
+  assert.equal(lv.maskCrc(0), 0xa282ead8, 'mask(0) 就是常数本身')
+  assert.equal(lv.crc32c(Buffer.from('123456789', 'ascii')), 0xe3069283, 'CRC32C 标准向量')
+  assert.equal(lv.maskCrc(0xe3069283), 0xc78ab0e5, '掩码后的定值:改常数这里必红')
 })
 
 test('leveldb-log:块边界零填充 / 跨块拆片重组 / LWW 后写为准 / maxBatchSeq', () => {
