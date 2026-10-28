@@ -27,7 +27,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { devEnvRoot } from '../seal-c-root-stray.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const REPO = join(HERE, '..')
+// 本文件住在 `scripts/lib/`,仓库根要退两级(`scripts/lib` → `scripts` → `<repo>`)。
+// 2026-10-30 实测:此前只退一级 ⇒ REPO 落在 `<repo>/scripts`,回落主仓候选恒为
+// `<repo>/scripts/.ihui-agent/deploy-decisions.jsonl`,且 devEnvRoot(REPO) 跟着换根
+// (`<repo>/scripts/.DevEnv` 不存在 ⇒ 退化到盘根 DevEnv)—— 两候选同时指错面。
+// 同族先例:lib/halt-state.mjs 的 REPO_ROOT = join(HERE,'..','..')。
+const REPO = join(HERE, '..', '..')
 export const LEDGER_BASENAME = 'deploy-decisions.jsonl'
 
 export function candidatesFor({ repoRoot = REPO, env = process.env } = {}) {
