@@ -25,6 +25,10 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   png: ['image/png'],
   gif: ['image/gif'],
   webp: ['image/webp'],
+  // 2026-10-28 收敛上传白名单(AGENTS.md §0.6):以下 5 个扩展名原先只在
+  // `plugins/upload-scanner.ts` 的 DEFAULT_ALLOWED_EXTS 里,本表缺席,
+  // 导致同一份"允许上传什么"存在两套判据。此处补齐为并集,scanner 反向派生。
+  bmp: ['image/bmp', 'image/x-bmp', 'image/x-ms-bmp'],
   pdf: ['application/pdf'],
   doc: ['application/msword'],
   docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
@@ -42,6 +46,12 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   mp3: ['audio/mpeg', 'audio/mp3'],
   wav: ['audio/wav', 'audio/x-wav', 'audio/vnd.wave'],
   aac: ['audio/aac', 'audio/aacp'],
+  ogg: ['audio/ogg', 'application/ogg', 'audio/x-ogg'],
+  // 2026-10-28:视频/音频容器,原仅 scanner 白名单收;MIME 只收真实存在的声明值,
+  // 宁可 400 也不放行无对应解码路径的类型(如 video/quicktime 之外的 mov 变体)。
+  mp4: ['video/mp4', 'audio/mp4', 'application/mp4'],
+  webm: ['video/webm', 'audio/webm'],
+  mov: ['video/quicktime', 'video/mov'],
   // 2026-09-08:anydoc 解析引擎接入后开放的文档格式
   odt: ['application/vnd.oasis.opendocument.text'],
   rtf: ['application/rtf', 'text/rtf'],
@@ -83,12 +93,25 @@ function matchesAny(buf: Buffer, signatures: number[][], offset = 0): boolean {
  *   PNG   89 50 4E 47 0D 0A 1A 0A
  *   GIF   47 49 46 38 (37 61 / 39 61)
  *   WebP  52 49 46 46 ... 57 45 42 50  (RIFF....WEBP)
+ *   BMP   42 4D  (BM)
  *   PDF   25 50 44 46
  *   ZIP   50 4B 03 04  (docx/xlsx/pptx/odt/epub 共用)
  *   OLE2  D0 CF 11 E0 A1 B1 1A E1  (doc/xls/ppt 共用)
  *   RTF   7B 5C 72 74 66  ({\rtf)
+ *   OGG   4F 67 67 53  (OggS)
+ *   EBML  1A 45 DF A3  (webm/mkv 容器)
+ *   ftyp  @偏移 4  (m4a/mp4/mov 共用 MP4 系容器头)
  */
-function checkMagicNumber(ext: string, buf: Buffer): boolean {
+/**
+ * 校验文件头魔数(按扩展名选判据)。
+ *
+ * 2026-10-28 导出:会员批量导入(`routes/member.ts`)需要"只验容器头、不验 MIME 一致性"
+ * —— 它的 CSV 会被浏览器/RN 声明成 `application/vnd.ms-excel`、`text/plain` 甚至空,
+ * 走 `validateUploadFile` 的 MIME 一致性会误伤真实用户;但 xlsx/xls 的容器头仍必须验,
+ * 否则任意二进制改名后就能喂给 `XLSX.read()`(zip bomb 放大)。
+ * 判据仍只有这一份,调用方不得自己写魔数表(AGENTS.md §0.6)。
+ */
+export function checkMagicNumber(ext: string, buf: Buffer): boolean {
   switch (ext) {
     case 'jpg':
     case 'jpeg':
@@ -106,6 +129,9 @@ function checkMagicNumber(ext: string, buf: Buffer): boolean {
       const webp = buf.subarray(8, 12).toString('latin1') === 'WEBP'
       return riff && webp
     }
+    case 'bmp':
+      // BMP:文件头固定 'BM'
+      return matchesAny(buf, [[0x42, 0x4d]])
     case 'pdf':
       return matchesAny(buf, [[0x25, 0x50, 0x44, 0x46]])
     case 'zip':
@@ -137,8 +163,27 @@ function checkMagicNumber(ext: string, buf: Buffer): boolean {
       return true
     // ── 音频(2026-10-16 语音消息上线)──
     case 'm4a':
-      // MP4 容器:偏移 4 起为 'ftyp'(expo-audio 录音 = ftypM4A )
+    case 'mp4':
+      // MP4 容器:偏移 4 起为 'ftyp'(expo-audio 录音 = ftypM4A;视频 = ftypisom/mp42)
       return buf.length >= 8 && buf.subarray(4, 8).toString('latin1') === 'ftyp'
+    case 'mov':
+      // QuickTime 与 MP4 同源:绝大多数 .mov 也是 'ftyp' 容器(brand 多为 'qt  '),
+      // 但老式 QuickTime 无 ftyp,首个 atom 直接是 moov/mdat/wide/free 等。
+      // 两者都放行 —— 此处只做"不是随便一个二进制"的判据,不做 brand 精确识别,
+      // 否则会误杀 ffmpeg 导出的 ftypisom 版 .mov(功能回退)。
+      if (buf.length >= 8 && buf.subarray(4, 8).toString('latin1') === 'ftyp') return true
+      return (
+        buf.length >= 8 &&
+        ['moov', 'mdat', 'wide', 'free', 'skip', 'pnot'].includes(
+          buf.subarray(4, 8).toString('latin1'),
+        )
+      )
+    case 'ogg':
+      // Ogg 容器页头 'OggS'
+      return matchesAny(buf, [[0x4f, 0x67, 0x67, 0x53]])
+    case 'webm':
+      // EBML 头(webm/mkv 共用)
+      return matchesAny(buf, [[0x1a, 0x45, 0xdf, 0xa3]])
     case 'mp3':
       // ID3v2 标签头 或 MPEG 帧同步(0xFFE0 掩码)
       if (buf.length >= 3 && buf.subarray(0, 3).toString('latin1') === 'ID3') return true

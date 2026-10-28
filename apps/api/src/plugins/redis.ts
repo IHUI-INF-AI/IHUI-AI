@@ -17,6 +17,32 @@ declare module 'fastify' {
 }
 
 /**
+ * 连接参数单源:主客户端、队列客户端、限流专用客户端共用同一套。
+ * 三处各写一份必然漂移(AGENTS.md §0.6),新增连接请走 createRedisClient。
+ */
+export const REDIS_CONNECTION_OPTIONS = {
+  // 重连策略：最多每秒重试一次，避免狂打日志
+  retryStrategy: (times: number) => Math.min(times * 200, 1000),
+  maxRetriesPerRequest: null, // BullMQ 要求
+  enableReadyCheck: true,
+  lazyConnect: false,
+} as const
+
+/**
+ * 建一条独立 Redis 连接。
+ *
+ * 存在的理由:某些消费方必须在 **redis 插件注册之前** 拿到客户端实例
+ * (典型是 `@fastify/rate-limit` —— 它在路由注册前就要构造 store,
+ * 而把 redis 插件整体上移会改变 onClose 的执行顺序,连带影响队列/调度的优雅关闭)。
+ * 这类消费方用本函数自建连接并自己负责 quit,不要依赖 server.redis 的时序。
+ */
+export function createRedisClient(onError?: (err: Error) => void): Redis {
+  const client = new IORedis(config.REDIS_URL, REDIS_CONNECTION_OPTIONS)
+  if (onError) client.on('error', onError)
+  return client
+}
+
+/**
  * Redis 客户端插件。
  *
  * 设计要点：
@@ -27,21 +53,10 @@ declare module 'fastify' {
  * 4. 连接失败时打印错误但不禁用进程（降级策略：调用方应捕获异常）。
  */
 const redisPlugin: FastifyPluginAsync = async (server) => {
-  const connectionOptions = {
-    // 重连策略：最多每秒重试一次，避免狂打日志
-    retryStrategy: (times: number) => Math.min(times * 200, 1000),
-    maxRetriesPerRequest: null, // BullMQ 要求
-    enableReadyCheck: true,
-    lazyConnect: false,
-  }
-
-  const redis = new IORedis(config.REDIS_URL, connectionOptions)
-  const redisForQueue = new IORedis(config.REDIS_URL, connectionOptions)
-
-  redis.on('error', (err) => {
+  const redis = createRedisClient((err) => {
     server.log.error({ err }, 'redis client error')
   })
-  redisForQueue.on('error', (err) => {
+  const redisForQueue = createRedisClient((err) => {
     server.log.error({ err }, 'redis-for-queue client error')
   })
 
