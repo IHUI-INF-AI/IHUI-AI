@@ -28698,6 +28698,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 <!-- 结清摘除@2026-10-26/goal-c 完成即删:O66 派单面与过滤面同尺 v2 接线已落地(枚 2f0830e8eefbdb884c4c5e19ae86c64090a32ab7,正文见 git show --stat 该枚),登记行不留活账 -->
 
 ## 2026-10-26 号池对标 workbuddy-switch 三件套(代码+测试已验绿并本地提交;待 monitor/deploy 那两席收敛后随链 FF 上 origin)
+- [ ] （未取号:G 族号池已满,登记@2026-10-28）**git-sync-converge 落地闸死锁:报「10575 处不过」却「需人工 0 项」,被点名的行里混着水印横幅与别文件标题**:现读 main 本地 ahead 5 / behind 4,union-converge exit=1 判需人工 ⇒ 两枚已验收的提交推不上去。出路 = 先归因那一万处是从哪一面量的(疑似自证尺取错 blob),再让闸逐条点名;禁止手搓 fetch/merge/push(§16,历史上吃掉 19339 行)。
 
 > 机主令:把这工具的能力做进本仓且「更强更实用更便捷更傻瓜」。先摸底:仓库早有成熟号池(`ai_relay_key_pool` + 第三方 IDE 账号池,含 AES-GCM 字段级凭证/临期刷新/健康定级/熔断/用量台账/代理池/签到双向同步/前端页),但对标本工具查出三处真缺口——逐个补:会话搬家与官方积分额度日历两票挂在下(不盲做)。
 - **①外来格式自适应(判据单源)**:`apps/api/src/services/relay-account-format.ts` 的 `normalizeForeignAccountShape` 认 workbuddy-switch 等第三方导出(`access_token`/`refresh_token`/毫秒 `expires_at`/`uid`/`nickname`),**搬运归一在进校验之前**、canonical 值优先、别名只补空缺;`expireEpochToMs`(1e11 分界)立修真实缺陷——裸数字一律当秒 ⇒ 毫秒票被折成公元 5138 年"永不过期",临期/保活/到期摘除对它集体失明;显式到期只采信早于 JWT exp(保守取早绝不冒充长效);陌生键经 `foreignPassthroughMetadata` 落 extraMetadata,兑现 `docs/RELAY_ACCOUNT_IMPORT_FORMAT.md` §2「其他字段原样透传」(先前服务端没真做)。取证 `apps/api/tests/relay-account-import-format.test.ts`。
