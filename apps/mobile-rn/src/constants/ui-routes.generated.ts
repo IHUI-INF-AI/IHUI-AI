@@ -8,14 +8,13 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: ea003326f7637ebfabf1d1862aa780db7039cd3a
-// inputsSha256: d0efa60a4a96394337f28e8941aba54a9a74849f5d0b69dbeb5638673fe4f98b
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 97f741998ee7cd2b418ed3281407beca5a6f8a62abf6deea8b84ae705ab9422a
+// sourceCommit: d56f39c1ead9a4fd6778bc988b6ff817e9372281
+// inputsSha256: 59e30413dcc564e8243def6ca86c79455c55b81fa4a2f6b2853b4164689c60ae
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 4a36f65149b57e41e404687cb6a843c17e4d8c46af09c1c0d0a8f220fbebcc19
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-28T07:54:02.402Z
+// generatedAt: 2026-10-28T10:25:04.094Z
 // IHUI-GEN-PIN-END
-
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
@@ -29,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 309 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 310 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -210,6 +209,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'AgentChat', tab: false, requiresParams: true, requiredParams: ['agentId', 'name'] },
   { name: 'AgentMarket', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentCreate', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AgentEdit', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'ArticleDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'ArticleList', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'PostDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
