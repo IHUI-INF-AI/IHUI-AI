@@ -18,8 +18,33 @@ import { fileURLToPath } from 'node:url'
 const lookupMock = vi.hoisted(() => vi.fn())
 vi.mock('node:dns/promises', () => ({ lookup: lookupMock }))
 
+/** 桩掉 undici 的 Agent：既不建真连接池（否则本进程留句柄），又能验"钩子真装上了" */
+const agentCtorArgs = vi.hoisted(() => [] as unknown[])
+vi.mock('undici', () => ({
+  Agent: class {
+    constructor(opts?: unknown) {
+      agentCtorArgs.push(opts)
+    }
+    close(): void {}
+  },
+}))
+
 import { assertSafeFetchUrl, isBlockedTargetIp } from '../src/utils/ssrf-guard.js'
-import { RELAY_EGRESS_GUARD, assertRelayEgressSafe } from '../src/utils/relay-egress-guard.js'
+import {
+  RELAY_EGRESS_GUARD,
+  assertRelayEgressSafe,
+  directEgressDispatcher,
+  relayGuardedLookup,
+} from '../src/utils/relay-egress-guard.js'
+
+/** 把 callback 形态的连接期守卫包成 Promise，好逐态断言 */
+function runLookup(
+  host: string,
+): Promise<{ err: NodeJS.ErrnoException | null; addresses: unknown }> {
+  return new Promise((resolve) => {
+    relayGuardedLookup(host, {}, (err, addresses) => resolve({ err, addresses }))
+  })
+}
 
 beforeEach(() => {
   lookupMock.mockReset()
@@ -165,20 +190,70 @@ describe('接线锁（复检必须住在发请求那一刻）', () => {
     expect(body.length).toBeLessThan(1200)
   })
 
-  it('两条分支各自都在碰连接之前复检（不是只查代理那一条）', () => {
-    expect((body.match(/await assertRelayEgressSafe\(input\)/g) ?? []).length).toBe(2)
-    expect(body.indexOf('assertRelayEgressSafe')).toBeLessThan(body.indexOf('globalThis.fetch'))
+  it('闸只有一处且在连接之前（两条分支共用同一函数体，不存在"只查代理"那一型）', () => {
+    expect((body.match(/await assertRelayEgressSafe\(input\)/g) ?? []).length).toBe(1)
     expect(body.indexOf('assertRelayEgressSafe')).toBeLessThan(body.indexOf('undiciFetch'))
   })
 
   it('复检的是原始 input，不是被改写后的字符串（保住 Request 语义）', () => {
-    expect(body).toContain('globalThis.fetch(input, init)')
     expect(body).toContain('undiciFetch(input as string')
+  })
+
+  it('直连分支交的是带连接期钩子的 dispatcher，不再走内置 globalThis.fetch', () => {
+    expect(body).toContain('directEgressDispatcher()')
+    expect(body).not.toContain('globalThis.fetch')
   })
 
   it('转发器不再自带第二份地址判据', () => {
     expect(src).not.toContain('isPrivateOrReservedIp')
     expect(src).toContain("from '../utils/relay-egress-guard.js'")
+  })
+})
+
+describe('连接期守卫（真防 DNS rebinding 的那一层）', () => {
+  it('解析到云元数据 ⇒ 回调收到拦因，一个地址都不交回（连接不会发生）', async () => {
+    lookupMock.mockResolvedValue([{ address: '169.254.169.254', family: 4 }])
+    const res = await runLookup('metadata.example')
+    expect(res.err?.message).toContain('blocked target')
+    expect(res.err?.code).toBe('ERELAYEGRESS')
+    expect(res.addresses).toEqual([])
+  })
+
+  it('解析结果里混一条危险地址 ⇒ 整批拦（不能只挑好的那条连）', async () => {
+    lookupMock.mockResolvedValue([
+      { address: '203.0.113.10', family: 4 },
+      { address: '[::1]', family: 6 },
+    ])
+    const res = await runLookup('mixed.example')
+    expect(res.err?.message).toContain('blocked target')
+    expect(res.addresses).toEqual([])
+  })
+
+  it.each([
+    { address: '203.0.113.10', family: 4 },
+    { address: '10.0.0.5', family: 4 },
+    { address: '192.168.66.9', family: 4 },
+  ])('反证 %#：公网与 LAN 自托管地址原样交回（守卫不得顺手打断功能）', async (row) => {
+    lookupMock.mockResolvedValue([row])
+    const res = await runLookup('host.example')
+    expect(res.err).toBeNull()
+    expect(res.addresses).toEqual([row])
+  })
+
+  it('解析本身失败 ⇒ 错误交回，绝不"判不出就当放行"', async () => {
+    lookupMock.mockRejectedValue(new Error('ENOTFOUND'))
+    const res = await runLookup('gone.example')
+    expect(res.err).not.toBeNull()
+    expect(res.addresses).toEqual([])
+  })
+
+  it('钩子确实装进了 dispatcher（不是只在旁边定义了个函数）', () => {
+    const first = directEgressDispatcher()
+    expect(first).toBe(directEgressDispatcher()) // 单例：连接池不能每请求新建
+    const opts = agentCtorArgs[0] as {
+      connect?: { lookup?: unknown }
+    }
+    expect(opts.connect?.lookup).toBe(relayGuardedLookup)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

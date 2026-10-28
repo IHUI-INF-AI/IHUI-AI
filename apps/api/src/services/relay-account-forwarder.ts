@@ -66,7 +66,7 @@ import {
   snapshotRelayStreamInterrupts,
 } from '../plugins/business-metrics.js'
 import { logger } from '../utils/logger.js'
-import { assertRelayEgressSafe } from '../utils/relay-egress-guard.js'
+import { assertRelayEgressSafe, directEgressDispatcher } from '../utils/relay-egress-guard.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
 import { accountSchedulableCondition } from './relay-account-pool-scheduler.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
@@ -225,24 +225,18 @@ function getProxyAgent(proxyUrl: string): ProxyAgent {
 }
 
 /**
- * 账号级 fetch:有 proxyUrl 走 undici ProxyAgent,否则全局直连；**两条分支都先过出网复检**。
+ * 账号级 fetch:两条分支都先过首跳复检；直连再挂**连接期守卫**（真防 DNS rebinding 的那一层）。
  *
- * 已知残余（写破，不装看不见）:复检的是"发请求前"这一次解析,而连接用的是 fetch 内部
- * 再解析的结果 —— 一条 TTL=0 的 A 记录仍能做到"校验时公网、连接时内网"（DNS rebinding）。
- * 真防它要把连接期钩子（undici Agent 的 connect.lookup）装上,但那会把"直连出口"从内置
- * fetch 换成包 undici —— 实测这会让多个以 vi.stubGlobal('fetch') 打桩的 relay 用例改走
- * 真实网络（2026-10-28 试过并回退）。下一步的正解是给这些用例换成显式 fetch 注入,
- * 而不是把守卫退回成首跳不查。
+ * 为什么直连必须走包 undici 的 Agent 而不是内置 globalThis.fetch:连接期钩子（connect.lookup）
+ * 装在 dispatcher 上,而 Node 内置 fetch 用的是它自己那份 undici 实例,外部 Agent 递进去不认。
+ * 所以这一行的 dispatcher 就是守卫 ② 的接线点,挪不得。
+ * 桩面纪律:测本函数请用 undici 的 fetch 桩 —— tests/relay-account-forwarder.test.ts 已改成
+ * "配过 undici 桩就用它,否则转交当时的 global fetch 桩",不要反过来改生产出口迁就旧桩。
+ *
+ * 覆盖边界（写破）:走账号代理时本机不解析目标（由代理解析）,那一分支只有首跳复检 ① 在守。
  */
 function poolFetch(proxyUrl: string | null | undefined): typeof fetch {
-  if (!proxyUrl) {
-    const f: typeof fetch = async (input, init) => {
-      await assertRelayEgressSafe(input)
-      return globalThis.fetch(input, init)
-    }
-    return f
-  }
-  const agent = getProxyAgent(proxyUrl)
+  const agent = proxyUrl ? getProxyAgent(proxyUrl) : directEgressDispatcher()
   const f: typeof fetch = async (input, init) => {
     await assertRelayEgressSafe(input)
     // undici 的 RequestInit 是全局 RequestInit 的超集(dispatcher 为附加可选字段)
