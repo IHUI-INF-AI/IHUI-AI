@@ -60,11 +60,11 @@ export interface DangerGateDecision {
 }
 
 const DENY_REASON_KEY: Record<DangerGateDenyCause, string> = {
-  'no-prompt': 'cli.dangerGate.denyNoPrompt',
-  'prompt-declined': 'cli.dangerGate.denyDeclined',
-  'prompt-empty': 'cli.dangerGate.denyEmpty',
-  'prompt-error': 'cli.dangerGate.denyError',
-  'contract-approval-required': 'cli.dangerGate.denyContract',
+  'no-prompt': 'cliEntry.dangerGate.denyNoPrompt',
+  'prompt-declined': 'cliEntry.dangerGate.denyDeclined',
+  'prompt-empty': 'cliEntry.dangerGate.denyEmpty',
+  'prompt-error': 'cliEntry.dangerGate.denyError',
+  'contract-approval-required': 'cliEntry.dangerGate.denyContract',
 }
 
 /**
