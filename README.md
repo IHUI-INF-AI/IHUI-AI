@@ -27,7 +27,7 @@
 </td></tr></table>
 
 <p align="center">
-  <strong>8 端全覆盖</strong> · <strong>118 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
+  <strong>8 端全覆盖</strong> · <strong>99 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
 
@@ -99,7 +99,7 @@ node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
 
-对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4538 API 路由 · 25 个 WebSocket 端点 ·
+对外关键数字声明(与本页生成块同源,均现算):**611 张表 · 4538 API 路由 · 25 个 WebSocket 端点 ·
 118 入库模型 · 38 平台自动发布 · 3115 测试文件 · 271 道工程守门 · 50 CI workflows ·
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 
@@ -2445,7 +2445,7 @@ pnpm turbo build typecheck lint test
 第三方 AI Agent 通过**机器凭据**调用本项目能力,能力面由 `packages/types/src/capability-catalog.ts` 一处声明、三处消费(API 闸口 / MCP 门禁 / 文档产物)。
 | 要素                | 落点                                                                                                                                                                                              | 说明                                                                                                                                                                                                                                                                                                  |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 凭据                | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                                                                                                                                         | 用户自助签发:`POST /api/developer/api-keys`;可按 scope/IP/模型/时段收紧                                                                                                                                                                                                                               |
+| 凭据                | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                                                                                                                                         | 用户自助签发:`POST /api/developer/api-keys`(已开 2FA 的账号须先调 `POST /api/auth/2fa/step-up` 验一次,窗 5 分钟);可按 scope/IP/模型/时段收紧                                                                                                                                                                                                                               |
 | 授权                | `apps/api/src/utils/capability-guard.ts`                                                                                                                                                          | `requireCapability(scope)`;`platform` 域与未登记 scope 一律 403(默认拒绝)                                                                                                                                                                                                                             |
 | 数据边界            | `CapabilityEntry.dataClass`                                                                                                                                                                       | `compute`(禁读业务表)/ `scoped-read` / `scoped-write`(强制 owner)/ `platform`                                                                                                                                                                                                                         |
 | MCP 接入            | `POST /v1/mcp/*`(API Key)+ `apps/ai-service` `POST /api/mcp`、`/api/mcp/export/*`                                                                                                                 | 匿名 tools/call 已关闭;逐工具按目录裁决 scope                                                                                                                                                                                                                                                         |
