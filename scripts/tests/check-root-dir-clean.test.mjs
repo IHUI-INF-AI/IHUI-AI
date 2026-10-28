@@ -401,3 +401,27 @@ test('T6 索引面枚举到 0 条与问不到同档(§0.3 枚举到 0 不读成"
   assert.equal(G44.decideOutcome(emptyIndex).code, 1, '退回全量拦截那一档的码位必须是红(1)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('SEAL1 封口链接(2026-10-28):指向批准落点的 junction 放行;实体目录与指向别处的链接照旧判红', async (t) => {
+  const { mkdirSync, symlinkSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const { mkScratch, rmScratch } = await import('../lib/scratch-dir.mjs')
+  const dir = mkScratch('seal-link-')
+  t.after(() => rmScratch(dir, { bestEffort: true }))
+  const solid = join(dir, 'solid')
+  mkdirSync(solid)
+  assert.equal(G44.isSealedLink(solid), false, '实体目录必须判红(封口只认链接)')
+  const elsewhere = join(dir, 'elsewhere')
+  mkdirSync(elsewhere)
+  const wrongLink = join(dir, 'wrong-link')
+  symlinkSync(elsewhere, wrongLink, 'junction')
+  assert.equal(G44.isSealedLink(wrongLink), false, '指向非批准落点的链接必须判红')
+  const approvedLink = join(dir, 'approved-link')
+  try {
+    symlinkSync('D:/DevEnv/Temp', approvedLink, 'junction')
+  } catch {
+    t.skip('本机无 D:/DevEnv/Temp,跳过正例')
+    return
+  }
+  assert.equal(G44.isSealedLink(approvedLink), true, '指向批准落点的 junction 必须放行')
+})

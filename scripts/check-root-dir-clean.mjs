@@ -33,7 +33,7 @@
  * §22d 双形态入口:判据(归属分流、结论行)一律住在导出的纯函数里,`main()` 只在
  * `isDirectRun` 时执行 —— 镜像测试 `import { __test__ }` 取的是**同一把尺子**,不是第二份。
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
@@ -212,6 +212,30 @@ const ALLOWED_FILES = new Set([
 ])
 
 /** 根目录合法目录(monorepo 标准结构 + 运行时目录) */
+
+/**
+ * 外部程序写歪项**封口链接**(2026-10-28 立,治"同一个空目录反复出现且顶红全仓提交")。
+ *
+ * 立因(量的):NVIDIA 显示驱动按 **cwd** 在仓根建 `NVIDIA Corporation/umdlogs`,删一次 16:07、
+ * 再删 16:41 又出现(两次实测);而门 44 的 `--staged` 档对"未跟踪且白名单外"报 exit 2 ⇒
+ * **所有会话的提交都被顶成未判定**,safe-commit 只能走 --no-verify —— 守门被架空。
+ * §26 的既定正解是"写歪项封口改道":把那个名字换成指向批准落点的 junction,写盘因此落到仓外。
+ *
+ * 本函数只放行**链接**:lstat 是符号链接/junction 且解析后的目标在批准落点前缀内。
+ * 有人把它改回实体目录(真在仓里写) ⇒ 这条不成立,照旧判红。
+ */
+const SEALED_LINK_TARGETS = ['d:/devenv/temp/', 'd:/devenv/logs/']
+export function isSealedLink(abs) {
+  try {
+    if (!lstatSync(abs).isSymbolicLink()) return false
+    // 尾斜杠归一:realpath 返回的目标不带尾斜杠,而前缀带 —— 不补就永远匹配不上(正例恒假)。
+    const target = realpathSync(abs).replace(/\\/g, '/').toLowerCase() + '/'
+    return SEALED_LINK_TARGETS.some((p) => target.startsWith(p))
+  } catch {
+    return false
+  }
+}
+
 const ALLOWED_DIRS = new Set([
   'apps',
   'packages',
@@ -462,7 +486,8 @@ function collectViolations(root) {
         violations.push({ name, kind: '隐藏文件' })
       }
     } else if (isDir) {
-      if (!ALLOWED_DIRS.has(name)) violations.push({ name, kind: '目录' })
+      if (!ALLOWED_DIRS.has(name) && !isSealedLink(join(root, name)))
+        violations.push({ name, kind: '目录' })
     } else if (!ALLOWED_FILES.has(name)) {
       violations.push({ name, kind: '文件' })
     }
@@ -883,6 +908,7 @@ if (isDirectRun) {
 /** §22c/§22d 约定:判据一律经 __test__ 暴露,镜像测试直接 import,不抄第二份 */
 export const __test__ = {
   resolveRoot,
+  isSealedLink,
   isStagedArg,
   collectViolations,
   partitionByFace,
