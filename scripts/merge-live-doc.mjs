@@ -70,7 +70,9 @@ import { anchorKey, archiveOwnerFor, classifyMissing } from './lib/live-doc-clas
 export { anchorKey, classifyMissing }
 // 归档移出凭据(2026-10-25,守门 207 第二刀①):§1 的「整区逐字移入 archive + 原位留指针」
 // 是合法处置,不是丢行。判据住 lib(与 union-converge 的期望表同一份),本文件只做取材。
-import { selectMovedOut } from './lib/live-doc-archive-drops.mjs'
+// `selectMovedOutForDisposition`(2026-10-28,票 gb22 根因档)= 同一份判据的**处置侧取材出口**
+// (清单 = 被审面 ∪ 磁盘归档目录、基准 = 行使处置权那一份正文),本文件只调它,不写第二份判据(§0.6/§22c)。
+import { selectMovedOut, selectMovedOutForDisposition } from './lib/live-doc-archive-drops.mjs'
 
 /**
  * 把 HEAD 里"连续的 lost 段"(段尾空行一并带上,保排版)插回工作树的锚点之后。
@@ -161,11 +163,20 @@ export function dupLong(lines, min = 60) {
 /**
  * 本侧已按 §1 把整区逐字移入 archive 的凭据(2026-10-25,守门 207 第二刀①)。
  *
- * 取材面 = HEAD 树(已入库事实),与 `headText` 同面同轮、"清单与内容同轮取"。
- * 这是本工具唯一会读磁盘以外内容的一步,失败方向固定为 **null = 一条不豁免**:
- * 宁可多插回一份让人复核,也绝不把真吃掉的正文洗成"已归档"(§0.10)。
+ * 取材面(2026-10-28 票 gb22 根因档,两处都改):
+ *   · 清单 = 被审面(HEAD 树)**∪ 磁盘归档目录** —— §1 的合法出路是"先把正文整区逐字写进
+ *     `.ihui-agent/archive/`,再把文档压下来",迁出批次落盘与落库之间有实测量级的窗口
+ *     (实测 11:40 写 → 11:54 入库)。只取 HEAD 面时,窗口内的批次一份都不在射程里;
+ *   · 基准正文 = **处置侧快照**(归并前那一刻的工作树副本),不再是旧 HEAD。旧 HEAD 按定义
+ *     逐字含着刚被搬走的那些行,lib 的"整篇复制件"判别拿它一比就会把迁出批次读成复制件
+ *     (实测 2026-10-28 overlap=0.515,已够 lib 那条整篇复制件阈值),于是补上磁盘清单也救不回来。
+ *   两件事都由 lib 的 `selectMovedOutForDisposition` 一次做完,本文件不复算任何一条判据(§0.6/§22c)。
+ *
+ * 这是本工具唯一会读工作树以外内容的一步,失败方向固定为 **null / ok=false = 一条不豁免**:
+ * `dispositionText` 取不到(未给 / 非字符串 / 全空白)⇒ 逐字回落到改前那一档(只用被审面清单 +
+ * 被审面正文),宁可多插回一份让人复核,也绝不把真吃掉的正文洗成"已归档"(§0.10)。
  */
-function readArchivedForDoc(file, oursText) {
+function readArchivedForDoc(file, oursText, dispositionText) {
   const owner = archiveOwnerFor(file)
   if (!owner)
     return {
@@ -197,7 +208,10 @@ function readArchivedForDoc(file, oursText) {
     }
     return { path: p, text }
   })
-  return selectMovedOut(file, files, oursText)
+  if (typeof dispositionText !== 'string' || dispositionText.trim() === '') {
+    return selectMovedOut(file, files, oursText) // 处置侧取不到 ⇒ 与改前逐字同形(不新增豁免)
+  }
+  return selectMovedOutForDisposition(ROOT, file, files, dispositionText)
 }
 
 function selfTest() {
@@ -597,11 +611,15 @@ try {
 }
 
 const headLines = headText.split('\n')
-const wtLines = readFileSync(resolve(ROOT, FILE), 'utf8').split('\n')
+// 处置侧快照 = 归并前那一刻的工作树副本(§1 体积清偿行使处置权的就是这一份)。它同时是
+// `wtLines` 的来源,不重读、不二次取面 ⇒ "清单与内容同面同轮"(§0.4)。
+const wtText = readFileSync(resolve(ROOT, FILE), 'utf8')
+const wtLines = wtText.split('\n')
 const headSet = new Set(headLines.map(trim).filter(Boolean))
 // 第四态 `archived` 的凭据(2026-10-25,守门 207 第二刀①):行不在工作树 ∧ 原文逐字在已入库的
 // 同族归档件里 ⇒ 这是本侧行使过的处置权,不判红、绝不插回。取不到 ⇒ 不传凭据(退回 lost)。
-const archived = readArchivedForDoc(FILE, headText)
+// 2026-10-28 票 gb22:基准正文由旧 HEAD 换成处置侧快照、清单补上磁盘那批未入库的迁出批次。
+const archived = readArchivedForDoc(FILE, headText, wtText)
 const verdict = classifyMissing(
   headLines,
   wtLines,

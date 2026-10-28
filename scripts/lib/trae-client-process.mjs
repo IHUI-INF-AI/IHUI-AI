@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 本机 Trae 客户端进程探测 / 优雅关闭 / 重新拉起(2026-10-28 立)。
@@ -246,8 +247,14 @@ export function closeProduct(product, opts = {}) {
     return false
   }
   if (waitOnce(waitMs)) return { wasRunning: true, closed: true, pids }
+  /**
+   * 后续轮次一律现场重枚举(2026-10-28 修):冷启动刚拉起的实例仍在初始化,
+   * 快照之后还会派生新子进程;只杀快照 pid 会留下漏网进程,waitOnce 永远归不了零,
+   * 把"其实关得掉"误报成 target-locked(实测复现)。主进程一旦强杀,子进程随之退出。
+   */
+  const freshPids = () => listProductPids(product, env) ?? pids
   // 托盘常驻/窗口收不到消息时再补一轮(覆盖"第一次消息被忽略"的情形),仍不退就交回人工
-  for (const pid of pids) {
+  for (const pid of freshPids()) {
     try {
       execFileSync('taskkill.exe', ['/PID', String(pid)], { windowsHide: true, timeout: 8000, env })
     } catch {
@@ -261,7 +268,7 @@ export function closeProduct(product, opts = {}) {
    * 在托盘常驻的机器上永远不可用(实测"点了没反应"的一大来源)。强杀反而更安全:
    * 客户端没机会执行退出落盘,不可能再覆写我们马上要写的 storage.json。
    */
-  for (const pid of pids) {
+  for (const pid of freshPids()) {
     try {
       execFileSync('taskkill.exe', ['/PID', String(pid), '/F'], { windowsHide: true, timeout: 8000, env })
     } catch {

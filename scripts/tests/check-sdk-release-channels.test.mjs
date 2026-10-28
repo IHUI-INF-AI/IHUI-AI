@@ -45,7 +45,7 @@ test('纯函数判据:ready+无法验证 / blocked+已命中 两个腐烂方向�
   const ab = { state: 'absent', detail: 'HTTP 404' }
   const det = { state: 'present', detail: 'HTTP 200' }
   const un = { state: 'undetermined', detail: 'fixture' }
-  const base = { id: 'npm', status: 'ready', verifyCommand: 'npm view @ihui/sdk version', requiredSecrets: [], probe: { kind: 'none' } }
+  const base = { id: 'npm', status: 'ready', verifyCommand: 'npm view @ihui-ai/sdk version', requiredSecrets: [], probe: { kind: 'none' } }
   assert.ok(decideChannel(base, { bin: true, binName: 'npm', outcome: un }).red.some((x) => x.includes('无法验')))
   assert.ok(decideChannel({ ...base, status: 'blocked-by-credential' }, { bin: true, binName: 'npm', outcome: det }).red.some((x) => x.includes('台账腐烂')))
   assert.equal(decideChannel(base, { bin: true, binName: 'npm', outcome: ab }).red.length, 0, 'ready+absent 是就绪待发的正当态,不得判红')

@@ -245,7 +245,7 @@ function assertNetChannelBidirectional(projectFiles, workflowText, channel = '.N
 test('npm 清单:发布形态齐备且不外泄内部依赖', () => {
   const pkg = headJson('packages/sdk/package.json')
   assert.notEqual(pkg.private, true, '@ihui-ai/sdk 仍为 private,任何通道都发不出去')
-  assert.match(String(pkg.name), /^@ihui\/sdk$/, 'npm 包名漂移(CI 的 `npm view` 回读按此名判红)')
+  assert.match(String(pkg.name), /^@ihui-ai\/sdk$/, 'npm 包名漂移(CI 的 `npm view` 回读按此名判红)')
   assert.match(String(pkg.version), /^\d+\.\d+\.\d+/, 'version 必须是合法 semver(tag 解析依赖它)')
 
   // files 白名单:必须同时含编译产物与 Apache-2.0 要求的两份法律文本

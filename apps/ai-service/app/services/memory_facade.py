@@ -14,6 +14,18 @@ from __future__ import annotations
 
 from typing import Any
 
+# 加载状态判据唯一来源 = _load_lifecycle(与 meta_learner / ab_test_tracker 共用
+# 那一份实现,本模块不得新造第二套 "读不到 vs 读到但为空" 的判定)。
+from ._load_lifecycle import (
+    monotonic as _monotonic,
+)
+from ._load_lifecycle import (
+    state_after_failure as _state_after_failure,
+)
+from ._load_lifecycle import (
+    state_label as _state_label,
+)
+
 # 复用 meta_learner 单例(与 user_profile_builder / dream_scheduler 风格一致)。
 # 只读聚合走 MetaLearner.get_status();清空按 meta_learner 既有数据结构
 # (_lessons / _title_index)安全清除——meta_learner 本身没有批量清空方法。
@@ -109,4 +121,103 @@ def memory_reset(*, confirm: bool = False) -> dict[str, Any]:
         }
     except Exception as e:  # 兜底:绝不向上抛
         return {"error": str(e)}
+
+
+async def memory_refresh() -> dict[str, Any]:
+    """强制重扫持久化记忆源(2026-10-28 立,对标竞品 `refresh_memory` 控制帧)。
+
+    竞品原帧语义(2026-09 取证,docs/benchmark-evidence/2026-09/qoder-control-frames.md
+    第 26 行):`async refreshMemory(){await this.requireSdkMemoryEnabled(),
+    await this.request({type:"refresh_memory"})}` —— 即**宿主显式调用 + 必须回报结果**,
+    不是"后台自己会刷新"的承诺。判据:调用方拿得到刷新前后的差异。
+
+    与既有 `memory_status`(只读聚合)的分工:status 只报当前内存态;refresh 真的
+    **再打一次持久化源**并把差额算出来。因此本函数:
+      ① 绕过 `_ensure_loaded` 的懒加载短路与退避窗口 —— 那两条是给"自动路径"用的,
+         显式刷新若也受退避约束,调用方在退避期内会拿到"没刷新"的假象;
+      ② 刷新前给内存态留快照,刷新后逐条比对 lesson id,算出 added/removed/changed;
+      ③ **读失败 ≠ 空**:重扫失败时返回 error 载荷 + loadState,绝不把"读不到"
+         报成"没有记忆"(G-748 同型口径,不得改回)。
+
+    返回形状:
+      {
+        "refreshed": bool,   # 是否真的重扫成功
+        "added": [...],      # 新增 lesson id
+        "removed": [...],    # 消失的 lesson id
+        "changed": [...],    # 内容有变的 lesson id
+        "unchanged": int,    # 内容未变的条数
+        "before": int,       # 刷新前总数
+        "totalLessons": int, # 刷新后总数
+        "loadState": str,    # 读状态四态(loaded/never_tried/retry_backoff/gave_up)
+      }
+
+    任何异常都被捕获,返回 {"error": str(e), "refreshed": False} —— 本函数挂在
+    RPC 帧处理器上,绝不能向上抛导致引擎崩溃。
+    """
+    try:
+        before_ids = set(meta_learner._lessons.keys())
+        before_count = len(before_ids)
+        # 刷新前的内容快照(逐条取"标题|更新时间"作变更判据,不深拷贝整条 lesson)。
+        before_snapshot: dict[str, str] = {
+            lesson_id: str(lesson.get("title", "")) + "|" + str(lesson.get("updatedAt", ""))
+            for lesson_id, lesson in list(meta_learner._lessons.items())
+        }
+
+        # 强制重扫:清掉 loaded 标记并直接打持久化源(不走 _ensure_loaded 的退避短路)。
+        # 读失败时 _try_load_all_lessons 返回 (False, 0) —— 此时**保留原内存态不清空**,
+        # 免得一次瞬时 DB 故障把已缓存的 lessons 冲成空。
+        meta_learner._loaded = False
+        meta_learner._load_failures = 0
+        meta_learner._load_next_attempt_s = 0.0
+        meta_learner._load_give_up_logged = False
+        read_ok, _count = await meta_learner._try_load_all_lessons()
+        if not read_ok:
+            # 读失败:如实报告,不谎报"刷新后为空"。loadState 走 _load_lifecycle 的
+            # 同一份判定(loaded=False + failures>=1 ⇒ retry_backoff)。
+            meta_learner._load_failures, meta_learner._load_next_attempt_s = (
+                _state_after_failure(meta_learner._load_failures, _monotonic())
+            )
+            return {
+                "refreshed": False,
+                "error": "读不到持久化记忆源(重扫失败),已保留刷新前的内存态",
+                "before": before_count,
+                "totalLessons": before_count,
+                "added": [],
+                "removed": [],
+                "changed": [],
+                "unchanged": before_count,
+                "loadState": _state_label(
+                    loaded=False, failures=meta_learner._load_failures
+                ),
+            }
+        meta_learner._loaded = True
+        meta_learner._load_failures = 0
+        meta_learner._load_next_attempt_s = 0.0
+
+        after_ids = set(meta_learner._lessons.keys())
+        after_snapshot: dict[str, str] = {
+            lesson_id: str(lesson.get("title", "")) + "|" + str(lesson.get("updatedAt", ""))
+            for lesson_id, lesson in meta_learner._lessons.items()
+        }
+        added = sorted(after_ids - before_ids)
+        removed = sorted(before_ids - after_ids)
+        changed = sorted(
+            lesson_id
+            for lesson_id in (after_ids & before_ids)
+            if after_snapshot.get(lesson_id) != before_snapshot.get(lesson_id)
+        )
+        unchanged = len(after_ids & before_ids) - len(changed)
+
+        return {
+            "refreshed": True,
+            "added": added,
+            "removed": removed,
+            "changed": changed,
+            "unchanged": unchanged,
+            "before": before_count,
+            "totalLessons": len(after_ids),
+            "loadState": _state_label(loaded=True, failures=0),
+        }
+    except Exception as e:  # 兜底:绝不向上抛,保证 RPC 出口稳定
+        return {"error": str(e), "refreshed": False}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

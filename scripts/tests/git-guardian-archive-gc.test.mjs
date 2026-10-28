@@ -32,9 +32,10 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC = readFileSync(join(HERE, '..', 'git-guardian.mjs'), 'utf8')
 const LIB = readFileSync(join(HERE, '..', 'lib', 'git-guardian-archive-gc.mjs'), 'utf8')
 
-function arm({ enabled = true, root = 'X:/fixture/archive', call = { status: 0, stdout: '', stderr: '' } } = {}) {
+function arm({ enabled = true, root = 'X:/fixture/archive', call = { status: 0, stdout: '', stderr: '' }, threshold } = {}) {
   const dir = mkScratch('archive-gc-arm-')
   const tickFile = join(dir, 'tick.iso')
+  const flagFile = join(dir, 'scope-mismatch.flag')
   const configPath = join(dir, 'arm.json')
   if (enabled === 'missing') {
     // 不写配置 ⇒ 读不到
@@ -50,15 +51,17 @@ function arm({ enabled = true, root = 'X:/fixture/archive', call = { status: 0, 
       now: NOW,
       intervalMs: DAY,
       tickFile,
+      flagFile,
       configPath,
       root,
+      threshold,
       logger: (m) => logs.push(String(m)),
       runner: (argv) => {
         argvs.push(argv)
         return call
       },
     })
-  return { dir, logs, argvs, run, tickFile }
+  return { dir, logs, argvs, run, tickFile, flagFile }
 }
 
 test('T1 装车锁:main() 单轮路径必须带 !CHECK_ONLY 旗调用本臂 —— 挂进 CHECK_ONLY 分支等于永不执行', () => {
@@ -218,5 +221,77 @@ test('T10 归属锁:判据只住回收器那一份实现 —— 本臂不重抄�
 test('T11 默认档锁:入库的开关面必须是 enabled=false(开臂是机主的决定,不是接线的默认)', () => {
   const raw = JSON.parse(readFileSync(join(HERE, '..', 'data', 'archive-gc-arm.json'), 'utf8'))
   assert.equal(raw.enabled, false, '默认档必须关;机主核过读数后自行改 true(改档请连同本钉一起过目)')
+})
+
+test('T12 待删量超阈值 ⇒ ⚠️ 且 ok:false(合臂/开臂都适用:积压不该只在人翻日志时可见)', () => {
+  const a = arm({
+    threshold: 20,
+    call: {
+      status: 0,
+      stdout: '可判(in-scope)40 件 · 受保护 0 件 · 未判定 0 件\n保留 15 / 待删 25 / 未判定 0\n',
+      stderr: '',
+    },
+  })
+  try {
+    const r = a.run()
+    assert.equal(r.ok, false, '待删 25 > 阈值 20 ⇒ 不得记绿')
+    assert.equal(r.retire, 25)
+    assert.match(a.logs[0], /^⚠️/)
+    assert.match(a.logs[0], /超阈值 20/, `必须点名阈值:${a.logs[0]}`)
+    assert.equal(a.argvs[0].includes('--apply'), false, '告警仍不得改 argv 面去删')
+  } finally {
+    rmScratch(a.dir)
+  }
+})
+
+test('T13 射程内 0 件可判 ⇒ ⏸ 且 ok:false,只报一次;树形态恢复后自动解除', () => {
+  // 解析面:取不到该行 ⇒ null,不把"没这行"读成 0 件。
+  assert.equal(
+    G.parseArchiveGcSummary('可判(in-scope)7 件 · 受保护 2 件 · 未判定 0 件\n保留 7 / 待删 2 / 未判定 0').inScope,
+    7,
+  )
+  assert.equal(G.parseArchiveGcSummary('保留 1 / 待删 0 / 未判定 0').inScope, null)
+
+  const a = arm({ call: { status: 0, stdout: '可判(in-scope)0 件\n保留 313 / 待删 0 / 未判定 0\n', stderr: '' } })
+  try {
+    const first = a.run()
+    assert.equal(first.ok, false, '射程内无可判对象不得记 ✅(那是"射程错配"被写成"干净")')
+    assert.match(a.logs[0], /^⏸/)
+    assert.match(a.logs[0], /retire-git-archive/, '必须点名该射程真正的回收器')
+    assert.ok(existsSync(a.flagFile), '只报一次的标记必须落盘')
+
+    // 第二个窗口、同一棵树 ⇒ 不再写日志(恒响会把通道喊废)。
+    const logs2 = []
+    const second = G.archiveGcDryRun({
+      now: NOW + DAY,
+      intervalMs: DAY,
+      tickFile: a.tickFile,
+      flagFile: a.flagFile,
+      configPath: join(a.dir, 'arm.json'),
+      root: 'X:/fixture/archive',
+      logger: (m) => logs2.push(String(m)),
+      runner: () => ({ status: 0, stdout: '可判(in-scope)0 件\n保留 313 / 待删 0 / 未判定 0\n', stderr: '' }),
+    })
+    assert.equal(second.ok, false)
+    assert.equal(logs2.length, 0, '射程错配是常量结论:第二轮不得再刷一条')
+
+    // 树形态恢复(有可判件)⇒ 标记自动解除,回 ✅。
+    const logs3 = []
+    const third = G.archiveGcDryRun({
+      now: NOW + 2 * DAY,
+      intervalMs: DAY,
+      tickFile: a.tickFile,
+      flagFile: a.flagFile,
+      configPath: join(a.dir, 'arm.json'),
+      root: 'X:/fixture/archive',
+      logger: (m) => logs3.push(String(m)),
+      runner: () => ({ status: 0, stdout: '可判(in-scope)4 件\n保留 4 / 待删 0 / 未判定 0\n', stderr: '' }),
+    })
+    assert.equal(third.ok, true)
+    assert.match(logs3[0], /^✅/)
+    assert.equal(existsSync(a.flagFile), false, '恢复后标记必须自删,否则下次错配会被静默吞掉')
+  } finally {
+    rmScratch(a.dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
