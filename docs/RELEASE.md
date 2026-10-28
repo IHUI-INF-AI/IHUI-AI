@@ -8,7 +8,7 @@
 
 > IHUI-AI 跨 14 平台发布:web/api/ai-service Docker 镜像 + desktop GitHub Release 自动发布 + extension Chrome Web Store + mobile-rn EAS + miniapp-taro 微信审核 + cli(npm + 6 二进制 + winget/scoop/homebrew/snap 4 manifest)+ sdk(npm / PyPI / Maven / Go / NuGet 5 语言通道),由 Git tag 触发 GitHub Actions 自动构建,蓝绿部署上线。
 >
-> ⚠️ **"配了流程" ≠ "已发布"**。截至 2026-10-19,`ihui-cli@1.0.0` 已上 npm(registry 回读 200,`npm i ihui-cli` 实测可用);`@ihui/*`、`ihui-ai`(PyPI)仍未发布。CLI 发布走 `secrets.NPM_PUBLISH_TOKEN`(granular token + Bypass 2FA;OIDC 仅作前向兼容尝试,失败自动回退),**不启用 2FA、不登记 Trusted Publisher**;SDK 侧(以及 PyPI / Maven / NuGet)的凭据仍未配置。逐条证据见下节[发布状态(实测)](#发布状态实测-2026-10-19逐条带命令回读)。
+> ⚠️ **"配了流程" ≠ "已发布"**。截至 2026-10-19,`ihui-cli@1.0.0` 已上 npm(registry 回读 200,`npm i ihui-cli` 实测可用);`@ihui-ai/sdk`(2026-10-28 现读 registry 404)、`ihui-ai`(PyPI)仍未发布。CLI 发布走 `secrets.NPM_PUBLISH_TOKEN`(granular token + Bypass 2FA;OIDC 仅作前向兼容尝试,失败自动回退),**不启用 2FA、不登记 Trusted Publisher**;**SDK 的 npm 腿凭据已就位**(`release-sdk.yml` 把 `secrets.NPM_PUBLISH_TOKEN` 映射成 job 内环境变量 `NPM_TOKEN`,仓内不存在也不需要 `secrets.NPM_TOKEN`),真卡点是**没有 npm org**(2026-10-28 现读 `-/v1/org/ihui` 与 `-/v1/org/ihui-ai` 均 404,org 名唯一真相源=通道台账 `npm.coordinate`,由 `resolveNpmOrgScope()` 解析),出路 = `npm-bootstrap.yml -f action=org_create`;PyPI / Maven / NuGet 的凭据仍未配置。逐条证据见下节[发布状态(实测)](#发布状态实测-2026-10-19逐条带命令回读)。
 
 ---
 
@@ -550,7 +550,7 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 
 | SDK | 仓库 | 发布命令(tag 触发后的实际步骤) | 审核 | 当前可发布性 |
 | --- | --- | --- | --- | --- |
-| TS | npm | `pnpm --filter @ihui-ai/sdk build` → `npm publish --access public --provenance`(OIDC 失败自动回退 `NPM_TOKEN`) | 即时 | ⚠️ 产物已可安装,缺 `NPM_TOKEN` |
+| TS | npm | `pnpm --filter @ihui-ai/sdk build` → `npm publish --access public --provenance`(OIDC 失败自动回退 `secrets.NPM_PUBLISH_TOKEN`;job 内部环境变量名仍写作 `NPM_TOKEN`,由 `NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}` 那一行赋值) | 即时 | ⚠️ 产物已可安装、凭据已就位;**卡在没有 npm org**(`@ihui-ai` 不存在:registry `-/v1/org/ihui-ai` 现读 404,对照 `ihui-cli` 200)⇒ 出路 = `gh workflow run npm-bootstrap.yml -f action=org_create`(邮箱 OTP 由机主提供),**不是**再配一枚 secret |
 | Python | PyPI | 复制根 `LICENSE`/`NOTICE` → `python -m build` → `twine check` → `twine upload` | 即时 | ⚠️ 产物已可安装,缺 `PYPI_TOKEN` |
 | Go | GitHub(无中心仓库) | 打 `sdk/v<VERSION>` 子 tag 并推送,proxy.golang.org 自动抓取 | 即时 | ⚠️ 依赖 workflow 有 `git push` 权限 |
 | Java | Maven Central | `mvn -B clean deploy` | Sonatype 审核(首次约 2 小时) | ❌ `pom.xml` 缺 `<licenses>` / `<developers>` / `<scm>` / `<url>`,无 sources/javadoc jar、无 GPG 签名插件,`MAVEN_USERNAME` / `MAVEN_TOKEN` 也未配置 |
@@ -628,7 +628,7 @@ node scripts/cert-expiry-check.mjs
 | Secret | 被谁引用 | 配置状态(2026-10-19 实测 `gh secret list`) |
 | --- | --- | --- |
 | `NPM_PUBLISH_TOKEN` | `release-cli.yml` npm job；`npm-bootstrap.yml` publish job | ✅ **已配置**(granular token + Bypass 2FA,2027-01-17 到期) |
-| `NPM_TOKEN` | 仅 `release-sdk.yml` npm job(`release-cli.yml` 用 `NPM_PUBLISH_TOKEN`) | ❌ 未配置(SDK 通道专用) |
+| `NPM_TOKEN` | **没有任何 workflow 引用 `secrets.NPM_TOKEN`** —— `release-sdk.yml` 的 npm job 只是把 `secrets.NPM_PUBLISH_TOKEN` 映射成同名**环境变量** `NPM_TOKEN`(见该文件 `NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}` 那一行) | — 无需配置;2026-10-28 实测 `gh secret list` 无此键(此前登记的"SDK 通道专用 `NPM_TOKEN`"从未存在,照它配一枚也不会被任何 job 读到) |
 | `PYPI_TOKEN` | `release-sdk.yml` pypi job(`TWINE_PASSWORD`) | ❌ 未配置 |
 | `MAVEN_USERNAME` / `MAVEN_TOKEN` | `release-sdk.yml` maven job(`~/.m2/settings.xml`) | ❌ 未配置 |
 | `NUGET_API_KEY` | `release-sdk.yml` nuget job(`dotnet nuget push --api-key`) | ❌ 未配置 |
