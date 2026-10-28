@@ -4989,6 +4989,77 @@ export function healStaleDistLeg(opts = {}) {
   return { ran: true, ok: res.state !== 'undetermined', ...res }
 }
 
+const MINIAPP_DIST_HEAL_INTERVAL_MS = Number(
+  process.env.IHUI_MINIAPP_DIST_HEAL_INTERVAL_MS || 6 * 60 * 60 * 1000,
+)
+
+/**
+ * 小程序 weapp 产物陈旧 ⇒ 自动重建腿(2026-10-28 立,器物 = scripts/heal-stale-miniapp-dist.mjs)。
+ *
+ * 立因(现读):`apps/miniapp-taro/dist` 停在 2026-10-26 11:25,而端内源码 10-28 19:50 仍在改 ——
+ * 于是 `check-miniapp-css-landing.mjs` 的 C0 结构性判据只能落「未判定」(exit 2),C1 覆盖率尺**恒瞎**。
+ * 这是本仓最贵的一型失效(§0.3):「小程序样式有没有真落地」这一格既不算过也不算红,而账面看上去
+ * 只是"没消息"。上一格的 healStaleDistLeg 只覆盖 workspace 包 dist(器物 heal-stale-dist.mjs),
+ * **不含任何 app 的构建产物**,所以这条洞此前无人负责。
+ *
+ * 为什么可以无人值守:dist 被 `apps/miniapp-taro/.gitignore` 忽略且**零跟踪**(git check-ignore 命中、
+ * git ls-files = 0 件,均实测)⇒ 重建只写机器态,不动仓、不落 HEAD、不推。判机器状态 ⇒ 不进提交链(§12e)。
+ *
+ * 节拍 6 小时而不是 30 分钟:一轮要跑一次完整 weapp 构建(Taro + tailwind + 后处理),比同族的
+ * dist 编译重一个量级;产物陈旧是"天"级现象,30 分钟去敲一次只会白烧 CPU。
+ * 取不到尺子判词 ⇒ 器物自报 `undetermined`,本条只记日志不喊人(重建失败属常态,不制造噪声)。
+ */
+export function healStaleMiniappDist(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = MINIAPP_DIST_HEAL_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'miniapp-dist-heal-last.json'),
+    logger = log,
+    runner = null,
+    scriptFile = null,
+  } = opts
+  const script =
+    scriptFile ?? join(dirname(fileURLToPath(import.meta.url)), 'heal-stale-miniapp-dist.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 小程序产物新鲜度:器物不在位(scripts/heal-stale-miniapp-dist.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  // 子进程上限必须大于器物内部三个超时之和(构建 25min + 两次尺子各 8min ⇒ 最坏 41min),
+  // 否则被掐死时 stdout 是半截,结论行解析不出 → 每轮白判一次。
+  const r =
+    typeof runner === 'function'
+      ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
+      : runLegChild(script, ['--apply', '--json'], 45 * 60 * 1000)
+  let res = null
+  try {
+    const lastLine = String(r.stdout ?? '')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .pop()
+    res = JSON.parse(lastLine ?? '')
+  } catch {
+    /* 下面统一按"未判定"报 */
+  }
+  if (!res || typeof res !== 'object' || typeof res.state !== 'string') {
+    logger(
+      `ℹ️ 小程序产物新鲜度:结论行解析不出(status=${r.status})⇒ 本轮未判定,下轮重试 ${String(
+        r.stderr ?? '',
+      ).slice(0, 120)}`,
+    )
+    return { ran: true, ok: false, why: '结论解析失败', status: r.status }
+  }
+  logger(
+    `ℹ️ 小程序产物新鲜度:state=${res.state}${res.c0 ? ` c0=${res.c0}` : ''}${
+      res.after ? ` after=${res.after}` : ''
+    }${res.buildMs != null ? ` 构建=${Math.round(res.buildMs / 1000)}s` : ''}${
+      res.why ? ` —— ${String(res.why).slice(0, 140)}` : ''
+    }`,
+  )
+  return { ran: true, ok: res.state !== 'undetermined', ...res }
+}
+
 const HAND_UPGRADE_INTERVAL_MS = Number(process.env.IHUI_HAND_UPGRADE_INTERVAL_MS || 30 * 60 * 1000)
 
 /**
@@ -6861,6 +6932,10 @@ function main() {
     // dist 新鲜度(2026-10-27 立):必须排在样式派生之后 —— 派生腿写的是 src/派生件,本腿编译 src→dist,
     // 反过来的话刚落地的样式常量还要等下一轮才进得了消费方(design-tokens/shared 的 dist)。
     if (!CHECK_ONLY) healStaleDistLeg()
+    // 小程序 weapp 产物(2026-10-28 立):与上一格同族但对象不同 —— 上一格只编译 workspace 包的 dist,
+    // **没有任何腿造 app 的构建产物**,于是 dist 停摆两天后 C0 结构判据恒"未判定"、C1 覆盖率尺恒瞎。
+    // 同挂点语义(健康轮次 + !CHECK_ONLY),自带 6 小时节流(一轮 = 一次完整 Taro 构建)。
+    if (!CHECK_ONLY) healStaleMiniappDist()
     if (!CHECK_ONLY) healUiRoutesLeg()
     if (CHECK_ONLY)
       console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
@@ -7749,6 +7824,7 @@ export const __test__ = {
   healUiRoutesLeg,
   healStyleTokensLeg,
   healStaleDistLeg,
+  healStaleMiniappDist,
   auditPushDivergenceLeg,
   healMirrorPurgeLeg,
   auditIndexUnmerged,
