@@ -376,7 +376,8 @@
       "following": "已關注",
       "imSoon": "私訊功能即將開放",
       "notFound": "講師不存在",
-      "rating": "評分"
+      "rating": "評分",
+      "viewCourses": "查看全部課程"
     }
   },
   "live": {
@@ -1783,7 +1784,10 @@
     "loadFailed": "載入失敗",
     "minSpend": "滿 {amount} 可用",
     "title": "優惠券",
-    "validUntil": "有效期至"
+    "validUntil": "有效期至",
+    "use": "立即使用",
+    "useHint": "請前往商品頁使用",
+    "couponCenter": "領券中心"
   },
   "courseAnnex": {
     "title": "課程附件",

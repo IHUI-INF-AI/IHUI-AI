@@ -376,7 +376,8 @@
       "following": "フォロー中",
       "imSoon": "ダイレクトメッセージは近日公開予定",
       "notFound": "講師が見つかりません",
-      "rating": "評価"
+      "rating": "評価",
+      "viewCourses": "すべてのコースを見る"
     }
   },
   "live": {
@@ -1783,7 +1784,10 @@
     "loadFailed": "読み込みに失敗",
     "minSpend": "{amount} 以上で利用可能",
     "title": "クーポン",
-    "validUntil": "有効期限"
+    "validUntil": "有効期限",
+    "use": "今すぐ使う",
+    "useHint": "商品ページでご利用ください",
+    "couponCenter": "クーポン受付"
   },
   "courseAnnex": {
     "title": "コース添付資料",

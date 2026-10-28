@@ -376,7 +376,8 @@
       "following": "팔로우 중",
       "imSoon": "쪽지 기능 곧 오픈 예정",
       "notFound": "강사를 찾을 수 없습니다",
-      "rating": "평점"
+      "rating": "평점",
+      "viewCourses": "강의 전체 보기"
     }
   },
   "live": {
@@ -1783,7 +1784,10 @@
     "loadFailed": "불러오기 실패",
     "minSpend": "{amount} 이상 사용 가능",
     "title": "쿠폰",
-    "validUntil": "유효기간"
+    "validUntil": "유효기간",
+    "use": "지금 사용",
+    "useHint": "상품 페이지에서 사용해 주세요",
+    "couponCenter": "쿠폰센터"
   },
   "courseAnnex": {
     "title": "강좌 첨부 자료",

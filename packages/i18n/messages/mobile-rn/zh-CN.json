@@ -376,7 +376,8 @@
       "following": "已关注",
       "imSoon": "私信功能即将开放",
       "notFound": "讲师不存在",
-      "rating": "评分"
+      "rating": "评分",
+      "viewCourses": "查看全部课程"
     }
   },
   "live": {
@@ -1783,7 +1784,10 @@
     "loadFailed": "加载失败",
     "minSpend": "满 {amount} 可用",
     "title": "优惠券",
-    "validUntil": "有效期至"
+    "validUntil": "有效期至",
+    "use": "立即使用",
+    "useHint": "请前往商品页使用",
+    "couponCenter": "领券中心"
   },
   "courseAnnex": {
     "title": "课程附件",
