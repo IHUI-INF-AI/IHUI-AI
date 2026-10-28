@@ -76,6 +76,15 @@ export interface LoginPopUpProps {
    * 一行都不多 —— 与 `onOneClickLogin` 同一条"传入才渲染"的规矩。
    */
   onPasswordLogin?: (account: string, password: string) => Promise<void>
+  /**
+   * 网页授权登录回调(G-957,2026-10-26)—— 用网页端账号(含 Google 等第三方)登录
+   * 小程序的通道:打开 web 中转页 /sso/login 完成授权,sso_code 经 wx.miniProgram
+   * postMessage 回传、由 webview 页 onMessage 换登录态(回传腿已接管)。传入才渲染
+   * 这一行,与 `onOneClickLogin`/`onPasswordLogin` 同一条"传入才渲染"的规矩;
+   * 导航由宿主页(pages/user)接管,本组件不持有 webview 路由(见既有"弹窗源码
+   * 不往 webview 那条死路导航"锁 —— 那条链现在有双方接管,锁的形状不变)。
+   */
+  onWebAuthLogin?: () => void
 }
 
 const DEFAULT_AVATAR = '/static/default-avatar.png'
@@ -93,6 +102,7 @@ export default function LoginPopUp({
   onUpgrade,
   onOneClickLogin,
   onPasswordLogin,
+  onWebAuthLogin,
 }: LoginPopUpProps) {
   const tt = useTt()
 
@@ -307,6 +317,23 @@ export default function LoginPopUp({
               {tt('login.wechatOneClick', '微信一键登录')}
             </Text>
           </Button>
+        ) : null}
+
+        {/* 网页授权登录(G-957):用网页端账号(含 Google 等第三方)登录小程序的通道。
+            与密码兜底同一退路形态:一行收起入口,点一下即由宿主页打开 web 中转页。 */}
+        {onWebAuthLogin ? (
+          <View
+            style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}
+            onClick={onWebAuthLogin}
+            hoverClass="opacity-60"
+          >
+            <Text
+              className="text-xs text-muted-foreground"
+              style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
+            >
+              {tt('login.webAuthLogin', '网页授权登录')}
+            </Text>
+          </View>
         ) : null}
 
         {/* 账号密码兜底(2026-10-23 机主定档:小程序不该有登录页,这条是"微信手机号一键验证
