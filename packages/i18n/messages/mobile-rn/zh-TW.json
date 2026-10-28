@@ -1113,6 +1113,7 @@
     "network": "網路錯誤,請稍後重試"
   },
   "common": {
+    "success": "成功",
     "backToTop": "回到頂部",
     "ok": "好的",
     "gotIt": "知道了",

@@ -1113,6 +1113,7 @@
     "network": "Network error, please retry"
   },
   "common": {
+    "success": "Success",
     "backToTop": "Jump to top",
     "ok": "OK",
     "gotIt": "Got it",

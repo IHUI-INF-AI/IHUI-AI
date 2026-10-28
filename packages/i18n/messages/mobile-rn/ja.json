@@ -1113,6 +1113,7 @@
     "network": "ネットワークエラー"
   },
   "common": {
+    "success": "成功",
     "backToTop": "一番上へ",
     "ok": "OK",
     "gotIt": "了解しました",

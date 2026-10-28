@@ -1113,6 +1113,7 @@
     "network": "네트워크 오류"
   },
   "common": {
+    "success": "성공",
     "backToTop": "맨 위로",
     "ok": "확인",
     "gotIt": "알겠습니다",
