@@ -126,5 +126,46 @@ export function requiredPropsOf(specRel) {
   }
 }
 
-export const __test__ = { requiredPropsOf, INJECTABLE, ROOT, RN_TSCONFIG }
+/**
+ * 取某共享屏的**全部** props(含可选)。
+ *
+ * 与 requiredPropsOf 的分工:那个回答"能不能零业务数据复用"(只列必填),这个回答"有哪些腿
+ * 可被平台注入"(含可选) —— 生壳器必须知道后者,否则 `colorScheme?: 'light'|'dark'` 这类
+ * **可选但语义必要**的腿不传,暗色模式就静默失效。
+ * 同一个 program、同一个 checker,只是不筛 Optional 位;不另建第二套解析。
+ */
+export function allPropsOf(specRel) {
+  const absolute = join(ROOT, specRel)
+  let program
+  try {
+    program = loadProgram()
+  } catch (error) {
+    return { state: 'undetermined', reason: `编译面取不到:${String(error?.message ?? error).slice(0, 120)}`, props: [] }
+  }
+  const source = program.getSourceFile(absolute)
+  if (!source) return { state: 'undetermined', reason: '该文件不在 RN 编译面里(路径或 tsconfig include 漂移)', props: [] }
+  const checker = program.getTypeChecker()
+  const symbol = checker.getSymbolAtLocation(source)
+  if (!symbol) return { state: 'undetermined', reason: '模块符号解析失败', props: [] }
+
+  const candidates = checker
+    .getExportsOfModule(symbol)
+    .filter((s) => /Screen$/.test(s.getName()) || /Screen$/.test(s.getName().replace(/^Shared/, '')))
+  const props = []
+  for (const cand of candidates) {
+    const decl = cand.valueDeclaration ?? cand.declarations?.[0]
+    if (!decl) continue
+    const sig = checker.getSignatureFromDeclaration(decl)
+    const param = sig?.getParameters?.()[0]
+    if (!param) continue
+    for (const p of checker.getTypeOfSymbol(param).getProperties()) {
+      props.push({ name: p.getName(), optional: (p.flags & ts.SymbolFlags.Optional) !== 0 })
+    }
+  }
+  if (props.length === 0) return { state: 'undetermined', reason: '组件签名里没有 props 参数(可能是零 props 组件)', props: [] }
+  const seen = new Set()
+  return { state: 'ok', props: props.filter((p) => (seen.has(p.name) ? false : seen.add(p.name))) }
+}
+
+export const __test__ = { requiredPropsOf, allPropsOf, INJECTABLE, ROOT, RN_TSCONFIG }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
