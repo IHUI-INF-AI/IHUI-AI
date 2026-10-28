@@ -49,6 +49,7 @@
     "check:task-claims": "node scripts/check-task-claims.mjs --check-gate",
     "check:aasa-health": "node scripts/check-aasa-public-health.mjs",
     "check:aasa-health:json": "node scripts/check-aasa-public-health.mjs --json",
+    "check:callback-redirect": "node scripts/check-public-path-probe.mjs --callback-redirect",
     "check:baseline-freshness": "node scripts/check-baseline-freshness.mjs --preflight",
     "check:tool-contract": "node scripts/check-tool-contract-declared.mjs",
     "module:context": "node scripts/module-context.mjs",
